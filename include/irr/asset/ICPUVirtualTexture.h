@@ -9,9 +9,9 @@ namespace irr {
 namespace asset
 {
 
-class ICPUVirtualTexture final : public IVirtualTexture<ICPUImageView>
+class ICPUVirtualTexture final : public IVirtualTexture<ICPUImageView, ICPUSampler>
 {
-    using base_t = IVirtualTexture<ICPUImageView>;
+    using base_t = IVirtualTexture<ICPUImageView, ICPUSampler>;
 
 public:
     class ICPUVTResidentStorage final : public base_t::IVTResidentStorage
@@ -58,15 +58,14 @@ public:
     ICPUVirtualTexture(
         const base_t::IVTResidentStorage::SCreationParams* _residentStorageParams,
         uint32_t _residentStorageCount,
-        uint32_t _pgTabSzxy_log2 = 8u,
-        uint32_t _pgTabLayers = 256u,
         uint32_t _pgSzxy_log2 = 7u,
+        uint32_t _pgTabLayers = 32u,
         uint32_t _tilePadding = 9u,
         uint32_t _maxAllocatableTexSz_log2 = 14u
     ) : IVirtualTexture(
-        _pgTabSzxy_log2, _pgTabLayers, _pgSzxy_log2, _tilePadding
+        _maxAllocatableTexSz_log2-_pgSzxy_log2, _pgTabLayers, _pgSzxy_log2, _tilePadding
     ) {
-        m_pageTable = createPageTable(_pgTabSzxy_log2, _pgTabLayers, _pgSzxy_log2, _maxAllocatableTexSz_log2);
+        m_pageTable = createPageTable(m_pgtabSzxy_log2, _pgTabLayers, _pgSzxy_log2, _maxAllocatableTexSz_log2);
         initResidentStorage(_residentStorageParams, _residentStorageCount);
     }
 
@@ -107,13 +106,13 @@ public:
             if (m_freePageTableLayerIDs.empty())
                 return STextureData::invalid();
             const uint32_t pgtLayer = m_freePageTableLayerIDs.top();
-            m_freePageTableLayerIDs.pop();
             pgtOffset = alloc(_img, _subres, pgtLayer);
             if ((pgtOffset==page_tab_offset_invalid()).all())//this would be super weird but let's check
                 return STextureData::invalid();
+            m_freePageTableLayerIDs.pop();
             storage->addPageTableLayer(pgtLayer);
 
-            (*m_layerToViewIndexMapping)[pgtLayer] = smplrIndex;
+            m_layerToViewIndexMapping[pgtLayer] = smplrIndex;
         }
 
         const auto extent = _img->getCreationParameters().extent;
@@ -232,24 +231,22 @@ public:
     bool free(const STextureData& _addr, const IImage* _img, const IImage::SSubresourceRange& _subres) override
     {
         const E_FORMAT format = _img->getCreationParameters().format;
-        ICPUVTResidentStorage* storage = nullptr;
-        {
-            auto found = m_storage.find(getFormatClass(format));
-            if (found==m_storage.end())
-                return false;
-            storage = static_cast<ICPUVTResidentStorage*>(found->second.get());
-        }
+        ICPUVTResidentStorage* storage = static_cast<ICPUVTResidentStorage*>(getStorageForFormatClass(getFormatClass(format)));
+        if (!storage)
+            return nullptr;
 
         //free physical pages
         auto extent = _img->getCreationParameters().extent;
         const uint32_t levelCount = countLevelsTakingAtLeastOnePage(extent, _subres);
 
+#ifdef _IRR_DEBUG
         CFillImageFilter::state_type fill;
         fill.outImage = m_pageTable.get();
         fill.subresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
         fill.subresource.baseArrayLayer = _addr.pgTab_layer;
         fill.subresource.layerCount = 1u;
         fill.fillValue.asUint.x = SPhysPgOffset::invalid_addr;
+#endif
 
         using phys_pg_addr_alctr_t = ICPUVTResidentStorage::phys_pg_addr_alctr_t;
 
@@ -269,48 +266,24 @@ public:
                     SPhysPgOffset physPgOffset = *texelptr;
                     if (storage->physPgOffset_valid(physPgOffset))
                     {
-                        *texelptr = SPhysPgOffset::invalid_addr;
-
                         uint32_t addrs[2] { physPgOffset.addr&0xffffu, storage->physPgOffset_mipTailAddr(physPgOffset).addr&0xffffu };
                         const uint32_t szs[2]{ 1u,1u };
                         core::address_allocator_traits<phys_pg_addr_alctr_t>::multi_free_addr(storage->tileAlctr, storage->physPgOffset_hasMipTailAddr(physPgOffset) ? 2u : 1u, addrs, szs);
                     }
                 }
+#ifdef _IRR_DEBUG
             fill.subresource.mipLevel = i;
             fill.outRange.offset = {static_cast<uint32_t>(_addr.pgTab_x>>i),static_cast<uint32_t>(_addr.pgTab_y>>i),0u};
             fill.outRange.extent = {w,h,1u};
             CFillImageFilter::execute(&fill);
+#endif
         }
 
         //free entries in page table
         if (!base_t::free(_addr, _img, _subres))
             return false;
-        //in case when pgtab layer has no allocations, free it for use by another format
-        if ((*m_pageTableLayerAllocators)[_addr.pgTab_layer].get_allocated_size()==0u)
-        {
-            (*m_pageTableLayerAllocators)[_addr.pgTab_layer].reset();//why actually do i need to reset it if its allocated size is 0 anyway?
-            (*m_layerToViewIndexMapping)[_addr.pgTab_layer] = ~0u;
-            storage->removeLayerAssignment(_addr.pgTab_layer);
-            m_freePageTableLayerIDs.push(_addr.pgTab_layer);
-        }
 
         return true;
-    }
-
-    core::smart_refctd_ptr<ICPUImageView> createPageTableView() const override
-    {
-        ICPUImageView::SCreationParams params;
-        params.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0);
-        params.format = m_pageTable->getCreationParameters().format;
-        params.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
-        params.subresourceRange.baseArrayLayer = 0u;
-        params.subresourceRange.layerCount = m_pageTable->getCreationParameters().arrayLayers;
-        params.subresourceRange.baseMipLevel = 0u;
-        params.subresourceRange.levelCount = m_pageTable->getCreationParameters().mipLevels;
-        params.viewType = IImageView<ICPUImage>::ET_2D_ARRAY;
-        params.image = m_pageTable;
-
-        return ICPUImageView::create(std::move(params));
     }
 
     auto getDSlayoutBindings(uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
@@ -324,13 +297,21 @@ public:
     }
 
 protected:
+    core::smart_refctd_ptr<ICPUImageView> createPageTableView() const override
+    {
+        return ICPUImageView::create(createPageTableViewCreationParams());
+    }
     core::smart_refctd_ptr<IVTResidentStorage> createVTResidentStorage(E_FORMAT _format, uint32_t _extent, uint32_t _layers, uint32_t _tilesPerDim) override
     {
         return core::make_smart_refctd_ptr<ICPUVTResidentStorage>(_format, _extent, _layers, _tilesPerDim);
     }
-    core::smart_refctd_ptr<ICPUImage> createImage(ICPUImage::SCreationParams&& _params) const override
+    core::smart_refctd_ptr<ICPUImage> createPageTableImage(ICPUImage::SCreationParams&& _params) const override
     {
         return ICPUImage::create(std::move(_params));
+    }
+    core::smart_refctd_ptr<ICPUSampler> createSampler(const ISampler::SParams& _params) const override
+    {
+        return core::make_smart_refctd_ptr<ICPUSampler>(_params);
     }
 };
 

@@ -11,9 +11,9 @@ namespace irr {
 namespace video
 {
 
-class IGPUVirtualTexture final : public asset::IVirtualTexture<video::IGPUImageView>
+class IGPUVirtualTexture final : public asset::IVirtualTexture<video::IGPUImageView, video::IGPUSampler>
 {
-    using base_t = asset::IVirtualTexture<video::IGPUImageView>;
+    using base_t = asset::IVirtualTexture<video::IGPUImageView, video::IGPUSampler>;
 
     IVideoDriver* m_driver;
 
@@ -83,26 +83,25 @@ public:
         IVideoDriver* _driver,
         const base_t::IVTResidentStorage::SCreationParams* _residentStorageParams,
         uint32_t _residentStorageCount,
-        uint32_t _pgTabSzxy_log2 = 8u,
-        uint32_t _pgTabLayers = 256u,
         uint32_t _pgSzxy_log2 = 7u,
+        uint32_t _pgTabLayers = 256u,
         uint32_t _tilePadding = 9u,
         uint32_t _maxAllocatableTexSz_log2 = 14u
     ) :
         base_t(
-            _pgTabSzxy_log2,
+            _maxAllocatableTexSz_log2-_pgSzxy_log2,
             _pgTabLayers,
             _pgSzxy_log2,
             _tilePadding
         ),
         m_driver(_driver)
     {
-        m_pageTable = createPageTable(_pgTabSzxy_log2, _pgTabLayers, _pgSzxy_log2, _maxAllocatableTexSz_log2);
+        m_pageTable = createPageTable(m_pgtabSzxy_log2, _pgTabLayers, _pgSzxy_log2, _maxAllocatableTexSz_log2);
         initResidentStorage(_residentStorageParams, _residentStorageCount);
     }
     IGPUVirtualTexture(IVideoDriver* _driver, asset::IAssetManager* _am, asset::ICPUVirtualTexture* _cpuvt) :
         base_t(
-            _cpuvt->getPageExtent_log2(),
+            _cpuvt->getPageTableExtent_log2(),
             _cpuvt->getPageTable()->getCreationParameters().arrayLayers,
             _cpuvt->getPageExtent_log2(),
             _cpuvt->getTilePadding(),
@@ -113,12 +112,11 @@ public:
         //now copy from CPU counterpart resources that can be shared (i.e. just copy state) between CPU and GPU
         //and convert to GPU those which can't be "shared": page table and VT resident storages along with their images and views
 
-        m_pageTable = std::move(_driver->getGPUObjectsFromAssets(&_cpuvt->getPageTable(), &_cpuvt->getPageTable()+1)->front());
+        auto* cpuPgt = _cpuvt->getPageTable();
+        m_pageTable = std::move(_driver->getGPUObjectsFromAssets(&cpuPgt, &cpuPgt+1)->front());
 
         m_freePageTableLayerIDs = _cpuvt->getFreePageTableLayersStack();
-
-        memcpy(m_layerToViewIndexMapping->data(), _cpuvt->getLayerToViewIndexMapping().begin(), 
-            _cpuvt->getLayerToViewIndexMapping().size()*sizeof(decltype(m_layerToViewIndexMapping)::pointee::value_type));
+        _cpuvt->writeLayerToViewIndexLUTContents(m_layerToViewIndexMapping.data(), false);
 
         const auto& cpuStorages = _cpuvt->getResidentStorages();
         for (const auto& pair : cpuStorages)
@@ -146,22 +144,6 @@ public:
         return false;
     }
 
-    core::smart_refctd_ptr<IGPUImageView> createPageTableView() const override
-    {
-        IGPUImageView::SCreationParams params;
-        params.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0);
-        params.format = m_pageTable->getCreationParameters().format;
-        params.subresourceRange.aspectMask = static_cast<asset::IImage::E_ASPECT_FLAGS>(0);
-        params.subresourceRange.baseArrayLayer = 0u;
-        params.subresourceRange.layerCount = m_pageTable->getCreationParameters().arrayLayers;
-        params.subresourceRange.baseMipLevel = 0u;
-        params.subresourceRange.levelCount = m_pageTable->getCreationParameters().mipLevels;
-        params.viewType = asset::IImageView<IGPUImage>::ET_2D_ARRAY;
-        params.image = m_pageTable;
-
-        return m_driver->createGPUImageView(std::move(params));
-    }
-
     auto getDSlayoutBindings(uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
     {
         return getDSlayoutBindings_internal<IGPUDescriptorSetLayout>(_pgtBinding, _fsamplersBinding, _isamplersBinding, _usamplersBinding);
@@ -173,13 +155,21 @@ public:
     }
 
 protected:
+    core::smart_refctd_ptr<IGPUImageView> createPageTableView() const override
+    {
+        return m_driver->createGPUImageView(createPageTableViewCreationParams());
+    }
     core::smart_refctd_ptr<IVTResidentStorage> createVTResidentStorage(asset::E_FORMAT _format, uint32_t _extent, uint32_t _layers, uint32_t _tilesPerDim) override
     {
         return core::make_smart_refctd_ptr<IGPUVTResidentStorage>(m_driver, _format, _extent, _layers, _tilesPerDim);
     }
-    core::smart_refctd_ptr<IGPUImage> createImage(IGPUImage::SCreationParams&& _params) const override
+    core::smart_refctd_ptr<IGPUImage> createPageTableImage(IGPUImage::SCreationParams&& _params) const override
     {
         return m_driver->createDeviceLocalGPUImageOnDedMem(std::move(_params));
+    }
+    core::smart_refctd_ptr<IGPUSampler> createSampler(const asset::ISampler::SParams& _params) const override
+    {
+        return m_driver->createGPUSampler(_params);
     }
 };
 

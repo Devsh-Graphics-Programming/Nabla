@@ -24,39 +24,32 @@ private:
 
 		return args;
 	}
-	static std::string getDescriptors(const std::string& _path)
+	static std::string getDescriptors(const std::string&)
 	{
-		auto args = parseArgumentsFromPath(_path.substr(_path.find_first_of('/') + 1, _path.npos));
-		constexpr uint32_t
-			set_ix		= 0u,
-			pgt_bnd_ix	= 1u,
-			f_bnd_ix	= 2u,
-			i_bnd_ix	= 3u,
-			u_bnd_ix	= 4u,
-			f_cnt_ix	= 5u,
-			i_cnt_ix	= 6u,
-			u_cnt_ix	= 7u;
-
-		return 
-"\n#ifndef _IRR_VT_DESCRIPTOR_SET"
-"\n#define _IRR_VT_DESCRIPTOR_SET " + args[set_ix] +
-"\n#endif" +
-"\n#ifndef _IRR_VT_PAGE_TABLE_BINDING"
-"\n#define _IRR_VT_PAGE_TABLE_BINDING " + args[pgt_bnd_ix] +
-"\n#endif" +
-"\n#ifndef _IRR_VT_FLOAT_VIEWS"
-"\n#define _IRR_VT_FLOAT_VIEWS_BINDING " + args[f_bnd_ix] +
-"\n#define _IRR_VT_FLOAT_VIEWS_COUNT " + args[f_cnt_ix] +
-"\n#endif" +
-"\n#ifndef _IRR_VT_INT_VIEWS"
-"\n#define _IRR_VT_INT_VIEWS_BINDING " + args[i_bnd_ix] +
-"\n#define _IRR_VT_INT_VIEWS_COUNT " + args[i_cnt_ix] +
-"\n#endif" +
-"\n#ifndef _IRR_VT_UINT_VIEWS"
-"\n#define _IRR_VT_UINT_VIEWS_BINDING " + args[u_bnd_ix] +
-"\n#define _IRR_VT_UINT_VIEWS_COUNT " + args[u_cnt_ix] +
-"\n#endif" +
+		return
 R"(
+#ifndef _IRR_BUILTIN_GLSL_VIRTUAL_TEXTURING_DESCRIPTORS_INCLUDED_
+#define _IRR_BUILTIN_GLSL_VIRTUAL_TEXTURING_DESCRIPTORS_INCLUDED_
+
+#ifndef _IRR_VT_DESCRIPTOR_SET
+#define _IRR_VT_DESCRIPTOR_SET 0
+#endif
+#ifndef _IRR_VT_PAGE_TABLE_BINDING
+#define _IRR_VT_PAGE_TABLE_BINDING 0
+#endif
+#ifndef _IRR_VT_FLOAT_VIEWS
+#define _IRR_VT_FLOAT_VIEWS_BINDING 1 
+#define _IRR_VT_FLOAT_VIEWS_COUNT 15
+#endif
+#ifndef _IRR_VT_INT_VIEWS
+#define _IRR_VT_INT_VIEWS_BINDING 2
+#define _IRR_VT_INT_VIEWS_COUNT 15
+#endif
+#ifndef _IRR_VT_UINT_VIEWS
+#define _IRR_VT_UINT_VIEWS_BINDING 3
+#define _IRR_VT_UINT_VIEWS_COUNT 15
+#endif
+
 layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_PAGE_TABLE_BINDING) uniform usampler2DArray pageTable;
 #if _IRR_VT_FLOAT_VIEWS_COUNT
 layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_FLOAT_VIEWS_BINDING) uniform sampler2DArray physicalTileStorageFormatView[_IRR_VT_FLOAT_VIEWS_COUNT];
@@ -67,11 +60,16 @@ layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_INT_VIEWS_BINDING) uniform is
 #if _IRR_VT_UINT_VIEWS_COUNT
 layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_UINT_VIEWS_BINDING) uniform usampler2DArray uphysicalTileStorageFormatView[_IRR_VT_UINT_VIEWS_COUNT];
 #endif
+
+#endif
 )";
 	}
 	static std::string getExtensions(const std::string&)
 	{
 		return R"(
+#ifndef _IRR_BUILTIN_GLSL_VIRTUAL_TEXTURING_EXTENSIONS_INCLUDED_
+#define _IRR_BUILTIN_GLSL_VIRTUAL_TEXTURING_EXTENSIONS_INCLUDED_
+
 #extension GL_EXT_nonuniform_qualifier  : enable
 
 //tmp dirty fix for weird behavior of renderdoc
@@ -89,21 +87,19 @@ layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_UINT_VIEWS_BINDING) uniform u
 #ifndef IRR_GL_EXT_nonuniform_qualifier
 	#error "SPIR-V Cross did not implement GL_KHR_shader_subgroup_ballot on GLSL yet!"
 #endif
+
+#endif
 )";
 	}
     static std::string getVTfunctions(const std::string& _path)
     {
 		auto args = parseArgumentsFromPath(_path.substr(_path.find_first_of('/')+1, _path.npos));
-		if (args.size()<6u)
+		if (args.size()<2u)
 			return {};
 
 		constexpr uint32_t
 			ix_pg_sz_log2 = 0u,
-			ix_tile_padding = 1u,
-			ix_get_pgtab_sz_log2_name = 2u,
-			ix_get_phys_pg_tex_sz_rcp_name = 3u,
-			ix_get_vtex_sz_rcp_name = 4u,
-			ix_get_layer2pid_name = 5u;
+			ix_tile_padding = 1u;
 
 		const uint32_t pg_sz_log2 = std::atoi(args[ix_pg_sz_log2].c_str());
 		const uint32_t tile_padding = std::atoi(args[ix_tile_padding].c_str());
@@ -115,17 +111,20 @@ layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_UINT_VIEWS_BINDING) uniform u
 		auto tilePackingOffsetsStr = [&] {
 			std::string offsets;
 			for (uint32_t i = 0u; i < pg_sz_log2; ++i)
-				offsets += "vec2(" + std::to_string(tilePacking[i].x) + "," + std::to_string(tilePacking[i].y) + ")" + (i == (pg_sz_log2 - 1u) ? "" : ",");
+				offsets += "vec2(" + std::to_string(tilePacking[i].x+tile_padding) + "," + std::to_string(tilePacking[i].y+tile_padding) + ")" + (i == (pg_sz_log2 - 1u) ? "" : ",");
 			return offsets;
 		};
 
 		using namespace std::string_literals;
-		std::string s;
+		std::string s = R"(
+#ifndef _IRR_BUILTIN_GLSL_VIRTUAL_TEXTURING_FUNCTIONS_INCLUDED_
+#define _IRR_BUILTIN_GLSL_VIRTUAL_TEXTURING_FUNCTIONS_INCLUDED_
+)";
 		s += "\n\n#define PAGE_SZ " + std::to_string(1u<<pg_sz_log2) + "u" +
 			"\n#define PAGE_SZ_LOG2 " + args[ix_pg_sz_log2] + "u" +
 			"\n#define TILE_PADDING " + args[ix_tile_padding] + "u" +
 			"\n#define PADDED_TILE_SIZE uint(PAGE_SZ+2*TILE_PADDING)" +
-			"\n\nconst vec2 packingOffsets[] = vec2[PAGE_SZ_LOG2+1]( vec2(0.0,0.0)," + tilePackingOffsetsStr() + ");";
+			"\n\nconst vec2 packingOffsets[] = vec2[PAGE_SZ_LOG2+1]( vec2(" + std::to_string(tile_padding) + ")," + tilePackingOffsetsStr() + ");";
 		s+=
 R"(
 #define irr_glsl_STextureData_WRAP_REPEAT 0u
@@ -166,15 +165,15 @@ vec2 irr_glsl_unpackSize(in uvec2 texData)
 )";
 		s += R"(
 #ifndef _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
-  #error "You need to define irr_glsl_VT_getPgTabSzLog2,irr_glsl_VT_getPhysPgTexSzRcp,irr_glsl_VT_getVTexSzRcp,irr_glsl_VT_layer2pid before including this header"
+  #error "You need to define irr_glsl_VT_getPgTabSzLog2(),irr_glsl_VT_getPhysPgTexSzRcp(uint formatID),irr_glsl_VT_getVTexSzRcp(),irr_glsl_VT_layer2pid(uint layer) before including this header"
 #endif
 )";
         s += R"(
-vec3 irr_glsl_vTextureGrad_helper(in uint formatID, in vec3 virtualUV, in int clippedLoD, in int levelInTail)
+vec3 irr_glsl_vTexture_helper(in uint formatID, in vec3 virtualUV, in int clippedLoD, in int levelInTail)
 {
     uvec2 pageID = textureLod(pageTable,virtualUV,clippedLoD).xy;
 
-	const uint pageTableSizeLog2 = irr_glsl_VT_getPgTabSzLog2(formatID);
+	const uint pageTableSizeLog2 = irr_glsl_VT_getPgTabSzLog2();
     const float phys_pg_tex_sz_rcp = irr_glsl_VT_getPhysPgTexSzRcp(formatID);
 	// assert that pageTableSizeLog2<23
 
@@ -185,7 +184,6 @@ vec3 irr_glsl_vTextureGrad_helper(in uint formatID, in vec3 virtualUV, in int cl
 	tileCoordinate = fract(tileCoordinate); // optimize this fract at some point
 	tileCoordinate = uintBitsToFloat(floatBitsToUint(tileCoordinate)+uint((PAGE_SZ_LOG2-levelInTail)<<23));
     tileCoordinate += packingOffsets[levelInTail];
-	tileCoordinate += vec2(TILE_PADDING,TILE_PADDING);
 	tileCoordinate *= phys_pg_tex_sz_rcp;
 
 	vec3 physicalUV = irr_glsl_unpackPageID(levelInTail!=0 ? pageID.y:pageID.x);
@@ -206,13 +204,13 @@ float irr_glsl_lengthSq(in vec2 v)
   return dot(v,v);
 }
 // textureGrad emulation
-vec4 irr_glsl_vTextureGrad(in uint formatID, in vec3 virtualUV, in mat2 dOriginalScaledUV, in int originalMaxFullMip)
+vec4 irr_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOriginalScaledUV, in int originalMaxFullMip)
 {
 	// returns what would have been `textureGrad(originalTexture,gOriginalUV[0],gOriginalUV[1])
 	// https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap15.html#textures-normalized-operations
 	const float kMaxAnisotropy = float(2u*TILE_PADDING);
 	// you can use an approx `log2` if you know one
-#if APPROXIMATE_FOOTPRINT_CALC
+#if _IRR_APPROXIMATE_FOOTPRINT_CALC_
 	// bounded by sqrt(2)
 	float p_x_2_log2 = log2(irr_glsl_lengthManhattan(dOriginalScaledUV[0]));
 	float p_y_2_log2 = log2(irr_glsl_lengthManhattan(dOriginalScaledUV[1]));
@@ -227,7 +225,7 @@ vec4 irr_glsl_vTextureGrad(in uint formatID, in vec3 virtualUV, in mat2 dOrigina
 	float p_max_2_log2 = xIsMajor ? p_x_2_log2:p_y_2_log2;
 
 	float LoD = max(p_min_2_log2,p_max_2_log2-kMaxAnisoLogOffset);
-#if APPROXIMATE_FOOTPRINT_CALC
+#if _IRR_APPROXIMATE_FOOTPRINT_CALC_
 	LoD += 0.5;
 #else
 	LoD *= 0.5;
@@ -247,7 +245,7 @@ vec4 irr_glsl_vTextureGrad(in uint formatID, in vec3 virtualUV, in mat2 dOrigina
 	levelInTail = haveToDoTrilinear ? levelInTail:(positiveLoD ? int(PAGE_SZ_LOG2):0);
 
 	// get the higher resolution mip-map level
-	vec3 hiPhysCoord = irr_glsl_vTextureGrad_helper(formatID,virtualUV,clippedLoD,levelInTail);
+	vec3 hiPhysCoord = irr_glsl_vTexture_helper(formatID,virtualUV,clippedLoD,levelInTail);
 	// get lower if needed (speculative execution, had to move divergent indexing to a single place)
     vec3 loPhysCoord;
 	// speculative if (haveToDoTrilinear)
@@ -256,7 +254,7 @@ vec4 irr_glsl_vTextureGrad(in uint formatID, in vec3 virtualUV, in mat2 dOrigina
 		bool highNotInLastFull = LoD_high<originalMaxFullMip;
 		clippedLoD = highNotInLastFull ? (clippedLoD+1):clippedLoD;
 		levelInTail = highNotInLastFull ? levelInTail:(levelInTail+1);
-		loPhysCoord = irr_glsl_vTextureGrad_helper(formatID,virtualUV,clippedLoD,levelInTail);
+		loPhysCoord = irr_glsl_vTexture_helper(formatID,virtualUV,clippedLoD,levelInTail);
 	}
 
 	vec4 hiMip_retval;
@@ -298,7 +296,8 @@ float irr_glsl_wrapTexCoord(float tc, in uint mode)
     }
     return tc;
 }
-vec4 irr_glsl_textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
+
+vec4 irr_glsl_vTextureGrad(in uvec2 _texData, in vec2 uv, in mat2 dUV)
 {
     vec2 originalSz = irr_glsl_unpackSize(_texData);
 	dUV[0] *= originalSz;
@@ -313,27 +312,77 @@ vec4 irr_glsl_textureVT(in uvec2 _texData, in vec2 uv, in mat2 dUV)
     uint formatID = irr_glsl_VT_layer2pid(uint(virtualUV.z));
 
     virtualUV.xy += uv*originalSz;
-    virtualUV.xy *= irr_glsl_VT_getVTexSzRcp(formatID);
+    virtualUV.xy *= irr_glsl_VT_getVTexSzRcp();
 
-    return irr_glsl_vTextureGrad(formatID, virtualUV, dUV, int(irr_glsl_unpackMaxMipInVT(_texData)));
+    return irr_glsl_vTextureGrad_impl(formatID, virtualUV, dUV, int(irr_glsl_unpackMaxMipInVT(_texData)));
 }
+//apparently glslang doesnt support line continuation characters (backslash) :c
+/*
+#ifdef IRR_GL_EXT_nonuniform_qualifier
+	#define _IRR_DIVERGENT_SAMPLING_IMPL(retval_t, physicalSamplerName) return textureLod(physicalSamplerName[nonuniformEXT(formatID)], physCoord, lod)
+#else
+	#define _IRR_DIVERGENT_SAMPLING_IMPL(retval_t, physicalSamplerName) \
+    retval_t retval;\
+    uint64_t outstandingSampleMask = ballotARB(true);\
+    while (outstandingSampleMask != uint64_t(0u))\ 
+    {\
+        uvec2 tmp = unpackUint2x32(outstandingSampleMask);\
+        uint subgroupFormatID = readInvocationARB(formatID, tmp[1] != 0u ? 32u : findLSB(tmp[0]));\
+        bool canSample = subgroupFormatID == formatID;\
+        outstandingSampleMask ^= ballotARB(canSample);\
+        if (canSample)\
+            retval = textureLod(physicalSamplerName[subgroupFormatID], physCoord, lod);\
+    }\
+    return retval
+#endif
+
+#define _IRR_DEFINE_VT_INTEGER_FUNCTIONS(funcName, implFuncName, retval_t, physicalSamplerName)\
+retval_t implFuncName(in uint formatID, in vec3 virtualUV, in uint lod, in int originalMaxFullMip)\
+{\
+    int nonnegativeLod = int(lod);\
+    int clippedLoD = min(nonnegativeLod,originalMaxFullMip);\
+    int levelInTail = nonnegativeLod - clippedLoD;\
+    \
+    vec3 physCoord = irr_glsl_vTexture_helper(formatID, virtualUV, clippedLoD, levelInTail);\
+	_IRR_DIVERGENT_SAMPLING_IMPL(retval_t, physicalSamplerName);\
+}\
+retval_t funcName(in uvec2 _texData, in vec2 uv, in uint lod)\
+{\
+    vec2 originalSz = irr_glsl_unpackSize(_texData);\
+
+    uvec2 wrap = irr_glsl_unpackWrapModes(_texData);\
+    uv.x = irr_glsl_wrapTexCoord(uv.x, wrap.x);\
+    uv.y = irr_glsl_wrapTexCoord(uv.y, wrap.y);\
+    \
+    vec3 virtualUV = irr_glsl_unpackVirtualUV(_texData);\
+    uint formatID = irr_glsl_VT_layer2pid(uint(virtualUV.z));\
+    virtualUV.xy += uv * originalSz;\
+    virtualUV.xy *= irr_glsl_VT_getVTexSzRcp();\
+	\
+    return irr_glsl_vTextureLod_impl(formatID, virtualUV, lod, int(irr_glsl_unpackMaxMipInVT(_texData)));\
+}
+
+_IRR_DEFINE_VT_INTEGER_FUNCTIONS(irr_glsl_iVTextureLod, irr_glsl_iVTextureLod_impl, ivec4, iphysicalTileStorageFormatView)
+_IRR_DEFINE_VT_INTEGER_FUNCTIONS(irr_glsl_uVTextureLod, irr_glsl_uVTextureLod_impl, uvec4, uphysicalTileStorageFormatView)
+#undef _IRR_DIVERGENT_SAMPLING_IMPL
+*/
+
+#endif //!_IRR_BUILTIN_GLSL_VIRTUAL_TEXTURING_FUNCTIONS_INCLUDED_
 )";
 		return s;
     }
 protected:
 	core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
 	{
-		const std::string id = "[a-zA-Z_][a-zA-Z0-9_]*";
 		const std::string num = "[0-9]+";
 		return {
-			//functions.glsl/pg_sz_log2/tile_padding/get_pgtab_sz_log2_name/get_phys_pg_tex_sz_rcp_name/get_vtex_sz_rcp_name/get_layer2pid
+			//functions.glsl/pg_sz_log2/tile_padding
 			{ 
-				std::regex{"functions\\.glsl/"+num+"/"+num+"/"+id+"/"+id+"/"+id+"/"+id},
+				std::regex{"functions\\.glsl/"+num+"/"+num},
 				&getVTfunctions
 			},
 			{std::regex{"extensions\\.glsl"}, &getExtensions},
-			//descriptors.glsl/set/pgt_bnd/f_bnd/i_bnd/u_bnd/f_cnt/i_cnt/u_cnt
-			{std::regex{"descriptors\\.glsl/"+num+"/"+num+"/"+num+"/"+num+"/"+num+"/"+num+"/"+num+"/"+num}, &getDescriptors}
+			{std::regex{"descriptors\\.glsl"}, &getDescriptors}
 		};
 	}
 };

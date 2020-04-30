@@ -17,18 +17,34 @@ using namespace core;
 constexpr const char* GLSL_VT_DESCRIPTORS = //also turns off set3 bindings (textures) because they're not needed anymore as we're using VT
 R"(
 #ifndef _NO_UV
+
+#define _IRR_VT_DESCRIPTOR_SET 0
+#define _IRR_VT_PAGE_TABLE_BINDING 0
+
+#define _IRR_VT_FLOAT_VIEWS_BINDING 1 
+#define _IRR_VT_FLOAT_VIEWS_COUNT 3
+#define _IRR_VT_FLOAT_VIEWS
+
+#define _IRR_VT_INT_VIEWS_BINDING 2
+#define _IRR_VT_INT_VIEWS_COUNT 1
+#define _IRR_VT_INT_VIEWS
+
+#define _IRR_VT_UINT_VIEWS_BINDING 3
+#define _IRR_VT_UINT_VIEWS_COUNT 0
+#define _IRR_VT_UINT_VIEWS
+#include <irr/builtin/glsl/virtual_texturing/descriptors.glsl>
+
 #define VT_COUNT 3
-#include <%s> //irr/builtin/glsl/virtual_texturing/descriptors.glsl/...
 layout (set = 2, binding = 1, std430) readonly restrict buffer LUT
 {
-    uint lut[VT_COUNT];
+    uint lut[];
 } layer2pid;
 
-layout (set = 2, binding = 0, std430) readonly restrict buffer PrecomputedStuffUBO
+layout (set = 2, binding = 0, std140) uniform PrecomputedStuffUBO
 {
-    uint pgtab_sz_log2[VT_COUNT];
+    uint pgtab_sz_log2;
+    float vtex_sz_rcp;
     float phys_pg_tex_sz_rcp[VT_COUNT];
-    float vtex_sz_rcp[VT_COUNT];
 } precomputed;
 #endif
 #define _IRR_FRAG_SET3_BINDINGS_DEFINED_
@@ -59,20 +75,17 @@ layout (push_constant) uniform Block {
 )";
 constexpr const char* GLSL_TEXTURE_SAMPLE_OVERRIDE =
 R"(
+vec4 irr_sample_Ka(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_Ka_data, uv, dUV); }
 
-mat2 dUV;//global
+vec4 irr_sample_Kd(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_Kd_data, uv, dUV); }
 
-vec4 irr_sample_Ka(in vec2 uv) { return irr_glsl_textureVT(PC.params.map_Ka_data, uv, dUV); }
+vec4 irr_sample_Ks(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_Ks_data, uv, dUV); }
 
-vec4 irr_sample_Kd(in vec2 uv) { return irr_glsl_textureVT(PC.params.map_Kd_data, uv, dUV); }
+vec4 irr_sample_Ns(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_Ns_data, uv, dUV); }
 
-vec4 irr_sample_Ks(in vec2 uv) { return irr_glsl_textureVT(PC.params.map_Ks_data, uv, dUV); }
+vec4 irr_sample_d(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_d_data, uv, dUV); }
 
-vec4 irr_sample_Ns(in vec2 uv) { return irr_glsl_textureVT(PC.params.map_Ns_data, uv, dUV); }
-
-vec4 irr_sample_d(in vec2 uv) { return irr_glsl_textureVT(PC.params.map_d_data, uv, dUV); }
-
-vec4 irr_sample_bump(in vec2 uv) { return irr_glsl_textureVT(PC.params.map_bump_data, uv, dUV); }
+vec4 irr_sample_bump(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_bump_data, uv, dUV); }
 
 #define _IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_
 
@@ -84,17 +97,17 @@ uint irr_glsl_VT_layer2pid(in uint layer)
 {
     return layer2pid.lut[layer];
 }
-uint irr_glsl_VT_getPgTabSzLog2(in uint _formatID)
+uint irr_glsl_VT_getPgTabSzLog2()
 {
-    return precomputed.pgtab_sz_log2[_formatID];
+    return precomputed.pgtab_sz_log2;
 }
 float irr_glsl_VT_getPhysPgTexSzRcp(in uint _formatID)
 {
     return precomputed.phys_pg_tex_sz_rcp[_formatID];
 }
-float irr_glsl_VT_getVTexSzRcp(in uint _formatID)
+float irr_glsl_VT_getVTexSzRcp()
 {
-    return precomputed.vtex_sz_rcp[_formatID];
+    return precomputed.vtex_sz_rcp;
 }
 #define _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
 
@@ -102,15 +115,9 @@ float irr_glsl_VT_getVTexSzRcp(in uint _formatID)
 #include <%s>
 )";
 
-constexpr const char* GLSL_FS_PROLOGUE = R"(
-dUV = mat2(dFdx(UV),dFdy(UV));//writing to global var\n
-#define _IRR_FRAG_PROLOGUE_DEFINED_
-)";
-
 using STextureData = asset::ICPUVirtualTexture::STextureData;
 
-constexpr uint32_t PGTAB_SZ_LOG2 = 7u;
-constexpr uint32_t PGTAB_LAYERS = 3u;
+constexpr uint32_t PGTAB_LAYERS = 64u;
 constexpr uint32_t PAGE_SZ_LOG2 = 7u;
 constexpr uint32_t TILES_PER_DIM_LOG2 = 4u;
 constexpr uint32_t PHYS_ADDR_TEX_LAYERS = 20u;
@@ -176,14 +183,13 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
     glsl.insert(glsl.find("#ifndef _IRR_FRAG_PUSH_CONSTANTS_DEFINED_"), GLSL_PUSH_CONSTANTS_OVERRIDE);
     std::string str = GLSL_VT_DESCRIPTORS;
     str.resize(str.size()+500u, ' ');
-    sprintf(str.data(), GLSL_VT_DESCRIPTORS, _vt->getGLSLDescriptorsIncludePath(VT_SET, PGTAB_BINDING, PHYSICAL_STORAGE_VIEWS_BINDING).c_str());
+    sprintf(str.data(), GLSL_VT_DESCRIPTORS, _vt->getGLSLDescriptorsIncludePath().c_str());
     glsl.insert(glsl.find("#if !defined(_IRR_FRAG_SET3_BINDINGS_DEFINED_)"), str.c_str());
     str = GLSL_VT_FUNCTIONS;
     str.resize(str.size()+500u, ' ');
-    sprintf(str.data(), GLSL_VT_FUNCTIONS, _vt->getGLSLFunctionsIncludePath("getPgTabSzLog2", "getPhysPgTexSzRcp", "getVTexSzRcp", "getPhysicalIDForLayer").c_str());
+    sprintf(str.data(), GLSL_VT_FUNCTIONS, _vt->getGLSLFunctionsIncludePath().c_str());
     glsl.insert(glsl.find("#if !defined(_IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_)"), str.c_str());
     glsl.insert(glsl.find("#if !defined(_IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_)"), GLSL_TEXTURE_SAMPLE_OVERRIDE);
-    glsl.insert(glsl.find("#ifndef _IRR_FRAG_PROLOGUE_DEFINED_"), GLSL_FS_PROLOGUE);
 
     auto* f = fopen("fs.glsl","w");
     fwrite(glsl.c_str(), 1, glsl.size(), f);
@@ -381,7 +387,7 @@ int main()
         asset::E_FORMAT fmt3[1]{ asset::EF_R8G8B8A8_SRGB };
         storage[2].formats = fmt3;
 
-        vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(storage.data(), storage.size(), PGTAB_SZ_LOG2, PGTAB_LAYERS, PAGE_SZ_LOG2, PAGE_PADDING, MAX_ALLOCATABLE_TEX_SZ_LOG2);
+        vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(storage.data(), storage.size(), PAGE_SZ_LOG2, PGTAB_LAYERS, PAGE_PADDING, MAX_ALLOCATABLE_TEX_SZ_LOG2);
     }
 
     core::unordered_map<core::smart_refctd_ptr<asset::ICPUImage>, STextureData> VTtexDataMap;
@@ -389,35 +395,9 @@ int main()
 
     core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds0layout;
     {
-        asset::ICPUSampler::SParams params;
-        params.AnisotropicFilter = 3u;
-        params.BorderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_WHITE;
-        params.CompareEnable = false;
-        params.CompareFunc = asset::ISampler::ECO_NEVER;
-        params.LodBias = 0.f;
-        params.MaxLod = 10000.f;
-        params.MinLod = 0.f;
-        params.MaxFilter = asset::ISampler::ETF_LINEAR;
-        params.MinFilter = asset::ISampler::ETF_LINEAR;
-        //phys addr texture doesnt have mips anyway and page table is accessed with texelFetch only
-        params.MipmapMode = asset::ISampler::ESMM_NEAREST;
-        params.TextureWrapU = params.TextureWrapV = params.TextureWrapW = asset::ISampler::ETC_CLAMP_TO_EDGE;
-        auto sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
-
-        std::array<core::smart_refctd_ptr<asset::ICPUSampler>,VT_COUNT> samplers;
-        std::fill(samplers.begin(), samplers.end(), sampler);
-
-        params.AnisotropicFilter = 0u;
-        params.MaxFilter = asset::ISampler::ETF_NEAREST;
-        params.MinFilter = asset::ISampler::ETF_NEAREST;
-        params.MipmapMode = asset::ISampler::ESMM_NEAREST;
-        auto samplerPgt = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
-
         auto bindings = vt->getDSlayoutBindings(PGTAB_BINDING, PHYSICAL_STORAGE_VIEWS_BINDING);
-        (*bindings)[0].samplers = &samplerPgt;
-        (*bindings)[1].samplers = samplers.data();
 
-        ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings->data(), bindings->data()+bindings->size());
+        ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings.first->data(), bindings.first->data()+bindings.first->size());
     }
     core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds2layout;
     {
@@ -426,7 +406,7 @@ int main()
         bnd[0].count = 1u;
         bnd[0].samplers = nullptr;
         bnd[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-        bnd[0].type = asset::EDT_STORAGE_BUFFER;
+        bnd[0].type = asset::EDT_UNIFORM_BUFFER;
         bnd[1].binding = 1u;
         bnd[1].count = 1u;
         bnd[1].samplers = nullptr;
@@ -585,44 +565,38 @@ int main()
 
     core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> gpu_ds2layout = driver->getGPUObjectsFromAssets(&ds2layout.get(),&ds2layout.get()+1)->front();
     auto gpuds2 = driver->createGPUDescriptorSet(std::move(gpu_ds2layout));
-    core::smart_refctd_ptr<video::IGPUBuffer> ds2_ssbo;
     {
-        constexpr uint32_t ENTRY_SZ = sizeof(uint32_t);
-        constexpr uint32_t ENTRY_ALIGNMENT = sizeof(uint32_t);//change to 16 if std140
-        constexpr uint32_t PRECOMPUTED_STUFF_COUNT = 3u;//pgtab_sz_log2, phys_pg_tex_sz_rcp, vtex_sz_rcp
-        constexpr uint32_t PRECOMPUTED_STUFF_SZ = VT_COUNT*ENTRY_ALIGNMENT;
-        constexpr uint32_t PRECOMPUTED_SSBO_SZ = PRECOMPUTED_STUFF_COUNT*PRECOMPUTED_STUFF_SZ;
-        uint8_t precomputedStuff[PRECOMPUTED_SSBO_SZ]{};
-        uint32_t* ptr = reinterpret_cast<uint32_t*>(precomputedStuff);
-        uint32_t offset = 0u;
-        //pgtab_sz_log2
-        for (uint32_t i = 0u; i < VT_COUNT; ++i)
-            ptr[i*ENTRY_ALIGNMENT/ENTRY_SZ] = core::findMSB(gpuvt->getPageTable()->getCreationParameters().extent.width);
-        ptr += PRECOMPUTED_STUFF_SZ/ENTRY_SZ;
-        //phys_pg_tex_sz_rcp
-        for (uint32_t i = 0u; i < VT_COUNT; ++i)
-        {
-            const auto& storageImg = gpuvt->getFloatViews().begin()[i]->getCreationParameters().image;
-            const double f = 1.0 / static_cast<double>(storageImg->getCreationParameters().extent.width);
-            reinterpret_cast<float*>(ptr)[i*ENTRY_ALIGNMENT/ENTRY_SZ] = f;
-        }
-        ptr += PRECOMPUTED_STUFF_SZ/ENTRY_SZ;
-        //vtex_sz_rcp
-        for (uint32_t i = 0u; i < VT_COUNT; ++i)
+        core::smart_refctd_ptr<video::IGPUBuffer> buffer;
+
+        struct {
+            uint32_t pgtab_sz_log2;
+            float vtex_sz_rcp;
+            struct alignas(16)
+            {
+                float f;
+            } phys_pg_tex_sz_rcp[VT_COUNT];
+        } precomputedStuffUBO;
+        precomputedStuffUBO.pgtab_sz_log2 = core::findMSB(gpuvt->getPageTable()->getCreationParameters().extent.width);
         {
             double f = 1.0;
             f /= static_cast<double>(gpuvt->getPageTable()->getCreationParameters().extent.width);
             f /= static_cast<double>(gpuvt->getPageExtent());
-            reinterpret_cast<float*>(ptr)[i*ENTRY_ALIGNMENT/ENTRY_SZ] = f;
+            precomputedStuffUBO.vtex_sz_rcp = f;
+        }
+        for (uint32_t i = 0u; i < VT_COUNT; ++i)
+        {
+            const auto& storageImg = gpuvt->getFloatViews().begin()[i]->getCreationParameters().image;
+            const double f = 1.0 / static_cast<double>(storageImg->getCreationParameters().extent.width);
+            precomputedStuffUBO.phys_pg_tex_sz_rcp[i].f = f;
         }
 
-        const uint32_t lutSz = gpuvt->getLayerToViewIndexLUTBytesize();
+        const uint32_t lutSz = gpuvt->getLayerToViewIndexMapping().size()*sizeof(uint32_t);
         uint32_t lut[PGTAB_LAYERS]{};
         assert(sizeof(lut)>=lutSz);
-        gpuvt->writeLayerToViewIndexLUTContents(lut);
-        const uint32_t lutOffset = core::alignUp(PRECOMPUTED_SSBO_SZ, driver->getRequiredSSBOAlignment());
-        ds2_ssbo = driver->createFilledDeviceLocalGPUBufferOnDedMem(lutOffset+lutSz, precomputedStuff);
-        driver->updateBufferRangeViaStagingBuffer(ds2_ssbo.get(), lutOffset, lutSz, lut);
+        memcpy(lut, gpuvt->getLayerToViewIndexMapping().begin(), lutSz);
+        const uint32_t lutOffset = core::alignUp(sizeof(precomputedStuffUBO), driver->getRequiredSSBOAlignment());
+        buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(lutOffset+lutSz, &precomputedStuffUBO);
+        driver->updateBufferRangeViaStagingBuffer(buffer.get(), lutOffset, lutSz, lut);
 
         {
             std::array<video::IGPUDescriptorSet::SWriteDescriptorSet,2> write;
@@ -631,12 +605,12 @@ int main()
             write[0].arrayElement = 0u;
             write[0].binding = 0u;
             write[0].count = 1u;
-            write[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+            write[0].descriptorType = asset::EDT_UNIFORM_BUFFER;
             write[0].dstSet = gpuds2.get();
             write[0].info = info;
-            write[0].info->desc = ds2_ssbo;
+            write[0].info->desc = buffer;
             write[0].info->buffer.offset = 0u;
-            write[0].info->buffer.size = PRECOMPUTED_SSBO_SZ;
+            write[0].info->buffer.size = sizeof(precomputedStuffUBO);
 
             write[1].arrayElement = 0u;
             write[1].binding = 1u;
@@ -644,7 +618,7 @@ int main()
             write[1].descriptorType = asset::EDT_STORAGE_BUFFER;
             write[1].dstSet = gpuds2.get();
             write[1].info = info+1;
-            write[1].info->desc = ds2_ssbo;
+            write[1].info->desc = buffer;
             write[1].info->buffer.offset = lutOffset;
             write[1].info->buffer.size = lutSz;
 

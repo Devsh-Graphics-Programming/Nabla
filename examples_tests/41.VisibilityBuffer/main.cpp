@@ -52,10 +52,6 @@ layout(set=3,binding=0) uniform DrawCallBuffer {
 layout(set=3,binding=1,row_major) readonly restrict buffer InstanceDataBuffer {
     PerInstanceData instanceData[];
 };
-#define _IRR_FRAG_SET0_BINDINGS_DEFINED_
-#define _IRR_FRAG_SET1_BINDINGS_DEFINED_
-#define _IRR_FRAG_SET2_BINDINGS_DEFINED_
-#define _IRR_FRAG_SET3_BINDINGS_DEFINED_
 )";
 
 constexpr const char* GLSL_VERT_OVERRIDE =
@@ -101,6 +97,10 @@ R"(
     #error "GL_NV_fragment_shader_barycentric, nor GL_AMD_shader_explicit_vertex_parameter available on your GPU, or IrrlichtBaW messed up the support"
 #endif
 
+#define _IRR_FRAG_SET0_BINDINGS_DEFINED_
+#define _IRR_FRAG_SET1_BINDINGS_DEFINED_
+#define _IRR_FRAG_SET2_BINDINGS_DEFINED_
+#define _IRR_FRAG_SET3_BINDINGS_DEFINED_
 
 #ifdef GL_AMD_shader_explicit_vertex_parameter
     layout(location = 0) flat in vec4 flatPosition;

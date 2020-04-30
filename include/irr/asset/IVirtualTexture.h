@@ -9,12 +9,13 @@
 #include "irr/core/memory/memory.h"
 #include "irr/asset/filters/CPaddedCopyImageFilter.h"
 #include "irr/asset/filters/CFillImageFilter.h"
+#include "irr/asset/ISampler.h"
 
 namespace irr {
 namespace asset
 {
 
-template <typename image_view_t>
+template <typename image_view_t, typename sampler_t>
 class IVirtualTexture : public core::IReferenceCounted
 {
 protected:
@@ -46,6 +47,7 @@ private:
     }
 
 public:
+    _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PAGE_TABLE_LAYERS = 256u;
     _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PHYSICAL_PAGE_SIZE_LOG2 = 9u;
     struct SMiptailPacker
     {
@@ -140,6 +142,56 @@ protected:
         return texData;
     }
 
+    ISampler::SParams getPageTableSamplerParams() const
+    {
+        ISampler::SParams params;
+        params.AnisotropicFilter = 0u;
+        params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_WHITE;
+        params.CompareEnable = false;
+        params.CompareFunc = ISampler::ECO_NEVER;
+        params.LodBias = 0.f;
+        params.MaxLod = 10000.f;
+        params.MinLod = 0.f;
+        params.MaxFilter = ISampler::ETF_NEAREST;
+        params.MinFilter = ISampler::ETF_NEAREST;
+        params.MipmapMode = ISampler::ESMM_NEAREST;
+        params.TextureWrapU = params.TextureWrapV = params.TextureWrapW = ISampler::ETC_CLAMP_TO_EDGE;
+
+        return params;
+    }
+    ISampler::SParams getPhysicalPageSamplerParams() const
+    {
+        ISampler::SParams params;
+        params.AnisotropicFilter = m_tilePadding ? core::findMSB(m_tilePadding<<1) : 0u;
+        params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_WHITE;
+        params.CompareEnable = false;
+        params.CompareFunc = ISampler::ECO_NEVER;
+        params.LodBias = 0.f;
+        params.MaxLod = 0.f;
+        params.MinLod = 0.f;
+        params.MaxFilter = m_tilePadding ? ISampler::ETF_LINEAR : ISampler::ETF_NEAREST;
+        params.MinFilter = m_tilePadding ? ISampler::ETF_LINEAR : ISampler::ETF_NEAREST;
+        params.MipmapMode = ISampler::ESMM_NEAREST;
+        params.TextureWrapU = params.TextureWrapV = params.TextureWrapW = ISampler::ETC_CLAMP_TO_EDGE;
+
+        return params;
+    }
+
+    virtual core::smart_refctd_ptr<sampler_t> createSampler(const ISampler::SParams& _params) const = 0;
+
+    core::smart_refctd_ptr<sampler_t> getPhysicalPageSampler() const
+    {
+        if (!m_physicalPageSampler)
+            m_physicalPageSampler = createSampler(getPhysicalPageSamplerParams());
+        return m_physicalPageSampler;
+    }
+    core::smart_refctd_ptr<sampler_t> getPageTableSampler() const
+    {
+        if (!m_pageTableSampler)
+            m_pageTableSampler = createSampler(getPageTableSamplerParams());
+        return m_pageTableSampler;
+    }
+
     page_tab_offset_t alloc(const IImage* _img, const IImage::SSubresourceRange& _subres, uint32_t _pgtLayer)
     {
         const uint32_t pgtAddr2dMask = (1u<<(m_pgtabSzxy_log2*2u))-1u;
@@ -161,6 +213,18 @@ protected:
 
         core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_free_addr((*m_pageTableLayerAllocators)[_addr.pgTab_layer], 1u, &addr, &sz);
 
+        IVTResidentStorage* storage = getStorageForFormatClass(getFormatClass(_img->getCreationParameters().format));
+        if (!storage)
+            return false;
+        //in case when pgtab layer has no allocations, free it for use by another format
+        if ((*m_pageTableLayerAllocators)[_addr.pgTab_layer].get_allocated_size()==0u)
+        {
+            (*m_pageTableLayerAllocators)[_addr.pgTab_layer].reset();//defragmentation
+            m_layerToViewIndexMapping[_addr.pgTab_layer] = ~0u;
+            storage->removeLayerAssignment(_addr.pgTab_layer);
+            m_freePageTableLayerIDs.push(_addr.pgTab_layer);
+        }
+
         return true;
     }
 
@@ -176,7 +240,7 @@ protected:
     core::smart_refctd_ptr<image_t> createPageTable(uint32_t _pgTabSzxy_log2, uint32_t _pgTabLayers, uint32_t _pgSzxy_log2, uint32_t _maxAllocatableTexSz_log2)
     {
         assert(_pgTabSzxy_log2<=8u);//otherwise STextureData encoding falls apart
-        assert(_pgTabLayers<=256u);
+        assert(_pgTabLayers<=MAX_PAGE_TABLE_LAYERS);
 
         const uint32_t pgTabSzxy = 1u<<_pgTabSzxy_log2;
         image_t::SCreationParams params;
@@ -188,7 +252,7 @@ protected:
         params.type = IImage::ET_2D;
         params.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
 
-        auto pgtab = createImage(std::move(params));
+        auto pgtab = createPageTableImage(std::move(params));
         IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<image_t,ICPUImage>::value)
         {
             const uint32_t texelSz = getTexelOrBlockBytesize(pgtab->getCreationParameters().format);
@@ -224,7 +288,7 @@ protected:
 
     void updateLayerToViewIndexLUT(uint32_t _layer, uint32_t _smplrIndex)
     {
-        (*m_layerToViewIndexMapping)[_layer] = _smplrIndex;
+        m_layerToViewIndexMapping[_layer] = _smplrIndex;
         m_layer2viewWasUpdatedSinceLastQuery = true;
     }
 
@@ -233,6 +297,9 @@ protected:
     const uint32_t m_pgtabSzxy_log2;
     const uint32_t m_tilePadding;
     core::smart_refctd_ptr<image_t> m_pageTable;
+    mutable core::smart_refctd_ptr<image_view_t> m_pageTableView;
+    mutable core::smart_refctd_ptr<sampler_t> m_pageTableSampler;
+    mutable core::smart_refctd_ptr<sampler_t> m_physicalPageSampler;
 
     using pg_tab_addr_alctr_t = core::GeneralpurposeAddressAllocator<uint32_t>;
     core::smart_refctd_dynamic_array<pg_tab_addr_alctr_t> m_pageTableLayerAllocators;
@@ -240,7 +307,7 @@ protected:
 
     core::stack<uint32_t> m_freePageTableLayerIDs;
     mutable bool m_layer2viewWasUpdatedSinceLastQuery = true;
-    core::smart_refctd_dynamic_array<uint32_t> m_layerToViewIndexMapping;
+    alignas(64) std::array<uint32_t,MAX_PAGE_TABLE_LAYERS> m_layerToViewIndexMapping;
 
     struct SamplerArray
     {
@@ -385,13 +452,21 @@ protected:
 
     typename SMiptailPacker::rect m_miptailOffsets[MAX_PHYSICAL_PAGE_SIZE_LOG2];
 
-    virtual core::smart_refctd_ptr<image_t> createImage(typename image_t::SCreationParams&& _params) const = 0;
+    virtual core::smart_refctd_ptr<image_t> createPageTableImage(typename image_t::SCreationParams&& _params) const = 0;
     virtual core::smart_refctd_ptr<IVTResidentStorage> createVTResidentStorage(E_FORMAT _format, uint32_t _extent, uint32_t _layers, uint32_t _tilesPerDim) = 0;
 
     virtual ~IVirtualTexture()
     {
         if (m_pgTabAddrAlctr_reservedSpc)
             _IRR_ALIGNED_FREE(m_pgTabAddrAlctr_reservedSpc);
+    }
+
+    IVTResidentStorage* getStorageForFormatClass(E_FORMAT_CLASS _fc) const
+    {
+        auto found = m_storage.find(_fc);
+        if (found == m_storage.end())
+            return nullptr;
+        return found->second.get();
     }
 
     // Delegated to separate method, because is strongly dependent on derived class and has to be called once derived class's object exist
@@ -453,18 +528,35 @@ protected:
         }
     }
 
+    auto createPageTableViewCreationParams() const
+    {
+        typename image_view_t::SCreationParams params;
+        params.flags = static_cast<image_view_t::E_CREATE_FLAGS>(0);
+        params.format = m_pageTable->getCreationParameters().format;
+        params.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+        params.subresourceRange.baseArrayLayer = 0u;
+        params.subresourceRange.layerCount = m_pageTable->getCreationParameters().arrayLayers;
+        params.subresourceRange.baseMipLevel = 0u;
+        params.subresourceRange.levelCount = m_pageTable->getCreationParameters().mipLevels;
+        params.viewType = image_view_t::ET_2D_ARRAY;
+        params.image = m_pageTable;
+
+        return params;
+    }
+    virtual core::smart_refctd_ptr<image_view_t> createPageTableView() const = 0;
+
 public:
     IVirtualTexture(
-        uint32_t _pgTabSzxy_log2 = 8u,
-        uint32_t _pgTabLayers = 256u,
+        uint32_t _pgTabSzxy_log2 = 7u,
+        uint32_t _pgTabLayers = 32u,
         uint32_t _pgSzxy_log2 = 7u,
         uint32_t _tilePadding = 9u,
         bool _initSharedResources = true
     ) :
         m_pgSzxy(1u<<_pgSzxy_log2), m_pgSzxy_log2(_pgSzxy_log2), m_pgtabSzxy_log2(_pgTabSzxy_log2), m_tilePadding(_tilePadding),
-        m_pageTableLayerAllocators(core::make_refctd_dynamic_array<decltype(m_pageTableLayerAllocators)>(_pgTabLayers)),
-        m_layerToViewIndexMapping(core::make_refctd_dynamic_array<decltype(m_layerToViewIndexMapping)>(_pgTabLayers,~0u))
+        m_pageTableLayerAllocators(core::make_refctd_dynamic_array<decltype(m_pageTableLayerAllocators)>(_pgTabLayers))
     {
+        memset(m_layerToViewIndexMapping.data(), 0xff, MAX_PAGE_TABLE_LAYERS*sizeof(uint32_t));
         if (_initSharedResources)
         {
             uint32_t pgtabSzSqr = (1u<<_pgTabSzxy_log2);
@@ -495,15 +587,20 @@ public:
 
     virtual STextureData pack(const image_t* _img, const IImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, ISampler::E_TEXTURE_BORDER_COLOR _borderColor) = 0;
 
-    virtual core::smart_refctd_ptr<image_view_t> createPageTableView() const = 0;
+    image_view_t* getPageTableView() const
+    {
+        if (!m_pageTableView)
+            m_pageTableView = createPageTableView();
+        return m_pageTableView.get();
+    }
 
-    image_t* const & getPageTable() const { return m_pageTable.get(); }
+    image_t* getPageTable() const { return m_pageTable.get(); }
     uint32_t getPageTableExtent_log2() const { return m_pgSzxy_log2; }
     uint32_t getPageExtent() const { return m_pgSzxy; }
     uint32_t getPageExtent_log2() const { return core::findLSB(m_pgSzxy); }
     uint32_t getTilePadding() const { return m_tilePadding; }
     const core::stack<uint32_t>& getFreePageTableLayersStack() const { return m_freePageTableLayerIDs; }
-    core::SRange<const uint32_t> getLayerToViewIndexMapping() const { return {m_layerToViewIndexMapping->begin(),m_layerToViewIndexMapping->end()}; }
+    core::SRange<const uint32_t> getLayerToViewIndexMapping() const { return {m_layerToViewIndexMapping.data(),m_layerToViewIndexMapping.data()+m_pageTable->getCreationParameters().arrayLayers}; }
     const auto& getResidentStorages() const { return m_storage; }
     typename SamplerArray::range_t getFloatViews() const  { return m_fsamplers.getViews(); }
     typename SamplerArray::range_t getIntViews() const { return m_isamplers.getViews(); }
@@ -511,12 +608,13 @@ public:
 
     size_t getLayerToViewIndexLUTBytesize() const
     {
-        return m_layerToViewIndexMapping->size()*sizeof(uint32_t);
+        return m_pageTable->getCreationParameters().arrayLayers*sizeof(uint32_t);
     }
-    void writeLayerToViewIndexLUTContents(void* _dst) const
+    void writeLayerToViewIndexLUTContents(void* _dst, bool _updateFlag = true) const
     {
-        memcpy(_dst, m_layerToViewIndexMapping->data(), getLayerToViewIndexLUTBytesize());
-        m_layer2viewWasUpdatedSinceLastQuery = false;
+        memcpy(_dst, m_layerToViewIndexMapping.data(), getLayerToViewIndexLUTBytesize());
+        if (_updateFlag)
+            m_layer2viewWasUpdatedSinceLastQuery = false;
     }
     bool layerToViewIndexLUTWasUpdated() const
     {
@@ -527,71 +625,68 @@ public:
     {
         return "irr/builtin/glsl/virtual_texturing/extensions.glsl";
     }
-    std::string getGLSLDescriptorsIncludePath(uint32_t _set, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    std::string getGLSLDescriptorsIncludePath() const
     {
-        return "irr/builtin/glsl/virtual_texturing/descriptors.glsl/" +
-            std::to_string(_set) + "/" +
-            std::to_string(_pgtBinding) + "/" +
-            std::to_string(_fsamplersBinding) + "/" +
-            std::to_string(_isamplersBinding) + "/" +
-            std::to_string(_usamplersBinding) + "/" +
-            (m_fsamplers.views ? std::to_string(m_fsamplers.views->size()) : "0") + "/" +
-            (m_isamplers.views ? std::to_string(m_isamplers.views->size()) : "0") + "/" +
-            (m_usamplers.views ? std::to_string(m_usamplers.views->size()) : "0");
+        return "irr/builtin/glsl/virtual_texturing/descriptors.glsl";
     }
-    std::string getGLSLFunctionsIncludePath(const std::string& _get_pgtab_sz_log2_name, const std::string& _get_phys_pg_tex_sz_rcp_name, const std::string& _get_vtex_sz_rcp_name, const std::string& _get_layer2pid) const
+    std::string getGLSLFunctionsIncludePath() const
     {
         //functions.glsl/pg_sz_log2/tile_padding/pgtab_tex_name/phys_pg_tex_name/get_pgtab_sz_log2_name/get_phys_pg_tex_sz_rcp_name/get_vtex_sz_rcp_name/get_layer2pid/(addr_x_bits/addr_y_bits)...
         std::string s = "irr/builtin/glsl/virtual_texturing/functions.glsl/";
         s += std::to_string(m_pgSzxy_log2) + "/";
-        s += std::to_string(m_tilePadding) + "/";
-        s += _get_pgtab_sz_log2_name + "/";
-        s += _get_phys_pg_tex_sz_rcp_name + "/";
-        s += _get_vtex_sz_rcp_name + "/";
-        s += _get_layer2pid;
+        s += std::to_string(m_tilePadding);
 
         return s;
     }
 
 protected:
-    template <typename DSlayout_t>
-    core::smart_refctd_dynamic_array<typename DSlayout_t::SBinding> getDSlayoutBindings_internal(uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
-    {
-        using retval_t = core::smart_refctd_dynamic_array<typename DSlayout_t::SBinding>;
-        auto retval = core::make_refctd_dynamic_array<retval_t>(1u+(getFloatViews().size()?1u:0u)+(getIntViews().size()?1u:0u)+(getUintViews().size()?1u:0u));
-        auto* bindings = retval->data();
 
-        auto fillBinding = [](auto& bnd, uint32_t _binding, uint32_t _count) {
+
+    template <typename DSlayout_t>
+    auto getDSlayoutBindings_internal(uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    {
+        using bindings_t = core::smart_refctd_dynamic_array<typename DSlayout_t::SBinding>;
+        using samplers_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_t>>;
+        using retval_t = std::pair<bindings_t, samplers_t>;
+
+        auto bindings_array = core::make_refctd_dynamic_array<bindings_t>(1u+(getFloatViews().size()?1u:0u)+(getIntViews().size()?1u:0u)+(getUintViews().size()?1u:0u));
+        auto* bindings = bindings_array->data();
+        auto samplers_array = core::make_refctd_dynamic_array<samplers_t>(1u+std::max(getFloatViews().size(), std::max(getIntViews().size(), getUintViews().size())));
+        auto* samplers = samplers_array->data();
+
+        samplers[0] = getPageTableSampler();
+        std::fill(samplers_array->begin()+1, samplers_array->end(), getPhysicalPageSampler());
+
+        auto fillBinding = [](auto& bnd, uint32_t _binding, uint32_t _count, core::smart_refctd_ptr<sampler_t>* _samplers) {
             bnd.binding = _binding;
             bnd.count = _count;
-            bnd.stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+            bnd.stageFlags = asset::ISpecializedShader::ESS_ALL;
             bnd.type = asset::EDT_COMBINED_IMAGE_SAMPLER;
-            bnd.samplers = nullptr; //samplers are left for user to specify at will
+            bnd.samplers = _samplers;
         };
 
-        fillBinding(bindings[0], _pgtBinding, 1u);
+        fillBinding(bindings[0], _pgtBinding, 1u, samplers);
 
         uint32_t i = 1u;
         if (getFloatViews().size())
         {
-            fillBinding(bindings[i], _fsamplersBinding, getFloatViews().size());
+            fillBinding(bindings[i], _fsamplersBinding, getFloatViews().size(), samplers+1);
             ++i;
         }
         if (getIntViews().size())
         {
-            fillBinding(bindings[i], _isamplersBinding, getIntViews().size());
+            fillBinding(bindings[i], _isamplersBinding, getIntViews().size(), samplers+1);
             ++i;
         }
         if (getUintViews().size())
         {
-            fillBinding(bindings[i], _usamplersBinding, getUintViews().size());
+            fillBinding(bindings[i], _usamplersBinding, getUintViews().size(), samplers+1);
         }
 
-        return retval;
+        return retval_t{std::move(bindings_array), std::move(samplers_array)};
     }
     template <typename DS_t>
-    std::pair<core::smart_refctd_dynamic_array<typename DS_t::SWriteDescriptorSet>, core::smart_refctd_dynamic_array<typename DS_t::SDescriptorInfo>>
-        getDescriptorSetWrites_internal(DS_t* _dstSet, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    auto getDescriptorSetWrites_internal(DS_t* _dstSet, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
     {
         using writes_t = core::smart_refctd_dynamic_array<typename DS_t::SWriteDescriptorSet>;
         using info_t = core::smart_refctd_dynamic_array<typename DS_t::SDescriptorInfo>;
@@ -611,7 +706,7 @@ protected:
         writes[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
         writes[0].dstSet = _dstSet;
         writes[0].info = info;
-        info[0].desc = createPageTableView();
+        info[0].desc = core::smart_refctd_ptr<image_view_t>(getPageTableView());
         info[0].image.imageLayout = EIL_UNDEFINED;
         info[0].image.sampler = nullptr; //samplers are left for user to specify at will
 
@@ -669,8 +764,8 @@ protected:
     }
 };
 
-template <typename image_view_t>
-bool IVirtualTexture<image_view_t>::SMiptailPacker::computeMiptailOffsets(IVirtualTexture<image_view_t>::SMiptailPacker::rect* res, int log2SIZE, int padding)
+template <typename image_view_t, typename sampler_t>
+bool IVirtualTexture<image_view_t, sampler_t>::SMiptailPacker::computeMiptailOffsets(IVirtualTexture<image_view_t, sampler_t>::SMiptailPacker::rect* res, int log2SIZE, int padding)
 {
     if (log2SIZE<7 || log2SIZE>10)
         return false;
