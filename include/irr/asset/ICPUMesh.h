@@ -68,7 +68,9 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 			for (auto i=0u; i<getMeshBufferCount(); i++)
 				getMeshBuffer(i)->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}
-		virtual IAsset::E_TYPE getAssetType() const override { return IAsset::ET_MESH; }
+
+		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_MESH;
+		inline E_TYPE getAssetType() const override { return AssetType; }
 
 		virtual size_t conservativeSizeEstimate() const override { return getMeshBufferCount()*sizeof(void*); }
 };

@@ -112,7 +112,9 @@ public:
 	{
 		m_cache.clear();
 	}
-	E_TYPE getAssetType() const override { return ET_PIPELINE_CACHE; }
+
+	_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_CACHE;
+	inline E_TYPE getAssetType() const override { return AssetType; }
 
 	core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
 	{

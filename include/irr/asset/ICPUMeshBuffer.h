@@ -130,9 +130,11 @@ public:
 			    m_pipeline->convertToDummyObject(referenceLevelsBelowToConvert);
 		}
 	}
-    virtual IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SUB_MESH; }
 
-    virtual size_t conservativeSizeEstimate() const override { return sizeof(base_t) + sizeof(posAttrId) + sizeof(normalAttrId); }
+    _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SUB_MESH;
+    inline E_TYPE getAssetType() const override { return AssetType; }
+
+    inline size_t conservativeSizeEstimate() const override { return sizeof(base_t) + sizeof(posAttrId) + sizeof(normalAttrId); }
 
     virtual E_MESH_BUFFER_TYPE getMeshBufferType() const { return EMBT_NOT_ANIMATED; }
 

@@ -20,8 +20,9 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 		{
 		}
 
+		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = IAsset::ET_SPECIALIZED_SHADER;
+		IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
-		IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SPECIALIZED_SHADER; }
 		size_t conservativeSizeEstimate() const override
 		{
 			size_t estimate = m_specInfo.entryPoint.size()+sizeof(uint16_t)+2u*sizeof(void*);
