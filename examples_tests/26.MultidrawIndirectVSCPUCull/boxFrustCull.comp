@@ -1,28 +1,22 @@
 #version 430 core
 layout(local_size_x = 256) in;
 
-#include "../common.glsl"
+#include "common.glsl"
 
-#include "../commonIndirect.glsl"
-layout(set = 1, binding = 1, std430) restrict writeonly buffer CulledDraws
+#include "commonIndirect.glsl"
+layout(set = 1, binding = 1, std430) restrict writeonly buffer IndirectDraws
 {
-    DrawElementsIndirectCommand_t outDraws[];
+    DrawElementsIndirectCommand_t draws[];
 };
 
-layout(set = 1, binding = 2, std430) restrict coherent buffer DrawIndirect
+layout(set = 1, binding = 2, std430) restrict readonly buffer DrawInstanceCount
 {
-	uint drawCount[2];
+	uint drawInstanceCount[];
 };
 
-layout(set = 1, binding = 3, std430) restrict readonly buffer PossibleDraws
-{
-    DrawElementsIndirectCommand_t inDraws[];
-};
-
-layout(push_constant) PushConstants
+layout(push_constant) uniform PushConstants
 {
     uint maxDrawCount;
-    uint bufferSwitch;
 };
 
 
@@ -31,13 +25,9 @@ void main()
     if (gl_GlobalInvocationID.x<maxDrawCount)
         return;
 
-    if (gl_GlobalIncoationID.x==0u)
-        drawCount[bufferSwitch^0x1u] = 0u;
+    mat4 modelViewProj = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(modelData[draw.objectUUID].MVP);
 
-    DrawElementsIndirectCommand_t draw = inDraws[gl_GlobalIncoationID.x];
+    bool culled = false;
 
-    mat4 modelViewProj = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4(modelData[draw.objectUUID].MVP);
-
-    uint outIndex = atomicAdd(drawCount[bufferSwitch],1);
-    outDraws[outIndex] = draw;
+    draws[gl_GlobalInvocationID.x].instanceCount = culled ? drawInstanceCount[gl_GlobalInvocationID.x]:0u;
 }
