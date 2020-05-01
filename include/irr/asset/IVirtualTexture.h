@@ -15,8 +15,24 @@ namespace irr {
 namespace asset
 {
 
+class IVirtualTextureBase
+{
+public:
+    _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PAGE_TABLE_LAYERS = 256u;
+#include "irr/irrpack.h"
+    //! std430-compatible layout
+    struct SPrecomputedData
+    {
+        uint32_t pgtab_sz_log2;
+        float vtex_sz_rcp;
+        float layer_to_phys_pg_tex_sz_rcp[MAX_PAGE_TABLE_LAYERS];
+        uint32_t layer_to_sampler_ix[MAX_PAGE_TABLE_LAYERS];
+    } PACK_STRUCT;
+#include "irr/irrunpack.h"
+};
+
 template <typename image_view_t, typename sampler_t>
-class IVirtualTexture : public core::IReferenceCounted
+class IVirtualTexture : public core::IReferenceCounted, public IVirtualTextureBase
 {
 protected:
     //! SPhysPgOffset is what is stored in texels of page table!
@@ -35,19 +51,8 @@ protected:
         return (std::max(_sideExtent>>_level, 1u)+m_pgSzxy-1u) / m_pgSzxy;
     }
 
-private:
-    uint32_t computeSquareSz(const IImage* _img, const ICPUImage::SSubresourceRange& _subres)
-    {
-        auto extent = _img->getCreationParameters().extent;
-
-        const uint32_t w = neededPageCountForSide(extent.width, _subres.baseMipLevel);
-        const uint32_t h = neededPageCountForSide(extent.height, _subres.baseMipLevel);
-
-        return core::roundUpToPoT(std::max(w, h));
-    }
-
 public:
-    _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PAGE_TABLE_LAYERS = 256u;
+    _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PAGE_TABLE_EXTENT_LOG2 = 8u;
     _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PHYSICAL_PAGE_SIZE_LOG2 = 9u;
     struct SMiptailPacker
     {
@@ -142,6 +147,14 @@ protected:
         return texData;
     }
 
+    uint32_t computeSquareSz(uint32_t _w, uint32_t _h, uint32_t _baseLevel = 0u)
+    {
+        const uint32_t w = neededPageCountForSide(_w, _baseLevel);
+        const uint32_t h = neededPageCountForSide(_h, _baseLevel);
+
+        return core::roundUpToPoT(std::max(w, h));
+    }
+
     ISampler::SParams getPageTableSamplerParams() const
     {
         ISampler::SParams params;
@@ -192,11 +205,32 @@ protected:
         return m_pageTableSampler;
     }
 
+    uint32_t getMaxAllocationPageCount() const
+    {
+        auto pgtExtent = m_pageTable()->getCreationParameters().extent;
+        return pgtExtent.width*pgtExtent.height;
+    }
+
+    _IRR_STATIC_INLINE_CONSTEXPR uint32_t INVALID_SAMPLER_INDEX = 0xdeadbeefu;
+    _IRR_STATIC_INLINE_CONSTEXPR uint32_t INVALID_LAYER_INDEX = 0xdeadbeefu;
+
+    uint32_t findFreePageTableLayer() const
+    {
+        const uint32_t pgtLayers = m_pageTable->getCreationParameters().arrayLayers;
+        auto end = m_precomputed.layer_to_sampler_ix+pgtLayers;
+        auto found = std::find(m_precomputed.layer_to_sampler_ix, end, INVALID_SAMPLER_INDEX);
+        if (found == end)
+            return INVALID_LAYER_INDEX;
+        return found-m_precomputed.layer_to_sampler_ix;
+    }
+
     page_tab_offset_t alloc(const IImage* _img, const IImage::SSubresourceRange& _subres, uint32_t _pgtLayer)
     {
         const uint32_t pgtAddr2dMask = (1u<<(m_pgtabSzxy_log2*2u))-1u;
 
-        uint32_t szAndAlignment = computeSquareSz(_img, _subres);
+        auto extent = _img->getCreationParameters().extent;
+
+        uint32_t szAndAlignment = computeSquareSz(extent.width, extent.height, _subres.baseMipLevel);
         szAndAlignment *= szAndAlignment;
 
         uint32_t addr = pg_tab_addr_alctr_t::invalid_address;
@@ -205,9 +239,10 @@ protected:
             page_tab_offset_invalid() :
             page_tab_offset_t(core::morton2d_decode_x(addr&pgtAddr2dMask), core::morton2d_decode_y(addr&pgtAddr2dMask), _pgtLayer);
     }
-    virtual bool free(const STextureData& _addr, const IImage* _img, const IImage::SSubresourceRange& _subres)
+    //TODO try to get rid of _img parameter (now needed for determining format class of the image to find its physical storage)
+    virtual bool free(const STextureData& _addr, const IImage* _img)
     {
-        uint32_t sz = computeSquareSz(_img, _subres);
+        uint32_t sz = computeSquareSz(_addr.origsize_x, _addr.origsize_y);
         sz *= sz;
         const uint32_t addr = core::morton2d_encode(_addr.pgTab_x, _addr.pgTab_y);
 
@@ -220,30 +255,31 @@ protected:
         if ((*m_pageTableLayerAllocators)[_addr.pgTab_layer].get_allocated_size()==0u)
         {
             (*m_pageTableLayerAllocators)[_addr.pgTab_layer].reset();//defragmentation
-            m_layerToViewIndexMapping[_addr.pgTab_layer] = ~0u;
-            storage->removeLayerAssignment(_addr.pgTab_layer);
-            m_freePageTableLayerIDs.push(_addr.pgTab_layer);
+            updatePrecomputedData(_addr.pgTab_layer, INVALID_SAMPLER_INDEX, core::nan<float>());
+            removePageTableLayerForFormat(_img->getCreationParameters().format, _addr.pgTab_layer);
         }
 
         return true;
     }
 
-    uint32_t countLevelsTakingAtLeastOnePage(const VkExtent3D& _extent, const ICPUImage::SSubresourceRange& _subres)
+    uint32_t countLevelsTakingAtLeastOnePage(const VkExtent3D& _extent, uint32_t _baseLevel = 0u)
     {
-        const uint32_t baseMaxDim = core::roundUpToPoT(core::max(_extent.width, _extent.height))>>_subres.baseMipLevel;
+        const uint32_t baseMaxDim = core::roundUpToPoT(core::max(_extent.width, _extent.height))>>_baseLevel;
         const int32_t lastFullMip = core::findMSB(baseMaxDim) - static_cast<int32_t>(m_pgSzxy_log2);
 
-        return core::clamp(lastFullMip+1, 0, static_cast<int32_t>(m_pageTable->getCreationParameters().mipLevels));
+        assert(lastFullMip<static_cast<int32_t>(m_pageTable->getCreationParameters().mipLevels));
+
+        return std::max(lastFullMip+1, 0);
     }
 
     //this is not static only because it has to call virtual member function
     core::smart_refctd_ptr<image_t> createPageTable(uint32_t _pgTabSzxy_log2, uint32_t _pgTabLayers, uint32_t _pgSzxy_log2, uint32_t _maxAllocatableTexSz_log2)
     {
-        assert(_pgTabSzxy_log2<=8u);//otherwise STextureData encoding falls apart
+        assert(_pgTabSzxy_log2<=MAX_PAGE_TABLE_EXTENT_LOG2);//otherwise STextureData encoding falls apart
         assert(_pgTabLayers<=MAX_PAGE_TABLE_LAYERS);
 
         const uint32_t pgTabSzxy = 1u<<_pgTabSzxy_log2;
-        image_t::SCreationParams params;
+        typename image_t::SCreationParams params;
         params.arrayLayers = _pgTabLayers;
         params.extent = {pgTabSzxy,pgTabSzxy,1u};
         params.format = EF_R16G16_UINT;
@@ -278,18 +314,20 @@ protected:
                 bufOffset += regionSz;
             }
             auto buf = core::make_smart_refctd_ptr<ICPUBuffer>(bufOffset);
+#ifdef _IRR_DEBUG
             uint32_t* bufptr = reinterpret_cast<uint32_t*>(buf->getPointer());
             std::fill(bufptr, bufptr+bufOffset/sizeof(uint32_t), SPhysPgOffset::invalid_addr);
-
+#endif
             pgtab->setBufferAndRegions(std::move(buf), regions);
         } IRR_PSEUDO_IF_CONSTEXPR_END
         return pgtab;
     }
 
-    void updateLayerToViewIndexLUT(uint32_t _layer, uint32_t _smplrIndex)
+    void updatePrecomputedData(uint32_t _layer, uint32_t _smplrIndex, float _physTexRcpSz)
     {
-        m_layerToViewIndexMapping[_layer] = _smplrIndex;
-        m_layer2viewWasUpdatedSinceLastQuery = true;
+        m_precomputed.layer_to_sampler_ix[_layer] = _smplrIndex;
+        m_precomputed.layer_to_phys_pg_tex_sz_rcp[_layer] = _physTexRcpSz;
+        m_precomputedWasUpdatedSinceLastQuery = true;
     }
 
     const uint32_t m_pgSzxy;
@@ -305,9 +343,8 @@ protected:
     core::smart_refctd_dynamic_array<pg_tab_addr_alctr_t> m_pageTableLayerAllocators;
     uint8_t* m_pgTabAddrAlctr_reservedSpc = nullptr;
 
-    core::stack<uint32_t> m_freePageTableLayerIDs;
-    mutable bool m_layer2viewWasUpdatedSinceLastQuery = true;
-    alignas(64) std::array<uint32_t,MAX_PAGE_TABLE_LAYERS> m_layerToViewIndexMapping;
+    mutable bool m_precomputedWasUpdatedSinceLastQuery = true;
+    SPrecomputedData m_precomputed;
 
     struct SamplerArray
     {
@@ -320,6 +357,10 @@ protected:
         }
     };
     SamplerArray m_fsamplers, m_isamplers, m_usamplers;
+
+    //preallocated arrays for multi_free_addr()
+    core::smart_refctd_dynamic_array<uint32_t> m_addrsArray;
+    core::smart_refctd_dynamic_array<uint32_t> m_sizesArray;
 
     class IVTResidentStorage : public core::IReferenceCounted
     {
@@ -362,13 +403,17 @@ protected:
             assert(_layers<=MAX_LAYERS);
         }
         //TODO: this should also copy address allocator state, but from what i see our address allocators doesnt have copy ctors
-        IVTResidentStorage(core::smart_refctd_ptr<image_t>&& _image, const core::vector<uint16_t>& _assignedLayers, uint32_t _layerShift, uint32_t _xmask) :
+        IVTResidentStorage(core::smart_refctd_ptr<image_t>&& _image, uint32_t _layerShift, uint32_t _xmask) :
             image(std::move(_image)),
-            m_assignedPageTableLayers(_assignedLayers),
             m_decodeAddr_layerShift(_layerShift),
             m_decodeAddr_xMask(_xmask)
         {
 
+        }
+
+        float getReciprocalSize() const
+        {
+            return 1.0 / static_cast<double>(image->getCreationParameters().extent.width);
         }
 
         uint16_t encodePageAddress(uint16_t _addr) const
@@ -399,23 +444,6 @@ protected:
 
             return m_viewsCache.insert({_format,createView_internal(std::move(params))}).first->second;
         }
-        auto getPageTableLayers() const
-        {
-            return std::make_pair(m_assignedPageTableLayers.begin(),m_assignedPageTableLayers.end());
-        }
-        void addPageTableLayer(uint16_t _layer)
-        {
-            auto rng = getPageTableLayers();
-            auto it = std::lower_bound(rng.first,rng.second,_layer);
-            m_assignedPageTableLayers.insert(it, _layer);
-        }
-        void removeLayerAssignment(uint16_t _layer)
-        {
-            auto rng = getPageTableLayers();
-            auto it = std::lower_bound(rng.first, rng.second, _layer);
-            if (it!=rng.second && *it==_layer)
-                m_assignedPageTableLayers.erase(it);
-        }
 
         inline uint32_t physPgOffset_x(SPhysPgOffset _offset) const { return _offset.addr & PAGE_ADDR_X_MASK; }
         inline uint32_t physPgOffset_y(SPhysPgOffset _offset) const { return (_offset.addr >> PAGE_ADDR_X_BITS) & PAGE_ADDR_Y_MASK; }
@@ -437,7 +465,6 @@ protected:
         using phys_pg_addr_alctr_t = core::PoolAddressAllocator<uint32_t>;
         uint8_t* m_alctrReservedSpace = nullptr;
         phys_pg_addr_alctr_t tileAlctr;
-        core::vector<uint16_t> m_assignedPageTableLayers;
         const uint32_t m_decodeAddr_layerShift;
         const uint32_t m_decodeAddr_xMask;
 
@@ -450,7 +477,28 @@ protected:
     //since c++14 std::hash specialization for all enum types are given by standard
     core::unordered_map<E_FORMAT_CLASS, core::smart_refctd_ptr<IVTResidentStorage>> m_storage;
 
+    core::unordered_multimap<E_FORMAT, uint32_t> m_viewFormatToLayer;
+
     typename SMiptailPacker::rect m_miptailOffsets[MAX_PHYSICAL_PAGE_SIZE_LOG2];
+
+    auto getPageTableLayersForFormat(E_FORMAT _format) const
+    {
+        return m_viewFormatToLayer.equal_range(_format);
+    }
+    void addPageTableLayerForFormat(E_FORMAT _format, uint32_t _layer)
+    {
+        m_viewFormatToLayer.insert({_format,_layer});
+    }
+    void removePageTableLayerForFormat(E_FORMAT _format, uint32_t _layer)
+    {
+        auto rng = getPageTableLayersForFormat(_format);
+        for (auto it = rng.first; it!=rng.second; ++it)
+            if  (it->second==_layer)
+            {
+                m_viewFormatToLayer.erase(it);
+                return;
+            }
+    }
 
     virtual core::smart_refctd_ptr<image_t> createPageTableImage(typename image_t::SCreationParams&& _params) const = 0;
     virtual core::smart_refctd_ptr<IVTResidentStorage> createVTResidentStorage(E_FORMAT _format, uint32_t _extent, uint32_t _layers, uint32_t _tilesPerDim) = 0;
@@ -556,10 +604,19 @@ public:
         m_pgSzxy(1u<<_pgSzxy_log2), m_pgSzxy_log2(_pgSzxy_log2), m_pgtabSzxy_log2(_pgTabSzxy_log2), m_tilePadding(_tilePadding),
         m_pageTableLayerAllocators(core::make_refctd_dynamic_array<decltype(m_pageTableLayerAllocators)>(_pgTabLayers))
     {
-        memset(m_layerToViewIndexMapping.data(), 0xff, MAX_PAGE_TABLE_LAYERS*sizeof(uint32_t));
+        {
+            m_precomputed.pgtab_sz_log2 = _pgTabSzxy_log2;
+            double f = 1.0;
+            f /= static_cast<double>(1u<<(m_pgSzxy_log2+m_pgtabSzxy_log2));
+            m_precomputed.vtex_sz_rcp = f;
+        }
+
+        std::fill(m_precomputed.layer_to_sampler_ix, m_precomputed.layer_to_sampler_ix+MAX_PAGE_TABLE_LAYERS, INVALID_SAMPLER_INDEX);
+        std::fill(m_precomputed.layer_to_phys_pg_tex_sz_rcp, m_precomputed.layer_to_phys_pg_tex_sz_rcp+MAX_PAGE_TABLE_LAYERS, core::nan<float>());
+
         if (_initSharedResources)
         {
-            uint32_t pgtabSzSqr = (1u<<_pgTabSzxy_log2);
+            uint32_t pgtabSzSqr = (1u << _pgTabSzxy_log2);
             pgtabSzSqr *= pgtabSzSqr;
             const size_t spacePerAllocator = pg_tab_addr_alctr_t::reserved_size(pgtabSzSqr, pgtabSzSqr, 1u);
             m_pgTabAddrAlctr_reservedSpc = reinterpret_cast<uint8_t*>( _IRR_ALIGNED_MALLOC(spacePerAllocator*_pgTabLayers, _IRR_SIMD_ALIGNMENT) );
@@ -569,20 +626,16 @@ public:
                 alctr = pg_tab_addr_alctr_t(m_pgTabAddrAlctr_reservedSpc+i*spacePerAllocator, 0u, 0u, pgtabSzSqr, pgtabSzSqr, 1u);
             }
         }
-
-        if (_initSharedResources)
-        {
-            decltype(m_freePageTableLayerIDs)::container_type stackBackend;
-            stackBackend.resize(_pgTabLayers);
-            for (uint32_t i = 0u; i < _pgTabLayers; ++i)
-                stackBackend[i] = _pgTabLayers-1u-i;
-            m_freePageTableLayerIDs = decltype(m_freePageTableLayerIDs)(std::move(stackBackend));
-        }
         {
             const uint32_t pgSzLog2 = getPageExtent_log2();
             bool ok = SMiptailPacker::computeMiptailOffsets(m_miptailOffsets, pgSzLog2, m_tilePadding);
             assert(ok);
         }
+
+        m_addrsArray = core::make_refctd_dynamic_array<decltype(m_addrsArray)>(1u<<(2u*_pgTabSzxy_log2 + 1u));
+        std::fill(m_addrsArray->begin(), m_addrsArray->end(), IVTResidentStorage::phys_pg_addr_alctr_t::invalid_address);
+        m_sizesArray = core::make_refctd_dynamic_array<decltype(m_sizesArray)>(1u<<(2u*_pgTabSzxy_log2 + 1u));
+        std::fill(m_sizesArray->begin(), m_sizesArray->end(), 1u);
     }
 
     virtual STextureData pack(const image_t* _img, const IImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, ISampler::E_TEXTURE_BORDER_COLOR _borderColor) = 0;
@@ -599,26 +652,22 @@ public:
     uint32_t getPageExtent() const { return m_pgSzxy; }
     uint32_t getPageExtent_log2() const { return core::findLSB(m_pgSzxy); }
     uint32_t getTilePadding() const { return m_tilePadding; }
-    const core::stack<uint32_t>& getFreePageTableLayersStack() const { return m_freePageTableLayerIDs; }
-    core::SRange<const uint32_t> getLayerToViewIndexMapping() const { return {m_layerToViewIndexMapping.data(),m_layerToViewIndexMapping.data()+m_pageTable->getCreationParameters().arrayLayers}; }
     const auto& getResidentStorages() const { return m_storage; }
     typename SamplerArray::range_t getFloatViews() const  { return m_fsamplers.getViews(); }
     typename SamplerArray::range_t getIntViews() const { return m_isamplers.getViews(); }
     typename SamplerArray::range_t getUintViews() const { return m_usamplers.getViews(); }
 
-    size_t getLayerToViewIndexLUTBytesize() const
+    inline const auto& getPrecomputedData() const
     {
-        return m_pageTable->getCreationParameters().arrayLayers*sizeof(uint32_t);
+        return m_precomputed;
     }
-    void writeLayerToViewIndexLUTContents(void* _dst, bool _updateFlag = true) const
+
+    struct reset_update_t {};
+    _IRR_STATIC_INLINE_CONSTEXPR reset_update_t reset_update{};
+    const auto& getPrecomputedData(reset_update_t)
     {
-        memcpy(_dst, m_layerToViewIndexMapping.data(), getLayerToViewIndexLUTBytesize());
-        if (_updateFlag)
-            m_layer2viewWasUpdatedSinceLastQuery = false;
-    }
-    bool layerToViewIndexLUTWasUpdated() const
-    {
-        return m_layer2viewWasUpdatedSinceLastQuery;
+        m_precomputedWasUpdatedSinceLastQuery = false;
+        return m_precomputed;
     }
 
     static std::string getGLSLExtensionsIncludePath()
@@ -640,22 +689,19 @@ public:
     }
 
 protected:
-
-
     template <typename DSlayout_t>
-    auto getDSlayoutBindings_internal(uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    auto getDSlayoutBindings_internal(typename DSlayout_t::SBinding* _outBindings, core::smart_refctd_ptr<sampler_t>* _outSamplers, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
     {
-        using bindings_t = core::smart_refctd_dynamic_array<typename DSlayout_t::SBinding>;
-        using samplers_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<sampler_t>>;
-        using retval_t = std::pair<bindings_t, samplers_t>;
+        const uint32_t bindingCount = 1u+(getFloatViews().size()?1u:0u)+(getIntViews().size()?1u:0u)+(getUintViews().size()?1u:0u);
+        const uint32_t samplerCount = 1u+std::max(getFloatViews().size(), std::max(getIntViews().size(), getUintViews().size()));
+        if (!_outBindings || !_outSamplers)
+            return std::make_pair(bindingCount, samplerCount);
 
-        auto bindings_array = core::make_refctd_dynamic_array<bindings_t>(1u+(getFloatViews().size()?1u:0u)+(getIntViews().size()?1u:0u)+(getUintViews().size()?1u:0u));
-        auto* bindings = bindings_array->data();
-        auto samplers_array = core::make_refctd_dynamic_array<samplers_t>(1u+std::max(getFloatViews().size(), std::max(getIntViews().size(), getUintViews().size())));
-        auto* samplers = samplers_array->data();
+        auto* bindings = _outBindings;
+        auto* samplers = _outSamplers;
 
         samplers[0] = getPageTableSampler();
-        std::fill(samplers_array->begin()+1, samplers_array->end(), getPhysicalPageSampler());
+        std::fill(samplers+1, samplers+samplerCount, getPhysicalPageSampler());
 
         auto fillBinding = [](auto& bnd, uint32_t _binding, uint32_t _count, core::smart_refctd_ptr<sampler_t>* _samplers) {
             bnd.binding = _binding;
@@ -683,22 +729,20 @@ protected:
             fillBinding(bindings[i], _usamplersBinding, getUintViews().size(), samplers+1);
         }
 
-        return retval_t{std::move(bindings_array), std::move(samplers_array)};
+        return std::make_pair(bindingCount, samplerCount);
     }
-    template <typename DS_t>
-    auto getDescriptorSetWrites_internal(DS_t* _dstSet, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
-    {
-        using writes_t = core::smart_refctd_dynamic_array<typename DS_t::SWriteDescriptorSet>;
-        using info_t = core::smart_refctd_dynamic_array<typename DS_t::SDescriptorInfo>;
-        using retval_t = std::pair<writes_t, info_t>;
 
+    template <typename DS_t>
+    auto getDescriptorSetWrites_internal(typename DS_t::SWriteDescriptorSet* _outWrites, typename DS_t::SDescriptorInfo* _outInfo, DS_t* _dstSet, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    {
         const uint32_t writeCount = 1u+(getFloatViews().size()?1u:0u)+(getIntViews().size()?1u:0u)+(getUintViews().size()?1u:0u);
         const uint32_t infoCount = 1u + getFloatViews().size() + getIntViews().size() + getUintViews().size();
 
-        auto writes_array = core::make_refctd_dynamic_array<writes_t>(writeCount);
-        auto* writes = writes_array->data();
-        auto info_array = core::make_refctd_dynamic_array<info_t>(infoCount);
-        auto* info = info_array->data();
+        if (!_outWrites || !_outInfo)
+            return std::make_pair(writeCount, infoCount);
+
+        auto* writes = _outWrites;
+        auto* info = _outInfo;
 
         writes[0].binding = _pgtBinding;
         writes[0].arrayElement = 0u;
@@ -760,7 +804,7 @@ protected:
             ++i;
         }
 
-        return retval_t{std::move(writes_array),std::move(info_array)};
+        return std::make_pair(writeCount, infoCount);
     }
 };
 

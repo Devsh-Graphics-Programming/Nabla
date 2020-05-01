@@ -31,6 +31,8 @@ R"(
 #ifndef _IRR_BUILTIN_GLSL_VIRTUAL_TEXTURING_DESCRIPTORS_INCLUDED_
 #define _IRR_BUILTIN_GLSL_VIRTUAL_TEXTURING_DESCRIPTORS_INCLUDED_
 
+#define _IRR_VT_MAX_PAGE_TABLE_LAYERS 256
+
 #ifndef _IRR_VT_DESCRIPTOR_SET
 #define _IRR_VT_DESCRIPTOR_SET 0
 #endif
@@ -43,11 +45,11 @@ R"(
 #endif
 #ifndef _IRR_VT_INT_VIEWS
 #define _IRR_VT_INT_VIEWS_BINDING 2
-#define _IRR_VT_INT_VIEWS_COUNT 15
+#define _IRR_VT_INT_VIEWS_COUNT 0
 #endif
 #ifndef _IRR_VT_UINT_VIEWS
 #define _IRR_VT_UINT_VIEWS_BINDING 3
-#define _IRR_VT_UINT_VIEWS_COUNT 15
+#define _IRR_VT_UINT_VIEWS_COUNT 0
 #endif
 
 layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_PAGE_TABLE_BINDING) uniform usampler2DArray pageTable;
@@ -174,7 +176,7 @@ vec3 irr_glsl_vTexture_helper(in uint formatID, in vec3 virtualUV, in int clippe
     uvec2 pageID = textureLod(pageTable,virtualUV,clippedLoD).xy;
 
 	const uint pageTableSizeLog2 = irr_glsl_VT_getPgTabSzLog2();
-    const float phys_pg_tex_sz_rcp = irr_glsl_VT_getPhysPgTexSzRcp(formatID);
+    const float phys_pg_tex_sz_rcp = irr_glsl_VT_getPhysPgTexSzRcp(uint(virtualUV.z));
 	// assert that pageTableSizeLog2<23
 
 	// this will work because pageTables are always square and PoT and IEEE754
@@ -210,7 +212,7 @@ vec4 irr_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOr
 	// https://www.khronos.org/registry/vulkan/specs/1.2-extensions/html/chap15.html#textures-normalized-operations
 	const float kMaxAnisotropy = float(2u*TILE_PADDING);
 	// you can use an approx `log2` if you know one
-#if _IRR_APPROXIMATE_FOOTPRINT_CALC_
+#ifdef _IRR_APPROXIMATE_TEXEL_FOOTPRINT_FROM_DERIVATIVE_CACL_
 	// bounded by sqrt(2)
 	float p_x_2_log2 = log2(irr_glsl_lengthManhattan(dOriginalScaledUV[0]));
 	float p_y_2_log2 = log2(irr_glsl_lengthManhattan(dOriginalScaledUV[1]));
@@ -225,7 +227,7 @@ vec4 irr_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOr
 	float p_max_2_log2 = xIsMajor ? p_x_2_log2:p_y_2_log2;
 
 	float LoD = max(p_min_2_log2,p_max_2_log2-kMaxAnisoLogOffset);
-#if _IRR_APPROXIMATE_FOOTPRINT_CALC_
+#ifdef _IRR_APPROXIMATE_TEXEL_FOOTPRINT_FROM_DERIVATIVE_CACL_
 	LoD += 0.5;
 #else
 	LoD *= 0.5;

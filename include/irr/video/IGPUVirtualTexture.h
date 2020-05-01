@@ -11,6 +11,22 @@ namespace irr {
 namespace video
 {
 
+namespace impl
+{
+inline core::smart_refctd_ptr<IGPUImage> createGPUImageFromCPU(IVideoDriver* _driver, asset::ICPUImage* _cpuimg)
+{
+    auto params = _cpuimg->getCreationParameters();
+    auto img = _driver->createDeviceLocalGPUImageOnDedMem(std::move(params));
+
+    auto regions = _cpuimg->getRegions();
+    assert(regions.size());
+    auto texelBuf = _driver->createFilledDeviceLocalGPUBufferOnDedMem(_cpuimg->getBuffer()->getSize(), _cpuimg->getBuffer()->getPointer());
+    _driver->copyBufferToImage(texelBuf.get(), img.get(), regions.size(), regions.begin());
+
+    return img;
+}
+}
+
 class IGPUVirtualTexture final : public asset::IVirtualTexture<video::IGPUImageView, video::IGPUSampler>
 {
     using base_t = asset::IVirtualTexture<video::IGPUImageView, video::IGPUSampler>;
@@ -23,28 +39,11 @@ protected:
         using base_t = base_t::IVTResidentStorage;
         using cpu_counterpart_t = asset::ICPUVirtualTexture::ICPUVTResidentStorage;
 
-        static core::smart_refctd_ptr<IGPUImage> createGPUImageFromCPU(IVideoDriver* _driver, asset::IAssetManager* _am, asset::ICPUImage* _cpuimg)
-        {
-            auto params = _cpuimg->getCreationParameters();
-            auto img = _driver->createDeviceLocalGPUImageOnDedMem(std::move(params));
-
-            auto regions = _cpuimg->getRegions();
-            if (regions.size())
-            {
-                auto texelBuf = _driver->createFilledDeviceLocalGPUBufferOnDedMem(_cpuimg->getBuffer()->getSize(), _cpuimg->getBuffer()->getPointer());
-                _driver->copyBufferToImage(texelBuf.get(), img.get(), regions.size(), regions.begin());
-            }
-            _am->convertAssetToEmptyCacheHandle(_cpuimg, core::smart_refctd_ptr(img));
-
-            return img;
-        }
-
     public:
-        IGPUVTResidentStorage(IVideoDriver* _driver, asset::IAssetManager* _am, const cpu_counterpart_t* _cpuStorage) :
+        IGPUVTResidentStorage(IVideoDriver* _driver, const cpu_counterpart_t* _cpuStorage) :
             //TODO awaiting fix: base_t ctor should copy addr alctr state from cpu counterpart
             base_t(
-                createGPUImageFromCPU(_driver, _am, _cpuStorage->image.get()),
-                _cpuStorage->m_assignedPageTableLayers,
+                impl::createGPUImageFromCPU(_driver, _cpuStorage->image.get()),
                 _cpuStorage->m_decodeAddr_layerShift,
                 _cpuStorage->m_decodeAddr_xMask
             ),
@@ -84,7 +83,7 @@ public:
         const base_t::IVTResidentStorage::SCreationParams* _residentStorageParams,
         uint32_t _residentStorageCount,
         uint32_t _pgSzxy_log2 = 7u,
-        uint32_t _pgTabLayers = 256u,
+        uint32_t _pgTabLayers = 32u,
         uint32_t _tilePadding = 9u,
         uint32_t _maxAllocatableTexSz_log2 = 14u
     ) :
@@ -99,7 +98,7 @@ public:
         m_pageTable = createPageTable(m_pgtabSzxy_log2, _pgTabLayers, _pgSzxy_log2, _maxAllocatableTexSz_log2);
         initResidentStorage(_residentStorageParams, _residentStorageCount);
     }
-    IGPUVirtualTexture(IVideoDriver* _driver, asset::IAssetManager* _am, asset::ICPUVirtualTexture* _cpuvt) :
+    IGPUVirtualTexture(IVideoDriver* _driver, asset::ICPUVirtualTexture* _cpuvt) :
         base_t(
             _cpuvt->getPageTableExtent_log2(),
             _cpuvt->getPageTable()->getCreationParameters().arrayLayers,
@@ -113,10 +112,11 @@ public:
         //and convert to GPU those which can't be "shared": page table and VT resident storages along with their images and views
 
         auto* cpuPgt = _cpuvt->getPageTable();
-        m_pageTable = std::move(_driver->getGPUObjectsFromAssets(&cpuPgt, &cpuPgt+1)->front());
+        m_pageTable = impl::createGPUImageFromCPU(m_driver, cpuPgt);
 
-        m_freePageTableLayerIDs = _cpuvt->getFreePageTableLayersStack();
-        _cpuvt->writeLayerToViewIndexLUTContents(m_layerToViewIndexMapping.data(), false);
+        m_precomputed = _cpuvt->getPrecomputedData(asset::ICPUVirtualTexture::reset_update);
+
+        //TODO copy m_viewFormatToLayer from cpuvt
 
         const auto& cpuStorages = _cpuvt->getResidentStorages();
         for (const auto& pair : cpuStorages)
@@ -124,12 +124,26 @@ public:
             auto* cpuStorage = static_cast<asset::ICPUVirtualTexture::ICPUVTResidentStorage*>(pair.second.get());
             const asset::E_FORMAT_CLASS fmtClass = pair.first;
 
-            m_storage.insert({fmtClass, core::make_smart_refctd_ptr<IGPUVTResidentStorage>(_driver, _am, cpuStorage)});
+            m_storage.insert({fmtClass, core::make_smart_refctd_ptr<IGPUVTResidentStorage>(_driver, cpuStorage)});
         }
 
-        m_fsamplers.views = _cpuvt->getFloatViews().size() ? _driver->getGPUObjectsFromAssets(_cpuvt->getFloatViews().begin(), _cpuvt->getFloatViews().end()) : nullptr;
-        m_isamplers.views = _cpuvt->getIntViews().size() ? _driver->getGPUObjectsFromAssets(_cpuvt->getIntViews().begin(), _cpuvt->getIntViews().end()) : nullptr;
-        m_usamplers.views = _cpuvt->getUintViews().size() ? _driver->getGPUObjectsFromAssets(_cpuvt->getUintViews().begin(), _cpuvt->getUintViews().end()) : nullptr;
+        auto createViewsFromCPU = [this](core::smart_refctd_ptr<IGPUImageView>* _dst, core::SRange<const core::smart_refctd_ptr<asset::ICPUImageView>> _src) -> void
+        {
+            for (uint32_t i = 0u; i < _src.size(); ++i)
+            {
+                const auto& v = _src.begin()[i];
+                const asset::E_FORMAT format = v->getCreationParameters().format;
+
+                const auto& storage = m_storage.find(asset::getFormatClass(format))->second;
+                _dst[i] = storage->createView(format);
+            }
+        };
+        m_fsamplers.views = _cpuvt->getFloatViews().size() ? core::make_refctd_dynamic_array<decltype(m_fsamplers.views)>(_cpuvt->getFloatViews().size()) : nullptr;
+        createViewsFromCPU(m_fsamplers.views->data(), _cpuvt->getFloatViews());
+        m_isamplers.views = _cpuvt->getIntViews().size() ? core::make_refctd_dynamic_array<decltype(m_isamplers.views)>(_cpuvt->getIntViews().size()) : nullptr;
+        createViewsFromCPU(m_isamplers.views->data(), _cpuvt->getIntViews());
+        m_usamplers.views = _cpuvt->getUintViews().size() ? core::make_refctd_dynamic_array<decltype(m_usamplers.views)>(_cpuvt->getUintViews().size()) : nullptr;
+        createViewsFromCPU(m_usamplers.views->data(), _cpuvt->getUintViews());
     }
 
     STextureData pack(const image_t* _img, const asset::IImage::SSubresourceRange& _subres, asset::ISampler::E_TEXTURE_CLAMP _wrapu, asset::ISampler::E_TEXTURE_CLAMP _wrapv, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor) override
@@ -138,20 +152,20 @@ public:
         return STextureData::invalid();
     }
 
-    bool free(const STextureData& _addr, const asset::IImage* _img, const asset::IImage::SSubresourceRange& _subres) override
+    bool free(const STextureData& _addr, const asset::IImage* _img) override
     {
         assert(0);
         return false;
     }
 
-    auto getDSlayoutBindings(uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    auto getDSlayoutBindings(IGPUDescriptorSetLayout::SBinding* _outBindings, core::smart_refctd_ptr<IGPUSampler>* _outSamplers, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
     {
-        return getDSlayoutBindings_internal<IGPUDescriptorSetLayout>(_pgtBinding, _fsamplersBinding, _isamplersBinding, _usamplersBinding);
+        return getDSlayoutBindings_internal<IGPUDescriptorSetLayout>(_outBindings, _outSamplers, _pgtBinding, _fsamplersBinding, _isamplersBinding, _usamplersBinding);
     }
 
-    auto getDescriptorSetWrites(IGPUDescriptorSet* _dstSet, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    auto getDescriptorSetWrites(IGPUDescriptorSet::SWriteDescriptorSet* _outWrites, IGPUDescriptorSet::SDescriptorInfo* _outInfo, IGPUDescriptorSet* _dstSet, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
     {
-        return getDescriptorSetWrites_internal<IGPUDescriptorSet>(_dstSet, _pgtBinding, _fsamplersBinding, _isamplersBinding, _usamplersBinding);
+        return getDescriptorSetWrites_internal<IGPUDescriptorSet>(_outWrites, _outInfo, _dstSet, _pgtBinding, _fsamplersBinding, _isamplersBinding, _usamplersBinding);
     }
 
 protected:

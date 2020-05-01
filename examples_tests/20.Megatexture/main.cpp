@@ -34,17 +34,12 @@ R"(
 #define _IRR_VT_UINT_VIEWS
 #include <irr/builtin/glsl/virtual_texturing/descriptors.glsl>
 
-#define VT_COUNT 3
-layout (set = 2, binding = 1, std430) readonly restrict buffer LUT
-{
-    uint lut[];
-} layer2pid;
-
-layout (set = 2, binding = 0, std140) uniform PrecomputedStuffUBO
+layout (set = 2, binding = 0, std430) restrict readonly buffer PrecomputedStuffSSBO
 {
     uint pgtab_sz_log2;
     float vtex_sz_rcp;
-    float phys_pg_tex_sz_rcp[VT_COUNT];
+    float phys_pg_tex_sz_rcp[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
+    uint layer_to_sampler_ix[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
 } precomputed;
 #endif
 #define _IRR_FRAG_SET3_BINDINGS_DEFINED_
@@ -95,15 +90,15 @@ R"(
 
 uint irr_glsl_VT_layer2pid(in uint layer)
 {
-    return layer2pid.lut[layer];
+    return precomputed.layer_to_sampler_ix[layer];
 }
 uint irr_glsl_VT_getPgTabSzLog2()
 {
     return precomputed.pgtab_sz_log2;
 }
-float irr_glsl_VT_getPhysPgTexSzRcp(in uint _formatID)
+float irr_glsl_VT_getPhysPgTexSzRcp(in uint layer)
 {
-    return precomputed.phys_pg_tex_sz_rcp[_formatID];
+    return precomputed.phys_pg_tex_sz_rcp[layer];
 }
 float irr_glsl_VT_getVTexSzRcp()
 {
@@ -395,23 +390,22 @@ int main()
 
     core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds0layout;
     {
-        auto bindings = vt->getDSlayoutBindings(PGTAB_BINDING, PHYSICAL_STORAGE_VIEWS_BINDING);
+        auto sizes = vt->getDSlayoutBindings(nullptr, nullptr);
+        auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSetLayout::SBinding>>(sizes.first);
+        auto samplers = core::make_refctd_dynamic_array< core::smart_refctd_dynamic_array<core::smart_refctd_ptr<asset::ICPUSampler>>>(sizes.second);
 
-        ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings.first->data(), bindings.first->data()+bindings.first->size());
+        vt->getDSlayoutBindings(bindings->data(), samplers->data(), PGTAB_BINDING, PHYSICAL_STORAGE_VIEWS_BINDING);
+
+        ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings->data(), bindings->data()+bindings->size());
     }
     core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds2layout;
     {
-        std::array<asset::ICPUDescriptorSetLayout::SBinding,2> bnd;
+        std::array<asset::ICPUDescriptorSetLayout::SBinding,1> bnd;
         bnd[0].binding = 0u;
         bnd[0].count = 1u;
         bnd[0].samplers = nullptr;
         bnd[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-        bnd[0].type = asset::EDT_UNIFORM_BUFFER;
-        bnd[1].binding = 1u;
-        bnd[1].count = 1u;
-        bnd[1].samplers = nullptr;
-        bnd[1].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-        bnd[1].type = asset::EDT_STORAGE_BUFFER;
+        bnd[0].type = asset::EDT_STORAGE_BUFFER;
         ds2layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bnd.data(),bnd.data()+bnd.size());
     }
 
@@ -510,14 +504,18 @@ int main()
         //optionally adjust push constant ranges, but at worst it'll just be specified too much because MTL uses all 128 bytes
     }
 
-    auto gpuvt = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(driver, am, vt.get());
+    auto gpuvt = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(driver, vt.get());
 
     auto gpuds0layout = driver->getGPUObjectsFromAssets(&ds0layout.get(), &ds0layout.get()+1)->front();
     auto gpuds0 = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuds0layout));//intentionally not moving layout
     {
-        auto writes = gpuvt->getDescriptorSetWrites(gpuds0.get(), PGTAB_BINDING, PHYSICAL_STORAGE_VIEWS_BINDING);
+        auto sizes = gpuvt->getDescriptorSetWrites(nullptr, nullptr, nullptr);
+        auto writes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<video::IGPUDescriptorSet::SWriteDescriptorSet>>(sizes.first);
+        auto info = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<video::IGPUDescriptorSet::SDescriptorInfo>>(sizes.second);
 
-        driver->updateDescriptorSets(writes.first->size(), writes.first->data(), 0u, nullptr);
+        gpuvt->getDescriptorSetWrites(writes->data(), info->data(), gpuds0.get(), PGTAB_BINDING, PHYSICAL_STORAGE_VIEWS_BINDING);
+
+        driver->updateDescriptorSets(writes->size(), writes->data(), 0u, nullptr);
     }
 
     //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
@@ -566,41 +564,11 @@ int main()
     core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> gpu_ds2layout = driver->getGPUObjectsFromAssets(&ds2layout.get(),&ds2layout.get()+1)->front();
     auto gpuds2 = driver->createGPUDescriptorSet(std::move(gpu_ds2layout));
     {
-        core::smart_refctd_ptr<video::IGPUBuffer> buffer;
-
-        struct {
-            uint32_t pgtab_sz_log2;
-            float vtex_sz_rcp;
-            struct alignas(16)
-            {
-                float f;
-            } phys_pg_tex_sz_rcp[VT_COUNT];
-        } precomputedStuffUBO;
-        precomputedStuffUBO.pgtab_sz_log2 = core::findMSB(gpuvt->getPageTable()->getCreationParameters().extent.width);
-        {
-            double f = 1.0;
-            f /= static_cast<double>(gpuvt->getPageTable()->getCreationParameters().extent.width);
-            f /= static_cast<double>(gpuvt->getPageExtent());
-            precomputedStuffUBO.vtex_sz_rcp = f;
-        }
-        for (uint32_t i = 0u; i < VT_COUNT; ++i)
-        {
-            const auto& storageImg = gpuvt->getFloatViews().begin()[i]->getCreationParameters().image;
-            const double f = 1.0 / static_cast<double>(storageImg->getCreationParameters().extent.width);
-            precomputedStuffUBO.phys_pg_tex_sz_rcp[i].f = f;
-        }
-
-        const uint32_t lutSz = gpuvt->getLayerToViewIndexMapping().size()*sizeof(uint32_t);
-        uint32_t lut[PGTAB_LAYERS]{};
-        assert(sizeof(lut)>=lutSz);
-        memcpy(lut, gpuvt->getLayerToViewIndexMapping().begin(), lutSz);
-        const uint32_t lutOffset = core::alignUp(sizeof(precomputedStuffUBO), driver->getRequiredSSBOAlignment());
-        buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(lutOffset+lutSz, &precomputedStuffUBO);
-        driver->updateBufferRangeViaStagingBuffer(buffer.get(), lutOffset, lutSz, lut);
+        core::smart_refctd_ptr<video::IGPUBuffer> buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(video::IGPUVirtualTexture::SPrecomputedData), &gpuvt->getPrecomputedData());
 
         {
-            std::array<video::IGPUDescriptorSet::SWriteDescriptorSet,2> write;
-            video::IGPUDescriptorSet::SDescriptorInfo info[2];
+            std::array<video::IGPUDescriptorSet::SWriteDescriptorSet,1> write;
+            video::IGPUDescriptorSet::SDescriptorInfo info[1];
 
             write[0].arrayElement = 0u;
             write[0].binding = 0u;
@@ -610,17 +578,7 @@ int main()
             write[0].info = info;
             write[0].info->desc = buffer;
             write[0].info->buffer.offset = 0u;
-            write[0].info->buffer.size = sizeof(precomputedStuffUBO);
-
-            write[1].arrayElement = 0u;
-            write[1].binding = 1u;
-            write[1].count = 1u;
-            write[1].descriptorType = asset::EDT_STORAGE_BUFFER;
-            write[1].dstSet = gpuds2.get();
-            write[1].info = info+1;
-            write[1].info->desc = buffer;
-            write[1].info->buffer.offset = lutOffset;
-            write[1].info->buffer.size = lutSz;
+            write[0].info->buffer.size = sizeof(video::IGPUVirtualTexture::SPrecomputedData);
 
             driver->updateDescriptorSets(write.size(), write.data(), 0u, nullptr);
         }

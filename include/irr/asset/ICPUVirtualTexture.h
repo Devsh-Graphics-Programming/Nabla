@@ -92,32 +92,31 @@ public:
                 return STextureData::invalid();
             smplrIndex = std::distance(views->views->begin(), view_it);
         }
-        auto assignedLayers = storage->getPageTableLayers();
+        auto assignedLayers = getPageTableLayersForFormat(format);
 
         page_tab_offset_t pgtOffset = page_tab_offset_invalid();
         for (auto it = assignedLayers.first; it != assignedLayers.second; ++it)
         {
-            pgtOffset = alloc(_img, _subres, *it);
+            pgtOffset = alloc(_img, _subres, it->second);
             if ((pgtOffset==page_tab_offset_invalid()).all())
                 continue;
         }
         if ((pgtOffset==page_tab_offset_invalid()).all())
         {
-            if (m_freePageTableLayerIDs.empty())
+            const uint32_t pgtLayer = findFreePageTableLayer();
+            if (pgtLayer==INVALID_LAYER_INDEX)
                 return STextureData::invalid();
-            const uint32_t pgtLayer = m_freePageTableLayerIDs.top();
             pgtOffset = alloc(_img, _subres, pgtLayer);
             if ((pgtOffset==page_tab_offset_invalid()).all())//this would be super weird but let's check
                 return STextureData::invalid();
-            m_freePageTableLayerIDs.pop();
-            storage->addPageTableLayer(pgtLayer);
+            addPageTableLayerForFormat(format, pgtLayer);
 
-            m_layerToViewIndexMapping[pgtLayer] = smplrIndex;
+            updatePrecomputedData(pgtLayer, smplrIndex, storage->getReciprocalSize());
         }
 
         const auto extent = _img->getCreationParameters().extent;
 
-        const uint32_t levelsTakingAtLeastOnePageCount = countLevelsTakingAtLeastOnePage(extent, _subres);
+        const uint32_t levelsTakingAtLeastOnePageCount = countLevelsTakingAtLeastOnePage(extent, _subres.baseMipLevel);
         const uint32_t levelsToPack = std::min(_subres.levelCount, m_pageTable->getCreationParameters().mipLevels+m_pgSzxy_log2);
 
         uint32_t miptailPgAddr = SPhysPgOffset::invalid_addr;
@@ -152,7 +151,7 @@ public:
                     //assert(physPgAddr<SPhysPgOffset::invalid_addr);
                     if (physPgAddr==phys_pg_addr_alctr_t::invalid_address)
                     {
-                        free(offsetToTextureData(pgtOffset, _img, _wrapu, _wrapv), _img, _subres);
+                        free(offsetToTextureData(pgtOffset, _img, _wrapu, _wrapv), _img);
                         return STextureData::invalid();
                     }
 
@@ -228,7 +227,7 @@ public:
         return offsetToTextureData(pgtOffset, _img, _wrapu, _wrapv);
     }
 
-    bool free(const STextureData& _addr, const IImage* _img, const IImage::SSubresourceRange& _subres) override
+    bool free(const STextureData& _addr, const IImage* _img) override
     {
         const E_FORMAT format = _img->getCreationParameters().format;
         ICPUVTResidentStorage* storage = static_cast<ICPUVTResidentStorage*>(getStorageForFormatClass(getFormatClass(format)));
@@ -236,8 +235,8 @@ public:
             return nullptr;
 
         //free physical pages
-        auto extent = _img->getCreationParameters().extent;
-        const uint32_t levelCount = countLevelsTakingAtLeastOnePage(extent, _subres);
+        VkExtent3D extent = {_addr.origsize_x, _addr.origsize_y, 1u};
+        const uint32_t levelCount = countLevelsTakingAtLeastOnePage(extent);
 
 #ifdef _IRR_DEBUG
         CFillImageFilter::state_type fill;
@@ -250,11 +249,14 @@ public:
 
         using phys_pg_addr_alctr_t = ICPUVTResidentStorage::phys_pg_addr_alctr_t;
 
+        uint32_t addrsOffset = 0u;
+        std::fill(m_addrsArray->begin(), m_addrsArray->end(), IVTResidentStorage::phys_pg_addr_alctr_t::invalid_address);
+
         auto* const bufptr = reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer());
         for (uint32_t i = 0u; i < levelCount; ++i)
         {
-            const uint32_t w = neededPageCountForSide(extent.width, _subres.baseMipLevel+i);
-            const uint32_t h = neededPageCountForSide(extent.height, _subres.baseMipLevel+i);
+            const uint32_t w = neededPageCountForSide(extent.width, i);
+            const uint32_t h = neededPageCountForSide(extent.height, i);
 
             const auto& region = m_pageTable->getRegions().begin()[i];
             const auto strides = region.getByteStrides(TexelBlockInfo(m_pageTable->getCreationParameters().format));
@@ -264,13 +266,16 @@ public:
                 {
                     uint32_t* texelptr = reinterpret_cast<uint32_t*>(bufptr + region.getByteOffset(core::vector4du32_SIMD((_addr.pgTab_x>>i) + x, (_addr.pgTab_y>>i) + y, 0u, _addr.pgTab_layer), strides));
                     SPhysPgOffset physPgOffset = *texelptr;
-                    if (storage->physPgOffset_valid(physPgOffset))
+
+                    (*m_addrsArray)[addrsOffset + y*w + x] = physPgOffset.addr&0xffffu;
+                    if (storage->physPgOffset_hasMipTailAddr(physPgOffset))
                     {
-                        uint32_t addrs[2] { physPgOffset.addr&0xffffu, storage->physPgOffset_mipTailAddr(physPgOffset).addr&0xffffu };
-                        const uint32_t szs[2]{ 1u,1u };
-                        core::address_allocator_traits<phys_pg_addr_alctr_t>::multi_free_addr(storage->tileAlctr, storage->physPgOffset_hasMipTailAddr(physPgOffset) ? 2u : 1u, addrs, szs);
+                        assert(i==levelCount-1u && w==1u && h==1u);
+                        (*m_addrsArray)[addrsOffset + y*w + x + 1u] = storage->physPgOffset_mipTailAddr(physPgOffset).addr&0xffffu;
                     }
                 }
+
+            addrsOffset += w*h;
 #ifdef _IRR_DEBUG
             fill.subresource.mipLevel = i;
             fill.outRange.offset = {static_cast<uint32_t>(_addr.pgTab_x>>i),static_cast<uint32_t>(_addr.pgTab_y>>i),0u};
@@ -279,21 +284,23 @@ public:
 #endif
         }
 
+        core::address_allocator_traits<phys_pg_addr_alctr_t>::multi_free_addr(storage->tileAlctr, m_addrsArray->size(), m_addrsArray->data(), m_addrsArray->data());
+
         //free entries in page table
-        if (!base_t::free(_addr, _img, _subres))
+        if (!base_t::free(_addr, _img))
             return false;
 
         return true;
     }
 
-    auto getDSlayoutBindings(uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    auto getDSlayoutBindings(ICPUDescriptorSetLayout::SBinding* _outBindings, core::smart_refctd_ptr<ICPUSampler>* _outSamplers, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
     {
-        return getDSlayoutBindings_internal<ICPUDescriptorSetLayout>(_pgtBinding, _fsamplersBinding, _isamplersBinding, _usamplersBinding);
+        return getDSlayoutBindings_internal<ICPUDescriptorSetLayout>(_outBindings, _outSamplers, _pgtBinding, _fsamplersBinding, _isamplersBinding, _usamplersBinding);
     }
 
-    auto getDescriptorSetWrites(ICPUDescriptorSet* _dstSet, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    auto getDescriptorSetWrites(ICPUDescriptorSet::SWriteDescriptorSet* _outWrites, ICPUDescriptorSet::SDescriptorInfo* _outInfo, ICPUDescriptorSet* _dstSet, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
     {
-        return getDescriptorSetWrites_internal<ICPUDescriptorSet>(_dstSet, _pgtBinding, _fsamplersBinding, _isamplersBinding, _usamplersBinding);
+        return getDescriptorSetWrites_internal<ICPUDescriptorSet>(_outWrites, _outInfo, _dstSet, _pgtBinding, _fsamplersBinding, _isamplersBinding, _usamplersBinding);
     }
 
 protected:
