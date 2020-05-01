@@ -37,7 +37,7 @@ namespace video
 /** This interface only deals with OpenGL and Vulkan concepts which do not require a command to be recorded in a command buffer
 and then submitted to a command queue, i.e. functions which only require VkDevice or VkPhysicalDevice.
 Examples of such functionality are the creation of buffers, textures, etc.*/
-class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityReporter
+class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityReporter, public core::QuitSignalling
 {
     protected:
 		core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultDownloadBuffer;

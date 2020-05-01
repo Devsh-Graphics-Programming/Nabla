@@ -798,34 +798,13 @@ bool COpenGLDriver::deinitAuxContext()
 #endif // _IRR_COMPILE_WITH_X11_DEVICE_
 
 
-// -----------------------------------------------------------------------
-// SDL CONSTRUCTOR
-// -----------------------------------------------------------------------
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-//! SDL constructor and init code
-COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceSDL* device, const asset::IGLSLCompiler* glslcomp)
-		: CNullDriver(device, io, Params), COpenGLExtensionHandler(),
-			runningInRenderDoc(false), ColorFormat(EF_R8G8B8_UNORM),
-			CurrentTarget(ERT_FRAME_BUFFER),
-			SDLDevice(device), DeviceType(EIDT_SDL), AuxContexts(0), GLSLCompiler(glslcomp)
-{
-	#ifdef _IRR_DEBUG
-	setDebugName("COpenGLDriver");
-	#endif
-
-	genericDriverInit(device->getAssetManager());
-}
-
-#endif // _IRR_COMPILE_WITH_SDL_DEVICE_
-
-
 //! destructor
 COpenGLDriver::~COpenGLDriver()
 {
 	if (!AuxContexts) //opengl dead and never initialized in the first place
 		return;
 
+    quitEventHandler.execute();
     cleanUpContextBeforeDelete();
 
     //! Spin wait for other contexts to deinit
@@ -1010,7 +989,7 @@ bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
     if (dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
 #else
     if (false)
-#endif // LINUX
+#endif
         runningInRenderDoc = true;
 
 	Name=L"OpenGL ";
@@ -1329,12 +1308,12 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     if (glUnspec->containsGLSL()) {
         std::string glsl = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
         asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions().get());
-        auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, "????");
+        auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.c_str());
         core::smart_refctd_ptr<asset::ICPUBuffer> spvCode = GLSLCompiler->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,
                 EP.c_str(),
-                "????"
+               _specInfo.m_filePathHint.c_str()
             );
 
         if (!spvCode)
@@ -1401,19 +1380,25 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
 
         spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spvCode));
     }
-    else {
+    else
         spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr<asset::ICPUBuffer>(glUnspec->m_code));
+
+    asset::CShaderIntrospector::SIntrospectionParams introspectionParams{ _specInfo.shaderStage, _specInfo.entryPoint, getSupportedGLSLExtensions(), _specInfo.m_filePathHint};
+    asset::CShaderIntrospector introspector(GLSLCompiler.get()); // TODO: shouldn't the introspection be cached for all calls to `createGPUSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
+    const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
+    if (!introspection)
+    {
+        _IRR_DEBUG_BREAK_IF(true);
+        os::Printer::log("Unable to introspect the SPIR-V shader to extract information about bindings and push constants. Creation failed.", ELL_ERROR);
+        return nullptr;
     }
 
-    asset::CShaderIntrospector::SEntryPoint_Stage_Extensions introspectionParams{ _specInfo.shaderStage, _specInfo.entryPoint, getSupportedGLSLExtensions()};
-    asset::CShaderIntrospector introspector(GLSLCompiler.get());
-    const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
     core::vector<COpenGLSpecializedShader::SUniform> uniformList;
     if (!COpenGLSpecializedShader::getUniformsFromPushConstants(&uniformList,introspection))
     {
         _IRR_DEBUG_BREAK_IF(true);
         os::Printer::log("Attempted to create OpenGL GPU specialized shader from SPIR-V without debug info - unable to set push constants. Creation failed.", ELL_ERROR);
-        return nullptr;//release build: maybe let it return the shader
+        return nullptr;
     }
 
     auto ctx = getThreadContext_helper(false);
