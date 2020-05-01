@@ -190,7 +190,7 @@ public:
 
 	//!
 	template<E_QUANT_NORM_CACHE_TYPE CacheType>
-	bool loadNormalQuantCacheFromBuffer(const SBufferRange<ICPUBuffer>& buffer, bool replaceCurrentContents = false)
+	inline bool loadNormalQuantCacheFromBuffer(const SBufferRange<ICPUBuffer>& buffer, bool replaceCurrentContents = false)
 	{
 		//additional validation would be nice imo..
 
@@ -245,8 +245,56 @@ public:
 	}
 
 	//!
+	template<E_QUANT_NORM_CACHE_TYPE CacheType>
+	inline bool loadNormalQuantCacheFromFile(io::IReadFile* file, bool replaceCurrentContents = false)
+	{
+		if (!file)
+			return false;
+
+		asset::SBufferRange<asset::ICPUBuffer> bufferRange;
+		bufferRange.offset = 0;
+		bufferRange.size = file->getSize();
+		bufferRange.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(file->getSize());
+
+		file->read(bufferRange.buffer->getPointer(), bufferRange.size);
+
+		loadNormalQuantCacheFromBuffer<CacheType>(bufferRange, replaceCurrentContents);
+		return true;
+	}
+
+	//!
+	template<E_QUANT_NORM_CACHE_TYPE CacheType>
+	inline bool loadNormalQuantCacheFromFile(io::IFileSystem* fs, const std::string& path, bool replaceCurrentContents = false)
+	{
+		auto file = core::smart_refctd_ptr<io::IReadFile>(fs->createAndOpenFile(path.c_str()),core::dont_grab);
+		return loadNormalQuantCacheFromFile<CacheType>(file.get(),replaceCurrentContents);
+	}
+
+	//!
 	bool saveCacheToBuffer(const E_QUANT_NORM_CACHE_TYPE type, SBufferBinding<ICPUBuffer>& buffer);
 
+	//!
+	inline bool saveCacheToFile(const E_QUANT_NORM_CACHE_TYPE type, io::IWriteFile* file)
+	{
+		if (!file)
+			return false;
+
+		asset::SBufferBinding<asset::ICPUBuffer> bufferBinding;
+		bufferBinding.offset = 0;
+		bufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(getCacheSizeInBytes(type));
+
+		saveCacheToBuffer(type, bufferBinding);
+		file->write(bufferBinding.buffer->getPointer(), bufferBinding.buffer->getSize());
+		return true;
+	}
+	//!
+	inline bool saveCacheToFile(const E_QUANT_NORM_CACHE_TYPE type, io::IFileSystem* fs, const std::string& path)
+	{
+		auto file = core::smart_refctd_ptr<io::IWriteFile>(fs->createAndWriteFile(path.c_str()));
+		return saveCacheToFile(type,file.get());
+	}
+
+	//!
 	inline size_t getCacheSizeInBytes(E_QUANT_NORM_CACHE_TYPE type) const
 	{
 		constexpr size_t normCacheElementSize2_10_10_10 = sizeof(VectorUV) + sizeof(uint32_t);
