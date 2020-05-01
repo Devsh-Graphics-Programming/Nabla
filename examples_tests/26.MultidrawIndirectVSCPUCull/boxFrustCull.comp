@@ -1,135 +1,43 @@
-//! MAIN DEFINES PROVIDED IN PRE_ATTACHED HEADER
+#version 430 core
+layout(local_size_x = 256) in;
 
-layout(local_size_x = SUBCELL_SIZE, local_size_y = SUBCELL_SIZE) in;
+#include "../common.glsl"
 
-layout(std140, binding = 0) uniform AutoExposureInput {
-	vec4 autoExposureInput[];
+#include "../commonIndirect.glsl"
+layout(set = 1, binding = 1, std430) restrict writeonly buffer CulledDraws
+{
+    DrawElementsIndirectCommand_t outDraws[];
 };
 
-layout(std430, binding = 0) restrict coherent buffer OutputData {
-	uint packedHistogram[];
+layout(set = 1, binding = 2, std430) restrict coherent buffer DrawIndirect
+{
+	uint drawCount[2];
 };
 
-layout(binding=0) uniform sampler2D tex0;
-
-vec2 getTexCoord()
+layout(set = 1, binding = 3, std430) restrict readonly buffer PossibleDraws
 {
-/*  // interleaved warp loading to reduce image locality (getting similar values and hence atomic contention)
-    uint linear = gl_LocalInvocationID.x+32u*(gl_WorkGroupID.x+gl_WorkGroupID.y*gl_NumWorkGroups.x)+gl_LocalInvocationID.y*1024u*32u;
-    uvec2 modifiedGlobalAddr = uvec2(linear&511u,linear>>9u);
-	vec2 tc = vec2(modifiedGlobalAddr)*autoExposureInput[TEXSCALE_UBO_OFFSET].xy;
-*/
-	return vec2(gl_GlobalInvocationID.xy)*autoExposureInput[TEXSCALE_UBO_OFFSET].xy;
-}
+    DrawElementsIndirectCommand_t inDraws[];
+};
 
-
-#define MIN_HISTOGRAM_VAL unpackHalf2x16(MIN_HISTOGRAM_RAW16F_AS_UINT).x
-#define MAX_HISTOGRAM_VAL unpackHalf2x16(MAX_HISTOGRAM_RAW16F_AS_UINT).x
-
-#define LOCAL_THREADS (SUBCELL_SIZE*SUBCELL_SIZE)
-
-//this is the only define you can hope to change and still have working code
-#define LOCAL_REPLICATION_POW 3u
-
-#define LOCAL_REPLICATION (1u<<LOCAL_REPLICATION_POW)
-#define PADDED_BIN_COUNTu (BIN_COUNTu+1u)
-shared uint histogram[PADDED_BIN_COUNTu*LOCAL_REPLICATION];
-
-void clearHistogram()
+layout(push_constant) PushConstants
 {
-    //clear histogram
-    histogram[gl_LocalInvocationIndex+0u*LOCAL_THREADS] = 0u;
-#if LOCAL_REPLICATION_POW>=1u
-    histogram[gl_LocalInvocationIndex+1u*LOCAL_THREADS] = 0u;
-#if LOCAL_REPLICATION_POW>=2u
-    histogram[gl_LocalInvocationIndex+2u*LOCAL_THREADS] = 0u;
-    histogram[gl_LocalInvocationIndex+3u*LOCAL_THREADS] = 0u;
-#if LOCAL_REPLICATION_POW>=3u
-    histogram[gl_LocalInvocationIndex+4u*LOCAL_THREADS] = 0u;
-    histogram[gl_LocalInvocationIndex+5u*LOCAL_THREADS] = 0u;
-    histogram[gl_LocalInvocationIndex+6u*LOCAL_THREADS] = 0u;
-    histogram[gl_LocalInvocationIndex+7u*LOCAL_THREADS] = 0u;
-#if LOCAL_REPLICATION_POW>=4u
-    histogram[gl_LocalInvocationIndex+8u*LOCAL_THREADS] = 0u;
-    histogram[gl_LocalInvocationIndex+9u*LOCAL_THREADS] = 0u;
-    histogram[gl_LocalInvocationIndex+10u*LOCAL_THREADS] = 0u;
-    histogram[gl_LocalInvocationIndex+11u*LOCAL_THREADS] = 0u;
-    histogram[gl_LocalInvocationIndex+12u*LOCAL_THREADS] = 0u;
-    histogram[gl_LocalInvocationIndex+13u*LOCAL_THREADS] = 0u;
-    histogram[gl_LocalInvocationIndex+14u*LOCAL_THREADS] = 0u;
-    histogram[gl_LocalInvocationIndex+15u*LOCAL_THREADS] = 0u;
-#endif // LOCAL_REPLICATION_POW
-#endif // LOCAL_REPLICATION_POW
-#endif // LOCAL_REPLICATION_POW
-    if (gl_LocalInvocationIndex<LOCAL_REPLICATION)
-        histogram[gl_LocalInvocationIndex+LOCAL_REPLICATION*LOCAL_THREADS] = 0u;
-#endif // LOCAL_REPLICATION_POW
+    uint maxDrawCount;
+    uint bufferSwitch;
+};
 
-    // what order to put the barriers?
-    memoryBarrierShared();
-    barrier();
-}
-
-void putInBin(in vec3 colorVal)
-{
-    float luma = clamp(dot(colorVal,kLumaConvertCoeff),MIN_HISTOGRAM_VAL,MAX_HISTOGRAM_VAL);
-    int lumaBits = floatBitsToInt(luma);
-    //lumaBits = (clamp(((lumaBits>>23)&0xff)-127+15,0,31)<<10)|((lumaBits>>13)&0x3ff); // convert a positive float32 to float16
-        //lumaBits = ((((lumaBits>>23)&0xff)-127+15)<<10)|((lumaBits>>13)&0x3ff); // convert a float32 in float16's range to float16
-            //optimized conversion
-            //lumaBits = lumaBits>>13;
-            //lumaBits = ((lumaBits&0x3fc00)-(127-15)*1024)|(lumaBits&0x3ff);
-            //lumaBits -= MIN_HISTOGRAM_RAW16F_AS_UINT;
-    // very optimized
-    lumaBits = lumaBits>>(13u+HISTOGRAM_POT2_RAW16F_BIN_SIZE);
-    const int exponentMask = 0x3fc00>>HISTOGRAM_POT2_RAW16F_BIN_SIZE;
-    const int exponentOffset = (127-15)<<(10u-HISTOGRAM_POT2_RAW16F_BIN_SIZE);
-    const int mantissaMask = 0x3ff>>HISTOGRAM_POT2_RAW16F_BIN_SIZE;
-    lumaBits = ((lumaBits&exponentMask)-exponentOffset)|(lumaBits&mantissaMask);
-    lumaBits -= MIN_HISTOGRAM_RAW16F_AS_UINT>>HISTOGRAM_POT2_RAW16F_BIN_SIZE;
-
-    atomicAdd(histogram[lumaBits+(gl_LocalInvocationIndex&(LOCAL_REPLICATION-1u))*PADDED_BIN_COUNTu],1u);
-}
 
 void main()
 {
-	vec3 colorVal = textureLod(tex0,getTexCoord(),0.0).rgb;
-    clearHistogram();
+    if (gl_GlobalInvocationID.x<maxDrawCount)
+        return;
 
+    if (gl_GlobalIncoationID.x==0u)
+        drawCount[bufferSwitch^0x1u] = 0u;
 
-    putInBin(colorVal);
-    // what order to put the barriers?
-    memoryBarrierShared();
-    barrier();
+    DrawElementsIndirectCommand_t draw = inDraws[gl_GlobalIncoationID.x];
 
+    mat4 modelViewProj = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4(modelData[draw.objectUUID].MVP);
 
-    uint writeOutVal = histogram[gl_LocalInvocationIndex];
-#if LOCAL_REPLICATION_POW>0u
-    for (uint i=1u; i<LOCAL_REPLICATION; i++)
-        writeOutVal += histogram[gl_LocalInvocationIndex+i*PADDED_BIN_COUNTu];
-#endif
-
-    atomicAdd(packedHistogram[gl_LocalInvocationIndex+(gl_WorkGroupID.x&(GLOBAL_REPLICATION-1u))*BIN_COUNTu],writeOutVal);
+    uint outIndex = atomicAdd(drawCount[bufferSwitch],1);
+    outDraws[outIndex] = draw;
 }
-
-/*
-//#define GLOBAL_REPLICATION 16u
-//! Pretty naive with some warp-contention fighting gimmicks
-void globalVersion()
-{
-	vec3 colorVal = textureLod(tex0,getTexCoord(),0.0).rgb;
-
-    uint baseThreadIx = gl_LocalInvocationIndex;
-
-    float luma = clamp(dot(colorVal,kLumaConvertCoeff),MIN_HISTOGRAM_VAL,MAX_HISTOGRAM_VAL);
-    int lumaBits = floatBitsToInt(luma);
-    lumaBits = lumaBits>>(13+HISTOGRAM_POT2_RAW16F_BIN_SIZE);
-    const int exponentMask = 0x3fc00>>HISTOGRAM_POT2_RAW16F_BIN_SIZE;
-    const int exponentOffset = (127-15)<<(10-HISTOGRAM_POT2_RAW16F_BIN_SIZE);
-    const int mantissaMask = 0x3ff>>HISTOGRAM_POT2_RAW16F_BIN_SIZE;
-    lumaBits = ((lumaBits&exponentMask)-exponentOffset)|(lumaBits&mantissaMask);
-    lumaBits -= MIN_HISTOGRAM_RAW16F_AS_UINT>>HISTOGRAM_POT2_RAW16F_BIN_SIZE;
-
-    atomicAdd(packedHistogram[lumaBits+(baseThreadIx&(GLOBAL_REPLICATION-1u))*BIN_COUNTu],1u);
-}
-*/
