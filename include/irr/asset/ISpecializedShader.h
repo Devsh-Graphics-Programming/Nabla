@@ -48,8 +48,8 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 
 				SInfo() = default;
 				//! _entries must be sorted!
-				SInfo(core::smart_refctd_dynamic_array<SMapEntry>&& _entries, core::smart_refctd_ptr<ICPUBuffer>&& _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss) :
-					entryPoint{_entryPoint}, shaderStage{_ss}, m_entries(std::move(_entries)), m_backingBuffer(std::move(_backingBuff))
+				SInfo(core::smart_refctd_dynamic_array<SMapEntry>&& _entries, core::smart_refctd_ptr<ICPUBuffer>&& _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss, const std::string& _filePathHint="????") :
+					entryPoint{_entryPoint}, shaderStage{_ss}, m_entries(std::move(_entries)), m_backingBuffer(std::move(_backingBuff)), m_filePathHint(_filePathHint)
 				{
 					if (m_entries)
 						std::sort(m_entries->begin(),m_entries->end());
@@ -84,6 +84,8 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 									}
 									return l.specConstID<r.specConstID;
 								}
+								// all entries equal if we got out the loop
+								// return m_filePathHint<_rhs.m_filePathHint; // don't do this cause OpenGL program cache might get more entries in it (I think it contains only already include-resolved shaders)
 							}
 							return lhsSize<rhsSize;
 						}
@@ -108,6 +110,7 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 				E_SHADER_STAGE shaderStage;
 				core::smart_refctd_dynamic_array<SMapEntry> m_entries;
 				core::smart_refctd_ptr<ICPUBuffer> m_backingBuffer;
+				std::string m_filePathHint; // only used to resolve `#include` directives in GLSL (not SPIR-V) shaders
 		};
 
 	protected:
