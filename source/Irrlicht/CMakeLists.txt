@@ -418,46 +418,6 @@ target_compile_definitions(Irrlicht
 	PUBLIC	UNW_LOCAL_ONLY
 )
 
-add_library(IrrlichtServer STATIC
-	${IRRLICHT_SRCS_COMMON}
-	${IRRLICHT_SRCS_SERVER}
-	${IRRLICHT_HEADERS}
-	$<TARGET_OBJECTS:aesGladman>
-	$<TARGET_OBJECTS:bzip2>
-	$<TARGET_OBJECTS:convert_utf>
-	$<TARGET_OBJECTS:lz4>
-	$<TARGET_OBJECTS:lzma>
-)
-
-add_dependencies(IrrlichtServer openssl_build)
-irr_target_link_zlib(IrrlichtServer)
-irr_target_link_openssl(IrrlichtServer)
-irr_target_link_shaderc(IrrlichtServer)
-irr_target_link_libjpeg(IrrlichtServer)
-irr_target_link_libpng(IrrlichtServer)
-irr_target_link_openexr(IrrlichtServer)
-if(_IRR_COMPILE_WITH_GLI_)
-	irr_target_link_gli(IrrlichtServer)
-endif()
-irr_target_include_parallel_hashmap(IrrlichtServer)
-
-target_include_directories(IrrlichtServer PUBLIC 
-	${IRR_ROOT_PATH}/include
-	${COMMON_INCLUDE_DIRS}
-	${THIRD_PARTY_SOURCE_DIR}
-	#those also goes as PUBLIC because of examples
-	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
-	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
-	"$<$<CONFIG:RELWITHDEBINFO>:${IRRLICHT_CONF_DIR_RELWITHDEBINFO}>"
-)
-target_include_directories(IrrlichtServer PRIVATE ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht ${IRR_ROOT_PATH}/src/3rdparty)
-
-target_compile_definitions(IrrlichtServer PRIVATE
-	_IRR_STATIC_LIB_
-	_IRR_SERVER_
-	SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
-)
-
 if (MSVC) #on MSVC it won't compile without this option!
 	target_compile_options(Irrlicht PUBLIC /bigobj)
 	target_compile_options(IrrlichtServer PUBLIC /bigobj)
@@ -468,8 +428,8 @@ if(IRR_PCH)
 	target_precompile_headers(Irrlicht PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
 endif()
 	
-set_target_properties(Irrlicht IrrlichtServer PROPERTIES DEBUG_POSTFIX _debug)
-set_target_properties(Irrlicht IrrlichtServer PROPERTIES RELWITHDEBDINFO_POSTFIX _relwithdebinfo)
+set_target_properties(Irrlicht PROPERTIES DEBUG_POSTFIX _debug)
+set_target_properties(Irrlicht PROPERTIES RELWITHDEBDINFO_POSTFIX _relwithdebinfo)
 
 macro(irr_install_static_lib _TRGT)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION lib CONFIGURATIONS Release)
@@ -478,6 +438,5 @@ macro(irr_install_static_lib _TRGT)
 endmacro()
 
 irr_install_static_lib(Irrlicht)
-irr_install_static_lib(IrrlichtServer)
 irr_install_headers("${IRRLICHT_HEADERS_PUBLIC}" "${IRR_ROOT_PATH}/include")
 irr_install_config_header(BuildConfigOptions.h)
