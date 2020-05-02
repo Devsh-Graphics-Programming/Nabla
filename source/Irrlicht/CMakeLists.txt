@@ -255,9 +255,6 @@ set(IRRLICHT_SRCS_NORMAL
 	${IRR_ROOT_PATH}/src/irr/video/CDerivativeMapCreator.cpp
 )
 
-set(IRRLICHT_SRCS_SERVER
-)
-
 set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/convertutf
 	${THIRD_PARTY_SOURCE_DIR}/utfcpp/source
@@ -420,7 +417,6 @@ target_compile_definitions(Irrlicht
 
 if (MSVC) #on MSVC it won't compile without this option!
 	target_compile_options(Irrlicht PUBLIC /bigobj)
-	target_compile_options(IrrlichtServer PUBLIC /bigobj)
 endif()
 
 #precompiled headers
