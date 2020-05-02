@@ -999,10 +999,10 @@ namespace asset
     }
 
     /*
-        It provides some useful functions to get specified
-        data in reference to creation input format
-        such as true extent of image or dimension of
-        current handled strides.
+        It provides some useful functions for dealing
+        with texel-block conversions, rounding up
+        for alignment rules and specific format
+        information such as dimension or block byte size.
     */
 
     struct TexelBlockInfo
@@ -1014,11 +1014,13 @@ namespace asset
                 blockByteSize(getTexelOrBlockBytesize(format))
             {}
             
-            //! It converts input texels strides to compute a true extent of an image
+            //! It converts input texels strides to blocks while rounding up at the same time
             /*
                 The true extent is a dimension of stride in texels or in blocks, depending
                 of what are you dealing with.
+
                 @param coord it's a dimension in texels.
+                @see convertTexelsToBlocks
             */
 
 			inline auto convertTexelsToBlocks(const core::vector3du32_SIMD& coord) const
@@ -1026,13 +1028,20 @@ namespace asset
 				return (coord+maxCoord)/dimension;
 			}
 
-            //! It converts input texels strides to compute length-block size
+            //! It converts input texels strides to compute multiples of block sizes
             /*
-                Inverse of convertTexelsToBlocks. Since your format may be
-                block compressed, you can gain your length in block-size style.
-                For instance - given a BC texetur 4x4 having 64 texels, you can
-                compute how many blocks is in a row, you will use this function to
-                do that - the block-size will be 16 in that case.
+                Since your format may be block compressed, you can gain your 
+                true extent either in texels or blocks, but there are certain
+                rules for adjusting alignments, that's why you sometimes need to
+                round up values.
+
+                For instance - given a BC texetur 4x4 having 64 texels in a row, the function
+                will return 64 for the row, but for 1,2 or 3 texels it will return 4, so 
+                round-up appears.
+
+                As mentioned and generally - it's quite useful to determine actual mipmap sizes 
+                of BC compressed mip map levels or textures not aligned to block size, because 
+                it gives you the size of the overlap.
             */
 
             inline auto roundToBlockSize(const core::vector3du32_SIMD& coord) const
@@ -1061,7 +1070,6 @@ namespace asset
             {
                 return convert3DBlockStridesTo1DByteStrides(convertTexelsToBlocks(texelStrides));
             }
-
 
             inline const auto& getDimension() const { return dimension; }
 

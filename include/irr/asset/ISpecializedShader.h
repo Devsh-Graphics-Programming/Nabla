@@ -16,8 +16,9 @@ namespace asset
 /*
 	Specialized shaders are shaders prepared to be attached at pipeline
 	process creation. SpecializedShader consists of unspecialzed Shader
-	containing glsl code, and creation information parameters such as
-	entry point to a shader or stage of a shader.
+	containing GLSL code or unspecialized SPIR-V, and creation information
+	parameters such as entry point to a shader, stage of a shader and
+	specialization map entry - that's why it's called specialized.
 
 	@see IShader
 	@see IReferenceCounted
@@ -26,6 +27,13 @@ namespace asset
 class ISpecializedShader : public virtual core::IReferenceCounted
 {
 	public:
+
+		//! An enum for specifing shader stage of unspecialized shader passed to the constructor of ISpecializedShader
+		/*
+			Since unspecialized shader contatins only a code, you have
+			to state it's stage.
+		*/
+
 		enum E_SHADER_STAGE : uint32_t
 		{
 			ESS_VERTEX = 1 << 0,
@@ -46,14 +54,29 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 			ESS_ALL_GRAPHICS = 0x1f,
 			ESS_ALL = 0xffffffff
 		};
+
+		//! Parameter class used in constructor of ISpecializedShader
+		/*
+			It holds shader stage type, specialization map entry, entry
+			point of the shader and backing buffer.
+		*/
+
 		class SInfo
 		{
 			public:
+
+				//! Structure specifying a specialization map entry
+				/*
+					Note that if specialization constant ID is used
+					in a shader, \bsize\b and \boffset'b must match 
+					to \isuch an ID\i accordingly.
+				*/
+
 				struct SMapEntry
 				{
-					uint32_t specConstID;
-					uint32_t offset;
-					size_t size;
+					uint32_t specConstID;		//!< The ID of the specialization constant in SPIR-V. If it isn't used in the shader, the map entry does not affect the behavior of the pipeline.
+					uint32_t offset;			//!< The byte offset of the specialization constant value within the supplied data buffer.		
+					size_t size;				//!< The byte size of the specialization constant value within the supplied data buffer.
 				};
 
 				SInfo() = default;
@@ -114,10 +137,10 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 						return {nullptr, 0u};
 				}
 
-				std::string entryPoint;
-				E_SHADER_STAGE shaderStage;
-				core::smart_refctd_dynamic_array<SMapEntry> m_entries;
-				core::smart_refctd_ptr<ICPUBuffer> m_backingBuffer;
+				std::string entryPoint;										//!< A name of the function where the entry point of an shader executable begins. It's often "main" function.
+				E_SHADER_STAGE shaderStage;									//!< A stage of the unspecialized shader passed to specialized one such as vertex, fragment, geometry shader and more.
+				core::smart_refctd_dynamic_array<SMapEntry> m_entries;		//!< A specialization map entry
+				core::smart_refctd_ptr<ICPUBuffer> m_backingBuffer;			//!< A buffer containing the actual constant values to specialize with
 		};
 
 	protected:

@@ -123,7 +123,7 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 				uint32_t				inMipLevel = 0u;		//!< Current handled mipmap level in reference to \binput\b image
 				uint32_t				outMipLevel = 0u;		//!< Current handled mipmap level in reference to \boutput\b image
 				const ICPUImage* inImage = nullptr;				//!< \bInput\b image being a reference for state management, needed to operate on output image's texel buffer
-				ICPUImage* outImage = nullptr;					//!< \bOutput\b image, it's attached texel buffer will be converted according to state data after execute call
+				ICPUImage* outImage = nullptr;					//!< \bOutput\b image, it's attached empty texel buffer will be filled with converted values according to state's input data after execute call
 		};
 		using state_type = CState;
 		

@@ -19,7 +19,9 @@ namespace asset
 /*
     Push Constants serve a similar purpose to a Uniform Buffer Object,
     however they serve as a fast path with regard to data upload from the
-    CPU and data access from the GPU.
+    CPU and data access from the GPU. 
+    
+    Note that IrrlichtBaW limits push constant size to 128 bytes.
 
     Push Constants are an alternative to an UBO where it performs really poorly,
     mostly very small and very frequent updates. Examples of which are:
@@ -59,12 +61,14 @@ struct SPushConstantRange
 
 //! Interface class for pipeline layouts
 /*
-    Pipeline layout stores all the state (options) common to multiple
+    Pipeline layout stores all the state like bindings and set numbers 
+    of descriptors as well as the descriptor types common to multiple
     draw calls (meshes) as an aggregate. It exists because the same
-    object exists in the Vulkan API. Pipeline Layout specifies all
-    4 templates of resource types ( a null descriptor layout is an
-    empty template) that will be used by all the shaders used in
-    the draw or compute dispatch.
+    object exists in the Vulkan API. 
+    
+    Pipeline Layout specifies all 4 templates of resource types 
+    ( a null descriptor layout is an empty template) that will be 
+    used by all the shaders used in the draw or compute dispatch.
 */
 
 template<typename DescLayoutType>

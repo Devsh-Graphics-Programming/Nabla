@@ -34,16 +34,55 @@ enum E_DRIVER_FENCE_RETVAL
     It's significant because CPU and GPU execute processes asynchronously,
     so before the CPU does anything for instance to mapped memory the GPU
     has been writing to, waiting on a fence is needed and then if the mapped memory
-    needs to be invalidated before CPU reads it (to invalidate the CPU cache) you should
-    invalidate it by canDeferredFlush()
+    needs to be invalidated before CPU reads it.
+
+    So basically you should use \bcanDeferredFlush()\b.
+    It is a property of \bIDriverFence\b and it tells you whether 
+    the \bwaitCPU()\b method can accept a 
+    
+    \code{.cpp}
+    flush = true
+    \endcode
+  
+    parameter (which performs an implicit \bglFlush\b on the context you've placed 
+    the fence on just before you actually start witing on the fence)
+
+    @see waitCPU
+
+    A pipeline/context flush (\bglFlush\b) flushes the driver-CPU-side queue onto the 
+    GPU device for execution. If you place a fence but don't flush you can end up in a 
+    deadlock. Generally each time you call \bwaitCPU()\b it will time-out because the work 
+    has not been sent to the GPU for execution 100% (it's stuck in transit).
+
+    So you either need to perform a \bglFlush\b (but on the same thread and context that 
+    placed the fence) after placing the fence, but before \bwaitCPU()\b execution (on any 
+    thread) or use that implicit flush functionality (but only if setting thread is the 
+    waiting thread).
+
     One of example of fence usage is as follows when writing to GPU buffer
     with screen shot extension:
 
+    \code{.cpp}
     auto fence = ext::ScreenShot::createScreenShot(driver, gpuimg, buffer.get());
     while (fence->waitCPU(1000ull, fence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED)
     {
         // do something while waiting on GPU
     }
+    \endcode
+
+    Also you should look at IDriver::flushMappedMemoryRanges function. It:
+
+    - flushes when CPU is writing and GPU is reading
+    - invalidates when CPU is reading and GPU is writing
+
+    @see IDriver::flushMappedMemoryRanges
+
+    Notes:
+
+    - if you're not confident controlling cache coherency manually then use the \bCOHERENT\b 
+    memory type when creating mappable IGPUBuffers
+
+    @see IGPUBuffer
 */
 
 class IDriverFence : public core::IReferenceCounted

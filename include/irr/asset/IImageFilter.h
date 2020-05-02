@@ -27,13 +27,17 @@ namespace asset
 	- Flatten Filter
 	- Convert Filter
 	- Swizzle && Convert Filter
-	- Utility Filter
 	- Blit Filter
 	- Generate Mip Maps Filter
 
-	Each of those performs certain specified by a filter actions
-	on an image's output attached texel buffer, where input image
-	is a reference for a valid process executation.
+	If you don't know what filter you'll be executing at runtime, 
+	you can use the \ipolymorphic interface\i and operate on 
+	IImageFilter pointers or references.
+
+	There is complete freedom on filters inputs and outputs, this is why 
+	each defines (or at least typedefs) it's own state.
+
+	There are input only, output only (such as fill filter) or input-output filters.
 */
 
 class IImageFilter
@@ -70,9 +74,8 @@ class IImageFilter
 				virtual ~IState() {}
 
 				/*
-					Class for holding information about current
-					handled texel range in texel buffer attached
-					to an image.
+					Class for holding information about handled texel 
+					range in a buffer attached to an image.
 				*/
 
 				struct TexelRange
@@ -155,7 +158,7 @@ class IImageFilter
 };
 
 /*
-	Filter class for static polymorphic
+	Filter class for static polymorphism
 */
 
 template<typename CRTP>

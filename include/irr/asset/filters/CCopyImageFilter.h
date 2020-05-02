@@ -24,6 +24,13 @@ namespace asset
 	- provide it's state by \bYOUR_COPY_FILTER::state_type\b and fill appropriate fields
 	- launch one of \bexecute\b calls
 
+	\attention
+	{
+		Take a look any overlapping regions shall be copied into the output in exactly 
+		the order they were when specifying the image. So the last region copies into image 
+		last, overwriting any overlapped pixels.
+	}
+	
 	@see IImageFilter
 	@see CMatchedSizeInOutImageFilterCommon
 */
