@@ -229,6 +229,13 @@ namespace irr
 		/** Always set it to IRRLICHTBAW_SDK_VERSION, which is done by default.
 		This is needed for sdk version checks. */
 		const char* const SDK_version_do_not_use;
+
+		    const char* builtinResourceHeaderPath =
+#ifdef _IRR_BUILTIN_PATH_AVAILABLE
+      			getBuiltinResourcesCommonHeaderPath();
+#else
+      			nullptr;
+#endif
 	};
 
 

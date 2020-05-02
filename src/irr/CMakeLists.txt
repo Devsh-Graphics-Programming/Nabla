@@ -1,18 +1,3 @@
-function(irr_add_builtin_resources)
-  # generate files
-  foreach(X IN LISTS ARGV0)
-    list(APPEND builtin_dependencies_list  ${CMAKE_SOURCE_DIR}/include/${X})
-  endforeach()
-  add_custom_command(
-    OUTPUT "${CMAKE_BINARY_DIR}/include/irr/builtin/builtinResources.h" "${CMAKE_CURRENT_BINARY_DIR}/builtinResourceData.cpp"
-    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinHeaderGen.py ${CMAKE_BINARY_DIR}/include/irr/builtin/builtinResources.h ${CMAKE_SOURCE_DIR}/include "${ARGV}"
-    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinDataGen.py ${CMAKE_CURRENT_BINARY_DIR}/builtinResourceData.cpp ${CMAKE_SOURCE_DIR}/include "${ARGV}"
-    COMMENT "Generated built-in resources"
-    DEPENDS ${builtin_dependencies_list}
-    VERBATIM  
-  )
-endfunction()
-
 
 find_package(OpenGL REQUIRED)
 if(UNIX)
@@ -75,9 +60,8 @@ option(_IRR_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
 irr_get_conf_dir(IRRLICHT_CONF_DIR_DEBUG Debug)
 irr_get_conf_dir(IRRLICHT_CONF_DIR_RELEASE Release)
 if(IRR_EMBED_BUILTIN_RESOURCES)	
-
 	add_subdirectory(builtin)
-	irr_add_builtin_resources(irr_builtin_resource_paths)
+	irr_add_builtin_resources("${irr_resources_to_embed}")
 elseif()
 	if(INSTALL)
 		set(__IRR_INSTALL_DIR__ ${CMAKE_INSTALL_PREFIX})
@@ -238,7 +222,7 @@ if (MSVC)
 endif()
 
 if (IRR_EMBED_BUILTIN_RESOURCES)
-	list(APPEND IRRLICHT_SRCS_COMMON "${CMAKE_BINARY_DIR}/src/irr/builtinResourceData.cpp")
+	list(APPEND IRRLICHT_SRCS_COMMON "${CMAKE_BINARY_DIR}/src/irr/builtin/builtinResourceData.cpp")
 endif()
 
 
@@ -510,5 +494,8 @@ irr_install_headers("${IRRLICHT_HEADERS_PUBLIC}" "${IRR_ROOT_PATH}/include")
 irr_install_config_header(BuildConfigOptions.h)
 
 if(IRR_EMBED_BUILTIN_RESOURCES)
-set_builtin_resource_dependencies()
+add_custom_target(builtin_resources
+   DEPENDS ${CMAKE_BINARY_DIR}/include/irr/builtin/builtinResources.h ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
+  add_dependencies(Irrlicht builtin_resources)
+  add_dependencies(IrrlichtServer builtin_resources)
 endif()

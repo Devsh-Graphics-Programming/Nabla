@@ -72,10 +72,7 @@
 #include "irr/asset/CGLIWriter.h"
 #endif
 
-#ifdef _IRR_EMBED_BUILTIN_RESOURCES_
 #include "irr/core/core.h"
-#endif
-
 #include "irr/asset/CGLSLLoader.h"
 #include "irr/asset/CSPVLoader.h"
 

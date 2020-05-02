@@ -50,7 +50,7 @@ public:
 	\param fileName: The name given to this file
 	\param deleteMemoryWhenDropped: True if the memory should be deleted
 	along with the IReadFile when it is dropped.
-	\return Pointer to the created file interface.
+	\return Pointer to the created file interface. 
 	The returned pointer should be dropped when no longer needed.
 	See IReferenceCounted::drop() for more information.
 	*/
@@ -246,21 +246,21 @@ public:
 
 
 	template<typename StringUniqueType>
-	inline core::smart_refctd_ptr<core::IBuffer> loadBuiltinData()
+	static inline core::smart_refctd_ptr<core::IBuffer> loadBuiltinData()
 	{
 #ifdef _IRR_EMBED_BUILTIN_RESOURCES_
 		std::pair<const uint8_t*, size_t> found = irr::builtin::get_resource<StringUniqueType>();
 		if (found.first && found.second)
 		{
-			auto returnValue = core::make_smart_refctd_ptr<core::IBuffer>(found.second);	//return core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t> > >(found.second, found.first, core::adopt_memory);
+			auto returnValue = core::make_smart_refctd_ptr<core::IBuffer>(found.second);
 			memcpy(returnValue->getPointer(), found.first, returnValue->getSize());
 			return returnValue;
 		}
 		return nullptr;
 #else
-		//in one case, IRR_CORE_UNIQUE_STRING_LITERAL_TYPE value returns an incorrect string
-		//and specializedshader_fragment becomes -> specializedshader_fragmenttt
-		auto path = (std::string(__IRR_INSTALL_DIR__) + "/include/" + std::string(StringUniqueType::value));
+		auto path = (std::string(SIrrlichtCreationParameter::builtinResourceHeaderPath, sizeof(SIrrlichtCreationParameters::builtinResourceHeaderPath)-sizeof("/common.h"))
+			+ "../../" + std::string(StringUniqueType::value));
+
 		auto file = this->createAndOpenFile((path).c_str());
 		if(file)
 		{
