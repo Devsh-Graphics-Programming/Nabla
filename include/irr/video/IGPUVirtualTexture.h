@@ -114,9 +114,10 @@ public:
         auto* cpuPgt = _cpuvt->getPageTable();
         m_pageTable = impl::createGPUImageFromCPU(m_driver, cpuPgt);
 
-        m_precomputed = _cpuvt->getPrecomputedData(asset::ICPUVirtualTexture::reset_update);
+        m_precomputed = _cpuvt->getPrecomputedData();
 
         //TODO copy m_viewFormatToLayer from cpuvt
+        //TODO copy m_layerToSamplerType
 
         const auto& cpuStorages = _cpuvt->getResidentStorages();
         for (const auto& pair : cpuStorages)
@@ -146,13 +147,19 @@ public:
         createViewsFromCPU(m_usamplers.views->data(), _cpuvt->getUintViews());
     }
 
-    STextureData pack(const image_t* _img, const asset::IImage::SSubresourceRange& _subres, asset::ISampler::E_TEXTURE_CLAMP _wrapu, asset::ISampler::E_TEXTURE_CLAMP _wrapv, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor) override
+    bool commit(const SMasterTextureData& _addr, const image_t* _img, const asset::VkExtent3D& _mip0extent, const asset::IImage::SSubresourceRange& _subres, asset::ISampler::E_TEXTURE_CLAMP _wrapu, asset::ISampler::E_TEXTURE_CLAMP _wrapv, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor) override
+    {
+        assert(0);
+        return false;
+    }
+
+    SViewAliasTextureData createAlias(const SMasterTextureData& _addr, asset::E_FORMAT _viewingFormat, const asset::IImage::SSubresourceRange& _subresRelativeToMaster) override
     {
         assert(0);
         return STextureData::invalid();
     }
 
-    bool free(const STextureData& _addr, const asset::IImage* _img) override
+    bool free(const STextureData& _addr) override
     {
         assert(0);
         return false;

@@ -40,6 +40,21 @@ protected:
     {
         _IRR_STATIC_INLINE_CONSTEXPR uint32_t invalid_addr = 0xffffu;
 
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_BITLENGTH = 16u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_MASK = (1u<<PAGE_ADDR_BITLENGTH)-1u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_X_BITS = 4u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_X_MASK = (1u<<PAGE_ADDR_X_BITS)-1u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_Y_BITS = 4u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_Y_MASK = (1u<<PAGE_ADDR_Y_BITS)-1u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_LAYER_SHIFT = PAGE_ADDR_BITLENGTH - PAGE_ADDR_X_BITS - PAGE_ADDR_Y_BITS;
+
+        inline uint32_t x() const { return addr & PAGE_ADDR_X_MASK; }
+        inline uint32_t y() const { return (addr >> PAGE_ADDR_X_BITS)& PAGE_ADDR_Y_MASK; }
+        inline uint32_t layer() const { return (addr & PAGE_ADDR_MASK) >> PAGE_ADDR_LAYER_SHIFT; }
+        inline bool valid() const { return (addr & PAGE_ADDR_MASK) != invalid_addr; }
+        inline SPhysPgOffset mipTailAddr() const { return addr >> PAGE_ADDR_BITLENGTH; }
+        inline bool hasMipTailAddr() const { return mipTailAddr().valid(); }
+
         SPhysPgOffset(uint32_t _addr) : addr(_addr) {}
 
         //upper 16 bits are used for address of mip-tail page
@@ -48,7 +63,27 @@ protected:
 
     uint32_t neededPageCountForSide(uint32_t _sideExtent, uint32_t _level)
     {
-        return (std::max(_sideExtent>>_level, 1u)+m_pgSzxy-1u) / m_pgSzxy;
+        return (((_sideExtent+(1u<<_level)-1u)>>_level) + m_pgSzxy-1u) / m_pgSzxy;
+    }
+
+    enum E_SAMPLER_TYPE
+    {
+        EST_FLOAT,
+        EST_INT,
+        EST_UINT,
+        EST_INVALID
+    };
+    E_SAMPLER_TYPE formatToSamplerType(E_FORMAT _format)
+    {
+        if (isNormalizedFormat(_format) || isFloatingPointFormat(_format) || isScaledFormat(_format))
+            return EST_FLOAT;
+        if (isIntegerFormat(_format))
+        {
+            if (isSignedFormat(_format))
+                return EST_INT;
+            return EST_UINT;
+        }
+        return EST_INVALID;
     }
 
 public:
@@ -67,7 +102,7 @@ public:
 
 #include "irr/irrpack.h"
     //must be 64bit
-    struct STextureData
+    struct IRR_FORCE_EBO STextureData
     {
         enum E_WRAP_MODE
         {
@@ -105,24 +140,28 @@ public:
 #include "irr/irrunpack.h"
     static_assert(sizeof(STextureData)==sizeof(uint64_t), "STextureData is not 64bit!");
 
+#define TEXTURE_DATA_CTOR_CONVERT_FROM_BASE(classname) classname(const STextureData& _base) : STextureData(_base) {}
+    struct IRR_FORCE_EBO SMasterTextureData : STextureData { TEXTURE_DATA_CTOR_CONVERT_FROM_BASE(SMasterTextureData); };
+    struct IRR_FORCE_EBO SViewAliasTextureData : STextureData { TEXTURE_DATA_CTOR_CONVERT_FROM_BASE(SViewAliasTextureData); };
+#undef TEXTURE_DATA_CTOR_CONVERT_FROM_BASE
+
 protected:
     using image_t = typename decltype(image_view_t::SCreationParams::image)::pointee;
 
     using page_tab_offset_t = core::vector3du32_SIMD;
     static page_tab_offset_t page_tab_offset_invalid() { return page_tab_offset_t(~0u,~0u,~0u); }
 
-    STextureData offsetToTextureData(const page_tab_offset_t& _offset, const ICPUImage* _img, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv)
+    STextureData offsetToTextureData(const page_tab_offset_t& _offset, const VkExtent3D& _extent, uint32_t _mipCount, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv)
     {
         STextureData texData;
-        texData.origsize_x = _img->getCreationParameters().extent.width;
-        texData.origsize_y = _img->getCreationParameters().extent.height;
+        texData.origsize_x = _extent.width;
+        texData.origsize_y = _extent.height;
 
 		texData.pgTab_x = _offset.x;
 		texData.pgTab_y = _offset.y;
         texData.pgTab_layer = _offset.z;
 
-        //getCreationParameters().mipLevels doesnt necesarilly mean that there wasnt allocated space for higher non-existent mip levels
-        texData.maxMip = _img->getCreationParameters().mipLevels-1u-m_pgSzxy_log2;
+        texData.maxMip = _mipCount-1u-m_pgSzxy_log2;
 
         auto ETC_to_int = [](ISampler::E_TEXTURE_CLAMP _etc) -> uint32_t {
             switch (_etc)
@@ -224,44 +263,6 @@ protected:
         return found-m_precomputed.layer_to_sampler_ix;
     }
 
-    page_tab_offset_t alloc(const IImage* _img, const IImage::SSubresourceRange& _subres, uint32_t _pgtLayer)
-    {
-        const uint32_t pgtAddr2dMask = (1u<<(m_pgtabSzxy_log2*2u))-1u;
-
-        auto extent = _img->getCreationParameters().extent;
-
-        uint32_t szAndAlignment = computeSquareSz(extent.width, extent.height, _subres.baseMipLevel);
-        szAndAlignment *= szAndAlignment;
-
-        uint32_t addr = pg_tab_addr_alctr_t::invalid_address;
-        core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_alloc_addr((*m_pageTableLayerAllocators)[_pgtLayer], 1u, &addr, &szAndAlignment, &szAndAlignment, nullptr);
-        return (addr==pg_tab_addr_alctr_t::invalid_address) ? 
-            page_tab_offset_invalid() :
-            page_tab_offset_t(core::morton2d_decode_x(addr&pgtAddr2dMask), core::morton2d_decode_y(addr&pgtAddr2dMask), _pgtLayer);
-    }
-    //TODO try to get rid of _img parameter (now needed for determining format class of the image to find its physical storage)
-    virtual bool free(const STextureData& _addr, const IImage* _img)
-    {
-        uint32_t sz = computeSquareSz(_addr.origsize_x, _addr.origsize_y);
-        sz *= sz;
-        const uint32_t addr = core::morton2d_encode(_addr.pgTab_x, _addr.pgTab_y);
-
-        core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_free_addr((*m_pageTableLayerAllocators)[_addr.pgTab_layer], 1u, &addr, &sz);
-
-        IVTResidentStorage* storage = getStorageForFormatClass(getFormatClass(_img->getCreationParameters().format));
-        if (!storage)
-            return false;
-        //in case when pgtab layer has no allocations, free it for use by another format
-        if ((*m_pageTableLayerAllocators)[_addr.pgTab_layer].get_allocated_size()==0u)
-        {
-            (*m_pageTableLayerAllocators)[_addr.pgTab_layer].reset();//defragmentation
-            updatePrecomputedData(_addr.pgTab_layer, INVALID_SAMPLER_INDEX, core::nan<float>());
-            removePageTableLayerForFormat(_img->getCreationParameters().format, _addr.pgTab_layer);
-        }
-
-        return true;
-    }
-
     uint32_t countLevelsTakingAtLeastOnePage(const VkExtent3D& _extent, uint32_t _baseLevel = 0u)
     {
         const uint32_t baseMaxDim = core::roundUpToPoT(core::max(_extent.width, _extent.height))>>_baseLevel;
@@ -323,10 +324,11 @@ protected:
         return pgtab;
     }
 
-    void updatePrecomputedData(uint32_t _layer, uint32_t _smplrIndex, float _physTexRcpSz)
+    void updatePrecomputedData(uint32_t _layer, uint32_t _smplrIndex, float _physTexRcpSz, E_FORMAT _format)
     {
         m_precomputed.layer_to_sampler_ix[_layer] = _smplrIndex;
         m_precomputed.layer_to_phys_pg_tex_sz_rcp[_layer] = _physTexRcpSz;
+        m_layerToFormat[_layer] = _format;
         m_precomputedWasUpdatedSinceLastQuery = true;
     }
 
@@ -345,6 +347,12 @@ protected:
 
     mutable bool m_precomputedWasUpdatedSinceLastQuery = true;
     SPrecomputedData m_precomputed;
+    std::array<E_FORMAT, MAX_PAGE_TABLE_LAYERS> m_layerToFormat;
+
+    E_FORMAT getFormatInLayer(uint32_t _layer) const
+    {
+        return m_layerToFormat[_layer];
+    }
 
     struct SamplerArray
     {
@@ -358,6 +366,22 @@ protected:
     };
     SamplerArray m_fsamplers, m_isamplers, m_usamplers;
 
+    const SamplerArray& getSamplerArray(E_SAMPLER_TYPE _type) const
+    {
+        switch (_type)
+        {
+        case EST_FLOAT:
+            return m_fsamplers;
+        case EST_INT:
+            return m_isamplers;
+        case EST_UINT:
+            return m_usamplers;
+        default:
+            assert(false);
+            return m_fsamplers;
+        }
+    }
+
     //preallocated arrays for multi_free_addr()
     core::smart_refctd_dynamic_array<uint32_t> m_addrsArray;
     core::smart_refctd_dynamic_array<uint32_t> m_sizesArray;
@@ -365,15 +389,8 @@ protected:
     class IVTResidentStorage : public core::IReferenceCounted
     {
     protected:
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_BITLENGTH = 16u;
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_X_BITS = 4u;
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_X_MASK = (1u<<PAGE_ADDR_X_BITS)-1u;
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_Y_BITS = 4u;
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_Y_MASK = (1u<<PAGE_ADDR_Y_BITS)-1u;
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_LAYER_SHIFT = PAGE_ADDR_BITLENGTH - PAGE_ADDR_X_BITS - PAGE_ADDR_Y_BITS;
-
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_TILES_PER_DIM = std::min(PAGE_ADDR_X_MASK,PAGE_ADDR_Y_MASK) + 1u;
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_LAYERS = (1u<<(PAGE_ADDR_BITLENGTH-PAGE_ADDR_LAYER_SHIFT));
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_TILES_PER_DIM = std::min(SPhysPgOffset::PAGE_ADDR_X_MASK,SPhysPgOffset::PAGE_ADDR_Y_MASK) + 1u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_LAYERS = (1u<<(SPhysPgOffset::PAGE_ADDR_BITLENGTH-SPhysPgOffset::PAGE_ADDR_LAYER_SHIFT));
 
         virtual ~IVTResidentStorage()
         {
@@ -422,7 +439,7 @@ protected:
             const uint16_t y = (_addr>>(m_decodeAddr_layerShift>>1)) & m_decodeAddr_xMask;
             const uint16_t layer = _addr >> m_decodeAddr_layerShift;
 
-            return x | (y<<PAGE_ADDR_X_BITS) | (layer<<PAGE_ADDR_LAYER_SHIFT);
+            return x | (y<<SPhysPgOffset::PAGE_ADDR_X_BITS) | (layer<<SPhysPgOffset::PAGE_ADDR_LAYER_SHIFT);
         }
 
         core::smart_refctd_ptr<image_view_t> createView(E_FORMAT _format) const
@@ -445,19 +462,13 @@ protected:
             return m_viewsCache.insert({_format,createView_internal(std::move(params))}).first->second;
         }
 
-        inline uint32_t physPgOffset_x(SPhysPgOffset _offset) const { return _offset.addr & PAGE_ADDR_X_MASK; }
-        inline uint32_t physPgOffset_y(SPhysPgOffset _offset) const { return (_offset.addr >> PAGE_ADDR_X_BITS) & PAGE_ADDR_Y_MASK; }
-        inline uint32_t physPgOffset_layer(SPhysPgOffset _offset) const { return (_offset.addr & 0xffffu)>>PAGE_ADDR_LAYER_SHIFT; }
-        inline bool physPgOffset_valid(SPhysPgOffset _offset) const { return (_offset.addr&0xffffu) != SPhysPgOffset::invalid_addr; }
-        inline bool physPgOffset_hasMipTailAddr(SPhysPgOffset _offset) const { return physPgOffset_valid(physPgOffset_mipTailAddr(_offset)); }
-        inline SPhysPgOffset physPgOffset_mipTailAddr(SPhysPgOffset _offset) const { return _offset.addr>>PAGE_ADDR_BITLENGTH; }
         //! @returns texel-wise offset of physical page
-        core::vector3du32_SIMD pageCoords(SPhysPgOffset _txoffset, uint32_t _pageSz, uint32_t _padding) const
+        static core::vector3du32_SIMD pageCoords(SPhysPgOffset _txoffset, uint32_t _pageSz, uint32_t _padding)
         {
-            core::vector3du32_SIMD coords(physPgOffset_x(_txoffset), physPgOffset_y(_txoffset), 0u);
+            core::vector3du32_SIMD coords(_txoffset.x(), _txoffset.y(), 0u);
             coords *= (_pageSz + 2u*_padding);
             coords += _padding;
-            coords.z = physPgOffset_layer(_txoffset);
+            coords.z = _txoffset.layer();
             return coords;
         }
 
@@ -613,6 +624,7 @@ public:
 
         std::fill(m_precomputed.layer_to_sampler_ix, m_precomputed.layer_to_sampler_ix+MAX_PAGE_TABLE_LAYERS, INVALID_SAMPLER_INDEX);
         std::fill(m_precomputed.layer_to_phys_pg_tex_sz_rcp, m_precomputed.layer_to_phys_pg_tex_sz_rcp+MAX_PAGE_TABLE_LAYERS, core::nan<float>());
+        std::fill(m_layerToFormat.begin(), m_layerToFormat.end(), EF_UNKNOWN);
 
         if (_initSharedResources)
         {
@@ -638,7 +650,91 @@ public:
         std::fill(m_sizesArray->begin(), m_sizesArray->end(), 1u);
     }
 
-    virtual STextureData pack(const image_t* _img, const IImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, ISampler::E_TEXTURE_BORDER_COLOR _borderColor) = 0;
+    SMasterTextureData alloc(E_FORMAT _primaryFormat, const VkExtent3D& _mip0extent, const IImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv)
+    {
+        const E_FORMAT format = _primaryFormat;
+        uint32_t smplrIndex = 0u;
+        IVTResidentStorage* storage = nullptr;
+        {
+            auto found = m_storage.find(getFormatClass(format));
+            if (found==m_storage.end())
+                return STextureData::invalid();
+            storage = found->second.get();
+
+            SamplerArray* views = nullptr;
+            if (isFloatingPointFormat(format)||isNormalizedFormat(format)||isScaledFormat(format))
+                views = &m_fsamplers;
+            else if (isSignedFormat(format))
+                views = &m_isamplers;
+            else
+                views = &m_usamplers;
+            auto view_it = std::find_if(views->views->begin(), views->views->end(), [format](const core::smart_refctd_ptr<ICPUImageView>& _view) {return _view->getCreationParameters().format==format;});
+            if (view_it==views->views->end()) //no physical page texture view/sampler for requested format
+                return STextureData::invalid();
+            smplrIndex = std::distance(views->views->begin(), view_it);
+        }
+        auto assignedLayers = getPageTableLayersForFormat(format);
+
+        const VkExtent3D extent = {_mip0extent.width>>_subres.baseMipLevel, _mip0extent.height>>_subres.baseMipLevel, 1u};
+        uint32_t szAndAlignment = computeSquareSz(extent.width, extent.height);
+        szAndAlignment *= szAndAlignment;
+
+        uint32_t pgtLayer = 0u;
+        uint32_t addr = pg_tab_addr_alctr_t::invalid_address;
+        for (auto it = assignedLayers.first; it != assignedLayers.second; ++it)
+        {
+            pgtLayer = it->second;
+            core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_alloc_addr((*m_pageTableLayerAllocators)[pgtLayer], 1u, &addr, &szAndAlignment, &szAndAlignment, nullptr);
+            if (addr==pg_tab_addr_alctr_t::invalid_address)
+                continue;
+        }
+        if (addr==pg_tab_addr_alctr_t::invalid_address)
+        {
+            pgtLayer = findFreePageTableLayer();
+            if (pgtLayer==INVALID_LAYER_INDEX)
+                return STextureData::invalid();
+            core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_alloc_addr((*m_pageTableLayerAllocators)[pgtLayer], 1u, &addr, &szAndAlignment, &szAndAlignment, nullptr);
+            assert(addr!=pg_tab_addr_alctr_t::invalid_address);
+            addPageTableLayerForFormat(format, pgtLayer);
+
+            updatePrecomputedData(pgtLayer, smplrIndex, storage->getReciprocalSize(), format);
+        }
+
+        return offsetToTextureData(
+            page_tab_offset_t(core::morton2d_decode_x(addr), core::morton2d_decode_y(addr), pgtLayer),
+            extent,
+            _subres.levelCount,
+            _wrapu,
+            _wrapv
+        );
+    }
+    //TODO try to get rid of _img parameter (now needed for determining format class of the image to find its physical storage)
+    virtual bool free(const STextureData& _addr)
+    {
+        uint32_t sz = computeSquareSz(_addr.origsize_x, _addr.origsize_y);
+        sz *= sz;
+        const uint32_t addr = core::morton2d_encode(_addr.pgTab_x, _addr.pgTab_y);
+
+        core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_free_addr((*m_pageTableLayerAllocators)[_addr.pgTab_layer], 1u, &addr, &sz);
+
+        const E_FORMAT format = getFormatInLayer(_addr.pgTab_layer);
+        IVTResidentStorage* storage = getStorageForFormatClass(getFormatClass(format));
+        if (!storage)
+            return false;
+        //in case when pgtab layer has no allocations, free it for use by another format
+        if ((*m_pageTableLayerAllocators)[_addr.pgTab_layer].get_allocated_size()==0u)
+        {
+            (*m_pageTableLayerAllocators)[_addr.pgTab_layer].reset();//defragmentation
+            updatePrecomputedData(_addr.pgTab_layer, INVALID_SAMPLER_INDEX, core::nan<float>(), EF_UNKNOWN);
+            removePageTableLayerForFormat(format, _addr.pgTab_layer);
+        }
+
+        return true;
+    }
+
+    virtual bool commit(const SMasterTextureData& _addr, const image_t* _img, const VkExtent3D& _mip0extent, const IImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, ISampler::E_TEXTURE_BORDER_COLOR _borderColor) = 0;
+
+    virtual SViewAliasTextureData createAlias(const SMasterTextureData& _addr, E_FORMAT _viewingFormat, const IImage::SSubresourceRange& _subresRelativeToMaster) = 0;
 
     image_view_t* getPageTableView() const
     {

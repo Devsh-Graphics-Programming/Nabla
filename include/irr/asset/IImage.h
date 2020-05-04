@@ -432,6 +432,11 @@ class IImage : public IDescriptor
 			return params;
 		}
 
+		inline const auto& getTexelBlockInfo() const
+		{
+			return info;
+		}
+
 		//! Returns bits per pixel.
 		inline core::rational<uint32_t> getBytesPerPixel() const
 		{

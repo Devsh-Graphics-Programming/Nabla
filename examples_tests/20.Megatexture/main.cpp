@@ -127,11 +127,15 @@ STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualText
 {
     const auto& extent = _img->getCreationParameters().extent;
 
+    auto imgAndOrigSz = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(_img, _uwrap, _vwrap);
+
     asset::IImage::SSubresourceRange subres;
     subres.baseMipLevel = 0u;
     subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(extent.width, extent.height))) + 1;
 
-    return _vt->pack(_img, subres, _uwrap, _vwrap, _borderColor);
+    auto addr = _vt->alloc(_img->getCreationParameters().format, imgAndOrigSz.second, subres, _uwrap, _vwrap);
+    _vt->commit(addr, imgAndOrigSz.first.get(), imgAndOrigSz.second, subres, _uwrap, _vwrap, _borderColor);
+    return addr;
 }
 
 constexpr uint32_t TEX_OF_INTEREST_CNT = 6u;
@@ -195,98 +199,6 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
     auto fsNew = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecNew), std::move(specinfo));
 
     return fsNew;
-}
-
-core::smart_refctd_ptr<asset::ICPUImage> createPoTPaddedSquareImageWithMipLevels(asset::ICPUImage* _img, asset::ISampler::E_TEXTURE_CLAMP _wrapu, asset::ISampler::E_TEXTURE_CLAMP _wrapv)
-{
-    const auto& params = _img->getCreationParameters();
-    const uint32_t paddedExtent = core::roundUpToPoT(std::max(params.extent.width,params.extent.height));
-
-    //create PoT and square image with regions for all mips
-    asset::ICPUImage::SCreationParams paddedParams = params;
-    paddedParams.extent = {paddedExtent,paddedExtent,1u};
-    //in case of original extent being non-PoT, padding it to PoT gives us one extra not needed mip level (making sure to not cumpute it)
-    paddedParams.mipLevels = core::findLSB(paddedExtent) + (core::isPoT(std::max(params.extent.width,params.extent.height)) ? 1 : 0);
-    auto paddedImg = asset::ICPUImage::create(std::move(paddedParams));
-    {
-        const uint32_t texelBytesize = asset::getTexelOrBlockBytesize(params.format);
-
-        auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::IImage::SBufferCopy>>(paddedImg->getCreationParameters().mipLevels);
-        uint32_t bufoffset = 0u;
-        for (uint32_t i = 0u; i < regions->size(); ++i)
-        {
-            auto& region = (*regions)[i];
-            region.bufferImageHeight = 0u;
-            region.bufferOffset = bufoffset;
-            region.bufferRowLength = paddedExtent>>i;
-            region.imageExtent = {paddedExtent>>i,paddedExtent>>i,1u};
-            region.imageOffset = {0u,0u,0u};
-            region.imageSubresource.baseArrayLayer = 0u;
-            region.imageSubresource.layerCount = 1u;
-            region.imageSubresource.mipLevel = i;
-
-            bufoffset += texelBytesize*region.imageExtent.width*region.imageExtent.height;
-        }
-        auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(bufoffset);
-        paddedImg->setBufferAndRegions(std::move(buf), regions);
-    }
-
-    //copy mip 0 to new image while filling padding according to wrapping modes
-    asset::CPaddedCopyImageFilter::state_type copy;
-    copy.axisWraps[0] = _wrapu;
-    copy.axisWraps[1] = _wrapv;
-    copy.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
-    copy.borderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK;
-    copy.extent = params.extent;
-    copy.layerCount = 1u;
-    copy.inMipLevel = 0u;
-    copy.inOffset = {0u,0u,0u};
-    copy.inBaseLayer = 0u;
-    copy.outOffset = {0u,0u,0u};
-    copy.outBaseLayer = 0u;
-    copy.outMipLevel = 0u;
-    copy.paddedExtent = {paddedExtent,paddedExtent,1u};
-    copy.relativeOffset = {0u,0u,0u};
-    copy.inImage = _img;
-    copy.outImage = paddedImg.get();
-
-    asset::CPaddedCopyImageFilter::execute(&copy);
-
-    using mip_gen_filter_t = asset::CMipMapGenerationImageFilter<asset::CBoxImageFilterKernel,asset::CBoxImageFilterKernel>;
-    //generate all mip levels
-    {
-        mip_gen_filter_t::state_type genmips;
-        genmips.baseLayer = 0u;
-        genmips.layerCount = 1u;
-        genmips.startMipLevel = 1u;
-        genmips.endMipLevel = paddedImg->getCreationParameters().mipLevels;
-        genmips.inOutImage = paddedImg.get();
-        genmips.scratchMemoryByteSize = mip_gen_filter_t::getRequiredScratchByteSize(&genmips);
-        genmips.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(genmips.scratchMemoryByteSize,_IRR_SIMD_ALIGNMENT));
-        mip_gen_filter_t::execute(&genmips);
-        _IRR_ALIGNED_FREE(genmips.scratchMemory);
-    }
-
-    //bring back original extent
-    {
-        auto paddedRegions = paddedImg->getRegions();
-        auto buf = core::smart_refctd_ptr<asset::ICPUBuffer>( paddedImg->getBuffer() );
-        auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::IImage::SBufferCopy>>(paddedRegions.size());
-        memcpy(regions->data(), paddedRegions.begin(), sizeof(asset::IImage::SBufferCopy)*regions->size());
-        auto originalExtent = _img->getCreationParameters().extent;
-        for (uint32_t i = 0u; i < regions->size(); ++i)
-        {
-            auto& region = (*regions)[i];
-            region.imageExtent = {std::max(originalExtent.width>>i,1u),std::max(originalExtent.height>>i,1u),1u};
-        }
-
-        auto newParams = paddedImg->getCreationParameters();
-        newParams.extent = originalExtent;
-        paddedImg = asset::ICPUImage::create(std::move(newParams));
-        paddedImg->setBufferAndRegions(std::move(buf), regions);
-    }
-
-    return paddedImg;
 }
 
 class EventReceiver : public irr::IEventReceiver
@@ -455,9 +367,8 @@ int main()
             if (found != VTtexDataMap.end())
                 texData = found->second;
             else {
-                auto imgToPack = createPoTPaddedSquareImageWithMipLevels(img.get(), uwrap, vwrap);
-                const asset::E_FORMAT fmt = imgToPack->getCreationParameters().format;
-                texData = getTextureData(imgToPack.get(), vt.get(), uwrap, vwrap, borderColor);
+                const asset::E_FORMAT fmt = img->getCreationParameters().format;
+                texData = getTextureData(img.get(), vt.get(), uwrap, vwrap, borderColor);
                 VTtexDataMap.insert({img,texData});
             }
 

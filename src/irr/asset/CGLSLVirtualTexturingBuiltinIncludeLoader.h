@@ -72,17 +72,9 @@ layout(set=_IRR_VT_DESCRIPTOR_SET, binding=_IRR_VT_UINT_VIEWS_BINDING) uniform u
 #ifndef _IRR_BUILTIN_GLSL_VIRTUAL_TEXTURING_EXTENSIONS_INCLUDED_
 #define _IRR_BUILTIN_GLSL_VIRTUAL_TEXTURING_EXTENSIONS_INCLUDED_
 
-#extension GL_EXT_nonuniform_qualifier  : enable
+#extension GL_EXT_nonuniform_qualifier : enable
 
-//tmp dirty fix for weird behavior of renderdoc
-//uncomment below if having troubles in renderdoc and you're sure GL_NV_gpu_shader5 is available
-#define RUNNING_IN_RENDERDOC
-#ifdef RUNNING_IN_RENDERDOC
-	#define IRR_GL_NV_gpu_shader5
-#endif
-
-#if 1
-//#ifdef IRR_GL_NV_gpu_shader5
+#ifdef IRR_GL_NV_gpu_shader5
     #define IRR_GL_EXT_nonuniform_qualifier // TODO: we need to overhaul our GLSL preprocessing system to match what SPIRV-Cross actually does
 #endif
 
@@ -167,7 +159,7 @@ vec2 irr_glsl_unpackSize(in uvec2 texData)
 )";
 		s += R"(
 #ifndef _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
-  #error "You need to define irr_glsl_VT_getPgTabSzLog2(),irr_glsl_VT_getPhysPgTexSzRcp(uint formatID),irr_glsl_VT_getVTexSzRcp(),irr_glsl_VT_layer2pid(uint layer) before including this header"
+  #error "You need to define irr_glsl_VT_getPgTabSzLog2(),irr_glsl_VT_getPhysPgTexSzRcp(uint layer),irr_glsl_VT_getVTexSzRcp(),irr_glsl_VT_layer2pid(uint layer) before including this header"
 #endif
 )";
         s += R"(
