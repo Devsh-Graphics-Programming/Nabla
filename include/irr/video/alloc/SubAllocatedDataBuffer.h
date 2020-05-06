@@ -136,7 +136,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         };
         constexpr static bool UsingDefaultFunctor = std::is_same<CustomDeferredFreeFunctor,void>::value;
         typedef typename std::conditional<UsingDefaultFunctor,DefaultDeferredFreeFunctor,CustomDeferredFreeFunctor>::type DeferredFreeFunctor;
-        GPUEventDeferredHandlerST<DeferredFreeFunctor> deferredFrees;
+        GPUDeferredEventHandlerST<DeferredFreeFunctor> deferredFrees;
         core::allocator<std::tuple<size_type,size_type> > functorAllocator; // TODO : RobustGeneralpurposeAllocator a-la naughty dog, unbounded allocation, but without resize, use blocks
 
     public:
