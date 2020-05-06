@@ -14,6 +14,212 @@ namespace ext
 namespace MitsubaLoader
 {
 
+class CTraversalManipulator
+{
+public:
+	//typedefs
+	using instr_t = bsdf::instr_t;
+	using traversal_t = core::vector<instr_t>;
+	using substream_t = std::pair<traversal_t::iterator, traversal_t::iterator>;
+
+private:
+	_IRR_STATIC_INLINE_CONSTEXPR instr_t SPECIAL_VAL = ~static_cast<instr_t>(0);
+
+	static void setRegisters(instr_t& i, uint32_t rdst, uint32_t rsrc1 = 0u, uint32_t rsrc2 = 0u)
+	{
+		uint32_t& regDword = reinterpret_cast<uint32_t*>(&i)[1];
+
+		constexpr uint32_t _2ND_DWORD_SHIFT = 32u;
+
+		rdst  &= bsdf::INSTR_REG_MASK;
+		rsrc1 &= bsdf::INSTR_REG_MASK;
+		rsrc2 &= bsdf::INSTR_REG_MASK;
+
+		regDword = rdst; //(also zeroes out the rest)
+		regDword |= (rsrc1 << (bsdf::INSTR_REG_SRC1_SHIFT - _2ND_DWORD_SHIFT));
+		regDword |= (rsrc2 << (bsdf::INSTR_REG_SRC2_SHIFT - _2ND_DWORD_SHIFT));
+	}
+
+	struct has_different_normal_id
+	{
+		uint32_t n_id;
+
+		bool operator()(const instr_t& i) const { return bsdf::getNormalId(i)!=n_id; };
+	};
+
+	traversal_t m_input;
+	core::queue<uint32_t> m_streamLengths;
+
+	void reorderBumpMapStreams_impl(traversal_t& _input, traversal_t& _output, const substream_t& _stream)
+	{
+		const uint32_t n_id = bsdf::getNormalId(*(_stream.second-1));
+
+		const size_t len = _stream.second-_stream.first;
+		size_t subsLenAcc = 0ull;
+
+		core::stack<substream_t> substreams;
+		auto subBegin = std::find_if(_stream.first, _stream.second, has_different_normal_id{n_id});
+		while (subBegin != _stream.second)
+		{
+			const uint32_t sub_n_id = bsdf::getNormalId(*subBegin);
+			decltype(subBegin) subEnd;
+			for (subEnd = _stream.second-1; subEnd!=subBegin; --subEnd)
+				if (*subEnd == sub_n_id)
+					break;
+			++subEnd;
+
+			//one place will be used for SPECIAL_VAL (hence -1)
+			subsLenAcc += subEnd-subBegin-1;
+			substreams.push({subBegin,subEnd});
+
+			subBegin = std::find_if(subEnd, _stream.second, has_different_normal_id{n_id});
+		}
+
+		while (!substreams.empty())
+		{
+			reorderBumpMapStreams_impl(_input, _output, substreams.top());
+			substreams.pop();
+		}
+
+		const uint32_t newlen = len-subsLenAcc;
+
+		substream_t woSubs {_stream.first,_stream.first+newlen};
+		//move bumpmap instruction to the beginning of the stream
+		auto lastInstr = *(_stream.first+newlen-1);
+		if (bsdf::getOpcode(lastInstr)==bsdf::OP_BUMPMAP)
+		{
+			_input.erase(_stream.first+newlen-1);
+			_input.insert(_stream.first, lastInstr);
+		}
+
+		//important for next stage of processing
+		m_streamLengths.push(newlen);
+
+		_output.insert(_output.end(), woSubs.first, woSubs.second);
+		*woSubs.first = SPECIAL_VAL;
+		//do not erase SPECIAL_VAL (hence +1)
+		_input.erase(woSubs.first+1, woSubs.second);
+	}
+
+public:
+	CTraversalManipulator(traversal_t&& _traversal) : m_input(std::move(_traversal)) {}
+
+	traversal_t&& process(uint32_t regCount) &&
+	{
+		reorderBumpMapStreams();
+		specifyRegisters(regCount);
+
+		return std::move(m_input);
+	}
+
+private:
+	//reorders scattered bump-map streams (traversals of BSDF subtrees below bumpmap BSDF node) into continuous streams
+	//and moves OP_BUMPMAPs to the beginning of their streams/traversals/subtrees (because obviously they must be executed before BSDFs using them)
+	//leaves SPECIAL_VAL to mark original places of beginning of a stream (needed for function specifying registers)
+	//WARNING: modifies m_input
+	void reorderBumpMapStreams()
+	{
+		traversal_t result;
+		reorderBumpMapStreams_impl(m_input, result, {m_input.begin(),m_input.end()});
+
+		m_input = std::move(result);
+	}
+
+	void specifyRegisters(uint32_t regCount)
+	{
+		core::stack<uint32_t> freeRegs;
+		{
+			for (uint32_t i = 0u; i < regCount; ++i)
+				freeRegs.push(regCount-1u-i);
+		}
+		//registers with result of bump-map substream
+		core::stack<uint32_t> bmRegs;
+		//registers waiting to be used as source
+		core::stack<uint32_t> srcRegs;
+
+		int32_t bmStreamEndCounter = -1;
+		auto isInBMStream = [bmStreamEndCounter] { return bmStreamEndCounter>=0; };
+		auto pushResultRegister = [&bmStreamEndCounter,&bmRegs,&srcRegs] (uint32_t _resultReg)
+		{
+			core::stack<uint32_t>& stack = bmStreamEndCounter==0 ? bmRegs : srcRegs;
+			stack.push(_resultReg);
+		};
+		for (uint32_t j = 0u; j < m_input.size();)
+		{
+			instr_t& i = m_input[j];
+
+			if (i == SPECIAL_VAL)
+			{
+				srcRegs.push(bmRegs.top());
+				bmRegs.pop();
+				m_input.erase(m_input.begin()+j);
+
+				continue;
+			}
+			const bsdf::E_OPCODE op = bsdf::getOpcode(i);
+
+			--bmStreamEndCounter;
+			//TODO if bmStreamEndCounter gets value of -1 and next instruction is not OP_BUMPMAP, then emit some SET_GEOM_NORMAL instr
+			if (op == bsdf::OP_BUMPMAP)
+			{
+				bmStreamEndCounter = m_streamLengths.front()-2u;
+				m_streamLengths.pop();
+
+				//OP_BUMPMAP doesnt care about usual registers, so dont set them
+				++j;
+				continue;
+			}
+
+			const uint32_t srcsNum = bsdf::getNumberOfSrcRegsForOpcode(op);
+			assert(srcsNum<=2u);
+			uint32_t srcs[2];
+			for (uint32_t k = 0u; k < 2u; ++k)
+			{
+				srcs[k] = srcRegs.top();
+				srcRegs.pop();
+			}
+
+			switch (srcsNum)
+			{
+			case 2u:
+			{
+				const uint32_t src2 = srcs[0];
+				const uint32_t src1 = srcs[1];
+				const uint32_t dst  = (j==m_input.size()-1u) ? 0u : src1;
+				pushResultRegister(dst);
+				freeRegs.push(src2);
+				setRegisters(i, dst, src1, src2);
+			}
+			break;
+			case 1u:
+			{
+				const uint32_t src = srcs[0];
+				const uint32_t dst = (j==m_input.size()-1u) ? 0u : src;
+				pushResultRegister(dst);
+				setRegisters(i, dst, src);
+			}
+			break;
+			case 0u:
+			{
+				assert(!freeRegs.empty());
+				uint32_t dst = 0u;
+				if (j < m_input.size()-1u)
+				{
+					dst = freeRegs.top();
+					freeRegs.pop();
+				}
+				pushResultRegister(dst);
+				setRegisters(i, dst);
+			}
+			break;
+			default: break;
+			}
+
+			++j;
+		}
+	}
+};
+
 static uint64_t rgb32f_to_rgb19e7(const uint32_t _rgb[3])
 {
 	constexpr uint32_t mantissa_bitlen = 19u;
@@ -166,6 +372,7 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 		inheritOpacity(retval.coating);
 		break;
 	case CElementBSDF::Type::BUMPMAP:
+		retval.bumpmap.bumpmap = textureData(_node->bumpmap.texture);
 		break;
 	case CElementBSDF::Type::PHONG:
 		_IRR_DEBUG_BREAK_IF(1);//we dont care about PHONG
@@ -937,7 +1144,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 						for (uint32_t i=0u; meshbuffer->getAttribute(rgb, 1u, i); i++,it++)
 						{
 							for (auto i=0; i<3u; i++)
-								rgb[i] = video::impl::srgb2lin(rgb[i]);
+								rgb[i] = core::srgb2lin(rgb[i]);
 							meshbuffer->setAttribute(rgb,it,asset::EF_A2B10G10R10_UNORM_PACK32);
 						}
 						constexpr uint32_t COLOR_BUF_BINDING = 15u;
@@ -1358,21 +1565,21 @@ std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx
 {
 	struct stack_el {
 		const CElementBSDF* bsdf;
-		uint32_t instr_1st_dword;
+		bsdf::instr_t instr;
 		bool visited;
 		uint32_t weight_ix;
 		const CElementBSDF* maskParent;
 	};
 	core::stack<stack_el> stack;
-	uint32_t firstFreeNormalReg = 1u;//normal reg val 0 means geom normal without any perturbations
-	auto push = [&](const CElementBSDF* _bsdf, uint32_t _parent1stDword, const CElementBSDF* _maskParent) {
-		auto writeInheritableFlags = [](uint32_t& dst, uint32_t parent) {
+	uint64_t firstFreeNormalID = 1ull;//normal ID 0 means geom normal without any perturbations
+	auto push = [&](const CElementBSDF* _bsdf, bsdf::instr_t _parent, const CElementBSDF* _maskParent) {
+		auto writeInheritableFlags = [](bsdf::instr_t& dst, bsdf::instr_t parent) {
 			dst |= (parent & (bsdf::BITFIELDS_MASK_TWOSIDED << bsdf::BITFIELDS_SHIFT_TWOSIDED));
 			dst |= (parent & (bsdf::BITFIELDS_MASK_MASKFLAG << bsdf::BITFIELDS_SHIFT_MASKFLAG));
-			dst |= (parent & (bsdf::INSTR_NORMAL_REG_MASK << bsdf::INSTR_NORMAL_REG_SHIFT));
+			dst |= (parent & (bsdf::INSTR_NORMAL_ID_MASK << bsdf::INSTR_NORMAL_ID_SHIFT));
 		};
-		uint32_t _1stdword = BSDFtype2opcode(_bsdf);
-		writeInheritableFlags(_1stdword, _parent1stDword);
+		bsdf::instr_t instr = BSDFtype2opcode(_bsdf);
+		writeInheritableFlags(instr, _parent);
 		switch (_bsdf->type)
 		{
 		case CElementBSDF::Type::DIFFUSE:
@@ -1396,118 +1603,116 @@ std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx
 		case CElementBSDF::Type::ROUGHPLASTIC:
 			_IRR_FALLTHROUGH;
 		case CElementBSDF::Type::WARD:
-			stack.push({_bsdf,_1stdword,false,0,_maskParent});
+			stack.push({_bsdf,instr,false,0,_maskParent});
 			break;
 		case CElementBSDF::Type::COATING:
 			_IRR_FALLTHROUGH;
 		case CElementBSDF::Type::ROUGHCOATING:
 			_IRR_FALLTHROUGH;
 		case CElementBSDF::Type::BUMPMAP:
-			_1stdword &= (~(bsdf::INSTR_NORMAL_REG_MASK<<bsdf::INSTR_NORMAL_REG_SHIFT));//zero-out normal reg bitfield
-			_IRR_DEBUG_BREAK_IF(firstFreeNormalReg>bsdf::INSTR_NORMAL_REG_MASK);
-			_1stdword |= (firstFreeNormalReg & bsdf::INSTR_NORMAL_REG_MASK) << bsdf::INSTR_NORMAL_REG_SHIFT;//write new val
-			++firstFreeNormalReg;
-			stack.push({_bsdf,_1stdword,false,0,_maskParent});
+			instr &= (~(bsdf::INSTR_NORMAL_ID_MASK<<bsdf::INSTR_NORMAL_ID_SHIFT));//zero-out normal ID bitfield
+			instr |= (firstFreeNormalID & bsdf::INSTR_NORMAL_ID_MASK) << bsdf::INSTR_NORMAL_ID_SHIFT;//write new val
+			++firstFreeNormalID;
+			stack.push({_bsdf,instr,false,0,_maskParent});
 
-			_1stdword = BSDFtype2opcode(_bsdf->meta_common.bsdf[0]);
-			writeInheritableFlags(_1stdword, _parent1stDword);
-			stack.push({_bsdf->meta_common.bsdf[0],_1stdword,false,0,_maskParent});
+			instr = BSDFtype2opcode(_bsdf->meta_common.bsdf[0]);
+			writeInheritableFlags(instr, _parent);
+			stack.push({_bsdf->meta_common.bsdf[0],instr,false,0,_maskParent});
 			break;
 		case CElementBSDF::Type::BLEND_BSDF:
-			stack.push({ _bsdf,_1stdword,false,0,_maskParent });
-			_1stdword = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[1]);
-			writeInheritableFlags(_1stdword, _parent1stDword);
-			stack.push({ _bsdf->meta_common.bsdf[1],_1stdword,false,0,_maskParent });
-			_1stdword = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[0]);
-			writeInheritableFlags(_1stdword, _parent1stDword);
-			stack.push({ _bsdf->meta_common.bsdf[0],_1stdword,false,0,_maskParent });
+			stack.push({ _bsdf,instr,false,0,_maskParent });
+			instr = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[1]);
+			writeInheritableFlags(instr, _parent);
+			stack.push({ _bsdf->meta_common.bsdf[1],instr,false,0,_maskParent });
+			instr = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[0]);
+			writeInheritableFlags(instr, _parent);
+			stack.push({ _bsdf->meta_common.bsdf[0],instr,false,0,_maskParent });
 			break;
 		case CElementBSDF::Type::MIXTURE_BSDF:
 		{
 			//mixture is translated into tree of blends
-			uint32_t blendbsdf = _1stdword;
+			bsdf::instr_t blendbsdf = instr;
 			assert(_bsdf->mixturebsdf.childCount > 1u);
 			for (uint32_t i = 0u; i < _bsdf->mixturebsdf.childCount-1ull; ++i)
 			{
 				uint32_t weight_ix = _bsdf->mixturebsdf.childCount-i-1u;
 				stack.push({_bsdf,blendbsdf,false,weight_ix,_maskParent});
 				auto* mixchild_bsdf = _bsdf->mixturebsdf.bsdf[weight_ix];
-				uint32_t mixchild = BSDFtype2opcode(mixchild_bsdf);
-				writeInheritableFlags(mixchild, _parent1stDword);
+				bsdf::instr_t mixchild = BSDFtype2opcode(mixchild_bsdf);
+				writeInheritableFlags(mixchild, _parent);
 				stack.push({mixchild_bsdf,mixchild,false,0,_maskParent});
 			}
-			uint32_t child0 = BSDFtype2opcode(_bsdf->mixturebsdf.bsdf[0]);
-			writeInheritableFlags(child0, _parent1stDword);
+			bsdf::instr_t child0 = BSDFtype2opcode(_bsdf->mixturebsdf.bsdf[0]);
+			writeInheritableFlags(child0, _parent);
 			stack.push({_bsdf->mixturebsdf.bsdf[0],child0,false,0});
 		}	
 			break;
 		case CElementBSDF::Type::MASK:
-			_1stdword |= 1u<<bsdf::BITFIELDS_SHIFT_MASKFLAG;
-			stack.push({_bsdf->mask.bsdf[0],_1stdword,false,0,_bsdf});
+			instr |= 1u<<bsdf::BITFIELDS_SHIFT_MASKFLAG;
+			stack.push({_bsdf->mask.bsdf[0],instr,false,0,_bsdf});
 			break;
 		case CElementBSDF::Type::TWO_SIDED:
-			_1stdword |= 1u<<bsdf::BITFIELDS_SHIFT_TWOSIDED;
-			stack.push({_bsdf->twosided.bsdf[0],_1stdword,false,0,_maskParent});
+			instr |= 1u<<bsdf::BITFIELDS_SHIFT_TWOSIDED;
+			stack.push({_bsdf->twosided.bsdf[0],instr,false,0,_maskParent});
 			break;
 		case CElementBSDF::Type::PHONG:
 			_IRR_DEBUG_BREAK_IF(1);
 			break;
 		}
 	};
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_SHIFT_REL = 32u;
-	auto emitInstr = [](uint32_t _1stdword, const CElementBSDF* _node, uint32_t _regs, uint32_t _bsdfBufOffset) -> bsdf::instr_t {
-		uint32_t op = (_1stdword & bsdf::INSTR_OPCODE_MASK);
+	auto emitInstr = [](bsdf::instr_t _instr, const CElementBSDF* _node, uint32_t _bsdfBufOffset) -> bsdf::instr_t {
+		uint32_t op = (_instr & bsdf::INSTR_OPCODE_MASK);
 		switch (op)
 		{
 		case bsdf::OP_ROUGHDIFFUSE:
-			_1stdword |= static_cast<uint32_t>(_node->diffuse.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_MASK_ALPHA_U_TEX;
+			_instr |= static_cast<uint32_t>(_node->diffuse.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_MASK_ALPHA_U_TEX;
 			_IRR_FALLTHROUGH;
 		case bsdf::OP_DIFFUSE:
-			_1stdword |= static_cast<uint32_t>(_node->diffuse.reflectance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_REFL_TEX;
+			_instr |= static_cast<uint32_t>(_node->diffuse.reflectance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_REFL_TEX;
 			break;
 		case bsdf::OP_ROUGHDIELECTRIC:
-			_1stdword |= _node->dielectric.distribution << bsdf::BITFIELDS_SHIFT_NDF;
-			_1stdword |= static_cast<uint32_t>(_node->dielectric.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
+			_instr |= _node->dielectric.distribution << bsdf::BITFIELDS_SHIFT_NDF;
+			_instr |= static_cast<uint32_t>(_node->dielectric.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
 			if (_node->dielectric.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-				_1stdword |= static_cast<uint32_t>(_node->dielectric.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
+				_instr |= static_cast<uint32_t>(_node->dielectric.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
 			break;
 		case bsdf::OP_ROUGHCONDUCTOR:
-			_1stdword |= _node->conductor.distribution << bsdf::BITFIELDS_SHIFT_NDF;
-			_1stdword |= static_cast<uint32_t>(_node->conductor.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
+			_instr |= _node->conductor.distribution << bsdf::BITFIELDS_SHIFT_NDF;
+			_instr |= static_cast<uint32_t>(_node->conductor.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
 			if (_node->conductor.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-				_1stdword |= static_cast<uint32_t>(_node->conductor.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
+				_instr |= static_cast<uint32_t>(_node->conductor.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
 			break;
 		case bsdf::OP_ROUGHPLASTIC:
-			_1stdword |= _node->plastic.distribution << bsdf::BITFIELDS_SHIFT_NDF;
-			_1stdword |= static_cast<uint32_t>(_node->plastic.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
+			_instr |= _node->plastic.distribution << bsdf::BITFIELDS_SHIFT_NDF;
+			_instr |= static_cast<uint32_t>(_node->plastic.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
 			if (_node->plastic.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-				_1stdword |= static_cast<uint32_t>(_node->plastic.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
+				_instr |= static_cast<uint32_t>(_node->plastic.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
 			_IRR_FALLTHROUGH;
 		case bsdf::OP_PLASTIC:
-			_1stdword |= static_cast<uint32_t>(_node->plastic.nonlinear) << bsdf::BITFIELDS_SHIFT_NONLINEAR;
+			_instr |= static_cast<uint32_t>(_node->plastic.nonlinear) << bsdf::BITFIELDS_SHIFT_NONLINEAR;
 			break;
 		case bsdf::OP_ROUGHCOATING:
-			_1stdword |= _node->coating.distribution << bsdf::BITFIELDS_SHIFT_NDF;
-			_1stdword |= static_cast<uint32_t>(_node->coating.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
+			_instr |= _node->coating.distribution << bsdf::BITFIELDS_SHIFT_NDF;
+			_instr |= static_cast<uint32_t>(_node->coating.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
 			if (_node->coating.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-				_1stdword |= static_cast<uint32_t>(_node->coating.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
+				_instr |= static_cast<uint32_t>(_node->coating.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
 			_IRR_FALLTHROUGH;
 		case bsdf::OP_COATING:
-			_1stdword |= static_cast<uint32_t>(_node->coating.sigmaA.value.type == SPropertyElementData::INVALID) >> bsdf::BITFIELDS_SHIFT_SIGMA_A_TEX;
+			_instr |= static_cast<uint32_t>(_node->coating.sigmaA.value.type == SPropertyElementData::INVALID) >> bsdf::BITFIELDS_SHIFT_SIGMA_A_TEX;
 			break;
 		case bsdf::OP_WARD:
-			_1stdword |= _node->ward.variant << bsdf::BITFIELDS_SHIFT_WARD_VARIANT;
-			_1stdword |= static_cast<uint32_t>(_node->ward.alphaU.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
-			_1stdword |= static_cast<uint32_t>(_node->ward.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
+			_instr |= _node->ward.variant << bsdf::BITFIELDS_SHIFT_WARD_VARIANT;
+			_instr |= static_cast<uint32_t>(_node->ward.alphaU.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
+			_instr |= static_cast<uint32_t>(_node->ward.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
 			break;
 		case bsdf::OP_BLEND:
 			switch (_node->type)
 			{
 			case CElementBSDF::Type::BLEND_BSDF:
-				_1stdword |= static_cast<uint32_t>(_node->blendbsdf.weight.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_WEIGHT_TEX;
+				_instr |= static_cast<uint32_t>(_node->blendbsdf.weight.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_WEIGHT_TEX;
 				break;
 			case CElementBSDF::Type::MASK:
-				_1stdword |= static_cast<uint32_t>(_node->mask.opacity.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_WEIGHT_TEX;
+				_instr |= static_cast<uint32_t>(_node->mask.opacity.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_WEIGHT_TEX;
 				break;
 			case CElementBSDF::Type::MIXTURE_BSDF:
 				//always constant weights (not texture) -- leaving weight tex flag as 0
@@ -1516,47 +1721,28 @@ std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx
 			}
 			break;
 		case bsdf::OP_DIFFTRANS:
-			_1stdword |= static_cast<uint32_t>(_node->difftrans.transmittance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_SPEC_TRANS_TEX;
+			_instr |= static_cast<uint32_t>(_node->difftrans.transmittance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_SPEC_TRANS_TEX;
 			break;
 		default: break; //any other ones dont need any extra flags
 		}
 		//write index into bsdf buffer
-		_1stdword &= (~(bsdf::INSTR_BSDF_BUF_OFFSET_MASK<<bsdf::INSTR_BSDF_BUF_OFFSET_SHIFT));
-		_1stdword |= ((_bsdfBufOffset & bsdf::INSTR_BSDF_BUF_OFFSET_MASK) << bsdf::INSTR_BSDF_BUF_OFFSET_SHIFT);
+		_instr &= (~(bsdf::INSTR_BSDF_BUF_OFFSET_MASK<<bsdf::INSTR_BSDF_BUF_OFFSET_SHIFT));
+		_instr |= ((_bsdfBufOffset & bsdf::INSTR_BSDF_BUF_OFFSET_MASK) << bsdf::INSTR_BSDF_BUF_OFFSET_SHIFT);
 
-		bsdf::instr_t instr = _1stdword;
-		instr |= static_cast<bsdf::instr_t>(_regs)<<INSTR_REG_SHIFT_REL;
-		return instr;
+		return _instr;
 	};
 	uint32_t firstFreeReg = 0u;
-	const uint32_t instrBufBase = ctx.instrBuffer.size();
-	push(bsdf, 0u, nullptr);
+	
+	core::vector<bsdf::instr_t> traversal;
+	push(bsdf, static_cast<bsdf::instr_t>(0), nullptr);
 	while (!stack.empty())
 	{
 		auto& top = stack.top();
-		uint32_t op = ((top.instr_1st_dword >> bsdf::INSTR_OPCODE_SHIFT) & bsdf::INSTR_OPCODE_MASK);
+		const bsdf::E_OPCODE op = bsdf::getOpcode(top.instr);
+		const uint32_t srcRegCount = bsdf::getNumberOfSrcRegsForOpcode(op);
 		_IRR_DEBUG_BREAK_IF(op==bsdf::OP_INVALID);
-		if (op <= bsdf::OP_INVALID || top.visited)
+		if (srcRegCount==0u || top.visited)
 		{
-			uint32_t regs = 0u;
-			if (op <= bsdf::OP_INVALID)
-			{
-				regs = (firstFreeReg & bsdf::INSTR_REG_MASK) << (bsdf::INSTR_REG_DST_SHIFT - INSTR_REG_SHIFT_REL);
-				++firstFreeReg;
-			}
-			else if (op < bsdf::OP_BLEND)
-			{
-				regs = ((firstFreeReg-1u) & bsdf::INSTR_REG_MASK) << (bsdf::INSTR_REG_DST_SHIFT - INSTR_REG_SHIFT_REL);
-				regs |= ((firstFreeReg-1u) & bsdf::INSTR_REG_MASK) << (bsdf::INSTR_REG_SRC1_SHIFT - INSTR_REG_SHIFT_REL);
-			}
-			else if (op == bsdf::OP_BLEND)
-			{
-				--firstFreeReg;
-				regs = ((firstFreeReg-1u) & bsdf::INSTR_REG_MASK) << (bsdf::INSTR_REG_DST_SHIFT - INSTR_REG_SHIFT_REL);
-				regs |= ((firstFreeReg-1u) & bsdf::INSTR_REG_MASK) << (bsdf::INSTR_REG_SRC1_SHIFT - INSTR_REG_SHIFT_REL);
-				regs |= (firstFreeReg & bsdf::INSTR_REG_MASK) << (bsdf::INSTR_REG_SRC2_SHIFT - INSTR_REG_SHIFT_REL);
-			}
-
 			const uint32_t bsdfBufIx = ctx.bsdfBuffer.size();
 			if (top.bsdf)//if top.bsdf is nullptr, then bsdf buf offset will be irrelevant for this instruction (may be any value and won't ever be fetched anyway)
 			{
@@ -1565,46 +1751,30 @@ std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx
 				);
 				assert(bsdfBufIx < bsdf::INSTR_BSDF_BUF_OFFSET_MASK);
 			}
-			ctx.instrBuffer.push_back(emitInstr(top.instr_1st_dword, top.bsdf, regs, bsdfBufIx));
+			traversal.push_back(emitInstr(top.instr, top.bsdf, bsdfBufIx));
 			stack.pop();
 		}
 		else if (!top.visited)
 		{
 			top.visited = true;
-			switch ((top.instr_1st_dword & bsdf::INSTR_OPCODE_MASK))
+			switch (bsdf::getOpcode(top.instr))
 			{
 			case bsdf::OP_BLEND:
-				push(top.bsdf->blendbsdf.bsdf[1], top.instr_1st_dword, top.maskParent);
+				push(top.bsdf->blendbsdf.bsdf[1], top.instr, top.maskParent);
 				_IRR_FALLTHROUGH;
 			default:
-				push(top.bsdf->blendbsdf.bsdf[0], top.instr_1st_dword, top.maskParent);
+				push(top.bsdf->blendbsdf.bsdf[0], top.instr, top.maskParent);
 				break;
 			}
 		}
 	}
-	//reorder bumpmap instructions (they must be executed BEFORE instructions of tree nodes below it)
-	core::vector<uint32_t> ixs;//indices of bumpmap instructions to reorder
-	ixs.reserve(bsdf::INSTR_NORMAL_REG_MASK);
-	for (uint32_t i = 0u; i < (ctx.instrBuffer.size()-instrBufBase); ++i)
-	{
-		const uint32_t ix = instrBufBase + i;
-		const bsdf::instr_t& instr = ctx.instrBuffer[ix];
-		if ((instr & bsdf::INSTR_OPCODE_MASK) == bsdf::OP_BUMPMAP)
-			ixs.push_back(ix);
-		_IRR_DEBUG_BREAK_IF(ixs.size()>bsdf::INSTR_NORMAL_REG_MASK);
-	}
-	//reorder
-	for (uint32_t ix : ixs)
-	{
-		const bsdf::instr_t instr = ctx.instrBuffer[ix];
-		const uint32_t bmNormalReg = (instr >> bsdf::INSTR_NORMAL_REG_SHIFT)&bsdf::INSTR_NORMAL_REG_MASK;
-		auto it = std::find_if(ctx.instrBuffer.begin()+instrBufBase, ctx.instrBuffer.begin()+ix, [bmNormalReg] (const bsdf::instr_t& _i) { return ((_i>>bsdf::INSTR_NORMAL_REG_SHIFT)&bsdf::INSTR_NORMAL_REG_MASK) != bmNormalReg; });
-		//move bumpmap instruction to before first instruction which is using normal register of interest
-		ctx.instrBuffer.erase(ctx.instrBuffer.begin()+ix);
-		ctx.instrBuffer.insert(it, instr);
-	}
 
-	return {instrBufBase, ctx.instrBuffer.size()-instrBufBase};
+	traversal = std::move( CTraversalManipulator(std::move(traversal)).process(bsdf::REGISTER_COUNT) );
+	
+	const uint32_t instrBufOffset = ctx.instrBuffer.size();
+	ctx.instrBuffer.insert(ctx.instrBuffer.end(), traversal.begin(), traversal.end());
+
+	return {instrBufOffset, traversal.size()};
 }
 
 core::smart_refctd_ptr<ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx)
