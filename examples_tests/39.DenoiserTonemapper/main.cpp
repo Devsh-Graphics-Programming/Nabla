@@ -659,6 +659,7 @@ void main()
 
 				// create image view
 				ICPUImageView::SCreationParams imgViewParams;
+				imgViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
 				imgViewParams.format = image->getCreationParameters().format;
 				imgViewParams.image = std::move(image);
 				imgViewParams.viewType = ICPUImageView::ET_2D;

@@ -45,6 +45,7 @@ int main(int argc, char * argv[])
 	for (auto i = 0ul; i < image_bundle.getSize(); ++i)
 	{
 		ICPUImageView::SCreationParams imgViewParams;
+		imgViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
 		imgViewParams.image = IAsset::castDown<ICPUImage>(image_bundle.getContents().first[i]);
 		imgViewParams.format = imgViewParams.image->getCreationParameters().format;
 		imgViewParams.viewType = ICPUImageView::ET_2D;
