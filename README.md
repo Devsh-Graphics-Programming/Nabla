@@ -6,7 +6,7 @@
 
 ## Contracting
 
-The members of Devsh Graphics Programming Sp. z O.O. (Company Registration (KRS) #: 0000764661) are available (individually or collectively) for contracts on projects of various scopes and timescales, especially on foreign frameworks, codebases and third-party 3D frameworks. We provide expertise in OpenGL, OpenGL ES, WebGL, Vulkan, OpenCL, CUDA, D3D12 and D3D11, computer vision, Audio programming, DSP, video encoding and decoding as well as more generalized High Performance Computing. Our language of choice is C++17 with C++11 and C11 coming in close second, however we're also amenable to Java, Python and related languages.
+The members of **Devsh Graphics Programming Sp. z O.O.** (Company Registration (KRS) #: 0000764661) are available (individually or collectively) for contracts on projects of various scopes and timescales, especially on foreign frameworks, codebases and third-party 3D frameworks. We provide expertise in *OpenGL, OpenGL ES, WebGL, Vulkan, OpenCL, CUDA, D3D12 and D3D11, computer vision, Audio programming, DSP, video encoding and decoding as well as more generalized High Performance Computing*. Our language of choice is C++17 with C++11 and C11 coming in close second, however we're also amenable to Java, Python and related languages.
 
 Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** (e-mail available in the GitHub profile) with inquires into contracting.
 
@@ -160,7 +160,7 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 - **[Vulkan SDK](https://vulkan.lunarg.com/sdk/home)**
 - **[Perl](https://www.perl.org/get.html)**
 - **[NASM](https://www.nasm.us/pub/nasm/releasebuilds/?C=M;O=D)**
-- **[Python 2.7](https://www.python.org/download/releases/2.7/)** or later
+- **[Python 3.8](https://www.python.org/downloads/release/python-380/)** or later
 
 ### Vanilla + CUDA Build
 
@@ -247,6 +247,12 @@ git checkout tags/glew-cmake-2.1.0
 in *glew* directory that you can find in ***3rdparty/CEGUI/glew*** directory because of *glew* commiting politics. Having done it you can switch to your ***master/root*** directory and commit those changes if you want, but it isn't necessary to compile entire library.
 
 ### CMake notes
+
+#### Make sure Python's executable is found
+
+- The paragraph concerns *Windows system* only
+
+Unfortunately on Windows there are often troubles with **Python 3.0+** versions, because it isn't able to find and determine `PYTHON_EXECUTABLE` variable, so you have to fill it manually. If you use **CMake-GUI** you will find it in advanced options.
 
 #### Consider CMake and Visual Studio version, **important**! 
 
