@@ -66,26 +66,6 @@ protected:
         return (((_sideExtent+(1u<<_level)-1u)>>_level) + m_pgSzxy-1u) / m_pgSzxy;
     }
 
-    enum E_SAMPLER_TYPE
-    {
-        EST_FLOAT,
-        EST_INT,
-        EST_UINT,
-        EST_INVALID
-    };
-    E_SAMPLER_TYPE formatToSamplerType(E_FORMAT _format)
-    {
-        if (isNormalizedFormat(_format) || isFloatingPointFormat(_format) || isScaledFormat(_format))
-            return EST_FLOAT;
-        if (isIntegerFormat(_format))
-        {
-            if (isSignedFormat(_format))
-                return EST_INT;
-            return EST_UINT;
-        }
-        return EST_INVALID;
-    }
-
 public:
     _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PAGE_TABLE_EXTENT_LOG2 = 8u;
     _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PHYSICAL_PAGE_SIZE_LOG2 = 9u;
@@ -365,22 +345,6 @@ protected:
         }
     };
     SamplerArray m_fsamplers, m_isamplers, m_usamplers;
-
-    const SamplerArray& getSamplerArray(E_SAMPLER_TYPE _type) const
-    {
-        switch (_type)
-        {
-        case EST_FLOAT:
-            return m_fsamplers;
-        case EST_INT:
-            return m_isamplers;
-        case EST_UINT:
-            return m_usamplers;
-        default:
-            assert(false);
-            return m_fsamplers;
-        }
-    }
 
     //preallocated arrays for multi_free_addr()
     core::smart_refctd_dynamic_array<uint32_t> m_addrsArray;
