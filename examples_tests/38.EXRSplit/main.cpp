@@ -5,13 +5,14 @@
 
 using namespace irr;
 using namespace core;
+using namespace asset;
 
 int main(int argc, char * argv[])
 {
 	irr::SIrrlichtCreationParameters params;
 	params.Bits = 24; 
 	params.ZBufferBits = 24; 
-	params.DriverType = video::EDT_OPENGL; 
+	params.DriverType = video::EDT_NULL; 
 	params.WindowSize = dimension2d<uint32_t>(1280, 720);
 	params.Fullscreen = false;
 	params.Vsync = true; 
@@ -37,14 +38,20 @@ int main(int argc, char * argv[])
 	auto smgr = device->getSceneManager();
 	auto am = device->getAssetManager();
 
-	asset::IAssetLoader::SAssetLoadParams lp;
+	IAssetLoader::SAssetLoadParams lp;
 	auto image_bundle = am->getAsset("../../media/OpenEXR/" + std::string(isItDefaultImage ? "daily_pt_16" : argv[1]) + ".exr", lp);
 	assert(!image_bundle.isEmpty());
 
 	for (auto i = 0ul; i < image_bundle.getSize(); ++i)
 	{
-		auto image = image_bundle.getContents().first[i];
-		const auto params = asset::IAssetWriter::SAssetWriteParams(image.get(), asset::EWF_BINARY);
+		ICPUImageView::SCreationParams imgViewParams;
+		imgViewParams.image = IAsset::castDown<ICPUImage>(image_bundle.getContents().first[i]);
+		imgViewParams.format = imgViewParams.image->getCreationParameters().format;
+		imgViewParams.viewType = ICPUImageView::ET_2D;
+		imgViewParams.subresourceRange = { static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u };
+		auto imageView = ICPUImageView::create(std::move(imgViewParams));
+
+		const auto params = IAssetWriter::SAssetWriteParams(imageView.get(), EWF_BINARY);
 		am->writeAsset("OpenEXR_" + std::to_string(i) + ".exr", params);
 	}
 		
