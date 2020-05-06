@@ -57,9 +57,6 @@ protected:
 
 public:
 	//! Constructor.
-    /**
-    Note that ALL parameters are move-assigned to meshbuffer's members!
-    */
 	IMeshBuffer(core::smart_refctd_ptr<PipelineType>&& _pipeline, core::smart_refctd_ptr<DescSetType>&& _ds,
         SBufferBinding<BufferType> _vtxBindings[MAX_ATTR_BUF_BINDING_COUNT],
         SBufferBinding<BufferType>&& _indexBinding
@@ -68,7 +65,7 @@ public:
             instanceCount(1ull), baseInstance(0u)
 	{
         if (_vtxBindings)
-            std::move(_vtxBindings, _vtxBindings+MAX_ATTR_BUF_BINDING_COUNT, m_vertexBufferBindings);
+            std::copy(_vtxBindings, _vtxBindings+MAX_ATTR_BUF_BINDING_COUNT, m_vertexBufferBindings);
 	}
 
     inline bool isAttributeEnabled(uint32_t attrId) const
