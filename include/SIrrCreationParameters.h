@@ -9,6 +9,7 @@
 #include "EDeviceTypes.h"
 #include "dimension2d.h"
 #include "ILogger.h"
+#include "irr/builtin/common.h"
 
 namespace irr
 {
@@ -230,9 +231,9 @@ namespace irr
 		This is needed for sdk version checks. */
 		const char* const SDK_version_do_not_use;
 
-		    const char* builtinResourceHeaderPath =
+		static inline constexpr std::string_view builtinResourceHeaderPath =
 #ifdef _IRR_BUILTIN_PATH_AVAILABLE
-      			getBuiltinResourcesCommonHeaderPath();
+			irr::builtin::getBuiltinResourcesCommonHeaderPath();
 #else
       			nullptr;
 #endif

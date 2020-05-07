@@ -375,7 +375,8 @@ target_include_directories(Irrlicht PUBLIC
 	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
 )
-target_include_directories(Irrlicht PUBLIC ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht ${IRR_ROOT_PATH}/src/3rdparty ${CMAKE_BINARY_DIR}/include) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
+target_include_directories(Irrlicht PUBLIC ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht ${IRR_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
+target_include_directories(Irrlicht PRIVATE ${CMAKE_BINARY_DIR}/include)
 if (UNIX)
 	target_include_directories(Irrlicht PUBLIC 
 		${X11_INCLUDE_DIR} 
@@ -487,15 +488,18 @@ macro(irr_install_static_lib _TRGT)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION lib CONFIGURATIONS Release)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION debug/lib CONFIGURATIONS Debug)
 endmacro()
+if(IRR_EMBED_BUILTIN_RESOURCES)
+	add_custom_target(builtin_resources
+	   DEPENDS ${CMAKE_BINARY_DIR}/include/irr/builtin/builtinResources.h ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
+	  add_dependencies(Irrlicht builtin_resources)
+	  add_dependencies(IrrlichtServer builtin_resources)
+elseif()
+	foreach(X IN LISTS irr_resources_to_embed)
+		list(APPEND IRRLICHT_HEADERS_PUBLIC  ${IRR_ROOT_PATH}/include/${X})
+	endforeach()
+endif()
 
 irr_install_static_lib(Irrlicht)
 irr_install_static_lib(IrrlichtServer)
 irr_install_headers("${IRRLICHT_HEADERS_PUBLIC}" "${IRR_ROOT_PATH}/include")
 irr_install_config_header(BuildConfigOptions.h)
-
-if(IRR_EMBED_BUILTIN_RESOURCES)
-add_custom_target(builtin_resources
-   DEPENDS ${CMAKE_BINARY_DIR}/include/irr/builtin/builtinResources.h ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
-  add_dependencies(Irrlicht builtin_resources)
-  add_dependencies(IrrlichtServer builtin_resources)
-endif()

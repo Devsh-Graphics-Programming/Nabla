@@ -246,25 +246,27 @@ public:
 
 
 	template<typename StringUniqueType>
-	static inline core::smart_refctd_ptr<core::IBuffer> loadBuiltinData()
+	inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData()
 	{
 #ifdef _IRR_EMBED_BUILTIN_RESOURCES_
 		std::pair<const uint8_t*, size_t> found = irr::builtin::get_resource<StringUniqueType>();
 		if (found.first && found.second)
 		{
-			auto returnValue = core::make_smart_refctd_ptr<core::IBuffer>(found.second);
+			auto returnValue = core::make_smart_refctd_ptr<asset::ICPUBuffer>(found.second);
 			memcpy(returnValue->getPointer(), found.first, returnValue->getSize());
 			return returnValue;
 		}
 		return nullptr;
 #else
-		auto path = (std::string(SIrrlichtCreationParameter::builtinResourceHeaderPath, sizeof(SIrrlichtCreationParameters::builtinResourceHeaderPath)-sizeof("/common.h"))
-			+ "../../" + std::string(StringUniqueType::value));
+		
+		auto size = SIrrlichtCreationParameters::builtinResourceHeaderPath.size() - sizeof("common.h");
+		auto path = (std::string(SIrrlichtCreationParameters::builtinResourceHeaderPath.data(),size)
+			+ "/../../" + std::string(StringUniqueType::value));
 
 		auto file = this->createAndOpenFile((path).c_str());
 		if(file)
 		{
-			auto retval = core::make_smart_refctd_ptr<core::IBuffer>(file->getSize());
+			auto retval = core::make_smart_refctd_ptr<asset::ICPUBuffer>(file->getSize());
 			file->read(retval->getPointer(), file->getSize());
 			file->drop();
 			return retval;	
