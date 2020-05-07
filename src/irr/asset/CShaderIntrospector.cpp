@@ -278,8 +278,12 @@ core::smart_refctd_ptr<ICPUDescriptorSetLayout> CShaderIntrospector::createAppro
             auto checkedDescsCntIt = checkedDescsCnt;
             for (auto introspection=begin; introspection!=end; introspection++,shdr++,checkedDescsCntIt++)
             {
-                auto& introBnd = (*introspection)->descriptorSetBindings[_set][*checkedDescsCntIt];
-                if (introBnd.binding != binding.binding)
+                auto& introBindings = (*introspection)->descriptorSetBindings[_set];
+                if (*checkedDescsCntIt == introBindings.size())
+                    continue;
+
+                const auto& introBinding = introBindings[*checkedDescsCntIt].binding;
+                if (introBinding != binding.binding)
                     continue;
 
                 refShader = *shdr;
@@ -384,7 +388,7 @@ core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CShaderIntrospector::c
     SPrimitiveAssemblyParams primAssembly;
     SRasterizationParams raster;
 
-    auto layout = createApproximatePipelineLayoutFromIntrospection(_begin, _end, _extensionsBegin, _extensionsEnd);
+    auto layout = createApproximatePipelineLayoutFromIntrospection_impl(introspections, introspections+std::distance(_begin,_end), _begin);
 
     return core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
         std::move(layout),

@@ -9,25 +9,20 @@ layout(set = 1, binding = 1, std430) restrict writeonly buffer IndirectDraws
     DrawElementsIndirectCommand_t draws[];
 };
 
-layout(set = 1, binding = 2, std430) restrict readonly buffer DrawInstanceCount
-{
-	uint drawInstanceCount[];
-};
-
 layout(push_constant) uniform PushConstants
 {
     uint maxDrawCount;
-};
+} pc;
 
 
 void main()
 {
-    if (gl_GlobalInvocationID.x<maxDrawCount)
+    if (gl_GlobalInvocationID.x<pc.maxDrawCount)
         return;
 
-    mat4 modelViewProj = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(modelData[draw.objectUUID].MVP);
+    mat4 modelViewProj = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(modelData[gl_GlobalInvocationID.x].MVP);
 
     bool culled = false;
 
-    draws[gl_GlobalInvocationID.x].instanceCount = culled ? drawInstanceCount[gl_GlobalInvocationID.x]:0u;
+    draws[gl_GlobalInvocationID.x].instanceCount = culled ? 1u:0u;
 }
