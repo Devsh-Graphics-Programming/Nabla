@@ -34,6 +34,7 @@ public:
 template <typename image_view_t, typename sampler_t>
 class IVirtualTexture : public core::IReferenceCounted, public IVirtualTextureBase
 {
+    using this_type = IVirtualTexture<image_view_t, sampler_t>;
 protected:
     //! SPhysPgOffset is what is stored in texels of page table!
     struct SPhysPgOffset
@@ -82,6 +83,7 @@ public:
 
 #include "irr/irrpack.h"
     //must be 64bit
+    template <typename CRTP>
     struct IRR_FORCE_EBO STextureData
     {
         enum E_WRAP_MODE
@@ -91,6 +93,36 @@ public:
             EWM_MIRROR = 0b10,
             EWM_INVALID = 0b11
         };
+        static E_WRAP_MODE ETC_to_EWM(ISampler::E_TEXTURE_CLAMP _etc)
+        {
+            switch (_etc)
+            {
+            case ISampler::ETC_REPEAT:
+                return EWM_REPEAT;
+            case ISampler::ETC_CLAMP_TO_EDGE: _IRR_FALLTHROUGH;
+            case ISampler::ETC_CLAMP_TO_BORDER:
+                return EWM_CLAMP;
+            case ISampler::ETC_MIRROR: _IRR_FALLTHROUGH;
+            case ISampler::ETC_MIRROR_CLAMP_TO_EDGE: _IRR_FALLTHROUGH;
+            case ISampler::ETC_MIRROR_CLAMP_TO_BORDER:
+                return EWM_MIRROR;
+            default:
+                return EWM_INVALID;
+            }
+        }
+        static ISampler::E_TEXTURE_CLAMP EWM_to_ETC(E_WRAP_MODE _ewm)
+        {
+            switch (_ewm)
+            {
+            case EWM_INVALID: _IRR_FALLTHROUGH;
+            case EWM_REPEAT:
+                return ISampler::ETC_REPEAT;
+            case EWM_CLAMP:
+                return ISampler::ETC_CLAMP_TO_EDGE;
+            case EWM_MIRROR:
+                return ISampler::ETC_MIRROR;
+            }
+        }
 
         //1st dword
         uint64_t origsize_x : 16;
@@ -104,36 +136,52 @@ public:
         uint64_t wrap_x : 2;
         uint64_t wrap_y : 2;
 
-        static STextureData invalid()
+        static CRTP invalid()
         {
-            STextureData inv;
+            CRTP inv;
             memset(&inv,0,sizeof(inv));
             inv.wrap_x = EWM_INVALID;
             inv.wrap_y = EWM_INVALID;
             return inv;
         }
-        static bool is_invalid(const STextureData& _td)
+        static bool is_invalid(const CRTP& _td)
         {
             return _td.wrap_x==EWM_INVALID||_td.wrap_y==EWM_INVALID;
         }
+
+    protected:
+        STextureData() = default;
     } PACK_STRUCT;
 #include "irr/irrunpack.h"
-    static_assert(sizeof(STextureData)==sizeof(uint64_t), "STextureData is not 64bit!");
 
-#define TEXTURE_DATA_CTOR_CONVERT_FROM_BASE(classname) classname(const STextureData& _base) : STextureData(_base) {}
-    struct IRR_FORCE_EBO SMasterTextureData : STextureData { TEXTURE_DATA_CTOR_CONVERT_FROM_BASE(SMasterTextureData); };
-    struct IRR_FORCE_EBO SViewAliasTextureData : STextureData { TEXTURE_DATA_CTOR_CONVERT_FROM_BASE(SViewAliasTextureData); };
-#undef TEXTURE_DATA_CTOR_CONVERT_FROM_BASE
+    struct IRR_FORCE_EBO SMasterTextureData : STextureData<SMasterTextureData> 
+    {
+        friend class this_type;
+    private:
+        SMasterTextureData() = default;
+    };
+    static_assert(sizeof(SMasterTextureData)==sizeof(uint64_t), "SMasterTextureData is not 64bit!");
+
+    struct IRR_FORCE_EBO SViewAliasTextureData : STextureData<SViewAliasTextureData>
+    {
+        friend class this_type;
+    private:
+        SViewAliasTextureData() = default;
+    };
+    static_assert(sizeof(SViewAliasTextureData)==sizeof(uint64_t), "SViewAliasTextureData is not 64bit!");
 
 protected:
+    static SMasterTextureData createMasterTextureData() { return SMasterTextureData(); }
+    static SViewAliasTextureData createAliasTextureData() { return SViewAliasTextureData(); }
+
     using image_t = typename decltype(image_view_t::SCreationParams::image)::pointee;
 
     using page_tab_offset_t = core::vector3du32_SIMD;
     static page_tab_offset_t page_tab_offset_invalid() { return page_tab_offset_t(~0u,~0u,~0u); }
 
-    STextureData offsetToTextureData(const page_tab_offset_t& _offset, const VkExtent3D& _extent, uint32_t _mipCount, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv)
+    SMasterTextureData offsetToTextureData(const page_tab_offset_t& _offset, const VkExtent3D& _extent, uint32_t _mipCount, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv)
     {
-        STextureData texData;
+        auto texData = createMasterTextureData();
         texData.origsize_x = _extent.width;
         texData.origsize_y = _extent.height;
 
@@ -143,25 +191,8 @@ protected:
 
         texData.maxMip = _mipCount-1u-m_pgSzxy_log2;
 
-        auto ETC_to_int = [](ISampler::E_TEXTURE_CLAMP _etc) -> uint32_t {
-            switch (_etc)
-            {
-            case ISampler::ETC_REPEAT:
-                return STextureData::EWM_REPEAT;
-            case ISampler::ETC_CLAMP_TO_EDGE:
-            case ISampler::ETC_CLAMP_TO_BORDER:
-                return STextureData::EWM_CLAMP;
-            case ISampler::ETC_MIRROR:
-            case ISampler::ETC_MIRROR_CLAMP_TO_EDGE:
-            case ISampler::ETC_MIRROR_CLAMP_TO_BORDER:
-                return STextureData::EWM_MIRROR;
-            default:
-                return STextureData::EWM_INVALID;
-            }
-        };
-
-        texData.wrap_x = ETC_to_int(_wrapu);
-        texData.wrap_y = ETC_to_int(_wrapv);
+        texData.wrap_x = SMasterTextureData::ETC_to_EWM(_wrapu);
+        texData.wrap_y = SMasterTextureData::ETC_to_EWM(_wrapv);
 
         return texData;
     }
@@ -243,10 +274,19 @@ protected:
         return found-m_precomputed.layer_to_sampler_ix;
     }
 
+    core::vector2du32_SIMD getMaxAllocatableTextureSize() const
+    {
+        return (core::vector2du32_SIMD(&m_pageTable->getCreationParameters().extent.width)*m_pgSzxy) & core::vector2du32_SIMD(~0u,~0u,0u,0u);
+    }
+    bool isAllocatable(const VkExtent3D& _extent)
+    {
+        return (core::vector2du32_SIMD(&_extent.width)<=getMaxAllocatableTextureSize()).xyxy().all();
+    }
+
     uint32_t countLevelsTakingAtLeastOnePage(const VkExtent3D& _extent, uint32_t _baseLevel = 0u)
     {
         const uint32_t baseMaxDim = core::roundUpToPoT(core::max(_extent.width, _extent.height))>>_baseLevel;
-        const int32_t lastFullMip = core::findMSB(baseMaxDim) - static_cast<int32_t>(m_pgSzxy_log2);
+        const int32_t lastFullMip = core::findMSB(baseMaxDim-1u)+1 - static_cast<int32_t>(m_pgSzxy_log2);
 
         assert(lastFullMip<static_cast<int32_t>(m_pageTable->getCreationParameters().mipLevels));
 
@@ -616,13 +656,20 @@ public:
 
     SMasterTextureData alloc(E_FORMAT _primaryFormat, const VkExtent3D& _mip0extent, const IImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv)
     {
+        if (_subres.layerCount != 1u)
+            return SMasterTextureData::invalid();
+
+        const VkExtent3D extent = {_mip0extent.width>>_subres.baseMipLevel, _mip0extent.height>>_subres.baseMipLevel, 1u};
+        if (!isAllocatable(extent))
+            return SMasterTextureData::invalid();
+
         const E_FORMAT format = _primaryFormat;
         uint32_t smplrIndex = 0u;
         IVTResidentStorage* storage = nullptr;
         {
             auto found = m_storage.find(getFormatClass(format));
             if (found==m_storage.end())
-                return STextureData::invalid();
+                return SMasterTextureData::invalid();
             storage = found->second.get();
 
             SamplerArray* views = nullptr;
@@ -634,12 +681,11 @@ public:
                 views = &m_usamplers;
             auto view_it = std::find_if(views->views->begin(), views->views->end(), [format](const core::smart_refctd_ptr<ICPUImageView>& _view) {return _view->getCreationParameters().format==format;});
             if (view_it==views->views->end()) //no physical page texture view/sampler for requested format
-                return STextureData::invalid();
+                return SMasterTextureData::invalid();
             smplrIndex = std::distance(views->views->begin(), view_it);
         }
         auto assignedLayers = getPageTableLayersForFormat(format);
 
-        const VkExtent3D extent = {_mip0extent.width>>_subres.baseMipLevel, _mip0extent.height>>_subres.baseMipLevel, 1u};
         uint32_t szAndAlignment = computeSquareSz(extent.width, extent.height);
         szAndAlignment *= szAndAlignment;
 
@@ -656,7 +702,7 @@ public:
         {
             pgtLayer = findFreePageTableLayer();
             if (pgtLayer==INVALID_LAYER_INDEX)
-                return STextureData::invalid();
+                return SMasterTextureData::invalid();
             core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_alloc_addr((*m_pageTableLayerAllocators)[pgtLayer], 1u, &addr, &szAndAlignment, &szAndAlignment, nullptr);
             assert(addr!=pg_tab_addr_alctr_t::invalid_address);
             addPageTableLayerForFormat(format, pgtLayer);
@@ -672,8 +718,8 @@ public:
             _wrapv
         );
     }
-    //TODO try to get rid of _img parameter (now needed for determining format class of the image to find its physical storage)
-    virtual bool free(const STextureData& _addr)
+
+    bool destroyAlias(const SViewAliasTextureData& _addr)
     {
         uint32_t sz = computeSquareSz(_addr.origsize_x, _addr.origsize_y);
         sz *= sz;
@@ -696,7 +742,12 @@ public:
         return true;
     }
 
-    virtual bool commit(const SMasterTextureData& _addr, const image_t* _img, const VkExtent3D& _mip0extent, const IImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, ISampler::E_TEXTURE_BORDER_COLOR _borderColor) = 0;
+    virtual bool free(const SMasterTextureData& _addr)
+    {
+        return destroyAlias(reinterpret_cast<const SViewAliasTextureData*>(&_addr)[0]);
+    }
+
+    virtual bool commit(const SMasterTextureData& _addr, const image_t* _img, const IImage::SSubresourceRange& _subres) = 0;
 
     virtual SViewAliasTextureData createAlias(const SMasterTextureData& _addr, E_FORMAT _viewingFormat, const IImage::SSubresourceRange& _subresRelativeToMaster) = 0;
 
@@ -750,7 +801,7 @@ public:
 
 protected:
     template <typename DSlayout_t>
-    auto getDSlayoutBindings_internal(typename DSlayout_t::SBinding* _outBindings, core::smart_refctd_ptr<sampler_t>* _outSamplers, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    std::pair<uint32_t,uint32_t> getDSlayoutBindings_internal(typename DSlayout_t::SBinding* _outBindings, core::smart_refctd_ptr<sampler_t>* _outSamplers, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
     {
         const uint32_t bindingCount = 1u+(getFloatViews().size()?1u:0u)+(getIntViews().size()?1u:0u)+(getUintViews().size()?1u:0u);
         const uint32_t samplerCount = 1u+std::max(getFloatViews().size(), std::max(getIntViews().size(), getUintViews().size()));
@@ -793,7 +844,7 @@ protected:
     }
 
     template <typename DS_t>
-    auto getDescriptorSetWrites_internal(typename DS_t::SWriteDescriptorSet* _outWrites, typename DS_t::SDescriptorInfo* _outInfo, DS_t* _dstSet, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
+    std::pair<uint32_t,uint32_t> getDescriptorSetWrites_internal(typename DS_t::SWriteDescriptorSet* _outWrites, typename DS_t::SDescriptorInfo* _outInfo, DS_t* _dstSet, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
     {
         const uint32_t writeCount = 1u+(getFloatViews().size()?1u:0u)+(getIntViews().size()?1u:0u)+(getUintViews().size()?1u:0u);
         const uint32_t infoCount = 1u + getFloatViews().size() + getIntViews().size() + getUintViews().size();

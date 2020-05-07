@@ -147,7 +147,7 @@ public:
         createViewsFromCPU(m_usamplers.views->data(), _cpuvt->getUintViews());
     }
 
-    bool commit(const SMasterTextureData& _addr, const image_t* _img, const asset::VkExtent3D& _mip0extent, const asset::IImage::SSubresourceRange& _subres, asset::ISampler::E_TEXTURE_CLAMP _wrapu, asset::ISampler::E_TEXTURE_CLAMP _wrapv, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor) override
+    bool commit(const SMasterTextureData& _addr, const IGPUImage* _img, const asset::IImage::SSubresourceRange& _subres) override
     {
         assert(0);
         return false;
@@ -156,10 +156,10 @@ public:
     SViewAliasTextureData createAlias(const SMasterTextureData& _addr, asset::E_FORMAT _viewingFormat, const asset::IImage::SSubresourceRange& _subresRelativeToMaster) override
     {
         assert(0);
-        return STextureData::invalid();
+        return SViewAliasTextureData::invalid();
     }
 
-    bool free(const STextureData& _addr) override
+    bool free(const SMasterTextureData& _addr) override
     {
         assert(0);
         return false;

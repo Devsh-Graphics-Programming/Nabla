@@ -110,7 +110,7 @@ float irr_glsl_VT_getVTexSzRcp()
 #include <%s>
 )";
 
-using STextureData = asset::ICPUVirtualTexture::STextureData;
+using STextureData = asset::ICPUVirtualTexture::SMasterTextureData;
 
 constexpr uint32_t PGTAB_LAYERS = 64u;
 constexpr uint32_t PAGE_SZ_LOG2 = 7u;
@@ -127,14 +127,16 @@ STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualText
 {
     const auto& extent = _img->getCreationParameters().extent;
 
-    auto imgAndOrigSz = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(_img, _uwrap, _vwrap);
+    auto imgAndOrigSz = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(_img, _uwrap, _vwrap, _borderColor);
 
     asset::IImage::SSubresourceRange subres;
     subres.baseMipLevel = 0u;
     subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(extent.width, extent.height))) + 1;
+    subres.baseArrayLayer = 0u;
+    subres.layerCount = 1u;
 
     auto addr = _vt->alloc(_img->getCreationParameters().format, imgAndOrigSz.second, subres, _uwrap, _vwrap);
-    _vt->commit(addr, imgAndOrigSz.first.get(), imgAndOrigSz.second, subres, _uwrap, _vwrap, _borderColor);
+    _vt->commit(addr, imgAndOrigSz.first.get(), subres);
     return addr;
 }
 
@@ -362,7 +364,7 @@ int main()
             auto extent = img->getCreationParameters().extent;
             if (extent.width <= 2u || extent.height <= 2u)//dummy 2x2
                 continue;
-            STextureData texData;
+            STextureData texData = STextureData::invalid();
             auto found = VTtexDataMap.find(img);
             if (found != VTtexDataMap.end())
                 texData = found->second;

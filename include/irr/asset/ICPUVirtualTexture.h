@@ -55,17 +55,17 @@ public:
         }
     };
 
-    static auto createPoTPaddedSquareImageWithMipLevels(const asset::ICPUImage* _img, asset::ISampler::E_TEXTURE_CLAMP _wrapu, asset::ISampler::E_TEXTURE_CLAMP _wrapv)
+    static auto createPoTPaddedSquareImageWithMipLevels(const ICPUImage* _img, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
     {
         const auto& params = _img->getCreationParameters();
         const auto originalExtent = params.extent;
         const uint32_t paddedExtent = core::roundUpToPoT(std::max(params.extent.width,params.extent.height));
 
         //create PoT and square image with regions for all mips
-        asset::ICPUImage::SCreationParams paddedParams = params;
+        ICPUImage::SCreationParams paddedParams = params;
         paddedParams.extent = {paddedExtent,paddedExtent,1u};
-        //in case of original extent being non-PoT, padding it to PoT gives us one extra not needed mip level (making sure to not cumpute it)
-        paddedParams.mipLevels = core::findLSB(paddedExtent) + (core::isPoT(std::max(params.extent.width,params.extent.height)) ? 1 : 0);
+        //in case of original extent being non-PoT, padding it to PoT gives us one extra mip level
+        paddedParams.mipLevels = core::findLSB(paddedExtent) + 1u;
         auto paddedImg = asset::ICPUImage::create(std::move(paddedParams));
         {
             const uint32_t texelBytesize = asset::getTexelOrBlockBytesize(params.format);
@@ -95,7 +95,7 @@ public:
         copy.axisWraps[0] = _wrapu;
         copy.axisWraps[1] = _wrapv;
         copy.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
-        copy.borderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+        copy.borderColor = _borderColor;
         copy.extent = params.extent;
         copy.layerCount = 1u;
         copy.inMipLevel = 0u;
@@ -122,6 +122,10 @@ public:
             genmips.inOutImage = paddedImg.get();
             genmips.scratchMemoryByteSize = mip_gen_filter_t::getRequiredScratchByteSize(&genmips);
             genmips.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(genmips.scratchMemoryByteSize,_IRR_SIMD_ALIGNMENT));
+            genmips.axisWraps[0] = _wrapu;
+            genmips.axisWraps[1] = _wrapv;
+            genmips.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
+            genmips.borderColor = _borderColor;
             mip_gen_filter_t::execute(&genmips);
             _IRR_ALIGNED_FREE(genmips.scratchMemory);
         }
@@ -143,9 +147,14 @@ public:
         initResidentStorage(_residentStorageParams, _residentStorageCount);
     }
 
-    bool commit(const SMasterTextureData& _addr, const ICPUImage* _img, const VkExtent3D& _mip0extent, const IImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _wrapu, ISampler::E_TEXTURE_CLAMP _wrapv, ISampler::E_TEXTURE_BORDER_COLOR _borderColor) override
+    bool commit(const SMasterTextureData& _addr, const ICPUImage* _img, const IImage::SSubresourceRange& _subres) override
     {
+        if (_subres.layerCount != 1u)
+            return false;
+
         const page_tab_offset_t pgtOffset(_addr.pgTab_x, _addr.pgTab_y, _addr.pgTab_layer);
+        const ISampler::E_TEXTURE_CLAMP wrapu = SMasterTextureData::EWM_to_ETC(static_cast<SMasterTextureData::E_WRAP_MODE>(_addr.wrap_x));
+        const ISampler::E_TEXTURE_CLAMP wrapv = SMasterTextureData::EWM_to_ETC(static_cast<SMasterTextureData::E_WRAP_MODE>(_addr.wrap_y));
 
         ICPUVTResidentStorage* storage = nullptr;
         {
@@ -155,9 +164,9 @@ public:
             storage = static_cast<ICPUVTResidentStorage*>(found->second.get());
         }
 
-        const auto extent = _mip0extent;
+        const VkExtent3D extent = {_addr.origsize_x, _addr.origsize_y, 1u};
 
-        const uint32_t levelsTakingAtLeastOnePageCount = countLevelsTakingAtLeastOnePage(extent, _subres.baseMipLevel);
+        const uint32_t levelsTakingAtLeastOnePageCount = countLevelsTakingAtLeastOnePage(extent);
         const uint32_t levelsToPack = std::min(_subres.levelCount, m_pageTable->getCreationParameters().mipLevels+m_pgSzxy_log2);
 
         uint32_t miptailPgAddr = SPhysPgOffset::invalid_addr;
@@ -174,8 +183,8 @@ public:
         fill.subresource.layerCount = 1u;
         for (uint32_t i = 0u; i < levelsToPack; ++i)
         {
-            const uint32_t w = neededPageCountForSide(extent.width, _subres.baseMipLevel+i);
-            const uint32_t h = neededPageCountForSide(extent.height, _subres.baseMipLevel+i);
+            const uint32_t w = neededPageCountForSide(extent.width, i);
+            const uint32_t h = neededPageCountForSide(extent.height, i);
 
             for (uint32_t y = 0u; y < h; ++y)
                 for (uint32_t x = 0u; x < w; ++x)
@@ -239,9 +248,9 @@ public:
                     copy.extentLayerCount = core::vectorSIMDu32(m_pgSzxy, m_pgSzxy, 1u, 1u);
                     copy.relativeOffset = {0u,0u,0u};
                     if (x == w-1u)
-                        copy.extentLayerCount.x = std::max(extent.width>>(_subres.baseMipLevel+i),1u)-copy.inOffsetBaseLayer.x;
+                        copy.extentLayerCount.x = std::max(extent.width>>i,1u)-copy.inOffsetBaseLayer.x;
                     if (y == h-1u)
-                        copy.extentLayerCount.y = std::max(extent.height>>(_subres.baseMipLevel+i),1u)-copy.inOffsetBaseLayer.y;
+                        copy.extentLayerCount.y = std::max(extent.height>>i,1u)-copy.inOffsetBaseLayer.y;
                     memcpy(&copy.paddedExtent.width,(copy.extentLayerCount+core::vectorSIMDu32(2u*m_tilePadding)).pointer, 2u*sizeof(uint32_t));
                     copy.paddedExtent.depth = 1u;
                     if (w>1u)
@@ -260,14 +269,16 @@ public:
                         copy.relativeOffset.y = m_tilePadding;
                     else
                         copy.inOffsetBaseLayer.y -= m_tilePadding;
+                    copy.inOffsetBaseLayer.w = _subres.baseArrayLayer;
                     copy.inMipLevel = _subres.baseMipLevel + i;
                     copy.outMipLevel = 0u;
                     copy.inImage = _img;
                     copy.outImage = storage->image.get();
-                    copy.axisWraps[0] = _wrapu;
-                    copy.axisWraps[1] = _wrapv;
+                    copy.axisWraps[0] = wrapu;
+                    copy.axisWraps[1] = wrapv;
                     copy.axisWraps[2] = ISampler::ETC_CLAMP_TO_EDGE;
-                    copy.borderColor = _borderColor;
+                    //borderColor value should never be used because of backward EWM_to_ETC() mapping - CLAMP_TO_BORDER value is never obtained
+                    copy.borderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
                     if (!CPaddedCopyImageFilter::execute(&copy))
                         assert(false);
                 }
@@ -276,10 +287,10 @@ public:
         return true;
     }
 
-    SViewAliasTextureData createAlias(const SMasterTextureData& _addr, E_FORMAT _viewingFormat, const IImage::SSubresourceRange& _subresRelativeToMaster)
+    SViewAliasTextureData createAlias(const SMasterTextureData& _addr, E_FORMAT _viewingFormat, const IImage::SSubresourceRange& _subresRelativeToMaster) override
     {
         if (_subresRelativeToMaster.baseMipLevel+_subresRelativeToMaster.levelCount > _addr.maxMip+1u)
-            return STextureData::invalid();
+            return SViewAliasTextureData::invalid();
 
         const VkExtent3D extent = {_addr.origsize_x>>_subresRelativeToMaster.baseArrayLayer, _addr.origsize_y>>_subresRelativeToMaster.baseArrayLayer, 1u};
         SMasterTextureData aliasAddr = alloc(_viewingFormat, VkExtent3D{static_cast<uint32_t>(_addr.origsize_x), static_cast<uint32_t>(_addr.origsize_y), 1u}, _subresRelativeToMaster, ISampler::ETC_CLAMP_TO_BORDER, ISampler::ETC_CLAMP_TO_BORDER);
@@ -307,9 +318,8 @@ public:
         reinterpret_cast<SViewAliasTextureData*>(&aliasAddr)[0];
     }
 
-    bool free(const STextureData& _addr) override
+    bool free(const SMasterTextureData& _addr) override
     {
-        //TODO factor it out when new api comes
         const E_FORMAT format = getFormatInLayer(_addr.pgTab_layer);
         ICPUVTResidentStorage* storage = static_cast<ICPUVTResidentStorage*>(getStorageForFormatClass(getFormatClass(format)));
         if (!storage)
