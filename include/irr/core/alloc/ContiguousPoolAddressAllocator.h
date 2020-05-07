@@ -62,6 +62,7 @@ class ContiguousPoolAddressAllocator : protected PoolAddressAllocator<_size_type
                 #endif // _EXTREME_DEBUG
             #endif // _IRR_DEBUG
         }
+        //TODO copy ctor, but setUpRedirectsOutOfOrder() is weird and modifies `other` for some reason
 
         ContiguousPoolAddressAllocator& operator=(ContiguousPoolAddressAllocator&& other)
         {

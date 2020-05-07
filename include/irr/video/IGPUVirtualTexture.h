@@ -41,9 +41,10 @@ protected:
 
     public:
         IGPUVTResidentStorage(IVideoDriver* _driver, const cpu_counterpart_t* _cpuStorage) :
-            //TODO awaiting fix: base_t ctor should copy addr alctr state from cpu counterpart
             base_t(
                 impl::createGPUImageFromCPU(_driver, _cpuStorage->image.get()),
+                _cpuStorage->tileAlctr,
+                _cpuStorage->m_alctrReservedSpace,
                 _cpuStorage->m_decodeAddr_layerShift,
                 _cpuStorage->m_decodeAddr_xMask
             ),
@@ -116,8 +117,9 @@ public:
 
         m_precomputed = _cpuvt->getPrecomputedData();
 
-        //TODO copy m_viewFormatToLayer from cpuvt
-        //TODO copy m_layerToSamplerType
+        m_pgTabAddrAlctr_reservedSpc = _cpuvt->copyVirtualSpaceAllocatorsState(m_pageTable->getCreationParameters().arrayLayers, m_pageTableLayerAllocators.data());
+        
+        m_viewFormatToLayer = _cpuvt->getViewFormatToLayerMapping();
 
         const auto& cpuStorages = _cpuvt->getResidentStorages();
         for (const auto& pair : cpuStorages)

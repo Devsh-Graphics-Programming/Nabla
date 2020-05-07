@@ -540,7 +540,7 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
         }
         static inline size_type reserved_size(size_type bufSz, const GeneralpurposeAddressAllocator<_size_type>& other) noexcept
         {
-            return reserved_size(bufSz,other.maxRequestableAlignment,other.blockSize);
+            return reserved_size(other.maxRequestableAlignment,bufSz,other.minBlockSize);
         }
 
         inline size_type        get_free_size() const noexcept

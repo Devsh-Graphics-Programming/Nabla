@@ -15,6 +15,16 @@ namespace irr {
 namespace asset
 {
 
+namespace impl
+{
+    inline void* alloc_and_copy(size_t size, const void* data)
+    {
+        void* ptr = _IRR_ALIGNED_MALLOC(size, _IRR_SIMD_ALIGNMENT);
+        memcpy(ptr, data, size);
+        return ptr;
+    }
+}
+
 class IVirtualTextureBase
 {
 public:
@@ -362,7 +372,7 @@ protected:
     mutable core::smart_refctd_ptr<sampler_t> m_physicalPageSampler;
 
     using pg_tab_addr_alctr_t = core::GeneralpurposeAddressAllocator<uint32_t>;
-    core::smart_refctd_dynamic_array<pg_tab_addr_alctr_t> m_pageTableLayerAllocators;
+    std::array<pg_tab_addr_alctr_t, MAX_PAGE_TABLE_LAYERS> m_pageTableLayerAllocators;
     uint8_t* m_pgTabAddrAlctr_reservedSpc = nullptr;
 
     mutable bool m_precomputedWasUpdatedSinceLastQuery = true;
@@ -411,6 +421,7 @@ protected:
             uint32_t tilesPerDim_log2;
             uint32_t layerCount;
         };
+        using phys_pg_addr_alctr_t = core::PoolAddressAllocator<uint32_t>;
 
         //_format implies format class and also is the format image is created with
         IVTResidentStorage(uint32_t _layers, uint32_t _tilesPerDim) :
@@ -423,9 +434,11 @@ protected:
             assert(_tilesPerDim<=MAX_TILES_PER_DIM);
             assert(_layers<=MAX_LAYERS);
         }
-        //TODO: this should also copy address allocator state, but from what i see our address allocators doesnt have copy ctors
-        IVTResidentStorage(core::smart_refctd_ptr<image_t>&& _image, uint32_t _layerShift, uint32_t _xmask) :
+        
+        IVTResidentStorage(core::smart_refctd_ptr<image_t>&& _image, const phys_pg_addr_alctr_t& _alctr, const void* _reservedSpc, uint32_t _layerShift, uint32_t _xmask) :
             image(std::move(_image)),
+            m_alctrReservedSpace(reinterpret_cast<uint8_t*>(impl::alloc_and_copy(phys_pg_addr_alctr_t::reserved_size(1u, _alctr.get_total_size(), 1u), _reservedSpc))),
+            tileAlctr(_alctr.get_total_size(), _alctr, m_alctrReservedSpace),
             m_decodeAddr_layerShift(_layerShift),
             m_decodeAddr_xMask(_xmask)
         {
@@ -477,7 +490,6 @@ protected:
         }
 
         core::smart_refctd_ptr<image_t> image;
-        using phys_pg_addr_alctr_t = core::PoolAddressAllocator<uint32_t>;
         uint8_t* m_alctrReservedSpace = nullptr;
         phys_pg_addr_alctr_t tileAlctr;
         const uint32_t m_decodeAddr_layerShift;
@@ -616,8 +628,7 @@ public:
         uint32_t _tilePadding = 9u,
         bool _initSharedResources = true
     ) :
-        m_pgSzxy(1u<<_pgSzxy_log2), m_pgSzxy_log2(_pgSzxy_log2), m_pgtabSzxy_log2(_pgTabSzxy_log2), m_tilePadding(_tilePadding),
-        m_pageTableLayerAllocators(core::make_refctd_dynamic_array<decltype(m_pageTableLayerAllocators)>(_pgTabLayers))
+        m_pgSzxy(1u<<_pgSzxy_log2), m_pgSzxy_log2(_pgSzxy_log2), m_pgtabSzxy_log2(_pgTabSzxy_log2), m_tilePadding(_tilePadding)
     {
         {
             m_precomputed.pgtab_sz_log2 = _pgTabSzxy_log2;
@@ -638,7 +649,7 @@ public:
             m_pgTabAddrAlctr_reservedSpc = reinterpret_cast<uint8_t*>( _IRR_ALIGNED_MALLOC(spacePerAllocator*_pgTabLayers, _IRR_SIMD_ALIGNMENT) );
             for (uint32_t i = 0u; i < _pgTabLayers; ++i)
             {
-                auto& alctr = (*m_pageTableLayerAllocators)[i];
+                auto& alctr = m_pageTableLayerAllocators[i];
                 alctr = pg_tab_addr_alctr_t(m_pgTabAddrAlctr_reservedSpc+i*spacePerAllocator, 0u, 0u, pgtabSzSqr, pgtabSzSqr, 1u);
             }
         }
@@ -694,7 +705,7 @@ public:
         for (auto it = assignedLayers.first; it != assignedLayers.second; ++it)
         {
             pgtLayer = it->second;
-            core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_alloc_addr((*m_pageTableLayerAllocators)[pgtLayer], 1u, &addr, &szAndAlignment, &szAndAlignment, nullptr);
+            core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_alloc_addr(m_pageTableLayerAllocators[pgtLayer], 1u, &addr, &szAndAlignment, &szAndAlignment, nullptr);
             if (addr==pg_tab_addr_alctr_t::invalid_address)
                 continue;
         }
@@ -703,7 +714,7 @@ public:
             pgtLayer = findFreePageTableLayer();
             if (pgtLayer==INVALID_LAYER_INDEX)
                 return SMasterTextureData::invalid();
-            core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_alloc_addr((*m_pageTableLayerAllocators)[pgtLayer], 1u, &addr, &szAndAlignment, &szAndAlignment, nullptr);
+            core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_alloc_addr(m_pageTableLayerAllocators[pgtLayer], 1u, &addr, &szAndAlignment, &szAndAlignment, nullptr);
             assert(addr!=pg_tab_addr_alctr_t::invalid_address);
             addPageTableLayerForFormat(format, pgtLayer);
 
@@ -725,16 +736,16 @@ public:
         sz *= sz;
         const uint32_t addr = core::morton2d_encode(_addr.pgTab_x, _addr.pgTab_y);
 
-        core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_free_addr((*m_pageTableLayerAllocators)[_addr.pgTab_layer], 1u, &addr, &sz);
+        core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_free_addr(m_pageTableLayerAllocators[_addr.pgTab_layer], 1u, &addr, &sz);
 
         const E_FORMAT format = getFormatInLayer(_addr.pgTab_layer);
         IVTResidentStorage* storage = getStorageForFormatClass(getFormatClass(format));
         if (!storage)
             return false;
         //in case when pgtab layer has no allocations, free it for use by another format
-        if ((*m_pageTableLayerAllocators)[_addr.pgTab_layer].get_allocated_size()==0u)
+        if (m_pageTableLayerAllocators[_addr.pgTab_layer].get_allocated_size()==0u)
         {
-            (*m_pageTableLayerAllocators)[_addr.pgTab_layer].reset();//defragmentation
+            m_pageTableLayerAllocators[_addr.pgTab_layer].reset();//defragmentation
             updatePrecomputedData(_addr.pgTab_layer, INVALID_SAMPLER_INDEX, core::nan<float>(), EF_UNKNOWN);
             removePageTableLayerForFormat(format, _addr.pgTab_layer);
         }
@@ -750,6 +761,22 @@ public:
     virtual bool commit(const SMasterTextureData& _addr, const image_t* _img, const IImage::SSubresourceRange& _subres) = 0;
 
     virtual SViewAliasTextureData createAlias(const SMasterTextureData& _addr, E_FORMAT _viewingFormat, const IImage::SSubresourceRange& _subresRelativeToMaster) = 0;
+
+    //! @returns pointer to reserved space for allocators
+    uint8_t* copyVirtualSpaceAllocatorsState(uint32_t _count, pg_tab_addr_alctr_t* _dstArray)
+    {
+        _count = std::min(_count, m_pageTable->getCreationParameters().arrayLayers);
+        const uint32_t bufSz = m_pageTableLayerAllocators[0].get_total_size();
+        const uint32_t resSpcPerAlctr = pg_tab_addr_alctr_t::reserved_size(m_pageTableLayerAllocators[0].get_total_size(), m_pageTableLayerAllocators[0]);
+        uint8_t* reservedSpc = reinterpret_cast<uint8_t*>( impl::alloc_and_copy(resSpcPerAlctr*_count, m_pgTabAddrAlctr_reservedSpc) );
+
+        for (uint32_t i = 0u; i < _count; ++i)
+            _dstArray[i] = pg_tab_addr_alctr_t(bufSz, m_pageTableLayerAllocators[i], reservedSpc+resSpcPerAlctr);
+
+        return reservedSpc;
+    }
+
+    const auto& getViewFormatToLayerMapping() const { return m_viewFormatToLayer; }
 
     image_view_t* getPageTableView() const
     {
