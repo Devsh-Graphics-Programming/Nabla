@@ -1,9 +1,9 @@
-#version 430 core
+#version 460 core
 
 #include "commonVertexShader.glsl"
 
 void main()
 {
-    impl(/*gl_DrawIndex*/0);
+    impl(gl_DrawID);
 }
 

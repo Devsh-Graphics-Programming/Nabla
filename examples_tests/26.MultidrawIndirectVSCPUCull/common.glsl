@@ -1,21 +1,27 @@
 struct ModelData_t
 {
 #ifdef __cplusplus
-    core::matrix4SIMD   modelViewProjMatrix;
-    core::matrix3x4SIMD normalMat;
+    core::matrix3x4SIMD   worldMatrix;
+    core::matrix3x4SIMD normalMatrix;
     core::vectorSIMDf   bbox[2];
 #else
-    mat4 MVP;
-    mat3 normalMat;
-    vec3 bbox;
+    mat4x3  worldMatrix;
+    mat3    normalMatrix;
+    vec3    bbox[2];
+#endif
+};
+
+struct DrawData_t
+{
+#ifdef __cplusplus
+    core::matrix4SIMD   modelViewProjMatrix;
+    core::matrix3x4SIMD normalMatrix;
+#else
+    mat4 modelViewProjMatrix;
+    mat3 normalMatrix;
 #endif
 };
 
 #ifndef __cplusplus
 #include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
-
-layout(set = 1, binding = 0, std430, row_major) restrict readonly buffer PerObject
-{
-    ModelData_t modelData[];
-};
 #endif

@@ -5,9 +5,9 @@
 layout(push_constant) uniform PushConstants
 {
     uint objectUUID;
-};
+} pc;
 
 void main()
 {
-	impl(objectUUID);
+	impl(pc.objectUUID);
 }

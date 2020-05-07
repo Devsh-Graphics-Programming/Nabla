@@ -1,7 +1,6 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 
-#include "../../ext/ScreenShot/ScreenShot.h"
 #include "../common/QToQuitEventReceiver.h"
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
@@ -10,6 +9,7 @@
 using namespace irr;
 using namespace core;
 using namespace asset;
+using namespace video;
 
 
 bool doCulling = false;
@@ -32,7 +32,7 @@ public:
             case irr::KEY_KEY_Q: // so we can quit
 				return QToQuitEventReceiver::OnEvent(event);
             case irr::KEY_KEY_C: // so we can quit
-                ///doCulling = !doCulling; // Not enabled/necessary yet
+                doCulling = !doCulling; // Not enabled/necessary yet
                 return true;
             case irr::KEY_SPACE: // toggle between gpu and cpu cull
                 useDrawIndirect = !useDrawIndirect;
@@ -78,7 +78,7 @@ int main()
     video::IVideoDriver* driver = device->getVideoDriver();
 
     IAssetLoader::SAssetLoadParams lp;
-    auto cullShaderBundle = am->getAsset("../boxFrustCull.comp", lp); // this doesn't want to load with my shader loader, why?
+    auto cullShaderBundle = am->getAsset("../boxFrustCull.comp", lp);
     auto vertexShaderBundleMDI = am->getAsset("../meshGPU.vert", lp);
     auto vertexShaderBundle = am->getAsset("../meshCPU.vert", lp);
     auto fragShaderBundle = am->getAsset("../mesh.frag", lp);
@@ -88,32 +88,34 @@ int main()
     auto cpuCullPipeline = introspector.createApproximateComputePipelineFromIntrospection(IAsset::castDown<ICPUSpecializedShader>(cullShaderBundle.getContents().first->get()), extensions->begin(), extensions->end());
     auto gpuCullPipeline = driver->getGPUObjectsFromAssets(&cpuCullPipeline.get(),&cpuCullPipeline.get()+1)->operator[](0);
 
-    ICPUSpecializedShader* shaders[2] = { IAsset::castDown<ICPUSpecializedShader>(vertexShaderBundleMDI.getContents().first->get()),IAsset::castDown<ICPUSpecializedShader>(fragShaderBundle.getContents().first->get()) };
-    auto cpuDrawIndirectPipeline = introspector.createApproximateRenderpassIndependentPipelineFromIntrospection(shaders, shaders+2, extensions->begin(), extensions->end());
+    ICPUSpecializedShader* shaders[2] = { IAsset::castDown<ICPUSpecializedShader>(vertexShaderBundle.getContents().first->get()),IAsset::castDown<ICPUSpecializedShader>(fragShaderBundle.getContents().first->get()) };
     auto cpuDrawDirectPipeline = introspector.createApproximateRenderpassIndependentPipelineFromIntrospection(shaders, shaders+2, extensions->begin(), extensions->end());
+    shaders[0] = IAsset::castDown<ICPUSpecializedShader>(vertexShaderBundleMDI.getContents().first->get());
+    auto cpuDrawIndirectPipeline = introspector.createApproximateRenderpassIndependentPipelineFromIntrospection(shaders, shaders+2, extensions->begin(), extensions->end());
 
+
+#ifndef _IRR_DEBUG
     auto* fs = am->getFileSystem();
-
-    //
+    
     auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
     //loading cache from file
-    qnc->loadNormalQuantCacheFromFile<asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
+    //qnc->loadNormalQuantCacheFromFile<asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
+#endif
 
-    #define kInstanceCount 4096
-    #define kTotalTriangleLimit (64*1024*1024)
-
-
-    core::matrix3x4SIMD instanceXForm[kInstanceCount];
-	core::smart_refctd_ptr<video::IGPUMeshBuffer> mbuff[kInstanceCount] = {};
-
+    constexpr auto kInstanceCount = 4096;
+    constexpr auto  kTotalTriangleLimit = 64*1024*1024;
+    
+    core::vector<ModelData_t> instanceData(kInstanceCount);
+    auto mbuff = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<video::IGPUMeshBuffer> > >(kInstanceCount);
+    
     //
     SBufferBinding<video::IGPUBuffer> globalVertexBindings[SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT];
-    core::smart_refctd_ptr<video::IGPUBuffer> globalIndexBuffer,indirectDrawBuffer;
+    core::smart_refctd_ptr<video::IGPUBuffer> globalIndexBuffer,perDrawDataSSBO,indirectDrawSSBO,perInstanceDataSSBO;
 
-
+    
     core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> gpuDrawDirectPipeline,gpuDrawIndirectPipeline;
 	{
-        IGeometryCreator::return_type cpumesh[kInstanceCount];
+        core::vector<IGeometryCreator::return_type> cpumesh(kInstanceCount);
 
         size_t vertexSize = 0;
         std::vector<uint8_t> vertexData;
@@ -161,9 +163,11 @@ int main()
             auto idata = reinterpret_cast<const uint32_t*>(sphereData.indexBuffer.buffer->getPointer());
             indexData.insert(indexData.end(),idata,idata+sphereData.indexCount);
         }
-
+        
+#ifndef _IRR_DEBUG
         //! cache results -- speeds up mesh generation on second run
-        qnc->saveCacheToFile(asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
+        //qnc->saveCacheToFile(asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
+#endif
 
         //
         {
@@ -174,75 +178,70 @@ int main()
         globalVertexBindings[0] = { 0u,driver->createFilledDeviceLocalGPUBufferOnDedMem(vertexData.size(),vertexData.data()) };
         vertexData.clear();
 
-        DrawElementsIndirectCommand_t indirectDrawData[kInstanceCount];
-
-        uint32_t baseVertex = 0;
-        uint32_t indexOffset = 0;
-        std::uniform_real_distribution<float> dist3D(0.f,400.f);
-        for (size_t i=0; i<kInstanceCount; i++)
         {
-            const auto& sphereData = cpumesh[i];
-            if (i==0)
-            {
-                cpuDrawDirectPipeline->getVertexInputParams() = sphereData.inputParams;
-                cpuDrawIndirectPipeline->getVertexInputParams() = sphereData.inputParams;
-                cpuDrawDirectPipeline->getPrimitiveAssemblyParams() = sphereData.assemblyParams;
-                cpuDrawIndirectPipeline->getPrimitiveAssemblyParams() = sphereData.assemblyParams;
+            DrawElementsIndirectCommand_t indirectDrawData[kInstanceCount];
 
-                gpuDrawDirectPipeline = driver->getGPUObjectsFromAssets(&cpuDrawDirectPipeline.get(),&cpuDrawDirectPipeline.get()+1)->operator[](0);
-                gpuDrawIndirectPipeline = driver->getGPUObjectsFromAssets(&cpuDrawIndirectPipeline.get(),&cpuDrawIndirectPipeline.get()+1)->operator[](0);
+            uint32_t baseVertex = 0;
+            uint32_t indexOffset = 0;
+            std::uniform_real_distribution<float> dist3D(0.f,400.f);
+            for (size_t i=0; i<kInstanceCount; i++)
+            {
+                const auto& sphereData = cpumesh[i];
+                if (i==0)
+                {
+                    auto enabledAttribBackupDirect = cpuDrawDirectPipeline->getVertexInputParams().enabledAttribFlags;
+                    auto enabledAttribBackupIndirect = cpuDrawIndirectPipeline->getVertexInputParams().enabledAttribFlags;
+                    cpuDrawDirectPipeline->getVertexInputParams() = sphereData.inputParams;
+                    cpuDrawIndirectPipeline->getVertexInputParams() = sphereData.inputParams;
+                    cpuDrawDirectPipeline->getVertexInputParams().enabledAttribFlags = enabledAttribBackupDirect;
+                    cpuDrawIndirectPipeline->getVertexInputParams().enabledAttribFlags = enabledAttribBackupIndirect;
+
+                    cpuDrawDirectPipeline->getPrimitiveAssemblyParams() = sphereData.assemblyParams;
+                    cpuDrawIndirectPipeline->getPrimitiveAssemblyParams() = sphereData.assemblyParams;
+
+                    gpuDrawDirectPipeline = driver->getGPUObjectsFromAssets(&cpuDrawDirectPipeline.get(),&cpuDrawDirectPipeline.get()+1)->operator[](0);
+                    gpuDrawIndirectPipeline = driver->getGPUObjectsFromAssets(&cpuDrawIndirectPipeline.get(),&cpuDrawIndirectPipeline.get()+1)->operator[](0);
+                }
+
+                indirectDrawData[i].count = sphereData.indexCount;
+                indirectDrawData[i].instanceCount = 1;
+                indirectDrawData[i].firstIndex = indexOffset/sizeof(uint32_t);
+                indirectDrawData[i].baseVertex = baseVertex;
+                indirectDrawData[i].baseInstance = 0;
+
+                auto& meshbuffer = mbuff->operator[](i);
+                meshbuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(core::smart_refctd_ptr(gpuDrawDirectPipeline),nullptr,globalVertexBindings,SBufferBinding<video::IGPUBuffer>{indexOffset,core::smart_refctd_ptr(globalIndexBuffer)});
+                indexOffset += sphereData.indexCount*sizeof(uint32_t);
+
+                meshbuffer->setBaseVertex(baseVertex);
+                // TODO: checks on this!
+                baseVertex += (sphereData.bindings[0u].offset+sphereData.inputParams.attributes[0u].relativeOffset)/vertexSize;
+
+                meshbuffer->setIndexCount(sphereData.indexCount);
+
+                meshbuffer->setIndexType(asset::EIT_32BIT);
+            
+                meshbuffer->setBoundingBox(sphereData.bbox);
+
+                auto& instance = instanceData[i];
+                {
+                    float scale = dist3D(mt)*0.0025f+1.f;
+                    instance.worldMatrix.setScale(core::vectorSIMDf(scale,scale,scale));
+                }
+                instance.worldMatrix.setTranslation(core::vectorSIMDf(dist3D(mt),dist3D(mt),dist3D(mt)));
+                instance.worldMatrix.getSub3x3InverseTranspose(instance.normalMatrix);
+                instance.bbox[0].set(sphereData.bbox.MinEdge);
+                instance.bbox[1].set(sphereData.bbox.MaxEdge);
             }
 
-            indirectDrawData[i].count = sphereData.indexCount;
-            indirectDrawData[i].instanceCount = 1;
-            indirectDrawData[i].firstIndex = indexOffset/sizeof(uint32_t);
-            indirectDrawData[i].baseVertex = baseVertex;
-            indirectDrawData[i].baseInstance = 0;
-
-
-            mbuff[i] = core::smart_refctd_ptr<video::IGPUMeshBuffer>(new video::IGPUMeshBuffer(core::smart_refctd_ptr(gpuDrawDirectPipeline),nullptr,globalVertexBindings,{0ull,core::smart_refctd_ptr(globalIndexBuffer)}),core::dont_grab);
-            mbuff[i]->setBaseVertex(baseVertex);
-            // TODO: checks on this!
-            baseVertex += (sphereData.bindings[0u].offset+sphereData.inputParams.attributes[0u].relativeOffset)/vertexSize;
-
-            mbuff[i]->setIndexCount(sphereData.indexCount);
-            indexOffset += sphereData.indexCount*sizeof(uint32_t);
-
-            mbuff[i]->setIndexType(asset::EIT_32BIT);
-            
-            mbuff[i]->setBoundingBox(sphereData.bbox);
-
-            float scale = dist3D(mt)*0.0025f+1.f;
-            instanceXForm[i].setScale(core::vectorSIMDf(scale,scale,scale));
-            instanceXForm[i].setTranslation(core::vectorSIMDf(dist3D(mt),dist3D(mt),dist3D(mt)));
+            perInstanceDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(instanceData.size()*sizeof(ModelData_t),instanceData.data());
+            indirectDrawSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(indirectDrawData),indirectDrawData);
         }
-
-        indirectDrawBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(indirectDrawData),indirectDrawData);
 	}
-	ModelData_t perObjectData[kInstanceCount];
-
-	auto perObjectSSBO = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(perObjectData));
-	auto updateSSBO  = [&](const void* data, const uint32_t dataSize)
-    {
-        auto defaultUploadBuffer = driver->getDefaultUpStreamingBuffer();
-
-        const void* dataPtr = reinterpret_cast<const uint8_t*>(data);
-        uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
-        while (offset==video::StreamingTransientDataBufferMT<>::invalid_address)
-        {
-            uint32_t alignment = 8u;
-            defaultUploadBuffer->multi_place(std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&offset,&dataSize,&alignment);
-        }
-        // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
-        if (defaultUploadBuffer->needsManualFlushOrInvalidate())
-            driver->flushMappedMemoryRanges({{defaultUploadBuffer->getBuffer()->getBoundMemory(),offset,dataSize}});
-        // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
-        driver->copyBuffer(defaultUploadBuffer->getBuffer(),perObjectSSBO.get(),offset,0u,dataSize);
-        // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-        defaultUploadBuffer->multi_free(1u,&offset,&dataSize,std::move(driver->placeFence()));
-    };
-    updateSSBO(perObjectData,sizeof(perObjectData));
-
+    
+	core::vector<DrawData_t> perDrawData(kInstanceCount);
+	perDrawDataSSBO = driver->createDeviceLocalGPUBufferOnDedMem(perDrawData.size()*sizeof(DrawData_t));
+    
     // TODO: get rid of the `const_cast`s
     auto drawDirectLayout = const_cast<video::IGPUPipelineLayout*>(gpuDrawDirectPipeline->getLayout());
     auto drawIndirectLayout = const_cast<video::IGPUPipelineLayout*>(gpuDrawIndirectPipeline->getLayout());
@@ -265,12 +264,12 @@ int main()
             writes[i].descriptorType = asset::EDT_STORAGE_BUFFER;
             writes[i].info = infos+i;
         }
-        infos[0].desc = perObjectSSBO;
-        infos[0].buffer = { 0u,perObjectSSBO->getSize() };
-        infos[1].desc = indirectDrawBuffer;
-        infos[1].buffer = { 0u,indirectDrawBuffer->getSize() };
-        //infos[2].desc = perObjectSSBO;
-        //infos[2].buffer = { 0u,perObjectSSBO->getSize() };
+        infos[0].desc = perDrawDataSSBO;
+        infos[0].buffer = { 0u,perDrawDataSSBO->getSize() };
+        infos[1].desc = indirectDrawSSBO;
+        infos[1].buffer = { 0u,indirectDrawSSBO->getSize() };
+        infos[2].desc = perInstanceDataSSBO;
+        infos[2].buffer = { 0u,perInstanceDataSSBO->getSize() };
 
         writes[0].dstSet = drawDirectDescriptorSet.get();
         driver->updateDescriptorSets(1u,writes,0u,nullptr);
@@ -281,7 +280,7 @@ int main()
         writes[0].dstSet = cullDescriptorSet.get();
         writes[1].dstSet = cullDescriptorSet.get();
         writes[2].dstSet = cullDescriptorSet.get();
-        driver->updateDescriptorSets(2/*BindingCount*/,writes,0u,nullptr);
+        driver->updateDescriptorSets(BindingCount,writes,0u,nullptr);
     }
     
 
@@ -309,55 +308,72 @@ int main()
         //! This animates (moves) the camera and sets the transforms
         camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
         camera->render();
-
+        
+        core::matrix3x4SIMD normalMatrix;
+        camera->getViewMatrix().getSub3x3InverseTranspose(normalMatrix);
         if (useDrawIndirect)
         {
-            if (doCulling)
-            {
-                //make sure results are visible
-                video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-            }
-            else
-            {
-                //do compute shader to produce indirect draw buffer (and cull)
-                for (size_t i=0; i<kInstanceCount; i++)
-                {
-                    perObjectData[i].modelViewProjMatrix = core::concatenateBFollowedByA(camera->getConcatenatedMatrix(),instanceXForm[i]);
-                    instanceXForm[i].getSub3x3InverseTranspose(perObjectData[i].normalMat);
-                }
-                updateSSBO(perObjectData,sizeof(perObjectData));
-            }
+            CullShaderData_t pc;
+            pc.viewProjMatrix = camera->getConcatenatedMatrix();
+            pc.viewInverseTransposeMatrix = normalMatrix;
+            pc.maxDrawCount = kInstanceCount;
+            pc.cull = doCulling ? 1u:0u;
+
+            driver->bindComputePipeline(gpuCullPipeline.get());
+            driver->bindDescriptorSets(video::EPBP_COMPUTE, gpuCullPipeline->getLayout(), 1u, 1u, &cullDescriptorSet.get(), nullptr);
+            driver->dispatch(kInstanceCount/kCullWorkgroupSize,1u,1u);
+            video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT|GL_COMMAND_BARRIER_BIT);
 
             driver->bindGraphicsPipeline(gpuDrawIndirectPipeline.get());
             driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuDrawIndirectPipeline->getLayout(), 1u, 1u, &drawIndirectDescriptorSet.get(), nullptr);
-            driver->drawIndexedIndirect(globalVertexBindings,asset::EPT_TRIANGLE_LIST,asset::EIT_32BIT, globalIndexBuffer.get(),indirectDrawBuffer.get(),0,kInstanceCount,sizeof(DrawElementsIndirectCommand_t));
+            driver->pushConstants(gpuDrawIndirectPipeline->getLayout(), asset::ICPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(CullShaderData_t), &pc);
+            driver->drawIndexedIndirect(globalVertexBindings,asset::EPT_TRIANGLE_LIST,asset::EIT_32BIT, globalIndexBuffer.get(),indirectDrawSSBO.get(),0,kInstanceCount,sizeof(DrawElementsIndirectCommand_t));
         }
         else
         {
-            video::IGPUMeshBuffer* mb2draw[kInstanceCount];
-
-            uint32_t unculledNum = 0;
+            uint32_t unculledNum = 0u;
+            uint32_t mb2draw[kInstanceCount];
             for (uint32_t i=0; i<kInstanceCount; i++)
             {
                 if (doCulling)
+                {
                     continue;
+                }
 
-                mb2draw[unculledNum] = mbuff[i].get();
-                perObjectData[unculledNum].modelViewProjMatrix = core::concatenateBFollowedByA(camera->getConcatenatedMatrix(),instanceXForm[i]);
-                instanceXForm[i].getSub3x3InverseTranspose(perObjectData[unculledNum].normalMat);
-                unculledNum++;
+                const auto& instance = instanceData[i];
+                auto& draw = perDrawData[i];
+                draw.modelViewProjMatrix = core::concatenateBFollowedByA(camera->getConcatenatedMatrix(),instance.worldMatrix);
+                draw.normalMatrix = core::concatenateBFollowedByA(normalMatrix,instance.normalMatrix);
+                mb2draw[unculledNum++] = i;
             }
-            updateSSBO(perObjectData,sizeof(perObjectData));
+            {
+                auto defaultUploadBuffer = driver->getDefaultUpStreamingBuffer();
+
+                const void* dataPtr = reinterpret_cast<const uint8_t*>(perDrawData.data());
+                uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
+                uint32_t dataSize = perDrawData.size()*sizeof(DrawData_t);
+                while (offset == video::StreamingTransientDataBufferMT<>::invalid_address)
+                {
+                    uint32_t alignment = 8u;
+                    defaultUploadBuffer->multi_place(std::chrono::microseconds(500u), 1u, (const void* const*)&dataPtr, &offset, &dataSize, &alignment);
+                }
+                // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
+                if (defaultUploadBuffer->needsManualFlushOrInvalidate())
+                    driver->flushMappedMemoryRanges({ {defaultUploadBuffer->getBuffer()->getBoundMemory(),offset,dataSize} });
+                // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
+                driver->copyBuffer(defaultUploadBuffer->getBuffer(), perDrawDataSSBO.get(), offset, 0u, dataSize);
+                // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
+                defaultUploadBuffer->multi_free(1u, &offset, &dataSize, std::move(driver->placeFence()));
+            }
 
             driver->bindGraphicsPipeline(gpuDrawDirectPipeline.get());
             driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuDrawDirectPipeline->getLayout(), 1u, 1u, &drawDirectDescriptorSet.get(), nullptr);
             for (uint32_t i=0; i<unculledNum; i++)
             {
-                driver->pushConstants(gpuDrawDirectPipeline->getLayout(),asset::ICPUSpecializedShader::ESS_VERTEX,0u,sizeof(uint32_t),&i);
-                driver->drawMeshBuffer(mb2draw[i]);
+                driver->pushConstants(gpuDrawDirectPipeline->getLayout(),asset::ICPUSpecializedShader::ESS_VERTEX,0u,sizeof(uint32_t),mb2draw+i);
+                driver->drawMeshBuffer(mbuff->operator[](mb2draw[i]).get());
             }
         }
-        video::COpenGLExtensionHandler::extGlBindBuffersBase(GL_SHADER_STORAGE_BUFFER,0,1,NULL);
 
 		driver->endScene();
 

@@ -1,28 +1,54 @@
 #version 430 core
-layout(local_size_x = 256) in;
 
 #include "common.glsl"
 
 #include "commonIndirect.glsl"
+layout(local_size_x = kCullWorkgroupSize) in;
+
+layout(set = 1, binding = 0, std430, row_major) restrict writeonly buffer PerDraw
+{
+    DrawData_t drawData[];
+};
 layout(set = 1, binding = 1, std430) restrict writeonly buffer IndirectDraws
 {
     DrawElementsIndirectCommand_t draws[];
 };
+layout(set = 1, binding = 2, std430, row_major) restrict readonly buffer PerInstance
+{
+    ModelData_t modelData[];
+};
 
 layout(push_constant) uniform PushConstants
 {
-    uint maxDrawCount;
+    CullShaderData_t data;
 } pc;
 
 
 void main()
 {
-    if (gl_GlobalInvocationID.x<pc.maxDrawCount)
+    uint drawID = gl_GlobalInvocationID.x;
+    if (drawID<pc.data.maxDrawCount)
         return;
 
-    mat4 modelViewProj = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(modelData[gl_GlobalInvocationID.x].MVP);
+    mat4x3 worldMatrix = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x3(modelData[drawID].worldMatrix);
+    mat4 MVP;
+    for (int i=0; i<4; i++)
+        MVP[i] = pc.data.viewProjMatrix[0]*worldMatrix[0][i]+pc.data.viewProjMatrix[1]*worldMatrix[1][i]+pc.data.viewProjMatrix[2]*worldMatrix[2][i];
+    MVP[3] += pc.data.viewProjMatrix[3];
+
+    //vec3 minEdge = modelData[drawID].bbox[0];
+    //vec3 maxEdge = modelData[drawID].bbox[1];
 
     bool culled = false;
+    if (pc.data.cull!=0u)
+    {
+        culled = true;
+    }
 
-    draws[gl_GlobalInvocationID.x].instanceCount = culled ? 1u:0u;
+    draws[drawID].instanceCount = culled ? 0u:1u;
+    if (!culled)
+    {
+        drawData[drawID].modelViewProjMatrix = MVP;
+        drawData[drawID].normalMatrix = pc.data.viewInverseTransposeMatrix*irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat3x3(modelData[drawID].normalMatrix);
+    }
 }

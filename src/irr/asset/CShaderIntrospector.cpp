@@ -124,18 +124,30 @@ bool CShaderIntrospector::introspectAllShaders(const CIntrospectionData** intros
 
 static E_DESCRIPTOR_TYPE resType2descType(E_SHADER_RESOURCE_TYPE _t)
 {
-    static const E_DESCRIPTOR_TYPE descType[9]{
-        EDT_COMBINED_IMAGE_SAMPLER,
-        EDT_STORAGE_IMAGE,
-        EDT_UNIFORM_TEXEL_BUFFER,
-        EDT_STORAGE_TEXEL_BUFFER,
-        EDT_UNIFORM_BUFFER,
-        EDT_STORAGE_BUFFER,
-        EDT_UNIFORM_BUFFER_DYNAMIC,
-        EDT_STORAGE_BUFFER_DYNAMIC,
-        EDT_INPUT_ATTACHMENT
-    };
-    return descType[_t];
+    switch (_t)
+    {
+        case ESRT_COMBINED_IMAGE_SAMPLER:
+            return EDT_COMBINED_IMAGE_SAMPLER;
+            break;
+        case ESRT_STORAGE_IMAGE:
+            return EDT_STORAGE_IMAGE;
+            break;
+        case ESRT_UNIFORM_TEXEL_BUFFER:
+            return EDT_UNIFORM_TEXEL_BUFFER;
+            break;
+        case ESRT_STORAGE_TEXEL_BUFFER:
+            return EDT_STORAGE_TEXEL_BUFFER;
+            break;
+        case ESRT_UNIFORM_BUFFER:
+            return EDT_UNIFORM_BUFFER;
+            break;
+        case ESRT_STORAGE_BUFFER:
+            return EDT_STORAGE_BUFFER;
+            break;
+        default:
+            break;
+    }
+    return EDT_INVALID;
 }
 
 template<E_SHADER_RESOURCE_TYPE restype>

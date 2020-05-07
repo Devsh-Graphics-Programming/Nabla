@@ -209,24 +209,22 @@ public:
 
 		if (replaceCurrentContents)
 		{
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(CacheType == E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10)
-			{
+			if constexpr(CacheType == E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10)
 				normalCacheFor2_10_10_10Quant.clear();
-			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
-				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(CacheType == E_QUANT_NORM_CACHE_TYPE::Q_8_8_8)
-			{
+			else if (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_8_8_8)
 				normalCacheFor8_8_8Quant.clear();
-			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
-				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(CacheType == E_QUANT_NORM_CACHE_TYPE::Q_16_16_16)
-			{
+			else if (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_16_16_16)
 				normalCacheFor16_16_16Quant.clear();
-			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		}
 
 		const size_t quantVecSize = sizeof(cached_vector_t<CacheType>);
+		const auto expectedLoads = buffer.size/quantVecSize;
+		if constexpr (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10)
+			normalCacheFor2_10_10_10Quant.reserve(normalCacheFor2_10_10_10Quant.size()+expectedLoads);
+		else if (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_8_8_8)
+			normalCacheFor8_8_8Quant.reserve(normalCacheFor8_8_8Quant.size()+expectedLoads);
+		else if (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_16_16_16)
+			normalCacheFor16_16_16Quant.reserve(normalCacheFor16_16_16Quant.size()+expectedLoads);
 
 		buffPointer += offset;
 		while (buffPointer < bufferRangeEnd)
