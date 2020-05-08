@@ -66,7 +66,7 @@ void main()
 	auto spirv = compiler->createSPIRVFromGLSL(glsl.str().c_str(),asset::ISpecializedShader::ESS_COMPUTE,"main","CToneMapper");
 	auto shader = _driver->createGPUShader(std::move(spirv));
 	
-	asset::ISpecializedShader::SInfo specInfo(core::vector<asset::ISpecializedShader::SInfo::SMapEntry>{}, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE);
+	asset::ISpecializedShader::SInfo specInfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE);
 
 	auto computePipeline = _driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), _driver->createGPUSpecializedShader(shader.get(),std::move(specInfo)));
 
