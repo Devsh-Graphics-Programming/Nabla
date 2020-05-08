@@ -713,8 +713,8 @@ public:
         {
             pgtLayer = it->second;
             core::address_allocator_traits<pg_tab_addr_alctr_t>::multi_alloc_addr(m_pageTableLayerAllocators[pgtLayer], 1u, &addr, &szAndAlignment, &szAndAlignment, nullptr);
-            if (addr==pg_tab_addr_alctr_t::invalid_address)
-                continue;
+            if (addr!=pg_tab_addr_alctr_t::invalid_address)
+                break;
         }
         if (addr==pg_tab_addr_alctr_t::invalid_address)
         {
