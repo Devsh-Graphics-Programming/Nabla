@@ -9,6 +9,9 @@ namespace irr
 namespace core
 {
 
+template<typename T>
+class aabbox3d;
+
 
 class matrix4SIMD// : public AlignedBase<_IRR_SIMD_ALIGNMENT> don't inherit from AlignedBase (which is empty) because member `rows[4]` inherits from it as well
 {
@@ -160,6 +163,9 @@ class matrix4SIMD// : public AlignedBase<_IRR_SIMD_ALIGNMENT> don't inherit from
 		{
 			_vect += getTranslation();
 		}
+
+		bool isBoxInFrustum(const aabbox3d<float>& bbox);
+
 
 		static inline matrix4SIMD buildProjectionMatrixPerspectiveFovRH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar);
 		static inline matrix4SIMD buildProjectionMatrixPerspectiveFovLH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar);

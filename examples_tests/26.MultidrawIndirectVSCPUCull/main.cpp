@@ -102,7 +102,7 @@ int main()
     //qnc->loadNormalQuantCacheFromFile<asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
 #endif
 
-    constexpr auto kInstanceCount = 4096;
+    constexpr auto kInstanceCount = 128;
     constexpr auto  kTotalTriangleLimit = 64*1024*1024;
     
     core::vector<ModelData_t> instanceData(kInstanceCount);
@@ -115,79 +115,49 @@ int main()
     
     core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> gpuDrawDirectPipeline,gpuDrawIndirectPipeline;
 	{
-        core::vector<IGeometryCreator::return_type> cpumesh(kInstanceCount);
-
-        size_t vertexSize = 0;
-        std::vector<uint8_t> vertexData;
-        std::vector<uint32_t> indexData;
+        DrawElementsIndirectCommand_t indirectDrawData[kInstanceCount];
 
         std::random_device rd;
         std::mt19937 mt(rd());
-        std::uniform_int_distribution<uint32_t> dist(16, 4*1024);
-        for (size_t i=0; i<kInstanceCount; i++)
         {
-            float poly = sqrtf(dist(mt))+0.5f;
-            const auto& sphereData = cpumesh[i] = am->getGeometryCreator()->createSphereMesh(2.f,poly,poly);
+            size_t vertexSize = 0;
+            std::vector<uint8_t> vertexData;
+            std::vector<uint32_t> indexData;
 
-            //some assumptions about generated mesh
-            assert(sphereData.assemblyParams.primitiveType==asset::EPT_TRIANGLE_LIST);
-            assert(sphereData.indexType==asset::EIT_32BIT);
-            assert(sphereData.indexBuffer.offset==0);
-
-            assert(sphereData.inputParams.enabledBindingFlags&0x1u); //helpful assumption
-
-            const SBufferBinding<ICPUBuffer>* databuf = nullptr;
-            for (size_t j=0; j<SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; j++)
-            if ((sphereData.inputParams.enabledBindingFlags>>j)&0x1u)
-            {
-                if (databuf) // if first found
-                {
-                    assert(databuf->operator==(sphereData.bindings[j])); // all sphere vertex data will be packed in the same buffer
-                }
-                else
-                    databuf = sphereData.bindings+j;
-                
-
-                if (vertexSize) //if set
-                {
-                    assert(sphereData.inputParams.bindings[j].stride==vertexSize); //all data in the same buffer == same vertex stride for all attributes
-                }
-                else
-                    vertexSize = sphereData.inputParams.bindings[j].stride;
-            }
-
-            auto vdatasize = core::roundUp(databuf->buffer->getSize(),vertexSize);
-            auto vdata = reinterpret_cast<const uint8_t*>(databuf->buffer->getPointer());
-            vertexData.insert(vertexData.end(),vdata,vdata+vdatasize);
-
-            auto idata = reinterpret_cast<const uint32_t*>(sphereData.indexBuffer.buffer->getPointer());
-            indexData.insert(indexData.end(),idata,idata+sphereData.indexCount);
-        }
-        
-#ifndef _IRR_DEBUG
-        //! cache results -- speeds up mesh generation on second run
-        //qnc->saveCacheToFile(asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
-#endif
-
-        //
-        {
-            globalIndexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(indexData.size()*sizeof(uint32_t),indexData.data());
-            indexData.clear();
-        }
-
-        globalVertexBindings[0] = { 0u,driver->createFilledDeviceLocalGPUBufferOnDedMem(vertexData.size(),vertexData.data()) };
-        vertexData.clear();
-
-        {
-            DrawElementsIndirectCommand_t indirectDrawData[kInstanceCount];
-
-            uint32_t baseVertex = 0;
-            uint32_t indexOffset = 0;
-            std::uniform_real_distribution<float> dist3D(0.f,400.f);
+            std::uniform_int_distribution<uint32_t> dist(16, 4*1024);
             for (size_t i=0; i<kInstanceCount; i++)
             {
-                const auto& sphereData = cpumesh[i];
-                if (i==0)
+                float poly = sqrtf(dist(mt))+0.5f;
+                const auto& sphereData = am->getGeometryCreator()->createSphereMesh(2.f,poly,poly);
+
+                //some assumptions about generated mesh
+                assert(sphereData.assemblyParams.primitiveType==asset::EPT_TRIANGLE_LIST);
+                assert(sphereData.indexType==asset::EIT_32BIT);
+                assert(sphereData.indexBuffer.offset==0);
+
+                assert(sphereData.inputParams.enabledBindingFlags&0x1u); //helpful assumption
+
+                auto& instance = instanceData[i];
+                instance.bbox[0].set(sphereData.bbox.MinEdge);
+                instance.bbox[1].set(sphereData.bbox.MaxEdge);
+
+                const SBufferBinding<ICPUBuffer>* databuf = nullptr;
+                // TODO: add asserts about the vertex attributes and bindings
+                for (size_t j=0; j<SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; j++)
+                if ((sphereData.inputParams.enabledBindingFlags>>j)&0x1u)
+                {
+                    if (databuf)
+                        assert(databuf->operator==(sphereData.bindings[j])); // all sphere vertex data will be packed in the same buffer
+                    else
+                        databuf = sphereData.bindings+j;
+
+                    if (vertexSize)
+                        assert(sphereData.inputParams.bindings[j].stride == vertexSize); //all data in the same buffer == same vertex stride for all attributes
+                    else
+                        vertexSize = sphereData.inputParams.bindings[j].stride;
+                }
+                //
+                if (i==0ull)
                 {
                     auto enabledAttribBackupDirect = cpuDrawDirectPipeline->getVertexInputParams().enabledAttribFlags;
                     auto enabledAttribBackupIndirect = cpuDrawIndirectPipeline->getVertexInputParams().enabledAttribFlags;
@@ -198,45 +168,70 @@ int main()
 
                     cpuDrawDirectPipeline->getPrimitiveAssemblyParams() = sphereData.assemblyParams;
                     cpuDrawIndirectPipeline->getPrimitiveAssemblyParams() = sphereData.assemblyParams;
-
-                    gpuDrawDirectPipeline = driver->getGPUObjectsFromAssets(&cpuDrawDirectPipeline.get(),&cpuDrawDirectPipeline.get()+1)->operator[](0);
-                    gpuDrawIndirectPipeline = driver->getGPUObjectsFromAssets(&cpuDrawIndirectPipeline.get(),&cpuDrawIndirectPipeline.get()+1)->operator[](0);
                 }
 
+                //
+                auto vdatasize = core::roundUp(databuf->buffer->getSize(),vertexSize);
+
+                //
                 indirectDrawData[i].count = sphereData.indexCount;
                 indirectDrawData[i].instanceCount = 1;
-                indirectDrawData[i].firstIndex = indexOffset/sizeof(uint32_t);
-                indirectDrawData[i].baseVertex = baseVertex;
+                indirectDrawData[i].firstIndex = indexData.size();
+                indirectDrawData[i].baseVertex = vertexData.size()/vertexSize;
                 indirectDrawData[i].baseInstance = 0;
 
-                auto& meshbuffer = mbuff->operator[](i);
-                meshbuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(core::smart_refctd_ptr(gpuDrawDirectPipeline),nullptr,globalVertexBindings,SBufferBinding<video::IGPUBuffer>{indexOffset,core::smart_refctd_ptr(globalIndexBuffer)});
-                indexOffset += sphereData.indexCount*sizeof(uint32_t);
+                //
+                auto vdata = reinterpret_cast<const uint8_t*>(databuf->buffer->getPointer());
+                vertexData.insert(vertexData.end(),vdata,vdata+vdatasize);
 
-                meshbuffer->setBaseVertex(baseVertex);
-                // TODO: checks on this!
-                baseVertex += (sphereData.bindings[0u].offset+sphereData.inputParams.attributes[0u].relativeOffset)/vertexSize;
-
-                meshbuffer->setIndexCount(sphereData.indexCount);
-
-                meshbuffer->setIndexType(asset::EIT_32BIT);
-            
-                meshbuffer->setBoundingBox(sphereData.bbox);
-
-                auto& instance = instanceData[i];
-                {
-                    float scale = dist3D(mt)*0.0025f+1.f;
-                    instance.worldMatrix.setScale(core::vectorSIMDf(scale,scale,scale));
-                }
-                instance.worldMatrix.setTranslation(core::vectorSIMDf(dist3D(mt),dist3D(mt),dist3D(mt)));
-                instance.worldMatrix.getSub3x3InverseTranspose(instance.normalMatrix);
-                instance.bbox[0].set(sphereData.bbox.MinEdge);
-                instance.bbox[1].set(sphereData.bbox.MaxEdge);
+                auto idata = reinterpret_cast<const uint32_t*>(sphereData.indexBuffer.buffer->getPointer());
+                indexData.insert(indexData.end(),idata,idata+sphereData.indexCount);
             }
+            indirectDrawSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(indirectDrawData), indirectDrawData);
+            
+            globalIndexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(indexData.size()*sizeof(uint32_t),indexData.data());
+            indexData.clear();
 
-            perInstanceDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(instanceData.size()*sizeof(ModelData_t),instanceData.data());
-            indirectDrawSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(indirectDrawData),indirectDrawData);
+            globalVertexBindings[0] = { 0u,driver->createFilledDeviceLocalGPUBufferOnDedMem(vertexData.size(),vertexData.data()) };
+            vertexData.clear();
         }
+        
+#ifndef _IRR_DEBUG
+        //! cache results -- speeds up mesh generation on second run
+        //qnc->saveCacheToFile(asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
+#endif
+        
+        //
+        gpuDrawDirectPipeline = driver->getGPUObjectsFromAssets(&cpuDrawDirectPipeline.get(),&cpuDrawDirectPipeline.get()+1)->operator[](0);
+        gpuDrawIndirectPipeline = driver->getGPUObjectsFromAssets(&cpuDrawIndirectPipeline.get(),&cpuDrawIndirectPipeline.get()+1)->operator[](0);
+
+        std::uniform_real_distribution<float> dist3D(0.f,400.f);
+        for (size_t i=0; i<kInstanceCount; i++)
+        {
+            auto& meshbuffer = mbuff->operator[](i);
+            meshbuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(
+                core::smart_refctd_ptr(gpuDrawDirectPipeline),
+                nullptr,
+                globalVertexBindings,
+                SBufferBinding<video::IGPUBuffer>{indirectDrawData[i].firstIndex*sizeof(uint32_t),core::smart_refctd_ptr(globalIndexBuffer)}
+            );
+
+            meshbuffer->setBaseVertex(indirectDrawData[i].baseVertex);
+            meshbuffer->setIndexCount(indirectDrawData[i].count);
+            meshbuffer->setIndexType(asset::EIT_32BIT);
+
+            auto& instance = instanceData[i];
+            meshbuffer->setBoundingBox({instance.bbox[0].getAsVector3df(),instance.bbox[1].getAsVector3df()});
+
+            {
+                float scale = dist3D(mt)*0.0025f+1.f;
+                instance.worldMatrix.setScale(core::vectorSIMDf(scale,scale,scale));
+            }
+            instance.worldMatrix.setTranslation(core::vectorSIMDf(dist3D(mt),dist3D(mt),dist3D(mt)));
+            instance.worldMatrix.getSub3x3InverseTranspose(instance.normalMatrix);
+        }
+
+        perInstanceDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(instanceData.size()*sizeof(ModelData_t),instanceData.data());
 	}
     
 	core::vector<DrawData_t> perDrawData(kInstanceCount);
@@ -321,12 +316,12 @@ int main()
 
             driver->bindComputePipeline(gpuCullPipeline.get());
             driver->bindDescriptorSets(video::EPBP_COMPUTE, gpuCullPipeline->getLayout(), 1u, 1u, &cullDescriptorSet.get(), nullptr);
-            driver->dispatch(kInstanceCount/kCullWorkgroupSize,1u,1u);
+            driver->pushConstants(gpuCullPipeline->getLayout(), asset::ICPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(CullShaderData_t), &pc);
+            driver->dispatch((kInstanceCount+kCullWorkgroupSize-1)/kCullWorkgroupSize,1u,1u);
             video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT|GL_COMMAND_BARRIER_BIT);
 
             driver->bindGraphicsPipeline(gpuDrawIndirectPipeline.get());
             driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuDrawIndirectPipeline->getLayout(), 1u, 1u, &drawIndirectDescriptorSet.get(), nullptr);
-            driver->pushConstants(gpuDrawIndirectPipeline->getLayout(), asset::ICPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(CullShaderData_t), &pc);
             driver->drawIndexedIndirect(globalVertexBindings,asset::EPT_TRIANGLE_LIST,asset::EIT_32BIT, globalIndexBuffer.get(),indirectDrawSSBO.get(),0,kInstanceCount,sizeof(DrawElementsIndirectCommand_t));
         }
         else
@@ -335,14 +330,17 @@ int main()
             uint32_t mb2draw[kInstanceCount];
             for (uint32_t i=0; i<kInstanceCount; i++)
             {
+                const auto& instance = instanceData[i];
+
+                auto& draw = perDrawData[i];
+                draw.modelViewProjMatrix = core::concatenateBFollowedByA(camera->getConcatenatedMatrix(), instance.worldMatrix);
                 if (doCulling)
                 {
-                    continue;
+                    core::aabbox3df bbox(instance.bbox[0].getAsVector3df(), instance.bbox[1].getAsVector3df());
+                    if (!draw.modelViewProjMatrix.isBoxInFrustum(bbox))
+                        continue;
                 }
 
-                const auto& instance = instanceData[i];
-                auto& draw = perDrawData[i];
-                draw.modelViewProjMatrix = core::concatenateBFollowedByA(camera->getConcatenatedMatrix(),instance.worldMatrix);
                 draw.normalMatrix = core::concatenateBFollowedByA(normalMatrix,instance.normalMatrix);
                 mb2draw[unculledNum++] = i;
             }

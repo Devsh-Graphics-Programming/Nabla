@@ -1979,6 +1979,8 @@ void COpenGLDriver::drawArraysIndirect(const asset::SBufferBinding<IGPUBuffer> _
 
     found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.vao.idxBinding.get(), indirectDrawBuff, countBuffer);
 
+    found->flushStateGraphics(GSB_ALL);
+
     GLenum primType = getGLprimitiveType(found->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType);
     if (primType == GL_POINTS)
         extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
@@ -2062,6 +2064,8 @@ void COpenGLDriver::drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> 
     }
 
     found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.vao.idxBinding.get(), indirectDrawBuff, countBuffer);
+
+    found->flushStateGraphics(GSB_ALL);
 
 	GLenum indexSize = (indexType!=asset::EIT_16BIT) ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
     GLenum primType = getGLprimitiveType(found->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType);
