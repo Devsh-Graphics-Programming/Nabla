@@ -59,12 +59,13 @@ namespace bsdf
 		OP_PLASTIC,
 		OP_ROUGHPLASTIC,
 		OP_WARD,
+		OP_SET_GEOM_NORMAL,
 		OP_INVALID,
 		//all below are meta (have children)
 		OP_COATING,
 		OP_ROUGHCOATING,
 		OP_BUMPMAP,
-		OP_BLEND,
+		OP_BLEND
 	};
 	inline uint32_t getNumberOfSrcRegsForOpcode(E_OPCODE _op)
 	{
@@ -133,13 +134,6 @@ namespace bsdf
 		return i >> INSTR_NORMAL_ID_SHIFT;
 	}
 
-	//padding which make sure struct has sizeof at least min_desired_size but aligned to 4*sizeof(uint32_t)=16
-	//both size and desired_size are meant to be expressed in 4 byte units (i.e. to express size of 8, `size` should be 2)
-	template<size_t size, size_t min_desired_size>
-	using padding_t = uint32_t[ ((min_desired_size + 3ull) & ~(3ull)) - size ];
-	//in 4 byte units
-	constexpr size_t max_bsdf_struct_size = 10ull;
-
 #include "irr/irrpack.h"
 	struct alignas(16) SAllDiffuse
 	{
@@ -148,13 +142,18 @@ namespace bsdf
 		STextureDataOrConstant alpha;
 		STextureDataOrConstant reflectance;
 		STextureDataOrConstant opacity;
-		padding_t<6, max_bsdf_struct_size> padding;
+		//multiplication factor for texture samples
+		//RGB19E7 format
+		//.x - alpha scale, .y - reflectance scale, .z - opacity scale
+		uint64_t textureScale;
 	} PACK_STRUCT;
 	struct alignas(16) SDiffuseTransmitter
 	{
 		STextureDataOrConstant transmittance;
 		STextureDataOrConstant opacity;
-		padding_t<4, max_bsdf_struct_size> padding;
+		//multiplication factor for texture samples
+		//[0] - transmittance scale, [1] - opacity scale
+		float textureScale[2];
 	} PACK_STRUCT;
 	struct alignas(16) SAllDielectric
 	{
@@ -170,7 +169,10 @@ namespace bsdf
 		STextureDataOrConstant alpha_u;
 		STextureDataOrConstant alpha_v;
 		STextureDataOrConstant opacity;
-		padding_t<7, max_bsdf_struct_size> padding;
+		//multiplication factor for texture samples
+		//RGB19E7 format
+		//.x - alpha_u scale, .y - alpha_v scale, .z - opacity scale
+		uint64_t textureScale;
 	} PACK_STRUCT;
 	struct alignas(16) SAllConductor
 	{
@@ -181,7 +183,10 @@ namespace bsdf
 		//ior[1] is imaginary part of eta in RGB19E7 format
 		uint64_t eta[2];
 		STextureDataOrConstant opacity;
-		//padding_t<max_bsdf_struct_size, max_bsdf_struct_size> padding;
+		//multiplication factor for texture samples
+		//RGB19E7 format
+		//.x - alpha_u scale, .y - alpha_v scale, .z - opacity scale
+		uint64_t textureScale;
 	} PACK_STRUCT;
 	struct alignas(16) SAllPlastic
 	{
@@ -190,7 +195,10 @@ namespace bsdf
 		STextureDataOrConstant alpha_u;
 		STextureDataOrConstant alpha_v;
 		STextureDataOrConstant opacity;
-		padding_t<7, max_bsdf_struct_size> padding;
+		//multiplication factor for texture samples
+		//RGB19E7 format
+		//.x - alpha_u scale, .y - alpha_v scale, .z - opacity scale
+		uint64_t textureScale;
 	} PACK_STRUCT;
 	struct alignas(16) SAllCoating
 	{
@@ -202,7 +210,10 @@ namespace bsdf
 		//rgb in RGB19E7 format or texture data for VT (flag decides)
 		STextureDataOrConstant sigmaA;
 		STextureDataOrConstant opacity;
-		padding_t<9, max_bsdf_struct_size> padding;
+		//multiplication factor for texture samples
+		//RGBA16_SFLOAT format
+		//.x - alpha_u scale, .y - alpha_v scale, .z - sigmaA scale, .w - opacity scale
+		uint16_t textureScale[4];
 	} PACK_STRUCT;
 	/*
 	struct alignas(16) SPhong
@@ -223,13 +234,16 @@ namespace bsdf
 		STextureDataOrConstant alpha_u;
 		STextureDataOrConstant alpha_v;
 		STextureDataOrConstant opacity;
-		padding_t<6, max_bsdf_struct_size> padding;
+		//multiplication factor for texture samples
+		//RGB19E7 format
+		//.x - alpha u scale, .y - alpha v scale, .z - opacity scale
+		uint64_t textureScale;
 	} PACK_STRUCT;
 	struct alignas(16) SBumpMap
 	{
 		//texture data for VT
 		STextureData bumpmap;
-		padding_t<2, max_bsdf_struct_size> padding;
+		float textureScale;
 	} PACK_STRUCT;
 	struct alignas(16) SBlend
 	{
@@ -239,12 +253,14 @@ namespace bsdf
 		//otherwise `weightL.constant_rgb19e7` and `weightR.constant_rgb19e7` are constant RGB19E7 blend weights. Left has to be multiplied by weightL and right operand has to be multiplied by weightR.
 		STextureDataOrConstant weightL;
 		STextureDataOrConstant weightR;
-		padding_t<2, max_bsdf_struct_size> padding;
+		float textureScale;
 	} PACK_STRUCT;
 #include "irr/irrunpack.h"
 
 	union SBSDFUnion
 	{
+		SBSDFUnion() : bumpmap{STextureData::invalid()} {}
+
 		SAllDiffuse diffuse;
 		SDiffuseTransmitter diffuseTransmitter;
 		SAllDielectric dielectric;
@@ -275,16 +291,31 @@ class CMitsubaLoader : public asset::IAssetLoader
 
 	protected:
 		asset::IAssetManager* m_manager;
-		//TODO need one packer per format class
-		core::smart_refctd_ptr<asset::ICPUTexturePacker> m_texPacker;
 
 		struct SContext
 		{
+			SContext(
+				const asset::IGeometryCreator* _geomCreator,
+				const asset::IMeshManipulator* _manipulator,
+				const asset::IAssetLoader::SAssetLoadParams& _params,
+				asset::IAssetLoader::IAssetLoaderOverride* _override,
+				CGlobalMitsubaMetadata* _metadata
+			);
+
 			const asset::IGeometryCreator* creator;
 			const asset::IMeshManipulator* manipulator;
 			const asset::IAssetLoader::SAssetLoadParams params;
 			asset::IAssetLoader::IAssetLoaderOverride* override;
 			CGlobalMitsubaMetadata* globalMeta;
+
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t VT_PAGE_TABLE_LAYERS = 64u;
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t VT_PAGE_SZ_LOG2 = 7u;//128
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2 = 4u;//16
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t VT_PHYSICAL_PAGE_TEX_LAYERS = 20u;
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t VT_PAGE_PADDING = 8u;
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t VT_MAX_ALLOCATABLE_TEX_SZ_LOG2 = 12u;//4096
+
+			core::smart_refctd_ptr<asset::ICPUVirtualTexture> VT;
 
 			//
 			using group_ass_type = core::smart_refctd_ptr<asset::ICPUMesh>;
@@ -296,7 +327,7 @@ class CMitsubaLoader : public asset::IAssetLoader
 			using bsdf_ass_type = core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>;
 			core::map<const CElementBSDF*, bsdf_ass_type> pipelineCache;
 			//! TODO: even later when texture changes come, might have to return not only a combined sampler but some GLSL sampling code due to the "scale" and offset XML nodes
-			using tex_ass_type = std::pair<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler> >;
+			using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>,float>;
 			core::unordered_map<const CElementTexture*, tex_ass_type> textureCache;
 
 			core::vector<bsdf::SBSDFUnion> bsdfBuffer;
