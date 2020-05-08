@@ -46,6 +46,43 @@ vec3 irr_glsl_pseudoMul3x4with3x1(in mat4x3 m, in vec3 v)
     return m[0]*v.x+m[1]*v.y+m[2]*v.z+m[3];
 }
 
+float irr_glsl_lengthManhattan(float v)
+{
+    return abs(v);
+}
+float irr_glsl_lengthManhattan(vec2 v)
+{
+	v = abs(v);
+    return v.x+v.y;
+}
+float irr_glsl_lengthManhattan(vec3 v)
+{
+    v = abs(v);
+    return v.x+v.y+v.z;
+}
+float irr_glsl_lengthManhattan(vec4 v)
+{
+    v = abs(v);
+    return v.x+v.y+v.z+v.w;
+}
+
+float irr_glsl_lengthSq(in float v)
+{
+    return v*v;
+}
+float irr_glsl_lengthSq(in vec2 v)
+{
+    return dot(v,v);
+}
+float irr_glsl_lengthSq(in vec3 v)
+{
+    return dot(v,v);
+}
+float irr_glsl_lengthSq(in vec4 v)
+{
+    return dot(v,v);
+}
+
 #endif
 )";
     }

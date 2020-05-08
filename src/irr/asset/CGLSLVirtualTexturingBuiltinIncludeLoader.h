@@ -188,15 +188,8 @@ vec3 irr_glsl_vTexture_helper(in uint formatID, in vec3 virtualUV, in int clippe
     return physicalUV;
 }
 
-float irr_glsl_lengthManhattan(vec2 v)
-{
-	v = abs(v);
-    return v.x+v.y;
-}
-float irr_glsl_lengthSq(in vec2 v)
-{
-  return dot(v,v);
-}
+#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
+
 // textureGrad emulation
 vec4 irr_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOriginalScaledUV, in int originalMaxFullMip)
 {

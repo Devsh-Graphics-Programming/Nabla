@@ -149,7 +149,7 @@ public:
         createViewsFromCPU(m_usamplers.views->data(), _cpuvt->getUintViews());
     }
 
-    bool commit(const SMasterTextureData& _addr, const IGPUImage* _img, const asset::IImage::SSubresourceRange& _subres) override
+    bool commit(const SMasterTextureData& _addr, const IGPUImage* _img, const asset::IImage::SSubresourceRange& _subres, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor) override
     {
         assert(0);
         return false;

@@ -16,7 +16,6 @@
 #include "irr/core/alloc/aligned_allocator.h"
 #include "irr/core/alloc/aligned_allocator_adaptor.h"
 #include "irr/core/alloc/AllocatorTrivialBases.h"
-#include "irr/core/alloc/ContiguousPoolAddressAllocator.h"
 #include "irr/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "irr/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
 #include "irr/core/alloc/IAddressAllocator.h"

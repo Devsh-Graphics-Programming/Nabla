@@ -147,14 +147,12 @@ public:
         initResidentStorage(_residentStorageParams, _residentStorageCount);
     }
 
-    bool commit(const SMasterTextureData& _addr, const ICPUImage* _img, const IImage::SSubresourceRange& _subres) override
+    bool commit(const SMasterTextureData& _addr, const ICPUImage* _img, const IImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _uwrap, ISampler::E_TEXTURE_CLAMP _vwrap, ISampler::E_TEXTURE_BORDER_COLOR _borderColor) override
     {
-        if (_subres.layerCount != 1u)
+        if (!validateCommit(_addr, _subres, _uwrap, _vwrap))
             return false;
 
         const page_tab_offset_t pgtOffset(_addr.pgTab_x, _addr.pgTab_y, _addr.pgTab_layer);
-        const ISampler::E_TEXTURE_CLAMP wrapu = SMasterTextureData::EWM_to_ETC(static_cast<SMasterTextureData::E_WRAP_MODE>(_addr.wrap_x));
-        const ISampler::E_TEXTURE_CLAMP wrapv = SMasterTextureData::EWM_to_ETC(static_cast<SMasterTextureData::E_WRAP_MODE>(_addr.wrap_y));
 
         ICPUVTResidentStorage* storage = nullptr;
         {
@@ -274,11 +272,10 @@ public:
                     copy.outMipLevel = 0u;
                     copy.inImage = _img;
                     copy.outImage = storage->image.get();
-                    copy.axisWraps[0] = wrapu;
-                    copy.axisWraps[1] = wrapv;
+                    copy.axisWraps[0] = _uwrap;
+                    copy.axisWraps[1] = _vwrap;
                     copy.axisWraps[2] = ISampler::ETC_CLAMP_TO_EDGE;
-                    //borderColor value should never be used because of backward EWM_to_ETC() mapping - CLAMP_TO_BORDER value is never obtained
-                    copy.borderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+                    copy.borderColor = _borderColor;
                     if (!CPaddedCopyImageFilter::execute(&copy))
                         assert(false);
                 }
@@ -289,11 +286,13 @@ public:
 
     SViewAliasTextureData createAlias(const SMasterTextureData& _addr, E_FORMAT _viewingFormat, const IImage::SSubresourceRange& _subresRelativeToMaster) override
     {
-        if (_subresRelativeToMaster.baseMipLevel+_subresRelativeToMaster.levelCount > _addr.maxMip+1u)
+        if (!validateAliasCreation(_addr, _viewingFormat, _subresRelativeToMaster))
             return SViewAliasTextureData::invalid();
 
         const VkExtent3D extent = {_addr.origsize_x>>_subresRelativeToMaster.baseArrayLayer, _addr.origsize_y>>_subresRelativeToMaster.baseArrayLayer, 1u};
         SMasterTextureData aliasAddr = alloc(_viewingFormat, VkExtent3D{static_cast<uint32_t>(_addr.origsize_x), static_cast<uint32_t>(_addr.origsize_y), 1u}, _subresRelativeToMaster, ISampler::ETC_CLAMP_TO_BORDER, ISampler::ETC_CLAMP_TO_BORDER);
+        if (SMasterTextureData::is_invalid(aliasAddr))
+            return SViewAliasTextureData::invalid();
         aliasAddr.wrap_x = _addr.wrap_x;
         aliasAddr.wrap_y = _addr.wrap_y;
 

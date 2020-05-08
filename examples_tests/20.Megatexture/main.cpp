@@ -136,7 +136,7 @@ STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualText
     subres.layerCount = 1u;
 
     auto addr = _vt->alloc(_img->getCreationParameters().format, imgAndOrigSz.second, subres, _uwrap, _vwrap);
-    _vt->commit(addr, imgAndOrigSz.first.get(), subres);
+    _vt->commit(addr, imgAndOrigSz.first.get(), subres, _uwrap, _vwrap, _borderColor);
     return addr;
 }
 
