@@ -18,7 +18,7 @@ layout(set = 1, binding = 2, std430, row_major) restrict readonly buffer PerInst
     ModelData_t modelData[];
 };
 
-layout(push_constant) uniform PushConstants
+layout(push_constant, row_major) uniform PushConstants
 {
     CullShaderData_t data;
 } pc;
@@ -27,26 +27,23 @@ layout(push_constant) uniform PushConstants
 void main()
 {
     uint drawID = gl_GlobalInvocationID.x;
-    if (drawID<pc.data.maxDrawCount)
+    if (drawID>=pc.data.maxDrawCount)
         return;
 
     mat4x3 worldMatrix = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x3(modelData[drawID].worldMatrix);
-    mat4 MVP;
-    for (int i=0; i<4; i++)
-        MVP[i] = pc.data.viewProjMatrix[0]*worldMatrix[0][i]+pc.data.viewProjMatrix[1]*worldMatrix[1][i]+pc.data.viewProjMatrix[2]*worldMatrix[2][i];
-    MVP[3] += pc.data.viewProjMatrix[3];
+    mat4 MVP = irr_glsl_pseudoMul4x4with4x3(pc.data.viewProjMatrix,worldMatrix);
 
-    //vec3 minEdge = modelData[drawID].bbox[0];
-    //vec3 maxEdge = modelData[drawID].bbox[1];
-
-    bool culled = false;
+    bool notCulled = true;
     if (pc.data.cull!=0u)
     {
-        culled = true;
+        mat2x3 bbox;
+        bbox[0] = modelData[drawID].bbox[0];
+        bbox[1] = modelData[drawID].bbox[1];
+        notCulled = irr_glsl_couldBeVisible(MVP,bbox);
     }
 
-    draws[drawID].instanceCount = culled ? 0u:1u;
-    if (!culled)
+    draws[drawID].instanceCount = notCulled ? 1u:0u;
+    if (notCulled)
     {
         drawData[drawID].modelViewProjMatrix = MVP;
         drawData[drawID].normalMatrix = pc.data.viewInverseTransposeMatrix*irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat3x3(modelData[drawID].normalMatrix);

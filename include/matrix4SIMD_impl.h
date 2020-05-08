@@ -335,9 +335,6 @@ inline bool matrix4SIMD::isBoxInFrustum(const aabbox3d<float>& bbox)
 	MaxEdge.set(bbox.MaxEdge);
 	MinEdge.w = 1.f;
 	MaxEdge.w = 1.f;
-#ifdef _IRR_DEBUG
-	assert(MinEdge.w==0.f && MaxEdge.w==0.f);
-#endif // _IRR_DEBUG
 
 
 	auto getClosestDP = [this,&MinEdge,&MaxEdge](const vectorSIMDf& toDot) -> float

@@ -13,7 +13,7 @@ using namespace video;
 
 
 bool doCulling = false;
-bool useDrawIndirect = false;
+bool useDrawIndirect = true;
 
 class MyEventReceiver : public QToQuitEventReceiver
 {
@@ -102,7 +102,7 @@ int main()
     //qnc->loadNormalQuantCacheFromFile<asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
 #endif
 
-    constexpr auto kInstanceCount = 128;
+    constexpr auto kInstanceCount = 8192;
     constexpr auto  kTotalTriangleLimit = 64*1024*1024;
     
     core::vector<ModelData_t> instanceData(kInstanceCount);

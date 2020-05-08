@@ -2063,7 +2063,7 @@ void COpenGLDriver::drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> 
         return;
     }
 
-    found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.vao.idxBinding.get(), indirectDrawBuff, countBuffer);
+    found->updateNextState_vertexInput(_vtxBindings, indexBuff, indirectDrawBuff, countBuffer);
 
     found->flushStateGraphics(GSB_ALL);
 
@@ -2225,7 +2225,10 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
         {
             if (nextState.pipeline.graphics.usedShadersHash != currentState.pipeline.graphics.usedShadersHash)
             {
-                GLuint GLname = 0u;
+                currentState.pipeline.graphics.usedPipeline = 0u;
+                #ifndef _IRR_DEBUG
+                    assert(nextState.pipeline.graphics.usedPipeline==0u);
+                #endif
 
                 constexpr SOpenGLState::SGraphicsPipelineHash NULL_HASH = { 0u, 0u, 0u, 0u, 0u };
 
@@ -2235,27 +2238,19 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
                     auto found = std::lower_bound(GraphicsPipelineMap.begin(), GraphicsPipelineMap.end(), lookingFor);
                     if (found != GraphicsPipelineMap.end() && found->first == nextState.pipeline.graphics.usedShadersHash)
                     {
-                        GLname = found->second.GLname;
+                        currentState.pipeline.graphics.usedPipeline = found->second.GLname;
                         found->second.lastUsed = CNullDriver::ReallocationCounter++;
                     }
                     else
                     {
-                        GLname = createGraphicsPipeline(nextState.pipeline.graphics.usedShadersHash);
-                        lookingFor.second.GLname = GLname;
+                        currentState.pipeline.graphics.usedPipeline = lookingFor.second.GLname = createGraphicsPipeline(nextState.pipeline.graphics.usedShadersHash);
                         lookingFor.second.lastUsed = CNullDriver::ReallocationCounter++;
                         lookingFor.second.object = nextState.pipeline.graphics.pipeline;
                         freeUpGraphicsPipelineCache(true);
                         GraphicsPipelineMap.insert(found, lookingFor);
                     }
                 }
-
-                if (GLname)
-                {
-                    currentState.pipeline.compute.pipeline = nullptr;
-                    currentState.pipeline.compute.usedShader = 0u;
-                    extGlUseProgram(0);
-                }
-                extGlBindProgramPipeline(GLname);
+                extGlBindProgramPipeline(currentState.pipeline.graphics.usedPipeline);
 
                 currentState.pipeline.graphics.usedShadersHash = nextState.pipeline.graphics.usedShadersHash;
             }
@@ -2263,6 +2258,15 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
             currentState.pipeline.graphics.pipeline = nextState.pipeline.graphics.pipeline;
         }
     }
+
+    // this needs to be here to make sure interleaving the same compute pipeline with the same gfx pipeline works
+    if (currentState.pipeline.graphics.usedPipeline && currentState.pipeline.compute.usedShader)
+    {
+        currentState.pipeline.compute.pipeline = nullptr;
+        currentState.pipeline.compute.usedShader = 0u;
+        extGlUseProgram(0);
+    }
+
     if (stateBits & GSB_RASTER_PARAMETERS)
     {
 #define STATE_NEQ(member) (nextState.member != currentState.member)
