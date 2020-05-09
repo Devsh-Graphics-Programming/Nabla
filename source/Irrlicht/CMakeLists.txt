@@ -370,8 +370,7 @@ set(IRR_TARGETS Irrlicht
 				IlmImf
 				Half
 				convert_utf
-				bzip2
-				HLSL			
+				bzip2			
 				glslang
 				OGLCompiler 
 				OSDependent
@@ -380,8 +379,11 @@ set(IRR_TARGETS Irrlicht
 				IexMath
 				SPIRV-Tools
 				SPIRV-Tools-opt )
-		
-			#TODO: targets must be appended to the list depending on build options
+				
+if(ENABLE_HLSL)
+	list(APPEND IRR_TARGETS HLSL)
+endif()
+
 foreach(trgt IN LISTS IRR_TARGETS)
 		set_property(TARGET ${trgt} PROPERTY
              MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
