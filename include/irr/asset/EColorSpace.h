@@ -49,11 +49,9 @@ namespace irr
         enum ELECTRO_OPTICAL_TRANSFER_FUNCTION
         {
             EOTF_IDENTITY,
-            EOTF_LINEAR,
             EOTF_sRGB,
             EOTF_DCI_P3_XYZ,
             EOTF_SMPTE_170M,
-            EOTF_SMPTE_ST2084_PERCEPTUAL_QUANTIZER,
             EOTF_SMPTE_ST2084,
             EOTF_HDR10_HLG,
             EOTF_GAMMA_2_2,
@@ -65,11 +63,9 @@ namespace irr
         enum OPTICO_ELECTRICAL_TRANSFER_FUNCTION
         {
             OETF_IDENTITY,
-            OETF_LINEAR,
             OETF_sRGB,
             OETF_DCI_P3_XYZ,
             OETF_SMPTE_170M,
-            OETF_SMPTE_ST2084_PERCEPTUAL_QUANTIZER,
             OETF_SMPTE_ST2084,
             OETF_HDR10_HLG,
             OETF_GAMMA_2_2,

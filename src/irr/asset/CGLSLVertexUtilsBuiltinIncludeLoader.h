@@ -10,6 +10,7 @@ namespace asset
 class CGLSLVertexUtilsBuiltinIncludeLoader : public irr::asset::IBuiltinIncludeLoader
 {
 public:
+    // TODO: don't like that the include paht is `irr/builtin/glsl/vertex_utils/vertex_utils.glsl"
     const char* getVirtualDirectoryName() const override { return "glsl/vertex_utils/"; }
 
 private:
