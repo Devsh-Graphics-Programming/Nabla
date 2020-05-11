@@ -264,10 +264,11 @@ irr_adjust_definitions() # macro defined in root CMakeLists
 
 macro(irr_target_link_zlib _trgt)
 	add_dependencies(${_trgt} zlibstatic)
+
 	target_link_libraries(${_trgt} INTERFACE
-		"$<$<CONFIG:DEBUG>:${ZLIB_LIBRARY_DEBUG}>"
-		"$<$<CONFIG:RELEASE>:${ZLIB_LIBRARY_RELEASE}>"
-		"$<$<CONFIG:RELWITHDEBINFO>:${ZLIB_LIBRARY_RELWITHDEBINFO}>"
+		$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
+		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
+		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
 	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/zlib)
 endmacro()
