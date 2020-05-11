@@ -172,13 +172,6 @@ public:
         using phys_pg_addr_alctr_t = ICPUVTResidentStorage::phys_pg_addr_alctr_t;
         //TODO up to this line, it's kinda common code for CPU and GPU, refactor later
 
-        //fill page table and pack present mips into physical addr texture
-        CFillImageFilter::state_type fill;
-        fill.outImage = m_pageTable.get();
-        fill.outRange.extent = { 1u,1u,1u };
-        fill.subresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
-        fill.subresource.baseArrayLayer = pgtOffset.z;
-        fill.subresource.layerCount = 1u;
         for (uint32_t i = 0u; i < levelsToPack; ++i)
         {
             const uint32_t w = neededPageCountForSide(extent.width, i);
@@ -216,19 +209,11 @@ public:
                         physPgAddr |= (SPhysPgOffset::invalid_addr<<SPhysPgOffset::PAGE_ADDR_BITLENGTH);
                     if (i < levelsTakingAtLeastOnePageCount)
                     {
-                        fill.subresource.mipLevel = i;
-                        fill.outRange.offset = {(pgtOffset.x>>i) + x, (pgtOffset.y>>i) + y, 0u};
-                        fill.fillValue.asUint.x = physPgAddr;
-                        //TODO this doesnt work for some reason
-                        /*{
-                            const auto texelPos = core::vectorSIMDu32(pgtOffset.x>>i, pgtOffset.y>>i, 0u, pgtOffset.z);
-                            const auto* region = m_pageTable->getRegion(i, texelPos);
-                            const uint64_t byteoffset = region->getByteOffset(texelPos, region->getByteStrides(m_pageTable->getTexelBlockInfo()));
-                            uint8_t* bufptr = reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer()) + byteoffset;
-                            reinterpret_cast<uint32_t*>(bufptr)[0] = physPgAddr;
-                        }*/
-                        if (!CFillImageFilter::execute(&fill))
-                            _IRR_DEBUG_BREAK_IF(true);
+                        const auto texelPos = core::vectorSIMDu32(pgtOffset.x>>i, pgtOffset.y>>i, 0u, pgtOffset.z) + core::vectorSIMDu32(x, y, 0u, 0u);
+                        const auto* region = m_pageTable->getRegion(i, texelPos);
+                        const uint64_t byteoffset = region->getByteOffset(texelPos, region->getByteStrides(m_pageTable->getTexelBlockInfo()));
+                        uint8_t* bufptr = reinterpret_cast<uint8_t*>(m_pageTable->getBuffer()->getPointer()) + byteoffset;
+                        reinterpret_cast<uint32_t*>(bufptr)[0] = physPgAddr;
                     }
 
                     if (!SPhysPgOffset(physPgAddr).valid())
