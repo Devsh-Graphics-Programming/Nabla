@@ -6,7 +6,7 @@
 #define __C_MESH_MANIPULATOR_H_INCLUDED__
 
 #include "irr/asset/IMeshManipulator.h"
-#include "CQuantNormalCache.h"
+#include "irr/asset/CQuantNormalCache.h"
 
 namespace irr
 {

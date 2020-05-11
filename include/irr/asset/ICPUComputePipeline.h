@@ -45,7 +45,8 @@ public:
         return cp;
     }
 
-    E_TYPE getAssetType() const override { return ET_COMPUTE_PIPELINE; }
+    _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_COMPUTE_PIPELINE;
+    inline E_TYPE getAssetType() const override { return AssetType; }
 
     ICPUPipelineLayout* getLayout() { return m_layout.get(); }
     const ICPUPipelineLayout* getLayout() const { return m_layout.get(); }

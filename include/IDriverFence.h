@@ -131,7 +131,7 @@ class GPUEventWrapper : public core::Uncopyable
 };
 
 template<class Functor>
-using GPUEventDeferredHandlerST = core::EventDeferredHandlerST<GPUEventWrapper,Functor>;
+using GPUDeferredEventHandlerST = core::DeferredEventHandlerST<core::DeferredEvent<GPUEventWrapper,Functor> >;
 
 } // end namespace scene
 } // end namespace irr

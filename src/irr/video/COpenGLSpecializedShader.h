@@ -40,7 +40,10 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 			if (!pc.present)
 				return true;
 			if (!pc.info.name.size()) // cannot handle anonymous push constant blocks (we loose the names)
+			{
+				os::Printer::log("Push Constant blocks need to be named (limitation of SPIR-V Cross). Creation of COpenGLSpecializedShader failed.", ELL_ERROR);
 				return false;
+			}
 		
 			const auto& pc_layout = pc.info;
 			core::queue<SMember> q;

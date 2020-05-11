@@ -195,7 +195,7 @@ void IAssetManager::insertBuiltinAssets()
 		auto buildInShader = [&](const char* source, asset::ISpecializedShader::E_SHADER_STAGE type, std::initializer_list<const char*> paths) -> void
 		{
 			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(core::make_smart_refctd_ptr<asset::ICPUShader>(source),
-																					asset::ISpecializedShader::SInfo({},nullptr,"main",type));
+																					asset::ISpecializedShader::SInfo({},nullptr,"main",type,*paths.begin()));
             for(auto &path : paths)
 			    addBuiltInToCaches(shader,path);
 		};

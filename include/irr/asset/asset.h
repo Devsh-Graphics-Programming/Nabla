@@ -39,6 +39,7 @@
 #include "irr/asset/ISPIR_VProgram.h"
 #include "irr/asset/ICPUShader.h"
 #include "irr/asset/ICPUSpecializedShader.h"
+#include "irr/asset/CShaderIntrospector.h"
 // pipelines
 // meshes
 #include "irr/asset/ICPUMeshBuffer.h"

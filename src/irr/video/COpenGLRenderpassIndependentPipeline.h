@@ -103,7 +103,30 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
 	        }
             inline const uint32_t& getStamp(IGPUSpecializedShader::E_SHADER_STAGE _stage) const
             {
-                return const_cast<typename std::decay<decltype(*this)>::type*>(this)->getStamp(_stage);
+                // this creates warnings
+                //return const_cast<typename std::decay<decltype(*this)>::type*>(this)->getStamp(_stage);
+		        switch (_stage)
+		        {
+		            case IGPUSpecializedShader::ESS_VERTEX:
+			            return stageUpdateStamps[0u];
+			            break;
+		            case IGPUSpecializedShader::ESS_TESSELATION_CONTROL:
+			            return stageUpdateStamps[1u];
+			            break;
+		            case IGPUSpecializedShader::ESS_TESSELATION_EVALUATION:
+			            return stageUpdateStamps[2u];
+			            break;
+		            case IGPUSpecializedShader::ESS_GEOMETRY:
+			            return stageUpdateStamps[3u];
+			            break;
+		            case IGPUSpecializedShader::ESS_FRAGMENT:
+			            return stageUpdateStamps[4u];
+			            break;
+		            default:
+			            break;
+		        }
+		        assert(false);
+		        return stageUpdateStamps[IGPURenderpassIndependentPipeline::SHADER_STAGE_COUNT];
             }
 	        inline void incrementStamps(uint32_t _stages)
 	        {

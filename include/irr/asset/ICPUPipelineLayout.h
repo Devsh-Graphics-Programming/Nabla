@@ -49,7 +49,9 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 				        it->get()->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 			m_pushConstantRanges = nullptr;
 		}
-		E_TYPE getAssetType() const override { return ET_PIPELINE_LAYOUT; }
+
+        _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_LAYOUT;
+        inline E_TYPE getAssetType() const override { return AssetType; }
 
 	protected:
 		virtual ~ICPUPipelineLayout() = default;

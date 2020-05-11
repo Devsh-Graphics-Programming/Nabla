@@ -798,34 +798,13 @@ bool COpenGLDriver::deinitAuxContext()
 #endif // _IRR_COMPILE_WITH_X11_DEVICE_
 
 
-// -----------------------------------------------------------------------
-// SDL CONSTRUCTOR
-// -----------------------------------------------------------------------
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-//! SDL constructor and init code
-COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceSDL* device, const asset::IGLSLCompiler* glslcomp)
-		: CNullDriver(device, io, Params), COpenGLExtensionHandler(),
-			runningInRenderDoc(false), ColorFormat(EF_R8G8B8_UNORM),
-			CurrentTarget(ERT_FRAME_BUFFER),
-			SDLDevice(device), DeviceType(EIDT_SDL), AuxContexts(0), GLSLCompiler(glslcomp)
-{
-	#ifdef _IRR_DEBUG
-	setDebugName("COpenGLDriver");
-	#endif
-
-	genericDriverInit(device->getAssetManager());
-}
-
-#endif // _IRR_COMPILE_WITH_SDL_DEVICE_
-
-
 //! destructor
 COpenGLDriver::~COpenGLDriver()
 {
 	if (!AuxContexts) //opengl dead and never initialized in the first place
 		return;
 
+    quitEventHandler.execute();
     cleanUpContextBeforeDelete();
 
     //! Spin wait for other contexts to deinit
@@ -1010,7 +989,7 @@ bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
     if (dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
 #else
     if (false)
-#endif // LINUX
+#endif
         runningInRenderDoc = true;
 
 	Name=L"OpenGL ";
@@ -1333,7 +1312,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     if (glUnspec->containsGLSL()) {
         std::string glsl = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
         asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions().get());
-        auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, "????");
+        auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.c_str());
         //{
         //    auto fl = fopen("shader.glsl", "w");
         //    fwrite(reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()), 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
@@ -1343,13 +1322,13 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,
                 EP.c_str(),
-                "????"
+               _specInfo.m_filePathHint.c_str()
             );
 
         if (!spvCode)
             return nullptr;
 
-#define FIX_AMD_DRIVER_BUG
+// #define FIX_AMD_DRIVER_BUG // TODO: @Crisspl get this code manipulation to pass on the `boxFrustCull.comp` shader of ex 26
 #ifdef FIX_AMD_DRIVER_BUG
         AMDbugfixCompiler comp(reinterpret_cast<const uint32_t*>(spvCode->getPointer()), spvCode->getSize()/4u);
         comp.set_entry_point(EP, asset::ESS2spvExecModel(stage));
@@ -1406,19 +1385,25 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
 
         spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spvCode));
     }
-    else {
+    else
         spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr<asset::ICPUBuffer>(glUnspec->m_code));
+
+    asset::CShaderIntrospector::SIntrospectionParams introspectionParams{ _specInfo.shaderStage, _specInfo.entryPoint, getSupportedGLSLExtensions(), _specInfo.m_filePathHint};
+    asset::CShaderIntrospector introspector(GLSLCompiler.get()); // TODO: shouldn't the introspection be cached for all calls to `createGPUSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
+    const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
+    if (!introspection)
+    {
+        _IRR_DEBUG_BREAK_IF(true);
+        os::Printer::log("Unable to introspect the SPIR-V shader to extract information about bindings and push constants. Creation failed.", ELL_ERROR);
+        return nullptr;
     }
 
-    asset::CShaderIntrospector::SEntryPoint_Stage_Extensions introspectionParams{ _specInfo.shaderStage, _specInfo.entryPoint, getSupportedGLSLExtensions()};
-    asset::CShaderIntrospector introspector(GLSLCompiler.get());
-    const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
     core::vector<COpenGLSpecializedShader::SUniform> uniformList;
     if (!COpenGLSpecializedShader::getUniformsFromPushConstants(&uniformList,introspection))
     {
         _IRR_DEBUG_BREAK_IF(true);
         os::Printer::log("Attempted to create OpenGL GPU specialized shader from SPIR-V without debug info - unable to set push constants. Creation failed.", ELL_ERROR);
-        return nullptr;//release build: maybe let it return the shader
+        return nullptr;
     }
 
     auto ctx = getThreadContext_helper(false);
@@ -1999,6 +1984,8 @@ void COpenGLDriver::drawArraysIndirect(const asset::SBufferBinding<IGPUBuffer> _
 
     found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.vao.idxBinding.get(), indirectDrawBuff, countBuffer);
 
+    found->flushStateGraphics(GSB_ALL);
+
     GLenum primType = getGLprimitiveType(found->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType);
     if (primType == GL_POINTS)
         extGlPointParameterf(GL_POINT_FADE_THRESHOLD_SIZE, 1.0f);
@@ -2081,7 +2068,9 @@ void COpenGLDriver::drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> 
         return;
     }
 
-    found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.vao.idxBinding.get(), indirectDrawBuff, countBuffer);
+    found->updateNextState_vertexInput(_vtxBindings, indexBuff, indirectDrawBuff, countBuffer);
+
+    found->flushStateGraphics(GSB_ALL);
 
 	GLenum indexSize = (indexType!=asset::EIT_16BIT) ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
     GLenum primType = getGLprimitiveType(found->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType);
@@ -2241,7 +2230,10 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
         {
             if (nextState.pipeline.graphics.usedShadersHash != currentState.pipeline.graphics.usedShadersHash)
             {
-                GLuint GLname = 0u;
+                currentState.pipeline.graphics.usedPipeline = 0u;
+                #ifndef _IRR_DEBUG
+                    assert(nextState.pipeline.graphics.usedPipeline==0u);
+                #endif
 
                 constexpr SOpenGLState::SGraphicsPipelineHash NULL_HASH = { 0u, 0u, 0u, 0u, 0u };
 
@@ -2251,27 +2243,19 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
                     auto found = std::lower_bound(GraphicsPipelineMap.begin(), GraphicsPipelineMap.end(), lookingFor);
                     if (found != GraphicsPipelineMap.end() && found->first == nextState.pipeline.graphics.usedShadersHash)
                     {
-                        GLname = found->second.GLname;
+                        currentState.pipeline.graphics.usedPipeline = found->second.GLname;
                         found->second.lastUsed = CNullDriver::ReallocationCounter++;
                     }
                     else
                     {
-                        GLname = createGraphicsPipeline(nextState.pipeline.graphics.usedShadersHash);
-                        lookingFor.second.GLname = GLname;
+                        currentState.pipeline.graphics.usedPipeline = lookingFor.second.GLname = createGraphicsPipeline(nextState.pipeline.graphics.usedShadersHash);
                         lookingFor.second.lastUsed = CNullDriver::ReallocationCounter++;
                         lookingFor.second.object = nextState.pipeline.graphics.pipeline;
                         freeUpGraphicsPipelineCache(true);
                         GraphicsPipelineMap.insert(found, lookingFor);
                     }
                 }
-
-                if (GLname)
-                {
-                    currentState.pipeline.compute.pipeline = nullptr;
-                    currentState.pipeline.compute.usedShader = 0u;
-                    extGlUseProgram(0);
-                }
-                extGlBindProgramPipeline(GLname);
+                extGlBindProgramPipeline(currentState.pipeline.graphics.usedPipeline);
 
                 currentState.pipeline.graphics.usedShadersHash = nextState.pipeline.graphics.usedShadersHash;
             }
@@ -2279,6 +2263,15 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
             currentState.pipeline.graphics.pipeline = nextState.pipeline.graphics.pipeline;
         }
     }
+
+    // this needs to be here to make sure interleaving the same compute pipeline with the same gfx pipeline works
+    if (currentState.pipeline.graphics.usedPipeline && currentState.pipeline.compute.usedShader)
+    {
+        currentState.pipeline.compute.pipeline = nullptr;
+        currentState.pipeline.compute.usedShader = 0u;
+        extGlUseProgram(0);
+    }
+
     if (stateBits & GSB_RASTER_PARAMETERS)
     {
 #define STATE_NEQ(member) (nextState.member != currentState.member)

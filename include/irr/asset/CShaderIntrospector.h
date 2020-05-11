@@ -70,13 +70,14 @@ class CIntrospectionData : public core::IReferenceCounted
 class CShaderIntrospector : public core::Uncopyable
 {
 	public:
-		struct SEntryPoint_Stage_Extensions
+		struct SIntrospectionParams
 		{
 			ISpecializedShader::E_SHADER_STAGE stage;
 			std::string entryPoint;
 			core::smart_refctd_dynamic_array<std::string> GLSLextensions;
+			std::string filePathHint;
 
-            inline bool operator<(const SEntryPoint_Stage_Extensions& rhs) const
+            inline bool operator<(const SIntrospectionParams& rhs) const
             {
                 if (stage == rhs.stage)
                 {
@@ -95,7 +96,8 @@ class CShaderIntrospector : public core::Uncopyable
                                     continue;
                                 return (cmpres < 0);
                             }
-                            return false;
+							// if got out the loop, all extensions are equal
+							return filePathHint<rhs.filePathHint;
                         }
                     }
                     return entryPoint < rhs.entryPoint;
@@ -107,20 +109,68 @@ class CShaderIntrospector : public core::Uncopyable
 		//In the future there's also going list of enabled extensions
 		CShaderIntrospector(const IGLSLCompiler* _glslcomp) : m_glslCompiler(_glslcomp) {}
 
-		const CIntrospectionData* introspect(const ICPUShader* _shader, const SEntryPoint_Stage_Extensions& _params);
+		//
+		const CIntrospectionData* introspect(const ICPUShader* _shader, const SIntrospectionParams& _params);
 
-        std::pair<bool/*is shadow sampler*/, IImageView<ICPUImage>::E_TYPE> getImageInfoFromIntrospection(uint32_t set, uint32_t binding, ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const std::string* _extensionsBegin, const std::string* _extensionsEnd);
-        core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection(ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const std::string* _extensionsBegin, const std::string* _extensionsEnd);
-        core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection(uint32_t set, ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const std::string* _extensionsBegin, const std::string* _extensionsEnd);
-        core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection(ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const std::string* _extensionsBegin, const std::string* _extensionsEnd);
-        core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(ICPUSpecializedShader* shader, const std::string* _extensionsBegin, const std::string* _extensionsEnd);
-        core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> createApproximateRenderpassIndependentPipelineFromIntrospection(ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const std::string* _extensionsBegin, const std::string* _extensionsEnd);
+		//
+		std::pair<bool/*is shadow sampler*/, IImageView<ICPUImage>::E_TYPE> getImageInfoFromIntrospection(uint32_t set, uint32_t binding, ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const std::string* _extensionsBegin, const std::string* _extensionsEnd);
+		
+		inline core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection(ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const std::string* _extensionsBegin, const std::string* _extensionsEnd)
+		{
+			const CIntrospectionData* introspections[MAX_STAGE_COUNT] = { nullptr };
+			if (!introspectAllShaders(introspections, begin, end, _extensionsBegin, _extensionsEnd))
+				return nullptr;
+
+			return createPushConstantRangesFromIntrospection_impl(introspections,introspections+std::distance(begin,end),begin);
+		}
+		inline core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection(uint32_t set, ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const std::string* _extensionsBegin, const std::string* _extensionsEnd) {
+			const CIntrospectionData* introspections[MAX_STAGE_COUNT] = { nullptr };
+			if (!introspectAllShaders(introspections, begin, end, _extensionsBegin, _extensionsEnd))
+				return nullptr;
+
+			return createApproximateDescriptorSetLayoutFromIntrospection_impl(set, introspections, introspections+std::distance(begin,end), begin);
+		}
+		inline core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection(ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const std::string* _extensionsBegin, const std::string* _extensionsEnd) {
+			const CIntrospectionData* introspections[MAX_STAGE_COUNT] = { nullptr };
+			if (!introspectAllShaders(introspections, begin, end, _extensionsBegin, _extensionsEnd))
+				return nullptr;
+
+			return createApproximatePipelineLayoutFromIntrospection_impl(introspections, introspections+std::distance(begin,end), begin);
+		}
+
+		//
+		inline core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(ICPUSpecializedShader* shader, const std::string* _extensionsBegin, const std::string* _extensionsEnd)
+		{
+			if (shader->getStage() != ICPUSpecializedShader::ESS_COMPUTE)
+				return nullptr;
+
+			const CIntrospectionData* introspection = nullptr;
+			if (!introspectAllShaders(&introspection, &shader, &shader+1, _extensionsBegin, _extensionsEnd))
+				return nullptr;
+
+			auto layout = createApproximatePipelineLayoutFromIntrospection_impl(&introspection,&introspection+1,&shader);
+			return core::make_smart_refctd_ptr<ICPUComputePipeline>(
+				std::move(layout),
+				core::smart_refctd_ptr<ICPUSpecializedShader>(shader)
+			);
+		}
+
+		//
+		core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> createApproximateRenderpassIndependentPipelineFromIntrospection(ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const std::string* _extensionsBegin, const std::string* _extensionsEnd);
+	
 	private:
-		core::smart_refctd_ptr<CIntrospectionData> doIntrospection(spirv_cross::Compiler& _comp, const SEntryPoint_Stage_Extensions& _ep) const;
+		core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection_impl(const CIntrospectionData** const begin, const CIntrospectionData** const end, const ICPUSpecializedShader* const* const shaders);
+		core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection_impl(uint32_t _set, const CIntrospectionData** const begin, const CIntrospectionData** const end, const ICPUSpecializedShader* const* const shaders);
+		core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection_impl(const CIntrospectionData** const begin, const CIntrospectionData** const end, const ICPUSpecializedShader* const* const shaders);
+
+		_IRR_STATIC_INLINE_CONSTEXPR size_t MAX_STAGE_COUNT = 14ull;
+		bool introspectAllShaders(const CIntrospectionData** introspection, ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const std::string* _extensionsBegin, const std::string* _extensionsEnd);
+
+		core::smart_refctd_ptr<CIntrospectionData> doIntrospection(spirv_cross::Compiler& _comp, const SIntrospectionParams& _ep) const;
 		void shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*>& _mapId2sconst) const;
 		size_t calcBytesizeforType(spirv_cross::Compiler& _comp, const spirv_cross::SPIRType& _type) const;
 
-        core::smart_refctd_ptr<CIntrospectionData> findIntrospection(const ICPUShader* _shader, const SEntryPoint_Stage_Extensions& _params) const
+        core::smart_refctd_ptr<CIntrospectionData> findIntrospection(const ICPUShader* _shader, const SIntrospectionParams& _params) const
         {
             auto introspectionMap = m_introspectionCache.find(_params);
             if (introspectionMap == m_introspectionCache.end())
@@ -132,7 +182,7 @@ class CShaderIntrospector : public core::Uncopyable
 
             return introspection->second;
         }
-        CIntrospectionData* cacheIntrospection(core::smart_refctd_ptr<CIntrospectionData>&& _introspection, const ICPUShader* _shader, const SEntryPoint_Stage_Extensions& _params)
+        CIntrospectionData* cacheIntrospection(core::smart_refctd_ptr<CIntrospectionData>&& _introspection, const ICPUShader* _shader, const SIntrospectionParams& _params)
         {
             return m_introspectionCache[_params].insert({core::smart_refctd_ptr<const ICPUShader>(_shader), std::move(_introspection)}).first->second.get();
         }
@@ -141,7 +191,7 @@ class CShaderIntrospector : public core::Uncopyable
 		const IGLSLCompiler* m_glslCompiler;
 
         using Shader2IntrospectionMap = core::unordered_map<core::smart_refctd_ptr<const ICPUShader>, core::smart_refctd_ptr<CIntrospectionData>>;
-        using Params2ShaderMap = core::map<SEntryPoint_Stage_Extensions, Shader2IntrospectionMap>;
+        using Params2ShaderMap = core::map<SIntrospectionParams, Shader2IntrospectionMap>;
         Params2ShaderMap m_introspectionCache;
 };
 

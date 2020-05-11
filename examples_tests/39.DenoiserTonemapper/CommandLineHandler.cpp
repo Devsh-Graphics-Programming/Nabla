@@ -21,11 +21,11 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 		while (true)
 		{
 			const auto previousOffset = offset;
-			offset = fileStream.find("\r\n", previousOffset);
+			offset = fileStream.find_first_of("\r\n", previousOffset);
 			if (offset == std::string::npos)
 				break;
 			else
-				offset += 2;
+				offset += fileStream[offset]=='\r'&&fileStream[offset+1]=='\n' ? 2:1;
 
 			argvsStream.push_back(fileStream.substr(previousOffset, offset));
 		}

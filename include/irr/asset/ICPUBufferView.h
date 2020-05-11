@@ -40,7 +40,9 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 			if (referenceLevelsBelowToConvert)
 				m_buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}
-		E_TYPE getAssetType() const override { return ET_BUFFER_VIEW; }
+
+		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER_VIEW;
+		inline E_TYPE getAssetType() const override { return AssetType; }
 
 		ICPUBuffer* getUnderlyingBuffer() { return m_buffer.get(); }
 		const ICPUBuffer* getUnderlyingBuffer() const { return m_buffer.get(); }

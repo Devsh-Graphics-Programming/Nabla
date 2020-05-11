@@ -33,18 +33,20 @@ namespace core
 	@see IReferenceCounted
 	@see core::dynamic_array
 */
-template<typename T, class allocator = allocator<typename std::remove_const<T>::type> >
-class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dynamic_array<T,allocator,refctd_dynamic_array<T,allocator> >
+template<typename T, class allocator=core::allocator<typename std::remove_const<T>::type>, typename... OverAlignmentTypes>
+class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dynamic_array<T,allocator,refctd_dynamic_array<T,allocator,OverAlignmentTypes...>,OverAlignmentTypes...>
 {
-		friend class dynamic_array<T, allocator, refctd_dynamic_array<T, allocator> >;
-		using base_t = dynamic_array<T, allocator, refctd_dynamic_array<T, allocator> >;
-		//friend class base_t;
-		friend class dynamic_array<T, allocator, refctd_dynamic_array<T, allocator> >;
+		using this_type = refctd_dynamic_array<T,allocator,OverAlignmentTypes...>;
 
-		static_assert(sizeof(base_t) == sizeof(impl::dynamic_array_base<T, allocator>), "memory has been added to dynamic_array");
-		static_assert(sizeof(base_t) == sizeof(dynamic_array<T, allocator>),"non-CRTP and CRTP base class definitions differ in size");
+		friend class dynamic_array<T,allocator,this_type,OverAlignmentTypes...>;
+		using base_t = dynamic_array<T,allocator,this_type,OverAlignmentTypes...>;
+		//friend class base_t; // won't work
 
-		class IRR_FORCE_EBO fake_size_class : public IReferenceCounted, public dynamic_array<T, allocator> {};
+		using meta_base_t = dynamic_array<T,allocator,void,OverAlignmentTypes...>;
+		static_assert(sizeof(base_t) == sizeof(meta_base_t), "non-CRTP and CRTP base class definitions differ in size");
+		static_assert(sizeof(meta_base_t) == sizeof(impl::dynamic_array_base<allocator,OverAlignmentTypes...>), "memory has been added to dynamic_array");
+
+		class IRR_FORCE_EBO fake_size_class : public IReferenceCounted, meta_base_t {};
 	public:
 		_IRR_STATIC_INLINE_CONSTEXPR size_t dummy_item_count = (sizeof(fake_size_class)+sizeof(T)-1ull)/sizeof(T);
 
@@ -55,8 +57,8 @@ class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dyna
 
 		inline refctd_dynamic_array(size_t _length, const allocator& _alctr = allocator()) : base_t(_length, _alctr) {}
 		inline refctd_dynamic_array(size_t _length, const T& _val, const allocator& _alctr = allocator()) : base_t(_length, _val, _alctr) {}
-		inline refctd_dynamic_array(const refctd_dynamic_array<T,allocator>& _containter) : base_t(_containter, _containter.alctr) {}
-		inline refctd_dynamic_array(const refctd_dynamic_array<T,allocator>& _containter, const allocator& _alctr) : base_t(_containter, _alctr) {}
+		inline refctd_dynamic_array(const this_type& _containter) : base_t(_containter, _containter.alctr) {}
+		inline refctd_dynamic_array(const this_type& _containter, const allocator& _alctr) : base_t(_containter, _alctr) {}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
 		inline refctd_dynamic_array(const container_t& _containter, const allocator& _alctr = allocator()) : base_t(_containter, _alctr) {}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
@@ -64,8 +66,8 @@ class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dyna
 };
 
 
-template<typename T, class allocator = allocator<typename std::remove_const<T>::type> >
-using smart_refctd_dynamic_array = smart_refctd_ptr<refctd_dynamic_array<T, allocator> >;
+template<typename T, class allocator=core::allocator<typename std::remove_const<T>::type>, typename... OverAlignmentTypes>
+using smart_refctd_dynamic_array = smart_refctd_ptr<refctd_dynamic_array<T,allocator,OverAlignmentTypes...> >;
 
 template<class smart_refctd_dynamic_array_type, typename... Args>
 inline smart_refctd_dynamic_array_type make_refctd_dynamic_array(Args&&... args)

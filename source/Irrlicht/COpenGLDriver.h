@@ -90,6 +90,7 @@ struct SOpenGLState
         struct {
             core::smart_refctd_ptr<const COpenGLRenderpassIndependentPipeline> pipeline;
             SGraphicsPipelineHash usedShadersHash = { 0u, 0u, 0u, 0u, 0u };
+			GLuint usedPipeline = 0u;
         } graphics;
         struct {
             core::smart_refctd_ptr<const COpenGLComputePipeline> pipeline;

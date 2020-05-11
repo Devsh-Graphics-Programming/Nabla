@@ -8,7 +8,7 @@
 #include <array>
 #include <ostream>
 
-#include "irr/core/Types.h"
+#include "irr/core/core.h"
 #include "CConcurrentObjectCache.h"
 
 #include "IFileSystem.h"
@@ -21,6 +21,7 @@
 
 #include "irr/asset/IGeometryCreator.h"
 #include "irr/asset/IMeshManipulator.h"
+#include "irr/asset/CQuantNormalCache.h"
 #include "irr/asset/IAssetLoader.h"
 #include "irr/asset/IAssetWriter.h"
 
@@ -50,7 +51,7 @@ std::function<void(SAssetBundle&)> makeAssetDisposeFunc(const IAssetManager* con
 	@see IAsset
 
 */
-class IAssetManager : public core::IReferenceCounted
+class IAssetManager : public core::IReferenceCounted, public core::QuitSignalling
 {
         // the point of those functions is that lambdas returned by them "inherits" friendship
         friend std::function<void(SAssetBundle&)> makeAssetGreetFunc(const IAssetManager* const _mgr);
@@ -154,6 +155,8 @@ class IAssetManager : public core::IReferenceCounted
     protected:
 		virtual ~IAssetManager()
 		{
+            quitEventHandler.execute();
+
 			for (size_t i = 0u; i < m_assetCache.size(); ++i)
 				if (m_assetCache[i])
 					delete m_assetCache[i];

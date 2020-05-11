@@ -52,7 +52,8 @@ class ICPUImage final : public IImage, public IAsset
             regions = nullptr;
         }
 
-        inline IAsset::E_TYPE getAssetType() const override { return IAsset::ET_IMAGE; }
+		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_IMAGE;
+		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
         virtual size_t conservativeSizeEstimate() const override
 		{

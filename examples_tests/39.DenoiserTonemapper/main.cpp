@@ -590,76 +590,89 @@ void main()
 			auto downloadStagingArea = driver->getDefaultDownStreamingBuffer();
 			uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address; // remember without initializing the address to be allocated to invalid_address you won't get an allocation!
 
-			// create image
-			ICPUImage::SCreationParams imgParams;
-			imgParams.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0u); // no flags
-			imgParams.type = ICPUImage::ET_2D;
-			imgParams.format = param.image[EII_COLOR]->getCreationParameters().format;
-			imgParams.extent = {param.width,param.height,1u};
-			imgParams.mipLevels = 1u;
-			imgParams.arrayLayers = 1u;
-			imgParams.samples = ICPUImage::ESCF_1_BIT;
-
-			auto image = ICPUImage::create(std::move(imgParams));
-
-			// get the data from the GPU
-			const uint32_t colorBufferBytesize = param.height*param.width*param.colorTexelSize;
+			// image view
+			core::smart_refctd_ptr<ICPUImageView> imageView;
+			const uint32_t colorBufferBytesize = param.height * param.width * param.colorTexelSize;
 			{
-				constexpr uint64_t timeoutInNanoSeconds = 300000000000u;
+				// create image
+				ICPUImage::SCreationParams imgParams;
+				imgParams.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0u); // no flags
+				imgParams.type = ICPUImage::ET_2D;
+				imgParams.format = param.image[EII_COLOR]->getCreationParameters().format;
+				imgParams.extent = {param.width,param.height,1u};
+				imgParams.mipLevels = 1u;
+				imgParams.arrayLayers = 1u;
+				imgParams.samples = ICPUImage::ESCF_1_BIT;
 
-				// download buffer
+				auto image = ICPUImage::create(std::move(imgParams));
+
+				// get the data from the GPU
 				{
-					const uint32_t alignment = 4096u; // common page size
-					auto unallocatedSize = downloadStagingArea->multi_alloc(std::chrono::nanoseconds(timeoutInNanoSeconds), 1u, &address, &colorBufferBytesize, &alignment);
-					if (unallocatedSize)
+					constexpr uint64_t timeoutInNanoSeconds = 300000000000u;
+
+					// download buffer
 					{
-						os::Printer::log(makeImageIDString(i)+"Could not download the buffer from the GPU!",ELL_ERROR);
-						continue;
+						const uint32_t alignment = 4096u; // common page size
+						auto unallocatedSize = downloadStagingArea->multi_alloc(std::chrono::nanoseconds(timeoutInNanoSeconds), 1u, &address, &colorBufferBytesize, &alignment);
+						if (unallocatedSize)
+						{
+							os::Printer::log(makeImageIDString(i)+"Could not download the buffer from the GPU!",ELL_ERROR);
+							continue;
+						}
+
+						driver->copyBuffer(temporaryPixelBuffer.getObject(),downloadStagingArea->getBuffer(),0u,address,colorBufferBytesize);
 					}
+					auto downloadFence = driver->placeFence(true);
 
-					driver->copyBuffer(temporaryPixelBuffer.getObject(),downloadStagingArea->getBuffer(),0u,address,colorBufferBytesize);
-				}
-				auto downloadFence = driver->placeFence(true);
-
-				// set up regions
-				auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy> >(1u);
-				{
-					auto& region = regions->front();
-					region.bufferOffset = 0u;
-					region.bufferRowLength = param.image[EII_COLOR]->getRegions().begin()[0].bufferRowLength;
-					region.bufferImageHeight = param.height;
-					//region.imageSubresource.aspectMask = wait for Vulkan;
-					region.imageSubresource.mipLevel = 0u;
-					region.imageSubresource.baseArrayLayer = 0u;
-					region.imageSubresource.layerCount = 1u;
-					region.imageOffset = { 0u,0u,0u };
-					region.imageExtent = imgParams.extent;
-				}
-				// the cpu is not touching the data yet because the custom CPUBuffer is adopting the memory (no copy)
-				auto* data = reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer())+address;
-				auto cpubufferalias = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t> > >(colorBufferBytesize, data, core::adopt_memory);
-				image->setBufferAndRegions(std::move(cpubufferalias),regions);
-
-				// wait for download fence and then invalidate the CPU cache
-				{
-					auto result = downloadFence->waitCPU(timeoutInNanoSeconds,true);
-					if (result==E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED||result==E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
+					// set up regions
+					auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy> >(1u);
 					{
-						os::Printer::log(makeImageIDString(i)+"Could not download the buffer from the GPU, fence not signalled!",ELL_ERROR);
-						downloadStagingArea->multi_free(1u, &address, &colorBufferBytesize, nullptr);
-						continue;
+						auto& region = regions->front();
+						region.bufferOffset = 0u;
+						region.bufferRowLength = param.image[EII_COLOR]->getRegions().begin()[0].bufferRowLength;
+						region.bufferImageHeight = param.height;
+						//region.imageSubresource.aspectMask = wait for Vulkan;
+						region.imageSubresource.mipLevel = 0u;
+						region.imageSubresource.baseArrayLayer = 0u;
+						region.imageSubresource.layerCount = 1u;
+						region.imageOffset = { 0u,0u,0u };
+						region.imageExtent = imgParams.extent;
 					}
-					if (downloadStagingArea->needsManualFlushOrInvalidate())
-						driver->invalidateMappedMemoryRanges({{downloadStagingArea->getBuffer()->getBoundMemory(),address,colorBufferBytesize}});
+					// the cpu is not touching the data yet because the custom CPUBuffer is adopting the memory (no copy)
+					auto* data = reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer())+address;
+					auto cpubufferalias = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t> > >(colorBufferBytesize, data, core::adopt_memory);
+					image->setBufferAndRegions(std::move(cpubufferalias),regions);
+
+					// wait for download fence and then invalidate the CPU cache
+					{
+						auto result = downloadFence->waitCPU(timeoutInNanoSeconds,true);
+						if (result==E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED||result==E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
+						{
+							os::Printer::log(makeImageIDString(i)+"Could not download the buffer from the GPU, fence not signalled!",ELL_ERROR);
+							downloadStagingArea->multi_free(1u, &address, &colorBufferBytesize, nullptr);
+							continue;
+						}
+						if (downloadStagingArea->needsManualFlushOrInvalidate())
+							driver->invalidateMappedMemoryRanges({{downloadStagingArea->getBuffer()->getBoundMemory(),address,colorBufferBytesize}});
+					}
 				}
+
+				// create image view
+				ICPUImageView::SCreationParams imgViewParams;
+				imgViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+				imgViewParams.format = image->getCreationParameters().format;
+				imgViewParams.image = std::move(image);
+				imgViewParams.viewType = ICPUImageView::ET_2D;
+				imgViewParams.subresourceRange = {static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u};
+				imageView = ICPUImageView::create(std::move(imgViewParams));
 			}
 
 			// save image
-			IAssetWriter::SAssetWriteParams wp(image.get());
+			IAssetWriter::SAssetWriteParams wp(imageView.get());
 			am->writeAsset(outputFileBundle[i].c_str(), wp);
 
 			// destroy link to CPUBuffer's data (we need to free it)
-			image->convertToDummyObject(~0u);
+			imageView->convertToDummyObject(~0u);
 
 			// free the staging area allocation (no fence, we've already waited on it)
 			downloadStagingArea->multi_free(1u,&address,&colorBufferBytesize,nullptr);

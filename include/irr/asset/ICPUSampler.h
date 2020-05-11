@@ -70,7 +70,9 @@ class ICPUSampler : public ISampler, public IAsset
         {
             convertToDummyObject_common(referenceLevelsBelowToConvert);
         }
-		E_TYPE getAssetType() const override { return ET_SAMPLER; }
+
+		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SAMPLER;
+		inline E_TYPE getAssetType() const override { return AssetType; }
 };
 
 }

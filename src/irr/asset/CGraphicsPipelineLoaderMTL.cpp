@@ -485,7 +485,7 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_a
         auto vs_nouv_unspec = core::make_smart_refctd_ptr<ICPUShader>(vs_nouv_source.c_str());
         auto vs_uv_unspec = core::make_smart_refctd_ptr<ICPUShader>(VERT_SHADER_UV);
 
-        ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_VERTEX);
+        ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_VERTEX,"?IrrlichtBAW PipelineLoaderMTL VertexShader?");
         auto vs_nouv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(vs_nouv_unspec), ICPUSpecializedShader::SInfo(specinfo));
         auto vs_uv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(vs_uv_unspec), std::move(specinfo));
 
@@ -507,7 +507,7 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_a
         auto fs_nouv_unspec = core::make_smart_refctd_ptr<ICPUShader>(fs_nouv_source.c_str());
         auto fs_uv_unspec = core::make_smart_refctd_ptr<ICPUShader>(FRAG_SHADER_UV);
 
-        ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_FRAGMENT);
+        ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_FRAGMENT, "?IrrlichtBAW PipelineLoaderMTL FragmentShader?");
         auto fs_nouv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(fs_nouv_unspec), ICPUSpecializedShader::SInfo(specinfo));
         auto fs_uv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(fs_uv_unspec), std::move(specinfo));
 

@@ -1,4 +1,4 @@
-#include "CQuantNormalCache.h"
+#include "irr/asset/CQuantNormalCache.h"
 
 namespace irr
 {
