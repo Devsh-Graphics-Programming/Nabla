@@ -21,6 +21,27 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 {
     private:
         typedef AddressAllocatorBase<PoolAddressAllocator<_size_type>,_size_type> Base;
+
+        void copyState(const PoolAddressAllocator& other, _size_type newBuffSz)
+        {
+            if (blockCount>other.blockCount)
+                freeStackCtr = blockCount-other.blockCount;
+
+            #ifdef _IRR_DEBUG
+                assert(Base::checkResize(newBuffSz,Base::alignOffset));
+            #endif // _IRR_DEBUG
+
+            for (size_type i=0u; i<freeStackCtr; i++)
+                freeStack[i] = (blockCount-1u-i)*blockSize+Base::combinedOffset;
+
+            for (size_type i=0; i<other.freeStackCtr; i++)
+            {
+                size_type freeEntry = other.freeStack[i]-other.combinedOffset;
+
+                if (freeEntry<blockCount*blockSize)
+                    freeStack[freeStackCtr++] = freeEntry+Base::combinedOffset;
+            }
+        }
     public:
         _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
@@ -45,26 +66,19 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 					Base(std::move(other),std::forward<Args>(args)...),
 						blockCount((newBuffSz-Base::alignOffset)/other.blockSize), blockSize(other.blockSize), freeStack(reinterpret_cast<size_type*>(Base::reservedSpace)), freeStackCtr(0u)
         {
-            if (blockCount>other.blockCount)
-                freeStackCtr = blockCount-other.blockCount;
+            copyState(other, newBuffSz);
+
             other.blockCount = invalid_address;
-
-            #ifdef _IRR_DEBUG
-                assert(Base::checkResize(newBuffSz,Base::alignOffset));
-            #endif // _IRR_DEBUG
 			other.blockSize = invalid_address;
-
-            for (size_type i=0u; i<freeStackCtr; i++)
-                freeStack[i] = (blockCount-1u-i)*blockSize+Base::combinedOffset;
-
-            for (size_type i=0; i<other.freeStackCtr; i++)
-            {
-                size_type freeEntry = other.freeStack[i]-other.combinedOffset;
-
-                if (freeEntry<blockCount*blockSize)
-                    freeStack[freeStackCtr++] = freeEntry+Base::combinedOffset;
-            }
             other.freeStackCtr = invalid_address;
+        }
+
+        template<typename... Args>
+        PoolAddressAllocator(_size_type newBuffSz, const PoolAddressAllocator& other, Args&&... args) noexcept :
+            Base(other, std::forward<Args>(args)...),
+            blockCount((newBuffSz-Base::alignOffset)/other.blockSize), blockSize(other.blockSize), freeStack(reinterpret_cast<size_type*>(Base::reservedSpace)), freeStackCtr(0u)
+        {
+            copyState(other, newBuffSz);
         }
 
         PoolAddressAllocator& operator=(PoolAddressAllocator&& other)

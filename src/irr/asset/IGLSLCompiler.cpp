@@ -17,7 +17,8 @@
 
 #include "irr/asset/CGLSLBRDFBuiltinIncludeLoader.h"
 #include "irr/asset/CGLSLBumpMappingBuiltinIncludeLoader.h"
-#include "irr/asset/CGLSLTexturePackerBuiltinIncludeLoader.h"
+#include "irr/asset/CGLSLBrokenDriverWorkaroundsBuiltinIncludeLoader.h"
+#include "irr/asset/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
 
 
 #include "os.h"
@@ -39,8 +40,8 @@ IGLSLCompiler::IGLSLCompiler(io::IFileSystem* _fs) : m_inclHandler(core::make_sm
 
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLBSDFBuiltinIncludeLoader>());
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLBumpMappingBuiltinIncludeLoader>());
-
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLTexturePackerBuiltinIncludeLoader>());
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLBrokenDriverWorkaroundsBuiltinIncludeLoader>());
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeLoader>());
 }
 
 core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo, std::string* _outAssembly) const

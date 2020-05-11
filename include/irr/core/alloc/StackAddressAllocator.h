@@ -44,6 +44,13 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
             std::swap(allocStackPtr,other.allocStackPtr);
         }
 
+        template<typename... Args>
+        StackAddressAllocator(size_type newBuffSz, const StackAddressAllocator& other, Args&&... args) :
+            Base(newBuffSz, other, std::forward<Args>(args)...),
+            minimumAllocSize(other.minimumAllocSize), allocStackPtr(other.allocStackPtr)
+        {
+        }
+
         StackAddressAllocator& operator=(StackAddressAllocator&& other)
         {
             static_cast<Base&>(*this) = std::move(other);

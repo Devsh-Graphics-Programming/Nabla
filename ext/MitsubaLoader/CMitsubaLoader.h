@@ -4,7 +4,7 @@
 #include "matrix4SIMD.h"
 #include "irr/asset/asset.h"
 #include "IFileSystem.h"
-#include "irr/asset/ITexturePacker.h"
+#include "irr/asset/ICPUVirtualTexture.h"
 
 #include "../../ext/MitsubaLoader/CSerializedLoader.h"
 #include "../../ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
@@ -20,25 +20,29 @@ namespace MitsubaLoader
 
 namespace bsdf
 {
-	using STextureData = asset::ICPUTexturePacker::STextureData;
+	using STextureData = asset::ICPUVirtualTexture::SMasterTextureData;
 	// texture presence flag (flags are encoded in instruction) tells whether to use VT data or constant (depending on situation RGB encoded as rgb19e7 or single float32 value)
 	union STextureDataOrConstant
 	{
-		asset::ICPUTexturePacker::STextureData texData;
+		STextureData texData;
 		uint64_t constant_rgb19e7;
 		uint32_t constant_f32;
 	};
+	static_assert(sizeof(STextureDataOrConstant)==sizeof(uint64_t), "STextureDataOrConstant is not 8 bytes for some reason!");
 
-	static STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUTexturePacker* _packer)
+	static STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualTexture* _vt, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
 	{
 		const auto& extent = _img->getCreationParameters().extent;
+
+		auto imgAndOrigSz = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(_img, _uwrap, _vwrap);
 
 		asset::IImage::SSubresourceRange subres;
 		subres.baseMipLevel = 0u;
 		subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(extent.width, extent.height))) + 1;
 
-		auto pgTabCoords = _packer->pack(_img, subres);
-		return _packer->offsetToTextureData(pgTabCoords, _img);
+		auto addr = _vt->alloc(_img->getCreationParameters().format, imgAndOrigSz.second, subres, _uwrap, _vwrap);
+		_vt->commit(addr, imgAndOrigSz.first.get(), imgAndOrigSz.second, subres, _uwrap, _vwrap, _borderColor);
+		return addr;
 	}
 
 	using instr_t = uint64_t;
@@ -55,13 +59,24 @@ namespace bsdf
 		OP_PLASTIC,
 		OP_ROUGHPLASTIC,
 		OP_WARD,
+		OP_SET_GEOM_NORMAL,
 		OP_INVALID,
 		//all below are meta (have children)
 		OP_COATING,
 		OP_ROUGHCOATING,
 		OP_BUMPMAP,
-		OP_BLEND,
+		OP_BLEND
 	};
+	inline uint32_t getNumberOfSrcRegsForOpcode(E_OPCODE _op)
+	{
+		if (_op==OP_BLEND)
+			return 2u;
+		else if (_op>OP_INVALID)
+			return 1u;
+		return 0u;
+	}
+
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t REGISTER_COUNT = 16u;
 
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_OPCODE_WIDTH = 4u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_OPCODE_MASK = 0xfu;
@@ -94,13 +109,9 @@ namespace bsdf
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_MASKFLAG = 0x1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_MASKFLAG = INSTR_OPCODE_WIDTH + 6u;
 
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_NORMAL_REG_WIDTH = 2u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_NORMAL_REG_SHIFT = INSTR_OPCODE_WIDTH + INSTR_BITFIELDS_WIDTH;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_NORMAL_REG_MASK = 0x03u;
-
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_WIDTH = 19u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_SHIFT = INSTR_OPCODE_WIDTH + INSTR_BITFIELDS_WIDTH + INSTR_NORMAL_REG_WIDTH;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_MASK = 0x7ffffu;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_WIDTH = 21u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_SHIFT = INSTR_OPCODE_WIDTH + INSTR_BITFIELDS_WIDTH;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_MASK = 0x1fffffu;
 
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_WIDTH = 8u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_MASK = 0xffu;
@@ -108,13 +119,20 @@ namespace bsdf
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_SRC1_SHIFT = INSTR_BSDF_BUF_OFFSET_SHIFT + INSTR_BSDF_BUF_OFFSET_WIDTH + INSTR_REG_WIDTH*1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_SRC2_SHIFT = INSTR_BSDF_BUF_OFFSET_SHIFT + INSTR_BSDF_BUF_OFFSET_WIDTH + INSTR_REG_WIDTH*2u;
 
+	//this has no influence on instruction execution, but useful during traversal creation/processing
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_NORMAL_ID_WIDTH = 8u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_NORMAL_ID_MASK	= 0xffu;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_NORMAL_ID_SHIFT = INSTR_REG_SRC2_SHIFT + INSTR_REG_WIDTH;
 
-	//padding which make sure struct has sizeof at least min_desired_size but aligned to 4*sizeof(uint32_t)=16
-	//both size and desired_size are meant to be expressed in 4 byte units (i.e. to express size of 8, `size` should be 2)
-	template<size_t size, size_t min_desired_size>
-	using padding_t = uint32_t[ ((min_desired_size + 3ull) & ~(3ull)) - size ];
-	//in 4 byte units
-	constexpr size_t max_bsdf_struct_size = 10ull;
+
+	inline E_OPCODE getOpcode(const instr_t& i)
+	{
+		return static_cast<E_OPCODE>(i & INSTR_OPCODE_MASK);
+	}
+	inline uint32_t getNormalId(const instr_t& i)
+	{
+		return i >> INSTR_NORMAL_ID_SHIFT;
+	}
 
 #include "irr/irrpack.h"
 	struct alignas(16) SAllDiffuse
@@ -124,13 +142,18 @@ namespace bsdf
 		STextureDataOrConstant alpha;
 		STextureDataOrConstant reflectance;
 		STextureDataOrConstant opacity;
-		padding_t<6, max_bsdf_struct_size> padding;
+		//multiplication factor for texture samples
+		//RGB19E7 format
+		//.x - alpha scale, .y - reflectance scale, .z - opacity scale
+		uint64_t textureScale;
 	} PACK_STRUCT;
 	struct alignas(16) SDiffuseTransmitter
 	{
 		STextureDataOrConstant transmittance;
 		STextureDataOrConstant opacity;
-		padding_t<4, max_bsdf_struct_size> padding;
+		//multiplication factor for texture samples
+		//[0] - transmittance scale, [1] - opacity scale
+		float textureScale[2];
 	} PACK_STRUCT;
 	struct alignas(16) SAllDielectric
 	{
@@ -146,7 +169,10 @@ namespace bsdf
 		STextureDataOrConstant alpha_u;
 		STextureDataOrConstant alpha_v;
 		STextureDataOrConstant opacity;
-		padding_t<7, max_bsdf_struct_size> padding;
+		//multiplication factor for texture samples
+		//RGB19E7 format
+		//.x - alpha_u scale, .y - alpha_v scale, .z - opacity scale
+		uint64_t textureScale;
 	} PACK_STRUCT;
 	struct alignas(16) SAllConductor
 	{
@@ -157,7 +183,10 @@ namespace bsdf
 		//ior[1] is imaginary part of eta in RGB19E7 format
 		uint64_t eta[2];
 		STextureDataOrConstant opacity;
-		//padding_t<max_bsdf_struct_size, max_bsdf_struct_size> padding;
+		//multiplication factor for texture samples
+		//RGB19E7 format
+		//.x - alpha_u scale, .y - alpha_v scale, .z - opacity scale
+		uint64_t textureScale;
 	} PACK_STRUCT;
 	struct alignas(16) SAllPlastic
 	{
@@ -166,7 +195,10 @@ namespace bsdf
 		STextureDataOrConstant alpha_u;
 		STextureDataOrConstant alpha_v;
 		STextureDataOrConstant opacity;
-		padding_t<7, max_bsdf_struct_size> padding;
+		//multiplication factor for texture samples
+		//RGB19E7 format
+		//.x - alpha_u scale, .y - alpha_v scale, .z - opacity scale
+		uint64_t textureScale;
 	} PACK_STRUCT;
 	struct alignas(16) SAllCoating
 	{
@@ -178,7 +210,10 @@ namespace bsdf
 		//rgb in RGB19E7 format or texture data for VT (flag decides)
 		STextureDataOrConstant sigmaA;
 		STextureDataOrConstant opacity;
-		padding_t<9, max_bsdf_struct_size> padding;
+		//multiplication factor for texture samples
+		//RGBA16_SFLOAT format
+		//.x - alpha_u scale, .y - alpha_v scale, .z - sigmaA scale, .w - opacity scale
+		uint16_t textureScale[4];
 	} PACK_STRUCT;
 	/*
 	struct alignas(16) SPhong
@@ -199,13 +234,16 @@ namespace bsdf
 		STextureDataOrConstant alpha_u;
 		STextureDataOrConstant alpha_v;
 		STextureDataOrConstant opacity;
-		padding_t<6, max_bsdf_struct_size> padding;
+		//multiplication factor for texture samples
+		//RGB19E7 format
+		//.x - alpha u scale, .y - alpha v scale, .z - opacity scale
+		uint64_t textureScale;
 	} PACK_STRUCT;
 	struct alignas(16) SBumpMap
 	{
 		//texture data for VT
 		STextureData bumpmap;
-		padding_t<2, max_bsdf_struct_size> padding;
+		float textureScale;
 	} PACK_STRUCT;
 	struct alignas(16) SBlend
 	{
@@ -215,12 +253,14 @@ namespace bsdf
 		//otherwise `weightL.constant_rgb19e7` and `weightR.constant_rgb19e7` are constant RGB19E7 blend weights. Left has to be multiplied by weightL and right operand has to be multiplied by weightR.
 		STextureDataOrConstant weightL;
 		STextureDataOrConstant weightR;
-		padding_t<2, max_bsdf_struct_size> padding;
+		float textureScale;
 	} PACK_STRUCT;
 #include "irr/irrunpack.h"
 
 	union SBSDFUnion
 	{
+		SBSDFUnion() : bumpmap{STextureData::invalid()} {}
+
 		SAllDiffuse diffuse;
 		SDiffuseTransmitter diffuseTransmitter;
 		SAllDielectric dielectric;
@@ -251,16 +291,31 @@ class CMitsubaLoader : public asset::IAssetLoader
 
 	protected:
 		asset::IAssetManager* m_manager;
-		//TODO need one packer per format class
-		core::smart_refctd_ptr<asset::ICPUTexturePacker> m_texPacker;
 
 		struct SContext
 		{
+			SContext(
+				const asset::IGeometryCreator* _geomCreator,
+				const asset::IMeshManipulator* _manipulator,
+				const asset::IAssetLoader::SAssetLoadParams& _params,
+				asset::IAssetLoader::IAssetLoaderOverride* _override,
+				CGlobalMitsubaMetadata* _metadata
+			);
+
 			const asset::IGeometryCreator* creator;
 			const asset::IMeshManipulator* manipulator;
 			const asset::IAssetLoader::SAssetLoadParams params;
 			asset::IAssetLoader::IAssetLoaderOverride* override;
 			CGlobalMitsubaMetadata* globalMeta;
+
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t VT_PAGE_TABLE_LAYERS = 64u;
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t VT_PAGE_SZ_LOG2 = 7u;//128
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2 = 4u;//16
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t VT_PHYSICAL_PAGE_TEX_LAYERS = 20u;
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t VT_PAGE_PADDING = 8u;
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t VT_MAX_ALLOCATABLE_TEX_SZ_LOG2 = 12u;//4096
+
+			core::smart_refctd_ptr<asset::ICPUVirtualTexture> VT;
 
 			//
 			using group_ass_type = core::smart_refctd_ptr<asset::ICPUMesh>;
@@ -272,7 +327,7 @@ class CMitsubaLoader : public asset::IAssetLoader
 			using bsdf_ass_type = core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>;
 			core::map<const CElementBSDF*, bsdf_ass_type> pipelineCache;
 			//! TODO: even later when texture changes come, might have to return not only a combined sampler but some GLSL sampling code due to the "scale" and offset XML nodes
-			using tex_ass_type = std::pair<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler> >;
+			using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>,float>;
 			core::unordered_map<const CElementTexture*, tex_ass_type> textureCache;
 
 			core::vector<bsdf::SBSDFUnion> bsdfBuffer;
