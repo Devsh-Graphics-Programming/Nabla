@@ -164,8 +164,8 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedShader(const 
     assert(unspec->containsGLSL());
 
     std::string glsl = reinterpret_cast<const char*>(unspec->getSPVorGLSL()->getPointer());
-    glsl.insert(glsl.find("\n", glsl.find("#version")), GLSL_COMMON_OVERRIDE);
     glsl.insert(glsl.find("\n", glsl.find("#version")), _shaderSpecificOverride);
+    glsl.insert(glsl.find("\n", glsl.find("#version")), GLSL_COMMON_OVERRIDE);
 
     auto unspecNew = core::make_smart_refctd_ptr<asset::ICPUShader>(glsl.c_str());
     auto specinfo = _shader->getSpecializationInfo();//intentional copy

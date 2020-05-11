@@ -156,6 +156,18 @@ vec2 irr_glsl_unpackSize(in uvec2 texData)
 {
 	return vec2(texData.x&0xffffu,texData.x>>16u);
 }
+
+float irr_glsl_wrapTexCoord(float tc, in uint mode)
+{
+    switch (mode)
+    {
+    case irr_glsl_STextureData_WRAP_REPEAT: tc = fract(tc); break;
+    case irr_glsl_STextureData_WRAP_CLAMP:  tc = clamp(tc, 0.0, 1.0); break;
+    case irr_glsl_STextureData_WRAP_MIRROR: tc = 1.0 - abs(mod(tc,2.0)-1.0); break;
+    default: break;
+    }
+    return tc;
+}
 )";
 		s += R"(
 #ifndef _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
@@ -190,6 +202,7 @@ vec3 irr_glsl_vTexture_helper(in uint formatID, in vec3 virtualUV, in int clippe
 
 #include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
 
+#if _IRR_VT_FLOAT_VIEWS_COUNT
 // textureGrad emulation
 vec4 irr_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOriginalScaledUV, in int originalMaxFullMip)
 {
@@ -272,18 +285,6 @@ vec4 irr_glsl_vTextureGrad_impl(in uint formatID, in vec3 virtualUV, in mat2 dOr
     return hiMip_retval;
 }
 
-float irr_glsl_wrapTexCoord(float tc, in uint mode)
-{
-    switch (mode)
-    {
-    case irr_glsl_STextureData_WRAP_REPEAT: tc = fract(tc); break;
-    case irr_glsl_STextureData_WRAP_CLAMP:  tc = clamp(tc, 0.0, 1.0); break;
-    case irr_glsl_STextureData_WRAP_MIRROR: tc = 1.0 - abs(mod(tc,2.0)-1.0); break;
-    default: break;
-    }
-    return tc;
-}
-
 vec4 irr_glsl_vTextureGrad(in uvec2 _texData, in vec2 uv, in mat2 dUV)
 {
     vec2 originalSz = irr_glsl_unpackSize(_texData);
@@ -303,50 +304,135 @@ vec4 irr_glsl_vTextureGrad(in uvec2 _texData, in vec2 uv, in mat2 dUV)
 
     return irr_glsl_vTextureGrad_impl(formatID, virtualUV, dUV, int(irr_glsl_unpackMaxMipInVT(_texData)));
 }
-//apparently glslang doesnt support line continuation characters (backslash) :c
+#endif //_IRR_VT_FLOAT_VIEWS_COUNT
+
+#if _IRR_VT_INT_VIEWS_COUNT
+ivec4 irr_glsl_iVTextureLod_impl(in uint formatID, in vec3 virtualUV, in uint lod, in int originalMaxFullMip)
+{
+    int nonnegativeLod = int(lod);
+    int clippedLoD = min(nonnegativeLod,originalMaxFullMip);
+    int levelInTail = nonnegativeLod - clippedLoD;
+    
+    vec3 physCoord = irr_glsl_vTexture_helper(formatID, virtualUV, clippedLoD, levelInTail);
+#ifdef IRR_GL_EXT_nonuniform_qualifier
+	return textureLod(iphysicalTileStorageFormatView[nonuniformEXT(formatID)], physCoord, lod);
+#else
+    ivec4 retval;
+    uint64_t outstandingSampleMask = ballotARB(true);
+    while (outstandingSampleMask != uint64_t(0u)) 
+    {
+        uvec2 tmp = unpackUint2x32(outstandingSampleMask);
+        uint subgroupFormatID = readInvocationARB(formatID, tmp[1] != 0u ? 32u : findLSB(tmp[0]));
+        bool canSample = subgroupFormatID == formatID;
+        outstandingSampleMask ^= ballotARB(canSample);
+        if (canSample)
+            retval = textureLod(iphysicalTileStorageFormatView[subgroupFormatID], physCoord, lod);
+    }
+    return retval;
+#endif
+}
+ivec4 irr_glsl_iVTextureLod(in uvec2 _texData, in vec2 uv, in uint lod)
+{
+    vec2 originalSz = irr_glsl_unpackSize(_texData);
+	
+    uvec2 wrap = irr_glsl_unpackWrapModes(_texData);
+    uv.x = irr_glsl_wrapTexCoord(uv.x, wrap.x);
+    uv.y = irr_glsl_wrapTexCoord(uv.y, wrap.y);
+    
+    vec3 virtualUV = irr_glsl_unpackVirtualUV(_texData);
+    uint formatID = irr_glsl_VT_layer2pid(uint(virtualUV.z));
+    virtualUV.xy += uv * originalSz;
+    virtualUV.xy *= irr_glsl_VT_getVTexSzRcp();
+	
+    return irr_glsl_iVTextureLod_impl(formatID, virtualUV, lod, int(irr_glsl_unpackMaxMipInVT(_texData)));
+}
+#endif //_IRR_VT_INT_VIEWS_COUNT
+
+#if _IRR_VT_UINT_VIEWS_COUNT
+uvec4 irr_glsl_uVTextureLod_impl(in uint formatID, in vec3 virtualUV, in uint lod, in int originalMaxFullMip)
+{
+    int nonnegativeLod = int(lod);
+    int clippedLoD = min(nonnegativeLod,originalMaxFullMip);
+    int levelInTail = nonnegativeLod - clippedLoD;
+    
+    vec3 physCoord = irr_glsl_vTexture_helper(formatID, virtualUV, clippedLoD, levelInTail);
+#ifdef IRR_GL_EXT_nonuniform_qualifier
+	return textureLod(uphysicalTileStorageFormatView[nonuniformEXT(formatID)], physCoord, lod);
+#else
+    uvec4 retval;
+    uint64_t outstandingSampleMask = ballotARB(true);
+    while (outstandingSampleMask != uint64_t(0u)) 
+    {
+        uvec2 tmp = unpackUint2x32(outstandingSampleMask);
+        uint subgroupFormatID = readInvocationARB(formatID, tmp[1] != 0u ? 32u : findLSB(tmp[0]));
+        bool canSample = subgroupFormatID == formatID;
+        outstandingSampleMask ^= ballotARB(canSample);
+        if (canSample)
+            retval = textureLod(uphysicalTileStorageFormatView[subgroupFormatID], physCoord, lod);
+    }
+    return retval;
+#endif
+}
+uvec4 irr_glsl_uVTextureLod(in uvec2 _texData, in vec2 uv, in uint lod)
+{
+    vec2 originalSz = irr_glsl_unpackSize(_texData);
+	
+    uvec2 wrap = irr_glsl_unpackWrapModes(_texData);
+    uv.x = irr_glsl_wrapTexCoord(uv.x, wrap.x);
+    uv.y = irr_glsl_wrapTexCoord(uv.y, wrap.y);
+    
+    vec3 virtualUV = irr_glsl_unpackVirtualUV(_texData);
+    uint formatID = irr_glsl_VT_layer2pid(uint(virtualUV.z));
+    virtualUV.xy += uv * originalSz;
+    virtualUV.xy *= irr_glsl_VT_getVTexSzRcp();
+	
+    return irr_glsl_uVTextureLod_impl(formatID, virtualUV, lod, int(irr_glsl_unpackMaxMipInVT(_texData)));
+}
+#endif //_IRR_VT_UINT_VIEWS_COUNT
+
 /*
 #ifdef IRR_GL_EXT_nonuniform_qualifier
 	#define _IRR_DIVERGENT_SAMPLING_IMPL(retval_t, physicalSamplerName) return textureLod(physicalSamplerName[nonuniformEXT(formatID)], physCoord, lod)
 #else
 	#define _IRR_DIVERGENT_SAMPLING_IMPL(retval_t, physicalSamplerName) \
-    retval_t retval;\
-    uint64_t outstandingSampleMask = ballotARB(true);\
-    while (outstandingSampleMask != uint64_t(0u))\ 
-    {\
-        uvec2 tmp = unpackUint2x32(outstandingSampleMask);\
-        uint subgroupFormatID = readInvocationARB(formatID, tmp[1] != 0u ? 32u : findLSB(tmp[0]));\
-        bool canSample = subgroupFormatID == formatID;\
-        outstandingSampleMask ^= ballotARB(canSample);\
-        if (canSample)\
-            retval = textureLod(physicalSamplerName[subgroupFormatID], physCoord, lod);\
-    }\
+    retval_t retval; \
+    uint64_t outstandingSampleMask = ballotARB(true); \
+    while (outstandingSampleMask != uint64_t(0u)) \ 
+    { \
+        uvec2 tmp = unpackUint2x32(outstandingSampleMask); \
+        uint subgroupFormatID = readInvocationARB(formatID, tmp[1] != 0u ? 32u : findLSB(tmp[0])); \
+        bool canSample = subgroupFormatID == formatID; \
+        outstandingSampleMask ^= ballotARB(canSample); \
+        if (canSample) \
+            retval = textureLod(physicalSamplerName[subgroupFormatID], physCoord, lod); \
+    } \
     return retval
 #endif
 
-#define _IRR_DEFINE_VT_INTEGER_FUNCTIONS(funcName, implFuncName, retval_t, physicalSamplerName)\
-retval_t implFuncName(in uint formatID, in vec3 virtualUV, in uint lod, in int originalMaxFullMip)\
-{\
-    int nonnegativeLod = int(lod);\
-    int clippedLoD = min(nonnegativeLod,originalMaxFullMip);\
-    int levelInTail = nonnegativeLod - clippedLoD;\
+//problem is with this line below "unexpected LEFT_BRACE", no idea why
+#define _IRR_DEFINE_VT_INTEGER_FUNCTIONS(funcName, implFuncName, retval_t, physicalSamplerName) retval_t implFuncName##(in uint formatID, in vec3 virtualUV, in uint lod, in int originalMaxFullMip) \
+{ \
+    int nonnegativeLod = int(lod); \
+    int clippedLoD = min(nonnegativeLod,originalMaxFullMip); \
+    int levelInTail = nonnegativeLod - clippedLoD; \
     \
-    vec3 physCoord = irr_glsl_vTexture_helper(formatID, virtualUV, clippedLoD, levelInTail);\
-	_IRR_DIVERGENT_SAMPLING_IMPL(retval_t, physicalSamplerName);\
-}\
-retval_t funcName(in uvec2 _texData, in vec2 uv, in uint lod)\
-{\
-    vec2 originalSz = irr_glsl_unpackSize(_texData);\
-
-    uvec2 wrap = irr_glsl_unpackWrapModes(_texData);\
-    uv.x = irr_glsl_wrapTexCoord(uv.x, wrap.x);\
-    uv.y = irr_glsl_wrapTexCoord(uv.y, wrap.y);\
-    \
-    vec3 virtualUV = irr_glsl_unpackVirtualUV(_texData);\
-    uint formatID = irr_glsl_VT_layer2pid(uint(virtualUV.z));\
-    virtualUV.xy += uv * originalSz;\
-    virtualUV.xy *= irr_glsl_VT_getVTexSzRcp();\
+    vec3 physCoord = irr_glsl_vTexture_helper(formatID, virtualUV, clippedLoD, levelInTail); \
+	_IRR_DIVERGENT_SAMPLING_IMPL(retval_t, physicalSamplerName); \
+} \
+retval_t funcName(in uvec2 _texData, in vec2 uv, in uint lod) \
+{ \
+    vec2 originalSz = irr_glsl_unpackSize(_texData); \
 	\
-    return irr_glsl_vTextureLod_impl(formatID, virtualUV, lod, int(irr_glsl_unpackMaxMipInVT(_texData)));\
+    uvec2 wrap = irr_glsl_unpackWrapModes(_texData); \
+    uv.x = irr_glsl_wrapTexCoord(uv.x, wrap.x); \
+    uv.y = irr_glsl_wrapTexCoord(uv.y, wrap.y); \
+    \
+    vec3 virtualUV = irr_glsl_unpackVirtualUV(_texData); \
+    uint formatID = irr_glsl_VT_layer2pid(uint(virtualUV.z)); \
+    virtualUV.xy += uv * originalSz; \
+    virtualUV.xy *= irr_glsl_VT_getVTexSzRcp(); \
+	\
+    return irr_glsl_vTextureLod_impl(formatID, virtualUV, lod, int(irr_glsl_unpackMaxMipInVT(_texData))); \
 }
 
 _IRR_DEFINE_VT_INTEGER_FUNCTIONS(irr_glsl_iVTextureLod, irr_glsl_iVTextureLod_impl, ivec4, iphysicalTileStorageFormatView)

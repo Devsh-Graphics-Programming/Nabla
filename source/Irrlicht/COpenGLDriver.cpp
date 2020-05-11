@@ -1191,11 +1191,15 @@ const core::smart_refctd_dynamic_array<std::string> COpenGLDriver::getSupportedG
         size_t cnt = 0ull;
         for (size_t i = 0ull; i < GLSLcnt; ++i)
             cnt += (FeatureAvailable[m_GLSLExtensions[i]]);
+        if (runningInRenderDoc)
+            ++cnt;
         m_supportedGLSLExtsNames = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<std::string>>(cnt);
         size_t i = 0ull;
         for (size_t j = 0ull; j < GLSLcnt; ++j)
             if (FeatureAvailable[m_GLSLExtensions[j]])
                 (*m_supportedGLSLExtsNames)[i++] = OpenGLFeatureStrings[m_GLSLExtensions[j]];
+        if (runningInRenderDoc)
+            (*m_supportedGLSLExtsNames)[i] = RUNNING_IN_RENDERDOC_EXTENSION_NAME;
     }
 
     return m_supportedGLSLExtsNames;
