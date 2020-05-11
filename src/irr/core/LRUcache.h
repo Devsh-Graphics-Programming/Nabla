@@ -26,9 +26,8 @@ namespace irr {
 			{
 				cap = capacity;
 			}
-			inline ~LRUcache();
 
-			inline void insert(const Key &&k, Value &&v)
+			inline void insert(Key &k, Value &v)
 			{
 				if (map.find(k) == map.end() && stored_keys.size() == cap) {
 					auto last = stored_keys.back();
@@ -41,16 +40,25 @@ namespace irr {
 				map[k] = v;
 
 			}
-			inline Value get(Key k)
+			//Try getting the value from the cache, or null if key doesnt exist in cache or has been removed
+			inline Value get(Key &key)
 			{
-				if (map.find(k) == ma.end())
+				if (map.find(key) == ma.end())
 					return NULL;
 				timestamp++;
-				return map[k];
+				return map[key];
 			}
-			inline Value peek()
+			//Try to get value without incrementing the timestamp
+			inline Value peek(Key &key)
 			{
+				if (map.find(key) == ma.end())
+					return NULL;
+				return map[key];
+			}
 
+			inline std::atomic_uint32_t getTimestamp()
+			{
+				return timestamp;
 			}
 		};
 
