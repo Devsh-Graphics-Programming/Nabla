@@ -469,8 +469,8 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 	{
 		constexpr float vec3_one[3] {1.f,1.f,1.f};
 		const core::vectorSIMDf w(_mix2blend_weight);
-		retval.blend.weightL.constant_rgb19e7 = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(vec3_one));
-		retval.blend.weightR.constant_rgb19e7 = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(w.pointer));
+		core::uintBitsToFloat(retval.blend.weightL.constant_f32) = 1.f;
+		retval.blend.weightR = _mix2blend_weight;
 	}
 		break;
 	case CElementBSDF::Type::BLEND_BSDF:
@@ -478,10 +478,8 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 		float weightScale = 1.f;
 		if (_node->blendbsdf.weight.value.type==SPropertyElementData::FLOAT)
 		{
-			const core::vectorSIMDf weight_r = core::vectorSIMDf(_node->blendbsdf.weight.value.fvalue);
-			const core::vectorSIMDf weight_l = core::vectorSIMDf(1.f)-weight_r;
-			retval.blend.weightL.constant_rgb19e7 = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(weight_l.pointer));
-			retval.blend.weightR.constant_rgb19e7 = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(weight_r.pointer));
+			core::uintBitsToFloat(retval.blend.weightL.constant_f32) = 1.f-_node->blendbsdf.weight.value.fvalue;
+			retval.blend.weightR = _node->blendbsdf.weight.value.fvalue;
 		}
 		else if (_node->blendbsdf.weight.value.type==SPropertyElementData::INVALID)
 		{
@@ -527,7 +525,7 @@ layout (location = 0) out vec4 OutColor;
 #define instr_t uvec2
 #define reg_t vec3
 
-//in 16-byte units
+//in 16-byte/uvec4 units
 layout (constant_id = 0) const uint sizeof_bsdf_data = 3;
 
 struct bsdf_data_t
@@ -587,8 +585,7 @@ float irr_glsl_VT_getVTexSzRcp()
 }
 #define _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
 
-//irr/builtin/glsl/virtual_texturing/functions.glsl/...
-#include <%s>
+#include <irr/builtin/glsl/virtual_texturing/functions.glsl/7/8>
 
 
 layout (push_constant) uniform Block
@@ -607,8 +604,110 @@ layout (push_constant) uniform Block
 #define INSTR_BSDF_BUF_OFFSET_MASK	0x1fffffu
 #define INSTR_NDF_SHIFT 4
 #define INSTR_NDF_MASK 0x3u
-#define INSTR_NORMAL_REG_SHIFT		11
-#define INSTR_NORMAL_REG_MASK		0x03u
+#define INSTR_ALPHA_U_TEX_SHIFT 1
+#define INSTR_ALPHA_V_TEX_SHIFT 7
+#define INSTR_REFL_TEX_SHIFT 4
+#define INSTR_TRANS_TEX_SHIFT 4
+#define INSTR_WARD_VARIANT_SHIFT 4
+#define INSTR_WARD_VARIANT_MASK 0x03u
+#define INSTR_FAST_APPROX_SHIFT 5
+#define INSTR_NONLINEAR_SHIFT 8
+#define INSTR_SIGMA_A_TEX_SHIFT 8
+#define INSTR_WEIGHT_TEX_SHIFT 4
+#define INSTR_TWOSIDED_SHIFT 9
+#define INSTR_MASKFLAG_SHIFT 10
+#define INSTR_OPACITY_TEX_SHIFT 11
+
+uint instr_getOpcode(in instr_t instr)
+{
+	return instr.x&INSTR_OPCODE_MASK;
+}
+uint instr_getBSDFbufOffset(in instr_t instr)
+{
+	return (instr.x>>INSTR_BSDF_BUF_OFFSET_SHIFT) & INSTR_BSDF_BUF_OFFSET_MASK;
+}
+uint instr_getNDF(in instr_t instr)
+{
+	return (instr.x>>INSTR_NDF_SHIFT) & INSTR_NDF_MASK;
+}
+uint instr_getAlphaUTexPresence(in instr_t instr)
+{
+	return (instr.x>>INSTR_ALPHA_U_TEX_SHIFT) & 1u;
+}
+uint instr_getAlphaVTexPresence(in instr_t instr)
+{
+	return (instr.x>>INSTR_ALPHA_V_TEX_SHIFT) & 1u;
+}
+uint instr_getReflectanceTexPresence(in instr_t instr)
+{
+	return (instr.x>>INSTR_REFL_TEX_SHIFT) & 1u;
+}
+uint instr_getWardVariant(in instr_t instr)
+{
+	return (instr.x>>INSTR_WARD_VARIANT_SHIFT) & INSTR_WARD_VARIANT_MASK;
+}
+uint instr_getFastApprox(in instr_t instr)
+{
+	return (instr.x>>INSTR_FAST_APPROX_SHIFT) & 1u;
+}
+uint instr_getNonlinear(in instr_t instr)
+{
+	return (instr.x>>INSTR_NONLINEAR_SHIFT) & 1u;
+}
+uint instr_getSigmaATexPresence(in instr_t instr)
+{
+	return (instr.x>>INSTR_SIGMA_A_TEX_SHIFT) & 1u;
+}
+uint instr_getWeightTexPresence(in instr_t instr)
+{
+	return (instr.x>>INSTR_WEIGHT_TEX_SHIFT) & 1u;
+}
+uint instr_getTwosided(in instr_t instr)
+{
+	return (instr.x>>INSTR_TWOSIDED_SHIFT) & 1u;
+}
+uint instr_getMaskFlag(in instr_t instr)
+{
+	return (instr.x>>INSTR_MASKFLAG_SHIFT) & 1u;
+}
+uint instr_getOpacityTexPresence(in instr_t instr)
+{
+	return (instr.x>>INSTR_OPACITY_TEX_SHIFT) & 1u;
+}
+uint instr_getTransmittanceTexPresence(in instr_t instr)
+{
+	return (instr.x>>INSTR_TRANS_TEX_SHIFT) & 1u;
+}
+
+//returns: x=dst, y=src1, z=src2
+uvec3 instr_decodeRegisters(in instr_t instr)
+{
+	uvec3 regs(instr.y, (instr.y>>8), (instr.y>>16));
+	return regs & uvec3(INSTR_REG_MASK);
+}
+#define REG_DST(r)	r.x
+#define REG_SRC1(r)	r.y
+#define REG_SRC2(r)	r.z
+
+bsdf_data_t fetchBSDFDataForInstr(in instr_t instr)
+{
+	uint ix = instr_getBSDFbufOffset(instr);
+	return bsdf_buf.data[ix];
+}
+float textureOrF32(in uvec2 data, in uint texPresenceFlag, in mat2 dUV)
+{
+	if (texPresenceFlag==1u)
+		return irr_glsl_vTextureGrad(data, UV, dUV).x;
+	else
+		return uintBitsToFloat(data.x);
+}
+vec3 textureOrRGB19E7(in uvec2 data, in uint texPresenceFlag, in mat2 dUV)
+{
+	if (texPresenceFlag==1u)
+		return irr_glsl_vTextureGrad(data, UV, dUV).x;
+	else //TODO decodeRGB19E7()
+		return decodeRGB19E7(data);
+}
 
 //remember to keep it compliant with c++ enum!!
 #define OP_DIFFUSE			0u
@@ -644,21 +743,98 @@ layout (push_constant) uniform Block
 #include <irr/builtin/glsl/bsdf/brdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bump_mapping/height_mapping.glsl>
 
+
+reg_t geomNormal;
 reg_t currentNormal;
 reg_t registers[REG_COUNT];
 
-
-
-//returns: x=dst, y=src1, z=src2
-uvec3 instr_decodeRegisters(in instr_t instr)
+void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params, in mat2 dUV)
 {
-	uvec3 regs(instr.y, (instr.y>>8), (instr.y>>16));
-	return regs & uvec3(INSTR_REG_MASK);
+	bsdf_data_t data = fetchBSDFDataForInstr(instr);
+	vec3 scale = decodeRGB19E7(data.data[1].zw);
+	float a = textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
 }
-#define REG_DST(r)	r.x
-#define REG_SRC1(r)	r.y
-#define REG_SRC2(r)	r.z
-
+void instr_execute_ROUGHDIFFUSE(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params, in mat2 dUV)
+{
+	bsdf_data_t data = fetchBSDFDataForInstr(instr);
+	vec3 scale = decodeRGB19E7(data.data[1].zw);
+	float a = textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
+	vec3 refl = textureOrRGB19E7(data.data[0].zw, instr_getReflectanceTexPresence(instr), dUV)*scale.y;
+}
+void instr_execute_DIFFTRANS(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params, in mat2 dUV)
+{
+	bsdf_data_t data = fetchBSDFDataForInstr(instr);
+	vec3 trans = textureOrRGB19E7(data.data[0].xy, instr_getTransmittanceTexPresence(instr), dUV)*uintBitsToFloat(data.data[1].x);
+}
+void instr_execute_ROUGHDIELECTRIC(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params, in mat2 dUV)
+{
+	bsdf_data_t data = fetchBSDFDataForInstr(instr);
+	uint ndf = instr_getNDF(instr);
+	float eta = uintBitsToFloat(data.data[0].x);
+	vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
+	float au = textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
+	float av = textureOrF32(uvec2(data.data[0].w, data.data[1].x), instr_getAlphaVTexPresence(instr), dUV)*scale.y;
+}
+//TODO SMOOTH CONDUCTOR
+void instr_execute_ROUGHCONDUCTOR(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params, in mat2 dUV)
+{
+	bsdf_data_t data = fetchBSDFDataForInstr(instr);
+	vec3 scale = decodeRGB19E7(data.data[2].zw);
+	float au = textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
+	float av = textureOrF32(data.data[0].zw, instr_getAlphaVTexPresence(instr), dUV)*scale.y;
+	vec3 eta = decodeRGB19E7(data.data[1].xy);
+	vec3 etak = decodeRGB19E7(data.data[1].zw);
+}
+//TODO SMOOTH PLASTIC
+void instr_execute_ROUGHPLASTIC(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params, in mat2 dUV)
+{
+	bsdf_data_t data = fetchBSDFDataForInstr(instr);
+	uint ndf = instr_getNDF(instr);
+	float eta = uintBitsToFloat(data.data[0].x);
+	vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
+	float au = textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
+	float av = textureOrF32(uvec2(data.data[0].w, data.data[1].x), instr_getAlphaVTexPresence(instr), dUV)*scale.y;
+}
+//TODO SMOOTH COATING
+void instr_execute_ROUGHCOATING(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params, in mat2 dUV)
+{
+	bsdf_data_t data = fetchBSDFDataForInstr(instr);
+	vec4 scale = vec4(unpackHalf2x16(data.data[2].y), unpackHalf2x16(data.data[2].z));
+	vec2 thickness_eta = unpackHalf2x16(data.data[0].x);
+	float au = textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
+	float av = textureOrF32(uvec2(data.data[0].w, data.data[1].x), instr_getAlphaVTexPresence(instr), dUV)*scale.y;
+	vec3 sigmaA = textureOrRGB19E7(data.data[1].yz, instr_getSigmaATexPresence(instr), dUV)*scale.z;
+}
+void instr_execute_WARD(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params, in mat2 dUV)
+{
+	bsdf_data_t data = fetchBSDFDataForInstr(instr);
+	vec3 scale = decodeRGB19E7(data.data[1].zw);
+	float au = textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
+	float av = textureOrF32(data.data[0].zw, instr_getAlphaVTexPresence(instr), dUV)*scale.y;	
+}
+void instr_execute_BUMPMAP(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params)
+{
+	//TODO dHdScreen, need for sample from bumpmap and dFdx,dFdy but cannot do it here, need some trick for it (like keep VT tex data of bumpmaps in push consts)
+	currentNormal.xyz = irr_glsl_perturbNormal_heightMap(params.isotropic.interaction.N, params.isotropic.interaction.V.dPosdScreen, dHdScreen);
+}
+void instr_execute_SET_GEOM_NORMAL()
+{
+	currentNormal = geomNormal;
+}
+void instr_execute_BLEND(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params, in mat2 dUV)
+{
+	bsdf_data_t data = fetchBSDFDataForInstr(instr);
+	float scale = uintBitsToFloat(data.data[0].w);
+	uint weigthTexPresent = instr_getWeightTexPresence(instr);
+	float wl = textureOrF32(data.data[0].xy, weightTexPresent, dUV)*scale;
+	float wr;
+	if (weightTexPresent)
+		wr = 1.0 - wl;
+	else
+		wr = uintBitsToFloat(data.data[0].z);
+	regs[REG_DST(regs)] = wl*regs[REG_SRC1(regs)] + wr*regs[REG_SRC2(regs)];
+}
+/*
 void instr_execute_ROUGHDIELECTRIC(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params)
 {
 	uint bsdf_i = (instr.x>>INSTR_BSDF_BUF_OFFSET_SHIFT) & INSTR_BSDF_BUF_OFFSET_MASK;
@@ -695,30 +871,62 @@ void instr_execute_ROUGHDIELECTRIC(in instr_t instr, in uvec3 regs, in irr_glsl_
 
 	registers[REG_DST(regs)].xyz = diff+spec;
 }
-void instr_execute_BUMPMAP(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params)
-{
-	//TODO dHdScreen, need for sample from bumpmap and dFdx,dFdy but cannot do it here, need some trick for it (like keep VT tex data of bumpmaps in push consts)
-	currentNormal.xyz = irr_glsl_perturbNormal_heightMap(params.isotropic.interaction.N, params.isotropic.interaction.V.dPosdScreen, dHdScreen);
-}
+*/
 void instr_execute(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params, in mat2 dUV)
 {
 	switch (instr.x & INSTR_REG_MASK)
 	{
-	
-	case OP_ROUGHDIELECTRIC: 
-		instr_execute_ROUGHDIELECTRIC(instr, regs, params);
-		break;
 	//run func depending on opcode
 	//the func will decide whether to (and which ones) fetch registers from `regs` array
 	//and whether to fetch bsdf data from bsdf_buf (not all opcodes need it)
 	//also stores the result into dst reg
 	//....
+	case OP_DIFFUSE:
+		break;
+	case OP_ROUGHDIFFUSE:
+		instr_execute_ROUGHDIFFUSE(instr, regs, params, dUV);
+		break;
+	case OP_DIFFTRANS:
+		instr_execute_DIFFTRANS(instr, regs, params, dUV);
+		break;
+	case OP_DIELECTRIC:
+		break;
+	case OP_ROUGHDIELECTRIC: 
+		instr_execute_ROUGHDIELECTRIC(instr, regs, params, dUV);
+		break;
+	case OP_CONDUCTOR:
+		break;
+	case OP_ROUGHCONDUCTOR:
+		instr_execute_ROUGHCONDUCTOR(instr, regs, params, dUV);
+		break;
+	case OP_PLASTIC:
+		break;
+	case OP_ROUGHPLASTIC:
+		instr_execute_ROUGHPLASTIC(instr, regs, params, dUV);
+		break;
+	case OP_WARD:
+		instr_execute_WARD(instr, regs, params, dUV);
+		break;
+	case OP_SET_GEOM_NORMAL:
+		instr_execute_SET_GEOM_NORMAL();
+		break;
+	case OP_COATING:
+		break;
+	case OP_ROUGHCOATING:
+		instr_execute_ROUGHCOATING(instr, regs, params, dUV);
+		break;
+	case OP_BUMPMAP:
+		instr_execute_BUMPMAP(instr, regs, params);
+		break;
+	case OP_BLEND:
+		instr_execute_BLEND(instr, regs, params, dUV);
+		break;
 	}
 }
 
 void main()
 {
-	registers[0].xyz = normalize(Normal);
+	geomNormal = normalize(Normal);
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
 	//all lighting computations are done in view space
@@ -1551,7 +1759,7 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 						samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
 						break;
 				}
-				auto getWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode)// -> video::E_TEXTURE_CLAMP
+				auto getWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode)
 				{
 					switch (mode)
 					{
@@ -1653,13 +1861,13 @@ std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx
 	core::stack<stack_el> stack;
 	uint64_t firstFreeNormalID = 1ull;//normal ID 0 means geom normal without any perturbations
 	auto push = [&](const CElementBSDF* _bsdf, bsdf::instr_t _parent, const CElementBSDF* _maskParent) {
-		auto writeInheritableFlags = [](bsdf::instr_t& dst, bsdf::instr_t parent) {
+		auto writeInheritableBitfields = [](bsdf::instr_t& dst, bsdf::instr_t parent) {
 			dst |= (parent & (bsdf::BITFIELDS_MASK_TWOSIDED << bsdf::BITFIELDS_SHIFT_TWOSIDED));
 			dst |= (parent & (bsdf::BITFIELDS_MASK_MASKFLAG << bsdf::BITFIELDS_SHIFT_MASKFLAG));
 			dst |= (parent & (bsdf::INSTR_NORMAL_ID_MASK << bsdf::INSTR_NORMAL_ID_SHIFT));
 		};
 		bsdf::instr_t instr = BSDFtype2opcode(_bsdf);
-		writeInheritableFlags(instr, _parent);
+		writeInheritableBitfields(instr, _parent);
 		switch (_bsdf->type)
 		{
 		case CElementBSDF::Type::DIFFUSE:
@@ -1696,16 +1904,16 @@ std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx
 			stack.push({_bsdf,instr,false,0,_maskParent});
 
 			instr = BSDFtype2opcode(_bsdf->meta_common.bsdf[0]);
-			writeInheritableFlags(instr, _parent);
+			writeInheritableBitfields(instr, _parent);
 			stack.push({_bsdf->meta_common.bsdf[0],instr,false,0,_maskParent});
 			break;
 		case CElementBSDF::Type::BLEND_BSDF:
 			stack.push({ _bsdf,instr,false,0,_maskParent });
 			instr = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[1]);
-			writeInheritableFlags(instr, _parent);
+			writeInheritableBitfields(instr, _parent);
 			stack.push({ _bsdf->meta_common.bsdf[1],instr,false,0,_maskParent });
 			instr = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[0]);
-			writeInheritableFlags(instr, _parent);
+			writeInheritableBitfields(instr, _parent);
 			stack.push({ _bsdf->meta_common.bsdf[0],instr,false,0,_maskParent });
 			break;
 		case CElementBSDF::Type::MIXTURE_BSDF:
@@ -1719,11 +1927,11 @@ std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx
 				stack.push({_bsdf,blendbsdf,false,weight_ix,_maskParent});
 				auto* mixchild_bsdf = _bsdf->mixturebsdf.bsdf[weight_ix];
 				bsdf::instr_t mixchild = BSDFtype2opcode(mixchild_bsdf);
-				writeInheritableFlags(mixchild, _parent);
+				writeInheritableBitfields(mixchild, _parent);
 				stack.push({mixchild_bsdf,mixchild,false,0,_maskParent});
 			}
 			bsdf::instr_t child0 = BSDFtype2opcode(_bsdf->mixturebsdf.bsdf[0]);
-			writeInheritableFlags(child0, _parent);
+			writeInheritableBitfields(child0, _parent);
 			stack.push({_bsdf->mixturebsdf.bsdf[0],child0,false,0});
 		}	
 			break;
@@ -1740,7 +1948,7 @@ std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx
 			break;
 		}
 	};
-	auto emitInstr = [](bsdf::instr_t _instr, const CElementBSDF* _node, uint32_t _bsdfBufOffset) -> bsdf::instr_t {
+	auto emitInstr = [](bsdf::instr_t _instr, const CElementBSDF* _node, uint32_t _bsdfBufOffset, const CElementBSDF* _maskParent) -> bsdf::instr_t {
 		uint32_t op = (_instr & bsdf::INSTR_OPCODE_MASK);
 		switch (op)
 		{
@@ -1791,9 +1999,6 @@ std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx
 			case CElementBSDF::Type::BLEND_BSDF:
 				_instr |= static_cast<uint32_t>(_node->blendbsdf.weight.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_WEIGHT_TEX;
 				break;
-			case CElementBSDF::Type::MASK:
-				_instr |= static_cast<uint32_t>(_node->mask.opacity.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_WEIGHT_TEX;
-				break;
 			case CElementBSDF::Type::MIXTURE_BSDF:
 				//always constant weights (not texture) -- leaving weight tex flag as 0
 				break;
@@ -1808,6 +2013,8 @@ std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx
 		//write index into bsdf buffer
 		_instr &= (~(bsdf::INSTR_BSDF_BUF_OFFSET_MASK<<bsdf::INSTR_BSDF_BUF_OFFSET_SHIFT));
 		_instr |= ((_bsdfBufOffset & bsdf::INSTR_BSDF_BUF_OFFSET_MASK) << bsdf::INSTR_BSDF_BUF_OFFSET_SHIFT);
+		//write opacity mask presence flag
+		_instr |= static_cast<uint32_t>(_maskParent->mask.opacity.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_OPACITY_TEX;
 
 		return _instr;
 	};
@@ -1831,7 +2038,7 @@ std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx
 				);
 				assert(bsdfBufIx < bsdf::INSTR_BSDF_BUF_OFFSET_MASK);
 			}
-			traversal.push_back(emitInstr(top.instr, top.bsdf, bsdfBufIx));
+			traversal.push_back(emitInstr(top.instr, top.bsdf, bsdfBufIx, top.maskParent));
 			stack.pop();
 		}
 		else if (!top.visited)
