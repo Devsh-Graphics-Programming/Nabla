@@ -27,7 +27,7 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 	if ("${PLATFORM}" STREQUAL "NOTFOUND")
 		message(FATAL_ERROR "Unsupported compiler!")
 	endif()
-
+	
 	set(CMAKE_INSTALL_PREFIX "${IRR_ROOT_PATH}/install/${PLATFORM}" CACHE PATH "Install path" FORCE)
 endif()
 
@@ -58,6 +58,7 @@ option(_IRR_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
 
 irr_get_conf_dir(IRRLICHT_CONF_DIR_DEBUG Debug)
 irr_get_conf_dir(IRRLICHT_CONF_DIR_RELEASE Release)
+irr_get_conf_dir(IRRLICHT_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
 
 set(_IRR_COMPILE_WITH_OPENGL_ ${IRR_COMPILE_WITH_OPENGL})
 if (IRR_COMPILE_WITH_OPENCL)
@@ -76,6 +77,7 @@ endif()
 set(__IRR_FAST_MATH ${IRR_FAST_MATH})
 set(_IRR_DEBUG 0)
 configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_RELEASE}/BuildConfigOptions.h")
+configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h")
 set(_IRR_DEBUG 1)
 configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
@@ -246,9 +248,6 @@ set(IRRLICHT_SRCS_NORMAL
 	${IRR_ROOT_PATH}/src/irr/video/CDerivativeMapCreator.cpp
 )
 
-set(IRRLICHT_SRCS_SERVER
-)
-
 set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/convertutf
 	${THIRD_PARTY_SOURCE_DIR}/utfcpp/source
@@ -265,9 +264,11 @@ irr_adjust_definitions() # macro defined in root CMakeLists
 
 macro(irr_target_link_zlib _trgt)
 	add_dependencies(${_trgt} zlibstatic)
+
 	target_link_libraries(${_trgt} INTERFACE
-		"$<$<CONFIG:DEBUG>:${ZLIB_LIBRARY_DEBUG}>"
-		"$<$<CONFIG:RELEASE>:${ZLIB_LIBRARY_RELEASE}>"
+		$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
+		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
+		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
 	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/zlib)
 endmacro()
@@ -334,9 +335,6 @@ macro(irr_target_link_gli _trgt)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
 endmacro()
 
-# get function for cross-compiler PCH configuration
-include(add_pch)
-
 add_library(Irrlicht STATIC
 	${IRRLICHT_SRCS_COMMON}
 	${IRRLICHT_SRCS_NORMAL}
@@ -348,6 +346,44 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:spirv_cross>
 )
+
+if(MSVC)
+
+set(IRR_TARGETS Irrlicht
+				lzma
+				lz4
+				aesGladman
+				spirv_cross
+				png_static
+				zlibstatic
+				shaderc_util
+				shaderc
+				jpeg
+				Imath
+				IlmThread
+				IlmImf
+				Half
+				convert_utf
+				bzip2			
+				glslang
+				OGLCompiler 
+				OSDependent
+				SPIRV 
+				Iex
+				IexMath
+				SPIRV-Tools
+				SPIRV-Tools-opt )
+				
+if(ENABLE_HLSL)
+	list(APPEND IRR_TARGETS HLSL)
+endif()
+
+foreach(trgt IN LISTS IRR_TARGETS)
+		set_property(TARGET ${trgt} PROPERTY
+             MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endforeach()
+
+endif()
 
 add_dependencies(Irrlicht openssl_build)
 irr_target_link_zlib(Irrlicht)
@@ -380,6 +416,7 @@ target_include_directories(Irrlicht PUBLIC
 	#those also goes as PUBLIC because of examples
 	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
+	"$<$<CONFIG:RELWITHDEBINFO>:${IRRLICHT_CONF_DIR_RELWITHDEBINFO}>"
 )
 target_include_directories(Irrlicht PUBLIC ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht ${IRR_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 if (UNIX)
@@ -399,92 +436,24 @@ target_compile_definitions(Irrlicht
 	PUBLIC	UNW_LOCAL_ONLY
 )
 
-if(IRR_PCH)
-    if (UNIX)
-        if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
-            ADD_PRECOMPILED_HEADER(Irrlicht pch.h "${IRRLICHT_CONF_DIR_RELEASE}" FORCEINCLUDE)
-		elseif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-            ADD_PRECOMPILED_HEADER(Irrlicht pch.h "${IRRLICHT_CONF_DIR_DEBUG}" FORCEINCLUDE)
-        endif()
-    else()
-        ADD_PRECOMPILED_HEADER(Irrlicht pch.h FORCEINCLUDE)
-    endif()
-endif()
-
-add_library(IrrlichtServer STATIC
-	${IRRLICHT_SRCS_COMMON}
-	${IRRLICHT_SRCS_SERVER}
-	${IRRLICHT_HEADERS}
-	$<TARGET_OBJECTS:aesGladman>
-	$<TARGET_OBJECTS:bzip2>
-	$<TARGET_OBJECTS:convert_utf>
-	$<TARGET_OBJECTS:lz4>
-	$<TARGET_OBJECTS:lzma>
-)
-
-add_dependencies(IrrlichtServer openssl_build)
-irr_target_link_zlib(IrrlichtServer)
-irr_target_link_openssl(IrrlichtServer)
-irr_target_link_shaderc(IrrlichtServer)
-irr_target_link_libjpeg(IrrlichtServer)
-irr_target_link_libpng(IrrlichtServer)
-irr_target_link_openexr(IrrlichtServer)
-if(_IRR_COMPILE_WITH_GLI_)
-	irr_target_link_gli(IrrlichtServer)
-endif()
-irr_target_include_parallel_hashmap(IrrlichtServer)
-
-target_include_directories(IrrlichtServer PUBLIC 
-	${IRR_ROOT_PATH}/include
-	${COMMON_INCLUDE_DIRS}
-	${THIRD_PARTY_SOURCE_DIR}
-	#those also goes as PUBLIC because of examples
-	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
-	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
-)
-target_include_directories(IrrlichtServer PRIVATE ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht ${IRR_ROOT_PATH}/src/3rdparty)
-
-target_compile_definitions(IrrlichtServer PRIVATE
-	_IRR_STATIC_LIB_
-	_IRR_SERVER_
-	SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
-)
-
-
-if(IRR_PCH)
-    if (UNIX)
-        # "CMake Error: Attempt to add a custom rule to output ".../source/Irrlicht/pch.h.gch/.c++.rule" which already has a custom rule."
-        # so there need to be another pch file to create custom_command for it. Or maybe share PCH target between Irrlicht and IrrlichtServer? (not sure if possible)
-        add_custom_command(
-          OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h"
-          COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_CURRENT_SOURCE_DIR}/pch.h" "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h"
-          DEPENDS pch.h
-        )
-        file(RELATIVE_PATH SERVER_PCH_INPUT_RELDIR "${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h")
-        if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
-            ADD_PRECOMPILED_HEADER(IrrlichtServer "${SERVER_PCH_INPUT_RELDIR}" "${IRRLICHT_CONF_DIR_RELEASE}" FORCEINCLUDE)
-	elseif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-            ADD_PRECOMPILED_HEADER(IrrlichtServer "${SERVER_PCH_INPUT_RELDIR}" "${IRRLICHT_CONF_DIR_DEBUG}" FORCEINCLUDE)
-        endif()
-	#add_target_byproducts(IrrlichtServer "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h") # how to resolve this?
-    else()
-        ADD_PRECOMPILED_HEADER(IrrlichtServer pch.h FORCEINCLUDE)
-    endif()
-endif()
-
 if (MSVC) #on MSVC it won't compile without this option!
 	target_compile_options(Irrlicht PUBLIC /bigobj)
-	target_compile_options(IrrlichtServer PUBLIC /bigobj)
 endif()
 
-set_target_properties(Irrlicht IrrlichtServer PROPERTIES DEBUG_POSTFIX _debug)
+#precompiled headers
+if(IRR_PCH)
+	target_precompile_headers(Irrlicht PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
+endif()
+	
+set_target_properties(Irrlicht PROPERTIES DEBUG_POSTFIX _debug)
+set_target_properties(Irrlicht PROPERTIES RELWITHDEBDINFO_POSTFIX _relwithdebinfo)
 
 macro(irr_install_static_lib _TRGT)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION lib CONFIGURATIONS Release)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION debug/lib CONFIGURATIONS Debug)
+	install(TARGETS ${_TRGT} ARCHIVE DESTINATION debugwithrelinfo/lib CONFIGURATIONS RelWithDebInfo)
 endmacro()
 
 irr_install_static_lib(Irrlicht)
-irr_install_static_lib(IrrlichtServer)
 irr_install_headers("${IRRLICHT_HEADERS_PUBLIC}" "${IRR_ROOT_PATH}/include")
 irr_install_config_header(BuildConfigOptions.h)
