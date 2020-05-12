@@ -2,7 +2,13 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**IrrlichtBAW** is a new renovated version of old **[Irrlicht](http://irrlicht.sourceforge.net/)** engine. The project currently aims for a thread-able and *Vulkan*-centered API, but currently works on *OpenGL* only. This framework has been kindly begun and almost entirely sponsored by **Build A World Aps**., and now by **[Ditt](https://www.ditt.nl/)** company. The `stable-ish` branch is used in production releases of **[Build A World EDU](https://edu.buildaworld.net/)**, since 2015.
+**IrrlichtBAW** is a new renovated version of older **[Irrlicht](http://irrlicht.sourceforge.net/)** engine. The project currently aims for a thread-able and *Vulkan*-centered API, but currently works on *OpenGL* only. This framework has been kindly begun by the founder ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** of Devsh Graphics Programming Sp. z O.O. and almost entirely sponsored by **Build A World Aps**. in it's early days, and now picked up by the **[Ditt](https://www.ditt.nl/)** company. The `stable-ish` branch is used in production releases of **[Build A World EDU](https://edu.buildaworld.net/)**, since 2015. The framework has been used both for game development and ArchViz.
+
+## Contracting
+
+The members of **Devsh Graphics Programming Sp. z O.O.** (Company Registration (KRS) #: 0000764661) are available (individually or collectively) for contracts on projects of various scopes and timescales, especially on foreign frameworks, codebases and third-party 3D frameworks. We provide expertise in *OpenGL, OpenGL ES, WebGL, Vulkan, OpenCL, CUDA, D3D12 and D3D11, computer vision, Audio programming, DSP, video encoding and decoding as well as more generalized High Performance Computing*. Our language of choice is C++17 with C++11 and C11 coming in close second, however we're also amenable to Java, Python and related languages.
+
+Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** (e-mail available in the GitHub profile) with inquires into contracting.
 
 ## Showcase
 
@@ -154,7 +160,7 @@
 - **[Vulkan SDK](https://vulkan.lunarg.com/sdk/home)**
 - **[Perl](https://www.perl.org/get.html)**
 - **[NASM](https://www.nasm.us/pub/nasm/releasebuilds/?C=M;O=D)**
-- **[Python 2.7](https://www.python.org/download/releases/2.7/)** or later
+- **[Python 3.8](https://www.python.org/downloads/release/python-380/)** or later
 
 ### Vanilla + CUDA Build
 
@@ -205,14 +211,24 @@ Begin with cloning **IrrlichtBAW** with:
 git clone --recurse-submodules -j8 https://github.com/buildaworldnet/IrrlichtBAW.git
 ```
 
-If you haven't cloned `recursive`ly, you can still fix that with:
+If you haven't cloned `recursive`ly, you have to also perform:
 
 ```shell
 git submodule init
 git submodule update
 ```
 
-*CMake* config script will try to initialize submodules for you however as well.
+*CMake* config script will try to initialize submodules for you however as well, but it doesn't mean the initialization attempt will be successful.
+
+### Submodules
+
+If you haven't initialized the submodules yourself before the *CMake* configure step, and out *CMake* submodule update script destroyed them (badly/half initialized), you can run the following set of commands, but **beware** - it will completely wipe any changes to submodules.
+
+```shell
+git submodule foreach --recursive git clean -xfd
+git submodule foreach --recursive git reset --hard
+git submodule update --init --recursive
+```
 
 #### Weird CMake behaviour, notes
 
@@ -231,6 +247,12 @@ git checkout tags/glew-cmake-2.1.0
 in *glew* directory that you can find in ***3rdparty/CEGUI/glew*** directory because of *glew* commiting politics. Having done it you can switch to your ***master/root*** directory and commit those changes if you want, but it isn't necessary to compile entire library.
 
 ### CMake notes
+
+#### Make sure Python's executable is found
+
+- The paragraph concerns *Windows system* only
+
+Unfortunately on Windows there are often troubles with **Python 3.0+** versions, because it isn't able to find and determine `PYTHON_EXECUTABLE` variable, so you have to fill it manually. If you use **CMake-GUI** you will find it in advanced options.
 
 #### Consider CMake and Visual Studio version, **important**! 
 
@@ -280,6 +302,29 @@ We recommend the ***[Codelite IDE](https://codelite.org/)*** as that has a *CMak
 ## First examples launching, significant notes
 
 Remember you have to set up **starting target project** in *Visual Studio* before you begin to launch your example. To do that click on **Solution Explorer**, find the example name, hover on it and click on **Set as StartUp Project**. You can disable building examples by `IRR_BUILD_EXAMPLES` option in *CMake*.
+
+## Use IrrlichtBaW in your project!
+
+To get **IrrlichtBaW** to be used by an external application *without adding it as a subdirectory*,but still using a submodule, you should perform following:
+
+```cmake
+list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_DOCS:BOOL=OFF") # enable only if you have doxygen installed and detectable by cmake
+list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_EXAMPLES:BOOL=OFF")
+list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_TOOLS:BOOL=OFF") # the tools don't work yet (Apr 2020 status, might have changed since then)
+list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_MITSUBA_LOADER:BOOL=OFF") # you probably don't want this extension
+ExternalProject_Add(IrrlichtBaW
+    DOWNLOAD_COMMAND  ""
+    SOURCE_DIR        "${IRR_SOURCE_DIR}"
+    BINARY_DIR        "${IRR_BINARY_DIR}"
+    INSTALL_DIR       "${IRR_INSTALL_DIR}"
+    CMAKE_ARGS        ${IRR_CMAKE_ARGS}
+    TEST_COMMAND      ""
+)
+```
+
+ If you want to use git (without a submodule) then you can use `ExternalProject_Add` with the `GIT_` properties instead.
+
+I recommend you use `ExternalProject_Add` instead of `add_subdirectory` for **IrrlichtBaW** as we haven't  tested its use by *3rdparty* applications that use *CMake* to build themselves yet (**BaW EDU** uses it directly from *MSVC*/*make* like it's still the stone-age of build systems).
 
 ## License
 
