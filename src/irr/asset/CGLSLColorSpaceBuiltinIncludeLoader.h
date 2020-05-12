@@ -39,13 +39,15 @@ const mat3 irr_glsl_DCI_P3toXYZ = mat3( vec3(1.0,0.0,0.0),
                                         vec3(0.0,0.0,1.0));
 
 
-const mat3 irr_glsl_HDR10_ST2084toXYZ = mat3(   vec3( 0.6369580, 0.2627002, 0.0000000),
-                                                vec3( 0.1446169, 0.6779981, 0.0280727),
-                                                vec3( 0.1688810, 0.0593017, 1.0609851));
+const mat3 irr_glsl_BT2020toXYZ = mat3( vec3( 0.6369580, 0.2627002, 0.0000000),
+                                        vec3( 0.1446169, 0.6779981, 0.0280727),
+                                        vec3( 0.1688810, 0.0593017, 1.0609851));
 
-const mat3 irr_glsl_DOLBYIVISIONtoXYZ = irr_glsl_HDR10_ST2084toXYZ;
+const mat3 irr_glsl_HDR10_ST2084toXYZ = irr_glsl_BT2020toXYZ;
 
-const mat3 irr_glsl_HDR10_HLGtoXYZ = irr_glsl_HDR10_ST2084toXYZ;
+const mat3 irr_glsl_DOLBYIVISIONtoXYZ = irr_glsl_BT2020toXYZ;
+
+const mat3 irr_glsl_HDR10_HLGtoXYZ = irr_glsl_BT2020toXYZ;
 
 
 const mat3 irr_glsl_AdobeRGBtoXYZ = mat3(   vec3( 0.57667, 0.29734, 0.02703),
@@ -89,13 +91,15 @@ const mat3 irr_glsl_XYZtoDisplay_P3 = mat3( vec3( 2.4934969,-0.8294890, 0.035845
 const mat3 irr_glsl_XYZtoDCI_P3 = mat3(vec3(1.0,0.0,0.0),vec3(0.0,1.0,0.0),vec3(0.0,0.0,1.0));
 
  
-const mat3 irr_glsl_XYZtoHDR10_ST2084 = mat3(   vec3( 1.7166512,-0.6666844, 0.0176399),
-                                                vec3(-0.3556708, 1.6164812,-0.0427706),
-                                                vec3(-0.2533663, 0.0157685, 0.9421031));
+const mat3 irr_glsl_XYZtoBT2020 = mat3( vec3( 1.7166512,-0.6666844, 0.0176399),
+                                        vec3(-0.3556708, 1.6164812,-0.0427706),
+                                        vec3(-0.2533663, 0.0157685, 0.9421031));
+ 
+const mat3 irr_glsl_XYZtoHDR10_ST2084 = irr_glsl_XYZtoBT2020;
 
-const mat3 irr_glsl_XYZtoDOLBYIVISION = irr_glsl_XYZtoHDR10_ST2084;
+const mat3 irr_glsl_XYZtoDOLBYIVISION = irr_glsl_XYZtoBT2020;
 
-const mat3 irr_glsl_XYZtoHDR10_HLG = irr_glsl_XYZtoHDR10_ST2084;
+const mat3 irr_glsl_XYZtoHDR10_HLG = irr_glsl_XYZtoBT2020;
 
 
 const mat3 irr_glsl_XYZtoAdobeRGB = mat3(   vec3( 2.04159,-0.96924, 0.01344),
