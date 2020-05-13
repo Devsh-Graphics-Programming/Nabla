@@ -347,43 +347,8 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:spirv_cross>
 )
 
-if(MSVC)
-
-set(IRR_TARGETS Irrlicht
-				lzma
-				lz4
-				aesGladman
-				spirv_cross
-				png_static
-				zlibstatic
-				shaderc_util
-				shaderc
-				jpeg
-				Imath
-				IlmThread
-				IlmImf
-				Half
-				convert_utf
-				bzip2			
-				glslang
-				OGLCompiler 
-				OSDependent
-				SPIRV 
-				Iex
-				IexMath
-				SPIRV-Tools
-				SPIRV-Tools-opt )
-				
-if(ENABLE_HLSL)
-	list(APPEND IRR_TARGETS HLSL)
-endif()
-
-foreach(trgt IN LISTS IRR_TARGETS)
-		set_property(TARGET ${trgt} PROPERTY
-             MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endforeach()
-
-endif()
+#TODO maybe make a macro to do this (note: it's also used in common.cmake)
+set_property(TARGET Irrlicht PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_dependencies(Irrlicht openssl_build)
 irr_target_link_zlib(Irrlicht)

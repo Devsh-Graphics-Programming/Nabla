@@ -450,3 +450,39 @@ endif()
 if (IRR_COMPILE_WITH_CUDA)
 	update_git_submodule(./jitify)
 endif()
+
+set(IRR_3RDPARTY_TARGETS
+				lzma
+				lz4
+				aesGladman
+				spirv_cross
+				png_static
+				zlibstatic
+				shaderc_util
+				shaderc
+				jpeg
+				Imath
+				IlmThread
+				IlmImf
+				Half
+				convert_utf
+				bzip2			
+				glslang
+				OGLCompiler 
+				OSDependent
+				SPIRV 
+				Iex
+				IexMath
+				SPIRV-Tools
+				SPIRV-Tools-opt )
+#TODO insert more targets that are conditionally built
+if (IRR_BUILD_MITSUBA_LOADER)
+	list(APPEND IRR_3RDPARTY_TARGETS expat)
+endif()
+if(ENABLE_HLSL)
+	list(APPEND IRR_3RDPARTY_TARGETS HLSL)
+endif()
+foreach(trgt IN LISTS IRR_3RDPARTY_TARGETS)
+		set_property(TARGET ${trgt} PROPERTY
+             MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endforeach()

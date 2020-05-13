@@ -173,7 +173,9 @@ macro(irr_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		PRIVATE ${LIB_INCLUDES}
 	)
 	add_dependencies(${LIB_NAME} Irrlicht)
+	target_link_libraries(${LIB_NAME} PUBLIC Irrlicht)
 	target_compile_options(${LIB_NAME} PUBLIC ${LIB_OPTIONS})
+	set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 		add_compile_options(
