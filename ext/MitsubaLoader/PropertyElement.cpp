@@ -125,7 +125,7 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 				if (!tryVec)
 					result.vvalue = retrieveHex(desiredAttributes[0], success);
 				for (auto i=0; i<3u; i++)
-					result.vvalue[i] = video::impl::srgb2lin(result.vvalue[i]);
+					result.vvalue[i] = core::srgb2lin(result.vvalue[i]);
 			}
 			break;
 		case SPropertyElementData::Type::VECTOR:

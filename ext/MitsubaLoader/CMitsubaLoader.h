@@ -32,6 +32,8 @@ namespace bsdf
 
 	static STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualTexture* _vt, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
 	{
+		//TODO commented-out to not lose time on packing textures now
+		/*
 		const auto& extent = _img->getCreationParameters().extent;
 
 		auto imgAndOrigSz = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(_img, _uwrap, _vwrap);
@@ -43,6 +45,8 @@ namespace bsdf
 		auto addr = _vt->alloc(_img->getCreationParameters().format, imgAndOrigSz.second, subres, _uwrap, _vwrap);
 		_vt->commit(addr, imgAndOrigSz.first.get(), subres, _uwrap, _vwrap, _borderColor);
 		return addr;
+		*/
+		return STextureData::invalid();
 	}
 
 	using instr_t = uint64_t;
@@ -325,10 +329,7 @@ class CMitsubaLoader : public asset::IAssetLoader
 			//
 			using shape_ass_type = core::smart_refctd_ptr<asset::ICPUMesh>;
 			core::map<const CElementShape*, shape_ass_type> shapeCache;
-			//! TODO: change to CPU graphics pipeline
-			using bsdf_ass_type = core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>;
-			core::map<const CElementBSDF*, bsdf_ass_type> pipelineCache;
-			//! TODO: even later when texture changes come, might have to return not only a combined sampler but some GLSL sampling code due to the "scale" and offset XML nodes
+			//image, sampler, scale
 			using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>,float>;
 			core::unordered_map<const CElementTexture*, tex_ass_type> textureCache;
 
@@ -337,6 +338,34 @@ class CMitsubaLoader : public asset::IAssetLoader
 
 			//caches instr buffer instr-wise offset (.first) and instruction count (.second) for each bsdf node
 			core::unordered_map<CElementBSDF*,std::pair<uint32_t,uint32_t>> instrStreamCache;
+
+			struct SPipelineCacheKey
+			{
+				asset::SVertexInputParams vtxParams;
+				asset::SPrimitiveAssemblyParams primParams;
+
+				inline bool operator==(const SPipelineCacheKey& rhs) const
+				{
+					return memcmp(&vtxParams, &rhs.vtxParams, sizeof(vtxParams))==0 && memcmp(&primParams, &rhs.primParams, sizeof(primParams))==0;
+				}
+
+				struct hash
+				{
+					inline size_t operator()(const SPipelineCacheKey& k) const
+					{
+						constexpr size_t BYTESZ = sizeof(k.vtxParams) + sizeof(k.primParams);
+						uint8_t mem[BYTESZ]{};
+						uint8_t* ptr = mem;
+						memcpy(ptr, &k.vtxParams, sizeof(k.vtxParams));
+						ptr += sizeof(k.vtxParams);
+						memcpy(ptr, &k.primParams, sizeof(k.primParams));
+						ptr += sizeof(k.primParams);
+
+						return std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(mem), BYTESZ));
+					}
+				};
+			};
+			core::unordered_map<SPipelineCacheKey, core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>, SPipelineCacheKey::hash> pipelineCache;
 		};
 
 		//! Destructor
@@ -346,9 +375,6 @@ class CMitsubaLoader : public asset::IAssetLoader
 		SContext::shape_ass_type	getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
 		SContext::group_ass_type	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup);
 		SContext::shape_ass_type	loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
-
-		//TODO this function will most likely be deleted, basically only instr buf offset/count pair is needed, pipelines wont change that much
-		SContext::bsdf_ass_type		getBSDF(SContext& ctx, uint32_t hierarchyLevel, const CElementBSDF* bsdf);
 		
 		SContext::tex_ass_type		getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture);
 

@@ -15,11 +15,20 @@ namespace MitsubaLoader
 
 class CMitsubaPipelineMetadata final : public asset::IPipelineMetadata
 {
+public:
     CMitsubaPipelineMetadata(core::smart_refctd_ptr<asset::ICPUDescriptorSet>&& _ds0, core::smart_refctd_dynamic_array<ShaderInputSemantic>&& _inputs) :
         m_ds0(std::move(_ds0)),
         m_shaderInputs(std::move(_inputs))
     {
     }
+
+    core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const override
+    {
+        return {m_shaderInputs->begin(), m_shaderInputs->end()};
+    }
+
+    _IRR_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CMitsubaLoader";
+    const char* getLoaderName() const override { return LoaderName; }
 
 private:
     core::smart_refctd_ptr<asset::ICPUDescriptorSet> m_ds0;

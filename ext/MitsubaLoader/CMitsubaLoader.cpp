@@ -137,8 +137,7 @@ private:
 		//registers waiting to be used as source
 		core::stack<uint32_t> srcRegs;
 
-		int32_t bmStreamEndCounter = -1;
-		auto isInBMStream = [bmStreamEndCounter] { return bmStreamEndCounter>=0; };
+		int32_t bmStreamEndCounter = 0;
 		auto pushResultRegister = [&bmStreamEndCounter,&bmRegs,&srcRegs] (uint32_t _resultReg)
 		{
 			core::stack<uint32_t>& stack = bmStreamEndCounter==0 ? bmRegs : srcRegs;
@@ -509,6 +508,38 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 	return retval;
 }
 
+_IRR_STATIC_INLINE_CONSTEXPR const char* DUMMY_VERTEX_SHADER =
+R"(#version 430 core
+
+layout (location = 0) in vec3 Position;
+
+#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
+
+#ifndef _IRR_VERT_SET1_BINDINGS_DEFINED_
+#define _IRR_VERT_SET1_BINDINGS_DEFINED_
+#define MAX_INSTANCES 512
+layout (set = 1, binding = 0, row_major, std140) uniform UBO {
+    mat4 mvp[MAX_INSTANCES];
+} CamData;
+#endif //_IRR_VERT_SET1_BINDINGS_DEFINED_
+
+void main()
+{
+	gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.mvp[gl_InstanceID]), Position);
+}
+
+)";
+_IRR_STATIC_INLINE_CONSTEXPR const char* DUMMY_FRAGMENT_SHADER =
+R"(#version 430 core
+
+layout (location = 0) out vec4 Color;
+
+void main()
+{
+	Color = vec4(1.0,0.0,0.0,1.0);
+}
+)";
+
 _IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER =
 R"(#version 430 core
 
@@ -744,9 +775,16 @@ vec3 textureOrRGB19E7(in uvec2 data, in uint texPresenceFlag, in mat2 dUV)
 #include <irr/builtin/glsl/bump_mapping/height_mapping.glsl>
 
 
-reg_t geomNormal;
-reg_t currentNormal;
+irr_glsl_BSDFAnisotropicParams currParams;
 reg_t registers[REG_COUNT];
+
+void setCurrParams(in vec3 n)
+{
+	irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(vec3(0.0), ViewPos, n);
+	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(interaction, -ViewPos);
+	//TODO: T,B tangents
+	currParams = irr_glsl_calcBSDFAnisotropicParams(isoparams, T, B);
+}
 
 void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params, in mat2 dUV)
 {
@@ -815,11 +853,13 @@ void instr_execute_WARD(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotr
 void instr_execute_BUMPMAP(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params)
 {
 	//TODO dHdScreen, need for sample from bumpmap and dFdx,dFdy but cannot do it here, need some trick for it (like keep VT tex data of bumpmaps in push consts)
-	currentNormal.xyz = irr_glsl_perturbNormal_heightMap(params.isotropic.interaction.N, params.isotropic.interaction.V.dPosdScreen, dHdScreen);
+	vec3 n = irr_glsl_perturbNormal_heightMap(params.isotropic.interaction.N, params.isotropic.interaction.V.dPosdScreen, dHdScreen);
+	setCurrParams(n);
 }
+//executed at most once
 void instr_execute_SET_GEOM_NORMAL()
 {
-	currentNormal = geomNormal;
+	setCurrParams(normalize(Normal));
 }
 void instr_execute_BLEND(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params, in mat2 dUV)
 {
@@ -926,7 +966,6 @@ void instr_execute(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicP
 
 void main()
 {
-	geomNormal = normalize(Normal);
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
 	//all lighting computations are done in view space
@@ -1025,11 +1064,24 @@ static core::smart_refctd_ptr<asset::ICPUPipelineLayout> createAndCachePipelineL
 }
 static core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline> createAndCachePipeline(asset::IAssetManager* _manager, core::smart_refctd_ptr<asset::ICPUPipelineLayout>&& _layout)
 {
+	auto createSpecShader = [](const char* _glsl, asset::ISpecializedShader::E_SHADER_STAGE _stage)
+	{
+		auto shader = core::make_smart_refctd_ptr<asset::ICPUShader>(_glsl);
+		asset::ICPUSpecializedShader::SInfo info(nullptr, nullptr, "main", _stage);
+		auto specd = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(shader), std::move(info));
+
+		return specd;
+	};
+
+	auto vs = createSpecShader(DUMMY_VERTEX_SHADER, asset::ISpecializedShader::ESS_VERTEX);
+	auto fs = createSpecShader(DUMMY_FRAGMENT_SHADER, asset::ISpecializedShader::ESS_FRAGMENT);
+	asset::ICPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
+
 	SRasterizationParams rasterParams;
 	rasterParams.faceCullingMode = asset::EFCM_NONE;
 	auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
 		std::move(_layout),
-		nullptr, nullptr, //TODO shaders (will be same for all)
+		shaders, shaders+2,
 		//all the params will be overriden with those loaded with meshes
 		SVertexInputParams(),
 		SBlendParams(),
@@ -1047,16 +1099,6 @@ CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager) : asset::IAssetLo
 #ifdef _IRR_DEBUG
 	setDebugName("CMitsubaLoader");
 #endif
-}
-
-static core::smart_refctd_ptr<ICPUDescriptorSet> makeDSForMeshbuffer()
-{
-	auto pplnlayout = getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, nullptr/*TODO*/);
-	auto ds3layout = pplnlayout->getDescriptorSetLayout(3u);
-
-	auto ds3 = core::make_smart_refctd_ptr<ICPUDescriptorSet>(std::move(ds3layout));
-	auto d = ds3->getDescriptors(0u).begin();
-	d->desc = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(SBasicViewParameters));
 }
 
 bool CMitsubaLoader::isALoadableFileFormat(io::IReadFile* _file) const
@@ -1241,9 +1283,17 @@ CMitsubaLoader::SContext::group_ass_type CMitsubaLoader::loadShapeGroup(SContext
 	return mesh;
 }
 
-//TODO : vtx input and assembly params are now ignored (mb is created without pipeline), later they need to be somehow forwarded and set on already created pipeline
 static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeometryCreator::return_type&& _data, asset::IAssetManager* _manager)
 {
+	//creating pipeline just to forward vtx and primitive params
+	auto pipeline = core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(
+		nullptr, nullptr, nullptr, //no layout nor shaders
+		_data.inputParams, 
+		asset::SBlendParams(),
+		_data.assemblyParams,
+		asset::SRasterizationParams()
+		);
+
 	auto mb = core::make_smart_refctd_ptr<ICPUMeshBuffer>(
 		nullptr, nullptr,
 		_data.bindings, std::move(_data.indexBuffer)
@@ -1251,6 +1301,7 @@ static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeo
 	mb->setIndexCount(_data.indexCount);
 	mb->setIndexType(_data.indexType);
 	mb->setBoundingBox(_data.bbox);
+	mb->setPipeline(std::move(pipeline));
 
 	auto mesh = core::make_smart_refctd_ptr<CCPUMesh>();
 	mesh->addMeshBuffer(std::move(mb));
@@ -1260,6 +1311,8 @@ static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeo
 
 CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape)
 {
+	constexpr uint32_t UV_ATTRIB_ID = 2U;
+
 	auto found = ctx.shapeCache.find(shape);
 	if (found != ctx.shapeCache.end())
 		return found->second;
@@ -1391,10 +1444,10 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 				{
 					auto meshbuffer = mesh->getMeshBuffer(i);
 					core::vectorSIMDf uv;
-					for (uint32_t i=0u; meshbuffer->getAttribute(uv, 2u, i); i++)
+					for (uint32_t i=0u; meshbuffer->getAttribute(uv, UV_ATTRIB_ID, i); i++)
 					{
 						uv.y = -uv.y;
-						meshbuffer->setAttribute(uv, 2u, i);
+						meshbuffer->setAttribute(uv, UV_ATTRIB_ID, i);
 					}
 				}
 			}
@@ -1403,11 +1456,11 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 		case CElementShape::Type::PLY:
 			_IRR_DEBUG_BREAK_IF(true); // this code has never been tested
 			mesh = loadModel(shape->ply.filename);
-			mesh = mesh->clone(~0u);//clone everything
+			mesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(~0u));//clone everything
 			flipNormals = flipNormals!=shape->ply.flipNormals;
 			faceNormals = shape->ply.faceNormals;
 			maxSmoothAngle = shape->ply.maxSmoothAngle;
-			if (mesh && shape->ply.srgb)//TODO this probably shouldnt modify original mesh (the one cached in asset cache)
+			if (mesh && shape->ply.srgb)
 			{
 				uint32_t totalVertexCount = 0u;
 				for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
@@ -1519,18 +1572,26 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 		// add some metadata
 		///auto meshbuffermeta = core::make_smart_refctd_ptr<IMeshBufferMetadata>(shapedef->type,shapedef->emitter ? shapedef->emitter.area:CElementEmitter::Area());
 		///manager->setAssetMetadata(meshbuffer,std::move(meshbuffermeta));
-		// TODO: change this with shader pipeline
-		//meshbuffer->getMaterial() = getBSDF(ctx, hierarchyLevel + asset::ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW, shape->bsdf);
 		auto* prevPipeline = meshbuffer->getPipeline();
 		//TODO do something to not always create new pipeline
-		auto pipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(//shallow copy because we're going to override parameter structs
-			builtinPipeline->clone(0u)
-		);
-		pipeline->getVertexInputParams() = prevPipeline->getVertexInputParams();
-		pipeline->getPrimitiveAssemblyParams() = prevPipeline->getPrimitiveAssemblyParams();
-		//TODO blend and raster probably shouldnt be copied
-		//pipeline->getBlendParams() = prevPipeline->getBlendParams();
-		//pipeline->getRasterizationParams() = prevPipeline->getRasterizationParams();
+		SContext::SPipelineCacheKey cacheKey;
+		cacheKey.vtxParams = prevPipeline->getVertexInputParams();
+		cacheKey.primParams = prevPipeline->getPrimitiveAssemblyParams();
+		auto found = ctx.pipelineCache.find(cacheKey);
+		core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline> pipeline;
+		if (found != ctx.pipelineCache.end())
+		{
+			pipeline = found->second;
+		}
+		else
+		{
+			pipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(//shallow copy because we're going to override parameter structs
+				builtinPipeline->clone(0u)
+				);
+			pipeline->getVertexInputParams() = cacheKey.vtxParams;
+			pipeline->getPrimitiveAssemblyParams() = cacheKey.primParams;
+			ctx.pipelineCache.insert({cacheKey, pipeline});
+		}
 
 		meshbuffer->setPipeline(std::move(pipeline));
 	}
@@ -1538,123 +1599,6 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 	// cache and return
 	ctx.shapeCache.insert({ shape,mesh });
 	return mesh;
-}
-
-//! TODO: change to CPU graphics pipeline
-//TODO this function will most likely be deleted, basically only instr buf offset/count pair is needed, pipelines wont change that much
-CMitsubaLoader::SContext::bsdf_ass_type CMitsubaLoader::getBSDF(SContext& ctx, uint32_t hierarchyLevel, const CElementBSDF* bsdf)
-{
-	if (!bsdf)
-		return nullptr; 
-
-	auto found = ctx.pipelineCache.find(bsdf);
-	if (found != ctx.pipelineCache.end())
-		return found->second;
-
-	const std::pair<uint32_t,uint32_t> instrBufOffsetAndCount = genBSDFtreeTraversal(ctx, bsdf);
-	auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
-		getBuiltinAsset<ICPUPipelineLayout,IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager),//layout
-		nullptr, nullptr,//TODO shaders
-		SVertexInputParams(),
-		SBlendParams(),
-		SPrimitiveAssemblyParams(),
-		SRasterizationParams()
-	);
-
-	// shader construction would take place here in the new pipeline
-	SContext::bsdf_ass_type pipeline;
-	NastyTemporaryBitfield nasty = { 0u };
-	auto getColor = [](const SPropertyElementData& data) -> core::vectorSIMDf
-	{
-		switch (data.type)
-		{
-			case SPropertyElementData::Type::FLOAT:
-				return core::vectorSIMDf(data.fvalue);
-			case SPropertyElementData::Type::RGB:
-				_IRR_FALLTHROUGH;
-			case SPropertyElementData::Type::SRGB:
-				return data.vvalue;
-				break;
-			case SPropertyElementData::Type::SPECTRUM:
-				return data.vvalue;
-				break;
-			default:
-				assert(false);
-				break;
-		}
-		return core::vectorSIMDf();
-	};
-	constexpr uint32_t IMAGEVIEW_HIERARCHYLEVEL_BELOW = 1u; // below ICPUMesh, will move it there eventually with shader pipeline and become 2
-	auto setTextureOrColorFrom = [&](const CElementTexture::SpectrumOrTexture& spctex) -> void
-	{
-		if (spctex.value.type!=SPropertyElementData::INVALID)
-		{
-			_mm_storeu_ps((float*)&pipeline.AmbientColor, getColor(spctex.value).getAsRegister());
-		}
-		else
-		{
-			pipeline.TextureLayer[0] = getTexture(ctx,hierarchyLevel+IMAGEVIEW_HIERARCHYLEVEL_BELOW,spctex.texture);
-			nasty._bitfield |= MITS_USE_TEXTURE;
-		}
-	};
-	// @criss you know that I'm doing absolutely nothing worth keeping around (not caring about BSDF actually)
-	switch (bsdf->type)
-	{
-		case CElementBSDF::Type::DIFFUSE:
-		case CElementBSDF::Type::ROUGHDIFFUSE:
-			setTextureOrColorFrom(bsdf->diffuse.reflectance);
-			break;
-		case CElementBSDF::Type::DIELECTRIC:
-		case CElementBSDF::Type::THINDIELECTRIC: // basically glass with no refraction
-		case CElementBSDF::Type::ROUGHDIELECTRIC:
-			{
-				core::vectorSIMDf color(bsdf->dielectric.extIOR/bsdf->dielectric.intIOR);
-				_mm_storeu_ps((float*)& pipeline.AmbientColor, color.getAsRegister());
-			}
-			break;
-		case CElementBSDF::Type::CONDUCTOR:
-		case CElementBSDF::Type::ROUGHCONDUCTOR:
-			{
-				auto color = core::vectorSIMDf(1.f)-getColor(bsdf->conductor.k);
-				_mm_storeu_ps((float*)& pipeline.AmbientColor, color.getAsRegister());
-			}
-			break;
-		case CElementBSDF::Type::PLASTIC:
-		case CElementBSDF::Type::ROUGHPLASTIC:
-			setTextureOrColorFrom(bsdf->plastic.diffuseReflectance);
-			break;
-		case CElementBSDF::Type::BUMPMAP:
-			{
-				pipeline = getBSDF(ctx,hierarchyLevel,bsdf->bumpmap.bsdf[0]);
-				pipeline.TextureLayer[1] = getTexture(ctx,hierarchyLevel+IMAGEVIEW_HIERARCHYLEVEL_BELOW,bsdf->bumpmap.texture);
-				nasty._bitfield |= MITS_BUMPMAP|reinterpret_cast<uint32_t&>(pipeline.MaterialTypeParam);				
-			}
-			break;
-		case CElementBSDF::Type::TWO_SIDED:
-			{
-				pipeline = getBSDF(ctx,hierarchyLevel,bsdf->twosided.bsdf[0]);
-				nasty._bitfield |= MITS_TWO_SIDED|reinterpret_cast<uint32_t&>(pipeline.MaterialTypeParam);				
-			}
-			break;
-		case CElementBSDF::Type::MASK:
-			{
-				pipeline = getBSDF(ctx,hierarchyLevel,bsdf->mask.bsdf[0]);
-				//bsdf->mask.opacity // ran out of space in SMaterial (can be texture or constant)
-				nasty._bitfield |= /*MITS_MASK|*/reinterpret_cast<uint32_t&>(pipeline.MaterialTypeParam);				
-			}
-			break;
-		case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
-			setTextureOrColorFrom(bsdf->difftrans.transmittance);
-			break;
-		default:
-			_IRR_DEBUG_BREAK_IF(true); // TODO: more BSDF untangling!
-			break;
-	}
-	reinterpret_cast<uint32_t&>(pipeline.MaterialTypeParam) = nasty._bitfield;
-	pipeline.BackfaceCulling = false;
-
-	ctx.pipelineCache.insert({bsdf,pipeline});
-	return pipeline;
 }
 
 CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* tex)
@@ -2067,9 +2011,9 @@ std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx
 core::smart_refctd_ptr<ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx)
 {
 	auto pplnLayout = getBuiltinAsset<ICPUPipelineLayout,IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager);
-	auto ds0layout = pplnLayout->getDescriptorSetLayout(0u);
+	auto* ds0layout = pplnLayout->getDescriptorSetLayout(0u);
 
-	auto ds0 = core::make_smart_refctd_ptr<ICPUDescriptorSet>(std::move(ds0layout));
+	auto ds0 = core::make_smart_refctd_ptr<ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(ds0layout));
 	{
 		auto count = _ctx.VT->getDescriptorSetWrites(nullptr, nullptr, nullptr);
 
