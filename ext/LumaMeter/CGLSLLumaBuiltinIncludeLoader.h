@@ -13,7 +13,9 @@ namespace LumaMeter
 class CGLSLLumaBuiltinIncludeLoader : public irr::asset::IBuiltinIncludeLoader
 {
     public:
-        static SRange<IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver);
+        static core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges();
+
+        static SRange<const IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver);
 
         const char* getVirtualDirectoryName() const override { return "glsl/ext/LumaMeter/"; }
 
@@ -239,6 +241,11 @@ float irr_glsl_ext_LumaMeter_getOptiXIntensity(in float measuredLumaLog2)
 #define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_ 1
 #endif
 
+#ifndef _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
+layout(set=_IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_BINDING_DEFINED_) sampler2DArray inputImage;
+#endif
+
 
 #ifndef _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_
 #define _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_ 0
@@ -247,6 +254,7 @@ float irr_glsl_ext_LumaMeter_getOptiXIntensity(in float measuredLumaLog2)
 #ifndef _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_BINDING_DEFINED_
 #define _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_BINDING_DEFINED_ 2
 #endif
+
 #endif
 )";
         }

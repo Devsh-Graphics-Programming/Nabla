@@ -7,7 +7,18 @@ using namespace irr::video;
 using namespace ext::LumaMeter;
 
 
-SRange<IGPUDescriptorSetLayout::SBinding> getDefaultBindings(IVideoDriver* driver)
+core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges()
+{
+	static const asset::SPushConstantRange range =
+	{
+		ISpecializedShader::ESS_COMPUTE,
+		0u,
+		sizeof(uint32_t)
+	};
+	return {&range,&range+1};
+}
+
+core::SRange<const IGPUDescriptorSetLayout::SBinding> getDefaultBindings(IVideoDriver* driver)
 {
 	static core::smart_refctd_ptr<IGPUSampler> sampler();
 	static const IGPUDescriptorSetLayout::SBinding bnd[] =
@@ -53,5 +64,5 @@ SRange<IGPUDescriptorSetLayout::SBinding> getDefaultBindings(IVideoDriver* drive
 		};
 		driver->createGPUSampler(params);
 	}
-	return SRange<IGPUDescriptorSetLayout::SBinding>(bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding));
+	return {bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
 }

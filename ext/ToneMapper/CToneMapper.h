@@ -2,6 +2,7 @@
 #define _IRR_EXT_TONE_MAPPER_C_TONE_MAPPER_INCLUDED_
 
 #include "irrlicht.h"
+#include "../ext/LumaMeter/CLumaMeter.h"
 #include "../ext/ToneMapper/CGLSLToneMappingBuiltinIncludeLoader.h"
 
 namespace irr
@@ -22,7 +23,18 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			EO_COUNT,
 		};
 		//
-		struct alignas(8) ReinhardParams_t
+		struct ParamsBase
+		{
+			inline void setAdaptationFactorFromFrameDelta(float frameDeltaSeconds, float adaptationPerSecondLog2=-1.f)
+			{
+				exposureAdaptationFactor = core::exp2(adaptationPerSecondLog2*frameDeltaSeconds);
+			}
+
+			// target+(current-target)*exp(-k*t) == mix(target,current,factor)
+			float exposureAdaptationFactor = 0.f;
+			float lastFrameExtraEV = 0.f;
+		};
+		struct alignas(16) ReinhardParams_t : ParamsBase
 		{
 			static inline ReinhardParams_t fromExposure(float EV, float key=0.18f, float WhitePointRelToEV=16.f)
 			{
@@ -44,9 +56,14 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			float rcpWhite2; // the white is relative to post-exposed luma
 		};
 		//
-		struct alignas(8) ACESParams_t
+		struct alignas(16) ACESParams_t : ParamsBase
 		{
 			ACESParams_t(float EV, float key=0.18f, float Contrast=1.f) : preGamma(Contrast)
+			{
+				setExposure(EV,key);
+			}
+
+			inline void setExposure(float EV, float key=0.18f)
 			{
 				exposure = exp2(EV)-log2(key)*(preGamma-1.f);
 			}
@@ -55,40 +72,133 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		private:
 			float exposure; // actualExposure-midGrayLog2*(preGamma-1.0)
 		};
-#if 0
+
 		//
-        static core::smart_refctd_ptr<CToneMapper> create(video::IVideoDriver* _driver, asset::E_FORMAT inputFormat, const asset::IGLSLCompiler* compiler);
+		static void registerBuiltinGLSLIncludes(asset::IGLSLCompiler* compilerToAddBuiltinIncludeTo);
 
-		bool tonemap(video::IGPUImageView* inputThatsInTheSet, video::IGPUDescriptorSet* set, uint32_t parameterUBOOffset)
+		//
+		static inline core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges(bool usingLumaMeter=false)
 		{
-			const auto& params = inputThatsInTheSet->getCreationParameters();
-			if (params.format != viewFormat)
-				return false;
-			if (params.image->getCreationParameters().format != format)
-				return false;
-
-			auto offsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t> >(1u);
-			offsets->operator[](0u) = parameterUBOOffset;
-
-			m_driver->bindComputePipeline(computePipeline.get());
-			m_driver->bindDescriptorSets(video::EPBP_COMPUTE, pipelineLayout.get(), 3, 1, const_cast<const video::IGPUDescriptorSet**>(&set), &offsets);
-
-			auto imgViewSize = params.image->getMipSize(params.subresourceRange.baseMipLevel);
-			imgViewSize /= DISPATCH_SIZE;
-			m_driver->dispatch(imgViewSize.x, imgViewSize.y, 1u);
-			return true;
+			if (usingLumaMeter)
+				return CGLSLLumaBuiltinIncludeLoader::getDefaultPushConstantRanges();
+			else
+				return {nullptr,nullptr};
 		}
-    private:
-        CToneMapper(video::IVideoDriver* _driver, asset::E_FORMAT inputFormat,
-					core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>&& _dsLayout,
-					core::smart_refctd_ptr<video::IGPUPipelineLayout>&& _pipelineLayout,
-					core::smart_refctd_ptr<video::IGPUComputePipeline>&& _computePipeline);
-        ~CToneMapper() = default;
 
-        video::IVideoDriver* m_driver;
-		asset::E_FORMAT format;
-		asset::E_FORMAT viewFormat;
-#endif
+		//
+		static core::SRange<const IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver, bool usingLumaMeter=false);
+
+		//
+		static core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultPipelineLayout(video::IVideoDriver* driver, bool usingLumaMeter=false)
+		{
+			auto pcRange = getDefaultPushConstantRanges(usingLumaMeter);
+			auto bindings = getDefaultBindings(driver,usingLumaMeter);
+			return driver->createGPUPipelineLayout(
+				pcRange.begin(),pcRange.end(),
+				driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
+			);
+		}
+		
+		//
+		static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createShader(
+			asset::IGLSLCompiler* compilerToAddBuiltinIncludeTo,
+			const std::tuple<asset::E_FORMAT,asset::E_COLOR_PRIMARIES,asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION>& inputColorSpace,
+			const std::tuple<asset::E_FORMAT,asset::E_COLOR_PRIMARIES,asset::OPTICO_ELECTRICAL_TRANSFER_FUNCTION>& outputColorSpace,
+			E_OPERATOR _operator, bool usingLumaMeter=false, LumaMeter::CLumaMeter::E_METERING_MODE meterMode=LumaMeter::CLumaMeter::EMM_UKNONWN
+		);
+
+		//
+		static inline core::smart_refctd_ptr<video::IGPUImageView> createViewForImage(
+			video::IVideoDriver* driver, bool usedAsInput,
+			core::smart_refctd_ptr<video::IGPUImage>&& image,
+			const asset::IImage::SSubresourceRange& subresource
+		)
+		{
+			if (!driver || !image)
+				return nullptr;
+
+			auto nativeFormat = image->getCreationParams().format;
+
+			video::IGPUImageView::SCreationParams params;
+			params.flags = static_cast<video::IGPUImageView::E_CREATE_FLAGS>(0u);
+			params.image = std::move(image);
+			params.type = video::IGPUImageView::ET_2D_ARRAY;
+			params.format = usedAsInput ? getInputViewFormat(nativeFormat):getOutputViewFormat(nativeFormat);
+			params.components = {};
+			params.subresourceRange = subresource;
+			return driver->createGPUImageView(std::move(params));
+		}
+
+		// we expect user binds correct pipeline, descriptor sets and pushes the push constants by themselves
+		static inline void dispatchHelper(video::IVideoDriver* driver, const vide::IGPUImageView* outputView, bool issueDefaultBarrier=true)
+		{
+			const auto& params = inputView->getCreationParameters();
+			auto imgViewSize = params.image->getMipSize(params.subresourceRange.baseMipLevel);
+			imgViewSize.w = params.subresourceRange.layerCount;
+			
+			const core::vectorSIMDu32 workgroupSize(CGLSLLumaBuiltinIncludeLoader::DISPATCH_SIZE,CGLSLLumaBuiltinIncludeLoader::DISPATCH_SIZE,1,1);
+			auto groups = (imgViewSize+workgroupSize-core::vectorSIMDu32(1,1,1,1))/workgroupSize;
+			driver->dispatch(groups.x, groups.y, groups.w);
+
+			if (issueDefaultBarrier)
+				defaultBarrier();
+		}
+
+    private:
+		static inline asset::E_FORMAT getInputViewFormat(asset::E_FORMAT imageFormat)
+		{
+			// before adding any more formats to the support list consult the `createShader` function
+			switch (imageFormat)
+			{
+				case asset::EF_B10G11R11_UFLOAT_PACK32:
+				case asset::EF_E5B9G9R9_UFLOAT_PACK32:
+					return asset::EF_R32_UINT;
+					break;
+				case asset::EF_R16G16B16A16_SFLOAT:
+					return asset::EF_R32G32_UINT;
+					break;
+				case asset::EF_R32G32B32A32_SFLOAT:
+				case asset::EF_R64G64B64A64_SFLOAT:
+				case asset::EF_BC6H_SFLOAT_BLOCK:
+				case asset::EF_BC6H_UFLOAT_BLOCK:
+					return imageFormat;
+					break;
+				default:
+					break;
+			}
+			// the input format has to be HDR for ths to make sense!
+			_IRR_DEBUG_BREAK_IF(true);
+			return asset::EF_UNKNOWN;
+		}
+		static inline asset::E_FORMAT getOutputViewFormat(asset::E_FORMAT imageFormat)
+		{
+			// before adding any more formats to the support list consult the `createShader` function
+			if (asset::isBlockCompressionFormat(imageFormat))
+			{
+				// you don't know what you're doing, do you?
+				_IRR_DEBUG_BREAK_IF(true);
+				return asset::EF_UNKNOWN;
+			}
+			switch (imageFormat)
+			{
+				case asset::EF_R8G8B8A8_UNORM:
+				case asset::EF_R8G8B8A8_SRGB:
+				case asset::EF_A2B10G10R10_UNORM_PACK32:
+					return asset::EF_R32_UINT;
+					break;
+				case asset::EF_R16G16B16A16_UNORM:
+				case asset::EF_R16G16B16A16_SFLOAT:
+					return asset::EF_R32G32_UINT;
+					break;
+				default:
+					break;
+			}
+			// other formats not supported yet
+			_IRR_DEBUG_BREAK_IF(true);
+			return asset::EF_UNKNOWN;
+		}
+
+		static void defaultBarrier();
 };
 
 }

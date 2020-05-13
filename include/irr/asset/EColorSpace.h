@@ -46,6 +46,8 @@ namespace irr
             EOTF_SMPTE_ST2084,
             EOTF_HDR10_HLG,
             EOTF_GAMMA_2_2,
+            EOTF_ACEScc,
+            EOTF_ACEScct,
 
             EOTF_UNKNOWN
         };
@@ -60,6 +62,8 @@ namespace irr
             OETF_SMPTE_ST2084,
             OETF_HDR10_HLG,
             OETF_GAMMA_2_2,
+            OETF_ACEScc,
+            OETF_ACEScct,
 
             OETF_UNKNOWN
         };

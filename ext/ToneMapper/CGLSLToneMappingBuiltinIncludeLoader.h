@@ -25,12 +25,16 @@ R"(#ifndef _IRR_GLSL_EXT_TONE_MAPPER_OPERATORS_INCLUDED_
 
 struct irr_glsl_ext_ToneMapper_ReinhardParams_t
 {
+	float exposureAdaptationFactor;
+	float lastFrameExtraEV;
 	float keyAndManualLinearExposure;
 	float rcpWhite2;
 };
 
 struct irr_glsl_ext_ToneMapper_ACESParams_t
 {
+	float exposureAdaptationFactor;
+	float lastFrameExtraEV;
 	float preGamma; // 1.0
 	float exposure; // actualExposure-midGrayLog2*(preGamma-1.0)
 };
@@ -43,9 +47,9 @@ struct irr_glsl_ext_ToneMapper_ACESParams_t
 	#define irr_glsl_ext_ToneMapper_Params_t irr_glsl_ext_ToneMapper_ReinhardParams_t
 	#endif
 
-	vec3 irr_glsl_ext_ToneMapper_operator(in irr_glsl_ext_ToneMapper_Params_t params, in vec3 autoexposedXYZColor, in float extraNegEV)
+	vec3 irr_glsl_ext_ToneMapper_operator(in irr_glsl_ext_ToneMapper_Params_t params, in vec3 rawCIEXYZcolor, in float extraNegEV)
 	{
-		vec3 tonemapped = autoexposedXYZColor;
+		vec3 tonemapped = rawCIEXYZcolor;
 		tonemapped.y *= params.keyAndManualLinearExposure*exp2(-extraNegEV);
 		tonemapped.y *= (1.0+tonemapped.y*params.rcpWhite2)/(1.0+tonemapped.y);
 		return tonemapped;
@@ -55,9 +59,9 @@ struct irr_glsl_ext_ToneMapper_ACESParams_t
 	#define irr_glsl_ext_ToneMapper_Params_t irr_glsl_ext_ToneMapper_ACESParams_t
 	#endif
 
-	vec3 irr_glsl_ext_ToneMapper_operator(in irr_glsl_ext_ToneMapper_Params_t params, inout vec3 autoexposedXYZColor, in float extraNegEV)
+	vec3 irr_glsl_ext_ToneMapper_operator(in irr_glsl_ext_ToneMapper_Params_t params, inout vec3 rawCIEXYZcolor, in float extraNegEV)
 	{
-		vec3 tonemapped = autoexposedXYZColor;
+		vec3 tonemapped = rawCIEXYZcolor;
 		tonemapped.y = exp2(log2(tonemapped.y)*params.preGamma+params.exposure-extraNegEV);
 
 		// XYZ => RRT_SAT

@@ -47,14 +47,42 @@ class CLumaMeter : public core::TotalInterface
 		//
 		static std::pair<Uniforms_t,PassInfo_t<EMM_GEOM_MEAN> > buildParameters(const asset::VkExtent3D& imageSize,
 																				const float meteringMinUV[2], const float meteringMaxUV[2],
-																				float samplingFactor=2.f);
+																				float samplingFactor=2.f)
+		{
+			auto uniforms = commonBuildParameters(imageSize,meteringMinUV,samplingFactor);
+
+			auto groups = getWorkGroupCounts(uniforms, meteringMaxUV, core::vectorSIMDu32(imageSize.width, imageSize.height));
+
+			PassInfo_t<EMM_GEOM_MEAN> info;
+			info.rcpFirstPassWGCount = groups.x * groups.y;
+			return { uniforms,info };
+		}
 		// previous implementation had percentiles 0.72 and 0.96
 		static std::pair<Uniforms_t,PassInfo_t<EMM_MODE> >		buildParameters(const asset::VkExtent3D& imageSize,
-																				const float meteringMinUV[2], float samplingFactor=2.f,
-																				float lowerPercentile=0.45f, float upperPercentile=0.55f);
+																				const float meteringMinUV[2], const float meteringMaxUV[2], 
+																				float samplingFactor=2.f,
+																				float lowerPercentile=0.45f, float upperPercentile=0.55f)
+		{
+			PassInfo_t<EMM_MODE> info;
+			info.lowerPercentile = lowerPercentile*float(totalSampleCount);
+			info.upperPercentile = upperPercentile*float(totalSampleCount);
+			return {commonBuildParameters(imageSize,meteringMinUV,samplingFactor),info};
+		}
 
 		//
 		static void registerBuiltinGLSLIncludes(asset::IGLSLCompiler* compilerToAddBuiltinIncludeTo);
+
+		//
+		static inline core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges()
+		{
+			return CGLSLLumaBuiltinIncludeLoader::getDefaultPushConstantRanges();
+		}
+
+		//
+		static inline core::SRange<const IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver)
+		{
+			return CGLSLLumaBuiltinIncludeLoader::getDefaultBindings(driver);
+		}
 
 		// Special Note for Optix: minLuma>=0.00000001 and std::get<E_COLOR_PRIMARIES>(inputColorSpace)==ECP_SRGB
 		static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createShader(
@@ -63,13 +91,7 @@ class CLumaMeter : public core::TotalInterface
 			E_METERING_MODE meterMode, float minLuma=1.f/2048.f, float maxLuma=65536.f
 		);
 
-		//
-		static core::SRange<IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver)
-		{
-			return CGLSLLumaBuiltinIncludeLoader::getDefaultBindings(driver);
-		}
-
-		//
+		// we expect user binds correct pipeline, descriptor sets and pushes the push constants by themselves
 		static inline void dispatchHelper(	video::IVideoDriver* driver, const Uniforms_t& uniformData,
 											const video::IGPUImageView* inputView, const float meteringMaxUV[2],
 											bool issueDefaultBarrier=true)
@@ -112,29 +134,6 @@ class CLumaMeter : public core::TotalInterface
 		static void defaultBarrier();
 };
 
-inline std::pair<CLumaMeter::Uniforms_t,CLumaMeter::PassInfo_t<CLumaMeter::EMM_GEOM_MEAN> > CLumaMeter::buildParameters(
-	const asset::VkExtent3D& imageSize, const float meteringMinUV[2], const float meteringMaxUV[2], float samplingFactor
-)
-{
-	auto uniforms = commonBuildParameters(imageSize,meteringMinUV,samplingFactor);
-
-	auto groups = getWorkGroupCounts(uniforms,meteringMaxUV,core::vectorSIMDu32(imageSize.width,imageSize.height));
-
-	PassInfo_t<EMM_GEOM_MEAN> info;
-	info.rcpFirstPassWGCount = groups.x*groups.y;
-	return {uniforms,info};
-}
-
-inline std::pair<CLumaMeter::Uniforms_t,CLumaMeter::PassInfo_t<CLumaMeter::EMM_MODE> >	CLumaMeter::buildParameters(
-	const asset::VkExtent3D& imageSize, const float meteringMinUV[2], float samplingFactor,
-	float lowerPercentile, float upperPercentile
-)
-{
-	PassInfo_t<EMM_MODE> info;
-	info.lowerPercentile = lowerPercentile*float(totalSampleCount);
-	info.upperPercentile = upperPercentile*float(totalSampleCount);
-	return {commonBuildParameters(imageSize,meteringMinUV,samplingFactor),info};
-}
 
 }
 }

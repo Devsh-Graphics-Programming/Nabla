@@ -101,12 +101,6 @@ layout(set=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_, binding=_IRR_GLSL_EXT_L
 #endif
 
 
-#ifndef _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
-layout(set=_IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_BINDING_DEFINED_) sampler2DArray inputImage;
-#endif
-
-
 #ifndef _IRR_GLSL_EXT_LUMA_METER_GET_COLOR_DEFINED_
 #define _IRR_GLSL_EXT_LUMA_METER_GET_COLOR_DEFINED_
 vec3 irr_glsl_ext_LumaMeter_getColor()
@@ -219,14 +213,15 @@ void main()
 		"irr_glsl_AdobeRGBtoXYZ",
 		"irr_glsl_ACES2065_1toXYZ",
 		"irr_glsl_ACEScctoXYZ",
-		"#error UNDEFINED_COLOR_PRIMARIES"
+		"#error \"UNDEFINED_COLOR_PRIMARIES\""
 	};
 	const char* xyzMatrix = xyzMatrices[colorPrimaries];
 
-	constexpr size_t dispatchSizeChars = 4ull;
+	constexpr size_t lumaChars = 10ull*2ull;
+	constexpr size_t meterModeChars = 1ull;
 	const size_t eotfChars = strlen(eotf);
 	const size_t xyzMatrixChars = strlen(xyzMatrix);
-	const size_t extraSize = dispatchSizeChars+eotfChars+xyzMatrixChars;
+	const size_t extraSize = lumaChars+meterModeChars+eotfChars+xyzMatrixChars;
 
 	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
 	std::snprintf(
