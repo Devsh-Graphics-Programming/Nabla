@@ -59,18 +59,20 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> CLumaMeter::createShader(
 #include "irr/builtin/glsl/colorspace/decodeCIEXYZ.glsl"
 #include "irr/builtin/glsl/colorspace/OETF.glsl"
 
+#define _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
 #include "irr/builtin/glsl/ext/LumaMeter/common.glsl"
 
 layout(local_size_x=_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_DEFINED_, local_size_y=_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_DEFINED_) in;
 
 
-#ifndef _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_ 0
+#ifndef _IRR_GLSL_EXT_LUMA_METER_PUSH_CONSTANTS_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_PUSH_CONSTANTS_DEFINED_
+layout(push_constant) uniform PushConstants
+{
+	uint currentFirstPassOutput;
+} pc;
 #endif
 
-#ifndef _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_BINDING_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_BINDING_DEFINED_ 0
-#endif
 
 #ifndef _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_DEFINED_
 #define _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_DEFINED_
@@ -81,8 +83,8 @@ struct irr_glsl_ext_LumaMeter_Uniforms_t
 };
 #endif
 
-#ifndef _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_DEFINED_
+#ifndef _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_DESCRIPTOR_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_DESCRIPTOR_DEFINED_
 layout(set=_IRR_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_UNIFORMS_BINDING_DEFINED_) uniform Uniforms
 {
 	irr_glsl_ext_LumaMeter_Uniforms_t inParams;
@@ -90,16 +92,17 @@ layout(set=_IRR_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_, binding=_IRR_GLSL_EXT
 #endif
 
 
-#ifndef _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_ 0
+#ifndef _IRR_GLSL_EXT_LUMA_METER_OUTPUT_DESCRIPTOR_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_DESCRIPTOR_DEFINED_
+layout(set=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_) restrict coherent buffer OutputBuffer
+{
+	irr_glsl_ext_LumaMeter_output_t outParams[2][_IRR_GLSL_EXT_LUMA_METER_LAYERS_TO_PROCESS_DEFINED_];
+};
 #endif
 
-#ifndef _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_BINDING_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_BINDING_DEFINED_ 1
-#endif
 
-#ifndef _IRR_GLSL_EXT_LUMA_METER_IMAGES_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_IMAGES_DEFINED_
+#ifndef _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
 layout(set=_IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_BINDING_DEFINED_) sampler2DArray inputImage;
 #endif
 
@@ -114,50 +117,18 @@ vec3 irr_glsl_ext_LumaMeter_getColor()
 #endif
 
 
-#ifndef _IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_ 0
-#endif
-
-#ifndef _IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_ 2
-#endif
-
-#ifndef _IRR_GLSL_EXT_LUMA_METER_OUTPUT_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_DEFINED_
-layout(set=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_) restrict coherent buffer OutputBuffer
-{
-	irr_glsl_ext_LumaMeter_output_t outParams[_IRR_GLSL_EXT_LUMA_METER_LAYERS_TO_PROCESS_DEFINED_];
-};
-#endif
-
 
 #ifndef _IRR_GLSL_EXT_LUMA_METER_USING_MEAN
-	#ifndef _IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION_POW_DEFINED_
-	#define _IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION_POW_DEFINED_ 3
-	#endif
-
-	#define _IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION (1<<_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION_POW_DEFINED_)
-	#define _IRR_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT (_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT+1)
-
-	#ifndef _IRR_GLSL_EXT_LUMA_METER_LOCAL_HISTOGRAM_DEFINED_
-	#define _IRR_GLSL_EXT_LUMA_METER_LOCAL_HISTOGRAM_DEFINED_
-	shared uint histogram[_IRR_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT*_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION];
-	#endif
-
 	void irr_glsl_ext_LumaMeter_clearHistogram()
 	{
 		for (int i=0; i<_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION; i++)
-			histogram[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT] = 0u;
-	#if _IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION_POW_DEFINED_>0
-		if (gl_LocalInvocationIndex<_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION)
-			histogram[gl_LocalInvocationIndex+_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION*_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT] = 0u;
-	#endif
+			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT] = 0u;
+
+		#if _IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION_POW_DEFINED_>0
+			if (gl_LocalInvocationIndex<_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION)
+				_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION*_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT] = 0u;
+		#endif
 	}
-#else
-	#ifndef _IRR_GLSL_EXT_LUMA_METER_LOCAL_GEOM_MEAN_DEFINED_
-	#define _IRR_GLSL_EXT_LUMA_METER_LOCAL_GEOM_MEAN_DEFINED_
-	shared float sharedLogLuma[_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT];
-	#endif
 #endif
 
 
@@ -174,9 +145,10 @@ layout(set=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_, binding=_IRR_GLSL_EXT_L
 void irr_glsl_ext_LumaMeter() // bool wgExecutionMask, then do if(any(wgExecutionMask))
 {
 	vec3 color = irr_glsl_ext_LumaMeter_getColor();
-	#ifdef _IRR_GLSL_EXT_LUMA_METER_USING_MEAN
+	#ifndef _IRR_GLSL_EXT_LUMA_METER_USING_MEAN
 		irr_glsl_ext_LumaMeter_clearHistogram();
 	#endif
+	irr_glsl_ext_LumaMeter_clearFirstPassOutput(outParams[pc.currentFirstPassOutput^0x1][gl_WorkGroupID.z]);
 
 	// linearize
 	vec3 linear = _IRR_GLSL_EXT_LUMA_METER_EOTF_DEFINED_(color);
@@ -187,38 +159,44 @@ void irr_glsl_ext_LumaMeter() // bool wgExecutionMask, then do if(any(wgExecutio
 	const float MaxLuma = intBitsToFloat(_IRR_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_);
 	luma = clamp(luma,MinLuma,MaxLuma);
 
-	float logLuma = log2(luma/MinLuma);
+	float logLuma = log2(luma/MinLuma)/log2(MaxLuma/MinLuma);
 	#ifdef _IRR_GLSL_EXT_LUMA_METER_USING_MEAN
 		// compute histogram index
-		int histogramIndex = int(logLuma*(float(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT)/log2(MaxLuma/MinLuma))+0.5);
+		int histogramIndex = int(logLuma*float(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT)+0.5);
 		histogramIndex += int(gl_LocalInvocationIndex&uint(_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION-1))*_IRR_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT;
 		// barrier so we "see" the cleared histogram
 		barrier();
 		memoryBarrierShared();
-		atomicAdd(histogram[histogramIndex],1u);
+		atomicAdd(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[histogramIndex],1u);
 
 		// no barrier on shared memory cause if we use it with atomics the writes and reads be coherent
 		barrier();
 
 		// join the histograms across workgroups
-		uint writeOutVal = histogram[gl_LocalInvocationIndex];
+		uint writeOutVal = _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex];
 		for (int i=1; i<_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION; i++)
-			writeOutVal += histogram[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT];
+			writeOutVal += _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT];
 	#else
-		sharedLogLuma[gl_LocalInvocationIndex] = logLuma;
+		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = floatBitsToUint(logLuma);
 		for (int i=_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT>>1; i>1; i>>=1)
 		{
 			barrier();
 			memoryBarrierShared();
 			if (gl_LocalInvocationIndex<i)
-				sharedLogLuma[gl_LocalInvocationIndex] += sharedLogLuma[gl_LocalInvocationIndex+i];
+			{
+				_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = floatBitsToUint
+				(
+					uintBitsToFloat(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex])+
+					uintBitsToFloat(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+i])
+				);
+			}
 		}
 		barrier();
 		memoryBarrierShared();
-		float writeOutVal = sharedLogLuma[0]+sharedLogLuma[1];
+		float writeOutVal = uintBitsToFloat(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[0])+uintBitsToFloat(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[1]);
 	#endif
 
-	irr_glsl_ext_LumaMeter_setFirstPassOutput(outParams[gl_WorkGroupID.z],writeOutVal);
+	irr_glsl_ext_LumaMeter_setFirstPassOutput(outParams[pc.currentFirstPassOutput][gl_WorkGroupID.z],writeOutVal);
 }
 #endif
 
@@ -259,56 +237,6 @@ void main()
 
 	registerBuiltinGLSLIncludes(compilerToAddBuiltinIncludeTo);
 	return core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(),{nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE});
-}
-
-
-SRange<IGPUDescriptorSetLayout::SBinding> CLumaMeter::getDefaultBindings(video::IVideoDriver* driver)
-{
-	static core::smart_refctd_ptr<sampler_type> sampler();
-	static const IGPUDescriptorSetLayout::SBinding bnd[] =
-	{
-		{
-			0u,
-			EDT_UNIFORM_BUFFER_DYNAMIC,
-			1u,
-			ISpecializedShader::ESS_COMPUTE,
-			nullptr
-		},
-		{
-			1u,
-			EDT_COMBINED_IMAGE_SAMPLER,
-			1u,
-			ISpecializedShader::ESS_COMPUTE,
-			&sampler
-		},
-		{
-			2u,
-			EDT_STORAGE_BUFFER_DYNAMIC,
-			1u,
-			ISpecializedShader::ESS_COMPUTE,
-			nullptr
-		}
-	};
-	if (!sampler)
-	{
-		IGPUSampler::SParams params =
-		{
-			{
-				ISampler::ETC_CLAMP_TO_EDGE,
-				ISampler::ETC_CLAMP_TO_EDGE,
-				ISampler::ETC_CLAMP_TO_EDGE,
-				ISampler::ETBC_FLOAT_OPAQUE_BLACK,
-				ISampler::ETF_LINEAR,
-				ISampler::ETF_LINEAR,
-				ISampler::ESMM_NEAREST,
-				0u,
-				0u,
-				ISampler::ECO_ALWAYS
-			}
-		};
-		driver->createGPUSampler(params);
-	}
-	return SRange<IGPUDescriptorSetLayout::SBinding>(bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding));
 }
 
 void CLumaMeter::defaultBarrier()

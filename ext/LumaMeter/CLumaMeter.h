@@ -64,7 +64,10 @@ class CLumaMeter : public core::TotalInterface
 		);
 
 		//
-		static core::SRange<IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver);
+		static core::SRange<IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver)
+		{
+			return CGLSLLumaBuiltinIncludeLoader::getDefaultBindings(driver);
+		}
 
 		//
 		static inline void dispatchHelper(	video::IVideoDriver* driver, const Uniforms_t& uniformData,

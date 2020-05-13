@@ -4,7 +4,7 @@
 #include <cstdio>
 
 
-#include "../ext/AutoExposure/CToneMapper.h"
+#include "../ext/LumaMeter/CLumaMeter.h"
 #include "../source/Irrlicht/COpenGLDriver.h"
 
 #include "../common/QToQuitEventReceiver.h"
@@ -53,7 +53,7 @@ int main()
 		IGPUImageView::SCreationParams imgViewInfo;
 		imgViewInfo.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
 		imgViewInfo.image = std::move(gpuImage);
-		imgViewInfo.viewType = IGPUImageView::ET_2D;
+		imgViewInfo.viewType = IGPUImageView::ET_2D_ARRAY;
 		imgViewInfo.format = imgInfo.format;
 		imgViewInfo.subresourceRange.baseMipLevel = 0;
 		imgViewInfo.subresourceRange.levelCount = 1;
@@ -81,7 +81,20 @@ REQUIREMENTS:
 - Automatic exposure metering or given
 - Flexible SSBO/UBO data sourcing
 - Mergable tonemapping shader (rippable from dedicated CS shader)
+- Exposure measuring modes MEAN vs. MODE
+- Overridable Tonemapping Parameter preparation (for OptiX and stuff)
+
+
+CToneMapper:
+- take input parameters (different headers for each struct, comes in via override)
+- load input (override) + transform to XYZ
+- do tonemap (different headers for that)
+- transform from XYZ and write output (override)
+- a facotry method that makes default compute pipelines
+- a factory method for a default combined autoexposure + tonemapping with/without temporal
+- add autoexposure and temporal adjustment somehow
 **/
+#if 0
 	auto tonemapper = ext::AutoExposure::CToneMapper::create(driver,imgToTonemap->getCreationParameters().format,am->getGLSLCompiler());
 
 	// TODO: employ luma histograming
@@ -144,7 +157,7 @@ REQUIREMENTS:
 	}
 	// TODO: Histogramming
 	//toneMapper->CalculateFrameExposureFactors(frameUniformBuffer,frameUniformBuffer,core::smart_refctd_ptr(hdrTex));
-
+#endif
 
 	return 0;
 }
