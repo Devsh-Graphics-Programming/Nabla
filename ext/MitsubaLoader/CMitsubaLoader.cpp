@@ -293,8 +293,8 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 				_bsdfStruct.opacity.texData = tex.first;
 				return tex.second;
 			}
-			return 1.f;
 		}
+		return 1.f;
 	};
 	bsdf::SBSDFUnion retval;
 	switch (_node->type)

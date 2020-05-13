@@ -11,6 +11,7 @@
 using namespace irr;
 using namespace core;
 
+/*
 class SimpleCallBack : public video::IShaderConstantSetCallBack
 {
 		video::E_MATERIAL_TYPE currentMat;
@@ -158,6 +159,7 @@ core::smart_refctd_ptr<asset::IMeshDataFormatDesc<video::IGPUBuffer> > vaoSetupO
 
 	return vao;
 }
+*/
 
 int main()
 {
@@ -176,11 +178,12 @@ int main()
 	asset::SAssetBundle meshes;
 	core::smart_refctd_ptr<ext::MitsubaLoader::CGlobalMitsubaMetadata> globalMeta;
 	{
-		IrrlichtDevice* device = createDeviceEx(params);
+		auto device = createDeviceEx(params);
 
 
 		io::IFileSystem* fs = device->getFileSystem();
 		asset::IAssetManager* am = device->getAssetManager();
+		asset::CQuantNormalCache* qnc = am->getMeshManipulator()->getQuantNormalCache();
 
 		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CSerializedLoader>(am));
 		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(am));
@@ -231,31 +234,11 @@ int main()
 		}
 
 		//! read cache results -- speeds up mesh generation
-		{
-			io::IReadFile* cacheFile = device->getFileSystem()->createAndOpenFile("../../tmp/normalCache101010.sse");
-			if (cacheFile)
-			{
-				asset::normalCacheFor2_10_10_10Quant.resize(cacheFile->getSize() / sizeof(asset::QuantizationCacheEntry2_10_10_10));
-				cacheFile->read(asset::normalCacheFor2_10_10_10Quant.data(), cacheFile->getSize());
-				cacheFile->drop();
-
-				//make sure its still ok
-				std::sort(asset::normalCacheFor2_10_10_10Quant.begin(), asset::normalCacheFor2_10_10_10Quant.end());
-			}
-		}
+		qnc->loadNormalQuantCacheFromFile<asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
 		//! load the mitsuba scene
 		meshes = am->getAsset(filePath, {});
 		//! cache results -- speeds up mesh generation on second run
-		{
-			io::IWriteFile* cacheFile = device->getFileSystem()->createAndWriteFile("../../tmp/normalCache101010.sse");
-			if (cacheFile)
-			{
-				cacheFile->write(asset::normalCacheFor2_10_10_10Quant.data(), asset::normalCacheFor2_10_10_10Quant.size() * sizeof(asset::QuantizationCacheEntry2_10_10_10));
-				cacheFile->drop();
-			}
-		}
-
-		device->drop();
+		qnc->saveCacheToFile(asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
 
 		auto contents = meshes.getContents();
 		if (contents.first>=contents.second)
@@ -283,9 +266,9 @@ int main()
 		params.WindowSize.Height = film.height;
 	}
 	params.DriverType = video::EDT_OPENGL;
-	IrrlichtDevice* device = createDeviceEx(params);
+	auto device = createDeviceEx(params);
 
-	if (device == 0)
+	if (!device)
 		return 1; // could not create selected driver.
 
 
@@ -295,84 +278,75 @@ int main()
 
 
 	video::IVideoDriver* driver = device->getVideoDriver();
-	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
 
-	SimpleCallBack* cb = new SimpleCallBack();
-	video::E_MATERIAL_TYPE nonInstanced = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
-		"", "", "", //! No Geometry or Tessellation Shaders
-		"../mesh.frag",
-		3, video::EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only
-		cb, //! Our Shader Callback
-		0); //! No custom user data
-	video::E_MATERIAL_TYPE instanced = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh_instanced.vert",
-		"", "", "", //! No Geometry or Tessellation Shaders
-		"../mesh.frag",
-		3, video::EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only
-		cb, //! Our Shader Callback
-		0); //! No custom user data
-	cb->drop();
-
-	//instancing juice
-	video::SGPUMaterial cullingXFormFeedbackShader;
-	CullBack* cullback = new CullBack();
+	core::vector<core::smart_refctd_ptr<asset::ICPUMesh>> cpumeshes;
+	cpumeshes.reserve(meshes.getSize());
+	for (auto it = meshes.getContents().first; it != meshes.getContents().second; ++it)
 	{
-		const char* xformFeedbackOutputs[] =
-		{
-			"worldViewProjMatCol0",
-			"worldViewProjMatCol1",
-			"worldViewProjMatCol2",
-			"worldViewProjMatCol3",
-			"tposeInverseWorldMatCol0",
-			"tposeInverseWorldMatCol1",
-			"tposeInverseWorldMatCol2"
-		};
-		cullingXFormFeedbackShader.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../culling.vert", "", "", "../culling.geom", "", 3, video::EMT_SOLID, cullback, xformFeedbackOutputs, 7u);
-		cullback->drop();
-		cullingXFormFeedbackShader.RasterizerDiscard = true; 
+		cpumeshes.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(std::move(*it)));
 	}
 
-	core::aabbox3df sceneBound;
+	//all pipelines have the same metadata
+	auto* pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(cpumeshes.front()->getMeshBuffer(0u)->getPipeline()->getMetadata());
+
+    asset::ICPUDescriptorSetLayout* ds1layout = cpumeshes.front()->getMeshBuffer(0u)->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
+    uint32_t ds1UboBinding = 0u;
+    for (const auto& bnd : ds1layout->getBindings())
+        if (bnd.type==asset::EDT_UNIFORM_BUFFER)
+        {
+            ds1UboBinding = bnd.binding;
+            break;
+        }
+
+    size_t neededDS1UBOsz = 0ull;
+    {
+        auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(cpumeshes.front()->getMeshBuffer(0u)->getPipeline()->getMetadata());
+        for (const auto& shdrIn : pipelineMetadata->getCommonRequiredInputs())
+            if (shdrIn.descriptorSection.type==asset::IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
+                neededDS1UBOsz = std::max<size_t>(neededDS1UBOsz, shdrIn.descriptorSection.uniformBufferObject.relByteoffset+shdrIn.descriptorSection.uniformBufferObject.bytesize);
+    }
+
+	core::vector<const ext::MitsubaLoader::IMeshMetadata*> meshmetas;
+	meshmetas.reserve(cpumeshes.size());
+	for (const auto& cpumesh : cpumeshes)
+		meshmetas.push_back(static_cast<const ext::MitsubaLoader::IMeshMetadata*>(cpumesh->getMetadata()));
+
+	constexpr uint32_t MAX_INSTANCES = 512u;
+
+	core::vector<core::smart_refctd_ptr<asset::ICPUBuffer>> cpuubos;
+	cpuubos.reserve(cpumeshes.size());
+	for (uint32_t i = 0u; i < cpumeshes.size(); ++i)
 	{
-		auto gpumeshes = driver->getGPUObjectsFromAssets<asset::ICPUMesh>(meshes.getContents().first, meshes.getContents().second);
-		auto cpuit = meshes.getContents().first;
-		for (auto gpuit = gpumeshes->begin(); gpuit!=gpumeshes->end(); gpuit++,cpuit++)
+		const uint32_t instCount = meshmetas[i]->getInstances().size();
+		assert(instCount<=MAX_INSTANCES);
+		auto ds = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(ds1layout));
+		auto* info = ds->getDescriptors(ds1UboBinding).begin();
+		auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(core::matrix4SIMD)*instCount);
+		info->buffer.offset = 0u;
+		info->buffer.size = buf->getSize();
+		info->desc = buf;
+
+		for (uint32_t j = 0u; j < cpumeshes[i]->getMeshBufferCount(); ++j)
+			cpumeshes[i]->getMeshBuffer(j)->setAttachedDescriptorSet(core::smart_refctd_ptr(ds));
+
+		cpuubos.push_back(std::move(buf));
+	}
+	auto gpuubos = driver->getGPUObjectsFromAssets(cpuubos.data(), cpuubos.data()+cpuubos.size());
+
+	core::aabbox3df sceneBound;
+	auto gpumeshes = driver->getGPUObjectsFromAssets(cpumeshes.data(), cpumeshes.data()+cpumeshes.size());
+	{
+		auto metait = meshmetas.begin();
+		for (auto gpuit = gpumeshes->begin(); gpuit != gpumeshes->end(); gpuit++, metait++)
 		{
-			auto* meta = (*cpuit)->getMetadata();
-			assert(meta && core::strcmpi(meta->getLoaderName(),ext::MitsubaLoader::IMitsubaMetadata::LoaderName) == 0);
+			auto* meta = *metait;
 			const auto* meshmeta = static_cast<const ext::MitsubaLoader::IMeshMetadata*>(meta);
 			const auto& instances = meshmeta->getInstances();
 
-			const auto& gpumesh = *gpuit;
-#define INSTANCING_THRESHOLD 256u // TODO: when shader pipeline API comes, you can reduce this back to 1 as we need a nicer single-pass GPU-driven rendering system
-			for (auto i=0u; i<gpumesh->getMeshBufferCount(); i++)
-				gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = instances.size()<INSTANCING_THRESHOLD ? nonInstanced:instanced;
-
-			if (instances.size()<INSTANCING_THRESHOLD)
-			for (auto instance : instances)
+			auto bb = (*gpuit)->getBoundingBox();
+			for (const auto& inst : instances)
 			{
-				auto node = smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh));
-				node->setRelativeTransformationMatrix(instance.getAsRetardedIrrlichtMatrix());
-				node->updateAbsolutePosition();
-				sceneBound.addInternalBox(node->getTransformedBoundingBox());
-			}
-			else
-			{
-				auto node = smgr->addMeshSceneNodeInstanced();
-				node->setBBoxUpdateEnabled();
-				{
-					core::vector<scene::IMeshSceneNodeInstanced::MeshLoD> LevelsOfDetail(1);
-					LevelsOfDetail[0].mesh = gpumesh.get();
-					LevelsOfDetail[0].lodDistance = FLT_MAX;
-
-					bool success = node->setLoDMeshes(LevelsOfDetail, 25*sizeof(float), cullingXFormFeedbackShader, vaoSetupOverride);
-					assert(success);
-					cullback->instanceLoDInvariantBBox = node->getLoDInvariantBBox();
-				}
-				for (auto instance : instances)
-					node->addInstance(instance);
-				node->updateAbsolutePosition();
-				sceneBound.addInternalBox(node->getTransformedBoundingBox());
-				node->setAutomaticCulling(scene::EAC_FRUSTUM_BOX);
+				sceneBound.addInternalBox(core::transformBoxEx(bb, inst.tform));
 			}
 		}
 	}
@@ -393,24 +367,24 @@ int main()
 		auto extent = sceneBound.getExtent();
 		camera = smgr->addCameraSceneNodeFPS(nullptr,100.f,core::min(extent.X,extent.Y,extent.Z)*0.0002f);
 		// need to extract individual components
-			bool leftHandedCamera = false;
-			{
-				auto relativeTransform = sensor.transform.matrix.extractSub3x4();
-				if (relativeTransform.getPseudoDeterminant().x < 0.f)
-					leftHandedCamera = true;
+		bool leftHandedCamera = false;
+		{
+			auto relativeTransform = sensor.transform.matrix.extractSub3x4();
+			if (relativeTransform.getPseudoDeterminant().x < 0.f)
+				leftHandedCamera = true;
 
-				auto pos = relativeTransform.getTranslation();
-				camera->setPosition(pos.getAsVector3df());
+			auto pos = relativeTransform.getTranslation();
+			camera->setPosition(pos.getAsVector3df());
 
-				auto tpose = core::transpose(sensor.transform.matrix);
-				auto up = tpose.rows[1];
-				core::vectorSIMDf view = tpose.rows[2];
-				auto target = view+pos;
+			auto tpose = core::transpose(sensor.transform.matrix);
+			auto up = tpose.rows[1];
+			core::vectorSIMDf view = tpose.rows[2];
+			auto target = view+pos;
 
-				camera->setTarget(target.getAsVector3df());
-				if (core::dot(core::normalize(core::cross(camera->getUpVector(),view)),core::cross(up,view)).x<0.99f)
-					camera->setUpVector(up.getAsVector3df());
-			}
+			camera->setTarget(target.getAsVector3df());
+			if (core::dot(core::normalize(core::cross(camera->getUpVector(),view)),core::cross(up,view)).x<0.99f)
+				camera->setUpVector(up);
+		}
 
 		const ext::MitsubaLoader::CElementSensor::PerspectivePinhole* persp = nullptr;
 		switch (sensor.type)
@@ -479,14 +453,41 @@ int main()
 	uint64_t lastFPSTime = 0;
 	float lastFastestMeshFrameNr = -1.f;
 
+	core::vector<core::matrix4SIMD> uboData(MAX_INSTANCES);
 	while (device->run() && receiver.keepOpen())
 	{
 		driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
 		driver->setViewPort(viewport);
 
-		//! This animates (moves) the camera and sets the transforms
-		//! Also draws the meshbuffer
-		smgr->drawAll();
+		for (uint32_t j = 0u; j < gpumeshes->size(); ++j)
+		{
+			auto& mesh = (*gpumeshes)[j];
+			auto* meta = meshmetas[j];
+			const uint32_t instCount = meta->getInstances().size();
+			{
+				uint32_t i = 0u;
+				for (auto& inst : meta->getInstances())
+				{
+					auto mvp = core::concatenateBFollowedByA(camera->getConcatenatedMatrix(), inst.tform);
+					uboData[i++] = mvp;
+				}
+			}
+
+			auto& ubo = (*gpuubos)[j];
+			driver->updateBufferRangeViaStagingBuffer(ubo->getBuffer(), ubo->getOffset(), instCount*sizeof(core::matrix4SIMD), uboData.data());
+			for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+			{
+				auto* mb = mesh->getMeshBuffer(i);
+				mb->setInstanceCount(instCount);
+
+				auto* pipeline = mb->getPipeline();
+				auto* ds = mb->getAttachedDescriptorSet();
+				driver->bindGraphicsPipeline(pipeline);
+				driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 1u, 1u, &ds, nullptr);
+
+				driver->drawMeshBuffer(mb);
+			}
+		}
 
 		driver->endScene();
 
@@ -500,12 +501,6 @@ int main()
 			device->setWindowCaption(str.str());
 			lastFPSTime = time;
 		}
-	}
-
-	// create a screenshot
-	{
-		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
-		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
 	}
 
 	device->drop();
