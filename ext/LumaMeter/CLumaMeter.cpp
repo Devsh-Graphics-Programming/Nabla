@@ -50,11 +50,9 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> CLumaMeter::createShader(
 #define _IRR_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_ %d
 #define _IRR_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_ %d
 
-
-#if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==%d
-#define _IRR_GLSL_EXT_LUMA_METER_USING_MODE_
+#ifndef _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_ %d
 #endif
-
 
 #include "irr/builtin/glsl/colorspace/EOTF.glsl"
 #include "irr/builtin/glsl/colorspace/encodeCIEXYZ.glsl"
@@ -76,7 +74,7 @@ layout(local_size_x=_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_DEFINED_, local_size_
 
 #ifndef _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_DEFINED_
 #define _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_DEFINED_
-struct irr_ext_LumaMeter_Uniforms_t
+struct irr_glsl_ext_LumaMeter_Uniforms_t
 {
 	vec2 meteringWindowScale;
 	vec2 meteringWindowOffset;
@@ -87,7 +85,7 @@ struct irr_ext_LumaMeter_Uniforms_t
 #define _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_DEFINED_
 layout(set=_IRR_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_UNIFORMS_BINDING_DEFINED_) uniform Uniforms
 {
-	irr_ext_LumaMeter_Uniforms_t inParams;
+	irr_glsl_ext_LumaMeter_Uniforms_t inParams;
 };
 #endif
 
@@ -111,7 +109,7 @@ layout(set=_IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLSL_
 vec3 irr_glsl_ext_LumaMeter_getColor()
 {
 	vec2 uv = vec2(gl_GlobalInvocationID.xy)*inParams.meteringWindowScale+inParams.meteringWindowOffset;
-	return textureLod(inputImage,vec3(uv,gl_GlobalInvocationID.z),0.0).rgb;
+	return textureLod(inputImage,vec3(uv,float(gl_GlobalInvocationID.z)),0.0).rgb;
 }
 #endif
 
@@ -126,24 +124,25 @@ vec3 irr_glsl_ext_LumaMeter_getColor()
 
 #ifndef _IRR_GLSL_EXT_LUMA_METER_OUTPUT_DEFINED_
 #define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_DEFINED_
-layout(set=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_) writeonly restrict coherent buffer OutputBuffer
+layout(set=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_) restrict coherent buffer OutputBuffer
 {
-	irr_ext_LumaMeter_output_t outParams;
+	irr_glsl_ext_LumaMeter_output_t outParams[_IRR_GLSL_EXT_LUMA_METER_LAYERS_TO_PROCESS_DEFINED_];
 };
 #endif
 
 
-#ifdef _IRR_GLSL_EXT_LUMA_METER_USING_MODE_
-	#ifndef _IRR_GLSL_EXT_LUMA_METER_LOCAL_HISTOGRAM_DEFINED_
-	#define _IRR_GLSL_EXT_LUMA_METER_LOCAL_HISTOGRAM_DEFINED_
-
+#ifndef _IRR_GLSL_EXT_LUMA_METER_USING_MEAN
 	#ifndef _IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION_POW_DEFINED_
 	#define _IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION_POW_DEFINED_ 3
 	#endif
 
 	#define _IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION (1<<_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION_POW_DEFINED_)
 	#define _IRR_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT (_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT+1)
+
+	#ifndef _IRR_GLSL_EXT_LUMA_METER_LOCAL_HISTOGRAM_DEFINED_
+	#define _IRR_GLSL_EXT_LUMA_METER_LOCAL_HISTOGRAM_DEFINED_
 	shared uint histogram[_IRR_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT*_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION];
+	#endif
 
 	void irr_glsl_ext_LumaMeter_clearHistogram()
 	{
@@ -154,14 +153,10 @@ layout(set=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_, binding=_IRR_GLSL_EXT_L
 			histogram[gl_LocalInvocationIndex+_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION*_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT] = 0u;
 	#endif
 	}
-
-	#endif
 #else
 	#ifndef _IRR_GLSL_EXT_LUMA_METER_LOCAL_GEOM_MEAN_DEFINED_
 	#define _IRR_GLSL_EXT_LUMA_METER_LOCAL_GEOM_MEAN_DEFINED_
-
 	shared float sharedLogLuma[_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT];
-
 	#endif
 #endif
 
@@ -179,7 +174,7 @@ layout(set=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_, binding=_IRR_GLSL_EXT_L
 void irr_glsl_ext_LumaMeter() // bool wgExecutionMask, then do if(any(wgExecutionMask))
 {
 	vec3 color = irr_glsl_ext_LumaMeter_getColor();
-	#ifdef _IRR_GLSL_EXT_LUMA_METER_USING_MODE_
+	#ifdef _IRR_GLSL_EXT_LUMA_METER_USING_MEAN
 		irr_glsl_ext_LumaMeter_clearHistogram();
 	#endif
 
@@ -193,7 +188,7 @@ void irr_glsl_ext_LumaMeter() // bool wgExecutionMask, then do if(any(wgExecutio
 	luma = clamp(luma,MinLuma,MaxLuma);
 
 	float logLuma = log2(luma/MinLuma);
-	#ifdef _IRR_GLSL_EXT_LUMA_METER_USING_MODE_
+	#ifdef _IRR_GLSL_EXT_LUMA_METER_USING_MEAN
 		// compute histogram index
 		int histogramIndex = int(logLuma*(float(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT)/log2(MaxLuma/MinLuma))+0.5);
 		histogramIndex += int(gl_LocalInvocationIndex&uint(_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION-1))*_IRR_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT;
@@ -223,7 +218,7 @@ void irr_glsl_ext_LumaMeter() // bool wgExecutionMask, then do if(any(wgExecutio
 		float writeOutVal = sharedLogLuma[0]+sharedLogLuma[1];
 	#endif
 
-	irr_ext_LumaMeter_setFirstPassOutput(outParams,writeOutVal);
+	irr_glsl_ext_LumaMeter_setFirstPassOutput(outParams[gl_WorkGroupID.z],writeOutVal);
 }
 #endif
 
@@ -258,7 +253,7 @@ void main()
 	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
 	std::snprintf(
 		shader->getPointer(),shader->getSize(),sourceFmt,
-		meterMode,reinterpret_cast<const int32_t&>(minLuma),reinterpret_cast<const int32_t&>(maxLuma),
+		reinterpret_cast<const int32_t&>(minLuma),reinterpret_cast<const int32_t&>(maxLuma),meterMode
 		eotf,xyzMatrix
 	);
 

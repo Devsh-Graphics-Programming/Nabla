@@ -116,7 +116,7 @@ const mat3 irr_glsl_XYZtoACEScc = mat3( vec3( 1.6410234,-0.6636629, 0.0117219),
                                         vec3(-0.3248033, 1.6153316,-0.0082844),
                                         vec3(-0.2364247, 0.0167563, 0.9883949));
 
-const mat3 irr_glsl_XYZtoACEScc = irr_glsl_XYZtoACEScct;
+const mat3 irr_glsl_XYZtoACEScct = irr_glsl_XYZtoACEScc;
 #endif
 )";
         }
