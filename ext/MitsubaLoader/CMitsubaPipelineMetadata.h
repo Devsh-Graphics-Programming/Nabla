@@ -27,6 +27,8 @@ public:
         return {m_shaderInputs->begin(), m_shaderInputs->end()};
     }
 
+    asset::ICPUDescriptorSet* getDescriptorSet() const { return m_ds0.get(); }
+
     _IRR_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CMitsubaLoader";
     const char* getLoaderName() const override { return LoaderName; }
 

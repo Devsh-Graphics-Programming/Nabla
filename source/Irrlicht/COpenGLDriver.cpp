@@ -2130,12 +2130,16 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
             COpenGLDescriptorSet::SMultibindParams{};//all nullptr
 
 		const GLsizei localStorageImageCount = newImgCount-first_count.textureImages.first;
-		if (localStorageImageCount)
-			extGlBindImageTextures(first_count.textureImages.first, localStorageImageCount, multibind_params.textureImages.textures, nullptr); //formats=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
+        if (localStorageImageCount)
+        {
+            assert(multibind_params.textureImages.textures);
+            extGlBindImageTextures(first_count.textureImages.first, localStorageImageCount, multibind_params.textureImages.textures, nullptr); //formats=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
+        }
 		
 		const GLsizei localTextureCount = newTexCount-first_count.textures.first;
 		if (localTextureCount)
 		{
+            assert(multibind_params.textures.textures && multibind_params.textures.samplers);
 			extGlBindTextures(first_count.textures.first, localTextureCount, multibind_params.textures.textures, nullptr); //targets=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
 			extGlBindSamplers(first_count.textures.first, localTextureCount, multibind_params.textures.samplers);
 		}
@@ -2164,6 +2168,7 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
 				if (sizesArray[s]==IGPUBufferView::whole_buffer)
 					sizesArray[s] = nextState.descriptorsParams[_pbp].descSets[i].set->getSSBO(s)->getSize()-offsetsArray[s];
 			}
+            assert(multibind_params.ssbos.buffers);
 			extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, localSsboCount, multibind_params.ssbos.buffers, nonNullSet ? offsetsArray:nullptr, nonNullSet ? sizesArray:nullptr);
 		}
 
@@ -2182,6 +2187,7 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
 				if (sizesArray[s]==IGPUBufferView::whole_buffer)
 					sizesArray[s] = nextState.descriptorsParams[_pbp].descSets[i].set->getUBO(s)->getSize()-offsetsArray[s];
 			}
+            assert(multibind_params.ubos.buffers);
 			extGlBindBuffersRange(GL_UNIFORM_BUFFER, first_count.ubos.first, localUboCount, multibind_params.ubos.buffers, nonNullSet ? offsetsArray:nullptr, nonNullSet ? sizesArray:nullptr);
 		}
     }

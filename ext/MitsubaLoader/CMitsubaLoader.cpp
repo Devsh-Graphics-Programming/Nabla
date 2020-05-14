@@ -180,7 +180,7 @@ private:
 			const uint32_t srcsNum = bsdf::getNumberOfSrcRegsForOpcode(op);
 			assert(srcsNum<=2u);
 			uint32_t srcs[2];
-			for (uint32_t k = 0u; k < 2u; ++k)
+			for (uint32_t k = 0u; k < srcsNum; ++k)
 			{
 				srcs[k] = srcRegs.top();
 				srcRegs.pop();
@@ -512,6 +512,9 @@ _IRR_STATIC_INLINE_CONSTEXPR const char* DUMMY_VERTEX_SHADER =
 R"(#version 430 core
 
 layout (location = 0) in vec3 Position;
+layout (location = 3) in vec3 Normal;
+
+layout (location = 0) out vec3 vnorm;
 
 #include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
 
@@ -525,7 +528,8 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO {
 
 void main()
 {
-	gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.mvp[gl_InstanceID]), Position);
+	vnorm = normalize(Normal);
+	gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.mvp[gl_InstanceIndex]), Position);
 }
 
 )";
@@ -534,9 +538,11 @@ R"(#version 430 core
 
 layout (location = 0) out vec4 Color;
 
+layout (location = 0) in vec3 vnorm;
+
 void main()
 {
-	Color = vec4(1.0,0.0,0.0,1.0);
+	Color = vec4(0.5*vnorm+vec3(0.5),1.0);
 }
 )";
 
@@ -1518,7 +1524,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 	for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
 		ctx.manipulator->flipSurfaces(mesh->getMeshBuffer(i));
 	// flip normals if necessary
-#define CRISS_FIX_THIS
+//#define CRISS_FIX_THIS
 #ifdef CRISS_FIX_THIS
 	if (faceNormals || !std::isnan(maxSmoothAngle))
 	{
@@ -1731,7 +1737,9 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 				auto sampler = core::make_smart_refctd_ptr<ICPUSampler>(samplerParams);
 
 				SContext::tex_ass_type tex_ass(std::move(view), std::move(sampler), 1.f);
-				ctx.textureCache.insert({ tex,std::move(tex_ass) });
+				ctx.textureCache.insert({ tex,tex_ass });
+
+				return tex_ass;
 		}
 			break;
 		case CElementTexture::Type::SCALE:
@@ -1958,7 +1966,8 @@ std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx
 		_instr &= (~(bsdf::INSTR_BSDF_BUF_OFFSET_MASK<<bsdf::INSTR_BSDF_BUF_OFFSET_SHIFT));
 		_instr |= ((_bsdfBufOffset & bsdf::INSTR_BSDF_BUF_OFFSET_MASK) << bsdf::INSTR_BSDF_BUF_OFFSET_SHIFT);
 		//write opacity mask presence flag
-		_instr |= static_cast<uint32_t>(_maskParent->mask.opacity.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_OPACITY_TEX;
+		if (_maskParent)
+			_instr |= static_cast<uint32_t>(_maskParent->mask.opacity.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_OPACITY_TEX;
 
 		return _instr;
 	};

@@ -161,6 +161,7 @@ core::smart_refctd_ptr<asset::IMeshDataFormatDesc<video::IGPUBuffer> > vaoSetupO
 }
 */
 
+#define TESTING
 int main()
 {
 	// create device with full flexibility over creation parameters
@@ -234,7 +235,7 @@ int main()
 		}
 
 		//! read cache results -- speeds up mesh generation
-		qnc->loadNormalQuantCacheFromFile<asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
+		//qnc->loadNormalQuantCacheFromFile<asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
 		//! load the mitsuba scene
 		meshes = am->getAsset(filePath, {});
 		//! cache results -- speeds up mesh generation on second run
@@ -285,6 +286,11 @@ int main()
 	{
 		cpumeshes.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(std::move(*it)));
 	}
+	core::smart_refctd_ptr<asset::ICPUDescriptorSet> cpuds0;
+	{
+		auto* meta = static_cast<ext::MitsubaLoader::CMitsubaPipelineMetadata*>(cpumeshes[0]->getMeshBuffer(0)->getPipeline()->getMetadata());
+		cpuds0 = core::smart_refctd_ptr<asset::ICPUDescriptorSet>(meta->getDescriptorSet());
+	}
 
 	//all pipelines have the same metadata
 	auto* pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(cpumeshes.front()->getMeshBuffer(0u)->getPipeline()->getMetadata());
@@ -331,6 +337,7 @@ int main()
 
 		cpuubos.push_back(std::move(buf));
 	}
+	//we should have a way to access distinct descriptors from GPU DS
 	auto gpuubos = driver->getGPUObjectsFromAssets(cpuubos.data(), cpuubos.data()+cpuubos.size());
 
 	core::aabbox3df sceneBound;
@@ -351,6 +358,8 @@ int main()
 		}
 	}
 
+	auto gpuds0 = driver->getGPUObjectsFromAssets(&cpuds0.get(), &cpuds0.get()+1)->front();
+
 	// camera and viewport
 	scene::ICameraSceneNode* camera = nullptr;
 	core::recti viewport(core::position2di(0,0), core::position2di(params.WindowSize.Width,params.WindowSize.Height));
@@ -358,7 +367,11 @@ int main()
 	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
 		return sensor.type==ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type==ext::MitsubaLoader::CElementSensor::Type::THINLENS;
 	};
+#ifdef TESTING
+	if (0)
+#else
 	if (globalMeta->sensors.size() && isOkSensorType(globalMeta->sensors.front()))
+#endif
 	{
 		const auto& sensor = globalMeta->sensors.front();
 		const auto& film = sensor.film;
@@ -458,8 +471,12 @@ int main()
 	{
 		driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
 		driver->setViewPort(viewport);
+#ifdef TESTING
+		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
+		camera->render();
+#endif
 
-		for (uint32_t j = 0u; j < gpumeshes->size(); ++j)
+		for (uint32_t j = 1u; j < gpumeshes->size(); ++j)
 		{
 			auto& mesh = (*gpumeshes)[j];
 			auto* meta = meshmetas[j];
@@ -481,9 +498,10 @@ int main()
 				mb->setInstanceCount(instCount);
 
 				auto* pipeline = mb->getPipeline();
-				auto* ds = mb->getAttachedDescriptorSet();
+				const auto* gpuds1 = mb->getAttachedDescriptorSet();
+				const video::IGPUDescriptorSet* ds[2]{ gpuds0.get(), gpuds1 };
 				driver->bindGraphicsPipeline(pipeline);
-				driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 1u, 1u, &ds, nullptr);
+				driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 0u, 2u, ds, nullptr);
 
 				driver->drawMeshBuffer(mb);
 			}
@@ -503,6 +521,5 @@ int main()
 		}
 	}
 
-	device->drop();
 	return 0;
 }
