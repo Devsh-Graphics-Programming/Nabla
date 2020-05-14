@@ -24,7 +24,7 @@ core::SRange<IGPUDescriptorSetLayout::SBinding> CToneMapper::getDefaultBindings(
 {
 	if (usingLumaMeter)
 	{
-		auto lumaBindings = LumaMeter::CLumaMeter::CGLSLLumaBuiltinIncludeLoader::getDefaultBindings(driver);
+		auto lumaBindings = ext::LumaMeter::CGLSLLumaBuiltinIncludeLoader::getDefaultBindings(driver);
 		assert(lumaBindings.size()==3ull);
 		static const IGPUDescriptorSetLayout::SBinding bnd[4] =
 		{,
@@ -47,25 +47,25 @@ core::SRange<IGPUDescriptorSetLayout::SBinding> CToneMapper::getDefaultBindings(
 		{
 			{
 				0u,
-				EDT_UNIFORM_BUFFER_DYNAMIC,
+				EDT_STORAGE_IMAGE,
 				1u,
 				ISpecializedShader::ESS_COMPUTE,
 				nullptr
 			},
 			{
+				0u,
+				EDT_STORAGE_BUFFER_DYNAMIC,
 				1u,
+				ISpecializedShader::ESS_COMPUTE,
+				nullptr
+			},
+			{
+				2u,
 				EDT_COMBINED_IMAGE_SAMPLER,
 				1u,
 				ISpecializedShader::ESS_COMPUTE,
 				&sampler
 			},
-			{
-				2u,
-				EDT_STORAGE_IMAGE,
-				1u,
-				ISpecializedShader::ESS_COMPUTE,
-				nullptr
-			}
 		};
 		return {bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
 	}
@@ -76,7 +76,7 @@ static core::smart_refctd_ptr<ICPUSpecializedShader> createShader(
 	IGLSLCompiler* compilerToAddBuiltinIncludeTo,
 	const std::tuple<E_FORMAT,E_COLOR_PRIMARIES,ELECTRO_OPTICAL_TRANSFER_FUNCTION>& inputColorSpace,
 	const std::tuple<E_FORMAT,E_COLOR_PRIMARIES,OPTICO_ELECTRICAL_TRANSFER_FUNCTION>& outputColorSpace,
-	E_OPERATOR _operator, bool usingLumaMeter, LumaMeter::CLumaMeter::E_METERING_MODE meterMode)
+	E_OPERATOR _operator, bool usingLumaMeter, ext::LumaMeter::CLumaMeter::E_METERING_MODE meterMode)
 {
 	constexpr char* eotfs[EOTF_UNKNOWN] =
 	{
@@ -180,8 +180,20 @@ static core::smart_refctd_ptr<ICPUSpecializedShader> createShader(
 
 	constexpr char* usingLumaMeterDefine = "_IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_";
 
+	constexpr char* usingTemporalAdaptation = "_IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_";
+
 	constexpr char* formatSrc = 
 R"===(#version 430 core
+
+
+#ifndef _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_
+#define _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_ 16
+#endif
+
+#ifndef _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_
+#define _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_ 16
+#endif
+
 
 
 #define _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_ %d
@@ -189,29 +201,26 @@ R"===(#version 430 core
 #include "irr/builtin/glsl/ext/ToneMapper/operators.glsl"
 
 
-
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_UNIFORMS_SET_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_UNIFORMS_SET_DEFINED_ 0
+#ifndef _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_
+#define _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_ 0
 #endif
 
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_UNIFORMS_BINDING_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_UNIFORMS_BINDING_DEFINED_ 0
+
+#ifndef _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_SET_DEFINED_
+#define _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_SET_DEFINED_ 0
 #endif
 
+#ifndef _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_BINDING_DEFINED_
+#define _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_BINDING_DEFINED_ 1
+#endif
 
 #ifndef _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_SET_DEFINED_
 #define _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_SET_DEFINED_ 0
 #endif
 
 #ifndef _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_BINDING_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_BINDING_DEFINED_ 1
+#define _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_BINDING_DEFINED_ 2
 #endif
-
-
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_ 0
-#endif
-
 
 
 %s // _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
@@ -224,8 +233,13 @@ R"===(#version 430 core
 
 	#include "irr/builtin/glsl/ext/LumaMeter/common.glsl"
 
-	#ifndef _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_DEFINED_
-	#define _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_DEFINED_ _IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_DEFINED_
+	#if _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT!=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_*_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_
+		#error "_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT does not equal the product of the dispatch sizes!"
+	#endif
+
+
+	#if _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_SET_DEFINED_!=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_ || _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_BINDING_DEFINED_!=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_
+		#error "Luma/Tonemapper SSBO Set or Binding don't match!"
 	#endif
 
 	#if _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_SET_DEFINED_!=_IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_ || _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_BINDING_DEFINED_!=_IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_BINDING_DEFINED_
@@ -237,17 +251,12 @@ R"===(#version 430 core
 	#define _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_BINDING_DEFINED_ 3
 	#endif
 #else
-	#ifndef _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_DEFINED_
-	#define _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_DEFINED_ 16
-	#endif
-
-
 	#ifndef _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_BINDING_DEFINED_
-	#define _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_BINDING_DEFINED_ 2
+	#define _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_BINDING_DEFINED_ 0
 	#endif
 #endif
 
-layout(local_size_x=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_DEFINED_, local_size_y=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_DEFINED_) in;
+layout(local_size_x=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_, local_size_y=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_) in;
 
 
 #include "irr/builtin/glsl/colorspace/EOTF.glsl"
@@ -267,22 +276,39 @@ layout(local_size_x=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_DEFINED_, local_size
 #endif
 
 
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_UNIFORMS_DESCRIPTOR_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_UNIFORMS_DESCRIPTOR_DEFINED_
-layout(set=_IRR_GLSL_EXT_TONE_MAPPER_UNIFORMS_SET_DEFINED_, binding=_IRR_GLSL_EXT_TONE_MAPPER_UNIFORMS_BINDING_DEFINED_) uniform TonemapperUniforms
+%s // _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
+
+
+#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_QUALIFIERS restrict
+struct irr_glsl_ext_ToneMapper_input_t
 {
+	uint packedExposureAdaptationFactors; // first is up, then down
+	float lastFrameExtraEV;
+	irr_glsl_ext_ToneMapper_Params_t inParams;
+};
+
+irr_glsl_ext_ToneMapper_()
+{
+}
+#else
+#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_QUALIFIERS restrict readonly
+struct irr_glsl_ext_ToneMapper_input_t
+{
+	vec2 padding;
 	irr_glsl_ext_ToneMapper_Params_t inParams;
 };
 #endif
 
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
-	#ifndef _IRR_GLSL_EXT_LUMA_METER_OUTPUT_DESCRIPTOR_DEFINED_
-	#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_DESCRIPTOR_DEFINED_
-	layout(set=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_) restrict readonly buffer OutputBuffer
-	{
-		irr_glsl_ext_LumaMeter_output_t outParams[2][_IRR_GLSL_EXT_LUMA_METER_LAYERS_TO_PROCESS_DEFINED_];
-	};
-	#endif
+#ifndef _IRR_GLSL_EXT_LUMA_METER_OUTPUT_DESCRIPTOR_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_DESCRIPTOR_DEFINED_
+layout(set=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_) _IRR_GLSL_EXT_LUMA_METER_OUTPUT_QUALIFIERS buffer ParameterBuffer
+{
+#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
+	irr_glsl_ext_LumaMeter_output_t lumaParams[2][_IRR_GLSL_EXT_LUMA_METER_LAYERS_TO_PROCESS_DEFINED_];
+#endif
+	irr_glsl_ext_ToneMapper_input_t inParams;
+};
 #endif
 
 #ifndef _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
@@ -330,6 +356,14 @@ void irr_glsl_ext_ToneMapper() // bool wgExecutionMask, then do if(any(wgExecuti
 		colorCIEXYZ = irr_glsl_ext_ToneMapper_readColor();
 
 	float extraNegEV = 0.0;
+#if USINGLUMA
+	extraNegEV = irr_glsl_ext_LumaMeter_getMeasuredLumaLog2(); ????
+#endif
+#if TEMPORAL_ADAPTATIONS
+	extraNegEV += (inParams.lastFrameExtraEV-extraNegEV)*inParams.exposureAdaptationFactor;
+	if (all(equal(uvec3(0,0,0),gl_WorkGroupID)))
+		inParams.lastFrameExtraEV = extraNegEV;
+#endif
 	colorCIEXYZ = irr_glsl_ext_ToneMapper_operator(inParams,colorCIEXYZ,extraNegEV);
 
 	// TODO: Add dithering
@@ -347,8 +381,7 @@ void main()
 }
 #endif
 )===";
-//	ivec2 uv = ivec2(gl_GlobalInvocationID.xy);
-//	imageStore(outImage, uv, uvec4(packUnorm4x8(ldr), 0u, 0u, 0u));
+
 	constexpr size_t operatorChars = 1ull;
 	constexpr size_t usingLumaMeterDefineChars = strlen(usingLumaMeterDefine);
 	constexpr size_t lumaChars = 10ull*2ull;
@@ -365,8 +398,9 @@ void main()
 	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
 	std::snprintf(
 		shader->getPointer(),shader->getSize(),sourceFmt,
-		_operator,usingLumaMeter ? usingLumaMeterDefine:"",
-		reinterpret_cast<const int32_t&>(minLuma),reinterpret_cast<const int32_t&>(maxLuma),meterMode,
+		_operator,
+		usingLumaMeter ? usingLumaMeterDefine:"",reinterpret_cast<const int32_t&>(minLuma),reinterpret_cast<const int32_t&>(maxLuma),meterMode,
+		usingTemporalAdaptation ? usingTemporalAdaptation:"",
 		outViewFormatQualifier,eotf,inXYZMatrix,outXYZMatrix,oetf,quantization
 	);
 

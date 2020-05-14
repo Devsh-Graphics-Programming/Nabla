@@ -92,6 +92,16 @@ IRR_FORCE_INLINE T reciprocal_approxim(const T& x)
     return reciprocal<T>(x);
 }
 
+template<>
+IRR_FORCE_INLINE float reciprocal_approxim<float>(const float& x)
+{
+	return std::exp2f(x);
+}
+template<>
+IRR_FORCE_INLINE double reciprocal_approxim<double>(const double& x)
+{
+	return std::exp2(x);
+}
 
 
 

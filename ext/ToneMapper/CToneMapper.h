@@ -25,13 +25,18 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		//
 		struct ParamsBase
 		{
-			inline void setAdaptationFactorFromFrameDelta(float frameDeltaSeconds, float adaptationPerSecondLog2=-1.f)
+			inline void setAdaptationFactorFromFrameDelta(float frameDeltaSeconds, float upAdaptationPerSecondLog2=-0.5f, float downAdaptationPerSecondLog2=-0.1f)
 			{
-				exposureAdaptationFactor = core::exp2(adaptationPerSecondLog2*frameDeltaSeconds);
+				float up = core::exp2(upAdaptationPerSecondLog2*frameDeltaSeconds);
+				float down = core::exp2(downAdaptationPerSecondLog2*frameDeltaSeconds);
+
+				upExposureAdaptationFactorAsHalf = core::Float16Compressor::compress(up);
+				downExposureAdaptationFactorAsHalf = core::Float16Compressor::compress(down);
 			}
 
 			// target+(current-target)*exp(-k*t) == mix(target,current,factor)
-			float exposureAdaptationFactor = 0.f;
+			uint16_t upExposureAdaptationFactorAsHalf = 0u;
+			uint16_t downExposureAdaptationFactorAsHalf = 0u;
 			float lastFrameExtraEV = 0.f;
 		};
 		struct alignas(16) ReinhardParams_t : ParamsBase
@@ -89,7 +94,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		static core::SRange<const IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver, bool usingLumaMeter=false);
 
 		//
-		static core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultPipelineLayout(video::IVideoDriver* driver, bool usingLumaMeter=false)
+		static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultPipelineLayout(video::IVideoDriver* driver, bool usingLumaMeter=false)
 		{
 			auto pcRange = getDefaultPushConstantRanges(usingLumaMeter);
 			auto bindings = getDefaultBindings(driver,usingLumaMeter);
@@ -104,7 +109,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			asset::IGLSLCompiler* compilerToAddBuiltinIncludeTo,
 			const std::tuple<asset::E_FORMAT,asset::E_COLOR_PRIMARIES,asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION>& inputColorSpace,
 			const std::tuple<asset::E_FORMAT,asset::E_COLOR_PRIMARIES,asset::OPTICO_ELECTRICAL_TRANSFER_FUNCTION>& outputColorSpace,
-			E_OPERATOR _operator, bool usingLumaMeter=false, LumaMeter::CLumaMeter::E_METERING_MODE meterMode=LumaMeter::CLumaMeter::EMM_UKNONWN
+			E_OPERATOR _operator, bool usingLumaMeter=false, LumaMeter::CLumaMeter::E_METERING_MODE meterMode=LumaMeter::CLumaMeter::EMM_UKNONWN, bool usingTemporalAdaptation=false
 		);
 
 		//
