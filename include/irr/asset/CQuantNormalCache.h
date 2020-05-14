@@ -2,6 +2,9 @@
 #define C_QUANT_NORMAL_CACHE_H_INCLUDED
 
 #include "irrlicht.h"
+#include <iostream>
+
+#include "../3rdparty/parallel-hashmap/parallel_hashmap/phmap_dump.h"
 
 namespace irr 
 {
@@ -264,6 +267,10 @@ public:
 	template<E_QUANT_NORM_CACHE_TYPE CacheType>
 	inline bool loadNormalQuantCacheFromFile(io::IFileSystem* fs, const std::string& path, bool replaceCurrentContents = false)
 	{
+		phmap::BinaryInputArchive in(path.c_str());
+		normalCacheFor2_10_10_10Quant.load(in);
+			return true;
+
 		auto file = core::smart_refctd_ptr<io::IReadFile>(fs->createAndOpenFile(path.c_str()),core::dont_grab);
 		return loadNormalQuantCacheFromFile<CacheType>(file.get(),replaceCurrentContents);
 	}
@@ -288,8 +295,21 @@ public:
 	//!
 	inline bool saveCacheToFile(const E_QUANT_NORM_CACHE_TYPE type, io::IFileSystem* fs, const std::string& path)
 	{
-		auto file = core::smart_refctd_ptr<io::IWriteFile>(fs->createAndWriteFile(path.c_str()));
-		return saveCacheToFile(type,file.get());
+		phmap::BinaryOutputArchive out(path.c_str());
+
+		switch (type)
+		{
+		case E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10:
+			normalCacheFor2_10_10_10Quant.dump(out);
+			return true;
+		case E_QUANT_NORM_CACHE_TYPE::Q_8_8_8:
+			return false;
+		case E_QUANT_NORM_CACHE_TYPE::Q_16_16_16:
+			return false;
+		}
+
+		/*auto file = core::smart_refctd_ptr<io::IWriteFile>(fs->createAndWriteFile(path.c_str()));
+		return saveCacheToFile(type,file.get());*/
 	}
 
 	//!

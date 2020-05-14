@@ -1,4 +1,5 @@
 #include "irr/asset/CQuantNormalCache.h"
+#include "parallel-hashmap/parallel_hashmap/phmap_dump.h"
 
 namespace irr
 {
