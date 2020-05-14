@@ -29,20 +29,20 @@ core::SRange<const IGPUDescriptorSetLayout::SBinding> getDefaultBindings(IVideoD
 			1u,
 			ISpecializedShader::ESS_COMPUTE,
 			nullptr
-		},
-		{
-			1u,
-			EDT_COMBINED_IMAGE_SAMPLER,
-			1u,
-			ISpecializedShader::ESS_COMPUTE,
-			&sampler
-		},
+		},,
 		{
 			2u,
 			EDT_STORAGE_BUFFER_DYNAMIC,
 			1u,
 			ISpecializedShader::ESS_COMPUTE,
 			nullptr
+		}
+		{
+			1u,
+			EDT_COMBINED_IMAGE_SAMPLER,
+			1u,
+			ISpecializedShader::ESS_COMPUTE,
+			&sampler
 		}
 	};
 	if (!sampler)

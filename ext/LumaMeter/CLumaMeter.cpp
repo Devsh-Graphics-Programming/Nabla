@@ -43,8 +43,17 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> CLumaMeter::createShader(
 
 	auto colorPrimaries = std::get<E_COLOR_PRIMARIES>(inputColorSpace);
 
-	const char* sourceFmt = R"===(
-#version 430 core
+	const char* sourceFmt =
+R"===(#version 430 core
+
+
+#ifndef _IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_ 16
+#endif
+
+#ifndef _IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_ 16
+#endif
 
 
 #define _IRR_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_ %d
@@ -62,7 +71,10 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> CLumaMeter::createShader(
 #define _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
 #include "irr/builtin/glsl/ext/LumaMeter/common.glsl"
 
-layout(local_size_x=_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_DEFINED_, local_size_y=_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_DEFINED_) in;
+#if _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT!=_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_*_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_
+	#error "_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT does not equal the product of the dispatch sizes!"
+#endif
+layout(local_size_x=_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_, local_size_y=_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_) in;
 
 
 #ifndef _IRR_GLSL_EXT_LUMA_METER_PUSH_CONSTANTS_DEFINED_
