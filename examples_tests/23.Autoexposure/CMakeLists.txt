@@ -4,4 +4,10 @@ if(NOT RES)
 	message(FATAL_ERROR "common.cmake not found. Should be in {repo_root}/cmake directory")
 endif()
 
-irr_create_executable_project(../../ext/AutoExposure/CToneMapper.cpp "" "" "")
+set(EXAMPLE_SOURCES
+	../../ext/LumaMeter/CGLSLLumaBuiltinIncludeHandler.cpp
+	../../ext/LumaMeter/CLumaMeter.cpp
+	../../ext/ToneMapper/CToneMapper.cpp
+)
+
+irr_create_executable_project("${EXAMPLE_SOURCES}" "" "" "")
