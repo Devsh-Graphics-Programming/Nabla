@@ -5,7 +5,7 @@ if(NOT RES)
 endif()
 
 set(EXAMPLE_SOURCES
-	../../ext/LumaMeter/CGLSLLumaBuiltinIncludeHandler.cpp
+	../../ext/LumaMeter/CGLSLLumaBuiltinIncludeLoader.cpp
 	../../ext/LumaMeter/CLumaMeter.cpp
 	../../ext/ToneMapper/CToneMapper.cpp
 )
