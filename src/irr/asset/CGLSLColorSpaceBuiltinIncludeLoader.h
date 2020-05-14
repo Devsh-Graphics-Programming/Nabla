@@ -24,9 +24,9 @@ const mat3 irr_glsl_scRGBtoXYZ = mat3(  vec3( 0.4124564, 0.2126729, 0.0193339),
                                         vec3( 0.3575761, 0.7151522, 0.1191920),
                                         vec3( 0.1804375, 0.0721750, 0.9503041));
 
-const mat3 irr_glsl_sRGBtoXYZ = scRGBtoXYZ;
+const mat3 irr_glsl_sRGBtoXYZ = irr_glsl_scRGBtoXYZ;
 
-const mat3 irr_glsl_BT709toXYZ = scRGBtoXYZ;
+const mat3 irr_glsl_BT709toXYZ = irr_glsl_scRGBtoXYZ;
 
 
 const mat3 irr_glsl_Display_P3toXYZ = mat3( vec3( 0.4865709, 0.2289746, 0.0000000),
@@ -78,9 +78,9 @@ const mat3 irr_glsl_XYZtoscRGB = mat3(  vec3( 3.2404542,-0.9692660, 0.0556434),
                                         vec3(-1.5371385, 1.8760108,-0.2040259),
                                         vec3(-0.4985314, 0.0415560, 1.0572252));
 
-const mat3 irr_glsl_XYZtosRGB = XYZtoscRGB;
+const mat3 irr_glsl_XYZtosRGB = irr_glsl_XYZtoscRGB;
 
-const mat3 irr_glsl_XYZtoBT709 = XYZtoscRGB;
+const mat3 irr_glsl_XYZtoBT709 = irr_glsl_XYZtoscRGB;
 
   
 const mat3 irr_glsl_XYZtoDisplay_P3 = mat3( vec3( 2.4934969,-0.8294890, 0.0358458),
@@ -142,7 +142,7 @@ vec3 irr_glsl_eotf_sRGB(in vec3 nonlinear)
 {
     bvec3 negatif = lessThan(nonlinear,vec3(0.0));
     vec3 absVal = irr_glsl_eotf_impl_shared_2_4(abs(nonlinear),0.04045);
-    return negatif ? (-absVal):absVal;
+    return mix(absVal,-absVal,negatif);
 }
 
 // also known as P3-D65
@@ -169,14 +169,14 @@ vec3 irr_glsl_eotf_SMPTE_170M(in vec3 nonlinear)
 vec3 irr_glsl_eotf_SMPTE_ST2084(in vec3 nonlinear)
 {
     const vec3 invm2 = vec3(1.0/78.84375);
-    vec3 common = pow(y,invm2);
+    vec3 _common = pow(invm2,invm2);
 
     const vec3 c2 = vec3(18.8515625);
     const float c3 = 18.68875;
     const vec3 c1 = vec3(c3+1.0)-c2;
 
     const vec3 invm1 = vec3(1.0/0.1593017578125);
-    return pow(max(common-c1,vec3(0.0))/(c2-common*c3),invm1);
+    return pow(max(_common-c1,vec3(0.0))/(c2-_common*c3),invm1);
 }
 
 // did I do this right by applying the function for every color?
@@ -192,20 +192,20 @@ vec3 irr_glsl_eotf_HDR10_HLG(in vec3 nonlinear)
 
 vec3 irr_glsl_eotf_AdobeRGB(in vec3 nonlinear)
 {
-    return pow(linear,vec3(2.19921875));
+    return pow(nonlinear,vec3(2.19921875));
 }
 
 vec3 irr_glsl_eotf_Gamma_2_2(in vec3 nonlinear)
 {
-    return pow(linear,vec3(2.2));
+    return pow(nonlinear,vec3(2.2));
 }
 
 
 vec3 irr_glsl_eotf_ACEScc(in vec3 nonlinear)
 {
     bvec3 right = greaterThanEqual(nonlinear,vec3(-0.301369863));
-    vec3 common = exp2(nonlinear*17.52-vec3(9.72));
-    return max(mix(common*2.0-vec3(0.000030517578125),common,right),vec3(65504.0));
+    vec3 _common = exp2(nonlinear*17.52-vec3(9.72));
+    return max(mix(_common*2.0-vec3(0.000030517578125),_common,right),vec3(65504.0));
 }
 
 vec3 irr_glsl_eotf_ACEScct(in vec3 nonlinear)
@@ -238,7 +238,7 @@ vec3 irr_glsl_oetf_sRGB(in vec3 linear)
 {
     bvec3 negatif = lessThan(linear,vec3(0.0));
     vec3 absVal = irr_glsl_oetf_impl_shared_2_4(abs(linear),0.0031308);
-    return negatif ? (-absVal):absVal;
+    return mix(absVal,-absVal,negatif);
 }
 
 // also known as P3-D65
