@@ -34,24 +34,30 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 				downExposureAdaptationFactorAsHalf = core::Float16Compressor::compress(down);
 			}
 
+			float lastFrameExtraEV = 0.f;
+		protected:
 			// target+(current-target)*exp(-k*t) == mix(target,current,factor)
 			uint16_t upExposureAdaptationFactorAsHalf = 0u;
 			uint16_t downExposureAdaptationFactorAsHalf = 0u;
-			float lastFrameExtraEV = 0.f;
 		};
-		struct alignas(16) ReinhardParams_t : ParamsBase
+		//
+		template<E_OPERATOR _operator>
+		struct Params_t;
+		template<>
+		struct alignas(16) Params_t<EO_REINHARD> : ParamsBase
 		{
-			static inline ReinhardParams_t fromExposure(float EV, float key=0.18f, float WhitePointRelToEV=16.f)
+			static inline Params_t<EO_REINHARD> fromExposure(float EV, float key=0.18f, float WhitePointRelToEV=16.f)
 			{
-				ReinhardParams_t retval;
+				Params_t<EO_REINHARD> retval;
 				retval.keyAndLinearExposure = key*exp2(EV);
 				retval.rcpWhite2 = 1.f/(WhitePointRelToEV*WhitePointRelToEV);
 				return retval;
 			}
-			static inline ReinhardParams_t fromKeyAndBurn(float key, float burn, float AvgLuma, float MaxLuma)
+			static inline Params_t<EO_REINHARD> fromKeyAndBurn(float key, float burn, float AvgLuma, float MaxLuma)
 			{
-				ReinhardParams_t retval;
+				Params_t<EO_REINHARD> retval;
 				retval.keyAndLinearExposure = key/AvgLuma;
+				burn = core::clamp(1.f-burn,0.f,1.f);
 				retval.rcpWhite2 = 1.f/(MaxLuma*retval.keyAndLinearExposure*burn*burn);
 				retval.rcpWhite2 *= retval.rcpWhite2;
 				return retval;
@@ -60,10 +66,10 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			float keyAndLinearExposure; // usually 0.18*exp2(exposure)
 			float rcpWhite2; // the white is relative to post-exposed luma
 		};
-		//
-		struct alignas(16) ACESParams_t : ParamsBase
+		template<>
+		struct alignas(16) Params_t<EO_ACES> : ParamsBase
 		{
-			ACESParams_t(float EV, float key=0.18f, float Contrast=1.f) : preGamma(Contrast)
+			Params_t(float EV, float key=0.18f, float Contrast=1.f) : preGamma(Contrast)
 			{
 				setExposure(EV,key);
 			}
@@ -85,7 +91,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		static inline core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges(bool usingLumaMeter=false)
 		{
 			if (usingLumaMeter)
-				return CGLSLLumaBuiltinIncludeLoader::getDefaultPushConstantRanges();
+				return LumaMeter::CGLSLLumaBuiltinIncludeLoader::getDefaultPushConstantRanges();
 			else
 				return {nullptr,nullptr};
 		}
@@ -103,13 +109,79 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 				driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
 			);
 		}
+
+		//
+		template<E_OPERATOR _operator>
+		static inline void updateDescriptorSet(
+			video::IVideoDriver* driver, video::IGPUDescriptorSet* set,
+			core::smart_refctd_ptr<video::IGPUBuffer> inputParameterDescriptor, 
+			core::smart_refctd_ptr<video::IGPUImageView> inputImageDescriptor,
+			core::smart_refctd_ptr<video::IGPUImageView> outputImageDescriptor,
+			core::smart_refctd_ptr<video::IGPUBuffer> lumaUniformsDescriptor=nullptr,
+			uint32_t inputParameterBinding=,
+			uint32_t inputImageBinding=,
+			uint32_t outputImageBinding=,
+			uint32_t lumaUniformsBinding=0u,
+			bool usingTemporalAdaptation
+			uint32_t arrayLayers=
+		)
+		{
+			video::IGPUDescriptorSet::SDescriptorInfo pInfos[4];
+			video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[4];
+			for (auto i=0; i<4; i++)
+			{
+				pWrites[i].dstSet = set;
+				pWrites[i].arrayElement = 0u;
+				pWrites[i].count = 1u;
+				pWrites[i].info = pInfos+i;
+			}
+			
+			pInfos[1].desc = parameterBuffer;
+			pInfos[1].buffer.size = //(2u)*sizeof(Params_t<_operator>);
+			pInfos[1].buffer.offset = 0u;
+			pInfos[2].desc = inputImageDescriptor;
+			pInfos[2].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
+			pInfos[2].image.sampler = nullptr;
+
+			uint32_t outputImageIx;
+			if (lumaUniformsDescriptor)
+			{
+				outputImageIx = 3u;
+
+				pInfos[0].desc = lumaUniformsDescriptor;
+				pInfos[0].buffer.offset = 0u;
+				pInfos[0].buffer.size = sizeof(LumaMeter::CLumaMeter::Uniforms_t);
+				pInfos[1].buffer.size += sizeof(LumaStuff_t);
+
+				pWrites[0].binding = lumaUniformsBinding;
+				pWrites[0].descriptorType = asset::EDT_UNIFORM_BUFFER_DYNAMIC;
+			}
+			else
+				outputImageIx = 0u;
+
+			pInfos[outputImageIx].desc = outputImageDescriptor;
+			pInfos[outputImageIx].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
+			pInfos[outputImageIx].image.sampler = nullptr;
+
+
+			pWrites[1].binding = inputParameterBinding;
+			pWrites[1].descriptorType = asset::EDT_STORAGE_BUFFER_DYNAMIC;
+			pWrites[2].binding = inputImageBinding;
+			pWrites[2].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
+			pWrites[outputImageIx].binding = outputImageBinding;
+			pWrites[outputImageIx].descriptorType = asset::EDT_STORAGE_IMAGE;
+
+			driver->updateDescriptorSets(lumaUniformsDescriptor ? 4u:3u, pWrites, 0u, nullptr);
+		}
 		
 		//
 		static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createShader(
 			asset::IGLSLCompiler* compilerToAddBuiltinIncludeTo,
 			const std::tuple<asset::E_FORMAT,asset::E_COLOR_PRIMARIES,asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION>& inputColorSpace,
 			const std::tuple<asset::E_FORMAT,asset::E_COLOR_PRIMARIES,asset::OPTICO_ELECTRICAL_TRANSFER_FUNCTION>& outputColorSpace,
-			E_OPERATOR _operator, bool usingLumaMeter=false, LumaMeter::CLumaMeter::E_METERING_MODE meterMode=LumaMeter::CLumaMeter::EMM_UKNONWN, bool usingTemporalAdaptation=false
+			E_OPERATOR _operator,
+			bool usingLumaMeter=false, LumaMeter::CLumaMeter::E_METERING_MODE meterMode=LumaMeter::CLumaMeter::EMM_UKNONWN,
+			bool usingTemporalAdaptation=false
 		);
 
 		//

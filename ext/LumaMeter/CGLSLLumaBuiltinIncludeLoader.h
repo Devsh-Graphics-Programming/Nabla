@@ -10,7 +10,7 @@ namespace ext
 namespace LumaMeter
 {
 
-class CGLSLLumaBuiltinIncludeLoader : public irr::asset::IBuiltinIncludeLoader
+class CGLSLLumaBuiltinIncludeLoader : public asset::IBuiltinIncludeLoader
 {
     public:
         static core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges();

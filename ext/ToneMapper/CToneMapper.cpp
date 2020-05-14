@@ -283,9 +283,9 @@ layout(local_size_x=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_, local_si
 #define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_QUALIFIERS restrict
 struct irr_glsl_ext_ToneMapper_input_t
 {
-	uint packedExposureAdaptationFactors; // first is up, then down
-	float lastFrameExtraEV;
 	irr_glsl_ext_ToneMapper_Params_t inParams;
+	uint lastFrameExtraEV; // packed stuff
+	uint packedExposureAdaptationFactors; // first is up, then down
 };
 
 irr_glsl_ext_ToneMapper_()
@@ -295,7 +295,6 @@ irr_glsl_ext_ToneMapper_()
 #define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_QUALIFIERS restrict readonly
 struct irr_glsl_ext_ToneMapper_input_t
 {
-	vec2 padding;
 	irr_glsl_ext_ToneMapper_Params_t inParams;
 };
 #endif

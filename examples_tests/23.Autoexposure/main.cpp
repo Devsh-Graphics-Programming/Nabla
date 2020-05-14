@@ -72,27 +72,27 @@ int main()
 	}
 
 
-	constexpr bool usingLumaMeter = false;
 	constexpr auto meterMode = ext::LumaMeter::CLumaMeter::EMM_COUNT;
 
+	using ToneMapperClass = ext::ToneMapper::CToneMapper;
+	constexpr bool usingLumaMeter = false;
 	constexpr bool usingTemporalAdapatation = false;
 
-	auto tonemappingShader = ext::ToneMapper::CToneMapper::createShader(am->getGLSLCompiler(),
+	auto tonemappingShader = ToneMapperClass::createShader(am->getGLSLCompiler(),
 		std::make_tuple(inFormat,ECP_SRGB,EOTF_IDENTITY),
 		std::make_tuple(outFormat,ECP_SRGB,OETF_sRGB),
-		ext::ToneMapper::CToneMapper::EO_REINHARD,
+		ToneMapperClass::EO_REINHARD,
 		usingLumaMeter,meterMode,usingTemporalAdapatation
 	);
 
 	auto outImgStorage = ext::ToneMapper::CToneMapper::createViewForImage(driver,false,core::smart_refctd_ptr(outImg),{static_cast<IImage::E_ASPECT_FLAGS>(0u),0,1,0,1});
 
 	constexpr float Key = 0.18;
-	auto params = ext::ToneMapper::CToneMapper::ReinhardParams_t::fromKeyAndBurn(Key, 0.95, 0.1, 16.0);
+	auto params = ext::ToneMapper::CToneMapper::Params_t<EO_::fromKeyAndBurn(Key, 0.95, 0.1, 16.0);
 /*
 TODO:
 - tone mapper double buffered parameters
 - tone mapper luma adaptation
-- descriptor sets final
 - ACES trials
 - adaptation speeds
 */
@@ -109,36 +109,6 @@ TODO:
 	if constexpr (false)
 	{
 		video::IGPUDescriptorSet::SDescriptorInfo pInfos[3];
-		pInfos[0].desc = parameterBuffer;
-		pInfos[0].buffer.offset = 0u;
-		pInfos[0].buffer.size = video::IGPUBufferView::whole_buffer;
-		pInfos[1].desc = imgToTonemap;
-		pInfos[1].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
-		pInfos[1].image.sampler = nullptr;
-		pInfos[2].desc = outImgStorage;
-		pInfos[2].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
-		pInfos[2].image.sampler = nullptr;
-
-		video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[3];
-		pWrites[0].dstSet = commonDescriptorSet.get();
-		pWrites[0].binding = 0u;
-		pWrites[0].arrayElement = 0u;
-		pWrites[0].count = 1u;
-		pWrites[0].descriptorType = asset::EDT_UNIFORM_BUFFER_DYNAMIC;
-		pWrites[0].info = pInfos + 0u;
-		pWrites[1].dstSet = commonDescriptorSet.get();
-		pWrites[1].binding = 1u;
-		pWrites[1].arrayElement = 0u;
-		pWrites[1].count = 1u;
-		pWrites[1].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
-		pWrites[1].info = pInfos + 1u;
-		pWrites[2].dstSet = commonDescriptorSet.get();
-		pWrites[2].binding = 2u;
-		pWrites[2].arrayElement = 0u;
-		pWrites[2].count = 1u;
-		pWrites[2].descriptorType = asset::EDT_STORAGE_IMAGE;
-		pWrites[2].info = pInfos + 2u;
-		driver->updateDescriptorSets(3u, pWrites, 0u, nullptr);
 	}
 
 
