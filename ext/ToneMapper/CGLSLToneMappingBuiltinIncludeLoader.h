@@ -10,7 +10,7 @@ namespace ext
 namespace ToneMapper
 {
 
-class CGLSLToneMappingBuiltinIncludeLoader : public irr::asset::IBuiltinIncludeLoader
+class CGLSLToneMappingBuiltinIncludeLoader : public asset::IBuiltinIncludeLoader
 {
     public:
         const char* getVirtualDirectoryName() const override { return "glsl/ext/ToneMapper/"; }
@@ -25,18 +25,14 @@ R"(#ifndef _IRR_GLSL_EXT_TONE_MAPPER_OPERATORS_INCLUDED_
 
 struct irr_glsl_ext_ToneMapper_ReinhardParams_t
 {
-	float exposureAdaptationFactor;
-	float lastFrameExtraEV;
 	float keyAndManualLinearExposure;
 	float rcpWhite2;
 };
 
 struct irr_glsl_ext_ToneMapper_ACESParams_t
 {
-	float exposureAdaptationFactor;
-	float lastFrameExtraEV;
-	float preGamma; // 1.0
-	float exposure; // actualExposure-midGrayLog2*(preGamma-1.0)
+	float gamma; // 1.0
+	float exposure; // actualExposure+midGrayLog2
 };
 
 #define _IRR_GLSL_EXT_TONE_MAPPER_REINHARD_OPERATOR 0
@@ -62,7 +58,7 @@ struct irr_glsl_ext_ToneMapper_ACESParams_t
 	vec3 irr_glsl_ext_ToneMapper_operator(in irr_glsl_ext_ToneMapper_Params_t params, inout vec3 rawCIEXYZcolor, in float extraNegEV)
 	{
 		vec3 tonemapped = rawCIEXYZcolor;
-		tonemapped.y = exp2(log2(tonemapped.y)*params.preGamma+params.exposure-extraNegEV);
+		tonemapped.y = exp2(log2(tonemapped.y+params.exposure-extraNegEV)*params.gamma);
 
 		// XYZ => RRT_SAT
 		// this seems to be a matrix for some hybrid colorspace, coefficients are somewhere inbetween BT2020 and ACEScc(t)
@@ -99,10 +95,10 @@ struct irr_glsl_ext_ToneMapper_ACESParams_t
         }
 
     protected:
-        inline irr::core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
+        inline core::vector<std::pair<std::regex,HandleFunc_t> > getBuiltinNamesToFunctionMapping() const override
         {
             return {
-                { std::regex{"operators\\.glsl"}, &getCommon }
+                { std::regex{"operators\\.glsl"}, &getOperators }
             };
         }
     };

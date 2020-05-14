@@ -1,5 +1,7 @@
-#include "../ext/AutoExposure/CToneMapper.h"
+#include "../ext/ToneMapper/CToneMapper.h"
+#include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
+#include <cstdio>
 
 using namespace irr;
 using namespace irr::asset;
@@ -9,7 +11,7 @@ using namespace ext::ToneMapper;
 
 void CToneMapper::registerBuiltinGLSLIncludes(IGLSLCompiler* compilerToAddBuiltinIncludeTo)
 {
-	static addedBuiltinHeader = false;
+	static bool addedBuiltinHeader = false;
 	if (addedBuiltinHeader)
 		return;
 
@@ -20,17 +22,20 @@ void CToneMapper::registerBuiltinGLSLIncludes(IGLSLCompiler* compilerToAddBuilti
 	addedBuiltinHeader = true;
 }
 
-core::SRange<IGPUDescriptorSetLayout::SBinding> CToneMapper::getDefaultBindings(video::IVideoDriver* driver, bool usingLumaMeter)
+core::SRange<const IGPUDescriptorSetLayout::SBinding> CToneMapper::getDefaultBindings(IVideoDriver* driver, bool usingLumaMeter)
 {
+	auto lumaBindings = ext::LumaMeter::CGLSLLumaBuiltinIncludeLoader::getDefaultBindings(driver);
+	const auto inputImageBinding = lumaBindings.begin()[2];
 	if (usingLumaMeter)
 	{
-		auto lumaBindings = ext::LumaMeter::CGLSLLumaBuiltinIncludeLoader::getDefaultBindings(driver);
 		assert(lumaBindings.size()==3ull);
-		static const IGPUDescriptorSetLayout::SBinding bnd[4] =
-		{,
-			lumaBindings.begin()[0],
-			lumaBindings.begin()[1],
-			lumaBindings.begin()[2],
+		const auto uniformBinding = lumaBindings.begin()[0];
+		const auto ssboBinding = lumaBindings.begin()[1];
+		static const IGPUDescriptorSetLayout::SBinding bnd[MAX_DESCRIPTOR_COUNT] =
+		{
+			uniformBinding,
+			ssboBinding,
+			inputImageBinding,
 			{
 				3u,
 				EDT_STORAGE_IMAGE,
@@ -64,25 +69,26 @@ core::SRange<IGPUDescriptorSetLayout::SBinding> CToneMapper::getDefaultBindings(
 				EDT_COMBINED_IMAGE_SAMPLER,
 				1u,
 				ISpecializedShader::ESS_COMPUTE,
-				&sampler
-			},
+				inputImageBinding.samplers
+			}
 		};
 		return {bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
 	}
 }
 
 
-static core::smart_refctd_ptr<ICPUSpecializedShader> createShader(
+core::smart_refctd_ptr<ICPUSpecializedShader> CToneMapper::createShader(
 	IGLSLCompiler* compilerToAddBuiltinIncludeTo,
 	const std::tuple<E_FORMAT,E_COLOR_PRIMARIES,ELECTRO_OPTICAL_TRANSFER_FUNCTION>& inputColorSpace,
 	const std::tuple<E_FORMAT,E_COLOR_PRIMARIES,OPTICO_ELECTRICAL_TRANSFER_FUNCTION>& outputColorSpace,
-	E_OPERATOR _operator, bool usingLumaMeter, ext::LumaMeter::CLumaMeter::E_METERING_MODE meterMode)
+	E_OPERATOR _operator, bool usingLumaMeter, ext::LumaMeter::CLumaMeter::E_METERING_MODE meterMode, float minLuma, float maxLuma,
+	bool usingTemporalAdaptation
+)
 {
-	constexpr char* eotfs[EOTF_UNKNOWN] =
+	constexpr char* eotfs[EOTF_UNKNOWN+1] =
 	{
 		"irr_glsl_eotf_identity",
 		"irr_glsl_eotf_sRGB",
-		"irr_glsl_eotf_Display_P3",
 		"irr_glsl_eotf_DCI_P3_XYZ",
 		"irr_glsl_eotf_SMPTE_170M",
 		"irr_glsl_eotf_SMPTE_ST2084",
@@ -92,7 +98,7 @@ static core::smart_refctd_ptr<ICPUSpecializedShader> createShader(
 		"irr_glsl_eotf_ACEScct",
 		"#error \"UNDEFINED EOTF!\""
 	};
-	constexpr char* inXYZMatrices[ECP_COUNT] =
+	constexpr char* inXYZMatrices[ECP_COUNT+1] =
 	{
 		"irr_glsl_sRGBtoXYZ",
 		"irr_glsl_Display_P3toXYZ",
@@ -101,9 +107,10 @@ static core::smart_refctd_ptr<ICPUSpecializedShader> createShader(
 		"irr_glsl_AdobeRGBtoXYZ",
 		"irr_glsl_ACES2065_1toXYZ",
 		"irr_glsl_ACEScctoXYZ",
+		"#error \"Passthrough Color Space not supported!\"",
 		"#error \"UNDEFINED_COLOR_PRIMARIES\""
 	};
-	constexpr char* outXYZMatrices[ECP_COUNT] =
+	constexpr char* outXYZMatrices[ECP_COUNT+1] =
 	{
 		"irr_glsl_XYZtosRGB",
 		"irr_glsl_XYZtoDisplay_P3",
@@ -112,13 +119,13 @@ static core::smart_refctd_ptr<ICPUSpecializedShader> createShader(
 		"irr_glsl_XYZtoAdobeRGB",
 		"irr_glsl_XYZtoACES2065_1",
 		"irr_glsl_XYZtoACEScc",
+		"#error \"Passthrough Color Space not supported!\"",
 		"#error \"UNDEFINED_COLOR_PRIMARIES\""
 	};
-	constexpr char* oetfs[EOTF_UNKNOWN] =
+	constexpr char* oetfs[EOTF_UNKNOWN+1] =
 	{
 		"irr_glsl_oetf_identity",
 		"irr_glsl_oetf_sRGB",
-		"irr_glsl_oetf_Display_P3",
 		"irr_glsl_oetf_DCI_P3_XYZ",
 		"irr_glsl_oetf_SMPTE_170M",
 		"irr_glsl_oetf_SMPTE_ST2084",
@@ -176,22 +183,35 @@ static core::smart_refctd_ptr<ICPUSpecializedShader> createShader(
 	quantizedColor[1] = packHalf2x16(preQuant.ba);
 		)==="},
 	};
-	const char* quantization = quantizations[outputFormat];
+	const char* quantization = quantizations.find(outputFormat)->second;
+	const char* outViewFormatQualifier;
+	switch (outViewFormat)
+	{
+		case EF_R32_UINT:
+			outViewFormatQualifier = "r32ui";
+			break;
+		case EF_R32G32_UINT:
+			outViewFormatQualifier = "rg32ui";
+			break;
+		default:
+			outViewFormatQualifier = nullptr;
+			break;
+	}
 
-	constexpr char* usingLumaMeterDefine = "_IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_";
+	const char* usingLumaMeterDefine = usingLumaMeter ? "_IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_":"";
 
-	constexpr char* usingTemporalAdaptation = "_IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_";
+	const char* usingTemporalAdaptationDefine = usingTemporalAdaptation ? "_IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_":"";
 
-	constexpr char* formatSrc = 
+	constexpr char* sourceFmt =
 R"===(#version 430 core
 
 
 #ifndef _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_ 16
+#define _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_ %d
 #endif
 
 #ifndef _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_ 16
+#define _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_ %d
 #endif
 
 
@@ -238,6 +258,15 @@ R"===(#version 430 core
 	#endif
 
 
+	#ifndef _IRR_GLSL_EXT_TONE_MAPPER_UNIFORMS_DEFINED_
+	#define _IRR_GLSL_EXT_TONE_MAPPER_UNIFORMS_DEFINED_
+	layout(set=_IRR_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_UNIFORMS_BINDING_DEFINED_) uniform LumaPassInfo
+	{
+		irr_glsl_ext_LumaMeter_PassInfo_t lumaPassInfo;
+	};
+	#endif
+
+
 	#if _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_SET_DEFINED_!=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_ || _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_BINDING_DEFINED_!=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_
 		#error "Luma/Tonemapper SSBO Set or Binding don't match!"
 	#endif
@@ -265,7 +294,10 @@ layout(local_size_x=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_, local_si
 #include "irr/builtin/glsl/colorspace/OETF.glsl"
 
 
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
+%s // _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
+
+
+#ifdef defined(_IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_)||defined(_IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_)
 	#ifndef _IRR_GLSL_EXT_TONE_MAPPER_PUSH_CONSTANTS_DEFINED_
 	#define _IRR_GLSL_EXT_TONE_MAPPER_PUSH_CONSTANTS_DEFINED_
 	layout(push_constant) uniform PushConstants
@@ -276,39 +308,76 @@ layout(local_size_x=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_, local_si
 #endif
 
 
-%s // _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
+#if _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
+	irr_glsl_ext_LumaMeter_PassInfo_t irr_glsl_ext_ToneMapper_getLumaMeterInfo()
+	{
+		return lumaPassInfo;
+	}
+#endif
 
 
 #ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_QUALIFIERS restrict
-struct irr_glsl_ext_ToneMapper_input_t
-{
-	irr_glsl_ext_ToneMapper_Params_t inParams;
-	uint lastFrameExtraEV; // packed stuff
-	uint packedExposureAdaptationFactors; // first is up, then down
-};
-
-irr_glsl_ext_ToneMapper_()
-{
-}
+	#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_QUALIFIERS restrict
+	struct irr_glsl_ext_ToneMapper_input_t
+	{
+		irr_glsl_ext_ToneMapper_Params_t inParams;
+		uint lastFrameExtraEV; // packed stuff
+		uint packedExposureAdaptationFactors; // first is up, then down
+	};
 #else
-#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_QUALIFIERS restrict readonly
-struct irr_glsl_ext_ToneMapper_input_t
-{
-	irr_glsl_ext_ToneMapper_Params_t inParams;
-};
+	#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_QUALIFIERS restrict readonly
+	struct irr_glsl_ext_ToneMapper_input_t
+	{
+		irr_glsl_ext_ToneMapper_Params_t inParams;
+	};
 #endif
 
-#ifndef _IRR_GLSL_EXT_LUMA_METER_OUTPUT_DESCRIPTOR_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_DESCRIPTOR_DEFINED_
+
+#ifndef _IRR_GLSL_EXT_TONE_MAPPER_SSBO_DESCRIPTOR_DEFINED_
+#define _IRR_GLSL_EXT_TONE_MAPPER_SSBO_DESCRIPTOR_DEFINED_
 layout(set=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_) _IRR_GLSL_EXT_LUMA_METER_OUTPUT_QUALIFIERS buffer ParameterBuffer
 {
-#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
-	irr_glsl_ext_LumaMeter_output_t lumaParams[2][_IRR_GLSL_EXT_LUMA_METER_LAYERS_TO_PROCESS_DEFINED_];
-#endif
-	irr_glsl_ext_ToneMapper_input_t inParams;
+	#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
+		irr_glsl_ext_LumaMeter_output_t lumaParams[2][_IRR_GLSL_EXT_LUMA_METER_LAYERS_TO_PROCESS_DEFINED_];
+	#endif
+	irr_glsl_ext_ToneMapper_input_t toneMapperParams;
 };
 #endif
+
+
+irr_glsl_ext_ToneMapper_Params_t irr_glsl_ext_ToneMapper_getToneMapperParams()
+{
+	return toneMapperParams.inParams;
+}
+
+#if _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
+	irr_glsl_ext_LumaMeter_output_t irr_glsl_ext_ToneMapper_getLumaMeterOutput()
+	{
+		return lumaParams[pc.currentFirstPassOutput][gl_WorkGroupID.z];
+	}
+#endif
+
+#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
+	float irr_glsl_ext_ToneMapper_getLastFrameLuma()
+	{
+		return unpackHalf2x16(toneMapperParams.lastFrameExtraEV)[pc.currentFirstPassOutput];
+	}
+	void irr_glsl_ext_ToneMapper_setLastFrameLuma(in float thisLuma)
+	{
+		vec2 wholeVal = irr_glsl_ext_ToneMapper_getLastFrameLuma();
+		if (all(equal(uvec3(0,0,0),gl_WorkGroupID)))
+		{
+			wholeVal[pc.currentFirstPassOutput^0x1] = thisLuma;
+			inParams.lastFrameExtraEV = packHalf2x16(wholeVal);
+		}
+	}
+
+	float irr_glsl_ext_ToneMapper_getExposureAdaptationFactor(in float toLastLumaDiff)
+	{
+		return unpackHalf2x16(_input.packedExposureAdaptationFactors)[toLastLumaDiff<0.f ? 0:1];
+	}
+#endif
+
 
 #ifndef _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
 #define _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
@@ -354,16 +423,18 @@ void irr_glsl_ext_ToneMapper() // bool wgExecutionMask, then do if(any(wgExecuti
 	if (alive)
 		colorCIEXYZ = irr_glsl_ext_ToneMapper_readColor();
 
+	irr_glsl_ext_ToneMapper_Params_t params = irr_glsl_ext_ToneMapper_getToneMapperParams();
+
 	float extraNegEV = 0.0;
-#if USINGLUMA
-	extraNegEV = irr_glsl_ext_LumaMeter_getMeasuredLumaLog2(); ????
+#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
+	extraNegEV = irr_glsl_ext_LumaMeter_getMeasuredLumaLog2(irr_glsl_ext_ToneMapper_getLumaMeterOutput(),irr_glsl_ext_ToneMapper_getLumaMeterInfo());
 #endif
-#if TEMPORAL_ADAPTATIONS
-	extraNegEV += (inParams.lastFrameExtraEV-extraNegEV)*inParams.exposureAdaptationFactor;
-	if (all(equal(uvec3(0,0,0),gl_WorkGroupID)))
-		inParams.lastFrameExtraEV = extraNegEV;
+#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
+	float toLastLumaDiff = inParams.lastFrameExtraEV-extraNegEV;
+	extraNegEV += toLastLumaDiff*irr_glsl_ext_ToneMapper_getExposureAdaptationFactor(toLastLumaDiff);
+	irr_glsl_ext_ToneMapper_setLastFrameLuma(extraNegEV);
 #endif
-	colorCIEXYZ = irr_glsl_ext_ToneMapper_operator(inParams,colorCIEXYZ,extraNegEV);
+	colorCIEXYZ = irr_glsl_ext_ToneMapper_operator(params,colorCIEXYZ,extraNegEV);
 
 	// TODO: Add dithering
 	vec3 rand = vec3(0.5);
@@ -381,35 +452,38 @@ void main()
 #endif
 )===";
 
-	constexpr size_t operatorChars = 1ull;
-	constexpr size_t usingLumaMeterDefineChars = strlen(usingLumaMeterDefine);
+	constexpr size_t wgDimAndOperatorChars = 1ull+4ull*2ull;
+	const size_t usingLumaMeterDefineChars = strlen(usingLumaMeterDefine);
 	constexpr size_t lumaChars = 10ull*2ull;
 	constexpr size_t meterModeChars = 1ull;
+	const size_t usingTemporalAdaptationDefineChars = strlen(usingTemporalAdaptationDefine);
 	const size_t outViewFormatQualifierChars = strlen(outViewFormatQualifier);
 	const size_t eotfChars = strlen(eotf);
 	const size_t inXYZMatrixChars = strlen(inXYZMatrix);
 	const size_t outXYZMatrixChars = strlen(outXYZMatrix);
 	const size_t oetfChars = strlen(oetf);
 	const size_t quantizationChars = strlen(quantization);
-	const size_t extraSize =	operatorChars+usingLumaMeterDefineChars+lumaChars+meterModeChars+
-								outViewFormatQualifier+eotfChars+inXYZMatrixChars+outXYZMatrixChars+oetfChars+quantization;
+	const size_t extraSize =	wgDimAndOperatorChars+usingLumaMeterDefineChars+lumaChars+meterModeChars+
+								usingTemporalAdaptationDefineChars+
+								outViewFormatQualifierChars+eotfChars+inXYZMatrixChars+outXYZMatrixChars+oetfChars+quantizationChars;
 
 	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
-	std::snprintf(
-		shader->getPointer(),shader->getSize(),sourceFmt,
-		_operator,
-		usingLumaMeter ? usingLumaMeterDefine:"",reinterpret_cast<const int32_t&>(minLuma),reinterpret_cast<const int32_t&>(maxLuma),meterMode,
-		usingTemporalAdaptation ? usingTemporalAdaptation:"",
+	snprintf(
+		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(),sourceFmt,
+		DEFAULT_WORKGROUP_DIM,DEFAULT_WORKGROUP_DIM,_operator,
+		usingLumaMeterDefine,reinterpret_cast<const int32_t&>(minLuma),reinterpret_cast<const int32_t&>(maxLuma),meterMode,
+		usingTemporalAdaptationDefine,
 		outViewFormatQualifier,eotf,inXYZMatrix,outXYZMatrix,oetf,quantization
 	);
 
 	registerBuiltinGLSLIncludes(compilerToAddBuiltinIncludeTo);
-	return core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(),{nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE});
+	return core::make_smart_refctd_ptr<ICPUSpecializedShader>(
+		core::make_smart_refctd_ptr<ICPUShader>(std::move(shader),ICPUShader::buffer_contains_glsl),
+		ISpecializedShader::SInfo{nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE}
+	);
 }
 
 void CToneMapper::defaultBarrier()
 {
 	COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_FRAMEBUFFER_BARRIER_BIT);
 }
-
-#endif

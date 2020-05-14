@@ -33,16 +33,18 @@ class CLumaMeter : public core::TotalInterface
 		template<E_METERING_MODE mode>
 		struct PassInfo_t;
 		template<>
-		struct alignas(8) PassInfo_t<EMM_MODE>
+		struct alignas(16) PassInfo_t<EMM_MODE>
 		{
 			uint32_t lowerPercentile;
 			uint32_t upperPercentile;
 		};
+		static_assert(sizeof(PassInfo_t<EMM_MODE>)<=sizeof(Uniforms_t), "PassInfo_t<EMM_MODE> cannot be larger than Uniforms_t!");
 		template<>
-		struct PassInfo_t<EMM_GEOM_MEAN>
+		struct alignas(16) PassInfo_t<EMM_GEOM_MEAN>
 		{
 			float rcpFirstPassWGCount;
 		};
+		static_assert(sizeof(PassInfo_t<EMM_GEOM_MEAN>)<=sizeof(Uniforms_t), "PassInfo_t<EMM_GEOM_MEAN> cannot be larger than Uniforms_t!");
 
 		struct DispatchInfo_t
 		{
@@ -89,9 +91,29 @@ class CLumaMeter : public core::TotalInterface
 		}
 
 		//
-		static inline core::SRange<const IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver)
+		static inline core::SRange<const video::IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver)
 		{
 			return CGLSLLumaBuiltinIncludeLoader::getDefaultBindings(driver);
+		}
+
+		//
+		static inline size_t getOutputBufferSize(E_METERING_MODE meterMode, uint32_t arrayLayers=1u)
+		{
+			size_t retval = 0ull;
+			switch (meterMode)
+			{
+				case EMM_GEOM_MEAN:
+					retval = 1ull;
+					break;
+				case EMM_MODE:
+					// TODO: should be DEFAULT_BIN_COUNT instead of invocation count
+					retval = CGLSLLumaBuiltinIncludeLoader::DEFAULT_INVOCATION_COUNT;
+					break;
+				default:
+					_IRR_DEBUG_BREAK_IF(true);
+					break;
+			}
+			return 2ull*arrayLayers*sizeof(uint32_t)*retval;
 		}
 
 		// Special Note for Optix: minLuma>=0.00000001 and std::get<E_COLOR_PRIMARIES>(inputColorSpace)==ECP_SRGB
@@ -130,7 +152,7 @@ class CLumaMeter : public core::TotalInterface
 				const auto imageDim = float((&imageSize.width)[i]);
 				const float windowSizeUnnorm = imageDim*(meteringMaxUV[i]-meteringMinUV[i]);
 
-				retval.workGroupCount[i] = core::ceil(windowSizeUnnorm/(float(retval.workGroupDims[i]*samplingFactor));
+				retval.workGroupCount[i] = core::ceil(windowSizeUnnorm/(float(retval.workGroupDims[i]*samplingFactor)));
 
 				uniforms.meteringWindowScale[i] = windowSizeUnnorm/(retval.workGroupCount[i]*retval.workGroupDims[i]);
 				uniforms.meteringWindowOffset[i] = meteringMinUV[i];

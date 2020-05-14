@@ -1,4 +1,5 @@
 ﻿#include "../ext/LumaMeter/CLumaMeter.h"
+#include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
 #include <cstdio>
 
@@ -10,7 +11,7 @@ using namespace ext::LumaMeter;
 
 void CLumaMeter::registerBuiltinGLSLIncludes(asset::IGLSLCompiler* compilerToAddBuiltinIncludeTo)
 {
-	static addedBuiltinHeader = false;
+	static bool addedBuiltinHeader = false;
 	if (addedBuiltinHeader)
 		return;
 
@@ -236,14 +237,17 @@ void main()
 	const size_t extraSize = lumaChars+meterModeChars+eotfChars+xyzMatrixChars;
 
 	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
-	std::snprintf(
-		shader->getPointer(),shader->getSize(),sourceFmt,
-		reinterpret_cast<const int32_t&>(minLuma),reinterpret_cast<const int32_t&>(maxLuma),meterMode
+	snprintf(
+		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(),sourceFmt,
+		reinterpret_cast<const int32_t&>(minLuma),reinterpret_cast<const int32_t&>(maxLuma),meterMode,
 		eotf,xyzMatrix
 	);
 
 	registerBuiltinGLSLIncludes(compilerToAddBuiltinIncludeTo);
-	return core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(),{nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE});
+	return core::make_smart_refctd_ptr<ICPUSpecializedShader>(
+		core::make_smart_refctd_ptr<ICPUShader>(std::move(shader),ICPUShader::buffer_contains_glsl),
+		ISpecializedShader::SInfo{nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE}
+	);
 }
 
 void CLumaMeter::defaultBarrier()

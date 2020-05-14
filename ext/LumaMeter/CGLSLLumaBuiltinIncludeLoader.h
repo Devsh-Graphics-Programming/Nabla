@@ -1,7 +1,7 @@
 #ifndef _IRR_EXT_LUMA_METER_C_GLSL_LUMA_BUILTIN_INCLUDE_LOADER_INCLUDED_
 #define _IRR_EXT_LUMA_METER_C_GLSL_LUMA_BUILTIN_INCLUDE_LOADER_INCLUDED_
 
-#include "irr/asset/IBuiltinIncludeLoader.h"
+#include "irrlicht.h"
 
 namespace irr
 {
@@ -15,7 +15,7 @@ class CGLSLLumaBuiltinIncludeLoader : public asset::IBuiltinIncludeLoader
     public:
         static core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges();
 
-        static SRange<const IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver);
+        static core::SRange<const video::IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver);
 
         const char* getVirtualDirectoryName() const override { return "glsl/ext/LumaMeter/"; }
 

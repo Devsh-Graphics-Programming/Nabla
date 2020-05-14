@@ -34,7 +34,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 				downExposureAdaptationFactorAsHalf = core::Float16Compressor::compress(down);
 			}
 
-			float lastFrameExtraEV = 0.f;
+			uint16_t lastFrameExtraEVAsHalf[2] = { 0u,0u };
 		protected:
 			// target+(current-target)*exp(-k*t) == mix(target,current,factor)
 			uint16_t upExposureAdaptationFactorAsHalf = 0u;
@@ -46,21 +46,10 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		template<>
 		struct alignas(16) Params_t<EO_REINHARD> : ParamsBase
 		{
-			static inline Params_t<EO_REINHARD> fromExposure(float EV, float key=0.18f, float WhitePointRelToEV=16.f)
+			Params_t(float EV, float key=0.18f, float WhitePointRelToEV=16.f)
 			{
-				Params_t<EO_REINHARD> retval;
-				retval.keyAndLinearExposure = key*exp2(EV);
-				retval.rcpWhite2 = 1.f/(WhitePointRelToEV*WhitePointRelToEV);
-				return retval;
-			}
-			static inline Params_t<EO_REINHARD> fromKeyAndBurn(float key, float burn, float AvgLuma, float MaxLuma)
-			{
-				Params_t<EO_REINHARD> retval;
-				retval.keyAndLinearExposure = key/AvgLuma;
-				burn = core::clamp(1.f-burn,0.f,1.f);
-				retval.rcpWhite2 = 1.f/(MaxLuma*retval.keyAndLinearExposure*burn*burn);
-				retval.rcpWhite2 *= retval.rcpWhite2;
-				return retval;
+				keyAndLinearExposure = key*exp2(EV);
+				rcpWhite2 = 1.f/(WhitePointRelToEV*WhitePointRelToEV);
 			}
 
 			float keyAndLinearExposure; // usually 0.18*exp2(exposure)
@@ -69,19 +58,19 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		template<>
 		struct alignas(16) Params_t<EO_ACES> : ParamsBase
 		{
-			Params_t(float EV, float key=0.18f, float Contrast=1.f) : preGamma(Contrast)
+			Params_t(float EV, float key=0.18f, float Contrast=1.f) : gamma(Contrast)
 			{
 				setExposure(EV,key);
 			}
 
 			inline void setExposure(float EV, float key=0.18f)
 			{
-				exposure = exp2(EV)-log2(key)*(preGamma-1.f);
+				exposure = exp2(EV)+log2(key);
 			}
 
-			float preGamma; // 1.0
+			float gamma; // 1.0
 		private:
-			float exposure; // actualExposure-midGrayLog2*(preGamma-1.0)
+			float exposure; // actualExposure+midGrayLog2
 		};
 
 		//
@@ -97,7 +86,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		}
 
 		//
-		static core::SRange<const IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver, bool usingLumaMeter=false);
+		static core::SRange<const video::IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver, bool usingLumaMeter=false);
 
 		//
 		static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultPipelineLayout(video::IVideoDriver* driver, bool usingLumaMeter=false)
@@ -111,24 +100,39 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		}
 
 		//
+		static inline size_t getParameterBufferSize(
+			bool usingLumaMeter=false,
+			LumaMeter::CLumaMeter::E_METERING_MODE meterMode=LumaMeter::CLumaMeter::EMM_COUNT,
+			uint32_t arrayLayers=1u
+		)
+		{
+			size_t retval = 0ull;
+			if (usingLumaMeter)
+				retval += LumaMeter::CLumaMeter::getOutputBufferSize(meterMode,arrayLayers);
+			return retval;
+		}
+
+		//
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_DESCRIPTOR_COUNT = 4u;
 		template<E_OPERATOR _operator>
 		static inline void updateDescriptorSet(
 			video::IVideoDriver* driver, video::IGPUDescriptorSet* set,
 			core::smart_refctd_ptr<video::IGPUBuffer> inputParameterDescriptor, 
 			core::smart_refctd_ptr<video::IGPUImageView> inputImageDescriptor,
 			core::smart_refctd_ptr<video::IGPUImageView> outputImageDescriptor,
+			uint32_t inputParameterBinding,
+			uint32_t inputImageBinding,
+			uint32_t outputImageBinding,
 			core::smart_refctd_ptr<video::IGPUBuffer> lumaUniformsDescriptor=nullptr,
-			uint32_t inputParameterBinding=,
-			uint32_t inputImageBinding=,
-			uint32_t outputImageBinding=,
 			uint32_t lumaUniformsBinding=0u,
-			bool usingTemporalAdaptation
-			uint32_t arrayLayers=
+			LumaMeter::CLumaMeter::E_METERING_MODE meterMode=LumaMeter::CLumaMeter::EMM_COUNT,
+			uint32_t arrayLayers=1u,
+			bool usingTemporalAdaptation=false
 		)
 		{
-			video::IGPUDescriptorSet::SDescriptorInfo pInfos[4];
-			video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[4];
-			for (auto i=0; i<4; i++)
+			video::IGPUDescriptorSet::SDescriptorInfo pInfos[MAX_DESCRIPTOR_COUNT];
+			video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[MAX_DESCRIPTOR_COUNT];
+			for (auto i=0; i< MAX_DESCRIPTOR_COUNT; i++)
 			{
 				pWrites[i].dstSet = set;
 				pWrites[i].arrayElement = 0u;
@@ -137,7 +141,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			}
 			
 			pInfos[1].desc = parameterBuffer;
-			pInfos[1].buffer.size = //(2u)*sizeof(Params_t<_operator>);
+			pInfos[1].buffer.size = getParameterBufferSize(!!lumaUniformsDescriptor,arrayLayers);
 			pInfos[1].buffer.offset = 0u;
 			pInfos[2].desc = inputImageDescriptor;
 			pInfos[2].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
@@ -150,8 +154,15 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 
 				pInfos[0].desc = lumaUniformsDescriptor;
 				pInfos[0].buffer.offset = 0u;
+				switch (meterMode)
+				{
+					case LumaMeter::CLumaMeter::EMM_GEOM_MEAN:
+					case LumaMeter::CLumaMeter::EMM_MODE:
+					default:
+						_IRR_DEBUG_BREAK_IF(true);
+						break;
+				}
 				pInfos[0].buffer.size = sizeof(LumaMeter::CLumaMeter::Uniforms_t);
-				pInfos[1].buffer.size += sizeof(LumaStuff_t);
 
 				pWrites[0].binding = lumaUniformsBinding;
 				pWrites[0].descriptorType = asset::EDT_UNIFORM_BUFFER_DYNAMIC;
@@ -180,7 +191,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			const std::tuple<asset::E_FORMAT,asset::E_COLOR_PRIMARIES,asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION>& inputColorSpace,
 			const std::tuple<asset::E_FORMAT,asset::E_COLOR_PRIMARIES,asset::OPTICO_ELECTRICAL_TRANSFER_FUNCTION>& outputColorSpace,
 			E_OPERATOR _operator,
-			bool usingLumaMeter=false, LumaMeter::CLumaMeter::E_METERING_MODE meterMode=LumaMeter::CLumaMeter::EMM_UKNONWN,
+			bool usingLumaMeter=false, LumaMeter::CLumaMeter::E_METERING_MODE meterMode=LumaMeter::CLumaMeter::EMM_COUNT, float minLuma=core::nan<float>(), float maxLuma=core::nan<float>(),
 			bool usingTemporalAdaptation=false
 		);
 
@@ -194,12 +205,12 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			if (!driver || !image)
 				return nullptr;
 
-			auto nativeFormat = image->getCreationParams().format;
+			auto nativeFormat = image->getCreationParameters().format;
 
 			video::IGPUImageView::SCreationParams params;
 			params.flags = static_cast<video::IGPUImageView::E_CREATE_FLAGS>(0u);
 			params.image = std::move(image);
-			params.type = video::IGPUImageView::ET_2D_ARRAY;
+			params.viewType = video::IGPUImageView::ET_2D_ARRAY;
 			params.format = usedAsInput ? getInputViewFormat(nativeFormat):getOutputViewFormat(nativeFormat);
 			params.components = {};
 			params.subresourceRange = subresource;
@@ -207,13 +218,17 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		}
 
 		// we expect user binds correct pipeline, descriptor sets and pushes the push constants by themselves
-		static inline void dispatchHelper(video::IVideoDriver* driver, const vide::IGPUImageView* outputView, bool issueDefaultBarrier=true)
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORKGROUP_DIM = 16u;
+		static inline void dispatchHelper(
+			video::IVideoDriver* driver, const video::IGPUImageView* outputView,
+			bool issueDefaultBarrier=true, uint32_t workGroupSizeX=DEFAULT_WORKGROUP_DIM, uint32_t workGroupSizeY=DEFAULT_WORKGROUP_DIM
+		)
 		{
-			const auto& params = inputView->getCreationParameters();
+			const auto& params = outputView->getCreationParameters();
 			auto imgViewSize = params.image->getMipSize(params.subresourceRange.baseMipLevel);
 			imgViewSize.w = params.subresourceRange.layerCount;
 			
-			const core::vectorSIMDu32 workgroupSize(CGLSLLumaBuiltinIncludeLoader::DISPATCH_SIZE,CGLSLLumaBuiltinIncludeLoader::DISPATCH_SIZE,1,1);
+			const core::vectorSIMDu32 workgroupSize(workGroupSizeX,workGroupSizeY,1,1);
 			auto groups = (imgViewSize+workgroupSize-core::vectorSIMDu32(1,1,1,1))/workgroupSize;
 			driver->dispatch(groups.x, groups.y, groups.w);
 

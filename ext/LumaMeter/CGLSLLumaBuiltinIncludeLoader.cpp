@@ -7,7 +7,7 @@ using namespace irr::video;
 using namespace ext::LumaMeter;
 
 
-core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges()
+core::SRange<const asset::SPushConstantRange> CGLSLLumaBuiltinIncludeLoader::getDefaultPushConstantRanges()
 {
 	static const asset::SPushConstantRange range =
 	{
@@ -18,9 +18,9 @@ core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges()
 	return {&range,&range+1};
 }
 
-core::SRange<const IGPUDescriptorSetLayout::SBinding> getDefaultBindings(IVideoDriver* driver)
+core::SRange<const IGPUDescriptorSetLayout::SBinding> CGLSLLumaBuiltinIncludeLoader::getDefaultBindings(IVideoDriver* driver)
 {
-	static core::smart_refctd_ptr<IGPUSampler> sampler();
+	static core::smart_refctd_ptr<IGPUSampler> sampler;
 	static const IGPUDescriptorSetLayout::SBinding bnd[] =
 	{
 		{
@@ -29,14 +29,14 @@ core::SRange<const IGPUDescriptorSetLayout::SBinding> getDefaultBindings(IVideoD
 			1u,
 			ISpecializedShader::ESS_COMPUTE,
 			nullptr
-		},,
+		},
 		{
 			2u,
 			EDT_STORAGE_BUFFER_DYNAMIC,
 			1u,
 			ISpecializedShader::ESS_COMPUTE,
 			nullptr
-		}
+		},
 		{
 			1u,
 			EDT_COMBINED_IMAGE_SAMPLER,
