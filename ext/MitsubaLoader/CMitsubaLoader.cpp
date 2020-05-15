@@ -518,18 +518,32 @@ layout (location = 0) out vec3 vnorm;
 
 #include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
 
+layout (push_constant) uniform Block {
+    uint instDataOffset;
+} PC;
+
 #ifndef _IRR_VERT_SET1_BINDINGS_DEFINED_
 #define _IRR_VERT_SET1_BINDINGS_DEFINED_
-#define MAX_INSTANCES 512
 layout (set = 1, binding = 0, row_major, std140) uniform UBO {
-    mat4 mvp[MAX_INSTANCES];
+    irr_glsl_SBasicViewParameters params;
 } CamData;
 #endif //_IRR_VERT_SET1_BINDINGS_DEFINED_
+
+struct InstanceData
+{
+	mat4x3 tform;
+	uvec2 instOffsetCount;
+};
+layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer A {
+	InstanceData data[];
+} InstData;
 
 void main()
 {
 	vnorm = normalize(Normal);
-	gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.mvp[gl_InstanceIndex]), Position);
+	mat4x3 tform = InstData.data[PC.instDataOffset+gl_InstanceIndex].tform;
+	mat4 mvp = irr_glsl_pseudoMul4x4with4x3(CamData.params.MVP, tform);
+	gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(mvp), Position);
 }
 
 )";
@@ -1003,7 +1017,8 @@ _IRR_STATIC_INLINE_CONSTEXPR uint32_t PHYS_PAGE_VIEWS_BINDING = 1u;
 _IRR_STATIC_INLINE_CONSTEXPR uint32_t PRECOMPUTED_VT_DATA_BINDING = 2u;
 _IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BUF_BINDING = 3u;
 _IRR_STATIC_INLINE_CONSTEXPR uint32_t BSDF_BUF_BINDING = 4u;
-_IRR_STATIC_INLINE_CONSTEXPR uint32_t DS0_BINDING_COUNT_WO_VT = 3u;
+_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTANCE_DATA_BINDING = 5u;
+_IRR_STATIC_INLINE_CONSTEXPR uint32_t DS0_BINDING_COUNT_WO_VT = 4u;
 
 template <typename AssetT>
 static void insertAssetIntoCache(core::smart_refctd_ptr<AssetT>& asset, const char* path, IAssetManager* _assetMgr)
@@ -1032,8 +1047,8 @@ static core::smart_refctd_ptr<asset::ICPUPipelineLayout> createAndCachePipelineL
 {
 	SPushConstantRange pcrng;
 	pcrng.offset = 0u;
-	pcrng.size = 2u*sizeof(uint32_t);//instr offset and count
-	pcrng.stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+	pcrng.size = sizeof(uint32_t);//instance data offset
+	pcrng.stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
 
 	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout;
 	{
@@ -1048,16 +1063,24 @@ static core::smart_refctd_ptr<asset::ICPUPipelineLayout> createAndCachePipelineL
 		b[0].samplers = nullptr;
 		b[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
 		b[0].type = asset::EDT_STORAGE_BUFFER;
+
 		b[1].binding = INSTR_BUF_BINDING;
 		b[1].count = 1u;
 		b[1].samplers = nullptr;
 		b[1].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
 		b[1].type = asset::EDT_STORAGE_BUFFER;
+
 		b[2].binding = BSDF_BUF_BINDING;
 		b[2].count = 1u;
 		b[2].samplers = nullptr;
 		b[2].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
 		b[2].type = asset::EDT_STORAGE_BUFFER;
+
+		b[3].binding = INSTANCE_DATA_BINDING;
+		b[3].count = 1u;
+		b[3].samplers = nullptr;
+		b[3].stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
+		b[3].type = asset::EDT_STORAGE_BUFFER;
 
 		ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings->data(), bindings->data()+bindings->size());
 	}
@@ -1213,18 +1236,22 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 			metadataptr = static_cast<IMeshMetadata*>(mesh->getMetadata());
 		}
 
-		metadataptr->instances.push_back({shapedef->getAbsoluteTransform(),shapedef->obtainEmitter()});
+		const auto instrOffsetCount = genBSDFtreeTraversal(ctx, shapedef->bsdf);
+		metadataptr->instances.push_back({shapedef->getAbsoluteTransform(),instrOffsetCount,shapedef->obtainEmitter()});
 	}
 
-	auto metadata = createPipelineMetadata(createDS0(ctx), getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager).get());
+	auto metadata = createPipelineMetadata(createDS0(ctx, meshes.begin(), meshes.end()), getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager).get());
 	for (auto& mesh : meshes)
 	{
+		auto* meshmeta = static_cast<const IMeshMetadata*>(mesh->getMetadata());
 		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 		{
 			asset::ICPUMeshBuffer* mb = mesh->getMeshBuffer(i);
 			asset::ICPURenderpassIndependentPipeline* pipeline = mb->getPipeline();
 			if (!pipeline->getMetadata())
 				m_manager->setAssetMetadata(pipeline, core::smart_refctd_ptr(metadata));
+
+			mb->setInstanceCount(meshmeta->getInstances().size());
 		}
 	}
 
@@ -2017,7 +2044,9 @@ std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx
 	return {instrBufOffset, traversal.size()};
 }
 
-core::smart_refctd_ptr<ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx)
+// Also sets instance data buffer offset into meshbuffers' push constants
+template<typename Iter>
+inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx, Iter meshBegin, Iter meshEnd)
 {
 	auto pplnLayout = getBuiltinAsset<ICPUPipelineLayout,IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager);
 	auto* ds0layout = pplnLayout->getDescriptorSetLayout(0u);
@@ -2064,6 +2093,31 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CMitsubaLoader::createDS0(const SConte
 		d->buffer.offset = 0u;
 		d->buffer.size = bsdfbuf->getSize();
 		d->desc = std::move(bsdfbuf);
+	}
+
+	core::vector<SInstanceData> instanceData;
+	for (auto it = meshBegin; it != meshEnd; ++it)
+	{
+		auto& mesh = *it;
+		auto* meta = static_cast<const IMeshMetadata*>(mesh->getMetadata());
+		
+		uint32_t instDataOffset = instanceData.size();
+		for (const auto& inst : meta->getInstances())
+			instanceData.push_back({inst.tform, inst.instrOffsetCount});
+		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+		{
+			auto* mb = mesh->getMeshBuffer(i);
+			reinterpret_cast<uint32_t*>(mb->getPushConstantsDataPtr())[0] = instDataOffset;
+		}
+	}
+	d = ds0->getDescriptors(INSTANCE_DATA_BINDING).begin();
+	{
+		auto instDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(instanceData.size()*sizeof(SInstanceData));
+		memcpy(instDataBuf->getPointer(), instanceData.data(), instDataBuf->getSize());
+
+		d->buffer.offset = 0u;
+		d->buffer.size = instDataBuf->getSize();
+		d->desc = std::move(instDataBuf);
 	}
 
 	return ds0;

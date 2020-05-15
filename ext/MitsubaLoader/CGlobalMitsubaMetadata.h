@@ -56,6 +56,7 @@ class IMeshMetadata : public IMitsubaMetadata
 		struct Instance
 		{
 			core::matrix3x4SIMD tform;
+			std::pair<uint32_t,uint32_t> instrOffsetCount;
 			CElementEmitter emitter; // type is invalid if not used
 		};
 

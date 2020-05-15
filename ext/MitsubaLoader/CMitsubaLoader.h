@@ -298,6 +298,14 @@ class CMitsubaLoader : public asset::IAssetLoader
 	protected:
 		asset::IAssetManager* m_manager;
 
+#include "irr/irrpack.h"
+		//compatible with std430 and std140
+		struct alignas(16) SInstanceData
+		{
+			core::matrix3x4SIMD tform;
+			std::pair<uint32_t, uint32_t> instrOffsetCount;
+		} PACK_STRUCT;
+#include "irr/irrunpack.h"
 		struct SContext
 		{
 			SContext(
@@ -381,7 +389,8 @@ class CMitsubaLoader : public asset::IAssetLoader
 		bsdf::SBSDFUnion bsdfNode2bsdfStruct(SContext& _ctx, const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight = 0.f, const CElementBSDF* _parentMask = nullptr);
 		std::pair<uint32_t,uint32_t> genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 
-		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx);
+		template <typename Iter>
+		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx, Iter meshBegin, Iter meshEnd);
 
 		core::smart_refctd_ptr<CMitsubaPipelineMetadata> createPipelineMetadata(core::smart_refctd_ptr<asset::ICPUDescriptorSet>&& _ds0, const asset::ICPUPipelineLayout* _layout);
 

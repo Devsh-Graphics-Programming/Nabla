@@ -304,41 +304,12 @@ int main()
             break;
         }
 
-    size_t neededDS1UBOsz = 0ull;
-    {
-        auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(cpumeshes.front()->getMeshBuffer(0u)->getPipeline()->getMetadata());
-        for (const auto& shdrIn : pipelineMetadata->getCommonRequiredInputs())
-            if (shdrIn.descriptorSection.type==asset::IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
-                neededDS1UBOsz = std::max<size_t>(neededDS1UBOsz, shdrIn.descriptorSection.uniformBufferObject.relByteoffset+shdrIn.descriptorSection.uniformBufferObject.bytesize);
-    }
-
 	core::vector<const ext::MitsubaLoader::IMeshMetadata*> meshmetas;
 	meshmetas.reserve(cpumeshes.size());
 	for (const auto& cpumesh : cpumeshes)
 		meshmetas.push_back(static_cast<const ext::MitsubaLoader::IMeshMetadata*>(cpumesh->getMetadata()));
 
 	constexpr uint32_t MAX_INSTANCES = 512u;
-
-	core::vector<core::smart_refctd_ptr<asset::ICPUBuffer>> cpuubos;
-	cpuubos.reserve(cpumeshes.size());
-	for (uint32_t i = 0u; i < cpumeshes.size(); ++i)
-	{
-		const uint32_t instCount = meshmetas[i]->getInstances().size();
-		assert(instCount<=MAX_INSTANCES);
-		auto ds = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(ds1layout));
-		auto* info = ds->getDescriptors(ds1UboBinding).begin();
-		auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(core::matrix4SIMD)*instCount);
-		info->buffer.offset = 0u;
-		info->buffer.size = buf->getSize();
-		info->desc = buf;
-
-		for (uint32_t j = 0u; j < cpumeshes[i]->getMeshBufferCount(); ++j)
-			cpumeshes[i]->getMeshBuffer(j)->setAttachedDescriptorSet(core::smart_refctd_ptr(ds));
-
-		cpuubos.push_back(std::move(buf));
-	}
-	//we should have a way to access distinct descriptors from GPU DS
-	auto gpuubos = driver->getGPUObjectsFromAssets(cpuubos.data(), cpuubos.data()+cpuubos.size());
 
 	core::aabbox3df sceneBound;
 	auto gpumeshes = driver->getGPUObjectsFromAssets(cpumeshes.data(), cpumeshes.data()+cpumeshes.size());
@@ -359,6 +330,27 @@ int main()
 	}
 
 	auto gpuds0 = driver->getGPUObjectsFromAssets(&cpuds0.get(), &cpuds0.get()+1)->front();
+
+    auto gpuds1layout = driver->getGPUObjectsFromAssets(&ds1layout, &ds1layout+1)->front();
+
+    auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(asset::SBasicViewParameters));
+    auto gpuds1 = driver->createGPUDescriptorSet(std::move(gpuds1layout));
+    {
+        video::IGPUDescriptorSet::SWriteDescriptorSet write;
+        write.dstSet = gpuds1.get();
+        write.binding = ds1UboBinding;
+        write.count = 1u;
+        write.arrayElement = 0u;
+        write.descriptorType = asset::EDT_UNIFORM_BUFFER;
+        video::IGPUDescriptorSet::SDescriptorInfo info;
+        {
+            info.desc = gpuubo;
+            info.buffer.offset = 0ull;
+            info.buffer.size = gpuubo->getSize();
+        }
+        write.info = &info;
+        driver->updateDescriptorSets(1u, &write, 0u, nullptr);
+    }
 
 	// camera and viewport
 	scene::ICameraSceneNode* camera = nullptr;
@@ -476,32 +468,23 @@ int main()
 		camera->render();
 #endif
 
+		asset::SBasicViewParameters uboData;
+		memcpy(uboData.MVP, camera->getConcatenatedMatrix().pointer(), sizeof(core::matrix4SIMD));
+		driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0u, sizeof(uboData), &uboData);
+
 		for (uint32_t j = 1u; j < gpumeshes->size(); ++j)
 		{
 			auto& mesh = (*gpumeshes)[j];
-			auto* meta = meshmetas[j];
-			const uint32_t instCount = meta->getInstances().size();
-			{
-				uint32_t i = 0u;
-				for (auto& inst : meta->getInstances())
-				{
-					auto mvp = core::concatenateBFollowedByA(camera->getConcatenatedMatrix(), inst.tform);
-					uboData[i++] = mvp;
-				}
-			}
 
-			auto& ubo = (*gpuubos)[j];
-			driver->updateBufferRangeViaStagingBuffer(ubo->getBuffer(), ubo->getOffset(), instCount*sizeof(core::matrix4SIMD), uboData.data());
 			for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 			{
 				auto* mb = mesh->getMeshBuffer(i);
-				mb->setInstanceCount(instCount);
 
 				auto* pipeline = mb->getPipeline();
-				const auto* gpuds1 = mb->getAttachedDescriptorSet();
-				const video::IGPUDescriptorSet* ds[2]{ gpuds0.get(), gpuds1 };
+				const video::IGPUDescriptorSet* ds[2]{ gpuds0.get(), gpuds1.get() };
 				driver->bindGraphicsPipeline(pipeline);
 				driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 0u, 2u, ds, nullptr);
+				driver->pushConstants(pipeline->getLayout(), video::IGPUSpecializedShader::ESS_VERTEX|video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, sizeof(uint32_t), mb->getPushConstantsDataPtr());
 
 				driver->drawMeshBuffer(mb);
 			}
