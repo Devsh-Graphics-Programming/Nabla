@@ -199,9 +199,8 @@ public:
 
 		const uint64_t bufferSize = buffer.buffer.get()->getSize();
 		const uint64_t offset = buffer.offset;
-		const size_t cacheElementSize = getCacheElementSize(CacheType);
 
-		uint8_t* buffPointer = static_cast<uint8_t*>(buffer.buffer.get()->getPointer());
+		const uint8_t* buffPointer = static_cast<uint8_t*>(buffer.buffer.get()->getPointer());
 		const uint8_t* const bufferRangeEnd = buffPointer + offset + buffer.size;
 
 		if (bufferRangeEnd > buffPointer + bufferSize)
@@ -223,13 +222,11 @@ public:
 		CReadBufferWrap buffWrap(buffer);
 
 		if constexpr (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10)
-			normalCacheFor2_10_10_10Quant.load(buffWrap);
+			return normalCacheFor2_10_10_10Quant.load(buffWrap);
 		else if (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_8_8_8)
-			normalCacheFor8_8_8Quant.load(buffWrap);
+			return normalCacheFor8_8_8Quant.load(buffWrap);
 		else if (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_16_16_16)
-			normalCacheFor16_16_16Quant.load(buffWrap);
-
-		return true;
+			return normalCacheFor16_16_16Quant.load(buffWrap);
 	}
 
 	//!
@@ -269,8 +266,8 @@ public:
 
 		asset::SBufferBinding<asset::ICPUBuffer> bufferBinding;
 		bufferBinding.offset = 0;
-		bufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(getCacheSizeInBytes(type));
-
+		bufferBinding.buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(getSerializedCacheSizeInBytes(type));
+		
 		saveCacheToBuffer(type, bufferBinding);
 		file->write(bufferBinding.buffer->getPointer(), bufferBinding.buffer->getSize());
 		return true;
@@ -278,55 +275,32 @@ public:
 	//!
 	inline bool saveCacheToFile(const E_QUANT_NORM_CACHE_TYPE type, io::IFileSystem* fs, const std::string& path)
 	{
-		phmap::BinaryOutputArchive out(path.c_str());
-
-		switch (type)
-		{
-		case E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10:
-			normalCacheFor2_10_10_10Quant.dump(out);
-			return true;
-		case E_QUANT_NORM_CACHE_TYPE::Q_8_8_8:
-			return false;
-		case E_QUANT_NORM_CACHE_TYPE::Q_16_16_16:
-			return false;
-		}
-
-		/*auto file = core::smart_refctd_ptr<io::IWriteFile>(fs->createAndWriteFile(path.c_str()));
-		return saveCacheToFile(type,file.get());*/
+		auto file = core::smart_refctd_ptr<io::IWriteFile>(fs->createAndWriteFile(path.c_str()));
+		return saveCacheToFile(type,file.get());
 	}
 
 	//!
-	inline size_t getCacheSizeInBytes(E_QUANT_NORM_CACHE_TYPE type) const
+	inline size_t getSerializedCacheSizeInBytes(E_QUANT_NORM_CACHE_TYPE type) const
 	{
-		constexpr size_t normCacheElementSize2_10_10_10 = sizeof(VectorUV) + sizeof(uint32_t);
-		constexpr size_t normCacheElementSize8_8_8      = sizeof(VectorUV) + sizeof(Vector8u);
-		constexpr size_t normCacheElementSize16_16_16   = sizeof(VectorUV) + sizeof(Vector16u);
+			//there is no way to access values of `Group::kWidth` and `sizeof(slot_type)` outside of phmap::flat_hash_map so these needs to be hardcoded
+		//sizeof(_size) + sizeof(_capacity) + Group::kWidth + 1
+		size_t cacheSize = sizeof(size_t) * 2 + normalCacheFor2_10_10_10Quant.capacity() + 17;
 
 		switch (type)
 		{
 		case E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10:
-			return normalCacheFor2_10_10_10Quant.size() * normCacheElementSize2_10_10_10;
+			//sizeof(slot_type) * capacity_ + capacity_
+			cacheSize += 13 * normalCacheFor2_10_10_10Quant.capacity();
+			return cacheSize;
 
 		case E_QUANT_NORM_CACHE_TYPE::Q_8_8_8:
-			return normalCacheFor8_8_8Quant.size() * normCacheElementSize8_8_8;
+			cacheSize += 13 * normalCacheFor8_8_8Quant.capacity();
+			return cacheSize;
 
 		case E_QUANT_NORM_CACHE_TYPE::Q_16_16_16:
-			return normalCacheFor16_16_16Quant.size() * normCacheElementSize16_16_16;
-		}
-	}
+			cacheSize += 17 * normalCacheFor16_16_16Quant.capacity();
+			return cacheSize;
 
-	inline size_t getCacheElementSize(E_QUANT_NORM_CACHE_TYPE type) const
-	{
-		switch (type)
-		{
-		case E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10:
-			return sizeof(VectorUV) + sizeof(uint32_t);
-
-		case E_QUANT_NORM_CACHE_TYPE::Q_8_8_8:
-			return sizeof(VectorUV) + sizeof(Vector8u);
-
-		case E_QUANT_NORM_CACHE_TYPE::Q_16_16_16:
-			return sizeof(VectorUV) + sizeof(Vector16u);
 		}
 	}
 
@@ -366,6 +340,76 @@ private:
 	core::unordered_map<VectorUV, uint32_t, QuantNormalHash, QuantNormalEqualTo> normalCacheFor2_10_10_10Quant;
 	core::unordered_map<VectorUV, Vector8u, QuantNormalHash, QuantNormalEqualTo> normalCacheFor8_8_8Quant;
 	core::unordered_map<VectorUV, Vector16u, QuantNormalHash, QuantNormalEqualTo> normalCacheFor16_16_16Quant;
+
+private:
+	class CReadBufferWrap
+	{
+	public:
+		CReadBufferWrap(const SBufferRange<ICPUBuffer>& _buffer)
+			:buffer(_buffer)
+		{
+			buffPtr = static_cast<uint8_t*>(buffer.buffer.get()->getPointer());
+		}
+
+		bool load(char* p, size_t sz)
+		{
+			//TODO: safety
+			memcpy(p, buffPtr, sz);
+			buffPtr += sz;
+
+			return true;
+		}
+
+		template<typename V>
+		typename std::enable_if<phmap::type_traits_internal::IsTriviallyCopyable<V>::value, bool>::type
+			load(V* v)
+		{
+			//TODO: safety
+			memcpy(reinterpret_cast<uint8_t*>(v), buffPtr, sizeof(V));
+			buffPtr += sizeof(V);
+
+			return true;
+		}
+
+	private:
+		const SBufferRange<ICPUBuffer>& buffer;
+		uint8_t* buffPtr;
+
+	};
+
+	class CWriteBufferWrap
+	{
+	public:
+		CWriteBufferWrap(SBufferBinding<ICPUBuffer>& _buffer)
+			:buffer(_buffer)
+		{
+			bufferPtr = static_cast<uint8_t*>(buffer.buffer.get()->getPointer());
+		}
+
+		bool dump(const char* p, size_t sz)
+		{
+			memcpy(bufferPtr, p, sz);
+			bufferPtr += sz;
+
+			return true;
+		}
+
+		template<typename V>
+		typename std::enable_if<phmap::type_traits_internal::IsTriviallyCopyable<V>::value, bool>::type
+			dump(const V& v)
+		{
+			memcpy(bufferPtr, reinterpret_cast<const uint8_t*>(&v), sizeof(V));
+			bufferPtr += sizeof(V);
+
+			return true;
+		}
+
+	private:
+		SBufferBinding<ICPUBuffer>& buffer;
+		uint8_t* bufferPtr;
+
+	};
+
 };
 
 // because GCC is a special boy
@@ -390,43 +434,6 @@ struct CQuantNormalCache::vector_for_cache<E_QUANT_NORM_CACHE_TYPE::Q_16_16_16>
 	typedef uint64_t type;
 	typedef Vector16u cachedVecType;
 };
-
-
-class CReadBufferWrap
-{
-public:
-	CReadBufferWrap(const SBufferRange<ICPUBuffer>& _buffer)
-		:buffer(_buffer)
-	{
-		buffPtr = static_cast<uint8_t*>(buffer.buffer.get()->getPointer());
-	}
-
-	bool load(char* p, size_t sz)
-	{
-		//TODO: safety
-		memcpy(p, buffPtr, sz);
-		buffPtr += sz;
-
-		return true;
-	}
-
-	template<typename V>
-	typename std::enable_if<phmap::type_traits_internal::IsTriviallyCopyable<V>::value, bool>::type
-	load(V* v) 
-	{
-		//TODO: safety
-		memcpy(reinterpret_cast<uint8_t*>(v), buffPtr ,sizeof(V));
-		buffPtr += sizeof(V);
-
-		return true;
-	}
-
-private:
-	const SBufferRange<ICPUBuffer>& buffer;
-	uint8_t* buffPtr;
-
-};
-
 
 }
 }
