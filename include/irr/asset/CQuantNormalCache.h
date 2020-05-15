@@ -219,28 +219,15 @@ public:
 			else if (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_16_16_16)
 				normalCacheFor16_16_16Quant.clear();
 		}
+			
+		CReadBufferWrap buffWrap(buffer);
 
-		const size_t quantVecSize = sizeof(cached_vector_t<CacheType>);
-		const auto expectedLoads = buffer.size/quantVecSize;
 		if constexpr (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10)
-			normalCacheFor2_10_10_10Quant.reserve(normalCacheFor2_10_10_10Quant.size()+expectedLoads);
+			normalCacheFor2_10_10_10Quant.load(buffWrap);
 		else if (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_8_8_8)
-			normalCacheFor8_8_8Quant.reserve(normalCacheFor8_8_8Quant.size()+expectedLoads);
+			normalCacheFor8_8_8Quant.load(buffWrap);
 		else if (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_16_16_16)
-			normalCacheFor16_16_16Quant.reserve(normalCacheFor16_16_16Quant.size()+expectedLoads);
-
-		buffPointer += offset;
-		while (buffPointer < bufferRangeEnd)
-		{
-			CQuantNormalCache::VectorUV key{ *reinterpret_cast<float*>(buffPointer),* reinterpret_cast<float*>(buffPointer + sizeof(float)) };
-			buffPointer += sizeof(CQuantNormalCache::VectorUV);
-
-			cached_vector_t<CacheType> vec;
-			memcpy(&vec, buffPointer, quantVecSize);
-			buffPointer += quantVecSize;
-
-			insertIntoCache<CacheType>(key, vec);
-		}
+			normalCacheFor16_16_16Quant.load(buffWrap);
 
 		return true;
 	}
@@ -267,10 +254,6 @@ public:
 	template<E_QUANT_NORM_CACHE_TYPE CacheType>
 	inline bool loadNormalQuantCacheFromFile(io::IFileSystem* fs, const std::string& path, bool replaceCurrentContents = false)
 	{
-		phmap::BinaryInputArchive in(path.c_str());
-		normalCacheFor2_10_10_10Quant.load(in);
-			return true;
-
 		auto file = core::smart_refctd_ptr<io::IReadFile>(fs->createAndOpenFile(path.c_str()),core::dont_grab);
 		return loadNormalQuantCacheFromFile<CacheType>(file.get(),replaceCurrentContents);
 	}
@@ -406,6 +389,42 @@ struct CQuantNormalCache::vector_for_cache<E_QUANT_NORM_CACHE_TYPE::Q_16_16_16>
 {
 	typedef uint64_t type;
 	typedef Vector16u cachedVecType;
+};
+
+
+class CReadBufferWrap
+{
+public:
+	CReadBufferWrap(const SBufferRange<ICPUBuffer>& _buffer)
+		:buffer(_buffer)
+	{
+		buffPtr = static_cast<uint8_t*>(buffer.buffer.get()->getPointer());
+	}
+
+	bool load(char* p, size_t sz)
+	{
+		//TODO: safety
+		memcpy(p, buffPtr, sz);
+		buffPtr += sz;
+
+		return true;
+	}
+
+	template<typename V>
+	typename std::enable_if<phmap::type_traits_internal::IsTriviallyCopyable<V>::value, bool>::type
+	load(V* v) 
+	{
+		//TODO: safety
+		memcpy(reinterpret_cast<uint8_t*>(v), buffPtr ,sizeof(V));
+		buffPtr += sizeof(V);
+
+		return true;
+	}
+
+private:
+	const SBufferRange<ICPUBuffer>& buffer;
+	uint8_t* buffPtr;
+
 };
 
 
