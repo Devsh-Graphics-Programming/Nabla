@@ -193,31 +193,44 @@ public:
 
 	//!
 	template<E_QUANT_NORM_CACHE_TYPE CacheType>
-	inline bool loadNormalQuantCacheFromBuffer(const SBufferRange<ICPUBuffer>& buffer, bool replaceCurrentContents = false)
+	inline bool loadNormalQuantCacheFromBuffer(const SBufferRange<ICPUBuffer>& buffer, bool replaceCurrentContents = true)
 	{
 		//additional validation would be nice imo..
-
 		if (!validateSerializedCache(CacheType, buffer))
 			return false;
 
-		if (replaceCurrentContents)
+		core::unordered_map<VectorUV, vector_for_cache_t<CacheType>, QuantNormalHash, QuantNormalEqualTo> tmp;
+		if (!replaceCurrentContents)
 		{
-			if constexpr(CacheType == E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10)
-				normalCacheFor2_10_10_10Quant.clear();
+			if constexpr (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10)
+				tmp.swap(normalCacheFor2_10_10_10Quant);
 			else if (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_8_8_8)
-				normalCacheFor8_8_8Quant.clear();
+				tmp.swap(normalCacheFor8_8_8Quant);
 			else if (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_16_16_16)
-				normalCacheFor16_16_16Quant.clear();
+				tmp.swap(normalCacheFor16_16_16Quant);
 		}
 			
 		CReadBufferWrap buffWrap(buffer);
-
+		
+		bool loadingSucceed;
 		if constexpr (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10)
-			return normalCacheFor2_10_10_10Quant.load(buffWrap);
+			loadingSucceed = normalCacheFor2_10_10_10Quant.load(buffWrap);
 		else if (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_8_8_8)
-			return normalCacheFor8_8_8Quant.load(buffWrap);
+			loadingSucceed = normalCacheFor8_8_8Quant.load(buffWrap);
 		else if (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_16_16_16)
-			return normalCacheFor16_16_16Quant.load(buffWrap);
+			loadingSucceed = normalCacheFor16_16_16Quant.load(buffWrap);
+
+		if (!replaceCurrentContents)
+		{
+			if constexpr (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10)
+				normalCacheFor2_10_10_10Quant.merge(tmp);
+			else if (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_8_8_8)
+				normalCacheFor8_8_8Quant.merge(tmp);
+			else if (CacheType == E_QUANT_NORM_CACHE_TYPE::Q_16_16_16)
+				normalCacheFor16_16_16Quant.merge(tmp);
+		}
+
+		return loadingSucceed;
 	}
 
 	//!
