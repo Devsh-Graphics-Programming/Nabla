@@ -243,8 +243,7 @@ public:
 
 		file->read(bufferRange.buffer->getPointer(), bufferRange.size);
 
-		loadNormalQuantCacheFromBuffer<CacheType>(bufferRange, replaceCurrentContents);
-		return true;
+		return loadNormalQuantCacheFromBuffer<CacheType>(bufferRange, replaceCurrentContents);
 	}
 
 	//!
@@ -284,7 +283,7 @@ public:
 	{
 			//there is no way to access values of `Group::kWidth` and `sizeof(slot_type)` outside of phmap::flat_hash_map so these needs to be hardcoded
 		//sizeof(_size) + sizeof(_capacity) + Group::kWidth + 1
-		size_t cacheSize = sizeof(size_t) * 2 + normalCacheFor2_10_10_10Quant.capacity() + 17;
+		size_t cacheSize = sizeof(size_t) * 2 + 17;
 
 		switch (type)
 		{
