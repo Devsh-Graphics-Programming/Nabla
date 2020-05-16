@@ -307,10 +307,6 @@ public:
 		}
 	}
 
-	inline auto& getCache2_10_10_10() { return normalCacheFor2_10_10_10Quant; }
-	inline auto& getCache8_8_8()      { return normalCacheFor8_8_8Quant; }
-	inline auto& getCache16_16_16()   { return normalCacheFor16_16_16Quant; }
-
 private:
 	inline VectorUV mapToBarycentric(const core::vectorSIMDf& vec) const
 	{

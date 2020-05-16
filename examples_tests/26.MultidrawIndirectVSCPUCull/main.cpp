@@ -93,14 +93,12 @@ int main()
     shaders[0] = IAsset::castDown<ICPUSpecializedShader>(vertexShaderBundleMDI.getContents().first->get());
     auto cpuDrawIndirectPipeline = introspector.createApproximateRenderpassIndependentPipelineFromIntrospection(shaders, shaders+2, extensions->begin(), extensions->end());
 
-
-#ifndef _IRR_DEBUG
     auto* fs = am->getFileSystem();
     
     auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
     //loading cache from file
-    //qnc->loadNormalQuantCacheFromFile<asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
-#endif
+    if (!qnc->loadNormalQuantCacheFromFile<asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true))
+        os::Printer::log("Failed to load cache.");
 
     constexpr auto kInstanceCount = 8192;
     constexpr auto  kTotalTriangleLimit = 64*1024*1024;
@@ -196,10 +194,8 @@ int main()
             vertexData.clear();
         }
         
-#ifndef _IRR_DEBUG
         //! cache results -- speeds up mesh generation on second run
-        //qnc->saveCacheToFile(asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
-#endif
+        qnc->saveCacheToFile(asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
         
         //
         gpuDrawDirectPipeline = driver->getGPUObjectsFromAssets(&cpuDrawDirectPipeline.get(),&cpuDrawDirectPipeline.get()+1)->operator[](0);
