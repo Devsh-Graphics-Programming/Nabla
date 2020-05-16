@@ -197,17 +197,8 @@ public:
 	{
 		//additional validation would be nice imo..
 
-		const uint64_t bufferSize = buffer.buffer.get()->getSize();
-		const uint64_t offset = buffer.offset;
-
-		const uint8_t* buffPointer = static_cast<uint8_t*>(buffer.buffer.get()->getPointer());
-		const uint8_t* const bufferRangeEnd = buffPointer + offset + buffer.size;
-
-		if (bufferRangeEnd > buffPointer + bufferSize)
-		{
-			os::Printer::log("cannot read from this buffer - invalid range", ELL_ERROR);
+		if (!validateSerializedCache(CacheType, buffer))
 			return false;
-		}
 
 		if (replaceCurrentContents)
 		{
@@ -341,6 +332,8 @@ private:
 	core::unordered_map<VectorUV, Vector16u, QuantNormalHash, QuantNormalEqualTo> normalCacheFor16_16_16Quant;
 
 private:
+	bool validateSerializedCache(E_QUANT_NORM_CACHE_TYPE type, const SBufferRange<ICPUBuffer>& buffer);
+
 	class CReadBufferWrap
 	{
 	public:

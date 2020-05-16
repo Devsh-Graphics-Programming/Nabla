@@ -119,5 +119,35 @@ bool CQuantNormalCache::saveCacheToBuffer(const E_QUANT_NORM_CACHE_TYPE type, SB
 	return false;
 }
 
+bool CQuantNormalCache::validateSerializedCache(E_QUANT_NORM_CACHE_TYPE type, const SBufferRange<ICPUBuffer>& buffer)
+{
+	if (buffer.buffer.get()->getSize() == 0 || buffer.size == 0)
+		return true;
+	
+	const size_t buffSize = buffer.buffer.get()->getSize();
+	const uint8_t* buffPtr = static_cast<uint8_t*>(buffer.buffer.get()->getPointer());
+	const size_t size = *reinterpret_cast<const size_t*>(buffPtr + buffer.offset);
+	const size_t capacity = *reinterpret_cast<const size_t*>(buffPtr + buffer.offset + sizeof(size_t));
+	const uint8_t* const bufferRangeEnd = buffPtr + buffer.offset + buffer.size;
+
+	if (bufferRangeEnd > buffPtr + buffSize)
+	{
+		os::Printer::log("cannot read from this buffer - invalid range", ELL_ERROR);
+		return false;
+	}
+
+	if (size == 0)
+		return true;
+
+	size_t expectedCacheSize = sizeof(size_t) * 2 + 17;
+	expectedCacheSize += (type == E_QUANT_NORM_CACHE_TYPE::Q_16_16_16) ? 17 * capacity : 13 * capacity;
+
+	if ((buffer.offset + buffer.size) == expectedCacheSize)
+		return true;
+
+	os::Printer::log("cannot read from this buffer - invalid data", ELL_ERROR);
+	return false;
+}
+
 }
 }
