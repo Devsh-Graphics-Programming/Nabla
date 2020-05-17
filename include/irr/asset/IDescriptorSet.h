@@ -138,7 +138,7 @@ class IEmulatedDescriptorSet
 {
 	public:
 		//! Contructor computes the flattened out array of descriptors
-		IEmulatedDescriptorSet(const LayoutType* _layout)
+		IEmulatedDescriptorSet(LayoutType* _layout)
 		{
 			if (!_layout)
 				return;

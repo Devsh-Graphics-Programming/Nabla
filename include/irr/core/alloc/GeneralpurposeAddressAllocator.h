@@ -51,45 +51,20 @@ class GeneralpurposeAddressAllocatorBase
         GeneralpurposeAddressAllocatorBase(size_type bufSz, size_type minBlockSz) noexcept :
             bufferSize(bufSz), freeSize(0u), freeListCount(findFreeListCount(bufferSize,minBlockSz)),
             usingFirstBuffer(0u), minBlockSize(minBlockSz){}
-
+        GeneralpurposeAddressAllocatorBase(size_type newBuffSz, const GeneralpurposeAddressAllocatorBase& other, void* newReservedSpc) noexcept :
+            bufferSize(newBuffSz), freeSize(0u), freeListCount(findFreeListCount(bufferSize, other.minBlockSize)),
+            usingFirstBuffer(0u), minBlockSize(other.minBlockSize)
+        {
+            copyState(other, newReservedSpc);
+        }
         GeneralpurposeAddressAllocatorBase(size_type newBuffSz, GeneralpurposeAddressAllocatorBase&& other, void* newReservedSpc) noexcept :
             bufferSize(newBuffSz), freeSize(0u), freeListCount(findFreeListCount(bufferSize,other.minBlockSize)),
             usingFirstBuffer(0u), minBlockSize(other.minBlockSize)
         {
-            swapFreeLists(newReservedSpc);
-            // first, insert new block or trim existing
-            if (newBuffSz<other.bufferSize) // trim
-            {
-                bool notFoundTheSlab = true;
-                for (auto i=freeListCount; notFoundTheSlab&&i<other.freeListCount; i++)
-                for (size_type j=0u; j<other.freeListStackCtr[i]; j++)
-                {
-                    const auto& block = other.freeListStack[i][j];
-                    if (block.startOffset>bufferSize)
-                        continue;
-                    #ifdef _IRR_DEBUG
-                    assert(block.endOffset>=bufferSize);
-                    #endif // _IRR_DEBUG
-                    insertFreeBlock({block.startOffset,bufferSize});
-                    #ifndef _IRR_DEBUG
-                    notFoundTheSlab = false;
-                    #endif // _IRR_DEBUG
-                }
-            }
-            else if (newBuffSz>other.bufferSize) // insert new
-                insertFreeBlock({other.bufferSize,bufferSize});
-            // then copy the existing free-blocks across
+            copyState(other, newReservedSpc);
+            
             for (decltype(freeListCount) i=0u; i<freeListCount; i++)
             {
-                if (i<other.freeListCount)
-                {
-                    for (size_type j=0u; j<other.freeListStackCtr[i]; j++)
-                    {
-                        const auto& block = other.freeListStack[i][j];
-                        freeListStack[i][freeListStackCtr[i]++]= block;
-                        freeSize += block.getLength();
-                    }
-                }
                 other.freeListStackCtr[i] = invalid_address;
                 other.freeListStack[i] = nullptr;
             }
@@ -109,6 +84,7 @@ class GeneralpurposeAddressAllocatorBase
             std::swap(freeSize,other.freeSize);
             std::swap(freeListCount,other.freeListCount);
             std::swap(usingFirstBuffer,other.usingFirstBuffer);
+            std::swap(minBlockSize,other.minBlockSize);
 
             for (decltype(freeListCount) i=0u; i<freeListCount; i++)
             {
@@ -267,6 +243,45 @@ class GeneralpurposeAddressAllocatorBase
 #endif // _IRR_DEBUG
             return findMSB(byteSize/minBlockSz);
         }
+
+        void copyState(const GeneralpurposeAddressAllocatorBase& other, void* newReservedSpc)
+        {
+            swapFreeLists(newReservedSpc);
+            // first, insert new block or trim existing
+            if (bufferSize<other.bufferSize) // trim
+            {
+                bool notFoundTheSlab = true;
+                for (auto i=freeListCount; notFoundTheSlab&&i<other.freeListCount; i++)
+                for (size_type j=0u; j<other.freeListStackCtr[i]; j++)
+                {
+                    const auto& block = other.freeListStack[i][j];
+                    if (block.startOffset>bufferSize)
+                        continue;
+                    #ifdef _IRR_DEBUG
+                    assert(block.endOffset>=bufferSize);
+                    #endif // _IRR_DEBUG
+                    insertFreeBlock({block.startOffset,bufferSize});
+                    #ifndef _IRR_DEBUG
+                    notFoundTheSlab = false;
+                    #endif // _IRR_DEBUG
+                }
+            }
+            else if (bufferSize>other.bufferSize) // insert new
+                insertFreeBlock({other.bufferSize,bufferSize});
+            // then copy the existing free-blocks across
+            for (decltype(freeListCount) i=0u; i<freeListCount; i++)
+            {
+                if (i<other.freeListCount)
+                {
+                    for (size_type j=0u; j<other.freeListStackCtr[i]; j++)
+                    {
+                        const auto& block = other.freeListStack[i][j];
+                        freeListStack[i][freeListStackCtr[i]++]= block;
+                        freeSize += block.getLength();
+                    }
+                }
+            }
+        }
 };
 
 
@@ -391,6 +406,12 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
             reset();
         }
 
+        template<typename... Args>
+        GeneralpurposeAddressAllocator(size_type newBuffSz, const GeneralpurposeAddressAllocator& other, void* newReservedSpc, Args&&... args) noexcept :
+                    Base(other,newReservedSpc,std::forward<Args>(args)...),
+                    AllocStrategy(newBuffSz-Base::alignOffset,std::move(other),newReservedSpc)
+        {
+        }
         //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator even if `supportsNullBuffer==true`
         template<typename... Args>
         GeneralpurposeAddressAllocator(size_type newBuffSz, GeneralpurposeAddressAllocator&& other, void* newReservedSpc, Args&&... args) noexcept :
@@ -519,7 +540,7 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
         }
         static inline size_type reserved_size(size_type bufSz, const GeneralpurposeAddressAllocator<_size_type>& other) noexcept
         {
-            return reserved_size(bufSz,other.maxRequestableAlignment,other.blockSize);
+            return reserved_size(other.maxRequestableAlignment,bufSz,other.minBlockSize);
         }
 
         inline size_type        get_free_size() const noexcept

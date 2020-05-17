@@ -102,8 +102,11 @@ int main()
 
     constexpr auto kInstanceCount = 8192;
     constexpr auto  kTotalTriangleLimit = 64*1024*1024;
+
+    refctd_dynamic_array<ModelData_t>* dummy0 = nullptr;
+    refctd_dynamic_array<DrawData_t>* dummy1;
     
-    core::vector<ModelData_t> instanceData(kInstanceCount);
+    auto instanceData = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ModelData_t>>(kInstanceCount);
     auto mbuff = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<core::smart_refctd_ptr<video::IGPUMeshBuffer> > >(kInstanceCount);
     
     //
@@ -135,7 +138,7 @@ int main()
 
                 assert(sphereData.inputParams.enabledBindingFlags&0x1u); //helpful assumption
 
-                auto& instance = instanceData[i];
+                auto& instance = instanceData->operator[](i);
                 instance.bbox[0].set(sphereData.bbox.MinEdge);
                 instance.bbox[1].set(sphereData.bbox.MaxEdge);
 
@@ -216,7 +219,7 @@ int main()
             meshbuffer->setIndexCount(indirectDrawData[i].count);
             meshbuffer->setIndexType(asset::EIT_32BIT);
 
-            auto& instance = instanceData[i];
+            auto& instance = instanceData->operator[](i);
             meshbuffer->setBoundingBox({instance.bbox[0].getAsVector3df(),instance.bbox[1].getAsVector3df()});
 
             {
@@ -227,11 +230,11 @@ int main()
             instance.worldMatrix.getSub3x3InverseTranspose(instance.normalMatrix);
         }
 
-        perInstanceDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(instanceData.size()*sizeof(ModelData_t),instanceData.data());
+        perInstanceDataSSBO = driver->createFilledDeviceLocalGPUBufferOnDedMem(instanceData->bytesize(),instanceData->data());
 	}
     
-	core::vector<DrawData_t> perDrawData(kInstanceCount);
-	perDrawDataSSBO = driver->createDeviceLocalGPUBufferOnDedMem(perDrawData.size()*sizeof(DrawData_t));
+	auto perDrawData = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<DrawData_t>>(kInstanceCount);
+	perDrawDataSSBO = driver->createDeviceLocalGPUBufferOnDedMem(perDrawData->bytesize());
     
     // TODO: get rid of the `const_cast`s
     auto drawDirectLayout = const_cast<video::IGPUPipelineLayout*>(gpuDrawDirectPipeline->getLayout());
@@ -326,9 +329,9 @@ int main()
             uint32_t mb2draw[kInstanceCount];
             for (uint32_t i=0; i<kInstanceCount; i++)
             {
-                const auto& instance = instanceData[i];
+                const auto& instance = instanceData->operator[](i);
 
-                auto& draw = perDrawData[i];
+                auto& draw = perDrawData->operator[](i);
                 draw.modelViewProjMatrix = core::concatenateBFollowedByA(camera->getConcatenatedMatrix(), instance.worldMatrix);
                 if (doCulling)
                 {
@@ -340,25 +343,7 @@ int main()
                 draw.normalMatrix = core::concatenateBFollowedByA(normalMatrix,instance.normalMatrix);
                 mb2draw[unculledNum++] = i;
             }
-            {
-                auto defaultUploadBuffer = driver->getDefaultUpStreamingBuffer();
-
-                const void* dataPtr = reinterpret_cast<const uint8_t*>(perDrawData.data());
-                uint32_t offset = video::StreamingTransientDataBufferMT<>::invalid_address;
-                uint32_t dataSize = perDrawData.size()*sizeof(DrawData_t);
-                while (offset == video::StreamingTransientDataBufferMT<>::invalid_address)
-                {
-                    uint32_t alignment = 8u;
-                    defaultUploadBuffer->multi_place(std::chrono::microseconds(500u), 1u, (const void* const*)&dataPtr, &offset, &dataSize, &alignment);
-                }
-                // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
-                if (defaultUploadBuffer->needsManualFlushOrInvalidate())
-                    driver->flushMappedMemoryRanges({ {defaultUploadBuffer->getBuffer()->getBoundMemory(),offset,dataSize} });
-                // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
-                driver->copyBuffer(defaultUploadBuffer->getBuffer(), perDrawDataSSBO.get(), offset, 0u, dataSize);
-                // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-                defaultUploadBuffer->multi_free(1u, &offset, &dataSize, std::move(driver->placeFence()));
-            }
+            driver->updateBufferRangeViaStagingBuffer(perDrawDataSSBO.get(),0u,perDrawData->bytesize(),perDrawData->data());
 
             driver->bindGraphicsPipeline(gpuDrawDirectPipeline.get());
             driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuDrawDirectPipeline->getLayout(), 1u, 1u, &drawDirectDescriptorSet.get(), nullptr);

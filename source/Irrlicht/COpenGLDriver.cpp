@@ -1170,11 +1170,15 @@ const core::smart_refctd_dynamic_array<std::string> COpenGLDriver::getSupportedG
         size_t cnt = 0ull;
         for (size_t i = 0ull; i < GLSLcnt; ++i)
             cnt += (FeatureAvailable[m_GLSLExtensions[i]]);
+        if (runningInRenderDoc)
+            ++cnt;
         m_supportedGLSLExtsNames = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<std::string>>(cnt);
         size_t i = 0ull;
         for (size_t j = 0ull; j < GLSLcnt; ++j)
             if (FeatureAvailable[m_GLSLExtensions[j]])
                 (*m_supportedGLSLExtsNames)[i++] = OpenGLFeatureStrings[m_GLSLExtensions[j]];
+        if (runningInRenderDoc)
+            (*m_supportedGLSLExtsNames)[i] = RUNNING_IN_RENDERDOC_EXTENSION_NAME;
     }
 
     return m_supportedGLSLExtsNames;
@@ -1309,6 +1313,11 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
         std::string glsl = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
         asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions().get());
         auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.c_str());
+        //{
+        //    auto fl = fopen("shader.glsl", "w");
+        //    fwrite(reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()), 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
+        //    fclose(fl);
+        //}
         core::smart_refctd_ptr<asset::ICPUBuffer> spvCode = GLSLCompiler->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,
@@ -1371,10 +1380,6 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
             memcpy(spvCode->getPointer(), spv.data(), spv.size()*4ull);
         }
 #endif //FIX_AMD_DRIVER_BUG
-
-        //auto fl = fopen("shader.glsl","w");
-        //fwrite(reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()), 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
-        //fclose(fl);
         if (!spvCode)
             return nullptr;
 

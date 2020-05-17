@@ -554,6 +554,8 @@ static const char* const OpenGLFeatureStrings[] = {
 	"GL_NVX_gpu_memory_info",
     "GL_NVX_multiview_per_view_attributes"
 };
+//extra extension name that is reported as supported when irrbaw app is running in renderdoc
+_IRR_STATIC_INLINE_CONSTEXPR const char* RUNNING_IN_RENDERDOC_EXTENSION_NAME = "GL_IRR_RUNNING_IN_RENDERDOC";
 
 
 class COpenGLExtensionHandler

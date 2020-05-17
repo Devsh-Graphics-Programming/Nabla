@@ -1,7 +1,6 @@
 #ifndef __IRR_C_GLSL_BSDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
 #define __IRR_C_GLSL_BSDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
 
-//TODO this file should change name to CGLSLBSDFBuiltinIncludeLoader.h
 
 #include "irr/asset/IBuiltinIncludeLoader.h"
 
@@ -630,6 +629,7 @@ vec3 irr_glsl_fresnel_dielectric(in vec3 Eta, in float CosTheta)
 protected:
     irr::core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
     {
+        // TODO: maybe change some paths, like separate out the NDFs out from BRDF/BSDFs and separate BSDF from BRDF
         return {
             { std::regex{"brdf/diffuse/lambert\\.glsl"}, &getLambert },
             { std::regex{"brdf/diffuse/oren_nayar\\.glsl"}, &getOrenNayar },

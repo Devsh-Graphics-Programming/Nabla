@@ -69,4 +69,8 @@
 #include "irr/asset/CPLYPipelineMetadata.h"
 #include "irr/asset/CSTLPipelineMetadata.h"
 
+//VT
+#include "irr/asset/IVirtualTexture.h"
+#include "irr/asset/ICPUVirtualTexture.h"
+
 #endif
