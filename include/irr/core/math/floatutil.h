@@ -9,6 +9,7 @@
 #include <float.h>
 #include <stdint.h>
 #include <cmath>
+#include <algorithm>
 
 #include "irr/macros.h"
 
@@ -409,9 +410,13 @@ inline uint64_t rgb32f_to_rgb19e7(const float _rgb[3])
 	constexpr float MAX_RGB19E7 = static_cast<float>(MAX_RGB19E7_MANTISSA)/RGB19E7_MANTISSA_VALUES * (1LL<<(MAX_RGB19E7_EXP-32)) * (1LL<<32);
 	constexpr float EPSILON_RGB19E7 = (1.f/RGB19E7_MANTISSA_VALUES) / (1LL<<(RGB19E7_EXP_BIAS-32)) / (1LL<<32);
 
-	const float r = core::clamp(_rgb[0], 0.f, MAX_RGB19E7);
-	const float g = core::clamp(_rgb[1], 0.f, MAX_RGB19E7);
-	const float b = core::clamp(_rgb[2], 0.f, MAX_RGB19E7);
+	auto clamp_rgb19e7 = [=](float x) -> float {
+		return std::max(0.f, std::min(x, MAX_RGB19E7));
+	};
+
+	const float r = clamp_rgb19e7(_rgb[0]);
+	const float g = clamp_rgb19e7(_rgb[1]);
+	const float b = clamp_rgb19e7(_rgb[2]);
 
 	auto f32_exp = [](float x) -> int32_t { return ((reinterpret_cast<int32_t&>(x)>>23) & 0xff) - 127; };
 

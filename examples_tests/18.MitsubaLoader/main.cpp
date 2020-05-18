@@ -470,6 +470,7 @@ int main()
 
 		asset::SBasicViewParameters uboData;
 		memcpy(uboData.MVP, camera->getConcatenatedMatrix().pointer(), sizeof(core::matrix4SIMD));
+		memcpy(uboData.MV, camera->getViewMatrix().pointer(), sizeof(core::matrix3x4SIMD));
 		driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0u, sizeof(uboData), &uboData);
 
 		for (uint32_t j = 1u; j < gpumeshes->size(); ++j)

@@ -32,11 +32,9 @@ namespace bsdf
 
 	static STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualTexture* _vt, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
 	{
-		//TODO commented-out to not lose time on packing textures now
-		/*
 		const auto& extent = _img->getCreationParameters().extent;
 
-		auto imgAndOrigSz = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(_img, _uwrap, _vwrap);
+		auto imgAndOrigSz = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(_img, _uwrap, _vwrap, _borderColor);
 
 		asset::IImage::SSubresourceRange subres;
 		subres.baseMipLevel = 0u;
@@ -45,8 +43,6 @@ namespace bsdf
 		auto addr = _vt->alloc(_img->getCreationParameters().format, imgAndOrigSz.second, subres, _uwrap, _vwrap);
 		_vt->commit(addr, imgAndOrigSz.first.get(), subres, _uwrap, _vwrap, _borderColor);
 		return addr;
-		*/
-		return STextureData::invalid();
 	}
 
 	using instr_t = uint64_t;
@@ -69,7 +65,9 @@ namespace bsdf
 		OP_COATING,
 		OP_ROUGHCOATING,
 		OP_BUMPMAP,
-		OP_BLEND
+		OP_BLEND,
+
+		OPCODE_COUNT
 	};
 	inline uint32_t getNumberOfSrcRegsForOpcode(E_OPCODE _op)
 	{
@@ -139,6 +137,22 @@ namespace bsdf
 	{
 		return i >> INSTR_NORMAL_ID_SHIFT;
 	}
+	inline core::vector3du32_SIMD getRegisters(const instr_t& i)
+	{
+		return core::vector3du32_SIMD(
+			(i>>INSTR_REG_DST_SHIFT),
+			(i>>INSTR_REG_SRC1_SHIFT),
+			(i>>INSTR_REG_SRC2_SHIFT)
+		) & core::vector3du32_SIMD(INSTR_REG_MASK);
+	}
+	inline bool isTwosided(const instr_t& i)
+	{
+		return (i>>BITFIELDS_SHIFT_TWOSIDED) & 1u;
+	}
+	inline bool isMasked(const instr_t& i)
+	{
+		return (i>>BITFIELDS_SHIFT_MASKFLAG) & 1u;
+	}
 
 #include "irr/irrpack.h"
 	struct alignas(16) SAllDiffuse
@@ -197,29 +211,25 @@ namespace bsdf
 	struct alignas(16) SAllPlastic
 	{
 		float eta;
-		//same as for SAllDielectric::alpha_u,alpha_v
-		STextureDataOrConstant alpha_u;
-		STextureDataOrConstant alpha_v;
+		STextureDataOrConstant alpha;
 		STextureDataOrConstant opacity;
 		//multiplication factor for texture samples
 		//RGB19E7 format
-		//.x - alpha_u scale, .y - alpha_v scale, .z - opacity scale
-		uint64_t textureScale;
+		//[0] - alpha scale,[1] - opacity scale
+		float textureScale[2];
 	} PACK_STRUCT;
 	struct alignas(16) SAllCoating
 	{
 		//thickness and eta encoded as 2x float16, thickness on bits 0:15, eta on bits 16:31
 		uint32_t thickness_eta;
-		//same as for SAllDielectric::alpha_u,alpha_v
-		STextureDataOrConstant alpha_u;
-		STextureDataOrConstant alpha_v;
+		STextureDataOrConstant alpha;
 		//rgb in RGB19E7 format or texture data for VT (flag decides)
 		STextureDataOrConstant sigmaA;
 		STextureDataOrConstant opacity;
 		//multiplication factor for texture samples
-		//RGBA16_SFLOAT format
-		//.x - alpha_u scale, .y - alpha_v scale, .z - sigmaA scale, .w - opacity scale
-		uint16_t textureScale[4];
+		//RGB19E7 format
+		//.x - alpha scale, .y - sigmaA scale, .z - opacity scale
+		uint64_t textureScale;
 	} PACK_STRUCT;
 	/*
 	struct alignas(16) SPhong
@@ -340,12 +350,14 @@ class CMitsubaLoader : public asset::IAssetLoader
 			//image, sampler, scale
 			using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>,float>;
 			core::unordered_map<const CElementTexture*, tex_ass_type> textureCache;
+			using VT_data_type = std::pair<bsdf::STextureData, float>;
+			core::unordered_map<const CElementTexture*, VT_data_type> VTallocDataCache;
 
 			core::vector<bsdf::SBSDFUnion> bsdfBuffer;
 			core::vector<bsdf::instr_t> instrBuffer;
 
 			//caches instr buffer instr-wise offset (.first) and instruction count (.second) for each bsdf node
-			core::unordered_map<CElementBSDF*,std::pair<uint32_t,uint32_t>> instrStreamCache;
+			core::unordered_map<const CElementBSDF*,std::pair<uint32_t,uint32_t>> instrStreamCache;
 
 			struct SPipelineCacheKey
 			{
@@ -380,13 +392,15 @@ class CMitsubaLoader : public asset::IAssetLoader
 		virtual ~CMitsubaLoader() = default;
 
 		//
-		SContext::shape_ass_type	getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
-		SContext::group_ass_type	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup);
-		SContext::shape_ass_type	loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
+		SContext::shape_ass_type				getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
+		SContext::group_ass_type				loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup);
+		SContext::shape_ass_type				loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
 		
-		SContext::tex_ass_type		getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture);
+		SContext::tex_ass_type					getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture);
+		SContext::VT_data_type					getVTallocData(SContext& ctx, const CElementTexture* texture, uint32_t texHierLvl);
 
 		bsdf::SBSDFUnion bsdfNode2bsdfStruct(SContext& _ctx, const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight = 0.f, const CElementBSDF* _parentMask = nullptr);
+		std::pair<uint32_t,uint32_t> getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 		std::pair<uint32_t,uint32_t> genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 
 		template <typename Iter>
