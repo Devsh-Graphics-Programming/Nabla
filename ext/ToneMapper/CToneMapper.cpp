@@ -58,7 +58,7 @@ core::SRange<const IGPUDescriptorSetLayout::SBinding> CToneMapper::getDefaultBin
 				nullptr
 			},
 			{
-				0u,
+				1u,
 				EDT_STORAGE_BUFFER_DYNAMIC,
 				1u,
 				ISpecializedShader::ESS_COMPUTE,
@@ -160,11 +160,11 @@ core::smart_refctd_ptr<ICPUSpecializedShader> CToneMapper::createShader(
 
 	static const core::map<E_FORMAT,const char*> quantizations = 
 	{
-		{EF_R8G8B8A8_UNORM,"quantizedColor[0] = packUnorm4x8(vec4(color+ditherVal/255.0,alpha));"},
-		{EF_R8G8B8A8_SRGB,"quantizedColor[0] = packUnorm4x8(vec4(color+ditherVal/255.0,alpha));"},
+		{EF_R8G8B8A8_UNORM,"quantizedColor[0] = packUnorm4x8(vec4(color+ditherVal/255.0,colorCIEXYZ.a));"},
+		{EF_R8G8B8A8_SRGB,"quantizedColor[0] = packUnorm4x8(vec4(color+ditherVal/255.0,colorCIEXYZ.a));"},
 		{EF_A2B10G10R10_UNORM_PACK32,R"===(
 	const vec4 limits = vec4(1023.0,1023.0,1023.0,3.0);
-	uvec4 preQuant = uvec4(clamp(vec4(color,alpha)*limits+ditherVal,vec4(0.0),limits));
+	uvec4 preQuant = uvec4(clamp(vec4(color,colorCIEXYZ.a)*limits+ditherVal,vec4(0.0),limits));
 	quantizedColor[0] = preQuant.r;
 	quantizedColor[0] = bitfieldInsert(quantizedColor[0],preQuant.g,10,10);
 	quantizedColor[0] = bitfieldInsert(quantizedColor[0],preQuant.b,20,10);
@@ -172,13 +172,13 @@ core::smart_refctd_ptr<ICPUSpecializedShader> CToneMapper::createShader(
 		)==="},
 		{EF_R16G16B16A16_UNORM,R"===(
 	quantizedColor[0] = packUnorm2x16(color.rg+ditherVal.rg/65535.0);
-	quantizedColor[1] = packUnorm2x16(vec2(color.b+ditherVal.b/65535.0,alpha));
+	quantizedColor[1] = packUnorm2x16(vec2(color.b+ditherVal.b/65535.0,colorCIEXYZ.a));
 		)==="},
 		{EF_R16G16B16A16_SFLOAT,R"===(
 	ivec3 exponent;
 	vec3 significant = frexp(color,exponent);
 	significant += ditherVal/1024.0;
-	vec4 preQuant = vec4(ldexp(significant,exponent),alpha);
+	vec4 preQuant = vec4(ldexp(significant,exponent),colorCIEXYZ.a);
 	quantizedColor[0] = packHalf2x16(preQuant.rg);
 	quantizedColor[1] = packHalf2x16(preQuant.ba);
 		)==="},
@@ -297,7 +297,7 @@ layout(local_size_x=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_, local_si
 %s // _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
 
 
-#ifdef defined(_IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_)||defined(_IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_)
+#if defined(_IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_)||defined(_IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_)
 	#ifndef _IRR_GLSL_EXT_TONE_MAPPER_PUSH_CONSTANTS_DEFINED_
 	#define _IRR_GLSL_EXT_TONE_MAPPER_PUSH_CONSTANTS_DEFINED_
 	layout(push_constant) uniform PushConstants
@@ -308,7 +308,7 @@ layout(local_size_x=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_, local_si
 #endif
 
 
-#if _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
+#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
 	irr_glsl_ext_LumaMeter_PassInfo_t irr_glsl_ext_ToneMapper_getLumaMeterInfo()
 	{
 		return lumaPassInfo;
@@ -317,25 +317,21 @@ layout(local_size_x=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_, local_si
 
 
 #ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
-	#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_QUALIFIERS restrict
-	struct irr_glsl_ext_ToneMapper_input_t
-	{
-		irr_glsl_ext_ToneMapper_Params_t inParams;
-		uint lastFrameExtraEV; // packed stuff
-		uint packedExposureAdaptationFactors; // first is up, then down
-	};
+	#define _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_QUALIFIERS restrict
 #else
-	#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_QUALIFIERS restrict readonly
-	struct irr_glsl_ext_ToneMapper_input_t
-	{
-		irr_glsl_ext_ToneMapper_Params_t inParams;
-	};
+	#define _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_QUALIFIERS restrict readonly
 #endif
 
+struct irr_glsl_ext_ToneMapper_input_t
+{
+	uint lastFrameExtraEV; // packed stuff
+	uint packedExposureAdaptationFactors; // first is up, then down
+	irr_glsl_ext_ToneMapper_Params_t inParams;
+};
 
 #ifndef _IRR_GLSL_EXT_TONE_MAPPER_SSBO_DESCRIPTOR_DEFINED_
 #define _IRR_GLSL_EXT_TONE_MAPPER_SSBO_DESCRIPTOR_DEFINED_
-layout(set=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_) _IRR_GLSL_EXT_LUMA_METER_OUTPUT_QUALIFIERS buffer ParameterBuffer
+layout(set=_IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_SET_DEFINED_, binding=_IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_BINDING_DEFINED_) _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_QUALIFIERS buffer ParameterBuffer
 {
 	#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
 		irr_glsl_ext_LumaMeter_output_t lumaParams[2][_IRR_GLSL_EXT_LUMA_METER_LAYERS_TO_PROCESS_DEFINED_];
@@ -381,28 +377,31 @@ irr_glsl_ext_ToneMapper_Params_t irr_glsl_ext_ToneMapper_getToneMapperParams()
 
 #ifndef _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
 #define _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
-layout(set=_IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_BINDING_DEFINED_) sampler2DArray inputImage;
+layout(set=_IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_BINDING_DEFINED_) uniform sampler2DArray inputImage;
 #endif
 
 #ifndef _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_DESCRIPTOR_DEFINED_
 #define _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_DESCRIPTOR_DEFINED_
-layout(set=_IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_BINDING_DEFINED_, %s) uimage2DArray outputImage;
+layout(set=_IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_BINDING_DEFINED_, %s) uniform uimage2DArray outputImage;
 #endif
 
 
-vec3 irr_glsl_ext_ToneMapper_readColor()
+vec4 irr_glsl_ext_ToneMapper_readColor()
 {
 	ivec3 uv = ivec3(gl_GlobalInvocationID);
-	vec3 color = %s(texelFetch(inputImage,uv,0).rgb);
+	vec4 color = texelFetch(inputImage,uv,0);
+	color.rgb = %s(color.rgb);
 
 	const mat3 xyzMatrix = %s;
-	return xyzMatrix*color;
+	color.rgb = xyzMatrix*color.rgb;
+
+	return color;
 }
 
-void irr_glsl_ext_ToneMapper_writeColor(in vec3 colorCIEXYZ, in vec3 ditherVal)
+void irr_glsl_ext_ToneMapper_writeColor(in vec4 colorCIEXYZ, in vec3 ditherVal)
 {
 	const mat3 xyzMatrix = %s;
-	const vec3 color = %s(xyzMatrix*colorCIEXYZ);
+	const vec3 color = %s(xyzMatrix*colorCIEXYZ.rgb);
 
 	uvec4 quantizedColor;
 	%s
@@ -417,9 +416,9 @@ void irr_glsl_ext_ToneMapper_writeColor(in vec3 colorCIEXYZ, in vec3 ditherVal)
 void irr_glsl_ext_ToneMapper() // bool wgExecutionMask, then do if(any(wgExecutionMask))
 {
 	ivec3 uv = ivec3(gl_GlobalInvocationID);
-	bool alive = any(greaterThanEqual(uv,textureSize(inputImage,0)));
+	bool alive = any(lessThan(uv,textureSize(inputImage,0)));
 
-	vec3 colorCIEXYZ;
+	vec4 colorCIEXYZ;
 	if (alive)
 		colorCIEXYZ = irr_glsl_ext_ToneMapper_readColor();
 
@@ -434,7 +433,7 @@ void irr_glsl_ext_ToneMapper() // bool wgExecutionMask, then do if(any(wgExecuti
 	extraNegEV += toLastLumaDiff*irr_glsl_ext_ToneMapper_getExposureAdaptationFactor(toLastLumaDiff);
 	irr_glsl_ext_ToneMapper_setLastFrameLuma(extraNegEV);
 #endif
-	colorCIEXYZ = irr_glsl_ext_ToneMapper_operator(params,colorCIEXYZ,extraNegEV);
+	colorCIEXYZ.rgb = irr_glsl_ext_ToneMapper_operator(params,colorCIEXYZ.rgb,extraNegEV);
 
 	// TODO: Add dithering
 	vec3 rand = vec3(0.5);
@@ -477,6 +476,7 @@ void main()
 	);
 
 	registerBuiltinGLSLIncludes(compilerToAddBuiltinIncludeTo);
+	LumaMeter::CLumaMeter::registerBuiltinGLSLIncludes(compilerToAddBuiltinIncludeTo);
 	return core::make_smart_refctd_ptr<ICPUSpecializedShader>(
 		core::make_smart_refctd_ptr<ICPUShader>(std::move(shader),ICPUShader::buffer_contains_glsl),
 		ISpecializedShader::SInfo{nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE}

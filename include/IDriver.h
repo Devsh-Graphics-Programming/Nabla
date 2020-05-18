@@ -307,7 +307,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         }
 
 		//! Create a descriptor set with missing descriptors
-        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout)
+        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout)
         {
             return nullptr;
         }

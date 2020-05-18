@@ -44,7 +44,8 @@ int main()
 
 	E_FORMAT inFormat;
 	constexpr auto outFormat = EF_R8G8B8A8_SRGB;
-	smart_refctd_ptr<IGPUImageView> imgToTonemap,outImg;
+	smart_refctd_ptr<IGPUImage> outImg;
+	smart_refctd_ptr<IGPUImageView> imgToTonemapView,outImgView;
 	{
 		auto cpuImg = IAsset::castDown<ICPUImage>(imageBundle.getContents().first[0]);
 		IGPUImage::SCreationParams imgInfo = cpuImg->getCreationParameters();
@@ -63,66 +64,70 @@ int main()
 		imgViewInfo.subresourceRange.levelCount = 1;
 		imgViewInfo.subresourceRange.baseArrayLayer = 0;
 		imgViewInfo.subresourceRange.layerCount = 1;
-		imgToTonemap = driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewInfo));
+		imgToTonemapView = driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewInfo));
 
 		imgInfo.format = outFormat;
-		imgViewInfo.image = driver->createDeviceLocalGPUImageOnDedMem(std::move(imgInfo));
+		outImg = driver->createDeviceLocalGPUImageOnDedMem(std::move(imgInfo));
+
+		imgViewInfo.image = outImg;
 		imgViewInfo.format = outFormat;
-		outImg = driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewInfo));
+		outImgView = driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewInfo));
 	}
 
 
 	constexpr auto meterMode = ext::LumaMeter::CLumaMeter::EMM_COUNT;
+	const float minLuma = core::nan<float>();
+	const float maxLuma = core::nan<float>();
 
 	using ToneMapperClass = ext::ToneMapper::CToneMapper;
+	constexpr auto TMO = ToneMapperClass::EO_ACES;
 	constexpr bool usingLumaMeter = false;
 	constexpr bool usingTemporalAdapatation = false;
 
-	auto tonemappingShader = ToneMapperClass::createShader(am->getGLSLCompiler(),
+	auto cpuTonemappingSpecializedShader = ToneMapperClass::createShader(am->getGLSLCompiler(),
 		std::make_tuple(inFormat,ECP_SRGB,EOTF_IDENTITY),
 		std::make_tuple(outFormat,ECP_SRGB,OETF_sRGB),
-		ToneMapperClass::EO_REINHARD,
-		usingLumaMeter,meterMode,usingTemporalAdapatation
+		TMO,usingLumaMeter,meterMode,minLuma,maxLuma,usingTemporalAdapatation
 	);
+	auto gpuTonemappingShader = driver->createGPUShader(smart_refctd_ptr<const ICPUShader>(cpuTonemappingSpecializedShader->getUnspecialized()));
+	auto gpuTonemappingSpecializedShader = driver->createGPUSpecializedShader(gpuTonemappingShader.get(),cpuTonemappingSpecializedShader->getSpecializationInfo());
 
-	auto outImgStorage = ext::ToneMapper::CToneMapper::createViewForImage(driver,false,core::smart_refctd_ptr(outImg),{static_cast<IImage::E_ASPECT_FLAGS>(0u),0,1,0,1});
+	auto outImgStorage = ToneMapperClass::createViewForImage(driver,false,core::smart_refctd_ptr(outImg),{static_cast<IImage::E_ASPECT_FLAGS>(0u),0,1,0,1});
+
 
 	constexpr float Key = 0.18;
-	auto params = ext::ToneMapper::CToneMapper::Params_t<EO_::fromKeyAndBurn(Key, 0.95, 0.1, 16.0);
+	smart_refctd_ptr<IGPUBuffer> parameterBuffer;
+	{
+		auto params = ToneMapperClass::Params_t<TMO>(4.f, Key);
+		parameterBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(params), &params);
+	}
 /*
 TODO:
-- tone mapper double buffered parameters
-- tone mapper luma adaptation
 - ACES trials
 - adaptation speeds
 */
-#if 0
-	auto parameterBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(ext::AutoExposure::ReinhardParams),&params);
-#endif
 
-	auto commonPipelineLayout = ext::ToneMapper::CToneMapper::getDefaultPipelineLayout(driver,usingLumaMeter);
+	auto commonPipelineLayout = ToneMapperClass::getDefaultPipelineLayout(driver,usingLumaMeter);
 
-	auto tonemappingPipeline = driver->createGPUComputePipeline(nullptr,std::move(commonPipelineLayout),std::move(tonemappingShader));
+	auto tonemappingPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(commonPipelineLayout),std::move(gpuTonemappingSpecializedShader));
 
-	auto dynamicOffsetArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t> >();
 	auto commonDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(commonPipelineLayout->getDescriptorSetLayout(0u)));
-	if constexpr (false)
-	{
-		video::IGPUDescriptorSet::SDescriptorInfo pInfos[3];
-	}
+	ToneMapperClass::updateDescriptorSet<TMO>(driver,commonDescriptorSet.get(),parameterBuffer,imgToTonemapView,outImgStorage,1u,2u,0u,nullptr,0u,meterMode,usingTemporalAdapatation);
 
+	auto dynamicOffsetArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t> >(2u);
+	dynamicOffsetArray->operator[](0u) = 0u;
+	dynamicOffsetArray->operator[](1u) = 0u;
 
 	auto blitFBO = driver->addFrameBuffer();
-	blitFBO->attach(video::EFAP_COLOR_ATTACHMENT0, std::move(outImg));
-
+	blitFBO->attach(video::EFAP_COLOR_ATTACHMENT0, std::move(outImgView));
 
 	while (device->run() && receiver.keepOpen())
 	{
 		driver->beginScene(false, false);
 
 		driver->bindComputePipeline(tonemappingPipeline.get());
-		driver->bindDescriptorSets(EPBP_COMPUTE,tonemappingPipeline->getLayout(),0u,1u,&commonDescriptorSet.get(),&dynamicOffsetArray.get());
-		ext::ToneMapper::CToneMapper::dispatchHelper(driver,outImgStorage.get(),true);
+		driver->bindDescriptorSets(EPBP_COMPUTE,commonPipelineLayout.get(),0u,1u,&commonDescriptorSet.get(),&dynamicOffsetArray);
+		ToneMapperClass::dispatchHelper(driver,outImgStorage.get(),true);
 
 		driver->blitRenderTargets(blitFBO, nullptr, false, false);
 

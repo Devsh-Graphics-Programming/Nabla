@@ -31,14 +31,14 @@ core::SRange<const IGPUDescriptorSetLayout::SBinding> CGLSLLumaBuiltinIncludeLoa
 			nullptr
 		},
 		{
-			2u,
+			1u,
 			EDT_STORAGE_BUFFER_DYNAMIC,
 			1u,
 			ISpecializedShader::ESS_COMPUTE,
 			nullptr
 		},
 		{
-			1u,
+			2u,
 			EDT_COMBINED_IMAGE_SAMPLER,
 			1u,
 			ISpecializedShader::ESS_COMPUTE,
@@ -62,7 +62,7 @@ core::SRange<const IGPUDescriptorSetLayout::SBinding> CGLSLLumaBuiltinIncludeLoa
 				ISampler::ECO_ALWAYS
 			}
 		};
-		driver->createGPUSampler(params);
+		sampler = driver->createGPUSampler(params);
 	}
 	return {bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
 }

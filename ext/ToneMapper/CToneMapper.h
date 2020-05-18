@@ -65,7 +65,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 
 			inline void setExposure(float EV, float key=0.18f)
 			{
-				exposure = exp2(EV)+log2(key);
+				exposure = EV+log2(key);
 			}
 
 			float gamma; // 1.0
@@ -100,13 +100,14 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		}
 
 		//
+		template<E_OPERATOR _operator>
 		static inline size_t getParameterBufferSize(
 			bool usingLumaMeter=false,
 			LumaMeter::CLumaMeter::E_METERING_MODE meterMode=LumaMeter::CLumaMeter::EMM_COUNT,
 			uint32_t arrayLayers=1u
 		)
 		{
-			size_t retval = 0ull;
+			size_t retval = sizeof(Params_t<_operator>);
 			if (usingLumaMeter)
 				retval += LumaMeter::CLumaMeter::getOutputBufferSize(meterMode,arrayLayers);
 			return retval;
@@ -126,8 +127,8 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			core::smart_refctd_ptr<video::IGPUBuffer> lumaUniformsDescriptor=nullptr,
 			uint32_t lumaUniformsBinding=0u,
 			LumaMeter::CLumaMeter::E_METERING_MODE meterMode=LumaMeter::CLumaMeter::EMM_COUNT,
-			uint32_t arrayLayers=1u,
-			bool usingTemporalAdaptation=false
+			bool usingTemporalAdaptation = false,
+			uint32_t arrayLayers=1u
 		)
 		{
 			video::IGPUDescriptorSet::SDescriptorInfo pInfos[MAX_DESCRIPTOR_COUNT];
@@ -140,8 +141,8 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 				pWrites[i].info = pInfos+i;
 			}
 			
-			pInfos[1].desc = parameterBuffer;
-			pInfos[1].buffer.size = getParameterBufferSize(!!lumaUniformsDescriptor,arrayLayers);
+			pInfos[1].desc = inputParameterDescriptor;
+			pInfos[1].buffer.size = getParameterBufferSize<_operator>(!!lumaUniformsDescriptor,meterMode,arrayLayers);
 			pInfos[1].buffer.offset = 0u;
 			pInfos[2].desc = inputImageDescriptor;
 			pInfos[2].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);

@@ -45,10 +45,8 @@ struct irr_glsl_ext_ToneMapper_ACESParams_t
 
 	vec3 irr_glsl_ext_ToneMapper_operator(in irr_glsl_ext_ToneMapper_Params_t params, in vec3 rawCIEXYZcolor, in float extraNegEV)
 	{
-		vec3 tonemapped = rawCIEXYZcolor;
-		tonemapped.y *= params.keyAndManualLinearExposure*exp2(-extraNegEV);
-		tonemapped.y *= (1.0+tonemapped.y*params.rcpWhite2)/(1.0+tonemapped.y);
-		return tonemapped;
+		float luma = tonemapped.y*params.keyAndManualLinearExposure*exp2(-extraNegEV);
+		return rawCIEXYZcolor*(1.0+luma*params.rcpWhite2)/(1.0+luma);
 	}
 #elif _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_IRR_GLSL_EXT_TONE_MAPPER_ACES_OPERATOR
 	#ifndef irr_glsl_ext_ToneMapper_Params_t
