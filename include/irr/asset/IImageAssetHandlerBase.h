@@ -230,6 +230,28 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			return newConvertedImage;
 		};
 
+		/*
+			Performs image's texel flip. A processing image must
+			be have appropriate texel buffer and regions attached.
+		*/
+
+		static inline void performImageFlip(core::smart_refctd_ptr<asset::ICPUImage> image)
+		{
+			bool status = image->getBuffer() && image->getRegions().begin();
+			assert(status, "An image doesn't have a texel buffer and regions attached!");
+
+			auto format = image->getCreationParameters().format;
+			asset::TexelBlockInfo blockInfo(format);
+			core::vector3du32_SIMD trueExtent = blockInfo.convertTexelsToBlocks(image->getRegions().begin()->getTexelStrides());
+
+			auto entry = reinterpret_cast<uint8_t*>(image->getBuffer()->getPointer());
+			auto end = entry + image->getBuffer()->getSize();
+			auto stride = trueExtent.X * getTexelOrBlockBytesize(format);
+
+			for (uint32_t y = 0, yRising = 0; y < trueExtent.Y; y += 2, ++yRising)
+				std::swap_ranges(entry + (yRising * stride), entry + ((yRising + 1) * stride), end - ((yRising + 1) * stride));
+		}
+
 	private:
 };
 
