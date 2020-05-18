@@ -248,8 +248,13 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			auto end = entry + image->getBuffer()->getSize();
 			auto stride = trueExtent.X * getTexelOrBlockBytesize(format);
 
-			for (uint32_t y = 0, yRising = 0; y < trueExtent.Y; y += 2, ++yRising)
-				std::swap_ranges(entry + (yRising * stride), entry + ((yRising + 1) * stride), end - ((yRising + 1) * stride));
+			performImageFlip(entry, end, trueExtent.Y, stride);
+		}
+
+		static inline void performImageFlip(uint8_t* entry, uint8_t* end, uint32_t height, uint32_t rowPitch)
+		{
+			for (uint32_t y = 0, yRising = 0; y < height; y += 2, ++yRising)
+				std::swap_ranges(entry + (yRising * rowPitch), entry + ((yRising + 1) * rowPitch), end - ((yRising + 1) * rowPitch));
 		}
 
 	private:
