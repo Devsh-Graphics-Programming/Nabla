@@ -30,21 +30,6 @@ namespace bsdf
 	};
 	static_assert(sizeof(STextureDataOrConstant)==sizeof(uint64_t), "STextureDataOrConstant is not 8 bytes for some reason!");
 
-	static STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualTexture* _vt, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
-	{
-		const auto& extent = _img->getCreationParameters().extent;
-
-		auto imgAndOrigSz = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(_img, _uwrap, _vwrap, _borderColor);
-
-		asset::IImage::SSubresourceRange subres;
-		subres.baseMipLevel = 0u;
-		subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(extent.width, extent.height))) + 1;
-
-		auto addr = _vt->alloc(_img->getCreationParameters().format, imgAndOrigSz.second, subres, _uwrap, _vwrap);
-		_vt->commit(addr, imgAndOrigSz.first.get(), subres, _uwrap, _vwrap, _borderColor);
-		return addr;
-	}
-
 	using instr_t = uint64_t;
 
 	enum E_OPCODE : uint8_t
@@ -85,9 +70,11 @@ namespace bsdf
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_OPCODE_SHIFT = 0u;
 
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BITFIELDS_SHIFT = INSTR_OPCODE_WIDTH;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BITFIELDS_WIDTH = 8u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BITFIELDS_WIDTH = 9u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_REFL_TEX = 0x1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_REFL_TEX = INSTR_OPCODE_WIDTH + 0u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_PLASTIC_REFL_TEX = 0x1u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_PLASTIC_REFL_TEX = INSTR_OPCODE_WIDTH + 5u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_ALPHA_U_TEX = 0x1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_ALPHA_U_TEX = INSTR_OPCODE_WIDTH + 2u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_ALPHA_V_TEX = 0x1u;
@@ -107,15 +94,15 @@ namespace bsdf
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_WEIGHT_TEX = 0x1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_WEIGHT_TEX = INSTR_OPCODE_WIDTH + 0u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_TWOSIDED = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_TWOSIDED = INSTR_OPCODE_WIDTH + 5u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_TWOSIDED = INSTR_OPCODE_WIDTH + 6u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_MASKFLAG = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_MASKFLAG = INSTR_OPCODE_WIDTH + 6u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_MASKFLAG = INSTR_OPCODE_WIDTH + 7u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_OPACITY_TEX = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_OPACITY_TEX = INSTR_OPCODE_WIDTH + 7u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_OPACITY_TEX = INSTR_OPCODE_WIDTH + 8u;
 
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_WIDTH = 20u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_WIDTH = 19u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_SHIFT = INSTR_OPCODE_WIDTH + INSTR_BITFIELDS_WIDTH;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_MASK = 0xfffffu;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_MASK = 0x7ffffu;
 
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_WIDTH = 8u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_MASK = 0xffu;
@@ -213,10 +200,11 @@ namespace bsdf
 		float eta;
 		STextureDataOrConstant alpha;
 		STextureDataOrConstant opacity;
+		STextureDataOrConstant reflectance;
 		//multiplication factor for texture samples
 		//RGB19E7 format
-		//[0] - alpha scale,[1] - opacity scale
-		float textureScale[2];
+		//.x - alpha scale,.y - opacity scale, .z - refl scale
+		uint64_t textureScale;
 	} PACK_STRUCT;
 	struct alignas(16) SAllCoating
 	{
@@ -310,10 +298,11 @@ class CMitsubaLoader : public asset::IAssetLoader
 
 #include "irr/irrpack.h"
 		//compatible with std430 and std140
-		struct alignas(16) SInstanceData
+		struct SInstanceData
 		{
 			core::matrix3x4SIMD tform;
 			std::pair<uint32_t, uint32_t> instrOffsetCount;
+			uint32_t _pad_[2];
 		} PACK_STRUCT;
 #include "irr/irrunpack.h"
 		struct SContext

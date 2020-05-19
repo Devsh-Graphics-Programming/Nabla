@@ -275,18 +275,35 @@ private:
 	}
 };
 
+static bsdf::STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualTexture* _vt, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
+{
+	const auto& extent = _img->getCreationParameters().extent;
+
+	auto imgAndOrigSz = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(_img, _uwrap, _vwrap, _borderColor);
+
+	asset::IImage::SSubresourceRange subres;
+	subres.baseArrayLayer = 0u;
+	subres.layerCount = 1u;
+	subres.baseMipLevel = 0u;
+	subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(extent.width, extent.height))) + 1;
+
+	auto addr = _vt->alloc(_img->getCreationParameters().format, imgAndOrigSz.second, subres, _uwrap, _vwrap);
+	_vt->commit(addr, imgAndOrigSz.first.get(), subres, _uwrap, _vwrap, _borderColor);
+	return addr;
+}
+
 bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight, const CElementBSDF* _maskParent)
 {
 	// returns opacity scale factor
 	auto inheritOpacity = [&,this](auto& _bsdfStruct) -> float {
 		if (_maskParent)
 		{
-			if (_maskParent->mask.opacity.value.type == SPropertyElementData::SPECTRUM)
+			if (_maskParent->mask.opacity.value.type != SPropertyElementData::INVALID)
 			{
 				_bsdfStruct.opacity.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_maskParent->mask.opacity.value.vvalue.pointer));
 				return 1.f;
 			}
-			else if (_maskParent->mask.opacity.value.type == SPropertyElementData::INVALID)
+			else
 			{
 				auto tex = getVTallocData(_ctx, _maskParent->mask.opacity.texture, _texHierLvl);
 				_bsdfStruct.opacity.texData = tex.first;
@@ -303,16 +320,16 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 	case CElementBSDF::Type::ROUGHDIFFUSE:
 	{
 		float reflScale = 1.f;
-		if (_node->diffuse.reflectance.value.type==SPropertyElementData::SPECTRUM)
-			retval.diffuse.reflectance.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->diffuse.reflectance.value.vvalue.pointer));
-		else if (_node->diffuse.reflectance.value.type==SPropertyElementData::INVALID)
+		if (_node->diffuse.reflectance.value.type==SPropertyElementData::INVALID)
 			std::tie(retval.diffuse.reflectance.texData, reflScale) = getVTallocData(_ctx, _node->diffuse.reflectance.texture, _texHierLvl);
+		else
+			retval.diffuse.reflectance.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->diffuse.reflectance.value.vvalue.pointer));
 
 		float alphaScale = 1.f;
-		if (_node->diffuse.alpha.value.type==SPropertyElementData::FLOAT)
-			core::uintBitsToFloat(retval.diffuse.alpha.constant_f32) = _node->diffuse.alpha.value.fvalue;
-		else if (_node->diffuse.alpha.value.type==SPropertyElementData::INVALID)
+		if (_node->diffuse.alpha.value.type==SPropertyElementData::INVALID)
 			std::tie(retval.diffuse.alpha.texData, alphaScale) = getVTallocData(_ctx, _node->diffuse.alpha.texture, _texHierLvl);
+		else if (_node->diffuse.alpha.value.type==SPropertyElementData::FLOAT)
+			core::uintBitsToFloat(retval.diffuse.alpha.constant_f32) = _node->diffuse.alpha.value.fvalue;
 
 		const float opacityScale = inheritOpacity(retval.diffuse);
 
@@ -365,9 +382,9 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 			else if (_node->conductor.alphaV.value.type==SPropertyElementData::INVALID)
 				std::tie(retval.conductor.alpha_v.texData, valphaScale) = getVTallocData(_ctx, _node->conductor.alphaV.texture, _texHierLvl);
 		}
-		if (_node->conductor.eta.type==SPropertyElementData::SPECTRUM)
+		if (_node->conductor.eta.type!=SPropertyElementData::INVALID)
 			retval.conductor.eta[0] = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>((_node->conductor.eta.vvalue/_node->conductor.extEta).pointer));
-		if (_node->conductor.eta.type == SPropertyElementData::SPECTRUM)
+		if (_node->conductor.k.type!=SPropertyElementData::INVALID)
 			retval.conductor.eta[1] = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>((_node->conductor.k.vvalue/_node->conductor.extEta).pointer));
 
 		const float opacityScale = inheritOpacity(retval.conductor);
@@ -384,13 +401,17 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 			core::uintBitsToFloat(retval.plastic.alpha.constant_f32) = _node->plastic.alpha.value.fvalue;
 		else if (_node->plastic.alpha.value.type==SPropertyElementData::INVALID)
 			std::tie(retval.plastic.alpha.texData, alphaScale) = getVTallocData(_ctx, _node->plastic.alpha.texture, _texHierLvl);
+		float reflScale = 1.f;
+		if (_node->plastic.diffuseReflectance.value.type==SPropertyElementData::INVALID)
+			std::tie(retval.plastic.reflectance.texData, reflScale) = getVTallocData(_ctx, _node->plastic.diffuseReflectance.texture, _texHierLvl);
+		else
+			retval.plastic.reflectance.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->plastic.diffuseReflectance.value.vvalue.pointer));
 		
 		retval.plastic.eta = _node->plastic.intIOR/_node->plastic.extIOR;
 
 		const float opacityScale = inheritOpacity(retval.plastic);
 
-		retval.plastic.textureScale[0] = alphaScale;
-		retval.plastic.textureScale[1] = opacityScale;
+		retval.plastic.textureScale = core::rgb32f_to_rgb19e7(alphaScale, opacityScale, reflScale);
 	}
 		break;
 	case CElementBSDF::Type::COATING:
@@ -407,10 +428,10 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 		retval.coating.thickness_eta |= static_cast<uint32_t>(core::Float16Compressor::compress(_node->coating.intIOR/_node->coating.extIOR))<<16;
 
 		float sigmaScale = 1.f;
-		if (_node->coating.sigmaA.value.type==SPropertyElementData::SPECTRUM)
-			retval.coating.sigmaA.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->coating.sigmaA.value.vvalue.pointer));
-		else if (_node->coating.sigmaA.value.type==SPropertyElementData::INVALID)
+		if (_node->coating.sigmaA.value.type==SPropertyElementData::INVALID)
 			std::tie(retval.coating.sigmaA.texData, sigmaScale) = getVTallocData(_ctx, _node->coating.sigmaA.texture, _texHierLvl);
+		else
+			retval.coating.sigmaA.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->coating.sigmaA.value.vvalue.pointer));
 
 		const float opacityScale = inheritOpacity(retval.coating);
 
@@ -474,10 +495,10 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 	case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
 	{
 		float transmittanceScale = 1.f;
-		if (_node->difftrans.transmittance.value.type==SPropertyElementData::SPECTRUM)
-			retval.diffuseTransmitter.transmittance.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->difftrans.transmittance.value.vvalue.pointer));
-		else if (_node->difftrans.transmittance.value.type==SPropertyElementData::INVALID)
+		if (_node->difftrans.transmittance.value.type==SPropertyElementData::INVALID)
 			std::tie(retval.diffuseTransmitter.transmittance.texData, transmittanceScale) = getVTallocData(_ctx, _node->difftrans.transmittance.texture, _texHierLvl);
+		else
+			retval.diffuseTransmitter.transmittance.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->difftrans.transmittance.value.vvalue.pointer));
 
 		retval.diffuseTransmitter.textureScale[1] = inheritOpacity(retval.diffuseTransmitter);
 		retval.diffuseTransmitter.textureScale[0] = transmittanceScale;
@@ -496,7 +517,7 @@ layout (location = 2) in vec2 vUV;
 layout (location = 3) in vec3 vNormal;
 
 layout (location = 0) out vec3 ViewPos;
-layout (location = 1) flat out uint InstDataIx;
+layout (location = 1) flat out uvec2 InstrOffsetCount;
 layout (location = 2) out vec3 Normal;
 layout (location = 3) out vec2 UV;
 layout (location = 4) out vec3 LocalPos;
@@ -533,7 +554,8 @@ void main()
 	gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(mvp), vPosition);
 	ViewPos = irr_glsl_pseudoMul3x4with3x1(mv, vPosition);
 	LocalPos = vPosition;
-	InstDataIx = instIx;
+	InstrOffsetCount = InstData.data[instIx].instrOffsetCount;
+	UV = vUV;
 }
 
 )";
@@ -556,7 +578,7 @@ R"(#version 430 core
 #include <irr/builtin/glsl/virtual_texturing/extensions.glsl>
 
 layout (location = 0) in vec3 ViewPos;
-layout (location = 1) flat in uint InstDataIx;
+layout (location = 1) flat in uvec2 InstrOffsetCount;
 layout (location = 2) in vec3 Normal;
 layout (location = 3) in vec2 UV;
 layout (location = 4) in vec3 LocalPos;
@@ -601,24 +623,14 @@ layout (set = 0, binding = 2, std430) restrict readonly buffer PrecomputedStuffS
     uint layer_to_sampler_ix[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
 } precomputed;
 
-layout (set = 0, binding = 3, std430) buffer INSTR_BUF
+layout (set = 0, binding = 3, std430) restrict readonly buffer INSTR_BUF
 {
 	instr_t data[];
 } instr_buf;
-layout (set = 0, binding = 4, std430) buffer BSDF_BUF
+layout (set = 0, binding = 4, std430) restrict readonly buffer BSDF_BUF
 {
 	bsdf_data_t data[];
 } bsdf_buf;
-
-//this struct should go to some builtin (from loader added in CMitsubaLoader ctor) since it's used in vertex shader as well
-struct InstanceData
-{
-	mat4x3 tform;
-	uvec2 instrOffsetCount;
-};
-layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer A {
-	InstanceData data[];
-} InstData;
 
 uint irr_glsl_VT_layer2pid(in uint layer)
 {
@@ -654,31 +666,32 @@ layout (push_constant) uniform Block
 #define RGB19E7_EXP_BIAS 63
 vec3 decodeRGB19E7(in uvec2 x)
 {
-	int exp = int(bitfieldExtract(x.y, 3*RGB19E7_MANTISSA_BITS-32, RGB19E7_EXPONENT_BITS)) - RGB19E7_EXP_BIAS - RGB19E7_MANTISSA_BITS;
+	int exp = int(bitfieldExtract(x.y, 3*RGB19E7_MANTISSA_BITS-32, RGB19E7_EXPONENT_BITS) - RGB19E7_EXP_BIAS - RGB19E7_MANTISSA_BITS);
 	float scale = exp2(float(exp));//uintBitsToFloat((uint(exp)+127u)<<23u)
 	
 	vec3 v;
-	v.x = int(bitfieldExtract(x.x, 0, RGB19E7_MANTISSA_BITS));
+	v.x = int(bitfieldExtract(x.x, 0, RGB19E7_MANTISSA_BITS))*scale;
 	v.y = int(
 		bitfieldExtract(x.x, RGB19E7_MANTISSA_BITS, 32-RGB19E7_MANTISSA_BITS) | 
 		(bitfieldExtract(x.y, 0, RGB19E7_MANTISSA_BITS-(32-RGB19E7_MANTISSA_BITS))<<(32-RGB19E7_MANTISSA_BITS))
-	);
-	v.z = int(bitfieldExtract(x.y, RGB19E7_MANTISSA_BITS-(32-RGB19E7_MANTISSA_BITS), RGB19E7_MANTISSA_BITS));
+	) * scale;
+	v.z = int(bitfieldExtract(x.y, RGB19E7_MANTISSA_BITS-(32-RGB19E7_MANTISSA_BITS), RGB19E7_MANTISSA_BITS)) * scale;
 	
-	return v*scale;
+	return v;
 }
 
 //i think ill have to create some c++ macro or something to create string with those
 //becasue it's too fucked up to remember about every change in c++ and have to update everything here
 #define INSTR_OPCODE_MASK			0x0fu
 #define INSTR_REG_MASK				0xffu
-#define INSTR_BSDF_BUF_OFFSET_SHIFT 11
-#define INSTR_BSDF_BUF_OFFSET_MASK	0x1fffffu
+#define INSTR_BSDF_BUF_OFFSET_SHIFT 13
+#define INSTR_BSDF_BUF_OFFSET_MASK	0x7ffffu
 #define INSTR_NDF_SHIFT 4
 #define INSTR_NDF_MASK 0x3u
-#define INSTR_ALPHA_U_TEX_SHIFT 1
+#define INSTR_ALPHA_U_TEX_SHIFT 6
 #define INSTR_ALPHA_V_TEX_SHIFT 7
 #define INSTR_REFL_TEX_SHIFT 4
+#define INSTR_PLASTIC_REFL_TEX_SHIFT 9
 #define INSTR_TRANS_TEX_SHIFT 4
 #define INSTR_WARD_VARIANT_SHIFT 4
 #define INSTR_WARD_VARIANT_MASK 0x03u
@@ -686,9 +699,9 @@ vec3 decodeRGB19E7(in uvec2 x)
 #define INSTR_NONLINEAR_SHIFT 8
 #define INSTR_SIGMA_A_TEX_SHIFT 8
 #define INSTR_WEIGHT_TEX_SHIFT 4
-#define INSTR_TWOSIDED_SHIFT 9
-#define INSTR_MASKFLAG_SHIFT 10
-#define INSTR_OPACITY_TEX_SHIFT 11
+#define INSTR_TWOSIDED_SHIFT 10
+#define INSTR_MASKFLAG_SHIFT 11
+#define INSTR_OPACITY_TEX_SHIFT 12
 
 uint instr_getOpcode(in instr_t instr)
 {
@@ -713,6 +726,10 @@ uint instr_getAlphaVTexPresence(in instr_t instr)
 uint instr_getReflectanceTexPresence(in instr_t instr)
 {
 	return (instr.x>>INSTR_REFL_TEX_SHIFT) & 1u;
+}
+uint instr_getPlasticReflTexPresence(in instr_t instr)
+{
+	return (instr.x>>INSTR_PLASTIC_REFL_TEX_SHIFT) & 1u;
 }
 uint instr_getWardVariant(in instr_t instr)
 {
@@ -852,13 +869,13 @@ void instr_execute_DIFFTRANS(in instr_t instr, in uvec3 regs, in mat2 dUV)
 {
 	bsdf_data_t data = fetchBSDFDataForInstr(instr);
 	vec3 trans = textureOrRGB19E7(data.data[0].xy, instr_getTransmittanceTexPresence(instr), dUV)*uintBitsToFloat(data.data[1].x);
-	registers[REG_DST(regs)] = reg_t(0.0);
+	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
 void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in mat2 dUV)
 {
 	bsdf_data_t data = fetchBSDFDataForInstr(instr);
 	float eta = uintBitsToFloat(data.data[0].x);
-	registers[REG_DST(regs)] = reg_t(0.0);
+	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
 void instr_execute_ROUGHDIELECTRIC(in instr_t instr, in uvec3 regs, in mat2 dUV)
 {
@@ -870,7 +887,7 @@ void instr_execute_ROUGHDIELECTRIC(in instr_t instr, in uvec3 regs, in mat2 dUV)
 	float av;
 	if (ndf == NDF_AS)
 		av = textureOrF32(uvec2(data.data[0].w, data.data[1].x), instr_getAlphaVTexPresence(instr), dUV)*scale.y;
-	registers[REG_DST(regs)] = reg_t(0.0);
+	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
 void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV)
 {
@@ -878,7 +895,7 @@ void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV)
 	vec3 scale = decodeRGB19E7(data.data[2].zw);
 	vec3 eta = decodeRGB19E7(data.data[1].xy);
 	vec3 etak = decodeRGB19E7(data.data[1].zw);
-	registers[REG_DST(regs)] = reg_t(0.0);
+	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
 void instr_execute_ROUGHCONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV)
 {
@@ -891,14 +908,14 @@ void instr_execute_ROUGHCONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV)
 		av = textureOrF32(data.data[0].zw, instr_getAlphaVTexPresence(instr), dUV)*scale.y;
 	vec3 eta = decodeRGB19E7(data.data[1].xy);
 	vec3 etak = decodeRGB19E7(data.data[1].zw);
-	registers[REG_DST(regs)] = reg_t(0.0);
+	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
 void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV)
 {
 	bsdf_data_t data = fetchBSDFDataForInstr(instr);
 	float eta = uintBitsToFloat(data.data[0].x);
-	vec2 scale = uintBitsToFloat(uvec2(data.data[1].y, data.data[1].z));
-	registers[REG_DST(regs)] = reg_t(0.0);
+	vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
+	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
 void instr_execute_ROUGHPLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV)
 {
@@ -907,7 +924,7 @@ void instr_execute_ROUGHPLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV)
 	float eta = uintBitsToFloat(data.data[0].x);
 	vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
 	float a = textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
-	registers[REG_DST(regs)] = reg_t(0.0);
+	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
 void instr_execute_COATING(in instr_t instr, in uvec3 regs, in mat2 dUV)
 {
@@ -915,7 +932,7 @@ void instr_execute_COATING(in instr_t instr, in uvec3 regs, in mat2 dUV)
 	vec3 scale = decodeRGB19E7(uvec2(data.data[1].w,data.data[2].x));
 	vec2 thickness_eta = unpackHalf2x16(data.data[0].x);
 	vec3 sigmaA = textureOrRGB19E7(uvec2(data.data[0].w,data.data[1].x), instr_getSigmaATexPresence(instr), dUV)*scale.y;
-	registers[REG_DST(regs)] = reg_t(0.0);
+	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
 void instr_execute_ROUGHCOATING(in instr_t instr, in uvec3 regs, in mat2 dUV)
 {
@@ -925,7 +942,7 @@ void instr_execute_ROUGHCOATING(in instr_t instr, in uvec3 regs, in mat2 dUV)
 	vec2 thickness_eta = unpackHalf2x16(data.data[0].x);
 	float a = textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
 	vec3 sigmaA = textureOrRGB19E7(uvec2(data.data[0].w,data.data[1].x), instr_getSigmaATexPresence(instr), dUV)*scale.y;
-	registers[REG_DST(regs)] = reg_t(0.0);
+	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
 void instr_execute_WARD(in instr_t instr, in uvec3 regs, in mat2 dUV)
 {
@@ -933,7 +950,7 @@ void instr_execute_WARD(in instr_t instr, in uvec3 regs, in mat2 dUV)
 	vec3 scale = decodeRGB19E7(data.data[1].zw);
 	float au = textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
 	float av = textureOrF32(data.data[0].zw, instr_getAlphaVTexPresence(instr), dUV)*scale.y;
-	registers[REG_DST(regs)] = reg_t(0.0);
+	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
 void instr_execute_BUMPMAP(in instr_t instr, in uvec3 regs, in mat2 dUV)
 {
@@ -968,7 +985,7 @@ void instr_execute_BLEND(in instr_t instr, in uvec3 regs, in mat2 dUV)
 
 void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV)
 {
-	switch (instr.x & INSTR_REG_MASK)
+	switch (instr.x & INSTR_OPCODE_MASK)
 	{
 	//run func depending on opcode
 	//the func will decide whether to (and which ones) fetch registers from `regs` array
@@ -1026,7 +1043,7 @@ void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV)
 void main()
 {
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
-	uvec2 offsetCount = InstData.data[InstDataIx].instrOffsetCount;
+	uvec2 offsetCount = InstrOffsetCount;
 	//all lighting computations are done in view space
 
 	//TODO will conform to irrbaw shader standards later (irr_bsdf_cos_eval, irr_computeLighting...)
@@ -1038,7 +1055,7 @@ void main()
 		instr_execute(instr, regs, dUV);
 	}
 
-	OutColor = vec4(registers[0].xyz,1.0);//result is always in reg 0
+	OutColor = vec4(registers[0],1.0);//result is always in reg 0
 }
 )";
 
@@ -1272,6 +1289,8 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		}
 
 		const auto instrOffsetCount = getBSDFtreeTraversal(ctx, shapedef->bsdf);
+		if ((ctx.instrBuffer[instrOffsetCount.first+1]&0x0full) == bsdf::OP_DIFFUSE && shapedef->bsdf->type==CElementBSDF::Type::TWO_SIDED && shapedef->bsdf->twosided.bsdf[0]->diffuse.reflectance.value.type==SPropertyElementData::INVALID)
+			std::cout << "bsdf with Wallpaper offset" << instrOffsetCount.first << std::endl;
 		metadataptr->instances.push_back({shapedef->getAbsoluteTransform(),instrOffsetCount,shapedef->obtainEmitter()});
 	}
 
@@ -1815,7 +1834,7 @@ auto CMitsubaLoader::getVTallocData(SContext& ctx, const CElementTexture* textur
 	const auto& sparams = std::get<1>(tex)->getParams();
 	auto retval =
 		std::make_pair(
-			bsdf::getTextureData(
+			getTextureData(
 				img.get(), ctx.VT.get(),
 				static_cast<asset::ISampler::E_TEXTURE_CLAMP>(sparams.TextureWrapU),
 				static_cast<asset::ISampler::E_TEXTURE_CLAMP>(sparams.TextureWrapV),
@@ -1985,7 +2004,7 @@ std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx
 		switch (op)
 		{
 		case bsdf::OP_ROUGHDIFFUSE:
-			_instr |= static_cast<uint32_t>(_node->diffuse.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_MASK_ALPHA_U_TEX;
+			_instr |= static_cast<uint32_t>(_node->diffuse.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
 			_IRR_FALLTHROUGH;
 		case bsdf::OP_DIFFUSE:
 			_instr |= static_cast<uint32_t>(_node->diffuse.reflectance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_REFL_TEX;
@@ -2010,6 +2029,7 @@ std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx
 			_IRR_FALLTHROUGH;
 		case bsdf::OP_PLASTIC:
 			_instr |= static_cast<uint32_t>(_node->plastic.nonlinear) << bsdf::BITFIELDS_SHIFT_NONLINEAR;
+			_instr |= static_cast<uint32_t>(_node->plastic.diffuseReflectance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_PLASTIC_REFL_TEX;
 			break;
 		case bsdf::OP_ROUGHCOATING:
 			_instr |= _node->coating.distribution << bsdf::BITFIELDS_SHIFT_NDF;
@@ -2213,8 +2233,8 @@ CMitsubaLoader::SContext::SContext(
 	CGlobalMitsubaMetadata* _metadata
 ) : creator(_geomCreator), manipulator(_manipulator), params(_params), override(_override), globalMeta(_metadata)
 {
+	constexpr asset::E_FORMAT formats[]{ asset::EF_R8_UNORM, asset::EF_R8G8_UNORM, asset::EF_R8G8B8_SRGB, asset::EF_R8G8B8A8_SRGB };
 	std::array<asset::ICPUVirtualTexture::ICPUVTResidentStorage::SCreationParams, 4> storage;
-	asset::E_FORMAT formats[]{ asset::EF_R8_UNORM, asset::EF_R8G8_SRGB, asset::EF_R8G8B8_SRGB, asset::EF_R8G8B8A8_SRGB };
 	storage[0].formatClass = asset::EFC_8_BIT;
 	storage[0].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
 	storage[0].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;

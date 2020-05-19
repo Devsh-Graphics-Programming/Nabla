@@ -468,6 +468,42 @@ inline uint64_t rgb32f_to_rgb19e7(float r, float g, float b)
 
 	return rgb32f_to_rgb19e7(rgb);
 }
+struct rgb32f {
+	float x, y, z;
+};
+inline rgb32f rgb19e7_to_rgb32f(uint64_t _rgb19e7)
+{
+	constexpr uint32_t RGB19E7_EXP_BITS = 7u;
+	constexpr uint32_t RGB19E7_MANTISSA_BITS = 19u;
+	constexpr uint32_t RGB19E7_EXP_BIAS = 63u;
+	constexpr uint32_t RGB19E7_MAX_VALID_BIASED_EXP = 127u;
+	constexpr uint32_t MAX_RGB19E7_EXP = RGB19E7_MAX_VALID_BIASED_EXP - RGB19E7_EXP_BIAS;
+	constexpr uint32_t RGB19E7_MANTISSA_VALUES = 1u<<RGB19E7_MANTISSA_BITS;
+	constexpr uint32_t MAX_RGB19E7_MANTISSA = RGB19E7_MANTISSA_VALUES-1u;
+	constexpr float MAX_RGB19E7 = static_cast<float>(MAX_RGB19E7_MANTISSA)/RGB19E7_MANTISSA_VALUES * (1LL<<(MAX_RGB19E7_EXP-32)) * (1LL<<32);
+	constexpr float EPSILON_RGB19E7 = (1.f/RGB19E7_MANTISSA_VALUES) / (1LL<<(RGB19E7_EXP_BIAS-32)) / (1LL<<32);
+
+	union rgb19e7 {
+		uint64_t u64;
+		struct field {
+			uint64_t r : 19;
+			uint64_t g : 19;
+			uint64_t b : 19;
+			uint64_t e : 7;
+		} field;
+	};
+	rgb19e7 u;
+	u.u64 = _rgb19e7;
+	int32_t exp = u.field.e - RGB19E7_EXP_BIAS - RGB19E7_MANTISSA_BITS;
+	float scale = static_cast<float>(std::pow(2, exp));
+
+	rgb32f r;
+	r.x = u.field.r * scale;
+	r.y = u.field.g * scale;
+	r.z = u.field.b * scale;
+
+	return r;
+}
 
 IRR_FORCE_INLINE float nextafter32(float x, float y)
 {
