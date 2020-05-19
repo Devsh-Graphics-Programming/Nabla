@@ -5,7 +5,6 @@
 
 
 #include "../ext/ToneMapper/CToneMapper.h"
-#include "../source/Irrlicht/COpenGLDriver.h"
 
 #include "../common/QToQuitEventReceiver.h"
 
@@ -74,59 +73,85 @@ int main()
 		outImgView = driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewInfo));
 	}
 
+	auto glslCompiler = am->getGLSLCompiler();
+	const auto inputColorSpace = std::make_tuple(inFormat,ECP_SRGB,EOTF_IDENTITY);
 
-	constexpr auto meterMode = ext::LumaMeter::CLumaMeter::EMM_COUNT;
-	const float minLuma = core::nan<float>();
-	const float maxLuma = core::nan<float>();
+	using LumaMeterClass = ext::LumaMeter::CLumaMeter;
+	constexpr auto MeterMode = LumaMeterClass::EMM_GEOM_MEAN;
+	const float minLuma = 1.f/2048.f;
+	const float maxLuma = 65536.f;
+
+	auto cpuLumaMeasureSpecializedShader = LumaMeterClass::createShader(glslCompiler,inputColorSpace,MeterMode,minLuma,maxLuma);
+	auto gpuLumaMeasureShader = driver->createGPUShader(smart_refctd_ptr<const ICPUShader>(cpuLumaMeasureSpecializedShader->getUnspecialized()));
+	auto gpuLumaMeasureSpecializedShader = driver->createGPUSpecializedShader(gpuLumaMeasureShader.get(), cpuLumaMeasureSpecializedShader->getSpecializationInfo());
+
+	const float meteringMinUV[2] = { 0.1f,0.1f };
+	const float meteringMaxUV[2] = { 0.9f,0.9f };
+	LumaMeterClass::Uniforms_t<MeterMode> uniforms;
+	auto lumaDispatchInfo = LumaMeterClass::buildParameters(uniforms, outImg->getCreationParameters().extent, meteringMinUV, meteringMaxUV);
+
+	auto uniformBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uniforms),&uniforms);
+
 
 	using ToneMapperClass = ext::ToneMapper::CToneMapper;
 	constexpr auto TMO = ToneMapperClass::EO_ACES;
-	constexpr bool usingLumaMeter = false;
+	constexpr bool usingLumaMeter = MeterMode<LumaMeterClass::EMM_COUNT;
 	constexpr bool usingTemporalAdapatation = false;
 
 	auto cpuTonemappingSpecializedShader = ToneMapperClass::createShader(am->getGLSLCompiler(),
-		std::make_tuple(inFormat,ECP_SRGB,EOTF_IDENTITY),
+		inputColorSpace,
 		std::make_tuple(outFormat,ECP_SRGB,OETF_sRGB),
-		TMO,usingLumaMeter,meterMode,minLuma,maxLuma,usingTemporalAdapatation
+		TMO,usingLumaMeter,MeterMode,minLuma,maxLuma,usingTemporalAdapatation
 	);
 	auto gpuTonemappingShader = driver->createGPUShader(smart_refctd_ptr<const ICPUShader>(cpuTonemappingSpecializedShader->getUnspecialized()));
 	auto gpuTonemappingSpecializedShader = driver->createGPUSpecializedShader(gpuTonemappingShader.get(),cpuTonemappingSpecializedShader->getSpecializationInfo());
 
 	auto outImgStorage = ToneMapperClass::createViewForImage(driver,false,core::smart_refctd_ptr(outImg),{static_cast<IImage::E_ASPECT_FLAGS>(0u),0,1,0,1});
 
-
+	auto parameterBuffer = driver->createDeviceLocalGPUBufferOnDedMem(ToneMapperClass::getParameterBufferSize<TMO,MeterMode>());
+	constexpr float Exposure = 0.f;
 	constexpr float Key = 0.18;
-	smart_refctd_ptr<IGPUBuffer> parameterBuffer;
 	{
-		auto params = ToneMapperClass::Params_t<TMO>(4.f, Key);
-		parameterBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(params), &params);
+		auto params = ToneMapperClass::Params_t<TMO>(Exposure, Key, 0.85f);
+		//params.setAdaptationFactorFromFrameDelta()
+		driver->updateBufferRangeViaStagingBuffer(parameterBuffer.get(),0u,sizeof(params),&params);
 	}
 /*
 TODO:
-- ACES trials
 - adaptation speeds
 */
-
 	auto commonPipelineLayout = ToneMapperClass::getDefaultPipelineLayout(driver,usingLumaMeter);
 
-	auto tonemappingPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(commonPipelineLayout),std::move(gpuTonemappingSpecializedShader));
+	auto lumaMeteringPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(commonPipelineLayout),std::move(gpuLumaMeasureSpecializedShader));
+	auto toneMappingPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(commonPipelineLayout),std::move(gpuTonemappingSpecializedShader));
 
 	auto commonDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(commonPipelineLayout->getDescriptorSetLayout(0u)));
-	ToneMapperClass::updateDescriptorSet<TMO>(driver,commonDescriptorSet.get(),parameterBuffer,imgToTonemapView,outImgStorage,1u,2u,0u,nullptr,0u,meterMode,usingTemporalAdapatation);
+	ToneMapperClass::updateDescriptorSet<TMO,MeterMode>(driver,commonDescriptorSet.get(),parameterBuffer,imgToTonemapView,outImgStorage,1u,2u,usingLumaMeter ? 3u:0u,uniformBuffer,0u,usingTemporalAdapatation);
 
-	auto dynamicOffsetArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t> >(2u);
-	dynamicOffsetArray->operator[](0u) = 0u;
-	dynamicOffsetArray->operator[](1u) = 0u;
+
+	constexpr auto dynOffsetArrayLen = usingLumaMeter ? 2u : 1u;
+
+	auto lumaDynamicOffsetArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t> >(dynOffsetArrayLen,0u);
+	lumaDynamicOffsetArray->back() = sizeof(ToneMapperClass::Params_t<TMO>);
+
+	auto toneDynamicOffsetArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t> >(dynOffsetArrayLen,0u);
+
 
 	auto blitFBO = driver->addFrameBuffer();
 	blitFBO->attach(video::EFAP_COLOR_ATTACHMENT0, std::move(outImgView));
 
+	uint32_t outBufferIx = 0u;
 	while (device->run() && receiver.keepOpen())
 	{
 		driver->beginScene(false, false);
 
-		driver->bindComputePipeline(tonemappingPipeline.get());
-		driver->bindDescriptorSets(EPBP_COMPUTE,commonPipelineLayout.get(),0u,1u,&commonDescriptorSet.get(),&dynamicOffsetArray);
+		driver->bindComputePipeline(lumaMeteringPipeline.get());
+		driver->bindDescriptorSets(EPBP_COMPUTE,commonPipelineLayout.get(),0u,1u,&commonDescriptorSet.get(),&lumaDynamicOffsetArray);
+		driver->pushConstants(commonPipelineLayout.get(),IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(outBufferIx),&outBufferIx); outBufferIx ^= 0x1u;
+		LumaMeterClass::dispatchHelper(driver,lumaDispatchInfo,true);
+
+		driver->bindComputePipeline(toneMappingPipeline.get());
+		driver->bindDescriptorSets(EPBP_COMPUTE,commonPipelineLayout.get(),0u,1u,&commonDescriptorSet.get(),&toneDynamicOffsetArray);
 		ToneMapperClass::dispatchHelper(driver,outImgStorage.get(),true);
 
 		driver->blitRenderTargets(blitFBO, nullptr, false, false);

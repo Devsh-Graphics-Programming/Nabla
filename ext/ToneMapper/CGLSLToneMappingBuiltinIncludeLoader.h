@@ -45,8 +45,9 @@ struct irr_glsl_ext_ToneMapper_ACESParams_t
 
 	vec3 irr_glsl_ext_ToneMapper_operator(in irr_glsl_ext_ToneMapper_Params_t params, in vec3 rawCIEXYZcolor, in float extraNegEV)
 	{
-		float luma = tonemapped.y*params.keyAndManualLinearExposure*exp2(-extraNegEV);
-		return rawCIEXYZcolor*(1.0+luma*params.rcpWhite2)/(1.0+luma);
+		float exposureFactors = params.keyAndManualLinearExposure*exp2(-extraNegEV);
+		float exposedLuma = rawCIEXYZcolor.y*exposureFactors;
+		return rawCIEXYZcolor*exposureFactors*(1.0+exposedLuma*params.rcpWhite2)/(1.0+exposedLuma);
 	}
 #elif _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_IRR_GLSL_EXT_TONE_MAPPER_ACES_OPERATOR
 	#ifndef irr_glsl_ext_ToneMapper_Params_t
@@ -56,7 +57,8 @@ struct irr_glsl_ext_ToneMapper_ACESParams_t
 	vec3 irr_glsl_ext_ToneMapper_operator(in irr_glsl_ext_ToneMapper_Params_t params, inout vec3 rawCIEXYZcolor, in float extraNegEV)
 	{
 		vec3 tonemapped = rawCIEXYZcolor;
-		tonemapped.y = exp2(log2(tonemapped.y+params.exposure-extraNegEV)*params.gamma);
+		if (tonemapped.y>1.175494351e-38)
+			tonemapped *= exp2(log2(tonemapped.y)*(params.gamma-1.0)+(params.exposure-extraNegEV)*params.gamma);
 
 		// XYZ => RRT_SAT
 		// this seems to be a matrix for some hybrid colorspace, coefficients are somewhere inbetween BT2020 and ACEScc(t)

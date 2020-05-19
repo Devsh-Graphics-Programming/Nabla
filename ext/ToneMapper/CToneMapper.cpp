@@ -198,9 +198,9 @@ core::smart_refctd_ptr<ICPUSpecializedShader> CToneMapper::createShader(
 			break;
 	}
 
-	const char* usingLumaMeterDefine = usingLumaMeter ? "_IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_":"";
+	const char* usingLumaMeterDefine = usingLumaMeter ? "#define _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_":"";
 
-	const char* usingTemporalAdaptationDefine = usingTemporalAdaptation ? "_IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_":"";
+	const char* usingTemporalAdaptationDefine = usingTemporalAdaptation ? "#define _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_":"";
 
 	constexpr char* sourceFmt =
 R"===(#version 430 core
@@ -262,6 +262,7 @@ R"===(#version 430 core
 	#define _IRR_GLSL_EXT_TONE_MAPPER_UNIFORMS_DEFINED_
 	layout(set=_IRR_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_UNIFORMS_BINDING_DEFINED_) uniform LumaPassInfo
 	{
+		irr_glsl_ext_LumaMeter_Uniforms_t padding0;
 		irr_glsl_ext_LumaMeter_PassInfo_t lumaPassInfo;
 	};
 	#endif
@@ -302,7 +303,7 @@ layout(local_size_x=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_, local_si
 	#define _IRR_GLSL_EXT_TONE_MAPPER_PUSH_CONSTANTS_DEFINED_
 	layout(push_constant) uniform PushConstants
 	{
-		uint currentFirstPassOutput;
+		int currentFirstPassOutput;
 	} pc;
 	#endif
 #endif
@@ -333,10 +334,11 @@ struct irr_glsl_ext_ToneMapper_input_t
 #define _IRR_GLSL_EXT_TONE_MAPPER_SSBO_DESCRIPTOR_DEFINED_
 layout(set=_IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_SET_DEFINED_, binding=_IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_BINDING_DEFINED_) _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_QUALIFIERS buffer ParameterBuffer
 {
-	#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
-		irr_glsl_ext_LumaMeter_output_t lumaParams[2][_IRR_GLSL_EXT_LUMA_METER_LAYERS_TO_PROCESS_DEFINED_];
-	#endif
 	irr_glsl_ext_ToneMapper_input_t toneMapperParams;
+	uvec4 padding1[15];
+	#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
+		irr_glsl_ext_LumaMeter_output_t lumaParams[];
+	#endif
 };
 #endif
 
@@ -346,12 +348,6 @@ irr_glsl_ext_ToneMapper_Params_t irr_glsl_ext_ToneMapper_getToneMapperParams()
 	return toneMapperParams.inParams;
 }
 
-#if _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
-	irr_glsl_ext_LumaMeter_output_t irr_glsl_ext_ToneMapper_getLumaMeterOutput()
-	{
-		return lumaParams[pc.currentFirstPassOutput][gl_WorkGroupID.z];
-	}
-#endif
 
 #ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
 	float irr_glsl_ext_ToneMapper_getLastFrameLuma()
@@ -383,6 +379,14 @@ layout(set=_IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLSL
 #ifndef _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_DESCRIPTOR_DEFINED_
 #define _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_DESCRIPTOR_DEFINED_
 layout(set=_IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_BINDING_DEFINED_, %s) uniform uimage2DArray outputImage;
+#endif
+
+
+#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
+	irr_glsl_ext_LumaMeter_output_t irr_glsl_ext_ToneMapper_getLumaMeterOutput()
+	{
+		return lumaParams[(pc.currentFirstPassOutput!=0 ? textureSize(inputImage,0).z:0)+int(gl_WorkGroupID.z)];
+	}
 #endif
 
 

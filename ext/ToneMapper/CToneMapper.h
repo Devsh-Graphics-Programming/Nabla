@@ -44,7 +44,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		template<E_OPERATOR _operator>
 		struct Params_t;
 		template<>
-		struct alignas(16) Params_t<EO_REINHARD> : ParamsBase
+		struct alignas(256) Params_t<EO_REINHARD> : ParamsBase
 		{
 			Params_t(float EV, float key=0.18f, float WhitePointRelToEV=16.f)
 			{
@@ -56,7 +56,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			float rcpWhite2; // the white is relative to post-exposed luma
 		};
 		template<>
-		struct alignas(16) Params_t<EO_ACES> : ParamsBase
+		struct alignas(256) Params_t<EO_ACES> : ParamsBase
 		{
 			Params_t(float EV, float key=0.18f, float Contrast=1.f) : gamma(Contrast)
 			{
@@ -65,7 +65,8 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 
 			inline void setExposure(float EV, float key=0.18f)
 			{
-				exposure = EV+log2(key);
+				constexpr float reinhardMatchCorrection = 0.77321666f; // middle grays get exposed to different values between tonemappers given the same key
+				exposure = EV+log2(key*reinhardMatchCorrection);
 			}
 
 			float gamma; // 1.0
@@ -100,22 +101,18 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		}
 
 		//
-		template<E_OPERATOR _operator>
-		static inline size_t getParameterBufferSize(
-			bool usingLumaMeter=false,
-			LumaMeter::CLumaMeter::E_METERING_MODE meterMode=LumaMeter::CLumaMeter::EMM_COUNT,
-			uint32_t arrayLayers=1u
-		)
+		template<E_OPERATOR _operator, LumaMeter::CLumaMeter::E_METERING_MODE MeterMode=LumaMeter::CLumaMeter::EMM_COUNT>
+		static inline size_t getParameterBufferSize(uint32_t arrayLayers=1u)
 		{
 			size_t retval = sizeof(Params_t<_operator>);
-			if (usingLumaMeter)
-				retval += LumaMeter::CLumaMeter::getOutputBufferSize(meterMode,arrayLayers);
+			if (MeterMode<LumaMeter::CLumaMeter::EMM_COUNT)
+				retval += LumaMeter::CLumaMeter::getOutputBufferSize(MeterMode,arrayLayers);
 			return retval;
 		}
 
 		//
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_DESCRIPTOR_COUNT = 4u;
-		template<E_OPERATOR _operator>
+		template<E_OPERATOR _operator, LumaMeter::CLumaMeter::E_METERING_MODE MeterMode=LumaMeter::CLumaMeter::EMM_COUNT>
 		static inline void updateDescriptorSet(
 			video::IVideoDriver* driver, video::IGPUDescriptorSet* set,
 			core::smart_refctd_ptr<video::IGPUBuffer> inputParameterDescriptor, 
@@ -126,7 +123,6 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			uint32_t outputImageBinding,
 			core::smart_refctd_ptr<video::IGPUBuffer> lumaUniformsDescriptor=nullptr,
 			uint32_t lumaUniformsBinding=0u,
-			LumaMeter::CLumaMeter::E_METERING_MODE meterMode=LumaMeter::CLumaMeter::EMM_COUNT,
 			bool usingTemporalAdaptation = false,
 			uint32_t arrayLayers=1u
 		)
@@ -142,28 +138,22 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			}
 			
 			pInfos[1].desc = inputParameterDescriptor;
-			pInfos[1].buffer.size = getParameterBufferSize<_operator>(!!lumaUniformsDescriptor,meterMode,arrayLayers);
+			pInfos[1].buffer.size = getParameterBufferSize<_operator,MeterMode>(arrayLayers);
 			pInfos[1].buffer.offset = 0u;
 			pInfos[2].desc = inputImageDescriptor;
 			pInfos[2].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
 			pInfos[2].image.sampler = nullptr;
 
 			uint32_t outputImageIx;
-			if (lumaUniformsDescriptor)
+			if constexpr (MeterMode<LumaMeter::CLumaMeter::EMM_COUNT)
 			{
+				assert(!!lumaUniformsDescriptor);
+
 				outputImageIx = 3u;
 
 				pInfos[0].desc = lumaUniformsDescriptor;
 				pInfos[0].buffer.offset = 0u;
-				switch (meterMode)
-				{
-					case LumaMeter::CLumaMeter::EMM_GEOM_MEAN:
-					case LumaMeter::CLumaMeter::EMM_MODE:
-					default:
-						_IRR_DEBUG_BREAK_IF(true);
-						break;
-				}
-				pInfos[0].buffer.size = sizeof(LumaMeter::CLumaMeter::Uniforms_t);
+				pInfos[0].buffer.size = sizeof(LumaMeter::CLumaMeter::Uniforms_t<MeterMode>);
 
 				pWrites[0].binding = lumaUniformsBinding;
 				pWrites[0].descriptorType = asset::EDT_UNIFORM_BUFFER_DYNAMIC;

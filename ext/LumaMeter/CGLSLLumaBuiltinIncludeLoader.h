@@ -31,13 +31,18 @@ R"(#ifndef _IRR_GLSL_EXT_LUMA_METER_COMMON_INCLUDED_
 #define _IRR_GLSL_EXT_LUMA_METER_COMMON_INCLUDED_
 
 
-#ifndef _IRR_GLSL_EXT_LUMA_METER_LAYERS_TO_PROCESS_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_LAYERS_TO_PROCESS_DEFINED_ 1
+#ifndef _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT
+#define _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT 256 // change this simultaneously with the constexpr in `CGLSLLumaBuiltinIncludeLoader`
 #endif
 
 
-#ifndef _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT
-#define _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT 256 // change this simultaneously with the constexpr in `CGLSLLumaBuiltinIncludeLoader`
+#ifndef _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_DEFINED_
+struct irr_glsl_ext_LumaMeter_Uniforms_t
+{
+	vec2 meteringWindowScale;
+	vec2 meteringWindowOffset;
+};
 #endif
 
 
@@ -59,26 +64,7 @@ R"(#ifndef _IRR_GLSL_EXT_LUMA_METER_COMMON_INCLUDED_
     #else
         #define _IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_ (_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT*2)
     #endif
-#elif _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
-    #ifdef _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
-	    #define _IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_ _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT
-    #else
-        #define _IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_ 0
-    #endif
-#else
-#error "Unsupported Metering Mode!"
-#endif
 
-
-#ifndef _IRR_GLSL_SCRATCH_SHARED_DEFINED_
-#define _IRR_GLSL_SCRATCH_SHARED_DEFINED_ histogram
-shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_];
-#elif defined(_IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_) && _IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_<_IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_
-    #error "Not enough shared memory declared"
-#endif
-
-
-#if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MODE
     #if (_IRR_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_-_IRR_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_)%%_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT!=0
 	    #error "The number of bins must evenly divide the histogram range!"
     #endif
@@ -89,21 +75,103 @@ shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_SHARED_SI
     {
 		uint packedHistogram[_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_COUNT];
     };
+#elif _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
+    #ifdef _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
+	    #define _IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_ _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT
+    #else
+        #define _IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_ 0
+    #endif
 
-    void irr_glsl_ext_LumaMeter_clearFirstPassOutput(out irr_glsl_ext_LumaMeter_output_t firstPassOutput)
+    struct irr_glsl_ext_LumaMeter_output_t
     {
-        uint globalIndex = gl_LocalInvocationIndex+gl_WorkGroupID.x*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT;
-        if (globalIndex<_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_COUNT)
-    		firstPassOutput.packedHistogram[globalIndex] = 0u;
-    }
+        uint unormAverage;
+    };
+#else
+#error "Unsupported Metering Mode!"
+#endif
 
-    void irr_glsl_ext_LumaMeter_setFirstPassOutput(out irr_glsl_ext_LumaMeter_output_t firstPassOutput, in uint writeOutVal)
-    {
-        uint globalIndex = gl_LocalInvocationIndex;
-        globalIndex += (gl_WorkGroupID.x&uint(_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION-1))*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT;
-		atomicAdd(firstPassOutput.packedHistogram[globalIndex],writeOutVal);
-    }
 
+
+#ifndef _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_ 0
+#endif
+
+#ifndef _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_BINDING_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_BINDING_DEFINED_ 0
+#endif
+
+
+#ifndef _IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_ 0
+#endif
+
+#ifndef _IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_ 1
+#endif
+
+
+#ifndef _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_ 0
+#endif
+
+#ifndef _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_BINDING_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_BINDING_DEFINED_ 2
+#endif
+
+
+#ifdef _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
+
+#ifndef _IRR_GLSL_EXT_LUMA_METER_PUSH_CONSTANTS_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_PUSH_CONSTANTS_DEFINED_
+layout(push_constant) uniform PushConstants
+{
+	int currentFirstPassOutput;
+} pc;
+#endif
+
+#ifndef _IRR_GLSL_EXT_LUMA_METER_OUTPUT_DESCRIPTOR_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_DESCRIPTOR_DEFINED_
+layout(set=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_) restrict coherent buffer OutputBuffer
+{
+	irr_glsl_ext_LumaMeter_output_t outParams[];
+};
+#endif
+
+#ifndef _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
+layout(set=_IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_BINDING_DEFINED_) uniform sampler2DArray inputImage;
+#endif
+
+#endif
+
+
+#if _IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_>0 && !defined(_IRR_GLSL_SCRATCH_SHARED_DEFINED_)
+#define _IRR_GLSL_SCRATCH_SHARED_DEFINED_ histogram
+shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_];
+#elif defined(_IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_) && _IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_<_IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_
+    #error "Not enough shared memory declared"
+#endif
+
+
+
+#if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MODE
+    #ifdef _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
+        void irr_glsl_ext_LumaMeter_clearFirstPassOutput()
+        {
+            uint globalIndex = gl_LocalInvocationIndex+gl_WorkGroupID.x*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT;
+            if (globalIndex<_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_COUNT)
+            {
+    		    outParams[(pc.currentFirstPassOutput!=0 ? 0:textureSize(inputImage,0).z)+int(gl_WorkGroupID.z)].packedHistogram[globalIndex] = 0u;
+            }
+        }
+
+        void irr_glsl_ext_LumaMeter_setFirstPassOutput(in uint writeOutVal)
+        {
+            uint globalIndex = gl_LocalInvocationIndex;
+            globalIndex += (gl_WorkGroupID.x&uint(_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION-1))*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT;
+		    atomicAdd(outParams[(pc.currentFirstPassOutput!=0 ? textureSize(inputImage,0).z:0)+int(gl_WorkGroupID.z)].packedHistogram[globalIndex],writeOutVal);
+        }
+    #endif
 
     // TODO: move to `CGLSLScanBuiltinIncludeLoader` but clean that include up first and fix shaderc macro handling
     uint irr_glsl_workgroupExclusiveAdd(uint val)
@@ -171,28 +239,25 @@ shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_SHARED_SI
     }
     #undef _IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION
 #elif _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
-    #define _IRR_GLSL_EXT_LUMA_METER_USING_MEAN
-    struct irr_glsl_ext_LumaMeter_output_t
-    {
-        uint unormAverage;
-    };
+    #define _IRR_GLSL_EXT_LUMA_METER_GEOM_MEAN_MAX_WG_INCREMENT 0x1000u
 
-    void irr_glsl_ext_LumaMeter_clearFirstPassOutput(out irr_glsl_ext_LumaMeter_output_t firstPassOutput)
-    {
-		if (gl_LocalInvocationIndex==0u && all(equal(uvec3(0,0,0),gl_WorkGroupID)))
-		    firstPassOutput.unormAverage = 0u;
-    }
+    #ifdef _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
+        void irr_glsl_ext_LumaMeter_clearFirstPassOutput()
+        {
+		    if (all(equal(uvec2(0,0),gl_GlobalInvocationID.xy)))
+		        outParams[(pc.currentFirstPassOutput!=0 ? 0:textureSize(inputImage,0).z)+int(gl_WorkGroupID.z)].unormAverage = 0u;
+        }
 
-    #define _IRR_GLSL_EXT_LUMA_METER_GEOM_MEAN_MAX_WG_INCREMENT (1u<22u)
-    void irr_glsl_ext_LumaMeter_setFirstPassOutput(out irr_glsl_ext_LumaMeter_output_t firstPassOutput, in float writeOutVal)
-    {
-		if (gl_LocalInvocationIndex==0u)
-		{
-			float normalizedAvg = writeOutVal/float(_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT);
-			uint incrementor = uint(float(_IRR_GLSL_EXT_LUMA_METER_GEOM_MEAN_MAX_WG_INCREMENT)*normalizedAvg+0.5);
-			atomicAdd(firstPassOutput.unormAverage,incrementor);
-		}
-    }
+        void irr_glsl_ext_LumaMeter_setFirstPassOutput(in float writeOutVal)
+        {
+		    if (gl_LocalInvocationIndex==0u)
+		    {
+			    float normalizedAvg = writeOutVal/float(_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT);
+			    uint incrementor = uint(float(_IRR_GLSL_EXT_LUMA_METER_GEOM_MEAN_MAX_WG_INCREMENT)*normalizedAvg+0.5);
+			    atomicAdd(outParams[(pc.currentFirstPassOutput!=0 ? textureSize(inputImage,0).z:0)+int(gl_WorkGroupID.z)].unormAverage,incrementor);
+		    }
+        }
+    #endif
 
     struct irr_glsl_ext_LumaMeter_PassInfo_t
     {
@@ -220,37 +285,6 @@ float irr_glsl_ext_LumaMeter_getOptiXIntensity(in float measuredLumaLog2)
 }
 
 
-
-#ifndef _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_ 0
-#endif
-
-#ifndef _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_BINDING_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_BINDING_DEFINED_ 0
-#endif
-
-
-#ifndef _IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_ 0
-#endif
-
-#ifndef _IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_ 1
-#endif
-
-
-#ifndef _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_ 0
-#endif
-
-#ifndef _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_BINDING_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_BINDING_DEFINED_ 2
-#endif
-
-#ifndef _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
-layout(set=_IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_BINDING_DEFINED_) sampler2DArray inputImage;
-#endif
 #endif
 )";
         }
