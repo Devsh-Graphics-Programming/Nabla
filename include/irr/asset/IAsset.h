@@ -272,6 +272,11 @@ class SAssetBundle
 			return {m_contents->begin(), m_contents->end()};
 		}
 
+		inline std::pair<core::smart_refctd_ptr<IAsset>*, core::smart_refctd_ptr<IAsset>*> getContents()
+		{
+			return {m_contents->begin(), m_contents->end()};
+		}
+
 		//! Whether this asset bundle is in a cache and should be removed from cache to destroy
 		inline bool isInAResourceCache() const { return m_isCached; }
 
