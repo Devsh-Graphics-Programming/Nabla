@@ -344,7 +344,7 @@ namespace irr
 
 			for (uint8_t rgbaChannelIndex = 0; rgbaChannelIndex < availableChannels; ++rgbaChannelIndex)
 			{
-				std::string name = suffixOfChannels + "." + rgbaSignatureAsText[rgbaChannelIndex];
+				std::string name = suffixOfChannels.empty() ? rgbaSignatureAsText[rgbaChannelIndex] : suffixOfChannels + "." + rgbaSignatureAsText[rgbaChannelIndex];
 				frameBuffer.insert
 				(
 					name.c_str(),																					// name

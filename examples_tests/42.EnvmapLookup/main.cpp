@@ -9,6 +9,13 @@ using namespace core;
 using namespace asset;
 using namespace video;
 
+// Modification of
+//
+// No Geometry 360 Video
+// By KylBlz
+// https://www.shadertoy.com/view/Ml33z2
+
+
 constexpr std::string_view FRAGMENT_SHADER_GLSL = // TODO shader sampling envmap properly
 R"(
 #version 430 core
@@ -19,14 +26,10 @@ layout(location = 0) out vec4 pixelColor;
 
 void main()
 {
-	const float gamma = 2.2;
     vec3 hdrColor = texture(envMap, uv).rgb;
   
     // reinhard tone mapping
     vec3 mapped = hdrColor / (hdrColor + vec3(1.0));
-
-    // gamma correction 
-    mapped = pow(mapped, vec3(1.0 / gamma));
   
     pixelColor = vec4(mapped, 1.0);
 }	
@@ -125,10 +128,15 @@ int main()
 	camera->setNearValue(0.01f);
 	camera->setFarValue(10.0f);
 
+	// camera->getRotation()
+
 	sceneManager->setActiveCamera(camera); // TODO
 
-	IGPUDescriptorSetLayout::SBinding binding{ 0u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr };
-	auto gpuDescriptorSetLayout3 = driver->createGPUDescriptorSetLayout(&binding, &binding + 1u);
+	IGPUDescriptorSetLayout::SBinding samplerBinding { 0u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr };
+	IGPUDescriptorSetLayout::SBinding uboBinding {0, asset::EDT_UNIFORM_BUFFER, 1u, static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(IGPUSpecializedShader::ESS_VERTEX | IGPUSpecializedShader::ESS_FRAGMENT), nullptr};
+
+	auto gpuDescriptorSetLayout1 = driver->createGPUDescriptorSetLayout(&uboBinding, &uboBinding + 1u);
+	auto gpuDescriptorSetLayout3 = driver->createGPUDescriptorSetLayout(&samplerBinding, &samplerBinding + 1u);
 
 	auto createGPUPipeline = [&]() -> core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>
 	{
@@ -150,7 +158,7 @@ int main()
 		rasterParams.depthWriteEnable = false;
 		rasterParams.depthTestEnable = false;
 
-		auto gpuPipelineLayout = driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout3));
+		auto gpuPipelineLayout = driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout1), nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout3));
 
 		return driver->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), shaders, shaders + sizeof(shaders) / sizeof(IGPUSpecializedShader*),
 			std::get<SVertexInputParams>(fullScreenTriangle), blendParams,
@@ -164,8 +172,7 @@ int main()
 	gpuMeshBuffer->setIndexCount(3u);
 	gpuMeshBuffer->setInstanceCount(1u);
 
-	// auto pathToTexture = "../../media/envmap/envmap_1.exr";			it is black however XD
-	auto pathToTexture = "../../media/OpenEXR/56_render_0_2_16.exr";	// it works, I'm using only color entry
+	auto pathToTexture = "../../media/envmap/wooden_motel_2k_EXR.exr";
 	IAssetLoader::SAssetLoadParams lp(0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES);
 	auto cpuTexture = assetManager->getAsset(pathToTexture, lp);
 	auto cpuTextureContents = cpuTexture.getContents();
@@ -189,26 +196,47 @@ int main()
 
 	auto cpuImageView = ICPUImageView::create(std::move(viewParams));
 	auto gpuImageView = driver->getGPUObjectsFromAssets(&cpuImageView.get(), &cpuImageView.get() + 1u)->front();
-	auto samplerDescriptorSet3 = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuDescriptorSetLayout3));
 
-	IGPUDescriptorSet::SDescriptorInfo descriptorInfo;
+	auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));
+	auto uboDescriptorSet1 = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuDescriptorSetLayout1));
 	{
-		descriptorInfo.desc = gpuImageView;
-		ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
-		descriptorInfo.image.sampler = driver->createGPUSampler(samplerParams);
-		descriptorInfo.image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
+		video::IGPUDescriptorSet::SWriteDescriptorSet uboWriteDescriptorSet;
+		uboWriteDescriptorSet.dstSet = uboDescriptorSet1.get();
+		uboWriteDescriptorSet.binding = 0;
+		uboWriteDescriptorSet.count = 1u;
+		uboWriteDescriptorSet.arrayElement = 0u;
+		uboWriteDescriptorSet.descriptorType = asset::EDT_UNIFORM_BUFFER;
+		video::IGPUDescriptorSet::SDescriptorInfo info;
+		{
+			info.desc = gpuubo;
+			info.buffer.offset = 0ull;
+			info.buffer.size = sizeof(SBasicViewParameters);
+		}
+		uboWriteDescriptorSet.info = &info;
+		driver->updateDescriptorSets(1u, &uboWriteDescriptorSet, 0u, nullptr);
 	}
 
-	IGPUDescriptorSet::SWriteDescriptorSet writeDescriptorSet;
-	writeDescriptorSet.dstSet = samplerDescriptorSet3.get();
-	writeDescriptorSet.binding = 0u;
-	writeDescriptorSet.arrayElement = 0u;
-	writeDescriptorSet.count = 1u;
-	writeDescriptorSet.descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
-	writeDescriptorSet.info = &descriptorInfo;
+	auto samplerDescriptorSet3 = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuDescriptorSetLayout3));
+	{
+		IGPUDescriptorSet::SWriteDescriptorSet samplerWriteDescriptorSet;
+		samplerWriteDescriptorSet.dstSet = samplerDescriptorSet3.get();
+		samplerWriteDescriptorSet.binding = 0u;
+		samplerWriteDescriptorSet.arrayElement = 0u;
+		samplerWriteDescriptorSet.count = 1u;
+		samplerWriteDescriptorSet.descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+
+		IGPUDescriptorSet::SDescriptorInfo samplerDescriptorInfo;
+		{
+			samplerDescriptorInfo.desc = gpuImageView;
+			ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+			samplerDescriptorInfo.image.sampler = driver->createGPUSampler(samplerParams);
+			samplerDescriptorInfo.image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
+		}
+		samplerWriteDescriptorSet.info = &samplerDescriptorInfo;
+		driver->updateDescriptorSets(1u, &samplerWriteDescriptorSet, 0u, nullptr);
+	}
 
 	auto HDRFramebuffer = createHDRFramebuffer(device, gpuImageView->getCreationParameters().format);
-	driver->updateDescriptorSets(1u, &writeDescriptorSet, 0u, nullptr);
 	float colorClearValues[] = { 1.f, 1.f, 1.f, 1.f };
 
 	while (device->run())
@@ -217,7 +245,25 @@ int main()
 		driver->clearZBuffer();
 		driver->clearColorBuffer(video::EFAP_COLOR_ATTACHMENT0, colorClearValues);
 
+		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
+		camera->render();
+
+		const auto viewProjection = camera->getConcatenatedMatrix();
+		core::matrix3x4SIMD modelMatrix; // indentity, but we can use it however
+
+		auto mv = core::concatenateBFollowedByA(camera->getViewMatrix(), modelMatrix);
+		auto mvp = core::concatenateBFollowedByA(viewProjection, modelMatrix);
+		core::matrix3x4SIMD normalMat;
+		mv.getSub3x3InverseTranspose(normalMat);
+
+		SBasicViewParameters uboData;
+		memcpy(uboData.MV, mv.pointer(), sizeof(mv));
+		memcpy(uboData.MVP, mvp.pointer(), sizeof(mvp));
+		memcpy(uboData.NormalMat, normalMat.pointer(), sizeof(normalMat));
+		driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0ull, sizeof(uboData), &uboData);
+
 		driver->bindGraphicsPipeline(gpuPipeline.get());
+		driver->bindDescriptorSets(EPBP_GRAPHICS, gpuPipeline->getLayout(), 1u, 1u, &uboDescriptorSet1.get(), nullptr);
 		driver->bindDescriptorSets(EPBP_GRAPHICS, gpuPipeline->getLayout(), 3u, 1u, &samplerDescriptorSet3.get(), nullptr);
 		driver->drawMeshBuffer(gpuMeshBuffer.get());
 
@@ -229,5 +275,4 @@ int main()
 
 	assetManager->removeCachedGPUObject(asset.get(), gpuImageView);
 	assetManager->removeAssetFromCache(cpuTexture);
-
 }
