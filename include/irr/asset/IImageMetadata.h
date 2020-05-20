@@ -20,7 +20,7 @@ namespace irr
 			public:
 				struct ColorSemantic
 				{
-					E_COLOR_SPACE colorSpace;
+					E_COLOR_PRIMARIES colorSpace;
 					ELECTRO_OPTICAL_TRANSFER_FUNCTION transferFunction;
 				};
 

@@ -527,7 +527,7 @@ void main()
 					denoiserInputs[j].width = param.width;
 					denoiserInputs[j].height = param.height;
 					denoiserInputs[j].rowStrideInBytes = param.width*forcedOptiXFormatPixelStride;
-					denoiserInputs[j].pixelStrideInBytes = forcedOptiXFormatPixelStride; // either 0 or the value that corresponds to a dense packing of format = NO CHOICE
+					denoiserInputs[j].pixelStrideInBytes = 0u;
 					denoiserInputs[j].format = forcedOptiXFormat;
 				}
 				//
@@ -557,7 +557,7 @@ void main()
 						denoiserOutput.width = param.width;
 						denoiserOutput.height = param.height;
 						denoiserOutput.rowStrideInBytes = param.width*forcedOptiXFormatPixelStride;
-						denoiserOutput.pixelStrideInBytes = forcedOptiXFormatPixelStride; // either 0 or the value that corresponds to a dense packing of format = NO CHOICE
+						denoiserOutput.pixelStrideInBytes = 0u;
 						denoiserOutput.format = forcedOptiXFormat;
 						if (denoiser.m_denoiser->invoke(m_cudaStream,&denoiserParams,denoiserInputs,denoiserInputs+denoiserInputCount,&denoiserOutput,scratchBuffer,denoiser.scratchSize)!=OPTIX_SUCCESS)
 						{

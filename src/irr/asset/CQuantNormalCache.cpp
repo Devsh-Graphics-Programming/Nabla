@@ -1,4 +1,5 @@
 #include "irr/asset/CQuantNormalCache.h"
+#include "parallel-hashmap/parallel_hashmap/phmap_dump.h"
 
 namespace irr
 {
@@ -90,63 +91,61 @@ bool CQuantNormalCache::saveCacheToBuffer(const E_QUANT_NORM_CACHE_TYPE type, SB
 	const uint64_t bufferSize = buffer.buffer.get()->getSize();
 	const uint64_t offset = buffer.offset;
 
-	if (bufferSize + offset > getCacheSizeInBytes(type))
+	if (bufferSize + offset > getSerializedCacheSizeInBytes(type))
 	{
 		os::Printer::log("Cannot save cache to buffer - not enough space", ELL_ERROR);
 		return false;
 	}
 
-	uint8_t* buffPointer = static_cast<uint8_t*>(buffer.buffer.get()->getPointer()) + offset;
-
 	switch (type)
 	{
 	case E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10:
 	{
-		auto cache = getCache2_10_10_10();
-
-		for (auto it = cache.begin(); it != cache.end(); it++)
-		{
-			memcpy(buffPointer, &(it->first), sizeof(CQuantNormalCache::VectorUV));
-			buffPointer += sizeof(CQuantNormalCache::VectorUV);
-
-			memcpy(buffPointer, &(it->second), sizeof(uint32_t));
-			buffPointer += sizeof(uint32_t);
-		}
-
-		return true;
+		CWriteBufferWrap buffWrap(buffer);
+		return normalCacheFor2_10_10_10Quant.dump(buffWrap);
 	}
 	case E_QUANT_NORM_CACHE_TYPE::Q_8_8_8:
 	{
-		auto cache = getCache8_8_8();
-
-		for (auto it = cache.begin(); it != cache.end(); it++)
-		{
-			memcpy(buffPointer, &(it->first), sizeof(CQuantNormalCache::VectorUV));
-			buffPointer += sizeof(CQuantNormalCache::VectorUV);
-
-			memcpy(buffPointer, &(it->second), sizeof(CQuantNormalCache::Vector8u));
-			buffPointer += sizeof(CQuantNormalCache::Vector8u);
-		}
-
-		return true;
+		CWriteBufferWrap buffWrap(buffer);
+		return normalCacheFor8_8_8Quant.dump(buffWrap);
 	}
 	case E_QUANT_NORM_CACHE_TYPE::Q_16_16_16:
 	{
-		auto cache = getCache16_16_16();
+		CWriteBufferWrap buffWrap(buffer);
+		return normalCacheFor16_16_16Quant.dump(buffWrap);
+	}
+	}
 
-		for (auto it = cache.begin(); it != cache.end(); it++)
-		{
-			memcpy(buffPointer, &(it->first), sizeof(CQuantNormalCache::VectorUV));
-			buffPointer += sizeof(CQuantNormalCache::VectorUV);
+	return false;
+}
 
-			memcpy(buffPointer, &(it->second), sizeof(CQuantNormalCache::Vector16u));
-			buffPointer += sizeof(CQuantNormalCache::Vector16u);
-		}
-
+bool CQuantNormalCache::validateSerializedCache(E_QUANT_NORM_CACHE_TYPE type, const SBufferRange<ICPUBuffer>& buffer)
+{
+	if (buffer.buffer.get()->getSize() == 0 || buffer.size == 0)
 		return true;
-	}
+	
+	const size_t buffSize = buffer.buffer.get()->getSize();
+	const uint8_t* buffPtr = static_cast<uint8_t*>(buffer.buffer.get()->getPointer());
+	const size_t size = *reinterpret_cast<const size_t*>(buffPtr + buffer.offset);
+	const size_t capacity = *reinterpret_cast<const size_t*>(buffPtr + buffer.offset + sizeof(size_t));
+	const uint8_t* const bufferRangeEnd = buffPtr + buffer.offset + buffer.size;
+
+	if (bufferRangeEnd > buffPtr + buffSize)
+	{
+		os::Printer::log("cannot read from this buffer - invalid range", ELL_ERROR);
+		return false;
 	}
 
+	if (size == 0)
+		return true;
+
+	size_t expectedCacheSize = sizeof(size_t) * 2 + 17;
+	expectedCacheSize += (type == E_QUANT_NORM_CACHE_TYPE::Q_16_16_16) ? 17 * capacity : 13 * capacity;
+
+	if ((buffer.offset + buffer.size) == expectedCacheSize)
+		return true;
+
+	os::Printer::log("cannot read from this buffer - invalid data", ELL_ERROR);
 	return false;
 }
 

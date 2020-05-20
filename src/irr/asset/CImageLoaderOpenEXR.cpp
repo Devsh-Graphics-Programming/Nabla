@@ -243,7 +243,7 @@ namespace irr
 					const auto mapOfChannels = data.second;
 					PerImageData perImageData;
 
-					auto openEXRMetadata = core::make_smart_refctd_ptr<COpenEXRImageMetadata>(suffixOfChannels, IImageMetadata::ColorSemantic{ ECS_SRGB,EOTF_IDENTITY });
+					auto openEXRMetadata = core::make_smart_refctd_ptr<COpenEXRImageMetadata>(suffixOfChannels, IImageMetadata::ColorSemantic{ ECP_SRGB,EOTF_IDENTITY });
 
 					int width;
 					int height;
@@ -299,6 +299,7 @@ namespace irr
 					else if (params.format == EF_R32G32B32A32_UINT)
 						ReadTexels(image.get(), perImageData.uint32_tPixelMapArray);
 
+					irr::asset::IImageAssetHandlerBase::performImageFlip(image);
 					m_manager->setAssetMetadata(image.get(), std::move(openEXRMetadata));
 
 					images.push_back(std::move(image));

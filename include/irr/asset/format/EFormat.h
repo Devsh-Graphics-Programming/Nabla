@@ -1192,9 +1192,7 @@ namespace asset
             EF_R64G64B64A64_SFLOAT,
             EF_B10G11R11_UFLOAT_PACK32,
             EF_E5B9G9R9_UFLOAT_PACK32,
-            EF_E5B9G9R9_UFLOAT_PACK32,
             EF_BC6H_SFLOAT_BLOCK,
-            EF_BC6H_UFLOAT_BLOCK,
             EF_BC6H_UFLOAT_BLOCK
         >::value;
     }

@@ -1573,7 +1573,7 @@ core::smart_refctd_ptr<IGPUPipelineCache> COpenGLDriver::createGPUPipelineCache(
     return core::make_smart_refctd_ptr<COpenGLPipelineCache>();
 }
 
-core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout)
+core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout)
 {
     if (!_layout)
         return nullptr;

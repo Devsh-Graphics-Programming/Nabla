@@ -64,6 +64,13 @@ IRR_FORCE_INLINE float reciprocal_approxim<float>(const float& x);
 template<>
 IRR_FORCE_INLINE vectorSIMDf reciprocal_approxim<vectorSIMDf>(const vectorSIMDf& x);
 
+template<typename T>
+IRR_FORCE_INLINE T exp2(const T& x);
+template<>
+IRR_FORCE_INLINE float exp2<float>(const float& x);
+template<>
+IRR_FORCE_INLINE double exp2<double>(const double& x);
+
 //! TODO : find some intrinsics
 template<typename T>
 IRR_FORCE_INLINE T fma(const T& a, const T& b, const T& c)

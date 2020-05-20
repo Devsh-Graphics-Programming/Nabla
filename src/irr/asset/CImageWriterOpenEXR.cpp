@@ -108,6 +108,12 @@ namespace asset
 		constexpr std::array<const char*, availableChannels> rgbaSignatureAsText = { "R", "G", "B", "A" };
 		for (uint8_t channel = 0; channel < rgbaSignatureAsText.size(); ++channel)
 		{
+			auto entry = (uint8_t*)pixelsArrayIlm[channel];
+			auto rowPitch = sizeof(*pixelsArrayIlm[channel]) * width;
+			auto end = entry + rowPitch * height;
+
+			irr::asset::IImageAssetHandlerBase::performImageFlip(entry, end, height, rowPitch);
+
 			header.channels().insert(rgbaSignatureAsText[channel], Channel(pixelType));
 			frameBuffer.insert
 			(
@@ -115,7 +121,7 @@ namespace asset
 				Slice(pixelType,                                                                             // type
 				(char*) pixelsArrayIlm[channel],                                                             // base
 				sizeof(*pixelsArrayIlm[channel]) * 1,                                                        // xStride
-				sizeof(*pixelsArrayIlm[channel]) * width)                                                    // yStride
+				rowPitch)																					 // yStride
 			);
 		}
 

@@ -288,9 +288,21 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	
 	// Start decompressor
 	jpeg_start_decompress(&cinfo);
+
+	auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
+	ICPUImage::SBufferCopy& region = regions->front();
+	//region.imageSubresource.aspectMask = ...; //waits for Vulkan
+	region.imageSubresource.mipLevel = 0u;
+	region.imageSubresource.baseArrayLayer = 0u;
+	region.imageSubresource.layerCount = 1u;
+	region.bufferOffset = 0u;
+	region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(width, getTexelOrBlockBytesize(imgInfo.format));
+	region.bufferImageHeight = 0u; //tightly packed
+	region.imageOffset = { 0u, 0u, 0u };
+	region.imageExtent = imgInfo.extent;
 	
 	// Get image data
-	uint32_t rowspan = cinfo.image_width * cinfo.out_color_components;
+	uint32_t rowspan = region.bufferRowLength * cinfo.out_color_components;
 
 	// Allocate memory for buffer
 	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(rowspan*height);
@@ -310,18 +322,6 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	
 	// Finish decompression
 	jpeg_finish_decompress(&cinfo);
-
-	auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
-	ICPUImage::SBufferCopy& region = regions->front();
-	//region.imageSubresource.aspectMask = ...; //waits for Vulkan
-	region.imageSubresource.mipLevel = 0u;
-	region.imageSubresource.baseArrayLayer = 0u;
-	region.imageSubresource.layerCount = 1u;
-	region.bufferOffset = 0u;
-	region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(width, getTexelOrBlockBytesize(imgInfo.format));
-	region.bufferImageHeight = 0u; //tightly packed
-	region.imageOffset = { 0u, 0u, 0u };
-	region.imageExtent = imgInfo.extent;
 
 	core::smart_refctd_ptr<ICPUImage> image = ICPUImage::create(std::move(imgInfo));
 	image->setBufferAndRegions(std::move(buffer), regions);
