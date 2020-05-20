@@ -97,7 +97,6 @@ int main()
 	constexpr auto TMO = ToneMapperClass::EO_ACES;
 	constexpr bool usingLumaMeter = MeterMode<LumaMeterClass::EMM_COUNT;
 	constexpr bool usingTemporalAdapatation = true;
-	static_assert(MeterMode!=LumaMeterClass::EMM_MODE,"https://github.com/google/shaderc/issues/1069");
 
 	auto cpuTonemappingSpecializedShader = ToneMapperClass::createShader(am->getGLSLCompiler(),
 		inputColorSpace,

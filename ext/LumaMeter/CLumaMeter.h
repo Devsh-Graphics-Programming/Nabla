@@ -105,7 +105,7 @@ class CLumaMeter : public core::TotalInterface
 					break;
 				case EMM_MODE:
 					// TODO: should be DEFAULT_BIN_COUNT instead of invocation count
-					retval = CGLSLLumaBuiltinIncludeLoader::DEFAULT_INVOCATION_COUNT;
+					retval = CGLSLLumaBuiltinIncludeLoader::DEFAULT_INVOCATION_COUNT*CGLSLLumaBuiltinIncludeLoader::BIN_GLOBAL_REPLICATION;
 					break;
 				default:
 					_IRR_DEBUG_BREAK_IF(true);
@@ -149,11 +149,11 @@ class CLumaMeter : public core::TotalInterface
 			for (auto i=0; i<2; i++)
 			{
 				const auto imageDim = float((&imageSize.width)[i]);
-				const float windowSizeUnnorm = imageDim*(meteringMaxUV[i]-meteringMinUV[i]);
+				const float range = meteringMaxUV[i]-meteringMinUV[i];
 
-				retval.workGroupCount[i] = core::ceil(windowSizeUnnorm/(float(retval.workGroupDims[i]*samplingFactor)));
+				retval.workGroupCount[i] = core::ceil(imageDim*range/(float(retval.workGroupDims[i]*samplingFactor)));
 
-				uniforms.meteringWindowScale[i] = windowSizeUnnorm/(retval.workGroupCount[i]*retval.workGroupDims[i]);
+				uniforms.meteringWindowScale[i] = range/(retval.workGroupCount[i]*retval.workGroupDims[i]);
 				uniforms.meteringWindowOffset[i] = meteringMinUV[i];
 			}
 			return retval;

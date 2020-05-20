@@ -65,10 +65,11 @@ struct irr_glsl_ext_LumaMeter_Uniforms_t
         #define _IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_ (_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT*2)
     #endif
 
-    #if (_IRR_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_-_IRR_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_)%%_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT!=0
+/* can't get this to work
+    #if ((_IRR_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_-_IRR_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_)&(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT-1u))!=0
 	    #error "The number of bins must evenly divide the histogram range!"
     #endif
-
+*/
     #define _IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION 4 // change this simultaneously with the constexpr in `CGLSLLumaBuiltinIncludeLoader`
     #define _IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_COUNT (_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT*_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION)
     struct irr_glsl_ext_LumaMeter_output_t
@@ -196,7 +197,7 @@ shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_SHARED_SI
     #if _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT&(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT-1)
         #error "Parallel Upper Bound requires the Histogram Bin Count to be PoT"
     #endif
-    int upper_bound__minus_onePoT(in uint val, int arrayLenPoT)
+    int upper_bound_minus_onePoT(in uint val, int arrayLenPoT)
     {
         arrayLenPoT >>= 1;
         int ret = (val<_IRR_GLSL_SCRATCH_SHARED_DEFINED_[arrayLenPoT]) ? 0:arrayLenPoT;
@@ -212,7 +213,7 @@ shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_SHARED_SI
     {
         uvec2 percentileRange; // (lowerPercentile,upperPercentile)
     };
-    float irr_glsl_ext_LumaMeter_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_output_t firstPassOutput, in irr_glsl_ext_LumaMeter_PassInfo_t info)
+    float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_output_t firstPassOutput, in irr_glsl_ext_LumaMeter_PassInfo_t info)
     {
         uint histogramVal = firstPassOutput.packedHistogram[gl_LocalInvocationIndex];
         for (int i=0; i<_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION; i++)
@@ -227,7 +228,7 @@ shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_SHARED_SI
         bool lower2Threads = gl_LocalInvocationIndex<2u;
         if (lower2Threads)
         {
-            int found = upper_bound__minus_onePoT(percentileRange[gl_LocalInvocationIndex],_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT);
+            int found = upper_bound_minus_onePoT(info.percentileRange[gl_LocalInvocationIndex],_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT);
 
             float foundValue = float(found)/float(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT);
             _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = floatBitsToUint(foundValue);

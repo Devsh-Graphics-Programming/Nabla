@@ -144,7 +144,7 @@ void irr_glsl_ext_LumaMeter() // bool wgExecutionMask, then do if(any(wgExecutio
 	float logLuma = log2(luma/MinLuma)/log2(MaxLuma/MinLuma);
 	#if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MODE
 		// compute histogram index
-		int histogramIndex = int(logLuma*float(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT)+0.5);
+		int histogramIndex = int(logLuma*float(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT-1u)+0.5);
 		histogramIndex += int(gl_LocalInvocationIndex&uint(_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION-1))*_IRR_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT;
 		// barrier so we "see" the cleared histogram
 		barrier();
