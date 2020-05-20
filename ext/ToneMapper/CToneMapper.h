@@ -25,7 +25,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		//
 		struct ParamsBase
 		{
-			inline void setAdaptationFactorFromFrameDelta(float frameDeltaSeconds, float upAdaptationPerSecondLog2=-0.5f, float downAdaptationPerSecondLog2=-0.1f)
+			inline void setAdaptationFactorFromFrameDelta(float frameDeltaSeconds, float upAdaptationPerSecondLog2=-1.1f, float downAdaptationPerSecondLog2=-0.2f)
 			{
 				float up = core::exp2(upAdaptationPerSecondLog2*frameDeltaSeconds);
 				float down = core::exp2(downAdaptationPerSecondLog2*frameDeltaSeconds);
