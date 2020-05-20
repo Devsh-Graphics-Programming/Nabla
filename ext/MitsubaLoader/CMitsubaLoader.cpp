@@ -519,11 +519,11 @@ layout (location = 0) in vec3 vPosition;
 layout (location = 2) in vec2 vUV;
 layout (location = 3) in vec3 vNormal;
 
-layout (location = 0) out vec3 ViewPos;
+layout (location = 0) out vec3 WorldPos;
 layout (location = 1) flat out uvec2 InstrOffsetCount;
 layout (location = 2) out vec3 Normal;
 layout (location = 3) out vec2 UV;
-layout (location = 4) out vec3 LocalPos;
+layout (location = 4) flat out vec3 CamPos;
 
 #include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
 
@@ -553,11 +553,10 @@ void main()
 	Normal = normalize(vNormal);
 	mat4x3 tform = InstData.data[instIx].tform;
 	mat4 mvp = irr_glsl_pseudoMul4x4with4x3(CamData.params.MVP, tform);
-	mat4x3 mv = irr_glsl_pseudoMul4x3with4x3(CamData.params.MV, tform);
 	gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(mvp), vPosition);
-	ViewPos = irr_glsl_pseudoMul3x4with3x1(mv, vPosition);
-	LocalPos = vPosition;
+	WorldPos = irr_glsl_pseudoMul3x4with3x1(tform, vPosition);
 	InstrOffsetCount = InstData.data[instIx].instrOffsetCount;
+	CamPos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
 	UV = vUV;
 }
 
@@ -580,11 +579,11 @@ R"(#version 430 core
 
 #include <irr/builtin/glsl/virtual_texturing/extensions.glsl>
 
-layout (location = 0) in vec3 ViewPos;
+layout (location = 0) in vec3 WorldPos;
 layout (location = 1) flat in uvec2 InstrOffsetCount;
 layout (location = 2) in vec3 Normal;
 layout (location = 3) in vec2 UV;
-layout (location = 4) in vec3 LocalPos;
+layout (location = 4) flat in vec3 CamPos;
 //layout (location = 4) in vec3 Color;
 
 layout (location = 0) out vec4 OutColor;
@@ -843,10 +842,10 @@ constexpr const char* FRAGMENT_SHADER_PT2 = R"(
 irr_glsl_BSDFAnisotropicParams currBSDFParams;
 reg_t registers[REG_COUNT];
 
-void setCurrBSDFParams(in vec3 n)
+void setCurrBSDFParams(in vec3 n, in vec3 L)
 {
-	irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(vec3(0.0), ViewPos, n);
-	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(interaction, -ViewPos);
+	irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(CamPos, WorldPos, n);
+	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(interaction, L);
 	//TODO: T,B tangents
 	vec3 T = vec3(1.0,0.0,0.0);
 	vec3 B = vec3(0.0,0.0,1.0);
@@ -945,7 +944,7 @@ void instr_execute_WARD(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_da
 	float av = textureOrF32(data.data[0].zw, instr_getAlphaVTexPresence(instr), dUV)*scale.y;
 	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
-void instr_execute_BUMPMAP(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
+void instr_execute_BUMPMAP(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data, in vec3 L)
 {
 	uvec2 bm = data.data[0].xy;
 	//dirty trick for getting height map derivatives in divergent workflow
@@ -954,12 +953,12 @@ void instr_execute_BUMPMAP(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf
 		irr_glsl_vTextureGrad(bm, UV+0.5*dUV[1], dUV).x - irr_glsl_vTextureGrad(bm, UV-0.5*dUV[1], dUV).x
 	);
 	vec3 n = irr_glsl_perturbNormal_heightMap(currBSDFParams.isotropic.interaction.N, currBSDFParams.isotropic.interaction.V.dPosdScreen, dHdScreen);
-	setCurrBSDFParams(n);
+	setCurrBSDFParams(n, L);
 }
 //executed at most once
-void instr_execute_SET_GEOM_NORMAL()
+void instr_execute_SET_GEOM_NORMAL(in vec3 L)
 {
-	setCurrBSDFParams(normalize(Normal));
+	setCurrBSDFParams(normalize(Normal), L);
 }
 void instr_execute_BLEND(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
@@ -974,7 +973,7 @@ void instr_execute_BLEND(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_d
 	registers[REG_DST(regs)] = wl*registers[REG_SRC1(regs)] + wr*registers[REG_SRC2(regs)];
 }
 
-void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV)
+void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 L)
 {
 	bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
 	switch (instr.x & INSTR_OPCODE_MASK)
@@ -1015,7 +1014,7 @@ void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV)
 		instr_execute_WARD(instr, regs, dUV, bsdf_data);
 		break;
 	case OP_SET_GEOM_NORMAL:
-		instr_execute_SET_GEOM_NORMAL();
+		instr_execute_SET_GEOM_NORMAL(L);
 		break;
 	case OP_COATING:
 		instr_execute_COATING(instr, regs, dUV, bsdf_data);
@@ -1024,7 +1023,7 @@ void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV)
 		instr_execute_ROUGHCOATING(instr, regs, dUV, bsdf_data);
 		break;
 	case OP_BUMPMAP:
-		instr_execute_BUMPMAP(instr, regs, dUV, bsdf_data);
+		instr_execute_BUMPMAP(instr, regs, dUV, bsdf_data, L);
 		break;
 	case OP_BLEND:
 		instr_execute_BLEND(instr, regs, dUV, bsdf_data);
@@ -1032,22 +1031,45 @@ void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV)
 	}
 }
 
-void main()
+#ifndef _IRR_BSDF_COS_EVAL_DEFINED_
+#define _IRR_BSDF_COS_EVAL_DEFINED_
+// Spectrum can be exchanged to a float for monochrome
+#define Spectrum vec3
+//! This is the function that evaluates the BSDF for specific view and observer direction
+// params can be either BSDFIsotropicParams or BSDFAnisotropicParams 
+Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
 {
-	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 	uvec2 offsetCount = InstrOffsetCount;
-	//all lighting computations are done in view space
 
-	//TODO will conform to irrbaw shader standards later (irr_bsdf_cos_eval, irr_computeLighting...)
 	for (uint i = 0u; i < offsetCount.y; ++i)
 	{
 		instr_t instr = instr_buf.data[offsetCount.x+i];
 		uvec3 regs = instr_decodeRegisters(instr);
 
-		instr_execute(instr, regs, dUV);
+		instr_execute(instr, regs, dUV, params.L);
 	}
+	return registers[0]; //result is always in register 0
+}
+#endif
 
-	OutColor = vec4(registers[0],1.0);//result is always in reg 0
+#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_
+#define _IRR_COMPUTE_LIGHTING_DEFINED_
+vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in mat2 dUV)
+{
+	irr_glsl_BSDFIsotropicParams params;
+	params.L = CamPos-WorldPos;
+	out_interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(CamPos, WorldPos, normalize(Normal));
+
+	return irr_bsdf_cos_eval(params, dUV);
+}
+#endif
+
+void main()
+{
+	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
+
+	irr_glsl_ViewSurfaceInteraction inter;
+	OutColor = vec4(irr_computeLighting(inter, dUV), 1.0);
 }
 )";
 

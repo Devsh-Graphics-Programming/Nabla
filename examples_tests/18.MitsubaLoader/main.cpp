@@ -219,7 +219,7 @@ int main()
 			//outputs position in model space
 			_outAvgPos /= static_cast<float>(triCount)*3.f;
 
-			return core::length(differentialElementCrossProdcut).x;
+			return 0.5f*core::length(differentialElementCrossProdcut).x;
 		};
 		for (const auto& inst : instances)
 		{
@@ -432,6 +432,10 @@ int main()
 		asset::SBasicViewParameters uboData;
 		memcpy(uboData.MVP, camera->getConcatenatedMatrix().pointer(), sizeof(core::matrix4SIMD));
 		memcpy(uboData.MV, camera->getViewMatrix().pointer(), sizeof(core::matrix3x4SIMD));
+		memcpy(uboData.NormalMat, camera->getViewMatrix().pointer(), sizeof(core::matrix3x4SIMD));
+		uboData.NormalMat[3] = camera->getPosition().X;
+		uboData.NormalMat[7] = camera->getPosition().Y;
+		uboData.NormalMat[11] = camera->getPosition().Z;
 		driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0u, sizeof(uboData), &uboData);
 
 		for (uint32_t j = 1u; j < gpumeshes->size(); ++j)
