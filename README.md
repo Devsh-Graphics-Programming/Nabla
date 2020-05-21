@@ -116,6 +116,10 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 
 
+### Gifs - Tonemapping with AutoExposure and Temporal Adaptation
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/65504ccfd2de1a8682a1e948603a35e3c0a02996/site_media/readme/gifs/autoexposure/exposure.gif?raw=true)
+
 ## Main Features
 
 - **Asset management pipeline**
