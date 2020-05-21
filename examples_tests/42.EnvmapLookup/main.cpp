@@ -9,23 +9,52 @@ using namespace core;
 using namespace asset;
 using namespace video;
 
-// Modification of
-//
-// No Geometry 360 Video
-// By KylBlz
-// https://www.shadertoy.com/view/Ml33z2
-
-
-constexpr std::string_view FRAGMENT_SHADER_GLSL = // TODO shader sampling envmap properly
+constexpr std::string_view VERTEX_SHADER_GLSL =
 R"(
 #version 430 core
 
-layout(set = 3, binding = 0) uniform sampler2D envMap; 
-layout(location = 0) in vec2 uv;
-layout(location = 0) out vec4 pixelColor;
+layout(location = 0) in vec4 vPos;
+layout(location = 3) in vec3 vNormal;
+
+#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
+
+layout(set = 1, binding = 0, row_major, std140) uniform UBO
+{
+	irr_glsl_SBasicViewParameters params;
+} cameraData;
+
+layout(location = 0) out vec3 localCubePosition; 
 
 void main()
 {
+	localCubePosition = vPos.xyz;
+    gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(cameraData.params.MVP), localCubePosition);
+}	
+ )";
+
+constexpr std::string_view FRAGMENT_SHADER_GLSL =
+R"(
+#version 430 core
+
+#define INVERSE_OF_PI 0.318309
+#define INVERSE_OF_2PI 0.159154
+
+layout(set = 3, binding = 0) uniform sampler2D envMap; 
+layout(location = 0) in vec3 localCubePosition;
+layout(location = 0) out vec4 pixelColor;
+
+const vec2 inverseAtan = vec2(INVERSE_OF_2PI, INVERSE_OF_PI);
+vec2 SampleSphericalMap(vec3 v)
+{
+    vec2 uv = vec2(atan(v.z, v.x), asin(v.y));
+    uv *= inverseAtan;
+    uv += 0.5;
+    return uv;
+}
+
+void main()
+{
+	vec2 uv = SampleSphericalMap(normalize(localCubePosition));
     vec3 hdrColor = texture(envMap, uv).rgb;
   
     // reinhard tone mapping
@@ -116,6 +145,8 @@ int main()
 	auto driver = device->getVideoDriver();
 	auto assetManager = device->getAssetManager();
 	auto sceneManager = device->getSceneManager();
+	auto geometryCreator = device->getAssetManager()->getGeometryCreator();
+	auto cubeGeometry = geometryCreator->createCubeMesh(vector3df(1, 1, 1));
 
 	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
@@ -128,9 +159,7 @@ int main()
 	camera->setNearValue(0.01f);
 	camera->setFarValue(10.0f);
 
-	// camera->getRotation()
-
-	sceneManager->setActiveCamera(camera); // TODO
+	sceneManager->setActiveCamera(camera);
 
 	IGPUDescriptorSetLayout::SBinding samplerBinding { 0u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr };
 	IGPUDescriptorSetLayout::SBinding uboBinding {0, asset::EDT_UNIFORM_BUFFER, 1u, static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(IGPUSpecializedShader::ESS_VERTEX | IGPUSpecializedShader::ESS_FRAGMENT), nullptr};
@@ -138,39 +167,72 @@ int main()
 	auto gpuDescriptorSetLayout1 = driver->createGPUDescriptorSetLayout(&uboBinding, &uboBinding + 1u);
 	auto gpuDescriptorSetLayout3 = driver->createGPUDescriptorSetLayout(&samplerBinding, &samplerBinding + 1u);
 
-	auto createGPUPipeline = [&]() -> core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>
+	auto createGpuResources = [&]() -> std::pair<core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>, core::smart_refctd_ptr<video::IGPUMeshBuffer>>
 	{
+		auto gpuVertexShader = driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(VERTEX_SHADER_GLSL.data()));
+		const asset::ISpecializedShader::SInfo vertexSpecInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_VERTEX);
+
 		auto gpuFragmentShader = driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(FRAGMENT_SHADER_GLSL.data()));
-		const asset::ISpecializedShader::SInfo specInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_FRAGMENT);
+		const asset::ISpecializedShader::SInfo fragmentSpecInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_FRAGMENT);
 
-		auto gpuFragmentSpecialedShader = driver->createGPUSpecializedShader(gpuFragmentShader.get(), std::move(specInfo));
-		IGPUSpecializedShader* shaders[2] = { std::get<0>(fullScreenTriangle).get(), gpuFragmentSpecialedShader.get() };
-
-		SBlendParams blendParams;
-		blendParams.logicOpEnable = false;
-		blendParams.logicOp = ELO_NO_OP;
-		for (size_t i = 0ull; i < SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-			blendParams.blendParams[i].attachmentEnabled = (i == 0ull);
-		SRasterizationParams rasterParams;
-		rasterParams.faceCullingMode = EFCM_NONE;
-		rasterParams.depthCompareOp = ECO_ALWAYS;
-		rasterParams.minSampleShading = 1.f;
-		rasterParams.depthWriteEnable = false;
-		rasterParams.depthTestEnable = false;
+		auto gpuVertexSpecialedShader = driver->createGPUSpecializedShader(gpuVertexShader.get(), std::move(vertexSpecInfo));
+		auto gpuFragmentSpecialedShader = driver->createGPUSpecializedShader(gpuFragmentShader.get(), std::move(fragmentSpecInfo));
+		IGPUSpecializedShader* shaders[2] = { gpuVertexSpecialedShader.get(), gpuFragmentSpecialedShader.get() };
 
 		auto gpuPipelineLayout = driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout1), nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout3));
 
-		return driver->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), shaders, shaders + sizeof(shaders) / sizeof(IGPUSpecializedShader*),
-			std::get<SVertexInputParams>(fullScreenTriangle), blendParams,
-			std::get<SPrimitiveAssemblyParams>(fullScreenTriangle), rasterParams);
+		asset::SBlendParams blendParams;
+		asset::SRasterizationParams rasterParams;
+		rasterParams.faceCullingMode = asset::EFCM_NONE;
+
+		auto gpuPipeline = driver->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), shaders, shaders + sizeof(shaders) / sizeof(IGPUSpecializedShader*), cubeGeometry.inputParams, blendParams, cubeGeometry.assemblyParams, rasterParams);
+
+		constexpr auto MAX_ATTR_BUF_BINDING_COUNT = video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
+		constexpr auto MAX_DATA_BUFFERS = MAX_ATTR_BUF_BINDING_COUNT + 1;
+
+		core::vector<asset::ICPUBuffer*> cpubuffers;
+		cpubuffers.reserve(MAX_DATA_BUFFERS);
+		for (auto i = 0; i < MAX_ATTR_BUF_BINDING_COUNT; i++)
+		{
+			auto buf = cubeGeometry.bindings[i].buffer.get();
+			if (buf)
+				cpubuffers.push_back(buf);
+		}
+		auto cpuindexbuffer = cubeGeometry.indexBuffer.buffer.get();
+		if (cpuindexbuffer)
+			cpubuffers.push_back(cpuindexbuffer);
+
+		auto gpubuffers = driver->getGPUObjectsFromAssets(cpubuffers.data(), cpubuffers.data() + cpubuffers.size());
+
+		asset::SBufferBinding<video::IGPUBuffer> bindings[MAX_DATA_BUFFERS];
+		for (auto i = 0, j = 0; i < MAX_ATTR_BUF_BINDING_COUNT; i++)
+		{
+			if (!cubeGeometry.bindings[i].buffer)
+				continue;
+			auto buffPair = gpubuffers->operator[](j++);
+			bindings[i].offset = buffPair->getOffset();
+			bindings[i].buffer = core::smart_refctd_ptr<video::IGPUBuffer>(buffPair->getBuffer());
+		}
+		if (cpuindexbuffer)
+		{
+			auto buffPair = gpubuffers->back();
+			bindings[MAX_ATTR_BUF_BINDING_COUNT].offset = buffPair->getOffset();
+			bindings[MAX_ATTR_BUF_BINDING_COUNT].buffer = core::smart_refctd_ptr<video::IGPUBuffer>(buffPair->getBuffer());
+		}
+
+		core::smart_refctd_ptr<video::IGPUMeshBuffer> gpuMeshBuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(core::smart_refctd_ptr(gpuPipeline), nullptr, bindings, std::move(bindings[MAX_ATTR_BUF_BINDING_COUNT]));
+		{
+			gpuMeshBuffer->setIndexType(cubeGeometry.indexType);
+			gpuMeshBuffer->setIndexCount(cubeGeometry.indexCount);
+			gpuMeshBuffer->setBoundingBox(cubeGeometry.bbox);
+		}
+
+		return { gpuPipeline, gpuMeshBuffer };
 	};
 
-	auto gpuPipeline = createGPUPipeline();
-
-	SBufferBinding<IGPUBuffer> idxBinding{ 0ull, nullptr };
-	auto gpuMeshBuffer = core::make_smart_refctd_ptr<IGPUMeshBuffer>(nullptr, nullptr, nullptr, std::move(idxBinding));
-	gpuMeshBuffer->setIndexCount(3u);
-	gpuMeshBuffer->setInstanceCount(1u);
+	auto gpuObjectResources = createGpuResources();
+	auto gpuPipeline = gpuObjectResources.first;
+	auto gpuMeshBuffer = gpuObjectResources.second;
 
 	auto pathToTexture = "../../media/envmap/wooden_motel_2k_EXR.exr";
 	IAssetLoader::SAssetLoadParams lp(0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES);
@@ -239,7 +301,7 @@ int main()
 	auto HDRFramebuffer = createHDRFramebuffer(device, gpuImageView->getCreationParameters().format);
 	float colorClearValues[] = { 1.f, 1.f, 1.f, 1.f };
 
-	while (device->run())
+	while (device->run() && receiver.keepOpen())
 	{
 		driver->setRenderTarget(HDRFramebuffer, false);
 		driver->clearZBuffer();
@@ -248,11 +310,12 @@ int main()
 		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
 		camera->render();
 
-		const auto viewProjection = camera->getConcatenatedMatrix();
-		core::matrix3x4SIMD modelMatrix; // indentity, but we can use it however
+		const auto viewMatrix = camera->getViewMatrix().getSub3x3TransposeCofactors();
+		const auto projectionMatrix = camera->getProjectionMatrix();
+		const auto viewProjectionMatrix = core::concatenateBFollowedByA(projectionMatrix, viewMatrix);
 
-		auto mv = core::concatenateBFollowedByA(camera->getViewMatrix(), modelMatrix);
-		auto mvp = core::concatenateBFollowedByA(viewProjection, modelMatrix);
+		auto mv = camera->getViewMatrix();
+		auto mvp = viewProjectionMatrix;
 		core::matrix3x4SIMD normalMat;
 		mv.getSub3x3InverseTranspose(normalMat);
 
