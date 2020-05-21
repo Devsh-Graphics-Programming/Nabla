@@ -300,9 +300,9 @@ class CMitsubaLoader : public asset::IAssetLoader
 		//compatible with std430 and std140
 		struct SInstanceData
 		{
-			core::matrix3x4SIMD tform;
-			std::pair<uint32_t, uint32_t> instrOffsetCount;
-			uint32_t _pad_[2];
+			core::matrix3x4SIMD tform;//mat4x3
+			std::pair<uint32_t, uint32_t> instrOffsetCount;//uvec2
+			uint64_t emissive;//uvec2, rgb19e7
 		} PACK_STRUCT;
 #include "irr/irrunpack.h"
 		struct SContext

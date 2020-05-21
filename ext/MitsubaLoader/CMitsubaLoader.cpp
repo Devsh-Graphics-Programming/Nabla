@@ -523,7 +523,7 @@ layout (location = 0) out vec3 WorldPos;
 layout (location = 1) flat out uvec2 InstrOffsetCount;
 layout (location = 2) out vec3 Normal;
 layout (location = 3) out vec2 UV;
-layout (location = 4) flat out vec3 CamPos;
+layout (location = 4) flat out uvec2 Emissive;
 
 #include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
 
@@ -542,6 +542,7 @@ struct InstanceData
 {
 	mat4x3 tform;
 	uvec2 instrOffsetCount;
+	uvec2 emissive;
 };
 layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer A {
 	InstanceData data[];
@@ -550,14 +551,14 @@ layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer A {
 void main()
 {
 	uint instIx = PC.instDataOffset+gl_InstanceIndex;
-	Normal = normalize(vNormal);
 	mat4x3 tform = InstData.data[instIx].tform;
 	mat4 mvp = irr_glsl_pseudoMul4x4with4x3(CamData.params.MVP, tform);
 	gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(mvp), vPosition);
 	WorldPos = irr_glsl_pseudoMul3x4with3x1(tform, vPosition);
 	InstrOffsetCount = InstData.data[instIx].instrOffsetCount;
-	CamPos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
+	Normal = mat3(tform)*normalize(vNormal);//assuming tform doesnt contain non-uniform scaling
 	UV = vUV;
+	Emissive = InstData.data[instIx].emissive;
 }
 
 )";
@@ -577,14 +578,16 @@ void main()
 _IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_PT1 =
 R"(#version 430 core
 
+#define FLT_MIN 1.175494351e-38
+#define FLT_MAX 3.402823466e+38
+
 #include <irr/builtin/glsl/virtual_texturing/extensions.glsl>
 
 layout (location = 0) in vec3 WorldPos;
 layout (location = 1) flat in uvec2 InstrOffsetCount;
 layout (location = 2) in vec3 Normal;
 layout (location = 3) in vec2 UV;
-layout (location = 4) flat in vec3 CamPos;
-//layout (location = 4) in vec3 Color;
+layout (location = 4) flat in uvec2 Emissive;
 
 layout (location = 0) out vec4 OutColor;
 
@@ -660,6 +663,12 @@ layout (push_constant) uniform Block
 	uint instrOffset;
 	uint instrCount;
 } PC;
+
+#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
+
+layout (set = 1, binding = 0, row_major, std140) uniform UBO {
+    irr_glsl_SBasicViewParameters params;
+} CamData;
 
 //put this into some builtin
 #define RGB19E7_MANTISSA_BITS 19
@@ -836,6 +845,7 @@ vec3 textureOrRGB19E7(in uvec2 data, in bool texPresenceFlag, in mat2 dUV)
 #include <irr/builtin/glsl/bsdf/brdf/specular/ashikhmin_shirley.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/specular/beckmann_smith.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/specular/ggx.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/blinn_phong.glsl>
 #include <irr/builtin/glsl/bump_mapping/height_mapping.glsl>
 )";
 constexpr const char* FRAGMENT_SHADER_PT2 = R"(
@@ -844,7 +854,8 @@ reg_t registers[REG_COUNT];
 
 void setCurrBSDFParams(in vec3 n, in vec3 L)
 {
-	irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(CamPos, WorldPos, n);
+	vec3 campos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
+	irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, n);
 	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(interaction, L);
 	//TODO: T,B tangents
 	vec3 T = vec3(1.0,0.0,0.0);
@@ -856,7 +867,8 @@ void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf
 {
 	vec3 scale = decodeRGB19E7(data.data[1].zw);
 	vec3 refl = textureOrRGB19E7(data.data[0].zw, instr_getReflectanceTexPresence(instr), dUV)*scale.y;
-	registers[REG_DST(regs)] = refl;
+	vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic) * refl;
+	registers[REG_DST(regs)] = diffuse;
 }
 void instr_execute_ROUGHDIFFUSE(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
@@ -872,8 +884,10 @@ void instr_execute_DIFFTRANS(in instr_t instr, in uvec3 regs, in mat2 dUV, in bs
 }
 void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
-	float eta = uintBitsToFloat(data.data[0].x);
-	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
+	vec3 eta = vec3(uintBitsToFloat(data.data[0].x));
+	vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic) * vec3(0.89);
+	diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
+	registers[REG_DST(regs)] = diffuse;
 }
 void instr_execute_ROUGHDIELECTRIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
@@ -895,15 +909,27 @@ void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV, in bs
 }
 void instr_execute_ROUGHCONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
-	uint ndf = instr_getNDF(instr);
-	vec3 scale = decodeRGB19E7(data.data[2].zw);
-	float au = textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
-	float av;
-	if (ndf==NDF_AS)
-		av = textureOrF32(data.data[0].zw, instr_getAlphaVTexPresence(instr), dUV)*scale.y;
-	vec3 eta = decodeRGB19E7(data.data[1].xy);
-	vec3 etak = decodeRGB19E7(data.data[1].zw);
-	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
+	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
+	{
+		uint ndf = instr_getNDF(instr);
+		vec3 scale = decodeRGB19E7(data.data[2].zw);
+		float au = textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
+		float av;
+		if (ndf==NDF_AS)
+			av = textureOrF32(data.data[0].zw, instr_getAlphaVTexPresence(instr), dUV)*scale.y;
+		mat2x3 eta2;
+		eta2[0] = decodeRGB19E7(data.data[1].xy); eta2[0]*=eta2[0];
+		eta2[1] = decodeRGB19E7(data.data[1].zw); eta2[1]*=eta2[1];
+		vec3 specular = vec3(0.0);
+		if (ndf==NDF_BECKMANN)
+			specular = irr_glsl_beckmann_smith_height_correlated_cos_eval(currBSDFParams.isotropic, eta2, au, au*au);
+		else if (ndf==NDF_GGX)
+			specular = irr_glsl_ggx_height_correlated_cos_eval(currBSDFParams.isotropic, eta2, au*au);
+		else if (ndf==NDF_PHONG)
+			specular = irr_glsl_blinn_phong_fresnel_conductor_cos_eval(currBSDFParams.isotropic, 1.0/(au*au), eta2);
+		registers[REG_DST(regs)] = specular;
+	}
+	else registers[REG_DST(regs)] = reg_t(0.0);
 }
 void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
@@ -914,12 +940,29 @@ void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf
 }
 void instr_execute_ROUGHPLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
-	uint ndf = instr_getNDF(instr);
-	float eta = uintBitsToFloat(data.data[0].x);
-	vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
-	vec3 refl = textureOrRGB19E7(data.data[1].yz, instr_getPlasticReflTexPresence(instr), dUV)*scale.z;
-	float a = textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
-	registers[REG_DST(regs)] = refl;
+	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
+	{
+		uint ndf = instr_getNDF(instr);
+		vec3 eta = vec3(uintBitsToFloat(data.data[0].x));
+		vec3 eta2 = eta*eta;
+		vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
+		vec3 refl = textureOrRGB19E7(data.data[1].yz, instr_getPlasticReflTexPresence(instr), dUV)*scale.z;
+		float a = textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
+		float a2 = a*a;
+
+		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic, a2) * refl;
+		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta2) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
+		vec3 specular = vec3(0.0);
+		if (ndf==NDF_BECKMANN)
+			specular = irr_glsl_beckmann_smith_height_correlated_cos_eval(currBSDFParams.isotropic, mat2x3(eta2, vec3(0.0)), a, a2);
+		else if (ndf==NDF_GGX)
+			specular = irr_glsl_ggx_height_correlated_cos_eval(currBSDFParams.isotropic, mat2x3(eta2, vec3(0.0)), a2);
+		else if (ndf==NDF_PHONG)
+			specular = irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(currBSDFParams.isotropic, 1.0/a2, eta);
+
+		registers[REG_DST(regs)] = specular + diffuse;
+	}
+	else registers[REG_DST(regs)] = reg_t(0.0);
 }
 void instr_execute_COATING(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
@@ -1056,11 +1099,14 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
 #define _IRR_COMPUTE_LIGHTING_DEFINED_
 vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
-	irr_glsl_BSDFIsotropicParams params;
-	params.L = CamPos-WorldPos;
-	out_interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(CamPos, WorldPos, normalize(Normal));
+	vec3 emissive = decodeRGB19E7(Emissive);
 
-	return irr_bsdf_cos_eval(params, dUV);
+	vec3 campos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
+	irr_glsl_BSDFIsotropicParams params;
+	params.L = campos-WorldPos;
+	out_interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, normalize(Normal));
+
+	return irr_bsdf_cos_eval(params, dUV)+emissive;
 }
 #endif
 
@@ -1303,8 +1349,6 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		}
 
 		const auto instrOffsetCount = getBSDFtreeTraversal(ctx, shapedef->bsdf);
-		if ((ctx.instrBuffer[instrOffsetCount.first+1]&0x0full) == bsdf::OP_DIFFUSE && shapedef->bsdf->type==CElementBSDF::Type::TWO_SIDED && shapedef->bsdf->twosided.bsdf[0]->diffuse.reflectance.value.type==SPropertyElementData::INVALID)
-			std::cout << "bsdf with Wallpaper offset" << instrOffsetCount.first << std::endl;
 		metadataptr->instances.push_back({shapedef->getAbsoluteTransform(),instrOffsetCount,shapedef->obtainEmitter()});
 	}
 
@@ -2191,9 +2235,12 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		auto& mesh = *it;
 		auto* meta = static_cast<const IMeshMetadata*>(mesh->getMetadata());
 		
+		core::vectorSIMDf emissive;
 		uint32_t instDataOffset = instanceData.size();
-		for (const auto& inst : meta->getInstances())
-			instanceData.push_back({inst.tform, inst.instrOffsetCount});
+		for (const auto& inst : meta->getInstances()) {
+			emissive = inst.emitter.type==CElementEmitter::AREA ? inst.emitter.area.radiance : core::vectorSIMDf(0.f);
+			instanceData.push_back({inst.tform, inst.instrOffsetCount, core::rgb32f_to_rgb19e7(emissive.pointer)});
+		}
 		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 		{
 			auto* mb = mesh->getMeshBuffer(i);

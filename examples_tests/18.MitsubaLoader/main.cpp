@@ -12,7 +12,57 @@
 using namespace irr;
 using namespace core;
 
+constexpr const char* GLSL_COMPUTE_LIGHTING =
+R"(
+#define _IRR_COMPUTE_LIGHTING_DEFINED_
+struct SLight
+{
+	vec3 position;
+	vec3 intensity;
+};
+
+layout (set = 2, binding = 0, std430) readonly restrict buffer Lights
+{
+	SLight lights[];
+};
+
+vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in mat2 dUV)
+{
+	vec3 emissive = decodeRGB19E7(Emissive);
+
+	irr_glsl_BSDFIsotropicParams params;
+	vec3 color = vec3(0.0);
+	for (int i = 0; i < 13; ++i)
+	{
+		SLight l = lights[i];
+		vec3 L = l.position-WorldPos;
+		params.L = L;
+		color += irr_bsdf_cos_eval(params, dUV)*l.intensity*0.01 / dot(L,L);
+	}
+	return color+emissive;
+}
+)";
+static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(const asset::ICPUSpecializedShader* _fs)
+{
+    const asset::ICPUShader* unspec = _fs->getUnspecialized();
+    assert(unspec->containsGLSL());
+
+    std::string glsl = reinterpret_cast<const char*>( unspec->getSPVorGLSL()->getPointer() );
+    glsl.insert(glsl.find("#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_"), GLSL_COMPUTE_LIGHTING);
+
+    //auto* f = fopen("fs.glsl","w");
+    //fwrite(glsl.c_str(), 1, glsl.size(), f);
+    //fclose(f);
+
+    auto unspecNew = core::make_smart_refctd_ptr<asset::ICPUShader>(glsl.c_str());
+    auto specinfo = _fs->getSpecializationInfo();//intentional copy
+    auto fsNew = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecNew), std::move(specinfo));
+
+    return fsNew;
+}
+
 #include "irr/irrpack.h"
+//std430-compatible
 struct SLight
 {
 	core::vectorSIMDf position;
@@ -151,6 +201,8 @@ int main()
 		ds2layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
 	}
 
+	//gather all meshes into core::vector and modify their pipelines
+	core::unordered_map<core::smart_refctd_ptr<asset::ICPUSpecializedShader>, core::smart_refctd_ptr<asset::ICPUSpecializedShader>> modifiedShaders;
 	core::vector<core::smart_refctd_ptr<asset::ICPUMesh>> cpumeshes;
 	cpumeshes.reserve(meshes.getSize());
 	for (auto it = meshes.getContents().first; it != meshes.getContents().second; ++it)
@@ -160,10 +212,23 @@ int main()
 		for (uint32_t i = 0u; i < cpumeshes.back()->getMeshBufferCount(); ++i)
 		{
 			auto* pipeline = cpumeshes.back()->getMeshBuffer(i)->getPipeline();
-			if (!pipeline->getLayout()->getDescriptorSetLayout(2u))
+			if (!pipeline->getLayout()->getDescriptorSetLayout(2u))//means it hasnt been modified yet
+			{
 				pipeline->getLayout()->setDescriptorSetLayout(2u, core::smart_refctd_ptr(ds2layout));
+				auto* fs = pipeline->getShaderAtStage(asset::ICPUSpecializedShader::ESS_FRAGMENT);
+				auto found = modifiedShaders.find(core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs));
+				if (found != modifiedShaders.end())
+					pipeline->setShaderAtStage(asset::ICPUSpecializedShader::ESS_FRAGMENT, found->second.get());
+				else {
+					auto newfs = createModifiedFragShader(fs);
+					modifiedShaders.insert({ core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs),newfs});
+					pipeline->setShaderAtStage(asset::ICPUSpecializedShader::ESS_FRAGMENT, newfs.get());
+				}
+			}
 		}
 	}
+	modifiedShaders.clear();
+
 	core::smart_refctd_ptr<asset::ICPUDescriptorSet> cpuds0;
 	{
 		auto* meta = static_cast<ext::MitsubaLoader::CMitsubaPipelineMetadata*>(cpumeshes[0]->getMeshBuffer(0)->getPipeline()->getMetadata());
@@ -295,7 +360,7 @@ int main()
     }
 
 	auto gpuds2layout = driver->getGPUObjectsFromAssets(&ds2layout.get(), &ds2layout.get()+1)->front();
-	core::smart_refctd_ptr<video::IGPUDescriptorSet> gpuds2 = driver->createGPUDescriptorSet(std::move(gpuds2layout));
+	auto gpuds2 = driver->createGPUDescriptorSet(std::move(gpuds2layout));
 	{
 		video::IGPUDescriptorSet::SDescriptorInfo info;
 		video::IGPUDescriptorSet::SWriteDescriptorSet w;
@@ -331,7 +396,7 @@ int main()
 		viewport = core::recti(core::position2di(film.cropOffsetX,film.cropOffsetY), core::position2di(film.cropWidth,film.cropHeight));
 
 		auto extent = sceneBound.getExtent();
-		camera = smgr->addCameraSceneNodeFPS(nullptr,100.f,core::min(extent.X,extent.Y,extent.Z)*0.0002f);
+		camera = smgr->addCameraSceneNodeFPS(nullptr,100.f,core::min(extent.X,extent.Y,extent.Z)*0.001f);
 		// need to extract individual components
 		bool leftHandedCamera = false;
 		{
@@ -430,9 +495,11 @@ int main()
 #endif
 
 		asset::SBasicViewParameters uboData;
+		//view-projection matrix
 		memcpy(uboData.MVP, camera->getConcatenatedMatrix().pointer(), sizeof(core::matrix4SIMD));
+		//view matrix
 		memcpy(uboData.MV, camera->getViewMatrix().pointer(), sizeof(core::matrix3x4SIMD));
-		memcpy(uboData.NormalMat, camera->getViewMatrix().pointer(), sizeof(core::matrix3x4SIMD));
+		//writing camera position to 4th column of NormalMat
 		uboData.NormalMat[3] = camera->getPosition().X;
 		uboData.NormalMat[7] = camera->getPosition().Y;
 		uboData.NormalMat[11] = camera->getPosition().Z;
