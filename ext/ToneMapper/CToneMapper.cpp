@@ -356,17 +356,17 @@ irr_glsl_ext_ToneMapper_Params_t irr_glsl_ext_ToneMapper_getToneMapperParams()
 	}
 	void irr_glsl_ext_ToneMapper_setLastFrameLuma(in float thisLuma)
 	{
-		vec2 wholeVal = irr_glsl_ext_ToneMapper_getLastFrameLuma();
 		if (all(equal(uvec3(0,0,0),gl_WorkGroupID)))
 		{
-			wholeVal[pc.currentFirstPassOutput^0x1] = thisLuma;
-			inParams.lastFrameExtraEV = packHalf2x16(wholeVal);
+			vec2 wholeVal = vec2(thisLuma,thisLuma);
+			wholeVal[pc.currentFirstPassOutput] = irr_glsl_ext_ToneMapper_getLastFrameLuma();
+			toneMapperParams.lastFrameExtraEV = packHalf2x16(wholeVal);
 		}
 	}
 
 	float irr_glsl_ext_ToneMapper_getExposureAdaptationFactor(in float toLastLumaDiff)
 	{
-		return unpackHalf2x16(_input.packedExposureAdaptationFactors)[toLastLumaDiff<0.f ? 0:1];
+		return unpackHalf2x16(toneMapperParams.packedExposureAdaptationFactors)[toLastLumaDiff<0.f ? 0:1];
 	}
 #endif
 
@@ -433,7 +433,7 @@ void irr_glsl_ext_ToneMapper() // bool wgExecutionMask, then do if(any(wgExecuti
 	extraNegEV = irr_glsl_ext_LumaMeter_getMeasuredLumaLog2(irr_glsl_ext_ToneMapper_getLumaMeterOutput(),irr_glsl_ext_ToneMapper_getLumaMeterInfo());
 #endif
 #ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
-	float toLastLumaDiff = inParams.lastFrameExtraEV-extraNegEV;
+	float toLastLumaDiff = irr_glsl_ext_ToneMapper_getLastFrameLuma()-extraNegEV;
 	extraNegEV += toLastLumaDiff*irr_glsl_ext_ToneMapper_getExposureAdaptationFactor(toLastLumaDiff);
 	irr_glsl_ext_ToneMapper_setLastFrameLuma(extraNegEV);
 #endif
