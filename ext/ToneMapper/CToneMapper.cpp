@@ -383,9 +383,21 @@ layout(set=_IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLS
 
 
 #ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
-	irr_glsl_ext_LumaMeter_output_t irr_glsl_ext_ToneMapper_getLumaMeterOutput()
+	irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t irr_glsl_ext_ToneMapper_getLumaMeterOutput()
 	{
-		return lumaParams[(pc.currentFirstPassOutput!=0 ? textureSize(inputImage,0).z:0)+int(gl_WorkGroupID.z)];
+		irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t retval;
+		#define FETCH_STRUCT lumaParams[(pc.currentFirstPassOutput!=0 ? textureSize(inputImage,0).z:0)+int(gl_WorkGroupID.z)]
+
+		#if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MODE
+			retval = FETCH_STRUCT.packedHistogram[gl_LocalInvocationIndex];
+			for (int i=0; i<_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION; i++)
+				retval += FETCH_STRUCT.packedHistogram[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT];
+		#elif _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
+			retval = FETCH_STRUCT.unormAverage;
+		#endif
+
+		#undef FETCH_STRUCT
+		return retval;
 	}
 #endif
 

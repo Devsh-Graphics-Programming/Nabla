@@ -91,6 +91,7 @@ struct irr_glsl_ext_LumaMeter_Uniforms_t
 #error "Unsupported Metering Mode!"
 #endif
 
+#define irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t uint
 
 
 #ifndef _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_
@@ -177,10 +178,12 @@ shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_SHARED_SI
     // TODO: move to `CGLSLScanBuiltinIncludeLoader` but clean that include up first and fix shaderc macro handling
     uint irr_glsl_workgroupExclusiveAdd(uint val)
     {
+	    uint pingpong = uint(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT);
         //! Bad INEFFICIENT Kogge-Stone adder, don't implement this way!
         for (int pass=1; pass<_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT; pass<<=1)
         {
-            uint index = gl_LocalInvocationIndex+(pass&0x1)*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT;
+            uint index = gl_LocalInvocationIndex+pingpong;
+            pingpong ^= _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT;
 
             _IRR_GLSL_SCRATCH_SHARED_DEFINED_[index] = val;
             barrier();
@@ -204,7 +207,7 @@ shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_SHARED_SI
         for (; arrayLenPoT>0; arrayLenPoT>>=1)
         {
             int right = ret+arrayLenPoT;
-            ret = (val<_IRR_GLSL_SCRATCH_SHARED_DEFINED_[right]) ? 0:right;
+            ret = (val<_IRR_GLSL_SCRATCH_SHARED_DEFINED_[right]) ? ret:right;
         }
         return ret;
     }
@@ -213,11 +216,9 @@ shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_SHARED_SI
     {
         uvec2 percentileRange; // (lowerPercentile,upperPercentile)
     };
-    float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_output_t firstPassOutput, in irr_glsl_ext_LumaMeter_PassInfo_t info)
+    float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t firstPassOutput, in irr_glsl_ext_LumaMeter_PassInfo_t info)
     {
-        uint histogramVal = firstPassOutput.packedHistogram[gl_LocalInvocationIndex];
-        for (int i=0; i<_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION; i++)
-            histogramVal += firstPassOutput.packedHistogram[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT];
+        uint histogramVal = firstPassOutput;
 
         // do the prefix sum stuff
         _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = irr_glsl_workgroupExclusiveAdd(histogramVal);
@@ -230,7 +231,7 @@ shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_SHARED_SI
         {
             int found = upper_bound_minus_onePoT(info.percentileRange[gl_LocalInvocationIndex],_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT);
 
-            float foundValue = float(found)/float(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT);
+            float foundValue = float(found)/float(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT-1u);
             _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = floatBitsToUint(foundValue);
         }
         barrier();
@@ -238,7 +239,6 @@ shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_SHARED_SI
 
         return (uintBitsToFloat(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[0])+uintBitsToFloat(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[1]))*0.5;
     }
-    #undef _IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION
 #elif _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
     #define _IRR_GLSL_EXT_LUMA_METER_GEOM_MEAN_MAX_WG_INCREMENT 0x1000u
 
@@ -264,15 +264,15 @@ shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_SHARED_SI
     {
         float rcpFirstPassWGCount;
     };
-    float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_output_t firstPassOutput, in irr_glsl_ext_LumaMeter_PassInfo_t info)
+    float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t firstPassOutput, in irr_glsl_ext_LumaMeter_PassInfo_t info)
     {
-        return float(firstPassOutput.unormAverage)*info.rcpFirstPassWGCount/float(_IRR_GLSL_EXT_LUMA_METER_GEOM_MEAN_MAX_WG_INCREMENT);
+        return float(firstPassOutput)*info.rcpFirstPassWGCount/float(_IRR_GLSL_EXT_LUMA_METER_GEOM_MEAN_MAX_WG_INCREMENT);
     }
     #undef _IRR_GLSL_EXT_LUMA_METER_GEOM_MEAN_MAX_WG_INCREMENT
 #endif
 
 
-float irr_glsl_ext_LumaMeter_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_output_t firstPassOutput, in irr_glsl_ext_LumaMeter_PassInfo_t info)
+float irr_glsl_ext_LumaMeter_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t firstPassOutput, in irr_glsl_ext_LumaMeter_PassInfo_t info)
 {
     const float MinLuma = intBitsToFloat(_IRR_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_);
     const float MaxLuma = intBitsToFloat(_IRR_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_);
