@@ -34,23 +34,26 @@ namespace bsdf
 
 	enum E_OPCODE : uint8_t
 	{
+		//brdf
 		OP_DIFFUSE,
 		OP_ROUGHDIFFUSE,
-		OP_DIFFTRANS,
-		OP_DIELECTRIC,
-		OP_ROUGHDIELECTRIC,
 		OP_CONDUCTOR,
 		OP_ROUGHCONDUCTOR,
 		OP_PLASTIC,
 		OP_ROUGHPLASTIC,
 		OP_WARD,
-		OP_SET_GEOM_NORMAL,
-		OP_INVALID,
-		//all below are meta (have children)
 		OP_COATING,
 		OP_ROUGHCOATING,
-		OP_BUMPMAP,
+		//bsdf
+		OP_DIFFTRANS,
+		OP_DIELECTRIC,
+		OP_ROUGHDIELECTRIC,
+		//blend
 		OP_BLEND,
+		//specials
+		OP_BUMPMAP,
+		OP_SET_GEOM_NORMAL,
+		OP_INVALID,
 
 		OPCODE_COUNT
 	};
@@ -58,7 +61,7 @@ namespace bsdf
 	{
 		if (_op==OP_BLEND)
 			return 2u;
-		else if (_op>OP_INVALID)
+		else if (_op==OP_BUMPMAP || _op==OP_COATING || _op==OP_ROUGHCOATING)
 			return 1u;
 		return 0u;
 	}
@@ -345,8 +348,15 @@ class CMitsubaLoader : public asset::IAssetLoader
 			core::vector<bsdf::SBSDFUnion> bsdfBuffer;
 			core::vector<bsdf::instr_t> instrBuffer;
 
+			struct bsdf_type
+			{
+				using instr_offset_count = std::pair<uint32_t, uint32_t>;
+
+				instr_offset_count postorder;
+				instr_offset_count preorder;
+			};
 			//caches instr buffer instr-wise offset (.first) and instruction count (.second) for each bsdf node
-			core::unordered_map<const CElementBSDF*,std::pair<uint32_t,uint32_t>> instrStreamCache;
+			core::unordered_map<const CElementBSDF*,bsdf_type> instrStreamCache;
 
 			struct SPipelineCacheKey
 			{
@@ -389,8 +399,8 @@ class CMitsubaLoader : public asset::IAssetLoader
 		SContext::VT_data_type					getVTallocData(SContext& ctx, const CElementTexture* texture, uint32_t texHierLvl);
 
 		bsdf::SBSDFUnion bsdfNode2bsdfStruct(SContext& _ctx, const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight = 0.f, const CElementBSDF* _parentMask = nullptr);
-		std::pair<uint32_t,uint32_t> getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
-		std::pair<uint32_t,uint32_t> genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
+		SContext::bsdf_type getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
+		SContext::bsdf_type genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 
 		template <typename Iter>
 		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx, Iter meshBegin, Iter meshEnd);
