@@ -20,7 +20,7 @@ class CLumaMeter : public core::TotalInterface
 		enum E_METERING_MODE
 		{
 			EMM_GEOM_MEAN,
-			EMM_MODE,
+			EMM_MEDIAN,
 			EMM_COUNT
 		};
 
@@ -33,7 +33,7 @@ class CLumaMeter : public core::TotalInterface
 		template<E_METERING_MODE mode>
 		struct Uniforms_t;
 		template<>
-		struct alignas(256) Uniforms_t<EMM_MODE> : UniformsBase
+		struct alignas(256) Uniforms_t<EMM_MEDIAN> : UniformsBase
 		{
 			uint32_t lowerPercentile;
 			uint32_t upperPercentile;
@@ -64,7 +64,7 @@ class CLumaMeter : public core::TotalInterface
 		}
 		// previous implementation had percentiles 0.72 and 0.96
 		static inline DispatchInfo_t buildParameters(
-			Uniforms_t<EMM_MODE>& uniforms,
+			Uniforms_t<EMM_MEDIAN>& uniforms,
 			const asset::VkExtent3D& imageSize, const float meteringMinUV[2], const float meteringMaxUV[2], float samplingFactor=2.f,
 			float lowerPercentile=0.45f, float upperPercentile=0.55f,
 			uint32_t workGroupXdim=DEFAULT_WORK_GROUP_X_DIM
@@ -103,7 +103,7 @@ class CLumaMeter : public core::TotalInterface
 				case EMM_GEOM_MEAN:
 					retval = 1ull;
 					break;
-				case EMM_MODE:
+				case EMM_MEDIAN:
 					// TODO: should be DEFAULT_BIN_COUNT instead of invocation count
 					retval = CGLSLLumaBuiltinIncludeLoader::DEFAULT_INVOCATION_COUNT*CGLSLLumaBuiltinIncludeLoader::BIN_GLOBAL_REPLICATION;
 					break;

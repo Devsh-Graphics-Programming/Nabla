@@ -117,7 +117,7 @@ vec3 irr_glsl_ext_LumaMeter_getColor(bool wgExecutionMask)
 void irr_glsl_ext_LumaMeter(bool wgExecutionMask)
 {
 	vec3 color = irr_glsl_ext_LumaMeter_getColor(wgExecutionMask);
-	#if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MODE
+	#if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN
 		irr_glsl_ext_LumaMeter_clearHistogram();
 	#endif
 	irr_glsl_ext_LumaMeter_clearFirstPassOutput();
@@ -137,7 +137,7 @@ void irr_glsl_ext_LumaMeter(bool wgExecutionMask)
 		logLuma = log2(luma/MinLuma)/log2(MaxLuma/MinLuma);
 	}
 
-	#if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MODE
+	#if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN
 		// compute histogram index
 		int histogramIndex;
 		if (wgExecutionMask)
