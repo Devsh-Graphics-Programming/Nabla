@@ -705,6 +705,8 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
         void invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) override;
 
+		void fillBuffer(IGPUBuffer* buffer, size_t offset, size_t length, uint32_t value) override;
+
         void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length) override;
 
 		void copyImage(IGPUImage* srcImage, IGPUImage* dstImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions) override;
