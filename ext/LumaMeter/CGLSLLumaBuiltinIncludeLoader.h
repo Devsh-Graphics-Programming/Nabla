@@ -158,31 +158,10 @@ shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_SHARED_SI
 
 #if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN
     #ifdef _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
-        void irr_glsl_ext_LumaMeter_clearHistogram()
-        {
-	        for (int i=0; i<_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION; i++)
-		        _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT] = 0u;
-            #if _IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION_POW_DEFINED_>0
-	            if (gl_LocalInvocationIndex<_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION)
-		            _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION*_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT] = 0u;
-            #endif
-        }
-
-        void irr_glsl_ext_LumaMeter_clearFirstPassOutput()
-        {
-            uint globalIndex = gl_LocalInvocationIndex+gl_WorkGroupID.x*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT;
-            if (globalIndex<_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_COUNT)
-            {
-    		    outParams[(pc.currentFirstPassOutput!=0 ? 0:textureSize(inputImage,0).z)+int(gl_WorkGroupID.z)].packedHistogram[globalIndex] = 0u;
-            }
-        }
-
-        void irr_glsl_ext_LumaMeter_setFirstPassOutput(in uint writeOutVal)
-        {
-            uint globalIndex = gl_LocalInvocationIndex;
-            globalIndex += (gl_WorkGroupID.x&uint(_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION-1))*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT;
-		    atomicAdd(outParams[(pc.currentFirstPassOutput!=0 ? textureSize(inputImage,0).z:0)+int(gl_WorkGroupID.z)].packedHistogram[globalIndex],writeOutVal);
-        }
+        #ifndef _IRR_GLSL_EXT_LUMA_METER_CLEAR_HISTOGRAM_FUNC_DECLARED_
+        #define _IRR_GLSL_EXT_LUMA_METER_CLEAR_HISTOGRAM_FUNC_DECLARED_
+        void irr_glsl_ext_LumaMeter_clearHistogram();
+        #endif
     #endif
 
     // TODO: move to `CGLSLScanBuiltinIncludeLoader` but clean that include up first and fix shaderc macro handling
@@ -226,8 +205,126 @@ shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_SHARED_SI
     {
         uvec2 percentileRange; // (lowerPercentile,upperPercentile)
     };
-    float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t firstPassOutput, in irr_glsl_ext_LumaMeter_PassInfo_t info)
+#elif _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
+    struct irr_glsl_ext_LumaMeter_PassInfo_t
     {
+        float rcpFirstPassWGCount;
+    };
+#endif
+
+
+
+#define _IRR_GLSL_EXT_LUMA_METER_GEOM_MEAN_MAX_WG_INCREMENT 0x1000u
+#ifdef _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
+    #ifndef _IRR_GLSL_EXT_LUMA_METER_GET_NEXT_LUMA_OUTPUT_OFFSET_FUNC_DECLARED_
+    #define _IRR_GLSL_EXT_LUMA_METER_GET_NEXT_LUMA_OUTPUT_OFFSET_FUNC_DECLARED_
+    int irr_glsl_ext_LumaMeter_getNextLumaOutputOffset();
+    #endif
+
+    #ifndef _IRR_GLSL_EXT_LUMA_METER_GET_NEXT_LUMA_OUTPUT_OFFSET_FUNC_DEFINED_
+    #define _IRR_GLSL_EXT_LUMA_METER_GET_NEXT_LUMA_OUTPUT_OFFSET_FUNC_DEFINED_
+    int irr_glsl_ext_LumaMeter_getNextLumaOutputOffset()
+    {
+        return (pc.currentFirstPassOutput!=0 ? 0:textureSize(inputImage,0).z)+int(gl_WorkGroupID.z);
+    }
+    #endif
+
+
+    #ifndef _IRR_GLSL_EXT_LUMA_METER_GET_CURRENT_LUMA_OUTPUT_OFFSET_FUNC_DECLARED_
+    #define _IRR_GLSL_EXT_LUMA_METER_GET_CURRENT_LUMA_OUTPUT_OFFSET_FUNC_DECLARED_
+    int irr_glsl_ext_LumaMeter_getCurrentLumaOutputOffset();
+    #endif
+
+    #ifndef _IRR_GLSL_EXT_LUMA_METER_GET_CURRENT_LUMA_OUTPUT_OFFSET_FUNC_DEFINED_
+    #define _IRR_GLSL_EXT_LUMA_METER_GET_CURRENT_LUMA_OUTPUT_OFFSET_FUNC_DEFINED_
+    int irr_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()
+    {
+        return (pc.currentFirstPassOutput!=0 ? textureSize(inputImage,0).z:0)+int(gl_WorkGroupID.z);
+    }
+    #endif
+
+
+    #if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN
+        void irr_glsl_ext_LumaMeter_clearHistogram()
+        {
+	        for (int i=0; i<_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION; i++)
+		        _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT] = 0u;
+            #if _IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION_POW_DEFINED_>0
+	            if (gl_LocalInvocationIndex<_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION)
+		            _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION*_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT] = 0u;
+            #endif
+        }
+    #endif
+
+
+    #ifndef _IRR_GLSL_EXT_LUMA_METER_CLEAR_FIRST_PASS_OUTPUT_FUNC_DECLARED_
+    #define _IRR_GLSL_EXT_LUMA_METER_CLEAR_FIRST_PASS_OUTPUT_FUNC_DECLARED_
+    void irr_glsl_ext_LumaMeter_clearFirstPassOutput();
+    #endif
+
+    #ifndef _IRR_GLSL_EXT_LUMA_METER_CLEAR_FIRST_PASS_OUTPUT_FUNC_DEFINED_
+    #define _IRR_GLSL_EXT_LUMA_METER_CLEAR_FIRST_PASS_OUTPUT_FUNC_DEFINED_
+    void irr_glsl_ext_LumaMeter_clearFirstPassOutput()
+    {
+        #if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN
+            uint globalIndex = gl_LocalInvocationIndex+gl_WorkGroupID.x*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT;
+            if (globalIndex<_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_COUNT)
+            {
+    		    outParams[irr_glsl_ext_LumaMeter_getNextLumaOutputOffset()].packedHistogram[globalIndex] = 0u;
+            }
+        #else
+		    if (all(equal(uvec2(0,0),gl_GlobalInvocationID.xy)))
+		        outParams[irr_glsl_ext_LumaMeter_getNextLumaOutputOffset()].unormAverage = 0u;
+        #endif
+    }
+    #endif
+
+
+    #if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN
+        #define WriteOutValue_t uint
+    #else
+        #define WriteOutValue_t float
+    #endif
+
+    #ifndef _IRR_GLSL_EXT_LUMA_METER_SET_FIRST_OUTPUT_FUNC_DECLARED_
+    #define _IRR_GLSL_EXT_LUMA_METER_SET_FIRST_OUTPUT_FUNC_DECLARED_
+    void irr_glsl_ext_LumaMeter_setFirstPassOutput(in WriteOutValue_t writeOutVal);
+    #endif
+
+    #ifndef _IRR_GLSL_EXT_LUMA_METER_SET_FIRST_OUTPUT_FUNC_DEFINED_
+    #define _IRR_GLSL_EXT_LUMA_METER_SET_FIRST_OUTPUT_FUNC_DEFINED_
+    void irr_glsl_ext_LumaMeter_setFirstPassOutput(in WriteOutValue_t writeOutVal)
+    {
+        int layerIndex = irr_glsl_ext_LumaMeter_getCurrentLumaOutputOffset();
+        #if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN
+            uint globalIndex = gl_LocalInvocationIndex;
+            globalIndex += (gl_WorkGroupID.x&uint(_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION-1))*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT;
+		    atomicAdd(outParams[layerIndex].packedHistogram[globalIndex],writeOutVal);
+        #else
+		    if (gl_LocalInvocationIndex==0u)
+		    {
+			    float normalizedAvg = writeOutVal/float(_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT);
+			    uint incrementor = uint(float(_IRR_GLSL_EXT_LUMA_METER_GEOM_MEAN_MAX_WG_INCREMENT)*normalizedAvg+0.5);
+			    atomicAdd(outParams[layerIndex].unormAverage,incrementor);
+		    }
+        #endif
+    }
+    #endif
+
+    #undef WriteOutValue_t
+#endif
+
+
+#ifndef _IRR_GLSL_EXT_LUMA_METER_IMPL_GET_MEASURED_LUMA_FUNC_DECLARED_
+#define _IRR_GLSL_EXT_LUMA_METER_IMPL_GET_MEASURED_LUMA_FUNC_DECLARED_
+float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t firstPassOutput, in irr_glsl_ext_LumaMeter_PassInfo_t info);
+#endif
+
+#ifndef _IRR_GLSL_EXT_LUMA_METER_IMPL_GET_MEASURED_LUMA_FUNC_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_IMPL_GET_MEASURED_LUMA_FUNC_DEFINED_
+float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t firstPassOutput, in irr_glsl_ext_LumaMeter_PassInfo_t info)
+{
+    #if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN
         uint histogramVal = firstPassOutput;
 
         // do the prefix sum stuff
@@ -248,38 +345,13 @@ shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_SHARED_SI
         memoryBarrierShared();
 
         return (uintBitsToFloat(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[0])+uintBitsToFloat(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[1]))*0.5;
-    }
-#elif _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
-    #define _IRR_GLSL_EXT_LUMA_METER_GEOM_MEAN_MAX_WG_INCREMENT 0x1000u
-
-    #ifdef _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
-        void irr_glsl_ext_LumaMeter_clearFirstPassOutput()
-        {
-		    if (all(equal(uvec2(0,0),gl_GlobalInvocationID.xy)))
-		        outParams[(pc.currentFirstPassOutput!=0 ? 0:textureSize(inputImage,0).z)+int(gl_WorkGroupID.z)].unormAverage = 0u;
-        }
-
-        void irr_glsl_ext_LumaMeter_setFirstPassOutput(in float writeOutVal)
-        {
-		    if (gl_LocalInvocationIndex==0u)
-		    {
-			    float normalizedAvg = writeOutVal/float(_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT);
-			    uint incrementor = uint(float(_IRR_GLSL_EXT_LUMA_METER_GEOM_MEAN_MAX_WG_INCREMENT)*normalizedAvg+0.5);
-			    atomicAdd(outParams[(pc.currentFirstPassOutput!=0 ? textureSize(inputImage,0).z:0)+int(gl_WorkGroupID.z)].unormAverage,incrementor);
-		    }
-        }
-    #endif
-
-    struct irr_glsl_ext_LumaMeter_PassInfo_t
-    {
-        float rcpFirstPassWGCount;
-    };
-    float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t firstPassOutput, in irr_glsl_ext_LumaMeter_PassInfo_t info)
-    {
+    #else
         return float(firstPassOutput)*info.rcpFirstPassWGCount/float(_IRR_GLSL_EXT_LUMA_METER_GEOM_MEAN_MAX_WG_INCREMENT);
-    }
-    #undef _IRR_GLSL_EXT_LUMA_METER_GEOM_MEAN_MAX_WG_INCREMENT
+    #endif
+}
 #endif
+#undef _IRR_GLSL_EXT_LUMA_METER_GEOM_MEAN_MAX_WG_INCREMENT
+
 
 
 float irr_glsl_ext_LumaMeter_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t firstPassOutput, in irr_glsl_ext_LumaMeter_PassInfo_t info)
