@@ -91,26 +91,16 @@ layout(set=_IRR_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_, binding=_IRR_GLSL_EXT
 
 #ifndef _IRR_GLSL_EXT_LUMA_METER_GET_COLOR_DEFINED_
 #define _IRR_GLSL_EXT_LUMA_METER_GET_COLOR_DEFINED_
-vec3 irr_glsl_ext_LumaMeter_getColor()
+vec3 irr_glsl_ext_LumaMeter_getColor(bool wgExecutionMask)
 {
-	vec2 uv = vec2(gl_GlobalInvocationID.xy)*inParams.meteringWindowScale+inParams.meteringWindowOffset;
-	return textureLod(inputImage,vec3(uv,float(gl_GlobalInvocationID.z)),0.0).rgb;
-}
-#endif
-
-
-
-#if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MODE
-	void irr_glsl_ext_LumaMeter_clearHistogram()
+	vec3 retval;
+	if (wgExecutionMask)
 	{
-		for (int i=0; i<_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION; i++)
-			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT] = 0u;
-
-		#if _IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION_POW_DEFINED_>0
-			if (gl_LocalInvocationIndex<_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION)
-				_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION*_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT] = 0u;
-		#endif
+		vec2 uv = vec2(gl_GlobalInvocationID.xy)*inParams.meteringWindowScale+inParams.meteringWindowOffset;
+		retval = textureLod(inputImage,vec3(uv,float(gl_GlobalInvocationID.z)),0.0).rgb;
 	}
+	return retval;
+}
 #endif
 
 
@@ -124,32 +114,42 @@ vec3 irr_glsl_ext_LumaMeter_getColor()
 
 #ifndef _IRR_GLSL_EXT_LUMA_METER_IMPL_DEFINED_
 #define _IRR_GLSL_EXT_LUMA_METER_IMPL_DEFINED_
-void irr_glsl_ext_LumaMeter() // bool wgExecutionMask, then do if(any(wgExecutionMask))
+void irr_glsl_ext_LumaMeter(bool wgExecutionMask)
 {
-	vec3 color = irr_glsl_ext_LumaMeter_getColor();
+	vec3 color = irr_glsl_ext_LumaMeter_getColor(wgExecutionMask);
 	#if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MODE
 		irr_glsl_ext_LumaMeter_clearHistogram();
 	#endif
 	irr_glsl_ext_LumaMeter_clearFirstPassOutput();
 
+	float logLuma;
 	// linearize
-	vec3 linear = _IRR_GLSL_EXT_LUMA_METER_EOTF_DEFINED_(color);
-	// transform to CIE
-	float luma = dot(transpose(_IRR_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_)[1],linear);
-	// clamp to sane values
-	const float MinLuma = intBitsToFloat(_IRR_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_);
-	const float MaxLuma = intBitsToFloat(_IRR_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_);
-	luma = clamp(luma,MinLuma,MaxLuma);
+	if (wgExecutionMask)
+	{
+		vec3 linear = _IRR_GLSL_EXT_LUMA_METER_EOTF_DEFINED_(color);
+		// transform to CIE
+		float luma = dot(transpose(_IRR_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_)[1],linear);
+		// clamp to sane values
+		const float MinLuma = intBitsToFloat(_IRR_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_);
+		const float MaxLuma = intBitsToFloat(_IRR_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_);
+		luma = clamp(luma,MinLuma,MaxLuma);
 
-	float logLuma = log2(luma/MinLuma)/log2(MaxLuma/MinLuma);
+		logLuma = log2(luma/MinLuma)/log2(MaxLuma/MinLuma);
+	}
+
 	#if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MODE
 		// compute histogram index
-		int histogramIndex = int(logLuma*float(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT-1u)+0.5);
-		histogramIndex += int(gl_LocalInvocationIndex&uint(_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION-1))*_IRR_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT;
+		int histogramIndex;
+		if (wgExecutionMask)
+		{
+			histogramIndex = int(logLuma*float(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT-1u)+0.5);
+			histogramIndex += int(gl_LocalInvocationIndex&uint(_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION-1))*_IRR_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT;
+		}
 		// barrier so we "see" the cleared histogram
 		barrier();
 		memoryBarrierShared();
-		atomicAdd(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[histogramIndex],1u);
+		if (wgExecutionMask)
+			atomicAdd(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[histogramIndex],1u);
 
 		// no barrier on shared memory cause if we use it with atomics the writes and reads be coherent
 		barrier();
@@ -159,7 +159,7 @@ void irr_glsl_ext_LumaMeter() // bool wgExecutionMask, then do if(any(wgExecutio
 		for (int i=1; i<_IRR_GLSL_EXT_LUMA_METER_LOCAL_REPLICATION; i++)
 			writeOutVal += _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT];
 	#elif _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
-		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = floatBitsToUint(logLuma);
+		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = wgExecutionMask ? floatBitsToUint(logLuma):0u;
 		for (int i=_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT>>1; i>1; i>>=1)
 		{
 			barrier();
@@ -186,7 +186,7 @@ void irr_glsl_ext_LumaMeter() // bool wgExecutionMask, then do if(any(wgExecutio
 #define _IRR_GLSL_EXT_LUMA_METER_MAIN_DEFINED_
 void main()
 {
-	irr_glsl_ext_LumaMeter();
+	irr_glsl_ext_LumaMeter(true);
 }
 #endif
 )===";
