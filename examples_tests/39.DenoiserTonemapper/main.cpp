@@ -102,6 +102,28 @@ int main(int argc, char* argv[])
 		return error_code;
 
 	constexpr auto forcedOptiXFormat = OPTIX_PIXEL_FORMAT_HALF3; // TODO: make more denoisers with formats
+	E_FORMAT irrFmtRequired = EF_UNKNOWN;
+	switch (forcedOptiXFormat)
+	{
+		case OPTIX_PIXEL_FORMAT_UCHAR3:
+			irrFmtRequired = EF_R8G8B8_SRGB;
+			break;
+		case OPTIX_PIXEL_FORMAT_UCHAR4:
+			irrFmtRequired = EF_R8G8B8A8_SRGB;
+			break;
+		case OPTIX_PIXEL_FORMAT_HALF3:
+			irrFmtRequired = EF_R16G16B16_SFLOAT;
+			break;
+		case OPTIX_PIXEL_FORMAT_HALF4:
+			irrFmtRequired = EF_R16G16B16A16_SFLOAT;
+			break;
+		case OPTIX_PIXEL_FORMAT_FLOAT3:
+			irrFmtRequired = EF_R32G32B32_SFLOAT;
+			break;
+		case OPTIX_PIXEL_FORMAT_FLOAT4:
+			irrFmtRequired = EF_R32G32B32A32_SFLOAT;
+			break;
+	}
 	constexpr auto forcedOptiXFormatPixelStride = 6u;
 	DenoiserToUse denoisers[EII_COUNT];
 	{
@@ -118,7 +140,6 @@ int main(int argc, char* argv[])
 		if (check_error(!denoisers[EII_NORMAL].m_denoiser, "Could not create Optix Color-Albedo-Normal Denoiser!"))
 			return error_code;
 	}
-
 	constexpr uint32_t kComputeWGSize = 1024u;
 	core::smart_refctd_ptr<IGPUDescriptorSetLayout> sharedDescriptorSetLayout;
 	core::smart_refctd_ptr<IGPUPipelineLayout> sharedPipelineLayout;
@@ -139,17 +160,234 @@ layout(binding = 1, std430) restrict writeonly buffer OutputBuffer
 	float16_t outBuffer[];
 };
 
+vec3 fetchData(in uvec3 texCoord)
+{
+	vec3 data = vec4(inBuffer[pc.data.inImageTexelOffset[texCoord.z]+texCoord.y*pc.data.inImageTexelPitch[texCoord.z]+texCoord.x]).xyz;
+	bool invalid = any(isnan(data))||any(isinf(abs(data)));
+	if (texCoord.z==EII_ALBEDO)
+		data = invalid ? vec3(1.0):data;
+	else if (texCoord.z==EII_NORMAL)
+	{
+		data = invalid||length(data)<0.000000001 ? vec3(0.0,0.0,1.0):normalize(pc.data.normalMatrix*data);
+	}
+	return data;
+}
+
+#define MEDIAN_FILTER_RADIUS 1
+#define MEDIAN_FILTER_DIAMETER (MEDIAN_FILTER_RADIUS*2+1)
 
 void main()
 {
-	vec4 data = vec4(inBuffer[pc.data.inImageTexelOffset[gl_GlobalInvocationID.z]+gl_GlobalInvocationID.y*pc.data.inImageTexelPitch[gl_GlobalInvocationID.z]+gl_GlobalInvocationID.x]);
-	if (gl_GlobalInvocationID.z==EII_ALBEDO && all(greaterThan(vec3(0.00000001),data.rgb)))
-		data.rgb = vec3(1.0);
-	else if (gl_GlobalInvocationID.z==EII_NORMAL)
-		data.xyz = normalize(pc.data.normalMatrix*data.xyz);
-	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = data[0u];
-	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = data[1u];
-	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = data[2u];
+	if (gl_GlobalInvocationID.z!=EII_COLOR)
+	{
+		vec3 data = fetchData(gl_GlobalInvocationID);
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = data[0u];
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = data[1u];
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = data[2u];
+	}
+	else
+	{
+        vec4 window[MEDIAN_FILTER_DIAMETER*MEDIAN_FILTER_DIAMETER];
+
+		ivec3 tc = ivec3(gl_GlobalInvocationID);
+		const vec3 lumaCoeffs = vec3(0.212586, 0.715170, 0.072200);
+		for (int i=-MEDIAN_FILTER_RADIUS; i<=MEDIAN_FILTER_RADIUS; i++)
+		for (int j=-MEDIAN_FILTER_RADIUS; j<=MEDIAN_FILTER_RADIUS; j++)
+		{
+			vec4 data;
+			data.rgb = fetchData(clampCoords(ivec3(j,i,0)+tc));
+			data.a = dot(data.rgb,lumaCoeffs);
+			window[MEDIAN_FILTER_DIAMETER*(i+MEDIAN_FILTER_RADIUS)+(j+MEDIAN_FILTER_RADIUS)] = data;
+		}
+		#define SWAP(X,Y) ltswap(window[X],window[Y])
+		#if MEDIAN_FILTER_RADIUS==1
+			SWAP(0, 1);
+			SWAP(3, 4);
+			SWAP(6, 7);
+			SWAP(1, 2);
+			SWAP(4, 5);
+			SWAP(7, 8);
+			SWAP(0, 1);
+			SWAP(3, 4);
+			SWAP(6, 7);
+			SWAP(0, 3);
+			SWAP(3, 6);
+			SWAP(0, 3);
+			SWAP(1, 4);
+			SWAP(4, 7);
+			SWAP(1, 4);
+			SWAP(2, 5);
+			SWAP(5, 8);
+			SWAP(2, 5);
+			SWAP(1, 3);
+			SWAP(5, 7);
+			SWAP(2, 6);
+			SWAP(4, 6);
+			SWAP(2, 4);
+			SWAP(2, 3);
+			SWAP(5, 6);
+		#elif MEDIAN_FILTER_RADIUS==2SWAP(1, 2);
+			SWAP(0, 2);
+			SWAP(0, 1);
+			SWAP(4, 5);
+			SWAP(3, 5);
+			SWAP(3, 4);
+			SWAP(0, 3);
+			SWAP(1, 4);
+			SWAP(2, 5);
+			SWAP(2, 4);
+			SWAP(1, 3);
+			SWAP(2, 3);
+			SWAP(7, 8);
+			SWAP(6, 8);
+			SWAP(6, 7);
+			SWAP(10, 11);
+			SWAP(9, 11);
+			SWAP(9, 10);
+			SWAP(6, 9);
+			SWAP(7, 10);
+			SWAP(8, 11);
+			SWAP(8, 10);
+			SWAP(7, 9);
+			SWAP(8, 9);
+			SWAP(0, 6);
+			SWAP(1, 7);
+			SWAP(2, 8);
+			SWAP(2, 7);
+			SWAP(1, 6);
+			SWAP(2, 6);
+			SWAP(3, 9);
+			SWAP(4, 10);
+			SWAP(5, 11);
+			SWAP(5, 10);
+			SWAP(4, 9);
+			SWAP(5, 9);
+			SWAP(3, 6);
+			SWAP(4, 7);
+			SWAP(5, 8);
+			SWAP(5, 7);
+			SWAP(4, 6);
+			SWAP(5, 6);
+			SWAP(13, 14);
+			SWAP(12, 14);
+			SWAP(12, 13);
+			SWAP(16, 17);
+			SWAP(15, 17);
+			SWAP(15, 16);
+			SWAP(12, 15);
+			SWAP(13, 16);
+			SWAP(14, 17);
+			SWAP(14, 16);
+			SWAP(13, 15);
+			SWAP(14, 15);
+			SWAP(19, 20);
+			SWAP(18, 20);
+			SWAP(18, 19);
+			SWAP(21, 22);
+			SWAP(23, 24);
+			SWAP(21, 23);
+			SWAP(22, 24);
+			SWAP(22, 23);
+			SWAP(18, 22);
+			SWAP(18, 21);
+			SWAP(19, 23);
+			SWAP(20, 24);
+			SWAP(20, 23);
+			SWAP(19, 21);
+			SWAP(20, 22);
+			SWAP(20, 21);
+			SWAP(12, 19);
+			SWAP(12, 18);
+			SWAP(13, 20);
+			SWAP(14, 21);
+			SWAP(14, 20);
+			SWAP(13, 18);
+			SWAP(14, 19);
+			SWAP(14, 18);
+			SWAP(15, 22);
+			SWAP(16, 23);
+			SWAP(17, 24);
+			SWAP(17, 23);
+			SWAP(16, 22);
+			SWAP(17, 22);
+			SWAP(15, 19);
+			SWAP(15, 18);
+			SWAP(16, 20);
+			SWAP(17, 21);
+			SWAP(17, 20);
+			SWAP(16, 18);
+			SWAP(17, 19);
+			SWAP(17, 18);
+			SWAP(0, 13);
+			SWAP(0, 12);
+			SWAP(1, 14);
+			SWAP(2, 15);
+			SWAP(2, 14);
+			SWAP(1, 12);
+			SWAP(2, 13);
+			SWAP(2, 12);
+			SWAP(3, 16);
+			SWAP(4, 17);
+			SWAP(5, 18);
+			SWAP(5, 17);
+			SWAP(4, 16);
+			SWAP(5, 16);
+			SWAP(3, 13);
+			SWAP(3, 12);
+			SWAP(4, 14);
+			SWAP(5, 15);
+			SWAP(5, 14);
+			SWAP(4, 12);
+			SWAP(5, 13);
+			SWAP(5, 12);
+			SWAP(6, 19);
+			SWAP(7, 20);
+			SWAP(8, 21);
+			SWAP(8, 20);
+			SWAP(7, 19);
+			SWAP(8, 19);
+			SWAP(9, 22);
+			SWAP(10, 23);
+			SWAP(11, 24);
+			SWAP(11, 23);
+			SWAP(10, 22);
+			SWAP(11, 22);
+			SWAP(9, 19);
+			SWAP(10, 20);
+			SWAP(11, 21);
+			SWAP(11, 20);
+			SWAP(10, 19);
+			SWAP(11, 19);
+			SWAP(6, 13);
+			SWAP(6, 12);
+			SWAP(7, 14);
+			SWAP(8, 15);
+			SWAP(8, 14);
+			SWAP(7, 12);
+			SWAP(8, 13);
+			SWAP(8, 12);
+			SWAP(9, 16);
+			SWAP(10, 17);
+			SWAP(11, 18);
+			SWAP(11, 17);
+			SWAP(10, 16);
+			SWAP(11, 16);
+			SWAP(9, 13);
+			SWAP(9, 12);
+			SWAP(10, 14);
+			SWAP(11, 15);
+			SWAP(11, 14);
+			SWAP(10, 12);
+			SWAP(11, 13);
+			SWAP(11, 12);
+		#endif
+		#undef SWAP
+		const int median = (MEDIAN_FILTER_DIAMETER*MEDIAN_FILTER_DIAMETER)>>1;
+		window[median].rgb *= exp2(DENOISER_EXPOSURE_BIAS);
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = window[median].r;
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = window[median].g;
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = window[median].b;
+	}
 	barrier();
 	memoryBarrierShared();
 
@@ -198,6 +436,7 @@ void main()
 
 	bool alive = gl_GlobalInvocationID.x<pc.data.imageWidth;
 	vec3 color = vec3(repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u]);
+	color *= exp2(-DENOISER_EXPOSURE_BIAS);
 	uint dataOffset = pc.data.inImageTexelOffset[EII_COLOR]+gl_GlobalInvocationID.y*pc.data.inImageTexelPitch[EII_COLOR]+gl_GlobalInvocationID.x;
 	if (alive)
 		outBuffer[dataOffset] = f16vec4(vec4(color,1.0));
@@ -217,7 +456,8 @@ void main()
 														{
 															{0u,offsetof(SpecializationConstants,workgroupSize),sizeof(SpecializationConstants::workgroupSize)},
 															{1u,offsetof(SpecializationConstants,enumEII_COLOR),sizeof(SpecializationConstants::enumEII_COLOR)},
-															{2u,offsetof(SpecializationConstants,enumEII_NORMAL),sizeof(SpecializationConstants::enumEII_NORMAL)}
+															{2u,offsetof(SpecializationConstants,enumEII_ALBEDO),sizeof(SpecializationConstants::enumEII_ALBEDO)},
+															{3u,offsetof(SpecializationConstants,enumEII_NORMAL),sizeof(SpecializationConstants::enumEII_NORMAL)}
 														}
 													),
 													core::smart_refctd_ptr(specConstantBuffer),"main",ISpecializedShader::ESS_COMPUTE
@@ -225,7 +465,10 @@ void main()
 		auto deinterleaveSpecializedShader = driver->createGPUSpecializedShader(deinterleaveShader.get(),specInfo);
 		auto interleaveSpecializedShader = driver->createGPUSpecializedShader(interleaveShader.get(),specInfo);
 		
-		IGPUDescriptorSetLayout::SBinding binding[2] = { {0u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},{1u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr} };
+		IGPUDescriptorSetLayout::SBinding binding[2] = {
+			{0u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+			{1u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr}
+		};
 		sharedDescriptorSetLayout = driver->createGPUDescriptorSetLayout(binding,binding+sizeof(binding)/sizeof(IGPUDescriptorSetLayout::SBinding));
 		SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(CommonPushConstants)};
 		sharedPipelineLayout = driver->createGPUPipelineLayout(pcRange,pcRange+sizeof(pcRange)/sizeof(SPushConstantRange),core::smart_refctd_ptr(sharedDescriptorSetLayout));
@@ -262,7 +505,7 @@ void main()
 		asset::IAssetLoader::SAssetLoadParams lp(0ull,nullptr,IAssetLoader::ECF_DUPLICATE_REFERENCES);
 		for (size_t i=0; i<inputFilesAmount; i++)
 		{
-			auto image_bundle = am->getAsset(std::string("../../media/OpenEXR/")+fileNamesBundle[i], lp);
+			auto image_bundle = am->getAsset(fileNamesBundle[i], lp);
 			if (image_bundle.isEmpty())
 			{
 				auto imageIDString = makeImageIDString(i);
@@ -280,6 +523,14 @@ void main()
 				auto metadata = ass->getMetadata();
 				if (strcmp(metadata->getLoaderName(),COpenEXRImageMetadata::LoaderName)!=0)
 					continue;
+				
+				auto image = core::smart_refctd_ptr_static_cast<ICPUImage>(ass);/*
+				if (image->getCreationParameters().format!=irrFmtRequired)
+				{
+					CConvertFormatImageFilter<>::state_type state;
+					state.extentLayerCount = 
+					state.inImage = image;
+				}*/
 
 				auto exrmeta = static_cast<COpenEXRImageMetadata*>(metadata);
 				auto beginIt = channelNamesBundle[i].begin();
@@ -287,7 +538,7 @@ void main()
 				if (inputIx>=channelNamesBundle[i].size())
 					continue;
 
-				outParam.image[inputIx] = core::smart_refctd_ptr_static_cast<ICPUImage>(ass);
+				outParam.image[inputIx] = std::move(image);
 			}
 		}
 		// check inputs and set-up
@@ -501,7 +752,31 @@ void main()
 				// dispatch
 				driver->dispatch((param.width+kComputeWGSize-1u)/kComputeWGSize,param.height,denoiserInputCount);
 				// issue a full memory barrier (or at least all buffer read/write barrier)
-				COpenGLExtensionHandler::extGlMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+				//COpenGLExtensionHandler::extGlMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+				COpenGLExtensionHandler::extGlMemoryBarrier(GL_ALL_BARRIER_BITS);
+				for (auto j=0; j<denoiserInputCount; j++)
+				{
+					IImage::SCreationParams params;
+					params.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
+					params.type = IImage::ET_2D;
+					params.format = EF_R16G16B16_SFLOAT;
+					params.extent = { param.width,param.height,1u };
+					params.mipLevels = 1u;
+					params.arrayLayers = 1u;
+					params.samples = IImage::ESCF_1_BIT;
+					auto img = driver->createDeviceLocalGPUImageOnDedMem(std::move(params));
+					IImage::SBufferCopy region;
+					region.imageOffset = { 0,0,0 };
+					region.imageExtent = { param.width,param.height,1u };
+					region.imageSubresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
+					region.imageSubresource.baseArrayLayer = 0u;
+					region.imageSubresource.layerCount = 1u;
+					region.imageSubresource.mipLevel = 0u;
+					region.bufferOffset = shaderConstants.outImageOffset[j] * sizeof(uint16_t);
+					region.bufferRowLength = 0u;
+					region.bufferImageHeight = 0u;
+					driver->copyBufferToImage(temporaryPixelBuffer.getObject(), img.get(), 1u, &region);
+				}
 			}
 
 			// optix processing
@@ -678,6 +953,9 @@ void main()
 			downloadStagingArea->multi_free(1u,&address,&colorBufferBytesize,nullptr);
 
 			// destroy image (implicit)
+
+			//
+			driver->endScene();
 		}
 	}
 

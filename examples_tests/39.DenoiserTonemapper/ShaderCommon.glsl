@@ -13,3 +13,23 @@ layout(push_constant, row_major) uniform PushConstants{
 
 #define SHARED_CHANNELS 3u
 shared float repackBuffer[kComputeWGSize * SHARED_CHANNELS];
+
+
+uvec3 clampCoords(in ivec3 inCoord)
+{
+	return uvec3(uvec2(clamp(inCoord.xy, ivec2(0, 0), ivec2(pc.data.imageWidth, gl_NumWorkGroups.y))), inCoord.z);
+}
+
+
+
+
+
+void ltswap(inout vec4 a, inout vec4 b)
+{
+	bool swap = b.w < a.w;
+	vec3 tmp = a.rgb;
+	a.rgb = swap ? b.rgb : a.rgb;
+	b.rgb = swap ? tmp : b.rgb;
+}
+
+#define DENOISER_EXPOSURE_BIAS -1.0

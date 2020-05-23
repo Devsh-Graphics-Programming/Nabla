@@ -27,7 +27,7 @@ int main(int argc, char * argv[])
 	if (isItDefaultImage)
 		os::Printer::log("No image specified - loading a default OpenEXR image placed in media/OpenEXR!", ELL_INFORMATION);
 	else if (argc == 2)
-		os::Printer::log(argv[1] + std::string(".exr specified!"), ELL_INFORMATION);
+		os::Printer::log(argv[1] + std::string(" specified!"), ELL_INFORMATION);
 	else
 	{
 		os::Printer::log("To many arguments - pass a single filename without .exr extension of OpenEXR image placed in media/OpenEXR! ", ELL_ERROR);
@@ -39,7 +39,7 @@ int main(int argc, char * argv[])
 	auto am = device->getAssetManager();
 
 	IAssetLoader::SAssetLoadParams lp;
-	auto image_bundle = am->getAsset("../../media/OpenEXR/" + std::string(isItDefaultImage ? "daily_pt_16" : argv[1]) + ".exr", lp);
+	auto image_bundle = am->getAsset(std::string(isItDefaultImage ? "../../media/OpenEXR/daily_pt_16.exr" : argv[1]), lp);
 	assert(!image_bundle.isEmpty());
 
 	for (auto i = 0ul; i < image_bundle.getSize(); ++i)
