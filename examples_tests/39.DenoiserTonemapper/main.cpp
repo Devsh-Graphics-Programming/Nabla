@@ -5,6 +5,7 @@
 
 #include "CommandLineHandler.hpp"
 
+#include "../ext/ToneMapper/CToneMapper.h"
 #include "../../ext/OptiX/Manager.h"
 
 #include "CommonPushConstants.h"
@@ -68,6 +69,9 @@ int main(int argc, char* argv[])
 	auto driver = device->getVideoDriver();
 	auto smgr = device->getSceneManager();
 	auto am = device->getAssetManager();
+
+	auto compiler = am->getGLSLCompiler();
+	auto filesystem = device->getFileSystem();
 
 	auto getArgvFetchedList = [&]()
 	{
@@ -140,10 +144,69 @@ int main(int argc, char* argv[])
 		if (check_error(!denoisers[EII_NORMAL].m_denoiser, "Could not create Optix Color-Albedo-Normal Denoiser!"))
 			return error_code;
 	}
-	constexpr uint32_t kComputeWGSize = 1024u;
+
+
+	constexpr uint32_t kComputeWGSize = 256u;
+	
+
+	using LumaMeterClass = ext::LumaMeter::CLumaMeter;
+	using ToneMapperClass = ext::ToneMapper::CToneMapper;
+	constexpr bool usingLumaMeter = true;
+	constexpr auto MeterMode = LumaMeterClass::EMM_MEDIAN;
+	const auto HistogramBufferSize = LumaMeterClass::getOutputBufferSize(MeterMode);
+	constexpr float lowerPercentile = 0.45f;
+	constexpr float upperPercentile = 0.55f;
+	constexpr auto TMO = ToneMapperClass::EO_ACES;
+	{
+		LumaMeterClass::registerBuiltinGLSLIncludes(compiler);
+
+		/*
+		auto commonPipelineLayout = ToneMapperClass::getDefaultPipelineLayout(driver,usingLumaMeter);
+		
+		for (auto TMO=ToneMapperClass::EO_REINHARD; TMO<ToneMapperClass::EO_COUNT; TMO=static_cast<ToneMapperClass::E_OPERATOR>(TMO+1))
+		{
+			const auto inputColorSpace = std::make_tuple(EF_R16G16B16A16_SFLOAT, ECP_SRGB, EOTF_IDENTITY);
+			const auto outputColorSpace = std::make_tuple(EF_R16G16B16A16_SFLOAT, ECP_SRGB, OETF_IDENTITY);
+			const float minLuma = 1.f/4096.f;
+			const float maxLuma = 32768.f;
+			auto cpuTonemappingSpecializedShader = ToneMapperClass::createShader(compiler,
+				inputColorSpace,outputColorSpace,
+				TMO,usingLumaMeter,MeterMode,minLuma,maxLuma
+			);
+			auto gpuTonemappingShader = driver->createGPUShader(core::smart_refctd_ptr<const ICPUShader>(cpuTonemappingSpecializedShader->getUnspecialized()));
+			auto gpuTonemappingSpecializedShader = driver->createGPUSpecializedShader(gpuTonemappingShader.get(),cpuTonemappingSpecializedShader->getSpecializationInfo());
+			toneMappingPipeline[TMO] = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(commonPipelineLayout),std::move(gpuTonemappingSpecializedShader));
+		}
+		*/
+#if 0		
+		// every frame
+		LumaMeterClass::Uniforms_t<MeterMode> uniforms;
+		uniforms.lowerPercentile = lowerPercentile*float(totalSampleCount);
+		uniforms.upperPercentile = upperPercentile*float(totalSampleCount);
+
+		auto parameterBuffer = driver->createDeviceLocalGPUBufferOnDedMem(ToneMapperClass::getParameterBufferSize<TMO, MeterMode>());
+		constexpr float Exposure = 0.f;
+		constexpr float Key = 0.18;
+		auto params = ToneMapperClass::Params_t<TMO>(Exposure, Key, 0.85f);
+		{
+			params.setAdaptationFactorFromFrameDelta(0.f);
+			driver->updateBufferRangeViaStagingBuffer(parameterBuffer.get(), 0u, sizeof(params), &params);
+		}
+		
+		auto commonDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(commonPipelineLayout->getDescriptorSetLayout(0u)));
+		ToneMapperClass::updateDescriptorSet<TMO,MeterMode>(driver,commonDescriptorSet.get(),parameterBuffer,imgToTonemapView,outImgStorage,1u,2u,usingLumaMeter ? 3u:0u,uniformBuffer,0u);
+
+		constexpr auto dynOffsetArrayLen = 2u
+		auto lumaDynamicOffsetArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t> >(dynOffsetArrayLen,0u);
+		lumaDynamicOffsetArray->back() = sizeof(ToneMapperClass::Params_t<TMO>);
+		auto toneDynamicOffsetArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t> >(dynOffsetArrayLen,0u);
+#endif
+	}
+
 	core::smart_refctd_ptr<IGPUDescriptorSetLayout> sharedDescriptorSetLayout;
 	core::smart_refctd_ptr<IGPUPipelineLayout> sharedPipelineLayout;
-	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,interleavePipeline;
+	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,exposePipeline,interleavePipeline;
+	//core::smart_refctd_ptr<IGPUComputePipeline> toneMappingPipeline[ToneMapperClass::EO_COUNT+1];
 	{
 		auto deinterleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
@@ -151,11 +214,11 @@ int main(int argc, char* argv[])
 
 #include "../ShaderCommon.glsl"
 
-layout(binding = 0, std430) restrict readonly buffer InputBuffer
+layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 {
 	f16vec4 inBuffer[];
 };
-layout(binding = 1, std430) restrict writeonly buffer OutputBuffer
+layout(binding = 1, std430) restrict writeonly buffer ImageOutputBuffer
 {
 	float16_t outBuffer[];
 };
@@ -173,33 +236,22 @@ vec3 fetchData(in uvec3 texCoord)
 	return data;
 }
 
-#define MEDIAN_FILTER_RADIUS 1
-#define MEDIAN_FILTER_DIAMETER (MEDIAN_FILTER_RADIUS*2+1)
-
 void main()
 {
-	if (gl_GlobalInvocationID.z!=EII_COLOR)
+	bool colorLayer = gl_GlobalInvocationID.z==EII_COLOR;
+	if (colorLayer)
 	{
-		vec3 data = fetchData(gl_GlobalInvocationID);
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = data[0u];
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = data[1u];
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = data[2u];
-	}
-	else
-	{
-        vec4 window[MEDIAN_FILTER_DIAMETER*MEDIAN_FILTER_DIAMETER];
-
 		ivec3 tc = ivec3(gl_GlobalInvocationID);
-		const vec3 lumaCoeffs = vec3(0.212586, 0.715170, 0.072200);
+		const vec3 lumaCoeffs = transpose(_IRR_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_)[1];
 		for (int i=-MEDIAN_FILTER_RADIUS; i<=MEDIAN_FILTER_RADIUS; i++)
 		for (int j=-MEDIAN_FILTER_RADIUS; j<=MEDIAN_FILTER_RADIUS; j++)
 		{
 			vec4 data;
 			data.rgb = fetchData(clampCoords(ivec3(j,i,0)+tc));
 			data.a = dot(data.rgb,lumaCoeffs);
-			window[MEDIAN_FILTER_DIAMETER*(i+MEDIAN_FILTER_RADIUS)+(j+MEDIAN_FILTER_RADIUS)] = data;
+			medianWindow[MEDIAN_FILTER_DIAMETER*(i+MEDIAN_FILTER_RADIUS)+(j+MEDIAN_FILTER_RADIUS)] = data;
 		}
-		#define SWAP(X,Y) ltswap(window[X],window[Y])
+		#define SWAP(X,Y) ltswap(medianWindow[X],medianWindow[Y])
 		#if MEDIAN_FILTER_RADIUS==1
 			SWAP(0, 1);
 			SWAP(3, 4);
@@ -226,7 +278,8 @@ void main()
 			SWAP(2, 4);
 			SWAP(2, 3);
 			SWAP(5, 6);
-		#elif MEDIAN_FILTER_RADIUS==2SWAP(1, 2);
+		#elif MEDIAN_FILTER_RADIUS==2
+			SWAP(1, 2);
 			SWAP(0, 2);
 			SWAP(0, 1);
 			SWAP(4, 5);
@@ -382,11 +435,22 @@ void main()
 			SWAP(11, 12);
 		#endif
 		#undef SWAP
-		const int median = (MEDIAN_FILTER_DIAMETER*MEDIAN_FILTER_DIAMETER)>>1;
-		window[median].rgb *= exp2(DENOISER_EXPOSURE_BIAS);
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = window[median].r;
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = window[median].g;
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = window[median].b;
+	}
+	else
+	{
+		vec3 data = fetchData(gl_GlobalInvocationID);
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = floatBitsToUint(data[0u]);
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = floatBitsToUint(data[1u]);
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = floatBitsToUint(data[2u]);
+	}
+	irr_glsl_ext_LumaMeter(colorLayer && gl_GlobalInvocationID.x<pc.data.imageWidth);
+	barrier(); // no barrier because we were just reading from shared not writing since the last memory barrier
+	if (colorLayer)
+	{
+		medianWindow[medianIndex].rgb *= exp2(DENOISER_EXPOSURE_BIAS);
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = floatBitsToUint(medianWindow[medianIndex].r);
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = floatBitsToUint(medianWindow[medianIndex].g);
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = floatBitsToUint(medianWindow[medianIndex].b);
 	}
 	barrier();
 	memoryBarrierShared();
@@ -394,15 +458,15 @@ void main()
 	const uint outImagePitch = pc.data.imageWidth*SHARED_CHANNELS;
 	uint rowOffset = pc.data.outImageOffset[gl_GlobalInvocationID.z]+gl_GlobalInvocationID.y*outImagePitch;
 
-	uint lineOffset = gl_WorkGroupID.x*kComputeWGSize*SHARED_CHANNELS+gl_LocalInvocationIndex;
+	uint lineOffset = gl_WorkGroupID.x*COMPUTE_WG_SIZE*SHARED_CHANNELS+gl_LocalInvocationIndex;
 	if (lineOffset<outImagePitch)
-		outBuffer[rowOffset+lineOffset] = float16_t(repackBuffer[gl_LocalInvocationIndex+kComputeWGSize*0u]);
-	lineOffset += kComputeWGSize;
+		outBuffer[rowOffset+lineOffset] = float16_t(uintBitsToFloat(repackBuffer[gl_LocalInvocationIndex+COMPUTE_WG_SIZE*0u]));
+	lineOffset += COMPUTE_WG_SIZE;
 	if (lineOffset<outImagePitch)
-		outBuffer[rowOffset+lineOffset] = float16_t(repackBuffer[gl_LocalInvocationIndex+kComputeWGSize*1u]);
-	lineOffset += kComputeWGSize;
+		outBuffer[rowOffset+lineOffset] = float16_t(uintBitsToFloat(repackBuffer[gl_LocalInvocationIndex+COMPUTE_WG_SIZE*1u]));
+	lineOffset += COMPUTE_WG_SIZE;
 	if (lineOffset<outImagePitch)
-		outBuffer[rowOffset+lineOffset] = float16_t(repackBuffer[gl_LocalInvocationIndex+kComputeWGSize*2u]);
+		outBuffer[rowOffset+lineOffset] = float16_t(uintBitsToFloat(repackBuffer[gl_LocalInvocationIndex+COMPUTE_WG_SIZE*2u]));
 }
 		)==="));
 		auto interleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
@@ -411,11 +475,11 @@ void main()
 
 #include "../ShaderCommon.glsl"
 
-layout(binding = 0, std430) restrict readonly buffer InputBuffer
+layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 {
 	float16_t inBuffer[];
 };
-layout(binding = 1, std430) restrict writeonly buffer OutputBuffer
+layout(binding = 1, std430) restrict writeonly buffer ImageOutputBuffer
 {
 	f16vec4 outBuffer[];
 };
@@ -423,19 +487,19 @@ layout(binding = 1, std430) restrict writeonly buffer OutputBuffer
 
 void main()
 {
-	uint wgOffset = pc.data.outImageOffset[EII_COLOR]+(gl_GlobalInvocationID.y*pc.data.imageWidth+gl_WorkGroupID.x*kComputeWGSize)*SHARED_CHANNELS;
+	uint wgOffset = pc.data.outImageOffset[EII_COLOR]+(gl_GlobalInvocationID.y*pc.data.imageWidth+gl_WorkGroupID.x*COMPUTE_WG_SIZE)*SHARED_CHANNELS;
 
 	uint localOffset = gl_LocalInvocationIndex;
-	repackBuffer[localOffset] = float(inBuffer[wgOffset+localOffset]);
-	localOffset += kComputeWGSize;
-	repackBuffer[localOffset] = float(inBuffer[wgOffset+localOffset]);
-	localOffset += kComputeWGSize;
-	repackBuffer[localOffset] = float(inBuffer[wgOffset+localOffset]);
+	repackBuffer[localOffset] = floatBitsToUint(float(inBuffer[wgOffset+localOffset]));
+	localOffset += COMPUTE_WG_SIZE;
+	repackBuffer[localOffset] = floatBitsToUint(float(inBuffer[wgOffset+localOffset]));
+	localOffset += COMPUTE_WG_SIZE;
+	repackBuffer[localOffset] = floatBitsToUint(float(inBuffer[wgOffset+localOffset]));
 	barrier();
 	memoryBarrierShared();
 
 	bool alive = gl_GlobalInvocationID.x<pc.data.imageWidth;
-	vec3 color = vec3(repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u]);
+	vec3 color = uintBitsToFloat(uvec3(repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u]));
 	color *= exp2(-DENOISER_EXPOSURE_BIAS);
 	uint dataOffset = pc.data.inImageTexelOffset[EII_COLOR]+gl_GlobalInvocationID.y*pc.data.inImageTexelPitch[EII_COLOR]+gl_GlobalInvocationID.x;
 	if (alive)
@@ -465,9 +529,10 @@ void main()
 		auto deinterleaveSpecializedShader = driver->createGPUSpecializedShader(deinterleaveShader.get(),specInfo);
 		auto interleaveSpecializedShader = driver->createGPUSpecializedShader(interleaveShader.get(),specInfo);
 		
-		IGPUDescriptorSetLayout::SBinding binding[2] = {
+		IGPUDescriptorSetLayout::SBinding binding[] = {
 			{0u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-			{1u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr}
+			{1u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+			{2u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr}
 		};
 		sharedDescriptorSetLayout = driver->createGPUDescriptorSetLayout(binding,binding+sizeof(binding)/sizeof(IGPUDescriptorSetLayout::SBinding));
 		SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(CommonPushConstants)};
@@ -653,7 +718,7 @@ void main()
 
 			denoisers[i].stateOffset = denoiserStateBufferSize;
 			denoiserStateBufferSize += denoisers[i].stateSize = m_denoiserMemReqs.stateSizeInBytes;
-			scratchBufferSize = core::max(scratchBufferSize,denoisers[i].scratchSize = m_denoiserMemReqs.recommendedScratchSizeInBytes);
+			scratchBufferSize = core::max(core::max(scratchBufferSize,denoisers[i].scratchSize = m_denoiserMemReqs.recommendedScratchSizeInBytes),HistogramBufferSize);
 			pixelBufferSize = core::max(pixelBufferSize,core::max(asset::getTexelOrBlockBytesize(EF_R32G32B32A32_SFLOAT),(i+1u)*forcedOptiXFormatPixelStride)*maxResolution[i][0]*maxResolution[i][1]);
 		}
 		std::string message = "Total VRAM consumption for Denoiser algorithm: ";
@@ -687,6 +752,9 @@ void main()
 			for (uint32_t j=0u; j<denoiserInputCount; j++)
 				shaderConstants.outImageOffset[j] = j*param.width*param.height*forcedOptiXFormatPixelStride/sizeof(uint16_t); // float 16 actually
 			shaderConstants.imageWidth = param.width;
+			// TODO: make parameters for those
+			shaderConstants.medianFilterRadius = 1u;
+			shaderConstants.denoiserExposureBias = -1.f;
 			shaderConstants.normalMatrix = cameraTransformBundle[i];
 		}
 
@@ -734,24 +802,29 @@ void main()
 				auto descriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr(sharedDescriptorSetLayout));
 				// write descriptor set
 				{
-					IGPUDescriptorSet::SDescriptorInfo infos[2];
+					IGPUDescriptorSet::SDescriptorInfo infos[3];
 					infos[0].desc = core::smart_refctd_ptr<IGPUBuffer>(imagePixelBuffer.getObject());
 					infos[0].buffer = {0u,imagePixelBuffer.getObject()->getMemoryReqs().vulkanReqs.size};
 					infos[1].desc = core::smart_refctd_ptr<IGPUBuffer>(temporaryPixelBuffer.getObject());
 					infos[1].buffer = {0u,temporaryPixelBuffer.getObject()->getMemoryReqs().vulkanReqs.size};
-					IGPUDescriptorSet::SWriteDescriptorSet writes[2] = { {descriptorSet.get(),0u,0u,1u,EDT_STORAGE_BUFFER,infos+0},{descriptorSet.get(),1u,0u,1u,EDT_STORAGE_BUFFER,infos+1} };
+					infos[2].desc = core::smart_refctd_ptr<IGPUBuffer>(scratchBuffer.getObject());
+					infos[2].buffer = {0u,HistogramBufferSize};
+					IGPUDescriptorSet::SWriteDescriptorSet writes[3] = { {descriptorSet.get(),0u,0u,1u,EDT_STORAGE_BUFFER,infos+0},{descriptorSet.get(),1u,0u,1u,EDT_STORAGE_BUFFER,infos+1},{descriptorSet.get(),2u,0u,1u,EDT_STORAGE_BUFFER,infos+2} };
 					driver->updateDescriptorSets(sizeof(writes)/sizeof(IGPUDescriptorSet::SWriteDescriptorSet),writes,0u,nullptr);
 				}
 				// bind descriptor set (for all shaders)
 				driver->bindDescriptorSets(video::EPBP_COMPUTE,sharedPipelineLayout.get(),0u,1u,&descriptorSet.get(),nullptr);
 			}
-			// compute shader pre-preprocess (transform normals and TODO: compute luminosity)
+			// compute shader pre-preprocess (transform normals and compute luminosity)
 			{
+				// clear the histogram to 0s
+				driver->fillBuffer(scratchBuffer.getObject(),0u,HistogramBufferSize,0u);
 				// bind compute pipeline
 				driver->bindComputePipeline(deinterleavePipeline.get());
 				// dispatch
 				driver->dispatch((param.width+kComputeWGSize-1u)/kComputeWGSize,param.height,denoiserInputCount);
 				// issue a full memory barrier (or at least all buffer read/write barrier)
+		//COpenGLExtensionHandler::pGlMemoryBarrier(GL_UNIFORM_BARRIER_BIT);
 				//COpenGLExtensionHandler::extGlMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 				COpenGLExtensionHandler::extGlMemoryBarrier(GL_ALL_BARRIER_BITS);
 				for (auto j=0; j<denoiserInputCount; j++)
