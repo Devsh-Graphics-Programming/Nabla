@@ -243,16 +243,17 @@ void main()
 	{
 		ivec3 tc = ivec3(gl_GlobalInvocationID);
 		const vec3 lumaCoeffs = transpose(_IRR_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_)[1];
-		for (int i=-MEDIAN_FILTER_RADIUS; i<=MEDIAN_FILTER_RADIUS; i++)
-		for (int j=-MEDIAN_FILTER_RADIUS; j<=MEDIAN_FILTER_RADIUS; j++)
+		for (int i=-pc.data.medianFilterRadius; i<=pc.data.medianFilterRadius; i++)
+		for (int j=-pc.data.medianFilterRadius; j<=pc.data.medianFilterRadius; j++)
 		{
 			vec4 data;
 			data.rgb = fetchData(clampCoords(ivec3(j,i,0)+tc));
 			data.a = dot(data.rgb,lumaCoeffs);
-			medianWindow[MEDIAN_FILTER_DIAMETER*(i+MEDIAN_FILTER_RADIUS)+(j+MEDIAN_FILTER_RADIUS)] = data;
+			medianWindow[MAX_MEDIAN_FILTER_DIAMETER*(i+MAX_MEDIAN_FILTER_RADIUS)+(j+MAX_MEDIAN_FILTER_RADIUS)] = data;
 		}
 		#define SWAP(X,Y) ltswap(medianWindow[X],medianWindow[Y])
-		#if MEDIAN_FILTER_RADIUS==1
+		if (pc.data.medianFilterRadius==1)
+		{
 			SWAP(0, 1);
 			SWAP(3, 4);
 			SWAP(6, 7);
@@ -278,7 +279,9 @@ void main()
 			SWAP(2, 4);
 			SWAP(2, 3);
 			SWAP(5, 6);
-		#elif MEDIAN_FILTER_RADIUS==2
+		}
+		else if (pc.data.medianFilterRadius==2)
+		{
 			SWAP(1, 2);
 			SWAP(0, 2);
 			SWAP(0, 1);
@@ -433,7 +436,7 @@ void main()
 			SWAP(10, 12);
 			SWAP(11, 13);
 			SWAP(11, 12);
-		#endif
+		}
 		#undef SWAP
 	}
 	else
@@ -447,7 +450,7 @@ void main()
 	barrier(); // no barrier because we were just reading from shared not writing since the last memory barrier
 	if (colorLayer)
 	{
-		medianWindow[medianIndex].rgb *= exp2(DENOISER_EXPOSURE_BIAS);
+		medianWindow[medianIndex].rgb *= exp2(pc.data.denoiserExposureBias);
 		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = floatBitsToUint(medianWindow[medianIndex].r);
 		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = floatBitsToUint(medianWindow[medianIndex].g);
 		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = floatBitsToUint(medianWindow[medianIndex].b);
@@ -500,7 +503,7 @@ void main()
 
 	bool alive = gl_GlobalInvocationID.x<pc.data.imageWidth;
 	vec3 color = uintBitsToFloat(uvec3(repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u]));
-	color *= exp2(-DENOISER_EXPOSURE_BIAS);
+	color *= exp2(-pc.data.denoiserExposureBias);
 	uint dataOffset = pc.data.inImageTexelOffset[EII_COLOR]+gl_GlobalInvocationID.y*pc.data.inImageTexelPitch[EII_COLOR]+gl_GlobalInvocationID.x;
 	if (alive)
 		outBuffer[dataOffset] = f16vec4(vec4(color,1.0));

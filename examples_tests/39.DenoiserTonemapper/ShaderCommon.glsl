@@ -14,23 +14,18 @@ layout(push_constant, row_major) uniform PushConstants{
 
 
 #define SHARED_CHANNELS 3u
-#define _IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ (COMPUTE_WG_SIZE*SHARED_CHANNELS)
+// the amount of memory needed for luma metering is bigger
+#define _IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ ((COMPUTE_WG_SIZE+1u)*8u)
 shared uint repackBuffer[_IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_];
 #define _IRR_GLSL_SCRATCH_SHARED_DEFINED_ repackBuffer
 
 
-// exposure bias
-#define DENOISER_EXPOSURE_BIAS -1.0
-
-
 // median filter stuff
-//MAX_MEDIAN_FILTER_RADIUS
-#define MEDIAN_FILTER_RADIUS 1
-#define MEDIAN_FILTER_DIAMETER (MEDIAN_FILTER_RADIUS*2+1)
-const int medianIndex = (MEDIAN_FILTER_DIAMETER*MEDIAN_FILTER_DIAMETER)>>1;
+#define MAX_MEDIAN_FILTER_DIAMETER (MAX_MEDIAN_FILTER_RADIUS*2+1)
+const int medianIndex = (MAX_MEDIAN_FILTER_DIAMETER*MAX_MEDIAN_FILTER_DIAMETER)>>1;
 
 
-vec4 medianWindow[MEDIAN_FILTER_DIAMETER*MEDIAN_FILTER_DIAMETER];
+vec4 medianWindow[MAX_MEDIAN_FILTER_DIAMETER*MAX_MEDIAN_FILTER_DIAMETER];
 
 
 uvec3 clampCoords(in ivec3 inCoord)
