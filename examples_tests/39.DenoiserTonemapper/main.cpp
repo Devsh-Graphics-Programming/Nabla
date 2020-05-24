@@ -253,32 +253,27 @@ void main()
 		}
 		#define SWAP(X,Y) ltswap(medianWindow[X],medianWindow[Y])
 		if (pc.data.medianFilterRadius==1)
-		{
-			SWAP(0, 1);
-			SWAP(3, 4);
+		{ // optimized sorting network for median finding
 			SWAP(6, 7);
-			SWAP(1, 2);
-			SWAP(4, 5);
+			SWAP(11, 12);
+			SWAP(16, 17);
 			SWAP(7, 8);
-			SWAP(0, 1);
-			SWAP(3, 4);
+			SWAP(12, 13);
+			SWAP(17, 18);
 			SWAP(6, 7);
-			SWAP(0, 3);
-			SWAP(3, 6);
-			SWAP(0, 3);
-			SWAP(1, 4);
-			SWAP(4, 7);
-			SWAP(1, 4);
-			SWAP(2, 5);
-			SWAP(5, 8);
-			SWAP(2, 5);
-			SWAP(1, 3);
-			SWAP(5, 7);
-			SWAP(2, 6);
-			SWAP(4, 6);
-			SWAP(2, 4);
-			SWAP(2, 3);
-			SWAP(5, 6);
+			SWAP(11, 12);
+			SWAP(16, 17);
+			SWAP(6, 11);
+			SWAP(11, 16);
+			SWAP(7, 12);
+			SWAP(12, 17);
+			SWAP(7, 12);
+			SWAP(8, 13);
+			SWAP(13, 18);
+			SWAP(8, 13);
+			SWAP(8, 16);
+			SWAP(12, 16);
+			SWAP(8, 12);
 		}
 		else if (pc.data.medianFilterRadius==2)
 		{
@@ -438,6 +433,12 @@ void main()
 			SWAP(11, 12);
 		}
 		#undef SWAP
+		irr_glsl_ext_LumaMeter(colorLayer && gl_GlobalInvocationID.x<pc.data.imageWidth);
+		barrier(); // no barrier because we were just reading from shared not writing since the last memory barrier
+		medianWindow[medianIndex].rgb *= exp2(pc.data.denoiserExposureBias);
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = floatBitsToUint(medianWindow[medianIndex].r);
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = floatBitsToUint(medianWindow[medianIndex].g);
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = floatBitsToUint(medianWindow[medianIndex].b);
 	}
 	else
 	{
@@ -445,15 +446,6 @@ void main()
 		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = floatBitsToUint(data[0u]);
 		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = floatBitsToUint(data[1u]);
 		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = floatBitsToUint(data[2u]);
-	}
-	irr_glsl_ext_LumaMeter(colorLayer && gl_GlobalInvocationID.x<pc.data.imageWidth);
-	barrier(); // no barrier because we were just reading from shared not writing since the last memory barrier
-	if (colorLayer)
-	{
-		medianWindow[medianIndex].rgb *= exp2(pc.data.denoiserExposureBias);
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = floatBitsToUint(medianWindow[medianIndex].r);
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = floatBitsToUint(medianWindow[medianIndex].g);
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = floatBitsToUint(medianWindow[medianIndex].b);
 	}
 	barrier();
 	memoryBarrierShared();

@@ -1,6 +1,7 @@
 #define MAX_MEDIAN_FILTER_RADIUS 2
 
 #ifdef __cplusplus
+	#define int int32_t
 	#define uint uint32_t
 	#define mat3 irr::core::matrix3x4SIMD
 #endif
@@ -12,7 +13,7 @@ struct CommonPushConstants
 	uint imageWidth;
 
 	// for the median filter
-	uint medianFilterRadius;
+	int medianFilterRadius;
 	
 	// luma meter and tonemapping var but also for denoiser
 	float denoiserExposureBias;
@@ -20,6 +21,7 @@ struct CommonPushConstants
 	mat3 normalMatrix;
 };
 #ifdef __cplusplus
-	#undef uint uint32_t
-	#undef mat3 irr::core::matrix3x4SIMD
+	#undef int
+	#undef uint
+	#undef mat3
 #endif
