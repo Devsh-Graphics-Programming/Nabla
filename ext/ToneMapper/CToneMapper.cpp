@@ -220,6 +220,16 @@ R"===(#version 430 core
 
 #include "irr/builtin/glsl/ext/ToneMapper/operators.glsl"
 
+#ifndef irr_glsl_ext_ToneMapper_Params_t
+	#if _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_IRR_GLSL_EXT_TONE_MAPPER_REINHARD_OPERATOR
+		#define irr_glsl_ext_ToneMapper_Params_t irr_glsl_ext_ToneMapper_ReinhardParams_t
+	#elif _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_IRR_GLSL_EXT_TONE_MAPPER_ACES_OPERATOR
+		#define irr_glsl_ext_ToneMapper_Params_t irr_glsl_ext_ToneMapper_ACESParams_t
+	#else
+		#error "Unsupported Tonemapping Operator"
+	#endif
+#endif
+
 
 #ifndef _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_
 #define _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_ 0
@@ -448,8 +458,14 @@ void irr_glsl_ext_ToneMapper() // bool wgExecutionMask, then do if(any(wgExecuti
 	float toLastLumaDiff = irr_glsl_ext_ToneMapper_getLastFrameLuma()-extraNegEV;
 	extraNegEV += toLastLumaDiff*irr_glsl_ext_ToneMapper_getExposureAdaptationFactor(toLastLumaDiff);
 	irr_glsl_ext_ToneMapper_setLastFrameLuma(extraNegEV);
+	#if _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_IRR_GLSL_EXT_TONE_MAPPER_REINHARD_OPERATOR
+		params.keyAndManualLinearExposure *= exp2(-extraNegEV);
+		colorCIEXYZ.rgb = irr_glsl_ext_ToneMapper_Reinhard(params,colorCIEXYZ.rgb);
+	#elif _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_IRR_GLSL_EXT_TONE_MAPPER_ACES_OPERATOR
+		params.exposure -= extraNegEV;
+		colorCIEXYZ.rgb = irr_glsl_ext_ToneMapper_ACES(params,colorCIEXYZ.rgb);
+	#endif
 #endif
-	colorCIEXYZ.rgb = irr_glsl_ext_ToneMapper_operator(params,colorCIEXYZ.rgb,extraNegEV);
 
 	// TODO: Add dithering
 	vec3 rand = vec3(0.5);
