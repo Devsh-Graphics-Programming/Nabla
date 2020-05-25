@@ -171,10 +171,10 @@ public:
 			"OP_DIFFTRANS",
 			"OP_DIELECTRIC",
 			"OP_ROUGHDIELECTRIC",
-			"OP_BLEND"
+			"OP_BLEND",
 			"OP_BUMPMAP",
 			"OP_SET_GEOM_NORMAL",
-			"OP_INVALID",
+			"OP_INVALID"
 		};
 		auto regsString = [](const core::vector3du32_SIMD& regs, uint32_t usedSrcs) {
 			std::string s;
@@ -1197,7 +1197,7 @@ void instr_execute_ROUGHDIFFUSE(in instr_t instr, in uvec3 regs, in mat2 dUV, in
 	vec3 scale = decodeRGB19E7(data.data[1].zw);
 	float a = textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
 	vec3 refl = textureOrRGB19E7(data.data[0].zw, instr_getReflectanceTexPresence(instr), dUV)*scale.y;
-	registers[REG_DST(regs)] = refl;
+	registers[REG_DST(regs)] = max(refl,vec3(0.0));
 }
 void instr_execute_DIFFTRANS(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
@@ -1206,10 +1206,14 @@ void instr_execute_DIFFTRANS(in instr_t instr, in uvec3 regs, in mat2 dUV, in bs
 }
 void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
-	vec3 eta = vec3(uintBitsToFloat(data.data[0].x));
-	vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic) * vec3(0.89);
-	diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
-	registers[REG_DST(regs)] = diffuse;
+	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
+	{
+		vec3 eta = vec3(uintBitsToFloat(data.data[0].x));
+		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic) * vec3(0.89);
+		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
+		registers[REG_DST(regs)] = diffuse;
+	}
+	else registers[REG_DST(regs)] = vec3(0.0);
 }
 void instr_execute_ROUGHDIELECTRIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
@@ -1428,7 +1432,7 @@ vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in
 	params.L = campos-WorldPos;
 	out_interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, normalize(Normal));
 
-	return irr_bsdf_cos_eval(params, dUV)+emissive;
+	return irr_bsdf_cos_eval(params, dUV)*50.0/dot(params.L,params.L) + emissive;
 }
 #endif
 
@@ -1639,7 +1643,7 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		auto pipeline = createAndCachePipeline(m_manager, std::move(layout));
 	}
 
-	core::unordered_set<core::smart_refctd_ptr<asset::ICPUMesh>,core::smart_refctd_ptr<asset::ICPUMesh>::hash> meshes;
+	core::set<core::smart_refctd_ptr<asset::ICPUMesh>> meshes;
 
 	for (auto& shapepair : parserManager.shapegroups)
 	{
@@ -2248,12 +2252,24 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 
 		uint32_t getOffset(const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight, const CElementBSDF* _maskParent) override
 		{
-			const uint32_t ix = ctx.bsdfBuffer.size();
-			//TODO cache indices/offsets into BSDF data buffer
-			if (_node)
-				ctx.bsdfBuffer.push_back(thisLoader->bsdfNode2bsdfStruct(ctx, _node, _texHierLvl, _mix2blend_weight, _maskParent));
+			if (_node) {
+				const uint32_t ix = ctx.bsdfBuffer.size();
 
-			return ix;
+				auto found = ctx.bsdfDataCache.find({_node,_maskParent,_mix2blend_weight});
+				if (found!=ctx.bsdfDataCache.end())
+					return found->second;
+
+				ctx.bsdfBuffer.push_back(thisLoader->bsdfNode2bsdfStruct(ctx, _node, _texHierLvl, _mix2blend_weight, _maskParent));
+				SContext::SBSDFDataCacheKey key;
+				key.bsdf = _node;
+				key.maskParent = _maskParent;
+				key.mix2blend_weight = _mix2blend_weight;
+				ctx.bsdfDataCache.insert({key, ix});
+
+				return ix;
+			}
+
+			return 0u;
 		}
 	};
 

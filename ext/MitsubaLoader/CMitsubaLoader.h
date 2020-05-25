@@ -385,6 +385,26 @@ class CMitsubaLoader : public asset::IAssetLoader
 				};
 			};
 			core::unordered_map<SPipelineCacheKey, core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>, SPipelineCacheKey::hash> pipelineCache;
+
+#include "irr/irrpack.h"
+			struct SBSDFDataCacheKey
+			{
+				const CElementBSDF* bsdf;
+				const CElementBSDF* maskParent;
+				float mix2blend_weight;
+
+				inline bool operator==(const SBSDFDataCacheKey& rhs) const { return memcmp(this,&rhs,sizeof(*this))==0; }
+				struct hash
+				{
+					inline size_t operator()(const SBSDFDataCacheKey& k) const
+					{
+						return std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(&k), sizeof(k)));
+					}
+				};
+			} PACK_STRUCT;
+#include "irr/irrunpack.h"
+			//caches indices/offsets into `bsdfBuffer`
+			core::unordered_map<SBSDFDataCacheKey, uint32_t, SBSDFDataCacheKey::hash> bsdfDataCache;
 		};
 
 		//! Destructor
