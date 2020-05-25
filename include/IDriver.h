@@ -307,7 +307,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         }
 
 		//! Create a descriptor set with missing descriptors
-        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout)
+        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout)
         {
             return nullptr;
         }
@@ -380,6 +380,9 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 		created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::smart_refctd_ptr<AssetType>* _begin, const core::smart_refctd_ptr<AssetType>* _end, IGPUObjectFromAssetConverter* _converter = nullptr);
 
 	//====================== THIS STUFF SHOULD BE IN A video::ICommandBuffer =====================
+        //!
+        virtual void fillBuffer(IGPUBuffer* buffer, size_t offset, size_t length, uint32_t value) {}
+
 		//! TODO: make with VkBufferCopy and take a list of multiple copies to carry out (maybe rename to copyBufferRanges)
 		virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length) {}
 

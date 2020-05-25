@@ -25,7 +25,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		//
 		struct ParamsBase
 		{
-			inline void setAdaptationFactorFromFrameDelta(float frameDeltaSeconds, float upAdaptationPerSecondLog2=-0.5f, float downAdaptationPerSecondLog2=-0.1f)
+			inline void setAdaptationFactorFromFrameDelta(float frameDeltaSeconds, float upAdaptationPerSecondLog2=-1.1f, float downAdaptationPerSecondLog2=-0.2f)
 			{
 				float up = core::exp2(upAdaptationPerSecondLog2*frameDeltaSeconds);
 				float down = core::exp2(downAdaptationPerSecondLog2*frameDeltaSeconds);
@@ -34,48 +34,44 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 				downExposureAdaptationFactorAsHalf = core::Float16Compressor::compress(down);
 			}
 
+			uint16_t lastFrameExtraEVAsHalf[2] = { 0u,0u };
+		protected:
 			// target+(current-target)*exp(-k*t) == mix(target,current,factor)
 			uint16_t upExposureAdaptationFactorAsHalf = 0u;
 			uint16_t downExposureAdaptationFactorAsHalf = 0u;
-			float lastFrameExtraEV = 0.f;
 		};
-		struct alignas(16) ReinhardParams_t : ParamsBase
+		//
+		template<E_OPERATOR _operator>
+		struct Params_t;
+		template<>
+		struct alignas(256) Params_t<EO_REINHARD> : ParamsBase
 		{
-			static inline ReinhardParams_t fromExposure(float EV, float key=0.18f, float WhitePointRelToEV=16.f)
+			Params_t(float EV, float key=0.18f, float WhitePointRelToEV=16.f)
 			{
-				ReinhardParams_t retval;
-				retval.keyAndLinearExposure = key*exp2(EV);
-				retval.rcpWhite2 = 1.f/(WhitePointRelToEV*WhitePointRelToEV);
-				return retval;
-			}
-			static inline ReinhardParams_t fromKeyAndBurn(float key, float burn, float AvgLuma, float MaxLuma)
-			{
-				ReinhardParams_t retval;
-				retval.keyAndLinearExposure = key/AvgLuma;
-				retval.rcpWhite2 = 1.f/(MaxLuma*retval.keyAndLinearExposure*burn*burn);
-				retval.rcpWhite2 *= retval.rcpWhite2;
-				return retval;
+				keyAndLinearExposure = key*exp2(EV);
+				rcpWhite2 = 1.f/(WhitePointRelToEV*WhitePointRelToEV);
 			}
 
 			float keyAndLinearExposure; // usually 0.18*exp2(exposure)
 			float rcpWhite2; // the white is relative to post-exposed luma
 		};
-		//
-		struct alignas(16) ACESParams_t : ParamsBase
+		template<>
+		struct alignas(256) Params_t<EO_ACES> : ParamsBase
 		{
-			ACESParams_t(float EV, float key=0.18f, float Contrast=1.f) : preGamma(Contrast)
+			Params_t(float EV, float key=0.18f, float Contrast=1.f) : gamma(Contrast)
 			{
 				setExposure(EV,key);
 			}
 
 			inline void setExposure(float EV, float key=0.18f)
 			{
-				exposure = exp2(EV)-log2(key)*(preGamma-1.f);
+				constexpr float reinhardMatchCorrection = 0.77321666f; // middle grays get exposed to different values between tonemappers given the same key
+				exposure = EV+log2(key*reinhardMatchCorrection);
 			}
 
-			float preGamma; // 1.0
+			float gamma; // 1.0
 		private:
-			float exposure; // actualExposure-midGrayLog2*(preGamma-1.0)
+			float exposure; // actualExposure+midGrayLog2
 		};
 
 		//
@@ -85,13 +81,13 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		static inline core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges(bool usingLumaMeter=false)
 		{
 			if (usingLumaMeter)
-				return CGLSLLumaBuiltinIncludeLoader::getDefaultPushConstantRanges();
+				return LumaMeter::CGLSLLumaBuiltinIncludeLoader::getDefaultPushConstantRanges();
 			else
 				return {nullptr,nullptr};
 		}
 
 		//
-		static core::SRange<const IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver, bool usingLumaMeter=false);
+		static core::SRange<const video::IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver, bool usingLumaMeter=false);
 
 		//
 		static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultPipelineLayout(video::IVideoDriver* driver, bool usingLumaMeter=false)
@@ -103,13 +99,91 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 				driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
 			);
 		}
+
+		//
+		template<E_OPERATOR _operator, LumaMeter::CLumaMeter::E_METERING_MODE MeterMode=LumaMeter::CLumaMeter::EMM_COUNT>
+		static inline size_t getParameterBufferSize(uint32_t arrayLayers=1u)
+		{
+			size_t retval = sizeof(Params_t<_operator>);
+			if (MeterMode<LumaMeter::CLumaMeter::EMM_COUNT)
+				retval += LumaMeter::CLumaMeter::getOutputBufferSize(MeterMode,arrayLayers);
+			return retval;
+		}
+
+		//
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_DESCRIPTOR_COUNT = 4u;
+		template<E_OPERATOR _operator, LumaMeter::CLumaMeter::E_METERING_MODE MeterMode=LumaMeter::CLumaMeter::EMM_COUNT>
+		static inline void updateDescriptorSet(
+			video::IVideoDriver* driver, video::IGPUDescriptorSet* set,
+			core::smart_refctd_ptr<video::IGPUBuffer> inputParameterDescriptor, 
+			core::smart_refctd_ptr<video::IGPUImageView> inputImageDescriptor,
+			core::smart_refctd_ptr<video::IGPUImageView> outputImageDescriptor,
+			uint32_t inputParameterBinding,
+			uint32_t inputImageBinding,
+			uint32_t outputImageBinding,
+			core::smart_refctd_ptr<video::IGPUBuffer> lumaUniformsDescriptor=nullptr,
+			uint32_t lumaUniformsBinding=0u,
+			bool usingTemporalAdaptation = false,
+			uint32_t arrayLayers=1u
+		)
+		{
+			video::IGPUDescriptorSet::SDescriptorInfo pInfos[MAX_DESCRIPTOR_COUNT];
+			video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[MAX_DESCRIPTOR_COUNT];
+			for (auto i=0; i< MAX_DESCRIPTOR_COUNT; i++)
+			{
+				pWrites[i].dstSet = set;
+				pWrites[i].arrayElement = 0u;
+				pWrites[i].count = 1u;
+				pWrites[i].info = pInfos+i;
+			}
+			
+			pInfos[1].desc = inputParameterDescriptor;
+			pInfos[1].buffer.size = getParameterBufferSize<_operator,MeterMode>(arrayLayers);
+			pInfos[1].buffer.offset = 0u;
+			pInfos[2].desc = inputImageDescriptor;
+			pInfos[2].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
+			pInfos[2].image.sampler = nullptr;
+
+			uint32_t outputImageIx;
+			if constexpr (MeterMode<LumaMeter::CLumaMeter::EMM_COUNT)
+			{
+				assert(!!lumaUniformsDescriptor);
+
+				outputImageIx = 3u;
+
+				pInfos[0].desc = lumaUniformsDescriptor;
+				pInfos[0].buffer.offset = 0u;
+				pInfos[0].buffer.size = sizeof(LumaMeter::CLumaMeter::Uniforms_t<MeterMode>);
+
+				pWrites[0].binding = lumaUniformsBinding;
+				pWrites[0].descriptorType = asset::EDT_UNIFORM_BUFFER_DYNAMIC;
+			}
+			else
+				outputImageIx = 0u;
+
+			pInfos[outputImageIx].desc = outputImageDescriptor;
+			pInfos[outputImageIx].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);
+			pInfos[outputImageIx].image.sampler = nullptr;
+
+
+			pWrites[1].binding = inputParameterBinding;
+			pWrites[1].descriptorType = asset::EDT_STORAGE_BUFFER_DYNAMIC;
+			pWrites[2].binding = inputImageBinding;
+			pWrites[2].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
+			pWrites[outputImageIx].binding = outputImageBinding;
+			pWrites[outputImageIx].descriptorType = asset::EDT_STORAGE_IMAGE;
+
+			driver->updateDescriptorSets(lumaUniformsDescriptor ? 4u:3u, pWrites, 0u, nullptr);
+		}
 		
 		//
 		static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createShader(
 			asset::IGLSLCompiler* compilerToAddBuiltinIncludeTo,
 			const std::tuple<asset::E_FORMAT,asset::E_COLOR_PRIMARIES,asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION>& inputColorSpace,
 			const std::tuple<asset::E_FORMAT,asset::E_COLOR_PRIMARIES,asset::OPTICO_ELECTRICAL_TRANSFER_FUNCTION>& outputColorSpace,
-			E_OPERATOR _operator, bool usingLumaMeter=false, LumaMeter::CLumaMeter::E_METERING_MODE meterMode=LumaMeter::CLumaMeter::EMM_UKNONWN, bool usingTemporalAdaptation=false
+			E_OPERATOR _operator,
+			bool usingLumaMeter=false, LumaMeter::CLumaMeter::E_METERING_MODE meterMode=LumaMeter::CLumaMeter::EMM_COUNT, float minLuma=core::nan<float>(), float maxLuma=core::nan<float>(),
+			bool usingTemporalAdaptation=false
 		);
 
 		//
@@ -122,12 +196,12 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			if (!driver || !image)
 				return nullptr;
 
-			auto nativeFormat = image->getCreationParams().format;
+			auto nativeFormat = image->getCreationParameters().format;
 
 			video::IGPUImageView::SCreationParams params;
 			params.flags = static_cast<video::IGPUImageView::E_CREATE_FLAGS>(0u);
 			params.image = std::move(image);
-			params.type = video::IGPUImageView::ET_2D_ARRAY;
+			params.viewType = video::IGPUImageView::ET_2D_ARRAY;
 			params.format = usedAsInput ? getInputViewFormat(nativeFormat):getOutputViewFormat(nativeFormat);
 			params.components = {};
 			params.subresourceRange = subresource;
@@ -135,13 +209,17 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		}
 
 		// we expect user binds correct pipeline, descriptor sets and pushes the push constants by themselves
-		static inline void dispatchHelper(video::IVideoDriver* driver, const vide::IGPUImageView* outputView, bool issueDefaultBarrier=true)
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORKGROUP_DIM = 16u;
+		static inline void dispatchHelper(
+			video::IVideoDriver* driver, const video::IGPUImageView* outputView,
+			bool issueDefaultBarrier=true, uint32_t workGroupSizeX=DEFAULT_WORKGROUP_DIM, uint32_t workGroupSizeY=DEFAULT_WORKGROUP_DIM
+		)
 		{
-			const auto& params = inputView->getCreationParameters();
+			const auto& params = outputView->getCreationParameters();
 			auto imgViewSize = params.image->getMipSize(params.subresourceRange.baseMipLevel);
 			imgViewSize.w = params.subresourceRange.layerCount;
 			
-			const core::vectorSIMDu32 workgroupSize(CGLSLLumaBuiltinIncludeLoader::DISPATCH_SIZE,CGLSLLumaBuiltinIncludeLoader::DISPATCH_SIZE,1,1);
+			const core::vectorSIMDu32 workgroupSize(workGroupSizeX,workGroupSizeY,1,1);
 			auto groups = (imgViewSize+workgroupSize-core::vectorSIMDu32(1,1,1,1))/workgroupSize;
 			driver->dispatch(groups.x, groups.y, groups.w);
 

@@ -34,14 +34,14 @@ namespace bsdf
 	{
 		const auto& extent = _img->getCreationParameters().extent;
 
-		auto imgAndOrigSz = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(_img, _uwrap, _vwrap);
+		auto imgAndOrigSz = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(_img, _uwrap, _vwrap, _borderColor);
 
 		asset::IImage::SSubresourceRange subres;
 		subres.baseMipLevel = 0u;
 		subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(extent.width, extent.height))) + 1;
 
 		auto addr = _vt->alloc(_img->getCreationParameters().format, imgAndOrigSz.second, subres, _uwrap, _vwrap);
-		_vt->commit(addr, imgAndOrigSz.first.get(), imgAndOrigSz.second, subres, _uwrap, _vwrap, _borderColor);
+		_vt->commit(addr, imgAndOrigSz.first.get(), subres, _uwrap, _vwrap, _borderColor);
 		return addr;
 	}
 
@@ -65,7 +65,9 @@ namespace bsdf
 		OP_COATING,
 		OP_ROUGHCOATING,
 		OP_BUMPMAP,
-		OP_BLEND
+		OP_BLEND,
+
+		OPCODE_COUNT
 	};
 	inline uint32_t getNumberOfSrcRegsForOpcode(E_OPCODE _op)
 	{
@@ -83,7 +85,7 @@ namespace bsdf
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_OPCODE_SHIFT = 0u;
 
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BITFIELDS_SHIFT = INSTR_OPCODE_WIDTH;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BITFIELDS_WIDTH = 7u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BITFIELDS_WIDTH = 8u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_REFL_TEX = 0x1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_REFL_TEX = INSTR_OPCODE_WIDTH + 0u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_ALPHA_U_TEX = 0x1u;
@@ -108,10 +110,12 @@ namespace bsdf
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_TWOSIDED = INSTR_OPCODE_WIDTH + 5u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_MASKFLAG = 0x1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_MASKFLAG = INSTR_OPCODE_WIDTH + 6u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_OPACITY_TEX = 0x1u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_OPACITY_TEX = INSTR_OPCODE_WIDTH + 7u;
 
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_WIDTH = 21u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_WIDTH = 20u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_SHIFT = INSTR_OPCODE_WIDTH + INSTR_BITFIELDS_WIDTH;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_MASK = 0x1fffffu;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_MASK = 0xfffffu;
 
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_WIDTH = 8u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_MASK = 0xffu;
@@ -132,6 +136,22 @@ namespace bsdf
 	inline uint32_t getNormalId(const instr_t& i)
 	{
 		return i >> INSTR_NORMAL_ID_SHIFT;
+	}
+	inline core::vector3du32_SIMD getRegisters(const instr_t& i)
+	{
+		return core::vector3du32_SIMD(
+			(i>>INSTR_REG_DST_SHIFT),
+			(i>>INSTR_REG_SRC1_SHIFT),
+			(i>>INSTR_REG_SRC2_SHIFT)
+		) & core::vector3du32_SIMD(INSTR_REG_MASK);
+	}
+	inline bool isTwosided(const instr_t& i)
+	{
+		return (i>>BITFIELDS_SHIFT_TWOSIDED) & 1u;
+	}
+	inline bool isMasked(const instr_t& i)
+	{
+		return (i>>BITFIELDS_SHIFT_MASKFLAG) & 1u;
 	}
 
 #include "irr/irrpack.h"
@@ -191,29 +211,25 @@ namespace bsdf
 	struct alignas(16) SAllPlastic
 	{
 		float eta;
-		//same as for SAllDielectric::alpha_u,alpha_v
-		STextureDataOrConstant alpha_u;
-		STextureDataOrConstant alpha_v;
+		STextureDataOrConstant alpha;
 		STextureDataOrConstant opacity;
 		//multiplication factor for texture samples
 		//RGB19E7 format
-		//.x - alpha_u scale, .y - alpha_v scale, .z - opacity scale
-		uint64_t textureScale;
+		//[0] - alpha scale,[1] - opacity scale
+		float textureScale[2];
 	} PACK_STRUCT;
 	struct alignas(16) SAllCoating
 	{
 		//thickness and eta encoded as 2x float16, thickness on bits 0:15, eta on bits 16:31
 		uint32_t thickness_eta;
-		//same as for SAllDielectric::alpha_u,alpha_v
-		STextureDataOrConstant alpha_u;
-		STextureDataOrConstant alpha_v;
+		STextureDataOrConstant alpha;
 		//rgb in RGB19E7 format or texture data for VT (flag decides)
 		STextureDataOrConstant sigmaA;
 		STextureDataOrConstant opacity;
 		//multiplication factor for texture samples
-		//RGBA16_SFLOAT format
-		//.x - alpha_u scale, .y - alpha_v scale, .z - sigmaA scale, .w - opacity scale
-		uint16_t textureScale[4];
+		//RGB19E7 format
+		//.x - alpha scale, .y - sigmaA scale, .z - opacity scale
+		uint64_t textureScale;
 	} PACK_STRUCT;
 	/*
 	struct alignas(16) SPhong
@@ -247,12 +263,12 @@ namespace bsdf
 	} PACK_STRUCT;
 	struct alignas(16) SBlend
 	{
-		//per-channel blend factor encoded as RGB19E7 (RGB instead of single-float in order to encode MASK bsdf as BLEND with fully transparent)
+		//per-channel single-float32 blend factor
 		//2 weights in order to encode MIXTURE bsdf as tree of BLENDs
 		//if flag decides to use weight texture, `weightL.texData` is texture data for VT and `weightR` is then irrelevant
-		//otherwise `weightL.constant_rgb19e7` and `weightR.constant_rgb19e7` are constant RGB19E7 blend weights. Left has to be multiplied by weightL and right operand has to be multiplied by weightR.
+		//otherwise `weightL.constant_f32` and `weightR` are constant float32 blend weights. Left has to be multiplied by weightL and right operand has to be multiplied by weightR.
 		STextureDataOrConstant weightL;
-		STextureDataOrConstant weightR;
+		float weightR;
 		float textureScale;
 	} PACK_STRUCT;
 #include "irr/irrunpack.h"
@@ -292,6 +308,14 @@ class CMitsubaLoader : public asset::IAssetLoader
 	protected:
 		asset::IAssetManager* m_manager;
 
+#include "irr/irrpack.h"
+		//compatible with std430 and std140
+		struct alignas(16) SInstanceData
+		{
+			core::matrix3x4SIMD tform;
+			std::pair<uint32_t, uint32_t> instrOffsetCount;
+		} PACK_STRUCT;
+#include "irr/irrunpack.h"
 		struct SContext
 		{
 			SContext(
@@ -323,37 +347,64 @@ class CMitsubaLoader : public asset::IAssetLoader
 			//
 			using shape_ass_type = core::smart_refctd_ptr<asset::ICPUMesh>;
 			core::map<const CElementShape*, shape_ass_type> shapeCache;
-			//! TODO: change to CPU graphics pipeline
-			using bsdf_ass_type = core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>;
-			core::map<const CElementBSDF*, bsdf_ass_type> pipelineCache;
-			//! TODO: even later when texture changes come, might have to return not only a combined sampler but some GLSL sampling code due to the "scale" and offset XML nodes
+			//image, sampler, scale
 			using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>,core::smart_refctd_ptr<asset::ICPUSampler>,float>;
 			core::unordered_map<const CElementTexture*, tex_ass_type> textureCache;
+			using VT_data_type = std::pair<bsdf::STextureData, float>;
+			core::unordered_map<const CElementTexture*, VT_data_type> VTallocDataCache;
 
 			core::vector<bsdf::SBSDFUnion> bsdfBuffer;
 			core::vector<bsdf::instr_t> instrBuffer;
 
 			//caches instr buffer instr-wise offset (.first) and instruction count (.second) for each bsdf node
-			core::unordered_map<CElementBSDF*,std::pair<uint32_t,uint32_t>> instrStreamCache;
+			core::unordered_map<const CElementBSDF*,std::pair<uint32_t,uint32_t>> instrStreamCache;
+
+			struct SPipelineCacheKey
+			{
+				asset::SVertexInputParams vtxParams;
+				asset::SPrimitiveAssemblyParams primParams;
+
+				inline bool operator==(const SPipelineCacheKey& rhs) const
+				{
+					return memcmp(&vtxParams, &rhs.vtxParams, sizeof(vtxParams))==0 && memcmp(&primParams, &rhs.primParams, sizeof(primParams))==0;
+				}
+
+				struct hash
+				{
+					inline size_t operator()(const SPipelineCacheKey& k) const
+					{
+						constexpr size_t BYTESZ = sizeof(k.vtxParams) + sizeof(k.primParams);
+						uint8_t mem[BYTESZ]{};
+						uint8_t* ptr = mem;
+						memcpy(ptr, &k.vtxParams, sizeof(k.vtxParams));
+						ptr += sizeof(k.vtxParams);
+						memcpy(ptr, &k.primParams, sizeof(k.primParams));
+						ptr += sizeof(k.primParams);
+
+						return std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(mem), BYTESZ));
+					}
+				};
+			};
+			core::unordered_map<SPipelineCacheKey, core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>, SPipelineCacheKey::hash> pipelineCache;
 		};
 
 		//! Destructor
 		virtual ~CMitsubaLoader() = default;
 
 		//
-		SContext::shape_ass_type	getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
-		SContext::group_ass_type	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup);
-		SContext::shape_ass_type	loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
-
-		//TODO this function will most likely be deleted, basically only instr buf offset/count pair is needed, pipelines wont change that much
-		SContext::bsdf_ass_type		getBSDF(SContext& ctx, uint32_t hierarchyLevel, const CElementBSDF* bsdf);
+		SContext::shape_ass_type				getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
+		SContext::group_ass_type				loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup);
+		SContext::shape_ass_type				loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
 		
-		SContext::tex_ass_type		getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture);
+		SContext::tex_ass_type					getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture);
+		SContext::VT_data_type					getVTallocData(SContext& ctx, const CElementTexture* texture, uint32_t texHierLvl);
 
 		bsdf::SBSDFUnion bsdfNode2bsdfStruct(SContext& _ctx, const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight = 0.f, const CElementBSDF* _parentMask = nullptr);
+		std::pair<uint32_t,uint32_t> getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 		std::pair<uint32_t,uint32_t> genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 
-		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx);
+		template <typename Iter>
+		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx, Iter meshBegin, Iter meshEnd);
 
 		core::smart_refctd_ptr<CMitsubaPipelineMetadata> createPipelineMetadata(core::smart_refctd_ptr<asset::ICPUDescriptorSet>&& _ds0, const asset::ICPUPipelineLayout* _layout);
 

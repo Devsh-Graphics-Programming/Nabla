@@ -5,6 +5,7 @@
 #include "os.h"
 
 #include "../../ext/MitsubaLoader/CSerializedLoader.h"
+#include "CMitsubaSerializedPipelineMetadata.h"
 
 #ifndef _IRR_COMPILE_WITH_ZLIB_
 #error "Need zlib for this loader"
@@ -13,6 +14,7 @@
 
 namespace irr
 {
+	using namespace asset;
 namespace ext
 {
 namespace MitsubaLoader

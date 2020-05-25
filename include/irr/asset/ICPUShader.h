@@ -23,7 +23,11 @@ class ICPUShader : public IAsset, public IShader<ICPUBuffer>
         ICPUShader(core::smart_refctd_ptr<ICPUBuffer>&& _code, bool _isGLSL) : m_code(std::move(_code)), m_containsGLSL(_isGLSL) {}
 
 	public:
+		struct buffer_contains_glsl_t {};
+		_IRR_STATIC_INLINE const buffer_contains_glsl_t buffer_contains_glsl = {};
+
         ICPUShader(core::smart_refctd_ptr<ICPUBuffer>&& _spirv) : ICPUShader(std::move(_spirv), false) {}
+        ICPUShader(core::smart_refctd_ptr<ICPUBuffer>&& _glsl, buffer_contains_glsl_t _buffer_contains_glsl) : ICPUShader(std::move(_glsl), true) {}
 		ICPUShader(const char* _glsl) : ICPUShader(core::make_smart_refctd_ptr<ICPUBuffer>(strlen(_glsl) + 1u), true)
 		{
 			memcpy(m_code->getPointer(), _glsl, m_code->getSize());

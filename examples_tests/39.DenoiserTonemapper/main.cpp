@@ -5,6 +5,7 @@
 
 #include "CommandLineHandler.hpp"
 
+#include "../ext/ToneMapper/CToneMapper.h"
 #include "../../ext/OptiX/Manager.h"
 
 #include "CommonPushConstants.h"
@@ -69,6 +70,9 @@ int main(int argc, char* argv[])
 	auto smgr = device->getSceneManager();
 	auto am = device->getAssetManager();
 
+	auto compiler = am->getGLSLCompiler();
+	auto filesystem = device->getFileSystem();
+
 	auto getArgvFetchedList = [&]()
 	{
 		core::vector<std::string> arguments;
@@ -102,6 +106,28 @@ int main(int argc, char* argv[])
 		return error_code;
 
 	constexpr auto forcedOptiXFormat = OPTIX_PIXEL_FORMAT_HALF3; // TODO: make more denoisers with formats
+	E_FORMAT irrFmtRequired = EF_UNKNOWN;
+	switch (forcedOptiXFormat)
+	{
+		case OPTIX_PIXEL_FORMAT_UCHAR3:
+			irrFmtRequired = EF_R8G8B8_SRGB;
+			break;
+		case OPTIX_PIXEL_FORMAT_UCHAR4:
+			irrFmtRequired = EF_R8G8B8A8_SRGB;
+			break;
+		case OPTIX_PIXEL_FORMAT_HALF3:
+			irrFmtRequired = EF_R16G16B16_SFLOAT;
+			break;
+		case OPTIX_PIXEL_FORMAT_HALF4:
+			irrFmtRequired = EF_R16G16B16A16_SFLOAT;
+			break;
+		case OPTIX_PIXEL_FORMAT_FLOAT3:
+			irrFmtRequired = EF_R32G32B32_SFLOAT;
+			break;
+		case OPTIX_PIXEL_FORMAT_FLOAT4:
+			irrFmtRequired = EF_R32G32B32A32_SFLOAT;
+			break;
+	}
 	constexpr auto forcedOptiXFormatPixelStride = 6u;
 	DenoiserToUse denoisers[EII_COUNT];
 	{
@@ -119,10 +145,68 @@ int main(int argc, char* argv[])
 			return error_code;
 	}
 
-	constexpr uint32_t kComputeWGSize = 1024u;
+
+	constexpr uint32_t kComputeWGSize = 256u;
+	
+
+	using LumaMeterClass = ext::LumaMeter::CLumaMeter;
+	using ToneMapperClass = ext::ToneMapper::CToneMapper;
+	constexpr bool usingLumaMeter = true;
+	constexpr auto MeterMode = LumaMeterClass::EMM_MEDIAN;
+	const auto HistogramBufferSize = LumaMeterClass::getOutputBufferSize(MeterMode);
+	constexpr float lowerPercentile = 0.45f;
+	constexpr float upperPercentile = 0.55f;
+	constexpr auto TMO = ToneMapperClass::EO_ACES;
+	{
+		LumaMeterClass::registerBuiltinGLSLIncludes(compiler);
+
+		/*
+		auto commonPipelineLayout = ToneMapperClass::getDefaultPipelineLayout(driver,usingLumaMeter);
+		
+		for (auto TMO=ToneMapperClass::EO_REINHARD; TMO<ToneMapperClass::EO_COUNT; TMO=static_cast<ToneMapperClass::E_OPERATOR>(TMO+1))
+		{
+			const auto inputColorSpace = std::make_tuple(EF_R16G16B16A16_SFLOAT, ECP_SRGB, EOTF_IDENTITY);
+			const auto outputColorSpace = std::make_tuple(EF_R16G16B16A16_SFLOAT, ECP_SRGB, OETF_IDENTITY);
+			const float minLuma = 1.f/4096.f;
+			const float maxLuma = 32768.f;
+			auto cpuTonemappingSpecializedShader = ToneMapperClass::createShader(compiler,
+				inputColorSpace,outputColorSpace,
+				TMO,usingLumaMeter,MeterMode,minLuma,maxLuma
+			);
+			auto gpuTonemappingShader = driver->createGPUShader(core::smart_refctd_ptr<const ICPUShader>(cpuTonemappingSpecializedShader->getUnspecialized()));
+			auto gpuTonemappingSpecializedShader = driver->createGPUSpecializedShader(gpuTonemappingShader.get(),cpuTonemappingSpecializedShader->getSpecializationInfo());
+			toneMappingPipeline[TMO] = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(commonPipelineLayout),std::move(gpuTonemappingSpecializedShader));
+		}
+		*/
+#if 0		
+		// every frame
+		LumaMeterClass::Uniforms_t<MeterMode> uniforms;
+		uniforms.lowerPercentile = lowerPercentile*float(totalSampleCount);
+		uniforms.upperPercentile = upperPercentile*float(totalSampleCount);
+
+		auto parameterBuffer = driver->createDeviceLocalGPUBufferOnDedMem(ToneMapperClass::getParameterBufferSize<TMO, MeterMode>());
+		constexpr float Exposure = 0.f;
+		constexpr float Key = 0.18;
+		auto params = ToneMapperClass::Params_t<TMO>(Exposure, Key, 0.85f);
+		{
+			params.setAdaptationFactorFromFrameDelta(0.f);
+			driver->updateBufferRangeViaStagingBuffer(parameterBuffer.get(), 0u, sizeof(params), &params);
+		}
+		
+		auto commonDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(commonPipelineLayout->getDescriptorSetLayout(0u)));
+		ToneMapperClass::updateDescriptorSet<TMO,MeterMode>(driver,commonDescriptorSet.get(),parameterBuffer,imgToTonemapView,outImgStorage,1u,2u,usingLumaMeter ? 3u:0u,uniformBuffer,0u);
+
+		constexpr auto dynOffsetArrayLen = 2u
+		auto lumaDynamicOffsetArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t> >(dynOffsetArrayLen,0u);
+		lumaDynamicOffsetArray->back() = sizeof(ToneMapperClass::Params_t<TMO>);
+		auto toneDynamicOffsetArray = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint32_t> >(dynOffsetArrayLen,0u);
+#endif
+	}
+
 	core::smart_refctd_ptr<IGPUDescriptorSetLayout> sharedDescriptorSetLayout;
 	core::smart_refctd_ptr<IGPUPipelineLayout> sharedPipelineLayout;
-	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,interleavePipeline;
+	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,exposePipeline,interleavePipeline;
+	//core::smart_refctd_ptr<IGPUComputePipeline> toneMappingPipeline[ToneMapperClass::EO_COUNT+1];
 	{
 		auto deinterleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
@@ -130,41 +214,254 @@ int main(int argc, char* argv[])
 
 #include "../ShaderCommon.glsl"
 
-layout(binding = 0, std430) restrict readonly buffer InputBuffer
+layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 {
 	f16vec4 inBuffer[];
 };
-layout(binding = 1, std430) restrict writeonly buffer OutputBuffer
+layout(binding = 1, std430) restrict writeonly buffer ImageOutputBuffer
 {
 	float16_t outBuffer[];
 };
 
+vec3 fetchData(in uvec3 texCoord)
+{
+	vec3 data = vec4(inBuffer[pc.data.inImageTexelOffset[texCoord.z]+texCoord.y*pc.data.inImageTexelPitch[texCoord.z]+texCoord.x]).xyz;
+	bool invalid = any(isnan(data))||any(isinf(abs(data)));
+	if (texCoord.z==EII_ALBEDO)
+		data = invalid ? vec3(1.0):data;
+	else if (texCoord.z==EII_NORMAL)
+	{
+		data = invalid||length(data)<0.000000001 ? vec3(0.0,0.0,1.0):normalize(pc.data.normalMatrix*data);
+	}
+	return data;
+}
 
 void main()
 {
-	vec4 data = vec4(inBuffer[pc.data.inImageTexelOffset[gl_GlobalInvocationID.z]+gl_GlobalInvocationID.y*pc.data.inImageTexelPitch[gl_GlobalInvocationID.z]+gl_GlobalInvocationID.x]);
-	if (gl_GlobalInvocationID.z==EII_ALBEDO && all(greaterThan(vec3(0.00000001),data.rgb)))
-		data.rgb = vec3(1.0);
-	else if (gl_GlobalInvocationID.z==EII_NORMAL)
-		data.xyz = normalize(pc.data.normalMatrix*data.xyz);
-	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = data[0u];
-	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = data[1u];
-	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = data[2u];
+	bool colorLayer = gl_GlobalInvocationID.z==EII_COLOR;
+	if (colorLayer)
+	{
+		ivec3 tc = ivec3(gl_GlobalInvocationID);
+		const vec3 lumaCoeffs = transpose(_IRR_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_)[1];
+		for (int i=-pc.data.medianFilterRadius; i<=pc.data.medianFilterRadius; i++)
+		for (int j=-pc.data.medianFilterRadius; j<=pc.data.medianFilterRadius; j++)
+		{
+			vec4 data;
+			data.rgb = fetchData(clampCoords(ivec3(j,i,0)+tc));
+			data.a = dot(data.rgb,lumaCoeffs);
+			medianWindow[MAX_MEDIAN_FILTER_DIAMETER*(i+MAX_MEDIAN_FILTER_RADIUS)+(j+MAX_MEDIAN_FILTER_RADIUS)] = data;
+		}
+		#define SWAP(X,Y) ltswap(medianWindow[X],medianWindow[Y])
+		if (pc.data.medianFilterRadius==1)
+		{ // optimized sorting network for median finding
+			SWAP(6, 7);
+			SWAP(11, 12);
+			SWAP(16, 17);
+			SWAP(7, 8);
+			SWAP(12, 13);
+			SWAP(17, 18);
+			SWAP(6, 7);
+			SWAP(11, 12);
+			SWAP(16, 17);
+			SWAP(6, 11);
+			SWAP(11, 16);
+			SWAP(7, 12);
+			SWAP(12, 17);
+			SWAP(7, 12);
+			SWAP(8, 13);
+			SWAP(13, 18);
+			SWAP(8, 13);
+			SWAP(8, 16);
+			SWAP(12, 16);
+			SWAP(8, 12);
+		}
+		else if (pc.data.medianFilterRadius==2)
+		{
+			SWAP(1, 2);
+			SWAP(0, 2);
+			SWAP(0, 1);
+			SWAP(4, 5);
+			SWAP(3, 5);
+			SWAP(3, 4);
+			SWAP(0, 3);
+			SWAP(1, 4);
+			SWAP(2, 5);
+			SWAP(2, 4);
+			SWAP(1, 3);
+			SWAP(2, 3);
+			SWAP(7, 8);
+			SWAP(6, 8);
+			SWAP(6, 7);
+			SWAP(10, 11);
+			SWAP(9, 11);
+			SWAP(9, 10);
+			SWAP(6, 9);
+			SWAP(7, 10);
+			SWAP(8, 11);
+			SWAP(8, 10);
+			SWAP(7, 9);
+			SWAP(8, 9);
+			SWAP(0, 6);
+			SWAP(1, 7);
+			SWAP(2, 8);
+			SWAP(2, 7);
+			SWAP(1, 6);
+			SWAP(2, 6);
+			SWAP(3, 9);
+			SWAP(4, 10);
+			SWAP(5, 11);
+			SWAP(5, 10);
+			SWAP(4, 9);
+			SWAP(5, 9);
+			SWAP(3, 6);
+			SWAP(4, 7);
+			SWAP(5, 8);
+			SWAP(5, 7);
+			SWAP(4, 6);
+			SWAP(5, 6);
+			SWAP(13, 14);
+			SWAP(12, 14);
+			SWAP(12, 13);
+			SWAP(16, 17);
+			SWAP(15, 17);
+			SWAP(15, 16);
+			SWAP(12, 15);
+			SWAP(13, 16);
+			SWAP(14, 17);
+			SWAP(14, 16);
+			SWAP(13, 15);
+			SWAP(14, 15);
+			SWAP(19, 20);
+			SWAP(18, 20);
+			SWAP(18, 19);
+			SWAP(21, 22);
+			SWAP(23, 24);
+			SWAP(21, 23);
+			SWAP(22, 24);
+			SWAP(22, 23);
+			SWAP(18, 22);
+			SWAP(18, 21);
+			SWAP(19, 23);
+			SWAP(20, 24);
+			SWAP(20, 23);
+			SWAP(19, 21);
+			SWAP(20, 22);
+			SWAP(20, 21);
+			SWAP(12, 19);
+			SWAP(12, 18);
+			SWAP(13, 20);
+			SWAP(14, 21);
+			SWAP(14, 20);
+			SWAP(13, 18);
+			SWAP(14, 19);
+			SWAP(14, 18);
+			SWAP(15, 22);
+			SWAP(16, 23);
+			SWAP(17, 24);
+			SWAP(17, 23);
+			SWAP(16, 22);
+			SWAP(17, 22);
+			SWAP(15, 19);
+			SWAP(15, 18);
+			SWAP(16, 20);
+			SWAP(17, 21);
+			SWAP(17, 20);
+			SWAP(16, 18);
+			SWAP(17, 19);
+			SWAP(17, 18);
+			SWAP(0, 13);
+			SWAP(0, 12);
+			SWAP(1, 14);
+			SWAP(2, 15);
+			SWAP(2, 14);
+			SWAP(1, 12);
+			SWAP(2, 13);
+			SWAP(2, 12);
+			SWAP(3, 16);
+			SWAP(4, 17);
+			SWAP(5, 18);
+			SWAP(5, 17);
+			SWAP(4, 16);
+			SWAP(5, 16);
+			SWAP(3, 13);
+			SWAP(3, 12);
+			SWAP(4, 14);
+			SWAP(5, 15);
+			SWAP(5, 14);
+			SWAP(4, 12);
+			SWAP(5, 13);
+			SWAP(5, 12);
+			SWAP(6, 19);
+			SWAP(7, 20);
+			SWAP(8, 21);
+			SWAP(8, 20);
+			SWAP(7, 19);
+			SWAP(8, 19);
+			SWAP(9, 22);
+			SWAP(10, 23);
+			SWAP(11, 24);
+			SWAP(11, 23);
+			SWAP(10, 22);
+			SWAP(11, 22);
+			SWAP(9, 19);
+			SWAP(10, 20);
+			SWAP(11, 21);
+			SWAP(11, 20);
+			SWAP(10, 19);
+			SWAP(11, 19);
+			SWAP(6, 13);
+			SWAP(6, 12);
+			SWAP(7, 14);
+			SWAP(8, 15);
+			SWAP(8, 14);
+			SWAP(7, 12);
+			SWAP(8, 13);
+			SWAP(8, 12);
+			SWAP(9, 16);
+			SWAP(10, 17);
+			SWAP(11, 18);
+			SWAP(11, 17);
+			SWAP(10, 16);
+			SWAP(11, 16);
+			SWAP(9, 13);
+			SWAP(9, 12);
+			SWAP(10, 14);
+			SWAP(11, 15);
+			SWAP(11, 14);
+			SWAP(10, 12);
+			SWAP(11, 13);
+			SWAP(11, 12);
+		}
+		#undef SWAP
+		irr_glsl_ext_LumaMeter(colorLayer && gl_GlobalInvocationID.x<pc.data.imageWidth);
+		barrier(); // no barrier because we were just reading from shared not writing since the last memory barrier
+		medianWindow[medianIndex].rgb *= exp2(pc.data.denoiserExposureBias);
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = floatBitsToUint(medianWindow[medianIndex].r);
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = floatBitsToUint(medianWindow[medianIndex].g);
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = floatBitsToUint(medianWindow[medianIndex].b);
+	}
+	else
+	{
+		vec3 data = fetchData(gl_GlobalInvocationID);
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = floatBitsToUint(data[0u]);
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = floatBitsToUint(data[1u]);
+		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = floatBitsToUint(data[2u]);
+	}
 	barrier();
 	memoryBarrierShared();
 
 	const uint outImagePitch = pc.data.imageWidth*SHARED_CHANNELS;
 	uint rowOffset = pc.data.outImageOffset[gl_GlobalInvocationID.z]+gl_GlobalInvocationID.y*outImagePitch;
 
-	uint lineOffset = gl_WorkGroupID.x*kComputeWGSize*SHARED_CHANNELS+gl_LocalInvocationIndex;
+	uint lineOffset = gl_WorkGroupID.x*COMPUTE_WG_SIZE*SHARED_CHANNELS+gl_LocalInvocationIndex;
 	if (lineOffset<outImagePitch)
-		outBuffer[rowOffset+lineOffset] = float16_t(repackBuffer[gl_LocalInvocationIndex+kComputeWGSize*0u]);
-	lineOffset += kComputeWGSize;
+		outBuffer[rowOffset+lineOffset] = float16_t(uintBitsToFloat(repackBuffer[gl_LocalInvocationIndex+COMPUTE_WG_SIZE*0u]));
+	lineOffset += COMPUTE_WG_SIZE;
 	if (lineOffset<outImagePitch)
-		outBuffer[rowOffset+lineOffset] = float16_t(repackBuffer[gl_LocalInvocationIndex+kComputeWGSize*1u]);
-	lineOffset += kComputeWGSize;
+		outBuffer[rowOffset+lineOffset] = float16_t(uintBitsToFloat(repackBuffer[gl_LocalInvocationIndex+COMPUTE_WG_SIZE*1u]));
+	lineOffset += COMPUTE_WG_SIZE;
 	if (lineOffset<outImagePitch)
-		outBuffer[rowOffset+lineOffset] = float16_t(repackBuffer[gl_LocalInvocationIndex+kComputeWGSize*2u]);
+		outBuffer[rowOffset+lineOffset] = float16_t(uintBitsToFloat(repackBuffer[gl_LocalInvocationIndex+COMPUTE_WG_SIZE*2u]));
 }
 		)==="));
 		auto interleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
@@ -173,11 +470,11 @@ void main()
 
 #include "../ShaderCommon.glsl"
 
-layout(binding = 0, std430) restrict readonly buffer InputBuffer
+layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 {
 	float16_t inBuffer[];
 };
-layout(binding = 1, std430) restrict writeonly buffer OutputBuffer
+layout(binding = 1, std430) restrict writeonly buffer ImageOutputBuffer
 {
 	f16vec4 outBuffer[];
 };
@@ -185,19 +482,20 @@ layout(binding = 1, std430) restrict writeonly buffer OutputBuffer
 
 void main()
 {
-	uint wgOffset = pc.data.outImageOffset[EII_COLOR]+(gl_GlobalInvocationID.y*pc.data.imageWidth+gl_WorkGroupID.x*kComputeWGSize)*SHARED_CHANNELS;
+	uint wgOffset = pc.data.outImageOffset[EII_COLOR]+(gl_GlobalInvocationID.y*pc.data.imageWidth+gl_WorkGroupID.x*COMPUTE_WG_SIZE)*SHARED_CHANNELS;
 
 	uint localOffset = gl_LocalInvocationIndex;
-	repackBuffer[localOffset] = float(inBuffer[wgOffset+localOffset]);
-	localOffset += kComputeWGSize;
-	repackBuffer[localOffset] = float(inBuffer[wgOffset+localOffset]);
-	localOffset += kComputeWGSize;
-	repackBuffer[localOffset] = float(inBuffer[wgOffset+localOffset]);
+	repackBuffer[localOffset] = floatBitsToUint(float(inBuffer[wgOffset+localOffset]));
+	localOffset += COMPUTE_WG_SIZE;
+	repackBuffer[localOffset] = floatBitsToUint(float(inBuffer[wgOffset+localOffset]));
+	localOffset += COMPUTE_WG_SIZE;
+	repackBuffer[localOffset] = floatBitsToUint(float(inBuffer[wgOffset+localOffset]));
 	barrier();
 	memoryBarrierShared();
 
 	bool alive = gl_GlobalInvocationID.x<pc.data.imageWidth;
-	vec3 color = vec3(repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u]);
+	vec3 color = uintBitsToFloat(uvec3(repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u]));
+	color *= exp2(-pc.data.denoiserExposureBias);
 	uint dataOffset = pc.data.inImageTexelOffset[EII_COLOR]+gl_GlobalInvocationID.y*pc.data.inImageTexelPitch[EII_COLOR]+gl_GlobalInvocationID.x;
 	if (alive)
 		outBuffer[dataOffset] = f16vec4(vec4(color,1.0));
@@ -217,7 +515,8 @@ void main()
 														{
 															{0u,offsetof(SpecializationConstants,workgroupSize),sizeof(SpecializationConstants::workgroupSize)},
 															{1u,offsetof(SpecializationConstants,enumEII_COLOR),sizeof(SpecializationConstants::enumEII_COLOR)},
-															{2u,offsetof(SpecializationConstants,enumEII_NORMAL),sizeof(SpecializationConstants::enumEII_NORMAL)}
+															{2u,offsetof(SpecializationConstants,enumEII_ALBEDO),sizeof(SpecializationConstants::enumEII_ALBEDO)},
+															{3u,offsetof(SpecializationConstants,enumEII_NORMAL),sizeof(SpecializationConstants::enumEII_NORMAL)}
 														}
 													),
 													core::smart_refctd_ptr(specConstantBuffer),"main",ISpecializedShader::ESS_COMPUTE
@@ -225,7 +524,11 @@ void main()
 		auto deinterleaveSpecializedShader = driver->createGPUSpecializedShader(deinterleaveShader.get(),specInfo);
 		auto interleaveSpecializedShader = driver->createGPUSpecializedShader(interleaveShader.get(),specInfo);
 		
-		IGPUDescriptorSetLayout::SBinding binding[2] = { {0u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},{1u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr} };
+		IGPUDescriptorSetLayout::SBinding binding[] = {
+			{0u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+			{1u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+			{2u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr}
+		};
 		sharedDescriptorSetLayout = driver->createGPUDescriptorSetLayout(binding,binding+sizeof(binding)/sizeof(IGPUDescriptorSetLayout::SBinding));
 		SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(CommonPushConstants)};
 		sharedPipelineLayout = driver->createGPUPipelineLayout(pcRange,pcRange+sizeof(pcRange)/sizeof(SPushConstantRange),core::smart_refctd_ptr(sharedDescriptorSetLayout));
@@ -262,7 +565,7 @@ void main()
 		asset::IAssetLoader::SAssetLoadParams lp(0ull,nullptr,IAssetLoader::ECF_DUPLICATE_REFERENCES);
 		for (size_t i=0; i<inputFilesAmount; i++)
 		{
-			auto image_bundle = am->getAsset(std::string("../../media/OpenEXR/")+fileNamesBundle[i], lp);
+			auto image_bundle = am->getAsset(fileNamesBundle[i], lp);
 			if (image_bundle.isEmpty())
 			{
 				auto imageIDString = makeImageIDString(i);
@@ -280,6 +583,14 @@ void main()
 				auto metadata = ass->getMetadata();
 				if (strcmp(metadata->getLoaderName(),COpenEXRImageMetadata::LoaderName)!=0)
 					continue;
+				
+				auto image = core::smart_refctd_ptr_static_cast<ICPUImage>(ass);/*
+				if (image->getCreationParameters().format!=irrFmtRequired)
+				{
+					CConvertFormatImageFilter<>::state_type state;
+					state.extentLayerCount = 
+					state.inImage = image;
+				}*/
 
 				auto exrmeta = static_cast<COpenEXRImageMetadata*>(metadata);
 				auto beginIt = channelNamesBundle[i].begin();
@@ -287,7 +598,7 @@ void main()
 				if (inputIx>=channelNamesBundle[i].size())
 					continue;
 
-				outParam.image[inputIx] = core::smart_refctd_ptr_static_cast<ICPUImage>(ass);
+				outParam.image[inputIx] = std::move(image);
 			}
 		}
 		// check inputs and set-up
@@ -402,7 +713,7 @@ void main()
 
 			denoisers[i].stateOffset = denoiserStateBufferSize;
 			denoiserStateBufferSize += denoisers[i].stateSize = m_denoiserMemReqs.stateSizeInBytes;
-			scratchBufferSize = core::max(scratchBufferSize,denoisers[i].scratchSize = m_denoiserMemReqs.recommendedScratchSizeInBytes);
+			scratchBufferSize = core::max(core::max(scratchBufferSize,denoisers[i].scratchSize = m_denoiserMemReqs.recommendedScratchSizeInBytes),HistogramBufferSize);
 			pixelBufferSize = core::max(pixelBufferSize,core::max(asset::getTexelOrBlockBytesize(EF_R32G32B32A32_SFLOAT),(i+1u)*forcedOptiXFormatPixelStride)*maxResolution[i][0]*maxResolution[i][1]);
 		}
 		std::string message = "Total VRAM consumption for Denoiser algorithm: ";
@@ -436,6 +747,9 @@ void main()
 			for (uint32_t j=0u; j<denoiserInputCount; j++)
 				shaderConstants.outImageOffset[j] = j*param.width*param.height*forcedOptiXFormatPixelStride/sizeof(uint16_t); // float 16 actually
 			shaderConstants.imageWidth = param.width;
+			// TODO: make parameters for those
+			shaderConstants.medianFilterRadius = 1u;
+			shaderConstants.denoiserExposureBias = -1.f;
 			shaderConstants.normalMatrix = cameraTransformBundle[i];
 		}
 
@@ -483,25 +797,54 @@ void main()
 				auto descriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr(sharedDescriptorSetLayout));
 				// write descriptor set
 				{
-					IGPUDescriptorSet::SDescriptorInfo infos[2];
+					IGPUDescriptorSet::SDescriptorInfo infos[3];
 					infos[0].desc = core::smart_refctd_ptr<IGPUBuffer>(imagePixelBuffer.getObject());
 					infos[0].buffer = {0u,imagePixelBuffer.getObject()->getMemoryReqs().vulkanReqs.size};
 					infos[1].desc = core::smart_refctd_ptr<IGPUBuffer>(temporaryPixelBuffer.getObject());
 					infos[1].buffer = {0u,temporaryPixelBuffer.getObject()->getMemoryReqs().vulkanReqs.size};
-					IGPUDescriptorSet::SWriteDescriptorSet writes[2] = { {descriptorSet.get(),0u,0u,1u,EDT_STORAGE_BUFFER,infos+0},{descriptorSet.get(),1u,0u,1u,EDT_STORAGE_BUFFER,infos+1} };
+					infos[2].desc = core::smart_refctd_ptr<IGPUBuffer>(scratchBuffer.getObject());
+					infos[2].buffer = {0u,HistogramBufferSize};
+					IGPUDescriptorSet::SWriteDescriptorSet writes[3] = { {descriptorSet.get(),0u,0u,1u,EDT_STORAGE_BUFFER,infos+0},{descriptorSet.get(),1u,0u,1u,EDT_STORAGE_BUFFER,infos+1},{descriptorSet.get(),2u,0u,1u,EDT_STORAGE_BUFFER,infos+2} };
 					driver->updateDescriptorSets(sizeof(writes)/sizeof(IGPUDescriptorSet::SWriteDescriptorSet),writes,0u,nullptr);
 				}
 				// bind descriptor set (for all shaders)
 				driver->bindDescriptorSets(video::EPBP_COMPUTE,sharedPipelineLayout.get(),0u,1u,&descriptorSet.get(),nullptr);
 			}
-			// compute shader pre-preprocess (transform normals and TODO: compute luminosity)
+			// compute shader pre-preprocess (transform normals and compute luminosity)
 			{
+				// clear the histogram to 0s
+				driver->fillBuffer(scratchBuffer.getObject(),0u,HistogramBufferSize,0u);
 				// bind compute pipeline
 				driver->bindComputePipeline(deinterleavePipeline.get());
 				// dispatch
 				driver->dispatch((param.width+kComputeWGSize-1u)/kComputeWGSize,param.height,denoiserInputCount);
 				// issue a full memory barrier (or at least all buffer read/write barrier)
-				COpenGLExtensionHandler::extGlMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+		//COpenGLExtensionHandler::pGlMemoryBarrier(GL_UNIFORM_BARRIER_BIT);
+				//COpenGLExtensionHandler::extGlMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+				COpenGLExtensionHandler::extGlMemoryBarrier(GL_ALL_BARRIER_BITS);
+				for (auto j=0; j<denoiserInputCount; j++)
+				{
+					IImage::SCreationParams params;
+					params.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
+					params.type = IImage::ET_2D;
+					params.format = EF_R16G16B16_SFLOAT;
+					params.extent = { param.width,param.height,1u };
+					params.mipLevels = 1u;
+					params.arrayLayers = 1u;
+					params.samples = IImage::ESCF_1_BIT;
+					auto img = driver->createDeviceLocalGPUImageOnDedMem(std::move(params));
+					IImage::SBufferCopy region;
+					region.imageOffset = { 0,0,0 };
+					region.imageExtent = { param.width,param.height,1u };
+					region.imageSubresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
+					region.imageSubresource.baseArrayLayer = 0u;
+					region.imageSubresource.layerCount = 1u;
+					region.imageSubresource.mipLevel = 0u;
+					region.bufferOffset = shaderConstants.outImageOffset[j] * sizeof(uint16_t);
+					region.bufferRowLength = 0u;
+					region.bufferImageHeight = 0u;
+					driver->copyBufferToImage(temporaryPixelBuffer.getObject(), img.get(), 1u, &region);
+				}
 			}
 
 			// optix processing
@@ -678,6 +1021,9 @@ void main()
 			downloadStagingArea->multi_free(1u,&address,&colorBufferBytesize,nullptr);
 
 			// destroy image (implicit)
+
+			//
+			driver->endScene();
 		}
 	}
 

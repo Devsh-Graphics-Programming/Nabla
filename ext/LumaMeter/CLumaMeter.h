@@ -20,26 +20,26 @@ class CLumaMeter : public core::TotalInterface
 		enum E_METERING_MODE
 		{
 			EMM_GEOM_MEAN,
-			EMM_MODE,
+			EMM_MEDIAN,
 			EMM_COUNT
 		};
 
 		//
-		struct alignas(16) Uniforms_t
+		struct alignas(16) UniformsBase
 		{
 			float meteringWindowScale[2];
 			float meteringWindowOffset[2];
 		};
 		template<E_METERING_MODE mode>
-		struct PassInfo_t;
+		struct Uniforms_t;
 		template<>
-		struct alignas(8) PassInfo_t<EMM_MODE>
+		struct alignas(256) Uniforms_t<EMM_MEDIAN> : UniformsBase
 		{
 			uint32_t lowerPercentile;
 			uint32_t upperPercentile;
 		};
 		template<>
-		struct PassInfo_t<EMM_GEOM_MEAN>
+		struct alignas(256) Uniforms_t<EMM_GEOM_MEAN> : UniformsBase
 		{
 			float rcpFirstPassWGCount;
 		};
@@ -51,20 +51,20 @@ class CLumaMeter : public core::TotalInterface
 		};
 		// returns dispatch size (and wg size in x)
 		static inline DispatchInfo_t buildParameters(
-			Uniforms_t& uniforms, PassInfo_t<EMM_GEOM_MEAN>& info,
+			Uniforms_t<EMM_GEOM_MEAN>& uniforms,
 			const asset::VkExtent3D& imageSize, const float meteringMinUV[2], const float meteringMaxUV[2], float samplingFactor=2.f,
 			uint32_t workGroupXdim=DEFAULT_WORK_GROUP_X_DIM
 		)
 		{
 			auto retval = commonBuildParameters(uniforms,imageSize,meteringMinUV,meteringMaxUV,samplingFactor,workGroupXdim);
 
-			info.rcpFirstPassWGCount = 1.f/float(retval.workGroupCount[0]*retval.workGroupCount[1]);
+			uniforms.rcpFirstPassWGCount = 1.f/float(retval.workGroupCount[0]*retval.workGroupCount[1]);
 
 			return retval;
 		}
 		// previous implementation had percentiles 0.72 and 0.96
 		static inline DispatchInfo_t buildParameters(
-			Uniforms_t& uniforms, PassInfo_t<EMM_MODE>& info,
+			Uniforms_t<EMM_MEDIAN>& uniforms,
 			const asset::VkExtent3D& imageSize, const float meteringMinUV[2], const float meteringMaxUV[2], float samplingFactor=2.f,
 			float lowerPercentile=0.45f, float upperPercentile=0.55f,
 			uint32_t workGroupXdim=DEFAULT_WORK_GROUP_X_DIM
@@ -73,8 +73,8 @@ class CLumaMeter : public core::TotalInterface
 			auto retval = commonBuildParameters(uniforms,imageSize,meteringMinUV,meteringMaxUV,samplingFactor,workGroupXdim);
 
 			uint32_t totalSampleCount = retval.workGroupCount[0]*retval.workGroupDims[0]*retval.workGroupCount[1]*retval.workGroupDims[1];
-			info.lowerPercentile = lowerPercentile*float(totalSampleCount);
-			info.upperPercentile = upperPercentile*float(totalSampleCount);
+			uniforms.lowerPercentile = lowerPercentile*float(totalSampleCount);
+			uniforms.upperPercentile = upperPercentile*float(totalSampleCount);
 
 			return retval;
 		}
@@ -89,9 +89,29 @@ class CLumaMeter : public core::TotalInterface
 		}
 
 		//
-		static inline core::SRange<const IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver)
+		static inline core::SRange<const video::IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver)
 		{
 			return CGLSLLumaBuiltinIncludeLoader::getDefaultBindings(driver);
+		}
+
+		//
+		static inline size_t getOutputBufferSize(E_METERING_MODE meterMode, uint32_t arrayLayers=1u)
+		{
+			size_t retval = 0ull;
+			switch (meterMode)
+			{
+				case EMM_GEOM_MEAN:
+					retval = 1ull;
+					break;
+				case EMM_MEDIAN:
+					// TODO: should be DEFAULT_BIN_COUNT instead of invocation count
+					retval = CGLSLLumaBuiltinIncludeLoader::DEFAULT_INVOCATION_COUNT*CGLSLLumaBuiltinIncludeLoader::BIN_GLOBAL_REPLICATION;
+					break;
+				default:
+					_IRR_DEBUG_BREAK_IF(true);
+					break;
+			}
+			return core::roundUp(2ull*arrayLayers*sizeof(uint32_t)*retval,16ull);
 		}
 
 		// Special Note for Optix: minLuma>=0.00000001 and std::get<E_COLOR_PRIMARIES>(inputColorSpace)==ECP_SRGB
@@ -116,7 +136,8 @@ class CLumaMeter : public core::TotalInterface
 
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_X_DIM = 16u;
 
-		static inline DispatchInfo_t commonBuildParameters(Uniforms_t& uniforms, const asset::VkExtent3D& imageSize, const float meteringMinUV[2], const float meteringMaxUV[2], float samplingFactor, uint32_t workGroupXdim=DEFAULT_WORK_GROUP_X_DIM)
+		template<E_METERING_MODE mode>
+		static inline DispatchInfo_t commonBuildParameters(Uniforms_t<mode>& uniforms, const asset::VkExtent3D& imageSize, const float meteringMinUV[2], const float meteringMaxUV[2], float samplingFactor, uint32_t workGroupXdim=DEFAULT_WORK_GROUP_X_DIM)
 		{
 			assert(core::isPoT(workGroupXdim));
 
@@ -128,11 +149,11 @@ class CLumaMeter : public core::TotalInterface
 			for (auto i=0; i<2; i++)
 			{
 				const auto imageDim = float((&imageSize.width)[i]);
-				const float windowSizeUnnorm = imageDim*(meteringMaxUV[i]-meteringMinUV[i]);
+				const float range = meteringMaxUV[i]-meteringMinUV[i];
 
-				retval.workGroupCount[i] = core::ceil(windowSizeUnnorm/(float(retval.workGroupDims[i]*samplingFactor));
+				retval.workGroupCount[i] = core::ceil(imageDim*range/(float(retval.workGroupDims[i]*samplingFactor)));
 
-				uniforms.meteringWindowScale[i] = windowSizeUnnorm/(retval.workGroupCount[i]*retval.workGroupDims[i]);
+				uniforms.meteringWindowScale[i] = range/(retval.workGroupCount[i]*retval.workGroupDims[i]);
 				uniforms.meteringWindowOffset[i] = meteringMinUV[i];
 			}
 			return retval;

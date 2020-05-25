@@ -680,7 +680,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
 		core::smart_refctd_ptr<IGPUPipelineCache> createGPUPipelineCache() override;
 
-        core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout) override;
+        core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout) override;
 
 		void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) override;
 
@@ -704,6 +704,8 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         void flushMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) override;
 
         void invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) override;
+
+		void fillBuffer(IGPUBuffer* buffer, size_t offset, size_t length, uint32_t value) override;
 
         void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length) override;
 

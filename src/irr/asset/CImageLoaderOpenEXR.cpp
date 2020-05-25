@@ -299,6 +299,7 @@ namespace irr
 					else if (params.format == EF_R32G32B32A32_UINT)
 						ReadTexels(image.get(), perImageData.uint32_tPixelMapArray);
 
+					irr::asset::IImageAssetHandlerBase::performImageFlip(image);
 					m_manager->setAssetMetadata(image.get(), std::move(openEXRMetadata));
 
 					images.push_back(std::move(image));
@@ -343,7 +344,7 @@ namespace irr
 
 			for (uint8_t rgbaChannelIndex = 0; rgbaChannelIndex < availableChannels; ++rgbaChannelIndex)
 			{
-				std::string name = suffixOfChannels + "." + rgbaSignatureAsText[rgbaChannelIndex];
+				std::string name = suffixOfChannels.empty() ? rgbaSignatureAsText[rgbaChannelIndex] : suffixOfChannels + "." + rgbaSignatureAsText[rgbaChannelIndex];
 				frameBuffer.insert
 				(
 					name.c_str(),																					// name
