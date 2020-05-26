@@ -28,7 +28,7 @@ layout (set = 2, binding = 0, std430) readonly restrict buffer Lights
 
 vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
-	vec3 emissive = decodeRGB19E7(Emissive);
+	vec3 emissive = decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
 	irr_glsl_BSDFIsotropicParams params;
 	vec3 color = vec3(0.0);
@@ -202,6 +202,7 @@ int main()
 	}
 
 	//gather all meshes into core::vector and modify their pipelines
+	core::unordered_set<const asset::ICPURenderpassIndependentPipeline*> modifiedPipelines;
 	core::unordered_map<core::smart_refctd_ptr<asset::ICPUSpecializedShader>, core::smart_refctd_ptr<asset::ICPUSpecializedShader>> modifiedShaders;
 	core::vector<core::smart_refctd_ptr<asset::ICPUMesh>> cpumeshes;
 	cpumeshes.reserve(meshes.getSize());
@@ -212,8 +213,9 @@ int main()
 		for (uint32_t i = 0u; i < cpumeshes.back()->getMeshBufferCount(); ++i)
 		{
 			auto* pipeline = cpumeshes.back()->getMeshBuffer(i)->getPipeline();
-			if (!pipeline->getLayout()->getDescriptorSetLayout(2u))//means it hasnt been modified yet
+			if (modifiedPipelines.find(pipeline)==modifiedPipelines.end())
 			{
+				//if (!pipeline->getLayout()->getDescriptorSetLayout(2u))
 				pipeline->getLayout()->setDescriptorSetLayout(2u, core::smart_refctd_ptr(ds2layout));
 				auto* fs = pipeline->getShaderAtStage(asset::ICPUSpecializedShader::ESS_FRAGMENT);
 				auto found = modifiedShaders.find(core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs));
@@ -224,6 +226,7 @@ int main()
 					modifiedShaders.insert({ core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs),newfs});
 					pipeline->setShaderAtStage(asset::ICPUSpecializedShader::ESS_FRAGMENT, newfs.get());
 				}
+				modifiedPipelines.insert(pipeline);
 			}
 		}
 	}

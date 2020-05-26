@@ -609,7 +609,7 @@ static bsdf::STextureData getTextureData(const asset::ICPUImage* _img, asset::IC
 	subres.layerCount = 1u;
 	subres.baseMipLevel = 0u;
 	auto mx = std::max(extent.width, extent.height);
-	auto round = core::roundDownToPoT<uint32_t>(mx);
+	auto round = core::roundUpToPoT<uint32_t>(mx);
 	auto lsb = core::findLSB(round);
 	subres.levelCount = lsb + 1;
 
@@ -842,10 +842,9 @@ layout (location = 2) in vec2 vUV;
 layout (location = 3) in vec3 vNormal;
 
 layout (location = 0) out vec3 WorldPos;
-layout (location = 1) flat out uvec2 InstrOffsetCount;
+layout (location = 1) flat out uint InstanceIndex;
 layout (location = 2) out vec3 Normal;
 layout (location = 3) out vec2 UV;
-layout (location = 4) flat out uvec2 Emissive;
 
 #include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
 
@@ -863,10 +862,15 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO {
 struct InstanceData
 {
 	mat4x3 tform;
-	uvec2 instrOffsetCount;
+	vec3 normalMatrixRow0;
+	uint instrOffset;
+	vec3 normalMatrixRow1;
+	uint instrCount;
+	vec3 normalMatrixRow2;
+	uint _padding;//not needed
 	uvec2 emissive;
 };
-layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer A {
+layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
 	InstanceData data[];
 } InstData;
 
@@ -877,10 +881,12 @@ void main()
 	mat4 mvp = irr_glsl_pseudoMul4x4with4x3(CamData.params.MVP, tform);
 	gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(mvp), vPosition);
 	WorldPos = irr_glsl_pseudoMul3x4with3x1(tform, vPosition);
-	InstrOffsetCount = InstData.data[instIx].instrOffsetCount;
-	Normal = mat3(tform)*normalize(vNormal);//assuming tform doesnt contain non-uniform scaling
+	//InstrOffsetCount = uvec2(InstData.data[instIx].instrOffset,InstData.data[instIx].instrCount);
+	mat3 normalMat = mat3(InstData.data[instIx].normalMatrixRow0,InstData.data[instIx].normalMatrixRow1,InstData.data[instIx].normalMatrixRow2);
+	Normal = transpose(normalMat)*normalize(vNormal);
 	UV = vUV;
-	Emissive = InstData.data[instIx].emissive;
+	//Emissive = InstData.data[instIx].emissive;
+	InstanceIndex = instIx;
 }
 
 )";
@@ -906,10 +912,9 @@ R"(#version 430 core
 #include <irr/builtin/glsl/virtual_texturing/extensions.glsl>
 
 layout (location = 0) in vec3 WorldPos;
-layout (location = 1) flat in uvec2 InstrOffsetCount;
+layout (location = 1) flat in uint InstanceIndex;
 layout (location = 2) in vec3 Normal;
 layout (location = 3) in vec2 UV;
-layout (location = 4) flat in uvec2 Emissive;
 
 layout (location = 0) out vec4 OutColor;
 
@@ -991,6 +996,21 @@ layout (push_constant) uniform Block
 layout (set = 1, binding = 0, row_major, std140) uniform UBO {
     irr_glsl_SBasicViewParameters params;
 } CamData;
+
+struct InstanceData
+{
+	mat4x3 tform;
+	vec3 normalMatrixRow0;
+	uint instrOffset;
+	vec3 normalMatrixRow1;
+	uint instrCount;
+	vec3 normalMatrixRow2;
+	uint _padding;//not needed
+	uvec2 emissive;
+};
+layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
+	InstanceData data[];
+} InstData;
 
 //put this into some builtin
 #define RGB19E7_MANTISSA_BITS 19
@@ -1187,10 +1207,14 @@ void setCurrBSDFParams(in vec3 n, in vec3 L)
 
 void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
-	vec3 scale = decodeRGB19E7(data.data[1].zw);
-	vec3 refl = textureOrRGB19E7(data.data[0].zw, instr_getReflectanceTexPresence(instr), dUV)*scale.y;
-	vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic) * refl;
-	registers[REG_DST(regs)] = diffuse;
+	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
+	{
+		vec3 scale = decodeRGB19E7(data.data[1].zw);
+		vec3 refl = textureOrRGB19E7(data.data[0].zw, instr_getReflectanceTexPresence(instr), dUV)*scale.y;
+		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic) * refl;
+		registers[REG_DST(regs)] = diffuse;
+	}
+	else registers[REG_DST(regs)] = reg_t(0.0);
 }
 void instr_execute_ROUGHDIFFUSE(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
@@ -1408,7 +1432,7 @@ void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 L)
 // params can be either BSDFIsotropicParams or BSDFAnisotropicParams 
 Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
 {
-	uvec2 offsetCount = InstrOffsetCount;
+	uvec2 offsetCount = uvec2(InstData.data[InstanceIndex].instrOffset,InstData.data[InstanceIndex].instrCount);
 
 	for (uint i = 0u; i < offsetCount.y; ++i)
 	{
@@ -1425,7 +1449,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
 #define _IRR_COMPUTE_LIGHTING_DEFINED_
 vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
-	vec3 emissive = decodeRGB19E7(Emissive);
+	vec3 emissive = decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
 	vec3 campos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
 	irr_glsl_BSDFIsotropicParams params;
@@ -1675,7 +1699,7 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		}
 
 		const auto instrOffsetCount = getBSDFtreeTraversal(ctx, shapedef->bsdf);
-		metadataptr->instances.push_back({shapedef->getAbsoluteTransform(),instrOffsetCount.postorder,shapedef->obtainEmitter()});
+		metadataptr->instances.push_back({ shapedef->getAbsoluteTransform(),instrOffsetCount.postorder,shapedef->obtainEmitter() });
 	}
 
 	auto metadata = createPipelineMetadata(createDS0(ctx, meshes.begin(), meshes.end()), getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager).get());
@@ -2351,7 +2375,16 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		uint32_t instDataOffset = instanceData.size();
 		for (const auto& inst : meta->getInstances()) {
 			emissive = inst.emitter.type==CElementEmitter::AREA ? inst.emitter.area.radiance : core::vectorSIMDf(0.f);
-			instanceData.push_back({inst.tform, inst.instrOffsetCount, core::rgb32f_to_rgb19e7(emissive.pointer)});
+
+			SInstanceData instData;
+			instData.tform = inst.tform;
+			instData.tform.getSub3x3InverseTranspose(instData.normalMatrix);
+			instData.emissive = core::rgb32f_to_rgb19e7(emissive.pointer);
+			//ehh this might get broken by -ffast-math
+			core::floatBitsToUint(instData.normalMatrix(0u, 3u)) = inst.instrOffsetCount.first;
+			core::floatBitsToUint(instData.normalMatrix(1u, 3u)) = inst.instrOffsetCount.second;
+
+			instanceData.push_back(instData);
 		}
 		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 		{
