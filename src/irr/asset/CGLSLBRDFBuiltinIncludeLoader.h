@@ -334,6 +334,8 @@ vec3 irr_glsl_ashikhmin_shirley_cos_eval(in irr_glsl_BSDFAnisotropicParams param
 R"(#ifndef _IRR_BSDF_BRDF_SPECULAR_BECKMANN_INCLUDED_
 #define _IRR_BSDF_BRDF_SPECULAR_BECKMANN_INCLUDED_
 
+#include <irr/builtin/glsl/bsdf/common.glsl>
+
 float irr_glsl_beckmann(in float a2, in float NdotH2)
 {
     float nom = exp( (NdotH2 - 1.0)/(a2*NdotH2) );
@@ -342,6 +344,25 @@ float irr_glsl_beckmann(in float a2, in float NdotH2)
     return irr_glsl_RECIPROCAL_PI * nom/denom;
 }
 
+//TODO this is taking into account beckmann NDF only, i'd like to also account for masking/shadowing term (visibility of microfacets)
+BSDFSample irr_glsl_beckmann_cos_gen_sample(in uvec2 _sample, in float _a2)
+{
+    vec2 u = vec2(_sample)/float(4294967295);
+    float phi = 2.0*irr_glsl_PI*u.x;
+    float tan2theta = u.y==1.0 ? 0.0 : (-_a2*log(1.0-u.y));
+    float cos2Theta = 1.0 / (1.0 + tan2theta);
+    float cosTheta = sqrt(cos2Theta);
+    float sinTheta = sqrt(1.0 - cos2Theta);
+    
+    BSDFSample smpl;
+    //erm... actually i'm returning half vector here, idk how could i get L with this api
+    //user should read this H (half vector/micro-surface normal) and compute L by reflecting V on H
+    //just remember that returned vector is in reflection space so first it has to be transformed to space in which light computations are done
+    smpl.L = vec3(sinTheta,sinTheta,cosTheta)*vec3(cos(phi),sin(phi),1.0);
+    smpl.probability = irr_glsl_beckmann(_a2, cos2Theta)*abs(cosTheta);//multiply by cosTheta in order for the NDF to actually be PDF (integrates to 1)
+
+    return smpl;
+}
 #endif
 )";
     }
@@ -417,6 +438,24 @@ float irr_glsl_ggx_trowbridge_reitz(in float a2, in float NdotH2)
     return a2 / (irr_glsl_PI * denom*denom);
 }
 
+BSDFSample irr_glsl_ggx_cos_gen_sample(in uvec2 _sample, in float _a2)
+{
+    vec2 u = vec2(_sample)/float(4294967295);
+    float phi = 2.0*irr_glsl_PI*u.x;
+    float cos2Theta = (1.0 - u.y)/(u.y*(_a2 - 1.0) + 1.0);
+    float cosTheta = sqrt(cos2Theta);
+    float sinTheta = sqrt(1.0 - cos2Theta);
+    
+    BSDFSample smpl;
+    //erm... actually i'm returning half vector here, idk how could i get L with this api
+    //user should read this H (half vector/micro-surface normal) and compute L by reflecting V on H
+    //just remember that returned vector is in reflection space so first it has to be transformed to space in which light computations are done
+    smpl.L = vec3(sinTheta,sinTheta,cosTheta)*vec3(cos(phi),sin(phi),1.0);
+    smpl.probability = irr_glsl_ggx_trowbridge_reitz(_a2, cos2Theta)*abs(cosTheta);//multiply by cosTheta in order for the NDF to actually be PDF (integrates to 1)
+
+    return smpl;
+}
+
 float irr_glsl_ggx_burley_aniso(float anisotropy, float a2, float TdotH, float BdotH, float NdotH) {
 	float antiAniso = 1.0-anisotropy;
 	float atab = a2*antiAniso;
@@ -424,6 +463,43 @@ float irr_glsl_ggx_burley_aniso(float anisotropy, float a2, float TdotH, float B
 	float anisoNdotH = antiAniso*NdotH;
 	float w2 = antiAniso/(BdotH*BdotH+anisoTdotH*anisoTdotH+anisoNdotH*anisoNdotH*a2);
 	return w2*w2*atab * irr_glsl_RECIPROCAL_PI;
+}
+
+//accounting for visibility of microfacets so basically this one should always be used because converges faster and doesnt "lose samples"
+//https://schuttejoe.github.io/post/ggximportancesamplingpart2/
+//again: everything happens in reflection space, so _V is supposed to be view vector in reflection space (geom normal is positive Z axis)
+//https://hal.archives-ouvertes.fr/hal-01509746/document
+//Also: problem is our anisotropic ggx ndf (above) has extremely weird API (anisotropy and a2 instead of ax and ay) and so it's incosistent with sampling function
+//Note: this is kinda blurry and i dont really understand whats going on here
+BSDFSample irr_glsl_ggx_cos_gen_sample(in uvec2 _sample, in vec3 _V, in float _ax, in float _ay)
+{
+    vec2 u = vec2(_sample)/float(4294967295);
+
+    // stretch view vector so that we're sampling as if roughness=1.0
+    vec3 V = normalize(vec3(_ax*_V.x, _ay*_V.y, _V.z));
+
+    //build orthonormal basis (V,t1,t2)
+    vec3 t1 = (V.z<0.9999) ? normalize(cross(V, vec3(0.0,0.0,1.0))) : vec3(0.0,0.0,1.0);
+    vec3 t2 = cross(t1,V);
+
+    //sample point with polar coords (phi,r)
+    float a = 1.0/(1.0 + V.z);    
+    float r = sqrt(u.x);//no idea why sqrt is here
+    float phi = u.y<a ? u.y/a*irr_glsl_PI : irr_glsl_PI + (u.y-a)/(1.0-a)*irr_glsl_PI;
+    float p1 = r*cos(phi);
+    float p2 = r*sin(phi)*(u.y<a ? 1.0 : V.z);
+
+    //microfacet normal in stretched space
+    vec3 n = p1*t1 + p2*t2 + sqrt(max(0.0, 1.0 - p1*p1 - p2*p2))*V;
+
+    //unstretch
+    n = normalize(vec3(_ax*n.x, _ay*n.y, max(0.0,n.z)));
+
+    BSDFSample smpl;
+    smpl.L = n;
+    smpl.probability = 0.0;//??? TODO
+
+    return smpl;
 }
 
 #endif
