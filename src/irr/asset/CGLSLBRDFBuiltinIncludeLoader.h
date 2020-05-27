@@ -345,16 +345,16 @@ float irr_glsl_beckmann(in float a2, in float NdotH2)
 }
 
 //TODO this is taking into account beckmann NDF only, i'd like to also account for masking/shadowing term (visibility of microfacets)
-BSDFSample irr_glsl_beckmann_cos_gen_sample(in uvec2 _sample, in float _a2)
+irr_glsl_BSDFSample irr_glsl_beckmann_cos_gen_sample(in vec2 _sample, in float _a2)
 {
-    vec2 u = vec2(_sample)/float(4294967295);
+    vec2 u = _sample;
     float phi = 2.0*irr_glsl_PI*u.x;
     float tan2theta = u.y==1.0 ? 0.0 : (-_a2*log(1.0-u.y));
     float cos2Theta = 1.0 / (1.0 + tan2theta);
     float cosTheta = sqrt(cos2Theta);
     float sinTheta = sqrt(1.0 - cos2Theta);
     
-    BSDFSample smpl;
+    irr_glsl_BSDFSample smpl;
     //erm... actually i'm returning half vector here, idk how could i get L with this api
     //user should read this H (half vector/micro-surface normal) and compute L by reflecting V on H
     //just remember that returned vector is in reflection space so first it has to be transformed to space in which light computations are done
@@ -362,6 +362,11 @@ BSDFSample irr_glsl_beckmann_cos_gen_sample(in uvec2 _sample, in float _a2)
     smpl.probability = irr_glsl_beckmann(_a2, cos2Theta)*abs(cosTheta);//multiply by cosTheta in order for the NDF to actually be PDF (integrates to 1)
 
     return smpl;
+}
+irr_glsl_BSDFSample irr_glsl_beckmann_cos_gen_sample(in uvec2 _sample, in float _a2)
+{
+    vec2 u = vec2(_sample)/4294967295.0;
+    return irr_glsl_beckmann_cos_gen_sample(u, _a2);
 }
 #endif
 )";
@@ -438,15 +443,15 @@ float irr_glsl_ggx_trowbridge_reitz(in float a2, in float NdotH2)
     return a2 / (irr_glsl_PI * denom*denom);
 }
 
-BSDFSample irr_glsl_ggx_cos_gen_sample(in uvec2 _sample, in float _a2)
+irr_glsl_BSDFSample irr_glsl_ggx_cos_gen_sample(in vec2 _sample, in float _a2)
 {
-    vec2 u = vec2(_sample)/float(4294967295);
+    vec2 u = _sample;
     float phi = 2.0*irr_glsl_PI*u.x;
     float cos2Theta = (1.0 - u.y)/(u.y*(_a2 - 1.0) + 1.0);
     float cosTheta = sqrt(cos2Theta);
     float sinTheta = sqrt(1.0 - cos2Theta);
     
-    BSDFSample smpl;
+    irr_glsl_BSDFSample smpl;
     //erm... actually i'm returning half vector here, idk how could i get L with this api
     //user should read this H (half vector/micro-surface normal) and compute L by reflecting V on H
     //just remember that returned vector is in reflection space so first it has to be transformed to space in which light computations are done
@@ -454,6 +459,11 @@ BSDFSample irr_glsl_ggx_cos_gen_sample(in uvec2 _sample, in float _a2)
     smpl.probability = irr_glsl_ggx_trowbridge_reitz(_a2, cos2Theta)*abs(cosTheta);//multiply by cosTheta in order for the NDF to actually be PDF (integrates to 1)
 
     return smpl;
+}
+irr_glsl_BSDFSample irr_glsl_ggx_cos_gen_sample(in uvec2 _sample, in float _a2)
+{
+    vec2 u = vec2(_sample)/4294967295.0;
+    return irr_glsl_ggx_cos_gen_sample(u, _a2);
 }
 
 float irr_glsl_ggx_burley_aniso(float anisotropy, float a2, float TdotH, float BdotH, float NdotH) {
@@ -471,9 +481,9 @@ float irr_glsl_ggx_burley_aniso(float anisotropy, float a2, float TdotH, float B
 //https://hal.archives-ouvertes.fr/hal-01509746/document
 //Also: problem is our anisotropic ggx ndf (above) has extremely weird API (anisotropy and a2 instead of ax and ay) and so it's incosistent with sampling function
 //Note: this is kinda blurry and i dont really understand whats going on here
-BSDFSample irr_glsl_ggx_cos_gen_sample(in uvec2 _sample, in vec3 _V, in float _ax, in float _ay)
+irr_glsl_BSDFSample irr_glsl_ggx_cos_gen_sample(in vec2 _sample, in vec3 _V, in float _ax, in float _ay)
 {
-    vec2 u = vec2(_sample)/float(4294967295);
+    vec2 u = _sample;
 
     // stretch view vector so that we're sampling as if roughness=1.0
     vec3 V = normalize(vec3(_ax*_V.x, _ay*_V.y, _V.z));
@@ -495,11 +505,16 @@ BSDFSample irr_glsl_ggx_cos_gen_sample(in uvec2 _sample, in vec3 _V, in float _a
     //unstretch
     n = normalize(vec3(_ax*n.x, _ay*n.y, max(0.0,n.z)));
 
-    BSDFSample smpl;
+    irr_glsl_BSDFSample smpl;
     smpl.L = n;
     smpl.probability = 0.0;//??? TODO
 
     return smpl;
+}
+irr_glsl_BSDFSample irr_glsl_ggx_cos_gen_sample(in uvec2 _sample, in vec3 _V, in float _ax, in float _ay)
+{
+    vec2 u = vec2(_sample)/4294967295.0;
+    return irr_glsl_ggx_cos_gen_sample(u, _V, _ax, _ay);
 }
 
 #endif
@@ -568,31 +583,25 @@ float irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(in float at, in fl
 }
 
 
-float _C(in float NdotX, in float NdotX2, in float a)
-{
-    return NdotX / (a * sqrt(1.0 - NdotX2));
-}
-//_C squared
-float _C2(in float NdotX2, in float a2)
+float irr_glsl_smith_C2(in float NdotX2, in float a2)
 {
     return NdotX2 / (a2 * (1.0 - NdotX2));
 }
 //G1 = 1/(1+_Lambda)
-float _Lambda(in float c, in float c2)
+float irr_glsl_smith_Lambda(in float c2)
 {
-    float nom = 0.396*c2 - 1.259*c + 1.0;
+    float c = sqrt(c2);
+    float nom = 1.0 - 1.259*c + 0.396*c2;
     float denom = 2.181*c2 + 3.535*c;
-
-    //actually i think we could get rid of mix() since nom/denom is almost constant for c>1.6 (i.e. is going down but very slowly, at c=20 it's ~0.9)
-    return mix(1.0, nom/denom, c<1.6);
+    return mix(0.0, nom/denom, c<1.6);
 }
 //i wonder where i got irr_glsl_ggx_smith_height_correlated() from because it looks very different from 1/(1+L_v+L_l) form
-// Note a, not a2!
-float irr_glsl_beckmann_smith_height_correlated(in float NdotV, in float NdotV2, in float NdotL, in float NdotL2, in float a, in float a2)
+float irr_glsl_beckmann_smith_height_correlated(in float NdotV2, in float NdotL2, in float a2)
 {
-    float L_v = _Lambda(_C(NdotV, NdotV2, a), _C2(NdotV2, a2));
-    float L_l = _Lambda(_C(NdotL, NdotL2, a), _C2(NdotL2, a2));
-
+    float c2 = irr_glsl_smith_C2(NdotV2, a2);
+    float L_v = irr_glsl_smith_Lambda(c2);
+    c2 = irr_glsl_smith_C2(NdotL2, a2);
+    float L_l = irr_glsl_smith_Lambda(c2);
     return 1.0 / (1.0 + L_v + L_l);
 }
 
@@ -641,9 +650,10 @@ vec3 irr_glsl_ggx_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams par
 #include <irr/builtin/glsl/bsdf/brdf/specular/geom/smith.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
 
+//TODO get rid of `a` parameter
 vec3 irr_glsl_beckmann_smith_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2x3 ior2, in float a, in float a2)
 {
-    float g = irr_glsl_beckmann_smith_height_correlated(params.NdotV, params.NdotV_squared, params.NdotL, params.NdotL_squared, a, a2);
+    float g = irr_glsl_beckmann_smith_height_correlated(params.NdotV_squared, params.NdotL_squared, a2);
     float ndf = irr_glsl_beckmann(a2, params.NdotH*params.NdotH);
     vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], params.VdotH);
     
