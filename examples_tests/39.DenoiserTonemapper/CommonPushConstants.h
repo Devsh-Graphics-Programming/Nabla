@@ -21,6 +21,7 @@ struct CommonPushConstants
 	float denoiserExposureBias;
 
 	// for the tonemapper
+	uint tonemappingOperator;
 	float tonemapperParams[2];
 
 	mat3 normalMatrix;

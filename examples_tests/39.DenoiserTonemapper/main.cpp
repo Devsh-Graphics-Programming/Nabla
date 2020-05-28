@@ -506,13 +506,29 @@ void main()
 
 	bool alive = gl_GlobalInvocationID.x<pc.data.imageWidth;
 	vec3 color = uintBitsToFloat(uvec3(repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u]));
+	
 	color = _IRR_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_*color;
-
+	color *= intensity[pc.data.intensityBufferDWORDOffset]; // *= 0.18/AvgLuma
+	switch (pc.data.tonemappingOperator)
 	{
-		irr_glsl_ext_ToneMapper_ReinhardParams_t tonemapParams;
-		tonemapParams.keyAndManualLinearExposure = intensity[pc.data.intensityBufferDWORDOffset]; // 0.18/AvgLuma
-		tonemapParams.rcpWhite2 = 1.0/36.0;
-		color = irr_glsl_ext_ToneMapper_Reinhard(tonemapParams,color);
+		case _IRR_GLSL_EXT_TONE_MAPPER_REINHARD_OPERATOR:
+		{
+			irr_glsl_ext_ToneMapper_ReinhardParams_t tonemapParams;
+			tonemapParams.keyAndManualLinearExposure = pc.data.tonemapperParams[0];
+			tonemapParams.rcpWhite2 = pc.data.tonemapperParams[1];
+			color = irr_glsl_ext_ToneMapper_Reinhard(tonemapParams,color);
+			break;
+		}
+		case _IRR_GLSL_EXT_TONE_MAPPER_ACES_OPERATOR:
+		{
+			irr_glsl_ext_ToneMapper_ACESParams_t tonemapParams;
+			tonemapParams.gamma = pc.data.tonemapperParams[0];
+			tonemapParams.exposure = pc.data.tonemapperParams[1];
+			color = irr_glsl_ext_ToneMapper_ACES(tonemapParams,color);
+			break;
+		}
+		default:
+			break;
 	}
 	color = irr_glsl_XYZtosRGB*color;
 
@@ -776,9 +792,32 @@ void main()
 			shaderConstants.medianFilterRadius = 1u;
 			assert(intensityBufferOffset%IntensityValuesSize==0u);
 			shaderConstants.intensityBufferDWORDOffset = intensityBufferOffset/IntensityValuesSize;
-			shaderConstants.denoiserExposureBias = -1.f;
-			shaderConstants.tonemapperParams[0];
-			shaderConstants.tonemapperParams[1];
+			shaderConstants.denoiserExposureBias = exposureBiasBundle[i]; // 
+			shaderConstants.tonemappingOperator = ToneMapperClass::EO_ACES;
+			const float optiXIntensityKeyCompensation = -log2(0.18);
+			float key = 0.4;
+			float extraParam = 0.8;
+			switch (shaderConstants.tonemappingOperator)
+			{
+				case ToneMapperClass::EO_REINHARD:
+				{
+					auto tp = ToneMapperClass::Params_t<ToneMapperClass::EO_REINHARD>(optiXIntensityKeyCompensation,key,extraParam);
+					shaderConstants.tonemapperParams[0] = tp.keyAndLinearExposure;
+					shaderConstants.tonemapperParams[1] = tp.rcpWhite2;
+					break;
+				}
+				case ToneMapperClass::EO_ACES:
+				{
+					auto tp = ToneMapperClass::Params_t<ToneMapperClass::EO_ACES>(optiXIntensityKeyCompensation,key,extraParam);
+					shaderConstants.tonemapperParams[0] = tp.gamma;
+					shaderConstants.tonemapperParams[1] = (&tp.gamma)[1];
+					break;
+				}
+				default:
+					shaderConstants.tonemapperParams[0] = core::nan<float>();
+					shaderConstants.tonemapperParams[1] = core::nan<float>();
+					break;
+			}
 			auto totalSampleCount = param.width*param.height;
 			shaderConstants.percentileRange[0] = lowerPercentile*float(totalSampleCount);
 			shaderConstants.percentileRange[1] = upperPercentile*float(totalSampleCount);
