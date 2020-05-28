@@ -369,7 +369,7 @@ float irr_glsl_ext_LumaMeter_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_outpu
 
 float irr_glsl_ext_LumaMeter_getOptiXIntensity(in float measuredLumaLog2)
 {
-    return exp2(log(0.18)-measuredLumaLog2);
+    return exp2(log2(0.18)-measuredLumaLog2);
 }
 
 
