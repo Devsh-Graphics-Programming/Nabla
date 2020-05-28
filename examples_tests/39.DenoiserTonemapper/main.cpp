@@ -899,31 +899,7 @@ void main()
 				// dispatch
 				driver->dispatch(1u,1u,1u);
 				// issue a full memory barrier (or at least all buffer read/write barrier)
-				//COpenGLExtensionHandler::extGlMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
-				COpenGLExtensionHandler::extGlMemoryBarrier(GL_ALL_BARRIER_BITS);
-				for (auto j=0; j<denoiserInputCount; j++)
-				{
-					IImage::SCreationParams params;
-					params.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
-					params.type = IImage::ET_2D;
-					params.format = EF_R16G16B16_SFLOAT;
-					params.extent = { param.width,param.height,1u };
-					params.mipLevels = 1u;
-					params.arrayLayers = 1u;
-					params.samples = IImage::ESCF_1_BIT;
-					auto img = driver->createDeviceLocalGPUImageOnDedMem(std::move(params));
-					IImage::SBufferCopy region;
-					region.imageOffset = { 0,0,0 };
-					region.imageExtent = { param.width,param.height,1u };
-					region.imageSubresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
-					region.imageSubresource.baseArrayLayer = 0u;
-					region.imageSubresource.layerCount = 1u;
-					region.imageSubresource.mipLevel = 0u;
-					region.bufferOffset = shaderConstants.outImageOffset[j] * sizeof(uint16_t);
-					region.bufferRowLength = 0u;
-					region.bufferImageHeight = 0u;
-					driver->copyBufferToImage(temporaryPixelBuffer.getObject(), img.get(), 1u, &region);
-				}
+				COpenGLExtensionHandler::extGlMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 			}
 
 			// optix processing
