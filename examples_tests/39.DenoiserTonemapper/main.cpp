@@ -528,6 +528,7 @@ void main()
 			break;
 		}
 		default:
+			color *= pc.data.tonemapperParams[0];
 			break;
 	}
 	color = irr_glsl_XYZtosRGB*color;
@@ -602,7 +603,7 @@ void main()
 	// load images
 	uint32_t maxResolution[EII_COUNT][2] = { 0 };
 	{
-		asset::IAssetLoader::SAssetLoadParams lp(0ull,nullptr,IAssetLoader::ECF_DUPLICATE_REFERENCES);
+		asset::IAssetLoader::SAssetLoadParams lp(0ull,nullptr,IAssetLoader::ECF_DUPLICATE_REFERENCES); // TODO: maybe don't replicate the CPU data
 		for (size_t i=0; i<inputFilesAmount; i++)
 		{
 			auto image_bundle = am->getAsset(fileNamesBundle[i], lp);
@@ -788,15 +789,14 @@ void main()
 			for (uint32_t j=0u; j<denoiserInputCount; j++)
 				shaderConstants.outImageOffset[j] = j*param.width*param.height*forcedOptiXFormatPixelStride/sizeof(uint16_t); // float 16 actually
 			shaderConstants.imageWidth = param.width;
-			// TODO: make parameters for medianFilterRadius and denoiserExposureBias
-			shaderConstants.medianFilterRadius = 1u;
+			shaderConstants.medianFilterRadius = 1u; // TODO: load from `MEDIAN_FILTER_RADIUS`
 			assert(intensityBufferOffset%IntensityValuesSize==0u);
 			shaderConstants.intensityBufferDWORDOffset = intensityBufferOffset/IntensityValuesSize;
-			shaderConstants.denoiserExposureBias = exposureBiasBundle[i]; // 
-			shaderConstants.tonemappingOperator = ToneMapperClass::EO_ACES;
+			shaderConstants.denoiserExposureBias = exposureBiasBundle[i]; // TODO: rename the `exposureBias*` to `denoiserExposureBias`
+			shaderConstants.tonemappingOperator = ToneMapperClass::EO_ACES; // TODO: load from tonemapper operator type
 			const float optiXIntensityKeyCompensation = -log2(0.18);
-			float key = 0.4;
-			float extraParam = 0.8;
+			float key = 0.4; // TODO: load from tonemapper parameters
+			float extraParam = 0.8; // TODO: load from tonemapper parameters
 			switch (shaderConstants.tonemappingOperator)
 			{
 				case ToneMapperClass::EO_REINHARD:
@@ -814,7 +814,7 @@ void main()
 					break;
 				}
 				default:
-					shaderConstants.tonemapperParams[0] = core::nan<float>();
+					shaderConstants.tonemapperParams[0] = key*exp2(optiXIntensityKeyCompensation);
 					shaderConstants.tonemapperParams[1] = core::nan<float>();
 					break;
 			}

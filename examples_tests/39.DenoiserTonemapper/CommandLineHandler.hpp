@@ -21,43 +21,73 @@ constexpr std::string_view requiredArgumentsMessage = R"(
 Pass appripiate arguments to launch the example or load them using predefined file!
 * To load them with a arguments file usage type DenoiserTonemapper.exe -batch <yourargumentfile.txt>
 * To load them passing arguments through cmd.
-Loading syntax:
--OPENEXR_FILE=filename
--CHANNEL_NAMES=colorChannelName,albedoChannelName,normalChannelName
+Mandatory parameters:
+-COLOR_FILE=colorFilename
 -CAMERA_TRANSFORM=value,value,value,...
--EXPOSURE_BIAS=value
+-MEDIAN_FILTER_RADIUS=value
+-DENOISER_EXPOSURE_BIAS=value
 -DENOISER_BLEND_FACTOR=value
--BLOOM_SIZE=x,y
--TONEMAPPER=tonemapper=arg1,arg2,arg3,...
+-BLOOM_FOV=theta
+-TONEMAPPER=tonemapper=keyValue,extraParameter
 -OUTPUT=file.choosenextension
-Note there mustn't be any space characters!
-Also you mustn't put another data like comments or behaviour will be undefined, the app'll crash (TODO: not crash on parse failure)
+Optional Parameters:
+-ALBEDO_FILE=albedoFilename
+-NORMAL_FILE=normalFilename
+-COLOR_CHANNEL_NAME=colorChannelName
+-ALBEDO_CHANNEL_NAME=albedoChannelName
+-NORMAL_CHANNEL_NAME=normalChannelName
+-BLOOM_PSF_FILE=psfFilename
 
-Description and usage:
-OPENEXR_FILE: OpenEXR file containing various channels - type without extension
-CHANNEL_NAMES: name of denoiser input channels, first is mandatory rest is optional - split each next channel using ","
+NORMAL_FILE can only be specified if ALBEDO_FILE has been specified
+ALBEDO_CHANNEL_NAME can only be specified if ALBEDO_FILE has been specified
+NORMAL_CHANNEL_NAME can only be specified if NORMAL_FILE has been specified
+
+Note there mustn't be any space characters!
+All file's resolutions must match!
+Also you must not put another data like comments or behaviour will be undefined, the app'll crash (TODO: not crash on parse failure)
+
+
+Description and usage: (TODO: Update these)
+
+~OPENEXR_FILE: OpenEXR file containing various channels~
+
+~CHANNEL_NAMES: name of denoiser input channels, first is mandatory rest is optional - split each next channel using ","~
+
 CAMERA_TRANSFORM: values as "initializer list" for camera transform matrix with
 row_major layout (max 9 values - extra values will be ignored)
-EXPOSURE_BIAS: exposure bias value used in shader
-DENOISER_BLEND_FACTOR: denoiser blend factor used in shader
-BLOOM_SIZE: bloom size
-TONEMAPPER: tonemapper - choose between "REINHARD" and "ACES". After specifing it
-you have to assing arguments to revelant tonemapper. For "REINHARD" tonemapper
-there are no arguments, so you should not type anything else, but for "ACES"
-you have to specify some arguments for it's curve function. They are following:
-arg1=value
-arg2=value
-arg3=value
-arg4=value
-arg5=value
-where function is:
-f(x) = clamp((x * (arg1 * x + arg2)) / (x * (arg3 * x + arg4) + arg5), 0.0, 1.0)
-so for example, specifing "REINHARD" tonemapper looks like:
--TONEMAPPER=REINHARD
+
+MEDIAN_FILTER_RADIUS: a radius in pixels, valid values are 0 (no filter), 1 and 2. Anything larger than 2 is invalid.
+
+DENOISER_EXPOSURE_BIAS: by telling the OptiX AI denoiser that the image is darker than it actually is you can trick the AI into denoising more aggressively.
+It won't brighten your image or anything, we revert the exposure back after the denoise. If you want to influence the final brightness of the image,
+you should use the Tonemapping Operator's Key Value.
+
+DENOISER_BLEND_FACTOR: denoiser blend factor, 0.0 is full denoise, 1.0 is no denoise.
+
+BLOOM_FOV: Field of View of the image, its used to scale the size of the Bloom's light-flares (point spread function) to match the Camera's projection.
+If you don't want bloom then either provide a PSF image the size of the input image with a single bright pixel, or set the FoV to negative or NaN.
+Please note that the Bloom is not implemented yet, so the value is ignored (forced to NaN).
+
+TONEMAPPER: tonemapper - choose between "REINHARD", "ACES" and "NONE". After specifying it you have to pass arguments to revelant tonemapper,
+the first argument is always the Key Value, a good default is 0.18 like the Reinhard paper's default.
+The "NONE" tonemapper does not take any further arguments and will ignore them, it will simply output the linear light colors to 
+a HDR EXR as-is (although auto-exposed), this is useful for further processing in e.g. Photoshop.
+
+The second argument has different meanings for the different tonemappers:
+- For "REINHARD" it means "burn out level relative to exposed 1.0 luma level"
+basically if after adjusting the key of the image (scaling all pixels so the average luminance value equals the key value) the luma value
+is above this burn out parameter, then it is allowed to clip to white, a good default is something like 16.0
+- For "ACES" it means "gamma/contrast", a value of 1.0 should leave your contrast as is, but the filmic response curves for tonemapping wash-out the 
+colors loosing saturation in our optinion so we recommend to use a value between 0.72 and 0.87 instead.
+
+To wrap up, specifing "REINHARD" tonemapper looks like:
+-TONEMAPPER=REINHARD=key,whiteLevel
 and specifing "ACES" looks like:
--TONEMAPPER=ACES=arg1,arg2,arg3,arg4,arg5
+-TONEMAPPER=ACES=key,gamma
+
 OUTPUT: output file with specified extension 
-An example file is put into the DenoiserTonemapperExample folder
+BLOOM_PSF_FILE: A EXR file with a HDR sprite corresponding to the Point Spread Function you want to convolve the image with,
+if this file is not provided then we use a built-in PSF as the kernel for the convolution.
 )";
 
 constexpr std::string_view OPENEXR_FILE = "OPENEXR_FILE";
