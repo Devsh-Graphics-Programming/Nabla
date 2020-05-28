@@ -383,6 +383,9 @@ R"(#ifndef _IRR_GLSL_EXT_LUMA_METER_IMPL_INCLUDED_
 #define _IRR_GLSL_EXT_LUMA_METER_IMPL_INCLUDED_
 
 
+#ifndef _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
+#define _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
+#endif
 #include "irr/builtin/glsl/ext/LumaMeter/common.glsl"
 
 

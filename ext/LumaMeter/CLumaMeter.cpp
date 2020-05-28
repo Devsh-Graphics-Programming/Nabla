@@ -69,7 +69,6 @@ R"===(#version 430 core
 #include "irr/builtin/glsl/colorspace/decodeCIEXYZ.glsl"
 #include "irr/builtin/glsl/colorspace/OETF.glsl"
 
-#define _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
 #define _IRR_GLSL_EXT_LUMA_METER_EOTF_DEFINED_ %s
 #define _IRR_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_ %s
 #define _IRR_GLSL_EXT_LUMA_METER_GET_COLOR_DEFINED_

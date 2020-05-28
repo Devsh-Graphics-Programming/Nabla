@@ -58,7 +58,6 @@ void ltswap(inout vec4 a, inout vec4 b)
 #include "irr/builtin/glsl/colorspace/decodeCIEXYZ.glsl"
 #include "irr/builtin/glsl/colorspace/OETF.glsl"
 
-#define _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
 #define _IRR_GLSL_EXT_LUMA_METER_EOTF_DEFINED_ irr_glsl_eotf_identity
 #define _IRR_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_ irr_glsl_sRGBtoXYZ
 #define _IRR_GLSL_EXT_LUMA_METER_GET_COLOR_DEFINED_
@@ -69,28 +68,25 @@ void ltswap(inout vec4 a, inout vec4 b)
 #define _IRR_GLSL_EXT_LUMA_METER_GET_NEXT_LUMA_OUTPUT_OFFSET_FUNC_DECLARED_
 #define _IRR_GLSL_EXT_LUMA_METER_GET_NEXT_LUMA_OUTPUT_OFFSET_FUNC_DEFINED_
 #define _IRR_GLSL_EXT_LUMA_METER_GET_CURRENT_LUMA_OUTPUT_OFFSET_FUNC_DEFINED_
-#include "irr/builtin/glsl/ext/LumaMeter/impl.glsl"
 
-// we will clear buffer to 0 with command buffer
-void irr_glsl_ext_LumaMeter_clearFirstPassOutput()
-{
-}
+#ifdef _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
+	#include "irr/builtin/glsl/ext/LumaMeter/impl.glsl"
 
-// need to override the offset and color provision functions
-int irr_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()
-{
-	return 0;
-}
+	// we will clear buffer to 0 with command buffer
+	void irr_glsl_ext_LumaMeter_clearFirstPassOutput()
+	{
+	}
 
-vec3 irr_glsl_ext_LumaMeter_getColor(bool wgExecutionMask)
-{
-	return medianWindow[medianIndex].rgb;
-}
+	// need to override the offset and color provision functions
+	int irr_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()
+	{
+		return 0;
+	}
 
-
-/*
-float irr_glsl_ext_LumaMeter_getOptiXIntensity(in float measuredLumaLog2)
-{
-    return exp2(log(0.18) - measuredLumaLog2);
-}
-*/
+	vec3 irr_glsl_ext_LumaMeter_getColor(bool wgExecutionMask)
+	{
+		return medianWindow[medianIndex].rgb;
+	}
+#else
+	#include "irr/builtin/glsl/ext/LumaMeter/common.glsl"
+#endif

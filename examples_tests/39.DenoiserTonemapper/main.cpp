@@ -159,6 +159,7 @@ int main(int argc, char* argv[])
 	constexpr auto TMO = ToneMapperClass::EO_ACES;
 	{
 		LumaMeterClass::registerBuiltinGLSLIncludes(compiler);
+		ToneMapperClass::registerBuiltinGLSLIncludes(compiler);
 
 		/*
 		auto commonPipelineLayout = ToneMapperClass::getDefaultPipelineLayout(driver,usingLumaMeter);
@@ -203,15 +204,17 @@ int main(int argc, char* argv[])
 #endif
 	}
 
+	constexpr auto SharedDescriptorSetDescCount = 4u;
 	core::smart_refctd_ptr<IGPUDescriptorSetLayout> sharedDescriptorSetLayout;
 	core::smart_refctd_ptr<IGPUPipelineLayout> sharedPipelineLayout;
-	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,exposePipeline,interleavePipeline;
+	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,exposurePipeline,interleavePipeline;
 	//core::smart_refctd_ptr<IGPUComputePipeline> toneMappingPipeline[ToneMapperClass::EO_COUNT+1];
 	{
 		auto deinterleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
 
+#define _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
 #include "../ShaderCommon.glsl"
 
 layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
@@ -464,11 +467,55 @@ void main()
 		outBuffer[rowOffset+lineOffset] = float16_t(uintBitsToFloat(repackBuffer[gl_LocalInvocationIndex+COMPUTE_WG_SIZE*2u]));
 }
 		)==="));
+		auto exposeShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+#version 450 core
+#extension GL_EXT_shader_16bit_storage : require
+
+#include "../ShaderCommon.glsl"
+
+layout(binding = 3, std430) restrict writeonly buffer IntensityBuffer
+{
+	float intensity[];
+};
+layout(binding = 1, std430) restrict readonly buffer ImageInputBuffer
+{
+	float16_t inBuffer[];
+};
+layout(binding = 0, std430) restrict writeonly buffer ImageOutputBuffer
+{
+	float16_t outBuffer[];
+};
+
+
+void main()
+{
+	// write optix brightness
+	if (alls(equals(uvec3(0,0,0),gl_GlobalInvocationID)))
+	{
+		intensity[pc.data.intensityBufferDWORDOffset] = irr_glsl_ext_LumaMeter_getOptiXIntensity(measuredLumaLog2+pc.data.denoiserExposureBias);
+	}
+
+	bool alive = gl_GlobalInvocationID.x<pc.data.imageWidth;
+	if (!alive)
+		return;
+
+	uint dataOffset = (pc.data.inImageTexelOffset[EII_COLOR]+gl_GlobalInvocationID.y*pc.data.inImageTexelPitch[EII_COLOR]+gl_GlobalInvocationID.x)*3u;
+	vec3 color;
+	for (uint i=0u; i<3u; i++)
+		color[i] = float(inBuffer[dataOffset+i]);
+
+	color *= exp2(pc.data.denoiserExposureBias);
+
+	for (uint i=0u; i<3u; i++)
+		outBuffer[dataOffset+i] = color[i];
+}
+		)==="));
 		auto interleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
 
 #include "../ShaderCommon.glsl"
+#include "irr/builtin/glsl/ext/ToneMapper/operators.glsl"
 
 layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 {
@@ -477,6 +524,10 @@ layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 layout(binding = 1, std430) restrict writeonly buffer ImageOutputBuffer
 {
 	f16vec4 outBuffer[];
+};
+layout(binding = 3, std430) restrict readonly buffer IntensityBuffer
+{
+	float intensity[];
 };
 
 
@@ -495,7 +546,16 @@ void main()
 
 	bool alive = gl_GlobalInvocationID.x<pc.data.imageWidth;
 	vec3 color = uintBitsToFloat(uvec3(repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u]));
-	color *= exp2(-pc.data.denoiserExposureBias);
+	color = _IRR_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_*color;
+
+	{
+		irr_glsl_ext_ToneMapper_ReinhardParams_t tonemapParams;
+		tonemapParams.keyAndManualLinearExposure = intensity[pc.data.intensityBufferDWORDOffset];
+		tonemapParams.rcpWhite2 = 1.0/36.0;
+		color = irr_glsl_ext_ToneMapper_Reinhard(tonemapParams,color);
+	}
+	color = irr_glsl_XYZtosRGB*color;
+
 	uint dataOffset = pc.data.inImageTexelOffset[EII_COLOR]+gl_GlobalInvocationID.y*pc.data.inImageTexelPitch[EII_COLOR]+gl_GlobalInvocationID.x;
 	if (alive)
 		outBuffer[dataOffset] = f16vec4(vec4(color,1.0));
@@ -524,12 +584,13 @@ void main()
 		auto deinterleaveSpecializedShader = driver->createGPUSpecializedShader(deinterleaveShader.get(),specInfo);
 		auto interleaveSpecializedShader = driver->createGPUSpecializedShader(interleaveShader.get(),specInfo);
 		
-		IGPUDescriptorSetLayout::SBinding binding[] = {
+		IGPUDescriptorSetLayout::SBinding binding[SharedDescriptorSetDescCount] = {
 			{0u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
 			{1u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-			{2u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr}
+			{2u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+			{3u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr}
 		};
-		sharedDescriptorSetLayout = driver->createGPUDescriptorSetLayout(binding,binding+sizeof(binding)/sizeof(IGPUDescriptorSetLayout::SBinding));
+		sharedDescriptorSetLayout = driver->createGPUDescriptorSetLayout(binding,binding+SharedDescriptorSetDescCount);
 		SPushConstantRange pcRange[1] = {IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(CommonPushConstants)};
 		sharedPipelineLayout = driver->createGPUPipelineLayout(pcRange,pcRange+sizeof(pcRange)/sizeof(SPushConstantRange),core::smart_refctd_ptr(sharedDescriptorSetLayout));
 
@@ -681,7 +742,7 @@ void main()
 	// keep all CUDA links in an array (less code to map/unmap
 	cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> bufferLinks[DENOISER_BUFFER_COUNT];
 	// set-up denoisers
-	constexpr size_t intensityValuesSize = sizeof(float);
+	constexpr size_t IntensityValuesSize = sizeof(float);
 	auto& intensityBuffer = bufferLinks[0];
 	auto& denoiserState = bufferLinks[0];
 	auto& scratchBuffer = bufferLinks[1];
@@ -722,7 +783,7 @@ void main()
 		if (check_error(pixelBufferSize==0ull,"No input files at all!"))
 			return error_code;
 
-		denoiserState = driver->createDeviceLocalGPUBufferOnDedMem(denoiserStateBufferSize+intensityValuesSize);
+		denoiserState = driver->createDeviceLocalGPUBufferOnDedMem(denoiserStateBufferSize+IntensityValuesSize);
 		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&denoiserState)),"Could not register buffer for Denoiser states!"))
 			return error_code;
 		scratchBuffer = driver->createDeviceLocalGPUBufferOnDedMem(scratchBufferSize);
@@ -732,6 +793,7 @@ void main()
 		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&temporaryPixelBuffer)),"Could not register buffer for Denoiser scratch memory!"))
 			return error_code;
 	}
+	const auto intensityBufferOffset = denoiserStateBufferSize;
 
 	// do the processing
 	for (size_t i=0; i<inputFilesAmount; i++)
@@ -747,8 +809,10 @@ void main()
 			for (uint32_t j=0u; j<denoiserInputCount; j++)
 				shaderConstants.outImageOffset[j] = j*param.width*param.height*forcedOptiXFormatPixelStride/sizeof(uint16_t); // float 16 actually
 			shaderConstants.imageWidth = param.width;
-			// TODO: make parameters for those
+			// TODO: make parameters for medianFilterRadius and denoiserExposureBias
 			shaderConstants.medianFilterRadius = 1u;
+			assert(intensityBufferOffset%IntensityValuesSize==0u);
+			shaderConstants.intensityBufferDWORDOffset = intensityBufferOffset/IntensityValuesSize;
 			shaderConstants.denoiserExposureBias = -1.f;
 			shaderConstants.normalMatrix = cameraTransformBundle[i];
 		}
@@ -797,15 +861,19 @@ void main()
 				auto descriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr(sharedDescriptorSetLayout));
 				// write descriptor set
 				{
-					IGPUDescriptorSet::SDescriptorInfo infos[3];
+					IGPUDescriptorSet::SDescriptorInfo infos[SharedDescriptorSetDescCount];
 					infos[0].desc = core::smart_refctd_ptr<IGPUBuffer>(imagePixelBuffer.getObject());
 					infos[0].buffer = {0u,imagePixelBuffer.getObject()->getMemoryReqs().vulkanReqs.size};
 					infos[1].desc = core::smart_refctd_ptr<IGPUBuffer>(temporaryPixelBuffer.getObject());
 					infos[1].buffer = {0u,temporaryPixelBuffer.getObject()->getMemoryReqs().vulkanReqs.size};
 					infos[2].desc = core::smart_refctd_ptr<IGPUBuffer>(scratchBuffer.getObject());
 					infos[2].buffer = {0u,HistogramBufferSize};
-					IGPUDescriptorSet::SWriteDescriptorSet writes[3] = { {descriptorSet.get(),0u,0u,1u,EDT_STORAGE_BUFFER,infos+0},{descriptorSet.get(),1u,0u,1u,EDT_STORAGE_BUFFER,infos+1},{descriptorSet.get(),2u,0u,1u,EDT_STORAGE_BUFFER,infos+2} };
-					driver->updateDescriptorSets(sizeof(writes)/sizeof(IGPUDescriptorSet::SWriteDescriptorSet),writes,0u,nullptr);
+					infos[3].desc = core::smart_refctd_ptr<IGPUBuffer>(intensityBuffer.getObject());
+					infos[3].buffer = {0u,intensityBuffer.getObject()->getMemoryReqs().vulkanReqs.size};
+					IGPUDescriptorSet::SWriteDescriptorSet writes[SharedDescriptorSetDescCount];
+					for (uint32_t i=0u; i<SharedDescriptorSetDescCount; i++)
+						writes[i] = {descriptorSet.get(),i,0u,1u,EDT_STORAGE_BUFFER,infos+i};
+					driver->updateDescriptorSets(SharedDescriptorSetDescCount,writes,0u,nullptr);
 				}
 				// bind descriptor set (for all shaders)
 				driver->bindDescriptorSets(video::EPBP_COMPUTE,sharedPipelineLayout.get(),0u,1u,&descriptorSet.get(),nullptr);
@@ -814,12 +882,18 @@ void main()
 			{
 				// clear the histogram to 0s
 				driver->fillBuffer(scratchBuffer.getObject(),0u,HistogramBufferSize,0u);
-				// bind compute pipeline
+				// bind deinterleave pipeline
 				driver->bindComputePipeline(deinterleavePipeline.get());
 				// dispatch
 				driver->dispatch((param.width+kComputeWGSize-1u)/kComputeWGSize,param.height,denoiserInputCount);
+				COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+#if 0
+				// bind exposure pipeline
+				driver->bindComputePipeline(exposurePipeline.get());
+				// dispatch
+				driver->dispatch((param.width+kComputeWGSize-1u)/kComputeWGSize,param.height,1u);
+#endif
 				// issue a full memory barrier (or at least all buffer read/write barrier)
-		//COpenGLExtensionHandler::pGlMemoryBarrier(GL_UNIFORM_BARRIER_BIT);
 				//COpenGLExtensionHandler::extGlMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 				COpenGLExtensionHandler::extGlMemoryBarrier(GL_ALL_BARRIER_BITS);
 				for (auto j=0; j<denoiserInputCount; j++)
@@ -882,13 +956,14 @@ void main()
 						os::Printer::log(makeImageIDString(i) + "Could not setup the denoiser for the image resolution and denoiser buffers, skipping image!", ELL_ERROR);
 						continue;
 					}
+#if 1
 					// compute intensity (TODO: tonemapper after image upload)
-					const auto intensityBufferOffset = denoiserStateBufferSize;
 					if (denoiser.m_denoiser->computeIntensity(m_cudaStream,denoiserInputs+EII_COLOR,intensityBuffer,scratchBuffer,denoiser.scratchSize,intensityBufferOffset)!=OPTIX_SUCCESS)
 					{
 						os::Printer::log(makeImageIDString(i) + "Could not setup the denoiser for the image resolution and denoiser buffers, skipping image!", ELL_ERROR);
 						continue;
 					}
+#endif
 					// invoke
 					{
 						OptixDenoiserParams denoiserParams = {};
