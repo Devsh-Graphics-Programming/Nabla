@@ -328,11 +328,12 @@ protected:
 		bool visited;
 		uint32_t weight_ix;
 		const CElementBSDF* maskParent;
+		uint32_t parentIx;
 	};
 	core::stack<stack_el> stack;
 	uint32_t firstFreeNormalID;
 
-	void push(const CElementBSDF* _bsdf, bsdf::instr_t _parent, const CElementBSDF* _maskParent)
+	void push(const CElementBSDF* _bsdf, bsdf::instr_t _parent, const CElementBSDF* _maskParent, uint32_t _parentIx)
 	{
 		auto writeInheritableBitfields = [](bsdf::instr_t& dst, bsdf::instr_t parent) {
 			dst |= (parent & (bsdf::BITFIELDS_MASK_TWOSIDED << bsdf::BITFIELDS_SHIFT_TWOSIDED));
@@ -364,7 +365,7 @@ protected:
 		case CElementBSDF::Type::ROUGHPLASTIC:
 			_IRR_FALLTHROUGH;
 		case CElementBSDF::Type::WARD:
-			stack.push({_bsdf,instr,false,0,_maskParent});
+			stack.push({_bsdf,instr,false,0,_maskParent,_parentIx});
 			break;
 		case CElementBSDF::Type::COATING:
 			_IRR_FALLTHROUGH;
@@ -374,20 +375,20 @@ protected:
 			instr &= (~(bsdf::INSTR_NORMAL_ID_MASK<<bsdf::INSTR_NORMAL_ID_SHIFT));//zero-out normal ID bitfield
 			instr |= (firstFreeNormalID & bsdf::INSTR_NORMAL_ID_MASK) << bsdf::INSTR_NORMAL_ID_SHIFT;//write new val
 			++firstFreeNormalID;
-			stack.push({_bsdf,instr,false,0,_maskParent});
+			stack.push({_bsdf,instr,false,0,_maskParent,_parentIx});
 
 			instr = BSDFtype2opcode(_bsdf->meta_common.bsdf[0]);
 			writeInheritableBitfields(instr, _parent);
-			stack.push({_bsdf->meta_common.bsdf[0],instr,false,0,_maskParent});
+			stack.push({_bsdf->meta_common.bsdf[0],instr,false,0,_maskParent,_parentIx});
 			break;
 		case CElementBSDF::Type::BLEND_BSDF:
 			stack.push({ _bsdf,instr,false,0,_maskParent });
 			instr = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[1]);
 			writeInheritableBitfields(instr, _parent);
-			stack.push({ _bsdf->meta_common.bsdf[1],instr,false,0,_maskParent });
+			stack.push({ _bsdf->meta_common.bsdf[1],instr,false,0,_maskParent,_parentIx });
 			instr = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[0]);
 			writeInheritableBitfields(instr, _parent);
-			stack.push({ _bsdf->meta_common.bsdf[0],instr,false,0,_maskParent });
+			stack.push({ _bsdf->meta_common.bsdf[0],instr,false,0,_maskParent,_parentIx });
 			break;
 		case CElementBSDF::Type::MIXTURE_BSDF:
 		{
@@ -405,16 +406,16 @@ protected:
 			}
 			bsdf::instr_t child0 = BSDFtype2opcode(_bsdf->mixturebsdf.bsdf[0]);
 			writeInheritableBitfields(child0, _parent);
-			stack.push({_bsdf->mixturebsdf.bsdf[0],child0,false,0});
+			stack.push({_bsdf->mixturebsdf.bsdf[0],child0,false,0,_maskParent,_parentIx});
 		}	
 			break;
 		case CElementBSDF::Type::MASK:
 			instr |= 1u<<bsdf::BITFIELDS_SHIFT_MASKFLAG;
-			stack.push({_bsdf->mask.bsdf[0],instr,false,0,_bsdf});
+			stack.push({_bsdf->mask.bsdf[0],instr,false,0,_bsdf,_parentIx});
 			break;
 		case CElementBSDF::Type::TWO_SIDED:
 			instr |= 1u<<bsdf::BITFIELDS_SHIFT_TWOSIDED;
-			stack.push({_bsdf->twosided.bsdf[0],instr,false,0,_maskParent});
+			stack.push({_bsdf->twosided.bsdf[0],instr,false,0,_maskParent,_parentIx});
 			break;
 		case CElementBSDF::Type::PHONG:
 			_IRR_DEBUG_BREAK_IF(1);
@@ -513,7 +514,7 @@ public:
 	traversal_t genTraversal(const CElementBSDF* _bsdf, IBSDFDataBufOffsetGetter* _getter) override
 	{
 		traversal_t traversal;
-		push(_bsdf, static_cast<bsdf::instr_t>(0), nullptr);
+		push(_bsdf, static_cast<bsdf::instr_t>(0), nullptr, 0u);
 		while (!stack.empty())
 		{
 			auto& top = stack.top();
@@ -539,10 +540,10 @@ public:
 				switch (bsdf::getOpcode(top.instr))
 				{
 				case bsdf::OP_BLEND:
-					push(top.bsdf->blendbsdf.bsdf[1], top.instr, top.maskParent);
+					push(top.bsdf->blendbsdf.bsdf[1], top.instr, top.maskParent, 0u);
 					_IRR_FALLTHROUGH;
 				default:
-					push(top.bsdf->blendbsdf.bsdf[0], top.instr, top.maskParent);
+					push(top.bsdf->blendbsdf.bsdf[0], top.instr, top.maskParent, 0u);
 					break;
 				}
 			}
@@ -562,9 +563,11 @@ class CPreOrderTraversalGenerator : public ITraveralGenerator
 public:
 	traversal_t genTraversal(const CElementBSDF* _bsdf, IBSDFDataBufOffsetGetter* _getter) override
 	{
+		constexpr uint32_t INVALID_INDEX = 0xdeadbeefu;
+
 		traversal_t traversal;
 		traversal.push_back(static_cast<bsdf::instr_t>(bsdf::OP_SET_GEOM_NORMAL));
-		push(_bsdf, static_cast<bsdf::instr_t>(0), nullptr);
+		push(_bsdf, static_cast<bsdf::instr_t>(0), nullptr, INVALID_INDEX);
 
 		while (!stack.empty())
 		{
@@ -572,17 +575,25 @@ public:
 			const bsdf::E_OPCODE op = bsdf::getOpcode(top.instr);
 
 			const uint32_t bsdfBufIx = _getter->getOffset(top.bsdf, 0u, top.bsdf->type == CElementBSDF::Type::MIXTURE_BSDF ? top.bsdf->mixturebsdf.weights[top.weight_ix] : 0.f, top.maskParent);
+			const uint32_t currIx = traversal.size();
 			traversal.push_back(emitInstr(top.instr, top.bsdf, bsdfBufIx, top.maskParent));
+			if (top.parentIx!=INVALID_INDEX)//means it's right child of a parent
+			{
+				//write RIGHT_JUMP bitfield into "parent instruction"
+				bsdf::instr_t& parentInstr = traversal[top.parentIx];
+				//writing absolute offset, but could be relative (i.e. `currIx-top.parentIx`) as well (decision needed)
+				parentInstr |= static_cast<bsdf::instr_t>(currIx)<<bsdf::INSTR_RIGHT_JUMP_SHIFT;
+			}
 
 			if (bsdf::getNumberOfSrcRegsForOpcode(op) > 0u)
 			{
 				switch (bsdf::getOpcode(top.instr))
 				{
 				case bsdf::OP_BLEND:
-					push(top.bsdf->blendbsdf.bsdf[1], top.instr, top.maskParent);
+					push(top.bsdf->blendbsdf.bsdf[1], top.instr, top.maskParent, currIx);
 					_IRR_FALLTHROUGH;
 				default:
-					push(top.bsdf->blendbsdf.bsdf[0], top.instr, top.maskParent);
+					push(top.bsdf->blendbsdf.bsdf[0], top.instr, top.maskParent, INVALID_INDEX);
 					break;
 				}
 			}
