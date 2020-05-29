@@ -579,21 +579,27 @@ void main()
 	}
 
 	const auto inputFilesAmount = cmdHandler.getInputFilesAmount();
-	const auto& fileNamesBundle = cmdHandler.getFileNamesBundle();
-	const auto& channelNamesBundle = cmdHandler.getChannelNamesBundle();
+	const auto& colorFileNameBundle = cmdHandler.getColorFileNameBundle();
+	const auto& albedoFileNameBundle = cmdHandler.getAlbedoFileNameBundle();
+	const auto& normalFileNameBundle = cmdHandler.getNormalFileNameBundle();
+	const auto& colorChannelNameBundle = cmdHandler.getColorChannelNameBundle();
+	const auto& albedoChannelNameBundle = cmdHandler.getAlbedoChannelNameBundle();
+	const auto& normalChannelNameBundle = cmdHandler.getNormalChannelNameBundle();
 	const auto& cameraTransformBundle = cmdHandler.getCameraTransformBundle();
+	const auto& medianFilterRadiusBundle = cmdHandler.getMedianFilterRadiusBundle();
 	const auto& exposureBiasBundle = cmdHandler.getExposureBiasBundle();
 	const auto& denoiserBlendFactorBundle = cmdHandler.getDenoiserBlendFactorBundle();
-	const auto& bloomSizeBundle = cmdHandler.getBloomSizeBundle();
+	const auto& bloomFovBundle = cmdHandler.getBloomFovBundle();
 	const auto& tonemapperBundle = cmdHandler.getTonemapperBundle();
 	const auto& outputFileBundle = cmdHandler.getOutputFileBundle();
+	const auto& psdFileBunde = cmdHandler.getBloomPsfBundle();
 
-	auto makeImageIDString = [&fileNamesBundle](uint32_t i)
+	auto makeImageIDString = [/*&fileNamesBundle*/](uint32_t i)
 	{
 		std::string imageIDString("Image Input #");
 		imageIDString += std::to_string(i);
 		imageIDString += " called \"";
-		imageIDString += fileNamesBundle[i];
+		imageIDString += "";//fileNamesBundle[i]; TODO
 		imageIDString += "\": ";
 		return imageIDString;
 	};
@@ -606,7 +612,7 @@ void main()
 		asset::IAssetLoader::SAssetLoadParams lp(0ull,nullptr,IAssetLoader::ECF_DUPLICATE_REFERENCES); // TODO: maybe don't replicate the CPU data
 		for (size_t i=0; i<inputFilesAmount; i++)
 		{
-			auto image_bundle = am->getAsset(fileNamesBundle[i], lp);
+			auto image_bundle = am->getAsset(/*fileNamesBundle[i]*/"", lp);
 			if (image_bundle.isEmpty())
 			{
 				auto imageIDString = makeImageIDString(i);
@@ -633,6 +639,10 @@ void main()
 					state.inImage = image;
 				}*/
 
+				/*
+
+				TODO
+
 				auto exrmeta = static_cast<COpenEXRImageMetadata*>(metadata);
 				auto beginIt = channelNamesBundle[i].begin();
 				auto inputIx = std::distance(beginIt,std::find(beginIt,channelNamesBundle[i].end(),exrmeta->getName()));
@@ -640,6 +650,8 @@ void main()
 					continue;
 
 				outParam.image[inputIx] = std::move(image);
+
+				*/
 			}
 		}
 		// check inputs and set-up

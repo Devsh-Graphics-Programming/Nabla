@@ -70,13 +70,13 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 		mode = CLM_CMD_LIST;
 	else if (argv.size() == PROPER_BATCH_FILE_ARGUMENTS_AMOUNT)
 		mode = CLM_BATCH_INPUT;
-	else if (argv.size() > 1 && argv.size() < 7)
+	else if (argv.size() > 1 && argv.size() < MANDATORY_CMD_ARGUMENTS_AMOUNT - 1)
 	{
 		os::Printer::log("Single argument assumptions aren't allowed - too few arguments!", ELL_ERROR);
 		os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
 		return;
 	}
-	else if (argv.size() > 7)
+	else if (argv.size() > PROPER_CMD_ARGUMENTS_AMOUNT)
 	{
 		os::Printer::log("Too many arguments!", ELL_ERROR);
 		os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
@@ -131,6 +131,7 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 
 	for (auto c = 0ul; c < argvMappedList.size(); ++c)
 	{
+		std::unordered_map<std::string, bool> REQUIRED_PARAMETERS_CACHE;
 		const auto cmdArgumentsPerFile = *(argvMappedList.begin() + c);
 		initializeMatchingMap(rawVariables[c]);
 
@@ -161,6 +162,10 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 				if (matchedVariables)
 				{
 					std::string variable = cmdFetchedVariable;
+					auto resoultFound = std::find(std::begin(REQUIRED_PARAMETERS), std::end(REQUIRED_PARAMETERS), std::string_view(variable));
+					if (resoultFound != std::end(REQUIRED_PARAMETERS))
+						REQUIRED_PARAMETERS_CACHE[variable] = true;
+
 					const auto beginningOfVariables = rawFetchedCmdArgument.find_last_of("=") + 1;
 					auto variablesStream = rawFetchedCmdArgument.substr(beginningOfVariables);
 
@@ -179,32 +184,29 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 
 					if (variable == ACES)
 					{
-						// 5 values according with the syntax
-						auto variablesHandle = getSerializedValues(variablesStream, AA_COUNT);
+						// 2 values according with the syntax
+						auto variablesHandle = getSerializedValues(variablesStream, TA_COUNT);
 						auto& reference = rawVariables[c][DTEA_ACES];
 						reference.second = variablesHandle;
 
-						if (variablesHandle.size() != AA_COUNT)
-							variablesHandle.resize(AA_COUNT);
+						if (variablesHandle.size() != TA_COUNT)
+							variablesHandle.resize(TA_COUNT);
 
-						reference.second[AA_ARG1] = variablesHandle[AA_ARG1].empty() ? std::string("2.51") : variablesHandle[AA_ARG1];
-						reference.second[AA_ARG2] = variablesHandle[AA_ARG2].empty() ? std::string("0.03") : variablesHandle[AA_ARG2];
-						reference.second[AA_ARG3] = variablesHandle[AA_ARG3].empty() ? std::string("2.43") : variablesHandle[AA_ARG3];
-						reference.second[AA_ARG4] = variablesHandle[AA_ARG4].empty() ? std::string("0.59") : variablesHandle[AA_ARG4];
-						reference.second[AA_ARG5] = variablesHandle[AA_ARG5].empty() ? std::string("0.14") : variablesHandle[AA_ARG5];
+						reference.second[TA_KEY_VALUE] = variablesHandle[TA_KEY_VALUE].empty() ? std::string("0") : variablesHandle[TA_KEY_VALUE];
+						reference.second[TA_EXTRA_PARAMETER] = variablesHandle[TA_EXTRA_PARAMETER].empty() ? std::string("0") : variablesHandle[TA_EXTRA_PARAMETER];
 					}
 					else if (variable == REINHARD)
 					{
-						// at the moment there is no variables for REINHARD
-						auto variablesHandle = getSerializedValues(variablesStream, 0);
-						auto& reference = rawVariables[c][DTEA_REINHARD];
+						// 2 values according with the syntax
+						auto variablesHandle = getSerializedValues(variablesStream, TA_COUNT);
+						auto& reference = rawVariables[c][DTEA_ACES];
 						reference.second = variablesHandle;
-					}
-					else if (variable == CHANNEL_NAMES)
-					{
-						// various amount of values allowed
-						auto variablesHandle = getSerializedValues(variablesStream, 3);
-						referenceVariableMap.second = variablesHandle;
+
+						if (variablesHandle.size() != TA_COUNT)
+							variablesHandle.resize(TA_COUNT);
+
+						reference.second[TA_KEY_VALUE] = variablesHandle[TA_KEY_VALUE].empty() ? std::string("0") : variablesHandle[TA_KEY_VALUE];
+						reference.second[TA_EXTRA_PARAMETER] = variablesHandle[TA_EXTRA_PARAMETER].empty() ? std::string("0") : variablesHandle[TA_EXTRA_PARAMETER];
 					}
 					else if (variable == CAMERA_TRANSFORM)
 					{
@@ -218,13 +220,18 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 						auto variablesHandle = getSerializedValues(variablesStream, 1);
 						referenceVariableMap.second = variablesHandle;
 					}
+
+					break;
 				}
 				else
 					continue;
 			}
 		}
+
+		bool operationStatus = REQUIRED_PARAMETERS_CACHE.size() == REQUIRED_PARAMETERS.size();
+		assert(operationStatus, "Valid amount of variables hasn't been provided!");
 	}
 
-	performFInalStepForUsefulVariables();
+	performFInalAssignmentStepForUsefulVariables();
 	status = true;
 }
