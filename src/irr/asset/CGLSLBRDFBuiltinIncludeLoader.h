@@ -506,146 +506,6 @@ float irr_glsl_beckmann(in float a2, in float NdotH2)
     return irr_glsl_RECIPROCAL_PI * nom/denom;
 }
 
-float irr_glsl_erf(in float _x)
-{
-    const float a1 = 0.254829592;
-    const float a2 = -0.284496736;
-    const float a3 = 1.421413741;
-    const float a4 = -1.453152027;
-    const float a5 = 1.061405429;
-    const float p = 0.3275911;
-
-    float sign = sign(_x);
-    float x = abs(_x);
-    
-    float t = 1.0 / (1.0 + p*x);
-    float y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * exp(-x * x);
-    
-    return sign*y;
-}
-
-float irr_glsl_erfInv(in float _x)
-{
-    float x = clamp(_x, -0.99999, 0.99999);
-    float w = -log((1.0-x) * (1.0+x));
-    float p;
-    if (w<5.0)
-    {
-        w -= 2.5;
-        p = 2.81022636e-08;
-        p = 3.43273939e-07 + p*w;
-        p = -3.5233877e-06 + p*w;
-        p = -4.39150654e-06 + p*w;
-        p = 0.00021858087 + p*w;
-        p = -0.00125372503 + p*w;
-        p = -0.00417768164 + p*w;
-        p = 0.246640727 + p*w;
-        p = 1.50140941 + p*w;
-    }
-    else
-    {
-        w = sqrt(w) - 3.0;
-        p = -0.000200214257;
-        p = 0.000100950558 + p*w;
-        p = 0.00134934322 + p*w;
-        p = -0.00367342844 + p*w;
-        p = 0.00573950773 + p*w;
-        p = -0.0076224613 + p*w;
-        p = 0.00943887047 + p*w;
-        p = 1.00167406 + p*w;
-        p = 2.83297682 + p*w;
-    }
-    return p*x;
-}
-
-//TODO move to different glsl header
-irr_glsl_BSDFSample irr_glsl_beckmann_smith_height_correlated_cos_gen_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float ax, in float ay)
-{
-    vec2 u = _sample;
-    
-    mat3 m = irr_glsl_getTangentFrame(interaction);
-
-    vec3 V = interaction.isotropic.V.dir;
-    V = normalize(V*m);//transform to tangent space
-    //stretch
-    V = normalize(vec3(ax*V.x, ay*V.y, V.z));
-
-    vec2 slope;
-    if (V.z > 0.9999)//V.z=NdotV=cosTheta in tangent space
-    {
-        float r = sqrt(-log(1.0-u.x));
-        float sinPhi = sin(2.0*irr_glsl_PI*u.y);
-        float cosPhi = cos(2.0*irr_glsl_PI*u.y);
-        slope = vec2(r)*vec2(cosPhi,sinPhi);
-    }
-    else
-    {
-        float cosTheta = V.z;
-        float sinTheta = sqrt(1.0 - cosTheta*cosTheta);
-        float tanTheta = sinTheta/cosTheta;
-        float cotTheta = 1.0/tanTheta;
-        
-        float a = -1.0;
-        float c = irr_glsl_erf(cosTheta);
-        float sample_x = max(u.x, 1.0e-6);
-        float theta = acos(cosTheta);
-        float fit = 1.0 + theta * (-0.876 + theta * (0.4265 - 0.0594*theta));
-        float b = c - (1.0 + c) * pow(1.0-sample_x, fit);
-        
-        float normalization = 1.0 / (1.0 + c + irr_glsl_SQRT_RECIPROCAL_PI * tanTheta * exp(-cosTheta*cosTheta));
-
-        const int ITER_THRESHOLD = 10;
-        int it = 0;
-        float value;
-        while (++it<ITER_THRESHOLD && abs(value)<1.0e-5)
-        {
-            if (!(b>=a && b<=c))
-                b = 0.5 * (a+c);
-
-            float invErf = irr_glsl_erfInv(b);
-            value = normalization * (1.0 + b + irr_glsl_SQRT_RECIPROCAL_PI * tanTheta * exp(-invErf*invErf)) - sample_x;
-            float derivative = normalization * (1.0 - invErf*cosTheta);
-
-            if (value > 0.0)
-                c = b;
-            else
-                a = b;
-
-            b -= value/derivative;
-        }
-        slope.x = irr_glsl_erfInv(b);
-        slope.y = irr_glsl_erfInv(2.0 * max(u.y,1.0e-6) - 1.0);
-    }
-    
-    float sinTheta = sqrt(1.0 - V.z*V.z);
-    float cosPhi = sinTheta==0.0 ? 1.0 : clamp(V.x/sinTheta, -1.0, 1.0);
-    float sinPhi = sinTheta==0.0 ? 0.0 : clamp(V.y/sinTheta, -1.0, 1.0);
-    //rotate
-    float tmp = cosPhi*slope.x - sinPhi*slope.y;
-    slope.y = sinPhi*slope.x + cosPhi*slope.y;
-    slope.x = tmp;
-
-    //unstretch
-    slope = vec2(ax,ay)*slope;
-
-    //float HdotV = dot(H,interaction.isotropic.V.dir);
-    //H = H*2.0*HdotV - interaction.isotropic.V.dir;//reflect V on H to actually get L
-
-    vec3 H = normalize(vec3(-slope, 1.0));
-    H = normalize(m*H);//transform to correct space
-    //reflect
-    float HdotV = dot(H,interaction.isotropic.V.dir);
-    irr_glsl_BSDFSample smpl;
-    smpl.L = H*2.0*HdotV - interaction.isotropic.V.dir;
-    smpl.probability = 0.0; //TODO !!!
-
-    return smpl;
-}
-irr_glsl_BSDFSample irr_glsl_beckmann_smith_height_correlated_cos_gen_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 _sample, in float _ax, in float _ay)
-{
-    vec2 u = vec2(_sample)/float(UINT_MAX);
-    return irr_glsl_beckmann_smith_height_correlated_cos_gen_sample(interaction, u, _ax, _ay);
-}
 #endif
 )";
     }
@@ -721,33 +581,6 @@ float irr_glsl_ggx_trowbridge_reitz(in float a2, in float NdotH2)
     return a2 / (irr_glsl_PI * denom*denom);
 }
 
-/*
-irr_glsl_BSDFSample irr_glsl_ggx_cos_gen_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float _a2)
-{
-    vec2 u = _sample;
-    float phi = 2.0*irr_glsl_PI*u.x;
-    float cos2Theta = (1.0 - u.y)/(u.y*(_a2 - 1.0) + 1.0);
-    float cosTheta = sqrt(cos2Theta);
-    float sinTheta = sqrt(1.0 - cos2Theta);
-    
-    mat3 m = irr_glsl_getTangentFrame(interaction);
-
-    irr_glsl_BSDFSample smpl;
-    //erm... actually i'm returning half vector here, idk how could i get L with this api
-    //user should read this H (half vector/micro-surface normal) and compute L by reflecting V on H
-    //just remember that returned vector is in reflection space so first it has to be transformed to space in which light computations are done
-    smpl.L = m*vec3(sinTheta,sinTheta,cosTheta)*vec3(cos(phi),sin(phi),1.0);
-    smpl.probability = irr_glsl_ggx_trowbridge_reitz(_a2, cos2Theta)*abs(cosTheta);//multiply by cosTheta in order for the NDF to actually be PDF (integrates to 1)
-
-    return smpl;
-}
-irr_glsl_BSDFSample irr_glsl_ggx_cos_gen_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 _sample, in float _a2)
-{
-    vec2 u = vec2(_sample)/float(UINT_MAX);
-    return irr_glsl_ggx_cos_gen_sample(interaction, u, _a2);
-}
-*/
-
 float irr_glsl_ggx_burley_aniso(float anisotropy, float a2, float TdotH, float BdotH, float NdotH) {
 	float antiAniso = 1.0-anisotropy;
 	float atab = a2*antiAniso;
@@ -755,54 +588,6 @@ float irr_glsl_ggx_burley_aniso(float anisotropy, float a2, float TdotH, float B
 	float anisoNdotH = antiAniso*NdotH;
 	float w2 = antiAniso/(BdotH*BdotH+anisoTdotH*anisoTdotH+anisoNdotH*anisoNdotH*a2);
 	return w2*w2*atab * irr_glsl_RECIPROCAL_PI;
-}
-
-//accounting for visibility of microfacets so basically this one should always be used because converges faster and doesnt "lose samples"
-//https://schuttejoe.github.io/post/ggximportancesamplingpart2/
-//again: everything happens in reflection space, so _V is supposed to be view vector in reflection space (geom normal is positive Z axis)
-//https://hal.archives-ouvertes.fr/hal-01509746/document
-//Also: problem is our anisotropic ggx ndf (above) has extremely weird API (anisotropy and a2 instead of ax and ay) and so it's incosistent with sampling function
-//Note: this is kinda blurry and i dont really understand whats going on here
-irr_glsl_BSDFSample irr_glsl_ggx_cos_gen_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float _ax, in float _ay)
-{
-    vec2 u = _sample;
-
-    mat3 m = irr_glsl_getTangentFrame(interaction);
-
-    vec3 V = interaction.isotropic.V.dir;
-    V = normalize(V*m);//transform to tangent space
-    V = normalize(vec3(_ax*V.x, _ay*V.y, V.z));//stretch view vector so that we're sampling as if roughness=1.0
-
-    float lensq = V.x*V.x + V.y*V.y;
-    vec3 T1 = lensq > 0.0 ? vec3(-V.y, V.x, 0.0)*inversesqrt(lensq) : vec3(1.0,0.0,0.0);
-    vec3 T2 = cross(V,T1);
-
-    float r = sqrt(u.x);
-    float phi = 2.0 * irr_glsl_PI * u.y;
-    float t1 = r * cos(phi);
-    float t2 = r * sin(phi);
-    float s = 0.5 * (1.0 + V.z);
-    t2 = (1.0 - s)*sqrt(1.0 - t1*t1) + s*t2;
-    
-    //reprojection onto hemisphere
-    vec3 H = t1*T1 + t2*T2 + sqrt(max(0.0, 1.0-t1*t1-t2*t2))*V;
-    //unstretch
-    H = normalize(vec3(_ax*H.x, _ay*H.y, max(0.0,H.z)));
-
-    H = normalize(m*H);//transform to correct space
-    float HdotV = dot(H,interaction.isotropic.V.dir);
-    H = H*2.0*HdotV - interaction.isotropic.V.dir;//reflect V on H to actually get L
-    
-    irr_glsl_BSDFSample smpl;
-    smpl.L = H;
-    smpl.probability = 0.0;//??? TODO
-
-    return smpl;
-}
-irr_glsl_BSDFSample irr_glsl_ggx_cos_gen_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 _sample, in float _ax, in float _ay)
-{
-    vec2 u = vec2(_sample)/float(UINT_MAX);
-    return irr_glsl_ggx_cos_gen_sample(interaction, u, _ax, _ay);
 }
 
 #endif
@@ -817,24 +602,46 @@ irr_glsl_BSDFSample irr_glsl_ggx_cos_gen_sample(in irr_glsl_AnisotropicViewSurfa
 R"(#ifndef _BRDF_SPECULAR_GEOM_GGX_SMITH_INCLUDED_
 #define _BRDF_SPECULAR_GEOM_GGX_SMITH_INCLUDED_
 
+float irr_glsl_smith_beckmann_C2(in float NdotX2, in float a2)
+{
+    return NdotX2 / (a2 * (1.0 - NdotX2));
+}
+//G1 = 1/(1+_Lambda)
+float irr_glsl_smith_beckmann_Lambda(in float c2)
+{
+    float c = sqrt(c2);
+    float nom = 1.0 - 1.259*c + 0.396*c2;
+    float denom = 2.181*c2 + 3.535*c;
+    return mix(0.0, nom/denom, c<1.6);
+}
 
+float irr_glsl_smith_ggx_C2(in float NdotX2, in float a2)
+{
+    float sin2 = 1.0 - NdotX2;
+    return a2 * sin2/NdotX2;
+}
 
-float _GGXSmith_G1_(in float a2, in float NdotX)
+float irr_glsl_smith_ggx_Lambda(in float c2)
+{
+    return 0.5 * (sqrt(1.0+c2)-1.0);
+}
+
+float irr_glsl_GGXSmith_G1_(in float a2, in float NdotX)
 {
     return (2.0*NdotX) / (NdotX + sqrt(a2 + (1.0 - a2)*NdotX*NdotX));
 }
-float _GGXSmith_G1_wo_numerator(in float a2, in float NdotX)
+float irr_glsl_GGXSmith_G1_wo_numerator(in float a2, in float NdotX)
 {
     return 1.0 / (NdotX + sqrt(a2 + (1.0 - a2)*NdotX*NdotX));
 }
 
 float irr_glsl_ggx_smith(in float a2, in float NdotL, in float NdotV)
 {
-    return _GGXSmith_G1_(a2, NdotL) * _GGXSmith_G1_(a2, NdotV);
+    return irr_glsl_GGXSmith_G1_(a2, NdotL) * irr_glsl_GGXSmith_G1_(a2, NdotV);
 }
 float irr_glsl_ggx_smith_wo_numerator(in float a2, in float NdotL, in float NdotV)
 {
-    return _GGXSmith_G1_wo_numerator(a2, NdotL) * _GGXSmith_G1_wo_numerator(a2, NdotV);
+    return irr_glsl_GGXSmith_G1_wo_numerator(a2, NdotL) * irr_glsl_GGXSmith_G1_wo_numerator(a2, NdotV);
 }
 
 float irr_glsl_ggx_smith_height_correlated(in float a2, in float NdotL, in float NdotV)
@@ -870,29 +677,6 @@ float irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(in float at, in fl
     return 0.5 / (Vterm + Lterm);
 }
 
-
-float irr_glsl_smith_C2(in float NdotX2, in float a2)
-{
-    return NdotX2 / (a2 * (1.0 - NdotX2));
-}
-//G1 = 1/(1+_Lambda)
-float irr_glsl_smith_Lambda(in float c2)
-{
-    float c = sqrt(c2);
-    float nom = 1.0 - 1.259*c + 0.396*c2;
-    float denom = 2.181*c2 + 3.535*c;
-    return mix(0.0, nom/denom, c<1.6);
-}
-//i wonder where i got irr_glsl_ggx_smith_height_correlated() from because it looks very different from 1/(1+L_v+L_l) form
-float irr_glsl_beckmann_smith_height_correlated(in float NdotV2, in float NdotL2, in float a2)
-{
-    float c2 = irr_glsl_smith_C2(NdotV2, a2);
-    float L_v = irr_glsl_smith_Lambda(c2);
-    c2 = irr_glsl_smith_C2(NdotL2, a2);
-    float L_l = irr_glsl_smith_Lambda(c2);
-    return 1.0 / (1.0 + L_v + L_l);
-}
-
 #endif
 )";
     }
@@ -924,6 +708,58 @@ vec3 irr_glsl_ggx_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams par
     return params.NdotL * g*ndf*fr;
 }
 
+//Heitz's 2018 paper "Sampling the GGX Distribution of Visible Normals"
+//Also: problem is our anisotropic ggx ndf (above) has extremely weird API (anisotropy and a2 instead of ax and ay) and so it's incosistent with sampling function
+//  currently using isotropic trowbridge_reitz for PDF
+irr_glsl_BSDFSample irr_glsl_ggx_smith_cos_gen_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float _ax, in float _ay)
+{
+    vec2 u = _sample;
+
+    mat3 m = irr_glsl_getTangentFrame(interaction);
+
+    vec3 V = interaction.isotropic.V.dir;
+    V = normalize(V*m);//transform to tangent space
+    V = normalize(vec3(_ax*V.x, _ay*V.y, V.z));//stretch view vector so that we're sampling as if roughness=1.0
+
+    float lensq = V.x*V.x + V.y*V.y;
+    vec3 T1 = lensq > 0.0 ? vec3(-V.y, V.x, 0.0)*inversesqrt(lensq) : vec3(1.0,0.0,0.0);
+    vec3 T2 = cross(V,T1);
+
+    float r = sqrt(u.x);
+    float phi = 2.0 * irr_glsl_PI * u.y;
+    float t1 = r * cos(phi);
+    float t2 = r * sin(phi);
+    float s = 0.5 * (1.0 + V.z);
+    t2 = (1.0 - s)*sqrt(1.0 - t1*t1) + s*t2;
+    
+    //reprojection onto hemisphere
+    vec3 H = t1*T1 + t2*T2 + sqrt(max(0.0, 1.0-t1*t1-t2*t2))*V;
+    //unstretch
+    H = normalize(vec3(_ax*H.x, _ay*H.y, max(0.0,H.z)));
+    float NdotH = H.z;
+
+    irr_glsl_BSDFSample smpl;
+    //==== compute L ====
+    H = normalize(m*H);//transform to correct space
+    float HdotV = dot(H,interaction.isotropic.V.dir);
+    //reflect V on H to actually get L
+    smpl.L = H*2.0*HdotV - interaction.isotropic.V.dir;
+
+    //==== compute probability ====
+    float a2 = _ax*_ay;
+    float lambda = irr_glsl_smith_ggx_Lambda(irr_glsl_smith_ggx_C2(interaction.isotropic.NdotV_squared, a2));
+    float G1 = 1.0 / (1.0 + lambda);
+    //here using isotropic trowbridge_reitz() instead of irr_glsl_ggx_burley_aniso()
+    smpl.probability = irr_glsl_ggx_trowbridge_reitz(a2,NdotH*NdotH) * G1 * abs(dot(interaction.isotropic.V.dir,H)) / interaction.isotropic.NdotV;
+
+    return smpl;
+}
+irr_glsl_BSDFSample irr_glsl_ggx_smith_cos_gen_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 _sample, in float _ax, in float _ay)
+{
+    vec2 u = vec2(_sample)/float(UINT_MAX);
+    return irr_glsl_ggx_smith_cos_gen_sample(interaction, u, _ax, _ay);
+}
+
 #endif
 )";
     }
@@ -937,6 +773,162 @@ vec3 irr_glsl_ggx_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams par
 #include <irr/builtin/glsl/bsdf/brdf/specular/ndf/beckmann.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/specular/geom/smith.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
+
+//i wonder where i got irr_glsl_ggx_smith_height_correlated() from because it looks very different from 1/(1+L_v+L_l) form
+float irr_glsl_beckmann_smith_height_correlated(in float NdotV2, in float NdotL2, in float a2)
+{
+    float c2 = irr_glsl_smith_beckmann_C2(NdotV2, a2);
+    float L_v = irr_glsl_smith_beckmann_Lambda(c2);
+    c2 = irr_glsl_smith_beckmann_C2(NdotL2, a2);
+    float L_l = irr_glsl_smith_beckmann_Lambda(c2);
+    return 1.0 / (1.0 + L_v + L_l);
+}
+
+//idk what erf even is but PBRT's implementation of beckmann sampling uses it..
+float irr_glsl_erf(in float _x)
+{
+    const float a1 = 0.254829592;
+    const float a2 = -0.284496736;
+    const float a3 = 1.421413741;
+    const float a4 = -1.453152027;
+    const float a5 = 1.061405429;
+    const float p = 0.3275911;
+
+    float sign = sign(_x);
+    float x = abs(_x);
+    
+    float t = 1.0 / (1.0 + p*x);
+    float y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * exp(-x * x);
+    
+    return sign*y;
+}
+
+float irr_glsl_erfInv(in float _x)
+{
+    float x = clamp(_x, -0.99999, 0.99999);
+    float w = -log((1.0-x) * (1.0+x));
+    float p;
+    if (w<5.0)
+    {
+        w -= 2.5;
+        p = 2.81022636e-08;
+        p = 3.43273939e-07 + p*w;
+        p = -3.5233877e-06 + p*w;
+        p = -4.39150654e-06 + p*w;
+        p = 0.00021858087 + p*w;
+        p = -0.00125372503 + p*w;
+        p = -0.00417768164 + p*w;
+        p = 0.246640727 + p*w;
+        p = 1.50140941 + p*w;
+    }
+    else
+    {
+        w = sqrt(w) - 3.0;
+        p = -0.000200214257;
+        p = 0.000100950558 + p*w;
+        p = 0.00134934322 + p*w;
+        p = -0.00367342844 + p*w;
+        p = 0.00573950773 + p*w;
+        p = -0.0076224613 + p*w;
+        p = 0.00943887047 + p*w;
+        p = 1.00167406 + p*w;
+        p = 2.83297682 + p*w;
+    }
+    return p*x;
+}
+
+irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_gen_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float ax, in float ay)
+{
+    vec2 u = _sample;
+    
+    mat3 m = irr_glsl_getTangentFrame(interaction);
+
+    vec3 V = interaction.isotropic.V.dir;
+    V = normalize(V*m);//transform to tangent space
+    //stretch
+    V = normalize(vec3(ax*V.x, ay*V.y, V.z));
+
+    vec2 slope;
+    if (V.z > 0.9999)//V.z=NdotV=cosTheta in tangent space
+    {
+        float r = sqrt(-log(1.0-u.x));
+        float sinPhi = sin(2.0*irr_glsl_PI*u.y);
+        float cosPhi = cos(2.0*irr_glsl_PI*u.y);
+        slope = vec2(r)*vec2(cosPhi,sinPhi);
+    }
+    else
+    {
+        float cosTheta = V.z;
+        float sinTheta = sqrt(1.0 - cosTheta*cosTheta);
+        float tanTheta = sinTheta/cosTheta;
+        float cotTheta = 1.0/tanTheta;
+        
+        float a = -1.0;
+        float c = irr_glsl_erf(cosTheta);
+        float sample_x = max(u.x, 1.0e-6);
+        float theta = acos(cosTheta);
+        float fit = 1.0 + theta * (-0.876 + theta * (0.4265 - 0.0594*theta));
+        float b = c - (1.0 + c) * pow(1.0-sample_x, fit);
+        
+        float normalization = 1.0 / (1.0 + c + irr_glsl_SQRT_RECIPROCAL_PI * tanTheta * exp(-cosTheta*cosTheta));
+
+        const int ITER_THRESHOLD = 10;
+        int it = 0;
+        float value;
+        while (++it<ITER_THRESHOLD && abs(value)<1.0e-5)
+        {
+            if (!(b>=a && b<=c))
+                b = 0.5 * (a+c);
+
+            float invErf = irr_glsl_erfInv(b);
+            value = normalization * (1.0 + b + irr_glsl_SQRT_RECIPROCAL_PI * tanTheta * exp(-invErf*invErf)) - sample_x;
+            float derivative = normalization * (1.0 - invErf*cosTheta);
+
+            if (value > 0.0)
+                c = b;
+            else
+                a = b;
+
+            b -= value/derivative;
+        }
+        slope.x = irr_glsl_erfInv(b);
+        slope.y = irr_glsl_erfInv(2.0 * max(u.y,1.0e-6) - 1.0);
+    }
+    
+    float sinTheta = sqrt(1.0 - V.z*V.z);
+    float cosPhi = sinTheta==0.0 ? 1.0 : clamp(V.x/sinTheta, -1.0, 1.0);
+    float sinPhi = sinTheta==0.0 ? 0.0 : clamp(V.y/sinTheta, -1.0, 1.0);
+    //rotate
+    float tmp = cosPhi*slope.x - sinPhi*slope.y;
+    slope.y = sinPhi*slope.x + cosPhi*slope.y;
+    slope.x = tmp;
+
+    //unstretch
+    slope = vec2(ax,ay)*slope;
+
+    //==== compute L ====
+    vec3 H = normalize(vec3(-slope, 1.0));
+    float NdotH = H.z;
+    H = normalize(m*H);//transform to correct space
+    //reflect
+    float HdotV = dot(H,interaction.isotropic.V.dir);
+    irr_glsl_BSDFSample smpl;
+    smpl.L = H*2.0*HdotV - interaction.isotropic.V.dir;
+
+    //==== compute probability ====
+    //PBRT does it like a2 = cos2phi*ax*ax + sin2phi*ay*ay
+    float a2 = ax*ay;
+    float lambda = irr_glsl_smith_beckmann_Lambda(irr_glsl_smith_beckmann_C2(interaction.isotropic.NdotV_squared, a2));
+    float G1 = 1.0 / (1.0 + lambda);
+    smpl.probability = irr_glsl_beckmann(a2,NdotH*NdotH) * G1 * abs(dot(interaction.isotropic.V.dir,H)) / interaction.isotropic.NdotV;
+
+    return smpl;
+}
+irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_gen_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 _sample, in float _ax, in float _ay)
+{
+    vec2 u = vec2(_sample)/float(UINT_MAX);
+    return irr_glsl_beckmann_smith_cos_gen_sample(interaction, u, _ax, _ay);
+}
 
 //TODO get rid of `a` parameter
 vec3 irr_glsl_beckmann_smith_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2x3 ior2, in float a, in float a2)
