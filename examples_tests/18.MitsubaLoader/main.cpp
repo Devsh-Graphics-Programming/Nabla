@@ -26,7 +26,7 @@ layout (set = 2, binding = 0, std430) readonly restrict buffer Lights
 	SLight lights[];
 };
 
-vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in mat2 dUV)
+vec3 irr_computeLighting(out irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
 	vec3 emissive = decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 

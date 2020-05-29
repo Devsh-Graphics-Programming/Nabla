@@ -1197,7 +1197,7 @@ reg_t registers[REG_COUNT];
 void setCurrBSDFParams(in vec3 n, in vec3 L)
 {
 	vec3 campos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
-	irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, n);
+	irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, n);
 	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(interaction, L);
 	//TODO: T,B tangents
 	vec3 T = vec3(1.0,0.0,0.0);
@@ -1234,7 +1234,7 @@ void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in b
 	{
 		vec3 eta = vec3(uintBitsToFloat(data.data[0].x));
 		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic) * vec3(0.89);
-		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
+		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.interaction.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
 		registers[REG_DST(regs)] = diffuse;
 	}
 	else registers[REG_DST(regs)] = vec3(0.0);
@@ -1301,7 +1301,7 @@ void instr_execute_ROUGHPLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in
 		float a2 = a*a;
 
 		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic, a2) * refl;
-		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta2) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
+		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta2) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.interaction.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
 		vec3 specular = vec3(0.0);
 		if (ndf==NDF_BECKMANN)
 			specular = irr_glsl_beckmann_smith_height_correlated_cos_eval(currBSDFParams.isotropic, mat2x3(eta2, vec3(0.0)), a, a2);
@@ -1447,7 +1447,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
 
 #ifndef _IRR_COMPUTE_LIGHTING_DEFINED_
 #define _IRR_COMPUTE_LIGHTING_DEFINED_
-vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in mat2 dUV)
+vec3 irr_computeLighting(out irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
 	vec3 emissive = decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
@@ -1464,7 +1464,7 @@ void main()
 {
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
-	irr_glsl_ViewSurfaceInteraction inter;
+	irr_glsl_IsotropicViewSurfaceInteraction inter;
 	OutColor = vec4(irr_computeLighting(inter, dUV), 1.0);
 }
 )";
