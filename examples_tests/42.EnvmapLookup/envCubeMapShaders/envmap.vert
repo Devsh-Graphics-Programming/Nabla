@@ -1,6 +1,7 @@
 #version 430 core
+#extension GL_GOOGLE_include_directive : require
 
-layout(location = 0) in vec4 vPos;
+layout(location = 0) in vec4 vPos; 
 layout(location = 3) in vec3 vNormal;
 
 #include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
