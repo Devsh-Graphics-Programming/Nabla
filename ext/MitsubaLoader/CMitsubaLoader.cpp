@@ -1184,6 +1184,11 @@ vec3 textureOrRGB19E7(in uvec2 data, in bool texPresenceFlag, in mat2 dUV)
 #define OP_BUMPMAP			13u
 #define OP_BLEND			12u
 
+bool opcode_isRough(in uint op)
+{
+	return op==OP_ROUGHDIFFUSE || op==OP_ROUGHDIELECTRIC || op==OP_ROUGHCONDUCTOR || op==OP_ROUGHPLASTIC || op==OP_WARD || op==OP_ROUGHCOATING;
+}
+
 #define NDF_BECKMANN	0u
 #define NDF_GGX			1u
 #define NDF_PHONG		2u
@@ -1214,6 +1219,41 @@ void setCurrBSDFParams(in vec3 n, in vec3 L)
 	vec3 T = vec3(1.0,0.0,0.0);
 	vec3 B = vec3(0.0,0.0,1.0);
 	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(isoparams, T, B);
+}
+
+vec2 getAlpha(in uint op, in uint ndf, in instr_t instr, in bsdf_data_t data, in mat2 dUV)
+{
+	vec2 a;
+	if (op==OP_ROUGHDIFFUSE)
+	{
+		vec3 scale = decodeRGB19E7(data.data[1].zw);
+		float a_ = textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
+		a = vec2(a_);
+	}
+	else if (op==OP_ROUGHDIELECTRIC)
+	{
+		vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
+		a = vec2( textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x );
+		if (ndf == NDF_AS)
+			a.y = textureOrF32(uvec2(data.data[0].w, data.data[1].x), instr_getAlphaVTexPresence(instr), dUV)*scale.y;
+	}
+	else if (op==OP_ROUGHCONDUCTOR)
+	{
+		vec3 scale = decodeRGB19E7(data.data[2].zw);
+		a = vec2( textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x );
+		if (ndf==NDF_AS)
+			a.y = textureOrF32(data.data[0].zw, instr_getAlphaVTexPresence(instr), dUV)*scale.y;
+	}
+	else if (op==OP_ROUGHPLASTIC)
+	{
+		vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
+		a = vec2( textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x );
+	}
+	else if (op==OP_ROUGHCOATING)
+	{
+		//later
+	}
+	return a;
 }
 
 void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
@@ -1268,27 +1308,17 @@ void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV, in bs
 	vec3 etak = decodeRGB19E7(data.data[1].zw);
 	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
-void instr_execute_ROUGHCONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
+void instr_execute_ROUGHCONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec2 a, in float D, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
-		uint ndf = instr_getNDF(instr);
-		vec3 scale = decodeRGB19E7(data.data[2].zw);
-		float au = textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
-		float av;
-		if (ndf==NDF_AS)
-			av = textureOrF32(data.data[0].zw, instr_getAlphaVTexPresence(instr), dUV)*scale.y;
 		mat2x3 eta2;
 		eta2[0] = decodeRGB19E7(data.data[1].xy); eta2[0]*=eta2[0];
 		eta2[1] = decodeRGB19E7(data.data[1].zw); eta2[1]*=eta2[1];
-		vec3 specular = vec3(0.0);
-		if (ndf==NDF_BECKMANN)
-			specular = irr_glsl_beckmann_smith_height_correlated_cos_eval(currBSDFParams.isotropic, eta2, au, au*au);
-		else if (ndf==NDF_GGX)
-			specular = irr_glsl_ggx_height_correlated_cos_eval(currBSDFParams.isotropic, eta2, au*au);
-		else if (ndf==NDF_PHONG)
-			specular = irr_glsl_blinn_phong_fresnel_conductor_cos_eval(currBSDFParams.isotropic, 1.0/(au*au), eta2);
-		registers[REG_DST(regs)] = specular;
+		float a2 = a.x*a.y;
+		vec3 fr = irr_glsl_fresnel_conductor(eta2[0],eta2[1],currBSDFParams.isotropic.VdotH);
+		float g = irr_glsl_beckmann_smith_height_correlated(currBSDFParams.isotropic.interaction.NdotV_squared, currBSDFParams.isotropic.NdotL_squared, a2);
+		registers[REG_DST(regs)] = g*D*fr / (4.0 * currBSDFParams.isotropic.interaction.NdotV);
 	}
 	else registers[REG_DST(regs)] = reg_t(0.0);
 }
@@ -1299,27 +1329,22 @@ void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf
 	vec3 refl = textureOrRGB19E7(data.data[1].yz, instr_getPlasticReflTexPresence(instr), dUV)*scale.z;
 	registers[REG_DST(regs)] = refl;
 }
-void instr_execute_ROUGHPLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
+void instr_execute_ROUGHPLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec2 a, in float D, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
-		uint ndf = instr_getNDF(instr);
 		vec3 eta = vec3(uintBitsToFloat(data.data[0].x));
 		vec3 eta2 = eta*eta;
 		vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
 		vec3 refl = textureOrRGB19E7(data.data[1].yz, instr_getPlasticReflTexPresence(instr), dUV)*scale.z;
-		float a = textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
-		float a2 = a*a;
 
+		float a2 = a.x*a.y;
 		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic, a2) * refl;
 		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta2) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.interaction.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
-		vec3 specular = vec3(0.0);
-		if (ndf==NDF_BECKMANN)
-			specular = irr_glsl_beckmann_smith_height_correlated_cos_eval(currBSDFParams.isotropic, mat2x3(eta2, vec3(0.0)), a, a2);
-		else if (ndf==NDF_GGX)
-			specular = irr_glsl_ggx_height_correlated_cos_eval(currBSDFParams.isotropic, mat2x3(eta2, vec3(0.0)), a2);
-		else if (ndf==NDF_PHONG)
-			specular = irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(currBSDFParams.isotropic, 1.0/a2, eta);
+		vec3 fr = irr_glsl_fresnel_dielectric(eta,currBSDFParams.isotropic.VdotH);
+		//TODO shadowing/masking term also has to go outside, to instr_execute()
+		float g = irr_glsl_beckmann_smith_height_correlated(currBSDFParams.isotropic.interaction.NdotV_squared, currBSDFParams.isotropic.NdotL_squared, a2);	
+		vec3 specular = g*D*fr / (4.0 * currBSDFParams.isotropic.interaction.NdotV);
 
 		registers[REG_DST(regs)] = specular + diffuse;
 	}
@@ -1380,7 +1405,25 @@ void instr_execute_BLEND(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_d
 void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 L)
 {
 	bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
-	switch (instr.x & INSTR_OPCODE_MASK)
+	uint opcode = instr_getOpcode(instr);
+	uint ndf = instr_getNDF(instr);
+	bool twosided = instr_getTwosided(instr);
+	
+	//if (twosided)
+	//flip normal
+
+	vec2 a = getAlpha(opcode,ndf,instr,bsdf_data,dUV);
+	float a2 = a.x*a.y;
+	//TODO somehow get alpha here
+	float D = 0.0;
+	if (ndf==NDF_BECKMANN)
+		D = irr_glsl_beckmann(a2, currBSDFParams.isotropic.NdotH*currBSDFParams.isotropic.NdotH);
+	else if (ndf==NDF_GGX)
+		D = irr_glsl_ggx_trowbridge_reitz(a2, currBSDFParams.isotropic.NdotH*currBSDFParams.isotropic.NdotH);
+	else if (ndf==NDF_PHONG)
+		D = irr_glsl_blinn_phong(currBSDFParams.isotropic.NdotH, 1.0/a2);
+
+	switch (opcode)
 	{
 	//run func depending on opcode
 	//the func will decide whether to (and which ones) fetch registers from `regs` array
@@ -1406,13 +1449,13 @@ void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 L)
 		instr_execute_CONDUCTOR(instr, regs, dUV, bsdf_data);
 		break;
 	case OP_ROUGHCONDUCTOR:
-		instr_execute_ROUGHCONDUCTOR(instr, regs, dUV, bsdf_data);
+		instr_execute_ROUGHCONDUCTOR(instr, regs, dUV, a, D, bsdf_data);
 		break;
 	case OP_PLASTIC:
 		instr_execute_PLASTIC(instr, regs, dUV, bsdf_data);
 		break;
 	case OP_ROUGHPLASTIC:
-		instr_execute_ROUGHPLASTIC(instr, regs, dUV, bsdf_data);
+		instr_execute_ROUGHPLASTIC(instr, regs, dUV, a, D, bsdf_data);
 		break;
 	case OP_WARD:
 		instr_execute_WARD(instr, regs, dUV, bsdf_data);
