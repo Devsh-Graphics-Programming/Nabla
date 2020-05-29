@@ -1,5 +1,8 @@
 #include "irr/asset/asset.h"
 
+#include "irr/asset/CGeometryCreator.h"
+#include "irr/asset/CMeshManipulator.h"
+
 #ifdef _IRR_COMPILE_WITH_MTL_LOADER_
 #include "irr/asset/CGraphicsPipelineLoaderMTL.h"
 #endif
@@ -112,7 +115,7 @@ const IGeometryCreator* IAssetManager::getGeometryCreator() const
 	return m_geometryCreator.get();
 }
 
-const IMeshManipulator* IAssetManager::getMeshManipulator() const
+IMeshManipulator* IAssetManager::getMeshManipulator()
 {
 	return m_meshManipulator.get();
 }
@@ -121,7 +124,7 @@ const IMeshManipulator* IAssetManager::getMeshManipulator() const
 void IAssetManager::addLoadersAndWriters()
 {
 #ifdef _IRR_COMPILE_WITH_STL_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CSTLMeshFileLoader>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CSTLMeshFileLoader>(this));
 #endif
 #ifdef _IRR_COMPILE_WITH_PLY_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>(this));
@@ -142,7 +145,7 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderPng>());
 #endif
 #ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderOpenEXR>());
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderOpenEXR>(this));
 #endif
 #ifdef  _IRR_COMPILE_WITH_GLI_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLILoader>());
@@ -190,6 +193,7 @@ void IAssetManager::insertBuiltinAssets()
 		changeAssetKey(bundle, path);
 		insertAssetIntoCache(bundle);
 	};
+
 	// materials
 	{
 		//
@@ -303,45 +307,103 @@ void IAssetManager::insertBuiltinAssets()
 		addBuiltInToCaches(dummy2dImage, "irr/builtin/images/dummy2d");
 	}
 
-	// pipeline layout
-	core::smart_refctd_ptr<asset::ICPUPipelineLayout> pipelineLayout;
-	{
-		SPushConstantRange pushConstantRange;
-		pushConstantRange.stageFlags = ISpecializedShader::E_SHADER_STAGE::ESS_VERTEX;
-		pushConstantRange.offset = 0;
-		pushConstantRange.size = sizeof(core::matrix4SIMD); /// mvp matrix for buildin shaders
+    //images
+    core::smart_refctd_ptr<asset::ICPUImage> dummy2dImage;
+    {
+        asset::ICPUImage::SCreationParams info;
+        info.format = asset::EF_R8G8B8A8_UNORM;
+        info.type = asset::ICPUImage::ET_2D;
+        info.extent.width = 2u;
+        info.extent.height = 2u;
+        info.extent.depth = 1u;
+        info.mipLevels = 1u;
+        info.arrayLayers = 1u;
+        info.samples = asset::ICPUImage::ESCF_1_BIT;
+        info.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+        auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(info.extent.width*info.extent.height*asset::getTexelOrBlockBytesize(info.format));
+        memcpy(buf->getPointer(),
+            //magenta-grey 2x2 chessboard
+            std::array<uint8_t, 16>{{255, 0, 255, 255, 128, 128, 128, 255, 128, 128, 128, 255, 255, 0, 255, 255}}.data(),
+            buf->getSize()
+        );
 
-		pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pushConstantRange, &pushConstantRange + 1, nullptr, nullptr, nullptr, nullptr);
-		addBuiltInToCaches(pipelineLayout, "irr/builtin/pipeline_layouts/default");
-	}
+        dummy2dImage = asset::ICPUImage::create(std::move(info));
 
-	//ds layouts
-	core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> defaultDs1Layout;
-	{
-		asset::ICPUDescriptorSetLayout::SBinding bnd;
-		bnd.count = 1u;
-		bnd.binding = 0u;
-		//maybe even ESS_ALL_GRAPHICS?
-		bnd.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
-		bnd.type = asset::EDT_UNIFORM_BUFFER;
-		defaultDs1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
-		//it's intentionally added to cache later, see comments below, dont touch this order of insertions
-	}
+        auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(1u);
+        asset::ICPUImage::SBufferCopy& region = regions->front();
+        region.imageSubresource.mipLevel = 0u;
+        region.imageSubresource.baseArrayLayer = 0u;
+        region.imageSubresource.layerCount = 1u;
+        region.bufferOffset = 0u;
+        region.bufferRowLength = 2u;
+        region.bufferImageHeight = 0u;
+        region.imageOffset = {0u, 0u, 0u};
+        region.imageExtent = {2u, 2u, 1u};
+        dummy2dImage->setBufferAndRegions(std::move(buf), regions);
+    }
+    
+    //image views
+    {
+        asset::ICPUImageView::SCreationParams info;
+        info.format = dummy2dImage->getCreationParameters().format;
+        info.image = dummy2dImage;
+        info.viewType = asset::IImageView<asset::ICPUImage>::ET_2D;
+        info.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
+        info.subresourceRange.baseArrayLayer = 0u;
+        info.subresourceRange.layerCount = 1u;
+        info.subresourceRange.baseMipLevel = 0u;
+        info.subresourceRange.levelCount = 1u;
+        auto dummy2dImgView = core::make_smart_refctd_ptr<asset::ICPUImageView>(std::move(info));
 
-	//desc sets
-	{
-		auto ds1 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(defaultDs1Layout.get()));
-		{
-			auto desc = ds1->getDescriptors(0u).begin();
-			//for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in irr/asset/asset_utils.h
-			constexpr size_t UBO_SZ = sizeof(asset::SBasicViewParameters);
-			auto ubo = core::make_smart_refctd_ptr<asset::ICPUBuffer>(UBO_SZ);
-			asset::fillBufferWithDeadBeef(ubo.get());
-			desc->desc = std::move(ubo);
-			desc->buffer.offset = 0ull;
-			desc->buffer.size = UBO_SZ;
-		}
-		addBuiltInToCaches(ds1, "irr/builtin/descriptor_set/basic_view_parameters");
-		addBuiltInToCaches(defaultDs1Layout, "irr/builtin/descriptor_set_layout/basic_view_parameters");
-	}
+        addBuiltInToCaches(dummy2dImgView, "irr/builtin/image_views/dummy2d");
+        addBuiltInToCaches(dummy2dImage, "irr/builtin/images/dummy2d");
+    }
+
+    //ds layouts
+    core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> defaultDs1Layout;
+    {
+        asset::ICPUDescriptorSetLayout::SBinding bnd;
+        bnd.count = 1u;
+        bnd.binding = 0u;
+        //maybe even ESS_ALL_GRAPHICS?
+        bnd.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
+        bnd.type = asset::EDT_UNIFORM_BUFFER;
+        defaultDs1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd+1);
+        //it's intentionally added to cache later, see comments below, dont touch this order of insertions
+    }
+
+    //desc sets
+    {
+        auto ds1 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(defaultDs1Layout.get()));
+        {
+            auto desc = ds1->getDescriptors(0u).begin();
+            //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in irr/asset/asset_utils.h
+            constexpr size_t UBO_SZ = sizeof(asset::SBasicViewParameters);
+            auto ubo = core::make_smart_refctd_ptr<asset::ICPUBuffer>(UBO_SZ);
+            asset::fillBufferWithDeadBeef(ubo.get());
+            desc->desc = std::move(ubo);
+            desc->buffer.offset = 0ull;
+            desc->buffer.size = UBO_SZ;
+        }
+        addBuiltInToCaches(ds1, "irr/builtin/descriptor_set/basic_view_parameters");
+        addBuiltInToCaches(defaultDs1Layout, "irr/builtin/descriptor_set_layout/basic_view_parameters");
+    }
+
+    // pipeline layout
+    core::smart_refctd_ptr<asset::ICPUPipelineLayout> pipelineLayout;
+    {
+        asset::ICPUDescriptorSetLayout::SBinding bnd;
+        bnd.count = 1u;
+        bnd.binding = 0u;
+        bnd.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
+        bnd.type = asset::EDT_UNIFORM_BUFFER;
+        auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
+
+        pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, nullptr);
+        auto paths = {"irr/builtin/materials/lambertian/no_texture/pipelinelayout",
+                      "irr/builtin/loaders/PLY/pipelinelayout"};
+
+        for(auto &path : paths)
+            addBuiltInToCaches(pipelineLayout, path);
+    }
 }

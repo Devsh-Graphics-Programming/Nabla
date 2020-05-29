@@ -72,7 +72,9 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             size = 0ull;
             isDummyObjectForCacheAliasing = true;
         }
-        virtual asset::IAsset::E_TYPE getAssetType() const override { return asset::IAsset::ET_BUFFER; }
+
+        _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER;
+        inline E_TYPE getAssetType() const override { return AssetType; }
 
         virtual size_t conservativeSizeEstimate() const override { return getSize(); }
 
@@ -138,7 +140,7 @@ class CCustomAllocatorCPUBuffer<Allocator, false> : public CCustomAllocatorCPUBu
 	public:
 		using Base::Base;
 
-		CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, Allocator&& alctr = Allocator()) : Base(sizeInBytes, alctr.allocate(sizeInBytes), core::adopt_memory, std::move(alctr))
+		CCustomAllocatorCPUBuffer(size_t sizeInBytes, const void* dat, Allocator&& alctr = Allocator()) : Base(sizeInBytes, alctr.allocate(sizeInBytes), core::adopt_memory, std::move(alctr))
 		{
 			memcpy(Base::data, dat, sizeInBytes);
 		}

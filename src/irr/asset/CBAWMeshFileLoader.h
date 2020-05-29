@@ -10,6 +10,7 @@
 #include "irr/asset/IAssetLoader.h"
 #include "IFileSystem.h"
 #include "irr/asset/ICPUMesh.h"
+#include "irr/asset/bawformat/CBAWFile.h"
 #include "irr/asset/bawformat/legacy/CBAWLegacy.h"
 #include "irr/asset/bawformat/CBlobsLoadingManager.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
@@ -27,7 +28,7 @@ class IAssetManager;
 class CBAWMeshFileLoader : public asset::IAssetLoader
 {
 #ifndef NEW_SHADERS
-	friend struct TypedBlob<TexturePathBlobV2, asset::ICPUTexture>; // needed for loading textures
+	friend struct TypedBlob<TexturePathBlobV3, asset::ICPUTexture>; // needed for loading textures
 #endif
 
 private:
@@ -134,21 +135,23 @@ private:
 
 		virtual asset::SAssetBundle loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u);
 
-	private:
-		//! Verifies whether given file is of appropriate format. Also reads file version and assigns it to passed context object.
-		//! Specialize if file header verification differs somehow from general template
-		template<typename BAWFileT>
-		bool verifyFile(SContext& _ctx) const;
-		//! Add another case here when new version of .baw appears
-		bool verifyFile(uint64_t _expectedVer, SContext& _ctx) const
-		{
-			switch (_expectedVer)
-			{
-			case 0ull: return verifyFile<asset::legacyv0::BAWFileV0>(_ctx);
-			case 1ull: return verifyFile<asset::legacyv1::BAWFileV1>(_ctx);
+private:
+	//! Verifies whether given file is of appropriate format. Also reads file version and assigns it to passed context object.
+    //! Specialize if file header verification differs somehow from general template
+    template<typename BAWFileT>
+	bool verifyFile(SContext& _ctx) const;
+    //! Add another case here when new version of .baw appears
+    bool verifyFile(uint64_t _expectedVer, SContext& _ctx) const
+    {
+        switch (_expectedVer)
+        {
+			case 0ull: return verifyFile<BAWFileVn<0>>(_ctx);
+			case 1ull: return verifyFile<BAWFileVn<1>>(_ctx);
+			case 2ull: return verifyFile<BAWFileVn<2>>(_ctx);
+            case 3ull: return verifyFile<asset::BAWFileV3>(_ctx);
 			default: return false;
-			}
 		}
+	}
 		//! Loads and checks correctness of offsets and headers. Also let us know blob count.
 		//! Specialize if headers/offsets validation deffers somehow from general template
 		/** @returns true if everythings ok, false otherwise. */
@@ -401,7 +404,7 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData_t<HeaderT> & _data,
     if (_stackPtr && _data.header->blobSizeDecompr <= _stackSize && _data.header->effectiveSize() <= _stackSize)
         dst = _stackPtr;
     else
-        dst = _IRR_ALIGNED_MALLOC(asset::BlobHeaderVn<_IRR_BAW_FORMAT_VERSION>::calcEncSize(_data.header->blobSizeDecompr), _IRR_SIMD_ALIGNMENT);
+        dst = _IRR_ALIGNED_MALLOC(BlobHeaderVn<_IRR_BAW_FORMAT_VERSION>::calcEncSize(_data.header->blobSizeDecompr), _IRR_SIMD_ALIGNMENT);
 
     const bool encrypted = (_data.header->compressionType & asset::Blob::EBCT_AES128_GCM);
     const bool compressed = (_data.header->compressionType & asset::Blob::EBCT_LZ4) || (_data.header->compressionType & asset::Blob::EBCT_LZMA);

@@ -16,23 +16,6 @@ namespace asset
     //! If it has no animation, make 1 frame of animation with LocalMatrix
     class CFinalBoneHierarchy : public core::IReferenceCounted, public asset::BlobSerializable
     {
-        protected:
-            virtual ~CFinalBoneHierarchy()
-            {
-                if (boneNames)
-                    _IRR_DELETE_ARRAY(boneNames,boneCount);
-                if (boneFlatArray)
-                    free(boneFlatArray);
-                if (boneTreeLevelEnd)
-                    free(boneTreeLevelEnd);
-
-                if (keyframes)
-                    free(keyframes);
-                if (interpolatedAnimations)
-                    free(interpolatedAnimations);
-                if (nonInterpolatedAnimations)
-                    free(nonInterpolatedAnimations);
-            }
         public:
             #include "irr/irrpack.h"
             struct BoneReferenceData
@@ -55,7 +38,7 @@ namespace asset
 
             CFinalBoneHierarchy(const core::vector<asset::ICPUSkinnedMesh::SJoint*>& inLevelFixedJoints, const core::vector<size_t>& inJointsLevelEnd)
                     : boneCount(inLevelFixedJoints.size()), NumLevelsInHierarchy(inJointsLevelEnd.size()),
-                    keyframeCount(0), keyframes(NULL), interpolatedAnimations(NULL), nonInterpolatedAnimations(NULL)
+                    keyframeCount(0), keyframes(NULL), interpolatedAnimations(NULL), nonInterpolatedAnimations(NULL), flipXonOutput(false)
             {
                 boneFlatArray = (BoneReferenceData*)malloc(sizeof(BoneReferenceData)*boneCount);
                 boneNames = _IRR_NEW_ARRAY(core::stringc,boneCount);
@@ -99,8 +82,8 @@ namespace asset
 				const std::size_t* _levelsBegin, const std::size_t* _levelsEnd,
 				const float* _keyframesBegin, const float* _keyframesEnd,
 				const void* _interpAnimsBegin, const void* _interpAnimsEnd,
-				const void* _nonInterpAnimsBegin, const void* _nonInterpAnimsEnd)
-			: boneCount((BoneReferenceData*)_bonesEnd - (BoneReferenceData*)_bonesBegin), NumLevelsInHierarchy(_levelsEnd - _levelsBegin), keyframeCount(_keyframesEnd - _keyframesBegin)
+				const void* _nonInterpAnimsBegin, const void* _nonInterpAnimsEnd, bool _flipXonOutput)
+			: boneCount((BoneReferenceData*)_bonesEnd - (BoneReferenceData*)_bonesBegin), NumLevelsInHierarchy(_levelsEnd - _levelsBegin), keyframeCount(_keyframesEnd - _keyframesBegin), flipXonOutput(_flipXonOutput)
 			{
 				_IRR_DEBUG_BREAK_IF(_bonesBegin > _bonesEnd ||
 					_boneNamesBegin > _boneNamesEnd ||
@@ -132,6 +115,11 @@ namespace asset
 			virtual void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const
 			{
 				return asset::CorrespondingBlobTypeFor<CFinalBoneHierarchy>::type::createAndTryOnStack(static_cast<const CFinalBoneHierarchy*>(this), _stackPtr, _stackSize);
+			}
+
+			inline bool flipsXOnOutput() const
+			{
+				return flipXonOutput;
 			}
 
 			inline size_t getSizeOfAllBoneNames() const
@@ -459,6 +447,30 @@ namespace asset
                 }
             }
 
+		protected:
+			virtual ~CFinalBoneHierarchy()
+			{
+				if (boneNames)
+					_IRR_DELETE_ARRAY(boneNames, boneCount);
+				if (boneFlatArray)
+					free(boneFlatArray);
+				if (boneTreeLevelEnd)
+					free(boneTreeLevelEnd);
+
+				if (keyframes)
+					free(keyframes);
+				if (interpolatedAnimations)
+					free(interpolatedAnimations);
+				if (nonInterpolatedAnimations)
+					free(nonInterpolatedAnimations);
+			}
+
+			friend struct TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>;
+			inline BoneReferenceData* getBoneData()
+			{
+				return boneFlatArray;
+			}
+
         private:
             inline void createAnimationKeys(const core::vector<asset::ICPUSkinnedMesh::SJoint*>& inLevelFixedJoints)
             {
@@ -681,6 +693,7 @@ namespace asset
             const size_t NumLevelsInHierarchy;
             size_t* boneTreeLevelEnd;
 
+			uint32_t flipXonOutput;
             
             // animation data, independent of bone hierarchy to a degree
             size_t keyframeCount;

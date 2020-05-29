@@ -6,6 +6,8 @@
 #ifndef __IRR_MESH_BUFFER_BLOB_H_INCLUDED__
 #define __IRR_MESH_BUFFER_BLOB_H_INCLUDED__
 
+#include "irr/asset/format/EFormat.h"
+#include "irr/asset/bawformat/Blob.h"
 
 namespace irr
 {
@@ -16,10 +18,10 @@ class ICPUMeshBuffer;
 
 #include "irr/irrpack.h"
 //! Simple struct of essential data of ICPUMeshBuffer that has to be exported
-struct IRR_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, ICPUMeshBuffer>
+struct IRR_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV3, ICPUMeshBuffer>
 {
 	//! Constructor filling all members
-	explicit MeshBufferBlobV0(const ICPUMeshBuffer*);
+	explicit MeshBufferBlobV3(const ICPUMeshBuffer*);
 
 #ifndef NEW_SHADERS
 	video::SCPUMaterial mat;
@@ -34,6 +36,7 @@ struct IRR_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuff
 	uint32_t baseInstance;
 	uint32_t primitiveType;
 	uint32_t posAttrId;
+	uint32_t normalAttrId;
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
 //TODO bring it back
@@ -41,20 +44,16 @@ struct IRR_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuff
 
 #ifndef NEW_SHADERS
 static_assert(
-    sizeof(MeshBufferBlobV0) ==
-    sizeof(MeshBufferBlobV0::mat) + sizeof(MeshBufferBlobV0::box) + sizeof(MeshBufferBlobV0::descPtr) + sizeof(MeshBufferBlobV0::indexType) + sizeof(MeshBufferBlobV0::baseVertex)
-    + sizeof(MeshBufferBlobV0::indexCount) + sizeof(MeshBufferBlobV0::indexBufOffset) + sizeof(MeshBufferBlobV0::instanceCount) + sizeof(MeshBufferBlobV0::baseInstance)
-    + sizeof(MeshBufferBlobV0::primitiveType) + sizeof(MeshBufferBlobV0::posAttrId),
+    sizeof(MeshBufferBlobV3) ==
+    sizeof(MeshBufferBlobV3::mat) + sizeof(MeshBufferBlobV3::box) + sizeof(MeshBufferBlobV3::descPtr) + sizeof(MeshBufferBlobV3::indexType) + sizeof(MeshBufferBlobV3::baseVertex)
+    + sizeof(MeshBufferBlobV3::indexCount) + sizeof(MeshBufferBlobV3::indexBufOffset) + sizeof(MeshBufferBlobV3::instanceCount) + sizeof(MeshBufferBlobV3::baseInstance)
+    + sizeof(MeshBufferBlobV3::primitiveType) + sizeof(MeshBufferBlobV3::posAttrId) + sizeof(MeshBufferBlobV3::normalAttrId),
     "MeshBufferBlobV0: Size of blob is not sum of its contents!"
 );
 #endif
 
-using MeshBufferBlobV1 = MeshBufferBlobV0;
-using MeshBufferBlobV2 = MeshBufferBlobV1;
-
-
 template<>
-struct CorrespondingBlobTypeFor<ICPUMeshBuffer> { typedef MeshBufferBlobV2 type; };
+struct CorrespondingBlobTypeFor<ICPUMeshBuffer> { typedef MeshBufferBlobV3 type; };
 
 }
 } // irr::asset

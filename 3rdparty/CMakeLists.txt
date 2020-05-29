@@ -16,6 +16,8 @@ include(../cmake/common.cmake)
 
 
 # mandatory
+update_git_submodule(./SDL2)
+update_git_submodule(./volk)
 update_git_submodule(./SPIRV-Headers)
 update_git_submodule(./SPIRV-Tools)
 update_git_submodule(./glslang)
@@ -37,9 +39,60 @@ update_git_submodule(./glm)
 update_git_submodule(./freetype2)
 update_git_submodule(./portable-file-dialogs)
 
-
-
+# openssl
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
+
+# volk
+if (Vulkan_FOUND)
+	set(VOLK_PULL_IN_VULKAN ON)
+	add_subdirectory(volk volk EXCLUDE_FROM_ALL)
+endif(Vulkan_FOUND)
+
+# SDL2
+set(SDL_STATIC_ENABLED_BY_DEFAULT ON)
+set(SDL_SHARED_ENABLED_BY_DEFAULT OFF)
+set(SDL_THREADS_ENABLED_BY_DEFAULT OFF)
+set(SDL_LOADSO_ENABLED_BY_DEFAULT ON)
+# should I enable this
+set(SDL_DLOPEN_ENABLED_BY_DEFAULT OFF)
+set(SDL_SUBSYSTEMS "Audio Video Events Joystick Haptic Power Loadso CPUinfo Filesystem Sensor")
+set(SDL_STATIC_PIC ON)
+set(SDL_ATOMIC OFF)
+set(SDL_FILESYSTEM OFF)
+set(SDL_TIMERS OFF)
+# oh why doesn't SDL2 prefix these options?
+set(MMX OFF)
+set(3DNOW OFF)
+set(VIDEO_DIRECTFB OFF)
+set(VIDEO_OPENGL ON)
+set(PTHREADS OFF)
+set(RENDER_D3D OFF)
+set(RENDER_METAL OFF)
+set(VIDEO_VIVANTE OFF)
+# Metal?
+set(VIDEO_KMSDRM OFF)
+set(VIDEO_OFFSCREEN ON)
+set(VIDEO_X11_XCURSOR ON)
+set(VIDEO_X11_XINERAMA OFF)
+set(VIDEO_X11_XINPUT ON)
+set(VIDEO_X11_XRANDR ON)
+set(VIDEO_X11_XSCRNSAVER ON)
+set(VIDEO_X11_XSHAPE ON)
+set(VIDEO_X11_XVM OFF)
+# make sure as much gets shared as possible
+set(OSS OFF)
+set(ALSA_SHARED ON)
+set(JACK_SHARED ON)
+set(ESD_SHARED ON)
+set(PULSEAUDIO_SHARED ON)
+set(ARTS_SHARED ON)
+set(NAS_SHARED ON)
+set(SNDIO_SHARED ON)
+set(FUSIONSOUND_SHARED ON)
+set(LIBSAMPLERATE_SHARED ON)
+set(WAYLAND_SHARED ON)
+set(X11_SHARED ON)
+add_subdirectory(SDL2 SDL2 EXCLUDE_FROM_ALL)
 
 # zlib (target is zlibstatic)
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
@@ -50,15 +103,26 @@ add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
 set(SKIP_INSTALL_ALL ${_OLD_SKIP_INSTALL_ALL})
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 get_target_property(ZLIB_BINARY_DIR zlibstatic "BINARY_DIR")
-get_target_property(ZLIB_NAME zlibstatic "NAME")
+#https://stackoverflow.com/questions/47175912/using-cmake-how-to-stop-the-debug-and-release-subdirectories
+set_target_properties(zlibstatic PROPERTIES ARCHIVE_OUTPUT_DIRECTORY $<1:${ZLIB_BINARY_DIR}>)
+if (MSVC)
+	set(ZLIB_BINARY_DIR_DEBUG "${ZLIB_BINARY_DIR}")
+	set(ZLIB_BINARY_DIR_RELEASE "${ZLIB_BINARY_DIR}")
+	set(ZLIB_BINARY_DIR_RELWITHDEBINFO "${ZLIB_BINARY_DIR}")
+	get_target_property(ZLIB_NAME zlibstatic "NAME")
+	set(ZLIB_DEBUG_POSTFIX "d") # zlib's cmake is a zjeb
+else()
+	set(ZLIB_BINARY_DIR_DEBUG ${ZLIB_BINARY_DIR})
+	set(ZLIB_BINARY_DIR_RELEASE ${ZLIB_BINARY_DIR})
+	set(ZLIB_BINARY_DIR_RELWITHDEBINFO ${ZLIB_BINARY_DIR})
+	get_target_property(ZLIB_NAME zlibstatic "OUTPUT_NAME")
+	set(ZLIB_DEBUG_POSTFIX "${CMAKE_DEBUG_POSTFIX}")
+endif()
 get_target_property(ZLIB_DEBUG_POSTFIX zlibstatic "DEBUG_POSTFIX")
-#message(FATAL_ERROR ${THIRD_PARTY_SOURCE_DIR})
-set(ZLIB_INCLUDE_DIR "${THIRD_PARTY_SOURCE_DIR}/zlib;${THIRD_PARTY_BINARY_DIR}/zlib" CACHE STRING "" FORCE)
-# This probably breaks the non-MSVC build in like 50 different ways
-set(ZLIB_LIBRARY_DEBUG "${ZLIB_BINARY_DIR}/Debug/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${ZLIB_DEBUG_POSTFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE STRING "" FORCE)
-set(ZLIB_LIBRARY_RELEASE "${ZLIB_BINARY_DIR}/Release/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE STRING "" FORCE)
-
-
+set(ZLIB_INCLUDE_DIR "${THIRD_PARTY_SOURCE_DIR}/zlib;${THIRD_PARTY_BINARY_DIR}/zlib" CACHE INTERNAL "" FORCE)
+set(ZLIB_LIBRARY_DEBUG "${ZLIB_BINARY_DIR_DEBUG}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${ZLIB_DEBUG_POSTFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE INTERNAL "" FORCE)
+set(ZLIB_LIBRARY_RELEASE "${ZLIB_BINARY_DIR_RELEASE}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE INTERNAL "" FORCE)
+set(ZLIB_LIBRARY_RELWITHDEBINFO "${ZLIB_BINARY_DIR_RELWITHDEBINFO}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE INTERNAL "" FORCE)
 
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "Skip SPIRV-Headers examples")
 add_subdirectory(SPIRV-Headers SPIRV-Headers EXCLUDE_FROM_ALL)
@@ -163,7 +227,7 @@ add_library(spirv_cross OBJECT
 	spirv_cross/spirv_parser.cpp
 	spirv_cross/spirv_cross_parsed_ir.cpp
 )
-target_compile_definitions(spirv_cross PRIVATE SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
+target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 
 add_library(convert_utf OBJECT
 	convertutf/ConvertUTF.cpp
@@ -314,6 +378,11 @@ if (IRR_BUILD_CEGUI)
 		DESTINATION ./debug/include/irr/ext/CEGUI
 		CONFIGURATIONS Debug
 	)
+	install(
+		DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include/CEGUI
+		DESTINATION ./relwithdebinfo/include/irr/ext/CEGUI
+		CONFIGURATIONS RelWithDebInfo
+	)
 	# CEGUI generated headers
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/cegui/include/CEGUI
@@ -325,6 +394,11 @@ if (IRR_BUILD_CEGUI)
 		DESTINATION ./debug/include/irr/ext/CEGUI
 		CONFIGURATIONS Debug
 	)
+	install(
+		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/cegui/include/CEGUI
+		DESTINATION ./relwithdebinfo/include/irr/ext/CEGUI
+		CONFIGURATIONS RelWithDebInfo
+	)
 	# CEGUI libs
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/
@@ -335,6 +409,11 @@ if (IRR_BUILD_CEGUI)
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/
 		DESTINATION ./debug/lib/irr/ext/CEGUI
 		CONFIGURATIONS Debug
+	)
+	install(
+		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/
+		DESTINATION ./relwithdebinfo/lib/irr/ext/CEGUI
+		CONFIGURATIONS RelWithDebInfo
 	)
 endif()
 
@@ -366,3 +445,44 @@ if (IRR_BUILD_BULLET)
 
 	set(BULLET_INCLUDE_PATH ${BULLET_INCLUDE_PATH} PARENT_SCOPE)
 endif()
+
+
+if (IRR_COMPILE_WITH_CUDA)
+	update_git_submodule(./jitify)
+endif()
+
+set(IRR_3RDPARTY_TARGETS
+				lzma
+				lz4
+				aesGladman
+				spirv_cross
+				png_static
+				zlibstatic
+				shaderc_util
+				shaderc
+				jpeg
+				Imath
+				IlmThread
+				IlmImf
+				Half
+				convert_utf
+				bzip2			
+				glslang
+				OGLCompiler 
+				OSDependent
+				SPIRV 
+				Iex
+				IexMath
+				SPIRV-Tools
+				SPIRV-Tools-opt )
+#TODO insert more targets that are conditionally built
+if (IRR_BUILD_MITSUBA_LOADER)
+	list(APPEND IRR_3RDPARTY_TARGETS expat)
+endif()
+if(ENABLE_HLSL)
+	list(APPEND IRR_3RDPARTY_TARGETS HLSL)
+endif()
+foreach(trgt IN LISTS IRR_3RDPARTY_TARGETS)
+		set_property(TARGET ${trgt} PROPERTY
+             MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endforeach()

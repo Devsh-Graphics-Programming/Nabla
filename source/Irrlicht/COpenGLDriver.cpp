@@ -3,8 +3,6 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "COpenGLDriver.h"
-// needed here also because of the create methods' parameters
-#include "CNullDriver.h"
 #include "irr/video/CGPUSkinnedMesh.h"
 
 #include "vectorSIMD.h"
@@ -586,7 +584,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
     {
         AuxContexts[i].threadId = std::thread::id(); //invalid ID
         AuxContexts[i].ctx = wglCreateContextAttribs_ARB(HDc, hrc, iAttribs);
-        AuxContexts[i].ID = i;
+        AuxContexts[i].ID = static_cast<uint8_t>(i);
     }
 
 	// set exposed data
@@ -636,7 +634,7 @@ bool COpenGLDriver::initAuxContext()
 		return false;
 
     bool retval = false;
-    glContextMutex->Get();
+    const std::lock_guard<std::mutex> lock(glContextMutex);
     SAuxContext* found = getThreadContext_helper(true,std::thread::id());
     if (found)
     {
@@ -644,25 +642,24 @@ bool COpenGLDriver::initAuxContext()
         if (retval)
             found->threadId = std::this_thread::get_id();
     }
-    glContextMutex->Release();
     return retval;
 }
 
 bool COpenGLDriver::deinitAuxContext()
 {
     bool retval = false;
-    glContextMutex->Get();
+    const std::lock_guard<std::mutex> lock(glContextMutex);
     SAuxContext* found = getThreadContext_helper(true);
     if (found)
     {
-        glContextMutex->Release();
-        cleanUpContextBeforeDelete();
-        glContextMutex->Get();
+        {
+            const core::unlock_guard<std::mutex> lock(glContextMutex);
+            cleanUpContextBeforeDelete();
+        }
         retval = wglMakeCurrent(NULL,NULL);
         if (retval)
             found->threadId = std::thread::id();
     }
-    glContextMutex->Release();
     return retval;
 }
 
@@ -766,7 +763,7 @@ bool COpenGLDriver::initAuxContext()
 		return false;
 
     bool retval = false;
-    glContextMutex->Get();
+    const std::lock_guard<std::mutex> lock(glContextMutex);
     SAuxContext* found = getThreadContext_helper(true,std::thread::id());
     if (found)
     {
@@ -774,7 +771,6 @@ bool COpenGLDriver::initAuxContext()
         if (retval)
             found->threadId = std::this_thread::get_id();
     }
-    glContextMutex->Release();
     return retval;
 }
 
@@ -784,44 +780,22 @@ bool COpenGLDriver::deinitAuxContext()
 		return false;
 
     bool retval = false;
-    glContextMutex->Get();
+    const std::lock_guard<std::mutex> lock(glContextMutex);
     SAuxContext* found = getThreadContext_helper(true);
     if (found)
     {
-        glContextMutex->Release();
-        cleanUpContextBeforeDelete();
-        glContextMutex->Get();
+        {
+            const core::unlock_guard<std::mutex> lock(glContextMutex);
+            cleanUpContextBeforeDelete();
+        }
         retval = glXMakeCurrent((Display*)ExposedData.OpenGLLinux.X11Display, None, NULL);
         if (retval)
             found->threadId = std::thread::id();
     }
-    glContextMutex->Release();
     return retval;
 }
 
 #endif // _IRR_COMPILE_WITH_X11_DEVICE_
-
-
-// -----------------------------------------------------------------------
-// SDL CONSTRUCTOR
-// -----------------------------------------------------------------------
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
-//! SDL constructor and init code
-COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceSDL* device, const asset::IGLSLCompiler* glslcomp)
-		: CNullDriver(device, io, Params), COpenGLExtensionHandler(),
-			runningInRenderDoc(false), ColorFormat(EF_R8G8B8_UNORM),
-			CurrentTarget(ERT_FRAME_BUFFER),
-			SDLDevice(device), DeviceType(EIDT_SDL), AuxContexts(0), GLSLCompiler(glslcomp)
-{
-	#ifdef _IRR_DEBUG
-	setDebugName("COpenGLDriver");
-	#endif
-
-	genericDriverInit(device->getAssetManager());
-}
-
-#endif // _IRR_COMPILE_WITH_SDL_DEVICE_
 
 
 //! destructor
@@ -830,13 +804,14 @@ COpenGLDriver::~COpenGLDriver()
 	if (!AuxContexts) //opengl dead and never initialized in the first place
 		return;
 
+    quitEventHandler.execute();
     cleanUpContextBeforeDelete();
 
     //! Spin wait for other contexts to deinit
     //! @TODO: Change trylock to semaphore
 	while (true)
     {
-        while (!glContextMutex->TryLock()) {}
+        while (!glContextMutex.try_lock()) {}
 
         bool allDead = true;
         for (size_t i=1; i<=Params.AuxGLContexts; i++)
@@ -845,7 +820,7 @@ COpenGLDriver::~COpenGLDriver()
                 continue;
 
             // found one alive
-            glContextMutex->Release();
+            glContextMutex.unlock();
             allDead = false;
             break;
         }
@@ -894,8 +869,7 @@ COpenGLDriver::~COpenGLDriver()
     }
 #endif // _IRR_COMPILE_WITH_X11_DEVICE_
     _IRR_DELETE_ARRAY(AuxContexts,Params.AuxGLContexts+1);
-    glContextMutex->Release();
-    _IRR_DELETE(glContextMutex);
+    glContextMutex.unlock();
 }
 
 
@@ -911,7 +885,7 @@ uint16_t COpenGLDriver::retrieveDisplayRefreshRate() const
     dm.dmDriverExtra = 0;
     if (!EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm))
         return 0u;
-    return dm.dmDisplayFrequency;
+    return static_cast<uint16_t>(dm.dmDisplayFrequency);
 #elif defined(_IRR_COMPILE_WITH_X11_DEVICE_)
 #   ifdef _IRR_LINUX_X11_RANDR_
     Display* disp = XOpenDisplay(NULL);
@@ -932,36 +906,32 @@ uint16_t COpenGLDriver::retrieveDisplayRefreshRate() const
 #endif
 }
 
-const COpenGLDriver::SAuxContext* COpenGLDriver::getThreadContext(const std::thread::id& tid) const
+const COpenGLDriver::SAuxContext* COpenGLDriver::getThreadContext(const std::thread::id& tid)
 {
-    glContextMutex->Get();
+    const std::lock_guard<std::mutex> lock(glContextMutex);
     for (size_t i=0; i<=Params.AuxGLContexts; i++)
     {
         if (AuxContexts[i].threadId==tid)
-        {
-            glContextMutex->Release();
             return AuxContexts+i;
-        }
     }
-    glContextMutex->Release();
     return NULL;
 }
 
 COpenGLDriver::SAuxContext* COpenGLDriver::getThreadContext_helper(const bool& alreadyLockedMutex, const std::thread::id& tid)
 {
     if (!alreadyLockedMutex)
-        glContextMutex->Get();
+        glContextMutex.lock();
     for (size_t i=0; i<=Params.AuxGLContexts; i++)
     {
         if (AuxContexts[i].threadId==tid)
         {
             if (!alreadyLockedMutex)
-                glContextMutex->Release();
+                glContextMutex.unlock();
             return AuxContexts+i;
         }
     }
     if (!alreadyLockedMutex)
-        glContextMutex->Release();
+        glContextMutex.unlock();
     return NULL;
 }
 
@@ -999,8 +969,8 @@ void COpenGLDriver::cleanUpContextBeforeDelete()
     found->nextState = SOpenGLState();
     for (uint32_t i = 0u; i < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
         found->effectivelyBoundDescriptors.descSets[i] = SOpenGLState::SDescSetBnd();
-    found->pushConstantsState[EPBP_GRAPHICS].layout = nullptr;
-    found->pushConstantsState[EPBP_COMPUTE].layout = nullptr;
+    found->pushConstantsStateCompute.layout = nullptr;
+    found->pushConstantsStateGraphics.layout = nullptr;
 
     glFinish();
 }
@@ -1011,8 +981,6 @@ bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
 	if (!AuxContexts) // opengl dead and never inited
 		return false;
 
-    glContextMutex = _IRR_NEW(FW_Mutex);
-
 #ifdef _IRR_WINDOWS_API_
     if (GetModuleHandleA("renderdoc.dll"))
 #elif defined(_IRR_ANDROID_PLATFORM_)
@@ -1021,7 +989,7 @@ bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
     if (dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
 #else
     if (false)
-#endif // LINUX
+#endif
         runningInRenderDoc = true;
 
 	Name=L"OpenGL ";
@@ -1050,7 +1018,7 @@ bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
     {
         const ocl::COpenCLHandler::SOpenCLPlatformInfo& platform = ocl::COpenCLHandler::getPlatformInfo(i);
 
-        for (size_t j=0; j<platform.deviceCount; j++)
+        for (size_t j=0; j<platform.devices.size(); j++)
         {
             if (platform.devices[j]==clDevice)
             {
@@ -1100,7 +1068,6 @@ bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
 	///MaxBufferViewSize = static_cast<uint32_t>(num);
 
 
-	uint32_t i;
 	// load extensions
 	initExtensions(Params.Stencilbuffer);
 
@@ -1203,11 +1170,15 @@ const core::smart_refctd_dynamic_array<std::string> COpenGLDriver::getSupportedG
         size_t cnt = 0ull;
         for (size_t i = 0ull; i < GLSLcnt; ++i)
             cnt += (FeatureAvailable[m_GLSLExtensions[i]]);
+        if (runningInRenderDoc)
+            ++cnt;
         m_supportedGLSLExtsNames = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<std::string>>(cnt);
         size_t i = 0ull;
         for (size_t j = 0ull; j < GLSLcnt; ++j)
             if (FeatureAvailable[m_GLSLExtensions[j]])
                 (*m_supportedGLSLExtsNames)[i++] = OpenGLFeatureStrings[m_GLSLExtensions[j]];
+        if (runningInRenderDoc)
+            (*m_supportedGLSLExtsNames)[i] = RUNNING_IN_RENDERDOC_EXTENSION_NAME;
     }
 
     return m_supportedGLSLExtsNames;
@@ -1310,21 +1281,10 @@ bool COpenGLDriver::pushConstants(const IGPUPipelineLayout* _layout, uint32_t _s
     updtRng.offset = _offset;
     updtRng.size = _size;
 
-    /*
-    uint32_t stagesToUpdate = 0u;
-    for (const auto& rng : _layout->getPushConstantRanges())
-    {
-        //mask for making this loop branchless
-        const uint32_t m = -static_cast<uint32_t>(updtRng.overlap(rng));//false->all 0s, true->all 1s
-        //have to mask _stages in case it includes more stages than pipeline layout PC range
-        stagesToUpdate |= (m & (rng.stageFlags & _stages));
-    }
-    */
-
     if (_stages & asset::ISpecializedShader::ESS_ALL_GRAPHICS)
-        ctx->pushConstants(EPBP_GRAPHICS, static_cast<const COpenGLPipelineLayout*>(_layout), _stages, _offset, _size, _values);
+        ctx->pushConstants<EPBP_GRAPHICS>(static_cast<const COpenGLPipelineLayout*>(_layout), _stages, _offset, _size, _values);
     if (_stages & asset::ISpecializedShader::ESS_COMPUTE)
-        ctx->pushConstants(EPBP_COMPUTE, static_cast<const COpenGLPipelineLayout*>(_layout), _stages, _offset, _size, _values);
+        ctx->pushConstants<EPBP_COMPUTE>(static_cast<const COpenGLPipelineLayout*>(_layout), _stages, _offset, _size, _values);
 
     return true;
 }
@@ -1351,16 +1311,24 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     core::smart_refctd_ptr<asset::ICPUShader> spvCPUShader = nullptr;
     if (glUnspec->containsGLSL()) {
         std::string glsl = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
-        auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, "????");
         asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions().get());
+        auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.c_str());
+        //{
+        //    auto fl = fopen("shader.glsl", "w");
+        //    fwrite(reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()), 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
+        //    fclose(fl);
+        //}
         core::smart_refctd_ptr<asset::ICPUBuffer> spvCode = GLSLCompiler->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,
                 EP.c_str(),
-                "????"
+               _specInfo.m_filePathHint.c_str()
             );
 
-#define FIX_AMD_DRIVER_BUG
+        if (!spvCode)
+            return nullptr;
+
+// #define FIX_AMD_DRIVER_BUG // TODO: @Crisspl get this code manipulation to pass on the `boxFrustCull.comp` shader of ex 26
 #ifdef FIX_AMD_DRIVER_BUG
         AMDbugfixCompiler comp(reinterpret_cast<const uint32_t*>(spvCode->getPointer()), spvCode->getSize()/4u);
         comp.set_entry_point(EP, asset::ESS2spvExecModel(stage));
@@ -1412,38 +1380,41 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
             memcpy(spvCode->getPointer(), spv.data(), spv.size()*4ull);
         }
 #endif //FIX_AMD_DRIVER_BUG
-
-        //auto fl = fopen("shader.glsl","w");
-        //fwrite(reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()), 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
-        //fclose(fl);
         if (!spvCode)
             return nullptr;
 
         spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spvCode));
     }
-    else {
+    else
         spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr<asset::ICPUBuffer>(glUnspec->m_code));
+
+    asset::CShaderIntrospector::SIntrospectionParams introspectionParams{ _specInfo.shaderStage, _specInfo.entryPoint, getSupportedGLSLExtensions(), _specInfo.m_filePathHint};
+    asset::CShaderIntrospector introspector(GLSLCompiler.get()); // TODO: shouldn't the introspection be cached for all calls to `createGPUSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
+    const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
+    if (!introspection)
+    {
+        _IRR_DEBUG_BREAK_IF(true);
+        os::Printer::log("Unable to introspect the SPIR-V shader to extract information about bindings and push constants. Creation failed.", ELL_ERROR);
+        return nullptr;
     }
 
-    asset::CShaderIntrospector::SEntryPoint_Stage_Extensions introspectionParams{ _specInfo.shaderStage, _specInfo.entryPoint, getSupportedGLSLExtensions()};
-    asset::CShaderIntrospector introspector(GLSLCompiler.get());
-    const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
-    if (introspection->pushConstant.present && introspection->pushConstant.info.name.empty())
+    core::vector<COpenGLSpecializedShader::SUniform> uniformList;
+    if (!COpenGLSpecializedShader::getUniformsFromPushConstants(&uniformList,introspection))
     {
-        assert(false);//abort on debug build
+        _IRR_DEBUG_BREAK_IF(true);
         os::Printer::log("Attempted to create OpenGL GPU specialized shader from SPIR-V without debug info - unable to set push constants. Creation failed.", ELL_ERROR);
-        return nullptr;//release build: maybe let it return the shader
+        return nullptr;
     }
 
     auto ctx = getThreadContext_helper(false);
-    return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, introspection);
+    return core::make_smart_refctd_ptr<COpenGLSpecializedShader>(this->ShaderLanguageVersion, spvCPUShader->getSPVorGLSL(), _specInfo, std::move(uniformList));
 }
 
 core::smart_refctd_ptr<IGPUBufferView> COpenGLDriver::createGPUBufferView(IGPUBuffer* _underlying, asset::E_FORMAT _fmt, size_t _offset, size_t _size)
 {
     if (!_underlying)
         return nullptr;
-    const size_t effectiveSize = (_size != IGPUBufferView::whole_buffer) ? (_underlying->getSize() - _offset) : _size;
+    const size_t effectiveSize = (_size != IGPUBufferView::whole_buffer) ? _size:(_underlying->getSize() - _offset);
     if ((_offset + effectiveSize) > _underlying->getSize())
         return nullptr;
     if (!core::is_aligned_to(_offset, reqTBOAlignment)) //offset must be aligned to GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT
@@ -1602,7 +1573,7 @@ core::smart_refctd_ptr<IGPUPipelineCache> COpenGLDriver::createGPUPipelineCache(
     return core::make_smart_refctd_ptr<COpenGLPipelineCache>();
 }
 
-core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout)
+core::smart_refctd_ptr<IGPUDescriptorSet> COpenGLDriver::createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout)
 {
     if (!_layout)
         return nullptr;
@@ -1660,6 +1631,12 @@ void COpenGLDriver::invalidateMappedMemoryRanges(uint32_t memoryRangeCount, cons
     }
 }
 
+
+void COpenGLDriver::fillBuffer(IGPUBuffer* buffer, size_t offset, size_t length, uint32_t value)
+{
+    COpenGLBuffer* glbuffer = static_cast<COpenGLBuffer*>(buffer);
+    extGlClearNamedBufferSubData(glbuffer->getOpenGLName(),GL_RG32UI,offset,length,GL_RED,GL_UNSIGNED_INT,&value);
+}
 
 void COpenGLDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length)
 {
@@ -1738,7 +1715,7 @@ void COpenGLDriver::copyBufferToImage(IGPUBuffer* srcBuffer, IGPUImage* dstImage
 														dstImageGL->getOpenGLSizedFormat(),imageSize,reinterpret_cast<const void*>(it->bufferOffset));
 					break;
 				case IGPUImage::ET_2D:
-					imageSize *= (it->bufferImageHeight ? it->bufferImageHeight:it->imageExtent.height)/blockDims[1];
+					imageSize *= (it->bufferImageHeight ? it->bufferImageHeight:it->imageExtent.height);
 					imageSize *= it->imageSubresource.layerCount;
 					extGlCompressedTextureSubImage3D(	dst,GL_TEXTURE_2D_ARRAY,it->imageSubresource.mipLevel,
 														it->imageOffset.x,it->imageOffset.y,it->imageSubresource.baseArrayLayer,
@@ -1746,8 +1723,8 @@ void COpenGLDriver::copyBufferToImage(IGPUBuffer* srcBuffer, IGPUImage* dstImage
 														dstImageGL->getOpenGLSizedFormat(),imageSize,reinterpret_cast<const void*>(it->bufferOffset));
 					break;
 				case IGPUImage::ET_3D:
-					imageSize *= (it->bufferImageHeight ? it->bufferImageHeight:it->imageExtent.height)/blockDims[1];
-					imageSize *= it->imageExtent.depth/blockDims[2];
+					imageSize *= (it->bufferImageHeight ? it->bufferImageHeight:it->imageExtent.height);
+					imageSize *= it->imageExtent.depth;
 					extGlCompressedTextureSubImage3D(	dst,GL_TEXTURE_3D,it->imageSubresource.mipLevel,
 														it->imageOffset.x,it->imageOffset.y,it->imageOffset.z,
 														it->imageExtent.width,it->imageExtent.height,it->imageExtent.depth,
@@ -2011,7 +1988,9 @@ void COpenGLDriver::drawArraysIndirect(const asset::SBufferBinding<IGPUBuffer> _
         return;
     }
 
-    found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.indexBuf.get(), indirectDrawBuff, countBuffer);
+    found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.vao.idxBinding.get(), indirectDrawBuff, countBuffer);
+
+    found->flushStateGraphics(GSB_ALL);
 
     GLenum primType = getGLprimitiveType(found->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType);
     if (primType == GL_POINTS)
@@ -2095,7 +2074,9 @@ void COpenGLDriver::drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> 
         return;
     }
 
-    found->updateNextState_vertexInput(_vtxBindings, found->nextState.vertexInputParams.indexBuf.get(), indirectDrawBuff, countBuffer);
+    found->updateNextState_vertexInput(_vtxBindings, indexBuff, indirectDrawBuff, countBuffer);
+
+    found->flushStateGraphics(GSB_ALL);
 
 	GLenum indexSize = (indexType!=asset::EIT_16BIT) ? GL_UNSIGNED_INT:GL_UNSIGNED_SHORT;
     GLenum primType = getGLprimitiveType(found->currentState.pipeline.graphics.pipeline->getPrimitiveAssemblyParams().primitiveType);
@@ -2155,12 +2136,16 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
             COpenGLDescriptorSet::SMultibindParams{};//all nullptr
 
 		const GLsizei localStorageImageCount = newImgCount-first_count.textureImages.first;
-		if (localStorageImageCount)
-			extGlBindImageTextures(first_count.textureImages.first, localStorageImageCount, multibind_params.textureImages.textures, nullptr); //formats=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
+        if (localStorageImageCount)
+        {
+            assert(multibind_params.textureImages.textures);
+            extGlBindImageTextures(first_count.textureImages.first, localStorageImageCount, multibind_params.textureImages.textures, nullptr); //formats=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
+        }
 		
 		const GLsizei localTextureCount = newTexCount-first_count.textures.first;
 		if (localTextureCount)
 		{
+            assert(multibind_params.textures.textures && multibind_params.textures.samplers);
 			extGlBindTextures(first_count.textures.first, localTextureCount, multibind_params.textures.textures, nullptr); //targets=nullptr: assuming ARB_multi_bind (or GL>4.4) is always available
 			extGlBindSamplers(first_count.textures.first, localTextureCount, multibind_params.textures.samplers);
 		}
@@ -2189,6 +2174,7 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
 				if (sizesArray[s]==IGPUBufferView::whole_buffer)
 					sizesArray[s] = nextState.descriptorsParams[_pbp].descSets[i].set->getSSBO(s)->getSize()-offsetsArray[s];
 			}
+            assert(multibind_params.ssbos.buffers);
 			extGlBindBuffersRange(GL_SHADER_STORAGE_BUFFER, first_count.ssbos.first, localSsboCount, multibind_params.ssbos.buffers, nonNullSet ? offsetsArray:nullptr, nonNullSet ? sizesArray:nullptr);
 		}
 
@@ -2207,6 +2193,7 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
 				if (sizesArray[s]==IGPUBufferView::whole_buffer)
 					sizesArray[s] = nextState.descriptorsParams[_pbp].descSets[i].set->getUBO(s)->getSize()-offsetsArray[s];
 			}
+            assert(multibind_params.ubos.buffers);
 			extGlBindBuffersRange(GL_UNIFORM_BUFFER, first_count.ubos.first, localUboCount, multibind_params.ubos.buffers, nonNullSet ? offsetsArray:nullptr, nonNullSet ? sizesArray:nullptr);
 		}
     }
@@ -2255,7 +2242,10 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
         {
             if (nextState.pipeline.graphics.usedShadersHash != currentState.pipeline.graphics.usedShadersHash)
             {
-                GLuint GLname = 0u;
+                currentState.pipeline.graphics.usedPipeline = 0u;
+                #ifndef _IRR_DEBUG
+                    assert(nextState.pipeline.graphics.usedPipeline==0u);
+                #endif
 
                 constexpr SOpenGLState::SGraphicsPipelineHash NULL_HASH = { 0u, 0u, 0u, 0u, 0u };
 
@@ -2265,27 +2255,19 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
                     auto found = std::lower_bound(GraphicsPipelineMap.begin(), GraphicsPipelineMap.end(), lookingFor);
                     if (found != GraphicsPipelineMap.end() && found->first == nextState.pipeline.graphics.usedShadersHash)
                     {
-                        GLname = found->second.GLname;
-                        found->second.lastValidated = CNullDriver::ReallocationCounter;
+                        currentState.pipeline.graphics.usedPipeline = found->second.GLname;
+                        found->second.lastUsed = CNullDriver::ReallocationCounter++;
                     }
                     else
                     {
-                        GLname = createGraphicsPipeline(nextState.pipeline.graphics.usedShadersHash);
-                        lookingFor.second.GLname = GLname;
-                        lookingFor.second.lastValidated = CNullDriver::ReallocationCounter;
+                        currentState.pipeline.graphics.usedPipeline = lookingFor.second.GLname = createGraphicsPipeline(nextState.pipeline.graphics.usedShadersHash);
+                        lookingFor.second.lastUsed = CNullDriver::ReallocationCounter++;
                         lookingFor.second.object = nextState.pipeline.graphics.pipeline;
                         freeUpGraphicsPipelineCache(true);
                         GraphicsPipelineMap.insert(found, lookingFor);
                     }
                 }
-
-                if (GLname)
-                {
-                    currentState.pipeline.compute.pipeline = nullptr;
-                    currentState.pipeline.compute.usedShader = 0u;
-                    extGlUseProgram(0);
-                }
-                extGlBindProgramPipeline(GLname);
+                extGlBindProgramPipeline(currentState.pipeline.graphics.usedPipeline);
 
                 currentState.pipeline.graphics.usedShadersHash = nextState.pipeline.graphics.usedShadersHash;
             }
@@ -2293,6 +2275,15 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
             currentState.pipeline.graphics.pipeline = nextState.pipeline.graphics.pipeline;
         }
     }
+
+    // this needs to be here to make sure interleaving the same compute pipeline with the same gfx pipeline works
+    if (currentState.pipeline.graphics.usedPipeline && currentState.pipeline.compute.usedShader)
+    {
+        currentState.pipeline.compute.pipeline = nullptr;
+        currentState.pipeline.compute.usedShader = 0u;
+        extGlUseProgram(0);
+    }
+
     if (stateBits & GSB_RASTER_PARAMETERS)
     {
 #define STATE_NEQ(member) (nextState.member != currentState.member)
@@ -2448,19 +2439,13 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
     }
     if ((stateBits & GSB_VAO_AND_VERTEX_INPUT) && currentState.pipeline.graphics.pipeline)
     {
-        if (nextState.vertexInputParams.vao.second.GLname == 0u)
+        bool brandNewVAO = false;//if VAO is taken from cache we don't have to modify VAO state that is part of hashval (everything except index and vertex buf bindings)
+        if (STATE_NEQ(vertexInputParams.vao.first))
         {
-            extGlBindVertexArray(0u);
-            freeUpVAOCache(true);
-            currentState.vertexInputParams.vao = { COpenGLRenderpassIndependentPipeline::SVAOHash(), {0u, 0u} };
-        }
-        else if (STATE_NEQ(vertexInputParams.vao.first))
-        {
-            bool brandNewVAO = false;//if VAO is taken from cache we don't have to modify VAO state that is part of hashval (everything except index and vertex buf bindings)
             auto hashVal = nextState.vertexInputParams.vao.first;
             auto it = std::lower_bound(VAOMap.begin(), VAOMap.end(), SOpenGLState::HashVAOPair{hashVal, SOpenGLState::SVAO{}});
             if (it != VAOMap.end() && it->first == hashVal) {
-                it->second.lastValidated = CNullDriver::ReallocationCounter;
+                it->second.lastUsed = CNullDriver::ReallocationCounter++;
                 currentState.vertexInputParams.vao = *it;
             }
             else
@@ -2469,16 +2454,22 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
                 COpenGLExtensionHandler::extGlCreateVertexArrays(1u, &GLvao);
                 SOpenGLState::SVAO vao;
                 vao.GLname = GLvao;
-                vao.lastValidated = CNullDriver::ReallocationCounter;
-                currentState.vertexInputParams.vao = SOpenGLState::HashVAOPair{hashVal, vao};
-                VAOMap.insert(it, currentState.vertexInputParams.vao);
+                vao.lastUsed = CNullDriver::ReallocationCounter++;
+                SOpenGLState::HashVAOPair vaostate;
+                vaostate.first = hashVal;
+                vaostate.second = vao;
+                //intentionally leaving vao.vtxBindings,idxBinding untouched in currentState so that STATE_NEQ gives true and they get bound
+                currentState.vertexInputParams.vao = vaostate;
+                //bindings in cached object will be updated/filled later
+                VAOMap.insert(it, std::move(vaostate));
+                freeUpVAOCache(true);
                 brandNewVAO = true;
             }
             GLuint vao = currentState.vertexInputParams.vao.second.GLname;
             COpenGLExtensionHandler::extGlBindVertexArray(vao);
 
-            bool updatedBindings[16]{};
-            for (uint32_t attr = 0u; attr < 16u; ++attr)
+            bool updatedBindings[asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT]{};
+            for (uint32_t attr = 0u; attr < asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; ++attr)
             {
                 if (hashVal.attribFormatAndComponentCount[attr] != asset::EF_UNKNOWN) {
                     if (brandNewVAO)
@@ -2511,9 +2502,10 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
             //vertex and index buffer bindings are done outside this if-statement because no change in hash doesn't imply no change in those bindings
         }
         GLuint GLvao = currentState.vertexInputParams.vao.second.GLname;
-        if (GLvao)
+        assert(GLvao);
         {
-            for (uint32_t i = 0u; i < 16u; ++i)
+            bool anyBindingChanged = false;
+            for (uint32_t i = 0u; i<asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; ++i)
             {
                 const auto& hash = currentState.vertexInputParams.vao.first;
                 if (hash.attribFormatAndComponentCount[i] == asset::EF_UNKNOWN)
@@ -2521,17 +2513,28 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
 
                 const uint32_t bnd = hash.getBindingForAttrib(i);
 
-                if (STATE_NEQ(vertexInputParams.bindings[bnd]))//this if-statement also doesnt allow GlVertexArrayVertexBuffer be called multiple times for single binding
+                if (STATE_NEQ(vertexInputParams.vao.vtxBindings[bnd]))//this if-statement also doesnt allow GlVertexArrayVertexBuffer be called multiple times for single binding
                 {
-                    assert(nextState.vertexInputParams.bindings[bnd].buf);//something went wrong
-                    extGlVertexArrayVertexBuffer(GLvao, bnd, nextState.vertexInputParams.bindings[bnd].buf->getOpenGLName(), nextState.vertexInputParams.bindings[bnd].offset, hash.getStrideForBinding(bnd));
-                    UPDATE_STATE(vertexInputParams.bindings[bnd]);
+                    assert(nextState.vertexInputParams.vao.vtxBindings[bnd].buffer);//something went wrong
+                    extGlVertexArrayVertexBuffer(GLvao, bnd, nextState.vertexInputParams.vao.vtxBindings[bnd].buffer->getOpenGLName(), nextState.vertexInputParams.vao.vtxBindings[bnd].offset, hash.getStrideForBinding(bnd));
+                    UPDATE_STATE(vertexInputParams.vao.vtxBindings[bnd]);
+                    anyBindingChanged = true;
                 }
             }
-            if (STATE_NEQ(vertexInputParams.indexBuf))
+            if (STATE_NEQ(vertexInputParams.vao.idxBinding))
             {
-                extGlVertexArrayElementBuffer(GLvao, nextState.vertexInputParams.indexBuf ? nextState.vertexInputParams.indexBuf->getOpenGLName() : 0u);
-                UPDATE_STATE(vertexInputParams.indexBuf);
+                extGlVertexArrayElementBuffer(GLvao, nextState.vertexInputParams.vao.idxBinding ? nextState.vertexInputParams.vao.idxBinding->getOpenGLName() : 0u);
+                UPDATE_STATE(vertexInputParams.vao.idxBinding);
+                anyBindingChanged = true;
+            }
+
+            //update bindings in cache as well
+            if (brandNewVAO || anyBindingChanged)
+            {
+                auto found = std::lower_bound(VAOMap.begin(), VAOMap.end(), SOpenGLState::HashVAOPair{currentState.vertexInputParams.vao.first, SOpenGLState::SVAO{}});
+                //dont even check if found anything because it's obvious that such vao is in the cache
+                found->vtxBindings = currentState.vertexInputParams.vao.vtxBindings;
+                found->idxBinding = currentState.vertexInputParams.vao.idxBinding;
             }
         }
         if (STATE_NEQ(vertexInputParams.indirectDrawBuf))
@@ -2547,19 +2550,8 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
     }
     if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.graphics.pipeline)
     {
-		for (uint32_t i = 0u; i < COpenGLRenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
-		{
-			if (!((1u << i) & pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags))
-				continue;
-
-			const uint32_t presenceMask = currentState.pipeline.graphics.pipeline->getStagePresenceMask();
-			if (!(presenceMask & (1u<<i)))
-				continue;
-
-			//pipeline must be flushed before push constants so taking pipeline from currentState
-            currentState.pipeline.graphics.pipeline->setUniformsImitatingPushConstants(i, this->ID, pushConstantsState[EPBP_GRAPHICS].data);
-		}
-		pushConstantsState[EPBP_GRAPHICS].stagesToUpdateFlags = 0u;
+        //pipeline must be flushed before push constants so taking pipeline from currentState
+        currentState.pipeline.graphics.pipeline->setUniformsImitatingPushConstants(this->ID, pushConstantsStateGraphics);
     }
     if (stateBits & GSB_PIXEL_PACK_UNPACK)
     {
@@ -2663,12 +2655,7 @@ void COpenGLDriver::SAuxContext::flushStateCompute(uint32_t stateBits)
     if ((stateBits & GSB_PUSH_CONSTANTS) && currentState.pipeline.compute.pipeline)
     {
 		assert(currentState.pipeline.compute.pipeline->containsShader());
-		if (pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags & asset::ISpecializedShader::ESS_COMPUTE)
-		{
-            currentState.pipeline.compute.pipeline->setUniformsImitatingPushConstants(this->ID, pushConstantsState[EPBP_COMPUTE].data);
-
-			pushConstantsState[EPBP_COMPUTE].stagesToUpdateFlags = 0u;
-		}
+		currentState.pipeline.compute.pipeline->setUniformsImitatingPushConstants(this->ID, pushConstantsStateCompute);
     }
     if (stateBits & GSB_DISPATCH_INDIRECT)
     {
@@ -2854,11 +2841,11 @@ void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const asset::SBuffe
         const asset::SBufferBinding<IGPUBuffer>& bnd = _vtxBindings[i];
         if (bnd.buffer) {
             const COpenGLBuffer* buf = static_cast<COpenGLBuffer*>(bnd.buffer.get());
-            nextState.vertexInputParams.bindings[i] = {core::smart_refctd_ptr<const COpenGLBuffer>(buf), static_cast<GLintptr>(bnd.offset)};
+            nextState.vertexInputParams.vao.vtxBindings[i] = {bnd.offset,core::smart_refctd_ptr<const COpenGLBuffer>(buf)};
         }
     }
     const COpenGLBuffer* buf = static_cast<const COpenGLBuffer*>(_indexBuffer);
-    nextState.vertexInputParams.indexBuf = core::smart_refctd_ptr<const COpenGLBuffer>(buf);
+    nextState.vertexInputParams.vao.idxBinding = core::smart_refctd_ptr<const COpenGLBuffer>(buf);
 
     buf = static_cast<const COpenGLBuffer*>(_indirectDrawBuffer);
     nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr<const COpenGLBuffer>(buf);
@@ -2871,30 +2858,6 @@ void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const asset::SBuffe
 
     //nextState.pipeline is the one set in updateNextState_pipelineAndRaster() or is the same object as currentState.pipeline
     nextState.vertexInputParams.vao.first = nextState.pipeline.graphics.pipeline->getVAOHash();
-}
-
-void COpenGLDriver::SAuxContext::pushConstants(E_PIPELINE_BIND_POINT _bindPoint, const COpenGLPipelineLayout* _layout, uint32_t _stages, uint32_t _offset, uint32_t _size, const void* _values)
-{
-    //validation is done in CNullDriver::pushConstants()
-    //if arguments were invalid (dont comply Valid Usage section of vkCmdPushConstants docs), execution should not even get to this point
-
-    if (pushConstantsState[_bindPoint].layout && !pushConstantsState[_bindPoint].layout->isCompatibleForPushConstants(_layout))
-    {
-        constexpr size_t toFill = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE / sizeof(uint64_t);
-        constexpr size_t bytesLeft = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE - (toFill * sizeof(uint64_t));
-        constexpr uint64_t pattern = 0xdeadbeefDEADBEEFull;
-        std::fill(reinterpret_cast<uint64_t*>(pushConstantsState[_bindPoint].data), reinterpret_cast<uint64_t*>(pushConstantsState[_bindPoint].data)+toFill, pattern);
-        IRR_PSEUDO_IF_CONSTEXPR_BEGIN(bytesLeft > 0ull) {
-            memcpy(reinterpret_cast<uint64_t*>(pushConstantsState[_bindPoint].data) + toFill, &pattern, bytesLeft);
-        } IRR_PSEUDO_IF_CONSTEXPR_END
-
-        pushConstantsState[_bindPoint].stagesToUpdateFlags = 0u;
-    }
-
-    pushConstantsState[_bindPoint].stagesToUpdateFlags |= _stages;
-
-    pushConstantsState[_bindPoint].layout = core::smart_refctd_ptr<const COpenGLPipelineLayout>(_layout);
-    memcpy(pushConstantsState[_bindPoint].data + _offset, _values, _size);
 }
 
 
@@ -3110,7 +3073,7 @@ bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewpo
 
 
 // returns the current size of the screen or rendertarget
-const core::dimension2d<uint32_t>& COpenGLDriver::getCurrentRenderTargetSize() const
+const core::dimension2d<uint32_t>& COpenGLDriver::getCurrentRenderTargetSize()
 {
     const SAuxContext* found = getThreadContext();
 	if (!found || found->CurrentRendertargetSize.Width == 0)

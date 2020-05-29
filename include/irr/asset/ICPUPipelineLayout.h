@@ -18,6 +18,8 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 		ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) { return m_descSetLayouts[_set].get(); }
 		const ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) const { return m_descSetLayouts[_set].get(); }
 
+        void setDescriptorSetLayout(uint32_t _set, core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _dslayout) { m_descSetLayouts[_set] = std::move(_dslayout); }
+
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
             std::array<core::smart_refctd_ptr<ICPUDescriptorSetLayout>, DESCRIPTOR_SET_COUNT> dsLayouts;
@@ -47,7 +49,9 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 				        it->get()->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 			m_pushConstantRanges = nullptr;
 		}
-		E_TYPE getAssetType() const override { return ET_PIPELINE_LAYOUT; }
+
+        _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_LAYOUT;
+        inline E_TYPE getAssetType() const override { return AssetType; }
 
 	protected:
 		virtual ~ICPUPipelineLayout() = default;

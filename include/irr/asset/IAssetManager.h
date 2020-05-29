@@ -8,7 +8,7 @@
 #include <array>
 #include <ostream>
 
-#include "irr/core/Types.h"
+#include "irr/core/core.h"
 #include "CConcurrentObjectCache.h"
 
 #include "IFileSystem.h"
@@ -21,6 +21,7 @@
 
 #include "irr/asset/IGeometryCreator.h"
 #include "irr/asset/IMeshManipulator.h"
+#include "irr/asset/CQuantNormalCache.h"
 #include "irr/asset/IAssetLoader.h"
 #include "irr/asset/IAssetWriter.h"
 
@@ -50,7 +51,7 @@ std::function<void(SAssetBundle&)> makeAssetDisposeFunc(const IAssetManager* con
 	@see IAsset
 
 */
-class IAssetManager : public core::IReferenceCounted
+class IAssetManager : public core::IReferenceCounted, public core::QuitSignalling
 {
         // the point of those functions is that lambdas returned by them "inherits" friendship
         friend std::function<void(SAssetBundle&)> makeAssetGreetFunc(const IAssetManager* const _mgr);
@@ -148,12 +149,14 @@ class IAssetManager : public core::IReferenceCounted
 		inline io::IFileSystem* getFileSystem() const { return m_fileSystem.get(); }
 
         const IGeometryCreator* getGeometryCreator() const;
-        const IMeshManipulator* getMeshManipulator() const;
+        IMeshManipulator* getMeshManipulator();
         IGLSLCompiler* getGLSLCompiler() const { return m_glslCompiler.get(); }
 
     protected:
 		virtual ~IAssetManager()
 		{
+            quitEventHandler.execute();
+
 			for (size_t i = 0u; i < m_assetCache.size(); ++i)
 				if (m_assetCache[i])
 					delete m_assetCache[i];
@@ -203,13 +206,19 @@ class IAssetManager : public core::IReferenceCounted
 		*/
         SAssetBundle getAssetInHierarchy(io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
         {
-            IAssetLoader::SAssetLoadContext ctx{_params, _file};
+            IAssetLoader::SAssetLoadParams params(_params);
+            if (params.meshManipulatorOverride == nullptr)
+            {
+                params.meshManipulatorOverride = m_meshManipulator.get();
+            }
+
+            IAssetLoader::SAssetLoadContext ctx{params, _file};
 
             std::string filename = _file ? _file->getFileName().c_str() : _supposedFilename;
             io::IReadFile* file = _override->getLoadFile(_file, filename, ctx, _hierarchyLevel);
             filename = file ? file->getFileName().c_str() : _supposedFilename;
 
-            const uint64_t levelFlags = _params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
+            const uint64_t levelFlags = params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
 
             SAssetBundle asset;
             if ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL)
@@ -229,12 +238,12 @@ class IAssetManager : public core::IReferenceCounted
 
             for (auto loaderItr = capableLoadersRng.first; loaderItr != capableLoadersRng.second; ++loaderItr) // loaders associated with the file's extension tryout
             {
-                if (loaderItr->second->isALoadableFileFormat(file) && !(asset = loaderItr->second->loadAsset(file, _params, _override, _hierarchyLevel)).isEmpty())
+                if (loaderItr->second->isALoadableFileFormat(file) && !(asset = loaderItr->second->loadAsset(file, params, _override, _hierarchyLevel)).isEmpty())
                     break;
             }
             for (auto loaderItr = std::begin(m_loaders.vector); asset.isEmpty() && loaderItr != std::end(m_loaders.vector); ++loaderItr) // all loaders tryout
             {
-                if ((*loaderItr)->isALoadableFileFormat(file) && !(asset = (*loaderItr)->loadAsset(file, _params, _override, _hierarchyLevel)).isEmpty())
+                if ((*loaderItr)->isALoadableFileFormat(file) && !(asset = (*loaderItr)->loadAsset(file, params, _override, _hierarchyLevel)).isEmpty())
                     break;
             }
 
@@ -502,6 +511,19 @@ class IAssetManager : public core::IReferenceCounted
 
 		// we need a removeCachedGPUObjects(const IAsset* _asset) but CObjectCache.h needs a `removeAllAssociatedObjects(const Key& _key)`
 
+        //! Removes all GPU objects from the specified caches, all caches by default
+        /* TODO
+        void clearAllGPUObjects(const uint64_t& _assetTypeBitFlags = 0xffffffffffffffffull)
+        {
+            for (size_t i = 0u; i < IAsset::ET_STANDARD_TYPES_COUNT; ++i)
+            {
+                if ((_assetTypeBitFlags >> i) & 1ull)
+                {
+                    TODO
+                }
+            }
+        }*/
+
         //! Writing an asset
         /** Compression level is a number between 0 and 1 to signify how much storage we are trading for writing time or quality, this is a non-linear 
 		scale and has different meanings and results with different asset types and writers. */
@@ -547,7 +569,7 @@ class IAssetManager : public core::IReferenceCounted
         }
 
         // Asset Loaders [FOLLOWING ARE NOT THREAD SAFE]
-        uint32_t getAssetLoaderCount() { return m_loaders.vector.size(); }
+        uint32_t getAssetLoaderCount() { return static_cast<uint32_t>(m_loaders.vector.size()); }
 
         //! @returns 0xdeadbeefu on failure or 0-based index on success.
         uint32_t addAssetLoader(core::smart_refctd_ptr<IAssetLoader>&& _loader)
@@ -558,7 +580,7 @@ class IAssetManager : public core::IReferenceCounted
             while (const char* ext = exts[extIx++])
                 m_loaders.perFileExt.insert(ext, _loader.get());
             m_loaders.pushToVector(std::move(_loader));
-            return m_loaders.vector.size()-1u;
+            return static_cast<uint32_t>(m_loaders.vector.size())-1u;
         }
         void removeAssetLoader(IAssetLoader* _loader)
         {
@@ -572,7 +594,7 @@ class IAssetManager : public core::IReferenceCounted
         }
 
         // Asset Writers [FOLLOWING ARE NOT THREAD SAFE]
-        uint32_t getAssetWriterCount() { return m_writers.perType.getSize(); } // todo.. well, it's not really writer count.. but rather type<->writer association count
+        uint32_t getAssetWriterCount() { return static_cast<uint32_t>(m_writers.perType.getSize()); } // todo.. well, it's not really writer count.. but rather type<->writer association count
 
         void addAssetWriter(core::smart_refctd_ptr<IAssetWriter>&& _writer)
         {

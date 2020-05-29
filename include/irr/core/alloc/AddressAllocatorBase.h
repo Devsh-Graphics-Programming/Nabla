@@ -91,6 +91,22 @@ namespace core
                 alignOffset = newAlignOffset;
                 combinedOffset = addressOffset+alignOffset;
             }
+            AddressAllocatorBase(const CRTP& other, void* newReservedSpc) :
+                reservedSpace(newReservedSpc), addressOffset(other.addressOffset), alignOffset(other.alignOffset),
+                maxRequestableAlignment(other.maxRequestableAlignment), combinedOffset(other.combinedOffset)
+            {
+                #ifdef _IRR_DEBUG
+                    // reserved space has to be aligned at least to SIMD
+                    assert((reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u))==0ull);
+                #endif // _IRR_DEBUG
+            }
+            AddressAllocatorBase(const CRTP& other, void* newReservedSpc, _size_type newAddressOffset, _size_type newAlignOffset) :
+                AddressAllocatorBase(other, newReservedSpc)
+            {
+                addressOffset = newAddressOffset;
+                alignOffset = newAlignOffset;
+                combinedOffset = addressOffset+alignOffset;
+            }
 
             inline bool checkResize(_size_type newBuffSz, _size_type newAlignOffset)
             {

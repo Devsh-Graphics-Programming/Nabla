@@ -37,7 +37,7 @@ namespace video
 /** This interface only deals with OpenGL and Vulkan concepts which do not require a command to be recorded in a command buffer
 and then submitted to a command queue, i.e. functions which only require VkDevice or VkPhysicalDevice.
 Examples of such functionality are the creation of buffers, textures, etc.*/
-class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityReporter
+class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityReporter, public core::QuitSignalling
 {
     protected:
 		core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultDownloadBuffer;
@@ -150,7 +150,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         //! Utility wrapper for the pointer based func
         inline void flushMappedMemoryRanges(const core::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
         {
-            this->flushMappedMemoryRanges(ranges.size(),ranges.data());
+            this->flushMappedMemoryRanges(static_cast<uint32_t>(ranges.size()),ranges.data());
         }
 
         //! For memory allocations without the video::IDriverMemoryAllocation::EMCF_COHERENT mapping capability flag you need to call this for the GPU writes to become CPU visible (slow on OpenGL)
@@ -159,7 +159,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         //! Utility wrapper for the pointer based func
         inline void invalidateMappedMemoryRanges(const core::vector<video::IDriverMemoryAllocation::MappedMemoryRange>& ranges)
         {
-            this->invalidateMappedMemoryRanges(ranges.size(),ranges.data());
+            this->invalidateMappedMemoryRanges(static_cast<uint32_t>(ranges.size()),ranges.data());
         }
 
 
@@ -307,7 +307,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         }
 
 		//! Create a descriptor set with missing descriptors
-        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout)
+        virtual core::smart_refctd_ptr<IGPUDescriptorSet> createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout)
         {
             return nullptr;
         }
@@ -332,12 +332,12 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         //! WARNING, THIS FUNCTION MAY STALL AND BLOCK
         inline void updateBufferRangeViaStagingBuffer(IGPUBuffer* buffer, size_t offset, size_t size, const void* data)
         {
-            for (uint32_t uploadedSize=0; uploadedSize<size;)
+            for (size_t uploadedSize=0; uploadedSize<size;)
             {
                 const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
                 uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
                 uint32_t alignment = 64u; // smallest mapping alignment capability
-                uint32_t subSize = core::min(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize);
+                uint32_t subSize = static_cast<uint32_t>(core::min(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize));
 
                 defaultUploadBuffer.get()->multi_place(std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&localOffset,&subSize,&alignment);
                 // keep trying again
@@ -377,9 +377,12 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
         created_gpu_object_array<AssetType> getGPUObjectsFromAssets(AssetType* const* const _begin, AssetType* const* const _end, IGPUObjectFromAssetConverter* _converter = nullptr);
 		//! With a custom converter, you can override it to for example; pack all buffers into one, pack all images into one atlas, etc.
 		template<typename AssetType>
-		created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::smart_refctd_ptr<asset::IAsset>* _begin, const core::smart_refctd_ptr<asset::IAsset>* _end, IGPUObjectFromAssetConverter* _converter = nullptr);
+		created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::smart_refctd_ptr<AssetType>* _begin, const core::smart_refctd_ptr<AssetType>* _end, IGPUObjectFromAssetConverter* _converter = nullptr);
 
 	//====================== THIS STUFF SHOULD BE IN A video::ICommandBuffer =====================
+        //!
+        virtual void fillBuffer(IGPUBuffer* buffer, size_t offset, size_t length, uint32_t value) {}
+
 		//! TODO: make with VkBufferCopy and take a list of multiple copies to carry out (maybe rename to copyBufferRanges)
 		virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length) {}
 

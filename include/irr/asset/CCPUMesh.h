@@ -52,7 +52,7 @@ class CCPUMesh final : public ICPUMesh
 		//! returns amount of mesh buffers.
 		virtual uint32_t getMeshBufferCount() const override
 		{
-			return MeshBuffers.size();
+			return static_cast<uint32_t>(MeshBuffers.size());
 		}
 
 		//! returns pointer to a mesh buffer

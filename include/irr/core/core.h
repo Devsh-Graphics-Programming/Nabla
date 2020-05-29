@@ -16,7 +16,6 @@
 #include "irr/core/alloc/aligned_allocator.h"
 #include "irr/core/alloc/aligned_allocator_adaptor.h"
 #include "irr/core/alloc/AllocatorTrivialBases.h"
-#include "irr/core/alloc/ContiguousPoolAddressAllocator.h"
 #include "irr/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "irr/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
 #include "irr/core/alloc/IAddressAllocator.h"
@@ -31,6 +30,7 @@
 // math
 #include "irr/core/math/intutil.h"
 #include "irr/core/math/floatutil.tcc"
+#include "irr/core/math/colorutil.h"
 #include "irr/core/math/glslFunctions.tcc"
 #include "irr/core/math/rational.h"
 #include "irr/core/math/plane3dSIMD.h"
@@ -52,6 +52,7 @@
 #include "irr/core/string/UniqueStringLiteralType.h"
 // other useful things
 #include "irr/core/BaseClasses.h"
+#include "irr/core/SingleEventHandler.h"
 #include "irr/core/EventDeferredHandler.h"
 #include "irr/core/IBuffer.h"
 #include "irr/core/IReferenceCounted.h"

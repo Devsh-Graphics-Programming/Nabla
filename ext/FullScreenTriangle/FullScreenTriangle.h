@@ -11,26 +11,17 @@ namespace FullScreenTriangle
 {
 
 
-inline auto createFullScreenTriangle(video::IVideoDriver* driver)
+inline auto createFullScreenTriangle(asset::IAssetManager* am, video::IVideoDriver* driver)
 {
 	std::tuple<core::smart_refctd_ptr<video::IGPUSpecializedShader>,asset::SVertexInputParams,asset::SPrimitiveAssemblyParams> retval;
 
-	const char* source = R"===(
-#version 430 core
-const vec2 pos[3] = vec2[3](vec2(-1.0, 1.0),vec2(-1.0,-3.0),vec2( 3.0, 1.0));
-const vec2 tc[3] = vec2[3](vec2( 0.0, 0.0),vec2( 0.0, 2.0),vec2( 2.0, 0.0));
-
-layout(location = 0) out vec2 TexCoord;
-
-void main()
-{
-    gl_Position = vec4(pos[gl_VertexIndex],0.0,1.0);
-    TexCoord = tc[gl_VertexIndex];
-}
-	)===";
-	auto shader = driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(source));
-    video::IGPUSpecializedShader::SInfo specInfo({}, nullptr, "main", video::IGPUSpecializedShader::ESS_VERTEX);
-	std::get<0>(retval) = driver->createGPUSpecializedShader(shader.get(), std::move(specInfo));
+	asset::IAsset::E_TYPE types[] = { asset::IAsset::ET_SPECIALIZED_SHADER,static_cast<asset::IAsset::E_TYPE>(0u) };
+	auto found = am->findAssets("irr/builtin/specializedshaders/fullscreentriangle.vert",types);
+	assert(found->size());
+	auto first = found->begin();
+	assert(!first->isEmpty());
+	auto pShader = static_cast<asset::ICPUSpecializedShader*>((first->getContents().first->get()));
+	std::get<core::smart_refctd_ptr<video::IGPUSpecializedShader> >(retval) = driver->getGPUObjectsFromAssets<asset::ICPUSpecializedShader>(&pShader,&pShader+1u)->front();
 
 	auto& inputParams = std::get<asset::SVertexInputParams>(retval);
 	{
@@ -47,6 +38,19 @@ void main()
 	assemblyParams.tessPatchVertCount = 3u;
 
     return retval;
+}
+
+inline auto createFullScreenTriangle(core::smart_refctd_ptr<video::IGPUSpecializedShader>&& fragShader, core::smart_refctd_ptr<video::IGPUPipelineLayout>&& pipelineLayout, asset::IAssetManager* am, video::IVideoDriver* driver, const asset::SBlendParams& blendParams={}, const asset::SRasterizationParams& rasterParams={})
+{
+	auto protoPipeline = createFullScreenTriangle(am,driver);
+
+	video::IGPUSpecializedShader* shaders[] = {std::get<core::smart_refctd_ptr<video::IGPUSpecializedShader> >(protoPipeline).get(),fragShader.get()};
+	auto pipeline = driver->createGPURenderpassIndependentPipeline(nullptr,std::move(pipelineLayout),shaders,shaders+2,std::get<asset::SVertexInputParams>(protoPipeline),blendParams,std::get<asset::SPrimitiveAssemblyParams>(protoPipeline),rasterParams);
+
+	asset::SBufferBinding<video::IGPUBuffer> bindings[16];
+	auto meshbuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(std::move(pipeline), nullptr, bindings, asset::SBufferBinding<video::IGPUBuffer>{});
+	meshbuffer->setIndexCount(3u);
+	return meshbuffer;
 }
 
 }

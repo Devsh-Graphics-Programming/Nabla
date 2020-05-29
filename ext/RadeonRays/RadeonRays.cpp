@@ -2,6 +2,7 @@
 
 #include "../../ext/RadeonRays/RadeonRays.h"
 
+#define __C_CUDA_HANDLER_H__ // don't want CUDA declarations and defines to pollute here
 #include "../source/Irrlicht/COpenGLDriver.h"
 
 using namespace irr;
@@ -88,7 +89,7 @@ void Manager::makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMes
 	const int32_t* theseIndices = indices;
 	int32_t indexCount = 0;
 
-	auto pType = mb->getPrimitiveType();
+	auto pType = mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
 	const void* meshIndices = mb->getIndices();
 	const auto meshIndexCount = mb->getIndexCount();
 	auto setIndex = [&](int32_t& index, auto orig)
@@ -209,7 +210,7 @@ void Manager::makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMes
 	auto posAttrID = mb->getPositionAttributeIx();
 	constexpr int32_t IndicesPerTriangle = 3;
 	found->second = rr->CreateMesh(	reinterpret_cast<const float*>(	mb->getAttribPointer(posAttrID)),vertexCount,
-																	mb->getMeshDataAndFormat()->getMappedBufferStride(posAttrID),
+																	mb->getAttribStride(posAttrID),
 																	theseIndices,sizeof(int32_t)*IndicesPerTriangle, // radeon rays understands index stride differently to me
 																	nullptr,indexCount/IndicesPerTriangle);
 }

@@ -60,10 +60,10 @@ public:
 
     bool isCompatibleForPushConstants(const IPipelineLayout<DescLayoutType>* _other) const
     {
-        if (getPushConstantRanges().length() != _other->getPushConstantRanges().length())
+        if (getPushConstantRanges().size() != _other->getPushConstantRanges().size())
             return false;
 
-        const size_t cnt = getPushConstantRanges().length();
+        const size_t cnt = getPushConstantRanges().size();
         const SPushConstantRange* lhs = getPushConstantRanges().begin();
         const SPushConstantRange* rhs = _other->getPushConstantRanges().begin();
         for (size_t i = 0ull; i < cnt; ++i)

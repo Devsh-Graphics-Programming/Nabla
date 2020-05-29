@@ -10,6 +10,7 @@
 #include "matrix4SIMD.h"
 
 #include <cmath>
+#include <numeric>
 
 namespace irr
 {
@@ -91,6 +92,16 @@ IRR_FORCE_INLINE T reciprocal_approxim(const T& x)
     return reciprocal<T>(x);
 }
 
+template<>
+IRR_FORCE_INLINE float exp2<float>(const float& x)
+{
+	return std::exp2f(x);
+}
+template<>
+IRR_FORCE_INLINE double exp2<double>(const double& x)
+{
+	return std::exp2(x);
+}
 
 
 
@@ -154,6 +165,24 @@ IRR_FORCE_INLINE vectorSIMDf min<vectorSIMDf>(const vectorSIMDf& a, const vector
 #error "no implementation"
 #endif
 }
+template<>
+IRR_FORCE_INLINE vectorSIMDu32 min<vectorSIMDu32>(const vectorSIMDu32& a, const vectorSIMDu32& b)
+{
+#ifdef __IRR_COMPILE_WITH_SSE3
+	return _mm_min_epu32(a.getAsRegister(),b.getAsRegister());
+#else
+#error "no implementation"
+#endif
+}
+template<>
+IRR_FORCE_INLINE vectorSIMDi32 min<vectorSIMDi32>(const vectorSIMDi32& a, const vectorSIMDi32& b)
+{
+#ifdef __IRR_COMPILE_WITH_SSE3
+	return _mm_min_epi32(a.getAsRegister(),b.getAsRegister());
+#else
+#error "no implementation"
+#endif
+}
 template<class T>
 IRR_FORCE_INLINE T min(const T& a, const T& b)
 {
@@ -168,6 +197,24 @@ IRR_FORCE_INLINE vectorSIMDf max<vectorSIMDf>(const vectorSIMDf& a, const vector
 {
 #ifdef __IRR_COMPILE_WITH_SSE3
 	return _mm_max_ps(a.getAsRegister(),b.getAsRegister());
+#else
+#error "no implementation"
+#endif
+}
+template<>
+IRR_FORCE_INLINE vectorSIMDu32 max<vectorSIMDu32>(const vectorSIMDu32& a, const vectorSIMDu32& b)
+{
+#ifdef __IRR_COMPILE_WITH_SSE3
+	return _mm_max_epu32(a.getAsRegister(),b.getAsRegister());
+#else
+#error "no implementation"
+#endif
+}
+template<>
+IRR_FORCE_INLINE vectorSIMDi32 max<vectorSIMDi32>(const vectorSIMDi32& a, const vectorSIMDi32& b)
+{
+#ifdef __IRR_COMPILE_WITH_SSE3
+	return _mm_max_epi32(a.getAsRegister(),b.getAsRegister());
 #else
 #error "no implementation"
 #endif
@@ -191,6 +238,28 @@ IRR_FORCE_INLINE vectorSIMDf dot<vectorSIMDf>(const vectorSIMDf& a, const vector
     xmm0 = _mm_mul_ps(xmm0,xmm1);
     xmm0 = _mm_hadd_ps(xmm0,xmm0);
     return _mm_hadd_ps(xmm0,xmm0);
+#else
+#error "no implementation"
+#endif
+}
+template<>
+IRR_FORCE_INLINE vectorSIMDi32 dot<vectorSIMDi32>(const vectorSIMDi32& a, const vectorSIMDi32& b)
+{
+    __m128i xmm0 = (a*b).getAsRegister();
+#ifdef __IRR_COMPILE_WITH_SSE3
+    xmm0 = _mm_hadd_epi32(xmm0,xmm0);
+    return _mm_hadd_epi32(xmm0,xmm0);
+#else
+#error "no implementation"
+#endif
+}
+template<>
+IRR_FORCE_INLINE vectorSIMDu32 dot<vectorSIMDu32>(const vectorSIMDu32& a, const vectorSIMDu32& b)
+{
+    __m128i xmm0 = (a*b).getAsRegister();
+#ifdef __IRR_COMPILE_WITH_SSE3
+    xmm0 = _mm_hadd_epi32(xmm0,xmm0);
+    return _mm_hadd_epi32(xmm0,xmm0);
 #else
 #error "no implementation"
 #endif
@@ -371,6 +440,46 @@ template<typename T>
 IRR_FORCE_INLINE bool equals(const T& a, const T& b, const T& tolerance)
 {
 	return (a + tolerance >= b) && (a - tolerance <= b);
+}
+
+
+template<>
+IRR_FORCE_INLINE vectorSIMDf sin<vectorSIMDf>(const vectorSIMDf& a)
+{
+	// TODO: vastly improve this
+	return vectorSIMDf(sin<float>(a.x),sin<float>(a.y),sin<float>(a.z),sin<float>(a.w));
+}
+template<typename T>
+IRR_FORCE_INLINE T sin(const T& a)
+{
+	return std::sin(a);
+}
+
+
+
+// extras
+
+
+template<>
+IRR_FORCE_INLINE vectorSIMDu32 gcd<vectorSIMDu32>(const vectorSIMDu32& a, const vectorSIMDu32& b)
+{
+	return vectorSIMDu32(gcd<uint32_t>(a.x,b.x),gcd<uint32_t>(a.y,b.y),gcd<uint32_t>(a.z,b.z),gcd<uint32_t>(a.w,b.w));
+}
+template<typename T>
+IRR_FORCE_INLINE T gcd(const T& a, const T& b)
+{
+	return std::gcd(a,b);
+}
+
+template<>
+IRR_FORCE_INLINE vectorSIMDf cyl_bessel_i<vectorSIMDf>(const vectorSIMDf& v, const vectorSIMDf& x)
+{
+	return vectorSIMDf(cyl_bessel_i<float>(v[0],x[0]),cyl_bessel_i<float>(v[1],x[1]),cyl_bessel_i<float>(v[2],x[2]),cyl_bessel_i<float>(v[3],x[3]));
+}
+template<typename T>
+IRR_FORCE_INLINE T cyl_bessel_i(const T& v, const T& x)
+{
+	return std::cyl_bessel_i(double(v),double(x));
 }
 
 

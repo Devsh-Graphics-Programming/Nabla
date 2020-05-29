@@ -74,7 +74,7 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
                 auto cp_desc = cp->getDescriptors(i);
 
                 const E_DESCRIPTOR_TYPE type = getDescriptorsType(i);
-                for (uint32_t d = 0u; d < desc.length(); ++d)
+                for (uint32_t d = 0u; d < desc.size(); ++d)
                 {
                     cp_desc.begin()[d].assign(desc.begin()[d], type);
                     if (_depth > 0u)
@@ -124,7 +124,9 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 			//m_descriptors = nullptr;
 			//m_bindingInfo = nullptr;
 		}
-		inline E_TYPE getAssetType() const override { return ET_DESCRIPTOR_SET; }
+
+		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET;
+		inline E_TYPE getAssetType() const override { return AssetType; }
 
 		inline ICPUDescriptorSetLayout* getLayout() { return m_layout.get(); }
 		inline const ICPUDescriptorSetLayout* getLayout() const { return m_layout.get(); }

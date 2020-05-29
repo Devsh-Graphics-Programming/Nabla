@@ -24,6 +24,22 @@ struct SBufferBinding
 {
 	uint64_t offset = 0ull;
 	core::smart_refctd_ptr<BufferType> buffer = nullptr;
+
+	inline bool operator==(const SBufferBinding<BufferType>& rhs) const { return buffer==rhs.buffer && offset==rhs.offset; }
+	inline bool operator!=(const SBufferBinding<BufferType>& rhs) const { return !operator==(rhs); }
+};
+
+template<typename BufferType>
+struct SBufferRange
+{
+	bool isValid() const
+	{
+		return buffer && (offset+size<=buffer->getSize());
+	}
+
+	size_t offset = 0ull;
+	size_t size = 0ull;
+	core::smart_refctd_ptr<BufferType> buffer = nullptr;
 };
 
 }

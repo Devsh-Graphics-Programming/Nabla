@@ -5,12 +5,11 @@
 #ifndef __C_LEAK_DEBUGGER_H_INCLUDED__
 #define __C_LEAK_DEBUGGER_H_INCLUDED__
 
+#include "irr/core/core.h"
+
 #include <string>
 #include <sstream>
 #include "stddef.h"
-#include "irr/core/BaseClasses.h"
-#include "irr/core/alloc/AlignedBase.h"
-#include "irr/core/Types.h"
 
 namespace irr
 {

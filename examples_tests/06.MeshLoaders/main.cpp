@@ -45,12 +45,24 @@ int main()
 	auto* driver = device->getVideoDriver();
 	auto* smgr = device->getSceneManager();
     auto* am = device->getAssetManager();
+    auto* fs = am->getFileSystem();
+
+    //
+    auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
+    //loading cache from file
+    qnc->loadNormalQuantCacheFromFile<asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(fs,"../../tmp/normalCache101010.sse", true);
+
+    // register the zip
+    device->getFileSystem()->addFileArchive("../../media/sponza.zip");
 
     asset::IAssetLoader::SAssetLoadParams lp;
-    auto meshes_bundle = am->getAsset("../../media/sponza/sponza.obj", lp);
+    auto meshes_bundle = am->getAsset("sponza.obj", lp);
     assert(!meshes_bundle.isEmpty());
     auto mesh = meshes_bundle.getContents().first[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
+
+    //saving cache to file
+    qnc->saveCacheToFile(asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10,fs,"../../tmp/normalCache101010.sse");
 
     //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
     //so we can create just one DS
@@ -99,8 +111,8 @@ int main()
 
 	camera->setPosition(core::vector3df(-4,0,0));
 	camera->setTarget(core::vector3df(0,0,0));
-	camera->setNearValue(0.01f);
-	camera->setFarValue(1000.0f);
+	camera->setNearValue(1.f);
+	camera->setFarValue(5000.0f);
 
     smgr->setActiveCamera(camera);
 

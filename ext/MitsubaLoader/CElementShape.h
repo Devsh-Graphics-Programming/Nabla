@@ -53,6 +53,7 @@ class CElementShape : public IElement
 	struct LoadedFromFileBase : Base
 	{
 		SPropertyElementData	filename;
+		//! Use face normals (any per-vertex normals will be discarded)
 		bool					faceNormals = false;
 		float					maxSmoothAngle = NAN;
 	};

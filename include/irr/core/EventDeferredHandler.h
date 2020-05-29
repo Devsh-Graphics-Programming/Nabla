@@ -10,31 +10,119 @@ namespace core
 {
 
 template<class Event, class Functor>
-class EventDeferredHandlerST
+struct DeferredEvent
 {
-    public:
-        typedef std::pair<Event,Functor>                  DeferredEvent;
+    using event_t = Event;
+    using functor_t = Functor;
+
+    DeferredEvent(event_t&& _event, functor_t&& _function) : m_event(std::move(_event)), m_function(std::move(_function)) {}
+    DeferredEvent(DeferredEvent&& other)
+    {
+        operator=(std::move(other));
+    }
+
+    inline DeferredEvent& operator=(DeferredEvent&& other)
+    {
+        std::swap(m_event, other.m_event);
+        std::swap(m_function, other.m_function);
+        return *this;
+    }
+
+    event_t m_event;
+    functor_t m_function;
+};
+
+class PolymorphicEvent : public core::Uncopyable
+{
     protected:
-        typedef core::forward_list<DeferredEvent> EventContainerType;
+        PolymorphicEvent() = default;
+        virtual ~PolymorphicEvent() {}
+
+        enum WaitRes
+        {
+            Fail,
+            Timeout,
+            Done
+        };
+        virtual WaitRes wait_for(const std::chrono::nanoseconds& len) = 0;
+
+    public:
+        PolymorphicEvent& operator=(const PolymorphicEvent& other) = delete;
+        virtual PolymorphicEvent& operator=(PolymorphicEvent&& other) noexcept
+        {
+        }
+
+        template<class Clock, class Duration>
+        inline bool wait_until(const std::chrono::time_point<Clock, Duration>& timeout_time)
+        {
+            auto currentClockTime = Clock::now();
+            do
+            {
+                uint64_t nanosecondsLeft = 0ull;
+                if (currentClockTime<timeout_time)
+                    nanosecondsLeft = std::chrono::duration_cast<std::chrono::nanoseconds>(currentClockTime-timeout_time).count();
+                switch (wait_for(nanosecondsLeft))
+                {
+                    case Fail:
+                        return true;
+                        break;
+                    case Done:
+                        return true;
+                        break;
+                    default: // Timeout
+                        break;
+                }
+                currentClockTime = Clock::now();
+            } while (currentClockTime<timeout_time);
+
+            return false;
+        }
+
+        virtual bool poll() = 0;
+
+        virtual bool operator==(const PolymorphicEvent& other)
+        {
+            return false;
+        }
+};
+
+template<class Functor>
+using DeferredPolymorphicEvent = DeferredEvent<PolymorphicEvent*,Functor>;
+
+template<class Event>
+using DeferredEventPolymorphic = DeferredEvent<Event,std::function<void()> >;
+
+using DeferredPolymorphicEventPolymorphic = DeferredEvent<PolymorphicEvent*,std::function<void()> >;
+
+
+template<class DeferredEvent>
+class DeferredEventHandlerST
+{
+    protected:
+        using EventContainerType = core::forward_list<DeferredEvent>;
 		uint32_t								mEventsCount;
         EventContainerType                      mEvents;
         typename EventContainerType::iterator	mLastEvent;
+
     public:
-        EventDeferredHandlerST() : mEventsCount(0u)
+        using event_t = typename DeferredEvent::event_t;
+        using functor_t = typename DeferredEvent::functor_t;
+
+        DeferredEventHandlerST() : mEventsCount(0u)
         {
             mLastEvent = mEvents.before_begin();
         }
 
-        virtual ~EventDeferredHandlerST()
+        virtual ~DeferredEventHandlerST()
         {
             while (mEventsCount)
             {
                 auto prev = mEvents.before_begin();
                 for (auto it = mEvents.begin(); it!=mEvents.end(); )
                 {
-                    if (it->first.wait_until(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(250ull)))
+                    if (it->m_event.wait_until(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(250ull)))
                     {
-                        it->second();
+                        it->m_function();
                         it = mEvents.erase_after(prev);
                         mEventsCount--;
                         continue;
@@ -45,19 +133,19 @@ class EventDeferredHandlerST
             }
         }
 
-        inline void     addEvent(Event&& event, Functor&& functor)
+        inline void     addEvent(event_t&& event, functor_t&& functor)
         {
-            mLastEvent = mEvents.emplace_after(mLastEvent,std::forward<Event>(event),std::forward<Functor>(functor));
+            mLastEvent = mEvents.emplace_after(mLastEvent,std::forward<event_t>(event),std::forward<functor_t>(functor));
             mEventsCount++;
         }
         /*
         //! Abort does not call the operator()
-        inline uint32_t abortEvent(const Event& eventToAbort)
+        inline uint32_t abortEvent(const event_t& eventToAbort)
         {
             #ifdef _IRR_DEBUG
             assert(mEvents.size());
             #endif // _IRR_DEBUG
-            std::remove_if(mEvents.begin(),mEvents.end(),[&](const DeferredEvent& x){return x.first==eventToAbort;});
+            std::remove_if(mEvents.begin(),mEvents.end(),[&](const DeferredEvent& x){return x.m_event==eventToAbort;});
             mLastEvent = ?
             return mEvents.size();
         }
@@ -77,9 +165,9 @@ class EventDeferredHandlerST
                     auto ubound = std::upper_bound(lbound,deferredFrees.end(),*it,deferredFreeCompareFunc);
                     for (auto it2=lbound; it2!=ubound; it2++)
                     {
-                        it->second->grab();
-                        auto oldFence = it2->first;
-                        it2->first = it->second;
+                        it->m_function->grab();
+                        auto oldFence = it2->m_event;
+                        it2->m_event = it->m_function;
                         oldFence->drop();
                     }
                 }
@@ -103,14 +191,14 @@ class EventDeferredHandlerST
                     if (canWait)
                     {
                         std::chrono::time_point<Clock> singleWaitTimePt((currentTime.time_since_epoch()*(mEventsCount-1u)+timeout_time.time_since_epoch())/mEventsCount);
-                        success = it->first.wait_until(singleWaitTimePt);
+                        success = it->m_event.wait_until(singleWaitTimePt);
                     }
                     else
-                        success = it->first.poll();
+                        success = it->m_event.poll();
 
                     if (success)
                     {
-                        bool earlyQuit = it->second(args...);
+                        bool earlyQuit = it->m_function(args...);
                         it = mEvents.erase_after(prev);
                         mEventsCount--;
                         if (earlyQuit)
@@ -140,9 +228,9 @@ class EventDeferredHandlerST
             auto prev = mEvents.before_begin();
             for (auto it = mEvents.begin(); it!=mEvents.end();)
             {
-                if (it->first.poll())
+                if (it->m_event.poll())
                 {
-                    bool earlyQuit = it->second(args...);
+                    bool earlyQuit = it->m_function(args...);
                     it = mEvents.erase_after(prev);
                     mEventsCount--;
                     if (earlyQuit)
@@ -171,9 +259,9 @@ class EventDeferredHandlerST
             auto prev = mEvents.before_begin();
             for (auto it = mEvents.begin(); mEventsCount>maxEventCount&&it!=mEvents.end();)
             {
-                if (it->first.poll())
+                if (it->m_event.poll())
                 {
-                    it->second();
+                    it->m_function();
                     it = mEvents.erase_after(prev);
                     mEventsCount--;
                     continue;
@@ -192,7 +280,3 @@ class EventDeferredHandlerST
 }
 
 #endif // __IRR_EVENT_DEFERRED_HANDLER_H__
-
-
-
-

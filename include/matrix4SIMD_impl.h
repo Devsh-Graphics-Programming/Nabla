@@ -312,7 +312,7 @@ inline __m128d matrix4SIMD::concat64_helper(const __m128d& _a0, const __m128d& _
 	__m128d r2 = _mtx.halfRowAsDouble(2u, _firstHalf);
 	__m128d r3 = _mtx.halfRowAsDouble(3u, _firstHalf);
 
-	const __m128d mask01 = _mm_castsi128_pd(_mm_setr_epi32(0, 0, 0xffffffff, 0xffffffff));
+	//const __m128d mask01 = _mm_castsi128_pd(_mm_setr_epi32(0, 0, 0xffffffff, 0xffffffff));
 
 	__m128d res;
 	res = _mm_mul_pd(_mm_shuffle_pd(_a0, _a0, 0), r0);
@@ -327,6 +327,44 @@ inline __m128d matrix4SIMD::concat64_helper(const __m128d& _a0, const __m128d& _
 #else
 #error "no implementation"
 #endif
+
+inline bool matrix4SIMD::isBoxInFrustum(const aabbox3d<float>& bbox)
+{
+	vectorSIMDf MinEdge, MaxEdge;
+	MinEdge.set(bbox.MinEdge);
+	MaxEdge.set(bbox.MaxEdge);
+	MinEdge.w = 1.f;
+	MaxEdge.w = 1.f;
+
+
+	auto getClosestDP = [this,&MinEdge,&MaxEdge](const vectorSIMDf& toDot) -> float
+	{
+		return dot(mix(MaxEdge,MinEdge,toDot<vectorSIMDf(0.f)),toDot)[0];
+	};
+
+	// near plane
+	if (getClosestDP(rows[3])<=0.f)
+		return false;
+
+	// x max
+	if (getClosestDP(rows[3]+rows[0])<=0.f)
+		return false;
+	// y max
+	if (getClosestDP(rows[3]+rows[1])<=0.f)
+		return false;
+	// x min
+	if (getClosestDP(rows[3]-rows[0])<=0.f)
+		return false;
+	// y min
+	if (getClosestDP(rows[3]-rows[1])<=0.f)
+		return false;
+
+	// far plane
+	if (getClosestDP(rows[3]+rows[2])<=0.f)
+		return false;
+
+	return true;
+}
 
 }
 } // irr::core

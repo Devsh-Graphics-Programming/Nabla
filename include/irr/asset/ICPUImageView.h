@@ -50,9 +50,10 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 			if (referenceLevelsBelowToConvert)
 				params.image->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}
-		//!
-		IAsset::E_TYPE getAssetType() const override { return ET_IMAGE_VIEW; }
 
+		//!
+		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_IMAGE_VIEW;
+		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
 		//!
 		SComponentMapping&	getComponents() { return params.components; }

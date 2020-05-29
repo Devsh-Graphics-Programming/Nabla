@@ -66,7 +66,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 
     SAssetWriteContext ctx{_params, _file};
 
-    const asset::ICPUMesh* mesh = IAsset::castDown<ICPUMesh>(_params.rootAsset);
+    const asset::ICPUMesh* mesh = IAsset::castDown<const ICPUMesh>(_params.rootAsset);
     if (!mesh)
         return false;
 
@@ -193,7 +193,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 
         header += "element face ";
         header += std::to_string(faceCount) + '\n';
-        idxT = vtxCount <= (1u<<16 - 1) ? asset::EIT_16BIT : asset::EIT_32BIT;
+        idxT = vtxCount <= ((1u<<16) - 1) ? asset::EIT_16BIT : asset::EIT_32BIT;
         const std::string idxTypeStr = idxT == asset::EIT_32BIT ? "uint32" : "uint16";
         header += "property list uchar " + idxTypeStr + " vertex_indices\n";
     }
@@ -220,32 +220,30 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
 {
     const size_t colCpa = asset::getFormatChannelCount(_mbuf->getAttribFormat(1));
 
-	bool flipVectors = (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED));
+	bool flipVectors = (!(_params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED)) ? true : false;
 
-    asset::ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
+    auto mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
     for (size_t i = 0u; i < _vtxCount; ++i)
     {
         core::vectorSIMDf f;
         uint32_t ui[4];
         if (_vaidToWrite[0])
         {
-            writeAttribBinary(_file, mbCopy, 0, i, 3u, flipVectors);
+            writeAttribBinary(_file, mbCopy.get(), 0, i, 3u, flipVectors);
         }
         if (_vaidToWrite[1])
         {
-            writeAttribBinary(_file, mbCopy, 1, i, colCpa);
+            writeAttribBinary(_file, mbCopy.get(), 1, i, colCpa);
         }
         if (_vaidToWrite[2])
         {
-            writeAttribBinary(_file, mbCopy, 2, i, 2u);
+            writeAttribBinary(_file, mbCopy.get(), 2, i, 2u);
         }
         if (_vaidToWrite[3])
         {
-            writeAttribBinary(_file, mbCopy, 3, i, 3u, flipVectors);
+            writeAttribBinary(_file, mbCopy.get(), 3, i, 3u, flipVectors);
         }
     }
-    mbCopy->drop();
-    mbCopy = nullptr;
 
     const uint8_t listSize = 3u;
     void* indices = _indices;
@@ -290,13 +288,13 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
 
 void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], const SAssetWriteParams& _params) const
 {
-    asset::ICPUMeshBuffer* mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
+    auto mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
 
     auto writefunc = [&_file,&mbCopy, &_params, this](uint32_t _vaid, size_t _ix, size_t _cpa)
     {
 		bool flipVerteciesAndNormals = false;
-		if (!(_params.writerFlags & IAssetWriter::EWPF_MESH_IS_RIGHT_HANDED))
-			if(_vaid == 0 || _vaid == 3)
+		if (!(_params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED))
+			if(_vaid == 0u || _vaid == 3u)
 				flipVerteciesAndNormals = true;
 
         uint32_t ui[4];
@@ -432,14 +430,11 @@ void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuf
     }
 }
 
-asset::ICPUMeshBuffer* CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrueInt(const asset::ICPUMeshBuffer* _mbuf)
+core::smart_refctd_ptr<asset::ICPUMeshBuffer> CPLYMeshWriter::createCopyMBuffNormalizedReplacedWithTrueInt(const asset::ICPUMeshBuffer* _mbuf)
 {
-    auto clone = _mbuf->clone();
-    clone->grab();
+    auto mbCopy = core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(_mbuf->clone(2));
 
-    auto mbCopy = reinterpret_cast<asset::ICPUMeshBuffer*>(clone.get());
-
-    for (size_t i = 0; i < 16; ++i)
+    for (size_t i = 0; i < ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT; ++i)
     {
         auto vaid = i;
         asset::E_FORMAT t = _mbuf->getAttribFormat(vaid);

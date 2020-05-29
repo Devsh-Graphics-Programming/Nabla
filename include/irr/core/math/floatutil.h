@@ -8,6 +8,8 @@
 
 #include <float.h>
 #include <stdint.h>
+#include <cmath>
+#include <algorithm>
 
 #include "irr/macros.h"
 
@@ -69,7 +71,9 @@ IRR_FORCE_INLINE T HALF_PI()
 
 namespace impl
 {
+	constexpr uint16_t NAN_U16		= 0x7FFFu;
     constexpr uint32_t NAN_U32      = 0x7FFFFFFFu;
+	constexpr uint64_t NAN_U64		= 0x7fffffffFFFFFFFFull;
     constexpr uint32_t INFINITY_U32 = 0x7F800000u;
 }
 
@@ -77,9 +81,15 @@ namespace impl
 template<typename T>
 T nan();
 
+//TODO (?) we could have some core::half typedef or something..
 template<>
-IRR_FORCE_INLINE float nan<float>() {return reinterpret_cast<const float&>(impl::NAN_U32);}
+IRR_FORCE_INLINE uint16_t nan<uint16_t>() { return impl::NAN_U16; }
 
+template<>
+IRR_FORCE_INLINE float nan<float>() { return reinterpret_cast<const float&>(impl::NAN_U32); }
+
+template<>
+IRR_FORCE_INLINE double nan<double>() { return reinterpret_cast<const double&>(impl::NAN_U64); }
 
 template<typename T>
 T infinity();
@@ -92,10 +102,24 @@ template<typename T>
 bool isnan(T val);
 
 template<>
+IRR_FORCE_INLINE bool isnan<double>(double val) 
+{
+    //all exponent bits set, at least one mantissa bit set
+    return (reinterpret_cast<uint64_t&>(val)&0x7fffffffFFFFFFFFull) > 0x7ff0000000000000ull;
+}
+
+template<>
 IRR_FORCE_INLINE bool isnan<float>(float val) 
 {
     //all exponent bits set, at least one mantissa bit set
     return (reinterpret_cast<uint32_t&>(val)&0x7fffffffu) > 0x7f800000u;
+}
+
+template<>
+IRR_FORCE_INLINE bool isnan<uint16_t>(uint16_t val)
+{
+	//all exponent bits set, at least one mantissa bit set
+	return (val & 0x7fffu) > 0x7c00u;
 }
 
 template<typename T>
@@ -363,6 +387,118 @@ class Float16Compressor
 			return v.f;
 		}
 };
+
+inline uint64_t rgb32f_to_rgb19e7(const float _rgb[3])
+{
+	union rgb19e7 {
+		uint64_t u64;
+		struct field {
+			uint64_t r : 19;
+			uint64_t g : 19;
+			uint64_t b : 19;
+			uint64_t e : 7;
+		} field;
+	};
+
+	constexpr uint32_t RGB19E7_EXP_BITS = 7u;
+	constexpr uint32_t RGB19E7_MANTISSA_BITS = 19u;
+	constexpr uint32_t RGB19E7_EXP_BIAS = 63u;
+	constexpr uint32_t RGB19E7_MAX_VALID_BIASED_EXP = 127u;
+	constexpr uint32_t MAX_RGB19E7_EXP = RGB19E7_MAX_VALID_BIASED_EXP - RGB19E7_EXP_BIAS;
+	constexpr uint32_t RGB19E7_MANTISSA_VALUES = 1u<<RGB19E7_MANTISSA_BITS;
+	constexpr uint32_t MAX_RGB19E7_MANTISSA = RGB19E7_MANTISSA_VALUES-1u;
+	constexpr float MAX_RGB19E7 = static_cast<float>(MAX_RGB19E7_MANTISSA)/RGB19E7_MANTISSA_VALUES * (1LL<<(MAX_RGB19E7_EXP-32)) * (1LL<<32);
+	constexpr float EPSILON_RGB19E7 = (1.f/RGB19E7_MANTISSA_VALUES) / (1LL<<(RGB19E7_EXP_BIAS-32)) / (1LL<<32);
+
+	auto clamp_rgb19e7 = [=](float x) -> float {
+		return std::max(0.f, std::min(x, MAX_RGB19E7));
+	};
+
+	const float r = clamp_rgb19e7(_rgb[0]);
+	const float g = clamp_rgb19e7(_rgb[1]);
+	const float b = clamp_rgb19e7(_rgb[2]);
+
+	auto f32_exp = [](float x) -> int32_t { return ((reinterpret_cast<int32_t&>(x)>>23) & 0xff) - 127; };
+
+	const float maxrgb = std::max({r,g,b});
+	int32_t exp_shared = std::max(-static_cast<int32_t>(RGB19E7_EXP_BIAS)-1, f32_exp(maxrgb)) + 1 + RGB19E7_EXP_BIAS;
+	assert(exp_shared <= RGB19E7_MAX_VALID_BIASED_EXP);
+	assert(exp_shared >= 0);
+
+	double denom = std::pow(2.0, static_cast<int32_t>(exp_shared-RGB19E7_EXP_BIAS-RGB19E7_MANTISSA_BITS));
+
+	const int32_t maxm = maxrgb/denom + 0.5;
+	if (maxm == MAX_RGB19E7_MANTISSA+1)
+	{
+		denom *= 2.0;
+		++exp_shared;
+		assert(exp_shared <= RGB19E7_MAX_VALID_BIASED_EXP);
+	}
+	else
+	{
+		assert(maxm <= MAX_RGB19E7_MANTISSA);
+	}
+
+	int32_t rm = r/denom + 0.5;
+	int32_t gm = g/denom + 0.5;
+	int32_t bm = b/denom + 0.5;
+
+	assert(rm <= MAX_RGB19E7_MANTISSA);
+	assert(gm <= MAX_RGB19E7_MANTISSA);
+	assert(bm <= MAX_RGB19E7_MANTISSA);
+	assert(rm >= 0);
+	assert(gm >= 0);
+	assert(bm >= 0);
+
+	rgb19e7 retval;
+	retval.field.r = rm;
+	retval.field.g = gm;
+	retval.field.b = bm;
+	retval.field.e = exp_shared;
+
+	return retval.u64;
+}
+inline uint64_t rgb32f_to_rgb19e7(const uint32_t _rgb[3])
+{
+	return rgb32f_to_rgb19e7(reinterpret_cast<const float*>(_rgb));
+}
+inline uint64_t rgb32f_to_rgb19e7(float r, float g, float b)
+{
+	const float rgb[3]{ r,g,b };
+
+	return rgb32f_to_rgb19e7(rgb);
+}
+
+IRR_FORCE_INLINE float nextafter32(float x, float y)
+{
+	return std::nextafterf(x, y);
+}
+IRR_FORCE_INLINE double nextafter64(double x, double y)
+{
+	return std::nextafter(x, y);
+}
+inline uint16_t nextafter16(uint16_t x, uint16_t y)
+{
+	if (x==y)
+		return y;
+
+	if (isnan(x) || isnan(y))
+		return impl::NAN_U16;
+
+	uint16_t ax = x & ((1u<<15) - 1u);
+	uint16_t ay = y & ((1u<<15) - 1u);
+	if (ax == 0u) {
+		if (ay == 0u)
+			return y;
+		x = (y & 1u<<15) | 1u;
+	}
+	else if (ax>ay || ((x ^ y) & 1u<<15))
+		--x;
+	else
+		++x;
+
+	return x;
+}
 
 }
 }

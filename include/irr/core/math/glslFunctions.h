@@ -6,6 +6,8 @@
 #define __IRR_GLSL_FUNCTIONS_H_INCLUDED__
 
 #include <type_traits>
+#include <utility>
+
 #include "irr/static_if.h"
 #include "irr/type_traits.h"
 #include "irr/core/math/floatutil.h"
@@ -17,6 +19,8 @@ namespace core
 
 template<int components>
 class vectorSIMDBool;
+template <class T>
+class vectorSIMD_32;
 class vectorSIMDf;
 class matrix4SIMD;
 class matrix3x4SIMD;
@@ -60,6 +64,13 @@ IRR_FORCE_INLINE float reciprocal_approxim<float>(const float& x);
 template<>
 IRR_FORCE_INLINE vectorSIMDf reciprocal_approxim<vectorSIMDf>(const vectorSIMDf& x);
 
+template<typename T>
+IRR_FORCE_INLINE T exp2(const T& x);
+template<>
+IRR_FORCE_INLINE float exp2<float>(const float& x);
+template<>
+IRR_FORCE_INLINE double exp2<double>(const double& x);
+
 //! TODO : find some intrinsics
 template<typename T>
 IRR_FORCE_INLINE T fma(const T& a, const T& b, const T& c)
@@ -77,33 +88,47 @@ IRR_FORCE_INLINE T mix(const T & a, const T & b, const U & t)
 	IRR_PSEUDO_IF_CONSTEXPR_BEGIN(irr::is_any_of<U,vectorSIMDBool<2>,vectorSIMDBool<4>,vectorSIMDBool<8>,vectorSIMDBool<16> >::value)
 	{
 		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,vectorSIMDf>::value)
+		{
 			retval = _mm_castsi128_ps(_mm_or_si128(_mm_castps_si128((a&(~t)).getAsRegister()),_mm_castps_si128((b&t).getAsRegister())));
+		}
 		IRR_PSEUDO_ELSE_CONSTEXPR
+		{
 			retval = (a&(~t))|(b&t);
-		IRR_PSEUDO_IF_CONSTEXPR_END;
+		}
+		IRR_PSEUDO_IF_CONSTEXPR_END
 	}
 	IRR_PSEUDO_ELSE_CONSTEXPR
 	{
 		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<U,bool>::value)
+		{
 			retval = t ? b:a;
+		}
 		IRR_PSEUDO_ELSE_CONSTEXPR
+		{
 			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(irr::is_any_of<T,matrix4SIMD,matrix3x4SIMD>::value)
 			{
 				for (uint32_t i=0u; i<T::VectorCount; i++)
 				{
 					IRR_PSEUDO_IF_CONSTEXPR_BEGIN(irr::is_any_of<U, matrix4SIMD, matrix3x4SIMD>::value)
+					{
 						retval[i] = core::mix<vectorSIMDf, vectorSIMDf>(a.rows[i], b.rows[i], t.rows[i]);
+					}
 					IRR_PSEUDO_ELSE_CONSTEXPR
+					{
 						retval[i] = core::mix<vectorSIMDf, U>(a.rows[i], b.rows[i], t);
-					IRR_PSEUDO_IF_CONSTEXPR_END;
+					}
+					IRR_PSEUDO_IF_CONSTEXPR_END
 				}
 			}
 			IRR_PSEUDO_ELSE_CONSTEXPR
+			{
 				retval = core::fma<T>(b-a,t,a);
-			IRR_PSEUDO_IF_CONSTEXPR_END;
-		IRR_PSEUDO_IF_CONSTEXPR_END;
+			}
+			IRR_PSEUDO_IF_CONSTEXPR_END
+		}
+		IRR_PSEUDO_IF_CONSTEXPR_END
 	}
-	IRR_PSEUDO_IF_CONSTEXPR_END;
+	IRR_PSEUDO_IF_CONSTEXPR_END
 	return retval;
 }
 
@@ -222,6 +247,16 @@ IRR_FORCE_INLINE T min(const T& a, const U& b, const U& c)
 	T vb = T(b);
 	return core::min<T,T>(core::min<T,T>(a,vb), min<T,U>(vb,c));
 }
+/* don't remember what I made it for
+template<typename... Args>
+struct min_t
+{
+	inline auto operator()(Args&&... args)
+	{
+		return core::min<Args...>(std::forward<Args>(args)...)
+	}
+};
+*/
 
 template<class T>
 IRR_FORCE_INLINE T max(const T& a, const T& b);
@@ -239,7 +274,16 @@ IRR_FORCE_INLINE T max(const T& a, const U& b, const U& c)
 	T vb = T(b);
 	return core::max<T,T>(core::max<T,T>(a,vb),max<T,U>(vb,c));
 }
-
+/* don't remember what I made it for
+template<typename... Args>
+struct max_t
+{
+	inline auto operator()(Args&&... args)
+	{
+		return core::max<Args...>(std::forward<Args>(args)...)
+	}
+};
+*/
 
 //! clamps a value between low and high
 template <class T, typename U=T>
@@ -264,6 +308,10 @@ template<typename T>
 IRR_FORCE_INLINE T dot(const T& a, const T& b);
 template<>
 IRR_FORCE_INLINE vectorSIMDf dot<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b);
+template<>
+IRR_FORCE_INLINE vectorSIMD_32<int32_t> dot<vectorSIMD_32<int32_t>>(const vectorSIMD_32<int32_t>& a, const vectorSIMD_32<int32_t>& b);
+template<>
+IRR_FORCE_INLINE vectorSIMD_32<uint32_t> dot<vectorSIMD_32<uint32_t>>(const vectorSIMD_32<uint32_t>& a, const vectorSIMD_32<uint32_t>& b);
 
 
 template<typename T>
@@ -367,6 +415,50 @@ IRR_FORCE_INLINE auto iszero(const T& a, const U& tolerance = ROUNDING_ERROR<U>(
 {
 	return core::iszero(a,T(tolerance));
 }
+
+
+template<typename T>
+IRR_FORCE_INLINE T sin(const T& a);
+
+
+IRR_FORCE_INLINE float& intBitsToFloat(int32_t& _i) { return reinterpret_cast<float&>(_i); }
+IRR_FORCE_INLINE float& uintBitsToFloat(uint32_t& _u) { return reinterpret_cast<float&>(_u); }
+IRR_FORCE_INLINE int32_t& floatBitsToInt(float& _f) { return reinterpret_cast<int32_t&>(_f); }
+IRR_FORCE_INLINE uint32_t& floatBitsToUint(float& _f) { return reinterpret_cast<uint32_t&>(_f); }
+//rvalue ref parameters to ensure that functions returning a copy will be called for rvalues only (functions for lvalues returns same memory but with reinterpreted type)
+IRR_FORCE_INLINE float intBitsToFloat(int32_t&& _i) { return reinterpret_cast<float&>(_i); }
+IRR_FORCE_INLINE float uintBitsToFloat(uint32_t&& _u) { return reinterpret_cast<float&>(_u); }
+IRR_FORCE_INLINE int32_t floatBitsToInt(float&& _f) { return reinterpret_cast<int32_t&>(_f); }
+IRR_FORCE_INLINE uint32_t floatBitsToUint(float&& _f) { return reinterpret_cast<uint32_t&>(_f); }
+
+
+
+// extras
+
+
+template<typename T>
+IRR_FORCE_INLINE T gcd(const T& a, const T& b);
+
+template<typename T>
+IRR_FORCE_INLINE T sinc(const T& x)
+{
+	// TODO: do a direct series/computation in the future
+	return mix<T>(	sin<T>(x)/x,
+					T(1.0)+x*x*(x*x*T(1.0/120.0)-T(1.0/6.0)),
+					abs<T>(x)<T(0.0001)
+				);
+}
+
+template<typename T>
+IRR_FORCE_INLINE T cyl_bessel_i(const T& v, const T& x);
+
+template<typename T>
+IRR_FORCE_INLINE T KaiserWindow(const T& x, const T& alpha, const T& width)
+{
+	auto p = x/width;
+	return cyl_bessel_i<T>(T(0.0),sqrt<T>(T(1.0)-p*p)*alpha)/cyl_bessel_i<T>(T(0.0),alpha);
+}
+
 
 } // end namespace core
 } // end namespace irr

@@ -1,7 +1,17 @@
+#include <utility>
+#include <regex>
+
+
+#include "irr/asset/asset.h"
+
+#include "os.h"
+
+
 #include "irr/asset/CGraphicsPipelineLoaderMTL.h"
 
-#include "irr/asset/IBuiltinIncludeLoader.h"
-namespace irr {
+
+namespace irr
+{
 namespace asset
 {    
 
@@ -248,6 +258,27 @@ layout (set = 3, binding = 5) uniform sampler2D map_d;
 layout (set = 3, binding = 6) uniform sampler2D map_bump;
 #endif //_IRR_FRAG_SET3_BINDINGS_DEFINED_
 
+#if !defined(_IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_) && !defined(_NO_UV)
+#ifndef _IRR_Ka_SAMPLE_FUNCTION_DEFINED_
+vec4 irr_sample_Ka(in vec2 uv, in mat2 dUV) { return texture(map_Ka, uv); }
+#endif
+#ifndef _IRR_Kd_SAMPLE_FUNCTION_DEFINED_
+vec4 irr_sample_Kd(in vec2 uv, in mat2 dUV) { return texture(map_Kd, uv); }
+#endif
+#ifndef _IRR_Ks_SAMPLE_FUNCTION_DEFINED_
+vec4 irr_sample_Ks(in vec2 uv, in mat2 dUV) { return texture(map_Ks, uv); }
+#endif
+#ifndef _IRR_Ns_SAMPLE_FUNCTION_DEFINED_
+vec4 irr_sample_Ns(in vec2 uv, in mat2 dUV) { return texture(map_Ns, uv); }
+#endif
+#ifndef _IRR_d_SAMPLE_FUNCTION_DEFINED_
+vec4 irr_sample_d(in vec2 uv, in mat2 dUV) { return texture(map_d, uv); }
+#endif
+#ifndef _IRR_bump_SAMPLE_FUNCTION_DEFINED_
+vec4 irr_sample_bump(in vec2 uv, in mat2 dUV) { return texture(map_bump, uv); }
+#endif
+#endif //_IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_
+
 #include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/diffuse/fresnel_correction.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/diffuse/lambert.glsl>
@@ -261,12 +292,12 @@ layout (set = 3, binding = 6) uniform sampler2D map_bump;
 
 //! This is the function that evaluates the BSDF for specific view and observer direction
 // params can be either BSDFIsotropicParams or BSDFAnisotropicParams 
-Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
+Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
 {
     vec3 Kd;
 #ifndef _NO_UV
     if ((PC.params.extra&(map_Kd_MASK)) == (map_Kd_MASK))
-        Kd = texture(map_Kd, UV).rgb;
+        Kd = irr_sample_Kd(UV, dUV).rgb;
     else
 #endif
         Kd = PC.params.Kd;
@@ -277,13 +308,13 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
 
 #ifndef _NO_UV
     if ((PC.params.extra&(map_Ks_MASK)) == (map_Ks_MASK))
-        Ks = texture(map_Ks, UV).rgb;
+        Ks = irr_sample_Ks(UV, dUV).rgb;
     else
 #endif
         Ks = PC.params.Ks;
 #ifndef _NO_UV
     if ((PC.params.extra&(map_Ns_MASK)) == (map_Ns_MASK))
-        Ns = texture(map_Ns, UV).x;
+        Ns = irr_sample_Ns(UV, dUV).x;
     else
 #endif
         Ns = PC.params.Ns;
@@ -332,7 +363,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
 #ifndef _IRR_COMPUTE_LIGHTING_DEFINED_
 #define _IRR_COMPUTE_LIGHTING_DEFINED_
 
-vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction)
+vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
     irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(vec3(0.0), ViewPos, Normal);
 
@@ -341,7 +372,7 @@ vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction)
     {
         interaction.N = normalize(interaction.N);
 
-        float h = texture(map_bump, UV).x;
+        float h = irr_sample_bump(UV, dUV).x;
 
         vec2 dHdScreen = vec2(dFdx(h), dFdy(h));
         interaction.N = irr_glsl_perturbNormal_heightMap(interaction.N, interaction.V.dPosdScreen, dHdScreen);
@@ -356,7 +387,7 @@ vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction)
     {
 #ifndef _NO_UV
     if ((PC.params.extra&(map_Kd_MASK)) == (map_Kd_MASK))
-        Ka = texture(map_Kd, UV).rgb;
+        Ka = irr_sample_bump(UV, dUV).rgb;
     else
 #endif
         Ka = PC.params.Kd;
@@ -367,7 +398,7 @@ vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction)
     {
 #ifndef _NO_UV
     if ((PC.params.extra&(map_Ka_MASK)) == (map_Ka_MASK))
-        Ka = texture(map_Ka, UV).rgb;
+        Ka = irr_sample_Ka(UV, dUV).rgb;
     else
 #endif
         Ka = PC.params.Ka;
@@ -379,7 +410,7 @@ vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction)
 
     out_interaction = params.interaction;
 #define Intensity 1000.0
-    return Intensity*params.invlenL2*irr_bsdf_cos_eval(params) + Ka;
+    return Intensity*params.invlenL2*irr_bsdf_cos_eval(params, dUV) + Ka;
 #undef Intensity
 }
 #endif //_IRR_COMPUTE_LIGHTING_DEFINED_
@@ -390,8 +421,10 @@ vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction)
 
 void main()
 {
+    mat2 dUV = mat2(dFdx(UV), dFdy(UV));    
+
     irr_glsl_ViewSurfaceInteraction interaction;
-    vec3 color = irr_computeLighting(interaction);
+    vec3 color = irr_computeLighting(interaction, dUV);
 
     float d = PC.params.d;
 
@@ -411,7 +444,7 @@ void main()
 #ifndef _NO_UV
         if ((PC.params.extra&(map_d_MASK)) == (map_d_MASK))
         {
-            d = texture(map_d, UV).r;
+            d = irr_sample_d(UV, dUV).r;
             color *= d;
         }
 #endif
@@ -452,7 +485,7 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_a
         auto vs_nouv_unspec = core::make_smart_refctd_ptr<ICPUShader>(vs_nouv_source.c_str());
         auto vs_uv_unspec = core::make_smart_refctd_ptr<ICPUShader>(VERT_SHADER_UV);
 
-        ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_VERTEX);
+        ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_VERTEX,"?IrrlichtBAW PipelineLoaderMTL VertexShader?");
         auto vs_nouv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(vs_nouv_unspec), ICPUSpecializedShader::SInfo(specinfo));
         auto vs_uv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(vs_uv_unspec), std::move(specinfo));
 
@@ -474,7 +507,7 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_a
         auto fs_nouv_unspec = core::make_smart_refctd_ptr<ICPUShader>(fs_nouv_source.c_str());
         auto fs_uv_unspec = core::make_smart_refctd_ptr<ICPUShader>(FRAG_SHADER_UV);
 
-        ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_FRAGMENT);
+        ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_FRAGMENT, "?IrrlichtBAW PipelineLoaderMTL FragmentShader?");
         auto fs_nouv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(fs_nouv_unspec), ICPUSpecializedShader::SInfo(specinfo));
         auto fs_uv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(fs_uv_unspec), std::move(specinfo));
 
@@ -962,7 +995,7 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mt
             {
 #endif
                 //assuming each image has just 1 region
-                assert(images[i]->getRegions().length()==1ull);
+                assert(images[i]->getRegions().size()==1ull);
 
                 regions_.push_back(images[i]->getRegions().begin()[0]);
                 regions_.back().bufferOffset = core::roundUp(regions_.back().bufferOffset, alignment);
@@ -1208,7 +1241,7 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(io::IReadFile* _file) const -> co
                 {
                 case 'f':		// Tf - Transmitivity
                     currMaterial->params.transmissionFilter = readRGB();
-                    sscanf(tmpbuf, "%s, %s: Detected Tf parameter, it won't be used in generated shader - fallback to alpha=0.5 instead", _file->getFileName().c_str(), currMaterial->name.c_str());
+                    sprintf(tmpbuf, "%s, %s: Detected Tf parameter, it won't be used in generated shader - fallback to alpha=0.5 instead", _file->getFileName().c_str(), currMaterial->name.c_str());
                     os::Printer::log(tmpbuf, ELL_WARNING);
                     break;
                 case 'r':       // Tr, transparency = 1.0-d

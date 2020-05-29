@@ -16,6 +16,7 @@
     #error "Check your compiler or project settings for the -m*sse* flag, or upgrade your CPU"
 #endif // __IRR_COMPILE_WITH_X86_SIMD_
 
+#include <type_traits>
 #include <stdint.h>
 #include <math.h>
 
@@ -101,8 +102,17 @@ namespace core
         };
 	}
 
+#include "SIMDswizzle.h"
+
+	namespace impl
+	{
+		struct IRR_FORCE_EBO empty_base {};
+	}
+
     //a class for bitwise shizz
-	template <int components> class IRR_FORCE_EBO vectorSIMDBool : public impl::vectorSIMDIntBase<vectorSIMDBool<components> >
+	template <int components> class IRR_FORCE_EBO vectorSIMDBool : 
+		public impl::vectorSIMDIntBase<vectorSIMDBool<components> >, 
+		public std::conditional_t<components==4, SIMD_32bitSwizzleAble<vectorSIMDBool<components>, __m128i>, impl::empty_base>
     {
         typedef impl::vectorSIMDIntBase<vectorSIMDBool<components> > Base;
         static_assert(core::isPoT(components)&&components<=16u,"Wrong number of components!\n");
@@ -256,8 +266,6 @@ namespace core
 	//typedef vectorSIMDBool<2> vector2db_SIMD;
 
 
-#include "SIMDswizzle.h"
-
 #ifdef __GNUC__
 // warning: ignoring attributes on template argument __m128i {aka __vector(2) long long int} [-Wignored-attributes] (etc...)
 #   pragma GCC diagnostic push
@@ -296,6 +304,7 @@ namespace core
 				a = _mm_xor_si128(mask,LEFT); \
 				b = _mm_xor_si128(mask,RIGHT); \
 			} \
+			IRR_PSEUDO_IF_CONSTEXPR_END \
 			__m128i result; \
 			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(sizeof(T)==4u) \
 			{ \
@@ -323,14 +332,15 @@ namespace core
         // in MSVC default ctor is not inherited?
         vectorSIMD_32() : Base() {}
 #endif
+		inline vectorSIMD_32(const vectorSIMD_32& other) : Base() {operator=(other);}
 
-        //! Constructor with four different values, FASTEST IF the values are constant literals
+        	//! Constructor with four different values, FASTEST IF the values are constant literals
 		//yes this is correct usage with _mm_set_**(), due to little endianness the thing gets set in "reverse" order
 		inline explicit vectorSIMD_32(T nx, T ny, T nz, T nw) {_mm_store_si128((__m128i*)pointer,_mm_set_epi32(nw,nz,ny,nx));}
 		//! 3d constructor
-		inline explicit vectorSIMD_32(T nx, T ny, T nz) {_mm_store_si128((__m128i*)pointer,_mm_set_epi32(0.f,nz,ny,nx));}
+		inline explicit vectorSIMD_32(T nx, T ny, T nz) {_mm_store_si128((__m128i*)pointer,_mm_set_epi32(0,nz,ny,nx));}
 		//! 2d constructor
-		inline explicit vectorSIMD_32(T nx, T ny) {_mm_store_si128((__m128i*)pointer,_mm_set_epi32(0.f,0.f,ny,nx));}
+		inline explicit vectorSIMD_32(T nx, T ny) {_mm_store_si128((__m128i*)pointer,_mm_set_epi32(0,0,ny,nx));}
 		//! Fast Constructor from ints, they come in normal order [0]=X,[1]=Y, etc.
 		inline vectorSIMD_32(const T* const array) {_mm_store_si128((__m128i*)pointer,_mm_loadu_si128((const __m128i*)array));}
 		//! Fastest Constructor from ints, they come in normal order [0]=X,[1]=Y, etc.
@@ -371,8 +381,8 @@ namespace core
 		// TODO: these are messed up (they care about past the vector)
 		inline vectorSIMD_32<T> operator*(const vectorSIMD_32<T>& other) const
 		{
-			// TODO: do something nicer and faster like https://github.com/vectorclass
-			return vectorSIMD_32<T>(x * other.x, y * other.y, z * other.z, w * other.w);
+			// "but since it only stores the lower 32bits, it's really a sign-oblivious instruction that you can use for both"
+			return _mm_mullo_epi32(Base::getAsRegister(),other.getAsRegister());
 		}
 		inline vectorSIMD_32<T>& operator*=(const vectorSIMD_32<T>& other)
 		{
@@ -408,6 +418,7 @@ namespace core
 
 		// TODO: these are messed up (they care about past the vector)
 		inline vectorSIMD_32<T>  operator*(T val) const { return operator*(vectorSIMD_32<T>(val)); }
+		friend inline vectorSIMD_32<T> operator*(T val, const vectorSIMD_32<T>& vec) { return vec*val; }
 		inline vectorSIMD_32<T>& operator*=(T val) { return operator*=(vectorSIMD_32<T>(val)); }
 
 		inline vectorSIMD_32<T> operator/(T val) const { return operator/(vectorSIMD_32<T>(val)); }
@@ -843,6 +854,13 @@ namespace core
 	template <>
 	template <int mask>
 	inline __m128i SIMD_32bitSwizzleAble<vectorSIMD_32<uint32_t>, __m128i>::shuffleFunc(__m128i reg) const
+	{
+		return _mm_shuffle_epi32(reg, mask);
+	}
+
+	template <>
+	template <int mask>
+	inline __m128i SIMD_32bitSwizzleAble<vectorSIMDBool<4>, __m128i>::shuffleFunc(__m128i reg) const
 	{
 		return _mm_shuffle_epi32(reg, mask);
 	}

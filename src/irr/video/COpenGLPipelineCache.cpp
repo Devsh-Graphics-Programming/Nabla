@@ -12,8 +12,8 @@ static int compare_desc_layouts(const IGPUDescriptorSetLayout* A, const IGPUDesc
 		return A ? 1 : 0;
 
 	// non null descriptor set layouts, we can compare more
-	auto count = A->getBindings().length();
-	auto lendiff = int64_t(count) - int64_t(B->getBindings().length());
+	auto count = A->getBindings().size();
+	auto lendiff = int64_t(count) - int64_t(B->getBindings().size());
 	if (lendiff != 0)
 		return lendiff;
 
@@ -102,11 +102,11 @@ core::smart_refctd_ptr<asset::ICPUPipelineCache> COpenGLPipelineCache::convertTo
 		for (uint32_t j = 0u; j < IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++j)
 		{
 			auto dsl = in_entry.first.layout->getDescriptorSetLayout(j);
-			bndPerSet[j] = dsl ? dsl->getBindings().length() : 0u;
+			bndPerSet[j] = dsl ? dsl->getBindings().size() : 0u;
 			bndCnt += bndPerSet[j];
 		}
 
-		uint32_t scCnt = in_entry.first.info.m_entries->size();
+		uint32_t scCnt = in_entry.first.info.m_entries ? in_entry.first.info.m_entries->size():0ull;
 
 		auto meta_buf = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint8_t>>(asset::ICPUPipelineCache::SGLKeyMeta::calcMetaSize(bndCnt, scCnt));
 		asset::ICPUPipelineCache::SGLKeyMeta* meta = reinterpret_cast<asset::ICPUPipelineCache::SGLKeyMeta*>(meta_buf->data());
@@ -133,7 +133,9 @@ core::smart_refctd_ptr<asset::ICPUPipelineCache> COpenGLPipelineCache::convertTo
 		auto* scEntries = reinterpret_cast<asset::ICPUPipelineCache::SGLKeyMeta::SSpecInfo::SEntry*>(meta_buf->data()+meta_buf->size()-sizeof(asset::ICPUPipelineCache::SGLKeyMeta::SSpecInfo::SEntry)*scCnt);
 		{
 			uint32_t k = 0u;
-			for (const auto& e : *(in_entry.first.info.m_entries))
+			auto* entryList = in_entry.first.info.m_entries.get();
+			if (entryList)
+			for (const auto& e : *entryList)
 			{
 				scEntries[k].id = e.specConstID;
 				assert(e.size==4u);

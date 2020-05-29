@@ -1,4 +1,4 @@
-#include "irr/core/core.h"
+#include "irr/asset/asset.h"
 #include "CGLSLLoader.h"
 
 using namespace irr;
@@ -25,9 +25,10 @@ SAssetBundle CGLSLLoader::loadAsset(IReadFile* _file, const IAssetLoader::SAsset
 	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source));
 	_IRR_ALIGNED_FREE(source);
 
+	const std::string filename = _file->getFileName().c_str();
 	//! TODO: Actually invoke the GLSL compiler to decode our type from any `#pragma`s
 	io::path extension;
-	core::getFileNameExtension(extension,_file->getFileName());
+	core::getFileNameExtension(extension,filename.c_str());
 
 	core::unordered_map<std::string,ISpecializedShader::E_SHADER_STAGE> typeFromExt =	{	
 																							{".vert",ISpecializedShader::ESS_VERTEX},
@@ -41,5 +42,5 @@ SAssetBundle CGLSLLoader::loadAsset(IReadFile* _file, const IAssetLoader::SAsset
 	if (found==typeFromExt.end())
 		return {};
 
-	return SAssetBundle{ core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(shader),ISpecializedShader::SInfo({},nullptr,"main",found->second)) };
+	return SAssetBundle{ core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(shader),ISpecializedShader::SInfo({},nullptr,"main",found->second,filename)) };
 } 

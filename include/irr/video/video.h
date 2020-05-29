@@ -27,4 +27,7 @@
 // kill/refactor
 #include "irr/video/CGPUSkinnedMesh.h"
 
+//VT
+#include "irr/video/IGPUVirtualTexture.h"
+
 #endif

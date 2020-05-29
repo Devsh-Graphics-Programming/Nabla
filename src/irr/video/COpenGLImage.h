@@ -66,14 +66,11 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 			}
 		}
 
-        //depr
-        void generateMipmaps() override 
-        {
-            COpenGLExtensionHandler::extGlGenerateTextureMipmap(name, 0);//assume ARB_direct_state_access is available
-        }
-
 		//!
 		inline GLenum getOpenGLSizedFormat() const { return internalFormat; }
+
+		//!
+		inline GLenum getOpenGLTarget() const { return target; }
 
 		//! returns the opengl texture handle
 		inline GLuint getOpenGLName() const { return name; }

@@ -13,36 +13,38 @@
 
 namespace irr
 {
-	namespace asset
-	{
-		//! OpenEXR writer capable of saving .exr files
-		class CImageWriterOpenEXR final : public IImageWriter
+namespace asset
+{
+
+//! OpenEXR writer capable of saving .exr files
+class CImageWriterOpenEXR final : public IImageWriter
+{
+	protected:
+		~CImageWriterOpenEXR(){}
+
+	public:
+		CImageWriterOpenEXR(){}
+
+		const char** getAssociatedFileExtensions() const override
 		{
-		protected:
-			~CImageWriterOpenEXR(){}
+			static const char* extensions[]{ "exr", nullptr };
+			return extensions;
+		}
 
-		public:
-			CImageWriterOpenEXR(){}
+		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE_VIEW; }
 
-			const char** getAssociatedFileExtensions() const override
-			{
-				static const char* extensions[]{ "exr", nullptr };
-				return extensions;
-			}
+		uint32_t getSupportedFlags() override { return asset::EWF_BINARY; }
 
-			uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE; }
+		uint32_t getForcedFlags() { return asset::EWF_BINARY; }
 
-			uint32_t getSupportedFlags() override { return asset::EWF_BINARY; }
+		bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 
-			uint32_t getForcedFlags() { return asset::EWF_BINARY; }
+	private:
 
-			bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
+		bool writeImageBinary(io::IWriteFile* file, const asset::ICPUImage* image);
+};
 
-		private:
-
-			bool writeImageBinary(io::IWriteFile* file, const asset::ICPUImage* image);
-		};
-	}
+}
 }
 
 #endif // _IRR_COMPILE_WITH_OPENEXR_WRITER_

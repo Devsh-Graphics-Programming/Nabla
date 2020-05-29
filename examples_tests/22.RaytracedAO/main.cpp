@@ -6,7 +6,9 @@
 #include "../common/QToQuitEventReceiver.h"
 
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
+#ifndef NEW_SHADERS
 #include "../../ext/MitsubaLoader/CMitsubaLoader.h"
+#endif
 
 #include "./dirty_source/ExtraCrap.h"
 
@@ -26,11 +28,12 @@ int main()
 	params.Vsync = false;
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
-	params.WindowSize = dimension2d<uint32_t>(1600, 900);
-	IrrlichtDevice* device = createDeviceEx(params);
-	if (device == 0)
+	params.WindowSize = dimension2d<uint32_t>(1920, 1080);
+	auto device = createDeviceEx(params);
+	if (!device)
 		return 1; // could not create selected driver.
 
+#ifndef NEW_SHADERS
 	//
 	asset::SAssetBundle meshes;
 	core::smart_refctd_ptr<ext::MitsubaLoader::CGlobalMitsubaMetadata> globalMeta;
@@ -269,7 +272,7 @@ int main()
 	auto extent = renderer->getSceneBound().getExtent();
 
 	// want dynamic camera or not?
-	if (false)
+	if (true)
 	{
 		core::vector3df_SIMD ptu[] = {core::vectorSIMDf().set(camera->getPosition()),camera->getTarget(),camera->getUpVector()};
 		auto proj = camera->getProjectionMatrix();
@@ -318,7 +321,7 @@ int main()
 	}
 	renderer->deinit();
 	renderer = nullptr;
+#endif
 
-	device->drop();
 	return 0;
 }

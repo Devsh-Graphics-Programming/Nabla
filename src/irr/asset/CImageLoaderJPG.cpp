@@ -288,41 +288,24 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	
 	// Start decompressor
 	jpeg_start_decompress(&cinfo);
+
+	auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
+	ICPUImage::SBufferCopy& region = regions->front();
+	//region.imageSubresource.aspectMask = ...; //waits for Vulkan
+	region.imageSubresource.mipLevel = 0u;
+	region.imageSubresource.baseArrayLayer = 0u;
+	region.imageSubresource.layerCount = 1u;
+	region.bufferOffset = 0u;
+	region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(width, getTexelOrBlockBytesize(imgInfo.format));
+	region.bufferImageHeight = 0u; //tightly packed
+	region.imageOffset = { 0u, 0u, 0u };
+	region.imageExtent = imgInfo.extent;
 	
 	// Get image data
-	uint32_t rowspan = cinfo.image_width * cinfo.out_color_components;
-
-    // OpenGL cannot transfer rows with arbitrary padding
-    static const uint32_t MAX_PITCH_ALIGNMENT = 8u;
-    // try with largest alignment first
-    auto calcPitchInBlocks = [](uint32_t width, uint32_t blockByteSize) -> uint32_t
-    {
-        auto rowByteSize = width * blockByteSize;
-        for (uint32_t _alignment = MAX_PITCH_ALIGNMENT; _alignment > 1u; _alignment >>= 1u)
-        {
-            auto paddedSize = core::alignUp(rowByteSize, _alignment);
-            if (paddedSize % blockByteSize)
-                continue;
-            return paddedSize / blockByteSize;
-        }
-        return width;
-    };
-
-    core::smart_refctd_ptr<ICPUImage> image = ICPUImage::create(std::move(imgInfo));
+	uint32_t rowspan = region.bufferRowLength * cinfo.out_color_components;
 
 	// Allocate memory for buffer
 	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(rowspan*height);
-    auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
-    ICPUImage::SBufferCopy& region = regions->front();
-    //region.imageSubresource.aspectMask = ...; //waits for Vulkan
-    region.imageSubresource.mipLevel = 0u;
-    region.imageSubresource.baseArrayLayer = 0u;
-    region.imageSubresource.layerCount = 1u;
-    region.bufferOffset = 0u;
-    region.bufferRowLength = calcPitchInBlocks(width, getTexelOrBlockBytesize(image->getCreationParameters().format));
-    region.bufferImageHeight = 0u; //tightly packed
-    region.imageOffset = { 0u, 0u, 0u };
-    region.imageExtent = image->getCreationParameters().extent;
 
 	// Here we use the library's state variable cinfo.output_scanline as the
 	// loop counter, so that we don't have to keep track ourselves.
@@ -332,8 +315,6 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	for (uint32_t i = 0; i < height; ++i)
 		rowPtr[i] = &reinterpret_cast<uint8_t*>(buffer->getPointer())[i*rowspan];
 
-    image->setBufferAndRegions(std::move(buffer), regions);
-
 	// Read rows from bottom order to match OpenGL coords
 	uint32_t rowsRead = 0;
 	while (cinfo.output_scanline < cinfo.output_height)
@@ -341,6 +322,12 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	
 	// Finish decompression
 	jpeg_finish_decompress(&cinfo);
+
+	core::smart_refctd_ptr<ICPUImage> image = ICPUImage::create(std::move(imgInfo));
+	image->setBufferAndRegions(std::move(buffer), regions);
+
+	if (image->getCreationParameters().format == asset::EF_R8_SRGB)
+		image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(image);
 	
     return SAssetBundle({image});
 
@@ -351,4 +338,3 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 } // end namespace irr
 
 #endif
-

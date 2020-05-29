@@ -1006,22 +1006,45 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlGetIntegeri_v = (PFNGLGETINTEGERI_VPROC) IRR_OGL_LOAD_EXTENSION("glGetIntegeri_v");
     pGlGetStringi = (PFNGLGETSTRINGIPROC) IRR_OGL_LOAD_EXTENSION("glGetStringi");
 
-    GLint extensionCount;
-    glGetIntegerv(GL_NUM_EXTENSIONS,&extensionCount);
-    for (GLint i=0; i<extensionCount; ++i)
-    {
-        const char* extensionName = reinterpret_cast<const char*>(pGlGetStringi(GL_EXTENSIONS,i));
+	//should contain space-separated OpenGL extension names
+	constexpr const char* OPENGL_EXTS_ENVVAR_NAME = "_IRR_OPENGL_EXTENSIONS_LIST";//move this to some top-level header?
 
-        for (uint32_t j=0; j<IRR_OpenGL_Feature_Count; ++j)
-        {
-            if (!strcmp(OpenGLFeatureStrings[j], extensionName))
-            {
-                FeatureAvailable[j] = true;
-                break;
-            }
-        }
-    }
+	const char* envvar = std::getenv(OPENGL_EXTS_ENVVAR_NAME);
+	if (!envvar)
+	{
+		GLint extensionCount;
+		glGetIntegerv(GL_NUM_EXTENSIONS,&extensionCount);
+		for (GLint i=0; i<extensionCount; ++i)
+		{
+			const char* extensionName = reinterpret_cast<const char*>(pGlGetStringi(GL_EXTENSIONS,i));
 
+			for (uint32_t j=0; j<IRR_OpenGL_Feature_Count; ++j)
+			{
+				if (!strcmp(OpenGLFeatureStrings[j], extensionName))
+				{
+					FeatureAvailable[j] = true;
+					break;
+				}
+			}
+		}
+	}
+	else
+	{
+		std::stringstream ss{ std::string(envvar) };
+		std::string extname;
+		extname.reserve(100);
+		while (std::getline(ss, extname))
+		{
+			for (uint32_t j=0; j<IRR_OpenGL_Feature_Count; ++j)
+			{
+				if (extname==OpenGLFeatureStrings[j])
+				{
+					FeatureAvailable[j] = true;
+					break;
+				}
+			}
+		}
+	}
 
 	float ogl_ver;
 	sscanf(reinterpret_cast<const char*>(glGetString(GL_VERSION)),"%f",&ogl_ver);

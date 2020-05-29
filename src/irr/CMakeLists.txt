@@ -28,7 +28,7 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 	if ("${PLATFORM}" STREQUAL "NOTFOUND")
 		message(FATAL_ERROR "Unsupported compiler!")
 	endif()
-
+	
 	set(CMAKE_INSTALL_PREFIX "${IRR_ROOT_PATH}/install/${PLATFORM}" CACHE PATH "Install path" FORCE)
 endif()
 
@@ -69,17 +69,19 @@ elseif()
 		set(__IRR_INSTALL_DIR__ ${CMAKE_SOURCE_DIR})
 	endif()
 endif()
+irr_get_conf_dir(IRRLICHT_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
 
 set(_IRR_COMPILE_WITH_OPENGL_ ${IRR_COMPILE_WITH_OPENGL})
 if (IRR_COMPILE_WITH_OPENCL)
-	find_package(OpenCL)
-
-	if (OpenCL_FOUND)
-		message(STATUS "Building with OpenCL interop")
+	message(STATUS "Building with OpenCL interop")
 		
-		set(_IRR_COMPILE_WITH_OPENCL_ ${IRR_COMPILE_WITH_OPENCL})
-	else()
-		message(STATUS "OpenCL not found")
+	set(_IRR_COMPILE_WITH_OPENCL_ ${IRR_COMPILE_WITH_OPENCL})
+endif()
+if (IRR_COMPILE_WITH_CUDA)
+	message(STATUS "Building with CUDA interop")
+	set(_IRR_COMPILE_WITH_CUDA_ ${IRR_COMPILE_WITH_CUDA})
+	if (IRR_BUILD_OPTIX)
+		set(_IRR_BUILD_OPTIX_ ${IRR_BUILD_OPTIX})
 	endif()
 endif()
 
@@ -89,6 +91,7 @@ set(_IRR_EMBED_BUILTIN_RESOURCES_ ${IRR_EMBED_BUILTIN_RESOURCES})
 set(__IRR_FAST_MATH ${IRR_FAST_MATH})
 set(_IRR_DEBUG 0)
 configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_RELEASE}/BuildConfigOptions.h")
+configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h")
 set(_IRR_DEBUG 1)
 configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
@@ -100,27 +103,29 @@ file(GLOB_RECURSE IRRLICHT_HEADERS_PRIV2 "${IRR_ROOT_PATH}/src/irr/*.h")
 set(IRRLICHT_HEADERS ${IRRLICHT_HEADERS_PUBLIC} ${IRRLICHT_HEADERS_PIRV1} ${IRRLICHT_HEADERS_PRIV2})
 
 
-set(IRRLICHT_SRCS_COMMON
+set(IRR_CORE_SOURCES
+# Reference Counted
+	IReferenceCounted.cpp
 # Core Memory
 	${IRR_ROOT_PATH}/src/irr/core/memory/CLeakDebugger.cpp
-
-# Pixel Formats
-	${IRR_ROOT_PATH}/src/irr/asset/format/convertColor.cpp
-
-# Mesh loaders
-	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshFileLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/COBJMeshFileLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshFileLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshFileLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CBufferLoaderBIN.cpp
-	
-	${IRR_ROOT_PATH}/src/irr/asset/CGraphicsPipelineLoaderMTL.cpp
-
-# Mesh writers
-	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshWriter.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshWriter.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshWriter.cpp
-	
+)
+set(IRR_SYSTEM_SOURCES
+# Junk to refactor
+	${IRR_ROOT_PATH}/source/Irrlicht/CFileList.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CFileSystem.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CLimitReadFile.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CMemoryFile.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CReadFile.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CWriteFile.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CMountPointReader.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CPakReader.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CTarReader.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CZipReader.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CLogger.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/COSOperator.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/os.cpp
+)
+set(IRR_ASSET_SOURCES	
 # Assets
 	${IRR_ROOT_PATH}/src/irr/asset/IAsset.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/IAssetManager.cpp
@@ -136,85 +141,101 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/src/irr/asset/CShaderIntrospector.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CGLSLLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CSPVLoader.cpp
+	
+# Pipeline loaders
+	${IRR_ROOT_PATH}/src/irr/asset/CGraphicsPipelineLoaderMTL.cpp
 
-# Other mesh-related stuff
-	${IRR_ROOT_PATH}/src/irr/asset/bawformat/CBAWFile.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/bawformat/legacy/CBAWLegacy.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/bawformat/CBlobsLoadingManager.cpp
+# Meshes
+	${IRR_ROOT_PATH}/src/irr/asset/CCPUSkinnedMesh.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CForsythVertexCacheOptimizer.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CMeshManipulator.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CMeshSceneNode.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/COverdrawMeshOptimizer.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CSkinnedMeshSceneNode.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/bawformat/TypedBlob.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CCPUSkinnedMesh.cpp
-
-# Scene objects
-	${IRR_ROOT_PATH}/source/Irrlicht/CCameraSceneNode.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CQuantNormalCache.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CGeometryCreator.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CSceneManager.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CMeshManipulator.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/COverdrawMeshOptimizer.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
 
-# Animators
-${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraFPS.cpp
-${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraMaya.cpp
-${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraModifiedMaya.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorDelete.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFlyCircle.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFlyStraight.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFollowSpline.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorRotation.cpp
+# Mesh loaders
+	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshFileLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/COBJMeshFileLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshFileLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshFileLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CBufferLoaderBIN.cpp
 
-# Driver-specific objects
-${IRR_ROOT_PATH}/source/Irrlicht/IDriver.cpp
-${IRR_ROOT_PATH}/source/Irrlicht/CNullDriver.cpp
-	${IRR_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/FW_Mutex.cpp
+# Mesh writers
+	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshWriter.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshWriter.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshWriter.cpp
 
-# Image processing
-	${IRR_ROOT_PATH}/src/irr/asset/IImageLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/IImageWriter.cpp
+# BaW Format
+	${IRR_ROOT_PATH}/src/irr/asset/bawformat/TypedBlob.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/bawformat/CBAWFile.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/bawformat/legacy/CBAWLegacy.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/bawformat/legacy/CBAWVersionUpFunctions.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/bawformat/CBlobsLoadingManager.cpp
+
+# Images
 	${IRR_ROOT_PATH}/src/irr/asset/IImageAssetHandlerBase.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/filters/CBasicImageFilterCommon.cpp
+
+# Image loaders
+	${IRR_ROOT_PATH}/src/irr/asset/IImageLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderJPG.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderPNG.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderTGA.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderOpenEXR.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CGLILoader.cpp
+
+# Image writers
+	${IRR_ROOT_PATH}/src/irr/asset/IImageWriter.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterJPG.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterPNG.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterTGA.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterOpenEXR.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CGLIWriter.cpp
-
-# Video
-${IRR_ROOT_PATH}/source/Irrlicht/CFPSCounter.cpp
+)
+set(IRR_VIDEO_SOURCES
+# Allocators
 	${IRR_ROOT_PATH}/src/irr/video/alloc/GPUMemoryAllocatorBase.cpp
 	${IRR_ROOT_PATH}/src/irr/video/alloc/SimpleGPUBufferAllocator.cpp
 
-# Input/output
-	${IRR_ROOT_PATH}/source/Irrlicht/CFileList.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CFileSystem.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CLimitReadFile.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CMemoryFile.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CReadFile.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CWriteFile.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CMountPointReader.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CPakReader.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CTarReader.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CZipReader.cpp
+# Junk to refactor
+${IRR_ROOT_PATH}/source/Irrlicht/IDriver.cpp
+${IRR_ROOT_PATH}/source/Irrlicht/CNullDriver.cpp
+	${IRR_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/FW_Mutex.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CFPSCounter.cpp
+)
+set(IRR_SCENE_SOURCES
+# Junk to refactor
+${IRR_ROOT_PATH}/source/Irrlicht/CSkinnedMeshSceneNode.cpp
+${IRR_ROOT_PATH}/source/Irrlicht/CCameraSceneNode.cpp
+${IRR_ROOT_PATH}/source/Irrlicht/CSceneManager.cpp
 
-# Other
+# Animators
+${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraFPS.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraMaya.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraModifiedMaya.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorDelete.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFlyCircle.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFlyStraight.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFollowSpline.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorRotation.cpp
+)
+set(IRRLICHT_SRCS_COMMON
+	${IRR_CORE_SOURCES}
+	${IRR_SYSTEM_SOURCES}
+	${IRR_ASSET_SOURCES}
+	${IRR_VIDEO_SOURCES}
+	${IRR_SCENE_SOURCES}
+
+# Junk to refactor
 	${IRR_ROOT_PATH}/source/Irrlicht/IrrlichtDevice.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CIrrDeviceSDL.cpp
 	${IRR_ROOT_PATH}/source/Irrlicht/CIrrDeviceLinux.cpp
 	${IRR_ROOT_PATH}/source/Irrlicht/CIrrDeviceConsole.cpp
 	${IRR_ROOT_PATH}/source/Irrlicht/CIrrDeviceStub.cpp
 	${IRR_ROOT_PATH}/source/Irrlicht/CIrrDeviceWin32.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CLogger.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/COSOperator.cpp
 	${IRR_ROOT_PATH}/source/Irrlicht/Irrlicht.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/os.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/IReferenceCounted.cpp
 )
 
 if (MSVC)
@@ -227,7 +248,7 @@ endif()
 
 
 set(IRRLICHT_SRCS_NORMAL
-	#vulkan
+	# Vulkan
 
 	#opengl
 	${IRR_ROOT_PATH}/source/Irrlicht/COpenCLHandler.cpp
@@ -236,12 +257,15 @@ set(IRRLICHT_SRCS_NORMAL
 	${IRR_ROOT_PATH}/source/Irrlicht/COpenGLFrameBuffer.cpp
 	${IRR_ROOT_PATH}/source/Irrlicht/COpenGLQuery.cpp
 	${IRR_ROOT_PATH}/src/irr/video/COpenGLPipelineCache.cpp
+	
+	# CUDA
+	${IRR_ROOT_PATH}/src/irr/video/CCUDAHandler.cpp
+
+	# OpenCL
+	${IRR_ROOT_PATH}/source/Irrlicht/COpenCLHandler.cpp
 
 	# abstract (move this out eventually)
 	${IRR_ROOT_PATH}/src/irr/video/CDerivativeMapCreator.cpp
-)
-
-set(IRRLICHT_SRCS_SERVER
 )
 
 set(COMMON_INCLUDE_DIRS
@@ -260,13 +284,16 @@ irr_adjust_definitions() # macro defined in root CMakeLists
 
 macro(irr_target_link_zlib _trgt)
 	add_dependencies(${_trgt} zlibstatic)
+
 	target_link_libraries(${_trgt} INTERFACE
-		zlibstatic
+		$<$<CONFIG:Debug>:${ZLIB_LIBRARY_DEBUG}>
+		$<$<CONFIG:Release>:${ZLIB_LIBRARY_RELEASE}>
+		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
 	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/zlib)
 endmacro()
 
-#Paraller hashmap
+#Parallel hashmap
 macro(irr_target_include_parallel_hashmap _trgt)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/parallel-hashmap/parallel_hashmap)
 endmacro()
@@ -328,9 +355,6 @@ macro(irr_target_link_gli _trgt)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
 endmacro()
 
-# get function for cross-compiler PCH configuration
-include(add_pch)
-
 add_library(Irrlicht STATIC
 	${IRRLICHT_SRCS_COMMON}
 	${IRRLICHT_SRCS_NORMAL}
@@ -342,6 +366,9 @@ add_library(Irrlicht STATIC
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:spirv_cross>
 )
+
+#TODO maybe make a macro to do this (note: it's also used in common.cmake)
+set_property(TARGET Irrlicht PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_dependencies(Irrlicht openssl_build)
 irr_target_link_zlib(Irrlicht)
@@ -374,6 +401,7 @@ target_include_directories(Irrlicht PUBLIC
 	#those also goes as PUBLIC because of examples
 	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
+	"$<$<CONFIG:RELWITHDEBINFO>:${IRRLICHT_CONF_DIR_RELWITHDEBINFO}>"
 )
 target_include_directories(Irrlicht PUBLIC ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht ${IRR_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 target_include_directories(Irrlicht PRIVATE ${CMAKE_BINARY_DIR}/include)
@@ -385,22 +413,12 @@ if (UNIX)
 endif()
 
 
-if (IRR_COMPILE_WITH_OPENCL AND OpenCL_FOUND)
-	target_link_libraries(Irrlicht PUBLIC OpenCL::OpenCL)
-endif()
-
-# TODO: REDO
-find_package(Vulkan)
-if (Vulkan_FOUND)
-	message(STATUS "Building with Vulkan driver")
-	#target_link_libraries(Irrlicht INTERFACE Vulkan::Vulkan) # this should work, but it doesn't
-	#target_link_libraries(Irrlicht INTERFACE ${Vulkan_LIBRARY})
-else()
-	message(STATUS "Vulkan driver is not enabled")
+if (IRR_COMPILE_WITH_CUDA)
+	target_include_directories(Irrlicht PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 endif()
 
 target_compile_definitions(Irrlicht 
-	PRIVATE	_IRR_STATIC_LIB_
+	PRIVATE	_IRR_STATIC_LIB_ SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
 	PUBLIC	UNW_LOCAL_ONLY
 )
 
@@ -478,15 +496,20 @@ endif()
 
 if (MSVC) #on MSVC it won't compile without this option!
 	target_compile_options(Irrlicht PUBLIC /bigobj)
-	target_compile_options(IrrlichtServer PUBLIC /bigobj)
 endif()
 
-
-set_target_properties(Irrlicht IrrlichtServer PROPERTIES DEBUG_POSTFIX _debug)
+#precompiled headers
+if(IRR_PCH)
+	target_precompile_headers(Irrlicht PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
+endif()
+	
+set_target_properties(Irrlicht PROPERTIES DEBUG_POSTFIX _debug)
+set_target_properties(Irrlicht PROPERTIES RELWITHDEBDINFO_POSTFIX _relwithdebinfo)
 
 macro(irr_install_static_lib _TRGT)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION lib CONFIGURATIONS Release)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION debug/lib CONFIGURATIONS Debug)
+	install(TARGETS ${_TRGT} ARCHIVE DESTINATION debugwithrelinfo/lib CONFIGURATIONS RelWithDebInfo)
 endmacro()
 if(IRR_EMBED_BUILTIN_RESOURCES)
 	add_custom_target(builtin_resources
@@ -500,6 +523,5 @@ elseif()
 endif()
 
 irr_install_static_lib(Irrlicht)
-irr_install_static_lib(IrrlichtServer)
 irr_install_headers("${IRRLICHT_HEADERS_PUBLIC}" "${IRR_ROOT_PATH}/include")
 irr_install_config_header(BuildConfigOptions.h)

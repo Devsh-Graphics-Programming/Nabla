@@ -43,7 +43,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 
             std::array<core::smart_refctd_ptr<ICPUSpecializedShader>, SHADER_STAGE_COUNT> shaders;
             for (uint32_t i = 0u; i < shaders.size(); ++i)
-                (_depth > 0u && m_shaders[i]) ? m_shaders[i]->clone(_depth-1u) : m_shaders[i];
+                shaders[i] = (_depth > 0u && m_shaders[i]) ? core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(m_shaders[i]->clone(_depth-1u)) : m_shaders[i];
             std::array<ICPUSpecializedShader*, SHADER_STAGE_COUNT> shaders_raw;
             for (uint32_t i = 0u; i < shaders.size(); ++i)
                 shaders_raw[i] = shaders[i].get();
@@ -58,7 +58,8 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
             return cp;
         }
 
-		E_TYPE getAssetType() const override { return ET_RENDERPASS_INDEPENDENT_PIPELINE; }
+		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_RENDERPASS_INDEPENDENT_PIPELINE;
+		inline E_TYPE getAssetType() const override { return AssetType; }
 
 		inline ICPUPipelineLayout* getLayout() { return m_layout.get(); }
 		const inline ICPUPipelineLayout* getLayout() const { return m_layout.get(); }
@@ -78,6 +79,8 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 
 		inline void setShaderAtStage(ISpecializedShader::E_SHADER_STAGE _stage, ICPUSpecializedShader* _shdr) { m_shaders[core::findLSB<uint32_t>(_stage)] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr); }
 		inline void setShaderAtIndex(uint32_t _ix, ICPUSpecializedShader* _shdr) { m_shaders[_ix] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr); }
+
+		inline void setLayout(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout) { m_layout = std::move(_layout); }
 
 	protected:
 		virtual ~ICPURenderpassIndependentPipeline() = default;

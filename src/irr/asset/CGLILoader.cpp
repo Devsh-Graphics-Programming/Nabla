@@ -22,6 +22,8 @@ SOFTWARE.
 
 #ifdef _IRR_COMPILE_WITH_GLI_LOADER_
 
+#include "os.h"
+
 #ifdef _IRR_COMPILE_WITH_GLI_
 #include "gli/gli.hpp"
 #else
@@ -47,7 +49,7 @@ namespace irr
 				return {};
 
 		    const gli::gl glVersion(gli::gl::PROFILE_GL33);
-			const GLenum target = glVersion.translate(texture.target());
+			const auto target = glVersion.translate(texture.target());
 			const auto format = getTranslatedGLIFormat(texture, glVersion);
 			IImage::E_TYPE imageType;
 			IImageView<ICPUImage>::E_TYPE imageViewType;
@@ -148,6 +150,8 @@ namespace irr
 					region->imageExtent.width = texture.extent(regionIndex).x;
 					region->imageExtent.height = texture.extent(regionIndex).y;
 					region->imageExtent.depth = texture.extent(regionIndex).z;
+					region->bufferRowLength = region->imageExtent.width;
+					region->bufferImageHeight = 0u;
 					region->imageSubresource.mipLevel = regionIndex;
 					region->imageSubresource.layerCount = imageInfo.arrayLayers;
 					region->imageSubresource.baseArrayLayer = 0;
@@ -197,9 +201,12 @@ namespace irr
 
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
 
+			if (imageInfo.format == asset::EF_R8_SRGB)
+				image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(image);
+
 			ICPUImageView::SCreationParams imageViewInfo;
 			imageViewInfo.image = std::move(image);
-			imageViewInfo.format = format.first;
+			imageViewInfo.format = imageViewInfo.image->getCreationParameters().format;
 			imageViewInfo.viewType = imageViewType;
 			imageViewInfo.components = format.second;
 			imageViewInfo.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
@@ -307,6 +314,7 @@ namespace irr
 				for (auto& mappedSwizzle : swizzlesMappingAPI)
 					if (currentSwizzleToCheck == mappedSwizzle.first)
 						return mappedSwizzle.second;
+				return ICPUImageView::SComponentMapping::ES_IDENTITY;
 			};
 
 			compomentMapping.r = getMappedSwizzle(static_cast<gli::gl::swizzle>(formatToTranslate.Swizzles.r));

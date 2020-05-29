@@ -1,7 +1,6 @@
 #ifndef __IRR_C_GLSL_BSDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
 #define __IRR_C_GLSL_BSDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
 
-//TODO this file should change name to CGLSLBSDFBuiltinIncludeLoader.h
 
 #include "irr/asset/IBuiltinIncludeLoader.h"
 
@@ -305,8 +304,8 @@ float irr_glsl_ashikhmin_shirley(in float NdotL, in float NdotV, in float NdotH,
     static std::string getAshikhminShirley_cos_eval(const std::string&)
     {
         return
-R"(#ifndef _IRR_BSDF_BRDF_SPECULAR_NDF_ASHIKHMIN_SHIRLEY_INCLUDED_
-#define _IRR_BSDF_BRDF_SPECULAR_NDF_ASHIKHMIN_SHIRLEY_INCLUDED_
+R"(#ifndef _IRR_BSDF_BRDF_SPECULAR_ASHIKHMIN_SHIRLEY_INCLUDED_
+#define _IRR_BSDF_BRDF_SPECULAR_ASHIKHMIN_SHIRLEY_INCLUDED_
 
 #include <irr/builtin/glsl/bsdf/common.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/specular/ndf/ashikhmin_shirley.glsl>
@@ -315,7 +314,7 @@ R"(#ifndef _IRR_BSDF_BRDF_SPECULAR_NDF_ASHIKHMIN_SHIRLEY_INCLUDED_
 
 //n is 2 phong-like exponents for anisotropy, can be defined as vec2(1.0/at, 1.0/ab) where at is roughness along tangent direction and ab is roughness along bitangent direction
 //sin_cos_phi is sin and cos of azimuth angle of half vector
-float irr_glsl_ashikhmin_shirley_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in vec2 n, in vec2 sin_cos_phi, in vec2 atb, in mat2x3 ior2)
+vec3 irr_glsl_ashikhmin_shirley_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in vec2 n, in vec2 sin_cos_phi, in vec2 atb, in mat2x3 ior2)
 {
     float ndf = irr_glsl_ashikhmin_shirley(params.isotropic.NdotL, params.isotropic.NdotV, params.isotropic.NdotH, params.isotropic.VdotH, n, sin_cos_phi);
     vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], params.isotropic.VdotH);
@@ -509,7 +508,7 @@ float _Lambda(in float c, in float c2)
     float denom = 2.181*c2 + 3.535*c;
 
     //actually i think we could get rid of mix() since nom/denom is almost constant for c>1.6 (i.e. is going down but very slowly, at c=20 it's ~0.9)
-    return mix(c<1.6, 1.0, nom/denom);
+    return mix(1.0, nom/denom, c<1.6);
 }
 //i wonder where i got irr_glsl_ggx_smith_height_correlated() from because it looks very different from 1/(1+L_v+L_l) form
 // Note a, not a2!
@@ -537,7 +536,7 @@ R"(#ifndef _IRR_BSDF_BRDF_SPECULAR_GGX_INCLUDED_
 
 vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in mat2x3 ior2, in float a2, in vec2 atb, in float aniso)
 {
-    float g = irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(atb.x, atb.y, params.TdotL, params.TdotV, params.BdtoL, params.BdotV, params.isotropic.NdotL, params.isotropic.NdotV);
+    float g = irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(atb.x, atb.y, params.TdotL, params.TdotV, params.BdotL, params.BdotV, params.isotropic.NdotL, params.isotropic.NdotV);
     float ndf = irr_glsl_ggx_burley_aniso(aniso, a2, params.TdotH, params.BdotH, params.isotropic.NdotH);
     vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], params.isotropic.VdotH);
 
@@ -630,6 +629,7 @@ vec3 irr_glsl_fresnel_dielectric(in vec3 Eta, in float CosTheta)
 protected:
     irr::core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
     {
+        // TODO: maybe change some paths, like separate out the NDFs out from BRDF/BSDFs and separate BSDF from BRDF
         return {
             { std::regex{"brdf/diffuse/lambert\\.glsl"}, &getLambert },
             { std::regex{"brdf/diffuse/oren_nayar\\.glsl"}, &getOrenNayar },

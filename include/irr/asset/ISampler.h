@@ -87,9 +87,9 @@ class ISampler : public virtual core::IReferenceCounted
 				//! Values taken from E_COMPARE_OP
 				uint32_t CompareFunc : 3;
 			};
-			float LodBias;
-			float MinLod;
-			float MaxLod;
+			float LodBias = 0.f;
+			float MinLod = -1000.f;
+			float MaxLod = 1000.f;
 
 			inline bool operator==(const SParams& rhs) const
 			{

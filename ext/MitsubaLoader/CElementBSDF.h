@@ -70,7 +70,7 @@ class CElementBSDF : public IElement
 		};
 	struct RoughSpecularBase
 	{
-		enum NormalDistributionFunction
+		enum NormalDistributionFunction : uint32_t
 		{
 			BECKMANN,
 			GGX,
@@ -269,7 +269,7 @@ class CElementBSDF : public IElement
 		};
 		struct Ward
 		{
-			enum Type
+			enum Type : uint32_t
 			{
 				WARD,
 				WARD_DUER,
@@ -382,6 +382,8 @@ class CElementBSDF : public IElement
 			BlendBSDF			blendbsdf;
 			Mask				mask;
 			TwoSided			twosided;
+			//a not confusing way (extra union member) to access members common for all structs inheriting from MetaBSDF
+			MetaBSDF			meta_common;
 			//HanrahanKrueger	hk;
 			//IrawanMarschner	irawan;
 		};

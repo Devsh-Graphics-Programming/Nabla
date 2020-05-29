@@ -11,19 +11,29 @@ namespace core
 
 namespace impl
 {
-	template<typename T, class allocator>
-	class alignas(T) IRR_FORCE_EBO dynamic_array_base // : public Uncopyable, public Unmovable // cannot due to diamon inheritance
+	template<class allocator>
+	class IRR_FORCE_EBO dynamic_array_typeless_base // : public Uncopyable, public Unmovable // cannot due to diamond inheritance
 	{
 		protected:
 			allocator alctr;
 			size_t item_count;
 
-			dynamic_array_base(const allocator& _alctr, size_t _item_count) : alctr(_alctr), item_count(_item_count) {}
+			dynamic_array_typeless_base(const allocator& _alctr, size_t _item_count) : alctr(_alctr), item_count(_item_count) {}
 
-			virtual ~dynamic_array_base() {} // do not remove, need for class size computation!
+			virtual ~dynamic_array_typeless_base() {} // do not remove, need for class size computation!
+
 		public:
-			_IRR_NO_COPY_FINAL(dynamic_array_base);
-			_IRR_NO_MOVE_FINAL(dynamic_array_base);
+			_IRR_NO_COPY_FINAL(dynamic_array_typeless_base);
+			_IRR_NO_MOVE_FINAL(dynamic_array_typeless_base);
+	};
+
+	template<class allocator, typename... DataTypeAndOverAlignmentTypes>
+	class IRR_FORCE_EBO alignas(ResolveAlignment<dynamic_array_typeless_base<allocator>,AlignedBase<alignof(DataTypeAndOverAlignmentTypes)>...>) dynamic_array_base : public dynamic_array_typeless_base<allocator>
+	{
+			using Base = dynamic_array_typeless_base<allocator>;
+
+		protected:
+			using Base::Base;
 	};
 }
 
@@ -46,10 +56,10 @@ namespace impl
 
 	@see core::refctd_dynamic_array
 */
-template<typename T, class allocator = core::allocator<typename std::remove_const<T>::type>, class CRTP=void>
-class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<T,allocator>
+template<typename T, class allocator, class CRTP, typename... OverAlignmentTypes>
+class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,OverAlignmentTypes...>
 {
-		using base_t = impl::dynamic_array_base<T,allocator>;
+		using base_t = impl::dynamic_array_base<allocator,T,OverAlignmentTypes...>;
 		_IRR_STATIC_INLINE_CONSTEXPR bool is_const = std::is_const<T>::value;
 
 	public:
@@ -60,7 +70,7 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<T,allocator>
 		using iterator = T*;
 		using const_iterator = const T*;
 
-		using this_real_type = typename std::conditional<std::is_void<CRTP>::value, dynamic_array<T, allocator>, CRTP>::type;
+		using this_real_type = typename std::conditional<std::is_void<CRTP>::value, dynamic_array<T,allocator,void,OverAlignmentTypes...>, CRTP>::type;
 
 	protected:
 		inline dynamic_array(size_t _length, const allocator& _alctr = allocator()) : base_t( _alctr,_length )
@@ -112,6 +122,10 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<T,allocator>
             auto gccHappyVar = allocator();
 			return std::allocator_traits<allocator>::allocate(gccHappyVar, this_real_type::size_of(length) / sizeof(T));
 		}
+		static inline void* allocate_dynamic_array(size_t length, const T&)
+		{
+			return allocate_dynamic_array(length);
+		}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
 		static inline void* allocate_dynamic_array(const container_t& _containter)
 		{
@@ -121,6 +135,10 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<T,allocator>
 		static inline void* allocate_dynamic_array(size_t length, allocator& _alctr)
 		{
 			return std::allocator_traits<allocator>::allocate(_alctr,this_real_type::size_of(length)/sizeof(T));
+		}
+		static inline void* allocate_dynamic_array(size_t length, const T&, allocator& _alctr)
+		{
+			return allocate_dynamic_array(length, _alctr);
 		}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
 		static inline void* allocate_dynamic_array(const container_t& _containter, allocator& _alctr)
@@ -160,14 +178,14 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<T,allocator>
 		static void operator delete[](void* ptr, std::align_val_t al) = delete;
 		static void operator delete[](void* ptr, std::size_t sz, std::align_val_t al) = delete;
 #if __cplusplus >= 201704L // change later when c++20 is standardised
-		static void operator delete(dynamic_array<T, allocator>* ptr, std::destroying_delete_t) = delete;
-		static void operator delete(dynamic_array<T, allocator>* ptr, std::destroying_delete_t, std::align_val_t al) = delete;
-		static void operator delete(dynamic_array<T, allocator>* ptr, std::destroying_delete_t, std::size_t sz) = delete;
-		static void operator delete(dynamic_array<T, allocator>* ptr, std::destroying_delete_t, std::size_t sz, std::align_val_t al) = delete;
+		static void operator delete(dynamic_array<T,allocator,CRTP,OverAlignmentTypes...>* ptr, std::destroying_delete_t) = delete;
+		static void operator delete(dynamic_array<T,allocator,CRTP,OverAlignmentTypes...>* ptr, std::destroying_delete_t, std::align_val_t al) = delete;
+		static void operator delete(dynamic_array<T,allocator,CRTP,OverAlignmentTypes...>* ptr, std::destroying_delete_t, std::size_t sz) = delete;
+		static void operator delete(dynamic_array<T,allocator,CRTP,OverAlignmentTypes...>* ptr, std::destroying_delete_t, std::size_t sz, std::align_val_t al) = delete;
 #endif
 #endif
 
-		inline bool operator!=(const dynamic_array<T, allocator>& _other) const
+		inline bool operator!=(const this_real_type& _other) const
 		{
 			if (size() != _other.size())
 				return true;
@@ -176,7 +194,7 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<T,allocator>
 					return true;
 			return false;
 		}
-		inline bool operator==(const dynamic_array<T, allocator>& _other) const
+		inline bool operator==(const this_real_type& _other) const
 		{
 			return !((*this) != _other);
 		}
@@ -193,6 +211,8 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<T,allocator>
 		inline size_t			size() const noexcept { return base_t::item_count; }
 		inline bool				empty() const noexcept { return !size(); }
 
+		inline size_t			bytesize() const noexcept { return base_t::item_count*sizeof(T); }
+
 		inline const T&			operator[](size_t ix) const noexcept { return data()[ix]; }
 		template<typename U=T, typename = typename std::enable_if<!is_const>::type>
 		inline T&				operator[](size_t ix) noexcept { return data()[ix]; }
@@ -204,9 +224,11 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<T,allocator>
 		inline T&				back() noexcept { return *(end()-1); }
 		inline const T&			back() const noexcept { return *(end()-1); }
 		template<typename U=T, typename = typename std::enable_if<!is_const>::type>
-		inline pointer			data() noexcept { return reinterpret_cast<T*>(this)+dummy_item_count; }
-		inline const_pointer	data() const noexcept { return reinterpret_cast<const T*>(this)+dummy_item_count; }
+		// little explainer what is happening here, the derived CRTP class could have some other ancestors before us, so we need static cast to get pointer to CRTP head
+		inline pointer			data() noexcept { return reinterpret_cast<T*>(static_cast<this_real_type*>(this))+this_real_type::dummy_item_count; }
+		inline const_pointer	data() const noexcept { return reinterpret_cast<const T*>(static_cast<const this_real_type*>(this))+this_real_type::dummy_item_count; }
 };
+
 
 }
 }

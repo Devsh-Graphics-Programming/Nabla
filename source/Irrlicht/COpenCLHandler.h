@@ -1,7 +1,9 @@
 #ifndef __C_OPENCL_HANDLER_H__
 #define __C_OPENCL_HANDLER_H__
 
-#include "IrrCompileConfig.h"
+#include "irr/core/core.h"
+#include "irr/system/system.h"
+
 #include <string>
 
 #ifdef _IRR_COMPILE_WITH_OPENCL_
@@ -24,9 +26,6 @@ static const char* const OpenCLFeatureStrings[] = {
 	"cl_khr_gl_event"
 };
 
-
-#define IRR_MAX_OCL_PLATFORMS 5
-#define IRR_MAX_OCL_DEVICES 8
 
 class COpenCLHandler
 {
@@ -52,107 +51,115 @@ class COpenCLHandler
                         size_t      ProbableUnifiedShaders;
                 };
 
+                cl_platform_id id;
                 std::string Vendor;
                 std::string Name;
                 uint32_t Version;
                 std::string ReportedExtensions;
-                bool FeatureAvailable[IRR_OpenCL_Feature_Count];
+                bool FeatureAvailable[IRR_OpenCL_Feature_Count] = { false };
 
-                cl_device_id devices[IRR_MAX_OCL_DEVICES];
-                SOpenCLDeviceInfo deviceInformation[IRR_MAX_OCL_DEVICES];
-                cl_uint deviceCount;
+                core::vector<cl_device_id> devices;
+                core::vector<SOpenCLDeviceInfo> deviceInformation;
         };
+
+        static inline bool CL_ERROR(cl_int retval)
+        {
+            return retval!=CL_SUCCESS;
+        }
 
         static bool enumeratePlatformsAndDevices()
         {
             if (alreadyEnumeratedPlatforms)
-                return actualPlatformCount>0;
+                return platformInformation.size()!=0ull;
+            ocl = OpenCL("OpenCL");
+            ocl_ext = OpenCLExtensions(&ocl.pclGetExtensionFunctionAddress);
             alreadyEnumeratedPlatforms = true;
 
-#if defined(_IRR_WINDOWS_API_)
-            pClGetGLContextInfoKHR = (clGetGLContextInfoKHR_fn)clGetExtensionFunctionAddress("clGetGLContextInfoKHR");
-#endif // defined
+            cl_uint actualPlatformCount = 0u;
+            if (CL_ERROR(ocl.pclGetPlatformIDs(~0u,nullptr,&actualPlatformCount)) || actualPlatformCount==0u)
+                return false;
 
-            cl_int retval = -0x80000000;
-            //try
-            //{
-                retval = clGetPlatformIDs(IRR_MAX_OCL_PLATFORMS,platforms,&actualPlatformCount);
-            //}
-            //catch ()
-            //{
-                //
-            //}
-
-            if (retval!=CL_SUCCESS)
+            core::vector<cl_platform_id> platforms(actualPlatformCount);
+            if (CL_ERROR(ocl.pclGetPlatformIDs(platforms.size(),platforms.data(),nullptr)))
                 return false;
 
             //printf("Found %d OpenCL Platforms\n",actualPlatformCount);
 
+            
             char tmpBuf[128*1024];
-            cl_uint outCounter = 0;
-            for (cl_uint i=0; i<actualPlatformCount; i++)
+            for (auto platform : platforms)
             {
-                size_t actualSize = 0;
-                clGetPlatformInfo(platforms[i],CL_PLATFORM_PROFILE,128*1024,tmpBuf,&actualSize);
-                if (strcmp(tmpBuf,"FULL_PROFILE")!=0)
-                    continue;
+                auto getPlatformInfoString = [platform,&tmpBuf](auto infoEnum, std::string& outStr) -> bool
+                {
+                    size_t actualSize = 0;
+                    if (CL_ERROR(ocl.pclGetPlatformInfo(platform,infoEnum,sizeof(tmpBuf),tmpBuf,&actualSize)))
+                        return true;
 
+                    if (actualSize)
+                        outStr.assign(tmpBuf,actualSize-1u);
+                    else
+                        outStr.clear();
+                    return false;
+                };
 
+                // check profile
+                {
+                    std::string profile;
+                    if (getPlatformInfoString(CL_PLATFORM_PROFILE,profile))
+                        continue;
+
+                    if (profile!="FULL_PROFILE")
+                        continue;
+                }
+
+                // fill out info
                 SOpenCLPlatformInfo info;
-                //printf("Platform %d\n",outCounter);
+                info.id = platform;
 
-                actualSize = 0;
-                clGetPlatformInfo(platforms[i],CL_PLATFORM_VENDOR,128*1024,tmpBuf,&actualSize);
-                info.Vendor = std::string(tmpBuf,actualSize);
+                if (getPlatformInfoString(CL_PLATFORM_VENDOR,info.Vendor))
+                    continue;
                 //printf("VENDOR = %s\n",tmpBuf);
-
-                actualSize = 0;
-                clGetPlatformInfo(platforms[i],CL_PLATFORM_EXTENSIONS,128*1024,tmpBuf,&actualSize);
-                info.ReportedExtensions = std::string(tmpBuf,actualSize);
+                if (getPlatformInfoString(CL_PLATFORM_EXTENSIONS,info.ReportedExtensions))
+                    continue;
                 //printf("CL_PLATFORM_EXTENSIONS = %s\n",tmpBuf);
-
-                actualSize = 0;
-                clGetPlatformInfo(platforms[i],CL_PLATFORM_NAME,128*1024,tmpBuf,&actualSize);
-                info.Name = std::string(tmpBuf,actualSize);
+                if (getPlatformInfoString(CL_PLATFORM_NAME,info.Name))
+                    continue;
                 //printf("NAME = %s\n",tmpBuf);
 
-                actualSize = 0;
-                clGetPlatformInfo(platforms[i],CL_PLATFORM_VERSION,128*1024,tmpBuf,&actualSize);
-                //printf("VERSION = %s\n",tmpBuf);
-                size_t j=7;
-                for (; j<actualSize; j++)
+                // TODO: Redo this version extraction at some point
                 {
-                    if (tmpBuf[j]=='.')
+                    size_t actualSize = 0;
+                    if (CL_ERROR(ocl.pclGetPlatformInfo(platform,CL_PLATFORM_VERSION,sizeof(tmpBuf),tmpBuf,&actualSize)))
+                        continue;
+                    //printf("VERSION = %s\n",tmpBuf);
+                    size_t j=7;
+                    for (; j<actualSize; j++)
                     {
-                        tmpBuf[j] = 0;
-                        break;
+                        if (tmpBuf[j]=='.')
+                        {
+                            tmpBuf[j] = 0;
+                            break;
+                        }
                     }
-                }
-                size_t minorStart = j+1;
-                info.Version = atoi(tmpBuf+7)*100;
-                for (; j<actualSize; j++)
-                {
-                    if (tmpBuf[j]==' ')
+                    size_t minorStart = j+1;
+                    info.Version = atoi(tmpBuf+7)*100;
+                    for (; j<actualSize; j++)
                     {
-                        tmpBuf[j] = 0;
-                        break;
+                        if (tmpBuf[j]==' ')
+                        {
+                            tmpBuf[j] = 0;
+                            break;
+                        }
                     }
+                    info.Version += atoi(tmpBuf+minorStart);
+                    //printf("Parsed Version: %d\n",info.Version);
                 }
-                info.Version += atoi(tmpBuf+minorStart);
-                //printf("Parsed Version: %d\n",info.Version);
 
-                for (size_t m=0; m<SOpenCLPlatformInfo::IRR_OpenCL_Feature_Count; m++)
-                    info.FeatureAvailable[m] = false;
-                actualSize = 0;
-                clGetPlatformInfo(platforms[i],CL_PLATFORM_EXTENSIONS,128*1024,tmpBuf,&actualSize);
-                //printf("\t\t%s\n====================================================================\n",tmpBuf);
-                j=0;
-                for (size_t k=0; k<actualSize; k++)
                 {
-                    if (tmpBuf[k]==' '&&k>j)
+                    std::istringstream iss(info.ReportedExtensions);
+                    for (std::string extension; iss>>extension; )
                     {
-                        std::string extension(tmpBuf+j,k-j);
-                        j = k+1;
+                        // TODO: turn into find_if
                         for (size_t m=0; m<SOpenCLPlatformInfo::IRR_OpenCL_Feature_Count; m++)
                         {
                             if (extension==OpenCLFeatureStrings[m])
@@ -163,53 +170,49 @@ class COpenCLHandler
                         }
                     }
                 }
-                if (j<actualSize)
+                
+                // get devices
                 {
-                    std::string extension(tmpBuf+j,actualSize-j);
-                    for (size_t m=0; m<SOpenCLPlatformInfo::IRR_OpenCL_Feature_Count; m++)
+                    // get count
                     {
-                        if (extension==OpenCLFeatureStrings[m])
-                        {
-                            info.FeatureAvailable[m] = true;
-                            break;
-                        }
+                        cl_uint deviceCount;
+                        if (CL_ERROR(ocl.pclGetDeviceIDs(platform,CL_DEVICE_TYPE_GPU,~0u,nullptr,&deviceCount)) || deviceCount==0u)
+                            continue;
+                        info.devices.resize(deviceCount);
+                    }
+                    if (CL_ERROR(ocl.pclGetDeviceIDs(platform,CL_DEVICE_TYPE_GPU,info.devices.size(),info.devices.data(),nullptr)))
+                        continue;
+
+                    info.deviceInformation.resize(info.devices.size());
+                    auto deviceInfoIt = info.deviceInformation.begin();
+                    for (auto device : info.devices)
+                    {
+                        size_t tmpSize;
+                        ocl.pclGetDeviceInfo(device,CL_DEVICE_NAME,sizeof(tmpBuf),tmpBuf,&tmpSize);
+                        deviceInfoIt->Name = std::string(tmpBuf,tmpSize);
+                        //printf("Device Name: %s\n",tmpBuf);
+
+                        tmpSize = 0;
+                        ocl.pclGetDeviceInfo(device,CL_DEVICE_EXTENSIONS,sizeof(tmpBuf),tmpBuf,&tmpSize);
+                        deviceInfoIt->ReportedExtensions = std::string(tmpBuf,tmpSize);
+                        //printf("Device Extensions: %s\n",tmpBuf);
+
+                        ocl.pclGetDeviceInfo(device,CL_DEVICE_MAX_COMPUTE_UNITS,4,&deviceInfoIt->MaxComputeUnits,&tmpSize);
+                        ocl.pclGetDeviceInfo(device,CL_DEVICE_MAX_WORK_GROUP_SIZE,8,&deviceInfoIt->MaxWorkGroupSize,&tmpSize);
+                        deviceInfoIt->ProbableUnifiedShaders = deviceInfoIt->MaxComputeUnits*deviceInfoIt->MaxWorkGroupSize;
+                        //printf("Device %d has probably %d shader cores!\n",j,deviceInfoIt->ProbableUnifiedShaders);
+
+                        deviceInfoIt++;
                     }
                 }
 
-                clGetDeviceIDs(platforms[i],CL_DEVICE_TYPE_GPU,IRR_MAX_OCL_DEVICES,info.devices,&info.deviceCount);
-                if (info.deviceCount<=0)
-                    continue;
-
-                for (j=0; j<info.deviceCount; j++)
-                {
-                    size_t tmpSize;
-                    clGetDeviceInfo(info.devices[j],CL_DEVICE_NAME,128*1024,tmpBuf,&tmpSize);
-                    info.deviceInformation[j].Name = std::string(tmpBuf,tmpSize);
-                    //printf("Device Name: %s\n",tmpBuf);
-
-                    tmpSize = 0;
-                    clGetDeviceInfo(info.devices[j],CL_DEVICE_EXTENSIONS,128*1024,tmpBuf,&tmpSize);
-                    info.deviceInformation[j].ReportedExtensions = std::string(tmpBuf,tmpSize);
-                    //printf("Device Extensions: %s\n",tmpBuf);
-
-                    clGetDeviceInfo(info.devices[j],CL_DEVICE_MAX_COMPUTE_UNITS,4,&info.deviceInformation[j].MaxComputeUnits,&tmpSize);
-                    clGetDeviceInfo(info.devices[j],CL_DEVICE_MAX_WORK_GROUP_SIZE,8,&info.deviceInformation[j].MaxWorkGroupSize,&tmpSize);
-                    info.deviceInformation[j].ProbableUnifiedShaders = info.deviceInformation[j].MaxComputeUnits*info.deviceInformation[j].MaxWorkGroupSize;
-                    //printf("Device %d has probably %d shader cores!\n",j,info.deviceInformation[j].ProbableUnifiedShaders);
-                }
-
-
-                platformInformation[outCounter] = info;
-                if (outCounter!=i)
-                    platforms[outCounter] = platforms[i];
-                outCounter++;
+                platformInformation.push_back(std::move(info));
             }
-            actualPlatformCount = outCounter;
 
-            return actualPlatformCount>0;
+            return platformInformation.size()!=0ull;
         }
 
-        static const cl_uint& getPlatformCount() {return actualPlatformCount;}
+        static auto getPlatformCount() {return platformInformation.size();}
 
         static const SOpenCLPlatformInfo& getPlatformInfo(const size_t& ix) {return platformInformation[ix];}
 
@@ -221,12 +224,10 @@ class COpenCLHandler
                                              const GLXContext& context, const Display* display)
 #endif
         {
-#if defined(_IRR_WINDOWS_API_)
-            if (!pClGetGLContextInfoKHR)
-                return false;
-#endif // defined
-
             if (!alreadyEnumeratedPlatforms)
+                return false;
+
+            if (!ocl_ext.pclGetGLContextInfoKHR)
                 return false;
 
             properties[0] = CL_GL_CONTEXT_KHR;
@@ -240,38 +241,82 @@ class COpenCLHandler
 #endif
 			properties[4] = properties[5] = properties[6] = 0;
 
-            size_t dummy=0;
-#if defined(_IRR_WINDOWS_API_)
-            cl_int retval = pClGetGLContextInfoKHR(properties,CL_CURRENT_DEVICE_FOR_GL_CONTEXT_KHR,sizeof(cl_device_id),&outDevice,&dummy);
-#else
-            cl_int retval = clGetGLContextInfoKHR(properties,CL_CURRENT_DEVICE_FOR_GL_CONTEXT_KHR,sizeof(cl_device_id),&outDevice,&dummy);
-#endif
+            auto getCurrentDeviceForGL = [&properties,&outDevice]()
+            {
+                size_t writeOutSize = 0;
+                auto retval = ocl_ext.pclGetGLContextInfoKHR(properties,CL_CURRENT_DEVICE_FOR_GL_CONTEXT_KHR,sizeof(cl_device_id),&outDevice,&writeOutSize);
+                if (retval!=CL_SUCCESS)
+                    return retval;
+                return writeOutSize!=sizeof(cl_device_id) ? CL_INVALID_BUFFER_SIZE:CL_SUCCESS;
+            };
+            auto retval = getCurrentDeviceForGL();
             if (retval==CL_INVALID_PLATFORM)
             {
-                for (cl_uint i=0; i<actualPlatformCount&&dummy==0; i++)
+                properties[4] = CL_CONTEXT_PLATFORM;
+                for (auto& platform : platformInformation)
                 {
-                    properties[4] = CL_CONTEXT_PLATFORM;
-                    properties[5] = (cl_context_properties) platforms[i];
-#if defined(_IRR_WINDOWS_API_)
-                    retval = pClGetGLContextInfoKHR(properties,CL_CURRENT_DEVICE_FOR_GL_CONTEXT_KHR,sizeof(cl_device_id),&outDevice,&dummy);
-#else
-                    retval = clGetGLContextInfoKHR(properties,CL_CURRENT_DEVICE_FOR_GL_CONTEXT_KHR,sizeof(cl_device_id),&outDevice,&dummy);
-#endif
+                    properties[5] = (cl_context_properties)platform.id;
+                    retval = getCurrentDeviceForGL();
+                    if (retval==CL_SUCCESS)
+                        break;
                 }
             }
 
-            return retval==CL_SUCCESS&&dummy>0;
+            return retval==CL_SUCCESS;
         }
 #endif // defined
 
     private:
         static bool alreadyEnumeratedPlatforms;
-#if defined(_IRR_WINDOWS_API_)
-        static clGetGLContextInfoKHR_fn pClGetGLContextInfoKHR;
-#endif // defined
-        static cl_platform_id platforms[IRR_MAX_OCL_PLATFORMS];
-        static cl_uint actualPlatformCount;
-        static SOpenCLPlatformInfo platformInformation[IRR_MAX_OCL_PLATFORMS];
+        static core::vector<SOpenCLPlatformInfo> platformInformation;
+        
+        // function pointers
+		using LibLoader = system::DefaultFuncPtrLoader;
+
+		IRR_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(OpenCL, LibLoader
+            ,clGetExtensionFunctionAddress
+            ,clGetPlatformIDs
+            ,clGetPlatformInfo
+            ,clGetDeviceIDs
+            ,clGetDeviceInfo
+		);
+		static OpenCL ocl;
+
+        
+        class OpenCLExtensionLoader final : system::FuncPtrLoader
+        {
+                using FUNC_PTR_TYPE = decltype(clGetExtensionFunctionAddress)*;
+                FUNC_PTR_TYPE pClGetExtensionFunctionAddress;
+
+	        public:
+                OpenCLExtensionLoader() : pClGetExtensionFunctionAddress(nullptr) {}
+                OpenCLExtensionLoader(FUNC_PTR_TYPE _pClGetExtensionFunctionAddress) : pClGetExtensionFunctionAddress(_pClGetExtensionFunctionAddress) {}
+                OpenCLExtensionLoader(OpenCLExtensionLoader&& other) : OpenCLExtensionLoader()
+                {
+                    operator=(std::move(other));
+                }
+
+
+		        inline OpenCLExtensionLoader& operator=(OpenCLExtensionLoader&& other)
+		        {
+			        std::swap(pClGetExtensionFunctionAddress, other.pClGetExtensionFunctionAddress);
+			        return *this;
+		        }
+
+		        inline bool isLibraryLoaded() override final
+		        {
+			        return pClGetExtensionFunctionAddress!=nullptr;
+		        }
+
+		        inline void* loadFuncPtr(const char* funcname) override final
+		        {
+			        return pClGetExtensionFunctionAddress(funcname);
+		        }
+        };
+        IRR_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(OpenCLExtensions, OpenCLExtensionLoader
+            ,clGetGLContextInfoKHR
+        );
+        static OpenCLExtensions ocl_ext;
 };
 
 }

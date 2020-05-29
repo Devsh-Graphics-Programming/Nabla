@@ -4,7 +4,9 @@
 // dependencies
 #include "irr/core/core.h"
 
-// bad files to refactor
-#include "IFileSystem.h"
+#include "irr/system/DynamicLibraryFunctionPointer.h"
+#include "irr/system/FuncPtrLoader.h"
+#include "irr/system/DefaultFuncPtrLoader.h"
+#include "irr/system/DynamicFunctionCaller.h"
 
 #endif

@@ -13,21 +13,32 @@
 # limitations under the License.
 
 
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.16)
 #policies
-#cmake_policy(SET CMP0072 NEW) #not yet, would need to get pointers to all OpenGL functions
+cmake_policy(SET CMP0072 OLD) #not yet, would need to get pointers to all OpenGL functions
+set(OpenGL_GL_PREFERENCE LEGACY)
 #cmake_policy(SET CMP )
 
 project(Irrlicht LANGUAGES CXX C)
+
+
+find_package(Vulkan)
+if (Vulkan_FOUND)
+	message(STATUS "Building with Vulkan driver")
+else()
+	message(STATUS "Vulkan driver is not enabled")
+endif()
 
 option(IRR_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
 
 # CUDA test
 include(CheckLanguage)
 check_language(CUDA)
-if(CMAKE_CUDA_COMPILER OR "${CMAKE_CUDA_COMPILER_VERSION}" VERSION_LESS 9.0)
+#if(NOT CMAKE_CUDA_COMPILER OR CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "9.0")
+if(NOT CMAKE_CUDA_COMPILER)
 	if (IRR_COMPILE_WITH_CUDA)
-		message(WARNING "CUDA not found or version lower than 9.0 found, version 9.0+ needed for C++14 support.")
+		#message(WARNING "CUDA not found or version (${CMAKE_CUDA_COMPILER_VERSION}) lower than 9.0 found, version 9.0+ needed for C++14 support.")
+		message(WARNING "CUDA not found.")
 	endif()
 else()
 	if (IRR_COMPILE_WITH_CUDA)
@@ -53,13 +64,7 @@ endif(CCACHE_FOUND)
 # global IDE stuff for examples
 set(CMAKE_CODELITE_USE_TARGETS ON CACHE BOOL "")
 
-if((MSVC_VERSION AND NOT ${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 19.11) OR
-  (CMAKE_COMPILER_IS_GNUCXX AND NOT ${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 7.0) OR
-  (CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT ${CMAKE_CXX_COMPILER_VERSION} VERSION_LESS 3.9))
-    set(CMAKE_CXX_STANDARD 17)
-else()
-    set(CMAKE_CXX_STANDARD 14)
-endif()
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Cause CUDA is a special snowflake
 if (IRR_COMPILE_WITH_CUDA)
@@ -70,7 +75,7 @@ set(CMAKE_CXX_EXTENSIONS OFF) #...without compiler extensions like gnu++11, but 
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/")
 
-set(CMAKE_CONFIGURATION_TYPES "Debug;Release")
+set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;")
 set(LLVM_USE_CRT_DEBUG MTd CACHE STRING "IrrBAW developer note: No idea what subfolder provides this")
 set(LLVM_USE_CRT_RELEASE MT CACHE STRING "IrrBAW developer note: No idea what subfolder provides this")
 
@@ -138,23 +143,28 @@ macro(irr_adjust_flags)
 			add_compile_options("$<$<CONFIG:DEBUG>:-ggdb3>")
 		endif()
 	elseif(MSVC) # /arch:sse3 or anything like this is not needed on x64 on MSVC for enabling sse3 instructions
-		# debug
-		string(REPLACE "/MDd" "/MTd" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-		string(REPLACE "/W3" "/W0" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
-		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zc:__cplusplus /MP /fp:fast")
-		string(REPLACE "/MDd" "/MTd" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
-		string(REPLACE "/W3" "/W0" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
-		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MP /fp:fast")
 		
-		#release
+		# debug
+		string(REPLACE "/W3" "/W0" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /Zc:__cplusplus /MP /ZI /fp:fast /Zc:wchar_t /INCREMENTAL" )
+		string(REPLACE "/W3" "/W0" CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG}")
+		set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MP /ZI /fp:fast /Zc:wchar_t /INCREMENTAL")
+		
+		# release
 		string(REPLACE "/GS" "" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}") # for some reason simply replacing /GS -> /GS- doesn't work... so it vanishes here and appears a few lines below!
-		string(REPLACE "/O2" "/Ox" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
-		string(REPLACE "/MD" "/MT" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
-		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /GL /Zc:__cplusplus /MP /Gy- /Zc:wchar_t /Zi /sdl- /GF /Ot /GS- /Oy /Oi /fp:fast")
+		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /GL /Zc:__cplusplus /MP /Gy- /Zc:wchar_t /sdl- /GF /GS- /fp:fast")
 		string(REPLACE "/GS" "" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
-		string(REPLACE "/O2" "/Ox" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
-		string(REPLACE "/MD" "/MT" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
-		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /GL /MP /Gy- /Zc:wchar_t /Zi /sdl- /GF /Ot /GS- /Oy /Oi /fp:fast")
+		set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /GL /MP /Gy- /Zc:wchar_t /sdl- /GF /GS- /fp:fast")
+		
+		# relWithDebInfo
+		string(REPLACE "/GS" "" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+		set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /GL /Zc:__cplusplus /Zc:wchar_t /MP /Gy /Zi /sdl- /Oy- /fp:fast")
+		string(REPLACE "/GS" "" CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO}")
+		set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} /GL /MP /Gy /Zc:wchar_t /Zi /sdl- /Oy- /fp:fast")
+		
+		#reason for INCREMENTAL:NO: https://docs.microsoft.com/en-us/cpp/build/reference/ltcg-link-time-code-generation?view=vs-2019 /LTCG is not valid for use with /INCREMENTAL.
+		set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /INCREMENTAL:NO /LTCG:incremental")
+		
 	else()
 		message(WARNING "UNTESTED COMPILER DETECTED, EXPECT WRONG OPTIMIZATION FLAGS! SUBMIT ISSUE ON GITHUB https://github.com/buildaworldnet/IrrlichtBAW/issues")
 	endif()

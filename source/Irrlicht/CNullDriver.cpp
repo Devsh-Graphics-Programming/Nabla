@@ -153,7 +153,7 @@ void CNullDriver::bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayou
     /*
     If, additionally, the previous bound descriptor set for set N was bound using a pipeline layout compatible for set N, then the bindings in sets numbered greater than N are also not disturbed.
     */
-    if (compatibilityLimits[_first] < _first)
+    if (compatibilityLimits[_first] < static_cast<int32_t>(_first))
         for (uint32_t i = _first+1u; i<IGPUPipelineLayout::DESCRIPTOR_SET_COUNT; ++i)
             _destPplnLayouts[i] = nullptr;
 }

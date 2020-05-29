@@ -28,7 +28,7 @@ core::unordered_set<uint64_t> CBlobsLoadingManager::getNeededDeps(uint32_t _blob
 	return core::unordered_set<uint64_t>();
 }
 
-void* CBlobsLoadingManager::instantiateEmpty(uint32_t _blobType, const void* _blob, size_t _blobSize, const BlobLoadingParams& _params)
+void* CBlobsLoadingManager::instantiateEmpty(uint32_t _blobType, const void* _blob, size_t _blobSize, BlobLoadingParams& _params)
 {
 #ifndef NEW_SHADERS
 	_IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(instantiateEmpty, _blobType, _blob, _blobSize, _params)
@@ -36,7 +36,7 @@ void* CBlobsLoadingManager::instantiateEmpty(uint32_t _blobType, const void* _bl
 	return nullptr;
 }
 
-void* CBlobsLoadingManager::finalize(uint32_t _blobType, void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, const BlobLoadingParams& _params)
+void* CBlobsLoadingManager::finalize(uint32_t _blobType, void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params)
 {
 #ifndef NEW_SHADERS
 	_IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(finalize, _blobType, _obj, _blob, _blobSize, _deps, _params)

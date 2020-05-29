@@ -1,21 +1,27 @@
-#include "irr/core/core.h"
-
-#include "irr/asset/IGLSLCompiler.h"
-#include "irr/asset/ICPUShader.h"
-#include "irr/asset/shadercUtils.h"
-#include "IFileSystem.h"
-#include "irr/asset/CIncludeHandler.h"
-#include "irr/asset/CGLSLScanBuiltinIncludeLoader.h"
-#include "irr/asset/CGLSLSkinningBuiltinIncludeLoader.h"
-#include "irr/asset/CGLSLBRDFBuiltinIncludeLoader.h"
-#include "irr/asset/CGLSLVertexUtilsBuiltinIncludeLoader.h"
-#include "irr/asset/CGLSLBumpMappingBuiltinIncludeLoader.h"
-#include "irr/asset/CGLSLBrokenDriverWorkaroundsBuiltinIncludeLoader.h"
-#include "IReadFile.h"
-#include "os.h"
 #include <sstream>
 #include <regex>
 #include <iterator>
+
+#include "irr/asset/IGLSLCompiler.h"
+#include "irr/asset/shadercUtils.h"
+#include "irr/asset/CIncludeHandler.h"
+
+
+#include "irr/asset/CGLSLBrokenDriverWorkaroundsBuiltinIncludeLoader.h"
+
+#include "irr/asset/CGLSLColorSpaceBuiltinIncludeLoader.h"
+#include "irr/asset/CGLSLScanBuiltinIncludeLoader.h"
+
+#include "irr/asset/CGLSLVertexUtilsBuiltinIncludeLoader.h"
+#include "irr/asset/CGLSLSkinningBuiltinIncludeLoader.h"
+
+#include "irr/asset/CGLSLBRDFBuiltinIncludeLoader.h"
+#include "irr/asset/CGLSLBumpMappingBuiltinIncludeLoader.h"
+#include "irr/asset/CGLSLBrokenDriverWorkaroundsBuiltinIncludeLoader.h"
+#include "irr/asset/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
+
+
+#include "os.h"
 
 namespace irr
 {
@@ -24,13 +30,18 @@ namespace asset
 
 IGLSLCompiler::IGLSLCompiler(io::IFileSystem* _fs) : m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_fs)), m_fs(_fs)
 {
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLBrokenDriverWorkaroundsBuiltinIncludeLoader>());
+
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLColorSpaceBuiltinIncludeLoader>());
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLScanBuiltinIncludeLoader>());
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLSkinningBuiltinIncludeLoader>());
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLBSDFBuiltinIncludeLoader>());
+
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVertexUtilsBuiltinIncludeLoader>());
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLSkinningBuiltinIncludeLoader>());
+
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLBSDFBuiltinIncludeLoader>());
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLBumpMappingBuiltinIncludeLoader>());
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLBrokenDriverWorkaroundsBuiltinIncludeLoader>());
-	// TODO: Add BSDF includes here!
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeLoader>());
 }
 
 core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo, std::string* _outAssembly) const
@@ -70,7 +81,10 @@ core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const cha
 
 core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo, std::string* _outAssembly) const
 {
-    return core::make_smart_refctd_ptr<asset::ICPUShader>(compileSPIRVFromGLSL(_glslCode,_stage,_entryPoint,_compilationId,_genDebugInfo,_outAssembly));
+    auto spirvBuffer = compileSPIRVFromGLSL(_glslCode,_stage,_entryPoint,_compilationId,_genDebugInfo,_outAssembly);
+	if (!spirvBuffer)
+		return nullptr;
+    return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirvBuffer));
 }
 
 core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo, std::string* _outAssembly) const
@@ -84,20 +98,21 @@ namespace impl
 {
     //string to be replaced with all "#" except those in "#include"
     static constexpr const char* PREPROC_DIRECTIVE_DISABLER = "_this_is_hash_";
-    static std::string disableAllDirectivesExceptIncludes(const char* _glslCode)
+    static constexpr const char* PREPROC_GL__DISABLER = "_this_is_a_GL__prefix_";
+    static void disableAllDirectivesExceptIncludes(std::string& _glslCode)
     {
-        std::regex re("#(?!(include|version|pragma shader_stage))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
+        std::regex directive("#(?!(include|version|pragma shader_stage))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
         //`#pragma shader_stage(...)` is needed for determining shader stage when `_stage` param of IGLSLCompiler functions is set to ESS_UNKNOWN
-        std::stringstream ss;
-        std::regex_replace(std::ostreambuf_iterator<char>(ss), _glslCode, _glslCode + strlen(_glslCode), re, PREPROC_DIRECTIVE_DISABLER);
-        return ss.str();
+        auto result = std::regex_replace(_glslCode,directive,PREPROC_DIRECTIVE_DISABLER);
+        std::regex glMacro("[ \t\r\n\v\f]GL_");
+        _glslCode = std::regex_replace(result, glMacro, PREPROC_GL__DISABLER);
     }
-    static std::string reenableDirectives(const char* _glslCode)
+    static void reenableDirectives(std::string& _glslCode)
     {
-        std::regex re(PREPROC_DIRECTIVE_DISABLER);
-        std::stringstream ss;
-        std::regex_replace(std::ostreambuf_iterator<char>(ss), _glslCode, _glslCode + strlen(_glslCode), re, "#");
-        return ss.str();
+        std::regex glMacro(PREPROC_GL__DISABLER);
+        auto result = std::regex_replace(_glslCode,glMacro," GL_");
+        std::regex directive(PREPROC_DIRECTIVE_DISABLER);
+        _glslCode = std::regex_replace(result, directive, "#");
     }
     static std::string encloseWithinExtraInclGuards(std::string&& _glslCode, uint32_t _maxInclusions, const char* _identifier)
     {
@@ -186,7 +201,8 @@ namespace impl
             }
             else {
                 //employ encloseWithinExtraInclGuards() in order to prevent infinite loop of (not necesarilly direct) self-inclusions while other # directives (incl guards among them) are disabled
-                res_str = encloseWithinExtraInclGuards( disableAllDirectivesExceptIncludes(res_str.c_str()), m_maxInclCnt, _requested_source );
+                disableAllDirectivesExceptIncludes(res_str);
+                res_str = encloseWithinExtraInclGuards( std::move(res_str), m_maxInclCnt, _requested_source );
 
                 res->content_length = res_str.size();
                 res->content = new char[res_str.size()+1u];
@@ -213,9 +229,9 @@ namespace impl
     };
 }
 
-core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt) const
+core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(std::string&& glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt) const
 {
-    std::string glslCode = impl::disableAllDirectivesExceptIncludes(_glslCode);//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
+    impl::disableAllDirectivesExceptIncludes(glslCode);//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
     shaderc::Compiler comp;
     shaderc::CompileOptions options;//default options
     options.SetIncluder(std::make_unique<impl::Includer>(m_inclHandler.get(), m_fs, _maxSelfInclusionCnt+1u));//custom #include handler
@@ -228,14 +244,15 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(const
     }
 
     std::string res_str(res.cbegin(), std::distance(res.cbegin(),res.cend()));
-    return core::make_smart_refctd_ptr<ICPUShader>(impl::reenableDirectives(res_str.c_str()).c_str());
+    impl::reenableDirectives(res_str);
+    return core::make_smart_refctd_ptr<ICPUShader>(res_str.c_str());
 }
 
 core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _originFilepath, uint32_t _maxSelfInclusionCnt) const
 {
     std::string glsl(_sourcefile->getSize(), '\0');
     _sourcefile->read(glsl.data(), glsl.size());
-    return resolveIncludeDirectives(glsl.c_str(), _stage, _originFilepath, _maxSelfInclusionCnt);
+    return resolveIncludeDirectives(std::move(glsl), _stage, _originFilepath, _maxSelfInclusionCnt);
 }
 
 }}

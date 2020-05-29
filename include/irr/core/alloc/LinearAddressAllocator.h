@@ -45,6 +45,12 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
             bufferSize = newBuffSz-Base::alignOffset;
             std::swap(cursor,other.cursor);
         }
+        template<typename... Args>
+        LinearAddressAllocator(_size_type newBuffSz, const LinearAddressAllocator& other, Args&&... args) :
+            Base(other,std::forward<Args>(args)...), bufferSize(invalid_address), cursor(other.cursor)
+        {
+            bufferSize = newBuffSz-Base::alignOffset;
+        }
 
         LinearAddressAllocator& operator=(LinearAddressAllocator&& other)
         {
