@@ -9,10 +9,10 @@ namespace irr
 namespace asset
 {
 
-class CCPUMeshPacker : public IMeshPacker<ICPUMesh>
+class CCPUMeshPacker : public IMeshPacker<ICPUMeshBuffer>
 {
 public:
-	virtual std::optional<std::pair<ICPUMesh*, DrawElementsIndirectCommand_t>> packMeshes(core::vector<ICPUMesh*>& meshes) override;
+	virtual std::optional<std::pair<ICPUMeshBuffer*, DrawElementsIndirectCommand_t>> packMeshes(const core::vector<ICPUMeshBuffer*>& meshBuffers) override;
 
 };
 

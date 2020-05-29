@@ -17,11 +17,11 @@ struct DrawElementsIndirectCommand_t
     uint32_t baseInstance;
 };
 
-template <typename MeshType>
+template <typename MeshBufferType>
 class IMeshPacker
 {
 public:
-    virtual std::optional<std::pair<MeshType* ,DrawElementsIndirectCommand_t>> packMeshes(core::vector<MeshType*>& meshes) = 0;
+    virtual std::optional<std::pair<MeshBufferType* ,DrawElementsIndirectCommand_t>> packMeshes(const core::vector<MeshBufferType*>& meshBuffers) = 0;
 
 protected:
     virtual ~IMeshPacker() {}
