@@ -472,28 +472,6 @@ target_compile_definitions(IrrlichtServer PRIVATE
 	_IRR_SERVER_
 )
 
-
-if(IRR_PCH)
-    if (UNIX)
-        # "CMake Error: Attempt to add a custom rule to output ".../source/Irrlicht/pch.h.gch/.c++.rule" which already has a custom rule."
-        # so there need to be another pch file to create custom_command for it. Or maybe share PCH target between Irrlicht and IrrlichtServer? (not sure if possible)
-        add_custom_command(
-          OUTPUT "${CMAKE_BINARY_DIR}/source/Irrlicht/server_pch.h"
-          COMMAND ${CMAKE_COMMAND} -E copy "${CMAKE_SOURCE_DIR}/source/Irrlicht/pch.h" "${CMAKE_BINARY_DIR}/source/Irrlicht/server_pch.h"
-          DEPENDS pch.h
-        )
-        file(RELATIVE_PATH SERVER_PCH_INPUT_RELDIR "${CMAKE_SOURCE_DIR}/source/Irrlicht" "${CMAKE_BINARY_DIR}/source/Irrlicht/server_pch.h")
-        if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
-            ADD_PRECOMPILED_HEADER(IrrlichtServer "${SERVER_PCH_INPUT_RELDIR}" "${IRRLICHT_CONF_DIR_RELEASE}" FORCEINCLUDE)
-	elseif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-            ADD_PRECOMPILED_HEADER(IrrlichtServer "${SERVER_PCH_INPUT_RELDIR}" "${IRRLICHT_CONF_DIR_DEBUG}" FORCEINCLUDE)
-        endif()
-	#add_target_byproducts(IrrlichtServer "${CMAKE_CURRENT_BINARY_DIR}/server_pch.h") # how to resolve this?
-    else()
-        ADD_PRECOMPILED_HEADER(IrrlichtServer pch.h FORCEINCLUDE)
-    endif()
-endif()
-
 if (MSVC) #on MSVC it won't compile without this option!
 	target_compile_options(Irrlicht PUBLIC /bigobj)
 endif()
