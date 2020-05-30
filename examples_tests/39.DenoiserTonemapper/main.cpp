@@ -594,65 +594,130 @@ void main()
 	const auto& outputFileBundle = cmdHandler.getOutputFileBundle();
 	const auto& psdFileBunde = cmdHandler.getBloomPsfBundle();
 
-	auto makeImageIDString = [/*&fileNamesBundle*/](uint32_t i)
+	auto makeImageIDString = [](uint32_t i, const core::vector<std::string>& fileNameBundle = {})
 	{
 		std::string imageIDString("Image Input #");
 		imageIDString += std::to_string(i);
-		imageIDString += " called \"";
-		imageIDString += "";//fileNamesBundle[i]; TODO
-		imageIDString += "\": ";
+
+		if (!fileNameBundle.empty())
+		{
+			imageIDString += " called \"";
+			imageIDString += fileNameBundle[i];
+			imageIDString += "\": ";
+		}
+
 		return imageIDString;
 	};
-
 
 	core::vector<ImageToDenoise> images(inputFilesAmount);
 	// load images
 	uint32_t maxResolution[EII_COUNT][2] = { 0 };
 	{
 		asset::IAssetLoader::SAssetLoadParams lp(0ull,nullptr,IAssetLoader::ECF_DUPLICATE_REFERENCES); // TODO: maybe don't replicate the CPU data
-		for (size_t i=0; i<inputFilesAmount; i++)
+		for (size_t i=0; i < inputFilesAmount; i++)
 		{
-			auto image_bundle = am->getAsset(/*fileNamesBundle[i]*/"", lp);
-			if (image_bundle.isEmpty())
+			auto color_image_bundle = am->getAsset(colorFileNameBundle[i], lp); decltype(color_image_bundle) albedo_image_bundle, normal_image_bundle;
+			if (color_image_bundle.isEmpty())
 			{
-				auto imageIDString = makeImageIDString(i);
+				auto imageIDString = makeImageIDString(i, colorFileNameBundle);
 				os::Printer::log(imageIDString+"Could not load from file!", ELL_ERROR);
 				continue;
 			}
 
+			// TODO check if we actually have to load albedo and normals
+			albedo_image_bundle = am->getAsset(albedoFileNameBundle[i], lp);
+			normal_image_bundle = am->getAsset(normalFileNameBundle[i], lp);
+
 			auto& outParam = images[i];
 
-			auto contents = image_bundle.getContents();
-			for (auto it=contents.first; it!=contents.second; it++)
+			auto getImageAssetAndItsChannelName = [](asset::SAssetBundle& assetBundle) -> std::optional<std::pair<core::smart_refctd_ptr<ICPUImage>, std::string>>
 			{
-				auto ass = *it;
-				assert(ass);
-				auto metadata = ass->getMetadata();
-				if (strcmp(metadata->getLoaderName(),COpenEXRImageMetadata::LoaderName)!=0)
-					continue;
-				
-				auto image = core::smart_refctd_ptr_static_cast<ICPUImage>(ass);/*
+				auto contents = assetBundle.getContents();
+				auto asset = contents.first[0];
+
+				assert(asset);
+				auto metadata = asset->getMetadata();
+				if (strcmp(metadata->getLoaderName(), COpenEXRImageMetadata::LoaderName) != 0)
+					return {};
+
+				auto image = asset::IAsset::castDown<ICPUImage>(asset);
+				auto exrmeta = static_cast<COpenEXRImageMetadata*>(metadata);
+				const auto& assetMetaChannelName = exrmeta->getName();
+
+				auto fillVal = std::make_pair(image, assetMetaChannelName);
+				auto retval = std::optional<decltype(fillVal)>(fillVal);
+			};
+
+			auto color = getImageAssetAndItsChannelName(color_image_bundle);
+			auto albedo = getImageAssetAndItsChannelName(albedo_image_bundle);
+			auto normal = getImageAssetAndItsChannelName(normal_image_bundle);
+
+			/*
+					TODO: actually why don't we want exr inputs?
+
 				if (image->getCreationParameters().format!=irrFmtRequired)
 				{
 					CConvertFormatImageFilter<>::state_type state;
-					state.extentLayerCount = 
+					state.extentLayerCount =
 					state.inImage = image;
-				}*/
+				}
 
-				/*
+			*/
 
-				TODO
+			auto putImageIntoImageToDenoise = [&](std::optional<std::pair<core::smart_refctd_ptr<ICPUImage>, std::string>> queriedImage, std::string queryChannelName, E_IMAGE_INPUT defaultEII)
+			{
+				auto handledDefaultImage = queriedImage.value().first;
+				const auto handledDefaultImageMetadataChannelName = queriedImage.value().second;
 
-				auto exrmeta = static_cast<COpenEXRImageMetadata*>(metadata);
-				auto beginIt = channelNamesBundle[i].begin();
-				auto inputIx = std::distance(beginIt,std::find(beginIt,channelNamesBundle[i].end(),exrmeta->getName()));
-				if (inputIx>=channelNamesBundle[i].size())
-					continue;
+				const std::array<std::string&, 3> queriedChannelNames = { color.value().second, albedo.value().second, normal.value().second };
+				core::vector<std::pair<size_t, uint8_t>> channelNameOffsets;
 
-				outParam.image[inputIx] = std::move(image);
+				for(uint8_t queryItr = 0; queryItr < queriedChannelNames.size(); ++queryItr)
+				{
+					const auto& userQueriedChannelName = queriedChannelNames[queryItr];
+					const auto queryBegin = userQueriedChannelName.begin();
+					const auto queryEnd = userQueriedChannelName.end();
 
-				*/
-			}
+					auto inputIx = std::distance(queryBegin, std::find(queryBegin, queryEnd, queryChannelName));
+					if (inputIx < userQueriedChannelName.size())
+						channelNameOffsets.push_back(std::make_pair(inputIx, EII_COLOR + queryItr));
+				}
+
+				if (channelNameOffsets.empty())
+				{
+					outParam.image[defaultEII] = std::move(handledDefaultImage);
+					os::Printer::log("Could't find queried channel name in available channels. The default \"" + handledDefaultImageMetadataChannelName + "\" has been taken!", ELL_INFORMATION);
+				}
+				else
+				{
+					uint8_t imageInputIx = std::distance(channelNameOffsets.begin(), std::min_element(channelNameOffsets.begin(), channelNameOffsets.end(), [](const std::pair<size_t, uint8_t>& a, const std::pair<size_t, uint8_t>& b) { return a.second < b.second; }));
+
+					switch (static_cast<E_IMAGE_INPUT>(imageInputIx))
+					{
+						case EII_COLOR:
+						{
+							outParam.image[EII_COLOR] = std::move(color.value().first);
+						} break;
+						case EII_ALBEDO:
+						{
+							outParam.image[EII_ALBEDO] = std::move(albedo.value().first);
+						} break;
+						case EII_NORMAL:
+						{
+							outParam.image[EII_NORMAL] = std::move(normal.value().first);
+						} break;
+						default:
+						{
+							os::Printer::log("An unexpected error has ocured!", ELL_ERROR);
+						}
+					}
+				}
+			};
+
+			putImageIntoImageToDenoise(color, colorChannelNameBundle[i], EII_COLOR);
+			putImageIntoImageToDenoise(albedo, albedoChannelNameBundle[i], EII_ALBEDO);
+			putImageIntoImageToDenoise(normal, normalChannelNameBundle[i], EII_NORMAL);
+	
 		}
 		// check inputs and set-up
 		for (size_t i=0; i<inputFilesAmount; i++)
