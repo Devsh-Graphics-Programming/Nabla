@@ -3,6 +3,9 @@
 
 #cmakedefine _IRR_DEBUG
 
+// working root directory
+#cmakedefine __IRR_ROOT_DIRECTORY__ "${CMAKE_SOURCE_DIR}"
+
 // architecture
 #cmakedefine __IRR_COMPILE_WITH_ARM_SIMD_
 
@@ -48,6 +51,7 @@
 
 // extra config
 #cmakedefine __IRR_FAST_MATH
+#cmakedefine _IRR_EMBED_BUILTIN_RESOURCES_
 
 // TODO: This has to disapppear from the main header and go to the OptiX extension header + config
 #cmakedefine OPTIX_INCLUDE_DIR "@OPTIX_INCLUDE_DIR@"

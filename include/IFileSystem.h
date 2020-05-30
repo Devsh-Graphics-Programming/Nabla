@@ -7,7 +7,12 @@
 
 #include "irr/core/IReferenceCounted.h"
 #include "IFileArchive.h"
+#include "irr/asset/ICPUBuffer.h"
+#include "irr/core/core.h"
 
+#ifdef _IRR_EMBED_BUILTIN_RESOURCES_
+#include "irr/builtin/builtinResources.h"
+#endif
 namespace irr
 {
 namespace video
@@ -45,7 +50,7 @@ public:
 	\param fileName: The name given to this file
 	\param deleteMemoryWhenDropped: True if the memory should be deleted
 	along with the IReadFile when it is dropped.
-	\return Pointer to the created file interface.
+	\return Pointer to the created file interface. 
 	The returned pointer should be dropped when no longer needed.
 	See IReferenceCounted::drop() for more information.
 	*/
@@ -238,6 +243,38 @@ public:
 	/** \param filename is the string identifying the file which should be tested for existence.
 	\return True if file exists, and false if it does not exist or an error occured. */
 	virtual bool existFile(const path& filename) const =0;
+
+
+	template<typename StringUniqueType>
+	inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData()
+	{
+#ifdef _IRR_EMBED_BUILTIN_RESOURCES_
+		std::pair<const uint8_t*, size_t> found = irr::builtin::get_resource<StringUniqueType>();
+		if (found.first && found.second)
+		{
+			auto returnValue = core::make_smart_refctd_ptr<asset::ICPUBuffer>(found.second);
+			memcpy(returnValue->getPointer(), found.first, returnValue->getSize());
+			return returnValue;
+		}
+		return nullptr;
+#else
+		
+		auto size = SIrrlichtCreationParameters::builtinResourceHeaderPath.size() - sizeof("common.h");
+		auto path = (std::string(SIrrlichtCreationParameters::builtinResourceHeaderPath.data(),size)
+			+ "/../../" + std::string(StringUniqueType::value));
+
+		auto file = this->createAndOpenFile((path).c_str());
+		if(file)
+		{
+			auto retval = core::make_smart_refctd_ptr<asset::ICPUBuffer>(file->getSize());
+			file->read(retval->getPointer(), file->getSize());
+			file->drop();
+			return retval;	
+		}
+		return nullptr;
+
+#endif
+	}
 
 
 

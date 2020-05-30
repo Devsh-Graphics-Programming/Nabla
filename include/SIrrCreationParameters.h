@@ -9,6 +9,7 @@
 #include "EDeviceTypes.h"
 #include "dimension2d.h"
 #include "ILogger.h"
+#include "irr/builtin/common.h"
 
 namespace irr
 {
@@ -229,6 +230,13 @@ namespace irr
 		/** Always set it to IRRLICHTBAW_SDK_VERSION, which is done by default.
 		This is needed for sdk version checks. */
 		const char* const SDK_version_do_not_use;
+
+		static inline constexpr std::string_view builtinResourceHeaderPath =
+#ifdef _IRR_BUILTIN_PATH_AVAILABLE
+			irr::builtin::getBuiltinResourcesCommonHeaderPath();
+#else
+      			nullptr;
+#endif
 	};
 
 
