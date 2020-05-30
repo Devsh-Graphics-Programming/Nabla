@@ -30,34 +30,30 @@ std::optional<std::pair<ICPUMeshBuffer*, DrawElementsIndirectCommand_t>> CCPUMes
 		}
 	}
 
-	//define SVertexInputParams of packed mesh buffer
-	SVertexInputParams outVtxInputParams = meshBuffers[0]->getPipeline()->getVertexInputParams();
-	outVtxInputParams.enabledBindingFlags = 0x0003; // < 0 == binding for unified VBO with per vertex data, 1 == binding for unified VBO with per instance data
-	memset(outVtxInputParams.bindings, 0, sizeof(SVertexInputParams::bindings));
+	SVertexInputParams outVtxInputParams;
 
-	//git?
-	outVtxInputParams.bindings[0].inputRate = asset::EVIR_PER_VERTEX;
-	outVtxInputParams.bindings[1].inputRate = asset::EVIR_PER_INSTANCE;
-
-	//establish which attrib bindings are enabled (in all of the mesh buffers)
-	for (size_t i = 1; i < meshBuffers.size(); i++)
+	//set attributes and bindings of output mesh buffer
+	for (const auto& meshBuffer : meshBuffers)
 	{
-		const auto& currMBVtxInputParams = meshBuffers[i]->getPipeline()->getVertexInputParams();
+		const auto& currMBVtxInputParams = meshBuffer->getPipeline()->getVertexInputParams();
 
 		if (currMBVtxInputParams.enabledAttribFlags != outVtxInputParams.enabledAttribFlags)
 		{
+			const uint16_t oldFlags = outVtxInputParams.enabledAttribFlags;
+			outVtxInputParams.enabledAttribFlags |= currMBVtxInputParams.enabledAttribFlags;
+			const uint16_t flagDiff = outVtxInputParams.enabledAttribFlags ^ oldFlags;
+
 			//if output mesh buffer doesn't have given attrib enabled but currently processed mesh buffer has, enable this attribute for output mesh buffer and set its format and binding
 			for (uint16_t attrBit = 0x0001, location = 0; location < 16; attrBit <<= 1, location++)
 			{
-				uint16_t oldFlags = outVtxInputParams.enabledAttribFlags;
-				outVtxInputParams.enabledAttribFlags |= currMBVtxInputParams.enabledAttribFlags;
-
-				uint16_t flagDiff = outVtxInputParams.enabledAttribFlags ^ oldFlags;
-				
 				if (flagDiff & attrBit)
 				{
 					outVtxInputParams.attributes[location].format = currMBVtxInputParams.attributes[location].format;
-					outVtxInputParams.attributes[location].binding =  (currMBVtxInputParams.bindings[currMBVtxInputParams.attributes[location].binding].inputRate == asset::EVIR_PER_VERTEX) ? 0 : 1;
+					outVtxInputParams.attributes[location].binding = location;
+					outVtxInputParams.attributes[location].relativeOffset = 0;
+
+					outVtxInputParams.bindings[location].stride = getTexelOrBlockBytesize(static_cast<E_FORMAT>(outVtxInputParams.attributes[location].format));
+					outVtxInputParams.bindings[location].inputRate = currMBVtxInputParams.bindings[currMBVtxInputParams.attributes[location].binding].inputRate;
 				}
 			}
 		}
@@ -77,7 +73,7 @@ std::optional<std::pair<ICPUMeshBuffer*, DrawElementsIndirectCommand_t>> CCPUMes
 			assert(!(attrBit & outVtxInputParams.enabledAttribFlags)); //imposibru
 
 			if (currMBVtxInputParams.attributes[location].format != outVtxInputParams.attributes[location].format ||
-				currMBVtxInputParams.bindings[currMBVtxInputParams.attributes[location].binding].inputRate != outVtxInputParams.bindings[outVtxInputParams.attributes[location].binding].inputRate)
+				currMBVtxInputParams.bindings[currMBVtxInputParams.attributes[location].binding].inputRate != outVtxInputParams.bindings[location].inputRate)
 			{
 				_IRR_DEBUG_BREAK_IF(true);
 				return {};
