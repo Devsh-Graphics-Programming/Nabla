@@ -328,11 +328,12 @@ protected:
 		bool visited;
 		uint32_t weight_ix;
 		const CElementBSDF* maskParent;
+		uint32_t parentIx;
 	};
 	core::stack<stack_el> stack;
 	uint32_t firstFreeNormalID;
 
-	void push(const CElementBSDF* _bsdf, bsdf::instr_t _parent, const CElementBSDF* _maskParent)
+	void push(const CElementBSDF* _bsdf, bsdf::instr_t _parent, const CElementBSDF* _maskParent, uint32_t _parentIx)
 	{
 		auto writeInheritableBitfields = [](bsdf::instr_t& dst, bsdf::instr_t parent) {
 			dst |= (parent & (bsdf::BITFIELDS_MASK_TWOSIDED << bsdf::BITFIELDS_SHIFT_TWOSIDED));
@@ -364,7 +365,7 @@ protected:
 		case CElementBSDF::Type::ROUGHPLASTIC:
 			_IRR_FALLTHROUGH;
 		case CElementBSDF::Type::WARD:
-			stack.push({_bsdf,instr,false,0,_maskParent});
+			stack.push({_bsdf,instr,false,0,_maskParent,_parentIx});
 			break;
 		case CElementBSDF::Type::COATING:
 			_IRR_FALLTHROUGH;
@@ -374,20 +375,20 @@ protected:
 			instr &= (~(bsdf::INSTR_NORMAL_ID_MASK<<bsdf::INSTR_NORMAL_ID_SHIFT));//zero-out normal ID bitfield
 			instr |= (firstFreeNormalID & bsdf::INSTR_NORMAL_ID_MASK) << bsdf::INSTR_NORMAL_ID_SHIFT;//write new val
 			++firstFreeNormalID;
-			stack.push({_bsdf,instr,false,0,_maskParent});
+			stack.push({_bsdf,instr,false,0,_maskParent,_parentIx});
 
 			instr = BSDFtype2opcode(_bsdf->meta_common.bsdf[0]);
 			writeInheritableBitfields(instr, _parent);
-			stack.push({_bsdf->meta_common.bsdf[0],instr,false,0,_maskParent});
+			stack.push({_bsdf->meta_common.bsdf[0],instr,false,0,_maskParent,_parentIx});
 			break;
 		case CElementBSDF::Type::BLEND_BSDF:
 			stack.push({ _bsdf,instr,false,0,_maskParent });
 			instr = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[1]);
 			writeInheritableBitfields(instr, _parent);
-			stack.push({ _bsdf->meta_common.bsdf[1],instr,false,0,_maskParent });
+			stack.push({ _bsdf->meta_common.bsdf[1],instr,false,0,_maskParent,_parentIx });
 			instr = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[0]);
 			writeInheritableBitfields(instr, _parent);
-			stack.push({ _bsdf->meta_common.bsdf[0],instr,false,0,_maskParent });
+			stack.push({ _bsdf->meta_common.bsdf[0],instr,false,0,_maskParent,_parentIx });
 			break;
 		case CElementBSDF::Type::MIXTURE_BSDF:
 		{
@@ -405,16 +406,16 @@ protected:
 			}
 			bsdf::instr_t child0 = BSDFtype2opcode(_bsdf->mixturebsdf.bsdf[0]);
 			writeInheritableBitfields(child0, _parent);
-			stack.push({_bsdf->mixturebsdf.bsdf[0],child0,false,0});
+			stack.push({_bsdf->mixturebsdf.bsdf[0],child0,false,0,_maskParent,_parentIx});
 		}	
 			break;
 		case CElementBSDF::Type::MASK:
 			instr |= 1u<<bsdf::BITFIELDS_SHIFT_MASKFLAG;
-			stack.push({_bsdf->mask.bsdf[0],instr,false,0,_bsdf});
+			stack.push({_bsdf->mask.bsdf[0],instr,false,0,_bsdf,_parentIx});
 			break;
 		case CElementBSDF::Type::TWO_SIDED:
 			instr |= 1u<<bsdf::BITFIELDS_SHIFT_TWOSIDED;
-			stack.push({_bsdf->twosided.bsdf[0],instr,false,0,_maskParent});
+			stack.push({_bsdf->twosided.bsdf[0],instr,false,0,_maskParent,_parentIx});
 			break;
 		case CElementBSDF::Type::PHONG:
 			_IRR_DEBUG_BREAK_IF(1);
@@ -513,7 +514,7 @@ public:
 	traversal_t genTraversal(const CElementBSDF* _bsdf, IBSDFDataBufOffsetGetter* _getter) override
 	{
 		traversal_t traversal;
-		push(_bsdf, static_cast<bsdf::instr_t>(0), nullptr);
+		push(_bsdf, static_cast<bsdf::instr_t>(0), nullptr, 0u);
 		while (!stack.empty())
 		{
 			auto& top = stack.top();
@@ -539,10 +540,10 @@ public:
 				switch (bsdf::getOpcode(top.instr))
 				{
 				case bsdf::OP_BLEND:
-					push(top.bsdf->blendbsdf.bsdf[1], top.instr, top.maskParent);
+					push(top.bsdf->blendbsdf.bsdf[1], top.instr, top.maskParent, 0u);
 					_IRR_FALLTHROUGH;
 				default:
-					push(top.bsdf->blendbsdf.bsdf[0], top.instr, top.maskParent);
+					push(top.bsdf->blendbsdf.bsdf[0], top.instr, top.maskParent, 0u);
 					break;
 				}
 			}
@@ -562,9 +563,11 @@ class CPreOrderTraversalGenerator : public ITraveralGenerator
 public:
 	traversal_t genTraversal(const CElementBSDF* _bsdf, IBSDFDataBufOffsetGetter* _getter) override
 	{
+		constexpr uint32_t INVALID_INDEX = 0xdeadbeefu;
+
 		traversal_t traversal;
 		traversal.push_back(static_cast<bsdf::instr_t>(bsdf::OP_SET_GEOM_NORMAL));
-		push(_bsdf, static_cast<bsdf::instr_t>(0), nullptr);
+		push(_bsdf, static_cast<bsdf::instr_t>(0), nullptr, INVALID_INDEX);
 
 		while (!stack.empty())
 		{
@@ -572,17 +575,25 @@ public:
 			const bsdf::E_OPCODE op = bsdf::getOpcode(top.instr);
 
 			const uint32_t bsdfBufIx = _getter->getOffset(top.bsdf, 0u, top.bsdf->type == CElementBSDF::Type::MIXTURE_BSDF ? top.bsdf->mixturebsdf.weights[top.weight_ix] : 0.f, top.maskParent);
+			const uint32_t currIx = traversal.size();
 			traversal.push_back(emitInstr(top.instr, top.bsdf, bsdfBufIx, top.maskParent));
+			if (top.parentIx!=INVALID_INDEX)//means it's right child of a parent
+			{
+				//write RIGHT_JUMP bitfield into "parent instruction"
+				bsdf::instr_t& parentInstr = traversal[top.parentIx];
+				//writing absolute offset, but could be relative (i.e. `currIx-top.parentIx`) as well (decision needed)
+				parentInstr |= static_cast<bsdf::instr_t>(currIx)<<bsdf::INSTR_RIGHT_JUMP_SHIFT;
+			}
 
 			if (bsdf::getNumberOfSrcRegsForOpcode(op) > 0u)
 			{
 				switch (bsdf::getOpcode(top.instr))
 				{
 				case bsdf::OP_BLEND:
-					push(top.bsdf->blendbsdf.bsdf[1], top.instr, top.maskParent);
+					push(top.bsdf->blendbsdf.bsdf[1], top.instr, top.maskParent, currIx);
 					_IRR_FALLTHROUGH;
 				default:
-					push(top.bsdf->blendbsdf.bsdf[0], top.instr, top.maskParent);
+					push(top.bsdf->blendbsdf.bsdf[0], top.instr, top.maskParent, INVALID_INDEX);
 					break;
 				}
 			}
@@ -1173,6 +1184,11 @@ vec3 textureOrRGB19E7(in uvec2 data, in bool texPresenceFlag, in mat2 dUV)
 #define OP_BUMPMAP			13u
 #define OP_BLEND			12u
 
+bool opcode_isRough(in uint op)
+{
+	return op==OP_ROUGHDIFFUSE || op==OP_ROUGHDIELECTRIC || op==OP_ROUGHCONDUCTOR || op==OP_ROUGHPLASTIC || op==OP_WARD || op==OP_ROUGHCOATING;
+}
+
 #define NDF_BECKMANN	0u
 #define NDF_GGX			1u
 #define NDF_PHONG		2u
@@ -1197,12 +1213,47 @@ reg_t registers[REG_COUNT];
 void setCurrBSDFParams(in vec3 n, in vec3 L)
 {
 	vec3 campos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
-	irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, n);
+	irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, n);
 	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(interaction, L);
 	//TODO: T,B tangents
 	vec3 T = vec3(1.0,0.0,0.0);
 	vec3 B = vec3(0.0,0.0,1.0);
 	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(isoparams, T, B);
+}
+
+vec2 getAlpha(in uint op, in uint ndf, in instr_t instr, in bsdf_data_t data, in mat2 dUV)
+{
+	vec2 a;
+	if (op==OP_ROUGHDIFFUSE)
+	{
+		vec3 scale = decodeRGB19E7(data.data[1].zw);
+		float a_ = textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
+		a = vec2(a_);
+	}
+	else if (op==OP_ROUGHDIELECTRIC)
+	{
+		vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
+		a = vec2( textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x );
+		if (ndf == NDF_AS)
+			a.y = textureOrF32(uvec2(data.data[0].w, data.data[1].x), instr_getAlphaVTexPresence(instr), dUV)*scale.y;
+	}
+	else if (op==OP_ROUGHCONDUCTOR)
+	{
+		vec3 scale = decodeRGB19E7(data.data[2].zw);
+		a = vec2( textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x );
+		if (ndf==NDF_AS)
+			a.y = textureOrF32(data.data[0].zw, instr_getAlphaVTexPresence(instr), dUV)*scale.y;
+	}
+	else if (op==OP_ROUGHPLASTIC)
+	{
+		vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
+		a = vec2( textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x );
+	}
+	else if (op==OP_ROUGHCOATING)
+	{
+		//later
+	}
+	return a;
 }
 
 void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
@@ -1234,7 +1285,7 @@ void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in b
 	{
 		vec3 eta = vec3(uintBitsToFloat(data.data[0].x));
 		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic) * vec3(0.89);
-		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
+		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.interaction.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
 		registers[REG_DST(regs)] = diffuse;
 	}
 	else registers[REG_DST(regs)] = vec3(0.0);
@@ -1257,27 +1308,17 @@ void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV, in bs
 	vec3 etak = decodeRGB19E7(data.data[1].zw);
 	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
-void instr_execute_ROUGHCONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
+void instr_execute_ROUGHCONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec2 a, in float D, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
-		uint ndf = instr_getNDF(instr);
-		vec3 scale = decodeRGB19E7(data.data[2].zw);
-		float au = textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
-		float av;
-		if (ndf==NDF_AS)
-			av = textureOrF32(data.data[0].zw, instr_getAlphaVTexPresence(instr), dUV)*scale.y;
 		mat2x3 eta2;
 		eta2[0] = decodeRGB19E7(data.data[1].xy); eta2[0]*=eta2[0];
 		eta2[1] = decodeRGB19E7(data.data[1].zw); eta2[1]*=eta2[1];
-		vec3 specular = vec3(0.0);
-		if (ndf==NDF_BECKMANN)
-			specular = irr_glsl_beckmann_smith_height_correlated_cos_eval(currBSDFParams.isotropic, eta2, au, au*au);
-		else if (ndf==NDF_GGX)
-			specular = irr_glsl_ggx_height_correlated_cos_eval(currBSDFParams.isotropic, eta2, au*au);
-		else if (ndf==NDF_PHONG)
-			specular = irr_glsl_blinn_phong_fresnel_conductor_cos_eval(currBSDFParams.isotropic, 1.0/(au*au), eta2);
-		registers[REG_DST(regs)] = specular;
+		float a2 = a.x*a.y;
+		vec3 fr = irr_glsl_fresnel_conductor(eta2[0],eta2[1],currBSDFParams.isotropic.VdotH);
+		float g = irr_glsl_beckmann_smith_height_correlated(currBSDFParams.isotropic.interaction.NdotV_squared, currBSDFParams.isotropic.NdotL_squared, a2);
+		registers[REG_DST(regs)] = g*D*fr / (4.0 * currBSDFParams.isotropic.interaction.NdotV);
 	}
 	else registers[REG_DST(regs)] = reg_t(0.0);
 }
@@ -1288,27 +1329,22 @@ void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf
 	vec3 refl = textureOrRGB19E7(data.data[1].yz, instr_getPlasticReflTexPresence(instr), dUV)*scale.z;
 	registers[REG_DST(regs)] = refl;
 }
-void instr_execute_ROUGHPLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
+void instr_execute_ROUGHPLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec2 a, in float D, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
-		uint ndf = instr_getNDF(instr);
 		vec3 eta = vec3(uintBitsToFloat(data.data[0].x));
 		vec3 eta2 = eta*eta;
 		vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
 		vec3 refl = textureOrRGB19E7(data.data[1].yz, instr_getPlasticReflTexPresence(instr), dUV)*scale.z;
-		float a = textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
-		float a2 = a*a;
 
+		float a2 = a.x*a.y;
 		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic, a2) * refl;
-		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta2) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
-		vec3 specular = vec3(0.0);
-		if (ndf==NDF_BECKMANN)
-			specular = irr_glsl_beckmann_smith_height_correlated_cos_eval(currBSDFParams.isotropic, mat2x3(eta2, vec3(0.0)), a, a2);
-		else if (ndf==NDF_GGX)
-			specular = irr_glsl_ggx_height_correlated_cos_eval(currBSDFParams.isotropic, mat2x3(eta2, vec3(0.0)), a2);
-		else if (ndf==NDF_PHONG)
-			specular = irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(currBSDFParams.isotropic, 1.0/a2, eta);
+		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta2) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.interaction.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
+		vec3 fr = irr_glsl_fresnel_dielectric(eta,currBSDFParams.isotropic.VdotH);
+		//TODO shadowing/masking term also has to go outside, to instr_execute()
+		float g = irr_glsl_beckmann_smith_height_correlated(currBSDFParams.isotropic.interaction.NdotV_squared, currBSDFParams.isotropic.NdotL_squared, a2);	
+		vec3 specular = g*D*fr / (4.0 * currBSDFParams.isotropic.interaction.NdotV);
 
 		registers[REG_DST(regs)] = specular + diffuse;
 	}
@@ -1369,7 +1405,25 @@ void instr_execute_BLEND(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_d
 void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 L)
 {
 	bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
-	switch (instr.x & INSTR_OPCODE_MASK)
+	uint opcode = instr_getOpcode(instr);
+	uint ndf = instr_getNDF(instr);
+	bool twosided = instr_getTwosided(instr);
+	
+	//if (twosided)
+	//flip normal
+
+	vec2 a = getAlpha(opcode,ndf,instr,bsdf_data,dUV);
+	float a2 = a.x*a.y;
+	//TODO somehow get alpha here
+	float D = 0.0;
+	if (ndf==NDF_BECKMANN)
+		D = irr_glsl_beckmann(a2, currBSDFParams.isotropic.NdotH*currBSDFParams.isotropic.NdotH);
+	else if (ndf==NDF_GGX)
+		D = irr_glsl_ggx_trowbridge_reitz(a2, currBSDFParams.isotropic.NdotH*currBSDFParams.isotropic.NdotH);
+	else if (ndf==NDF_PHONG)
+		D = irr_glsl_blinn_phong(currBSDFParams.isotropic.NdotH, 1.0/a2);
+
+	switch (opcode)
 	{
 	//run func depending on opcode
 	//the func will decide whether to (and which ones) fetch registers from `regs` array
@@ -1395,13 +1449,13 @@ void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 L)
 		instr_execute_CONDUCTOR(instr, regs, dUV, bsdf_data);
 		break;
 	case OP_ROUGHCONDUCTOR:
-		instr_execute_ROUGHCONDUCTOR(instr, regs, dUV, bsdf_data);
+		instr_execute_ROUGHCONDUCTOR(instr, regs, dUV, a, D, bsdf_data);
 		break;
 	case OP_PLASTIC:
 		instr_execute_PLASTIC(instr, regs, dUV, bsdf_data);
 		break;
 	case OP_ROUGHPLASTIC:
-		instr_execute_ROUGHPLASTIC(instr, regs, dUV, bsdf_data);
+		instr_execute_ROUGHPLASTIC(instr, regs, dUV, a, D, bsdf_data);
 		break;
 	case OP_WARD:
 		instr_execute_WARD(instr, regs, dUV, bsdf_data);
@@ -1447,7 +1501,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
 
 #ifndef _IRR_COMPUTE_LIGHTING_DEFINED_
 #define _IRR_COMPUTE_LIGHTING_DEFINED_
-vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in mat2 dUV)
+vec3 irr_computeLighting(out irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
 	vec3 emissive = decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
@@ -1464,7 +1518,7 @@ void main()
 {
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
-	irr_glsl_ViewSurfaceInteraction inter;
+	irr_glsl_IsotropicViewSurfaceInteraction inter;
 	OutColor = vec4(irr_computeLighting(inter, dUV), 1.0);
 }
 )";
