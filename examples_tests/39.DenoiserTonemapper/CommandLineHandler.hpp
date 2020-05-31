@@ -41,19 +41,23 @@ Optional Parameters:
 -NORMAL_CHANNEL_NAME=normalChannelName
 -BLOOM_PSF_FILE=psfFilename
 
-NORMAL_FILE can only be specified if ALBEDO_FILE has been specified
-ALBEDO_CHANNEL_NAME can only be specified if ALBEDO_FILE has been specified
-NORMAL_CHANNEL_NAME can only be specified if NORMAL_FILE has been specified
-
 Note there mustn't be any space characters!
 All file's resolutions must match!
 Also you must not put another data like comments or behaviour will be undefined, the app'll crash (TODO: not crash on parse failure)
 
-Description and usage: (TODO: Update these)
+Description and usage: 
 
-~OPENEXR_FILE: OpenEXR file containing various channels~
+COLOR_FILE: File containing color image data, it's required to run within.
+ALBEDO_FILE: File containing albedo image data, it is not required to run within.
+NORMAL_FILE: File containing normal image data, it is not required to run within, but it can only be specified if ALBEDO_FILE has been specified.
 
-~CHANNEL_NAMES: name of denoiser input channels, first is mandatory rest is optional - split each next channel using ","~
+COLOR_CHANNEL_NAME: Channel name of an image for color image that the image will be assigned to. 
+ALBEDO_CHANNEL_NAME: Channel name of an image for albedo image that the image will be assigned to. It can only be specified if ALBEDO_FILE has been specified.
+NORMAL_CHANNEL_NAME: Channel name of an image for normal image that the image will be assigned to. It can only be specified if NORMAL_FILE has been specified.
+
+For example, given a color image having loaded albedo and normal images as well, you can force color image to use albedo's image data. To perform it, you have to write as following:
+COLOR_CHANNEL_NAME=albedo
+and it will use the albedo image as color assuming, that there is a valid albedo channel assigned to albedo image - otherwise the default one will be choosen.
 
 CAMERA_TRANSFORM: values as "initializer list" for camera transform matrix with
 row_major layout (max 9 values - extra values will be ignored)
@@ -109,6 +113,15 @@ constexpr std::string_view COLOR_CHANNEL_NAME = "COLOR_CHANNEL_NAME";
 constexpr std::string_view ALBEDO_CHANNEL_NAME = "ALBEDO_CHANNEL_NAME";
 constexpr std::string_view NORMAL_CHANNEL_NAME = "NORMAL_CHANNEL_NAME";
 constexpr std::string_view BLOOM_PSF_FILE = "BLOOM_PSF_FILE";
+
+/*
+	Those are reserved for files and variables being invalid.
+	- INVALID_VARIABLE means that the variable hasn't been specified (optional) or there is something wrong with the variable and so can't be used.
+	- INVALID_FILE means that the file doesn't meet the requirements (extension) so can't be used.
+*/
+
+constexpr std::string_view INVALID_VARIABLE = "INVALID_VARIABLE";
+constexpr std::string_view INVALID_FILE = "INVALID_FILE";
 
 constexpr std::array<std::string_view, MANDATORY_CMD_ARGUMENTS_AMOUNT> REQUIRED_PARAMETERS =
 {

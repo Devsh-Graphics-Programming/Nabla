@@ -106,13 +106,7 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 			const auto argvStream = *(batchInputStream.begin() + i);
 			const auto arguments = getSerializedValues(argvStream, PROPER_CMD_ARGUMENTS_AMOUNT, true);
 
-			if (arguments.size() != PROPER_CMD_ARGUMENTS_AMOUNT)
-			{
-				os::Printer::log("The input batch file command with id: " + std::to_string(i) + " is incorrect - skipping it!", ELL_WARNING);
-				log = true;
-			}
-
-			fillArgvList(arguments, PROPER_CMD_ARGUMENTS_AMOUNT, i);
+			fillArgvList(arguments, arguments.size(), i);
 		}
 
 		if(log)
@@ -125,6 +119,20 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 		os::Printer::log("Invalid syntax!", ELL_ERROR);
 		os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
 	}
+
+	auto validateFileVariable = [](std::string& path, const std::string& variable)
+	{
+		io::path filename, extension, finalFileNameWithExtension;
+		core::splitFilename(path.c_str(), nullptr, &filename, &extension);
+		finalFileNameWithExtension = filename + ".";
+		finalFileNameWithExtension += extension;
+
+		if (std::string(extension.c_str()) != "exr")
+		{
+			path = INVALID_FILE.data();
+			os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): " + std::string(finalFileNameWithExtension.c_str()) + " is invalid! Filling the path variable with " + std::string(INVALID_FILE.data()) + "!", ELL_WARNING);
+		}
+	};
 
 	// read from argv list to map and put variables to appropiate places in a cache
 	rawVariables.resize(argvMappedList.size());
@@ -142,6 +150,17 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 			for (auto z = 0; z < PROPER_CMD_ARGUMENTS_AMOUNT; ++z)
 			{
 				std::string rawFetchedCmdArgument = cmdArgumentsPerFile[z];
+				if (rawFetchedCmdArgument.empty())
+				{
+					if (!referenceVariableMap.second.size())
+					{
+						referenceVariableMap.second.emplace_back(INVALID_VARIABLE.data());
+						os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): The variable " + referenceVariableMap.first + " hasn't been specified! Filling the variable with " + std::string(INVALID_VARIABLE.data()) + "!", ELL_WARNING);
+					}
+						
+					continue;
+				}
+
 				const auto offset = rawFetchedCmdArgument.find_first_of("-") + 1;
 				const auto endOfFetchedVariableName = rawFetchedCmdArgument.find_first_of("=");
 				const auto count = endOfFetchedVariableName - offset;
@@ -192,8 +211,8 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 						if (variablesHandle.size() != TA_COUNT)
 							variablesHandle.resize(TA_COUNT);
 
-						reference.second[TA_KEY_VALUE] = variablesHandle[TA_KEY_VALUE].empty() ? std::string("0") : variablesHandle[TA_KEY_VALUE];
-						reference.second[TA_EXTRA_PARAMETER] = variablesHandle[TA_EXTRA_PARAMETER].empty() ? std::string("0") : variablesHandle[TA_EXTRA_PARAMETER];
+						reference.second[TA_KEY_VALUE] = variablesHandle[TA_KEY_VALUE].empty() ? std::string("0.4") : variablesHandle[TA_KEY_VALUE];
+						reference.second[TA_EXTRA_PARAMETER] = variablesHandle[TA_EXTRA_PARAMETER].empty() ? std::string("0.8") : variablesHandle[TA_EXTRA_PARAMETER];
 					}
 					else if (variable == REINHARD)
 					{
@@ -205,8 +224,8 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 						if (variablesHandle.size() != TA_COUNT)
 							variablesHandle.resize(TA_COUNT);
 
-						reference.second[TA_KEY_VALUE] = variablesHandle[TA_KEY_VALUE].empty() ? std::string("0") : variablesHandle[TA_KEY_VALUE];
-						reference.second[TA_EXTRA_PARAMETER] = variablesHandle[TA_EXTRA_PARAMETER].empty() ? std::string("0") : variablesHandle[TA_EXTRA_PARAMETER];
+						reference.second[TA_KEY_VALUE] = variablesHandle[TA_KEY_VALUE].empty() ? std::string("0.4") : variablesHandle[TA_KEY_VALUE];
+						reference.second[TA_EXTRA_PARAMETER] = variablesHandle[TA_EXTRA_PARAMETER].empty() ? std::string("0.8") : variablesHandle[TA_EXTRA_PARAMETER];
 					}
 					else if (variable == CAMERA_TRANSFORM)
 					{
@@ -219,6 +238,9 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 						// always one value
 						auto variablesHandle = getSerializedValues(variablesStream, 1);
 						referenceVariableMap.second = variablesHandle;
+
+						if(variable == COLOR_FILE || variable == ALBEDO_FILE || variable == NORMAL_FILE || variable == BLOOM_PSF_FILE)
+							validateFileVariable(referenceVariableMap.second[0], variable);
 					}
 
 					break;

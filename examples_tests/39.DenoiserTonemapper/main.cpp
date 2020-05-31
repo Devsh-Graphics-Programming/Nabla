@@ -595,14 +595,13 @@ void main()
 		for (size_t i=0; i < inputFilesAmount; i++)
 		{
 			auto color_image_bundle = am->getAsset(colorFileNameBundle[i], lp); decltype(color_image_bundle) albedo_image_bundle, normal_image_bundle;
-			if (color_image_bundle.isEmpty())
+			if (color_image_bundle.isEmpty() || colorFileNameBundle[i] == INVALID_FILE)
 			{
 				auto imageIDString = makeImageIDString(i, colorFileNameBundle);
-				os::Printer::log(imageIDString+"Could not load from file!", ELL_ERROR);
+				os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Could not load the image from file: " + imageIDString + "!", ELL_ERROR);
 				continue;
 			}
 
-			// TODO check if we actually have to load albedo and normals
 			albedo_image_bundle = am->getAsset(albedoFileNameBundle[i], lp);
 			normal_image_bundle = am->getAsset(normalFileNameBundle[i], lp);
 
@@ -630,83 +629,163 @@ void main()
 			};
 
 			auto& color = getImageAssetAndItsChannelName(color_image_bundle);
-			auto& albedo = getImageAssetAndItsChannelName(albedo_image_bundle);
-			auto& normal = getImageAssetAndItsChannelName(normal_image_bundle);
+			decltype(color)& albedo = getImageAssetAndItsChannelName(albedo_image_bundle);
+			decltype(color)& normal = getImageAssetAndItsChannelName(normal_image_bundle);
 
-			/*
-					TODO: actually why don't we want exr inputs?
-				if (image->getCreationParameters().format!=irrFmtRequired)
-				{
-					CConvertFormatImageFilter<>::state_type state;
-					state.extentLayerCount =
-					state.inImage = image;
-				}
-			*/
-
-			auto putImageIntoImageToDenoise = [&](std::optional<std::pair<core::smart_refctd_ptr<ICPUImage>, std::string>> queriedImage, std::string queriedChannelName, E_IMAGE_INPUT defaultEII)
+			auto convertImageToRequiredFmt = [&](core::smart_refctd_ptr<ICPUImage> image)
 			{
+				using CONVERSION_FILTER = CConvertFormatImageFilter<>;
+
+				core::smart_refctd_ptr<ICPUImage> newConvertedImage;
+				{
+					auto referenceImageParams = image->getCreationParameters();
+					auto referenceBuffer = image->getBuffer();
+					auto referenceRegions = image->getRegions();
+					auto referenceRegion = referenceRegions.begin();
+					const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(irrFmtRequired);
+
+					auto newImageParams = referenceImageParams;
+					auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceRegion->getExtent().width * referenceRegion->getExtent().height * referenceRegion->getExtent().depth * newTexelOrBlockByteSize);
+					auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(referenceRegions.size());
+
+					*newRegions->begin() = *referenceRegion;
+
+					newImageParams.format = irrFmtRequired;
+					newConvertedImage = ICPUImage::create(std::move(newImageParams));
+					newConvertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
+
+					CONVERSION_FILTER convertFilter;
+					CONVERSION_FILTER::state_type state;
+
+					state.inImage = image.get();
+					state.outImage = newConvertedImage.get();
+					state.inOffset = { 0, 0, 0 };
+					state.inBaseLayer = 0;
+					state.outOffset = { 0, 0, 0 };
+					state.outBaseLayer = 0;
+
+					auto region = newConvertedImage->getRegions().begin();
+
+					state.extent = region->getExtent();
+					state.layerCount = region->imageSubresource.layerCount;
+					state.inMipLevel = region->imageSubresource.mipLevel;
+					state.outMipLevel = region->imageSubresource.mipLevel;
+
+					if (!convertFilter.execute(&state))
+						os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Something went wrong while converting the image!", ELL_WARNING);
+				}
+				return newConvertedImage;
+			};
+
+			auto putImageIntoImageToDenoise = [&](std::optional<std::pair<core::smart_refctd_ptr<ICPUImage>, std::string>> queriedImage, std::pair<const core::vector<std::string>& , const core::vector<std::string>&> queriedFileAndChannelBundle, E_IMAGE_INPUT defaultEII)
+			{
+				std::string queriedFile = queriedFileAndChannelBundle.first[i];
+				std::string queriedChannelName = queriedFileAndChannelBundle.second[i];
+
+				if (queriedFile == INVALID_FILE)
+				{
+					os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): The file " + queriedFile + " is invalid! Skipping!", ELL_WARNING);
+					return;
+				}
+
 				if (!queriedImage.has_value())
 				{
-					outParam.image[defaultEII] = nullptr;
+					switch (defaultEII)
+					{
+						case EII_ALBEDO:
+						{
+							os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): Running in mode without albedo channel!", ELL_INFORMATION);
+						} break;
+						case EII_NORMAL:
+						{
+							os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): Running in mode without normal channel!", ELL_INFORMATION);
+						} break;
+					}
 					return;
 				}
 
 				auto handledDefaultImage = queriedImage.value().first;
 				const auto handledDefaultImageMetadataChannelName = queriedImage.value().second; 
 
-				const std::array<std::string, 3> queriedAvailableMetadataChannelNames = { color.value().second, albedo.value().second, normal.value().second };
+				if (queriedFile.empty())
+				{
+					outParam.image[defaultEII] = std::move(handledDefaultImage);
+					os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): The default channel for " + makeImageIDString(i, queriedFileAndChannelBundle.first) + " has been taken!", ELL_INFORMATION);
+					return;
+				}
+
+				/*
+
+				I'm not sure why we should do this, so I leave it for you @devsh to uncomment eventually
+
+				if (handledDefaultImage->getCreationParameters().format != irrFmtRequired)
+					handledDefaultImage = convertImageToRequiredFmt(handledDefaultImage);
+
+				*/
+
+				const std::array<std::string, 3> queriedAvailableMetadataChannelNames = 
+				{
+					color.has_value() ? color.value().second : "",
+					albedo.has_value() ? albedo.value().second : "",
+					normal.has_value() ? normal.value().second : ""
+				};
 				core::vector<std::pair<size_t, uint8_t>> channelNameOffsets;
 
 				for(uint8_t queryItr = 0; queryItr < queriedAvailableMetadataChannelNames.size(); ++queryItr)
 				{
 					auto channelNameToCompare = queriedAvailableMetadataChannelNames[queryItr];
 
-					if (channelNameToCompare.empty()) // if it's empty, it means in metadata there is no information about special suffix channel name, so it is just rgb/a
+					if (channelNameToCompare.empty()) // if it's empty, it means in metadata there is no information about special suffix channel name, so it's name is just a rgb/a
 						continue;
 
-					auto found = channelNameToCompare.find_first_of(queriedChannelName);
-					auto compareBegin = channelNameToCompare.begin();
-					auto compareFoundItr = compareBegin + found;
+					auto found = channelNameToCompare.find(queriedChannelName);
 
-					auto inputIx = std::distance(compareBegin, compareFoundItr);
-					if (found != std::string::npos)
-						channelNameOffsets.push_back(std::make_pair(inputIx, EII_COLOR + queryItr));
+					if (found == std::string::npos)
+						continue;
+					else
+					{
+						auto compareBegin = channelNameToCompare.begin();
+						auto compareFoundItr = compareBegin + found;
+
+						auto offset = std::distance(compareBegin, compareFoundItr);
+						channelNameOffsets.push_back(std::make_pair(offset, EII_COLOR + queryItr));
+					}
 				}
 
 				if (channelNameOffsets.empty())
 				{
 					outParam.image[defaultEII] = std::move(handledDefaultImage);
-					os::Printer::log("Could't find queried channel name in available channels. The default \"" + handledDefaultImageMetadataChannelName + "\" has been taken!", ELL_INFORMATION);
+					os::Printer::log("WARNING (" + std::to_string(__LINE__) + "): Could't find queried channel name in available metadata channels. The default channel for " + makeImageIDString(i, queriedFileAndChannelBundle.first) + " has been taken!", ELL_WARNING);
 				}
 				else
 				{
-					uint8_t imageInputIx = std::distance(channelNameOffsets.begin(), std::min_element(channelNameOffsets.begin(), channelNameOffsets.end(), [](const std::pair<size_t, uint8_t>& a, const std::pair<size_t, uint8_t>& b) { return a.second < b.second; }));
+					auto minOffsetData = std::min_element(channelNameOffsets.begin(), channelNameOffsets.end(), [](const std::pair<size_t, uint8_t>& a, const std::pair<size_t, uint8_t>& b) { return a.second < b.second; });
 
-					switch (static_cast<E_IMAGE_INPUT>(imageInputIx))
+					switch (static_cast<E_IMAGE_INPUT>(minOffsetData->second))
 					{
 						case EII_COLOR:
 						{
-							outParam.image[EII_COLOR] = std::move(color.value().first);
+							outParam.image[EII_COLOR] = std::move(handledDefaultImage);
 						} break;
 						case EII_ALBEDO:
 						{
-							outParam.image[EII_ALBEDO] = std::move(albedo.value().first);
+							outParam.image[EII_ALBEDO] = std::move(handledDefaultImage);
 						} break;
 						case EII_NORMAL:
 						{
-							outParam.image[EII_NORMAL] = std::move(normal.value().first);
+							outParam.image[EII_NORMAL] = std::move(handledDefaultImage);
 						} break;
 						default:
 						{
-							os::Printer::log("An unexpected error has ocured!", ELL_ERROR);
+							os::Printer::log("ERROR (" + std::to_string(__LINE__) + "): An unexpected error has ocured!", ELL_ERROR);
 						}
 					}
 				}
 			};
 
-			putImageIntoImageToDenoise(color, colorChannelNameBundle[i], EII_COLOR);
-			putImageIntoImageToDenoise(albedo, albedoChannelNameBundle[i], EII_ALBEDO);
-			putImageIntoImageToDenoise(normal, normalChannelNameBundle[i], EII_NORMAL);
+			putImageIntoImageToDenoise(color, std::make_pair(colorFileNameBundle, colorChannelNameBundle), EII_COLOR);
+			putImageIntoImageToDenoise(albedo, std::make_pair(albedoFileNameBundle, albedoChannelNameBundle), EII_ALBEDO);
+			putImageIntoImageToDenoise(normal, std::make_pair(normalFileNameBundle, normalChannelNameBundle), EII_NORMAL);
 		}
 		// check inputs and set-up
 		for (size_t i=0; i<inputFilesAmount; i++)
