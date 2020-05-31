@@ -176,10 +176,8 @@ int main(int argc, char* argv[])
 		auto deinterleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
-
 #define _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
 #include "../ShaderCommon.glsl"
-
 layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 {
 	f16vec4 inBuffer[];
@@ -188,7 +186,6 @@ layout(binding = 1, std430) restrict writeonly buffer ImageOutputBuffer
 {
 	float16_t outBuffer[];
 };
-
 vec3 fetchData(in uvec3 texCoord)
 {
 	vec3 data = vec4(inBuffer[pc.data.inImageTexelOffset[texCoord.z]+texCoord.y*pc.data.inImageTexelPitch[texCoord.z]+texCoord.x]).xyz;
@@ -201,7 +198,6 @@ vec3 fetchData(in uvec3 texCoord)
 	}
 	return data;
 }
-
 void main()
 {
 	bool colorLayer = gl_GlobalInvocationID.z==EII_COLOR;
@@ -415,10 +411,8 @@ void main()
 	}
 	barrier();
 	memoryBarrierShared();
-
 	const uint outImagePitch = pc.data.imageWidth*SHARED_CHANNELS;
 	uint rowOffset = pc.data.outImageOffset[gl_GlobalInvocationID.z]+gl_GlobalInvocationID.y*outImagePitch;
-
 	uint lineOffset = gl_WorkGroupID.x*COMPUTE_WG_SIZE*SHARED_CHANNELS+gl_LocalInvocationIndex;
 	if (lineOffset<outImagePitch)
 		outBuffer[rowOffset+lineOffset] = float16_t(uintBitsToFloat(repackBuffer[gl_LocalInvocationIndex+COMPUTE_WG_SIZE*0u]));
@@ -433,9 +427,7 @@ void main()
 		auto intensityShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
-
 #include "../ShaderCommon.glsl"
-
 layout(set=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_) restrict readonly buffer LumaMeterOutputBuffer
 {
 	irr_glsl_ext_LumaMeter_output_t lumaParams[];
@@ -444,26 +436,19 @@ layout(binding = 3, std430) restrict writeonly buffer IntensityBuffer
 {
 	float intensity[];
 };
-
-
 irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t irr_glsl_ext_ToneMapper_getLumaMeterOutput()
 {
 	irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t retval;
-
 	retval = lumaParams[0].packedHistogram[gl_LocalInvocationIndex];
 	for (int i=1; i<_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION; i++)
 		retval += lumaParams[0].packedHistogram[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT];
-
 	return retval;
 }
-
-
 void main()
 {
 	irr_glsl_ext_LumaMeter_PassInfo_t lumaPassInfo;
 	lumaPassInfo.percentileRange[0] = pc.data.percentileRange[0];
 	lumaPassInfo.percentileRange[1] = pc.data.percentileRange[1];
-
 	float measuredLumaLog2 = irr_glsl_ext_LumaMeter_getMeasuredLumaLog2(irr_glsl_ext_ToneMapper_getLumaMeterOutput(),lumaPassInfo);
 	// write optix brightness
 	if (all(equal(uvec3(0,0,0),gl_GlobalInvocationID)))
@@ -473,10 +458,8 @@ void main()
 		auto interleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
-
 #include "../ShaderCommon.glsl"
 #include "irr/builtin/glsl/ext/ToneMapper/operators.glsl"
-
 layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 {
 	float16_t inBuffer[];
@@ -489,12 +472,9 @@ layout(binding = 3, std430) restrict readonly buffer IntensityBuffer
 {
 	float intensity[];
 };
-
-
 void main()
 {
 	uint wgOffset = pc.data.outImageOffset[EII_COLOR]+(gl_GlobalInvocationID.y*pc.data.imageWidth+gl_WorkGroupID.x*COMPUTE_WG_SIZE)*SHARED_CHANNELS;
-
 	uint localOffset = gl_LocalInvocationIndex;
 	repackBuffer[localOffset] = floatBitsToUint(float(inBuffer[wgOffset+localOffset]));
 	localOffset += COMPUTE_WG_SIZE;
@@ -503,7 +483,6 @@ void main()
 	repackBuffer[localOffset] = floatBitsToUint(float(inBuffer[wgOffset+localOffset]));
 	barrier();
 	memoryBarrierShared();
-
 	bool alive = gl_GlobalInvocationID.x<pc.data.imageWidth;
 	vec3 color = uintBitsToFloat(uvec3(repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u]));
 	
@@ -532,7 +511,6 @@ void main()
 			break;
 	}
 	color = irr_glsl_XYZtosRGB*color;
-
 	// TODO: compute DFFT of the image in the X-axis
 	uint dataOffset = pc.data.inImageTexelOffset[EII_COLOR]+gl_GlobalInvocationID.y*pc.data.inImageTexelPitch[EII_COLOR]+gl_GlobalInvocationID.x;
 	if (alive)
@@ -587,7 +565,7 @@ void main()
 	const auto& normalChannelNameBundle = cmdHandler.getNormalChannelNameBundle();
 	const auto& cameraTransformBundle = cmdHandler.getCameraTransformBundle();
 	const auto& medianFilterRadiusBundle = cmdHandler.getMedianFilterRadiusBundle();
-	const auto& exposureBiasBundle = cmdHandler.getExposureBiasBundle();
+	const auto& denoiserExposureBiasBundle = cmdHandler.getExposureBiasBundle();
 	const auto& denoiserBlendFactorBundle = cmdHandler.getDenoiserBlendFactorBundle();
 	const auto& bloomFovBundle = cmdHandler.getBloomFovBundle();
 	const auto& tonemapperBundle = cmdHandler.getTonemapperBundle();
@@ -632,6 +610,9 @@ void main()
 
 			auto getImageAssetAndItsChannelName = [](asset::SAssetBundle& assetBundle) -> std::optional<std::pair<core::smart_refctd_ptr<ICPUImage>, std::string>>
 			{
+				if (assetBundle.isEmpty())
+					return {};
+
 				auto contents = assetBundle.getContents();
 				auto asset = contents.first[0];
 
@@ -645,41 +626,50 @@ void main()
 				const auto& assetMetaChannelName = exrmeta->getName();
 
 				auto fillVal = std::make_pair(image, assetMetaChannelName);
-				auto retval = std::optional<decltype(fillVal)>(fillVal);
+				return std::optional<decltype(fillVal)>(std::in_place_t(), fillVal);
 			};
 
-			auto color = getImageAssetAndItsChannelName(color_image_bundle);
-			auto albedo = getImageAssetAndItsChannelName(albedo_image_bundle);
-			auto normal = getImageAssetAndItsChannelName(normal_image_bundle);
+			auto& color = getImageAssetAndItsChannelName(color_image_bundle);
+			auto& albedo = getImageAssetAndItsChannelName(albedo_image_bundle);
+			auto& normal = getImageAssetAndItsChannelName(normal_image_bundle);
 
 			/*
 					TODO: actually why don't we want exr inputs?
-
 				if (image->getCreationParameters().format!=irrFmtRequired)
 				{
 					CConvertFormatImageFilter<>::state_type state;
 					state.extentLayerCount =
 					state.inImage = image;
 				}
-
 			*/
 
-			auto putImageIntoImageToDenoise = [&](std::optional<std::pair<core::smart_refctd_ptr<ICPUImage>, std::string>> queriedImage, std::string queryChannelName, E_IMAGE_INPUT defaultEII)
+			auto putImageIntoImageToDenoise = [&](std::optional<std::pair<core::smart_refctd_ptr<ICPUImage>, std::string>> queriedImage, std::string queriedChannelName, E_IMAGE_INPUT defaultEII)
 			{
-				auto handledDefaultImage = queriedImage.value().first;
-				const auto handledDefaultImageMetadataChannelName = queriedImage.value().second;
+				if (!queriedImage.has_value())
+				{
+					outParam.image[defaultEII] = nullptr;
+					return;
+				}
 
-				const std::array<std::string&, 3> queriedChannelNames = { color.value().second, albedo.value().second, normal.value().second };
+				auto handledDefaultImage = queriedImage.value().first;
+				const auto handledDefaultImageMetadataChannelName = queriedImage.value().second; 
+
+				const std::array<std::string, 3> queriedAvailableMetadataChannelNames = { color.value().second, albedo.value().second, normal.value().second };
 				core::vector<std::pair<size_t, uint8_t>> channelNameOffsets;
 
-				for(uint8_t queryItr = 0; queryItr < queriedChannelNames.size(); ++queryItr)
+				for(uint8_t queryItr = 0; queryItr < queriedAvailableMetadataChannelNames.size(); ++queryItr)
 				{
-					const auto& userQueriedChannelName = queriedChannelNames[queryItr];
-					const auto queryBegin = userQueriedChannelName.begin();
-					const auto queryEnd = userQueriedChannelName.end();
+					auto channelNameToCompare = queriedAvailableMetadataChannelNames[queryItr];
 
-					auto inputIx = std::distance(queryBegin, std::find(queryBegin, queryEnd, queryChannelName));
-					if (inputIx < userQueriedChannelName.size())
+					if (channelNameToCompare.empty()) // if it's empty, it means in metadata there is no information about special suffix channel name, so it is just rgb/a
+						continue;
+
+					auto found = channelNameToCompare.find_first_of(queriedChannelName);
+					auto compareBegin = channelNameToCompare.begin();
+					auto compareFoundItr = compareBegin + found;
+
+					auto inputIx = std::distance(compareBegin, compareFoundItr);
+					if (found != std::string::npos)
 						channelNameOffsets.push_back(std::make_pair(inputIx, EII_COLOR + queryItr));
 				}
 
@@ -717,7 +707,6 @@ void main()
 			putImageIntoImageToDenoise(color, colorChannelNameBundle[i], EII_COLOR);
 			putImageIntoImageToDenoise(albedo, albedoChannelNameBundle[i], EII_ALBEDO);
 			putImageIntoImageToDenoise(normal, normalChannelNameBundle[i], EII_NORMAL);
-	
 		}
 		// check inputs and set-up
 		for (size_t i=0; i<inputFilesAmount; i++)
@@ -866,14 +855,21 @@ void main()
 			for (uint32_t j=0u; j<denoiserInputCount; j++)
 				shaderConstants.outImageOffset[j] = j*param.width*param.height*forcedOptiXFormatPixelStride/sizeof(uint16_t); // float 16 actually
 			shaderConstants.imageWidth = param.width;
-			shaderConstants.medianFilterRadius = 1u; // TODO: load from `MEDIAN_FILTER_RADIUS`
+			shaderConstants.medianFilterRadius = medianFilterRadiusBundle[i];
 			assert(intensityBufferOffset%IntensityValuesSize==0u);
 			shaderConstants.intensityBufferDWORDOffset = intensityBufferOffset/IntensityValuesSize;
-			shaderConstants.denoiserExposureBias = exposureBiasBundle[i]; // TODO: rename the `exposureBias*` to `denoiserExposureBias`
-			shaderConstants.tonemappingOperator = ToneMapperClass::EO_ACES; // TODO: load from tonemapper operator type
+			shaderConstants.denoiserExposureBias = denoiserExposureBiasBundle[i];
+
+			if (tonemapperBundle[i].first == ACES.data())
+				shaderConstants.tonemappingOperator = ToneMapperClass::EO_ACES;
+			else if (tonemapperBundle[i].first == REINHARD.data())
+				shaderConstants.tonemappingOperator = ToneMapperClass::EO_REINHARD;
+			else
+				assert(false, "An unexcepted error ocured while trying to specify tonemapper!");
+
 			const float optiXIntensityKeyCompensation = -log2(0.18);
-			float key = 0.4; // TODO: load from tonemapper parameters
-			float extraParam = 0.8; // TODO: load from tonemapper parameters
+			float key = tonemapperBundle[i].second[TA_KEY_VALUE];
+			float extraParam = tonemapperBundle[i].second[TA_EXTRA_PARAMETER];
 			switch (shaderConstants.tonemappingOperator)
 			{
 				case ToneMapperClass::EO_REINHARD:
