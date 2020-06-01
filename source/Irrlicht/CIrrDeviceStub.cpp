@@ -50,7 +50,7 @@ CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
 
 
 CIrrDeviceStub::~CIrrDeviceStub()
-{f
+{
 	if (Operator)
 		Operator->drop();
 
