@@ -112,18 +112,18 @@ int main()
 		static_cast<IAsset::E_TYPE>(0u)
 	*/
 
-	constexpr std::string_view cacheKey = "irr/builtin/materials/lambertian/singletexture/specializedshader";
 	const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
 
 	auto vertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	auto fragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 
-	auto bundle = assetManager->findAssets(cacheKey.data(), types);
+	auto vshaderbundle = assetManager->findAssets("irr/builtin/materials/lambertian/singletexture/specializedshader.vert", types);
+	auto fshaderbundle = assetManager->findAssets("irr/builtin/materials/lambertian/singletexture/specializedshader.frag", types);
 
 	auto refCountedBundle =
 	{
-		core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().first[0]),
-		core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>((bundle->begin() + 1)->getContents().first[0])
+		core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(vshaderbundle->begin()->getContents().first[0]),
+		core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(fshaderbundle->begin()->getContents().first[0])
 	};
 
 	for (auto& shader : refCountedBundle)
