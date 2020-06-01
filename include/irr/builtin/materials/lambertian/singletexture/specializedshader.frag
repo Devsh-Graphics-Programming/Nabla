@@ -1,6 +1,6 @@
 #version 430 core
 
-layout(set = 0, binding = 0) uniform sampler2D albedo;
+layout(set = 3, binding = 0) uniform sampler2D albedo;
 
 layout(location = 0) in vec2 uv;
 

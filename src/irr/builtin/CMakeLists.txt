@@ -16,9 +16,17 @@ function(irr_add_builtin_resources)
 endfunction()
 
 set(irr_resources_to_embed
+  "irr/builtin/specializedshaders/fullscreentriangle.vert"
   "irr/builtin/materials/lambertian/singletexture/specializedshader.vert"
   "irr/builtin/materials/lambertian/singletexture/specializedshader.frag"
-  "irr/builtin/materials/lambertian/no_texture/specializedshader.vert"
-  "irr/builtin/materials/lambertian/no_texture/specializedshader.frag" 
+  "irr/builtin/glsl/broken_driver_workarounds/amd.glsl"
+  "irr/builtin/glsl/colorspace/EOTF.glsl"
+  "irr/builtin/glsl/colorspace/OETF.glsl"
+  "irr/builtin/glsl/colorspace/decodeCIEXYZ.glsl"
+  "irr/builtin/glsl/colorspace/encodeCIEXYZ.glsl"
+  "irr/builtin/glsl/utils/vertex.glsl"
+  "irr/builtin/glsl/virtual_texturing/descriptors.glsl"
+  "irr/builtin/glsl/virtual_texturing/extensions.glsl"
+  "irr/builtin/glsl/virtual_texturing/impl_functions.glsl"
   PARENT_SCOPE)
 
