@@ -62,12 +62,6 @@ irr_get_conf_dir(IRRLICHT_CONF_DIR_RELEASE Release)
 if(IRR_EMBED_BUILTIN_RESOURCES)	
 	add_subdirectory(builtin)
 	irr_add_builtin_resources("${irr_resources_to_embed}")
-elseif()
-	if(INSTALL)
-		set(__IRR_INSTALL_DIR__ ${CMAKE_INSTALL_PREFIX})
-	elseif()
-		set(__IRR_INSTALL_DIR__ ${CMAKE_SOURCE_DIR})
-	endif()
 endif()
 irr_get_conf_dir(IRRLICHT_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
 
@@ -104,8 +98,7 @@ set(IRRLICHT_HEADERS ${IRRLICHT_HEADERS_PUBLIC} ${IRRLICHT_HEADERS_PIRV1} ${IRRL
 
 
 set(IRR_CORE_SOURCES
-# Reference Counted
-	IReferenceCounted.cpp
+	${IRR_ROOT_PATH}/src/irr/core/IReferenceCounted.cpp
 # Core Memory
 	${IRR_ROOT_PATH}/src/irr/core/memory/CLeakDebugger.cpp
 )
@@ -237,10 +230,6 @@ set(IRRLICHT_SRCS_COMMON
 	${IRR_ROOT_PATH}/source/Irrlicht/CIrrDeviceWin32.cpp
 	${IRR_ROOT_PATH}/source/Irrlicht/Irrlicht.cpp
 )
-
-if (MSVC)
-	list(APPEND IRRLICHT_SRCS_COMMON ${IRR_ROOT_PATH}/source/Irrlicht/pch.cpp)
-endif()
 
 if (IRR_EMBED_BUILTIN_RESOURCES)
 	list(APPEND IRRLICHT_SRCS_COMMON "${CMAKE_BINARY_DIR}/src/irr/builtin/builtinResourceData.cpp")
@@ -422,56 +411,6 @@ target_compile_definitions(Irrlicht
 	PUBLIC	UNW_LOCAL_ONLY
 )
 
-if(IRR_PCH)
-    if (UNIX)
-        if (${CMAKE_BUILD_TYPE} STREQUAL "Release")
-            ADD_PRECOMPILED_HEADER(Irrlicht pch.h "${IRRLICHT_CONF_DIR_RELEASE}" FORCEINCLUDE)
-	elseif (${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-            ADD_PRECOMPILED_HEADER(Irrlicht pch.h "${IRRLICHT_CONF_DIR_DEBUG}" FORCEINCLUDE)
-        endif()
-    else()
-        ADD_PRECOMPILED_HEADER(Irrlicht pch.h FORCEINCLUDE)
-    endif()
-endif()
-
-add_library(IrrlichtServer STATIC
-	${IRRLICHT_SRCS_COMMON}
-	${IRRLICHT_SRCS_SERVER}
-	${IRRLICHT_HEADERS}
-	$<TARGET_OBJECTS:aesGladman>
-	$<TARGET_OBJECTS:bzip2>
-	$<TARGET_OBJECTS:convert_utf>
-	$<TARGET_OBJECTS:lz4>
-	$<TARGET_OBJECTS:lzma>
-)
-
-add_dependencies(IrrlichtServer openssl_build)
-irr_target_link_zlib(IrrlichtServer)
-irr_target_link_openssl(IrrlichtServer)
-irr_target_link_shaderc(IrrlichtServer)
-irr_target_link_libjpeg(IrrlichtServer)
-irr_target_link_libpng(IrrlichtServer)
-irr_target_link_openexr(IrrlichtServer)
-if(_IRR_COMPILE_WITH_GLI_)
-	irr_target_link_gli(IrrlichtServer)
-endif()
-irr_target_include_parallel_hashmap(IrrlichtServer)
-
-target_include_directories(IrrlichtServer PUBLIC 
-	${IRR_ROOT_PATH}/include
-	${COMMON_INCLUDE_DIRS}
-	${THIRD_PARTY_SOURCE_DIR}
-	#those also goes as PUBLIC because of examples
-	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
-	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
-)
-target_include_directories(IrrlichtServer PRIVATE ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht ${IRR_ROOT_PATH}/src/3rdparty ${CMAKE_BINARY_DIR}/include)
-
-target_compile_definitions(IrrlichtServer PRIVATE
-	_IRR_STATIC_LIB_
-	_IRR_SERVER_
-)
-
 if (MSVC) #on MSVC it won't compile without this option!
 	target_compile_options(Irrlicht PUBLIC /bigobj)
 endif()
@@ -493,7 +432,6 @@ if(IRR_EMBED_BUILTIN_RESOURCES)
 	add_custom_target(builtin_resources
 	   DEPENDS ${CMAKE_BINARY_DIR}/include/irr/builtin/builtinResources.h ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
 	  add_dependencies(Irrlicht builtin_resources)
-	  add_dependencies(IrrlichtServer builtin_resources)
 elseif()
 	foreach(X IN LISTS irr_resources_to_embed)
 		list(APPEND IRRLICHT_HEADERS_PUBLIC  ${IRR_ROOT_PATH}/include/${X})

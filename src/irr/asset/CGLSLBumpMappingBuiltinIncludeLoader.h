@@ -11,6 +11,8 @@ namespace asset
 class CGLSLBumpMappingBuiltinIncludeLoader : public IGLSLEmbeddedIncludeLoader
 {
     public:
+        using IGLSLEmbeddedIncludeLoader::IGLSLEmbeddedIncludeLoader;
+
         const char* getVirtualDirectoryName() const override { return "glsl/bump_mapping/"; }
 };
 

@@ -43,7 +43,7 @@ namespace io
 {
 
 //! constructor
-CFileSystem::CFileSystem(std::string&& _builtinResourceDirectory) : IFileSystem(_builtinResourceDirectory)
+CFileSystem::CFileSystem(std::string&& _builtinResourceDirectory) : IFileSystem(std::move(_builtinResourceDirectory))
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("CFileSystem");
@@ -879,15 +879,6 @@ bool CFileSystem::existFile(const io::path& filename) const
 #else
     return (access(filename.c_str(), 0) != -1);
 #endif
-}
-
-
-
-//! creates a filesystem which is able to open files from the ordinary file system,
-//! and out of zipfiles, which are able to be added to the filesystem.
-IFileSystem* createFileSystem()
-{
-	return new CFileSystem();
 }
 
 

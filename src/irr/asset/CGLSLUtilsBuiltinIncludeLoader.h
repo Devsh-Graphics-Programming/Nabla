@@ -11,6 +11,8 @@ namespace asset
 class CGLSLUtilsBuiltinIncludeLoader : public IGLSLEmbeddedIncludeLoader
 {
     public:
+        using IGLSLEmbeddedIncludeLoader::IGLSLEmbeddedIncludeLoader;
+
         const char* getVirtualDirectoryName() const override { return "glsl/utils/"; }
 };
 

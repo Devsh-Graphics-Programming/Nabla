@@ -7,6 +7,7 @@
 #include "irr/asset/pch_asset.h"
 #include "irr/video/pch_video.h"
 
+/* all this crap needs to die
 #include "irrString.h"
 #include "aabbox3d.h"
 #include "CConcurrentObjectCache.h"
@@ -113,5 +114,6 @@
 #include "FW_Mutex.h" // refactor
 #include "ISceneNodeAnimatorFinishing.h"
 #include "os.h"
+*/
 
 #endif //__IRR_PCH_H_INCLUDED__

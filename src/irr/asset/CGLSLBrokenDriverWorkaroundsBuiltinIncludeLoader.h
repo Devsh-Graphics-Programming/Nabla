@@ -11,6 +11,8 @@ namespace asset
 class CGLSLBrokenDriverWorkaroundsBuiltinIncludeLoader : public IGLSLEmbeddedIncludeLoader
 {
 	public:
+		using IGLSLEmbeddedIncludeLoader::IGLSLEmbeddedIncludeLoader;
+
 		const char* getVirtualDirectoryName() const override { return "glsl/broken_driver_workarounds/"; }
 };
 

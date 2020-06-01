@@ -14,20 +14,23 @@ namespace asset
 class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 {
 	protected:
-		IGLSLEmbeddedIncludeLoader(io::IFileSystem* filesystem) : fs(filesystem) {}
 		virtual ~IGLSLEmbeddedIncludeLoader() = default;
 
 		inline core::vector<std::pair<std::regex,HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
 		{
-			auto pattern = std::regex_replace(std::string(getVirtualDirectoryName()), std::regex{"\/"}, "\\/");
+			//auto pattern = std::regex_replace(std::string(getVirtualDirectoryName()), std::regex{"\/"}, "\\/");
+			std::string pattern(getVirtualDirectoryName());
 			pattern += ".*";
-			return {{std::regex{pattern},HandleFunc_t{&getFromDiskOrEmbedding}}};
+			HandleFunc_t tmp = [this](const std::string& _name) -> std::string {return getFromDiskOrEmbedding(_name);};
+			return {{std::regex{pattern},std::move(tmp)}};
 		}
 		
 		
 		io::IFileSystem* fs;
 
 	public:
+		IGLSLEmbeddedIncludeLoader(io::IFileSystem* filesystem) : fs(filesystem) {}
+
 		//
 		inline std::string getFromDiskOrEmbedding(const std::string& _name) const
 		{

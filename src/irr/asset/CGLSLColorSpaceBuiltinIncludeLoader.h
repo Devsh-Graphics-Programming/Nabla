@@ -11,6 +11,8 @@ namespace asset
 class CGLSLColorSpaceBuiltinIncludeLoader : public IGLSLEmbeddedIncludeLoader
 {
     public:
+        using IGLSLEmbeddedIncludeLoader::IGLSLEmbeddedIncludeLoader;
+
         const char* getVirtualDirectoryName() const override { return "glsl/colorspace/"; }
 };
 

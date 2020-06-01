@@ -15,6 +15,8 @@ namespace asset
 class CGLSLVirtualTexturingBuiltinIncludeLoader : public IGLSLEmbeddedIncludeLoader
 {
     public:
+		using IGLSLEmbeddedIncludeLoader::IGLSLEmbeddedIncludeLoader;
+
         const char* getVirtualDirectoryName() const override { return "glsl/virtual_texturing/"; }
 
     private:
