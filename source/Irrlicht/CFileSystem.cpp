@@ -43,7 +43,7 @@ namespace io
 {
 
 //! constructor
-CFileSystem::CFileSystem()
+CFileSystem::CFileSystem(std::string&& _builtinResourceDirectory) : IFileSystem(_builtinResourceDirectory)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("CFileSystem");
