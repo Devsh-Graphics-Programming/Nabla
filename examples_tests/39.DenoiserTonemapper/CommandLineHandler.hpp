@@ -51,9 +51,9 @@ COLOR_FILE: File containing color image data, it's required to run within.
 ALBEDO_FILE: File containing albedo image data, it is not required to run within.
 NORMAL_FILE: File containing normal image data, it is not required to run within, but it can only be specified if ALBEDO_FILE has been specified.
 
-COLOR_CHANNEL_NAME: Channel name of an image for color image that the image will be assigned to. 
-ALBEDO_CHANNEL_NAME: Channel name of an image for albedo image that the image will be assigned to. It can only be specified if ALBEDO_FILE has been specified.
-NORMAL_CHANNEL_NAME: Channel name of an image for normal image that the image will be assigned to. It can only be specified if NORMAL_FILE has been specified.
+COLOR_CHANNEL_NAME: Channel name for multilayered EXR images, a layer with most matching name will be chosen (one that contains the channel name as a substring at the earliest position).
+ALBEDO_CHANNEL_NAME: Channel name for multilayered EXR images, a layer with most matching name will be chosen (one that contains the channel name as a substring at the earliest position). It can only be specified if ALBEDO_FILE has been specified.
+NORMAL_CHANNEL_NAME: Channel name for multilayered EXR images, a layer with most matching name will be chosen (one that contains the channel name as a substring at the earliest position). It can only be specified if NORMAL_FILE has been specified.
 
 For example, given a color image having loaded albedo and normal images as well, you can force color image to use albedo's image data. To perform it, you have to write as following:
 COLOR_CHANNEL_NAME=albedo

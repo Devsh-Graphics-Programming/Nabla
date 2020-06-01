@@ -106,11 +106,20 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 			const auto argvStream = *(batchInputStream.begin() + i);
 			const auto arguments = getSerializedValues(argvStream, PROPER_CMD_ARGUMENTS_AMOUNT, true);
 
+			if (arguments.size() < MANDATORY_CMD_ARGUMENTS_AMOUNT || arguments.size() > PROPER_CMD_ARGUMENTS_AMOUNT)
+			{
+				log = true;
+				break;
+			}
+
 			fillArgvList(arguments, arguments.size(), i);
 		}
 
-		if(log)
-			os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
+		if (log)
+		{
+			os::Printer::log(requiredArgumentsMessage.data(), ELL_ERROR);
+			assert(log = false);
+		}
 	}
 	else if (argv.size() == PROPER_CMD_ARGUMENTS_AMOUNT)
 		fillArgvList(argv, argv.size(), 0);
