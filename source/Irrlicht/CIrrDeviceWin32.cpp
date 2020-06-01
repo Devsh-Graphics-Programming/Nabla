@@ -1108,7 +1108,7 @@ void CIrrDeviceWin32::createDriver()
 
 	case video::EDT_NULL:
 		// create null driver
-		VideoDriver = video::createNullDriver(this, FileSystem, CreationParams);
+		VideoDriver = video::createNullDriver(this, FileSystem.get(), CreationParams);
 		break;
 
 	default:

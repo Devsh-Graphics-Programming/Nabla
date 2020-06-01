@@ -245,12 +245,16 @@ class IFileSystem : public virtual core::IReferenceCounted
 
 
 		//! Run-time resource ID, `builtinPath` includes the "irr/builtin" prefix
-		inline core::smart_refctd_ptr<const asset::ICPUBuffer> loadBuiltinData(const std::string& builtinPath)
+		inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData(const std::string& builtinPath)
 		{
 			#ifdef _IRR_EMBED_BUILTIN_RESOURCES_
-				std::pair<const uint8_t*, size_t> found = irr::builtin::get_resource<StringUniqueType>(); // TODO: @Hazard want a runtime version of `get_resource` as well
+				std::pair<const uint8_t*, size_t> found = irr::builtin::get_resource_runtime(builtinPath);
 				if (found.first && found.second)
-					return asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>(found.second, found.first, core::adopt_memory_t);
+				{
+					auto returnValue = core::make_smart_refctd_ptr<asset::ICPUBuffer>(found.second);
+					memcpy(returnValue->getPointer(), found.first, returnValue->getSize());
+					return returnValue;
+				}
 				return nullptr;
 			#else
 				auto path = builtinResourceDirectory+builtinPath;
@@ -268,15 +272,19 @@ class IFileSystem : public virtual core::IReferenceCounted
 		}
 		//! Compile time resource ID
 		template<typename StringUniqueType>
-		inline core::smart_refctd_ptr<const asset::ICPUBuffer> loadBuiltinData()
+		inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData()
 		{
 			#ifdef _IRR_EMBED_BUILTIN_RESOURCES_
 				std::pair<const uint8_t*, size_t> found = irr::builtin::get_resource<StringUniqueType>();
 				if (found.first && found.second)
-					return asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>(found.second, found.first, core::adopt_memory_t);
+				{
+					auto returnValue = core::make_smart_refctd_ptr<asset::ICPUBuffer>(found.second);
+					memcpy(returnValue->getPointer(), found.first, returnValue->getSize());
+					return returnValue;
+				}
 				return nullptr;
 			#else
-				loadBuiltinData(StringUniqueType::value);
+				return loadBuiltinData(StringUniqueType::value);
 			#endif
 		}
 
