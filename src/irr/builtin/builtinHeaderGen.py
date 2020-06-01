@@ -30,7 +30,13 @@ else:
     for x in resourcePaths:
         outp.write('\n\t\textern template const std::pair<const uint8_t*, size_t> get_resource<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
 
-
+    outp.write("\n\n\t\tinline std::pair<const uint8_t*, size_t> get_resource_runtime(std::string& filename)\n\t\t{")
+    outp.write("\n\t\tswitch(filename){\n")
+    for x in resourcePaths:
+        outp.write('\t\t\tcase "%s":\n' % x)
+        outp.write('\t\t\t\treturn get_resource<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();\n' % x)
+    outp.write("\t\t\tdefault: \n\t\t\t\treturn { nullptr,0ull }; ")
+    outp.write("\n\t\t\t}\n\t\t}")
     outp.write("\n\t}\n}")
 
     outp.close()
