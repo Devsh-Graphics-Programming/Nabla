@@ -11,22 +11,6 @@
 #include "irr/asset/IGLSLEmbeddedIncludeLoader.h"
 
 
-namespace irr
-{
-namespace asset
-{    
-
-class CGLSL_MTLBuiltinIncludeLoader : public IGLSLEmbeddedIncludeLoader
-{
-    public:
-        using IGLSLEmbeddedIncludeLoader::IGLSLEmbeddedIncludeLoader;
-
-        const char* getVirtualDirectoryName() const override { return "glsl/loaders/mtl/"; }
-};
-
-}
-}
-
 namespace
 {
 /*
@@ -146,8 +130,6 @@ static void insertShaderIntoCache(core::smart_refctd_ptr<ICPUSpecializedShader>&
 
 CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_assetMgr{_am}
 {
-    m_assetMgr->getGLSLCompiler()->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSL_MTLBuiltinIncludeLoader>(m_assetMgr->getFileSystem()));
-
     //create vertex shaders and insert them into cache
     auto registerShader = [&](auto constexprStringType, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
     {

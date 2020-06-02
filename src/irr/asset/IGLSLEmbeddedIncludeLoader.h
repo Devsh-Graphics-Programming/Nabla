@@ -18,7 +18,6 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 
 		inline core::vector<std::pair<std::regex,HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
 		{
-			//auto pattern = std::regex_replace(std::string(getVirtualDirectoryName()), std::regex{"\/"}, "\\/");
 			std::string pattern(getVirtualDirectoryName());
 			pattern += ".*";
 			HandleFunc_t tmp = [this](const std::string& _name) -> std::string {return getFromDiskOrEmbedding(_name);};
@@ -32,10 +31,15 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 		IGLSLEmbeddedIncludeLoader(io::IFileSystem* filesystem) : fs(filesystem) {}
 
 		//
+		const char* getVirtualDirectoryName() const override { return ""; }
+
+		//
 		inline std::string getFromDiskOrEmbedding(const std::string& _name) const
 		{
 			auto path = "irr/builtin/" + _name;
 			auto data = fs->loadBuiltinData(path);
+			if (!data)
+				return "";
 			auto begin = reinterpret_cast<const char*>(data->getPointer());
 			auto end = begin+data->getSize();
 			return std::string(begin,end);

@@ -997,21 +997,21 @@ protected:
     {
         // TODO: maybe change some paths, like separate out the NDFs out from BRDF/BSDFs and separate BSDF from BRDF
         return {
-            { std::regex{"brdf/diffuse/lambert\\.glsl"}, &getLambert },
-            { std::regex{"brdf/diffuse/oren_nayar\\.glsl"}, &getOrenNayar },
-            { std::regex{"brdf/specular/ndf/ggx\\.glsl"}, &getGGX_NDF },
-            { std::regex{"brdf/specular/geom/smith\\.glsl"}, &getSmith_G },
-            { std::regex{"brdf/specular/ggx\\.glsl"}, &getGGX_cos_eval },
-            { std::regex{"brdf/specular/fresnel/fresnel\\.glsl"}, &getFresnel },
-            { std::regex{"brdf/specular/blinn_phong\\.glsl"}, &getBlinnPhong },
-            { std::regex{"brdf/specular/ndf/beckmann\\.glsl"}, &getBeckmann },
-            { std::regex{"brdf/specular/ndf/ashikhmin_shirley\\.glsl"}, &getAshikhminShirleyNDF },
-            { std::regex{"brdf/specular/ashikhmin_shirley\\.glsl"}, &getAshikhminShirley_cos_eval },
-            { std::regex{"brdf/specular/beckmann_smith\\.glsl"}, &getBeckmannSmith_cos_eval },
-            { std::regex{"common\\.glsl"}, &getCommons },
-            { std::regex{"brdf/diffuse/fresnel_correction\\.glsl"}, &getDiffuseFresnelCorrectionFactor },
-            { std::regex{"brdf/cos_weighted_sample\\.glsl"}, &getCosWeightedSample },
-            { std::regex{"common_samples\\.glsl"}, &getCommonSamples }
+            { std::regex{"glsl/bsdf/brdf/diffuse/lambert\\.glsl"}, &getLambert },
+            { std::regex{"glsl/bsdf/brdf/diffuse/oren_nayar\\.glsl"}, &getOrenNayar },
+            { std::regex{"glsl/bsdf/brdf/specular/ndf/ggx\\.glsl"}, &getGGX_NDF },
+            { std::regex{"glsl/bsdf/brdf/specular/geom/smith\\.glsl"}, &getSmith_G },
+            { std::regex{"glsl/bsdf/brdf/specular/ggx\\.glsl"}, &getGGX_cos_eval },
+            { std::regex{"glsl/bsdf/brdf/specular/fresnel/fresnel\\.glsl"}, &getFresnel },
+            { std::regex{"glsl/bsdf/brdf/specular/blinn_phong\\.glsl"}, &getBlinnPhong },
+            { std::regex{"glsl/bsdf/brdf/specular/ndf/beckmann\\.glsl"}, &getBeckmann },
+            { std::regex{"glsl/bsdf/brdf/specular/ndf/ashikhmin_shirley\\.glsl"}, &getAshikhminShirleyNDF },
+            { std::regex{"glsl/bsdf/brdf/specular/ashikhmin_shirley\\.glsl"}, &getAshikhminShirley_cos_eval },
+            { std::regex{"glsl/bsdf/brdf/specular/beckmann_smith\\.glsl"}, &getBeckmannSmith_cos_eval },
+            { std::regex{"glsl/bsdf/common\\.glsl"}, &getCommons },
+            { std::regex{"glsl/bsdf/brdf/diffuse/fresnel_correction\\.glsl"}, &getDiffuseFresnelCorrectionFactor },
+            { std::regex{"glsl/bsdf/brdf/cos_weighted_sample\\.glsl"}, &getCosWeightedSample },
+            { std::regex{"glsl/bsdf/common_samples\\.glsl"}, &getCommonSamples }
         };
     }
 };

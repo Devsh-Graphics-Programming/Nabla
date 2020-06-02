@@ -108,7 +108,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
 
     vec3 Ni = vec3(PC.params.Ni);
 
-    vec3 diff = irr_glsl_lambertian_cos_eval(params) * Kd * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotV));
+    vec3 diff = irr_glsl_lambertian_cos_eval(params) * Kd * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(Ni,params.interaction.NdotV));
     diff *= irr_glsl_diffuseFresnelCorrectionFactor(Ni, Ni*Ni);
     switch (PC.params.extra&ILLUM_MODEL_MASK)
     {
@@ -150,9 +150,9 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
 #ifndef _IRR_COMPUTE_LIGHTING_DEFINED_
 #define _IRR_COMPUTE_LIGHTING_DEFINED_
 
-vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in mat2 dUV)
+vec3 irr_computeLighting(out irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
-    irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(vec3(0.0), ViewPos, Normal);
+    irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(vec3(0.0), ViewPos, Normal);
 
 #ifndef _NO_UV
     if ((PC.params.extra&map_bump_MASK) == map_bump_MASK)
@@ -210,7 +210,7 @@ void main()
 {
     mat2 dUV = mat2(dFdx(UV), dFdy(UV));    
 
-    irr_glsl_ViewSurfaceInteraction interaction;
+    irr_glsl_IsotropicViewSurfaceInteraction interaction;
     vec3 color = irr_computeLighting(interaction, dUV);
 
     float d = PC.params.d;
