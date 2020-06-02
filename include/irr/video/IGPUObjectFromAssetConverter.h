@@ -928,7 +928,8 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                     }
 					else if (isSampledImgViewDesc(type) || isStorageImgDesc(type))
 					{
-						info->desc = imgViewRedirs[ivi++]>=gpuImgViews->size() ? nullptr : gpuImgViews->operator[](imgViewRedirs[ivi++]);
+						info->desc = imgViewRedirs[ivi]>=gpuImgViews->size() ? nullptr : gpuImgViews->operator[](imgViewRedirs[ivi]);
+                        ++ivi;
 						info->image.imageLayout = desc.image.imageLayout;
 						if (isSampledImgViewDesc(type) && desc.image.sampler)
 							info->image.sampler = gpuSamplers->operator[](smplrRedirs[si++]);
