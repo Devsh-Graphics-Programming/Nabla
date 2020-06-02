@@ -79,8 +79,11 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
         return doIntrospection(comp, _params);
     };
 
-    if (_shader->containsGLSL()) {
-        std::string glsl = reinterpret_cast<const char*>(_shader->getSPVorGLSL()->getPointer());
+    if (_shader->containsGLSL())
+    {
+        auto begin = reinterpret_cast<const char*>(_shader->getSPVorGLSL()->getPointer());
+        auto end = begin+glUnspec->getSPVorGLSL()->getSize();
+        std::string glsl(begin,end);
         ICPUShader::insertGLSLExtensionsDefines(glsl, _params.GLSLextensions.get());
         auto glslShader_woIncludes = m_glslCompiler->resolveIncludeDirectives(glsl.c_str(), _params.stage, _params.filePathHint.c_str());
         auto spvShader = m_glslCompiler->createSPIRVFromGLSL(
@@ -94,7 +97,8 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
 
         return cacheIntrospection(introspectSPV(spvShader.get()), _shader, _params);
     }
-    else {
+    else
+    {
         // TODO (?) when we have enabled_extensions_list it may validate whether all extensions in list are also present in spv
         return cacheIntrospection(introspectSPV(_shader), _shader, _params);
     }

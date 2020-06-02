@@ -1293,12 +1293,9 @@ core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(core::smart_re
 {
 	auto source = _cpushader->getSPVorGLSL();
 	if (_cpushader->containsGLSL())
-	    return core::make_smart_refctd_ptr<COpenGLShader>(reinterpret_cast<const char*>(source->getPointer()));
-	
-	// need to do this so its a copy (and doesn't get wiped when cpu resources are released)
-	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(source->getSize());
-	memcpy(buffer->getPointer(),source->getPointer(),source->getSize());
-	return core::make_smart_refctd_ptr<COpenGLShader>(std::move(buffer));
+	    return core::make_smart_refctd_ptr<COpenGLShader>(source->clone(1u),IGPUShader::buffer_contains_glsl_t);
+    else
+	    return core::make_smart_refctd_ptr<COpenGLShader>(source->clone(1u));
 }
 
 core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo)
@@ -1309,8 +1306,11 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     const asset::ISpecializedShader::E_SHADER_STAGE stage = _specInfo.shaderStage;
 
     core::smart_refctd_ptr<asset::ICPUShader> spvCPUShader = nullptr;
-    if (glUnspec->containsGLSL()) {
-        std::string glsl = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
+    if (glUnspec->containsGLSL())
+    {
+        auto begin = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
+        auto end = begin+glUnspec->getSPVorGLSL()->getSize();
+        std::string glsl(begin,end);
         asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions().get());
         auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.c_str());
         //{
