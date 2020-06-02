@@ -35,7 +35,10 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 		inline std::string getFromDiskOrEmbedding(const std::string& _name) const
 		{
 			auto path = "irr/builtin/" + _name;
-			return reinterpret_cast<const char*>(fs->loadBuiltinData(path)->getPointer());
+			auto data = fs->loadBuiltinData(path);
+			auto begin = reinterpret_cast<const char*>(data->getPointer());
+			auto end = begin+data->getSize();
+			return std::string(begin,end);
 		}
 };
 
