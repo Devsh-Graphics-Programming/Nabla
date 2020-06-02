@@ -82,7 +82,7 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
     if (_shader->containsGLSL())
     {
         auto begin = reinterpret_cast<const char*>(_shader->getSPVorGLSL()->getPointer());
-        auto end = begin+glUnspec->getSPVorGLSL()->getSize();
+        auto end = begin+_shader->getSPVorGLSL()->getSize();
         std::string glsl(begin,end);
         ICPUShader::insertGLSLExtensionsDefines(glsl, _params.GLSLextensions.get());
         auto glslShader_woIncludes = m_glslCompiler->resolveIncludeDirectives(glsl.c_str(), _params.stage, _params.filePathHint.c_str());

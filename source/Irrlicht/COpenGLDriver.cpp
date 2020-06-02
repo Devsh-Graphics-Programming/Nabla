@@ -1292,10 +1292,11 @@ bool COpenGLDriver::pushConstants(const IGPUPipelineLayout* _layout, uint32_t _s
 core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>&& _cpushader)
 {
 	auto source = _cpushader->getSPVorGLSL();
+    auto clone = core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
 	if (_cpushader->containsGLSL())
-	    return core::make_smart_refctd_ptr<COpenGLShader>(source->clone(1u),IGPUShader::buffer_contains_glsl_t);
+	    return core::make_smart_refctd_ptr<COpenGLShader>(std::move(clone),IGPUShader::buffer_contains_glsl);
     else
-	    return core::make_smart_refctd_ptr<COpenGLShader>(source->clone(1u));
+	    return core::make_smart_refctd_ptr<COpenGLShader>(std::move(clone));
 }
 
 core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo)
