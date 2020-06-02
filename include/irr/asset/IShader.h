@@ -5,8 +5,7 @@
 #include <string>
 
 
-#include "irr/core/SRange.h"
-#include "irr/core/IBuffer.h"
+#include "irr/core/core.h"
 
 namespace spirv_cross
 {
@@ -20,8 +19,7 @@ namespace irr
 namespace asset
 {
 
-template<typename BufferType>
-class IShader
+class IShader : public virtual core::IReferenceCounted
 {
 	public:
 		struct buffer_contains_glsl_t {};

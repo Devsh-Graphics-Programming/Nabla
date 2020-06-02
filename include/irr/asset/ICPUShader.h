@@ -14,7 +14,7 @@ namespace irr
 namespace asset
 {
 
-class ICPUShader : public IAsset, public IShader<ICPUBuffer>
+class ICPUShader : public IAsset, public IShader
 {
 	protected:
 		virtual ~ICPUShader() = default;

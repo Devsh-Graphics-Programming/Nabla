@@ -13,7 +13,7 @@ class COpenGLShader : public IGPUShader
 {
 	public:
 		COpenGLShader(core::smart_refctd_ptr<asset::ICPUBuffer>&& _spirv) : m_code(std::move(_spirv)), m_containsGLSL(false) {}
-		COpenGLShader(core::smart_refctd_ptr<asset::ICPUBuffer>&& _glsl, asset::ICPUShader::buffer_contains_glsl_t buffer_contains_glsl) : m_code(std::move(_glsl)), m_containsGLSL(true) {}
+		COpenGLShader(core::smart_refctd_ptr<asset::ICPUBuffer>&& _glsl, buffer_contains_glsl_t buffer_contains_glsl) : m_code(std::move(_glsl)), m_containsGLSL(true) {}
 
 		const asset::ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
 		bool containsGLSL() const { return m_containsGLSL; }
