@@ -16,6 +16,12 @@ function(irr_add_builtin_resources)
 endfunction()
 
 set(irr_resources_to_embed
+  "irr/builtin/shaders/loaders/mtl/vertex_impl.vert"
+  "irr/builtin/shaders/loaders/mtl/vertex_no_uv.vert"
+  "irr/builtin/shaders/loaders/mtl/vertex_uv.vert"
+  "irr/builtin/shaders/loaders/mtl/fragment_impl.frag"
+  "irr/builtin/shaders/loaders/mtl/fragment_no_uv.frag"
+  "irr/builtin/shaders/loaders/mtl/fragment_uv.frag"
   "irr/builtin/specializedshaders/fullscreentriangle.vert"
   "irr/builtin/materials/lambertian/singletexture/specializedshader.vert"
   "irr/builtin/materials/lambertian/singletexture/specializedshader.frag"
@@ -24,10 +30,12 @@ set(irr_resources_to_embed
   "irr/builtin/materials/debug/vertex_normal/specializedshader.frag"
   "irr/builtin/materials/debug/vertex_uv/specializedshader.frag"
   "irr/builtin/glsl/broken_driver_workarounds/amd.glsl"
+  "irr/builtin/glsl/bump_mapping/utils.glsl"
   "irr/builtin/glsl/colorspace/EOTF.glsl"
   "irr/builtin/glsl/colorspace/OETF.glsl"
   "irr/builtin/glsl/colorspace/decodeCIEXYZ.glsl"
   "irr/builtin/glsl/colorspace/encodeCIEXYZ.glsl"
+  "irr/builtin/glsl/loaders/mtl/common.glsl"
   "irr/builtin/glsl/utils/vertex.glsl"
   "irr/builtin/glsl/virtual_texturing/descriptors.glsl"
   "irr/builtin/glsl/virtual_texturing/extensions.glsl"

@@ -8,6 +8,7 @@
 
 
 #include "irr/asset/CGraphicsPipelineLoaderMTL.h"
+#include "irr/asset/IGLSLEmbeddedIncludeLoader.h"
 
 
 namespace irr
@@ -15,54 +16,16 @@ namespace irr
 namespace asset
 {    
 
-class CGLSL_MTLBuiltinIncludeLoader : public IBuiltinIncludeLoader
+class CGLSL_MTLBuiltinIncludeLoader : public IGLSLEmbeddedIncludeLoader
 {
-public:
-    const char* getVirtualDirectoryName() const override { return "glsl/graphicspipeline/loaders/mtl/"; }
+    public:
+        using IGLSLEmbeddedIncludeLoader::IGLSLEmbeddedIncludeLoader;
 
-private:
-    static std::string getMTLloaderCommonDefinitions(const std::string&)
-    {
-        return
-R"(#ifndef _IRR_MTL_LOADER_COMMON_INCLUDED_
-#define _IRR_MTL_LOADER_COMMON_INCLUDED_
-
-struct irr_glsl_MTLMaterialParameters
-{
-    vec3 Ka;
-    vec3 Kd;
-    vec3 Ks;
-    vec3 Ke;
-    vec4 Tf;//w component doesnt matter
-    float Ns;
-    float d;
-    float bm;
-    float Ni;
-    float roughness;
-    float metallic;
-    float sheen;
-    float clearcoatThickness;
-    float clearcoatRoughness;
-    float anisotropy;
-    float anisoRotation;
-    //extra info
-    uint extra;
+        const char* getVirtualDirectoryName() const override { return "glsl/loaders/mtl/"; }
 };
 
-#endif
-)";
-    }
-
-protected:
-    irr::core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
-    {
-        return {
-            { std::regex{"common\\.glsl"}, &getMTLloaderCommonDefinitions },
-        };
-    }
-};
-
-}}
+}
+}
 
 namespace
 {
@@ -163,298 +126,6 @@ void main()
 }
 )";
 */
-    constexpr const char* VERT_SHADER_UV = 
-R"(#version 430 core
-
-#ifndef _IRR_VERT_INPUTS_DEFINED_
-#define _IRR_VERT_INPUTS_DEFINED_
-layout (location = 0) in vec3 vPos;
-#ifndef _NO_UV
-layout (location = 2) in vec2 vUV;
-#endif
-layout (location = 3) in vec3 vNormal;
-#endif //_IRR_VERT_INPUTS_DEFINED_
-
-#ifndef _IRR_VERT_OUTPUTS_DEFINED_
-#define _IRR_VERT_OUTPUTS_DEFINED_
-layout (location = 0) out vec3 LocalPos;
-layout (location = 1) out vec3 ViewPos;
-layout (location = 2) out vec3 Normal;
-#ifndef _NO_UV
-layout (location = 3) out vec2 UV;
-#endif
-#endif //_IRR_VERT_OUTPUTS_DEFINED_
-
-#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
-
-#ifndef _IRR_VERT_SET1_BINDINGS_DEFINED_
-#define _IRR_VERT_SET1_BINDINGS_DEFINED_
-layout (set = 1, binding = 0, row_major, std140) uniform UBO {
-    irr_glsl_SBasicViewParameters params;
-} CamData;
-#endif //_IRR_VERT_SET1_BINDINGS_DEFINED_
-
-#ifndef _IRR_VERT_MAIN_DEFINED_
-#define _IRR_VERT_MAIN_DEFINED_
-void main()
-{
-    LocalPos = vPos;
-    gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.params.MVP), vPos);
-    ViewPos = irr_glsl_pseudoMul3x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x3(CamData.params.MV), vPos);
-    mat3 normalMat = irr_glsl_SBasicViewParameters_GetNormalMat(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x3(CamData.params.NormalMatAndEyePos));
-    Normal = normalMat*normalize(vNormal);
-#ifndef _NO_UV
-    UV = vUV;
-#endif
-}
-#endif //_IRR_VERT_MAIN_DEFINED_
-)";
-    constexpr const char* FRAG_SHADER_UV =
-R"(#version 430 core
-
-#ifndef _IRR_FRAG_INPUTS_DEFINED_
-#define _IRR_FRAG_INPUTS_DEFINED_
-layout (location = 0) in vec3 LocalPos;
-layout (location = 1) in vec3 ViewPos;
-layout (location = 2) in vec3 Normal;
-#ifndef _NO_UV
-layout (location = 3) in vec2 UV;
-#endif
-#endif //_IRR_FRAG_INPUTS_DEFINED_
-
-#ifndef _IRR_FRAG_OUTPUTS_DEFINED_
-#define _IRR_FRAG_OUTPUTS_DEFINED_
-layout (location = 0) out vec4 OutColor;
-#endif //_IRR_FRAG_OUTPUTS_DEFINED_
-
-#define ILLUM_MODEL_MASK 0x0fu
-#define map_Ka_MASK uint(1u<<4u)
-#define map_Kd_MASK uint(1u<<5u)
-#define map_Ks_MASK uint(1u<<6u)
-#define map_Ns_MASK uint(1u<<8u)
-#define map_d_MASK uint(1u<<9u)
-#define map_bump_MASK uint(1u<<10u)
-#define map_normal_MASK uint(1u<<11u)
-
-#include <irr/builtin/glsl/bsdf/common.glsl>
-
-#ifndef _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
-#define _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
-
-#include <irr/builtin/glsl/graphicspipeline/loaders/mtl/common.glsl>
-
-layout (push_constant) uniform Block {
-    irr_glsl_MTLMaterialParameters params;
-} PC;
-#endif //_IRR_FRAG_PUSH_CONSTANTS_DEFINED_
-
-#if !defined(_IRR_FRAG_SET3_BINDINGS_DEFINED_) && !defined(_NO_UV)
-#define _IRR_FRAG_SET3_BINDINGS_DEFINED_
-layout (set = 3, binding = 0) uniform sampler2D map_Ka;
-layout (set = 3, binding = 1) uniform sampler2D map_Kd;
-layout (set = 3, binding = 2) uniform sampler2D map_Ks;
-layout (set = 3, binding = 4) uniform sampler2D map_Ns;
-layout (set = 3, binding = 5) uniform sampler2D map_d;
-layout (set = 3, binding = 6) uniform sampler2D map_bump;
-#endif //_IRR_FRAG_SET3_BINDINGS_DEFINED_
-
-#if !defined(_IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_) && !defined(_NO_UV)
-#ifndef _IRR_Ka_SAMPLE_FUNCTION_DEFINED_
-vec4 irr_sample_Ka(in vec2 uv, in mat2 dUV) { return texture(map_Ka, uv); }
-#endif
-#ifndef _IRR_Kd_SAMPLE_FUNCTION_DEFINED_
-vec4 irr_sample_Kd(in vec2 uv, in mat2 dUV) { return texture(map_Kd, uv); }
-#endif
-#ifndef _IRR_Ks_SAMPLE_FUNCTION_DEFINED_
-vec4 irr_sample_Ks(in vec2 uv, in mat2 dUV) { return texture(map_Ks, uv); }
-#endif
-#ifndef _IRR_Ns_SAMPLE_FUNCTION_DEFINED_
-vec4 irr_sample_Ns(in vec2 uv, in mat2 dUV) { return texture(map_Ns, uv); }
-#endif
-#ifndef _IRR_d_SAMPLE_FUNCTION_DEFINED_
-vec4 irr_sample_d(in vec2 uv, in mat2 dUV) { return texture(map_d, uv); }
-#endif
-#ifndef _IRR_bump_SAMPLE_FUNCTION_DEFINED_
-vec4 irr_sample_bump(in vec2 uv, in mat2 dUV) { return texture(map_bump, uv); }
-#endif
-#endif //_IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_
-
-#include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/diffuse/fresnel_correction.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/diffuse/lambert.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/blinn_phong.glsl>
-
-#ifndef _IRR_BSDF_COS_EVAL_DEFINED_
-#define _IRR_BSDF_COS_EVAL_DEFINED_
-
-// Spectrum can be exchanged to a float for monochrome
-#define Spectrum vec3
-
-//! This is the function that evaluates the BSDF for specific view and observer direction
-// params can be either BSDFIsotropicParams or BSDFAnisotropicParams 
-Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
-{
-    vec3 Kd;
-#ifndef _NO_UV
-    if ((PC.params.extra&(map_Kd_MASK)) == (map_Kd_MASK))
-        Kd = irr_sample_Kd(UV, dUV).rgb;
-    else
-#endif
-        Kd = PC.params.Kd;
-
-    vec3 color = vec3(0.0);
-    vec3 Ks;
-    float Ns;
-
-#ifndef _NO_UV
-    if ((PC.params.extra&(map_Ks_MASK)) == (map_Ks_MASK))
-        Ks = irr_sample_Ks(UV, dUV).rgb;
-    else
-#endif
-        Ks = PC.params.Ks;
-#ifndef _NO_UV
-    if ((PC.params.extra&(map_Ns_MASK)) == (map_Ns_MASK))
-        Ns = irr_sample_Ns(UV, dUV).x;
-    else
-#endif
-        Ns = PC.params.Ns;
-
-    vec3 Ni = vec3(PC.params.Ni);
-
-    vec3 diff = irr_glsl_lambertian_cos_eval(params) * Kd * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotV));
-    diff *= irr_glsl_diffuseFresnelCorrectionFactor(Ni, Ni*Ni);
-    switch (PC.params.extra&ILLUM_MODEL_MASK)
-    {
-    case 0:
-        color = vec3(0.0);
-        break;
-    case 1:
-        color = diff;
-        break;
-    case 2:
-    case 3://2 + IBL
-    case 5://basically same as 3
-    case 8://basically same as 5
-    {
-        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, Ns, Ni);
-        color = (diff + spec);
-    }
-        break;
-    case 4:
-    case 6:
-    case 7:
-    case 9://basically same as 4
-    {
-        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, Ns, Ni);
-        color = spec;
-    }
-        break;
-    default:
-        break;
-    }
-
-    return color;  
-}
-
-#endif //_IRR_BSDF_COS_EVAL_DEFINED_
-
-#include <irr/builtin/glsl/bump_mapping/height_mapping.glsl>
-
-#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_
-#define _IRR_COMPUTE_LIGHTING_DEFINED_
-
-vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction, in mat2 dUV)
-{
-    irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(vec3(0.0), ViewPos, Normal);
-
-#ifndef _NO_UV
-    if ((PC.params.extra&map_bump_MASK) == map_bump_MASK)
-    {
-        interaction.N = normalize(interaction.N);
-
-        float h = irr_sample_bump(UV, dUV).x;
-
-        vec2 dHdScreen = vec2(dFdx(h), dFdy(h));
-        interaction.N = irr_glsl_perturbNormal_heightMap(interaction.N, interaction.V.dPosdScreen, dHdScreen);
-    }
-#endif
-    irr_glsl_BSDFIsotropicParams params = irr_glsl_calcBSDFIsotropicParams(interaction, -ViewPos);
-
-    vec3 Ka;
-    switch ((PC.params.extra&ILLUM_MODEL_MASK))
-    {
-    case 0:
-    {
-#ifndef _NO_UV
-    if ((PC.params.extra&(map_Kd_MASK)) == (map_Kd_MASK))
-        Ka = irr_sample_bump(UV, dUV).rgb;
-    else
-#endif
-        Ka = PC.params.Kd;
-    }
-    break;
-    default:
-#define Ia 0.1
-    {
-#ifndef _NO_UV
-    if ((PC.params.extra&(map_Ka_MASK)) == (map_Ka_MASK))
-        Ka = irr_sample_Ka(UV, dUV).rgb;
-    else
-#endif
-        Ka = PC.params.Ka;
-    Ka *= Ia;
-    }
-#undef Ia
-    break;
-    }
-
-    out_interaction = params.interaction;
-#define Intensity 1000.0
-    return Intensity*params.invlenL2*irr_bsdf_cos_eval(params, dUV) + Ka;
-#undef Intensity
-}
-#endif //_IRR_COMPUTE_LIGHTING_DEFINED_
-
-
-#ifndef _IRR_FRAG_MAIN_DEFINED_
-#define _IRR_FRAG_MAIN_DEFINED_
-
-void main()
-{
-    mat2 dUV = mat2(dFdx(UV), dFdy(UV));    
-
-    irr_glsl_ViewSurfaceInteraction interaction;
-    vec3 color = irr_computeLighting(interaction, dUV);
-
-    float d = PC.params.d;
-
-    //another illum model switch, required for illum=4,6,7,9 to compute alpha from fresnel (taken from opacity map or constant otherwise)
-    switch (PC.params.extra&ILLUM_MODEL_MASK)
-    {
-    case 4:
-    case 6:
-    case 7:
-    case 9:
-    {
-        float VdotN = dot(interaction.N, interaction.V.dir);
-        d = irr_glsl_fresnel_dielectric(vec3(PC.params.Ni), VdotN).x;
-    }
-        break;
-    default:
-#ifndef _NO_UV
-        if ((PC.params.extra&(map_d_MASK)) == (map_d_MASK))
-        {
-            d = irr_sample_d(UV, dUV).r;
-            color *= d;
-        }
-#endif
-        break;
-    }
-
-    OutColor = vec4(color, d);
-}
-#endif //_IRR_FRAG_MAIN_DEFINED_
-)";
 }
 
 
@@ -468,52 +139,33 @@ static void insertShaderIntoCache(core::smart_refctd_ptr<ICPUSpecializedShader>&
     _assetMgr->insertAssetIntoCache(bundle);
 }
 
-_IRR_STATIC_INLINE_CONSTEXPR const char* VERT_SHADER_NO_UV_CACHE_KEY = "irr/builtin/shader/loaders/mtl/vertex_no_uv";
-_IRR_STATIC_INLINE_CONSTEXPR const char* VERT_SHADER_UV_CACHE_KEY = "irr/builtin/shader/loaders/mtl/vertex_uv";
-_IRR_STATIC_INLINE_CONSTEXPR const char* FRAG_SHADER_NO_UV_CACHE_KEY = "irr/builtin/shader/loaders/mtl/fragment_no_uv";
-_IRR_STATIC_INLINE_CONSTEXPR const char* FRAG_SHADER_UV_CACHE_KEY = "irr/builtin/shader/loaders/mtl/fragment_uv";
+#define VERT_SHADER_NO_UV_CACHE_KEY "irr/builtin/shaders/loaders/mtl/vertex_no_uv.vert"
+#define VERT_SHADER_UV_CACHE_KEY "irr/builtin/shaders/loaders/mtl/vertex_uv.vert"
+#define FRAG_SHADER_NO_UV_CACHE_KEY "irr/builtin/shaders/loaders/mtl/fragment_no_uv.frag"
+#define FRAG_SHADER_UV_CACHE_KEY "irr/builtin/shaders/loaders/mtl/fragment_uv.frag"
 
 CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_assetMgr{_am}
 {
-    m_assetMgr->getGLSLCompiler()->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSL_MTLBuiltinIncludeLoader>());
+    m_assetMgr->getGLSLCompiler()->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSL_MTLBuiltinIncludeLoader>(m_assetMgr->getFileSystem()));
 
     //create vertex shaders and insert them into cache
+    auto registerShader = [&](auto constexprStringType, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
     {
-        std::string vs_nouv_source = VERT_SHADER_UV;
-        vs_nouv_source.insert(vs_nouv_source.find("\n")+1ull, "#define _NO_UV\n"); 
+        auto data = m_assetMgr->getFileSystem()->loadBuiltinData<decltype(constexprStringType)>();
+        auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(data), asset::ICPUShader::buffer_contains_glsl);
+        
+        ICPUSpecializedShader::SInfo specInfo(
+            {}, nullptr, "main", stage,
+            stage!=ICPUSpecializedShader::ESS_VERTEX ? "?IrrlichtBAW PipelineLoaderMTL FragmentShader?":"?IrrlichtBAW PipelineLoaderMTL VertexShader?"
+        );
+		auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader),std::move(specInfo));
+        insertShaderIntoCache(shader, decltype(constexprStringType)::value, m_assetMgr);
+    };
 
-        auto vs_nouv_unspec = core::make_smart_refctd_ptr<ICPUShader>(vs_nouv_source.c_str());
-        auto vs_uv_unspec = core::make_smart_refctd_ptr<ICPUShader>(VERT_SHADER_UV);
-
-        ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_VERTEX,"?IrrlichtBAW PipelineLoaderMTL VertexShader?");
-        auto vs_nouv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(vs_nouv_unspec), ICPUSpecializedShader::SInfo(specinfo));
-        auto vs_uv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(vs_uv_unspec), std::move(specinfo));
-
-        insertShaderIntoCache(vs_nouv, VERT_SHADER_NO_UV_CACHE_KEY, m_assetMgr);
-        insertShaderIntoCache(vs_uv, VERT_SHADER_UV_CACHE_KEY, m_assetMgr);
-    }
-    //create fragment shaders and insert them into cache
-    {
-        std::string fs_nouv_source = FRAG_SHADER_UV;
-        fs_nouv_source.insert(fs_nouv_source.find('\n') + 1ull,
-            R"(
-#ifndef _IRR_FRAG_SET3_BINDINGS_DEFINED_
-#define _IRR_FRAG_SET3_BINDINGS_DEFINED_
-#endif
-)"
-);
-        fs_nouv_source.insert(fs_nouv_source.find("\n")+1ull, "#define _NO_UV\n");
-
-        auto fs_nouv_unspec = core::make_smart_refctd_ptr<ICPUShader>(fs_nouv_source.c_str());
-        auto fs_uv_unspec = core::make_smart_refctd_ptr<ICPUShader>(FRAG_SHADER_UV);
-
-        ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_FRAGMENT, "?IrrlichtBAW PipelineLoaderMTL FragmentShader?");
-        auto fs_nouv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(fs_nouv_unspec), ICPUSpecializedShader::SInfo(specinfo));
-        auto fs_uv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(fs_uv_unspec), std::move(specinfo));
-
-        insertShaderIntoCache(fs_nouv, FRAG_SHADER_NO_UV_CACHE_KEY, m_assetMgr);
-        insertShaderIntoCache(fs_uv, FRAG_SHADER_UV_CACHE_KEY, m_assetMgr);
-    }
+    registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_VERTEX);
+    registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+    registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
+    registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
 }
 
 bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) const
