@@ -39,7 +39,7 @@ public:
 protected:
     std::string getInclude_internal(const std::string& _path) const override
     {
-        if (_path.compare(0, strlen(IIncludeHandler::BUILTIN_PREFIX), IIncludeHandler::BUILTIN_PREFIX) != 0)
+        if (!IIncludeHandler::isBuiltinPath(_path))
             return {};
 
         std::string path = _path.substr(0, _path.find_last_of('/')+1);

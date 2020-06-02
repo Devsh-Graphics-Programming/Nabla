@@ -257,7 +257,13 @@ class IFileSystem : public virtual core::IReferenceCounted
 				}
 				return nullptr;
 			#else
-				auto path = builtinResourceDirectory+builtinPath;
+				constexpr auto pathPrefix = "irr/builtin/";
+				auto pos = builtinPath.find(pathPrefix);
+				std::string path;
+				if (pos!=std::string::npos)
+					path = builtinResourceDirectory+builtinPath.substr(pos+strlen(pathPrefix));
+				else
+					path = builtinResourceDirectory+builtinPath;
 
 				auto file = this->createAndOpenFile(path.c_str());
 				if (file)

@@ -48,7 +48,7 @@ constexpr std::array<C,impl::substrlen<Pos,Len,N>()+1ull> substr(const C(&s)[N])
 
 inline std::string getBuiltinResourcesDirectoryPath()
 {
-    return builtin::substr<builtin::strlen("common.h"),~0ull>(__FILE__).data();
+    return builtin::substr<0ull,builtin::strlen(__FILE__)-builtin::strlen("common.h")>(__FILE__).data();
 }
 
 }
