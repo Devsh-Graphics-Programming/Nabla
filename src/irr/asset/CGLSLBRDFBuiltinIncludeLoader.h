@@ -20,11 +20,9 @@ private:
 R"(#ifndef _IRR_BSDF_COMMON_INCLUDED_
 #define _IRR_BSDF_COMMON_INCLUDED_
 
-#define irr_glsl_PI 3.14159265359
-#define irr_glsl_RECIPROCAL_PI 0.318309886183
-#define irr_glsl_SQRT_RECIPROCAL_PI 0.56418958354
+#include <irr/builtin/glsl/math/constants.glsl>
 
-#define UINT_MAX 4294967295u
+#include <irr/builtin/glsl/limits/numeric.glsl>
 
 // do not use this struct in SSBO or UBO, its wasteful on memory
 struct irr_glsl_DirAndDifferential
@@ -773,6 +771,9 @@ irr_glsl_BSDFSample irr_glsl_ggx_smith_cos_gen_sample(in irr_glsl_AnisotropicVie
 #include <irr/builtin/glsl/bsdf/brdf/specular/ndf/beckmann.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/specular/geom/smith.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
+#include <irr/builtin/glsl/math/functions.glsl>
+
+#include <irr/builtin/glsl/math/functions.glsl>
 
 //i wonder where i got irr_glsl_ggx_smith_height_correlated() from because it looks very different from 1/(1+L_v+L_l) form
 float irr_glsl_beckmann_smith_height_correlated(in float NdotV2, in float NdotL2, in float a2)
@@ -782,59 +783,6 @@ float irr_glsl_beckmann_smith_height_correlated(in float NdotV2, in float NdotL2
     c2 = irr_glsl_smith_beckmann_C2(NdotL2, a2);
     float L_l = irr_glsl_smith_beckmann_Lambda(c2);
     return 1.0 / (1.0 + L_v + L_l);
-}
-
-//idk what erf even is but PBRT's implementation of beckmann sampling uses it..
-float irr_glsl_erf(in float _x)
-{
-    const float a1 = 0.254829592;
-    const float a2 = -0.284496736;
-    const float a3 = 1.421413741;
-    const float a4 = -1.453152027;
-    const float a5 = 1.061405429;
-    const float p = 0.3275911;
-
-    float sign = sign(_x);
-    float x = abs(_x);
-    
-    float t = 1.0 / (1.0 + p*x);
-    float y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * exp(-x * x);
-    
-    return sign*y;
-}
-
-float irr_glsl_erfInv(in float _x)
-{
-    float x = clamp(_x, -0.99999, 0.99999);
-    float w = -log((1.0-x) * (1.0+x));
-    float p;
-    if (w<5.0)
-    {
-        w -= 2.5;
-        p = 2.81022636e-08;
-        p = 3.43273939e-07 + p*w;
-        p = -3.5233877e-06 + p*w;
-        p = -4.39150654e-06 + p*w;
-        p = 0.00021858087 + p*w;
-        p = -0.00125372503 + p*w;
-        p = -0.00417768164 + p*w;
-        p = 0.246640727 + p*w;
-        p = 1.50140941 + p*w;
-    }
-    else
-    {
-        w = sqrt(w) - 3.0;
-        p = -0.000200214257;
-        p = 0.000100950558 + p*w;
-        p = 0.00134934322 + p*w;
-        p = -0.00367342844 + p*w;
-        p = 0.00573950773 + p*w;
-        p = -0.0076224613 + p*w;
-        p = 0.00943887047 + p*w;
-        p = 1.00167406 + p*w;
-        p = 2.83297682 + p*w;
-    }
-    return p*x;
 }
 
 irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_gen_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float ax, in float ay)

@@ -12,6 +12,9 @@
 #include "irr/asset/CGLSLColorSpaceBuiltinIncludeLoader.h"
 #include "irr/asset/CGLSLScanBuiltinIncludeLoader.h"
 
+#include "irr/asset/CGLSLLimitsBuiltinIncludeLoader.h"
+#include "irr/asset/CGLSLMathBuiltinIncludeLoader.h"
+
 #include "irr/asset/CGLSLVertexUtilsBuiltinIncludeLoader.h"
 #include "irr/asset/CGLSLSkinningBuiltinIncludeLoader.h"
 
@@ -34,6 +37,9 @@ IGLSLCompiler::IGLSLCompiler(io::IFileSystem* _fs) : m_inclHandler(core::make_sm
 
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLColorSpaceBuiltinIncludeLoader>());
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLScanBuiltinIncludeLoader>());
+
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLLimitsBuiltinIncludeLoader>());
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLMathBuiltinIncludeLoader>());
 
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVertexUtilsBuiltinIncludeLoader>());
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLSkinningBuiltinIncludeLoader>());

@@ -79,15 +79,15 @@ namespace bsdf
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_PLASTIC_REFL_TEX = 0x1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_PLASTIC_REFL_TEX = INSTR_OPCODE_WIDTH + 5u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_ALPHA_U_TEX = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_ALPHA_U_TEX = INSTR_OPCODE_WIDTH + 2u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_ALPHA_U_TEX = INSTR_OPCODE_WIDTH + 0u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_ALPHA_V_TEX = 0x1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_ALPHA_V_TEX = INSTR_OPCODE_WIDTH + 3u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_SPEC_TRANS_TEX = 0x1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_SPEC_TRANS_TEX = INSTR_OPCODE_WIDTH + 0u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_NDF = 0x3u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_NDF = INSTR_OPCODE_WIDTH + 0u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_NDF = INSTR_OPCODE_WIDTH + 1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_WARD_VARIANT = 0x3u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_WARD_VARIANT = INSTR_OPCODE_WIDTH + 0u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_WARD_VARIANT = INSTR_OPCODE_WIDTH + 1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_FAST_APPROX = 0x1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_FAST_APPROX = INSTR_OPCODE_WIDTH + 1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_NONLINEAR = 0x1u;
@@ -153,27 +153,27 @@ namespace bsdf
 #include "irr/irrpack.h"
 	struct alignas(16) SAllDiffuse
 	{
+		uint64_t textureScale;
+		STextureDataOrConstant opacity;
 		//if flag decides to use alpha texture, alpha_u.texData is tex data for VT
 		//otherwise alpha_u.constant_f32 is constant single-float alpha
 		STextureDataOrConstant alpha;
 		STextureDataOrConstant reflectance;
-		STextureDataOrConstant opacity;
-		//multiplication factor for texture samples
-		//RGB19E7 format
-		//.x - alpha scale, .y - reflectance scale, .z - opacity scale
-		uint64_t textureScale;
 	} PACK_STRUCT;
 	struct alignas(16) SDiffuseTransmitter
 	{
-		STextureDataOrConstant transmittance;
+		//rgb19e7, x - transmittance, .z - opacity
+		uint64_t textureScale;
 		STextureDataOrConstant opacity;
-		//multiplication factor for texture samples
-		//[0] - transmittance scale, [1] - opacity scale
-		float textureScale[2];
+		STextureDataOrConstant transmittance;
 	} PACK_STRUCT;
 	struct alignas(16) SAllDielectric
 	{
-		float eta;
+		//multiplication factor for texture samples
+		//RGB19E7 format
+		//.x - alpha_u scale, .y - alpha_v scale, .z - opacity scale
+		uint64_t textureScale;
+		STextureDataOrConstant opacity;
 		//if NDF is Ashikhmin-Shirley:
 		//	if flag decides to use alpha_u texture, alpha_u.texData is tex data for VT
 		//	otherwise alpha_u.constant_f32 is constant single-float alpha_u
@@ -184,49 +184,45 @@ namespace bsdf
 		//	otherwise alpha_u.constant_f32 is constant single-float alpha
 		STextureDataOrConstant alpha_u;
 		STextureDataOrConstant alpha_v;
-		STextureDataOrConstant opacity;
+		float eta;
+	} PACK_STRUCT;
+	struct alignas(16) SAllConductor
+	{
 		//multiplication factor for texture samples
 		//RGB19E7 format
 		//.x - alpha_u scale, .y - alpha_v scale, .z - opacity scale
 		uint64_t textureScale;
-	} PACK_STRUCT;
-	struct alignas(16) SAllConductor
-	{
+		STextureDataOrConstant opacity;
 		//same as for SAllDielectric::alpha_u,alpha_v
 		STextureDataOrConstant alpha_u;
 		STextureDataOrConstant alpha_v;
 		//ior[0] real part of eta in RGB19E7 format
 		//ior[1] is imaginary part of eta in RGB19E7 format
 		uint64_t eta[2];
-		STextureDataOrConstant opacity;
-		//multiplication factor for texture samples
-		//RGB19E7 format
-		//.x - alpha_u scale, .y - alpha_v scale, .z - opacity scale
-		uint64_t textureScale;
 	} PACK_STRUCT;
 	struct alignas(16) SAllPlastic
 	{
-		float eta;
-		STextureDataOrConstant alpha;
-		STextureDataOrConstant opacity;
-		STextureDataOrConstant reflectance;
 		//multiplication factor for texture samples
 		//RGB19E7 format
-		//.x - alpha scale,.y - opacity scale, .z - refl scale
+		//.x - alpha scale, .y - refl scale, .z - opacity scale,
 		uint64_t textureScale;
+		STextureDataOrConstant opacity;
+		STextureDataOrConstant alpha;
+		STextureDataOrConstant reflectance;
+		float eta;
 	} PACK_STRUCT;
 	struct alignas(16) SAllCoating
 	{
-		//thickness and eta encoded as 2x float16, thickness on bits 0:15, eta on bits 16:31
-		uint32_t thickness_eta;
-		STextureDataOrConstant alpha;
-		//rgb in RGB19E7 format or texture data for VT (flag decides)
-		STextureDataOrConstant sigmaA;
-		STextureDataOrConstant opacity;
 		//multiplication factor for texture samples
 		//RGB19E7 format
 		//.x - alpha scale, .y - sigmaA scale, .z - opacity scale
 		uint64_t textureScale;
+		STextureDataOrConstant opacity;
+		STextureDataOrConstant alpha;
+		//rgb in RGB19E7 format or texture data for VT (flag decides)
+		STextureDataOrConstant sigmaA;
+		//thickness and eta encoded as 2x float16, thickness on bits 0:15, eta on bits 16:31
+		uint32_t thickness_eta;
 	} PACK_STRUCT;
 	/*
 	struct alignas(16) SPhong
@@ -243,36 +239,38 @@ namespace bsdf
 	*/
 	struct alignas(16) SWard
 	{
-		//same as for SAllDielectric::alpha_u,alpha_v
-		STextureDataOrConstant alpha_u;
-		STextureDataOrConstant alpha_v;
-		STextureDataOrConstant opacity;
 		//multiplication factor for texture samples
 		//RGB19E7 format
 		//.x - alpha u scale, .y - alpha v scale, .z - opacity scale
 		uint64_t textureScale;
+		STextureDataOrConstant opacity;
+		//same as for SAllDielectric::alpha_u,alpha_v
+		STextureDataOrConstant alpha_u;
+		STextureDataOrConstant alpha_v;
 	} PACK_STRUCT;
 	struct alignas(16) SBumpMap
 	{
+		//rgb19e7, x - bump scale
+		uint64_t textureScale;
 		//texture data for VT
 		STextureData bumpmap;
-		float textureScale;
 	} PACK_STRUCT;
 	struct alignas(16) SBlend
 	{
+		//rgb19e7, x - weight scale
+		uint64_t textureScale;
 		//per-channel single-float32 blend factor
 		//2 weights in order to encode MIXTURE bsdf as tree of BLENDs
 		//if flag decides to use weight texture, `weightL.texData` is texture data for VT and `weightR` is then irrelevant
 		//otherwise `weightL.constant_f32` and `weightR` are constant float32 blend weights. Left has to be multiplied by weightL and right operand has to be multiplied by weightR.
 		STextureDataOrConstant weightL;
 		float weightR;
-		float textureScale;
 	} PACK_STRUCT;
 #include "irr/irrunpack.h"
 
 	union SBSDFUnion
 	{
-		SBSDFUnion() : bumpmap{STextureData::invalid()} {}
+		SBSDFUnion() : bumpmap{0ull,STextureData::invalid()} {}
 
 		SAllDiffuse diffuse;
 		SDiffuseTransmitter diffuseTransmitter;
