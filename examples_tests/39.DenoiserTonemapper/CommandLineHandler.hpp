@@ -117,11 +117,12 @@ constexpr std::string_view BLOOM_PSF_FILE = "BLOOM_PSF_FILE";
 /*
 	Those are reserved for files and variables being invalid.
 	- INVALID_VARIABLE means that the variable hasn't been specified (optional) or there is something wrong with the variable and so can't be used.
-	- INVALID_FILE means that the file doesn't meet the requirements (extension) so can't be used.
+	- INVALID_VALUE_STREAM and INVALID_VALUE_NUMBER means that the value doesn't meet the requirements (for example value for files - extension) so can't be used.
 */
 
 constexpr std::string_view INVALID_VARIABLE = "INVALID_VARIABLE";
-constexpr std::string_view INVALID_FILE = "INVALID_FILE";
+constexpr std::string_view INVALID_VALUE_STREAM = "INVALID_VALUE_STREAM";
+constexpr auto INVALID_VALUE_NUMBER = 0;
 
 constexpr std::array<std::string_view, MANDATORY_CMD_ARGUMENTS_AMOUNT> REQUIRED_PARAMETERS =
 {
@@ -147,6 +148,7 @@ enum DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS
 	DTEA_DENOISER_EXPOSURE_BIAS,
 	DTEA_DENOISER_BLEND_FACTOR,
 	DTEA_BLOOM_FOV,
+	DTEA_TONEMAPPER,
 	DTEA_REINHARD,
 	DTEA_ACES,
 	DTEA_OUTPUT,
@@ -173,9 +175,10 @@ enum TONEMAPPER_ARGUMENTS
 	TA_COUNT
 };
 
+
 using cmdVariableName = std::string;
 using rawValuesOfcmdVariable = std::string;
-using variablesType = std::array<std::pair<cmdVariableName, irr::core::vector<rawValuesOfcmdVariable>>, DTEA_COUNT>;
+using variablesType = std::unordered_map<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS, std::optional<irr::core::vector<rawValuesOfcmdVariable>>>;
 
 class CommandLineHandler
 {
@@ -266,106 +269,242 @@ class CommandLineHandler
 
 		void initializeMatchingMap(variablesType& rawVariablesPerFile)
 		{
-			rawVariablesPerFile[DTEA_COLOR_FILE].first = COLOR_FILE;
-			rawVariablesPerFile[DTEA_CAMERA_TRANSFORM].first = CAMERA_TRANSFORM;
-			rawVariablesPerFile[DTEA_MEDIAN_FILTER_RADIUS].first = MEDIAN_FILTER_RADIUS;
-			rawVariablesPerFile[DTEA_DENOISER_EXPOSURE_BIAS].first = DENOISER_EXPOSURE_BIAS;
-			rawVariablesPerFile[DTEA_DENOISER_BLEND_FACTOR].first = DENOISER_BLEND_FACTOR;
-			rawVariablesPerFile[DTEA_BLOOM_FOV].first = BLOOM_FOV;
-			rawVariablesPerFile[DTEA_REINHARD].first = REINHARD;
-			rawVariablesPerFile[DTEA_ACES].first = ACES;
-			rawVariablesPerFile[DTEA_OUTPUT].first = OUTPUT;
+			rawVariablesPerFile[DTEA_COLOR_FILE];
+			rawVariablesPerFile[DTEA_CAMERA_TRANSFORM];
+			rawVariablesPerFile[DTEA_MEDIAN_FILTER_RADIUS];
+			rawVariablesPerFile[DTEA_DENOISER_EXPOSURE_BIAS];
+			rawVariablesPerFile[DTEA_DENOISER_BLEND_FACTOR];
+			rawVariablesPerFile[DTEA_BLOOM_FOV];
+			rawVariablesPerFile[DTEA_REINHARD];
+			rawVariablesPerFile[DTEA_ACES];
+			rawVariablesPerFile[DTEA_OUTPUT];
 
-			rawVariablesPerFile[DTEA_ALBEDO_FILE].first = ALBEDO_FILE;
-			rawVariablesPerFile[DTEA_NORMAL_FILE].first = NORMAL_FILE;
-			rawVariablesPerFile[DTEA_COLOR_CHANNEL_NAME].first = COLOR_CHANNEL_NAME;
-			rawVariablesPerFile[DTEA_ALBEDO_CHANNEL_NAME].first = ALBEDO_CHANNEL_NAME;
-			rawVariablesPerFile[DTEA_NORMAL_CHANNEL_NAME].first = NORMAL_CHANNEL_NAME;
-			rawVariablesPerFile[DTEA_BLOOM_PSF_FILE].first = BLOOM_PSF_FILE;
+			rawVariablesPerFile[DTEA_ALBEDO_FILE];
+			rawVariablesPerFile[DTEA_NORMAL_FILE];
+			rawVariablesPerFile[DTEA_COLOR_CHANNEL_NAME];
+			rawVariablesPerFile[DTEA_ALBEDO_CHANNEL_NAME];
+			rawVariablesPerFile[DTEA_NORMAL_CHANNEL_NAME];
+			rawVariablesPerFile[DTEA_BLOOM_PSF_FILE];
 		}
+
+		DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS getMatchedVariableMapID(const std::string& variableName)
+		{
+			if (variableName == COLOR_FILE)
+				return DTEA_COLOR_FILE;
+			else if (variableName == CAMERA_TRANSFORM)
+				return DTEA_CAMERA_TRANSFORM;
+			else if (variableName == MEDIAN_FILTER_RADIUS)
+				return DTEA_MEDIAN_FILTER_RADIUS;
+			else if (variableName == DENOISER_EXPOSURE_BIAS)
+				return DTEA_DENOISER_EXPOSURE_BIAS;
+			else if (variableName == DENOISER_BLEND_FACTOR)
+				return DTEA_DENOISER_BLEND_FACTOR;
+			else if (variableName == BLOOM_FOV)
+				return DTEA_BLOOM_FOV;
+			else if (variableName == TONEMAPPER)
+				return DTEA_TONEMAPPER;
+			else if (variableName == REINHARD)
+				return DTEA_REINHARD;
+			else if(variableName == ACES)
+				return DTEA_ACES;
+			else if (variableName == OUTPUT)
+				return DTEA_OUTPUT;
+			else if (variableName == ALBEDO_FILE)
+				return DTEA_ALBEDO_FILE;
+			else if (variableName == NORMAL_FILE)
+				return DTEA_NORMAL_FILE;
+			else if (variableName == COLOR_CHANNEL_NAME)
+				return DTEA_COLOR_CHANNEL_NAME;
+			else if (variableName == ALBEDO_CHANNEL_NAME)
+				return DTEA_ALBEDO_CHANNEL_NAME;
+			else if (variableName == NORMAL_CHANNEL_NAME)
+				return DTEA_NORMAL_CHANNEL_NAME;
+			else if (variableName == BLOOM_PSF_FILE)
+				return DTEA_BLOOM_PSF_FILE;
+			else
+				return DTEA_COUNT;
+		}
+
+		void validateMandatoryParameters(const variablesType& rawVariablesPerFile, const size_t idOfInput)
+		{
+			static const irr::core::vector<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS> mandatoryArgumentsOrdinary = { DTEA_COLOR_FILE, DTEA_CAMERA_TRANSFORM, DTEA_MEDIAN_FILTER_RADIUS, DTEA_DENOISER_EXPOSURE_BIAS, DTEA_DENOISER_BLEND_FACTOR, DTEA_BLOOM_FOV, DTEA_OUTPUT };
+
+			auto log = [&](bool status, const std::string message)
+			{
+				os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): " + message + " Id of input stride: " + std::to_string(idOfInput), ELL_ERROR);
+				assert(status);
+			};
+			
+			auto validateOrdinary = [&](const DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS argument)
+			{
+				auto found = rawVariablesPerFile.find(argument);
+				if (found != rawVariablesPerFile.end())
+				{
+					if (rawVariablesPerFile.at(argument).has_value())
+						return false;
+				}
+				else
+					return false;
+
+				return true;
+			};
+
+			auto validateTonemapper = [&]()
+			{
+				bool status = true;
+				auto reinhardSearch = rawVariablesPerFile.find(DTEA_REINHARD);
+				auto acesSearch = rawVariablesPerFile.find(DTEA_ACES);
+
+				bool reinhardFound = reinhardSearch != std::end(rawVariablesPerFile);
+				bool acesFound = acesSearch != std::end(rawVariablesPerFile);
+
+				if (reinhardFound && acesFound)
+					log(status = false, "Only one tonemapper can be specified at once!");
+
+				if (reinhardFound)
+				{
+					status = rawVariablesPerFile.at(DTEA_REINHARD).has_value();
+					if (rawVariablesPerFile.at(DTEA_REINHARD).value().size() < 2)
+						log(status = false, "The Reinhard tonemapper doesn't have 2 arguments!");
+				}
+				else if (acesFound)
+				{
+					status = rawVariablesPerFile.at(DTEA_ACES).has_value();
+					if (rawVariablesPerFile.at(DTEA_ACES).value().size() < 2)
+						log(status = false, "The Aces tonemapper doesn't have 2 arguments!");
+				}
+					
+				else
+					log(status = false, "None tonemapper has been specified");
+
+				return true;
+			};
+
+			for (const auto& mandatory : mandatoryArgumentsOrdinary)
+			{
+				bool status = validateOrdinary(mandatory);
+				if (!status)
+					log(status, "Mandatory argument missing or it doesn't contain any value!");
+			}
+
+			validateTonemapper();
+		}
+
+		/*
+			Mandatory parameters must have a value. Since they are validated in code,
+			there is no need for checking it's content.
+		*/
 
 		auto getColorFileName(uint64_t id = 0)
 		{
-			return rawVariables[id][DTEA_COLOR_FILE].second[0];
-		}
-
-		auto getAlbedoFileName(uint64_t id = 0)
-		{
-			return rawVariables[id][DTEA_ALBEDO_FILE].second[0];
-		}
-
-		auto getNormalFileName(uint64_t id = 0)
-		{
-			return rawVariables[id][DTEA_NORMAL_FILE].second[0];
-		}
-
-		auto getColorChannelName(uint64_t id = 0)
-		{
-			return rawVariables[id][DTEA_COLOR_CHANNEL_NAME].second[0];
-		}
-
-		auto getAlbedoChannelName(uint64_t id = 0)
-		{
-			return rawVariables[id][DTEA_ALBEDO_CHANNEL_NAME].second[0];
-		}
-
-		auto getNormalChannelName(uint64_t id = 0)
-		{
-			return rawVariables[id][DTEA_NORMAL_CHANNEL_NAME].second[0];
+			return rawVariables[id][DTEA_COLOR_FILE].value()[0];
 		}
 
 		auto getCameraTransform(uint64_t id = 0)
 		{
 			irr::core::matrix3x4SIMD cameraTransform;
-			const auto send = rawVariables[id][DTEA_CAMERA_TRANSFORM].second.end();
-			auto sit = rawVariables[id][DTEA_CAMERA_TRANSFORM].second.begin();
-			for (auto i=0; i<3u&&sit!=send; i++)
-			for (auto j=0; j<3u&&sit!=send; j++)
-				cameraTransform(i,j) = std::stof(*(sit++));
+			const auto send = rawVariables[id][DTEA_CAMERA_TRANSFORM].value().end();
+			auto sit = rawVariables[id][DTEA_CAMERA_TRANSFORM].value().begin();
+			for (auto i = 0; i < 3u && sit != send; i++)
+				for (auto j = 0; j < 3u && sit != send; j++)
+					cameraTransform(i, j) = std::stof(*(sit++));
 
 			return cameraTransform;
 		}
 
 		auto getMedianFilterRadius(uint64_t id = 0)
 		{
-			return std::stof(rawVariables[id][DTEA_MEDIAN_FILTER_RADIUS].second[0]);
+			return std::stof(rawVariables[id][DTEA_MEDIAN_FILTER_RADIUS].value()[0]);
 		}
 
 		auto getDenoiserExposureBias(uint64_t id = 0)
 		{
-			return std::stof(rawVariables[id][DTEA_DENOISER_EXPOSURE_BIAS].second[0]);
+			return std::stof(rawVariables[id][DTEA_DENOISER_EXPOSURE_BIAS].value()[0]);
 		}
 
 		auto getDenoiserBlendFactor(uint64_t id = 0)
 		{
-			return std::stof(rawVariables[id][DTEA_DENOISER_BLEND_FACTOR].second[0]);
+			return std::stof(rawVariables[id][DTEA_DENOISER_BLEND_FACTOR].value()[0]);
 		}
 
 		auto getBloomFov(uint64_t id = 0)
 		{
-			return std::stof(rawVariables[id][DTEA_BLOOM_FOV].second[0]);
+			return std::stof(rawVariables[id][DTEA_BLOOM_FOV].value()[0]);
 		}
 
 		auto getTonemapper(uint64_t id = 0)
 		{
-			const bool isChoosenReinhard = rawVariables[id][DTEA_ACES].second.empty();
-			auto tonemapper = isChoosenReinhard ? rawVariables[id][DTEA_REINHARD] : rawVariables[id][DTEA_ACES];
+			const bool isChoosenReinhard = rawVariables[id][DTEA_REINHARD].has_value();
+			auto& tonemapper = isChoosenReinhard ? rawVariables[id][DTEA_REINHARD].value() : rawVariables[id][DTEA_ACES].value();
 			irr::core::vector<float> values(TA_COUNT);
 
 			for (auto i = 0; i < TA_COUNT; ++i)
-				*(values.begin() + i) = std::stof(tonemapper.second[i]);
+				*(values.begin() + i) = std::stof(tonemapper[i]);
 
-			return std::make_pair(tonemapper.first, values);
+			return std::make_pair(isChoosenReinhard ? REINHARD.data() : ACES.data(), values);
 		}
 
 		auto getOutputFile(uint64_t id = 0)
 		{
-			return rawVariables[id][DTEA_OUTPUT].second[0];
+			return rawVariables[id][DTEA_OUTPUT].value()[0];
+		}
+
+		/*
+			Optional parameters don't have to contain any value.
+		*/
+
+		auto getAlbedoFileName(uint64_t id = 0)
+		{
+			bool ableToReturn = rawVariables[id][DTEA_ALBEDO_FILE].has_value();
+			if (ableToReturn)
+				return rawVariables[id][DTEA_ALBEDO_FILE].value()[0];
+			else
+				INVALID_VALUE_STREAM.data();
+		}
+
+		auto getNormalFileName(uint64_t id = 0)
+		{
+			bool ableToReturn = rawVariables[id][DTEA_NORMAL_FILE].has_value() && rawVariables[id][DTEA_ALBEDO_FILE].has_value() && !rawVariables[id][DTEA_NORMAL_FILE].value().empty() && !rawVariables[id][DTEA_ALBEDO_FILE].value().empty();
+			if (ableToReturn)
+				return rawVariables[id][DTEA_NORMAL_FILE].value()[0];
+			else
+				return INVALID_VALUE_STREAM.data();
+		}
+
+		auto getColorChannelName(uint64_t id = 0)
+		{
+			bool ableToReturn = rawVariables[id][DTEA_COLOR_CHANNEL_NAME].has_value();
+			if(ableToReturn)
+				return rawVariables[id][DTEA_COLOR_CHANNEL_NAME].value()[0];
+			else
+				return INVALID_VALUE_STREAM.data();
+		}
+
+		auto getAlbedoChannelName(uint64_t id = 0)
+		{
+			bool ableToReturn = rawVariables[id][DTEA_ALBEDO_CHANNEL_NAME].has_value() && rawVariables[id][DTEA_ALBEDO_FILE].has_value();
+			if (ableToReturn)
+				return rawVariables[id][DTEA_ALBEDO_CHANNEL_NAME].value()[0];
+			else
+				return INVALID_VALUE_STREAM.data();
+		}
+
+		auto getNormalChannelName(uint64_t id = 0)
+		{
+			bool ableToReturn = rawVariables[id][DTEA_NORMAL_CHANNEL_NAME].has_value() && rawVariables[id][DTEA_NORMAL_FILE].has_value();
+			if(ableToReturn)
+				return rawVariables[id][DTEA_NORMAL_CHANNEL_NAME].value()[0];
+			else
+				return INVALID_VALUE_STREAM.data();
 		}
 
 		auto getBloomPsfFile(uint64_t id = 0)
 		{
-			return rawVariables[id][DTEA_BLOOM_PSF_FILE].second[0];
+			bool ableToReturn = rawVariables[id][DTEA_BLOOM_PSF_FILE].has_value();
+			if (ableToReturn)
+				return rawVariables[id][DTEA_BLOOM_PSF_FILE].value()[0];
+			else
+				return INVALID_VALUE_STREAM.data();
 		}
 
 		void performFInalAssignmentStepForUsefulVariables()
@@ -412,20 +551,20 @@ class CommandLineHandler
 		// I want to deduce those types bellow by using type from functions above
 		// like deduce type of getTonemapper()
 
-		irr::core::vector<std::string> colorFileNameBundle;
-		irr::core::vector<std::string> albedoFileNameBundle;
-		irr::core::vector<std::string> normalFileNameBundle;
-		irr::core::vector<std::string> colorChannelNameBundle;
-		irr::core::vector<std::string> albedoChannelNameBundle;
-		irr::core::vector<std::string> normalChannelNameBundle;
-		irr::core::vector<irr::core::matrix3x4SIMD> cameraTransformBundle;
-		irr::core::vector<float> medianFilterRadiusBundle;
-		irr::core::vector<float> denoiserExposureBiasBundle;
-		irr::core::vector<float> denoiserBlendFactorBundle;
-		irr::core::vector<float> bloomFovBundle;
-		irr::core::vector<std::pair<std::string, irr::core::vector<float>>> tonemapperBundle;
-		irr::core::vector<std::string> outputFileNameBundle;
-		irr::core::vector<std::string> bloomPsfFileNameBundle;
+		irr::core::vector<std::optional<std::string>> colorFileNameBundle;
+		irr::core::vector<std::optional<std::string>> albedoFileNameBundle;
+		irr::core::vector<std::optional<std::string>> normalFileNameBundle;
+		irr::core::vector<std::optional<std::string>> colorChannelNameBundle;
+		irr::core::vector<std::optional<std::string>> albedoChannelNameBundle;
+		irr::core::vector<std::optional<std::string>> normalChannelNameBundle;
+		irr::core::vector<std::optional<irr::core::matrix3x4SIMD>> cameraTransformBundle;
+		irr::core::vector<std::optional<float>> medianFilterRadiusBundle;
+		irr::core::vector<std::optional<float>> denoiserExposureBiasBundle;
+		irr::core::vector<std::optional<float>> denoiserBlendFactorBundle;
+		irr::core::vector<std::optional<float>> bloomFovBundle;
+		irr::core::vector<std::optional<std::pair<std::string, irr::core::vector<float>>>> tonemapperBundle;
+		irr::core::vector<std::optional<std::string>> outputFileNameBundle;
+		irr::core::vector<std::optional<std::string>> bloomPsfFileNameBundle;
 };
 
 #endif // _DENOISER_TONEMAPPER_COMMAND_LINE_HANDLER_

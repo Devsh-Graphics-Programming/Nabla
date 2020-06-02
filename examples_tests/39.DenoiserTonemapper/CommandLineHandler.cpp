@@ -129,138 +129,90 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 		os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
 	}
 
-	auto validateFileVariable = [](std::string& path, const std::string& variable)
-	{
-		io::path filename, extension, finalFileNameWithExtension;
-		core::splitFilename(path.c_str(), nullptr, &filename, &extension);
-		finalFileNameWithExtension = filename + ".";
-		finalFileNameWithExtension += extension;
-
-		if (std::string(extension.c_str()) != "exr")
-		{
-			path = INVALID_FILE.data();
-			os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): " + std::string(finalFileNameWithExtension.c_str()) + " is invalid! Filling the path variable with " + std::string(INVALID_FILE.data()) + "!", ELL_WARNING);
-		}
-	};
-
 	// read from argv list to map and put variables to appropiate places in a cache
 	rawVariables.resize(argvMappedList.size());
 
-	for (auto c = 0ul; c < argvMappedList.size(); ++c)
+	for (auto inputBatchStride = 0ul; inputBatchStride < argvMappedList.size(); ++inputBatchStride)
 	{
-		std::unordered_map<std::string, bool> REQUIRED_PARAMETERS_CACHE;
-		const auto cmdArgumentsPerFile = *(argvMappedList.begin() + c);
-		initializeMatchingMap(rawVariables[c]);
+		const auto cmdArgumentsPerFile = *(argvMappedList.begin() + inputBatchStride);
+		auto& rawVariablesHandle = rawVariables[inputBatchStride]; // unorederd map of variables
+		initializeMatchingMap(rawVariablesHandle);
 
-		for (auto i = 0; i < DTEA_COUNT; ++i)
+		for (auto argumentIterator = 0; argumentIterator < rawVariablesHandle.size(); ++argumentIterator)
 		{
-			auto& referenceVariableMap = rawVariables[c][i];
+			std::string rawFetchedCmdArgument = cmdArgumentsPerFile[argumentIterator];
 
-			for (auto z = 0; z < PROPER_CMD_ARGUMENTS_AMOUNT; ++z)
+			const auto offset = rawFetchedCmdArgument.find_first_of("-") + 1;
+			const auto endOfFetchedVariableName = rawFetchedCmdArgument.find_first_of("=");
+			const auto count = endOfFetchedVariableName - offset;
+			const auto cmdFetchedVariable = rawFetchedCmdArgument.substr(offset, count);
 			{
-				std::string rawFetchedCmdArgument = cmdArgumentsPerFile[z];
-				if (rawFetchedCmdArgument.empty())
+				std::string variable = cmdFetchedVariable;
+				auto matchedVariableID = getMatchedVariableMapID(variable);
+
+				const auto beginningOfVariables = rawFetchedCmdArgument.find_last_of("=") + 1;
+				auto variablesStream = rawFetchedCmdArgument.substr(beginningOfVariables);
+
+				auto assignToMap = [&](DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS argument, size_t reservedSpace = 1)
 				{
-					if (!referenceVariableMap.second.size())
-					{
-						referenceVariableMap.second.emplace_back(INVALID_VARIABLE.data());
-						os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): The variable " + referenceVariableMap.first + " hasn't been specified! Filling the variable with " + std::string(INVALID_VARIABLE.data()) + "!", ELL_WARNING);
-					}
-						
-					continue;
-				}
-
-				const auto offset = rawFetchedCmdArgument.find_first_of("-") + 1;
-				const auto endOfFetchedVariableName = rawFetchedCmdArgument.find_first_of("=");
-				const auto count = endOfFetchedVariableName - offset;
-				const auto cmdFetchedVariable = rawFetchedCmdArgument.substr(offset, count);
-
-				auto isTonemapperDetected = [&]()
-				{
-					if (referenceVariableMap.first == ACES || referenceVariableMap.first == REINHARD)
-						if (cmdFetchedVariable == TONEMAPPER)
-							return true;
-
-					return false;
+					auto variablesHandle = getSerializedValues(variablesStream, reservedSpace);
+					auto& reference = rawVariablesHandle[argument];
+					reference.emplace(variablesHandle);
 				};
 
-				const auto tonemapperDetected = isTonemapperDetected();
-				const auto matchedVariables = ((referenceVariableMap.first == cmdFetchedVariable) || tonemapperDetected);
-
-				if (matchedVariables)
+				if (variable == TONEMAPPER)
 				{
-					std::string variable = cmdFetchedVariable;
-					auto resoultFound = std::find(std::begin(REQUIRED_PARAMETERS), std::end(REQUIRED_PARAMETERS), std::string_view(variable));
-					if (resoultFound != std::end(REQUIRED_PARAMETERS))
-						REQUIRED_PARAMETERS_CACHE[variable] = true;
+					auto foundAces = rawFetchedCmdArgument.find(ACES) != std::string::npos;
+					auto foundReinhard = rawFetchedCmdArgument.find(REINHARD) != std::string::npos;
 
-					const auto beginningOfVariables = rawFetchedCmdArgument.find_last_of("=") + 1;
-					auto variablesStream = rawFetchedCmdArgument.substr(beginningOfVariables);
-
-					if (tonemapperDetected)
-					{
-						auto foundAces = rawFetchedCmdArgument.find(ACES) != std::string::npos;
-						auto foundReinhard = rawFetchedCmdArgument.find(REINHARD) != std::string::npos;
-
-						if (foundAces)
-							variable = ACES;
-						else if (foundReinhard)
-							variable = REINHARD;
-						else
-							variable = REINHARD;
-					}
-
-					if (variable == ACES)
-					{
-						// 2 values according with the syntax
-						auto variablesHandle = getSerializedValues(variablesStream, TA_COUNT);
-						auto& reference = rawVariables[c][DTEA_ACES];
-						reference.second = variablesHandle;
-
-						if (variablesHandle.size() != TA_COUNT)
-							variablesHandle.resize(TA_COUNT);
-
-						reference.second[TA_KEY_VALUE] = variablesHandle[TA_KEY_VALUE].empty() ? std::string("0.4") : variablesHandle[TA_KEY_VALUE];
-						reference.second[TA_EXTRA_PARAMETER] = variablesHandle[TA_EXTRA_PARAMETER].empty() ? std::string("0.8") : variablesHandle[TA_EXTRA_PARAMETER];
-					}
-					else if (variable == REINHARD)
-					{
-						// 2 values according with the syntax
-						auto variablesHandle = getSerializedValues(variablesStream, TA_COUNT);
-						auto& reference = rawVariables[c][DTEA_ACES];
-						reference.second = variablesHandle;
-
-						if (variablesHandle.size() != TA_COUNT)
-							variablesHandle.resize(TA_COUNT);
-
-						reference.second[TA_KEY_VALUE] = variablesHandle[TA_KEY_VALUE].empty() ? std::string("0.4") : variablesHandle[TA_KEY_VALUE];
-						reference.second[TA_EXTRA_PARAMETER] = variablesHandle[TA_EXTRA_PARAMETER].empty() ? std::string("0.8") : variablesHandle[TA_EXTRA_PARAMETER];
-					}
-					else if (variable == CAMERA_TRANSFORM)
-					{
-						// various amount of values allowed, but useful is first 9 values
-						auto variablesHandle = getSerializedValues(variablesStream, 9);
-						referenceVariableMap.second = variablesHandle;
-					}
+					if (foundAces)
+						variable = ACES;
+					else if (foundReinhard)
+						variable = REINHARD;
 					else
-					{
-						// always one value
-						auto variablesHandle = getSerializedValues(variablesStream, 1);
-						referenceVariableMap.second = variablesHandle;
-
-						if(variable == COLOR_FILE || variable == ALBEDO_FILE || variable == NORMAL_FILE || variable == BLOOM_PSF_FILE)
-							validateFileVariable(referenceVariableMap.second[0], variable);
-					}
-
-					break;
+						variable = INVALID_VARIABLE.data();
 				}
+
+				bool status = true;
+				if (variable == COLOR_FILE)
+					assignToMap(DTEA_COLOR_FILE);
+				else if (variable == CAMERA_TRANSFORM)
+					assignToMap(DTEA_CAMERA_TRANSFORM, 9);
+				else if (variable == MEDIAN_FILTER_RADIUS)
+					assignToMap(DTEA_MEDIAN_FILTER_RADIUS);
+				else if (variable == DENOISER_EXPOSURE_BIAS)
+					assignToMap(DTEA_DENOISER_EXPOSURE_BIAS);
+				else if (variable == DENOISER_BLEND_FACTOR)
+					assignToMap(DTEA_DENOISER_BLEND_FACTOR);
+				else if (variable == BLOOM_FOV)
+					assignToMap(DTEA_BLOOM_FOV);
+				else if (variable == REINHARD)
+					assignToMap(DTEA_REINHARD, 2);
+				else if (variable == ACES)
+					assignToMap(DTEA_ACES, 2);
+				else if (variable == OUTPUT)
+					assignToMap(DTEA_OUTPUT);
+				else if (variable == ALBEDO_FILE)
+					assignToMap(DTEA_ALBEDO_FILE);
+				else if (variable == NORMAL_FILE)
+					assignToMap(DTEA_NORMAL_FILE);
+				else if (variable == COLOR_CHANNEL_NAME)
+					assignToMap(DTEA_COLOR_CHANNEL_NAME);
+				else if (variable == ALBEDO_CHANNEL_NAME)
+					assignToMap(DTEA_ALBEDO_CHANNEL_NAME);
+				else if (variable == NORMAL_CHANNEL_NAME)
+					assignToMap(DTEA_NORMAL_CHANNEL_NAME);
+				else if (variable == BLOOM_PSF_FILE)
+					assignToMap(DTEA_BLOOM_PSF_FILE);
 				else
-					continue;
+				{
+					os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Unexcepted argument! Id of input stride: " + std::to_string(inputBatchStride), ELL_ERROR);
+					assert(status = false);
+				}
 			}
 		}
 
-		bool operationStatus = REQUIRED_PARAMETERS_CACHE.size() == REQUIRED_PARAMETERS.size();
-		assert(operationStatus, "Valid amount of variables hasn't been provided!");
+		validateMandatoryParameters(rawVariablesHandle, inputBatchStride);
 	}
 
 	performFInalAssignmentStepForUsefulVariables();
