@@ -40,5 +40,10 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/virtual_texturing/descriptors.glsl"
   "irr/builtin/glsl/virtual_texturing/extensions.glsl"
   "irr/builtin/glsl/virtual_texturing/impl_functions.glsl"
+ # ext shouldn't be built into the engine, but there's no harm including some non-dynamic GLSL source to make life easier
+  #"irr/builtin/glsl/ext/.glsl"
+  "irr/builtin/glsl/ext/LumaMeter/common.glsl"
+  "irr/builtin/glsl/ext/LumaMeter/impl.glsl"
+  "irr/builtin/glsl/ext/ToneMapper/operators.glsl"
   PARENT_SCOPE)
 
