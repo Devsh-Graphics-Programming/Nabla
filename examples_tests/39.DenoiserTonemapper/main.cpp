@@ -572,7 +572,7 @@ void main()
 	const auto& outputFileBundle = cmdHandler.getOutputFileBundle();
 	const auto& psdFileBunde = cmdHandler.getBloomPsfBundle();
 
-	auto makeImageIDString = [](uint32_t i, const core::vector<std::string>& fileNameBundle = {})
+	auto makeImageIDString = [](uint32_t i, const core::vector<std::optional<std::string>>& fileNameBundle = {})
 	{
 		std::string imageIDString("Image Input #");
 		imageIDString += std::to_string(i);
@@ -580,7 +580,7 @@ void main()
 		if (!fileNameBundle.empty())
 		{
 			imageIDString += " called \"";
-			imageIDString += fileNameBundle[i];
+			imageIDString += fileNameBundle[i].value();
 			imageIDString += "\": ";
 		}
 
@@ -594,16 +594,16 @@ void main()
 		asset::IAssetLoader::SAssetLoadParams lp(0ull,nullptr,IAssetLoader::ECF_DUPLICATE_REFERENCES); // TODO: maybe don't replicate the CPU data
 		for (size_t i=0; i < inputFilesAmount; i++)
 		{
-			auto color_image_bundle = am->getAsset(colorFileNameBundle[i], lp); decltype(color_image_bundle) albedo_image_bundle, normal_image_bundle;
-			if (color_image_bundle.isEmpty() || colorFileNameBundle[i] == INVALID_FILE)
+			auto color_image_bundle = am->getAsset(colorFileNameBundle[i].value(), lp); decltype(color_image_bundle) albedo_image_bundle, normal_image_bundle;
+			if (color_image_bundle.isEmpty() || colorFileNameBundle[i].value() == INVALID_VALUE_STREAM)
 			{
 				auto imageIDString = makeImageIDString(i, colorFileNameBundle);
 				os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Could not load the image from file: " + imageIDString + "!", ELL_ERROR);
 				continue;
 			}
 
-			albedo_image_bundle = am->getAsset(albedoFileNameBundle[i], lp);
-			normal_image_bundle = am->getAsset(normalFileNameBundle[i], lp);
+			albedo_image_bundle = albedoFileNameBundle[i].has_value() ? am->getAsset(albedoFileNameBundle[i].value(), lp) : decltype(albedo_image_bundle)();
+			normal_image_bundle = normalFileNameBundle[i].has_value() ? am->getAsset(normalFileNameBundle[i].value(), lp) : decltype(normal_image_bundle)();
 
 			auto& outParam = images[i];
 
@@ -677,12 +677,12 @@ void main()
 				return newConvertedImage;
 			};
 
-			auto putImageIntoImageToDenoise = [&](std::optional<std::pair<core::smart_refctd_ptr<ICPUImage>, std::string>> queriedImage, std::pair<const core::vector<std::string>& , const core::vector<std::string>&> queriedFileAndChannelBundle, E_IMAGE_INPUT defaultEII)
+			auto putImageIntoImageToDenoise = [&](std::optional<std::pair<core::smart_refctd_ptr<ICPUImage>, std::string>> queriedImage, std::pair<const core::vector<std::optional<std::string>>&, const core::vector<std::optional<std::string>>&> queriedFileAndChannelBundle, E_IMAGE_INPUT defaultEII)
 			{
-				std::string queriedFile = queriedFileAndChannelBundle.first[i];
-				std::string queriedChannelName = queriedFileAndChannelBundle.second[i];
+				std::string queriedFile = queriedFileAndChannelBundle.first[i].value();
+				std::string queriedChannelName = queriedFileAndChannelBundle.second[i].value();
 
-				if (queriedFile == INVALID_FILE)
+				if (queriedFile == INVALID_VALUE_STREAM)
 				{
 					os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): The file " + queriedFile + " is invalid! Skipping!", ELL_WARNING);
 					return;
@@ -934,21 +934,21 @@ void main()
 			for (uint32_t j=0u; j<denoiserInputCount; j++)
 				shaderConstants.outImageOffset[j] = j*param.width*param.height*forcedOptiXFormatPixelStride/sizeof(uint16_t); // float 16 actually
 			shaderConstants.imageWidth = param.width;
-			shaderConstants.medianFilterRadius = medianFilterRadiusBundle[i];
+			shaderConstants.medianFilterRadius = medianFilterRadiusBundle[i].value();
 			assert(intensityBufferOffset%IntensityValuesSize==0u);
 			shaderConstants.intensityBufferDWORDOffset = intensityBufferOffset/IntensityValuesSize;
-			shaderConstants.denoiserExposureBias = denoiserExposureBiasBundle[i];
+			shaderConstants.denoiserExposureBias = denoiserExposureBiasBundle[i].value();
 
-			if (tonemapperBundle[i].first == ACES.data())
+			if (tonemapperBundle[i].value().first == ACES.data())
 				shaderConstants.tonemappingOperator = ToneMapperClass::EO_ACES;
-			else if (tonemapperBundle[i].first == REINHARD.data())
+			else if (tonemapperBundle[i].value().first == REINHARD.data())
 				shaderConstants.tonemappingOperator = ToneMapperClass::EO_REINHARD;
 			else
 				assert(false, "An unexcepted error ocured while trying to specify tonemapper!");
 
 			const float optiXIntensityKeyCompensation = -log2(0.18);
-			float key = tonemapperBundle[i].second[TA_KEY_VALUE];
-			float extraParam = tonemapperBundle[i].second[TA_EXTRA_PARAMETER];
+			float key = tonemapperBundle[i].value().second[TA_KEY_VALUE];
+			float extraParam = tonemapperBundle[i].value().second[TA_EXTRA_PARAMETER];
 			switch (shaderConstants.tonemappingOperator)
 			{
 				case ToneMapperClass::EO_REINHARD:
@@ -973,7 +973,7 @@ void main()
 			auto totalSampleCount = param.width*param.height;
 			shaderConstants.percentileRange[0] = lowerPercentile*float(totalSampleCount);
 			shaderConstants.percentileRange[1] = upperPercentile*float(totalSampleCount);
-			shaderConstants.normalMatrix = cameraTransformBundle[i];
+			shaderConstants.normalMatrix = cameraTransformBundle[i].value();
 		}
 
 		// upload image channels and register their buffer
@@ -1092,7 +1092,7 @@ void main()
 					// invoke
 					{
 						OptixDenoiserParams denoiserParams = {};
-						denoiserParams.blendFactor = denoiserBlendFactorBundle[i];
+						denoiserParams.blendFactor = denoiserBlendFactorBundle[i].value();
 						denoiserParams.denoiseAlpha = 0u;
 						denoiserParams.hdrIntensity = intensityBuffer.asBuffer.pointer+intensityBufferOffset;
 						OptixImage2D denoiserOutput;
@@ -1212,7 +1212,7 @@ void main()
 
 			// save image
 			IAssetWriter::SAssetWriteParams wp(imageView.get());
-			am->writeAsset(outputFileBundle[i].c_str(), wp);
+			am->writeAsset(outputFileBundle[i].value().c_str(), wp);
 
 			// destroy link to CPUBuffer's data (we need to free it)
 			imageView->convertToDummyObject(~0u);

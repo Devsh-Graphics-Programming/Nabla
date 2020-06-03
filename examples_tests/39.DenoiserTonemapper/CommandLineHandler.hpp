@@ -325,70 +325,7 @@ class CommandLineHandler
 				return DTEA_COUNT;
 		}
 
-		void validateMandatoryParameters(const variablesType& rawVariablesPerFile, const size_t idOfInput)
-		{
-			static const irr::core::vector<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS> mandatoryArgumentsOrdinary = { DTEA_COLOR_FILE, DTEA_CAMERA_TRANSFORM, DTEA_MEDIAN_FILTER_RADIUS, DTEA_DENOISER_EXPOSURE_BIAS, DTEA_DENOISER_BLEND_FACTOR, DTEA_BLOOM_FOV, DTEA_OUTPUT };
-
-			auto log = [&](bool status, const std::string message)
-			{
-				os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): " + message + " Id of input stride: " + std::to_string(idOfInput), ELL_ERROR);
-				assert(status);
-			};
-			
-			auto validateOrdinary = [&](const DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS argument)
-			{
-				auto found = rawVariablesPerFile.find(argument);
-				if (found != rawVariablesPerFile.end())
-				{
-					if (rawVariablesPerFile.at(argument).has_value())
-						return false;
-				}
-				else
-					return false;
-
-				return true;
-			};
-
-			auto validateTonemapper = [&]()
-			{
-				bool status = true;
-				auto reinhardSearch = rawVariablesPerFile.find(DTEA_REINHARD);
-				auto acesSearch = rawVariablesPerFile.find(DTEA_ACES);
-
-				bool reinhardFound = reinhardSearch != std::end(rawVariablesPerFile);
-				bool acesFound = acesSearch != std::end(rawVariablesPerFile);
-
-				if (reinhardFound && acesFound)
-					log(status = false, "Only one tonemapper can be specified at once!");
-
-				if (reinhardFound)
-				{
-					status = rawVariablesPerFile.at(DTEA_REINHARD).has_value();
-					if (rawVariablesPerFile.at(DTEA_REINHARD).value().size() < 2)
-						log(status = false, "The Reinhard tonemapper doesn't have 2 arguments!");
-				}
-				else if (acesFound)
-				{
-					status = rawVariablesPerFile.at(DTEA_ACES).has_value();
-					if (rawVariablesPerFile.at(DTEA_ACES).value().size() < 2)
-						log(status = false, "The Aces tonemapper doesn't have 2 arguments!");
-				}
-					
-				else
-					log(status = false, "None tonemapper has been specified");
-
-				return true;
-			};
-
-			for (const auto& mandatory : mandatoryArgumentsOrdinary)
-			{
-				bool status = validateOrdinary(mandatory);
-				if (!status)
-					log(status, "Mandatory argument missing or it doesn't contain any value!");
-			}
-
-			validateTonemapper();
-		}
+		void validateMandatoryParameters(const variablesType& rawVariablesPerFile, const size_t idOfInput);
 
 		/*
 			Mandatory parameters must have a value. Since they are validated in code,
@@ -453,7 +390,7 @@ class CommandLineHandler
 			Optional parameters don't have to contain any value.
 		*/
 
-		auto getAlbedoFileName(uint64_t id = 0)
+		std::string getAlbedoFileName(uint64_t id = 0)
 		{
 			bool ableToReturn = rawVariables[id][DTEA_ALBEDO_FILE].has_value();
 			if (ableToReturn)
@@ -462,7 +399,7 @@ class CommandLineHandler
 				INVALID_VALUE_STREAM.data();
 		}
 
-		auto getNormalFileName(uint64_t id = 0)
+		std::string getNormalFileName(uint64_t id = 0)
 		{
 			bool ableToReturn = rawVariables[id][DTEA_NORMAL_FILE].has_value() && rawVariables[id][DTEA_ALBEDO_FILE].has_value() && !rawVariables[id][DTEA_NORMAL_FILE].value().empty() && !rawVariables[id][DTEA_ALBEDO_FILE].value().empty();
 			if (ableToReturn)
@@ -471,7 +408,7 @@ class CommandLineHandler
 				return INVALID_VALUE_STREAM.data();
 		}
 
-		auto getColorChannelName(uint64_t id = 0)
+		std::string getColorChannelName(uint64_t id = 0)
 		{
 			bool ableToReturn = rawVariables[id][DTEA_COLOR_CHANNEL_NAME].has_value();
 			if(ableToReturn)
@@ -480,7 +417,7 @@ class CommandLineHandler
 				return INVALID_VALUE_STREAM.data();
 		}
 
-		auto getAlbedoChannelName(uint64_t id = 0)
+		std::string getAlbedoChannelName(uint64_t id = 0)
 		{
 			bool ableToReturn = rawVariables[id][DTEA_ALBEDO_CHANNEL_NAME].has_value() && rawVariables[id][DTEA_ALBEDO_FILE].has_value();
 			if (ableToReturn)
@@ -489,7 +426,7 @@ class CommandLineHandler
 				return INVALID_VALUE_STREAM.data();
 		}
 
-		auto getNormalChannelName(uint64_t id = 0)
+		std::string getNormalChannelName(uint64_t id = 0)
 		{
 			bool ableToReturn = rawVariables[id][DTEA_NORMAL_CHANNEL_NAME].has_value() && rawVariables[id][DTEA_NORMAL_FILE].has_value();
 			if(ableToReturn)
@@ -498,7 +435,7 @@ class CommandLineHandler
 				return INVALID_VALUE_STREAM.data();
 		}
 
-		auto getBloomPsfFile(uint64_t id = 0)
+		std::string getBloomPsfFile(uint64_t id = 0)
 		{
 			bool ableToReturn = rawVariables[id][DTEA_BLOOM_PSF_FILE].has_value();
 			if (ableToReturn)

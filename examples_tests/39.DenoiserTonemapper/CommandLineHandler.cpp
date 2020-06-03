@@ -218,3 +218,68 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 	performFInalAssignmentStepForUsefulVariables();
 	status = true;
 }
+
+void CommandLineHandler::validateMandatoryParameters(const variablesType& rawVariablesPerFile, const size_t idOfInput)
+{
+	static const irr::core::vector<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS> mandatoryArgumentsOrdinary = { DTEA_COLOR_FILE, DTEA_CAMERA_TRANSFORM, DTEA_MEDIAN_FILTER_RADIUS, DTEA_DENOISER_EXPOSURE_BIAS, DTEA_DENOISER_BLEND_FACTOR, DTEA_BLOOM_FOV, DTEA_OUTPUT };
+
+	auto log = [&](bool status, const std::string message)
+	{
+		os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): " + message + " Id of input stride: " + std::to_string(idOfInput), ELL_ERROR);
+		assert(status);
+	};
+
+	auto validateOrdinary = [&](const DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS argument)
+	{
+		auto found = rawVariablesPerFile.find(argument);
+		if (found != rawVariablesPerFile.end())
+		{
+			if (rawVariablesPerFile.at(argument).has_value())
+				return false;
+		}
+		else
+			return false;
+
+		return true;
+	};
+
+	auto validateTonemapper = [&]()
+	{
+		bool status = true;
+		auto reinhardSearch = rawVariablesPerFile.find(DTEA_REINHARD);
+		auto acesSearch = rawVariablesPerFile.find(DTEA_ACES);
+
+		bool reinhardFound = reinhardSearch != std::end(rawVariablesPerFile);
+		bool acesFound = acesSearch != std::end(rawVariablesPerFile);
+
+		if (reinhardFound && acesFound)
+			log(status = false, "Only one tonemapper can be specified at once!");
+
+		if (reinhardFound)
+		{
+			status = rawVariablesPerFile.at(DTEA_REINHARD).has_value();
+			if (rawVariablesPerFile.at(DTEA_REINHARD).value().size() < 2)
+				log(status = false, "The Reinhard tonemapper doesn't have 2 arguments!");
+		}
+		else if (acesFound)
+		{
+			status = rawVariablesPerFile.at(DTEA_ACES).has_value();
+			if (rawVariablesPerFile.at(DTEA_ACES).value().size() < 2)
+				log(status = false, "The Aces tonemapper doesn't have 2 arguments!");
+		}
+
+		else
+			log(status = false, "None tonemapper has been specified");
+
+		return true;
+	};
+
+	for (const auto& mandatory : mandatoryArgumentsOrdinary)
+	{
+		bool status = validateOrdinary(mandatory);
+		if (!status)
+			log(status, "Mandatory argument missing or it doesn't contain any value!");
+	}
+
+	validateTonemapper();
+}
