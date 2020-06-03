@@ -577,7 +577,7 @@ void main()
 		std::string imageIDString("Image Input #");
 		imageIDString += std::to_string(i);
 
-		if (!fileNameBundle.empty())
+		if (!fileNameBundle.empty() && fileNameBundle[i].has_value())
 		{
 			imageIDString += " called \"";
 			imageIDString += fileNameBundle[i].value();
@@ -595,7 +595,7 @@ void main()
 		for (size_t i=0; i < inputFilesAmount; i++)
 		{
 			auto color_image_bundle = am->getAsset(colorFileNameBundle[i].value(), lp); decltype(color_image_bundle) albedo_image_bundle, normal_image_bundle;
-			if (color_image_bundle.isEmpty() || colorFileNameBundle[i].value() == INVALID_VALUE_STREAM)
+			if (color_image_bundle.isEmpty())
 			{
 				auto imageIDString = makeImageIDString(i, colorFileNameBundle);
 				os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Could not load the image from file: " + imageIDString + "!", ELL_ERROR);
@@ -679,14 +679,8 @@ void main()
 
 			auto putImageIntoImageToDenoise = [&](std::optional<std::pair<core::smart_refctd_ptr<ICPUImage>, std::string>> queriedImage, std::pair<const core::vector<std::optional<std::string>>&, const core::vector<std::optional<std::string>>&> queriedFileAndChannelBundle, E_IMAGE_INPUT defaultEII)
 			{
-				std::string queriedFile = queriedFileAndChannelBundle.first[i].value();
-				std::string queriedChannelName = queriedFileAndChannelBundle.second[i].value();
-
-				if (queriedFile == INVALID_VALUE_STREAM)
-				{
-					os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): The file " + queriedFile + " is invalid! Skipping!", ELL_WARNING);
-					return;
-				}
+				auto& optionalQueryFile = queriedFileAndChannelBundle.first[i];
+				auto& optionalQueryChannelName = queriedFileAndChannelBundle.second[i];
 
 				if (!queriedImage.has_value())
 				{
@@ -704,10 +698,16 @@ void main()
 					return;
 				}
 
+				if (!queriedFileAndChannelBundle.first[i].has_value())
+					return;
+
+				std::string queriedFile = optionalQueryFile.value();
+				std::string queriedChannelName = optionalQueryChannelName.has_value() ? optionalQueryChannelName.value() : decltype(queriedChannelName)();
+
 				auto handledDefaultImage = queriedImage.value().first;
 				const auto handledDefaultImageMetadataChannelName = queriedImage.value().second; 
 
-				if (queriedFile.empty())
+				if (queriedFile.empty() || queriedChannelName.empty())
 				{
 					outParam.image[defaultEII] = std::move(handledDefaultImage);
 					os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): The default channel for " + makeImageIDString(i, queriedFileAndChannelBundle.first) + " has been taken!", ELL_INFORMATION);

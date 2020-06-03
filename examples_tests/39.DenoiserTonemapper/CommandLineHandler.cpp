@@ -138,7 +138,7 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 		auto& rawVariablesHandle = rawVariables[inputBatchStride]; // unorederd map of variables
 		initializeMatchingMap(rawVariablesHandle);
 
-		for (auto argumentIterator = 0; argumentIterator < rawVariablesHandle.size(); ++argumentIterator)
+		for (auto argumentIterator = 0; argumentIterator < cmdArgumentsPerFile.size(); ++argumentIterator)
 		{
 			std::string rawFetchedCmdArgument = cmdArgumentsPerFile[argumentIterator];
 
@@ -149,6 +149,9 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 			{
 				std::string variable = cmdFetchedVariable;
 				auto matchedVariableID = getMatchedVariableMapID(variable);
+
+				if (matchedVariableID == DTEA_COUNT)
+					continue;
 
 				const auto beginningOfVariables = rawFetchedCmdArgument.find_last_of("=") + 1;
 				auto variablesStream = rawFetchedCmdArgument.substr(beginningOfVariables);
@@ -162,6 +165,7 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 
 				if (variable == TONEMAPPER)
 				{
+					bool status = true;
 					auto foundAces = rawFetchedCmdArgument.find(ACES) != std::string::npos;
 					auto foundReinhard = rawFetchedCmdArgument.find(REINHARD) != std::string::npos;
 
@@ -170,7 +174,10 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 					else if (foundReinhard)
 						variable = REINHARD;
 					else
-						variable = INVALID_VARIABLE.data();
+					{
+						os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Invalid tonemapper specified! Id of input stride: " + std::to_string(inputBatchStride), ELL_ERROR);
+						assert(status = false);
+					}
 				}
 
 				bool status = true;
@@ -231,43 +238,27 @@ void CommandLineHandler::validateMandatoryParameters(const variablesType& rawVar
 
 	auto validateOrdinary = [&](const DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS argument)
 	{
-		auto found = rawVariablesPerFile.find(argument);
-		if (found != rawVariablesPerFile.end())
-		{
-			if (rawVariablesPerFile.at(argument).has_value())
-				return false;
-		}
-		else
-			return false;
-
-		return true;
+		return rawVariablesPerFile.at(argument).has_value();
 	};
 
 	auto validateTonemapper = [&]()
 	{
-		bool status = true;
-		auto reinhardSearch = rawVariablesPerFile.find(DTEA_REINHARD);
-		auto acesSearch = rawVariablesPerFile.find(DTEA_ACES);
-
-		bool reinhardFound = reinhardSearch != std::end(rawVariablesPerFile);
-		bool acesFound = acesSearch != std::end(rawVariablesPerFile);
+		bool reinhardFound = rawVariablesPerFile.at(DTEA_REINHARD).has_value();
+		bool acesFound = rawVariablesPerFile.at(DTEA_ACES).has_value();
 
 		if (reinhardFound && acesFound)
 			log(status = false, "Only one tonemapper can be specified at once!");
 
 		if (reinhardFound)
 		{
-			status = rawVariablesPerFile.at(DTEA_REINHARD).has_value();
 			if (rawVariablesPerFile.at(DTEA_REINHARD).value().size() < 2)
 				log(status = false, "The Reinhard tonemapper doesn't have 2 arguments!");
 		}
 		else if (acesFound)
 		{
-			status = rawVariablesPerFile.at(DTEA_ACES).has_value();
 			if (rawVariablesPerFile.at(DTEA_ACES).value().size() < 2)
 				log(status = false, "The Aces tonemapper doesn't have 2 arguments!");
 		}
-
 		else
 			log(status = false, "None tonemapper has been specified");
 
@@ -282,4 +273,22 @@ void CommandLineHandler::validateMandatoryParameters(const variablesType& rawVar
 	}
 
 	validateTonemapper();
+}
+
+std::optional<std::string> CommandLineHandler::getNormalFileName(uint64_t id)
+{
+	bool ableToReturn = rawVariables[id][DTEA_NORMAL_FILE].has_value() && !rawVariables[id][DTEA_NORMAL_FILE].value().empty();
+	if (ableToReturn)
+	{
+		ableToReturn = rawVariables[id][DTEA_ALBEDO_FILE].has_value() && !rawVariables[id][DTEA_ALBEDO_FILE].value().empty();
+		if (!ableToReturn)
+		{
+			os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Couldn't accept normal file due to lack of albedo file! Id of input stride: " + std::to_string(id), ELL_WARNING);
+			return {};
+		}
+	}
+	else
+		return {};
+
+	return rawVariables[id][DTEA_NORMAL_FILE].value()[0];
 }

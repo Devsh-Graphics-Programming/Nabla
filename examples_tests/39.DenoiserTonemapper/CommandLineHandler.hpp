@@ -114,16 +114,6 @@ constexpr std::string_view ALBEDO_CHANNEL_NAME = "ALBEDO_CHANNEL_NAME";
 constexpr std::string_view NORMAL_CHANNEL_NAME = "NORMAL_CHANNEL_NAME";
 constexpr std::string_view BLOOM_PSF_FILE = "BLOOM_PSF_FILE";
 
-/*
-	Those are reserved for files and variables being invalid.
-	- INVALID_VARIABLE means that the variable hasn't been specified (optional) or there is something wrong with the variable and so can't be used.
-	- INVALID_VALUE_STREAM and INVALID_VALUE_NUMBER means that the value doesn't meet the requirements (for example value for files - extension) so can't be used.
-*/
-
-constexpr std::string_view INVALID_VARIABLE = "INVALID_VARIABLE";
-constexpr std::string_view INVALID_VALUE_STREAM = "INVALID_VALUE_STREAM";
-constexpr auto INVALID_VALUE_NUMBER = 0;
-
 constexpr std::array<std::string_view, MANDATORY_CMD_ARGUMENTS_AMOUNT> REQUIRED_PARAMETERS =
 {
 	COLOR_FILE,
@@ -390,58 +380,51 @@ class CommandLineHandler
 			Optional parameters don't have to contain any value.
 		*/
 
-		std::string getAlbedoFileName(uint64_t id = 0)
+		std::optional<std::string> getAlbedoFileName(uint64_t id = 0)
 		{
 			bool ableToReturn = rawVariables[id][DTEA_ALBEDO_FILE].has_value();
 			if (ableToReturn)
 				return rawVariables[id][DTEA_ALBEDO_FILE].value()[0];
 			else
-				INVALID_VALUE_STREAM.data();
+				return {};
 		}
 
-		std::string getNormalFileName(uint64_t id = 0)
-		{
-			bool ableToReturn = rawVariables[id][DTEA_NORMAL_FILE].has_value() && rawVariables[id][DTEA_ALBEDO_FILE].has_value() && !rawVariables[id][DTEA_NORMAL_FILE].value().empty() && !rawVariables[id][DTEA_ALBEDO_FILE].value().empty();
-			if (ableToReturn)
-				return rawVariables[id][DTEA_NORMAL_FILE].value()[0];
-			else
-				return INVALID_VALUE_STREAM.data();
-		}
+		std::optional<std::string> getNormalFileName(uint64_t id = 0);
 
-		std::string getColorChannelName(uint64_t id = 0)
+		std::optional<std::string> getColorChannelName(uint64_t id = 0)
 		{
 			bool ableToReturn = rawVariables[id][DTEA_COLOR_CHANNEL_NAME].has_value();
 			if(ableToReturn)
 				return rawVariables[id][DTEA_COLOR_CHANNEL_NAME].value()[0];
 			else
-				return INVALID_VALUE_STREAM.data();
+				return {};
 		}
 
-		std::string getAlbedoChannelName(uint64_t id = 0)
+		std::optional<std::string> getAlbedoChannelName(uint64_t id = 0)
 		{
 			bool ableToReturn = rawVariables[id][DTEA_ALBEDO_CHANNEL_NAME].has_value() && rawVariables[id][DTEA_ALBEDO_FILE].has_value();
 			if (ableToReturn)
 				return rawVariables[id][DTEA_ALBEDO_CHANNEL_NAME].value()[0];
 			else
-				return INVALID_VALUE_STREAM.data();
+				return {};
 		}
 
-		std::string getNormalChannelName(uint64_t id = 0)
+		std::optional<std::string> getNormalChannelName(uint64_t id = 0)
 		{
 			bool ableToReturn = rawVariables[id][DTEA_NORMAL_CHANNEL_NAME].has_value() && rawVariables[id][DTEA_NORMAL_FILE].has_value();
 			if(ableToReturn)
 				return rawVariables[id][DTEA_NORMAL_CHANNEL_NAME].value()[0];
 			else
-				return INVALID_VALUE_STREAM.data();
+				return {};
 		}
 
-		std::string getBloomPsfFile(uint64_t id = 0)
+		std::optional<std::string> getBloomPsfFile(uint64_t id = 0)
 		{
 			bool ableToReturn = rawVariables[id][DTEA_BLOOM_PSF_FILE].has_value();
 			if (ableToReturn)
 				return rawVariables[id][DTEA_BLOOM_PSF_FILE].value()[0];
 			else
-				return INVALID_VALUE_STREAM.data();
+				return {};
 		}
 
 		void performFInalAssignmentStepForUsefulVariables()
