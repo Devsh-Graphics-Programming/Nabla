@@ -1918,22 +1918,12 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 	if (found != ctx.shapeCache.end())
 		return found->second;
 
-	//! TODO: remove, after loader handedness fix
-	static auto applyTransformToMB = [](asset::ICPUMeshBuffer* meshbuffer, core::matrix3x4SIMD tform) -> void
-	{
-		const auto index = meshbuffer->getPositionAttributeIx();
-		core::vectorSIMDf vpos;
-		for (uint32_t i = 0u; meshbuffer->getAttribute(vpos, index, i); i++)
-		{
-			tform.transformVect(vpos);
-			meshbuffer->setAttribute(vpos, index, i);
-		}
-		meshbuffer->recalculateBoundingBox();
-	};
 	auto loadModel = [&](const ext::MitsubaLoader::SPropertyElementData& filename, int64_t index=-1) -> core::smart_refctd_ptr<asset::ICPUMesh>
 	{
 		assert(filename.type==ext::MitsubaLoader::SPropertyElementData::Type::STRING);
-		auto retval = interm_getAssetInHierarchy(m_manager, filename.svalue, ctx.params, hierarchyLevel/*+ICPUSCene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override);
+		auto loadParams = ctx.params;
+		loadParams.loaderFlags = static_cast<IAssetLoader::E_LOADER_PARAMETER_FLAGS>(loadParams.loaderFlags | IAssetLoader::ELPF_RIGHT_HANDED_MESHES);
+		auto retval = interm_getAssetInHierarchy(m_manager, filename.svalue, loadParams, hierarchyLevel/*+ICPUSCene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override);
 		auto contentRange = retval.getContents();
 		//
 		uint32_t actualIndex = 0;
@@ -2031,14 +2021,6 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 			flipNormals = flipNormals==shape->obj.flipNormals;
 			faceNormals = shape->obj.faceNormals;
 			maxSmoothAngle = shape->obj.maxSmoothAngle;
-			if (mesh) // awaiting the LEFT vs RIGHT HAND flag (just load as right handed in the future plz)
-			{
-				core::matrix3x4SIMD tform;
-				tform.rows[0].x = -1.f; // restore handedness
-				for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
-					applyTransformToMB(mesh->getMeshBuffer(i), tform);
-				mesh->recalculateBoundingBox();
-			}
 			if (mesh && shape->obj.flipTexCoords)
 			{
 				for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)

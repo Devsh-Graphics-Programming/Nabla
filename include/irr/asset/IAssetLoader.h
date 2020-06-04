@@ -100,9 +100,9 @@ public:
 
         size_t decryptionKeyLen;
         const uint8_t* decryptionKey;
-        const E_CACHING_FLAGS cacheFlags;
+        E_CACHING_FLAGS cacheFlags;
         const char* relativeDir;
-        const E_LOADER_PARAMETER_FLAGS loaderFlags;				//!< Flags having an impact on extraordinary tasks during loading process
+        E_LOADER_PARAMETER_FLAGS loaderFlags;				//!< Flags having an impact on extraordinary tasks during loading process
 		IMeshManipulator* meshManipulatorOverride = nullptr;    //!< pointer used for specifying custom mesh manipulator to use, if nullptr - default mesh manipulator will be used
     };
 
