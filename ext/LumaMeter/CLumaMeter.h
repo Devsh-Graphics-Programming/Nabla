@@ -2,7 +2,6 @@
 #define _IRR_EXT_LUMA_METER_C_LUMA_METER_INCLUDED_
 
 #include "irrlicht.h"
-#include "../ext/LumaMeter/CGLSLLumaBuiltinIncludeLoader.h"
 
 namespace irr
 {
@@ -10,13 +9,17 @@ namespace ext
 {
 namespace LumaMeter
 {
+
 	
 /**
 - Overridable Tonemapping Parameter preparation (for OptiX and stuff)
 **/
 class CLumaMeter : public core::TotalInterface
 {
-    public:		
+    public:
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_BIN_COUNT = 256u;
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_BIN_GLOBAL_REPLICATION = 4u;
+
 		enum E_METERING_MODE
 		{
 			EMM_GEOM_MEAN,
@@ -80,19 +83,10 @@ class CLumaMeter : public core::TotalInterface
 		}
 
 		//
-		static void registerBuiltinGLSLIncludes(asset::IGLSLCompiler* compilerToAddBuiltinIncludeTo);
+		static core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges();
 
 		//
-		static inline core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges()
-		{
-			return CGLSLLumaBuiltinIncludeLoader::getDefaultPushConstantRanges();
-		}
-
-		//
-		static inline core::SRange<const video::IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver)
-		{
-			return CGLSLLumaBuiltinIncludeLoader::getDefaultBindings(driver);
-		}
+		static core::SRange<const video::IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver);
 
 		//
 		static inline size_t getOutputBufferSize(E_METERING_MODE meterMode, uint32_t arrayLayers=1u)
@@ -104,8 +98,7 @@ class CLumaMeter : public core::TotalInterface
 					retval = 1ull;
 					break;
 				case EMM_MEDIAN:
-					// TODO: should be DEFAULT_BIN_COUNT instead of invocation count
-					retval = CGLSLLumaBuiltinIncludeLoader::DEFAULT_INVOCATION_COUNT*CGLSLLumaBuiltinIncludeLoader::BIN_GLOBAL_REPLICATION;
+					retval = DEFAULT_BIN_COUNT*DEFAULT_BIN_GLOBAL_REPLICATION;
 					break;
 				default:
 					_IRR_DEBUG_BREAK_IF(true);
@@ -143,7 +136,7 @@ class CLumaMeter : public core::TotalInterface
 
 			DispatchInfo_t retval;
 			retval.workGroupDims[0] = {workGroupXdim};
-			retval.workGroupDims[1] = {CGLSLLumaBuiltinIncludeLoader::DEFAULT_INVOCATION_COUNT/workGroupXdim};
+			retval.workGroupDims[1] = {DEFAULT_BIN_COUNT/workGroupXdim};
 			retval.workGroupDims[2] = 1;
 			retval.workGroupCount[2] = imageSize.depth;
 			for (auto i=0; i<2; i++)

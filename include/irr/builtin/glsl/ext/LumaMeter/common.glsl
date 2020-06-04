@@ -2,11 +2,6 @@
 #define _IRR_GLSL_EXT_LUMA_METER_COMMON_INCLUDED_
 
 
-#ifndef _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT
-#define _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT 256 // change this simultaneously with the constexpr in `CGLSLLumaBuiltinIncludeLoader`
-#endif
-
-
 #ifndef _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_DEFINED_
 #define _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_DEFINED_
 struct irr_glsl_ext_LumaMeter_Uniforms_t
@@ -21,7 +16,12 @@ struct irr_glsl_ext_LumaMeter_Uniforms_t
 #define _IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN 1
 
 #if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN
-    #define _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT
+    #ifndef _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT
+        #error "You need to define _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT !"
+    #endif
+    #ifndef _IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION
+        #error "You need to define _IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION !"
+    #endif
 
     #ifdef _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
     	#define _IRR_GLSL_EXT_LUMA_METER_PADDED_BIN_COUNT (_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT+1)
@@ -41,7 +41,6 @@ struct irr_glsl_ext_LumaMeter_Uniforms_t
 	    #error "The number of bins must evenly divide the histogram range!"
     #endif
 */
-    #define _IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION 4 // change this simultaneously with the constexpr in `CGLSLLumaBuiltinIncludeLoader`
     #define _IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_COUNT (_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT*_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION)
     struct irr_glsl_ext_LumaMeter_output_t
     {
