@@ -34,7 +34,7 @@ class CGLSLVirtualTexturingBuiltinIncludeLoader : public IGLSLEmbeddedIncludeLoa
 
 		static std::string getVTfunctions(const std::string& _path)
 		{
-			auto args = parseArgumentsFromPath(_path.substr(_path.find_first_of('/')+1, _path.npos));
+			auto args = parseArgumentsFromPath(_path.substr(_path.find_last_of('glsl')+2, _path.npos));
 			if (args.size()<2u)
 				return {};
 
@@ -66,7 +66,7 @@ class CGLSLVirtualTexturingBuiltinIncludeLoader : public IGLSLEmbeddedIncludeLoa
 				"\n#define TILE_PADDING " + args[ix_tile_padding] + "u" +
 				"\n#define PADDED_TILE_SIZE uint(PAGE_SZ+2*TILE_PADDING)" +
 				"\n\nconst vec2 packingOffsets[] = vec2[PAGE_SZ_LOG2+1]( vec2(" + std::to_string(tile_padding) + ")," + tilePackingOffsetsStr() + ");";
-			s += s = R"(
+			s += R"(
 #include "irr/builtin/glsl/virtual_texturing/impl_functions.glsl"
 
 #endif
@@ -82,7 +82,7 @@ class CGLSLVirtualTexturingBuiltinIncludeLoader : public IGLSLEmbeddedIncludeLoa
 			const std::string num = "[0-9]+";
 			retval.insert(retval.begin(),
 				{ 
-					std::regex{"functions\\.glsl/"+num+"/"+num},
+					std::regex{"glsl/virtual_texturing/functions\\.glsl/"+num+"/"+num},
 					&getVTfunctions
 				}
 			);

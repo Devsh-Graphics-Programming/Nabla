@@ -815,14 +815,6 @@ public:
         return m_precomputed;
     }
 
-    static std::string getGLSLExtensionsIncludePath()
-    {
-        return "irr/builtin/glsl/virtual_texturing/extensions.glsl";
-    }
-    std::string getGLSLDescriptorsIncludePath() const
-    {
-        return "irr/builtin/glsl/virtual_texturing/descriptors.glsl";
-    }
     std::string getGLSLFunctionsIncludePath() const
     {
         //functions.glsl/pg_sz_log2/tile_padding/pgtab_tex_name/phys_pg_tex_name/get_pgtab_sz_log2_name/get_phys_pg_tex_sz_rcp_name/get_vtex_sz_rcp_name/get_layer2pid/(addr_x_bits/addr_y_bits)...

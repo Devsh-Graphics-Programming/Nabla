@@ -14,38 +14,37 @@
 using namespace irr;
 using namespace core;
 
-constexpr const char* GLSL_VT_DESCRIPTORS = //also turns off set3 bindings (textures) because they're not needed anymore as we're using VT
+constexpr const char* SHADER_OVERRIDES = //also turns off set3 bindings (textures) because they're not needed anymore as we're using VT
 R"(
 #ifndef _NO_UV
+    #include <irr/builtin/glsl/virtual_texturing/extensions.glsl>
 
-#define _IRR_VT_DESCRIPTOR_SET 0
-#define _IRR_VT_PAGE_TABLE_BINDING 0
+    #define _IRR_VT_DESCRIPTOR_SET 0
+    #define _IRR_VT_PAGE_TABLE_BINDING 0
 
-#define _IRR_VT_FLOAT_VIEWS_BINDING 1 
-#define _IRR_VT_FLOAT_VIEWS_COUNT 3
-#define _IRR_VT_FLOAT_VIEWS
+    #define _IRR_VT_FLOAT_VIEWS_BINDING 1 
+    #define _IRR_VT_FLOAT_VIEWS_COUNT 3
+    #define _IRR_VT_FLOAT_VIEWS
 
-#define _IRR_VT_INT_VIEWS_BINDING 2
-#define _IRR_VT_INT_VIEWS_COUNT 0
-#define _IRR_VT_INT_VIEWS
+    #define _IRR_VT_INT_VIEWS_BINDING 2
+    #define _IRR_VT_INT_VIEWS_COUNT 0
+    #define _IRR_VT_INT_VIEWS
 
-#define _IRR_VT_UINT_VIEWS_BINDING 3
-#define _IRR_VT_UINT_VIEWS_COUNT 0
-#define _IRR_VT_UINT_VIEWS
-#include <irr/builtin/glsl/virtual_texturing/descriptors.glsl>
+    #define _IRR_VT_UINT_VIEWS_BINDING 3
+    #define _IRR_VT_UINT_VIEWS_COUNT 0
+    #define _IRR_VT_UINT_VIEWS
+    #include <irr/builtin/glsl/virtual_texturing/descriptors.glsl>
 
-layout (set = 2, binding = 0, std430) restrict readonly buffer PrecomputedStuffSSBO
-{
-    uint pgtab_sz_log2;
-    float vtex_sz_rcp;
-    float phys_pg_tex_sz_rcp[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
-    uint layer_to_sampler_ix[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
-} precomputed;
+    layout (set = 2, binding = 0, std430) restrict readonly buffer PrecomputedStuffSSBO
+    {
+        uint pgtab_sz_log2;
+        float vtex_sz_rcp;
+        float phys_pg_tex_sz_rcp[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
+        uint layer_to_sampler_ix[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
+    } precomputed;
 #endif
 #define _IRR_FRAG_SET3_BINDINGS_DEFINED_
-)";
-constexpr const char* GLSL_PUSH_CONSTANTS_OVERRIDE =
-R"(
+
 struct PCstruct
 {
     vec3 Ka;
@@ -67,47 +66,46 @@ layout (push_constant) uniform Block {
     PCstruct params;
 } PC;
 #define _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
-)";
-constexpr const char* GLSL_TEXTURE_SAMPLE_OVERRIDE =
-R"(
-vec4 irr_sample_Ka(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_Ka_data, uv, dUV); }
 
-vec4 irr_sample_Kd(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_Kd_data, uv, dUV); }
 
-vec4 irr_sample_Ks(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_Ks_data, uv, dUV); }
+#ifndef _NO_UV
+    uint irr_glsl_VT_layer2pid(in uint layer)
+    {
+        return precomputed.layer_to_sampler_ix[layer];
+    }
+    uint irr_glsl_VT_getPgTabSzLog2()
+    {
+        return precomputed.pgtab_sz_log2;
+    }
+    float irr_glsl_VT_getPhysPgTexSzRcp(in uint layer)
+    {
+        return precomputed.phys_pg_tex_sz_rcp[layer];
+    }
+    float irr_glsl_VT_getVTexSzRcp()
+    {
+        return precomputed.vtex_sz_rcp;
+    }
+    #define _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
 
-vec4 irr_sample_Ns(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_Ns_data, uv, dUV); }
+    //irr/builtin/glsl/virtual_texturing/functions.glsl/...
+    #include <%s>
+#endif
 
-vec4 irr_sample_d(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_d_data, uv, dUV); }
 
-vec4 irr_sample_bump(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_bump_data, uv, dUV); }
+#ifndef _NO_UV
+    vec4 irr_sample_Ka(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_Ka_data, uv, dUV); }
 
+    vec4 irr_sample_Kd(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_Kd_data, uv, dUV); }
+
+    vec4 irr_sample_Ks(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_Ks_data, uv, dUV); }
+
+    vec4 irr_sample_Ns(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_Ns_data, uv, dUV); }
+
+    vec4 irr_sample_d(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_d_data, uv, dUV); }
+
+    vec4 irr_sample_bump(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_bump_data, uv, dUV); }
+#endif
 #define _IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_
-
-)";
-constexpr const char* GLSL_VT_FUNCTIONS =
-R"(
-
-uint irr_glsl_VT_layer2pid(in uint layer)
-{
-    return precomputed.layer_to_sampler_ix[layer];
-}
-uint irr_glsl_VT_getPgTabSzLog2()
-{
-    return precomputed.pgtab_sz_log2;
-}
-float irr_glsl_VT_getPhysPgTexSzRcp(in uint layer)
-{
-    return precomputed.phys_pg_tex_sz_rcp[layer];
-}
-float irr_glsl_VT_getVTexSzRcp()
-{
-    return precomputed.vtex_sz_rcp;
-}
-#define _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
-
-//irr/builtin/glsl/virtual_texturing/functions.glsl/...
-#include <%s>
 )";
 
 using STextureData = asset::ICPUVirtualTexture::SMasterTextureData;
@@ -178,19 +176,16 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
     const asset::ICPUShader* unspec = _fs->getUnspecialized();
     assert(unspec->containsGLSL());
 
-    std::string glsl = reinterpret_cast<const char*>( unspec->getSPVorGLSL()->getPointer() );
+    auto begin = reinterpret_cast<const char*>(unspec->getSPVorGLSL()->getPointer());
+    auto end = begin+unspec->getSPVorGLSL()->getSize();
+    std::string glsl(begin,end);
+
+    std::string prelude(strlen(SHADER_OVERRIDES)+500u,'\0');
+    sprintf(prelude.data(), SHADER_OVERRIDES, _vt->getGLSLFunctionsIncludePath().c_str());
+    prelude.resize(strlen(prelude.c_str()));
+
     size_t firstNewlineAfterVersion = glsl.find("\n",glsl.find("#version "));
-    glsl.insert(firstNewlineAfterVersion, "\n#include <"+_vt->getGLSLExtensionsIncludePath()+">\n");
-    glsl.insert(glsl.find("#ifndef _IRR_FRAG_PUSH_CONSTANTS_DEFINED_"), GLSL_PUSH_CONSTANTS_OVERRIDE);
-    std::string str = GLSL_VT_DESCRIPTORS;
-    str.resize(str.size()+500u, ' ');
-    sprintf(str.data(), GLSL_VT_DESCRIPTORS, _vt->getGLSLDescriptorsIncludePath().c_str());
-    glsl.insert(glsl.find("#if !defined(_IRR_FRAG_SET3_BINDINGS_DEFINED_)"), str.c_str());
-    str = GLSL_VT_FUNCTIONS;
-    str.resize(str.size()+500u, ' ');
-    sprintf(str.data(), GLSL_VT_FUNCTIONS, _vt->getGLSLFunctionsIncludePath().c_str());
-    glsl.insert(glsl.find("#if !defined(_IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_)"), str.c_str());
-    glsl.insert(glsl.find("#if !defined(_IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_)"), GLSL_TEXTURE_SAMPLE_OVERRIDE);
+    glsl.insert(firstNewlineAfterVersion, prelude);
 
     auto* f = fopen("fs.glsl","w");
     fwrite(glsl.c_str(), 1, glsl.size(), f);
