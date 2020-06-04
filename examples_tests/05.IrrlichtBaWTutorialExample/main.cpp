@@ -146,22 +146,22 @@ int main()
 			SBinding for the texture (sampler). 
 		*/
 
-		asset::ICPUDescriptorSetLayout::SBinding binding0;
-		binding0.binding = ds0SamplerBinding;
-		binding0.type = EDT_COMBINED_IMAGE_SAMPLER;
-		binding0.count = 1u;
-		binding0.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_FRAGMENT);
-		binding0.samplers = nullptr;	
+		asset::ICPUDescriptorSetLayout::SBinding samplerBinding;
+		samplerBinding.binding = ds0SamplerBinding;
+		samplerBinding.type = EDT_COMBINED_IMAGE_SAMPLER;
+		samplerBinding.count = 1u;
+		samplerBinding.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_FRAGMENT);
+		samplerBinding.samplers = nullptr;	
 
 		/*
 			SBinding for UBO - basic view parameters.
 		*/
 
-		asset::ICPUDescriptorSetLayout::SBinding binding1;
-		binding1.count = 1u;
-		binding1.binding = ds1UboBinding;
-		binding1.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
-		binding1.type = asset::EDT_UNIFORM_BUFFER;
+		asset::ICPUDescriptorSetLayout::SBinding uboBinding;
+		uboBinding.count = 1u;
+		uboBinding.binding = ds1UboBinding;
+		uboBinding.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
+		uboBinding.type = asset::EDT_UNIFORM_BUFFER;
 
 		/*
 			Creating specific descriptor set layouts from specialized bindings.
@@ -169,12 +169,12 @@ int main()
 			IrrlichtBaW provides 4 places for descriptor set layout usage.
 		*/
 
-		auto ds0Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding0, &binding0 + 1);
-		auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding1, &binding1 + 1);
-		auto pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, std::move(ds0Layout), std::move(ds1Layout), nullptr, nullptr);
+		auto ds3Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&samplerBinding, &samplerBinding + 1);
+		auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&uboBinding, &uboBinding + 1);
+		auto pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, std::move(ds3Layout));
 
-		auto rawds0 = pipelineLayout->getDescriptorSetLayout(0u);
 		auto rawds1 = pipelineLayout->getDescriptorSetLayout(1u);
+		auto rawds3 = pipelineLayout->getDescriptorSetLayout(3u);
 
 		/*
 			Creating gpu UBO with appropiate size.
@@ -211,10 +211,10 @@ int main()
 			We know ahead of time that `SBasicViewParameters` struct is the expected structure of the only UBO block in the descriptor set nr. 1 of the shader.
 		*/
 
-		auto gpuDescriptorSet0 = driver->createGPUDescriptorSet(std::move(driver->getGPUObjectsFromAssets(&rawds0, &rawds0 + 1)->front()));
+		auto gpuDescriptorSet3 = driver->createGPUDescriptorSet(std::move(driver->getGPUObjectsFromAssets(&rawds3, &rawds3 + 1)->front()));
 		{
 			video::IGPUDescriptorSet::SWriteDescriptorSet write;
-			write.dstSet = gpuDescriptorSet0.get();
+			write.dstSet = gpuDescriptorSet3.get();
 			write.binding = ds0SamplerBinding;
 			write.count = 1u;
 			write.arrayElement = 0u;
@@ -296,17 +296,15 @@ int main()
 			mb->setBoundingBox(geometryObject.bbox);
 		}
 
-		return std::make_tuple(mb, gpuPipeline, gpuubo, gpuDescriptorSet0, gpuDescriptorSet1);
+		return std::make_tuple(mb, gpuPipeline, gpuubo, gpuDescriptorSet1, gpuDescriptorSet3);
 	};
 
 	auto gpuRectangle = createAndGetUsefullData(rectangleGeometry);
 	auto gpuMeshBuffer = std::get<0>(gpuRectangle);
 	auto gpuPipeline = std::get<1>(gpuRectangle);
 	auto gpuubo = std::get<2>(gpuRectangle);
-	auto gpuDescriptorSet0 = std::get<3>(gpuRectangle);
-	auto gpuDescriptorSet1 = std::get<4>(gpuRectangle);
-
-	IGPUDescriptorSet* gpuDescriptorSets[] = { gpuDescriptorSet0.get(), gpuDescriptorSet1.get() };
+	auto gpuDescriptorSet1 = std::get<3>(gpuRectangle);
+	auto gpuDescriptorSet3 = std::get<4>(gpuRectangle);
 
 	/*
 		Hot loop for rendering a scene.
@@ -333,6 +331,7 @@ int main()
 			updated data to staging buffer that will redirect
 			the data to graphics card - to vertex shader.
 		*/
+
 		SBasicViewParameters uboData;
 		memcpy(uboData.MV,mv.pointer(),sizeof(mv));
 		memcpy(uboData.MVP,mvp.pointer(),sizeof(mvp));
@@ -348,7 +347,8 @@ int main()
 		*/
 
 		driver->bindGraphicsPipeline(gpuPipeline.get());
-		driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline->getLayout(), 0u, 2u, gpuDescriptorSets, nullptr);
+		driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline->getLayout(), 1u, 1u, &gpuDescriptorSet1.get(), nullptr);
+		driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline->getLayout(), 3u, 1u, &gpuDescriptorSet3.get(), nullptr);
 
 		/*
 			Drawing a mesh (created rectangle) with it's gpu mesh buffer usage.
