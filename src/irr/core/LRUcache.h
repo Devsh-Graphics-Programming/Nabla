@@ -1,14 +1,5 @@
-#include <type_traits>
-#include <utility>
-#include <algorithm>
-#include <cstdlib>
-#include <functional>
-#include <string>
-
-#include "irr/static_if.h"
-#include "irr/macros.h"
+#include <list>
 #include "irr/core/Types.h"
-#include "COpenGLTimestampQuery.h"
 #include "COpenGLDriver.h"
 
 namespace irr {
@@ -19,7 +10,7 @@ namespace irr {
 			list<Key> stored_keys;
 			unordered_map<Key, Value, MapHash,MapEquals> map;
 			uint32_t cap;
-			std::atomic_uint32_t timestamp = 0U;
+			std::atomic_uint32_t timestamp;
 		public:
 			inline LRUcache() = default;
 			inline LRUcache(uint32_t& capacity)
@@ -35,7 +26,7 @@ namespace irr {
 					map.erase(last);
 				}
 				else
-					stored_keys.erase(k);
+					stored_keys.remove(k);
 				stored_keys.push_front(k);
 				map[k] = v;
 
@@ -43,7 +34,7 @@ namespace irr {
 			//Try getting the value from the cache, or null if key doesnt exist in cache or has been removed
 			inline Value get(Key &key)
 			{
-				if (map.find(key) == ma.end())
+				if (map.find(key) == map.end())
 					return NULL;
 				timestamp++;
 				return map[key];
@@ -56,7 +47,7 @@ namespace irr {
 				return map[key];
 			}
 
-			inline std::atomic_uint32_t getTimestamp()
+			std::uint32_t getTimestamp()
 			{
 				return timestamp;
 			}
