@@ -9,6 +9,7 @@
 #include "EDeviceTypes.h"
 #include "dimension2d.h"
 #include "ILogger.h"
+#include "irr/builtin/common.h"
 
 namespace irr
 {
@@ -70,6 +71,7 @@ namespace irr
 			WindowId = other.WindowId;
 			LoggingLevel = other.LoggingLevel;
 			AuxGLContexts = other.AuxGLContexts;
+			builtinResourceDirectoryPath = other.builtinResourceDirectoryPath;
 			return *this;
 		}
 
@@ -224,6 +226,17 @@ namespace irr
 
 		//!
 		uint8_t AuxGLContexts;
+
+		//! This variable tells us where the directory holding "irr/builtin/" is if the resources are not embedded
+		/** For shipping products to end-users we recommend embedding the built-in resources to avoid a plethora of
+		"works on my machine" problems, as this method is not 100% cross platform, i.e. if the engine's headers'
+		install directory is different between computers then it will surely not work.*/
+		std::string builtinResourceDirectoryPath =
+		#ifdef _IRR_BUILTIN_PATH_AVAILABLE
+			builtin::getBuiltinResourcesDirectoryPath();
+		#else
+      		nullptr;
+		#endif
 
 		//! Don't use or change this parameter.
 		/** Always set it to IRRLICHTBAW_SDK_VERSION, which is done by default.

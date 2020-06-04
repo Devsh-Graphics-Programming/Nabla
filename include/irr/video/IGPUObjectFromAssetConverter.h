@@ -799,7 +799,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 	// TODO: Deal with duplication of layouts and any other resource that can be present at different resource tree levels
 	core::vector<asset::ICPUDescriptorSetLayout*> cpuLayouts;
 	cpuLayouts.reserve(assetCount);
-	uint32_t writeCount = 0ull;
+	uint32_t maxWriteCount = 0ull;
 	uint32_t descCount = 0ull;
 	uint32_t bufCount = 0ull;
 	uint32_t bufviewCount = 0ull;
@@ -814,7 +814,7 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 		{
 			const uint32_t cnt = cpuds->getDescriptors(j).size();
 			if (cnt)
-				writeCount++;
+				maxWriteCount++;
 			descCount += cnt;
 
 			const auto type = cpuds->getDescriptorsType(j);
@@ -874,10 +874,10 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     auto gpuImgViews = getGPUObjectsFromAssets<asset::ICPUImageView>(cpuImgViews.data(), cpuImgViews.data()+cpuImgViews.size(), _params);
     auto gpuSamplers = getGPUObjectsFromAssets<asset::ICPUSampler>(cpuSamplers.data(), cpuSamplers.data()+cpuSamplers.size(), _params);
 
-	core::vector<IGPUDescriptorSet::SWriteDescriptorSet> writes(writeCount);
+	core::vector<IGPUDescriptorSet::SWriteDescriptorSet> writes(maxWriteCount);
+	auto write_it = writes.begin();
 	core::vector<IGPUDescriptorSet::SDescriptorInfo> descInfos(descCount);
 	{
-		auto write = writes.begin();
 		auto info = descInfos.begin();
 		//iterators
 		uint32_t bi = 0u, bvi = 0u, ivi = 0u, si = 0u;
@@ -895,38 +895,55 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
 					continue;
 
 				const auto type = cpuds->getDescriptorsType(j);
-				write->dstSet = gpuds;
-				write->binding = j;
-				write->arrayElement = 0;
-				write->count = descriptors.size();
-				write->descriptorType = type;
-				write->info = &(*info);
-				write++;
+				write_it->dstSet = gpuds;
+				write_it->binding = j;
+				write_it->arrayElement = 0;
+				write_it->count = descriptors.size();
+				write_it->descriptorType = type;
+				write_it->info = &(*info);
+                bool allDescriptorsPresent = true;
 				for (const auto& desc : descriptors)
 				{
 					if (isBufferDesc(type))
 					{
-						auto buffer = gpuBuffers->operator[](bufRedirs[bi++]);
-						info->desc = core::smart_refctd_ptr<video::IGPUBuffer>(buffer->getBuffer());
-						info->buffer.offset = desc.buffer.offset + buffer->getOffset();
-						info->buffer.size = desc.buffer.size;
+						core::smart_refctd_ptr<video::IGPUOffsetBufferPair> buffer = bufRedirs[bi]>=gpuBuffers->size() ? nullptr : gpuBuffers->operator[](bufRedirs[bi]);
+                        if (buffer)
+                        {
+                            info->desc = core::smart_refctd_ptr<video::IGPUBuffer>(buffer->getBuffer());
+                            info->buffer.offset = desc.buffer.offset + buffer->getOffset();
+                            info->buffer.size = desc.buffer.size;
+                        }
+                        else
+                        {
+                            info->desc = nullptr;
+                            info->buffer.offset = 0u;
+                            info->buffer.size = 0u;
+                        }
+                        ++bi;
 					}
-					else if (isBufviewDesc(type))
-						info->desc = gpuBufviews->operator[](bufviewRedirs[bvi++]);
+                    else if (isBufviewDesc(type))
+                    {
+                        info->desc = bufviewRedirs[bvi]>=gpuBufviews->size() ? nullptr : gpuBufviews->operator[](bufviewRedirs[bvi]);
+                        ++bvi;
+                    }
 					else if (isSampledImgViewDesc(type) || isStorageImgDesc(type))
 					{
-						info->desc = gpuImgViews->operator[](imgViewRedirs[ivi++]);
+						info->desc = imgViewRedirs[ivi]>=gpuImgViews->size() ? nullptr : gpuImgViews->operator[](imgViewRedirs[ivi]);
+                        ++ivi;
 						info->image.imageLayout = desc.image.imageLayout;
 						if (isSampledImgViewDesc(type) && desc.image.sampler)
 							info->image.sampler = gpuSamplers->operator[](smplrRedirs[si++]);
 					}
+                    allDescriptorsPresent = allDescriptorsPresent && info->desc;
 					info++;
 				}
+                if (allDescriptorsPresent)
+                    write_it++;
 			}
 		}
 	}
 
-	m_driver->updateDescriptorSets(writes.size(), writes.data(), 0u, nullptr);
+	m_driver->updateDescriptorSets(write_it-writes.begin(), writes.data(), 0u, nullptr);
 
     return res;
 }

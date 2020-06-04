@@ -9,19 +9,66 @@ using namespace irr::video;
 using namespace ext::LumaMeter;
 
 
-void CLumaMeter::registerBuiltinGLSLIncludes(asset::IGLSLCompiler* compilerToAddBuiltinIncludeTo)
+
+core::SRange<const asset::SPushConstantRange> CLumaMeter::getDefaultPushConstantRanges()
 {
-	static bool addedBuiltinHeader = false;
-	if (addedBuiltinHeader)
-		return;
-
-	if (!compilerToAddBuiltinIncludeTo)
-		return;
-
-	compilerToAddBuiltinIncludeTo->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSLLumaBuiltinIncludeLoader>());
-	addedBuiltinHeader = true;
+	static const asset::SPushConstantRange range =
+	{
+		ISpecializedShader::ESS_COMPUTE,
+		0u,
+		sizeof(uint32_t)
+	};
+	return {&range,&range+1};
 }
 
+core::SRange<const video::IGPUDescriptorSetLayout::SBinding> CLumaMeter::getDefaultBindings(video::IVideoDriver* driver)
+{
+	static core::smart_refctd_ptr<IGPUSampler> sampler;
+	static const IGPUDescriptorSetLayout::SBinding bnd[] =
+	{
+		{
+			0u,
+			EDT_UNIFORM_BUFFER_DYNAMIC,
+			1u,
+			ISpecializedShader::ESS_COMPUTE,
+			nullptr
+		},
+		{
+			1u,
+			EDT_STORAGE_BUFFER_DYNAMIC,
+			1u,
+			ISpecializedShader::ESS_COMPUTE,
+			nullptr
+		},
+		{
+			2u,
+			EDT_COMBINED_IMAGE_SAMPLER,
+			1u,
+			ISpecializedShader::ESS_COMPUTE,
+			&sampler
+		}
+	};
+	if (!sampler)
+	{
+		IGPUSampler::SParams params =
+		{
+			{
+				ISampler::ETC_CLAMP_TO_EDGE,
+				ISampler::ETC_CLAMP_TO_EDGE,
+				ISampler::ETC_CLAMP_TO_EDGE,
+				ISampler::ETBC_FLOAT_OPAQUE_BLACK,
+				ISampler::ETF_LINEAR,
+				ISampler::ETF_LINEAR,
+				ISampler::ESMM_NEAREST,
+				0u,
+				0u,
+				ISampler::ECO_ALWAYS
+			}
+		};
+		sampler = driver->createGPUSampler(params);
+	}
+	return {bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
+}
 
 core::smart_refctd_ptr<asset::ICPUSpecializedShader> CLumaMeter::createShader(
 	asset::IGLSLCompiler* compilerToAddBuiltinIncludeTo,
@@ -56,6 +103,15 @@ R"===(#version 430 core
 #define _IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_ 16
 #endif
 
+#define _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT (_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_*_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_)
+
+#define _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT %d
+#define _IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION %d
+
+#if _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT!=_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT
+	#error "_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT does not equal _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT"
+#endif 
+
 
 #define _IRR_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_ %d
 #define _IRR_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_ %d
@@ -75,10 +131,6 @@ R"===(#version 430 core
 #include "irr/builtin/glsl/ext/LumaMeter/impl.glsl"
 
 
-
-#if _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT!=_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_*_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_
-	#error "_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT does not equal the product of the dispatch sizes!"
-#endif
 layout(local_size_x=_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_, local_size_y=_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_) in;
 
 
@@ -130,11 +182,11 @@ void main()
 	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
 	snprintf(
 		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(),sourceFmt,
+		DEFAULT_BIN_COUNT,DEFAULT_BIN_GLOBAL_REPLICATION,
 		reinterpret_cast<const int32_t&>(minLuma),reinterpret_cast<const int32_t&>(maxLuma),meterMode,
 		eotf,xyzMatrix
 	);
 
-	registerBuiltinGLSLIncludes(compilerToAddBuiltinIncludeTo);
 	return core::make_smart_refctd_ptr<ICPUSpecializedShader>(
 		core::make_smart_refctd_ptr<ICPUShader>(std::move(shader),ICPUShader::buffer_contains_glsl),
 		ISpecializedShader::SInfo{nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE}

@@ -30,42 +30,30 @@ namespace bsdf
 	};
 	static_assert(sizeof(STextureDataOrConstant)==sizeof(uint64_t), "STextureDataOrConstant is not 8 bytes for some reason!");
 
-	static STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualTexture* _vt, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
-	{
-		const auto& extent = _img->getCreationParameters().extent;
-
-		auto imgAndOrigSz = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(_img, _uwrap, _vwrap, _borderColor);
-
-		asset::IImage::SSubresourceRange subres;
-		subres.baseMipLevel = 0u;
-		subres.levelCount = core::findLSB(core::roundDownToPoT<uint32_t>(std::max(extent.width, extent.height))) + 1;
-
-		auto addr = _vt->alloc(_img->getCreationParameters().format, imgAndOrigSz.second, subres, _uwrap, _vwrap);
-		_vt->commit(addr, imgAndOrigSz.first.get(), subres, _uwrap, _vwrap, _borderColor);
-		return addr;
-	}
-
 	using instr_t = uint64_t;
 
 	enum E_OPCODE : uint8_t
 	{
+		//brdf
 		OP_DIFFUSE,
 		OP_ROUGHDIFFUSE,
-		OP_DIFFTRANS,
-		OP_DIELECTRIC,
-		OP_ROUGHDIELECTRIC,
 		OP_CONDUCTOR,
 		OP_ROUGHCONDUCTOR,
 		OP_PLASTIC,
 		OP_ROUGHPLASTIC,
 		OP_WARD,
-		OP_SET_GEOM_NORMAL,
-		OP_INVALID,
-		//all below are meta (have children)
 		OP_COATING,
 		OP_ROUGHCOATING,
-		OP_BUMPMAP,
+		//bsdf
+		OP_DIFFTRANS,
+		OP_DIELECTRIC,
+		OP_ROUGHDIELECTRIC,
+		//blend
 		OP_BLEND,
+		//specials
+		OP_BUMPMAP,
+		OP_SET_GEOM_NORMAL,
+		OP_INVALID,
 
 		OPCODE_COUNT
 	};
@@ -73,7 +61,7 @@ namespace bsdf
 	{
 		if (_op==OP_BLEND)
 			return 2u;
-		else if (_op>OP_INVALID)
+		else if (_op==OP_BUMPMAP || _op==OP_COATING || _op==OP_ROUGHCOATING)
 			return 1u;
 		return 0u;
 	}
@@ -85,9 +73,11 @@ namespace bsdf
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_OPCODE_SHIFT = 0u;
 
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BITFIELDS_SHIFT = INSTR_OPCODE_WIDTH;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BITFIELDS_WIDTH = 8u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BITFIELDS_WIDTH = 9u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_REFL_TEX = 0x1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_REFL_TEX = INSTR_OPCODE_WIDTH + 0u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_PLASTIC_REFL_TEX = 0x1u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_PLASTIC_REFL_TEX = INSTR_OPCODE_WIDTH + 5u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_ALPHA_U_TEX = 0x1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_ALPHA_U_TEX = INSTR_OPCODE_WIDTH + 2u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_ALPHA_V_TEX = 0x1u;
@@ -107,16 +97,17 @@ namespace bsdf
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_WEIGHT_TEX = 0x1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_WEIGHT_TEX = INSTR_OPCODE_WIDTH + 0u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_TWOSIDED = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_TWOSIDED = INSTR_OPCODE_WIDTH + 5u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_TWOSIDED = INSTR_OPCODE_WIDTH + 6u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_MASKFLAG = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_MASKFLAG = INSTR_OPCODE_WIDTH + 6u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_MASKFLAG = INSTR_OPCODE_WIDTH + 7u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_OPACITY_TEX = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_OPACITY_TEX = INSTR_OPCODE_WIDTH + 7u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_OPACITY_TEX = INSTR_OPCODE_WIDTH + 8u;
 
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_WIDTH = 20u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_WIDTH = 19u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_SHIFT = INSTR_OPCODE_WIDTH + INSTR_BITFIELDS_WIDTH;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_MASK = 0xfffffu;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_MASK = 0x7ffffu;
 
+	//2nd DWORD -- post-order-specific bitfields
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_WIDTH = 8u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_MASK = 0xffu;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_DST_SHIFT = INSTR_BSDF_BUF_OFFSET_SHIFT + INSTR_BSDF_BUF_OFFSET_WIDTH + INSTR_REG_WIDTH*0u;
@@ -127,6 +118,11 @@ namespace bsdf
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_NORMAL_ID_WIDTH = 8u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_NORMAL_ID_MASK	= 0xffu;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_NORMAL_ID_SHIFT = INSTR_REG_SRC2_SHIFT + INSTR_REG_WIDTH;
+
+	//2nd DWORD -- pre-order-specific bitfields
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_RIGHT_JUMP_WIDTH = 8u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_RIGHT_JUMP_MASK = 0xffu;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_RIGHT_JUMP_SHIFT = INSTR_BSDF_BUF_OFFSET_SHIFT + INSTR_BSDF_BUF_OFFSET_WIDTH;
 
 
 	inline E_OPCODE getOpcode(const instr_t& i)
@@ -213,10 +209,11 @@ namespace bsdf
 		float eta;
 		STextureDataOrConstant alpha;
 		STextureDataOrConstant opacity;
+		STextureDataOrConstant reflectance;
 		//multiplication factor for texture samples
 		//RGB19E7 format
-		//[0] - alpha scale,[1] - opacity scale
-		float textureScale[2];
+		//.x - alpha scale,.y - opacity scale, .z - refl scale
+		uint64_t textureScale;
 	} PACK_STRUCT;
 	struct alignas(16) SAllCoating
 	{
@@ -310,10 +307,11 @@ class CMitsubaLoader : public asset::IAssetLoader
 
 #include "irr/irrpack.h"
 		//compatible with std430 and std140
-		struct alignas(16) SInstanceData
+		struct SInstanceData
 		{
-			core::matrix3x4SIMD tform;
-			std::pair<uint32_t, uint32_t> instrOffsetCount;
+			core::matrix3x4SIMD tform;//mat4x3
+			core::matrix3x4SIMD normalMatrix;//mat4x3
+			uint64_t emissive;//uvec2, rgb19e7
 		} PACK_STRUCT;
 #include "irr/irrunpack.h"
 		struct SContext
@@ -356,8 +354,15 @@ class CMitsubaLoader : public asset::IAssetLoader
 			core::vector<bsdf::SBSDFUnion> bsdfBuffer;
 			core::vector<bsdf::instr_t> instrBuffer;
 
+			struct bsdf_type
+			{
+				using instr_offset_count = std::pair<uint32_t, uint32_t>;
+
+				instr_offset_count postorder;
+				instr_offset_count preorder;
+			};
 			//caches instr buffer instr-wise offset (.first) and instruction count (.second) for each bsdf node
-			core::unordered_map<const CElementBSDF*,std::pair<uint32_t,uint32_t>> instrStreamCache;
+			core::unordered_map<const CElementBSDF*,bsdf_type> instrStreamCache;
 
 			struct SPipelineCacheKey
 			{
@@ -386,6 +391,26 @@ class CMitsubaLoader : public asset::IAssetLoader
 				};
 			};
 			core::unordered_map<SPipelineCacheKey, core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>, SPipelineCacheKey::hash> pipelineCache;
+
+#include "irr/irrpack.h"
+			struct SBSDFDataCacheKey
+			{
+				const CElementBSDF* bsdf;
+				const CElementBSDF* maskParent;
+				float mix2blend_weight;
+
+				inline bool operator==(const SBSDFDataCacheKey& rhs) const { return memcmp(this,&rhs,sizeof(*this))==0; }
+				struct hash
+				{
+					inline size_t operator()(const SBSDFDataCacheKey& k) const
+					{
+						return std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(&k), sizeof(k)));
+					}
+				};
+			} PACK_STRUCT;
+#include "irr/irrunpack.h"
+			//caches indices/offsets into `bsdfBuffer`
+			core::unordered_map<SBSDFDataCacheKey, uint32_t, SBSDFDataCacheKey::hash> bsdfDataCache;
 		};
 
 		//! Destructor
@@ -400,8 +425,8 @@ class CMitsubaLoader : public asset::IAssetLoader
 		SContext::VT_data_type					getVTallocData(SContext& ctx, const CElementTexture* texture, uint32_t texHierLvl);
 
 		bsdf::SBSDFUnion bsdfNode2bsdfStruct(SContext& _ctx, const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight = 0.f, const CElementBSDF* _parentMask = nullptr);
-		std::pair<uint32_t,uint32_t> getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
-		std::pair<uint32_t,uint32_t> genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
+		SContext::bsdf_type getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
+		SContext::bsdf_type genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 
 		template <typename Iter>
 		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx, Iter meshBegin, Iter meshEnd);

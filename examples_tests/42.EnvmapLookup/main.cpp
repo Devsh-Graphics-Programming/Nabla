@@ -213,7 +213,7 @@ int main()
 		return gpuImageView;
 	};
 
-	auto gpuEnvmapImageView = createGPUImageView("../../media/envmap/wooden_motel_2k_EXR.exr");
+	auto gpuEnvmapImageView = createGPUImageView("../../media/envmap/envmap_0.exr");
 	auto gpuSphereImageView = createGPUImageView("../../media/envmap/envmap_1.exr");
 
 	auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));

@@ -14,6 +14,49 @@ namespace ext
 namespace MitsubaLoader
 {
 
+static bsdf::E_OPCODE BSDFtype2opcode(const CElementBSDF* bsdf)
+{
+	switch (bsdf->type)
+	{
+	case CElementBSDF::Type::DIFFUSE:
+		return bsdf::OP_DIFFUSE;
+	case CElementBSDF::Type::ROUGHDIFFUSE:
+		return bsdf::OP_ROUGHDIFFUSE;
+	case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
+		return bsdf::OP_DIFFTRANS;
+	case CElementBSDF::Type::DIELECTRIC: _IRR_FALLTHROUGH;
+	case CElementBSDF::Type::THINDIELECTRIC:
+		return bsdf::OP_DIELECTRIC;
+	case CElementBSDF::Type::ROUGHDIELECTRIC:
+		return bsdf::OP_ROUGHDIELECTRIC;
+	case CElementBSDF::Type::CONDUCTOR:
+		return bsdf::OP_CONDUCTOR;
+	case CElementBSDF::Type::ROUGHCONDUCTOR:
+		return bsdf::OP_ROUGHCONDUCTOR;
+	case CElementBSDF::Type::PLASTIC:
+		return bsdf::OP_PLASTIC;
+	case CElementBSDF::Type::ROUGHPLASTIC:
+		return bsdf::OP_ROUGHPLASTIC;
+	case CElementBSDF::Type::COATING:
+		return bsdf::OP_COATING;
+	case CElementBSDF::Type::ROUGHCOATING:
+		return bsdf::OP_ROUGHCOATING;
+	case CElementBSDF::Type::BUMPMAP:
+		return bsdf::OP_BUMPMAP;
+	case CElementBSDF::Type::WARD:
+		return bsdf::OP_WARD;
+	case CElementBSDF::Type::BLEND_BSDF: _IRR_FALLTHROUGH;
+	case CElementBSDF::Type::MIXTURE_BSDF:
+		return bsdf::OP_BLEND;
+	case CElementBSDF::Type::MASK:
+		return BSDFtype2opcode(bsdf->mask.bsdf[0]);
+	case CElementBSDF::Type::TWO_SIDED:
+		return BSDFtype2opcode(bsdf->twosided.bsdf[0]);
+	default:
+		return bsdf::OP_INVALID;
+	}
+}
+
 class CTraversalManipulator
 {
 public:
@@ -118,20 +161,20 @@ public:
 		const char* names[bsdf::OPCODE_COUNT]{
 			"OP_DIFFUSE",
 			"OP_ROUGHDIFFUSE",
-			"OP_DIFFTRANS",
-			"OP_DIELECTRIC",
-			"OP_ROUGHDIELECTRIC",
 			"OP_CONDUCTOR",
 			"OP_ROUGHCONDUCTOR",
 			"OP_PLASTIC",
 			"OP_ROUGHPLASTIC",
 			"OP_WARD",
-			"OP_SET_GEOM_NORMAL",
-			"OP_INVALID",
 			"OP_COATING",
 			"OP_ROUGHCOATING",
+			"OP_DIFFTRANS",
+			"OP_DIELECTRIC",
+			"OP_ROUGHDIELECTRIC",
+			"OP_BLEND",
 			"OP_BUMPMAP",
-			"OP_BLEND"
+			"OP_SET_GEOM_NORMAL",
+			"OP_INVALID"
 		};
 		auto regsString = [](const core::vector3du32_SIMD& regs, uint32_t usedSrcs) {
 			std::string s;
@@ -275,18 +318,329 @@ private:
 	}
 };
 
+class ITraveralGenerator
+{
+protected:
+	struct stack_el
+	{
+		const CElementBSDF* bsdf;
+		bsdf::instr_t instr;
+		bool visited;
+		uint32_t weight_ix;
+		const CElementBSDF* maskParent;
+		uint32_t parentIx;
+	};
+	core::stack<stack_el> stack;
+	uint32_t firstFreeNormalID;
+
+	void push(const CElementBSDF* _bsdf, bsdf::instr_t _parent, const CElementBSDF* _maskParent, uint32_t _parentIx)
+	{
+		auto writeInheritableBitfields = [](bsdf::instr_t& dst, bsdf::instr_t parent) {
+			dst |= (parent & (bsdf::BITFIELDS_MASK_TWOSIDED << bsdf::BITFIELDS_SHIFT_TWOSIDED));
+			dst |= (parent & (bsdf::BITFIELDS_MASK_MASKFLAG << bsdf::BITFIELDS_SHIFT_MASKFLAG));
+			dst |= (parent & (bsdf::INSTR_NORMAL_ID_MASK << bsdf::INSTR_NORMAL_ID_SHIFT));
+		};
+		bsdf::instr_t instr = BSDFtype2opcode(_bsdf);
+		writeInheritableBitfields(instr, _parent);
+		switch (_bsdf->type)
+		{
+		case CElementBSDF::Type::DIFFUSE:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::ROUGHDIFFUSE:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::DIELECTRIC:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::THINDIELECTRIC:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::ROUGHDIELECTRIC:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::CONDUCTOR:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::ROUGHCONDUCTOR:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::PLASTIC:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::ROUGHPLASTIC:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::WARD:
+			stack.push({_bsdf,instr,false,0,_maskParent,_parentIx});
+			break;
+		case CElementBSDF::Type::COATING:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::ROUGHCOATING:
+			_IRR_FALLTHROUGH;
+		case CElementBSDF::Type::BUMPMAP:
+			instr &= (~(bsdf::INSTR_NORMAL_ID_MASK<<bsdf::INSTR_NORMAL_ID_SHIFT));//zero-out normal ID bitfield
+			instr |= (firstFreeNormalID & bsdf::INSTR_NORMAL_ID_MASK) << bsdf::INSTR_NORMAL_ID_SHIFT;//write new val
+			++firstFreeNormalID;
+			stack.push({_bsdf,instr,false,0,_maskParent,_parentIx});
+
+			instr = BSDFtype2opcode(_bsdf->meta_common.bsdf[0]);
+			writeInheritableBitfields(instr, _parent);
+			stack.push({_bsdf->meta_common.bsdf[0],instr,false,0,_maskParent,_parentIx});
+			break;
+		case CElementBSDF::Type::BLEND_BSDF:
+			stack.push({ _bsdf,instr,false,0,_maskParent });
+			instr = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[1]);
+			writeInheritableBitfields(instr, _parent);
+			stack.push({ _bsdf->meta_common.bsdf[1],instr,false,0,_maskParent,_parentIx });
+			instr = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[0]);
+			writeInheritableBitfields(instr, _parent);
+			stack.push({ _bsdf->meta_common.bsdf[0],instr,false,0,_maskParent,_parentIx });
+			break;
+		case CElementBSDF::Type::MIXTURE_BSDF:
+		{
+			//mixture is translated into tree of blends
+			bsdf::instr_t blendbsdf = instr;
+			assert(_bsdf->mixturebsdf.childCount > 1u);
+			for (uint32_t i = 0u; i < _bsdf->mixturebsdf.childCount-1ull; ++i)
+			{
+				uint32_t weight_ix = _bsdf->mixturebsdf.childCount-i-1u;
+				stack.push({_bsdf,blendbsdf,false,weight_ix,_maskParent});
+				auto* mixchild_bsdf = _bsdf->mixturebsdf.bsdf[weight_ix];
+				bsdf::instr_t mixchild = BSDFtype2opcode(mixchild_bsdf);
+				writeInheritableBitfields(mixchild, _parent);
+				stack.push({mixchild_bsdf,mixchild,false,0,_maskParent});
+			}
+			bsdf::instr_t child0 = BSDFtype2opcode(_bsdf->mixturebsdf.bsdf[0]);
+			writeInheritableBitfields(child0, _parent);
+			stack.push({_bsdf->mixturebsdf.bsdf[0],child0,false,0,_maskParent,_parentIx});
+		}	
+			break;
+		case CElementBSDF::Type::MASK:
+			instr |= 1u<<bsdf::BITFIELDS_SHIFT_MASKFLAG;
+			stack.push({_bsdf->mask.bsdf[0],instr,false,0,_bsdf,_parentIx});
+			break;
+		case CElementBSDF::Type::TWO_SIDED:
+			instr |= 1u<<bsdf::BITFIELDS_SHIFT_TWOSIDED;
+			stack.push({_bsdf->twosided.bsdf[0],instr,false,0,_maskParent,_parentIx});
+			break;
+		case CElementBSDF::Type::PHONG:
+			_IRR_DEBUG_BREAK_IF(1);
+			break;
+		}
+	}
+	bsdf::instr_t emitInstr(bsdf::instr_t _instr, const CElementBSDF* _node, uint32_t _bsdfBufOffset, const CElementBSDF* _maskParent)
+	{
+		uint32_t op = (_instr & bsdf::INSTR_OPCODE_MASK);
+		switch (op)
+		{
+		case bsdf::OP_ROUGHDIFFUSE:
+			_instr |= static_cast<uint32_t>(_node->diffuse.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
+			_IRR_FALLTHROUGH;
+		case bsdf::OP_DIFFUSE:
+			_instr |= static_cast<uint32_t>(_node->diffuse.reflectance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_REFL_TEX;
+			break;
+		case bsdf::OP_ROUGHDIELECTRIC:
+			_instr |= _node->dielectric.distribution << bsdf::BITFIELDS_SHIFT_NDF;
+			_instr |= static_cast<uint32_t>(_node->dielectric.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
+			if (_node->dielectric.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+				_instr |= static_cast<uint32_t>(_node->dielectric.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
+			break;
+		case bsdf::OP_ROUGHCONDUCTOR:
+			_instr |= _node->conductor.distribution << bsdf::BITFIELDS_SHIFT_NDF;
+			_instr |= static_cast<uint32_t>(_node->conductor.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
+			if (_node->conductor.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+				_instr |= static_cast<uint32_t>(_node->conductor.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
+			break;
+		case bsdf::OP_ROUGHPLASTIC:
+			_instr |= _node->plastic.distribution << bsdf::BITFIELDS_SHIFT_NDF;
+			_instr |= static_cast<uint32_t>(_node->plastic.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
+			if (_node->plastic.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+				_instr |= static_cast<uint32_t>(_node->plastic.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
+			_IRR_FALLTHROUGH;
+		case bsdf::OP_PLASTIC:
+			_instr |= static_cast<uint32_t>(_node->plastic.nonlinear) << bsdf::BITFIELDS_SHIFT_NONLINEAR;
+			_instr |= static_cast<uint32_t>(_node->plastic.diffuseReflectance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_PLASTIC_REFL_TEX;
+			break;
+		case bsdf::OP_ROUGHCOATING:
+			_instr |= _node->coating.distribution << bsdf::BITFIELDS_SHIFT_NDF;
+			_instr |= static_cast<uint32_t>(_node->coating.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
+			if (_node->coating.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+				_instr |= static_cast<uint32_t>(_node->coating.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
+			_IRR_FALLTHROUGH;
+		case bsdf::OP_COATING:
+			_instr |= static_cast<uint32_t>(_node->coating.sigmaA.value.type == SPropertyElementData::INVALID) >> bsdf::BITFIELDS_SHIFT_SIGMA_A_TEX;
+			break;
+		case bsdf::OP_WARD:
+			_instr |= _node->ward.variant << bsdf::BITFIELDS_SHIFT_WARD_VARIANT;
+			_instr |= static_cast<uint32_t>(_node->ward.alphaU.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
+			_instr |= static_cast<uint32_t>(_node->ward.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
+			break;
+		case bsdf::OP_BLEND:
+			switch (_node->type)
+			{
+			case CElementBSDF::Type::BLEND_BSDF:
+				_instr |= static_cast<uint32_t>(_node->blendbsdf.weight.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_WEIGHT_TEX;
+				break;
+			case CElementBSDF::Type::MIXTURE_BSDF:
+				//always constant weights (not texture) -- leaving weight tex flag as 0
+				break;
+			default: break; //do not let warnings rise
+			}
+			break;
+		case bsdf::OP_DIFFTRANS:
+			_instr |= static_cast<uint32_t>(_node->difftrans.transmittance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_SPEC_TRANS_TEX;
+			break;
+		default: break; //any other ones dont need any extra flags
+		}
+		//write index into bsdf buffer
+		_instr &= (~(bsdf::INSTR_BSDF_BUF_OFFSET_MASK << bsdf::INSTR_BSDF_BUF_OFFSET_SHIFT));
+		_instr |= ((_bsdfBufOffset & bsdf::INSTR_BSDF_BUF_OFFSET_MASK) << bsdf::INSTR_BSDF_BUF_OFFSET_SHIFT);
+		//write opacity mask presence flag
+		if (_maskParent)
+			_instr |= static_cast<uint32_t>(_maskParent->mask.opacity.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_OPACITY_TEX;
+
+		return _instr;
+	}
+
+public:
+	struct IBSDFDataBufOffsetGetter
+	{
+		virtual ~IBSDFDataBufOffsetGetter() = default;
+
+		virtual uint32_t getOffset(const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight, const CElementBSDF* _maskParent) = 0;
+	};
+
+	using traversal_t = core::vector<bsdf::instr_t>;
+
+	virtual traversal_t genTraversal(const CElementBSDF* _bsdf, IBSDFDataBufOffsetGetter* _getter) = 0;
+};
+class CPostOrderTraversalGenerator : public ITraveralGenerator
+{
+public:
+	traversal_t genTraversal(const CElementBSDF* _bsdf, IBSDFDataBufOffsetGetter* _getter) override
+	{
+		traversal_t traversal;
+		push(_bsdf, static_cast<bsdf::instr_t>(0), nullptr, 0u);
+		while (!stack.empty())
+		{
+			auto& top = stack.top();
+			const bsdf::E_OPCODE op = bsdf::getOpcode(top.instr);
+			const uint32_t srcRegCount = bsdf::getNumberOfSrcRegsForOpcode(op);
+			_IRR_DEBUG_BREAK_IF(op==bsdf::OP_INVALID);
+			if (srcRegCount==0u || top.visited)
+			{
+				const uint32_t bsdfBufIx = _getter->getOffset(top.bsdf, 0u, top.bsdf->type==CElementBSDF::Type::MIXTURE_BSDF ? top.bsdf->mixturebsdf.weights[top.weight_ix] : 0.f, top.maskParent);
+				/*if (top.bsdf)//if top.bsdf is nullptr, then bsdf buf offset will be irrelevant for this instruction (may be any value and won't ever be fetched anyway)
+				{
+					ctx.bsdfBuffer.push_back(
+						bsdfNode2bsdfStruct(ctx, top.bsdf, 0u, top.bsdf->type==CElementBSDF::Type::MIXTURE_BSDF ? top.bsdf->mixturebsdf.weights[top.weight_ix] : 0.f, top.maskParent)
+					);
+					assert(bsdfBufIx < bsdf::INSTR_BSDF_BUF_OFFSET_MASK);
+				}*/
+				traversal.push_back(emitInstr(top.instr, top.bsdf, bsdfBufIx, top.maskParent));
+				stack.pop();
+			}
+			else if (!top.visited)
+			{
+				top.visited = true;
+				switch (bsdf::getOpcode(top.instr))
+				{
+				case bsdf::OP_BLEND:
+					push(top.bsdf->blendbsdf.bsdf[1], top.instr, top.maskParent, 0u);
+					_IRR_FALLTHROUGH;
+				default:
+					push(top.bsdf->blendbsdf.bsdf[0], top.instr, top.maskParent, 0u);
+					break;
+				}
+			}
+		}
+
+		traversal = std::move( CTraversalManipulator(std::move(traversal)).process(bsdf::REGISTER_COUNT) );
+	#ifdef _IRR_DEBUG
+		os::Printer::log("BSDF post-order traversal debug print", _bsdf->id, ELL_DEBUG);
+		CTraversalManipulator::debugPrint(traversal);
+	#endif
+		
+		return traversal;
+	}
+};
+class CPreOrderTraversalGenerator : public ITraveralGenerator
+{
+public:
+	traversal_t genTraversal(const CElementBSDF* _bsdf, IBSDFDataBufOffsetGetter* _getter) override
+	{
+		constexpr uint32_t INVALID_INDEX = 0xdeadbeefu;
+
+		traversal_t traversal;
+		traversal.push_back(static_cast<bsdf::instr_t>(bsdf::OP_SET_GEOM_NORMAL));
+		push(_bsdf, static_cast<bsdf::instr_t>(0), nullptr, INVALID_INDEX);
+
+		while (!stack.empty())
+		{
+			auto& top = stack.top();
+			const bsdf::E_OPCODE op = bsdf::getOpcode(top.instr);
+
+			const uint32_t bsdfBufIx = _getter->getOffset(top.bsdf, 0u, top.bsdf->type == CElementBSDF::Type::MIXTURE_BSDF ? top.bsdf->mixturebsdf.weights[top.weight_ix] : 0.f, top.maskParent);
+			const uint32_t currIx = traversal.size();
+			traversal.push_back(emitInstr(top.instr, top.bsdf, bsdfBufIx, top.maskParent));
+			if (top.parentIx!=INVALID_INDEX)//means it's right child of a parent
+			{
+				//write RIGHT_JUMP bitfield into "parent instruction"
+				bsdf::instr_t& parentInstr = traversal[top.parentIx];
+				//writing absolute offset, but could be relative (i.e. `currIx-top.parentIx`) as well (decision needed)
+				parentInstr |= static_cast<bsdf::instr_t>(currIx)<<bsdf::INSTR_RIGHT_JUMP_SHIFT;
+			}
+
+			if (bsdf::getNumberOfSrcRegsForOpcode(op) > 0u)
+			{
+				switch (bsdf::getOpcode(top.instr))
+				{
+				case bsdf::OP_BLEND:
+					push(top.bsdf->blendbsdf.bsdf[1], top.instr, top.maskParent, currIx);
+					_IRR_FALLTHROUGH;
+				default:
+					push(top.bsdf->blendbsdf.bsdf[0], top.instr, top.maskParent, INVALID_INDEX);
+					break;
+				}
+			}
+			stack.pop();
+		}
+
+#ifdef _IRR_DEBUG
+		os::Printer::log("BSDF pre-order traversal debug print", _bsdf->id, ELL_DEBUG);
+		CTraversalManipulator::debugPrint(traversal);
+#endif
+
+		return traversal;
+	}
+};
+
+static bsdf::STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualTexture* _vt, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
+{
+	const auto& extent = _img->getCreationParameters().extent;
+
+	auto imgAndOrigSz = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(_img, _uwrap, _vwrap, _borderColor);
+
+	asset::IImage::SSubresourceRange subres;
+	subres.baseArrayLayer = 0u;
+	subres.layerCount = 1u;
+	subres.baseMipLevel = 0u;
+	auto mx = std::max(extent.width, extent.height);
+	auto round = core::roundUpToPoT<uint32_t>(mx);
+	auto lsb = core::findLSB(round);
+	subres.levelCount = lsb + 1;
+
+	auto addr = _vt->alloc(_img->getCreationParameters().format, imgAndOrigSz.second, subres, _uwrap, _vwrap);
+	_vt->commit(addr, imgAndOrigSz.first.get(), subres, _uwrap, _vwrap, _borderColor);
+	return addr;
+}
+
 bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight, const CElementBSDF* _maskParent)
 {
 	// returns opacity scale factor
 	auto inheritOpacity = [&,this](auto& _bsdfStruct) -> float {
 		if (_maskParent)
 		{
-			if (_maskParent->mask.opacity.value.type == SPropertyElementData::SPECTRUM)
+			if (_maskParent->mask.opacity.value.type != SPropertyElementData::INVALID)
 			{
 				_bsdfStruct.opacity.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_maskParent->mask.opacity.value.vvalue.pointer));
 				return 1.f;
 			}
-			else if (_maskParent->mask.opacity.value.type == SPropertyElementData::INVALID)
+			else
 			{
 				auto tex = getVTallocData(_ctx, _maskParent->mask.opacity.texture, _texHierLvl);
 				_bsdfStruct.opacity.texData = tex.first;
@@ -303,16 +657,16 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 	case CElementBSDF::Type::ROUGHDIFFUSE:
 	{
 		float reflScale = 1.f;
-		if (_node->diffuse.reflectance.value.type==SPropertyElementData::SPECTRUM)
-			retval.diffuse.reflectance.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->diffuse.reflectance.value.vvalue.pointer));
-		else if (_node->diffuse.reflectance.value.type==SPropertyElementData::INVALID)
+		if (_node->diffuse.reflectance.value.type==SPropertyElementData::INVALID)
 			std::tie(retval.diffuse.reflectance.texData, reflScale) = getVTallocData(_ctx, _node->diffuse.reflectance.texture, _texHierLvl);
+		else
+			retval.diffuse.reflectance.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->diffuse.reflectance.value.vvalue.pointer));
 
 		float alphaScale = 1.f;
-		if (_node->diffuse.alpha.value.type==SPropertyElementData::FLOAT)
-			core::uintBitsToFloat(retval.diffuse.alpha.constant_f32) = _node->diffuse.alpha.value.fvalue;
-		else if (_node->diffuse.alpha.value.type==SPropertyElementData::INVALID)
+		if (_node->diffuse.alpha.value.type==SPropertyElementData::INVALID)
 			std::tie(retval.diffuse.alpha.texData, alphaScale) = getVTallocData(_ctx, _node->diffuse.alpha.texture, _texHierLvl);
+		else if (_node->diffuse.alpha.value.type==SPropertyElementData::FLOAT)
+			core::uintBitsToFloat(retval.diffuse.alpha.constant_f32) = _node->diffuse.alpha.value.fvalue;
 
 		const float opacityScale = inheritOpacity(retval.diffuse);
 
@@ -365,9 +719,9 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 			else if (_node->conductor.alphaV.value.type==SPropertyElementData::INVALID)
 				std::tie(retval.conductor.alpha_v.texData, valphaScale) = getVTallocData(_ctx, _node->conductor.alphaV.texture, _texHierLvl);
 		}
-		if (_node->conductor.eta.type==SPropertyElementData::SPECTRUM)
+		if (_node->conductor.eta.type!=SPropertyElementData::INVALID)
 			retval.conductor.eta[0] = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>((_node->conductor.eta.vvalue/_node->conductor.extEta).pointer));
-		if (_node->conductor.eta.type == SPropertyElementData::SPECTRUM)
+		if (_node->conductor.k.type!=SPropertyElementData::INVALID)
 			retval.conductor.eta[1] = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>((_node->conductor.k.vvalue/_node->conductor.extEta).pointer));
 
 		const float opacityScale = inheritOpacity(retval.conductor);
@@ -384,13 +738,17 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 			core::uintBitsToFloat(retval.plastic.alpha.constant_f32) = _node->plastic.alpha.value.fvalue;
 		else if (_node->plastic.alpha.value.type==SPropertyElementData::INVALID)
 			std::tie(retval.plastic.alpha.texData, alphaScale) = getVTallocData(_ctx, _node->plastic.alpha.texture, _texHierLvl);
+		float reflScale = 1.f;
+		if (_node->plastic.diffuseReflectance.value.type==SPropertyElementData::INVALID)
+			std::tie(retval.plastic.reflectance.texData, reflScale) = getVTallocData(_ctx, _node->plastic.diffuseReflectance.texture, _texHierLvl);
+		else
+			retval.plastic.reflectance.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->plastic.diffuseReflectance.value.vvalue.pointer));
 		
 		retval.plastic.eta = _node->plastic.intIOR/_node->plastic.extIOR;
 
 		const float opacityScale = inheritOpacity(retval.plastic);
 
-		retval.plastic.textureScale[0] = alphaScale;
-		retval.plastic.textureScale[1] = opacityScale;
+		retval.plastic.textureScale = core::rgb32f_to_rgb19e7(alphaScale, opacityScale, reflScale);
 	}
 		break;
 	case CElementBSDF::Type::COATING:
@@ -407,10 +765,10 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 		retval.coating.thickness_eta |= static_cast<uint32_t>(core::Float16Compressor::compress(_node->coating.intIOR/_node->coating.extIOR))<<16;
 
 		float sigmaScale = 1.f;
-		if (_node->coating.sigmaA.value.type==SPropertyElementData::SPECTRUM)
-			retval.coating.sigmaA.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->coating.sigmaA.value.vvalue.pointer));
-		else if (_node->coating.sigmaA.value.type==SPropertyElementData::INVALID)
+		if (_node->coating.sigmaA.value.type==SPropertyElementData::INVALID)
 			std::tie(retval.coating.sigmaA.texData, sigmaScale) = getVTallocData(_ctx, _node->coating.sigmaA.texture, _texHierLvl);
+		else
+			retval.coating.sigmaA.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->coating.sigmaA.value.vvalue.pointer));
 
 		const float opacityScale = inheritOpacity(retval.coating);
 
@@ -447,7 +805,6 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 	case CElementBSDF::Type::MIXTURE_BSDF:
 	{
 		constexpr float vec3_one[3] {1.f,1.f,1.f};
-		const core::vectorSIMDf w(_mix2blend_weight);
 		core::uintBitsToFloat(retval.blend.weightL.constant_f32) = 1.f;
 		retval.blend.weightR = _mix2blend_weight;
 	}
@@ -474,10 +831,10 @@ bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElem
 	case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
 	{
 		float transmittanceScale = 1.f;
-		if (_node->difftrans.transmittance.value.type==SPropertyElementData::SPECTRUM)
-			retval.diffuseTransmitter.transmittance.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->difftrans.transmittance.value.vvalue.pointer));
-		else if (_node->difftrans.transmittance.value.type==SPropertyElementData::INVALID)
+		if (_node->difftrans.transmittance.value.type==SPropertyElementData::INVALID)
 			std::tie(retval.diffuseTransmitter.transmittance.texData, transmittanceScale) = getVTallocData(_ctx, _node->difftrans.transmittance.texture, _texHierLvl);
+		else
+			retval.diffuseTransmitter.transmittance.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->difftrans.transmittance.value.vvalue.pointer));
 
 		retval.diffuseTransmitter.textureScale[1] = inheritOpacity(retval.diffuseTransmitter);
 		retval.diffuseTransmitter.textureScale[0] = transmittanceScale;
@@ -495,11 +852,10 @@ layout (location = 0) in vec3 vPosition;
 layout (location = 2) in vec2 vUV;
 layout (location = 3) in vec3 vNormal;
 
-layout (location = 0) out vec3 ViewPos;
-layout (location = 1) flat out uint InstDataIx;
+layout (location = 0) out vec3 WorldPos;
+layout (location = 1) flat out uint InstanceIndex;
 layout (location = 2) out vec3 Normal;
 layout (location = 3) out vec2 UV;
-layout (location = 4) out vec3 LocalPos;
 
 #include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
 
@@ -517,23 +873,31 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO {
 struct InstanceData
 {
 	mat4x3 tform;
-	uvec2 instrOffsetCount;
+	vec3 normalMatrixRow0;
+	uint instrOffset;
+	vec3 normalMatrixRow1;
+	uint instrCount;
+	vec3 normalMatrixRow2;
+	uint _padding;//not needed
+	uvec2 emissive;
 };
-layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer A {
+layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
 	InstanceData data[];
 } InstData;
 
 void main()
 {
 	uint instIx = PC.instDataOffset+gl_InstanceIndex;
-	Normal = normalize(vNormal);
 	mat4x3 tform = InstData.data[instIx].tform;
 	mat4 mvp = irr_glsl_pseudoMul4x4with4x3(CamData.params.MVP, tform);
-	mat4x3 mv = irr_glsl_pseudoMul4x3with4x3(CamData.params.MV, tform);
 	gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(mvp), vPosition);
-	ViewPos = irr_glsl_pseudoMul3x4with3x1(mv, vPosition);
-	LocalPos = vPosition;
-	InstDataIx = instIx;
+	WorldPos = irr_glsl_pseudoMul3x4with3x1(tform, vPosition);
+	//InstrOffsetCount = uvec2(InstData.data[instIx].instrOffset,InstData.data[instIx].instrCount);
+	mat3 normalMat = mat3(InstData.data[instIx].normalMatrixRow0,InstData.data[instIx].normalMatrixRow1,InstData.data[instIx].normalMatrixRow2);
+	Normal = transpose(normalMat)*normalize(vNormal);
+	UV = vUV;
+	//Emissive = InstData.data[instIx].emissive;
+	InstanceIndex = instIx;
 }
 
 )";
@@ -553,14 +917,15 @@ void main()
 _IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_PT1 =
 R"(#version 430 core
 
+#define FLT_MIN 1.175494351e-38
+#define FLT_MAX 3.402823466e+38
+
 #include <irr/builtin/glsl/virtual_texturing/extensions.glsl>
 
-layout (location = 0) in vec3 ViewPos;
-layout (location = 1) flat in uint InstDataIx;
+layout (location = 0) in vec3 WorldPos;
+layout (location = 1) flat in uint InstanceIndex;
 layout (location = 2) in vec3 Normal;
 layout (location = 3) in vec2 UV;
-layout (location = 4) in vec3 LocalPos;
-//layout (location = 4) in vec3 Color;
 
 layout (location = 0) out vec4 OutColor;
 
@@ -601,24 +966,14 @@ layout (set = 0, binding = 2, std430) restrict readonly buffer PrecomputedStuffS
     uint layer_to_sampler_ix[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
 } precomputed;
 
-layout (set = 0, binding = 3, std430) buffer INSTR_BUF
+layout (set = 0, binding = 3, std430) restrict readonly buffer INSTR_BUF
 {
 	instr_t data[];
 } instr_buf;
-layout (set = 0, binding = 4, std430) buffer BSDF_BUF
+layout (set = 0, binding = 4, std430) restrict readonly buffer BSDF_BUF
 {
 	bsdf_data_t data[];
 } bsdf_buf;
-
-//this struct should go to some builtin (from loader added in CMitsubaLoader ctor) since it's used in vertex shader as well
-struct InstanceData
-{
-	mat4x3 tform;
-	uvec2 instrOffsetCount;
-};
-layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer A {
-	InstanceData data[];
-} InstData;
 
 uint irr_glsl_VT_layer2pid(in uint layer)
 {
@@ -647,6 +1002,27 @@ layout (push_constant) uniform Block
 	uint instrCount;
 } PC;
 
+#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
+
+layout (set = 1, binding = 0, row_major, std140) uniform UBO {
+    irr_glsl_SBasicViewParameters params;
+} CamData;
+
+struct InstanceData
+{
+	mat4x3 tform;
+	vec3 normalMatrixRow0;
+	uint instrOffset;
+	vec3 normalMatrixRow1;
+	uint instrCount;
+	vec3 normalMatrixRow2;
+	uint _padding;//not needed
+	uvec2 emissive;
+};
+layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
+	InstanceData data[];
+} InstData;
+
 //put this into some builtin
 #define RGB19E7_MANTISSA_BITS 19
 #define RGB19E7_MANTISSA_MASK 0x7ffff
@@ -654,31 +1030,32 @@ layout (push_constant) uniform Block
 #define RGB19E7_EXP_BIAS 63
 vec3 decodeRGB19E7(in uvec2 x)
 {
-	int exp = int(bitfieldExtract(x.y, 3*RGB19E7_MANTISSA_BITS-32, RGB19E7_EXPONENT_BITS)) - RGB19E7_EXP_BIAS - RGB19E7_MANTISSA_BITS;
+	int exp = int(bitfieldExtract(x.y, 3*RGB19E7_MANTISSA_BITS-32, RGB19E7_EXPONENT_BITS) - RGB19E7_EXP_BIAS - RGB19E7_MANTISSA_BITS);
 	float scale = exp2(float(exp));//uintBitsToFloat((uint(exp)+127u)<<23u)
 	
 	vec3 v;
-	v.x = int(bitfieldExtract(x.x, 0, RGB19E7_MANTISSA_BITS));
+	v.x = int(bitfieldExtract(x.x, 0, RGB19E7_MANTISSA_BITS))*scale;
 	v.y = int(
 		bitfieldExtract(x.x, RGB19E7_MANTISSA_BITS, 32-RGB19E7_MANTISSA_BITS) | 
 		(bitfieldExtract(x.y, 0, RGB19E7_MANTISSA_BITS-(32-RGB19E7_MANTISSA_BITS))<<(32-RGB19E7_MANTISSA_BITS))
-	);
-	v.z = int(bitfieldExtract(x.y, RGB19E7_MANTISSA_BITS-(32-RGB19E7_MANTISSA_BITS), RGB19E7_MANTISSA_BITS));
+	) * scale;
+	v.z = int(bitfieldExtract(x.y, RGB19E7_MANTISSA_BITS-(32-RGB19E7_MANTISSA_BITS), RGB19E7_MANTISSA_BITS)) * scale;
 	
-	return v*scale;
+	return v;
 }
 
 //i think ill have to create some c++ macro or something to create string with those
 //becasue it's too fucked up to remember about every change in c++ and have to update everything here
 #define INSTR_OPCODE_MASK			0x0fu
 #define INSTR_REG_MASK				0xffu
-#define INSTR_BSDF_BUF_OFFSET_SHIFT 11
-#define INSTR_BSDF_BUF_OFFSET_MASK	0x1fffffu
+#define INSTR_BSDF_BUF_OFFSET_SHIFT 13
+#define INSTR_BSDF_BUF_OFFSET_MASK	0x7ffffu
 #define INSTR_NDF_SHIFT 4
 #define INSTR_NDF_MASK 0x3u
-#define INSTR_ALPHA_U_TEX_SHIFT 1
+#define INSTR_ALPHA_U_TEX_SHIFT 6
 #define INSTR_ALPHA_V_TEX_SHIFT 7
 #define INSTR_REFL_TEX_SHIFT 4
+#define INSTR_PLASTIC_REFL_TEX_SHIFT 9
 #define INSTR_TRANS_TEX_SHIFT 4
 #define INSTR_WARD_VARIANT_SHIFT 4
 #define INSTR_WARD_VARIANT_MASK 0x03u
@@ -686,9 +1063,9 @@ vec3 decodeRGB19E7(in uvec2 x)
 #define INSTR_NONLINEAR_SHIFT 8
 #define INSTR_SIGMA_A_TEX_SHIFT 8
 #define INSTR_WEIGHT_TEX_SHIFT 4
-#define INSTR_TWOSIDED_SHIFT 9
-#define INSTR_MASKFLAG_SHIFT 10
-#define INSTR_OPACITY_TEX_SHIFT 11
+#define INSTR_TWOSIDED_SHIFT 10
+#define INSTR_MASKFLAG_SHIFT 11
+#define INSTR_OPACITY_TEX_SHIFT 12
 
 uint instr_getOpcode(in instr_t instr)
 {
@@ -702,53 +1079,57 @@ uint instr_getNDF(in instr_t instr)
 {
 	return (instr.x>>INSTR_NDF_SHIFT) & INSTR_NDF_MASK;
 }
-uint instr_getAlphaUTexPresence(in instr_t instr)
+bool instr_getAlphaUTexPresence(in instr_t instr)
 {
-	return (instr.x>>INSTR_ALPHA_U_TEX_SHIFT) & 1u;
+	return (instr.x&(1u<<INSTR_ALPHA_U_TEX_SHIFT)) != 0u;
 }
-uint instr_getAlphaVTexPresence(in instr_t instr)
+bool instr_getAlphaVTexPresence(in instr_t instr)
 {
-	return (instr.x>>INSTR_ALPHA_V_TEX_SHIFT) & 1u;
+	return (instr.x&(1u<<INSTR_ALPHA_V_TEX_SHIFT)) != 0u;
 }
-uint instr_getReflectanceTexPresence(in instr_t instr)
+bool instr_getReflectanceTexPresence(in instr_t instr)
 {
-	return (instr.x>>INSTR_REFL_TEX_SHIFT) & 1u;
+	return (instr.x&(1u<<INSTR_REFL_TEX_SHIFT)) != 0u;
+}
+bool instr_getPlasticReflTexPresence(in instr_t instr)
+{
+	return (instr.x&(1u<<INSTR_PLASTIC_REFL_TEX_SHIFT)) != 0u;
 }
 uint instr_getWardVariant(in instr_t instr)
 {
 	return (instr.x>>INSTR_WARD_VARIANT_SHIFT) & INSTR_WARD_VARIANT_MASK;
 }
-uint instr_getFastApprox(in instr_t instr)
+bool instr_getFastApprox(in instr_t instr)
 {
-	return (instr.x>>INSTR_FAST_APPROX_SHIFT) & 1u;
+	return (instr.x&(1u<<INSTR_FAST_APPROX_SHIFT)) != 0u;
 }
-uint instr_getNonlinear(in instr_t instr)
+bool instr_getNonlinear(in instr_t instr)
 {
-	return (instr.x>>INSTR_NONLINEAR_SHIFT) & 1u;
+	return (instr.x&(1u<<INSTR_NONLINEAR_SHIFT)) != 0u;
 }
-uint instr_getSigmaATexPresence(in instr_t instr)
+bool instr_getSigmaATexPresence(in instr_t instr)
 {
-	return (instr.x>>INSTR_SIGMA_A_TEX_SHIFT) & 1u;
+	return (instr.x&(1u<<INSTR_SIGMA_A_TEX_SHIFT)) != 0u;
 }
-uint instr_getWeightTexPresence(in instr_t instr)
+bool instr_getWeightTexPresence(in instr_t instr)
 {
-	return (instr.x>>INSTR_WEIGHT_TEX_SHIFT) & 1u;
+	return (instr.x&(1u<<INSTR_WEIGHT_TEX_SHIFT)) != 0u;
 }
-uint instr_getTwosided(in instr_t instr)
+bool instr_getTwosided(in instr_t instr)
 {
-	return (instr.x>>INSTR_TWOSIDED_SHIFT) & 1u;
+	return (instr.x&(1u<<INSTR_TWOSIDED_SHIFT)) != 0u;
 }
-uint instr_getMaskFlag(in instr_t instr)
+bool instr_getMaskFlag(in instr_t instr)
 {
-	return (instr.x>>INSTR_MASKFLAG_SHIFT) & 1u;
+	return (instr.x&(1u<<INSTR_MASKFLAG_SHIFT)) != 0u;
 }
-uint instr_getOpacityTexPresence(in instr_t instr)
+bool instr_getOpacityTexPresence(in instr_t instr)
 {
-	return (instr.x>>INSTR_OPACITY_TEX_SHIFT) & 1u;
+	return (instr.x&(1u<<INSTR_OPACITY_TEX_SHIFT)) != 0u;
 }
-uint instr_getTransmittanceTexPresence(in instr_t instr)
+bool instr_getTransmittanceTexPresence(in instr_t instr)
 {
-	return (instr.x>>INSTR_TRANS_TEX_SHIFT) & 1u;
+	return (instr.x&(1u<<INSTR_TRANS_TEX_SHIFT)) != 0u;
 }
 
 //returns: x=dst, y=src1, z=src2
@@ -766,19 +1147,19 @@ bsdf_data_t fetchBSDFDataForInstr(in instr_t instr)
 	uint ix = instr_getBSDFbufOffset(instr);
 	return bsdf_buf.data[ix];
 }
-float textureOrF32(in uvec2 data, in uint texPresenceFlag, in mat2 dUV)
+float textureOrF32(in uvec2 data, in bool texPresenceFlag, in mat2 dUV)
 {
 	float retval;
-	if (texPresenceFlag==1u)
+	if (texPresenceFlag)
 		retval = irr_glsl_vTextureGrad(data, UV, dUV).x;
 	else
 		retval = uintBitsToFloat(data.x);
 	return retval;
 }
-vec3 textureOrRGB19E7(in uvec2 data, in uint texPresenceFlag, in mat2 dUV)
+vec3 textureOrRGB19E7(in uvec2 data, in bool texPresenceFlag, in mat2 dUV)
 {
 	vec3 retval;
-	if (texPresenceFlag==1u)
+	if (texPresenceFlag)
 		retval = irr_glsl_vTextureGrad(data, UV, dUV).xyz;
 	else
 		retval = decodeRGB19E7(data);
@@ -788,20 +1169,25 @@ vec3 textureOrRGB19E7(in uvec2 data, in uint texPresenceFlag, in mat2 dUV)
 //remember to keep it compliant with c++ enum!!
 #define OP_DIFFUSE			0u
 #define OP_ROUGHDIFFUSE		1u
-#define OP_DIFFTRANS		2u
-#define OP_DIELECTRIC		3u
-#define OP_ROUGHDIELECTRIC	4u
-#define OP_CONDUCTOR		5u
-#define OP_ROUGHCONDUCTOR	6u
-#define OP_PLASTIC			7u
-#define OP_ROUGHPLASTIC		8u
-#define OP_WARD				9u
-#define OP_SET_GEOM_NORMAL	10u
-#define OP_INVALID			11u
-#define OP_COATING			12u
-#define OP_ROUGHCOATING		13u
-#define OP_BUMPMAP			14u
-#define OP_BLEND			15u
+#define OP_DIFFTRANS		9u
+#define OP_DIELECTRIC		10u
+#define OP_ROUGHDIELECTRIC	11u
+#define OP_CONDUCTOR		2u
+#define OP_ROUGHCONDUCTOR	3u
+#define OP_PLASTIC			4u
+#define OP_ROUGHPLASTIC		5u
+#define OP_WARD				6u
+#define OP_SET_GEOM_NORMAL	14u
+#define OP_INVALID			15u
+#define OP_COATING			7u
+#define OP_ROUGHCOATING		8u
+#define OP_BUMPMAP			13u
+#define OP_BLEND			12u
+
+bool opcode_isRough(in uint op)
+{
+	return op==OP_ROUGHDIFFUSE || op==OP_ROUGHDIELECTRIC || op==OP_ROUGHCONDUCTOR || op==OP_ROUGHPLASTIC || op==OP_WARD || op==OP_ROUGHCOATING;
+}
 
 #define NDF_BECKMANN	0u
 #define NDF_GGX			1u
@@ -817,52 +1203,95 @@ vec3 textureOrRGB19E7(in uvec2 data, in uint texPresenceFlag, in mat2 dUV)
 #include <irr/builtin/glsl/bsdf/brdf/specular/ashikhmin_shirley.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/specular/beckmann_smith.glsl>
 #include <irr/builtin/glsl/bsdf/brdf/specular/ggx.glsl>
+#include <irr/builtin/glsl/bsdf/brdf/specular/blinn_phong.glsl>
 #include <irr/builtin/glsl/bump_mapping/height_mapping.glsl>
 )";
 constexpr const char* FRAGMENT_SHADER_PT2 = R"(
 irr_glsl_BSDFAnisotropicParams currBSDFParams;
 reg_t registers[REG_COUNT];
 
-void setCurrBSDFParams(in vec3 n)
+void setCurrBSDFParams(in vec3 n, in vec3 L)
 {
-	irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(vec3(0.0), ViewPos, n);
-	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(interaction, -ViewPos);
+	vec3 campos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
+	irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, n);
+	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(interaction, L);
 	//TODO: T,B tangents
 	vec3 T = vec3(1.0,0.0,0.0);
 	vec3 B = vec3(0.0,0.0,1.0);
 	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(isoparams, T, B);
 }
 
-void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in mat2 dUV)
+vec2 getAlpha(in uint op, in uint ndf, in instr_t instr, in bsdf_data_t data, in mat2 dUV)
 {
-	bsdf_data_t data = fetchBSDFDataForInstr(instr);
-	vec3 scale = decodeRGB19E7(data.data[1].zw);
-	vec3 refl = textureOrRGB19E7(data.data[0].zw, instr_getReflectanceTexPresence(instr), dUV)*scale.y;
-	registers[REG_DST(regs)] = refl;
+	vec2 a;
+	if (op==OP_ROUGHDIFFUSE)
+	{
+		vec3 scale = decodeRGB19E7(data.data[1].zw);
+		float a_ = textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
+		a = vec2(a_);
+	}
+	else if (op==OP_ROUGHDIELECTRIC)
+	{
+		vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
+		a = vec2( textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x );
+		if (ndf == NDF_AS)
+			a.y = textureOrF32(uvec2(data.data[0].w, data.data[1].x), instr_getAlphaVTexPresence(instr), dUV)*scale.y;
+	}
+	else if (op==OP_ROUGHCONDUCTOR)
+	{
+		vec3 scale = decodeRGB19E7(data.data[2].zw);
+		a = vec2( textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x );
+		if (ndf==NDF_AS)
+			a.y = textureOrF32(data.data[0].zw, instr_getAlphaVTexPresence(instr), dUV)*scale.y;
+	}
+	else if (op==OP_ROUGHPLASTIC)
+	{
+		vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
+		a = vec2( textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x );
+	}
+	else if (op==OP_ROUGHCOATING)
+	{
+		//later
+	}
+	return a;
 }
-void instr_execute_ROUGHDIFFUSE(in instr_t instr, in uvec3 regs, in mat2 dUV)
+
+void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
-	bsdf_data_t data = fetchBSDFDataForInstr(instr);
+	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
+	{
+		vec3 scale = decodeRGB19E7(data.data[1].zw);
+		vec3 refl = textureOrRGB19E7(data.data[0].zw, instr_getReflectanceTexPresence(instr), dUV)*scale.y;
+		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic) * refl;
+		registers[REG_DST(regs)] = diffuse;
+	}
+	else registers[REG_DST(regs)] = reg_t(0.0);
+}
+void instr_execute_ROUGHDIFFUSE(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
+{
 	vec3 scale = decodeRGB19E7(data.data[1].zw);
 	float a = textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
 	vec3 refl = textureOrRGB19E7(data.data[0].zw, instr_getReflectanceTexPresence(instr), dUV)*scale.y;
-	registers[REG_DST(regs)] = refl;
+	registers[REG_DST(regs)] = max(refl,vec3(0.0));
 }
-void instr_execute_DIFFTRANS(in instr_t instr, in uvec3 regs, in mat2 dUV)
+void instr_execute_DIFFTRANS(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
-	bsdf_data_t data = fetchBSDFDataForInstr(instr);
 	vec3 trans = textureOrRGB19E7(data.data[0].xy, instr_getTransmittanceTexPresence(instr), dUV)*uintBitsToFloat(data.data[1].x);
-	registers[REG_DST(regs)] = reg_t(0.0);
+	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
-void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in mat2 dUV)
+void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
-	bsdf_data_t data = fetchBSDFDataForInstr(instr);
-	float eta = uintBitsToFloat(data.data[0].x);
-	registers[REG_DST(regs)] = reg_t(0.0);
+	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
+	{
+		vec3 eta = vec3(uintBitsToFloat(data.data[0].x));
+		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic) * vec3(0.89);
+		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.interaction.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
+		registers[REG_DST(regs)] = diffuse;
+	}
+	else registers[REG_DST(regs)] = vec3(0.0);
 }
-void instr_execute_ROUGHDIELECTRIC(in instr_t instr, in uvec3 regs, in mat2 dUV)
+void instr_execute_ROUGHDIELECTRIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
-	bsdf_data_t data = fetchBSDFDataForInstr(instr);
 	uint ndf = instr_getNDF(instr);
 	float eta = uintBitsToFloat(data.data[0].x);
 	vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
@@ -870,74 +1299,82 @@ void instr_execute_ROUGHDIELECTRIC(in instr_t instr, in uvec3 regs, in mat2 dUV)
 	float av;
 	if (ndf == NDF_AS)
 		av = textureOrF32(uvec2(data.data[0].w, data.data[1].x), instr_getAlphaVTexPresence(instr), dUV)*scale.y;
-	registers[REG_DST(regs)] = reg_t(0.0);
+	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
-void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV)
+void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
-	bsdf_data_t data = fetchBSDFDataForInstr(instr);
 	vec3 scale = decodeRGB19E7(data.data[2].zw);
 	vec3 eta = decodeRGB19E7(data.data[1].xy);
 	vec3 etak = decodeRGB19E7(data.data[1].zw);
-	registers[REG_DST(regs)] = reg_t(0.0);
+	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
-void instr_execute_ROUGHCONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV)
+void instr_execute_ROUGHCONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec2 a, in float D, in bsdf_data_t data)
 {
-	bsdf_data_t data = fetchBSDFDataForInstr(instr);
-	uint ndf = instr_getNDF(instr);
-	vec3 scale = decodeRGB19E7(data.data[2].zw);
-	float au = textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
-	float av;
-	if (ndf==NDF_AS)
-		av = textureOrF32(data.data[0].zw, instr_getAlphaVTexPresence(instr), dUV)*scale.y;
-	vec3 eta = decodeRGB19E7(data.data[1].xy);
-	vec3 etak = decodeRGB19E7(data.data[1].zw);
-	registers[REG_DST(regs)] = reg_t(0.0);
+	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
+	{
+		mat2x3 eta2;
+		eta2[0] = decodeRGB19E7(data.data[1].xy); eta2[0]*=eta2[0];
+		eta2[1] = decodeRGB19E7(data.data[1].zw); eta2[1]*=eta2[1];
+		float a2 = a.x*a.y;
+		vec3 fr = irr_glsl_fresnel_conductor(eta2[0],eta2[1],currBSDFParams.isotropic.VdotH);
+		float g = irr_glsl_beckmann_smith_height_correlated(currBSDFParams.isotropic.interaction.NdotV_squared, currBSDFParams.isotropic.NdotL_squared, a2);
+		registers[REG_DST(regs)] = g*D*fr / (4.0 * currBSDFParams.isotropic.interaction.NdotV);
+	}
+	else registers[REG_DST(regs)] = reg_t(0.0);
 }
-void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV)
+void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
-	bsdf_data_t data = fetchBSDFDataForInstr(instr);
-	float eta = uintBitsToFloat(data.data[0].x);
-	vec2 scale = uintBitsToFloat(uvec2(data.data[1].y, data.data[1].z));
-	registers[REG_DST(regs)] = reg_t(0.0);
-}
-void instr_execute_ROUGHPLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV)
-{
-	bsdf_data_t data = fetchBSDFDataForInstr(instr);
-	uint ndf = instr_getNDF(instr);
 	float eta = uintBitsToFloat(data.data[0].x);
 	vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
-	float a = textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
-	registers[REG_DST(regs)] = reg_t(0.0);
+	vec3 refl = textureOrRGB19E7(data.data[1].yz, instr_getPlasticReflTexPresence(instr), dUV)*scale.z;
+	registers[REG_DST(regs)] = refl;
 }
-void instr_execute_COATING(in instr_t instr, in uvec3 regs, in mat2 dUV)
+void instr_execute_ROUGHPLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec2 a, in float D, in bsdf_data_t data)
 {
-	bsdf_data_t data = fetchBSDFDataForInstr(instr);
+	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
+	{
+		vec3 eta = vec3(uintBitsToFloat(data.data[0].x));
+		vec3 eta2 = eta*eta;
+		vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
+		vec3 refl = textureOrRGB19E7(data.data[1].yz, instr_getPlasticReflTexPresence(instr), dUV)*scale.z;
+
+		float a2 = a.x*a.y;
+		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic, a2) * refl;
+		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta2) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.interaction.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
+		vec3 fr = irr_glsl_fresnel_dielectric(eta,currBSDFParams.isotropic.VdotH);
+		//TODO shadowing/masking term also has to go outside, to instr_execute()
+		float g = irr_glsl_beckmann_smith_height_correlated(currBSDFParams.isotropic.interaction.NdotV_squared, currBSDFParams.isotropic.NdotL_squared, a2);	
+		vec3 specular = g*D*fr / (4.0 * currBSDFParams.isotropic.interaction.NdotV);
+
+		registers[REG_DST(regs)] = specular + diffuse;
+	}
+	else registers[REG_DST(regs)] = reg_t(0.0);
+}
+void instr_execute_COATING(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
+{
 	vec3 scale = decodeRGB19E7(uvec2(data.data[1].w,data.data[2].x));
 	vec2 thickness_eta = unpackHalf2x16(data.data[0].x);
 	vec3 sigmaA = textureOrRGB19E7(uvec2(data.data[0].w,data.data[1].x), instr_getSigmaATexPresence(instr), dUV)*scale.y;
-	registers[REG_DST(regs)] = reg_t(0.0);
+	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
-void instr_execute_ROUGHCOATING(in instr_t instr, in uvec3 regs, in mat2 dUV)
+void instr_execute_ROUGHCOATING(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
-	bsdf_data_t data = fetchBSDFDataForInstr(instr);
 	uint ndf = instr_getNDF(instr);
 	vec3 scale = decodeRGB19E7(uvec2(data.data[1].w,data.data[2].x));
 	vec2 thickness_eta = unpackHalf2x16(data.data[0].x);
 	float a = textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
 	vec3 sigmaA = textureOrRGB19E7(uvec2(data.data[0].w,data.data[1].x), instr_getSigmaATexPresence(instr), dUV)*scale.y;
-	registers[REG_DST(regs)] = reg_t(0.0);
+	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
-void instr_execute_WARD(in instr_t instr, in uvec3 regs, in mat2 dUV)
+void instr_execute_WARD(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
-	bsdf_data_t data = fetchBSDFDataForInstr(instr);
 	vec3 scale = decodeRGB19E7(data.data[1].zw);
 	float au = textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
 	float av = textureOrF32(data.data[0].zw, instr_getAlphaVTexPresence(instr), dUV)*scale.y;
-	registers[REG_DST(regs)] = reg_t(0.0);
+	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
-void instr_execute_BUMPMAP(in instr_t instr, in uvec3 regs, in mat2 dUV)
+void instr_execute_BUMPMAP(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data, in vec3 L)
 {
-	bsdf_data_t data = fetchBSDFDataForInstr(instr);
 	uvec2 bm = data.data[0].xy;
 	//dirty trick for getting height map derivatives in divergent workflow
 	vec2 dHdScreen = vec2(
@@ -945,30 +1382,48 @@ void instr_execute_BUMPMAP(in instr_t instr, in uvec3 regs, in mat2 dUV)
 		irr_glsl_vTextureGrad(bm, UV+0.5*dUV[1], dUV).x - irr_glsl_vTextureGrad(bm, UV-0.5*dUV[1], dUV).x
 	);
 	vec3 n = irr_glsl_perturbNormal_heightMap(currBSDFParams.isotropic.interaction.N, currBSDFParams.isotropic.interaction.V.dPosdScreen, dHdScreen);
-	setCurrBSDFParams(n);
+	setCurrBSDFParams(n, L);
 }
 //executed at most once
-void instr_execute_SET_GEOM_NORMAL()
+void instr_execute_SET_GEOM_NORMAL(in vec3 L)
 {
-	setCurrBSDFParams(normalize(Normal));
+	setCurrBSDFParams(normalize(Normal), L);
 }
-void instr_execute_BLEND(in instr_t instr, in uvec3 regs, in mat2 dUV)
+void instr_execute_BLEND(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
-	bsdf_data_t data = fetchBSDFDataForInstr(instr);
 	float scale = uintBitsToFloat(data.data[0].w);
-	uint weightTexPresent = instr_getWeightTexPresence(instr);
+	bool weightTexPresent = instr_getWeightTexPresence(instr);
 	float wl = textureOrF32(data.data[0].xy, weightTexPresent, dUV)*scale;
 	float wr;
-	if (weightTexPresent==1u)
+	if (weightTexPresent)
 		wr = 1.0 - wl;
 	else
 		wr = uintBitsToFloat(data.data[0].z);
 	registers[REG_DST(regs)] = wl*registers[REG_SRC1(regs)] + wr*registers[REG_SRC2(regs)];
 }
 
-void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV)
+void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 L)
 {
-	switch (instr.x & INSTR_REG_MASK)
+	bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
+	uint opcode = instr_getOpcode(instr);
+	uint ndf = instr_getNDF(instr);
+	bool twosided = instr_getTwosided(instr);
+	
+	//if (twosided)
+	//flip normal
+
+	vec2 a = getAlpha(opcode,ndf,instr,bsdf_data,dUV);
+	float a2 = a.x*a.y;
+	//TODO somehow get alpha here
+	float D = 0.0;
+	if (ndf==NDF_BECKMANN)
+		D = irr_glsl_beckmann(a2, currBSDFParams.isotropic.NdotH*currBSDFParams.isotropic.NdotH);
+	else if (ndf==NDF_GGX)
+		D = irr_glsl_ggx_trowbridge_reitz(a2, currBSDFParams.isotropic.NdotH*currBSDFParams.isotropic.NdotH);
+	else if (ndf==NDF_PHONG)
+		D = irr_glsl_blinn_phong(currBSDFParams.isotropic.NdotH, 1.0/a2);
+
+	switch (opcode)
 	{
 	//run func depending on opcode
 	//the func will decide whether to (and which ones) fetch registers from `regs` array
@@ -976,69 +1431,95 @@ void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV)
 	//also stores the result into dst reg
 	//....
 	case OP_DIFFUSE:
-		instr_execute_DIFFUSE(instr, regs, dUV);
+		instr_execute_DIFFUSE(instr, regs, dUV, bsdf_data);
 		break;
 	case OP_ROUGHDIFFUSE:
-		instr_execute_ROUGHDIFFUSE(instr, regs, dUV);
+		instr_execute_ROUGHDIFFUSE(instr, regs, dUV, bsdf_data);
 		break;
 	case OP_DIFFTRANS:
-		instr_execute_DIFFTRANS(instr, regs, dUV);
+		instr_execute_DIFFTRANS(instr, regs, dUV, bsdf_data);
 		break;
 	case OP_DIELECTRIC:
-		instr_execute_DIELECTRIC(instr, regs, dUV);
+		instr_execute_DIELECTRIC(instr, regs, dUV, bsdf_data);
 		break;
 	case OP_ROUGHDIELECTRIC: 
-		instr_execute_ROUGHDIELECTRIC(instr, regs, dUV);
+		instr_execute_ROUGHDIELECTRIC(instr, regs, dUV, bsdf_data);
 		break;
 	case OP_CONDUCTOR:
-		instr_execute_CONDUCTOR(instr, regs, dUV);
+		instr_execute_CONDUCTOR(instr, regs, dUV, bsdf_data);
 		break;
 	case OP_ROUGHCONDUCTOR:
-		instr_execute_ROUGHCONDUCTOR(instr, regs, dUV);
+		instr_execute_ROUGHCONDUCTOR(instr, regs, dUV, a, D, bsdf_data);
 		break;
 	case OP_PLASTIC:
-		instr_execute_PLASTIC(instr, regs, dUV);
+		instr_execute_PLASTIC(instr, regs, dUV, bsdf_data);
 		break;
 	case OP_ROUGHPLASTIC:
-		instr_execute_ROUGHPLASTIC(instr, regs, dUV);
+		instr_execute_ROUGHPLASTIC(instr, regs, dUV, a, D, bsdf_data);
 		break;
 	case OP_WARD:
-		instr_execute_WARD(instr, regs, dUV);
+		instr_execute_WARD(instr, regs, dUV, bsdf_data);
 		break;
 	case OP_SET_GEOM_NORMAL:
-		instr_execute_SET_GEOM_NORMAL();
+		instr_execute_SET_GEOM_NORMAL(L);
 		break;
 	case OP_COATING:
-		instr_execute_COATING(instr, regs, dUV);
+		instr_execute_COATING(instr, regs, dUV, bsdf_data);
 		break;
 	case OP_ROUGHCOATING:
-		instr_execute_ROUGHCOATING(instr, regs, dUV);
+		instr_execute_ROUGHCOATING(instr, regs, dUV, bsdf_data);
 		break;
 	case OP_BUMPMAP:
-		instr_execute_BUMPMAP(instr, regs, dUV);
+		instr_execute_BUMPMAP(instr, regs, dUV, bsdf_data, L);
 		break;
 	case OP_BLEND:
-		instr_execute_BLEND(instr, regs, dUV);
+		instr_execute_BLEND(instr, regs, dUV, bsdf_data);
 		break;
 	}
 }
 
-void main()
+#ifndef _IRR_BSDF_COS_EVAL_DEFINED_
+#define _IRR_BSDF_COS_EVAL_DEFINED_
+// Spectrum can be exchanged to a float for monochrome
+#define Spectrum vec3
+//! This is the function that evaluates the BSDF for specific view and observer direction
+// params can be either BSDFIsotropicParams or BSDFAnisotropicParams 
+Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
 {
-	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
-	uvec2 offsetCount = InstData.data[InstDataIx].instrOffsetCount;
-	//all lighting computations are done in view space
+	uvec2 offsetCount = uvec2(InstData.data[InstanceIndex].instrOffset,InstData.data[InstanceIndex].instrCount);
 
-	//TODO will conform to irrbaw shader standards later (irr_bsdf_cos_eval, irr_computeLighting...)
 	for (uint i = 0u; i < offsetCount.y; ++i)
 	{
 		instr_t instr = instr_buf.data[offsetCount.x+i];
 		uvec3 regs = instr_decodeRegisters(instr);
 
-		instr_execute(instr, regs, dUV);
+		instr_execute(instr, regs, dUV, params.L);
 	}
+	return registers[0]; //result is always in register 0
+}
+#endif
 
-	OutColor = vec4(registers[0].xyz,1.0);//result is always in reg 0
+#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_
+#define _IRR_COMPUTE_LIGHTING_DEFINED_
+vec3 irr_computeLighting(out irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
+{
+	vec3 emissive = decodeRGB19E7(InstData.data[InstanceIndex].emissive);
+
+	vec3 campos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
+	irr_glsl_BSDFIsotropicParams params;
+	params.L = campos-WorldPos;
+	out_interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, normalize(Normal));
+
+	return irr_bsdf_cos_eval(params, dUV)*50.0/dot(params.L,params.L) + emissive;
+}
+#endif
+
+void main()
+{
+	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
+
+	irr_glsl_IsotropicViewSurfaceInteraction inter;
+	OutColor = vec4(irr_computeLighting(inter, dUV), 1.0);
 }
 )";
 
@@ -1240,7 +1721,7 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		auto pipeline = createAndCachePipeline(m_manager, std::move(layout));
 	}
 
-	core::unordered_set<core::smart_refctd_ptr<asset::ICPUMesh>,core::smart_refctd_ptr<asset::ICPUMesh>::hash> meshes;
+	core::set<core::smart_refctd_ptr<asset::ICPUMesh>> meshes;
 
 	for (auto& shapepair : parserManager.shapegroups)
 	{
@@ -1272,7 +1753,7 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		}
 
 		const auto instrOffsetCount = getBSDFtreeTraversal(ctx, shapedef->bsdf);
-		metadataptr->instances.push_back({shapedef->getAbsoluteTransform(),instrOffsetCount,shapedef->obtainEmitter()});
+		metadataptr->instances.push_back({ shapedef->getAbsoluteTransform(),instrOffsetCount.postorder,shapedef->obtainEmitter() });
 	}
 
 	auto metadata = createPipelineMetadata(createDS0(ctx, meshes.begin(), meshes.end()), getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager).get());
@@ -1815,7 +2296,7 @@ auto CMitsubaLoader::getVTallocData(SContext& ctx, const CElementTexture* textur
 	const auto& sparams = std::get<1>(tex)->getParams();
 	auto retval =
 		std::make_pair(
-			bsdf::getTextureData(
+			getTextureData(
 				img.get(), ctx.VT.get(),
 				static_cast<asset::ISampler::E_TEXTURE_CLAMP>(sparams.TextureWrapU),
 				static_cast<asset::ISampler::E_TEXTURE_CLAMP>(sparams.TextureWrapV),
@@ -1828,50 +2309,7 @@ auto CMitsubaLoader::getVTallocData(SContext& ctx, const CElementTexture* textur
 	return retval;
 }
 
-static bsdf::E_OPCODE BSDFtype2opcode(const CElementBSDF* bsdf)
-{
-	switch (bsdf->type)
-	{
-	case CElementBSDF::Type::DIFFUSE:
-		return bsdf::OP_DIFFUSE;
-	case CElementBSDF::Type::ROUGHDIFFUSE:
-		return bsdf::OP_ROUGHDIFFUSE;
-	case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
-		return bsdf::OP_DIFFTRANS;
-	case CElementBSDF::Type::DIELECTRIC: _IRR_FALLTHROUGH;
-	case CElementBSDF::Type::THINDIELECTRIC:
-		return bsdf::OP_DIELECTRIC;
-	case CElementBSDF::Type::ROUGHDIELECTRIC:
-		return bsdf::OP_ROUGHDIELECTRIC;
-	case CElementBSDF::Type::CONDUCTOR:
-		return bsdf::OP_CONDUCTOR;
-	case CElementBSDF::Type::ROUGHCONDUCTOR:
-		return bsdf::OP_ROUGHCONDUCTOR;
-	case CElementBSDF::Type::PLASTIC:
-		return bsdf::OP_PLASTIC;
-	case CElementBSDF::Type::ROUGHPLASTIC:
-		return bsdf::OP_ROUGHPLASTIC;
-	case CElementBSDF::Type::COATING:
-		return bsdf::OP_COATING;
-	case CElementBSDF::Type::ROUGHCOATING:
-		return bsdf::OP_ROUGHCOATING;
-	case CElementBSDF::Type::BUMPMAP:
-		return bsdf::OP_BUMPMAP;
-	case CElementBSDF::Type::WARD:
-		return bsdf::OP_WARD;
-	case CElementBSDF::Type::BLEND_BSDF: _IRR_FALLTHROUGH;
-	case CElementBSDF::Type::MIXTURE_BSDF:
-		return bsdf::OP_BLEND;
-	case CElementBSDF::Type::MASK:
-		return BSDFtype2opcode(bsdf->mask.bsdf[0]);
-	case CElementBSDF::Type::TWO_SIDED:
-		return BSDFtype2opcode(bsdf->twosided.bsdf[0]);
-	default:
-		return bsdf::OP_INVALID;
-	}
-}
-
-std::pair<uint32_t, uint32_t> CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf)
+auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf) -> SContext::bsdf_type
 {
 	auto found = ctx.instrStreamCache.find(bsdf);
 	if (found!=ctx.instrStreamCache.end())
@@ -1881,223 +2319,53 @@ std::pair<uint32_t, uint32_t> CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx
 	return retval;
 }
 
-std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bsdf)
+auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bsdf) -> SContext::bsdf_type
 {
-	struct stack_el {
-		const CElementBSDF* bsdf;
-		bsdf::instr_t instr;
-		bool visited;
-		uint32_t weight_ix;
-		const CElementBSDF* maskParent;
-	};
-	core::stack<stack_el> stack;
-	uint64_t firstFreeNormalID = 1ull;//normal ID 0 means geom normal without any perturbations
-	auto push = [&](const CElementBSDF* _bsdf, bsdf::instr_t _parent, const CElementBSDF* _maskParent) {
-		auto writeInheritableBitfields = [](bsdf::instr_t& dst, bsdf::instr_t parent) {
-			dst |= (parent & (bsdf::BITFIELDS_MASK_TWOSIDED << bsdf::BITFIELDS_SHIFT_TWOSIDED));
-			dst |= (parent & (bsdf::BITFIELDS_MASK_MASKFLAG << bsdf::BITFIELDS_SHIFT_MASKFLAG));
-			dst |= (parent & (bsdf::INSTR_NORMAL_ID_MASK << bsdf::INSTR_NORMAL_ID_SHIFT));
-		};
-		bsdf::instr_t instr = BSDFtype2opcode(_bsdf);
-		writeInheritableBitfields(instr, _parent);
-		switch (_bsdf->type)
-		{
-		case CElementBSDF::Type::DIFFUSE:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::ROUGHDIFFUSE:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::DIELECTRIC:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::THINDIELECTRIC:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::ROUGHDIELECTRIC:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::CONDUCTOR:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::ROUGHCONDUCTOR:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::PLASTIC:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::ROUGHPLASTIC:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::WARD:
-			stack.push({_bsdf,instr,false,0,_maskParent});
-			break;
-		case CElementBSDF::Type::COATING:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::ROUGHCOATING:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::BUMPMAP:
-			instr &= (~(bsdf::INSTR_NORMAL_ID_MASK<<bsdf::INSTR_NORMAL_ID_SHIFT));//zero-out normal ID bitfield
-			instr |= (firstFreeNormalID & bsdf::INSTR_NORMAL_ID_MASK) << bsdf::INSTR_NORMAL_ID_SHIFT;//write new val
-			++firstFreeNormalID;
-			stack.push({_bsdf,instr,false,0,_maskParent});
-
-			instr = BSDFtype2opcode(_bsdf->meta_common.bsdf[0]);
-			writeInheritableBitfields(instr, _parent);
-			stack.push({_bsdf->meta_common.bsdf[0],instr,false,0,_maskParent});
-			break;
-		case CElementBSDF::Type::BLEND_BSDF:
-			stack.push({ _bsdf,instr,false,0,_maskParent });
-			instr = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[1]);
-			writeInheritableBitfields(instr, _parent);
-			stack.push({ _bsdf->meta_common.bsdf[1],instr,false,0,_maskParent });
-			instr = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[0]);
-			writeInheritableBitfields(instr, _parent);
-			stack.push({ _bsdf->meta_common.bsdf[0],instr,false,0,_maskParent });
-			break;
-		case CElementBSDF::Type::MIXTURE_BSDF:
-		{
-			//mixture is translated into tree of blends
-			bsdf::instr_t blendbsdf = instr;
-			assert(_bsdf->mixturebsdf.childCount > 1u);
-			for (uint32_t i = 0u; i < _bsdf->mixturebsdf.childCount-1ull; ++i)
-			{
-				uint32_t weight_ix = _bsdf->mixturebsdf.childCount-i-1u;
-				stack.push({_bsdf,blendbsdf,false,weight_ix,_maskParent});
-				auto* mixchild_bsdf = _bsdf->mixturebsdf.bsdf[weight_ix];
-				bsdf::instr_t mixchild = BSDFtype2opcode(mixchild_bsdf);
-				writeInheritableBitfields(mixchild, _parent);
-				stack.push({mixchild_bsdf,mixchild,false,0,_maskParent});
-			}
-			bsdf::instr_t child0 = BSDFtype2opcode(_bsdf->mixturebsdf.bsdf[0]);
-			writeInheritableBitfields(child0, _parent);
-			stack.push({_bsdf->mixturebsdf.bsdf[0],child0,false,0});
-		}	
-			break;
-		case CElementBSDF::Type::MASK:
-			instr |= 1u<<bsdf::BITFIELDS_SHIFT_MASKFLAG;
-			stack.push({_bsdf->mask.bsdf[0],instr,false,0,_bsdf});
-			break;
-		case CElementBSDF::Type::TWO_SIDED:
-			instr |= 1u<<bsdf::BITFIELDS_SHIFT_TWOSIDED;
-			stack.push({_bsdf->twosided.bsdf[0],instr,false,0,_maskParent});
-			break;
-		case CElementBSDF::Type::PHONG:
-			_IRR_DEBUG_BREAK_IF(1);
-			break;
-		}
-	};
-	auto emitInstr = [](bsdf::instr_t _instr, const CElementBSDF* _node, uint32_t _bsdfBufOffset, const CElementBSDF* _maskParent) -> bsdf::instr_t {
-		uint32_t op = (_instr & bsdf::INSTR_OPCODE_MASK);
-		switch (op)
-		{
-		case bsdf::OP_ROUGHDIFFUSE:
-			_instr |= static_cast<uint32_t>(_node->diffuse.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_MASK_ALPHA_U_TEX;
-			_IRR_FALLTHROUGH;
-		case bsdf::OP_DIFFUSE:
-			_instr |= static_cast<uint32_t>(_node->diffuse.reflectance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_REFL_TEX;
-			break;
-		case bsdf::OP_ROUGHDIELECTRIC:
-			_instr |= _node->dielectric.distribution << bsdf::BITFIELDS_SHIFT_NDF;
-			_instr |= static_cast<uint32_t>(_node->dielectric.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
-			if (_node->dielectric.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-				_instr |= static_cast<uint32_t>(_node->dielectric.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
-			break;
-		case bsdf::OP_ROUGHCONDUCTOR:
-			_instr |= _node->conductor.distribution << bsdf::BITFIELDS_SHIFT_NDF;
-			_instr |= static_cast<uint32_t>(_node->conductor.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
-			if (_node->conductor.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-				_instr |= static_cast<uint32_t>(_node->conductor.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
-			break;
-		case bsdf::OP_ROUGHPLASTIC:
-			_instr |= _node->plastic.distribution << bsdf::BITFIELDS_SHIFT_NDF;
-			_instr |= static_cast<uint32_t>(_node->plastic.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
-			if (_node->plastic.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-				_instr |= static_cast<uint32_t>(_node->plastic.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
-			_IRR_FALLTHROUGH;
-		case bsdf::OP_PLASTIC:
-			_instr |= static_cast<uint32_t>(_node->plastic.nonlinear) << bsdf::BITFIELDS_SHIFT_NONLINEAR;
-			break;
-		case bsdf::OP_ROUGHCOATING:
-			_instr |= _node->coating.distribution << bsdf::BITFIELDS_SHIFT_NDF;
-			_instr |= static_cast<uint32_t>(_node->coating.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
-			if (_node->coating.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-				_instr |= static_cast<uint32_t>(_node->coating.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
-			_IRR_FALLTHROUGH;
-		case bsdf::OP_COATING:
-			_instr |= static_cast<uint32_t>(_node->coating.sigmaA.value.type == SPropertyElementData::INVALID) >> bsdf::BITFIELDS_SHIFT_SIGMA_A_TEX;
-			break;
-		case bsdf::OP_WARD:
-			_instr |= _node->ward.variant << bsdf::BITFIELDS_SHIFT_WARD_VARIANT;
-			_instr |= static_cast<uint32_t>(_node->ward.alphaU.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
-			_instr |= static_cast<uint32_t>(_node->ward.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
-			break;
-		case bsdf::OP_BLEND:
-			switch (_node->type)
-			{
-			case CElementBSDF::Type::BLEND_BSDF:
-				_instr |= static_cast<uint32_t>(_node->blendbsdf.weight.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_WEIGHT_TEX;
-				break;
-			case CElementBSDF::Type::MIXTURE_BSDF:
-				//always constant weights (not texture) -- leaving weight tex flag as 0
-				break;
-			default: break; //do not let warnings rise
-			}
-			break;
-		case bsdf::OP_DIFFTRANS:
-			_instr |= static_cast<uint32_t>(_node->difftrans.transmittance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_SPEC_TRANS_TEX;
-			break;
-		default: break; //any other ones dont need any extra flags
-		}
-		//write index into bsdf buffer
-		_instr &= (~(bsdf::INSTR_BSDF_BUF_OFFSET_MASK<<bsdf::INSTR_BSDF_BUF_OFFSET_SHIFT));
-		_instr |= ((_bsdfBufOffset & bsdf::INSTR_BSDF_BUF_OFFSET_MASK) << bsdf::INSTR_BSDF_BUF_OFFSET_SHIFT);
-		//write opacity mask presence flag
-		if (_maskParent)
-			_instr |= static_cast<uint32_t>(_maskParent->mask.opacity.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_OPACITY_TEX;
-
-		return _instr;
-	};
-	uint32_t firstFreeReg = 0u;
-	
-	core::vector<bsdf::instr_t> traversal;
-	push(_bsdf, static_cast<bsdf::instr_t>(0), nullptr);
-	while (!stack.empty())
+	struct Getter : ITraveralGenerator::IBSDFDataBufOffsetGetter
 	{
-		auto& top = stack.top();
-		const bsdf::E_OPCODE op = bsdf::getOpcode(top.instr);
-		const uint32_t srcRegCount = bsdf::getNumberOfSrcRegsForOpcode(op);
-		_IRR_DEBUG_BREAK_IF(op==bsdf::OP_INVALID);
-		if (srcRegCount==0u || top.visited)
-		{
-			const uint32_t bsdfBufIx = ctx.bsdfBuffer.size();
-			if (top.bsdf)//if top.bsdf is nullptr, then bsdf buf offset will be irrelevant for this instruction (may be any value and won't ever be fetched anyway)
-			{
-				ctx.bsdfBuffer.push_back(
-					bsdfNode2bsdfStruct(ctx, top.bsdf, 0u, top.bsdf->type==CElementBSDF::Type::MIXTURE_BSDF ? top.bsdf->mixturebsdf.weights[top.weight_ix] : 0.f, top.maskParent)
-				);
-				assert(bsdfBufIx < bsdf::INSTR_BSDF_BUF_OFFSET_MASK);
-			}
-			traversal.push_back(emitInstr(top.instr, top.bsdf, bsdfBufIx, top.maskParent));
-			stack.pop();
-		}
-		else if (!top.visited)
-		{
-			top.visited = true;
-			switch (bsdf::getOpcode(top.instr))
-			{
-			case bsdf::OP_BLEND:
-				push(top.bsdf->blendbsdf.bsdf[1], top.instr, top.maskParent);
-				_IRR_FALLTHROUGH;
-			default:
-				push(top.bsdf->blendbsdf.bsdf[0], top.instr, top.maskParent);
-				break;
-			}
-		}
-	}
+		Getter(CMitsubaLoader* ldr, SContext& ctx) : thisLoader(ldr), ctx(ctx) {}
 
-	traversal = std::move( CTraversalManipulator(std::move(traversal)).process(bsdf::REGISTER_COUNT) );
-#ifdef _IRR_DEBUG
-	os::Printer::log("BSDF traversal debug print", _bsdf->id, ELL_DEBUG);
-	CTraversalManipulator::debugPrint(traversal);
-#endif
+		CMitsubaLoader* thisLoader;
+		SContext& ctx;
+
+		uint32_t getOffset(const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight, const CElementBSDF* _maskParent) override
+		{
+			if (_node) {
+				const uint32_t ix = ctx.bsdfBuffer.size();
+
+				auto found = ctx.bsdfDataCache.find({_node,_maskParent,_mix2blend_weight});
+				if (found!=ctx.bsdfDataCache.end())
+					return found->second;
+
+				ctx.bsdfBuffer.push_back(thisLoader->bsdfNode2bsdfStruct(ctx, _node, _texHierLvl, _mix2blend_weight, _maskParent));
+				SContext::SBSDFDataCacheKey key;
+				key.bsdf = _node;
+				key.maskParent = _maskParent;
+				key.mix2blend_weight = _mix2blend_weight;
+				ctx.bsdfDataCache.insert({key, ix});
+
+				return ix;
+			}
+
+			return 0u;
+		}
+	};
+
+	CPostOrderTraversalGenerator postorderGen;
+	CPreOrderTraversalGenerator preorderGen;
+
+	Getter getter{this,ctx};
+	auto postorder = postorderGen.genTraversal(_bsdf, &getter);
+	auto preorder = preorderGen.genTraversal(_bsdf, &getter);
+
 	const uint32_t instrBufOffset = ctx.instrBuffer.size();
-	ctx.instrBuffer.insert(ctx.instrBuffer.end(), traversal.begin(), traversal.end());
+	ctx.instrBuffer.insert(ctx.instrBuffer.end(), postorder.begin(), postorder.end());
 
-	return {instrBufOffset, traversal.size()};
+	SContext::bsdf_type retval;
+	retval.postorder = {instrBufOffset,postorder.size()};
+	retval.preorder = {0u,0u};//TODO insert preorder into ctx.instrBuffer
+	
+	return retval;
 }
 
 // Also sets instance data buffer offset into meshbuffers' push constants
@@ -2108,7 +2376,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 	auto* ds0layout = pplnLayout->getDescriptorSetLayout(0u);
 
 	auto ds0 = core::make_smart_refctd_ptr<ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(ds0layout));
-	{
+	/*{
 		auto count = _ctx.VT->getDescriptorSetWrites(nullptr, nullptr, nullptr);
 
 		auto writes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSet::SWriteDescriptorSet>>(count.first);
@@ -2122,7 +2390,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			for (uint32_t i = 0u; i < w.count; ++i)
 				descRng.begin()[w.arrayElement+i].assign(w.info[i], w.descriptorType);
 		}
-	}
+	}*/
 	auto d = ds0->getDescriptors(PRECOMPUTED_VT_DATA_BINDING).begin();
 	{
 		auto precompDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(asset::ICPUVirtualTexture::SPrecomputedData));
@@ -2157,9 +2425,21 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		auto& mesh = *it;
 		auto* meta = static_cast<const IMeshMetadata*>(mesh->getMetadata());
 		
+		core::vectorSIMDf emissive;
 		uint32_t instDataOffset = instanceData.size();
-		for (const auto& inst : meta->getInstances())
-			instanceData.push_back({inst.tform, inst.instrOffsetCount});
+		for (const auto& inst : meta->getInstances()) {
+			emissive = inst.emitter.type==CElementEmitter::AREA ? inst.emitter.area.radiance : core::vectorSIMDf(0.f);
+
+			SInstanceData instData;
+			instData.tform = inst.tform;
+			instData.tform.getSub3x3InverseTranspose(instData.normalMatrix);
+			instData.emissive = core::rgb32f_to_rgb19e7(emissive.pointer);
+			//ehh this might get broken by -ffast-math
+			core::floatBitsToUint(instData.normalMatrix(0u, 3u)) = inst.instrOffsetCount.first;
+			core::floatBitsToUint(instData.normalMatrix(1u, 3u)) = inst.instrOffsetCount.second;
+
+			instanceData.push_back(instData);
+		}
 		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 		{
 			auto* mb = mesh->getMeshBuffer(i);
@@ -2213,8 +2493,9 @@ CMitsubaLoader::SContext::SContext(
 	CGlobalMitsubaMetadata* _metadata
 ) : creator(_geomCreator), manipulator(_manipulator), params(_params), override(_override), globalMeta(_metadata)
 {
+	//TODO (maybe) dynamically decide which of those are needed OR just wait until IVirtualTexture does it on itself (dynamically creates resident storages)
+	constexpr asset::E_FORMAT formats[]{ asset::EF_R8_UNORM, asset::EF_R8G8_UNORM, asset::EF_R8G8B8_SRGB, asset::EF_R8G8B8A8_SRGB };
 	std::array<asset::ICPUVirtualTexture::ICPUVTResidentStorage::SCreationParams, 4> storage;
-	asset::E_FORMAT formats[]{ asset::EF_R8_UNORM, asset::EF_R8G8_SRGB, asset::EF_R8G8B8_SRGB, asset::EF_R8G8B8A8_SRGB };
 	storage[0].formatClass = asset::EFC_8_BIT;
 	storage[0].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
 	storage[0].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
@@ -2237,6 +2518,8 @@ CMitsubaLoader::SContext::SContext(
 	storage[3].formats = formats+3;
 
 	VT = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(storage.data(), storage.size(), VT_PAGE_SZ_LOG2, VT_PAGE_TABLE_LAYERS, VT_PAGE_PADDING, VT_MAX_ALLOCATABLE_TEX_SZ_LOG2);
+
+	globalMeta->VT = VT;
 }
 
 }

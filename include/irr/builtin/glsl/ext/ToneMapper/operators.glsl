@@ -1,25 +1,4 @@
-#ifndef _IRR_EXT_TONE_MAPPER_C_GLSL_TONE_MAPPING_BUILTIN_INCLUDE_LOADER_INCLUDED_
-#define _IRR_EXT_TONE_MAPPER_C_GLSL_TONE_MAPPING_BUILTIN_INCLUDE_LOADER_INCLUDED_
-
-#include "irr/asset/IBuiltinIncludeLoader.h"
-
-namespace irr
-{
-namespace ext
-{
-namespace ToneMapper
-{
-
-class CGLSLToneMappingBuiltinIncludeLoader : public asset::IBuiltinIncludeLoader
-{
-    public:
-        const char* getVirtualDirectoryName() const override { return "glsl/ext/ToneMapper/"; }
-
-    private:
-        static std::string getOperators(const std::string&)
-        {
-            return
-R"(#ifndef _IRR_GLSL_EXT_TONE_MAPPER_OPERATORS_INCLUDED_
+#ifndef _IRR_GLSL_EXT_TONE_MAPPER_OPERATORS_INCLUDED_
 #define _IRR_GLSL_EXT_TONE_MAPPER_OPERATORS_INCLUDED_
 
 
@@ -80,21 +59,4 @@ vec3 irr_glsl_ext_ToneMapper_ACES(in irr_glsl_ext_ToneMapper_ACESParams_t params
 // ideas for more operators https://web.archive.org/web/20191226154550/http://cs.columbia.edu/CAVE/software/softlib/dorf.php
 // or get proper ACES RRT and ODTs
 // https://partnerhelp.netflixstudios.com/hc/en-us/articles/360000622487-I-m-using-ACES-Which-Output-Transform-should-I-use-
-#endif
-)";
-        }
-
-    protected:
-        inline core::vector<std::pair<std::regex,HandleFunc_t> > getBuiltinNamesToFunctionMapping() const override
-        {
-            return {
-                { std::regex{"operators\\.glsl"}, &getOperators }
-            };
-        }
-    };
-
-}
-}
-}
-
 #endif

@@ -14,7 +14,6 @@ set(DENOISER_TONEMAPPER_EXAMPLE_INCLUDE_DIRS
 
 set(EXTRA_SOURCES
 	CommandLineHandler.cpp
-	../../ext/LumaMeter/CGLSLLumaBuiltinIncludeLoader.cpp
 	../../ext/LumaMeter/CLumaMeter.cpp
 	../../ext/ToneMapper/CToneMapper.cpp
 )

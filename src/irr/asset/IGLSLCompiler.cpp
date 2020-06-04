@@ -6,18 +6,11 @@
 #include "irr/asset/shadercUtils.h"
 #include "irr/asset/CIncludeHandler.h"
 
-
-#include "irr/asset/CGLSLBrokenDriverWorkaroundsBuiltinIncludeLoader.h"
-
-#include "irr/asset/CGLSLColorSpaceBuiltinIncludeLoader.h"
+// TODO: rework this legacy stuff
 #include "irr/asset/CGLSLScanBuiltinIncludeLoader.h"
-
-#include "irr/asset/CGLSLVertexUtilsBuiltinIncludeLoader.h"
 #include "irr/asset/CGLSLSkinningBuiltinIncludeLoader.h"
 
 #include "irr/asset/CGLSLBRDFBuiltinIncludeLoader.h"
-#include "irr/asset/CGLSLBumpMappingBuiltinIncludeLoader.h"
-#include "irr/asset/CGLSLBrokenDriverWorkaroundsBuiltinIncludeLoader.h"
 #include "irr/asset/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
 
 
@@ -30,18 +23,11 @@ namespace asset
 
 IGLSLCompiler::IGLSLCompiler(io::IFileSystem* _fs) : m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_fs)), m_fs(_fs)
 {
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLBrokenDriverWorkaroundsBuiltinIncludeLoader>());
-
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLColorSpaceBuiltinIncludeLoader>());
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLScanBuiltinIncludeLoader>());
-
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVertexUtilsBuiltinIncludeLoader>());
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLSkinningBuiltinIncludeLoader>());
+    //m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLScanBuiltinIncludeLoader>());
+    //m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLSkinningBuiltinIncludeLoader>());
 
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLBSDFBuiltinIncludeLoader>());
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLBumpMappingBuiltinIncludeLoader>());
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLBrokenDriverWorkaroundsBuiltinIncludeLoader>());
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeLoader>());
+    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeLoader>(_fs));
 }
 
 core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo, std::string* _outAssembly) const

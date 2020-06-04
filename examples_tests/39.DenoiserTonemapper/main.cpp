@@ -157,16 +157,6 @@ int main(int argc, char* argv[])
 	constexpr float lowerPercentile = 0.45f;
 	constexpr float upperPercentile = 0.55f;
 	constexpr auto TMO = ToneMapperClass::EO_ACES;
-	{
-		LumaMeterClass::registerBuiltinGLSLIncludes(compiler);
-		ToneMapperClass::registerBuiltinGLSLIncludes(compiler);
-#if 0		
-		// every frame
-		constexpr float Exposure = 0.f;
-		constexpr float Key = 0.18;
-		auto params = ToneMapperClass::Params_t<TMO>(Exposure, Key, 0.85f);
-#endif
-	}
 
 	constexpr auto SharedDescriptorSetDescCount = 4u;
 	core::smart_refctd_ptr<IGPUDescriptorSetLayout> sharedDescriptorSetLayout;

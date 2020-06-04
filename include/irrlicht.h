@@ -119,7 +119,7 @@ namespace irr
 
 
 	//! Creates an Irrlicht device with the option to specify advanced parameters.
-	/** Usually you should used createDevice() for creating an Irrlicht Engine device.
+	/** Usually you should use createDevice() for creating an Irrlicht Engine device.
 	Use this function only if you wish to specify advanced parameters like a window
 	handle in which the device should be created.
 	\param parameters: Structure containing advanced parameters for the creation of the device.
