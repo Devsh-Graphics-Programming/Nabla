@@ -88,23 +88,15 @@ int main()
 	auto image_raw = static_cast<asset::ICPUImage*>(image.get());
 
 	/*
-		Creating view parameters to create cpu image view asset
-		and subsequently create it's gpu version by default 
-		cpu2gpu conventer.
+		Specifing gpu image view parameters to create a gpu
+		image view through the driver.
 	*/
 
-	ICPUImageView::SCreationParams viewParams;
-	viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-	viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(image);
-	viewParams.format = asset::EF_R8G8B8A8_SRGB;
-	viewParams.viewType = IImageView<ICPUImage>::ET_2D;
-	viewParams.subresourceRange.baseArrayLayer = 0u;
-	viewParams.subresourceRange.layerCount = 1u;
-	viewParams.subresourceRange.baseMipLevel = 0u;
-	viewParams.subresourceRange.levelCount = 1u;
+	auto gpuImage = driver->getGPUObjectsFromAssets(&image_raw, &image_raw + 1)->front();
+	auto& gpuParams = gpuImage->getCreationParameters();
 
-	auto imageView = ICPUImageView::create(std::move(viewParams));
-	auto gpuImageView = driver->getGPUObjectsFromAssets(&imageView.get(), &imageView.get() + 1u)->front();
+	IImageView<IGPUImage>::SCreationParams gpuImageViewParams = { static_cast<IGPUImageView::E_CREATE_FLAGS>(0), gpuImage, IImageView<IGPUImage>::ET_2D, gpuParams.format, {}, {static_cast<IImage::E_ASPECT_FLAGS>(0u), 0, gpuParams.mipLevels, 0, gpuParams.arrayLayers} };
+	auto gpuImageView = driver->createGPUImageView(std::move(gpuImageViewParams));
 
 	/*
 		Specifying cache key to default exsisting cached asset bundle
@@ -114,23 +106,12 @@ int main()
 
 	const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
 
-	auto vertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
-	auto fragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
+	auto cpuVertexShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assetManager->findAssets("irr/builtin/materials/lambertian/singletexture/specializedshader.vert", types)->front().getContents().first[0]);
+	auto cpuFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assetManager->findAssets("irr/builtin/materials/lambertian/singletexture/specializedshader.frag", types)->front().getContents().first[0]);
 
-	auto vshaderbundle = assetManager->findAssets("irr/builtin/materials/lambertian/singletexture/specializedshader.vert", types);
-	auto fshaderbundle = assetManager->findAssets("irr/builtin/materials/lambertian/singletexture/specializedshader.frag", types);
-
-	auto refCountedBundle =
-	{
-		core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(vshaderbundle->begin()->getContents().first[0]),
-		core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(fshaderbundle->begin()->getContents().first[0])
-	};
-
-	for (auto& shader : refCountedBundle)
-		if (shader->getStage() == ISpecializedShader::ESS_VERTEX)
-			vertexShader = std::move(shader);
-		else if (shader->getStage() == ISpecializedShader::ESS_FRAGMENT)
-			fragmentShader = std::move(shader);
+	auto gpuVertexShader = driver->getGPUObjectsFromAssets(&cpuVertexShader.get(), &cpuVertexShader.get() + 1)->front();
+	auto gpuFragmentShader = driver->getGPUObjectsFromAssets(&cpuFragmentShader.get(), &cpuFragmentShader.get() + 1)->front();
+	std::array<IGPUSpecializedShader*, 2> gpuShaders = { gpuVertexShader.get(), gpuFragmentShader.get() };
 
 	/*
 		Creating helpull variables for descriptor sets.
@@ -146,22 +127,22 @@ int main()
 			SBinding for the texture (sampler). 
 		*/
 
-		asset::ICPUDescriptorSetLayout::SBinding samplerBinding;
-		samplerBinding.binding = ds0SamplerBinding;
-		samplerBinding.type = EDT_COMBINED_IMAGE_SAMPLER;
-		samplerBinding.count = 1u;
-		samplerBinding.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_FRAGMENT);
-		samplerBinding.samplers = nullptr;	
+		IGPUDescriptorSetLayout::SBinding gpuSamplerBinding;
+		gpuSamplerBinding.binding = ds0SamplerBinding;
+		gpuSamplerBinding.type = EDT_COMBINED_IMAGE_SAMPLER;
+		gpuSamplerBinding.count = 1u;
+		gpuSamplerBinding.stageFlags = static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(IGPUSpecializedShader::ESS_FRAGMENT);
+		gpuSamplerBinding.samplers = nullptr;	
 
 		/*
 			SBinding for UBO - basic view parameters.
 		*/
 
-		asset::ICPUDescriptorSetLayout::SBinding uboBinding;
-		uboBinding.count = 1u;
-		uboBinding.binding = ds1UboBinding;
-		uboBinding.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
-		uboBinding.type = asset::EDT_UNIFORM_BUFFER;
+		IGPUDescriptorSetLayout::SBinding gpuUboBinding;
+		gpuUboBinding.count = 1u;
+		gpuUboBinding.binding = ds1UboBinding;
+		gpuUboBinding.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
+		gpuUboBinding.type = asset::EDT_UNIFORM_BUFFER;
 
 		/*
 			Creating specific descriptor set layouts from specialized bindings.
@@ -169,12 +150,8 @@ int main()
 			IrrlichtBaW provides 4 places for descriptor set layout usage.
 		*/
 
-		auto ds3Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&samplerBinding, &samplerBinding + 1);
-		auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&uboBinding, &uboBinding + 1);
-		auto pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, std::move(ds3Layout));
-
-		auto rawds1 = pipelineLayout->getDescriptorSetLayout(1u);
-		auto rawds3 = pipelineLayout->getDescriptorSetLayout(3u);
+		auto gpuDs1Layout = driver->createGPUDescriptorSetLayout(&gpuUboBinding, &gpuUboBinding + 1);
+		auto gpuDs3Layout = driver->createGPUDescriptorSetLayout(&gpuSamplerBinding, &gpuSamplerBinding + 1);
 
 		/*
 			Creating gpu UBO with appropiate size.
@@ -185,33 +162,13 @@ int main()
 		auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));
 
 		/*
-			Preparing required pipeline parameters and filling choosen one.
-			Note that some of them are returned from geometry creator according 
-			to what I mentioned in returning half pipeline parameters.
-		*/
-
-		asset::SBlendParams blendParams;
-		asset::SRasterizationParams rasterParams;
-		rasterParams.faceCullingMode = asset::EFCM_NONE;
-
-		/*
-			Creating pipeline with it's pipeline layout and specilized parameters.
-			Attaching vertex shader and fragment shaders.
-		*/
-
-		auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(pipelineLayout), nullptr, nullptr, geometryObject.inputParams, blendParams, geometryObject.assemblyParams, rasterParams);
-		pipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, vertexShader.get());
-		pipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, fragmentShader.get());
-		
-
-		/*
 			Creating descriptor sets - texture (sampler) and basic view parameters (UBO).
 			Specifying info and write parameters for updating certain descriptor set to the driver.
 
 			We know ahead of time that `SBasicViewParameters` struct is the expected structure of the only UBO block in the descriptor set nr. 1 of the shader.
 		*/
 
-		auto gpuDescriptorSet3 = driver->createGPUDescriptorSet(std::move(driver->getGPUObjectsFromAssets(&rawds3, &rawds3 + 1)->front()));
+		auto gpuDescriptorSet3 = driver->createGPUDescriptorSet(gpuDs3Layout);
 		{
 			video::IGPUDescriptorSet::SWriteDescriptorSet write;
 			write.dstSet = gpuDescriptorSet3.get();
@@ -229,7 +186,7 @@ int main()
 			driver->updateDescriptorSets(1u, &write, 0u, nullptr);
 		}
 
-		auto gpuDescriptorSet1 = driver->createGPUDescriptorSet(std::move(driver->getGPUObjectsFromAssets(&rawds1, &rawds1 + 1)->front()));
+		auto gpuDescriptorSet1 = driver->createGPUDescriptorSet(gpuDs1Layout);
 		{
 			video::IGPUDescriptorSet::SWriteDescriptorSet write;
 			write.dstSet = gpuDescriptorSet1.get();
@@ -247,11 +204,24 @@ int main()
 			driver->updateDescriptorSets(1u, &write, 0u, nullptr);
 		}
 
+		auto gpuPipelineLayout = driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, std::move(gpuDs1Layout), nullptr, std::move(gpuDs3Layout));
+
 		/*
-			Creating gpu pipeline from well prepared cpu pipeline.
+			Preparing required pipeline parameters and filling choosen one.
+			Note that some of them are returned from geometry creator according 
+			to what I mentioned in returning half pipeline parameters.
 		*/
 
-		auto gpuPipeline = driver->getGPUObjectsFromAssets(&pipeline.get(), &pipeline.get() + 1)->front();
+		asset::SBlendParams blendParams;
+		asset::SRasterizationParams rasterParams;
+		rasterParams.faceCullingMode = asset::EFCM_NONE;
+
+		/*
+			Creating gpu pipeline with it's pipeline layout and specilized parameters.
+			Attaching vertex shader and fragment shaders.
+		*/
+
+		auto gpuPipeline = driver->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), gpuShaders.data(), gpuShaders.data() + gpuShaders.size(), geometryObject.inputParams, blendParams, geometryObject.assemblyParams, rasterParams);
 
 		/*
 			Creating gpu meshbuffer from parameters fetched from geometry creator return value.
