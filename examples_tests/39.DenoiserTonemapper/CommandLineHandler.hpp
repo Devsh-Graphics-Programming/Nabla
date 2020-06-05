@@ -105,6 +105,7 @@ constexpr std::string_view BLOOM_FOV = "BLOOM_FOV";
 constexpr std::string_view TONEMAPPER = "TONEMAPPER";
 constexpr std::string_view REINHARD = "REINHARD";
 constexpr std::string_view ACES = "ACES";
+constexpr std::string_view NONE = "NONE";
 constexpr std::string_view OUTPUT = "OUTPUT";
 
 constexpr std::string_view ALBEDO_FILE = "ALBEDO_FILE";
@@ -315,7 +316,7 @@ class CommandLineHandler
 				return DTEA_COUNT;
 		}
 
-		void validateMandatoryParameters(const variablesType& rawVariablesPerFile, const size_t idOfInput);
+		bool validateMandatoryParameters(const variablesType& rawVariablesPerFile, const size_t idOfInput);
 
 		/*
 			Mandatory parameters must have a value. Since they are validated in code,

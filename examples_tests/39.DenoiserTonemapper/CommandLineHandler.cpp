@@ -6,31 +6,20 @@ using namespace core;
 
 CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetManager* am) : status(false)
 {
-	core::vector<std::array<std::string, PROPER_CMD_ARGUMENTS_AMOUNT>> argvMappedList(1);
+	core::vector<std::array<std::string, PROPER_CMD_ARGUMENTS_AMOUNT>> argvMappedList;
 
-	auto fillArgvList = [&](auto argvStream, auto variableCount, uint64_t batchFileID)
+	auto pushArgvList = [&](auto argvStream, auto variableCount)
 	{
+		auto& back = argvMappedList.emplace_back();
 		for (auto i = 0; i < variableCount; ++i)
-			argvMappedList[batchFileID][i] = argvStream[i];
+			back[i] = argvStream[i];
 	};
 
-	auto getBatchFilesArgvStream = [&](std::string& fileStream)
+	auto getBatchFilesArgvStream = [&](std::string& fileStream) -> std::vector<std::string>
 	{
-		core::vector<std::string> argvsStream;
-		size_t offset = {};
-		while (true)
-		{
-			const auto previousOffset = offset;
-			offset = fileStream.find_first_of("\r\n", previousOffset);
-			if (offset == std::string::npos)
-				break;
-			else
-				offset += fileStream[offset]=='\r'&&fileStream[offset+1]=='\n' ? 2:1;
-
-			argvsStream.push_back(fileStream.substr(previousOffset, offset));
-		}
-
-		return argvsStream;
+		std::regex regex{"^"};
+		std::sregex_token_iterator it{ fileStream.begin(), fileStream.end(), regex, -1 };
+		return { it, {} };
 	};
 
 	auto getSerializedValues = [&](const auto& variablesStream, auto supposedArgumentsAmout, bool onlyEntireArgvArgument = false)
@@ -97,41 +86,42 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 		file->read(fileStream.data(), file->getSize());
 		fileStream += "\r\n";
 
-		bool log = false;
+		bool error = false;
 		const auto batchInputStream = getBatchFilesArgvStream(fileStream);
-		argvMappedList.resize(batchInputStream.size());
 
 		for (auto i = 0ul; i < batchInputStream.size(); ++i)
 		{
 			const auto argvStream = *(batchInputStream.begin() + i);
+			// protection against empty lines
+			if (!std::regex_search(argvStream,std::regex{"[^[:s:]]"}))
+				continue;
+
 			const auto arguments = getSerializedValues(argvStream, PROPER_CMD_ARGUMENTS_AMOUNT, true);
 
 			if (arguments.size() < MANDATORY_CMD_ARGUMENTS_AMOUNT || arguments.size() > PROPER_CMD_ARGUMENTS_AMOUNT)
 			{
-				log = true;
+				error = true;
 				break;
 			}
 
-			fillArgvList(arguments, arguments.size(), i);
+			pushArgvList(arguments, arguments.size());
 		}
 
-		if (log)
+		if (error)
 		{
 			os::Printer::log(requiredArgumentsMessage.data(), ELL_ERROR);
-			assert(log = false);
+			return;
 		}
 	}
 	else if (argv.size() == PROPER_CMD_ARGUMENTS_AMOUNT)
-		fillArgvList(argv, argv.size(), 0);
+		pushArgvList(argv, argv.size());
 	else
 	{
 		os::Printer::log("Invalid syntax!", ELL_ERROR);
 		os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
 	}
 
-	// read from argv list to map and put variables to appropiate places in a cache
 	rawVariables.resize(argvMappedList.size());
-
 	for (auto inputBatchStride = 0ul; inputBatchStride < argvMappedList.size(); ++inputBatchStride)
 	{
 		const auto cmdArgumentsPerFile = *(argvMappedList.begin() + inputBatchStride);
@@ -165,18 +155,17 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 
 				if (variable == TONEMAPPER)
 				{
-					bool status = true;
-					auto foundAces = rawFetchedCmdArgument.find(ACES) != std::string::npos;
-					auto foundReinhard = rawFetchedCmdArgument.find(REINHARD) != std::string::npos;
+					auto begin = rawFetchedCmdArgument.find_first_of('=')+1u;
+					auto end = rawFetchedCmdArgument.find_first_of('=',begin);
+					auto foundOperator = rawFetchedCmdArgument.substr(begin,end-begin);
+					static const core::set<std::string> acceptedOperators = { std::string(REINHARD),std::string(ACES),std::string(NONE) };
 
-					if (foundAces)
-						variable = ACES;
-					else if (foundReinhard)
-						variable = REINHARD;
+					if (acceptedOperators.find(foundOperator)!=acceptedOperators.end())
+						variable = foundOperator;
 					else
 					{
 						os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Invalid tonemapper specified! Id of input stride: " + std::to_string(inputBatchStride), ELL_ERROR);
-						assert(status = false);
+						return;
 					}
 				}
 
@@ -219,14 +208,15 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 			}
 		}
 
-		validateMandatoryParameters(rawVariablesHandle, inputBatchStride);
+		if (!validateMandatoryParameters(rawVariablesHandle, inputBatchStride))
+			return;
 	}
 
 	performFInalAssignmentStepForUsefulVariables();
 	status = true;
 }
 
-void CommandLineHandler::validateMandatoryParameters(const variablesType& rawVariablesPerFile, const size_t idOfInput)
+bool CommandLineHandler::validateMandatoryParameters(const variablesType& rawVariablesPerFile, const size_t idOfInput)
 {
 	static const irr::core::vector<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS> mandatoryArgumentsOrdinary = { DTEA_COLOR_FILE, DTEA_CAMERA_TRANSFORM, DTEA_MEDIAN_FILTER_RADIUS, DTEA_DENOISER_EXPOSURE_BIAS, DTEA_DENOISER_BLEND_FACTOR, DTEA_BLOOM_FOV, DTEA_OUTPUT };
 
@@ -269,10 +259,13 @@ void CommandLineHandler::validateMandatoryParameters(const variablesType& rawVar
 	{
 		bool status = validateOrdinary(mandatory);
 		if (!status)
+		{
 			log(status, "Mandatory argument missing or it doesn't contain any value!");
+			return false;
+		}
 	}
 
-	validateTonemapper();
+	return validateTonemapper();
 }
 
 std::optional<std::string> CommandLineHandler::getNormalFileName(uint64_t id)
