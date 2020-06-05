@@ -20,6 +20,8 @@ else:
     #opening a file
     outp = open(outputFilename,"w+")
 
+    outp.write("#ifndef BUILTINRESOURCEDATA_H\n")
+    outp.write("#define BUILTINRESOURCEDATA_H\n")
     outp.write("#include <stdlib.h>\n")
     outp.write("#include <cstdint>\n")
     outp.write("#include <string>\n")
@@ -32,6 +34,7 @@ else:
     for x in resourcePaths:
         outp.write('\n\t\textern template const std::pair<const uint8_t*, size_t> get_resource<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
 
-    outp.write("\n\n\t\tstd::pair<const uint8_t*, size_t> get_resource_runtime(std::string&);\n\t}\n}")
+    outp.write("\n\n\t\tstd::pair<const uint8_t*, size_t> get_resource_runtime(const std::string&);\n\t}\n}")
+    outp.write("\n#endif")
 
     outp.close()

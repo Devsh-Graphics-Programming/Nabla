@@ -3,7 +3,8 @@ function(irr_add_builtin_resources)
   foreach(X IN LISTS ARGV0)
     list(APPEND builtin_dependencies_list  ${CMAKE_SOURCE_DIR}/include/${X})
   endforeach()
-
+  list(APPEND builtin_dependencies_list  ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinHeaderGen.py)
+  list(APPEND builtin_dependencies_list  ${CMAKE_CURRENT_SOURCE_DIR}/builtin/builtinDataGen.py)
 
   add_custom_command(
 	OUTPUT "${CMAKE_BINARY_DIR}/include/irr/builtin/builtinResources.h" "${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp"
