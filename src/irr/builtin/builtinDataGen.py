@@ -31,9 +31,9 @@ else:
   
     # writing binary  data of all files in a loop
     for x in resourcePaths:
-        outp.write('\ntemplate<> const std::pair<const uint8_t*, size_t> get_resource<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>()' % x)
-        outp.write('\n{')
-        outp.write('\n\tstatic const uint8_t data[] = {\n')
+        outp.write('\n\t\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>()' % x)
+        outp.write('\n\t\t{')
+        outp.write('\n\t\t\tstatic const uint8_t data[] = {\n\t\t\t')
         
         with open(cmakeSourceDir+'/'+x, "rb") as f:
             index = 0
@@ -42,15 +42,34 @@ else:
                 outp.write("0x%s, " % byte.hex())
                 index += 1  
                 if index % 20 == 0 :
-                    outp.write("\n\t")
+                    outp.write("\n\t\t\t")
                 byte = f.read(1)
         # end of file byte
         outp.write("0x0")
-        outp.write('\n\t};')
-        outp.write('\n\treturn { data, sizeof(data) };')
-        outp.write('\n}')
-        outp.write('\ntemplate const std::pair<const uint8_t*, size_t> get_resource<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();\n\n\n'%x)
+        outp.write('\n\t\t\t};')
+        outp.write('\n\t\t\treturn { data, sizeof(data) };')
+        outp.write('\n\t\t}')
+        outp.write('\n\t\ttemplate const std::pair<const uint8_t*, size_t> get_resource<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();\n\n\n'%x)
 
+
+    outp.write("\t\tstd::pair<const uint8_t*, size_t> get_resource_runtime(std::string& filename) {\n")
+    outp.write("\t\t\tstatic std::unordered_map<std::string, int> resourcesByFilename( {\n")
+    counter = 1
+    for x in resourcePaths:
+        outp.write("\t\t\t\t{\"%s\", %d},\n" % (x,counter))
+        counter+= 1
+    outp.write("\t\t\t});\n\n")
+    outp.write("\t\t\tauto resource = resourcesByFilename.find(filename);\n")
+    outp.write("\t\t\tif(resource == resourcesByFilename.end()) return { nullptr,0ull };\n")
+    outp.write("\t\t\tswitch (resource->second) \n\t\t\t{\n")
+    counter = 1
+    for x in resourcePaths:
+        outp.write("\t\t\t\tcase %d:\n\t\t\t\t\treturn get_resource<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(\"%s\")>();\n" % (counter,x))
+        counter+= 1
+  
+    outp.write("\t\t\t\tdefault:\n")
+    outp.write("\t\t\t\t\treturn { nullptr,0ull };\n")
+    outp.write("\t\t\t}\n\t\t}")
     outp.write("\n\t}")
     outp.write("\n}")
     outp.close()
