@@ -44,8 +44,7 @@ else:
                 if index % 20 == 0 :
                     outp.write("\n\t\t\t")
                 byte = f.read(1)
-        # end of file byte
-        outp.write("0x0")
+        # don't write null terminator, it messes up non-text files
         outp.write('\n\t\t\t};')
         outp.write('\n\t\t\treturn { data, sizeof(data) };')
         outp.write('\n\t\t}')
