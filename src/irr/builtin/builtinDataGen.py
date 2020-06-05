@@ -52,7 +52,7 @@ else:
         outp.write('\n\t\ttemplate const std::pair<const uint8_t*, size_t> get_resource<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();\n\n\n'%x)
 
 
-    outp.write("\t\tstd::pair<const uint8_t*, size_t> get_resource_runtime(std::string& filename) {\n")
+    outp.write("\t\tstd::pair<const uint8_t*, size_t> get_resource_runtime(const std::string& filename) {\n")
     outp.write("\t\t\tstatic std::unordered_map<std::string, int> resourcesByFilename( {\n")
     counter = 1
     for x in resourcePaths:
