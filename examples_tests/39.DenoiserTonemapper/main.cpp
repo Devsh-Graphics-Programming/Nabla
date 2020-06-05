@@ -877,16 +877,25 @@ void main()
 			shaderConstants.intensityBufferDWORDOffset = intensityBufferOffset/IntensityValuesSize;
 			shaderConstants.denoiserExposureBias = denoiserExposureBiasBundle[i].value();
 
-			if (tonemapperBundle[i].value().first == ACES.data())
-				shaderConstants.tonemappingOperator = ToneMapperClass::EO_ACES;
-			else if (tonemapperBundle[i].value().first == REINHARD.data())
-				shaderConstants.tonemappingOperator = ToneMapperClass::EO_REINHARD;
-			else
-				assert(false, "An unexcepted error ocured while trying to specify tonemapper!");
+			switch (tonemapperBundle[i].first)
+			{
+				case DTEA_TONEMAPPER_REINHARD:
+					shaderConstants.tonemappingOperator = ToneMapperClass::EO_REINHARD;
+					break;
+				case DTEA_TONEMAPPER_ACES:
+					shaderConstants.tonemappingOperator = ToneMapperClass::EO_ACES;
+					break;
+				case DTEA_TONEMAPPER_NONE:
+					shaderConstants.tonemappingOperator = ToneMapperClass::EO_COUNT;
+					break;
+				default:
+					assert(false, "An unexcepted error ocured while trying to specify tonemapper!");
+					break;
+			}
 
 			const float optiXIntensityKeyCompensation = -log2(0.18);
-			float key = tonemapperBundle[i].value().second[TA_KEY_VALUE];
-			float extraParam = tonemapperBundle[i].value().second[TA_EXTRA_PARAMETER];
+			float key = tonemapperBundle[i].second[TA_KEY_VALUE];
+			float extraParam = tonemapperBundle[i].second[TA_EXTRA_PARAMETER];
 			switch (shaderConstants.tonemappingOperator)
 			{
 				case ToneMapperClass::EO_REINHARD:

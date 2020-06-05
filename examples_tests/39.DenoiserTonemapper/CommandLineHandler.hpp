@@ -3,7 +3,8 @@
 
 #include <iostream>
 #include <cstdio>
-#include <irrlicht.h>
+#include "irrlicht.h"
+#include "irr/core/core.h"
 
 #define PROPER_CMD_ARGUMENTS_AMOUNT 14
 #define MANDATORY_CMD_ARGUMENTS_AMOUNT 8
@@ -140,8 +141,9 @@ enum DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS
 	DTEA_DENOISER_BLEND_FACTOR,
 	DTEA_BLOOM_FOV,
 	DTEA_TONEMAPPER,
-	DTEA_REINHARD,
-	DTEA_ACES,
+	DTEA_TONEMAPPER_REINHARD,
+	DTEA_TONEMAPPER_ACES,
+	DTEA_TONEMAPPER_NONE,
 	DTEA_OUTPUT,
 
 	/*
@@ -266,8 +268,9 @@ class CommandLineHandler
 			rawVariablesPerFile[DTEA_DENOISER_EXPOSURE_BIAS];
 			rawVariablesPerFile[DTEA_DENOISER_BLEND_FACTOR];
 			rawVariablesPerFile[DTEA_BLOOM_FOV];
-			rawVariablesPerFile[DTEA_REINHARD];
-			rawVariablesPerFile[DTEA_ACES];
+			rawVariablesPerFile[DTEA_TONEMAPPER_REINHARD];
+			rawVariablesPerFile[DTEA_TONEMAPPER_ACES];
+			rawVariablesPerFile[DTEA_TONEMAPPER_NONE];
 			rawVariablesPerFile[DTEA_OUTPUT];
 
 			rawVariablesPerFile[DTEA_ALBEDO_FILE];
@@ -295,9 +298,11 @@ class CommandLineHandler
 			else if (variableName == TONEMAPPER)
 				return DTEA_TONEMAPPER;
 			else if (variableName == REINHARD)
-				return DTEA_REINHARD;
+				return DTEA_TONEMAPPER_REINHARD;
 			else if(variableName == ACES)
-				return DTEA_ACES;
+				return DTEA_TONEMAPPER_ACES;
+			else if(variableName == NONE)
+				return DTEA_TONEMAPPER_NONE;
 			else if (variableName == OUTPUT)
 				return DTEA_OUTPUT;
 			else if (variableName == ALBEDO_FILE)
@@ -362,14 +367,25 @@ class CommandLineHandler
 
 		auto getTonemapper(uint64_t id = 0)
 		{
-			const bool isChoosenReinhard = rawVariables[id][DTEA_REINHARD].has_value();
-			auto& tonemapper = isChoosenReinhard ? rawVariables[id][DTEA_REINHARD].value() : rawVariables[id][DTEA_ACES].value();
-			irr::core::vector<float> values(TA_COUNT);
+			irr::core::vector<float> values;
 
-			for (auto i = 0; i < TA_COUNT; ++i)
-				*(values.begin() + i) = std::stof(tonemapper[i]);
-
-			return std::make_pair(isChoosenReinhard ? REINHARD.data() : ACES.data(), values);
+			uint32_t j = DTEA_TONEMAPPER_REINHARD;
+			DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS num;
+			for (; j<=DTEA_TONEMAPPER_NONE; j++)
+			{
+				num = (DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS)j;
+				if (rawVariables[id][num].has_value())
+					break;
+			}
+			
+			if (j<=DTEA_TONEMAPPER_NONE)
+			{
+				const auto& stringVec = rawVariables[id][num].value();
+				for (const auto& str : stringVec)
+					values.push_back(std::stof(str));
+			}
+			
+			return std::make_pair(num, values);
 		}
 
 		auto getOutputFile(uint64_t id = 0)
@@ -483,7 +499,7 @@ class CommandLineHandler
 		irr::core::vector<std::optional<float>> denoiserExposureBiasBundle;
 		irr::core::vector<std::optional<float>> denoiserBlendFactorBundle;
 		irr::core::vector<std::optional<float>> bloomFovBundle;
-		irr::core::vector<std::optional<std::pair<std::string, irr::core::vector<float>>>> tonemapperBundle;
+		irr::core::vector<std::pair<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS,irr::core::vector<float>>> tonemapperBundle;
 		irr::core::vector<std::optional<std::string>> outputFileNameBundle;
 		irr::core::vector<std::optional<std::string>> bloomPsfFileNameBundle;
 };

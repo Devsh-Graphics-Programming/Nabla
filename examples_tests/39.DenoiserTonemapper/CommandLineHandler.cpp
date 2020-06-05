@@ -183,9 +183,11 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 				else if (variable == BLOOM_FOV)
 					assignToMap(DTEA_BLOOM_FOV);
 				else if (variable == REINHARD)
-					assignToMap(DTEA_REINHARD, 2);
+					assignToMap(DTEA_TONEMAPPER_REINHARD, 2);
 				else if (variable == ACES)
-					assignToMap(DTEA_ACES, 2);
+					assignToMap(DTEA_TONEMAPPER_ACES, 2);
+				else if (variable == NONE)
+					assignToMap(DTEA_TONEMAPPER_NONE, 1);
 				else if (variable == OUTPUT)
 					assignToMap(DTEA_OUTPUT);
 				else if (variable == ALBEDO_FILE)
@@ -223,7 +225,7 @@ bool CommandLineHandler::validateMandatoryParameters(const variablesType& rawVar
 	auto log = [&](bool status, const std::string message)
 	{
 		os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): " + message + " Id of input stride: " + std::to_string(idOfInput), ELL_ERROR);
-		assert(status);
+		//assert(status);
 	};
 
 	auto validateOrdinary = [&](const DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS argument)
@@ -233,24 +235,40 @@ bool CommandLineHandler::validateMandatoryParameters(const variablesType& rawVar
 
 	auto validateTonemapper = [&]()
 	{
-		bool reinhardFound = rawVariablesPerFile.at(DTEA_REINHARD).has_value();
-		bool acesFound = rawVariablesPerFile.at(DTEA_ACES).has_value();
-
-		if (reinhardFound && acesFound)
-			log(status = false, "Only one tonemapper can be specified at once!");
-
-		if (reinhardFound)
+		uint32_t tonemapperCount = 0u;
+		uint32_t j = DTEA_TONEMAPPER_REINHARD;
+		for (DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS num; j<=DTEA_TONEMAPPER_NONE; j++)
 		{
-			if (rawVariablesPerFile.at(DTEA_REINHARD).value().size() < 2)
-				log(status = false, "The Reinhard tonemapper doesn't have 2 arguments!");
+			num = (DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS)j;
+			auto& opt = rawVariablesPerFile.at(num);
+			if (!opt.has_value())
+				continue;
+			tonemapperCount++;
+			if (num!=DTEA_TONEMAPPER_NONE)
+			{
+				if (opt.value().size() < 2)
+				{
+					log(status = false, "A non-None tonemapper was not provided with at least 2 arguments!");
+					return false;
+				}
+			}
+			else if (opt.value().size() < 1)
+			{
+				log(status = false, "The None tonemapper was not provided with at least 1 argument!");
+				return false;
+			}
 		}
-		else if (acesFound)
+
+		if (tonemapperCount==0u)
 		{
-			if (rawVariablesPerFile.at(DTEA_ACES).value().size() < 2)
-				log(status = false, "The Aces tonemapper doesn't have 2 arguments!");
+			log(status = false, "Only one tonemapper must be specified!");
+			return false;
 		}
-		else
-			log(status = false, "None tonemapper has been specified");
+		else if (tonemapperCount>1)
+		{
+			log(status = false, "Only one tonemapper must be specified!");
+			return false;
+		}
 
 		return true;
 	};
@@ -267,7 +285,30 @@ bool CommandLineHandler::validateMandatoryParameters(const variablesType& rawVar
 
 	return validateTonemapper();
 }
+/*
+std::pair<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS,irr::core::vector<float>> CommandLineHandler::getTonemapper(uint64_t id)
+{
+	irr::core::vector<float> values;
 
+	uint32_t j = DTEA_TONEMAPPER_REINHARD;
+	DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS num;
+	for (; j<=DTEA_TONEMAPPER_NONE; j++)
+	{
+		num = (DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS)j;
+		if (rawVariables[id][num].has_value())
+			break;
+	}
+	
+	if (j<=DTEA_TONEMAPPER_NONE)
+	for (auto i=0; i<TA_COUNT; ++i)
+	{
+		float val = std::stof(rawVariables[id][num].value()[i]);
+		values.push_back(0.f);
+	}
+	
+	return { num, values };
+}
+*/
 std::optional<std::string> CommandLineHandler::getNormalFileName(uint64_t id)
 {
 	bool ableToReturn = rawVariables[id][DTEA_NORMAL_FILE].has_value() && !rawVariables[id][DTEA_NORMAL_FILE].value().empty();
