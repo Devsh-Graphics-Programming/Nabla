@@ -571,7 +571,6 @@ void main()
 		{
 			imageIDString += " called \"";
 			imageIDString += fileNameBundle[i].value();
-			imageIDString += "\": ";
 		}
 
 		return imageIDString;
@@ -581,13 +580,14 @@ void main()
 	// load images
 	uint32_t maxResolution[EII_COUNT][2] = { 0 };
 	{
-		asset::IAssetLoader::SAssetLoadParams lp(0ull,nullptr,IAssetLoader::ECF_DUPLICATE_REFERENCES); // TODO: maybe don't replicate the CPU data
+		asset::IAssetLoader::SAssetLoadParams lp(0ull,nullptr);
 		for (size_t i=0; i < inputFilesAmount; i++)
 		{
+			const auto imageIDString = makeImageIDString(i, colorFileNameBundle);
+
 			auto color_image_bundle = am->getAsset(colorFileNameBundle[i].value(), lp); decltype(color_image_bundle) albedo_image_bundle, normal_image_bundle;
 			if (color_image_bundle.isEmpty())
 			{
-				auto imageIDString = makeImageIDString(i, colorFileNameBundle);
 				os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Could not load the image from file: " + imageIDString + "!", ELL_ERROR);
 				continue;
 			}
@@ -597,30 +597,42 @@ void main()
 
 			auto& outParam = images[i];
 
-			auto getImageAssetAndItsChannelName = [](asset::SAssetBundle& assetBundle) -> std::optional<std::pair<core::smart_refctd_ptr<ICPUImage>, std::string>>
+			auto getImageAssetGivenChannelName = [](asset::SAssetBundle& assetBundle, const std::optional<std::string>& channelName) -> core::smart_refctd_ptr<ICPUImage>
 			{
 				if (assetBundle.isEmpty())
-					return {};
+					return nullptr;
 
+				// calculate a score for how much each channel name matches the requested
+				size_t firstChannelNameOccurence = std::string::npos;
+				uint32_t pickedChannel = 0u;
 				auto contents = assetBundle.getContents();
-				auto asset = contents.first[0];
+				if (channelName.has_value())
+				for (auto it=contents.first; it!=contents.second; it++)
+				{
+					auto asset = *it;
+					assert(asset);
 
-				assert(asset);
-				auto metadata = asset->getMetadata();
-				if (strcmp(metadata->getLoaderName(), COpenEXRImageMetadata::LoaderName) != 0)
-					return {};
+					auto metadata = asset->getMetadata();
+					auto exrmeta = static_cast<COpenEXRImageMetadata*>(metadata);
+					if (strcmp(metadata->getLoaderName(),COpenEXRImageMetadata::LoaderName)!=0)
+						continue;
+					else
+					{
+						const auto& assetMetaChannelName = exrmeta->getName();
+						auto found = assetMetaChannelName.find(channelName.value());
+						if (found>=firstChannelNameOccurence)
+							continue;
+						firstChannelNameOccurence = found;
+						pickedChannel = std::distance(contents.first, it);
+					}
+				}
 
-				auto image = asset::IAsset::castDown<ICPUImage>(asset);
-				auto exrmeta = static_cast<COpenEXRImageMetadata*>(metadata);
-				const auto& assetMetaChannelName = exrmeta->getName();
-
-				auto fillVal = std::make_pair(image, assetMetaChannelName);
-				return std::optional<decltype(fillVal)>(std::in_place_t(), fillVal);
+				return asset::IAsset::castDown<ICPUImage>(contents.first[pickedChannel]);
 			};
 
-			auto& color = getImageAssetAndItsChannelName(color_image_bundle);
-			decltype(color)& albedo = getImageAssetAndItsChannelName(albedo_image_bundle);
-			decltype(color)& normal = getImageAssetAndItsChannelName(normal_image_bundle);
+			auto& color = getImageAssetGivenChannelName(color_image_bundle,colorChannelNameBundle[i]);
+			decltype(color)& albedo = getImageAssetGivenChannelName(albedo_image_bundle,albedoChannelNameBundle[i]);
+			decltype(color)& normal = getImageAssetGivenChannelName(normal_image_bundle,normalChannelNameBundle[i]);
 
 			auto convertImageToRequiredFmt = [&](core::smart_refctd_ptr<ICPUImage> image)
 			{
@@ -667,12 +679,10 @@ void main()
 				return newConvertedImage;
 			};
 
-			auto putImageIntoImageToDenoise = [&](std::optional<std::pair<core::smart_refctd_ptr<ICPUImage>, std::string>> queriedImage, std::pair<const core::vector<std::optional<std::string>>&, const core::vector<std::optional<std::string>>&> queriedFileAndChannelBundle, E_IMAGE_INPUT defaultEII)
+			auto putImageIntoImageToDenoise = [&](core::smart_refctd_ptr<ICPUImage>&& queriedImage, E_IMAGE_INPUT defaultEII, const std::optional<std::string>& actualWantedChannel)
 			{
-				auto& optionalQueryFile = queriedFileAndChannelBundle.first[i];
-				auto& optionalQueryChannelName = queriedFileAndChannelBundle.second[i];
-
-				if (!queriedImage.has_value())
+				outParam.image[defaultEII] = nullptr;
+				if (!queriedImage)
 				{
 					switch (defaultEII)
 					{
@@ -688,94 +698,32 @@ void main()
 					return;
 				}
 
-				if (!queriedFileAndChannelBundle.first[i].has_value())
-					return;
-
-				std::string queriedFile = optionalQueryFile.value();
-				std::string queriedChannelName = optionalQueryChannelName.has_value() ? optionalQueryChannelName.value() : decltype(queriedChannelName)();
-
-				auto handledDefaultImage = queriedImage.value().first;
-				const auto handledDefaultImageMetadataChannelName = queriedImage.value().second; 
-
-				if (queriedFile.empty() || queriedChannelName.empty())
-				{
-					outParam.image[defaultEII] = std::move(handledDefaultImage);
-					os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): The default channel for " + makeImageIDString(i, queriedFileAndChannelBundle.first) + " has been taken!", ELL_INFORMATION);
-					return;
-				}
-
 				/*
 
 				I'm not sure why we should do this, so I leave it for you @devsh to uncomment eventually
+				Current Compute shader relies on having vec4 input and vec3 output
 
 				if (handledDefaultImage->getCreationParameters().format != irrFmtRequired)
 					handledDefaultImage = convertImageToRequiredFmt(handledDefaultImage);
 
 				*/
 
-				const std::array<std::string, 3> queriedAvailableMetadataChannelNames = 
+				auto metadata = queriedImage->getMetadata();
+				auto exrmeta = static_cast<const COpenEXRImageMetadata*>(metadata);
+				if (strcmp(metadata->getLoaderName(),COpenEXRImageMetadata::LoaderName)!=0)
+					os::Printer::log("WARNING (" + std::to_string(__LINE__) + "): "+ imageIDString+" is not an EXR file, so there are no multiple layers of channels.", ELL_WARNING);
+				else if (!actualWantedChannel.has_value())
+					os::Printer::log("WARNING (" + std::to_string(__LINE__) + "): User did not specify channel choice for "+ imageIDString+" using the default (first).", ELL_WARNING);
+				else if (exrmeta->getName()!=actualWantedChannel.value())
 				{
-					color.has_value() ? color.value().second : "",
-					albedo.has_value() ? albedo.value().second : "",
-					normal.has_value() ? normal.value().second : ""
-				};
-				core::vector<std::pair<size_t, uint8_t>> channelNameOffsets;
-
-				for(uint8_t queryItr = 0; queryItr < queriedAvailableMetadataChannelNames.size(); ++queryItr)
-				{
-					auto channelNameToCompare = queriedAvailableMetadataChannelNames[queryItr];
-
-					if (channelNameToCompare.empty()) // if it's empty, it means in metadata there is no information about special suffix channel name, so it's name is just a rgb/a
-						continue;
-
-					auto found = channelNameToCompare.find(queriedChannelName);
-
-					if (found == std::string::npos)
-						continue;
-					else
-					{
-						auto compareBegin = channelNameToCompare.begin();
-						auto compareFoundItr = compareBegin + found;
-
-						auto offset = std::distance(compareBegin, compareFoundItr);
-						channelNameOffsets.push_back(std::make_pair(offset, EII_COLOR + queryItr));
-					}
+					os::Printer::log("WARNING (" + std::to_string(__LINE__) + "): Using best fit channel \""+exrmeta->getName()+"\" for requested \""+actualWantedChannel.value()+"\" out of "+ imageIDString+"!", ELL_WARNING);
 				}
-
-				if (channelNameOffsets.empty())
-				{
-					outParam.image[defaultEII] = std::move(handledDefaultImage);
-					os::Printer::log("WARNING (" + std::to_string(__LINE__) + "): Could't find queried channel name in available metadata channels. The default channel for " + makeImageIDString(i, queriedFileAndChannelBundle.first) + " has been taken!", ELL_WARNING);
-				}
-				else
-				{
-					auto minOffsetData = std::min_element(channelNameOffsets.begin(), channelNameOffsets.end(), [](const std::pair<size_t, uint8_t>& a, const std::pair<size_t, uint8_t>& b) { return a.second < b.second; });
-
-					switch (static_cast<E_IMAGE_INPUT>(minOffsetData->second))
-					{
-						case EII_COLOR:
-						{
-							outParam.image[EII_COLOR] = std::move(handledDefaultImage);
-						} break;
-						case EII_ALBEDO:
-						{
-							outParam.image[EII_ALBEDO] = std::move(handledDefaultImage);
-						} break;
-						case EII_NORMAL:
-						{
-							outParam.image[EII_NORMAL] = std::move(handledDefaultImage);
-						} break;
-						default:
-						{
-							os::Printer::log("ERROR (" + std::to_string(__LINE__) + "): An unexpected error has ocured!", ELL_ERROR);
-						}
-					}
-				}
+				outParam.image[defaultEII] = std::move(queriedImage);
 			};
 
-			putImageIntoImageToDenoise(color, std::make_pair(colorFileNameBundle, colorChannelNameBundle), EII_COLOR);
-			putImageIntoImageToDenoise(albedo, std::make_pair(albedoFileNameBundle, albedoChannelNameBundle), EII_ALBEDO);
-			putImageIntoImageToDenoise(normal, std::make_pair(normalFileNameBundle, normalChannelNameBundle), EII_NORMAL);
+			putImageIntoImageToDenoise(std::move(color), EII_COLOR, colorChannelNameBundle[i]);
+			putImageIntoImageToDenoise(std::move(albedo), EII_ALBEDO, albedoChannelNameBundle[i]);
+			putImageIntoImageToDenoise(std::move(normal), EII_NORMAL, normalChannelNameBundle[i]);
 		}
 		// check inputs and set-up
 		for (size_t i=0; i<inputFilesAmount; i++)
