@@ -16,10 +16,10 @@ function(irr_add_builtin_resources)
 endfunction()
 
 set(irr_resources_to_embed
-  "irr/builtin/shaders/loaders/mtl/vertex_impl.vert"
+  "irr/builtin/shaders/loaders/mtl/vertex_impl.glsl"
   "irr/builtin/shaders/loaders/mtl/vertex_no_uv.vert"
   "irr/builtin/shaders/loaders/mtl/vertex_uv.vert"
-  "irr/builtin/shaders/loaders/mtl/fragment_impl.frag"
+  "irr/builtin/shaders/loaders/mtl/fragment_impl.glsl"
   "irr/builtin/shaders/loaders/mtl/fragment_no_uv.frag"
   "irr/builtin/shaders/loaders/mtl/fragment_uv.frag"
   "irr/builtin/specializedshaders/fullscreentriangle.vert"
