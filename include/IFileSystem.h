@@ -11,7 +11,7 @@
 #include "irr/core/core.h"
 
 #ifdef _IRR_EMBED_BUILTIN_RESOURCES_
-#include "irr/builtin/builtinResources.h"
+#include "irr/builtin/common.h"
 #endif
 namespace irr
 {

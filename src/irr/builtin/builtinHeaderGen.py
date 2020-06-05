@@ -27,14 +27,13 @@ else:
     outp.write("#include <string>\n")
     outp.write("#include <unordered_map>\n")
     outp.write("#include <utility>\n#include <irr\\core\\string\\UniqueStringLiteralType.h>\n")
-    outp.write("namespace irr { \n\tnamespace builtin { \n\t\ttemplate<typename StringUniqueLiteralType>\n")
-    outp.write("\t\tconst std::pair<const uint8_t*, size_t> get_resource() \n\t\t{\n\t\t\treturn { nullptr,0ull };\n\t\t}")
+    outp.write("namespace irr { \n\tnamespace builtin { \n")
 
     #Iterating through input list
     for x in resourcePaths:
         outp.write('\n\t\textern template const std::pair<const uint8_t*, size_t> get_resource<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();' % x)
 
-    outp.write("\n\n\t\tstd::pair<const uint8_t*, size_t> get_resource_runtime(const std::string&);\n\t}\n}")
+    outp.write("\n\t}\n}")
     outp.write("\n#endif")
 
     outp.close()

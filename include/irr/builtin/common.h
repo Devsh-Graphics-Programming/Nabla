@@ -5,6 +5,23 @@
 
 #include <cstring>
 
+namespace irr
+{
+namespace builtin
+{
+
+// if you attempt to use this without `IRR_EMBED_BUILTIN_RESOURCES_` CMake option, you will get loads of undefined references
+template<typename StringUniqueLiteralType>
+const std::pair<const uint8_t*,size_t> get_resource()
+{
+    return { nullptr,0ull };
+}
+
+// if you attempt to use this without `IRR_EMBED_BUILTIN_RESOURCES_` CMake option, this will always return `{nullptr,0ull}`
+std::pair<const uint8_t*,size_t> get_resource_runtime(const std::string&);
+
+}
+}
 
 #ifndef _IRR_EMBED_BUILTIN_RESOURCES_
 // will only be available in the app or library using irrlicht
