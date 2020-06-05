@@ -235,7 +235,7 @@ namespace irr
 		#ifdef _IRR_BUILTIN_PATH_AVAILABLE
 			builtin::getBuiltinResourcesDirectoryPath();
 		#else
-      		nullptr;
+      		"";
 		#endif
 
 		//! Don't use or change this parameter.
