@@ -1,5 +1,7 @@
 #include "CommandLineHandler.hpp"
 
+#include <algorithm>
+
 using namespace irr;
 using namespace asset;
 using namespace core;
@@ -22,35 +24,19 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 		return { it, {} };
 	};
 
-	auto getSerializedValues = [&](const auto& variablesStream, auto supposedArgumentsAmout, bool onlyEntireArgvArgument = false)
+	auto getSerializedValues = [&](const auto& variablesStream, auto supposedArgumentsAmout, const std::regex& separator=std::regex{"[[:s:]]"})
 	{
-		core::vector<std::string> variablesHandle;
-		variablesHandle.reserve(supposedArgumentsAmout);
+		std::sregex_token_iterator it{ variablesStream.begin(), variablesStream.end(), separator, -1 };
+		core::vector<std::string> variablesHandle = { it,{} };
 
-		std::string tmpStream;
-		for (auto x = 0ul; x < variablesStream.size(); ++x)
-		{
-			const auto character = variablesStream.at(x);
-
-			if (onlyEntireArgvArgument ? (character == ' ') : (character == ','))
-			{
-				variablesHandle.push_back(tmpStream);
-				tmpStream.clear();
-			}
-			else if (x == variablesStream.size() - 1)
-			{
-				tmpStream.push_back(character);
-				variablesHandle.push_back(tmpStream);
-				tmpStream.clear();
-			}
-			else if (character == '\r' || character == '\n')
-			{
-				variablesHandle.push_back(tmpStream);
-				break;
-			}
-			else
-				tmpStream.push_back(character);
-		}
+		// remove any accidental whitespace only vars
+		variablesHandle.erase(
+			std::remove_if(
+				variablesHandle.begin(),variablesHandle.end(),
+				[](const std::string& x) {return !std::regex_search(x,std::regex{"[^[:s:]]"}); }
+			),
+			variablesHandle.end()
+		);
 
 		return variablesHandle;
 	};
@@ -93,10 +79,10 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 		{
 			const auto argvStream = *(batchInputStream.begin() + i);
 			// protection against empty lines
-			if (!std::regex_search(argvStream,std::regex{"[^[:s:]]"}))
+			if (!std::regex_search(argvStream, std::regex{ "[^[:s:]]" }))
 				continue;
 
-			const auto arguments = getSerializedValues(argvStream, PROPER_CMD_ARGUMENTS_AMOUNT, true);
+			const auto arguments = getSerializedValues(argvStream, PROPER_CMD_ARGUMENTS_AMOUNT);
 
 			if (arguments.size() < MANDATORY_CMD_ARGUMENTS_AMOUNT || arguments.size() > PROPER_CMD_ARGUMENTS_AMOUNT)
 			{
@@ -148,7 +134,7 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 
 				auto assignToMap = [&](DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS argument, size_t reservedSpace = 1)
 				{
-					auto variablesHandle = getSerializedValues(variablesStream, reservedSpace);
+					auto variablesHandle = getSerializedValues(variablesStream, reservedSpace, std::regex{"\,"});
 					auto& reference = rawVariablesHandle[argument];
 					reference.emplace(variablesHandle);
 				};
