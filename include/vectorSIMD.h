@@ -280,50 +280,45 @@ namespace core
 		#define COMPARISON_DISPATCH(func_epi32,func_epi16,func_epi8,LEFT,RIGHT) \
 			__m128i a = LEFT; \
 			__m128i b = RIGHT; \
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(!std::is_signed<T>::value) \
+			if constexpr(!std::is_signed<T>::value) \
 			{ \
 				__m128i mask; \
-				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,uint32_t>::value) \
+				if constexpr(std::is_same<T,uint32_t>::value) \
 				{ \
 					mask = _mm_set1_epi32(-0x80000000); \
 				} \
-				IRR_PSEUDO_ELSE_CONSTEXPR \
+				else \
 				{ \
-					IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,uint16_t>::value) \
+					if constexpr(std::is_same<T,uint16_t>::value) \
 					{ \
 						mask = _mm_set1_epi16(-0x8000); \
 					} \
-					IRR_PSEUDO_ELSE_CONSTEXPR \
+					else \
 					{ \
 						static_assert(!std::is_same<T,uint8_t>::value,"unimplemented for types other than uint{8,16,32}_t"); \
 						mask = _mm_set1_epi8(-0x80); \
 					} \
-					IRR_PSEUDO_IF_CONSTEXPR_END \
 				} \
-				IRR_PSEUDO_IF_CONSTEXPR_END \
 				a = _mm_xor_si128(mask,LEFT); \
 				b = _mm_xor_si128(mask,RIGHT); \
 			} \
-			IRR_PSEUDO_IF_CONSTEXPR_END \
 			__m128i result; \
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(sizeof(T)==4u) \
+			if constexpr(sizeof(T)==4u) \
 			{ \
 				result = func_epi32(a,b); \
 			} \
-			IRR_PSEUDO_ELSE_CONSTEXPR \
+			else \
 			{ \
-				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(sizeof(T)==2u) \
+				if constexpr(sizeof(T)==2u) \
 				{ \
 					result = func_epi16(a,b); \
 				} \
-				IRR_PSEUDO_ELSE_CONSTEXPR \
+				else \
 				{ \
 					static_assert(sizeof(T)!=1u,"unimplemented for types other than {u}int{8,16,32}_t"); \
 					result = func_epi8(a,b); \
 				} \
-				IRR_PSEUDO_IF_CONSTEXPR_END \
 			} \
-			IRR_PSEUDO_IF_CONSTEXPR_END \
 			return result
 
 	public:

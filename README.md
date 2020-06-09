@@ -337,6 +337,10 @@ target_link_libraries(${PROJECT_NAME}
 	 $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/lib/Irrlicht_debug.lib>
 	 $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/lib/Irrlicht_rwdi.lib>
 	 $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/lib/Irrlicht.lib>
+     # these are needed because we haven't cleaned up the API properly yet
+        $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/source/Irrlicht>
+        $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/source/Irrlicht>
+        $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/source/Irrlicht>
 )
 
 ```

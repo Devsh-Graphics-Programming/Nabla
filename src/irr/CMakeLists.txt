@@ -89,8 +89,16 @@ configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${
 set(_IRR_DEBUG 1)
 configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
+set(IRRLICHT_HEADERS_PUBLIC
+	"${IRR_ROOT_PATH}/source/Irrlicht/FW_Mutex.h"
+	"${IRR_ROOT_PATH}/source/Irrlicht/os.h"
+	"${IRR_ROOT_PATH}/source/Irrlicht/CLogger.h" 
+)
+file(GLOB_RECURSE TEMP_GLOB_RES "${IRR_ROOT_PATH}/include/*.h")
+set(IRRLICHT_HEADERS_PUBLIC ${IRRLICHT_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
+file(GLOB_RECURSE TEMP_GLOB_RES "${IRR_ROOT_PATH}/include/*.tcc")
+set(IRRLICHT_HEADERS_PUBLIC ${IRRLICHT_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 
-file(GLOB_RECURSE IRRLICHT_HEADERS_PUBLIC "${IRR_ROOT_PATH}/include/*.h")
 file(GLOB_RECURSE IRRLICHT_HEADERS_PRIV1 "*.h")
 file(GLOB_RECURSE IRRLICHT_HEADERS_PRIV2 "${IRR_ROOT_PATH}/src/irr/*.h")
 # just gather all the header files and later put them into project so it's easy to search for things using IDE
@@ -439,5 +447,8 @@ elseif()
 endif()
 
 irr_install_static_lib(Irrlicht)
-irr_install_headers("${IRRLICHT_HEADERS_PUBLIC}" "${IRR_ROOT_PATH}/include")
+set(IRRLICHT_HEADERS_TO_INSTALL 
+	${IRRLICHT_HEADERS_PUBLIC}
+)
+irr_install_headers("${IRRLICHT_HEADERS_TO_INSTALL}" "${IRR_ROOT_PATH}/include")
 irr_install_config_header(BuildConfigOptions.h)

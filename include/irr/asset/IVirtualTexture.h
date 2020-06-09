@@ -310,7 +310,7 @@ protected:
         params.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
 
         auto pgtab = createPageTableImage(std::move(params));
-        IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<image_t,ICPUImage>::value)
+        if constexpr(std::is_same<image_t,ICPUImage>::value)
         {
             const uint32_t texelSz = getTexelOrBlockBytesize(pgtab->getCreationParameters().format);
         
@@ -340,7 +340,7 @@ protected:
             std::fill(bufptr, bufptr+bufOffset/sizeof(uint32_t), SPhysPgOffset::invalid_addr);
 #endif
             pgtab->setBufferAndRegions(std::move(buf), regions);
-        } IRR_PSEUDO_IF_CONSTEXPR_END
+        } 
         return pgtab;
     }
 

@@ -6,7 +6,7 @@
 #include "irr/video/CGPUSkinnedMesh.h"
 
 #include "vectorSIMD.h"
-
+ 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
 #include "irr/video/COpenGLImageView.h"
@@ -20,7 +20,7 @@
 
 #include "COpenGLBuffer.h"
 #include "COpenGLFrameBuffer.h"
-#include "COpenGLQuery.h"
+#include "COpenGLQuery.h" 
 #include "COpenGLTimestampQuery.h"
 #include "os.h"
 #include "irr/asset/spvUtils.h"

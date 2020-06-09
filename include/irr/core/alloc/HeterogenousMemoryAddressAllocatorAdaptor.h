@@ -1,7 +1,6 @@
 #ifndef __IRR_HETEROGENOUS_MEMORY_ADDRESS_ALLOCATOR_ADAPTOR_H___
 #define __IRR_HETEROGENOUS_MEMORY_ADDRESS_ALLOCATOR_ADAPTOR_H___
 
-#include "irr/static_if.h"
 #include "irr/core/Types.h"
 #include "irr/core/alloc/address_allocator_traits.h"
 #include "irr/core/alloc/AddressAllocatorBase.h"
@@ -114,11 +113,11 @@ class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemor
                                                                         addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment,bufSz,std::forward<Args>(args)...)
         {
             mAllocation = ImplBase::mDataAlloc.allocate(bufSz,maxAllocatableAlignment);
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(!alloc_traits::supportsNullBuffer)
+			if constexpr(!alloc_traits::supportsNullBuffer)
 			{
                 this->getBaseAddrAllocRef().setDataBufferPtr(std::get<1u>(mAllocation));
             }
-			IRR_PSEUDO_IF_CONSTEXPR_END
+			
         }
 
         virtual ~HeterogenousMemoryAddressAllocatorAdaptor()
