@@ -316,11 +316,11 @@ list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_DOCS:BOOL=OFF") # enable only if you hav
 list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_EXAMPLES:BOOL=OFF")
 list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_TOOLS:BOOL=OFF") # the tools don't work yet (Apr 2020 status, might have changed since then)
 list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_MITSUBA_LOADER:BOOL=OFF") # you probably don't want this extension
+list(APPEND IRR_CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX:PATH=${IRR_INSTALL_DIR}") # because of https://gitlab.kitware.com/cmake/cmake/-/issues/18790
 ExternalProject_Add(IrrlichtBaW
     DOWNLOAD_COMMAND  ""
     SOURCE_DIR        "${IRR_SOURCE_DIR}"
     BINARY_DIR        "${IRR_BINARY_DIR}"
-    INSTALL_DIR       "${IRR_INSTALL_DIR}"
     CMAKE_ARGS        ${IRR_CMAKE_ARGS}
     TEST_COMMAND      ""
 )
