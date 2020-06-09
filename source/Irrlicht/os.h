@@ -6,6 +6,7 @@
 #define __IRR_OS_H_INCLUDED__
 
 #include "irr/core/core.h"
+#include "irr/core/math/floatutil.h"
 
 #include "irrString.h"
 #include "path.h"
@@ -48,7 +49,7 @@ namespace os
 			static inline int16_t byteswap(int16_t num) { return bswap_16(num); }
 			static inline uint32_t byteswap(uint32_t num) { return bswap_32(num); }
 			static inline int32_t byteswap(int32_t num) { return bswap_32(num); }
-			static inline float byteswap(float num) { uint32_t tmp = IR(num); tmp = bswap_32(tmp); return (FR(tmp)); }
+			static inline float byteswap(float num) { uint32_t tmp = core::IR(num); tmp = bswap_32(tmp); return core::FR(tmp); }
 			// prevent accidental byte swapping of chars
 			static inline uint8_t  byteswap(uint8_t num) { return num; }
 			static inline int8_t  byteswap(int8_t num) { return num; }

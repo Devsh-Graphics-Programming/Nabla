@@ -11,6 +11,7 @@
 #include <cmath>
 #include <algorithm>
 
+#include "BuildConfigOptions.h"
 #include "irr/macros.h"
 
 
@@ -142,15 +143,54 @@ union FloatIntUnion32
 	float f;
 };
 
-//! code is taken from IceFPU
 //! Integer representation of a floating-point value and the reverse.
 #ifdef __IRR_FAST_MATH
-#define IR(x)                           ((uint32_t&)(x))
-#define FR(x)                           ((float&)(x))
+IRR_FORCE_INLINE uint32_t& IR(float& x)
+{
+	reinterpret_cast<uint32_t&>(x);
+}
+IRR_FORCE_INLINE const uint32_t& IR(const float& x)
+{
+	reinterpret_cast<const uint32_t&>(x);
+}
+IRR_FORCE_INLINE float& IR(uint32_t& x)
+{
+	reinterpret_cast<float&>(x);
+}
+IRR_FORCE_INLINE const float& IR(const uint32_t& x)
+{
+	reinterpret_cast<const float&>(x);
+}
+IRR_FORCE_INLINE float& IR(int32_t& x)
+{
+	reinterpret_cast<float&>(x);
+}
+IRR_FORCE_INLINE const float& IR(const int32_t& x)
+{
+	reinterpret_cast<const float&>(x);
+}
+#define FR(x)                           reinterpret_cast<float&>(x)
 #else
-IRR_FORCE_INLINE uint32_t IR(float x) { inttofloat tmp; tmp.f = x; return tmp.u; }
-IRR_FORCE_INLINE float FR(uint32_t x) { inttofloat tmp; tmp.u = x; return tmp.f; }
-IRR_FORCE_INLINE float FR(int32_t x) { inttofloat tmp; tmp.s = x; return tmp.f; }
+// C++ full standard compat use memcpy
+static_assert(sizeof(float)==sizeof(uint32_t));
+IRR_FORCE_INLINE uint32_t IR(float x)
+{
+	uint32_t retval;
+	memcpy(&retval,&x,sizeof(float));
+	return retval;
+}
+IRR_FORCE_INLINE float FR(uint32_t x)
+{
+	float retval;
+	memcpy(&retval, &x, sizeof(float));
+	return retval;
+}
+IRR_FORCE_INLINE float FR(int32_t x)
+{
+	float retval;
+	memcpy(&retval, &x, sizeof(float));
+	return retval;
+}
 #endif
 
 //! We compare the difference in ULP's (spacing between floating-point numbers, aka ULP=1 means there exists no float between).

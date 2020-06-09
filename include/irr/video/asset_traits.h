@@ -1,6 +1,7 @@
 #ifndef __IRR_ASSET_TRAITS_H_INCLUDED__
 #define __IRR_ASSET_TRAITS_H_INCLUDED__
 
+#include "irr/asset/ICPUMesh.h"
 #include "irr/video/IGPUMesh.h"
 #include "irr/asset/ICPUShader.h"
 #include "irr/video/IGPUShader.h"
@@ -22,6 +23,7 @@
 #include "irr/video/IGPUSampler.h"
 #include "irr/asset/ICPUImageView.h"
 #include "irr/video/IGPUImageView.h"
+
 
 namespace irr
 {
