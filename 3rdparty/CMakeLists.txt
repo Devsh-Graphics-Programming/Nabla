@@ -486,3 +486,21 @@ foreach(trgt IN LISTS IRR_3RDPARTY_TARGETS)
 		set_property(TARGET ${trgt} PROPERTY
              MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endforeach()
+
+
+# parallel hashmap headers
+install(
+	DIRECTORY ./parallel-hashmap/parallel_hashmap 
+	DESTINATION ./include/parallel-hashmap
+	CONFIGURATIONS Release
+)
+install(
+	DIRECTORY ./parallel-hashmap//parallel_hashmap 
+	DESTINATION ./debug/include/parallel-hashmap
+	CONFIGURATIONS Debug
+)
+install(
+	DIRECTORY ./parallel-hashmap/parallel_hashmap 
+	DESTINATION ./relwithdebinfo/include/parallel-hashmap
+	CONFIGURATIONS RelWithDebInfo
+)
