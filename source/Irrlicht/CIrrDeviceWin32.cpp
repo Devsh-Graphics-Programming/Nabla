@@ -6,6 +6,8 @@
 
 #ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 
+#include "CNullDriver.h"
+
 #include "CIrrDeviceWin32.h"
 #include "CSceneManager.h"
 #include "IEventReceiver.h"
