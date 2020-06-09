@@ -5,6 +5,8 @@
 #include <irr/asset/ICPUImageView.h>
 #include <irr/asset/ICPUDescriptorSet.h>
 
+#include "irr/asset/filters/CMipMapGenerationImageFilter.h"
+
 namespace irr {
 namespace asset
 {

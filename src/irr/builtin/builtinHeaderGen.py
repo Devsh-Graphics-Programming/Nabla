@@ -26,7 +26,7 @@ else:
     outp.write("#include <cstdint>\n")
     outp.write("#include <string>\n")
     outp.write("#include <unordered_map>\n")
-    outp.write("#include <utility>\n#include <irr\\core\\string\\UniqueStringLiteralType.h>\n")
+    outp.write("#include <utility>\n#include \"irr\\core\\string\\UniqueStringLiteralType.h\"\n#include \"irr\\builtin\\common.h\"\n")
     outp.write("namespace irr { \n\tnamespace builtin { \n")
 
     #Iterating through input list

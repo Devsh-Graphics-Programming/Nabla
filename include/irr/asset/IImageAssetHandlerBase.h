@@ -3,6 +3,12 @@
 
 #include "irr/core/core.h"
 
+#include "ILogger.h"
+#include "os.h"
+
+#include "irr/asset/filters/CCopyImageFilter.h"
+#include "irr/asset/filters/CSwizzleAndConvertImageFilter.h"
+
 namespace irr
 {
 namespace asset

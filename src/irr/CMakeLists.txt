@@ -147,7 +147,6 @@ set(IRR_ASSET_SOURCES
 	${IRR_ROOT_PATH}/src/irr/asset/CGraphicsPipelineLoaderMTL.cpp
 
 # Meshes
-	${IRR_ROOT_PATH}/src/irr/asset/CCPUSkinnedMesh.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CForsythVertexCacheOptimizer.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CQuantNormalCache.cpp

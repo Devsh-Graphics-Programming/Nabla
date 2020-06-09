@@ -14,6 +14,8 @@
 
 #include "irr/asset/filters/kernels/kernels.h"
 
+#include "irr/asset/format/decodePixels.h"
+
 namespace irr
 {
 namespace asset
