@@ -266,7 +266,7 @@ function(irr_install_headers _HEADERS _BASE_HEADERS_DIR)
 		get_filename_component(dir ${dir} DIRECTORY)
 		install(FILES ${file} DESTINATION include/${dir} CONFIGURATIONS Release)
 		install(FILES ${file} DESTINATION debug/include/${dir} CONFIGURATIONS Debug)
-		install(FILES ${file} DESTINATION debugwithrelinfo/include/${dir} CONFIGURATIONS DebugWithRelInfo)
+		install(FILES ${file} DESTINATION relwithdebinfo/include/${dir} CONFIGURATIONS RelWithDebInfo)
 	endforeach()
 endfunction()
 

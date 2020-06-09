@@ -324,6 +324,21 @@ ExternalProject_Add(IrrlichtBaW
     CMAKE_ARGS        ${IRR_CMAKE_ARGS}
     TEST_COMMAND      ""
 )
+
+# replace with whatever you need ${PROJECT_NAME}
+target_include_directories(${PROJECT_NAME}
+    PUBLIC
+        $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/include>
+        $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/include>
+        $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/include>
+)
+target_link_libraries(${PROJECT_NAME} Qt5::Widgets Qt5::Core Qt5::Gui opengl32.lib)
+target_link_libraries(${PROJECT_NAME} 
+	 $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/lib/Irrlicht_debug.lib>
+	 $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/lib/Irrlicht_rwdi.lib>
+	 $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/lib/Irrlicht.lib>
+)
+
 ```
 
  If you want to use git (without a submodule) then you can use `ExternalProject_Add` with the `GIT_` properties instead.

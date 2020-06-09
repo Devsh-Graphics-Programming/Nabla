@@ -426,7 +426,7 @@ set_target_properties(Irrlicht PROPERTIES RELWITHDEBDINFO_POSTFIX _relwithdebinf
 macro(irr_install_static_lib _TRGT)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION lib CONFIGURATIONS Release)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION debug/lib CONFIGURATIONS Debug)
-	install(TARGETS ${_TRGT} ARCHIVE DESTINATION debugwithrelinfo/lib CONFIGURATIONS RelWithDebInfo)
+	install(TARGETS ${_TRGT} ARCHIVE DESTINATION relwithdebinfo/lib CONFIGURATIONS RelWithDebInfo)
 endmacro()
 if(IRR_EMBED_BUILTIN_RESOURCES)
 	add_custom_target(builtin_resources
