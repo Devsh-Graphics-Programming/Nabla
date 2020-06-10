@@ -75,7 +75,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 		static inline bool validate(state_type* state)
 		{
-			if (!CMatchedSizeInOutImageFilterCommon::validate(state));
+			if (!CMatchedSizeInOutImageFilterCommon::validate(state))
 				return false;
 
 			if (!CSummedAreaTableImageFilterBase<ExclusiveMode>::validate(state))
@@ -92,7 +92,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			if (asset::getFormatChannelCount(outFormat) < asset::getFormatChannelCount(inFormat))
 				return false;
 
-			if (asset::getFormatClass(state->inImage->getCreationParameters().format) <= asset::getFormatClass(outFormat))
+			if (asset::getFormatClass(state->inImage->getCreationParameters().format) < asset::getFormatClass(outFormat))
 				return false;
 
 			return true;
@@ -117,21 +117,29 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					auto* temporaryMemory = scratchMemory;
 
 					using decodeType = typename std::decay<decltype(*scratchMemory)>::type;
-					const auto* entryData = reinterpret_cast<const uint8_t*>(commonExecuteData.inImg->getBuffer()->getPointer()); // TODO need to use filters API to stay at layer-mipmap memory
 					decodeType decodeBuffer[maxChannels] = {};
 
+					size_t regionLayerByteOffset = {}; // TODO need to use filters API to stay at layer-mipmap memory 
+					const auto* entryData = reinterpret_cast<const uint8_t*>(commonExecuteData.inImg->getBuffer()->getPointer()) + regionLayerByteOffset;
+
+					core::vector3du32_SIMD trueExtent;
+					trueExtent.x = commonExecuteData.oit->imageExtent.width;
+					trueExtent.y = commonExecuteData.oit->imageExtent.height;
+					trueExtent.z = commonExecuteData.oit->imageExtent.depth;
+					const auto texelOrBlockByteSize = asset::getTexelOrBlockBytesize(commonExecuteData.inFormat);
+
 					core::vector3du32_SIMD localCoord;
-						for (auto& zBlock = localCoord[2] = 0u; zBlock < blockDims.z; ++zBlock)
-							for (auto& yBlock = localCoord[1] = 0u; yBlock < blockDims.y; ++yBlock)
-								for (auto& xBlock = localCoord[0] = 0u; xBlock < blockDims.x; ++xBlock)
+						for (auto& z = localCoord[2] = 0u; z < trueExtent.z; ++z)
+							for (auto& y = localCoord[1] = 0u; y < trueExtent.y; ++y)
+								for (auto& x = localCoord[0] = 0u; x < trueExtent.x; ++x)
 								{
-									const size_t independentPtrOffset = ((zBlock * blockDims.y + yBlock) * blockDims.x + xBlock);
-									auto* inDataAdress = entryData + independentPtrOffset * asset::getTexelOrBlockBytesize(commonExecuteData.inFormat);
+									const size_t independentPtrOffset = ((z * trueExtent.y + y) * trueExtent.x + x);
+									auto* inDataAdress = entryData + independentPtrOffset * texelOrBlockByteSize;
 									auto* outDataAdress = scratchMemory + independentPtrOffset * currentChannelCount;
 
 									const void* sourcePixels[maxChannels] = { inDataAdress, nullptr, nullptr, nullptr };
 									asset::decodePixelsRuntime(commonExecuteData.inImg->getCreationParameters().format, sourcePixels, decodeBuffer, 1, 1);
-									memcpy(decodeBuffer, outDataAdress, sizeof(decodeType) * currentChannelCount);
+									memcpy(outDataAdress, decodeBuffer, sizeof(decodeType) * currentChannelCount);
 								}
 				};
 
@@ -151,29 +159,39 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					{
 						using decodeType = typename std::decay<decltype(*scratchMemory)>::type;
 
-						for (uint32_t z = 0; z < blockDims.z; z++)
+						/*
+
+						decltype(readBlockPos) newReadBlockPos = { readBlockPos.x, commonExecuteData.oit->imageExtent.height - 1 - readBlockPos.y, readBlockPos.z };
+						const size_t independentPtrOffset = ((newReadBlockPos.z * commonExecuteData.oit->imageExtent.height + 0) * commonExecuteData.oit->imageExtent.width + 0);
+						decodeType* columnTotalCache = scratchMemory + independentPtrOffset * currentChannelCount;
+
+						actually TODO
+						well.. I think I was right trying to override the iteration in executePerRegion, etc..
+						I have to save state in weird way using bools that I would define above the sum function or something to do it right, and that is not lit
+
+						for (uint32_t z = 0; z < trueExtent.z; z++)
 						{
 							decodeType* columnTotalCache = scratchMemory; // cache using first entire row for sum values in columns
 				
-							for (uint32_t y = blockDims.y - 1; y >= 0; y--)
+							for (uint32_t y = trueExtent.y - 1; y >= 0; y--)
 							{
 								decodeType rowtotal[4] = {};
-								for (uint32_t x = 0; x < blockDims.x; x++)
+								for (uint32_t x = 0; x < trueExtent.x; x++)
 									for (int c = 0; c < currentChannelCount; c++)
 									{
-										auto outDataAdressItself = ((z * blockDims.y + y) * blockDims.x + x) * currentChannelCount + c;
-										auto outDataAdressX = ((z * blockDims.y + y) * blockDims.x + x - 1) * currentChannelCount + c;
+										auto outDataAdressItself = ((z * trueExtent.y + y) * trueExtent.x + x) * currentChannelCount + c;
+										auto outDataAdressX = ((z * trueExtent.y + y) * trueExtent.x + x - 1) * currentChannelCount + c;
 										auto pixelColorX = *(scratchMemory + outDataAdressX);
 										auto pixelColorItself = *(scratchMemory + outDataAdressItself);
 										decltype(pixelColorX) pixelColorY;
-										auto* columnTotal = columnTotalCache + ((z * blockDims.y) * blockDims.x + x) * currentChannelCount + c;
+										auto* columnTotal = columnTotalCache + ((z * trueExtent.y) * trueExtent.x + x) * currentChannelCount + c;
 
 										if(x > 0)
 											rowtotal[c] += pixelColorX + c;
 
 										if (y > 0)
 										{
-											auto outDataAdressY = ((z * blockDims.y + y - 1) * blockDims.x + x) * currentChannelCount + c;
+											auto outDataAdressY = ((z * trueExtent.y + y - 1) * trueExtent.x + x) * currentChannelCount + c;
 											pixelColorY = *(scratchMemory + outDataAdressY);
 											*(columnTotal + c) += pixelColorY + c;
 										}
@@ -182,6 +200,8 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 									}
 							}
 						}
+
+						*/
 						
 					};
 
@@ -189,7 +209,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 						performTheProcess(reinterpret_cast<double*>(state->scratchMemory));
 					else
 						performTheProcess(reinterpret_cast<uint64_t*>(state->scratchMemory));
-					};
+				};
 
 				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg, sum, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
 
