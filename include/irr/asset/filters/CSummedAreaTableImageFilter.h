@@ -103,6 +103,19 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			if (!validate(state))
 				return false;
 
+			if (isIntegerFormat(state->inImage->getCreationParameters().format))
+				return executeInterprated(state, reinterpret_cast<uint64_t*>(state->scratchMemory));
+			else
+				return executeInterprated(state, reinterpret_cast<double*>(state->scratchMemory));
+		}
+
+	private:
+
+		template<typename decodeTypePointer> //!< double or uint64_t
+		static inline bool executeInterprated(state_type* state, decodeTypePointer scratchMemory)
+		{
+			using decodeType = typename std::decay<decltype(*scratchMemory)>::type;
+
 			auto perOutputRegion = [&](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
 				assert(getTexelOrBlockBytesize(commonExecuteData.inFormat) == getTexelOrBlockBytesize(commonExecuteData.outFormat)); // if this asserts the API got broken during an update or something
@@ -110,13 +123,11 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 				const auto currentChannelCount = asset::getFormatChannelCount(commonExecuteData.inFormat);
 				static constexpr auto maxChannels = 4;
 
-				memset(state->scratchMemory, 0, state->scratchMemoryByteSize);
+				memset(scratchMemory, 0, state->scratchMemoryByteSize);
 
-				auto decodeEntireImageToTemporaryScratchImage = [&](auto* scratchMemory) //!< double or uint64_t
+				auto decodeEntireImageToTemporaryScratchImage = [&]() 
 				{
 					auto* temporaryMemory = scratchMemory;
-
-					using decodeType = typename std::decay<decltype(*scratchMemory)>::type;
 					decodeType decodeBuffer[maxChannels] = {};
 
 					size_t regionLayerByteOffset = {}; // TODO need to use filters API to stay at layer-mipmap memory 
@@ -129,91 +140,61 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					const auto texelOrBlockByteSize = asset::getTexelOrBlockBytesize(commonExecuteData.inFormat);
 
 					core::vector3du32_SIMD localCoord;
-						for (auto& z = localCoord[2] = 0u; z < trueExtent.z; ++z)
-							for (auto& y = localCoord[1] = 0u; y < trueExtent.y; ++y)
-								for (auto& x = localCoord[0] = 0u; x < trueExtent.x; ++x)
-								{
-									const size_t independentPtrOffset = ((z * trueExtent.y + y) * trueExtent.x + x);
-									auto* inDataAdress = entryData + independentPtrOffset * texelOrBlockByteSize;
-									auto* outDataAdress = scratchMemory + independentPtrOffset * currentChannelCount;
+					for (auto& z = localCoord[2] = 0u; z < trueExtent.z; ++z)
+						for (auto& y = localCoord[1] = 0u; y < trueExtent.y; ++y)
+							for (auto& x = localCoord[0] = 0u; x < trueExtent.x; ++x)
+							{
+								const size_t independentPtrOffset = ((z * trueExtent.y + y) * trueExtent.x + x);
+								auto* inDataAdress = entryData + independentPtrOffset * texelOrBlockByteSize;
+								auto* outDataAdress = scratchMemory + independentPtrOffset * currentChannelCount;
 
-									const void* sourcePixels[maxChannels] = { inDataAdress, nullptr, nullptr, nullptr };
-									asset::decodePixelsRuntime(commonExecuteData.inImg->getCreationParameters().format, sourcePixels, decodeBuffer, 1, 1);
-									memcpy(outDataAdress, decodeBuffer, sizeof(decodeType) * currentChannelCount);
-								}
+								const void* sourcePixels[maxChannels] = { inDataAdress, nullptr, nullptr, nullptr };
+								asset::decodePixelsRuntime(commonExecuteData.inImg->getCreationParameters().format, sourcePixels, decodeBuffer, 1, 1);
+								memcpy(outDataAdress, decodeBuffer, sizeof(decodeType) * currentChannelCount);
+							}
 				};
 
-				bool decodeAsDouble = false;
-				if (isIntegerFormat(commonExecuteData.inFormat))
-					decodeEntireImageToTemporaryScratchImage(reinterpret_cast<uint64_t*>(state->scratchMemory));
-				else
-				{
-					decodeAsDouble = true;
-					decodeEntireImageToTemporaryScratchImage(reinterpret_cast<double*>(state->scratchMemory));
-				}
+				auto mainRowCacheBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(decodeType) * currentChannelCount);
+				auto mainRowCache = reinterpret_cast<decodeType*>(mainRowCacheBuffer->getPointer()); // row cache is independent, we always put to it data per each row summing everything and use it to fill column cache as well
+				memset(mainRowCache, 0, mainRowCacheBuffer->getSize()); 
 
 				constexpr auto decodeByteSize = 8;
 				auto sum = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 				{
-					auto performTheProcess = [&](auto* scratchMemory) // double or uint64_t
+					decltype(readBlockPos) newReadBlockPos = decltype(newReadBlockPos)(readBlockPos.x, commonExecuteData.oit->imageExtent.height - 1 - readBlockPos.y, readBlockPos.z);
+					const size_t columnCachePtrOffset = ((newReadBlockPos.z * commonExecuteData.oit->imageExtent.height + 0) * commonExecuteData.oit->imageExtent.width + 0);
+					decodeType* mainColumnCache = scratchMemory + columnCachePtrOffset * currentChannelCount; // column cache is embedded into scratch memory for not wasting memory space, beginning with (0, 0, z)
+
+					auto outDataAdressOffsetNormalIteration = ((newReadBlockPos.z * commonExecuteData.oit->imageExtent.height + newReadBlockPos.y) * commonExecuteData.oit->imageExtent.width + newReadBlockPos.x) * currentChannelCount;
+					auto finalPixelBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(decodeType) * currentChannelCount);
+					auto finalPixel = reinterpret_cast<decodeType*>(finalPixelBuffer->getPointer());
+					memset(finalPixel, 0, finalPixelBuffer->getSize());
+
+					for (uint8_t channel = 0; channel < currentChannelCount; ++channel)
 					{
-						using decodeType = typename std::decay<decltype(*scratchMemory)>::type;
-
-						/*
-
-						decltype(readBlockPos) newReadBlockPos = { readBlockPos.x, commonExecuteData.oit->imageExtent.height - 1 - readBlockPos.y, readBlockPos.z };
-						const size_t independentPtrOffset = ((newReadBlockPos.z * commonExecuteData.oit->imageExtent.height + 0) * commonExecuteData.oit->imageExtent.width + 0);
-						decodeType* columnTotalCache = scratchMemory + independentPtrOffset * currentChannelCount;
-
-						actually TODO
-						well.. I think I was right trying to override the iteration in executePerRegion, etc..
-						I have to save state in weird way using bools that I would define above the sum function or something to do it right, and that is not lit
-
-						for (uint32_t z = 0; z < trueExtent.z; z++)
-						{
-							decodeType* columnTotalCache = scratchMemory; // cache using first entire row for sum values in columns
-				
-							for (uint32_t y = trueExtent.y - 1; y >= 0; y--)
-							{
-								decodeType rowtotal[4] = {};
-								for (uint32_t x = 0; x < trueExtent.x; x++)
-									for (int c = 0; c < currentChannelCount; c++)
-									{
-										auto outDataAdressItself = ((z * trueExtent.y + y) * trueExtent.x + x) * currentChannelCount + c;
-										auto outDataAdressX = ((z * trueExtent.y + y) * trueExtent.x + x - 1) * currentChannelCount + c;
-										auto pixelColorX = *(scratchMemory + outDataAdressX);
-										auto pixelColorItself = *(scratchMemory + outDataAdressItself);
-										decltype(pixelColorX) pixelColorY;
-										auto* columnTotal = columnTotalCache + ((z * trueExtent.y) * trueExtent.x + x) * currentChannelCount + c;
-
-										if(x > 0)
-											rowtotal[c] += pixelColorX + c;
-
-										if (y > 0)
-										{
-											auto outDataAdressY = ((z * trueExtent.y + y - 1) * trueExtent.x + x) * currentChannelCount + c;
-											pixelColorY = *(scratchMemory + outDataAdressY);
-											*(columnTotal + c) += pixelColorY + c;
-										}
-					
-										*(scratchMemory + outDataAdressItself) = columnTotal[c] + rowtotal[c] + (!ExclusiveMode ? pixelColorItself + c : 0);
-									}
-							}
-						}
-
-						*/
+						auto outDataAdressOffsetItself = outDataAdressOffsetNormalIteration + channel;
+						auto outDataAdressOffsetX = ((newReadBlockPos.z * commonExecuteData.oit->imageExtent.height + newReadBlockPos.y) * commonExecuteData.oit->imageExtent.width + newReadBlockPos.x - 1) * currentChannelCount + channel;
+						auto pixelColorItself = scratchMemory + outDataAdressOffsetItself;
+						auto pixelColorX = scratchMemory + outDataAdressOffsetX;
 						
-					};
+						*(mainRowCache + channel) += *(pixelColorItself + channel);
+						*(mainColumnCache + channel) += mainRowCache[channel];
 
-					if (decodeAsDouble)
-						performTheProcess(reinterpret_cast<double*>(state->scratchMemory));
-					else
-						performTheProcess(reinterpret_cast<uint64_t*>(state->scratchMemory));
+						*(finalPixel + channel)
+						= (newReadBlockPos.x > 0 ? mainRowCache[channel] : 0)
+						+ (newReadBlockPos.y < commonExecuteData.oit->imageExtent.height - 1 ?  *(mainColumnCache + channel) : 0) 
+						+ (!ExclusiveMode ? *(pixelColorItself + channel) : 0);
+					}
+
+					memcpy(scratchMemory + outDataAdressOffsetNormalIteration, finalPixel, sizeof(decodeType) * currentChannelCount);
+
+					if (newReadBlockPos.x == commonExecuteData.oit->imageExtent.width - 1) // reset row cache when changing y
+						memset(mainRowCache, 0, sizeof(decodeType) * currentChannelCount);
 				};
 
 				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg, sum, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
 
-				auto encodeTo = [&](auto* scratchMemory, ICPUImage* outImage)
+				auto encodeTo = [&](ICPUImage* outImage)
 				{
 					core::vector3du32_SIMD localCoord;
 					for (auto& zBlock = localCoord[2] = 0u; zBlock < blockDims.z; ++zBlock)
@@ -226,19 +207,13 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 								asset::encodePixelsRuntime(commonExecuteData.outFormat, inData, outScratchAdress);
 							}
 				};
-		
-				if (decodeAsDouble)
-					encodeTo(reinterpret_cast<double*>(state->scratchMemory), commonExecuteData.outImg);
-				else
-					encodeTo(reinterpret_cast<uint64_t*>(state->scratchMemory), commonExecuteData.outImg);
 
+				encodeTo(commonExecuteData.outImg);
 				return true;
 			};
 
 			return commonExecute(state, perOutputRegion);
 		}
-
-	private:
 
 };
 
