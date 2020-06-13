@@ -11,6 +11,9 @@
 #include "irr/asset/format/convertColor.h"
 #include "irr/asset/ICPUImage.h"
 
+#include "irr/asset/IImageAssetHandlerBase.h"
+#include "irr/asset/filters/CConvertFormatImageFilter.h"
+
 namespace irr
 {
 namespace asset

@@ -234,9 +234,9 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asse
 
 
     const uint64_t alignment =
-        std::max(
-            std::max(m_driver->getRequiredTBOAlignment(), m_driver->getRequiredUBOAlignment()),
-            std::max(m_driver->getRequiredSSBOAlignment(), _IRR_SIMD_ALIGNMENT)
+        std::max<uint64_t>(
+            std::max<uint64_t>(m_driver->getRequiredTBOAlignment(), m_driver->getRequiredUBOAlignment()),
+            std::max<uint64_t>(m_driver->getRequiredSSBOAlignment(), _IRR_SIMD_ALIGNMENT)
         );
 
 
@@ -427,7 +427,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUImage** const _begin, asset
         asset::IImage::SCreationParams params = cpuimg->getCreationParameters();
         const bool integerFmt = asset::isIntegerFormat(params.format);
         if (!integerFmt)
-            params.mipLevels = 1u + static_cast<uint32_t>(std::log2(static_cast<float>(core::max(core::max(params.extent.width, params.extent.height), params.extent.depth))));
+            params.mipLevels = 1u + static_cast<uint32_t>(std::log2(static_cast<float>(core::max<uint32_t>(core::max<uint32_t>(params.extent.width, params.extent.height), params.extent.depth))));
         auto gpuimg = m_driver->createDeviceLocalGPUImageOnDedMem(std::move(params));
 
 		auto regions = cpuimg->getRegions();
@@ -561,8 +561,8 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUDescriptorSetLayout** const
             maxSamplers += samplerCnt;
             samplersInDS += samplerCnt;
         }
-        maxBindingsPerDescSet = std::max(maxBindingsPerDescSet, dsl->getBindings().size());
-        maxSamplersPerDescSet = std::max(maxSamplersPerDescSet, samplersInDS);
+        maxBindingsPerDescSet = core::max<size_t>(maxBindingsPerDescSet, dsl->getBindings().size());
+        maxSamplersPerDescSet = core::max<size_t>(maxSamplersPerDescSet, samplersInDS);
     }
     cpuSamplers.reserve(maxSamplers);
 
@@ -928,7 +928,8 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
                     }
 					else if (isSampledImgViewDesc(type) || isStorageImgDesc(type))
 					{
-						info->desc = imgViewRedirs[ivi++]>=gpuImgViews->size() ? nullptr : gpuImgViews->operator[](imgViewRedirs[ivi++]);
+						info->desc = imgViewRedirs[ivi]>=gpuImgViews->size() ? nullptr : gpuImgViews->operator[](imgViewRedirs[ivi]);
+                        ++ivi;
 						info->image.imageLayout = desc.image.imageLayout;
 						if (isSampledImgViewDesc(type) && desc.image.sampler)
 							info->image.sampler = gpuSamplers->operator[](smplrRedirs[si++]);

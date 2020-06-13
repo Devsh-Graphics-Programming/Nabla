@@ -11,6 +11,9 @@
 #endif // _IRR_COMPILE_WITH_LIBPNG_
 
 #include "irr/asset/ICPUImageView.h"
+
+#include "irr/asset/IImageAssetHandlerBase.h"
+
 #include "CReadFile.h"
 #include "os.h"
 

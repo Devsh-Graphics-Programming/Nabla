@@ -4,7 +4,6 @@
 #include <type_traits>
 #include <mutex>
 
-#include "irr/static_if.h"
 #include "irr/void_t.h"
 
 #include "irr/core/IReferenceCounted.h"
@@ -161,15 +160,15 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             auto allocation = mAllocator.getCurrentBufferAllocation();
 
             IGPUBuffer* retval;
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_std_get_0_defined<decltype(allocation)>::value)
+			if constexpr(is_std_get_0_defined<decltype(allocation)>::value)
 			{
 				retval = std::get<0u>(allocation);
 			}
-			IRR_PSEUDO_ELSE_CONSTEXPR
+			else
 			{
 				retval = allocation;
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
+			
 
             return retval;
         }

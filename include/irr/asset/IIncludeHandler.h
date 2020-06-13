@@ -12,10 +12,11 @@ namespace asset
 class IIncludeHandler : public core::IReferenceCounted
 {
 	public:
-		static constexpr const char* BUILTIN_PREFIX = "/irr/builtin/";
-		static bool isBuiltinPath(const std::string _p) {
-				size_t prefix_len = strlen(BUILTIN_PREFIX);
-				return _p.compare(0u, prefix_len, BUILTIN_PREFIX)==0 || _p.compare(0u, prefix_len-1u, BUILTIN_PREFIX+1)==0;
+		_IRR_STATIC_INLINE_CONSTEXPR char* BUILTIN_PREFIX = "irr/builtin/";
+		static bool isBuiltinPath(const std::string& _p)
+		{
+			const size_t prefix_len = strlen(BUILTIN_PREFIX);
+			return _p.compare(0u, prefix_len, BUILTIN_PREFIX)==0;
 		}
 
 	protected:

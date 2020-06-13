@@ -2,7 +2,6 @@
 #define _IRR_EXT_LUMA_METER_C_LUMA_METER_INCLUDED_
 
 #include "irrlicht.h"
-#include "../ext/LumaMeter/CGLSLLumaBuiltinIncludeLoader.h"
 
 namespace irr
 {
@@ -10,17 +9,21 @@ namespace ext
 {
 namespace LumaMeter
 {
+
 	
 /**
 - Overridable Tonemapping Parameter preparation (for OptiX and stuff)
 **/
 class CLumaMeter : public core::TotalInterface
 {
-    public:		
+    public:
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_BIN_COUNT = 256u;
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_BIN_GLOBAL_REPLICATION = 4u;
+
 		enum E_METERING_MODE
 		{
 			EMM_GEOM_MEAN,
-			EMM_MODE,
+			EMM_MEDIAN,
 			EMM_COUNT
 		};
 
@@ -33,7 +36,7 @@ class CLumaMeter : public core::TotalInterface
 		template<E_METERING_MODE mode>
 		struct Uniforms_t;
 		template<>
-		struct alignas(256) Uniforms_t<EMM_MODE> : UniformsBase
+		struct alignas(256) Uniforms_t<EMM_MEDIAN> : UniformsBase
 		{
 			uint32_t lowerPercentile;
 			uint32_t upperPercentile;
@@ -64,7 +67,7 @@ class CLumaMeter : public core::TotalInterface
 		}
 		// previous implementation had percentiles 0.72 and 0.96
 		static inline DispatchInfo_t buildParameters(
-			Uniforms_t<EMM_MODE>& uniforms,
+			Uniforms_t<EMM_MEDIAN>& uniforms,
 			const asset::VkExtent3D& imageSize, const float meteringMinUV[2], const float meteringMaxUV[2], float samplingFactor=2.f,
 			float lowerPercentile=0.45f, float upperPercentile=0.55f,
 			uint32_t workGroupXdim=DEFAULT_WORK_GROUP_X_DIM
@@ -80,19 +83,10 @@ class CLumaMeter : public core::TotalInterface
 		}
 
 		//
-		static void registerBuiltinGLSLIncludes(asset::IGLSLCompiler* compilerToAddBuiltinIncludeTo);
+		static core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges();
 
 		//
-		static inline core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges()
-		{
-			return CGLSLLumaBuiltinIncludeLoader::getDefaultPushConstantRanges();
-		}
-
-		//
-		static inline core::SRange<const video::IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver)
-		{
-			return CGLSLLumaBuiltinIncludeLoader::getDefaultBindings(driver);
-		}
+		static core::SRange<const video::IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver);
 
 		//
 		static inline size_t getOutputBufferSize(E_METERING_MODE meterMode, uint32_t arrayLayers=1u)
@@ -103,9 +97,8 @@ class CLumaMeter : public core::TotalInterface
 				case EMM_GEOM_MEAN:
 					retval = 1ull;
 					break;
-				case EMM_MODE:
-					// TODO: should be DEFAULT_BIN_COUNT instead of invocation count
-					retval = CGLSLLumaBuiltinIncludeLoader::DEFAULT_INVOCATION_COUNT;
+				case EMM_MEDIAN:
+					retval = DEFAULT_BIN_COUNT*DEFAULT_BIN_GLOBAL_REPLICATION;
 					break;
 				default:
 					_IRR_DEBUG_BREAK_IF(true);
@@ -143,17 +136,17 @@ class CLumaMeter : public core::TotalInterface
 
 			DispatchInfo_t retval;
 			retval.workGroupDims[0] = {workGroupXdim};
-			retval.workGroupDims[1] = {CGLSLLumaBuiltinIncludeLoader::DEFAULT_INVOCATION_COUNT/workGroupXdim};
+			retval.workGroupDims[1] = {DEFAULT_BIN_COUNT/workGroupXdim};
 			retval.workGroupDims[2] = 1;
 			retval.workGroupCount[2] = imageSize.depth;
 			for (auto i=0; i<2; i++)
 			{
 				const auto imageDim = float((&imageSize.width)[i]);
-				const float windowSizeUnnorm = imageDim*(meteringMaxUV[i]-meteringMinUV[i]);
+				const float range = meteringMaxUV[i]-meteringMinUV[i];
 
-				retval.workGroupCount[i] = core::ceil(windowSizeUnnorm/(float(retval.workGroupDims[i]*samplingFactor)));
+				retval.workGroupCount[i] = core::ceil(imageDim*range/(float(retval.workGroupDims[i]*samplingFactor)));
 
-				uniforms.meteringWindowScale[i] = windowSizeUnnorm/(retval.workGroupCount[i]*retval.workGroupDims[i]);
+				uniforms.meteringWindowScale[i] = range/(retval.workGroupCount[i]*retval.workGroupDims[i]);
 				uniforms.meteringWindowOffset[i] = meteringMinUV[i];
 			}
 			return retval;

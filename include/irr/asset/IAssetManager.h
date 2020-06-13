@@ -14,16 +14,16 @@
 #include "IFileSystem.h"
 #include "IReadFile.h"
 #include "IWriteFile.h"
-#include "IAssetLoader.h"
-#include "IAssetWriter.h"
+
 #include "irr/core/Types.h"
 #include "irr/asset/IGLSLCompiler.h"
 
-#include "irr/asset/IGeometryCreator.h"
+#include "irr/asset/IGeometryCreator.h"/*
 #include "irr/asset/IMeshManipulator.h"
-#include "irr/asset/CQuantNormalCache.h"
+#include "irr/asset/CQuantNormalCache.h"*/
 #include "irr/asset/IAssetLoader.h"
 #include "irr/asset/IAssetWriter.h"
+
 
 #define USE_MAPS_FOR_PATH_BASED_CACHE //benchmark and choose, paths can be full system paths
 

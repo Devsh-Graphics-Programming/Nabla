@@ -77,7 +77,7 @@ int main()
 	const auto inputColorSpace = std::make_tuple(inFormat,ECP_SRGB,EOTF_IDENTITY);
 
 	using LumaMeterClass = ext::LumaMeter::CLumaMeter;
-	constexpr auto MeterMode = LumaMeterClass::EMM_GEOM_MEAN;
+	constexpr auto MeterMode = LumaMeterClass::EMM_MEDIAN;
 	const float minLuma = 1.f/2048.f;
 	const float maxLuma = 65536.f;
 
@@ -96,7 +96,7 @@ int main()
 	using ToneMapperClass = ext::ToneMapper::CToneMapper;
 	constexpr auto TMO = ToneMapperClass::EO_ACES;
 	constexpr bool usingLumaMeter = MeterMode<LumaMeterClass::EMM_COUNT;
-	constexpr bool usingTemporalAdapatation = false;
+	constexpr bool usingTemporalAdapatation = true;
 
 	auto cpuTonemappingSpecializedShader = ToneMapperClass::createShader(am->getGLSLCompiler(),
 		inputColorSpace,
@@ -111,15 +111,12 @@ int main()
 	auto parameterBuffer = driver->createDeviceLocalGPUBufferOnDedMem(ToneMapperClass::getParameterBufferSize<TMO,MeterMode>());
 	constexpr float Exposure = 0.f;
 	constexpr float Key = 0.18;
+	auto params = ToneMapperClass::Params_t<TMO>(Exposure, Key, 0.85f);
 	{
-		auto params = ToneMapperClass::Params_t<TMO>(Exposure, Key, 0.85f);
-		//params.setAdaptationFactorFromFrameDelta()
+		params.setAdaptationFactorFromFrameDelta(0.f);
 		driver->updateBufferRangeViaStagingBuffer(parameterBuffer.get(),0u,sizeof(params),&params);
 	}
-/*
-TODO:
-- adaptation speeds
-*/
+
 	auto commonPipelineLayout = ToneMapperClass::getDefaultPipelineLayout(driver,usingLumaMeter);
 
 	auto lumaMeteringPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(commonPipelineLayout),std::move(gpuLumaMeasureSpecializedShader));
@@ -141,6 +138,7 @@ TODO:
 	blitFBO->attach(video::EFAP_COLOR_ATTACHMENT0, std::move(outImgView));
 
 	uint32_t outBufferIx = 0u;
+	auto lastPresentStamp = std::chrono::high_resolution_clock::now();
 	while (device->run() && receiver.keepOpen())
 	{
 		driver->beginScene(false, false);
@@ -157,6 +155,18 @@ TODO:
 		driver->blitRenderTargets(blitFBO, nullptr, false, false);
 
 		driver->endScene();
+		if (usingTemporalAdapatation)
+		{
+			auto thisPresentStamp = std::chrono::high_resolution_clock::now();
+			auto microsecondsElapsedBetweenPresents = std::chrono::duration_cast<std::chrono::microseconds>(thisPresentStamp-lastPresentStamp);
+			lastPresentStamp = thisPresentStamp;
+
+			params.setAdaptationFactorFromFrameDelta(float(microsecondsElapsedBetweenPresents.count())/1000000.f);
+			// dont override shader output
+			constexpr auto offsetPastLumaHistory = offsetof(decltype(params),lastFrameExtraEVAsHalf)+sizeof(decltype(params)::lastFrameExtraEVAsHalf);
+			auto* paramPtr = reinterpret_cast<const uint8_t*>(&params);
+			driver->updateBufferRangeViaStagingBuffer(parameterBuffer.get(), offsetPastLumaHistory, sizeof(params)-offsetPastLumaHistory, paramPtr+offsetPastLumaHistory);
+		}
 	}
 
 	return 0;

@@ -3,7 +3,6 @@
 
 #include "irrlicht.h"
 #include "../ext/LumaMeter/CLumaMeter.h"
-#include "../ext/ToneMapper/CGLSLToneMappingBuiltinIncludeLoader.h"
 
 namespace irr
 {
@@ -25,20 +24,20 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		//
 		struct ParamsBase
 		{
-			inline void setAdaptationFactorFromFrameDelta(float frameDeltaSeconds, float upAdaptationPerSecondLog2=-0.5f, float downAdaptationPerSecondLog2=-0.1f)
-			{
-				float up = core::exp2(upAdaptationPerSecondLog2*frameDeltaSeconds);
-				float down = core::exp2(downAdaptationPerSecondLog2*frameDeltaSeconds);
+				inline void setAdaptationFactorFromFrameDelta(float frameDeltaSeconds, float upAdaptationPerSecondLog2=-1.1f, float downAdaptationPerSecondLog2=-0.2f)
+				{
+					float up = core::exp2(upAdaptationPerSecondLog2*frameDeltaSeconds);
+					float down = core::exp2(downAdaptationPerSecondLog2*frameDeltaSeconds);
 
-				upExposureAdaptationFactorAsHalf = core::Float16Compressor::compress(up);
-				downExposureAdaptationFactorAsHalf = core::Float16Compressor::compress(down);
-			}
+					upExposureAdaptationFactorAsHalf = core::Float16Compressor::compress(up);
+					downExposureAdaptationFactorAsHalf = core::Float16Compressor::compress(down);
+				}
 
-			uint16_t lastFrameExtraEVAsHalf[2] = { 0u,0u };
-		protected:
-			// target+(current-target)*exp(-k*t) == mix(target,current,factor)
-			uint16_t upExposureAdaptationFactorAsHalf = 0u;
-			uint16_t downExposureAdaptationFactorAsHalf = 0u;
+				uint16_t lastFrameExtraEVAsHalf[2] = { 0u,0u };
+			protected:
+				// target+(current-target)*exp(-k*t) == mix(target,current,factor)
+				uint16_t upExposureAdaptationFactorAsHalf = 0u;
+				uint16_t downExposureAdaptationFactorAsHalf = 0u;
 		};
 		//
 		template<E_OPERATOR _operator>
@@ -46,42 +45,39 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		template<>
 		struct alignas(256) Params_t<EO_REINHARD> : ParamsBase
 		{
-			Params_t(float EV, float key=0.18f, float WhitePointRelToEV=16.f)
-			{
-				keyAndLinearExposure = key*exp2(EV);
-				rcpWhite2 = 1.f/(WhitePointRelToEV*WhitePointRelToEV);
-			}
+				Params_t(float EV, float key=0.18f, float WhitePointRelToEV=16.f)
+				{
+					keyAndLinearExposure = key*exp2(EV);
+					rcpWhite2 = 1.f/(WhitePointRelToEV*WhitePointRelToEV);
+				}
 
-			float keyAndLinearExposure; // usually 0.18*exp2(exposure)
-			float rcpWhite2; // the white is relative to post-exposed luma
+				float keyAndLinearExposure; // usually 0.18*exp2(exposure)
+				float rcpWhite2; // the white is relative to post-exposed luma
 		};
 		template<>
 		struct alignas(256) Params_t<EO_ACES> : ParamsBase
 		{
-			Params_t(float EV, float key=0.18f, float Contrast=1.f) : gamma(Contrast)
-			{
-				setExposure(EV,key);
-			}
+				Params_t(float EV, float key=0.18f, float Contrast=1.f) : gamma(Contrast)
+				{
+					setExposure(EV,key);
+				}
 
-			inline void setExposure(float EV, float key=0.18f)
-			{
-				constexpr float reinhardMatchCorrection = 0.77321666f; // middle grays get exposed to different values between tonemappers given the same key
-				exposure = EV+log2(key*reinhardMatchCorrection);
-			}
+				inline void setExposure(float EV, float key=0.18f)
+				{
+					constexpr float reinhardMatchCorrection = 0.77321666f; // middle grays get exposed to different values between tonemappers given the same key
+					exposure = EV+log2(key*reinhardMatchCorrection);
+				}
 
-			float gamma; // 1.0
-		private:
-			float exposure; // actualExposure+midGrayLog2
+				float gamma; // 1.0
+			private:
+				float exposure; // actualExposure+midGrayLog2
 		};
-
-		//
-		static void registerBuiltinGLSLIncludes(asset::IGLSLCompiler* compilerToAddBuiltinIncludeTo);
 
 		//
 		static inline core::SRange<const asset::SPushConstantRange> getDefaultPushConstantRanges(bool usingLumaMeter=false)
 		{
 			if (usingLumaMeter)
-				return LumaMeter::CGLSLLumaBuiltinIncludeLoader::getDefaultPushConstantRanges();
+				return LumaMeter::CLumaMeter::getDefaultPushConstantRanges();
 			else
 				return {nullptr,nullptr};
 		}

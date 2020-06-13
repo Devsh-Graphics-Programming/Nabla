@@ -1,6 +1,6 @@
 #include <irrlicht.h>
 #include "irr/video/COpenGLImageView.h"
-#include "../source/Irrlicht/COpenGLDriver.h"
+#include "COpenGLDriver.h"
 #include "irr/video/CDerivativeMapCreator.h"
 
 using namespace irr;

@@ -2,7 +2,7 @@
 #define __C_CONCURRENT_OBJECT_CACHE_H_INCLUDED__
 
 #include "CObjectCache.h"
-#include "../source/Irrlicht/FW_Mutex.h"
+#include "FW_Mutex.h"
 
 namespace irr { namespace core
 {

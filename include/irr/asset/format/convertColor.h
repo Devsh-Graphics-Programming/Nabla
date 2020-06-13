@@ -4,7 +4,6 @@
 #include <cassert>
 #include <type_traits>
 
-#include "irr/static_if.h"
 #include "irr/asset/format/EFormat.h"
 #include "decodePixels.h"
 #include "encodePixels.h"
