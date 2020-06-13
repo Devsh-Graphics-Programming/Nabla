@@ -119,7 +119,8 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			auto perOutputRegion = [&](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
 				assert(getTexelOrBlockBytesize(commonExecuteData.inFormat) == getTexelOrBlockBytesize(commonExecuteData.outFormat)); // if this asserts the API got broken during an update or something
-				const auto blockDims = asset::getBlockDimensions(commonExecuteData.inFormat);
+				core::vector3du32_SIMD trueExtent(commonExecuteData.oit->imageExtent.width, commonExecuteData.oit->imageExtent.height, commonExecuteData.oit->imageExtent.depth);
+				const auto texelByteSize = asset::getTexelOrBlockBytesize(commonExecuteData.inFormat);
 				const auto currentChannelCount = asset::getFormatChannelCount(commonExecuteData.inFormat);
 				static constexpr auto maxChannels = 4;
 
@@ -131,13 +132,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					decodeType decodeBuffer[maxChannels] = {};
 
 					size_t regionLayerByteOffset = {}; // TODO need to use filters API to stay at layer-mipmap memory 
-					const auto* entryData = reinterpret_cast<const uint8_t*>(commonExecuteData.inImg->getBuffer()->getPointer()) + regionLayerByteOffset;
-
-					core::vector3du32_SIMD trueExtent;
-					trueExtent.x = commonExecuteData.oit->imageExtent.width;
-					trueExtent.y = commonExecuteData.oit->imageExtent.height;
-					trueExtent.z = commonExecuteData.oit->imageExtent.depth;
-					const auto texelOrBlockByteSize = asset::getTexelOrBlockBytesize(commonExecuteData.inFormat);
+					const auto* entryData = commonExecuteData.inData + regionLayerByteOffset;
 
 					core::vector3du32_SIMD localCoord;
 					for (auto& z = localCoord[2] = 0u; z < trueExtent.z; ++z)
@@ -145,7 +140,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 							for (auto& x = localCoord[0] = 0u; x < trueExtent.x; ++x)
 							{
 								const size_t independentPtrOffset = ((z * trueExtent.y + y) * trueExtent.x + x);
-								auto* inDataAdress = entryData + independentPtrOffset * texelOrBlockByteSize;
+								auto* inDataAdress = entryData + independentPtrOffset * texelByteSize;
 								auto* outDataAdress = scratchMemory + independentPtrOffset * currentChannelCount;
 
 								const void* sourcePixels[maxChannels] = { inDataAdress, nullptr, nullptr, nullptr };
@@ -154,6 +149,8 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 							}
 				};
 
+				decodeEntireImageToTemporaryScratchImage();
+
 				auto mainRowCacheBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(decodeType) * currentChannelCount);
 				auto mainRowCache = reinterpret_cast<decodeType*>(mainRowCacheBuffer->getPointer()); // row cache is independent, we always put to it data per each row summing everything and use it to fill column cache as well
 				memset(mainRowCache, 0, mainRowCacheBuffer->getSize()); 
@@ -161,32 +158,35 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 				constexpr auto decodeByteSize = 8;
 				auto sum = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 				{
-					decltype(readBlockPos) newReadBlockPos = decltype(newReadBlockPos)(readBlockPos.x, commonExecuteData.oit->imageExtent.height - 1 - readBlockPos.y, readBlockPos.z);
-					const size_t columnCachePtrOffset = ((newReadBlockPos.z * commonExecuteData.oit->imageExtent.height + 0) * commonExecuteData.oit->imageExtent.width + 0);
+					decltype(readBlockPos) newReadBlockPos = decltype(newReadBlockPos)(readBlockPos.x, trueExtent.y - 1 - readBlockPos.y, readBlockPos.z);
+					const size_t columnCachePtrOffset = ((newReadBlockPos.z * trueExtent.y + 0) * trueExtent.x + 0);
 					decodeType* mainColumnCache = scratchMemory + columnCachePtrOffset * currentChannelCount; // column cache is embedded into scratch memory for not wasting memory space, beginning with (0, 0, z)
 
-					auto outDataAdressOffsetNormalIteration = ((newReadBlockPos.z * commonExecuteData.oit->imageExtent.height + newReadBlockPos.y) * commonExecuteData.oit->imageExtent.width + newReadBlockPos.x) * currentChannelCount;
+					const auto globalIndependentOffset = ((newReadBlockPos.z * trueExtent.y + newReadBlockPos.y) * trueExtent.x + newReadBlockPos.x);
+					const auto outDataAdressOffsetInput = globalIndependentOffset * texelByteSize;
+					const auto outDataAdressOffsetScratch = globalIndependentOffset * currentChannelCount;
+
 					auto finalPixelBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(decodeType) * currentChannelCount);
 					auto finalPixel = reinterpret_cast<decodeType*>(finalPixelBuffer->getPointer());
 					memset(finalPixel, 0, finalPixelBuffer->getSize());
+					auto fetchedPixelColorItself = commonExecuteData.inData + outDataAdressOffsetInput;
+
+					decodeType decodeBuffer[maxChannels] = {};
+					const void* sourcePixels[maxChannels] = { fetchedPixelColorItself, nullptr, nullptr, nullptr };
+					asset::decodePixelsRuntime(commonExecuteData.inFormat, sourcePixels, decodeBuffer, 1, 1);
 
 					for (uint8_t channel = 0; channel < currentChannelCount; ++channel)
-					{
-						auto outDataAdressOffsetItself = outDataAdressOffsetNormalIteration + channel;
-						auto outDataAdressOffsetX = ((newReadBlockPos.z * commonExecuteData.oit->imageExtent.height + newReadBlockPos.y) * commonExecuteData.oit->imageExtent.width + newReadBlockPos.x - 1) * currentChannelCount + channel;
-						auto pixelColorItself = scratchMemory + outDataAdressOffsetItself;
-						auto pixelColorX = scratchMemory + outDataAdressOffsetX;
-						
-						*(mainRowCache + channel) += *(pixelColorItself + channel);
-						*(mainColumnCache + channel) += mainRowCache[channel];
+					{ 
+						*(mainRowCache + channel) += decodeBuffer[channel];
+						*(mainColumnCache + channel) += decodeBuffer[channel];
 
 						*(finalPixel + channel)
 						= (newReadBlockPos.x > 0 ? mainRowCache[channel] : 0)
-						+ (newReadBlockPos.y < commonExecuteData.oit->imageExtent.height - 1 ?  *(mainColumnCache + channel) : 0) 
-						+ (!ExclusiveMode ? *(pixelColorItself + channel) : 0);
+						+ (newReadBlockPos.y < trueExtent.y - 1 ? *(mainColumnCache + channel) : 0)
+						+ (!ExclusiveMode ? decodeBuffer[channel] : 0);
 					}
 
-					memcpy(scratchMemory + outDataAdressOffsetNormalIteration, finalPixel, sizeof(decodeType) * currentChannelCount);
+					memcpy(scratchMemory + outDataAdressOffsetScratch, finalPixel, sizeof(decodeType) * currentChannelCount);
 
 					if (newReadBlockPos.x == commonExecuteData.oit->imageExtent.width - 1) // reset row cache when changing y
 						memset(mainRowCache, 0, sizeof(decodeType) * currentChannelCount);
@@ -197,14 +197,17 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 				auto encodeTo = [&](ICPUImage* outImage)
 				{
 					core::vector3du32_SIMD localCoord;
-					for (auto& zBlock = localCoord[2] = 0u; zBlock < blockDims.z; ++zBlock)
-						for (auto& yBlock = localCoord[1] = 0u; yBlock < blockDims.y; ++yBlock)
-							for (auto& xBlock = localCoord[0] = 0u; xBlock < blockDims.x; ++xBlock)
+					for (auto& z = localCoord[2] = 0u; z < trueExtent.z; ++z)
+						for (auto& y = localCoord[1] = 0u; y < trueExtent.y; ++y)
+							for (auto& x = localCoord[0] = 0u; x < trueExtent.x; ++x)
 							{
-								const size_t independentPtrOffset = ((zBlock * blockDims.y + yBlock) * blockDims.x + xBlock);
-								auto* outScratchAdress = scratchMemory + ((zBlock * blockDims.y + yBlock) * blockDims.x + xBlock) * currentChannelCount;
-								auto* inData = reinterpret_cast<uint8_t*>(outImage->getBuffer()->getPointer()) + independentPtrOffset * asset::getTexelOrBlockBytesize(commonExecuteData.outFormat); // TODO need to use filters API to stay at layer-mipmap memory
-								asset::encodePixelsRuntime(commonExecuteData.outFormat, inData, outScratchAdress);
+								const auto globalIndependentOffset = ((localCoord.z * trueExtent.y + localCoord.y) * trueExtent.x + localCoord.x);
+								const auto outDataAdressOffsetInput = globalIndependentOffset * texelByteSize;
+								const auto outDataAdressOffsetScratch = globalIndependentOffset * currentChannelCount;
+
+								auto* outScratchAdress = scratchMemory + outDataAdressOffsetScratch;
+								auto* entryData = commonExecuteData.inData + outDataAdressOffsetInput; // TODO need to use filters API to stay at layer-mipmap memory
+								asset::encodePixelsRuntime(commonExecuteData.inFormat, outScratchAdress, entryData);
 							}
 				};
 
