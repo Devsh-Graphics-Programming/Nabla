@@ -39,7 +39,7 @@ protected:
     core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
     {
         return {
-            { std::regex{"numeric\\.glsl"}, &getNumericLimits }
+            { std::regex{"glsl/limits/numeric\\.glsl"}, &getNumericLimits }
         };
     }
 };

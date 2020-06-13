@@ -106,8 +106,8 @@ protected:
     core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
     {
         return {
-            { std::regex{"constants\\.glsl"}, &getConstants },
-            { std::regex{"functions\\.glsl"}, &getFunctions }
+            { std::regex{"glsl/math/constants\\.glsl"}, &getConstants },
+            { std::regex{"glsl/math/functions\\.glsl"}, &getFunctions }
         };
     }
 };
