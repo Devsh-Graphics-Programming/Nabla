@@ -235,10 +235,10 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
                 return {};//return empty bundle
 
             auto capableLoadersRng = m_loaders.perFileExt.findRange(getFileExt(filename.c_str()));
-
-            for (auto loaderItr = capableLoadersRng.first; loaderItr != capableLoadersRng.second; ++loaderItr) // loaders associated with the file's extension tryout
+            // loaders associated with the file's extension tryout
+            for (auto& loader : capableLoadersRng)
             {
-                if (loaderItr->second->isALoadableFileFormat(file) && !(asset = loaderItr->second->loadAsset(file, params, _override, _hierarchyLevel)).isEmpty())
+                if (loader.second->isALoadableFileFormat(file) && !(asset = loader.second->loadAsset(file, params, _override, _hierarchyLevel)).isEmpty())
                     break;
             }
             for (auto loaderItr = std::begin(m_loaders.vector); asset.isEmpty() && loaderItr != std::end(m_loaders.vector); ++loaderItr) // all loaders tryout
@@ -554,9 +554,9 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 
             auto capableWritersRng = m_writers.perTypeAndFileExt.findRange({_params.rootAsset->getAssetType(), getFileExt(_file->getFileName())});
 
-            for (auto it = capableWritersRng.first; it != capableWritersRng.second; ++it)
-                if (it->second->writeAsset(_file, _params, _override))
-                    return true;
+            for (auto& writer : capableWritersRng)
+            if (writer.second->writeAsset(_file, _params, _override))
+                return true;
             return false;
         }
         bool writeAsset(const std::string& _filename, const IAssetWriter::SAssetWriteParams& _params)

@@ -120,8 +120,8 @@ namespace impl
 
 
     public:
-        using RangeType = std::pair<IteratorType, IteratorType>;
-        using ConstRangeType = std::pair<ConstIteratorType, ConstIteratorType>;
+        using RangeType = core::SRange<T, IteratorType, ConstIteratorType>;
+        using ConstRangeType = core::SRange<T, ConstIteratorType, ConstIteratorType>;
 
         using GreetFuncType = std::function<void(ValueType_impl&)>;
         using DisposalFuncType = std::function<void(ValueType_impl&)>;
@@ -330,11 +330,13 @@ namespace impl
     public:
         inline typename Base::RangeType findRange(const typename Base::KeyType_impl& _key)
         {
-            return Base::m_container.equal_range(_key);
+            auto p = Base::m_container.equal_range(_key);
+            return typename Base::RangeType(p.first,p.second);
         }
         inline typename Base::ConstRangeType findRange(const typename Base::KeyType_impl& _key) const
         {
-            return Base::m_container.equal_range(_key);
+            auto p = Base::m_container.equal_range(_key);
+            return typename Base::ConstRangeType(p.first, p.second);
         }
     };
     template<
@@ -425,7 +427,7 @@ namespace impl
         inline bool removeObject(const typename Base::ValueType_impl& _obj, const typename Base::KeyType_impl& _key)
         {
             typename Base::RangeType range = this->findRange(_key);
-            for (auto it = range.first; it != range.second; ++it)
+            for (auto it=range.begin(); it!=range.end(); ++it)
             {
                 if (it->second == _obj)
                 {
@@ -498,7 +500,7 @@ namespace impl
         {
             typename Base::RangeType range =
                 const_cast<typename std::decay<decltype(*this)>::type&>(*this).findRange(_key);
-            return typename Base::ConstRangeType(range.first, range.second);
+            return typename Base::ConstRangeType(range.begin(), range.end());
         }
     };
     template<

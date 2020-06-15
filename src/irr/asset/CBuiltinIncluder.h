@@ -52,9 +52,9 @@ class CBuiltinIncluder : public IIncluder
             while (path != IIncludeHandler::BUILTIN_PREFIX) // going up the directory tree
             {
                 auto capableLoadersRng = m_loaders.findRange(path);
-                for (auto loaderItr = capableLoadersRng.first; loaderItr != capableLoadersRng.second; ++loaderItr)
+                for (auto& loader : capableLoadersRng)
                 {
-                    if (!(res = loaderItr->second->getBuiltinInclude(relativePath)).empty())
+                    if (!(res = loader.second->getBuiltinInclude(relativePath)).empty())
                         return res;
                 }
                 if (path.size()==0ull)

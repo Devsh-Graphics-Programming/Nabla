@@ -269,12 +269,12 @@ class SAssetBundle
 		//! Getting beginning and end of an Asset stored by m_contents
 		inline core::SRange<const core::smart_refctd_ptr<IAsset>> getContents() const
 		{
-			return {m_contents->begin(), m_contents->end()};
+			return core::SRange<const core::smart_refctd_ptr<IAsset>>(m_contents->begin(),m_contents->end());
 		}
 
 		inline core::SRange<core::smart_refctd_ptr<IAsset>> getContents()
 		{
-			return {m_contents->begin(), m_contents->end()};
+			return core::SRange<core::smart_refctd_ptr<IAsset>>(m_contents->begin(),m_contents->end());
 		}
 
 		//! Whether this asset bundle is in a cache and should be removed from cache to destroy
