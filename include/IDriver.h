@@ -373,9 +373,23 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 
 
 		//! Utility function to convert all your CPU asset data into GPU objects ready for use
+        // With a custom converter, you can override it to for example; pack all buffers into one, pack all images into one atlas, etc.
+
+        template<typename AssetType>
+        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>& _range, IGPUObjectFromAssetConverter* _converter = nullptr);
+        template<typename AssetType>
+        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::SRange<core::smart_refctd_ptr<asset::IAsset>>& _range, IGPUObjectFromAssetConverter* _converter = nullptr)
+        {
+            core::SRange<const core::smart_refctd_ptr<asset::IAsset>> tmp(
+                reinterpret_cast<core::smart_refctd_ptr<asset::IAsset>*>(_range.begin()), // I know what I'm doing
+                reinterpret_cast<core::smart_refctd_ptr<asset::IAsset>*>(_range.end()) // I know what I'm doing
+            );
+            return getGPUObjectsFromAssets<AssetType>(tmp,_converter);
+        }
+        //!
         template<typename AssetType>
         created_gpu_object_array<AssetType> getGPUObjectsFromAssets(AssetType* const* const _begin, AssetType* const* const _end, IGPUObjectFromAssetConverter* _converter = nullptr);
-		//! With a custom converter, you can override it to for example; pack all buffers into one, pack all images into one atlas, etc.
+		//! 
 		template<typename AssetType>
 		created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::smart_refctd_ptr<AssetType>* _begin, const core::smart_refctd_ptr<AssetType>* _end, IGPUObjectFromAssetConverter* _converter = nullptr);
 

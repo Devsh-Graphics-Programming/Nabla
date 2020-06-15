@@ -86,7 +86,7 @@ class IGPUObjectFromAssetConverter
 		template<typename AssetType, typename iterator_type>
         created_gpu_object_array<AssetType> getGPUObjectsFromAssets(iterator_type _begin, iterator_type _end, const SParams& _params = {})
 		{
-			const auto assetCount = std::distance(_begin, _end);
+			const auto assetCount = _end-_begin;
 			auto res = core::make_refctd_dynamic_array<created_gpu_object_array<AssetType> >(assetCount);
 
 			core::vector<AssetType*> notFound; notFound.reserve(assetCount);
@@ -94,7 +94,7 @@ class IGPUObjectFromAssetConverter
 
 			for (iterator_type it = _begin; it != _end; it++)
 			{
-				const auto index = std::distance(_begin, it);
+				const auto index = it-_begin;
 
 				//if (*it)
 				//{
