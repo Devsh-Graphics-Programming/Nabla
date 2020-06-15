@@ -126,9 +126,6 @@ namespace impl
         using GreetFuncType = std::function<void(ValueType_impl&)>;
         using DisposalFuncType = std::function<void(ValueType_impl&)>;
 
-        template<typename RangeT>
-        static bool isNonZeroRange(const RangeT& _range) { return _range.first != _range.second; }
-
     protected:
         GreetFuncType m_greetingFunc;
         DisposalFuncType m_disposalFunc;
@@ -152,15 +149,15 @@ namespace impl
 
     private:
         template<typename StorageT>
-        void outputThis(const ConstIteratorType& _itr, size_t _ix, StorageT* _storage) const
+        void outputThis(const PairType& _item, size_t _ix, StorageT* _storage) const
         {
 			if constexpr(std::is_same<StorageT, MutablePairType>::value)
 			{
-				_storage[_ix] = *_itr;
+				_storage[_ix] = _item;
 			}
 			else
 			{
-				_storage[_ix] = _itr->second;
+				_storage[_ix] = _item.second;
 			}
 			
         }
@@ -171,13 +168,17 @@ namespace impl
         {
             if (!_out)
             {
-                _inOutStorageSize = std::distance(_rng.first, _rng.second);
+                _inOutStorageSize = _rng.size();
                 return false;
             }
             size_t i = 0u;
-            for (auto it = _rng.first; it != _rng.second && i < _inOutStorageSize; ++it)
-                outputThis(it, i++, _out);
-            const size_t reqSize = std::distance(_rng.first, _rng.second);
+            for (auto& item : _rng)
+            {
+                if (i>=_inOutStorageSize)
+                    break;
+                outputThis(item, i++, _out);
+            }
+            const size_t reqSize = _rng.size();
             bool res = _inOutStorageSize <= reqSize;
             _inOutStorageSize = i;
             return res;
@@ -367,15 +368,13 @@ namespace impl
             auto cmpf = [](const typename Base::PairType& _a, const typename Base::PairType& _b) -> bool { return _a.first < _b.first; };
             typename Base::PairType lookingFor{ _key, typename Base::ValueType_impl{} };
 
-            RngType range;
-            range.first = std::lower_bound(std::begin(_container), std::end(_container), lookingFor, cmpf);
-            if (range.first == std::end(_container) || _key < range.first->first)
-            {
-                range.second = range.first;
-                return range;
-            }
-            range.second = std::upper_bound(range.first, typename RngType::first_type(std::end(_container)), lookingFor, cmpf);
-            return range;
+            auto begin = std::lower_bound(std::begin(_container), std::end(_container), lookingFor, cmpf);
+            std::remove_reference_t<decltype(begin)> end;
+            if (begin == std::end(_container) || _key < begin->first)
+                end = begin;
+            else
+                end = std::upper_bound(begin, std::end(_container), lookingFor, cmpf);
+            return RngType(begin,end);
         }
 
     public:
@@ -446,8 +445,8 @@ namespace impl
     private:
         typename Base::IteratorType find(const typename Base::RangeType& _range, const typename Base::KeyType_impl& _key, const typename Base::ImmutableValueType_impl& _obj) const
         {
-            typename Base::IteratorType found = _range.second;
-            for (auto it = _range.first; it != _range.second; ++it)
+            typename Base::IteratorType found = _range.end();
+            for (auto it=_range.begin(); it!=_range.end(); ++it)
             {
                 if (it->second == _obj)
                 {
@@ -558,8 +557,8 @@ namespace impl
         inline bool removeObject(const typename Base::ValueType_impl& _obj, const typename Base::KeyType_impl& _key)
         {
             typename Base::RangeType range = this->findRange(_key);
-            auto it = range.first;
-            if (Base::isNonZeroRange(range) && it->second == _obj)
+            auto it = range.begin();
+            if (range.size() && it->second == _obj)
             {
 				if constexpr(DisposeOnRemove)
 				{
@@ -578,9 +577,9 @@ namespace impl
             this->greet(_val); // grab before drop
 
             typename Base::RangeType range = this->findRange(_key);
-            auto it = range.first;
+            auto it = range.begin();
 
-            if (Base::isNonZeroRange(range) && it->second == _obj)
+            if (range.size() && it->second == _obj)
             {
                 this->dispose(it->second);
                 it->second = _val;
@@ -632,7 +631,7 @@ namespace impl
         bool getKeyRangeOrReserve(typename Base::RangeType* _outrange, const typename Base::KeyType_impl& _key)
         {
             *_outrange = this->findRange(_key);
-            if (!Base::isNonZeroRange(*_outrange))
+            if (_outrange->size()==0u)
             {
                 _outrange->first = this->m_container.insert(_outrange->second, { _key, nullptr });
                 _outrange->second = std::next(_outrange->first);
@@ -649,7 +648,7 @@ namespace impl
                 _gotAll = &dummy;
             auto rng = this->findRange(_key);
             bool res = true;
-            if (!Base::isNonZeroRange(rng))
+            if (rng.size()==0u)
             {
                 rng.first = this->m_container.insert(rng.second, { _key, nullptr });
                 rng.second = std::next(rng.first);

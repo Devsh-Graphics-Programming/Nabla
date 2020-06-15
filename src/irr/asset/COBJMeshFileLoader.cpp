@@ -18,29 +18,6 @@
 
 
 
-/*
-namespace std
-{
-    template <>
-    struct hash<irr::asset::SObjVertex>
-    {
-        std::size_t operator()(const irr::asset::SObjVertex& k) const
-        {
-            using std::size_t;
-            using std::hash;
-
-            return hash(k.normal32bit)^
-                    (reinterpret_cast<const uint32_t&>(k.pos[0])*4996156539000000107ull)^
-                    (reinterpret_cast<const uint32_t&>(k.pos[1])*620612627000000023ull)^
-                    (reinterpret_cast<const uint32_t&>(k.pos[2])*1231379668000000199ull)^
-                    (reinterpret_cast<const uint32_t&>(k.uv[0])*1099543332000000001ull)^
-                    (reinterpret_cast<const uint32_t&>(k.uv[1])*1123461104000000009ull);
-        }
-    };
-
-}
-*/
-
 namespace irr
 {
 namespace asset
