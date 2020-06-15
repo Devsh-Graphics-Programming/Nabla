@@ -65,7 +65,7 @@ static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAsse
 	auto assets = bundle.getContents();
 	//assert(assets.first != assets.second);
 
-	return core::smart_refctd_ptr_static_cast<AssetType>(assets.first[0]);
+	return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
 }
 
 //#ifdef _IRR_DEBUG
@@ -226,9 +226,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 std::replace(mtllib.begin(), mtllib.end(), '\\', '/');
                 SAssetLoadParams loadParams;
                 auto bundle = interm_getAssetInHierarchy(AssetManager, mtllib, loadParams, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW, _override);
-                for (auto it = bundle.getContents().first; it != bundle.getContents().second; ++it)
+				for (auto ass : bundle.getContents())
                 {
-                    auto pipeln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(*it);
+                    auto pipeln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(ass);
                     auto metadata = static_cast<const CMTLPipelineMetadata*>(pipeln->getMetadata());
                     std::string mtlfilepath = relPath+tmpbuf;
 
@@ -305,15 +305,16 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     asset::IAsset::E_TYPE types[] {asset::IAsset::ET_SUB_MESH, (asset::IAsset::E_TYPE)0u };
                     auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
                     auto mbs = mb_bundle.getContents();
+					bool notempty = mbs.size()!=0ull;
                     {
-                        auto mb = (mbs.first != mbs.second) ? core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(*mbs.first) : core::make_smart_refctd_ptr<ICPUMeshBuffer>();
-						if (mbs.first != mbs.second)
+                        auto mb = notempty ? core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(*mbs.begin()) : core::make_smart_refctd_ptr<ICPUMeshBuffer>();
+						if (notempty)
 							mb->setNormalnAttributeIx(NORMAL);
                         submeshes.push_back(std::move(mb));
                     }
                     indices.emplace_back();
                     recalcNormals.push_back(false);
-                    submeshWasLoadedFromCache.push_back(mbs.first!=mbs.second);
+                    submeshWasLoadedFromCache.push_back(notempty);
                     //if submesh was loaded from cache - insert empty "cache key" (submesh loaded from cache won't be added to cache again)
                     submeshCacheKeys.push_back(submeshWasLoadedFromCache.back() ? "" : genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName));
                     submeshMaterialNames.push_back(mtlName);

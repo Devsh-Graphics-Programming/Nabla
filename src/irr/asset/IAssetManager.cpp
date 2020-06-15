@@ -89,8 +89,8 @@ std::function<void(SAssetBundle&)> irr::asset::makeAssetGreetFunc(const IAssetMa
 		_mgr->setAssetCached(_asset, true);
 		auto rng = _asset.getContents();
 		//assets being in the cache must be immutable
-		for (auto it = rng.first; it != rng.second; ++it)
-			_mgr->setAssetMutable(it->get(), false);
+        for (auto ass : rng)
+			_mgr->setAssetMutable(ass.get(), false);
 	};
 }
 std::function<void(SAssetBundle&)> irr::asset::makeAssetDisposeFunc(const IAssetManager* const _mgr)
@@ -98,8 +98,8 @@ std::function<void(SAssetBundle&)> irr::asset::makeAssetDisposeFunc(const IAsset
 	return [_mgr](SAssetBundle& _asset) {
 		_mgr->setAssetCached(_asset, false);
 		auto rng = _asset.getContents();
-		for (auto it = rng.first; it != rng.second; ++it)
-			_mgr->setAssetMutable(it->get(), true);
+        for (auto ass : rng)
+			_mgr->setAssetMutable(ass.get(), true);
 	};
 }
 

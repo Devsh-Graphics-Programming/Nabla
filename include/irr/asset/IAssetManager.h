@@ -489,10 +489,10 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 			for (auto it=assets->begin(); it!=assets->end(); it++)
 			{
 				const auto& contents = it->getContents();
-				for (auto it2=contents.first; it2!=contents.second; it2++)
+                for (auto ass : contents)
 				{
 					size_t storageSz = 1u;
-					m_cpuGpuCache[ix]->findAndStoreRange(it2->get(), storageSz, outIt++);
+					m_cpuGpuCache[ix]->findAndStoreRange(ass.get(), storageSz, outIt++);
 					assert(storageSz);
 				}
 			}

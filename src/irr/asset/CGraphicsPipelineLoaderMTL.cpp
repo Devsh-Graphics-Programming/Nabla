@@ -180,7 +180,7 @@ static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAsse
     auto assets = bundle.getContents();
     //assert(assets.first != assets.second);
 
-    return core::smart_refctd_ptr_static_cast<AssetType>(assets.first[0]);
+    return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
 }
 
 core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipelineLayoutFromMtl(const SMtl& _mtl, bool _noDS3)
@@ -328,7 +328,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
             const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_DESCRIPTOR_SET, (asset::IAsset::E_TYPE)0u };
             auto ds_bundle = _override->findCachedAsset(dsCacheKey, types, ctx.inner, _hierarchyLevel + ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
             if (!ds_bundle.isEmpty())
-                ds3 = core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(ds_bundle.getContents().first[0]);
+                ds3 = core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(ds_bundle.getContents().begin()[0]);
             else 
             {
                 auto views = loadImages(relPath.c_str(), materials[i], ctx);
@@ -590,7 +590,7 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mt
         {
             auto bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride);
             if (!bundle.isEmpty())
-                images[i] = core::smart_refctd_ptr_static_cast<ICPUImage>(bundle.getContents().first[0]);
+                images[i] = core::smart_refctd_ptr_static_cast<ICPUImage>(bundle.getContents().begin()[0]);
         }
     }
 
