@@ -1,0 +1,8 @@
+#ifndef _IRR_MATH_CONSTANTS_INCLUDED_
+#define _IRR_MATH_CONSTANTS_INCLUDED_
+
+#define irr_glsl_PI 3.14159265359
+#define irr_glsl_RECIPROCAL_PI 0.318309886183
+#define irr_glsl_SQRT_RECIPROCAL_PI 0.56418958354
+
+#endif

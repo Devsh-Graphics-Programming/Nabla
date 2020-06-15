@@ -17,6 +17,9 @@ function(irr_add_builtin_resources)
 endfunction()
 
 set(irr_resources_to_embed
+  "irr/builtin/glsl/math/functions.glsl"
+  "irr/builtin/glsl/math/constants.glsl"
+  "irr/builtin/glsl/limits/numeric.glsl"
   "irr/builtin/shaders/loaders/mtl/vertex_impl.glsl"
   "irr/builtin/shaders/loaders/mtl/vertex_no_uv.vert"
   "irr/builtin/shaders/loaders/mtl/vertex_uv.vert"
@@ -41,6 +44,22 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/virtual_texturing/descriptors.glsl"
   "irr/builtin/glsl/virtual_texturing/extensions.glsl"
   "irr/builtin/glsl/virtual_texturing/impl_functions.glsl"
+  #bsdf
+  "irr/builtin/glsl/bsdf/brdf/diffuse/lambert.glsl"
+  "irr/builtin/glsl/bsdf/brdf/diffuse/oren_nayar.glsl"
+  "irr/builtin/glsl/bsdf/brdf/specular/ndf/ggx.glsl"
+  "irr/builtin/glsl/bsdf/brdf/specular/geom/smith.glsl"
+  "irr/builtin/glsl/bsdf/brdf/specular/ggx.glsl"
+  "irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl"
+  "irr/builtin/glsl/bsdf/brdf/specular/blinn_phong.glsl"
+  "irr/builtin/glsl/bsdf/brdf/specular/ndf/beckmann.glsl"
+  "irr/builtin/glsl/bsdf/brdf/specular/ndf/ashikhmin_shirley.glsl"
+  "irr/builtin/glsl/bsdf/brdf/specular/ashikhmin_shirley.glsl"
+  "irr/builtin/glsl/bsdf/brdf/specular/beckmann_smith.glsl"
+  "irr/builtin/glsl/bsdf/common.glsl"
+  "irr/builtin/glsl/bsdf/brdf/diffuse/fresnel_correction.glsl"
+  "irr/builtin/glsl/bsdf/brdf/cos_weighted_sample.glsl"
+  "irr/builtin/glsl/bsdf/common_samples.glsl"
  # ext shouldn't be built into the engine, but there's no harm including some non-dynamic GLSL source to make life easier
   #"irr/builtin/glsl/ext/.glsl"
   "irr/builtin/glsl/ext/LumaMeter/common.glsl"

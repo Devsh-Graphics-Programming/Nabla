@@ -1,35 +1,4 @@
-#ifndef __IRR_C_GLSL_MATH_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
-#define __IRR_C_GLSL_MATH_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
-
-#include <irr/asset/IBuiltinIncludeLoader.h>
-
-namespace irr {
-namespace asset
-{    
-
-class CGLSLMathBuiltinIncludeLoader : public IBuiltinIncludeLoader
-{
-public:
-    const char* getVirtualDirectoryName() const override { return "glsl/math/"; }
-
-private:
-    static std::string getConstants(const std::string&)
-    {
-        return 
-R"(#ifndef _IRR_MATH_CONSTANTS_INCLUDED_
-#define _IRR_MATH_CONSTANTS_INCLUDED_
-
-#define irr_glsl_PI 3.14159265359
-#define irr_glsl_RECIPROCAL_PI 0.318309886183
-#define irr_glsl_SQRT_RECIPROCAL_PI 0.56418958354
-
-#endif
-)";
-    }
-    static std::string getFunctions(const std::string&)
-    {
-        return
-R"(#ifndef _IRR_MATH_FUNCTIONS_INCLUDED_
+#ifndef _IRR_MATH_FUNCTIONS_INCLUDED_
 #define _IRR_MATH_FUNCTIONS_INCLUDED_
 
 #include <irr/builtin/glsl/math/constants.glsl>
@@ -97,21 +66,5 @@ vec3 irr_glsl_reflect(in vec3 I, in vec3 N)
 }
 
 #define irr_glsl_sincos(x,s,c) s=sin(x);c=cos(x);
-
-#endif
-)";
-    }
-
-protected:
-    core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
-    {
-        return {
-            { std::regex{"glsl/math/constants\\.glsl"}, &getConstants },
-            { std::regex{"glsl/math/functions\\.glsl"}, &getFunctions }
-        };
-    }
-};
-
-}}
 
 #endif

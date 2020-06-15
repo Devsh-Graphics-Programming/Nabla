@@ -9,12 +9,8 @@
 // TODO: rework this legacy stuff
 #include "irr/asset/CGLSLScanBuiltinIncludeLoader.h"
 
-#include "irr/asset/CGLSLLimitsBuiltinIncludeLoader.h"
-#include "irr/asset/CGLSLMathBuiltinIncludeLoader.h"
-
 #include "irr/asset/CGLSLSkinningBuiltinIncludeLoader.h"
 
-#include "irr/asset/CGLSLBRDFBuiltinIncludeLoader.h"
 #include "irr/asset/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
 
 
@@ -30,11 +26,7 @@ IGLSLCompiler::IGLSLCompiler(io::IFileSystem* _fs) : m_inclHandler(core::make_sm
     //m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLScanBuiltinIncludeLoader>());
     //m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLSkinningBuiltinIncludeLoader>());
 
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLBSDFBuiltinIncludeLoader>());
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeLoader>(_fs));
-
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLLimitsBuiltinIncludeLoader>());
-    m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLMathBuiltinIncludeLoader>());
 }
 
 core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo, std::string* _outAssembly) const
