@@ -219,10 +219,10 @@ class IImage : public IDescriptor
 			switch (type)
 			{
 				case ET_3D:
-					maxSideLen = core::max(extent.depth,maxSideLen);
+					maxSideLen = core::max<uint32_t>(extent.depth,maxSideLen);
 					_IRR_FALLTHROUGH;
 				case ET_2D:
-					maxSideLen = core::max(extent.height,maxSideLen);
+					maxSideLen = core::max<uint32_t>(extent.height,maxSideLen);
 					break;
 				default:
 					break;
@@ -446,11 +446,14 @@ class IImage : public IDescriptor
 		//!
 		inline core::vector3du32_SIMD getMipSize(uint32_t level=0u) const
 		{
-			return core::max(	core::vector3du32_SIMD(	params.extent.width,
-														params.extent.height,
-														params.extent.depth)
-										/ (0x1u<<level),
-								core::vector3du32_SIMD(1u,1u,1u));      
+			return	core::max<core::vector3du32_SIMD>(
+						core::vector3du32_SIMD(
+							params.extent.width,
+							params.extent.height,
+							params.extent.depth
+						)/(0x1u<<level),
+						core::vector3du32_SIMD(1u,1u,1u)
+					);      
 		}
 
 		//! Returns image data size in bytes

@@ -147,29 +147,28 @@ union FloatIntUnion32
 #ifdef __IRR_FAST_MATH
 IRR_FORCE_INLINE uint32_t& IR(float& x)
 {
-	reinterpret_cast<uint32_t&>(x);
+	return reinterpret_cast<uint32_t&>(x);
 }
 IRR_FORCE_INLINE const uint32_t& IR(const float& x)
 {
-	reinterpret_cast<const uint32_t&>(x);
+	return reinterpret_cast<const uint32_t&>(x);
 }
-IRR_FORCE_INLINE float& IR(uint32_t& x)
+IRR_FORCE_INLINE float& FR(uint32_t& x)
 {
-	reinterpret_cast<float&>(x);
+	return reinterpret_cast<float&>(x);
 }
-IRR_FORCE_INLINE const float& IR(const uint32_t& x)
+IRR_FORCE_INLINE const float& FR(const uint32_t& x)
 {
-	reinterpret_cast<const float&>(x);
+	return reinterpret_cast<const float&>(x);
 }
-IRR_FORCE_INLINE float& IR(int32_t& x)
+IRR_FORCE_INLINE float& FR(int32_t& x)
 {
-	reinterpret_cast<float&>(x);
+	return reinterpret_cast<float&>(x);
 }
-IRR_FORCE_INLINE const float& IR(const int32_t& x)
+IRR_FORCE_INLINE const float& FR(const int32_t& x)
 {
-	reinterpret_cast<const float&>(x);
+	return reinterpret_cast<const float&>(x);
 }
-#define FR(x)                           reinterpret_cast<float&>(x)
 #else
 // C++ full standard compat use memcpy
 static_assert(sizeof(float)==sizeof(uint32_t));

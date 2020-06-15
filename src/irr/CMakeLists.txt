@@ -427,14 +427,7 @@ if(IRR_PCH)
 	target_precompile_headers(Irrlicht PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
 endif()
 	
-set_target_properties(Irrlicht PROPERTIES DEBUG_POSTFIX _debug)
-set_target_properties(Irrlicht PROPERTIES RELWITHDEBDINFO_POSTFIX _relwithdebinfo)
 
-macro(irr_install_static_lib _TRGT)
-	install(TARGETS ${_TRGT} ARCHIVE DESTINATION lib CONFIGURATIONS Release)
-	install(TARGETS ${_TRGT} ARCHIVE DESTINATION debug/lib CONFIGURATIONS Debug)
-	install(TARGETS ${_TRGT} ARCHIVE DESTINATION relwithdebinfo/lib CONFIGURATIONS RelWithDebInfo)
-endmacro()
 if(IRR_EMBED_BUILTIN_RESOURCES)
 	add_custom_target(builtin_resources
 	   DEPENDS ${CMAKE_BINARY_DIR}/include/irr/builtin/builtinResources.h ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
@@ -445,9 +438,53 @@ elseif()
 	endforeach()
 endif()
 
-irr_install_static_lib(Irrlicht)
+
 set(IRRLICHT_HEADERS_TO_INSTALL 
 	${IRRLICHT_HEADERS_PUBLIC}
 )
 irr_install_headers("${IRRLICHT_HEADERS_TO_INSTALL}" "${IRR_ROOT_PATH}/include")
 irr_install_config_header(BuildConfigOptions.h)
+
+
+macro(irr_install_lib _TRGT)
+	install(TARGETS ${_TRGT} ARCHIVE DESTINATION lib CONFIGURATIONS Release)
+	install(TARGETS ${_TRGT} ARCHIVE DESTINATION debug/lib CONFIGURATIONS Debug)
+	install(TARGETS ${_TRGT} ARCHIVE DESTINATION relwithdebinfo/lib CONFIGURATIONS RelWithDebInfo)
+endmacro()
+# Install main lib
+set_target_properties(Irrlicht PROPERTIES DEBUG_POSTFIX _debug)
+set_target_properties(Irrlicht PROPERTIES RELWITHDEBDINFO_POSTFIX _relwithdebinfo)
+irr_install_lib(Irrlicht)
+
+#install dependencies
+irr_install_lib(glslang)
+irr_install_lib(jpeg)
+irr_install_lib(Half)
+irr_install_lib(HLSL)
+irr_install_lib(Iex)
+irr_install_lib(IexMath)
+irr_install_lib(IlmImf)
+irr_install_lib(IlmThread)
+irr_install_lib(Imath)
+irr_install_lib(png_static)
+if(WIN32)
+	install(FILES
+			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libeay32.lib"
+			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/ssleay32.lib"
+		DESTINATION lib
+	)
+else()
+	install(FILES
+			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libcrypto.a"
+			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libssl.a"
+		DESTINATION lib
+	)
+endif()
+irr_install_lib(shaderc)
+irr_install_lib(shaderc_util)
+irr_install_lib(SPIRV)
+irr_install_lib(SPIRV-Tools)
+irr_install_lib(SPIRV-Tools-opt)
+irr_install_lib(OGLCompiler)
+irr_install_lib(OSDependent)
+irr_install_lib(zlibstatic)

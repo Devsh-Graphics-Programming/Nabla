@@ -331,18 +331,60 @@ target_include_directories(${PROJECT_NAME}
         $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/include>
         $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/include>
         $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/include>
-)
-target_link_libraries(${PROJECT_NAME} Qt5::Widgets Qt5::Core Qt5::Gui opengl32.lib)
-target_link_libraries(${PROJECT_NAME} 
-	 $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/lib/Irrlicht_debug.lib>
-	 $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/lib/Irrlicht_rwdi.lib>
-	 $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/lib/Irrlicht.lib>
      # these are needed because we haven't cleaned up the API properly yet
         $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/source/Irrlicht>
         $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/source/Irrlicht>
         $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/source/Irrlicht>
 )
-
+target_link_libraries(${PROJECT_NAME} 
+	 $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/lib/Irrlicht_debug.lib>
+	 $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/lib/Irrlicht_rwdi.lib>
+	 $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/lib/Irrlicht.lib>
+)
+function(link_irr_dependency DEPENDENCY_NAME)
+	target_link_libraries(${PROJECT_NAME} 
+		 $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/lib/${DEPENDENCY_NAME}d.lib>
+		 $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/lib/${DEPENDENCY_NAME}.lib>
+		 $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/lib/${DEPENDENCY_NAME}.lib>
+	)
+endfunction()
+function(link_irr_dependency_ DEPENDENCY_NAME)
+	target_link_libraries(${PROJECT_NAME} 
+		 $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/lib/${DEPENDENCY_NAME}_d.lib>
+		 $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/lib/${DEPENDENCY_NAME}.lib>
+		 $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/lib/${DEPENDENCY_NAME}.lib>
+	)
+endfunction()
+link_irr_dependency(glslang)
+link_irr_dependency_(jpeg)
+link_irr_dependency_(IlmImf-2_4)
+link_irr_dependency_(IexMath-2_4)
+link_irr_dependency_(Iex-2_4)
+link_irr_dependency_(IlmThread-2_4)
+link_irr_dependency_(Half-2_4)
+link_irr_dependency_(Imath-2_4)
+link_irr_dependency(libpng16_static)
+# OpenSSL only ever exists in the Release variant
+if(WIN32)
+	target_link_libraries(${PROJECT_NAME} 
+		 ${IRR_INSTALL_DIR}/lib/libeay32.lib
+		 ${IRR_INSTALL_DIR}/lib/ssleay32.lib
+	)
+else()
+	target_link_libraries(${PROJECT_NAME} 
+		 ${IRR_INSTALL_DIR}/lib/libcrypto.lib
+		 ${IRR_INSTALL_DIR}/lib/libssl.lib
+	)
+endif()
+link_irr_dependency_(shaderc)
+link_irr_dependency_(shaderc_util)
+link_irr_dependency(SPIRV)
+link_irr_dependency_(SPIRV-Tools)
+link_irr_dependency_(SPIRV-Tools-opt)
+link_irr_dependency(OGLCompiler)
+link_irr_dependency(OSDependent)
+link_irr_dependency(HLSL)
+link_irr_dependency(zlibstatic)
 ```
 
  If you want to use git (without a submodule) then you can use `ExternalProject_Add` with the `GIT_` properties instead.

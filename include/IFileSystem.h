@@ -303,7 +303,7 @@ class IFileSystem : public virtual core::IReferenceCounted
 			// find last forward or backslash
 			int32_t lastSlash = filename.findLast('/');
 			const int32_t lastBackSlash = filename.findLast('\\'); //! Just remove those '\' on Linux
-			lastSlash = core::max(lastSlash, lastBackSlash);
+			lastSlash = core::max<int32_t>(lastSlash, lastBackSlash);
 
 			if ((uint32_t)lastSlash < filename.size())
 				return filename.subString(0, lastSlash);
@@ -375,7 +375,7 @@ class IFileSystem : public virtual core::IReferenceCounted
 			// find last forward or backslash
 			int32_t lastSlash = filename.findLast('/');
 			const int32_t lastBackSlash = filename.findLast('\\'); //! Just remove those '\' on Linux
-			lastSlash = core::max(lastSlash, lastBackSlash);
+			lastSlash = core::max<int32_t>(lastSlash, lastBackSlash);
 
 			// get number of chars after last dot
 			int32_t end = 0;

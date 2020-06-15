@@ -337,7 +337,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
                 const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
                 uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
                 uint32_t alignment = 64u; // smallest mapping alignment capability
-                uint32_t subSize = static_cast<uint32_t>(core::min(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize));
+                uint32_t subSize = static_cast<uint32_t>(core::min<uint32_t>(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize));
 
                 defaultUploadBuffer.get()->multi_place(std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&localOffset,&subSize,&alignment);
                 // keep trying again
