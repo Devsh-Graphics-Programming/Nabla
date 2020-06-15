@@ -1,6 +1,7 @@
 #include <irrlicht.h>
 
 #include "../../../include/irr/asset/filters/CSummedAreaTableImageFilter.h"
+#include "../ext/ScreenShot/ScreenShot.h"
 
 using namespace irr;
 using namespace core;
@@ -31,7 +32,7 @@ int main()
 
 	auto getSummedImage = [](core::smart_refctd_ptr<ICPUImage> image) -> core::smart_refctd_ptr<ICPUImage>
 	{
-		using SUM_FILTER = CSummedAreaTableImageFilter<>;
+		using SUM_FILTER = CSummedAreaTableImageFilter<true>;
 
 		core::smart_refctd_ptr<ICPUImage> newSumImage;
 		{
@@ -75,8 +76,24 @@ int main()
 	};
 
 	IAssetLoader::SAssetLoadParams lp(0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES);
-	auto bundle = assetManager->getAsset("../../media/color_space_test/R8G8B8_1.png", lp);
+	//auto bundle = assetManager->getAsset("../../media/color_space_test/R8G8B8_1.png", lp);
+	auto bundle = assetManager->getAsset("../../media/TESTSUM.png", lp);
 	auto cpuImage = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(bundle.getContents().first[0]);
 
 	cpuImage = getSummedImage(cpuImage);
+
+	ICPUImageView::SCreationParams viewParams;
+	viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+	viewParams.image = cpuImage;
+	viewParams.format = viewParams.image->getCreationParameters().format;
+	viewParams.viewType = IImageView<ICPUImage>::ET_2D;
+	viewParams.subresourceRange.baseArrayLayer = 0u;
+	viewParams.subresourceRange.layerCount = 1u;
+	viewParams.subresourceRange.baseMipLevel = 0u;
+	viewParams.subresourceRange.levelCount = 1u;
+
+	auto cpuImageView = ICPUImageView::create(std::move(viewParams));
+
+	asset::IAssetWriter::SAssetWriteParams wparams(cpuImageView.get());
+	assetManager->writeAsset("test.png", wparams);
 }
