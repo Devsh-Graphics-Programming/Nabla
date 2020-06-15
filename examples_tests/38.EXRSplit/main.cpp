@@ -46,7 +46,7 @@ int main(int argc, char * argv[])
 	{
 		ICPUImageView::SCreationParams imgViewParams;
 		imgViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-		imgViewParams.image = IAsset::castDown<ICPUImage>(image_bundle.getContents().first[i]);
+		imgViewParams.image = IAsset::castDown<ICPUImage>(image_bundle.getContents().begin()[i]);
 		imgViewParams.format = imgViewParams.image->getCreationParameters().format;
 		imgViewParams.viewType = ICPUImageView::ET_2D;
 		imgViewParams.subresourceRange = { static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u };

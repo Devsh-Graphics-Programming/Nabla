@@ -607,7 +607,7 @@ void main()
 				uint32_t pickedChannel = 0u;
 				auto contents = assetBundle.getContents();
 				if (channelName.has_value())
-				for (auto it=contents.first; it!=contents.second; it++)
+				for (auto it=contents.begin(); it!=contents.end(); it++)
 				{
 					auto asset = *it;
 					assert(asset);
@@ -623,11 +623,11 @@ void main()
 						if (found>=firstChannelNameOccurence)
 							continue;
 						firstChannelNameOccurence = found;
-						pickedChannel = std::distance(contents.first, it);
+						pickedChannel = std::distance(contents.begin(), it);
 					}
 				}
 
-				return asset::IAsset::castDown<ICPUImage>(contents.first[pickedChannel]);
+				return asset::IAsset::castDown<ICPUImage>(contents.begin()[pickedChannel]);
 			};
 
 			auto& color = getImageAssetGivenChannelName(color_image_bundle,colorChannelNameBundle[i]);

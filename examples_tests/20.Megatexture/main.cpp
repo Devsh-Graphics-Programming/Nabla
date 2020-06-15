@@ -333,7 +333,7 @@ int main()
     asset::IAssetLoader::SAssetLoadParams lp;
     auto meshes_bundle = am->getAsset("sponza.obj", lp);
     assert(!meshes_bundle.isEmpty());
-    auto mesh = meshes_bundle.getContents().first[0];
+    auto mesh = meshes_bundle.getContents().begin()[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
     //modifying push constants and default fragment shader for VT
     for (uint32_t i = 0u; i < mesh_raw->getMeshBufferCount(); ++i)
