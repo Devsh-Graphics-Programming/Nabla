@@ -416,7 +416,9 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
         }
 
         //! Insert an asset into the cache (calls the private methods of IAsset behind the scenes)
-        /** \return boolean if was added into cache (no duplicate under same key found) and grab() was called on the asset. */
+        /** Keeping assets around and caching them (by their name-like keys) helps a lot by letting the loaders
+        retrieve them from the cache and not load cpu objects again, which have been loaded before.
+        \return boolean if was added into cache (no duplicate under same key found) and grab() was called on the asset. */
         //TODO change name
         bool insertAssetIntoCache(SAssetBundle& _asset)
         {
@@ -440,16 +442,23 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
                     m_assetCache[i]->clear();
         }
 
+
+        //! This function does not free the memory consumed by IAssets, but allows you to cache GPU objects already created from given assets so that no unnecessary GPU-side duplicates get created.
+        /** Keeping assets around (by their pointers) helps a lot by making sure that the same asset is not converted to a gpu resource multiple times, or created and deleted multiple times.
+        However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
+        void insertGPUObjectIntoCache(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject)
+        {
+            const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
+            if (m_cpuGpuCache[ix]->insert(_asset, std::move(_gpuObject)))
+                _asset->grab();
+        }
+
         //! This function frees most of the memory consumed by IAssets, but not destroying them.
-        /** Keeping assets around (by their pointers) helps a lot by letting the loaders retrieve them from the cache 
-		and not load cpu objects which have been loaded, converted to gpu resources and then would have been disposed of.
-		However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
+        /** However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
         void convertAssetToEmptyCacheHandle(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject, uint32_t referenceLevelsBelowToConvert=~0u)
         {
             _asset->convertToDummyObject(referenceLevelsBelowToConvert);
-			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
-            if (m_cpuGpuCache[ix]->insert(_asset, std::move(_gpuObject)))
-                _asset->grab();
+            insertGPUObjectIntoCache(_asset,std::move(_gpuObject));
         }
 
 		core::smart_refctd_ptr<core::IReferenceCounted> findGPUObject(const IAsset* _asset)
