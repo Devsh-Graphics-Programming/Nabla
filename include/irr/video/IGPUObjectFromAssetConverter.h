@@ -86,7 +86,7 @@ class IGPUObjectFromAssetConverter
 		template<typename AssetType, typename iterator_type>
         created_gpu_object_array<AssetType> getGPUObjectsFromAssets(iterator_type _begin, iterator_type _end, const SParams& _params = {})
 		{
-			const auto assetCount = std::distance(_begin, _end);
+			const auto assetCount = _end-_begin;
 			auto res = core::make_refctd_dynamic_array<created_gpu_object_array<AssetType> >(assetCount);
 
 			core::vector<AssetType*> notFound; notFound.reserve(assetCount);
@@ -94,7 +94,7 @@ class IGPUObjectFromAssetConverter
 
 			for (iterator_type it = _begin; it != _end; it++)
 			{
-				const auto index = std::distance(_begin, it);
+				const auto index = it-_begin;
 
 				//if (*it)
 				//{
@@ -119,8 +119,7 @@ class IGPUObjectFromAssetConverter
 				for (size_t i=0u; i<created->size(); ++i)
 				{
 					auto& input = created->operator[](i);
-					if (notFound[i])
-						m_assetManager->convertAssetToEmptyCacheHandle(notFound[i], core::smart_refctd_ptr(input));
+                    handleGPUObjCaching(notFound[i],input);
 					res->operator[](pos[i]) = std::move(input); // ok to move because the `created` array will die after the next scope
 				}
 			}
@@ -129,6 +128,12 @@ class IGPUObjectFromAssetConverter
 		}
 
 	protected:
+        virtual inline void handleGPUObjCaching(asset::IAsset* _asset, const core::smart_refctd_ptr<core::IReferenceCounted>& _gpuobj)
+        {
+            if (_asset)
+                m_assetManager->convertAssetToEmptyCacheHandle(_asset,core::smart_refctd_ptr(_gpuobj));
+        }
+
 		//! TODO: Make this faster and not call any allocator
 		template<typename T>
 		static inline core::vector<size_t> eliminateDuplicatesAndGenRedirs(core::vector<T*>& _input)
@@ -157,6 +162,20 @@ class IGPUObjectFromAssetConverter
 
 			return redirs;
 		}
+};
+
+
+class CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFromAssetConverter
+{
+    public:
+        using IGPUObjectFromAssetConverter::IGPUObjectFromAssetConverter;
+
+	protected:
+        virtual inline void handleGPUObjCaching(asset::IAsset* _asset, const core::smart_refctd_ptr<core::IReferenceCounted>& _gpuobj) override
+        {
+            if (_asset)
+                m_assetManager->insertGPUObjectIntoCache(_asset,core::smart_refctd_ptr(_gpuobj));
+        }
 };
 
 

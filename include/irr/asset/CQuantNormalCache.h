@@ -16,6 +16,7 @@
 
 
 #include <iostream>
+#include <limits>
 
 
 namespace irr 
@@ -65,9 +66,9 @@ class CQuantNormalCache
 			{
 				static constexpr size_t primeNumber1 = 18446744073709551557ull;
 				static constexpr size_t primeNumber2 = 4611686018427388273ull;
-
-				return  ((static_cast<size_t>(static_cast<double>(vec.u)* std::numeric_limits<size_t>::max()) * primeNumber1) ^
-					(static_cast<size_t>(static_cast<double>(vec.v)* std::numeric_limits<size_t>::max()) * primeNumber2));
+				
+				return  ((static_cast<size_t>(static_cast<double>(vec.u)*(std::numeric_limits<size_t>::max)()) * primeNumber1) ^
+					(static_cast<size_t>(static_cast<double>(vec.v)*(std::numeric_limits<size_t>::max)()) * primeNumber2));
 			}
 		};
 

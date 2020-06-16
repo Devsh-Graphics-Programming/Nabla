@@ -256,18 +256,7 @@ namespace core
 				if (ptr)
 					ptr->drop();
 			}
-/* Not wise to have this by default
-			template<class U>
-			inline smart_refctd_ptr& operator=(U* _pointer) noexcept
-			{
-				if (_pointer)
-					_pointer->grab();
-				if (ptr)
-					ptr->drop();
-				ptr = _pointer;
-				return *this;
-			}
-*/
+
 			inline smart_refctd_ptr& operator=(const smart_refctd_ptr<I_REFERENCE_COUNTED>& other) noexcept
 			{
 				if (other.ptr)

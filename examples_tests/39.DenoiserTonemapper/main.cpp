@@ -157,6 +157,7 @@ int main(int argc, char* argv[])
 	constexpr float lowerPercentile = 0.45f;
 	constexpr float upperPercentile = 0.55f;
 	constexpr auto TMO = ToneMapperClass::EO_ACES;
+	auto histogramBuffer = driver->createDeviceLocalGPUBufferOnDedMem(HistogramBufferSize);
 
 	constexpr auto SharedDescriptorSetDescCount = 4u;
 	core::smart_refctd_ptr<IGPUDescriptorSetLayout> sharedDescriptorSetLayout;
@@ -607,9 +608,8 @@ void main()
 				uint32_t pickedChannel = 0u;
 				auto contents = assetBundle.getContents();
 				if (channelName.has_value())
-				for (auto it=contents.begin(); it!=contents.end(); it++)
+				for (auto& asset : contents)
 				{
-					auto asset = *it;
 					assert(asset);
 
 					auto metadata = asset->getMetadata();
@@ -623,7 +623,7 @@ void main()
 						if (found>=firstChannelNameOccurence)
 							continue;
 						firstChannelNameOccurence = found;
-						pickedChannel = std::distance(contents.begin(), it);
+						pickedChannel = std::distance(contents.begin(), &asset);
 					}
 				}
 
@@ -801,16 +801,17 @@ void main()
 		}
 	}
 
-#define DENOISER_BUFFER_COUNT 4u //had to change to a define cause lambda was complaining about it not being a constant expression when capturing
+#define DENOISER_BUFFER_COUNT 3u //had to change to a define cause lambda was complaining about it not being a constant expression when capturing
 	// keep all CUDA links in an array (less code to map/unmap
 	cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> bufferLinks[DENOISER_BUFFER_COUNT];
+	// except for the scratch CUDA buffer which can and will be ENORMOUS
+	CUdeviceptr denoiserScratch = 0ull;
 	// set-up denoisers
 	constexpr size_t IntensityValuesSize = sizeof(float);
 	auto& intensityBuffer = bufferLinks[0];
 	auto& denoiserState = bufferLinks[0];
-	auto& scratchBuffer = bufferLinks[1];
-	auto& temporaryPixelBuffer = bufferLinks[2];
-	auto& imagePixelBuffer = bufferLinks[3];
+	auto& temporaryPixelBuffer = bufferLinks[1];
+	auto& imagePixelBuffer = bufferLinks[2];
 	size_t denoiserStateBufferSize = 0ull;
 	{
 		size_t scratchBufferSize = 0ull;
@@ -837,7 +838,7 @@ void main()
 
 			denoisers[i].stateOffset = denoiserStateBufferSize;
 			denoiserStateBufferSize += denoisers[i].stateSize = m_denoiserMemReqs.stateSizeInBytes;
-			scratchBufferSize = core::max(core::max(scratchBufferSize,denoisers[i].scratchSize = m_denoiserMemReqs.recommendedScratchSizeInBytes),HistogramBufferSize);
+			scratchBufferSize = core::max(scratchBufferSize,denoisers[i].scratchSize = m_denoiserMemReqs.recommendedScratchSizeInBytes);
 			pixelBufferSize = core::max(pixelBufferSize,core::max(asset::getTexelOrBlockBytesize(EF_R32G32B32A32_SFLOAT),(i+1u)*forcedOptiXFormatPixelStride)*maxResolution[i][0]*maxResolution[i][1]);
 		}
 		std::string message = "Total VRAM consumption for Denoiser algorithm: ";
@@ -849,15 +850,15 @@ void main()
 		denoiserState = driver->createDeviceLocalGPUBufferOnDedMem(denoiserStateBufferSize+IntensityValuesSize);
 		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&denoiserState)),"Could not register buffer for Denoiser states!"))
 			return error_code;
-		scratchBuffer = driver->createDeviceLocalGPUBufferOnDedMem(scratchBufferSize);
-		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&scratchBuffer)),"Could not register buffer for Denoiser scratch memory!"))
-			return error_code;
 		temporaryPixelBuffer = driver->createDeviceLocalGPUBufferOnDedMem(pixelBufferSize);
 		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&temporaryPixelBuffer)),"Could not register buffer for Denoiser scratch memory!"))
+			return error_code;
+		if (check_error(!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::cuda.pcuMemAlloc_v2(&denoiserScratch,scratchBufferSize)), "Could not register buffer for Denoiser temporary memory with CUDA natively!"))
 			return error_code;
 	}
 	const auto intensityBufferOffset = denoiserStateBufferSize;
 
+	video::CAssetPreservingGPUObjectFromAssetConverter assetConverter(am,driver);
 	// do the processing
 	for (size_t i=0; i<inputFilesAmount; i++)
 	{
@@ -928,7 +929,7 @@ void main()
 			asset::ICPUBuffer* buffersToUpload[EII_COUNT];
 			for (uint32_t j=0u; j<denoiserInputCount; j++)
 				buffersToUpload[j] = param.image[j]->getBuffer();
-			auto gpubuffers = driver->getGPUObjectsFromAssets(buffersToUpload,buffersToUpload+denoiserInputCount);
+			auto gpubuffers = driver->getGPUObjectsFromAssets(buffersToUpload,buffersToUpload+denoiserInputCount,&assetConverter);
 
 			imagePixelBuffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuffers->operator[](0)->getBuffer());
 			if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&imagePixelBuffer)))
@@ -972,7 +973,7 @@ void main()
 					infos[0].buffer = {0u,imagePixelBuffer.getObject()->getMemoryReqs().vulkanReqs.size};
 					infos[1].desc = core::smart_refctd_ptr<IGPUBuffer>(temporaryPixelBuffer.getObject());
 					infos[1].buffer = {0u,temporaryPixelBuffer.getObject()->getMemoryReqs().vulkanReqs.size};
-					infos[2].desc = core::smart_refctd_ptr<IGPUBuffer>(scratchBuffer.getObject());
+					infos[2].desc = histogramBuffer;
 					infos[2].buffer = {0u,HistogramBufferSize};
 					infos[3].desc = core::smart_refctd_ptr<IGPUBuffer>(intensityBuffer.getObject());
 					infos[3].buffer = {0u,intensityBuffer.getObject()->getMemoryReqs().vulkanReqs.size};
@@ -987,7 +988,7 @@ void main()
 			// compute shader pre-preprocess (transform normals and compute luminosity)
 			{
 				// clear the histogram to 0s
-				driver->fillBuffer(scratchBuffer.getObject(),0u,HistogramBufferSize,0u);
+				driver->fillBuffer(histogramBuffer.get(),0u,HistogramBufferSize,0u);
 				// bind deinterleave pipeline
 				driver->bindComputePipeline(deinterleavePipeline.get());
 				// dispatch
@@ -1029,13 +1030,17 @@ void main()
 				}
 				//
 				{
+					cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> fakeScratchLink;
+					fakeScratchLink.asBuffer.pointer = denoiserScratch;
+
 					// set up denoiser
 					auto& denoiser = denoisers[param.denoiserType];
-					if (denoiser.m_denoiser->setup(m_cudaStream,&param.width,denoiserState,denoiser.stateSize,scratchBuffer,denoiser.scratchSize,denoiser.stateOffset)!=OPTIX_SUCCESS)
+					if (denoiser.m_denoiser->setup(m_cudaStream,&param.width,denoiserState,denoiser.stateSize,fakeScratchLink,denoiser.scratchSize,denoiser.stateOffset)!=OPTIX_SUCCESS)
 					{
 						os::Printer::log(makeImageIDString(i) + "Could not setup the denoiser for the image resolution and denoiser buffers, skipping image!", ELL_ERROR);
 						continue;
 					}
+
 					// invoke
 					{
 						OptixDenoiserParams denoiserParams = {};
@@ -1049,7 +1054,7 @@ void main()
 						denoiserOutput.rowStrideInBytes = param.width*forcedOptiXFormatPixelStride;
 						denoiserOutput.pixelStrideInBytes = 0u;
 						denoiserOutput.format = forcedOptiXFormat;
-						if (denoiser.m_denoiser->invoke(m_cudaStream,&denoiserParams,denoiserInputs,denoiserInputs+denoiserInputCount,&denoiserOutput,scratchBuffer,denoiser.scratchSize)!=OPTIX_SUCCESS)
+						if (denoiser.m_denoiser->invoke(m_cudaStream,&denoiserParams,denoiserInputs,denoiserInputs+denoiserInputCount,&denoiserOutput,fakeScratchLink,denoiser.scratchSize)!=OPTIX_SUCCESS)
 						{
 							os::Printer::log(makeImageIDString(i) + "Could not invoke the denoiser sucessfully, skipping image!", ELL_ERROR);
 							continue;
