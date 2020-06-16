@@ -148,13 +148,13 @@ int main()
 		//! load the mitsuba scene
 		meshes = am->getAsset(filePath, {});
 		//! cache results -- speeds up mesh generation on second run
-		qnc->saveCacheToFile(asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
-
+		qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
+		
 		auto contents = meshes.getContents();
-		if (contents.first>=contents.second)
+		if (contents.begin()>=contents.end())
 			return 2;
 
-		auto firstmesh = *contents.first;
+		auto firstmesh = *contents.begin();
 		if (!firstmesh)
 			return 3;
 
@@ -206,7 +206,7 @@ int main()
 	core::unordered_map<core::smart_refctd_ptr<asset::ICPUSpecializedShader>, core::smart_refctd_ptr<asset::ICPUSpecializedShader>> modifiedShaders;
 	core::vector<core::smart_refctd_ptr<asset::ICPUMesh>> cpumeshes;
 	cpumeshes.reserve(meshes.getSize());
-	for (auto it = meshes.getContents().first; it != meshes.getContents().second; ++it)
+	for (auto it = meshes.getContents().begin(); it != meshes.getContents().end(); ++it)
 	{
 		cpumeshes.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(std::move(*it)));
 		//modify pipeline layouts with our custom DS2 layout (DS2 will be used for lights buffer)

@@ -113,8 +113,8 @@ int main()
 
 	auto createGpuResources = [&](asset::IGeometryCreator::return_type& geometry, std::string pathToShadersWithoutExtension, bool isSphere) -> std::pair<core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>, core::smart_refctd_ptr<video::IGPUMeshBuffer>>
 	{
-		auto cpuVertexSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(assetManager->getAsset(pathToShadersWithoutExtension + ".vert", { 0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES }).getContents().first[0]);
-		auto cpuFragmentSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(assetManager->getAsset(pathToShadersWithoutExtension + ".frag", { 0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES }).getContents().first[0]);
+		auto cpuVertexSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(assetManager->getAsset(pathToShadersWithoutExtension + ".vert", { 0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES }).getContents().begin()[0]);
+		auto cpuFragmentSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(assetManager->getAsset(pathToShadersWithoutExtension + ".frag", { 0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES }).getContents().begin()[0]);
 
 		auto gpuVertexSpecialedShader = driver->getGPUObjectsFromAssets(&cpuVertexSpecializedShader.get(), &cpuVertexSpecializedShader.get() + 1)->front();
 		auto gpuFragmentSpecialedShader = driver->getGPUObjectsFromAssets(&cpuFragmentSpecializedShader.get(), &cpuFragmentSpecializedShader.get() + 1)->front();
@@ -195,7 +195,7 @@ int main()
 		auto cpuTexture = assetManager->getAsset(pathToTexture, lp);
 		auto cpuTextureContents = cpuTexture.getContents();
 
-		auto asset = *cpuTextureContents.first;
+		auto asset = *cpuTextureContents.begin();
 
 		ICPUImageView::SCreationParams viewParams;
 		viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);

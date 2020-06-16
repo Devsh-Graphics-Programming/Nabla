@@ -126,7 +126,7 @@ void ApplicationHandler::performImageTest(std::string path)
 	auto cpuTexture = assetManager->getAsset(path, lp);
 	auto cpuTextureContents = cpuTexture.getContents();
 	
-	if (cpuTextureContents.first == cpuTextureContents.second)
+	if (cpuTextureContents.begin() == cpuTextureContents.end())
 	{
 		os::Printer::log("CANNOT PERFORM THE TEST - SKIPPING. LOADING WENT WRONG", ELL_WARNING);
 		return;
@@ -139,7 +139,7 @@ void ApplicationHandler::performImageTest(std::string path)
 
 	smart_refctd_ptr<ICPUImageView> copyImageView;
 
-	auto asset = *cpuTextureContents.first;
+	auto asset = *cpuTextureContents.begin();
 	core::smart_refctd_ptr<video::IGPUImageView> gpuImageView;
 	switch (asset->getAssetType())
 	{
@@ -234,10 +234,10 @@ bool ApplicationHandler::initializeApplication()
 		IAssetLoader::SAssetLoadParams lp;
 		auto fs_bundle = device->getAssetManager()->getAsset(getPathToFragmentShader(), lp);
 		auto fs_contents = fs_bundle.getContents();
-		if (fs_contents.first == fs_contents.second)
+		if (fs_contents.begin() == fs_contents.end())
 			return false;
 
-		ICPUSpecializedShader* fs = static_cast<ICPUSpecializedShader*>(fs_contents.first->get());
+		ICPUSpecializedShader* fs = static_cast<ICPUSpecializedShader*>(fs_contents.begin()->get());
 
 		auto fragShader = driver->getGPUObjectsFromAssets(&fs, &fs + 1)->front();
 		if (!fragShader)
