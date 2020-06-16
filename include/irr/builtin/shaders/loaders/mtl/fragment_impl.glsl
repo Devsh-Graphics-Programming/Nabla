@@ -22,7 +22,7 @@ layout (location = 0) out vec4 OutColor;
 #define map_bump_MASK uint(1u<<10u)
 #define map_normal_MASK uint(1u<<11u)
 
-#include <irr/builtin/glsl/bsdf/common.glsl> // change to bxdf/common.glsl
+#include <irr/builtin/glsl/bxdf/common.glsl> // change to bxdf/common.glsl
 
 #ifndef _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
 #define _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
@@ -66,10 +66,10 @@ vec4 irr_sample_bump(in vec2 uv, in mat2 dUV) { return texture(map_bump, uv); }
 #endif //_IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_
 
 // change to bxdf/brdf
-#include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/diffuse/fresnel_correction.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/diffuse/lambert.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/blinn_phong.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/fresnel/fresnel.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/diffuse/fresnel_correction.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl>
 
 #ifndef _IRR_BSDF_COS_EVAL_DEFINED_
 #define _IRR_BSDF_COS_EVAL_DEFINED_
