@@ -1,7 +1,7 @@
 #ifndef _IRR_BSDF_BRDF_SPECULAR_NDF_ASHIKHMIN_SHIRLEY_INCLUDED_
 #define _IRR_BSDF_BRDF_SPECULAR_NDF_ASHIKHMIN_SHIRLEY_INCLUDED_
 
-#include <irr/builtin/glsl/bsdf/common.glsl>
+#include <irr/builtin/glsl/bxdf/common.glsl>
 
 //n is 2 phong-like exponents for anisotropy, can be defined as vec2(1.0/at, 1.0/ab) where at is roughness along tangent direction and ab is roughness along bitangent direction
 //sin_cos_phi is sin and cos of azimuth angle of half vector

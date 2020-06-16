@@ -1,7 +1,7 @@
 #ifndef _IRR_BSDF_COMMON_SAMPLES_INCLUDED_
 #define _IRR_BSDF_COMMON_SAMPLES_INCLUDED_
 
-#include <irr/builtin/glsl/bsdf/brdf/cos_weighted_sample.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/cos_weighted_sample.glsl>
 
 irr_glsl_BSDFSample irr_glsl_transmission_cos_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {

@@ -1,7 +1,7 @@
 #ifndef _BRDF_SPECULAR_NDF_GGX_INCLUDED_
 #define _BRDF_SPECULAR_NDF_GGX_INCLUDED_
 
-#include <irr/builtin/glsl/bsdf/common.glsl>
+#include <irr/builtin/glsl/bxdf/common.glsl>
 
 float irr_glsl_ggx_trowbridge_reitz(in float a2, in float NdotH2)
 {

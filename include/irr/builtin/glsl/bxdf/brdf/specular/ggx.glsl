@@ -1,10 +1,10 @@
 #ifndef _IRR_BSDF_BRDF_SPECULAR_GGX_INCLUDED_
 #define _IRR_BSDF_BRDF_SPECULAR_GGX_INCLUDED_
 
-#include <irr/builtin/glsl/bsdf/common.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/ndf/ggx.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/geom/smith.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
+#include <irr/builtin/glsl/bxdf/common.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/ndf/ggx.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/geom/smith.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/fresnel/fresnel.glsl>
 
 vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in mat2x3 ior2, in float a2, in vec2 atb, in float aniso)
 {

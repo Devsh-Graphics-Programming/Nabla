@@ -1,7 +1,7 @@
 #ifndef _IRR_BSDF_BRDF_SPECULAR_BECKMANN_INCLUDED_
 #define _IRR_BSDF_BRDF_SPECULAR_BECKMANN_INCLUDED_
 
-#include <irr/builtin/glsl/bsdf/common.glsl>
+#include <irr/builtin/glsl/bxdf/common.glsl>
 
 float irr_glsl_beckmann(in float a2, in float NdotH2)
 {

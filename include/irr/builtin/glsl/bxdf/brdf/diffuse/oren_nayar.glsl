@@ -1,7 +1,7 @@
 #ifndef _BRDF_DIFFUSE_OREN_NAYAR_INCLUDED_
 #define _BRDF_DIFFUSE_OREN_NAYAR_INCLUDED_
 
-#include <irr/builtin/glsl/bsdf/common.glsl>
+#include <irr/builtin/glsl/bxdf/common.glsl>
 
 float irr_glsl_oren_nayar(in float _a2, in float VdotL, in float NdotL, in float NdotV)
 {

@@ -1,10 +1,10 @@
 #ifndef _IRR_BSDF_BRDF_SPECULAR_BECKMANN_SMITH_INCLUDED_
 #define _IRR_BSDF_BRDF_SPECULAR_BECKMANN_SMITH_INCLUDED_
 
-#include <irr/builtin/glsl/bsdf/common.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/ndf/beckmann.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/geom/smith.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
+#include <irr/builtin/glsl/bxdf/common.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/ndf/beckmann.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/geom/smith.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/fresnel/fresnel.glsl>
 #include <irr/builtin/glsl/math/functions.glsl>
 
 #include <irr/builtin/glsl/math/functions.glsl>
