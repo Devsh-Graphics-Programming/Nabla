@@ -9,10 +9,14 @@ namespace irr
 namespace asset
 {
 
-class CCPUMeshPacker : public IMeshPacker<ICPUMeshBuffer>
+class CCPUMeshPacker final : public IMeshPacker<ICPUMeshBuffer>
 {
 public:
-	virtual std::optional<std::pair<ICPUMeshBuffer*, DrawElementsIndirectCommand_t>> packMeshes(const core::vector<ICPUMeshBuffer*>& meshBuffers) override;
+	CCPUMeshPacker(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t maxIndexCountPerMDIData = std::numeric_limits<uint16_t>::max())
+		:IMeshPacker<ICPUMeshBuffer>(preDefinedLayout, allocParams, maxIndexCountPerMDIData) {}
+
+	virtual std::optional<CCPUMeshPacker::PackedMeshBufferData> alloc(const ICPUMeshBuffer* meshBuffer) override;
+	virtual PackedMeshBuffer<ICPUMeshBuffer> commit(const core::vector<std::pair<const ICPUMeshBuffer*, PackedMeshBufferData>>& meshBuffers) override;
 
 };
 

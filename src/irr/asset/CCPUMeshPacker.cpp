@@ -6,10 +6,10 @@ namespace irr
 namespace asset 
 {
 
-std::optional<std::pair<ICPUMeshBuffer*, DrawElementsIndirectCommand_t>> CCPUMeshPacker::packMeshes(const core::vector<ICPUMeshBuffer*>& meshBuffers)
+std::optional<CCPUMeshPacker::PackedMeshBufferData> CCPUMeshPacker::alloc(const ICPUMeshBuffer* meshBuffer)
 {
-	if (meshBuffers.empty())
-		return {};
+	if (meshBuffer == nullptr)
+		return std::nullopt;
 
 	/*
 	Requirements for input mesh buffers:
@@ -18,98 +18,54 @@ std::optional<std::pair<ICPUMeshBuffer*, DrawElementsIndirectCommand_t>> CCPUMes
 	*/
 
 	//validation
-	for (auto meshBuffer : meshBuffers)
+	//TODO: remove this condition
 	{
 		auto* pipeline = meshBuffer->getPipeline();
 
-		if (meshBuffer->getIndexBufferBinding()->buffer.get() == nullptr || 
-			pipeline->getPrimitiveAssemblyParams().primitiveType == EPT_TRIANGLE_LIST)
+		if (const_cast<ICPUMeshBuffer*>(meshBuffer)->getIndexBufferBinding()->buffer.get() == nullptr || 
+			pipeline->getPrimitiveAssemblyParams().primitiveType != EPT_TRIANGLE_LIST)
 		{
 			_IRR_DEBUG_BREAK_IF(true);
-			return {};
-		}
-	}
-
-	SVertexInputParams outVtxInputParams;
-
-	//set attributes and bindings of output mesh buffer
-	for (const auto& meshBuffer : meshBuffers)
-	{
-		const auto& currMBVtxInputParams = meshBuffer->getPipeline()->getVertexInputParams();
-
-		if (currMBVtxInputParams.enabledAttribFlags != outVtxInputParams.enabledAttribFlags)
-		{
-			const uint16_t oldFlags = outVtxInputParams.enabledAttribFlags;
-			outVtxInputParams.enabledAttribFlags |= currMBVtxInputParams.enabledAttribFlags;
-			const uint16_t flagDiff = outVtxInputParams.enabledAttribFlags ^ oldFlags;
-
-			//if output mesh buffer doesn't have given attrib enabled but currently processed mesh buffer has, enable this attribute for output mesh buffer and set its format and binding
-			for (uint16_t attrBit = 0x0001, location = 0; location < 16; attrBit <<= 1, location++)
-			{
-				if (flagDiff & attrBit)
-				{
-					outVtxInputParams.attributes[location].format = currMBVtxInputParams.attributes[location].format;
-					outVtxInputParams.attributes[location].binding = location;
-					outVtxInputParams.attributes[location].relativeOffset = 0;
-
-					outVtxInputParams.bindings[location].stride = getTexelOrBlockBytesize(static_cast<E_FORMAT>(outVtxInputParams.attributes[location].format));
-					outVtxInputParams.bindings[location].inputRate = currMBVtxInputParams.bindings[currMBVtxInputParams.attributes[location].binding].inputRate;
-				}
-			}
+			return std::nullopt;
 		}
 	}
 
 	//validation
-	//check if formats of attributes with the same bindings are identical
-	for (size_t i = 1; i < meshBuffers.size(); i++)
+	const auto& mbVtxInputParams = meshBuffer->getPipeline()->getVertexInputParams();
+	for (uint16_t attrBit = 0x0001, location = 0; location < 16; attrBit <<= 1, location++)
 	{
-		const auto& currMBVtxInputParams = meshBuffers[i]->getPipeline()->getVertexInputParams();
+		if (!(attrBit & mbVtxInputParams.enabledAttribFlags))
+			continue;
 
-		for (uint16_t attrBit = 0x0001, location = 0; location < 16; attrBit <<= 1, location++)
+		//assert((attrBit & m_outVtxInputParams.enabledAttribFlags));
+
+		if (mbVtxInputParams.attributes[location].format != m_outVtxInputParams.attributes[location].format ||
+			mbVtxInputParams.bindings[mbVtxInputParams.attributes[location].binding].inputRate != m_outVtxInputParams.bindings[location].inputRate)
 		{
-			if (!(attrBit & currMBVtxInputParams.enabledAttribFlags))
-				continue;
-
-			assert(!(attrBit & outVtxInputParams.enabledAttribFlags)); //imposibru
-
-			if (currMBVtxInputParams.attributes[location].format != outVtxInputParams.attributes[location].format ||
-				currMBVtxInputParams.bindings[currMBVtxInputParams.attributes[location].binding].inputRate != outVtxInputParams.bindings[location].inputRate)
-			{
-				_IRR_DEBUG_BREAK_IF(true);
-				return {};
-			}
+			_IRR_DEBUG_BREAK_IF(true);
+			return std::nullopt;
 		}
 	}
 
-	//outdated
-	/*const size_t vtxCnt = std::accumulate(
-		meshBuffers.begin(), meshBuffers.end(), 0ull,
-		[] (size_t sum, core::vector<ICPUMeshBuffer*>::iterator mBuff) -> size_t
-		{ 
-			return sum + (*mBuff)->calcVertexCount();
-		});
-	*/
+	size_t addr = m_MDIDataAlctr.alloc_addr(1u, 1u);
 
-	const size_t idxCnt = std::accumulate(
-		meshBuffers.begin(), meshBuffers.end(), 0ull,
-		[](size_t sum, core::vector<ICPUMeshBuffer*>::iterator mBuff) -> size_t
-		{
-			return sum + (*mBuff)->getIndexCount();
-		});
-
-	if (idxCnt > std::numeric_limits<uint16_t>::max())
+	//TODO: divide into multiple mdi structs if(idxCnt > m_maxIndexCountPerMDIData)
+	DrawElementsIndirectCommand_t* mdiBuffPtr = static_cast<DrawElementsIndirectCommand_t*>(m_outMDIData.get()->getPointer());
+	*(mdiBuffPtr + addr) = 
 	{
-		//TODO: create multiple draw calls in this case
-		_IRR_DEBUG_BREAK_IF(true);
-		return {};
-	}
+		static_cast<uint32_t>(meshBuffer->getIndexCount()), 
+		static_cast<uint32_t>(meshBuffer->getInstanceCount()), 
+		0, //because mesh buffers may be send to `commit` in any order, `firstIndex` and `baseVertex` should be set durning commit stage I guess
+		0, 
+		static_cast<uint32_t>(meshBuffer->getBaseInstance())
+	};
 
-	//TODO: alignment
-	//SBufferBinding<ICPUBuffer> packedVtxBuff{ 0u, core::make_smart_refctd_ptr<ICPUBuffer*>(vtxSize * vtxCnt) };
-	SBufferBinding<ICPUBuffer> packedIdxBuff{ 0u, core::make_smart_refctd_ptr<ICPUBuffer*>(sizeof(uint16_t) * idxCnt) };
-	constexpr E_INDEX_TYPE packedMeshIndexType = E_INDEX_TYPE::EIT_16BIT;
+	PackedMeshBufferData result{ addr * sizeof(DrawElementsIndirectCommand_t), 1u };
+	return result;
+}
 
-
+CCPUMeshPacker::PackedMeshBuffer<ICPUMeshBuffer> CCPUMeshPacker::commit(const core::vector<std::pair<const ICPUMeshBuffer*, PackedMeshBufferData>>& meshBuffers)
+{
 	return {};
 }
 
