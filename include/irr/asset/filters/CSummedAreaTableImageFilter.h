@@ -25,22 +25,23 @@ class CSummedAreaTableImageFilterBase
 		class CSummStateBase
 		{
 			public:
-				enum E_SUM_MODE
-				{
-					ESM_INCLUSIVE,	//!< all the values are summed withing the pixel summing begin from, so (x,y,z) values <= than itself
-					ESM_EXCLUSIVE,	//!< all the values are summed without the pixel summing begin from, so (x,y,z) values < than itself
-					EAS_COUNT
-				};
+				
+				uint8_t*	scratchMemory = nullptr;										//!< memory covering all regions used for temporary filling within computation of sum values
+				size_t	scratchMemoryByteSize = {};											//!< required byte size for entire scratch memory
 
-				uint8_t*	scratchMemory = nullptr;										//!< memory used for temporary filling within computation of sum values
-				uint32_t	scratchMemoryByteSize = 0u;									
-				const E_SUM_MODE mode = ExclusiveMode ? ESM_EXCLUSIVE : ESM_INCLUSIVE;
-
-				static inline uint32_t getRequiredScratchByteSize(E_FORMAT format, const asset::VkExtent3D& extent = asset::VkExtent3D())
+				static inline size_t getRequiredScratchByteSize(const ICPUImage* inputImage)
 				{
 					constexpr auto decodeByteSize = 8u;
-					auto channels = asset::getFormatChannelCount(format);
-					return channels * decodeByteSize * extent.width * extent.height * extent.depth;
+					auto channels = asset::getFormatChannelCount(inputImage->getCreationParameters().format);
+					const auto regions = inputImage->getRegions();
+
+					size_t retval = {};
+					for (auto& region = regions.begin(); region < regions.end(); ++region)
+						retval += region->imageExtent.width * region->imageExtent.height * region->imageExtent.depth;
+
+					retval *= channels * decodeByteSize;
+
+					return retval;
 				}
 		};
 
@@ -86,10 +87,10 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			const auto inFormat = inParams.format;
 			const auto outFormat = outParams.format;
 
-			if (state->scratchMemoryByteSize < state_type::getRequiredScratchByteSize(outFormat, {outParams.extent.width, outParams.extent.height, outParams.extent.depth}))
+			if (state->scratchMemoryByteSize < state_type::getRequiredScratchByteSize(state->inImage))
 				return false;
 
-			if (asset::getFormatChannelCount(outFormat) < asset::getFormatChannelCount(inFormat))
+			if (asset::getFormatChannelCount(outFormat) != asset::getFormatChannelCount(inFormat))
 				return false;
 
 			if (asset::getFormatClass(state->inImage->getCreationParameters().format) < asset::getFormatClass(outFormat))
@@ -112,45 +113,60 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 	private:
 
-		template<typename decodeTypePointer> //!< double or uint64_t
-		static inline bool executeInterprated(state_type* state, decodeTypePointer scratchMemory)
+		template<typename decodeType> //!< double or uint64_t
+		static inline bool executeInterprated(state_type* state, decodeType* scratchMemory)
 		{
-			using decodeType = typename std::decay<decltype(*scratchMemory)>::type;
+			const asset::E_FORMAT inFormat = state->inImage->getCreationParameters().inFormat;
+			const auto texelByteSize = asset::getTexelOrBlockBytesize(inFormat);
+			const auto currentChannelCount = asset::getFormatChannelCount(inFormat);
+			static constexpr auto maxChannels = 4u;
 
+			auto decodeEntireImageToTemporaryScratchImage = [&]()
+			{
+				decodeType decodeBuffer[maxChannels] = {};
+				const auto regions = state->inImage->getRegions();
+				const ICPUImage::SCreationParams& imageInfo = state->inImage->getCreationParameters();
+
+				size_t outRegionBufferOffset = {};
+				for (const IImage::SBufferCopy*& region = regions.begin(); region < regions.end(); ++region)
+				{
+					const auto& trueExtent = region->getExtent(); // TODO row length
+					const auto inLayerByteSize = trueExtent.width * trueExtent.height * trueExtent.depth * texelByteSize;
+					const auto outLayerByteSize = trueExtent.width * trueExtent.height * trueExtent.depth * sizeof(decodeType) * currentChannelCount;
+
+					for (uint16_t layer = 0; layer < imageInfo.arrayLayers; ++layer)
+					{
+						const uint8_t* inImageData = reinterpret_cast<uint8_t*>(state->inImage->getBuffer()->getPointer()) + region->bufferOffset + layer * inLayerByteSize;
+						const decodeType& outImageData = scratchMemory + outRegionBufferOffset + layer * outLayerByteSize;
+
+						core::vector3du32_SIMD localCoord;
+						for (auto& z = localCoord[2] = 0u; z < trueExtent.z; ++z)
+							for (auto& y = localCoord[1] = 0u; y < trueExtent.y; ++y)
+								for (auto& x = localCoord[0] = 0u; x < trueExtent.x; ++x)
+								{
+									const size_t independentPtrOffset = ((z * trueExtent.y + y) * trueExtent.x + x);
+									auto* inDataAdress = inImageData + independentPtrOffset * texelByteSize;
+									decodeType* outDataAdress = outImageData + independentPtrOffset * currentChannelCount;
+
+									const void* sourcePixels[maxChannels] = { inDataAdress, nullptr, nullptr, nullptr };
+									asset::decodePixelsRuntime(inFormat, sourcePixels, decodeBuffer, 1, 1);
+									memcpy(outDataAdress, decodeBuffer, sizeof(decodeType) * currentChannelCount);
+								}
+					}
+
+					outRegionBufferOffset += outLayerByteSize * imageInfo.arrayLayers;
+				}
+			};
+
+			decodeEntireImageToTemporaryScratchImage();
+
+			// TODO, it's wrong now
 			auto perOutputRegion = [&](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
 				assert(getTexelOrBlockBytesize(commonExecuteData.inFormat) == getTexelOrBlockBytesize(commonExecuteData.outFormat)); // if this asserts the API got broken during an update or something
 				core::vector3du32_SIMD trueExtent(commonExecuteData.oit->imageExtent.width, commonExecuteData.oit->imageExtent.height, commonExecuteData.oit->imageExtent.depth);
-				const auto texelByteSize = asset::getTexelOrBlockBytesize(commonExecuteData.inFormat);
-				const auto currentChannelCount = asset::getFormatChannelCount(commonExecuteData.inFormat);
-				static constexpr auto maxChannels = 4;
 
 				memset(scratchMemory, 0, state->scratchMemoryByteSize);
-
-				auto decodeEntireImageToTemporaryScratchImage = [&]() 
-				{
-					auto* temporaryMemory = scratchMemory;
-					decodeType decodeBuffer[maxChannels] = {};
-
-					size_t regionLayerByteOffset = {}; // TODO need to use filters API to stay at layer-mipmap memory 
-					const auto* entryData = commonExecuteData.inData + regionLayerByteOffset;
-
-					core::vector3du32_SIMD localCoord;
-					for (auto& z = localCoord[2] = 0u; z < trueExtent.z; ++z)
-						for (auto& y = localCoord[1] = 0u; y < trueExtent.y; ++y)
-							for (auto& x = localCoord[0] = 0u; x < trueExtent.x; ++x)
-							{
-								const size_t independentPtrOffset = ((z * trueExtent.y + y) * trueExtent.x + x);
-								auto* inDataAdress = entryData + independentPtrOffset * texelByteSize;
-								auto* outDataAdress = scratchMemory + independentPtrOffset * currentChannelCount;
-
-								const void* sourcePixels[maxChannels] = { inDataAdress, nullptr, nullptr, nullptr };
-								asset::decodePixelsRuntime(commonExecuteData.inImg->getCreationParameters().format, sourcePixels, decodeBuffer, 1, 1);
-								memcpy(outDataAdress, decodeBuffer, sizeof(decodeType) * currentChannelCount);
-							}
-				};
-
-				decodeEntireImageToTemporaryScratchImage();
 
 				auto imageTotalCacheBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(decodeType) * currentChannelCount * commonExecuteData.inParams.extent.depth);
 				auto imageTotalCache = reinterpret_cast<decodeType*>(imageTotalCacheBuffer->getPointer());

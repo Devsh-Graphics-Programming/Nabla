@@ -60,24 +60,25 @@ int main()
 			state.inBaseLayer = 0;
 			state.outOffset = { 0, 0, 0 };
 			state.outBaseLayer = 0;
-			state.scratchMemoryByteSize = state.getRequiredScratchByteSize(referenceImageParams.format, { referenceImageParams.extent.width, referenceImageParams.extent.height, referenceImageParams.extent.depth });
+			state.scratchMemoryByteSize = state.getRequiredScratchByteSize(state.inImage);
 			state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, 8));
 
-			auto regionWithMipMap = newSumImage->getRegions(0).begin();
-			state.extent = regionWithMipMap->getExtent();
-			state.layerCount = regionWithMipMap->imageSubresource.layerCount;
-			state.inMipLevel = regionWithMipMap->imageSubresource.mipLevel;
-			state.outMipLevel = regionWithMipMap->imageSubresource.mipLevel;
+			auto stateExtent = newSumImage->getMipSize(0);
+			state.extent = { stateExtent.X, stateExtent.Y, stateExtent.Z };
+			state.layerCount = newSumImage->getCreationParameters().arrayLayers;
+			state.inMipLevel = 0;
+			state.outMipLevel = 0;
 
 			if (!sumFilter.execute(&state))
 				os::Printer::log("Something went wrong while performing sum operation!", ELL_WARNING);
+
+			_IRR_ALIGNED_FREE(state.scratchMemory);
 		}
 		return newSumImage;
 	};
 
 	IAssetLoader::SAssetLoadParams lp(0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES);
-	//auto bundle = assetManager->getAsset("../../media/color_space_test/R8G8B8_1.png", lp);
-	auto bundle = assetManager->getAsset("../../media/TESTSUM.png", lp);
+	auto bundle = assetManager->getAsset("../../media/TESTSUM.exr", lp);
 	auto cpuImage = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(bundle.getContents().first[0]);
 
 	cpuImage = getSummedImage(cpuImage);
@@ -95,5 +96,5 @@ int main()
 	auto cpuImageView = ICPUImageView::create(std::move(viewParams));
 
 	asset::IAssetWriter::SAssetWriteParams wparams(cpuImageView.get());
-	assetManager->writeAsset("test.png", wparams);
+	assetManager->writeAsset("test.exr", wparams);
 }
