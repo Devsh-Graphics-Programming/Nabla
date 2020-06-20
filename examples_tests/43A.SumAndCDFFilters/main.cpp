@@ -39,7 +39,7 @@ int main()
 			auto referenceImageParams = image->getCreationParameters();
 			auto referenceBuffer = image->getBuffer();
 			auto referenceRegions = image->getRegions();
-			auto referenceRegion = referenceRegions.begin();
+			const auto* referenceRegion = referenceRegions.begin();
 
 			auto newImageParams = referenceImageParams;
 			auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceBuffer->getSize());
