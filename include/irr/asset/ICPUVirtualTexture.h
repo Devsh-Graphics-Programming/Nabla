@@ -164,7 +164,7 @@ public:
             storage = static_cast<ICPUVTResidentStorage*>(found->second.get());
         }
 
-        const VkExtent3D extent = {_addr.origsize_x, _addr.origsize_y, 1u};
+        const VkExtent3D extent = {static_cast<uint32_t>(_addr.origsize_x), static_cast<uint32_t>(_addr.origsize_y), 1u};
 
         const uint32_t levelsTakingAtLeastOnePageCount = countLevelsTakingAtLeastOnePage(extent);
         const uint32_t levelsToPack = std::min<uint32_t>(_subres.levelCount, m_pageTable->getCreationParameters().mipLevels+m_pgSzxy_log2);
@@ -276,7 +276,10 @@ public:
         if (!validateAliasCreation(_addr, _viewingFormat, _subresRelativeToMaster))
             return SViewAliasTextureData::invalid();
 
-        const VkExtent3D extent = {_addr.origsize_x>>_subresRelativeToMaster.baseArrayLayer, _addr.origsize_y>>_subresRelativeToMaster.baseArrayLayer, 1u};
+        const VkExtent3D extent = {
+            static_cast<uint32_t>(_addr.origsize_x>>_subresRelativeToMaster.baseArrayLayer),
+            static_cast<uint32_t>(_addr.origsize_y>>_subresRelativeToMaster.baseArrayLayer),
+            1u};
         SMasterTextureData aliasAddr = alloc(_viewingFormat, VkExtent3D{static_cast<uint32_t>(_addr.origsize_x), static_cast<uint32_t>(_addr.origsize_y), 1u}, _subresRelativeToMaster, ISampler::ETC_CLAMP_TO_BORDER, ISampler::ETC_CLAMP_TO_BORDER);
         if (SMasterTextureData::is_invalid(aliasAddr))
             return SViewAliasTextureData::invalid();
@@ -312,7 +315,7 @@ public:
             return nullptr;
 
         //free physical pages
-        VkExtent3D extent = {_addr.origsize_x, _addr.origsize_y, 1u};
+        VkExtent3D extent = {static_cast<uint32_t>(_addr.origsize_x), static_cast<uint32_t>(_addr.origsize_y), 1u};
         const uint32_t levelCount = _addr.maxMip+1u;
 
 #ifdef _IRR_DEBUG

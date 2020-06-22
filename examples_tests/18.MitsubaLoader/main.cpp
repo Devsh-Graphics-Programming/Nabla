@@ -70,7 +70,6 @@ struct SLight
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
 
-#define TESTING
 int main()
 {
 	// create device with full flexibility over creation parameters
@@ -388,6 +387,7 @@ int main()
 	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
 		return sensor.type==ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type==ext::MitsubaLoader::CElementSensor::Type::THINLENS;
 	};
+//#define TESTING
 #ifdef TESTING
 	if (0)
 #else
@@ -492,10 +492,10 @@ int main()
 	{
 		driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
 		driver->setViewPort(viewport);
-#ifdef TESTING
+//#ifdef TESTING
 		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
 		camera->render();
-#endif
+//#endif
 
 		asset::SBasicViewParameters uboData;
 		//view-projection matrix
