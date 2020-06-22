@@ -28,13 +28,13 @@ namespace meshPackerUtil
 
     struct PackedMeshBufferData
     {
-        uint32_t mdiParameterByteOffset; // add to `CCPUMeshPacker::getMultiDrawIndirectBuffer()->getPointer() to get `DrawElementsIndirectCommand_t` address
+        uint32_t mdiParameterOffset; // add to `CCPUMeshPacker::getMultiDrawIndirectBuffer()->getPointer() to get `DrawElementsIndirectCommand_t` address
         uint32_t mdiParameterCount;
 
         inline bool isValid() 
-        { 
-            return this->mdiParameterByteOffset != ~uint32_t(0) &&
-                   this->mdiParameterCount != ~uint32_t(0);
+        {
+            return this->mdiParameterOffset != core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address &&
+                   this->mdiParameterCount != core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
         }
     };
 
@@ -59,8 +59,8 @@ class IMeshPacker
 
 public:
 
-    IMeshPacker(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t maxIndexCountPerMDIData = std::numeric_limits<uint16_t>::max())
-        :m_maxIndexCountPerMDIData(maxIndexCountPerMDIData), /*TODO: delete when all alocators are done: */m_alctrReservedSpace{nullptr, nullptr, nullptr, nullptr}
+    IMeshPacker(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t maxTriangleCountPerMDIData = 1024u)
+        :m_maxTriangleCountPerMDIData(maxTriangleCountPerMDIData), /*TODO: delete when all alocators are done: */m_alctrReservedSpace{nullptr, nullptr, nullptr, nullptr}
     {
         m_outVtxInputParams.enabledAttribFlags  = preDefinedLayout.enabledAttribFlags;
         m_outVtxInputParams.enabledBindingFlags = preDefinedLayout.enabledBindingFlags;
@@ -112,7 +112,7 @@ protected:
     core::GeneralpurposeAddressAllocator<uint32_t> m_perInsVtxBuffAlctr;
     core::GeneralpurposeAddressAllocator<uint32_t> m_MDIDataAlctr;
 
-    const uint16_t m_maxIndexCountPerMDIData;
+    const uint16_t m_maxTriangleCountPerMDIData;
     
     _IRR_STATIC_INLINE_CONSTEXPR PackedMeshBufferData invalidPackedMeshBufferData{ ~uint32_t(0), ~uint32_t(0) };
 };

@@ -76,7 +76,10 @@ PackedMeshBufferData CCPUMeshPacker<MDIStructType>::alloc(const ICPUMeshBuffer c
 		}
 	}
 
-	auto MDIAllocAddr = m_MDIDataAlctr.alloc_addr(1u, 1u);
+	const uint32_t maxIdxCntPerPatch = m_maxTriangleCountPerMDIData * 3;
+	const uint32_t MDIStructsNeeded = std::ceil(static_cast<float>(meshBuffer->getIndexCount()) / maxIdxCntPerPatch);
+
+	auto MDIAllocAddr = m_MDIDataAlctr.alloc_addr(MDIStructsNeeded, 1u);
 	if (MDIAllocAddr == m_MDIDataAlctr.invalid_address)
 		return invalidPackedMeshBufferData;
 
@@ -86,18 +89,35 @@ PackedMeshBufferData CCPUMeshPacker<MDIStructType>::alloc(const ICPUMeshBuffer c
 
 	//TODO: divide into multiple mdi structs if(idxCnt > m_maxIndexCountPerMDIData)
 	MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(m_outMDIData.get()->getPointer());
-	*(mdiBuffPtr + MDIAllocAddr) =
+
+	for (int i = 0; i < MDIStructsNeeded; i++)
 	{
-		static_cast<uint32_t>(meshBuffer->getIndexCount()),
-		static_cast<uint32_t>(meshBuffer->getInstanceCount()),
-		idxAllocAddr * sizeof(uint16_t),
-		0,
-		static_cast<uint32_t>(meshBuffer->getBaseInstance())
-	};
+		uint32_t idxCnt = 0u;
+
+		if (i == MDIStructsNeeded - 1)
+		{
+			idxCnt = static_cast<uint32_t>(meshBuffer->getIndexCount()) % maxIdxCntPerPatch;
+
+			if (idxCnt == 0)
+				idxCnt = maxIdxCntPerPatch;
+		}
+		else
+		{
+			idxCnt = maxIdxCntPerPatch;
+		}
+
+		*(mdiBuffPtr + MDIAllocAddr + i) =
+		{
+			idxCnt,
+			static_cast<uint32_t>(meshBuffer->getInstanceCount()),
+			idxAllocAddr + i * maxIdxCntPerPatch,
+			0 /*TODO*/,
+			static_cast<uint32_t>(meshBuffer->getBaseInstance()) /*TODO*/
+		};
+	}
 
 
-
-	PackedMeshBufferData result{ MDIAllocAddr * sizeof(MDIStructType), 1u };
+	PackedMeshBufferData result{ MDIAllocAddr, MDIStructsNeeded };
 	return result;
 }
 
