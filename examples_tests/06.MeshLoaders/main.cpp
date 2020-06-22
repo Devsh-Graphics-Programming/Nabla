@@ -50,7 +50,7 @@ int main()
     //
     auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
     //loading cache from file
-    qnc->loadNormalQuantCacheFromFile<asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(fs,"../../tmp/normalCache101010.sse", true);
+    qnc->loadNormalQuantCacheFromFile<asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(fs,"../../tmp/normalCache101010.sse", true);
 
     // register the zip
     device->getFileSystem()->addFileArchive("../../media/sponza.zip");
@@ -58,11 +58,11 @@ int main()
     asset::IAssetLoader::SAssetLoadParams lp;
     auto meshes_bundle = am->getAsset("sponza.obj", lp);
     assert(!meshes_bundle.isEmpty());
-    auto mesh = meshes_bundle.getContents().first[0];
+    auto mesh = meshes_bundle.getContents().begin()[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
 
     //saving cache to file
-    qnc->saveCacheToFile(asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10,fs,"../../tmp/normalCache101010.sse");
+    qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10,fs,"../../tmp/normalCache101010.sse");
 
     //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
     //so we can create just one DS

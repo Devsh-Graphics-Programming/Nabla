@@ -51,9 +51,6 @@ namespace impl
 
         using BaseCache::BaseCache;
 
-        template<typename RngT>
-        static bool isNonZeroRange(const RngT& _rng) { return BaseCache::isNonZeroRange(_rng); }
-
         inline bool insert(const typename BaseCache::KeyType_impl& _key, const typename BaseCache::ValueType_impl& _val)
         {
             this->m_lock.lockWrite();

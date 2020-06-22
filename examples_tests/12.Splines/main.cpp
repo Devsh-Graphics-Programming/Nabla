@@ -259,10 +259,10 @@ int main()
 	{
 		asset::IAssetLoader::SAssetLoadParams lparams;
 		auto contents = assMgr->getAsset(jpegPath, lparams).getContents();
-		if (contents.first == contents.second)
+		if (contents.begin() == contents.end())
 			return {};
 
-		auto cpuImg = static_cast<asset::ICPUImage*>(contents.first->get());
+		auto cpuImg = static_cast<asset::ICPUImage*>(contents.begin()->get());
 		auto gpuImages = driver->getGPUObjectsFromAssets(&cpuImg,&cpuImg+1u);
 		if (!gpuImages->size())
 			return {};
