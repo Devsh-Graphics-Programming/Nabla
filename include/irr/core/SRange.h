@@ -5,8 +5,10 @@
 #ifndef __IRR_S_RANGE_H_INCLUDED__
 #define __IRR_S_RANGE_H_INCLUDED__
 
-#include "stddef.h"
 #include "irr/core/Types.h"
+
+#include "stddef.h"
+#include <type_traits>
 
 /*! \file SRange.h
 	\brief File containing SRange utility struct for C++11 range loops
@@ -17,22 +19,38 @@ namespace irr
 namespace core
 {
 
-	template<typename T>
-	struct SRange
-	{
-			inline SRange(T* _beg, T* _end) : m_begin(_beg), m_end(_end) {}
+template<typename T, typename IteratorType = std::add_pointer_t<T>, typename ConstIteratorType = std::add_pointer_t<const T> >
+struct SRange
+{
+	public:
+		using iterator_type = IteratorType;
+		using const_iterator_type = ConstIteratorType;
 
-			inline T* begin() { return m_begin; }
-            inline T* begin() const { return m_begin; }
-			inline T* end() { return m_end; }
-            inline T* end() const { return m_end; }
+		inline SRange(const IteratorType& _beg, const IteratorType& _end) : m_begin(_beg), m_end(_end) {}
+		inline SRange(IteratorType&& _beg, IteratorType&& _end) : m_begin(std::move(_beg)), m_end(std::move(_end)) {}
 
-			inline size_t size() const {return m_end-m_begin;}
+		inline IteratorType begin() const { return m_begin; }
+		inline IteratorType end() const { return m_end; }
 
-		private:
-			T* m_begin, * m_end;
-	};
+		template<class Q=ConstIteratorType>
+		inline typename std::enable_if<!std::is_same<Q,IteratorType>::value,ConstIteratorType>::type begin() const { return m_begin; }
+		template<class Q=ConstIteratorType>
+		inline typename std::enable_if<!std::is_same<Q,IteratorType>::value,ConstIteratorType>::type end() const { return m_end; }
 
+		inline size_t size() const {return std::distance(m_begin,m_end);}
+
+	private:
+		IteratorType m_begin, m_end;
+};
+
+/*
+template< class U, class T, typename IteratorType, typename ConstIteratorType>
+inline SRange<U> SRange_static_cast(const SRange<T>& smart_ptr)
+{
+	SRange<U> other(nullptr,nullptr);
+	return other;
+}
+*/
 
 } // end namespace core
 } // end namespace irr

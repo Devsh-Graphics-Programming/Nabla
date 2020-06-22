@@ -15,7 +15,7 @@ void loadAndWriteImageForTesting(const std::string_view& path, IAssetManager* as
 	auto image_bundle = assetManager->getAsset(path.data(), loadingParams);
 	if (!image_bundle.isEmpty())
 	{
-		auto image = image_bundle.getContents().first[0];
+		auto image = image_bundle.getContents().begin()[0];
 
 		IAssetWriter::SAssetWriteParams writeParams(image.get());
 		assetManager->writeAsset(fileName, writeParams);
