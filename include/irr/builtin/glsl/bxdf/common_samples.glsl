@@ -3,24 +3,35 @@
 
 #include <irr/builtin/glsl/bxdf/brdf/cos_weighted_sample.glsl>
 
-irr_glsl_BSDFSample irr_glsl_transmission_cos_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
+irr_glsl_BSDFSample irr_glsl_transmission_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
     irr_glsl_BSDFSample smpl;
     smpl.L = -interaction.isotropic.V.dir;
-    smpl.probability = 1.0;
     
     return smpl;
 }
 
-irr_glsl_BSDFSample irr_glsl_delta_cos_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
+vec3 irr_glsl_transmission_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
+{
+	pdf = 1.0;
+	return vec3(1.0);
+}
+
+irr_glsl_BSDFSample irr_glsl_reflection_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
     irr_glsl_BSDFSample smpl;
     smpl.L = interaction.isotropic.N*2.0*interaction.isotropic.NdotV - interaction.isotropic.V.dir;
-    smpl.probability = 1.0;
 
     return smpl;
 }
 
+vec3 irr_glsl_reflection_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
+{
+	pdf = 1.0;
+	return vec3(1.0);
+}
+
+//this is probably wrong so not touching it
 // usually  `luminosityContributionHint` would be the Rec.709 luma coefficients (the Y row of the RGB to CIE XYZ matrix)
 //assert(1.0==luminosityContributionHint.r+luminosityContributionHint.g+luminosityContributionHint.b);
 irr_glsl_BSDFSample irr_glsl_smooth_dielectric_cos_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u, in vec3 eta, in vec3 luminosityContributionHint)
@@ -32,7 +43,7 @@ irr_glsl_BSDFSample irr_glsl_smooth_dielectric_cos_sample(in irr_glsl_Anisotropi
     if (reflectionProb==1.0 || u.x<reflectionProb)
     {
         smpl.L = interaction.isotropic.N*2.0*NdotV - interaction.isotropic.V.dir;
-        smpl.probability = reflectionProb;
+        //smpl.probability = reflectionProb;
     }
     else
     {
@@ -44,7 +55,7 @@ irr_glsl_BSDFSample irr_glsl_smooth_dielectric_cos_sample(in irr_glsl_Anisotropi
             smpl.L = vec3(0.0);
         else*/
             smpl.L = ((NdotV /*+ sqrt(k)*/) * interaction.isotropic.N - V) / fittedMonochromeEta;
-        smpl.probability = 1.0-reflectionProb;
+        //smpl.probability = 1.0-reflectionProb;
     }
 
     return smpl;

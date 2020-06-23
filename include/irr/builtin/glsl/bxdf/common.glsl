@@ -39,8 +39,32 @@ mat3 irr_glsl_getTangentFrame(in irr_glsl_AnisotropicViewSurfaceInteraction inte
 struct irr_glsl_BSDFSample
 {
    vec3 L;  // incoming direction, normalized
-   float probability; // for a single sample (don't care about number drawn)
+   float LdotT;
+   float LdotB;
+   float LdotN;
+   
+   float TdotH;
+   float BdotH;
+   float NdotH;
+   float VdotH;//equal to LdotH
 };
+
+irr_glsl_BSDFSample irr_glsl_createBSDFSample(in vec3 H, in vec3 V, in float VdotH, in mat3 m)
+{
+	irr_glsl_BSDFSample s;
+
+	vec3 L = irr_glsl_reflect(V,H,VdotH);
+	s.L = normalize(m*L);
+	s.LdotN = L.z;
+	s.LdotT = L.x;
+	s.LdotB = L.y;
+	s.NdotH = H.z;
+	s.TdotH = H.x;
+	s.BdotH = H.y;
+	s.VdotH = VdotH;
+	
+	return s;
+}
 
 
 // do not use this struct in SSBO or UBO, its wasteful on memory
@@ -60,6 +84,8 @@ struct irr_glsl_BSDFIsotropicParams
 };
 
 // do not use this struct in SSBO or UBO, its wasteful on memory
+//TODO irr_glsl_BSDFAnisotropicParams should contain irr_glsl_AnisotropicViewSurfaceInteraction
+//would be easier if glsl had template metprogramming >.<
 struct irr_glsl_BSDFAnisotropicParams
 {
    irr_glsl_BSDFIsotropicParams isotropic;

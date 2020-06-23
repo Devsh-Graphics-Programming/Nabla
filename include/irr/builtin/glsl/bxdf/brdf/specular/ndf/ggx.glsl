@@ -18,4 +18,11 @@ float irr_glsl_ggx_burley_aniso(float anisotropy, float a2, float TdotH, float B
 	return w2*w2*atab * irr_glsl_RECIPROCAL_PI;
 }
 
+float irr_glsl_ggx_aniso(in float TdotH2, in float BdotH2, in float NdotH2, in float ax, in float ay, in float ax2, in float ay2)
+{
+	float a2 = ax*ay;
+	float denom = TdotH2/ax2 + BdotH2/ay2 + NdotH2;
+	return irr_glsl_RECIPROCAL_PI / (a2 * denom * denom);
+}
+
 #endif
