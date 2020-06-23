@@ -43,6 +43,8 @@ struct irr_glsl_BSDFSample
    float LdotB;
    float LdotN;
    
+   float TdotH;
+   float BdotH;
    float NdotH;
    float VdotH;//equal to LdotH
 };

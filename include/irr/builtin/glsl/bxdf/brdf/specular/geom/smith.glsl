@@ -1,6 +1,7 @@
 #ifndef _BRDF_SPECULAR_GEOM_GGX_SMITH_INCLUDED_
 #define _BRDF_SPECULAR_GEOM_GGX_SMITH_INCLUDED_
 
+/* TODO remove
 float irr_glsl_smith_beckmann_C2(in float NdotX2, in float a2)
 {
     return NdotX2 / (a2 * (1.0 - NdotX2));
@@ -13,46 +14,42 @@ float irr_glsl_smith_beckmann_Lambda(in float c2)
     float denom = 2.181*c2 + 3.535*c;
     return mix(0.0, nom/denom, c<1.6);
 }
-
-float irr_glsl_smith_ggx_C2(in float NdotX2, in float a2)
+*/
+float irr_glsl_smith_ggx_devsh_part(in float NdotX2, in float a2, in float one_minus_a2)
 {
-    float sin2 = 1.0 - NdotX2;
-    return a2 * sin2/NdotX2;
+	return sqrt(a2+one_minus_a2*NdotX2)
 }
 
-float irr_glsl_smith_ggx_Lambda(in float c2)
+float irr_glsl_GGXSmith_G1_(in float NdotX2, in float a2, in float one_minus_a2)
 {
-    return 0.5 * (sqrt(1.0+c2)-1.0);
+    return (2.0*NdotX) / (NdotX + irr_glsl_smith_ggx_devsh_part(NdotX*NdotX,a2,one_minus_a2));
 }
-
-float irr_glsl_GGXSmith_G1_(in float a2, in float NdotX)
+float irr_glsl_GGXSmith_G1_wo_numerator(in float NdotX2, in float a2, in float one_minus_a2)
 {
-    return (2.0*NdotX) / (NdotX + sqrt(a2 + (1.0 - a2)*NdotX*NdotX));
-}
-float irr_glsl_GGXSmith_G1_wo_numerator(in float a2, in float NdotX)
-{
-    return 1.0 / (NdotX + sqrt(a2 + (1.0 - a2)*NdotX*NdotX));
+    return 1.0 / (NdotX + irr_glsl_smith_ggx_devsh_part(NdotX*NdotX,a2,one_minus_a2));
 }
 
 float irr_glsl_ggx_smith(in float a2, in float NdotL, in float NdotV)
 {
-    return irr_glsl_GGXSmith_G1_(a2, NdotL) * irr_glsl_GGXSmith_G1_(a2, NdotV);
+	float one_minus_a2 = 1.0-a2;
+    return irr_glsl_GGXSmith_G1_(NdotL,a2,one_minus_a2) * irr_glsl_GGXSmith_G1_(NdotV,a2,one_minus_a2);
 }
 float irr_glsl_ggx_smith_wo_numerator(in float a2, in float NdotL, in float NdotV)
 {
-    return irr_glsl_GGXSmith_G1_wo_numerator(a2, NdotL) * irr_glsl_GGXSmith_G1_wo_numerator(a2, NdotV);
-}
-
-float irr_glsl_ggx_smith_height_correlated(in float a2, in float NdotL, in float NdotV)
-{
-    float denom = NdotV*sqrt(a2 + (1.0 - a2)*NdotL*NdotL) + NdotL*sqrt(a2 + (1.0 - a2)*NdotV*NdotV);
-    return 2.0*NdotL*NdotV / denom;
+	float one_minus_a2 = 1.0-a2;
+    return irr_glsl_GGXSmith_G1_wo_numerator(NdotL,a2,one_minus_a2) * irr_glsl_GGXSmith_G1_wo_numerator(NdotV,a2,one_minus_a2);
 }
 
 float irr_glsl_ggx_smith_height_correlated_wo_numerator(in float a2, in float NdotL, in float NdotV)
 {
-    float denom = NdotV*sqrt(a2 + (1.0 - a2)*NdotL*NdotL) + NdotL*sqrt(a2 + (1.0 - a2)*NdotV*NdotV);
+	float one_minus_a2 = 1.0-a2;
+    float denom = NdotV*irr_glsl_smith_ggx_devsh_part(NdotL*NdotL,a2,one_minus_a2) + NdotL*irr_glsl_smith_ggx_devsh_part(NdotV*NdotV,a2,one_minus_a2);
     return 0.5 / denom;
+}
+
+float irr_glsl_ggx_smith_height_correlated(in float a2, in float NdotL, in float NdotV)
+{
+    return 4.0*NdotL*NdotV*irr_glsl_ggx_smith_height_correlated_wo_numerator();
 }
 
 // Note a, not a2!
