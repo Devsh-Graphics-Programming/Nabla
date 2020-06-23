@@ -49,6 +49,23 @@ struct irr_glsl_BSDFSample
    float VdotH;//equal to LdotH
 };
 
+irr_glsl_BSDFSample irr_glsl_createBSDFSample(in vec3 H, in vec3 V, in float VdotH, in mat3 m)
+{
+	irr_glsl_BSDFSample s;
+
+	vec3 L = irr_glsl_reflect(V,H,VdotH);
+	s.L = normalize(m*L);
+	s.LdotN = L.z;
+	s.LdotT = L.x;
+	s.LdotB = L.y;
+	s.NdotH = H.z;
+	s.TdotH = H.x;
+	s.BdotH = H.y;
+	s.VdotH = VdotH;
+	
+	return s;
+}
+
 
 // do not use this struct in SSBO or UBO, its wasteful on memory
 struct irr_glsl_BSDFIsotropicParams

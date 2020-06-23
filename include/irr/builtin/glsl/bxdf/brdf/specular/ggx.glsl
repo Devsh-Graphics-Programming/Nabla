@@ -32,9 +32,9 @@ irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurface
 
     mat3 m = irr_glsl_getTangentFrame(interaction);
 
-    vec3 V = interaction.isotropic.V.dir;
-    V = normalize(V*m);//transform to tangent space
-    V = normalize(vec3(_ax*V.x, _ay*V.y, V.z));//stretch view vector so that we're sampling as if roughness=1.0
+    vec3 localV = interaction.isotropic.V.dir;
+    localV = normalize(V*m);//transform to tangent space
+    vec3 V = normalize(vec3(_ax*localV.x, _ay*localV.y, localV.z));//stretch view vector so that we're sampling as if roughness=1.0
 
     float lensq = V.x*V.x + V.y*V.y;
     vec3 T1 = lensq > 0.0 ? vec3(-V.y, V.x, 0.0)*inversesqrt(lensq) : vec3(1.0,0.0,0.0);
@@ -53,14 +53,7 @@ irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurface
     H = normalize(vec3(_ax*H.x, _ay*H.y, max(0.0,H.z)));
     float NdotH = H.z;
 
-    irr_glsl_BSDFSample smpl;
-    //==== compute L ====
-    H = normalize(m*H);//transform to correct space
-    float HdotV = dot(H,interaction.isotropic.V.dir);
-    //reflect V on H to actually get L
-    smpl.L = H*2.0*HdotV - interaction.isotropic.V.dir;
-
-    return smpl;
+	return irr_glsl_createBSDFSample(H,localV,dot(H,localV),m);
 }
 irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 _sample, in float _ax, in float _ay)
 {

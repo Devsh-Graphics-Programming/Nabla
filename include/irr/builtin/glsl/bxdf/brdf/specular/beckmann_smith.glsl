@@ -31,10 +31,10 @@ irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_Anisotropic
     
     mat3 m = irr_glsl_getTangentFrame(interaction);
 
-    vec3 V = interaction.isotropic.V.dir;
-    V = normalize(V*m);//transform to tangent space
+    vec3 localV = interaction.isotropic.V.dir;
+    localV = normalize(V*m);//transform to tangent space
     //stretch
-    V = normalize(vec3(ax*V.x, ay*V.y, V.z));
+    vec3 V = normalize(vec3(ax*localV.x, ay*localV.y, localV.z));
 
     vec2 slope;
     if (V.z > 0.9999)//V.z=NdotV=cosTheta in tangent space
@@ -94,19 +94,9 @@ irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_Anisotropic
     //unstretch
     slope = vec2(ax,ay)*slope;
 
-    //==== compute L ====
     vec3 H = normalize(vec3(-slope, 1.0));
-    float NdotH = H.z;
-    H = normalize(m*H);//transform to correct space
-    //reflect
-    float HdotV = dot(H,interaction.isotropic.V.dir);
-    irr_glsl_BSDFSample smpl;
-    smpl.L = H*2.0*HdotV - interaction.isotropic.V.dir;
-	smpl.NdotH = NdotH;
-	smpl.VdotH = HdotV;
-	//TODO smpl.Ldot[T|B|N]
 
-    return smpl;
+	return irr_glsl_createBSDFSample(H,localV,dot(H,localV),m);
 }
 irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 _sample, in float _ax, in float _ay)
 {
