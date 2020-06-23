@@ -115,7 +115,7 @@ irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_Anisotropic
 }
 
 //TODO remove interaction param when irr_glsl_BSDFAnisotropicParams contains irr_glsl_AnisotropicViewSurfaceInteraction
-vec3 irr_glsl_beckmann_smith_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 u, in mat2x3 ior2, in float ax, in float ay)
+vec3 irr_glsl_beckmann_smith_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior2, in float ax, in float ay)
 {
 	float a2 = ax*ay;
 	float NdotL2 = s.LdotN*s.LdotN;

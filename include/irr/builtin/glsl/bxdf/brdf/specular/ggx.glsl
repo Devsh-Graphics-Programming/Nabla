@@ -68,7 +68,7 @@ irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurface
     return irr_glsl_ggx_cos_generate(interaction, u, _ax, _ay);
 }
 
-vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 u, in mat2x3 ior2, in float a2)
+vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior2, in float a2)
 {
 	float one_minus_a2 = 1.0-a2;
 	float G1 = irr_glsl_GGXSmith_G1_(s.LdotN,a2,one_minus_a2);
@@ -82,7 +82,7 @@ vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s,
 	return fr*G2_over_G1;
 }
 
-vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 u, in mat2x3 ior2, in float ax, in float ay)
+vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior2, in float ax, in float ay)
 {
 	float Vterm = s.LdotN * length(vec3(at*params.TdotV, ab*params.BdotV, params.NdotV));
 	float Lterm = params.NdotV * length(vec3(at*s.LdotT, ab*s.LdotB, s.LdotN));
