@@ -68,26 +68,22 @@ irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurface
     return irr_glsl_ggx_cos_generate(interaction, u, _ax, _ay);
 }
 
-vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 u, in mat2x3 ior2, in float a2)
+vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 u, in mat2x3 ior2, in float a2)
 {
-	irr_glsl_BSDFSample s = irr_glsl_ggx_cos_generate(interaction, u, a2, a2);//TODO take sample as parameter
+	float one_minus_a2 = 1.0-a2;
+	float G1 = irr_glsl_GGXSmith_G1_(s.LdotN,a2,one_minus_a2);
+	pdf = irr_glsl_ggx_trowbridge_reitz(a2,s.NdotH*s.NdotH)*G1*abs(dot(interaction.isotropic.V.dir,H))/interaction.isotropic.NdotV;
 	
-	float NdotL2 = s.LdotN*s.LdotN;
-	float lambda_V = irr_glsl_smith_ggx_Lambda(irr_glsl_smith_ggx_C2(interaction.isotropic.NdotV_squared, a2));
-	float lambda_L = irr_glsl_smith_ggx_Lambda(irr_glsl_smith_ggx_C2(NdotL2, a2));
-	float onePlusLambda_V = 1.0 + lambda_V;
-	float G = 1.0 / onePlusLambda_V;
-	pdf = irr_glsl_ggx_trowbridge_reitz(a2,s.NdotH*s.NdotH)*G*abs(dot(interaction.isotropic.V.dir,H))/interaction.isotropic.NdotV;
-	G = onePlusLambda_V/(onePlusLambda_V+lambda_L);//remainder
+	float devsh_v = irr_glsl_smith_ggx_devsh_part(interaction.isotropic.NdotV_squared,a2,one_minus_a2);
+	float G2_over_G1 = s.LdotN*(devsh_v + interaction.isotropic.NdotV);
+	G2_over_G1 /= interaction.isotropic.NdotV*irr_glsl_smith_ggx_devsh_part(s.LdotN*s.LdotN,a2,one_minus_a2) + s.LdotN*devsh_v;
 	
 	vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], s.VdotH);
-	return fr*G;	
+	return fr*G2_over_G1;
 }
 
-vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 u, in mat2x3 ior2, in float ax, in float ay)
+vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 u, in mat2x3 ior2, in float ax, in float ay)
 {
-	irr_glsl_BSDFSample s = irr_glsl_ggx_cos_generate(interaction, u, a2, a2);//TODO take sample as parameter
-	
 	float Vterm = s.LdotN * length(vec3(at*params.TdotV, ab*params.BdotV, params.NdotV));
 	float Lterm = params.NdotV * length(vec3(at*s.LdotT, ab*s.LdotB, s.LdotN));
 	float G1_rcp = params.NdotV*s.LdotN+Lterm;
@@ -97,35 +93,6 @@ vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFAni
 	
 	vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], s.VdotH);
 	return fr*G2_over_G1;	
-}
-
-vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 u, in mat2x3 ior2, in float ax, in float ay)
-{
-	irr_glsl_BSDFSample s = irr_glsl_ggx_cos_generate(interaction, u, ax, ay);
-	
-	// TODO: redo (split into 2 functions separate for iso and aniso case)
-	// aniso
-	/*{
-		float Vterm = NdotL * length(vec3(at*TdotV, ab*BdotV, NdotV));
-		float Lterm = NdotV * length(vec3(at*TdotL, ab*BdotL, NdotL));
-		float G1_rcp = NdotV*NdotL+Lterm;
-		float G2_over_G1 = (Vterm+Lterm)*G1_rcp;
-		G1_rcp *= 2.0;
-		pdf = NDF()/(4.0*G1_rcp*abs(NdotV));
-	}*/
-	{ // TODO: redo for iso
-		float a2 = ax*ay;
-		float NdotL2 = s.LdotN*s.LdotN;
-		float lambda_V = irr_glsl_smith_ggx_Lambda(irr_glsl_smith_ggx_C2(interaction.isotropic.NdotV_squared, a2));
-		float lambda_L = irr_glsl_smith_ggx_Lambda(irr_glsl_smith_ggx_C2(NdotL2, a2));
-		float onePlusLambda_V = 1.0 + lambda_V;
-		float G = 1.0 / onePlusLambda_V;
-		pdf = irr_glsl_ggx_trowbridge_reitz(a2,s.NdotH*s.NdotH)*G*abs(dot(interaction.isotropic.V.dir,H))/interaction.isotropic.NdotV;
-		G = onePlusLambda_V/(onePlusLambda_V+lambda_L);//remainder
-	}
-	
-	vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], s.VdotH);
-	return fr*G;
 }
 
 #endif

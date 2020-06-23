@@ -20,11 +20,11 @@ float irr_glsl_smith_ggx_devsh_part(in float NdotX2, in float a2, in float one_m
 	return sqrt(a2+one_minus_a2*NdotX2)
 }
 
-float irr_glsl_GGXSmith_G1_(in float NdotX2, in float a2, in float one_minus_a2)
+float irr_glsl_GGXSmith_G1_(in float NdotX, in float a2, in float one_minus_a2)
 {
     return (2.0*NdotX) / (NdotX + irr_glsl_smith_ggx_devsh_part(NdotX*NdotX,a2,one_minus_a2));
 }
-float irr_glsl_GGXSmith_G1_wo_numerator(in float NdotX2, in float a2, in float one_minus_a2)
+float irr_glsl_GGXSmith_G1_wo_numerator(in float NdotX, in float a2, in float one_minus_a2)
 {
     return 1.0 / (NdotX + irr_glsl_smith_ggx_devsh_part(NdotX*NdotX,a2,one_minus_a2));
 }
