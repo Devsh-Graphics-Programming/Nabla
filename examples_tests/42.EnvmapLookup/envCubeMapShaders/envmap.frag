@@ -91,12 +91,21 @@ BSDFNode bsdfs[BSDF_COUNT] = {
 struct Light
 {
     vec3 radiance;
+    uint objectID;
 };
 
 #define LIGHT_COUNT 1
 Light lights[LIGHT_COUNT] = {
-    {vec3(30.0,25.0,15.0)}
+    {vec3(30.0,25.0,15.0),8u}
 };
+vec3 Light_getRadiance(in Light light)
+{
+    return light.radiance;
+}
+uint Light_getObjectID(in Light light)
+{
+    return light.objectID;
+}
 
 float scene_getLightChoicePdf(in Light light)
 {
@@ -104,7 +113,7 @@ float scene_getLightChoicePdf(in Light light)
 }
 
 
-#define ANY_HIT_FLAG (-1)
+#define ANY_HIT_FLAG (-2147483648)
 #define DEPTH_BITS_COUNT 8
 #define DEPTH_BITS_OFFSET (31-DEPTH_BITS_COUNT)
 struct ImmutableRay_t
@@ -137,7 +146,7 @@ bool anyHitProgram(in ImmutableRay_t _immutable)
 
 bool traceRay(in ImmutableRay_t _immutable, inout MutableRay_t _mutable)
 {
-    bool anyHit = false;//(_immutable.typeDepthSampleIx&ANY_HIT_FLAG)!=0;
+    bool anyHit = (_immutable.typeDepthSampleIx&ANY_HIT_FLAG)!=0;
     _mutable.intersectionT = _immutable.maxT;
     for (int i=0; i<SPHERE_COUNT; i++)
     {
@@ -202,6 +211,28 @@ int stackPtr = 0;
 Ray_t rayStack[MAX_STACK_SIZE];
 
 #include <irr/builtin/glsl/bxdf/common.glsl>
+#include <irr/builtin/glsl/bxdf/common_samples.glsl>
+irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_IsotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf)
+{
+    irr_glsl_BSDFSample smpl;
+    smpl.L = irr_glsl_reflect(interaction.V.dir,interaction.N,interaction.NdotV);
+    smpl.LdotN = interaction.NdotV;
+    smpl.NdotH = 1.0;
+    smpl.VdotH = interaction.NdotV;
+    return smpl;
+
+    //return irr_glsl_reflection_cos_generate(interaction);
+}
+vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_BSDFSample _sample, in BSDFNode bsdf)
+{
+    pdf = 1.0;
+    return normalize(BSDFNode_getReflectance(bsdf));
+/*
+    pdf = max(_sample.LdotN,0.0)*irr_glsl_RECIPROCAL_PI;
+    return BSDFNode_getReflectance(bsdf);
+*/
+}
+
 float impl_sphereSolidAngle(in Sphere sphere, in vec3 origin, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
 {
     float cosThetaMax = sqrt(1.0-sphere.radius2/irr_glsl_lengthSq(sphere.position-origin));
@@ -209,18 +240,32 @@ float impl_sphereSolidAngle(in Sphere sphere, in vec3 origin, in irr_glsl_Isotro
 }
 
 // the interaction here is the interaction at the illuminator-end of the ray, not the receiver
-vec3 irr_glsl_light_deferred_eval_and_prob(out float lightPdf, in Sphere sphere, in vec3 origin, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in Light light)
+vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in vec3 origin, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in Light light)
 {
-    lightPdf = scene_getLightChoicePdf(light)/impl_sphereSolidAngle(sphere,origin,interaction);
-    return light.radiance;
+    pdf = scene_getLightChoicePdf(light)/impl_sphereSolidAngle(sphere,origin,interaction);
+    return Light_getRadiance(light);
 }
 
-#include <irr/builtin/glsl/bxdf/common_samples.glsl>
+#define GeneratorSample irr_glsl_BSDFSample
 #define irr_glsl_LightSample irr_glsl_BSDFSample
-irr_glsl_LightSample irr_glsl_light_generate(in Sphere sphere, in vec3 origin, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in vec2 u)
+irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in vec3 u)
 {
+    // normally we'd pick from set of lights, using `u`
+    Light light = lights[0];
+    float choicePdf = scene_getLightChoicePdf(light);
+
+    Sphere sphere = spheres[Light_getObjectID(light)];
+
+
+    remainder = Light_getRadiance(light)/choicePdf;
+    pdf = choicePdf/impl_sphereSolidAngle(sphere,origin,interaction);
+
+    vec3 L = sphere.position-origin;
+    float rcpDistance = inversesqrt(dot(L,L));
+    newRayMaxT = 0.99999*rcpDistance;
+
     irr_glsl_LightSample retval;
-    retval.L = normalize(sphere.position-origin);
+    retval.L = L*rcpDistance;
     retval.LdotN = dot(retval.L,interaction.N);
     retval.VdotH = dot(retval.L,normalize(retval.L+interaction.V.dir));
     return retval;
@@ -250,7 +295,7 @@ float BSDFNode_getMISWeight(in BSDFNode bsdf)
     return 1.0;
 }
 
-#define MAX_DEPTH 2
+#define MAX_DEPTH 5
 void closestHitProgram(in ImmutableRay_t _immutable, in MutableRay_t _mutable, inout Payload_t _payload)
 {
     Sphere sphere = spheres[_mutable.objectID];
@@ -266,9 +311,6 @@ void closestHitProgram(in ImmutableRay_t _immutable, in MutableRay_t _mutable, i
     uint bsdfLightIDs = sphere.bsdfLightIDs;
     uint lightID = bitfieldExtract(bsdfLightIDs,16,16);
 
-    _payload.accumulation += vec3(1.0,0.0,0.0);
-
-#if 0
 
     // finish MIS
     if (lightID!=INVALID_ID_16BIT) // has emissive
@@ -293,18 +335,57 @@ void closestHitProgram(in ImmutableRay_t _immutable, in MutableRay_t _mutable, i
         
         // this could run in a loop if we'd allow splitting/amplification (if we modified the payload managment)
         {
-            //vec2 epsilon = rand2d(depth,sampleIx);
+            vec3 epsilon = vec3(0.5,0.5,0.5);//rand3d(depth,sampleIx);
 
-            _payload.accumulation += BSDFNode_getReflectance(bsdf);
+            bool pickBSDF = true;
+            
+            // the probability of generating a sample w.r.t. the light generator only possible and used when it was generated with it!
+            float lightPdf;
+            GeneratorSample _sample;
+            if (pickBSDF)
+            {
+                _sample = irr_glsl_bsdf_cos_generate(interaction,epsilon,bsdf);
+            }
+            else
+            {
+                vec3 lightRemainder;
+                _sample = irr_glsl_light_generate_and_remainder_and_pdf(
+                    lightRemainder,lightPdf,rayStack[stackPtr]._immutable.maxT,
+                    intersection,interaction,epsilon
+                );
+            }
+            
+            // do a cool trick and always compute the bsdf parts this way! (no divergence)
+            float bsdfPdf;
+            // the value of the bsdf divided by the probability of the sample being generated
+            _payload.throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,interaction,_sample,bsdf);
 
-            //stackPtr++;
-            //rayStack[stackPtr].origin = interaction.pos;
+            if (bsdfPdf>FLT_MIN)
+            {
+                float choiceProb = pickBSDF ? bsdfGeneratorProbability:(1.0-bsdfGeneratorProbability);
+                float rcpChoiceProb = 1.0/choiceProb; // should be impossible to get a div by 0 here
+                _payload.throughput *= rcpChoiceProb;
+
+                float heuristicFactor = rcpChoiceProb-1.0; // weightNonGenerator/weightGenerator
+                heuristicFactor /= pickBSDF ? bsdfPdf:lightPdf; // weightNonGenerator/(weightGenerator*probGenerated)
+                heuristicFactor *= heuristicFactor; // (weightNonGenerator/(weightGenerator*probGenerated))^2
+                if (pickBSDF)
+                    _payload.otherTechniqueHeuristic = heuristicFactor;
+                else
+                    _payload.throughput *= 1.0/(1.0/bsdfPdf+heuristicFactor*bsdfPdf); // numerically stable, don't touch
+                    
+                // trace new ray
+                rayStack[stackPtr]._immutable.origin = intersection;
+                rayStack[stackPtr]._immutable.direction = _sample.L;
+                rayStack[stackPtr]._immutable.typeDepthSampleIx = (pickBSDF ? 0:ANY_HIT_FLAG)|((depth+1)<<DEPTH_BITS_OFFSET)|sampleIx;
+                rayStack[stackPtr]._payload = _payload;
+                stackPtr++;
+            }
         }
     }
-#endif
 }
 
-#define SAMPLES 16
+#define SAMPLES 1
 void main()
 {
     mat4 invMVP = inverse(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(cameraData.params.MVP));
@@ -330,25 +411,26 @@ void main()
             rayStack[stackPtr]._payload.accumulation = vec3(0.0);
             rayStack[stackPtr]._payload.otherTechniqueHeuristic = 0.0; // TODO: remove
             rayStack[stackPtr]._payload.throughput = vec3(1.0);
-            stackPtr++;
         }
 
         // trace
-        //while ((stackPtr--)!=0)
-        stackPtr--;
+        while (stackPtr!=-1)
         {
             ImmutableRay_t _immutable = rayStack[stackPtr]._immutable;
             MutableRay_t _mutable = rayStack[stackPtr]._mutable;
             bool anyHitType = traceRay(_immutable,_mutable);
                 
+            Payload_t _payload = rayStack[stackPtr]._payload;
             // TODO: better scheduling for less divergence in some version of this demo
             if (_mutable.intersectionT>=_immutable.maxT)
-                missProgram(_immutable,rayStack[stackPtr]._payload);
+                missProgram(_immutable,_payload);
             else if (!anyHitType)
-                closestHitProgram(_immutable,_mutable,rayStack[stackPtr]._payload);
+                closestHitProgram(_immutable,_mutable,_payload);
+            rayStack[stackPtr]._payload = _payload;
+            stackPtr--;
         }
 
-        color += rayStack[stackPtr]._payload.accumulation;
+        color += rayStack[0]._payload.accumulation;
     }
   
     pixelColor = vec4(color/float(SAMPLES), 1.0);
