@@ -212,10 +212,25 @@ Ray_t rayStack[MAX_STACK_SIZE];
 
 #include <irr/builtin/glsl/bxdf/common.glsl>
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
-vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_BSDFSample _sample, in BSDFNode bsdf, in vec3 u)
+irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_IsotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf)
 {
+    irr_glsl_BSDFSample smpl;
+    smpl.L = irr_glsl_reflect(interaction.V.dir,interaction.N,interaction.NdotV);
+    smpl.LdotN = interaction.NdotV;
+    smpl.NdotH = 1.0;
+    smpl.VdotH = interaction.NdotV;
+    return smpl;
+
+    //return irr_glsl_reflection_cos_generate(interaction);
+}
+vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_BSDFSample _sample, in BSDFNode bsdf)
+{
+    pdf = 1.0;
+    return normalize(BSDFNode_getReflectance(bsdf));
+/*
     pdf = max(_sample.LdotN,0.0)*irr_glsl_RECIPROCAL_PI;
     return BSDFNode_getReflectance(bsdf);
+*/
 }
 
 float impl_sphereSolidAngle(in Sphere sphere, in vec3 origin, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
@@ -277,10 +292,10 @@ irr_glsl_LightSample irr_glsl_createLightSample(in vec3 H, in vec3 V, in float V
 // TODO
 float BSDFNode_getMISWeight(in BSDFNode bsdf)
 {
-    return 0.0;
+    return 1.0;
 }
 
-#define MAX_DEPTH 2
+#define MAX_DEPTH 5
 void closestHitProgram(in ImmutableRay_t _immutable, in MutableRay_t _mutable, inout Payload_t _payload)
 {
     Sphere sphere = spheres[_mutable.objectID];
@@ -322,13 +337,14 @@ void closestHitProgram(in ImmutableRay_t _immutable, in MutableRay_t _mutable, i
         {
             vec3 epsilon = vec3(0.5,0.5,0.5);//rand3d(depth,sampleIx);
 
-            bool pickBSDF = false;
+            bool pickBSDF = true;
             
             // the probability of generating a sample w.r.t. the light generator only possible and used when it was generated with it!
             float lightPdf;
             GeneratorSample _sample;
             if (pickBSDF)
             {
+                _sample = irr_glsl_bsdf_cos_generate(interaction,epsilon,bsdf);
             }
             else
             {
@@ -342,7 +358,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, in MutableRay_t _mutable, i
             // do a cool trick and always compute the bsdf parts this way! (no divergence)
             float bsdfPdf;
             // the value of the bsdf divided by the probability of the sample being generated
-            _payload.throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,interaction,_sample,bsdf,epsilon);
+            _payload.throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,interaction,_sample,bsdf);
 
             if (bsdfPdf>FLT_MIN)
             {
@@ -369,7 +385,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, in MutableRay_t _mutable, i
     }
 }
 
-#define SAMPLES 16
+#define SAMPLES 1
 void main()
 {
     mat4 invMVP = inverse(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(cameraData.params.MVP));
