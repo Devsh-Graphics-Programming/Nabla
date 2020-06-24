@@ -5,4 +5,6 @@
 #define irr_glsl_RECIPROCAL_PI 0.318309886183
 #define irr_glsl_SQRT_RECIPROCAL_PI 0.56418958354
 
+#define FLT_MAX 3.402823e+38
+
 #endif

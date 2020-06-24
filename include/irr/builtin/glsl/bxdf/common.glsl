@@ -5,6 +5,8 @@
 #include <irr/builtin/glsl/math/functions.glsl>
 #include <irr/builtin/glsl/limits/numeric.glsl>
 
+#include <irr/builtin/glsl/math/functions.glsl>
+
 // do not use this struct in SSBO or UBO, its wasteful on memory
 struct irr_glsl_DirAndDifferential
 {
@@ -36,39 +38,6 @@ mat3 irr_glsl_getTangentFrame(in irr_glsl_AnisotropicViewSurfaceInteraction inte
 }
 
 // do not use this struct in SSBO or UBO, its wasteful on memory
-struct irr_glsl_BSDFSample
-{
-   vec3 L;  // incoming direction, normalized
-   float LdotT;
-   float LdotB;
-   float LdotN;
-   
-   float TdotH;
-   float BdotH;
-   float NdotH;
-   float VdotH;//equal to LdotH
-};
-
-//all vectors must be in reflection-local space (N=+Z axis), `m` is tangent frame TBN in target space
-irr_glsl_BSDFSample irr_glsl_createBSDFSample(in vec3 H, in vec3 V, in float VdotH, in mat3 m)
-{
-	irr_glsl_BSDFSample s;
-
-	vec3 L = irr_glsl_reflect(V,H,VdotH);
-	s.L = normalize(m*L);
-	s.LdotN = L.z;
-	s.LdotT = L.x;
-	s.LdotB = L.y;
-	s.NdotH = H.z;
-	s.TdotH = H.x;
-	s.BdotH = H.y;
-	s.VdotH = VdotH;
-	
-	return s;
-}
-
-
-// do not use this struct in SSBO or UBO, its wasteful on memory
 struct irr_glsl_BSDFIsotropicParams
 {
    float NdotL;
@@ -84,8 +53,6 @@ struct irr_glsl_BSDFIsotropicParams
 };
 
 // do not use this struct in SSBO or UBO, its wasteful on memory
-//TODO irr_glsl_BSDFAnisotropicParams should contain irr_glsl_AnisotropicViewSurfaceInteraction
-//would be easier if glsl had template metprogramming >.<
 struct irr_glsl_BSDFAnisotropicParams
 {
    irr_glsl_BSDFIsotropicParams isotropic;
@@ -95,6 +62,7 @@ struct irr_glsl_BSDFAnisotropicParams
    float BdotH;
 };
 
+//TODO move to different glsl header
 // chain rule on various functions (usually vertex attributes and barycentrics)
 vec2 irr_glsl_applyScreenSpaceChainRule1D3(in vec3 dFdG, in mat2x3 dGdScreen)
 {

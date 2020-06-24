@@ -1,7 +1,41 @@
 #ifndef _IRR_BSDF_COMMON_SAMPLES_INCLUDED_
 #define _IRR_BSDF_COMMON_SAMPLES_INCLUDED_
 
-#include <irr/builtin/glsl/bxdf/brdf/cos_weighted_sample.glsl>
+// do not use this struct in SSBO or UBO, its wasteful on memory
+struct irr_glsl_BSDFSample
+{
+    vec3 L;  // incoming direction, normalized
+    float LdotT;
+    float LdotB;
+    float LdotN;
+
+    float TdotH;
+    float BdotH;
+    float NdotH;
+    float VdotH;//equal to LdotH
+};
+
+// require H and V already be normalized
+irr_glsl_BSDFSample irr_glsl_createBSDFSample(in vec3 H, in vec3 V, in float VdotH, in mat3 m)
+{
+    irr_glsl_BSDFSample s;
+
+    vec3 L = irr_glsl_reflect(V, H, VdotH);
+    s.L = m * L; // m must be an orthonormal matrix
+    s.LdotT = L.x;
+    s.LdotB = L.y;
+    s.LdotN = L.z;
+    s.TdotH = H.x;
+    s.BdotH = H.y;
+    s.NdotH = H.z;
+    s.VdotH = VdotH;
+
+    return s;
+}
+
+
+#include <irr/builtin/glsl/bxdf/common.glsl>
+
 
 irr_glsl_BSDFSample irr_glsl_transmission_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
@@ -20,7 +54,7 @@ vec3 irr_glsl_transmission_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDF
 irr_glsl_BSDFSample irr_glsl_reflection_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
     irr_glsl_BSDFSample smpl;
-    smpl.L = interaction.isotropic.N*2.0*interaction.isotropic.NdotV - interaction.isotropic.V.dir;
+    smpl.L = irr_glsl_reflect(interaction.isotropic.V.dir,interaction.isotropic.N,interaction.isotropic.NdotV);
 
     return smpl;
 }
@@ -31,6 +65,8 @@ vec3 irr_glsl_reflection_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSa
 	return vec3(1.0);
 }
 
+// TODO Move to different header
+#if 0
 //this is probably wrong so not touching it
 // usually  `luminosityContributionHint` would be the Rec.709 luma coefficients (the Y row of the RGB to CIE XYZ matrix)
 //assert(1.0==luminosityContributionHint.r+luminosityContributionHint.g+luminosityContributionHint.b);
@@ -65,5 +101,6 @@ irr_glsl_BSDFSample irr_glsl_smooth_dielectric_cos_sample(in irr_glsl_Anisotropi
     vec2 u = vec2(_u)/float(UINT_MAX);
     return irr_glsl_smooth_dielectric_cos_sample(interaction, u, eta, luminosityContributionHint);
 }
+#endif
 
 #endif

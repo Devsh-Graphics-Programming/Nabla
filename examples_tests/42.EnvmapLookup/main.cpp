@@ -1,6 +1,8 @@
 #include <irrlicht.h>
 
 #include "../common/QToQuitEventReceiver.h"
+
+#include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
 #include "../../ext/ScreenShot/ScreenShot.h"
 
 using namespace irr;
@@ -75,7 +77,7 @@ int main()
 	params.Bits = 32;
 	params.ZBufferBits = 24;
 	params.DriverType = video::EDT_OPENGL;
-	params.WindowSize = dimension2d<uint32_t>(1600, 900);
+	params.WindowSize = dimension2d<uint32_t>(1920, 1080);
 	params.Fullscreen = false;
 	params.Doublebuffer = true;
 	params.Vsync = true;
@@ -90,103 +92,64 @@ int main()
 	auto assetManager = device->getAssetManager();
 	auto sceneManager = device->getSceneManager();
 	auto geometryCreator = device->getAssetManager()->getGeometryCreator();
-	auto cubeGeometry = geometryCreator->createCubeMesh(vector3df(1, 1, 1));
-	auto icosphereGeometry = geometryCreator->createIcoSphere(0.1f, 4);
 
 	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
-	scene::ICameraSceneNode* camera = sceneManager->addCameraSceneNodeFPS(0, 100.0f, 0.001f);
+	scene::ICameraSceneNode* camera = sceneManager->addCameraSceneNodeFPS(0, 100.0f, 0.1f);
+	camera->setLeftHanded(false);
 
-	camera->setPosition(core::vector3df(0, 0, 0));
+	camera->setPosition(core::vector3df(0, 2, 3));
 	camera->setTarget(core::vector3df(0, 0, 0));
-	camera->setNearValue(0.01f);
-	camera->setFarValue(100.0f);
+	camera->setNearValue(0.03125f);
+	camera->setFarValue(200.0f);
+	camera->setFOV(core::radians(60.f));
 
 	sceneManager->setActiveCamera(camera);
 
 	IGPUDescriptorSetLayout::SBinding samplerBinding { 0u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr };
-	IGPUDescriptorSetLayout::SBinding uboBinding {0, asset::EDT_UNIFORM_BUFFER, 1u, static_cast<IGPUSpecializedShader::E_SHADER_STAGE>(IGPUSpecializedShader::ESS_VERTEX | IGPUSpecializedShader::ESS_FRAGMENT), nullptr};
+	IGPUDescriptorSetLayout::SBinding uboBinding {0, asset::EDT_UNIFORM_BUFFER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr};
 
 	auto gpuDescriptorSetLayout1 = driver->createGPUDescriptorSetLayout(&uboBinding, &uboBinding + 1u);
 	auto gpuDescriptorSetLayout3 = driver->createGPUDescriptorSetLayout(&samplerBinding, &samplerBinding + 1u);
 
-	auto createGpuResources = [&](asset::IGeometryCreator::return_type& geometry, std::string pathToShadersWithoutExtension, bool isSphere) -> std::pair<core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>, core::smart_refctd_ptr<video::IGPUMeshBuffer>>
-	{
-		auto cpuVertexSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(assetManager->getAsset(pathToShadersWithoutExtension + ".vert", { 0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES }).getContents().begin()[0]);
-		auto cpuFragmentSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(assetManager->getAsset(pathToShadersWithoutExtension + ".frag", { 0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES }).getContents().begin()[0]);
+	auto fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(device->getAssetManager(), device->getVideoDriver());
 
-		auto gpuVertexSpecialedShader = driver->getGPUObjectsFromAssets(&cpuVertexSpecializedShader.get(), &cpuVertexSpecializedShader.get() + 1)->front();
+	auto createGpuResources = [&](std::string pathToShadersWithoutExtension) -> std::pair<core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>, core::smart_refctd_ptr<video::IGPUMeshBuffer>>
+	{
+		auto cpuFragmentSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(assetManager->getAsset(pathToShadersWithoutExtension + ".frag", {}).getContents().begin()[0]);
+
 		auto gpuFragmentSpecialedShader = driver->getGPUObjectsFromAssets(&cpuFragmentSpecializedShader.get(), &cpuFragmentSpecializedShader.get() + 1)->front();
-		IGPUSpecializedShader* shaders[2] = { gpuVertexSpecialedShader.get(), gpuFragmentSpecialedShader.get() };
+		IGPUSpecializedShader* shaders[2] = { std::get<0>(fullScreenTriangle).get(), gpuFragmentSpecialedShader.get() };
 
 		auto gpuPipelineLayout = driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout1), nullptr, core::smart_refctd_ptr(gpuDescriptorSetLayout3));
 
 		asset::SBlendParams blendParams;
-		asset::SRasterizationParams rasterParams;
-		rasterParams.faceCullingMode = asset::EFCM_NONE;
+		SRasterizationParams rasterParams;
+		rasterParams.faceCullingMode = EFCM_NONE;
+		rasterParams.depthCompareOp = ECO_ALWAYS;
+		rasterParams.minSampleShading = 1.f;
+		rasterParams.depthWriteEnable = false;
+		rasterParams.depthTestEnable = false;
 
-		/*
-		TODO: actually I should render it on far plane somehow, it doesn't work anyways
 
-		if (isSphere)
-			rasterParams.depthCompareOp = asset::ECO_LESS_OR_EQUAL;
-		else 
-			rasterParams.depthCompareOp = asset::ECO_LESS;
-		*/
+		auto gpuPipeline = driver->createGPURenderpassIndependentPipeline(
+			nullptr, std::move(gpuPipelineLayout),
+			shaders, shaders + sizeof(shaders) / sizeof(IGPUSpecializedShader*),
+			std::get<SVertexInputParams>(fullScreenTriangle), blendParams, std::get<SPrimitiveAssemblyParams>(fullScreenTriangle), rasterParams);
 
-		auto gpuPipeline = driver->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), shaders, shaders + sizeof(shaders) / sizeof(IGPUSpecializedShader*), geometry.inputParams, blendParams, geometry.assemblyParams, rasterParams);
-
-		constexpr auto MAX_ATTR_BUF_BINDING_COUNT = video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
-		constexpr auto MAX_DATA_BUFFERS = MAX_ATTR_BUF_BINDING_COUNT + 1;
-
-		core::vector<asset::ICPUBuffer*> cpubuffers;
-		cpubuffers.reserve(MAX_DATA_BUFFERS);
-		for (auto i = 0; i < MAX_ATTR_BUF_BINDING_COUNT; i++)
+		SBufferBinding<IGPUBuffer> idxBinding{ 0ull, nullptr };
+		core::smart_refctd_ptr<video::IGPUMeshBuffer> gpuMeshBuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(core::smart_refctd_ptr(gpuPipeline), nullptr, nullptr, std::move(idxBinding));
 		{
-			auto buf = geometry.bindings[i].buffer.get();
-			if (buf)
-				cpubuffers.push_back(buf);
-		}
-		auto cpuindexbuffer = geometry.indexBuffer.buffer.get();
-		if (cpuindexbuffer)
-			cpubuffers.push_back(cpuindexbuffer);
-
-		auto gpubuffers = driver->getGPUObjectsFromAssets(cpubuffers.data(), cpubuffers.data() + cpubuffers.size());
-
-		asset::SBufferBinding<video::IGPUBuffer> bindings[MAX_DATA_BUFFERS];
-		for (auto i = 0, j = 0; i < MAX_ATTR_BUF_BINDING_COUNT; i++)
-		{
-			if (!geometry.bindings[i].buffer)
-				continue;
-			auto buffPair = gpubuffers->operator[](j++);
-			bindings[i].offset = buffPair->getOffset();
-			bindings[i].buffer = core::smart_refctd_ptr<video::IGPUBuffer>(buffPair->getBuffer());
-		}
-		if (cpuindexbuffer)
-		{
-			auto buffPair = gpubuffers->back();
-			bindings[MAX_ATTR_BUF_BINDING_COUNT].offset = buffPair->getOffset();
-			bindings[MAX_ATTR_BUF_BINDING_COUNT].buffer = core::smart_refctd_ptr<video::IGPUBuffer>(buffPair->getBuffer());
-		}
-
-		core::smart_refctd_ptr<video::IGPUMeshBuffer> gpuMeshBuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(core::smart_refctd_ptr(gpuPipeline), nullptr, bindings, std::move(bindings[MAX_ATTR_BUF_BINDING_COUNT]));
-		{
-			gpuMeshBuffer->setIndexType(geometry.indexType);
-			gpuMeshBuffer->setIndexCount(geometry.indexCount);
-			gpuMeshBuffer->setBoundingBox(geometry.bbox);
+			gpuMeshBuffer->setIndexCount(3u);
 		}
 
 		return { gpuPipeline, gpuMeshBuffer };
 	};
 
-	auto gpuEnvmapResources = createGpuResources(cubeGeometry, "../envCubeMapShaders/envmap", false);
+	auto gpuEnvmapResources = createGpuResources("../envCubeMapShaders/envmap");
 	auto gpuEnvmapPipeline = gpuEnvmapResources.first;
 	auto gpuEnvmapMeshBuffer = gpuEnvmapResources.second;
-
-	auto gpuSphereResources = createGpuResources(icosphereGeometry, "../sphereShaders/icosphere", true);
-	auto gpuSpherePipeline = gpuSphereResources.first;
-	auto gpuSphereMeshBuffer = gpuSphereResources.second;
 
 	auto createGPUImageView = [&](std::string pathToOpenEXRHDRIImage)
 	{
@@ -214,7 +177,6 @@ int main()
 	};
 
 	auto gpuEnvmapImageView = createGPUImageView("../../media/envmap/envmap_0.exr");
-	auto gpuSphereImageView = createGPUImageView("../../media/envmap/envmap_1.exr");
 
 	auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));
 	auto uboDescriptorSet1 = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuDescriptorSetLayout1));
@@ -236,7 +198,6 @@ int main()
 	}
 
 	auto envmapSamplerDescriptorSet3 = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuDescriptorSetLayout3));
-	auto sphereSamplerDescriptorSet3 = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuDescriptorSetLayout3));
 	{
 		auto updateDescriptorSets = [&](core::smart_refctd_ptr<video::IGPUDescriptorSet> samplerGPUDescriptorSet3 , core::smart_refctd_ptr<video::IGPUImageView> gpuImageView)
 		{
@@ -259,7 +220,6 @@ int main()
 		};
 
 		updateDescriptorSets(envmapSamplerDescriptorSet3, gpuEnvmapImageView);
-		updateDescriptorSets(sphereSamplerDescriptorSet3, gpuSphereImageView);
 	}
 
 	auto HDRFramebuffer = createHDRFramebuffer(device, gpuEnvmapImageView->getCreationParameters().format);
@@ -276,36 +236,12 @@ int main()
 		camera->render();
 
 		const auto viewMatrix = camera->getViewMatrix();
-		const auto projectionMatrix = camera->getProjectionMatrix();
-		const auto viewProjectionMatrix = core::concatenateBFollowedByA(projectionMatrix, viewMatrix);
-
-		// sphere handle
-		{
-			auto mv = viewMatrix;
-			auto mvp = viewProjectionMatrix;
-			core::matrix3x4SIMD normalMat;
-			mv.getSub3x3InverseTranspose(normalMat);
-
-			SBasicViewParameters uboData;
-			memcpy(uboData.MV, mv.pointer(), sizeof(mv));
-			memcpy(uboData.MVP, mvp.pointer(), sizeof(mvp));
-			memcpy(uboData.NormalMat, normalMat.pointer(), sizeof(normalMat));
-			driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0ull, sizeof(uboData), &uboData);
-
-			driver->bindGraphicsPipeline(gpuSpherePipeline.get());
-			driver->bindDescriptorSets(EPBP_GRAPHICS, gpuSpherePipeline->getLayout(), 1u, 1u, &uboDescriptorSet1.get(), nullptr); // we use the same descriptor, but it is done for formality
-			driver->bindDescriptorSets(EPBP_GRAPHICS, gpuSpherePipeline->getLayout(), 3u, 1u, &sphereSamplerDescriptorSet3.get(), nullptr);
-			driver->drawMeshBuffer(gpuSphereMeshBuffer.get());
-		}
+		const auto viewProjectionMatrix = camera->getConcatenatedMatrix();
 
 		// cube envmap handle
 		{
-			const auto newViewMatrix = viewMatrix.getSub3x3TransposeCofactors();
-			const auto newProjectionMatrix = projectionMatrix;
-			const auto newViewProjectionMatrix = core::concatenateBFollowedByA(projectionMatrix, newViewMatrix);
-
 			auto mv = viewMatrix;
-			auto mvp = newViewProjectionMatrix;
+			auto mvp = viewProjectionMatrix;
 			core::matrix3x4SIMD normalMat;
 			mv.getSub3x3InverseTranspose(normalMat);
 
@@ -320,6 +256,7 @@ int main()
 			driver->bindDescriptorSets(EPBP_GRAPHICS, gpuEnvmapPipeline->getLayout(), 3u, 1u, &envmapSamplerDescriptorSet3.get(), nullptr);
 			driver->drawMeshBuffer(gpuEnvmapMeshBuffer.get());
 		}
+		// TODO: tone mapping and stuff
 
 		driver->setRenderTarget(nullptr, false);
 		driver->blitRenderTargets(HDRFramebuffer, nullptr, false, false);
