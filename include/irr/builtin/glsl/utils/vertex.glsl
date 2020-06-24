@@ -3,6 +3,7 @@
 
 #include "irr/builtin/glsl/broken_driver_workarounds/amd.glsl"
 
+#include "irr/builtin/glsl/math/functions.glsl"
 
 
 
@@ -49,44 +50,6 @@ mat4 irr_glsl_pseudoMul4x4with4x3(in mat4 proj, in mat4x3 tform)
         result[i] = proj[0] * tform[i][0] + proj[1] * tform[i][1] + proj[2] * tform[i][2];
     result[3] += proj[3];
     return result;
-}
-
-// TODO: more general numerical include for this
-float irr_glsl_lengthManhattan(float v)
-{
-    return abs(v);
-}
-float irr_glsl_lengthManhattan(vec2 v)
-{
-    v = abs(v);
-    return v.x + v.y;
-}
-float irr_glsl_lengthManhattan(vec3 v)
-{
-    v = abs(v);
-    return v.x + v.y + v.z;
-}
-float irr_glsl_lengthManhattan(vec4 v)
-{
-    v = abs(v);
-    return v.x + v.y + v.z + v.w;
-}
-
-float irr_glsl_lengthSq(in float v)
-{
-    return v * v;
-}
-float irr_glsl_lengthSq(in vec2 v)
-{
-    return dot(v, v);
-}
-float irr_glsl_lengthSq(in vec3 v)
-{
-    return dot(v, v);
-}
-float irr_glsl_lengthSq(in vec4 v)
-{
-    return dot(v, v);
 }
 
 // TODO: culling include

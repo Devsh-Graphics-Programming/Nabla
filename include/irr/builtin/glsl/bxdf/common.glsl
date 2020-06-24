@@ -5,6 +5,8 @@
 
 #include <irr/builtin/glsl/limits/numeric.glsl>
 
+#include <irr/builtin/glsl/math/functions.glsl>
+
 // do not use this struct in SSBO or UBO, its wasteful on memory
 struct irr_glsl_DirAndDifferential
 {
@@ -34,38 +36,6 @@ mat3 irr_glsl_getTangentFrame(in irr_glsl_AnisotropicViewSurfaceInteraction inte
 {
     return mat3(interaction.T,interaction.B,interaction.isotropic.N);
 }
-
-// do not use this struct in SSBO or UBO, its wasteful on memory
-struct irr_glsl_BSDFSample
-{
-   vec3 L;  // incoming direction, normalized
-   float LdotT;
-   float LdotB;
-   float LdotN;
-   
-   float TdotH;
-   float BdotH;
-   float NdotH;
-   float VdotH;//equal to LdotH
-};
-
-irr_glsl_BSDFSample irr_glsl_createBSDFSample(in vec3 H, in vec3 V, in float VdotH, in mat3 m)
-{
-	irr_glsl_BSDFSample s;
-
-	vec3 L = irr_glsl_reflect(V,H,VdotH);
-	s.L = normalize(m*L);
-	s.LdotN = L.z;
-	s.LdotT = L.x;
-	s.LdotB = L.y;
-	s.NdotH = H.z;
-	s.TdotH = H.x;
-	s.BdotH = H.y;
-	s.VdotH = VdotH;
-	
-	return s;
-}
-
 
 // do not use this struct in SSBO or UBO, its wasteful on memory
 struct irr_glsl_BSDFIsotropicParams
@@ -100,6 +70,7 @@ struct irr_glsl_BSDFAnisotropicParams
    vec3 B;
 };
 
+//TODO move to different glsl header
 // chain rule on various functions (usually vertex attributes and barycentrics)
 vec2 irr_glsl_applyScreenSpaceChainRule1D3(in vec3 dFdG, in mat2x3 dGdScreen)
 {

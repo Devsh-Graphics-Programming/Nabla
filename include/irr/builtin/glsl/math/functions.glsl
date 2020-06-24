@@ -55,6 +55,43 @@ float irr_glsl_erfInv(in float _x)
     return p*x;
 }
 
+float irr_glsl_lengthManhattan(float v)
+{
+    return abs(v);
+}
+float irr_glsl_lengthManhattan(vec2 v)
+{
+    v = abs(v);
+    return v.x + v.y;
+}
+float irr_glsl_lengthManhattan(vec3 v)
+{
+    v = abs(v);
+    return v.x + v.y + v.z;
+}
+float irr_glsl_lengthManhattan(vec4 v)
+{
+    v = abs(v);
+    return v.x + v.y + v.z + v.w;
+}
+
+float irr_glsl_lengthSq(in float v)
+{
+    return v * v;
+}
+float irr_glsl_lengthSq(in vec2 v)
+{
+    return dot(v, v);
+}
+float irr_glsl_lengthSq(in vec3 v)
+{
+    return dot(v, v);
+}
+float irr_glsl_lengthSq(in vec4 v)
+{
+    return dot(v, v);
+}
+
 vec3 irr_glsl_reflect(in vec3 I, in vec3 N, in float NdotI)
 {
     return N*2.0*NdotI - I;
@@ -65,6 +102,12 @@ vec3 irr_glsl_reflect(in vec3 I, in vec3 N)
     return irr_glsl_reflect(I, N, NdotI);
 }
 
-#define irr_glsl_sincos(x,s,c) s=sin(x);c=cos(x);
+// valid only for `theta` in [-PI,PI]
+void irr_glsl_sincos(in float theta, out float s, out float c)
+{
+    c = cos(theta);
+    s = sqrt(1.0-c*c);
+    s *= theta<0.0 ? -1.0:1.0;
+}
 
 #endif
