@@ -2,7 +2,7 @@
 #define _IRR_BSDF_COMMON_INCLUDED_
 
 #include <irr/builtin/glsl/math/constants.glsl>
-
+#include <irr/builtin/glsl/math/functions.glsl>
 #include <irr/builtin/glsl/limits/numeric.glsl>
 
 // do not use this struct in SSBO or UBO, its wasteful on memory
@@ -49,6 +49,7 @@ struct irr_glsl_BSDFSample
    float VdotH;//equal to LdotH
 };
 
+//all vectors must be in reflection-local space (N=+Z axis), `m` is tangent frame TBN in target space
 irr_glsl_BSDFSample irr_glsl_createBSDFSample(in vec3 H, in vec3 V, in float VdotH, in mat3 m)
 {
 	irr_glsl_BSDFSample s;
@@ -80,7 +81,6 @@ struct irr_glsl_BSDFIsotropicParams
    // basically metadata
    vec3 L;
    float invlenL2;
-   irr_glsl_IsotropicViewSurfaceInteraction interaction;
 };
 
 // do not use this struct in SSBO or UBO, its wasteful on memory
@@ -90,14 +90,9 @@ struct irr_glsl_BSDFAnisotropicParams
 {
    irr_glsl_BSDFIsotropicParams isotropic;
    float TdotL;
-   float TdotV;
    float TdotH;
    float BdotL;
-   float BdotV;
    float BdotH;
-   // useless metadata
-   vec3 T;
-   vec3 B;
 };
 
 // chain rule on various functions (usually vertex attributes and barycentrics)
@@ -142,14 +137,6 @@ vec2 irr_glsl_concentricMapping(in vec2 _u)
     }
 
     return p;
-}
-
-//TODO move this to different glsl header
-mat2x3 irr_glsl_frisvad(in vec3 n)
-{
-	const float a = 1.0/(1.0 + n.z);
-	const float b = -n.x*n.y*a;
-	return (n.z<-0.9999999) ? mat2x3(vec3(0.0,-1.0,0.0),vec3(-1.0,0.0,0.0)):mat2x3(vec3(1.0-n.x*n.x*a, b, -n.x),vec3(b, 1.0-n.y*n.y*a, -n.y));
 }
 
 // only in the fragment shader we have access to implicit derivatives
@@ -239,41 +226,34 @@ irr_glsl_BSDFIsotropicParams irr_glsl_calcBSDFIsotropicParams(in irr_glsl_Isotro
 
    // totally useless vectors, will probably get optimized away by compiler if they don't get used
    // but useful as temporaries
-   params.interaction = interaction;
    params.L = L*invlenL2;
    params.invlenL2 = invlenL2;
 
    // this stuff only works with normalized L,N,V
-   params.NdotL = dot(params.interaction.N,params.L);
+   params.NdotL = dot(interaction.N,params.L);
    params.NdotL_squared = params.NdotL*params.NdotL;
 
-   params.VdotL = dot(params.interaction.V.dir,params.L);
+   params.VdotL = dot(interaction.V.dir,params.L);
    float LplusV_rcpLen = inversesqrt(2.0 + 2.0*params.VdotL);
    params.LplusV_rcpLen = LplusV_rcpLen;
 
    // this stuff works unnormalized L,N,V
-   params.NdotH = (params.NdotL+params.interaction.NdotV)*LplusV_rcpLen;
+   params.NdotH = (params.NdotL+interaction.NdotV)*LplusV_rcpLen;
    params.VdotH = LplusV_rcpLen + LplusV_rcpLen*params.VdotL;
 
    return params;
 }
 // get extra stuff for anisotropy, here we actually require T and B to be normalized
-irr_glsl_BSDFAnisotropicParams irr_glsl_calcBSDFAnisotropicParams(in irr_glsl_BSDFIsotropicParams isotropic, in vec3 T, in vec3 B)
+irr_glsl_BSDFAnisotropicParams irr_glsl_calcBSDFAnisotropicParams(in irr_glsl_BSDFIsotropicParams isotropic, in irr_glsl_AnisotropicViewSurfaceInteraction inter, in vec3 T, in vec3 B)
 {
    irr_glsl_BSDFAnisotropicParams params;
    params.isotropic = isotropic;
 
    // meat
    params.TdotL = dot(T,isotropic.L);
-   params.TdotV = dot(T,isotropic.interaction.V.dir);
-   params.TdotH = (params.TdotV+params.TdotL)*isotropic.LplusV_rcpLen;
+   params.TdotH = (inter.TdotV+params.TdotL)*isotropic.LplusV_rcpLen;
    params.BdotL = dot(B,isotropic.L);
-   params.BdotV = dot(B,isotropic.interaction.V.dir);
-   params.BdotH = (params.BdotV+params.BdotL)*isotropic.LplusV_rcpLen;
-
-   // useless stuff we keep just to be complete
-   params.T = T;
-   params.B = B;
+   params.BdotH = (inter.BdotV+params.BdotL)*isotropic.LplusV_rcpLen;
 
    return params;
 }

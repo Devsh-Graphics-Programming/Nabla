@@ -67,4 +67,11 @@ vec3 irr_glsl_reflect(in vec3 I, in vec3 N)
 
 #define irr_glsl_sincos(x,s,c) s=sin(x);c=cos(x);
 
+mat2x3 irr_glsl_frisvad(in vec3 n)
+{
+	const float a = 1.0/(1.0 + n.z);
+	const float b = -n.x*n.y*a;
+	return (n.z<-0.9999999) ? mat2x3(vec3(0.0,-1.0,0.0),vec3(-1.0,0.0,0.0)):mat2x3(vec3(1.0-n.x*n.x*a, b, -n.x),vec3(b, 1.0-n.y*n.y*a, -n.y));
+}
+
 #endif
