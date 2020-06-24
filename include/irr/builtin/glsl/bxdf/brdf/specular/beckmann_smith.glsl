@@ -1,29 +1,13 @@
 #ifndef _IRR_BSDF_BRDF_SPECULAR_BECKMANN_SMITH_INCLUDED_
 #define _IRR_BSDF_BRDF_SPECULAR_BECKMANN_SMITH_INCLUDED_
 
-#include <irr/builtin/glsl/bxdf/common.glsl>
+#include <irr/builtin/glsl/bxdf/common_samples.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ndf/beckmann.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/geom/smith.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/fresnel/fresnel.glsl>
 #include <irr/builtin/glsl/math/functions.glsl>
 
 #include <irr/builtin/glsl/math/functions.glsl>
-
-//i wonder where i got irr_glsl_ggx_smith_height_correlated() from because it looks very different from 1/(1+L_v+L_l) form
-float irr_glsl_beckmann_smith_height_correlated(in float NdotV2, in float NdotL2, in float a2)
-{
-    float c2 = irr_glsl_smith_beckmann_C2(NdotV2, a2);
-    float L_v = irr_glsl_smith_beckmann_Lambda(c2);
-    c2 = irr_glsl_smith_beckmann_C2(NdotL2, a2);
-    float L_l = irr_glsl_smith_beckmann_Lambda(c2);
-    return 1.0 / (1.0 + L_v + L_l);
-}
-float irr_glsl_beckmann_smith_height_correlated_lambdaV(in float lambda_v, in float NdotL2, in float a2)
-{
-    float c2 = irr_glsl_smith_beckmann_C2(NdotL2, a2);
-    float L_l = irr_glsl_smith_beckmann_Lambda(c2);
-    return 1.0 / (1.0 + lambda_v + L_l);
-}
 
 irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float ax, in float ay)
 {
@@ -32,7 +16,7 @@ irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_Anisotropic
     mat3 m = irr_glsl_getTangentFrame(interaction);
 
     vec3 localV = interaction.isotropic.V.dir;
-    localV = normalize(V*m);//transform to tangent space
+    localV = normalize(localV*m);//transform to tangent space
     //stretch
     vec3 V = normalize(vec3(ax*localV.x, ay*localV.y, localV.z));
 
@@ -62,7 +46,7 @@ irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_Anisotropic
 
         const int ITER_THRESHOLD = 10;
         int it = 0;
-        float value;
+        float value=1000.0;
         while (++it<ITER_THRESHOLD && abs(value)<1.0e-5)
         {
             if (!(b>=a && b<=c))
@@ -104,7 +88,6 @@ irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_Anisotropic
     return irr_glsl_beckmann_smith_cos_generate(interaction, u, _ax, _ay);
 }
 
-//TODO remove interaction param when irr_glsl_BSDFAnisotropicParams contains irr_glsl_AnisotropicViewSurfaceInteraction
 vec3 irr_glsl_beckmann_smith_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior2, in float ax, in float ay)
 {
 	float a2 = ax*ay;
@@ -113,11 +96,21 @@ vec3 irr_glsl_beckmann_smith_cos_remainder_and_pdf(out float pdf, in irr_glsl_BS
 	float lambda_L = irr_glsl_smith_beckmann_Lambda(irr_glsl_smith_beckmann_C2(NdotL2, a2));
 	float onePlusLambda_V = 1.0 + lambda_V;
 	float G = 1.0 / onePlusLambda_V;
-	pdf = irr_glsl_beckmann(a2,s.NdotH*s.NdotH)*G*abs(dot(s.VdotH))/interaction.NdotV;
+	pdf = irr_glsl_beckmann(a2,s.NdotH*s.NdotH)*G*abs(s.VdotH)/interaction.NdotV;
 	G = onePlusLambda_V/(onePlusLambda_V+lambda_L);//remainder
 	
 	vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], s.VdotH);
 	return fr*G / (4.0 * interaction.NdotV);
+}
+
+//i wonder where i got irr_glsl_ggx_smith_height_correlated() from because it looks very different from 1/(1+L_v+L_l) form
+float irr_glsl_beckmann_smith_height_correlated(in float NdotV2, in float NdotL2, in float a2)
+{
+    float c2 = irr_glsl_smith_beckmann_C2(NdotV2, a2);
+    float L_v = irr_glsl_smith_beckmann_Lambda(c2);
+    c2 = irr_glsl_smith_beckmann_C2(NdotL2, a2);
+    float L_l = irr_glsl_smith_beckmann_Lambda(c2);
+    return 1.0 / (1.0 + L_v + L_l);
 }
 
 //TODO get rid of `a` parameter

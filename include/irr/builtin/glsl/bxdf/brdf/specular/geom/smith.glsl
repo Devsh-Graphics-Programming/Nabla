@@ -1,7 +1,6 @@
 #ifndef _BRDF_SPECULAR_GEOM_GGX_SMITH_INCLUDED_
 #define _BRDF_SPECULAR_GEOM_GGX_SMITH_INCLUDED_
 
-/* TODO remove
 float irr_glsl_smith_beckmann_C2(in float NdotX2, in float a2)
 {
     return NdotX2 / (a2 * (1.0 - NdotX2));
@@ -14,10 +13,10 @@ float irr_glsl_smith_beckmann_Lambda(in float c2)
     float denom = 2.181*c2 + 3.535*c;
     return mix(0.0, nom/denom, c<1.6);
 }
-*/
+
 float irr_glsl_smith_ggx_devsh_part(in float NdotX2, in float a2, in float one_minus_a2)
 {
-	return sqrt(a2+one_minus_a2*NdotX2)
+	return sqrt(a2+one_minus_a2*NdotX2);
 }
 
 float irr_glsl_GGXSmith_G1_(in float NdotX, in float a2, in float one_minus_a2)
@@ -49,7 +48,8 @@ float irr_glsl_ggx_smith_height_correlated_wo_numerator(in float a2, in float Nd
 
 float irr_glsl_ggx_smith_height_correlated(in float a2, in float NdotL, in float NdotV)
 {
-    return 4.0*NdotL*NdotV*irr_glsl_ggx_smith_height_correlated_wo_numerator();
+	//isnt it 2.0*NdotL*NdotV? TODO
+    return 4.0*NdotL*NdotV*irr_glsl_ggx_smith_height_correlated_wo_numerator(a2,NdotL,NdotV);
 }
 
 // Note a, not a2!

@@ -138,7 +138,7 @@ bool CElementShape::addProperty(SNamedPropertyElement&& _property)
 
 #define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&]() -> void { \
 		dispatch([&](auto& state) -> void { \
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+			if constexpr (is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
 			{ \
 				if (_property.type!=PROPERTY_TYPE) { \
 					error = true; \
@@ -146,7 +146,6 @@ bool CElementShape::addProperty(SNamedPropertyElement&& _property)
 				} \
 				state. ## MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
 			} \
-			IRR_PSEUDO_IF_CONSTEXPR_END \
 		}); \
 	}
 
@@ -160,11 +159,10 @@ bool CElementShape::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<state_type, Obj,Ply,Serialized/*,Hair,Heightfield*/>::value)
+			if constexpr (is_any_of<state_type, Obj,Ply,Serialized/*,Hair,Heightfield*/>::value)
 			{
 				state.filename = std::move(_property);
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 	auto setFaceNormals	= SET_PROPERTY_TEMPLATE(faceNormals,SNamedPropertyElement::Type::BOOLEAN, Obj,Ply,Serialized);

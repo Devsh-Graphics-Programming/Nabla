@@ -86,7 +86,7 @@ bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
 
 #define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&]() -> void { \
 		dispatch([&](auto& state) -> void { \
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+			if constexpr (is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
 			{ \
 				if (_property.type!=PROPERTY_TYPE) { \
 					error = true; \
@@ -94,7 +94,6 @@ bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
 				} \
 				state. ## MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
 			} \
-			IRR_PSEUDO_IF_CONSTEXPR_END \
 		}); \
 	}
 
@@ -103,11 +102,10 @@ bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,Bitmap>::value)
+			if constexpr (std::is_same<state_type,Bitmap>::value)
 			{
 				bitmap.filename = std::move(_property);
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 	auto getWrapMode = [&]() -> Bitmap::WRAP_MODE {
@@ -131,13 +129,12 @@ bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,Bitmap>::value)
+			if constexpr (std::is_same<state_type,Bitmap>::value)
 			{
 				auto value = getWrapMode();
 				state.wrapModeU = value;
 				state.wrapModeV = value;
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 	auto processWrapModeU =  [&]() -> void
@@ -145,11 +142,10 @@ bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,Bitmap>::value)
+			if constexpr (std::is_same<state_type,Bitmap>::value)
 			{
 				state.wrapModeU = getWrapMode();
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 	auto processWrapModeV =  [&]() -> void
@@ -157,11 +153,10 @@ bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,Bitmap>::value)
+			if constexpr (std::is_same<state_type,Bitmap>::value)
 			{
 				state.wrapModeV = getWrapMode();
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 	auto processGamma = SET_PROPERTY_TEMPLATE(gamma,SPropertyElementData::Type::FLOAT,Bitmap);
@@ -170,7 +165,7 @@ bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,Bitmap>::value)
+			if constexpr (std::is_same<state_type,Bitmap>::value)
 			{
 				static const core::unordered_map<std::string,Bitmap::FILTER_TYPE,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
 				{
@@ -188,7 +183,6 @@ bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
 				}
 				state.filterType = found->second;
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 	auto processMaxAnisotropy = SET_PROPERTY_TEMPLATE(maxAnisotropy,SPropertyElementData::Type::FLOAT,Bitmap);
@@ -202,7 +196,7 @@ bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type, Bitmap>::value)
+			if constexpr (std::is_same<state_type, Bitmap>::value)
 			{
 				static const core::unordered_map<std::string, Bitmap::CHANNEL, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
 				{
@@ -224,7 +218,6 @@ bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
 				}
 				state.channel = found->second;
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 

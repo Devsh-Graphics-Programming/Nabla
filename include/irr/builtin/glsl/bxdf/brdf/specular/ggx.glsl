@@ -1,14 +1,14 @@
 #ifndef _IRR_BSDF_BRDF_SPECULAR_GGX_INCLUDED_
 #define _IRR_BSDF_BRDF_SPECULAR_GGX_INCLUDED_
 
-#include <irr/builtin/glsl/bxdf/common.glsl>
+#include <irr/builtin/glsl/bxdf/common_samples.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ndf/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/geom/smith.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/fresnel/fresnel.glsl>
 
 vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction inter, in mat2x3 ior2, in float a2, in vec2 atb, in float aniso)
 {
-    float g = irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(atb.x, atb.y, params.TdotL, params.TdotV, params.BdotL, params.BdotV, params.isotropic.NdotL, interaction.isotropic.NdotV);
+    float g = irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(atb.x, atb.y, params.TdotL, inter.TdotV, params.BdotL, inter.BdotV, params.isotropic.NdotL, inter.isotropic.NdotV);
     float ndf = irr_glsl_ggx_burley_aniso(aniso, a2, params.TdotH, params.BdotH, params.isotropic.NdotH);
     vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], params.isotropic.VdotH);
 
@@ -33,7 +33,7 @@ irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurface
     mat3 m = irr_glsl_getTangentFrame(interaction);
 
     vec3 localV = interaction.isotropic.V.dir;
-    localV = normalize(V*m);//transform to tangent space
+    localV = normalize(localV*m);//transform to tangent space
     vec3 V = normalize(vec3(_ax*localV.x, _ay*localV.y, localV.z));//stretch view vector so that we're sampling as if roughness=1.0
 
     float lensq = V.x*V.x + V.y*V.y;
@@ -77,13 +77,13 @@ vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s,
 
 vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior2, in float ax, in float ay)
 {
-	float Vterm = s.LdotN * length(vec3(at*interaction.TdotV, ab*interaction.BdotV, interaction.isotropic.NdotV));
-	float Lterm = interaction.isotropic.NdotV * length(vec3(at*s.LdotT, ab*s.LdotB, s.LdotN));
+	float Vterm = s.LdotN * length(vec3(ax*interaction.TdotV, ay*interaction.BdotV, interaction.isotropic.NdotV));
+	float Lterm = interaction.isotropic.NdotV * length(vec3(ax*s.LdotT, ay*s.LdotB, s.LdotN));
 	float G1_rcp = interaction.isotropic.NdotV*s.LdotN+Lterm;
 	float G2_over_G1 = (Vterm+Lterm)*G1_rcp;
 	G1_rcp *= 2.0;
 	//TODO missing multiply by VdotH?
-	pdf = irr_glsl_ggx_aniso(s.TdotH*s.TdotH,s.BdotH*s.BdotH,s.NdotH*s.NdotH,ax,ay,ax*ax,ay*ay)/(4.0*G1_rcp*abs(NdotV));//u sure about div by 4.0?
+	pdf = irr_glsl_ggx_aniso(s.TdotH*s.TdotH,s.BdotH*s.BdotH,s.NdotH*s.NdotH,ax,ay,ax*ax,ay*ay)/(4.0*G1_rcp*abs(interaction.isotropic.NdotV));//u sure about div by 4.0?
 	
 	vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], s.VdotH);
 	return fr*G2_over_G1;	

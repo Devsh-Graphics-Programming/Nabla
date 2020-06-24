@@ -16,7 +16,7 @@ vec3 irr_glsl_ashikhmin_shirley_cos_eval(in irr_glsl_BSDFAnisotropicParams param
     //Ashikhmin and Shirley came up with their own shadowing term, however implementation of it would be too complex in terms of our current design (https://www.researchgate.net/publication/220721563_A_microfacet-based_BRDF_generator)
     float g = irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(atb.x, atb.y, params.TdotL, inter.TdotV, params.BdotL, inter.BdotV, params.isotropic.NdotL, inter.isotropic.NdotV);
 
-    return g*ndf*fr / (4.0 * params.isotropic.interaction.NdotV);
+    return g*ndf*fr / (4.0 * inter.isotropic.NdotV);
 }
 
 #endif

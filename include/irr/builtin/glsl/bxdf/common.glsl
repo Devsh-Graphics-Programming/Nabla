@@ -212,15 +212,15 @@ irr_glsl_BSDFIsotropicParams irr_glsl_calcBSDFIsotropicParams(in irr_glsl_Isotro
    return params;
 }
 // get extra stuff for anisotropy, here we actually require T and B to be normalized
-irr_glsl_BSDFAnisotropicParams irr_glsl_calcBSDFAnisotropicParams(in irr_glsl_BSDFIsotropicParams isotropic, in irr_glsl_AnisotropicViewSurfaceInteraction inter, in vec3 T, in vec3 B)
+irr_glsl_BSDFAnisotropicParams irr_glsl_calcBSDFAnisotropicParams(in irr_glsl_BSDFIsotropicParams isotropic, in irr_glsl_AnisotropicViewSurfaceInteraction inter)
 {
    irr_glsl_BSDFAnisotropicParams params;
    params.isotropic = isotropic;
 
    // meat
-   params.TdotL = dot(T,isotropic.L);
+   params.TdotL = dot(inter.T,isotropic.L);
    params.TdotH = (inter.TdotV+params.TdotL)*isotropic.LplusV_rcpLen;
-   params.BdotL = dot(B,isotropic.L);
+   params.BdotL = dot(inter.B,isotropic.L);
    params.BdotH = (inter.BdotV+params.BdotL)*isotropic.LplusV_rcpLen;
 
    return params;
