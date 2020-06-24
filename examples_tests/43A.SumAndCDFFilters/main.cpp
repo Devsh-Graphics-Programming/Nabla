@@ -32,21 +32,26 @@ int main()
 
 	auto getSummedImage = [](core::smart_refctd_ptr<ICPUImage> image) -> core::smart_refctd_ptr<ICPUImage>
 	{
-		using SUM_FILTER = CSummedAreaTableImageFilter<true>;
+		using SUM_FILTER = CSummedAreaTableImageFilter<false>;
 
 		core::smart_refctd_ptr<ICPUImage> newSumImage;
 		{
-			auto referenceImageParams = image->getCreationParameters();
+			const auto referenceImageParams = image->getCreationParameters();
 			auto referenceBuffer = image->getBuffer();
 			auto referenceRegions = image->getRegions();
 			const auto* referenceRegion = referenceRegions.begin();
 
 			auto newImageParams = referenceImageParams;
-			auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceBuffer->getSize());
+			newImageParams.format = EF_R32G32B32A32_SFLOAT;
+			const float texelByteSizeFactor = asset::getTexelOrBlockBytesize(newImageParams.format) / asset::getTexelOrBlockBytesize(referenceImageParams.format);
+			auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceBuffer->getSize() * texelByteSizeFactor);
 			auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(referenceRegions.size());
 
 			for (auto newRegion = newRegions->begin(); newRegion != newRegions->end(); ++newRegion)
+			{
 				*newRegion = *(referenceRegion++);
+				newRegion->bufferOffset *= texelByteSizeFactor;
+			}
 
 			newSumImage = ICPUImage::create(std::move(newImageParams));
 			newSumImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
@@ -78,7 +83,7 @@ int main()
 	};
 
 	IAssetLoader::SAssetLoadParams lp(0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES);
-	auto bundle = assetManager->getAsset("../../media/TESTSUM.exr", lp);
+	auto bundle = assetManager->getAsset("../../media/colorexr.exr", lp);
 	auto cpuImage = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(bundle.getContents().first[0]);
 
 	cpuImage = getSummedImage(cpuImage);
@@ -96,5 +101,5 @@ int main()
 	auto cpuImageView = ICPUImageView::create(std::move(viewParams));
 
 	asset::IAssetWriter::SAssetWriteParams wparams(cpuImageView.get());
-	assetManager->writeAsset("test.exr", wparams);
+	assetManager->writeAsset("SAT_OUTPUT.exr", wparams);
 }
