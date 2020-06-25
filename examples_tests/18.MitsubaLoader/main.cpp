@@ -26,7 +26,7 @@ layout (set = 2, binding = 0, std430) readonly restrict buffer Lights
 	SLight lights[];
 };
 
-vec3 irr_computeLighting(out irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
+vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
 	vec3 emissive = decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
@@ -37,7 +37,7 @@ vec3 irr_computeLighting(out irr_glsl_IsotropicViewSurfaceInteraction out_intera
 		SLight l = lights[i];
 		vec3 L = l.position-WorldPos;
 		params.L = L;
-		color += irr_bsdf_cos_eval(params, dUV)*l.intensity*0.01 / dot(L,L);
+		color += irr_bsdf_cos_eval(params, out_interaction, dUV)*l.intensity*0.01 / dot(L,L);
 	}
 	return color+emissive;
 }

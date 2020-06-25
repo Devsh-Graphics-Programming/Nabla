@@ -79,7 +79,7 @@ vec4 irr_sample_bump(in vec2 uv, in mat2 dUV) { return texture(map_bump, uv); }
 
 //! This is the function that evaluates the BSDF for specific view and observer direction
 // params can be either BSDFIsotropicParams or BSDFAnisotropicParams 
-Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
+Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
 {
     vec3 Kd;
 #ifndef _NO_UV
@@ -108,7 +108,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
 
     vec3 Ni = vec3(PC.params.Ni);
 
-    vec3 diff = irr_glsl_lambertian_cos_eval(params) * Kd * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(Ni,params.interaction.NdotV));
+    vec3 diff = irr_glsl_lambertian_cos_eval(params,inter) * Kd * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(Ni,inter.NdotV));
     diff *= irr_glsl_diffuseFresnelCorrectionFactor(Ni, Ni*Ni);
     switch (PC.params.extra&ILLUM_MODEL_MASK)
     {
@@ -123,7 +123,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
     case 5://basically same as 3
     case 8://basically same as 5
     {
-        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, Ns, Ni);
+        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, inter, Ns, Ni);
         color = (diff + spec);
     }
         break;
@@ -132,7 +132,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
     case 7:
     case 9://basically same as 4
     {
-        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, Ns, Ni);
+        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, inter, Ns, Ni);
         color = spec;
     }
         break;
@@ -195,9 +195,9 @@ vec3 irr_computeLighting(out irr_glsl_IsotropicViewSurfaceInteraction out_intera
     break;
     }
 
-    out_interaction = params.interaction;
+    out_interaction = interaction;
 #define Intensity 1000.0
-    return Intensity*params.invlenL2*irr_bsdf_cos_eval(params, dUV) + Ka;
+    return Intensity*params.invlenL2*irr_bsdf_cos_eval(params,interaction, dUV) + Ka;
 #undef Intensity
 }
 #endif //_IRR_COMPUTE_LIGHTING_DEFINED_

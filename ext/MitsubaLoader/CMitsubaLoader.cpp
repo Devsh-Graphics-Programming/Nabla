@@ -887,7 +887,7 @@ layout (location = 1) flat out uint InstanceIndex;
 layout (location = 2) out vec3 Normal;
 layout (location = 3) out vec2 UV;
 
-#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
+#include <irr/builtin/glsl/utils/vertex.glsl>
 
 layout (push_constant) uniform Block {
     uint instDataOffset;
@@ -919,8 +919,8 @@ void main()
 {
 	uint instIx = PC.instDataOffset+gl_InstanceIndex;
 	mat4x3 tform = InstData.data[instIx].tform;
-	mat4 mvp = irr_glsl_pseudoMul4x4with4x3(CamData.params.MVP, tform);
-	gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(mvp), vPosition);
+	mat4 mvp = irr_glsl_pseudoMul4x4with4x3(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(CamData.params.MVP), tform);
+	gl_Position = irr_glsl_pseudoMul4x4with3x1(mvp, vPosition);
 	WorldPos = irr_glsl_pseudoMul3x4with3x1(tform, vPosition);
 	//InstrOffsetCount = uvec2(InstData.data[instIx].instrOffset,InstData.data[instIx].instrCount);
 	mat3 normalMat = mat3(InstData.data[instIx].normalMatrixRow0,InstData.data[instIx].normalMatrixRow1,InstData.data[instIx].normalMatrixRow2);
@@ -1029,7 +1029,7 @@ layout (push_constant) uniform Block
 	uint instrCount;
 } PC;
 
-#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
+#include <irr/builtin/glsl/utils/vertex.glsl>
 
 layout (set = 1, binding = 0, row_major, std140) uniform UBO {
     irr_glsl_SBasicViewParameters params;
@@ -1240,31 +1240,30 @@ bool opcode_isRough(in uint op)
 #define NDF_PHONG		2u
 #define NDF_AS			3u
 
-#include <irr/builtin/glsl/bsdf/common.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/diffuse/fresnel_correction.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/diffuse/lambert.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/diffuse/oren_nayar.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/ndf/ggx.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/ashikhmin_shirley.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/beckmann_smith.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/ggx.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/blinn_phong.glsl>
-#include <irr/builtin/glsl/bump_mapping/height_mapping.glsl>
+#include <irr/builtin/glsl/bxdf/common.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/fresnel/fresnel.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/diffuse/fresnel_correction.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/ndf/ggx.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/ashikhmin_shirley.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/beckmann_smith.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl>
+#include <irr/builtin/glsl/bump_mapping/utils.glsl>
 )";
 constexpr const char* FRAGMENT_SHADER_PT2 = R"(
 irr_glsl_BSDFAnisotropicParams currBSDFParams;
+irr_glsl_AnisotropicViewSurfaceInteraction currInteraction;
 reg_t registers[REG_COUNT];
 
 void setCurrBSDFParams(in vec3 n, in vec3 L)
 {
 	vec3 campos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
 	irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, n);
+	currInteraction = irr_glsl_calcAnisotropicInteraction(interaction);
 	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(interaction, L);
-	//TODO: T,B tangents
-	vec3 T = vec3(1.0,0.0,0.0);
-	vec3 B = vec3(0.0,0.0,1.0);
-	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(isoparams, T, B);
+	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(isoparams, currInteraction);
 }
 
 vec2 getAlpha(in uint op, in uint ndf, in instr_t instr, in bsdf_data_t data, in mat2 dUV)
@@ -1307,7 +1306,7 @@ void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
 		vec3 refl = textureOrRGB19E7(data.data[1].zw, instr_getReflectanceTexPresence(instr), dUV)*scale.y;
-		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic) * refl;
+		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic,currInteraction.isotropic) * refl;
 		registers[REG_DST(regs)] = diffuse;
 	}
 	else registers[REG_DST(regs)] = reg_t(0.0);
@@ -1326,8 +1325,8 @@ void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in b
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
 		vec3 eta = vec3(uintBitsToFloat(data.data[2].x));
-		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic) * vec3(0.89);
-		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.interaction.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
+		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic,currInteraction.isotropic) * vec3(0.89);
+		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
 		registers[REG_DST(regs)] = diffuse;
 	}
 	else registers[REG_DST(regs)] = vec3(0.0);
@@ -1369,8 +1368,8 @@ void instr_execute_ROUGHPLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in
 		vec3 eta2 = eta*eta;
 		vec3 refl = textureOrRGB19E7(data.data[1].zw, instr_getPlasticReflTexPresence(instr), dUV)*scale.y;
 
-		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic, a2) * refl;
-		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta2) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.interaction.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
+		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic, currInteraction.isotropic, a2) * refl;
+		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta2) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
 		vec3 fr = irr_glsl_fresnel_dielectric(eta,currBSDFParams.isotropic.VdotH);
 		vec3 specular = DG*fr;
 
@@ -1403,7 +1402,7 @@ void instr_execute_BUMPMAP(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3
 		irr_glsl_vTextureGrad(bm, UV+0.5*dUV[1], dUV).x - irr_glsl_vTextureGrad(bm, UV-0.5*dUV[1], dUV).x
 	);
 	dHdScreen *= scale.x;
-	vec3 n = irr_glsl_perturbNormal_heightMap(currBSDFParams.isotropic.interaction.N, currBSDFParams.isotropic.interaction.V.dPosdScreen, dHdScreen);
+	vec3 n = irr_glsl_perturbNormal_heightMap(currInteraction.isotropic.N, currInteraction.isotropic.V.dPosdScreen, dHdScreen);
 	setCurrBSDFParams(n, L);
 }
 //executed at most once
@@ -1462,17 +1461,17 @@ void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 L)
 		a2 = firstParameter.x*firstParameter.y;
 		if (ndf==NDF_BECKMANN) {
 			DG = irr_glsl_beckmann(a2, currBSDFParams.isotropic.NdotH*currBSDFParams.isotropic.NdotH);
-			DG *= irr_glsl_beckmann_smith_height_correlated(currBSDFParams.isotropic.interaction.NdotV_squared, currBSDFParams.isotropic.NdotL_squared, a2);
-			DG /= 4.0*currBSDFParams.isotropic.interaction.NdotV;
+			DG *= irr_glsl_beckmann_smith_height_correlated(currInteraction.isotropic.NdotV_squared, currBSDFParams.isotropic.NdotL_squared, a2);
+			DG /= 4.0*currInteraction.isotropic.NdotV;
 		}
 		else if (ndf==NDF_GGX) {
 			DG = irr_glsl_ggx_trowbridge_reitz(a2, currBSDFParams.isotropic.NdotH*currBSDFParams.isotropic.NdotH);
-			DG *= irr_glsl_ggx_smith_height_correlated_wo_numerator(a2, currBSDFParams.isotropic.NdotL, currBSDFParams.isotropic.interaction.NdotV);
+			DG *= irr_glsl_ggx_smith_height_correlated_wo_numerator(a2, currBSDFParams.isotropic.NdotL, currInteraction.isotropic.NdotV);
 			DG *= cosFactor;
 		}
 		else if (ndf==NDF_PHONG) {
 			DG = irr_glsl_blinn_phong(currBSDFParams.isotropic.NdotH, 1.0/a2);
-			DG /= 4.0*currBSDFParams.isotropic.interaction.NdotV;
+			DG /= 4.0*currInteraction.isotropic.NdotV;
 		}
 	}
 	switch (opcode)
@@ -1536,7 +1535,7 @@ void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 L)
 #define Spectrum vec3
 //! This is the function that evaluates the BSDF for specific view and observer direction
 // params can be either BSDFIsotropicParams or BSDFAnisotropicParams 
-Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
+Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
 {
 	uvec2 offsetCount = uvec2(InstData.data[InstanceIndex].instrOffset,InstData.data[InstanceIndex].instrCount);
 
@@ -1553,7 +1552,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in mat2 dUV)
 
 #ifndef _IRR_COMPUTE_LIGHTING_DEFINED_
 #define _IRR_COMPUTE_LIGHTING_DEFINED_
-vec3 irr_computeLighting(out irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
+vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
 	vec3 emissive = decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
@@ -1562,7 +1561,7 @@ vec3 irr_computeLighting(out irr_glsl_IsotropicViewSurfaceInteraction out_intera
 	params.L = campos-WorldPos;
 	out_interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, normalize(Normal));
 
-	return irr_bsdf_cos_eval(params, dUV)*50.0/dot(params.L,params.L) + emissive;
+	return irr_bsdf_cos_eval(params, out_interaction, dUV)*50.0/dot(params.L,params.L) + emissive;
 }
 #endif
 
@@ -1605,9 +1604,9 @@ static core::smart_refctd_ptr<AssetType> getBuiltinAsset(const char* _key, IAsse
 	if (bundle.isEmpty())
 		return nullptr;
 	auto assets = bundle.getContents();
-	//assert(assets.first != assets.second);
+	//assert(!assets.empty());
 
-	return core::smart_refctd_ptr_static_cast<AssetType>(assets.first[0]);
+	return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
 }
 
 static core::smart_refctd_ptr<asset::ICPUPipelineLayout> createAndCachePipelineLayout(asset::IAssetManager* _manager, asset::ICPUVirtualTexture* _vt)
@@ -1928,7 +1927,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 		//
 		uint32_t actualIndex = 0;
 		if (index>=0ll)
-		for (auto it=contentRange.first; it!=contentRange.second; it++)
+		for (auto it=contentRange.begin(); it!=contentRange.end(); it++)
 		{
 			auto meta = it->get()->getMetadata();
 			if (!meta || core::strcmpi(meta->getLoaderName(),ext::MitsubaLoader::CSerializedMetadata::LoaderName))
@@ -1936,13 +1935,13 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 			auto serializedMeta = static_cast<CSerializedMetadata*>(meta);
 			if (serializedMeta->id!=static_cast<uint32_t>(index))
 				continue;
-			actualIndex = it-contentRange.first;
+			actualIndex = it-contentRange.begin();
 			break;
 		}
 		//
-		if (contentRange.first+actualIndex < contentRange.second)
+		if (contentRange.begin()+actualIndex < contentRange.end())
 		{
-			auto asset = contentRange.first[actualIndex];
+			auto asset = contentRange.begin()[actualIndex];
 			if (asset && asset->getAssetType()==asset::IAsset::ET_MESH)
 			{
 				// make a (shallow) copy because the mesh will get mutilated and abused for metadata
@@ -2200,9 +2199,9 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 		{
 				auto retval = interm_getAssetInHierarchy(m_manager,tex->bitmap.filename.svalue,ctx.params,hierarchyLevel,ctx.override);
 				auto contentRange = retval.getContents();
-				if (contentRange.first < contentRange.second)
+				if (contentRange.begin() < contentRange.end())
 				{
-					auto asset = contentRange.first[0];
+					auto asset = contentRange.begin()[0];
 					if (asset && asset->getAssetType() == asset::IAsset::ET_IMAGE)
 					{
 						auto texture = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);

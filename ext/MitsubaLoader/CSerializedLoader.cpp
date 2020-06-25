@@ -32,7 +32,7 @@ static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAsse
 		return nullptr;
 	auto assets = bundle.getContents();
 
-	return core::smart_refctd_ptr_static_cast<AssetType>(assets.first[0]);
+	return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
 }
 
 enum MESH_FLAGS
@@ -267,8 +267,8 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 
 			auto refCountedBundle =
 			{
-				core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().first[0]),
-				core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>((bundle->begin() + 1)->getContents().first[0])
+				core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().begin()[0]),
+				core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>((bundle->begin() + 1)->getContents().begin()[0])
 			};
 
 			for (auto& shader : refCountedBundle)
