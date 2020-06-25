@@ -1,7 +1,7 @@
 #ifndef _IRR_BSDF_BRDF_COS_WEIGHTED_SAMPLE_INCLUDED_
 #define _IRR_BSDF_BRDF_COS_WEIGHTED_SAMPLE_INCLUDED_
 
-#include <irr/builtin/glsl/bxdf/common.glsl>
+#include <irr/builtin/glsl/bxdf/common_samples.glsl>
 
 irr_glsl_BSDFSample irr_glsl_cos_weighted_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample)
 {

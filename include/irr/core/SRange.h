@@ -39,6 +39,8 @@ struct SRange
 
 		inline size_t size() const {return std::distance(m_begin,m_end);}
 
+		inline bool empty() const { return m_begin==m_end; }
+
 	private:
 		IteratorType m_begin, m_end;
 };
