@@ -71,6 +71,12 @@ irr::video::IFrameBuffer* createHDRFramebuffer(core::smart_refctd_ptr<IrrlichtDe
 	return frameBuffer;
 }
 
+struct ShaderParameters
+{
+	const uint32_t MaxDepthLog2 = 2; //5
+	const uint32_t MaxSamplesLog2 = 8; //18
+} kShaderParameters;
+
 int main()
 {
 	irr::SIrrlichtCreationParameters params;
@@ -107,17 +113,28 @@ int main()
 
 	sceneManager->setActiveCamera(camera);
 
-	IGPUDescriptorSetLayout::SBinding samplerBinding { 0u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr };
+	IGPUDescriptorSetLayout::SBinding descriptorSet3Bindings[] = {
+		{ 0u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr },
+		{ 1u, EDT_UNIFORM_TEXEL_BUFFER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr },
+		{ 2u, EDT_COMBINED_IMAGE_SAMPLER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr }
+	};
 	IGPUDescriptorSetLayout::SBinding uboBinding {0, asset::EDT_UNIFORM_BUFFER, 1u, IGPUSpecializedShader::ESS_FRAGMENT, nullptr};
 
 	auto gpuDescriptorSetLayout1 = driver->createGPUDescriptorSetLayout(&uboBinding, &uboBinding + 1u);
-	auto gpuDescriptorSetLayout3 = driver->createGPUDescriptorSetLayout(&samplerBinding, &samplerBinding + 1u);
+	auto gpuDescriptorSetLayout3 = driver->createGPUDescriptorSetLayout(descriptorSet3Bindings, descriptorSet3Bindings+3u);
 
 	auto fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(device->getAssetManager(), device->getVideoDriver());
 
 	auto createGpuResources = [&](std::string pathToShadersWithoutExtension) -> std::pair<core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>, core::smart_refctd_ptr<video::IGPUMeshBuffer>>
 	{
 		auto cpuFragmentSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(assetManager->getAsset(pathToShadersWithoutExtension + ".frag", {}).getContents().begin()[0]);
+		ISpecializedShader::SInfo info = cpuFragmentSpecializedShader->getSpecializationInfo();
+		info.m_backingBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(ShaderParameters));
+		memcpy(info.m_backingBuffer->getPointer(),&kShaderParameters,sizeof(ShaderParameters));
+		info.m_entries = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ISpecializedShader::SInfo::SMapEntry>>(2u);
+		for (uint32_t i=0; i<2; i++)
+			info.m_entries->operator[](0u) = {i,i*sizeof(uint32_t),sizeof(uint32_t)};
+		cpuFragmentSpecializedShader->setSpecializationInfo(std::move(info));
 
 		auto gpuFragmentSpecialedShader = driver->getGPUObjectsFromAssets(&cpuFragmentSpecializedShader.get(), &cpuFragmentSpecializedShader.get() + 1)->front();
 		IGPUSpecializedShader* shaders[2] = { std::get<0>(fullScreenTriangle).get(), gpuFragmentSpecialedShader.get() };
@@ -178,6 +195,58 @@ int main()
 
 	auto gpuEnvmapImageView = createGPUImageView("../../media/envmap/envmap_0.exr");
 
+	smart_refctd_ptr<IGPUBuffer> gpuSequenceBuffer;
+	{
+		const uint32_t MaxDimensions = 3u<<kShaderParameters.MaxDepthLog2;
+		const uint32_t MaxSamples = 1u<<kShaderParameters.MaxSamplesLog2;
+
+		auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*MaxDimensions*MaxSamples);
+		/*
+		core::OwenSampler sampler(MaxDimensions, 0xdeadbeefu);
+
+		auto out = reinterpret_cast<uint32_t*>(sampleSequence->getPointer());
+		for (auto dim = 0u; dim < MaxDimensions; dim++)
+		for (uint32_t i=0; i<MaxSamples; i++)
+		{
+			out[i*MaxDimensions+dim] = sampler.sample(dim,i);
+		}*/
+		gpuSequenceBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(), sampleSequence->getPointer());
+	}
+	auto gpuSequenceBufferView = driver->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
+
+	smart_refctd_ptr<IGPUImageView> gpuScrambleImageView;
+	{
+		IGPUImage::SCreationParams imgParams;
+		imgParams.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
+		imgParams.type = IImage::ET_2D;
+		imgParams.format = EF_R32_UINT;
+		imgParams.extent = {params.WindowSize.Width,params.WindowSize.Height,1u};
+		imgParams.mipLevels = 1u;
+		imgParams.arrayLayers = 1u;
+		imgParams.samples = IImage::ESCF_1_BIT;
+
+		IGPUImage::SBufferCopy region;
+		region.imageExtent = imgParams.extent;
+
+		const auto renderPixelCount = imgParams.extent.width*imgParams.extent.height;
+		core::vector<uint32_t> random(renderPixelCount);
+		{
+			core::RandomSampler rng(0xbadc0ffeu);
+			for (auto& pixel : random)
+				pixel = rng.nextSample();
+		}
+		auto buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(renderPixelCount*sizeof(uint32_t),random.data());
+
+		IGPUImageView::SCreationParams viewParams;
+		viewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
+		viewParams.image = driver->createFilledDeviceLocalGPUImageOnDedMem(std::move(imgParams),buffer.get(),1u,&region);
+		viewParams.viewType = IGPUImageView::ET_2D;
+		viewParams.format = EF_R32_UINT;
+		viewParams.subresourceRange.levelCount = 1u;
+		viewParams.subresourceRange.layerCount = 1u;
+		gpuScrambleImageView = driver->createGPUImageView(std::move(viewParams));
+	}
+
 	auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(SBasicViewParameters));
 	auto uboDescriptorSet1 = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuDescriptorSetLayout1));
 	{
@@ -197,29 +266,37 @@ int main()
 		driver->updateDescriptorSets(1u, &uboWriteDescriptorSet, 0u, nullptr);
 	}
 
-	auto envmapSamplerDescriptorSet3 = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuDescriptorSetLayout3));
+	auto descriptorSet3 = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuDescriptorSetLayout3));
 	{
-		auto updateDescriptorSets = [&](core::smart_refctd_ptr<video::IGPUDescriptorSet> samplerGPUDescriptorSet3 , core::smart_refctd_ptr<video::IGPUImageView> gpuImageView)
+		constexpr auto kDescriptorCount = 3;
+		IGPUDescriptorSet::SWriteDescriptorSet samplerWriteDescriptorSet[kDescriptorCount];
+		IGPUDescriptorSet::SDescriptorInfo samplerDescriptorInfo[kDescriptorCount];
+		for (auto i=0; i<kDescriptorCount; i++)
 		{
-			IGPUDescriptorSet::SWriteDescriptorSet samplerWriteDescriptorSet;
-			samplerWriteDescriptorSet.dstSet = samplerGPUDescriptorSet3.get();
-			samplerWriteDescriptorSet.binding = 0u;
-			samplerWriteDescriptorSet.arrayElement = 0u;
-			samplerWriteDescriptorSet.count = 1u;
-			samplerWriteDescriptorSet.descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+			samplerWriteDescriptorSet[i].dstSet = descriptorSet3.get();
+			samplerWriteDescriptorSet[i].binding = i;
+			samplerWriteDescriptorSet[i].arrayElement = 0u;
+			samplerWriteDescriptorSet[i].count = 1u;
+			samplerWriteDescriptorSet[i].info = samplerDescriptorInfo+i;
+		}
+		samplerWriteDescriptorSet[0].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+		samplerWriteDescriptorSet[1].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
+		samplerWriteDescriptorSet[2].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
 
-			IGPUDescriptorSet::SDescriptorInfo samplerDescriptorInfo;
-			{
-				samplerDescriptorInfo.desc = gpuImageView;
-				ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
-				samplerDescriptorInfo.image.sampler = driver->createGPUSampler(samplerParams);
-				samplerDescriptorInfo.image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
-			}
-			samplerWriteDescriptorSet.info = &samplerDescriptorInfo;
-			driver->updateDescriptorSets(1u, &samplerWriteDescriptorSet, 0u, nullptr);
-		};
-
-		updateDescriptorSets(envmapSamplerDescriptorSet3, gpuEnvmapImageView);
+		samplerDescriptorInfo[0].desc = gpuEnvmapImageView;
+		{
+			ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+			samplerDescriptorInfo[0].image.sampler = driver->createGPUSampler(samplerParams);
+			samplerDescriptorInfo[0].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
+		}
+		samplerDescriptorInfo[1].desc = gpuSequenceBuffer;
+		samplerDescriptorInfo[2].desc = gpuScrambleImageView;
+		{
+			ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_INT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ESMM_NEAREST, 0u, false, ECO_ALWAYS };
+			samplerDescriptorInfo[2].image.sampler = driver->createGPUSampler(samplerParams);
+			samplerDescriptorInfo[2].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
+		}
+		driver->updateDescriptorSets(kDescriptorCount, samplerWriteDescriptorSet, 0u, nullptr);
 	}
 
 	auto HDRFramebuffer = createHDRFramebuffer(device, gpuEnvmapImageView->getCreationParameters().format);
@@ -254,7 +331,7 @@ int main()
 
 			driver->bindGraphicsPipeline(gpuEnvmapPipeline.get());
 			driver->bindDescriptorSets(EPBP_GRAPHICS, gpuEnvmapPipeline->getLayout(), 1u, 1u, &uboDescriptorSet1.get(), nullptr);
-			driver->bindDescriptorSets(EPBP_GRAPHICS, gpuEnvmapPipeline->getLayout(), 3u, 1u, &envmapSamplerDescriptorSet3.get(), nullptr);
+			driver->bindDescriptorSets(EPBP_GRAPHICS, gpuEnvmapPipeline->getLayout(), 3u, 1u, &descriptorSet3.get(), nullptr);
 			driver->drawMeshBuffer(gpuEnvmapMeshBuffer.get());
 		}
 		// TODO: tone mapping and stuff

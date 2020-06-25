@@ -1,10 +1,14 @@
 #version 430 core
 
+
 layout(set = 3, binding = 0) uniform sampler2D envMap; 
+layout(set = 3, binding = 1) uniform usamplerBuffer sampleSequence;
+layout(set = 3, binding = 2) uniform usampler2D scramblebuf;
 
 layout(location = 0) in vec2 TexCoord;
 
 layout(location = 0) out vec4 pixelColor;
+
 
 
 // TODO: change the location of the `irr_glsl_SBasicViewParameters`, vertex header is not the right place for it
@@ -298,8 +302,17 @@ float BSDFNode_getMISWeight(in BSDFNode bsdf)
     return 1.0;
 }
 
-#define MAX_DEPTH 5
-void closestHitProgram(in ImmutableRay_t _immutable)
+layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
+layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
+vec3 rand3d(in uint protoDimension, in uint _sample, in uint scramble)
+{
+    uint address = bitfieldInsert(protoDimension,_sample,MAX_DEPTH_LOG2,MAX_SAMPLES_LOG2);
+	uvec3 seqVal = texelFetch(sampleSequence,int(address)).xyz^uvec3(scramble);
+    return vec3(seqVal)*uintBitsToFloat(0x2f800004u); // carefully selected constant!
+}
+
+#define MAX_DEPTH 4
+void closestHitProgram(in ImmutableRay_t _immutable, in uint scramble)
 {
     const MutableRay_t mutable = rayStack[stackPtr]._mutable;
 
@@ -330,7 +343,7 @@ void closestHitProgram(in ImmutableRay_t _immutable)
 
     // do we even have a BSDF at all
     uint bsdfID = bitfieldExtract(bsdfLightIDs,0,16);
-    if (depth<MAX_DEPTH && bsdfID!=INVALID_ID_16BIT)
+    if (depth<(MAX_DEPTH-1) && bsdfID!=INVALID_ID_16BIT)
     {
         // common preload
         BSDFNode bsdf = bsdfs[bsdfID];
@@ -340,7 +353,7 @@ void closestHitProgram(in ImmutableRay_t _immutable)
         
         // this could run in a loop if we'd allow splitting/amplification (if we modified the payload managment)
         {
-            vec3 epsilon = vec3(0.5,0.5,0.5);//rand3d(depth,sampleIx);
+            vec3 epsilon = rand3d(depth,sampleIx,scramble);
 
             bool pickBSDF = true;
             
@@ -391,6 +404,8 @@ void closestHitProgram(in ImmutableRay_t _immutable)
 #define SAMPLES 1
 void main()
 {
+	uint scramble = textureLod(scramblebuf,TexCoord,0).r;
+
     mat4 invMVP = inverse(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(cameraData.params.MVP));
     vec4 NDC = vec4(TexCoord*2.0-vec2(1.0),0.0,1.0);
     NDC.y = -NDC.y;
@@ -409,7 +424,7 @@ void main()
             NDC.z = 1.0;
             tmp = invMVP*NDC;
             rayStack[stackPtr]._immutable.direction = normalize(tmp.xyz/tmp.w-camPos);
-            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(i,1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
+            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(i,0,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
 
             rayStack[stackPtr]._payload.accumulation = vec3(0.0);
             rayStack[stackPtr]._payload.otherTechniqueHeuristic = 0.0; // TODO: remove
@@ -429,7 +444,7 @@ void main()
             }
             else if (!anyHitType)
             {
-                closestHitProgram(_immutable);
+                closestHitProgram(_immutable,scramble);
             }
             stackPtr--;
         }
