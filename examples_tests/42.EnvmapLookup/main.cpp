@@ -96,7 +96,7 @@ int main()
 	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
-	scene::ICameraSceneNode* camera = sceneManager->addCameraSceneNodeFPS(0, 100.0f, 0.1f);
+	scene::ICameraSceneNode* camera = sceneManager->addCameraSceneNodeFPS(0, 100.0f, 0.01f);
 	camera->setLeftHanded(false);
 
 	camera->setPosition(core::vector3df(0, 2, 3));
@@ -227,6 +227,7 @@ int main()
 
 	uint64_t lastFPSTime = 0;
 	while (device->run() && receiver.keepOpen())
+	if (device->isWindowFocused())
 	{
 		driver->setRenderTarget(HDRFramebuffer, false);
 		driver->clearZBuffer();

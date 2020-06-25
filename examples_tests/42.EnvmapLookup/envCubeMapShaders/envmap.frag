@@ -138,17 +138,29 @@ struct Payload_t
     vec3 throughput;
     float otherTechniqueHeuristic;
 };
+struct Ray_t
+{
+    ImmutableRay_t _immutable;
+    MutableRay_t _mutable;
+    Payload_t _payload;
+};
+#define MAX_STACK_SIZE 1
+int stackPtr = 0;
+Ray_t rayStack[MAX_STACK_SIZE];
+
 
 bool anyHitProgram(in ImmutableRay_t _immutable)
 {
     return true;
 }
 
-bool traceRay(in ImmutableRay_t _immutable, inout MutableRay_t _mutable)
+bool traceRay(in ImmutableRay_t _immutable)
 {
-    bool anyHit = (_immutable.typeDepthSampleIx&ANY_HIT_FLAG)!=0;
-    _mutable.intersectionT = _immutable.maxT;
-    for (int i=0; i<SPHERE_COUNT; i++)
+    const bool anyHit = bitfieldExtract(_immutable.typeDepthSampleIx,31,1)!=0;
+
+	int objectID = -1;
+    float intersectionT = _immutable.maxT;
+	for (int i=0; i<SPHERE_COUNT; i++)
     {
         vec3 origin = _immutable.origin-spheres[i].position;
         float originLen2 = dot(origin,origin);
@@ -158,25 +170,20 @@ bool traceRay(in ImmutableRay_t _immutable, inout MutableRay_t _mutable)
 
         // do some speculative math here
         float t = -dirDotOrigin-sqrt(det);
-        bool closerIntersection = !isnan(t) && t>0.0 && t<_mutable.intersectionT;
-        _mutable.intersectionT = closerIntersection ? t:_mutable.intersectionT;
+        bool closerIntersection = t>0.0 && t<intersectionT;
 
         if (anyHit && closerIntersection && anyHitProgram(_immutable))
             break;
 
-        _mutable.objectID = closerIntersection ? i:_mutable.objectID;
+		objectID = closerIntersection ? i:objectID;
+        intersectionT = closerIntersection ? t:intersectionT;
     }
+    rayStack[stackPtr]._mutable.objectID = objectID;
+    rayStack[stackPtr]._mutable.intersectionT = intersectionT;
     // hit
     return anyHit;
 }
 
-
-struct Ray_t
-{
-    ImmutableRay_t _immutable;
-    MutableRay_t _mutable;
-    Payload_t _payload;
-};
 
 #include <irr/builtin/glsl/math/constants.glsl>
 vec2 SampleSphericalMap(vec3 v)
@@ -187,28 +194,24 @@ vec2 SampleSphericalMap(vec3 v)
     return uv;
 }
 
-void missProgram(in ImmutableRay_t _immutable, inout Payload_t payload)
+void missProgram()
 {
-    if (_immutable.maxT<FLT_MAX)
-        payload.accumulation += payload.throughput;
-    else
-    {
+    vec3 finalContribution = rayStack[stackPtr]._payload.throughput;
     #define USE_ENVMAP
-
-    #ifdef USE_ENVMAP
-	    vec2 uv = SampleSphericalMap(_immutable.direction);
-        payload.accumulation += payload.throughput*textureLod(envMap, uv, 0.0).rgb;
-    #else
-        const vec3 kConstantEnvLightRadiance = vec3(0.15,0.21,0.3);
-        payload.accumulation += kConstantEnvLightRadiance;
-    #endif
+    // true miss
+    if (rayStack[stackPtr]._immutable.maxT>=FLT_MAX)
+    {
+        #ifdef USE_ENVMAP
+	        vec2 uv = SampleSphericalMap(rayStack[stackPtr]._immutable.direction);
+            finalContribution *= textureLod(envMap, uv, 0.0).rgb;
+        #else
+            const vec3 kConstantEnvLightRadiance = vec3(0.15,0.21,0.3);
+            finalContribution *= kConstantEnvLightRadiance;
+        #endif
     }
+    rayStack[stackPtr]._payload.accumulation += finalContribution;
 }
 
-
-#define MAX_STACK_SIZE 1
-int stackPtr = 0;
-Ray_t rayStack[MAX_STACK_SIZE];
 
 #include <irr/builtin/glsl/bxdf/common.glsl>
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
@@ -296,10 +299,12 @@ float BSDFNode_getMISWeight(in BSDFNode bsdf)
 }
 
 #define MAX_DEPTH 5
-void closestHitProgram(in ImmutableRay_t _immutable, in MutableRay_t _mutable, inout Payload_t _payload)
+void closestHitProgram(in ImmutableRay_t _immutable)
 {
-    Sphere sphere = spheres[_mutable.objectID];
-    vec3 intersection = _immutable.origin+_immutable.direction*_mutable.intersectionT;
+    const MutableRay_t mutable = rayStack[stackPtr]._mutable;
+
+    Sphere sphere = spheres[mutable.objectID];
+    vec3 intersection = _immutable.origin+_immutable.direction*mutable.intersectionT;
     
     irr_glsl_IsotropicViewSurfaceInteraction interaction;
     interaction.V.dir = -_immutable.direction;
@@ -317,7 +322,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, in MutableRay_t _mutable, i
     {
         float lightPdf;
         vec3 lightVal = irr_glsl_light_deferred_eval_and_prob(lightPdf,sphere,_immutable.origin,interaction,lights[lightID]);
-        _payload.accumulation += _payload.throughput*lightVal/(1.0+lightPdf*lightPdf*_payload.otherTechniqueHeuristic);
+        rayStack[stackPtr]._payload.accumulation += rayStack[stackPtr]._payload.throughput*lightVal/(1.0+lightPdf*lightPdf*rayStack[stackPtr]._payload.otherTechniqueHeuristic);
     }
 
     int sampleIx = bitfieldExtract(_immutable.typeDepthSampleIx,0,DEPTH_BITS_OFFSET);
@@ -358,27 +363,25 @@ void closestHitProgram(in ImmutableRay_t _immutable, in MutableRay_t _mutable, i
             // do a cool trick and always compute the bsdf parts this way! (no divergence)
             float bsdfPdf;
             // the value of the bsdf divided by the probability of the sample being generated
-            _payload.throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,interaction,_sample,bsdf);
+            rayStack[stackPtr]._payload.throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,interaction,_sample,bsdf);
 
             if (bsdfPdf>FLT_MIN)
             {
                 float choiceProb = pickBSDF ? bsdfGeneratorProbability:(1.0-bsdfGeneratorProbability);
                 float rcpChoiceProb = 1.0/choiceProb; // should be impossible to get a div by 0 here
-                _payload.throughput *= rcpChoiceProb;
+                rayStack[stackPtr]._payload.throughput *= rcpChoiceProb;
 
                 float heuristicFactor = rcpChoiceProb-1.0; // weightNonGenerator/weightGenerator
                 heuristicFactor /= pickBSDF ? bsdfPdf:lightPdf; // weightNonGenerator/(weightGenerator*probGenerated)
                 heuristicFactor *= heuristicFactor; // (weightNonGenerator/(weightGenerator*probGenerated))^2
-                if (pickBSDF)
-                    _payload.otherTechniqueHeuristic = heuristicFactor;
-                else
-                    _payload.throughput *= 1.0/(1.0/bsdfPdf+heuristicFactor*bsdfPdf); // numerically stable, don't touch
+                if (!pickBSDF)
+                    heuristicFactor = 1.0/(1.0/bsdfPdf+heuristicFactor*bsdfPdf); // numerically stable, don't touch
+                rayStack[stackPtr]._payload.otherTechniqueHeuristic = heuristicFactor;
                     
                 // trace new ray
                 rayStack[stackPtr]._immutable.origin = intersection;
                 rayStack[stackPtr]._immutable.direction = _sample.L;
-                rayStack[stackPtr]._immutable.typeDepthSampleIx = (pickBSDF ? 0:ANY_HIT_FLAG)|((depth+1)<<DEPTH_BITS_OFFSET)|sampleIx;
-                rayStack[stackPtr]._payload = _payload;
+                rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(sampleIx,depth+1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT)|(pickBSDF ? 0:ANY_HIT_FLAG);
                 stackPtr++;
             }
         }
@@ -398,7 +401,7 @@ void main()
     for (int i=0; i<SAMPLES; i++)
     {
         stackPtr = 0;
-
+        
         // raygen
         {
             rayStack[stackPtr]._immutable.origin = camPos;
@@ -406,7 +409,7 @@ void main()
             NDC.z = 1.0;
             tmp = invMVP*NDC;
             rayStack[stackPtr]._immutable.direction = normalize(tmp.xyz/tmp.w-camPos);
-            rayStack[stackPtr]._immutable.typeDepthSampleIx = i|(1<<DEPTH_BITS_OFFSET);
+            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(i,1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
 
             rayStack[stackPtr]._payload.accumulation = vec3(0.0);
             rayStack[stackPtr]._payload.otherTechniqueHeuristic = 0.0; // TODO: remove
@@ -417,16 +420,17 @@ void main()
         while (stackPtr!=-1)
         {
             ImmutableRay_t _immutable = rayStack[stackPtr]._immutable;
-            MutableRay_t _mutable = rayStack[stackPtr]._mutable;
-            bool anyHitType = traceRay(_immutable,_mutable);
+            bool anyHitType = traceRay(_immutable);
                 
-            Payload_t _payload = rayStack[stackPtr]._payload;
             // TODO: better scheduling for less divergence in some version of this demo
-            if (_mutable.intersectionT>=_immutable.maxT)
-                missProgram(_immutable,_payload);
+            if (rayStack[stackPtr]._mutable.intersectionT>=_immutable.maxT)
+            {
+                missProgram();
+            }
             else if (!anyHitType)
-                closestHitProgram(_immutable,_mutable,_payload);
-            rayStack[stackPtr]._payload = _payload;
+            {
+                closestHitProgram(_immutable);
+            }
             stackPtr--;
         }
 
