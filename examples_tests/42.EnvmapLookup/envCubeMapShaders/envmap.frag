@@ -217,27 +217,53 @@ void missProgram()
 }
 
 
-#include <irr/builtin/glsl/bxdf/common.glsl>
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
-irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_IsotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf)
+#include <irr/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl>
+irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf)
 {
     irr_glsl_BSDFSample smpl;
-    smpl.L = irr_glsl_reflect(interaction.V.dir,interaction.N,interaction.NdotV);
-    smpl.LdotN = interaction.NdotV;
-    smpl.NdotH = 1.0;
-    smpl.VdotH = interaction.NdotV;
+    switch (BSDFNode_getType(bsdf))
+    {
+        case DIFFUSE_OP:
+            smpl = irr_glsl_lambertian_cos_generate(interaction,u);
+            break;
+        case CONDUCTOR_OP:
+            smpl.L = irr_glsl_reflect(interaction.V.dir,interaction.N,interaction.NdotV);
+            smpl.LdotN = interaction.NdotV;
+            smpl.NdotH = 1.0;
+            smpl.VdotH = interaction.NdotV;
+            break;
+        default:
+            smpl.L = irr_glsl_reflect(interaction.V.dir,interaction.N,interaction.NdotV);
+            smpl.LdotN = interaction.NdotV;
+            smpl.NdotH = 1.0;
+            smpl.VdotH = interaction.NdotV;
+            break;
+    }
     return smpl;
-
-    //return irr_glsl_reflection_cos_generate(interaction);
 }
-vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_BSDFSample _sample, in BSDFNode bsdf)
+vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_BSDFSample _sample, in BSDFNode bsdf)
 {
-    pdf = 1.0;
-    return normalize(BSDFNode_getReflectance(bsdf));
-/*
-    pdf = max(_sample.LdotN,0.0)*irr_glsl_RECIPROCAL_PI;
-    return BSDFNode_getReflectance(bsdf);
-*/
+    vec3 remainder;
+    switch (BSDFNode_getType(bsdf))
+    {
+        case DIFFUSE_OP:
+            //remainder = irr_glsl_lambertian_cos_remainder_and_pdf(pdf,_sample,?,?); // TODO: @Criss?
+            //remainder *= BSDFNode_getReflectance(bsdf);
+            // because I have no clue how the above API is supposed to work, I'll just do
+            pdf = 1.0;
+            remainder = BSDFNode_getReflectance(bsdf);
+            break;
+        case CONDUCTOR_OP:
+            pdf = 1.0;
+            remainder = normalize(BSDFNode_getReflectance(bsdf));
+            break;
+        default:
+            pdf = 1.0;
+            remainder = normalize(BSDFNode_getReflectance(bsdf));
+            break;
+    }
+    return remainder;
 }
 
 float impl_sphereSolidAngle(in Sphere sphere, in vec3 origin, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
@@ -319,12 +345,18 @@ void closestHitProgram(in ImmutableRay_t _immutable, in uint scramble)
     Sphere sphere = spheres[mutable.objectID];
     vec3 intersection = _immutable.origin+_immutable.direction*mutable.intersectionT;
     
-    irr_glsl_IsotropicViewSurfaceInteraction interaction;
-    interaction.V.dir = -_immutable.direction;
-    //interaction.V.dPosdScreen = screw that
-    interaction.N = (intersection-sphere.position)*inversesqrt(sphere.radius2);
-    interaction.NdotV = dot(interaction.V.dir,interaction.N);
-    interaction.NdotV_squared = interaction.NdotV*interaction.NdotV;
+    irr_glsl_AnisotropicViewSurfaceInteraction interaction;
+    {
+        irr_glsl_IsotropicViewSurfaceInteraction isotropic;
+
+        isotropic.V.dir = -_immutable.direction;
+        //isotropic.V.dPosdScreen = screw that
+        isotropic.N = (intersection-sphere.position)*inversesqrt(sphere.radius2);
+        isotropic.NdotV = dot(interaction.V.dir,interaction.N);
+        isotropic.NdotV_squared = interaction.NdotV*interaction.NdotV;
+
+        interaction = irr_glsl_calcAnisotropicInteraction(isotropic);
+    }
 
     uint bsdfLightIDs = sphere.bsdfLightIDs;
     uint lightID = bitfieldExtract(bsdfLightIDs,16,16);
@@ -401,7 +433,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, in uint scramble)
     }
 }
 
-#define SAMPLES 1
+#define SAMPLES 16
 void main()
 {
 	uint scramble = textureLod(scramblebuf,TexCoord,0).r;

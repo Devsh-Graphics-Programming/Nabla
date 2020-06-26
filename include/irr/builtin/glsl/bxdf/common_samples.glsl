@@ -47,7 +47,7 @@ irr_glsl_BSDFSample irr_glsl_transmission_cos_generate(in irr_glsl_AnisotropicVi
 
 vec3 irr_glsl_transmission_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
-	pdf = 1.0;
+	pdf = 1.0/0.0;
 	return vec3(1.0);
 }
 
@@ -61,7 +61,7 @@ irr_glsl_BSDFSample irr_glsl_reflection_cos_generate(in irr_glsl_AnisotropicView
 
 vec3 irr_glsl_reflection_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
-	pdf = 1.0;
+	pdf = 1.0/0.0;
 	return vec3(1.0);
 }
 
@@ -102,5 +102,21 @@ irr_glsl_BSDFSample irr_glsl_smooth_dielectric_cos_sample(in irr_glsl_Anisotropi
     return irr_glsl_smooth_dielectric_cos_sample(interaction, u, eta, luminosityContributionHint);
 }
 #endif
+/*
+irr_glsl_BSDFSample irr_glsl_reflection_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u, in vec3 eta, in vec3 luminosityContributionHint)
+{
+    irr_glsl_BSDFSample smpl;
+    smpl.L = irr_glsl_reflect(interaction.isotropic.V.dir,interaction.isotropic.N,interaction.isotropic.NdotV);
+
+    return smpl;
+}
+
+vec3 irr_glsl_smooth_dielectric_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 eta, in vec3 luminosityContributionHint)
+{
+    pdf = 1.0/0.0; // its inf anyway
+    return vec3(1.0);
+}
+*/
+
 
 #endif
