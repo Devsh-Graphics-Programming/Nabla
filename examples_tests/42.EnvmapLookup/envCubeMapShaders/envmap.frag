@@ -214,7 +214,7 @@ void missProgram()
             finalContribution *= kConstantEnvLightRadiance;
         #endif
     }
-    rayStack[stackPtr]._payload.accumulation += finalContribution;
+    //rayStack[stackPtr]._payload.accumulation += finalContribution;
 }
 
 
@@ -331,20 +331,31 @@ float BSDFNode_getMISWeight(in BSDFNode bsdf)
 // TODO: Can't get the specialization constants to go through
 layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 2;
 layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 6;
-vec3 rand3d(in uint protoDimension, in uint _sample, in uint scramble)
+
+// TODO: upgrade the xorshift variant to one that uses an addition
+uint rand_xorshift(inout uint rng_state)
+{
+    // Xorshift algorithm from George Marsaglia's paper
+    rng_state ^= (rng_state << 13);
+    rng_state ^= (rng_state >> 17);
+    rng_state ^= (rng_state << 5);
+    return rng_state;
+}
+vec3 rand3d(in uint protoDimension, in uint _sample, inout uint scramble_state)
 {
 /* TODO: Random Numbers are Screwed
     uint address = bitfieldInsert(protoDimension,_sample,MAX_DEPTH_LOG2,MAX_SAMPLES_LOG2);
-	uvec3 seqVal = texelFetch(sampleSequence,int(address)).xyz^uvec3(scramble);
+	uvec3 seqVal = texelFetch(sampleSequence,int(address)).xyz;
     */
 	uvec3 seqVal = uvec3(uvec2(_sample%4,_sample/4)<<(32u-findMSB(4)),0u);
 	seqVal.xy += uvec2(1,1)<<(31u-findMSB(4));
-	seqVal.xy ^= uvec2(scramble,(scramble+327329u)*0x13912391);
+
+	seqVal ^= uvec3(rand_xorshift(scramble_state),rand_xorshift(scramble_state),rand_xorshift(scramble_state));
     return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
 }
 
-#define MAX_DEPTH 10
-void closestHitProgram(in ImmutableRay_t _immutable, in uint scramble)
+#define MAX_DEPTH 6
+void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
 {
     const MutableRay_t mutable = rayStack[stackPtr]._mutable;
 
@@ -391,7 +402,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, in uint scramble)
         
         // this could run in a loop if we'd allow splitting/amplification (if we modified the payload managment)
         {
-            vec3 epsilon = rand3d(depth,sampleIx,scramble);
+            vec3 epsilon = rand3d(depth,sampleIx,scramble_state);
 
             bool pickBSDF = true;
             
@@ -471,6 +482,7 @@ void main()
             rayStack[stackPtr]._payload.otherTechniqueHeuristic = 0.0; // TODO: remove
             rayStack[stackPtr]._payload.throughput = vec3(1.0);
         }
+        uint scramble_state = scramble;
 
         // trace
         while (stackPtr!=-1)
@@ -485,7 +497,7 @@ void main()
             }
             else if (!anyHitType)
             {
-                closestHitProgram(_immutable,scramble);
+                closestHitProgram(_immutable,scramble_state);
             }
             stackPtr--;
         }
