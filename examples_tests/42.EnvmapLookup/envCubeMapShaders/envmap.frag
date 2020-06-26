@@ -332,12 +332,9 @@ layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
 layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
 vec3 rand3d(in uint protoDimension, in uint _sample, in uint scramble)
 {
-/*
     uint address = bitfieldInsert(protoDimension,_sample,MAX_DEPTH_LOG2,MAX_SAMPLES_LOG2);
 	uvec3 seqVal = texelFetch(sampleSequence,int(address)).xyz^uvec3(scramble);
     return vec3(seqVal)*uintBitsToFloat(0x2f800004u); // carefully selected constant!
-*/
-    return vec3(0.5,0.5,0.0);
 }
 
 #define MAX_DEPTH 4
@@ -439,7 +436,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, in uint scramble)
 #define SAMPLES 16
 void main()
 {
-	uint scramble = texelFetch(scramblebuf,ivec2(gl_FragCoord.xy),0).r;
+	uint scramble = textureLod(scramblebuf,TexCoord,0).r;
 
     mat4 invMVP = inverse(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(cameraData.params.MVP));
     vec4 NDC = vec4(TexCoord*2.0-vec2(1.0),0.0,1.0);

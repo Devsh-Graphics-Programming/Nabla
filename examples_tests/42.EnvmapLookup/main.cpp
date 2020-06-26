@@ -71,6 +71,98 @@ irr::video::IFrameBuffer* createHDRFramebuffer(core::smart_refctd_ptr<IrrlichtDe
 	return frameBuffer;
 }
 
+
+void APIENTRY openGLCBFunc(GLenum source, GLenum type, GLuint id, GLenum severity,
+                           GLsizei length, const GLchar* message, const void* userParam)
+{
+    core::stringc outStr;
+    switch (severity)
+    {
+        //case GL_DEBUG_SEVERITY_HIGH:
+        case GL_DEBUG_SEVERITY_HIGH_ARB:
+            outStr = "[H.I.G.H]";
+            break;
+        //case GL_DEBUG_SEVERITY_MEDIUM:
+        case GL_DEBUG_SEVERITY_MEDIUM_ARB:
+            outStr = "[MEDIUM]";
+            break;
+        //case GL_DEBUG_SEVERITY_LOW:
+        case GL_DEBUG_SEVERITY_LOW_ARB:
+            outStr = "[  LOW  ]";
+            break;
+        case GL_DEBUG_SEVERITY_NOTIFICATION:
+            outStr = "[  LOW  ]";
+            break;
+        default:
+            outStr = "[UNKNOWN]";
+            break;
+    }
+    switch (source)
+    {
+        //case GL_DEBUG_SOURCE_API:
+        case GL_DEBUG_SOURCE_API_ARB:
+            switch (type)
+            {
+                //case GL_DEBUG_TYPE_ERROR:
+                case GL_DEBUG_TYPE_ERROR_ARB:
+                    outStr += "[OPENGL  API ERROR]\t\t";
+                    break;
+                //case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR:
+                case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB:
+                    outStr += "[OPENGL  DEPRECATED]\t\t";
+                    break;
+                //case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:
+                case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_ARB:
+                    outStr += "[OPENGL   UNDEFINED]\t\t";
+                    break;
+                //case GL_DEBUG_TYPE_PORTABILITY:
+                case GL_DEBUG_TYPE_PORTABILITY_ARB:
+                    outStr += "[OPENGL PORTABILITY]\t\t";
+                    break;
+                //case GL_DEBUG_TYPE_PERFORMANCE:
+                case GL_DEBUG_TYPE_PERFORMANCE_ARB:
+                    outStr += "[OPENGL PERFORMANCE]\t\t";
+                    break;
+                default:
+                    outStr += "[OPENGL       OTHER]\t\t";
+                    //! special sauce
+                    //return;
+                    break;
+            }
+            outStr += message;
+            break;
+        //case GL_DEBUG_SOURCE_SHADER_COMPILER:
+        case GL_DEBUG_SOURCE_SHADER_COMPILER_ARB:
+            outStr += "[SHADER]\t\t";
+            outStr += message;
+            break;
+        //case GL_DEBUG_SOURCE_WINDOW_SYSTEM:
+        case GL_DEBUG_SOURCE_WINDOW_SYSTEM_ARB:
+            outStr += "[WINDOW SYS]\t\t";
+            outStr += message;
+            break;
+        //case GL_DEBUG_SOURCE_THIRD_PARTY:
+        case GL_DEBUG_SOURCE_THIRD_PARTY_ARB:
+            outStr += "[3RDPARTY]\t\t";
+            outStr += message;
+            break;
+        //case GL_DEBUG_SOURCE_APPLICATION:
+        case GL_DEBUG_SOURCE_APPLICATION_ARB:
+            outStr += "[APP]\t\t";
+            outStr += message;
+            break;
+        //case GL_DEBUG_SOURCE_OTHER:
+        case GL_DEBUG_SOURCE_OTHER_ARB:
+            outStr += "[OTHER]\t\t";
+            outStr += message;
+            break;
+        default:
+            break;
+    }
+    outStr += "\n";
+    printf("%s",outStr.c_str());
+}
+
 struct ShaderParameters
 {
 	const uint32_t MaxDepthLog2 = 2; //5
@@ -95,6 +187,21 @@ int main()
 
 	device->getCursorControl()->setVisible(false);
 	auto driver = device->getVideoDriver();
+	if (video::COpenGLExtensionHandler::FeatureAvailable[video::COpenGLExtensionHandler::IRR_KHR_debug])
+	{
+		glEnable(GL_DEBUG_OUTPUT);
+		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+		video::COpenGLExtensionHandler::pGlDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, true);
+
+		video::COpenGLExtensionHandler::pGlDebugMessageCallback(openGLCBFunc, NULL);
+	}
+	else
+	{
+		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
+		video::COpenGLExtensionHandler::pGlDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, true);
+
+		video::COpenGLExtensionHandler::pGlDebugMessageCallbackARB(openGLCBFunc, NULL);
+	}
 	auto assetManager = device->getAssetManager();
 	auto sceneManager = device->getSceneManager();
 	auto geometryCreator = device->getAssetManager()->getGeometryCreator();
@@ -195,7 +302,7 @@ int main()
 
 	auto gpuEnvmapImageView = createGPUImageView("../../media/envmap/envmap_0.exr");
 
-	smart_refctd_ptr<IGPUBuffer> gpuSequenceBuffer;
+	smart_refctd_ptr<IGPUBufferView> gpuSequenceBufferView;
 	{
 		const uint32_t MaxDimensions = 3u<<kShaderParameters.MaxDepthLog2;
 		const uint32_t MaxSamples = 1u<<kShaderParameters.MaxSamplesLog2;
@@ -210,9 +317,9 @@ int main()
 		{
 			out[i*MaxDimensions+dim] = sampler.sample(dim,i);
 		}*/
-		gpuSequenceBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(), sampleSequence->getPointer());
+		auto gpuSequenceBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(), sampleSequence->getPointer());
+		gpuSequenceBufferView = driver->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
 	}
-	auto gpuSequenceBufferView = driver->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
 
 	smart_refctd_ptr<IGPUImageView> gpuScrambleImageView;
 	{
@@ -289,7 +396,7 @@ int main()
 			samplerDescriptorInfo[0].image.sampler = driver->createGPUSampler(samplerParams);
 			samplerDescriptorInfo[0].image.imageLayout = EIL_SHADER_READ_ONLY_OPTIMAL;
 		}
-		samplerDescriptorInfo[1].desc = gpuSequenceBuffer;
+		samplerDescriptorInfo[1].desc = gpuSequenceBufferView;
 		samplerDescriptorInfo[2].desc = gpuScrambleImageView;
 		{
 			ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_INT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ESMM_NEAREST, 0u, false, ECO_ALWAYS };
