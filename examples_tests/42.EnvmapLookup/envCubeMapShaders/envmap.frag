@@ -225,19 +225,19 @@ irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfac
     switch (BSDFNode_getType(bsdf))
     {
         case DIFFUSE_OP:
-            smpl = irr_glsl_lambertian_cos_generate(interaction,u);
+            smpl = irr_glsl_lambertian_cos_generate(interaction,u.xy);
             break;
         case CONDUCTOR_OP:
-            smpl.L = irr_glsl_reflect(interaction.V.dir,interaction.N,interaction.NdotV);
-            smpl.LdotN = interaction.NdotV;
+            smpl.L = irr_glsl_reflect(interaction.isotropic.V.dir,interaction.isotropic.N,interaction.isotropic.NdotV);
+            smpl.LdotN = interaction.isotropic.NdotV;
             smpl.NdotH = 1.0;
-            smpl.VdotH = interaction.NdotV;
+            smpl.VdotH = interaction.isotropic.NdotV;
             break;
         default:
-            smpl.L = irr_glsl_reflect(interaction.V.dir,interaction.N,interaction.NdotV);
-            smpl.LdotN = interaction.NdotV;
+            smpl.L = irr_glsl_reflect(interaction.isotropic.V.dir,interaction.isotropic.N,interaction.isotropic.NdotV);
+            smpl.LdotN = interaction.isotropic.NdotV;
             smpl.NdotH = 1.0;
-            smpl.VdotH = interaction.NdotV;
+            smpl.VdotH = interaction.isotropic.NdotV;
             break;
     }
     return smpl;
@@ -266,14 +266,14 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_AnisotropicV
     return remainder;
 }
 
-float impl_sphereSolidAngle(in Sphere sphere, in vec3 origin, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
+float impl_sphereSolidAngle(in Sphere sphere, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
     float cosThetaMax = sqrt(1.0-sphere.radius2/irr_glsl_lengthSq(sphere.position-origin));
     return 2.0*irr_glsl_PI*(isnan(cosThetaMax) ? 2.0:(1.0-cosThetaMax));
 }
 
 // the interaction here is the interaction at the illuminator-end of the ray, not the receiver
-vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in vec3 origin, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in Light light)
+vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
 {
     pdf = scene_getLightChoicePdf(light)/impl_sphereSolidAngle(sphere,origin,interaction);
     return Light_getRadiance(light);
@@ -281,7 +281,7 @@ vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in v
 
 #define GeneratorSample irr_glsl_BSDFSample
 #define irr_glsl_LightSample irr_glsl_BSDFSample
-irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in vec3 u)
+irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u)
 {
     // normally we'd pick from set of lights, using `u`
     Light light = lights[0];
@@ -299,8 +299,8 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
 
     irr_glsl_LightSample retval;
     retval.L = L*rcpDistance;
-    retval.LdotN = dot(retval.L,interaction.N);
-    retval.VdotH = dot(retval.L,normalize(retval.L+interaction.V.dir));
+    retval.LdotN = dot(retval.L,interaction.isotropic.N);
+    retval.VdotH = dot(retval.L,normalize(retval.L+interaction.isotropic.V.dir));
     return retval;
 }
 /*
@@ -332,9 +332,12 @@ layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
 layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
 vec3 rand3d(in uint protoDimension, in uint _sample, in uint scramble)
 {
+/*
     uint address = bitfieldInsert(protoDimension,_sample,MAX_DEPTH_LOG2,MAX_SAMPLES_LOG2);
 	uvec3 seqVal = texelFetch(sampleSequence,int(address)).xyz^uvec3(scramble);
     return vec3(seqVal)*uintBitsToFloat(0x2f800004u); // carefully selected constant!
+*/
+    return vec3(0.5,0.5,0.0);
 }
 
 #define MAX_DEPTH 4
@@ -352,8 +355,8 @@ void closestHitProgram(in ImmutableRay_t _immutable, in uint scramble)
         isotropic.V.dir = -_immutable.direction;
         //isotropic.V.dPosdScreen = screw that
         isotropic.N = (intersection-sphere.position)*inversesqrt(sphere.radius2);
-        isotropic.NdotV = dot(interaction.V.dir,interaction.N);
-        isotropic.NdotV_squared = interaction.NdotV*interaction.NdotV;
+        isotropic.NdotV = dot(isotropic.V.dir,isotropic.N);
+        isotropic.NdotV_squared = isotropic.NdotV*isotropic.NdotV;
 
         interaction = irr_glsl_calcAnisotropicInteraction(isotropic);
     }
@@ -436,7 +439,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, in uint scramble)
 #define SAMPLES 16
 void main()
 {
-	uint scramble = textureLod(scramblebuf,TexCoord,0).r;
+	uint scramble = texelFetch(scramblebuf,ivec2(gl_FragCoord.xy),0).r;
 
     mat4 invMVP = inverse(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(cameraData.params.MVP));
     vec4 NDC = vec4(TexCoord*2.0-vec2(1.0),0.0,1.0);
