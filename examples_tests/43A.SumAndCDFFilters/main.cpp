@@ -30,19 +30,19 @@ int main()
 	auto assetManager = device->getAssetManager();
 	auto sceneManager = device->getSceneManager();
 
-	auto getSummedImage = [](core::smart_refctd_ptr<ICPUImage> image) -> core::smart_refctd_ptr<ICPUImage>
+	auto getSummedImage = [](const core::smart_refctd_ptr<ICPUImage> image) -> core::smart_refctd_ptr<ICPUImage>
 	{
 		using SUM_FILTER = CSummedAreaTableImageFilter<false>;
 
 		core::smart_refctd_ptr<ICPUImage> newSumImage;
 		{
 			const auto referenceImageParams = image->getCreationParameters();
-			auto referenceBuffer = image->getBuffer();
-			auto referenceRegions = image->getRegions();
+			const auto referenceBuffer = image->getBuffer();
+			const auto referenceRegions = image->getRegions();
 			const auto* referenceRegion = referenceRegions.begin();
 
 			auto newImageParams = referenceImageParams;
-			newImageParams.format = EF_R32G32B32A32_SFLOAT;
+			newImageParams.format = EF_R16G16B16A16_UNORM;
 			const float texelByteSizeFactor = asset::getTexelOrBlockBytesize(newImageParams.format) / asset::getTexelOrBlockBytesize(referenceImageParams.format);
 			auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceBuffer->getSize() * texelByteSizeFactor);
 			auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(referenceRegions.size());
@@ -83,10 +83,11 @@ int main()
 	};
 
 	IAssetLoader::SAssetLoadParams lp(0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES);
-	auto bundle = assetManager->getAsset("../../media/colorexr.exr", lp);
-	auto cpuImage = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(bundle.getContents().first[0]);
+	//auto bundle = assetManager->getAsset("../../media/colorexr.exr", lp);
+	auto bundle = assetManager->getAsset("../../media/GLI/earth-cubemap2.dds", lp);
+	auto cpuImageViewFetched = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents().first[0]);
 
-	cpuImage = getSummedImage(cpuImage);
+	auto cpuImage = getSummedImage(cpuImageViewFetched->getCreationParameters().image);
 
 	ICPUImageView::SCreationParams viewParams;
 	viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
@@ -101,5 +102,5 @@ int main()
 	auto cpuImageView = ICPUImageView::create(std::move(viewParams));
 
 	asset::IAssetWriter::SAssetWriteParams wparams(cpuImageView.get());
-	assetManager->writeAsset("SAT_OUTPUT.exr", wparams);
+	assetManager->writeAsset("SAT_OUTPUTdds.dds", wparams);
 }
