@@ -158,6 +158,7 @@ bool anyHitProgram(in ImmutableRay_t _immutable)
     return true;
 }
 
+#define INTERSECTION_ERROR_BOUND 0.00001
 bool traceRay(in ImmutableRay_t _immutable)
 {
     const bool anyHit = bitfieldExtract(_immutable.typeDepthSampleIx,31,1)!=0;
@@ -201,7 +202,7 @@ vec2 SampleSphericalMap(vec3 v)
 void missProgram()
 {
     vec3 finalContribution = rayStack[stackPtr]._payload.throughput;
-    #define USE_ENVMAP
+    //#define USE_ENVMAP
     // true miss
     if (rayStack[stackPtr]._immutable.maxT>=FLT_MAX)
     {
@@ -248,11 +249,8 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_AnisotropicV
     switch (BSDFNode_getType(bsdf))
     {
         case DIFFUSE_OP:
-            //remainder = irr_glsl_lambertian_cos_remainder_and_pdf(pdf,_sample,?,?); // TODO: @Criss?
-            //remainder *= BSDFNode_getReflectance(bsdf);
-            // because I have no clue how the above API is supposed to work, I'll just do
-            pdf = 1.0;
-            remainder = BSDFNode_getReflectance(bsdf);
+            remainder = irr_glsl_lambertian_cos_remainder_and_pdf(pdf,interaction,_sample);
+            remainder *= BSDFNode_getReflectance(bsdf);
             break;
         case CONDUCTOR_OP:
             pdf = 1.0;
@@ -295,7 +293,7 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
 
     vec3 L = sphere.position-origin;
     float rcpDistance = inversesqrt(dot(L,L));
-    newRayMaxT = 0.99999*rcpDistance;
+    newRayMaxT = rcpDistance*(1.0-INTERSECTION_ERROR_BOUND*2.0);
 
     irr_glsl_LightSample retval;
     retval.L = L*rcpDistance;
@@ -328,16 +326,24 @@ float BSDFNode_getMISWeight(in BSDFNode bsdf)
     return 1.0;
 }
 
-layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
-layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
+// TODO: Move this back
+#define SAMPLES 16
+// TODO: Can't get the specialization constants to go through
+layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 2;
+layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 6;
 vec3 rand3d(in uint protoDimension, in uint _sample, in uint scramble)
 {
+/* TODO: Random Numbers are Screwed
     uint address = bitfieldInsert(protoDimension,_sample,MAX_DEPTH_LOG2,MAX_SAMPLES_LOG2);
 	uvec3 seqVal = texelFetch(sampleSequence,int(address)).xyz^uvec3(scramble);
-    return vec3(seqVal)*uintBitsToFloat(0x2f800004u); // carefully selected constant!
+    */
+	uvec3 seqVal = uvec3(uvec2(_sample%4,_sample/4)<<(32u-findMSB(4)),0u);
+	seqVal.xy += uvec2(1,1)<<(31u-findMSB(4));
+	seqVal.xy ^= uvec2(scramble,(scramble+327329u)*0x13912391);
+    return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
 }
 
-#define MAX_DEPTH 4
+#define MAX_DEPTH 10
 void closestHitProgram(in ImmutableRay_t _immutable, in uint scramble)
 {
     const MutableRay_t mutable = rayStack[stackPtr]._mutable;
@@ -389,18 +395,21 @@ void closestHitProgram(in ImmutableRay_t _immutable, in uint scramble)
 
             bool pickBSDF = true;
             
+            float maxT;
+            
             // the probability of generating a sample w.r.t. the light generator only possible and used when it was generated with it!
             float lightPdf;
             GeneratorSample _sample;
             if (pickBSDF)
             {
+                 maxT = FLT_MAX;
                 _sample = irr_glsl_bsdf_cos_generate(interaction,epsilon,bsdf);
             }
             else
             {
                 vec3 lightRemainder;
                 _sample = irr_glsl_light_generate_and_remainder_and_pdf(
-                    lightRemainder,lightPdf,rayStack[stackPtr]._immutable.maxT,
+                    lightRemainder,lightPdf,maxT,
                     intersection,interaction,epsilon
                 );
             }
@@ -424,7 +433,8 @@ void closestHitProgram(in ImmutableRay_t _immutable, in uint scramble)
                 rayStack[stackPtr]._payload.otherTechniqueHeuristic = heuristicFactor;
                     
                 // trace new ray
-                rayStack[stackPtr]._immutable.origin = intersection;
+                rayStack[stackPtr]._immutable.origin = intersection+_sample.L*(pickBSDF ? 1.0/*kSceneSize*/:maxT)*INTERSECTION_ERROR_BOUND;
+                rayStack[stackPtr]._immutable.maxT = maxT;
                 rayStack[stackPtr]._immutable.direction = _sample.L;
                 rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(sampleIx,depth+1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT)|(pickBSDF ? 0:ANY_HIT_FLAG);
                 stackPtr++;
@@ -433,7 +443,6 @@ void closestHitProgram(in ImmutableRay_t _immutable, in uint scramble)
     }
 }
 
-#define SAMPLES 16
 void main()
 {
 	uint scramble = textureLod(scramblebuf,TexCoord,0).r;

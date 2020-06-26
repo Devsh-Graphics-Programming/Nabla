@@ -166,7 +166,7 @@ void APIENTRY openGLCBFunc(GLenum source, GLenum type, GLuint id, GLenum severit
 struct ShaderParameters
 {
 	const uint32_t MaxDepthLog2 = 2; //5
-	const uint32_t MaxSamplesLog2 = 8; //18
+	const uint32_t MaxSamplesLog2 = 6; //18
 } kShaderParameters;
 
 int main()
@@ -187,6 +187,7 @@ int main()
 
 	device->getCursorControl()->setVisible(false);
 	auto driver = device->getVideoDriver();
+#ifdef _DEBUG
 	if (video::COpenGLExtensionHandler::FeatureAvailable[video::COpenGLExtensionHandler::IRR_KHR_debug])
 	{
 		glEnable(GL_DEBUG_OUTPUT);
@@ -202,6 +203,7 @@ int main()
 
 		video::COpenGLExtensionHandler::pGlDebugMessageCallbackARB(openGLCBFunc, NULL);
 	}
+#endif
 	auto assetManager = device->getAssetManager();
 	auto sceneManager = device->getSceneManager();
 	auto geometryCreator = device->getAssetManager()->getGeometryCreator();
@@ -308,7 +310,7 @@ int main()
 		const uint32_t MaxSamples = 1u<<kShaderParameters.MaxSamplesLog2;
 
 		auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*MaxDimensions*MaxSamples);
-		/*
+		
 		core::OwenSampler sampler(MaxDimensions, 0xdeadbeefu);
 
 		auto out = reinterpret_cast<uint32_t*>(sampleSequence->getPointer());
@@ -316,7 +318,7 @@ int main()
 		for (uint32_t i=0; i<MaxSamples; i++)
 		{
 			out[i*MaxDimensions+dim] = sampler.sample(dim,i);
-		}*/
+		}
 		auto gpuSequenceBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(), sampleSequence->getPointer());
 		gpuSequenceBufferView = driver->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
 	}
@@ -334,8 +336,9 @@ int main()
 
 		IGPUImage::SBufferCopy region;
 		region.imageExtent = imgParams.extent;
+		region.imageSubresource.layerCount = 1u;
 
-		const auto renderPixelCount = imgParams.extent.width*imgParams.extent.height;
+		const auto renderPixelCount = imgParams.extent.width * imgParams.extent.height;
 		core::vector<uint32_t> random(renderPixelCount);
 		{
 			core::RandomSampler rng(0xbadc0ffeu);

@@ -10,7 +10,7 @@ float irr_glsl_lambertian()
 
 float irr_glsl_lambertian_cos_eval_rec_pi_factored_out(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter)
 {
-   return params.NdotL;
+   return max(params.NdotL,0.0);
 }
 
 float irr_glsl_lambertian_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter)
@@ -39,9 +39,9 @@ irr_glsl_BSDFSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicView
     return s;
 }
 
-vec3 irr_glsl_lambertian_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
+vec3 irr_glsl_lambertian_cos_remainder_and_pdf(out float pdf, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_BSDFSample s)
 {
-    pdf = irr_glsl_lambertian()*s.LdotN;
+    pdf = irr_glsl_lambertian()*max(s.LdotN,0.0);
     return vec3(1.0);
 }
 
