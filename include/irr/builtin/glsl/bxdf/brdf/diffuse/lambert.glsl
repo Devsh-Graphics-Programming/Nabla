@@ -1,7 +1,7 @@
 #ifndef _IRR_BSDF_BRDF_DIFFUSE_LAMBERT_INCLUDED_
 #define _IRR_BSDF_BRDF_DIFFUSE_LAMBERT_INCLUDED_
 
-#include <irr/builtin/glsl/bxdf/common.glsl>
+#include <irr/builtin/glsl/bxdf/common_samples.glsl>
 
 float irr_glsl_lambertian()
 {

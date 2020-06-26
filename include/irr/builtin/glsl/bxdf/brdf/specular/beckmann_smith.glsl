@@ -45,9 +45,10 @@ irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_Anisotropic
         float normalization = 1.0 / (1.0 + c + irr_glsl_SQRT_RECIPROCAL_PI * tanTheta * exp(-cosTheta*cosTheta));
 
         const int ITER_THRESHOLD = 10;
+		const float MAX_ACCEPTABLE_ERR = 1.0e-5;
         int it = 0;
         float value=1000.0;
-        while (++it<ITER_THRESHOLD && abs(value)<1.0e-5)
+        while (++it<ITER_THRESHOLD && abs(value)>MAX_ACCEPTABLE_ERR)
         {
             if (!(b>=a && b<=c))
                 b = 0.5 * (a+c);
@@ -88,7 +89,7 @@ irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_Anisotropic
     return irr_glsl_beckmann_smith_cos_generate(interaction, u, _ax, _ay);
 }
 
-vec3 irr_glsl_beckmann_smith_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior2, in float ax, in float ay)
+vec3 irr_glsl_beckmann_smith_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior2, in float ax, in float ay)
 {
 	float a2 = ax*ay;
 	float NdotL2 = s.LdotN*s.LdotN;
@@ -103,7 +104,6 @@ vec3 irr_glsl_beckmann_smith_cos_remainder_and_pdf(out float pdf, in irr_glsl_BS
 	return fr*G / (4.0 * interaction.NdotV);
 }
 
-//i wonder where i got irr_glsl_ggx_smith_height_correlated() from because it looks very different from 1/(1+L_v+L_l) form
 float irr_glsl_beckmann_smith_height_correlated(in float NdotV2, in float NdotL2, in float a2)
 {
     float c2 = irr_glsl_smith_beckmann_C2(NdotV2, a2);
