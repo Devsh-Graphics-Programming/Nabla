@@ -26,13 +26,13 @@ class CSummedAreaTableImageFilterBase
 		{
 			public:
 				
+				static inline constexpr size_t decodeTypeByteSize = sizeof(double);
 				uint8_t*	scratchMemory = nullptr;										//!< memory covering all regions used for temporary filling within computation of sum values
 				size_t	scratchMemoryByteSize = {};											//!< required byte size for entire scratch memory
 				bool normalizeImageByTotalSATValues = false;								//!< after sum performation, the option decide whether to divide the entire image by the max sum values in (maxX, 0, z) 
 				
-				static inline size_t getRequiredScratchByteSize(const ICPUImage* inputImage)
+				static inline size_t getRequiredScratchByteSize(const ICPUImage* inputImage, const ICPUImage* outputImage)
 				{
-					constexpr auto decodeByteSize = sizeof(double);
 					auto channels = asset::getFormatChannelCount(inputImage->getCreationParameters().format);
 					const auto regions = inputImage->getRegions();
 
@@ -40,34 +40,32 @@ class CSummedAreaTableImageFilterBase
 					for (const auto* region = regions.begin(); region != regions.end(); ++region)
 						retval += (region->bufferRowLength ? region->bufferRowLength : region->imageExtent.width) * region->imageExtent.height * region->imageExtent.depth;
 
-					retval *= inputImage->getCreationParameters().arrayLayers * channels * decodeByteSize;
+					retval *= inputImage->getCreationParameters().arrayLayers * channels * decodeTypeByteSize;
+					cachesOffset = retval;
+
+					retval += (imageTotalScratchCacheByteSize = asset::getFormatChannelCount(inputImage->getCreationParameters().format) * inputImage->getCreationParameters().extent.depth);
+					retval += (imageTotalOutputCacheByteSize = asset::getTexelOrBlockBytesize(outputImage->getCreationParameters().format) * outputImage->getCreationParameters().extent.depth); 
 
 					return retval;
 				}
 
-				inline auto& getImageTotalCacheBuffer()
+				/*
+					It returns a pointer to max sum values in the output image.
+					A user is responsible to reinterprate the memory correctly. 
+				*/
+
+				inline auto getImageTotalOutputCacheBuffersPointer()
 				{
-					return imageTotalCacheBuffersOutput;
+					return imageTotalCacheOutput;
 				}
 
 			protected:
 
-				inline void createImageTotalBuffers(const size_t scratchBufferByteSize, const size_t outputBufferByteSize, const uint32_t imageDepth)
-				{
-					imageTotalCacheBuffersScratch.clear();
-					imageTotalCacheBuffersOutput.clear();
-					for (uint32_t i = 0; i < imageDepth; ++i)
-					{
-						imageTotalCacheBuffersScratch.emplace_back(core::make_smart_refctd_ptr<asset::ICPUBuffer>(scratchBufferByteSize));
-						memset(imageTotalCacheBuffersScratch[i]->getPointer(), 0, imageTotalCacheBuffersScratch[i]->getSize());
-
-						imageTotalCacheBuffersOutput.emplace_back(core::make_smart_refctd_ptr<asset::ICPUBuffer>(outputBufferByteSize));
-						memset(imageTotalCacheBuffersOutput[i]->getPointer(), 0, imageTotalCacheBuffersOutput[i]->getSize());
-					}
-				}
-
-				core::vector<core::smart_refctd_ptr<asset::ICPUBuffer>> imageTotalCacheBuffersScratch;			//!< Buffers holding total image SAT values in decoding mode.
-				core::vector<core::smart_refctd_ptr<asset::ICPUBuffer>> imageTotalCacheBuffersOutput;			//!< Buffers holding total image SAT values after encoding to image. A user is responsible to reinterprate the memory correctly.
+				static inline size_t cachesOffset = {};
+				static inline size_t imageTotalScratchCacheByteSize = {};
+				static inline size_t imageTotalOutputCacheByteSize = {};
+				static inline uint8_t* imageTotalCacheScratch = nullptr;		//!< A pointer to buffers holding total image SAT values in decoding mode.
+				static inline uint8_t* imageTotalCacheOutput = nullptr;			//!< A pointer to buffers holding total image SAT values after encoding to image. A user is responsible to reinterprate the memory correctly.
 		};
 
 	protected:
@@ -112,7 +110,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			const auto inFormat = inParams.format;
 			const auto outFormat = outParams.format;
 
-			if (state->scratchMemoryByteSize < state_type::getRequiredScratchByteSize(state->inImage))
+			if (state->scratchMemoryByteSize < state_type::getRequiredScratchByteSize(state->inImage, state->outImage))
 				return false;
 
 			if (state->inMipLevel != state->outMipLevel)
@@ -130,7 +128,11 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 		static inline bool execute(state_type* state)
 		{
 			if (!validate(state))
+			{
+				state->imageTotalCacheScratch = nullptr;
+				state->imageTotalCacheOutput = nullptr;
 				return false;
+			}
 
 			auto checkFormat = state->inImage->getCreationParameters().format;
 			if (isIntegerFormat(checkFormat))
@@ -150,6 +152,9 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			const auto outTexelByteSize = asset::getTexelOrBlockBytesize(outFormat);
 			const auto currentChannelCount = asset::getFormatChannelCount(inFormat);
 			static constexpr auto maxChannels = 4u;
+
+			uint8_t* const totalImageCacheScratch = state->imageTotalCacheScratch = state->scratchMemory + state->cachesOffset;
+			uint8_t* const totalImageCacheOutput = state->imageTotalCacheOutput = state->imageTotalCacheScratch + state->imageTotalScratchCacheByteSize;
 
 			auto decodeEntireImageToTemporaryScratchImage = [&]()
 			{
@@ -213,8 +218,6 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					return {};
 				};
 
-				state->createImageTotalBuffers(sizeof(decodeType) * currentChannelCount, outTexelByteSize, commonExecuteData.inParams.extent.depth);
-
 				auto mainRowCacheBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(decodeType) * currentChannelCount);
 				auto mainRowCache = reinterpret_cast<decodeType*>(mainRowCacheBuffer->getPointer()); // row cache is independent, we always put to it data per each row summing everything and use it to fill column cache as well
 				memset(mainRowCache, 0, mainRowCacheBuffer->getSize()); 
@@ -225,7 +228,6 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 				const size_t globalTranslatedDecodeTypeRegionOffset = getTranslatedInRegionOffset();
 
-				constexpr auto decodeByteSize = 8;
 				auto sum = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 				{
 					decltype(readBlockPos) newReadBlockPos = decltype(newReadBlockPos)(readBlockPos.x, trueExtent.y - 1 - readBlockPos.y, readBlockPos.z, readBlockPos.w);
@@ -254,7 +256,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					{
 						if (newReadBlockPos.y == 0) // sum values in (maxX, 0, z) and remove values from column cache
 						{
-							memcpy(reinterpret_cast<decodeType*>(state->imageTotalCacheBuffersScratch[newReadBlockPos.z]->getPointer()), finalPixel, mainRowCacheBuffer->getSize());
+							memcpy(totalImageCacheScratch + newReadBlockPos.z * mainRowCacheBuffer->getSize(), finalPixel, mainRowCacheBuffer->getSize());
 							memset(mainColumnCache, 0, mainColumnCacheBuffer->getSize());
 						}
 							
@@ -276,9 +278,10 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 									const auto outDataAdressOffsetScratch = globalIndependentOffset * currentChannelCount;
 
 									auto* entryScratchAdress = scratchMemory + globalTranslatedDecodeTypeRegionOffset + outDataAdressOffsetScratch + singleScratchLayerOffset * w;
-								
+
+									const auto totalImageBufferOffset = localCoord.z * currentChannelCount;
 									for (uint8_t channel = 0; channel < currentChannelCount; ++channel)
-										*(entryScratchAdress + channel) /= *(reinterpret_cast<decodeType*>(state->imageTotalCacheBuffersScratch[localCoord.z]->getPointer()) + channel);
+										*(entryScratchAdress + channel) /= *(reinterpret_cast<decodeType*>(totalImageCacheScratch) + totalImageBufferOffset + channel);
 								}
 				};
 
@@ -299,7 +302,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 									asset::encodePixelsRuntime(commonExecuteData.outFormat, outData, entryScratchAdress);
 
 									if (x == trueExtent.x - 1 && y == 0)
-										memcpy(state->imageTotalCacheBuffersOutput[z]->getPointer(), outData, outTexelByteSize);
+										memcpy(totalImageCacheOutput + z * outTexelByteSize, outData, outTexelByteSize);
 								}
 				};
 

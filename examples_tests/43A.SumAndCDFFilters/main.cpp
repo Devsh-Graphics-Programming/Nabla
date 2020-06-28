@@ -65,7 +65,7 @@ int main()
 			state.inBaseLayer = 0;
 			state.outOffset = { 0, 0, 0 };
 			state.outBaseLayer = 0;
-			state.scratchMemoryByteSize = state.getRequiredScratchByteSize(state.inImage);
+			state.scratchMemoryByteSize = state.getRequiredScratchByteSize(state.inImage, state.outImage);
 			state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, 8));
 
 			auto stateExtent = newSumImage->getMipSize(0);

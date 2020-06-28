@@ -2,7 +2,6 @@
 #define __IRR_I_IMAGE_ASSET_HANDLER_BASE_H_INCLUDED__
 
 #include "irr/core/core.h"
-#include "../include/irr/asset/filters/CSummedAreaTableImageFilter.h"
 
 namespace irr
 {
