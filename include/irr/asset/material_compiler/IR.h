@@ -16,6 +16,8 @@ class IR : public core::IReferenceCounted
 public:
     struct INode : public core::IReferenceCounted
     {
+        virtual ~INode() = default;
+
         enum E_SYMBOL
         {
             ES_MATERIAL,
@@ -54,6 +56,15 @@ public:
             ~SParameter() {
                 if (source==EPS_TEXTURE)
                     value.texture.~STextureSource();
+            }
+
+            SParameter<type_of_const>& operator=(const SParameter<type_of_const>& rhs)
+            {
+                source = rhs.source;
+                if (source == EPS_CONSTANT)
+                    value.constant = rhs.value.constant;
+                else
+                    value.texture = rhs.value.texture;
             }
 
             bool operator==(const SParameter<type_of_const>& rhs) const {
@@ -126,7 +137,8 @@ public:
             //blend of 2 BSDFs weighted by fresnel
             ET_FRESNEL_BLEND,
             //blend of 2 BSDFs weighted by custom direction-based curve
-            ET_CUSTOM_CURVE_BLEND
+            ET_CUSTOM_CURVE_BLEND,
+            ET_DIFFUSE_AND_SPECULAR
         };
 
         E_TYPE type;
@@ -143,7 +155,8 @@ public:
     {
         CBSDFMixNode() : CBSDFCombinerNode(ET_MIX) {}
 
-        core::smart_refctd_dynamic_array<float> weights;
+        using weights_t = core::smart_refctd_dynamic_array<float>;
+        weights_t weights;
     };
 
     struct CBSDFNode : INode
@@ -186,6 +199,7 @@ public:
 
         E_NDF ndf;
         E_SHADOWING_TERM shadowing;
+        E_SCATTER_MODE scatteringMode;
         SParameter<float> alpha_u;
         SParameter<float> alpha_v;
     };
