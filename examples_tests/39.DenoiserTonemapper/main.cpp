@@ -7,6 +7,7 @@
 
 #include "../ext/ToneMapper/CToneMapper.h"
 #include "../../ext/OptiX/Manager.h"
+#include "../../ext/MitsubaLoader/CMitsubaLoader.h"
 
 #include "CommonPushConstants.h"
 
@@ -72,6 +73,41 @@ int main(int argc, char* argv[])
 
 	auto compiler = am->getGLSLCompiler();
 	auto filesystem = device->getFileSystem();
+
+	am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(am));
+
+	auto spreadOutMitsubaMatricies = [&]()
+	{
+		// To spread out matricies for single entire scene, just insert a path to a mitsuba file and increase std::array template-parameter object number
+		constexpr std::array<std::string_view, 1> MITSUBA_FILES =
+		{
+			"../../media/mitsuba/daily_pt.xml"
+		};
+
+		const IAssetLoader::SAssetLoadParams mitsubaLoaderParams = { 0, nullptr, IAssetLoader::ECF_CACHE_EVERYTHING, nullptr, IAssetLoader::ELPF_DONT_LOAD_ENTIRE_SCENE };
+
+		auto outputFile = [&](const std::string_view& fileName)
+		{
+			auto meshes_bundle = am->getAsset(fileName.data(), mitsubaLoaderParams);
+			assert(!meshes_bundle.isEmpty());
+			auto mesh = meshes_bundle.getContents().begin()[0];
+			auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
+			const auto mitsubaMetadata = static_cast<const ext::MitsubaLoader::CMitsubaMetadata*>(mesh_raw->getMetadata());
+			const auto data = mitsubaMetadata->getMitsubaMetadata();
+
+			//for(const auto& sensor : data->sensors)
+				//sensor.transform.matrix
+
+			/*
+				Okay, tell me what now please. Is it actually worth to save X matricies for a single scene to .txt?
+				I can move the spreadOutMitsubaMatricies code to the parser section and make it work without .txt 
+				as I think of it and pass them to the denoiser.
+			*/
+		};
+
+		for (auto mitsubaFile : MITSUBA_FILES)
+			outputFile(mitsubaFile);
+	};
 
 	auto getArgvFetchedList = [&]()
 	{
