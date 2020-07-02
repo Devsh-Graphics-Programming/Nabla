@@ -6,8 +6,9 @@ using namespace irr;
 using namespace asset;
 using namespace core;
 
-CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetManager* am) : status(false)
+CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetManager* am) : status(false), assetManager(am)
 {
+	assetManager->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(assetManager));
 	core::vector<std::array<std::string, PROPER_CMD_ARGUMENTS_AMOUNT>> argvMappedList;
 
 	auto pushArgvList = [&](auto argvStream, auto variableCount)
@@ -132,11 +133,16 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 				const auto beginningOfVariables = rawFetchedCmdArgument.find_last_of("=") + 1;
 				auto variablesStream = rawFetchedCmdArgument.substr(beginningOfVariables);
 
+				auto forceOutsideAssignment = [&](DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS argument, irr::core::vector<std::string>& variablesHandle)
+				{
+					auto& reference = rawVariablesHandle[argument];
+					return reference.emplace(variablesHandle);
+				};
+
 				auto assignToMap = [&](DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS argument, size_t reservedSpace = 1)
 				{
 					auto variablesHandle = getSerializedValues(variablesStream, reservedSpace, std::regex{"\,"});
-					auto& reference = rawVariablesHandle[argument];
-					reference.emplace(variablesHandle);
+					return forceOutsideAssignment(argument, variablesHandle);
 				};
 
 				if (variable == TONEMAPPER)
@@ -158,8 +164,8 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 				bool status = true;
 				if (variable == COLOR_FILE)
 					assignToMap(DTEA_COLOR_FILE);
-				else if (variable == CAMERA_TRANSFORM)
-					assignToMap(DTEA_CAMERA_TRANSFORM, 9);
+				else if (variable == MITSUBA_FILE)
+					assignToMap(DTEA_MITSUBA_FILE);
 				else if (variable == MEDIAN_FILTER_RADIUS)
 					assignToMap(DTEA_MEDIAN_FILTER_RADIUS);
 				else if (variable == DENOISER_EXPOSURE_BIAS)
@@ -206,7 +212,7 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 
 bool CommandLineHandler::validateMandatoryParameters(const variablesType& rawVariablesPerFile, const size_t idOfInput)
 {
-	static const irr::core::vector<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS> mandatoryArgumentsOrdinary = { DTEA_COLOR_FILE, DTEA_CAMERA_TRANSFORM, DTEA_MEDIAN_FILTER_RADIUS, DTEA_DENOISER_EXPOSURE_BIAS, DTEA_DENOISER_BLEND_FACTOR, DTEA_BLOOM_FOV, DTEA_OUTPUT };
+	static const irr::core::vector<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS> mandatoryArgumentsOrdinary = { DTEA_COLOR_FILE, DTEA_MITSUBA_FILE, DTEA_MEDIAN_FILTER_RADIUS, DTEA_DENOISER_EXPOSURE_BIAS, DTEA_DENOISER_BLEND_FACTOR, DTEA_BLOOM_FOV, DTEA_OUTPUT };
 
 	auto log = [&](bool status, const std::string message)
 	{
@@ -311,4 +317,32 @@ std::optional<std::string> CommandLineHandler::getNormalFileName(uint64_t id)
 		return {};
 
 	return rawVariables[id][DTEA_NORMAL_FILE].value()[0];
+}
+
+irr::core::matrix3x4SIMD CommandLineHandler::getCameraTransform(uint64_t id)
+{
+	static const IAssetLoader::SAssetLoadParams mitsubaLoaderParams = { 0, nullptr, IAssetLoader::ECF_CACHE_EVERYTHING, nullptr, IAssetLoader::ELPF_DONT_LOAD_ENTIRE_SCENE };
+
+	auto getMatrixFromFile = [&](const std::string& filePath)
+	{
+		auto meshes_bundle = assetManager->getAsset(filePath.data(), mitsubaLoaderParams);
+		auto mesh = meshes_bundle.getContents().begin()[0];
+		auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
+		const auto mitsubaMetadata = static_cast<const ext::MitsubaLoader::CMitsubaMetadata*>(mesh_raw->getMetadata());
+		const auto data = mitsubaMetadata->getMitsubaMetadata();
+
+		bool validateFlag = data->sensors.empty();
+		if (validateFlag)
+		{
+			os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): The is no transform matrix in " + filePath + " ! Id of input stride: " + std::to_string(id), ELL_ERROR);
+			assert(validateFlag);
+		}
+
+		auto transformReference = data->sensors[0].transform.matrix.extractSub3x4();
+		irr::core::matrix3x4SIMD newCameraTransform = transformReference.getSub3x3TransposeCofactors();
+
+		return newCameraTransform;
+	};
+
+	return getMatrixFromFile(rawVariables[id][DTEA_MITSUBA_FILE].value()[0]);
 }

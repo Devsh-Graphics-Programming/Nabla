@@ -5,6 +5,7 @@
 #include <cstdio>
 #include "irrlicht.h"
 #include "irr/core/core.h"
+#include "../../ext/MitsubaLoader/CMitsubaLoader.h"
 
 #define PROPER_CMD_ARGUMENTS_AMOUNT 14
 #define MANDATORY_CMD_ARGUMENTS_AMOUNT 8
@@ -26,8 +27,8 @@ Pass appripiate arguments to launch the example or load them using predefined fi
 * To load them passing arguments through cmd.
 
 Mandatory parameters:
--COLOR_FILE=colorFilename
--CAMERA_TRANSFORM=value,value,value,...
+-COLOR_FILE=colorFilePath
+-MITSUBA_FILE=mitsubaFilePath
 -MEDIAN_FILTER_RADIUS=value
 -DENOISER_EXPOSURE_BIAS=value
 -DENOISER_BLEND_FACTOR=value
@@ -35,12 +36,12 @@ Mandatory parameters:
 -TONEMAPPER=tonemapper=keyValue,extraParameter
 -OUTPUT=file.choosenextension
 Optional Parameters:
--ALBEDO_FILE=albedoFilename
--NORMAL_FILE=normalFilename
+-ALBEDO_FILE=albedoFilePath
+-NORMAL_FILE=normalFilePath
 -COLOR_CHANNEL_NAME=colorChannelName
 -ALBEDO_CHANNEL_NAME=albedoChannelName
 -NORMAL_CHANNEL_NAME=normalChannelName
--BLOOM_PSF_FILE=psfFilename
+-BLOOM_PSF_FILE=psfFilePath
 
 Note there mustn't be any space characters!
 All file's resolutions must match!
@@ -60,8 +61,7 @@ For example, given a color image having loaded albedo and normal images as well,
 COLOR_CHANNEL_NAME=albedo
 and it will use the albedo image as color assuming, that there is a valid albedo channel assigned to albedo image - otherwise the default one will be choosen.
 
-CAMERA_TRANSFORM: values as "initializer list" for camera transform matrix with
-row_major layout (max 9 values - extra values will be ignored)
+MITSUBA_FILE: path to Mitsuba file
 
 MEDIAN_FILTER_RADIUS: a radius in pixels, valid values are 0 (no filter), 1 and 2. Anything larger than 2 is invalid.
 
@@ -98,7 +98,7 @@ if this file is not provided then we use a built-in PSF as the kernel for the co
 )";
 
 constexpr std::string_view COLOR_FILE = "COLOR_FILE";
-constexpr std::string_view CAMERA_TRANSFORM = "CAMERA_TRANSFORM";
+constexpr std::string_view MITSUBA_FILE = "MITSUBA_FILE";
 constexpr std::string_view MEDIAN_FILTER_RADIUS = "MEDIAN_FILTER_RADIUS";
 constexpr std::string_view DENOISER_EXPOSURE_BIAS = "DENOISER_EXPOSURE_BIAS";
 constexpr std::string_view DENOISER_BLEND_FACTOR = "DENOISER_BLEND_FACTOR";
@@ -119,7 +119,7 @@ constexpr std::string_view BLOOM_PSF_FILE = "BLOOM_PSF_FILE";
 constexpr std::array<std::string_view, MANDATORY_CMD_ARGUMENTS_AMOUNT> REQUIRED_PARAMETERS =
 {
 	COLOR_FILE,
-	CAMERA_TRANSFORM,
+	MITSUBA_FILE,
 	MEDIAN_FILTER_RADIUS,
 	DENOISER_EXPOSURE_BIAS,
 	DENOISER_BLEND_FACTOR,
@@ -135,7 +135,7 @@ enum DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS
 	*/
 
 	DTEA_COLOR_FILE,
-	DTEA_CAMERA_TRANSFORM,
+	DTEA_MITSUBA_FILE,
 	DTEA_MEDIAN_FILTER_RADIUS,
 	DTEA_DENOISER_EXPOSURE_BIAS,
 	DTEA_DENOISER_BLEND_FACTOR,
@@ -156,6 +156,12 @@ enum DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS
 	DTEA_ALBEDO_CHANNEL_NAME,
 	DTEA_NORMAL_CHANNEL_NAME,
 	DTEA_BLOOM_PSF_FILE,
+
+	/*
+		Implementation specific parameters
+	*/
+
+	DTEA_CAMERA_TRANSFORM,
 
 	DTEA_COUNT
 };
@@ -214,6 +220,11 @@ class CommandLineHandler
 			return normalChannelNameBundle;
 		}
 
+		auto& getMitsubaFileNameBundle() const
+		{
+			return mitsubaFileNameBundle;
+		}
+
 		auto& getCameraTransformBundle() const
 		{
 			return cameraTransformBundle;
@@ -263,7 +274,7 @@ class CommandLineHandler
 		void initializeMatchingMap(variablesType& rawVariablesPerFile)
 		{
 			rawVariablesPerFile[DTEA_COLOR_FILE];
-			rawVariablesPerFile[DTEA_CAMERA_TRANSFORM];
+			rawVariablesPerFile[DTEA_MITSUBA_FILE];
 			rawVariablesPerFile[DTEA_MEDIAN_FILTER_RADIUS];
 			rawVariablesPerFile[DTEA_DENOISER_EXPOSURE_BIAS];
 			rawVariablesPerFile[DTEA_DENOISER_BLEND_FACTOR];
@@ -285,8 +296,8 @@ class CommandLineHandler
 		{
 			if (variableName == COLOR_FILE)
 				return DTEA_COLOR_FILE;
-			else if (variableName == CAMERA_TRANSFORM)
-				return DTEA_CAMERA_TRANSFORM;
+			else if (variableName == MITSUBA_FILE)
+				return DTEA_MITSUBA_FILE;
 			else if (variableName == MEDIAN_FILTER_RADIUS)
 				return DTEA_MEDIAN_FILTER_RADIUS;
 			else if (variableName == DENOISER_EXPOSURE_BIAS)
@@ -333,17 +344,12 @@ class CommandLineHandler
 			return rawVariables[id][DTEA_COLOR_FILE].value()[0];
 		}
 
-		auto getCameraTransform(uint64_t id = 0)
+		auto getMitsubaFileName(uint64_t id = 0)
 		{
-			irr::core::matrix3x4SIMD cameraTransform;
-			const auto send = rawVariables[id][DTEA_CAMERA_TRANSFORM].value().end();
-			auto sit = rawVariables[id][DTEA_CAMERA_TRANSFORM].value().begin();
-			for (auto i = 0; i < 3u && sit != send; i++)
-				for (auto j = 0; j < 3u && sit != send; j++)
-					cameraTransform(i, j) = std::stof(*(sit++));
-
-			return cameraTransform;
+			return rawVariables[id][DTEA_MITSUBA_FILE].value()[0];
 		}
+		
+		irr::core::matrix3x4SIMD getCameraTransform(uint64_t id = 0);
 
 		auto getMedianFilterRadius(uint64_t id = 0)
 		{
@@ -461,6 +467,7 @@ class CommandLineHandler
 			tonemapperBundle.reserve(inputFilesAmount);
 			outputFileNameBundle.reserve(inputFilesAmount);
 			bloomPsfFileNameBundle.reserve(inputFilesAmount);
+			mitsubaFileNameBundle.reserve(inputFilesAmount);
 
 			for (auto i = 0ul; i < inputFilesAmount; ++i)
 			{
@@ -478,12 +485,14 @@ class CommandLineHandler
 				tonemapperBundle.push_back(getTonemapper(i));
 				outputFileNameBundle.push_back(getOutputFile(i));
 				bloomPsfFileNameBundle.push_back(getBloomPsfFile(i));
+				mitsubaFileNameBundle.push_back(getMitsubaFileName(i));
 			}
 		}
 
 		bool status;
 		COMMAND_LINE_MODE mode;
 		irr::core::vector<variablesType> rawVariables;
+		irr::asset::IAssetManager * const assetManager;
 
 		// I want to deduce those types bellow by using type from functions above
 		// like deduce type of getTonemapper()
@@ -502,6 +511,7 @@ class CommandLineHandler
 		irr::core::vector<std::pair<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS,irr::core::vector<float>>> tonemapperBundle;
 		irr::core::vector<std::optional<std::string>> outputFileNameBundle;
 		irr::core::vector<std::optional<std::string>> bloomPsfFileNameBundle;
+		irr::core::vector<std::optional<std::string>> mitsubaFileNameBundle;
 };
 
 #endif // _DENOISER_TONEMAPPER_COMMAND_LINE_HANDLER_
