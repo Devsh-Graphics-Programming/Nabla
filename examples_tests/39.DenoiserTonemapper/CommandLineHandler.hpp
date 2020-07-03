@@ -495,8 +495,8 @@ class CommandLineHandler
 		irr::core::vector<std::optional<std::string>> outputFileNameBundle;
 		irr::core::vector<std::optional<std::string>> bloomPsfFileNameBundle;
 
-		long long elapsedTimeXmls = {};
-		long long elapsedTimeEntireLoading = {};
+		std::chrono::nanoseconds elapsedTimeXmls = {};
+		std::chrono::nanoseconds elapsedTimeEntireLoading = {};
 };
 
 #endif // _DENOISER_TONEMAPPER_COMMAND_LINE_HANDLER_

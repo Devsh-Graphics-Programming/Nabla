@@ -211,13 +211,13 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 	performFInalAssignmentStepForUsefulVariables();
 
 	auto endEntireTime = std::chrono::steady_clock::now();
-	elapsedTimeEntireLoading = std::chrono::duration_cast<std::chrono::nanoseconds>(endEntireTime - startEntireTime).count();
+	elapsedTimeEntireLoading = endEntireTime - startEntireTime;
 	status = true;
 
 	#ifdef _IRR_DEBUG
-	os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): Elapsed time of loading entire data: " + std::to_string(elapsedTimeEntireLoading) + " nanoseconds", ELL_INFORMATION);
-	os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): Elapsed time of loading without mitsuba xml files: " + std::to_string(elapsedTimeEntireLoading - elapsedTimeXmls) + " nanoseconds", ELL_INFORMATION);
-	os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): Elapsed time of loading mitsuba xml files: " + std::to_string(elapsedTimeXmls) + " nanoseconds", ELL_INFORMATION);
+	os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): Elapsed time of loading entire data: " + std::to_string(elapsedTimeEntireLoading.count()) + " nanoseconds", ELL_INFORMATION);
+	os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): Elapsed time of loading without mitsuba xml files: " + std::to_string(elapsedTimeEntireLoading.count() - elapsedTimeXmls.count()) + " nanoseconds", ELL_INFORMATION);
+	os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): Elapsed time of loading mitsuba xml files: " + std::to_string(elapsedTimeXmls.count()) + " nanoseconds", ELL_INFORMATION);
 	#endif // _IRR_DEBUG
 }
 
@@ -341,7 +341,7 @@ irr::core::matrix3x4SIMD CommandLineHandler::getCameraTransform(uint64_t id)
 		auto startTime = std::chrono::steady_clock::now();
 		auto meshes_bundle = assetManager->getAsset(filePath.data(), mitsubaLoaderParams);
 		auto endTime = std::chrono::steady_clock::now();
-		elapsedTimeXmls += std::chrono::duration_cast<std::chrono::nanoseconds>(endTime - startTime).count();
+		elapsedTimeXmls += (endTime - startTime);
 
 		auto mesh = meshes_bundle.getContents().begin()[0];
 		auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
@@ -356,9 +356,9 @@ irr::core::matrix3x4SIMD CommandLineHandler::getCameraTransform(uint64_t id)
 		}
 
 		auto transformReference = data->sensors[0].transform.matrix.extractSub3x4();
-		irr::core::matrix3x4SIMD newCameraTransform = transformReference.getSub3x3TransposeCofactors();
+		transformReference.setTranslation(core::vectorSIMDf(0, 0, 0, 0));
 
-		return newCameraTransform;
+		return transformReference;
 	};
 
 	auto getMatrixFromSerializedValues = [&]()
