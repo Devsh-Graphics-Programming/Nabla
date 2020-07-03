@@ -86,7 +86,7 @@ public:
 		ELPF_NONE = 0,											//!< default value, it doesn't do anything
 		ELPF_RIGHT_HANDED_MESHES = 0x1,							//!< specifies that a mesh will be flipped in such a way that it'll look correctly in right-handed camera system
 		ELPF_DONT_COMPILE_GLSL = 0x2,							//!< it states that GLSL won't be compiled to SPIR-V if it is loaded or generated
-		ELPF_DONT_LOAD_ENTIRE_SCENE = 0x4						//!< it forces the loader to not load the entire scene for performance in special cases. Sometimes it may be efficient while fetching only a scene's metadata for instance
+		ELPF_LOAD_METADATA_ONLY = 0x4							//!< it forces the loader to not load the entire scene for performance in special cases to fetch metadata.
 	};
 
     struct SAssetLoadParams

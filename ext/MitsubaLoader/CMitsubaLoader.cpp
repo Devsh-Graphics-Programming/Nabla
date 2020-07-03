@@ -1757,7 +1757,7 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 	if (!parserManager.parse(_file))
 		return {};
 
-	if (_params.loaderFlags & IAssetLoader::ELPF_DONT_LOAD_ENTIRE_SCENE)
+	if (_params.loaderFlags & IAssetLoader::ELPF_LOAD_METADATA_ONLY)
 	{
 		auto emptyMesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
 		m_manager->setAssetMetadata(emptyMesh.get(), core::make_smart_refctd_ptr<ext::MitsubaLoader::CMitsubaMetadata>(parserManager.m_globalMetadata));

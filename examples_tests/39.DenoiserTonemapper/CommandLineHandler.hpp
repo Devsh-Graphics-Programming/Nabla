@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <cstdio>
+#include <chrono>
 #include "irrlicht.h"
 #include "irr/core/core.h"
 #include "../../ext/MitsubaLoader/CMitsubaLoader.h"
@@ -28,7 +29,7 @@ Pass appripiate arguments to launch the example or load them using predefined fi
 
 Mandatory parameters:
 -COLOR_FILE=colorFilePath
--MITSUBA_FILE=mitsubaFilePath
+-CAMERA_TRANSFORM=mitsubaFilePath or val1,val2,val3,...,val9
 -MEDIAN_FILTER_RADIUS=value
 -DENOISER_EXPOSURE_BIAS=value
 -DENOISER_BLEND_FACTOR=value
@@ -61,7 +62,7 @@ For example, given a color image having loaded albedo and normal images as well,
 COLOR_CHANNEL_NAME=albedo
 and it will use the albedo image as color assuming, that there is a valid albedo channel assigned to albedo image - otherwise the default one will be choosen.
 
-MITSUBA_FILE: path to Mitsuba file
+CAMERA_TRANSFORM: path to Mitsuba file or direct view matrix values val1,val2,val3,val4,val5,val6,val7,val8,val9
 
 MEDIAN_FILTER_RADIUS: a radius in pixels, valid values are 0 (no filter), 1 and 2. Anything larger than 2 is invalid.
 
@@ -98,7 +99,7 @@ if this file is not provided then we use a built-in PSF as the kernel for the co
 )";
 
 constexpr std::string_view COLOR_FILE = "COLOR_FILE";
-constexpr std::string_view MITSUBA_FILE = "MITSUBA_FILE";
+constexpr std::string_view CAMERA_TRANSFORM = "CAMERA_TRANSFORM";
 constexpr std::string_view MEDIAN_FILTER_RADIUS = "MEDIAN_FILTER_RADIUS";
 constexpr std::string_view DENOISER_EXPOSURE_BIAS = "DENOISER_EXPOSURE_BIAS";
 constexpr std::string_view DENOISER_BLEND_FACTOR = "DENOISER_BLEND_FACTOR";
@@ -119,7 +120,7 @@ constexpr std::string_view BLOOM_PSF_FILE = "BLOOM_PSF_FILE";
 constexpr std::array<std::string_view, MANDATORY_CMD_ARGUMENTS_AMOUNT> REQUIRED_PARAMETERS =
 {
 	COLOR_FILE,
-	MITSUBA_FILE,
+	CAMERA_TRANSFORM,
 	MEDIAN_FILTER_RADIUS,
 	DENOISER_EXPOSURE_BIAS,
 	DENOISER_BLEND_FACTOR,
@@ -135,7 +136,7 @@ enum DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS
 	*/
 
 	DTEA_COLOR_FILE,
-	DTEA_MITSUBA_FILE,
+	DTEA_CAMERA_TRANSFORM,
 	DTEA_MEDIAN_FILTER_RADIUS,
 	DTEA_DENOISER_EXPOSURE_BIAS,
 	DTEA_DENOISER_BLEND_FACTOR,
@@ -156,12 +157,6 @@ enum DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS
 	DTEA_ALBEDO_CHANNEL_NAME,
 	DTEA_NORMAL_CHANNEL_NAME,
 	DTEA_BLOOM_PSF_FILE,
-
-	/*
-		Implementation specific parameters
-	*/
-
-	DTEA_CAMERA_TRANSFORM,
 
 	DTEA_COUNT
 };
@@ -220,11 +215,6 @@ class CommandLineHandler
 			return normalChannelNameBundle;
 		}
 
-		auto& getMitsubaFileNameBundle() const
-		{
-			return mitsubaFileNameBundle;
-		}
-
 		auto& getCameraTransformBundle() const
 		{
 			return cameraTransformBundle;
@@ -274,7 +264,7 @@ class CommandLineHandler
 		void initializeMatchingMap(variablesType& rawVariablesPerFile)
 		{
 			rawVariablesPerFile[DTEA_COLOR_FILE];
-			rawVariablesPerFile[DTEA_MITSUBA_FILE];
+			rawVariablesPerFile[DTEA_CAMERA_TRANSFORM];
 			rawVariablesPerFile[DTEA_MEDIAN_FILTER_RADIUS];
 			rawVariablesPerFile[DTEA_DENOISER_EXPOSURE_BIAS];
 			rawVariablesPerFile[DTEA_DENOISER_BLEND_FACTOR];
@@ -296,8 +286,8 @@ class CommandLineHandler
 		{
 			if (variableName == COLOR_FILE)
 				return DTEA_COLOR_FILE;
-			else if (variableName == MITSUBA_FILE)
-				return DTEA_MITSUBA_FILE;
+			else if (variableName == CAMERA_TRANSFORM)
+				return DTEA_CAMERA_TRANSFORM;
 			else if (variableName == MEDIAN_FILTER_RADIUS)
 				return DTEA_MEDIAN_FILTER_RADIUS;
 			else if (variableName == DENOISER_EXPOSURE_BIAS)
@@ -342,11 +332,6 @@ class CommandLineHandler
 		auto getColorFileName(uint64_t id = 0)
 		{
 			return rawVariables[id][DTEA_COLOR_FILE].value()[0];
-		}
-
-		auto getMitsubaFileName(uint64_t id = 0)
-		{
-			return rawVariables[id][DTEA_MITSUBA_FILE].value()[0];
 		}
 		
 		irr::core::matrix3x4SIMD getCameraTransform(uint64_t id = 0);
@@ -467,7 +452,6 @@ class CommandLineHandler
 			tonemapperBundle.reserve(inputFilesAmount);
 			outputFileNameBundle.reserve(inputFilesAmount);
 			bloomPsfFileNameBundle.reserve(inputFilesAmount);
-			mitsubaFileNameBundle.reserve(inputFilesAmount);
 
 			for (auto i = 0ul; i < inputFilesAmount; ++i)
 			{
@@ -485,7 +469,6 @@ class CommandLineHandler
 				tonemapperBundle.push_back(getTonemapper(i));
 				outputFileNameBundle.push_back(getOutputFile(i));
 				bloomPsfFileNameBundle.push_back(getBloomPsfFile(i));
-				mitsubaFileNameBundle.push_back(getMitsubaFileName(i));
 			}
 		}
 
@@ -511,7 +494,9 @@ class CommandLineHandler
 		irr::core::vector<std::pair<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS,irr::core::vector<float>>> tonemapperBundle;
 		irr::core::vector<std::optional<std::string>> outputFileNameBundle;
 		irr::core::vector<std::optional<std::string>> bloomPsfFileNameBundle;
-		irr::core::vector<std::optional<std::string>> mitsubaFileNameBundle;
+
+		long long elapsedTimeXmls = {};
+		long long elapsedTimeEntireLoading = {};
 };
 
 #endif // _DENOISER_TONEMAPPER_COMMAND_LINE_HANDLER_
