@@ -3,6 +3,7 @@
 
 #include <irr/asset/ICPUMesh.h>
 #include <irr/asset/IMeshPacker.h>
+#include <irr/core/math/intutil.h>
 
 namespace irr 
 { 
@@ -15,14 +16,15 @@ template <typename MDIStructType = DrawElementsIndirectCommand_t>
 class CCPUMeshPacker final : public IMeshPacker<ICPUMeshBuffer, MDIStructType>
 {
 public:
-	CCPUMeshPacker(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t maxIndexCountPerMDIData = std::numeric_limits<uint16_t>::max())
-		:IMeshPacker<ICPUMeshBuffer, MDIStructType>(preDefinedLayout, allocParams, maxIndexCountPerMDIData) 
+	CCPUMeshPacker(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
+		:IMeshPacker<ICPUMeshBuffer, MDIStructType>(preDefinedLayout, allocParams, minTriangleCountPerMDIData, maxTriangleCountPerMDIData)
 	{
 		m_outMDIData = core::make_smart_refctd_ptr<ICPUBuffer>(allocParams.MDIDataBuffSupportedSizeInBytes);
 		m_outIdxBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(allocParams.indexBuffSupportedSizeInBytes);
 	}
 
-	virtual PackedMeshBufferData alloc(const ICPUMeshBuffer const* meshBuffer) override;
+	template <typename Iterator>
+	ReservedAllocationMeshBuffers alloc(const Iterator begin, const Iterator end);
 	virtual void commit() override;
 
 	ICPUBuffer* getMultiDrawIndirectBuffer() { return m_outMDIData.get(); }
@@ -33,10 +35,17 @@ private:
 };
 
 template <typename MDIStructType>
-PackedMeshBufferData CCPUMeshPacker<MDIStructType>::alloc(const ICPUMeshBuffer const* meshBuffer)
+//`Iterator` may be only an Iterator or pointer to pointer
+template <typename Iterator>
+ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::alloc(const Iterator begin, const Iterator end)
 {
-	if (meshBuffer == nullptr)
-		return invalidPackedMeshBufferData;
+
+	for (auto it = begin; it != end; it++)
+	{
+		if (*it == nullptr)
+			return invalidReservedAllocationMeshBuffers;
+	}
+	
 
 	/*
 	Requirements for input mesh buffers:
@@ -46,84 +55,123 @@ PackedMeshBufferData CCPUMeshPacker<MDIStructType>::alloc(const ICPUMeshBuffer c
 
 	//validation
 	//TODO: remove this condition
+	for(auto it = begin; it != end; it++)
 	{
-		auto* pipeline = meshBuffer->getPipeline();
+		auto* pipeline = (*it)->getPipeline();
 
-		auto a = meshBuffer->getIndexBufferBinding().buffer;
+		auto a = (*it)->getIndexBufferBinding()->buffer;
 
-		if (meshBuffer->getIndexBufferBinding().buffer.get() == nullptr ||
+		if ((*it)->getIndexBufferBinding()->buffer.get() == nullptr ||
 			pipeline->getPrimitiveAssemblyParams().primitiveType != EPT_TRIANGLE_LIST)
 		{
 			_IRR_DEBUG_BREAK_IF(true);
-			return invalidPackedMeshBufferData;
+			return invalidReservedAllocationMeshBuffers;
 		}
 	}
 
 	//validation
-	const auto& mbVtxInputParams = meshBuffer->getPipeline()->getVertexInputParams();
-	for (uint16_t attrBit = 0x0001, location = 0; location < 16; attrBit <<= 1, location++)
+	for (auto it = begin; it != end; it++)
 	{
-		if (!(attrBit & mbVtxInputParams.enabledAttribFlags))
-			continue;
-
-		//assert((attrBit & m_outVtxInputParams.enabledAttribFlags));
-
-		if (mbVtxInputParams.attributes[location].format != m_outVtxInputParams.attributes[location].format ||
-			mbVtxInputParams.bindings[mbVtxInputParams.attributes[location].binding].inputRate != m_outVtxInputParams.bindings[location].inputRate)
+		const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
+		for (uint16_t attrBit = 0x0001, location = 0; location < 16; attrBit <<= 1, location++)
 		{
-			_IRR_DEBUG_BREAK_IF(true);
-			return invalidPackedMeshBufferData;
+			if (!(attrBit & mbVtxInputParams.enabledAttribFlags))
+				continue;
+
+			//assert((attrBit & m_outVtxInputParams.enabledAttribFlags));
+
+			if (mbVtxInputParams.attributes[location].format != m_outVtxInputParams.attributes[location].format ||
+				mbVtxInputParams.bindings[mbVtxInputParams.attributes[location].binding].inputRate != m_outVtxInputParams.bindings[location].inputRate)
+			{
+				_IRR_DEBUG_BREAK_IF(true);
+				return invalidReservedAllocationMeshBuffers;
+			}
 		}
 	}
+	
+	const size_t idxCnt = std::accumulate(begin, end, 0ull, [](size_t init, ICPUMeshBuffer* mb) { return init + mb->getIndexCount(); });
+	const size_t vtxCnt = std::accumulate(begin, end, 0ull, [](size_t init, ICPUMeshBuffer* mb) { return init + mb->calcVertexCount(); });
 
-	const uint32_t maxIdxCntPerPatch = m_maxTriangleCountPerMDIData * 3;
-	const uint32_t MDIStructsNeeded = std::ceil(static_cast<float>(meshBuffer->getIndexCount()) / maxIdxCntPerPatch);
+	const uint32_t minIdxCntPerPatch = m_minTriangleCountPerMDIData * 3;
+	const uint32_t possibleMDIStructsNeededCnt = core::roundUp<uint32_t>(idxCnt, minIdxCntPerPatch);
 
-	auto MDIAllocAddr = m_MDIDataAlctr.alloc_addr(MDIStructsNeeded, 1u);
-	if (MDIAllocAddr == m_MDIDataAlctr.invalid_address)
-		return invalidPackedMeshBufferData;
+	uint32_t MDIAllocAddr       = INVALID_ADDRESS;
+	uint32_t idxAllocAddr       = INVALID_ADDRESS;
+	uint32_t vtxAllocAddr       = INVALID_ADDRESS;
+	uint32_t perInsVtxAllocAddr = INVALID_ADDRESS;
 
-	auto idxAllocAddr = m_idxBuffAlctr.alloc_addr(meshBuffer->getIndexCount(), 1u);
-	if (idxAllocAddr == m_idxBuffAlctr.invalid_address)
-		return invalidPackedMeshBufferData;
-
-	//TODO: divide into multiple mdi structs if(idxCnt > m_maxIndexCountPerMDIData)
-	MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(m_outMDIData.get()->getPointer());
-
-	for (int i = 0; i < MDIStructsNeeded; i++)
+	//actually it will not work at all if m_MDIDataAlctrResSpc == nullptr or m_idxBuffAlctrResSpc == nullptr.. TODO
+	if (m_MDIDataAlctrResSpc)
 	{
-		uint32_t idxCnt = 0u;
-
-		if (i == MDIStructsNeeded - 1)
-		{
-			idxCnt = static_cast<uint32_t>(meshBuffer->getIndexCount()) % maxIdxCntPerPatch;
-
-			if (idxCnt == 0)
-				idxCnt = maxIdxCntPerPatch;
-		}
-		else
-		{
-			idxCnt = maxIdxCntPerPatch;
-		}
-
-		*(mdiBuffPtr + MDIAllocAddr + i) =
-		{
-			idxCnt,
-			static_cast<uint32_t>(meshBuffer->getInstanceCount()),
-			idxAllocAddr + i * maxIdxCntPerPatch,
-			0 /*TODO*/,
-			static_cast<uint32_t>(meshBuffer->getBaseInstance()) /*TODO*/
-		};
+		MDIAllocAddr = m_MDIDataAlctr.alloc_addr(possibleMDIStructsNeededCnt, 1u);
+		if (MDIAllocAddr == INVALID_ADDRESS)
+			return invalidReservedAllocationMeshBuffers;
+	}
+	
+	if (m_idxBuffAlctrResSpc)
+	{
+		idxAllocAddr = m_idxBuffAlctr.alloc_addr(idxCnt, 1u);
+		if (idxAllocAddr == INVALID_ADDRESS)
+			return invalidReservedAllocationMeshBuffers;
+	}
+	
+	if (m_vtxBuffAlctrResSpc)
+	{
+		vtxAllocAddr = m_vtxBuffAlctr.alloc_addr(vtxCnt, 1u);
+		if (vtxAllocAddr == INVALID_ADDRESS)
+			return invalidReservedAllocationMeshBuffers;
+	}
+	
+	if (m_perInsVtxBuffAlctrResSpc)
+	{
+		perInsVtxAllocAddr = m_perInsVtxBuffAlctr.alloc_addr(vtxCnt, 1u);
+		if (perInsVtxAllocAddr == INVALID_ADDRESS)
+			return invalidReservedAllocationMeshBuffers;
 	}
 
-
-	PackedMeshBufferData result{ MDIAllocAddr, MDIStructsNeeded };
+	ReservedAllocationMeshBuffers result{
+		MDIAllocAddr,
+		possibleMDIStructsNeededCnt,
+		perInsVtxAllocAddr,
+		perInsVtxAllocAddr == INVALID_ADDRESS ? 0u : vtxCnt,
+		idxAllocAddr,
+		idxCnt,
+		vtxAllocAddr,
+		vtxAllocAddr == INVALID_ADDRESS ? 0u : vtxCnt
+	};
 	return result;
 }
 
 template <typename MDIStructType>
 void CCPUMeshPacker<MDIStructType>::commit()
 {
+	//for (int i = 0; i < MDIStructsNeeded; i++)
+	//{
+	//	uint32_t idxCnt = 0u;
+
+	//	if (i == MDIStructsNeeded - 1)
+	//	{
+	//		idxCnt = static_cast<uint32_t>(meshBuffer->getIndexCount()) % maxIdxCntPerPatch;
+
+	//		//TODO: test for this case
+	//		if (idxCnt == 0)
+	//			idxCnt = maxIdxCntPerPatch;
+	//	}
+	//	else
+	//	{
+	//		idxCnt = maxIdxCntPerPatch;
+	//	}
+
+	//	*(mdiBuffPtr + MDIAllocAddr + i) =
+	//	{
+	//		idxCnt,
+	//		static_cast<uint32_t>(meshBuffer->getInstanceCount()),
+	//		idxAllocAddr + i * maxIdxCntPerPatch,
+	//		0 /*TODO*/,
+	//		static_cast<uint32_t>(meshBuffer->getBaseInstance()) /*TODO*/
+	//	};
+	//}
+
 	return;
 }
 
