@@ -99,7 +99,7 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 			uint8_t* const outData;
 			const core::SRange<const IImage::SBufferCopy> inRegions;
 			const core::SRange<const IImage::SBufferCopy> outRegions;
-			const IImage::SBufferCopy* oit;
+			const IImage::SBufferCopy* oit;									//!< oit is a current handled region by executePerRegion lambda. Notice that the lambda may execute itself a few times with different oits since regions may overlap in a certain mipmap in an image!
 			core::vectorSIMDu32 offsetDifference, outByteStrides;
 		};
 		template<typename PerOutputFunctor>

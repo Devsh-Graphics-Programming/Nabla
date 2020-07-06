@@ -8,6 +8,12 @@ using namespace core;
 using namespace asset;
 using namespace video;
 
+/*
+	Comment IMAGE_VIEW define to use ordinary cpu image.
+	You can view the results in Renderdoc.
+*/
+
+#define IMAGE_VIEW 
 
 int main()
 {
@@ -42,7 +48,14 @@ int main()
 			const auto* referenceRegion = referenceRegions.begin();
 
 			auto newImageParams = referenceImageParams;
+
+			#ifdef IMAGE_VIEW
+			newImageParams.flags = IImage::ECF_CUBE_COMPATIBLE_BIT;
+			newImageParams.format = EF_R32G32B32A32_SFLOAT;
+			#else
 			newImageParams.format = EF_R16G16B16A16_UNORM;
+			#endif // IMAGE_VIEW
+
 			const float texelByteSizeFactor = asset::getTexelOrBlockBytesize(newImageParams.format) / asset::getTexelOrBlockBytesize(referenceImageParams.format);
 			auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceBuffer->getSize() * texelByteSizeFactor);
 			auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(referenceRegions.size());
@@ -74,6 +87,10 @@ int main()
 			state.inMipLevel = 0;
 			state.outMipLevel = 0;
 
+			#ifndef IMAGE_VIEW
+			state.normalizeImageByTotalSATValues = true;
+			#endif // !IMAGE_VIEW
+
 			if (!sumFilter.execute(&state))
 				os::Printer::log("Something went wrong while performing sum operation!", ELL_WARNING);
 
@@ -83,24 +100,45 @@ int main()
 	};
 
 	IAssetLoader::SAssetLoadParams lp(0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES);
-	//auto bundle = assetManager->getAsset("../../media/colorexr.exr", lp);
+
+	#ifdef IMAGE_VIEW
 	auto bundle = assetManager->getAsset("../../media/GLI/earth-cubemap2.dds", lp);
 	auto cpuImageViewFetched = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents().first[0]);
 
+	//asset::IAssetWriter::SAssetWriteParams wparamsTEST(cpuImageViewFetched.get());
+	//assetManager->writeAsset("TEST.dds", wparamsTEST); // I was wondering why I can't open my SAT.dds after going through the filter, but gimp can't open it as the basic one and crashes here, probably something with the writer
+	//auto bundle2 = assetManager->getAsset("TEST.dds", lp); // Weird, seems it loads it 
+	// NOTES: Renderdoc loads it properly and sat work for layers now (needs testing mipmaps and overlapping - TODO in following commit)
+
 	auto cpuImage = getSummedImage(cpuImageViewFetched->getCreationParameters().image);
+	#else
+	auto bundle = assetManager->getAsset("../../media/colorexr.exr", lp);
+	auto cpuImage = getSummedImage(core::smart_refctd_ptr_static_cast<asset::ICPUImage>(bundle.getContents().first[0]));
+	#endif // IMAGE_VIEW
 
 	ICPUImageView::SCreationParams viewParams;
 	viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
 	viewParams.image = cpuImage;
 	viewParams.format = viewParams.image->getCreationParameters().format;
+
+	#ifdef IMAGE_VIEW
+	viewParams.viewType = IImageView<ICPUImage>::ET_2D_ARRAY;
+	#else
 	viewParams.viewType = IImageView<ICPUImage>::ET_2D;
+	#endif // IMAGE_VIEW
+
 	viewParams.subresourceRange.baseArrayLayer = 0u;
-	viewParams.subresourceRange.layerCount = 1u;
+	viewParams.subresourceRange.layerCount = cpuImage->getCreationParameters().arrayLayers;
 	viewParams.subresourceRange.baseMipLevel = 0u;
-	viewParams.subresourceRange.levelCount = 1u;
+	viewParams.subresourceRange.levelCount = cpuImage->getCreationParameters().mipLevels;
 
 	auto cpuImageView = ICPUImageView::create(std::move(viewParams));
+	assert(cpuImageView.get(), "The imageView didn't passed creation validation!");
 
 	asset::IAssetWriter::SAssetWriteParams wparams(cpuImageView.get());
-	assetManager->writeAsset("SAT_OUTPUTdds.dds", wparams);
+	#ifdef IMAGE_VIEW
+	assetManager->writeAsset("SAT_OUTPUT.dds", wparams);
+	#else
+	assetManager->writeAsset("SAT_OUTPUT.exr", wparams);
+	#endif // IMAGE_VIEW
 }

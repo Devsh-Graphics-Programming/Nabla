@@ -33,18 +33,18 @@ class CSummedAreaTableImageFilterBase
 				
 				static inline size_t getRequiredScratchByteSize(const ICPUImage* inputImage, const ICPUImage* outputImage)
 				{
-					auto channels = asset::getFormatChannelCount(inputImage->getCreationParameters().format);
+					const auto& inputCreationParams = inputImage->getCreationParameters();
+					const auto channels = asset::getFormatChannelCount(inputCreationParams.format);
 					const auto regions = inputImage->getRegions();
+					const auto& trueExtent = inputCreationParams.extent;
 
-					size_t retval = {};
-					for (const auto* region = regions.begin(); region != regions.end(); ++region)
-						retval += (region->bufferRowLength ? region->bufferRowLength : region->imageExtent.width) * region->imageExtent.height * region->imageExtent.depth;
+					size_t retval = cachesOffset = trueExtent.width * trueExtent.height * trueExtent.depth * inputCreationParams.arrayLayers * channels * decodeTypeByteSize;
 
-					retval *= inputImage->getCreationParameters().arrayLayers * channels * decodeTypeByteSize;
-					cachesOffset = retval;
-
-					retval += (imageTotalScratchCacheByteSize = asset::getFormatChannelCount(inputImage->getCreationParameters().format) * inputImage->getCreationParameters().extent.depth);
+					retval += (imageTotalScratchCacheByteSize = channels * inputImage->getCreationParameters().extent.depth);
 					retval += (imageTotalOutputCacheByteSize = asset::getTexelOrBlockBytesize(outputImage->getCreationParameters().format) * outputImage->getCreationParameters().extent.depth); 
+
+					retval += (mainRowScratchCacheByteSize = decodeTypeByteSize * channels);
+					retval += (mainColumnScratchCacheByteSize = mainRowScratchCacheByteSize * trueExtent.width);
 
 					return retval;
 				}
@@ -64,8 +64,12 @@ class CSummedAreaTableImageFilterBase
 				static inline size_t cachesOffset = {};
 				static inline size_t imageTotalScratchCacheByteSize = {};
 				static inline size_t imageTotalOutputCacheByteSize = {};
+				static inline size_t mainRowScratchCacheByteSize = {};
+				static inline size_t mainColumnScratchCacheByteSize = {};
 				static inline uint8_t* imageTotalCacheScratch = nullptr;		//!< A pointer to buffers holding total image SAT values in decoding mode.
 				static inline uint8_t* imageTotalCacheOutput = nullptr;			//!< A pointer to buffers holding total image SAT values after encoding to image. A user is responsible to reinterprate the memory correctly.
+				static inline uint8_t* mainRowCacheScratch = nullptr;			//!< A pointer to a buffer holding current single texel values that are summed within row iteration.
+				static inline uint8_t* mainColumnCacheScratch = nullptr;		//!< A pointer to a buffer holding current summed values per texel for choosen x coordinate in a column orientation.
 		};
 
 	protected:
@@ -152,132 +156,107 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			const auto outTexelByteSize = asset::getTexelOrBlockBytesize(outFormat);
 			const auto currentChannelCount = asset::getFormatChannelCount(inFormat);
 			static constexpr auto maxChannels = 4u;
+			const auto outScratchLayerOffset = state->extent.width * state->extent.height * state->extent.depth * currentChannelCount;
 
 			uint8_t* const totalImageCacheScratch = state->imageTotalCacheScratch = state->scratchMemory + state->cachesOffset;
 			uint8_t* const totalImageCacheOutput = state->imageTotalCacheOutput = state->imageTotalCacheScratch + state->imageTotalScratchCacheByteSize;
+			decodeType* const mainRowCacheScratch = reinterpret_cast<decodeType*>(state->mainRowCacheScratch = state->imageTotalCacheOutput + state->imageTotalOutputCacheByteSize);
+			decodeType* const mainColumnCacheScratch = reinterpret_cast<decodeType*>(state->mainColumnCacheScratch = state->mainRowCacheScratch + state->mainRowScratchCacheByteSize);
 
-			auto decodeEntireImageToTemporaryScratchImage = [&]()
+			memset(scratchMemory, 0, state->scratchMemoryByteSize);
+
+			auto perOutputRegionDecode = [&](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
-				decodeType decodeBuffer[maxChannels] = {};
-				const auto inRegions = state->inImage->getRegions();
-				const ICPUImage::SCreationParams& imageInfo = state->inImage->getCreationParameters();
+				/*
+					Since regions may specify areas in a layer on a certain mipmap - it is desired to
+					decode an entire image itereting through all the regions overlapping as first
+				*/
 
-				memset(scratchMemory, 0, state->scratchMemoryByteSize);
-
-				size_t outRegionBufferOffset = {};
-				for (const IImage::SBufferCopy* region = inRegions.begin(); region != inRegions.end(); ++region)
+				auto decode = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 				{
-					const auto trueExtent = asset::VkExtent3D({ region->bufferRowLength ? region->bufferRowLength : region->imageExtent.width, region->imageExtent.height, region->imageExtent.depth });
-					const auto inLayerByteSize = trueExtent.width * trueExtent.height * trueExtent.depth * inTexelByteSize;
-					const auto outLayerOffset = trueExtent.width * trueExtent.height * trueExtent.depth * currentChannelCount;
+					decodeType decodeBuffer[maxChannels] = {};
+					decodeType* outImageData = scratchMemory + readBlockPos.w * outScratchLayerOffset;
+					
+					auto* inDataAdress = commonExecuteData.inData + readBlockArrayOffset;
+					decodeType* outDataAdress = outImageData + ((readBlockPos.z * state->extent.height + readBlockPos.y) * state->extent.width + readBlockPos.x) * currentChannelCount;
 
-					for (uint16_t layer = 0; layer < imageInfo.arrayLayers; ++layer)
-					{
-						const uint8_t* inImageData = reinterpret_cast<const uint8_t*>(state->inImage->getBuffer()->getPointer()) + region->bufferOffset + layer * inLayerByteSize;
-						decodeType* outImageData = scratchMemory + outRegionBufferOffset + layer * outLayerOffset;
-
-						core::vector3du32_SIMD localCoord;
-						for (auto& z = localCoord[2] = 0u; z < trueExtent.depth; ++z)
-							for (auto& y = localCoord[1] = 0u; y < trueExtent.height; ++y)
-								for (auto& x = localCoord[0] = 0u; x < trueExtent.width; ++x)
-								{
-									const size_t independentPtrOffset = ((z * trueExtent.height + y) * trueExtent.width + x);
-									auto* inDataAdress = inImageData + independentPtrOffset * inTexelByteSize;
-									decodeType* outDataAdress = outImageData + independentPtrOffset * currentChannelCount;
-
-									const void* sourcePixels[maxChannels] = { inDataAdress, nullptr, nullptr, nullptr };
-									asset::decodePixelsRuntime(inFormat, sourcePixels, decodeBuffer, 1, 1);
-									memcpy(outDataAdress, decodeBuffer, sizeof(decodeType) * currentChannelCount);
-								}
-					}
-
-					outRegionBufferOffset += outLayerOffset * imageInfo.arrayLayers;
-				}
-			};
-
-			decodeEntireImageToTemporaryScratchImage();
-
-			auto perOutputRegion = [&](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
-			{
-				core::vector3du32_SIMD trueExtent(commonExecuteData.oit->imageExtent.width, commonExecuteData.oit->imageExtent.height, commonExecuteData.oit->imageExtent.depth);
-				const size_t singleScratchLayerOffset = (trueExtent.x * trueExtent.y * trueExtent.z * trueExtent.w * currentChannelCount);
-
-				auto getTranslatedInRegionOffset = [&]() -> std::intptr_t
-				{
-					std::intptr_t retval = {}, handledRegionAdress = reinterpret_cast<std::intptr_t>(commonExecuteData.inRegions.begin()); 
-					for (auto inRegion = commonExecuteData.inRegions.begin(); inRegion != commonExecuteData.inRegions.end(); ++inRegion)
-					{
-						std::intptr_t currentAdress = reinterpret_cast<std::intptr_t>(inRegion);
-						
-						if (currentAdress == handledRegionAdress)
-							return retval;
-
-						retval += inRegion->imageExtent.width * inRegion->imageExtent.height * inRegion->imageExtent.depth * currentChannelCount * state->inImage->getCreationParameters().arrayLayers;
-					}
-
-					return {};
+					const void* sourcePixels[maxChannels] = { inDataAdress, nullptr, nullptr, nullptr };
+					asset::decodePixelsRuntime(inFormat, sourcePixels, decodeBuffer, 1, 1);
+					memcpy(outDataAdress, decodeBuffer, sizeof(decodeType) * currentChannelCount);
 				};
 
-				auto mainRowCacheBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(decodeType) * currentChannelCount);
-				auto mainRowCache = reinterpret_cast<decodeType*>(mainRowCacheBuffer->getPointer()); // row cache is independent, we always put to it data per each row summing everything and use it to fill column cache as well
-				memset(mainRowCache, 0, mainRowCacheBuffer->getSize()); 
+				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg, decode, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
 
-				auto mainColumnCacheBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(mainRowCacheBuffer->getSize() * commonExecuteData.oit->imageExtent.width);
-				decodeType * const mainColumnCache = reinterpret_cast<decodeType*>(mainColumnCacheBuffer->getPointer());
-				memset(mainColumnCache, 0, mainColumnCacheBuffer->getSize());
+				return true;
+			};
 
-				const size_t globalTranslatedDecodeTypeRegionOffset = getTranslatedInRegionOffset();
+			bool decodeStatus = commonExecute(state, perOutputRegionDecode);
 
-				auto sum = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
+			if (decodeStatus)
+			{
+				const auto arrayLayers = state->inImage->getCreationParameters().arrayLayers;
+				const auto outRegions = state->outImage->getRegions(state->outMipLevel);
+				const auto trueOutExtent = asset::VkExtent3D({ outRegions.begin()->bufferRowLength ? outRegions.begin()->bufferRowLength : outRegions.begin()->imageExtent.width, outRegions.begin()->imageExtent.height, outRegions.begin()->imageExtent.depth });
+				const auto regionBufferOffset = outRegions.begin()->bufferOffset;
+				auto* imageEntireOutData = reinterpret_cast<uint8_t*>(state->outImage->getBuffer()->getPointer());
+				const size_t singleScratchLayerOffset = (state->extent.width * state->extent.height * state->extent.depth * currentChannelCount); 
+
+				auto sum = [&](core::vectorSIMDu32 readBlockPos) -> void
 				{
-					decltype(readBlockPos) newReadBlockPos = decltype(newReadBlockPos)(readBlockPos.x, trueExtent.y - 1 - readBlockPos.y, readBlockPos.z, readBlockPos.w);
-					const size_t columnCachePtrOffset = ((newReadBlockPos.z * trueExtent.y + 0) * trueExtent.x + newReadBlockPos.x);
-					decodeType* const currentColumnCache = mainColumnCache + newReadBlockPos.x * currentChannelCount;
-					
-					const auto globalIndependentOffset = ((newReadBlockPos.z * trueExtent.y + newReadBlockPos.y) * trueExtent.x + newReadBlockPos.x);
+					decltype(readBlockPos) newReadBlockPos = decltype(newReadBlockPos)(readBlockPos.x, trueOutExtent.height - 1 - readBlockPos.y, readBlockPos.z, readBlockPos.w);
+					decodeType* const currentColumnCache = mainColumnCacheScratch + newReadBlockPos.x * currentChannelCount;
+
+					const auto globalIndependentOffset = ((newReadBlockPos.z * state->extent.height + newReadBlockPos.y) * state->extent.width + newReadBlockPos.x);
 					const auto outDataAdressOffsetScratch = globalIndependentOffset * currentChannelCount;
 					const auto layersOffset = singleScratchLayerOffset * newReadBlockPos.w;
 
-					auto finalPixelBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(mainRowCacheBuffer->getSize());
+					auto finalPixelBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(state->mainRowScratchCacheByteSize);
 					auto finalPixel = reinterpret_cast<decodeType*>(finalPixelBuffer->getPointer());
 					memset(finalPixel, 0, finalPixelBuffer->getSize());
-	
-					decodeType* decodeBuffer = scratchMemory + globalTranslatedDecodeTypeRegionOffset + outDataAdressOffsetScratch + layersOffset;
+
+					decodeType* decodeBuffer = scratchMemory + outDataAdressOffsetScratch + layersOffset;
 
 					for (uint8_t channel = 0; channel < currentChannelCount; ++channel)
-					{ 
-						*(currentColumnCache + channel) += *(mainRowCache + channel) += decodeBuffer[channel];
+					{
+						*(currentColumnCache + channel) += *(mainRowCacheScratch + channel) += decodeBuffer[channel];
 						*(finalPixel + channel) = *(currentColumnCache + channel) - (ExclusiveMode ? decodeBuffer[channel] : 0);
 					}
 
-					memcpy(scratchMemory + globalTranslatedDecodeTypeRegionOffset + outDataAdressOffsetScratch + layersOffset, finalPixel, mainRowCacheBuffer->getSize());
+					memcpy(scratchMemory + outDataAdressOffsetScratch + layersOffset, finalPixel, state->mainRowScratchCacheByteSize);
 
-					if (newReadBlockPos.x == commonExecuteData.oit->imageExtent.width - 1) // reset row cache when changing y
+					if (newReadBlockPos.x == trueOutExtent.width - 1) // reset row cache when changing y
 					{
 						if (newReadBlockPos.y == 0) // sum values in (maxX, 0, z) and remove values from column cache
 						{
-							memcpy(totalImageCacheScratch + newReadBlockPos.z * mainRowCacheBuffer->getSize(), finalPixel, mainRowCacheBuffer->getSize());
-							memset(mainColumnCache, 0, mainColumnCacheBuffer->getSize());
+							memcpy(totalImageCacheScratch + newReadBlockPos.z * state->mainRowScratchCacheByteSize, finalPixel, state->mainRowScratchCacheByteSize);
+							memset(mainColumnCacheScratch, 0, state->mainColumnScratchCacheByteSize);
 						}
-							
-						memset(mainRowCache, 0, mainRowCacheBuffer->getSize());
+
+						memset(mainRowCacheScratch, 0, state->mainRowScratchCacheByteSize);
 					}
 				};
 
-				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg, sum, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
+				{
+					core::vector3du32_SIMD localCoord;
+					for (auto& w = localCoord[3] = 0u; w < arrayLayers; ++w)
+						for (auto& z = localCoord[2] = 0u; z < trueOutExtent.depth; ++z)
+							for (auto& y = localCoord[1] = 0u; y < trueOutExtent.height; ++y)
+								for (auto& x = localCoord[0] = 0u; x < trueOutExtent.width; ++x)
+									sum(core::vectorSIMDu32( x, y, z, w ));
+				}
 
 				auto normalizeScratch = [&]()
 				{
 					core::vector3du32_SIMD localCoord;
-					for (auto& w = localCoord[3] = 0u; w < trueExtent.w; ++w)
-						for (auto& z = localCoord[2] = 0u; z < trueExtent.z; ++z)
-							for (auto& y = localCoord[1] = 0u; y < trueExtent.y; ++y)
-								for (auto& x = localCoord[0] = 0u; x < trueExtent.x; ++x)
+					for (auto& w = localCoord[3] = 0u; w < arrayLayers; ++w)
+						for (auto& z = localCoord[2] = 0u; z < trueOutExtent.depth; ++z)
+							for (auto& y = localCoord[1] = 0u; y < trueOutExtent.height; ++y)
+								for (auto& x = localCoord[0] = 0u; x < trueOutExtent.width; ++x)
 								{
-									const auto globalIndependentOffset = ((localCoord.z * trueExtent.y + localCoord.y) * trueExtent.x + localCoord.x);
+									const auto globalIndependentOffset = ((localCoord.z * state->extent.height + localCoord.y) * state->extent.width + localCoord.x);
 									const auto outDataAdressOffsetScratch = globalIndependentOffset * currentChannelCount;
 
-									auto* entryScratchAdress = scratchMemory + globalTranslatedDecodeTypeRegionOffset + outDataAdressOffsetScratch + singleScratchLayerOffset * w;
+									auto* entryScratchAdress = scratchMemory + outDataAdressOffsetScratch + singleScratchLayerOffset * w;
 
 									const auto totalImageBufferOffset = localCoord.z * currentChannelCount;
 									for (uint8_t channel = 0; channel < currentChannelCount; ++channel)
@@ -288,33 +267,33 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 				auto encodeTo = [&](ICPUImage* outImage)
 				{
 					core::vector3du32_SIMD localCoord;
-					for (auto& w = localCoord[3] = 0u; w < trueExtent.w; ++w)
-						for (auto& z = localCoord[2] = 0u; z < trueExtent.z; ++z)
-							for (auto& y = localCoord[1] = 0u; y < trueExtent.y; ++y)
-								for (auto& x = localCoord[0] = 0u; x < trueExtent.x; ++x)
+					for (auto& w = localCoord[3] = 0u; w < arrayLayers; ++w)
+						for (auto& z = localCoord[2] = 0u; z < trueOutExtent.depth; ++z)
+							for (auto& y = localCoord[1] = 0u; y < trueOutExtent.height; ++y)
+								for (auto& x = localCoord[0] = 0u; x < trueOutExtent.width; ++x)
 								{
-									const auto globalIndependentOffset = ((localCoord.z * trueExtent.y + localCoord.y) * trueExtent.x + localCoord.x);
-									const auto outDataAdressOffsetInput = commonExecuteData.oit->bufferOffset + outTexelByteSize * (state->outBaseLayer * trueExtent.x * trueExtent.y * trueExtent.z + globalIndependentOffset);
+									const auto globalIndependentOffset = ((localCoord.z * state->extent.height + localCoord.y) * state->extent.width + localCoord.x);
+									const auto outDataAdressOffsetInput = regionBufferOffset + outTexelByteSize * (w * state->extent.width * state->extent.height * state->extent.depth + globalIndependentOffset);
 									const auto outDataAdressOffsetScratch = globalIndependentOffset * currentChannelCount;
 
-									auto* entryScratchAdress = scratchMemory + globalTranslatedDecodeTypeRegionOffset + outDataAdressOffsetScratch + singleScratchLayerOffset * w;
-									auto* outData = commonExecuteData.outData + outDataAdressOffsetInput;
-									asset::encodePixelsRuntime(commonExecuteData.outFormat, outData, entryScratchAdress);
+									auto* entryScratchAdress = scratchMemory  + outDataAdressOffsetScratch + singleScratchLayerOffset * w;
+									auto* outData = imageEntireOutData + outDataAdressOffsetInput;
+									asset::encodePixelsRuntime(outFormat, outData, entryScratchAdress);
 
-									if (x == trueExtent.x - 1 && y == 0)
+									if (x == trueOutExtent.width - 1 && y == 0)
 										memcpy(totalImageCacheOutput + z * outTexelByteSize, outData, outTexelByteSize);
 								}
 				};
 
-				if(state->normalizeImageByTotalSATValues)
-					if (!asset::isNormalizedFormat(commonExecuteData.inFormat))
+				if (state->normalizeImageByTotalSATValues)
+					if (!asset::isNormalizedFormat(inFormat))
 						normalizeScratch();
-				
-				encodeTo(commonExecuteData.outImg);
-				return true;
-			};
 
-			return commonExecute(state, perOutputRegion);
+				encodeTo(state->outImage);
+				return true;
+			}
+			else
+				return false;
 		}
 
 };
