@@ -535,9 +535,16 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
         }
 
         auto where = std::lower_bound(introData->specConstants.begin(), introData->specConstants.end(), specConst, [](const auto& _lhs, const auto& _rhs) { return _lhs.id < _rhs.id; });
-        auto it = introData->specConstants.insert(where, specConst);
-
-        mapId2SpecConst.insert({sconsts[i].id,&*it});
+        introData->specConstants.insert(where, specConst);
+    }
+    for (const auto& sc : sconsts)
+    {
+        CIntrospectionData::SSpecConstant dummy;
+        dummy.id = sc.constant_id;
+        auto it = std::lower_bound(introData->specConstants.begin(), introData->specConstants.end(), dummy, [](const auto& _lhs, const auto& _rhs) { return _lhs.id < _rhs.id; });
+        if (it==introData->specConstants.end() || it->id!=dummy.id)
+            continue;
+        mapId2SpecConst.insert({sc.id,&*it});
     }
 
     spirv_cross::ShaderResources resources = _comp.get_shader_resources(_comp.get_active_interface_variables());
