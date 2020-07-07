@@ -1,4 +1,4 @@
-#include "CMitsubaMaterialCompilerFrontent.h"
+#include "CMitsubaMaterialCompilerFrontend.h"
 
 #include <irr/core/Types.h>
 
@@ -9,7 +9,7 @@ namespace ext
 namespace MitsubaLoader
 {
 
-asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontent::compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf)
+asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf)
 {
     using namespace asset;
     using namespace material_compiler;
