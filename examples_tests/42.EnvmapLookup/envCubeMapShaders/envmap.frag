@@ -158,6 +158,7 @@ bool anyHitProgram(in ImmutableRay_t _immutable)
     return true;
 }
 
+#define INTERSECTION_ERROR_BOUND 0.00001
 bool traceRay(in ImmutableRay_t _immutable)
 {
     const bool anyHit = bitfieldExtract(_immutable.typeDepthSampleIx,31,1)!=0;
@@ -201,7 +202,7 @@ vec2 SampleSphericalMap(vec3 v)
 void missProgram()
 {
     vec3 finalContribution = rayStack[stackPtr]._payload.throughput;
-    #define USE_ENVMAP
+    //#define USE_ENVMAP
     // true miss
     if (rayStack[stackPtr]._immutable.maxT>=FLT_MAX)
     {
@@ -213,7 +214,7 @@ void missProgram()
             finalContribution *= kConstantEnvLightRadiance;
         #endif
     }
-    rayStack[stackPtr]._payload.accumulation += finalContribution;
+    //rayStack[stackPtr]._payload.accumulation += finalContribution;
 }
 
 
@@ -225,19 +226,19 @@ irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfac
     switch (BSDFNode_getType(bsdf))
     {
         case DIFFUSE_OP:
-            smpl = irr_glsl_lambertian_cos_generate(interaction,u);
+            smpl = irr_glsl_lambertian_cos_generate(interaction,u.xy);
             break;
         case CONDUCTOR_OP:
-            smpl.L = irr_glsl_reflect(interaction.V.dir,interaction.N,interaction.NdotV);
-            smpl.LdotN = interaction.NdotV;
+            smpl.L = irr_glsl_reflect(interaction.isotropic.V.dir,interaction.isotropic.N,interaction.isotropic.NdotV);
+            smpl.LdotN = interaction.isotropic.NdotV;
             smpl.NdotH = 1.0;
-            smpl.VdotH = interaction.NdotV;
+            smpl.VdotH = interaction.isotropic.NdotV;
             break;
         default:
-            smpl.L = irr_glsl_reflect(interaction.V.dir,interaction.N,interaction.NdotV);
-            smpl.LdotN = interaction.NdotV;
+            smpl.L = irr_glsl_reflect(interaction.isotropic.V.dir,interaction.isotropic.N,interaction.isotropic.NdotV);
+            smpl.LdotN = interaction.isotropic.NdotV;
             smpl.NdotH = 1.0;
-            smpl.VdotH = interaction.NdotV;
+            smpl.VdotH = interaction.isotropic.NdotV;
             break;
     }
     return smpl;
@@ -248,11 +249,8 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_AnisotropicV
     switch (BSDFNode_getType(bsdf))
     {
         case DIFFUSE_OP:
-            //remainder = irr_glsl_lambertian_cos_remainder_and_pdf(pdf,_sample,?,?); // TODO: @Criss?
-            //remainder *= BSDFNode_getReflectance(bsdf);
-            // because I have no clue how the above API is supposed to work, I'll just do
-            pdf = 1.0;
-            remainder = BSDFNode_getReflectance(bsdf);
+            remainder = irr_glsl_lambertian_cos_remainder_and_pdf(pdf,interaction,_sample);
+            remainder *= BSDFNode_getReflectance(bsdf);
             break;
         case CONDUCTOR_OP:
             pdf = 1.0;
@@ -266,14 +264,14 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_AnisotropicV
     return remainder;
 }
 
-float impl_sphereSolidAngle(in Sphere sphere, in vec3 origin, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
+float impl_sphereSolidAngle(in Sphere sphere, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
     float cosThetaMax = sqrt(1.0-sphere.radius2/irr_glsl_lengthSq(sphere.position-origin));
     return 2.0*irr_glsl_PI*(isnan(cosThetaMax) ? 2.0:(1.0-cosThetaMax));
 }
 
 // the interaction here is the interaction at the illuminator-end of the ray, not the receiver
-vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in vec3 origin, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in Light light)
+vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
 {
     pdf = scene_getLightChoicePdf(light)/impl_sphereSolidAngle(sphere,origin,interaction);
     return Light_getRadiance(light);
@@ -281,7 +279,7 @@ vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in v
 
 #define GeneratorSample irr_glsl_BSDFSample
 #define irr_glsl_LightSample irr_glsl_BSDFSample
-irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in vec3 u)
+irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u)
 {
     // normally we'd pick from set of lights, using `u`
     Light light = lights[0];
@@ -295,12 +293,12 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
 
     vec3 L = sphere.position-origin;
     float rcpDistance = inversesqrt(dot(L,L));
-    newRayMaxT = 0.99999*rcpDistance;
+    newRayMaxT = rcpDistance*(1.0-INTERSECTION_ERROR_BOUND*2.0);
 
     irr_glsl_LightSample retval;
     retval.L = L*rcpDistance;
-    retval.LdotN = dot(retval.L,interaction.N);
-    retval.VdotH = dot(retval.L,normalize(retval.L+interaction.V.dir));
+    retval.LdotN = dot(retval.L,interaction.isotropic.N);
+    retval.VdotH = dot(retval.L,normalize(retval.L+interaction.isotropic.V.dir));
     return retval;
 }
 /*
@@ -328,17 +326,36 @@ float BSDFNode_getMISWeight(in BSDFNode bsdf)
     return 1.0;
 }
 
-layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
-layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
-vec3 rand3d(in uint protoDimension, in uint _sample, in uint scramble)
+// TODO: Move this back
+#define SAMPLES 16
+// TODO: Can't get the specialization constants to go through
+layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 2;
+layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 6;
+
+// TODO: upgrade the xorshift variant to one that uses an addition
+uint rand_xorshift(inout uint rng_state)
 {
+    // Xorshift algorithm from George Marsaglia's paper
+    rng_state ^= (rng_state << 13);
+    rng_state ^= (rng_state >> 17);
+    rng_state ^= (rng_state << 5);
+    return rng_state;
+}
+vec3 rand3d(in uint protoDimension, in uint _sample, inout uint scramble_state)
+{
+/* TODO: Random Numbers are Screwed
     uint address = bitfieldInsert(protoDimension,_sample,MAX_DEPTH_LOG2,MAX_SAMPLES_LOG2);
-	uvec3 seqVal = texelFetch(sampleSequence,int(address)).xyz^uvec3(scramble);
-    return vec3(seqVal)*uintBitsToFloat(0x2f800004u); // carefully selected constant!
+	uvec3 seqVal = texelFetch(sampleSequence,int(address)).xyz;
+    */
+	uvec3 seqVal = uvec3(uvec2(_sample%4,_sample/4)<<(32u-findMSB(4)),0u);
+	seqVal.xy += uvec2(1,1)<<(31u-findMSB(4));
+
+	seqVal ^= uvec3(rand_xorshift(scramble_state),rand_xorshift(scramble_state),rand_xorshift(scramble_state));
+    return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
 }
 
-#define MAX_DEPTH 4
-void closestHitProgram(in ImmutableRay_t _immutable, in uint scramble)
+#define MAX_DEPTH 6
+void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
 {
     const MutableRay_t mutable = rayStack[stackPtr]._mutable;
 
@@ -352,8 +369,8 @@ void closestHitProgram(in ImmutableRay_t _immutable, in uint scramble)
         isotropic.V.dir = -_immutable.direction;
         //isotropic.V.dPosdScreen = screw that
         isotropic.N = (intersection-sphere.position)*inversesqrt(sphere.radius2);
-        isotropic.NdotV = dot(interaction.V.dir,interaction.N);
-        isotropic.NdotV_squared = interaction.NdotV*interaction.NdotV;
+        isotropic.NdotV = dot(isotropic.V.dir,isotropic.N);
+        isotropic.NdotV_squared = isotropic.NdotV*isotropic.NdotV;
 
         interaction = irr_glsl_calcAnisotropicInteraction(isotropic);
     }
@@ -385,22 +402,25 @@ void closestHitProgram(in ImmutableRay_t _immutable, in uint scramble)
         
         // this could run in a loop if we'd allow splitting/amplification (if we modified the payload managment)
         {
-            vec3 epsilon = rand3d(depth,sampleIx,scramble);
+            vec3 epsilon = rand3d(depth,sampleIx,scramble_state);
 
             bool pickBSDF = true;
+            
+            float maxT;
             
             // the probability of generating a sample w.r.t. the light generator only possible and used when it was generated with it!
             float lightPdf;
             GeneratorSample _sample;
             if (pickBSDF)
             {
+                 maxT = FLT_MAX;
                 _sample = irr_glsl_bsdf_cos_generate(interaction,epsilon,bsdf);
             }
             else
             {
                 vec3 lightRemainder;
                 _sample = irr_glsl_light_generate_and_remainder_and_pdf(
-                    lightRemainder,lightPdf,rayStack[stackPtr]._immutable.maxT,
+                    lightRemainder,lightPdf,maxT,
                     intersection,interaction,epsilon
                 );
             }
@@ -424,7 +444,8 @@ void closestHitProgram(in ImmutableRay_t _immutable, in uint scramble)
                 rayStack[stackPtr]._payload.otherTechniqueHeuristic = heuristicFactor;
                     
                 // trace new ray
-                rayStack[stackPtr]._immutable.origin = intersection;
+                rayStack[stackPtr]._immutable.origin = intersection+_sample.L*(pickBSDF ? 1.0/*kSceneSize*/:maxT)*INTERSECTION_ERROR_BOUND;
+                rayStack[stackPtr]._immutable.maxT = maxT;
                 rayStack[stackPtr]._immutable.direction = _sample.L;
                 rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(sampleIx,depth+1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT)|(pickBSDF ? 0:ANY_HIT_FLAG);
                 stackPtr++;
@@ -433,7 +454,6 @@ void closestHitProgram(in ImmutableRay_t _immutable, in uint scramble)
     }
 }
 
-#define SAMPLES 16
 void main()
 {
 	uint scramble = textureLod(scramblebuf,TexCoord,0).r;
@@ -462,6 +482,7 @@ void main()
             rayStack[stackPtr]._payload.otherTechniqueHeuristic = 0.0; // TODO: remove
             rayStack[stackPtr]._payload.throughput = vec3(1.0);
         }
+        uint scramble_state = scramble;
 
         // trace
         while (stackPtr!=-1)
@@ -476,7 +497,7 @@ void main()
             }
             else if (!anyHitType)
             {
-                closestHitProgram(_immutable,scramble);
+                closestHitProgram(_immutable,scramble_state);
             }
             stackPtr--;
         }

@@ -24,7 +24,7 @@ static void specialize(spirv_cross::CompilerGLSL& _comp, const asset::ISpecializ
         auto specVal = _specData.getSpecializationByteValue(sc.constant_id);
         if (!specVal.first)
             continue;
-        memcpy(&val.m.c[0].r[0].u64, specVal.first, specVal.second); // this will do for spec constants of scalar types (uint, int, float,...) regardless of size
+        memcpy(&val.m.c[0].r[0].u32, specVal.first, specVal.second); // this will do for spec constants of scalar types (uint, int, float,...) regardless of size
         // but it's ok since ,according to SPIR-V specification, only specialization constants of scalar types are supported (only scalar spec constants can have SpecId decoration)
     }
 }
