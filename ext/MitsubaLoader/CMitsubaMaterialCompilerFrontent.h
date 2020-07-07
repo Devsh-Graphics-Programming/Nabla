@@ -14,7 +14,7 @@ namespace MitsubaLoader
 class CMitsubaMaterialCompilerFrontent
 {
 public:
-    core::smart_refctd_ptr<asset::material_compiler::IR> compileToIR(const CElementBSDF* _bsdf);
+    asset::material_compiler::IR::INode* compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
 };
 
 }}}

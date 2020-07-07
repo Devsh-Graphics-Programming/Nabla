@@ -1476,11 +1476,6 @@ void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 L)
 	}
 	switch (opcode)
 	{
-	//run func depending on opcode
-	//the func will decide whether to (and which ones) fetch registers from `regs` array
-	//and whether to fetch bsdf data from bsdf_buf (not all opcodes need it)
-	//also stores the result into dst reg
-	//....
 	case OP_DIFFUSE:
 		instr_execute_DIFFUSE(instr, regs, dUV, scale, bsdf_data);
 		break;

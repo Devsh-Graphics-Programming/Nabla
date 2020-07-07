@@ -9,15 +9,18 @@ namespace ext
 namespace MitsubaLoader
 {
 
-core::smart_refctd_ptr<asset::material_compiler::IR> CMitsubaMaterialCompilerFrontent::compileToIR(const CElementBSDF* _bsdf)
+asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontent::compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf)
 {
     using namespace asset;
     using namespace material_compiler;
 
-    auto ir = core::make_smart_refctd_ptr<IR>();
-    ir->root = core::make_smart_refctd_ptr<IR::INode>(IR::INode::ES_MATERIAL);
+    IR::INode* root = ir->allocNode<IR::CMaterialNode>();
     bool twosided = false;
-    bool createdSurfaces = false;
+    IR::INode::SParameter<IR::INode::color_t> opacity;
+    {
+        opacity.source = IR::INode::EPS_CONSTANT;
+        opacity.value.constant = IR::INode::color_t(1.f);
+    }
     const CElementBSDF* current = _bsdf;
 
     auto getFloatOrTexture = [](const CElementTexture::FloatOrTexture& src, IR::INode::SParameter<float>& dst)
@@ -54,57 +57,68 @@ core::smart_refctd_ptr<asset::material_compiler::IR> CMitsubaMaterialCompilerFro
         IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY
     };
 
-    core::stack<const CElementBSDF*> bsdfStack;
-    bsdfStack.push(_bsdf);
-    core::stack<IR::INode*> nodeStack;
-    nodeStack.push(ir->root.get());
+    core::queue<const CElementBSDF*> bsdfQ;
+    bsdfQ.push(_bsdf);
+    core::queue<IR::INode*> nodeQ;
+    nodeQ.push(root);
     uint32_t childrenCountdown = 1u;
+    IR::INode* parent = nodeQ.front();
 
-    while (!bsdfStack.empty())
+    while (!bsdfQ.empty())
     {
-        current = bsdfStack.top();
-        bsdfStack.pop();
+        current = bsdfQ.front();
+        bsdfQ.pop();
 
-        core::smart_refctd_ptr<IR::INode> nextSym;
+        IR::INode* nextSym;
         switch (current->type)
         {
         case CElementBSDF::TWO_SIDED:
             twosided = true;
-            bsdfStack.push(_bsdf->twosided.bsdf[0]);
+            bsdfQ.push(current->twosided.bsdf[0]);
+            break;
+        case CElementBSDF::MASK:
+            getSpectrumOrTexture(current->mask.opacity, opacity);
+            bsdfQ.push(current->mask.bsdf[0]);
             break;
         case CElementBSDF::DIFFUSE:
         case CElementBSDF::ROUGHDIFFUSE:
-            nextSym = core::make_smart_refctd_ptr<IR::CMicrofacetDiffuseBSDFNode>();
-            getSpectrumOrTexture(current->diffuse.reflectance, static_cast<IR::CMicrofacetDiffuseBSDFNode*>(nextSym.get())->reflectance);
-            getFloatOrTexture(current->diffuse.alpha, static_cast<IR::CMicrofacetDiffuseBSDFNode*>(nextSym.get())->alpha_u);
-            getFloatOrTexture(current->diffuse.alpha, static_cast<IR::CMicrofacetDiffuseBSDFNode*>(nextSym.get())->alpha_v);
+            nextSym = ir->allocNode<IR::CMicrofacetDiffuseBSDFNode>();
+            getSpectrumOrTexture(current->diffuse.reflectance, static_cast<IR::CMicrofacetDiffuseBSDFNode*>(nextSym)->reflectance);
+            getFloatOrTexture(current->diffuse.alpha, static_cast<IR::CMicrofacetDiffuseBSDFNode*>(nextSym)->alpha_u);
+            getFloatOrTexture(current->diffuse.alpha, static_cast<IR::CMicrofacetDiffuseBSDFNode*>(nextSym)->alpha_v);
             break;
         case CElementBSDF::CONDUCTOR:
         case CElementBSDF::ROUGHCONDUCTOR:
         {
-            nextSym = core::make_smart_refctd_ptr<IR::CMicrofacetSpecularBSDFNode>();
-            auto* node = static_cast<IR::CMicrofacetSpecularBSDFNode*>(nextSym.get());
+            nextSym = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>();
+            auto* node = static_cast<IR::CMicrofacetSpecularBSDFNode*>(nextSym);
             node->ndf = ndfMap[current->conductor.distribution];
+            node->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
+            node->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_REFLECT;
             getFloatOrTexture(current->conductor.alphaU, node->alpha_u);
             if (node->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
                 getFloatOrTexture(current->conductor.alphaV, node->alpha_v);
             else
                 node->alpha_v = node->alpha_u;
-            //TODO IoR
+            const float extEta = current->conductor.extEta;
+            node->eta = current->conductor.eta.vvalue/extEta;
+            node->etaK = current->conductor.k.vvalue/extEta;
         }
         break;
         case CElementBSDF::PLASTIC:
         case CElementBSDF::ROUGHPLASTIC:
         {
-            nextSym = core::make_smart_refctd_ptr<IR::CBSDFCombinerNode>(IR::CBSDFCombinerNode::ET_DIFFUSE_AND_SPECULAR);
-            nextSym->children = core::make_refctd_dynamic_array<IR::INode::children_smart_array_t>(2u);
+            nextSym = ir->allocNode<IR::CBSDFCombinerNode>(IR::CBSDFCombinerNode::ET_DIFFUSE_AND_SPECULAR);
+            nextSym->children = core::make_refctd_dynamic_array<IR::INode::children_array_t>(2u);
 
-            auto& diffuse = (*nextSym->children)[0];
-            diffuse = core::make_smart_refctd_ptr<IR::CMicrofacetDiffuseBSDFNode>();
-            auto& specular = (*nextSym->children)[1];
-            specular = core::make_smart_refctd_ptr<IR::CMicrofacetSpecularBSDFNode>();
+            const float eta = current->plastic.intIOR/current->plastic.extIOR;
 
-            auto* node_specular = static_cast<IR::CMicrofacetSpecularBSDFNode*>(specular.get());
+            auto& diffuse = nextSym->children[0];
+            diffuse = ir->allocNode<IR::CMicrofacetDiffuseBSDFNode>();
+            auto& specular = nextSym->children[1];
+            specular = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>();
+
+            auto* node_specular = static_cast<IR::CMicrofacetSpecularBSDFNode*>(specular);
             node_specular->ndf = ndfMap[current->plastic.distribution];
             getFloatOrTexture(current->plastic.alphaU, node_specular->alpha_u);
             if (node_specular->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
@@ -112,9 +126,10 @@ core::smart_refctd_ptr<asset::material_compiler::IR> CMitsubaMaterialCompilerFro
             else
                 node_specular->alpha_v = node_specular->alpha_u;
             node_specular->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
+            node_specular->eta = IR::INode::color_t(eta);
             node_specular->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_REFLECT;
 
-            auto* node_diffuse = static_cast<IR::CMicrofacetDiffuseBSDFNode*>(diffuse.get());
+            auto* node_diffuse = static_cast<IR::CMicrofacetDiffuseBSDFNode*>(diffuse);
             getSpectrumOrTexture(current->plastic.diffuseReflectance, node_diffuse->reflectance);
             node_diffuse->alpha_u = node_specular->alpha_u;
             node_diffuse->alpha_v = node_specular->alpha_v;
@@ -124,20 +139,23 @@ core::smart_refctd_ptr<asset::material_compiler::IR> CMitsubaMaterialCompilerFro
         case CElementBSDF::THINDIELECTRIC:
         case CElementBSDF::ROUGHDIELECTRIC:
         {
-            nextSym = core::make_smart_refctd_ptr<IR::CBSDFCombinerNode>(IR::CBSDFCombinerNode::ET_FRESNEL_BLEND);
-            nextSym->children = core::make_refctd_dynamic_array<IR::INode::children_smart_array_t>(2u);
+            nextSym = ir->allocNode<IR::CBSDFCombinerNode>(IR::CBSDFCombinerNode::ET_FRESNEL_BLEND);
+            nextSym->children = core::make_refctd_dynamic_array<IR::INode::children_array_t>(2u);
 
-            auto& refl = (*nextSym->children)[0];
-            refl = core::make_smart_refctd_ptr<IR::CMicrofacetSpecularBSDFNode>();
-            auto& trans = (*nextSym->children)[1];
-            trans = core::make_smart_refctd_ptr<IR::CMicrofacetSpecularBSDFNode>();
+            const float eta = current->dielectric.intIOR/current->dielectric.extIOR;
 
-            auto* node_refl = static_cast<IR::CMicrofacetSpecularBSDFNode*>(refl.get());
-            auto* node_trans = static_cast<IR::CMicrofacetSpecularBSDFNode*>(trans.get());
+            auto& refl = nextSym->children[0];
+            refl = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>();
+            auto& trans = nextSym->children[1];
+            trans = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>();
+
+            auto* node_refl = static_cast<IR::CMicrofacetSpecularBSDFNode*>(refl);
+            auto* node_trans = static_cast<IR::CMicrofacetSpecularBSDFNode*>(trans);
 
             node_refl->ndf = ndfMap[current->dielectric.distribution];
             node_refl->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
             getFloatOrTexture(current->dielectric.alphaU, node_refl->alpha_u);
+            node_refl->eta = IR::INode::color_t(eta);
             if (node_refl->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
                 getFloatOrTexture(current->dielectric.alphaV, node_refl->alpha_v);
             else
@@ -146,24 +164,27 @@ core::smart_refctd_ptr<asset::material_compiler::IR> CMitsubaMaterialCompilerFro
             node_trans->shadowing = node_refl->shadowing;
             node_trans->alpha_u = node_refl->alpha_u;
             node_trans->alpha_v = node_refl->alpha_v;
+            node_trans->eta = IR::INode::color_t(eta);
         }
         break;
         case CElementBSDF::BUMPMAP:
         {
-            nextSym = core::make_smart_refctd_ptr<IR::CGeomModifierNode>(IR::CGeomModifierNode::ET_HEIGHT);
-            auto* node = static_cast<IR::CGeomModifierNode*>(nextSym.get());
+            nextSym = ir->allocNode<IR::CGeomModifierNode>(IR::CGeomModifierNode::ET_HEIGHT);
+            auto* node = static_cast<IR::CGeomModifierNode*>(nextSym);
             node->source = IR::CGeomModifierNode::ESRC_TEXTURE;
             //TODO load texture
-            bsdfStack.push(current->bumpmap.bsdf[0]);
+            bsdfQ.push(current->bumpmap.bsdf[0]);
         }
         break;
         case CElementBSDF::COATING:
         case CElementBSDF::ROUGHCOATING:
         {
-            nextSym = core::make_smart_refctd_ptr<IR::CCoatingBSDFNode>();
-            nextSym->children = core::make_refctd_dynamic_array<IR::INode::children_smart_array_t>(1u);
+            nextSym = ir->allocNode<IR::CCoatingBSDFNode>();
+            nextSym->children = core::make_refctd_dynamic_array<IR::INode::children_array_t>(1u);
 
-            auto* node = static_cast<IR::CCoatingBSDFNode*>(nextSym.get());
+            const float eta = current->dielectric.intIOR/current->dielectric.extIOR;
+
+            auto* node = static_cast<IR::CCoatingBSDFNode*>(nextSym);
             node->ndf = ndfMap[current->coating.distribution];
             node->shadowing = IR::CCoatingBSDFNode::EST_SMITH;
             getFloatOrTexture(current->coating.alphaU, node->alpha_u);
@@ -173,63 +194,73 @@ core::smart_refctd_ptr<asset::material_compiler::IR> CMitsubaMaterialCompilerFro
                 node->alpha_v = node->alpha_u;
             node->thickness = current->coating.thickness;
             getSpectrumOrTexture(current->coating.sigmaA, node->sigmaA);
-            bsdfStack.push(current->coating.bsdf[0]);
+            node->eta = IR::INode::color_t(eta);
+            bsdfQ.push(current->coating.bsdf[0]);
         }
         break;
         case CElementBSDF::BLEND_BSDF:
         {
-            nextSym = core::make_smart_refctd_ptr<IR::CBSDFBlendNode>();
-            nextSym->children = core::make_refctd_dynamic_array<IR::INode::children_smart_array_t>(2u);
+            nextSym = ir->allocNode<IR::CBSDFBlendNode>();
+            nextSym->children = core::make_refctd_dynamic_array<IR::INode::children_array_t>(2u);
 
-            auto* node = static_cast<IR::CBSDFBlendNode*>(nextSym.get());
+            auto* node = static_cast<IR::CBSDFBlendNode*>(nextSym);
             getFloatOrTexture(current->blendbsdf.weight, node->weight);
 
-            bsdfStack.push(current->blendbsdf.bsdf[0]);
-            bsdfStack.push(current->blendbsdf.bsdf[1]);
+            bsdfQ.push(current->blendbsdf.bsdf[1]);
+            bsdfQ.push(current->blendbsdf.bsdf[0]);
         }
         break;
         case CElementBSDF::MIXTURE_BSDF:
         {
-            nextSym = core::make_smart_refctd_ptr<IR::CBSDFMixNode>();
-            auto* node = static_cast<IR::CBSDFMixNode*>(nextSym.get());
+            nextSym = ir->allocNode<IR::CBSDFMixNode>();
+            auto* node = static_cast<IR::CBSDFMixNode*>(nextSym);
             const size_t cnt = current->mixturebsdf.childCount;
-            nextSym->children = core::make_refctd_dynamic_array<IR::INode::children_smart_array_t>(current->mixturebsdf.childCount);
+            nextSym->children = core::make_refctd_dynamic_array<IR::INode::children_array_t>(current->mixturebsdf.childCount);
             node->weights = core::make_refctd_dynamic_array<IR::CBSDFMixNode::weights_t>(current->mixturebsdf.childCount);
-            for (size_t i = 0u; i < node->weights->size(); ++i)
+            for (int32_t i = cnt-1u; i >= 0; --i)
                 (*node->weights)[i] = current->mixturebsdf.weights[i];
 
-            for (uint32_t i = 0u; i < cnt; ++i)
-                bsdfStack.push(current->mixturebsdf.bsdf[i]);
+            for (int32_t i = cnt-1u; i >= 0; --i)
+                bsdfQ.push(current->mixturebsdf.bsdf[i]);
         }
         break;
         }
 
+        IR::INode* newParent = nullptr;
         if (nextSym->children)
-            nodeStack.push(nextSym.get());
-        IR::INode* parent = nodeStack.top();
+            nodeQ.push(nextSym);
         if (!--childrenCountdown)
-            nodeStack.pop();
-
-        (*parent->children)[childrenCountdown] = nextSym;//TODO consider std::move
-        if (!childrenCountdown)
-            childrenCountdown = nodeStack.top()->children->size();
-
-        /*if (!createdSurfaces)
         {
-            auto createSurfaces = [&]()
-            {
-                auto surface = core::make_smart_refctd_ptr<IR::INode>(IR::INode::ES_FRONT_SURFACE);
-                //surface->
-            };
+            newParent = nodeQ.front();
+            nodeQ.pop();
+        }
 
-            if (nextSym->symbol == IR::INode::ES_GEOM_MODIFIER)
-            {
-                createdSurfaces = true;
-            }
-            else if (parent->symbol == IR::INode::ES_MATERIAL)
-                createdSurfaces = true;
-        }*/
+        parent->children[childrenCountdown] = nextSym;//TODO consider std::move
+        if (newParent)
+        {
+            parent = newParent;
+            childrenCountdown = parent->children.count;
+        }
     }
+
+    static_cast<IR::CMaterialNode*>(root)->opacity = opacity;
+
+    IR::INode* surfParent = root;
+    if (surfParent->children[0]->symbol == IR::INode::ES_GEOM_MODIFIER)
+        surfParent = surfParent->children[0];
+
+    IR::INode::children_array_t surfaces;
+    surfaces.count = twosided?2u:1u;
+    auto& surf = surfaces[0];
+    surf = ir->allocNode<IR::INode>(IR::INode::ES_FRONT_SURFACE);
+    surf->children = surfaces;
+    std::swap(surf->children,surfParent->children);
+    if (surfaces.count>1u) {
+        surfaces[1] = ir->allocNode<IR::INode>(IR::INode::ES_BACK_SURFACE);
+        surfaces[1]->children = surf->children;
+    }
+
+    return root;
 }
 
 }}}

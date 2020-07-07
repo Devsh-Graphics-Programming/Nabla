@@ -1328,6 +1328,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
 
         if (!spvCode)
             return nullptr;
+        GLfloat a;
 
 // #define FIX_AMD_DRIVER_BUG // TODO: @Crisspl get this code manipulation to pass on the `boxFrustCull.comp` shader of ex 26 also update it to the fact i've converted the workaround to an overloaded function (name has now changed!)
 #ifdef FIX_AMD_DRIVER_BUG

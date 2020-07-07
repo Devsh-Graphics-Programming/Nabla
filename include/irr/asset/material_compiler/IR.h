@@ -5,6 +5,7 @@
 #include <irr/core/memory/refctd_dynamic_array.h>
 #include <irr/asset/ICPUImageView.h>
 #include <irr/asset/ICPUSampler.h>
+#include <irr/core/alloc/LinearAddressAllocator.h>
 
 namespace irr {
 namespace asset {
@@ -13,11 +14,62 @@ namespace material_compiler
 
 class IR : public core::IReferenceCounted
 {
-public:
-    struct INode : public core::IReferenceCounted
+    class SBackingMemManager
     {
-        virtual ~INode() = default;
+        _IRR_STATIC_INLINE_CONSTEXPR size_t INITIAL_MEM_SIZE = 1ull<<14;
+        _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_MEM_SIZE = 1ull<<20;
+        _IRR_STATIC_INLINE_CONSTEXPR size_t ALIGNMENT = _IRR_SIMD_ALIGNMENT;
 
+        uint8_t* mem;
+        size_t currSz;
+        core::LinearAddressAllocator<uint32_t> addrAlctr;
+
+    public:
+        SBackingMemManager() : currSz(INITIAL_MEM_SIZE), addrAlctr(nullptr, 0u, 0u, ALIGNMENT, MAX_MEM_SIZE) {
+            mem = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(currSz, ALIGNMENT));
+        }
+        ~SBackingMemManager() {
+            _IRR_ALIGNED_FREE(mem);
+        }
+
+        uint8_t* alloc(size_t bytes)
+        {
+            auto addr = addrAlctr.alloc_addr(bytes, ALIGNMENT);
+            if (addr+bytes > currSz) {
+                size_t newSz = currSz<<1;
+                if (newSz > MAX_MEM_SIZE) {
+                    addrAlctr.free_addr(addr, bytes);
+                    return nullptr;
+                }
+
+                void* newMem = _IRR_ALIGNED_MALLOC(newSz, ALIGNMENT);
+                memcpy(newMem, mem, currSz);
+                _IRR_ALIGNED_FREE(mem);
+                mem = reinterpret_cast<uint8_t*>(newMem);
+                currSz = newSz;
+            }
+
+            return mem+addr;
+        }
+    };
+
+public:
+    template <typename NodeType, typename ...Args>
+    NodeType* allocNode(Args&& ...args)
+    {
+        uint8_t* ptr = memMgr.alloc(sizeof(NodeType));
+        return new (ptr) NodeType(std::forward<Args>(args)...);
+    }
+    template <typename NodeType, typename ...Args>
+    NodeType* allocRootNode(Args&& ...args)
+    {
+        auto* root = allocNode<NodeType>(std::forward<Args>(args)...);
+        roots.push_back(root);
+        return root;
+    }
+
+    struct INode
+    {
         enum E_SYMBOL
         {
             ES_MATERIAL,
@@ -65,6 +117,8 @@ public:
                     value.constant = rhs.value.constant;
                 else
                     value.texture = rhs.value.texture;
+
+                return *this;
             }
 
             bool operator==(const SParameter<type_of_const>& rhs) const {
@@ -84,14 +138,37 @@ public:
             UTextureOrConstant<type_of_const> value;
         };
 
-        using children_smart_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<INode>>;
+        _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_CHILDREN = 16ull;
+        struct children_array_t {
+            INode* array[MAX_CHILDREN] {};
+            size_t count = 0ull;
+
+            operator bool() const { return count!=0ull; }
+
+            inline INode*& operator[](size_t i) { assert(i<count); return array[i]; }
+            inline const INode* const& operator[](size_t i) const { assert(i<count); return array[i]; }
+        };
+        template <typename ...Contents>
+        static inline children_array_t createChildrenArray(Contents... children) { return { {children...}, sizeof...(children) }; }
 
         using color_t = core::vector3df_SIMD;
 
-        INode(E_SYMBOL s) : symbol(s) {}
+        explicit INode(E_SYMBOL s) : symbol(s) {}
+        virtual ~INode() = default;
 
-        children_smart_array_t children;
+        children_array_t children;
         E_SYMBOL symbol;
+    };
+
+    struct CMaterialNode : public INode
+    {
+        CMaterialNode() : INode(ES_MATERIAL)
+        {
+            opacity.source = EPS_CONSTANT;
+            opacity.value.constant = color_t(1.f);
+        }
+
+        SParameter<color_t> opacity;
     };
 
     struct CGeomModifierNode : public INode
@@ -171,9 +248,15 @@ public:
             ET_COATING
         };
 
-        CBSDFNode(E_TYPE t) : INode(ES_BSDF), type(t) {}
+        CBSDFNode(E_TYPE t) :
+            INode(ES_BSDF),
+            type(t),
+            eta(1.f,1.f,1.f),
+            etaK(0.f,0.f,0.f)
+        {}
 
         E_TYPE type;
+        color_t eta, etaK;
     };
     struct CMicrofacetSpecularBSDFNode : CBSDFNode
     {
@@ -225,7 +308,8 @@ public:
         float thickness;
     };
 
-    core::smart_refctd_ptr<INode> root;
+    SBackingMemManager memMgr;
+    core::vector<INode*> roots;
 };
 
 }}}
