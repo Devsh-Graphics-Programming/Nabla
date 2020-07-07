@@ -56,16 +56,17 @@ int main()
 			newImageParams.format = EF_R16G16B16A16_UNORM;
 			#endif // IMAGE_VIEW
 
-			const float texelByteSizeFactor = asset::getTexelOrBlockBytesize(newImageParams.format) / asset::getTexelOrBlockBytesize(referenceImageParams.format);
-			auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceBuffer->getSize() * texelByteSizeFactor);
 			auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(referenceRegions.size());
+			size_t regionOffsets = {};
 
 			for (auto newRegion = newRegions->begin(); newRegion != newRegions->end(); ++newRegion)
 			{
 				*newRegion = *(referenceRegion++);
-				newRegion->bufferOffset *= texelByteSizeFactor;
+				newRegion->bufferOffset = regionOffsets;
+				regionOffsets += newRegion->imageExtent.width * newRegion->imageExtent.height * newRegion->imageExtent.depth * newRegion->imageSubresource.layerCount * asset::getTexelOrBlockBytesize(newImageParams.format);
 			}
 
+			auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(regionOffsets);
 			newSumImage = ICPUImage::create(std::move(newImageParams));
 			newSumImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
 
@@ -80,16 +81,18 @@ int main()
 			state.outBaseLayer = 0;
 			state.scratchMemoryByteSize = state.getRequiredScratchByteSize(state.inImage, state.outImage);
 			state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, 8));
-
-			auto stateExtent = newSumImage->getMipSize(0);
-			state.extent = { stateExtent.X, stateExtent.Y, stateExtent.Z };
+			
+			state.extent = { referenceImageParams.extent.width, referenceImageParams.extent.height, referenceImageParams.extent.depth };
 			state.layerCount = newSumImage->getCreationParameters().arrayLayers;
+
+			#ifdef IMAGE_VIEW
+			state.inMipLevel = 2;
+			state.outMipLevel = 2;
+			state.normalizeImageByTotalSATValues = true;
+			#else
 			state.inMipLevel = 0;
 			state.outMipLevel = 0;
-
-			#ifndef IMAGE_VIEW
-			state.normalizeImageByTotalSATValues = true;
-			#endif // !IMAGE_VIEW
+			#endif // IMAGE_VIEW
 
 			if (!sumFilter.execute(&state))
 				os::Printer::log("Something went wrong while performing sum operation!", ELL_WARNING);
@@ -102,13 +105,8 @@ int main()
 	IAssetLoader::SAssetLoadParams lp(0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES);
 
 	#ifdef IMAGE_VIEW
-	auto bundle = assetManager->getAsset("../../media/GLI/earth-cubemap2.dds", lp);
+	auto bundle = assetManager->getAsset("../../media/GLI/earth-cubemap3.dds", lp);
 	auto cpuImageViewFetched = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents().first[0]);
-
-	//asset::IAssetWriter::SAssetWriteParams wparamsTEST(cpuImageViewFetched.get());
-	//assetManager->writeAsset("TEST.dds", wparamsTEST); // I was wondering why I can't open my SAT.dds after going through the filter, but gimp can't open it as the basic one and crashes here, probably something with the writer
-	//auto bundle2 = assetManager->getAsset("TEST.dds", lp); // Weird, seems it loads it 
-	// NOTES: Renderdoc loads it properly and sat work for layers now (needs testing mipmaps and overlapping - TODO in following commit)
 
 	auto cpuImage = getSummedImage(cpuImageViewFetched->getCreationParameters().image);
 	#else
