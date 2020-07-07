@@ -1637,7 +1637,7 @@ void COpenGLDriver::invalidateMappedMemoryRanges(uint32_t memoryRangeCount, cons
 void COpenGLDriver::fillBuffer(IGPUBuffer* buffer, size_t offset, size_t length, uint32_t value)
 {
     COpenGLBuffer* glbuffer = static_cast<COpenGLBuffer*>(buffer);
-    extGlClearNamedBufferSubData(glbuffer->getOpenGLName(),GL_RG32UI,offset,length,GL_RED,GL_UNSIGNED_INT,&value);
+    extGlClearNamedBufferSubData(glbuffer->getOpenGLName(),GL_R32UI,offset,length,GL_RED,GL_UNSIGNED_INT,&value);
 }
 
 void COpenGLDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length)
