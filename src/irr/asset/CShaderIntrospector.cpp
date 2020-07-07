@@ -457,7 +457,7 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
 
     core::smart_refctd_ptr<CIntrospectionData> introData = core::make_smart_refctd_ptr<CIntrospectionData>();
     introData->pushConstant.present = false;
-    auto addResource_common = [&introData, &_comp] (const spirv_cross::Resource& r, E_SHADER_RESOURCE_TYPE restype, const core::vector<CIntrospectionData::SSpecConstant>& _sortedId2sconst) -> SShaderResourceVariant& {
+    auto addResource_common = [&introData, &_comp] (const spirv_cross::Resource& r, E_SHADER_RESOURCE_TYPE restype, const mapId2SpecConst_t& _mapId2sconst) -> SShaderResourceVariant& {
         const uint32_t descSet = _comp.get_decoration(r.id, spv::DecorationDescriptorSet);
         assert(descSet < 4u);
         introData->descriptorSetBindings[descSet].emplace_back();
@@ -477,16 +477,10 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
             res.descCountIsSpecConstant = !type.array_size_literal[0];
             if (res.descCountIsSpecConstant)
             {
-                CIntrospectionData::SSpecConstant dummy;
-                dummy.id = res.descriptorCount; // descriptorCount? this is what unions are for! (formalizing notation abuse)
-                const auto sc_itr = std::lower_bound(_sortedId2sconst.begin(),_sortedId2sconst.end(),dummy,
-                    [](const CIntrospectionData::SSpecConstant& lhs, const CIntrospectionData::SSpecConstant& rhs) -> bool
-                    {
-                        return lhs.id<rhs.id;
-                    }
-                );
-                assert(sc_itr!=_sortedId2sconst.cend());
-                res.descriptorCount = sc_itr->id; // WHY ID!? TODO: @Criss check this!
+                auto sc_itr = _mapId2sconst.find(res.descriptorCount);
+                assert(sc_itr!=_mapId2sconst.end());
+                auto sc = sc_itr->second;
+                res.descriptorCount = sc->id;
             }
         }
 
@@ -504,10 +498,11 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
 
     // spec constants
     spirv_cross::SmallVector<spirv_cross::SpecializationConstant> sconsts = _comp.get_specialization_constants();
-    introData->specConstants.resize(sconsts.size());
+    mapId2SpecConst_t mapId2SpecConst;
+    introData->specConstants.reserve(sconsts.size());
     for (size_t i = 0u; i < sconsts.size(); ++i)
     {
-        CIntrospectionData::SSpecConstant& specConst = introData->specConstants[i];
+        CIntrospectionData::SSpecConstant specConst;
         specConst.id = sconsts[i].constant_id;
         specConst.name = _comp.get_name(sconsts[i].id);
 
@@ -538,33 +533,36 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
             break;
         default: break;
         }
+
+        auto where = std::lower_bound(introData->specConstants.begin(), introData->specConstants.end(), specConst, [](const auto& _lhs, const auto& _rhs) { return _lhs.id < _rhs.id; });
+        auto it = introData->specConstants.insert(where, specConst);
+
+        mapId2SpecConst.insert({sconsts[i].id,&*it});
     }
-    using SSpecConstant = CIntrospectionData::SSpecConstant;
-    std::sort(introData->specConstants.begin(), introData->specConstants.end(), [](const SSpecConstant& _lhs, const SSpecConstant& _rhs) { return _lhs.id < _rhs.id; });
 
     spirv_cross::ShaderResources resources = _comp.get_shader_resources(_comp.get_active_interface_variables());
     for (const spirv_cross::Resource& r : resources.uniform_buffers)
     {
-        SShaderResourceVariant& res = addResource_common(r, ESRT_UNIFORM_BUFFER, introData->specConstants);
+        SShaderResourceVariant& res = addResource_common(r, ESRT_UNIFORM_BUFFER, mapId2SpecConst);
         static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_UNIFORM_BUFFER>()).name = r.name;
-        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_UNIFORM_BUFFER>()), r.base_type_id, r.id, introData->specConstants);
+        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_UNIFORM_BUFFER>()), r.base_type_id, r.id, mapId2SpecConst);
     }
     for (const spirv_cross::Resource& r : resources.storage_buffers)
     {
-        SShaderResourceVariant& res = addResource_common(r, ESRT_STORAGE_BUFFER, introData->specConstants);
+        SShaderResourceVariant& res = addResource_common(r, ESRT_STORAGE_BUFFER, mapId2SpecConst);
         static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_STORAGE_BUFFER>()).name = r.name;
-        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_STORAGE_BUFFER>()), r.base_type_id, r.id, introData->specConstants);
+        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(res.get<ESRT_STORAGE_BUFFER>()), r.base_type_id, r.id, mapId2SpecConst);
     }
     for (const spirv_cross::Resource& r : resources.subpass_inputs)
     {
-        SShaderResourceVariant& res = addResource_common(r, ESRT_INPUT_ATTACHMENT, introData->specConstants);
+        SShaderResourceVariant& res = addResource_common(r, ESRT_INPUT_ATTACHMENT, mapId2SpecConst);
         res.get<ESRT_INPUT_ATTACHMENT>().inputAttachmentIndex = _comp.get_decoration(r.id, spv::DecorationInputAttachmentIndex);
     }
     for (const spirv_cross::Resource& r : resources.storage_images)
     {
 		const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
         const bool buffer = type.image.dim == spv::DimBuffer;
-        SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_STORAGE_TEXEL_BUFFER : ESRT_STORAGE_IMAGE, introData->specConstants);
+        SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_STORAGE_TEXEL_BUFFER : ESRT_STORAGE_IMAGE, mapId2SpecConst);
         if (!buffer)
         {
             res.get<ESRT_STORAGE_IMAGE>().format = spvImageFormat2E_FORMAT(type.image.format);
@@ -574,7 +572,7 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
     }
     for (const spirv_cross::Resource& r : resources.sampled_images)
     {
-        SShaderResourceVariant& res = addResource_common(r, ESRT_COMBINED_IMAGE_SAMPLER, introData->specConstants);
+        SShaderResourceVariant& res = addResource_common(r, ESRT_COMBINED_IMAGE_SAMPLER, mapId2SpecConst);
 		const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
         res.get<ESRT_COMBINED_IMAGE_SAMPLER>().viewType = spvcrossImageType2ImageView(type.image);
         res.get<ESRT_COMBINED_IMAGE_SAMPLER>().shadow = type.image.depth;
@@ -584,11 +582,11 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
     {
 		const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
         const bool buffer = type.image.dim == spv::DimBuffer;
-        SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_UNIFORM_TEXEL_BUFFER : ESRT_SAMPLED_IMAGE, introData->specConstants);
+        SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_UNIFORM_TEXEL_BUFFER : ESRT_SAMPLED_IMAGE, mapId2SpecConst);
     }
     for (const spirv_cross::Resource& r : resources.separate_samplers)
     {
-        SShaderResourceVariant& res = addResource_common(r, ESRT_SAMPLER, introData->specConstants);
+        SShaderResourceVariant& res = addResource_common(r, ESRT_SAMPLER, mapId2SpecConst);
     }
     for (auto& descSet : introData->descriptorSetBindings)
         std::sort(descSet.begin(), descSet.end(), [](const SShaderResourceVariant& _lhs, const SShaderResourceVariant& _rhs) { return _lhs.binding < _rhs.binding; });
@@ -625,7 +623,7 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
         const spirv_cross::Resource& r = resources.push_constant_buffers.front();
         introData->pushConstant.present = true;
         static_cast<impl::SShaderMemoryBlock&>(introData->pushConstant.info).name = r.name;
-        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(introData->pushConstant.info), r.base_type_id, r.id, introData->specConstants);
+        shaderMemBlockIntrospection(_comp, static_cast<impl::SShaderMemoryBlock&>(introData->pushConstant.info), r.base_type_id, r.id, mapId2SpecConst);
     }
 
     return introData;
@@ -638,8 +636,9 @@ namespace {
         const spirv_cross::SPIRType& parentType;
         uint32_t baseOffset;
     };
+    using mapId2SpecConst_t = core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*>;
 }
-static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock::SMember::SMembers& _dstMembers, const spirv_cross::SPIRType& _parentType, const spirv_cross::SmallVector<spirv_cross::TypeID>& _allMembersTypes, uint32_t _baseOffset, const core::vector<CIntrospectionData::SSpecConstant>& _sortedId2sconst, core::stack<StackElement>& _pushStack) {
+static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock::SMember::SMembers& _dstMembers, const spirv_cross::SPIRType& _parentType, const spirv_cross::SmallVector<spirv_cross::TypeID>& _allMembersTypes, uint32_t _baseOffset, const mapId2SpecConst_t& _mapId2sconst, core::stack<StackElement>& _pushStack) {
     using MembT = impl::SShaderMemoryBlock::SMember;
 
     auto MemberDefault = [] {
@@ -680,16 +679,10 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
             member.countIsSpecConstant = !mtype.array_size_literal[0];
             if (member.countIsSpecConstant)
 			{
-                CIntrospectionData::SSpecConstant dummy;
-                dummy.id = member.count; // Notation abuse... again!?
-                const auto sc_itr = std::lower_bound(_sortedId2sconst.begin(),_sortedId2sconst.end(),dummy,
-                    [](const CIntrospectionData::SSpecConstant& lhs, const CIntrospectionData::SSpecConstant& rhs) -> bool
-                    {
-                        return lhs.id<rhs.id;
-                    }
-                );
-                assert(sc_itr != _sortedId2sconst.cend());
-                member.count = sc_itr->id; // seriously? this can't work... @Crisspl test plz (add a test case to one of the examples).
+                auto sc_itr = _mapId2sconst.find(member.count);
+                assert(sc_itr!=_mapId2sconst.end());
+                auto sc = sc_itr->second;
+                member.count = sc->id;
             }
         }
 		else if (mtype.basetype != spirv_cross::SPIRType::Struct) // might have to ignore a few more types than structs
@@ -707,7 +700,7 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
     }
 }
 
-void CShaderIntrospector::shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const core::vector<CIntrospectionData::SSpecConstant>& _sortedId2sconst) const
+void CShaderIntrospector::shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const mapId2SpecConst_t& _sortedId2sconst) const
 {
     using MembT = impl::SShaderMemoryBlock::SMember;
 
