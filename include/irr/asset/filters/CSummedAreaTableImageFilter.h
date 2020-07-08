@@ -66,8 +66,8 @@ class CSummedAreaTableImageFilterBase
 				static inline size_t imageTotalOutputCacheByteSize = {};
 				static inline size_t mainRowScratchCacheByteSize = {};
 				static inline size_t mainColumnScratchCacheByteSize = {};
-				static inline uint8_t* imageTotalCacheScratch = nullptr;		//!< A pointer to buffers holding total image SAT values in decoding mode. It is internally a tab[layer][depth].
-				static inline uint8_t* imageTotalCacheOutput = nullptr;			//!< A pointer to buffers holding total image SAT values after encoding to image. A user is responsible to reinterprate the memory correctly. It is internally a tab[layer][depth].
+				static inline uint8_t* imageTotalCacheScratch = nullptr;		//!< A pointer to buffers holding total image SAT values in decoding mode. It is internally a tab[layer][depth]. There must at least one region covering entire plane to make it useful.
+				static inline uint8_t* imageTotalCacheOutput = nullptr;			//!< A pointer to buffers holding total image SAT values after encoding to image. A user is responsible to reinterprate the memory correctly. It is internally a tab[layer][depth]. There must at least one region covering entire plane to make it useful.
 				static inline uint8_t* mainRowCacheScratch = nullptr;			//!< A pointer to a buffer holding current single texel values that are summed within row iteration.
 				static inline uint8_t* mainColumnCacheScratch = nullptr;		//!< A pointer to a buffer holding current summed values per texel for choosen x coordinate in a column orientation.
 		};
@@ -117,13 +117,10 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			if (state->scratchMemoryByteSize < state_type::getRequiredScratchByteSize(state->inImage, state->outImage))
 				return false;
 
-			if (state->inMipLevel != state->outMipLevel)
-				return false;
-
 			if (asset::getFormatChannelCount(outFormat) != asset::getFormatChannelCount(inFormat))
 				return false;
 
-			if (asset::getFormatClass(inFormat) >= asset::getFormatClass(outFormat))
+			if (asset::getFormatClass(inFormat) >= asset::getFormatClass(outFormat)) // TODO in future! Change to a function checking a bit-depth for an each single channel
 				return false;
 
 			return true;
@@ -265,35 +262,32 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 								}
 				};
 
-				auto encodeTo = [&](ICPUImage* outImage)
-				{
-					core::vector3du32_SIMD localCoord;
-					for (auto& w = localCoord[3] = 0u; w < arrayLayers; ++w)
-						for (auto& z = localCoord[2] = 0u; z < trueOutExtent.depth; ++z)
-							for (auto& y = localCoord[1] = 0u; y < trueOutExtent.height; ++y)
-								for (auto& x = localCoord[0] = 0u; x < trueOutExtent.width; ++x)
-								{
-									const auto scratchInPlaneOffset = ((localCoord.z * state->extent.height + localCoord.y) * state->extent.width + localCoord.x);
-									const auto outDataInPlaneOffset = ((localCoord.z * trueOutExtent.height + localCoord.y) * trueOutExtent.width + localCoord.x); 
-
-									const auto outDataAdressOffsetInput = regionBufferOffset + outTexelByteSize * (w * trueOutExtent.width * trueOutExtent.height * trueOutExtent.depth + outDataInPlaneOffset);
-									const auto outDataAdressOffsetScratch = scratchInPlaneOffset * currentChannelCount;
-
-									auto* entryScratchAdress = scratchMemory  + outDataAdressOffsetScratch + singleScratchLayerOffset * w;
-									auto* outData = imageEntireOutData + outDataAdressOffsetInput;
-									asset::encodePixelsRuntime(outFormat, outData, entryScratchAdress);
-									
-									if (x == trueOutExtent.width - 1 && y == 0)
-										memcpy(totalImageCacheOutput + (localCoord.w * state->extent.depth + localCoord.z) * outTexelByteSize, outData, outTexelByteSize);
-								}
-				};
-
 				if (state->normalizeImageByTotalSATValues)
 					if (!asset::isNormalizedFormat(inFormat))
 						normalizeScratch();
 
-				encodeTo(state->outImage);
-				return true;
+				auto perOutputRegionEncode = [&](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
+				{
+					auto encode = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
+					{
+						const auto scratchInPlaneOffset = ((readBlockPos.z * state->extent.height + readBlockPos.y) * state->extent.width + readBlockPos.x);
+
+						auto* outDataAdress = commonExecuteData.outData + readBlockArrayOffset;
+						const auto outDataAdressOffsetScratch = scratchInPlaneOffset * currentChannelCount;
+
+						auto* entryScratchAdress = scratchMemory + outDataAdressOffsetScratch + singleScratchLayerOffset * readBlockPos.w;
+						asset::encodePixelsRuntime(outFormat, outDataAdress, entryScratchAdress); // overrrides texels, so region-overlapping case is fine
+
+						if (readBlockPos.x == trueOutExtent.width - 1 && readBlockPos.y == 0) 
+							memcpy(totalImageCacheOutput + (readBlockPos.w * state->extent.depth + readBlockPos.z) * outTexelByteSize, outDataAdress, outTexelByteSize);
+					};
+
+					CBasicImageFilterCommon::executePerRegion(commonExecuteData.outImg, encode, commonExecuteData.outRegions.begin(), commonExecuteData.outRegions.end(), clip);
+
+					return true;
+				};
+
+				return commonExecute(state, perOutputRegionEncode);
 			}
 			else
 				return false;
