@@ -1,6 +1,7 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 #include "../common/QToQuitEventReceiver.h"
+#include "COpenGLExtensionHandler.h"
 
 using namespace irr;
 using namespace core;
@@ -243,6 +244,8 @@ int main()
 		driver->bindDescriptorSets(video::EPBP_COMPUTE, gpuComputePipeline->getLayout(), COMPUTE_SET, 1u, &gpuds0Compute.get(), nullptr);
 
 		driver->dispatch(PARTICLE_COUNT/WORKGROUP_SIZE, 1u, 1u);
+
+		video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT);
 
 		memcpy(viewParams.MVP, camera->getConcatenatedMatrix().pointer(), sizeof(viewParams.MVP));
 		driver->updateBufferRangeViaStagingBuffer(gpuUboGaphics.get(), 0u, gpuUboGaphics->getSize(), &viewParams);
