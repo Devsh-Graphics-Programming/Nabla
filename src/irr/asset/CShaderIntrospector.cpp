@@ -480,7 +480,7 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
                 auto sc_itr = _mapId2sconst.find(res.descriptorCount);
                 assert(sc_itr!=_mapId2sconst.end());
                 auto sc = sc_itr->second;
-                res.descriptorCount = sc->id;
+                res.count_specID = sc->id;
             }
         }
 
@@ -689,7 +689,7 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
                 auto sc_itr = _mapId2sconst.find(member.count);
                 assert(sc_itr!=_mapId2sconst.end());
                 auto sc = sc_itr->second;
-                member.count = sc->id;
+                member.count_specID = sc->id;
             }
         }
 		else if (mtype.basetype != spirv_cross::SPIRType::Struct) // might have to ignore a few more types than structs

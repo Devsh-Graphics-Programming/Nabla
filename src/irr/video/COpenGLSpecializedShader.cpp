@@ -19,7 +19,6 @@ static void specialize(spirv_cross::CompilerGLSL& _comp, const asset::ISpecializ
     for (const auto& sc : sconsts)
     {
         spirv_cross::SPIRConstant& val = _comp.get_constant(sc.id);
-        val.specialization = false; // despecializing. If spec-data is not provided, the spec constant is left with its default value. Default value can be queried through introspection mechanism.
 
         auto specVal = _specData.getSpecializationByteValue(sc.constant_id);
         if (!specVal.first)
