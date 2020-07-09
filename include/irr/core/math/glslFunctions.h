@@ -392,6 +392,44 @@ IRR_FORCE_INLINE uint32_t bitCount(int64_t x) {return core::bitCount(static_cast
 
 // Extras
 
+template <typename T>
+IRR_FORCE_INLINE constexpr std::enable_if_t<std::is_integral_v<T> && !std::is_signed_v<T>, T> bitfieldExtract(T value, int32_t offset, int32_t bits)
+{
+	constexpr T one = static_cast<T>(1);
+
+	T retval = value;
+	retval >>= offset;
+	return retval & ((one<<bits) - one);
+}
+template <typename T>
+IRR_FORCE_INLINE constexpr std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>, T> bitfieldExtract(T value, int32_t offset, int32_t bits)
+{
+	constexpr T one = static_cast<T>(1);
+	constexpr T all_set = static_cast<T>(~0ull);
+
+	T retval = value;
+	retval >>= offset;
+	retval &= ((one<<bits) - one);
+	if (retval & (one << (bits-1)))//sign extension
+		retval |= (all_set << bits);
+
+	return retval;
+}
+
+template <typename T>
+IRR_FORCE_INLINE constexpr T bitfieldInsert(T base, T insert, int32_t offset, int32_t bits)
+{
+	constexpr T one = static_cast<T>(1);
+	const T mask = (one << bits) - one;
+	const T shifted_mask = mask << offset;
+
+	insert &= mask;
+	base &= (~shifted_mask);
+	base |= (insert << offset);
+
+	return base;
+}
+
 //! returns if a equals b, taking possible rounding errors into account
 template<typename T>
 IRR_FORCE_INLINE bool equals(const T& a, const T& b, const T& tolerance);
