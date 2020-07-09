@@ -634,51 +634,6 @@ void main()
 			decltype(color)& albedo = getImageAssetGivenChannelName(albedo_image_bundle,albedoChannelNameBundle[i]);
 			decltype(color)& normal = getImageAssetGivenChannelName(normal_image_bundle,normalChannelNameBundle[i]);
 
-			auto convertImageToRequiredFmt = [&](core::smart_refctd_ptr<ICPUImage> image)
-			{
-				using CONVERSION_FILTER = CConvertFormatImageFilter<>;
-
-				core::smart_refctd_ptr<ICPUImage> newConvertedImage;
-				{
-					auto referenceImageParams = image->getCreationParameters();
-					auto referenceBuffer = image->getBuffer();
-					auto referenceRegions = image->getRegions();
-					auto referenceRegion = referenceRegions.begin();
-					const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(irrFmtRequired);
-
-					auto newImageParams = referenceImageParams;
-					auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceRegion->getExtent().width * referenceRegion->getExtent().height * referenceRegion->getExtent().depth * newTexelOrBlockByteSize);
-					auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(referenceRegions.size());
-
-					*newRegions->begin() = *referenceRegion;
-
-					newImageParams.format = irrFmtRequired;
-					newConvertedImage = ICPUImage::create(std::move(newImageParams));
-					newConvertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
-
-					CONVERSION_FILTER convertFilter;
-					CONVERSION_FILTER::state_type state;
-
-					state.inImage = image.get();
-					state.outImage = newConvertedImage.get();
-					state.inOffset = { 0, 0, 0 };
-					state.inBaseLayer = 0;
-					state.outOffset = { 0, 0, 0 };
-					state.outBaseLayer = 0;
-
-					auto region = newConvertedImage->getRegions().begin();
-
-					state.extent = region->getExtent();
-					state.layerCount = region->imageSubresource.layerCount;
-					state.inMipLevel = region->imageSubresource.mipLevel;
-					state.outMipLevel = region->imageSubresource.mipLevel;
-
-					if (!convertFilter.execute(&state))
-						os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Something went wrong while converting the image!", ELL_WARNING);
-				}
-				return newConvertedImage;
-			};
-
 			auto putImageIntoImageToDenoise = [&](core::smart_refctd_ptr<ICPUImage>&& queriedImage, E_IMAGE_INPUT defaultEII, const std::optional<std::string>& actualWantedChannel)
 			{
 				outParam.image[defaultEII] = nullptr;
@@ -697,16 +652,6 @@ void main()
 					}
 					return;
 				}
-
-				/*
-
-				I'm not sure why we should do this, so I leave it for you @devsh to uncomment eventually
-				Current Compute shader relies on having vec4 input and vec3 output
-
-				if (handledDefaultImage->getCreationParameters().format != irrFmtRequired)
-					handledDefaultImage = convertImageToRequiredFmt(handledDefaultImage);
-
-				*/
 
 				auto metadata = queriedImage->getMetadata();
 				auto exrmeta = static_cast<const COpenEXRImageMetadata*>(metadata);
@@ -1162,9 +1107,81 @@ void main()
 				imageView = ICPUImageView::create(std::move(imgViewParams));
 			}
 
-			// save image
-			IAssetWriter::SAssetWriteParams wp(imageView.get());
-			am->writeAsset(outputFileBundle[i].value().c_str(), wp);
+			// save as .EXR image
+			{
+				IAssetWriter::SAssetWriteParams wp(imageView.get());
+				am->writeAsset(outputFileBundle[i].value().c_str(), wp);
+			}
+
+			auto getConvertedPNGImageView = [&](core::smart_refctd_ptr<ICPUImage> image)
+			{
+				using CONVERSION_FILTER = CConvertFormatImageFilter<>;
+				constexpr auto pngFormat = EF_R8G8B8A8_SRGB;
+
+				core::smart_refctd_ptr<ICPUImage> newConvertedImage;
+				{
+					auto referenceImageParams = image->getCreationParameters();
+					auto referenceBuffer = image->getBuffer();
+					auto referenceRegions = image->getRegions();
+					auto referenceRegion = referenceRegions.begin();
+					const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(pngFormat);
+
+					auto newImageParams = referenceImageParams;
+					auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceRegion->getExtent().width * referenceRegion->getExtent().height * referenceRegion->getExtent().depth * newTexelOrBlockByteSize);
+					auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1);
+
+					*newRegions->begin() = *referenceRegion;
+
+					newImageParams.format = pngFormat;
+					newConvertedImage = ICPUImage::create(std::move(newImageParams));
+					newConvertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
+
+					CONVERSION_FILTER convertFilter;
+					CONVERSION_FILTER::state_type state;
+
+					state.inImage = image.get();
+					state.outImage = newConvertedImage.get();
+					state.inOffset = { 0, 0, 0 };
+					state.inBaseLayer = 0;
+					state.outOffset = { 0, 0, 0 };
+					state.outBaseLayer = 0;
+
+					auto region = newConvertedImage->getRegions().begin();
+
+					state.extent = region->getExtent();
+					state.layerCount = region->imageSubresource.layerCount;
+					state.inMipLevel = region->imageSubresource.mipLevel;
+					state.outMipLevel = region->imageSubresource.mipLevel;
+
+					if (!convertFilter.execute(&state))
+						os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Something went wrong while converting the image!", ELL_WARNING);
+				}
+
+				// create image view
+				ICPUImageView::SCreationParams imgViewParams;
+				imgViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+				imgViewParams.format = newConvertedImage->getCreationParameters().format;
+				imgViewParams.image = std::move(newConvertedImage);
+				imgViewParams.viewType = ICPUImageView::ET_2D;
+				imgViewParams.subresourceRange = { static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u };
+				auto newImageView = ICPUImageView::create(std::move(imgViewParams));
+
+				return newImageView;
+			};
+
+			// convert to .PNG and save it as well 
+			{
+				auto newImageView = getConvertedPNGImageView(imageView->getCreationParameters().image);
+				IAssetWriter::SAssetWriteParams wp(newImageView.get());
+				std::string fileName = outputFileBundle[i].value().c_str();
+
+				while (fileName.back() != '.')
+					fileName.pop_back();
+
+				fileName += "png";
+
+				am->writeAsset(fileName, wp);
+			}
 
 			// destroy link to CPUBuffer's data (we need to free it)
 			imageView->convertToDummyObject(~0u);
