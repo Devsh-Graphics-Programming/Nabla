@@ -20,10 +20,17 @@ namespace meshPackerUtil
         size_t MDIDataBuffMinAllocSize                       = 32ull;              /*  32B*/
     };
 
-    template <typename MeshBufferType>
+    template <typename BufferType>
     struct PackedMeshBuffer
     {
-        core::smart_refctd_ptr<MeshBufferType> packedMeshBuffer = nullptr;
+        //or output should look more like `return_type` from geometry creator?
+        //TODO: add parameters of the 
+        core::smart_refctd_ptr<BufferType> MDIDataBuffer;
+        SBufferBinding<BufferType> perVertexVtxBuffer;
+        SBufferBinding<BufferType> perInstanceVtxBuffer;
+        SBufferBinding<BufferType> indexBuffer;
+
+        SVertexInputParams vertexInputParams;
     };
 
     struct ReservedAllocationMeshBuffers // old PackedMeshBufferData 
@@ -48,12 +55,19 @@ namespace meshPackerUtil
     {
         uint32_t mdiParameterOffset; // add to `CCPUMeshPacker::getMultiDrawIndirectBuffer()->getPointer() to get `DrawElementsIndirectCommand_t` address
         uint32_t mdiParameterCount;
+
+        inline bool isValid()
+        {
+            return this->mdiParameterOffset != core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
+        }
     };
 
     
 }
 
 using namespace meshPackerUtil;
+
+//TODO: allow mesh buffers with only per instance attributes
 
 template <typename MeshBufferType, typename MDIStructType>
 class IMeshPacker
@@ -65,8 +79,9 @@ public:
     IMeshPacker(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
         :m_maxTriangleCountPerMDIData(maxTriangleCountPerMDIData),
          m_minTriangleCountPerMDIData(minTriangleCountPerMDIData),
-        m_MDIDataAlctrResSpc(nullptr), m_idxBuffAlctrResSpc(nullptr),
-        m_vtxBuffAlctrResSpc(nullptr), m_perInsVtxBuffAlctrResSpc(nullptr)
+         m_allocParams(allocParams),
+         m_MDIDataAlctrResSpc(nullptr), m_idxBuffAlctrResSpc(nullptr),
+         m_vtxBuffAlctrResSpc(nullptr), m_perInsVtxBuffAlctrResSpc(nullptr)
     {
         m_outVtxInputParams.enabledAttribFlags  = preDefinedLayout.enabledAttribFlags;
         m_outVtxInputParams.enabledBindingFlags = preDefinedLayout.enabledBindingFlags;
@@ -78,7 +93,9 @@ public:
         if (m_vtxSize)
         {
             m_vtxBuffAlctrResSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.vertexBuffSupportedSizeInBytes / m_vtxSize, allocParams.vertexBufferMinAllocSize /*divided by vtxSize?*/), _IRR_SIMD_ALIGNMENT);
-            //TODO: check if m_alctrReservedSpace[n] != nullptr
+            //for now mesh packer will not allow mesh buffers without any per vertex attributes
+            _IRR_DEBUG_BREAK_IF(m_vtxBuffAlctrResSpc == nullptr);
+            assert(m_vtxBuffAlctrResSpc != nullptr);
             m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_vtxBuffAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.vertexBuffSupportedSizeInBytes / m_vtxSize, allocParams.vertexBufferMinAllocSize);
         }
         
@@ -86,18 +103,23 @@ public:
         if (m_perInstVtxSize)
         {
             m_perInsVtxBuffAlctrResSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedSizeInBytes / m_perInstVtxSize, allocParams.perInstanceVertexBufferMinAllocSize), _IRR_SIMD_ALIGNMENT);
+            _IRR_DEBUG_BREAK_IF(m_perInsVtxBuffAlctrResSpc == nullptr);
+            assert(m_perInsVtxBuffAlctrResSpc != nullptr);
             m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_perInsVtxBuffAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedSizeInBytes / m_perInstVtxSize, allocParams.perInstanceVertexBufferMinAllocSize);
         }
 
         m_idxBuffAlctrResSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint16_t), allocParams.indexBuffSupportedSizeInBytes / sizeof(uint16_t), allocParams.indexBufferMinAllocSize), _IRR_SIMD_ALIGNMENT);
+        _IRR_DEBUG_BREAK_IF(m_idxBuffAlctrResSpc == nullptr);
+        assert(m_idxBuffAlctrResSpc != nullptr);
         m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_idxBuffAlctrResSpc, 0u, 0u, alignof(uint16_t), allocParams.indexBuffSupportedSizeInBytes / sizeof(uint16_t), allocParams.indexBufferMinAllocSize);
 
-
-        m_MDIDataAlctrResSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint32_t), allocParams.MDIDataBuffSupportedSizeInBytes / sizeof(MDIStructType), allocParams.MDIDataBuffMinAllocSize), _IRR_SIMD_ALIGNMENT);
-        m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_MDIDataAlctrResSpc, 0u, 0u, alignof(uint32_t), allocParams.MDIDataBuffSupportedSizeInBytes / sizeof(MDIStructType), allocParams.MDIDataBuffMinAllocSize);
+        m_MDIDataAlctrResSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(MDIStructType), allocParams.MDIDataBuffSupportedSizeInBytes / sizeof(MDIStructType), allocParams.MDIDataBuffMinAllocSize), _IRR_SIMD_ALIGNMENT);
+        _IRR_DEBUG_BREAK_IF(m_MDIDataAlctrResSpc == nullptr);
+        assert(m_MDIDataAlctrResSpc != nullptr);
+        m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_MDIDataAlctrResSpc, 0u, 0u, alignof(MDIStructType), allocParams.MDIDataBuffSupportedSizeInBytes / sizeof(MDIStructType), allocParams.MDIDataBuffMinAllocSize);
 
         //1 attrib enabled == 1 binding
-        for (uint16_t attrBit = 0x0001, location = 0; location < 16; attrBit <<= 1, location++)
+        for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
         {
             if (m_outVtxInputParams.enabledAttribFlags & attrBit)
             {
@@ -106,9 +128,6 @@ public:
             }
         }
     }
-
-
-    virtual void commit(/*TODO*/) = 0;
 
 protected:
     virtual ~IMeshPacker() 
@@ -150,9 +169,8 @@ protected:
 
     size_t m_vtxSize;
     size_t m_perInstVtxSize;
-    
-    //TODO?:
-    //bool wasCommitCalled;
+
+    const AllocationParams m_allocParams;
 
     _IRR_STATIC_INLINE_CONSTEXPR uint32_t INVALID_ADDRESS = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
     _IRR_STATIC_INLINE_CONSTEXPR ReservedAllocationMeshBuffers invalidReservedAllocationMeshBuffers{ INVALID_ADDRESS, 0, 0, 0, 0, 0, 0, 0 };
