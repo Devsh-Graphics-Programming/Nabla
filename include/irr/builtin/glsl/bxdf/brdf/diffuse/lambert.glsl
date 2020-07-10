@@ -1,7 +1,7 @@
 #ifndef _IRR_BSDF_BRDF_DIFFUSE_LAMBERT_INCLUDED_
 #define _IRR_BSDF_BRDF_DIFFUSE_LAMBERT_INCLUDED_
 
-#include <irr/builtin/glsl/bxdf/common.glsl>
+#include <irr/builtin/glsl/bxdf/common_samples.glsl>
 
 float irr_glsl_lambertian()
 {
@@ -39,7 +39,7 @@ irr_glsl_BSDFSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicView
     return s;
 }
 
-vec3 irr_glsl_lambertian_cos_remainder_and_pdf(out float pdf, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_BSDFSample s)
+vec3 irr_glsl_lambertian_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
     pdf = irr_glsl_lambertian()*max(s.LdotN,0.0);
     return vec3(1.0);

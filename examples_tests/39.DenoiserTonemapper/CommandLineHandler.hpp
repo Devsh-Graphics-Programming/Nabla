@@ -3,8 +3,10 @@
 
 #include <iostream>
 #include <cstdio>
+#include <chrono>
 #include "irrlicht.h"
 #include "irr/core/core.h"
+#include "../../ext/MitsubaLoader/CMitsubaLoader.h"
 
 #define PROPER_CMD_ARGUMENTS_AMOUNT 14
 #define MANDATORY_CMD_ARGUMENTS_AMOUNT 8
@@ -26,8 +28,8 @@ Pass appripiate arguments to launch the example or load them using predefined fi
 * To load them passing arguments through cmd.
 
 Mandatory parameters:
--COLOR_FILE=colorFilename
--CAMERA_TRANSFORM=value,value,value,...
+-COLOR_FILE=colorFilePath
+-CAMERA_TRANSFORM=mitsubaFilePath or val1,val2,val3,...,val9
 -MEDIAN_FILTER_RADIUS=value
 -DENOISER_EXPOSURE_BIAS=value
 -DENOISER_BLEND_FACTOR=value
@@ -35,12 +37,12 @@ Mandatory parameters:
 -TONEMAPPER=tonemapper=keyValue,extraParameter
 -OUTPUT=file.choosenextension
 Optional Parameters:
--ALBEDO_FILE=albedoFilename
--NORMAL_FILE=normalFilename
+-ALBEDO_FILE=albedoFilePath
+-NORMAL_FILE=normalFilePath
 -COLOR_CHANNEL_NAME=colorChannelName
 -ALBEDO_CHANNEL_NAME=albedoChannelName
 -NORMAL_CHANNEL_NAME=normalChannelName
--BLOOM_PSF_FILE=psfFilename
+-BLOOM_PSF_FILE=psfFilePath
 
 Note there mustn't be any space characters!
 All file's resolutions must match!
@@ -60,8 +62,7 @@ For example, given a color image having loaded albedo and normal images as well,
 COLOR_CHANNEL_NAME=albedo
 and it will use the albedo image as color assuming, that there is a valid albedo channel assigned to albedo image - otherwise the default one will be choosen.
 
-CAMERA_TRANSFORM: values as "initializer list" for camera transform matrix with
-row_major layout (max 9 values - extra values will be ignored)
+CAMERA_TRANSFORM: path to Mitsuba file or direct view matrix values val1,val2,val3,val4,val5,val6,val7,val8,val9
 
 MEDIAN_FILTER_RADIUS: a radius in pixels, valid values are 0 (no filter), 1 and 2. Anything larger than 2 is invalid.
 
@@ -332,18 +333,8 @@ class CommandLineHandler
 		{
 			return rawVariables[id][DTEA_COLOR_FILE].value()[0];
 		}
-
-		auto getCameraTransform(uint64_t id = 0)
-		{
-			irr::core::matrix3x4SIMD cameraTransform;
-			const auto send = rawVariables[id][DTEA_CAMERA_TRANSFORM].value().end();
-			auto sit = rawVariables[id][DTEA_CAMERA_TRANSFORM].value().begin();
-			for (auto i = 0; i < 3u && sit != send; i++)
-				for (auto j = 0; j < 3u && sit != send; j++)
-					cameraTransform(i, j) = std::stof(*(sit++));
-
-			return cameraTransform;
-		}
+		
+		irr::core::matrix3x4SIMD getCameraTransform(uint64_t id = 0);
 
 		auto getMedianFilterRadius(uint64_t id = 0)
 		{
@@ -484,6 +475,7 @@ class CommandLineHandler
 		bool status;
 		COMMAND_LINE_MODE mode;
 		irr::core::vector<variablesType> rawVariables;
+		irr::asset::IAssetManager * const assetManager;
 
 		// I want to deduce those types bellow by using type from functions above
 		// like deduce type of getTonemapper()
@@ -502,6 +494,9 @@ class CommandLineHandler
 		irr::core::vector<std::pair<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS,irr::core::vector<float>>> tonemapperBundle;
 		irr::core::vector<std::optional<std::string>> outputFileNameBundle;
 		irr::core::vector<std::optional<std::string>> bloomPsfFileNameBundle;
+
+		std::chrono::nanoseconds elapsedTimeXmls = {};
+		std::chrono::nanoseconds elapsedTimeEntireLoading = {};
 };
 
 #endif // _DENOISER_TONEMAPPER_COMMAND_LINE_HANDLER_
