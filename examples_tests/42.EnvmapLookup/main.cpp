@@ -242,7 +242,7 @@ int main()
 		memcpy(info.m_backingBuffer->getPointer(),&kShaderParameters,sizeof(ShaderParameters));
 		info.m_entries = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ISpecializedShader::SInfo::SMapEntry>>(2u);
 		for (uint32_t i=0; i<2; i++)
-			info.m_entries->operator[](0u) = {i,i*sizeof(uint32_t),sizeof(uint32_t)};
+			info.m_entries->operator[](i) = {i,i*sizeof(uint32_t),sizeof(uint32_t)};
 		cpuFragmentSpecializedShader->setSpecializationInfo(std::move(info));
 
 		auto gpuFragmentSpecialedShader = driver->getGPUObjectsFromAssets(&cpuFragmentSpecializedShader.get(), &cpuFragmentSpecializedShader.get() + 1)->front();
