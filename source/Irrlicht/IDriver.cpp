@@ -4,10 +4,86 @@
 #include "irr/asset/IAssetManager.h"
 #include "irr/video/IGPUObjectFromAssetConverter.h"
 
-namespace irr { namespace video
+namespace irr
+{
+namespace video
 {
 
+template<class AssetType>
+struct AssetBundleIterator
+{
+        using iterator_category = std::random_access_iterator_tag;
+        using difference_type = std::ptrdiff_t;
+
+        AssetBundleIterator(const core::smart_refctd_ptr<asset::IAsset>* _ptr) : ptr(_ptr) {}
+
+        // general operators
+        inline AssetType* operator*()
+        {
+            return static_cast<AssetType*>(ptr->get());
+        }
+        inline const AssetType* operator*() const
+        {
+            return static_cast<const AssetType*>(ptr->get());
+        }
+        inline const core::smart_refctd_ptr<asset::IAsset>* operator->() const
+        {
+            return ptr;
+        }
+
+        // arithmetic operators
+        inline AssetBundleIterator<AssetType>& operator++()
+        {
+            ++ptr;
+            return *this;
+        }
+        inline AssetBundleIterator<AssetType> operator++(int)
+        {
+            return AssetBundleIterator<AssetType>(ptr++);
+        }
+        inline difference_type operator-(const AssetBundleIterator<AssetType>& other) const
+        {
+            return ptr-other.ptr;
+        }
+
+        // comparison operators
+        inline bool operator!=(const AssetBundleIterator<AssetType>& other) const
+        {
+            return ptr!=other.ptr;
+        }
+
+    private:
+        const core::smart_refctd_ptr<asset::IAsset>* ptr;
+};
+
 //! Maybe we can reduce code duplication here some day
+template<typename AssetType>
+created_gpu_object_array<AssetType> IDriver::getGPUObjectsFromAssets(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>& _range, IGPUObjectFromAssetConverter* _converter)
+{
+    IGPUObjectFromAssetConverter def(m_device->getAssetManager(), this);
+    if (!_converter)
+        _converter = &def;
+    AssetBundleIterator<AssetType> begin(_range.begin());
+    AssetBundleIterator<AssetType> end(_range.end());
+    return _converter->getGPUObjectsFromAssets<AssetType,AssetBundleIterator<AssetType>>(begin,end);
+}
+
+template created_gpu_object_array<asset::ICPUBuffer> IDriver::getGPUObjectsFromAssets<asset::ICPUBuffer>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
+template created_gpu_object_array<asset::ICPUImage> IDriver::getGPUObjectsFromAssets<asset::ICPUImage>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
+template created_gpu_object_array<asset::ICPUImageView> IDriver::getGPUObjectsFromAssets<asset::ICPUImageView>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
+template created_gpu_object_array<asset::ICPUShader> IDriver::getGPUObjectsFromAssets<asset::ICPUShader>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
+template created_gpu_object_array<asset::ICPUSpecializedShader> IDriver::getGPUObjectsFromAssets<asset::ICPUSpecializedShader>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
+template created_gpu_object_array<asset::ICPUMeshBuffer> IDriver::getGPUObjectsFromAssets<asset::ICPUMeshBuffer>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
+template created_gpu_object_array<asset::ICPUMesh> IDriver::getGPUObjectsFromAssets<asset::ICPUMesh>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
+template created_gpu_object_array<asset::ICPUPipelineLayout> IDriver::getGPUObjectsFromAssets<asset::ICPUPipelineLayout>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
+template created_gpu_object_array<asset::ICPURenderpassIndependentPipeline> IDriver::getGPUObjectsFromAssets<asset::ICPURenderpassIndependentPipeline>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
+template created_gpu_object_array<asset::ICPUComputePipeline> IDriver::getGPUObjectsFromAssets<asset::ICPUComputePipeline>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
+template created_gpu_object_array<asset::ICPUDescriptorSetLayout> IDriver::getGPUObjectsFromAssets<asset::ICPUDescriptorSetLayout>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
+template created_gpu_object_array<asset::ICPUSampler> IDriver::getGPUObjectsFromAssets<asset::ICPUSampler>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
+template created_gpu_object_array<asset::ICPUDescriptorSet> IDriver::getGPUObjectsFromAssets<asset::ICPUDescriptorSet>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
+
+
+
 template<typename AssetType>
 created_gpu_object_array<AssetType> IDriver::getGPUObjectsFromAssets(AssetType* const* const _begin, AssetType* const* const _end, IGPUObjectFromAssetConverter* _converter)
 {

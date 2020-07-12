@@ -4,6 +4,7 @@
 #include "../../ext/MitsubaLoader/CElementIntegrator.h"
 #include "../../ext/MitsubaLoader/CElementSensor.h"
 #include "../../ext/MitsubaLoader/CElementShape.h"
+#include <irr/asset/ICPUVirtualTexture.h>
 
 namespace irr
 {
@@ -23,6 +24,7 @@ class CGlobalMitsubaMetadata : public core::IReferenceCounted
 		CElementIntegrator integrator;
 		core::vector<CElementSensor> sensors;
 		core::vector<CElementEmitter> emitters;
+		core::smart_refctd_ptr<asset::ICPUVirtualTexture> VT;
 };
 
 
@@ -72,13 +74,6 @@ class IMeshMetadata : public IMitsubaMetadata
 // <shape>
 class IMeshBufferMetadata : public IMitsubaMetadata
 {
-};
-
-//! not used yet
-class IGraphicsPipelineMetadata : public IMitsubaMetadata
-{
-	public:
-	protected:
 };
 
 }

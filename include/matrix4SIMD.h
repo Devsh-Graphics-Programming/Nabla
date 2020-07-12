@@ -173,12 +173,12 @@ class matrix4SIMD// : public AlignedBase<_IRR_SIMD_ALIGNMENT> don't inherit from
 		static inline matrix4SIMD buildProjectionMatrixOrthoRH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar);
 		static inline matrix4SIMD buildProjectionMatrixOrthoLH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar);
 
-	private:
 		//! Access by row
 		inline const vectorSIMDf& operator[](size_t _rown) const { return rows[_rown]; }
 		//! Access by row
 		inline vectorSIMDf& operator[](size_t _rown) { return rows[_rown]; }
 
+	private:
 		//! TODO: implement a dvec<2>
 		inline __m128d halfRowAsDouble(size_t _n, bool _firstHalf) const;
 		static inline __m128d concat64_helper(const __m128d& _a0, const __m128d& _a1, const matrix4SIMD& _mtx, bool _firstHalf);

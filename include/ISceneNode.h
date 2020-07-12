@@ -19,8 +19,6 @@ namespace irr
 namespace scene
 {
 	class ISceneManager;
-    class ISceneNode;
-
 
 
 	//! Scene node interface.

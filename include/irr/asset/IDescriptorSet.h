@@ -74,7 +74,7 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 
 				SDescriptorInfo()
 				{
-					memset(&buffer, 0, std::max(sizeof(buffer), sizeof(image)));
+					memset(&buffer, 0, core::max<size_t>(sizeof(buffer), sizeof(image)));
 				}
 				~SDescriptorInfo()
 				{

@@ -16,7 +16,13 @@ struct CommonPushConstants
 	int medianFilterRadius;
 	
 	// luma meter and tonemapping var but also for denoiser
+	uint percentileRange[2];
+	uint intensityBufferDWORDOffset;
 	float denoiserExposureBias;
+
+	// for the tonemapper
+	uint tonemappingOperator;
+	float tonemapperParams[2];
 
 	mat3 normalMatrix;
 };

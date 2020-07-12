@@ -23,5 +23,5 @@ struct DrawData_t
 };
 
 #ifndef __cplusplus
-#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
+#include <irr/builtin/glsl/utils/vertex.glsl>
 #endif

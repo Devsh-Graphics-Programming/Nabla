@@ -83,7 +83,7 @@ IRR_FORCE_INLINE float reciprocal_approxim<float>(const float& x)
     _mm_store_ss(&result,_mm_rcp_ps(_mm_load_ss(&x)));
     return result;
 #else // no fast math
-	return reciprocal<T>(x);
+	return reciprocal<float>(x);
 #endif
 }
 template<typename T>

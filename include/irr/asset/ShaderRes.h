@@ -105,7 +105,10 @@ struct SShaderMemoryBlock
     struct SMember
     {
         //! count==1 implies not array
-        uint32_t count;
+        union {
+            uint32_t count;
+            uint32_t count_specID;
+        };
         bool countIsSpecConstant;
         uint32_t offset;
         uint32_t size;
@@ -169,7 +172,10 @@ struct SShaderResourceVariant
     uint32_t binding;
     E_SHADER_RESOURCE_TYPE type;
     //! Basically size of an array in shader (equal to 1 if individual variable)
-    uint32_t descriptorCount;
+    union {
+        uint32_t descriptorCount;
+        uint32_t count_specID;
+    };
     //! If descCountIsSpecConstant is true, than descriptorCount is ID of spec constant which is going to be size of this array
     //! Then user can look up default value of this specialization constant in SIntrospectionData::specConstants.
     bool descCountIsSpecConstant;

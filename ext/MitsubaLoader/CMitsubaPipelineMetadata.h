@@ -12,7 +12,7 @@ namespace ext
 {
 namespace MitsubaLoader
 {
-
+//TODO make it inherit from IMitsubaMetadata so that it has global mitsuba metadata ptr
 class CMitsubaPipelineMetadata final : public asset::IPipelineMetadata
 {
 public:

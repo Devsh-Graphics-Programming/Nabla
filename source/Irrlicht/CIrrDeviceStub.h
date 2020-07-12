@@ -44,7 +44,7 @@ namespace irr
             virtual video::IVideoDriver* getVideoDriver();
 
             //! return file system
-            virtual io::IFileSystem* getFileSystem();
+            virtual io::IFileSystem* getFileSystem() { return FileSystem.get(); }
 
             //! returns the scene manager
             virtual scene::ISceneManager* getSceneManager();
@@ -114,7 +114,7 @@ namespace irr
             IEventReceiver* UserReceiver;
             CLogger* Logger;
             IOSOperator* Operator;
-            io::IFileSystem* FileSystem;
+            core::smart_refctd_ptr<io::IFileSystem> FileSystem;
             scene::ISceneManager* InputReceivingSceneManager;
 
             struct SMouseMultiClicks
