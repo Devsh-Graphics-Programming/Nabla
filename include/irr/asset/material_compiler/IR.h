@@ -16,7 +16,7 @@ class IR : public core::IReferenceCounted
 {
     class SBackingMemManager
     {
-        _IRR_STATIC_INLINE_CONSTEXPR size_t INITIAL_MEM_SIZE = 1ull<<14;
+        _IRR_STATIC_INLINE_CONSTEXPR size_t INITIAL_MEM_SIZE = 1ull<<20;
         _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_MEM_SIZE = 1ull<<20;
         _IRR_STATIC_INLINE_CONSTEXPR size_t ALIGNMENT = _IRR_SIMD_ALIGNMENT;
 
@@ -35,6 +35,9 @@ class IR : public core::IReferenceCounted
         uint8_t* alloc(size_t bytes)
         {
             auto addr = addrAlctr.alloc_addr(bytes, ALIGNMENT);
+            //TODO reallocation will invalidate all pointers to nodes, so...
+            //1) never reallocate (just have reasonably big buffer for nodes)
+            //2) make some node_handle class that will work as pointer but is based on offset instead of actual address
             if (addr+bytes > currSz) {
                 size_t newSz = currSz<<1;
                 if (newSz > MAX_MEM_SIZE) {
@@ -52,6 +55,30 @@ class IR : public core::IReferenceCounted
             return mem+addr;
         }
     };
+
+protected:
+    ~IR()
+    {
+        //call destructors on all nodes
+        for (auto* root : roots)
+        {
+            core::set<decltype(root)> deinited;
+            core::stack<decltype(root)> s;
+            s.push(root);
+            while (!s.empty())
+            {
+                auto* n = s.top();
+                s.pop();
+                for (auto* c : n->children)
+                    s.push(c);
+
+                if (deinited.find(n)==deinited.end()) {
+                    n->~INode();
+                    deinited.insert(n);
+                }
+            }
+        }
+    }
 
 public:
     template <typename NodeType, typename ...Args>
@@ -143,7 +170,39 @@ public:
             INode* array[MAX_CHILDREN] {};
             size_t count = 0ull;
 
+            inline bool operator!=(const children_array_t& rhs) const
+            {
+                if (count != rhs.count)
+                    return false;
+
+                for (uint32_t i = 0u; i < count; ++i)
+                    if (array[i]!=rhs.array[i])
+                        return false;
+                return true;
+            }
+            inline bool operator==(const children_array_t& rhs) const
+            {
+                return !operator!=(rhs);
+            }
+
+            inline bool find(E_SYMBOL s, size_t* ix = nullptr) const 
+            { 
+                auto found = std::find_if(begin(),end(),[s](INode* child){return child->symbol==s;});
+                if (found != (array+count))
+                {
+                    if (ix)
+                        ix[0] = found-array;
+                    return true;
+                }
+                return false;
+            }
+
             operator bool() const { return count!=0ull; }
+
+            INode** begin() { return array; }
+            const INode*const* begin() const { return array; }
+            INode** end() { return array+count; }
+            const INode*const* end() const { return array+count; }
 
             inline INode*& operator[](size_t i) { assert(i<count); return array[i]; }
             inline const INode* const& operator[](size_t i) const { assert(i<count); return array[i]; }
@@ -232,8 +291,7 @@ public:
     {
         CBSDFMixNode() : CBSDFCombinerNode(ET_MIX) {}
 
-        using weights_t = core::smart_refctd_dynamic_array<float>;
-        weights_t weights;
+        float weights[MAX_CHILDREN];
     };
 
     struct CBSDFNode : INode

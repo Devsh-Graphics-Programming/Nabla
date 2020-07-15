@@ -14,7 +14,7 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
     using namespace asset;
     using namespace material_compiler;
 
-    IR::INode* root = ir->allocNode<IR::CMaterialNode>();
+    IR::INode* root = ir->allocRootNode<IR::CMaterialNode>();
     bool twosided = false;
     IR::INode::SParameter<IR::INode::color_t> opacity;
     {
@@ -23,12 +23,12 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
     }
     const CElementBSDF* current = _bsdf;
 
-    auto getFloatOrTexture = [](const CElementTexture::FloatOrTexture& src, IR::INode::SParameter<float>& dst)
+    auto getFloatOrTexture = [this](const CElementTexture::FloatOrTexture& src, IR::INode::SParameter<float>& dst)
     {
         if (src.value.type == SPropertyElementData::INVALID)
         {
             dst.source = IR::INode::EPS_TEXTURE;
-            //TODO load texture
+            std::tie(dst.value.texture.image, dst.value.texture.sampler, dst.value.texture.scale) = getTexture(src.texture);
         }
         else
         {
@@ -36,12 +36,12 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
             dst.value.constant = src.value.fvalue;
         }
     };
-    auto getSpectrumOrTexture = [](const CElementTexture::SpectrumOrTexture& src, IR::INode::SParameter<IR::INode::color_t>& dst)
+    auto getSpectrumOrTexture = [this](const CElementTexture::SpectrumOrTexture& src, IR::INode::SParameter<IR::INode::color_t>& dst)
     {
         if (src.value.type == SPropertyElementData::INVALID)
         {
             dst.source = IR::INode::EPS_TEXTURE;
-            //TODO load texture
+            std::tie(dst.value.texture.image, dst.value.texture.sampler, dst.value.texture.scale) = getTexture(src.texture);
         }
         else
         {
@@ -109,7 +109,7 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
         case CElementBSDF::ROUGHPLASTIC:
         {
             nextSym = ir->allocNode<IR::CBSDFCombinerNode>(IR::CBSDFCombinerNode::ET_DIFFUSE_AND_SPECULAR);
-            nextSym->children = core::make_refctd_dynamic_array<IR::INode::children_array_t>(2u);
+            nextSym->children.count = 2u;
 
             const float eta = current->plastic.intIOR/current->plastic.extIOR;
 
@@ -140,7 +140,7 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
         case CElementBSDF::ROUGHDIELECTRIC:
         {
             nextSym = ir->allocNode<IR::CBSDFCombinerNode>(IR::CBSDFCombinerNode::ET_FRESNEL_BLEND);
-            nextSym->children = core::make_refctd_dynamic_array<IR::INode::children_array_t>(2u);
+            nextSym->children.count = 2u;
 
             const float eta = current->dielectric.intIOR/current->dielectric.extIOR;
 
@@ -152,6 +152,7 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
             auto* node_refl = static_cast<IR::CMicrofacetSpecularBSDFNode*>(refl);
             auto* node_trans = static_cast<IR::CMicrofacetSpecularBSDFNode*>(trans);
 
+            node_refl->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_REFLECT;
             node_refl->ndf = ndfMap[current->dielectric.distribution];
             node_refl->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
             getFloatOrTexture(current->dielectric.alphaU, node_refl->alpha_u);
@@ -160,6 +161,7 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
                 getFloatOrTexture(current->dielectric.alphaV, node_refl->alpha_v);
             else
                 node_refl->alpha_v = node_refl->alpha_u;
+            node_trans->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_TRANSMIT;
             node_trans->ndf = node_refl->ndf;
             node_trans->shadowing = node_refl->shadowing;
             node_trans->alpha_u = node_refl->alpha_u;
@@ -172,7 +174,7 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
             nextSym = ir->allocNode<IR::CGeomModifierNode>(IR::CGeomModifierNode::ET_HEIGHT);
             auto* node = static_cast<IR::CGeomModifierNode*>(nextSym);
             node->source = IR::CGeomModifierNode::ESRC_TEXTURE;
-            //TODO load texture
+            std::tie(node->texture.image, node->texture.sampler, node->texture.scale) = getTexture(current->bumpmap.texture);
             bsdfQ.push(current->bumpmap.bsdf[0]);
         }
         break;
@@ -180,7 +182,7 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
         case CElementBSDF::ROUGHCOATING:
         {
             nextSym = ir->allocNode<IR::CCoatingBSDFNode>();
-            nextSym->children = core::make_refctd_dynamic_array<IR::INode::children_array_t>(1u);
+            nextSym->children.count = 1u;
 
             const float eta = current->dielectric.intIOR/current->dielectric.extIOR;
 
@@ -201,7 +203,7 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
         case CElementBSDF::BLEND_BSDF:
         {
             nextSym = ir->allocNode<IR::CBSDFBlendNode>();
-            nextSym->children = core::make_refctd_dynamic_array<IR::INode::children_array_t>(2u);
+            nextSym->children.count = 2u;
 
             auto* node = static_cast<IR::CBSDFBlendNode*>(nextSym);
             getFloatOrTexture(current->blendbsdf.weight, node->weight);
@@ -215,10 +217,9 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
             nextSym = ir->allocNode<IR::CBSDFMixNode>();
             auto* node = static_cast<IR::CBSDFMixNode*>(nextSym);
             const size_t cnt = current->mixturebsdf.childCount;
-            nextSym->children = core::make_refctd_dynamic_array<IR::INode::children_array_t>(current->mixturebsdf.childCount);
-            node->weights = core::make_refctd_dynamic_array<IR::CBSDFMixNode::weights_t>(current->mixturebsdf.childCount);
+            nextSym->children.count = cnt;
             for (int32_t i = cnt-1u; i >= 0; --i)
-                (*node->weights)[i] = current->mixturebsdf.weights[i];
+                node->weights[i] = current->mixturebsdf.weights[i];
 
             for (int32_t i = cnt-1u; i >= 0; --i)
                 bsdfQ.push(current->mixturebsdf.bsdf[i]);
@@ -235,7 +236,7 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
             nodeQ.pop();
         }
 
-        parent->children[childrenCountdown] = nextSym;//TODO consider std::move
+        parent->children[childrenCountdown] = nextSym;
         if (newParent)
         {
             parent = newParent;

@@ -285,17 +285,11 @@ namespace bsdf
 }
 
 class CElementBSDF;
-
-struct NastyTemporaryBitfield
-{
-#define MITS_TWO_SIDED		0x80000000u
-#define MITS_USE_TEXTURE	0x40000000u
-#define MITS_BUMPMAP		0x20000000u
-	uint32_t _bitfield;
-};
+class CMitsubaMaterialCompilerFrontend;
 
 class CMitsubaLoader : public asset::IAssetLoader
 {
+		friend class CMitsubaMaterialCompilerFrontend;
 	public:
 		//! Constructor
 		CMitsubaLoader(asset::IAssetManager* _manager);
