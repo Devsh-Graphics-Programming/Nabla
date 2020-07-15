@@ -191,215 +191,17 @@ vec3 fetchData(in uvec3 texCoord)
 }
 void main()
 {
+	globalPixelData = fetchData(gl_GlobalInvocationID);
 	bool colorLayer = gl_GlobalInvocationID.z==EII_COLOR;
 	if (colorLayer)
 	{
-		ivec3 tc = ivec3(gl_GlobalInvocationID);
-		const vec3 lumaCoeffs = transpose(_IRR_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_)[1];
-		for (int i=-pc.data.medianFilterRadius; i<=pc.data.medianFilterRadius; i++)
-		for (int j=-pc.data.medianFilterRadius; j<=pc.data.medianFilterRadius; j++)
-		{
-			vec4 data;
-			data.rgb = fetchData(clampCoords(ivec3(j,i,0)+tc));
-			data.a = dot(data.rgb,lumaCoeffs);
-			medianWindow[MAX_MEDIAN_FILTER_DIAMETER*(i+MAX_MEDIAN_FILTER_RADIUS)+(j+MAX_MEDIAN_FILTER_RADIUS)] = data;
-		}
-		#define SWAP(X,Y) ltswap(medianWindow[X],medianWindow[Y])
-		if (pc.data.medianFilterRadius==1)
-		{ // optimized sorting network for median finding
-			SWAP(6, 7);
-			SWAP(11, 12);
-			SWAP(16, 17);
-			SWAP(7, 8);
-			SWAP(12, 13);
-			SWAP(17, 18);
-			SWAP(6, 7);
-			SWAP(11, 12);
-			SWAP(16, 17);
-			SWAP(6, 11);
-			SWAP(11, 16);
-			SWAP(7, 12);
-			SWAP(12, 17);
-			SWAP(7, 12);
-			SWAP(8, 13);
-			SWAP(13, 18);
-			SWAP(8, 13);
-			SWAP(8, 16);
-			SWAP(12, 16);
-			SWAP(8, 12);
-		}
-		else if (pc.data.medianFilterRadius==2)
-		{
-			SWAP(1, 2);
-			SWAP(0, 2);
-			SWAP(0, 1);
-			SWAP(4, 5);
-			SWAP(3, 5);
-			SWAP(3, 4);
-			SWAP(0, 3);
-			SWAP(1, 4);
-			SWAP(2, 5);
-			SWAP(2, 4);
-			SWAP(1, 3);
-			SWAP(2, 3);
-			SWAP(7, 8);
-			SWAP(6, 8);
-			SWAP(6, 7);
-			SWAP(10, 11);
-			SWAP(9, 11);
-			SWAP(9, 10);
-			SWAP(6, 9);
-			SWAP(7, 10);
-			SWAP(8, 11);
-			SWAP(8, 10);
-			SWAP(7, 9);
-			SWAP(8, 9);
-			SWAP(0, 6);
-			SWAP(1, 7);
-			SWAP(2, 8);
-			SWAP(2, 7);
-			SWAP(1, 6);
-			SWAP(2, 6);
-			SWAP(3, 9);
-			SWAP(4, 10);
-			SWAP(5, 11);
-			SWAP(5, 10);
-			SWAP(4, 9);
-			SWAP(5, 9);
-			SWAP(3, 6);
-			SWAP(4, 7);
-			SWAP(5, 8);
-			SWAP(5, 7);
-			SWAP(4, 6);
-			SWAP(5, 6);
-			SWAP(13, 14);
-			SWAP(12, 14);
-			SWAP(12, 13);
-			SWAP(16, 17);
-			SWAP(15, 17);
-			SWAP(15, 16);
-			SWAP(12, 15);
-			SWAP(13, 16);
-			SWAP(14, 17);
-			SWAP(14, 16);
-			SWAP(13, 15);
-			SWAP(14, 15);
-			SWAP(19, 20);
-			SWAP(18, 20);
-			SWAP(18, 19);
-			SWAP(21, 22);
-			SWAP(23, 24);
-			SWAP(21, 23);
-			SWAP(22, 24);
-			SWAP(22, 23);
-			SWAP(18, 22);
-			SWAP(18, 21);
-			SWAP(19, 23);
-			SWAP(20, 24);
-			SWAP(20, 23);
-			SWAP(19, 21);
-			SWAP(20, 22);
-			SWAP(20, 21);
-			SWAP(12, 19);
-			SWAP(12, 18);
-			SWAP(13, 20);
-			SWAP(14, 21);
-			SWAP(14, 20);
-			SWAP(13, 18);
-			SWAP(14, 19);
-			SWAP(14, 18);
-			SWAP(15, 22);
-			SWAP(16, 23);
-			SWAP(17, 24);
-			SWAP(17, 23);
-			SWAP(16, 22);
-			SWAP(17, 22);
-			SWAP(15, 19);
-			SWAP(15, 18);
-			SWAP(16, 20);
-			SWAP(17, 21);
-			SWAP(17, 20);
-			SWAP(16, 18);
-			SWAP(17, 19);
-			SWAP(17, 18);
-			SWAP(0, 13);
-			SWAP(0, 12);
-			SWAP(1, 14);
-			SWAP(2, 15);
-			SWAP(2, 14);
-			SWAP(1, 12);
-			SWAP(2, 13);
-			SWAP(2, 12);
-			SWAP(3, 16);
-			SWAP(4, 17);
-			SWAP(5, 18);
-			SWAP(5, 17);
-			SWAP(4, 16);
-			SWAP(5, 16);
-			SWAP(3, 13);
-			SWAP(3, 12);
-			SWAP(4, 14);
-			SWAP(5, 15);
-			SWAP(5, 14);
-			SWAP(4, 12);
-			SWAP(5, 13);
-			SWAP(5, 12);
-			SWAP(6, 19);
-			SWAP(7, 20);
-			SWAP(8, 21);
-			SWAP(8, 20);
-			SWAP(7, 19);
-			SWAP(8, 19);
-			SWAP(9, 22);
-			SWAP(10, 23);
-			SWAP(11, 24);
-			SWAP(11, 23);
-			SWAP(10, 22);
-			SWAP(11, 22);
-			SWAP(9, 19);
-			SWAP(10, 20);
-			SWAP(11, 21);
-			SWAP(11, 20);
-			SWAP(10, 19);
-			SWAP(11, 19);
-			SWAP(6, 13);
-			SWAP(6, 12);
-			SWAP(7, 14);
-			SWAP(8, 15);
-			SWAP(8, 14);
-			SWAP(7, 12);
-			SWAP(8, 13);
-			SWAP(8, 12);
-			SWAP(9, 16);
-			SWAP(10, 17);
-			SWAP(11, 18);
-			SWAP(11, 17);
-			SWAP(10, 16);
-			SWAP(11, 16);
-			SWAP(9, 13);
-			SWAP(9, 12);
-			SWAP(10, 14);
-			SWAP(11, 15);
-			SWAP(11, 14);
-			SWAP(10, 12);
-			SWAP(11, 13);
-			SWAP(11, 12);
-		}
-		#undef SWAP
 		irr_glsl_ext_LumaMeter(colorLayer && gl_GlobalInvocationID.x<pc.data.imageWidth);
 		barrier(); // no barrier because we were just reading from shared not writing since the last memory barrier
-		medianWindow[medianIndex].rgb *= exp2(pc.data.denoiserExposureBias);
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = floatBitsToUint(medianWindow[medianIndex].r);
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = floatBitsToUint(medianWindow[medianIndex].g);
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = floatBitsToUint(medianWindow[medianIndex].b);
+		globalPixelData *= exp2(pc.data.denoiserExposureBias);
 	}
-	else
-	{
-		vec3 data = fetchData(gl_GlobalInvocationID);
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = floatBitsToUint(data[0u]);
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = floatBitsToUint(data[1u]);
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = floatBitsToUint(data[2u]);
-	}
+	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = floatBitsToUint(globalPixelData[0u]);
+	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = floatBitsToUint(globalPixelData[1u]);
+	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = floatBitsToUint(globalPixelData[2u]);
 	barrier();
 	memoryBarrierShared();
 	const uint outImagePitch = pc.data.imageWidth*SHARED_CHANNELS;
@@ -555,7 +357,6 @@ void main()
 	const auto& albedoChannelNameBundle = cmdHandler.getAlbedoChannelNameBundle();
 	const auto& normalChannelNameBundle = cmdHandler.getNormalChannelNameBundle();
 	const auto& cameraTransformBundle = cmdHandler.getCameraTransformBundle();
-	const auto& medianFilterRadiusBundle = cmdHandler.getMedianFilterRadiusBundle();
 	const auto& denoiserExposureBiasBundle = cmdHandler.getExposureBiasBundle();
 	const auto& denoiserBlendFactorBundle = cmdHandler.getDenoiserBlendFactorBundle();
 	const auto& bloomFovBundle = cmdHandler.getBloomFovBundle();
@@ -818,7 +619,6 @@ void main()
 			for (uint32_t j=0u; j<denoiserInputCount; j++)
 				shaderConstants.outImageOffset[j] = j*param.width*param.height*forcedOptiXFormatPixelStride/sizeof(uint16_t); // float 16 actually
 			shaderConstants.imageWidth = param.width;
-			shaderConstants.medianFilterRadius = medianFilterRadiusBundle[i].value();
 			assert(intensityBufferOffset%IntensityValuesSize==0u);
 			shaderConstants.intensityBufferDWORDOffset = intensityBufferOffset/IntensityValuesSize;
 			shaderConstants.denoiserExposureBias = denoiserExposureBiasBundle[i].value();
@@ -1014,14 +814,15 @@ void main()
 			{
 				// TODO: Bloom (FoV vs. Constant)
 				{
+					//driver->bindComputePipeline(secondIntensityAndFFT);
 				}
-				// TODO: Tonemap
+				// Tonemap and interleave the output
 				{
+					driver->bindComputePipeline(interleavePipeline.get());
+					driver->dispatch((param.width+kComputeWGSize-1u)/kComputeWGSize,param.height,1u);
+					// issue a full memory barrier (or at least all buffer read/write barrier)
+					COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
 				}
-				driver->bindComputePipeline(interleavePipeline.get());
-				driver->dispatch((param.width+kComputeWGSize-1u)/kComputeWGSize,param.height,1u);
-				// issue a full memory barrier (or at least all buffer read/write barrier)
-				COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
 			}
 			// delete descriptor sets (implicit from destructor)
 		}

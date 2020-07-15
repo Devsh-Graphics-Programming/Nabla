@@ -1,5 +1,3 @@
-#define MAX_MEDIAN_FILTER_RADIUS 2
-
 #ifdef __cplusplus
 	#define int int32_t
 	#define uint uint32_t
@@ -12,8 +10,8 @@ struct CommonPushConstants
 	uint outImageOffset[3];
 	uint imageWidth;
 
-	// for the median filter
-	int medianFilterRadius;
+	// used to be the median filter
+	int unused0;
 	
 	// luma meter and tonemapping var but also for denoiser
 	uint percentileRange[2];

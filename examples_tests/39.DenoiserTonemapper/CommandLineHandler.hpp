@@ -30,7 +30,6 @@ Pass appripiate arguments to launch the example or load them using predefined fi
 Mandatory parameters:
 -COLOR_FILE=colorFilePath
 -CAMERA_TRANSFORM=mitsubaFilePath or val1,val2,val3,...,val9
--MEDIAN_FILTER_RADIUS=value
 -DENOISER_EXPOSURE_BIAS=value
 -DENOISER_BLEND_FACTOR=value
 -BLOOM_FOV=theta
@@ -63,8 +62,6 @@ COLOR_CHANNEL_NAME=albedo
 and it will use the albedo image as color assuming, that there is a valid albedo channel assigned to albedo image - otherwise the default one will be choosen.
 
 CAMERA_TRANSFORM: path to Mitsuba file or direct view matrix values val1,val2,val3,val4,val5,val6,val7,val8,val9
-
-MEDIAN_FILTER_RADIUS: a radius in pixels, valid values are 0 (no filter), 1 and 2. Anything larger than 2 is invalid.
 
 DENOISER_EXPOSURE_BIAS: by telling the OptiX AI denoiser that the image is darker than it actually is you can trick the AI into denoising more aggressively.
 It won't brighten your image or anything, we revert the exposure back after the denoise. If you want to influence the final brightness of the image,
@@ -100,7 +97,6 @@ if this file is not provided then we use a built-in PSF as the kernel for the co
 
 constexpr std::string_view COLOR_FILE = "COLOR_FILE";
 constexpr std::string_view CAMERA_TRANSFORM = "CAMERA_TRANSFORM";
-constexpr std::string_view MEDIAN_FILTER_RADIUS = "MEDIAN_FILTER_RADIUS";
 constexpr std::string_view DENOISER_EXPOSURE_BIAS = "DENOISER_EXPOSURE_BIAS";
 constexpr std::string_view DENOISER_BLEND_FACTOR = "DENOISER_BLEND_FACTOR";
 constexpr std::string_view BLOOM_FOV = "BLOOM_FOV";
@@ -121,7 +117,6 @@ constexpr std::array<std::string_view, MANDATORY_CMD_ARGUMENTS_AMOUNT> REQUIRED_
 {
 	COLOR_FILE,
 	CAMERA_TRANSFORM,
-	MEDIAN_FILTER_RADIUS,
 	DENOISER_EXPOSURE_BIAS,
 	DENOISER_BLEND_FACTOR,
 	BLOOM_FOV,
@@ -137,7 +132,6 @@ enum DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS
 
 	DTEA_COLOR_FILE,
 	DTEA_CAMERA_TRANSFORM,
-	DTEA_MEDIAN_FILTER_RADIUS,
 	DTEA_DENOISER_EXPOSURE_BIAS,
 	DTEA_DENOISER_BLEND_FACTOR,
 	DTEA_BLOOM_FOV,
@@ -220,11 +214,6 @@ class CommandLineHandler
 			return cameraTransformBundle;
 		}
 
-		auto& getMedianFilterRadiusBundle() const
-		{
-			return medianFilterRadiusBundle;
-		}
-
 		auto& getExposureBiasBundle() const
 		{
 			return denoiserExposureBiasBundle;
@@ -265,7 +254,6 @@ class CommandLineHandler
 		{
 			rawVariablesPerFile[DTEA_COLOR_FILE];
 			rawVariablesPerFile[DTEA_CAMERA_TRANSFORM];
-			rawVariablesPerFile[DTEA_MEDIAN_FILTER_RADIUS];
 			rawVariablesPerFile[DTEA_DENOISER_EXPOSURE_BIAS];
 			rawVariablesPerFile[DTEA_DENOISER_BLEND_FACTOR];
 			rawVariablesPerFile[DTEA_BLOOM_FOV];
@@ -288,8 +276,6 @@ class CommandLineHandler
 				return DTEA_COLOR_FILE;
 			else if (variableName == CAMERA_TRANSFORM)
 				return DTEA_CAMERA_TRANSFORM;
-			else if (variableName == MEDIAN_FILTER_RADIUS)
-				return DTEA_MEDIAN_FILTER_RADIUS;
 			else if (variableName == DENOISER_EXPOSURE_BIAS)
 				return DTEA_DENOISER_EXPOSURE_BIAS;
 			else if (variableName == DENOISER_BLEND_FACTOR)
@@ -335,11 +321,6 @@ class CommandLineHandler
 		}
 		
 		irr::core::matrix3x4SIMD getCameraTransform(uint64_t id = 0);
-
-		auto getMedianFilterRadius(uint64_t id = 0)
-		{
-			return std::stof(rawVariables[id][DTEA_MEDIAN_FILTER_RADIUS].value()[0]);
-		}
 
 		auto getDenoiserExposureBias(uint64_t id = 0)
 		{
@@ -445,7 +426,6 @@ class CommandLineHandler
 			albedoChannelNameBundle.reserve(inputFilesAmount);
 			normalChannelNameBundle.reserve(inputFilesAmount);
 			cameraTransformBundle.reserve(inputFilesAmount);
-			medianFilterRadiusBundle.reserve(inputFilesAmount);
 			denoiserExposureBiasBundle.reserve(inputFilesAmount);
 			denoiserBlendFactorBundle.reserve(inputFilesAmount);
 			bloomFovBundle.reserve(inputFilesAmount);
@@ -462,7 +442,6 @@ class CommandLineHandler
 				albedoChannelNameBundle.push_back(getAlbedoChannelName(i));
 				normalChannelNameBundle.push_back(getNormalChannelName(i));
 				cameraTransformBundle.push_back(getCameraTransform(i));
-				medianFilterRadiusBundle.push_back(getMedianFilterRadius(i));
 				denoiserExposureBiasBundle.push_back(getDenoiserExposureBias(i));
 				denoiserBlendFactorBundle.push_back(getDenoiserBlendFactor(i));
 				bloomFovBundle.push_back(getBloomFov(i));
@@ -487,7 +466,6 @@ class CommandLineHandler
 		irr::core::vector<std::optional<std::string>> albedoChannelNameBundle;
 		irr::core::vector<std::optional<std::string>> normalChannelNameBundle;
 		irr::core::vector<std::optional<irr::core::matrix3x4SIMD>> cameraTransformBundle;
-		irr::core::vector<std::optional<float>> medianFilterRadiusBundle;
 		irr::core::vector<std::optional<float>> denoiserExposureBiasBundle;
 		irr::core::vector<std::optional<float>> denoiserBlendFactorBundle;
 		irr::core::vector<std::optional<float>> bloomFovBundle;

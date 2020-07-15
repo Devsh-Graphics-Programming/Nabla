@@ -168,8 +168,6 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 					assignToMap(DTEA_COLOR_FILE);
 				else if (variable == CAMERA_TRANSFORM)
 					assignToMap(DTEA_CAMERA_TRANSFORM);
-				else if (variable == MEDIAN_FILTER_RADIUS)
-					assignToMap(DTEA_MEDIAN_FILTER_RADIUS);
 				else if (variable == DENOISER_EXPOSURE_BIAS)
 					assignToMap(DTEA_DENOISER_EXPOSURE_BIAS);
 				else if (variable == DENOISER_BLEND_FACTOR)
@@ -223,7 +221,7 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 
 bool CommandLineHandler::validateMandatoryParameters(const variablesType& rawVariablesPerFile, const size_t idOfInput)
 {
-	static const irr::core::vector<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS> mandatoryArgumentsOrdinary = { DTEA_COLOR_FILE, DTEA_CAMERA_TRANSFORM, DTEA_MEDIAN_FILTER_RADIUS, DTEA_DENOISER_EXPOSURE_BIAS, DTEA_DENOISER_BLEND_FACTOR, DTEA_BLOOM_FOV, DTEA_OUTPUT };
+	static const irr::core::vector<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS> mandatoryArgumentsOrdinary = { DTEA_COLOR_FILE, DTEA_CAMERA_TRANSFORM, DTEA_DENOISER_EXPOSURE_BIAS, DTEA_DENOISER_BLEND_FACTOR, DTEA_BLOOM_FOV, DTEA_OUTPUT };
 
 	auto log = [&](bool status, const std::string message)
 	{
