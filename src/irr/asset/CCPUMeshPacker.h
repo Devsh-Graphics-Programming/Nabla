@@ -20,41 +20,39 @@ namespace irr
 namespace asset
 {
 
-using namespace meshPackerUtil;
-
 template <typename MDIStructType = DrawElementsIndirectCommand_t>
-class CCPUMeshPacker final : public IMeshPacker<MDIStructType>
+class CCPUMeshPacker final : public IMeshPacker<ICPUMeshBuffer, MDIStructType>
 {
 public:
-	CCPUMeshPacker(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
-		:IMeshPacker<MDIStructType>(preDefinedLayout, allocParams, minTriangleCountPerMDIData, maxTriangleCountPerMDIData)
+	CCPUMeshPacker(const SVertexInputParams& preDefinedLayout, const MeshPackerBase::AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
+		:IMeshPacker<ICPUMeshBuffer, MDIStructType>(preDefinedLayout, allocParams, minTriangleCountPerMDIData, maxTriangleCountPerMDIData)
 	{}
 
 	template <typename Iterator>
-	ReservedAllocationMeshBuffers alloc(const Iterator begin, const Iterator end);
+	MeshPackerBase::ReservedAllocationMeshBuffers alloc(const Iterator begin, const Iterator end);
 
 	//needs to be called before first commit
 	void instantiateDataStorage();
 
 	template <typename Iterator>
-	PackedMeshBufferData commit(const Iterator begin, const Iterator end, ReservedAllocationMeshBuffers& ramb);
+	MeshPackerBase::PackedMeshBufferData commit(const Iterator begin, const Iterator end, MeshPackerBase::ReservedAllocationMeshBuffers& ramb);
 
-	inline PackedMeshBuffer<ICPUBuffer>& getPackedMeshBuffer() { return outputBuffer; };
+	inline MeshPackerBase::PackedMeshBuffer<ICPUBuffer>& getPackedMeshBuffer() { return outputBuffer; };
 
 private:
 	//configures indices and MDI structs (implementation is not ready yet)
 	template<typename IndexType>
-	uint32_t processMeshBuffer(ICPUMeshBuffer* inputMeshBuffer, ReservedAllocationMeshBuffers& ramb);
+	uint32_t processMeshBuffer(ICPUMeshBuffer* inputMeshBuffer, MeshPackerBase::ReservedAllocationMeshBuffers& ramb);
 
 private: 
-	PackedMeshBuffer<ICPUBuffer> outputBuffer;
+	MeshPackerBase::PackedMeshBuffer<ICPUBuffer> outputBuffer;
 
 };
 
 template <typename MDIStructType>
 //`Iterator` may be only an Iterator or pointer to pointer
 template <typename Iterator>
-ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::alloc(const Iterator begin, const Iterator end)
+MeshPackerBase::ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::alloc(const Iterator begin, const Iterator end)
 {
 	/*
 	Requirements for input mesh buffers:
@@ -128,7 +126,7 @@ ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::alloc(const Iterato
 		_IRR_DEBUG_BREAK_IF(true);
 		return invalidReservedAllocationMeshBuffers;
 	}
-		
+	
 	
 	if (m_vtxBuffAlctrResSpc)
 	{
@@ -151,7 +149,7 @@ ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::alloc(const Iterato
 		}
 	}
 
-	ReservedAllocationMeshBuffers result{
+	MeshPackerBase::ReservedAllocationMeshBuffers result{
 		MDIAllocAddr,
 		possibleMDIStructsNeededCnt,
 		perInsVtxAllocAddr,
@@ -239,7 +237,7 @@ void CCPUMeshPacker<MDIStructType>::instantiateDataStorage()
 
 template<typename MDIStructType>
 template<typename IndexType>
-uint32_t CCPUMeshPacker<MDIStructType>::processMeshBuffer(ICPUMeshBuffer* inputMeshBuffer, ReservedAllocationMeshBuffers& ramb)
+uint32_t CCPUMeshPacker<MDIStructType>::processMeshBuffer(ICPUMeshBuffer* inputMeshBuffer, MeshPackerBase::ReservedAllocationMeshBuffers& ramb)
 {
 	MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(outputBuffer.MDIDataBuffer->getPointer()) + ramb.mdiAllocationOffset;
 	uint16_t* indexBuffPtr = static_cast<uint16_t*>(outputBuffer.indexBuffer.buffer->getPointer()) + ramb.indexAllocationOffset;
@@ -299,7 +297,7 @@ uint32_t CCPUMeshPacker<MDIStructType>::processMeshBuffer(ICPUMeshBuffer* inputM
 
 template <typename MDIStructType>
 template <typename Iterator>
-PackedMeshBufferData CCPUMeshPacker<MDIStructType>::commit(const Iterator begin, const Iterator end, ReservedAllocationMeshBuffers& ramb)
+MeshPackerBase::PackedMeshBufferData CCPUMeshPacker<MDIStructType>::commit(const Iterator begin, const Iterator end, MeshPackerBase::ReservedAllocationMeshBuffers& ramb)
 {
 	if(!outputBuffer.isValid()) return{};
 

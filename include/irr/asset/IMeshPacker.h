@@ -6,18 +6,19 @@ namespace irr
 namespace asset
 {
 
-namespace meshPackerUtil
+class MeshPackerBase
 {
+public:
     struct AllocationParams
     {
-        size_t indexBuffSupportedCnt                         = 1073741824ull;      /*  2GB*/
-        size_t vertexBuffSupportedCnt                        = 107374182ull;       /*  2GB assuming vertex size is 20B*/
-        size_t perInstanceVertexBuffSupportedCnt             = 3355443ull;         /* 32MB assuming per instance vertex attrib size is 10B*/
-        size_t MDIDataBuffSupportedCnt                       = 107374183ull;       /*  2GB assuming MDIStructType is DrawElementsIndirectCommand_t*/
-        size_t vertexBufferMinAllocSize                      = 32ull;
-        size_t indexBufferMinAllocSize                       = 256ull;
-        size_t perInstanceVertexBufferMinAllocSize           = 32ull;
-        size_t MDIDataBuffMinAllocSize                       = 32ull;
+        size_t indexBuffSupportedCnt                   = 1073741824ull;      /*   2GB*/
+        size_t vertexBuffSupportedCnt                  = 107374182ull;       /*   2GB assuming vertex size is 20B*/
+        size_t perInstanceVertexBuffSupportedCnt       = 3355443ull;         /*  32MB assuming per instance vertex attrib size is 10B*/
+        size_t MDIDataBuffSupportedCnt                 = 16777216ull;        /* 320MB assuming MDIStructType is DrawElementsIndirectCommand_t*/
+        size_t vertexBufferMinAllocSize                = 32ull;
+        size_t indexBufferMinAllocSize                 = 256ull;
+        size_t perInstanceVertexBufferMinAllocSize     = 32ull;
+        size_t MDIDataBuffMinAllocSize                 = 32ull;
     };
 
     template <typename BufferType>
@@ -65,24 +66,27 @@ namespace meshPackerUtil
         }
     };
 
-    
-}
+protected:
+    MeshPackerBase(const AllocationParams& allocParams)
+        :m_allocParams(allocParams) {};
 
-using namespace meshPackerUtil;
+protected:
+    const AllocationParams m_allocParams;
+
+};
 
 //TODO: allow mesh buffers with only per instance attributes
 
-template <typename MDIStructType>
-class IMeshPacker
+template <typename MeshBufferType, typename MDIStructType>
+class IMeshPacker : public MeshPackerBase
 {
     static_assert(std::is_base_of<DrawElementsIndirectCommand_t, MDIStructType>::value);
 
 public:
-
     IMeshPacker(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
-        :m_maxTriangleCountPerMDIData(maxTriangleCountPerMDIData),
+        :MeshPackerBase(allocParams),
+         m_maxTriangleCountPerMDIData(maxTriangleCountPerMDIData),
          m_minTriangleCountPerMDIData(minTriangleCountPerMDIData),
-         m_allocParams(allocParams),
          m_MDIDataAlctrResSpc(nullptr), m_idxBuffAlctrResSpc(nullptr),
          m_vtxBuffAlctrResSpc(nullptr), m_perInsVtxBuffAlctrResSpc(nullptr)
     {
@@ -174,8 +178,6 @@ protected:
 
     uint32_t m_vtxSize;
     uint32_t m_perInstVtxSize;
-
-    const AllocationParams m_allocParams;
 
     _IRR_STATIC_INLINE_CONSTEXPR uint32_t INVALID_ADDRESS = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
     _IRR_STATIC_INLINE_CONSTEXPR ReservedAllocationMeshBuffers invalidReservedAllocationMeshBuffers{ INVALID_ADDRESS, 0, 0, 0, 0, 0, 0, 0 };
