@@ -14,7 +14,7 @@ public:
         size_t indexBuffSupportedCnt                   = 1073741824ull;      /*   2GB*/
         size_t vertexBuffSupportedCnt                  = 107374182ull;       /*   2GB assuming vertex size is 20B*/
         size_t perInstanceVertexBuffSupportedCnt       = 3355443ull;         /*  32MB assuming per instance vertex attrib size is 10B*/
-        size_t MDIDataBuffSupportedCnt                 = 16777216ull;        /* 320MB assuming MDIStructType is DrawElementsIndirectCommand_t*/
+        size_t MDIDataBuffSupportedCnt                 = 16777216ull;        /*  16MB assuming MDIStructType is DrawElementsIndirectCommand_t*/
         size_t vertexBufferMinAllocSize                = 32ull;
         size_t indexBufferMinAllocSize                 = 256ull;
         size_t perInstanceVertexBufferMinAllocSize     = 32ull;
