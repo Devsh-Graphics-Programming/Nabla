@@ -5,6 +5,16 @@
 #include <irr/asset/IMeshPacker.h>
 #include <irr/core/math/intutil.h>
 
+//AFTER SAFE SHRINK FIX TODO LIST:
+//1. new size for buffers (obviously)
+//2. fix shit, so Iterator may be an iterator to core::smart_refct_ptr too
+//3. handle case where (maxIdx - minIdx) > 0xFFFF
+//4. fix handling of per instance attributes 
+//5. make it work for multiple `alloc` calls
+//6. provide `free` method
+//7. assertions on buffer overflow
+//8. extendend tests
+
 namespace irr 
 { 
 namespace asset
@@ -13,37 +23,32 @@ namespace asset
 using namespace meshPackerUtil;
 
 template <typename MDIStructType = DrawElementsIndirectCommand_t>
-class CCPUMeshPacker final : public IMeshPacker<ICPUMeshBuffer, MDIStructType>
+class CCPUMeshPacker final : public IMeshPacker<MDIStructType>
 {
 public:
 	CCPUMeshPacker(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
-		:IMeshPacker<ICPUMeshBuffer, MDIStructType>(preDefinedLayout, allocParams, minTriangleCountPerMDIData, maxTriangleCountPerMDIData)
-	{
-		m_outMDIData = core::make_smart_refctd_ptr<ICPUBuffer>(allocParams.MDIDataBuffSupportedSizeInBytes);
-		m_outIdxBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(allocParams.indexBuffSupportedSizeInBytes);
-	}
+		:IMeshPacker<MDIStructType>(preDefinedLayout, allocParams, minTriangleCountPerMDIData, maxTriangleCountPerMDIData)
+	{}
 
 	template <typename Iterator>
 	ReservedAllocationMeshBuffers alloc(const Iterator begin, const Iterator end);
 
 	//needs to be called before first commit
-	void createOutputBuffers();
+	void instantiateDataStorage();
 
 	template <typename Iterator>
-	PackedMeshBufferData commit(const Iterator begin, const Iterator end, ReservedAllocationMeshBuffers ramb);
+	PackedMeshBufferData commit(const Iterator begin, const Iterator end, ReservedAllocationMeshBuffers& ramb);
 
 	inline PackedMeshBuffer<ICPUBuffer>& getPackedMeshBuffer() { return outputBuffer; };
 
 private:
-	PackedMeshBuffer<ICPUBuffer> outputBuffer;
-
 	//configures indices and MDI structs (implementation is not ready yet)
 	template<typename IndexType>
-	PackedMeshBufferData processMeshBuffer(ICPUMeshBuffer* inputMeshBuffer, ReservedAllocationMeshBuffers& ramb);
+	uint32_t processMeshBuffer(ICPUMeshBuffer* inputMeshBuffer, ReservedAllocationMeshBuffers& ramb);
 
 private: 
-	core::smart_refctd_ptr<ICPUBuffer> m_outMDIData;
-	core::smart_refctd_ptr<ICPUBuffer> m_outIdxBuffer;
+	PackedMeshBuffer<ICPUBuffer> outputBuffer;
+
 };
 
 template <typename MDIStructType>
@@ -51,14 +56,6 @@ template <typename MDIStructType>
 template <typename Iterator>
 ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::alloc(const Iterator begin, const Iterator end)
 {
-
-	for (auto it = begin; it != end; it++)
-	{
-		if (*it == nullptr)
-			return invalidReservedAllocationMeshBuffers;
-	}
-	
-
 	/*
 	Requirements for input mesh buffers:
 		- attributes bound to the same binding must have identical format
@@ -69,6 +66,8 @@ ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::alloc(const Iterato
 	//TODO: remove this condition
 	for(auto it = begin; it != end; it++)
 	{
+		assert(!(*it == nullptr));
+
 		auto* pipeline = (*it)->getPipeline();
 
 		auto a = (*it)->getIndexBufferBinding()->buffer;
@@ -105,47 +104,58 @@ ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::alloc(const Iterato
 	const size_t vtxCnt = std::accumulate(begin, end, 0ull, [](size_t init, ICPUMeshBuffer* mb) { return init + mb->calcVertexCount(); });
 
 	const uint32_t minIdxCntPerPatch = m_minTriangleCountPerMDIData * 3;
-	const uint32_t possibleMDIStructsNeededCnt = core::roundUp<uint32_t>(idxCnt, minIdxCntPerPatch);
+	
+	uint32_t possibleMDIStructsNeededCnt = 0u;
+	for (auto it = begin; it != end; it++)
+		possibleMDIStructsNeededCnt += ((*it)->getIndexCount() + minIdxCntPerPatch - 1) / minIdxCntPerPatch;
 
 	uint32_t MDIAllocAddr       = INVALID_ADDRESS;
 	uint32_t idxAllocAddr       = INVALID_ADDRESS;
 	uint32_t vtxAllocAddr       = INVALID_ADDRESS;
 	uint32_t perInsVtxAllocAddr = INVALID_ADDRESS;
 
-	//actually it will not work at all if m_MDIDataAlctrResSpc == nullptr or m_idxBuffAlctrResSpc == nullptr.. TODO
-	if (m_MDIDataAlctrResSpc)
+	MDIAllocAddr = m_MDIDataAlctr.alloc_addr(possibleMDIStructsNeededCnt, 1u);
+	if (MDIAllocAddr == INVALID_ADDRESS)
 	{
-		MDIAllocAddr = m_MDIDataAlctr.alloc_addr(possibleMDIStructsNeededCnt, 1u);
-		if (MDIAllocAddr == INVALID_ADDRESS)
-			return invalidReservedAllocationMeshBuffers;
+		_IRR_DEBUG_BREAK_IF(true);
+		return invalidReservedAllocationMeshBuffers;
 	}
+		
 	
-	if (m_idxBuffAlctrResSpc)
+	idxAllocAddr = m_idxBuffAlctr.alloc_addr(idxCnt, 1u);
+	if (idxAllocAddr == INVALID_ADDRESS)
 	{
-		idxAllocAddr = m_idxBuffAlctr.alloc_addr(idxCnt, 1u);
-		if (idxAllocAddr == INVALID_ADDRESS)
-			return invalidReservedAllocationMeshBuffers;
+		_IRR_DEBUG_BREAK_IF(true);
+		return invalidReservedAllocationMeshBuffers;
 	}
+		
 	
 	if (m_vtxBuffAlctrResSpc)
 	{
 		vtxAllocAddr = m_vtxBuffAlctr.alloc_addr(vtxCnt, 1u);
 		if (vtxAllocAddr == INVALID_ADDRESS)
+		{
+			_IRR_DEBUG_BREAK_IF(true);
 			return invalidReservedAllocationMeshBuffers;
+		}
+			
 	}
 	
 	if (m_perInsVtxBuffAlctrResSpc)
 	{
-		perInsVtxAllocAddr = m_perInsVtxBuffAlctr.alloc_addr(vtxCnt, 1u);
+		perInsVtxAllocAddr = m_perInsVtxBuffAlctr.alloc_addr(vtxCnt * m_vtxSize, 1u);
 		if (perInsVtxAllocAddr == INVALID_ADDRESS)
+		{
+			_IRR_DEBUG_BREAK_IF(true);
 			return invalidReservedAllocationMeshBuffers;
+		}
 	}
 
 	ReservedAllocationMeshBuffers result{
 		MDIAllocAddr,
 		possibleMDIStructsNeededCnt,
 		perInsVtxAllocAddr,
-		perInsVtxAllocAddr == INVALID_ADDRESS ? 0u : vtxCnt,
+		perInsVtxAllocAddr == INVALID_ADDRESS ? 0u : vtxCnt, //TODO
 		idxAllocAddr,
 		idxCnt,
 		vtxAllocAddr,
@@ -155,30 +165,87 @@ ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::alloc(const Iterato
 }
 
 template <typename MDIStructType>
-void CCPUMeshPacker<MDIStructType>::createOutputBuffers()
+void CCPUMeshPacker<MDIStructType>::instantiateDataStorage()
 {
-	if (outputBuffer.indexBuffer.buffer != nullptr)
-		return;
-
 	//TODO: redo after safe_shrink fix
-	outputBuffer.MDIDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.MDIDataBuffSupportedSizeInBytes);
-	outputBuffer.indexBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.indexBuffSupportedSizeInBytes);
-	outputBuffer.perVertexVtxBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.vertexBuffSupportedSizeInBytes);
+	outputBuffer.MDIDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.MDIDataBuffSupportedCnt * sizeof(MDIStructType));
+	outputBuffer.indexBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.indexBuffSupportedCnt * sizeof(uint16_t));
+
+	core::smart_refctd_ptr<ICPUBuffer> unifiedVtxBuff = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.vertexBuffSupportedCnt * m_vtxSize);
+	core::smart_refctd_ptr<ICPUBuffer> unifiedInsBuff = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.perInstanceVertexBuffSupportedCnt * m_perInstVtxSize);
+
+	outputBuffer.vertexInputParams = m_outVtxInputParams;
+
+	//divide unified vtx buffers
+	//proportions: sizeOfAttr1 : sizeOfAttr2 : ... : sizeOfAttrN
+	std::array<uint32_t, SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT> attrSizeArray;
+
+	uint32_t perVtxAttrSizeSum = 0u;
+	uint32_t perInsAttrSizeSum = 0u;
+	uint16_t activeAttribCnt = 0u;
+
+	for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
+	{
+		auto attrib = m_outVtxInputParams.attributes[location];
+		auto binding = m_outVtxInputParams.bindings[attrib.binding];
+
+		if (!(attrBit & m_outVtxInputParams.enabledAttribFlags))
+		{
+			attrSizeArray[location] = 0u;
+			continue;
+		}
+		
+		attrSizeArray[location] = asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(attrib.format));
+
+		if (binding.inputRate == EVIR_PER_VERTEX)
+			perVtxAttrSizeSum += attrSizeArray[location];
+		else
+			perInsAttrSizeSum += attrSizeArray[location];
+
+		activeAttribCnt++;
+	}
+	
+	uint32_t perVtxUnitVal = (m_allocParams.vertexBuffSupportedCnt * m_vtxSize + perVtxAttrSizeSum - 1) / perVtxAttrSizeSum; //round up??
+	uint32_t perInsUnitVal = 0u;
 	if(m_perInstVtxSize)
-		outputBuffer.perInstanceVtxBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.perInstanceVertexBuffSupportedSizeInBytes);
-	outputBuffer.perVertexVtxBuffer.offset = 0u;
-	outputBuffer.perInstanceVtxBuffer.offset = 1u;
+		perInsUnitVal = (m_allocParams.perInstanceVertexBuffSupportedCnt * m_vtxSize + perInsAttrSizeSum - 1) / perInsAttrSizeSum; //round up??
+
+	size_t perVtxBuffOffset = 0ull;
+	size_t perInsBuffOffset = 0ull;
+
+	for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
+	{
+		if (m_outVtxInputParams.enabledAttribFlags & attrBit)
+		{
+			auto attrib = m_outVtxInputParams.attributes[location];
+			auto binding = m_outVtxInputParams.bindings[attrib.binding]; 
+
+			if (binding.inputRate == EVIR_PER_VERTEX)
+			{
+				outputBuffer.vertexBufferBindings[location] = { perVtxBuffOffset,  unifiedVtxBuff };
+				perVtxBuffOffset += attrSizeArray[location] * perVtxUnitVal;
+			}
+			else if (binding.inputRate == EVIR_PER_INSTANCE)
+			{
+				//TODO #4
+				outputBuffer.vertexBufferBindings[location] = { perInsBuffOffset,  unifiedVtxBuff };
+				//perVtxBuffOffset += attrSizeArray[location] * m_vtxSize; fix
+			}
+
+		}
+	}
+
 }
 
 template<typename MDIStructType>
 template<typename IndexType>
-PackedMeshBufferData CCPUMeshPacker<MDIStructType>::processMeshBuffer(ICPUMeshBuffer* inputMeshBuffer, ReservedAllocationMeshBuffers& ramb)
+uint32_t CCPUMeshPacker<MDIStructType>::processMeshBuffer(ICPUMeshBuffer* inputMeshBuffer, ReservedAllocationMeshBuffers& ramb)
 {
 	MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(outputBuffer.MDIDataBuffer->getPointer()) + ramb.mdiAllocationOffset;
 	uint16_t* indexBuffPtr = static_cast<uint16_t*>(outputBuffer.indexBuffer.buffer->getPointer()) + ramb.indexAllocationOffset;
 
 	const uint64_t currMeshBufferIdxCnt = inputMeshBuffer->getIndexCount();
-	const size_t MDIStructsNeeded = core::roundUp<size_t>(currMeshBufferIdxCnt, m_maxTriangleCountPerMDIData);
+	const size_t MDIStructsNeeded = (currMeshBufferIdxCnt + m_maxTriangleCountPerMDIData - 1) / m_maxTriangleCountPerMDIData;
 
 	uint32_t firstIdxForCurrMeshBatch = ramb.indexAllocationOffset;
 
@@ -186,39 +253,35 @@ PackedMeshBufferData CCPUMeshPacker<MDIStructType>::processMeshBuffer(ICPUMeshBu
 	IndexType* idxBuffBatchBegin = static_cast<IndexType*>(inputMeshBuffer->getIndexBufferBinding()->buffer->getPointer());
 	IndexType* idxBuffBatchEnd = nullptr;
 
-	/*struct ReservedAllocationMeshBuffers
-	{
-		uint32_t mdiAllocationOffset;
-		uint32_t mdiAllocationReservedSize;
-		uint32_t instanceAllocationOffset;
-		uint32_t instanceAllocationReservedSize;
-		uint32_t indexAllocationOffset;
-		uint32_t indexAllocationReservedSize;
-		uint32_t vertexAllocationOffset;
-		uint32_t vertexAllocationReservedSize;
-	}*/
-
-	//set vertex data
-	//memcpy()
-
 	for (uint64_t i = 0; i < MDIStructsNeeded; i++)
 	{
-		idxBuffBatchEnd = idxBuffBatchBegin + 
-			((i == (MDIStructsNeeded - 1)) ? currMeshBufferIdxCnt % m_maxTriangleCountPerMDIData : m_maxTriangleCountPerMDIData);
+		idxBuffBatchEnd = idxBuffBatchBegin;
+
+		if (i == (MDIStructsNeeded - 1))
+		{
+			if (currMeshBufferIdxCnt % m_maxTriangleCountPerMDIData == 0)
+				idxBuffBatchEnd += m_maxTriangleCountPerMDIData;
+			else
+				idxBuffBatchEnd += currMeshBufferIdxCnt % m_maxTriangleCountPerMDIData;
+		}
+		else
+		{
+			idxBuffBatchEnd += m_maxTriangleCountPerMDIData;
+		}
+
 		const uint32_t minIdxVal = *std::min_element(idxBuffBatchBegin, idxBuffBatchEnd);
 
 		MDIStructType MDIData;
 		MDIData.count = idxBuffBatchEnd - idxBuffBatchBegin;
 		MDIData.instanceCount = inputMeshBuffer->getInstanceCount();
 		MDIData.firstIndex = firstIdxForCurrMeshBatch;
-		MDIData.baseVertex = *std::min_element(idxBuffBatchBegin, idxBuffBatchEnd);
-		MDIData.baseInstance = 0u; /*TODO*/
+		MDIData.baseVertex = ramb.vertexAllocationOffset + minIdxVal; //possible overflow?
+		MDIData.baseInstance = 0u; //TODO #4
 
 		//set mdi structs
 		memcpy(mdiBuffPtr, &MDIData, sizeof(MDIStructType));
 		
 		//set indices
-		//TODO?: if constexpr for EIT
 		for (IndexType* ptr = idxBuffBatchBegin; ptr != idxBuffBatchEnd; ptr++)
 		{
 			*indexBuffPtr = *ptr - minIdxVal;
@@ -229,24 +292,19 @@ PackedMeshBufferData CCPUMeshPacker<MDIStructType>::processMeshBuffer(ICPUMeshBu
 		idxBuffBatchBegin = idxBuffBatchEnd;
 
 		mdiBuffPtr++;
-		indexBuffPtr += MDIData.count;
 	}
 
-	return {};
+	return MDIStructsNeeded;
 }
 
 template <typename MDIStructType>
 template <typename Iterator>
-PackedMeshBufferData CCPUMeshPacker<MDIStructType>::commit(const Iterator begin, const Iterator end, ReservedAllocationMeshBuffers ramb)
+PackedMeshBufferData CCPUMeshPacker<MDIStructType>::commit(const Iterator begin, const Iterator end, ReservedAllocationMeshBuffers& ramb)
 {
-	//AFTER SAFE SHRINK FIX TODO LIST:
-	//multiple ReservedAllocationMeshbuffers on input
-	//new size for buffers (obviously)
-	//fix shit, so Iterator may be an iterator to core::smart_refct_ptr too
-	//handle case where (maxIdx - minIdx) > 0xFFFF 
+	if(!outputBuffer.isValid()) return{};
 
-	uint8_t* perVertexBuffPtr = static_cast<uint8_t*>(outputBuffer.perVertexVtxBuffer.buffer->getPointer()) + (ramb.vertexAllocationOffset * m_vtxSize);
-	uint8_t* perInstVtxBuffPtr = static_cast<uint8_t*>(outputBuffer.perInstanceVtxBuffer.buffer->getPointer()) + (ramb.instanceAllocationOffset * m_perInstVtxSize);
+	//TODO: distinct bindings for all of the attribs!
+	//TODO: case where processed mb doesn't have give attrib
 
 		//deinterleave vertices
 	//I think I've should validate input mesh buffers again..
@@ -254,56 +312,84 @@ PackedMeshBufferData CCPUMeshPacker<MDIStructType>::commit(const Iterator begin,
 	{
 		if (!(attrBit & m_outVtxInputParams.enabledAttribFlags))
 			continue;
+		
+		SBufferBinding<ICPUBuffer>& vtxBuffBind = outputBuffer.vertexBufferBindings[location];
+		uint8_t* vtxBuffPtr = static_cast<uint8_t*>(vtxBuffBind.buffer->getPointer()) + ((ramb.vertexAllocationOffset + vtxBuffBind.offset));
 
 		//TODO: if, for case where currently processed mesh buffer doesn't have given attr (important!)
 		
 		SVertexInputAttribParams attrib = m_outVtxInputParams.attributes[location];
-		SVertexInputBindingParams attribBinding = m_outVtxInputParams.bindings[attrib.binding];
-
 		const size_t attrSize = asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(attrib.format));
-		const size_t stride = (attribBinding.stride) == 0 ? attrSize : attribBinding.stride;
 
 			//this is where vertices are deinterleaved and copied into output vertex buffers
 		for (auto it = begin; it != end; it++)
 		{
+			uint16_t MBEnabledAttribFlags = (*it)->getPipeline()->getVertexInputParams().enabledAttribFlags;
 			const size_t vtxCnt = (*it)->calcVertexCount();
-			uint8_t* attrPtr = static_cast<uint8_t*>((*it)->getVertexBufferBindings()[attrib.binding].buffer->getPointer()) + attrib.relativeOffset;
 
-			switch (attribBinding.inputRate)
+			if (!(attrBit & MBEnabledAttribFlags))
 			{
-			case EVIR_PER_VERTEX:
+				_IRR_DEBUG_BREAK_IF(true);
+				//TODO
+			}
+			else
 			{
-				for (uint64_t i = 0; i < vtxCnt; i++)
+				SVertexInputAttribParams MBAttrib = (*it)->getPipeline()->getVertexInputParams().attributes[location];
+				SVertexInputBindingParams attribBinding = (*it)->getPipeline()->getVertexInputParams().bindings[MBAttrib.binding];
+				uint8_t* attrPtr = (*it)->getAttribPointer(location);
+				const size_t stride = (attribBinding.stride) == 0 ? attrSize : attribBinding.stride;
+
+				switch (attribBinding.inputRate)
 				{
-					//assert((perVertexBuffPtr + attrSize) <= ((ramb.vertexAllocationOffset * m_vtxSize) + ramb.vertexAllocationReservedSize));
-					memcpy(perVertexBuffPtr, attrPtr, attrSize);
-					perVertexBuffPtr += attrSize;
-					attrPtr += stride;
-				}
-				break;
-			}
-			case EVIR_PER_INSTANCE:
-			{
-				for (uint64_t i = 0; i < /*fix*/vtxCnt; i++)
+				case EVIR_PER_VERTEX:
 				{
-					//assert((perInstBuffPtr + attrSize) <= ((ramb.instanceAllocationOffset * m_perInstVtxSize) + ramb.instanceAllocationReservedSize));
-					memcpy(perInstVtxBuffPtr, attrPtr, attrSize);
-					perInstVtxBuffPtr += attrSize;
-					attrPtr += stride;
+					for (uint64_t i = 0; i < vtxCnt; i++)
+					{
+						//assert((perVertexBuffPtr + attrSize) <= ((ramb.vertexAllocationOffset * m_vtxSize) + ramb.vertexAllocationReservedSize));
+						memcpy(vtxBuffPtr, attrPtr, attrSize);
+						vtxBuffPtr += attrSize;
+						attrPtr += stride;
+					}
+					break;
 				}
-				break;
+				case EVIR_PER_INSTANCE:
+				{
+					//not implemented yet
+					_IRR_DEBUG_BREAK_IF(true);
+					assert(false);
+					assert(m_perInstVtxSize);
+
+					for (uint64_t i = 0; i < /*fix*/vtxCnt; i++)
+					{
+						//assert((perInstBuffPtr + attrSize) <= ((ramb.instanceAllocationOffset * m_perInstVtxSize) + ramb.instanceAllocationReservedSize));
+						memcpy(vtxBuffPtr, attrPtr, attrSize);
+						vtxBuffPtr += attrSize;
+						attrPtr += stride;
+					}
+					break;
+				}
+				}
 			}
-			}
+			
 		}
 	}
 
+	PackedMeshBufferData output{ ramb.mdiAllocationOffset, 0u };
+	uint32_t MDIStructsCreatedSum = 0u;
+
 	for (auto it = begin; it != end; it++)
 	{
-		//there indices and MDI data will be set
-		((*it)->getIndexType() == EIT_16BIT) ? processMeshBuffer<uint16_t>(*it, ramb) : processMeshBuffer<uint32_t>(*it, ramb);
+		//there indices and MDI data are being set
+		const uint32_t MDIStructsCreated = ((*it)->getIndexType() == EIT_16BIT) ? processMeshBuffer<uint16_t>(*it, ramb) : processMeshBuffer<uint32_t>(*it, ramb);
+		MDIStructsCreatedSum += MDIStructsCreated;
+		ramb.mdiAllocationOffset += MDIStructsCreated;
+		ramb.indexAllocationOffset += (*it)->getIndexCount();
+		ramb.vertexAllocationOffset += (*it)->calcVertexCount();
 	}
 
-	return {};
+	ramb = invalidReservedAllocationMeshBuffers;
+	output.mdiParameterCount = MDIStructsCreatedSum;
+	return output;
 }
 
 }

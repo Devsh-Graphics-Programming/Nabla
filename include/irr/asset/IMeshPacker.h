@@ -10,14 +10,14 @@ namespace meshPackerUtil
 {
     struct AllocationParams
     {
-        size_t indexBuffSupportedSizeInBytes                 = 2147483648ull;      /*  2GB*/
-        size_t vertexBuffSupportedSizeInBytes                = 2147483648ull;      /*  2GB*/
-        size_t perInstanceVertexBuffSupportedSizeInBytes     = 33554432ull;        /* 32MB*/
-        size_t MDIDataBuffSupportedSizeInBytes               = 2147483648ull;      /*  2GB*/
-        size_t vertexBufferMinAllocSize                      = 512ull;             /* 512B*/
-        size_t indexBufferMinAllocSize                       = 256ull;             /* 256B*/
-        size_t perInstanceVertexBufferMinAllocSize           = 32ull;              /*  32B*/
-        size_t MDIDataBuffMinAllocSize                       = 32ull;              /*  32B*/
+        size_t indexBuffSupportedCnt                         = 1073741824ull;      /*  2GB*/
+        size_t vertexBuffSupportedCnt                        = 107374182ull;       /*  2GB assuming vertex size is 20B*/
+        size_t perInstanceVertexBuffSupportedCnt             = 3355443ull;         /* 32MB assuming per instance vertex attrib size is 10B*/
+        size_t MDIDataBuffSupportedCnt                       = 107374183ull;       /*  2GB assuming MDIStructType is DrawElementsIndirectCommand_t*/
+        size_t vertexBufferMinAllocSize                      = 32ull;
+        size_t indexBufferMinAllocSize                       = 256ull;
+        size_t perInstanceVertexBufferMinAllocSize           = 32ull;
+        size_t MDIDataBuffMinAllocSize                       = 32ull;
     };
 
     template <typename BufferType>
@@ -26,14 +26,18 @@ namespace meshPackerUtil
         //or output should look more like `return_type` from geometry creator?
         //TODO: add parameters of the 
         core::smart_refctd_ptr<BufferType> MDIDataBuffer;
-        SBufferBinding<BufferType> perVertexVtxBuffer;
-        SBufferBinding<BufferType> perInstanceVtxBuffer;
+        SBufferBinding<BufferType> vertexBufferBindings[SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT] = {};
         SBufferBinding<BufferType> indexBuffer;
 
         SVertexInputParams vertexInputParams;
+
+        inline bool isValid()
+        {
+            return this->MDIDataBuffer->getPointer() != nullptr;
+        }
     };
 
-    struct ReservedAllocationMeshBuffers // old PackedMeshBufferData 
+    struct ReservedAllocationMeshBuffers
     {
         uint32_t mdiAllocationOffset;
         uint32_t mdiAllocationReservedSize;
@@ -44,7 +48,6 @@ namespace meshPackerUtil
         uint32_t vertexAllocationOffset;
         uint32_t vertexAllocationReservedSize;
 
-        //or private `bool isValidFlag` ?
         inline bool isValid()
         {
             return this->mdiAllocationOffset != core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
@@ -69,7 +72,7 @@ using namespace meshPackerUtil;
 
 //TODO: allow mesh buffers with only per instance attributes
 
-template <typename MeshBufferType, typename MDIStructType>
+template <typename MDIStructType>
 class IMeshPacker
 {
     static_assert(std::is_base_of<DrawElementsIndirectCommand_t, MDIStructType>::value);
@@ -84,45 +87,47 @@ public:
          m_vtxBuffAlctrResSpc(nullptr), m_perInsVtxBuffAlctrResSpc(nullptr)
     {
         m_outVtxInputParams.enabledAttribFlags  = preDefinedLayout.enabledAttribFlags;
-        m_outVtxInputParams.enabledBindingFlags = preDefinedLayout.enabledBindingFlags;
+        m_outVtxInputParams.enabledBindingFlags = preDefinedLayout.enabledAttribFlags;
 
         memcpy(m_outVtxInputParams.attributes, preDefinedLayout.attributes, sizeof(m_outVtxInputParams.attributes));
 
-
         m_vtxSize = calcVertexSize(preDefinedLayout, E_VERTEX_INPUT_RATE::EVIR_PER_VERTEX);
+        assert(m_vtxSize);
         if (m_vtxSize)
         {
-            m_vtxBuffAlctrResSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.vertexBuffSupportedSizeInBytes / m_vtxSize, allocParams.vertexBufferMinAllocSize /*divided by vtxSize?*/), _IRR_SIMD_ALIGNMENT);
+            m_vtxBuffAlctrResSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.vertexBuffSupportedCnt, allocParams.vertexBufferMinAllocSize), _IRR_SIMD_ALIGNMENT);
             //for now mesh packer will not allow mesh buffers without any per vertex attributes
             _IRR_DEBUG_BREAK_IF(m_vtxBuffAlctrResSpc == nullptr);
             assert(m_vtxBuffAlctrResSpc != nullptr);
-            m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_vtxBuffAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.vertexBuffSupportedSizeInBytes / m_vtxSize, allocParams.vertexBufferMinAllocSize);
+            m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_vtxBuffAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.vertexBuffSupportedCnt, allocParams.vertexBufferMinAllocSize);
         }
         
         m_perInstVtxSize = calcVertexSize(preDefinedLayout, E_VERTEX_INPUT_RATE::EVIR_PER_INSTANCE);
         if (m_perInstVtxSize)
         {
-            m_perInsVtxBuffAlctrResSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedSizeInBytes / m_perInstVtxSize, allocParams.perInstanceVertexBufferMinAllocSize), _IRR_SIMD_ALIGNMENT);
+            m_perInsVtxBuffAlctrResSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedCnt, allocParams.perInstanceVertexBufferMinAllocSize), _IRR_SIMD_ALIGNMENT);
             _IRR_DEBUG_BREAK_IF(m_perInsVtxBuffAlctrResSpc == nullptr);
             assert(m_perInsVtxBuffAlctrResSpc != nullptr);
-            m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_perInsVtxBuffAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedSizeInBytes / m_perInstVtxSize, allocParams.perInstanceVertexBufferMinAllocSize);
+            m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_perInsVtxBuffAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedCnt, allocParams.perInstanceVertexBufferMinAllocSize);
         }
 
-        m_idxBuffAlctrResSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint16_t), allocParams.indexBuffSupportedSizeInBytes / sizeof(uint16_t), allocParams.indexBufferMinAllocSize), _IRR_SIMD_ALIGNMENT);
+        m_idxBuffAlctrResSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocSize), _IRR_SIMD_ALIGNMENT);
         _IRR_DEBUG_BREAK_IF(m_idxBuffAlctrResSpc == nullptr);
         assert(m_idxBuffAlctrResSpc != nullptr);
-        m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_idxBuffAlctrResSpc, 0u, 0u, alignof(uint16_t), allocParams.indexBuffSupportedSizeInBytes / sizeof(uint16_t), allocParams.indexBufferMinAllocSize);
+        m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_idxBuffAlctrResSpc, 0u, 0u, alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocSize);
 
-        m_MDIDataAlctrResSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(MDIStructType), allocParams.MDIDataBuffSupportedSizeInBytes / sizeof(MDIStructType), allocParams.MDIDataBuffMinAllocSize), _IRR_SIMD_ALIGNMENT);
+        m_MDIDataAlctrResSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(MDIStructType), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocSize), _IRR_SIMD_ALIGNMENT);
         _IRR_DEBUG_BREAK_IF(m_MDIDataAlctrResSpc == nullptr);
         assert(m_MDIDataAlctrResSpc != nullptr);
-        m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_MDIDataAlctrResSpc, 0u, 0u, alignof(MDIStructType), allocParams.MDIDataBuffSupportedSizeInBytes / sizeof(MDIStructType), allocParams.MDIDataBuffMinAllocSize);
+        m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_MDIDataAlctrResSpc, 0u, 0u, alignof(MDIStructType), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocSize);
 
         //1 attrib enabled == 1 binding
         for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
         {
             if (m_outVtxInputParams.enabledAttribFlags & attrBit)
             {
+                m_outVtxInputParams.attributes[location].binding = location;
+                m_outVtxInputParams.attributes[location].relativeOffset = 0u;
                 m_outVtxInputParams.bindings[location].stride = getTexelOrBlockBytesize(static_cast<E_FORMAT>(m_outVtxInputParams.attributes[location].format));
                 m_outVtxInputParams.bindings[location].inputRate = preDefinedLayout.bindings[preDefinedLayout.attributes[location].binding].inputRate;
             }
@@ -167,8 +172,8 @@ protected:
     const uint16_t m_minTriangleCountPerMDIData;
     const uint16_t m_maxTriangleCountPerMDIData;
 
-    size_t m_vtxSize;
-    size_t m_perInstVtxSize;
+    uint32_t m_vtxSize;
+    uint32_t m_perInstVtxSize;
 
     const AllocationParams m_allocParams;
 
