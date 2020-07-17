@@ -33,14 +33,12 @@ int main()
 	}
 	
 	//2
-#if 0
 	{
 		void* resSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint32_t), 16u, 1u), _IRR_SIMD_ALIGNMENT);
 		auto alctr = core::GeneralpurposeAddressAllocator<uint32_t>(resSpc, 0u, 0u, alignof(uint32_t), 16u, 1u);
 		alctr.safe_shrink_size(8u);
 		_IRR_ALIGNED_FREE(resSpc);
 	}
-#endif
 
 	//3
 	{
