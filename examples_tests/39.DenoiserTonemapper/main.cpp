@@ -158,11 +158,13 @@ int main(int argc, char* argv[])
 	constexpr float upperPercentile = 0.55f;
 	constexpr auto TMO = ToneMapperClass::EO_ACES;
 	auto histogramBuffer = driver->createDeviceLocalGPUBufferOnDedMem(HistogramBufferSize);
+	// clear the histogram to 0s
+	driver->fillBuffer(histogramBuffer.get(),0u,HistogramBufferSize,0u);
 
 	constexpr auto SharedDescriptorSetDescCount = 4u;
 	core::smart_refctd_ptr<IGPUDescriptorSetLayout> sharedDescriptorSetLayout;
 	core::smart_refctd_ptr<IGPUPipelineLayout> sharedPipelineLayout;
-	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,intensityPipeline,interleavePipeline;
+	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,intensityPipeline,secondLumaMeterAndDFFTXPipeline,interleavePipeline;
 	{
 		auto deinterleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
@@ -229,12 +231,17 @@ layout(binding = 3, std430) restrict writeonly buffer IntensityBuffer
 {
 	float intensity[];
 };
+
+int irr_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()
+{
+	return pc.data.beforeDenoise!=0u ? 0:1;
+}
 irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t irr_glsl_ext_ToneMapper_getLumaMeterOutput()
 {
 	irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t retval;
-	retval = lumaParams[0].packedHistogram[gl_LocalInvocationIndex];
+	retval = lumaParams[irr_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()].packedHistogram[gl_LocalInvocationIndex];
 	for (int i=1; i<_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION; i++)
-		retval += lumaParams[0].packedHistogram[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT];
+		retval += lumaParams[irr_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()].packedHistogram[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT];
 	return retval;
 }
 void main()
@@ -245,7 +252,30 @@ void main()
 	float measuredLumaLog2 = irr_glsl_ext_LumaMeter_getMeasuredLumaLog2(irr_glsl_ext_ToneMapper_getLumaMeterOutput(),lumaPassInfo);
 	// write optix brightness
 	if (all(equal(uvec3(0,0,0),gl_GlobalInvocationID)))
-		intensity[pc.data.intensityBufferDWORDOffset] = irr_glsl_ext_LumaMeter_getOptiXIntensity(measuredLumaLog2+pc.data.denoiserExposureBias);
+	{
+		measuredLumaLog2 += pc.data.beforeDenoise!=0u ? pc.data.denoiserExposureBias:0.0;
+		intensity[pc.data.intensityBufferDWORDOffset] = irr_glsl_ext_LumaMeter_getOptiXIntensity(measuredLumaLog2);
+	}
+}
+		)==="));
+		auto secondLumaMeterAndDFFTXShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+#version 450 core
+#extension GL_EXT_shader_16bit_storage : require
+#define _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
+#include "../ShaderCommon.glsl"
+layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
+{
+	float16_t inBuffer[];
+};
+void main()
+{
+	uint dataOffset = pc.data.outImageOffset[EII_COLOR]+(gl_GlobalInvocationID.y*pc.data.imageWidth+gl_GlobalInvocationID.x)*SHARED_CHANNELS;
+
+	// TODO: Optimize this fetch
+	globalPixelData = vec3(inBuffer[dataOffset+0u],inBuffer[dataOffset+1u],inBuffer[dataOffset+2u]);
+
+	irr_glsl_ext_LumaMeter(gl_GlobalInvocationID.x<pc.data.imageWidth);
+	barrier();
 }
 		)==="));
 		auto interleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
@@ -332,6 +362,7 @@ void main()
 												};
 		auto deinterleaveSpecializedShader = driver->createGPUSpecializedShader(deinterleaveShader.get(),specInfo);
 		auto intensitySpecializedShader = driver->createGPUSpecializedShader(intensityShader.get(),specInfo);
+		auto secondLumaMeterAndDFFTXSpecializedShader = driver->createGPUSpecializedShader(secondLumaMeterAndDFFTXShader.get(),specInfo);
 		auto interleaveSpecializedShader = driver->createGPUSpecializedShader(interleaveShader.get(),specInfo);
 		
 		IGPUDescriptorSetLayout::SBinding binding[SharedDescriptorSetDescCount] = {
@@ -346,6 +377,7 @@ void main()
 
 		deinterleavePipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(deinterleaveSpecializedShader));
 		intensityPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(intensitySpecializedShader));
+		secondLumaMeterAndDFFTXPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(secondLumaMeterAndDFFTXSpecializedShader));
 		interleavePipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(interleaveSpecializedShader));
 	}
 
@@ -620,6 +652,8 @@ void main()
 				shaderConstants.outImageOffset[j] = j*param.width*param.height*forcedOptiXFormatPixelStride/sizeof(uint16_t); // float 16 actually
 			shaderConstants.imageWidth = param.width;
 			assert(intensityBufferOffset%IntensityValuesSize==0u);
+			shaderConstants.beforeDenoise = 1u;
+
 			shaderConstants.intensityBufferDWORDOffset = intensityBufferOffset/IntensityValuesSize;
 			shaderConstants.denoiserExposureBias = denoiserExposureBiasBundle[i].value();
 
@@ -706,6 +740,7 @@ void main()
 		}
 
 		// process
+		uint32_t workgroupCounts[2] = {(param.width+kComputeWGSize-1u)/kComputeWGSize,param.height};
 		{
 			// bind shader resources
 			{
@@ -732,12 +767,10 @@ void main()
 			}
 			// compute shader pre-preprocess (transform normals and compute luminosity)
 			{
-				// clear the histogram to 0s
-				driver->fillBuffer(histogramBuffer.get(),0u,HistogramBufferSize,0u);
 				// bind deinterleave pipeline
 				driver->bindComputePipeline(deinterleavePipeline.get());
 				// dispatch
-				driver->dispatch((param.width+kComputeWGSize-1u)/kComputeWGSize,param.height,denoiserInputCount);
+				driver->dispatch(workgroupCounts[0],workgroupCounts[1],denoiserInputCount);
 				COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 				// bind intensity pipeline
 				driver->bindComputePipeline(intensityPipeline.get());
@@ -812,14 +845,34 @@ void main()
 
 			// compute post-processing
 			{
-				// TODO: Bloom (FoV vs. Constant)
+				// let the shaders know we're in the second phase now
+				shaderConstants.beforeDenoise = 0u;
+				driver->pushConstants(sharedPipelineLayout.get(), video::IGPUSpecializedShader::ESS_COMPUTE, offsetof(CommonPushConstants,beforeDenoise), sizeof(uint32_t), &shaderConstants.beforeDenoise);
+				// Bloom (FoV vs. Constant)
 				{
-					//driver->bindComputePipeline(secondIntensityAndFFT);
+					driver->bindComputePipeline(secondLumaMeterAndDFFTXPipeline.get());
+					// dispatch
+					driver->dispatch(workgroupCounts[0],workgroupCounts[1],1u);
+					COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+					// TODO: do Y-axis pass of the DFFT (merge the intensity pipeline into it)
+
+					// TODO: compute DFFT of the flare image (2 passes, maybe merge intensity pipeline into the Y-pass and hoist it outside of here to just after the deinterleave)
+
+					// TODO: multiply the spectra together 
+
+					// TODO: perform inverse DFFT and interleave the results
+
+					// bind intensity pipeline
+					driver->bindComputePipeline(intensityPipeline.get());
+					// dispatch
+					driver->dispatch(1u,1u,1u);
+					COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 				}
 				// Tonemap and interleave the output
 				{
 					driver->bindComputePipeline(interleavePipeline.get());
-					driver->dispatch((param.width+kComputeWGSize-1u)/kComputeWGSize,param.height,1u);
+					driver->dispatch(workgroupCounts[0],workgroupCounts[1],1u);
 					// issue a full memory barrier (or at least all buffer read/write barrier)
 					COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
 				}

@@ -39,7 +39,7 @@ int main(int argc, char * argv[])
 	auto am = device->getAssetManager();
 
 	IAssetLoader::SAssetLoadParams lp;
-	constexpr std::string_view defaultImagePath = "../../media/OpenEXR/daily_pt_16.exr";
+	constexpr std::string_view defaultImagePath = "../../media/noises/spp_benchmark_4k_512.exr";
 	const auto filePath = std::string(isItDefaultImage ? defaultImagePath.data() : argv[1]);
 	auto image_bundle = am->getAsset(filePath, lp);
 	assert(!image_bundle.isEmpty());

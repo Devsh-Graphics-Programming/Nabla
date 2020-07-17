@@ -10,8 +10,8 @@ struct CommonPushConstants
 	uint outImageOffset[3];
 	uint imageWidth;
 
-	// used to be the median filter
-	int unused0;
+	// 1 if before denoise
+	uint beforeDenoise;
 	
 	// luma meter and tonemapping var but also for denoiser
 	uint percentileRange[2];
