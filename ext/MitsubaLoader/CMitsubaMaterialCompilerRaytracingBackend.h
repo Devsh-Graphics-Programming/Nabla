@@ -57,8 +57,8 @@ namespace instr_stream
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_WIDTH_ALPHA_V_TEX = 1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_ALPHA_V_TEX = INSTR_OPCODE_WIDTH + 3u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_SPEC_TRANS_TEX = 0x1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_WIDTH_SPEC_TRANS_TEX = 1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_SPEC_TRANS_TEX = INSTR_OPCODE_WIDTH + 0u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_WIDTH_TRANS_TEX = 1u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_TRANS_TEX = INSTR_OPCODE_WIDTH + 0u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_NDF = 0x3u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_WIDTH_NDF = 2u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_NDF = INSTR_OPCODE_WIDTH + 1u;
@@ -87,9 +87,9 @@ namespace instr_stream
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_WIDTH_OPACITY_TEX = 1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_OPACITY_TEX = INSTR_OPCODE_WIDTH + 8u;
 
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_MASK = 0x7ffffu;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_WIDTH = 19u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BSDF_BUF_OFFSET_SHIFT = INSTR_OPCODE_WIDTH + INSTR_BITFIELDS_WIDTH;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_BSDF_BUF_OFFSET_MASK = 0x7ffffu;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_BSDF_BUF_OFFSET_WIDTH = 19u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_BSDF_BUF_OFFSET_SHIFT = INSTR_OPCODE_WIDTH + INSTR_BITFIELDS_WIDTH;
 
 	enum E_NDF
 	{
@@ -118,6 +118,12 @@ namespace instr_stream
 	struct STextureData {
 		VTID vtid = VTID::invalid();
 		uint32_t scale = 0u;//float
+
+		bool operator==(const STextureData& rhs) const { return memcmp(this,&rhs,sizeof(rhs))==0; }
+		struct hash
+		{
+			std::size_t operator()(const STextureData& t) const { return std::hash<uint64_t>{}(reinterpret_cast<const uint64_t&>(t.vtid)) ^ std::hash<uint32_t>{}(t.scale); }
+		};
 	} PACK_STRUCT;
 
 	struct STextureOrConstant
@@ -141,41 +147,42 @@ namespace instr_stream
 #include "irr/irrpack.h"
 	struct alignas(16) SAllDiffuse
 	{
-		STextureOrConstant opacity;
 		STextureOrConstant alpha;
 		STextureOrConstant reflectance;
+		STextureOrConstant opacity;
 	} PACK_STRUCT;
 	struct alignas(16) SDiffuseTransmitter
 	{
-		STextureOrConstant opacity;
 		STextureOrConstant transmittance;
+		STextureOrConstant opacity;
 	} PACK_STRUCT;
 	struct alignas(16) SAllDielectric
 	{
-		STextureOrConstant opacity;
 		STextureOrConstant alpha_u;
 		STextureOrConstant alpha_v;
+		STextureOrConstant opacity;
 		float eta;
 	} PACK_STRUCT;
 	struct alignas(16) SAllConductor
 	{
-		STextureOrConstant opacity;
 		STextureOrConstant alpha_u;
 		STextureOrConstant alpha_v;
+		STextureOrConstant opacity;
+		//3d complex IoR, rgb19e7 format, [0]=real, [1]=imaginary
 		uint64_t eta[2];
 	} PACK_STRUCT;
 	struct alignas(16) SAllPlastic
 	{
-		STextureOrConstant opacity;
 		STextureOrConstant alpha;
 		STextureOrConstant reflectance;
+		STextureOrConstant opacity;
 		float eta;
 	} PACK_STRUCT;
 	struct alignas(16) SAllCoating
 	{
-		STextureOrConstant opacity;
 		STextureOrConstant alpha;
 		STextureOrConstant sigmaA;
+		STextureOrConstant opacity;
 		//thickness and eta encoded as 2x float16, thickness on bits 0:15, eta on bits 16:31
 		uint32_t thickness_eta;
 	} PACK_STRUCT;
@@ -192,6 +199,8 @@ namespace instr_stream
 
 	union SBSDFUnion
 	{
+		_IRR_STATIC_INLINE_CONSTEXPR size_t MAX_TEXTURES = 3ull;
+
 		SBSDFUnion() : bumpmap{} {}
 
 		SAllDiffuse diffuse;
@@ -202,6 +211,7 @@ namespace instr_stream
 		SAllCoating coating;
 		SBumpMap bumpmap;
 		SBlend blend;
+		STextureOrConstant param[MAX_TEXTURES];
 	};
 
 	class CInterpreter
@@ -385,15 +395,24 @@ namespace instr_stream
 		core::unordered_map<const asset::material_compiler::IR::INode*, size_t> bsdfDataIndexMap;
 		core::vector<instr_stream::SBSDFUnion> bsdfData;
 
+		using VTallocKey = std::pair<const asset::ICPUImageView*, const asset::ICPUSampler*>;
+		struct VTallocKeyHash
+		{
+			std::size_t operator() (const VTallocKey& k) const
+			{
+				return std::hash<VTallocKey::first_type>{}(k.first) ^ std::hash<VTallocKey::second_type>{}(k.second);
+			}
+		};
+		core::unordered_map<VTallocKey, VTID, VTallocKeyHash> VTallocMap;
+
 		core::smart_refctd_ptr<asset::ICPUVirtualTexture> vt;
 	};
+
+	using traversal_t = core::vector<instr_t>;
 
 	template <typename stack_el_t>
 	class ITraveralGenerator
 	{
-	public:
-		using traversal_t = core::vector<instr_t>;
-
 	protected:
 		SContext* m_ctx;
 		asset::material_compiler::IR* m_ir;
@@ -489,6 +508,8 @@ namespace instr_stream
 					else
 						_dst.conductor.alpha_v.setConst(node->alpha_v.value.constant);
 				}
+				_dst.conductor.eta[0] = core::rgb32f_to_rgb19e7(node->eta.pointer);
+				_dst.conductor.eta[1] = core::rgb32f_to_rgb19e7(node->etaK.pointer);
 			}
 			break;
 			case OP_PLASTIC:
@@ -512,6 +533,8 @@ namespace instr_stream
 					_dst.plastic.alpha.setTexture(packTexture(diffuse->alpha_u.value.texture), diffuse->alpha_u.value.texture.scale);
 				else
 					_dst.plastic.alpha.setConst(diffuse->alpha_u.value.constant);
+
+				_dst.plastic.eta = diffuse->eta.x;
 			}
 			break;
 			case OP_COATING:
@@ -526,6 +549,11 @@ namespace instr_stream
 					_dst.coating.sigmaA.setTexture(packTexture(coat->alpha_u.value.texture), coat->sigmaA.value.texture.scale);
 				else
 					_dst.coating.sigmaA.setConst(coat->sigmaA.value.constant.pointer);
+
+				uint32_t thickness_eta;
+				thickness_eta = core::Float16Compressor::compress(coat->thickness);
+				thickness_eta |= static_cast<uint32_t>(core::Float16Compressor::compress(coat->eta.x))<<16;
+				_dst.coating.thickness_eta = thickness_eta;
 			}
 			break;
 			case OP_BLEND:
@@ -540,6 +568,15 @@ namespace instr_stream
 					_dst.blend.weight.setConst(blend->weight.value.constant);
 			}
 			break;
+			case OP_DIFFTRANS:
+			{
+				auto* difftrans = static_cast<const IR::CDifftransBSDFNode*>(_node);
+
+				if (difftrans->transmittance.source == IR::INode::EPS_TEXTURE)
+					_dst.difftrans.transmittance.setTexture(packTexture(difftrans->transmittance.value.texture), difftrans->transmittance.value.texture.scale);
+				else
+					_dst.difftrans.transmittance.setConst(difftrans->transmittance.value.constant.pointer);
+			}
 			case OP_BUMPMAP:
 			{
 				const IR::CGeomModifierNode* bm = nullptr;
@@ -561,6 +598,14 @@ namespace instr_stream
 
 		size_t getBSDFDataIndex(E_OPCODE _op, const asset::material_compiler::IR::INode* _node) const
 		{
+			switch (_op)
+			{
+			case OP_INVALID: _IRR_FALLTHROUGH;
+			case OP_NOOP:
+				return 0ull;
+			default: break;
+			}
+
 			auto found = m_ctx->bsdfDataIndexMap.find(_node);
 			if (found != m_ctx->bsdfDataIndexMap.end())
 				return found->second;
@@ -576,6 +621,10 @@ namespace instr_stream
 
 		VTID packTexture(const asset::material_compiler::IR::INode::STextureSource& tex)
 		{
+			auto found = m_ctx->VTallocMap.find({tex.image.get(),tex.sampler.get()});
+			if (found != m_ctx->VTallocMap.end())
+				return found->second;
+
 			auto* img = tex.image->getCreationParameters().image.get();
 			auto* sampler = tex.sampler.get();
 
@@ -597,6 +646,10 @@ namespace instr_stream
 
 			auto addr = m_ctx->vt->alloc(img->getCreationParameters().format, imgAndOrigSz.second, subres, uwrap, vwrap);
 			m_ctx->vt->commit(addr, imgAndOrigSz.first.get(), subres, uwrap, vwrap, border);
+
+			std::pair<SContext::VTallocKey, VTID> item{{tex.image.get(),tex.sampler.get()}, addr};
+			m_ctx->VTallocMap.insert(item);
+
 			return addr;
 		}
 
@@ -713,10 +766,17 @@ namespace instr_stream
 				if (static_cast<const IR::CBSDFBlendNode*>(_node)->weight.source == IR::INode::EPS_TEXTURE)
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, BITFIELDS_SHIFT_WEIGHT_TEX, 1);
 			}
+			case OP_DIFFTRANS:
+			{
+				auto* difftrans = static_cast<const IR::CDifftransBSDFNode*>(_node);
+
+				if (difftrans->transmittance.source == IR::INode::EPS_TEXTURE)
+					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, BITFIELDS_SHIFT_TRANS_TEX, 1);
+			}
 			break;
 			}
 
-			_instr = core::bitfieldInsert<instr_t>(_instr, _bsdfBufOffset, INSTR_BSDF_BUF_OFFSET_SHIFT, INSTR_BSDF_BUF_OFFSET_WIDTH);
+			_instr = core::bitfieldInsert<instr_t>(_instr, _bsdfBufOffset, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
 
 			return _instr;
 		}
@@ -776,9 +836,9 @@ namespace remainder_and_pdf
 
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_WIDTH = 8u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_MASK = 0xffu;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_DST_SHIFT = INSTR_BSDF_BUF_OFFSET_SHIFT + INSTR_BSDF_BUF_OFFSET_WIDTH + INSTR_REG_WIDTH*0u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_SRC1_SHIFT = INSTR_BSDF_BUF_OFFSET_SHIFT + INSTR_BSDF_BUF_OFFSET_WIDTH + INSTR_REG_WIDTH*1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_SRC2_SHIFT = INSTR_BSDF_BUF_OFFSET_SHIFT + INSTR_BSDF_BUF_OFFSET_WIDTH + INSTR_REG_WIDTH*2u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_DST_SHIFT = BITFIELDS_BSDF_BUF_OFFSET_SHIFT + BITFIELDS_BSDF_BUF_OFFSET_WIDTH + INSTR_REG_WIDTH*0u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_SRC1_SHIFT = BITFIELDS_BSDF_BUF_OFFSET_SHIFT + BITFIELDS_BSDF_BUF_OFFSET_WIDTH + INSTR_REG_WIDTH*1u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_SRC2_SHIFT = BITFIELDS_BSDF_BUF_OFFSET_SHIFT + BITFIELDS_BSDF_BUF_OFFSET_WIDTH + INSTR_REG_WIDTH*2u;
 
 	//this has no influence on instruction execution, but needed for traversal creation/processing
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_NORMAL_ID_WIDTH = 8u;
@@ -1065,9 +1125,7 @@ namespace remainder_and_pdf
 				_IRR_DEBUG_BREAK_IF(op==OP_INVALID);
 				if (srcRegCount==0u || top.visited)
 				{
-					uint32_t bsdfBufIx = 0u;
-					if (op != OP_NOOP && op != OP_INVALID)
-						bsdfBufIx = getBSDFDataIndex(getOpcode(top.instr), top.node);
+					const uint32_t bsdfBufIx = getBSDFDataIndex(getOpcode(top.instr), top.node);
 					instr_t instr = finalizeInstr(top.instr, top.node, bsdfBufIx);
 					traversal.push_back(instr);
 					m_stack.pop();
@@ -1106,7 +1164,7 @@ namespace gen_choice
 {
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_RIGHT_JUMP_WIDTH = 8u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_RIGHT_JUMP_MASK = 0xffu;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_RIGHT_JUMP_SHIFT = INSTR_BSDF_BUF_OFFSET_SHIFT + INSTR_BSDF_BUF_OFFSET_WIDTH;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_RIGHT_JUMP_SHIFT = BITFIELDS_BSDF_BUF_OFFSET_SHIFT + BITFIELDS_BSDF_BUF_OFFSET_WIDTH;
 
 	struct stack_el
 	{
@@ -1180,11 +1238,213 @@ namespace gen_choice
 		}
 	};
 }
+namespace tex_prefetch
+{
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_0_SHIFT = 56u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_1_SHIFT = BITFIELDS_FETCH_TEX_0_SHIFT+1u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_2_SHIFT = BITFIELDS_FETCH_TEX_1_SHIFT+1u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_COUNT = 3u;
+
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_REG_0_SHIFT = remainder_and_pdf::INSTR_REG_DST_SHIFT;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_REG_1_SHIFT = remainder_and_pdf::INSTR_REG_SRC1_SHIFT;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_REG_2_SHIFT = remainder_and_pdf::INSTR_REG_SRC2_SHIFT;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_REG_WIDTH = remainder_and_pdf::INSTR_REG_WIDTH;
+
+	traversal_t genTraversal(const traversal_t& _t, const core::vector<instr_stream::SBSDFUnion>& _bsdfData, core::unordered_map<STextureData, uint32_t, STextureData::hash>& _tex2reg)
+	{
+		core::unordered_set<STextureData, STextureData::hash> processed;
+		uint32_t regNum = 0u;
+		auto write_fetch_flag = [&processed,&regNum,&_tex2reg](instr_t& i, const STextureData& tex, int32_t dstbit, int32_t srcbit, int32_t reg_bitfield_shift) {
+			auto bit = core::bitfieldExtract(i, srcbit, 1);
+			uint32_t reg = 0u;
+			if (bit)
+			{
+				if (processed.find(tex)==processed.end()) {
+					processed.insert(tex);
+					reg = regNum++;
+				}
+				else
+					bit = 0;
+			}
+			i = core::bitfieldInsert(i, bit, dstbit, 1);
+			i = core::bitfieldInsert<instr_t>(i, reg, reg_bitfield_shift, BITFIELDS_REG_WIDTH);
+
+			if (bit)
+				_tex2reg.insert({tex,reg});
+		};
+
+		traversal_t traversal;
+		
+		for (instr_t i : _t)
+		{
+			const E_OPCODE op = getOpcode(i);
+
+			if (op==OP_NOOP || op==OP_INVALID || op==OP_SET_GEOM_NORMAL)
+				continue;
+
+			i = core::bitfieldInsert<instr_t>(i, 0, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_FETCH_TEX_COUNT);
+			
+			const uint32_t bsdf_ix = core::bitfieldExtract(i, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
+			const SBSDFUnion& bsdf_data = _bsdfData[bsdf_ix];
+
+			switch (getOpcode(i))
+			{
+			case OP_DIFFUSE: _IRR_FALLTHROUGH;
+			case OP_PLASTIC:
+				write_fetch_flag(i, bsdf_data.param[0].tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT);
+				write_fetch_flag(i, bsdf_data.param[1].tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_REFL_TEX, BITFIELDS_REG_1_SHIFT);
+				break;
+			case OP_DIFFTRANS:
+				write_fetch_flag(i, bsdf_data.difftrans.transmittance.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_TRANS_TEX, BITFIELDS_REG_0_SHIFT);
+				break;
+			case OP_DIELECTRIC: _IRR_FALLTHROUGH;
+			case OP_CONDUCTOR:
+				write_fetch_flag(i, bsdf_data.param[0].tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT);
+				write_fetch_flag(i, bsdf_data.param[1].tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_ALPHA_V_TEX, BITFIELDS_REG_1_SHIFT);
+				break;
+			case OP_COATING:
+				write_fetch_flag(i, bsdf_data.coating.alpha.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT);
+				write_fetch_flag(i, bsdf_data.coating.sigmaA.tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_SIGMA_A_TEX, BITFIELDS_REG_1_SHIFT);
+				break;
+			case OP_BUMPMAP:
+				i = core::bitfieldInsert<instr_t>(i, 1u, BITFIELDS_FETCH_TEX_0_SHIFT, 1);
+				write_fetch_flag(i, bsdf_data.bumpmap.bumpmap, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_REG_0_SHIFT);
+				break;
+			case OP_BLEND:
+				write_fetch_flag(i, bsdf_data.blend.weight.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_WEIGHT_TEX, BITFIELDS_REG_0_SHIFT);
+				break;
+			}
+			//opacity is common for all
+			write_fetch_flag(i, bsdf_data.param[2].tex, BITFIELDS_FETCH_TEX_2_SHIFT, BITFIELDS_SHIFT_OPACITY_TEX, BITFIELDS_REG_2_SHIFT);
+
+			//do not add instruction to stream if it doesnt need any texture or all needed textures are already being fetched by previous instructions
+			if (!core::bitfieldExtract(i, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_FETCH_TEX_COUNT))
+				continue;
+
+			traversal.push_back(i);
+		}
+
+		return traversal;
+	}
+}
 }
 
 class CMitsubaMaterialCompilerRaytracingBackend
 {
-private:
+public:
+	struct result_t
+	{
+		struct instr_streams_t
+		{
+			struct stream_t
+			{
+				uint32_t first;
+				uint32_t count;
+			};
+			stream_t rem_and_pdf;
+			stream_t gen_choice;
+			stream_t tex_prefetch;
+			stream_t norm_precomp;
+		};
+
+		instr_stream::traversal_t remainder_and_pdf;
+		instr_stream::traversal_t generator_choice;
+		instr_stream::traversal_t texture_prefetch;
+		instr_stream::traversal_t normal_precomp;
+
+		//one element for each input IR root node
+		core::vector<instr_streams_t> streams;
+
+		std::string glsl_fragment;
+	};
+
+	result_t compile(instr_stream::SContext* _ctx, asset::material_compiler::IR* _ir)
+	{
+		using namespace asset::material_compiler;
+		using namespace instr_stream;
+
+		result_t res;
+		for (const IR::INode* root : _ir->roots)
+		{
+			traversal_t rem_pdf_stream;
+			{
+				remainder_and_pdf::CTraversalGenerator gen(_ctx, _ir);
+				rem_pdf_stream = gen.genTraversal(root);
+			}
+			traversal_t gen_choice_stream;
+			{
+				gen_choice::CTraversalGenerator gen(_ctx, _ir);
+				gen_choice_stream = gen.genTraversal(root);
+			}
+			core::unordered_map<uint32_t, uint32_t> ix2ix;
+			traversal_t tex_prefetch_stream;
+			{
+				core::unordered_map<STextureData, uint32_t, STextureData::hash> tex2reg;
+				tex_prefetch_stream = tex_prefetch::genTraversal(rem_pdf_stream, _ctx->bsdfData, tex2reg);
+
+				for (instr_t instr : tex_prefetch_stream)
+				{
+					uint8_t regs[4] {0xff,0xff,0xff,0xff};
+
+					const auto bsdf_ix = core::bitfieldExtract(instr, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
+					{
+						auto found = ix2ix.find(bsdf_ix);
+						if (found != ix2ix.end())
+							continue;
+					}
+
+					SBSDFUnion& bsdf_data = _ctx->bsdfData[bsdf_ix];
+					auto new_bsdf_data = bsdf_data;
+					for (uint32_t i = 0u; i < SBSDFUnion::MAX_TEXTURES; ++i)
+						if (core::bitfieldExtract(instr, tex_prefetch::BITFIELDS_FETCH_TEX_0_SHIFT+i, 1))
+						{
+							auto found = tex2reg.find(bsdf_data.param[i].tex);
+							if (found == tex2reg.end())
+								continue;
+
+							new_bsdf_data.param[i].tex.scale = found->second;//TODO rename scale
+						}
+
+					ix2ix.insert({bsdf_ix, _ctx->bsdfData.size()});
+					_ctx->bsdfData.push_back(new_bsdf_data);
+				}
+			}
+			//adjust BSDF data indices in instructions
+			{
+				auto adjust_bsdf_indices = [&ix2ix](traversal_t& stream) {
+					for (instr_t& i : stream) {
+						auto found = ix2ix.find(core::bitfieldExtract(i, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH));
+						if (found!=ix2ix.end())
+							i = core::bitfieldInsert<instr_t>(i, found->second, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
+					}
+				};
+
+				adjust_bsdf_indices(rem_pdf_stream);
+				adjust_bsdf_indices(gen_choice_stream);
+			}
+			traversal_t normal_precomp_stream;
+			{
+				normal_precomp_stream.reserve(std::count_if(rem_pdf_stream.begin(), rem_pdf_stream.end(), [](instr_t i) {return getOpcode(i)==OP_BUMPMAP;}));
+				for (instr_t i : rem_pdf_stream)
+					if (getOpcode(i)==OP_BUMPMAP)
+						normal_precomp_stream.push_back(i);
+			}
+
+			result_t::instr_streams_t streams;
+			streams.rem_and_pdf = {res.remainder_and_pdf.size(), rem_pdf_stream.size()};
+			res.remainder_and_pdf.insert(res.remainder_and_pdf.end(), rem_pdf_stream.begin(), rem_pdf_stream.end());
+			streams.gen_choice = {res.generator_choice.size(), gen_choice_stream.size()};
+			res.generator_choice.insert(res.generator_choice.end(), gen_choice_stream.begin(), gen_choice_stream.end());
+			streams.tex_prefetch = {res.texture_prefetch.size(), tex_prefetch_stream.size()};
+			res.texture_prefetch.insert(res.texture_prefetch.end(), tex_prefetch_stream.begin(), tex_prefetch_stream.end());
+			streams.norm_precomp = {res.normal_precomp.size(), normal_precomp_stream.size()};
+			res.normal_precomp.insert(res.normal_precomp.end(), normal_precomp_stream.begin(), normal_precomp_stream.end());
+
+			res.streams.push_back(streams);
+		}
+
+		return res;
+	}
 };
 
 }}}
