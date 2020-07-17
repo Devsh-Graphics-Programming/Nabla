@@ -193,6 +193,9 @@ set(IRR_ASSET_SOURCES
 	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterTGA.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterOpenEXR.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CGLIWriter.cpp
+	
+# Material compiler
+	${IRR_ROOT_PATH}/src/irr/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.cpp
 )
 set(IRR_VIDEO_SOURCES
 # Allocators
