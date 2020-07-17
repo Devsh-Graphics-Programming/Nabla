@@ -1,4 +1,4 @@
-#include "../../ext/MitsubaLoader/CMitsubaMaterialCompilerRaytracingBackend.h"
+#include <irr/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.h>
 
 namespace irr
 {
@@ -762,7 +762,7 @@ void instr_stream::remainder_and_pdf::CTraversalManipulator::reorderBumpMapStrea
 		const uint32_t sub_n_id = getNormalId(*subBegin);
 		decltype(subBegin) subEnd;
 		for (subEnd = _stream.second - 1; subEnd != subBegin; --subEnd)
-			if (*subEnd == sub_n_id)
+			if (getNormalId(*subEnd) == sub_n_id)
 				break;
 		++subEnd;
 
