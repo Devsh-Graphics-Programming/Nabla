@@ -34,17 +34,23 @@ else:
         outp.write('\n\t\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>()' % x)
         outp.write('\n\t\t{')
         outp.write('\n\t\t\tstatic const uint8_t data[] = {\n\t\t\t')
-        
-        with open(cmakeSourceDir+'/'+x, "rb") as f:
-            index = 0
-            byte = f.read(1)
-            while byte != b"":
-                outp.write("0x%s, " % byte.hex())
-                index += 1  
-                if index % 20 == 0 :
-                    outp.write("\n\t\t\t")
+        try:
+            with open(cmakeSourceDir+'/'+x, "rb") as f:
+                index = 0
                 byte = f.read(1)
-        # don't write null terminator, it messes up non-text files
+                while byte != b"":
+                    outp.write("0x%s, " % byte.hex())
+                    index += 1  
+                    if index % 20 == 0 :
+                        outp.write("\n\t\t\t")
+                    byte = f.read(1)
+            # don't write null terminator, it messes up non-text files
+
+        except IOError: 
+            # file not found
+            print('Error: BuiltinResources - file with the following path not found: ' + x)
+            outp.write('\n\n Error: BuiltinResources - file with the following path not found: %s' % x )
+
         outp.write('\n\t\t\t};')
         outp.write('\n\t\t\treturn { data, sizeof(data) };')
         outp.write('\n\t\t}')
