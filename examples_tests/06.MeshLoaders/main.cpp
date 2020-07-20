@@ -66,6 +66,7 @@ int main()
     
     //copy the pipeline
     auto pipeline_cp = core::smart_refctd_ptr_static_cast<irr::asset::ICPURenderpassIndependentPipeline>(mesh_raw->getMeshBuffer(0u)->getPipeline()->clone());
+    //clone() causes an access vioilation
     //get the simple geometry shader data and turn it into ICPUSpecializedShader
     auto shaderData = device->getAssetManager()->getFileSystem()->loadBuiltinData("irr/builtin/shaders/testGeomShader.geom");
     auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shaderData), asset::ICPUShader::buffer_contains_glsl);
