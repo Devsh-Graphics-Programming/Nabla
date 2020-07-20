@@ -10,10 +10,9 @@ layout (location = 3) in vec2 UV;
 layout (location = 0) out vec4 OutColor;
 
 #define instr_t uvec2
-#define reg_t vec3
-#define REG_COUNT 16
-#define TEX_PREFETCH_REG_COUNT 8
-#define NORMAL_REG_COUNT 3
+#define reg_t uint
+#define REG_COUNT 72 //TODO this must be decided by backend
+//TODO insert here other control #defines as well
 
 //in 16-byte/uvec4 units
 //layout (constant_id = 0) const uint sizeof_bsdf_data = 3;
@@ -142,13 +141,8 @@ vec3 decodeRGB19E7(in uvec2 x)
 #define INSTR_NDF_MASK 0x3u
 #define INSTR_ALPHA_U_TEX_SHIFT 4
 #define INSTR_ALPHA_V_TEX_SHIFT 7
-#define INSTR_REFL_TEX_SHIFT 4
-#define INSTR_PLASTIC_REFL_TEX_SHIFT 9
+#define INSTR_REFL_TEX_SHIFT 9
 #define INSTR_TRANS_TEX_SHIFT 4
-#define INSTR_WARD_VARIANT_SHIFT 5
-#define INSTR_WARD_VARIANT_MASK 0x03u
-#define INSTR_FAST_APPROX_SHIFT 5
-#define INSTR_NONLINEAR_SHIFT 8
 #define INSTR_SIGMA_A_TEX_SHIFT 8
 #define INSTR_WEIGHT_TEX_SHIFT 4
 #define INSTR_TWOSIDED_SHIFT 10
@@ -261,7 +255,7 @@ bsdf_data_t fetchBSDFDataForInstr(in instr_t instr)
 #define OP_BUMPMAP			7u
 #define OP_SET_GEOM_NORMAL	8u
 #define OP_INVALID			9u
-#define OutColor			10u
+#define OP_NOOP				10u
 
 #define NDF_BECKMANN	0u
 #define NDF_GGX			1u
@@ -283,26 +277,35 @@ bsdf_data_t fetchBSDFDataForInstr(in instr_t instr)
 irr_glsl_BSDFAnisotropicParams currBSDFParams;
 irr_glsl_AnisotropicViewSurfaceInteraction currInteraction;
 reg_t registers[REG_COUNT];
-reg_t prefetch_registers[TEX_PREFETCH_REG_COUNT];
-reg_t normal_registers[NORMAL_REG_COUNT];
 
 vec3 textureOrRGBconst(in uvec3 data, in bool texPresenceFlag)
 {
-	vec3 retval;
-	if (texPresenceFlag)
-		retval = prefetch_registers[data.z];
-	else
-		retval = uintBitsToFloat(data);
-	return retval;
+	return 
+#ifdef TEX_PREFETCH_STREAM
+	texPresenceFlag ? 
+		uintBitsToFloat(uvec3(registers[data.z],registers[data.z+1u],registers[data.z+2u])) :
+#endif
+		uintBitsToFloat(data);
 }
 float textureOrRconst(in uvec3 data, in bool texPresenceFlag)
 {
-	float retval;
-	if (texPresenceFlag)
-		retval = prefetch_registers[data.z].x;
-	else
-		retval = uintBitsToFloat(data.x);
-	return retval;
+	return 
+#ifdef TEX_PREFETCH_STREAM
+	texPresenceFlag ?
+		uintBitsToFloat(registers[data.z]) :
+#endif
+		uintBitsToFloat(data.x);
+}
+
+void writeReg(uint n, float v)
+{
+	registers[n] = floatBitsToUint(v);
+}
+void writeReg(uint n, vec3 v)
+{
+	writeReg(n   ,v.x);
+	writeReg(n+1u,v.y);
+	writeReg(n+2u,v.z);
 }
 
 void setCurrBSDFParams(in vec3 n, in vec3 L)
@@ -314,6 +317,7 @@ void setCurrBSDFParams(in vec3 n, in vec3 L)
 	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(isoparams, currInteraction);
 }
 
+#ifdef OP_DIFFUSE
 void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
@@ -324,10 +328,14 @@ void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in bsdf_data_t data)
 	}
 	else registers[REG_DST(regs)] = reg_t(0.0);
 }
+#endif
+#ifdef OP_DIFFTRANS
 void instr_execute_DIFFTRANS(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 trans, in bsdf_data_t data)
 {
 	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
+#endif
+#ifdef OP_DIELECTRIC
 void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
@@ -339,6 +347,8 @@ void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in bsdf_data_t da
 	}
 	else registers[REG_DST(regs)] = vec3(0.0);
 }
+#endif
+#ifdef OP_CONDUCTOR
 void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV, in float DG, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
@@ -351,6 +361,8 @@ void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV, in fl
 	}
 	else registers[REG_DST(regs)] = reg_t(0.0);
 }
+#endif
+#ifdef OP_PLASTIC
 void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 scale, in float a2, in float DG, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
@@ -368,22 +380,30 @@ void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3
 	}
 	else registers[REG_DST(regs)] = reg_t(0.0);
 }
+#endif
+#ifdef OP_COATING
 void instr_execute_COATING(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 scale, in bsdf_data_t data)
 {
 	vec2 thickness_eta = unpackHalf2x16(data.data[2].x);
 	vec3 sigmaA = textureOrRGBconst(data.data[1].zw, instr_getSigmaATexPresence(instr));
 	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
+#endif
+#ifdef OP_BUMPMAP
 void instr_execute_BUMPMAP(in instr_t instr, in vec3 L)
 {
 	vec3 n = normal_registers[instr_getNormalId(instr)];
 	setCurrBSDFParams(n, L);
 }
+#endif
+#ifdef OP_SET_GEOM_NORMAL
 //executed at most once
 void instr_execute_SET_GEOM_NORMAL(in vec3 L)
 {
 	setCurrBSDFParams(normalize(Normal), L);
 }
+#endif
+#ifdef OP_BLEND
 void instr_execute_BLEND(in instr_t instr, in uvec3 regs, in bsdf_data_t data)
 {
 	bool weightTexPresent = instr_getWeightTexPresence(instr);
@@ -391,6 +411,7 @@ void instr_execute_BLEND(in instr_t instr, in uvec3 regs, in bsdf_data_t data)
 
 	registers[REG_DST(regs)] = mix(registers[REG_SRC1(regs)], registers[REG_SRC2(regs)], w);
 }
+#endif
 
 vec3 fetchTex(in uvec3 texid, in vec2 uv, in mat2 dUV)
 {
@@ -399,33 +420,55 @@ vec3 fetchTex(in uvec3 texid, in vec2 uv, in mat2 dUV)
 	return irr_glsl_vTextureGrad(texid.xy, uv, dUV).rgb*scale;
 }
 
-#define INSTR_FETCH_FLAGS_SHIFT 56u
+#define INSTR_FETCH_FLAGS_SHIFT 4u
+#define INSTR_FETCH_TEX_0_REG_CNT_SHIFT 7u
+#define INSTR_FETCH_TEX_1_REG_CNT_SHIFT 9u
+#define INSTR_FETCH_TEX_2_REG_CNT_SHIFT 11u
+#define INSTR_FETCH_TEX_REG_CNT_MASK    0x03u
+#ifdef TEX_PREFETCH_STREAM
 void runTexPrefetchStream(in mat2 dUV)
 {
 	for (uint i = 0u; i < PC.tex_prefetch.offset; ++i)
 	{
 		instr_t instr = instr_buf.data[PC.tex_prefetch.offset+i];
 
+		uvec3 regcnt = (instr.xxx >> uvec3(INSTR_FETCH_TEX_0_REG_CNT_SHIFT,INSTR_FETCH_TEX_1_REG_CNT_SHIFT,INSTR_FETCH_TEX_2_REG_CNT_SHIFT)) & uvec3(INSTR_FETCH_TEX_REG_CNT_MASK);
 		bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
 
-		uint fetchFlags = (instr.y>>(INSTR_FETCH_FLAGS_SHIFT-32u));
+		uint fetchFlags = (instr.x>>INSTR_FETCH_FLAGS_SHIFT);
 		uvec3 regs = instr_decodeRegisters(instr);
 		if ((fetchFlags & 0x01u) == 0x01u)
-			prefetch_registers[regs.x] = fetchTex(bsdf_data.data[0].xyz, UV, dUV);
+		{
+			vec3 val = fetchTex(bsdf_data.data[0].xyz, UV, dUV);
+			if (regcnt.x==1u)
+				writeReg(regs.x, val.x);
+			else
+				writeReg(regs.x, val);
+		}
 		if ((fetchFlags & 0x02u) == 0x02u)
 		{
 			uvec3 texid = uvec3(bsdf_data.data[0].w,bsdf_data.data[1].xy);
-			prefetch_registers[regs.y] = fetchTex(texid,UV,dUV);
+			vec3 val = fetchTex(texid,UV,dUV);
+			if (regcnt.y==1u)
+				writeReg(regs.y, val.x);
+			else
+				writeReg(regs.y, val);
 		}
 		if ((fetchFlags & 0x04u) == 0x04u)
 		{
 			uvec3 texid = uvec3(bsdf_data.data[1].zw, bsdf_data.data[2].x);
-			prefetch_registers[regs.z] = fetchTex(texid,UV,dUV);
+			vec3 val = fetchTex(texid,UV,dUV);
+			if (regcnt.z==1u)
+				writeReg(regs.z, val.x);
+			else
+				writeReg(regs.z, val);
 		}
 	}
 }
+#endif
 
-void runNormalPrecompStream()
+#ifdef NORM_PRECOMP_STREAM
+void runNormalPrecompStream(in mat2 dUV)
 {
 	for (uint i = 0u; i < PC.norm_precomp.offset; ++i)
 	{
@@ -435,13 +478,14 @@ void runNormalPrecompStream()
 
 		uint reg = instr_getNormalId(instr);
 
-	/*uvec2 bm = data.data[0].xy;
-	//dirty trick for getting height map derivatives in divergent workflow
-	vec2 dHdScreen = vec2(
-		irr_glsl_vTextureGrad(bm, UV+0.5*dUV[0], dUV).x - irr_glsl_vTextureGrad(bm, UV-0.5*dUV[0], dUV).x,
-		irr_glsl_vTextureGrad(bm, UV+0.5*dUV[1], dUV).x - irr_glsl_vTextureGrad(bm, UV-0.5*dUV[1], dUV).x
-	);
-	dHdScreen *= scale.x;*/
+		uvec2 bm = data.data[0].xy;
+		float scale = uintBitsToFloat(data.data[0].z);
+		//dirty trick for getting height map derivatives in divergent workflow
+		vec2 dHdScreen = vec2(
+			irr_glsl_vTextureGrad(bm, UV+0.5*dUV[0], dUV).x - irr_glsl_vTextureGrad(bm, UV-0.5*dUV[0], dUV).x,
+			irr_glsl_vTextureGrad(bm, UV+0.5*dUV[1], dUV).x - irr_glsl_vTextureGrad(bm, UV-0.5*dUV[1], dUV).x
+		) * scale;
 		normal_registers[reg] = irr_glsl_perturbNormal_heightMap(currInteraction.isotropic.N, currInteraction.isotropic.V.dPosdScreen, dHdScreen);
 	}
 }
+#endif

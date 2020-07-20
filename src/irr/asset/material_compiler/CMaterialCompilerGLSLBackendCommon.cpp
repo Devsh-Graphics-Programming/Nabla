@@ -26,6 +26,12 @@ namespace instr_stream
 
 		core::stack<stack_el_t> m_stack;
 
+		//IDs in bumpmaps start with 0 (see writeBumpmapBitfields())
+		//rem_and_pdf: instructions not preceded with OP_BUMPMAP (resulting from node without any bumpmap above in tree) will have normal ID = ~0
+		uint32_t m_firstFreeNormalID = static_cast<uint32_t>(-1);
+
+		uint32_t m_registerPool;
+
 		template <typename ...Params>
 		static stack_el_t createStackEl(Params&& ...args)
 		{
@@ -38,9 +44,10 @@ namespace instr_stream
 			dst = core::bitfieldInsert(dst, parent, BITFIELDS_SHIFT_MASKFLAG, BITFIELDS_WIDTH_MASKFLAG);
 		}
 
-		virtual void writeBumpmapBitfields(instr_t& dst)
+		void writeBumpmapBitfields(instr_t& dst)
 		{
-			//stuff specific for bumpmaps
+			++m_firstFreeNormalID;
+			dst = core::bitfieldInsert<instr_t>(dst, m_firstFreeNormalID, INSTR_NORMAL_ID_SHIFT, INSTR_NORMAL_ID_WIDTH);
 		}
 
 		void filterNOOPs(traversal_t& _traversal)
@@ -300,7 +307,7 @@ namespace instr_stream
 				dst = core::bitfieldInsert<instr_t>(dst, ndfMap[node->ndf], BITFIELDS_SHIFT_NDF, BITFIELDS_WIDTH_NDF);
 				if (ndfMap[node->ndf] == NDF_AS && node->alpha_v.source == IR::INode::EPS_TEXTURE)
 					_instr = core::bitfieldInsert<instr_t>(dst, 1u, BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
-				dst = core::bitfieldInsert<instr_t>(dst, 1u, BITFIELDS_MASK_ALPHA_U_TEX, 1);
+				dst = core::bitfieldInsert<instr_t>(dst, 1u, BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 
 				return dst;
 			};
@@ -385,9 +392,9 @@ namespace instr_stream
 		}
 
 	public:
-		ITraveralGenerator(SContext* _ctx, IR* _ir) : m_ctx(_ctx), m_ir(_ir) {}
+		ITraveralGenerator(SContext* _ctx, IR* _ir, uint32_t _regCount) : m_ctx(_ctx), m_ir(_ir), m_registerPool(_regCount) {}
 
-		virtual traversal_t genTraversal(const IR::INode* _root) = 0;
+		virtual traversal_t genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs) = 0;
 
 #ifdef _IRR_DEBUG
 		static void debugPrint(const traversal_t& _traversal)
@@ -492,10 +499,11 @@ namespace remainder_and_pdf
 	public:
 		CTraversalManipulator(traversal_t&& _traversal) : m_input(std::move(_traversal)) {}
 
-		traversal_t&& process(uint32_t regCount)&&
+		traversal_t&& process(uint32_t regCount, uint32_t& _out_usedRegs)&&
 		{
 			reorderBumpMapStreams();
-			specifyRegisters(regCount);
+			specifyRegisters(regCount, _out_usedRegs);
+			++_out_usedRegs;
 
 			return std::move(m_input);
 		}
@@ -513,7 +521,7 @@ namespace remainder_and_pdf
 			m_input = std::move(result);
 		}
 
-		void specifyRegisters(uint32_t regCount);
+		void specifyRegisters(uint32_t regCount, uint32_t& _out_maxUsedReg);
 	};
 
 
@@ -528,8 +536,6 @@ namespace remainder_and_pdf
 	{
 		using base_t = ITraveralGenerator<stack_el>;
 
-		uint32_t m_firstFreeNormalID = 0u;
-
 	public:
 		using base_t::base_t;
 
@@ -540,13 +546,7 @@ namespace remainder_and_pdf
 			dst = core::bitfieldInsert(dst, parent, INSTR_NORMAL_ID_SHIFT, INSTR_NORMAL_ID_WIDTH);
 		}
 
-		virtual void writeBumpmapBitfields(instr_t& dst) override
-		{
-			dst = core::bitfieldInsert<instr_t>(dst, m_firstFreeNormalID, INSTR_NORMAL_ID_SHIFT, INSTR_NORMAL_ID_WIDTH);
-			++m_firstFreeNormalID;
-		}
-
-		traversal_t genTraversal(const IR::INode* _root) override;
+		traversal_t genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs) override;
 	};
 }
 
@@ -568,12 +568,12 @@ namespace gen_choice
 	public:
 		using base_t::base_t;
 
-		traversal_t genTraversal(const IR::INode* _root) override;
+		traversal_t genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs) override;
 	};
 }
 namespace tex_prefetch
 {
-	static traversal_t genTraversal(const traversal_t& _t, const core::vector<instr_stream::SBSDFUnion>& _bsdfData, core::unordered_map<STextureData, uint32_t, STextureData::hash>& _tex2reg);
+	static traversal_t genTraversal(const traversal_t& _t, const core::vector<instr_stream::SBSDFUnion>& _bsdfData, core::unordered_map<STextureData, uint32_t, STextureData::hash>& _tex2reg, uint32_t _firstFreeReg, uint32_t& _out_usedRegs, uint32_t& _out_regCntFlags);
 }
 }
 
@@ -596,7 +596,7 @@ const IR::INode* instr_stream::CInterpreter::translateMixIntoBlends(IR* ir, cons
 
 	while (q.size()>1ull)
 	{
-		auto* blend = ir->allocNode<IR::CBSDFBlendNode>();
+		auto* blend = ir->allocTmpNode<IR::CBSDFBlendNode>();
 		blend->weight.source = IR::INode::EPS_CONSTANT;
 
 		auto left = q.front();
@@ -799,12 +799,13 @@ void instr_stream::remainder_and_pdf::CTraversalManipulator::reorderBumpMapStrea
 	_input.erase(woSubs.first + 1, woSubs.second);
 }
 
-void instr_stream::remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regCount)
+void instr_stream::remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regCount, uint32_t& _out_maxUsedReg)
 {
 	core::stack<uint32_t> freeRegs;
 	{
+		regCount /= 3u;
 		for (uint32_t i = 0u; i < regCount; ++i)
-			freeRegs.push(regCount - 1u - i);
+			freeRegs.push(3u*(regCount - 1u - i));
 	}
 	//registers with result of bump-map substream
 	core::stack<uint32_t> bmRegs;
@@ -853,12 +854,14 @@ void instr_stream::remainder_and_pdf::CTraversalManipulator::specifyRegisters(ui
 
 		const uint32_t srcsNum = getNumberOfSrcRegsForOpcode(op);
 		assert(srcsNum <= 2u);
-		uint32_t srcs[2];
+		uint32_t srcs[2]{ 0u,0u };
 		for (uint32_t k = 0u; k < srcsNum; ++k)
 		{
 			srcs[k] = srcRegs.top();
 			srcRegs.pop();
 		}
+
+		_out_maxUsedReg = std::max(srcs[0],srcs[1]);
 
 		switch (srcsNum)
 		{
@@ -900,7 +903,7 @@ void instr_stream::remainder_and_pdf::CTraversalManipulator::specifyRegisters(ui
 	}
 }
 
-instr_stream::traversal_t instr_stream::remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode* _root)
+instr_stream::traversal_t instr_stream::remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs)
 {
 	traversal_t traversal;
 
@@ -944,7 +947,7 @@ instr_stream::traversal_t instr_stream::remainder_and_pdf::CTraversalGenerator::
 	//remove NOOPs
 	filterNOOPs(traversal);
 
-	traversal = std::move(CTraversalManipulator(std::move(traversal)).process(REGISTER_COUNT));
+	traversal = std::move(CTraversalManipulator(std::move(traversal)).process(m_registerPool, _out_usedRegs));
 #ifdef _IRR_DEBUG
 	os::Printer::log("BSDF remainder-and-pdf traversal debug print", ELL_DEBUG);
 	debugPrint(traversal);
@@ -953,7 +956,7 @@ instr_stream::traversal_t instr_stream::remainder_and_pdf::CTraversalGenerator::
 	return traversal;
 }
 
-instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTraversal(const IR::INode* _root)
+instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs)
 {
 	constexpr uint32_t INVALID_INDEX = 0xdeadbeefu;
 
@@ -998,6 +1001,8 @@ instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTrav
 	//remove NOOPs
 	filterNOOPs(traversal);
 
+	_out_usedRegs = 0u;
+
 #ifdef _IRR_DEBUG
 	os::Printer::log("BSDF generator-choice traversal debug print", ELL_DEBUG);
 	debugPrint(traversal);
@@ -1006,28 +1011,33 @@ instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTrav
 	return traversal;
 }
 
-instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const traversal_t& _t, const core::vector<instr_stream::SBSDFUnion>& _bsdfData, core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _tex2reg)
+instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const traversal_t& _t, const core::vector<instr_stream::SBSDFUnion>& _bsdfData, core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _out_tex2reg, uint32_t _firstFreeReg, uint32_t& _out_usedRegs, uint32_t& _out_regCntFlags)
 {
 	core::unordered_set<STextureData, STextureData::hash> processed;
-	uint32_t regNum = 0u;
-	auto write_fetch_flag = [&processed,&regNum,&_tex2reg](instr_t& i, const STextureData& tex, int32_t dstbit, int32_t srcbit, int32_t reg_bitfield_shift) {
+	uint32_t regNum = _firstFreeReg;
+	auto write_fetch_bitfields = [&processed,&regNum,&_out_regCntFlags,&_out_tex2reg](instr_t& i, const STextureData& tex, int32_t dstbit, int32_t srcbit, int32_t reg_bitfield_shift, int32_t reg_count_bitfield_shift, uint32_t reg_count) -> bool {
 		auto bit = core::bitfieldExtract(i, srcbit, 1);
 		uint32_t reg = 0u;
 		if (bit)
 		{
 			if (processed.find(tex)==processed.end()) {
 				processed.insert(tex);
-				reg = regNum++;
+				reg = regNum;
+				regNum += reg_count;
 			}
 			else
 				bit = 0;
 		}
 		i = core::bitfieldInsert(i, bit, dstbit, 1);
 		i = core::bitfieldInsert<instr_t>(i, reg, reg_bitfield_shift, BITFIELDS_REG_WIDTH);
+		i = core::bitfieldInsert<instr_t>(i, reg_count, reg_count_bitfield_shift, BITFIELDS_FETCH_TEX_REG_CNT_WIDTH);
 
-		if (bit)
-			_tex2reg.insert({tex,reg});
+		if (bit) {
+			_out_tex2reg.insert({tex,reg});
+			_out_regCntFlags |= (1u << reg_count);
+		}
 	};
+
 
 	traversal_t traversal;
 		
@@ -1035,7 +1045,8 @@ instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const travers
 	{
 		const E_OPCODE op = getOpcode(i);
 
-		if (op==OP_NOOP || op==OP_INVALID || op==OP_SET_GEOM_NORMAL)
+		if (op==OP_NOOP || op==OP_INVALID || op==OP_SET_GEOM_NORMAL
+			|| op==OP_BUMPMAP)//prefetching bumpmaps is pointless because OP_BUMPMAP performs 4 samples to compute gradient, this can be avoided if we make gradient map from bumpmap
 			continue;
 
 		i = core::bitfieldInsert<instr_t>(i, 0, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_FETCH_TEX_COUNT);
@@ -1047,31 +1058,32 @@ instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const travers
 		{
 		case OP_DIFFUSE: _IRR_FALLTHROUGH;
 		case OP_PLASTIC:
-			write_fetch_flag(i, bsdf_data.param[0].tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT);
-			write_fetch_flag(i, bsdf_data.param[1].tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_REFL_TEX, BITFIELDS_REG_1_SHIFT);
+			write_fetch_bitfields(i, bsdf_data.param[0].tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);//alpha
+			write_fetch_bitfields(i, bsdf_data.param[1].tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_REFL_TEX, BITFIELDS_REG_1_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, 3u);//reflectance
 			break;
 		case OP_DIFFTRANS:
-			write_fetch_flag(i, bsdf_data.difftrans.transmittance.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_TRANS_TEX, BITFIELDS_REG_0_SHIFT);
+			write_fetch_bitfields(i, bsdf_data.difftrans.transmittance.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_TRANS_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 3u);
 			break;
 		case OP_DIELECTRIC: _IRR_FALLTHROUGH;
 		case OP_CONDUCTOR:
-			write_fetch_flag(i, bsdf_data.param[0].tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT);
-			write_fetch_flag(i, bsdf_data.param[1].tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_ALPHA_V_TEX, BITFIELDS_REG_1_SHIFT);
+			write_fetch_bitfields(i, bsdf_data.param[0].tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);//alpha_u
+			write_fetch_bitfields(i, bsdf_data.param[1].tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_ALPHA_V_TEX, BITFIELDS_REG_1_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, 1u);//alpha_v
 			break;
 		case OP_COATING:
-			write_fetch_flag(i, bsdf_data.coating.alpha.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT);
-			write_fetch_flag(i, bsdf_data.coating.sigmaA.tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_SIGMA_A_TEX, BITFIELDS_REG_1_SHIFT);
+			write_fetch_bitfields(i, bsdf_data.coating.alpha.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);
+			write_fetch_bitfields(i, bsdf_data.coating.sigmaA.tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_SIGMA_A_TEX, BITFIELDS_REG_1_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, 3u);
 			break;
 		case OP_BUMPMAP:
 			i = core::bitfieldInsert<instr_t>(i, 1u, BITFIELDS_FETCH_TEX_0_SHIFT, 1);
-			write_fetch_flag(i, bsdf_data.bumpmap.bumpmap, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_REG_0_SHIFT);
+			//TODO change reg count to 2u if we have derivative maps instead of bump maps
+			write_fetch_bitfields(i, bsdf_data.bumpmap.bumpmap, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);
 			break;
 		case OP_BLEND:
-			write_fetch_flag(i, bsdf_data.blend.weight.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_WEIGHT_TEX, BITFIELDS_REG_0_SHIFT);
+			write_fetch_bitfields(i, bsdf_data.blend.weight.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_WEIGHT_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);
 			break;
 		}
 		//opacity is common for all
-		write_fetch_flag(i, bsdf_data.param[2].tex, BITFIELDS_FETCH_TEX_2_SHIFT, BITFIELDS_SHIFT_OPACITY_TEX, BITFIELDS_REG_2_SHIFT);
+		write_fetch_bitfields(i, bsdf_data.param[2].tex, BITFIELDS_FETCH_TEX_2_SHIFT, BITFIELDS_SHIFT_OPACITY_TEX, BITFIELDS_REG_2_SHIFT, BITFIELDS_FETCH_TEX_2_REG_CNT_SHIFT, 3u);
 
 		//do not add instruction to stream if it doesnt need any texture or all needed textures are already being fetched by previous instructions
 		if (!core::bitfieldExtract(i, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_FETCH_TEX_COUNT))
@@ -1079,6 +1091,8 @@ instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const travers
 
 		traversal.push_back(i);
 	}
+
+	_out_usedRegs = regNum-_firstFreeReg;
 
 	return traversal;
 }
@@ -1115,54 +1129,90 @@ core::unordered_map<uint32_t, uint32_t> CMaterialCompilerGLSLBackendCommon::crea
 	return ix2ix;
 }
 
-auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _computeGenChoiceStream) const -> result_t
+auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _computeGenChoiceStream) -> result_t
 {
 	result_t res;
+	res.noNormPrecompStream = true;
+	res.noPrefetchStream = true;
+	res.usedRegisterCount = 0u;
+
+	uint32_t prefetchRegCntFlags = 0u;
 	for (const IR::INode* root : _ir->roots)
 	{
+		uint32_t registerPool = instr_stream::MAX_REGISTER_COUNT;
+
+		uint32_t usedRegs{};
 		traversal_t rem_pdf_stream;
 		{
-			remainder_and_pdf::CTraversalGenerator gen(_ctx, _ir);
-			rem_pdf_stream = gen.genTraversal(root);
+			remainder_and_pdf::CTraversalGenerator gen(_ctx, _ir, registerPool);
+			rem_pdf_stream = gen.genTraversal(root, usedRegs);
+			assert(usedRegs <= registerPool);
+			registerPool -= usedRegs;
 		}
 		traversal_t gen_choice_stream;
 		if (_computeGenChoiceStream)
 		{
-			gen_choice::CTraversalGenerator gen(_ctx, _ir);
-			gen_choice_stream = gen.genTraversal(root);
+			gen_choice::CTraversalGenerator gen(_ctx, _ir, registerPool);
+			gen_choice_stream = gen.genTraversal(root, usedRegs);
+			assert(usedRegs <= registerPool);
+			registerPool -= usedRegs;
 		}
 		core::unordered_map<uint32_t, uint32_t> ix2ix;
 		traversal_t tex_prefetch_stream;
 		{
 			core::unordered_map<STextureData, uint32_t, STextureData::hash> tex2reg;
-			tex_prefetch_stream = tex_prefetch::genTraversal(rem_pdf_stream, _ctx->bsdfData, tex2reg);
+			tex_prefetch_stream = tex_prefetch::genTraversal(rem_pdf_stream, _ctx->bsdfData, tex2reg, MAX_REGISTER_COUNT-registerPool, usedRegs, prefetchRegCntFlags);
+			assert(usedRegs <= registerPool);
+			registerPool -= usedRegs;
 
 			ix2ix = createBsdfDataIndexMapForPrefetchedTextures(_ctx, tex_prefetch_stream, tex2reg);
+		}
+
+		traversal_t normal_precomp_stream;
+		{
+			uint32_t regNum = MAX_REGISTER_COUNT-registerPool;
+			normal_precomp_stream.reserve(std::count_if(rem_pdf_stream.begin(), rem_pdf_stream.end(), [](instr_t i) {return getOpcode(i)==OP_BUMPMAP;}));
+			for (instr_t i : rem_pdf_stream)
+			{
+				if (getOpcode(i)==OP_BUMPMAP)
+				{
+					i = core::bitfieldInsert<instr_t>(i, regNum, normal_precomp::BITFIELDS_REG_DST_SHIFT, normal_precomp::BITFIELDS_REG_WIDTH);
+					regNum += 3u;
+					normal_precomp_stream.push_back(i);
+				}
+			}
+			assert(regNum <= MAX_REGISTER_COUNT);
+			registerPool = MAX_REGISTER_COUNT - regNum;
 		}
 
 		adjustBSDFDataIndices(rem_pdf_stream, ix2ix);
 		adjustBSDFDataIndices(gen_choice_stream, ix2ix);
 
-		traversal_t normal_precomp_stream;
-		{
-			normal_precomp_stream.reserve(std::count_if(rem_pdf_stream.begin(), rem_pdf_stream.end(), [](instr_t i) {return getOpcode(i)==OP_BUMPMAP;}));
-			for (instr_t i : rem_pdf_stream)
-				if (getOpcode(i)==OP_BUMPMAP)
-					normal_precomp_stream.push_back(i);
-		}
-
 		result_t::instr_streams_t streams;
-		streams.rem_and_pdf = {res.remainder_and_pdf.size(), rem_pdf_stream.size()};
-		res.remainder_and_pdf.insert(res.remainder_and_pdf.end(), rem_pdf_stream.begin(), rem_pdf_stream.end());
-		streams.gen_choice = {res.generator_choice.size(), gen_choice_stream.size()};
-		res.generator_choice.insert(res.generator_choice.end(), gen_choice_stream.begin(), gen_choice_stream.end());
-		streams.tex_prefetch = {res.texture_prefetch.size(), tex_prefetch_stream.size()};
-		res.texture_prefetch.insert(res.texture_prefetch.end(), tex_prefetch_stream.begin(), tex_prefetch_stream.end());
-		streams.norm_precomp = {res.normal_precomp.size(), normal_precomp_stream.size()};
-		res.normal_precomp.insert(res.normal_precomp.end(), normal_precomp_stream.begin(), normal_precomp_stream.end());
+		streams.rem_and_pdf = {res.instructions.size(), rem_pdf_stream.size()};
+		res.instructions.insert(res.instructions.end(), rem_pdf_stream.begin(), rem_pdf_stream.end());
+		streams.gen_choice = {res.instructions.size(), gen_choice_stream.size()};
+		res.instructions.insert(res.instructions.end(), gen_choice_stream.begin(), gen_choice_stream.end());
+		streams.tex_prefetch = {res.instructions.size(), tex_prefetch_stream.size()};
+		res.instructions.insert(res.instructions.end(), tex_prefetch_stream.begin(), tex_prefetch_stream.end());
+		streams.norm_precomp = {res.instructions.size(), normal_precomp_stream.size()};
+		res.instructions.insert(res.instructions.end(), normal_precomp_stream.begin(), normal_precomp_stream.end());
 
 		res.streams.push_back(streams);
+
+		res.noNormPrecompStream = res.noNormPrecompStream && (streams.norm_precomp.count==0u);
+		res.noPrefetchStream = res.noPrefetchStream && (streams.tex_prefetch.count==0u);
+		res.usedRegisterCount = std::max(res.usedRegisterCount, instr_stream::MAX_REGISTER_COUNT-registerPool);
 	}
+
+	_ir->deinitTmpNodes();
+
+	res.prefetch_sameNumOfChannels = core::isPoT(prefetchRegCntFlags);
+	if (res.prefetch_sameNumOfChannels)
+		res.prefetch_numOfChannels = core::findLSB(prefetchRegCntFlags);
+
+	for (instr_t i : res.instructions)
+		res.opcodes.insert(instr_stream::getOpcode(i));
 
 	return res;
 }

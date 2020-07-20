@@ -62,7 +62,6 @@ protected:
         //call destructors on all nodes
         for (auto* root : roots)
         {
-            core::set<decltype(root)> deinited;
             core::stack<decltype(root)> s;
             s.push(root);
             while (!s.empty())
@@ -72,15 +71,22 @@ protected:
                 for (auto* c : n->children)
                     s.push(c);
 
-                if (deinited.find(n)==deinited.end()) {
+                if (!n->deinited) {
                     n->~INode();
-                    deinited.insert(n);
+                    n->deinited = true;
                 }
             }
         }
     }
 
 public:
+    void deinitTmpNodes()
+    {
+        for (INode* n : tmp)
+            n->~INode();
+        tmp.clear();
+    }
+
     template <typename NodeType, typename ...Args>
     NodeType* allocNode(Args&& ...args)
     {
@@ -93,6 +99,13 @@ public:
         auto* root = allocNode<NodeType>(std::forward<Args>(args)...);
         roots.push_back(root);
         return root;
+    }
+    template <typename NodeType, typename ...Args>
+    NodeType* allocTmpNode(Args&& ...args)
+    {
+        auto* node = allocNode<NodeType>(std::forward<Args>(args)...);
+        tmp.push_back(node);
+        return node;
     }
 
     struct INode
@@ -217,6 +230,7 @@ public:
 
         children_array_t children;
         E_SYMBOL symbol;
+        bool deinited = false;
     };
 
     struct CMaterialNode : public INode
@@ -368,6 +382,8 @@ public:
 
     SBackingMemManager memMgr;
     core::vector<INode*> roots;
+
+    core::vector<INode*> tmp;
 };
 
 }}}
