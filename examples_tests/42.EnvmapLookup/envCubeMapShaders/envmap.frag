@@ -1,5 +1,5 @@
 #version 430 core
-
+#extension GL_GOOGLE_include_directive : require
 
 layout(set = 3, binding = 0) uniform sampler2D envMap; 
 layout(set = 3, binding = 1) uniform usamplerBuffer sampleSequence;
@@ -25,7 +25,7 @@ struct Sphere
     vec3 position;
     float radius2;
     uint bsdfLightIDs;
-};
+}; 
 
 float sqr(in float x)
 {
@@ -52,7 +52,7 @@ Sphere spheres[SPHERE_COUNT] = {
 #define OP_BITS_OFFSET 0
 #define OP_BITS_SIZE 2
 struct BSDFNode
-{
+{ 
     uvec4 data[2];
 };
 
@@ -195,13 +195,13 @@ vec2 SampleSphericalMap(vec3 v)
 {
     vec2 uv = vec2(atan(v.z, v.x), asin(v.y));
     uv *= irr_glsl_RECIPROCAL_PI*0.5;
-    uv += 0.5;
+    uv += 0.5; 
     return uv;
 }
 
-void missProgram()
+void missProgram() 
 {
-    vec3 finalContribution = rayStack[stackPtr]._payload.throughput;
+    vec3 finalContribution = rayStack[stackPtr]._payload.throughput; 
     //#define USE_ENVMAP
     // true miss
     if (rayStack[stackPtr]._immutable.maxT>=FLT_MAX)
@@ -214,7 +214,7 @@ void missProgram()
             finalContribution *= kConstantEnvLightRadiance;
         #endif
     }
-    //rayStack[stackPtr]._payload.accumulation += finalContribution;
+    rayStack[stackPtr]._payload.accumulation += finalContribution;
 }
 
 
@@ -243,13 +243,13 @@ irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfac
     }
     return smpl;
 }
-vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_BSDFSample _sample, in BSDFNode bsdf)
+vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in BSDFNode bsdf)
 {
     vec3 remainder;
     switch (BSDFNode_getType(bsdf))
     {
         case DIFFUSE_OP:
-            remainder = irr_glsl_lambertian_cos_remainder_and_pdf(pdf,interaction,_sample);
+            remainder = vec3(irr_glsl_lambertian_cos_remainder_and_pdf(pdf,_sample,interaction));
             remainder *= BSDFNode_getReflectance(bsdf);
             break;
         case CONDUCTOR_OP:
@@ -326,11 +326,10 @@ float BSDFNode_getMISWeight(in BSDFNode bsdf)
     return 1.0;
 }
 
-// TODO: Move this back
-#define SAMPLES 16
-// TODO: Can't get the specialization constants to go through
-layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 2;
-layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 6;
+layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
+layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
+#define MAX_DEPTH 2
+#define SAMPLES 32
 
 // TODO: upgrade the xorshift variant to one that uses an addition
 uint rand_xorshift(inout uint rng_state)
@@ -343,18 +342,12 @@ uint rand_xorshift(inout uint rng_state)
 }
 vec3 rand3d(in uint protoDimension, in uint _sample, inout uint scramble_state)
 {
-/* TODO: Random Numbers are Screwed
     uint address = bitfieldInsert(protoDimension,_sample,MAX_DEPTH_LOG2,MAX_SAMPLES_LOG2);
 	uvec3 seqVal = texelFetch(sampleSequence,int(address)).xyz;
-    */
-	uvec3 seqVal = uvec3(uvec2(_sample%4,_sample/4)<<(32u-findMSB(4)),0u);
-	seqVal.xy += uvec2(1,1)<<(31u-findMSB(4));
-
 	seqVal ^= uvec3(rand_xorshift(scramble_state),rand_xorshift(scramble_state),rand_xorshift(scramble_state));
     return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
 }
 
-#define MAX_DEPTH 6
 void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
 {
     const MutableRay_t mutable = rayStack[stackPtr]._mutable;
@@ -392,7 +385,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
 
     // do we even have a BSDF at all
     uint bsdfID = bitfieldExtract(bsdfLightIDs,0,16);
-    if (depth<(MAX_DEPTH-1) && bsdfID!=INVALID_ID_16BIT)
+    if (depth<MAX_DEPTH && bsdfID!=INVALID_ID_16BIT)
     {
         // common preload
         BSDFNode bsdf = bsdfs[bsdfID];
@@ -428,7 +421,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
             // do a cool trick and always compute the bsdf parts this way! (no divergence)
             float bsdfPdf;
             // the value of the bsdf divided by the probability of the sample being generated
-            rayStack[stackPtr]._payload.throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,interaction,_sample,bsdf);
+            rayStack[stackPtr]._payload.throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf);
 
             if (bsdfPdf>FLT_MIN)
             {
@@ -456,33 +449,48 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
 
 void main()
 {
-	uint scramble = textureLod(scramblebuf,TexCoord,0).r;
+    if (((MAX_DEPTH-1)>>MAX_DEPTH_LOG2)>0 || ((SAMPLES-1)>>MAX_SAMPLES_LOG2)>0)
+    {
+        pixelColor = vec4(1.0,0.0,0.0,1.0);
+        return;
+    }
 
-    mat4 invMVP = inverse(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(cameraData.params.MVP));
-    vec4 NDC = vec4(TexCoord*2.0-vec2(1.0),0.0,1.0);
-    NDC.y = -NDC.y;
-    vec4 tmp = invMVP*NDC;
-    vec3 camPos = tmp.xyz/tmp.w;
+	uint scramble = textureLod(scramblebuf,TexCoord,0).r;
+    const vec2 pixOffsetParam = vec2(2.0)/vec2(textureSize(scramblebuf,0)); // depending on denoiser used, we could use Lanczos or Gaussian filter instead of Box
+
+
+    const mat4 invMVP = inverse(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(cameraData.params.MVP));
+    
+    vec4 NDC = vec4(TexCoord*vec2(2.0,-2.0)+vec2(-1.0,1.0),0.0,1.0);
+    vec3 camPos;
+    {
+        vec4 tmp = invMVP*NDC;
+        camPos = tmp.xyz/tmp.w;
+        NDC.z = 1.0;
+    }
+
 
     vec3 color = vec3(0.0);
     for (int i=0; i<SAMPLES; i++)
     {
+        uint scramble_state = scramble;
+
         stackPtr = 0;
-        
         // raygen
         {
             rayStack[stackPtr]._immutable.origin = camPos;
             rayStack[stackPtr]._immutable.maxT = FLT_MAX;
-            NDC.z = 1.0;
-            tmp = invMVP*NDC;
+            vec4 tmp = NDC;
+            tmp.xy += pixOffsetParam*(rand3d(0u,i,scramble_state).xy-vec2(0.5));
+            //tmp.xy += pixOffsetParam*irr_glsl_concentricMapping(rand3d(0u,i,scramble_state).xy)*25.0;
+            tmp = invMVP*tmp;
             rayStack[stackPtr]._immutable.direction = normalize(tmp.xyz/tmp.w-camPos);
-            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(i,0,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
+            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(i,1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
 
             rayStack[stackPtr]._payload.accumulation = vec3(0.0);
             rayStack[stackPtr]._payload.otherTechniqueHeuristic = 0.0; // TODO: remove
             rayStack[stackPtr]._payload.throughput = vec3(1.0);
         }
-        uint scramble_state = scramble;
 
         // trace
         while (stackPtr!=-1)
