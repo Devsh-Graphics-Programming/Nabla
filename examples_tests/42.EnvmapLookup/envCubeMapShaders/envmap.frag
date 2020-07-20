@@ -229,10 +229,7 @@ irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfac
             smpl = irr_glsl_lambertian_cos_generate(interaction,u.xy);
             break;
         case CONDUCTOR_OP:
-            smpl.L = irr_glsl_reflect(interaction.isotropic.V.dir,interaction.isotropic.N,interaction.isotropic.NdotV);
-            smpl.LdotN = interaction.isotropic.NdotV;
-            smpl.NdotH = 1.0;
-            smpl.VdotH = interaction.isotropic.NdotV;
+            smpl = irr_glsl_reflection_cos_generate(interaction);
             break;
         default:
             smpl.L = irr_glsl_reflect(interaction.isotropic.V.dir,interaction.isotropic.N,interaction.isotropic.NdotV);
@@ -253,7 +250,8 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _
             remainder *= BSDFNode_getReflectance(bsdf);
             break;
         case CONDUCTOR_OP:
-            pdf = 1.0;
+            //remainder = irr_glsl_reflection_cos_remainder_and_pdf(pdf,_sample);
+            pdf = 1.0/0.0;
             remainder = normalize(BSDFNode_getReflectance(bsdf));
             break;
         default:
