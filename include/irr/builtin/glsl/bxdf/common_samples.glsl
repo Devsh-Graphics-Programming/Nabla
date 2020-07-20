@@ -5,9 +5,9 @@
 struct irr_glsl_BSDFSample
 {
     vec3 L;  // incoming direction, normalized
-    float LdotT;
-    float LdotB;
-    float LdotN;
+    float LdotT; // TODO: @Crisspl this should be named TdotL for consistency with other structs 
+    float LdotB; // TODO: @Crisspl this should be named BdotL for consistency with other structs
+    float LdotN; // TODO: @Crisspl this should be named NdotL for consistency with other structs
 
     float TdotH;
     float BdotH;
@@ -45,7 +45,7 @@ irr_glsl_BSDFSample irr_glsl_transmission_cos_generate(in irr_glsl_AnisotropicVi
     return smpl;
 }
 
-vec3 irr_glsl_transmission_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
+vec3 irr_glsl_transmission_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s)
 {
 	pdf = 1.0/0.0;
 	return vec3(1.0);
@@ -59,7 +59,7 @@ irr_glsl_BSDFSample irr_glsl_reflection_cos_generate(in irr_glsl_AnisotropicView
     return smpl;
 }
 
-vec3 irr_glsl_reflection_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
+vec3 irr_glsl_reflection_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s)
 {
 	pdf = 1.0/0.0;
 	return vec3(1.0);
@@ -103,14 +103,6 @@ irr_glsl_BSDFSample irr_glsl_smooth_dielectric_cos_sample(in irr_glsl_Anisotropi
 }
 #endif
 /*
-irr_glsl_BSDFSample irr_glsl_reflection_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u, in vec3 eta, in vec3 luminosityContributionHint)
-{
-    irr_glsl_BSDFSample smpl;
-    smpl.L = irr_glsl_reflect(interaction.isotropic.V.dir,interaction.isotropic.N,interaction.isotropic.NdotV);
-
-    return smpl;
-}
-
 vec3 irr_glsl_smooth_dielectric_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 eta, in vec3 luminosityContributionHint)
 {
     pdf = 1.0/0.0; // its inf anyway
