@@ -288,8 +288,8 @@ int main()
 
 		auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*MaxDimensions*MaxSamples);
 		
-		//core::OwenSampler sampler(MaxDimensions, 0xdeadbeefu);
-		core::SobolSampler sampler(MaxDimensions);
+		core::OwenSampler sampler(MaxDimensions, 0xdeadbeefu);
+		//core::SobolSampler sampler(MaxDimensions);
 
 		auto out = reinterpret_cast<uint32_t*>(sampleSequence->getPointer());
 		for (auto dim=0u; dim<MaxDimensions; dim++)

@@ -385,7 +385,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
 
     // do we even have a BSDF at all
     uint bsdfID = bitfieldExtract(bsdfLightIDs,0,16);
-    if (depth<(MAX_DEPTH-1) && bsdfID!=INVALID_ID_16BIT)
+    if (depth<MAX_DEPTH && bsdfID!=INVALID_ID_16BIT)
     {
         // common preload
         BSDFNode bsdf = bsdfs[bsdfID];
@@ -456,32 +456,41 @@ void main()
     }
 
 	uint scramble = textureLod(scramblebuf,TexCoord,0).r;
+    const vec2 pixOffsetParam = vec2(2.0)/vec2(textureSize(scramblebuf,0)); // depending on denoiser used, we could use Lanczos or Gaussian filter instead of Box
 
-    mat4 invMVP = inverse(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(cameraData.params.MVP));
-    vec4 NDC = vec4(TexCoord*2.0-vec2(1.0),0.0,1.0);
-    NDC.y = -NDC.y;
-    vec4 tmp = invMVP*NDC;
-    vec3 camPos = tmp.xyz/tmp.w;
+
+    const mat4 invMVP = inverse(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(cameraData.params.MVP));
+    
+    vec4 NDC = vec4(TexCoord*vec2(2.0,-2.0)+vec2(-1.0,1.0),0.0,1.0);
+    vec3 camPos;
+    {
+        vec4 tmp = invMVP*NDC;
+        camPos = tmp.xyz/tmp.w;
+        NDC.z = 1.0;
+    }
+
 
     vec3 color = vec3(0.0);
     for (int i=0; i<SAMPLES; i++)
     {
+        uint scramble_state = scramble;
+
         stackPtr = 0;
-        
         // raygen
         {
             rayStack[stackPtr]._immutable.origin = camPos;
             rayStack[stackPtr]._immutable.maxT = FLT_MAX;
-            NDC.z = 1.0;
-            tmp = invMVP*NDC;
+            vec4 tmp = NDC;
+            tmp.xy += pixOffsetParam*(rand3d(0u,i,scramble_state).xy-vec2(0.5));
+            //tmp.xy += pixOffsetParam*irr_glsl_concentricMapping(rand3d(0u,i,scramble_state).xy)*25.0;
+            tmp = invMVP*tmp;
             rayStack[stackPtr]._immutable.direction = normalize(tmp.xyz/tmp.w-camPos);
-            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(i,0,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
+            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(i,1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
 
             rayStack[stackPtr]._payload.accumulation = vec3(0.0);
             rayStack[stackPtr]._payload.otherTechniqueHeuristic = 0.0; // TODO: remove
             rayStack[stackPtr]._payload.throughput = vec3(1.0);
         }
-        uint scramble_state = scramble;
 
         // trace
         while (stackPtr!=-1)
