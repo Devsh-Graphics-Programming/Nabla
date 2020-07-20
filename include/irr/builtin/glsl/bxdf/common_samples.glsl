@@ -55,6 +55,7 @@ irr_glsl_BSDFSample irr_glsl_reflection_cos_generate(in irr_glsl_AnisotropicView
 {
     irr_glsl_BSDFSample smpl;
     smpl.L = irr_glsl_reflect(interaction.isotropic.V.dir,interaction.isotropic.N,interaction.isotropic.NdotV);
+    smpl.NdotH = 1.0; 
 
     return smpl;
 }

@@ -177,8 +177,8 @@ bool traceRay(in ImmutableRay_t _immutable)
         float t = -dirDotOrigin-sqrt(det);
         bool closerIntersection = t>0.0 && t<intersectionT;
 
-        if (anyHit && closerIntersection && anyHitProgram(_immutable))
-            break;
+        //if (anyHit && closerIntersection && anyHitProgram(_immutable))
+            //break;
 
 		objectID = closerIntersection ? i:objectID;
         intersectionT = closerIntersection ? t:intersectionT;
@@ -214,6 +214,10 @@ void missProgram()
             finalContribution *= kConstantEnvLightRadiance;
         #endif
     }
+    else
+    {
+        finalContribution *= rayStack[stackPtr]._payload.otherTechniqueHeuristic;
+    }
     rayStack[stackPtr]._payload.accumulation += finalContribution;
 }
 
@@ -231,11 +235,8 @@ irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfac
         case CONDUCTOR_OP:
             smpl = irr_glsl_reflection_cos_generate(interaction);
             break;
-        default:
-            smpl.L = irr_glsl_reflect(interaction.isotropic.V.dir,interaction.isotropic.N,interaction.isotropic.NdotV);
-            smpl.LdotN = interaction.isotropic.NdotV;
-            smpl.NdotH = 1.0;
-            smpl.VdotH = interaction.isotropic.NdotV;
+        default: // TODO: for dielectric
+            smpl = irr_glsl_reflection_cos_generate(interaction);
             break;
     }
     return smpl;
@@ -251,11 +252,11 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _
             break;
         case CONDUCTOR_OP:
             //remainder = irr_glsl_reflection_cos_remainder_and_pdf(pdf,_sample);
-            pdf = 1.0/0.0;
+            pdf = _sample.NdotH==1.0 ? (1.0/0.0):0.0;
             remainder = normalize(BSDFNode_getReflectance(bsdf));
             break;
-        default:
-            pdf = 1.0;
+        default: // TODO: for dielectric
+            pdf = _sample.NdotH==1.0 ? (1.0/0.0):0.0;
             remainder = normalize(BSDFNode_getReflectance(bsdf));
             break;
     }
@@ -277,51 +278,52 @@ vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in v
 
 #define GeneratorSample irr_glsl_BSDFSample
 #define irr_glsl_LightSample irr_glsl_BSDFSample
+irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
+{
+    irr_glsl_BSDFSample s;
+    s.L = L;
+
+    s.LdotT = dot(interaction.T,L);
+    s.LdotB = dot(interaction.B,L);
+    s.LdotN = dot(interaction.isotropic.N,L);
+   
+    float VdotL = dot(interaction.isotropic.V.dir,L);
+    float LplusV_rcpLen = inversesqrt(2.0+2.0*VdotL);
+
+    s.TdotH = (interaction.TdotV+s.LdotT)*LplusV_rcpLen;
+    s.BdotH = (interaction.BdotV+s.LdotB)*LplusV_rcpLen;
+    s.NdotH = (interaction.isotropic.NdotV+s.LdotN)*LplusV_rcpLen;
+
+    s.VdotH = LplusV_rcpLen+LplusV_rcpLen*VdotL;
+    
+    return s;
+}
 irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u)
 {
-    // normally we'd pick from set of lights, using `u`
+    // normally we'd pick from set of lights, using `u.z`
     Light light = lights[0];
     float choicePdf = scene_getLightChoicePdf(light);
 
     Sphere sphere = spheres[Light_getObjectID(light)];
 
+    float solidAngle = impl_sphereSolidAngle(sphere,origin,interaction);
+    remainder = Light_getRadiance(light)*solidAngle/choicePdf;
+    pdf = choicePdf/solidAngle;
 
-    remainder = Light_getRadiance(light)/choicePdf;
-    pdf = choicePdf/impl_sphereSolidAngle(sphere,origin,interaction);
-
+    // TODO: finish sphere point picking
     vec3 L = sphere.position-origin;
-    float rcpDistance = inversesqrt(dot(L,L));
-    newRayMaxT = rcpDistance*(1.0-INTERSECTION_ERROR_BOUND*2.0);
+    float distanceSQ = dot(L,L);
+    float rcpDistance = inversesqrt(distanceSQ);
+    newRayMaxT = (1.0-INTERSECTION_ERROR_BOUND*2.0)/rcpDistance;
 
-    irr_glsl_LightSample retval;
-    retval.L = L*rcpDistance;
-    retval.LdotN = dot(retval.L,interaction.isotropic.N);
-    retval.VdotH = dot(retval.L,normalize(retval.L+interaction.isotropic.V.dir));
-    return retval;
+    return irr_glsl_createLightSample(L*rcpDistance,interaction);
 }
-/*
-irr_glsl_LightSample irr_glsl_createLightSample(in vec3 H, in vec3 V, in float VdotH, in mat3 m)
-{
-    irr_glsl_BSDFSample s;
 
-    vec3 L = irr_glsl_reflect(V, H, VdotH);
-    s.L = m * L; // m must be an orthonormal matrix
-    s.LdotT = L.x;
-    s.LdotB = L.y;
-    s.LdotN = L.z;
-    s.TdotH = H.x;
-    s.BdotH = H.y;
-    s.NdotH = H.z;
-    s.VdotH = VdotH;
-
-    return s;
-}
-*/
 
 // TODO
 float BSDFNode_getMISWeight(in BSDFNode bsdf)
 {
-    return 1.0;
+    return 0.0;
 }
 
 layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
@@ -366,8 +368,8 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
         interaction = irr_glsl_calcAnisotropicInteraction(isotropic);
     }
 
-    uint bsdfLightIDs = sphere.bsdfLightIDs;
-    uint lightID = bitfieldExtract(bsdfLightIDs,16,16);
+    const uint bsdfLightIDs = sphere.bsdfLightIDs;
+    const uint lightID = bitfieldExtract(bsdfLightIDs,16,16);
 
 
     // finish MIS
@@ -378,8 +380,8 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
         rayStack[stackPtr]._payload.accumulation += rayStack[stackPtr]._payload.throughput*lightVal/(1.0+lightPdf*lightPdf*rayStack[stackPtr]._payload.otherTechniqueHeuristic);
     }
 
-    int sampleIx = bitfieldExtract(_immutable.typeDepthSampleIx,0,DEPTH_BITS_OFFSET);
-    int depth = bitfieldExtract(_immutable.typeDepthSampleIx,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
+    const int sampleIx = bitfieldExtract(_immutable.typeDepthSampleIx,0,DEPTH_BITS_OFFSET);
+    const int depth = bitfieldExtract(_immutable.typeDepthSampleIx,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
 
     // do we even have a BSDF at all
     uint bsdfID = bitfieldExtract(bsdfLightIDs,0,16);
@@ -395,7 +397,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
         {
             vec3 epsilon = rand3d(depth,sampleIx,scramble_state);
 
-            bool pickBSDF = true;
+            bool pickBSDF = false;
             
             float maxT;
             
@@ -414,6 +416,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
                     lightRemainder,lightPdf,maxT,
                     intersection,interaction,epsilon
                 );
+                rayStack[stackPtr]._payload.throughput *= lightRemainder;
             }
             
             // do a cool trick and always compute the bsdf parts this way! (no divergence)
