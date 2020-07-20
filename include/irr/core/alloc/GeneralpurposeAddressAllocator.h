@@ -409,9 +409,11 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
             }
             // couldn't pop one straight away, now we have to start trying best-fit
             std::pair<Block,Block>  retval({invalid_address,invalid_address},{invalid_address,invalid_address});
-            auto perBlockFunctional = [&retval](Block hypotheticallyAllocatedBlock, const Block* origBlock, const uint32_t level, const size_type wastedEndSpace) -> bool
+            auto _freeListStackCtr = Base::freeListStackCtr;
+            auto perBlockFunctional = [&retval,_freeListStackCtr](Block hypotheticallyAllocatedBlock, const Block* origBlock, const uint32_t level, const size_type wastedEndSpace) -> bool
             {
                 retval = {hypotheticallyAllocatedBlock,*origBlock};
+                _freeListStackCtr[level]--;
                 return true;
             };
             findAndPopSuitableBlock_common(bytes,alignment,surelyAllocatableLevel,perBlockFunctional);
