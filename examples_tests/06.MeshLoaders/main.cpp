@@ -65,18 +65,23 @@ int main()
     qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10,fs,"../../tmp/normalCache101010.sse");
     
     //copy the pipeline
-    auto pipeline_cp = make_smart_refctd_ptr<irr::asset::ICPURenderpassIndependentPipeline>(mesh_raw->getMeshBuffer(0u)->getPipeline()->clone());
+    auto pipeline_cp = core::smart_refctd_ptr_static_cast<irr::asset::ICPURenderpassIndependentPipeline>(mesh_raw->getMeshBuffer(0u)->getPipeline()->clone());
     //get the simple geometry shader data and turn it into ICPUSpecializedShader
     auto shaderData = device->getAssetManager()->getFileSystem()->loadBuiltinData("irr/builtin/shaders/testGeomShader.geom");
     auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shaderData), asset::ICPUShader::buffer_contains_glsl);
     auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_GEOMETRY));
 
     pipeline_cp->setShaderAtIndex(irr::asset::ICPURenderpassIndependentPipeline::ESSI_GEOMETRY_SHADER_IX, shader.get());
-    pipeline_cp->setLayout(...)    //TODO replace with ICPUPipelineLayout which uses in ICPUDescriptorSetLayout 'descriptor set 0', but i need to find out how to do this
 
     //replace the ICPURenderpassIndependentPipeline with a copy that uses the replaced geometry shader
     mesh_raw->getMeshBuffer(0u)->setPipeline(std::move(pipeline_cp));
 
+    //create buffers
+    auto lineCountBuffer = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t));
+    uint32_t triangleCount;
+    if (!irr::asset::IMeshManipulator::getPolyCount(triangleCount, mesh_raw))
+        throw;
+    auto linesBuffer = driver->createDeviceLocalGPUBufferOnDedMem(triangleCount * 6 * sizeof(float));
     //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
     //so we can create just one DS
     asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffer(0u)->getPipeline()->getLayout()->getDescriptorSetLayout(0u); //set 1u ---> 0u ?
@@ -135,12 +140,14 @@ int main()
 		driver->beginScene(true, true, video::SColor(255,255,255,255) );
         
         // zero out buffer LineCount
-        driver->fillBuffer(...);
+        driver->fillBuffer(lineCountBuffer.get(),0,sizeof(uint32_t),0);
 
         //! This animates (moves) the camera and sets the transforms
 		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
 
         //emit "memory barrier" of type GL_SHADER_STORAGE_BITS before scene is drawn - same as pre render? or post invoking render but before it finishes?
+        //did you mean GL_SHADER_STORAGE_BARRIER_BIT?
+        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
 		camera->render();
 
@@ -193,9 +200,10 @@ int main()
             driver->drawMeshBuffer(gpumb);
         }
         //emit "memory barrier" of type GL_ALL_BARRIER_BITS after the entire scene finishes drawing
+        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_ALL_BARRIER_BITS);
+        //invoke driver->drawIndirect() and use linesBuffer
        
-        //invoke driver->drawIndirect() using buffer i had built
-        driver->drawIndexedIndirect(...);
+        //driver->drawArraysIndirect( asset::SBufferBinding<video::IGPUBuffer>(linesBuffer),);
 		driver->endScene();
 
 		// display frames per second in window title
