@@ -70,7 +70,7 @@ vec3 irr_glsl_reflection_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSa
 //this is probably wrong so not touching it
 // usually  `luminosityContributionHint` would be the Rec.709 luma coefficients (the Y row of the RGB to CIE XYZ matrix)
 //assert(1.0==luminosityContributionHint.r+luminosityContributionHint.g+luminosityContributionHint.b);
-irr_glsl_BSDFSample irr_glsl_smooth_dielectric_cos_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u, in vec3 eta, in vec3 luminosityContributionHint)
+irr_glsl_BSDFSample irr_glsl_smooth_dielectric_approx_cos_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u, in vec3 eta, in vec3 luminosityContributionHint)
 {
     vec3 Fr = irr_glsl_fresnel_dielectric(eta, interaction.isotropic.NdotV);
     float reflectionProb = dot(Fr, luminosityContributionHint);//why dont we just use fresnel as reflection probability? i know its a vec3 but all its components should be equal in case of dielectric

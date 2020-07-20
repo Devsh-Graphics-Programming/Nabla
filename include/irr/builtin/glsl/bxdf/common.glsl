@@ -5,8 +5,6 @@
 #include <irr/builtin/glsl/math/functions.glsl>
 #include <irr/builtin/glsl/limits/numeric.glsl>
 
-#include <irr/builtin/glsl/math/functions.glsl>
-
 // do not use this struct in SSBO or UBO, its wasteful on memory
 struct irr_glsl_DirAndDifferential
 {

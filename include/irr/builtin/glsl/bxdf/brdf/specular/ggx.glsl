@@ -48,9 +48,10 @@ irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurface
     t2 = (1.0 - s)*sqrt(1.0 - t1*t1) + s*t2;
     
     //reprojection onto hemisphere
+	//TODO try it wothout the max(), not sure if -t1*t1-t2*t2>-1.0
     vec3 H = t1*T1 + t2*T2 + sqrt(max(0.0, 1.0-t1*t1-t2*t2))*V;
     //unstretch
-    H = normalize(vec3(_ax*H.x, _ay*H.y, max(0.0,H.z)));
+    H = normalize(vec3(_ax*H.x, _ay*H.y, H.z));
     float NdotH = H.z;
 
 	return irr_glsl_createBSDFSample(H,localV,dot(H,localV),m);
