@@ -143,7 +143,7 @@ void APIENTRY openGLCBFunc(GLenum source, GLenum type, GLuint id, GLenum severit
 struct ShaderParameters
 {
 	const uint32_t MaxDepthLog2 = 2; //5
-	const uint32_t MaxSamplesLog2 = 6; //18
+	const uint32_t MaxSamplesLog2 = 10; //18
 } kShaderParameters;
 
 int main()
@@ -288,10 +288,11 @@ int main()
 
 		auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*MaxDimensions*MaxSamples);
 		
-		core::OwenSampler sampler(MaxDimensions, 0xdeadbeefu);
+		//core::OwenSampler sampler(MaxDimensions, 0xdeadbeefu);
+		core::SobolSampler sampler(MaxDimensions);
 
 		auto out = reinterpret_cast<uint32_t*>(sampleSequence->getPointer());
-		for (auto dim = 0u; dim < MaxDimensions; dim++)
+		for (auto dim=0u; dim<MaxDimensions; dim++)
 		for (uint32_t i=0; i<MaxSamples; i++)
 		{
 			out[i*MaxDimensions+dim] = sampler.sample(dim,i);
