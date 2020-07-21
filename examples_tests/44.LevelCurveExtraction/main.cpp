@@ -83,6 +83,9 @@ int main()
         throw;
 
     auto linesBuffer = driver->createDeviceLocalGPUBufferOnDedMem(triangleCount * 6 * sizeof(float));
+
+    const asset::SBufferBinding<video::IGPUBuffer> bufferBinding = { 0u ,linesBuffer };
+
     //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
     //so we can create just one DS
     asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffer(0u)->getPipeline()->getLayout()->getDescriptorSetLayout(0u); //set 1u ---> 0u ?
@@ -202,8 +205,11 @@ int main()
         }
         //emit "memory barrier" of type GL_ALL_BARRIER_BITS after the entire scene finishes drawing
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_ALL_BARRIER_BITS);
+
+        
         //invoke driver->drawIndirect() and use linesBuffer
-       
+        driver->drawArraysIndirect(&bufferBinding, asset::EPT_LINE_LIST, linesBuffer.get(), 0u, triangleCount * 6 * sizeof(uint32_t), 6 * sizeof(uint32_t));
+            
         //driver->drawArraysIndirect( asset::SBufferBinding<video::IGPUBuffer>(linesBuffer),);
 		driver->endScene();
 
