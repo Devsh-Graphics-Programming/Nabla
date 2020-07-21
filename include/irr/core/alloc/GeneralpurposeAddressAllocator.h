@@ -409,11 +409,11 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
             }
             // couldn't pop one straight away, now we have to start trying best-fit
             std::pair<Block,Block>  retval({invalid_address,invalid_address},{invalid_address,invalid_address});
-            auto _freeListStackCtr = Base::freeListStackCtr;
-            auto perBlockFunctional = [&retval,_freeListStackCtr](Block hypotheticallyAllocatedBlock, const Block* origBlock, const uint32_t level, const size_type wastedEndSpace) -> bool
+            auto perBlockFunctional = [&](Block hypotheticallyAllocatedBlock, const Block* origBlock, const uint32_t level, const size_type wastedEndSpace) -> bool
             {
                 retval = {hypotheticallyAllocatedBlock,*origBlock};
-                _freeListStackCtr[level]--;
+                Base::freeListStackCtr[level]--;
+                Base::freeSize -= hypotheticallyAllocatedBlock.getLength();
                 return true;
             };
             findAndPopSuitableBlock_common(bytes,alignment,surelyAllocatableLevel,perBlockFunctional);
@@ -504,7 +504,13 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
                 AllocStrategy::insertFreeBlock(Block{found.first.endOffset,found.second.endOffset});
             if (found.first.startOffset!=found.second.startOffset)
                 AllocStrategy::insertFreeBlock(Block{found.second.startOffset,found.first.startOffset});
-
+            
+#ifdef _IRR_DEBUG
+            // allocation must not be outside the buffer
+            assert(found.first.startOffset +bytes<=AllocStrategy::bufferSize);
+            // sanity check
+            assert(AllocStrategy::freeSize+bytes<=AllocStrategy::bufferSize);
+#endif // _IRR_DEBUG
             return found.first.startOffset+Base::combinedOffset;
         }
 
