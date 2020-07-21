@@ -23,7 +23,7 @@ enum COMMAND_LINE_MODE
 };
 
 constexpr std::string_view requiredArgumentsMessage = R"(
-Pass appripiate arguments to launch the example or load them using predefined file!
+Pass appriopiate arguments to launch the example or load them using predefined file!
 * To load them with a arguments file usage type DenoiserTonemapper.exe -batch <yourargumentfile.txt>
 * To load them passing arguments through cmd.
 
