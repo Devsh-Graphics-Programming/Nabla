@@ -256,6 +256,8 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(std::
                     continue;
 
                 ix2 += 2u;
+                if (res_str[ix2-1u]!='"')//dont touch #line's without specified filename
+                    continue;
                 const size_t ix3 = res_str.find('\"', ix2);
                 res_str[ix3] = 0;
                 if (strcmp(_originFilepath,res_str.c_str()+ix2)==0) {//#line's of top-level source are not corrupted
