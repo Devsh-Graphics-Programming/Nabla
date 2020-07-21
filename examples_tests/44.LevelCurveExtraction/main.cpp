@@ -53,10 +53,10 @@ int main()
     qnc->loadNormalQuantCacheFromFile<asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(fs,"../../tmp/normalCache101010.sse", true);
 
     // register the zip
-    device->getFileSystem()->addFileArchive("../../media/sponza.zip");
+    device->getFileSystem()->addFileArchive("../../media/sphere.zip");
 
     asset::IAssetLoader::SAssetLoadParams lp;
-    auto meshes_bundle = am->getAsset("sponza.obj", lp);
+    auto meshes_bundle = am->getAsset("sphere.obj", lp);
     assert(!meshes_bundle.isEmpty());
     auto mesh = meshes_bundle.getContents().begin()[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
@@ -88,7 +88,7 @@ int main()
 
     //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
     //so we can create just one DS
-    asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffer(0u)->getPipeline()->getLayout()->getDescriptorSetLayout(0u); //set 1u ---> 0u ?
+    asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffer(0u)->getPipeline()->getLayout()->getDescriptorSetLayout(1u); //set 1u ---> 0u ?
     uint32_t ds1UboBinding = 0u;
     for (const auto& bnd : ds1layout->getBindings())
         if (bnd.type==asset::EDT_UNIFORM_BUFFER)
@@ -190,7 +190,7 @@ int main()
         for (uint32_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
         {
             video::IGPUMeshBuffer* gpumb = gpumesh->getMeshBuffer(i);
-            const video::IGPURenderpassIndependentPipeline* pipeline = gpumb->getPipeline();    //replace to copy that uses a geom shader
+            const video::IGPURenderpassIndependentPipeline* pipeline = gpumb->getPipeline();  
             const video::IGPUDescriptorSet* ds3 = gpumb->getAttachedDescriptorSet();
 
             driver->bindGraphicsPipeline(pipeline);
@@ -208,7 +208,7 @@ int main()
 
         
         //invoke driver->drawIndirect() and use linesBuffer
-        driver->drawArraysIndirect(&bufferBinding, asset::EPT_LINE_LIST, linesBuffer.get(), 0u, triangleCount * 6 * sizeof(uint32_t), 6 * sizeof(uint32_t));
+        driver->drawArraysIndirect(gpumesh->getMeshBuffer(0)->getVertexBufferBindings(), asset::EPT_LINE_LIST, linesBuffer.get(), 0u, triangleCount * 6 * sizeof(uint32_t), 6 * sizeof(uint32_t));
             
         //driver->drawArraysIndirect( asset::SBufferBinding<video::IGPUBuffer>(linesBuffer),);
 		driver->endScene();
