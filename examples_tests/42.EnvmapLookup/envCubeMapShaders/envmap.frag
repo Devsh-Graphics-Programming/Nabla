@@ -352,12 +352,14 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
 // TODO
 float BSDFNode_getMISWeight(in BSDFNode bsdf)
 {
-    return 0.0;
+    //return 0.0;
+    return 0.5;
+    //return uintBitsToFloat(0x3f800001u);
 }
 
 layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
 layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
-#define MAX_DEPTH 2
+#define MAX_DEPTH 8
 #define SAMPLES 32
 
 // TODO: upgrade the xorshift variant to one that uses an addition
@@ -400,13 +402,14 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
     const uint bsdfLightIDs = sphere.bsdfLightIDs;
     const uint lightID = bitfieldExtract(bsdfLightIDs,16,16);
 
+    vec3 throughput = rayStack[stackPtr]._payload.throughput;
 
     // finish MIS
     if (lightID!=INVALID_ID_16BIT) // has emissive
     {
         float lightPdf;
         vec3 lightVal = irr_glsl_light_deferred_eval_and_prob(lightPdf,sphere,_immutable.origin,interaction,lights[lightID]);
-        rayStack[stackPtr]._payload.accumulation += rayStack[stackPtr]._payload.throughput*lightVal/(1.0+lightPdf*lightPdf*rayStack[stackPtr]._payload.otherTechniqueHeuristic);
+        rayStack[stackPtr]._payload.accumulation += throughput*lightVal/(1.0+lightPdf*lightPdf*rayStack[stackPtr]._payload.otherTechniqueHeuristic);
     }
 
     const int sampleIx = bitfieldExtract(_immutable.typeDepthSampleIx,0,DEPTH_BITS_OFFSET);
@@ -426,10 +429,15 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
         {
             vec3 epsilon = rand3d(depth,sampleIx,scramble_state);
 
-            bool pickBSDF = false;
+
+            const bool pickBSDF = epsilon.z<bsdfGeneratorProbability;
+            const float choiceProb = pickBSDF ? bsdfGeneratorProbability:(1.0-bsdfGeneratorProbability); // TODO: proper computation
+            epsilon.z -= pickBSDF ? 0.0:bsdfGeneratorProbability; // TODO: do it properly
+            const float rcpChoiceProb = 1.0/choiceProb; // should be impossible to get a div by 0 here
+            epsilon.z *= rcpChoiceProb;
             
+
             float maxT;
-            
             // the probability of generating a sample w.r.t. the light generator only possible and used when it was generated with it!
             float lightPdf;
             GeneratorSample _sample;
@@ -445,20 +453,18 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
                     lightRemainder,lightPdf,maxT,
                     intersection,interaction,epsilon
                 );
-                rayStack[stackPtr]._payload.throughput *= lightRemainder;
+                throughput *= lightRemainder;
             }
             
             // do a cool trick and always compute the bsdf parts this way! (no divergence)
             float bsdfPdf;
             // the value of the bsdf divided by the probability of the sample being generated
-            rayStack[stackPtr]._payload.throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf);
+            throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf);
 
             const vec3 lumaCoeffs = transpose(irr_glsl_scRGBtoXYZ)[1];
-            if (bsdfPdf>FLT_MIN && dot(rayStack[stackPtr]._payload.throughput,lumaCoeffs)>FLT_MIN) // TODO: proper thresholds for probability and color contribution
+            if (bsdfPdf>FLT_MIN && dot(throughput,lumaCoeffs)>FLT_MIN) // TODO: proper thresholds for probability and color contribution
             {
-                float choiceProb = pickBSDF ? bsdfGeneratorProbability:(1.0-bsdfGeneratorProbability);
-                float rcpChoiceProb = 1.0/choiceProb; // should be impossible to get a div by 0 here
-                rayStack[stackPtr]._payload.throughput *= rcpChoiceProb;
+                rayStack[stackPtr]._payload.throughput = throughput*rcpChoiceProb;
 
                 float heuristicFactor = rcpChoiceProb-1.0; // weightNonGenerator/weightGenerator
                 heuristicFactor /= pickBSDF ? bsdfPdf:lightPdf; // weightNonGenerator/(weightGenerator*probGenerated)
@@ -511,12 +517,15 @@ void main()
         {
             rayStack[stackPtr]._immutable.origin = camPos;
             rayStack[stackPtr]._immutable.maxT = FLT_MAX;
+
             vec4 tmp = NDC;
             tmp.xy += pixOffsetParam*(rand3d(0u,i,scramble_state).xy-vec2(0.5));
             //tmp.xy += pixOffsetParam*irr_glsl_concentricMapping(rand3d(0u,i,scramble_state).xy)*25.0;
             tmp = invMVP*tmp;
             rayStack[stackPtr]._immutable.direction = normalize(tmp.xyz/tmp.w-camPos);
+            
             rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(i,1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
+
 
             rayStack[stackPtr]._payload.accumulation = vec3(0.0);
             rayStack[stackPtr]._payload.otherTechniqueHeuristic = 0.0; // TODO: remove
