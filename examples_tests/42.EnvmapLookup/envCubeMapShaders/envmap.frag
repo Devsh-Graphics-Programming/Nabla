@@ -78,6 +78,7 @@ vec3 BSDFNode_getImaginaryEta(in BSDFNode node)
 }
 
 #include <irr/builtin/glsl/colorspace/EOTF.glsl>
+#include <irr/builtin/glsl/colorspace/encodeCIEXYZ.glsl>
 
 #define BSDF_COUNT 8
 BSDFNode bsdfs[BSDF_COUNT] = {
@@ -263,16 +264,21 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _
     return remainder;
 }
 
-float impl_sphereSolidAngle(in Sphere sphere, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
+float Sphere_getSolidAngle_impl(in float cosThetaMax)
+{
+    return 2.0*irr_glsl_PI*(1.0-cosThetaMax);
+}
+float Sphere_getSolidAngle(in Sphere sphere, in vec3 origin)
 {
     float cosThetaMax = sqrt(1.0-sphere.radius2/irr_glsl_lengthSq(sphere.position-origin));
-    return 2.0*irr_glsl_PI*(isnan(cosThetaMax) ? 2.0:(1.0-cosThetaMax));
+    return Sphere_getSolidAngle_impl(cosThetaMax);
 }
 
 // the interaction here is the interaction at the illuminator-end of the ray, not the receiver
 vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
 {
-    pdf = scene_getLightChoicePdf(light)/impl_sphereSolidAngle(sphere,origin,interaction);
+    // we don't have to worry about solid angle of the light w.r.t. surface of the light because this function only ever gets called from closestHit routine, so such ray cannot be produced
+    pdf = scene_getLightChoicePdf(light)/Sphere_getSolidAngle(sphere,origin);
     return Light_getRadiance(light);
 }
 
@@ -298,25 +304,48 @@ irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in irr_glsl_Anisotrop
     
     return s;
 }
+// TODO: move this to header and optimize @Crisspl
+vec2 irr_glsl_sincos(in float theta)
+{ 
+    float sinTheta = sin(theta);
+    return vec2(sinTheta,cos(theta));
+}
 irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u)
 {
     // normally we'd pick from set of lights, using `u.z`
-    Light light = lights[0];
-    float choicePdf = scene_getLightChoicePdf(light);
+    const Light light = lights[0];
+    const float choicePdf = scene_getLightChoicePdf(light);
 
-    Sphere sphere = spheres[Light_getObjectID(light)];
+    const Sphere sphere = spheres[Light_getObjectID(light)];
 
-    float solidAngle = impl_sphereSolidAngle(sphere,origin,interaction);
-    remainder = Light_getRadiance(light)*solidAngle/choicePdf;
-    pdf = choicePdf/solidAngle;
+    vec3 Z = sphere.position-origin;
+    const float distanceSQ = dot(Z,Z);
+    const float cosThetaMax2 = 1.0-sphere.radius2/distanceSQ;
+    const float rcpDistance = inversesqrt(distanceSQ);
 
-    // TODO: finish sphere point picking
-    vec3 L = sphere.position-origin;
-    float distanceSQ = dot(L,L);
-    float rcpDistance = inversesqrt(distanceSQ);
-    newRayMaxT = (1.0-INTERSECTION_ERROR_BOUND*2.0)/rcpDistance;
+    const bool possibilityOfLightVisibility = cosThetaMax2>0.0;
+    Z *= rcpDistance;
+    
+    // following only have valid values if `possibilityOfLightVisibility` is true
+    const float cosThetaMax = sqrt(cosThetaMax2);
+    const float cosTheta = mix(1.0,cosThetaMax,u.x);
 
-    return irr_glsl_createLightSample(L*rcpDistance,interaction);
+    vec3 L = Z*cosTheta;
+
+    const float cosTheta2 = cosTheta*cosTheta;
+    const float sinTheta = sqrt(1.0-cosTheta2);
+    const vec2 sincosPhi = irr_glsl_sincos(2.0*irr_glsl_PI*u.y); // TODO: random number may have to be in the -PI,PI range instead
+    mat2x3 XY = irr_glsl_frisvad(Z);
+    
+    L += (XY[0]*sincosPhi.x+XY[1]*sincosPhi.y)*sinTheta;
+    
+    const float rcpPdf = Sphere_getSolidAngle_impl(cosThetaMax)/choicePdf;
+    remainder = Light_getRadiance(light)*(possibilityOfLightVisibility ? rcpPdf:0.0);
+    pdf = possibilityOfLightVisibility ? (1.0/rcpPdf):0.0;
+    
+    newRayMaxT = (cosTheta-sqrt(cosTheta2-cosThetaMax2))/rcpDistance*(1.0-INTERSECTION_ERROR_BOUND*2.0);
+    
+    return irr_glsl_createLightSample(L,interaction);
 }
 
 
@@ -424,7 +453,8 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
             // the value of the bsdf divided by the probability of the sample being generated
             rayStack[stackPtr]._payload.throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf);
 
-            if (bsdfPdf>FLT_MIN)
+            const vec3 lumaCoeffs = transpose(irr_glsl_scRGBtoXYZ)[1];
+            if (bsdfPdf>FLT_MIN && dot(rayStack[stackPtr]._payload.throughput,lumaCoeffs)>FLT_MIN) // TODO: proper thresholds for probability and color contribution
             {
                 float choiceProb = pickBSDF ? bsdfGeneratorProbability:(1.0-bsdfGeneratorProbability);
                 float rcpChoiceProb = 1.0/choiceProb; // should be impossible to get a div by 0 here
