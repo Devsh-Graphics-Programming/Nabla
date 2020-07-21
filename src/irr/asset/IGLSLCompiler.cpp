@@ -133,6 +133,7 @@ namespace impl
             "\n"
             "#ifndef " + defBase_ + std::to_string(_maxInclusions) +
             "\n" +
+            PREPROC_DIRECTIVE_DISABLER + "line 1 \"" + _identifier + "\"\n" +
             _glslCode +
             "\n"
             "#endif"
@@ -161,20 +162,26 @@ namespace impl
             std::string res_str;
             io::path relDir;
             const bool reqFromBuiltin = asset::IIncludeHandler::isBuiltinPath(_requesting_source);
-
-            if (_type == shaderc_include_type_relative) {
+            const bool reqBuiltin = asset::IIncludeHandler::isBuiltinPath(_requested_source);
+            if (!reqFromBuiltin && !reqBuiltin)
+            {
                 //While #includ'ing a builtin, one must specify its full path (starting with "irr/builtin" or "/irr/builtin").
                 //  This rule applies also while a builtin is #includ`ing another builtin.
                 //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
                 //  or path relative to executable's working directory (""-type).
-                relDir = reqFromBuiltin ? "" : io::IFileSystem::getFileDir(_requesting_source);
-                if (relDir.lastChar()!='/')
+                relDir = io::IFileSystem::getFileDir(_requesting_source);
+                if (relDir.lastChar() != '/')
                     relDir.append('/');
+            }
+
+            io::path name = (_type == shaderc_include_type_relative) ? (relDir + _requested_source) : (_requested_source);
+            if (!reqBuiltin)
+                name = m_fs->getAbsolutePath(name);
+
+            if (_type == shaderc_include_type_relative)
                 res_str = m_inclHandler->getIncludeRelative(_requested_source, relDir.c_str());
-            }
-            else { //shaderc_include_type_standard
+            else //shaderc_include_type_standard
                 res_str = m_inclHandler->getIncludeStandard(_requested_source);
-            }
 
             if (!res_str.size()) {
                 const char* error_str = "Could not open file";
@@ -187,14 +194,11 @@ namespace impl
             else {
                 //employ encloseWithinExtraInclGuards() in order to prevent infinite loop of (not necesarilly direct) self-inclusions while other # directives (incl guards among them) are disabled
                 disableAllDirectivesExceptIncludes(res_str);
-                res_str = encloseWithinExtraInclGuards( std::move(res_str), m_maxInclCnt, _requested_source );
+                res_str = encloseWithinExtraInclGuards( std::move(res_str), m_maxInclCnt, name.c_str() );
 
                 res->content_length = res_str.size();
                 res->content = new char[res_str.size()+1u];
                 strcpy(const_cast<char*>(res->content), res_str.c_str());
-                io::path name = (_type==shaderc_include_type_relative) ? (relDir + _requested_source) : (_requested_source);
-                if (!asset::IIncludeHandler::isBuiltinPath(name.c_str()))
-                    name = m_fs->getAbsolutePath(name);
                 res->source_name_length = name.size();
                 res->source_name = new char[name.size()+1u];
                 strcpy(const_cast<char*>(res->source_name), name.c_str());
@@ -230,6 +234,46 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(std::
 
     std::string res_str(res.cbegin(), std::distance(res.cbegin(),res.cend()));
     impl::reenableDirectives(res_str);
+
+    //WARNING: this is extremely dirty code, so not even putting it into a function, to be rewritten if shaderc provide more suitable API (or just in cleaner way if not possible)
+    //value of `bias` depends directly on code in encloseWithinExtraInclGuards() [number of lines inserted before actual contents of source being included]
+    //https://github.com/google/shaderc/issues/1113
+    {
+        const uint32_t bias = 8u+2u*_maxSelfInclusionCnt;
+        size_t ix = 0ull;
+        while ((ix = res_str.find('\n', ix)) != res_str.npos)
+        {
+            ++ix;
+            if (res_str.compare(ix, 5, "#line") == 0)
+            {
+                ix += 6u;
+                size_t ix2 = res_str.find(' ', ix);
+                const size_t digits = ix2-ix;
+                res_str[ix2] = 0;
+                uint32_t line_num = std::atoi(res_str.c_str()+ix);
+                res_str[ix2] = ' ';
+                if (line_num == 1u)//dont touch #line's inserted at the beginning of included sources
+                    continue;
+
+                ix2 += 2u;
+                const size_t ix3 = res_str.find('\"', ix2);
+                res_str[ix3] = 0;
+                if (strcmp(_originFilepath,res_str.c_str()+ix2)==0) {//#line's of top-level source are not corrupted
+                    res_str[ix3] = '\"';
+                    continue;
+                }
+                res_str[ix3] = '\"';
+
+                assert(bias<line_num);
+                line_num -= bias;
+                auto line_num_str = std::to_string(line_num);
+                if (line_num_str.size()<digits)
+                    line_num_str += ' ';
+                memcpy(res_str.data()+ix, line_num_str.c_str(), digits);
+            }
+        }
+    }
+
     return core::make_smart_refctd_ptr<ICPUShader>(res_str.c_str());
 }
 
