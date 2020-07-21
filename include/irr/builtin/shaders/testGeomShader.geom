@@ -14,13 +14,13 @@ layout(set=0, binding=1) writeonly buffer Lines
 void main() {    
     int i;
     vec3 end = vec3(0,0,0);
-    vec3 start = vec3(gl_in[0].gl_Position)
+    vec3 start = vec3(gl_in[0].gl_Position);
     for(i = 0;i < gl_in.length();i++)
     {
         frag.normal = vertices[i].normal;
         frag.color = vertices[i].color;
         gl_Position = gl_in[i].gl_Position;
-        end += vec3(gl_in[i].gl_Position)
+        end += vec3(gl_in[i].gl_Position);
         EmitVertex();
     }
     EndPrimitive();
