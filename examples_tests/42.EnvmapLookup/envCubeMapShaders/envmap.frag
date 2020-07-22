@@ -10,9 +10,7 @@ layout(location = 0) in vec2 TexCoord;
 layout(location = 0) out vec4 pixelColor;
 
 
-
-// TODO: @Crisspl change the location of the `irr_glsl_SBasicViewParameters`, vertex header is not the right place for it
-#include <irr/builtin/glsl/utils/vertex.glsl>
+#include <irr/builtin/glsl/utils/common.glsl>
 
 layout(set = 1, binding = 0, row_major, std140) uniform UBO
 {
