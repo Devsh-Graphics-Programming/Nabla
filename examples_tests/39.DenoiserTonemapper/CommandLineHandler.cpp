@@ -10,6 +10,21 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 {
 	auto startEntireTime = std::chrono::steady_clock::now();
 
+	if (argv.size() == 1)
+	{
+		mode = CLM_BATCH_INPUT;
+		argv.emplace_back("-batch");
+		argv.emplace_back("../exampleInputArguments.txt");
+	}
+	else if(argv.size() < PROPER_CMD_ARGUMENTS_AMOUNT + 1)
+		mode = CLM_CMD_LIST;
+	else
+	{
+		mode = CLM_UNKNOWN;
+		os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
+		return;
+	}
+
 	assetManager->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(assetManager));
 	core::vector<std::array<std::string, PROPER_CMD_ARGUMENTS_AMOUNT>> argvMappedList;
 
@@ -44,70 +59,56 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 		return variablesHandle;
 	};
 
-	if (argv.size() == PROPER_CMD_ARGUMENTS_AMOUNT)
-		mode = CLM_CMD_LIST;
-	else if (argv.size() == PROPER_BATCH_FILE_ARGUMENTS_AMOUNT)
-		mode = CLM_BATCH_INPUT;
-	else if (argv.size() > 1 && argv.size() < MANDATORY_CMD_ARGUMENTS_AMOUNT - 1)
+	switch (mode)
 	{
-		os::Printer::log("Single argument assumptions aren't allowed - too few arguments!", ELL_ERROR);
-		os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
-		return;
-	}
-	else if (argv.size() > PROPER_CMD_ARGUMENTS_AMOUNT)
-	{
-		os::Printer::log("Too many arguments!", ELL_ERROR);
-		os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
-		return;
-	}
-	else
-	{
-		mode = CLM_UNKNOWN;
-		os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
-		return;
-	}
-
-	if (std::string(argv[1]) == "-batch")
-	{
-		auto file = am->getFileSystem()->createAndOpenFile(argv[2].c_str());
-		std::string fileStream;
-		fileStream.resize(file->getSize(), ' ');
-		file->read(fileStream.data(), file->getSize());
-		fileStream += "\r\n";
-
-		bool error = false;
-		const auto batchInputStream = getBatchFilesArgvStream(fileStream);
-
-		for (auto i = 0ul; i < batchInputStream.size(); ++i)
+		case CLM_BATCH_INPUT:
 		{
-			const auto argvStream = *(batchInputStream.begin() + i);
-			// protection against empty lines
-			if (!std::regex_search(argvStream, std::regex{ "[^[:s:]]" }))
-				continue;
+			auto file = am->getFileSystem()->createAndOpenFile(argv[2].c_str());
+			std::string fileStream;
+			fileStream.resize(file->getSize(), ' ');
+			file->read(fileStream.data(), file->getSize());
+			fileStream += "\r\n";
 
-			const auto arguments = getSerializedValues(argvStream, PROPER_CMD_ARGUMENTS_AMOUNT);
+			bool error = false;
+			const auto batchInputStream = getBatchFilesArgvStream(fileStream);
 
-			if (arguments.size() < MANDATORY_CMD_ARGUMENTS_AMOUNT || arguments.size() > PROPER_CMD_ARGUMENTS_AMOUNT)
+			for (auto i = 0ul; i < batchInputStream.size(); ++i)
 			{
-				error = true;
-				break;
+				const auto argvStream = *(batchInputStream.begin() + i);
+				// protection against empty lines
+				if (!std::regex_search(argvStream, std::regex{ "[^[:s:]]" }))
+					continue;
+
+				const auto arguments = getSerializedValues(argvStream, PROPER_CMD_ARGUMENTS_AMOUNT);
+
+				if (arguments.size() < MANDATORY_CMD_ARGUMENTS_AMOUNT || arguments.size() > PROPER_CMD_ARGUMENTS_AMOUNT)
+				{
+					error = true;
+					break;
+				}
+
+				pushArgvList(arguments, arguments.size());
 			}
 
-			pushArgvList(arguments, arguments.size());
-		}
+			if (error)
+			{
+				os::Printer::log(requiredArgumentsMessage.data(), ELL_ERROR);
+				return;
+			}
 
-		if (error)
-		{
-			os::Printer::log(requiredArgumentsMessage.data(), ELL_ERROR);
-			return;
+			break;
 		}
-	}
-	else if (argv.size() == PROPER_CMD_ARGUMENTS_AMOUNT)
-		pushArgvList(argv, argv.size());
-	else
-	{
-		os::Printer::log("Invalid syntax!", ELL_ERROR);
-		os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
+		case CLM_CMD_LIST:
+		{
+			pushArgvList(argv, argv.size());
+			break;
+		}
+		default:
+		{
+			os::Printer::log("Invalid syntax!", ELL_ERROR);
+			os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
+			break;
+		}
 	}
 
 	rawVariables.resize(argvMappedList.size());
@@ -290,7 +291,6 @@ bool CommandLineHandler::validateMandatoryParameters(const variablesType& rawVar
 std::pair<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS,irr::core::vector<float>> CommandLineHandler::getTonemapper(uint64_t id)
 {
 	irr::core::vector<float> values;
-
 	uint32_t j = DTEA_TONEMAPPER_REINHARD;
 	DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS num;
 	for (; j<=DTEA_TONEMAPPER_NONE; j++)
