@@ -15,22 +15,14 @@
 #include "ITimer.h"
 #include "IOSOperator.h"
 
+#include "IFileSystem.h"
+#include "irr/asset/IAssetManager.h"
+#include "ISceneManager.h"
+
 namespace irr
 {
 	class ILogger;
 	class IEventReceiver;
-
-	namespace io {
-		class IFileSystem;
-	} // end namespace io
-
-	namespace scene {
-		class ISceneManager;
-	} // end namespace scene
-
-    namespace asset {
-        class IAssetManager;
-    }
 
 	//! The Irrlicht device. You can create it with createDevice() or createDeviceEx().
 	/** This is the most important class of the Irrlicht Engine. You can

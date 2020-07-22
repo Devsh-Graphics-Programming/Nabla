@@ -14,12 +14,12 @@
 #include "irr/asset/ICPUMeshBuffer.h"
 #include "irr/asset/CCPUMesh.h"
 #include "irr/asset/CCPUSkinnedMesh.h"
+#include "irr/asset/CQuantNormalCache.h"
 
 namespace irr
 {
 namespace asset
 {
-	class CQuantNormalCache;
 
 	//! An interface for easy manipulation of meshes.
 	/** Scale, set alpha value, flip surfaces, and so on. This exists for

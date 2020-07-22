@@ -79,8 +79,8 @@ class CBasicImageFilterCommon
 				const core::vector3du32_SIMD resultExtent(referenceRegion->imageExtent.width,referenceRegion->imageExtent.height,referenceRegion->imageExtent.depth,referenceRegion->imageSubresource.layerCount);
 				const auto resultLimit = resultOffset+resultExtent;
 
-				auto offset = core::max(targetOffset,resultOffset);
-				auto limit = core::min(targetLimit,resultLimit);
+				auto offset = core::max<core::vector3du32_SIMD>(targetOffset,resultOffset);
+				auto limit = core::min<core::vector3du32_SIMD>(targetLimit,resultLimit);
 				if ((offset>=limit).any())
 					return false;
 

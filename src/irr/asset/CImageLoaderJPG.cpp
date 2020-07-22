@@ -10,7 +10,9 @@
 #include "os.h"
 #include "irr/asset/ICPUBuffer.h"
 #include "irr/asset/ICPUImageView.h"
-#include "irr/asset/format/EFormat.h"
+
+#include "irr/asset/IImageAssetHandlerBase.h"
+
 #include <string>
 
 #include <stdio.h> // required for jpeglib.h

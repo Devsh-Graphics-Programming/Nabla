@@ -9,22 +9,9 @@ using namespace irr::video;
 using namespace ext::ToneMapper;
 
 
-void CToneMapper::registerBuiltinGLSLIncludes(IGLSLCompiler* compilerToAddBuiltinIncludeTo)
-{
-	static bool addedBuiltinHeader = false;
-	if (addedBuiltinHeader)
-		return;
-
-	if (!compilerToAddBuiltinIncludeTo)
-		return;
-
-	compilerToAddBuiltinIncludeTo->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSLToneMappingBuiltinIncludeLoader>());
-	addedBuiltinHeader = true;
-}
-
 core::SRange<const IGPUDescriptorSetLayout::SBinding> CToneMapper::getDefaultBindings(IVideoDriver* driver, bool usingLumaMeter)
 {
-	auto lumaBindings = ext::LumaMeter::CGLSLLumaBuiltinIncludeLoader::getDefaultBindings(driver);
+	auto lumaBindings = ext::LumaMeter::CLumaMeter::getDefaultBindings(driver);
 	const auto inputImageBinding = lumaBindings.begin()[2];
 	if (usingLumaMeter)
 	{
@@ -256,16 +243,17 @@ R"===(#version 430 core
 %s // _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
 
 #ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
+	#define _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT (_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_*_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_)
+
+	#define _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT %d
+	#define _IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION %d
+
 	#define _IRR_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_ %d
 	#define _IRR_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_ %d
 
 	#define _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_ %d
 
 	#include "irr/builtin/glsl/ext/LumaMeter/common.glsl"
-
-	#if _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT!=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_*_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_
-		#error "_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT does not equal the product of the dispatch sizes!"
-	#endif
 
 
 	#ifndef _IRR_GLSL_EXT_TONE_MAPPER_UNIFORMS_DEFINED_
@@ -400,7 +388,7 @@ layout(set=_IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLS
 
 		#if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN
 			retval = FETCH_STRUCT.packedHistogram[gl_LocalInvocationIndex];
-			for (int i=0; i<_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION; i++)
+			for (int i=1; i<_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION; i++)
 				retval += FETCH_STRUCT.packedHistogram[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT];
 		#elif _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
 			retval = FETCH_STRUCT.unormAverage;
@@ -502,13 +490,12 @@ void main()
 	snprintf(
 		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(),sourceFmt,
 		DEFAULT_WORKGROUP_DIM,DEFAULT_WORKGROUP_DIM,_operator,
-		usingLumaMeterDefine,reinterpret_cast<const int32_t&>(minLuma),reinterpret_cast<const int32_t&>(maxLuma),meterMode,
+		usingLumaMeterDefine,DEFAULT_WORKGROUP_DIM*DEFAULT_WORKGROUP_DIM,LumaMeter::CLumaMeter::DEFAULT_BIN_GLOBAL_REPLICATION,
+		reinterpret_cast<const int32_t&>(minLuma),reinterpret_cast<const int32_t&>(maxLuma),meterMode,
 		usingTemporalAdaptationDefine,
 		outViewFormatQualifier,eotf,inXYZMatrix,outXYZMatrix,oetf,quantization
 	);
 
-	registerBuiltinGLSLIncludes(compilerToAddBuiltinIncludeTo);
-	LumaMeter::CLumaMeter::registerBuiltinGLSLIncludes(compilerToAddBuiltinIncludeTo);
 	return core::make_smart_refctd_ptr<ICPUSpecializedShader>(
 		core::make_smart_refctd_ptr<ICPUShader>(std::move(shader),ICPUShader::buffer_contains_glsl),
 		ISpecializedShader::SInfo{nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE}

@@ -189,7 +189,7 @@ bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property)
 
 #define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&]() -> void { \
 		dispatch([&](auto& state) -> void { \
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+			if constexpr (is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
 			{ \
 				if (_property.type!=PROPERTY_TYPE) { \
 					error = true; \
@@ -197,7 +197,6 @@ bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property)
 				} \
 				state. ## MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
 			} \
-			IRR_PSEUDO_IF_CONSTEXPR_END \
 		}); \
 	}
 
@@ -209,7 +208,7 @@ bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,AmbientOcclusion>::value)
+			if constexpr (std::is_same<state_type,AmbientOcclusion>::value)
 			{
 				if (_property.type!=SNamedPropertyElement::Type::INTEGER)
 				{
@@ -218,16 +217,14 @@ bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property)
 				}
 				state.shadingSamples = _property.getProperty<SNamedPropertyElement::Type::INTEGER>();
 			}
-			IRR_PSEUDO_ELSE_CONSTEXPR
+			else
 			{
-				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,DirectIllumination>::value)
+				if constexpr (std::is_same<state_type,DirectIllumination>::value)
 				{
 					processEmitterSamples();
 					processBSDFSamples();
 				}
-				IRR_PSEUDO_IF_CONSTEXPR_END
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 	auto processStrictNormals = SET_PROPERTY_TEMPLATE(strictNormals,SNamedPropertyElement::Type::BOOLEAN,DirectIllumination,PathTracing);
@@ -277,7 +274,7 @@ bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void
 		{
 			using state_type = std::remove_reference<decltype(state)>::type;
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,FieldExtraction>::value)
+			if constexpr (std::is_same<state_type,FieldExtraction>::value)
 			{
 				if (_property.type != SNamedPropertyElement::Type::STRING)
 				{
@@ -302,7 +299,6 @@ bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property)
 				else
 					state.field = FieldExtraction::Type::INVALID;
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 	auto processUndefined = [&]() -> void
@@ -310,7 +306,7 @@ bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type, FieldExtraction>::value)
+			if constexpr (std::is_same<state_type, FieldExtraction>::value)
 			{
 				if (_property.type != SNamedPropertyElement::Type::FLOAT && _property.type != SNamedPropertyElement::Type::SPECTRUM)
 				{
@@ -319,7 +315,6 @@ bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property)
 				}
 				state.undefined = _property; // TODO: redo
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 	auto processMaxError = SET_PROPERTY_TEMPLATE(maxError,SNamedPropertyElement::Type::FLOAT,AdaptiveIntegrator);

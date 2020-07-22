@@ -48,6 +48,7 @@
 
 // extra config
 #cmakedefine __IRR_FAST_MATH
+#cmakedefine _IRR_EMBED_BUILTIN_RESOURCES_
 
 // TODO: This has to disapppear from the main header and go to the OptiX extension header + config
 #cmakedefine OPTIX_INCLUDE_DIR "@OPTIX_INCLUDE_DIR@"

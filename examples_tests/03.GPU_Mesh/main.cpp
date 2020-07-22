@@ -41,7 +41,7 @@ layout(location = 0) out vec4 Color; //per vertex output color, will be interpol
 
 void main()
 {
-    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(PushConstants.modelViewProj)*vPos; //only thing preventing the shader from being core-compliant
+    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(PushConstants.modelViewProj)*vPos; //only thing preventing the shader from being core-compliant
     Color = vCol;
 }
 )===";

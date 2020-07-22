@@ -15,7 +15,7 @@
 #endif
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-	#include "../source/Irrlicht/COpenGLDriver.h"
+	#include "COpenGLDriver.h"
 	// make CUDA play nice
 	#define WGL_NV_gpu_affinity 0
 	#include "cudaGL.h"

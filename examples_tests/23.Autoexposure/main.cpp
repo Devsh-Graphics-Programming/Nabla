@@ -46,7 +46,7 @@ int main()
 	smart_refctd_ptr<IGPUImage> outImg;
 	smart_refctd_ptr<IGPUImageView> imgToTonemapView,outImgView;
 	{
-		auto cpuImg = IAsset::castDown<ICPUImage>(imageBundle.getContents().first[0]);
+		auto cpuImg = IAsset::castDown<ICPUImage>(imageBundle.getContents().begin()[0]);
 		IGPUImage::SCreationParams imgInfo = cpuImg->getCreationParameters();
 		inFormat = imgInfo.format;
 

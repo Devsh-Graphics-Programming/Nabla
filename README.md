@@ -316,14 +316,75 @@ list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_DOCS:BOOL=OFF") # enable only if you hav
 list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_EXAMPLES:BOOL=OFF")
 list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_TOOLS:BOOL=OFF") # the tools don't work yet (Apr 2020 status, might have changed since then)
 list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_MITSUBA_LOADER:BOOL=OFF") # you probably don't want this extension
+list(APPEND IRR_CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX:PATH=${IRR_INSTALL_DIR}") # because of https://gitlab.kitware.com/cmake/cmake/-/issues/18790
 ExternalProject_Add(IrrlichtBaW
     DOWNLOAD_COMMAND  ""
     SOURCE_DIR        "${IRR_SOURCE_DIR}"
     BINARY_DIR        "${IRR_BINARY_DIR}"
-    INSTALL_DIR       "${IRR_INSTALL_DIR}"
     CMAKE_ARGS        ${IRR_CMAKE_ARGS}
     TEST_COMMAND      ""
 )
+
+# replace with whatever you need ${PROJECT_NAME}
+target_include_directories(${PROJECT_NAME}
+    PUBLIC
+        $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/include>
+        $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/include>
+        $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/include>
+     # these are needed because we haven't cleaned up the API properly yet
+        $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/source/Irrlicht>
+        $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/source/Irrlicht>
+        $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/source/Irrlicht>
+)
+target_link_libraries(${PROJECT_NAME} 
+	 $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/lib/Irrlicht_debug.lib>
+	 $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/lib/Irrlicht_rwdi.lib>
+	 $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/lib/Irrlicht.lib>
+)
+function(link_irr_dependency DEPENDENCY_NAME)
+	target_link_libraries(${PROJECT_NAME} 
+		 $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/lib/${DEPENDENCY_NAME}d.lib>
+		 $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/lib/${DEPENDENCY_NAME}.lib>
+		 $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/lib/${DEPENDENCY_NAME}.lib>
+	)
+endfunction()
+function(link_irr_dependency_ DEPENDENCY_NAME)
+	target_link_libraries(${PROJECT_NAME} 
+		 $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/lib/${DEPENDENCY_NAME}_d.lib>
+		 $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/lib/${DEPENDENCY_NAME}.lib>
+		 $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/lib/${DEPENDENCY_NAME}.lib>
+	)
+endfunction()
+link_irr_dependency(glslang)
+link_irr_dependency_(jpeg)
+link_irr_dependency_(IlmImf-2_4)
+link_irr_dependency_(IexMath-2_4)
+link_irr_dependency_(Iex-2_4)
+link_irr_dependency_(IlmThread-2_4)
+link_irr_dependency_(Half-2_4)
+link_irr_dependency_(Imath-2_4)
+link_irr_dependency(libpng16_static)
+# OpenSSL only ever exists in the Release variant
+if(WIN32)
+	target_link_libraries(${PROJECT_NAME} 
+		 ${IRR_INSTALL_DIR}/lib/libeay32.lib
+		 ${IRR_INSTALL_DIR}/lib/ssleay32.lib
+	)
+else()
+	target_link_libraries(${PROJECT_NAME} 
+		 ${IRR_INSTALL_DIR}/lib/libcrypto.lib
+		 ${IRR_INSTALL_DIR}/lib/libssl.lib
+	)
+endif()
+link_irr_dependency_(shaderc)
+link_irr_dependency_(shaderc_util)
+link_irr_dependency(SPIRV)
+link_irr_dependency_(SPIRV-Tools)
+link_irr_dependency_(SPIRV-Tools-opt)
+link_irr_dependency(OGLCompiler)
+link_irr_dependency(OSDependent)
+link_irr_dependency(HLSL)
+link_irr_dependency(zlibstatic)
 ```
 
  If you want to use git (without a submodule) then you can use `ExternalProject_Add` with the `GIT_` properties instead.

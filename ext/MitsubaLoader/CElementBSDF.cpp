@@ -317,7 +317,7 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 
 #define SET_FLOAT(MEMBER, ... )		[&]() -> void { \
 		dispatch([&](auto& state) -> void { \
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+			if constexpr (is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
 			{ \
 				switch (_property.type) { \
 					case SPropertyElementData::Type::FLOAT: \
@@ -328,12 +328,11 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 						break; \
 				} \
 			} \
-			IRR_PSEUDO_IF_CONSTEXPR_END \
 		}); \
 	}
 #define SET_SPECTRUM(MEMBER, ... )		[&]() -> void { \
 		dispatch([&](auto& state) -> void { \
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+			if constexpr (is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
 			{ \
 				switch (_property.type) { \
 					case SPropertyElementData::Type::FLOAT: \
@@ -347,12 +346,11 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 						break; \
 				} \
 			} \
-			IRR_PSEUDO_IF_CONSTEXPR_END \
 		}); \
 	}
 #define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&]() -> void { \
 		dispatch([&](auto& state) -> void { \
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+			if constexpr (is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
 			{ \
 				if (_property.type!=PROPERTY_TYPE) { \
 					error = true; \
@@ -360,7 +358,6 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 				} \
 				state. ## MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
 			} \
-			IRR_PSEUDO_IF_CONSTEXPR_END \
 		}); \
 	}
 
@@ -370,7 +367,7 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_base_of<RoughSpecularBase,state_type>::value)
+			if constexpr (std::is_base_of<RoughSpecularBase,state_type>::value)
 			{
 				static const core::unordered_map<std::string, RoughSpecularBase::NormalDistributionFunction, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> StringToType =
 				{
@@ -390,7 +387,6 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 				}
 				state.distribution = found->second;
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 #define TRANSMISSIVE_TYPES AllDielectric,AllPlastic,AllCoating
@@ -404,7 +400,7 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<state_type,TRANSMISSIVE_TYPES>::value)
+			if constexpr (is_any_of<state_type,TRANSMISSIVE_TYPES>::value)
 			{
 				if (_property.type==SPropertyElementData::Type::FLOAT)
 					state.intIOR = _property.getProperty<SPropertyElementData::Type::FLOAT>();
@@ -413,7 +409,6 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 				else
 					error = true;
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 	auto processExtIOR = [&]() -> void
@@ -421,7 +416,7 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<state_type,TRANSMISSIVE_TYPES>::value)
+			if constexpr (is_any_of<state_type,TRANSMISSIVE_TYPES>::value)
 			{
 				if (_property.type==SPropertyElementData::Type::FLOAT)
 					state.extIOR = _property.getProperty<SPropertyElementData::Type::FLOAT>();
@@ -430,7 +425,6 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 				else
 					error = true;
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 	auto processSpecularReflectance = SET_SPECTRUM(specularReflectance, SPECULAR_TYPES,Phong,Ward);
@@ -443,21 +437,19 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,AllConductor>::value)
+			if constexpr (std::is_same<state_type,AllConductor>::value)
 			{
 				if (_property.type == SPropertyElementData::Type::STRING)
 					conductor = AllConductor(_property.getProperty<SPropertyElementData::Type::STRING>());
 				else
 					error = true;
 			}/*
-			IRR_PSEUDO_IF_CONSTEXPR_ELSE
+			else
 			{
-				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,HanrahanKrueger>::value)
+				if constexpr (std::is_same<state_type,HanrahanKrueger>::value)
 				{
 				}
-				IRR_PSEUDO_IF_CONSTEXPR_END
 			}*/
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 	auto processEta = SET_SPECTRUM(eta, AllConductor);
@@ -467,7 +459,7 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,AllConductor>::value)
+			if constexpr (std::is_same<state_type,AllConductor>::value)
 			{
 				if (_property.type==SPropertyElementData::Type::FLOAT)
 					state.extEta = _property.getProperty<SPropertyElementData::Type::FLOAT>();
@@ -476,7 +468,6 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 				else
 					error = true;
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 	auto processNonlinear = SET_PROPERTY_TEMPLATE(nonlinear, SPropertyElementData::Type::BOOLEAN, AllPlastic);
@@ -488,7 +479,7 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,Ward>::value)
+			if constexpr (std::is_same<state_type,Ward>::value)
 			{
 				static const core::unordered_map<std::string,Ward::Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType =
 				{
@@ -506,7 +497,6 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 				}
 				state.variant = found->second;
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 	auto processWeights = [&]() -> void
@@ -514,7 +504,7 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,MixtureBSDF>::value)
+			if constexpr (std::is_same<state_type,MixtureBSDF>::value)
 			{
 				if (_property.type == SPropertyElementData::Type::STRING)
 				{
@@ -527,7 +517,6 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 				while (std::getline(sstr, token, ','))
 					state.weights[state.weightCount++] = std::stof(token);
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 	auto processWeight = SET_FLOAT(weight, BlendBSDF);
@@ -540,7 +529,7 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void
 		{
 			using state_type = std::remove_reference<decltype(state)>::type;
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,FieldExtraction>::value)
+			if constexpr (std::is_same<state_type,FieldExtraction>::value)
 			{
 				if (_property.type != SPropertyElementData::Type::STRING)
 				{
@@ -553,7 +542,6 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 				else
 					state.field = FieldExtraction::Type::INVALID;
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 	*/
@@ -686,12 +674,11 @@ bool CElementBSDF::processChildData(IElement* _child, const std::string& name)
 				};
 #define SET_TEXTURE(MEMBER, ... )		[&]() -> void { \
 					dispatch([&](auto& state) -> void { \
-						IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+						if constexpr (is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
 						{ \
 							state. ## MEMBER.value.type = SPropertyElementData::Type::INVALID; \
 							state. ## MEMBER.texture = _texture; \
 						} \
-						IRR_PSEUDO_IF_CONSTEXPR_END \
 					}); \
 				}
 

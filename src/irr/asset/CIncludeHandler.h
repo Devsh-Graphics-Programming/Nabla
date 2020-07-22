@@ -28,7 +28,7 @@ public:
     {
         // TODO It has to be reworked in the future
         m_includers.emplace_back(core::make_smart_refctd_ptr<CFilesystemIncluder>(_filesystem));
-        m_includers.emplace_back(core::make_smart_refctd_ptr<CBuiltinIncluder>());
+        m_includers.emplace_back(core::make_smart_refctd_ptr<CBuiltinIncluder>(_filesystem));
     }
 
     std::string getIncludeStandard(const std::string& _path) const override

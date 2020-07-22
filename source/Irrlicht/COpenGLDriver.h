@@ -931,9 +931,8 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 					constexpr size_t bytesLeft = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE - (toFill * sizeof(uint64_t));
 					constexpr uint64_t pattern = 0xdeadbeefDEADBEEFull;
 					std::fill(reinterpret_cast<uint64_t*>(pushConstantsState<PBP>()->data), reinterpret_cast<uint64_t*>(pushConstantsState<PBP>()->data)+toFill, pattern);
-					IRR_PSEUDO_IF_CONSTEXPR_BEGIN(bytesLeft > 0ull) {
+					if constexpr (bytesLeft > 0ull)
 						memcpy(reinterpret_cast<uint64_t*>(pushConstantsState<PBP>()->data) + toFill, &pattern, bytesLeft);
-					} IRR_PSEUDO_IF_CONSTEXPR_END
 				//#endif
 
 					_stages |= IGPUSpecializedShader::ESS_ALL;
