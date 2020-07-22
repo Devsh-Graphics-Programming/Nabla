@@ -34,9 +34,9 @@ class IShader : public virtual core::IReferenceCounted
 			{
 				size_t hashPos = _glsl.find_first_of('#');
                 if (hashPos >= _glsl.length())
-                    return ~0ull;
+                    return _glsl.npos;
 				if (_glsl.compare(hashPos, 8, "#version"))
-					return ~0ull;
+					return _glsl.npos;
 
 				size_t searchPos = hashPos + 8ull;
 
@@ -49,12 +49,14 @@ class IShader : public virtual core::IReferenceCounted
 				}
                 size_t nlPos = _glsl.find_first_of('\n', searchPos);
 
-				return (nlPos >= _glsl.length()) ? ~0ull : nlPos+1ull;
+				return (nlPos >= _glsl.length()) ? _glsl.npos : nlPos+1ull;
 			};
 
 			const size_t pos = findLineJustAfterVersionOrPragmaShaderStageDirective();
-			if (pos == ~0ull)
+			if (pos == _glsl.npos)
 				return;
+
+			const size_t ln = std::count(_glsl.begin(),_glsl.begin()+pos, '\n')+1;//+1 to count from 1
 
 			std::string insertion = "\n";
 			for (const std::string& ext : (*_exts))
@@ -65,6 +67,7 @@ class IShader : public virtual core::IReferenceCounted
 
 				insertion += str;
 			}
+			insertion += "#line " + std::to_string(ln);
 
 			_glsl.insert(pos, insertion);
 		}

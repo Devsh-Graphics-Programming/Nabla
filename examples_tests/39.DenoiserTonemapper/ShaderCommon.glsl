@@ -14,33 +14,10 @@ layout(push_constant, row_major) uniform PushConstants{
 
 
 #define SHARED_CHANNELS 3u
-// the amount of memory needed for luma metering is bigger
+// the amount of memory needed for luma metering is bigger than interleaving
 #define _IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ ((COMPUTE_WG_SIZE+1u)*8u)
 shared uint repackBuffer[_IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_];
 #define _IRR_GLSL_SCRATCH_SHARED_DEFINED_ repackBuffer
-
-
-// median filter stuff
-#define MAX_MEDIAN_FILTER_DIAMETER (MAX_MEDIAN_FILTER_RADIUS*2+1)
-const int medianIndex = (MAX_MEDIAN_FILTER_DIAMETER*MAX_MEDIAN_FILTER_DIAMETER)>>1;
-
-
-vec4 medianWindow[MAX_MEDIAN_FILTER_DIAMETER*MAX_MEDIAN_FILTER_DIAMETER];
-
-
-uvec3 clampCoords(in ivec3 inCoord)
-{
-	return uvec3(uvec2(clamp(inCoord.xy, ivec2(0, 0), ivec2(pc.data.imageWidth, gl_NumWorkGroups.y))), inCoord.z);
-}
-
-
-void ltswap(inout vec4 a, inout vec4 b)
-{
-	bool swap = b.w < a.w;
-	vec3 tmp = a.rgb;
-	a.rgb = swap ? b.rgb : a.rgb;
-	b.rgb = swap ? tmp : b.rgb;
-}
 
 
 // luma metering stuff
@@ -64,8 +41,6 @@ void ltswap(inout vec4 a, inout vec4 b)
 // won't be using an image as input (we'll provide the colors ourselves)
 #define _IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
 #define _IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_ 2
-#define _IRR_GLSL_EXT_LUMA_METER_CLEAR_FIRST_PASS_OUTPUT_FUNC_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_GET_NEXT_LUMA_OUTPUT_OFFSET_FUNC_DECLARED_
 #define _IRR_GLSL_EXT_LUMA_METER_GET_NEXT_LUMA_OUTPUT_OFFSET_FUNC_DEFINED_
 #define _IRR_GLSL_EXT_LUMA_METER_GET_CURRENT_LUMA_OUTPUT_OFFSET_FUNC_DEFINED_
 
@@ -75,20 +50,21 @@ void ltswap(inout vec4 a, inout vec4 b)
 #ifdef _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
 	#include "irr/builtin/glsl/ext/LumaMeter/impl.glsl"
 
-	// we will clear buffer to 0 with command buffer
-	void irr_glsl_ext_LumaMeter_clearFirstPassOutput()
+	// need to override the offset and color provision functions
+	int irr_glsl_ext_LumaMeter_getNextLumaOutputOffset()
 	{
+		return pc.data.beforeDenoise!=0u ? 1:0;
 	}
 
-	// need to override the offset and color provision functions
 	int irr_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()
 	{
-		return 0;
+		return pc.data.beforeDenoise!=0u ? 0:1;
 	}
 
+	vec3 globalPixelData;
 	vec3 irr_glsl_ext_LumaMeter_getColor(bool wgExecutionMask)
 	{
-		return medianWindow[medianIndex].rgb;
+		return globalPixelData;
 	}
 #else
 	#include "irr/builtin/glsl/ext/LumaMeter/common.glsl"

@@ -4,6 +4,7 @@ include(../../cmake/common.cmake)
 set(IRR_EXT_MITSUBA_LOADER_H
 	PropertyElement.h
 	IElement.h
+	CMitsubaMetadata.h
 	CElementIntegrator.h
 	CElementSensor.h
 	CElementFilm.h

@@ -10,6 +10,7 @@
 #include "../../ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
 #include "../../ext/MitsubaLoader/CElementShape.h"
 #include "../../ext/MitsubaLoader/CMitsubaPipelineMetadata.h"
+#include "../../ext/MitsubaLoader/CMitsubaMetadata.h"
 
 namespace irr
 {

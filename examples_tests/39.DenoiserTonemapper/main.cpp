@@ -158,11 +158,13 @@ int main(int argc, char* argv[])
 	constexpr float upperPercentile = 0.55f;
 	constexpr auto TMO = ToneMapperClass::EO_ACES;
 	auto histogramBuffer = driver->createDeviceLocalGPUBufferOnDedMem(HistogramBufferSize);
+	// clear the histogram to 0s
+	driver->fillBuffer(histogramBuffer.get(),0u,HistogramBufferSize,0u);
 
 	constexpr auto SharedDescriptorSetDescCount = 4u;
 	core::smart_refctd_ptr<IGPUDescriptorSetLayout> sharedDescriptorSetLayout;
 	core::smart_refctd_ptr<IGPUPipelineLayout> sharedPipelineLayout;
-	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,intensityPipeline,interleavePipeline;
+	core::smart_refctd_ptr<IGPUComputePipeline> deinterleavePipeline,intensityPipeline,secondLumaMeterAndDFFTXPipeline,interleavePipeline;
 	{
 		auto deinterleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
@@ -191,215 +193,17 @@ vec3 fetchData(in uvec3 texCoord)
 }
 void main()
 {
+	globalPixelData = fetchData(gl_GlobalInvocationID);
 	bool colorLayer = gl_GlobalInvocationID.z==EII_COLOR;
 	if (colorLayer)
 	{
-		ivec3 tc = ivec3(gl_GlobalInvocationID);
-		const vec3 lumaCoeffs = transpose(_IRR_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_)[1];
-		for (int i=-pc.data.medianFilterRadius; i<=pc.data.medianFilterRadius; i++)
-		for (int j=-pc.data.medianFilterRadius; j<=pc.data.medianFilterRadius; j++)
-		{
-			vec4 data;
-			data.rgb = fetchData(clampCoords(ivec3(j,i,0)+tc));
-			data.a = dot(data.rgb,lumaCoeffs);
-			medianWindow[MAX_MEDIAN_FILTER_DIAMETER*(i+MAX_MEDIAN_FILTER_RADIUS)+(j+MAX_MEDIAN_FILTER_RADIUS)] = data;
-		}
-		#define SWAP(X,Y) ltswap(medianWindow[X],medianWindow[Y])
-		if (pc.data.medianFilterRadius==1)
-		{ // optimized sorting network for median finding
-			SWAP(6, 7);
-			SWAP(11, 12);
-			SWAP(16, 17);
-			SWAP(7, 8);
-			SWAP(12, 13);
-			SWAP(17, 18);
-			SWAP(6, 7);
-			SWAP(11, 12);
-			SWAP(16, 17);
-			SWAP(6, 11);
-			SWAP(11, 16);
-			SWAP(7, 12);
-			SWAP(12, 17);
-			SWAP(7, 12);
-			SWAP(8, 13);
-			SWAP(13, 18);
-			SWAP(8, 13);
-			SWAP(8, 16);
-			SWAP(12, 16);
-			SWAP(8, 12);
-		}
-		else if (pc.data.medianFilterRadius==2)
-		{
-			SWAP(1, 2);
-			SWAP(0, 2);
-			SWAP(0, 1);
-			SWAP(4, 5);
-			SWAP(3, 5);
-			SWAP(3, 4);
-			SWAP(0, 3);
-			SWAP(1, 4);
-			SWAP(2, 5);
-			SWAP(2, 4);
-			SWAP(1, 3);
-			SWAP(2, 3);
-			SWAP(7, 8);
-			SWAP(6, 8);
-			SWAP(6, 7);
-			SWAP(10, 11);
-			SWAP(9, 11);
-			SWAP(9, 10);
-			SWAP(6, 9);
-			SWAP(7, 10);
-			SWAP(8, 11);
-			SWAP(8, 10);
-			SWAP(7, 9);
-			SWAP(8, 9);
-			SWAP(0, 6);
-			SWAP(1, 7);
-			SWAP(2, 8);
-			SWAP(2, 7);
-			SWAP(1, 6);
-			SWAP(2, 6);
-			SWAP(3, 9);
-			SWAP(4, 10);
-			SWAP(5, 11);
-			SWAP(5, 10);
-			SWAP(4, 9);
-			SWAP(5, 9);
-			SWAP(3, 6);
-			SWAP(4, 7);
-			SWAP(5, 8);
-			SWAP(5, 7);
-			SWAP(4, 6);
-			SWAP(5, 6);
-			SWAP(13, 14);
-			SWAP(12, 14);
-			SWAP(12, 13);
-			SWAP(16, 17);
-			SWAP(15, 17);
-			SWAP(15, 16);
-			SWAP(12, 15);
-			SWAP(13, 16);
-			SWAP(14, 17);
-			SWAP(14, 16);
-			SWAP(13, 15);
-			SWAP(14, 15);
-			SWAP(19, 20);
-			SWAP(18, 20);
-			SWAP(18, 19);
-			SWAP(21, 22);
-			SWAP(23, 24);
-			SWAP(21, 23);
-			SWAP(22, 24);
-			SWAP(22, 23);
-			SWAP(18, 22);
-			SWAP(18, 21);
-			SWAP(19, 23);
-			SWAP(20, 24);
-			SWAP(20, 23);
-			SWAP(19, 21);
-			SWAP(20, 22);
-			SWAP(20, 21);
-			SWAP(12, 19);
-			SWAP(12, 18);
-			SWAP(13, 20);
-			SWAP(14, 21);
-			SWAP(14, 20);
-			SWAP(13, 18);
-			SWAP(14, 19);
-			SWAP(14, 18);
-			SWAP(15, 22);
-			SWAP(16, 23);
-			SWAP(17, 24);
-			SWAP(17, 23);
-			SWAP(16, 22);
-			SWAP(17, 22);
-			SWAP(15, 19);
-			SWAP(15, 18);
-			SWAP(16, 20);
-			SWAP(17, 21);
-			SWAP(17, 20);
-			SWAP(16, 18);
-			SWAP(17, 19);
-			SWAP(17, 18);
-			SWAP(0, 13);
-			SWAP(0, 12);
-			SWAP(1, 14);
-			SWAP(2, 15);
-			SWAP(2, 14);
-			SWAP(1, 12);
-			SWAP(2, 13);
-			SWAP(2, 12);
-			SWAP(3, 16);
-			SWAP(4, 17);
-			SWAP(5, 18);
-			SWAP(5, 17);
-			SWAP(4, 16);
-			SWAP(5, 16);
-			SWAP(3, 13);
-			SWAP(3, 12);
-			SWAP(4, 14);
-			SWAP(5, 15);
-			SWAP(5, 14);
-			SWAP(4, 12);
-			SWAP(5, 13);
-			SWAP(5, 12);
-			SWAP(6, 19);
-			SWAP(7, 20);
-			SWAP(8, 21);
-			SWAP(8, 20);
-			SWAP(7, 19);
-			SWAP(8, 19);
-			SWAP(9, 22);
-			SWAP(10, 23);
-			SWAP(11, 24);
-			SWAP(11, 23);
-			SWAP(10, 22);
-			SWAP(11, 22);
-			SWAP(9, 19);
-			SWAP(10, 20);
-			SWAP(11, 21);
-			SWAP(11, 20);
-			SWAP(10, 19);
-			SWAP(11, 19);
-			SWAP(6, 13);
-			SWAP(6, 12);
-			SWAP(7, 14);
-			SWAP(8, 15);
-			SWAP(8, 14);
-			SWAP(7, 12);
-			SWAP(8, 13);
-			SWAP(8, 12);
-			SWAP(9, 16);
-			SWAP(10, 17);
-			SWAP(11, 18);
-			SWAP(11, 17);
-			SWAP(10, 16);
-			SWAP(11, 16);
-			SWAP(9, 13);
-			SWAP(9, 12);
-			SWAP(10, 14);
-			SWAP(11, 15);
-			SWAP(11, 14);
-			SWAP(10, 12);
-			SWAP(11, 13);
-			SWAP(11, 12);
-		}
-		#undef SWAP
 		irr_glsl_ext_LumaMeter(colorLayer && gl_GlobalInvocationID.x<pc.data.imageWidth);
 		barrier(); // no barrier because we were just reading from shared not writing since the last memory barrier
-		medianWindow[medianIndex].rgb *= exp2(pc.data.denoiserExposureBias);
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = floatBitsToUint(medianWindow[medianIndex].r);
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = floatBitsToUint(medianWindow[medianIndex].g);
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = floatBitsToUint(medianWindow[medianIndex].b);
+		globalPixelData *= exp2(pc.data.denoiserExposureBias);
 	}
-	else
-	{
-		vec3 data = fetchData(gl_GlobalInvocationID);
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = floatBitsToUint(data[0u]);
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = floatBitsToUint(data[1u]);
-		repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = floatBitsToUint(data[2u]);
-	}
+	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = floatBitsToUint(globalPixelData[0u]);
+	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = floatBitsToUint(globalPixelData[1u]);
+	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u] = floatBitsToUint(globalPixelData[2u]);
 	barrier();
 	memoryBarrierShared();
 	const uint outImagePitch = pc.data.imageWidth*SHARED_CHANNELS;
@@ -427,12 +231,17 @@ layout(binding = 3, std430) restrict writeonly buffer IntensityBuffer
 {
 	float intensity[];
 };
+
+int irr_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()
+{
+	return pc.data.beforeDenoise!=0u ? 0:1;
+}
 irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t irr_glsl_ext_ToneMapper_getLumaMeterOutput()
 {
 	irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t retval;
-	retval = lumaParams[0].packedHistogram[gl_LocalInvocationIndex];
+	retval = lumaParams[irr_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()].packedHistogram[gl_LocalInvocationIndex];
 	for (int i=1; i<_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION; i++)
-		retval += lumaParams[0].packedHistogram[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT];
+		retval += lumaParams[irr_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()].packedHistogram[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT];
 	return retval;
 }
 void main()
@@ -443,7 +252,30 @@ void main()
 	float measuredLumaLog2 = irr_glsl_ext_LumaMeter_getMeasuredLumaLog2(irr_glsl_ext_ToneMapper_getLumaMeterOutput(),lumaPassInfo);
 	// write optix brightness
 	if (all(equal(uvec3(0,0,0),gl_GlobalInvocationID)))
-		intensity[pc.data.intensityBufferDWORDOffset] = irr_glsl_ext_LumaMeter_getOptiXIntensity(measuredLumaLog2+pc.data.denoiserExposureBias);
+	{
+		measuredLumaLog2 += pc.data.beforeDenoise!=0u ? pc.data.denoiserExposureBias:0.0;
+		intensity[pc.data.intensityBufferDWORDOffset] = irr_glsl_ext_LumaMeter_getOptiXIntensity(measuredLumaLog2);
+	}
+}
+		)==="));
+		auto secondLumaMeterAndDFFTXShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
+#version 450 core
+#extension GL_EXT_shader_16bit_storage : require
+#define _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
+#include "../ShaderCommon.glsl"
+layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
+{
+	float16_t inBuffer[];
+};
+void main()
+{
+	uint dataOffset = pc.data.outImageOffset[EII_COLOR]+(gl_GlobalInvocationID.y*pc.data.imageWidth+gl_GlobalInvocationID.x)*SHARED_CHANNELS;
+
+	// TODO: Optimize this fetch
+	globalPixelData = vec3(inBuffer[dataOffset+0u],inBuffer[dataOffset+1u],inBuffer[dataOffset+2u]);
+
+	irr_glsl_ext_LumaMeter(gl_GlobalInvocationID.x<pc.data.imageWidth);
+	barrier();
 }
 		)==="));
 		auto interleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
@@ -530,6 +362,7 @@ void main()
 												};
 		auto deinterleaveSpecializedShader = driver->createGPUSpecializedShader(deinterleaveShader.get(),specInfo);
 		auto intensitySpecializedShader = driver->createGPUSpecializedShader(intensityShader.get(),specInfo);
+		auto secondLumaMeterAndDFFTXSpecializedShader = driver->createGPUSpecializedShader(secondLumaMeterAndDFFTXShader.get(),specInfo);
 		auto interleaveSpecializedShader = driver->createGPUSpecializedShader(interleaveShader.get(),specInfo);
 		
 		IGPUDescriptorSetLayout::SBinding binding[SharedDescriptorSetDescCount] = {
@@ -544,6 +377,7 @@ void main()
 
 		deinterleavePipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(deinterleaveSpecializedShader));
 		intensityPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(intensitySpecializedShader));
+		secondLumaMeterAndDFFTXPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(secondLumaMeterAndDFFTXSpecializedShader));
 		interleavePipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(sharedPipelineLayout),std::move(interleaveSpecializedShader));
 	}
 
@@ -555,7 +389,6 @@ void main()
 	const auto& albedoChannelNameBundle = cmdHandler.getAlbedoChannelNameBundle();
 	const auto& normalChannelNameBundle = cmdHandler.getNormalChannelNameBundle();
 	const auto& cameraTransformBundle = cmdHandler.getCameraTransformBundle();
-	const auto& medianFilterRadiusBundle = cmdHandler.getMedianFilterRadiusBundle();
 	const auto& denoiserExposureBiasBundle = cmdHandler.getExposureBiasBundle();
 	const auto& denoiserBlendFactorBundle = cmdHandler.getDenoiserBlendFactorBundle();
 	const auto& bloomFovBundle = cmdHandler.getBloomFovBundle();
@@ -634,51 +467,6 @@ void main()
 			decltype(color)& albedo = getImageAssetGivenChannelName(albedo_image_bundle,albedoChannelNameBundle[i]);
 			decltype(color)& normal = getImageAssetGivenChannelName(normal_image_bundle,normalChannelNameBundle[i]);
 
-			auto convertImageToRequiredFmt = [&](core::smart_refctd_ptr<ICPUImage> image)
-			{
-				using CONVERSION_FILTER = CConvertFormatImageFilter<>;
-
-				core::smart_refctd_ptr<ICPUImage> newConvertedImage;
-				{
-					auto referenceImageParams = image->getCreationParameters();
-					auto referenceBuffer = image->getBuffer();
-					auto referenceRegions = image->getRegions();
-					auto referenceRegion = referenceRegions.begin();
-					const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(irrFmtRequired);
-
-					auto newImageParams = referenceImageParams;
-					auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceRegion->getExtent().width * referenceRegion->getExtent().height * referenceRegion->getExtent().depth * newTexelOrBlockByteSize);
-					auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(referenceRegions.size());
-
-					*newRegions->begin() = *referenceRegion;
-
-					newImageParams.format = irrFmtRequired;
-					newConvertedImage = ICPUImage::create(std::move(newImageParams));
-					newConvertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
-
-					CONVERSION_FILTER convertFilter;
-					CONVERSION_FILTER::state_type state;
-
-					state.inImage = image.get();
-					state.outImage = newConvertedImage.get();
-					state.inOffset = { 0, 0, 0 };
-					state.inBaseLayer = 0;
-					state.outOffset = { 0, 0, 0 };
-					state.outBaseLayer = 0;
-
-					auto region = newConvertedImage->getRegions().begin();
-
-					state.extent = region->getExtent();
-					state.layerCount = region->imageSubresource.layerCount;
-					state.inMipLevel = region->imageSubresource.mipLevel;
-					state.outMipLevel = region->imageSubresource.mipLevel;
-
-					if (!convertFilter.execute(&state))
-						os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Something went wrong while converting the image!", ELL_WARNING);
-				}
-				return newConvertedImage;
-			};
-
 			auto putImageIntoImageToDenoise = [&](core::smart_refctd_ptr<ICPUImage>&& queriedImage, E_IMAGE_INPUT defaultEII, const std::optional<std::string>& actualWantedChannel)
 			{
 				outParam.image[defaultEII] = nullptr;
@@ -697,16 +485,6 @@ void main()
 					}
 					return;
 				}
-
-				/*
-
-				I'm not sure why we should do this, so I leave it for you @devsh to uncomment eventually
-				Current Compute shader relies on having vec4 input and vec3 output
-
-				if (handledDefaultImage->getCreationParameters().format != irrFmtRequired)
-					handledDefaultImage = convertImageToRequiredFmt(handledDefaultImage);
-
-				*/
 
 				auto metadata = queriedImage->getMetadata();
 				auto exrmeta = static_cast<const COpenEXRImageMetadata*>(metadata);
@@ -873,8 +651,9 @@ void main()
 			for (uint32_t j=0u; j<denoiserInputCount; j++)
 				shaderConstants.outImageOffset[j] = j*param.width*param.height*forcedOptiXFormatPixelStride/sizeof(uint16_t); // float 16 actually
 			shaderConstants.imageWidth = param.width;
-			shaderConstants.medianFilterRadius = medianFilterRadiusBundle[i].value();
 			assert(intensityBufferOffset%IntensityValuesSize==0u);
+			shaderConstants.beforeDenoise = 1u;
+
 			shaderConstants.intensityBufferDWORDOffset = intensityBufferOffset/IntensityValuesSize;
 			shaderConstants.denoiserExposureBias = denoiserExposureBiasBundle[i].value();
 
@@ -961,6 +740,7 @@ void main()
 		}
 
 		// process
+		uint32_t workgroupCounts[2] = {(param.width+kComputeWGSize-1u)/kComputeWGSize,param.height};
 		{
 			// bind shader resources
 			{
@@ -987,12 +767,10 @@ void main()
 			}
 			// compute shader pre-preprocess (transform normals and compute luminosity)
 			{
-				// clear the histogram to 0s
-				driver->fillBuffer(histogramBuffer.get(),0u,HistogramBufferSize,0u);
 				// bind deinterleave pipeline
 				driver->bindComputePipeline(deinterleavePipeline.get());
 				// dispatch
-				driver->dispatch((param.width+kComputeWGSize-1u)/kComputeWGSize,param.height,denoiserInputCount);
+				driver->dispatch(workgroupCounts[0],workgroupCounts[1],denoiserInputCount);
 				COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 				// bind intensity pipeline
 				driver->bindComputePipeline(intensityPipeline.get());
@@ -1067,16 +845,37 @@ void main()
 
 			// compute post-processing
 			{
-				// TODO: Bloom (FoV vs. Constant)
+				// let the shaders know we're in the second phase now
+				shaderConstants.beforeDenoise = 0u;
+				driver->pushConstants(sharedPipelineLayout.get(), video::IGPUSpecializedShader::ESS_COMPUTE, offsetof(CommonPushConstants,beforeDenoise), sizeof(uint32_t), &shaderConstants.beforeDenoise);
+				// Bloom (FoV vs. Constant)
 				{
+					driver->bindComputePipeline(secondLumaMeterAndDFFTXPipeline.get());
+					// dispatch
+					driver->dispatch(workgroupCounts[0],workgroupCounts[1],1u);
+					COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+					// TODO: do Y-axis pass of the DFFT (merge the intensity pipeline into it)
+
+					// TODO: compute DFFT of the flare image (2 passes, maybe merge intensity pipeline into the Y-pass and hoist it outside of here to just after the deinterleave)
+
+					// TODO: multiply the spectra together 
+
+					// TODO: perform inverse DFFT and interleave the results
+
+					// bind intensity pipeline
+					driver->bindComputePipeline(intensityPipeline.get());
+					// dispatch
+					driver->dispatch(1u,1u,1u);
+					COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 				}
-				// TODO: Tonemap
+				// Tonemap and interleave the output
 				{
+					driver->bindComputePipeline(interleavePipeline.get());
+					driver->dispatch(workgroupCounts[0],workgroupCounts[1],1u);
+					// issue a full memory barrier (or at least all buffer read/write barrier)
+					COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
 				}
-				driver->bindComputePipeline(interleavePipeline.get());
-				driver->dispatch((param.width+kComputeWGSize-1u)/kComputeWGSize,param.height,1u);
-				// issue a full memory barrier (or at least all buffer read/write barrier)
-				COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT);
 			}
 			// delete descriptor sets (implicit from destructor)
 		}
@@ -1162,9 +961,81 @@ void main()
 				imageView = ICPUImageView::create(std::move(imgViewParams));
 			}
 
-			// save image
-			IAssetWriter::SAssetWriteParams wp(imageView.get());
-			am->writeAsset(outputFileBundle[i].value().c_str(), wp);
+			// save as .EXR image
+			{
+				IAssetWriter::SAssetWriteParams wp(imageView.get());
+				am->writeAsset(outputFileBundle[i].value().c_str(), wp);
+			}
+
+			auto getConvertedPNGImageView = [&](core::smart_refctd_ptr<ICPUImage> image)
+			{
+				using CONVERSION_FILTER = CConvertFormatImageFilter<>;
+				constexpr auto pngFormat = EF_R8G8B8A8_SRGB;
+
+				core::smart_refctd_ptr<ICPUImage> newConvertedImage;
+				{
+					auto referenceImageParams = image->getCreationParameters();
+					auto referenceBuffer = image->getBuffer();
+					auto referenceRegions = image->getRegions();
+					auto referenceRegion = referenceRegions.begin();
+					const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(pngFormat);
+
+					auto newImageParams = referenceImageParams;
+					auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceRegion->getExtent().width * referenceRegion->getExtent().height * referenceRegion->getExtent().depth * newTexelOrBlockByteSize);
+					auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1);
+
+					*newRegions->begin() = *referenceRegion;
+
+					newImageParams.format = pngFormat;
+					newConvertedImage = ICPUImage::create(std::move(newImageParams));
+					newConvertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
+
+					CONVERSION_FILTER convertFilter;
+					CONVERSION_FILTER::state_type state;
+
+					state.inImage = image.get();
+					state.outImage = newConvertedImage.get();
+					state.inOffset = { 0, 0, 0 };
+					state.inBaseLayer = 0;
+					state.outOffset = { 0, 0, 0 };
+					state.outBaseLayer = 0;
+
+					auto region = newConvertedImage->getRegions().begin();
+
+					state.extent = region->getExtent();
+					state.layerCount = region->imageSubresource.layerCount;
+					state.inMipLevel = region->imageSubresource.mipLevel;
+					state.outMipLevel = region->imageSubresource.mipLevel;
+
+					if (!convertFilter.execute(&state))
+						os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Something went wrong while converting the image!", ELL_WARNING);
+				}
+
+				// create image view
+				ICPUImageView::SCreationParams imgViewParams;
+				imgViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+				imgViewParams.format = newConvertedImage->getCreationParameters().format;
+				imgViewParams.image = std::move(newConvertedImage);
+				imgViewParams.viewType = ICPUImageView::ET_2D;
+				imgViewParams.subresourceRange = { static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u };
+				auto newImageView = ICPUImageView::create(std::move(imgViewParams));
+
+				return newImageView;
+			};
+
+			// convert to .PNG and save it as well 
+			{
+				auto newImageView = getConvertedPNGImageView(imageView->getCreationParameters().image);
+				IAssetWriter::SAssetWriteParams wp(newImageView.get());
+				std::string fileName = outputFileBundle[i].value().c_str();
+
+				while (fileName.back() != '.')
+					fileName.pop_back();
+
+				fileName += "png";
+
+				am->writeAsset(fileName, wp);
+			}
 
 			// destroy link to CPUBuffer's data (we need to free it)
 			imageView->convertToDummyObject(~0u);

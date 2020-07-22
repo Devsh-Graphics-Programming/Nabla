@@ -13,9 +13,9 @@ irr_glsl_BSDFSample irr_glsl_cos_weighted_cos_generate(in irr_glsl_AnisotropicVi
 
     irr_glsl_BSDFSample smpl;
     smpl.L = L;
-	smpl.LdotN = z;
-	smpl.LdotT = p.x;
-	smpl.LdotB = p.y;
+	smpl.NdotL = z;
+	smpl.TdotL = p.x;
+	smpl.BdtoL = p.y;
 	
 	//XdotH not filled out
 
@@ -31,7 +31,7 @@ irr_glsl_BSDFSample irr_glsl_cos_weighted_cos_generate(in irr_glsl_AnisotropicVi
 //TODO oren-nayar cos_eval with rec_pi factored out
 vec3 irr_glsl_cos_weighted_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
-	float val = s.LdotN*irr_glsl_RECIPROCAL_PI;
+	float val = s.NdotL*irr_glsl_RECIPROCAL_PI;
 	pdf = val;
 	
 	return 1.0;

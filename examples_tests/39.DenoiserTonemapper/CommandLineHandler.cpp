@@ -6,8 +6,11 @@ using namespace irr;
 using namespace asset;
 using namespace core;
 
-CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetManager* am) : status(false)
+CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetManager* am) : status(false), assetManager(am)
 {
+	auto startEntireTime = std::chrono::steady_clock::now();
+
+	assetManager->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(assetManager));
 	core::vector<std::array<std::string, PROPER_CMD_ARGUMENTS_AMOUNT>> argvMappedList;
 
 	auto pushArgvList = [&](auto argvStream, auto variableCount)
@@ -132,11 +135,16 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 				const auto beginningOfVariables = rawFetchedCmdArgument.find_last_of("=") + 1;
 				auto variablesStream = rawFetchedCmdArgument.substr(beginningOfVariables);
 
+				auto forceOutsideAssignment = [&](DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS argument, irr::core::vector<std::string>& variablesHandle)
+				{
+					auto& reference = rawVariablesHandle[argument];
+					return reference.emplace(variablesHandle);
+				};
+
 				auto assignToMap = [&](DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS argument, size_t reservedSpace = 1)
 				{
 					auto variablesHandle = getSerializedValues(variablesStream, reservedSpace, std::regex{"\,"});
-					auto& reference = rawVariablesHandle[argument];
-					reference.emplace(variablesHandle);
+					return forceOutsideAssignment(argument, variablesHandle);
 				};
 
 				if (variable == TONEMAPPER)
@@ -159,9 +167,7 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 				if (variable == COLOR_FILE)
 					assignToMap(DTEA_COLOR_FILE);
 				else if (variable == CAMERA_TRANSFORM)
-					assignToMap(DTEA_CAMERA_TRANSFORM, 9);
-				else if (variable == MEDIAN_FILTER_RADIUS)
-					assignToMap(DTEA_MEDIAN_FILTER_RADIUS);
+					assignToMap(DTEA_CAMERA_TRANSFORM);
 				else if (variable == DENOISER_EXPOSURE_BIAS)
 					assignToMap(DTEA_DENOISER_EXPOSURE_BIAS);
 				else if (variable == DENOISER_BLEND_FACTOR)
@@ -201,12 +207,21 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 	}
 
 	performFInalAssignmentStepForUsefulVariables();
+
+	auto endEntireTime = std::chrono::steady_clock::now();
+	elapsedTimeEntireLoading = endEntireTime - startEntireTime;
 	status = true;
+
+	#ifdef _IRR_DEBUG
+	os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): Elapsed time of loading entire data: " + std::to_string(elapsedTimeEntireLoading.count()) + " nanoseconds", ELL_INFORMATION);
+	os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): Elapsed time of loading without mitsuba xml files: " + std::to_string(elapsedTimeEntireLoading.count() - elapsedTimeXmls.count()) + " nanoseconds", ELL_INFORMATION);
+	os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): Elapsed time of loading mitsuba xml files: " + std::to_string(elapsedTimeXmls.count()) + " nanoseconds", ELL_INFORMATION);
+	#endif // _IRR_DEBUG
 }
 
 bool CommandLineHandler::validateMandatoryParameters(const variablesType& rawVariablesPerFile, const size_t idOfInput)
 {
-	static const irr::core::vector<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS> mandatoryArgumentsOrdinary = { DTEA_COLOR_FILE, DTEA_CAMERA_TRANSFORM, DTEA_MEDIAN_FILTER_RADIUS, DTEA_DENOISER_EXPOSURE_BIAS, DTEA_DENOISER_BLEND_FACTOR, DTEA_BLOOM_FOV, DTEA_OUTPUT };
+	static const irr::core::vector<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS> mandatoryArgumentsOrdinary = { DTEA_COLOR_FILE, DTEA_CAMERA_TRANSFORM, DTEA_DENOISER_EXPOSURE_BIAS, DTEA_DENOISER_BLEND_FACTOR, DTEA_BLOOM_FOV, DTEA_OUTPUT };
 
 	auto log = [&](bool status, const std::string message)
 	{
@@ -311,4 +326,68 @@ std::optional<std::string> CommandLineHandler::getNormalFileName(uint64_t id)
 		return {};
 
 	return rawVariables[id][DTEA_NORMAL_FILE].value()[0];
+}
+
+irr::core::matrix3x4SIMD CommandLineHandler::getCameraTransform(uint64_t id)
+{
+	static const IAssetLoader::SAssetLoadParams mitsubaLoaderParams = { 0, nullptr, IAssetLoader::ECF_CACHE_EVERYTHING, nullptr, IAssetLoader::ELPF_LOAD_METADATA_ONLY };
+
+	auto getMatrixFromFile = [&]()
+	{
+		const std::string& filePath = rawVariables[id][DTEA_CAMERA_TRANSFORM].value()[0];
+
+		auto startTime = std::chrono::steady_clock::now();
+		auto meshes_bundle = assetManager->getAsset(filePath.data(), mitsubaLoaderParams);
+		auto endTime = std::chrono::steady_clock::now();
+		elapsedTimeXmls += (endTime - startTime);
+
+		auto mesh = meshes_bundle.getContents().begin()[0];
+		auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
+		const auto mitsubaMetadata = static_cast<const ext::MitsubaLoader::CMitsubaMetadata*>(mesh_raw->getMetadata());
+		const auto data = mitsubaMetadata->getMitsubaMetadata();
+
+		bool validateFlag = data->sensors.empty();
+		if (validateFlag)
+		{
+			os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): The is no transform matrix in " + filePath + " ! Id of input stride: " + std::to_string(id), ELL_ERROR);
+			assert(validateFlag);
+		}
+
+		auto transformReference = data->sensors[0].transform.matrix.extractSub3x4();
+		transformReference.setTranslation(core::vectorSIMDf(0, 0, 0, 0));
+
+		return transformReference;
+	};
+
+	auto getMatrixFromSerializedValues = [&]()
+	{
+		irr::core::matrix3x4SIMD cameraTransform;
+		const auto send = rawVariables[id][DTEA_CAMERA_TRANSFORM].value().end();
+		auto sit = rawVariables[id][DTEA_CAMERA_TRANSFORM].value().begin();
+		for (auto i = 0; i < 3u && sit != send; i++)
+			for (auto j = 0; j < 3u && sit != send; j++)
+				cameraTransform(i, j) = std::stof(*(sit++));
+
+		return cameraTransform;
+	};
+
+	_IRR_STATIC_INLINE_CONSTEXPR uint8_t PATH_TO_MITSUBA_SCENE = 1;
+	_IRR_STATIC_INLINE_CONSTEXPR uint8_t CAMERA_MATRIX_VALUES = 9;
+
+	switch (rawVariables[id][DTEA_CAMERA_TRANSFORM].value().size())
+	{
+		case PATH_TO_MITSUBA_SCENE:
+		{
+			return getMatrixFromFile();
+		}
+		case CAMERA_MATRIX_VALUES:
+		{
+			return getMatrixFromSerializedValues();
+		}
+		default:
+		{
+			os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): " + std::string(CAMERA_TRANSFORM.data()) + " isn't a path nor a valid matrix! Id of input stride: " + std::to_string(id), ELL_ERROR);
+			assert(false);
+		}
+	}
 }

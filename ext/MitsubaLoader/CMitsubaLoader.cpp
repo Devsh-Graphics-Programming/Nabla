@@ -1752,72 +1752,81 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 	if (!parserManager.parse(_file))
 		return {};
 
-	//
-	auto currentDir = io::IFileSystem::getFileDir(_file->getFileName()) + "/";
-	SContext ctx(
-		m_manager->getGeometryCreator(),
-		m_manager->getMeshManipulator(),
-		asset::IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen,_params.decryptionKey,_params.cacheFlags,currentDir.c_str()),
-		_override,
-		parserManager.m_globalMetadata.get()
-	);
-	if (!getBuiltinAsset<asset::ICPUPipelineLayout, asset::IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager))
+	if (_params.loaderFlags & IAssetLoader::ELPF_LOAD_METADATA_ONLY)
 	{
-		auto layout = createAndCachePipelineLayout(m_manager, ctx.VT.get());
-		auto pipeline = createAndCachePipeline(m_manager, std::move(layout));
+		auto emptyMesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
+		m_manager->setAssetMetadata(emptyMesh.get(), core::make_smart_refctd_ptr<ext::MitsubaLoader::CMitsubaMetadata>(parserManager.m_globalMetadata));
+		return SAssetBundle({ std::move(emptyMesh) });
 	}
-
-	core::set<core::smart_refctd_ptr<asset::ICPUMesh>> meshes;
-
-	for (auto& shapepair : parserManager.shapegroups)
+	else
 	{
-		auto* shapedef = shapepair.first;
-		if (shapedef->type==CElementShape::Type::SHAPEGROUP)
-			continue;
-
-		core::smart_refctd_ptr<asset::ICPUMesh> mesh = getMesh(ctx,_hierarchyLevel,shapedef);
-		if (!mesh)
-			continue;
-
-		IMeshMetadata* metadataptr = nullptr;
-		auto found = meshes.find(mesh);
-		if (found==meshes.end())
+		//
+		auto currentDir = io::IFileSystem::getFileDir(_file->getFileName()) + "/";
+		SContext ctx(
+			m_manager->getGeometryCreator(),
+			m_manager->getMeshManipulator(),
+			asset::IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen, _params.decryptionKey, _params.cacheFlags, currentDir.c_str()),
+			_override,
+			parserManager.m_globalMetadata.get()
+		);
+		if (!getBuiltinAsset<asset::ICPUPipelineLayout, asset::IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager))
 		{
-			auto metadata = core::make_smart_refctd_ptr<IMeshMetadata>(
-								core::smart_refctd_ptr(parserManager.m_globalMetadata),
-								std::move(shapepair.second),
-								shapedef
-							);
-			metadataptr = metadata.get();
-			m_manager->setAssetMetadata(mesh.get(), std::move(metadata));
-			meshes.insert(std::move(mesh));
-		}
-		else
-		{
-			assert(mesh->getMetadata() && strcmpi(mesh->getMetadata()->getLoaderName(),IMeshMetadata::LoaderName)==0);
-			metadataptr = static_cast<IMeshMetadata*>(mesh->getMetadata());
+			auto layout = createAndCachePipelineLayout(m_manager, ctx.VT.get());
+			auto pipeline = createAndCachePipeline(m_manager, std::move(layout));
 		}
 
-		const auto instrOffsetCount = getBSDFtreeTraversal(ctx, shapedef->bsdf);
-		metadataptr->instances.push_back({ shapedef->getAbsoluteTransform(),instrOffsetCount.postorder,shapedef->obtainEmitter() });
-	}
+		core::set<core::smart_refctd_ptr<asset::ICPUMesh>> meshes;
 
-	auto metadata = createPipelineMetadata(createDS0(ctx, meshes.begin(), meshes.end()), getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager).get());
-	for (auto& mesh : meshes)
-	{
-		auto* meshmeta = static_cast<const IMeshMetadata*>(mesh->getMetadata());
-		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+		for (auto& shapepair : parserManager.shapegroups)
 		{
-			asset::ICPUMeshBuffer* mb = mesh->getMeshBuffer(i);
-			asset::ICPURenderpassIndependentPipeline* pipeline = mb->getPipeline();
-			if (!pipeline->getMetadata())
-				m_manager->setAssetMetadata(pipeline, core::smart_refctd_ptr(metadata));
+			auto* shapedef = shapepair.first;
+			if (shapedef->type == CElementShape::Type::SHAPEGROUP)
+				continue;
 
-			mb->setInstanceCount(meshmeta->getInstances().size());
+			core::smart_refctd_ptr<asset::ICPUMesh> mesh = getMesh(ctx, _hierarchyLevel, shapedef);
+			if (!mesh)
+				continue;
+
+			IMeshMetadata* metadataptr = nullptr;
+			auto found = meshes.find(mesh);
+			if (found == meshes.end())
+			{
+				auto metadata = core::make_smart_refctd_ptr<IMeshMetadata>(
+					core::smart_refctd_ptr(parserManager.m_globalMetadata),
+					std::move(shapepair.second),
+					shapedef
+					);
+				metadataptr = metadata.get();
+				m_manager->setAssetMetadata(mesh.get(), std::move(metadata));
+				meshes.insert(std::move(mesh));
+			}
+			else
+			{
+				assert(mesh->getMetadata() && strcmpi(mesh->getMetadata()->getLoaderName(), IMeshMetadata::LoaderName) == 0);
+				metadataptr = static_cast<IMeshMetadata*>(mesh->getMetadata());
+			}
+
+			const auto instrOffsetCount = getBSDFtreeTraversal(ctx, shapedef->bsdf);
+			metadataptr->instances.push_back({ shapedef->getAbsoluteTransform(),instrOffsetCount.postorder,shapedef->obtainEmitter() });
 		}
-	}
 
-	return {meshes};
+		auto metadata = createPipelineMetadata(createDS0(ctx, meshes.begin(), meshes.end()), getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager).get());
+		for (auto& mesh : meshes)
+		{
+			auto* meshmeta = static_cast<const IMeshMetadata*>(mesh->getMetadata());
+			for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+			{
+				asset::ICPUMeshBuffer* mb = mesh->getMeshBuffer(i);
+				asset::ICPURenderpassIndependentPipeline* pipeline = mb->getPipeline();
+				if (!pipeline->getMetadata())
+					m_manager->setAssetMetadata(pipeline, core::smart_refctd_ptr(metadata));
+
+				mb->setInstanceCount(meshmeta->getInstances().size());
+			}
+		}
+
+		return { meshes };
+	}
 }
 
 CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape)

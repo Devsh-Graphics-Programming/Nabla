@@ -39,7 +39,9 @@ int main(int argc, char * argv[])
 	auto am = device->getAssetManager();
 
 	IAssetLoader::SAssetLoadParams lp;
-	auto image_bundle = am->getAsset(std::string(isItDefaultImage ? "../../media/OpenEXR/daily_pt_16.exr" : argv[1]), lp);
+	constexpr std::string_view defaultImagePath = "../../media/noises/spp_benchmark_4k_512.exr";
+	const auto filePath = std::string(isItDefaultImage ? defaultImagePath.data() : argv[1]);
+	auto image_bundle = am->getAsset(filePath, lp);
 	assert(!image_bundle.isEmpty());
 
 	for (auto i = 0ul; i < image_bundle.getSize(); ++i)
@@ -52,8 +54,18 @@ int main(int argc, char * argv[])
 		imgViewParams.subresourceRange = { static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u };
 		auto imageView = ICPUImageView::create(std::move(imgViewParams));
 
+		const auto* metadata = static_cast<const COpenEXRImageMetadata*>(imageView->getCreationParameters().image->getMetadata());
+		auto channelsName = metadata->getName();
+
+		io::path fileName, extension, finalFileNameWithExtension;
+		core::splitFilename(filePath.c_str(), nullptr, &fileName, &extension);
+		finalFileNameWithExtension = fileName + ".";
+		finalFileNameWithExtension += extension;
+
+		const std::string finalOutputPath = channelsName.empty() ? (std::string(fileName.c_str()) + "_" + std::to_string(i) + "." + std::string(extension.c_str())) : (std::string(fileName.c_str()) + "_" + channelsName + "." + std::string(extension.c_str()));
+
 		const auto params = IAssetWriter::SAssetWriteParams(imageView.get(), EWF_BINARY);
-		am->writeAsset("OpenEXR_" + std::to_string(i) + ".exr", params);
+		am->writeAsset(finalOutputPath, params);
 	}
 		
 	return 0;
