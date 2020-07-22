@@ -19,13 +19,22 @@ layout(set = 1, binding = 0, row_major, std140) uniform UBO
 	irr_glsl_SBasicViewParameters params;
 } cameraData;
 
-#define INVALID_ID_16BIT 0xffff0000u
+#define INVALID_ID_16BIT 0xffffu
 struct Sphere
 {
     vec3 position;
     float radius2;
     uint bsdfLightIDs;
 }; 
+
+Sphere Sphere_Sphere(in vec3 position, in float radius, in uint bsdfID, in uint lightID)
+{
+    Sphere sphere;
+    sphere.position = position;
+    sphere.radius2 = radius*radius;
+    sphere.bsdfLightIDs = bitfieldInsert(bsdfID,lightID,16,16);
+    return sphere;
+}
 
 float Sphere_getSolidAngle_impl(in float cosThetaMax)
 {
@@ -37,22 +46,17 @@ float Sphere_getSolidAngle(in Sphere sphere, in vec3 origin)
     return Sphere_getSolidAngle_impl(cosThetaMax);
 }
 
-float sqr(in float x)
-{
-    return x*x;
-}
-
 #define SPHERE_COUNT 9
 Sphere spheres[SPHERE_COUNT] = {
-    {{0.0,-100.5,-1.0},sqr(100.0),0u|INVALID_ID_16BIT},
-    {{2.0,0.0,-1.0},sqr(0.5),1u|INVALID_ID_16BIT},
-    {{0.0,0.0,-1.0},sqr(0.5),2u|INVALID_ID_16BIT},
-    {{-2.0,0.0,-1.0},sqr(0.5),3u|INVALID_ID_16BIT},
-    {{2.0,0.0,1.0},sqr(0.5),4u|INVALID_ID_16BIT},
-    {{0.0,0.0,1.0},sqr(0.5),4u|INVALID_ID_16BIT},
-    {{-2.0,0.0,1.0},sqr(0.5),5u|INVALID_ID_16BIT},
-    {{0.5,1.0,0.5},sqr(0.5),6u|INVALID_ID_16BIT},
-    {{-1.5,1.5,0.0},sqr(0.3),7u|0u}
+    Sphere_Sphere(vec3(0.0,-100.5,-1.0),100.0,0u,INVALID_ID_16BIT),
+    Sphere_Sphere(vec3(2.0,0.0,-1.0),0.5,1u,INVALID_ID_16BIT),
+    Sphere_Sphere(vec3(0.0,0.0,-1.0),0.5,2u,INVALID_ID_16BIT),
+    Sphere_Sphere(vec3(-2.0,0.0,-1.0),0.5,3u,INVALID_ID_16BIT),
+    Sphere_Sphere(vec3(2.0,0.0,1.0),0.5,4u,INVALID_ID_16BIT),
+    Sphere_Sphere(vec3(0.0,0.0,1.0),0.5,4u,INVALID_ID_16BIT),
+    Sphere_Sphere(vec3(-2.0,0.0,1.0),0.5,5u,INVALID_ID_16BIT),
+    Sphere_Sphere(vec3(0.5,1.0,0.5),0.5,6u,INVALID_ID_16BIT),
+    Sphere_Sphere(vec3(-1.5,1.5,0.0),0.3,7u,0u)
 };
 
 
@@ -410,7 +414,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
     const uint lightID = bitfieldExtract(bsdfLightIDs,16,16);
 
     vec3 throughput = rayStack[stackPtr]._payload.throughput;
-
+    
     // finish MIS
     if (lightID!=INVALID_ID_16BIT) // has emissive
     {
@@ -418,11 +422,11 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
         vec3 lightVal = irr_glsl_light_deferred_eval_and_prob(lightPdf,sphere,_immutable.origin,interaction,lights[lightID]);
         rayStack[stackPtr]._payload.accumulation += throughput*lightVal/(1.0+lightPdf*lightPdf*rayStack[stackPtr]._payload.otherTechniqueHeuristic);
     }
-
+    
     const int sampleIx = bitfieldExtract(_immutable.typeDepthSampleIx,0,DEPTH_BITS_OFFSET);
     const int depth = bitfieldExtract(_immutable.typeDepthSampleIx,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
 
-    // do we even have a BSDF at all
+    // check if we even have a BSDF at all
     uint bsdfID = bitfieldExtract(bsdfLightIDs,0,16);
     if (depth<MAX_DEPTH && bsdfID!=INVALID_ID_16BIT)
     {
@@ -513,7 +517,6 @@ void main()
         NDC.z = 1.0;
     }
 
-
     vec3 color = vec3(0.0);
     for (int i=0; i<SAMPLES; i++)
     {
@@ -526,8 +529,8 @@ void main()
             rayStack[stackPtr]._immutable.maxT = FLT_MAX;
 
             vec4 tmp = NDC;
-            //tmp.xy += pixOffsetParam*(rand3d(0u,i,scramble_state).xy-vec2(0.5));
-            tmp.xy += pixOffsetParam*irr_glsl_concentricMapping(rand3d(0u,i,scramble_state).xy)*25.0;
+            tmp.xy += pixOffsetParam*(rand3d(0u,i,scramble_state).xy-vec2(0.5));
+            //tmp.xy += pixOffsetParam*irr_glsl_concentricMapping(rand3d(0u,i,scramble_state).xy)*25.0;
             tmp = invMVP*tmp;
             rayStack[stackPtr]._immutable.direction = normalize(tmp.xyz/tmp.w-camPos);
             
@@ -560,4 +563,25 @@ void main()
     }
   
     pixelColor = vec4(color/float(SAMPLES), 1.0);
+
+/** TODO: Improving Rendering
+
+Quality:
+- Geometry Specular AA (Curvature adjusted roughness)
+- Density Based Outlier Rejection
+- Gaussian Reconstruction Filter (off for AI denoising)
+- Thinlens Model DoF
+
+When proper scheduling is available:
+- Russian Roulette
+- Divergence Optimization
+
+When finally texturing:
+- Covariance Rendering
+- CLEAR/LEAN/Toksvig for simult roughness + bumpmap filtering
+
+Many Lights:
+- Path Guiding
+- Light Importance Lists/Classification
+**/
 }	
