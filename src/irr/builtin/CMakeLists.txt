@@ -41,6 +41,7 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/colorspace/encodeCIEXYZ.glsl"
   "irr/builtin/glsl/loaders/mtl/common.glsl"
   "irr/builtin/glsl/utils/vertex.glsl"
+  "irr/builtin/glsl/utils/indirect_commands.glsl"
   "irr/builtin/glsl/virtual_texturing/descriptors.glsl"
   "irr/builtin/glsl/virtual_texturing/extensions.glsl"
   "irr/builtin/glsl/virtual_texturing/impl_functions.glsl"
