@@ -150,6 +150,11 @@ public:
                     value.texture.~STextureSource();
             }
 
+            SParameter() = default;
+            SParameter(const SParameter<type_of_const>& other)
+            {
+                *this = other;
+            }
             SParameter<type_of_const>& operator=(const SParameter<type_of_const>& rhs)
             {
                 source = rhs.source;

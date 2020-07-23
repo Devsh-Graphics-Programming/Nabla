@@ -16,7 +16,7 @@ layout (location = 0) out vec4 OutColor;
 
 //in 16-byte/uvec4 units
 //layout (constant_id = 0) const uint sizeof_bsdf_data = 3;
-#define sizeof_bsdf_data 3
+#define sizeof_bsdf_data 4
 
 struct bsdf_data_t
 {
@@ -89,7 +89,7 @@ layout (push_constant) uniform Block
 	stream_t gen_choice;
 } PC;
 
-#include <irr/builtin/glsl/utils/vertex.glsl>
+#include <irr/builtin/glsl/utils/common.glsl>
 
 layout (set = 1, binding = 0, row_major, std140) uniform UBO {
     irr_glsl_SBasicViewParameters params;
@@ -181,22 +181,6 @@ bool instr_getReflectanceTexPresence(in instr_t instr)
 {
 	return (instr.x&(1u<<INSTR_REFL_TEX_SHIFT)) != 0u;
 }
-bool instr_getPlasticReflTexPresence(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_PLASTIC_REFL_TEX_SHIFT)) != 0u;
-}
-uint instr_getWardVariant(in instr_t instr)
-{
-	return (instr.x>>INSTR_WARD_VARIANT_SHIFT) & INSTR_WARD_VARIANT_MASK;
-}
-bool instr_getFastApprox(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_FAST_APPROX_SHIFT)) != 0u;
-}
-bool instr_getNonlinear(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_NONLINEAR_SHIFT)) != 0u;
-}
 bool instr_getSigmaATexPresence(in instr_t instr)
 {
 	return (instr.x&(1u<<INSTR_SIGMA_A_TEX_SHIFT)) != 0u;
@@ -232,9 +216,9 @@ uvec3 instr_decodeRegisters(in instr_t instr)
 	uvec3 regs = uvec3(instr.y, (instr.y>>8), (instr.y>>16));
 	return regs & uvec3(INSTR_REG_MASK);
 }
-#define REG_DST(r)	r.x
-#define REG_SRC1(r)	r.y
-#define REG_SRC2(r)	r.z
+#define REG_DST(r)	(r).x
+#define REG_SRC1(r)	(r).y
+#define REG_SRC2(r)	(r).z
 
 bsdf_data_t fetchBSDFDataForInstr(in instr_t instr)
 {
@@ -307,6 +291,16 @@ void writeReg(uint n, vec3 v)
 	writeReg(n+1u,v.y);
 	writeReg(n+2u,v.z);
 }
+float readReg1(uint n)
+{
+	return uintBitsToFloat( registers[n] );
+}
+vec3 readReg3(uint n)
+{
+	return vec3(
+		readReg(n), readReg(n+1u), readReg(n+2u)
+	);
+}
 
 void setCurrBSDFParams(in vec3 n, in vec3 L)
 {
@@ -317,12 +311,43 @@ void setCurrBSDFParams(in vec3 n, in vec3 L)
 	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(isoparams, currInteraction);
 }
 
+float getAlpha(in bsdf_data_t data, in bool texPresence)
+{
+	return textureOrRconst(data.data[0].xyz, texPresence);
+}
+vec3 getReflectance(in bsdf_data_t data, in bool texPresence)
+{
+	return textureOrRGBconst(uvec3(data.data[0].w,data.data[1].xy), texPresence);
+}
+vec3 getOpacity(in bsdf_data_t data, in bool texPresence)
+{
+	return textureOrRGBconst(uvec3(data.data[1].zw,data.data[2].x), texPresence);
+}
+float getAlphaV(in bsdf_data_t data, in bool texPresence)
+{
+	return textureOrRconst(uvec3(data.data[0].w,data.data[1].xy), texPresence);
+}
+vec3 getSigmaA(in bsdf_data_t data, in bool texPresence)
+{
+	return getReflectance(data,texPresence);
+}
+float getBlendWeight(in bsdf_data_t data, in bool texPresence)
+{
+	return getAlpha(data,texPresence);
+}
+vec3 getTransmittance(in bsdf_data_t data, in bool texPresence)
+{
+	return textureOrRGBconst(data.data[0].xyz, texPresence);
+}
+
+
 #ifdef OP_DIFFUSE
 void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
-		vec3 refl = textureOrRGBconst(data.data[1].zw, instr_getReflectanceTexPresence(instr));
+		vec3 refl = getReflectance(data, instr_getReflectanceTexPresence(instr));
+		//float a = getAlpha(data, instr_getAlphaUTexPresence(instr));
 		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic,currInteraction.isotropic) * refl;
 		registers[REG_DST(regs)] = diffuse;
 	}
@@ -330,8 +355,9 @@ void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in bsdf_data_t data)
 }
 #endif
 #ifdef OP_DIFFTRANS
-void instr_execute_DIFFTRANS(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 trans, in bsdf_data_t data)
+void instr_execute_DIFFTRANS(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
 {
+	vec3 tr = getTransmittance(data, instr_getTransmittanceTexPresence(instr));
 	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
 #endif
@@ -340,7 +366,9 @@ void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in bsdf_data_t da
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
-		vec3 eta = vec3(uintBitsToFloat(data.data[2].x));
+		//float au = getAlpha(data, instr_getAlphaUTexPresence(instr));
+		//float av = getAlphaV(data, instr_getAlphaVTexPresence(instr));
+		vec3 eta = vec3(uintBitsToFloat(data.data[2].y));
 		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic,currInteraction.isotropic) * vec3(0.89);
 		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
 		registers[REG_DST(regs)] = diffuse;
@@ -353,9 +381,11 @@ void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV, in fl
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
+		//float au = getAlpha(data, instr_getAlphaUTexPresence(instr));
+		//float av = getAlphaV(data, instr_getAlphaVTexPresence(instr));
 		mat2x3 eta2;
-		eta2[0] = decodeRGB19E7(data.data[2].xy); eta2[0]*=eta2[0];
-		eta2[1] = decodeRGB19E7(data.data[2].zw); eta2[1]*=eta2[1];
+		eta2[0] = decodeRGB19E7(data.data[2].yz); eta2[0]*=eta2[0];
+		eta2[1] = decodeRGB19E7(uvec2(data.data[2].w,data.data[3].x)); eta2[1]*=eta2[1];
 		vec3 fr = irr_glsl_fresnel_conductor(eta2[0],eta2[1],currBSDFParams.isotropic.VdotH);
 		registers[REG_DST(regs)] = DG*fr;
 	}
@@ -363,13 +393,14 @@ void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV, in fl
 }
 #endif
 #ifdef OP_PLASTIC
-void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 scale, in float a2, in float DG, in bsdf_data_t data)
+void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in float DG, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
-		vec3 eta = vec3(uintBitsToFloat(data.data[2].x));
+		vec3 eta = vec3(uintBitsToFloat(data.data[2].y));
 		vec3 eta2 = eta*eta;
-		vec3 refl = textureOrRGBconst(data.data[1].zw, instr_getPlasticReflTexPresence(instr));
+		vec3 refl = getReflectance(data, instr_getReflectanceTexPresence(instr));
+		//float a = getAlpha(data, instr_getAlphaUTexPresence(instr));
 
 		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic, currInteraction.isotropic, a2) * refl;
 		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta2) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
@@ -384,15 +415,16 @@ void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3
 #ifdef OP_COATING
 void instr_execute_COATING(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 scale, in bsdf_data_t data)
 {
-	vec2 thickness_eta = unpackHalf2x16(data.data[2].x);
-	vec3 sigmaA = textureOrRGBconst(data.data[1].zw, instr_getSigmaATexPresence(instr));
+	//vec2 thickness_eta = unpackHalf2x16(data.data[2].y);
+	//vec3 sigmaA = getSigmaA(data, instr_getSigmaATexPresence(instr));
+	//float a = getAlpha(data, instr_getAlphaUTexPresence(instr));
 	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
 }
 #endif
 #ifdef OP_BUMPMAP
 void instr_execute_BUMPMAP(in instr_t instr, in vec3 L)
 {
-	vec3 n = normal_registers[instr_getNormalId(instr)];
+	vec3 n = readReg3( REG_SRC1(instr_decodeRegisters(instr)) );
 	setCurrBSDFParams(n, L);
 }
 #endif
@@ -476,7 +508,7 @@ void runNormalPrecompStream(in mat2 dUV)
 
 		bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
 
-		uint reg = instr_getNormalId(instr);
+		uint reg = REG_DST(instr_decodeRegisters(instr));
 
 		uvec2 bm = data.data[0].xy;
 		float scale = uintBitsToFloat(data.data[0].z);
@@ -485,7 +517,9 @@ void runNormalPrecompStream(in mat2 dUV)
 			irr_glsl_vTextureGrad(bm, UV+0.5*dUV[0], dUV).x - irr_glsl_vTextureGrad(bm, UV-0.5*dUV[0], dUV).x,
 			irr_glsl_vTextureGrad(bm, UV+0.5*dUV[1], dUV).x - irr_glsl_vTextureGrad(bm, UV-0.5*dUV[1], dUV).x
 		) * scale;
-		normal_registers[reg] = irr_glsl_perturbNormal_heightMap(currInteraction.isotropic.N, currInteraction.isotropic.V.dPosdScreen, dHdScreen);
+		writeReg(reg,
+			irr_glsl_perturbNormal_heightMap(currInteraction.isotropic.N, currInteraction.isotropic.V.dPosdScreen, dHdScreen)
+		);
 	}
 }
 #endif

@@ -58,13 +58,19 @@ namespace instr_stream
 			);
 		}
 
+		static IR::INode::SParameter<IR::INode::color_t> extractOpacity(const IR::INode* _root)
+		{
+			assert(_root->symbol==IR::INode::ES_MATERIAL);
+			return static_cast<const IR::CMaterialNode*>(_root)->opacity;
+		}
+
 		std::pair<instr_t, const IR::INode*> processSubtree(const IR::INode* tree, IR::INode::children_array_t& next)
 		{
 			//TODO deduplication
 			return CInterpreter::processSubtree(m_ir, tree, next);
 		}
 
-		void setBSDFData(SBSDFUnion& _dst, E_OPCODE _op, const IR::INode* _node) const
+		void setBSDFData(SBSDFUnion& _dst, E_OPCODE _op, const IR::INode* _node, const IR::INode::SParameter<IR::INode::color_t>& _opacity) const
 		{
 			switch (_op)
 			{
@@ -206,9 +212,17 @@ namespace instr_stream
 			}
 			break;
 			}
+
+			if (_op!=OP_BUMPMAP && _op!=OP_BLEND)
+			{
+				if (_opacity.source == IR::INode::EPS_TEXTURE)
+					_dst.param[2].setTexture(packTexture(_opacity.value.texture), _opacity.value.texture.scale);
+				else
+					_dst.param[2].setConst(_opacity.value.constant.pointer);
+			}
 		}
 
-		size_t getBSDFDataIndex(E_OPCODE _op, const IR::INode* _node) const
+		size_t getBSDFDataIndex(E_OPCODE _op, const IR::INode* _node, const IR::INode::SParameter<IR::INode::color_t>& _opacity) const
 		{
 			switch (_op)
 			{
@@ -451,10 +465,6 @@ namespace remainder_and_pdf
 		return 0u;
 	}
 
-	inline uint32_t getNormalId(const instr_t& i)
-	{
-		return i >> INSTR_NORMAL_ID_SHIFT;
-	}
 	inline core::vector3du32_SIMD getRegisters(const instr_t& i)
 	{
 		return core::vector3du32_SIMD(
@@ -907,6 +917,7 @@ instr_stream::traversal_t instr_stream::remainder_and_pdf::CTraversalGenerator::
 {
 	traversal_t traversal;
 
+	auto opacity = extractOpacity(_root);
 	{
 		IR::INode::children_array_t next;
 		const IR::INode* node;
@@ -922,7 +933,7 @@ instr_stream::traversal_t instr_stream::remainder_and_pdf::CTraversalGenerator::
 		_IRR_DEBUG_BREAK_IF(op == OP_INVALID);
 		if (srcRegCount == 0u || top.visited)
 		{
-			const uint32_t bsdfBufIx = getBSDFDataIndex(getOpcode(top.instr), top.node);
+			const uint32_t bsdfBufIx = getBSDFDataIndex(getOpcode(top.instr), top.node, opacity);
 			instr_t instr = finalizeInstr(top.instr, top.node, bsdfBufIx);
 			traversal.push_back(instr);
 			m_stack.pop();
@@ -962,6 +973,7 @@ instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTrav
 
 	traversal_t traversal;
 
+	auto opacity = extractOpacity(_root);
 	{
 		IR::INode::children_array_t next;
 		const IR::INode* node;
@@ -974,7 +986,7 @@ instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTrav
 		auto& top = m_stack.top();
 		const E_OPCODE op = getOpcode(top.instr);
 
-		const uint32_t bsdfBufIx = getBSDFDataIndex(op, top.node);
+		const uint32_t bsdfBufIx = getBSDFDataIndex(op, top.node, opacity);
 		const uint32_t currIx = traversal.size();
 		traversal.push_back(finalizeInstr(top.instr, top.node, bsdfBufIx));
 		_IRR_DEBUG_BREAK_IF(op == OP_INVALID);
@@ -1169,24 +1181,27 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 		}
 
 		traversal_t normal_precomp_stream;
+		const uint32_t regNum = MAX_REGISTER_COUNT-registerPool;
 		{
-			uint32_t regNum = MAX_REGISTER_COUNT-registerPool;
 			normal_precomp_stream.reserve(std::count_if(rem_pdf_stream.begin(), rem_pdf_stream.end(), [](instr_t i) {return getOpcode(i)==OP_BUMPMAP;}));
+			assert(regNum+3u*normal_precomp_stream.capacity() <= MAX_REGISTER_COUNT);
 			for (instr_t i : rem_pdf_stream)
 			{
 				if (getOpcode(i)==OP_BUMPMAP)
 				{
-					i = core::bitfieldInsert<instr_t>(i, regNum, normal_precomp::BITFIELDS_REG_DST_SHIFT, normal_precomp::BITFIELDS_REG_WIDTH);
-					regNum += 3u;
+					//we can be sure that n_id is always in range [0,count of bumpmaps instrs)
+					const uint32_t n_id = getNormalId(i);
+					i = core::bitfieldInsert<instr_t>(i, regNum+3u*n_id, normal_precomp::BITFIELDS_REG_DST_SHIFT, normal_precomp::BITFIELDS_REG_WIDTH);
 					normal_precomp_stream.push_back(i);
 				}
 			}
-			assert(regNum <= MAX_REGISTER_COUNT);
-			registerPool = MAX_REGISTER_COUNT - regNum;
+			registerPool = MAX_REGISTER_COUNT - regNum - normal_precomp_stream.size();
 		}
 
 		adjustBSDFDataIndices(rem_pdf_stream, ix2ix);
+		setSourceRegForBumpmaps(rem_pdf_stream, regNum);
 		adjustBSDFDataIndices(gen_choice_stream, ix2ix);
+		setSourceRegForBumpmaps(gen_choice_stream, regNum);
 
 		result_t::instr_streams_t streams;
 		streams.rem_and_pdf = {res.instructions.size(), rem_pdf_stream.size()};

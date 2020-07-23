@@ -92,6 +92,10 @@ namespace instr_stream
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_NORMAL_ID_MASK = 0xffu;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_NORMAL_ID_SHIFT = 56u;
 
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BUMPMAP_SRC_REG_WIDTH = 8u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BUMPMAP_SRC_REG_MASK = 0xffu;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BUMPMAP_SRC_REG_SHIFT = 40u;
+
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_REGISTER_COUNT = 72u;
 
 	enum E_NDF
@@ -114,6 +118,11 @@ namespace instr_stream
 	inline bool isMasked(const instr_t& i)
 	{
 		return static_cast<bool>( core::bitfieldExtract(i, BITFIELDS_SHIFT_MASKFLAG, 1) );
+	}
+
+	inline uint32_t getNormalId(const instr_t& i)
+	{
+		return i >> INSTR_NORMAL_ID_SHIFT;
 	}
 
 	using VTID = asset::ICPUVirtualTexture::SMasterTextureData;
@@ -151,26 +160,26 @@ namespace instr_stream
 #include "irr/irrunpack.h"
 
 #include "irr/irrpack.h"
-	struct alignas(16) SAllDiffuse
+	struct SAllDiffuse
 	{
 		STextureOrConstant alpha;
 		STextureOrConstant reflectance;
 		STextureOrConstant opacity;
 	} PACK_STRUCT;
-	struct alignas(16) SDiffuseTransmitter
+	struct SDiffuseTransmitter
 	{
 		STextureOrConstant transmittance;
 		STextureOrConstant dummy;
 		STextureOrConstant opacity;
 	} PACK_STRUCT;
-	struct alignas(16) SAllDielectric
+	struct SAllDielectric
 	{
 		STextureOrConstant alpha_u;
 		STextureOrConstant alpha_v;
 		STextureOrConstant opacity;
 		float eta;
 	} PACK_STRUCT;
-	struct alignas(16) SAllConductor
+	struct SAllConductor
 	{
 		STextureOrConstant alpha_u;
 		STextureOrConstant alpha_v;
@@ -178,14 +187,14 @@ namespace instr_stream
 		//3d complex IoR, rgb19e7 format, [0]=real, [1]=imaginary
 		uint64_t eta[2];
 	} PACK_STRUCT;
-	struct alignas(16) SAllPlastic
+	struct SAllPlastic
 	{
 		STextureOrConstant alpha;
 		STextureOrConstant reflectance;
 		STextureOrConstant opacity;
 		float eta;
 	} PACK_STRUCT;
-	struct alignas(16) SAllCoating
+	struct SAllCoating
 	{
 		STextureOrConstant alpha;
 		STextureOrConstant sigmaA;
@@ -193,18 +202,18 @@ namespace instr_stream
 		//thickness and eta encoded as 2x float16, thickness on bits 0:15, eta on bits 16:31
 		uint32_t thickness_eta;
 	} PACK_STRUCT;
-	struct alignas(16) SBumpMap
+	struct SBumpMap
 	{
 		//texture data for VT
 		STextureData bumpmap;
 	} PACK_STRUCT;
-	struct alignas(16) SBlend
+	struct SBlend
 	{
 		STextureOrConstant weight;
 	} PACK_STRUCT;
 #include "irr/irrunpack.h"
 
-	union SBSDFUnion
+	union alignas(16) SBSDFUnion
 	{
 		_IRR_STATIC_INLINE_CONSTEXPR size_t MAX_TEXTURES = 3ull;
 
@@ -291,6 +300,16 @@ protected:
 			auto found = _ix2ix.find(core::bitfieldExtract(i, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH));
 			if (found != _ix2ix.end())
 				i = core::bitfieldInsert<instr_t>(i, found->second, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
+		}
+	}
+	void setSourceRegForBumpmaps(instr_stream::traversal_t& _stream, uint32_t _regNumOffset)
+	{
+		for (instr_t& i : _stream) {
+			if (getOpcode(i)==OP_BUMPMAP)
+			{
+				const uint32_t n_id = getNormalId(i);
+				i = core::bitfieldInsert<instr_t>(i, _regNumOffset+n_id, INSTR_BUMPMAP_SRC_REG_SHIFT, INSTR_BUMPMAP_SRC_REG_WIDTH);
+			}
 		}
 	}
 

@@ -887,7 +887,8 @@ layout (location = 1) flat out uint InstanceIndex;
 layout (location = 2) out vec3 Normal;
 layout (location = 3) out vec2 UV;
 
-#include <irr/builtin/glsl/utils/vertex.glsl>
+#include <irr/builtin/glsl/utils/common.glsl>
+#include <irr/builtin/glsl/utils/transform.glsl>
 
 layout (push_constant) uniform Block {
     uint instDataOffset;
