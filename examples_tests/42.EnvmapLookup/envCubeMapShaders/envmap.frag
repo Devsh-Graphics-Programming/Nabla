@@ -1,6 +1,15 @@
 #version 430 core
 #extension GL_GOOGLE_include_directive : require
 
+
+// basic settings
+#define MAX_DEPTH 8
+#define SAMPLES 32
+
+// firefly and variance reduction techniques
+//#define KILL_DIFFUSE_SPECULAR_PATHS
+//#define VISUALIZE_HIGH_VARIANCE
+
 layout(set = 3, binding = 0) uniform sampler2D envMap; 
 layout(set = 3, binding = 1) uniform usamplerBuffer sampleSequence;
 layout(set = 3, binding = 2) uniform usampler2D scramblebuf;
@@ -105,6 +114,10 @@ float BSDFNode_getMISWeight(in BSDFNode bsdf)
 
 #include <irr/builtin/glsl/colorspace/EOTF.glsl>
 #include <irr/builtin/glsl/colorspace/encodeCIEXYZ.glsl>
+float getLuma(in vec3 col)
+{
+    return dot(transpose(irr_glsl_scRGBtoXYZ)[1],col);
+}
 
 #define BSDF_COUNT 8
 BSDFNode bsdfs[BSDF_COUNT] = {
@@ -164,11 +177,15 @@ struct MutableRay_t
     vec2 barycentrics;
     */
 };
+
 struct Payload_t
 {
     vec3 accumulation;
-    vec3 throughput;
     float otherTechniqueHeuristic;
+    vec3 throughput;
+    #ifdef KILL_DIFFUSE_SPECULAR_PATHS
+    bool hasDiffuse;
+    #endif
 };
 struct Ray_t
 {
@@ -370,8 +387,7 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
 
 layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
 layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
-#define MAX_DEPTH 8
-#define SAMPLES 32
+
 
 // TODO: upgrade the xorshift variant to one that uses an addition
 uint rand_xorshift(inout uint rng_state)
@@ -434,6 +450,16 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
         BSDFNode bsdf = bsdfs[bsdfID];
         uint opType = BSDFNode_getType(bsdf);
 
+        #ifdef KILL_DIFFUSE_SPECULAR_PATHS
+        if (BSDFNode_isNotDiffuse(bsdf))
+        {
+            if (rayStack[stackPtr]._payload.hasDiffuse)
+                return;
+        }
+        else
+            rayStack[stackPtr]._payload.hasDiffuse = true;
+        #endif
+
         float bsdfGeneratorProbability = BSDFNode_getMISWeight(bsdf);
         
         // this could run in a loop if we'd allow splitting/amplification (if we modified the payload managment)
@@ -472,8 +498,10 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
             // the value of the bsdf divided by the probability of the sample being generated
             throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf);
 
-            const vec3 lumaCoeffs = transpose(irr_glsl_scRGBtoXYZ)[1];
-            if (bsdfPdf>FLT_MIN && dot(throughput,lumaCoeffs)>FLT_MIN) // TODO: proper thresholds for probability and color contribution
+            // OETF smallest perceptible value
+            const float bsdfPdfThreshold = getLuma(irr_glsl_eotf_sRGB(vec3(1.0)/255.0));
+            const float lumaThroughputThreshold = bsdfPdfThreshold;
+            if (bsdfPdf>bsdfPdfThreshold && getLuma(throughput)>lumaThroughputThreshold)
             {
                 rayStack[stackPtr]._payload.throughput = throughput*rcpChoiceProb;
 
@@ -518,6 +546,7 @@ void main()
     }
 
     vec3 color = vec3(0.0);
+    float meanLumaSquared = 0.0;
     for (int i=0; i<SAMPLES; i++)
     {
         uint scramble_state = scramble;
@@ -540,6 +569,9 @@ void main()
             rayStack[stackPtr]._payload.accumulation = vec3(0.0);
             rayStack[stackPtr]._payload.otherTechniqueHeuristic = 0.0; // needed for direct eye-light paths
             rayStack[stackPtr]._payload.throughput = vec3(1.0);
+            #ifdef KILL_DIFFUSE_SPECULAR_PATHS
+            rayStack[stackPtr]._payload.hasDiffuse = false;
+            #endif
         }
 
         // trace
@@ -559,22 +591,48 @@ void main()
             stackPtr--;
         }
 
-        color += rayStack[0]._payload.accumulation;
+        vec3 accumulation = rayStack[0]._payload.accumulation;
+
+        float rcpSampleSize = 1.0/float(i+1);
+        color += (accumulation-color)*rcpSampleSize;
+        
+        #ifdef VISUALIZE_HIGH_VARIANCE
+            float luma = getLuma(accumulation);
+            meanLumaSquared += (luma*luma-meanLumaSquared)*rcpSampleSize;
+        #endif
     }
-  
-    pixelColor = vec4(color/float(SAMPLES), 1.0);
+
+    #ifdef VISUALIZE_HIGH_VARIANCE
+        float variance = getLuma(color);
+        variance *= variance;
+        variance = meanLumaSquared-variance;
+        if (variance>5.0)
+            color = vec3(1.0,0.0,0.0);
+    #endif
+
+    pixelColor = vec4(color, 1.0);
 
 /** TODO: Improving Rendering
 
+Now:
+- Check random number decisions & reweighting
+- Change PRNG for scrambling
+- Proper Universal&Robust Materials
+- Test MIS alpha (roughness) scheme
+
 Quality:
-- Geometry Specular AA (Curvature adjusted roughness)
-- Density Based Outlier Rejection
-- Gaussian Reconstruction Filter (off for AI denoising)
-- Thinlens Model DoF
+-* Reweighting
+-* Covariance Rendering
+-* Geometry Specular AA (Curvature adjusted roughness)
+- Gaussian Reconstruction Filter (off for AI denoising) + Thinlens Model DoF
 
 When proper scheduling is available:
 - Russian Roulette
 - Divergence Optimization
+- Adaptive Sampling
+
+Offline firefly removal:
+- Density Based Outlier Rejection (requires fast k-nearest neighbours on the GPU, at which point we've pretty much got photonmapping ready)
 
 When finally texturing:
 - Covariance Rendering
@@ -583,5 +641,12 @@ When finally texturing:
 Many Lights:
 - Path Guiding
 - Light Importance Lists/Classification
+
+Indirect Light:
+- Bidirectional Path Tracing 
+- Uniform Path Sampling / Vertex Connection and Merging / Path Space Regularization
+
+Animations:
+- A-SVGF / BMFR
 **/
 }	
