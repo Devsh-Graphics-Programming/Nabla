@@ -81,6 +81,11 @@ int main(int argc, char* argv[])
 		if (argc>1)
 			for (auto i = 1ul; i < argc; ++i)
 				arguments.emplace_back(argv[i]);
+		else
+		{
+			arguments.emplace_back("-batch");
+			arguments.emplace_back("../exampleInputArguments.txt");
+		}
 
 		return arguments;
 	};
@@ -1018,6 +1023,7 @@ void main()
 				return newImageView;
 			};
 
+#if 0 // @Anastazluk uncomment when dither and clamp is done
 			// convert to .PNG and save it as well 
 			{
 				auto newImageView = getConvertedPNGImageView(imageView->getCreationParameters().image);
@@ -1031,6 +1037,7 @@ void main()
 
 				am->writeAsset(fileName, wp);
 			}
+#endif
 
 			// destroy link to CPUBuffer's data (we need to free it)
 			imageView->convertToDummyObject(~0u);

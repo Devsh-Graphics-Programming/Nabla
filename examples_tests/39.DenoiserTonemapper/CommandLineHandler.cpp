@@ -10,14 +10,10 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 {
 	auto startEntireTime = std::chrono::steady_clock::now();
 
-	if (argv.size() == 1)
-	{
-		mode = CLM_BATCH_INPUT;
-		argv.emplace_back("-batch");
-		argv.emplace_back("../exampleInputArguments.txt");
-	}
-	else if(argv.size() < PROPER_CMD_ARGUMENTS_AMOUNT + 1)
+	if(argv.size()>=MANDATORY_CMD_ARGUMENTS_AMOUNT && argv.size()<=PROPER_CMD_ARGUMENTS_AMOUNT)
 		mode = CLM_CMD_LIST;
+	else if (argv.size()>=PROPER_BATCH_FILE_ARGUMENTS_AMOUNT)
+		mode = CLM_BATCH_INPUT;
 	else
 	{
 		mode = CLM_UNKNOWN;
