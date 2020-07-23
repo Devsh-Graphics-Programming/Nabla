@@ -19,8 +19,6 @@ float irr_glsl_oren_nayar(in float _a2, in float VdotL, in float NdotL, in float
     return (AB.x + AB.y * cos_phi_sin_theta * C) * irr_glsl_RECIPROCAL_PI;
 }
 
-//TODO oren-nayar cos_eval with rec_pi factored out
-
 float irr_glsl_oren_nayar_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in float a2)
 {
     return params.NdotL * irr_glsl_oren_nayar(a2, params.VdotL, params.NdotL, inter.NdotV);

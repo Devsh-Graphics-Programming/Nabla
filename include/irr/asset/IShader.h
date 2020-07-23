@@ -67,7 +67,7 @@ class IShader : public virtual core::IReferenceCounted
 
 				insertion += str;
 			}
-			insertion += "#line " + std::to_string(ln);
+			insertion += "#line " + std::to_string(ln) + "\n";
 
 			_glsl.insert(pos, insertion);
 		}
