@@ -79,13 +79,8 @@ int main(int argc, char* argv[])
 		arguments.reserve(PROPER_CMD_ARGUMENTS_AMOUNT);
 		arguments.emplace_back(argv[0]);
 		if (argc>1)
-		for (auto i = 1ul; i < argc; ++i)
-			arguments.emplace_back(argv[i]);
-		else // use default for example
-		{
-			arguments.emplace_back("-batch");
-			arguments.emplace_back("../exampleInputArguments.txt");
-		}
+			for (auto i = 1ul; i < argc; ++i)
+				arguments.emplace_back(argv[i]);
 
 		return arguments;
 	};
