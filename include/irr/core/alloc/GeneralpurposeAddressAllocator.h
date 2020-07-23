@@ -225,8 +225,8 @@ class GeneralpurposeAddressAllocatorBase
             for (uint32_t level=findFreeListInsertIndex(bytes); level<levelLimit; level++)
             {
                 const auto freeListStackBegin = freeListStack[level];
-                const auto freeListStackEnd = freeListStackBegin+freeListStackCtr[level];
-                for (auto rit=freeListStackEnd; freeListStackEnd!=freeListStackBegin; )
+                auto freeListStackEnd = freeListStackBegin+freeListStackCtr[level];
+                for (auto rit=freeListStackEnd; rit!=freeListStackBegin; )
                 {
                     // move back
                     rit--;
@@ -332,7 +332,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
             size_type bestWastedSpace = ~size_type(0u);
             std::tuple<Block,Block*,decltype(Base::freeListCount)> bestBlock{Block{invalid_address,invalid_address},nullptr,freeListCount};
 
-            auto perBlockFunctional = [&bestWastedSpace,&bestBlock](Block hypotheticallyAllocatedBlock, const Block* origBlock, const uint32_t level, const size_type wastedEndSpace) -> bool
+            auto perBlockFunctional = [&bestWastedSpace,&bestBlock](Block hypotheticallyAllocatedBlock, Block* origBlock, const uint32_t level, const size_type wastedEndSpace) -> bool
             {
                 // compare best wasted space
                 auto wastedSpace = hypotheticallyAllocatedBlock.startOffset-origBlock->startOffset;
@@ -354,13 +354,14 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
             {
                 const auto level = std::get<2u>(bestBlock);
                 const auto sourceBlock = *out; // don't want a reference! (memory location will be overwritten)
+                // reduce the free size
+                Base::freeSize -= sourceBlock.getLength();
 
                 // remove the block from free list
                 std::move(out+1u,Base::freeListStack[level]+Base::freeListStackCtr[level],out);
                 Base::freeListStackCtr[level]--;
 
-                // reduce the free size and return blocks (orig and new)
-                Base::freeSize -= sourceBlock.getLength();
+                // return blocks (orig and new)
                 return std::pair<Block, Block>(std::get<0u>(bestBlock),sourceBlock);
             }
             else
@@ -409,11 +410,17 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
             }
             // couldn't pop one straight away, now we have to start trying best-fit
             std::pair<Block,Block>  retval({invalid_address,invalid_address},{invalid_address,invalid_address});
-            auto perBlockFunctional = [&](Block hypotheticallyAllocatedBlock, const Block* origBlock, const uint32_t level, const size_type wastedEndSpace) -> bool
+            auto perBlockFunctional = [&](Block hypotheticallyAllocatedBlock, Block* origBlock, const uint32_t level, const size_type wastedEndSpace) -> bool
             {
+                // reduce the free size and save the original block
+                Base::freeSize -= origBlock->getLength();
                 retval = {hypotheticallyAllocatedBlock,*origBlock};
+
+                // remove the block from free list
+                std::move(origBlock+1u,Base::freeListStack[level]+Base::freeListStackCtr[level],origBlock);
                 Base::freeListStackCtr[level]--;
-                Base::freeSize -= hypotheticallyAllocatedBlock.getLength();
+
+                // we've found our block, we can quit now
                 return true;
             };
             findAndPopSuitableBlock_common(bytes,alignment,surelyAllocatableLevel,perBlockFunctional);
