@@ -13,8 +13,9 @@ irr_glsl_BSDFSample irr_glsl_cos_weighted_cos_generate(in irr_glsl_AnisotropicVi
 
     irr_glsl_BSDFSample smpl;
     smpl.L = L;
-	smpl.NdotL = dot(interaction.N,smpl.L);
-	//TODO fill other smpl.xxxxx
+	smpl.NdotL = z;
+    smpl.TdotL = p.x;
+    smpl.BdtoL = p.y;
 
     return smpl;
 }
