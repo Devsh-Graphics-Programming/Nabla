@@ -86,7 +86,7 @@ namespace impl
     static constexpr const char* PREPROC_GL__DISABLER = "_this_is_a_GL__prefix_";
     static void disableAllDirectivesExceptIncludes(std::string& _glslCode)
     {
-        std::regex directive("#(?!(include|version|pragma shader_stage))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
+        std::regex directive("#(?!(include|version|pragma shader_stage|line))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
         //`#pragma shader_stage(...)` is needed for determining shader stage when `_stage` param of IGLSLCompiler functions is set to ESS_UNKNOWN
         auto result = std::regex_replace(_glslCode,directive,PREPROC_DIRECTIVE_DISABLER);
         std::regex glMacro("[ \t\r\n\v\f]GL_");
@@ -133,7 +133,7 @@ namespace impl
             "\n"
             "#ifndef " + defBase_ + std::to_string(_maxInclusions) +
             "\n" +
-            PREPROC_DIRECTIVE_DISABLER + "line 1 \"" + _identifier + "\"\n" +
+            "#line 1 \"" + _identifier + "\"\n" +
             _glslCode +
             "\n"
             "#endif"
@@ -234,47 +234,6 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(std::
 
     std::string res_str(res.cbegin(), std::distance(res.cbegin(),res.cend()));
     impl::reenableDirectives(res_str);
-
-    //WARNING: this is extremely dirty code, so not even putting it into a function, to be rewritten if shaderc provide more suitable API (or just in cleaner way if not possible)
-    //value of `bias` depends directly on code in encloseWithinExtraInclGuards() [number of lines inserted before actual contents of source being included]
-    //https://github.com/google/shaderc/issues/1113
-    {
-        const uint32_t bias = 8u+2u*_maxSelfInclusionCnt;
-        size_t ix = 0ull;
-        while ((ix = res_str.find('\n', ix)) != res_str.npos)
-        {
-            ++ix;
-            if (res_str.compare(ix, 5, "#line") == 0)
-            {
-                ix += 6u;
-                size_t ix2 = res_str.find(' ', ix);
-                const size_t digits = ix2-ix;
-                res_str[ix2] = 0;
-                uint32_t line_num = std::atoi(res_str.c_str()+ix);
-                res_str[ix2] = ' ';
-                if (line_num == 1u)//dont touch #line's inserted at the beginning of included sources
-                    continue;
-
-                ix2 += 2u;
-                if (res_str[ix2-1u]!='"')//dont touch #line's without specified filename
-                    continue;
-                const size_t ix3 = res_str.find('\"', ix2);
-                res_str[ix3] = 0;
-                if (strcmp(_originFilepath,res_str.c_str()+ix2)==0) {//#line's of top-level source are not corrupted
-                    res_str[ix3] = '\"';
-                    continue;
-                }
-                res_str[ix3] = '\"';
-
-                assert(bias<line_num);
-                line_num -= bias;
-                auto line_num_str = std::to_string(line_num);
-                if (line_num_str.size()<digits)
-                    line_num_str += ' ';
-                memcpy(res_str.data()+ix, line_num_str.c_str(), digits);
-            }
-        }
-    }
 
     return core::make_smart_refctd_ptr<ICPUShader>(res_str.c_str());
 }
