@@ -14,3 +14,10 @@ struct irr_glsl_DrawElementsIndirectCommand_t
     uint baseVertex;
     uint baseInstance;
 };
+
+struct irr_glsl_DispatchIndirectCommand_t
+{
+    uint  num_groups_x;
+    uint  num_groups_y;
+    uint  num_groups_z;
+};

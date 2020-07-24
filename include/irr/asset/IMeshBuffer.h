@@ -42,6 +42,13 @@ struct DrawElementsIndirectCommand_t
     uint32_t baseInstance;
 };
 
+struct DispatchIndirectCommand_t 
+{
+    uint32_t  num_groups_x;
+    uint32_t  num_groups_y;
+    uint32_t  num_groups_z;
+};
+
 template <class BufferType, class DescSetType, class PipelineType>
 class IMeshBuffer : public virtual core::IReferenceCounted
 {
