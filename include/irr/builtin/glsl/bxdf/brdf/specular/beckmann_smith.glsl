@@ -92,7 +92,7 @@ irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_Anisotropic
 vec3 irr_glsl_beckmann_smith_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior2, in float ax, in float ay)
 {
 	float a2 = ax*ay;
-	float NdotL2 = s.LdotN*s.LdotN;
+	float NdotL2 = s.NdotL*s.NdotL;
 	float lambda_V = irr_glsl_smith_beckmann_Lambda(irr_glsl_smith_beckmann_C2(interaction.NdotV_squared, a2));
 	float lambda_L = irr_glsl_smith_beckmann_Lambda(irr_glsl_smith_beckmann_C2(NdotL2, a2));
 	float onePlusLambda_V = 1.0 + lambda_V;

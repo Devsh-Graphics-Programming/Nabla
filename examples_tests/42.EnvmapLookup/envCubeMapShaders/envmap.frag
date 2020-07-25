@@ -19,9 +19,7 @@ layout(location = 0) in vec2 TexCoord;
 layout(location = 0) out vec4 pixelColor;
 
 
-
-// TODO: @Crisspl change the location of the `irr_glsl_SBasicViewParameters`, vertex header is not the right place for it
-#include <irr/builtin/glsl/utils/vertex.glsl>
+#include <irr/builtin/glsl/utils/common.glsl>
 
 layout(set = 1, binding = 0, row_major, std140) uniform UBO
 {
@@ -324,17 +322,16 @@ irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in irr_glsl_Anisotrop
     irr_glsl_BSDFSample s;
     s.L = L;
 
-    // Fix this @Crisspl after making the API consistent
-    s.LdotT = dot(interaction.T,L);
-    s.LdotB = dot(interaction.B,L);
-    s.LdotN = dot(interaction.isotropic.N,L);
+    s.TdotL = dot(interaction.T,L);
+    s.BdotL = dot(interaction.B,L);
+    s.NdotL = dot(interaction.isotropic.N,L);
    
     float VdotL = dot(interaction.isotropic.V.dir,L);
     float LplusV_rcpLen = inversesqrt(2.0+2.0*VdotL);
 
-    s.TdotH = (interaction.TdotV+s.LdotT)*LplusV_rcpLen;
-    s.BdotH = (interaction.BdotV+s.LdotB)*LplusV_rcpLen;
-    s.NdotH = (interaction.isotropic.NdotV+s.LdotN)*LplusV_rcpLen;
+    s.TdotH = (interaction.TdotV+s.TdotL)*LplusV_rcpLen;
+    s.BdotH = (interaction.BdotV+s.BdotL)*LplusV_rcpLen;
+    s.NdotH = (interaction.isotropic.NdotV+s.NdotL)*LplusV_rcpLen;
 
     s.VdotH = LplusV_rcpLen+LplusV_rcpLen*VdotL;
     
