@@ -4,7 +4,7 @@
 
 // basic settings
 #define MAX_DEPTH 8
-#define SAMPLES 32
+#define SAMPLES 8
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -107,7 +107,7 @@ float BSDFNode_getMISWeight(in BSDFNode bsdf)
     const float alpha = BSDFNode_getRoughness(bsdf);
     const bool notDiffuse = BSDFNode_isNotDiffuse(bsdf);
     const float DIFFUSE_MIS_WEIGHT = 0.5;
-    return notDiffuse ? mix(uintBitsToFloat(0x3f800001u),DIFFUSE_MIS_WEIGHT,alpha):DIFFUSE_MIS_WEIGHT; // TODO: test alpha*alpha
+    return notDiffuse ? mix(1.0,DIFFUSE_MIS_WEIGHT,alpha):DIFFUSE_MIS_WEIGHT; // TODO: test alpha*alpha
 }
 
 #include <irr/builtin/glsl/colorspace/EOTF.glsl>
@@ -403,6 +403,22 @@ vec3 rand3d(in uint protoDimension, in uint _sample, inout uint scramble_state)
     return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
 }
 
+// TODO: @Przemog move to a math, or sampling, or common GLSL header
+// @return if picked left choice
+bool irr_glsl_partitionRandVariable(in float leftProb, inout float xi, out float rcpChoiceProb)
+{
+    const float NEXT_ULP_AFTER_UNITY = uintBitsToFloat(0x3f800001u);
+    const bool pickLeft = xi<leftProb*NEXT_ULP_AFTER_UNITY;
+
+    // This is all 100% correct taking into account the above NEXT_ULP_AFTER_UNITY
+    xi -= pickLeft ? 0.0:leftProb;
+
+    rcpChoiceProb = 1.0/(pickLeft ? leftProb:(1.0-leftProb));
+    xi *= rcpChoiceProb;
+
+    return pickLeft;
+}
+
 void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
 {
     const MutableRay_t mutable = rayStack[stackPtr]._mutable;
@@ -457,65 +473,58 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
             rayStack[stackPtr]._payload.hasDiffuse = true;
         #endif
 
-        float bsdfGeneratorProbability = BSDFNode_getMISWeight(bsdf);
-        
-        // this could run in a loop if we'd allow splitting/amplification (if we modified the payload managment)
+
+        const float bsdfGeneratorProbability = BSDFNode_getMISWeight(bsdf);    
+        vec3 epsilon = rand3d(depth,sampleIx,scramble_state);
+    
+        float rcpChoiceProb;
+        const bool pickBSDF = irr_glsl_partitionRandVariable(bsdfGeneratorProbability,epsilon.z,rcpChoiceProb);
+    
+
+        float maxT;
+        // the probability of generating a sample w.r.t. the light generator only possible and used when it was generated with it!
+        float lightPdf;
+        GeneratorSample _sample;
+        if (pickBSDF)
         {
-            vec3 epsilon = rand3d(depth,sampleIx,scramble_state);
-
-
-            const bool pickBSDF = epsilon.z<bsdfGeneratorProbability;
-            const float choiceProb = pickBSDF ? bsdfGeneratorProbability:(1.0-bsdfGeneratorProbability); // TODO: proper computation
-            epsilon.z -= pickBSDF ? 0.0:bsdfGeneratorProbability; // TODO: do it properly
-            const float rcpChoiceProb = 1.0/choiceProb; // should be impossible to get a div by 0 here
-            epsilon.z *= rcpChoiceProb;
+                maxT = FLT_MAX;
+            _sample = irr_glsl_bsdf_cos_generate(interaction,epsilon,bsdf);
+        }
+        else
+        {
+            vec3 lightRemainder;
+            _sample = irr_glsl_light_generate_and_remainder_and_pdf(
+                lightRemainder,lightPdf,maxT,
+                intersection,interaction,epsilon
+            );
+            throughput *= lightRemainder;
+        }
             
+        // do a cool trick and always compute the bsdf parts this way! (no divergence)
+        float bsdfPdf;
+        // the value of the bsdf divided by the probability of the sample being generated
+        throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf);
 
-            float maxT;
-            // the probability of generating a sample w.r.t. the light generator only possible and used when it was generated with it!
-            float lightPdf;
-            GeneratorSample _sample;
-            if (pickBSDF)
-            {
-                 maxT = FLT_MAX;
-                _sample = irr_glsl_bsdf_cos_generate(interaction,epsilon,bsdf);
-            }
-            else
-            {
-                vec3 lightRemainder;
-                _sample = irr_glsl_light_generate_and_remainder_and_pdf(
-                    lightRemainder,lightPdf,maxT,
-                    intersection,interaction,epsilon
-                );
-                throughput *= lightRemainder;
-            }
-            
-            // do a cool trick and always compute the bsdf parts this way! (no divergence)
-            float bsdfPdf;
-            // the value of the bsdf divided by the probability of the sample being generated
-            throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf);
+        // OETF smallest perceptible value
+        const float bsdfPdfThreshold = getLuma(irr_glsl_eotf_sRGB(vec3(1.0)/255.0));
+        const float lumaThroughputThreshold = bsdfPdfThreshold;
+        if (bsdfPdf>bsdfPdfThreshold && getLuma(throughput)>lumaThroughputThreshold)
+        {
+            rayStack[stackPtr]._payload.throughput = throughput*rcpChoiceProb;
 
-            // OETF smallest perceptible value
-            const float bsdfPdfThreshold = getLuma(irr_glsl_eotf_sRGB(vec3(1.0)/255.0));
-            const float lumaThroughputThreshold = bsdfPdfThreshold;
-            if (bsdfPdf>bsdfPdfThreshold && getLuma(throughput)>lumaThroughputThreshold)
-            {
-                rayStack[stackPtr]._payload.throughput = throughput*rcpChoiceProb;
-
-                float heuristicFactor = rcpChoiceProb-1.0; // weightNonGenerator/weightGenerator
-                heuristicFactor /= pickBSDF ? bsdfPdf:lightPdf; // weightNonGenerator/(weightGenerator*probGenerated)
-                heuristicFactor *= heuristicFactor; // (weightNonGenerator/(weightGenerator*probGenerated))^2
-                if (!pickBSDF)
-                    heuristicFactor = 1.0/(1.0/bsdfPdf+heuristicFactor*bsdfPdf); // numerically stable, don't touch
-                rayStack[stackPtr]._payload.otherTechniqueHeuristic = heuristicFactor;
+            float heuristicFactor = rcpChoiceProb-1.0; // weightNonGenerator/weightGenerator
+            heuristicFactor /= pickBSDF ? bsdfPdf:lightPdf; // weightNonGenerator/(weightGenerator*probGenerated)
+            heuristicFactor *= heuristicFactor; // (weightNonGenerator/(weightGenerator*probGenerated))^2
+            if (!pickBSDF)
+                heuristicFactor = 1.0/(1.0/bsdfPdf+heuristicFactor*bsdfPdf); // numerically stable, don't touch
+            rayStack[stackPtr]._payload.otherTechniqueHeuristic = heuristicFactor;
                     
-                // trace new ray
-                rayStack[stackPtr]._immutable.origin = intersection+_sample.L*(pickBSDF ? 1.0/*kSceneSize*/:maxT)*INTERSECTION_ERROR_BOUND;
-                rayStack[stackPtr]._immutable.maxT = maxT;
-                rayStack[stackPtr]._immutable.direction = _sample.L;
-                rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(sampleIx,depth+1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT)|(pickBSDF ? 0:ANY_HIT_FLAG);
-                stackPtr++;
-            }
+            // trace new ray
+            rayStack[stackPtr]._immutable.origin = intersection+_sample.L*(pickBSDF ? 1.0/*kSceneSize*/:maxT)*INTERSECTION_ERROR_BOUND;
+            rayStack[stackPtr]._immutable.maxT = maxT;
+            rayStack[stackPtr]._immutable.direction = _sample.L;
+            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(sampleIx,depth+1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT)|(pickBSDF ? 0:ANY_HIT_FLAG);
+            stackPtr++;
         }
     }
 }
