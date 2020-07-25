@@ -110,8 +110,8 @@ inline void DefaultSwizzle::operator()(const InT* in, OutT* out) const
 }
 
 // do a per-pixel recombination of image channels while converting
-template<E_FORMAT inFormat=EF_UNKNOWN, E_FORMAT outFormat=EF_UNKNOWN, typename Swizzle=DefaultSwizzle>
-class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImageFilter<inFormat,outFormat,Swizzle>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle>
+template<E_FORMAT inFormat=EF_UNKNOWN, E_FORMAT outFormat=EF_UNKNOWN, typename Swizzle=DefaultSwizzle, bool clamp = false>
+class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImageFilter<inFormat,outFormat,Swizzle,clamp>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle>
 {
 	public:
 		virtual ~CSwizzleAndConvertImageFilter() {}
@@ -164,8 +164,8 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 		}
 };
 
-template<typename Swizzle>
-class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle> : public CImageFilter<CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle>
+template<typename Swizzle, bool clamp>
+class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,clamp> : public CImageFilter<CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,clamp>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle>
 {
 	public:
 		virtual ~CSwizzleAndConvertImageFilter() {}
@@ -188,20 +188,50 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle> : public CIma
 			#endif
 			auto perOutputRegion = [&blockDims,inFormat,outFormat,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
-				auto swizzle = [&commonExecuteData,&blockDims,inFormat,outFormat,&state](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
+				const auto inTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(inFormat);
+				const auto inChannelAmount = asset::getFormatChannelCount(inFormat);
+
+				// TESTING
+				auto getClampedSourcePixels = [&](auto sourcePixels)
+				{
+					constexpr auto MaxPlanes = 4;
+					auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(blockDims.y * blockDims.x * inTexelOrBlockByteSize);
+					const void* newSourcePixels[MaxPlanes] = { buffer->getPointer(), nullptr, nullptr, nullptr };
+
+					for (auto blockY = 0u; blockY < blockDims.y; blockY++)
+						for (auto blockX = 0u; blockX < blockDims.x; blockX++)
+						{
+							std::array<double, MaxPlanes> decodeBuffer = {};
+							asset::decodePixelsRuntime(inFormat, sourcePixels, decodeBuffer.data(), blockX, blockY);
+
+							for (auto& value : decodeBuffer)
+								core::clamp<double, double>(value, 0, 1);
+
+							asset::encodePixelsRuntime(inFormat, reinterpret_cast<uint8_t*>(buffer->getPointer()) + (blockY * blockDims.x + blockDims.x) * inTexelOrBlockByteSize, decodeBuffer.data());
+						}
+
+					return buffer;
+				};
+
+				auto swizzle = [&commonExecuteData,&blockDims,inFormat,outFormat,&state,&getClampedSourcePixels](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
 				{
 					constexpr auto MaxPlanes = 4;
 					const void* srcPix[MaxPlanes] = { commonExecuteData.inData+readBlockArrayOffset,nullptr,nullptr,nullptr };
 
+					auto clampedBuffer = getClampedSourcePixels(srcPix); // todo - compile time, do not waste memory
+					const void* newSourcePixels[MaxPlanes] = { clamp ? clampedBuffer->getPointer() : srcPix[0], nullptr, nullptr, nullptr }; // todo - compile time as well
+
 					for (auto blockY=0u; blockY<blockDims.y; blockY++)
 					for (auto blockX=0u; blockX<blockDims.x; blockX++)
 					{
+						std::array<double, MaxPlanes> decodeBuffer = {};
 						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
 						uint8_t* dstPix = commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides);
+
 						if constexpr(std::is_base_of<PolymorphicSwizzle,Swizzle>::value)
-							convertColor<Swizzle>(inFormat,outFormat,srcPix,dstPix,blockX,blockY,state->swizzle);
+							convertColor<Swizzle>(inFormat,outFormat, newSourcePixels,dstPix,blockX,blockY,state->swizzle);
 						else
-							convertColor<Swizzle>(inFormat,outFormat,srcPix,dstPix,blockX,blockY,*state);
+							convertColor<Swizzle>(inFormat,outFormat, newSourcePixels,dstPix,blockX,blockY,*state);
 					}
 				};
 				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
@@ -211,13 +241,13 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle> : public CIma
 		}
 };
 
-template<E_FORMAT outFormat, typename Swizzle>
-class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle> : public CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>
+template<E_FORMAT outFormat, typename Swizzle, bool clamp>
+class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,clamp> : public CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,clamp>
 {
 	public:
 		virtual ~CSwizzleAndConvertImageFilter() {}
 
-		using state_type = typename CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>::state_type;
+		using state_type = typename CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,clamp>::state_type;
 
 		static inline bool validate(state_type* state)
 		{
@@ -233,12 +263,12 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle> : public CSwiz
 		static inline bool execute(state_type* state)
 		{
 			// TODO: improve later
-			return CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>::execute(state);
+			return CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,clamp>::execute(state);
 		}
 };
 
-template<E_FORMAT inFormat, typename Swizzle>
-class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle> : public CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>
+template<E_FORMAT inFormat, typename Swizzle, bool clamp>
+class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,clamp> : public CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,clamp>
 {
 	public:
 		virtual ~CSwizzleAndConvertImageFilter() {}
@@ -259,7 +289,7 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle> : public CSwizz
 		static inline bool execute(state_type* state)
 		{
 			// TODO: improve later
-			return CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle>::execute(state);
+			return CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,clamp>::execute(state);
 		}
 };
 
