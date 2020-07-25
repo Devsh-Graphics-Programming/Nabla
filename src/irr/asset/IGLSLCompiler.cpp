@@ -86,7 +86,7 @@ namespace impl
     static constexpr const char* PREPROC_GL__DISABLER = "_this_is_a_GL__prefix_";
     static void disableAllDirectivesExceptIncludes(std::string& _glslCode)
     {
-        std::regex directive("#(?!(include|version|pragma shader_stage))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
+        std::regex directive("#(?!(include|version|pragma shader_stage|line))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
         //`#pragma shader_stage(...)` is needed for determining shader stage when `_stage` param of IGLSLCompiler functions is set to ESS_UNKNOWN
         auto result = std::regex_replace(_glslCode,directive,PREPROC_DIRECTIVE_DISABLER);
         std::regex glMacro("[ \t\r\n\v\f]GL_");
@@ -133,6 +133,7 @@ namespace impl
             "\n"
             "#ifndef " + defBase_ + std::to_string(_maxInclusions) +
             "\n" +
+            "#line 1 \"" + _identifier + "\"\n" +
             _glslCode +
             "\n"
             "#endif"
@@ -161,20 +162,26 @@ namespace impl
             std::string res_str;
             io::path relDir;
             const bool reqFromBuiltin = asset::IIncludeHandler::isBuiltinPath(_requesting_source);
-
-            if (_type == shaderc_include_type_relative) {
+            const bool reqBuiltin = asset::IIncludeHandler::isBuiltinPath(_requested_source);
+            if (!reqFromBuiltin && !reqBuiltin)
+            {
                 //While #includ'ing a builtin, one must specify its full path (starting with "irr/builtin" or "/irr/builtin").
                 //  This rule applies also while a builtin is #includ`ing another builtin.
                 //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
                 //  or path relative to executable's working directory (""-type).
-                relDir = reqFromBuiltin ? "" : io::IFileSystem::getFileDir(_requesting_source);
-                if (relDir.lastChar()!='/')
+                relDir = io::IFileSystem::getFileDir(_requesting_source);
+                if (relDir.lastChar() != '/')
                     relDir.append('/');
+            }
+
+            io::path name = (_type == shaderc_include_type_relative) ? (relDir + _requested_source) : (_requested_source);
+            if (!reqBuiltin)
+                name = m_fs->getAbsolutePath(name);
+
+            if (_type == shaderc_include_type_relative)
                 res_str = m_inclHandler->getIncludeRelative(_requested_source, relDir.c_str());
-            }
-            else { //shaderc_include_type_standard
+            else //shaderc_include_type_standard
                 res_str = m_inclHandler->getIncludeStandard(_requested_source);
-            }
 
             if (!res_str.size()) {
                 const char* error_str = "Could not open file";
@@ -187,14 +194,11 @@ namespace impl
             else {
                 //employ encloseWithinExtraInclGuards() in order to prevent infinite loop of (not necesarilly direct) self-inclusions while other # directives (incl guards among them) are disabled
                 disableAllDirectivesExceptIncludes(res_str);
-                res_str = encloseWithinExtraInclGuards( std::move(res_str), m_maxInclCnt, _requested_source );
+                res_str = encloseWithinExtraInclGuards( std::move(res_str), m_maxInclCnt, name.c_str() );
 
                 res->content_length = res_str.size();
                 res->content = new char[res_str.size()+1u];
                 strcpy(const_cast<char*>(res->content), res_str.c_str());
-                io::path name = (_type==shaderc_include_type_relative) ? (relDir + _requested_source) : (_requested_source);
-                if (!asset::IIncludeHandler::isBuiltinPath(name.c_str()))
-                    name = m_fs->getAbsolutePath(name);
                 res->source_name_length = name.size();
                 res->source_name = new char[name.size()+1u];
                 strcpy(const_cast<char*>(res->source_name), name.c_str());
@@ -230,6 +234,7 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(std::
 
     std::string res_str(res.cbegin(), std::distance(res.cbegin(),res.cend()));
     impl::reenableDirectives(res_str);
+
     return core::make_smart_refctd_ptr<ICPUShader>(res_str.c_str());
 }
 

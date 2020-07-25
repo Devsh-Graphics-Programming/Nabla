@@ -77,6 +77,7 @@ TONEMAPPER: tonemapper - choose between "REINHARD", "ACES" and "NONE". After spe
 the first argument is always the Key Value, a good default is 0.18 like the Reinhard paper's default.
 The "NONE" tonemapper does not take any further arguments and will ignore them, it will simply output the linear light colors to 
 a HDR EXR as-is (although auto-exposed), this is useful for further processing in e.g. Photoshop.
+The NONE tonemapper can also have a special key value of "AutoexposureOff", which makes sure the exposure of the render will not be altered after denoising.
 
 The second argument has different meanings for the different tonemappers:
 - For "REINHARD" it means "burn out level relative to exposed 1.0 luma level"
@@ -89,6 +90,10 @@ To wrap up, specifing "REINHARD" tonemapper looks like:
 -TONEMAPPER=REINHARD=key,whiteLevel
 and specifing "ACES" looks like:
 -TONEMAPPER=ACES=key,gamma
+while "NONE looks like:
+-TONEMAPPER=NONE=key
+or:
+-TONEMAPPER=NONE=AutoexposureOff
 
 OUTPUT: output file with specified extension 
 BLOOM_PSF_FILE: A EXR file with a HDR sprite corresponding to the Point Spread Function you want to convolve the image with,
@@ -354,7 +359,7 @@ class CommandLineHandler
 			{
 				const auto& stringVec = rawVariables[id][num].value();
 				for (const auto& str : stringVec)
-					values.push_back(std::stof(str));
+					values.push_back(str=="AutoexposureOff" ? irr::core::nan<float>():std::stof(str));
 			}
 			
 			return std::make_pair(num, values);

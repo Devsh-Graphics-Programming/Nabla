@@ -199,7 +199,6 @@ void main()
 	{
 		irr_glsl_ext_LumaMeter(colorLayer && gl_GlobalInvocationID.x<pc.data.imageWidth);
 		barrier(); // no barrier because we were just reading from shared not writing since the last memory barrier
-		globalPixelData *= exp2(pc.data.denoiserExposureBias);
 	}
 	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = floatBitsToUint(globalPixelData[0u]);
 	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u] = floatBitsToUint(globalPixelData[1u]);
@@ -246,16 +245,26 @@ irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t irr_glsl_ext_ToneMapper_getL
 }
 void main()
 {
-	irr_glsl_ext_LumaMeter_PassInfo_t lumaPassInfo;
-	lumaPassInfo.percentileRange[0] = pc.data.percentileRange[0];
-	lumaPassInfo.percentileRange[1] = pc.data.percentileRange[1];
-	float measuredLumaLog2 = irr_glsl_ext_LumaMeter_getMeasuredLumaLog2(irr_glsl_ext_ToneMapper_getLumaMeterOutput(),lumaPassInfo);
-	// write optix brightness
-	if (all(equal(uvec3(0,0,0),gl_GlobalInvocationID)))
+	const bool firstInvocation = all(equal(uvec3(0,0,0),gl_GlobalInvocationID));
+	const bool beforeDenoise = pc.data.beforeDenoise!=0u;
+	const bool autoexposureOn = pc.data.autoexposureOff==0u;
+
+	float optixIntensity = 1.0;
+	if (beforeDenoise||autoexposureOn)
 	{
-		measuredLumaLog2 += pc.data.beforeDenoise!=0u ? pc.data.denoiserExposureBias:0.0;
-		intensity[pc.data.intensityBufferDWORDOffset] = irr_glsl_ext_LumaMeter_getOptiXIntensity(measuredLumaLog2);
+		irr_glsl_ext_LumaMeter_PassInfo_t lumaPassInfo;
+		lumaPassInfo.percentileRange[0] = pc.data.percentileRange[0];
+		lumaPassInfo.percentileRange[1] = pc.data.percentileRange[1];
+		float measuredLumaLog2 = irr_glsl_ext_LumaMeter_getMeasuredLumaLog2(irr_glsl_ext_ToneMapper_getLumaMeterOutput(),lumaPassInfo);
+		if (firstInvocation)
+		{
+			measuredLumaLog2 += beforeDenoise ? pc.data.denoiserExposureBias:0.0;
+			optixIntensity = irr_glsl_ext_LumaMeter_getOptiXIntensity(measuredLumaLog2);
+		}
 	}
+	
+	if (firstInvocation)
+		intensity[pc.data.intensityBufferDWORDOffset] = optixIntensity;
 }
 		)==="));
 		auto secondLumaMeterAndDFFTXShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
@@ -330,8 +339,10 @@ void main()
 			break;
 		}
 		default:
+		{
 			color *= pc.data.tonemapperParams[0];
 			break;
+		}
 	}
 	color = irr_glsl_XYZtosRGB*color;
 	// TODO: compute DFFT of the image in the X-axis
@@ -657,6 +668,7 @@ void main()
 			shaderConstants.intensityBufferDWORDOffset = intensityBufferOffset/IntensityValuesSize;
 			shaderConstants.denoiserExposureBias = denoiserExposureBiasBundle[i].value();
 
+			shaderConstants.autoexposureOff = 0u;
 			switch (tonemapperBundle[i].first)
 			{
 				case DTEA_TONEMAPPER_REINHARD:
@@ -673,8 +685,8 @@ void main()
 					break;
 			}
 
-			const float optiXIntensityKeyCompensation = -log2(0.18);
 			float key = tonemapperBundle[i].second[TA_KEY_VALUE];
+			const float optiXIntensityKeyCompensation = -log2(0.18);
 			float extraParam = tonemapperBundle[i].second[TA_EXTRA_PARAMETER];
 			switch (shaderConstants.tonemappingOperator)
 			{
@@ -693,9 +705,18 @@ void main()
 					break;
 				}
 				default:
-					shaderConstants.tonemapperParams[0] = key*exp2(optiXIntensityKeyCompensation);
+				{
+					if (core::isnan(key))
+					{
+						shaderConstants.tonemapperParams[0] = 0.18;
+						shaderConstants.autoexposureOff = 1u;
+					}
+					else
+						shaderConstants.tonemapperParams[0] = key;
+					shaderConstants.tonemapperParams[0] *= exp2(optiXIntensityKeyCompensation);
 					shaderConstants.tonemapperParams[1] = core::nan<float>();
 					break;
+				}
 			}
 			auto totalSampleCount = param.width*param.height;
 			shaderConstants.percentileRange[0] = lowerPercentile*float(totalSampleCount);

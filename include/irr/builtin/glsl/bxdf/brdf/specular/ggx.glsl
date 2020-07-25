@@ -77,9 +77,9 @@ vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s,
 
 vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior2, in float ax, in float ay)
 {
-	float Vterm = s.LdotN * length(vec3(ax*interaction.TdotV, ay*interaction.BdotV, interaction.isotropic.NdotV));
-	float Lterm = interaction.isotropic.NdotV * length(vec3(ax*s.LdotT, ay*s.LdotB, s.LdotN));
-	float G1_rcp = interaction.isotropic.NdotV*s.LdotN+Lterm;
+	float Vterm = s.NdotL * length(vec3(ax*interaction.TdotV, ay*interaction.BdotV, interaction.isotropic.NdotV));
+	float Lterm = interaction.isotropic.NdotV * length(vec3(ax*s.TdotL, ay*s.BdotL, s.NdotL));
+	float G1_rcp = interaction.isotropic.NdotV*s.NdotL+Lterm;
 	float G2_over_G1 = (Vterm+Lterm)*G1_rcp;
 	G1_rcp *= 2.0;
 	//TODO missing multiply by VdotH?
