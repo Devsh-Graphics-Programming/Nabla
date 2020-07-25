@@ -990,7 +990,7 @@ void main()
 
 			auto getConvertedPNGImageView = [&](core::smart_refctd_ptr<ICPUImage> image)
 			{
-				using CONVERSION_FILTER = CConvertFormatImageFilter<>;
+				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_UNKNOWN, EF_UNKNOWN, true>; // TESTING
 				constexpr auto pngFormat = EF_R8G8B8A8_SRGB;
 
 				core::smart_refctd_ptr<ICPUImage> newConvertedImage;
@@ -1044,7 +1044,7 @@ void main()
 				return newImageView;
 			};
 
-#if 0 // @Anastazluk uncomment when dither and clamp is done
+//#if 0 // @Anastazluk uncomment when dither and clamp is done
 			// convert to .PNG and save it as well 
 			{
 				auto newImageView = getConvertedPNGImageView(imageView->getCreationParameters().image);
@@ -1058,7 +1058,7 @@ void main()
 
 				am->writeAsset(fileName, wp);
 			}
-#endif
+//#endif
 
 			// destroy link to CPUBuffer's data (we need to free it)
 			imageView->convertToDummyObject(~0u);
