@@ -17,7 +17,8 @@ layout (location = 3) out vec2 UV;
 #endif
 #endif //_IRR_VERT_OUTPUTS_DEFINED_
 
-#include <irr/builtin/glsl/utils/vertex.glsl>
+#include <irr/builtin/glsl/utils/common.glsl>
+#include <irr/builtin/glsl/utils/transform.glsl>
 
 #ifndef _IRR_VERT_SET1_BINDINGS_DEFINED_
 #define _IRR_VERT_SET1_BINDINGS_DEFINED_

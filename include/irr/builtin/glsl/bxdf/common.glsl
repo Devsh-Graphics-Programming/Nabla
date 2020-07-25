@@ -15,7 +15,6 @@ struct irr_glsl_DirAndDifferential
    mat2x3 dPosdScreen;
 };
 
-//TODO change name to irr_glsl_IsotropicViewSurfaceInteraction
 // do not use this struct in SSBO or UBO, its wasteful on memory
 struct irr_glsl_IsotropicViewSurfaceInteraction
 {

@@ -10,6 +10,7 @@ struct CommonPushConstants
 	uint outImageOffset[3];
 	uint imageWidth;
 
+
 	// 1 if before denoise
 	uint beforeDenoise;
 	
@@ -18,9 +19,11 @@ struct CommonPushConstants
 	uint intensityBufferDWORDOffset;
 	float denoiserExposureBias;
 
+	uint autoexposureOff;
 	// for the tonemapper
 	uint tonemappingOperator;
 	float tonemapperParams[2];
+
 
 	mat3 normalMatrix;
 };
