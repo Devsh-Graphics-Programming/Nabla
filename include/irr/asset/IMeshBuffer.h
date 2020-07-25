@@ -25,30 +25,6 @@ enum E_MESH_BUFFER_TYPE
     EMBT_ANIMATED_SKINNED
 };
 
-struct DrawArraysIndirectCommand_t
-{
-    uint32_t  count;
-    uint32_t  instanceCount;
-    uint32_t  first;
-    uint32_t  baseInstance;
-};
-
-struct DrawElementsIndirectCommand_t
-{
-    uint32_t count;
-    uint32_t instanceCount;
-    uint32_t firstIndex;
-    uint32_t baseVertex;
-    uint32_t baseInstance;
-};
-
-struct DispatchIndirectCommand_t 
-{
-    uint32_t  num_groups_x;
-    uint32_t  num_groups_y;
-    uint32_t  num_groups_z;
-};
-
 template <class BufferType, class DescSetType, class PipelineType>
 class IMeshBuffer : public virtual core::IReferenceCounted
 {
