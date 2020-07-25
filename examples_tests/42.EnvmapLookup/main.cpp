@@ -387,7 +387,7 @@ int main()
 		driver->updateDescriptorSets(kDescriptorCount, samplerWriteDescriptorSet, 0u, nullptr);
 	}
 
-	auto HDRFramebuffer = createHDRFramebuffer(device, gpuEnvmapImageView->getCreationParameters().format);
+	auto HDRFramebuffer = createHDRFramebuffer(device, asset::EF_R16G16B16A16_SFLOAT);
 	float colorClearValues[] = { 1.f, 1.f, 1.f, 1.f };
 
 	uint64_t lastFPSTime = 0;

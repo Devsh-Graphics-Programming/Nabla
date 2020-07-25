@@ -5,9 +5,9 @@
 struct irr_glsl_BSDFSample
 {
     vec3 L;  // incoming direction, normalized
-    float LdotT; // TODO: @Crisspl this should be named TdotL for consistency with other structs 
-    float LdotB; // TODO: @Crisspl this should be named BdotL for consistency with other structs
-    float LdotN; // TODO: @Crisspl this should be named NdotL for consistency with other structs
+    float TdotL; 
+    float BdotL;
+    float NdotL;
 
     float TdotH;
     float BdotH;
@@ -22,9 +22,9 @@ irr_glsl_BSDFSample irr_glsl_createBSDFSample(in vec3 H, in vec3 V, in float Vdo
 
     vec3 L = irr_glsl_reflect(V, H, VdotH);
     s.L = m * L; // m must be an orthonormal matrix
-    s.LdotT = L.x;
-    s.LdotB = L.y;
-    s.LdotN = L.z;
+    s.TdotL = L.x;
+    s.BdotL = L.y;
+    s.NdotL = L.z;
     s.TdotH = H.x;
     s.BdotH = H.y;
     s.NdotH = H.z;
