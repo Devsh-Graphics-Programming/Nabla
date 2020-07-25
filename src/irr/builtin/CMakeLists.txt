@@ -40,6 +40,7 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/colorspace/decodeCIEXYZ.glsl"
   "irr/builtin/glsl/colorspace/encodeCIEXYZ.glsl"
   "irr/builtin/glsl/loaders/mtl/common.glsl"
+  "irr/builtin/glsl/utils/indirect_commands.glsl"
   "irr/builtin/glsl/utils/common.glsl"
   "irr/builtin/glsl/utils/culling.glsl"
   "irr/builtin/glsl/utils/transform.glsl"
