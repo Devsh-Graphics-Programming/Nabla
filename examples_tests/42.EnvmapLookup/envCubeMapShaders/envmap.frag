@@ -523,6 +523,12 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
     }
 }
 
+vec2 irr_glsl_BoxMullerTransform(in vec2 xi, in float stddev)
+{
+    vec2 sc = irr_glsl_sincos(2.0*irr_glsl_PI*xi.y);
+    return sqrt(-2.0*log(xi.x))*sc*stddev;
+}
+
 void main()
 {
     if (((MAX_DEPTH-1)>>MAX_DEPTH_LOG2)>0 || ((SAMPLES-1)>>MAX_SAMPLES_LOG2)>0)
@@ -532,7 +538,7 @@ void main()
     }
 
 	uint scramble = textureLod(scramblebuf,TexCoord,0).r;
-    const vec2 pixOffsetParam = vec2(2.0)/vec2(textureSize(scramblebuf,0)); // depending on denoiser used, we could use Lanczos or Gaussian filter instead of Box
+    const vec2 pixOffsetParam = vec2(1.0)/vec2(textureSize(scramblebuf,0));
 
 
     const mat4 invMVP = inverse(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(cameraData.params.MVP));
@@ -558,8 +564,14 @@ void main()
             rayStack[stackPtr]._immutable.maxT = FLT_MAX;
 
             vec4 tmp = NDC;
-            tmp.xy += pixOffsetParam*(rand3d(0u,i,scramble_state).xy-vec2(0.5));
-            //tmp.xy += pixOffsetParam*irr_glsl_concentricMapping(rand3d(0u,i,scramble_state).xy)*25.0;
+            // apply stochastic reconstruction filter
+            const float gaussianFilterCutoff = 2.5;
+            const float truncation = exp(-0.5*gaussianFilterCutoff*gaussianFilterCutoff);
+            vec2 remappedRand = rand3d(0u,i,scramble_state).xy;
+            remappedRand.x *= 1.0-truncation;
+            remappedRand.x += truncation;
+            tmp.xy += pixOffsetParam*irr_glsl_BoxMullerTransform(remappedRand,1.5);
+            // for depth of field we could do another stochastic point-pick
             tmp = invMVP*tmp;
             rayStack[stackPtr]._immutable.direction = normalize(tmp.xyz/tmp.w-camPos);
             
@@ -624,7 +636,6 @@ Quality:
 -* Reweighting
 -* Covariance Rendering
 -* Geometry Specular AA (Curvature adjusted roughness)
-- Gaussian Reconstruction Filter (off for AI denoising) + Thinlens Model DoF
 
 When proper scheduling is available:
 - Russian Roulette
