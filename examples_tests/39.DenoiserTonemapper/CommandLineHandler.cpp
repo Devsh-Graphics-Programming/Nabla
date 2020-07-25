@@ -10,14 +10,10 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 {
 	auto startEntireTime = std::chrono::steady_clock::now();
 
-	if (argv.size() == 1)
-	{
-		mode = CLM_BATCH_INPUT;
-		argv.emplace_back("-batch");
-		argv.emplace_back("../exampleInputArguments.txt");
-	}
-	else if(argv.size() < PROPER_CMD_ARGUMENTS_AMOUNT + 1)
+	if(argv.size()>=MANDATORY_CMD_ARGUMENTS_AMOUNT && argv.size()<=PROPER_CMD_ARGUMENTS_AMOUNT)
 		mode = CLM_CMD_LIST;
+	else if (argv.size()>=PROPER_BATCH_FILE_ARGUMENTS_AMOUNT)
+		mode = CLM_BATCH_INPUT;
 	else
 	{
 		mode = CLM_UNKNOWN;
@@ -291,7 +287,6 @@ bool CommandLineHandler::validateMandatoryParameters(const variablesType& rawVar
 std::pair<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS,irr::core::vector<float>> CommandLineHandler::getTonemapper(uint64_t id)
 {
 	irr::core::vector<float> values;
-
 	uint32_t j = DTEA_TONEMAPPER_REINHARD;
 	DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS num;
 	for (; j<=DTEA_TONEMAPPER_NONE; j++)
@@ -339,6 +334,7 @@ irr::core::matrix3x4SIMD CommandLineHandler::getCameraTransform(uint64_t id)
 
 		auto startTime = std::chrono::steady_clock::now();
 		auto meshes_bundle = assetManager->getAsset(filePath.data(), mitsubaLoaderParams);
+		assert(!meshes_bundle.isEmpty(), ("ERROR (" + std::to_string(__LINE__) + " line): The xml file is invalid! Id of input stride: " + std::to_string(id)).c_str());
 		auto endTime = std::chrono::steady_clock::now();
 		elapsedTimeXmls += (endTime - startTime);
 

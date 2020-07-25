@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <scene version="0.5.0">
 
-<integrator type="path">
-	<integer name="maxDepth" value="10"/>
+<integrator type="path" id="cameraintegrator">
+  <integer name="maxDepth" value="8" />
 </integrator>
 
 <!--<sensor type="thinlens">-->
@@ -14,12 +14,13 @@
 	<string name="fovAxis" value="y"/>
 	<float name="focusDistance" value="3"/>
 	<float name="apertureRadius" value="0.1"/>
-	<sampler type="ldsampler">
-		<integer name="sampleCount" value="256"/>
+	<sampler type="hammersley">
+		<integer name="sampleCount" value="8"/>
 	</sampler>
 	<film type="hdrfilm">
-		<integer name="width" value="1280"/>
-		<integer name="height" value="720"/>
+		<integer name="width" value="1920"/>
+		<integer name="height" value="1080"/>
+    <rfilter type="box"/>
 	</film>
 </sensor>
   

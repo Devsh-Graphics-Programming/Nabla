@@ -27,9 +27,9 @@ irr_glsl_BSDFSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicView
 
     irr_glsl_BSDFSample s;
     s.L = irr_glsl_getTangentFrame(interaction) * L;
-    s.LdotT = L.x;
-    s.LdotB = L.y;
-    s.LdotN = L.z;
+    s.TdotL = L.x;
+    s.BdotL = L.y;
+    s.NdotL = L.z;
     /* Undefined
     s.TdotH = H.x;
     s.BdotH = H.y;
@@ -41,7 +41,7 @@ irr_glsl_BSDFSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicView
 
 vec3 irr_glsl_lambertian_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
-    pdf = irr_glsl_lambertian()*max(s.LdotN,0.0);
+    pdf = irr_glsl_lambertian()*max(s.NdotL,0.0);
     return vec3(1.0);
 }
 

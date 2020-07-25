@@ -142,7 +142,7 @@ void APIENTRY openGLCBFunc(GLenum source, GLenum type, GLuint id, GLenum severit
 
 struct ShaderParameters
 {
-	const uint32_t MaxDepthLog2 = 2; //5
+	const uint32_t MaxDepthLog2 = 3; //5
 	const uint32_t MaxSamplesLog2 = 10; //18
 } kShaderParameters;
 
@@ -387,7 +387,7 @@ int main()
 		driver->updateDescriptorSets(kDescriptorCount, samplerWriteDescriptorSet, 0u, nullptr);
 	}
 
-	auto HDRFramebuffer = createHDRFramebuffer(device, gpuEnvmapImageView->getCreationParameters().format);
+	auto HDRFramebuffer = createHDRFramebuffer(device, asset::EF_R16G16B16A16_SFLOAT);
 	float colorClearValues[] = { 1.f, 1.f, 1.f, 1.f };
 
 	uint64_t lastFPSTime = 0;
@@ -440,4 +440,5 @@ int main()
 	}
 
 	// TODO: screenshot
+	ext::ScreenShot::createScreenShot(device, HDRFramebuffer->getAttachment(video::EFAP_COLOR_ATTACHMENT0), "screenshot.exr");
 }
