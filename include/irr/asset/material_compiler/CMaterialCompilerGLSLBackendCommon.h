@@ -144,7 +144,7 @@ namespace instr_stream
 	struct STextureOrConstant
 	{
 		void setConst(float f) { std::fill(constant, constant+3, reinterpret_cast<uint32_t&>(f)); }
-		void setConst(float* fv) { memcpy(constant, fv, sizeof(constant)); }
+		void setConst(const float* fv) { memcpy(constant, fv, sizeof(constant)); }
 		void setTexture(const VTID& _vtid, float _scale)
 		{
 			tex.vtid = _vtid;
@@ -266,21 +266,29 @@ namespace gen_choice
 }
 namespace tex_prefetch
 {
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_0_SHIFT = INSTR_OPCODE_WIDTH;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_1_SHIFT = BITFIELDS_FETCH_TEX_0_SHIFT+1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_2_SHIFT = BITFIELDS_FETCH_TEX_1_SHIFT+1u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_0_SHIFT = BITFIELDS_SHIFT_NDF;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_1_SHIFT = BITFIELDS_SHIFT_NDF+1u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_2_SHIFT = BITFIELDS_SHIFT_TWOSIDED;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_COUNT = 3u;
 
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_REG_CNT_WIDTH = 2u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT = BITFIELDS_FETCH_TEX_0_SHIFT + BITFIELDS_FETCH_TEX_COUNT;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT = INSTR_NORMAL_ID_SHIFT;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT = BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT + BITFIELDS_FETCH_TEX_REG_CNT_WIDTH;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_2_REG_CNT_SHIFT = BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT + BITFIELDS_FETCH_TEX_REG_CNT_WIDTH;
-	static_assert(BITFIELDS_FETCH_TEX_2_REG_CNT_SHIFT+BITFIELDS_FETCH_TEX_REG_CNT_WIDTH <= BITFIELDS_BSDF_BUF_OFFSET_SHIFT, "bitfields overlaps!");
 
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_REG_0_SHIFT = remainder_and_pdf::INSTR_REG_DST_SHIFT;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_REG_1_SHIFT = remainder_and_pdf::INSTR_REG_SRC1_SHIFT;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_REG_2_SHIFT = remainder_and_pdf::INSTR_REG_SRC2_SHIFT;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_REG_WIDTH = remainder_and_pdf::INSTR_REG_WIDTH;
+
+	inline uint32_t getTexFetchFlags(instr_t i)
+	{
+		auto flags = core::bitfieldExtract(i, BITFIELDS_FETCH_TEX_0_SHIFT, 1);
+		flags |= core::bitfieldExtract(i, BITFIELDS_FETCH_TEX_1_SHIFT, 1)<<1;
+		flags |= core::bitfieldExtract(i, BITFIELDS_FETCH_TEX_2_SHIFT, 1)<<2;
+
+		return static_cast<uint32_t>(flags);
+	}
 }
 namespace normal_precomp
 {
@@ -296,6 +304,7 @@ protected:
 
 	void adjustBSDFDataIndices(instr_stream::traversal_t& _stream, const core::unordered_map<uint32_t, uint32_t>& _ix2ix) const
 	{
+		using namespace instr_stream;
 		for (instr_t& i : _stream) {
 			auto found = _ix2ix.find(core::bitfieldExtract(i, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH));
 			if (found != _ix2ix.end())
@@ -304,6 +313,7 @@ protected:
 	}
 	void setSourceRegForBumpmaps(instr_stream::traversal_t& _stream, uint32_t _regNumOffset)
 	{
+		using namespace instr_stream;
 		for (instr_t& i : _stream) {
 			if (getOpcode(i)==OP_BUMPMAP)
 			{
@@ -331,6 +341,7 @@ public:
 
 		instr_stream::traversal_t instructions;
 
+		//TODO flags like alpha tex always present etc..
 		bool noPrefetchStream;
 		bool noNormPrecompStream;
 		uint32_t usedRegisterCount;
@@ -340,7 +351,11 @@ public:
 		core::unordered_set<instr_stream::E_OPCODE> opcodes;
 
 		//one element for each input IR root node
-		core::vector<instr_streams_t> streams;
+		core::unordered_map<const IR::INode*, instr_streams_t> streams;
+
+		void debugPrint(const instr_streams_t& _streams, const instr_stream::SContext* _ctx) const;
+		//common for rem_and_pdf and gen_choice instructions
+		void debugPrintInstr(instr_stream::instr_t instr, const instr_stream::SContext* _ctx) const;
 	};
 
 	result_t compile(instr_stream::SContext* _ctx, IR* _ir, bool _computeGenChoiceStream = true);

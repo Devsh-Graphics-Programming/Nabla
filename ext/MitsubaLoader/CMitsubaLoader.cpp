@@ -14,867 +14,6 @@ namespace ext
 namespace MitsubaLoader
 {
 
-static bsdf::E_OPCODE BSDFtype2opcode(const CElementBSDF* bsdf)
-{
-	switch (bsdf->type)
-	{
-	case CElementBSDF::Type::DIFFUSE:
-		return bsdf::OP_DIFFUSE;
-	case CElementBSDF::Type::ROUGHDIFFUSE:
-		return bsdf::OP_ROUGHDIFFUSE;
-	case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
-		return bsdf::OP_DIFFTRANS;
-	case CElementBSDF::Type::DIELECTRIC: _IRR_FALLTHROUGH;
-	case CElementBSDF::Type::THINDIELECTRIC:
-		return bsdf::OP_DIELECTRIC;
-	case CElementBSDF::Type::ROUGHDIELECTRIC:
-		return bsdf::OP_ROUGHDIELECTRIC;
-	case CElementBSDF::Type::CONDUCTOR:
-		return bsdf::OP_CONDUCTOR;
-	case CElementBSDF::Type::ROUGHCONDUCTOR:
-		return bsdf::OP_ROUGHCONDUCTOR;
-	case CElementBSDF::Type::PLASTIC:
-		return bsdf::OP_PLASTIC;
-	case CElementBSDF::Type::ROUGHPLASTIC:
-		return bsdf::OP_ROUGHPLASTIC;
-	case CElementBSDF::Type::COATING:
-		return bsdf::OP_COATING;
-	case CElementBSDF::Type::ROUGHCOATING:
-		return bsdf::OP_ROUGHCOATING;
-	case CElementBSDF::Type::BUMPMAP:
-		return bsdf::OP_BUMPMAP;
-	case CElementBSDF::Type::WARD:
-		return bsdf::OP_WARD;
-	case CElementBSDF::Type::BLEND_BSDF: _IRR_FALLTHROUGH;
-	case CElementBSDF::Type::MIXTURE_BSDF:
-		return bsdf::OP_BLEND;
-	case CElementBSDF::Type::MASK:
-		return BSDFtype2opcode(bsdf->mask.bsdf[0]);
-	case CElementBSDF::Type::TWO_SIDED:
-		return BSDFtype2opcode(bsdf->twosided.bsdf[0]);
-	default:
-		return bsdf::OP_INVALID;
-	}
-}
-
-class CTraversalManipulator
-{
-public:
-	//typedefs
-	using instr_t = bsdf::instr_t;
-	using traversal_t = core::vector<instr_t>;
-	using substream_t = std::pair<traversal_t::iterator, traversal_t::iterator>;
-
-private:
-	_IRR_STATIC_INLINE_CONSTEXPR instr_t SPECIAL_VAL = ~static_cast<instr_t>(0);
-
-	static void setRegisters(instr_t& i, uint32_t rdst, uint32_t rsrc1 = 0u, uint32_t rsrc2 = 0u)
-	{
-		uint32_t& regDword = reinterpret_cast<uint32_t*>(&i)[1];
-
-		constexpr uint32_t _2ND_DWORD_SHIFT = 32u;
-
-		rdst  &= bsdf::INSTR_REG_MASK;
-		rsrc1 &= bsdf::INSTR_REG_MASK;
-		rsrc2 &= bsdf::INSTR_REG_MASK;
-
-		regDword = rdst; //(also zeroes out the rest)
-		regDword |= (rsrc1 << (bsdf::INSTR_REG_SRC1_SHIFT - _2ND_DWORD_SHIFT));
-		regDword |= (rsrc2 << (bsdf::INSTR_REG_SRC2_SHIFT - _2ND_DWORD_SHIFT));
-	}
-
-	struct has_different_normal_id
-	{
-		uint32_t n_id;
-
-		bool operator()(const instr_t& i) const { return bsdf::getNormalId(i)!=n_id; };
-	};
-
-	traversal_t m_input;
-	core::queue<uint32_t> m_streamLengths;
-
-	void reorderBumpMapStreams_impl(traversal_t& _input, traversal_t& _output, const substream_t& _stream)
-	{
-		const uint32_t n_id = bsdf::getNormalId(*(_stream.second-1));
-
-		const size_t len = _stream.second-_stream.first;
-		size_t subsLenAcc = 0ull;
-
-		core::stack<substream_t> substreams;
-		auto subBegin = std::find_if(_stream.first, _stream.second, has_different_normal_id{n_id});
-		while (subBegin != _stream.second)
-		{
-			const uint32_t sub_n_id = bsdf::getNormalId(*subBegin);
-			decltype(subBegin) subEnd;
-			for (subEnd = _stream.second-1; subEnd!=subBegin; --subEnd)
-				if (*subEnd == sub_n_id)
-					break;
-			++subEnd;
-
-			//one place will be used for SPECIAL_VAL (hence -1)
-			subsLenAcc += subEnd-subBegin-1;
-			substreams.push({subBegin,subEnd});
-
-			subBegin = std::find_if(subEnd, _stream.second, has_different_normal_id{n_id});
-		}
-
-		while (!substreams.empty())
-		{
-			reorderBumpMapStreams_impl(_input, _output, substreams.top());
-			substreams.pop();
-		}
-
-		const uint32_t newlen = len-subsLenAcc;
-
-		substream_t woSubs {_stream.first,_stream.first+newlen};
-		//move bumpmap instruction to the beginning of the stream
-		auto lastInstr = *(_stream.first+newlen-1);
-		if (bsdf::getOpcode(lastInstr)==bsdf::OP_BUMPMAP)
-		{
-			_input.erase(_stream.first+newlen-1);
-			_input.insert(_stream.first, lastInstr);
-		}
-
-		//important for next stage of processing
-		m_streamLengths.push(newlen);
-
-		_output.insert(_output.end(), woSubs.first, woSubs.second);
-		*woSubs.first = SPECIAL_VAL;
-		//do not erase SPECIAL_VAL (hence +1)
-		_input.erase(woSubs.first+1, woSubs.second);
-	}
-
-public:
-	CTraversalManipulator(traversal_t&& _traversal) : m_input(std::move(_traversal)) {}
-
-	traversal_t&& process(uint32_t regCount) &&
-	{
-		reorderBumpMapStreams();
-		specifyRegisters(regCount);
-
-		return std::move(m_input);
-	}
-
-#ifdef _IRR_DEBUG
-	static void debugPrint(const traversal_t& _traversal)
-	{
-		const char* names[bsdf::OPCODE_COUNT]{
-			"OP_DIFFUSE",
-			"OP_ROUGHDIFFUSE",
-			"OP_CONDUCTOR",
-			"OP_ROUGHCONDUCTOR",
-			"OP_PLASTIC",
-			"OP_ROUGHPLASTIC",
-			"OP_WARD",
-			"OP_COATING",
-			"OP_ROUGHCOATING",
-			"OP_DIFFTRANS",
-			"OP_DIELECTRIC",
-			"OP_ROUGHDIELECTRIC",
-			"OP_BLEND",
-			"OP_BUMPMAP",
-			"OP_SET_GEOM_NORMAL",
-			"OP_INVALID"
-		};
-		auto regsString = [](const core::vector3du32_SIMD& regs, uint32_t usedSrcs) {
-			std::string s;
-			if (usedSrcs)
-			{
-				s += "(";
-				s += std::to_string(regs.y);
-				if (usedSrcs>1u)
-					s += ","+std::to_string(regs.z);
-				s += ")";
-			}
-			return s += "->" + std::to_string(regs.x);
-		};
-
-		for (const auto& i : _traversal)
-		{
-			const auto op = bsdf::getOpcode(i);
-			std::string s = names[op];
-			s += " :\t\t" + regsString(bsdf::getRegisters(i), bsdf::getNumberOfSrcRegsForOpcode(op));
-			if (bsdf::isTwosided(i))
-				s += "\t\tTS";
-			if (bsdf::isMasked(i))
-				s += "\t\tM";
-			os::Printer::log(s, ELL_DEBUG);
-		}
-	}
-#endif
-
-private:
-	//reorders scattered bump-map streams (traversals of BSDF subtrees below bumpmap BSDF node) into continuous streams
-	//and moves OP_BUMPMAPs to the beginning of their streams/traversals/subtrees (because obviously they must be executed before BSDFs using them)
-	//leaves SPECIAL_VAL to mark original places of beginning of a stream (needed for function specifying registers)
-	//WARNING: modifies m_input
-	void reorderBumpMapStreams()
-	{
-		traversal_t result;
-		reorderBumpMapStreams_impl(m_input, result, {m_input.begin(),m_input.end()});
-
-		m_input = std::move(result);
-	}
-
-	void specifyRegisters(uint32_t regCount)
-	{
-		core::stack<uint32_t> freeRegs;
-		{
-			for (uint32_t i = 0u; i < regCount; ++i)
-				freeRegs.push(regCount-1u-i);
-		}
-		//registers with result of bump-map substream
-		core::stack<uint32_t> bmRegs;
-		//registers waiting to be used as source
-		core::stack<uint32_t> srcRegs;
-
-		int32_t bmStreamEndCounter = 0;
-		auto pushResultRegister = [&bmStreamEndCounter,&bmRegs,&srcRegs] (uint32_t _resultReg)
-		{
-			core::stack<uint32_t>& stack = bmStreamEndCounter==0 ? bmRegs : srcRegs;
-			stack.push(_resultReg);
-		};
-		for (uint32_t j = 0u; j < m_input.size();)
-		{
-			instr_t& i = m_input[j];
-
-			if (i == SPECIAL_VAL)
-			{
-				srcRegs.push(bmRegs.top());
-				bmRegs.pop();
-				m_input.erase(m_input.begin()+j);
-
-				continue;// do not increment j
-			}
-			const bsdf::E_OPCODE op = bsdf::getOpcode(i);
-
-			--bmStreamEndCounter;
-			if (op == bsdf::OP_BUMPMAP)
-			{
-				bmStreamEndCounter = m_streamLengths.front()-2u;
-				m_streamLengths.pop();
-
-				//OP_BUMPMAP doesnt care about usual registers, so dont set them
-				++j;
-				continue;
-			}
-			//if bmStreamEndCounter reaches value of -1 and next instruction is not OP_BUMPMAP, then emit some SET_GEOM_NORMAL instr
-			else if (bmStreamEndCounter==-1)
-			{
-				//just opcode, no registers nor other bitfields in this instruction
-				m_input.insert(m_input.begin()+j, instr_t(bsdf::OP_SET_GEOM_NORMAL));
-
-				++j;
-				continue;
-			}
-
-			const uint32_t srcsNum = bsdf::getNumberOfSrcRegsForOpcode(op);
-			assert(srcsNum<=2u);
-			uint32_t srcs[2];
-			for (uint32_t k = 0u; k < srcsNum; ++k)
-			{
-				srcs[k] = srcRegs.top();
-				srcRegs.pop();
-			}
-
-			switch (srcsNum)
-			{
-			case 2u:
-			{
-				const uint32_t src2 = srcs[0];
-				const uint32_t src1 = srcs[1];
-				const uint32_t dst  = (j==m_input.size()-1u) ? 0u : src1;
-				pushResultRegister(dst);
-				freeRegs.push(src2);
-				setRegisters(i, dst, src1, src2);
-			}
-			break;
-			case 1u:
-			{
-				const uint32_t src = srcs[0];
-				const uint32_t dst = (j==m_input.size()-1u) ? 0u : src;
-				pushResultRegister(dst);
-				setRegisters(i, dst, src);
-			}
-			break;
-			case 0u:
-			{
-				assert(!freeRegs.empty());
-				uint32_t dst = 0u;
-				if (j < m_input.size()-1u)
-				{
-					dst = freeRegs.top();
-					freeRegs.pop();
-				}
-				pushResultRegister(dst);
-				setRegisters(i, dst);
-			}
-			break;
-			default: break;
-			}
-
-			++j;
-		}
-	}
-};
-
-class ITraveralGenerator
-{
-protected:
-	struct stack_el
-	{
-		const CElementBSDF* bsdf;
-		bsdf::instr_t instr;
-		bool visited;
-		uint32_t weight_ix;
-		const CElementBSDF* maskParent;
-		uint32_t parentIx;
-	};
-	core::stack<stack_el> stack;
-	uint32_t firstFreeNormalID;
-
-	void push(const CElementBSDF* _bsdf, bsdf::instr_t _parent, const CElementBSDF* _maskParent, uint32_t _parentIx)
-	{
-		auto writeInheritableBitfields = [](bsdf::instr_t& dst, bsdf::instr_t parent) {
-			dst |= (parent & (bsdf::BITFIELDS_MASK_TWOSIDED << bsdf::BITFIELDS_SHIFT_TWOSIDED));
-			dst |= (parent & (bsdf::BITFIELDS_MASK_MASKFLAG << bsdf::BITFIELDS_SHIFT_MASKFLAG));
-			dst |= (parent & (bsdf::INSTR_NORMAL_ID_MASK << bsdf::INSTR_NORMAL_ID_SHIFT));
-		};
-		bsdf::instr_t instr = BSDFtype2opcode(_bsdf);
-		writeInheritableBitfields(instr, _parent);
-		switch (_bsdf->type)
-		{
-		case CElementBSDF::Type::DIFFUSE:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::ROUGHDIFFUSE:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::DIELECTRIC:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::THINDIELECTRIC:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::ROUGHDIELECTRIC:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::CONDUCTOR:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::ROUGHCONDUCTOR:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::PLASTIC:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::ROUGHPLASTIC:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::WARD:
-			stack.push({_bsdf,instr,false,0,_maskParent,_parentIx});
-			break;
-		case CElementBSDF::Type::COATING:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::ROUGHCOATING:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::BUMPMAP:
-			instr &= (~(bsdf::INSTR_NORMAL_ID_MASK<<bsdf::INSTR_NORMAL_ID_SHIFT));//zero-out normal ID bitfield
-			instr |= (firstFreeNormalID & bsdf::INSTR_NORMAL_ID_MASK) << bsdf::INSTR_NORMAL_ID_SHIFT;//write new val
-			++firstFreeNormalID;
-			stack.push({_bsdf,instr,false,0,_maskParent,_parentIx});
-
-			instr = BSDFtype2opcode(_bsdf->meta_common.bsdf[0]);
-			writeInheritableBitfields(instr, _parent);
-			stack.push({_bsdf->meta_common.bsdf[0],instr,false,0,_maskParent,_parentIx});
-			break;
-		case CElementBSDF::Type::BLEND_BSDF:
-			stack.push({ _bsdf,instr,false,0,_maskParent });
-			instr = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[1]);
-			writeInheritableBitfields(instr, _parent);
-			stack.push({ _bsdf->meta_common.bsdf[1],instr,false,0,_maskParent,_parentIx });
-			instr = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[0]);
-			writeInheritableBitfields(instr, _parent);
-			stack.push({ _bsdf->meta_common.bsdf[0],instr,false,0,_maskParent,_parentIx });
-			break;
-		case CElementBSDF::Type::MIXTURE_BSDF:
-		{
-			//mixture is translated into tree of blends
-			bsdf::instr_t blendbsdf = instr;
-			assert(_bsdf->mixturebsdf.childCount > 1u);
-			for (uint32_t i = 0u; i < _bsdf->mixturebsdf.childCount-1ull; ++i)
-			{
-				uint32_t weight_ix = _bsdf->mixturebsdf.childCount-i-1u;
-				stack.push({_bsdf,blendbsdf,false,weight_ix,_maskParent});
-				auto* mixchild_bsdf = _bsdf->mixturebsdf.bsdf[weight_ix];
-				bsdf::instr_t mixchild = BSDFtype2opcode(mixchild_bsdf);
-				writeInheritableBitfields(mixchild, _parent);
-				stack.push({mixchild_bsdf,mixchild,false,0,_maskParent});
-			}
-			bsdf::instr_t child0 = BSDFtype2opcode(_bsdf->mixturebsdf.bsdf[0]);
-			writeInheritableBitfields(child0, _parent);
-			stack.push({_bsdf->mixturebsdf.bsdf[0],child0,false,0,_maskParent,_parentIx});
-		}	
-			break;
-		case CElementBSDF::Type::MASK:
-			instr |= 1u<<bsdf::BITFIELDS_SHIFT_MASKFLAG;
-			stack.push({_bsdf->mask.bsdf[0],instr,false,0,_bsdf,_parentIx});
-			break;
-		case CElementBSDF::Type::TWO_SIDED:
-			instr |= 1u<<bsdf::BITFIELDS_SHIFT_TWOSIDED;
-			stack.push({_bsdf->twosided.bsdf[0],instr,false,0,_maskParent,_parentIx});
-			break;
-		case CElementBSDF::Type::PHONG:
-			_IRR_DEBUG_BREAK_IF(1);
-			break;
-		}
-	}
-	bsdf::instr_t emitInstr(bsdf::instr_t _instr, const CElementBSDF* _node, uint32_t _bsdfBufOffset, const CElementBSDF* _maskParent)
-	{
-		uint32_t op = (_instr & bsdf::INSTR_OPCODE_MASK);
-		switch (op)
-		{
-		case bsdf::OP_ROUGHDIFFUSE:
-			_instr |= static_cast<uint32_t>(_node->diffuse.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
-			_IRR_FALLTHROUGH;
-		case bsdf::OP_DIFFUSE:
-			_instr |= static_cast<uint32_t>(_node->diffuse.reflectance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_REFL_TEX;
-			break;
-		case bsdf::OP_ROUGHDIELECTRIC:
-			_instr |= _node->dielectric.distribution << bsdf::BITFIELDS_SHIFT_NDF;
-			_instr |= static_cast<uint32_t>(_node->dielectric.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
-			if (_node->dielectric.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-				_instr |= static_cast<uint32_t>(_node->dielectric.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
-			break;
-		case bsdf::OP_ROUGHCONDUCTOR:
-			_instr |= _node->conductor.distribution << bsdf::BITFIELDS_SHIFT_NDF;
-			_instr |= static_cast<uint32_t>(_node->conductor.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
-			if (_node->conductor.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-				_instr |= static_cast<uint32_t>(_node->conductor.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
-			break;
-		case bsdf::OP_ROUGHPLASTIC:
-			_instr |= _node->plastic.distribution << bsdf::BITFIELDS_SHIFT_NDF;
-			_instr |= static_cast<uint32_t>(_node->plastic.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
-			if (_node->plastic.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-				_instr |= static_cast<uint32_t>(_node->plastic.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
-			_IRR_FALLTHROUGH;
-		case bsdf::OP_PLASTIC:
-			_instr |= static_cast<uint32_t>(_node->plastic.nonlinear) << bsdf::BITFIELDS_SHIFT_NONLINEAR;
-			_instr |= static_cast<uint32_t>(_node->plastic.diffuseReflectance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_PLASTIC_REFL_TEX;
-			break;
-		case bsdf::OP_ROUGHCOATING:
-			_instr |= _node->coating.distribution << bsdf::BITFIELDS_SHIFT_NDF;
-			_instr |= static_cast<uint32_t>(_node->coating.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
-			if (_node->coating.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-				_instr |= static_cast<uint32_t>(_node->coating.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
-			_IRR_FALLTHROUGH;
-		case bsdf::OP_COATING:
-			_instr |= static_cast<uint32_t>(_node->coating.sigmaA.value.type == SPropertyElementData::INVALID) >> bsdf::BITFIELDS_SHIFT_SIGMA_A_TEX;
-			break;
-		case bsdf::OP_WARD:
-			_instr |= _node->ward.variant << bsdf::BITFIELDS_SHIFT_WARD_VARIANT;
-			_instr |= static_cast<uint32_t>(_node->ward.alphaU.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
-			_instr |= static_cast<uint32_t>(_node->ward.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
-			break;
-		case bsdf::OP_BLEND:
-			switch (_node->type)
-			{
-			case CElementBSDF::Type::BLEND_BSDF:
-				_instr |= static_cast<uint32_t>(_node->blendbsdf.weight.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_WEIGHT_TEX;
-				break;
-			case CElementBSDF::Type::MIXTURE_BSDF:
-				//always constant weights (not texture) -- leaving weight tex flag as 0
-				break;
-			default: break; //do not let warnings rise
-			}
-			break;
-		case bsdf::OP_DIFFTRANS:
-			_instr |= static_cast<uint32_t>(_node->difftrans.transmittance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_SPEC_TRANS_TEX;
-			break;
-		default: break; //any other ones dont need any extra flags
-		}
-		//write index into bsdf buffer
-		_instr &= (~(bsdf::INSTR_BSDF_BUF_OFFSET_MASK << bsdf::INSTR_BSDF_BUF_OFFSET_SHIFT));
-		_instr |= ((_bsdfBufOffset & bsdf::INSTR_BSDF_BUF_OFFSET_MASK) << bsdf::INSTR_BSDF_BUF_OFFSET_SHIFT);
-		//write opacity mask presence flag
-		if (_maskParent)
-			_instr |= static_cast<uint32_t>(_maskParent->mask.opacity.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_OPACITY_TEX;
-
-		return _instr;
-	}
-
-public:
-	struct IBSDFDataBufOffsetGetter
-	{
-		virtual ~IBSDFDataBufOffsetGetter() = default;
-
-		virtual uint32_t getOffset(const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight, const CElementBSDF* _maskParent) = 0;
-	};
-
-	using traversal_t = core::vector<bsdf::instr_t>;
-
-	virtual traversal_t genTraversal(const CElementBSDF* _bsdf, IBSDFDataBufOffsetGetter* _getter) = 0;
-};
-class CPostOrderTraversalGenerator : public ITraveralGenerator
-{
-public:
-	traversal_t genTraversal(const CElementBSDF* _bsdf, IBSDFDataBufOffsetGetter* _getter) override
-	{
-		traversal_t traversal;
-		push(_bsdf, static_cast<bsdf::instr_t>(0), nullptr, 0u);
-		while (!stack.empty())
-		{
-			auto& top = stack.top();
-			const bsdf::E_OPCODE op = bsdf::getOpcode(top.instr);
-			const uint32_t srcRegCount = bsdf::getNumberOfSrcRegsForOpcode(op);
-			_IRR_DEBUG_BREAK_IF(op==bsdf::OP_INVALID);
-			if (srcRegCount==0u || top.visited)
-			{
-				const uint32_t bsdfBufIx = _getter->getOffset(top.bsdf, 0u, top.bsdf->type==CElementBSDF::Type::MIXTURE_BSDF ? top.bsdf->mixturebsdf.weights[top.weight_ix] : 0.f, top.maskParent);
-				/*if (top.bsdf)//if top.bsdf is nullptr, then bsdf buf offset will be irrelevant for this instruction (may be any value and won't ever be fetched anyway)
-				{
-					ctx.bsdfBuffer.push_back(
-						bsdfNode2bsdfStruct(ctx, top.bsdf, 0u, top.bsdf->type==CElementBSDF::Type::MIXTURE_BSDF ? top.bsdf->mixturebsdf.weights[top.weight_ix] : 0.f, top.maskParent)
-					);
-					assert(bsdfBufIx < bsdf::INSTR_BSDF_BUF_OFFSET_MASK);
-				}*/
-				traversal.push_back(emitInstr(top.instr, top.bsdf, bsdfBufIx, top.maskParent));
-				stack.pop();
-			}
-			else if (!top.visited)
-			{
-				top.visited = true;
-				switch (bsdf::getOpcode(top.instr))
-				{
-				case bsdf::OP_BLEND:
-					push(top.bsdf->blendbsdf.bsdf[1], top.instr, top.maskParent, 0u);
-					_IRR_FALLTHROUGH;
-				default:
-					push(top.bsdf->blendbsdf.bsdf[0], top.instr, top.maskParent, 0u);
-					break;
-				}
-			}
-		}
-
-		traversal = std::move( CTraversalManipulator(std::move(traversal)).process(bsdf::REGISTER_COUNT) );
-	#ifdef _IRR_DEBUG
-		os::Printer::log("BSDF post-order traversal debug print", _bsdf->id, ELL_DEBUG);
-		CTraversalManipulator::debugPrint(traversal);
-	#endif
-		
-		return traversal;
-	}
-};
-class CPreOrderTraversalGenerator : public ITraveralGenerator
-{
-public:
-	traversal_t genTraversal(const CElementBSDF* _bsdf, IBSDFDataBufOffsetGetter* _getter) override
-	{
-		constexpr uint32_t INVALID_INDEX = 0xdeadbeefu;
-
-		traversal_t traversal;
-		traversal.push_back(static_cast<bsdf::instr_t>(bsdf::OP_SET_GEOM_NORMAL));
-		push(_bsdf, static_cast<bsdf::instr_t>(0), nullptr, INVALID_INDEX);
-
-		while (!stack.empty())
-		{
-			auto& top = stack.top();
-			const bsdf::E_OPCODE op = bsdf::getOpcode(top.instr);
-
-			const uint32_t bsdfBufIx = _getter->getOffset(top.bsdf, 0u, top.bsdf->type == CElementBSDF::Type::MIXTURE_BSDF ? top.bsdf->mixturebsdf.weights[top.weight_ix] : 0.f, top.maskParent);
-			const uint32_t currIx = traversal.size();
-			traversal.push_back(emitInstr(top.instr, top.bsdf, bsdfBufIx, top.maskParent));
-			if (top.parentIx!=INVALID_INDEX)//means it's right child of a parent
-			{
-				//write RIGHT_JUMP bitfield into "parent instruction"
-				bsdf::instr_t& parentInstr = traversal[top.parentIx];
-				//writing absolute offset, but could be relative (i.e. `currIx-top.parentIx`) as well (decision needed)
-				parentInstr |= static_cast<bsdf::instr_t>(currIx)<<bsdf::INSTR_RIGHT_JUMP_SHIFT;
-			}
-
-			if (bsdf::getNumberOfSrcRegsForOpcode(op) > 0u)
-			{
-				switch (bsdf::getOpcode(top.instr))
-				{
-				case bsdf::OP_BLEND:
-					push(top.bsdf->blendbsdf.bsdf[1], top.instr, top.maskParent, currIx);
-					_IRR_FALLTHROUGH;
-				default:
-					push(top.bsdf->blendbsdf.bsdf[0], top.instr, top.maskParent, INVALID_INDEX);
-					break;
-				}
-			}
-			stack.pop();
-		}
-
-#ifdef _IRR_DEBUG
-		os::Printer::log("BSDF pre-order traversal debug print", _bsdf->id, ELL_DEBUG);
-		CTraversalManipulator::debugPrint(traversal);
-#endif
-
-		return traversal;
-	}
-};
-
-static bsdf::STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualTexture* _vt, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
-{
-	const auto& extent = _img->getCreationParameters().extent;
-
-	auto imgAndOrigSz = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(_img, _uwrap, _vwrap, _borderColor);
-
-	asset::IImage::SSubresourceRange subres;
-	subres.baseArrayLayer = 0u;
-	subres.layerCount = 1u;
-	subres.baseMipLevel = 0u;
-	auto mx = std::max(extent.width, extent.height);
-	auto round = core::roundUpToPoT<uint32_t>(mx);
-	auto lsb = core::findLSB(round);
-	subres.levelCount = lsb + 1;
-
-	auto addr = _vt->alloc(_img->getCreationParameters().format, imgAndOrigSz.second, subres, _uwrap, _vwrap);
-	_vt->commit(addr, imgAndOrigSz.first.get(), subres, _uwrap, _vwrap, _borderColor);
-	return addr;
-}
-
-bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight, const CElementBSDF* _maskParent)
-{
-	// returns opacity scale factor
-	auto inheritOpacity = [&,this](auto& _bsdfStruct) -> float {
-		if (_maskParent)
-		{
-			if (_maskParent->mask.opacity.value.type != SPropertyElementData::INVALID)
-			{
-				_bsdfStruct.opacity.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_maskParent->mask.opacity.value.vvalue.pointer));
-				return 1.f;
-			}
-			else
-			{
-				auto tex = getVTallocData(_ctx, _maskParent->mask.opacity.texture, _texHierLvl);
-				_bsdfStruct.opacity.texData = tex.first;
-				return tex.second;
-			}
-		}
-		return 1.f;
-	};
-	bsdf::SBSDFUnion retval;
-	switch (_node->type)
-	{
-	case CElementBSDF::Type::DIFFUSE:
-		_IRR_FALLTHROUGH;
-	case CElementBSDF::Type::ROUGHDIFFUSE:
-	{
-		float reflScale = 1.f;
-		if (_node->diffuse.reflectance.value.type==SPropertyElementData::INVALID)
-			std::tie(retval.diffuse.reflectance.texData, reflScale) = getVTallocData(_ctx, _node->diffuse.reflectance.texture, _texHierLvl);
-		else
-			retval.diffuse.reflectance.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->diffuse.reflectance.value.vvalue.pointer));
-
-		float alphaScale = 1.f;
-		if (_node->diffuse.alpha.value.type==SPropertyElementData::INVALID)
-			std::tie(retval.diffuse.alpha.texData, alphaScale) = getVTallocData(_ctx, _node->diffuse.alpha.texture, _texHierLvl);
-		else if (_node->diffuse.alpha.value.type==SPropertyElementData::FLOAT)
-		{
-			const float a = _node->diffuse.alpha.value.fvalue;
-			retval.diffuse.alpha.constant_rgb19e7 = core::rgb32f_to_rgb19e7(a,a,a);
-		}
-
-		const float opacityScale = inheritOpacity(retval.diffuse);
-
-		retval.diffuse.textureScale = core::rgb32f_to_rgb19e7(alphaScale, reflScale, opacityScale);
-	}
-		break;
-	case CElementBSDF::Type::DIELECTRIC:
-		_IRR_FALLTHROUGH;
-	case CElementBSDF::Type::THINDIELECTRIC:
-		_IRR_FALLTHROUGH;
-	case CElementBSDF::Type::ROUGHDIELECTRIC:
-	{
-		float ualphaScale = 1.f;
-		if (_node->dielectric.alpha.value.type==SPropertyElementData::FLOAT)
-		{
-			const float a = _node->dielectric.alpha.value.fvalue;
-			retval.dielectric.alpha_u.constant_rgb19e7 = core::rgb32f_to_rgb19e7(a, a, a);
-		}
-		else if (_node->dielectric.alpha.value.type==SPropertyElementData::INVALID)
-			std::tie(retval.dielectric.alpha_u.texData, ualphaScale) = getVTallocData(_ctx, _node->dielectric.alpha.texture, _texHierLvl);
-
-		float valphaScale = 1.f;
-		if (_node->dielectric.distribution==CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-		{
-			if (_node->dielectric.alphaV.value.type==SPropertyElementData::FLOAT)
-			{
-				const float a = _node->dielectric.alphaV.value.fvalue;
-				retval.dielectric.alpha_v.constant_rgb19e7 = core::rgb32f_to_rgb19e7(a, a, a);
-			}
-			else if (_node->dielectric.alphaV.value.type==SPropertyElementData::INVALID)
-				std::tie(retval.dielectric.alpha_v.texData, valphaScale) = getVTallocData(_ctx, _node->dielectric.alphaV.texture, _texHierLvl);
-		}
-		
-		retval.dielectric.eta = _node->dielectric.intIOR/_node->dielectric.extIOR;
-
-		const float opacityScale = inheritOpacity(retval.dielectric);
-
-		retval.dielectric.textureScale = core::rgb32f_to_rgb19e7(ualphaScale, valphaScale, opacityScale);
-	}
-		break;
-	case CElementBSDF::Type::CONDUCTOR:
-		_IRR_FALLTHROUGH;
-	case CElementBSDF::Type::ROUGHCONDUCTOR:
-	{
-		float ualphaScale = 1.f;
-		if (_node->conductor.alpha.value.type==SPropertyElementData::FLOAT)
-		{
-			const float a = _node->conductor.alpha.value.fvalue;
-			retval.conductor.alpha_u.constant_rgb19e7 = core::rgb32f_to_rgb19e7(a, a, a);
-		}
-		else if (_node->conductor.alpha.value.type == SPropertyElementData::INVALID)
-			std::tie(retval.conductor.alpha_u.texData, ualphaScale) = getVTallocData(_ctx, _node->conductor.alpha.texture, _texHierLvl);
-
-		float valphaScale = 1.f;
-		if (_node->conductor.distribution==CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-		{
-			if (_node->conductor.alphaV.value.type==SPropertyElementData::FLOAT)
-			{
-				const float a = _node->conductor.alphaV.value.fvalue;
-				retval.conductor.alpha_v.constant_rgb19e7 = core::rgb32f_to_rgb19e7(a, a, a);
-			}
-			else if (_node->conductor.alphaV.value.type==SPropertyElementData::INVALID)
-				std::tie(retval.conductor.alpha_v.texData, valphaScale) = getVTallocData(_ctx, _node->conductor.alphaV.texture, _texHierLvl);
-		}
-		if (_node->conductor.eta.type!=SPropertyElementData::INVALID)
-			retval.conductor.eta[0] = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>((_node->conductor.eta.vvalue/_node->conductor.extEta).pointer));
-		if (_node->conductor.k.type!=SPropertyElementData::INVALID)
-			retval.conductor.eta[1] = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>((_node->conductor.k.vvalue/_node->conductor.extEta).pointer));
-
-		const float opacityScale = inheritOpacity(retval.conductor);
-
-		retval.conductor.textureScale = core::rgb32f_to_rgb19e7(ualphaScale, valphaScale, opacityScale);
-	}
-		break;
-	case CElementBSDF::Type::PLASTIC:
-		_IRR_FALLTHROUGH;
-	case CElementBSDF::Type::ROUGHPLASTIC:
-	{
-		float alphaScale = 1.f;
-		if (_node->plastic.alpha.value.type==SPropertyElementData::FLOAT)
-		{
-			const float a = _node->plastic.alpha.value.fvalue;
-			retval.plastic.alpha.constant_rgb19e7 = core::rgb32f_to_rgb19e7(a, a, a);
-		}
-		else if (_node->plastic.alpha.value.type==SPropertyElementData::INVALID)
-			std::tie(retval.plastic.alpha.texData, alphaScale) = getVTallocData(_ctx, _node->plastic.alpha.texture, _texHierLvl);
-		float reflScale = 1.f;
-		if (_node->plastic.diffuseReflectance.value.type==SPropertyElementData::INVALID)
-			std::tie(retval.plastic.reflectance.texData, reflScale) = getVTallocData(_ctx, _node->plastic.diffuseReflectance.texture, _texHierLvl);
-		else
-			retval.plastic.reflectance.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->plastic.diffuseReflectance.value.vvalue.pointer));
-		
-		retval.plastic.eta = _node->plastic.intIOR/_node->plastic.extIOR;
-
-		const float opacityScale = inheritOpacity(retval.plastic);
-
-		retval.plastic.textureScale = core::rgb32f_to_rgb19e7(alphaScale, reflScale, opacityScale);
-	}
-		break;
-	case CElementBSDF::Type::COATING:
-		_IRR_FALLTHROUGH;
-	case CElementBSDF::Type::ROUGHCOATING:
-	{
-		float alphaScale = 1.f;
-		if (_node->coating.alpha.value.type==SPropertyElementData::FLOAT)
-		{
-			const float a = _node->coating.alpha.value.fvalue;
-			retval.coating.alpha.constant_rgb19e7 = core::rgb32f_to_rgb19e7(a, a, a);
-		}
-		else if (_node->coating.alpha.value.type==SPropertyElementData::INVALID)
-			std::tie(retval.coating.alpha.texData, alphaScale) = getVTallocData(_ctx, _node->coating.alpha.texture, _texHierLvl);
-
-		retval.coating.thickness_eta = core::Float16Compressor::compress(_node->coating.thickness);
-		retval.coating.thickness_eta |= static_cast<uint32_t>(core::Float16Compressor::compress(_node->coating.intIOR/_node->coating.extIOR))<<16;
-
-		float sigmaScale = 1.f;
-		if (_node->coating.sigmaA.value.type==SPropertyElementData::INVALID)
-			std::tie(retval.coating.sigmaA.texData, sigmaScale) = getVTallocData(_ctx, _node->coating.sigmaA.texture, _texHierLvl);
-		else
-			retval.coating.sigmaA.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->coating.sigmaA.value.vvalue.pointer));
-
-		const float opacityScale = inheritOpacity(retval.coating);
-
-		retval.coating.textureScale = core::rgb32f_to_rgb19e7(alphaScale, sigmaScale, opacityScale);
-	}
-		break;
-	case CElementBSDF::Type::BUMPMAP:
-	{
-		float bmScale;
-		std::tie(retval.bumpmap.bumpmap, bmScale) = getVTallocData(_ctx, _node->bumpmap.texture, _texHierLvl);
-		retval.bumpmap.textureScale = core::rgb32f_to_rgb19e7(bmScale, 1.f, 1.f);
-	}
-		break;
-	case CElementBSDF::Type::PHONG:
-		_IRR_DEBUG_BREAK_IF(1);//we dont care about PHONG
-		break;
-	case CElementBSDF::Type::WARD:
-	{
-		float ualphaScale = 1.f;
-		if (_node->ward.alphaU.value.type == SPropertyElementData::FLOAT)
-		{
-			const float a = _node->ward.alphaU.value.fvalue;
-			retval.ward.alpha_u.constant_rgb19e7 = core::rgb32f_to_rgb19e7(a, a, a);
-		}
-		else if (_node->ward.alphaU.value.type==SPropertyElementData::INVALID)
-			std::tie(retval.ward.alpha_u.texData, ualphaScale) = getVTallocData(_ctx, _node->ward.alphaU.texture, _texHierLvl);
-
-		float valphaScale = 1.f;
-		if (_node->ward.alphaV.value.type==SPropertyElementData::FLOAT)
-		{
-			const float a = _node->ward.alphaV.value.fvalue;
-			retval.ward.alpha_v.constant_rgb19e7 = core::rgb32f_to_rgb19e7(a,a,a);
-		}
-		else if (_node->ward.alphaV.value.type==SPropertyElementData::INVALID)
-			std::tie(retval.ward.alpha_u.texData, valphaScale) = getVTallocData(_ctx, _node->ward.alphaV.texture, _texHierLvl);
-
-		const float opacityScale = inheritOpacity(retval.ward);
-
-		retval.ward.textureScale = core::rgb32f_to_rgb19e7(ualphaScale, valphaScale, opacityScale);
-	}
-		break;
-	case CElementBSDF::Type::MIXTURE_BSDF:
-	{
-		constexpr float vec3_one[3] {1.f,1.f,1.f};
-		core::uintBitsToFloat(retval.blend.weightL.constant_f32) = 1.f;
-		retval.blend.weightR = _mix2blend_weight;
-		retval.blend.textureScale = core::rgb32f_to_rgb19e7(1.f, 1.f, 1.f);
-	}
-		break;
-	case CElementBSDF::Type::BLEND_BSDF:
-	{
-		float weightScale = 1.f;
-		if (_node->blendbsdf.weight.value.type==SPropertyElementData::FLOAT)
-		{
-			const float w = 1.f-_node->blendbsdf.weight.value.fvalue;
-			retval.blend.weightL.constant_rgb19e7 = core::rgb32f_to_rgb19e7(w,w,w);
-			retval.blend.weightR = _node->blendbsdf.weight.value.fvalue;
-		}
-		else if (_node->blendbsdf.weight.value.type==SPropertyElementData::INVALID)
-		{
-			std::tie(retval.blend.weightL.texData, weightScale) = getVTallocData(_ctx, _node->blendbsdf.weight.texture, _texHierLvl);
-		}
-		retval.blend.textureScale = core::rgb32f_to_rgb19e7(weightScale, 1.f, 1.f);
-	}
-		break;
-	case CElementBSDF::Type::MASK: _IRR_FALLTHROUGH;
-	case CElementBSDF::Type::TWO_SIDED:
-		assert(0);//TWO_SIDED and MASK shouldnt get to this function (they are translated into bitfields in instruction)
-		break;
-	case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
-	{
-		float transmittanceScale = 1.f;
-		if (_node->difftrans.transmittance.value.type==SPropertyElementData::INVALID)
-			std::tie(retval.diffuseTransmitter.transmittance.texData, transmittanceScale) = getVTallocData(_ctx, _node->difftrans.transmittance.texture, _texHierLvl);
-		else
-			retval.diffuseTransmitter.transmittance.constant_rgb19e7 = core::rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->difftrans.transmittance.value.vvalue.pointer));
-
-		retval.diffuseTransmitter.textureScale = core::rgb32f_to_rgb19e7(transmittanceScale, 1.f, inheritOpacity(retval.diffuseTransmitter));
-	}
-		break;
-	}
-
-	return retval;
-}
-
 _IRR_STATIC_INLINE_CONSTEXPR const char* DUMMY_VERTEX_SHADER =
 R"(#version 430 core
 
@@ -1772,7 +911,7 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		);
 		if (!getBuiltinAsset<asset::ICPUPipelineLayout, asset::IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager))
 		{
-			auto layout = createAndCachePipelineLayout(m_manager, ctx.VT.get());
+			auto layout = createAndCachePipelineLayout(m_manager, ctx.backend_ctx.vt.get());
 			auto pipeline = createAndCachePipeline(m_manager, std::move(layout));
 		}
 
@@ -1807,11 +946,12 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 				metadataptr = static_cast<IMeshMetadata*>(mesh->getMetadata());
 			}
 
-			const auto instrOffsetCount = getBSDFtreeTraversal(ctx, shapedef->bsdf);
-			metadataptr->instances.push_back({ shapedef->getAbsoluteTransform(),instrOffsetCount.postorder,shapedef->obtainEmitter() });
+			auto bsdf = getBSDFtreeTraversal(ctx, shapedef->bsdf);
+			metadataptr->instances.push_back({ shapedef->getAbsoluteTransform(),bsdf,shapedef->obtainEmitter() });
 		}
 
-		auto metadata = createPipelineMetadata(createDS0(ctx, meshes.begin(), meshes.end()), getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager).get());
+		auto compResult = ctx.backend.compile(&ctx.backend_ctx, ctx.ir.get());
+		auto metadata = createPipelineMetadata(createDS0(ctx, compResult, meshes.begin(), meshes.end()), getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager).get());
 		for (auto& mesh : meshes)
 		{
 			auto* meshmeta = static_cast<const IMeshMetadata*>(mesh->getMetadata());
@@ -1830,7 +970,7 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 	}
 }
 
-CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape)
+SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape)
 {
 	if (!shape)
 		return nullptr;
@@ -1850,7 +990,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, 
 	}
 }
 
-CMitsubaLoader::SContext::group_ass_type CMitsubaLoader::loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup)
+SContext::group_ass_type CMitsubaLoader::loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup)
 {
 	// find group
 	auto found = ctx.groupCache.find(shapegroup);
@@ -1914,7 +1054,7 @@ static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeo
 	return mesh;
 }
 
-CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape)
+SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape)
 {
 	constexpr uint32_t UV_ATTRIB_ID = 2U;
 
@@ -2172,7 +1312,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 	return mesh;
 }
 
-CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* tex)
+SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* tex)
 {
 	if (!tex)
 		return {};
@@ -2323,30 +1463,6 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 	}
 }
 
-auto CMitsubaLoader::getVTallocData(SContext& ctx, const CElementTexture* texture, uint32_t texHierLvl) -> SContext::VT_data_type
-{
-	auto found = ctx.VTallocDataCache.find(texture);
-	if (found != ctx.VTallocDataCache.end())
-		return found->second;
-
-	auto tex = getTexture(ctx, texHierLvl, texture);
-	auto& img = std::get<0>(tex)->getCreationParameters().image;
-	const auto& sparams = std::get<1>(tex)->getParams();
-	auto retval =
-		std::make_pair(
-			getTextureData(
-				img.get(), ctx.VT.get(),
-				static_cast<asset::ISampler::E_TEXTURE_CLAMP>(sparams.TextureWrapU),
-				static_cast<asset::ISampler::E_TEXTURE_CLAMP>(sparams.TextureWrapV),
-				static_cast<asset::ISampler::E_TEXTURE_BORDER_COLOR>(sparams.BorderColor)
-			),
-			std::get<2>(tex)
-		);
-	ctx.VTallocDataCache.insert({texture, retval});
-
-	return retval;
-}
-
 auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf) -> SContext::bsdf_type
 {
 	auto found = ctx.instrStreamCache.find(bsdf);
@@ -2359,56 +1475,79 @@ auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 
 auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bsdf) -> SContext::bsdf_type
 {
-	struct Getter : ITraveralGenerator::IBSDFDataBufOffsetGetter
 	{
-		Getter(CMitsubaLoader* ldr, SContext& ctx) : thisLoader(ldr), ctx(ctx) {}
+		auto cacheTexture = [&](const auto& const_or_tex) {
+			if (const_or_tex.value.type == SPropertyElementData::INVALID)
+				getTexture(ctx, 0u, const_or_tex.texture);
+		};
 
-		CMitsubaLoader* thisLoader;
-		SContext& ctx;
+		core::stack<const CElementBSDF*> stack;
+		stack.push(_bsdf);
 
-		uint32_t getOffset(const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight, const CElementBSDF* _maskParent) override
+		while (!stack.empty())
 		{
-			if (_node) {
-				const uint32_t ix = ctx.bsdfBuffer.size();
-
-				auto found = ctx.bsdfDataCache.find({_node,_maskParent,_mix2blend_weight});
-				if (found!=ctx.bsdfDataCache.end())
-					return found->second;
-
-				ctx.bsdfBuffer.push_back(thisLoader->bsdfNode2bsdfStruct(ctx, _node, _texHierLvl, _mix2blend_weight, _maskParent));
-				SContext::SBSDFDataCacheKey key;
-				key.bsdf = _node;
-				key.maskParent = _maskParent;
-				key.mix2blend_weight = _mix2blend_weight;
-				ctx.bsdfDataCache.insert({key, ix});
-
-				return ix;
+			auto* bsdf = stack.top();
+			stack.pop();
+			switch (bsdf->type)
+			{
+			case CElementBSDF::COATING:
+			case CElementBSDF::ROUGHCOATING:
+			case CElementBSDF::BUMPMAP:
+			case CElementBSDF::BLEND_BSDF:
+			case CElementBSDF::MIXTURE_BSDF:
+			case CElementBSDF::MASK:
+			case CElementBSDF::TWO_SIDED:
+				for (uint32_t i = 0u; i < bsdf->meta_common.childCount; ++i)
+					stack.push(bsdf->meta_common.bsdf[i]);
+			default: break;
 			}
 
-			return 0u;
+			switch (bsdf->type)
+			{
+			case CElementBSDF::DIFFUSE:
+			case CElementBSDF::ROUGHDIFFUSE:
+				cacheTexture(bsdf->diffuse.reflectance);
+				cacheTexture(bsdf->diffuse.alpha);
+				break;
+			case CElementBSDF::DIELECTRIC:
+			case CElementBSDF::THINDIELECTRIC:
+			case CElementBSDF::ROUGHDIELECTRIC:
+				cacheTexture(bsdf->dielectric.alphaU);
+				if (bsdf->dielectric.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+					cacheTexture(bsdf->dielectric.alphaV);
+				break;
+			case CElementBSDF::CONDUCTOR:
+				cacheTexture(bsdf->conductor.alphaU);
+				if (bsdf->conductor.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+					cacheTexture(bsdf->conductor.alphaV);
+				break;
+			case CElementBSDF::PLASTIC:
+			case CElementBSDF::ROUGHPLASTIC:
+				cacheTexture(bsdf->plastic.diffuseReflectance);
+				cacheTexture(bsdf->plastic.alphaU);
+				if (bsdf->plastic.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+					cacheTexture(bsdf->plastic.alphaV);
+				break;
+			case CElementBSDF::BUMPMAP:
+				getTexture(ctx, 0u, bsdf->bumpmap.texture);
+				break;
+			case CElementBSDF::BLEND_BSDF:
+				cacheTexture(bsdf->blendbsdf.weight);
+				break;
+			case CElementBSDF::MASK:
+				cacheTexture(bsdf->mask.opacity);
+				break;
+			default: break;
+			}
 		}
-	};
+	}
 
-	CPostOrderTraversalGenerator postorderGen;
-	CPreOrderTraversalGenerator preorderGen;
-
-	Getter getter{this,ctx};
-	auto postorder = postorderGen.genTraversal(_bsdf, &getter);
-	auto preorder = preorderGen.genTraversal(_bsdf, &getter);
-
-	const uint32_t instrBufOffset = ctx.instrBuffer.size();
-	ctx.instrBuffer.insert(ctx.instrBuffer.end(), postorder.begin(), postorder.end());
-
-	SContext::bsdf_type retval;
-	retval.postorder = {instrBufOffset,postorder.size()};
-	retval.preorder = {0u,0u};//TODO insert preorder into ctx.instrBuffer
-	
-	return retval;
+	return ctx.frontend.compileToIRTree(ctx.ir.get(), _bsdf);
 }
 
 // Also sets instance data buffer offset into meshbuffers' push constants
 template<typename Iter>
-inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx, Iter meshBegin, Iter meshEnd)
+inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd)
 {
 	auto pplnLayout = getBuiltinAsset<ICPUPipelineLayout,IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager);
 	auto* ds0layout = pplnLayout->getDescriptorSetLayout(0u);
@@ -2432,7 +1571,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 	auto d = ds0->getDescriptors(PRECOMPUTED_VT_DATA_BINDING).begin();
 	{
 		auto precompDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(asset::ICPUVirtualTexture::SPrecomputedData));
-		memcpy(precompDataBuf->getPointer(), &_ctx.VT->getPrecomputedData(), precompDataBuf->getSize());
+		memcpy(precompDataBuf->getPointer(), &_ctx.backend_ctx.vt->getPrecomputedData(), precompDataBuf->getSize());
 
 		d->buffer.offset = 0u;
 		d->buffer.size = precompDataBuf->getSize();
@@ -2440,8 +1579,8 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 	}
 	d = ds0->getDescriptors(INSTR_BUF_BINDING).begin();
 	{
-		auto instrbuf = core::make_smart_refctd_ptr<ICPUBuffer>(_ctx.instrBuffer.size()*sizeof(decltype(_ctx.instrBuffer)::value_type));
-		memcpy(instrbuf->getPointer(), _ctx.instrBuffer.data(), instrbuf->getSize());
+		auto instrbuf = core::make_smart_refctd_ptr<ICPUBuffer>(_compResult.instructions.size()*sizeof(decltype(_compResult.instructions)::value_type));
+		memcpy(instrbuf->getPointer(), _compResult.instructions.data(), instrbuf->getSize());
 
 		d->buffer.offset = 0u;
 		d->buffer.size = instrbuf->getSize();
@@ -2449,8 +1588,8 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 	}
 	d = ds0->getDescriptors(BSDF_BUF_BINDING).begin();
 	{
-		auto bsdfbuf = core::make_smart_refctd_ptr<ICPUBuffer>(_ctx.bsdfBuffer.size()*sizeof(decltype(_ctx.bsdfBuffer)::value_type));
-		memcpy(bsdfbuf->getPointer(), _ctx.bsdfBuffer.data(), bsdfbuf->getSize());
+		auto bsdfbuf = core::make_smart_refctd_ptr<ICPUBuffer>(_ctx.backend_ctx.bsdfData.size()*sizeof(decltype(_ctx.backend_ctx.bsdfData)::value_type));
+		memcpy(bsdfbuf->getPointer(), _ctx.backend_ctx.bsdfData.data(), bsdfbuf->getSize());
 
 		d->buffer.offset = 0u;
 		d->buffer.size = bsdfbuf->getSize();
@@ -2468,13 +1607,22 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		for (const auto& inst : meta->getInstances()) {
 			emissive = inst.emitter.type==CElementEmitter::AREA ? inst.emitter.area.radiance : core::vectorSIMDf(0.f);
 
+			auto bsdf = inst.bsdf;
+			auto streams_it = _compResult.streams.find(bsdf);
+			_IRR_DEBUG_BREAK_IF(streams_it==_compResult.streams.end());
+			const auto& streams = streams_it->second;
+
+			_compResult.debugPrint(streams, &_ctx.backend_ctx);
+
 			SInstanceData instData;
 			instData.tform = inst.tform;
 			instData.tform.getSub3x3InverseTranspose(instData.normalMatrix);
 			instData.emissive = core::rgb32f_to_rgb19e7(emissive.pointer);
-			//ehh this might get broken by -ffast-math
-			core::floatBitsToUint(instData.normalMatrix(0u, 3u)) = inst.instrOffsetCount.first;
-			core::floatBitsToUint(instData.normalMatrix(1u, 3u)) = inst.instrOffsetCount.second;
+			core::floatBitsToUint(instData.normalMatrix(0u, 3u)) = streams.rem_and_pdf.first;
+			core::floatBitsToUint(instData.normalMatrix(1u, 3u)) = streams.rem_and_pdf.count;
+			instData.prefetch_instrStream = {streams.tex_prefetch.first, streams.tex_prefetch.count};
+			instData.nprecomp_instrStream = {streams.norm_precomp.first, streams.norm_precomp.count};
+			instData.genchoice_instrStream = {streams.gen_choice.first, streams.gen_choice.count};
 
 			instanceData.push_back(instData);
 		}
@@ -2523,13 +1671,14 @@ core::smart_refctd_ptr<CMitsubaPipelineMetadata> CMitsubaLoader::createPipelineM
 	return core::make_smart_refctd_ptr<CMitsubaPipelineMetadata>(std::move(_ds0), std::move(inputs));
 }
 
-CMitsubaLoader::SContext::SContext(
+SContext::SContext(
 	const asset::IGeometryCreator* _geomCreator,
 	const asset::IMeshManipulator* _manipulator,
 	const asset::IAssetLoader::SAssetLoadParams& _params,
 	asset::IAssetLoader::IAssetLoaderOverride* _override,
 	CGlobalMitsubaMetadata* _metadata
-) : creator(_geomCreator), manipulator(_manipulator), params(_params), override(_override), globalMeta(_metadata)
+) : creator(_geomCreator), manipulator(_manipulator), params(_params), override(_override), globalMeta(_metadata),
+	ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this)
 {
 	//TODO (maybe) dynamically decide which of those are needed OR just wait until IVirtualTexture does it on itself (dynamically creates resident storages)
 	constexpr asset::E_FORMAT formats[]{ asset::EF_R8_UNORM, asset::EF_R8G8_UNORM, asset::EF_R8G8B8_SRGB, asset::EF_R8G8B8A8_SRGB };
@@ -2555,9 +1704,9 @@ CMitsubaLoader::SContext::SContext(
 	storage[3].formatCount = 1u;
 	storage[3].formats = formats+3;
 
-	VT = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(storage.data(), storage.size(), VT_PAGE_SZ_LOG2, VT_PAGE_TABLE_LAYERS, VT_PAGE_PADDING, VT_MAX_ALLOCATABLE_TEX_SZ_LOG2);
+	backend_ctx.vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(storage.data(), storage.size(), VT_PAGE_SZ_LOG2, VT_PAGE_TABLE_LAYERS, VT_PAGE_PADDING, VT_MAX_ALLOCATABLE_TEX_SZ_LOG2);
 
-	globalMeta->VT = VT;
+	globalMeta->VT = backend_ctx.vt;
 }
 
 }

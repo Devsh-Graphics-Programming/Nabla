@@ -99,11 +99,14 @@ struct InstanceData
 {
 	mat4x3 tform;
 	vec3 normalMatrixRow0;
-	uint instrOffset;
+	uint bsdf_instrOffset;
 	vec3 normalMatrixRow1;
-	uint instrCount;
+	uint bsdf_instrCount;
 	vec3 normalMatrixRow2;
 	uint _padding;//not needed
+	uvec2 prefetch_instrStream;
+	uvec2 nprecomp_instrStream;
+	uvec2 genchoice_instrStream;
 	uvec2 emissive;
 };
 layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
@@ -458,11 +461,11 @@ vec3 fetchTex(in uvec3 texid, in vec2 uv, in mat2 dUV)
 #define INSTR_FETCH_TEX_2_REG_CNT_SHIFT 11u
 #define INSTR_FETCH_TEX_REG_CNT_MASK    0x03u
 #ifdef TEX_PREFETCH_STREAM
-void runTexPrefetchStream(in mat2 dUV)
+void runTexPrefetchStream(uvec2 stream, in mat2 dUV)
 {
-	for (uint i = 0u; i < PC.tex_prefetch.offset; ++i)
+	for (uint i = 0u; i < stream.y; ++i)
 	{
-		instr_t instr = instr_buf.data[PC.tex_prefetch.offset+i];
+		instr_t instr = instr_buf.data[stream.x+i];
 
 		uvec3 regcnt = (instr.xxx >> uvec3(INSTR_FETCH_TEX_0_REG_CNT_SHIFT,INSTR_FETCH_TEX_1_REG_CNT_SHIFT,INSTR_FETCH_TEX_2_REG_CNT_SHIFT)) & uvec3(INSTR_FETCH_TEX_REG_CNT_MASK);
 		bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
@@ -500,11 +503,11 @@ void runTexPrefetchStream(in mat2 dUV)
 #endif
 
 #ifdef NORM_PRECOMP_STREAM
-void runNormalPrecompStream(in mat2 dUV)
+void runNormalPrecompStream(in uvec2 stream, in mat2 dUV)
 {
-	for (uint i = 0u; i < PC.norm_precomp.offset; ++i)
+	for (uint i = 0u; i < stream.y; ++i)
 	{
-		instr_t instr = instr_buf.data[PC.norm_precomp.offset+i];
+		instr_t instr = instr_buf.data[stream.x+i];
 
 		bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
 

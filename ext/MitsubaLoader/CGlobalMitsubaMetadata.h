@@ -4,6 +4,7 @@
 #include "../../ext/MitsubaLoader/CElementIntegrator.h"
 #include "../../ext/MitsubaLoader/CElementSensor.h"
 #include "../../ext/MitsubaLoader/CElementShape.h"
+#include "../../ext/MitsubaLoader/SContext.h"
 #include <irr/asset/ICPUVirtualTexture.h>
 
 namespace irr
@@ -58,7 +59,7 @@ class IMeshMetadata : public IMitsubaMetadata
 		struct Instance
 		{
 			core::matrix3x4SIMD tform;
-			std::pair<uint32_t,uint32_t> instrOffsetCount;
+			SContext::bsdf_type bsdf;
 			CElementEmitter emitter; // type is invalid if not used
 		};
 

@@ -1,4 +1,5 @@
 #include "CMitsubaMaterialCompilerFrontend.h"
+#include "../../ext/MitsubaLoader/SContext.h"
 
 #include <irr/core/Types.h>
 
@@ -8,20 +9,21 @@ namespace ext
 {
 namespace MitsubaLoader
 {
+    auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _element) const -> tex_ass_type
+    {
+        static_assert(std::is_same_v<tex_ass_type, SContext::tex_ass_type>, "These types must be same!");
 
-asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf)
+        auto found = m_loaderContext->textureCache.find(_element);
+        if (found == m_loaderContext->textureCache.end())
+            return tex_ass_type(nullptr, nullptr, 0.f);
+
+        return found->second;
+    }
+
+    asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf)
 {
     using namespace asset;
     using namespace material_compiler;
-
-    IR::INode* root = ir->allocRootNode<IR::CMaterialNode>();
-    bool twosided = false;
-    IR::INode::SParameter<IR::INode::color_t> opacity;
-    {
-        opacity.source = IR::INode::EPS_CONSTANT;
-        opacity.value.constant = IR::INode::color_t(1.f);
-    }
-    const CElementBSDF* current = _bsdf;
 
     auto getFloatOrTexture = [this](const CElementTexture::FloatOrTexture& src, IR::INode::SParameter<float>& dst)
     {
@@ -50,12 +52,22 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
         }
     };
 
-    IR::CMicrofacetSpecularBSDFNode::E_NDF ndfMap[4]{
+    constexpr IR::CMicrofacetSpecularBSDFNode::E_NDF ndfMap[4]{
         IR::CMicrofacetSpecularBSDFNode::ENDF_BECKMANN,
         IR::CMicrofacetSpecularBSDFNode::ENDF_GGX,
         IR::CMicrofacetSpecularBSDFNode::ENDF_PHONG,
         IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY
     };
+
+    IR::INode* root = ir->allocRootNode<IR::CMaterialNode>();
+    root->children.count = 1u;
+    bool twosided = false;
+    IR::INode::SParameter<IR::INode::color_t> opacity;
+    {
+        opacity.source = IR::INode::EPS_CONSTANT;
+        opacity.value.constant = IR::INode::color_t(1.f);
+    }
+    const CElementBSDF* current = _bsdf;
 
     core::queue<const CElementBSDF*> bsdfQ;
     bsdfQ.push(_bsdf);
@@ -70,39 +82,57 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
         bsdfQ.pop();
 
         IR::INode* nextSym;
-        switch (current->type)
+        const auto currType = current->type;
+        switch (currType)
         {
         case CElementBSDF::TWO_SIDED:
             twosided = true;
             bsdfQ.push(current->twosided.bsdf[0]);
+            continue;
             break;
         case CElementBSDF::MASK:
             getSpectrumOrTexture(current->mask.opacity, opacity);
             bsdfQ.push(current->mask.bsdf[0]);
+            continue;
             break;
         case CElementBSDF::DIFFUSE:
         case CElementBSDF::ROUGHDIFFUSE:
             nextSym = ir->allocNode<IR::CMicrofacetDiffuseBSDFNode>();
             getSpectrumOrTexture(current->diffuse.reflectance, static_cast<IR::CMicrofacetDiffuseBSDFNode*>(nextSym)->reflectance);
-            getFloatOrTexture(current->diffuse.alpha, static_cast<IR::CMicrofacetDiffuseBSDFNode*>(nextSym)->alpha_u);
-            getFloatOrTexture(current->diffuse.alpha, static_cast<IR::CMicrofacetDiffuseBSDFNode*>(nextSym)->alpha_v);
+            if (currType==CElementBSDF::ROUGHDIFFUSE)
+            {
+                getFloatOrTexture(current->diffuse.alpha, static_cast<IR::CMicrofacetDiffuseBSDFNode*>(nextSym)->alpha_u);
+                getFloatOrTexture(current->diffuse.alpha, static_cast<IR::CMicrofacetDiffuseBSDFNode*>(nextSym)->alpha_v);
+            }
+            else
+            {
+                static_cast<IR::CMicrofacetDiffuseBSDFNode*>(nextSym)->setSmooth();
+            }
             break;
         case CElementBSDF::CONDUCTOR:
         case CElementBSDF::ROUGHCONDUCTOR:
         {
             nextSym = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>();
             auto* node = static_cast<IR::CMicrofacetSpecularBSDFNode*>(nextSym);
-            node->ndf = ndfMap[current->conductor.distribution];
             node->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
             node->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_REFLECT;
-            getFloatOrTexture(current->conductor.alphaU, node->alpha_u);
-            if (node->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
-                getFloatOrTexture(current->conductor.alphaV, node->alpha_v);
-            else
-                node->alpha_v = node->alpha_u;
             const float extEta = current->conductor.extEta;
             node->eta = current->conductor.eta.vvalue/extEta;
             node->etaK = current->conductor.k.vvalue/extEta;
+
+            if (currType == CElementBSDF::ROUGHCONDUCTOR)
+            {
+                node->ndf = ndfMap[current->conductor.distribution];
+                getFloatOrTexture(current->conductor.alphaU, node->alpha_u);
+                if (node->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
+                    getFloatOrTexture(current->conductor.alphaV, node->alpha_v);
+                else
+                    node->alpha_v = node->alpha_u;
+            }
+            else
+            {
+                node->setSmooth();
+            }
         }
         break;
         case CElementBSDF::PLASTIC:
@@ -119,16 +149,22 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
             specular = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>();
 
             auto* node_specular = static_cast<IR::CMicrofacetSpecularBSDFNode*>(specular);
-            node_specular->ndf = ndfMap[current->plastic.distribution];
-            getFloatOrTexture(current->plastic.alphaU, node_specular->alpha_u);
-            if (node_specular->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
-                getFloatOrTexture(current->plastic.alphaV, node_specular->alpha_v);
-            else
-                node_specular->alpha_v = node_specular->alpha_u;
             node_specular->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
             node_specular->eta = IR::INode::color_t(eta);
             node_specular->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_REFLECT;
-
+            if (currType == CElementBSDF::ROUGHPLASTIC)
+            {
+                node_specular->ndf = ndfMap[current->plastic.distribution];
+                getFloatOrTexture(current->plastic.alphaU, node_specular->alpha_u);
+                if (node_specular->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
+                    getFloatOrTexture(current->plastic.alphaV, node_specular->alpha_v);
+                else
+                    node_specular->alpha_v = node_specular->alpha_u;
+            }
+            else
+            {
+                node_specular->setSmooth();
+            }
             auto* node_diffuse = static_cast<IR::CMicrofacetDiffuseBSDFNode*>(diffuse);
             getSpectrumOrTexture(current->plastic.diffuseReflectance, node_diffuse->reflectance);
             node_diffuse->alpha_u = node_specular->alpha_u;
@@ -153,14 +189,21 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
             auto* node_trans = static_cast<IR::CMicrofacetSpecularBSDFNode*>(trans);
 
             node_refl->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_REFLECT;
-            node_refl->ndf = ndfMap[current->dielectric.distribution];
             node_refl->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
-            getFloatOrTexture(current->dielectric.alphaU, node_refl->alpha_u);
             node_refl->eta = IR::INode::color_t(eta);
-            if (node_refl->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
-                getFloatOrTexture(current->dielectric.alphaV, node_refl->alpha_v);
+            if (currType == CElementBSDF::ROUGHDIELECTRIC)
+            {
+                node_refl->ndf = ndfMap[current->dielectric.distribution];
+                getFloatOrTexture(current->dielectric.alphaU, node_refl->alpha_u);
+                if (node_refl->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
+                    getFloatOrTexture(current->dielectric.alphaV, node_refl->alpha_v);
+                else
+                    node_refl->alpha_v = node_refl->alpha_u;
+            }
             else
-                node_refl->alpha_v = node_refl->alpha_u;
+            {
+                node_refl->setSmooth();
+            }
             node_trans->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_TRANSMIT;
             node_trans->ndf = node_refl->ndf;
             node_trans->shadowing = node_refl->shadowing;
@@ -187,16 +230,23 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
             const float eta = current->dielectric.intIOR/current->dielectric.extIOR;
 
             auto* node = static_cast<IR::CCoatingBSDFNode*>(nextSym);
-            node->ndf = ndfMap[current->coating.distribution];
-            node->shadowing = IR::CCoatingBSDFNode::EST_SMITH;
-            getFloatOrTexture(current->coating.alphaU, node->alpha_u);
-            if (node->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
-                getFloatOrTexture(current->coating.alphaV, node->alpha_v);
-            else
-                node->alpha_v = node->alpha_u;
             node->thickness = current->coating.thickness;
             getSpectrumOrTexture(current->coating.sigmaA, node->sigmaA);
             node->eta = IR::INode::color_t(eta);
+            node->shadowing = IR::CCoatingBSDFNode::EST_SMITH;
+            if (currType == CElementBSDF::ROUGHCOATING)
+            {
+                node->ndf = ndfMap[current->coating.distribution];
+                getFloatOrTexture(current->coating.alphaU, node->alpha_u);
+                if (node->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
+                    getFloatOrTexture(current->coating.alphaV, node->alpha_v);
+                else
+                    node->alpha_v = node->alpha_u;
+            }
+            else
+            {
+                node->setSmooth();
+            }
             bsdfQ.push(current->coating.bsdf[0]);
         }
         break;
@@ -252,14 +302,13 @@ asset::material_compiler::IR::INode* CMitsubaMaterialCompilerFrontend::compileTo
 
     IR::INode::children_array_t surfaces;
     surfaces.count = twosided?2u:1u;
-    auto& surf = surfaces[0];
-    surf = ir->allocNode<IR::INode>(IR::INode::ES_FRONT_SURFACE);
-    surf->children = surfaces;
-    std::swap(surf->children,surfParent->children);
+    surfaces[0] = ir->allocNode<IR::INode>(IR::INode::ES_FRONT_SURFACE);
+    surfaces[0]->children = root->children;
     if (surfaces.count>1u) {
         surfaces[1] = ir->allocNode<IR::INode>(IR::INode::ES_BACK_SURFACE);
-        surfaces[1]->children = surf->children;
+        surfaces[1]->children = root->children;
     }
+    root->children = surfaces;
 
     return root;
 }

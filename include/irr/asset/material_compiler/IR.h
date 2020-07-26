@@ -80,6 +80,8 @@ protected:
     }
 
 public:
+    IR() : memMgr() {}
+
     void deinitTmpNodes()
     {
         for (INode* n : tmp)
@@ -191,12 +193,12 @@ public:
             inline bool operator!=(const children_array_t& rhs) const
             {
                 if (count != rhs.count)
-                    return false;
+                    return true;
 
                 for (uint32_t i = 0u; i < count; ++i)
                     if (array[i]!=rhs.array[i])
-                        return false;
-                return true;
+                        return true;
+                return false;
             }
             inline bool operator==(const children_array_t& rhs) const
             {
@@ -205,7 +207,7 @@ public:
 
             inline bool find(E_SYMBOL s, size_t* ix = nullptr) const 
             { 
-                auto found = std::find_if(begin(),end(),[s](INode* child){return child->symbol==s;});
+                auto found = std::find_if(begin(),end(),[s](const INode* child){return child->symbol==s;});
                 if (found != (array+count))
                 {
                     if (ix)
@@ -226,7 +228,14 @@ public:
             inline const INode* const& operator[](size_t i) const { assert(i<count); return array[i]; }
         };
         template <typename ...Contents>
-        static inline children_array_t createChildrenArray(Contents... children) { return { {children...}, sizeof...(children) }; }
+        static inline children_array_t createChildrenArray(Contents... children) 
+        { 
+            children_array_t a;
+            const INode* ch[]{ children... };
+            memcpy(a.array, ch, sizeof(ch));
+            a.count = sizeof...(children);
+            return a; 
+        }
 
         using color_t = core::vector3df_SIMD;
 
@@ -357,6 +366,14 @@ public:
 
         CMicrofacetSpecularBSDFNode(E_TYPE t = ET_MICROFACET_SPECULAR) : CBSDFNode(t) {}
 
+        void setSmooth(E_NDF _ndf = ENDF_GGX)
+        {
+            ndf = _ndf;
+            alpha_u.source = EPS_CONSTANT;
+            alpha_u.value.constant = 0.f;
+            alpha_v = alpha_u;
+        }
+
         E_NDF ndf;
         E_SHADOWING_TERM shadowing;
         E_SCATTER_MODE scatteringMode;
@@ -366,6 +383,13 @@ public:
     struct CMicrofacetDiffuseBSDFNode : CBSDFNode
     {
         CMicrofacetDiffuseBSDFNode() : CBSDFNode(ET_MICROFACET_DIFFUSE) {}
+
+        void setSmooth()
+        {
+            alpha_u.source = EPS_CONSTANT;
+            alpha_u.value.constant = 0.f;
+            alpha_v = alpha_u;
+        }
 
         SParameter<color_t> reflectance;
         SParameter<float> alpha_u;
