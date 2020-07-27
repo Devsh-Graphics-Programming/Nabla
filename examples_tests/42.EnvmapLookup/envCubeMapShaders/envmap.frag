@@ -272,10 +272,7 @@ void missProgram()
 
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
-// 0 beckmann, 1 ashikhmin-shirley, 2 ggx
-#define SPECULAR_DISTRIBUTION_TO_USE 0 
-
-#include <irr/builtin/glsl/bxdf/brdf/specular/beckmann_smith.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
 irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf)
 {
     float a = BSDFNode_getRoughness(bsdf);
@@ -287,7 +284,7 @@ irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfac
             smpl = irr_glsl_oren_nayar_cos_generate(interaction,u.xy,a*a);
             break;
         case CONDUCTOR_OP:
-            smpl = irr_glsl_beckmann_smith_cos_generate(interaction,u.xy,a,a);
+            smpl = irr_glsl_ggx_cos_generate(interaction,u.xy,a,a);
             break;
         default: // TODO: for dielectric
             smpl = irr_glsl_transmission_cos_generate(interaction);
@@ -308,7 +305,7 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _
             remainder = reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,a*a);
             break;
         case CONDUCTOR_OP:
-            remainder = irr_glsl_beckmann_smith_cos_remainder_and_pdf(pdf,_sample,interaction,ior,a,a);
+            remainder = irr_glsl_ggx_aniso_cos_remainder_and_pdf(pdf,_sample,interaction,ior,a,a);
             break;
         default: // TODO: for dielectric
             remainder = reflectance*irr_glsl_transmission_cos_remainder_and_pdf(pdf,_sample);
