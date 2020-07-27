@@ -267,14 +267,16 @@ void missProgram()
 
 
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
 irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf)
 {
+    float a2 = BSDFNode_getRoughness(bsdf); a2 *= a2;
+
     irr_glsl_BSDFSample smpl;
     switch (BSDFNode_getType(bsdf))
     {
         case DIFFUSE_OP:
-            smpl = irr_glsl_lambertian_cos_generate(interaction,u.xy);
+            smpl = irr_glsl_oren_nayar_cos_generate(interaction,u.xy,a2);
             break;
         case CONDUCTOR_OP:
             smpl = irr_glsl_reflection_cos_generate(interaction);
@@ -287,11 +289,13 @@ irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfac
 }
 vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in BSDFNode bsdf)
 {
+    float a2 = BSDFNode_getRoughness(bsdf); a2 *= a2;
+
     vec3 remainder;
     switch (BSDFNode_getType(bsdf))
     {
         case DIFFUSE_OP:
-            remainder = vec3(irr_glsl_lambertian_cos_remainder_and_pdf(pdf,_sample,interaction));
+            remainder = vec3(irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf,_sample,interaction,a2));
             remainder *= BSDFNode_getReflectance(bsdf);
             break;
         case CONDUCTOR_OP:
@@ -659,8 +663,6 @@ void main()
 /** TODO: Improving Rendering
 
 Now:
-- Check random number decisions & reweighting
-- Change PRNG for scrambling
 - Proper Universal&Robust Materials
 - Test MIS alpha (roughness) scheme
 
