@@ -386,20 +386,46 @@ layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
 layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
 
 
-// TODO: upgrade the xorshift variant to one that uses an addition
-uint rand_xorshift(inout uint rng_state)
+// TODO: @Przemog move to a GLSL math header, unless there is a native GLSL function for this
+uint irr_glsl_rotl(in uint x, in uint k)
 {
-    // Xorshift algorithm from George Marsaglia's paper
-    rng_state ^= (rng_state << 13);
-    rng_state ^= (rng_state >> 17);
-    rng_state ^= (rng_state << 5);
-    return rng_state;
+	return (x<<k) | (x>>(32u-k));
 }
-vec3 rand3d(in uint protoDimension, in uint _sample, inout uint scramble_state)
+
+
+// TODO: @Przemog move to a GLSL built-in "random" header
+#define irr_glsl_xoroshiro64star_state_t uvec2
+#define irr_glsl_xoroshiro64starstar_state_t uvec2
+void irr_glsl_xoroshiro64_state_advance(inout uvec2 state)
+{
+	state[1] ^= state[0];
+	state[0] = irr_glsl_rotl(state[0], 26u) ^ state[1] ^ (state[1]<<9u); // a, b
+	state[1] = irr_glsl_rotl(state[1], 13u); // c
+}
+
+uint irr_glsl_xoroshiro64star(inout irr_glsl_xoroshiro64starstar_state_t state)
+{
+	const uint result = state[0]*0x9E3779BBu;
+
+    irr_glsl_xoroshiro64_state_advance(state);
+
+	return result;
+}
+uint irr_glsl_xoroshiro64starstar(inout irr_glsl_xoroshiro64starstar_state_t state)
+{
+	const uint result = irr_glsl_rotl(state[0]*0x9E3779BBu,5u)*5u;
+    
+    irr_glsl_xoroshiro64_state_advance(state);
+
+	return result;
+}
+// dont move anything below this line
+
+vec3 rand3d(in uint protoDimension, in uint _sample, inout irr_glsl_xoroshiro64star_state_t scramble_state)
 {
     uint address = bitfieldInsert(protoDimension,_sample,MAX_DEPTH_LOG2,MAX_SAMPLES_LOG2);
 	uvec3 seqVal = texelFetch(sampleSequence,int(address)).xyz;
-	seqVal ^= uvec3(rand_xorshift(scramble_state),rand_xorshift(scramble_state),rand_xorshift(scramble_state));
+	seqVal ^= uvec3(irr_glsl_xoroshiro64star(scramble_state),irr_glsl_xoroshiro64star(scramble_state),irr_glsl_xoroshiro64star(scramble_state));
     return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
 }
 
@@ -419,7 +445,7 @@ bool irr_glsl_partitionRandVariable(in float leftProb, inout float xi, out float
     return pickLeft;
 }
 
-void closestHitProgram(in ImmutableRay_t _immutable, inout uint scramble_state)
+void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64star_state_t scramble_state)
 {
     const MutableRay_t mutable = rayStack[stackPtr]._mutable;
 
@@ -543,7 +569,7 @@ void main()
         return;
     }
 
-	uint scramble = textureLod(scramblebuf,TexCoord,0).r;
+	irr_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,TexCoord,0).rg;
     const vec2 pixOffsetParam = vec2(1.0)/vec2(textureSize(scramblebuf,0));
 
 
@@ -561,7 +587,7 @@ void main()
     float meanLumaSquared = 0.0;
     for (int i=0; i<SAMPLES; i++)
     {
-        uint scramble_state = scramble;
+        irr_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
 
         stackPtr = 0;
         // raygen
