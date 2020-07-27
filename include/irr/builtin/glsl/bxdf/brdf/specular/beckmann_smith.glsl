@@ -83,25 +83,28 @@ irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_Anisotropic
 
 	return irr_glsl_createBSDFSample(H,localV,dot(H,localV),m);
 }
+
+// TODO this needs to be a macro/template
 irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 _sample, in float _ax, in float _ay)
 {
     vec2 u = vec2(_sample)/float(UINT_MAX);
     return irr_glsl_beckmann_smith_cos_generate(interaction, u, _ax, _ay);
 }
 
-vec3 irr_glsl_beckmann_smith_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior2, in float ax, in float ay)
+// we take anisotropic roughness but input is isotropic, WTF?
+vec3 irr_glsl_beckmann_smith_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior2, in float ax, in float ay)
 {
 	float a2 = ax*ay;
 	float NdotL2 = s.NdotL*s.NdotL;
-	float lambda_V = irr_glsl_smith_beckmann_Lambda(irr_glsl_smith_beckmann_C2(interaction.NdotV_squared, a2));
+	float lambda_V = irr_glsl_smith_beckmann_Lambda(irr_glsl_smith_beckmann_C2(interaction.isotropic.NdotV_squared, a2));
 	float lambda_L = irr_glsl_smith_beckmann_Lambda(irr_glsl_smith_beckmann_C2(NdotL2, a2));
 	float onePlusLambda_V = 1.0 + lambda_V;
 	float G = 1.0 / onePlusLambda_V;
-	pdf = irr_glsl_beckmann(a2,s.NdotH*s.NdotH)*G*abs(s.VdotH)/interaction.NdotV;
+	pdf = irr_glsl_beckmann(a2,s.NdotH*s.NdotH)*G*abs(s.VdotH)/interaction.isotropic.NdotV;
 	G = onePlusLambda_V/(onePlusLambda_V+lambda_L);//remainder
 	
 	vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], s.VdotH);
-	return fr*G / (4.0 * interaction.NdotV);
+	return fr*G / (4.0 * interaction.isotropic.NdotV);
 }
 
 float irr_glsl_beckmann_smith_height_correlated(in float NdotV2, in float NdotL2, in float a2)
@@ -113,14 +116,14 @@ float irr_glsl_beckmann_smith_height_correlated(in float NdotV2, in float NdotL2
     return 1.0 / (1.0 + L_v + L_l);
 }
 
-//TODO get rid of `a` parameter
-vec3 irr_glsl_beckmann_smith_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction interaction,  in mat2x3 ior2, in float a, in float a2)
+// TODO: generator and remainder function are anisotropic, why is eval isotropic!?
+vec3 irr_glsl_beckmann_smith_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction,  in mat2x3 ior2, in float a2)
 {
-    float g = irr_glsl_beckmann_smith_height_correlated(interaction.NdotV_squared, params.NdotL_squared, a2);
+    float g = irr_glsl_beckmann_smith_height_correlated(interaction.isotropic.NdotV_squared, params.NdotL_squared, a2);
     float ndf = irr_glsl_beckmann(a2, params.NdotH*params.NdotH);
     vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], params.VdotH);
     
-    return g*ndf*fr / (4.0 * interaction.NdotV);
+    return g*ndf*fr / (4.0 * interaction.isotropic.NdotV);
 }
 
 #endif

@@ -45,10 +45,10 @@ irr_glsl_BSDFSample irr_glsl_transmission_cos_generate(in irr_glsl_AnisotropicVi
     return smpl;
 }
 
-vec3 irr_glsl_transmission_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s)
+float irr_glsl_transmission_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s)
 {
 	pdf = 1.0/0.0;
-	return vec3(1.0);
+	return 1.0;
 }
 
 irr_glsl_BSDFSample irr_glsl_reflection_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
@@ -60,10 +60,10 @@ irr_glsl_BSDFSample irr_glsl_reflection_cos_generate(in irr_glsl_AnisotropicView
     return smpl;
 }
 
-vec3 irr_glsl_reflection_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s)
+float irr_glsl_reflection_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s)
 {
 	pdf = 1.0/0.0;
-	return vec3(1.0);
+	return 1.0;
 }
 
 // TODO Move to different header

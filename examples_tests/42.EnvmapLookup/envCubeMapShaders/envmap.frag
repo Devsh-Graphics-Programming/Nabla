@@ -4,7 +4,7 @@
 
 // basic settings
 #define MAX_DEPTH 8
-#define SAMPLES 8
+#define SAMPLES 128
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -100,6 +100,10 @@ vec3 BSDFNode_getRealEta(in BSDFNode node)
 vec3 BSDFNode_getImaginaryEta(in BSDFNode node)
 {
     return uintBitsToFloat(node.data[1].rgb);
+}
+mat2x3 BSDFNode_getEta(in BSDFNode node)
+{
+    return mat2x3(BSDFNode_getRealEta(node),BSDFNode_getImaginaryEta(node));
 }
 
 float BSDFNode_getMISWeight(in BSDFNode bsdf)
@@ -268,44 +272,46 @@ void missProgram()
 
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
+// 0 beckmann, 1 ashikhmin-shirley, 2 ggx
+#define SPECULAR_DISTRIBUTION_TO_USE 0 
+
+#include <irr/builtin/glsl/bxdf/brdf/specular/beckmann_smith.glsl>
 irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf)
 {
-    float a2 = BSDFNode_getRoughness(bsdf); a2 *= a2;
+    float a = BSDFNode_getRoughness(bsdf);
 
     irr_glsl_BSDFSample smpl;
     switch (BSDFNode_getType(bsdf))
     {
         case DIFFUSE_OP:
-            smpl = irr_glsl_oren_nayar_cos_generate(interaction,u.xy,a2);
+            smpl = irr_glsl_oren_nayar_cos_generate(interaction,u.xy,a*a);
             break;
         case CONDUCTOR_OP:
-            smpl = irr_glsl_reflection_cos_generate(interaction);
+            smpl = irr_glsl_beckmann_smith_cos_generate(interaction,u.xy,a,a);
             break;
         default: // TODO: for dielectric
-            smpl = irr_glsl_reflection_cos_generate(interaction);
+            smpl = irr_glsl_transmission_cos_generate(interaction);
             break;
     }
     return smpl;
 }
 vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in BSDFNode bsdf)
 {
-    float a2 = BSDFNode_getRoughness(bsdf); a2 *= a2;
+    const vec3 reflectance = BSDFNode_getReflectance(bsdf);
+    const float a = BSDFNode_getRoughness(bsdf);
+    const mat2x3 ior = BSDFNode_getEta(bsdf);
 
     vec3 remainder;
     switch (BSDFNode_getType(bsdf))
     {
         case DIFFUSE_OP:
-            remainder = vec3(irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf,_sample,interaction,a2));
-            remainder *= BSDFNode_getReflectance(bsdf);
+            remainder = reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,a*a);
             break;
         case CONDUCTOR_OP:
-            //remainder = irr_glsl_reflection_cos_remainder_and_pdf(pdf,_sample);
-            pdf = _sample.NdotH==1.0 ? (1.0/0.0):0.0;
-            remainder = normalize(BSDFNode_getReflectance(bsdf));
+            remainder = irr_glsl_beckmann_smith_cos_remainder_and_pdf(pdf,_sample,interaction,ior,a,a);
             break;
         default: // TODO: for dielectric
-            pdf = _sample.NdotH==1.0 ? (1.0/0.0):0.0;
-            remainder = normalize(BSDFNode_getReflectance(bsdf));
+            remainder = reflectance*irr_glsl_transmission_cos_remainder_and_pdf(pdf,_sample);
             break;
     }
     return remainder;
