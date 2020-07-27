@@ -31,12 +31,12 @@ irr_glsl_BSDFSample irr_glsl_oren_nayar_cos_generate(in irr_glsl_AnisotropicView
     return irr_glsl_lambertian_cos_generate(interaction,u);
 }
 
-float irr_glsl_oren_nayar_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in float a2)
+float irr_glsl_oren_nayar_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float a2)
 {
     // paired with the generation function
     irr_glsl_lambertian_cos_remainder_and_pdf(pdf,s,interaction);
     // but the remainder is different
-    return irr_glsl_oren_nayar_rec_pi_factored_out(a2, dot(interaction.isotropic.V.dir,s.L), s.NdotL, interaction.isotropic.NdotV);
+    return irr_glsl_oren_nayar_rec_pi_factored_out(a2, dot(interaction.V.dir,s.L), s.NdotL, interaction.NdotV);
 }
 
 #endif
