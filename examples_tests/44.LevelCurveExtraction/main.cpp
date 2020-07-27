@@ -64,8 +64,7 @@ int main()
     //saving cache to file
     qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10,fs,"../../tmp/normalCache101010.sse");
     
-    //copy the pipeline
-    auto pipeline_cp = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(mesh_raw->getMeshBuffer(0u)->getPipeline()->clone());
+
     auto geometryShaderCode = R"===(
 #version 440 core
 struct DrawIndirectArrays_t
@@ -111,35 +110,98 @@ void main() {
 } 
 )===";
 
+    //copy the pipeline
+    auto pipeline_cp = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(mesh_raw->getMeshBuffer(0u)->getPipeline()->clone(1u));
     //get the simple geometry shader data and turn it into ICPUSpecializedShader
     auto len = strlen(geometryShaderCode);
     auto shaderData = core::make_smart_refctd_ptr<asset::ICPUBuffer>(len);
     memcpy(shaderData->getPointer(), geometryShaderCode, len);
     auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shaderData), asset::ICPUShader::buffer_contains_glsl);
     auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_GEOMETRY));
-    pipeline_cp->setShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_GEOMETRY_SHADER_IX, shader.get());
 
-    mesh_raw->getMeshBuffer(0)->setPipeline(std::move(pipeline_cp));
+    pipeline_cp->setShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_GEOMETRY_SHADER_IX, shader.get());
+    auto* layout = pipeline_cp->getLayout();
+    core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds0layout;
+    {
+        asset::ICPUDescriptorSetLayout::SBinding b[2];
+        b[0].binding = 0u;
+        b[0].count = 1u;
+        b[0].samplers = nullptr;
+        b[0].stageFlags = asset::ISpecializedShader::ESS_GEOMETRY;
+        b[0].type = asset::EDT_STORAGE_BUFFER;
+        b[1].binding = 1u;
+        b[1].count = 1u;
+        b[1].samplers = nullptr;
+        b[1].stageFlags = asset::ISpecializedShader::ESS_GEOMETRY;
+        b[1].type = asset::EDT_STORAGE_BUFFER;
+
+        ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(b,b+2);
+    }
+    layout->setDescriptorSetLayout(0,core::smart_refctd_ptr(ds0layout));
+
+    auto gpuds0layout = driver->getGPUObjectsFromAssets(&ds0layout, &ds0layout + 1)->front();
+
+    for (size_t i = 0; i < mesh_raw->getMeshBufferCount(); i++)
+    {
+        mesh_raw->getMeshBuffer(i)->setPipeline(core::smart_refctd_ptr(pipeline_cp));
+    }
 
 
     //create buffers for the geometry shader
-    auto lineCountBuffer = driver->createDeviceLocalGPUBufferOnDedMem(roundUp(sizeof(irr::asset::DrawArraysIndirectCommand_t),16ull));
+    asset::DrawArraysIndirectCommand_t drawArraysIndirectCmd;
+    drawArraysIndirectCmd.instanceCount = 1u;
+    drawArraysIndirectCmd.baseInstance = 0u;
+    drawArraysIndirectCmd.count = 0u;
+    drawArraysIndirectCmd.first = 0u;
+    //auto lineCountBuffer = driver->createDeviceLocalGPUBufferOnDedMem(roundUp(sizeof(irr::asset::DrawArraysIndirectCommand_t),16ull));
+    auto lineCountBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(roundUp(sizeof(irr::asset::DrawArraysIndirectCommand_t), 16ull), &drawArraysIndirectCmd);
     uint32_t triangleCount;
     if (!asset::IMeshManipulator::getPolyCount(triangleCount, mesh_raw))
         assert(false);
 
     auto linesBuffer = driver->createDeviceLocalGPUBufferOnDedMem(triangleCount * 6 * sizeof(float));
     
-    driver->fillBuffer(lineCountBuffer.get(), offsetof(irr::asset::DrawArraysIndirectCommand_t, instanceCount), sizeof(uint32_t), triangleCount * 6 * sizeof(uint32_t));
-    //not sure what first refers to
-    driver->fillBuffer(lineCountBuffer.get(), offsetof(irr::asset::DrawArraysIndirectCommand_t, first), sizeof(uint32_t), triangleCount * 6 * sizeof(uint32_t));        
-    //not sure what baseInstance does
-    driver->fillBuffer(lineCountBuffer.get(), offsetof(irr::asset::DrawArraysIndirectCommand_t, baseInstance), sizeof(uint32_t), triangleCount * 6 * sizeof(uint32_t)); 
+    auto gpuds0 = driver->createGPUDescriptorSet(std::move(gpuds0layout));
+    {
+        video::IGPUDescriptorSet::SWriteDescriptorSet w[2];
+        video::IGPUDescriptorSet::SDescriptorInfo i[2];
+        w[0].arrayElement = 0;
+        w[0].binding = 0u;
+        w[0].count = 1u;
+        w[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+        w[0].dstSet = gpuds0.get();
+        w[0].info = i;
+        i[0].desc = lineCountBuffer;
+        i[0].buffer.offset = 0;
+        i[0].buffer.size = lineCountBuffer->getSize();
+        w[1].arrayElement = 0;
+        w[1].binding = 1u;
+        w[1].count = 1u;
+        w[1].descriptorType = asset::EDT_STORAGE_BUFFER;
+        w[1].dstSet = gpuds0.get();
+        w[1].info = i+1;
+        i[1].desc = linesBuffer;
+        i[1].buffer.offset = 0;
+        i[1].buffer.size = linesBuffer->getSize();
 
-    const asset::SBufferBinding<video::IGPUBuffer> bufferBinding = { 0u ,linesBuffer };
+        driver->updateDescriptorSets(2u, w, 0u, nullptr);
+    }
+
+    asset::SBufferBinding<video::IGPUBuffer> bufferBinding[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
+    bufferBinding[0].offset = 0;
+    bufferBinding[0].buffer = linesBuffer; 
+    for (size_t i = 1; i < video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
+    {
+        bufferBinding[i].offset = 0;
+        bufferBinding[i].buffer = nullptr;
+    }
+
+
+
+
     //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
     //so we can create just one DS
-    asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffer(0u)->getPipeline()->getLayout()->getDescriptorSetLayout(0u); //set 1u ---> 0u ?
+    asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffer(0u)->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
     uint32_t ds1UboBinding = 0u;
     for (const auto& bnd : ds1layout->getBindings())
         if (bnd.type==asset::EDT_UNIFORM_BUFFER)
@@ -195,7 +257,6 @@ void main() {
 		driver->beginScene(true, true, video::SColor(255,255,255,255) );
         
         // zero out buffer LineCount
-        driver->fillBuffer(lineCountBuffer.get(),0,sizeof(uint32_t),0);
         driver->fillBuffer(lineCountBuffer.get(),offsetof(irr::asset::DrawArraysIndirectCommand_t,count), roundUp(sizeof(uint32_t), 16ull),0u);
 
         //! This animates (moves) the camera and sets the transforms
@@ -246,13 +307,13 @@ void main() {
             const video::IGPUDescriptorSet* ds3 = gpumb->getAttachedDescriptorSet();
 
             driver->bindGraphicsPipeline(pipeline);
+            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 0u, 1u, &gpuds0.get(), nullptr);
             const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
             driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 1u, 1u, &gpuds1_ptr, nullptr);
             const video::IGPUDescriptorSet* gpuds3_ptr = gpumb->getAttachedDescriptorSet();
             if (gpuds3_ptr)
                 driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
             driver->pushConstants(pipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, gpumb->MAX_PUSH_CONSTANT_BYTESIZE, gpumb->getPushConstantsDataPtr());
-
             driver->drawMeshBuffer(gpumb);
         }
         //emit "memory barrier" of type GL_ALL_BARRIER_BITS after the entire scene finishes drawing
@@ -266,7 +327,7 @@ void main() {
             size_t offset, size_t maxCount, size_t stride,                      theres no overload that takes DrawArraysIndirectCommand_t
             const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u    dont need to use these
             */
-        driver->drawArraysIndirect(&bufferBinding, asset::EPT_LINE_LIST, linesBuffer.get(), 0u, triangleCount * 6 * sizeof(uint32_t), 6 * sizeof(uint32_t));
+        driver->drawArraysIndirect(bufferBinding, asset::EPT_LINE_LIST, lineCountBuffer.get(), 0u,1,sizeof(asset::DrawArraysIndirectCommand_t));
             
         //driver->drawArraysIndirect( asset::SBufferBinding<video::IGPUBuffer>(linesBuffer),);
 		driver->endScene();
