@@ -305,7 +305,7 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _
             remainder = reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,a*a);
             break;
         case CONDUCTOR_OP:
-            remainder = irr_glsl_ggx_aniso_cos_remainder_and_pdf(pdf,_sample,interaction,ior,a,a);
+            remainder = irr_glsl_ggx_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,ior,a*a);
             break;
         default: // TODO: for dielectric
             remainder = reflectance*irr_glsl_transmission_cos_remainder_and_pdf(pdf,_sample);

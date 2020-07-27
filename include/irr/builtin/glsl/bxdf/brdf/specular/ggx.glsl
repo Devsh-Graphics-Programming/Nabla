@@ -64,12 +64,12 @@ irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurface
 vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior2, in float a2)
 {
 	float one_minus_a2 = 1.0-a2;
-	float G1 = irr_glsl_GGXSmith_G1_(s.LdotN,a2,one_minus_a2);
+	float G1 = irr_glsl_GGXSmith_G1_(s.NdotL,a2,one_minus_a2);
 	pdf = irr_glsl_ggx_trowbridge_reitz(a2,s.NdotH*s.NdotH)*G1*abs(s.VdotH)/interaction.NdotV;
 	
 	float devsh_v = irr_glsl_smith_ggx_devsh_part(interaction.NdotV_squared,a2,one_minus_a2);
-	float G2_over_G1 = s.LdotN*(devsh_v + interaction.NdotV);
-	G2_over_G1 /= interaction.NdotV*irr_glsl_smith_ggx_devsh_part(s.LdotN*s.LdotN,a2,one_minus_a2) + s.LdotN*devsh_v;
+	float G2_over_G1 = s.NdotL*(devsh_v + interaction.NdotV);
+	G2_over_G1 /= interaction.NdotV*irr_glsl_smith_ggx_devsh_part(s.NdotL*s.NdotL,a2,one_minus_a2) + s.NdotL*devsh_v;
 	
 	vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], s.VdotH);
 	return fr*G2_over_G1;
