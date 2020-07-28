@@ -188,7 +188,7 @@ int main()
 	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
-	scene::ICameraSceneNode* camera = sceneManager->addCameraSceneNodeFPS(0, 100.0f, 0.01f);
+	scene::ICameraSceneNode* camera = sceneManager->addCameraSceneNodeFPS(0, 100.0f, 0.001f);
 	camera->setLeftHanded(false);
 
 	camera->setPosition(core::vector3df(0, 2, 3));
