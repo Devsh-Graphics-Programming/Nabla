@@ -18,10 +18,10 @@ vec3 irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(in irr_glsl_BSDFIsotropicP
     return irr_glsl_blinn_phong(params.NdotH, n) * irr_glsl_fresnel_dielectric(ior, params.VdotH) / denom;
 }
 
-vec3 irr_glsl_blinn_phong_fresnel_conductor_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in float n, in mat2x3 ior2)
+vec3 irr_glsl_blinn_phong_fresnel_conductor_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in float n, in mat2x3 ior)
 {
     float denom = 4.0*inter.NdotV;
-    return irr_glsl_blinn_phong(params.NdotH, n) * irr_glsl_fresnel_conductor(ior2[0], ior2[1], params.VdotH) / denom;
+    return irr_glsl_blinn_phong(params.NdotH, n) * irr_glsl_fresnel_conductor(ior[0], ior[1], params.VdotH) / denom;
 }
 
 #endif

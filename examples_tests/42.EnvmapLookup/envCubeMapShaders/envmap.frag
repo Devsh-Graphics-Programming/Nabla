@@ -315,6 +315,7 @@ irr_glsl_BSDFSample irr_glsl_smooth_dielectric_cos_sample(in irr_glsl_Anisotropi
 irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf)
 {
     float a = BSDFNode_getRoughness(bsdf);
+    const mat2x3 ior = BSDFNode_getEta(bsdf);
 
     irr_glsl_BSDFSample smpl;
     switch (BSDFNode_getType(bsdf))
@@ -326,7 +327,7 @@ irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfac
             smpl = irr_glsl_ggx_cos_generate(interaction,u.xy,a,a);
             break;
         default:
-            smpl = irr_glsl_smooth_dielectric_cos_sample(interaction,u,vec3(1.33));
+            smpl = irr_glsl_smooth_dielectric_cos_sample(interaction,u,ior[0]);
             break;
     }
     return smpl;
@@ -342,7 +343,7 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _
 {
     const vec3 reflectance = BSDFNode_getReflectance(bsdf);
     const float a = BSDFNode_getRoughness(bsdf);
-    const mat2x3 ior = BSDFNode_getEta(bsdf);
+    mat2x3 ior = BSDFNode_getEta(bsdf);
 
     vec3 remainder;
     switch (BSDFNode_getType(bsdf))
