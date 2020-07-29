@@ -3,7 +3,6 @@
 
 #include <irr/builtin/glsl/bxdf/common.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ndf/ashikhmin_shirley.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/fresnel/fresnel.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/geom/smith.glsl>
 
 //n is 2 phong-like exponents for anisotropy, can be defined as vec2(1.0/at, 1.0/ab) where at is roughness along tangent direction and ab is roughness along bitangent direction

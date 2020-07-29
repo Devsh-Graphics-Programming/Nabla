@@ -4,7 +4,6 @@
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ndf/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/geom/smith.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/fresnel/fresnel.glsl>
 
 vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction inter, in mat2x3 ior, in float a2, in vec2 atb, in float aniso)
 {

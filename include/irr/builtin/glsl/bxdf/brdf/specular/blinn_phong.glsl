@@ -2,7 +2,7 @@
 #define _IRR_BSDF_BRDF_SPECULAR_BLINN_PHONG_INCLUDED_
 
 #include <irr/builtin/glsl/bxdf/common.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/fresnel/fresnel.glsl>
+#include <irr/builtin/glsl/bxdf/common_samples.glsl>
 
 float irr_glsl_blinn_phong(in float NdotH, in float n)
 {

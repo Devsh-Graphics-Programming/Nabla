@@ -3,6 +3,7 @@
 
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
 
+// TODO: functions for sampling according to `abs(NdotL)*0.5/irr_glsl_RECIPROCAL_PI` in `glsl/bxdf/bsdf`
 irr_glsl_BSDFSample irr_glsl_cos_weighted_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample)
 {
     vec2 p = irr_glsl_concentricMapping(_sample);
@@ -19,19 +20,10 @@ irr_glsl_BSDFSample irr_glsl_cos_weighted_cos_generate(in irr_glsl_AnisotropicVi
 
     return smpl;
 }
-irr_glsl_BSDFSample irr_glsl_cos_weighted_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 _sample)
-{
-    vec2 u = vec2(_sample)/float(UINT_MAX);
-    return irr_glsl_cos_weighted_cos_generate(interaction, u);
-}
 
-//returning just 1.0 since we dont know which brdf is being sampled, maybe return irr_glsl_PI instead
-//TODO oren-nayar cos_eval with rec_pi factored out
-vec3 irr_glsl_cos_weighted_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
+float irr_glsl_cos_weighted_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
 {
-	float val = s.NdotL*irr_glsl_RECIPROCAL_PI;
-	pdf = val;
-	
+	pdf = s.NdotL*irr_glsl_RECIPROCAL_PI;
 	return 1.0;
 }
 

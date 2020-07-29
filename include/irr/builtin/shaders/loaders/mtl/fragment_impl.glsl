@@ -65,8 +65,8 @@ vec4 irr_sample_bump(in vec2 uv, in mat2 dUV) { return texture(map_bump, uv); }
 #endif
 #endif //_IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_
 
-// change to bxdf/brdf
-#include <irr/builtin/glsl/bxdf/brdf/specular/fresnel/fresnel.glsl>
+
+#include <irr/builtin/glsl/bxdf/fresnel.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/fresnel_correction.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl>

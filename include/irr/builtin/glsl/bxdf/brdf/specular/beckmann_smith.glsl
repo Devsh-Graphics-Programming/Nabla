@@ -4,7 +4,6 @@
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ndf/beckmann.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/geom/smith.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/fresnel/fresnel.glsl>
 #include <irr/builtin/glsl/math/functions.glsl>
 
 #include <irr/builtin/glsl/math/functions.glsl>
