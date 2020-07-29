@@ -288,33 +288,11 @@ void missProgram()
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
-irr_glsl_BSDFSample irr_glsl_smooth_dielectric_cos_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, vec3 u, in vec3 eta, out float throuhgput)
-{
-    float NdotV = interaction.isotropic.NdotV;
-    vec3 Fr = irr_glsl_fresnel_dielectric(eta,NdotV);
-    float reflectionProb = Fr.r;//dot(Fr, luminosityContributionHint);
-    
-    const bool reflected = irr_glsl_partitionRandVariable(reflectionProb,u.z,throuhgput);
-
-    irr_glsl_BSDFSample smpl;
-    vec3 V = interaction.isotropic.V.dir;
-    vec3 N = interaction.isotropic.N;
-    if (reflected)
-        smpl.L = irr_glsl_reflect(V,-N,-NdotV);
-    else
-        smpl.L = irr_glsl_refract(V,N,NdotV,eta.r);
-
-    return smpl;
-}
-irr_glsl_BSDFSample irr_glsl_smooth_dielectric_cos_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in vec3 eta)
-{
-    float dummy;
-    return irr_glsl_smooth_dielectric_cos_sample(interaction,u,eta,dummy);
-}
+#include <irr/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
 
 irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf)
 {
-    float a = BSDFNode_getRoughness(bsdf);
+    const float a = BSDFNode_getRoughness(bsdf);
     const mat2x3 ior = BSDFNode_getEta(bsdf);
 
     irr_glsl_BSDFSample smpl;
@@ -327,16 +305,10 @@ irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfac
             smpl = irr_glsl_ggx_cos_generate(interaction,u.xy,a,a);
             break;
         default:
-            smpl = irr_glsl_smooth_dielectric_cos_sample(interaction,u,ior[0]);
+            smpl = irr_glsl_thin_smooth_dielectric_cos_sample(interaction,u,ior[0]);
             break;
     }
     return smpl;
-}
-
-vec3 irr_glsl_smooth_dielectric_cos_remainder(out float pdf, in irr_glsl_BSDFSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in vec3 eta)
-{
-    pdf = 1.0/0.0; // should be reciprocal probability of the fresnel choice divided by 0.0, still an INF.
-    return vec3(1.0);
 }
 
 vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in BSDFNode bsdf)
@@ -355,7 +327,7 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _
             remainder = irr_glsl_ggx_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,ior,a*a);
             break;
         default:
-            remainder = irr_glsl_smooth_dielectric_cos_remainder(pdf,_sample,interaction.isotropic,ior[0]);
+            remainder = irr_glsl_thin_smooth_dielectric_cos_remainder(pdf,_sample,interaction.isotropic,ior[0]);
             break;
     }
     return remainder;
@@ -538,19 +510,14 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
         vec3 epsilon = rand3d(depth,sampleIx,scramble_state);
     
         float rcpChoiceProb;
-        const bool pickBSDF = irr_glsl_partitionRandVariable(bsdfGeneratorProbability,epsilon.z,rcpChoiceProb);
+        const bool doNEE = irr_glsl_partitionRandVariable(bsdfGeneratorProbability,epsilon.z,rcpChoiceProb);
     
 
         float maxT;
         // the probability of generating a sample w.r.t. the light generator only possible and used when it was generated with it!
         float lightPdf;
         GeneratorSample _sample;
-        if (pickBSDF)
-        {
-                maxT = FLT_MAX;
-            _sample = irr_glsl_bsdf_cos_generate(interaction,epsilon,bsdf);
-        }
-        else
+        if (doNEE)
         {
             vec3 lightRemainder;
             _sample = irr_glsl_light_generate_and_remainder_and_pdf(
@@ -559,6 +526,11 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
                 depth
             );
             throughput *= lightRemainder;
+        }
+        else
+        {
+            maxT = FLT_MAX;
+            _sample = irr_glsl_bsdf_cos_generate(interaction,epsilon,bsdf);
         }
             
         // do a cool trick and always compute the bsdf parts this way! (no divergence)
@@ -574,17 +546,17 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
             rayStack[stackPtr]._payload.throughput = throughput*rcpChoiceProb;
 
             float heuristicFactor = rcpChoiceProb-1.0; // weightNonGenerator/weightGenerator
-            heuristicFactor /= pickBSDF ? bsdfPdf:lightPdf; // weightNonGenerator/(weightGenerator*probGenerated)
+            heuristicFactor /= doNEE ? lightPdf:bsdfPdf; // weightNonGenerator/(weightGenerator*probGenerated)
             heuristicFactor *= heuristicFactor; // (weightNonGenerator/(weightGenerator*probGenerated))^2
-            if (!pickBSDF)
+            if (doNEE)
                 heuristicFactor = 1.0/(1.0/bsdfPdf+heuristicFactor*bsdfPdf); // numerically stable, don't touch
             rayStack[stackPtr]._payload.otherTechniqueHeuristic = heuristicFactor;
                     
             // trace new ray
-            rayStack[stackPtr]._immutable.origin = intersection+_sample.L*(pickBSDF ? 1.0/*kSceneSize*/:maxT)*getStartTolerance(depth);
+            rayStack[stackPtr]._immutable.origin = intersection+_sample.L*(doNEE ? maxT:1.0/*kSceneSize*/)*getStartTolerance(depth);
             rayStack[stackPtr]._immutable.maxT = maxT;
             rayStack[stackPtr]._immutable.direction = _sample.L;
-            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(sampleIx,depth+1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT)|(pickBSDF ? 0:ANY_HIT_FLAG);
+            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(sampleIx,depth+1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT)|(doNEE ? ANY_HIT_FLAG:0);
             stackPtr++;
         }
     }

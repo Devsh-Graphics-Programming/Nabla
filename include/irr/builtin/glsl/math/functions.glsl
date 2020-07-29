@@ -121,6 +121,15 @@ vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float eta)
     return irr_glsl_refract(I, N, NdotI, eta);
 }
 
+vec3 irr_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in float NdotI, in float NdotI2, float eta)
+{
+    const bool backside = NdotI < 0.0;
+    eta = backside ? eta : (1.0 / eta);
+    const float eta2 = eta * eta;
+    const float k = _refract ? sqrt(eta2 * NdotI2 + 1.0 - eta2):0.0;
+    return N*(NdotI*(_refract ? eta:2.0)+(backside ? k:(-k))) - I*(_refract ? eta:1.0);
+}
+
 // valid only for `theta` in [-PI,PI]
 void irr_glsl_sincos(in float theta, out float s, out float c)
 {
@@ -140,15 +149,15 @@ mat2x3 irr_glsl_frisvad(in vec3 n)
 bool irr_glsl_partitionRandVariable(in float leftProb, inout float xi, out float rcpChoiceProb)
 {
     const float NEXT_ULP_AFTER_UNITY = uintBitsToFloat(0x3f800001u);
-    const bool pickLeft = xi<leftProb*NEXT_ULP_AFTER_UNITY;
+    const bool pickRight = xi>=leftProb*NEXT_ULP_AFTER_UNITY;
 
     // This is all 100% correct taking into account the above NEXT_ULP_AFTER_UNITY
-    xi -= pickLeft ? 0.0:leftProb;
+    xi -= pickRight ? leftProb:0.0;
 
-    rcpChoiceProb = 1.0/(pickLeft ? leftProb:(1.0-leftProb));
+    rcpChoiceProb = 1.0/(pickRight ? (1.0-leftProb):leftProb);
     xi *= rcpChoiceProb;
 
-    return pickLeft;
+    return pickRight;
 }
 
 #endif

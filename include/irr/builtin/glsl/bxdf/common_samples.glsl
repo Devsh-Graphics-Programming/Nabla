@@ -59,6 +59,7 @@ irr_glsl_BSDFSample irr_glsl_createBSDFSample(out vec3 reflectivity, in vec3 H, 
 {
     irr_glsl_BSDFSample s;
 
+    // USE irr_glsl_reflect_refract
     vec3 L = irr_glsl_refract(V, H, VdotH, eta);
     s.L = m * L; // m must be an orthonormal matrix
     s.TdotL = L.x;
