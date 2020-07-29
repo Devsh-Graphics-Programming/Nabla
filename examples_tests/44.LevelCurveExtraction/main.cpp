@@ -2,12 +2,93 @@
 #include <iostream>
 #include <cstdio>
 #include <irrlicht.h>
-
-//! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
 #include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
 
-//#include "../../ext/ScreenShot/ScreenShot.h"
+
+
+const char* vertShaderCode = R"===(
+#version 430 core
+layout(location = 0) in vec4 vPos;
+layout( push_constant, row_major ) uniform Block {
+	mat4 modelViewProj;
+} PushConstants;
+
+void main()
+{
+    gl_Position = PushConstants.modelViewProj * vPos;
+}
+)===";
+const char* fragShaderCode = R"===(
+#version 430 core
+layout(location = 0) out vec4 pixelColor;
+void main()
+{
+    pixelColor = vec4(0,1,0,1);
+}
+)===";
+
+const char* geometryShaderCode = R"===(
+#version 440 core
+struct DrawIndirectArrays_t
+{
+	uint  count;
+	uint  instanceCount;
+	uint  first;
+	uint  baseInstance;
+};
+layout (triangles) in;
+layout (triangle_strip, max_vertices = 3) out;
+layout (location = 0) in vec3 LocalPos[];
+layout (location = 1) in vec3 ViewPos[];
+layout (location = 2) in vec3 Normal[];
+layout (location = 0) out vec3 fragLocalPos;
+layout (location = 1) out vec3 fragViewPos;
+layout (location = 2) out vec3 fragNormal;
+#ifndef _NO_UV
+layout (location = 3) in vec2 UV[];
+layout (location = 3) out vec2 fragUV;
+#endif
+
+layout(set=0, binding=0) coherent buffer LineCount
+{
+  DrawIndirectArrays_t lineDraw;
+};
+layout(set=0, binding=1) writeonly buffer Lines
+{
+  float linePoints[]; // 6 floats decribe a line, 3d start, 3d end
+};
+
+void main() {    
+    uint i;
+    vec3 end = vec3(0,0,0);
+    vec3 start = LocalPos[0];
+    for(i = 0;i < gl_in.length();i++)
+    {
+        fragLocalPos = LocalPos[i];
+        fragViewPos = ViewPos[i];
+        fragNormal = Normal[i];
+        gl_Position = gl_in[i].gl_Position;
+#ifndef _NO_UV
+        fragUV = UV[i];
+#endif
+        end += LocalPos[i];
+        EmitVertex();
+    }
+    EndPrimitive();
+
+    end /= gl_in.length();
+    uint outId = atomicAdd(lineDraw.count,2u);
+    outId *= 3u;
+    linePoints[outId+0u] = start.x;
+    linePoints[outId+1u] = start.y;
+    linePoints[outId+2u] = start.z;
+    linePoints[outId+3u] = end.x;
+    linePoints[outId+4u] = end.y;
+    linePoints[outId+5u] = end.z;
+}  
+)===";
+
 
 
 using namespace irr;
@@ -63,76 +144,20 @@ int main()
 
     //saving cache to file
     qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10,fs,"../../tmp/normalCache101010.sse");
-    
-
-    auto geometryShaderCode = R"===(
-#version 440 core
-struct DrawIndirectArrays_t
-{
-	uint  count;
-	uint  instanceCount;
-	uint  first;
-	uint  baseInstance;
-};
-layout (triangles) in;
-layout (triangle_strip, max_vertices = 3) out;
-layout (location = 0) in vec3 LocalPos[];
-layout (location = 1) in vec3 ViewPos[];
-layout (location = 2) in vec3 Normal[];
-layout (location = 0) out vec3 fragLocalPos;
-layout (location = 1) out vec3 fragViewPos;
-layout (location = 2) out vec3 fragNormal;
-#ifndef _NO_UV
-layout (location = 3) in vec2 UV[];
-layout (location = 3) out vec2 fragUV;
-#endif
-
-layout(set=0, binding=0) coherent buffer LineCount
-{
-  DrawIndirectArrays_t lineDraw;
-};
-layout(set=0, binding=1) writeonly buffer Lines
-{
-  float linePoints[]; // 6 floats decribe a line, 3d start, 3d end
-};
-
-void main() {    
-    uint i;
-    vec3 end = vec3(0,0,0);
-    vec3 start = vec3(gl_in[0].gl_Position);
-    for(i = 0;i < gl_in.length();i++)
-    {
-        fragLocalPos = LocalPos[i];
-        fragViewPos = ViewPos[i];
-        fragNormal = Normal[i];
-        gl_Position = gl_in[i].gl_Position;
-#ifndef _NO_UV
-        fragUV = UV[i];
-#endif
-        end += vec3(gl_in[i].gl_Position);
-        EmitVertex();
-    }
-    EndPrimitive();
-
-    end /= gl_in.length();
-    uint outId = atomicAdd(lineDraw.count,1u);
-    outId *= 6u;
-    linePoints[outId+0u] = start.x;
-    linePoints[outId+1u] = start.y;
-    linePoints[outId+2u] = start.z;
-    linePoints[outId+3u] = end.x;
-    linePoints[outId+4u] = end.y;
-    linePoints[outId+5u] = end.z;
-}  
-)===";
-
+  
     //copy the pipeline
     auto pipeline_cp = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(mesh_raw->getMeshBuffer(0u)->getPipeline()->clone(1u));
     //get the simple geometry shader data and turn it into ICPUSpecializedShader
-    auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(geometryShaderCode);
-    auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_GEOMETRY));
+    auto unspecializedVertShader = driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(vertShaderCode));
+    auto unspecializedFragShader = driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(fragShaderCode));
+    auto unspecializedGeomShader = core::make_smart_refctd_ptr<asset::ICPUShader>(geometryShaderCode);
 
-    pipeline_cp->setShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_GEOMETRY_SHADER_IX, shader.get());
+
+    auto vshader = driver->createGPUSpecializedShader(unspecializedVertShader.get(), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_VERTEX));
+    auto fshader = driver->createGPUSpecializedShader(unspecializedFragShader.get(), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_FRAGMENT));
+    auto geomShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedGeomShader), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_GEOMETRY));
+
+    pipeline_cp->setShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_GEOMETRY_SHADER_IX, geomShader.get());
     auto* layout = pipeline_cp->getLayout();
     core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds0layout;
     {
@@ -150,8 +175,39 @@ void main() {
 
         ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(b,b+2);
     }
-    layout->setDescriptorSetLayout(0,core::smart_refctd_ptr(ds0layout));
 
+    //set up draw indirect pipeline
+    asset::SPrimitiveAssemblyParams assemblyParams = { asset::EPT_LINE_LIST,false,2u };
+    asset::SVertexInputParams inputParams;
+    inputParams.enabledAttribFlags = 0b11u;
+    inputParams.enabledBindingFlags = 0b1u;
+    inputParams.attributes[0].binding = 0u;
+    inputParams.attributes[0].format = asset::EF_R32G32B32_SFLOAT;
+    inputParams.attributes[0].relativeOffset = 0u;
+    inputParams.bindings[0].stride = sizeof(float)*3;
+    inputParams.bindings[0].inputRate = asset::EVIR_PER_VERTEX;
+
+    asset::SPushConstantRange pcRange[1] = { asset::ISpecializedShader::ESS_VERTEX,0,sizeof(core::matrix4SIMD) };
+    auto pLayout = driver->createGPUPipelineLayout(pcRange, pcRange + 1u, nullptr, nullptr, nullptr, nullptr);
+    video::IGPUSpecializedShader* shaders[2] = { vshader.get(),fshader.get() };
+    asset::SBlendParams blendParams;
+    blendParams.logicOpEnable = false;
+    blendParams.logicOp = asset::ELO_NO_OP;
+    for (size_t i = 1ull; i < asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
+        blendParams.blendParams[i].attachmentEnabled = false;
+    asset::SRasterizationParams rasterParams;
+    rasterParams.polygonMode = asset::EPM_LINE;
+
+    auto drawIndirect_pipeline = driver->createGPURenderpassIndependentPipeline(nullptr, std::move(pLayout), shaders, shaders + sizeof(shaders) / sizeof(void*), inputParams, blendParams, assemblyParams, rasterParams);
+    
+    asset::SBufferBinding<video::IGPUBuffer> bindings[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
+    bindings[0u] = { 0u,core::smart_refctd_ptr<video::IGPUBuffer>(driver->getDefaultUpStreamingBuffer()->getBuffer()) };
+    auto drawIndirectmeshBuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(std::move(drawIndirect_pipeline), nullptr, bindings, asset::SBufferBinding<video::IGPUBuffer>{});
+    drawIndirectmeshBuffer->setIndexType(asset::EIT_UNKNOWN);
+    drawIndirectmeshBuffer->setIndexCount(2);
+
+    
+    layout->setDescriptorSetLayout(0,core::smart_refctd_ptr(ds0layout));
     auto gpuds0layout = driver->getGPUObjectsFromAssets(&ds0layout, &ds0layout + 1)->front();
 
     for (size_t i = 0; i < mesh_raw->getMeshBufferCount(); i++)
@@ -209,7 +265,7 @@ void main() {
         bufferBinding[i].buffer = nullptr;
     }*/
 
-
+    
 
 
     //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
@@ -334,14 +390,10 @@ void main() {
 
         
         //invoke driver->drawIndirect() and use linesBuffer
-        /*  _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],           &bufferBinding that has linesBuffer ptr, what do the other 16 do
-            asset::E_PRIMITIVE_TOPOLOGY mode,                                   asset::EPT_LINE_LIST
-            const IGPUBuffer* indirectDrawBuff,                                 not sure about this one, since linesBuffer is already used in bufferBinding
-            size_t offset, size_t maxCount, size_t stride,                      theres no overload that takes DrawArraysIndirectCommand_t
-            const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u    dont need to use these
-            */
-        //driver->drawArraysIndirect(bufferBinding, asset::EPT_LINE_LIST, lineCountBuffer.get(), 0u,1,sizeof(asset::DrawArraysIndirectCommand_t));
-           
+        
+        driver->bindGraphicsPipeline(drawIndirectmeshBuffer->getPipeline());
+        driver->pushConstants(drawIndirectmeshBuffer->getPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), camera->getConcatenatedMatrix().pointer());
+        driver->drawArraysIndirect(bufferBinding, asset::EPT_LINE_LIST, lineCountBuffer.get(), 0u,1,sizeof(asset::DrawArraysIndirectCommand_t));
 		driver->endScene();
 
 		// display frames per second in window title
@@ -354,12 +406,6 @@ void main() {
 			device->setWindowCaption(str.str().c_str());
 			lastFPSTime = time;
 		}
-	}
-
-	//create a screenshot
-	{
-		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
-		//ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
 	}
 
 	return 0;
