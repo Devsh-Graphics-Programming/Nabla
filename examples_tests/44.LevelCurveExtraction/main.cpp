@@ -76,6 +76,16 @@ struct DrawIndirectArrays_t
 };
 layout (triangles) in;
 layout (triangle_strip, max_vertices = 3) out;
+layout (location = 0) in vec3 LocalPos[];
+layout (location = 1) in vec3 ViewPos[];
+layout (location = 2) in vec3 Normal[];
+layout (location = 0) out vec3 fragLocalPos;
+layout (location = 1) out vec3 fragViewPos;
+layout (location = 2) out vec3 fragNormal;
+#ifndef _NO_UV
+layout (location = 3) in vec2 UV[];
+layout (location = 3) out vec2 fragUV;
+#endif
 
 layout(set=0, binding=0) coherent buffer LineCount
 {
@@ -92,7 +102,13 @@ void main() {
     vec3 start = vec3(gl_in[0].gl_Position);
     for(i = 0;i < gl_in.length();i++)
     {
+        fragLocalPos = LocalPos[i];
+        fragViewPos = ViewPos[i];
+        fragNormal = Normal[i];
         gl_Position = gl_in[i].gl_Position;
+#ifndef _NO_UV
+        fragUV = UV[i];
+#endif
         end += vec3(gl_in[i].gl_Position);
         EmitVertex();
     }
@@ -107,16 +123,13 @@ void main() {
     linePoints[outId+3u] = end.x;
     linePoints[outId+4u] = end.y;
     linePoints[outId+5u] = end.z;
-} 
+}  
 )===";
 
     //copy the pipeline
     auto pipeline_cp = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(mesh_raw->getMeshBuffer(0u)->getPipeline()->clone(1u));
     //get the simple geometry shader data and turn it into ICPUSpecializedShader
-    auto len = strlen(geometryShaderCode);
-    auto shaderData = core::make_smart_refctd_ptr<asset::ICPUBuffer>(len);
-    memcpy(shaderData->getPointer(), geometryShaderCode, len);
-    auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shaderData), asset::ICPUShader::buffer_contains_glsl);
+    auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(geometryShaderCode);
     auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_GEOMETRY));
 
     pipeline_cp->setShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_GEOMETRY_SHADER_IX, shader.get());
@@ -190,11 +203,11 @@ void main() {
     asset::SBufferBinding<video::IGPUBuffer> bufferBinding[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
     bufferBinding[0].offset = 0;
     bufferBinding[0].buffer = linesBuffer; 
-    for (size_t i = 1; i < video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
+   /* for (size_t i = 1; i < video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
     {
         bufferBinding[i].offset = 0;
         bufferBinding[i].buffer = nullptr;
-    }
+    }*/
 
 
 
@@ -327,9 +340,8 @@ void main() {
             size_t offset, size_t maxCount, size_t stride,                      theres no overload that takes DrawArraysIndirectCommand_t
             const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u    dont need to use these
             */
-        driver->drawArraysIndirect(bufferBinding, asset::EPT_LINE_LIST, lineCountBuffer.get(), 0u,1,sizeof(asset::DrawArraysIndirectCommand_t));
-            
-        //driver->drawArraysIndirect( asset::SBufferBinding<video::IGPUBuffer>(linesBuffer),);
+        //driver->drawArraysIndirect(bufferBinding, asset::EPT_LINE_LIST, lineCountBuffer.get(), 0u,1,sizeof(asset::DrawArraysIndirectCommand_t));
+           
 		driver->endScene();
 
 		// display frames per second in window title
