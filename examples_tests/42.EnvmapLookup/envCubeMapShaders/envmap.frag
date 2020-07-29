@@ -4,7 +4,7 @@
 
 // basic settings
 #define MAX_DEPTH 8
-#define SAMPLES 8
+#define SAMPLES 32
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -205,7 +205,21 @@ bool anyHitProgram(in ImmutableRay_t _immutable)
     return true;
 }
 
-#define INTERSECTION_ERROR_BOUND 0.0001
+#define INTERSECTION_ERROR_BOUND_LOG2 (-13.0)
+float getTolerance_common(in int depth)
+{
+    float depthRcp = 1.0/float(depth);
+    return INTERSECTION_ERROR_BOUND_LOG2;// *depthRcp*depthRcp;
+}
+float getStartTolerance(in int depth)
+{
+    return exp2(getTolerance_common(depth));
+}
+float getEndTolerance(in int depth)
+{
+    return 1.0-exp2(getTolerance_common(depth)+1.0);
+}
+
 bool traceRay(in ImmutableRay_t _immutable)
 {
     const bool anyHit = bitfieldExtract(_immutable.typeDepthSampleIx,31,1)!=0;
@@ -274,6 +288,30 @@ void missProgram()
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
+irr_glsl_BSDFSample irr_glsl_smooth_dielectric_cos_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, vec3 u, in vec3 eta, out float throuhgput)
+{
+    float NdotV = interaction.isotropic.NdotV;
+    vec3 Fr = irr_glsl_fresnel_dielectric(eta,NdotV);
+    float reflectionProb = 0.5;//Fr.r;//dot(Fr, luminosityContributionHint);
+    
+    const bool reflected = irr_glsl_partitionRandVariable(reflectionProb,u.z,throuhgput);
+
+    irr_glsl_BSDFSample smpl;
+    vec3 V = interaction.isotropic.V.dir;
+    vec3 N = interaction.isotropic.N;
+    if (reflected)
+        smpl.L = irr_glsl_reflect(V,-N,-NdotV);
+    else
+        smpl.L = irr_glsl_refract(V,N,NdotV,eta.r);
+
+    return smpl;
+}
+irr_glsl_BSDFSample irr_glsl_smooth_dielectric_cos_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in vec3 eta)
+{
+    float dummy;
+    return irr_glsl_smooth_dielectric_cos_sample(interaction,u,eta,dummy);
+}
+
 irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf)
 {
     float a = BSDFNode_getRoughness(bsdf);
@@ -287,8 +325,8 @@ irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfac
         case CONDUCTOR_OP:
             smpl = irr_glsl_ggx_cos_generate(interaction,u.xy,a,a);
             break;
-        default: // TODO: for dielectric
-            smpl.L = irr_glsl_refract(interaction.isotropic.V.dir,interaction.isotropic.N,1.33);
+        default:
+            smpl = irr_glsl_smooth_dielectric_cos_sample(interaction,u,vec3(1.33));
             break;
     }
     return smpl;
@@ -296,8 +334,8 @@ irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfac
 
 vec3 irr_glsl_smooth_dielectric_cos_remainder(out float pdf, in irr_glsl_BSDFSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in vec3 eta)
 {
-    pdf = 1.0/0.0;
-    return vec3(0.95);
+    pdf = 1.0/0.0; // should be reciprocal probability of the fresnel choice divided by 0.0, still an INF.
+    return vec3(1.0);
 }
 
 vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in BSDFNode bsdf)
@@ -352,13 +390,7 @@ irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in irr_glsl_Anisotrop
     
     return s;
 }
-// TODO: move this to header and optimize @Crisspl
-vec2 irr_glsl_sincos(in float theta)
-{ 
-    float sinTheta = sin(theta);
-    return vec2(sinTheta,cos(theta));
-}
-irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u)
+irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in int depth)
 {
     // normally we'd pick from set of lights, using `u.z`
     const Light light = lights[0];
@@ -382,16 +414,17 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
 
     const float cosTheta2 = cosTheta*cosTheta;
     const float sinTheta = sqrt(1.0-cosTheta2);
-    const vec2 sincosPhi = irr_glsl_sincos(2.0*irr_glsl_PI*u.y); // TODO: @Crisspl random number may have to be in the -PI,PI range instead
+    float sinPhi,cosPhi;
+    irr_glsl_sincos(2.0*irr_glsl_PI*u.y-irr_glsl_PI,sinPhi,cosPhi);
     mat2x3 XY = irr_glsl_frisvad(Z);
     
-    L += (XY[0]*sincosPhi.x+XY[1]*sincosPhi.y)*sinTheta;
+    L += (XY[0]*cosPhi+XY[1]*sinPhi)*sinTheta;
     
     const float rcpPdf = Sphere_getSolidAngle_impl(cosThetaMax)/choicePdf;
     remainder = Light_getRadiance(light)*(possibilityOfLightVisibility ? rcpPdf:0.0); // this ternary operator kills invalid rays
     pdf = 1.0/rcpPdf;
     
-    newRayMaxT = (cosTheta-sqrt(cosTheta2-cosThetaMax2))/rcpDistance*(1.0-INTERSECTION_ERROR_BOUND*2.0);
+    newRayMaxT = (cosTheta-sqrt(cosTheta2-cosThetaMax2))/rcpDistance*getEndTolerance(depth);
     
     return irr_glsl_createLightSample(L,interaction);
 }
@@ -444,22 +477,6 @@ vec3 rand3d(in uint protoDimension, in uint _sample, inout irr_glsl_xoroshiro64s
     return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
 }
 
-// TODO: @Przemog move to a math, or sampling, or common GLSL header
-// @return if picked left choice
-bool irr_glsl_partitionRandVariable(in float leftProb, inout float xi, out float rcpChoiceProb)
-{
-    const float NEXT_ULP_AFTER_UNITY = uintBitsToFloat(0x3f800001u);
-    const bool pickLeft = xi<leftProb*NEXT_ULP_AFTER_UNITY;
-
-    // This is all 100% correct taking into account the above NEXT_ULP_AFTER_UNITY
-    xi -= pickLeft ? 0.0:leftProb;
-
-    rcpChoiceProb = 1.0/(pickLeft ? leftProb:(1.0-leftProb));
-    xi *= rcpChoiceProb;
-
-    return pickLeft;
-}
-
 void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64star_state_t scramble_state)
 {
     const MutableRay_t mutable = rayStack[stackPtr]._mutable;
@@ -473,7 +490,8 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
 
         isotropic.V.dir = -_immutable.direction;
         //isotropic.V.dPosdScreen = screw that
-        isotropic.N = (intersection-sphere.position)*inversesqrt(sphere.radius2);
+        const float radiusRcp = inversesqrt(sphere.radius2);
+        isotropic.N = (intersection-sphere.position)*radiusRcp;
         isotropic.NdotV = dot(isotropic.V.dir,isotropic.N);
         isotropic.NdotV_squared = isotropic.NdotV*isotropic.NdotV;
 
@@ -536,7 +554,8 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
             vec3 lightRemainder;
             _sample = irr_glsl_light_generate_and_remainder_and_pdf(
                 lightRemainder,lightPdf,maxT,
-                intersection,interaction,epsilon
+                intersection,interaction,epsilon,
+                depth
             );
             throughput *= lightRemainder;
         }
@@ -561,7 +580,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
             rayStack[stackPtr]._payload.otherTechniqueHeuristic = heuristicFactor;
                     
             // trace new ray
-            rayStack[stackPtr]._immutable.origin = intersection+_sample.L*(pickBSDF ? 1.0/*kSceneSize*/:maxT)*INTERSECTION_ERROR_BOUND;
+            rayStack[stackPtr]._immutable.origin = intersection+_sample.L*(pickBSDF ? 1.0/*kSceneSize*/:maxT)*getStartTolerance(depth);
             rayStack[stackPtr]._immutable.maxT = maxT;
             rayStack[stackPtr]._immutable.direction = _sample.L;
             rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(sampleIx,depth+1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT)|(pickBSDF ? 0:ANY_HIT_FLAG);
@@ -572,8 +591,9 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
 
 vec2 irr_glsl_BoxMullerTransform(in vec2 xi, in float stddev)
 {
-    vec2 sc = irr_glsl_sincos(2.0*irr_glsl_PI*xi.y);
-    return sqrt(-2.0*log(xi.x))*sc*stddev;
+    float sinPhi,cosPhi;
+    irr_glsl_sincos(2.0*irr_glsl_PI*xi.y-irr_glsl_PI,sinPhi,cosPhi);
+    return vec2(cosPhi,sinPhi)*sqrt(-2.0*log(xi.x))*stddev;
 }
 
 void main()

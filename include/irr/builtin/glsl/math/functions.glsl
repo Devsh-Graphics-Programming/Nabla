@@ -126,7 +126,7 @@ void irr_glsl_sincos(in float theta, out float s, out float c)
 {
     c = cos(theta);
     s = sqrt(1.0-c*c);
-    s *= theta<0.0 ? -1.0:1.0;
+    s = theta<0.0 ? -s:s; // TODO: do with XOR
 }
 
 mat2x3 irr_glsl_frisvad(in vec3 n)
