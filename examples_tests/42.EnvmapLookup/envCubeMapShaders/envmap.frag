@@ -292,7 +292,7 @@ irr_glsl_BSDFSample irr_glsl_smooth_dielectric_cos_sample(in irr_glsl_Anisotropi
 {
     float NdotV = interaction.isotropic.NdotV;
     vec3 Fr = irr_glsl_fresnel_dielectric(eta,NdotV);
-    float reflectionProb = 0.5;//Fr.r;//dot(Fr, luminosityContributionHint);
+    float reflectionProb = Fr.r;//dot(Fr, luminosityContributionHint);
     
     const bool reflected = irr_glsl_partitionRandVariable(reflectionProb,u.z,throuhgput);
 
