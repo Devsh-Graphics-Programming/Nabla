@@ -12,15 +12,33 @@ struct irr_glsl_BSDFSample
     float TdotH;
     float BdotH;
     float NdotH;
-    float VdotH;//equal to LdotH
+    float VdotH;//equal to LdotH (TODO: revise, not true for BSDFs... ugh)
 };
 
 // require H and V already be normalized
+// reflection from microfacet
 irr_glsl_BSDFSample irr_glsl_createBSDFSample(in vec3 H, in vec3 V, in float VdotH, in mat3 m)
 {
     irr_glsl_BSDFSample s;
 
     vec3 L = irr_glsl_reflect(V, H, VdotH);
+    s.L = m * L; // m must be an orthonormal matrix
+    s.TdotL = L.x;
+    s.BdotL = L.y;
+    s.NdotL = L.z;
+    s.TdotH = H.x;
+    s.BdotH = H.y;
+    s.NdotH = H.z;
+    s.VdotH = VdotH;
+
+    return s;
+}
+// refraction from microfacet (TODO: shall we provide an `eta2` variant?)
+irr_glsl_BSDFSample irr_glsl_createBSDFSample(in vec3 H, in vec3 V, in float VdotH, in float eta, in mat3 m)
+{
+    irr_glsl_BSDFSample s;
+
+    vec3 L = irr_glsl_refract(V, H, VdotH, eta);
     s.L = m * L; // m must be an orthonormal matrix
     s.TdotL = L.x;
     s.BdotL = L.y;
@@ -96,11 +114,6 @@ irr_glsl_BSDFSample irr_glsl_smooth_dielectric_cos_sample(in irr_glsl_Anisotropi
     }
 
     return smpl;
-}
-irr_glsl_BSDFSample irr_glsl_smooth_dielectric_cos_sample(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 _u, in vec3 eta, in vec3 luminosityContributionHint)
-{
-    vec2 u = vec2(_u)/float(UINT_MAX);
-    return irr_glsl_smooth_dielectric_cos_sample(interaction, u, eta, luminosityContributionHint);
 }
 #endif
 /*

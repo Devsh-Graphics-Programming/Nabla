@@ -4,7 +4,7 @@
 
 // basic settings
 #define MAX_DEPTH 8
-#define SAMPLES 128
+#define SAMPLES 8
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -205,7 +205,7 @@ bool anyHitProgram(in ImmutableRay_t _immutable)
     return true;
 }
 
-#define INTERSECTION_ERROR_BOUND 0.00001
+#define INTERSECTION_ERROR_BOUND 0.0001
 bool traceRay(in ImmutableRay_t _immutable)
 {
     const bool anyHit = bitfieldExtract(_immutable.typeDepthSampleIx,31,1)!=0;
@@ -216,12 +216,14 @@ bool traceRay(in ImmutableRay_t _immutable)
     {
         vec3 origin = _immutable.origin-spheres[i].position;
         float originLen2 = dot(origin,origin);
+        const float radius2 = spheres[i].radius2;
 
         float dirDotOrigin = dot(_immutable.direction,origin);
-        float det = spheres[i].radius2-originLen2+dirDotOrigin*dirDotOrigin;
+        float det = radius2-originLen2+dirDotOrigin*dirDotOrigin;
 
         // do some speculative math here
-        float t = -dirDotOrigin-sqrt(det);
+        float detsqrt = sqrt(det);
+        float t = -dirDotOrigin+(originLen2>radius2 ? (-detsqrt):detsqrt);
         bool closerIntersection = t>0.0 && t<intersectionT;
 
 		objectID = closerIntersection ? i:objectID;
@@ -269,7 +271,6 @@ void missProgram()
     rayStack[stackPtr]._payload.accumulation += finalContribution;
 }
 
-
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
@@ -287,11 +288,18 @@ irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfac
             smpl = irr_glsl_ggx_cos_generate(interaction,u.xy,a,a);
             break;
         default: // TODO: for dielectric
-            smpl = irr_glsl_transmission_cos_generate(interaction);
+            smpl.L = irr_glsl_refract(interaction.isotropic.V.dir,interaction.isotropic.N,1.33);
             break;
     }
     return smpl;
 }
+
+vec3 irr_glsl_smooth_dielectric_cos_remainder(out float pdf, in irr_glsl_BSDFSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in vec3 eta)
+{
+    pdf = 1.0/0.0;
+    return vec3(0.95);
+}
+
 vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in BSDFNode bsdf)
 {
     const vec3 reflectance = BSDFNode_getReflectance(bsdf);
@@ -307,8 +315,8 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _
         case CONDUCTOR_OP:
             remainder = irr_glsl_ggx_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,ior,a*a);
             break;
-        default: // TODO: for dielectric
-            remainder = reflectance*irr_glsl_transmission_cos_remainder_and_pdf(pdf,_sample);
+        default:
+            remainder = irr_glsl_smooth_dielectric_cos_remainder(pdf,_sample,interaction.isotropic,ior[0]);
             break;
     }
     return remainder;
@@ -670,7 +678,7 @@ Now:
 - Test MIS alpha (roughness) scheme
 
 Quality:
--* Reweighting
+-* Reweighting Noise Removal
 -* Covariance Rendering
 -* Geometry Specular AA (Curvature adjusted roughness)
 

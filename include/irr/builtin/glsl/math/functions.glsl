@@ -102,6 +102,25 @@ vec3 irr_glsl_reflect(in vec3 I, in vec3 N)
     return irr_glsl_reflect(I, N, NdotI);
 }
 
+// for refraction the orientation of the normal matters, because a different IoR will be used
+vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float NdotI, in float NdotI2, float eta)
+{
+    const bool backside = NdotI < 0.0;
+    eta = backside ? eta : (1.0 / eta);
+    const float eta2 = eta * eta;
+    const float k = sqrt(eta2 * NdotI2 + 1.0 - eta2);
+    return N * (NdotI * eta + (backside ? k : (-k))) - eta * I;
+}
+vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float NdotI, in float eta)
+{
+    return irr_glsl_refract(I, N, NdotI, NdotI * NdotI, eta);
+}
+vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float eta)
+{
+    const float NdotI = dot(N, I);
+    return irr_glsl_refract(I, N, NdotI, eta);
+}
+
 // valid only for `theta` in [-PI,PI]
 void irr_glsl_sincos(in float theta, out float s, out float c)
 {
