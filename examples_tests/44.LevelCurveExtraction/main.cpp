@@ -199,12 +199,7 @@ int main()
     rasterParams.polygonMode = asset::EPM_LINE;
 
     auto drawIndirect_pipeline = driver->createGPURenderpassIndependentPipeline(nullptr, std::move(pLayout), shaders, shaders + sizeof(shaders) / sizeof(void*), inputParams, blendParams, assemblyParams, rasterParams);
-    
-    asset::SBufferBinding<video::IGPUBuffer> bindings[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
-    bindings[0u] = { 0u,core::smart_refctd_ptr<video::IGPUBuffer>(driver->getDefaultUpStreamingBuffer()->getBuffer()) };
-    auto drawIndirectmeshBuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(std::move(drawIndirect_pipeline), nullptr, bindings, asset::SBufferBinding<video::IGPUBuffer>{});
-    drawIndirectmeshBuffer->setIndexType(asset::EIT_UNKNOWN);
-    drawIndirectmeshBuffer->setIndexCount(2);
+
 
     
     layout->setDescriptorSetLayout(0,core::smart_refctd_ptr(ds0layout));
@@ -259,11 +254,11 @@ int main()
     asset::SBufferBinding<video::IGPUBuffer> bufferBinding[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
     bufferBinding[0].offset = 0;
     bufferBinding[0].buffer = linesBuffer; 
-   /* for (size_t i = 1; i < video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
+   for (size_t i = 1; i < video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
     {
         bufferBinding[i].offset = 0;
         bufferBinding[i].buffer = nullptr;
-    }*/
+    }
 
     
 
@@ -323,17 +318,20 @@ int main()
 	uint64_t lastFPSTime = 0;
 	while(device->run() && receiver.keepOpen())
 	{
+
 		driver->beginScene(true, true, video::SColor(255,255,255,255) );
         
+      
         // zero out buffer LineCount
-        driver->fillBuffer(lineCountBuffer.get(),offsetof(irr::asset::DrawArraysIndirectCommand_t,count), roundUp(sizeof(uint32_t), 16ull),0u);
-
-        //! This animates (moves) the camera and sets the transforms
-		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
+        driver->fillBuffer(lineCountBuffer.get(), offsetof(irr::asset::DrawArraysIndirectCommand_t, count), sizeof(uint32_t), 0u);
 
         //emit "memory barrier" of type GL_SHADER_STORAGE_BITS before scene is drawn - same as pre render? or post invoking render but before it finishes?
         //did you mean GL_SHADER_STORAGE_BARRIER_BIT?
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+        //! This animates (moves) the camera and sets the transforms
+		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
+
 
 		camera->render();
 
@@ -385,17 +383,19 @@ int main()
             driver->pushConstants(pipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, gpumb->MAX_PUSH_CONSTANT_BYTESIZE, gpumb->getPushConstantsDataPtr());
             driver->drawMeshBuffer(gpumb);
         }
+
         //emit "memory barrier" of type GL_ALL_BARRIER_BITS after the entire scene finishes drawing
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_ALL_BARRIER_BITS);
+        
+        
+        driver->bindGraphicsPipeline(drawIndirect_pipeline.get());
+        driver->pushConstants(drawIndirect_pipeline->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), camera->getConcatenatedMatrix().pointer());
 
-        
-        //invoke driver->drawIndirect() and use linesBuffer
-        
-        driver->bindGraphicsPipeline(drawIndirectmeshBuffer->getPipeline());
-        driver->pushConstants(drawIndirectmeshBuffer->getPipeline()->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), camera->getConcatenatedMatrix().pointer());
-        driver->drawArraysIndirect(bufferBinding, asset::EPT_LINE_LIST, lineCountBuffer.get(), 0u,1,sizeof(asset::DrawArraysIndirectCommand_t));
+
+        //invoke drawIndirect and use linesBuffer
+        driver->drawArraysIndirect(bufferBinding, asset::EPT_LINE_LIST, lineCountBuffer.get(), 0u, 1u, sizeof(asset::DrawArraysIndirectCommand_t));
 		driver->endScene();
-
+      
 		// display frames per second in window title
 		uint64_t time = device->getTimer()->getRealTime();
 		if (time-lastFPSTime > 1000)
