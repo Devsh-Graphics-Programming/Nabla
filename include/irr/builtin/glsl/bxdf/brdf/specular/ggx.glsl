@@ -76,16 +76,17 @@ vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s,
 
 vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ay)
 {
-	float Vterm = s.NdotL * length(vec3(ax*interaction.TdotV, ay*interaction.BdotV, interaction.isotropic.NdotV));
-	float Lterm = interaction.isotropic.NdotV * length(vec3(ax*s.TdotL, ay*s.BdotL, s.NdotL));
-	float G1_rcp = interaction.isotropic.NdotV*s.NdotL+Lterm;
-	float G2_over_G1 = (Vterm+Lterm)*G1_rcp;
-	G1_rcp *= 2.0;
-	//TODO missing multiply by VdotH?
-	pdf = irr_glsl_ggx_aniso(s.TdotH*s.TdotH,s.BdotH*s.BdotH,s.NdotH*s.NdotH,ax,ay,ax*ax,ay*ay)/(4.0*G1_rcp*abs(interaction.isotropic.NdotV));//u sure about div by 4.0?
-	
+    float ax2 = ax*ax;
+    float ay2 = ay*ay;
+    float lambda_v = irr_glsl_ggx_smith_aniso_Lambda(interaction.isotropic.N, interaction.isotropic.V.dir, interaction.T, interaction.isotropic.NdotV_squared, ax2, ay2);
+    float G1 = irr_glsl_ggx_smith_G1(interaction.isotropic.NdotV, lambda_v);
+    pdf = irr_glsl_ggx_aniso(s.TdotH*s.TdotH,s.BdotH*s.BdotH,s.NdotH*s.NdotH,ax,ay,ax*ax,ay*ay)*G1*abs(s.VdotH)/interaction.NdotV;
+
+    float lambda_l = irr_glsl_ggx_smith_aniso_Lambda(interaction.isotropic.N, s.L, interaction.T, s.NdotL*s.NdotL, ax2, ay2);
+    float G2_over_G1 = (1.0 + lambda_v) / (lambda_v + lambda_l) * s.NdotL;
+
 	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
-	return fr*G2_over_G1;	
+	return fr*G2_over_G1;
 }
 
 #endif
