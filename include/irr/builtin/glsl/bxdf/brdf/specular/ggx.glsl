@@ -54,11 +54,6 @@ irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurface
 
 	return irr_glsl_createBSDFSample(H,localV,dot(H,localV),m);
 }
-irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 _sample, in float _ax, in float _ay)
-{
-    vec2 u = vec2(_sample)/float(UINT_MAX);
-    return irr_glsl_ggx_cos_generate(interaction, u, _ax, _ay);
-}
 
 vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float a2)
 {

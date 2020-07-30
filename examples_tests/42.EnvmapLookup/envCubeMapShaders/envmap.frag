@@ -4,7 +4,7 @@
 
 // basic settings
 #define MAX_DEPTH 8
-#define SAMPLES 32
+#define SAMPLES 128
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -289,7 +289,6 @@ void missProgram()
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
-
 irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf)
 {
     const float a = BSDFNode_getRoughness(bsdf);
@@ -314,19 +313,22 @@ irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfac
 vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in BSDFNode bsdf)
 {
     const vec3 reflectance = BSDFNode_getReflectance(bsdf);
-    const float a = BSDFNode_getRoughness(bsdf);
+    const float a = max(BSDFNode_getRoughness(bsdf),0.01);
     mat2x3 ior = BSDFNode_getEta(bsdf);
 
     vec3 remainder;
     switch (BSDFNode_getType(bsdf))
     {
         case DIFFUSE_OP:
+            _sample.NdotL = max(_sample.NdotL,0.0); // TODO: check if this actually proects us
             remainder = reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,a*a);
             break;
         case CONDUCTOR_OP:
+            _sample.NdotL = max(_sample.NdotL,0.0); // TODO: check if this actually proects us
             remainder = irr_glsl_ggx_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,ior,a*a);
             break;
         default:
+            _sample.NdotL = abs(_sample.NdotL); // TODO: check if this actually proects us
             remainder = irr_glsl_thin_smooth_dielectric_cos_remainder(pdf,_sample,interaction.isotropic,ior[0]);
             break;
     }
