@@ -83,13 +83,6 @@ irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_Anisotropic
 	return irr_glsl_createBSDFSample(H,localV,dot(H,localV),m);
 }
 
-// TODO this needs to be a macro/template
-irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 _sample, in float _ax, in float _ay)
-{
-    vec2 u = vec2(_sample)/float(UINT_MAX);
-    return irr_glsl_beckmann_smith_cos_generate(interaction, u, _ax, _ay);
-}
-
 // we take anisotropic roughness but input is isotropic, WTF?
 vec3 irr_glsl_beckmann_smith_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ay)
 {
