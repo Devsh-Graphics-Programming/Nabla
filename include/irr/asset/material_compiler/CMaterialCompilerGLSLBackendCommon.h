@@ -3,7 +3,8 @@
 
 #include <irr/asset/material_compiler/IR.h>
 #include <irr/asset/ICPUVirtualTexture.h>
-#include "os.h"
+
+#include <ostream>
 
 namespace irr
 {
@@ -230,24 +231,6 @@ namespace instr_stream
 		STextureOrConstant param[MAX_TEXTURES];
 	};
 
-	struct SContext
-	{
-		core::unordered_map<const IR::INode*, size_t> bsdfDataIndexMap;
-		core::vector<instr_stream::SBSDFUnion> bsdfData;
-
-		using VTallocKey = std::pair<const asset::ICPUImageView*, const asset::ICPUSampler*>;
-		struct VTallocKeyHash
-		{
-			inline std::size_t operator() (const VTallocKey& k) const
-			{
-				return std::hash<VTallocKey::first_type>{}(k.first) ^ std::hash<VTallocKey::second_type>{}(k.second);
-			}
-		};
-		core::unordered_map<VTallocKey, VTID, VTallocKeyHash> VTallocMap;
-
-		core::smart_refctd_ptr<asset::ICPUVirtualTexture> vt;
-	};
-
 	using traversal_t = core::vector<instr_t>;
 
 namespace remainder_and_pdf
@@ -299,8 +282,10 @@ namespace normal_precomp
 
 class CMaterialCompilerGLSLBackendCommon
 {
+	struct result_t;
+	struct SContext;
 protected:
-	core::unordered_map<uint32_t, uint32_t> createBsdfDataIndexMapForPrefetchedTextures(instr_stream::SContext* _ctx, const instr_stream::traversal_t& _tex_prefetch_stream, const core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _tex2reg) const;
+	core::unordered_map<uint32_t, uint32_t> createBsdfDataIndexMapForPrefetchedTextures(SContext* _ctx, const instr_stream::traversal_t& _tex_prefetch_stream, const core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _tex2reg) const;
 
 	void adjustBSDFDataIndices(instr_stream::traversal_t& _stream, const core::unordered_map<uint32_t, uint32_t>& _ix2ix) const
 	{
@@ -323,7 +308,30 @@ protected:
 		}
 	}
 
+	//common for rem_and_pdf and gen_choice instructions
+	void debugPrintInstr(std::ostream& _out, instr_stream::instr_t instr, const result_t& _res, const SContext* _ctx) const;
+
 public:
+	struct SContext
+	{
+		//users should not touch this
+		core::vector<instr_stream::SBSDFUnion>* pBsdfData;
+		core::unordered_map<const IR::INode*, size_t> bsdfDataIndexMap;
+
+		using VTallocKey = std::pair<const asset::ICPUImageView*, const asset::ICPUSampler*>;
+		struct VTallocKeyHash
+		{
+			inline std::size_t operator() (const VTallocKey& k) const
+			{
+				return std::hash<VTallocKey::first_type>{}(k.first) ^ std::hash<VTallocKey::second_type>{}(k.second);
+			}
+		};
+		core::unordered_map<VTallocKey, instr_stream::VTID, VTallocKeyHash> VTallocMap;
+
+		//must be initialized by user
+		core::smart_refctd_ptr<asset::ICPUVirtualTexture> vt;
+	};
+
 	struct result_t
 	{
 		struct instr_streams_t
@@ -340,6 +348,7 @@ public:
 		};
 
 		instr_stream::traversal_t instructions;
+		core::vector<instr_stream::SBSDFUnion> bsdfData;
 
 		//TODO flags like alpha tex always present etc..
 		bool noPrefetchStream;
@@ -352,13 +361,11 @@ public:
 
 		//one element for each input IR root node
 		core::unordered_map<const IR::INode*, instr_streams_t> streams;
-
-		void debugPrint(const instr_streams_t& _streams, const instr_stream::SContext* _ctx) const;
-		//common for rem_and_pdf and gen_choice instructions
-		void debugPrintInstr(instr_stream::instr_t instr, const instr_stream::SContext* _ctx) const;
 	};
 
-	result_t compile(instr_stream::SContext* _ctx, IR* _ir, bool _computeGenChoiceStream = true);
+	void debugPrint(std::ostream& _out, const result_t::instr_streams_t& _streams, const result_t& _res, const SContext* _ctx) const;
+
+	result_t compile(SContext* _ctx, IR* _ir, bool _computeGenChoiceStream = true);
 };
 
 }}}

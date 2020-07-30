@@ -12,7 +12,6 @@ namespace irr
 namespace asset
 {
 
-//!  Surface Loader for PNG files
 class CSPVLoader final : public asset::IAssetLoader
 {
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t SPV_MAGIC_NUMBER = 0x07230203u;

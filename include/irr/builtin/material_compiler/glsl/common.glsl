@@ -213,15 +213,23 @@ bool instr_get1stParamTexPresence(in instr_t instr)
 	return (instr.x&(1u<<INSTR_1ST_PARAM_TEX_SHIFT)) != 0u;
 }
 
+#define INSTR_REG_DST_SHIFT 32
+#define INSTR_REG_SRC1_SHIFT 40
+#define INSTR_REG_SRC2_SHIFT 48
+
 //returns: x=dst, y=src1, z=src2
+//works with tex prefetch instructions as well (x=reg0,y=reg1,z=reg2)
 uvec3 instr_decodeRegisters(in instr_t instr)
 {
-	uvec3 regs = uvec3(instr.y, (instr.y>>8), (instr.y>>16));
+	uvec3 regs = instr.yyy >> (uvec3(INSTR_REG_DST_SHIFT,INSTR_REG_SRC1_SHIFT,INSTR_REG_SRC2_SHIFT)-32u);
 	return regs & uvec3(INSTR_REG_MASK);
 }
 #define REG_DST(r)	(r).x
 #define REG_SRC1(r)	(r).y
 #define REG_SRC2(r)	(r).z
+#define REG_PREFETCH0(r) REG_DST(r)
+#define REG_PREFETCH1(r) REG_SRC1(r)
+#define REG_PREFETCH2(r) REG_SRC2(r)
 
 bsdf_data_t fetchBSDFDataForInstr(in instr_t instr)
 {
@@ -455,10 +463,21 @@ vec3 fetchTex(in uvec3 texid, in vec2 uv, in mat2 dUV)
 	return irr_glsl_vTextureGrad(texid.xy, uv, dUV).rgb*scale;
 }
 
-#define INSTR_FETCH_FLAGS_SHIFT 4u
-#define INSTR_FETCH_TEX_0_REG_CNT_SHIFT 7u
-#define INSTR_FETCH_TEX_1_REG_CNT_SHIFT 9u
-#define INSTR_FETCH_TEX_2_REG_CNT_SHIFT 11u
+#define INSTR_FETCH_FLAG_TEX_0_SHIFT INSTR_NDF_SHIFT
+#define INSTR_FETCH_FLAG_TEX_1_SHIFT (INSTR_NDF_SHIFT+1)
+#define INSTR_FETCH_FLAG_TEX_2_SHIFT INSTR_TWOSIDED_SHIFT
+uint instr_getTexFetchFlags(in instr_t i)
+{
+	uint flags = bitfieldExtract(i.x,INSTR_FETCH_FLAG_TEX_0_SHIFT,1);
+	flags |= bitfieldExtract(i.x,INSTR_FETCH_FLAG_TEX_1_SHIFT,1)<<1;
+	flags |= bitfieldExtract(i.x,INSTR_FETCH_FLAG_TEX_2_SHIFT,1)<<2;
+
+	return flags;
+}
+
+#define INSTR_FETCH_TEX_0_REG_CNT_SHIFT 56
+#define INSTR_FETCH_TEX_1_REG_CNT_SHIFT 58
+#define INSTR_FETCH_TEX_2_REG_CNT_SHIFT 60
 #define INSTR_FETCH_TEX_REG_CNT_MASK    0x03u
 #ifdef TEX_PREFETCH_STREAM
 void runTexPrefetchStream(uvec2 stream, in mat2 dUV)
@@ -467,36 +486,39 @@ void runTexPrefetchStream(uvec2 stream, in mat2 dUV)
 	{
 		instr_t instr = instr_buf.data[stream.x+i];
 
-		uvec3 regcnt = (instr.xxx >> uvec3(INSTR_FETCH_TEX_0_REG_CNT_SHIFT,INSTR_FETCH_TEX_1_REG_CNT_SHIFT,INSTR_FETCH_TEX_2_REG_CNT_SHIFT)) & uvec3(INSTR_FETCH_TEX_REG_CNT_MASK);
+		uvec3 regcnt = ( instr.yyy >> (uvec3(INSTR_FETCH_TEX_0_REG_CNT_SHIFT,INSTR_FETCH_TEX_1_REG_CNT_SHIFT,INSTR_FETCH_TEX_2_REG_CNT_SHIFT)-uvec3(32)) ) & uvec3(INSTR_FETCH_TEX_REG_CNT_MASK);
 		bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
 
-		uint fetchFlags = (instr.x>>INSTR_FETCH_FLAGS_SHIFT);
+		uint fetchFlags = instr_getTexFetchFlags(instr);
 		uvec3 regs = instr_decodeRegisters(instr);
 		if ((fetchFlags & 0x01u) == 0x01u)
 		{
 			vec3 val = fetchTex(bsdf_data.data[0].xyz, UV, dUV);
+			uint reg = REG_PREFETCH0(regs);
 			if (regcnt.x==1u)
-				writeReg(regs.x, val.x);
+				writeReg(reg, val.x);
 			else
-				writeReg(regs.x, val);
+				writeReg(reg, val);
 		}
 		if ((fetchFlags & 0x02u) == 0x02u)
 		{
 			uvec3 texid = uvec3(bsdf_data.data[0].w,bsdf_data.data[1].xy);
 			vec3 val = fetchTex(texid,UV,dUV);
+			uint reg = REG_PREFETCH1(regs);
 			if (regcnt.y==1u)
-				writeReg(regs.y, val.x);
+				writeReg(reg, val.x);
 			else
-				writeReg(regs.y, val);
+				writeReg(reg, val);
 		}
 		if ((fetchFlags & 0x04u) == 0x04u)
 		{
 			uvec3 texid = uvec3(bsdf_data.data[1].zw, bsdf_data.data[2].x);
 			vec3 val = fetchTex(texid,UV,dUV);
+			uint reg = REG_PREFETCH2(regs);
 			if (regcnt.z==1u)
-				writeReg(regs.z, val.x);
+				writeReg(reg, val.x);
 			else
-				writeReg(regs.z, val);
+				writeReg(reg, val);
 		}
 	}
 }

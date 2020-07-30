@@ -1588,8 +1588,8 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 	}
 	d = ds0->getDescriptors(BSDF_BUF_BINDING).begin();
 	{
-		auto bsdfbuf = core::make_smart_refctd_ptr<ICPUBuffer>(_ctx.backend_ctx.bsdfData.size()*sizeof(decltype(_ctx.backend_ctx.bsdfData)::value_type));
-		memcpy(bsdfbuf->getPointer(), _ctx.backend_ctx.bsdfData.data(), bsdfbuf->getSize());
+		auto bsdfbuf = core::make_smart_refctd_ptr<ICPUBuffer>(_compResult.bsdfData.size()*sizeof(decltype(_compResult.bsdfData)::value_type));
+		memcpy(bsdfbuf->getPointer(), _compResult.bsdfData.data(), bsdfbuf->getSize());
 
 		d->buffer.offset = 0u;
 		d->buffer.size = bsdfbuf->getSize();
@@ -1612,7 +1612,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			_IRR_DEBUG_BREAK_IF(streams_it==_compResult.streams.end());
 			const auto& streams = streams_it->second;
 
-			_compResult.debugPrint(streams, &_ctx.backend_ctx);
+			_ctx.backend.debugPrint(std::cout, streams, _compResult, &_ctx.backend_ctx);
 
 			SInstanceData instData;
 			instData.tform = inst.tform;
