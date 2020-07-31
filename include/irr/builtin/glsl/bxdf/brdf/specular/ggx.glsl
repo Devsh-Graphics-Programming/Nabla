@@ -78,12 +78,14 @@ vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSam
 {
     float ax2 = ax*ax;
     float ay2 = ay*ay;
-    float v_term = irr_glsl_ggx_smith_aniso_almost_Lambda(interaction.isotropic.N, interaction.isotropic.V.dir, interaction.T, interaction.isotropic.NdotV_squared, ax2, ay2);
-    float G1 = irr_glsl_ggx_smith_G1(interaction.isotropic.NdotV, v_term);
-    pdf = irr_glsl_ggx_aniso(s.TdotH*s.TdotH,s.BdotH*s.BdotH,s.NdotH*s.NdotH,ax,ay,ax*ax,ay*ay)*G1*abs(s.VdotH)/interaction.NdotV;
+    float a02_l = irr_glsl_ggx_smith_aniso_a0_2(interaction.isotropic.N, s.L, interaction.T, s.NdotL*s.NdotL, ax2, ay2);
+    float G1 = irr_glsl_GGXSmith_G1_(s.NdotL,a02_l,1.0-a02_l);
+    pdf = irr_glsl_ggx_aniso(s.TdotH*s.TdotH,s.BdotH*s.BdotH,s.NdotH*s.NdotH,ax,ay,ax2,ay2)*G1*abs(s.VdotH)/interaction.isotropic.NdotV;
 
-    float l_term = irr_glsl_ggx_smith_aniso_almost_Lambda(interaction.isotropic.N, s.L, interaction.T, s.NdotL*s.NdotL, ax2, ay2);
-    float G2_over_G1 = (0.5 + v_term) / (v_term + l_term) * s.NdotL;
+    float a02_v = irr_glsl_ggx_smith_aniso_a0_2(interaction.isotropic.N, interaction.isotropic.V.dir, interaction.T, interaction.isotropic.NdotV_squared, ax2, ay2);
+    float devsh_v = irr_glsl_smith_ggx_devsh_part(interaction.NdotV_squared,a02_v,1.0-a02_v);
+    float G2_over_G1 = s.NdotL*(devsh_v + interaction.isotropic.NdotV);
+    G2_over_G1 /= interaction.isotropic.NdotV*irr_glsl_smith_ggx_devsh_part(s.NdotL*s.NdotL,a02_l,1.0-a02_l) + s.NdotL*devsh_v;
 
 	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
 	return fr*G2_over_G1;
