@@ -73,7 +73,9 @@ float irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(in float at, in fl
     return 0.5 / (Vterm + Lterm);
 }
 
-float irr_glsl_ggx_smith_aniso_Lambda(in vec3 N, in vec3 X, in vec3 T, in float NdotX2, in float ax2, in float ay2)
+//"almost" because it's missing -1.0 (commented-out in the code)
+//lambda = almost_Lambda-0.5
+float irr_glsl_ggx_smith_aniso_almost_Lambda(in vec3 N, in vec3 X, in vec3 T, in float NdotX2, in float ax2, in float ay2)
 {
     vec3 Xproj = normalize(X - dot(N,X)*N);
     float cos2phi = dot(T,Xproj);
@@ -86,16 +88,19 @@ float irr_glsl_ggx_smith_aniso_Lambda(in vec3 N, in vec3 X, in vec3 T, in float 
 }
 float irr_glsl_ggx_smith_G1(in vec3 N, in vec3 X, in vec3 T, in float NdotX2, in float NdotX, in float ax2, in float ay2)
 {
-    return NdotX / (1.0 + irr_glsl_ggx_smith_aniso_Lambda(N, X, T, NdotX2, ax2, ay2);
+    //denom = 1.0 + lambda
+    //lambda = almost_Lambda-0.5
+    //denom = 0.5 + almost_lambda
+    return NdotX / (0.5 + irr_glsl_ggx_smith_aniso_almost_Lambda(N, X, T, NdotX2, ax2, ay2);
 }
-float irr_glsl_ggx_smith_G1(in float NdotX, in float lambda)
+float irr_glsl_ggx_smith_G1(in float NdotX, in float almostLambda)
 {
-    return NdotX / (1.0 + lambda);
+    return NdotX / (0.5 + almostLambda);
 }
 float irr_glsl_ggx_smith_aniso_(in vec3 N, in vec3 L, in vec3 V, in vec3 T, in float NdotV, in float NdotL, in float ax2, in float ay2)
 {
-    float v_term = irr_glsl_ggx_smith_aniso_Lambda(N,V,T,NdotV*NdotV,ax2,ay2);
-    float l_term = irr_glsl_ggx_smith_aniso_Lambda(N,L,T,NdotL*NdotL,ax2,ay2);
+    float v_term = irr_glsl_ggx_smith_aniso_almost_Lambda(N,V,T,NdotV*NdotV,ax2,ay2);
+    float l_term = irr_glsl_ggx_smith_aniso_almost_Lambda(N,L,T,NdotL*NdotL,ax2,ay2);
     
     return (NdotV*NdotL) / (v_term + l_term);
 }
