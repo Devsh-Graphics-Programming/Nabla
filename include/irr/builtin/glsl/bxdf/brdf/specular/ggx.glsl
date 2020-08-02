@@ -23,8 +23,6 @@ vec3 irr_glsl_ggx_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams par
 }
 
 //Heitz's 2018 paper "Sampling the GGX Distribution of Visible Normals"
-//Also: problem is our anisotropic ggx ndf (above) has extremely weird API (anisotropy and a2 instead of ax and ay) and so it's incosistent with sampling function
-//  currently using isotropic trowbridge_reitz for PDF
 irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float _ax, in float _ay)
 {
     vec2 u = _sample;
@@ -63,32 +61,35 @@ irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurface
 vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float a2)
 {
 	float one_minus_a2 = 1.0-a2;
-	float G1 = irr_glsl_GGXSmith_G1_(s.NdotL,a2,one_minus_a2);
-	pdf = irr_glsl_ggx_trowbridge_reitz(a2,s.NdotH*s.NdotH)*G1*abs(s.VdotH)/interaction.NdotV;
+	float G1 = irr_glsl_GGXSmith_G1_(interaction.NdotV,a2,one_minus_a2);
+    float absVdotH = abs(s.VdotH);
+	pdf = irr_glsl_ggx_trowbridge_reitz(a2,s.NdotH*s.NdotH)*G1*absVdotH/interaction.NdotV;
 	
 	float devsh_v = irr_glsl_smith_ggx_devsh_part(interaction.NdotV_squared,a2,one_minus_a2);
 	float G2_over_G1 = s.NdotL*(devsh_v + interaction.NdotV);
 	G2_over_G1 /= interaction.NdotV*irr_glsl_smith_ggx_devsh_part(s.NdotL*s.NdotL,a2,one_minus_a2) + s.NdotL*devsh_v;
 	
 	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
-	return fr*G2_over_G1;
+	return fr*G2_over_G1*interaction.NdotV/absVdotH;
 }
 
 vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ay)
 {
     float ax2 = ax*ax;
     float ay2 = ay*ay;
-    float a02_l = irr_glsl_ggx_smith_aniso_a0_2(interaction.isotropic.N, s.L, interaction.T, s.NdotL*s.NdotL, ax2, ay2);
-    float G1 = irr_glsl_GGXSmith_G1_(s.NdotL,a02_l,1.0-a02_l);
-    pdf = irr_glsl_ggx_aniso(s.TdotH*s.TdotH,s.BdotH*s.BdotH,s.NdotH*s.NdotH,ax,ay,ax2,ay2)*G1*abs(s.VdotH)/interaction.isotropic.NdotV;
-
     float a02_v = irr_glsl_ggx_smith_aniso_a0_2(interaction.isotropic.N, interaction.isotropic.V.dir, interaction.T, interaction.isotropic.NdotV_squared, ax2, ay2);
-    float devsh_v = irr_glsl_smith_ggx_devsh_part(interaction.NdotV_squared,a02_v,1.0-a02_v);
+    float one_minus_a02_v = 1.0 - a02_v;
+    float G1 = irr_glsl_GGXSmith_G1_(interaction.isotropic.NdotV,a02_v,one_minus_a02_v);
+    float absVdotH = abs(s.VdotH);
+    pdf = irr_glsl_ggx_aniso(s.TdotH*s.TdotH,s.BdotH*s.BdotH,s.NdotH*s.NdotH,ax,ay,ax2,ay2)*G1*absVdotH/interaction.isotropic.NdotV;
+
+    float a02_l = irr_glsl_ggx_smith_aniso_a0_2(interaction.isotropic.N, s.L, interaction.T, s.NdotL*s.NdotL, ax2, ay2);
+    float devsh_v = irr_glsl_smith_ggx_devsh_part(interaction.NdotV_squared,a02_v,one_minus_a02_v);
     float G2_over_G1 = s.NdotL*(devsh_v + interaction.isotropic.NdotV);
     G2_over_G1 /= interaction.isotropic.NdotV*irr_glsl_smith_ggx_devsh_part(s.NdotL*s.NdotL,a02_l,1.0-a02_l) + s.NdotL*devsh_v;
 
 	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
-	return fr*G2_over_G1;
+	return fr*G2_over_G1*interaction.NdotV/absVdotH;
 }
 
 #endif
