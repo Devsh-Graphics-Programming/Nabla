@@ -197,6 +197,8 @@ int main()
         blendParams.blendParams[i].attachmentEnabled = false;
     asset::SRasterizationParams rasterParams;
     rasterParams.polygonMode = asset::EPM_LINE;
+    rasterParams.depthBiasConstantFactor = 1;
+    rasterParams.depthBiasSlopeFactor = 1;
 
     auto drawIndirect_pipeline = driver->createGPURenderpassIndependentPipeline(nullptr, std::move(pLayout), shaders, shaders + sizeof(shaders) / sizeof(void*), inputParams, blendParams, assemblyParams, rasterParams);
 
