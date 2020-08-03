@@ -160,6 +160,19 @@ protected:
         return size;
     }
 
+public:
+    struct Triangle
+    {
+        uint32_t oldIndices[3];
+    };
+
+    struct TriangleBatch
+    {
+        core::vector<Triangle> triangles;
+    };
+
+    virtual core::vector<TriangleBatch> constructTriangleBatches(MeshBufferType* meshBuffer) = 0;
+
 protected:
     //output mesh buffers data
     SVertexInputParams m_outVtxInputParams;
