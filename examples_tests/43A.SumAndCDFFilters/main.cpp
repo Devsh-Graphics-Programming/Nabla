@@ -53,7 +53,7 @@ int main()
 			newImageParams.flags = IImage::ECF_CUBE_COMPATIBLE_BIT;
 			newImageParams.format = EF_R32G32B32A32_SFLOAT;
 			#else
-			newImageParams.format = EF_R16G16B16A16_UNORM;
+			newImageParams.format = EF_R32G32B32A32_SFLOAT;
 			#endif // IMAGE_VIEW
 
 			auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(referenceRegions.size());
