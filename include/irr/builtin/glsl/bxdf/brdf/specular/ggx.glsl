@@ -77,13 +77,13 @@ vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSam
 {
     float ax2 = ax*ax;
     float ay2 = ay*ay;
-    float a02_v = irr_glsl_ggx_smith_aniso_a0_2(interaction.isotropic.N, interaction.isotropic.V.dir, interaction.T, interaction.isotropic.NdotV_squared, ax2, ay2);
+    float a02_v = irr_glsl_smith_aniso_a0_2(interaction.isotropic.N, interaction.isotropic.V.dir, interaction.T, interaction.isotropic.NdotV_squared, ax2, ay2);
     float one_minus_a02_v = 1.0 - a02_v;
     float G1 = irr_glsl_GGXSmith_G1_(interaction.isotropic.NdotV,a02_v,one_minus_a02_v);
     float absVdotH = abs(s.VdotH);
     pdf = irr_glsl_ggx_aniso(s.TdotH*s.TdotH,s.BdotH*s.BdotH,s.NdotH*s.NdotH,ax,ay,ax2,ay2)*G1*absVdotH/interaction.isotropic.NdotV;
 
-    float a02_l = irr_glsl_ggx_smith_aniso_a0_2(interaction.isotropic.N, s.L, interaction.T, s.NdotL*s.NdotL, ax2, ay2);
+    float a02_l = irr_glsl_smith_aniso_a0_2(interaction.isotropic.N, s.L, interaction.T, s.NdotL*s.NdotL, ax2, ay2);
     float devsh_v = irr_glsl_smith_ggx_devsh_part(interaction.NdotV_squared,a02_v,one_minus_a02_v);
     float G2_over_G1 = s.NdotL*(devsh_v + interaction.isotropic.NdotV);
     G2_over_G1 /= interaction.isotropic.NdotV*irr_glsl_smith_ggx_devsh_part(s.NdotL*s.NdotL,a02_l,1.0-a02_l) + s.NdotL*devsh_v;

@@ -1,6 +1,6 @@
 #ifndef _IRR_BSDF_BRDF_SPECULAR_BECKMANN_SMITH_INCLUDED_
 #define _IRR_BSDF_BRDF_SPECULAR_BECKMANN_SMITH_INCLUDED_
-
+//TODO rename this file to beckmann.glsl
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ndf/beckmann.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/geom/smith.glsl>
@@ -90,29 +90,19 @@ irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_Anisotropic
     return irr_glsl_beckmann_smith_cos_generate(interaction, u, _ax, _ay);
 }
 
-// we take anisotropic roughness but input is isotropic, WTF?
-vec3 irr_glsl_beckmann_smith_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ay)
+vec3 irr_glsl_beckmann_smith_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float a2)
 {
-	float a2 = ax*ay;
 	float NdotL2 = s.NdotL*s.NdotL;
-	float lambda_V = irr_glsl_smith_beckmann_Lambda(irr_glsl_smith_beckmann_C2(interaction.isotropic.NdotV_squared, a2));
-	float lambda_L = irr_glsl_smith_beckmann_Lambda(irr_glsl_smith_beckmann_C2(NdotL2, a2));
+	float lambda_V = irr_glsl_smith_beckmann_Lambda(interaction.isotropic.NdotV_squared, a2);
+	float lambda_L = irr_glsl_smith_beckmann_Lambda(NdotL2, a2);
 	float onePlusLambda_V = 1.0 + lambda_V;
-	float G = 1.0 / onePlusLambda_V;
-	pdf = irr_glsl_beckmann(a2,s.NdotH*s.NdotH)*G*abs(s.VdotH)/interaction.isotropic.NdotV;
-	G = onePlusLambda_V/(onePlusLambda_V+lambda_L);//remainder
+    float absVdotH = abs(s.VdotH);
+	float G1 = 1.0 / onePlusLambda_V;
+	pdf = irr_glsl_beckmann(a2,s.NdotH*s.NdotH)*G1*absVdotH/interaction.isotropic.NdotV;
+	float G2_over_G1 = s.NdotL*onePlusLambda_V / (onePlusLambda_V+lambda_L);
 	
 	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
-	return fr*G / (4.0 * interaction.isotropic.NdotV);
-}
-
-float irr_glsl_beckmann_smith_height_correlated(in float NdotV2, in float NdotL2, in float a2)
-{
-    float c2 = irr_glsl_smith_beckmann_C2(NdotV2, a2);
-    float L_v = irr_glsl_smith_beckmann_Lambda(c2);
-    c2 = irr_glsl_smith_beckmann_C2(NdotL2, a2);
-    float L_l = irr_glsl_smith_beckmann_Lambda(c2);
-    return 1.0 / (1.0 + L_v + L_l);
+	return fr*G2_over_G1*interaction.isotropic.NdotV / absVdotH;
 }
 
 // TODO: generator and remainder function are anisotropic, why is eval isotropic!?
