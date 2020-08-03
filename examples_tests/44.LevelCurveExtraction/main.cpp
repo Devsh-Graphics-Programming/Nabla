@@ -220,11 +220,7 @@ int main()
     drawArraysIndirectCmd.count = 0u;
     drawArraysIndirectCmd.first = 0u;
     //auto lineCountBuffer = driver->createDeviceLocalGPUBufferOnDedMem(roundUp(sizeof(irr::asset::DrawArraysIndirectCommand_t),16ull));
-    smart_refctd_ptr<video::IGPUBuffer> lineCountBuffer[2] = 
-    { 
-        driver->createFilledDeviceLocalGPUBufferOnDedMem(roundUp(sizeof(irr::asset::DrawArraysIndirectCommand_t), 16ull), &drawArraysIndirectCmd),
-        driver->createFilledDeviceLocalGPUBufferOnDedMem(roundUp(sizeof(irr::asset::DrawArraysIndirectCommand_t), 16ull), &drawArraysIndirectCmd) 
-    };
+    auto lineCountBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(roundUp(sizeof(irr::asset::DrawArraysIndirectCommand_t), 16ull), &drawArraysIndirectCmd);
     uint32_t triangleCount;
     if (!asset::IMeshManipulator::getPolyCount(triangleCount, mesh_raw))
         assert(false);
@@ -241,9 +237,9 @@ int main()
         w[0].descriptorType = asset::EDT_STORAGE_BUFFER;
         w[0].dstSet = gpuds0.get();
         w[0].info = i;
-        i[0].desc = lineCountBuffer[0];
+        i[0].desc = lineCountBuffer;
         i[0].buffer.offset = 0;
-        i[0].buffer.size = lineCountBuffer[0]->getSize();
+        i[0].buffer.size = lineCountBuffer->getSize();
         w[1].arrayElement = 0;
         w[1].binding = 1u;
         w[1].count = 1u;
@@ -330,32 +326,8 @@ int main()
         
       
         // zero out buffer LineCount
-        driver->fillBuffer(lineCountBuffer[bufferIdx].get(), offsetof(irr::asset::DrawArraysIndirectCommand_t, count), sizeof(uint32_t), 0u);
-        
-        {
-            video::IGPUDescriptorSet::SWriteDescriptorSet w[3];
-            video::IGPUDescriptorSet::SDescriptorInfo i[3];
-            w[0].arrayElement = 0;
-            w[0].binding = 0u;
-            w[0].count = 1u;
-            w[0].descriptorType = asset::EDT_STORAGE_BUFFER;
-            w[0].dstSet = gpuds0.get();
-            w[0].info = i;
-            i[0].desc = lineCountBuffer[bufferIdx];
-            i[0].buffer.offset = 0;
-            i[0].buffer.size = lineCountBuffer[bufferIdx]->getSize();
-            w[1].arrayElement = 0;
-            w[1].binding = 1u;
-            w[1].count = 1u;
-            w[1].descriptorType = asset::EDT_STORAGE_BUFFER;
-            w[1].dstSet = gpuds0.get();
-            w[1].info = i + 1;
-            i[1].desc = linesBuffer[bufferIdx];
-            i[1].buffer.offset = 0;
-            i[1].buffer.size = linesBuffer[bufferIdx]->getSize();
+        driver->fillBuffer(lineCountBuffer.get(), offsetof(irr::asset::DrawArraysIndirectCommand_t, count), sizeof(uint32_t), 0u);
 
-            driver->updateDescriptorSets(2u, w, 0u, nullptr);
-        }
         //emit "memory barrier" of type GL_SHADER_STORAGE_BITS before scene is drawn - same as pre render? or post invoking render but before it finishes?
         //did you mean GL_SHADER_STORAGE_BARRIER_BIT?
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
@@ -418,23 +390,45 @@ int main()
         //emit "memory barrier" of type GL_ALL_BARRIER_BITS after the entire scene finishes drawing
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_ALL_BARRIER_BITS);
         
+        
         driver->bindGraphicsPipeline(drawIndirect_pipeline.get());
         driver->pushConstants(drawIndirect_pipeline->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), camera->getConcatenatedMatrix().pointer());
-
 
         bufferIdx++;
         bufferIdx %= 2;
         bufferBinding[0].buffer = linesBuffer[bufferIdx];
-        bufferBinding[0].offset = 0;
 
-       
+        {
+            video::IGPUDescriptorSet::SWriteDescriptorSet w[3];
+            video::IGPUDescriptorSet::SDescriptorInfo i[3];
+            w[0].arrayElement = 0;
+            w[0].binding = 0u;
+            w[0].count = 1u;
+            w[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+            w[0].dstSet = gpuds0.get();
+            w[0].info = i;
+            i[0].desc = lineCountBuffer;
+            i[0].buffer.offset = 0;
+            i[0].buffer.size = lineCountBuffer->getSize();
+            w[1].arrayElement = 0;
+            w[1].binding = 1u;
+            w[1].count = 1u;
+            w[1].descriptorType = asset::EDT_STORAGE_BUFFER;
+            w[1].dstSet = gpuds0.get();
+            w[1].info = i + 1;
+            i[1].desc = linesBuffer[bufferIdx];
+            i[1].buffer.offset = 0;
+            i[1].buffer.size = linesBuffer[bufferIdx]->getSize();
+
+            driver->updateDescriptorSets(2u, w, 0u, nullptr);
+        }
 
 
 
 
         //invoke drawIndirect and use linesBuffer
         if(canRenderLines)
-            driver->drawArraysIndirect(bufferBinding, asset::EPT_LINE_LIST, lineCountBuffer[bufferIdx].get(), 0u, 1u, sizeof(asset::DrawArraysIndirectCommand_t));
+            driver->drawArraysIndirect(bufferBinding, asset::EPT_LINE_LIST, lineCountBuffer.get(), 0u, 1u, sizeof(asset::DrawArraysIndirectCommand_t));
 		driver->endScene();
 		// display frames per second in window title
 		uint64_t time = device->getTimer()->getRealTime();
