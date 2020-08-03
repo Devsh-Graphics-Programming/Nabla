@@ -225,12 +225,12 @@ int main()
     if (!asset::IMeshManipulator::getPolyCount(triangleCount, mesh_raw))
         assert(false);
 
-    auto linesBuffer = driver->createDeviceLocalGPUBufferOnDedMem(triangleCount * 6 * sizeof(float));
+    smart_refctd_ptr<video::IGPUBuffer> linesBuffer[2] = { driver->createDeviceLocalGPUBufferOnDedMem(triangleCount * 6 * sizeof(float)),driver->createDeviceLocalGPUBufferOnDedMem(triangleCount * 6 * sizeof(float)) };
     
     auto gpuds0 = driver->createGPUDescriptorSet(std::move(gpuds0layout));
     {
-        video::IGPUDescriptorSet::SWriteDescriptorSet w[2];
-        video::IGPUDescriptorSet::SDescriptorInfo i[2];
+        video::IGPUDescriptorSet::SWriteDescriptorSet w[3];
+        video::IGPUDescriptorSet::SDescriptorInfo i[3];
         w[0].arrayElement = 0;
         w[0].binding = 0u;
         w[0].count = 1u;
@@ -246,16 +246,16 @@ int main()
         w[1].descriptorType = asset::EDT_STORAGE_BUFFER;
         w[1].dstSet = gpuds0.get();
         w[1].info = i+1;
-        i[1].desc = linesBuffer;
+        i[1].desc = linesBuffer[0];
         i[1].buffer.offset = 0;
-        i[1].buffer.size = linesBuffer->getSize();
+        i[1].buffer.size = linesBuffer[0]->getSize();
 
         driver->updateDescriptorSets(2u, w, 0u, nullptr);
     }
 
     asset::SBufferBinding<video::IGPUBuffer> bufferBinding[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
     bufferBinding[0].offset = 0;
-    bufferBinding[0].buffer = linesBuffer; 
+    bufferBinding[0].buffer = linesBuffer[0];
    for (size_t i = 1; i < video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
     {
         bufferBinding[i].offset = 0;
@@ -316,7 +316,8 @@ int main()
 	camera->setFarValue(5000.0f);
 
     smgr->setActiveCamera(camera);
-
+    uint32_t bufferIdx = 0;
+    bool canRenderLines = false;
 	uint64_t lastFPSTime = 0;
 	while(device->run() && receiver.keepOpen())
 	{
@@ -393,11 +394,42 @@ int main()
         driver->bindGraphicsPipeline(drawIndirect_pipeline.get());
         driver->pushConstants(drawIndirect_pipeline->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), camera->getConcatenatedMatrix().pointer());
 
+        bufferIdx++;
+        bufferIdx %= 2;
+        bufferBinding[0].buffer = linesBuffer[bufferIdx];
+
+        {
+            video::IGPUDescriptorSet::SWriteDescriptorSet w[3];
+            video::IGPUDescriptorSet::SDescriptorInfo i[3];
+            w[0].arrayElement = 0;
+            w[0].binding = 0u;
+            w[0].count = 1u;
+            w[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+            w[0].dstSet = gpuds0.get();
+            w[0].info = i;
+            i[0].desc = lineCountBuffer;
+            i[0].buffer.offset = 0;
+            i[0].buffer.size = lineCountBuffer->getSize();
+            w[1].arrayElement = 0;
+            w[1].binding = 1u;
+            w[1].count = 1u;
+            w[1].descriptorType = asset::EDT_STORAGE_BUFFER;
+            w[1].dstSet = gpuds0.get();
+            w[1].info = i + 1;
+            i[1].desc = linesBuffer[bufferIdx];
+            i[1].buffer.offset = 0;
+            i[1].buffer.size = linesBuffer[bufferIdx]->getSize();
+
+            driver->updateDescriptorSets(2u, w, 0u, nullptr);
+        }
+
+
+
 
         //invoke drawIndirect and use linesBuffer
-        driver->drawArraysIndirect(bufferBinding, asset::EPT_LINE_LIST, lineCountBuffer.get(), 0u, 1u, sizeof(asset::DrawArraysIndirectCommand_t));
+        if(canRenderLines)
+            driver->drawArraysIndirect(bufferBinding, asset::EPT_LINE_LIST, lineCountBuffer.get(), 0u, 1u, sizeof(asset::DrawArraysIndirectCommand_t));
 		driver->endScene();
-      
 		// display frames per second in window title
 		uint64_t time = device->getTimer()->getRealTime();
 		if (time-lastFPSTime > 1000)
@@ -408,6 +440,7 @@ int main()
 			device->setWindowCaption(str.str().c_str());
 			lastFPSTime = time;
 		}
+        canRenderLines = true;
 	}
 
 	return 0;
