@@ -90,11 +90,30 @@ irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_Anisotropic
     return irr_glsl_beckmann_smith_cos_generate(interaction, u, _ax, _ay);
 }
 
-vec3 irr_glsl_beckmann_smith_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float a2)
+vec3 irr_glsl_beckmann_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float a2)
 {
 	float NdotL2 = s.NdotL*s.NdotL;
-	float lambda_V = irr_glsl_smith_beckmann_Lambda(interaction.isotropic.NdotV_squared, a2);
+	float lambda_V = irr_glsl_smith_beckmann_Lambda(interaction.NdotV_squared, a2);
 	float lambda_L = irr_glsl_smith_beckmann_Lambda(NdotL2, a2);
+	float onePlusLambda_V = 1.0 + lambda_V;
+    float absVdotH = abs(s.VdotH);
+	float G1 = 1.0 / onePlusLambda_V;
+	pdf = irr_glsl_beckmann(a2,s.NdotH*s.NdotH)*G1*absVdotH/interaction.NdotV;
+	float G2_over_G1 = s.NdotL*onePlusLambda_V / (onePlusLambda_V+lambda_L);
+	
+	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
+	return fr*G2_over_G1*interaction.NdotV / absVdotH;
+}
+vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax2, in float ay2)
+{
+	float NdotL2 = s.NdotL*s.NdotL;
+    float a02 = irr_glsl_smith_aniso_a0_2(interaction.isotropic.N, interaction.isotropic.V.dir, interaction.T, interaction.isotropic.NdotV_squared, ax2, ay2);
+    float c2 = irr_glsl_smith_beckmann_C2(interaction.isotropic.NdotV_squared, a02);
+	float lambda_V = irr_glsl_smith_beckmann_Lambda(c2);
+    float NdotL2 = s.NdotL*s.NdotL;
+    a02 = irr_glsl_smith_aniso_a0_2(interaction.isotropic.N, s.L, interaction.T, NdotL2, ax2, ay2);
+    c2 = irr_glsl_smith_beckmann_C2(NdotL2, a02);
+	float lambda_L = irr_glsl_smith_beckmann_Lambda(c2);
 	float onePlusLambda_V = 1.0 + lambda_V;
     float absVdotH = abs(s.VdotH);
 	float G1 = 1.0 / onePlusLambda_V;
