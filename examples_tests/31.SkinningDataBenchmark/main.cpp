@@ -30,13 +30,7 @@ struct Vertex
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
 
-#include "C:\IrrlichtBAW\IrrlichtBAW\src\irr\asset\CCPUMeshPacker.h";
-
-//#include "common.glsl"
-//#include "commonIndirect.glsl"
-
-        //TODO: create shader, and then from check how introspector creates renderpass
-
+#include "C:\IrrlichtBAW\IrrlichtBAW\src\irr\asset\CCPUMeshPacker.h"; //sorry
 
 int main()
 {
@@ -69,75 +63,94 @@ int main()
     auto gpuShaders = driver->getGPUObjectsFromAssets(shaders, shaders + 2);
 
 
-    auto createMeshBufferFromGeometryCreatorReturnData = [&](asset::IGeometryCreator::return_type& geometryObject, ICPUMeshBuffer* meshBuffer)
+    auto createMeshBufferFromGeometryCreatorReturnData = [&](asset::IGeometryCreator::return_type& geometryObject, ICPUMeshBuffer* meshBuffer, uint16_t boneID)
     {
         asset::SBlendParams blendParams;
         asset::SRasterizationParams rasterParams;
         rasterParams.faceCullingMode = asset::EFCM_NONE;
 
-        auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, nullptr, nullptr, geometryObject.inputParams, blendParams, geometryObject.assemblyParams, rasterParams);
-
-        meshBuffer->setPipeline(std::move(pipeline));
         for (int i = 0; i < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; i++)
             meshBuffer->setVertexBufferBinding(std::move(geometryObject.bindings[i]), i);
         meshBuffer->setBoundingBox(geometryObject.bbox);
         meshBuffer->setIndexCount(geometryObject.indexCount);
         meshBuffer->setIndexType(geometryObject.indexType);
         meshBuffer->setIndexBufferBinding(std::move(geometryObject.indexBuffer));
-    };
+        
+        auto newInputParams = geometryObject.inputParams;
+        newInputParams.enabledAttribFlags |= 0b10000u;
+        newInputParams.enabledBindingFlags |= 0b10u;
+        newInputParams.bindings[1].inputRate = EVIR_PER_VERTEX;
+        newInputParams.bindings[1].stride = 0u;
+        newInputParams.attributes[4].binding = 1u;
+        newInputParams.attributes[4].format = EF_R16_UINT;
+        newInputParams.attributes[4].relativeOffset = 0u;
 
-    auto createMeshBufferFromMeshPackerOutput = [&](MeshPackerBase::PackedMeshBuffer<ICPUBuffer>& packedMeshBuffer, ICPUMeshBuffer* meshBuffer)
-    {
+        SBufferBinding<ICPUBuffer> boneIDBuffer;
+        boneIDBuffer.offset = 0u;
+        boneIDBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(meshBuffer->calcVertexCount() * sizeof(uint16_t));
 
-        asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD) };
-        auto pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(range, range + 1);
+        uint16_t* buffPtr = static_cast<uint16_t*>(boneIDBuffer.buffer->getPointer());
+        for (int i = 0; i < meshBuffer->calcVertexCount(); i++)
+            *(buffPtr + i) = boneID;
 
-        asset::SBlendParams blendParams;
-        asset::SRasterizationParams rasterParams;
-        rasterParams.faceCullingMode = asset::EFCM_NONE;
 
-        auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(pipelineLayout), shaders, shaders + 2, packedMeshBuffer.vertexInputParams, blendParams, SPrimitiveAssemblyParams(), rasterParams);
+        meshBuffer->setVertexBufferBinding(std::move(boneIDBuffer), 1);
 
+        auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, nullptr, nullptr, newInputParams, blendParams, geometryObject.assemblyParams, rasterParams);
         meshBuffer->setPipeline(std::move(pipeline));
-        for (int i = 0; i < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; i++)
-            meshBuffer->setVertexBufferBinding(std::move(packedMeshBuffer.vertexBufferBindings[i]), i);
-        //meshBuffer->setBoundingBox(packedMeshBuffer.MDIDataBuffer.bbox);
-
-        DrawElementsIndirectCommand_t firstMDIStruct = *static_cast<DrawElementsIndirectCommand_t*>(packedMeshBuffer.MDIDataBuffer->getPointer());
-
-        meshBuffer->setIndexCount(firstMDIStruct.count);
-        meshBuffer->setIndexType(EIT_16BIT);
-        meshBuffer->setIndexBufferBinding(std::move(packedMeshBuffer.indexBuffer));
     };
 
-        //create disks
-    ICPUMeshBuffer* meshBuffer[2] = { _IRR_NEW(ICPUMeshBuffer), _IRR_NEW(ICPUMeshBuffer) };
-    auto sphere1 = am->getGeometryCreator()->createSphereMesh();
-    auto sphere2 = am->getGeometryCreator()->createSphereMesh(1.0f);
+    constexpr size_t diskCount = 3u * 3u * 3u;
 
-    createMeshBufferFromGeometryCreatorReturnData(sphere1, meshBuffer[0]);
-    createMeshBufferFromGeometryCreatorReturnData(sphere2, meshBuffer[1]);
+    std::vector<uint16_t> tesselation(diskCount);
 
-        //pack disks into single buffers
+    //get random tesselation for disks
+    {
+        std::random_device rd;
+        std::mt19937 mt(rd());
+        std::uniform_int_distribution<uint32_t> dist(15, 64 * 3);
+
+        //TODO: test
+        //`dist(mt) | 0x0001` so vertexCount is always odd (only when diskCount is odd as well)
+        std::generate(tesselation.begin(), tesselation.end(), [&]() { return dist(mt) | 0x0001; });
+    }
+
+    core::vector<uint16_t> indices(16000);
+    std::iota(indices.begin(), indices.end(), 0u);
+
+    core::vector<ICPUMeshBuffer*> disks(diskCount);
+    std::generate(disks.begin(), disks.end(), []() { return _IRR_NEW(ICPUMeshBuffer); });
+    for (uint32_t i = 0; i < diskCount; i++)
+    {
+        auto disk = am->getGeometryCreator()->createDiskMesh(0.5f, tesselation[i]);
+        auto newIdxBuffer = am->getMeshManipulator()->idxBufferFromTrianglesFanToTriangles(indices.data(), disk.indexCount, EIT_16BIT);
+        disk.indexBuffer = { 0ull, newIdxBuffer };
+        disk.indexCount = newIdxBuffer->getSize() / sizeof(uint16_t);
+        disk.indexType = EIT_16BIT;
+        disk.assemblyParams.primitiveType = EPT_TRIANGLE_LIST;
+        createMeshBufferFromGeometryCreatorReturnData(disk, disks[i], i);
+    }
+
+        //pack disks
     MeshPackerBase::PackedMeshBuffer<ICPUBuffer> packedMeshBuffer;
     MeshPackerBase::PackedMeshBufferData mb;
     {
         auto allocParams = MeshPackerBase::AllocationParams();
-        allocParams.MDIDataBuffSupportedCnt = 16;
-        allocParams.MDIDataBuffMinAllocSize = 1;
-        allocParams.indexBuffSupportedCnt = 2048 * 2;
-        allocParams.indexBufferMinAllocSize = 128;
-        allocParams.vertexBuffSupportedCnt = 2048 * 2;
-        allocParams.vertexBufferMinAllocSize = 128;
+        allocParams.MDIDataBuffSupportedCnt = 1024;
+        allocParams.MDIDataBuffMinAllocSize = 512;
+        allocParams.indexBuffSupportedCnt = 2048 * 8;
+        allocParams.indexBufferMinAllocSize = 256;
+        allocParams.vertexBuffSupportedCnt = 2048 * 2048;
+        allocParams.vertexBufferMinAllocSize = 256;
 
-        CCPUMeshPacker packer(meshBuffer[0]->getPipeline()->getVertexInputParams(), allocParams, 128, 128);
+        CCPUMeshPacker packer(disks[0]->getPipeline()->getVertexInputParams(), allocParams, 256, 256);
 
-        auto resParams = packer.alloc(meshBuffer, meshBuffer + 2);
+        auto resParams = packer.alloc(disks.begin(), disks.end());
 
         _IRR_DEBUG_BREAK_IF(resParams.isValid() == false);
 
         packer.instantiateDataStorage();
-        mb = packer.commit(meshBuffer, meshBuffer + 2, resParams);
+        mb = packer.commit(disks.begin(), disks.end(), resParams);
 
         packedMeshBuffer = packer.getPackedMeshBuffer();
 
@@ -159,9 +172,7 @@ int main()
         size_t countOffset = 0u;
     };
 
-    
-
-        //create `drawIndirect` data
+        //create inputs for `drawIndexedIndirect`
     DrawIndexedIndirectInput mdi;
     {
         mdi.indexBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(packedMeshBuffer.indexBuffer.buffer->getSize(), packedMeshBuffer.indexBuffer.buffer->getPointer());
@@ -181,8 +192,16 @@ int main()
         //create bone matrices
     core::smart_refctd_ptr<IGPUBuffer> drawDataBuffer;
     {
-        vector<core::matrix4SIMD> matrices(2);
-        matrices[1].setTranslation(core::vectorSIMDf(0.0f, 5.5f, 0.0f));
+        vector<core::matrix4SIMD> matrices(diskCount + 1);
+
+        uint32_t i = 1u;
+        for (uint32_t x = 0; x < 3u; x++)
+        for (uint32_t y = 0; y < 3u; y++)
+        for (uint32_t z = 0; z < 3u; z++)
+        {
+            matrices[i].setTranslation(core::vectorSIMDf(x, y, z));
+            i++;
+        }  
 
         drawDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(matrices.size() * sizeof(core::matrix4SIMD), matrices.data());
     }
@@ -190,6 +209,7 @@ int main()
         //create pipeline
     core::smart_refctd_ptr<IGPUPipelineLayout> gpuPipelineLayout;
     core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> gpuPipeline;
+    core::smart_refctd_ptr<IGPUDescriptorSet> descriptorSet;
     {
         core::smart_refctd_ptr<IGPUDescriptorSetLayout> layout;
         {
@@ -200,11 +220,8 @@ int main()
             
             layout = driver->createGPUDescriptorSetLayout(b, b + 1);
         }
-
-        asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD) };
-        gpuPipelineLayout = driver->createGPUPipelineLayout(range, range + 1, core::smart_refctd_ptr(layout));
-
-        core::smart_refctd_ptr<IGPUDescriptorSet> descriptorSet = driver->createGPUDescriptorSet(std::move(layout));
+        
+        descriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr(layout));
         {
             video::IGPUDescriptorSet::SWriteDescriptorSet w;
             w.binding = 0u;
@@ -225,8 +242,10 @@ int main()
         
         asset::SRasterizationParams rasterParams;
         rasterParams.faceCullingMode = asset::EFCM_NONE;
-
         IGPUSpecializedShader* shaders[2] = { gpuShaders->operator[](0).get(), gpuShaders->operator[](1).get() }; //fix?
+
+        asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD) };
+        gpuPipelineLayout = driver->createGPUPipelineLayout(range, range + 1, core::smart_refctd_ptr(layout));
 
         gpuPipeline = driver->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), shaders, shaders + 2, packedMeshBuffer.vertexInputParams, SBlendParams(), SPrimitiveAssemblyParams(), rasterParams);
     }
@@ -254,13 +273,14 @@ int main()
         camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
         camera->render();
 
-        core::matrix3x4SIMD modelMatrix;
-        modelMatrix.setRotation(core::quaternion(0.0f, (90.0f * 2.0f * 3.14f) / 360.0f, 0.0f));
-        modelMatrix.setTranslation(irr::core::vectorSIMDf(0, 0, 0, 0));
-
         core::matrix4SIMD vp = camera->getConcatenatedMatrix();
+        core::matrix4SIMD identity;
+
+        driver->updateBufferRangeViaStagingBuffer(drawDataBuffer.get(), 0u, sizeof(core::matrix4SIMD), vp.pointer());
+
         driver->bindGraphicsPipeline(gpuPipeline.get());
-        driver->pushConstants(gpuPipelineLayout.get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), vp.pointer());
+        driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline->getLayout(), 0u, 1u, &descriptorSet.get(), nullptr);
+        driver->pushConstants(gpuPipelineLayout.get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), identity.pointer());
         driver->drawIndexedIndirect(mdi.vtxBindings, mdi.mode, mdi.indexType, mdi.indexBuff.get(), mdi.indirectDrawBuff.get(), mdi.offset, mdi.maxCount, mdi.stride);
 
         driver->endScene();
