@@ -175,6 +175,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			core::vector3du32_SIMD localCoord;
 			for (auto& w = localCoord[3] = 0u; w < copyLayerCount - copyInBaseLayer; ++w) 
 			{
+				std::array<decodeType, maxChannels> minDecodeValues = {};
 				std::array<decodeType, maxChannels> maxDecodeValues = {};
 
 				state->inBaseLayer += w;
@@ -202,15 +203,6 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 						const void* inSourcePixels[maxChannels] = { inDataAdress, nullptr, nullptr, nullptr };
 						asset::decodePixelsRuntime(inFormat, inSourcePixels, decodeBuffer.data(), 1, 1);
 						memcpy(outDataAdress, decodeBuffer.data(), sizeof(decodeType) * currentChannelCount);
-
-						if (readBlockArrayOffset == offsetToMaxValueInRegionRange)
-							std::for_each(decodeBuffer.begin(), decodeBuffer.end(), [&](decodeType& itrValue)
-								{
-									uint8_t offset = &itrValue - decodeBuffer.data();
-									if (maxDecodeValues[offset] > itrValue)
-										maxDecodeValues[offset] = itrValue;
-								}
-						);
 					};
 
 					CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg, decode, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
@@ -227,9 +219,6 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 						auto* entryScratchAdress = scratchMemory + outDataAdressOffsetScratch;
 						asset::encodePixelsRuntime(outFormat, outDataAdress, entryScratchAdress); // overrrides texels, so region-overlapping case is fine
-
-						//if (readBlockPos.x == trueOutExtent.width - 1 && readBlockPos.y == 0)
-							//memcpy(totalImageCacheOutput + (readBlockPos.w * state->extent.depth + readBlockPos.z) * outTexelByteSize, outDataAdress, outTexelByteSize);
 					};
 
 					CBasicImageFilterCommon::executePerRegion(commonExecuteData.outImg, encode, commonExecuteData.outRegions.begin(), commonExecuteData.outRegions.end(), clip);
@@ -307,18 +296,18 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 							}
 						}
 
-						/*
-						if (newReadBlockPos.x == extent.x - 1) // reset row cache when changing y
-						{
-							if (newReadBlockPos.y == 0) // sum values in (maxX, 0, z) and remove values from column cache
+						std::for_each(current, current + currentChannelCount,
+							[&](decodeType* itrValue)
 							{
-								memcpy(totalImageCacheScratch + (newReadBlockPos.w * state->extent.depth + newReadBlockPos.z) * state->mainRowScratchCacheByteSize, finalPixel, state->mainRowScratchCacheByteSize);
-								memset(mainColumnCacheScratch, 0, state->mainColumnScratchCacheByteSize);
-							}
+								uint8_t offset = itrValue - current;
 
-							memset(mainRowCacheScratch, 0, state->mainRowScratchCacheByteSize);
-						}
-						*/
+								if (maxDecodeValues[offset] > *itrValue)
+									maxDecodeValues[offset] = *itrValue;
+
+								if (minDecodeValues[offset] < *itrValue)
+									minDecodeValues[offset] = *itrValue;
+							}
+						);
 					};
 
 					{
@@ -328,39 +317,52 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 									sum(core::vectorSIMDi32(x, y, z, w));
 					}
 
-					/*
-
-					auto normalizeScratch = [&]()
+					auto normalizeScratch = [&](bool isNormalizedFormat, bool isSignedFormat)
 					{
+						auto normalizeAsUsual = [&](decodeType* entryScratchAdress)
+						{
+							for (uint8_t channel = 0; channel < currentChannelCount; ++channel)
+								entryScratchAdress[channel] /= maxDecodeValues[channel];
+						};
 
-						I should beware of proxy regions, and no idea now how it will be working if regions may overlap
+						auto normalizeAsSigned = [&](decodeType* entryScratchAdress)
+						{
+							for (uint8_t channel = 0; channel < currentChannelCount; ++channel)
+								entryScratchAdress[channel] = (2.0 * entryScratchAdress[channel] - maxDecodeValues[channel] - minDecodeValues[channel]) / (maxDecodeValues[channel] - minDecodeValues[channel]);
+						};
+
+						auto normalizeAsUnsigned = [&](decodeType* entryScratchAdress)
+						{
+							for (uint8_t channel = 0; channel < currentChannelCount; ++channel)
+								entryScratchAdress[channel] = (entryScratchAdress[channel] - minDecodeValues[channel]) / (maxDecodeValues[channel] - minDecodeValues[channel]);
+						};
+
+						std::function<void(decodeType*)> normalize;
+						{
+							if (isNormalizedFormat)
+								if (isSignedFormat)
+									normalize = normalizeAsSigned;
+								else
+									normalize = normalizeAsUnsigned;
+							else
+								normalize = normalizeAsUsual;
+						}
 
 						core::vector3du32_SIMD localCoord;
 							for (auto& z = localCoord[2] = 0u; z < extent.z; ++z)
 								for (auto& y = localCoord[1] = 0u; y < extent.y; ++y)
 									for (auto& x = localCoord[0] = 0u; x < extent.x; ++x)
 									{
-										const auto scratchInPlaneOffset = ((localCoord.z * state->extent.height + localCoord.y) * state->extent.width + localCoord.x);
-										const auto outDataAdressOffsetScratch = scratchInPlaneOffset * currentChannelCount;
-
+										const auto outDataAdressOffsetScratch = ((localCoord.z * state->extent.height + localCoord.y) * state->extent.width + localCoord.x) * currentChannelCount;
 										auto* entryScratchAdress = scratchMemory + outDataAdressOffsetScratch;
-										auto* entryTotalImageCacheValues = reinterpret_cast<decodeType*>(totalImageCacheScratch + (localCoord.w * state->extent.depth + localCoord.z) * state->mainRowScratchCacheByteSize);
 
-										for (uint8_t channel = 0; channel < currentChannelCount; ++channel)
-											entryScratchAdress[channel] /= entryTotalImageCacheValues[channel];
+										normalize(entryScratchAdress);
 									}
 					};
-					*/
-
-					/*
-
-					it wont work anymore since now
-
-					if (state->normalizeImageByTotalSATValues)
-						if (!asset::isNormalizedFormat(inFormat))
-							normalizeScratch();
-
-					*/
+					
+					bool normalized = asset::isNormalizedFormat(inFormat);
+					if (state->normalizeImageByTotalSATValues || normalized)
+						normalizeScratch(normalized, asset::isSignedFormat(inFormat));
 
 					return commonExecute(state, perOutputRegionEncode);
 				}
