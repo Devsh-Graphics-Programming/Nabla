@@ -100,7 +100,8 @@ int main()
         meshBuffer->setPipeline(std::move(pipeline));
     };
 
-    constexpr size_t diskCount = 3u * 3u * 3u;
+    const core::vector4du32_SIMD diskBlockDim(5u, 5u, 5u);
+    const size_t diskCount = diskBlockDim.x * diskBlockDim.y * diskBlockDim.z;
 
     std::vector<uint16_t> tesselation(diskCount);
 
@@ -108,7 +109,7 @@ int main()
     {
         std::random_device rd;
         std::mt19937 mt(rd());
-        std::uniform_int_distribution<uint32_t> dist(15, 64 * 3);
+        std::uniform_int_distribution<uint32_t> dist(15, 160 - 1);
 
         //TODO: test
         //`dist(mt) | 0x0001` so vertexCount is always odd (only when diskCount is odd as well)
@@ -131,6 +132,8 @@ int main()
         createMeshBufferFromGeometryCreatorReturnData(disk, disks[i], i);
     }
 
+    os::Printer::print("Disks creation done.\n");
+
         //pack disks
     MeshPackerBase::PackedMeshBuffer<ICPUBuffer> packedMeshBuffer;
     MeshPackerBase::PackedMeshBufferData mb;
@@ -138,9 +141,9 @@ int main()
         auto allocParams = MeshPackerBase::AllocationParams();
         allocParams.MDIDataBuffSupportedCnt = 1024;
         allocParams.MDIDataBuffMinAllocSize = 512;
-        allocParams.indexBuffSupportedCnt = 2048 * 8;
+        allocParams.indexBuffSupportedCnt = 1000 * 160 * 10;
         allocParams.indexBufferMinAllocSize = 256;
-        allocParams.vertexBuffSupportedCnt = 2048 * 2048;
+        allocParams.vertexBuffSupportedCnt = 1000 * 160 * 10;
         allocParams.vertexBufferMinAllocSize = 256;
 
         CCPUMeshPacker packer(disks[0]->getPipeline()->getVertexInputParams(), allocParams, 256, 256);
@@ -157,6 +160,8 @@ int main()
         _IRR_DEBUG_BREAK_IF(mb.isValid() == false);
         _IRR_DEBUG_BREAK_IF(packedMeshBuffer.isValid() == false);
     }
+
+    os::Printer::print("Packing done.\n");
 
     struct DrawIndexedIndirectInput
     {
@@ -191,20 +196,22 @@ int main()
 
         //create bone matrices
     core::smart_refctd_ptr<IGPUBuffer> drawDataBuffer;
+    vector<core::matrix4SIMD> translationMatrices(diskCount + 1);
     {
-        vector<core::matrix4SIMD> matrices(diskCount + 1);
 
         uint32_t i = 1u;
-        for (uint32_t x = 0; x < 3u; x++)
-        for (uint32_t y = 0; y < 3u; y++)
-        for (uint32_t z = 0; z < 3u; z++)
+        for (uint32_t x = 0; x < diskBlockDim.x; x++)
+        for (uint32_t y = 0; y < diskBlockDim.y; y++)
+        for (uint32_t z = 0; z < diskBlockDim.z; z++)
         {
-            matrices[i].setTranslation(core::vectorSIMDf(x, y, z));
+            translationMatrices[i].setTranslation(core::vectorSIMDf(5.0f) * core::vectorSIMDf(x , y , z ));
             i++;
         }  
 
-        drawDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(matrices.size() * sizeof(core::matrix4SIMD), matrices.data());
+        drawDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(translationMatrices.size() * sizeof(core::matrix4SIMD), translationMatrices.data());
     }
+
+    os::Printer::print("GPU memory allocation done.\n");
     
         //create pipeline
     core::smart_refctd_ptr<IGPUPipelineLayout> gpuPipelineLayout;
@@ -266,21 +273,39 @@ int main()
 
         // ----------------------------- MAIN LOOP ----------------------------- 
 
+    core::vector<core::matrix4SIMD> boneMatrices(diskCount + 1);
+    core::vector<float> rps(diskCount);
+    {
+        std::random_device rd;
+        std::mt19937 mt(rd());
+        std::uniform_int_distribution<uint32_t> dist(1, 20);
+
+        std::generate(rps.begin(), rps.end(), [&]() { return 8.0f * 3.14f / (static_cast<float>(dist(mt)) - 10.1f); });
+    }
+
+    size_t timeMS = 0ull;
     while (device->run() && receiver.keepOpen())
     {
         driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
 
-        camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
+        timeMS = std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count();
+        camera->OnAnimate(timeMS);
         camera->render();
 
-        core::matrix4SIMD vp = camera->getConcatenatedMatrix();
-        core::matrix4SIMD identity;
+        boneMatrices[0] = camera->getConcatenatedMatrix();
 
-        driver->updateBufferRangeViaStagingBuffer(drawDataBuffer.get(), 0u, sizeof(core::matrix4SIMD), vp.pointer());
+        for (uint32_t i = 1; i < translationMatrices.size(); i++)
+        {
+            core::matrix3x4SIMD rotationMatrix;
+            rotationMatrix.setRotation(core::quaternion(0.0f, rps[i - 1] * (timeMS / 1000.0f), 0.0f));
+            boneMatrices[i] = core::concatenateBFollowedByA(translationMatrices[i], core::matrix4SIMD(rotationMatrix));
+        }
+            
 
         driver->bindGraphicsPipeline(gpuPipeline.get());
         driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline->getLayout(), 0u, 1u, &descriptorSet.get(), nullptr);
-        driver->pushConstants(gpuPipelineLayout.get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), identity.pointer());
+        driver->updateBufferRangeViaStagingBuffer(drawDataBuffer.get(), 0u, sizeof(core::matrix4SIMD) * boneMatrices.size(), boneMatrices.data());
+        //driver->pushConstants(gpuPipelineLayout.get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), camera->getConcatenatedMatrix().pointer());
         driver->drawIndexedIndirect(mdi.vtxBindings, mdi.mode, mdi.indexType, mdi.indexBuff.get(), mdi.indirectDrawBuff.get(), mdi.offset, mdi.maxCount, mdi.stride);
 
         driver->endScene();

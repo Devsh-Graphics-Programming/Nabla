@@ -178,7 +178,7 @@ MeshPackerBase::ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::all
 		idxAllocAddr,
 		idxCnt,
 		vtxAllocAddr,
-		vtxAllocAddr == INVALID_ADDRESS ? 0u : vtxCnt
+		vtxAllocAddr == INVALID_ADDRESS ? 0u : (idxCnt + 1u) / 2u
 	};
 	return result;
 }
