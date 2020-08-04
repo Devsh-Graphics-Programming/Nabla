@@ -83,7 +83,6 @@ irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_Anisotropic
 	return irr_glsl_createBSDFSample(H,localV,dot(H,localV),m);
 }
 
-<<<<<<< HEAD
 // TODO this needs to be a macro/template
 irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 _sample, in float _ax, in float _ay)
 {

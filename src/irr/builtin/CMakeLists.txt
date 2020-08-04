@@ -58,6 +58,7 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/bxdf/brdf/specular/geom/smith.glsl"
   "irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl"
   "irr/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl"
+  "irr/builtin/glsl/bxdf/brdf/specular/ndf/blinn_phong.glsl"
   "irr/builtin/glsl/bxdf/brdf/specular/ndf/beckmann.glsl"
   "irr/builtin/glsl/bxdf/brdf/specular/ndf/ashikhmin_shirley.glsl"
   "irr/builtin/glsl/bxdf/brdf/specular/ashikhmin_shirley.glsl"
