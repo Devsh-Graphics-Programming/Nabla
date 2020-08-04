@@ -245,7 +245,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 						auto areAxisSafe = [&]()
 						{
 							const auto position = core::vectorSIMDi32(0u, 0u, 0u, 0u);
-
+	
 							return core::vector4du32_SIMD
 							(
 								readBlockPos.x > position.x,
@@ -297,15 +297,15 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 						}
 
 						std::for_each(current, current + currentChannelCount,
-							[&](decodeType* itrValue)
+							[&](decodeType& itrValue)
 							{
-								uint8_t offset = itrValue - current;
+								uint8_t offset = &itrValue - current;
 
-								if (maxDecodeValues[offset] > *itrValue)
-									maxDecodeValues[offset] = *itrValue;
+								if (maxDecodeValues[offset] > itrValue)
+									maxDecodeValues[offset] = itrValue;
 
-								if (minDecodeValues[offset] < *itrValue)
-									minDecodeValues[offset] = *itrValue;
+								if (minDecodeValues[offset] < itrValue)
+									minDecodeValues[offset] = itrValue;
 							}
 						);
 					};
