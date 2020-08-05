@@ -13,7 +13,9 @@ using namespace video;
 	You can view the results in Renderdoc.
 */
 
-#define IMAGE_VIEW 
+// #define IMAGE_VIEW 
+constexpr auto MIPMAP_IMAGE_VIEW = 2u;
+constexpr auto MIPMAP_IMAGE = 0u;
 
 int main()
 {
@@ -56,19 +58,64 @@ int main()
 			newImageParams.format = EF_R32G32B32A32_SFLOAT;
 			#endif // IMAGE_VIEW
 
-			auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(referenceRegions.size());
+			auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>
+			(
+				#ifdef IMAGE_VIEW
+				referenceRegions.size()
+				#else
+				2u
+				#endif // IMAGE_VIEW
+			);
+
 			size_t regionOffsets = {};
 
+			#ifdef IMAGE_VIEW
 			for (auto newRegion = newRegions->begin(); newRegion != newRegions->end(); ++newRegion)
 			{
+				/*
+					Regions pulled directly from a loader doesn't overlap, so each following is a certain single mipmap
+				*/
+
+				auto idOffset = newRegion - newRegions->begin();
 				*newRegion = *(referenceRegion++);
 				newRegion->bufferOffset = regionOffsets;
-				regionOffsets += newRegion->imageExtent.width * newRegion->imageExtent.height * newRegion->imageExtent.depth * newRegion->imageSubresource.layerCount * asset::getTexelOrBlockBytesize(newImageParams.format);
+
+				const auto fullMipMapExtent = image->getMipSize(idOffset);
+
+				regionOffsets += fullMipMapExtent.x * fullMipMapExtent.y * fullMipMapExtent.z * newImageParams.arrayLayers * asset::getTexelOrBlockBytesize(newImageParams.format);
 			}
+			#else
+
+			/*
+				2 overlapping regions
+			*/
+
+			auto newFirstRegion = newRegions->begin();
+			*newFirstRegion = *(referenceRegion++);
+			newFirstRegion->bufferOffset = regionOffsets;
+
+			auto newSecondRegion = newRegions->begin() + 1;
+			*newSecondRegion = *newFirstRegion;
+
+			const auto fullMipMapExtent = image->getMipSize(MIPMAP_IMAGE);
+
+			auto simdImageOffset = fullMipMapExtent / 4;
+			newSecondRegion->imageOffset = { simdImageOffset.x, simdImageOffset.y, simdImageOffset.z };
+
+			auto simdImageExtent = fullMipMapExtent / 2;
+			newSecondRegion->imageExtent = { simdImageExtent.x, simdImageExtent.y, simdImageExtent.z };
+
+			regionOffsets += fullMipMapExtent.x * fullMipMapExtent.y * fullMipMapExtent.z * newImageParams.arrayLayers * asset::getTexelOrBlockBytesize(newImageParams.format);
+
+			#endif // IMAGE_VIEW
 
 			auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(regionOffsets);
 			newSumImage = ICPUImage::create(std::move(newImageParams));
 			newSumImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
+
+			/*
+				TODO: Something is wrong, validation doesn't pass due to too big buffer
+			*/
 
 			SUM_FILTER sumFilter;
 			SUM_FILTER::state_type state;
@@ -86,12 +133,12 @@ int main()
 			state.layerCount = newSumImage->getCreationParameters().arrayLayers;
 
 			#ifdef IMAGE_VIEW
-			state.inMipLevel = 2;
-			state.outMipLevel = 2;
+			state.inMipLevel = MIPMAP_IMAGE_VIEW;
+			state.outMipLevel = MIPMAP_IMAGE_VIEW;
 			state.normalizeImageByTotalSATValues = true;
 			#else
-			state.inMipLevel = 0;
-			state.outMipLevel = 0;
+			state.inMipLevel = MIPMAP_IMAGE;
+			state.outMipLevel = MIPMAP_IMAGE;
 			#endif // IMAGE_VIEW
 
 			if (!sumFilter.execute(&state))
