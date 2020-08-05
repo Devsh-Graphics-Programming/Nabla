@@ -184,20 +184,21 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 				auto perOutputRegionDecode = [&](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 				{
-					const TexelBlockInfo blockInfo(inFormat);
-					const auto strides = commonExecuteData.oit->getByteStrides(blockInfo);
-					const auto offsetToMaxValueInRegionRange = commonExecuteData.oit->getByteOffset(core::vector3du32_SIMD(commonExecuteData.oit->imageExtent.width - 1, commonExecuteData.oit->imageExtent.height - 1, commonExecuteData.oit->imageExtent.depth - 1), strides);
-					
 					/*
 						Since regions may specify areas in a layer on a certain mipmap - it is desired to
 						decode an entire image itereting through all the regions overlapping as first
 					*/
 
+					const auto blockDims = asset::getBlockDimensions(commonExecuteData.inFormat);
+
 					auto decode = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 					{
 						std::array<decodeType, maxChannels> decodeBuffer = {};
 						
-						auto* inDataAdress = commonExecuteData.inData + readBlockArrayOffset;
+						auto localOutPos = readBlockPos * blockDims + commonExecuteData.offsetDifference; // @devshgraphicsprogramming @Criss When it's < 0 it gets weird values so it crashes
+						auto* inDataAdress = commonExecuteData.inData + commonExecuteData.oit->getByteOffset(localOutPos, commonExecuteData.outByteStrides); //  @devshgraphicsprogramming @Criss there should be something like IN 
+
+						//auto* inDataAdress = commonExecuteData.inData + readBlockArrayOffset;
 						decodeType* outDataAdress = scratchMemory + ((readBlockPos.z * state->extent.height + readBlockPos.y) * state->extent.width + readBlockPos.x) * currentChannelCount;
 
 						const void* inSourcePixels[maxChannels] = { inDataAdress, nullptr, nullptr, nullptr };
@@ -212,9 +213,12 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 				auto perOutputRegionEncode = [&](const CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 				{
+					const auto blockDims = asset::getBlockDimensions(commonExecuteData.outFormat);
+
 					auto encode = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 					{
-						auto* outDataAdress = commonExecuteData.outData + readBlockArrayOffset;
+						auto localOutPos = readBlockPos * blockDims + commonExecuteData.offsetDifference; // @devshgraphicsprogramming @Criss When it's < 0 it gets weird values so it crashes
+						auto* outDataAdress = commonExecuteData.outData + commonExecuteData.oit->getByteOffset(localOutPos, commonExecuteData.outByteStrides);
 						const auto outDataAdressOffsetScratch = ((readBlockPos.z * state->extent.height + readBlockPos.y) * state->extent.width + readBlockPos.x) * currentChannelCount;
 
 						auto* entryScratchAdress = scratchMemory + outDataAdressOffsetScratch;

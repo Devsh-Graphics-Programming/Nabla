@@ -98,12 +98,13 @@ int main()
 			*newSecondRegion = *newFirstRegion;
 
 			const auto fullMipMapExtent = image->getMipSize(MIPMAP_IMAGE);
+			newSecondRegion->bufferImageHeight = fullMipMapExtent.y;
 
 			auto simdImageOffset = fullMipMapExtent / 4;
 			newSecondRegion->imageOffset = { simdImageOffset.x, simdImageOffset.y, simdImageOffset.z };
 
 			auto simdImageExtent = fullMipMapExtent / 2;
-			newSecondRegion->imageExtent = { simdImageExtent.x, simdImageExtent.y, simdImageExtent.z };
+			newSecondRegion->imageExtent = { simdImageExtent.x, simdImageExtent.y, 1 };
 
 			regionOffsets += fullMipMapExtent.x * fullMipMapExtent.y * fullMipMapExtent.z * newImageParams.arrayLayers * asset::getTexelOrBlockBytesize(newImageParams.format);
 
@@ -112,10 +113,6 @@ int main()
 			auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(regionOffsets);
 			newSumImage = ICPUImage::create(std::move(newImageParams));
 			newSumImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
-
-			/*
-				TODO: Something is wrong, validation doesn't pass due to too big buffer
-			*/
 
 			SUM_FILTER sumFilter;
 			SUM_FILTER::state_type state;
