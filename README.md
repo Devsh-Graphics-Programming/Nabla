@@ -18,17 +18,25 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 ![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/BRDF%20Explorer.png?raw=true)
 
-<u>**Many light raytracing**</u>
+##### <u>Screwed up gamma, sampler aliasing</u>
 
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Many%20light%20raytracing.png?raw=true)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/screwed%20up%20gamma%20sampler%20aliasing.png?raw=true)
 
-<u>**Many light raytracing**</u>
+##### <u>Spectral rendering</u>
 
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Many%20light%20raytracing%202.png?raw=true)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/spectral%20renderering.png?raw=true)
 
-**<u>Cylindrical light source</u>**
+##### <u>Correlated scrambling</u>
 
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Cylindrical%20light%20source.png?raw=true)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/corellated%20scrambling.png?raw=true)
+
+##### <u>Thindielectric</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/thindielectric.png?raw=true)
+
+##### <u>Light distribution (NEE)</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/light%20distribution%20(NEE).png?raw=true)
 
 **<u>Two area lights</u>**
 
@@ -118,7 +126,39 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 ### Gifs - Tonemapping with AutoExposure and Temporal Adaptation
 
+
+
 ![](https://github.com/buildaworldnet/IrrlichtBAW/blob/65504ccfd2de1a8682a1e948603a35e3c0a02996/site_media/readme/gifs/autoexposure/exposure.gif?raw=true)
+
+
+
+### Gifs - [Delta BRDF Test](https://www.youtube.com/watch?v=jIJWG0eaxU8)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Delta%20BRDF%20Test%201.gif?raw=true)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Delta%20BRDF%20Test%202.gif?raw=true)
+
+
+
+### Gifs - [Multiple Importance Sampling and Depth of Field](https://www.youtube.com/watch?v=BuyVlQPV7Ks)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%202.gif?raw=true)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%203.gif?raw=true)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%205.gif?raw=true)
+
+
 
 ## Main Features
 
