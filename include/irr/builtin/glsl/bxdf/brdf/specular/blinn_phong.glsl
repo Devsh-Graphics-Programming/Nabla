@@ -15,7 +15,7 @@ float irr_glsl_blinn_phong_rdf(in float NdotH, in float n)
 
 //https://zhuanlan.zhihu.com/p/58205525
 //TODO this is a little weird it takes aniso interaction, but it's needed for tangent frame...
-irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float n)
+irr_glsl_BSDFSample irr_glsl_blinn_phong_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float n)
 {
     vec2 u = _sample;
 
