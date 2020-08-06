@@ -190,13 +190,28 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					*/
 
 					const auto blockDims = asset::getBlockDimensions(commonExecuteData.inFormat);
+					const auto strides = commonExecuteData.oit->getByteStrides(TexelBlockInfo(commonExecuteData.inFormat)); // ITS WRONG
+
+					/*
+						if I were to use it I should have access to current handled region bellow
+						OIT isn't valid for decode to use strides, it will fail
+					*/
 
 					auto decode = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 					{
 						std::array<decodeType, maxChannels> decodeBuffer = {};
 						
+						/*
+							OFFSET is < 0, it will fail
+						*/
+
 						auto localOutPos = readBlockPos * blockDims + commonExecuteData.offsetDifference; // @devshgraphicsprogramming @Criss When it's < 0 it gets weird values so it crashes
-						auto* inDataAdress = commonExecuteData.inData + commonExecuteData.oit->getByteOffset(localOutPos, commonExecuteData.outByteStrides); //  @devshgraphicsprogramming @Criss there should be something like IN 
+						
+						/*
+							need to get access the region somehow (in region, not out)
+						*/
+
+						auto* inDataAdress = commonExecuteData.inData + commonExecuteData.oit->getByteOffset(localOutPos, strides); //  @devshgraphicsprogramming @Criss there should be something like IN strides in commonData 
 
 						//auto* inDataAdress = commonExecuteData.inData + readBlockArrayOffset;
 						decodeType* outDataAdress = scratchMemory + ((readBlockPos.z * state->extent.height + readBlockPos.y) * state->extent.width + readBlockPos.x) * currentChannelCount;
