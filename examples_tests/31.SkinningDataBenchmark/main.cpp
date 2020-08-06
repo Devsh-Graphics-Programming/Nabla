@@ -57,11 +57,14 @@ int main()
     video::IVideoDriver* driver = device->getVideoDriver();
 
     IAssetLoader::SAssetLoadParams lp;
-    auto vertexShaderBundle = am->getAsset("../basic.vert", lp);
+    auto vertexShaderBundle = am->getAsset("../2.vert", lp);
+    auto vertexShaderBundle_3 = am->getAsset("../3.vert", lp);
     auto fragShaderBundle = am->getAsset("../basic.frag", lp);
-    ICPUSpecializedShader* shaders[2] = { IAsset::castDown<ICPUSpecializedShader>(vertexShaderBundle.getContents().begin()->get()),IAsset::castDown<ICPUSpecializedShader>(fragShaderBundle.getContents().begin()->get()) };
-    auto gpuShaders = driver->getGPUObjectsFromAssets(shaders, shaders + 2);
-
+    ICPUSpecializedShader* shaders[2][2];
+    shaders[0][0] = IAsset::castDown<ICPUSpecializedShader>(vertexShaderBundle.getContents().begin()->get());
+    shaders[0][1] = IAsset::castDown<ICPUSpecializedShader>(fragShaderBundle.getContents().begin()->get());
+    shaders[1][0] = IAsset::castDown<ICPUSpecializedShader>(vertexShaderBundle_3.getContents().begin()->get());
+    shaders[1][1] = IAsset::castDown<ICPUSpecializedShader>(fragShaderBundle.getContents().begin()->get());
 
     auto createMeshBufferFromGeometryCreatorReturnData = [&](asset::IGeometryCreator::return_type& geometryObject, ICPUMeshBuffer* meshBuffer, uint16_t boneID)
     {
@@ -195,66 +198,102 @@ int main()
     }
 
         //create bone matrices
-    core::smart_refctd_ptr<IGPUBuffer> drawDataBuffer;
-    vector<core::matrix4SIMD> translationMatrices(diskCount + 1);
-    {
+    core::smart_refctd_ptr<IGPUBuffer> drawDataBuffer[2];
+    vector<core::matrix3x4SIMD> translationMatrices_2(diskCount);
 
-        uint32_t i = 1u;
+    core::vector<core::matrix3x4SIMD> boneMatrices(diskCount);
+    core::vector<core::vectorSIMDf> boneMatricesColumns(diskCount * 4);
+    core::vector<float> boneMatricesComponents(diskCount * 3 * 4);
+    {
+        //as matrices
+        uint32_t i = 0u;
         for (uint32_t x = 0; x < diskBlockDim.x; x++)
         for (uint32_t y = 0; y < diskBlockDim.y; y++)
         for (uint32_t z = 0; z < diskBlockDim.z; z++)
         {
-            translationMatrices[i].setTranslation(core::vectorSIMDf(5.0f) * core::vectorSIMDf(x , y , z ));
+            translationMatrices_2[i].setTranslation(core::vectorSIMDf(5.0f) * core::vectorSIMDf(x , y , z ));
             i++;
         }  
 
-        drawDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(translationMatrices.size() * sizeof(core::matrix4SIMD), translationMatrices.data());
+        drawDataBuffer[0] = driver->createDeviceLocalGPUBufferOnDedMem(boneMatrices.size() * sizeof(core::matrix3x4SIMD));
+
+        //as vectors
+        drawDataBuffer[1] = driver->createDeviceLocalGPUBufferOnDedMem(boneMatricesColumns.size() * sizeof(core::vectorSIMDf));
+
+        //as floats
+        std::array<uint32_t, 3 * 4> matCompOffset;
+        std::generate(matCompOffset.begin(), matCompOffset.end(), [&, n = 0]() mutable { return  (n++) * diskCount; });
+
+        //for (uint32_t i = 0u; i < translationMatrices_2.size(); i++)
+        //for (uint32_t j = 0u; j < 3 * 4; j++)
+        //    translationMatrices_4[matCompOffset[j] + i] = *(static_cast<float*>(translationMatrices_2[i].pointer()) + j);
     }
+
+    
 
     os::Printer::print("GPU memory allocation done.\n");
     
         //create pipeline
-    core::smart_refctd_ptr<IGPUPipelineLayout> gpuPipelineLayout;
-    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> gpuPipeline;
-    core::smart_refctd_ptr<IGPUDescriptorSet> descriptorSet;
+    struct Shader3PushConstants
     {
-        core::smart_refctd_ptr<IGPUDescriptorSetLayout> layout;
+        core::matrix4SIMD vp;
+        core::vector4du32_SIMD modelMatrixOffsets;
+        core::vector3du32_SIMD normalMatrixOffsets;
+    };
+
+    core::smart_refctd_ptr<IGPUPipelineLayout> gpuPipelineLayout[2];
+    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> gpuPipeline[2];
+    core::smart_refctd_ptr<IGPUDescriptorSet> descriptorSet[2];
+    
+    Shader3PushConstants s3pc;
+    s3pc.modelMatrixOffsets = core::vector4du32_SIMD(0u, diskCount, diskCount * 2, diskCount * 3
+    );
+    {
+        asset::SPushConstantRange range[2] = { 
+            asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), 
+            asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(Shader3PushConstants) };
+
+        for (uint32_t i = 0u; i < 2; i++)
         {
-            video::IGPUDescriptorSetLayout::SBinding b[1];
-            b[0].binding = 0u;
-            b[0].count = 1u;
-            b[0].type = EDT_STORAGE_BUFFER;
+            core::smart_refctd_ptr<IGPUDescriptorSetLayout> layout;
+            {
+                video::IGPUDescriptorSetLayout::SBinding b[1];
+                b[0].binding = 0u;
+                b[0].count = 1u;
+                b[0].type = EDT_STORAGE_BUFFER;
+
+                layout = driver->createGPUDescriptorSetLayout(b, b + 1);
+            }
+
+            descriptorSet[i] = driver->createGPUDescriptorSet(core::smart_refctd_ptr(layout));
+            {
+                video::IGPUDescriptorSet::SWriteDescriptorSet w;
+                w.binding = 0u;
+                w.arrayElement = 0u;
+                w.count = 1u;
+                w.descriptorType = EDT_STORAGE_BUFFER;
+                w.dstSet = descriptorSet[i].get();
+
+                video::IGPUDescriptorSet::SDescriptorInfo info;
+                info.buffer.offset = 0u;
+                info.buffer.size = drawDataBuffer[i]->getSize();
+                info.desc = drawDataBuffer[i];
+
+                w.info = &info;
+
+                driver->updateDescriptorSets(1u, &w, 0u, nullptr);
+            }
+
+            asset::SRasterizationParams rasterParams;
+            rasterParams.faceCullingMode = asset::EFCM_NONE;
             
-            layout = driver->createGPUDescriptorSetLayout(b, b + 1);
+            auto gpuShaders = driver->getGPUObjectsFromAssets(shaders[i], shaders[i] + 2);
+            IGPUSpecializedShader* shaders[2] = { gpuShaders->operator[](0).get(), gpuShaders->operator[](1).get() }; //fix?
+
+            gpuPipelineLayout[i] = driver->createGPUPipelineLayout(&range[i], &range[i] + 1, core::smart_refctd_ptr(layout));
+
+            gpuPipeline[i] = driver->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(gpuPipelineLayout[i]), shaders, shaders + 2, packedMeshBuffer.vertexInputParams, SBlendParams(), SPrimitiveAssemblyParams(), rasterParams);
         }
-        
-        descriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr(layout));
-        {
-            video::IGPUDescriptorSet::SWriteDescriptorSet w;
-            w.binding = 0u;
-            w.arrayElement = 0u;
-            w.count = 1u;
-            w.descriptorType = EDT_STORAGE_BUFFER;
-            w.dstSet = descriptorSet.get();
-
-            video::IGPUDescriptorSet::SDescriptorInfo info;
-            info.buffer.offset = 0u;
-            info.buffer.size = drawDataBuffer->getSize();
-            info.desc = drawDataBuffer;
-
-            w.info = &info;
-
-            driver->updateDescriptorSets(1u, &w, 0u, nullptr);
-        }
-        
-        asset::SRasterizationParams rasterParams;
-        rasterParams.faceCullingMode = asset::EFCM_NONE;
-        IGPUSpecializedShader* shaders[2] = { gpuShaders->operator[](0).get(), gpuShaders->operator[](1).get() }; //fix?
-
-        asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD) };
-        gpuPipelineLayout = driver->createGPUPipelineLayout(range, range + 1, core::smart_refctd_ptr(layout));
-
-        gpuPipeline = driver->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuPipelineLayout), shaders, shaders + 2, packedMeshBuffer.vertexInputParams, SBlendParams(), SPrimitiveAssemblyParams(), rasterParams);
     }
 
     auto smgr = device->getSceneManager();
@@ -271,9 +310,8 @@ int main()
     uint64_t lastFPSTime = 0;
     float lastFastestMeshFrameNr = -1.f;
 
-        // ----------------------------- MAIN LOOP ----------------------------- 
+        // ----------------------------- MAIN LOOP -----------------------------
 
-    core::vector<core::matrix4SIMD> boneMatrices(diskCount + 1);
     core::vector<float> rps(diskCount);
     {
         std::random_device rd;
@@ -282,8 +320,21 @@ int main()
 
         std::generate(rps.begin(), rps.end(), [&]() { return 8.0f * 3.14f / (static_cast<float>(dist(mt)) - 10.1f); });
     }
-
+    
     size_t timeMS = 0ull;
+
+    constexpr bool packedMatrices = false;
+    if constexpr (packedMatrices)
+    {
+        driver->bindGraphicsPipeline(gpuPipeline[0].get());
+        driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline[0]->getLayout(), 0u, 1u, &descriptorSet[0].get(), nullptr);
+    }
+    else
+    {
+        driver->bindGraphicsPipeline(gpuPipeline[1].get());
+        driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline[1]->getLayout(), 0u, 1u, &descriptorSet[1].get(), nullptr);
+    }
+    
     while (device->run() && receiver.keepOpen())
     {
         driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
@@ -292,22 +343,44 @@ int main()
         camera->OnAnimate(timeMS);
         camera->render();
 
-        boneMatrices[0] = camera->getConcatenatedMatrix();
-
-        for (uint32_t i = 1; i < translationMatrices.size(); i++)
+        //construct model matrices
+        for (uint32_t i = 0; i < translationMatrices_2.size(); i++)
         {
             core::matrix3x4SIMD rotationMatrix;
-            rotationMatrix.setRotation(core::quaternion(0.0f, rps[i - 1] * (timeMS / 1000.0f), 0.0f));
-            boneMatrices[i] = core::concatenateBFollowedByA(translationMatrices[i], core::matrix4SIMD(rotationMatrix));
+            rotationMatrix.setRotation(core::quaternion(0.0f, rps[i] * (timeMS / 1000.0f), 0.0f));
+            boneMatrices[i] = core::concatenateBFollowedByA(translationMatrices_2[i], rotationMatrix);
         }
-            
 
-        driver->bindGraphicsPipeline(gpuPipeline.get());
-        driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline->getLayout(), 0u, 1u, &descriptorSet.get(), nullptr);
-        driver->updateBufferRangeViaStagingBuffer(drawDataBuffer.get(), 0u, sizeof(core::matrix4SIMD) * boneMatrices.size(), boneMatrices.data());
-        //driver->pushConstants(gpuPipelineLayout.get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), camera->getConcatenatedMatrix().pointer());
+        if constexpr (packedMatrices)
+        {
+            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[0].get(), 0u, sizeof(core::matrix3x4SIMD) * boneMatrices.size(), boneMatrices.data());
+            driver->pushConstants(gpuPipelineLayout[0].get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), camera->getConcatenatedMatrix().pointer());
+        }
+        else
+        {
+            //create array of matrix columns
+            for (uint32_t i = 0u; i < translationMatrices_2.size(); i++)
+            {
+                const auto& row0 = core::matrix4SIMD(boneMatrices[i]).getRow(0);
+                const auto& row1 = core::matrix4SIMD(boneMatrices[i]).getRow(1);
+                const auto& row2 = core::matrix4SIMD(boneMatrices[i]).getRow(2);
+                const auto& row3 = core::matrix4SIMD(boneMatrices[i]).getRow(3);
+
+                for (uint32_t j = 0u; j < 4u; j++)
+                {
+                    boneMatricesColumns[s3pc.modelMatrixOffsets[j] + i] = core::vectorSIMDf(row0[j], row1[j], row2[j], row3[j]);
+                }
+                    
+            }
+
+            s3pc.vp = camera->getConcatenatedMatrix();
+
+            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[1].get(), 0u, sizeof(core::vectorSIMDf)* boneMatricesColumns.size(), boneMatricesColumns.data());
+            driver->pushConstants(gpuPipelineLayout[1].get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(Shader3PushConstants), &s3pc);
+        }
+
         driver->drawIndexedIndirect(mdi.vtxBindings, mdi.mode, mdi.indexType, mdi.indexBuff.get(), mdi.indirectDrawBuff.get(), mdi.offset, mdi.maxCount, mdi.stride);
-
+        
         driver->endScene();
     }
 
