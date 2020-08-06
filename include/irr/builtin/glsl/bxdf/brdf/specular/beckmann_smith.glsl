@@ -110,7 +110,6 @@ vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BS
     float a02 = irr_glsl_smith_aniso_a0_2(interaction.isotropic.N, interaction.isotropic.V.dir, interaction.T, interaction.isotropic.NdotV_squared, ax2, ay2);
     float c2 = irr_glsl_smith_beckmann_C2(interaction.isotropic.NdotV_squared, a02);
 	float lambda_V = irr_glsl_smith_beckmann_Lambda(c2);
-    float NdotL2 = s.NdotL*s.NdotL;
     a02 = irr_glsl_smith_aniso_a0_2(interaction.isotropic.N, s.L, interaction.T, NdotL2, ax2, ay2);
     c2 = irr_glsl_smith_beckmann_C2(NdotL2, a02);
 	float lambda_L = irr_glsl_smith_beckmann_Lambda(c2);
@@ -137,7 +136,7 @@ vec3 irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval(in irr_glsl_BSDFAn
 {
     float g = irr_glsl_beckmann_smith_correlated_aniso(interaction.isotropic.N, params.isotropic.L, interaction.isotropic.V.dir, interaction.T, interaction.isotropic.NdotV_squared, params.isotropic.NdotL_squared, ax2, ay2);
     float ndf = irr_glsl_beckmann(ax, ay, ax2, ay2, params.TdotH*params.TdotH, params.BdotH*params.BdotH, params.isotropic.NdotH*params.isotropic.NdotH);
-    vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], params.VdotH);
+    vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], params.isotropic.VdotH);
     
     return g*ndf*fr / (4.0 * interaction.isotropic.NdotV);
 }

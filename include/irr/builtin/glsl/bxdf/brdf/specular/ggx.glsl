@@ -79,12 +79,12 @@ vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSam
     pdf = irr_glsl_ggx_aniso(s.TdotH*s.TdotH,s.BdotH*s.BdotH,s.NdotH*s.NdotH,ax,ay,ax2,ay2)*G1*absVdotH/interaction.isotropic.NdotV;
 
     float a02_l = irr_glsl_smith_aniso_a0_2(interaction.isotropic.N, s.L, interaction.T, s.NdotL*s.NdotL, ax2, ay2);
-    float devsh_v = irr_glsl_smith_ggx_devsh_part(interaction.NdotV_squared,a02_v,one_minus_a02_v);
+    float devsh_v = irr_glsl_smith_ggx_devsh_part(interaction.isotropic.NdotV_squared,a02_v,one_minus_a02_v);
     float G2_over_G1 = s.NdotL*(devsh_v + interaction.isotropic.NdotV);
     G2_over_G1 /= interaction.isotropic.NdotV*irr_glsl_smith_ggx_devsh_part(s.NdotL*s.NdotL,a02_l,1.0-a02_l) + s.NdotL*devsh_v;
 
 	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
-	return fr*G2_over_G1*interaction.NdotV/absVdotH;
+	return fr*G2_over_G1*interaction.isotropic.NdotV/absVdotH;
 }
 
 #endif
