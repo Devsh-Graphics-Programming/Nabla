@@ -66,3 +66,4 @@ add_subdirectory(40.GLITest EXCLUDE_FROM_ALL)
 #add_subdirectory(41.VisibilityBuffer EXCLUDE_FROM_ALL)
 add_subdirectory(42.EnvmapLookup EXCLUDE_FROM_ALL)
 add_subdirectory(43.AllocatorTest EXCLUDE_FROM_ALL) #TODO: @Anastazluk merge example 43,34 into ex 10
+add_subdirectory(45.BRDFEvalTest EXCLUDE_FROM_ALL)
