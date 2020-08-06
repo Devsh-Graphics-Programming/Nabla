@@ -205,7 +205,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 							OFFSET is < 0, it will fail
 						*/
 
-						auto localOutPos = readBlockPos * blockDims + commonExecuteData.offsetDifference; // @devshgraphicsprogramming @Criss When it's < 0 it gets weird values so it crashes
+						auto localOutPos = core::vectorSIMDi32(readBlockPos * blockDims + commonExecuteData.offsetDifference); // @devshgraphicsprogramming @Criss When it's < 0 it gets weird values so it crashes
 						
 						/*
 							need to get access the region somehow (in region, not out)
