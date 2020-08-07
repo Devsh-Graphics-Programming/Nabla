@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <scene version="0.5.0">
 
-<integrator type="path" id="cameraintegrator">
-  <integer name="maxDepth" value="8" />
+<integrator type="direct" id="cameraintegrator">
 </integrator>
 
 <!--<sensor type="thinlens">-->
@@ -24,8 +23,9 @@
 	</film>
 </sensor>
   
+ <!--125.6==20*2*pi-->
 <emitter type="point">
-  <rgb name="intensity" value="20.0,20.0,20.0"/>
+  <rgb name="intensity" value="125.6,125.6,125.6"/>
   <transform name="toWorld"><translate x="6.75" y="4" z="-1"/></transform>
 </emitter>
 
