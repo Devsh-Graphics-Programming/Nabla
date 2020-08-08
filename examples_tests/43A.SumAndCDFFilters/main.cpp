@@ -123,11 +123,11 @@ int main()
 			state.inBaseLayer = 0;
 			state.outOffset = { 0, 0, 0 };
 			state.outBaseLayer = 0;
-			state.scratchMemoryByteSize = state.getRequiredScratchByteSize(state.inImage, state.outImage);
-			state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, 8));
-			
 			state.extent = { referenceImageParams.extent.width, referenceImageParams.extent.height, referenceImageParams.extent.depth };
 			state.layerCount = newSumImage->getCreationParameters().arrayLayers;
+
+			state.scratchMemoryByteSize = state.getRequiredScratchByteSize(state.inImage, state.extent);
+			state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, 8));
 
 			#ifdef IMAGE_VIEW
 			state.inMipLevel = MIPMAP_IMAGE_VIEW;
