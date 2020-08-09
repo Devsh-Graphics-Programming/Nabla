@@ -29,6 +29,7 @@ struct Vertex
 #include "irr/irrunpack.h"
 
 #include "C:\IrrlichtBAW\IrrlichtBAW\src\irr\asset\CCPUMeshPacker.h"; //sorry
+#include "common.glsl"
 
 int main()
 {
@@ -108,8 +109,10 @@ int main()
         meshBuffer->setPipeline(std::move(pipeline));
     };
 
-    const core::vector4du32_SIMD diskBlockDim(3u, 3u, 3u);
+    const core::vector4du32_SIMD diskBlockDim(3u, 3u, 4u);
     const size_t diskCount = diskBlockDim.x * diskBlockDim.y * diskBlockDim.z;
+
+    assert(diskCount <= MAT_MAX_CNT);
 
     std::vector<uint16_t> tesselation(diskCount);
 
@@ -203,11 +206,16 @@ int main()
     }
 
         //create bone matrices
+    struct BoneNormalMatPair
+    {
+        core::matrix4SIMD boneMatrix;
+        core::matrix3x4SIMD normalMatrix;
+    };
     core::smart_refctd_ptr<IGPUBuffer> drawDataBuffer[4];
     vector<core::matrix3x4SIMD> translationMatrices_2(diskCount);
     core::vector<core::matrix4SIMD> boneMatrices(diskCount);
-    core::vector<core::matrix4SIMD> normalMatrices(diskCount);
-    core::vector<core::matrix4SIMD> boneAndNormalMatrices(diskCount * 2);
+    core::vector<core::matrix3x4SIMD> normalMatrices(diskCount);
+    core::vector<BoneNormalMatPair> boneAndNormalMatrices(diskCount * 2);
     core::vector<core::vectorSIMDf> boneMatricesRows(diskCount * 4);
     core::vector<core::vectorSIMDf> normalMatricesRows(diskCount * 3);
     core::vector<float> boneMatricesComponents(diskCount * 4 * 4);
@@ -223,13 +231,13 @@ int main()
         }  
 
         //as packed matrices
-        drawDataBuffer[0] = driver->createDeviceLocalGPUBufferOnDedMem(boneAndNormalMatrices.size() * sizeof(core::matrix4SIMD));
+        drawDataBuffer[0] = driver->createDeviceLocalGPUBufferOnDedMem(boneAndNormalMatrices.size() * sizeof(BoneNormalMatPair));
 
         //as separated matrices
-        drawDataBuffer[1] = driver->createDeviceLocalGPUBufferOnDedMem(boneMatrices.size() * sizeof(core::matrix4SIMD) * 2u);
+        drawDataBuffer[1] = driver->createDeviceLocalGPUBufferOnDedMem(MAT_MAX_CNT * sizeof(core::matrix4SIMD) + MAT_MAX_CNT * sizeof(core::matrix3x4SIMD));
 
         //as vectors
-        drawDataBuffer[2] = driver->createDeviceLocalGPUBufferOnDedMem((boneMatricesRows.size() + normalMatricesRows.size()) * sizeof(core::vectorSIMDf));
+        drawDataBuffer[2] = driver->createDeviceLocalGPUBufferOnDedMem((BONE_VEC_MAX_CNT + NORM_VEC_MAX_CNT) * sizeof(core::vectorSIMDf));
 
         //as floats
         drawDataBuffer[3] = driver->createDeviceLocalGPUBufferOnDedMem((boneMatricesComponents.size() + normalMatricesComponents.size()) * sizeof(float));
@@ -240,20 +248,9 @@ int main()
     os::Printer::print("GPU memory allocation done.\n");
     
         //create pipeline
-    struct Shader1PushConstants
-    {
-        core::matrix4SIMD vp;
-    };
-
-    struct Shader2PushConstants
-    {
-        uint32_t normalMatrixArrayOffset;
-    };
-
     struct Shader3PushConstants
     {
         core::vector4du32_SIMD matrixOffsets;
-        uint32_t normalMatrixArrayOffset;
     };
 
     struct Shader4PushConstants
@@ -264,15 +261,9 @@ int main()
     core::smart_refctd_ptr<IGPUPipelineLayout> gpuPipelineLayout[4];
     core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> gpuPipeline[4];
     core::smart_refctd_ptr<IGPUDescriptorSet> descriptorSet[4];
-    
-    Shader1PushConstants s1pc;
-
-    Shader2PushConstants s2pc;
-    s2pc.normalMatrixArrayOffset = boneMatrices.size() * sizeof(core::matrix4SIMD);
 
     Shader3PushConstants s3pc;
     s3pc.matrixOffsets = core::vector4du32_SIMD(0u, diskCount, diskCount * 2, diskCount * 3);
-    s3pc.normalMatrixArrayOffset = boneMatricesRows.size();
 
     Shader4PushConstants s4pc;
     for (uint32_t i = 0u; i < 16; i++)
@@ -280,8 +271,8 @@ int main()
 
     {
         asset::SPushConstantRange range[4] = {
-            asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(Shader1PushConstants),
-            asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(Shader2PushConstants), 
+            asset::ISpecializedShader::ESS_UNKNOWN, 0u, 0u,
+            asset::ISpecializedShader::ESS_UNKNOWN, 0u, 0u,
             asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(Shader3PushConstants),
             asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(Shader4PushConstants)
         };
@@ -323,7 +314,10 @@ int main()
             auto gpuShaders = driver->getGPUObjectsFromAssets(shaders[i], shaders[i] + 2);
             IGPUSpecializedShader* shaders[2] = { gpuShaders->operator[](0).get(), gpuShaders->operator[](1).get() };
 
-            gpuPipelineLayout[i] = driver->createGPUPipelineLayout(&range[i], &range[i] + 1, core::smart_refctd_ptr(layout));
+            if(i == 0u || i == 1u)
+                gpuPipelineLayout[i] = driver->createGPUPipelineLayout(nullptr, nullptr, core::smart_refctd_ptr(layout));
+            else
+                gpuPipelineLayout[i] = driver->createGPUPipelineLayout(&range[i], &range[i] + 1, core::smart_refctd_ptr(layout));
 
             gpuPipeline[i] = driver->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(gpuPipelineLayout[i]), shaders, shaders + 2, packedMeshBuffer.vertexInputParams, SBlendParams(), SPrimitiveAssemblyParams(), rasterParams);
         }
@@ -395,17 +389,17 @@ int main()
         camera->render();
 
         //construct model matrices
-        for (uint32_t i = 0u, j = 0u; i < translationMatrices_2.size(); i++)
+        for (uint32_t i = 0u; i < translationMatrices_2.size(); i++)
         {
             core::matrix3x4SIMD modelMatrix;
             modelMatrix.setRotation(core::quaternion(0.0f, rps[i] * (timeMS / 1000.0f), 0.0f));
             modelMatrix.concatenateBefore(translationMatrices_2[i]);
             
             boneMatrices[i] = core::concatenateBFollowedByA(camera->getConcatenatedMatrix(), modelMatrix);
-            normalMatrices[i] = core::matrix4SIMD(modelMatrix);
+            normalMatrices[i] = modelMatrix;
 
-            boneAndNormalMatrices[j++] = boneMatrices[i];
-            boneAndNormalMatrices[j++] = normalMatrices[i];
+            boneAndNormalMatrices[i].boneMatrix = boneMatrices[i];
+            boneAndNormalMatrices[i].normalMatrix = core::matrix3x4SIMD(normalMatrices[i].pointer());
         }
 
         //update ssbo
@@ -413,24 +407,21 @@ int main()
         {
         case packedMatrices:
         {
-            const size_t matricesByteSize = sizeof(core::matrix4SIMD) * boneAndNormalMatrices.size();
+            const size_t matricesByteSize = sizeof(BoneNormalMatPair) * boneAndNormalMatrices.size();
 
             driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[0].get(), 0u, matricesByteSize, boneAndNormalMatrices.data());
-
-            s1pc.vp = camera->getConcatenatedMatrix();
-            driver->pushConstants(gpuPipelineLayout[0].get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(Shader1PushConstants), &s1pc);
         }
         break;
         case separateMatrices:
         {
             const size_t boneMatricesByteSize = sizeof(core::matrix4SIMD) * boneMatrices.size();
+            const size_t normalMatricesByteSize = sizeof(core::matrix3x4SIMD) * normalMatrices.size();
+            const size_t normalMatOffset = sizeof(core::matrix4SIMD) * MAT_MAX_CNT;
 
             //update bone matrices
             driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[1].get(), 0u, boneMatricesByteSize, boneMatrices.data());
             //update normal matrices (normal matrices are almost identical to bone matrices so I will store bone matrices there, translation part of bone matrices will be ignored anyway)
-            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[1].get(), boneMatricesByteSize, boneMatricesByteSize, normalMatrices.data());
-
-            driver->pushConstants(gpuPipelineLayout[1].get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(Shader2PushConstants), &s2pc);
+            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[1].get(), normalMatOffset, normalMatricesByteSize, normalMatrices.data());
         }
         break;
         case rows:
@@ -443,16 +434,17 @@ int main()
                 boneMatricesRows[s3pc.matrixOffsets[2] + i] = boneMatrices[i].getRow(2);
                 boneMatricesRows[s3pc.matrixOffsets[3] + i] = boneMatrices[i].getRow(3);
 
-                normalMatricesRows[s3pc.matrixOffsets[0] + i] = normalMatrices[i].getRow(0);
-                normalMatricesRows[s3pc.matrixOffsets[1] + i] = normalMatrices[i].getRow(1);
-                normalMatricesRows[s3pc.matrixOffsets[2] + i] = normalMatrices[i].getRow(2);
+                normalMatricesRows[s3pc.matrixOffsets[0] + i] = core::matrix4SIMD(normalMatrices[i]).getRow(0);
+                normalMatricesRows[s3pc.matrixOffsets[1] + i] = core::matrix4SIMD(normalMatrices[i]).getRow(1);
+                normalMatricesRows[s3pc.matrixOffsets[2] + i] = core::matrix4SIMD(normalMatrices[i]).getRow(2);
             }
 
             const size_t boneMatricesRowsByteSize = sizeof(core::vectorSIMDf) * boneMatricesRows.size();
             const size_t normalMatricesRowsByteSize = sizeof(core::vectorSIMDf) * normalMatricesRows.size();
+            const size_t normalMatricesOffset = sizeof(core::vectorSIMDf) * BONE_VEC_MAX_CNT;
 
             driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[2].get(), 0u, boneMatricesRowsByteSize, boneMatricesRows.data());
-            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[2].get(), boneMatricesRowsByteSize, normalMatricesRowsByteSize, normalMatricesRows.data());
+            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[2].get(), normalMatricesOffset, normalMatricesRowsByteSize, normalMatricesRows.data());
             driver->pushConstants(gpuPipelineLayout[2].get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(Shader3PushConstants), &s3pc);
         }
         break;
