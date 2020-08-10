@@ -1,7 +1,5 @@
 #define _IRR_STATIC_LIB_
-#include <iostream>
-#include <cstdio>
-#include <irrlicht.h>
+#include "InputEventReciever.h"
 #include "../common/QToQuitEventReceiver.h"
 #include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
 
@@ -39,6 +37,8 @@ struct DrawIndirectArrays_t
     uint  first;
     uint  baseInstance;
 };
+uniform float levelCurveSpacing;
+
 
 layout(triangles) in;
 layout(triangle_strip, max_vertices = 3) out;
@@ -63,7 +63,7 @@ layout(set = 0, binding = 1) writeonly buffer Lines
 };
 
 void main() {
-    const float levelPlanesDistance= 10.0;
+    const float levelPlanesDistance= levelCurveSpacing;
     const vec3 levelPlaneNormal = vec3(0.0,1.0,0.0);   
     uint numHorLines;
     float maxLevel = -FLT_MAX;
@@ -187,7 +187,10 @@ int main()
 
 	//! Since our cursor will be enslaved, there will be no way to close the window
 	//! So we listen for the "Q" key being pressed and exit the application
-	QToQuitEventReceiver receiver;
+    //Also
+    //Get input from page up and page down
+    //Decrement spacing depending on it.
+    ChgSpacingEventReciever receiver;
 	device->setEventReceiver(&receiver);
 
 
@@ -255,7 +258,6 @@ int main()
     inputParams.bindings[0].stride = sizeof(float)*3;
     inputParams.bindings[0].inputRate = asset::EVIR_PER_VERTEX;
 
-    asset::SPushConstantRange pcRange[1] = { asset::ISpecializedShader::ESS_VERTEX,0,sizeof(core::matrix4SIMD) };
     auto pLayout = driver->createGPUPipelineLayout(pcRange, pcRange + 1u, nullptr, nullptr, nullptr, nullptr);
     video::IGPUSpecializedShader* shaders[2] = { vshader.get(),fshader.get() };
     asset::SBlendParams blendParams;
@@ -384,12 +386,26 @@ int main()
 	camera->setFarValue(5000.0f);
 
     smgr->setActiveCamera(camera);
-
+    float levelCurveSpacing = 10.0f;
 	uint64_t lastFPSTime = 0;
+
+    //the tutorials by Indian people didnt help.
+    //unsigned int uboSpacing;
+    //int block_index = video::COpenGLExtensionHandler::extGlGetUniformLocation(video::IGPUSpecializedShader::ESS_GEOMETRY,"levelCurveSpacing");
+    //video::COpenGLExtensionHandler::pGlGenBuffers(1, &uboSpacing);
+    //video::COpenGLExtensionHandler::pGlBufferStorage(GL_UNIFORM_BUFFER, sizeof(float),&levelCurveSpacing, GL_DYNAMIC_DRAW);
+    //video::COpenGLExtensionHandler::pGlBindBuffer(GL_UNIFORM_BUFFER, 0u);
 	while(device->run() && receiver.keepOpen())
 	{
+        levelCurveSpacing = receiver.getSpacing();
+      /*video::COpenGLExtensionHandler::pGlBindBuffer(GL_UNIFORM_BUFFER, uboSpacing);
+        GLvoid* p = video::COpenGLExtensionHandler::pGlMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
+        memcpy(p, &levelCurveSpacing, sizeof(float));
+        video::COpenGLExtensionHandler::pGlUnmapBuffer(GL_UNIFORM_BUFFER);*/
+        //video::COpenGLExtensionHandler::extGlProgramUniform1fv(3, block_index, 1, &levelCurveSpacing);
 
-		driver->beginScene(true, true, video::SColor(255,255,255,255) );
+
+        driver->beginScene(true, true, video::SColor(255,255,255,255) );
         
       
         // zero out buffer LineCount
