@@ -102,7 +102,7 @@ vec3 irr_glsl_beckmann_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSamp
 	float G2_over_G1 = s.NdotL*onePlusLambda_V / (onePlusLambda_V+lambda_L);
 	
 	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
-	return fr*G2_over_G1*interaction.NdotV / absVdotH;
+	return fr*G2_over_G1 / (4.0*absVdotH);
 }
 vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ax2, in float ay, in float ay2)
 {
@@ -120,7 +120,7 @@ vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BS
 	float G2_over_G1 = s.NdotL*onePlusLambda_V / (onePlusLambda_V+lambda_L);
 	
 	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
-	return fr*G2_over_G1*interaction.isotropic.NdotV / absVdotH;
+	return fr*G2_over_G1 / (4.0*absVdotH);
 }
 
 vec3 irr_glsl_beckmann_smith_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction interaction,  in mat2x3 ior, in float a2)

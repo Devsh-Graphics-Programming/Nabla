@@ -65,7 +65,7 @@ vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s,
 	G2_over_G1 /= interaction.NdotV*irr_glsl_smith_ggx_devsh_part(s.NdotL*s.NdotL,a2,one_minus_a2) + s.NdotL*devsh_v;
 	
 	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
-	return fr*G2_over_G1*interaction.NdotV/absVdotH;
+	return fr*G2_over_G1/(4.0*absVdotH);
 }
 
 vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ay)
@@ -84,7 +84,7 @@ vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSam
     G2_over_G1 /= interaction.isotropic.NdotV*irr_glsl_smith_ggx_devsh_part(s.NdotL*s.NdotL,a02_l,1.0-a02_l) + s.NdotL*devsh_v;
 
 	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
-	return fr*G2_over_G1*interaction.isotropic.NdotV/absVdotH;
+	return fr*G2_over_G1/(4.0*absVdotH);
 }
 
 #endif
