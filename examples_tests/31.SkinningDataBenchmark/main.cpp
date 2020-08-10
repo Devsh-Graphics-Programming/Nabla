@@ -109,7 +109,7 @@ int main()
         meshBuffer->setPipeline(std::move(pipeline));
     };
 
-    const core::vector4du32_SIMD diskBlockDim(3u, 3u, 4u);
+    const core::vector4du32_SIMD diskBlockDim(3u, 3u, 3u);
     const size_t diskCount = diskBlockDim.x * diskBlockDim.y * diskBlockDim.z;
 
     assert(diskCount <= MAT_MAX_CNT);
@@ -152,9 +152,9 @@ int main()
         auto allocParams = MeshPackerBase::AllocationParams();
         allocParams.MDIDataBuffSupportedCnt = 1024;
         allocParams.MDIDataBuffMinAllocSize = 512;
-        allocParams.indexBuffSupportedCnt = 1000 * 160 * 10;
+        allocParams.indexBuffSupportedCnt = 8192 * 2;
         allocParams.indexBufferMinAllocSize = 256;
-        allocParams.vertexBuffSupportedCnt = 1000 * 160 * 10;
+        allocParams.vertexBuffSupportedCnt = 8192;
         allocParams.vertexBufferMinAllocSize = 256;
 
         CCPUMeshPacker packer(disks[0]->getPipeline()->getVertexInputParams(), allocParams, 256, 256);
@@ -164,6 +164,7 @@ int main()
         _IRR_DEBUG_BREAK_IF(resParams.isValid() == false);
 
         packer.instantiateDataStorage();
+
         mb = packer.commit(disks.begin(), disks.end(), resParams);
 
         packedMeshBuffer = packer.getPackedMeshBuffer();
@@ -348,53 +349,14 @@ int main()
     
     size_t timeMS = 0ull;
 
-    enum ShaderToUse
+    auto constructMatrices = [&]()
     {
-        packedMatrices,
-        separateMatrices,
-        rows,
-        components
-    };
-
-    constexpr ShaderToUse shaderToUse = components;
-
-    switch (shaderToUse)
-    {
-    case packedMatrices:
-        driver->bindGraphicsPipeline(gpuPipeline[0].get());
-        driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline[0]->getLayout(), 0u, 1u, &descriptorSet[0].get(), nullptr);
-        break;
-    case separateMatrices:
-        driver->bindGraphicsPipeline(gpuPipeline[1].get());
-        driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline[1]->getLayout(), 0u, 1u, &descriptorSet[1].get(), nullptr);
-        break;
-    case rows:
-        driver->bindGraphicsPipeline(gpuPipeline[2].get());
-        driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline[2]->getLayout(), 0u, 1u, &descriptorSet[2].get(), nullptr);
-        break;
-    case components:
-        driver->bindGraphicsPipeline(gpuPipeline[3].get());
-        driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline[3]->getLayout(), 0u, 1u, &descriptorSet[3].get(), nullptr);
-        break;
-    default:
-        assert(false);
-    }
-    
-    while (device->run() && receiver.keepOpen())
-    {
-        driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
-
-        timeMS = std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count();
-        camera->OnAnimate(timeMS);
-        camera->render();
-
-        //construct model matrices
         for (uint32_t i = 0u; i < translationMatrices_2.size(); i++)
         {
             core::matrix3x4SIMD modelMatrix;
             modelMatrix.setRotation(core::quaternion(0.0f, rps[i] * (timeMS / 1000.0f), 0.0f));
             modelMatrix.concatenateBefore(translationMatrices_2[i]);
-            
+
             boneMatrices[i] = core::concatenateBFollowedByA(camera->getConcatenatedMatrix(), modelMatrix);
             normalMatrices[i] = modelMatrix;
 
@@ -402,79 +364,145 @@ int main()
             boneAndNormalMatrices[i].normalMatrix = core::matrix3x4SIMD(normalMatrices[i].pointer());
         }
 
-        //update ssbo
-        switch (shaderToUse)
+        for (uint32_t i = 0u; i < diskCount; i++)
         {
-        case packedMatrices:
-        {
-            const size_t matricesByteSize = sizeof(BoneNormalMatPair) * boneAndNormalMatrices.size();
+            boneMatricesRows[s3pc.matrixOffsets[0] + i] = boneMatrices[i].getRow(0);
+            boneMatricesRows[s3pc.matrixOffsets[1] + i] = boneMatrices[i].getRow(1);
+            boneMatricesRows[s3pc.matrixOffsets[2] + i] = boneMatrices[i].getRow(2);
+            boneMatricesRows[s3pc.matrixOffsets[3] + i] = boneMatrices[i].getRow(3);
 
-            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[0].get(), 0u, matricesByteSize, boneAndNormalMatrices.data());
+            normalMatricesRows[s3pc.matrixOffsets[0] + i] = core::matrix4SIMD(normalMatrices[i]).getRow(0);
+            normalMatricesRows[s3pc.matrixOffsets[1] + i] = core::matrix4SIMD(normalMatrices[i]).getRow(1);
+            normalMatricesRows[s3pc.matrixOffsets[2] + i] = core::matrix4SIMD(normalMatrices[i]).getRow(2);
+        }
+
+        for (uint32_t i = 0u; i < diskCount; i++)
+        {
+            for (uint32_t j = 0u; j < 16u; j++)
+                boneMatricesComponents[s4pc.matrixOffsets[j] + i] = *(boneMatrices[i].pointer() + j);
+
+            for (uint32_t j = 0u; j < 9u; j++)
+                normalMatricesComponents[s4pc.matrixOffsets[j] + i] = *(boneMatrices[i].pointer() + j); //fix!
+        }
+    };
+
+    auto updatePushConstants = [&](uint32_t caseID)
+    {
+        switch (caseID)
+        {
+        case 0:
+        {
+
         }
         break;
-        case separateMatrices:
+        case 1:
         {
-            const size_t boneMatricesByteSize = sizeof(core::matrix4SIMD) * boneMatrices.size();
-            const size_t normalMatricesByteSize = sizeof(core::matrix3x4SIMD) * normalMatrices.size();
-            const size_t normalMatOffset = sizeof(core::matrix4SIMD) * MAT_MAX_CNT;
 
-            //update bone matrices
-            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[1].get(), 0u, boneMatricesByteSize, boneMatrices.data());
-            //update normal matrices (normal matrices are almost identical to bone matrices so I will store bone matrices there, translation part of bone matrices will be ignored anyway)
-            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[1].get(), normalMatOffset, normalMatricesByteSize, normalMatrices.data());
         }
         break;
-        case rows:
+        case 2:
         {
-            //create array of separated matrix rows
-            for (uint32_t i = 0u; i < diskCount; i++)
-            {
-                boneMatricesRows[s3pc.matrixOffsets[0] + i] = boneMatrices[i].getRow(0);
-                boneMatricesRows[s3pc.matrixOffsets[1] + i] = boneMatrices[i].getRow(1);
-                boneMatricesRows[s3pc.matrixOffsets[2] + i] = boneMatrices[i].getRow(2);
-                boneMatricesRows[s3pc.matrixOffsets[3] + i] = boneMatrices[i].getRow(3);
-
-                normalMatricesRows[s3pc.matrixOffsets[0] + i] = core::matrix4SIMD(normalMatrices[i]).getRow(0);
-                normalMatricesRows[s3pc.matrixOffsets[1] + i] = core::matrix4SIMD(normalMatrices[i]).getRow(1);
-                normalMatricesRows[s3pc.matrixOffsets[2] + i] = core::matrix4SIMD(normalMatrices[i]).getRow(2);
-            }
-
-            const size_t boneMatricesRowsByteSize = sizeof(core::vectorSIMDf) * boneMatricesRows.size();
-            const size_t normalMatricesRowsByteSize = sizeof(core::vectorSIMDf) * normalMatricesRows.size();
-            const size_t normalMatricesOffset = sizeof(core::vectorSIMDf) * BONE_VEC_MAX_CNT;
-
-            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[2].get(), 0u, boneMatricesRowsByteSize, boneMatricesRows.data());
-            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[2].get(), normalMatricesOffset, normalMatricesRowsByteSize, normalMatricesRows.data());
             driver->pushConstants(gpuPipelineLayout[2].get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(Shader3PushConstants), &s3pc);
         }
         break;
-        case components:
+        case 3:
         {
-            for (uint32_t i = 0u; i < diskCount; i++)
-            {
-                for (uint32_t j = 0u; j < 16u; j++)
-                    boneMatricesComponents[s4pc.matrixOffsets[j] + i] = *(boneMatrices[i].pointer() + j);
-
-                for (uint32_t j = 0u; j < 9u; j++)
-                    normalMatricesComponents[s4pc.matrixOffsets[j] + i] = *(boneMatrices[i].pointer() + j); //fix!
-            }
-
-            const size_t boneMatricesCompByteSize = sizeof(float) * boneMatricesComponents.size();
-            const size_t normalMatricesCompByteSize = sizeof(float) * normalMatricesComponents.size();
-
-            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[3].get(), 0u, boneMatricesCompByteSize, boneMatricesComponents.data());
-            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[3].get(), boneMatricesCompByteSize, normalMatricesCompByteSize, normalMatricesComponents.data());
             driver->pushConstants(gpuPipelineLayout[3].get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(Shader4PushConstants), &s4pc);
         }
         break;
         default:
             assert(false);
         }
+    };
+    
+    auto updateSSBO = [&](uint32_t caseID)
+    {
+        switch (caseID)
+        {
+        case 0:
+        {
+            const size_t matricesByteSize = sizeof(BoneNormalMatPair) * boneAndNormalMatrices.size();
 
-        driver->drawIndexedIndirect(mdi.vtxBindings, mdi.mode, mdi.indexType, mdi.indexBuff.get(), mdi.indirectDrawBuff.get(), mdi.offset, mdi.maxCount, mdi.stride);
-        
-        driver->endScene();
+            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[0].get(), 0u, matricesByteSize, boneAndNormalMatrices.data());
+            driver->drawIndexedIndirect(mdi.vtxBindings, mdi.mode, mdi.indexType, mdi.indexBuff.get(), mdi.indirectDrawBuff.get(), mdi.offset, mdi.maxCount, mdi.stride);
+        }
+        break;
+        case 1:
+        {
+            const size_t boneMatricesByteSize = sizeof(core::matrix4SIMD) * boneMatrices.size();
+            const size_t normalMatricesByteSize = sizeof(core::matrix3x4SIMD) * normalMatrices.size();
+            const size_t normalMatOffset = sizeof(core::matrix4SIMD) * MAT_MAX_CNT;
+
+            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[1].get(), 0u, boneMatricesByteSize, boneMatrices.data());
+            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[1].get(), normalMatOffset, normalMatricesByteSize, normalMatrices.data());
+        }
+        break;
+        case 2:
+        {
+            const size_t boneMatricesRowsByteSize = sizeof(core::vectorSIMDf) * boneMatricesRows.size();
+            const size_t normalMatricesRowsByteSize = sizeof(core::vectorSIMDf) * normalMatricesRows.size();
+            const size_t normalMatricesOffset = sizeof(core::vectorSIMDf) * BONE_VEC_MAX_CNT;
+
+            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[2].get(), 0u, boneMatricesRowsByteSize, boneMatricesRows.data());
+            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[2].get(), normalMatricesOffset, normalMatricesRowsByteSize, normalMatricesRows.data());
+        }
+        break;
+        case 3:
+        {
+            const size_t boneMatricesCompByteSize = sizeof(float) * boneMatricesComponents.size();
+            const size_t normalMatricesCompByteSize = sizeof(float) * normalMatricesComponents.size();
+
+            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[3].get(), 0u, boneMatricesCompByteSize, boneMatricesComponents.data());
+            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[3].get(), boneMatricesCompByteSize, normalMatricesCompByteSize, normalMatricesComponents.data());
+        }
+        break;
+        default:
+            assert(false);
+        }
+    };
+
+    //run benchmark for all cases
+    constexpr uint32_t iterationCnt = 10000u;
+
+    COpenGLDriver* driverOGL = dynamic_cast<COpenGLDriver*>(driver);
+    IQueryObject* query = driver->createElapsedTimeQuery();
+
+    for (uint32_t caseID = 0u; caseID < 4u; caseID++)
+    {
+        os::Printer::print(std::string("Benchmark for case nr. " + std::to_string(caseID)));
+
+        driver->bindGraphicsPipeline(gpuPipeline[caseID].get());
+        driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline[caseID]->getLayout(), 0u, 1u, &descriptorSet[caseID].get(), nullptr);
+        updatePushConstants(caseID);
+
+        driver->beginQuery(query);
+        for (uint32_t i = 0u; i < iterationCnt && (device->run() && receiver.keepOpen()); i++)
+        {
+#ifndef BENCHMARK
+            driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
+            timeMS = std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count();
+
+            camera->OnAnimate(timeMS);
+            camera->render();
+
+            constructMatrices();
+
+            updateSSBO(caseID);
+#endif
+            driver->drawIndexedIndirect(mdi.vtxBindings, mdi.mode, mdi.indexType, mdi.indexBuff.get(), mdi.indirectDrawBuff.get(), mdi.offset, mdi.maxCount, mdi.stride);
+#ifndef BENCHMARK
+            driver->endScene();
+#endif
+        }
+        driver->endQuery(query);
+
+        uint32_t timeElapsed = 0u;
+        query->getQueryResult(&timeElapsed);
+
+        os::Printer::print(std::string("Result: ") + std::to_string(static_cast<double>(timeElapsed) / 1000000.0) + std::string("ms."));
     }
+
+    
 
     return 0;
 }

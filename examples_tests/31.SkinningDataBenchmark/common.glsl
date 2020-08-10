@@ -1,3 +1,5 @@
-#define MAT_MAX_CNT 64 
+#define BENCHMARK
+
+#define MAT_MAX_CNT 16000
 #define BONE_VEC_MAX_CNT (MAT_MAX_CNT * 4)
 #define NORM_VEC_MAX_CNT (MAT_MAX_CNT * 3)

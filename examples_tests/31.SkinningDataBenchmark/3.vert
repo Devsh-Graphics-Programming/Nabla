@@ -13,14 +13,21 @@ layout(std430, set = 0, binding = 0, row_major) restrict readonly buffer BoneMat
     vec4 normalMatrixRow[NORM_VEC_MAX_CNT];
 };
 
+#ifndef BENCHMARK
 layout(location = 0) in vec3 pos;
 layout(location = 3) in vec3 normal;
+#endif
 layout(location = 4) in int boneID;
 
 layout(location = 0) out vec3 vNormal;
 
 void main()
 {
+    #ifdef BENCHMARK
+    const vec3 pos = vec3(1.0, 2.0, 3.0);
+    const vec3 normal = vec3(1.0, 2.0, 3.0);
+    #endif
+    
     vec4 worldPos = vec4(
         dot(boneMatrixRow[boneID + pc.matrixOffsets.x], vec4(pos, 1.0)),
         dot(boneMatrixRow[boneID + pc.matrixOffsets.y], vec4(pos, 1.0)),
