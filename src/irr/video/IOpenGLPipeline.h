@@ -90,7 +90,7 @@ class IOpenGLPipeline
 		        constexpr uint32_t MAX_DWORD_SIZE = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE/sizeof(uint32_t);
 		        alignas(128u) std::array<uint32_t,MAX_DWORD_SIZE> packed_data;
 
-                const uint32_t count = std::min<uint32_t>(m.count, MAX_DWORD_SIZE/(m.count*m.mtxRowCnt*m.mtxColCnt));
+                const uint32_t count = std::min<uint32_t>(m.count, MAX_DWORD_SIZE / (m.mtxRowCnt * m.mtxColCnt));
 		        if (!std::equal(baseOffset, baseOffset+arrayStride*count, valueptr) || !haveUniformsBeenEverSet(_stageIx, _ctxID))
 		        {
 			        // pack the constant data as OpenGL uniform update functions expect packed arrays
@@ -115,7 +115,7 @@ class IOpenGLPipeline
 						        {&gl::extGlProgramUniformMatrix4x2fv, &gl::extGlProgramUniformMatrix4x3fv, &gl::extGlProgramUniformMatrix4fv} //4xM
 					        };
 
-					        glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt-2u][m.mtxRowCnt-2u](GLname, _locations.begin()[loc_i], m.count, m.rowMajor ? GL_TRUE : GL_FALSE, reinterpret_cast<const GLfloat*>(packed_data.data()));
+					        glProgramUniformMatrixNxMfv_fptr[m.mtxColCnt-2u][m.mtxRowCnt-2u](GLname, _locations.begin()[loc_i], count, m.rowMajor ? GL_TRUE : GL_FALSE, reinterpret_cast<const GLfloat*>(packed_data.data()));
 			        }
 			        else if (is_scalar_or_vec())
 			        {
@@ -126,7 +126,7 @@ class IOpenGLPipeline
 						        PFNGLPROGRAMUNIFORM1FVPROC glProgramUniformNfv_fptr[4]{
 							        &gl::extGlProgramUniform1fv, &gl::extGlProgramUniform2fv, &gl::extGlProgramUniform3fv, &gl::extGlProgramUniform4fv
 						        };
-						        glProgramUniformNfv_fptr[m.mtxRowCnt-1u](GLname, _locations.begin()[loc_i], m.count, reinterpret_cast<const GLfloat*>(packed_data.data()));
+						        glProgramUniformNfv_fptr[m.mtxRowCnt-1u](GLname, _locations.begin()[loc_i], count, reinterpret_cast<const GLfloat*>(packed_data.data()));
 						        break;
 					        }
 					        case asset::EGVT_I32:
@@ -134,7 +134,7 @@ class IOpenGLPipeline
 						        PFNGLPROGRAMUNIFORM1IVPROC glProgramUniformNiv_fptr[4]{
 							        &gl::extGlProgramUniform1iv, &gl::extGlProgramUniform2iv, &gl::extGlProgramUniform3iv, &gl::extGlProgramUniform4iv
 						        };
-						        glProgramUniformNiv_fptr[m.mtxRowCnt-1u](GLname, _locations.begin()[loc_i], m.count, reinterpret_cast<const GLint*>(packed_data.data()));
+						        glProgramUniformNiv_fptr[m.mtxRowCnt-1u](GLname, _locations.begin()[loc_i], count, reinterpret_cast<const GLint*>(packed_data.data()));
 						        break;
 					        }
 					        case asset::EGVT_U32:
@@ -142,7 +142,7 @@ class IOpenGLPipeline
 						        PFNGLPROGRAMUNIFORM1UIVPROC glProgramUniformNuiv_fptr[4]{
 							        &gl::extGlProgramUniform1uiv, &gl::extGlProgramUniform2uiv, &gl::extGlProgramUniform3uiv, &gl::extGlProgramUniform4uiv
 						        };
-						        glProgramUniformNuiv_fptr[m.mtxRowCnt-1u](GLname, _locations.begin()[loc_i], m.count, reinterpret_cast<const GLuint*>(packed_data.data()));
+						        glProgramUniformNuiv_fptr[m.mtxRowCnt-1u](GLname, _locations.begin()[loc_i], count, reinterpret_cast<const GLuint*>(packed_data.data()));
 						        break;
 					        }
 				        }
