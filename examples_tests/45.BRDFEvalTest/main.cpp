@@ -2,6 +2,7 @@
 #include <iostream>
 #include <cstdio>
 #include <irrlicht.h>
+#include "../../ext/ScreenShot/ScreenShot.h"
 
 using namespace irr;
 using namespace core;
@@ -11,7 +12,9 @@ enum E_TEST_CASE
     ETC_GGX,
     ETC_BECKMANN,
     ETC_PHONG,
-    ETC_AS
+    ETC_AS,
+    ETC_OREN_NAYAR,
+    ETC_LAMBERT
 };
 class EventReceiver : public irr::IEventReceiver
 {
@@ -36,6 +39,12 @@ public:
                     return true;
                 case irr::KEY_KEY_4:
                     test = ETC_AS;
+                    return true;
+                case irr::KEY_KEY_5:
+                    test = ETC_OREN_NAYAR;
+                    return true;
+                case irr::KEY_KEY_6:
+                    test = ETC_LAMBERT;
                     return true;
 				default:
 					break;
@@ -131,6 +140,8 @@ int main()
     core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> pipeline_ggx;
     core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> pipeline_beckmann;
     core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> pipeline_phong;
+    core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> pipeline_orennayar;
+    core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> pipeline_lambert;
     {
         auto dat = gc->createSphereMesh(0.5f, 50u, 50u);
         
@@ -156,12 +167,15 @@ int main()
         pipeline_ggx = createGraphicsPipeline(driver, core::smart_refctd_ptr(layout), vs_spec.get(), fsSrc, "TEST_GGX", dat);
         pipeline_beckmann = createGraphicsPipeline(driver, core::smart_refctd_ptr(layout), vs_spec.get(), fsSrc, "TEST_BECKMANN", dat);
         pipeline_phong = createGraphicsPipeline(driver, core::smart_refctd_ptr(layout), vs_spec.get(), fsSrc, "TEST_PHONG", dat);
+        pipeline_orennayar = createGraphicsPipeline(driver, core::smart_refctd_ptr(layout), vs_spec.get(), fsSrc, "TEST_OREN_NAYAR", dat);
+        pipeline_lambert = createGraphicsPipeline(driver, core::smart_refctd_ptr(layout), vs_spec.get(), fsSrc, "TEST_LAMBERT", dat);
 
         sphere = driver->getGPUObjectsFromAssets(&cpusphere.get(), &cpusphere.get()+1)->front();
     }
 
     //! we want to move around the scene and view it from different angles
     scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(nullptr , 100.0f, 0.005f);
+    auto* fbo = ext::ScreenShot::createDefaultFBOForScreenshoting(device);
 
     camera->setLeftHanded(false);
     camera->setPosition(core::vector3df(6.75f, 2.f, 6.f));
@@ -192,11 +206,18 @@ int main()
         case ETC_PHONG: _IRR_FALLTHROUGH;
         case ETC_AS:
             driver->bindGraphicsPipeline(pipeline_phong.get()); break;
+        case ETC_OREN_NAYAR:
+            driver->bindGraphicsPipeline(pipeline_orennayar.get()); break;
+        case ETC_LAMBERT:
+            driver->bindGraphicsPipeline(pipeline_lambert.get()); break;
         }
         driver->drawMeshBuffer(sphere.get());
 
         driver->endScene();
     }
+
+    driver->blitRenderTargets(nullptr, fbo, false, false);
+    ext::ScreenShot::createScreenShot(device, fbo->getAttachment(video::EFAP_COLOR_ATTACHMENT0), "screenshot.exr");
 
     return 0;
 }
