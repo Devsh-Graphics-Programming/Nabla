@@ -30,40 +30,118 @@ void main()
 
 const char* geometryShaderCode = R"===(
 #version 440 core
+
+#define FLT_MAX 3.402823466e+38
 struct DrawIndirectArrays_t
 {
-	uint  count;
-	uint  instanceCount;
-	uint  first;
-	uint  baseInstance;
+    uint  count;
+    uint  instanceCount;
+    uint  first;
+    uint  baseInstance;
 };
-layout (triangles) in;
-layout (triangle_strip, max_vertices = 3) out;
-layout (location = 0) in vec3 LocalPos[];
-layout (location = 1) in vec3 ViewPos[];
-layout (location = 2) in vec3 Normal[];
-layout (location = 0) out vec3 fragLocalPos;
-layout (location = 1) out vec3 fragViewPos;
-layout (location = 2) out vec3 fragNormal;
+
+layout(triangles) in;
+layout(triangle_strip, max_vertices = 3) out;
+layout(location = 0) in vec3 LocalPos[];
+layout(location = 1) in vec3 ViewPos[];
+layout(location = 2) in vec3 Normal[];
+layout(location = 0) out vec3 fragLocalPos;
+layout(location = 1) out vec3 fragViewPos;
+layout(location = 2) out vec3 fragNormal;
 #ifndef _NO_UV
-layout (location = 3) in vec2 UV[];
-layout (location = 3) out vec2 fragUV;
+layout(location = 3) in vec2 UV[];
+layout(location = 3) out vec2 fragUV;
 #endif
 
-layout(set=0, binding=0) coherent buffer LineCount
+layout(set = 0, binding = 0) coherent buffer LineCount
 {
-  DrawIndirectArrays_t lineDraw;
+    DrawIndirectArrays_t lineDraw;
 };
-layout(set=0, binding=1) writeonly buffer Lines
+layout(set = 0, binding = 1) writeonly buffer Lines
 {
-  float linePoints[]; // 6 floats decribe a line, 3d start, 3d end
+    float linePoints[]; // 6 floats decribe a line, 3d start, 3d end
 };
 
-void main() {    
+void main() {
+    const float levelPlanesDistance= 10.0;
+    const vec3 levelPlaneNormal = vec3(0.0,1.0,0.0);   
+    uint numHorLines;
+    float maxLevel = -FLT_MAX;
+    float minLevel = FLT_MAX;
     uint i;
-    vec3 end = vec3(0,0,0);
-    vec3 start = LocalPos[0];
-    for(i = 0;i < gl_in.length();i++)
+    float vertexPlaneDistance[3];
+    for (i = 0; i < 3; i++)
+    {
+        vertexPlaneDistance[i] =dot(levelPlaneNormal, LocalPos[i]);
+        maxLevel = max(maxLevel,vertexPlaneDistance[i]);
+        minLevel = min(minLevel,vertexPlaneDistance[i]);
+    }
+    int sharedMxVtx = 0,sharedMnVtx = 0;
+    for (i = 0; i < 3; i++)
+    {
+        if (vertexPlaneDistance[i] == maxLevel)
+			sharedMxVtx++;
+		if (vertexPlaneDistance[i] == minLevel)
+			sharedMnVtx++;
+    }
+    if(sharedMnVtx <2)
+		minLevel += 0.001f;
+	if(sharedMxVtx < 2)
+		maxLevel -= 0.001f;
+  
+    numHorLines = uint(floor(maxLevel/levelPlanesDistance)-ceil(minLevel/levelPlanesDistance-1));
+    if(numHorLines>0)
+    {
+        uint outID = atomicAdd(lineDraw.count,2 * numHorLines) * 3;
+        float beginLevel = ceil(minLevel/levelPlanesDistance)*levelPlanesDistance;
+
+        const vec3 edgeVectors[3] = vec3[3](
+            LocalPos[1]-LocalPos[0],
+            LocalPos[2]-LocalPos[1],
+            LocalPos[0]-LocalPos[2]);
+
+        const float edgeMinMax[6] = float[6](
+            dot(levelPlaneNormal,LocalPos[0]),
+            dot(levelPlaneNormal,LocalPos[1]), 
+            dot(levelPlaneNormal,LocalPos[1]),
+            dot(levelPlaneNormal,LocalPos[2]), 
+            dot(levelPlaneNormal,LocalPos[2]),
+            dot(levelPlaneNormal,LocalPos[0]));
+            
+        const float edgePlaneDot[3] = float[3](
+            dot(edgeVectors[0],levelPlaneNormal),
+            dot(edgeVectors[1],levelPlaneNormal),
+            dot(edgeVectors[2],levelPlaneNormal));
+
+        for (i=0; i<numHorLines; i++)
+        {
+            float d = float(i) *levelPlanesDistance + beginLevel;
+            for(int j = 0; j < 3; j++)
+            {
+                float mx= max(edgeMinMax[j*2],edgeMinMax[j*2+1]);
+                float mn= min(edgeMinMax[j*2],edgeMinMax[j*2+1]);
+                if(d>= mn && d <= mx)
+                {
+                    float w_y = edgePlaneDot[j];
+                    float t;
+                    if(w_y==0)
+                        t=0;
+                    else
+                        t=(d-edgeMinMax[j*2])/w_y;
+
+                    vec3 outputIntersection = LocalPos[j] + edgeVectors[j] * t;
+                    linePoints[outID++] = outputIntersection.x;
+                    linePoints[outID++] = outputIntersection.y;
+                    linePoints[outID++] = outputIntersection.z;
+                }
+            }
+
+        }
+
+     
+    }
+    //passthrough part
+    for (i = 0; i < gl_in.length(); i++)
     {
         fragLocalPos = LocalPos[i];
         fragViewPos = ViewPos[i];
@@ -72,21 +150,11 @@ void main() {
 #ifndef _NO_UV
         fragUV = UV[i];
 #endif
-        end += LocalPos[i];
         EmitVertex();
     }
     EndPrimitive();
 
-    end /= gl_in.length();
-    uint outId = atomicAdd(lineDraw.count,2u);
-    outId *= 3u;
-    linePoints[outId+0u] = start.x;
-    linePoints[outId+1u] = start.y;
-    linePoints[outId+2u] = start.z;
-    linePoints[outId+3u] = end.x;
-    linePoints[outId+4u] = end.y;
-    linePoints[outId+5u] = end.z;
-}  
+}
 )===";
 
 
