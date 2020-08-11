@@ -284,7 +284,7 @@ void missProgram()
     rayStack[stackPtr]._payload.accumulation += finalContribution;
 }
 
-#include <irr/builtin/glsl/bxdf/common_samples.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/cos_weighted_sample.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
@@ -328,7 +328,7 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _
             break;
         default:
             _sample.NdotL = abs(_sample.NdotL); // TODO: check if this actually proects us
-            remainder = irr_glsl_thin_smooth_dielectric_cos_remainder(pdf,_sample,interaction.isotropic,ior[0]);
+            remainder = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,ior[0]);
             break;
     }
     return remainder;

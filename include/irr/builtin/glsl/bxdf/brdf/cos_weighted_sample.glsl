@@ -1,6 +1,8 @@
 #ifndef _IRR_BSDF_BRDF_COS_WEIGHTED_SAMPLE_INCLUDED_
 #define _IRR_BSDF_BRDF_COS_WEIGHTED_SAMPLE_INCLUDED_
 
+// TODO: move to <irr/builtin/glsl/bxdf/cos_weighted_sample.glsl>
+
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
 
 // TODO: functions for sampling according to `abs(NdotL)*0.5/irr_glsl_RECIPROCAL_PI` in `glsl/bxdf/bsdf`
@@ -16,7 +18,7 @@ irr_glsl_BSDFSample irr_glsl_cos_weighted_cos_generate(in irr_glsl_AnisotropicVi
     smpl.L = L;
 	smpl.NdotL = z;
     smpl.TdotL = p.x;
-    smpl.BdtoL = p.y;
+    smpl.BdotL = p.y;
 
     return smpl;
 }
