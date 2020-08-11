@@ -2,7 +2,7 @@
 #include "InputEventReciever.h"
 #include "../common/QToQuitEventReceiver.h"
 #include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
-
+#include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
 
 
 const char* vertShaderCode = R"===(
@@ -37,7 +37,7 @@ struct DrawIndirectArrays_t
     uint  first;
     uint  baseInstance;
 };
-uniform float levelCurveSpacing;
+
 
 
 layout(triangles) in;
@@ -61,9 +61,13 @@ layout(set = 0, binding = 1) writeonly buffer Lines
 {
     float linePoints[]; // 6 floats decribe a line, 3d start, 3d end
 };
-
+layout(set = 0, binding = 2) uniform LevelCurveSettings
+{
+    float intersectionPlaneSpacing;
+    vec3 intersectionPlaneNormal;
+};
 void main() {
-    const float levelPlanesDistance= levelCurveSpacing;
+    const float levelPlanesDistance = intersectionPlaneSpacing;
     const vec3 levelPlaneNormal = vec3(0.0,1.0,0.0);   
     uint numHorLines;
     float maxLevel = -FLT_MAX;
@@ -157,7 +161,11 @@ void main() {
 }
 )===";
 
-
+struct SLinesSettings {
+public:
+    float spacing;
+    float x, y, z;
+};
 
 using namespace irr;
 using namespace core;
@@ -181,10 +189,6 @@ int main()
 		return 1; // could not create selected driver.
 
 
-	//! disable mouse cursor, since camera will force it to the middle
-	//! and we don't want a jittery cursor in the middle distracting us
-	device->getCursorControl()->setVisible(false);
-
 	//! Since our cursor will be enslaved, there will be no way to close the window
 	//! So we listen for the "Q" key being pressed and exit the application
     //Also
@@ -204,12 +208,42 @@ int main()
     //loading cache from file
     qnc->loadNormalQuantCacheFromFile<asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(fs,"../../tmp/normalCache101010.sse", true);
 
-    // register the zip
-    device->getFileSystem()->addFileArchive("../../media/sponza.zip");
-
     asset::IAssetLoader::SAssetLoadParams lp;
-    auto meshes_bundle = am->getAsset("sponza.obj", lp);
-    assert(!meshes_bundle.isEmpty());
+    asset::SAssetBundle meshes_bundle;
+    pfd::message("Choose file to open", "Choose an OBJ file to open or press cancel to open a default scene.", pfd::choice::ok);
+    while (true)
+    {
+        pfd::open_file file("Choose an OBJ file", "", { "OBJ files (.obj)", "*.obj" });
+        if (!file.result().empty())
+        {
+            //lp.loaderFlags = asset::IAssetLoader::ELPF_DONT_COMPILE_GLSL;
+            meshes_bundle = am->getAsset(file.result()[0], lp);
+            if (meshes_bundle.isEmpty())
+            {
+                pfd::message("Choose file to open", "Chosen file could not be loaded. Choose another OBJ file to open or press cancel to open a default scene.", pfd::choice::ok);
+                continue;
+            }
+            break;
+        }
+        else
+        {
+
+            fs->addFileArchive("../../media/sponza.zip");
+            meshes_bundle = am->getAsset("sponza.obj", lp);
+            if (meshes_bundle.isEmpty())
+            { 
+                std::cout << "Could not open Sponza.zip. Quitting program";
+                return 1;
+            }
+            break;
+        }
+    }
+
+    //! disable mouse cursor, since camera will force it to the middle
+    //! and we don't want a jittery cursor in the middle distracting us
+    device->getCursorControl()->setVisible(false);
+
+
     auto mesh = meshes_bundle.getContents().begin()[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
 
@@ -217,7 +251,7 @@ int main()
     qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10,fs,"../../tmp/normalCache101010.sse");
   
     //copy the pipeline
-    auto pipeline_cp = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(mesh_raw->getMeshBuffer(0u)->getPipeline()->clone(1u));
+    auto pipeline_cp = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(mesh_raw->getMeshBuffer(0u)->getPipeline()->clone(3u));
     //get the simple geometry shader data and turn it into ICPUSpecializedShader
     auto unspecializedVertShader = driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(vertShaderCode));
     auto unspecializedFragShader = driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(fragShaderCode));
@@ -232,19 +266,25 @@ int main()
     auto* layout = pipeline_cp->getLayout();
     core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds0layout;
     {
-        asset::ICPUDescriptorSetLayout::SBinding b[2];
+        asset::ICPUDescriptorSetLayout::SBinding b[3];
         b[0].binding = 0u;
         b[0].count = 1u;
         b[0].samplers = nullptr;
         b[0].stageFlags = asset::ISpecializedShader::ESS_GEOMETRY;
         b[0].type = asset::EDT_STORAGE_BUFFER;
+
         b[1].binding = 1u;
         b[1].count = 1u;
         b[1].samplers = nullptr;
         b[1].stageFlags = asset::ISpecializedShader::ESS_GEOMETRY;
         b[1].type = asset::EDT_STORAGE_BUFFER;
 
-        ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(b,b+2);
+        b[2].binding = 2u;
+        b[2].count = 1u;
+        b[2].samplers = nullptr;
+        b[2].stageFlags = asset::ISpecializedShader::ESS_GEOMETRY;
+        b[2].type = asset::EDT_UNIFORM_BUFFER;
+        ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(b,b+3);
     }
 
     //set up draw indirect pipeline
@@ -258,6 +298,8 @@ int main()
     inputParams.bindings[0].stride = sizeof(float)*3;
     inputParams.bindings[0].inputRate = asset::EVIR_PER_VERTEX;
 
+    asset::SPushConstantRange pcRange[1] = { asset::ISpecializedShader::ESS_VERTEX,0,sizeof(core::matrix4SIMD)
+         };
     auto pLayout = driver->createGPUPipelineLayout(pcRange, pcRange + 1u, nullptr, nullptr, nullptr, nullptr);
     video::IGPUSpecializedShader* shaders[2] = { vshader.get(),fshader.get() };
     asset::SBlendParams blendParams;
@@ -294,13 +336,21 @@ int main()
     uint32_t triangleCount;
     if (!asset::IMeshManipulator::getPolyCount(triangleCount, mesh_raw))
         assert(false);
+    float levelCurveSpacing = 10.0f;
+    float planeX = 0, planeY = 1, planeZ = 0;
+    SLinesSettings lineSettings;
+    lineSettings.spacing = levelCurveSpacing;
+    lineSettings.x = planeX;
+    lineSettings.y = planeY;
+    lineSettings.z = planeZ;
 
     auto linesBuffer = driver->createDeviceLocalGPUBufferOnDedMem(triangleCount * 6 * sizeof(float));
+    auto uniformLinesSettingsBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(roundUp(4 * sizeof(float), 16ull), &lineSettings);
     
     auto gpuds0 = driver->createGPUDescriptorSet(std::move(gpuds0layout));
     {
-        video::IGPUDescriptorSet::SWriteDescriptorSet w[2];
-        video::IGPUDescriptorSet::SDescriptorInfo i[2];
+        video::IGPUDescriptorSet::SWriteDescriptorSet w[3];
+        video::IGPUDescriptorSet::SDescriptorInfo i[3];
         w[0].arrayElement = 0;
         w[0].binding = 0u;
         w[0].count = 1u;
@@ -310,6 +360,7 @@ int main()
         i[0].desc = lineCountBuffer;
         i[0].buffer.offset = 0;
         i[0].buffer.size = lineCountBuffer->getSize();
+
         w[1].arrayElement = 0;
         w[1].binding = 1u;
         w[1].count = 1u;
@@ -320,7 +371,16 @@ int main()
         i[1].buffer.offset = 0;
         i[1].buffer.size = linesBuffer->getSize();
 
-        driver->updateDescriptorSets(2u, w, 0u, nullptr);
+        w[2].arrayElement = 0;
+        w[2].binding = 2u;
+        w[2].count = 1u;
+        w[2].descriptorType = asset::EDT_UNIFORM_BUFFER;
+        w[2].dstSet = gpuds0.get();
+        w[2].info = i + 2;
+        i[2].desc = uniformLinesSettingsBuffer;
+        i[2].buffer.offset = 0;
+        i[2].buffer.size = uniformLinesSettingsBuffer->getSize();
+        driver->updateDescriptorSets(3u, w, 0u, nullptr);
     }
 
     asset::SBufferBinding<video::IGPUBuffer> bufferBinding[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
@@ -386,26 +446,18 @@ int main()
 	camera->setFarValue(5000.0f);
 
     smgr->setActiveCamera(camera);
-    float levelCurveSpacing = 10.0f;
 	uint64_t lastFPSTime = 0;
-
-    //the tutorials by Indian people didnt help.
-    //unsigned int uboSpacing;
-    //int block_index = video::COpenGLExtensionHandler::extGlGetUniformLocation(video::IGPUSpecializedShader::ESS_GEOMETRY,"levelCurveSpacing");
-    //video::COpenGLExtensionHandler::pGlGenBuffers(1, &uboSpacing);
-    //video::COpenGLExtensionHandler::pGlBufferStorage(GL_UNIFORM_BUFFER, sizeof(float),&levelCurveSpacing, GL_DYNAMIC_DRAW);
-    //video::COpenGLExtensionHandler::pGlBindBuffer(GL_UNIFORM_BUFFER, 0u);
+    
 	while(device->run() && receiver.keepOpen())
 	{
-        levelCurveSpacing = receiver.getSpacing();
-      /*video::COpenGLExtensionHandler::pGlBindBuffer(GL_UNIFORM_BUFFER, uboSpacing);
-        GLvoid* p = video::COpenGLExtensionHandler::pGlMapBuffer(GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
-        memcpy(p, &levelCurveSpacing, sizeof(float));
-        video::COpenGLExtensionHandler::pGlUnmapBuffer(GL_UNIFORM_BUFFER);*/
-        //video::COpenGLExtensionHandler::extGlProgramUniform1fv(3, block_index, 1, &levelCurveSpacing);
+        driver->beginScene(true, true, video::SColor(255,128,128,128) );
 
+        if (levelCurveSpacing != receiver.getSpacing())
+        {
+            levelCurveSpacing = receiver.getSpacing();
+            driver->updateBufferRangeViaStagingBuffer(uniformLinesSettingsBuffer.get(), 0, sizeof(float), &levelCurveSpacing);
+        }
 
-        driver->beginScene(true, true, video::SColor(255,255,255,255) );
         
       
         // zero out buffer LineCount

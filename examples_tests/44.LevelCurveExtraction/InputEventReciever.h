@@ -16,11 +16,11 @@ public:
 			switch (event.KeyInput.Key)
 			{
 			case irr::KEY_PRIOR: 
-				spacing =std::min(spacing+1,30);
+				spacing =std::min(spacing+2,100);
 				std::cout << spacing << std::endl;
 				return true;
 			case irr::KEY_NEXT:
-				spacing = std::max(spacing - 1, 1);
+				spacing = std::max(spacing - 2, 2);
 				std::cout << spacing << std::endl;
 				return true;
 			case irr::KEY_KEY_Q:
