@@ -14,11 +14,14 @@ vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval(in irr_glsl_BSDFAnisotropicPa
 
     return params.isotropic.NdotL * g*ndf*fr;
 }
-//defined using NDF function with better API (compared to burley used above)
-vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval2(in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction inter, in mat2x3 ior, in float ax, in float ay)
+//defined using NDF function with better API (compared to burley used above) and new impl of correlated smith
+vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction inter, in mat2x3 ior, in float ax, in float ay)
 {
-    float g = irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(ax, ay, params.TdotL, inter.TdotV, params.BdotL, inter.BdotV, params.isotropic.NdotL, inter.isotropic.NdotV);
-    float ndf = irr_glsl_ggx_aniso(params.TdotH*params.TdotH, params.BdotH*params.BdotH, params.isotropic.NdotH*params.isotropic.NdotH, ax, ay, ax*ax, ay*ay);
+    //float g = irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(ax, ay, params.TdotL, inter.TdotV, params.BdotL, inter.BdotV, params.isotropic.NdotL, inter.isotropic.NdotV);
+    float ax2 = ax*ax;
+    float ay2 = ay*ay;
+    float g = irr_glsl_ggx_smith_correlated_wo_numerator(inter.isotropic.N, params.isotropic.L, inter.isotropic.V.dir, inter.T, inter.isotropic.NdotV, params.isotropic.NdotL, ax2, ay2);
+    float ndf = irr_glsl_ggx_aniso(params.TdotH*params.TdotH, params.BdotH*params.BdotH, params.isotropic.NdotH*params.isotropic.NdotH, ax, ay, ax2, ay2);
     vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], params.isotropic.VdotH);
 
     return params.isotropic.NdotL * g*ndf*fr;
