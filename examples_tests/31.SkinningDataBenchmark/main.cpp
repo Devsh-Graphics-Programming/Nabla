@@ -31,6 +31,18 @@ struct Vertex
 #include "C:\IrrlichtBAW\IrrlichtBAW\src\irr\asset\CCPUMeshPacker.h"; //sorry
 #include "common.glsl"
 
+template<typename T>
+inline T getRandomNumber(T rangeBegin, T rangeEnd)
+{
+    assert(rangeBegin <= rangeEnd);
+
+    static std::random_device rd;
+    static std::mt19937 mt(rd());
+    std::uniform_int_distribution<uint32_t> dist(rangeBegin, rangeEnd);
+
+    return dist(mt);
+}
+
 int main()
 {
     // create device with full flexibility over creation parameters
@@ -39,7 +51,11 @@ int main()
     params.Bits = 24; //may have to set to 32bit for some platforms
     params.ZBufferBits = 24; //we'd like 32bit here
     params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
+#ifndef BENCHMARK
     params.WindowSize = dimension2d<uint32_t>(1280, 720);
+#else
+    params.WindowSize = dimension2d<uint32_t>(64, 64);
+#endif
     params.Fullscreen = false;
     params.Vsync = false;
     params.Doublebuffer = true;
@@ -72,12 +88,10 @@ int main()
     shaders[3][0] = IAsset::castDown<ICPUSpecializedShader>(vertexShaderBundle_4.getContents().begin()->get());
     shaders[3][1] = IAsset::castDown<ICPUSpecializedShader>(fragShaderBundle.getContents().begin()->get());
 
-    auto createMeshBufferFromGeometryCreatorReturnData = [&](asset::IGeometryCreator::return_type& geometryObject, ICPUMeshBuffer* meshBuffer, uint16_t boneID)
-    {
-        asset::SBlendParams blendParams;
-        asset::SRasterizationParams rasterParams;
-        rasterParams.faceCullingMode = asset::EFCM_NONE;
+    core::vector<uint16_t> boneMatMaxCnt;
 
+    auto createMeshBufferFromGeometryCreatorReturnData = [&](asset::IGeometryCreator::return_type& geometryObject, ICPUMeshBuffer* meshBuffer, uint32_t mbID ,uint32_t bonesCreatedCnt)
+    {
         for (int i = 0; i < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; i++)
             meshBuffer->setVertexBufferBinding(std::move(geometryObject.bindings[i]), i);
         meshBuffer->setBoundingBox(geometryObject.bbox);
@@ -91,21 +105,21 @@ int main()
         newInputParams.bindings[1].inputRate = EVIR_PER_VERTEX;
         newInputParams.bindings[1].stride = 0u;
         newInputParams.attributes[4].binding = 1u;
-        newInputParams.attributes[4].format = EF_R16_UINT;
+        newInputParams.attributes[4].format = EF_R32_UINT;
         newInputParams.attributes[4].relativeOffset = 0u;
 
         SBufferBinding<ICPUBuffer> boneIDBuffer;
         boneIDBuffer.offset = 0u;
-        boneIDBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(meshBuffer->calcVertexCount() * sizeof(uint16_t));
+        boneIDBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(meshBuffer->calcVertexCount() * sizeof(uint32_t));
 
-        uint16_t* buffPtr = static_cast<uint16_t*>(boneIDBuffer.buffer->getPointer());
+        uint32_t* buffPtr = static_cast<uint32_t*>(boneIDBuffer.buffer->getPointer());
         for (int i = 0; i < meshBuffer->calcVertexCount(); i++)
-            *(buffPtr + i) = boneID;
+            *(buffPtr + i) = bonesCreatedCnt + getRandomNumber<uint32_t>(1u, boneMatMaxCnt[mbID]) - 1u;
 
 
         meshBuffer->setVertexBufferBinding(std::move(boneIDBuffer), 1);
 
-        auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, nullptr, nullptr, newInputParams, blendParams, geometryObject.assemblyParams, rasterParams);
+        auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, nullptr, nullptr, newInputParams, SBlendParams(), SPrimitiveAssemblyParams(), SRasterizationParams());
         meshBuffer->setPipeline(std::move(pipeline));
     };
 
@@ -116,23 +130,28 @@ int main()
 
     std::vector<uint16_t> tesselation(diskCount);
 
-    //get random tesselation for disks
     {
-        std::random_device rd;
-        std::mt19937 mt(rd());
-        std::uniform_int_distribution<uint32_t> dist(15, 160 - 1);
+        //get random tesselation for disks
 
         //TODO: test
         //`dist(mt) | 0x0001` so vertexCount is always odd (only when diskCount is odd as well)
-        std::generate(tesselation.begin(), tesselation.end(), [&]() { return dist(mt) | 0x0001; });
+        std::generate(tesselation.begin(), tesselation.end(), [&]() { return getRandomNumber<uint32_t>(15u, 160u - 1u) | 0x0001; });
+
+        //get random bone cnt for disks
+        boneMatMaxCnt = core::vector<uint16_t>(diskCount);
+        std::generate(boneMatMaxCnt.begin(), boneMatMaxCnt.end(), [&]() { return getRandomNumber<uint16_t>(1u, 9u);  });
     }
+
+    const uint32_t boneMatrixCnt = std::accumulate(boneMatMaxCnt.begin(), boneMatMaxCnt.end(), 0u);
+
+    assert(boneMatrixCnt < MAT_MAX_CNT);
 
     core::vector<uint16_t> indices(16000);
     std::iota(indices.begin(), indices.end(), 0u);
 
     core::vector<ICPUMeshBuffer*> disks(diskCount);
     std::generate(disks.begin(), disks.end(), []() { return _IRR_NEW(ICPUMeshBuffer); });
-    for (uint32_t i = 0; i < diskCount; i++)
+    for (uint32_t i = 0u, bonesCreated = 0u; i < diskCount; i++)
     {
         auto disk = am->getGeometryCreator()->createDiskMesh(0.5f, tesselation[i]);
         auto newIdxBuffer = am->getMeshManipulator()->idxBufferFromTrianglesFanToTriangles(indices.data(), disk.indexCount, EIT_16BIT);
@@ -140,9 +159,9 @@ int main()
         disk.indexCount = newIdxBuffer->getSize() / sizeof(uint16_t);
         disk.indexType = EIT_16BIT;
         disk.assemblyParams.primitiveType = EPT_TRIANGLE_LIST;
-        createMeshBufferFromGeometryCreatorReturnData(disk, disks[i], i);
+        createMeshBufferFromGeometryCreatorReturnData(disk, disks[i], i, bonesCreated);
+        bonesCreated += boneMatMaxCnt[i];
     }
-
     os::Printer::print("Disks creation done.\n");
 
         //pack disks
@@ -214,13 +233,13 @@ int main()
     };
     core::smart_refctd_ptr<IGPUBuffer> drawDataBuffer[4];
     vector<core::matrix3x4SIMD> translationMatrices_2(diskCount);
-    core::vector<core::matrix4SIMD> boneMatrices(diskCount);
-    core::vector<core::matrix3x4SIMD> normalMatrices(diskCount);
-    core::vector<BoneNormalMatPair> boneAndNormalMatrices(diskCount * 2);
-    core::vector<core::vectorSIMDf> boneMatricesRows(diskCount * 4);
-    core::vector<core::vectorSIMDf> normalMatricesRows(diskCount * 3);
-    core::vector<float> boneMatricesComponents(diskCount * 4 * 4);
-    core::vector<float> normalMatricesComponents(diskCount * 3 * 3);
+    core::vector<core::matrix4SIMD> boneMatrices(boneMatrixCnt);
+    core::vector<core::matrix3x4SIMD> normalMatrices(boneMatrixCnt);
+    core::vector<BoneNormalMatPair> boneAndNormalMatrices(boneMatrixCnt);
+    core::vector<core::vectorSIMDf> boneMatricesRows(boneMatrixCnt * 4);
+    core::vector<core::vectorSIMDf> normalMatricesRows(boneMatrixCnt * 3);
+    core::vector<float> boneMatricesComponents(boneMatrixCnt * 4 * 4);
+    core::vector<float> normalMatricesComponents(boneMatrixCnt * 3 * 3);
     {
         uint32_t i = 0u;
         for (uint32_t x = 0; x < diskBlockDim.x; x++)
@@ -241,7 +260,7 @@ int main()
         drawDataBuffer[2] = driver->createDeviceLocalGPUBufferOnDedMem((BONE_VEC_MAX_CNT + NORM_VEC_MAX_CNT) * sizeof(core::vectorSIMDf));
 
         //as floats
-        drawDataBuffer[3] = driver->createDeviceLocalGPUBufferOnDedMem((boneMatricesComponents.size() + normalMatricesComponents.size()) * sizeof(float));
+        drawDataBuffer[3] = driver->createDeviceLocalGPUBufferOnDedMem((BONE_COMP_MAX_CNT + NORM_COMP_MAX_CNT) * sizeof(float));
     }
 
     
@@ -264,11 +283,11 @@ int main()
     core::smart_refctd_ptr<IGPUDescriptorSet> descriptorSet[4];
 
     Shader3PushConstants s3pc;
-    s3pc.matrixOffsets = core::vector4du32_SIMD(0u, diskCount, diskCount * 2, diskCount * 3);
+    s3pc.matrixOffsets = core::vector4du32_SIMD(0u, boneMatrixCnt, boneMatrixCnt * 2, boneMatrixCnt * 3);
 
     Shader4PushConstants s4pc;
     for (uint32_t i = 0u; i < 16; i++)
-        s4pc.matrixOffsets[i] = i * diskCount;
+        s4pc.matrixOffsets[i] = i * boneMatrixCnt;
 
     {
         asset::SPushConstantRange range[4] = {
@@ -320,6 +339,10 @@ int main()
             else
                 gpuPipelineLayout[i] = driver->createGPUPipelineLayout(&range[i], &range[i] + 1, core::smart_refctd_ptr(layout));
 
+            SBlendParams blendParams;
+            SRasterizationParams a;
+
+
             gpuPipeline[i] = driver->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(gpuPipelineLayout[i]), shaders, shaders + 2, packedMeshBuffer.vertexInputParams, SBlendParams(), SPrimitiveAssemblyParams(), rasterParams);
         }
     }
@@ -351,20 +374,32 @@ int main()
 
     auto constructMatrices = [&]()
     {
-        for (uint32_t i = 0u; i < translationMatrices_2.size(); i++)
+        for (uint32_t i = 0u, currMatOffset = 0u; i < translationMatrices_2.size(); i++)
         {
             core::matrix3x4SIMD modelMatrix;
             modelMatrix.setRotation(core::quaternion(0.0f, rps[i] * (timeMS / 1000.0f), 0.0f));
             modelMatrix.concatenateBefore(translationMatrices_2[i]);
 
-            boneMatrices[i] = core::concatenateBFollowedByA(camera->getConcatenatedMatrix(), modelMatrix);
-            normalMatrices[i] = modelMatrix;
+            boneMatrices[currMatOffset] = core::concatenateBFollowedByA(camera->getConcatenatedMatrix(), modelMatrix);
 
+            normalMatrices[currMatOffset] = modelMatrix;
+
+            for (uint32_t j = 1u; j < boneMatMaxCnt[i]; j++)
+            {
+                boneMatrices[currMatOffset + j] = boneMatrices[currMatOffset];
+                normalMatrices[currMatOffset + j] = normalMatrices[currMatOffset];
+            }
+
+            currMatOffset += boneMatMaxCnt[i];
+        }
+
+        for (uint32_t i = 0u; i < boneAndNormalMatrices.size(); i++)
+        {
             boneAndNormalMatrices[i].boneMatrix = boneMatrices[i];
             boneAndNormalMatrices[i].normalMatrix = core::matrix3x4SIMD(normalMatrices[i].pointer());
         }
 
-        for (uint32_t i = 0u; i < diskCount; i++)
+        for (uint32_t i = 0u; i < boneMatrixCnt; i++)
         {
             boneMatricesRows[s3pc.matrixOffsets[0] + i] = boneMatrices[i].getRow(0);
             boneMatricesRows[s3pc.matrixOffsets[1] + i] = boneMatrices[i].getRow(1);
@@ -376,13 +411,13 @@ int main()
             normalMatricesRows[s3pc.matrixOffsets[2] + i] = core::matrix4SIMD(normalMatrices[i]).getRow(2);
         }
 
-        for (uint32_t i = 0u; i < diskCount; i++)
+        for (uint32_t i = 0u; i < boneMatrixCnt; i++)
         {
             for (uint32_t j = 0u; j < 16u; j++)
                 boneMatricesComponents[s4pc.matrixOffsets[j] + i] = *(boneMatrices[i].pointer() + j);
 
             for (uint32_t j = 0u; j < 9u; j++)
-                normalMatricesComponents[s4pc.matrixOffsets[j] + i] = *(boneMatrices[i].pointer() + j); //fix!
+                normalMatricesComponents[s4pc.matrixOffsets[j] + i] = core::matrix4SIMD(normalMatrices[i]).getRow(j / 3u)[(j + 3u) % 3];
         }
     };
 
@@ -391,24 +426,13 @@ int main()
         switch (caseID)
         {
         case 0:
-        {
-
-        }
-        break;
         case 1:
-        {
-
-        }
         break;
         case 2:
-        {
             driver->pushConstants(gpuPipelineLayout[2].get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(Shader3PushConstants), &s3pc);
-        }
         break;
         case 3:
-        {
             driver->pushConstants(gpuPipelineLayout[3].get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(Shader4PushConstants), &s4pc);
-        }
         break;
         default:
             assert(false);
@@ -424,7 +448,6 @@ int main()
             const size_t matricesByteSize = sizeof(BoneNormalMatPair) * boneAndNormalMatrices.size();
 
             driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[0].get(), 0u, matricesByteSize, boneAndNormalMatrices.data());
-            driver->drawIndexedIndirect(mdi.vtxBindings, mdi.mode, mdi.indexType, mdi.indexBuff.get(), mdi.indirectDrawBuff.get(), mdi.offset, mdi.maxCount, mdi.stride);
         }
         break;
         case 1:
@@ -451,9 +474,10 @@ int main()
         {
             const size_t boneMatricesCompByteSize = sizeof(float) * boneMatricesComponents.size();
             const size_t normalMatricesCompByteSize = sizeof(float) * normalMatricesComponents.size();
+            const size_t normalMatricesOffset = sizeof(float) * BONE_COMP_MAX_CNT;
 
             driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[3].get(), 0u, boneMatricesCompByteSize, boneMatricesComponents.data());
-            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[3].get(), boneMatricesCompByteSize, normalMatricesCompByteSize, normalMatricesComponents.data());
+            driver->updateBufferRangeViaStagingBuffer(drawDataBuffer[3].get(), normalMatricesOffset, normalMatricesCompByteSize, normalMatricesComponents.data());
         }
         break;
         default:
@@ -461,12 +485,22 @@ int main()
         }
     };
 
-    //run benchmark for all cases
-    constexpr uint32_t iterationCnt = 10000u;
+    /*core::smart_refctd_ptr<COpenGLFrameBuffer> frameBuffer(driver);
+    IGPUImageView::SCreationParams ivParams;
+    core::smart_refctd_ptr<IGPUImageView> depthBuffer = driver->createGPUImageView(std::move(ivParams));
+    frameBuffer->attach(EFAP_DEPTH_ATTACHMENT, std::move(depthBuffer), 0u, 0u);*/
 
+    std::function<bool()> exitCondition;
+
+#ifndef BENCHMARK
+    exitCondition = [&]() { return device->run() && receiver.keepOpen(); };
+#else
+    exitCondition = []() { return true; };
+#endif
     COpenGLDriver* driverOGL = dynamic_cast<COpenGLDriver*>(driver);
     IQueryObject* query = driver->createElapsedTimeQuery();
 
+    constexpr uint32_t iterationCnt = 1000u;
     for (uint32_t caseID = 0u; caseID < 4u; caseID++)
     {
         os::Printer::print(std::string("Benchmark for case nr. " + std::to_string(caseID)));
@@ -475,8 +509,13 @@ int main()
         driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline[caseID]->getLayout(), 0u, 1u, &descriptorSet[caseID].get(), nullptr);
         updatePushConstants(caseID);
 
+#ifdef BENCHMARK
+        driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
+        driver->clearZBuffer(1.0f);
+#endif
+
         driver->beginQuery(query);
-        for (uint32_t i = 0u; i < iterationCnt && (device->run() && receiver.keepOpen()); i++)
+        for (uint32_t i = 0u; i < iterationCnt && exitCondition(); i++)
         {
 #ifndef BENCHMARK
             driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
@@ -489,11 +528,14 @@ int main()
 
             updateSSBO(caseID);
 #endif
+#ifdef BENCHMARK
+#endif
             driver->drawIndexedIndirect(mdi.vtxBindings, mdi.mode, mdi.indexType, mdi.indexBuff.get(), mdi.indirectDrawBuff.get(), mdi.offset, mdi.maxCount, mdi.stride);
 #ifndef BENCHMARK
             driver->endScene();
 #endif
         }
+        glFlush();
         driver->endQuery(query);
 
         uint32_t timeElapsed = 0u;
