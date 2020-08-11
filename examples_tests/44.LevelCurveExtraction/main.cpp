@@ -22,6 +22,7 @@ const char* fragShaderCode = R"===(
 layout(location = 0) out vec4 pixelColor;
 void main()
 {
+    gl_FragDepth = gl_FragCoord.z*1.002;
     pixelColor = vec4(0,1,0,1);
 }
 )===";
@@ -63,8 +64,8 @@ layout(set = 0, binding = 1) writeonly buffer Lines
 };
 layout(set = 0, binding = 2) uniform LevelCurveSettings
 {
-    float intersectionPlaneSpacing;
     vec3 intersectionPlaneNormal;
+    float intersectionPlaneSpacing;
 };
 void main() {
     const float levelPlanesDistance = intersectionPlaneSpacing;
@@ -163,8 +164,8 @@ void main() {
 
 struct SLinesSettings {
 public:
-    float spacing;
     float x, y, z;
+    float spacing;
 };
 
 using namespace irr;
@@ -298,8 +299,7 @@ int main()
     inputParams.bindings[0].stride = sizeof(float)*3;
     inputParams.bindings[0].inputRate = asset::EVIR_PER_VERTEX;
 
-    asset::SPushConstantRange pcRange[1] = { asset::ISpecializedShader::ESS_VERTEX,0,sizeof(core::matrix4SIMD)
-         };
+    asset::SPushConstantRange pcRange[1] = { asset::ISpecializedShader::ESS_VERTEX,0,sizeof(core::matrix4SIMD) };
     auto pLayout = driver->createGPUPipelineLayout(pcRange, pcRange + 1u, nullptr, nullptr, nullptr, nullptr);
     video::IGPUSpecializedShader* shaders[2] = { vshader.get(),fshader.get() };
     asset::SBlendParams blendParams;
@@ -309,11 +309,11 @@ int main()
         blendParams.blendParams[i].attachmentEnabled = false;
     asset::SRasterizationParams rasterParams;
     rasterParams.polygonMode = asset::EPM_LINE;
+    rasterParams.depthBiasEnable = 1;
     rasterParams.depthBiasConstantFactor = 1;
     rasterParams.depthBiasSlopeFactor = 1;
 
     auto drawIndirect_pipeline = driver->createGPURenderpassIndependentPipeline(nullptr, std::move(pLayout), shaders, shaders + sizeof(shaders) / sizeof(void*), inputParams, blendParams, assemblyParams, rasterParams);
-
 
     
     layout->setDescriptorSetLayout(0,core::smart_refctd_ptr(ds0layout));
@@ -322,6 +322,31 @@ int main()
     for (size_t i = 0; i < mesh_raw->getMeshBufferCount(); i++)
     {
         mesh_raw->getMeshBuffer(i)->setPipeline(core::smart_refctd_ptr(pipeline_cp));
+    }
+    core::smart_refctd_ptr<video::IGPUComputePipeline> compPipeline;
+    {
+        core::smart_refctd_ptr<video::IGPUPipelineLayout> computeLayout;
+        {
+            asset::SPushConstantRange range;
+            range.offset = 0u;
+            range.size = sizeof(uint32_t) * 2u;
+            range.stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+            computeLayout = driver->createGPUPipelineLayout(&range, &range + 1,smart_refctd_ptr(gpuds0layout), nullptr, nullptr, nullptr);
+        }
+        core::smart_refctd_ptr<video::IGPUSpecializedShader> compShader;
+        {
+            auto f = core::smart_refctd_ptr<io::IReadFile>(fs->createAndOpenFile("../compute.comp"));
+
+            //auto cs_unspec = am->getGLSLCompiler()->createSPIRVFromGLSL(f.get(), asset::ISpecializedShader::ESS_COMPUTE, "main", "comp");
+            asset::IAssetLoader::SAssetLoadParams lp;
+            auto cs_bundle = am->getAsset("../compute.comp", lp);
+            auto cs = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
+
+            auto cs_rawptr = cs.get();
+            compShader = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
+        }
+        compPipeline = driver->createGPUComputePipeline(nullptr, std::move(computeLayout), std::move(compShader));
+
     }
 
 
@@ -343,8 +368,7 @@ int main()
     lineSettings.x = planeX;
     lineSettings.y = planeY;
     lineSettings.z = planeZ;
-
-    auto linesBuffer = driver->createDeviceLocalGPUBufferOnDedMem(triangleCount * 6 * sizeof(float));
+    auto linesBuffer = driver->createDeviceLocalGPUBufferOnDedMem(268435456);   //256 MB = 2^28B = 268435456 B
     auto uniformLinesSettingsBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(roundUp(4 * sizeof(float), 16ull), &lineSettings);
     
     auto gpuds0 = driver->createGPUDescriptorSet(std::move(gpuds0layout));
@@ -437,6 +461,8 @@ int main()
     //DescriptorSetLayout is null
     auto gpumesh = driver->getGPUObjectsFromAssets(&mesh_raw, &mesh_raw+1)->front();
 
+
+
 	//! we want to move around the scene and view it from different angles
 	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f,0.5f);
 
@@ -455,7 +481,7 @@ int main()
         if (levelCurveSpacing != receiver.getSpacing())
         {
             levelCurveSpacing = receiver.getSpacing();
-            driver->updateBufferRangeViaStagingBuffer(uniformLinesSettingsBuffer.get(), 0, sizeof(float), &levelCurveSpacing);
+            driver->updateBufferRangeViaStagingBuffer(uniformLinesSettingsBuffer.get(), offsetof(SLinesSettings,spacing), sizeof(float), &levelCurveSpacing);
         }
 
         
@@ -524,8 +550,12 @@ int main()
 
         //emit "memory barrier" of type GL_ALL_BARRIER_BITS after the entire scene finishes drawing
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_ALL_BARRIER_BITS);
-        
-        
+        driver->bindComputePipeline(compPipeline.get());
+        driver->bindDescriptorSets(video::EPBP_COMPUTE, compPipeline->getLayout(), 0u, 1u, &gpuds0.get(), nullptr);
+        driver->dispatch(1u,1u,1u);
+
+        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
         driver->bindGraphicsPipeline(drawIndirect_pipeline.get());
         driver->pushConstants(drawIndirect_pipeline->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), camera->getConcatenatedMatrix().pointer());
 
