@@ -46,6 +46,10 @@ public:
                 case irr::KEY_KEY_6:
                     test = ETC_LAMBERT;
                     return true;
+
+                case irr::KEY_KEY_S:
+                    ss = true;
+                    break;
 				default:
 					break;
 			}
@@ -56,10 +60,17 @@ public:
 
 	inline bool keepOpen() const { return running; }
     inline E_TEST_CASE getTestCase() const { return test; }
+    inline bool screenshot()
+    {
+        bool v = ss;
+        ss = false;
+        return v;
+    }
 
 private:
     E_TEST_CASE test = ETC_GGX;
 	bool running = true;
+    bool ss = false;
 };
 
 core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> createGraphicsPipeline(video::IVideoDriver* _driver, core::smart_refctd_ptr<video::IGPUPipelineLayout>&& _layout, video::IGPUSpecializedShader* _vs, const std::string& _fsBaseSource, const char* _testName, const asset::IGeometryCreator::return_type& _dat)
@@ -175,7 +186,35 @@ int main()
 
     //! we want to move around the scene and view it from different angles
     scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(nullptr , 100.0f, 0.005f);
-    auto* fbo = ext::ScreenShot::createDefaultFBOForScreenshoting(device);
+
+    video::IGPUImage::SCreationParams imgInfo;
+    imgInfo.format = asset::EF_R16G16B16A16_SFLOAT;
+    imgInfo.type = asset::ICPUImage::ET_2D;
+    imgInfo.extent.width = driver->getScreenSize().Width;
+    imgInfo.extent.height = driver->getScreenSize().Height;
+    imgInfo.extent.depth = 1u;
+    imgInfo.mipLevels = 1u;
+    imgInfo.arrayLayers = 1u;
+    imgInfo.samples = asset::ICPUImage::ESCF_1_BIT;
+    imgInfo.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+
+    auto image = driver->createGPUImageOnDedMem(std::move(imgInfo), driver->getDeviceLocalGPUMemoryReqs());
+    const auto texelFormatBytesize = getTexelOrBlockBytesize(image->getCreationParameters().format);
+
+    video::IGPUImageView::SCreationParams imgViewInfo;
+    imgViewInfo.format = image->getCreationParameters().format;
+    imgViewInfo.image = std::move(image);
+    imgViewInfo.viewType = asset::IImageView<video::IGPUImage>::ET_2D;
+    imgViewInfo.flags = static_cast<video::IGPUImageView::E_CREATE_FLAGS>(0u);
+    imgViewInfo.subresourceRange.baseArrayLayer = 0u;
+    imgViewInfo.subresourceRange.baseMipLevel = 0u;
+    imgViewInfo.subresourceRange.layerCount = imgInfo.arrayLayers;
+    imgViewInfo.subresourceRange.levelCount = imgInfo.mipLevels;
+
+    auto imageView = driver->createGPUImageView(std::move(imgViewInfo));
+
+    auto* fbo = driver->addFrameBuffer();
+    fbo->attach(video::EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(imageView));
 
     camera->setLeftHanded(false);
     camera->setPosition(core::vector3df(6.75f, 2.f, 6.f));
@@ -187,9 +226,13 @@ int main()
     smgr->setActiveCamera(camera);
 
     SPushConsts pc;
+    uint32_t ssNum = 0u;
     while (device->run() && receiver.keepOpen())
     {
-        driver->beginScene(true, true, video::SColor(255, 0, 0, 0));
+        driver->setRenderTarget(fbo);
+        const float clear[4] {0.f,0.f,0.f,1.f};
+        driver->clearColorBuffer(video::EFAP_COLOR_ATTACHMENT0, clear);
+        driver->beginScene(true, false, video::SColor(255, 0, 0, 0));
 
         camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
         camera->render();
@@ -213,11 +256,14 @@ int main()
         }
         driver->drawMeshBuffer(sphere.get());
 
+        driver->blitRenderTargets(fbo, nullptr, false, false);
+
         driver->endScene();
+
+        if (receiver.screenshot())
+            ext::ScreenShot::createScreenShot(device, fbo->getAttachment(video::EFAP_COLOR_ATTACHMENT0), "screenshot" + std::to_string(ssNum++) + ".exr");
     }
 
-    driver->blitRenderTargets(nullptr, fbo, false, false);
-    ext::ScreenShot::createScreenShot(device, fbo->getAttachment(video::EFAP_COLOR_ATTACHMENT0), "screenshot.exr");
 
     return 0;
 }

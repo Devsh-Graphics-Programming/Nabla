@@ -52,7 +52,6 @@ void main()
         brdf = irr_glsl_ggx_height_correlated_cos_eval(params_, inter_, ior, a2);
     #endif
 #elif defined(TEST_BECKMANN)
-        //brdf = irr_glsl_ggx_height_correlated_aniso_cos_eval2(params, inter, ior, Alpha, Alpha);
     #ifdef TEST_GGX_SMITH
         brdf = vec3( 4.0*params_.NdotL*inter_.NdotV*irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(ax, ay, params.TdotL, inter.TdotV, params.BdotL, inter.BdotV, params.isotropic.NdotL, inter.isotropic.NdotV) );
         //brdf *= irr_glsl_fresnel_conductor(ior[0], ior[1], params.isotropic.VdotH);
@@ -70,8 +69,8 @@ void main()
     brdf = albedo*irr_glsl_lambertian_cos_eval(params_, inter_);
 #endif
     //red output means brdf>1.0
-    outColor = any(greaterThan(brdf,vec3(1.0))) ? vec4(1.0,0.0,0.0,1.0) : vec4(Intensity*brdf/dot(L,L), 1.0);
-    //outColor = vec4(Intensity*brdf/*/dot(L,L)*/, 1.0);
+    //outColor = any(greaterThan(brdf,vec3(1.0))) ? vec4(1.0,0.0,0.0,1.0) : vec4(Intensity*brdf/dot(L,L), 1.0);
+    outColor = vec4(Intensity*brdf/dot(L,L), 1.0);
     //outColor = (inter_.NdotV<0.0||params_.NdotL<0.0) ? vec4(1.0,0.0,0.0,1.0) : vec4(Intensity*brdf/*/dot(L,L)*/, 1.0);
     }
     else outColor = vec4(0.0,0.0,0.0,1.0);
