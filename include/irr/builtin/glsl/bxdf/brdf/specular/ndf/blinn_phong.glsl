@@ -3,7 +3,7 @@
 
 #include <irr/builtin/glsl/math/constants.glsl>
 
-float irr_glsl_blinn_phong_ndf(in float NdotH, in float n)
+float irr_glsl_blinn_phong(in float NdotH, in float n)
 {
     return irr_glsl_RECIPROCAL_PI*0.5*(n+2.0) * pow(NdotH,n);
 }

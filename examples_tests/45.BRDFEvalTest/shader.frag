@@ -60,7 +60,7 @@ void main()
     #endif
 #elif defined(TEST_PHONG)
         float n = 2.0/a2 - 2.0;//conversion between alpha and Phong exponent, Walter et.al.
-        brdf = irr_glsl_blinn_phong_fresnel_conductor_cos_eval(params_, inter_, n, ior);
+        brdf = irr_glsl_blinn_phong_cos_eval(params_, inter_, n, ior);
 #elif defined(TEST_AS)
     #error "Not implemented"
 #elif defined(TEST_OREN_NAYAR)
