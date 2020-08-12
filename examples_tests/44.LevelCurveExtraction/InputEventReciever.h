@@ -26,6 +26,9 @@ public:
 			case irr::KEY_KEY_Q:
 				running = false;
 				return true;
+			case irr::KEY_KEY_S:
+				saveBuffer = true;
+				return true;
 			default:
 				break;
 			}
@@ -34,9 +37,19 @@ public:
 		return false;
 	}
 	inline bool keepOpen() const { return running; }
-	inline int getSpacing() { return spacing; }
+	inline int getSpacing() const { return spacing; }
+	inline int doBufferSave() 
+	{ 
+		if (saveBuffer)
+		{
+			saveBuffer = false;
+			return true;
+		}
+		return false;
+	}
 
 private:
 	int spacing;
 	bool running;
+	bool saveBuffer;
 };

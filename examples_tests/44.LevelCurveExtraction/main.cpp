@@ -64,7 +64,6 @@ layout(set = 0, binding = 1) writeonly buffer Lines
 };
 layout(set = 0, binding = 2) uniform LevelCurveSettings
 {
-    vec3 intersectionPlaneNormal;
     float intersectionPlaneSpacing;
 };
 void main() {
@@ -161,15 +160,48 @@ void main() {
 
 }
 )===";
-
-struct SLinesSettings {
-public:
-    float x, y, z;
-    float spacing;
-};
-
 using namespace irr;
 using namespace core;
+
+
+void SaveBufferToCSV(video::IVideoDriver* driver, const uint32_t &bufferBytesize, const uint32_t& alignment,video::IGPUBuffer *bufferToCopy)
+{
+    auto downloadStagingArea = driver->getDefaultDownStreamingBuffer();
+    uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address;
+    constexpr uint64_t timeoutInNanoSeconds = 300000000000u;
+    auto unallocatedSize = downloadStagingArea->multi_alloc(std::chrono::nanoseconds(timeoutInNanoSeconds), 1u, &address, &bufferBytesize, &alignment);
+    if (unallocatedSize)
+    {
+        os::Printer::log("Could not download the buffer from the GPU!", ELL_ERROR);
+        return;
+    }
+    driver->copyBuffer(bufferToCopy, downloadStagingArea->getBuffer(), 0u, address, bufferBytesize);
+    auto downloadFence = driver->placeFence(true);
+    auto* data = reinterpret_cast<float*>(downloadStagingArea->getBufferPointer()) + address;
+    auto result = downloadFence->waitCPU(timeoutInNanoSeconds, true);
+    if (result == video::E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED || result == video::E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
+    {
+        os::Printer::log("Could not download the buffer from the GPU, fence not signalled!", ELL_ERROR);
+        downloadStagingArea->multi_free(1u, &address, &bufferBytesize, nullptr);
+        return;
+    }
+    if (downloadStagingArea->needsManualFlushOrInvalidate())
+        driver->invalidateMappedMemoryRanges({ {downloadStagingArea->getBuffer()->getBoundMemory(),address,bufferBytesize} });
+    std::ofstream csvFile ("../linesbuffer_content.csv");
+    csvFile << "A_x;A_y;A_z;B_x;B_y;B_z\n";
+    for (size_t i = 0; i < bufferBytesize-5; i+=6)
+    {
+        csvFile << data[i + 0] << ";";
+        csvFile << data[i + 1] << ";";
+        csvFile << data[i + 2] << ";";
+        csvFile << data[i + 3] << ";";
+        csvFile << data[i + 4] << ";";
+        csvFile << data[i + 5];
+        csvFile << "\n";
+    }
+    csvFile.close();
+    os::Printer::log("Saved linesbuffer contents to a csv file");
+}
 
 int main()
 {
@@ -363,13 +395,9 @@ int main()
         assert(false);
     float levelCurveSpacing = 10.0f;
     float planeX = 0, planeY = 1, planeZ = 0;
-    SLinesSettings lineSettings;
-    lineSettings.spacing = levelCurveSpacing;
-    lineSettings.x = planeX;
-    lineSettings.y = planeY;
-    lineSettings.z = planeZ;
-    auto linesBuffer = driver->createDeviceLocalGPUBufferOnDedMem(268435456);   //256 MB = 2^28B = 268435456 B
-    auto uniformLinesSettingsBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(roundUp(4 * sizeof(float), 16ull), &lineSettings);
+    constexpr auto linesBufferSize = 268435456u; //256 MB = 2^28B = 268435456 B
+    auto linesBuffer = driver->createDeviceLocalGPUBufferOnDedMem(linesBufferSize);  
+    auto uniformLinesSettingsBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(roundUp(4 * sizeof(float), 16ull), &levelCurveSpacing);
     
     auto gpuds0 = driver->createGPUDescriptorSet(std::move(gpuds0layout));
     {
@@ -481,7 +509,7 @@ int main()
         if (levelCurveSpacing != receiver.getSpacing())
         {
             levelCurveSpacing = receiver.getSpacing();
-            driver->updateBufferRangeViaStagingBuffer(uniformLinesSettingsBuffer.get(), offsetof(SLinesSettings,spacing), sizeof(float), &levelCurveSpacing);
+            driver->updateBufferRangeViaStagingBuffer(uniformLinesSettingsBuffer.get(), 0, sizeof(float), &levelCurveSpacing);
         }
 
         
@@ -563,7 +591,12 @@ int main()
         //invoke drawIndirect and use linesBuffer
         driver->drawArraysIndirect(bufferBinding, asset::EPT_LINE_LIST, lineCountBuffer.get(), 0u, 1u, sizeof(asset::DrawArraysIndirectCommand_t));
 		driver->endScene();
-      
+        
+        if (receiver.doBufferSave())
+        {
+            SaveBufferToCSV(driver,6*1024*4,4,linesBuffer.get());
+        }
+
 		// display frames per second in window title
 		uint64_t time = device->getTimer()->getRealTime();
 		if (time-lastFPSTime > 1000)
