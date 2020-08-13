@@ -1,6 +1,8 @@
 #ifndef _IRR_BSDF_COMMON_SAMPLES_INCLUDED_
 #define _IRR_BSDF_COMMON_SAMPLES_INCLUDED_
 
+#include <irr/builtin/glsl/math/functions.glsl>
+
 // do not use this struct in SSBO or UBO, its wasteful on memory
 struct irr_glsl_BSDFSample
 {
