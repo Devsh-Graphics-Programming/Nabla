@@ -59,10 +59,13 @@ void main()
         brdf = irr_glsl_beckmann_smith_height_correlated_cos_eval(params_, inter_, ior, a2);
     #endif
 #elif defined(TEST_PHONG)
-        float n = 2.0/a2 - 2.0;//conversion between alpha and Phong exponent, Walter et.al.
-        brdf = irr_glsl_blinn_phong_cos_eval(params_, inter_, n, ior);
+    float n = irr_glsl_alpha2_to_phong_exp(a2);
+    brdf = irr_glsl_blinn_phong_cos_eval(params_, inter_, n, ior);
 #elif defined(TEST_AS)
-    #error "Not implemented"
+    float nx = irr_glsl_alpha2_to_phong_exp(a2);
+    float aa = 1.0-Alpha;
+    float ny = irr_glsl_alpha2_to_phong_exp(aa*aa);
+    brdf = irr_glsl_blinn_phong_cos_eval(params, inter, nx, ny, ior);
 #elif defined(TEST_OREN_NAYAR)
     brdf = albedo*irr_glsl_oren_nayar_cos_eval(params_, inter_, a2);
 #elif defined(TEST_LAMBERT)

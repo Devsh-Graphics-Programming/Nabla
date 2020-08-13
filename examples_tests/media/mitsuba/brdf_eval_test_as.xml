@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scene version="0.5.0">
+
+<integrator type="direct"/>
+
+<!--<sensor type="thinlens">-->
+<sensor type="perspective">
+	<transform name="toWorld">
+		<lookat origin="6.75,2,6" target="6.75,0,-1" up="0,1,0"/>
+	</transform>
+	<float name="fov" value="60"/>
+	<string name="fovAxis" value="y"/>
+	<float name="focusDistance" value="3"/>
+	<float name="apertureRadius" value="0.1"/>
+	<sampler type="hammersley">
+		<integer name="sampleCount" value="8"/>
+	</sampler>
+	<film type="hdrfilm">
+		<integer name="width" value="1280"/>
+		<integer name="height" value="720"/>
+    <rfilter type="box"/>
+	</film>
+</sensor>
+  
+ <!--125.6==20*2*pi-->
+<!-- <emitter type="directional">
+  <vector name="direction" x="1" y="-3" z="1"/>
+  <rgb name="irradiance" value="20,20,20"/>
+</emitter> -->
+<emitter type="point">
+  <rgb name="intensity" value="20,20,20"/>
+  <transform name="toWorld"><translate x="6.75" y="4" z="-1"/></transform>
+</emitter>
+
+
+<bsdf type="roughconductor" id="_01">
+  <float name="alphaU" value="0.1" />
+  <float name="alphaV" value="0.9" />
+  <string name="distribution" value="as"/>
+  <rgb name="eta" value="1.02, 1.3, 1.02"/>
+  <rgb name="k" value="1.0, 2.0, 1.0"/>
+</bsdf>
+<bsdf type="roughconductor" id="_02">
+  <float name="alphaU" value="0.2" />
+  <float name="alphaV" value="0.8" />
+  <string name="distribution" value="as"/>
+  <rgb name="eta" value="1.02, 1.3, 1.02"/>
+  <rgb name="k" value="1.0, 2.0, 1.0"/>
+</bsdf>
+<bsdf type="roughconductor" id="_03">
+  <float name="alphaU" value="0.3" />
+  <float name="alphaV" value="0.7" />
+  <string name="distribution" value="as"/>
+  <rgb name="eta" value="1.02, 1.3, 1.02"/>
+  <rgb name="k" value="1.0, 2.0, 1.0"/>
+</bsdf>
+<bsdf type="roughconductor" id="_04">
+  <float name="alphaU" value="0.4" />
+  <float name="alphaV" value="0.6" />
+  <string name="distribution" value="as"/>
+  <rgb name="eta" value="1.02, 1.3, 1.02"/>
+  <rgb name="k" value="1.0, 2.0, 1.0"/>
+</bsdf>
+<bsdf type="roughconductor" id="_05">
+  <float name="alphaU" value="0.5" />
+  <float name="alphaV" value="0.5" />
+  <string name="distribution" value="as"/>
+  <rgb name="eta" value="1.02, 1.3, 1.02"/>
+  <rgb name="k" value="1.0, 2.0, 1.0"/>
+</bsdf>
+<bsdf type="roughconductor" id="_06">
+  <float name="alphaU" value="0.6" />
+  <float name="alphaV" value="0.4" />
+  <string name="distribution" value="as"/>
+  <rgb name="eta" value="1.02, 1.3, 1.02"/>
+  <rgb name="k" value="1.0, 2.0, 1.0"/>
+</bsdf>
+<bsdf type="roughconductor" id="_07">
+  <float name="alphaU" value="0.7" />
+  <float name="alphaV" value="0.3" />
+  <string name="distribution" value="as"/>
+  <rgb name="eta" value="1.02, 1.3, 1.02"/>
+  <rgb name="k" value="1.0, 2.0, 1.0"/>
+</bsdf>
+<bsdf type="roughconductor" id="_08">
+  <float name="alphaU" value="0.8" />
+  <float name="alphaV" value="0.2" />
+  <string name="distribution" value="as"/>
+  <rgb name="eta" value="1.02, 1.3, 1.02"/>
+  <rgb name="k" value="1.0, 2.0, 1.0"/>
+</bsdf>
+<bsdf type="roughconductor" id="_09">
+  <float name="alphaU" value="0.9" />
+  <float name="alphaV" value="0.1" />
+  <string name="distribution" value="as"/>
+  <rgb name="eta" value="1.02, 1.3, 1.02"/>
+  <rgb name="k" value="1.0, 2.0, 1.0"/>
+</bsdf>
+<bsdf type="roughconductor" id="_10">
+  <float name="alphaU" value="1.0" />
+  <float name="alphaV" value="0.0" />
+  <string name="distribution" value="as"/>
+  <rgb name="eta" value="1.02, 1.3, 1.02"/>
+  <rgb name="k" value="1.0, 2.0, 1.0"/>
+</bsdf>
+
+<shape type="sphere">
+	<transform name="toWorld"><translate x="0" y="0" z="-1"/></transform>
+	<float name="radius" value="0.5"/>
+	<ref id="_01" />
+</shape>
+<shape type="sphere">
+	<transform name="toWorld"><translate x="1.5" y="0" z="-1"/></transform>
+	<float name="radius" value="0.5"/>
+	<ref id="_02" />
+</shape>
+<shape type="sphere">
+	<transform name="toWorld"><translate x="3" y="0" z="-1"/></transform>
+	<float name="radius" value="0.5"/>
+	<ref id="_03" />
+</shape>
+<shape type="sphere">
+	<transform name="toWorld"><translate x="4.5" y="0" z="-1"/></transform>
+	<float name="radius" value="0.5"/>
+	<ref id="_04" />
+</shape>
+<shape type="sphere">
+	<transform name="toWorld"><translate x="6" y="0" z="-1"/></transform>
+	<float name="radius" value="0.5"/>
+	<ref id="_05" />
+</shape>
+<shape type="sphere">
+	<transform name="toWorld"><translate x="7.5" y="0" z="-1"/></transform>
+	<float name="radius" value="0.5"/>
+	<ref id="_06" />
+</shape>
+<shape type="sphere">
+	<transform name="toWorld"><translate x="9" y="0" z="-1"/></transform>
+	<float name="radius" value="0.5"/>
+	<ref id="_07" />
+</shape>
+<shape type="sphere">
+	<transform name="toWorld"><translate x="10.5" y="0" z="-1"/></transform>
+	<float name="radius" value="0.5"/>
+	<ref id="_08" />
+</shape>
+<shape type="sphere">
+	<transform name="toWorld"><translate x="12" y="0" z="-1"/></transform>
+	<float name="radius" value="0.5"/>
+	<ref id="_09" />
+</shape>
+<shape type="sphere">
+	<transform name="toWorld"><translate x="13.5" y="0" z="-1"/></transform>
+	<float name="radius" value="0.5"/>
+	<ref id="_10" />
+</shape>
+
+</scene>

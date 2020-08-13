@@ -151,6 +151,7 @@ int main()
     core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> pipeline_ggx;
     core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> pipeline_beckmann;
     core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> pipeline_phong;
+    core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> pipeline_as;
     core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> pipeline_orennayar;
     core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> pipeline_lambert;
     {
@@ -178,6 +179,7 @@ int main()
         pipeline_ggx = createGraphicsPipeline(driver, core::smart_refctd_ptr(layout), vs_spec.get(), fsSrc, "TEST_GGX", dat);
         pipeline_beckmann = createGraphicsPipeline(driver, core::smart_refctd_ptr(layout), vs_spec.get(), fsSrc, "TEST_BECKMANN", dat);
         pipeline_phong = createGraphicsPipeline(driver, core::smart_refctd_ptr(layout), vs_spec.get(), fsSrc, "TEST_PHONG", dat);
+        pipeline_as = createGraphicsPipeline(driver, core::smart_refctd_ptr(layout), vs_spec.get(), fsSrc, "TEST_AS", dat);
         pipeline_orennayar = createGraphicsPipeline(driver, core::smart_refctd_ptr(layout), vs_spec.get(), fsSrc, "TEST_OREN_NAYAR", dat);
         pipeline_lambert = createGraphicsPipeline(driver, core::smart_refctd_ptr(layout), vs_spec.get(), fsSrc, "TEST_LAMBERT", dat);
 
@@ -246,9 +248,10 @@ int main()
             driver->bindGraphicsPipeline(pipeline_ggx.get()); break;
         case ETC_BECKMANN:
             driver->bindGraphicsPipeline(pipeline_beckmann.get()); break;
-        case ETC_PHONG: _IRR_FALLTHROUGH;
-        case ETC_AS:
+        case ETC_PHONG:
             driver->bindGraphicsPipeline(pipeline_phong.get()); break;
+        case ETC_AS:
+            driver->bindGraphicsPipeline(pipeline_as.get()); break;
         case ETC_OREN_NAYAR:
             driver->bindGraphicsPipeline(pipeline_orennayar.get()); break;
         case ETC_LAMBERT:
