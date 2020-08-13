@@ -1,5 +1,7 @@
 #version 430 core
 
+#extension GL_ARB_derivative_control : enable
+
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/beckmann_smith.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/cos_weighted_sample.glsl>
@@ -55,14 +57,14 @@ void main()
     }
 
     mat2 m = mat2(
-        dFdx(s.TdotL)*screenSz.x,
-        dFdx(s.BdotL)*screenSz.x,
+        dFdxFine(s.TdotL)*screenSz.x,
+        dFdxFine(s.BdotL)*screenSz.x,
 
-        dFdy(s.TdotL)*screenSz.y,
-        dFdy(s.BdotL)*screenSz.y
+        dFdyFine(s.TdotL)*screenSz.y,
+        dFdyFine(s.BdotL)*screenSz.y
     );
     float det = determinant(m);
 
-    //Color = vec4(abs(rem*pdf-brdf),0.5*abs(det)*pdf/abs(s.NdotL)); // preferred version of the test
-    Color = vec4(0.5*abs(det)*pdf/abs(s.NdotL),abs(rem*pdf-brdf));
+    //Color = vec4(abs(rem*pdf-brdf),0.5*abs(det*pdf/s.NdotL)); // preferred version of the test
+    Color = vec4(0.5*abs(det*pdf/s.NdotL),abs(rem*pdf-brdf));
 }
