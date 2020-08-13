@@ -33,6 +33,7 @@ void main()
     {
         s = irr_glsl_cos_weighted_cos_generate(inter, u);
         rem = irr_glsl_cos_weighted_cos_remainder_and_pdf(pdf, s, inter_);
+        brdf = vec3(s.NdotL*irr_glsl_RECIPROCAL_PI);
     }
     else if (pc.test==ETC_GGX)
     {
@@ -62,5 +63,6 @@ void main()
     );
     float det = determinant(m);
 
-    Color = vec4(abs(abs(det)-s.NdotL/pdf), abs(pdf*rem-brdf));
+    //Color = vec4(abs(rem*pdf-brdf),0.5*abs(det)*pdf/abs(s.NdotL)); // preferred version of the test
+    Color = vec4(0.5*abs(det)*pdf/abs(s.NdotL),abs(rem*pdf-brdf));
 }
