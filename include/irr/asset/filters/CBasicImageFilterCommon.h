@@ -71,12 +71,12 @@ class CBasicImageFilterCommon
 				if (subresource.mipLevel!=referenceRegion->imageSubresource.mipLevel)
 					return false;
 
-				core::vector3di32_SIMD targetOffset(range.offset.x,range.offset.y,range.offset.z,subresource.baseArrayLayer);
-				core::vector3di32_SIMD targetExtent(range.extent.width,range.extent.height,range.extent.depth,subresource.layerCount);
+				core::vector3du32_SIMD targetOffset(range.offset.x,range.offset.y,range.offset.z,subresource.baseArrayLayer);
+				core::vector3du32_SIMD targetExtent(range.extent.width,range.extent.height,range.extent.depth,subresource.layerCount);
 				auto targetLimit = targetOffset+targetExtent;
 
-				const core::vector3di32_SIMD resultOffset(referenceRegion->imageOffset.x,referenceRegion->imageOffset.y,referenceRegion->imageOffset.z,referenceRegion->imageSubresource.baseArrayLayer);
-				const core::vector3di32_SIMD resultExtent(referenceRegion->imageExtent.width,referenceRegion->imageExtent.height,referenceRegion->imageExtent.depth,referenceRegion->imageSubresource.layerCount);
+				const core::vector3du32_SIMD resultOffset(referenceRegion->imageOffset.x,referenceRegion->imageOffset.y,referenceRegion->imageOffset.z,referenceRegion->imageSubresource.baseArrayLayer);
+				const core::vector3du32_SIMD resultExtent(referenceRegion->imageExtent.width,referenceRegion->imageExtent.height,referenceRegion->imageExtent.depth,referenceRegion->imageSubresource.layerCount);
 				const auto resultLimit = resultOffset+resultExtent;
 
 				auto offset = core::max(targetOffset,resultOffset);

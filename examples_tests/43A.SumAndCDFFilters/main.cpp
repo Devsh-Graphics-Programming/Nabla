@@ -127,7 +127,7 @@ int main()
 			state.layerCount = newSumImage->getCreationParameters().arrayLayers;
 
 			state.scratchMemoryByteSize = state.getRequiredScratchByteSize(state.inImage, state.extent);
-			state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, 8));
+			state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
 
 			#ifdef IMAGE_VIEW
 			state.inMipLevel = MIPMAP_IMAGE_VIEW;
