@@ -21,23 +21,33 @@ vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval(in irr_glsl_BSDFAnisotropicPa
 {
     float ax2 = ax*ax;
     float ay2 = ay*ay;
-    float g = (ax<=FLT_MIN || ay<=FLT_MIN) ? 1.0 : irr_glsl_ggx_smith_correlated_wo_numerator(
-        inter.isotropic.NdotV, inter.TdotV*inter.TdotV, inter.BdotV*inter.BdotV, inter.isotropic.NdotV_squared,
-        params.isotropic.NdotL, params.TdotL*params.TdotL, params.BdotL*params.BdotL, params.isotropic.NdotL_squared,
-        ax2, ay2
-    );
     float ndf = irr_glsl_ggx_aniso(params.TdotH*params.TdotH, params.BdotH*params.BdotH, params.isotropic.NdotH*params.isotropic.NdotH, ax, ay, ax2, ay2);
-    vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], params.isotropic.VdotH);
+    float scalar_part = ndf*params.isotropic.NdotL;
+    if (ax>FLT_MIN || ay>FLT_MIN)
+    {
+        float g = irr_glsl_ggx_smith_correlated_wo_numerator(
+            inter.isotropic.NdotV, inter.TdotV * inter.TdotV, inter.BdotV * inter.BdotV, inter.isotropic.NdotV_squared,
+            params.isotropic.NdotL, params.TdotL * params.TdotL, params.BdotL * params.BdotL, params.isotropic.NdotL_squared,
+            ax2, ay2
+        );
+        scalar_part *= g;
+    }
 
-    return params.isotropic.NdotL * g*ndf*fr;
+
+    vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], params.isotropic.VdotH);
+    return fr*scalar_part;
 }
 vec3 irr_glsl_ggx_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in mat2x3 ior, in float a2)
 {
-    float g = (a2<=FLT_MIN) ? 1.0 : irr_glsl_ggx_smith_correlated_wo_numerator(inter.NdotV, inter.NdotV_squared, params.NdotL, params.NdotL_squared, a2);
     float ndf = irr_glsl_ggx_trowbridge_reitz(a2, params.NdotH*params.NdotH);
+    float scalar_part = ndf*params.NdotL;
+    if (a2>FLT_MIN)
+    {
+        float g = irr_glsl_ggx_smith_correlated_wo_numerator(inter.NdotV, inter.NdotV_squared, params.NdotL, params.NdotL_squared, a2);
+        scalar_part *= g;
+    }
     vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], params.VdotH);
-
-    return params.NdotL * g*ndf*fr;
+    return fr*scalar_part;
 }
 
 //Heitz's 2018 paper "Sampling the GGX Distribution of Visible Normals"
@@ -74,14 +84,12 @@ irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurface
 vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float a2)
 {
 	float one_minus_a2 = 1.0-a2;
-	float G1 = irr_glsl_GGXSmith_G1_(interaction.NdotV,a2,one_minus_a2);
-    float absVdotH = abs(s.VdotH);
-	pdf = irr_glsl_ggx_trowbridge_reitz(a2,s.NdotH*s.NdotH)*G1*absVdotH/interaction.NdotV;
+	pdf = irr_glsl_ggx_trowbridge_reitz(a2,s.NdotH*s.NdotH)*irr_glsl_GGXSmith_G1_wo_numerator(interaction.NdotV,a2,one_minus_a2)*0.5;
 	
     float G2_over_G1 = irr_glsl_ggx_smith_G2_over_G1(s.NdotL, s.NdotL*s.NdotL, interaction.NdotV, interaction.NdotV_squared, a2, one_minus_a2);
 	
 	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
-	return fr*G2_over_G1/(4.0*absVdotH);
+	return fr*G2_over_G1;
 }
 
 vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ay)
@@ -90,9 +98,7 @@ vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSam
     float ay2 = ay*ay;
     float TdotV2 = interaction.TdotV*interaction.TdotV;
     float BdotV2 = interaction.BdotV*interaction.BdotV;
-    float absVdotH = abs(s.VdotH);
-    float G1 = irr_glsl_GGXSmith_G1_(interaction.isotropic.NdotV, TdotV2, BdotV2, interaction.isotropic.NdotV_squared, ax2, ay2);
-    pdf = irr_glsl_ggx_aniso(s.TdotH*s.TdotH,s.BdotH*s.BdotH,s.NdotH*s.NdotH,ax,ay,ax2,ay2)*G1*absVdotH/interaction.isotropic.NdotV;
+    pdf = irr_glsl_ggx_aniso(s.TdotH*s.TdotH,s.BdotH*s.BdotH,s.NdotH*s.NdotH,ax,ay,ax2,ay2)*irr_glsl_GGXSmith_G1_wo_numerator(interaction.isotropic.NdotV, TdotV2, BdotV2, interaction.isotropic.NdotV_squared, ax2, ay2)*0.5;
 
     float G2_over_G1 = irr_glsl_ggx_smith_G2_over_G1(
         s.NdotL, s.TdotL*s.TdotL, s.BdotL*s.BdotL, s.NdotL*s.NdotL,
@@ -101,7 +107,7 @@ vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSam
     );
 
 	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
-	return fr*G2_over_G1/(4.0*absVdotH);
+	return fr*G2_over_G1;
 }
 
 #endif
