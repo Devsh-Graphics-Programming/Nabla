@@ -11,4 +11,13 @@ float irr_glsl_beckmann(in float a2, in float NdotH2)
     return irr_glsl_RECIPROCAL_PI * nom/denom;
 }
 
+float irr_glsl_beckmann(in float ax, in float ay, in float ax2, in float ay2, in float TdotH2, in float BdotH2, in float NdotH2)
+{
+    float nom = exp(-(TdotH2/ax2+BdotH2/ay2)/NdotH2);
+    float denom = ax * ay * NdotH2 * NdotH2;
+
+    return irr_glsl_RECIPROCAL_PI * nom / denom;
+}
+
+
 #endif

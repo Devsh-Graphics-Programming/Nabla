@@ -102,12 +102,40 @@ vec3 irr_glsl_reflect(in vec3 I, in vec3 N)
     return irr_glsl_reflect(I, N, NdotI);
 }
 
+// for refraction the orientation of the normal matters, because a different IoR will be used
+vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float NdotI, in float NdotI2, float eta)
+{
+    const bool backside = NdotI < 0.0;
+    eta = backside ? eta : (1.0 / eta);
+    const float eta2 = eta * eta;
+    const float k = sqrt(eta2 * NdotI2 + 1.0 - eta2);
+    return N * (NdotI * eta + (backside ? k : (-k))) - eta * I;
+}
+vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float NdotI, in float eta)
+{
+    return irr_glsl_refract(I, N, NdotI, NdotI*NdotI, eta);
+}
+vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float eta)
+{
+    const float NdotI = dot(N, I);
+    return irr_glsl_refract(I, N, NdotI, eta);
+}
+
+vec3 irr_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in float NdotI, in float NdotI2, float eta)
+{
+    const bool backside = NdotI < 0.0;
+    eta = backside ? eta : (1.0 / eta);
+    const float eta2 = eta * eta;
+    const float k = _refract ? sqrt(eta2 * NdotI2 + 1.0 - eta2):0.0;
+    return N*(NdotI*(_refract ? eta:2.0)+(backside ? k:(-k))) - I*(_refract ? eta:1.0);
+}
+
 // valid only for `theta` in [-PI,PI]
 void irr_glsl_sincos(in float theta, out float s, out float c)
 {
     c = cos(theta);
     s = sqrt(1.0-c*c);
-    s *= theta<0.0 ? -1.0:1.0;
+    s = theta<0.0 ? -s:s; // TODO: do with XOR
 }
 
 mat2x3 irr_glsl_frisvad(in vec3 n)
@@ -115,6 +143,21 @@ mat2x3 irr_glsl_frisvad(in vec3 n)
 	const float a = 1.0/(1.0 + n.z);
 	const float b = -n.x*n.y*a;
 	return (n.z<-0.9999999) ? mat2x3(vec3(0.0,-1.0,0.0),vec3(-1.0,0.0,0.0)):mat2x3(vec3(1.0-n.x*n.x*a, b, -n.x),vec3(b, 1.0-n.y*n.y*a, -n.y));
+}
+
+// @return if picked left choice
+bool irr_glsl_partitionRandVariable(in float leftProb, inout float xi, out float rcpChoiceProb)
+{
+    const float NEXT_ULP_AFTER_UNITY = uintBitsToFloat(0x3f800001u);
+    const bool pickRight = xi>=leftProb*NEXT_ULP_AFTER_UNITY;
+
+    // This is all 100% correct taking into account the above NEXT_ULP_AFTER_UNITY
+    xi -= pickRight ? leftProb:0.0;
+
+    rcpChoiceProb = 1.0/(pickRight ? (1.0-leftProb):leftProb);
+    xi *= rcpChoiceProb;
+
+    return pickRight;
 }
 
 #endif

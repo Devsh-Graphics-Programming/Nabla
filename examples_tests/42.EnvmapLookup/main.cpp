@@ -188,7 +188,7 @@ int main()
 	QToQuitEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
-	scene::ICameraSceneNode* camera = sceneManager->addCameraSceneNodeFPS(0, 100.0f, 0.01f);
+	scene::ICameraSceneNode* camera = sceneManager->addCameraSceneNodeFPS(0, 100.0f, 0.001f);
 	camera->setLeftHanded(false);
 
 	camera->setPosition(core::vector3df(0, 2, 3));
@@ -306,7 +306,7 @@ int main()
 		IGPUImage::SCreationParams imgParams;
 		imgParams.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
 		imgParams.type = IImage::ET_2D;
-		imgParams.format = EF_R32_UINT;
+		imgParams.format = EF_R32G32_UINT;
 		imgParams.extent = {params.WindowSize.Width,params.WindowSize.Height,1u};
 		imgParams.mipLevels = 1u;
 		imgParams.arrayLayers = 1u;
@@ -316,20 +316,21 @@ int main()
 		region.imageExtent = imgParams.extent;
 		region.imageSubresource.layerCount = 1u;
 
-		const auto renderPixelCount = imgParams.extent.width * imgParams.extent.height;
-		core::vector<uint32_t> random(renderPixelCount);
+		constexpr auto ScrambleStateChannels = 2u;
+		const auto renderPixelCount = imgParams.extent.width*imgParams.extent.height;
+		core::vector<uint32_t> random(renderPixelCount*ScrambleStateChannels);
 		{
 			core::RandomSampler rng(0xbadc0ffeu);
 			for (auto& pixel : random)
 				pixel = rng.nextSample();
 		}
-		auto buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(renderPixelCount*sizeof(uint32_t),random.data());
+		auto buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(random.size()*sizeof(uint32_t),random.data());
 
 		IGPUImageView::SCreationParams viewParams;
 		viewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
 		viewParams.image = driver->createFilledDeviceLocalGPUImageOnDedMem(std::move(imgParams),buffer.get(),1u,&region);
 		viewParams.viewType = IGPUImageView::ET_2D;
-		viewParams.format = EF_R32_UINT;
+		viewParams.format = EF_R32G32_UINT;
 		viewParams.subresourceRange.levelCount = 1u;
 		viewParams.subresourceRange.layerCount = 1u;
 		gpuScrambleImageView = driver->createGPUImageView(std::move(viewParams));

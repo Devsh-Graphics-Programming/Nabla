@@ -8,4 +8,6 @@
 #define FLT_MIN 1.175494e-38
 #define FLT_MAX 3.402823e+38
 
+#define irr_glsl_FLT_INF float(1.0/0.0)
+
 #endif
