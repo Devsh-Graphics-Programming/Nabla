@@ -3,17 +3,6 @@
 
 //TODO divide into more files, one for smith for each NDF
 
-//common for beckmann and ggx
-float irr_glsl_smith_aniso_a0_2(in vec3 N, in vec3 X, in vec3 T, in float NdotX2, in float ax2, in float ay2)
-{
-    vec3 Xproj = normalize(X - dot(N,X)*N);
-    float cos2phi = dot(T,Xproj);
-    cos2phi *= cos2phi;
-    float sin2phi = 1.0 - cos2phi;
-    float a2 = cos2phi*ax2 + sin2phi*ay2;
-
-    return a2;
-}
 float irr_glsl_smith_G1(in float lambda)
 {
     return 1.0 / (1.0 + lambda);
@@ -102,7 +91,7 @@ float irr_glsl_smith_beckmann_C2(in float NdotX2, in float a2)
 }
 float irr_glsl_smith_beckmann_C2(in float TdotX2, in float BdotX2, in float NdotX2, in float ax2, in float ay2)
 {
-  return NdotX2/(TdotX2*ax2+BdotX2*ay2);
+    return NdotX2/(TdotX2*ax2+BdotX2*ay2);
 }
 //G1 = 1/(1+_Lambda)
 float irr_glsl_smith_beckmann_Lambda(in float c2)
@@ -132,6 +121,20 @@ float irr_glsl_beckmann_smith_correlated(in float TdotV2, in float BdotV2, in fl
     c2 = irr_glsl_smith_beckmann_C2(TdotL2, BdotL2, NdotL2, ax2, ay2);
     float L_l = irr_glsl_smith_beckmann_Lambda(c2);
     return 1.0 / (1.0 + L_v + L_l);
+}
+
+float irr_glsl_beckmann_smith_G2_over_G1(in float lambdaV_plus_one, in float NdotL, in float NdotL2, in float a2)
+{
+    float lambdaL = irr_glsl_smith_beckmann_Lambda(NdotL2, a2);
+
+    return NdotL*lambdaV_plus_one / (lambdaV_plus_one+lambdaL);
+}
+float irr_glsl_beckmann_smith_G2_over_G1(in float lambdaV_plus_one, in float NdotL, in float TdotL2, in float BdotL2, in float NdotL2, in float ax2, in float ay2)
+{
+    float c2 = irr_glsl_smith_beckmann_C2(TdotL2, BdotL2, NdotL2, ax2, ay2);
+	float lambdaL = irr_glsl_smith_beckmann_Lambda(c2);
+
+    return NdotL*lambdaV_plus_one / (lambdaV_plus_one + lambdaL);
 }
 
 #endif
