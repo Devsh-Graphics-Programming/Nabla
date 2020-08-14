@@ -36,24 +36,10 @@ class CSummedAreaTableImageFilterBase
 					const auto& inputCreationParams = inputImage->getCreationParameters();
 					const auto channels = asset::getFormatChannelCount(inputCreationParams.format);
 
-					size_t retval = cachesOffset = extent.width * extent.height * extent.depth * channels * decodeTypeByteSize;
+					size_t retval = extent.width * extent.height * extent.depth * channels * decodeTypeByteSize;
 					
 					return retval;
 				}
-
-				/*
-					It returns a pointer to max sum values in the output image.
-					A user is responsible to reinterprate the memory correctly. 
-				*/
-
-				inline auto getImageTotalOutputCacheBuffersPointer()
-				{
-					return imageTotalCacheOutput;
-				}
-
-			protected:
-
-				static inline size_t cachesOffset = {};
 		};
 
 	protected:
@@ -243,8 +229,12 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 						}
 					};
 
+					IImage::SSubresourceLayers subresource = { static_cast<IImage::E_ASPECT_FLAGS>(0u), state->inMipLevel, state->inBaseLayer, 1 };
+					CMatchedSizeInOutImageFilterCommon::state_type::TexelRange range = { state->inOffset,state->extent };
+					CBasicImageFilterCommon::clip_region_functor_t clipFunctor(subresource, range, inFormat);
+
 					auto& inRegions = state->inImage->getRegions(state->inMipLevel);
-					CBasicImageFilterCommon::executePerRegion(state->inImage, decode, inRegions.begin(), inRegions.end());
+					CBasicImageFilterCommon::executePerRegion(state->inImage, decode, inRegions.begin(), inRegions.end(), clipFunctor);
 				}
 
 				{
@@ -405,8 +395,12 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 								}
 						};
 
+						IImage::SSubresourceLayers subresource = { static_cast<IImage::E_ASPECT_FLAGS>(0u), state->outMipLevel, state->outBaseLayer, 1 };
+						CMatchedSizeInOutImageFilterCommon::state_type::TexelRange range = { state->outOffset,state->extent };
+						CBasicImageFilterCommon::clip_region_functor_t clipFunctor(subresource, range, outFormat);
+
 						auto& outRegions = state->outImage->getRegions(state->outMipLevel);
-						CBasicImageFilterCommon::executePerRegion(state->outImage, encode, outRegions.begin(), outRegions.end());
+						CBasicImageFilterCommon::executePerRegion(state->outImage, encode, outRegions.begin(), outRegions.end(), clipFunctor);
 					}
 				}
 
