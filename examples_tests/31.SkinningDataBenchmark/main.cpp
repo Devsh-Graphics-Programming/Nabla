@@ -43,6 +43,42 @@ inline T getRandomNumber(T rangeBegin, T rangeEnd)
     return dist(mt);
 }
 
+IFrameBuffer* createDepthOnlyFrameBuffer(video::IVideoDriver* driver)
+{
+    core::smart_refctd_ptr<IGPUImageView> gpuImageViewDepthBuffer;
+    {
+        IGPUImage::SCreationParams imgInfo;
+        imgInfo.format = EF_D16_UNORM;
+        imgInfo.type = IGPUImage::ET_2D;
+        imgInfo.extent.width = driver->getScreenSize().Width;
+        imgInfo.extent.height = driver->getScreenSize().Height;
+        imgInfo.extent.depth = 1u;
+        imgInfo.mipLevels = 1u;
+        imgInfo.arrayLayers = 1u;
+        imgInfo.samples = asset::ICPUImage::ESCF_1_BIT;
+        imgInfo.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+
+        auto image = driver->createGPUImageOnDedMem(std::move(imgInfo), driver->getDeviceLocalGPUMemoryReqs());
+
+        IGPUImageView::SCreationParams imgViewInfo;
+        imgViewInfo.image = std::move(image);
+        imgViewInfo.format = EF_D16_UNORM;
+        imgViewInfo.viewType = IGPUImageView::ET_2D;
+        imgViewInfo.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
+        imgViewInfo.subresourceRange.baseArrayLayer = 0u;
+        imgViewInfo.subresourceRange.baseMipLevel = 0u;
+        imgViewInfo.subresourceRange.layerCount = 1u;
+        imgViewInfo.subresourceRange.levelCount = 1u;
+
+        gpuImageViewDepthBuffer = driver->createGPUImageView(std::move(imgViewInfo));
+    }
+
+    auto frameBuffer = driver->addFrameBuffer();
+    frameBuffer->attach(video::EFAP_DEPTH_ATTACHMENT, std::move(gpuImageViewDepthBuffer));
+
+    return frameBuffer;
+}
+
 int main()
 {
     // create device with full flexibility over creation parameters
@@ -71,6 +107,10 @@ int main()
     auto* am = device->getAssetManager();
     video::IVideoDriver* driver = device->getVideoDriver();
 
+#ifdef BENCHMARK
+    auto* depthFBO = createDepthOnlyFrameBuffer(driver);
+#endif
+
     IAssetLoader::SAssetLoadParams lp;
     auto vertexShaderBundle_1 = am->getAsset("../1.vert", lp);
     auto vertexShaderBundle_2 = am->getAsset("../2.vert", lp);
@@ -90,7 +130,7 @@ int main()
 
     core::vector<uint16_t> boneMatMaxCnt;
 
-    auto createMeshBufferFromGeometryCreatorReturnData = [&](asset::IGeometryCreator::return_type& geometryObject, ICPUMeshBuffer* meshBuffer, uint32_t mbID ,uint32_t bonesCreatedCnt)
+    auto createMeshBufferFromGeometryCreatorReturnData = [&](asset::IGeometryCreator::return_type& geometryObject, core::smart_refctd_ptr<ICPUMeshBuffer>& meshBuffer, uint32_t mbID ,uint32_t bonesCreatedCnt)
     {
         for (int i = 0; i < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; i++)
             meshBuffer->setVertexBufferBinding(std::move(geometryObject.bindings[i]), i);
@@ -123,19 +163,16 @@ int main()
         meshBuffer->setPipeline(std::move(pipeline));
     };
 
-    const core::vector4du32_SIMD diskBlockDim(3u, 3u, 3u);
+    const core::vector4du32_SIMD diskBlockDim(1u, 1u, 2500u);
     const size_t diskCount = diskBlockDim.x * diskBlockDim.y * diskBlockDim.z;
 
     assert(diskCount <= MAT_MAX_CNT);
 
     std::vector<uint16_t> tesselation(diskCount);
-
+    constexpr uint32_t maxTesselation = 16000u;
     {
         //get random tesselation for disks
-
-        //TODO: test
-        //`dist(mt) | 0x0001` so vertexCount is always odd (only when diskCount is odd as well)
-        std::generate(tesselation.begin(), tesselation.end(), [&]() { return getRandomNumber<uint32_t>(15u, 160u - 1u) | 0x0001; });
+        std::generate(tesselation.begin(), tesselation.end(), [&]() { return getRandomNumber<uint32_t>(15u, maxTesselation - 1u) | 0x0001; });
 
         //get random bone cnt for disks
         boneMatMaxCnt = core::vector<uint16_t>(diskCount);
@@ -149,8 +186,10 @@ int main()
     core::vector<uint16_t> indices(16000);
     std::iota(indices.begin(), indices.end(), 0u);
 
-    core::vector<ICPUMeshBuffer*> disks(diskCount);
-    std::generate(disks.begin(), disks.end(), []() { return _IRR_NEW(ICPUMeshBuffer); });
+    core::vector<core::smart_refctd_ptr<ICPUMeshBuffer>> disks(diskCount);
+    std::generate(disks.begin(), disks.end(), []() { return core::make_smart_refctd_ptr<ICPUMeshBuffer>(); });
+
+#ifndef BENCHMARK
     for (uint32_t i = 0u, bonesCreated = 0u; i < diskCount; i++)
     {
         auto disk = am->getGeometryCreator()->createDiskMesh(0.5f, tesselation[i]);
@@ -162,6 +201,25 @@ int main()
         createMeshBufferFromGeometryCreatorReturnData(disk, disks[i], i, bonesCreated);
         bonesCreated += boneMatMaxCnt[i];
     }
+#else
+    {
+        auto disk = am->getGeometryCreator()->createDiskMesh(0.5f, maxTesselation);
+        //reset input params, `createMeshBufferFromGeometryCreatorReturnData` will create vertex buffer only with boneID attribute
+        disk.inputParams = SVertexInputParams();
+        for (uint32_t i = 0u, bonesCreated = 0u; i < diskCount; i++)
+        {
+            auto newIdxBuffer = am->getMeshManipulator()->idxBufferFromTrianglesFanToTriangles(indices.data(), tesselation[i] + 2u, EIT_16BIT);
+            disk.indexBuffer = { 0ull, newIdxBuffer };
+            disk.indexCount = newIdxBuffer->getSize() / sizeof(uint16_t);
+            disk.indexType = EIT_16BIT;
+            disk.assemblyParams.primitiveType = EPT_TRIANGLE_LIST;
+            createMeshBufferFromGeometryCreatorReturnData(disk, disks[i], i, bonesCreated);
+            bonesCreated += boneMatMaxCnt[i];
+        }
+    }
+#endif
+
+
     os::Printer::print("Disks creation done.\n");
 
         //pack disks
@@ -169,12 +227,19 @@ int main()
     MeshPackerBase::PackedMeshBufferData mb;
     {
         auto allocParams = MeshPackerBase::AllocationParams();
-        allocParams.MDIDataBuffSupportedCnt = 1024;
+        allocParams.MDIDataBuffSupportedCnt = 500000 * 2;
+        allocParams.MDIDataBuffMinAllocSize = 1024;
+        allocParams.indexBuffSupportedCnt = std::pow(1024, 3) / 2.0;
+        allocParams.indexBufferMinAllocSize = 512 * 1024;
+        allocParams.vertexBuffSupportedCnt = 2 * std::pow(1024, 3) / 32.0;
+        allocParams.vertexBufferMinAllocSize = 512 * 1024;
+
+        /*allocParams.MDIDataBuffSupportedCnt = 1024;
         allocParams.MDIDataBuffMinAllocSize = 512;
         allocParams.indexBuffSupportedCnt = 8192 * 2;
         allocParams.indexBufferMinAllocSize = 256;
         allocParams.vertexBuffSupportedCnt = 8192;
-        allocParams.vertexBufferMinAllocSize = 256;
+        allocParams.vertexBufferMinAllocSize = 256;*/
 
         CCPUMeshPacker packer(disks[0]->getPipeline()->getVertexInputParams(), allocParams, 256, 256);
 
@@ -191,6 +256,9 @@ int main()
         _IRR_DEBUG_BREAK_IF(mb.isValid() == false);
         _IRR_DEBUG_BREAK_IF(packedMeshBuffer.isValid() == false);
     }
+
+    disks.clear();
+    disks.shrink_to_fit();
 
     os::Printer::print("Packing done.\n");
 
@@ -216,7 +284,7 @@ int main()
         _IRR_DEBUG_BREAK_IF(mb.mdiParameterCount == 0u);
         mdi.indirectDrawBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(DrawElementsIndirectCommand_t)* mb.mdiParameterCount, packedMeshBuffer.MDIDataBuffer->getPointer());
 
-        auto& cpuVtxBuff = packedMeshBuffer.vertexBufferBindings[0].buffer;
+        auto& cpuVtxBuff = packedMeshBuffer.vertexBufferBindings[4].buffer;
         auto gpuVtxBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuVtxBuff->getSize(), cpuVtxBuff->getPointer());
 
         for (uint32_t i = 0u; i < IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
@@ -327,9 +395,6 @@ int main()
 
                 driver->updateDescriptorSets(1u, &w, 0u, nullptr);
             }
-
-            asset::SRasterizationParams rasterParams;
-            rasterParams.faceCullingMode = asset::EFCM_NONE;
             
             auto gpuShaders = driver->getGPUObjectsFromAssets(shaders[i], shaders[i] + 2);
             IGPUSpecializedShader* shaders[2] = { gpuShaders->operator[](0).get(), gpuShaders->operator[](1).get() };
@@ -339,11 +404,25 @@ int main()
             else
                 gpuPipelineLayout[i] = driver->createGPUPipelineLayout(&range[i], &range[i] + 1, core::smart_refctd_ptr(layout));
 
+            asset::SRasterizationParams rasterParams;
+            rasterParams.faceCullingMode = asset::EFCM_NONE;
+#ifdef BENCHMARK
+            rasterParams.depthTestEnable = false;
+            rasterParams.depthWriteEnable = true;
+#endif
+
             SBlendParams blendParams;
-            SRasterizationParams a;
+#ifdef BENCHMARK
+            blendParams.blendParams[0].colorWriteMask = 0u;
+#endif
 
+#ifdef BENCHMARK
+            constexpr uint32_t shaderCnt = 1u;
+#else
+            constexpr uint32_t shaderCnt = 2u;
+#endif
 
-            gpuPipeline[i] = driver->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(gpuPipelineLayout[i]), shaders, shaders + 2, packedMeshBuffer.vertexInputParams, SBlendParams(), SPrimitiveAssemblyParams(), rasterParams);
+            gpuPipeline[i] = driver->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(gpuPipelineLayout[i]), shaders, shaders + shaderCnt, packedMeshBuffer.vertexInputParams, blendParams, SPrimitiveAssemblyParams(), rasterParams);
         }
     }
 
@@ -362,13 +441,7 @@ int main()
     float lastFastestMeshFrameNr = -1.f;
 
     core::vector<float> rps(diskCount);
-    {
-        std::random_device rd;
-        std::mt19937 mt(rd());
-        std::uniform_int_distribution<uint32_t> dist(1, 20);
-
-        std::generate(rps.begin(), rps.end(), [&]() { return 8.0f * 3.14f / (static_cast<float>(dist(mt)) - 10.1f); });
-    }
+    std::generate(rps.begin(), rps.end(), [&]() { return 8.0f * 3.14f / (static_cast<float>(getRandomNumber<uint32_t>(1u, 20u)) - 10.1f); });
     
     size_t timeMS = 0ull;
 
@@ -485,22 +558,22 @@ int main()
         }
     };
 
-    /*core::smart_refctd_ptr<COpenGLFrameBuffer> frameBuffer(driver);
-    IGPUImageView::SCreationParams ivParams;
-    core::smart_refctd_ptr<IGPUImageView> depthBuffer = driver->createGPUImageView(std::move(ivParams));
-    frameBuffer->attach(EFAP_DEPTH_ATTACHMENT, std::move(depthBuffer), 0u, 0u);*/
-
     std::function<bool()> exitCondition;
-
 #ifndef BENCHMARK
     exitCondition = [&]() { return device->run() && receiver.keepOpen(); };
 #else
     exitCondition = []() { return true; };
 #endif
+
+#ifdef BENCHMARK
+    driver->setRenderTarget(depthFBO);
+    driver->clearZBuffer(1.0f);
+#endif
+
     COpenGLDriver* driverOGL = dynamic_cast<COpenGLDriver*>(driver);
     IQueryObject* query = driver->createElapsedTimeQuery();
 
-    constexpr uint32_t iterationCnt = 1000u;
+    constexpr uint32_t iterationCnt = 10000u;
     for (uint32_t caseID = 0u; caseID < 4u; caseID++)
     {
         os::Printer::print(std::string("Benchmark for case nr. " + std::to_string(caseID)));
@@ -535,8 +608,8 @@ int main()
             driver->endScene();
 #endif
         }
-        glFlush();
         driver->endQuery(query);
+        glFlush();
 
         uint32_t timeElapsed = 0u;
         query->getQueryResult(&timeElapsed);
@@ -545,6 +618,6 @@ int main()
     }
 
     
-
+    std::cin.get();
     return 0;
 }

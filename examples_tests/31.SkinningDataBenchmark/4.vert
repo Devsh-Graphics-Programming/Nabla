@@ -18,10 +18,11 @@ layout(std430, set = 0, binding = 0, row_major) restrict readonly buffer BoneMat
 #ifndef BENCHMARK
 layout(location = 0) in vec3 pos;
 layout(location = 3) in vec3 normal;
+layout(location = 0) out vec3 vNormal;
 #endif
+
 layout(location = 4) in uint boneID;
 
-layout(location = 0) out vec3 vNormal;
 
 void main()
 {
@@ -42,6 +43,11 @@ void main()
         normalMatComp[boneID + pc.matrixOffsets[2]], normalMatComp[boneID + pc.matrixOffsets[5]], normalMatComp[boneID + pc.matrixOffsets[8]]
     );
 
+#ifndef BENCHMARK
     gl_Position = mvp * vec4(pos, 1.0);
     vNormal = normalMatrix * normalize(normal);
+#else
+    gl_Position = mvp * vec4(pos, 1.0);
+    gl_Position.xyz = normalMatrix * normal;
+#endif
 }

@@ -35,7 +35,7 @@ public:
 	template <typename Iterator>
 	MeshPackerBase::ReservedAllocationMeshBuffers alloc(const Iterator begin, const Iterator end);
 
-	//needs to be called before first commit
+	//needs to be called before first `commit`
 	void instantiateDataStorage();
 
 	template <typename Iterator>
@@ -44,7 +44,7 @@ public:
 	inline MeshPackerBase::PackedMeshBuffer<ICPUBuffer>& getPackedMeshBuffer() { return outputBuffer; };
 
 protected:
-	core::vector<typename base_t::TriangleBatch> constructTriangleBatches(ICPUMeshBuffer* meshBuffer) override;
+	core::vector<typename base_t::TriangleBatch> constructTriangleBatches(ICPUMeshBuffer& meshBuffer) override;
 
 private:
 	//configures indices and MDI structs (implementation is not ready yet)
@@ -71,11 +71,9 @@ MeshPackerBase::ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::all
 	//TODO: remove this condition
 	for(auto it = begin; it != end; it++)
 	{
-		assert(!(*it == nullptr));
+		//assert(!(*it == nullptr));
 
 		auto* pipeline = (*it)->getPipeline();
-
-		auto a = (*it)->getIndexBufferBinding()->buffer;
 
 		if ((*it)->getIndexBufferBinding()->buffer.get() == nullptr ||
 			pipeline->getPrimitiveAssemblyParams().primitiveType != EPT_TRIANGLE_LIST)
@@ -105,8 +103,14 @@ MeshPackerBase::ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::all
 		}
 	}
 	
-	const size_t idxCnt = std::accumulate(begin, end, 0ull, [](size_t init, ICPUMeshBuffer* mb) { return init + mb->getIndexCount(); });
-	const size_t vtxCnt = std::accumulate(begin, end, 0ull, [](size_t init, ICPUMeshBuffer* mb) { return init + mb->calcVertexCount(); });
+	size_t idxCnt = 0u;
+	size_t vtxCnt = 0u;
+	for (auto it = begin; it != end; it++)
+	{
+		ICPUMeshBuffer& mb = **it;
+		idxCnt += mb.getIndexCount();
+		vtxCnt += mb.calcVertexCount();
+	}
 
 	const uint32_t minIdxCntPerPatch = m_minTriangleCountPerMDIData * 3;
 	
@@ -125,7 +129,6 @@ MeshPackerBase::ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::all
 		_IRR_DEBUG_BREAK_IF(true);
 		return invalidReservedAllocationMeshBuffers;
 	}
-		
 	
 	idxAllocAddr = m_idxBuffAlctr.alloc_addr(idxCnt, 1u);
 	if (idxAllocAddr == INVALID_ADDRESS)
@@ -136,7 +139,6 @@ MeshPackerBase::ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::all
 
 		return invalidReservedAllocationMeshBuffers;
 	}
-	
 	
 	if (m_vtxBuffAlctrResSpc)
 	{
@@ -383,9 +385,9 @@ uint32_t CCPUMeshPacker<MDIStructType>::processMeshBuffer(ICPUMeshBuffer* inputM
 //}
 
 template<typename MDIStructType>
-auto CCPUMeshPacker<MDIStructType>::constructTriangleBatches(ICPUMeshBuffer* meshBuffer) -> core::vector<typename base_t::TriangleBatch>
+auto CCPUMeshPacker<MDIStructType>::constructTriangleBatches(ICPUMeshBuffer& meshBuffer) -> core::vector<typename base_t::TriangleBatch>
 {
-	const size_t idxCnt = meshBuffer->getIndexCount();
+	const size_t idxCnt = meshBuffer.getIndexCount();
 	const uint32_t triCnt = idxCnt / 3;
 	_IRR_DEBUG_BREAK_IF(idxCnt % 3 != 0);
 
@@ -415,20 +417,20 @@ auto CCPUMeshPacker<MDIStructType>::constructTriangleBatches(ICPUMeshBuffer* mes
 
 	//TODO: triangle reordering
 	
-	uint32_t* idxBufferPtr32Bit = static_cast<uint32_t*>(meshBuffer->getIndexBufferBinding()->buffer->getPointer()); //will be changed after benchmarks
-	uint16_t* idxBufferPtr16Bit = static_cast<uint16_t*>(meshBuffer->getIndexBufferBinding()->buffer->getPointer());
+	uint32_t* idxBufferPtr32Bit = static_cast<uint32_t*>(meshBuffer.getIndexBufferBinding()->buffer->getPointer()); //will be changed after benchmarks
+	uint16_t* idxBufferPtr16Bit = static_cast<uint16_t*>(meshBuffer.getIndexBufferBinding()->buffer->getPointer());
 	for (TriangleBatch& batch : output)
 	{
 		for (Triangle& tri : batch.triangles)
 		{
-			if (meshBuffer->getIndexType() == EIT_32BIT)
+			if (meshBuffer.getIndexType() == EIT_32BIT)
 			{
 				tri.oldIndices[0] = *idxBufferPtr32Bit;
 				tri.oldIndices[1] = *(++idxBufferPtr32Bit);
 				tri.oldIndices[2] = *(++idxBufferPtr32Bit);
 				idxBufferPtr32Bit++;
 			}
-			else if (meshBuffer->getIndexType() == EIT_16BIT)
+			else if (meshBuffer.getIndexType() == EIT_16BIT)
 			{
 
 				tri.oldIndices[0] = *idxBufferPtr16Bit;
@@ -458,7 +460,7 @@ MeshPackerBase::PackedMeshBufferData CCPUMeshPacker<MDIStructType>::commit(const
 	for (Iterator it = begin; it != end; it++)
 	{
 		const size_t idxCnt = (*it)->getIndexCount();
-		core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(*it);
+		core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(**it);
 
 		for (TriangleBatch& batch : triangleBatches)
 		{

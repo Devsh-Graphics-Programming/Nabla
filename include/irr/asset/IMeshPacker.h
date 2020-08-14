@@ -171,7 +171,7 @@ public:
         core::vector<Triangle> triangles;
     };
 
-    virtual core::vector<TriangleBatch> constructTriangleBatches(MeshBufferType* meshBuffer) = 0;
+    virtual core::vector<TriangleBatch> constructTriangleBatches(MeshBufferType& meshBuffer) = 0;
 
 protected:
     //output mesh buffers data
