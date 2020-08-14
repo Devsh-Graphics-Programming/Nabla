@@ -49,6 +49,7 @@
 #include "irr/asset/ICPUSkinnedMesh.h"
 #include "irr/asset/CCPUSkinnedMesh.h" // refactor
 #include "irr/asset/IGeometryCreator.h"
+#include "irr/asset/IMeshPacker.h"
 // animated
 #include "CFinalBoneHierarchy.h"
 
