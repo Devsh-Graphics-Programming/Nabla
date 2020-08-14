@@ -84,9 +84,10 @@ irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurface
 vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float a2)
 {
 	float one_minus_a2 = 1.0-a2;
-	pdf = irr_glsl_ggx_trowbridge_reitz(a2,s.NdotH*s.NdotH)*irr_glsl_GGXSmith_G1_wo_numerator(interaction.NdotV,a2,one_minus_a2)*0.5;
+    float devsh_v = irr_glsl_smith_ggx_devsh_part(interaction.NdotV_squared,a2,one_minus_a2);
+	pdf = irr_glsl_ggx_trowbridge_reitz(a2,s.NdotH*s.NdotH)*irr_glsl_GGXSmith_G1_wo_numerator(interaction.NdotV,devsh_v)*0.5;
 	
-    float G2_over_G1 = irr_glsl_ggx_smith_G2_over_G1(s.NdotL, s.NdotL*s.NdotL, interaction.NdotV, interaction.NdotV_squared, a2, one_minus_a2);
+    float G2_over_G1 = irr_glsl_ggx_smith_G2_over_G1_devsh(s.NdotL, s.NdotL*s.NdotL, interaction.NdotV, devsh_v, a2, one_minus_a2);
 	
 	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
 	return fr*G2_over_G1;
@@ -98,11 +99,12 @@ vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSam
     float ay2 = ay*ay;
     float TdotV2 = interaction.TdotV*interaction.TdotV;
     float BdotV2 = interaction.BdotV*interaction.BdotV;
-    pdf = irr_glsl_ggx_aniso(s.TdotH*s.TdotH,s.BdotH*s.BdotH,s.NdotH*s.NdotH,ax,ay,ax2,ay2)*irr_glsl_GGXSmith_G1_wo_numerator(interaction.isotropic.NdotV, TdotV2, BdotV2, interaction.isotropic.NdotV_squared, ax2, ay2)*0.5;
+    float devsh_v = irr_glsl_smith_ggx_devsh_part(TdotV2, BdotV2, interaction.isotropic.NdotV_squared, ax2, ay2);
+    pdf = irr_glsl_ggx_aniso(s.TdotH*s.TdotH,s.BdotH*s.BdotH,s.NdotH*s.NdotH,ax,ay,ax2,ay2)*irr_glsl_GGXSmith_G1_wo_numerator(interaction.isotropic.NdotV, devsh_v)*0.5;
 
     float G2_over_G1 = irr_glsl_ggx_smith_G2_over_G1(
         s.NdotL, s.TdotL*s.TdotL, s.BdotL*s.BdotL, s.NdotL*s.NdotL,
-        interaction.isotropic.NdotV, TdotV2, BdotV2, interaction.isotropic.NdotV_squared,
+        interaction.isotropic.NdotV, devsh_v,
         ax2, ay2
     );
 
