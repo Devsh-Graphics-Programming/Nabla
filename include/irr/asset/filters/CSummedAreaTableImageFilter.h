@@ -379,9 +379,6 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 							auto localOutPos = newReadBlockPos * blockDims;
 							uint8_t* outDataAdress = outData + readBlockArrayOffset;
 
-							const size_t scratchOffset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(localOutPos.x, localOutPos.y, localOutPos.z, 0), scratchByteStrides);
-							decodeType* entryScratchAdress = reinterpret_cast<decodeType*>(reinterpret_cast<uint8_t*>(scratchMemory) + scratchOffset);
-
 							for (auto blockY = 0u; blockY < blockDims.y; blockY++)
 								for (auto blockX = 0u; blockX < blockDims.x; blockX++)
 								{
@@ -391,7 +388,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 									*/
 
 									const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(localOutPos.x + blockX, localOutPos.y + blockY, localOutPos.z), scratchByteStrides);
-									asset::encodePixelsRuntime(outFormat, outDataAdress, reinterpret_cast<uint8_t*>(entryScratchAdress) + offset); // overrrides texels, so region-overlapping case is fine
+									asset::encodePixelsRuntime(outFormat, outDataAdress, reinterpret_cast<uint8_t*>(scratchMemory) + offset); // overrrides texels, so region-overlapping case is fine
 								}
 						};
 
