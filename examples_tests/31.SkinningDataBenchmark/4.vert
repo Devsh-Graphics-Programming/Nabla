@@ -48,6 +48,6 @@ void main()
     vNormal = normalMatrix * normalize(normal);
 #else
     gl_Position = mvp * vec4(pos, 1.0);
-    gl_Position.xyz = normalMatrix * normal;
+    gl_Position.xyz += normalMatrix * normal;
 #endif
 }

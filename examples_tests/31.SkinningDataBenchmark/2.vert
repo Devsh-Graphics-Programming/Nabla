@@ -28,6 +28,6 @@ void main()
     vNormal = mat3(normalMatrix[boneID]) * normalize(normal);
 #else
     gl_Position = boneMatrix[boneID] * vec4(pos, 1.0);
-    gl_Position.xyz = mat3(normalMatrix[boneID]) * normal;
+    gl_Position.xyz += mat3(normalMatrix[boneID]) * normal;
 #endif
 }

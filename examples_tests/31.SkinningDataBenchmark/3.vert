@@ -43,7 +43,7 @@ void main()
         dot(vec3(normalMatrixRow[boneID + pc.matrixOffsets.z]), normalize(normal))
     );
 #else
-    gl_Position.xyz = vec3(
+    gl_Position.xyz += vec3(
         dot(vec3(normalMatrixRow[boneID + pc.matrixOffsets.x]), normal),
         dot(vec3(normalMatrixRow[boneID + pc.matrixOffsets.y]), normal),
         dot(vec3(normalMatrixRow[boneID + pc.matrixOffsets.z]), normal)

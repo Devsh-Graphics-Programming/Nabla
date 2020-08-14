@@ -50,8 +50,8 @@ IFrameBuffer* createDepthOnlyFrameBuffer(video::IVideoDriver* driver)
         IGPUImage::SCreationParams imgInfo;
         imgInfo.format = EF_D16_UNORM;
         imgInfo.type = IGPUImage::ET_2D;
-        imgInfo.extent.width = driver->getScreenSize().Width;
-        imgInfo.extent.height = driver->getScreenSize().Height;
+        imgInfo.extent.width = 64u;
+        imgInfo.extent.height = 64u;
         imgInfo.extent.depth = 1u;
         imgInfo.mipLevels = 1u;
         imgInfo.arrayLayers = 1u;
@@ -163,7 +163,7 @@ int main()
         meshBuffer->setPipeline(std::move(pipeline));
     };
 
-    const core::vector4du32_SIMD diskBlockDim(1u, 1u, 2500u);
+    const core::vector4du32_SIMD diskBlockDim(1u, 1u, 3000u);
     const size_t diskCount = diskBlockDim.x * diskBlockDim.y * diskBlockDim.z;
 
     assert(diskCount <= MAT_MAX_CNT);
@@ -407,8 +407,9 @@ int main()
             asset::SRasterizationParams rasterParams;
             rasterParams.faceCullingMode = asset::EFCM_NONE;
 #ifdef BENCHMARK
-            rasterParams.depthTestEnable = false;
-            rasterParams.depthWriteEnable = true;
+            rasterParams.faceCullingMode = asset::EFCM_BACK_BIT;
+            rasterParams.depthTestEnable = true;
+            rasterParams.depthWriteEnable = false;
 #endif
 
             SBlendParams blendParams;

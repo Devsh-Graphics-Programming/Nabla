@@ -32,7 +32,7 @@ void main()
     vNormal = mat3(matrices[boneID].normalMatrix) * normalize(normal);
 #else
     gl_Position = matrices[boneID].boneMatrix * vec4(pos, 1.0);
-    gl_Position.xyz = mat3(matrices[boneID].normalMatrix) * normal;
+    gl_Position.xyz += mat3(matrices[boneID].normalMatrix) * normal;
 #endif
 
 }
