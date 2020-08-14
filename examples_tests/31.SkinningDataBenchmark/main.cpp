@@ -28,7 +28,7 @@ struct Vertex
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
 
-#include "C:\IrrlichtBAW\IrrlichtBAW\src\irr\asset\CCPUMeshPacker.h"; //sorry
+#include <irr/asset/CCPUMeshPacker.h>
 #include "common.glsl"
 
 template<typename T>
