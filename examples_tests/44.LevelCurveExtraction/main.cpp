@@ -1,7 +1,7 @@
 #define _IRR_STATIC_LIB_
+
 #include "InputEventReciever.h"
-#include "../common/QToQuitEventReceiver.h"
-#include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
+#include "../source/Irrlicht/COpenGLExtensionHandler.h"
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
 
 
@@ -30,22 +30,18 @@ void main()
 const char* geometryShaderCode = R"===(
 #version 440 core
 
-#define FLT_MAX 3.402823466e+38
-struct DrawIndirectArrays_t
-{
-    uint  count;
-    uint  instanceCount;
-    uint  first;
-    uint  baseInstance;
-};
-
-
-
 layout(triangles) in;
 layout(triangle_strip, max_vertices = 3) out;
+
+
+#include "irr/builtin/glsl/limits/numeric.glsl"
+#include "irr/builtin/glsl/utils/indirect_commands.glsl"
+
+
 layout(location = 0) in vec3 LocalPos[];
 layout(location = 1) in vec3 ViewPos[];
 layout(location = 2) in vec3 Normal[];
+
 layout(location = 0) out vec3 fragLocalPos;
 layout(location = 1) out vec3 fragViewPos;
 layout(location = 2) out vec3 fragNormal;
@@ -56,7 +52,7 @@ layout(location = 3) out vec2 fragUV;
 
 layout(set = 0, binding = 0) coherent buffer LineCount
 {
-    DrawIndirectArrays_t lineDraw;
+    irr_glsl_DrawArraysIndirectCommand_t lineDraw;
 };
 layout(set = 0, binding = 1) writeonly buffer Lines
 {
@@ -66,9 +62,12 @@ layout(set = 0, binding = 2) uniform LevelCurveSettings
 {
     float intersectionPlaneSpacing;
 };
-void main() {
+
+void main()
+{
     const float levelPlanesDistance = intersectionPlaneSpacing;
     const vec3 levelPlaneNormal = vec3(0.0,1.0,0.0);   
+
     uint numHorLines;
     float maxLevel = -FLT_MAX;
     float minLevel = FLT_MAX;
@@ -160,6 +159,7 @@ void main() {
 
 }
 )===";
+
 using namespace irr;
 using namespace core;
 
@@ -205,6 +205,9 @@ void SaveBufferToCSV(video::IVideoDriver* driver, const uint32_t &bufferBytesize
 
 int main()
 {
+    constexpr auto linesBufferSize = 268435456u; //256 MB = 2^28B = 268435456 B
+    constexpr auto maxLineCount = linesBufferSize/(sizeof(float)*6u);
+
 	// create device with full flexibility over creation parameters
 	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
 	irr::SIrrlichtCreationParameters params;
@@ -216,6 +219,7 @@ int main()
 	params.Vsync = true; //! If supported by target platform
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
+    params.StreamingDownloadBufferSize = linesBufferSize;
 	auto device = createDeviceEx(params);
 
 	if (!device)
@@ -237,10 +241,6 @@ int main()
     auto* fs = am->getFileSystem();
 
     //
-    auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
-    //loading cache from file
-    qnc->loadNormalQuantCacheFromFile<asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(fs,"../../tmp/normalCache101010.sse", true);
-
     asset::IAssetLoader::SAssetLoadParams lp;
     asset::SAssetBundle meshes_bundle;
     pfd::message("Choose file to open", "Choose an OBJ file to open or press cancel to open a default scene.", pfd::choice::ok);
@@ -279,9 +279,6 @@ int main()
 
     auto mesh = meshes_bundle.getContents().begin()[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
-
-    //saving cache to file
-    qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10,fs,"../../tmp/normalCache101010.sse");
   
     //copy the pipeline
     auto pipeline_cp = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(mesh_raw->getMeshBuffer(0u)->getPipeline()->clone(3u));
@@ -395,7 +392,6 @@ int main()
         assert(false);
     float levelCurveSpacing = 10.0f;
     float planeX = 0, planeY = 1, planeZ = 0;
-    constexpr auto linesBufferSize = 268435456u; //256 MB = 2^28B = 268435456 B
     auto linesBuffer = driver->createDeviceLocalGPUBufferOnDedMem(linesBufferSize);  
     auto uniformLinesSettingsBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(roundUp(4 * sizeof(float), 16ull), &levelCurveSpacing);
     
