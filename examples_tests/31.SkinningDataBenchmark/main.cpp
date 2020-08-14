@@ -87,7 +87,7 @@ int main()
     params.Bits = 24; //may have to set to 32bit for some platforms
     params.ZBufferBits = 24; //we'd like 32bit here
     params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-#ifndef BENCHMARK
+#ifdef _IRR_DEBUG
     params.WindowSize = dimension2d<uint32_t>(1280, 720);
 #else
     params.WindowSize = dimension2d<uint32_t>(64, 64);
@@ -107,16 +107,22 @@ int main()
     auto* am = device->getAssetManager();
     video::IVideoDriver* driver = device->getVideoDriver();
 
-#ifdef BENCHMARK
+#ifndef _IRR_DEBUG
     auto* depthFBO = createDepthOnlyFrameBuffer(driver);
 #endif
 
     IAssetLoader::SAssetLoadParams lp;
-    auto vertexShaderBundle_1 = am->getAsset("../1.vert", lp);
-    auto vertexShaderBundle_2 = am->getAsset("../2.vert", lp);
-    auto vertexShaderBundle_3 = am->getAsset("../3.vert", lp);
-    auto vertexShaderBundle_4 = am->getAsset("../4.vert", lp);
-
+#ifdef _IRR_DEBUG
+    auto vertexShaderBundle_1 = am->getAsset("../test_1.vert", lp);
+    auto vertexShaderBundle_2 = am->getAsset("../test_2.vert", lp);
+    auto vertexShaderBundle_3 = am->getAsset("../test_3.vert", lp);
+    auto vertexShaderBundle_4 = am->getAsset("../test_4.vert", lp);
+#else
+    auto vertexShaderBundle_1 = am->getAsset("../benchmark_1.vert", lp);
+    auto vertexShaderBundle_2 = am->getAsset("../benchmark_2.vert", lp);
+    auto vertexShaderBundle_3 = am->getAsset("../benchmark_3.vert", lp);
+    auto vertexShaderBundle_4 = am->getAsset("../benchmark_4.vert", lp);
+#endif
     auto fragShaderBundle = am->getAsset("../dirLight.frag", lp);
     ICPUSpecializedShader* shaders[4][2];
     shaders[0][0] = IAsset::castDown<ICPUSpecializedShader>(vertexShaderBundle_1.getContents().begin()->get());
@@ -162,14 +168,22 @@ int main()
         auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, nullptr, nullptr, newInputParams, SBlendParams(), SPrimitiveAssemblyParams(), SRasterizationParams());
         meshBuffer->setPipeline(std::move(pipeline));
     };
-
-    const core::vector4du32_SIMD diskBlockDim(1u, 1u, 3000u);
+#ifdef _IRR_DEBUG
+    const core::vector4du32_SIMD diskBlockDim(5u, 5u, 5u);
+#else
+    const core::vector4du32_SIMD diskBlockDim(1u, 1u, 2999u);
+#endif
     const size_t diskCount = diskBlockDim.x * diskBlockDim.y * diskBlockDim.z;
 
     assert(diskCount <= MAT_MAX_CNT);
 
     std::vector<uint16_t> tesselation(diskCount);
+    
+#ifdef _IRR_DEBUG
+    constexpr uint32_t maxTesselation = 32u;
+#else
     constexpr uint32_t maxTesselation = 16000u;
+#endif
     {
         //get random tesselation for disks
         std::generate(tesselation.begin(), tesselation.end(), [&]() { return getRandomNumber<uint32_t>(15u, maxTesselation - 1u) | 0x0001; });
@@ -189,7 +203,7 @@ int main()
     core::vector<core::smart_refctd_ptr<ICPUMeshBuffer>> disks(diskCount);
     std::generate(disks.begin(), disks.end(), []() { return core::make_smart_refctd_ptr<ICPUMeshBuffer>(); });
 
-#ifndef BENCHMARK
+#ifdef _IRR_DEBUG
     for (uint32_t i = 0u, bonesCreated = 0u; i < diskCount; i++)
     {
         auto disk = am->getGeometryCreator()->createDiskMesh(0.5f, tesselation[i]);
@@ -227,19 +241,21 @@ int main()
     MeshPackerBase::PackedMeshBufferData mb;
     {
         auto allocParams = MeshPackerBase::AllocationParams();
+#ifdef _IRR_DEBUG
+        allocParams.MDIDataBuffSupportedCnt = 1024;
+        allocParams.MDIDataBuffMinAllocSize = 512;
+        allocParams.indexBuffSupportedCnt = 8192 * 2;
+        allocParams.indexBufferMinAllocSize = 256;
+        allocParams.vertexBuffSupportedCnt = 8192;
+        allocParams.vertexBufferMinAllocSize = 256;
+#else
         allocParams.MDIDataBuffSupportedCnt = 500000 * 2;
         allocParams.MDIDataBuffMinAllocSize = 1024;
         allocParams.indexBuffSupportedCnt = std::pow(1024, 3) / 2.0;
         allocParams.indexBufferMinAllocSize = 512 * 1024;
         allocParams.vertexBuffSupportedCnt = 2 * std::pow(1024, 3) / 32.0;
         allocParams.vertexBufferMinAllocSize = 512 * 1024;
-
-        /*allocParams.MDIDataBuffSupportedCnt = 1024;
-        allocParams.MDIDataBuffMinAllocSize = 512;
-        allocParams.indexBuffSupportedCnt = 8192 * 2;
-        allocParams.indexBufferMinAllocSize = 256;
-        allocParams.vertexBuffSupportedCnt = 8192;
-        allocParams.vertexBufferMinAllocSize = 256;*/
+#endif
 
         CCPUMeshPacker packer(disks[0]->getPipeline()->getVertexInputParams(), allocParams, 256, 256);
 
@@ -406,18 +422,18 @@ int main()
 
             asset::SRasterizationParams rasterParams;
             rasterParams.faceCullingMode = asset::EFCM_NONE;
-#ifdef BENCHMARK
+#ifndef _IRR_DEBUG
             rasterParams.faceCullingMode = asset::EFCM_BACK_BIT;
             rasterParams.depthTestEnable = true;
             rasterParams.depthWriteEnable = false;
 #endif
 
             SBlendParams blendParams;
-#ifdef BENCHMARK
+#ifndef _IRR_DEBUG
             blendParams.blendParams[0].colorWriteMask = 0u;
 #endif
 
-#ifdef BENCHMARK
+#ifndef _IRR_DEBUG
             constexpr uint32_t shaderCnt = 1u;
 #else
             constexpr uint32_t shaderCnt = 2u;
@@ -560,13 +576,13 @@ int main()
     };
 
     std::function<bool()> exitCondition;
-#ifndef BENCHMARK
+#ifdef _IRR_DEBUG
     exitCondition = [&]() { return device->run() && receiver.keepOpen(); };
 #else
     exitCondition = []() { return true; };
 #endif
 
-#ifdef BENCHMARK
+#ifndef _IRR_DEBUG
     driver->setRenderTarget(depthFBO);
     driver->clearZBuffer(1.0f);
 #endif
@@ -583,7 +599,7 @@ int main()
         driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline[caseID]->getLayout(), 0u, 1u, &descriptorSet[caseID].get(), nullptr);
         updatePushConstants(caseID);
 
-#ifdef BENCHMARK
+#ifndef _IRR_DEBUG
         driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
         driver->clearZBuffer(1.0f);
 #endif
@@ -591,7 +607,7 @@ int main()
         driver->beginQuery(query);
         for (uint32_t i = 0u; i < iterationCnt && exitCondition(); i++)
         {
-#ifndef BENCHMARK
+#ifdef _IRR_DEBUG
             driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
             timeMS = std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count();
 
@@ -602,10 +618,8 @@ int main()
 
             updateSSBO(caseID);
 #endif
-#ifdef BENCHMARK
-#endif
             driver->drawIndexedIndirect(mdi.vtxBindings, mdi.mode, mdi.indexType, mdi.indexBuff.get(), mdi.indirectDrawBuff.get(), mdi.offset, mdi.maxCount, mdi.stride);
-#ifndef BENCHMARK
+#ifdef _IRR_DEBUG
             driver->endScene();
 #endif
         }
@@ -618,7 +632,8 @@ int main()
         os::Printer::print(std::string("Result: ") + std::to_string(static_cast<double>(timeElapsed) / 1000000.0) + std::string("ms."));
     }
 
-    
+#ifndef _IRR_DEBUG
     std::cin.get();
+#endif
     return 0;
 }

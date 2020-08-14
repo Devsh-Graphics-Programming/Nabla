@@ -1,5 +1,3 @@
-#version 460 core
-
 #include "common.glsl"
 
 layout( push_constant, row_major ) uniform Block 

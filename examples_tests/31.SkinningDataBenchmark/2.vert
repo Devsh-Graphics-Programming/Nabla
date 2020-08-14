@@ -1,5 +1,3 @@
-#version 460 core
-
 #include "common.glsl"
 
 layout(std430, set = 0, binding = 0, row_major) restrict readonly buffer BoneMatrices

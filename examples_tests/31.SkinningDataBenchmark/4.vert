@@ -1,5 +1,3 @@
-#version 460 core
-
 #include "common.glsl"
 
     //TODO: max mat cnt for this shader
