@@ -35,10 +35,10 @@ public:
                     return true;
                 case irr::KEY_KEY_3:
                     test = ETC_COS_WEIGHTED;
-
+                    return true;
                 case irr::KEY_KEY_S:
                     ss = true;
-                    break;
+                    return true;
 
                 case irr::KEY_KEY_Z:
                     m_ax = std::max(0.f, m_ax-da);
@@ -51,7 +51,7 @@ public:
                     m_ay = std::max(0.f, m_ay-da);
                     return true;
                 case irr::KEY_KEY_V:
-                    m_ay = std::max(1.f, m_ay+da);
+                    m_ay = std::min(1.f, m_ay+da);
                     return true;
 				default:
 					break;
