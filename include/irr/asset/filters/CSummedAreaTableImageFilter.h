@@ -194,7 +194,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 				{
 					const uint8_t* inData = reinterpret_cast<const uint8_t*>(state->inImage->getBuffer()->getPointer());
 					const auto blockDims = asset::getBlockDimensions(state->inImage->getCreationParameters().format);
-					constexpr uint8_t maxPlanes = 4;
+					static constexpr uint8_t maxPlanes = 4;
 					
 					auto decode = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 					{
@@ -258,6 +258,19 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					{
 						decodeType* current = getScratchPixel(readBlockPos);
 
+						auto areAxisSafe = [&]()
+						{
+							const auto position = core::vectorSIMDi32(0u, 0u, 0u, 0u);
+
+							return core::vector4du32_SIMD
+							(
+								readBlockPos.x > position.x,
+								readBlockPos.y > position.y,
+								readBlockPos.z > position.z,
+								readBlockPos.w > position.w
+							);
+						};
+
 						auto addScratchPixelToCurrentOne = [&](const decodeType* values)
 						{
 							for (auto i = 0; i < currentChannelCount; ++i)
@@ -270,7 +283,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 								current[i] -= values[i];
 						};
 
-						const auto axisSafe = readBlockPos > core::vectorSIMDi32(0, 0, 0, 0);
+						const auto axisSafe = areAxisSafe();
 
 						if (axisSafe.z)
 							addScratchPixelToCurrentOne(getScratchPixel(readBlockPos - core::vectorSIMDi32(0, 0, 1, 0)));					// add box x<=current_x && y<=current_y && z<current_z
