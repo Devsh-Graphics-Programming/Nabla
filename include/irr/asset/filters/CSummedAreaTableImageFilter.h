@@ -150,7 +150,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 			const core::vector3du32_SIMD scratchByteStrides = [&]()
 			{
-				const auto trueExtent = vector3du32_SIMD(state->extent.width, state->extent.height, state->extent.depth);
+				const core::vectorSIMDu32 trueExtent = state->extentLayerCount;
 
 				switch (currentChannelCount)
 				{
@@ -192,29 +192,55 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 				std::array<decodeType, maxChannels> maxDecodeValues = {};
 
 				{
-					const auto inData = reinterpret_cast<const uint8_t*>(state->inImage->getBuffer()->getPointer());
+					const uint8_t* inData = reinterpret_cast<const uint8_t*>(state->inImage->getBuffer()->getPointer());
 					const auto blockDims = asset::getBlockDimensions(state->inImage->getCreationParameters().format);
+					constexpr uint8_t maxPlanes = 4;
 					
 					auto decode = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 					{
-						auto newReadBlockPos = (readBlockPos - decltype(readBlockPos)(state->inOffset.x, state->inOffset.y, state->inOffset.z)); // not sure
+						auto newReadBlockPos = (readBlockPos - decltype(readBlockPos)(state->inOffset.x, state->inOffset.y, state->inOffset.z)); 
+						core::vectorSIMDu32 localOutPos = newReadBlockPos * blockDims;
 
-						auto localOutPos = newReadBlockPos * blockDims;
 						auto* inDataAdress = inData + readBlockArrayOffset;
-						const size_t scratchOffset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(localOutPos.x, localOutPos.y, localOutPos.z), scratchByteStrides);
-						decodeType* outDataAdress = (decodeType*)(reinterpret_cast<uint8_t*>(scratchMemory) + scratchOffset);
-
-						constexpr uint8_t maxPlanes = 4;
 						const void* inSourcePixels[maxPlanes] = { inDataAdress, nullptr, nullptr, nullptr };
 
-						for (auto blockY = 0u; blockY < blockDims.y; blockY++)
-							for (auto blockX = 0u; blockX < blockDims.x; blockX++)
-							{
-								decodeType decodeBuffer[maxChannels] = {};
+						if constexpr (ExclusiveMode)
+						{
+							auto movedLocalOutPos = localOutPos + core::vectorSIMDu32(1, 1, 1);
+							const auto isSatMemorySafe = (localOutPos < core::vectorSIMDu32(state->extent.width, state->extent.height, state->extent.depth));
+							const auto shouldItResetSatMemoryToZero = (localOutPos < core::vectorSIMDu32(1, 1, 1));
 
-								asset::decodePixelsRuntime(inFormat, inSourcePixels, decodeBuffer, blockX, blockY);
-								memcpy(outDataAdress, decodeBuffer, scratchTexelByteSize);
+							if (isSatMemorySafe.all())
+							{
+								for (auto blockY = 0u; blockY < blockDims.y; blockY++)
+									for (auto blockX = 0u; blockX < blockDims.x; blockX++)
+									{
+										decodeType decodeBuffer[maxChannels] = {};
+
+										if (shouldItResetSatMemoryToZero)
+										{
+											const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(localOutPos.x + blockX, localOutPos.y + blockY, localOutPos.z), scratchByteStrides);
+											memcpy(reinterpret_cast<uint8_t*>(scratchMemory) + offset, decodeBuffer, scratchTexelByteSize);
+										}
+										
+										asset::decodePixelsRuntime(inFormat, inSourcePixels, decodeBuffer, blockX, blockY);
+										const size_t movedOffset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(movedLocalOutPos.x + blockX, movedLocalOutPos.y + blockY, movedLocalOutPos.z), scratchByteStrides);
+										memcpy(reinterpret_cast<uint8_t*>(scratchMemory) + movedOffset, decodeBuffer, scratchTexelByteSize);
+									}
 							}
+						}
+						else
+						{
+							for (auto blockY = 0u; blockY < blockDims.y; blockY++)
+								for (auto blockX = 0u; blockX < blockDims.x; blockX++)
+								{
+									decodeType decodeBuffer[maxChannels] = {};
+
+									asset::decodePixelsRuntime(inFormat, inSourcePixels, decodeBuffer, blockX, blockY);
+									const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(localOutPos.x + blockX, localOutPos.y + blockY, localOutPos.z), scratchByteStrides);
+									memcpy(reinterpret_cast<uint8_t*>(scratchMemory) + offset, decodeBuffer, scratchTexelByteSize);
+								}
+						}
 					};
 
 					auto& inRegions = state->inImage->getRegions(state->inMipLevel);
@@ -225,25 +251,12 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					auto getScratchPixel = [&](core::vector4di32_SIMD readBlockPos) -> decodeType*
 					{
 						const size_t scratchOffset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(readBlockPos.x, readBlockPos.y, readBlockPos.z, 0), scratchByteStrides);
-						return (decodeType*)(reinterpret_cast<uint8_t*>(scratchMemory) + scratchOffset);
+						return reinterpret_cast<decodeType*>(reinterpret_cast<uint8_t*>(scratchMemory) + scratchOffset);
 					};
 
 					auto sum = [&](core::vectorSIMDi32 readBlockPos) -> void
 					{
 						decodeType* current = getScratchPixel(readBlockPos);
-
-						auto areAxisSafe = [&]()
-						{
-							const auto position = core::vectorSIMDi32(0u, 0u, 0u, 0u);
-	
-							return core::vector4du32_SIMD
-							(
-								readBlockPos.x > position.x,
-								readBlockPos.y > position.y,
-								readBlockPos.z > position.z,
-								readBlockPos.w > position.w
-							);
-						};
 
 						auto addScratchPixelToCurrentOne = [&](const decodeType* values)
 						{
@@ -257,8 +270,8 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 								current[i] -= values[i];
 						};
 
-						const auto axisSafe = areAxisSafe();
-						
+						const auto axisSafe = readBlockPos > core::vectorSIMDi32(0, 0, 0, 0);
+
 						if (axisSafe.z)
 							addScratchPixelToCurrentOne(getScratchPixel(readBlockPos - core::vectorSIMDi32(0, 0, 1, 0)));					// add box x<=current_x && y<=current_y && z<current_z
 						if (axisSafe.y)
@@ -345,7 +358,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 									for (auto& x = localCoord[0] = 0u; x < state->extent.width; ++x)
 									{
 										const size_t scratchOffset = asset::IImage::SBufferCopy::getLocalByteOffset(localCoord, scratchByteStrides);
-										decodeType* entryScratchAdress = (decodeType*)(reinterpret_cast<uint8_t*>(scratchMemory) + scratchOffset);
+										decodeType* entryScratchAdress = reinterpret_cast<decodeType*>(reinterpret_cast<uint8_t*>(scratchMemory) + scratchOffset);
 
 										normalize(entryScratchAdress);
 									}
@@ -356,20 +369,18 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 						normalizeScratch(normalized, asset::isSignedFormat(inFormat));
 
 					{
+						uint8_t* outData = reinterpret_cast<uint8_t*>(state->outImage->getBuffer()->getPointer());
 						const auto blockDims = asset::getBlockDimensions(outFormat);
 
 						auto encode = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 						{
-							auto newReadBlockPos = (readBlockPos - decltype(readBlockPos)(state.outOffset.x, state.outOffset.y, state.outOffset.z)); // not sure
+							auto newReadBlockPos = (readBlockPos - decltype(readBlockPos)(state->outOffset.x, state->outOffset.y, state->outOffset.z));
 
 							auto localOutPos = newReadBlockPos * blockDims;
-
-							// hmm
-							// shouldn't we let a user to use current handled region?
-							//auto* outDataAdress = commonExecuteData.outData + commonExecuteData.oit->getByteOffset(localOutPos, commonExecuteData.outByteStrides);
+							uint8_t* outDataAdress = outData + readBlockArrayOffset;
 
 							const size_t scratchOffset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(localOutPos.x, localOutPos.y, localOutPos.z, 0), scratchByteStrides);
-							decodeType* entryScratchAdress = (decodeType*)(reinterpret_cast<uint8_t*>(scratchMemory) + scratchOffset);
+							decodeType* entryScratchAdress = reinterpret_cast<decodeType*>(reinterpret_cast<uint8_t*>(scratchMemory) + scratchOffset);
 
 							for (auto blockY = 0u; blockY < blockDims.y; blockY++)
 								for (auto blockX = 0u; blockX < blockDims.x; blockX++)
@@ -379,11 +390,13 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 										the loop will perform one time
 									*/
 
-									asset::encodePixelsRuntime(outFormat, outDataAdress, entryScratchAdress); // overrrides texels, so region-overlapping case is fine
+									const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(localOutPos.x + blockX, localOutPos.y + blockY, localOutPos.z), scratchByteStrides);
+									asset::encodePixelsRuntime(outFormat, outDataAdress, reinterpret_cast<uint8_t*>(entryScratchAdress) + offset); // overrrides texels, so region-overlapping case is fine
 								}
 						};
 
-						CBasicImageFilterCommon::executePerRegion(commonExecuteData.outImg, encode, commonExecuteData.outRegions.begin(), commonExecuteData.outRegions.end());
+						auto& outRegions = state->outImage->getRegions(state->outMipLevel);
+						CBasicImageFilterCommon::executePerRegion(state->outImage, encode, outRegions.begin(), outRegions.end());
 					}
 				}
 
@@ -392,8 +405,8 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			}
 
 			resetState();
+			return true;
 		}
-
 };
 
 } // end namespace asset
