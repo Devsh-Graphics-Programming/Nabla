@@ -11,9 +11,14 @@ using namespace video;
 /*
 	Comment IMAGE_VIEW define to use ordinary cpu image.
 	You can view the results in Renderdoc.
+
+	When using ordinary IMAGE you can use OVERLAPPING_REGIONS
+	to choose whether to use extra overlapping region on output image
+	with a custom in-offset and extent
 */
 
 // #define IMAGE_VIEW 
+#define OVERLAPPING_REGIONS
 constexpr auto MIPMAP_IMAGE_VIEW = 2u;
 constexpr auto MIPMAP_IMAGE = 0u;
 
@@ -63,7 +68,13 @@ int main()
 				#ifdef IMAGE_VIEW
 				referenceRegions.size()
 				#else
+
+				#ifdef OVERLAPPING_REGIONS
 				2u
+				#else
+				referenceRegions.size() // one region at all
+				#endif // OVERLAPPING_REGIONS
+
 				#endif // IMAGE_VIEW
 			);
 
@@ -87,17 +98,20 @@ int main()
 			#else
 
 			/*
-				2 overlapping regions
+				2 overlapping regions if OVERLAPPING_REGIONS is defined
 			*/
+
+			const auto fullMipMapExtent = image->getMipSize(MIPMAP_IMAGE);
+			const size_t bufferByteSize = fullMipMapExtent.x * fullMipMapExtent.y * fullMipMapExtent.z * newImageParams.arrayLayers * asset::getTexelOrBlockBytesize(newImageParams.format);
 
 			auto newFirstRegion = newRegions->begin();
 			*newFirstRegion = *(referenceRegion++);
 			newFirstRegion->bufferOffset = regionOffsets;
 
+			#ifdef OVERLAPPING_REGIONS
 			auto newSecondRegion = newRegions->begin() + 1;
 			*newSecondRegion = *newFirstRegion;
 
-			const auto fullMipMapExtent = image->getMipSize(MIPMAP_IMAGE);
 			newSecondRegion->bufferImageHeight = fullMipMapExtent.y;
 
 			auto simdImageOffset = fullMipMapExtent / 4;
@@ -106,11 +120,11 @@ int main()
 			auto simdImageExtent = fullMipMapExtent / 2;
 			newSecondRegion->imageExtent = { simdImageExtent.x, simdImageExtent.y, 1 };
 
-			regionOffsets += fullMipMapExtent.x * fullMipMapExtent.y * fullMipMapExtent.z * newImageParams.arrayLayers * asset::getTexelOrBlockBytesize(newImageParams.format);
+			#endif // OVERLAPPING_REGIONS
 
 			#endif // IMAGE_VIEW
 
-			auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(regionOffsets);
+			auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferByteSize);
 			newSumImage = ICPUImage::create(std::move(newImageParams));
 			newSumImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
 
