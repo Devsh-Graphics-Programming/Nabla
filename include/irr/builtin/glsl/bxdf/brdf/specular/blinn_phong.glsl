@@ -57,9 +57,14 @@ vec3 irr_glsl_blinn_phong_conductor_cos_remainder_and_pdf(out float pdf, in irr_
 
 vec3 irr_glsl_blinn_phong_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in float n, in mat2x3 ior, in float a2)
 {
-    float g = irr_glsl_beckmann_smith_correlated(inter.NdotV_squared, params.NdotL_squared, a2);
     float d = irr_glsl_blinn_phong(params.NdotH, n);
-    return g*d*irr_glsl_fresnel_conductor(ior[0], ior[1], params.VdotH) / (4.0*inter.NdotV);
+    float scalar_part = d/(4.0*inter.NdotV);
+    if (a2>FLT_MIN)
+    {
+        float g = irr_glsl_beckmann_smith_correlated(inter.NdotV_squared, params.NdotL_squared, a2);
+        scalar_part *= g;
+    }
+    return scalar_part*irr_glsl_fresnel_conductor(ior[0], ior[1], params.VdotH);
 }
 vec3 irr_glsl_blinn_phong_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in float n, in mat2x3 ior)
 {
@@ -69,15 +74,20 @@ vec3 irr_glsl_blinn_phong_cos_eval(in irr_glsl_BSDFIsotropicParams params, in ir
 
 vec3 irr_glsl_blinn_phong_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction inter, in float nx, in float ny, in mat2x3 ior, in float ax2, in float ay2)
 {
-    float TdotV2 = inter.TdotV*inter.TdotV;
-    float BdotV2 = inter.BdotV*inter.BdotV;
-    float TdotL2 = params.TdotL*params.TdotL;
-    float BdotL2 = params.BdotL*params.BdotL;
     float NdotH2 = params.isotropic.NdotH*params.isotropic.NdotH;
-
-    float g = irr_glsl_beckmann_smith_correlated(TdotV2, BdotV2, inter.isotropic.NdotV_squared, TdotL2, BdotL2, params.isotropic.NdotL_squared, ax2, ay2);
     float d = irr_glsl_blinn_phong(params.isotropic.NdotH, 1.0/(1.0-NdotH2), params.TdotH*params.TdotH, params.BdotH*params.BdotH, nx, ny);
-    return g*d*irr_glsl_fresnel_conductor(ior[0], ior[1], params.isotropic.VdotH) / (4.0*inter.isotropic.NdotV);   
+    float scalar_part = d/(4.0*inter.isotropic.NdotV);
+    if (ax2>FLT_MIN || ay2>FLT_MIN)
+    {
+        float TdotV2 = inter.TdotV*inter.TdotV;
+        float BdotV2 = inter.BdotV*inter.BdotV;
+        float TdotL2 = params.TdotL*params.TdotL;
+        float BdotL2 = params.BdotL*params.BdotL;
+        float g = irr_glsl_beckmann_smith_correlated(TdotV2, BdotV2, inter.isotropic.NdotV_squared, TdotL2, BdotL2, params.isotropic.NdotL_squared, ax2, ay2);
+        scalar_part *= g;
+    }
+
+    return scalar_part*irr_glsl_fresnel_conductor(ior[0], ior[1], params.isotropic.VdotH);
 }
 vec3 irr_glsl_blinn_phong_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction inter, in float nx, in float ny, in mat2x3 ior)
 {
