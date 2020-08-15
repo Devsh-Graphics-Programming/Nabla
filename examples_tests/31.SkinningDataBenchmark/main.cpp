@@ -591,6 +591,7 @@ int main()
     IQueryObject* query = driver->createElapsedTimeQuery();
 
     constexpr uint32_t iterationCnt = 10000u;
+    constexpr uint32_t warmupIterationCnt = iterationCnt / 10u;
     for (uint32_t caseID = 0u; caseID < 4u; caseID++)
     {
         os::Printer::print(std::string("Benchmark for case nr. " + std::to_string(caseID)));
@@ -602,6 +603,9 @@ int main()
 #ifndef _IRR_DEBUG
         driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
         driver->clearZBuffer(1.0f);
+
+        for (uint32_t i = 0u; i < warmupIterationCnt; i++)
+            driver->drawIndexedIndirect(mdi.vtxBindings, mdi.mode, mdi.indexType, mdi.indexBuff.get(), mdi.indirectDrawBuff.get(), mdi.offset, mdi.maxCount, mdi.stride);
 #endif
 
         driver->beginQuery(query);
