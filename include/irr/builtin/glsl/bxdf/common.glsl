@@ -5,6 +5,9 @@
 #include <irr/builtin/glsl/math/functions.glsl>
 #include <irr/builtin/glsl/limits/numeric.glsl>
 
+#include <irr/builtin/glsl/math/functions.glsl>
+
+// TODO: investigate covariance rendering and maybe kill this struct
 // do not use this struct in SSBO or UBO, its wasteful on memory
 struct irr_glsl_DirAndDifferential
 {
@@ -59,7 +62,7 @@ struct irr_glsl_BSDFAnisotropicParams
    float BdotH;
 };
 
-//TODO move to different glsl header
+//TODO move to different glsl header @Przemog
 // chain rule on various functions (usually vertex attributes and barycentrics)
 vec2 irr_glsl_applyScreenSpaceChainRule1D3(in vec3 dFdG, in mat2x3 dGdScreen)
 {
@@ -78,7 +81,7 @@ mat2x4 irr_glsl_applyScreenSpaceChainRule4D3(in mat3x4 dFdG, in mat2x3 dGdScreen
    return dFdG*dGdScreen;
 }
 
-//TODO move to different glsl header
+//TODO move to different glsl header @Przemog
 vec2 irr_glsl_concentricMapping(in vec2 _u)
 {
     //map [0;1]^2 to [-1;1]^2

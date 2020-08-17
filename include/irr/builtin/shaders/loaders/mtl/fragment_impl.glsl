@@ -65,8 +65,8 @@ vec4 irr_sample_bump(in vec2 uv, in mat2 dUV) { return texture(map_bump, uv); }
 #endif
 #endif //_IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_
 
-// change to bxdf/brdf
-#include <irr/builtin/glsl/bxdf/brdf/specular/fresnel/fresnel.glsl>
+
+#include <irr/builtin/glsl/bxdf/fresnel.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/fresnel_correction.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl>
@@ -108,6 +108,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_I
 
     vec3 Ni = vec3(PC.params.Ni);
 
+
     vec3 diff = irr_glsl_lambertian_cos_eval(params,inter) * Kd * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(Ni,inter.NdotV));
     diff *= irr_glsl_diffuseFresnelCorrectionFactor(Ni, Ni*Ni);
     switch (PC.params.extra&ILLUM_MODEL_MASK)
@@ -123,7 +124,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_I
     case 5://basically same as 3
     case 8://basically same as 5
     {
-        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, inter, Ns, Ni);
+        vec3 spec = Ks*irr_glsl_blinn_phong_cos_eval(params, inter, Ns, mat2x3(Ni,vec3(0.0)));
         color = (diff + spec);
     }
         break;
@@ -132,7 +133,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_I
     case 7:
     case 9://basically same as 4
     {
-        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, inter, Ns, Ni);
+        vec3 spec = Ks*irr_glsl_blinn_phong_cos_eval(params, inter, Ns, mat2x3(Ni,vec3(0.0)));
         color = spec;
     }
         break;

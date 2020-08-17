@@ -1,7 +1,8 @@
 #ifndef _IRR_BSDF_BRDF_DIFFUSE_LAMBERT_INCLUDED_
 #define _IRR_BSDF_BRDF_DIFFUSE_LAMBERT_INCLUDED_
 
-#include <irr/builtin/glsl/bxdf/common_samples.glsl>
+// TODO: use the sampling functions from this header
+#include <irr/builtin/glsl/bxdf/brdf/cos_weighted_sample.glsl>
 
 float irr_glsl_lambertian()
 {
@@ -18,7 +19,7 @@ float irr_glsl_lambertian_cos_eval(in irr_glsl_BSDFIsotropicParams params, in ir
    return irr_glsl_lambertian_cos_eval_rec_pi_factored_out(params,inter)*irr_glsl_lambertian();
 }
 
-
+// TODO: @Crisspl this code is not DRY! Use `irr_glsl_cos_weighted_cos_generate`
 irr_glsl_BSDFSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u)
 {
     vec3 L;
@@ -39,10 +40,11 @@ irr_glsl_BSDFSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicView
     return s;
 }
 
-vec3 irr_glsl_lambertian_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
+// TODO: same here @Crisspl
+float irr_glsl_lambertian_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
 {
     pdf = irr_glsl_lambertian()*max(s.NdotL,0.0);
-    return vec3(1.0);
+    return 1.0;
 }
 
 #endif
