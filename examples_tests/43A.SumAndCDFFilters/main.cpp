@@ -21,10 +21,10 @@ using namespace video;
 	otherwise in inclusive mode 
 */
 
-#define IMAGE_VIEW 
-//#define OVERLAPPING_REGIONS
+// #define IMAGE_VIEW 
+#define OVERLAPPING_REGIONS					// @devsh I leave it for you
 constexpr bool EXCLUSIVE_SUM = true;
-constexpr auto MIPMAP_IMAGE_VIEW = 2u;		
+constexpr auto MIPMAP_IMAGE_VIEW = 2u;		// feel free to change the mipmap
 constexpr auto MIPMAP_IMAGE = 0u;			// ordinary image used in the example has only 0-th mipmap
 
 int main()
@@ -145,7 +145,14 @@ int main()
 			state.inBaseLayer = 0;
 			state.outOffset = { 0, 0, 0 };
 			state.outBaseLayer = 0;
-			state.extent = { referenceImageParams.extent.width, referenceImageParams.extent.height, referenceImageParams.extent.depth };
+
+			#ifdef IMAGE_VIEW
+			const auto fullMipMapExtent = image->getMipSize(MIPMAP_IMAGE_VIEW);
+			state.extent = { fullMipMapExtent.x, fullMipMapExtent.y, fullMipMapExtent.z };
+			#else 
+			state.extent =  { referenceImageParams.extent.width, referenceImageParams.extent.height, referenceImageParams.extent.depth };
+			#endif // IMAGE_VIEW
+
 			state.layerCount = newSumImage->getCreationParameters().arrayLayers;
 
 			state.scratchMemoryByteSize = state.getRequiredScratchByteSize(state.inImage, state.extent);
