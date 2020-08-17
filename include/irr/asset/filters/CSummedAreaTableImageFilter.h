@@ -181,6 +181,16 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					const uint8_t* inData = reinterpret_cast<const uint8_t*>(state->inImage->getBuffer()->getPointer());
 					const auto blockDims = asset::getBlockDimensions(state->inImage->getCreationParameters().format);
 					static constexpr uint8_t maxPlanes = 4;
+
+					/*
+						Make sure we are able to move as (+ 1) in a certain plane,
+						otherwise memory leaks may occur
+					*/
+
+					bool is2DAndBellow = state->inImage->getCreationParameters().type == IImage::ET_2D;
+					bool is3DAndBellow = state->inImage->getCreationParameters().type == IImage::ET_3D;
+					const core::vectorSIMDu32 limit(1, is2DAndBellow, is3DAndBellow);
+					const core::vectorSIMDu32 movingExclusiveVector = limit, movingOnYZorXZorXYCheckingVector = limit;
 					
 					auto decode = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 					{
@@ -192,9 +202,9 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 						if constexpr (ExclusiveMode)
 						{
-							auto movedLocalOutPos = localOutPos + core::vectorSIMDu32(1, 1, 1);
-							const auto isSatMemorySafe = (localOutPos < core::vectorSIMDu32(state->extent.width, state->extent.height, state->extent.depth));
-							const auto shouldItResetSatMemoryToZero = (localOutPos < core::vectorSIMDu32(1, 1, 1));
+							auto movedLocalOutPos = localOutPos + movingExclusiveVector;
+							const auto isSatMemorySafe = (movedLocalOutPos < core::vectorSIMDu32(state->extent.width, state->extent.height, state->extent.depth, movedLocalOutPos.w + 1)); // force true on .w
+							const auto doesItMoveOnYZorXZorXY = (localOutPos < movingOnYZorXZorXYCheckingVector);
 
 							if (isSatMemorySafe.all())
 							{
@@ -203,15 +213,17 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 									{
 										decodeType decodeBuffer[maxChannels] = {};
 
-										if (shouldItResetSatMemoryToZero)
+										if (doesItMoveOnYZorXZorXY.any())
 										{
 											const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(localOutPos.x + blockX, localOutPos.y + blockY, localOutPos.z), scratchByteStrides);
 											memcpy(reinterpret_cast<uint8_t*>(scratchMemory) + offset, decodeBuffer, scratchTexelByteSize);
 										}
-										
-										asset::decodePixelsRuntime(inFormat, inSourcePixels, decodeBuffer, blockX, blockY);
-										const size_t movedOffset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(movedLocalOutPos.x + blockX, movedLocalOutPos.y + blockY, movedLocalOutPos.z), scratchByteStrides);
-										memcpy(reinterpret_cast<uint8_t*>(scratchMemory) + movedOffset, decodeBuffer, scratchTexelByteSize);
+										else
+										{
+											asset::decodePixelsRuntime(inFormat, inSourcePixels, decodeBuffer, blockX, blockY);
+											const size_t movedOffset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(movedLocalOutPos.x + blockX, movedLocalOutPos.y + blockY, movedLocalOutPos.z), scratchByteStrides);
+											memcpy(reinterpret_cast<uint8_t*>(scratchMemory) + movedOffset, decodeBuffer, scratchTexelByteSize);
+										}
 									}
 							}
 						}

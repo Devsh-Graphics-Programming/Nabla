@@ -15,10 +15,15 @@ using namespace video;
 	When using ordinary IMAGE you can use OVERLAPPING_REGIONS
 	to choose whether to use extra overlapping region on output image
 	with a custom in-offset and extent
+
+	You can also specify whether to perform sum in
+	exclusive mode by EXCLUSIVE_SUM,  
+	otherwise in inclusive mode 
 */
 
 // #define IMAGE_VIEW 
-#define OVERLAPPING_REGIONS
+//#define OVERLAPPING_REGIONS
+constexpr bool EXCLUSIVE_SUM = true;
 constexpr auto MIPMAP_IMAGE_VIEW = 2u;
 constexpr auto MIPMAP_IMAGE = 0u;
 
@@ -45,7 +50,7 @@ int main()
 
 	auto getSummedImage = [](const core::smart_refctd_ptr<ICPUImage> image) -> core::smart_refctd_ptr<ICPUImage>
 	{
-		using SUM_FILTER = CSummedAreaTableImageFilter<false>;
+		using SUM_FILTER = CSummedAreaTableImageFilter<EXCLUSIVE_SUM>;
 
 		core::smart_refctd_ptr<ICPUImage> newSumImage;
 		{
@@ -130,7 +135,7 @@ int main()
 
 			SUM_FILTER sumFilter;
 			SUM_FILTER::state_type state;
-
+			
 			state.inImage = image.get();
 			state.outImage = newSumImage.get();
 			state.inOffset = { 0, 0, 0 };
@@ -191,10 +196,25 @@ int main()
 	auto cpuImageView = ICPUImageView::create(std::move(viewParams));
 	assert(cpuImageView.get(), "The imageView didn't passed creation validation!");
 
+	constexpr std::string_view MODE = [&]() constexpr 
+	{
+		if constexpr (EXCLUSIVE_SUM)
+			return "EXCLUSIVE_SAT_";
+		else
+			return "INCLUSIVE_SAT_";
+	}
+	();
+
 	asset::IAssetWriter::SAssetWriteParams wparams(cpuImageView.get());
 	#ifdef IMAGE_VIEW
-	assetManager->writeAsset("SAT_OUTPUT.dds", wparams);
+	assetManager->writeAsset(std::string(MODE.data()) + "IMG_VIEW.dds", wparams);
 	#else
-	assetManager->writeAsset("SAT_OUTPUT.exr", wparams);
+
+		#ifdef OVERLAPPING_REGIONS
+		assetManager->writeAsset(std::string(MODE.data()) + "IMG_OVERLAPPING_REGIONS.exr", wparams);
+		#else 
+		assetManager->writeAsset(std::string(MODE.data()) + "IMG.exr", wparams);
+		#endif // OVERLAPPING_REGIONS
+
 	#endif // IMAGE_VIEW
 }
