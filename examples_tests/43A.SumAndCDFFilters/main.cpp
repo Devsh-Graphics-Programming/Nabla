@@ -21,11 +21,11 @@ using namespace video;
 	otherwise in inclusive mode 
 */
 
-// #define IMAGE_VIEW 
+#define IMAGE_VIEW 
 //#define OVERLAPPING_REGIONS
 constexpr bool EXCLUSIVE_SUM = true;
-constexpr auto MIPMAP_IMAGE_VIEW = 2u;
-constexpr auto MIPMAP_IMAGE = 0u;
+constexpr auto MIPMAP_IMAGE_VIEW = 2u;		
+constexpr auto MIPMAP_IMAGE = 0u;			// ordinary image used in the example has only 0-th mipmap
 
 int main()
 {
@@ -60,10 +60,11 @@ int main()
 			const auto* referenceRegion = referenceRegions.begin();
 
 			auto newImageParams = referenceImageParams;
+			core::smart_refctd_ptr<ICPUBuffer> newCpuBuffer;
 
 			#ifdef IMAGE_VIEW
 			newImageParams.flags = IImage::ECF_CUBE_COMPATIBLE_BIT;
-			newImageParams.format = EF_R32G32B32A32_SFLOAT;
+			newImageParams.format = EF_R16G16B16A16_UNORM;
 			#else
 			newImageParams.format = EF_R32G32B32A32_SFLOAT;
 			#endif // IMAGE_VIEW
@@ -100,6 +101,7 @@ int main()
 
 				regionOffsets += fullMipMapExtent.x * fullMipMapExtent.y * fullMipMapExtent.z * newImageParams.arrayLayers * asset::getTexelOrBlockBytesize(newImageParams.format);
 			}
+			newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(regionOffsets);
 			#else
 
 			/*
@@ -125,11 +127,12 @@ int main()
 			auto simdImageExtent = fullMipMapExtent / 2;
 			newSecondRegion->imageExtent = { simdImageExtent.x, simdImageExtent.y, 1 };
 
+			newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferByteSize);
+
 			#endif // OVERLAPPING_REGIONS
 
 			#endif // IMAGE_VIEW
 
-			auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferByteSize);
 			newSumImage = ICPUImage::create(std::move(newImageParams));
 			newSumImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
 
@@ -151,7 +154,7 @@ int main()
 			#ifdef IMAGE_VIEW
 			state.inMipLevel = MIPMAP_IMAGE_VIEW;
 			state.outMipLevel = MIPMAP_IMAGE_VIEW;
-			state.normalizeImageByTotalSATValues = true;
+			state.normalizeImageByTotalSATValues = true; // pay attention that we may force normalizing output values (but it will do it anyway if input is normalized)
 			#else
 			state.inMipLevel = MIPMAP_IMAGE;
 			state.outMipLevel = MIPMAP_IMAGE;
@@ -194,7 +197,7 @@ int main()
 	viewParams.subresourceRange.levelCount = cpuImage->getCreationParameters().mipLevels;
 
 	auto cpuImageView = ICPUImageView::create(std::move(viewParams));
-	assert(cpuImageView.get(), "The imageView didn't passed creation validation!");
+	assert(cpuImageView.get(), "The imageView didn't pass creation validation!");
 
 	constexpr std::string_view MODE = [&]() constexpr 
 	{
