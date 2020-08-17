@@ -160,22 +160,24 @@ int main()
 
         uint32_t* buffPtr = static_cast<uint32_t*>(boneIDBuffer.buffer->getPointer());
         for (int i = 0; i < meshBuffer->calcVertexCount(); i++)
-            *(buffPtr + i) = bonesCreatedCnt + getRandomNumber<uint32_t>(1u, boneMatMaxCnt[mbID]) - 1u;
-
+            buffPtr[i] = bonesCreatedCnt + getRandomNumber<uint32_t>(1u, boneMatMaxCnt[mbID]) - 1u;
+        // don't want total random access to bones, sort roughly 
+        std::sort(buffPtr,buffPtr+meshBuffer->calcVertexCount());
 
         meshBuffer->setVertexBufferBinding(std::move(boneIDBuffer), 1);
 
         auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, nullptr, nullptr, newInputParams, SBlendParams(), SPrimitiveAssemblyParams(), SRasterizationParams());
         meshBuffer->setPipeline(std::move(pipeline));
     };
+    const auto MaxBufferSize = driver->getMaxSSBOSize();
 #ifdef _IRR_DEBUG
     const core::vector4du32_SIMD diskBlockDim(5u, 5u, 5u);
 #else
-    const core::vector4du32_SIMD diskBlockDim(1u, 1u, 10u);
+    const core::vector4du32_SIMD diskBlockDim(1u, 1u, MAX_OBJ_CNT*(1024u*1024u*1024u/MaxBufferSize));
 #endif
     const size_t diskCount = diskBlockDim.x * diskBlockDim.y * diskBlockDim.z;
 
-    assert(diskCount <= MAT_MAX_CNT);
+    assert(diskCount <= MAX_OBJ_CNT);
 
     std::vector<uint16_t> tesselation(diskCount);
     
@@ -190,7 +192,7 @@ int main()
 
         //get random bone cnt for disks
         boneMatMaxCnt = core::vector<uint16_t>(diskCount);
-        std::generate(boneMatMaxCnt.begin(), boneMatMaxCnt.end(), [&]() { return getRandomNumber<uint16_t>(1u, 9u);  });
+        std::generate(boneMatMaxCnt.begin(), boneMatMaxCnt.end(), [&]() { return getRandomNumber<uint16_t>(1u, MAX_BONE_CNT);  });
     }
 
     const uint32_t boneMatrixCnt = std::accumulate(boneMatMaxCnt.begin(), boneMatMaxCnt.end(), 0u);
@@ -251,9 +253,9 @@ int main()
 #else
         allocParams.MDIDataBuffSupportedCnt = 500000 * 2;
         allocParams.MDIDataBuffMinAllocSize = 1024;
-        allocParams.indexBuffSupportedCnt = std::pow(1024, 3) / 2.0;
+        allocParams.indexBuffSupportedCnt = MaxBufferSize/sizeof(uint16_t);
         allocParams.indexBufferMinAllocSize = 512 * 1024;
-        allocParams.vertexBuffSupportedCnt = 2 * std::pow(1024, 3) / 32.0;
+        allocParams.vertexBuffSupportedCnt = MaxBufferSize/sizeof(uint32_t);
         allocParams.vertexBufferMinAllocSize = 512 * 1024;
 #endif
 
@@ -291,7 +293,7 @@ int main()
         size_t countOffset = 0u;
     };
 
-        //create inputs for `drawIndexedIndirect`
+    //create inputs for `drawIndexedIndirect`
     DrawIndexedIndirectInput mdi;
     {
         mdi.indexBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(packedMeshBuffer.indexBuffer.buffer->getSize(), packedMeshBuffer.indexBuffer.buffer->getPointer());
