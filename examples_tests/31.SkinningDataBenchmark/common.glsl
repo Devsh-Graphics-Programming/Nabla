@@ -1,4 +1,5 @@
-#define MAT_MAX_CNT 3000 * 9
+#define MAX_OBJ_CNT 3000
+#define MAT_MAX_CNT MAX_OBJ_CNT * 9
 #define BONE_VEC_MAX_CNT (MAT_MAX_CNT * 4)
 #define NORM_VEC_MAX_CNT (MAT_MAX_CNT * 3)
 #define BONE_COMP_MAX_CNT (MAT_MAX_CNT * 16)

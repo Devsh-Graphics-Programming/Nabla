@@ -171,7 +171,7 @@ int main()
 #ifdef _IRR_DEBUG
     const core::vector4du32_SIMD diskBlockDim(5u, 5u, 5u);
 #else
-    const core::vector4du32_SIMD diskBlockDim(1u, 1u, 2999u);
+    const core::vector4du32_SIMD diskBlockDim(1u, 1u, 10u);
 #endif
     const size_t diskCount = diskBlockDim.x * diskBlockDim.y * diskBlockDim.z;
 
@@ -582,15 +582,10 @@ int main()
     exitCondition = []() { return true; };
 #endif
 
-#ifndef _IRR_DEBUG
-    driver->setRenderTarget(depthFBO);
-    driver->clearZBuffer(1.0f);
-#endif
-
     COpenGLDriver* driverOGL = dynamic_cast<COpenGLDriver*>(driver);
     IQueryObject* query = driver->createElapsedTimeQuery();
 
-    constexpr uint32_t iterationCnt = 10000u;
+    constexpr uint32_t iterationCnt = 1u;
     for (uint32_t caseID = 0u; caseID < 4u; caseID++)
     {
         os::Printer::print(std::string("Benchmark for case nr. " + std::to_string(caseID)));
@@ -601,6 +596,7 @@ int main()
 
 #ifndef _IRR_DEBUG
         driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
+        driver->setRenderTarget(depthFBO);
         driver->clearZBuffer(1.0f);
 #endif
 
@@ -623,8 +619,9 @@ int main()
             driver->endScene();
 #endif
         }
-        driver->endQuery(query);
         glFlush();
+        driver->endQuery(query);
+        driver->setRenderTarget(nullptr);
 
         uint32_t timeElapsed = 0u;
         query->getQueryResult(&timeElapsed);
