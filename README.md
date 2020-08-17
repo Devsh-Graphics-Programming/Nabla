@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**IrrlichtBAW** is a new renovated version of older **[Irrlicht](http://irrlicht.sourceforge.net/)** engine. The project currently aims for a thread-able and *Vulkan*-centered API, but currently works on *OpenGL* only. This framework has been kindly begun by the founder ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** of Devsh Graphics Programming Sp. z O.O. and almost entirely sponsored by **Build A World Aps**. in it's early days, and now picked up by the **[Ditt](https://www.ditt.nl/)** company. The `stable-ish` branch is used in production releases of **[Build A World EDU](https://edu.buildaworld.net/)**, since 2015. The framework has been used both for game development and ArchViz.
+**IrrlichtBAW** is a new renovated version of older **[Irrlicht](http://irrlicht.sourceforge.net/)** engine. The project currently aims for a thread-able and *Vulkan*-centered API, but currently works on *OpenGL* only. This framework has been kindly begun by the founder ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** of **[Devsh Graphics Programming Sp. z O.O.](http://devsh.eu/)**  and almost entirely sponsored by **Build A World Aps**. in it's early days, and now picked up by the **[Ditt](https://www.ditt.nl/)** company. The `stable-ish` branch is used in production releases of **[Build A World EDU](https://edu.buildaworld.net/)**, since 2015. The framework has been used both for game development and ArchViz.
 
 ## Contracting
 
@@ -12,83 +12,45 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 ## Showcase
 
-### Screen Shots
+### Videos
 
-<u>**BRDF Explorer**</u>
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/BRDF%20Explorer.png?raw=true)
-
-<u>**Many light raytracing**</u>
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Many%20light%20raytracing.png?raw=true)
-
-<u>**Many light raytracing**</u>
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Many%20light%20raytracing%202.png?raw=true)
-
-**<u>Cylindrical light source</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Cylindrical%20light%20source.png?raw=true)
-
-**<u>Two area lights</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Two%20area%20lights.png?raw=true)
-
-**<u>.OBJ Loader with MTL pipeline integration</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/.OBJ%20Loader%20with%20MTL%20pipeline%20integration.png?raw=true)
-
-**<u>Over 10 area lights</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Over%2010%20area%20lights.png?raw=true)
-
-**<u>Raytracing sample</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample.png?raw=true)
-
-**<u>Raytracing sample</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%202.png?raw=true)
-
-**<u>Light emitters</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Light%20emitters.png?raw=true)
-
-**<u>Raytracing sample</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%203.png?raw=true)
-
-**<u>1 Megapixel, 1 Million Samples</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/1%20Megapixel,%201%20Million%20Samples.png?raw=true)
+#### [Multiple Importance Sampling and Depth of Field](https://www.youtube.com/watch?v=BuyVlQPV7Ks)
 
 
 
-### Gifs - [Raytracing flythrough](https://www.youtube.com/watch?v=bwVVoAsRjHI)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%202.gif?raw=true)
 
 
 
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%201.gif?raw=true)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%203.gif?raw=true)
 
 
 
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%202.gif?raw=true)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%205.gif?raw=true)
 
 
 
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%203.gif?raw=true)
+### [Delta BRDF Test](https://www.youtube.com/watch?v=jIJWG0eaxU8)
 
 
 
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%204.gif?raw=true)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Delta%20BRDF%20Test%201.gif?raw=true)
 
 
 
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%205.gif?raw=true)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Delta%20BRDF%20Test%202.gif?raw=true)
 
 
 
-### Gifs - [Raytracing With Optix AI Denoising [Albedo and Normals]](https://www.youtube.com/watch?v=VFad-Y-dSxQ&feature=youtu.be)
+### Tonemapping with AutoExposure and Temporal Adaptation
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/65504ccfd2de1a8682a1e948603a35e3c0a02996/site_media/readme/gifs/autoexposure/exposure.gif?raw=true)
+
+
+
+### [Raytracing With Optix AI Denoising [Albedo and Normals]](https://www.youtube.com/watch?v=VFad-Y-dSxQ&feature=youtu.be)
 
 
 
@@ -115,10 +77,74 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 ![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%207.gif?raw=true)
 
 
+### [Raytracing flythrough](https://www.youtube.com/watch?v=bwVVoAsRjHI)
 
-### Gifs - Tonemapping with AutoExposure and Temporal Adaptation
 
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/65504ccfd2de1a8682a1e948603a35e3c0a02996/site_media/readme/gifs/autoexposure/exposure.gif?raw=true)
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%201.gif?raw=true)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%202.gif?raw=true)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%203.gif?raw=true)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%204.gif?raw=true)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%205.gif?raw=true)
+
+
+
+### Screenshots
+
+### Screen Shots
+
+##### <u>Pseudo Spectral rendering</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/spectral%20renderering.png?raw=true)
+
+##### <u>Thindielectric</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/thindielectric.png?raw=true)
+
+##### <u>Over 10 area lights</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Over%2010%20area%20lights.png?raw=true)
+
+##### <u>Raytracing sample</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample.png?raw=true)
+
+##### <u>Raytracing sample</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%202.png?raw=true)
+
+##### <u>1 Megapixel, 1 Million Samples</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/1%20Megapixel,%201%20Million%20Samples.png?raw=true)
+
+##### <u>Raytracing sample</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%203.png?raw=true)
+
+##### <u>BRDF Explorer</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/BRDF%20Explorer.png?raw=true)
+
+##### <u>.OBJ Loader with MTL pipeline integration</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/.OBJ%20Loader%20with%20MTL%20pipeline%20integration.png?raw=true)
+
+##### <u>Different Shape Area Light emitters</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Light%20emitters.png?raw=true)
+
 
 ## Main Features
 
@@ -262,7 +288,7 @@ Unfortunately on Windows there are often troubles with **Python 3.0+** versions,
 
 - The paragraph concerns *Visual Studio* only
 
-Make sure you have installed the latest version of *Visual Studio* and *CMake*. Within older versions sometimes there may occour that *Visual Studio* outputs an error associated with compiler heap space. If you don't get any error, just skip the point. It's because having *x64* project opened the solution still uses *32 bit compiler exe* and cannot allocate **more than 4G of memory**, therefore **IrrlichtBAW** is unbuildable. Furthermore *Visual Studio* doesn't provide any option to change that. Because of that you have to manually modify **.vcxproj xml** and add `x64` to `PropertyGroup` nodes. Pay attention that *CMake* generates a standard `PropertyGroup` node, but it isn't enough, because you need to put it into the target where building type is directly specified. It should look for instance as following:
+Make sure you have installed the latest version of *Visual Studio* and *CMake*. Within older versions sometimes there may occur that *Visual Studio* outputs an error associated with compiler heap space. If you don't get any error, just skip the point. It's because having *x64* project opened the solution still uses *32 bit compiler exe* and cannot allocate **more than 4G of memory**, therefore **IrrlichtBAW** is unbuildable. Furthermore *Visual Studio* doesn't provide any option to change that. Because of that you have to manually modify **.vcxproj xml** and add `x64` to `PropertyGroup` nodes. Pay attention that *CMake* generates a standard `PropertyGroup` node, but it isn't enough, because you need to put it into the target where building type is directly specified. It should look for instance as following:
 
 ```xml
 <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">

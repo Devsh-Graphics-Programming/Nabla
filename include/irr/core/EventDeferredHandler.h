@@ -60,7 +60,7 @@ class PolymorphicEvent : public core::Uncopyable
             {
                 uint64_t nanosecondsLeft = 0ull;
                 if (currentClockTime<timeout_time)
-                    nanosecondsLeft = std::chrono::duration_cast<std::chrono::nanoseconds>(currentClockTime-timeout_time).count();
+                    nanosecondsLeft = std::chrono::duration_cast<std::chrono::nanoseconds>(timeout_time-currentClockTime).count();
                 switch (wait_for(nanosecondsLeft))
                 {
                     case Fail:
@@ -179,9 +179,10 @@ class DeferredEventHandlerST
         template<class Clock, class Duration, typename... Args>
         inline uint32_t waitUntilForReadyEvents(const std::chrono::time_point<Clock, Duration>& timeout_time, Args&... args)
         {
+            // keep on iterating until there are no events left, we time out or functor tells us we can quit early
             while (mEventsCount)
             {
-                // iterate to poll
+                // iterate to poll, from oldest to newest (oldest event most likely to signal first)
                 auto prev = mEvents.before_begin();
                 for (auto it = mEvents.begin(); it!=mEvents.end();)
                 {
@@ -190,6 +191,7 @@ class DeferredEventHandlerST
                     bool canWait = timeout_time>currentTime;
                     if (canWait)
                     {
+                        // want to give each event equal wait time, so interpolate (albeit weirdly)
                         std::chrono::time_point<Clock> singleWaitTimePt((currentTime.time_since_epoch()*(mEventsCount-1u)+timeout_time.time_since_epoch())/mEventsCount);
                         success = it->m_event.wait_until(singleWaitTimePt);
                     }

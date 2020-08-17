@@ -1,0 +1,17 @@
+#version 440
+struct DrawIndirectArrays_t
+{
+    uint  count;
+    uint  instanceCount;
+    uint  first;
+    uint  baseInstance;
+};
+layout(set = 0, binding = 0) coherent buffer LineCount
+{
+    DrawIndirectArrays_t lineDraw;
+};
+
+void main()
+{
+	lineDraw.count = min(11184810,lineDraw.count);
+}
