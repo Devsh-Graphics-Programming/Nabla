@@ -632,6 +632,7 @@ int main()
 
             uint32_t timeElapsed = 0u;
             query->getQueryResult(&timeElapsed);
+            query->drop();
 
             os::Printer::print(std::string("Result ") + std::to_string(j) + std::string(": ") + std::to_string(static_cast<double>(timeElapsed) / 1000000.0) + std::string("ms."));
             avg += static_cast<double>(timeElapsed) / 1000000.0;
