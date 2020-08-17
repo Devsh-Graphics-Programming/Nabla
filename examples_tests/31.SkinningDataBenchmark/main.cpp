@@ -288,7 +288,6 @@ int main()
         size_t offset = 0u; 
         size_t maxCount = 0u;
         size_t stride = 0u;
-        core::smart_refctd_ptr<IGPUBuffer> countBuffer = nullptr;
         size_t countOffset = 0u;
     };
 
@@ -585,7 +584,7 @@ int main()
     COpenGLDriver* driverOGL = dynamic_cast<COpenGLDriver*>(driver);
     IQueryObject* query = driver->createElapsedTimeQuery();
 
-    constexpr uint32_t iterationCnt = 1u;
+    constexpr uint32_t iterationCnt = 10000u;
     for (uint32_t caseID = 0u; caseID < 4u; caseID++)
     {
         os::Printer::print(std::string("Benchmark for case nr. " + std::to_string(caseID)));
@@ -630,6 +629,7 @@ int main()
     }
 
 #ifndef _IRR_DEBUG
+    os::Printer::print(std::string("Type Something to Exit:"));
     std::cin.get();
 #endif
     return 0;
