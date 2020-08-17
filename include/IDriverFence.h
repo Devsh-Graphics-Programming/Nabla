@@ -87,7 +87,7 @@ class GPUEventWrapper : public core::Uncopyable
             {
                 uint64_t nanosecondsLeft = 0ull;
                 if (currentClockTime<timeout_time)
-                    nanosecondsLeft = std::chrono::duration_cast<std::chrono::nanoseconds>(currentClockTime-timeout_time).count();
+                    nanosecondsLeft = std::chrono::duration_cast<std::chrono::nanoseconds>(timeout_time-currentClockTime).count();
                 switch (mFence->waitCPU(nanosecondsLeft))
                 {
                     case EDFR_FAIL:
