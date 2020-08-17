@@ -51,8 +51,7 @@ static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAsse
 
 static const uint32_t WORD_BUFFER_LENGTH = 512;
 
-constexpr const char* DUMMY_PIPELINE_UV_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/obj/dummy_uv";
-constexpr const char* DUMMY_PIPELINE_NO_UV_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/obj/dummy_no_uv";
+constexpr const char* DEFAULT_MTL_PIPELINE_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mtl/default_uv";
 
 constexpr uint32_t POSITION = 0u;
 constexpr uint32_t UV = 2u;
@@ -75,33 +74,33 @@ COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager* _manager) : AssetManager(_
 	vtxParams.attributes[NORMAL].binding = BND_NUM;
 	vtxParams.attributes[NORMAL].format = EF_A2B10G10R10_SNORM_PACK32;
 	vtxParams.attributes[NORMAL].relativeOffset = offsetof(SObjVertex, normal32bit);
-
-	//creating dummy pipelines (i.e. without layout and shaders and all params default except vertex input)
-	//for when there's no material for meshbuffer
-	//2 variations: with and without UV attribute
-	auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
-		nullptr, nullptr, nullptr,
-		vtxParams,
-		SBlendParams(),
-		SPrimitiveAssemblyParams(),
-		SRasterizationParams()
-	);
-	insertPipelineIntoCache(std::move(pipeline), DUMMY_PIPELINE_NO_UV_CACHE_KEY, AssetManager);
-
 	//uv
     vtxParams.enabledAttribFlags |= (1u << UV);
     vtxParams.attributes[UV].binding = BND_NUM;
     vtxParams.attributes[UV].format = EF_R32G32_SFLOAT;
     vtxParams.attributes[UV].relativeOffset = offsetof(SObjVertex, uv);
+	ICPUDescriptorSetLayout ds1layout();
+	
+	auto layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr,nullptr,nullptr,
+		//const SPushConstantRange* const _pcRangesBegin = nullptr, const SPushConstantRange* const _pcRangesEnd = nullptr,
+		//core::smart_refctd_ptr<DescLayoutType> && _layout0 = nullptr, core::smart_refctd_ptr<DescLayoutType> && _layout1 = nullptr,
+		//core::smart_refctd_ptr<DescLayoutType> && _layout2 = nullptr, core::smart_refctd_ptr<DescLayoutType> && _layout3 = nullptr
+		);
 
-	pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
-		nullptr, nullptr, nullptr,
+	//default shaders
+	auto fs = AssetManager->getFileSystem();
+	ICPUSpecializedShader* shaders[2];
+	shaders[0] = core::make_smart_refctd_ptr<ICPUSpecializedShader>(core::make_smart_refctd_ptr<ICPUShader>(fs->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/shaders/loaders/mtl/vertex_uv.vert")>()), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_VERTEX)).get();
+		shaders[1] = core::make_smart_refctd_ptr<ICPUSpecializedShader>( core::make_smart_refctd_ptr<ICPUShader>( fs->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/shaders/loaders/mtl/fragment_uv.frag")>()), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_FRAGMENT)).get();
+
+	auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
+		std::move(layout), nullptr,nullptr,
 		vtxParams,
 		SBlendParams(),
 		SPrimitiveAssemblyParams(),
 		SRasterizationParams()
 		);
-	insertPipelineIntoCache(std::move(pipeline), DUMMY_PIPELINE_UV_CACHE_KEY, AssetManager);
+	insertPipelineIntoCache(std::move(pipeline), DEFAULT_MTL_PIPELINE_CACHE_KEY, AssetManager);
 }
 
 
@@ -458,10 +457,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			//if there's no pipeline for this meshbuffer, set dummy one
 			if (!submeshes[i]->getPipeline())
 			{
-				auto pipeline = getDefaultAsset<ICPURenderpassIndependentPipeline, IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE>(
-					hasUV ? DUMMY_PIPELINE_UV_CACHE_KEY : DUMMY_PIPELINE_NO_UV_CACHE_KEY,
-					AssetManager
-				);
+				auto pipeline = getDefaultAsset<ICPURenderpassIndependentPipeline, IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE>(DEFAULT_MTL_PIPELINE_CACHE_KEY, AssetManager);
 				submeshes[i]->setPipeline(std::move(pipeline));
 			}
         }
