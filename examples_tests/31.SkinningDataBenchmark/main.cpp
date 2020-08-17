@@ -584,9 +584,9 @@ int main()
 #endif
 
     COpenGLDriver* driverOGL = dynamic_cast<COpenGLDriver*>(driver);
-    IQueryObject* query = driver->createElapsedTimeQuery();
 
     constexpr uint32_t iterationCnt = 10000u;
+    constexpr uint32_t warmupIterationCnt = iterationCnt / 10u;
     for (uint32_t caseID = 0u; caseID < 4u; caseID++)
     {
         os::Printer::print(std::string("Benchmark for case nr. " + std::to_string(caseID)));
@@ -599,37 +599,48 @@ int main()
         driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
         driver->setRenderTarget(depthFBO);
         driver->clearZBuffer(1.0f);
-#endif
 
-        driver->beginQuery(query);
-        for (uint32_t i = 0u; i < iterationCnt && exitCondition(); i++)
-        {
-#ifdef _IRR_DEBUG
-            driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
-            timeMS = std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count();
-
-            camera->OnAnimate(timeMS);
-            camera->render();
-
-            constructMatrices();
-
-            updateSSBO(caseID);
-#endif
+        for (uint32_t i = 0u; i < warmupIterationCnt; i++)
             driver->drawIndexedIndirect(mdi.vtxBindings, mdi.mode, mdi.indexType, mdi.indexBuff.get(), mdi.indirectDrawBuff.get(), mdi.offset, mdi.maxCount, mdi.stride);
-#ifdef _IRR_DEBUG
-            driver->endScene();
 #endif
+        float avg = 0.0f;
+        for (uint32_t j = 0u; j < 5u && exitCondition(); j++)
+        {
+            IQueryObject* query = driver->createElapsedTimeQuery();
+            driver->beginQuery(query);
+            for (uint32_t i = 0u; i < iterationCnt && exitCondition(); i++)
+            {
+#ifdef _IRR_DEBUG
+                driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
+                timeMS = std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count();
+
+                camera->OnAnimate(timeMS);
+                camera->render();
+
+                constructMatrices();
+
+                updateSSBO(caseID);
+#endif
+                driver->drawIndexedIndirect(mdi.vtxBindings, mdi.mode, mdi.indexType, mdi.indexBuff.get(), mdi.indirectDrawBuff.get(), mdi.offset, mdi.maxCount, mdi.stride);
+#ifdef _IRR_DEBUG
+                driver->endScene();
+#endif
+            }
+            glFlush();
+            driver->endQuery(query);
+            driver->setRenderTarget(nullptr);
+
+            uint32_t timeElapsed = 0u;
+            query->getQueryResult(&timeElapsed);
+
+            os::Printer::print(std::string("Result ") + std::to_string(j) + std::string(": ") + std::to_string(static_cast<double>(timeElapsed) / 1000000.0) + std::string("ms."));
+            avg += static_cast<double>(timeElapsed) / 1000000.0;
+
+            if (j == 4)
+                os::Printer::print(std::string("Avg time: ") + std::to_string(avg / 5.0f) + std::string("\n"));
         }
-        glFlush();
-        driver->endQuery(query);
-        driver->setRenderTarget(nullptr);
 
-        uint32_t timeElapsed = 0u;
-        query->getQueryResult(&timeElapsed);
-
-        os::Printer::print(std::string("Result: ") + std::to_string(static_cast<double>(timeElapsed) / 1000000.0) + std::string("ms."));
     }
-
 #ifndef _IRR_DEBUG
     os::Printer::print(std::string("Type Something to Exit:"));
     std::cin.get();
