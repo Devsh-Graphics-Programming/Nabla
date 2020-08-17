@@ -1,5 +1,3 @@
-#version 430 core
-
 #include <irr/builtin/glsl/virtual_texturing/extensions.glsl>
 
 layout (location = 0) in vec3 WorldPos;
@@ -11,11 +9,13 @@ layout (location = 0) out vec4 OutColor;
 
 #define instr_t uvec2
 #define reg_t uint
+#define params_t mat3x3
+#define bxdf_eval_t vec3
 #define REG_COUNT 72 //TODO this must be decided by backend
 //TODO insert here other control #defines as well
 
 //in 16-byte/uvec4 units
-//layout (constant_id = 0) const uint sizeof_bsdf_data = 3;
+//layout (constant_id = 0) const uint sizeof_bsdf_data = 4;
 #define sizeof_bsdf_data 4
 
 struct bsdf_data_t
@@ -144,14 +144,15 @@ vec3 decodeRGB19E7(in uvec2 x)
 #define INSTR_NDF_MASK 0x3u
 #define INSTR_ALPHA_U_TEX_SHIFT 4
 #define INSTR_ALPHA_V_TEX_SHIFT 7
-#define INSTR_REFL_TEX_SHIFT 9
+#define INSTR_REFL_TEX_SHIFT 7
 #define INSTR_TRANS_TEX_SHIFT 4
-#define INSTR_SIGMA_A_TEX_SHIFT 8
+#define INSTR_SIGMA_A_TEX_SHIFT 7
 #define INSTR_WEIGHT_TEX_SHIFT 4
 #define INSTR_TWOSIDED_SHIFT 10
 #define INSTR_MASKFLAG_SHIFT 11
 #define INSTR_OPACITY_TEX_SHIFT 12
 #define INSTR_1ST_PARAM_TEX_SHIFT 4
+#define INSTR_2ND_PARAM_TEX_SHIFT 7
 
 #define INSTR_NORMAL_ID_SHIFT 56u
 #define INSTR_NORMAL_ID_MASK  0xffu
@@ -172,26 +173,45 @@ uint instr_getNDF(in instr_t instr)
 {
 	return (instr.x>>INSTR_NDF_SHIFT) & INSTR_NDF_MASK;
 }
+
+bool instr_get1stParamTexPresence(in instr_t instr)
+{
+	return (instr.x&(1u<<INSTR_1ST_PARAM_TEX_SHIFT)) != 0u;
+}
+bool instr_get2ndParamTexPresence(in instr_t instr)
+{
+	return (instr.x&(1u<<INSTR_2ND_PARAM_TEX_SHIFT)) != 0u;
+}
+
 bool instr_getAlphaUTexPresence(in instr_t instr)
 {
-	return (instr.x&(1u<<INSTR_ALPHA_U_TEX_SHIFT)) != 0u;
+	return instr_get1stParamTexPresence(instr);
 }
 bool instr_getAlphaVTexPresence(in instr_t instr)
 {
-	return (instr.x&(1u<<INSTR_ALPHA_V_TEX_SHIFT)) != 0u;
+	return instr_get2ndParamTexPresence(instr);
 }
 bool instr_getReflectanceTexPresence(in instr_t instr)
 {
-	return (instr.x&(1u<<INSTR_REFL_TEX_SHIFT)) != 0u;
+	return instr_get2ndParamTexPresence(instr);
 }
 bool instr_getSigmaATexPresence(in instr_t instr)
 {
-	return (instr.x&(1u<<INSTR_SIGMA_A_TEX_SHIFT)) != 0u;
+	return instr_get2ndParamTexPresence(instr);
+}
+bool instr_getTransmittanceTexPresence(in instr_t instr)
+{
+	return instr_get1stParamTexPresence(instr);
 }
 bool instr_getWeightTexPresence(in instr_t instr)
 {
-	return (instr.x&(1u<<INSTR_WEIGHT_TEX_SHIFT)) != 0u;
+	return instr_get1stParamTexPresence(instr);
 }
+bool instr_getOpacityTexPresence(in instr_t instr)
+{
+	return (instr.x&(1u<<INSTR_OPACITY_TEX_SHIFT)) != 0u;
+}
+
 bool instr_getTwosided(in instr_t instr)
 {
 	return (instr.x&(1u<<INSTR_TWOSIDED_SHIFT)) != 0u;
@@ -199,18 +219,6 @@ bool instr_getTwosided(in instr_t instr)
 bool instr_getMaskFlag(in instr_t instr)
 {
 	return (instr.x&(1u<<INSTR_MASKFLAG_SHIFT)) != 0u;
-}
-bool instr_getOpacityTexPresence(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_OPACITY_TEX_SHIFT)) != 0u;
-}
-bool instr_getTransmittanceTexPresence(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_TRANS_TEX_SHIFT)) != 0u;
-}
-bool instr_get1stParamTexPresence(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_1ST_PARAM_TEX_SHIFT)) != 0u;
 }
 
 #define INSTR_REG_DST_SHIFT 32
@@ -252,18 +260,30 @@ bsdf_data_t fetchBSDFDataForInstr(in instr_t instr)
 #define OP_INVALID			9u
 #define OP_NOOP				10u
 
+bool op_isBRDF(in uint op)
+{
+	return op<=OP_MAX_BRDF;
+}
+bool op_isBSDF(in uint op)
+{
+	return !op_isBRDF(op) && op<=OP_MAX_BSDF;
+}
+bool op_hasSpecular(in uint op)
+{
+	return op_isBSDF(op) && op!=OP_DIFFUSE && op!=OP_DIFFTRANS;
+}
+
 #define NDF_BECKMANN	0u
 #define NDF_GGX			1u
 #define NDF_PHONG		2u
 #define NDF_AS			3u
 
 #include <irr/builtin/glsl/bxdf/common.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/fresnel/fresnel.glsl>
+#include <irr/builtin/glsl/bxdf/fresnel.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/fresnel_correction.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ndf/ggx.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/ashikhmin_shirley.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/beckmann_smith.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl>
@@ -290,6 +310,25 @@ float textureOrRconst(in uvec3 data, in bool texPresenceFlag)
 		uintBitsToFloat(registers[data.z]) :
 #endif
 		uintBitsToFloat(data.x);
+}
+
+bvec3 instr_getTexPresence(in instr_t i)
+{
+	return bvec3 p(
+		instr_get1stParamTexPresence(instr),
+		instr_get2ndParamTexPresence(instr),
+		instr_getOpacityTexPresence(instr)
+	);
+}
+params_t instr_getParameters(in instr_t i, in bsdf_data_t data)
+{
+	params_t p;
+	bvec3 presence = instr_getTexPresence(i);
+	p[0] = textureOrRGBconst(data.data[0].xyz, presence.x);
+	p[1] = textureOrRGBconst(uvec3(data.data[0].w,data.data[1].xy), presence.y);
+	p[2] = textureOrRGBconst(uvec3(data.data[1].zw,data.data[2].x), presence.z);
+
+	return p;
 }
 
 void writeReg(uint n, float v)
@@ -322,114 +361,115 @@ void setCurrBSDFParams(in vec3 n, in vec3 L)
 	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(isoparams, currInteraction);
 }
 
-float getAlpha(in bsdf_data_t data, in bool texPresence)
+float getAlpha(in params_t p)
 {
-	return textureOrRconst(data.data[0].xyz, texPresence);
+	return p[0].x;
 }
-vec3 getReflectance(in bsdf_data_t data, in bool texPresence)
+vec3 getReflectance(in params_t p)
 {
-	return textureOrRGBconst(uvec3(data.data[0].w,data.data[1].xy), texPresence);
+	return p[1];
 }
-vec3 getOpacity(in bsdf_data_t data, in bool texPresence)
+vec3 getOpacity(in params_t p)
 {
-	return textureOrRGBconst(uvec3(data.data[1].zw,data.data[2].x), texPresence);
+	return p[2];
 }
-float getAlphaV(in bsdf_data_t data, in bool texPresence)
+float getAlphaV(in params_t p)
 {
-	return textureOrRconst(uvec3(data.data[0].w,data.data[1].xy), texPresence);
+	return p[1].x;
 }
-vec3 getSigmaA(in bsdf_data_t data, in bool texPresence)
+vec3 getSigmaA(in params_t p)
 {
 	return getReflectance(data,texPresence);
 }
-float getBlendWeight(in bsdf_data_t data, in bool texPresence)
+float getBlendWeight(in params_t p)
 {
 	return getAlpha(data,texPresence);
 }
-vec3 getTransmittance(in bsdf_data_t data, in bool texPresence)
+vec3 getTransmittance(in params_t p)
 {
-	return textureOrRGBconst(data.data[0].xyz, texPresence);
+	return p[0];
 }
 
 
 #ifdef OP_DIFFUSE
-void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in bsdf_data_t data)
+void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
-		vec3 refl = getReflectance(data, instr_getReflectanceTexPresence(instr));
-		//float a = getAlpha(data, instr_getAlphaUTexPresence(instr));
-		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic,currInteraction.isotropic) * refl;
-		registers[REG_DST(regs)] = diffuse;
+		vec3 refl = getReflectance(params);
+		float a = getAlpha(params);
+		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic,currInteraction.isotropic,a*a) * refl;
+		writeReg(REG_DST(regs), diffuse);
 	}
-	else registers[REG_DST(regs)] = reg_t(0.0);
+	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
 #endif
 #ifdef OP_DIFFTRANS
-void instr_execute_DIFFTRANS(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
+void instr_execute_DIFFTRANS(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
-	vec3 tr = getTransmittance(data, instr_getTransmittanceTexPresence(instr));
-	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
+	vec3 tr = getTransmittance(params);
+	writeReg(REG_DST(regs), bxdf_eval_t(1.0,0.0,0.0));
 }
 #endif
 #ifdef OP_DIELECTRIC
-void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in bsdf_data_t data)
+void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
-		//float au = getAlpha(data, instr_getAlphaUTexPresence(instr));
-		//float av = getAlphaV(data, instr_getAlphaVTexPresence(instr));
+		//float au = getAlpha(params);
+		//float av = getAlphaV(params);
 		vec3 eta = vec3(uintBitsToFloat(data.data[2].y));
 		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic,currInteraction.isotropic) * vec3(0.89);
 		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
-		registers[REG_DST(regs)] = diffuse;
+		writeReg(REG_DST(regs), diffuse);
 	}
-	else registers[REG_DST(regs)] = vec3(0.0);
+	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
 #endif
 #ifdef OP_CONDUCTOR
-void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV, in float DG, in bsdf_data_t data)
+void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
-		//float au = getAlpha(data, instr_getAlphaUTexPresence(instr));
-		//float av = getAlphaV(data, instr_getAlphaVTexPresence(instr));
-		mat2x3 eta2;
-		eta2[0] = decodeRGB19E7(data.data[2].yz); eta2[0]*=eta2[0];
-		eta2[1] = decodeRGB19E7(uvec2(data.data[2].w,data.data[3].x)); eta2[1]*=eta2[1];
-		vec3 fr = irr_glsl_fresnel_conductor(eta2[0],eta2[1],currBSDFParams.isotropic.VdotH);
-		registers[REG_DST(regs)] = DG*fr;
+		//float au = getAlpha(params);
+		//float av = getAlphaV(params);
+		mat2x3 eta;
+		eta[0] = decodeRGB19E7(data.data[2].yz);
+		eta[1] = decodeRGB19E7(uvec2(data.data[2].w,data.data[3].x));
+		vec3 fr = irr_glsl_fresnel_conductor(eta[0],eta[1],currBSDFParams.isotropic.VdotH);
+		writeReg(REG_DST(regs), DG*fr);
 	}
-	else registers[REG_DST(regs)] = reg_t(0.0);
+	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
 #endif
 #ifdef OP_PLASTIC
-void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in float DG, in bsdf_data_t data)
+void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
 		vec3 eta = vec3(uintBitsToFloat(data.data[2].y));
 		vec3 eta2 = eta*eta;
-		vec3 refl = getReflectance(data, instr_getReflectanceTexPresence(instr));
-		//float a = getAlpha(data, instr_getAlphaUTexPresence(instr));
+		vec3 refl = getReflectance(params);
+		float a2 = getAlpha(params);
+		a2*=a2;
 
 		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic, currInteraction.isotropic, a2) * refl;
 		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta2) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
 		vec3 fr = irr_glsl_fresnel_dielectric(eta,currBSDFParams.isotropic.VdotH);
 		vec3 specular = DG*fr;
 
-		registers[REG_DST(regs)] = specular + diffuse;
+		writeReg(REG_DST(regs), specular+diffuse);
 	}
-	else registers[REG_DST(regs)] = reg_t(0.0);
+	writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
 #endif
 #ifdef OP_COATING
-void instr_execute_COATING(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 scale, in bsdf_data_t data)
+void instr_execute_COATING(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	//vec2 thickness_eta = unpackHalf2x16(data.data[2].y);
-	//vec3 sigmaA = getSigmaA(data, instr_getSigmaATexPresence(instr));
-	//float a = getAlpha(data, instr_getAlphaUTexPresence(instr));
-	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
+	//vec3 sigmaA = getSigmaA(params);
+	//float a = getAlpha(params);
+	writeReg(REG_DST(regs), bxdf_eval_t(1.0,0.0,0.0));
 }
 #endif
 #ifdef OP_BUMPMAP
@@ -447,12 +487,14 @@ void instr_execute_SET_GEOM_NORMAL(in vec3 L)
 }
 #endif
 #ifdef OP_BLEND
-void instr_execute_BLEND(in instr_t instr, in uvec3 regs, in bsdf_data_t data)
+void instr_execute_BLEND(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
-	bool weightTexPresent = instr_getWeightTexPresence(instr);
-	float w = textureOrRconst(data.data[0].zw, weightTexPresent);
+	float w = getBlendWeight(params);
+	bxdf_eval_t bxdf1 = readReg3(REG_SRC1(regs));
+	bxdf_eval_t bxdf2 = readReg3(REG_SRC2(regs));
 
-	registers[REG_DST(regs)] = mix(registers[REG_SRC1(regs)], registers[REG_SRC2(regs)], w);
+	bxdf_eval_t blend = mix(bxdf1, bxdf2, w);
+	writeReg(REG_DST(regs), blend);
 }
 #endif
 
@@ -548,3 +590,70 @@ void runNormalPrecompStream(in uvec2 stream, in mat2 dUV)
 	}
 }
 #endif
+
+void runEvalStream(in uvec2 stream, in vec3 L)
+{
+	for (uint i = 0u; i < stream.y; ++i)
+	{
+		instr_t instr = instr_buf.data[stream.x+i];
+		uint op = instr_getOpcode(instr);
+
+		//speculative execution
+		bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
+		params_t params = instr_getParameters(instr);
+		float bxdf_eval_scalar_part;
+		uint ndf = instr_getNDF(instr);
+		float a = getAlpha(params);
+		float a2 = a*a;
+		float ay = getAlphaV(params);
+		float ay2 = ay*ay;
+
+		if (op_hasSpecular(op))
+		{
+			if (ndf==NDF_GGX) {
+				bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, a2);
+			}
+			else if (ndf==NDF_BECKMANN) {
+				bxdf_eval_scalar_part = irr_glsl_beckmann_smith_height_correlated_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, a2);
+			}
+			else if (ndf==NDF_PHONG) {
+				float n = irr_glsl_alpha2_to_phong_exp(a2);
+				bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, n, a2);
+			}
+			else if (ndf==NDF_AS) {
+				float nx = irr_glsl_alpha2_to_phong_exp(a2);
+				float ny = irr_glsl_alpha2_to_phong_exp(ay2);
+				bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(currBSDFParams, currInteraction, nx, ny, a2, ay2);
+			}
+		}
+
+		uvec3 regs = instr_decodeRegisters(instr);
+		if (op==OP_DIFFUSE) {
+			instr_execute_DIFFUSE(instr, regs, params, bsdf_data);
+		}
+		else if (op==OP_CONDUCTOR) {
+			instr_execute_CONDUCTOR(instr, regs, bxdf_eval_scalar_part, params, bsdf_data);
+		}
+		else if (op==OP_PLASTIC) {
+			instr_execute_PLASTIC(instr, regs, bxdf_eval_scalar_part, params, bsdf_data);
+		}
+		else if (op==OP_COATING) {
+			instr_execute_COATING(instr, regs, params, bsdf_data);
+		}
+		else if (op==OP_DIFFTRANS) {
+			instr_execute_DIFFTRANS(instr, regs, params, bsdf_data);
+		}
+		else if (op==OP_DIELECTRIC) {
+			instr_execute_DIELECTRIC(instr, regs, params, bsdf_data);
+		}
+		else if (op==OP_BLEND) {
+			instr_execute_BLEND(instr, regs, params, bsdf_data);
+		}
+		else if (op==OP_BUMPMAP) {
+			instr_execute_BUMPMAP(instr, L);
+		}
+		else if (op==OP_SET_GEOM_NORMAL) {
+			instr_execute_SET_GEOM_NORMAL(L);
+		}
+	}
+}

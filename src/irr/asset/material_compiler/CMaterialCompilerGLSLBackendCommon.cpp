@@ -320,10 +320,12 @@ namespace instr_stream
 				NDF_PHONG
 			};
 
-			auto handleSpecularBitfields = [&ndfMap](instr_t dst, const IR::CMicrofacetSpecularBSDFNode* node) -> instr_t
+			auto handleSpecularBitfields = [&ndfMap](instr_t dst, const IR::CMicrofacetSpecularBSDFNode* node, bool _writeAlphaV) -> instr_t
 			{
+				assert(_writeAlphaV == (ndfMap[node->ndf] == NDF_AS));
+
 				dst = core::bitfieldInsert<instr_t>(dst, ndfMap[node->ndf], BITFIELDS_SHIFT_NDF, BITFIELDS_WIDTH_NDF);
-				if (ndfMap[node->ndf] == NDF_AS && node->alpha_v.source == IR::INode::EPS_TEXTURE)
+				if (_writeAlphaV && ndfMap[node->ndf] == NDF_AS && node->alpha_v.source == IR::INode::EPS_TEXTURE)
 					dst = core::bitfieldInsert<instr_t>(dst, 1u, BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
 				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
 					dst = core::bitfieldInsert<instr_t>(dst, 1u, BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
@@ -354,13 +356,13 @@ namespace instr_stream
 				assert(refl->alpha_u == trans->alpha_u);
 				assert(refl->alpha_v == trans->alpha_v);
 
-				_instr = handleSpecularBitfields(_instr, refl);
+				_instr = handleSpecularBitfields(_instr, refl, true);
 			}
 			break;
 			case OP_CONDUCTOR:
 			{
 				auto* node = static_cast<const IR::CMicrofacetSpecularBSDFNode*>(_node);
-				_instr = handleSpecularBitfields(_instr, node);
+				_instr = handleSpecularBitfields(_instr, node, true);
 			}
 			break;
 			case OP_PLASTIC:
@@ -373,7 +375,7 @@ namespace instr_stream
 				if (diffuse->type == IR::CBSDFNode::ET_MICROFACET_SPECULAR)
 					std::swap(diffuse, specular);
 
-				_instr = handleSpecularBitfields(_instr, static_cast<const IR::CMicrofacetSpecularBSDFNode*>(specular));
+				_instr = handleSpecularBitfields(_instr, static_cast<const IR::CMicrofacetSpecularBSDFNode*>(specular), false);
 				if (static_cast<const IR::CMicrofacetDiffuseBSDFNode*>(diffuse)->reflectance.source == IR::INode::EPS_TEXTURE)
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, BITFIELDS_SHIFT_REFL_TEX, 1);
 			}
@@ -382,7 +384,7 @@ namespace instr_stream
 			{
 				auto* coat = static_cast<const IR::CCoatingBSDFNode*>(_node);
 
-				_instr = handleSpecularBitfields(_instr, coat);
+				_instr = handleSpecularBitfields(_instr, coat, false);
 				if (coat->sigmaA.source == IR::INode::EPS_TEXTURE)
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, BITFIELDS_SHIFT_SIGMA_A_TEX, 1);
 			}
@@ -1091,8 +1093,13 @@ core::unordered_map<uint32_t, uint32_t> CMaterialCompilerGLSLBackendCommon::crea
 
 		const SBSDFUnion& bsdf_data = (*_ctx->pBsdfData)[bsdf_ix];
 		auto new_bsdf_data = bsdf_data;
+		constexpr uint32_t tex_fetch_flag_shift[tex_prefetch::BITFIELDS_FETCH_TEX_COUNT]{
+			tex_prefetch::BITFIELDS_FETCH_TEX_0_SHIFT,
+			tex_prefetch::BITFIELDS_FETCH_TEX_1_SHIFT,
+			tex_prefetch::BITFIELDS_FETCH_TEX_2_SHIFT
+		};
 		for (uint32_t i = 0u; i < SBSDFUnion::MAX_TEXTURES; ++i)
-			if (core::bitfieldExtract(instr, tex_prefetch::BITFIELDS_FETCH_TEX_0_SHIFT + i, 1))
+			if (core::bitfieldExtract(instr, tex_fetch_flag_shift[i], 1))
 			{
 				auto found = _tex2reg.find(bsdf_data.param[i].tex);
 				if (found == _tex2reg.end())
