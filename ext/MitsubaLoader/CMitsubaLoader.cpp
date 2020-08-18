@@ -44,11 +44,14 @@ struct InstanceData
 {
 	mat4x3 tform;
 	vec3 normalMatrixRow0;
-	uint instrOffset;
+	uint bsdf_instrOffset;
 	vec3 normalMatrixRow1;
-	uint instrCount;
+	uint bsdf_instrCount;
 	vec3 normalMatrixRow2;
 	uint _padding;//not needed
+	uvec2 prefetch_instrStream;
+	uvec2 nprecomp_instrStream;
+	uvec2 genchoice_instrStream;
 	uvec2 emissive;
 };
 layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
@@ -71,647 +74,9 @@ void main()
 }
 
 )";
-_IRR_STATIC_INLINE_CONSTEXPR const char* DUMMY_FRAGMENT_SHADER =
-R"(#version 430 core
-
-layout (location = 0) out vec4 Color;
-
-layout (location = 2) in vec3 Normal;
-
-void main()
-{
-	Color = vec4(0.5*Normal+vec3(0.5),1.0);
-}
-)";
-
-_IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_PT1 =
-R"(#version 430 core
-
-#include <irr/builtin/glsl/virtual_texturing/extensions.glsl>
-
-layout (location = 0) in vec3 WorldPos;
-layout (location = 1) flat in uint InstanceIndex;
-layout (location = 2) in vec3 Normal;
-layout (location = 3) in vec2 UV;
-
-layout (location = 0) out vec4 OutColor;
-
-#define instr_t uvec2
-#define reg_t vec3
-#define REG_COUNT 16
-
-//in 16-byte/uvec4 units
-//layout (constant_id = 0) const uint sizeof_bsdf_data = 3;
-#define sizeof_bsdf_data 3
-
-struct bsdf_data_t
-{
-	uvec4 data[sizeof_bsdf_data];
-};
-
-#define _IRR_VT_DESCRIPTOR_SET 0
-#define _IRR_VT_PAGE_TABLE_BINDING 0
-
-#define _IRR_VT_FLOAT_VIEWS_BINDING 1 
-#define _IRR_VT_FLOAT_VIEWS_COUNT 4
-#define _IRR_VT_FLOAT_VIEWS
-
-#define _IRR_VT_INT_VIEWS_BINDING 2
-#define _IRR_VT_INT_VIEWS_COUNT 0
-#define _IRR_VT_INT_VIEWS
-
-#define _IRR_VT_UINT_VIEWS_BINDING 3
-#define _IRR_VT_UINT_VIEWS_COUNT 0
-#define _IRR_VT_UINT_VIEWS
-#include <irr/builtin/glsl/virtual_texturing/descriptors.glsl>
-
-layout (set = 0, binding = 2, std430) restrict readonly buffer PrecomputedStuffSSBO
-{
-    uint pgtab_sz_log2;
-    float vtex_sz_rcp;
-    float phys_pg_tex_sz_rcp[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
-    uint layer_to_sampler_ix[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
-} precomputed;
-
-layout (set = 0, binding = 3, std430) restrict readonly buffer INSTR_BUF
-{
-	instr_t data[];
-} instr_buf;
-layout (set = 0, binding = 4, std430) restrict readonly buffer BSDF_BUF
-{
-	bsdf_data_t data[];
-} bsdf_buf;
-
-uint irr_glsl_VT_layer2pid(in uint layer)
-{
-    return precomputed.layer_to_sampler_ix[layer];
-}
-uint irr_glsl_VT_getPgTabSzLog2()
-{
-    return precomputed.pgtab_sz_log2;
-}
-float irr_glsl_VT_getPhysPgTexSzRcp(in uint layer)
-{
-    return precomputed.phys_pg_tex_sz_rcp[layer];
-}
-float irr_glsl_VT_getVTexSzRcp()
-{
-    return precomputed.vtex_sz_rcp;
-}
-#define _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
-
-#include <irr/builtin/glsl/virtual_texturing/functions.glsl/7/8>
-
-
-layout (push_constant) uniform Block
-{
-	uint instrOffset;
-	uint instrCount;
-} PC;
-
-#include <irr/builtin/glsl/utils/vertex.glsl>
-
-layout (set = 1, binding = 0, row_major, std140) uniform UBO {
-    irr_glsl_SBasicViewParameters params;
-} CamData;
-
-struct InstanceData
-{
-	mat4x3 tform;
-	vec3 normalMatrixRow0;
-	uint instrOffset;
-	vec3 normalMatrixRow1;
-	uint instrCount;
-	vec3 normalMatrixRow2;
-	uint _padding;//not needed
-	uvec2 emissive;
-};
-layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
-	InstanceData data[];
-} InstData;
-
-//put this into some builtin
-#define RGB19E7_MANTISSA_BITS 19
-#define RGB19E7_MANTISSA_MASK 0x7ffff
-#define RGB19E7_EXPONENT_BITS 7
-#define RGB19E7_EXP_BIAS 63
-vec3 decodeRGB19E7(in uvec2 x)
-{
-	int exp = int(bitfieldExtract(x.y, 3*RGB19E7_MANTISSA_BITS-32, RGB19E7_EXPONENT_BITS) - RGB19E7_EXP_BIAS - RGB19E7_MANTISSA_BITS);
-	float scale = exp2(float(exp));//uintBitsToFloat((uint(exp)+127u)<<23u)
-	
-	vec3 v;
-	v.x = int(bitfieldExtract(x.x, 0, RGB19E7_MANTISSA_BITS))*scale;
-	v.y = int(
-		bitfieldExtract(x.x, RGB19E7_MANTISSA_BITS, 32-RGB19E7_MANTISSA_BITS) | 
-		(bitfieldExtract(x.y, 0, RGB19E7_MANTISSA_BITS-(32-RGB19E7_MANTISSA_BITS))<<(32-RGB19E7_MANTISSA_BITS))
-	) * scale;
-	v.z = int(bitfieldExtract(x.y, RGB19E7_MANTISSA_BITS-(32-RGB19E7_MANTISSA_BITS), RGB19E7_MANTISSA_BITS)) * scale;
-	
-	return v;
-}
-
-//i think ill have to create some c++ macro or something to create string with those
-//becasue it's too fucked up to remember about every change in c++ and have to update everything here
-#define INSTR_OPCODE_MASK			0x0fu
-#define INSTR_REG_MASK				0xffu
-#define INSTR_BSDF_BUF_OFFSET_SHIFT 13
-#define INSTR_BSDF_BUF_OFFSET_MASK	0x7ffffu
-#define INSTR_NDF_SHIFT 5
-#define INSTR_NDF_MASK 0x3u
-#define INSTR_ALPHA_U_TEX_SHIFT 4
-#define INSTR_ALPHA_V_TEX_SHIFT 7
-#define INSTR_REFL_TEX_SHIFT 4
-#define INSTR_PLASTIC_REFL_TEX_SHIFT 9
-#define INSTR_TRANS_TEX_SHIFT 4
-#define INSTR_WARD_VARIANT_SHIFT 5
-#define INSTR_WARD_VARIANT_MASK 0x03u
-#define INSTR_FAST_APPROX_SHIFT 5
-#define INSTR_NONLINEAR_SHIFT 8
-#define INSTR_SIGMA_A_TEX_SHIFT 8
-#define INSTR_WEIGHT_TEX_SHIFT 4
-#define INSTR_TWOSIDED_SHIFT 10
-#define INSTR_MASKFLAG_SHIFT 11
-#define INSTR_OPACITY_TEX_SHIFT 12
-#define INSTR_1ST_PARAM_TEX_SHIFT 4
-
-uint instr_getOpcode(in instr_t instr)
-{
-	return instr.x&INSTR_OPCODE_MASK;
-}
-uint instr_getBSDFbufOffset(in instr_t instr)
-{
-	return (instr.x>>INSTR_BSDF_BUF_OFFSET_SHIFT) & INSTR_BSDF_BUF_OFFSET_MASK;
-}
-uint instr_getNDF(in instr_t instr)
-{
-	return (instr.x>>INSTR_NDF_SHIFT) & INSTR_NDF_MASK;
-}
-bool instr_getAlphaUTexPresence(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_ALPHA_U_TEX_SHIFT)) != 0u;
-}
-bool instr_getAlphaVTexPresence(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_ALPHA_V_TEX_SHIFT)) != 0u;
-}
-bool instr_getReflectanceTexPresence(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_REFL_TEX_SHIFT)) != 0u;
-}
-bool instr_getPlasticReflTexPresence(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_PLASTIC_REFL_TEX_SHIFT)) != 0u;
-}
-uint instr_getWardVariant(in instr_t instr)
-{
-	return (instr.x>>INSTR_WARD_VARIANT_SHIFT) & INSTR_WARD_VARIANT_MASK;
-}
-bool instr_getFastApprox(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_FAST_APPROX_SHIFT)) != 0u;
-}
-bool instr_getNonlinear(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_NONLINEAR_SHIFT)) != 0u;
-}
-bool instr_getSigmaATexPresence(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_SIGMA_A_TEX_SHIFT)) != 0u;
-}
-bool instr_getWeightTexPresence(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_WEIGHT_TEX_SHIFT)) != 0u;
-}
-bool instr_getTwosided(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_TWOSIDED_SHIFT)) != 0u;
-}
-bool instr_getMaskFlag(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_MASKFLAG_SHIFT)) != 0u;
-}
-bool instr_getOpacityTexPresence(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_OPACITY_TEX_SHIFT)) != 0u;
-}
-bool instr_getTransmittanceTexPresence(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_TRANS_TEX_SHIFT)) != 0u;
-}
-bool instr_get1stParamTexPresence(in instr_t instr)
-{
-	return (instr.x&(1u<<INSTR_1ST_PARAM_TEX_SHIFT)) != 0u;
-}
-
-//returns: x=dst, y=src1, z=src2
-uvec3 instr_decodeRegisters(in instr_t instr)
-{
-	uvec3 regs = uvec3(instr.y, (instr.y>>8), (instr.y>>16));
-	return regs & uvec3(INSTR_REG_MASK);
-}
-#define REG_DST(r)	r.x
-#define REG_SRC1(r)	r.y
-#define REG_SRC2(r)	r.z
-
-bsdf_data_t fetchBSDFDataForInstr(in instr_t instr)
-{
-	uint ix = instr_getBSDFbufOffset(instr);
-	return bsdf_buf.data[ix];
-}
-float textureOrF32(in uvec2 data, in bool texPresenceFlag, in mat2 dUV)
-{
-	float retval;
-	if (texPresenceFlag)
-		retval = irr_glsl_vTextureGrad(data, UV, dUV).x;
-	else
-		retval = uintBitsToFloat(data.x);
-	return retval;
-}
-vec3 textureOrRGB19E7(in uvec2 data, in bool texPresenceFlag, in mat2 dUV)
-{
-	vec3 retval;
-	if (texPresenceFlag)
-		retval = irr_glsl_vTextureGrad(data, UV, dUV).xyz;
-	else
-		retval = decodeRGB19E7(data);
-	return retval;
-}
-
-//remember to keep it compliant with c++ enum!!
-#define OP_DIFFUSE			0u
-#define OP_ROUGHDIFFUSE		1u
-#define OP_CONDUCTOR		2u
-#define OP_ROUGHCONDUCTOR	3u
-#define OP_PLASTIC			4u
-#define OP_ROUGHPLASTIC		5u
-#define OP_WARD				6u
-#define OP_COATING			7u
-#define OP_ROUGHCOATING		8u
-#define OP_MAX_BRDF			OP_ROUGHCOATING
-#define OP_DIFFTRANS		9u
-#define OP_DIELECTRIC		10u
-#define OP_ROUGHDIELECTRIC	11u
-#define OP_MAX_BSDF			OP_ROUGHDIELECTRIC
-#define OP_BLEND			12u
-#define OP_BUMPMAP			13u
-#define OP_SET_GEOM_NORMAL	14u
-#define OP_INVALID			15u
-
-bool opcode_isBRDF(in uint op)
-{
-	return op<=OP_MAX_BRDF;
-}
-bool opcode_isBSDF(in uint op)
-{
-	return op>OP_MAX_BRDF && op<=OP_MAX_BSDF;
-}
-bool opcode_isBxDF(in uint op)
-{
-	return op<=OP_MAX_BSDF;
-}
-bool opcode_isRough(in uint op)
-{
-	return op==OP_ROUGHDIFFUSE || op==OP_ROUGHDIELECTRIC || op==OP_ROUGHCONDUCTOR || op==OP_ROUGHPLASTIC || op==OP_WARD || op==OP_ROUGHCOATING;
-}
-
-#define NDF_BECKMANN	0u
-#define NDF_GGX			1u
-#define NDF_PHONG		2u
-#define NDF_AS			3u
-
-#include <irr/builtin/glsl/bxdf/common.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/fresnel/fresnel.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/diffuse/fresnel_correction.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/ndf/ggx.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/ashikhmin_shirley.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/beckmann_smith.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl>
-#include <irr/builtin/glsl/bump_mapping/utils.glsl>
-)";
-constexpr const char* FRAGMENT_SHADER_PT2 = R"(
-irr_glsl_BSDFAnisotropicParams currBSDFParams;
-irr_glsl_AnisotropicViewSurfaceInteraction currInteraction;
-reg_t registers[REG_COUNT];
-
-void setCurrBSDFParams(in vec3 n, in vec3 L)
-{
-	vec3 campos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
-	irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, n);
-	currInteraction = irr_glsl_calcAnisotropicInteraction(interaction);
-	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(interaction, L);
-	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(isoparams, currInteraction);
-}
-
-vec2 getAlpha(in uint op, in uint ndf, in instr_t instr, in bsdf_data_t data, in mat2 dUV)
-{
-	vec2 a;
-	if (op==OP_ROUGHDIFFUSE)
-	{
-		vec3 scale = decodeRGB19E7(data.data[1].zw);
-		float a_ = textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x;
-		a = vec2(a_);
-	}
-	else if (op==OP_ROUGHDIELECTRIC)
-	{
-		vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
-		a = vec2( textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x );
-		if (ndf == NDF_AS)
-			a.y = textureOrF32(uvec2(data.data[0].w, data.data[1].x), instr_getAlphaVTexPresence(instr), dUV)*scale.y;
-	}
-	else if (op==OP_ROUGHCONDUCTOR)
-	{
-		vec3 scale = decodeRGB19E7(data.data[2].zw);
-		a = vec2( textureOrF32(data.data[0].xy, instr_getAlphaUTexPresence(instr), dUV)*scale.x );
-		if (ndf==NDF_AS)
-			a.y = textureOrF32(data.data[0].zw, instr_getAlphaVTexPresence(instr), dUV)*scale.y;
-	}
-	else if (op==OP_ROUGHPLASTIC)
-	{
-		vec3 scale = decodeRGB19E7(uvec2(data.data[1].w, data.data[2].x));
-		a = vec2( textureOrF32(data.data[0].yz, instr_getAlphaUTexPresence(instr), dUV)*scale.x );
-	}
-	else if (op==OP_ROUGHCOATING)
-	{
-		//later
-	}
-	return a;
-}
-
-void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 scale, in bsdf_data_t data)
-{
-	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
-	{
-		vec3 refl = textureOrRGB19E7(data.data[1].zw, instr_getReflectanceTexPresence(instr), dUV)*scale.y;
-		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic,currInteraction.isotropic) * refl;
-		registers[REG_DST(regs)] = diffuse;
-	}
-	else registers[REG_DST(regs)] = reg_t(0.0);
-}
-void instr_execute_ROUGHDIFFUSE(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 scale, in float a2, in bsdf_data_t data)
-{
-	vec3 refl = textureOrRGB19E7(data.data[1].zw, instr_getReflectanceTexPresence(instr), dUV)*scale.y;
-	registers[REG_DST(regs)] = max(refl,vec3(0.0));
-}
-void instr_execute_DIFFTRANS(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 trans, in bsdf_data_t data)
-{
-	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
-}
-void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
-{
-	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
-	{
-		vec3 eta = vec3(uintBitsToFloat(data.data[2].x));
-		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic,currInteraction.isotropic) * vec3(0.89);
-		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
-		registers[REG_DST(regs)] = diffuse;
-	}
-	else registers[REG_DST(regs)] = vec3(0.0);
-}
-void instr_execute_ROUGHDIELECTRIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
-{
-	float eta = uintBitsToFloat(data.data[0].x);
-	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
-}
-void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
-{
-	vec3 eta = decodeRGB19E7(data.data[2].xy);
-	vec3 etak = decodeRGB19E7(data.data[2].zw);
-	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
-}
-void instr_execute_ROUGHCONDUCTOR(in instr_t instr, in uvec3 regs, in mat2 dUV, in float DG, in bsdf_data_t data)
-{
-	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
-	{
-		mat2x3 eta2;
-		eta2[0] = decodeRGB19E7(data.data[2].xy); eta2[0]*=eta2[0];
-		eta2[1] = decodeRGB19E7(data.data[2].zw); eta2[1]*=eta2[1];
-		vec3 fr = irr_glsl_fresnel_conductor(eta2[0],eta2[1],currBSDFParams.isotropic.VdotH);
-		registers[REG_DST(regs)] = DG*fr;
-	}
-	else registers[REG_DST(regs)] = reg_t(0.0);
-}
-void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 scale, in bsdf_data_t data)
-{
-	float eta = uintBitsToFloat(data.data[2].x);
-	vec3 refl = textureOrRGB19E7(data.data[1].zw, instr_getPlasticReflTexPresence(instr), dUV)*scale.y;
-	registers[REG_DST(regs)] = refl;
-}
-void instr_execute_ROUGHPLASTIC(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 scale, in float a2, in float DG, in bsdf_data_t data)
-{
-	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
-	{
-		vec3 eta = vec3(uintBitsToFloat(data.data[2].x));
-		vec3 eta2 = eta*eta;
-		vec3 refl = textureOrRGB19E7(data.data[1].zw, instr_getPlasticReflTexPresence(instr), dUV)*scale.y;
-
-		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic, currInteraction.isotropic, a2) * refl;
-		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta2) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
-		vec3 fr = irr_glsl_fresnel_dielectric(eta,currBSDFParams.isotropic.VdotH);
-		vec3 specular = DG*fr;
-
-		registers[REG_DST(regs)] = specular + diffuse;
-	}
-	else registers[REG_DST(regs)] = reg_t(0.0);
-}
-void instr_execute_COATING(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 scale, in bsdf_data_t data)
-{
-	vec2 thickness_eta = unpackHalf2x16(data.data[2].x);
-	vec3 sigmaA = textureOrRGB19E7(data.data[1].zw, instr_getSigmaATexPresence(instr), dUV)*scale.y;
-	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
-}
-void instr_execute_ROUGHCOATING(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 scale, in bsdf_data_t data)
-{
-	vec2 thickness_eta = unpackHalf2x16(data.data[2].x);
-	vec3 sigmaA = textureOrRGB19E7(data.data[1].zw, instr_getSigmaATexPresence(instr), dUV)*scale.y;
-	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
-}
-void instr_execute_WARD(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
-{
-	registers[REG_DST(regs)] = reg_t(1.0, 0.0, 0.0);
-}
-void instr_execute_BUMPMAP(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 scale, in bsdf_data_t data, in vec3 L)
-{
-	uvec2 bm = data.data[0].xy;
-	//dirty trick for getting height map derivatives in divergent workflow
-	vec2 dHdScreen = vec2(
-		irr_glsl_vTextureGrad(bm, UV+0.5*dUV[0], dUV).x - irr_glsl_vTextureGrad(bm, UV-0.5*dUV[0], dUV).x,
-		irr_glsl_vTextureGrad(bm, UV+0.5*dUV[1], dUV).x - irr_glsl_vTextureGrad(bm, UV-0.5*dUV[1], dUV).x
-	);
-	dHdScreen *= scale.x;
-	vec3 n = irr_glsl_perturbNormal_heightMap(currInteraction.isotropic.N, currInteraction.isotropic.V.dPosdScreen, dHdScreen);
-	setCurrBSDFParams(n, L);
-}
-//executed at most once
-void instr_execute_SET_GEOM_NORMAL(in vec3 L)
-{
-	setCurrBSDFParams(normalize(Normal), L);
-}
-void instr_execute_BLEND(in instr_t instr, in uvec3 regs, in mat2 dUV, in bsdf_data_t data)
-{
-	vec3 scale = decodeRGB19E7(data.data[0].xy);
-	bool weightTexPresent = instr_getWeightTexPresence(instr);
-	float wl = textureOrF32(data.data[0].zw, weightTexPresent, dUV)*scale.x;
-	float wr;
-	if (weightTexPresent)
-		wr = 1.0 - wl;
-	else
-		wr = uintBitsToFloat(data.data[0].z);
-	registers[REG_DST(regs)] = wl*registers[REG_SRC1(regs)] + wr*registers[REG_SRC2(regs)];
-}
-
-void instr_execute(in instr_t instr, in uvec3 regs, in mat2 dUV, in vec3 L)
-{
-	bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
-	uint opcode = instr_getOpcode(instr);
-	uint ndf = instr_getNDF(instr);
-	bool twosided = instr_getTwosided(instr);
-	
-	vec3 scale = decodeRGB19E7(bsdf_data.data[0].xy);
-	vec3 firstParameter;
-	vec3 opacity;
-	if (opcode_isBxDF(opcode))
-	{
-		bool firstParamTexPresence = instr_get1stParamTexPresence(instr);
-		bool opacityTexPresence = instr_getOpacityTexPresence(instr);
-		opacity = textureOrRGB19E7(bsdf_data.data[0].zw, opacityTexPresence, dUV)*scale.z;
-		firstParameter = textureOrRGB19E7(bsdf_data.data[1].xy, firstParamTexPresence, dUV)*scale.x;
-
-		//in case of rough BSDFs, firstParameter.xy is ax,ay
-		if (ndf==NDF_AS)//&& opcode_isRough(opcode)
-			firstParameter.y = textureOrRGB19E7(bsdf_data.data[1].zw, instr_getAlphaVTexPresence(instr), dUV).x*scale.y;
-	}
-
-	//if (twosided)
-	//flip normal
-
-    float cosFactor;
-    if (opcode_isBSDF(opcode))
-      cosFactor = abs(currBSDFParams.isotropic.NdotL);
-    else
-      cosFactor = max(currBSDFParams.isotropic.NdotL,0.0);
-
-	float a2;
-	float DG = 0.0;
-	if (cosFactor>FLT_MIN && opcode_isRough(opcode))
-	{
-		a2 = firstParameter.x*firstParameter.y;
-		if (ndf==NDF_BECKMANN) {
-			DG = irr_glsl_beckmann(a2, currBSDFParams.isotropic.NdotH*currBSDFParams.isotropic.NdotH);
-			DG *= irr_glsl_beckmann_smith_height_correlated(currInteraction.isotropic.NdotV_squared, currBSDFParams.isotropic.NdotL_squared, a2);
-			DG /= 4.0*currInteraction.isotropic.NdotV;
-		}
-		else if (ndf==NDF_GGX) {
-			DG = irr_glsl_ggx_trowbridge_reitz(a2, currBSDFParams.isotropic.NdotH*currBSDFParams.isotropic.NdotH);
-			DG *= irr_glsl_ggx_smith_height_correlated_wo_numerator(a2, currBSDFParams.isotropic.NdotL, currInteraction.isotropic.NdotV);
-			DG *= cosFactor;
-		}
-		else if (ndf==NDF_PHONG) {
-			DG = irr_glsl_blinn_phong(currBSDFParams.isotropic.NdotH, 1.0/a2);
-			DG /= 4.0*currInteraction.isotropic.NdotV;
-		}
-	}
-	switch (opcode)
-	{
-	case OP_DIFFUSE:
-		instr_execute_DIFFUSE(instr, regs, dUV, scale, bsdf_data);
-		break;
-	case OP_ROUGHDIFFUSE:
-		instr_execute_ROUGHDIFFUSE(instr, regs, dUV, scale, a2, bsdf_data);
-		break;
-	case OP_DIFFTRANS:
-		instr_execute_DIFFTRANS(instr, regs, dUV, firstParameter, bsdf_data);
-		break;
-	case OP_DIELECTRIC:
-		instr_execute_DIELECTRIC(instr, regs, dUV, bsdf_data);
-		break;
-	case OP_ROUGHDIELECTRIC: 
-		instr_execute_ROUGHDIELECTRIC(instr, regs, dUV, bsdf_data);
-		break;
-	case OP_CONDUCTOR:
-		instr_execute_CONDUCTOR(instr, regs, dUV, bsdf_data);
-		break;
-	case OP_ROUGHCONDUCTOR:
-		instr_execute_ROUGHCONDUCTOR(instr, regs, dUV, DG, bsdf_data);
-		break;
-	case OP_PLASTIC:
-		instr_execute_PLASTIC(instr, regs, dUV, scale, bsdf_data);
-		break;
-	case OP_ROUGHPLASTIC:
-		instr_execute_ROUGHPLASTIC(instr, regs, dUV, scale, a2, DG, bsdf_data);
-		break;
-	case OP_WARD:
-		instr_execute_WARD(instr, regs, dUV, bsdf_data);
-		break;
-	case OP_SET_GEOM_NORMAL:
-		instr_execute_SET_GEOM_NORMAL(L);
-		break;
-	case OP_COATING:
-		instr_execute_COATING(instr, regs, dUV, scale, bsdf_data);
-		break;
-	case OP_ROUGHCOATING:
-		instr_execute_ROUGHCOATING(instr, regs, dUV, scale, bsdf_data);
-		break;
-	case OP_BUMPMAP:
-		instr_execute_BUMPMAP(instr, regs, dUV, scale, bsdf_data, L);
-		break;
-	case OP_BLEND:
-		instr_execute_BLEND(instr, regs, dUV, bsdf_data);
-		break;
-	}
-}
-
-#ifndef _IRR_BSDF_COS_EVAL_DEFINED_
-#define _IRR_BSDF_COS_EVAL_DEFINED_
-// Spectrum can be exchanged to a float for monochrome
-#define Spectrum vec3
-//! This is the function that evaluates the BSDF for specific view and observer direction
-// params can be either BSDFIsotropicParams or BSDFAnisotropicParams 
-Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
-{
-	uvec2 offsetCount = uvec2(InstData.data[InstanceIndex].instrOffset,InstData.data[InstanceIndex].instrCount);
-
-	for (uint i = 0u; i < offsetCount.y; ++i)
-	{
-		instr_t instr = instr_buf.data[offsetCount.x+i];
-		uvec3 regs = instr_decodeRegisters(instr);
-
-		instr_execute(instr, regs, dUV, params.L);
-	}
-	return registers[0]; //result is always in register 0
-}
-#endif
-
-#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_
-#define _IRR_COMPUTE_LIGHTING_DEFINED_
-vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
-{
-	vec3 emissive = decodeRGB19E7(InstData.data[InstanceIndex].emissive);
-
-	vec3 campos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
-	irr_glsl_BSDFIsotropicParams params;
-	params.L = campos-WorldPos;
-	out_interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, normalize(Normal));
-
-	return irr_bsdf_cos_eval(params, out_interaction, dUV)*50.0/dot(params.L,params.L) + emissive;
-}
-#endif
-
-void main()
-{
-	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
-
-	irr_glsl_IsotropicViewSurfaceInteraction inter;
-	OutColor = vec4(irr_computeLighting(inter, dUV), 1.0);
-}
-)";
-
 
 _IRR_STATIC_INLINE_CONSTEXPR const char* PIPELINE_LAYOUT_CACHE_KEY = "irr/builtin/pipeline_layout/loaders/mitsuba_xml/default";
-_IRR_STATIC_INLINE_CONSTEXPR const char* PIPELINE_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mitsuba_xml/default";
+_IRR_STATIC_INLINE_CONSTEXPR const char* VERTEX_SHADER_CACHE_KEY = "irr/builtin/specialized_shader/loaders/mitsuba_xml/default";
 
 _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_TAB_TEX_BINDING = 0u;
 _IRR_STATIC_INLINE_CONSTEXPR uint32_t PHYS_PAGE_VIEWS_BINDING = 1u;
@@ -792,20 +157,26 @@ static core::smart_refctd_ptr<asset::ICPUPipelineLayout> createAndCachePipelineL
 
 	return layout;
 }
-static core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline> createAndCachePipeline(asset::IAssetManager* _manager, core::smart_refctd_ptr<asset::ICPUPipelineLayout>&& _layout)
+static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createSpecShader(const char* _glsl, asset::ISpecializedShader::E_SHADER_STAGE _stage)
 {
-	auto createSpecShader = [](const char* _glsl, asset::ISpecializedShader::E_SHADER_STAGE _stage)
-	{
-		auto shader = core::make_smart_refctd_ptr<asset::ICPUShader>(_glsl);
-		asset::ICPUSpecializedShader::SInfo info(nullptr, nullptr, "main", _stage);
-		auto specd = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(shader), std::move(info));
+	auto shader = core::make_smart_refctd_ptr<asset::ICPUShader>(_glsl);
+	asset::ICPUSpecializedShader::SInfo info(nullptr, nullptr, "main", _stage);
+	auto specd = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(shader), std::move(info));
 
-		return specd;
-	};
+	return specd;
+}
+static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createAndCacheVertexShader(asset::IAssetManager* _manager, const char* _glsl)
+{
+	auto vs = createSpecShader(_glsl, asset::ISpecializedShader::ESS_VERTEX);
 
-	const std::string fs_source = std::string(FRAGMENT_SHADER_PT1) + FRAGMENT_SHADER_PT2;
-	auto vs = createSpecShader(DUMMY_VERTEX_SHADER, asset::ISpecializedShader::ESS_VERTEX);
-	auto fs = createSpecShader(fs_source.c_str(), asset::ISpecializedShader::ESS_FRAGMENT);
+	insertAssetIntoCache(vs, VERTEX_SHADER_CACHE_KEY, _manager);
+
+	return vs;
+}
+static core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline> createPipeline(core::smart_refctd_ptr<asset::ICPUPipelineLayout>&& _layout, core::smart_refctd_ptr<asset::ICPUSpecializedShader>&& _vertshader, core::smart_refctd_ptr<asset::ICPUSpecializedShader>&& _fragshader)
+{
+	auto vs = std::move(_vertshader);
+	auto fs = std::move(_fragshader);
 	asset::ICPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
 
 	SRasterizationParams rasterParams;
@@ -819,8 +190,6 @@ static core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline> createAn
 		SPrimitiveAssemblyParams(),
 		rasterParams
 	);
-
-	insertAssetIntoCache(pipeline, PIPELINE_CACHE_KEY, _manager);
 
 	return pipeline;
 }
@@ -912,7 +281,7 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		if (!getBuiltinAsset<asset::ICPUPipelineLayout, asset::IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager))
 		{
 			auto layout = createAndCachePipelineLayout(m_manager, ctx.backend_ctx.vt.get());
-			auto pipeline = createAndCachePipeline(m_manager, std::move(layout));
+			createAndCacheVertexShader(m_manager, DUMMY_VERTEX_SHADER);
 		}
 
 		core::set<core::smart_refctd_ptr<asset::ICPUMesh>> meshes;
@@ -952,12 +321,33 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 
 		auto compResult = ctx.backend.compile(&ctx.backend_ctx, ctx.ir.get());
 		auto metadata = createPipelineMetadata(createDS0(ctx, compResult, meshes.begin(), meshes.end()), getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager).get());
+		auto basePipeline = createPipeline();
 		for (auto& mesh : meshes)
 		{
 			auto* meshmeta = static_cast<const IMeshMetadata*>(mesh->getMetadata());
 			for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 			{
 				asset::ICPUMeshBuffer* mb = mesh->getMeshBuffer(i);
+				auto* prevPipeline = mb->getPipeline();
+				SContext::SPipelineCacheKey cacheKey;
+				cacheKey.vtxParams = prevPipeline->getVertexInputParams();
+				cacheKey.primParams = prevPipeline->getPrimitiveAssemblyParams();
+				auto found = ctx.pipelineCache.find(cacheKey);
+				core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline> pipeline;
+				if (found != ctx.pipelineCache.end())
+				{
+					pipeline = found->second;
+				}
+				else
+				{
+					pipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(//shallow copy because we're going to override parameter structs
+						basePipeline->clone(0u)
+						);
+					pipeline->getVertexInputParams() = cacheKey.vtxParams;
+					pipeline->getPrimitiveAssemblyParams() = cacheKey.primParams;
+					ctx.pipelineCache.insert({ cacheKey, pipeline });
+				}
+
 				asset::ICPURenderpassIndependentPipeline* pipeline = mb->getPipeline();
 				if (!pipeline->getMetadata())
 					m_manager->setAssetMetadata(pipeline, core::smart_refctd_ptr(metadata));

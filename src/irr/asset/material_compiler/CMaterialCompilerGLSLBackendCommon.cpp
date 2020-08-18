@@ -1307,19 +1307,6 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 		}
 	};
 
-	constexpr const char* names[OPCODE_COUNT]{
-		"OP_DIFFUSE",
-		"OP_CONDUCTOR",
-		"OP_PLASTIC",
-		"OP_COATING",
-		"OP_DIFFTRANS",
-		"OP_DIELECTRIC",
-		"OP_BLEND",
-		"OP_BUMPMAP",
-		"OP_SET_GEOM_NORMAL",
-		"OP_INVALID",
-		"OP_NOOP"
-	};
 	constexpr const char* ndf[4]{
 		"BECKMANN",
 		"GGX",
@@ -1347,7 +1334,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	const bool masked = core::bitfieldExtract(instr, BITFIELDS_SHIFT_MASKFLAG, 1);
 	const bool twosided = core::bitfieldExtract(instr, BITFIELDS_SHIFT_TWOSIDED, 1);
 
-	_out << "### " << names[op] << " " << (masked ? "M " : "") << (twosided ? "TS" : "") << "\n";
+	_out << "### " << OPCODE_NAMES[op] << " " << (masked ? "M " : "") << (twosided ? "TS" : "") << "\n";
 	_out << "BSDF data index = " << bsdf_ix << "\n";
 	switch (op)
 	{

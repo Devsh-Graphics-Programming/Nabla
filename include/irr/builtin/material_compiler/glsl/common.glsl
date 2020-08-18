@@ -11,12 +11,6 @@ layout (location = 0) out vec4 OutColor;
 #define reg_t uint
 #define params_t mat3x3
 #define bxdf_eval_t vec3
-#define REG_COUNT 72 //TODO this must be decided by backend
-//TODO insert here other control #defines as well
-
-//in 16-byte/uvec4 units
-//layout (constant_id = 0) const uint sizeof_bsdf_data = 4;
-#define sizeof_bsdf_data 4
 
 struct bsdf_data_t
 {
@@ -76,19 +70,6 @@ float irr_glsl_VT_getVTexSzRcp()
 
 #include <irr/builtin/glsl/virtual_texturing/functions.glsl/7/8>
 
-struct stream_t
-{
-	uint offset;
-	uint count;
-};
-layout (push_constant) uniform Block
-{
-	stream_t rem_and_pdf;
-	stream_t tex_prefetch;
-	stream_t norm_precomp;
-	stream_t gen_choice;
-} PC;
-
 #include <irr/builtin/glsl/utils/common.glsl>
 
 layout (set = 1, binding = 0, row_major, std140) uniform UBO {
@@ -133,29 +114,6 @@ vec3 decodeRGB19E7(in uvec2 x)
 	
 	return v;
 }
-
-//i think ill have to create some c++ macro or something to create string with those
-//becasue it's too fucked up to remember about every change in c++ and have to update everything here
-#define INSTR_OPCODE_MASK			0x0fu
-#define INSTR_REG_MASK				0xffu
-#define INSTR_BSDF_BUF_OFFSET_SHIFT 13
-#define INSTR_BSDF_BUF_OFFSET_MASK	0x7ffffu
-#define INSTR_NDF_SHIFT 5
-#define INSTR_NDF_MASK 0x3u
-#define INSTR_ALPHA_U_TEX_SHIFT 4
-#define INSTR_ALPHA_V_TEX_SHIFT 7
-#define INSTR_REFL_TEX_SHIFT 7
-#define INSTR_TRANS_TEX_SHIFT 4
-#define INSTR_SIGMA_A_TEX_SHIFT 7
-#define INSTR_WEIGHT_TEX_SHIFT 4
-#define INSTR_TWOSIDED_SHIFT 10
-#define INSTR_MASKFLAG_SHIFT 11
-#define INSTR_OPACITY_TEX_SHIFT 12
-#define INSTR_1ST_PARAM_TEX_SHIFT 4
-#define INSTR_2ND_PARAM_TEX_SHIFT 7
-
-#define INSTR_NORMAL_ID_SHIFT 56u
-#define INSTR_NORMAL_ID_MASK  0xffu
 
 uint instr_getNormalId(in instr_t instr)
 {
@@ -221,10 +179,6 @@ bool instr_getMaskFlag(in instr_t instr)
 	return (instr.x&(1u<<INSTR_MASKFLAG_SHIFT)) != 0u;
 }
 
-#define INSTR_REG_DST_SHIFT 32
-#define INSTR_REG_SRC1_SHIFT 40
-#define INSTR_REG_SRC2_SHIFT 48
-
 //returns: x=dst, y=src1, z=src2
 //works with tex prefetch instructions as well (x=reg0,y=reg1,z=reg2)
 uvec3 instr_decodeRegisters(in instr_t instr)
@@ -245,21 +199,6 @@ bsdf_data_t fetchBSDFDataForInstr(in instr_t instr)
 	return bsdf_buf.data[ix];
 }
 
-//remember to keep it compliant with c++ enum!!
-#define OP_DIFFUSE			0u
-#define OP_CONDUCTOR		1u
-#define OP_PLASTIC			2u
-#define OP_COATING			3u
-#define OP_MAX_BRDF			OP_COATING
-#define OP_DIFFTRANS		4u
-#define OP_DIELECTRIC		5u
-#define OP_MAX_BSDF			OP_DIELECTRIC
-#define OP_BLEND			6u
-#define OP_BUMPMAP			7u
-#define OP_SET_GEOM_NORMAL	8u
-#define OP_INVALID			9u
-#define OP_NOOP				10u
-
 bool op_isBRDF(in uint op)
 {
 	return op<=OP_MAX_BRDF;
@@ -272,11 +211,6 @@ bool op_hasSpecular(in uint op)
 {
 	return op_isBSDF(op) && op!=OP_DIFFUSE && op!=OP_DIFFTRANS;
 }
-
-#define NDF_BECKMANN	0u
-#define NDF_GGX			1u
-#define NDF_PHONG		2u
-#define NDF_AS			3u
 
 #include <irr/builtin/glsl/bxdf/common.glsl>
 #include <irr/builtin/glsl/bxdf/fresnel.glsl>
@@ -324,6 +258,7 @@ params_t instr_getParameters(in instr_t i, in bsdf_data_t data)
 {
 	params_t p;
 	bvec3 presence = instr_getTexPresence(i);
+	//speculatively always read RGB
 	p[0] = textureOrRGBconst(data.data[0].xyz, presence.x);
 	p[1] = textureOrRGBconst(uvec3(data.data[0].w,data.data[1].xy), presence.y);
 	p[2] = textureOrRGBconst(uvec3(data.data[1].zw,data.data[2].x), presence.z);
@@ -505,9 +440,6 @@ vec3 fetchTex(in uvec3 texid, in vec2 uv, in mat2 dUV)
 	return irr_glsl_vTextureGrad(texid.xy, uv, dUV).rgb*scale;
 }
 
-#define INSTR_FETCH_FLAG_TEX_0_SHIFT INSTR_NDF_SHIFT
-#define INSTR_FETCH_FLAG_TEX_1_SHIFT (INSTR_NDF_SHIFT+1)
-#define INSTR_FETCH_FLAG_TEX_2_SHIFT INSTR_TWOSIDED_SHIFT
 uint instr_getTexFetchFlags(in instr_t i)
 {
 	uint flags = bitfieldExtract(i.x,INSTR_FETCH_FLAG_TEX_0_SHIFT,1);
@@ -517,10 +449,6 @@ uint instr_getTexFetchFlags(in instr_t i)
 	return flags;
 }
 
-#define INSTR_FETCH_TEX_0_REG_CNT_SHIFT 56
-#define INSTR_FETCH_TEX_1_REG_CNT_SHIFT 58
-#define INSTR_FETCH_TEX_2_REG_CNT_SHIFT 60
-#define INSTR_FETCH_TEX_REG_CNT_MASK    0x03u
 #ifdef TEX_PREFETCH_STREAM
 void runTexPrefetchStream(uvec2 stream, in mat2 dUV)
 {
@@ -528,7 +456,9 @@ void runTexPrefetchStream(uvec2 stream, in mat2 dUV)
 	{
 		instr_t instr = instr_buf.data[stream.x+i];
 
+#if !defined(PREFETCH_REGS_ALWAYS_1) && !defined(PREFETCH_REGS_ALWAYS_3)
 		uvec3 regcnt = ( instr.yyy >> (uvec3(INSTR_FETCH_TEX_0_REG_CNT_SHIFT,INSTR_FETCH_TEX_1_REG_CNT_SHIFT,INSTR_FETCH_TEX_2_REG_CNT_SHIFT)-uvec3(32)) ) & uvec3(INSTR_FETCH_TEX_REG_CNT_MASK);
+#endif
 		bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
 
 		uint fetchFlags = instr_getTexFetchFlags(instr);
@@ -537,30 +467,48 @@ void runTexPrefetchStream(uvec2 stream, in mat2 dUV)
 		{
 			vec3 val = fetchTex(bsdf_data.data[0].xyz, UV, dUV);
 			uint reg = REG_PREFETCH0(regs);
+#if !defined(PREFETCH_REGS_ALWAYS_1) && !defined(PREFETCH_REGS_ALWAYS_3)
 			if (regcnt.x==1u)
 				writeReg(reg, val.x);
 			else
 				writeReg(reg, val);
+#elif defined(PREFETCH_REGS_ALWAYS_1)
+			writeReg(reg, val.x);
+#elif defined(PREFETCH_REGS_ALWAYS_3)
+			writeReg(reg, val);
+#endif
 		}
 		if ((fetchFlags & 0x02u) == 0x02u)
 		{
 			uvec3 texid = uvec3(bsdf_data.data[0].w,bsdf_data.data[1].xy);
 			vec3 val = fetchTex(texid,UV,dUV);
 			uint reg = REG_PREFETCH1(regs);
+#if !defined(PREFETCH_REGS_ALWAYS_1) && !defined(PREFETCH_REGS_ALWAYS_3)
 			if (regcnt.y==1u)
 				writeReg(reg, val.x);
 			else
 				writeReg(reg, val);
+#elif defined(PREFETCH_REGS_ALWAYS_1)
+			writeReg(reg, val.x);
+#elif defined(PREFETCH_REGS_ALWAYS_3)
+			writeReg(reg, val);
+#endif
 		}
 		if ((fetchFlags & 0x04u) == 0x04u)
 		{
 			uvec3 texid = uvec3(bsdf_data.data[1].zw, bsdf_data.data[2].x);
 			vec3 val = fetchTex(texid,UV,dUV);
 			uint reg = REG_PREFETCH2(regs);
+#if !defined(PREFETCH_REGS_ALWAYS_1) && !defined(PREFETCH_REGS_ALWAYS_3)
 			if (regcnt.z==1u)
 				writeReg(reg, val.x);
 			else
 				writeReg(reg, val);
+#elif defined(PREFETCH_REGS_ALWAYS_1)
+			writeReg(reg, val.x);
+#elif defined(PREFETCH_REGS_ALWAYS_3)
+			writeReg(reg, val);
+#endif
 		}
 	}
 }
@@ -590,70 +538,3 @@ void runNormalPrecompStream(in uvec2 stream, in mat2 dUV)
 	}
 }
 #endif
-
-void runEvalStream(in uvec2 stream, in vec3 L)
-{
-	for (uint i = 0u; i < stream.y; ++i)
-	{
-		instr_t instr = instr_buf.data[stream.x+i];
-		uint op = instr_getOpcode(instr);
-
-		//speculative execution
-		bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
-		params_t params = instr_getParameters(instr);
-		float bxdf_eval_scalar_part;
-		uint ndf = instr_getNDF(instr);
-		float a = getAlpha(params);
-		float a2 = a*a;
-		float ay = getAlphaV(params);
-		float ay2 = ay*ay;
-
-		if (op_hasSpecular(op))
-		{
-			if (ndf==NDF_GGX) {
-				bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, a2);
-			}
-			else if (ndf==NDF_BECKMANN) {
-				bxdf_eval_scalar_part = irr_glsl_beckmann_smith_height_correlated_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, a2);
-			}
-			else if (ndf==NDF_PHONG) {
-				float n = irr_glsl_alpha2_to_phong_exp(a2);
-				bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, n, a2);
-			}
-			else if (ndf==NDF_AS) {
-				float nx = irr_glsl_alpha2_to_phong_exp(a2);
-				float ny = irr_glsl_alpha2_to_phong_exp(ay2);
-				bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(currBSDFParams, currInteraction, nx, ny, a2, ay2);
-			}
-		}
-
-		uvec3 regs = instr_decodeRegisters(instr);
-		if (op==OP_DIFFUSE) {
-			instr_execute_DIFFUSE(instr, regs, params, bsdf_data);
-		}
-		else if (op==OP_CONDUCTOR) {
-			instr_execute_CONDUCTOR(instr, regs, bxdf_eval_scalar_part, params, bsdf_data);
-		}
-		else if (op==OP_PLASTIC) {
-			instr_execute_PLASTIC(instr, regs, bxdf_eval_scalar_part, params, bsdf_data);
-		}
-		else if (op==OP_COATING) {
-			instr_execute_COATING(instr, regs, params, bsdf_data);
-		}
-		else if (op==OP_DIFFTRANS) {
-			instr_execute_DIFFTRANS(instr, regs, params, bsdf_data);
-		}
-		else if (op==OP_DIELECTRIC) {
-			instr_execute_DIELECTRIC(instr, regs, params, bsdf_data);
-		}
-		else if (op==OP_BLEND) {
-			instr_execute_BLEND(instr, regs, params, bsdf_data);
-		}
-		else if (op==OP_BUMPMAP) {
-			instr_execute_BUMPMAP(instr, L);
-		}
-		else if (op==OP_SET_GEOM_NORMAL) {
-			instr_execute_SET_GEOM_NORMAL(L);
-		}
-	}
-}
