@@ -173,10 +173,11 @@ int main()
 #ifdef _IRR_DEBUG
     const core::vector4du32_SIMD diskBlockDim(5u, 5u, 5u);
 #else
-    const uint32_t multiplier = core::max((0x1u<<30u)/MaxBufferSize,1u);
-    const core::vector4du32_SIMD diskBlockDim(1u, 1u, MAX_OBJ_CNT*multiplier);
+    const uint32_t multiplier = core::min<uint32_t>(MAX_OBJ_CNT*(MaxBufferSize>>20u)/(0x1u<<10u),MAX_OBJ_CNT);
+    const core::vector4du32_SIMD diskBlockDim(1u, 1u, multiplier);
 #endif
     const size_t diskCount = diskBlockDim.x * diskBlockDim.y * diskBlockDim.z;
+    os::Printer::print("Disks count "+std::to_string(diskCount)+"\n");
 
     assert(diskCount <= MAX_OBJ_CNT);
 
@@ -232,6 +233,8 @@ int main()
             disk.assemblyParams.primitiveType = EPT_TRIANGLE_LIST;
             createMeshBufferFromGeometryCreatorReturnData(disk, disks[i], i, bonesCreated);
             bonesCreated += boneMatMaxCnt[i];
+            if (i%50u==1u)
+                os::Printer::print("Disks progress " + std::to_string(float(i)/float(diskCount)*100.f) + "\%\n");
         }
     }
 #endif
@@ -586,7 +589,7 @@ int main()
 
     COpenGLDriver* driverOGL = dynamic_cast<COpenGLDriver*>(driver);
 
-    constexpr uint32_t iterationCnt = 10000u;
+    constexpr uint32_t iterationCnt = 1000u;
     constexpr uint32_t warmupIterationCnt = iterationCnt / 10u;
     for (uint32_t caseID = 0u; caseID < 4u; caseID++)
     {
