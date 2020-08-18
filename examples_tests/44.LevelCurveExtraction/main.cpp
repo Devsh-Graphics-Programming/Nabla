@@ -50,7 +50,7 @@ layout(location = 3) out vec2 fragUV;
 
 void main()
 {
-    const float levelPlanesDistance = 10.1;//intersectionPlaneSpacing;
+    const float levelPlanesDistance = intersectionPlaneSpacing;
     const vec3 levelPlaneNormal = vec3(0.0,1.0,0.0);   
 
     uint numHorLines;
@@ -80,7 +80,7 @@ void main()
     numHorLines = uint(floor(maxLevel/levelPlanesDistance)-ceil(minLevel/levelPlanesDistance-1));
     if(numHorLines>0)
     {
-        uint outID = atomicAdd(lineDraw[0].count,2 * numHorLines) * 3;
+        uint outID = atomicAdd(lineDraw[mdiIndex].count,2*numHorLines)*3;
         float beginLevel = ceil(minLevel/levelPlanesDistance)*levelPlanesDistance;
 
         const vec3 edgeVectors[3] = vec3[3](
@@ -149,7 +149,7 @@ using namespace irr;
 using namespace core;
 
 
-void SaveBufferToCSV(video::IVideoDriver* driver, video::IGPUBuffer* drawIndirectBuffer, video::IGPUBuffer* lineBuffer)
+void SaveBufferToCSV(video::IVideoDriver* driver, size_t mdiIndex, video::IGPUBuffer* drawIndirectBuffer, video::IGPUBuffer* lineBuffer)
 {
     constexpr uint64_t timeoutInNanoSeconds = 15000000000u;
     const uint32_t alignment = sizeof(float);
@@ -165,7 +165,7 @@ void SaveBufferToCSV(video::IVideoDriver* driver, video::IGPUBuffer* drawIndirec
             os::Printer::log("Could not download the buffer from the GPU!", ELL_ERROR);
             return nullptr;
         }
-        driver->copyBuffer(buf, downBuffer, origOffset, address, alignment);
+        driver->copyBuffer(buf, downBuffer, origOffset, address, bytelen);
         auto downloadFence = driver->placeFence(true);
         auto result = downloadFence->waitCPU(timeoutInNanoSeconds, true);
         if (result==video::E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED || result==video::E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
@@ -182,7 +182,7 @@ void SaveBufferToCSV(video::IVideoDriver* driver, video::IGPUBuffer* drawIndirec
     };
 
     // get the line count
-    auto vertexCount = *reinterpret_cast<const uint32_t*>(getData(drawIndirectBuffer,offsetof(irr::asset::DrawArraysIndirectCommand_t,count),sizeof(asset::DrawArraysIndirectCommand_t::count)));
+    auto vertexCount = *reinterpret_cast<const uint32_t*>(getData(drawIndirectBuffer,sizeof(asset::DrawArraysIndirectCommand_t)*mdiIndex+offsetof(irr::asset::DrawArraysIndirectCommand_t,count),sizeof(asset::DrawArraysIndirectCommand_t::count)));
 
     // get the lines
     auto* data = reinterpret_cast<float*>(getData(lineBuffer,0u,vertexCount*sizeof(float)*3u));
@@ -254,9 +254,7 @@ int main()
     //create buffers for the geometry shader
     auto linesBuffer = driver->createDeviceLocalGPUBufferOnDedMem(linesBufferSize);
 
-    float levelCurveSpacing = 10.0f;
-    float planeX = 0, planeY = 1, planeZ = 0;
-    auto uniformLinesSettingsBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(roundUp(4u * sizeof(float), 16ull), &levelCurveSpacing);
+    auto uniformLinesSettingsBuffer = driver->createDeviceLocalGPUBufferOnDedMem(roundUp(sizeof(GlobalUniforms),16ull));
 
     // prepare line pipeline
     core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> drawIndirect_pipeline;
@@ -505,24 +503,15 @@ int main()
     smgr->setActiveCamera(camera);
 	uint64_t lastFPSTime = 0;
     
+    GlobalUniforms globalUniforms = { 0u,10.f };
 	while(device->run() && receiver.keepOpen())
 	{
         driver->beginScene(true, true, video::SColor(255,128,128,128) );
 
-        if (levelCurveSpacing != receiver.getSpacing())
-        {
-            levelCurveSpacing = receiver.getSpacing();
-            driver->updateBufferRangeViaStagingBuffer(uniformLinesSettingsBuffer.get(), 0, sizeof(float), &levelCurveSpacing);
-        }
+        // always update cause of mdiIndex
+        globalUniforms.intersectionPlaneSpacing = receiver.getSpacing();
+        driver->updateBufferRangeViaStagingBuffer(uniformLinesSettingsBuffer.get(), 0, sizeof(globalUniforms), &globalUniforms);
 
-        
-      
-        // zero out buffer LineCount
-        driver->fillBuffer(lineCountBuffer.get(), offsetof(irr::asset::DrawArraysIndirectCommand_t,count), sizeof(uint32_t), 0u);
-
-        //emit "memory barrier" of type GL_SHADER_STORAGE_BITS before scene is drawn - same as pre render? or post invoking render but before it finishes?
-        //did you mean GL_SHADER_STORAGE_BARRIER_BIT?
-        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_ALL_BARRIER_BITS);
 
         //! This animates (moves) the camera and sets the transforms
 		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
@@ -575,22 +564,22 @@ int main()
             driver->drawMeshBuffer(gpumb);
         }
 
-        //emit "memory barrier" of type GL_ALL_BARRIER_BITS after the entire scene finishes drawing
-        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_ALL_BARRIER_BITS);
+        // emit "memory barrier" of type GL_SHADER_STORAGE_BARRIER_BIT after the entire scene finishes drawing because we'll use the outputs as SSBOs
+        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
         driver->dispatch(1u,1u,1u);
-
-        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_ALL_BARRIER_BITS);
+        // emit another memory barrier telling that we'll use the previously async written SSBO as MDI source, vertex data source, possibly to download and finally we'll re-use in the geometry shader as a clear buffer (cleared to 0 lines)
+        const bool willDownloadThisFrame = receiver.doBufferSave();
+        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_COMMAND_BARRIER_BIT|GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT|(willDownloadThisFrame ? GL_BUFFER_UPDATE_BARRIER_BIT:0u)|GL_SHADER_STORAGE_BARRIER_BIT);
 
         driver->bindGraphicsPipeline(drawIndirect_pipeline.get());
         driver->pushConstants(drawIndirect_pipeline->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), camera->getConcatenatedMatrix().pointer());
         //invoke drawIndirect and use linesBuffer
-        driver->drawArraysIndirect(bufferBinding, asset::EPT_LINE_LIST, lineCountBuffer.get(), 0u, 1u, sizeof(asset::DrawArraysIndirectCommand_t));
+        driver->drawArraysIndirect(bufferBinding, asset::EPT_LINE_LIST, lineCountBuffer.get(), sizeof(asset::DrawArraysIndirectCommand_t)* globalUniforms.mdiIndex, 1u, sizeof(asset::DrawArraysIndirectCommand_t));
 		driver->endScene();
         
-        if (receiver.doBufferSave())
-        {
-            SaveBufferToCSV(driver,lineCountBuffer.get(),linesBuffer.get());
-        }
+        if (willDownloadThisFrame)
+            SaveBufferToCSV(driver,globalUniforms.mdiIndex,lineCountBuffer.get(),linesBuffer.get());
+        globalUniforms.mdiIndex ^= 0x1u;
 
 		// display frames per second in window title
 		uint64_t time = device->getTimer()->getRealTime();

@@ -1,10 +1,12 @@
 #version 440 core
 
-layout(local_size_x = 1) in;
+layout(local_size_x = 2) in;
 
 #include "common.glsl"
 
 void main()
 {
-	lineDraw.count = min(LINE_VERTEX_LIMIT,lineDraw.count);
+	uint uncapped = lineDraw[mdiIndex].count;
+	barrier();
+	lineDraw[gl_LocalInvocationIndex].count = min(LINE_VERTEX_LIMIT,gl_LocalInvocationIndex!=mdiIndex ? 0u:uncapped);
 }
