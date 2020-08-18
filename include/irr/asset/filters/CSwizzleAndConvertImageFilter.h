@@ -152,7 +152,7 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 
 			auto perOutputRegion = [&blockDims,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
-				const auto clampBufferChannelsAmount = asset::getFormatChannelCount(outFormat);
+				constexpr uint32_t clampBufferChannelsAmount = asset::getFormatChannelCount<outFormat>();
 
 				auto swizzle = [&commonExecuteData,&blockDims,&state,&clampBufferChannelsAmount](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
 				{
@@ -163,7 +163,7 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 					for (auto blockX=0u; blockX<blockDims.x; blockX++)
 					{
 						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
-						uint8_t* dstPix = commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides);
+						uint8_t* dstPix = commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos + core::vectorSIMDu32(blockX, blockY),commonExecuteData.outByteStrides);
 						
 						auto getSwizzle = [&]() -> Swizzle&
 						{
@@ -244,7 +244,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,clamp> : publi
 					for (auto blockX=0u; blockX<blockDims.x; blockX++)
 					{
 						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
-						uint8_t* dstPix = commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides);
+						uint8_t* dstPix = commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos + core::vectorSIMDu32(blockX, blockY),commonExecuteData.outByteStrides);
 
 						auto getSwizzle = [&]() -> Swizzle&
 						{

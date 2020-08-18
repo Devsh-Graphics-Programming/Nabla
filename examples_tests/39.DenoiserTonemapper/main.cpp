@@ -990,7 +990,7 @@ void main()
 
 			auto getConvertedPNGImageView = [&](core::smart_refctd_ptr<ICPUImage> image)
 			{
-				constexpr auto pngFormat = EF_R8G8B8A8_SRGB;
+				constexpr auto pngFormat = EF_R8G8B8_SRGB;
 				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_R16G16B16A16_SFLOAT, pngFormat, true>; // TESTING
 
 				core::smart_refctd_ptr<ICPUImage> newConvertedImage;
