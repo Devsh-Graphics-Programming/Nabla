@@ -173,7 +173,8 @@ int main()
 #ifdef _IRR_DEBUG
     const core::vector4du32_SIMD diskBlockDim(5u, 5u, 5u);
 #else
-    const core::vector4du32_SIMD diskBlockDim(1u, 1u, MAX_OBJ_CNT*(1024u*1024u*1024u/MaxBufferSize));
+    const uint32_t multiplier = core::max((0x1u<<30u)/MaxBufferSize,1u);
+    const core::vector4du32_SIMD diskBlockDim(1u, 1u, MAX_OBJ_CNT*multiplier);
 #endif
     const size_t diskCount = diskBlockDim.x * diskBlockDim.y * diskBlockDim.z;
 
