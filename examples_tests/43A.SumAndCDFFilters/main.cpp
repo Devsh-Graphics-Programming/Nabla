@@ -22,7 +22,7 @@ using namespace video;
 */
 
 #define IMAGE_VIEW 
-// #define OVERLAPPING_REGIONS				// @devsh I leave it for you
+//#define OVERLAPPING_REGIONS				// @devsh I leave it for you
 constexpr bool EXCLUSIVE_SUM = true;
 constexpr auto MIPMAP_IMAGE_VIEW = 2u;		// feel free to change the mipmap
 constexpr auto MIPMAP_IMAGE = 0u;			// ordinary image used in the example has only 0-th mipmap
