@@ -21,7 +21,7 @@ namespace video
             {
                 auto oldSize = oldBuff->getSize();
                 auto oldOffset = core::address_allocator_traits<AddressAllocator>::get_combined_offset(allocToQueryOffsets);
-                auto copyRangeLen = std::min(oldSize-oldOffset,bytes);
+                auto copyRangeLen = core::min<size_t>(oldSize-oldOffset,bytes);
                 return std::make_tuple(oldOffset,copyRangeLen,oldSize);
             }
         public:

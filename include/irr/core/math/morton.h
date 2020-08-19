@@ -4,9 +4,9 @@
 #include <cstdint>
 #include "IrrCompileConfig.h"
 #include "irr/macros.h"
-#include "irr/static_if.h"
 
-namespace irr {
+namespace irr
+{
 namespace core
 {
 
@@ -32,18 +32,18 @@ namespace impl
         x = x & morton2d_mask<T>(0);
         x = (x | (x >> 1)) & morton2d_mask<T>(1);
         x = (x | (x >> 2)) & morton2d_mask<T>(2);
-        IRR_PSEUDO_IF_CONSTEXPR_BEGIN (bitDepth>8u)
+        if constexpr (bitDepth>8u)
         {
-        x = (x | (x >> 4)) & morton2d_mask<T>(3);
-        } IRR_PSEUDO_IF_CONSTEXPR_END
-        IRR_PSEUDO_IF_CONSTEXPR_BEGIN (bitDepth>16u)
+            x = (x | (x >> 4)) & morton2d_mask<T>(3);
+        }
+        if constexpr (bitDepth>16u)
         {
-        x = (x | (x >> 8)) & morton2d_mask<T>(4);
-        } IRR_PSEUDO_IF_CONSTEXPR_END
-        IRR_PSEUDO_IF_CONSTEXPR_BEGIN (bitDepth>32u)
+            x = (x | (x >> 8)) & morton2d_mask<T>(4);
+        }
+        if constexpr (bitDepth>32u)
         {
-        x = (x | (x >> 16));
-        } IRR_PSEUDO_IF_CONSTEXPR_END
+            x = (x | (x >> 16));
+        }
         return x;
     }
 
@@ -51,17 +51,17 @@ namespace impl
     template <typename T, uint32_t bitDepth>
     inline T separate_bits_2d(T x)
     {
-        IRR_PSEUDO_IF_CONSTEXPR_BEGIN (bitDepth>32u)
+        if constexpr (bitDepth>32u)
         {
-        x = (x | (x << 16)) & morton2d_mask<T>(4);
+            x = (x | (x << 16)) & morton2d_mask<T>(4);
         }
-        IRR_PSEUDO_IF_CONSTEXPR_BEGIN (bitDepth>16u)
+        if constexpr (bitDepth > 16u)
         {
-        x = (x | (x << 8)) & morton2d_mask<T>(3);
+            x = (x | (x << 8)) & morton2d_mask<T>(3);
         }
-        IRR_PSEUDO_IF_CONSTEXPR_BEGIN (bitDepth>8u)
+        if constexpr (bitDepth>8u)
         {
-        x = (x | (x << 4)) & morton2d_mask<T>(2);
+            x = (x | (x << 4)) & morton2d_mask<T>(2);
         }
         x = (x | (x << 2)) & morton2d_mask<T>(1);
         x = (x | (x << 1)) & morton2d_mask<T>(0);

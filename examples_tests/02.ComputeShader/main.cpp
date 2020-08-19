@@ -49,7 +49,7 @@ int main()
 	{
 		asset::IAssetLoader::SAssetLoadParams lparams;
 		auto loaded = am->getAsset("../../media/color_space_test/R8G8B8A8_2.png", lparams);
-		auto inImg = core::smart_refctd_ptr<asset::ICPUImage>(static_cast<asset::ICPUImage*>(loaded.getContents().first->get()));
+		auto inImg = core::smart_refctd_ptr<asset::ICPUImage>(static_cast<asset::ICPUImage*>(loaded.getContents().begin()->get()));
 		core::smart_refctd_ptr<asset::ICPUImage> outImg;
 		{
 			asset::ICPUImage::SCreationParams imgInfo = inImg->getCreationParameters();
@@ -118,7 +118,7 @@ int main()
 			//auto cs_unspec = am->getGLSLCompiler()->createSPIRVFromGLSL(f.get(), asset::ISpecializedShader::ESS_COMPUTE, "main", "comp");
 			asset::IAssetLoader::SAssetLoadParams lp;
 			auto cs_bundle = am->getAsset("../compute.comp",lp);
-			auto cs = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().first);
+			auto cs = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
 
 			auto cs_rawptr = cs.get();
 			shader = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr+1)->front();
@@ -127,8 +127,10 @@ int main()
 		compPipeline = driver->createGPUComputePipeline(nullptr, std::move(layout), std::move(shader));
 	}
 
+	auto renderObject = driver->getGPUObjectsFromAssets(&outImgViewRawPtr, &outImgViewRawPtr + 1)->front();
+
 	auto blitFBO = driver->addFrameBuffer();
-	blitFBO->attach(video::EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr_dynamic_cast<video::IGPUImageView>(am->findGPUObject(outImgViewRawPtr)));
+	blitFBO->attach(video::EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr_dynamic_cast<video::IGPUImageView>(renderObject));
 
 	while (device->run())
 	{

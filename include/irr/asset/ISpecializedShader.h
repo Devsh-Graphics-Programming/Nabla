@@ -49,10 +49,9 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 				SInfo() = default;
 				//! _entries must be sorted!
 				SInfo(core::smart_refctd_dynamic_array<SMapEntry>&& _entries, core::smart_refctd_ptr<ICPUBuffer>&& _backingBuff, const std::string& _entryPoint, E_SHADER_STAGE _ss, const std::string& _filePathHint="????") :
-					entryPoint{_entryPoint}, shaderStage{_ss}, m_entries(std::move(_entries)), m_backingBuffer(std::move(_backingBuff)), m_filePathHint(_filePathHint)
+					entryPoint{_entryPoint}, shaderStage{_ss}, m_filePathHint(_filePathHint)
 				{
-					if (m_entries)
-						std::sort(m_entries->begin(),m_entries->end());
+					setEntries(std::move(_entries),std::move(_backingBuff));
 				}
 				~SInfo() = default;
 
@@ -99,18 +98,40 @@ class ISpecializedShader : public virtual core::IReferenceCounted
 					if (!m_entries || !m_backingBuffer)
 						return {nullptr, 0u};
 
-					auto entry = std::lower_bound(m_entries->begin(), m_entries->end(), SMapEntry{_specConstID,0xdeadbeefu,0xdeadbeefu/*To make GCC warnings shut up*/});
+					auto entry = std::lower_bound(m_entries->begin(), m_entries->end(), SMapEntry{ _specConstID,0xdeadbeefu,0xdeadbeefu/*To make GCC warnings shut up*/},
+						[](const SMapEntry& lhs, const SMapEntry& rhs) -> bool
+						{
+							return lhs.specConstID<rhs.specConstID;
+						}
+					);
 					if (entry != m_entries->end() && entry->specConstID==_specConstID && (entry->offset + entry->size) <= m_backingBuffer->getSize())
 						return {reinterpret_cast<const uint8_t*>(m_backingBuffer->getPointer()) + entry->offset, entry->size};
 					else
 						return {nullptr, 0u};
 				}
 
+				//
+				core::refctd_dynamic_array<SMapEntry>* getEntries() {return m_entries.get();}
+				const core::refctd_dynamic_array<SMapEntry>* getEntries() const {return m_entries.get();}
+				
+				//
+				ICPUBuffer* getBackingBuffer() {return m_backingBuffer.get();}
+				const ICPUBuffer* getBackingBuffer() const {return m_backingBuffer.get();}
+
+				//
+				void setEntries(core::smart_refctd_dynamic_array<SMapEntry>&& _entries, core::smart_refctd_ptr<ICPUBuffer>&& _backingBuff)
+				{
+					m_entries = std::move(_entries);
+					m_backingBuffer = std::move(_backingBuff);
+				}
+
+
 				std::string entryPoint;
 				E_SHADER_STAGE shaderStage;
+				std::string m_filePathHint; // only used to resolve `#include` directives in GLSL (not SPIR-V) shaders
+			//protected:
 				core::smart_refctd_dynamic_array<SMapEntry> m_entries;
 				core::smart_refctd_ptr<ICPUBuffer> m_backingBuffer;
-				std::string m_filePathHint; // only used to resolve `#include` directives in GLSL (not SPIR-V) shaders
 		};
 
 	protected:

@@ -1,0 +1,79 @@
+<?xml version="1.0"?>
+
+<scene version="0.5.0">
+
+
+<integrator type="multichannel">
+
+
+<integrator type="volpath" id="cameraintegrator">
+
+<integer value="35" name="maxDepth"/>
+
+</integrator>
+
+
+<integrator type="field">
+
+<string value="albedo" name="field"/>
+
+</integrator>
+
+
+<integrator type="field">
+
+<string value="shNormal" name="field"/>
+
+</integrator>
+
+</integrator>
+
+
+<sensor type="perspective" id="camera1">
+
+<float value="65.000001" name="fov"/>
+
+<string value="y" name="fovAxis"/>
+
+<float value="20.000000" name="nearClip"/>
+
+<float value="5000.000000" name="farClip"/>
+
+
+<transform name="toWorld">
+
+<scale x="-1"/>
+
+<lookat up="0.00, 1.00, 0.00" origin="127.24, 48.28, -500.96" target="153.82, 47.09, -544.47"/>
+
+</transform>
+
+
+<sampler type="hammersley">
+
+<integer value="2048" name="sampleCount"/>
+
+</sampler>
+
+
+<film type="hdrfilm">
+
+<integer value="2160" name="height"/>
+
+<integer value="3840" name="width"/>
+
+<rfilter type="box"/>
+
+<string value="rgb, rgb, rgb" name="pixelFormat"/>
+
+<string value="color, albedo, normal" name="channelNames"/>
+
+<boolean value="false" name="banner"/>
+
+</film>
+
+</sensor>
+
+<include filename="spp_benchmark_inside.xml"/>
+
+</scene>

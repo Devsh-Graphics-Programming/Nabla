@@ -7,15 +7,16 @@
 #define __C_BAW_MESH_FILE_LOADER_H_INCLUDED__
 
 
+#include "irr/asset/IAssetManager.h"/*
 #include "irr/asset/IAssetLoader.h"
 #include "IFileSystem.h"
-#include "irr/asset/ICPUMesh.h"
+#include "irr/asset/ICPUMesh.h"*/
 #include "irr/asset/bawformat/CBAWFile.h"
-#include "irr/asset/bawformat/legacy/CBAWLegacy.h"
+//#include "irr/asset/bawformat/legacy/CBAWLegacy.h"
 #include "irr/asset/bawformat/CBlobsLoadingManager.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
 
-#include "os.h"
+//#include "os.h"
 
 
 namespace irr
@@ -23,7 +24,6 @@ namespace irr
 namespace asset
 {
 
-class IAssetManager;
 
 class CBAWMeshFileLoader : public asset::IAssetLoader
 {

@@ -571,7 +571,7 @@ class CQuadraticSpline : public ISpline
 
 					integrationConstants[0] = 0.25f*b/a;
 					integrationConstants[1] = sqrtf(c) * integrationConstants[0];
-					integrationConstants[2] = 2.f * core::sqrt(core::max(a*c, 0.f)) + b;
+					integrationConstants[2] = 2.f * core::sqrt(core::max<float>(a*c, 0.f)) + b;
 					integrationConstants[3] = 2.f * a;
 					integrationConstants[4] = 2.f * sqrtf(a);
 					integrationConstants[5] = b;
@@ -655,7 +655,7 @@ class CQuadraticSpline : public ISpline
 							parameterHint += arcLenDiffAtParamGuess/differentialAtGuess;
 							arcLenDiffAtParamGuess = arcLen-getArcLenFromParameter(parameterHint);
 						}
-						return std::min(parameterHint,parameterLength);
+						return std::min<float>(parameterHint,parameterLength);
 					}
 					else
 						return arcLen*arcLen2ParameterLinear;

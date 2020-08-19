@@ -12,7 +12,7 @@ layout(location = 1) flat out vec3 Normal;
 
 void impl(uint _objectUUID)
 {
-	mat4 mvp = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(drawData[_objectUUID].modelViewProjMatrix);
+	mat4 mvp = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(drawData[_objectUUID].modelViewProjMatrix);
 
     gl_Position = mvp[0]*vPos.x+mvp[1]*vPos.y+mvp[2]*vPos.z+mvp[3];
     Color = vec4(0.4,0.4,1.0,1.0);

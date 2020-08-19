@@ -46,7 +46,7 @@ int main()
 	smart_refctd_ptr<IGPUImage> outImg;
 	smart_refctd_ptr<IGPUImageView> imgToTonemapView,outImgView;
 	{
-		auto cpuImg = IAsset::castDown<ICPUImage>(imageBundle.getContents().first[0]);
+		auto cpuImg = IAsset::castDown<ICPUImage>(imageBundle.getContents().begin()[0]);
 		IGPUImage::SCreationParams imgInfo = cpuImg->getCreationParameters();
 		inFormat = imgInfo.format;
 
@@ -77,7 +77,7 @@ int main()
 	const auto inputColorSpace = std::make_tuple(inFormat,ECP_SRGB,EOTF_IDENTITY);
 
 	using LumaMeterClass = ext::LumaMeter::CLumaMeter;
-	constexpr auto MeterMode = LumaMeterClass::EMM_MODE;
+	constexpr auto MeterMode = LumaMeterClass::EMM_MEDIAN;
 	const float minLuma = 1.f/2048.f;
 	const float maxLuma = 65536.f;
 

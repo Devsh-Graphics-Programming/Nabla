@@ -6,6 +6,8 @@
 
 #ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 
+#include "CNullDriver.h"
+
 #include "CIrrDeviceWin32.h"
 #include "CSceneManager.h"
 #include "IEventReceiver.h"
@@ -1096,7 +1098,7 @@ void CIrrDeviceWin32::createDriver()
 		#ifdef _IRR_COMPILE_WITH_OPENGL_
 		switchToFullScreen();
 
-		VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem, this, getAssetManager()->getGLSLCompiler());
+		VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem.get(), this, getAssetManager()->getGLSLCompiler());
 		if (!VideoDriver)
 		{
 			os::Printer::log("Could not create OpenGL driver.", ELL_ERROR);
@@ -1108,7 +1110,7 @@ void CIrrDeviceWin32::createDriver()
 
 	case video::EDT_NULL:
 		// create null driver
-		VideoDriver = video::createNullDriver(this, FileSystem, CreationParams);
+		VideoDriver = video::createNullDriver(this, FileSystem.get(), CreationParams);
 		break;
 
 	default:

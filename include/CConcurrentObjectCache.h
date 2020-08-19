@@ -2,7 +2,7 @@
 #define __C_CONCURRENT_OBJECT_CACHE_H_INCLUDED__
 
 #include "CObjectCache.h"
-#include "../source/Irrlicht/FW_Mutex.h"
+#include "FW_Mutex.h"
 
 namespace irr { namespace core
 {
@@ -50,9 +50,6 @@ namespace impl
         using KeyType = typename BaseCache::KeyType;
 
         using BaseCache::BaseCache;
-
-        template<typename RngT>
-        static bool isNonZeroRange(const RngT& _rng) { return BaseCache::isNonZeroRange(_rng); }
 
         inline bool insert(const typename BaseCache::KeyType_impl& _key, const typename BaseCache::ValueType_impl& _val)
         {

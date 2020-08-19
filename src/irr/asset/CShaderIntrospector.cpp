@@ -79,8 +79,11 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
         return doIntrospection(comp, _params);
     };
 
-    if (_shader->containsGLSL()) {
-        std::string glsl = reinterpret_cast<const char*>(_shader->getSPVorGLSL()->getPointer());
+    if (_shader->containsGLSL())
+    {
+        auto begin = reinterpret_cast<const char*>(_shader->getSPVorGLSL()->getPointer());
+        auto end = begin+_shader->getSPVorGLSL()->getSize();
+        std::string glsl(begin,end);
         ICPUShader::insertGLSLExtensionsDefines(glsl, _params.GLSLextensions.get());
         auto glslShader_woIncludes = m_glslCompiler->resolveIncludeDirectives(glsl.c_str(), _params.stage, _params.filePathHint.c_str());
         auto spvShader = m_glslCompiler->createSPIRVFromGLSL(
@@ -94,7 +97,8 @@ const CIntrospectionData* CShaderIntrospector::introspect(const ICPUShader* _sha
 
         return cacheIntrospection(introspectSPV(spvShader.get()), _shader, _params);
     }
-    else {
+    else
+    {
         // TODO (?) when we have enabled_extensions_list it may validate whether all extensions in list are also present in spv
         return cacheIntrospection(introspectSPV(_shader), _shader, _params);
     }
@@ -453,7 +457,7 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
 
     core::smart_refctd_ptr<CIntrospectionData> introData = core::make_smart_refctd_ptr<CIntrospectionData>();
     introData->pushConstant.present = false;
-    auto addResource_common = [&introData, &_comp] (const spirv_cross::Resource& r, E_SHADER_RESOURCE_TYPE restype, const core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*>& _mapId2sconst) -> SShaderResourceVariant& {
+    auto addResource_common = [&introData, &_comp] (const spirv_cross::Resource& r, E_SHADER_RESOURCE_TYPE restype, const mapId2SpecConst_t& _mapId2sconst) -> SShaderResourceVariant& {
         const uint32_t descSet = _comp.get_decoration(r.id, spv::DecorationDescriptorSet);
         assert(descSet < 4u);
         introData->descriptorSetBindings[descSet].emplace_back();
@@ -468,13 +472,15 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
         // assuming only 1D arrays because i don't know how desc set layout binding is constructed when it's let's say 2D array (e.g. uniform sampler2D smplr[4][5]; is it even legal?)
         if (type.array.size()) // is array
         {
+            // the API for this spec constant checking is truly messed up
             res.descriptorCount = type.array[0]; // ID of spec constant if size is spec constant
             res.descCountIsSpecConstant = !type.array_size_literal[0];
-            if (res.descCountIsSpecConstant) {
-                const auto sc_itr = _mapId2sconst.find(res.descriptorCount);
-                assert(sc_itr != _mapId2sconst.cend());
+            if (res.descCountIsSpecConstant)
+            {
+                auto sc_itr = _mapId2sconst.find(res.descriptorCount);
+                assert(sc_itr!=_mapId2sconst.end());
                 auto sc = sc_itr->second;
-                res.descriptorCount = sc->id;
+                res.count_specID = sc->id;
             }
         }
 
@@ -492,15 +498,13 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
 
     // spec constants
     spirv_cross::SmallVector<spirv_cross::SpecializationConstant> sconsts = _comp.get_specialization_constants();
-    core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*> mapId2SpecConst;
-    introData->specConstants.resize(sconsts.size());
+    mapId2SpecConst_t mapId2SpecConst;
+    introData->specConstants.reserve(sconsts.size());
     for (size_t i = 0u; i < sconsts.size(); ++i)
     {
-        CIntrospectionData::SSpecConstant& specConst = introData->specConstants[i];
+        CIntrospectionData::SSpecConstant specConst;
         specConst.id = sconsts[i].constant_id;
         specConst.name = _comp.get_name(sconsts[i].id);
-
-        mapId2SpecConst[sconsts[i].id] = &specConst;
 
         const spirv_cross::SPIRConstant& sconstval = _comp.get_constant(sconsts[i].id);
         const spirv_cross::SPIRType& type = _comp.get_type(sconstval.constant_type);
@@ -529,9 +533,19 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
             break;
         default: break;
         }
+
+        auto where = std::lower_bound(introData->specConstants.begin(), introData->specConstants.end(), specConst, [](const auto& _lhs, const auto& _rhs) { return _lhs.id < _rhs.id; });
+        introData->specConstants.insert(where, specConst);
     }
-    using SSpecConstant = CIntrospectionData::SSpecConstant;
-    std::sort(introData->specConstants.begin(), introData->specConstants.end(), [](const SSpecConstant& _lhs, const SSpecConstant& _rhs) { return _lhs.id < _rhs.id; });
+    for (const auto& sc : sconsts)
+    {
+        CIntrospectionData::SSpecConstant dummy;
+        dummy.id = sc.constant_id;
+        auto it = std::lower_bound(introData->specConstants.begin(), introData->specConstants.end(), dummy, [](const auto& _lhs, const auto& _rhs) { return _lhs.id < _rhs.id; });
+        if (it==introData->specConstants.end() || it->id!=dummy.id)
+            continue;
+        mapId2SpecConst.insert({sc.id,&*it});
+    }
 
     spirv_cross::ShaderResources resources = _comp.get_shader_resources(_comp.get_active_interface_variables());
     for (const spirv_cross::Resource& r : resources.uniform_buffers)
@@ -629,8 +643,9 @@ namespace {
         const spirv_cross::SPIRType& parentType;
         uint32_t baseOffset;
     };
+    using mapId2SpecConst_t = core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*>;
 }
-static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock::SMember::SMembers& _dstMembers, const spirv_cross::SPIRType& _parentType, const spirv_cross::SmallVector<spirv_cross::TypeID>& _allMembersTypes, uint32_t _baseOffset, const core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*>& _mapId2sconst, core::stack<StackElement>& _pushStack) {
+static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock::SMember::SMembers& _dstMembers, const spirv_cross::SPIRType& _parentType, const spirv_cross::SmallVector<spirv_cross::TypeID>& _allMembersTypes, uint32_t _baseOffset, const mapId2SpecConst_t& _mapId2sconst, core::stack<StackElement>& _pushStack) {
     using MembT = impl::SShaderMemoryBlock::SMember;
 
     auto MemberDefault = [] {
@@ -671,10 +686,10 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
             member.countIsSpecConstant = !mtype.array_size_literal[0];
             if (member.countIsSpecConstant)
 			{
-                const auto sc_itr = _mapId2sconst.find(member.count);
-                assert(sc_itr != _mapId2sconst.cend());
+                auto sc_itr = _mapId2sconst.find(member.count);
+                assert(sc_itr!=_mapId2sconst.end());
                 auto sc = sc_itr->second;
-                member.count = sc->id;
+                member.count_specID = sc->id;
             }
         }
 		else if (mtype.basetype != spirv_cross::SPIRType::Struct) // might have to ignore a few more types than structs
@@ -692,7 +707,7 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
     }
 }
 
-void CShaderIntrospector::shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const core::unordered_map<uint32_t, const CIntrospectionData::SSpecConstant*>& _mapId2sconst) const
+void CShaderIntrospector::shaderMemBlockIntrospection(spirv_cross::Compiler& _comp, impl::SShaderMemoryBlock& _res, uint32_t _blockBaseTypeID, uint32_t _varID, const mapId2SpecConst_t& _sortedId2sconst) const
 {
     using MembT = impl::SShaderMemoryBlock::SMember;
 
@@ -702,7 +717,7 @@ void CShaderIntrospector::shaderMemBlockIntrospection(spirv_cross::Compiler& _co
     while (!introspectionStack.empty()) {
         StackElement e = introspectionStack.top();
         introspectionStack.pop();
-        introspectStructType(_comp, e.membersDst, e.parentType, e.parentType.member_types, 0u, _mapId2sconst, introspectionStack);
+        introspectStructType(_comp, e.membersDst, e.parentType, e.parentType.member_types, 0u, _sortedId2sconst, introspectionStack);
     }
 
     _res.size = _res.rtSizedArrayOneElementSize = _comp.get_declared_struct_size(type);

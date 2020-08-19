@@ -182,16 +182,16 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 				wrapped += state->outOffsetBaseLayer+reloffset;
 				for (const auto& outreg : state->outImage->getRegions(state->outMipLevel))
 				{
-					core::vectorSIMDu32 min(&outreg.imageOffset.x);
-					min.w = outreg.imageSubresource.baseArrayLayer;
-					core::vectorSIMDu32 max(&outreg.imageExtent.width);
-					max.w = outreg.imageSubresource.layerCount;
-					max += min;
+					core::vectorSIMDu32 _min(&outreg.imageOffset.x);
+					_min.w = outreg.imageSubresource.baseArrayLayer;
+					core::vectorSIMDu32 _max(&outreg.imageExtent.width);
+					_max.w = outreg.imageSubresource.layerCount;
+					_max += _min;
 
-					if ((wrapped>=min).all() && (wrapped<max).all())
+					if ((wrapped>= _min).all() && (wrapped<_max).all())
 					{
 						const auto strides = outreg.getByteStrides(blockInfo);//TODO precompute strides
-						const uint64_t srcOffset = outreg.getByteOffset(wrapped-min, strides);
+						const uint64_t srcOffset = outreg.getByteOffset(wrapped-_min, strides);
 
 						memcpy(bufptr+blockArrayOffset, bufptr+srcOffset, texelSz);
 						break;

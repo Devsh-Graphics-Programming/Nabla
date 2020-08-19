@@ -1,5 +1,5 @@
-#ifndef __IRR_E_COLOR_H_INCLUDED__
-#define __IRR_E_COLOR_H_INCLUDED__
+#ifndef __IRR_ASSET_E_FORMAT_H_INCLUDED__
+#define __IRR_ASSET_E_FORMAT_H_INCLUDED__
 
 #include <cstdint>
 #include <type_traits>

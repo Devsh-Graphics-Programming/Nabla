@@ -705,6 +705,8 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
         void invalidateMappedMemoryRanges(uint32_t memoryRangeCount, const video::IDriverMemoryAllocation::MappedMemoryRange* pMemoryRanges) override;
 
+		void fillBuffer(IGPUBuffer* buffer, size_t offset, size_t length, uint32_t value) override;
+
         void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length) override;
 
 		void copyImage(IGPUImage* srcImage, IGPUImage* dstImage, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions) override;
@@ -929,9 +931,8 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 					constexpr size_t bytesLeft = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE - (toFill * sizeof(uint64_t));
 					constexpr uint64_t pattern = 0xdeadbeefDEADBEEFull;
 					std::fill(reinterpret_cast<uint64_t*>(pushConstantsState<PBP>()->data), reinterpret_cast<uint64_t*>(pushConstantsState<PBP>()->data)+toFill, pattern);
-					IRR_PSEUDO_IF_CONSTEXPR_BEGIN(bytesLeft > 0ull) {
+					if constexpr (bytesLeft > 0ull)
 						memcpy(reinterpret_cast<uint64_t*>(pushConstantsState<PBP>()->data) + toFill, &pattern, bytesLeft);
-					} IRR_PSEUDO_IF_CONSTEXPR_END
 				//#endif
 
 					_stages |= IGPUSpecializedShader::ESS_ALL;

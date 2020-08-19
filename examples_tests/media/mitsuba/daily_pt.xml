@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <scene version="0.5.0">
 
-<integrator type="path">
-	<integer name="maxDepth" value="10"/>
+<integrator type="path" id="cameraintegrator">
+  <integer name="maxDepth" value="8" />
 </integrator>
 
 <!--<sensor type="thinlens">-->
@@ -14,18 +14,42 @@
 	<string name="fovAxis" value="y"/>
 	<float name="focusDistance" value="3"/>
 	<float name="apertureRadius" value="0.1"/>
-	<sampler type="ldsampler">
-		<integer name="sampleCount" value="256"/>
+	<sampler type="hammersley">
+		<integer name="sampleCount" value="8"/>
 	</sampler>
 	<film type="hdrfilm">
-		<integer name="width" value="1280"/>
-		<integer name="height" value="720"/>
+		<integer name="width" value="1920"/>
+		<integer name="height" value="1080"/>
+    <rfilter type="box"/>
 	</film>
 </sensor>
   
 <emitter type="constant">
   <rgb name="radiance" value="0.15,0.21,0.3"/>
 </emitter>
+
+
+<bsdf type="roughconductor" id="blue_smooth">
+  <string name="distribution" value="ggx"/>
+  <float name="alpha" value="0" />
+  <rgb name="eta" value="1.02, 1.02, 1.3"/>
+  <rgb name="k" value="1.0, 1.0, 2.0"/>
+</bsdf>
+
+<bsdf type="roughconductor" id="green_smooth">
+  <string name="distribution" value="ggx"/>
+  <float name="alpha" value="0" />
+  <rgb name="eta" value="1.02, 1.3, 1.02"/>
+  <rgb name="k" value="1.0, 2.0, 1.0"/>
+</bsdf>
+
+<bsdf type="roughconductor" id="green_rough">
+  <string name="distribution" value="ggx"/>
+  <float name="alpha" value="0.15" />
+  <rgb name="eta" value="1.02, 1.3, 1.02"/>
+  <rgb name="k" value="1.0, 2.0, 1.0"/>
+</bsdf>
+  
 
 <shape type="sphere">
 	<transform name="toWorld"><translate x="0" y="-100.5" z="-1"/></transform>
@@ -51,38 +75,22 @@
 <shape type="sphere">
 	<transform name="toWorld"><translate x="-2" y="0" z="-1"/></transform>
 	<float name="radius" value="0.5"/>
-	<bsdf type="roughconductor">
-		<float name="alpha" value="0" />
-		<string name="material" value="none" />
-		<rgb name="specularReflectance" value="0.4, 0.4, 0.8"/>
-	</bsdf>
+  <ref id="blue_smooth" />
 </shape>
 <shape type="sphere">
 	<transform name="toWorld"><translate x="2" y="0" z="1"/></transform>
 	<float name="radius" value="0.5"/>
-	<bsdf type="roughconductor">
-		<float name="alpha" value="0" />
-		<string name="material" value="none" />
-		<rgb name="specularReflectance" value="0.4, 0.8, 0.4"/>
-	</bsdf>
+  <ref id="green_smooth" />
 </shape>
 <shape type="sphere">
 	<transform name="toWorld"><translate x="0" y="0" z="1"/></transform>
 	<float name="radius" value="0.5"/>
-	<bsdf type="roughconductor">
-		<float name="alpha" value="0.0" />
-		<string name="material" value="none" />
-		<rgb name="specularReflectance" value="0.4, 0.8, 0.4"/>
-	</bsdf>
+  <ref id="green_smooth" />
 </shape>
 <shape type="sphere">
 	<transform name="toWorld"><translate x="-2" y="0" z="1"/></transform>
 	<float name="radius" value="0.5"/>
-	<bsdf type="roughconductor">
-		<float name="alpha" value="0.0" />
-		<string name="material" value="none" />
-		<rgb name="specularReflectance" value="0.4, 0.8, 0.4"/>
-	</bsdf>
+  <ref id="green_rough" />
 </shape>
 <shape type="sphere">
 	<transform name="toWorld"><translate x="0.5" y="1" z="0.5"/></transform>

@@ -1,87 +1,19 @@
 #include "CommandLineHandler.hpp"
 
+#include <algorithm>
+
 using namespace irr;
 using namespace asset;
 using namespace core;
 
-CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetManager* am) : status(false)
+CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetManager* am) : status(false), assetManager(am)
 {
-	core::vector<std::array<std::string, PROPER_CMD_ARGUMENTS_AMOUNT>> argvMappedList(1);
+	auto startEntireTime = std::chrono::steady_clock::now();
 
-	auto fillArgvList = [&](auto argvStream, auto variableCount, uint64_t batchFileID)
-	{
-		for (auto i = 0; i < variableCount; ++i)
-			argvMappedList[batchFileID][i] = argvStream[i];
-	};
-
-	auto getBatchFilesArgvStream = [&](std::string& fileStream)
-	{
-		core::vector<std::string> argvsStream;
-		size_t offset = {};
-		while (true)
-		{
-			const auto previousOffset = offset;
-			offset = fileStream.find_first_of("\r\n", previousOffset);
-			if (offset == std::string::npos)
-				break;
-			else
-				offset += fileStream[offset]=='\r'&&fileStream[offset+1]=='\n' ? 2:1;
-
-			argvsStream.push_back(fileStream.substr(previousOffset, offset));
-		}
-
-		return argvsStream;
-	};
-
-	auto getSerializedValues = [&](const auto& variablesStream, auto supposedArgumentsAmout, bool onlyEntireArgvArgument = false)
-	{
-		core::vector<std::string> variablesHandle;
-		variablesHandle.reserve(supposedArgumentsAmout);
-
-		std::string tmpStream;
-		for (auto x = 0ul; x < variablesStream.size(); ++x)
-		{
-			const auto character = variablesStream.at(x);
-
-			if (onlyEntireArgvArgument ? (character == ' ') : (character == ','))
-			{
-				variablesHandle.push_back(tmpStream);
-				tmpStream.clear();
-			}
-			else if (x == variablesStream.size() - 1)
-			{
-				tmpStream.push_back(character);
-				variablesHandle.push_back(tmpStream);
-				tmpStream.clear();
-			}
-			else if (character == '\r' || character == '\n')
-			{
-				variablesHandle.push_back(tmpStream);
-				break;
-			}
-			else
-				tmpStream.push_back(character);
-		}
-
-		return variablesHandle;
-	};
-
-	if (argv.size() == PROPER_CMD_ARGUMENTS_AMOUNT)
+	if(argv.size()>=MANDATORY_CMD_ARGUMENTS_AMOUNT && argv.size()<=PROPER_CMD_ARGUMENTS_AMOUNT)
 		mode = CLM_CMD_LIST;
-	else if (argv.size() == PROPER_BATCH_FILE_ARGUMENTS_AMOUNT)
+	else if (argv.size()>=PROPER_BATCH_FILE_ARGUMENTS_AMOUNT)
 		mode = CLM_BATCH_INPUT;
-	else if (argv.size() > 1 && argv.size() < 7)
-	{
-		os::Printer::log("Single argument assumptions aren't allowed - too few arguments!", ELL_ERROR);
-		os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
-		return;
-	}
-	else if (argv.size() > 7)
-	{
-		os::Printer::log("Too many arguments!", ELL_ERROR);
-		os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
-		return;
-	}
 	else
 	{
 		mode = CLM_UNKNOWN;
@@ -89,142 +21,370 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 		return;
 	}
 
-	if (std::string(argv[1]) == "-batch")
+	assetManager->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(assetManager));
+	core::vector<std::array<std::string, PROPER_CMD_ARGUMENTS_AMOUNT>> argvMappedList;
+
+	auto pushArgvList = [&](auto argvStream, auto variableCount)
 	{
-		auto file = am->getFileSystem()->createAndOpenFile(argv[2].c_str());
-		std::string fileStream;
-		fileStream.resize(file->getSize(), ' ');
-		file->read(fileStream.data(), file->getSize());
-		fileStream += "\r\n";
+		auto& back = argvMappedList.emplace_back();
+		for (auto i = 0; i < variableCount; ++i)
+			back[i] = argvStream[i];
+	};
 
-		bool log = false;
-		const auto batchInputStream = getBatchFilesArgvStream(fileStream);
-		argvMappedList.resize(batchInputStream.size());
+	auto getBatchFilesArgvStream = [&](std::string& fileStream) -> std::vector<std::string>
+	{
+		std::regex regex{"^"};
+		std::sregex_token_iterator it{ fileStream.begin(), fileStream.end(), regex, -1 };
+		return { it, {} };
+	};
 
-		for (auto i = 0ul; i < batchInputStream.size(); ++i)
+	auto getSerializedValues = [&](const auto& variablesStream, auto supposedArgumentsAmout, const std::regex& separator=std::regex{"[[:s:]]"})
+	{
+		std::sregex_token_iterator it{ variablesStream.begin(), variablesStream.end(), separator, -1 };
+		core::vector<std::string> variablesHandle = { it,{} };
+
+		// remove any accidental whitespace only vars
+		variablesHandle.erase(
+			std::remove_if(
+				variablesHandle.begin(),variablesHandle.end(),
+				[](const std::string& x) {return !std::regex_search(x,std::regex{"[^[:s:]]"}); }
+			),
+			variablesHandle.end()
+		);
+
+		return variablesHandle;
+	};
+
+	switch (mode)
+	{
+		case CLM_BATCH_INPUT:
 		{
-			const auto argvStream = *(batchInputStream.begin() + i);
-			const auto arguments = getSerializedValues(argvStream, PROPER_CMD_ARGUMENTS_AMOUNT, true);
+			auto file = am->getFileSystem()->createAndOpenFile(argv[2].c_str());
+			std::string fileStream;
+			fileStream.resize(file->getSize(), ' ');
+			file->read(fileStream.data(), file->getSize());
+			fileStream += "\r\n";
 
-			if (arguments.size() != PROPER_CMD_ARGUMENTS_AMOUNT)
+			bool error = false;
+			const auto batchInputStream = getBatchFilesArgvStream(fileStream);
+
+			for (auto i = 0ul; i < batchInputStream.size(); ++i)
 			{
-				os::Printer::log("The input batch file command with id: " + std::to_string(i) + " is incorrect - skipping it!", ELL_WARNING);
-				log = true;
+				const auto argvStream = *(batchInputStream.begin() + i);
+				// protection against empty lines
+				if (!std::regex_search(argvStream, std::regex{ "[^[:s:]]" }))
+					continue;
+
+				const auto arguments = getSerializedValues(argvStream, PROPER_CMD_ARGUMENTS_AMOUNT);
+
+				if (arguments.size() < MANDATORY_CMD_ARGUMENTS_AMOUNT || arguments.size() > PROPER_CMD_ARGUMENTS_AMOUNT)
+				{
+					error = true;
+					break;
+				}
+
+				pushArgvList(arguments, arguments.size());
 			}
 
-			fillArgvList(arguments, PROPER_CMD_ARGUMENTS_AMOUNT, i);
-		}
-
-		if(log)
-			os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
-	}
-	else if (argv.size() == PROPER_CMD_ARGUMENTS_AMOUNT)
-		fillArgvList(argv, argv.size(), 0);
-	else
-	{
-		os::Printer::log("Invalid syntax!", ELL_ERROR);
-		os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
-	}
-
-	// read from argv list to map and put variables to appropiate places in a cache
-	rawVariables.resize(argvMappedList.size());
-
-	for (auto c = 0ul; c < argvMappedList.size(); ++c)
-	{
-		const auto cmdArgumentsPerFile = *(argvMappedList.begin() + c);
-		initializeMatchingMap(rawVariables[c]);
-
-		for (auto i = 0; i < DTEA_COUNT; ++i)
-		{
-			auto& referenceVariableMap = rawVariables[c][i];
-
-			for (auto z = 0; z < PROPER_CMD_ARGUMENTS_AMOUNT; ++z)
+			if (error)
 			{
-				std::string rawFetchedCmdArgument = cmdArgumentsPerFile[z];
-				const auto offset = rawFetchedCmdArgument.find_first_of("-") + 1;
-				const auto endOfFetchedVariableName = rawFetchedCmdArgument.find_first_of("=");
-				const auto count = endOfFetchedVariableName - offset;
-				const auto cmdFetchedVariable = rawFetchedCmdArgument.substr(offset, count);
+				os::Printer::log(requiredArgumentsMessage.data(), ELL_ERROR);
+				return;
+			}
 
-				auto isTonemapperDetected = [&]()
+			break;
+		}
+		case CLM_CMD_LIST:
+		{
+			pushArgvList(argv, argv.size());
+			break;
+		}
+		default:
+		{
+			os::Printer::log("Invalid syntax!", ELL_ERROR);
+			os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
+			break;
+		}
+	}
+
+	rawVariables.resize(argvMappedList.size());
+	for (auto inputBatchStride = 0ul; inputBatchStride < argvMappedList.size(); ++inputBatchStride)
+	{
+		const auto cmdArgumentsPerFile = *(argvMappedList.begin() + inputBatchStride);
+		auto& rawVariablesHandle = rawVariables[inputBatchStride]; // unorederd map of variables
+		initializeMatchingMap(rawVariablesHandle);
+
+		for (auto argumentIterator = 0; argumentIterator < cmdArgumentsPerFile.size(); ++argumentIterator)
+		{
+			std::string rawFetchedCmdArgument = cmdArgumentsPerFile[argumentIterator];
+
+			const auto offset = rawFetchedCmdArgument.find_first_of("-") + 1;
+			const auto endOfFetchedVariableName = rawFetchedCmdArgument.find_first_of("=");
+			const auto count = endOfFetchedVariableName - offset;
+			const auto cmdFetchedVariable = rawFetchedCmdArgument.substr(offset, count);
+			{
+				std::string variable = cmdFetchedVariable;
+				auto matchedVariableID = getMatchedVariableMapID(variable);
+
+				if (matchedVariableID == DTEA_COUNT)
+					continue;
+
+				const auto beginningOfVariables = rawFetchedCmdArgument.find_last_of("=") + 1;
+				auto variablesStream = rawFetchedCmdArgument.substr(beginningOfVariables);
+
+				auto forceOutsideAssignment = [&](DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS argument, irr::core::vector<std::string>& variablesHandle)
 				{
-					if (referenceVariableMap.first == ACES || referenceVariableMap.first == REINHARD)
-						if (cmdFetchedVariable == TONEMAPPER)
-							return true;
-
-					return false;
+					auto& reference = rawVariablesHandle[argument];
+					return reference.emplace(variablesHandle);
 				};
 
-				const auto tonemapperDetected = isTonemapperDetected();
-				const auto matchedVariables = ((referenceVariableMap.first == cmdFetchedVariable) || tonemapperDetected);
-
-				if (matchedVariables)
+				auto assignToMap = [&](DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS argument, size_t reservedSpace = 1)
 				{
-					std::string variable = cmdFetchedVariable;
-					const auto beginningOfVariables = rawFetchedCmdArgument.find_last_of("=") + 1;
-					auto variablesStream = rawFetchedCmdArgument.substr(beginningOfVariables);
+					auto variablesHandle = getSerializedValues(variablesStream, reservedSpace, std::regex{"\,"});
+					return forceOutsideAssignment(argument, variablesHandle);
+				};
 
-					if (tonemapperDetected)
-					{
-						auto foundAces = rawFetchedCmdArgument.find(ACES) != std::string::npos;
-						auto foundReinhard = rawFetchedCmdArgument.find(REINHARD) != std::string::npos;
+				if (variable == TONEMAPPER)
+				{
+					auto begin = rawFetchedCmdArgument.find_first_of('=')+1u;
+					auto end = rawFetchedCmdArgument.find_first_of('=',begin);
+					auto foundOperator = rawFetchedCmdArgument.substr(begin,end-begin);
+					static const core::set<std::string> acceptedOperators = { std::string(REINHARD),std::string(ACES),std::string(NONE) };
 
-						if (foundAces)
-							variable = ACES;
-						else if (foundReinhard)
-							variable = REINHARD;
-						else
-							variable = REINHARD;
-					}
-
-					if (variable == ACES)
-					{
-						// 5 values according with the syntax
-						auto variablesHandle = getSerializedValues(variablesStream, AA_COUNT);
-						auto& reference = rawVariables[c][DTEA_ACES];
-						reference.second = variablesHandle;
-
-						if (variablesHandle.size() != AA_COUNT)
-							variablesHandle.resize(AA_COUNT);
-
-						reference.second[AA_ARG1] = variablesHandle[AA_ARG1].empty() ? std::string("2.51") : variablesHandle[AA_ARG1];
-						reference.second[AA_ARG2] = variablesHandle[AA_ARG2].empty() ? std::string("0.03") : variablesHandle[AA_ARG2];
-						reference.second[AA_ARG3] = variablesHandle[AA_ARG3].empty() ? std::string("2.43") : variablesHandle[AA_ARG3];
-						reference.second[AA_ARG4] = variablesHandle[AA_ARG4].empty() ? std::string("0.59") : variablesHandle[AA_ARG4];
-						reference.second[AA_ARG5] = variablesHandle[AA_ARG5].empty() ? std::string("0.14") : variablesHandle[AA_ARG5];
-					}
-					else if (variable == REINHARD)
-					{
-						// at the moment there is no variables for REINHARD
-						auto variablesHandle = getSerializedValues(variablesStream, 0);
-						auto& reference = rawVariables[c][DTEA_REINHARD];
-						reference.second = variablesHandle;
-					}
-					else if (variable == CHANNEL_NAMES)
-					{
-						// various amount of values allowed
-						auto variablesHandle = getSerializedValues(variablesStream, 3);
-						referenceVariableMap.second = variablesHandle;
-					}
-					else if (variable == CAMERA_TRANSFORM)
-					{
-						// various amount of values allowed, but useful is first 9 values
-						auto variablesHandle = getSerializedValues(variablesStream, 9);
-						referenceVariableMap.second = variablesHandle;
-					}
+					if (acceptedOperators.find(foundOperator)!=acceptedOperators.end())
+						variable = foundOperator;
 					else
 					{
-						// always one value
-						auto variablesHandle = getSerializedValues(variablesStream, 1);
-						referenceVariableMap.second = variablesHandle;
+						os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Invalid tonemapper specified! Id of input stride: " + std::to_string(inputBatchStride), ELL_ERROR);
+						return;
 					}
 				}
+
+				bool status = true;
+				if (variable == COLOR_FILE)
+					assignToMap(DTEA_COLOR_FILE);
+				else if (variable == CAMERA_TRANSFORM)
+					assignToMap(DTEA_CAMERA_TRANSFORM);
+				else if (variable == DENOISER_EXPOSURE_BIAS)
+					assignToMap(DTEA_DENOISER_EXPOSURE_BIAS);
+				else if (variable == DENOISER_BLEND_FACTOR)
+					assignToMap(DTEA_DENOISER_BLEND_FACTOR);
+				else if (variable == BLOOM_FOV)
+					assignToMap(DTEA_BLOOM_FOV);
+				else if (variable == REINHARD)
+					assignToMap(DTEA_TONEMAPPER_REINHARD, 2);
+				else if (variable == ACES)
+					assignToMap(DTEA_TONEMAPPER_ACES, 2);
+				else if (variable == NONE)
+					assignToMap(DTEA_TONEMAPPER_NONE, 1);
+				else if (variable == OUTPUT)
+					assignToMap(DTEA_OUTPUT);
+				else if (variable == ALBEDO_FILE)
+					assignToMap(DTEA_ALBEDO_FILE);
+				else if (variable == NORMAL_FILE)
+					assignToMap(DTEA_NORMAL_FILE);
+				else if (variable == COLOR_CHANNEL_NAME)
+					assignToMap(DTEA_COLOR_CHANNEL_NAME);
+				else if (variable == ALBEDO_CHANNEL_NAME)
+					assignToMap(DTEA_ALBEDO_CHANNEL_NAME);
+				else if (variable == NORMAL_CHANNEL_NAME)
+					assignToMap(DTEA_NORMAL_CHANNEL_NAME);
+				else if (variable == BLOOM_PSF_FILE)
+					assignToMap(DTEA_BLOOM_PSF_FILE);
 				else
-					continue;
+				{
+					os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Unexcepted argument! Id of input stride: " + std::to_string(inputBatchStride), ELL_ERROR);
+					assert(status = false);
+				}
 			}
+		}
+
+		if (!validateMandatoryParameters(rawVariablesHandle, inputBatchStride))
+			return;
+	}
+
+	performFInalAssignmentStepForUsefulVariables();
+
+	auto endEntireTime = std::chrono::steady_clock::now();
+	elapsedTimeEntireLoading = endEntireTime - startEntireTime;
+	status = true;
+
+	#ifdef _IRR_DEBUG
+	os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): Elapsed time of loading entire data: " + std::to_string(elapsedTimeEntireLoading.count()) + " nanoseconds", ELL_INFORMATION);
+	os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): Elapsed time of loading without mitsuba xml files: " + std::to_string(elapsedTimeEntireLoading.count() - elapsedTimeXmls.count()) + " nanoseconds", ELL_INFORMATION);
+	os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): Elapsed time of loading mitsuba xml files: " + std::to_string(elapsedTimeXmls.count()) + " nanoseconds", ELL_INFORMATION);
+	#endif // _IRR_DEBUG
+}
+
+bool CommandLineHandler::validateMandatoryParameters(const variablesType& rawVariablesPerFile, const size_t idOfInput)
+{
+	static const irr::core::vector<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS> mandatoryArgumentsOrdinary = { DTEA_COLOR_FILE, DTEA_CAMERA_TRANSFORM, DTEA_DENOISER_EXPOSURE_BIAS, DTEA_DENOISER_BLEND_FACTOR, DTEA_BLOOM_FOV, DTEA_OUTPUT };
+
+	auto log = [&](bool status, const std::string message)
+	{
+		os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): " + message + " Id of input stride: " + std::to_string(idOfInput), ELL_ERROR);
+		//assert(status);
+	};
+
+	auto validateOrdinary = [&](const DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS argument)
+	{
+		return rawVariablesPerFile.at(argument).has_value();
+	};
+
+	auto validateTonemapper = [&]()
+	{
+		uint32_t tonemapperCount = 0u;
+		uint32_t j = DTEA_TONEMAPPER_REINHARD;
+		for (DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS num; j<=DTEA_TONEMAPPER_NONE; j++)
+		{
+			num = (DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS)j;
+			auto& opt = rawVariablesPerFile.at(num);
+			if (!opt.has_value())
+				continue;
+			tonemapperCount++;
+			if (num!=DTEA_TONEMAPPER_NONE)
+			{
+				if (opt.value().size() < 2)
+				{
+					log(status = false, "A non-None tonemapper was not provided with at least 2 arguments!");
+					return false;
+				}
+			}
+			else if (opt.value().size() < 1)
+			{
+				log(status = false, "The None tonemapper was not provided with at least 1 argument!");
+				return false;
+			}
+		}
+
+		if (tonemapperCount==0u)
+		{
+			log(status = false, "Only one tonemapper must be specified!");
+			return false;
+		}
+		else if (tonemapperCount>1)
+		{
+			log(status = false, "Only one tonemapper must be specified!");
+			return false;
+		}
+
+		return true;
+	};
+
+	for (const auto& mandatory : mandatoryArgumentsOrdinary)
+	{
+		bool status = validateOrdinary(mandatory);
+		if (!status)
+		{
+			log(status, "Mandatory argument missing or it doesn't contain any value!");
+			return false;
 		}
 	}
 
-	performFInalStepForUsefulVariables();
-	status = true;
+	return validateTonemapper();
+}
+/*
+std::pair<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS,irr::core::vector<float>> CommandLineHandler::getTonemapper(uint64_t id)
+{
+	irr::core::vector<float> values;
+	uint32_t j = DTEA_TONEMAPPER_REINHARD;
+	DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS num;
+	for (; j<=DTEA_TONEMAPPER_NONE; j++)
+	{
+		num = (DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS)j;
+		if (rawVariables[id][num].has_value())
+			break;
+	}
+	
+	if (j<=DTEA_TONEMAPPER_NONE)
+	for (auto i=0; i<TA_COUNT; ++i)
+	{
+		float val = std::stof(rawVariables[id][num].value()[i]);
+		values.push_back(0.f);
+	}
+	
+	return { num, values };
+}
+*/
+std::optional<std::string> CommandLineHandler::getNormalFileName(uint64_t id)
+{
+	bool ableToReturn = rawVariables[id][DTEA_NORMAL_FILE].has_value() && !rawVariables[id][DTEA_NORMAL_FILE].value().empty();
+	if (ableToReturn)
+	{
+		ableToReturn = rawVariables[id][DTEA_ALBEDO_FILE].has_value() && !rawVariables[id][DTEA_ALBEDO_FILE].value().empty();
+		if (!ableToReturn)
+		{
+			os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Couldn't accept normal file due to lack of albedo file! Id of input stride: " + std::to_string(id), ELL_WARNING);
+			return {};
+		}
+	}
+	else
+		return {};
+
+	return rawVariables[id][DTEA_NORMAL_FILE].value()[0];
+}
+
+irr::core::matrix3x4SIMD CommandLineHandler::getCameraTransform(uint64_t id)
+{
+	static const IAssetLoader::SAssetLoadParams mitsubaLoaderParams = { 0, nullptr, IAssetLoader::ECF_CACHE_EVERYTHING, nullptr, IAssetLoader::ELPF_LOAD_METADATA_ONLY };
+
+	auto getMatrixFromFile = [&]()
+	{
+		const std::string& filePath = rawVariables[id][DTEA_CAMERA_TRANSFORM].value()[0];
+
+		auto startTime = std::chrono::steady_clock::now();
+		auto meshes_bundle = assetManager->getAsset(filePath.data(), mitsubaLoaderParams);
+		assert(!meshes_bundle.isEmpty(), ("ERROR (" + std::to_string(__LINE__) + " line): The xml file is invalid! Id of input stride: " + std::to_string(id)).c_str());
+		auto endTime = std::chrono::steady_clock::now();
+		elapsedTimeXmls += (endTime - startTime);
+
+		auto mesh = meshes_bundle.getContents().begin()[0];
+		auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
+		const auto mitsubaMetadata = static_cast<const ext::MitsubaLoader::CMitsubaMetadata*>(mesh_raw->getMetadata());
+		const auto data = mitsubaMetadata->getMitsubaMetadata();
+
+		bool validateFlag = data->sensors.empty();
+		if (validateFlag)
+		{
+			os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): The is no transform matrix in " + filePath + " ! Id of input stride: " + std::to_string(id), ELL_ERROR);
+			assert(validateFlag);
+		}
+
+		auto transformReference = data->sensors[0].transform.matrix.extractSub3x4();
+		transformReference.setTranslation(core::vectorSIMDf(0, 0, 0, 0));
+
+		return transformReference;
+	};
+
+	auto getMatrixFromSerializedValues = [&]()
+	{
+		irr::core::matrix3x4SIMD cameraTransform;
+		const auto send = rawVariables[id][DTEA_CAMERA_TRANSFORM].value().end();
+		auto sit = rawVariables[id][DTEA_CAMERA_TRANSFORM].value().begin();
+		for (auto i = 0; i < 3u && sit != send; i++)
+			for (auto j = 0; j < 3u && sit != send; j++)
+				cameraTransform(i, j) = std::stof(*(sit++));
+
+		return cameraTransform;
+	};
+
+	_IRR_STATIC_INLINE_CONSTEXPR uint8_t PATH_TO_MITSUBA_SCENE = 1;
+	_IRR_STATIC_INLINE_CONSTEXPR uint8_t CAMERA_MATRIX_VALUES = 9;
+
+	switch (rawVariables[id][DTEA_CAMERA_TRANSFORM].value().size())
+	{
+		case PATH_TO_MITSUBA_SCENE:
+		{
+			return getMatrixFromFile();
+		}
+		case CAMERA_MATRIX_VALUES:
+		{
+			return getMatrixFromSerializedValues();
+		}
+		default:
+		{
+			os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): " + std::string(CAMERA_TRANSFORM.data()) + " isn't a path nor a valid matrix! Id of input stride: " + std::to_string(id), ELL_ERROR);
+			assert(false);
+		}
+	}
 }

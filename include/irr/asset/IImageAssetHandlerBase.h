@@ -3,6 +3,12 @@
 
 #include "irr/core/core.h"
 
+#include "ILogger.h"
+#include "os.h"
+
+#include "irr/asset/filters/CCopyImageFilter.h"
+#include "irr/asset/filters/CSwizzleAndConvertImageFilter.h"
+
 namespace irr
 {
 namespace asset
@@ -238,7 +244,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 		static inline void performImageFlip(core::smart_refctd_ptr<asset::ICPUImage> image)
 		{
 			bool status = image->getBuffer() && image->getRegions().begin();
-			assert(status, "An image doesn't have a texel buffer and regions attached!");
+			assert(status);// , "An image doesn't have a texel buffer and regions attached!");
 
 			auto format = image->getCreationParameters().format;
 			asset::TexelBlockInfo blockInfo(format);

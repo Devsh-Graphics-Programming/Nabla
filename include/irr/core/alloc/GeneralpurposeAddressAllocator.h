@@ -179,34 +179,68 @@ class GeneralpurposeAddressAllocatorBase
             freeSize += len;
         }
 
+        //! trims the start of a free block to satisfy the alignment constraint of the start and also the minimum block size of the preceeding free space that would be created
+        inline bool alignBlockStart(Block& newBlock, const Block& origBlock, const size_type alignment) const
+        {
+            newBlock.startOffset = core::roundUp(origBlock.startOffset,alignment);
+            
+        #ifdef _IRR_DEBUG
+            assert(&newBlock!=&origBlock);
+        #endif // _IRR_DEBUG
+            if (origBlock.startOffset!=newBlock.startOffset)
+            {
+                auto initialPreceedingBlockSize = newBlock.startOffset-origBlock.startOffset;
+                if (initialPreceedingBlockSize<minBlockSize)
+                    newBlock.startOffset += core::roundUp(minBlockSize-initialPreceedingBlockSize,alignment);
+            }
+
+            return newBlock.startOffset<origBlock.endOffset;
+        }
+
         //! Produced blocks can only be larger than `minBlockSize`, so it's easier to reason about the correctness and memory boundedness of the allocation algorithm
         inline size_type calcSubAllocation(Block& retval, const Block* block, const size_type bytes, const size_type alignment) const
         {
         #ifdef _IRR_DEBUG
             assert(bytes>=minBlockSize);
         #endif // _IRR_DEBUG
-
-            retval.startOffset = core::roundUp(block->startOffset,alignment);
-
-            if (block->startOffset!=retval.startOffset)
-            {
-                auto initialPreceedingBlockSize = retval.startOffset-block->startOffset;
-                if (initialPreceedingBlockSize<minBlockSize)
-                    retval.startOffset += core::roundUp(minBlockSize-initialPreceedingBlockSize,alignment);
-            }
-
-            if (retval.startOffset>block->endOffset)
+            if (!alignBlockStart(retval,*block,alignment))
                 return invalid_address;
 
             retval.endOffset = retval.startOffset+bytes;
             if (retval.endOffset>block->endOffset)
                 return invalid_address;
 
-            size_type wastedSpace = block->endOffset-retval.endOffset;
-            if (wastedSpace!=size_type(0u) && wastedSpace<minBlockSize)
+            size_type wastedEndSpace = block->endOffset-retval.endOffset;
+            if (wastedEndSpace!=size_type(0u) && wastedEndSpace<minBlockSize)
                 return invalid_address;
 
-            return wastedSpace;
+            return wastedEndSpace;
+        }
+        
+        //!
+        template<class F>
+        inline void findAndPopSuitableBlock_common(const size_type bytes, const size_type alignment, const uint32_t levelLimit, F& earlyExitFunctional) noexcept
+        {
+            // using findFreeListInsertIndex on purpose
+            for (uint32_t level=findFreeListInsertIndex(bytes); level<levelLimit; level++)
+            {
+                const auto freeListStackBegin = freeListStack[level];
+                auto freeListStackEnd = freeListStackBegin+freeListStackCtr[level];
+                for (auto rit=freeListStackEnd; rit!=freeListStackBegin; )
+                {
+                    // move back
+                    rit--;
+                    // try make a aligned block from this free block
+                    Block hypotheticallyAllocatedBlock;
+                    size_type wastedEndSpace = calcSubAllocation(hypotheticallyAllocatedBlock,rit,bytes,alignment);
+                    if (wastedEndSpace==invalid_address)
+                        continue;
+
+                    //
+                    if (earlyExitFunctional(hypotheticallyAllocatedBlock,rit,level,wastedEndSpace))
+                        return;
+                }
+            }
         }
 
 
@@ -228,22 +262,16 @@ class GeneralpurposeAddressAllocatorBase
             return retval;
         }
 
-
-        inline size_type        getBiggestPossibleFrontWaste(size_type alignment) const noexcept
-        {
-            return alignment+minBlockSize-1u;
-        }
-
     private:
         //! Lists contain blocks of size < (minBlock<<listIndex)*2 && size >= (minBlock<<listIndex)
         static inline uint32_t  findFreeListInsertIndex(size_type byteSize, size_type minBlockSz) noexcept
         {
-#ifdef _IRR_DEBUG
-            assert(byteSize>=minBlockSz); // logic fail
-#endif // _IRR_DEBUG
+            #ifdef _IRR_DEBUG
+               assert(byteSize>=minBlockSz); // logic fail
+            #endif // _IRR_DEBUG
             return findMSB(byteSize/minBlockSz);
         }
-
+        //!
         void copyState(const GeneralpurposeAddressAllocatorBase& other, void* newReservedSpc)
         {
             swapFreeLists(newReservedSpc);
@@ -302,39 +330,42 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
         inline std::pair<Block,Block> findAndPopSuitableBlock(const size_type bytes, const size_type alignment) noexcept
         {
             size_type bestWastedSpace = ~size_type(0u);
-            std::tuple<Block,Block*,decltype(Base::freeListCount)> bestBlock{Block{invalid_address,invalid_address},nullptr,Base::freeListCount};
+            std::tuple<Block,Block*,decltype(Base::freeListCount)> bestBlock{Block{invalid_address,invalid_address},nullptr,freeListCount};
 
-            // using findFreeListInsertIndex on purpose
-            for (uint32_t level=Base::findFreeListInsertIndex(bytes); level<Base::freeListCount && bestWastedSpace; level++)
-            for (Block* it=Base::freeListStack[level]; it!=(Base::freeListStack[level]+Base::freeListStackCtr[level]) && bestWastedSpace; it++) // TODO: Iterate in reverse
+            auto perBlockFunctional = [&bestWastedSpace,&bestBlock](Block hypotheticallyAllocatedBlock, Block* origBlock, const uint32_t level, const size_type wastedEndSpace) -> bool
             {
-                Block tmp;
-                size_type wastedSpace = Base::calcSubAllocation(tmp,it,bytes,alignment);
-                if (wastedSpace==invalid_address)
-                    continue;
-
-                wastedSpace += tmp.startOffset-it->startOffset;
+                // compare best wasted space
+                auto wastedSpace = hypotheticallyAllocatedBlock.startOffset-origBlock->startOffset;
+                wastedSpace += wastedEndSpace;
                 if (wastedSpace>=bestWastedSpace)
-                    continue;
-
+                    return false;
+                // update our best fit
                 bestWastedSpace = wastedSpace;
-                bestBlock = std::tuple<Block,Block*,decltype(Base::freeListCount)>{tmp,it,level};
-            }
+                bestBlock = std::tuple<Block,Block*,decltype(Base::freeListCount)>{hypotheticallyAllocatedBlock,origBlock,level};
+                return bestWastedSpace==0u;
+            };
 
-            Block sourceBlock{invalid_address,invalid_address};
+            // loop over blocks
+            Base::findAndPopSuitableBlock_common(bytes,alignment,Base::freeListCount,perBlockFunctional);
+
             // if found something
             Block* out = std::get<1u>(bestBlock);
             if (out)
             {
-                sourceBlock = *out;
-                auto level = std::get<2u>(bestBlock);
-                for (Block* in=out+1u; in!=(Base::freeListStack[level]+Base::freeListStackCtr[level]); in++,out++)
-                    *out = *in;
-                Base::freeListStackCtr[level]--;
+                const auto level = std::get<2u>(bestBlock);
+                const auto sourceBlock = *out; // don't want a reference! (memory location will be overwritten)
+                // reduce the free size
                 Base::freeSize -= sourceBlock.getLength();
-            }
 
-            return std::pair<Block,Block>(std::get<0u>(bestBlock),sourceBlock);
+                // remove the block from free list
+                std::move(out+1u,Base::freeListStack[level]+Base::freeListStackCtr[level],out);
+                Base::freeListStackCtr[level]--;
+
+                // return blocks (orig and new)
+                return std::pair<Block, Block>(std::get<0u>(bestBlock),sourceBlock);
+            }
+            else
+                return std::pair<Block,Block>({invalid_address,invalid_address},{invalid_address,invalid_address});
         }
 };
 
@@ -351,8 +382,10 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
 
         inline std::pair<Block,Block>   findAndPopSuitableBlock(const size_type bytes, const size_type alignment) noexcept
         {
-            auto maxWastedSpace = Base::getBiggestPossibleFrontWaste(alignment)+Base::minBlockSize;
-            for (uint32_t level=Base::findFreeListSearchIndex(bytes+maxWastedSpace); level<Base::freeListCount; level++)
+            // minimum block size in front, then minimum block size in the back
+            auto maxWastedSpace = (alignment-1)+Base::minBlockSize+Base::minBlockSize;
+            const uint32_t surelyAllocatableLevel = Base::findFreeListSearchIndex(bytes+maxWastedSpace);
+            for (uint32_t level=surelyAllocatableLevel; level<Base::freeListCount; level++)
             {
                 // have any free blocks
                 if (!Base::freeListStackCtr[level])
@@ -360,18 +393,38 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
 
                 // pop off the top
                 const Block& popped = Base::freeListStack[level][--Base::freeListStackCtr[level]];
-                Block tmp;
-                size_type wastedSpace = Base::calcSubAllocation(tmp,&popped,bytes,alignment);
-                // if had a block large enough for us with padding then must be able to allocate
-                #ifdef _IRR_DEBUG
-                    if (wastedSpace==invalid_address)
+                Block allocatedBlock;
+                size_type wastedSpace = Base::calcSubAllocation(allocatedBlock,&popped,bytes,alignment);
+                // the minimum size of the free blocks that would have been created before and after the allocation would not satisfy the minimum
+                if (wastedSpace==invalid_address)
+                {
+                    // this can only happen if we have tried the largest free blocks possible
+                    #ifdef _IRR_DEBUG
+                    if (level<Base::freeListCount-1u)
                         assert(false);
-                #endif // _IRR_DEBUG
+                    #endif // _IRR_DEBUG
+                    return {{invalid_address,invalid_address},{invalid_address,invalid_address}};
+                }
                 Base::freeSize -= popped.getLength();
-                return std::pair<Block,Block>(tmp,popped);
+                return {allocatedBlock,popped};
             }
+            // couldn't pop one straight away, now we have to start trying best-fit
+            std::pair<Block,Block>  retval({invalid_address,invalid_address},{invalid_address,invalid_address});
+            auto perBlockFunctional = [&](Block hypotheticallyAllocatedBlock, Block* origBlock, const uint32_t level, const size_type wastedEndSpace) -> bool
+            {
+                // reduce the free size and save the original block
+                Base::freeSize -= origBlock->getLength();
+                retval = {hypotheticallyAllocatedBlock,*origBlock};
 
-            return std::pair<Block,Block>(Block{invalid_address,invalid_address},Block{invalid_address,invalid_address});
+                // remove the block from free list
+                std::move(origBlock+1u,Base::freeListStack[level]+Base::freeListStackCtr[level],origBlock);
+                Base::freeListStackCtr[level]--;
+
+                // we've found our block, we can quit now
+                return true;
+            };
+            findAndPopSuitableBlock_common(bytes,alignment,surelyAllocatableLevel,perBlockFunctional);
+            return retval;
         }
 };
 
@@ -458,7 +511,13 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
                 AllocStrategy::insertFreeBlock(Block{found.first.endOffset,found.second.endOffset});
             if (found.first.startOffset!=found.second.startOffset)
                 AllocStrategy::insertFreeBlock(Block{found.second.startOffset,found.first.startOffset});
-
+            
+#ifdef _IRR_DEBUG
+            // allocation must not be outside the buffer
+            assert(found.first.startOffset +bytes<=AllocStrategy::bufferSize);
+            // sanity check
+            assert(AllocStrategy::freeSize+bytes<=AllocStrategy::bufferSize);
+#endif // _IRR_DEBUG
             return found.first.startOffset+Base::combinedOffset;
         }
 
@@ -489,9 +548,7 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
         //! Conservative estimate, max_size() gives largest size we are sure to be able to allocate
         inline size_type        max_size() const noexcept
         {
-            const auto maxWastedSpace   = AllocStrategy::getBiggestPossibleFrontWaste(Base::maxRequestableAlignment)+AllocStrategy::minBlockSize;
-            const auto lowestLimit      = AllocStrategy::findFreeListSearchIndex(maxWastedSpace);
-            for (decltype(AllocStrategy::freeListCount) i=AllocStrategy::freeListCount; i>lowestLimit; i--)
+            for (decltype(AllocStrategy::freeListCount) i=AllocStrategy::freeListCount; i>0u; i--)
             {
                 size_type level = i-1u;
                 auto blockCount = AllocStrategy::freeListStackCtr[level];
@@ -500,10 +557,13 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
 
                 // get first block in the size's free-list, not accurate since there might be bigger blocks further in the list.
                 // however because the free-lists are binned by size, this is accurate within a factor of 1.99999999x
-                blockCount--;
-                auto length = AllocStrategy::freeListStack[level][blockCount].getLength();
-                if (length>maxWastedSpace)
-                    return length-maxWastedSpace;
+                const auto& block = AllocStrategy::freeListStack[level][blockCount-1];
+                // fail to get anything useful out of the block due to alignment constraints
+                Block hypotheticalNewBlock;
+                if (!AllocStrategy::alignBlockStart(hypotheticalNewBlock,block,Base::maxRequestableAlignment))
+                    continue;
+                hypotheticalNewBlock.endOffset = block.endOffset;
+                return hypotheticalNewBlock.getLength();
             }
 
             return 0u;
@@ -515,17 +575,29 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
             return AllocStrategy::minBlockSize;
         }
 
-        inline size_type        safe_shrink_size(size_type sizeBound, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
+        inline size_type        safe_shrink_size(size_type sizeBound, size_type newBuffAlignmentWeCanGuarantee=1u) noexcept
         {
-            size_type retval = get_total_size()-Base::alignOffset;
-            if (sizeBound>=retval)
-                return Base::safe_shrink_size(sizeBound,newBuffAlignmentWeCanGuarantee);
+            size_type retval = get_total_size() - Base::alignOffset;
+            if (sizeBound >= retval)
+                return Base::safe_shrink_size(sizeBound, newBuffAlignmentWeCanGuarantee);
 
-            if (get_free_size()==0u)
-                return Base::safe_shrink_size(retval,newBuffAlignmentWeCanGuarantee);
+            if (get_free_size() == 0u)
+                return Base::safe_shrink_size(retval, newBuffAlignmentWeCanGuarantee);
 
             //now increase sizeBound by taking into account fragmentation
             retval = defragment();
+
+            return Base::safe_shrink_size(std::max(retval,sizeBound),newBuffAlignmentWeCanGuarantee);
+        }
+
+        inline size_type        safe_shrink_size(size_type sizeBound, size_type newBuffAlignmentWeCanGuarantee=1u) const noexcept
+        {
+            size_type retval = get_total_size() - Base::alignOffset;
+            if (sizeBound >= retval)
+                return Base::safe_shrink_size(sizeBound, newBuffAlignmentWeCanGuarantee);
+
+            if (get_free_size() == 0u)
+                return Base::safe_shrink_size(retval, newBuffAlignmentWeCanGuarantee);
 
             return Base::safe_shrink_size(std::max(retval,sizeBound),newBuffAlignmentWeCanGuarantee);
         }
@@ -556,10 +628,11 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
             return AllocStrategy::bufferSize+Base::alignOffset;
         }
 
-        inline bool                 is_double_free(size_type addr, size_type bytes) const noexcept
+        inline bool             is_double_free(size_type addr, size_type bytes) const noexcept
         {
             return AllocStrategy::is_double_free(addr-Base::combinedOffset,bytes);
         }
+
     protected:
         inline size_type        defragment() noexcept
         {

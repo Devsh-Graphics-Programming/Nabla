@@ -202,7 +202,7 @@ protected:
         const uint32_t w = neededPageCountForSide(_w, _baseLevel);
         const uint32_t h = neededPageCountForSide(_h, _baseLevel);
 
-        return core::roundUpToPoT(std::max(w, h));
+        return core::roundUpToPoT(std::max<uint32_t>(w, h));
     }
 
     ISampler::SParams getPageTableSamplerParams() const
@@ -285,12 +285,12 @@ protected:
 
     uint32_t countLevelsTakingAtLeastOnePage(const VkExtent3D& _extent, uint32_t _baseLevel = 0u)
     {
-        const uint32_t baseMaxDim = core::roundUpToPoT(core::max(_extent.width, _extent.height))>>_baseLevel;
+        const uint32_t baseMaxDim = core::roundUpToPoT(core::max<uint32_t>(_extent.width, _extent.height))>>_baseLevel;
         const int32_t lastFullMip = core::findMSB(baseMaxDim-1u)+1 - static_cast<int32_t>(m_pgSzxy_log2);
 
         assert(lastFullMip<static_cast<int32_t>(m_pageTable->getCreationParameters().mipLevels));
 
-        return std::max(lastFullMip+1, 0);
+        return core::max<int32_t>(lastFullMip+1, 0);
     }
 
     //this is not static only because it has to call virtual member function
@@ -304,13 +304,13 @@ protected:
         params.arrayLayers = _pgTabLayers;
         params.extent = {pgTabSzxy,pgTabSzxy,1u};
         params.format = EF_R16G16_UINT;
-        params.mipLevels = std::max(static_cast<int32_t>(_maxAllocatableTexSz_log2-_pgSzxy_log2+1u), 1);
+        params.mipLevels = std::max<int32_t>(static_cast<int32_t>(_maxAllocatableTexSz_log2-_pgSzxy_log2+1u), 1);
         params.samples = IImage::ESCF_1_BIT;
         params.type = IImage::ET_2D;
         params.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
 
         auto pgtab = createPageTableImage(std::move(params));
-        IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<image_t,ICPUImage>::value)
+        if constexpr(std::is_same<image_t,ICPUImage>::value)
         {
             const uint32_t texelSz = getTexelOrBlockBytesize(pgtab->getCreationParameters().format);
         
@@ -340,7 +340,7 @@ protected:
             std::fill(bufptr, bufptr+bufOffset/sizeof(uint32_t), SPhysPgOffset::invalid_addr);
 #endif
             pgtab->setBufferAndRegions(std::move(buf), regions);
-        } IRR_PSEUDO_IF_CONSTEXPR_END
+        } 
         return pgtab;
     }
 
@@ -393,7 +393,7 @@ protected:
     class IVTResidentStorage : public core::IReferenceCounted
     {
     protected:
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_TILES_PER_DIM = std::min(SPhysPgOffset::PAGE_ADDR_X_MASK,SPhysPgOffset::PAGE_ADDR_Y_MASK) + 1u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_TILES_PER_DIM = std::min<uint32_t>(SPhysPgOffset::PAGE_ADDR_X_MASK,SPhysPgOffset::PAGE_ADDR_Y_MASK) + 1u;
         _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_LAYERS = (1u<<(SPhysPgOffset::PAGE_ADDR_BITLENGTH-SPhysPgOffset::PAGE_ADDR_LAYER_SHIFT));
 
         virtual ~IVTResidentStorage()
@@ -772,7 +772,7 @@ public:
     //! @returns pointer to reserved space for allocators
     uint8_t* copyVirtualSpaceAllocatorsState(uint32_t _count, pg_tab_addr_alctr_t* _dstArray)
     {
-        _count = std::min(_count, m_pageTable->getCreationParameters().arrayLayers);
+        _count = std::min<uint32_t>(_count, m_pageTable->getCreationParameters().arrayLayers);
         const uint32_t bufSz = m_pageTableLayerAllocators[0].get_total_size();
         const uint32_t resSpcPerAlctr = pg_tab_addr_alctr_t::reserved_size(m_pageTableLayerAllocators[0].get_total_size(), m_pageTableLayerAllocators[0]);
         uint8_t* reservedSpc = reinterpret_cast<uint8_t*>( _IRR_ALIGNED_MALLOC(resSpcPerAlctr*_count, _IRR_SIMD_ALIGNMENT) );
@@ -815,14 +815,6 @@ public:
         return m_precomputed;
     }
 
-    static std::string getGLSLExtensionsIncludePath()
-    {
-        return "irr/builtin/glsl/virtual_texturing/extensions.glsl";
-    }
-    std::string getGLSLDescriptorsIncludePath() const
-    {
-        return "irr/builtin/glsl/virtual_texturing/descriptors.glsl";
-    }
     std::string getGLSLFunctionsIncludePath() const
     {
         //functions.glsl/pg_sz_log2/tile_padding/pgtab_tex_name/phys_pg_tex_name/get_pgtab_sz_log2_name/get_phys_pg_tex_sz_rcp_name/get_vtex_sz_rcp_name/get_layer2pid/(addr_x_bits/addr_y_bits)...
@@ -838,7 +830,7 @@ protected:
     std::pair<uint32_t,uint32_t> getDSlayoutBindings_internal(typename DSlayout_t::SBinding* _outBindings, core::smart_refctd_ptr<sampler_t>* _outSamplers, uint32_t _pgtBinding = 0u, uint32_t _fsamplersBinding = 1u, uint32_t _isamplersBinding = 2u, uint32_t _usamplersBinding = 3u) const
     {
         const uint32_t bindingCount = 1u+(getFloatViews().size()?1u:0u)+(getIntViews().size()?1u:0u)+(getUintViews().size()?1u:0u);
-        const uint32_t samplerCount = 1u+std::max(getFloatViews().size(), std::max(getIntViews().size(), getUintViews().size()));
+        const uint32_t samplerCount = 1u+std::max<uint32_t>(getFloatViews().size(), std::max<uint32_t>(getIntViews().size(), getUintViews().size()));
         if (!_outBindings || !_outSamplers)
             return std::make_pair(bindingCount, samplerCount);
 

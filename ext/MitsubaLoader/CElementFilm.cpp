@@ -175,7 +175,7 @@ bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 	};
 #define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&]() -> void { \
 		dispatch([&](auto& state) -> void { \
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+			if constexpr (is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
 			{ \
 				if (_property.type!=PROPERTY_TYPE) { \
 					error = true; \
@@ -183,7 +183,6 @@ bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 				} \
 				state. ## MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
 			} \
-			IRR_PSEUDO_IF_CONSTEXPR_END \
 		}); \
 	}
 
