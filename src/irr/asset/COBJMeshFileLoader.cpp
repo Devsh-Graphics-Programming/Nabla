@@ -51,7 +51,8 @@ static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAsse
 
 static const uint32_t WORD_BUFFER_LENGTH = 512;
 
-constexpr const char* DEFAULT_MTL_PIPELINE_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mtl/default_uv";
+constexpr const char* DEFAULT_MTL_PIPELINE_UV_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mtl/default_uv";
+constexpr const char* DEFAULT_MTL_PIPELINE_NO_UV_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mtl/default_no_uv";
 
 constexpr uint32_t POSITION = 0u;
 constexpr uint32_t UV = 2u;
@@ -62,6 +63,16 @@ constexpr uint32_t BND_NUM = 0u;
 COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager* _manager) : AssetManager(_manager), FileSystem(_manager->getFileSystem())
 {
 	SVertexInputParams vtxParams;
+	SBlendParams blendParams;
+	SPrimitiveAssemblyParams primParams;
+	SRasterizationParams rasterParams;
+
+	blendParams.blendParams[0].blendEnable = true;
+	blendParams.blendParams[0].srcColorFactor = EBF_ONE;
+	blendParams.blendParams[0].srcAlphaFactor = EBF_ONE;
+	blendParams.blendParams[0].dstColorFactor = EBF_ONE_MINUS_SRC_ALPHA;
+	blendParams.blendParams[0].dstAlphaFactor = EBF_ONE_MINUS_SRC_ALPHA;
+
 	vtxParams.enabledAttribFlags = (1u << POSITION) | (1u << NORMAL);
 	vtxParams.enabledBindingFlags = 1u << BND_NUM;
 	vtxParams.bindings[BND_NUM].stride = sizeof(SObjVertex);
@@ -74,33 +85,88 @@ COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager* _manager) : AssetManager(_
 	vtxParams.attributes[NORMAL].binding = BND_NUM;
 	vtxParams.attributes[NORMAL].format = EF_A2B10G10R10_SNORM_PACK32;
 	vtxParams.attributes[NORMAL].relativeOffset = offsetof(SObjVertex, normal32bit);
+
+
+
+	core::smart_refctd_ptr<ICPUPipelineLayout> layout;
+	{
+		auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(static_cast<size_t>(CMTLPipelineMetadata::EMP_REFL_POSX) + 1ull);
+
+		ICPUDescriptorSetLayout::SBinding bnd;
+		bnd.count = 1u;
+		bnd.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+		bnd.type = EDT_COMBINED_IMAGE_SAMPLER;
+		bnd.binding = 0u;
+		std::fill(bindings->begin(), bindings->end(), bnd);
+
+
+		core::smart_refctd_ptr<ICPUSampler> samplers[2];
+		samplers[0] = getDefaultAsset<ICPUSampler, IAsset::ET_SAMPLER>("irr/builtin/samplers/default", AssetManager);
+		samplers[1] = getDefaultAsset<ICPUSampler, IAsset::ET_SAMPLER>("irr/builtin/samplers/default_clamp_to_border", AssetManager);
+		for (uint32_t i = 0u; i <= CMTLPipelineMetadata::EMP_REFL_POSX; ++i)
+		{
+			(*bindings)[i].binding = i;
+			(*bindings)[i].samplers = samplers;
+		}
+
+
+		auto ds1layout = getDefaultAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("irr/builtin/descriptor_set_layout/basic_view_parameters", AssetManager);
+		core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds3Layout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
+		SPushConstantRange pcRng;
+		pcRng.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+		pcRng.offset = 0u;
+		pcRng.size = sizeof(208u);
+		layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng + 1, nullptr, std::move(ds1layout), nullptr, std::move(ds3Layout));
+
+	}
+	std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>> shaders[2];
+	shaders[0] = {
+		std::move(getDefaultAsset<ICPUSpecializedShader, IAsset::ET_SPECIALIZED_SHADER>("irr/builtin/shaders/loaders/mtl/vertex_no_uv.vert", AssetManager)),
+		std::move(getDefaultAsset<ICPUSpecializedShader, IAsset::ET_SPECIALIZED_SHADER>("irr/builtin/shaders/loaders/mtl/fragment_no_uv.frag", AssetManager))
+	};
+	shaders[1] = {
+		std::move(getDefaultAsset<ICPUSpecializedShader, IAsset::ET_SPECIALIZED_SHADER>("irr/builtin/shaders/loaders/mtl/vertex_uv.vert", AssetManager)),
+		std::move(getDefaultAsset<ICPUSpecializedShader, IAsset::ET_SPECIALIZED_SHADER>("irr/builtin/shaders/loaders/mtl/fragment_uv.frag", AssetManager))
+	};
+
+	constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
+	core::smart_refctd_dynamic_array<IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
+	{
+		ICPUDescriptorSetLayout* ds1layout = layout->getDescriptorSetLayout(1u);
+
+		constexpr IPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT]{ IPipelineMetadata::ECSI_WORLD_VIEW_PROJ, IPipelineMetadata::ECSI_WORLD_VIEW, IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE };
+		constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT]{ sizeof(SBasicViewParameters::MVP), sizeof(SBasicViewParameters::MV), sizeof(SBasicViewParameters::NormalMat) };
+		constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT]{ offsetof(SBasicViewParameters,MVP), offsetof(SBasicViewParameters,MV), offsetof(SBasicViewParameters,NormalMat) };
+		for (uint32_t i = 0u; i < DS1_METADATA_ENTRY_CNT; ++i)
+		{
+			auto& semantic = (shaderInputsMetadata->end() - i - 1u)[0];
+			semantic.type = types[i];
+			semantic.descriptorSection.type = IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
+			semantic.descriptorSection.uniformBufferObject.binding = ds1layout->getBindings().begin()[0].binding;
+			semantic.descriptorSection.uniformBufferObject.set = 1u;
+			semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
+			semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
+			semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_VERTEX;
+		}
+	}
+	CMTLPipelineMetadata::SMTLMaterialParameters materialparams;
+	auto pipelineNoUV = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(layout->clone()), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
+	pipelineNoUV->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, shaders[0].first.get());
+	pipelineNoUV->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, shaders[0].second.get());
+	AssetManager->setAssetMetadata(pipelineNoUV.get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(materialparams, std::string("Default no-uv material"), nullptr, 0u, core::smart_refctd_ptr(shaderInputsMetadata)));
+	insertPipelineIntoCache(std::move(pipelineNoUV), DEFAULT_MTL_PIPELINE_NO_UV_CACHE_KEY, AssetManager);
+
 	//uv
-    vtxParams.enabledAttribFlags |= (1u << UV);
-    vtxParams.attributes[UV].binding = BND_NUM;
-    vtxParams.attributes[UV].format = EF_R32G32_SFLOAT;
-    vtxParams.attributes[UV].relativeOffset = offsetof(SObjVertex, uv);
-	ICPUDescriptorSetLayout ds1layout();
-	
-	auto layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr,nullptr,nullptr,
-		//const SPushConstantRange* const _pcRangesBegin = nullptr, const SPushConstantRange* const _pcRangesEnd = nullptr,
-		//core::smart_refctd_ptr<DescLayoutType> && _layout0 = nullptr, core::smart_refctd_ptr<DescLayoutType> && _layout1 = nullptr,
-		//core::smart_refctd_ptr<DescLayoutType> && _layout2 = nullptr, core::smart_refctd_ptr<DescLayoutType> && _layout3 = nullptr
-		);
+	vtxParams.enabledAttribFlags |= (1u << UV);
+	vtxParams.attributes[UV].binding = BND_NUM;
+	vtxParams.attributes[UV].format = EF_R32G32_SFLOAT;
+	vtxParams.attributes[UV].relativeOffset = offsetof(SObjVertex, uv);
 
-	//default shaders
-	auto fs = AssetManager->getFileSystem();
-	ICPUSpecializedShader* shaders[2];
-	shaders[0] = core::make_smart_refctd_ptr<ICPUSpecializedShader>(core::make_smart_refctd_ptr<ICPUShader>(fs->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/shaders/loaders/mtl/vertex_uv.vert")>()), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_VERTEX)).get();
-		shaders[1] = core::make_smart_refctd_ptr<ICPUSpecializedShader>( core::make_smart_refctd_ptr<ICPUShader>( fs->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/shaders/loaders/mtl/fragment_uv.frag")>()), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_FRAGMENT)).get();
-
-	auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
-		std::move(layout), nullptr,nullptr,
-		vtxParams,
-		SBlendParams(),
-		SPrimitiveAssemblyParams(),
-		SRasterizationParams()
-		);
-	insertPipelineIntoCache(std::move(pipeline), DEFAULT_MTL_PIPELINE_CACHE_KEY, AssetManager);
+	auto pipelineUV = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(layout), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
+	pipelineUV->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, shaders[1].first.get());
+	pipelineUV->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, shaders[1].second.get());
+	AssetManager->setAssetMetadata(pipelineUV.get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(materialparams, std::string("Default material"), nullptr, 0u, core::smart_refctd_ptr(shaderInputsMetadata)));
+	insertPipelineIntoCache(std::move(pipelineUV), DEFAULT_MTL_PIPELINE_UV_CACHE_KEY, AssetManager);
 }
 
 
@@ -457,7 +523,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			//if there's no pipeline for this meshbuffer, set dummy one
 			if (!submeshes[i]->getPipeline())
 			{
-				auto pipeline = getDefaultAsset<ICPURenderpassIndependentPipeline, IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE>(DEFAULT_MTL_PIPELINE_CACHE_KEY, AssetManager);
+				auto pipeline = getDefaultAsset<ICPURenderpassIndependentPipeline, IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE>(hasUV? DEFAULT_MTL_PIPELINE_UV_CACHE_KEY : DEFAULT_MTL_PIPELINE_NO_UV_CACHE_KEY, AssetManager);
 				submeshes[i]->setPipeline(std::move(pipeline));
 			}
         }

@@ -142,8 +142,8 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             for (size_t i = 0u; i < m_cpuGpuCache.size(); ++i)
                 m_cpuGpuCache[i] = new CpuGpuCacheType();
 
-			addLoadersAndWriters();
             insertBuiltinAssets();
+			addLoadersAndWriters();
         }
 
 		inline io::IFileSystem* getFileSystem() const { return m_fileSystem.get(); }
