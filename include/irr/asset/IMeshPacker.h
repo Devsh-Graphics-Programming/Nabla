@@ -66,9 +66,64 @@ public:
         }
     };
 
+    struct MeshPackerConfigParams
+    {
+        core::vector<SVertexInputParams> vertexInputParamsArray;
+        size_t packerInstanceCntNeeded = 0u;
+    };
+
+public:
+    template<typename Iterator>
+    static MeshPackerConfigParams getPackerCreationParamsFromMeshBufferRange(Iterator begin, Iterator end)
+    {
+        MeshPackerConfigParams output;
+        auto& vtxInputParamsArray = output.vertexInputParamsArray;
+
+        vtxInputParamsArray.emplace_back((*begin)->getPipeline()->getVertexInputParams());
+
+        for (Iterator it = begin + 1; it != end; it++)
+        {
+            auto& currMeshVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
+
+            bool alreadyInserted = false;
+            for (auto& vtxInputParams : vtxInputParamsArray)
+            {
+                alreadyInserted = cmpVtxInputParams(vtxInputParamsArray[0u], currMeshVtxInputParams);
+
+                if (alreadyInserted)
+                    break;
+            }
+
+            if (!alreadyInserted)
+                vtxInputParamsArray.push_back(currMeshVtxInputParams);
+        }
+        
+        output.packerInstanceCntNeeded = vtxInputParamsArray.size();
+
+        return output;
+    }
+
 protected:
     MeshPackerBase(const AllocationParams& allocParams)
         :m_allocParams(allocParams) {};
+
+    static bool cmpVtxInputParams(const SVertexInputParams& lhs, const SVertexInputParams& rhs)
+    {
+        if (lhs.enabledAttribFlags != rhs.enabledAttribFlags)
+            return false;
+
+        for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
+        {
+            if (!(attrBit & lhs.enabledAttribFlags))
+                continue;
+
+            if (lhs.attributes[location].format != rhs.attributes[location].format ||
+                lhs.bindings[lhs.attributes[location].binding].inputRate != rhs.bindings[rhs.attributes[location].binding].inputRate)
+                return false;
+        }
+
+        return true;
+    }
 
 protected:
     const AllocationParams m_allocParams;
