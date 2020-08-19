@@ -7,161 +7,69 @@
 
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
 #include "../../ext/MitsubaLoader/CMitsubaLoader.h"
+#include <irr/video/IGPUVirtualTexture.h>
 
 using namespace irr;
 using namespace core;
 
-/*
-class SimpleCallBack : public video::IShaderConstantSetCallBack
+constexpr const char* GLSL_COMPUTE_LIGHTING =
+R"(
+#define _IRR_COMPUTE_LIGHTING_DEFINED_
+struct SLight
 {
-		video::E_MATERIAL_TYPE currentMat;
-
-		int32_t mvpUniformLocation[video::EMT_COUNT+2];
-		int32_t colorUniformLocation[video::EMT_COUNT+2];
-		int32_t nastyUniformLocation[video::EMT_COUNT+2];
-		video::E_SHADER_CONSTANT_TYPE mvpUniformType[video::EMT_COUNT+2];
-		video::E_SHADER_CONSTANT_TYPE colorUniformType[video::EMT_COUNT+2];
-		video::E_SHADER_CONSTANT_TYPE nastyUniformType[video::EMT_COUNT+2];
-	public:
-		SimpleCallBack() : currentMat(video::EMT_SOLID)
-		{
-			std::fill(mvpUniformLocation, reinterpret_cast<int32_t*>(mvpUniformType), -1);
-		}
-
-		virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
-		{
-			for (size_t i=0; i<constants.size(); i++)
-			{
-				if (constants[i].name == "MVP")
-				{
-					mvpUniformLocation[materialType] = constants[i].location;
-					mvpUniformType[materialType] = constants[i].type;
-				}
-				else if (constants[i].name == "color")
-				{
-					colorUniformLocation[materialType] = constants[i].location;
-					colorUniformType[materialType] = constants[i].type;
-				}
-				else if (constants[i].name == "nasty")
-				{
-					nastyUniformLocation[materialType] = constants[i].location;
-					nastyUniformType[materialType] = constants[i].type;
-				}
-			}
-		}
-
-		virtual void OnSetMaterial(video::IMaterialRendererServices* services, const video::SGPUMaterial& material, const video::SGPUMaterial& lastMaterial)
-		{
-			currentMat = material.MaterialType;
-			services->setShaderConstant(&material.AmbientColor, colorUniformLocation[currentMat], colorUniformType[currentMat], 1);
-			services->setShaderConstant(&material.MaterialTypeParam, nastyUniformLocation[currentMat], nastyUniformType[currentMat], 1);
-		}
-
-		virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
-		{
-			if (mvpUniformLocation[currentMat]>=0)
-				services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(), mvpUniformLocation[currentMat], mvpUniformType[currentMat], 1);
-		}
-
-		virtual void OnUnsetMaterial() {}
+	vec3 position;
+	vec3 intensity;
 };
 
-
-class CullBack : public video::IShaderConstantSetCallBack
+layout (set = 2, binding = 0, std430) readonly restrict buffer Lights
 {
-	inline static const char* uniformNames[] =
-	{
-		"ProjViewWorldMat",
-		"LoDInvariantMinEdge",
-		"LoDInvariantMaxEdge"
-	};
-
-	enum E_UNIFORM
-	{
-		EU_PROJ_VIEW_WORLD_MAT = 0,
-		EU_LOD_INVARIANT_MIN_EDGE,
-		EU_LOD_INVARIANT_MAX_EDGE,
-		EU_COUNT
-	};
-
-    int32_t uniformLocation[EU_COUNT];
-    video::E_SHADER_CONSTANT_TYPE uniformType[EU_COUNT];
-public:
-    core::aabbox3df instanceLoDInvariantBBox;
-
-    CullBack()
-    {
-        for (size_t i=0; i<EU_COUNT; i++)
-            uniformLocation[i] = -1;
-    }
-
-    virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
-    {
-        for (size_t i=0; i<constants.size(); i++)
-        for (size_t j=0; j<EU_COUNT; j++)
-        {
-            if (constants[i].name==uniformNames[j])
-            {
-                uniformLocation[j] = constants[i].location;
-                uniformType[j] = constants[i].type;
-                break;
-            }
-        }
-    }
-
-    virtual void OnSetMaterial(video::IMaterialRendererServices* services, const video::SGPUMaterial& material, const video::SGPUMaterial& lastMaterial) {}
-
-    virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
-    {
-        if (uniformLocation[EU_PROJ_VIEW_WORLD_MAT]>=0)
-            services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(),uniformLocation[EU_PROJ_VIEW_WORLD_MAT],uniformType[EU_PROJ_VIEW_WORLD_MAT],1);
-
-        if (uniformLocation[EU_LOD_INVARIANT_MIN_EDGE]>=0)
-        {
-            services->setShaderConstant(&instanceLoDInvariantBBox.MinEdge,uniformLocation[EU_LOD_INVARIANT_MIN_EDGE],uniformType[EU_LOD_INVARIANT_MIN_EDGE],1);
-            services->setShaderConstant(&instanceLoDInvariantBBox.MaxEdge,uniformLocation[EU_LOD_INVARIANT_MAX_EDGE],uniformType[EU_LOD_INVARIANT_MAX_EDGE],1);
-        }
-    }
-
-    virtual void OnUnsetMaterial() {}
+	SLight lights[];
 };
 
-core::smart_refctd_ptr<asset::IMeshDataFormatDesc<video::IGPUBuffer> > vaoSetupOverride(scene::ISceneManager* smgr, video::IGPUBuffer* instanceDataBuffer, const size_t& dataSizePerInstanceOutput, const asset::IMeshDataFormatDesc<video::IGPUBuffer>* oldVAO, void* userData)
+vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
-	video::IVideoDriver* driver = smgr->getVideoDriver();
-	auto vao = driver->createGPUMeshDataFormatDesc();
+	vec3 emissive = decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
-	//
-	for (size_t k=0; k<asset::EVAI_COUNT; k++)
+	irr_glsl_BSDFIsotropicParams params;
+	vec3 color = vec3(0.0);
+	for (int i = 0; i < 13; ++i)
 	{
-		asset::E_VERTEX_ATTRIBUTE_ID attrId = (asset::E_VERTEX_ATTRIBUTE_ID)k;
-		if (!oldVAO->getMappedBuffer(attrId))
-			continue;
-
-		vao->setVertexAttrBuffer(	core::smart_refctd_ptr<video::IGPUBuffer>(const_cast<video::IGPUBuffer*>(oldVAO->getMappedBuffer(attrId))),
-									attrId,oldVAO->getAttribFormat(attrId), oldVAO->getMappedBufferStride(attrId),oldVAO->getMappedBufferOffset(attrId),
-									oldVAO->getAttribDivisor(attrId));
+		SLight l = lights[i];
+		vec3 L = l.position-WorldPos;
+		params.L = L;
+		color += irr_bsdf_cos_eval(params, out_interaction, dUV)*l.intensity*0.01 / dot(L,L);
 	}
-
-	// I know what attributes are unused in my mesh and I've set up the shader to use thse as instance data
-	constexpr auto stride = 25*sizeof(float);
-	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR4,asset::EF_R32G32B32A32_SFLOAT,stride,0,1);
-	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR5,asset::EF_R32G32B32A32_SFLOAT,stride,4*sizeof(float),1);
-	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR6,asset::EF_R32G32B32A32_SFLOAT,stride,8*sizeof(float),1);
-	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR7,asset::EF_R32G32B32A32_SFLOAT,stride,12*sizeof(float),1);
-	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR8,asset::EF_R32G32B32_SFLOAT,stride,16*sizeof(float),1);
-	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR9,asset::EF_R32G32B32_SFLOAT,stride,19*sizeof(float),1);
-	vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR10,asset::EF_R32G32B32_SFLOAT,stride,22*sizeof(float),1);
-
-
-	if (oldVAO->getIndexBuffer())
-		vao->setIndexBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(const_cast<video::IGPUBuffer*>(oldVAO->getIndexBuffer())));
-
-	return vao;
+	return color+emissive;
 }
-*/
+)";
+static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(const asset::ICPUSpecializedShader* _fs)
+{
+    const asset::ICPUShader* unspec = _fs->getUnspecialized();
+    assert(unspec->containsGLSL());
 
-#define TESTING
+    std::string glsl = reinterpret_cast<const char*>( unspec->getSPVorGLSL()->getPointer() );
+    glsl.insert(glsl.find("#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_"), GLSL_COMPUTE_LIGHTING);
+
+    //auto* f = fopen("fs.glsl","w");
+    //fwrite(glsl.c_str(), 1, glsl.size(), f);
+    //fclose(f);
+
+    auto unspecNew = core::make_smart_refctd_ptr<asset::ICPUShader>(glsl.c_str());
+    auto specinfo = _fs->getSpecializationInfo();//intentional copy
+    auto fsNew = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecNew), std::move(specinfo));
+
+    return fsNew;
+}
+
+#include "irr/irrpack.h"
+//std430-compatible
+struct SLight
+{
+	core::vectorSIMDf position;
+	core::vectorSIMDf intensity;
+} PACK_STRUCT;
+#include "irr/irrunpack.h"
+
 int main()
 {
 	// create device with full flexibility over creation parameters
@@ -239,13 +147,13 @@ int main()
 		//! load the mitsuba scene
 		meshes = am->getAsset(filePath, {});
 		//! cache results -- speeds up mesh generation on second run
-		qnc->saveCacheToFile(asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
-
+		qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
+		
 		auto contents = meshes.getContents();
-		if (contents.first>=contents.second)
+		if (contents.begin()>=contents.end())
 			return 2;
 
-		auto firstmesh = *contents.first;
+		auto firstmesh = *contents.begin();
 		if (!firstmesh)
 			return 3;
 
@@ -280,12 +188,49 @@ int main()
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 
+	core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds2layout;
+	{
+		asset::ICPUDescriptorSetLayout::SBinding bnd;
+		bnd.binding = 0u;
+		bnd.count = 1u;
+		bnd.samplers = nullptr;
+		bnd.stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		bnd.type = asset::EDT_STORAGE_BUFFER;
+
+		ds2layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
+	}
+
+	//gather all meshes into core::vector and modify their pipelines
+	core::unordered_set<const asset::ICPURenderpassIndependentPipeline*> modifiedPipelines;
+	core::unordered_map<core::smart_refctd_ptr<asset::ICPUSpecializedShader>, core::smart_refctd_ptr<asset::ICPUSpecializedShader>> modifiedShaders;
 	core::vector<core::smart_refctd_ptr<asset::ICPUMesh>> cpumeshes;
 	cpumeshes.reserve(meshes.getSize());
-	for (auto it = meshes.getContents().first; it != meshes.getContents().second; ++it)
+	for (auto it = meshes.getContents().begin(); it != meshes.getContents().end(); ++it)
 	{
 		cpumeshes.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(std::move(*it)));
+		//modify pipeline layouts with our custom DS2 layout (DS2 will be used for lights buffer)
+		for (uint32_t i = 0u; i < cpumeshes.back()->getMeshBufferCount(); ++i)
+		{
+			auto* pipeline = cpumeshes.back()->getMeshBuffer(i)->getPipeline();
+			if (modifiedPipelines.find(pipeline)==modifiedPipelines.end())
+			{
+				//if (!pipeline->getLayout()->getDescriptorSetLayout(2u))
+				pipeline->getLayout()->setDescriptorSetLayout(2u, core::smart_refctd_ptr(ds2layout));
+				auto* fs = pipeline->getShaderAtStage(asset::ICPUSpecializedShader::ESS_FRAGMENT);
+				auto found = modifiedShaders.find(core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs));
+				if (found != modifiedShaders.end())
+					pipeline->setShaderAtStage(asset::ICPUSpecializedShader::ESS_FRAGMENT, found->second.get());
+				else {
+					auto newfs = createModifiedFragShader(fs);
+					modifiedShaders.insert({ core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs),newfs});
+					pipeline->setShaderAtStage(asset::ICPUSpecializedShader::ESS_FRAGMENT, newfs.get());
+				}
+				modifiedPipelines.insert(pipeline);
+			}
+		}
 	}
+	modifiedShaders.clear();
+
 	core::smart_refctd_ptr<asset::ICPUDescriptorSet> cpuds0;
 	{
 		auto* meta = static_cast<ext::MitsubaLoader::CMitsubaPipelineMetadata*>(cpumeshes[0]->getMeshBuffer(0)->getPipeline()->getMetadata());
@@ -304,10 +249,63 @@ int main()
             break;
         }
 
+
+	//point lights
+	core::vector<SLight> lights;
 	core::vector<const ext::MitsubaLoader::IMeshMetadata*> meshmetas;
 	meshmetas.reserve(cpumeshes.size());
 	for (const auto& cpumesh : cpumeshes)
+	{
 		meshmetas.push_back(static_cast<const ext::MitsubaLoader::IMeshMetadata*>(cpumesh->getMetadata()));
+		const auto& instances = meshmetas.back()->getInstances();
+
+		auto computeAreaAndAvgPos = [](asset::ICPUMeshBuffer* mb, const core::matrix3x4SIMD& tform, core::vectorSIMDf& _outAvgPos) {
+			uint32_t triCount = 0u;
+			asset::IMeshManipulator::getPolyCount(triCount, mb);
+			assert(triCount>0u);
+
+			_outAvgPos = core::vectorSIMDf(0.f);
+
+			core::vectorSIMDf v[3];
+			for (uint32_t i = 0u; i < triCount; ++i)
+			{
+				auto triIxs = asset::IMeshManipulator::getTriangleIndices(mb, i);
+				for (uint32_t j = 0u; j < 3u; ++j) {
+					v[j] = mb->getPosition(triIxs[j]);
+					_outAvgPos += v[j];
+				}
+			}
+			core::vectorSIMDf differentialElementCrossProdcut = core::cross(v[1]-v[0], v[2]-v[0]);
+			core::matrix3x4SIMD tformCofactors;
+			{
+				auto tmp4 = irr::core::matrix4SIMD(tform.getSub3x3TransposeCofactors());
+				tformCofactors = core::transpose(tmp4).extractSub3x4();
+			}
+			tformCofactors.mulSub3x3WithNx1(differentialElementCrossProdcut);
+
+			//outputs position in model space
+			_outAvgPos /= static_cast<float>(triCount)*3.f;
+
+			return 0.5f*core::length(differentialElementCrossProdcut).x;
+		};
+		for (const auto& inst : instances)
+		{
+			if (inst.emitter.type==ext::MitsubaLoader::CElementEmitter::AREA)
+			{
+				core::vectorSIMDf pos;
+				assert(cpumesh->getMeshBufferCount()==1u);
+				const float area = computeAreaAndAvgPos(cpumesh->getMeshBuffer(0), inst.tform, pos);
+				assert(area>0.f);
+				inst.tform.pseudoMulWith4x1(pos);
+
+				SLight l;
+				l.intensity = inst.emitter.area.radiance*area*2.f*core::PI<float>();
+				l.position = pos;
+
+				lights.push_back(l);
+			}
+		}
+	}
 
 	constexpr uint32_t MAX_INSTANCES = 512u;
 
@@ -329,7 +327,18 @@ int main()
 		}
 	}
 
+	auto gpuVT = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(driver, globalMeta->VT.get());
 	auto gpuds0 = driver->getGPUObjectsFromAssets(&cpuds0.get(), &cpuds0.get()+1)->front();
+	{
+		auto count = gpuVT->getDescriptorSetWrites(nullptr, nullptr, nullptr);
+
+		auto writes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<video::IGPUDescriptorSet::SWriteDescriptorSet>>(count.first);
+		auto info = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<video::IGPUDescriptorSet::SDescriptorInfo>>(count.second);
+
+		gpuVT->getDescriptorSetWrites(writes->data(), info->data(), gpuds0.get());
+
+		driver->updateDescriptorSets(writes->size(), writes->data(), 0u, nullptr);
+	}
 
     auto gpuds1layout = driver->getGPUObjectsFromAssets(&ds1layout, &ds1layout+1)->front();
 
@@ -352,6 +361,25 @@ int main()
         driver->updateDescriptorSets(1u, &write, 0u, nullptr);
     }
 
+	auto gpuds2layout = driver->getGPUObjectsFromAssets(&ds2layout.get(), &ds2layout.get()+1)->front();
+	auto gpuds2 = driver->createGPUDescriptorSet(std::move(gpuds2layout));
+	{
+		video::IGPUDescriptorSet::SDescriptorInfo info;
+		video::IGPUDescriptorSet::SWriteDescriptorSet w;
+		w.arrayElement = 0u;
+		w.binding = 0u;
+		w.count = 1u;
+		w.descriptorType = asset::EDT_STORAGE_BUFFER;
+		w.dstSet = gpuds2.get();
+		w.info = &info;
+		auto lightsBuf = driver->createFilledDeviceLocalGPUBufferOnDedMem(lights.size()*sizeof(SLight), lights.data());
+		info.buffer.offset = 0u;
+		info.buffer.size = lightsBuf->getSize();
+		info.desc = std::move(lightsBuf);
+
+		driver->updateDescriptorSets(1u, &w, 0u, nullptr);
+	}
+
 	// camera and viewport
 	scene::ICameraSceneNode* camera = nullptr;
 	core::recti viewport(core::position2di(0,0), core::position2di(params.WindowSize.Width,params.WindowSize.Height));
@@ -359,6 +387,7 @@ int main()
 	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
 		return sensor.type==ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type==ext::MitsubaLoader::CElementSensor::Type::THINLENS;
 	};
+//#define TESTING
 #ifdef TESTING
 	if (0)
 #else
@@ -370,7 +399,7 @@ int main()
 		viewport = core::recti(core::position2di(film.cropOffsetX,film.cropOffsetY), core::position2di(film.cropWidth,film.cropHeight));
 
 		auto extent = sceneBound.getExtent();
-		camera = smgr->addCameraSceneNodeFPS(nullptr,100.f,core::min(extent.X,extent.Y,extent.Z)*0.0002f);
+		camera = smgr->addCameraSceneNodeFPS(nullptr,100.f,core::min(extent.X,extent.Y,extent.Z)*0.001f);
 		// need to extract individual components
 		bool leftHandedCamera = false;
 		{
@@ -463,14 +492,20 @@ int main()
 	{
 		driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
 		driver->setViewPort(viewport);
-#ifdef TESTING
+//#ifdef TESTING
 		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
 		camera->render();
-#endif
+//#endif
 
 		asset::SBasicViewParameters uboData;
+		//view-projection matrix
 		memcpy(uboData.MVP, camera->getConcatenatedMatrix().pointer(), sizeof(core::matrix4SIMD));
+		//view matrix
 		memcpy(uboData.MV, camera->getViewMatrix().pointer(), sizeof(core::matrix3x4SIMD));
+		//writing camera position to 4th column of NormalMat
+		uboData.NormalMat[3] = camera->getPosition().X;
+		uboData.NormalMat[7] = camera->getPosition().Y;
+		uboData.NormalMat[11] = camera->getPosition().Z;
 		driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0u, sizeof(uboData), &uboData);
 
 		for (uint32_t j = 1u; j < gpumeshes->size(); ++j)
@@ -482,9 +517,9 @@ int main()
 				auto* mb = mesh->getMeshBuffer(i);
 
 				auto* pipeline = mb->getPipeline();
-				const video::IGPUDescriptorSet* ds[2]{ gpuds0.get(), gpuds1.get() };
+				const video::IGPUDescriptorSet* ds[3]{ gpuds0.get(), gpuds1.get(), gpuds2.get() };
 				driver->bindGraphicsPipeline(pipeline);
-				driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 0u, 2u, ds, nullptr);
+				driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 0u, 3u, ds, nullptr);
 				driver->pushConstants(pipeline->getLayout(), video::IGPUSpecializedShader::ESS_VERTEX|video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, sizeof(uint32_t), mb->getPushConstantsDataPtr());
 
 				driver->drawMeshBuffer(mb);

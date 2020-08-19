@@ -12,7 +12,8 @@
 #include "IWriteFile.h"
 #include "os.h" // for logging
 #include "irr/asset/ICPUImageView.h"
-#include "irr/asset/format/convertColor.h"
+
+#include "irr/asset/IImageAssetHandlerBase.h"
 
 #ifdef _IRR_COMPILE_WITH_LIBPNG_
 	#include "libpng/png.h"

@@ -14,6 +14,8 @@
 
 #include "irr/asset/filters/kernels/kernels.h"
 
+#include "irr/asset/format/decodePixels.h"
+
 namespace irr
 {
 namespace asset
@@ -297,7 +299,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 				const int32_t rankIndex = (inverseCoverage*core::rational<int32_t>(outputTexelCount)).getIntegerApprox()-1;
 				auto* const begin = intermediateStorage[(axis+1)%3];
 				// this is our new reference value
-				auto* const nth = begin+core::max(rankIndex,0);
+				auto* const nth = begin+core::max<int32_t>(rankIndex,0);
 				auto* const end = begin+outputTexelCount;
 				for (auto i=0; i<outputTexelCount; i++)
 				{
@@ -462,9 +464,9 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 			const auto inType = state->inImage->getCreationParameters().type;
 			const auto window_last = getKernelWindowLastCoord(state->contructScaledKernel(),inType);
 			// TODO: account for the size needed for coverage adjustment
-			auto texelCount = state->outExtent.width*core::max((state->inExtent.height+window_last[1])*(state->inExtent.depth+window_last[2]),state->outExtent.height*state->outExtent.depth);
+			auto texelCount = state->outExtent.width*core::max<uint32_t>((state->inExtent.height+window_last[1])*(state->inExtent.depth+window_last[2]),state->outExtent.height*state->outExtent.depth);
 			if (secondPong)
-				texelCount += core::max(state->outExtent.width*state->outExtent.height*(state->inExtent.depth+window_last[2]),state->inExtent.width+window_last[0]);
+				texelCount += core::max<uint32_t>(state->outExtent.width*state->outExtent.height*(state->inExtent.depth+window_last[2]),state->inExtent.width+window_last[0]);
 			//
 			return texelCount*Kernel::MaxChannels*sizeof(value_type);
 		}

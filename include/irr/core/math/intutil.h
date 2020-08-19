@@ -46,7 +46,7 @@ IRR_FORCE_INLINE constexpr INT_TYPE roundUpToPoT(INT_TYPE value)
 template<typename INT_TYPE>
 IRR_FORCE_INLINE constexpr INT_TYPE roundDownToPoT(INT_TYPE value)
 {
-    return INT_TYPE(0x1u)<<core::findLSB<INT_TYPE>(value);
+    return INT_TYPE(0x1u)<<core::findMSB<INT_TYPE>(value);
 }
 
 template<typename INT_TYPE>

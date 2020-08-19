@@ -337,7 +337,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
                 const void* dataPtr = reinterpret_cast<const uint8_t*>(data)+uploadedSize;
                 uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_address;
                 uint32_t alignment = 64u; // smallest mapping alignment capability
-                uint32_t subSize = static_cast<uint32_t>(core::min(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize));
+                uint32_t subSize = static_cast<uint32_t>(core::min<uint32_t>(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize));
 
                 defaultUploadBuffer.get()->multi_place(std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&localOffset,&subSize,&alignment);
                 // keep trying again
@@ -350,10 +350,11 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
                 // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
                 this->copyBuffer(defaultUploadBuffer.get()->getBuffer(),buffer,localOffset,offset+uploadedSize,subSize);
                 // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-                // no glFlush needed because waitCPU is not done to block execution until GPU is done on the allocations
-                defaultUploadBuffer.get()->multi_free(1u,&localOffset,&subSize,this->placeFence());
+                defaultUploadBuffer.get()->multi_free(1u,&localOffset,&subSize,this->placeFence(true));
                 uploadedSize += subSize;
             }
+            // TODO: for other threads to play nice.
+            //glFlush();
         }
 
 
@@ -373,13 +374,30 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 
 
 		//! Utility function to convert all your CPU asset data into GPU objects ready for use
+        // With a custom converter, you can override it to for example; pack all buffers into one, pack all images into one atlas, etc.
+
+        template<typename AssetType>
+        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>& _range, IGPUObjectFromAssetConverter* _converter = nullptr);
+        template<typename AssetType>
+        created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::SRange<core::smart_refctd_ptr<asset::IAsset>>& _range, IGPUObjectFromAssetConverter* _converter = nullptr)
+        {
+            core::SRange<const core::smart_refctd_ptr<asset::IAsset>> tmp(
+                reinterpret_cast<core::smart_refctd_ptr<asset::IAsset>*>(_range.begin()), // I know what I'm doing
+                reinterpret_cast<core::smart_refctd_ptr<asset::IAsset>*>(_range.end()) // I know what I'm doing
+            );
+            return getGPUObjectsFromAssets<AssetType>(tmp,_converter);
+        }
+        //!
         template<typename AssetType>
         created_gpu_object_array<AssetType> getGPUObjectsFromAssets(AssetType* const* const _begin, AssetType* const* const _end, IGPUObjectFromAssetConverter* _converter = nullptr);
-		//! With a custom converter, you can override it to for example; pack all buffers into one, pack all images into one atlas, etc.
+		//! 
 		template<typename AssetType>
 		created_gpu_object_array<AssetType> getGPUObjectsFromAssets(const core::smart_refctd_ptr<AssetType>* _begin, const core::smart_refctd_ptr<AssetType>* _end, IGPUObjectFromAssetConverter* _converter = nullptr);
 
 	//====================== THIS STUFF SHOULD BE IN A video::ICommandBuffer =====================
+        //!
+        virtual void fillBuffer(IGPUBuffer* buffer, size_t offset, size_t length, uint32_t value) {}
+
 		//! TODO: make with VkBufferCopy and take a list of multiple copies to carry out (maybe rename to copyBufferRanges)
 		virtual void copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length) {}
 

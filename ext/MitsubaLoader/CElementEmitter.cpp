@@ -130,7 +130,7 @@ bool CElementEmitter::addProperty(SNamedPropertyElement&& _property)
 
 #define SET_PROPERTY_TEMPLATE(MEMBER,PROPERTY_TYPE, ... )		[&]() -> void { \
 		dispatch([&](auto& state) -> void { \
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+			if constexpr (is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
 			{ \
 				if (_property.type!=PROPERTY_TYPE) { \
 					error = true; \
@@ -138,12 +138,11 @@ bool CElementEmitter::addProperty(SNamedPropertyElement&& _property)
 				} \
 				state. ## MEMBER = _property.getProperty<PROPERTY_TYPE>(); \
 			} \
-			IRR_PSEUDO_IF_CONSTEXPR_END \
 		}); \
 	}
 #define SET_SPECTRUM(MEMBER, ... )		[&]() -> void { \
 		dispatch([&](auto& state) -> void { \
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
+			if constexpr (is_any_of<std::remove_reference<decltype(state)>::type,__VA_ARGS__>::value) \
 			{ \
 				switch (_property.type) { \
 					case SPropertyElementData::Type::FLOAT: \
@@ -163,7 +162,6 @@ bool CElementEmitter::addProperty(SNamedPropertyElement&& _property)
 						break; \
 				} \
 			} \
-			IRR_PSEUDO_IF_CONSTEXPR_END \
 		}); \
 	}
 
@@ -208,11 +206,10 @@ bool CElementEmitter::addProperty(SNamedPropertyElement&& _property)
 		dispatch([&](auto& state) -> void {
 			using state_type = std::remove_reference<decltype(state)>::type;
 
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<state_type,EnvMap>::value)
+			if constexpr (std::is_same<state_type,EnvMap>::value)
 			{
 				envmap.filename = std::move(_property);
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
 		});
 	};
 	auto setScale = SET_PROPERTY_TEMPLATE(scale, SNamedPropertyElement::Type::FLOAT, EnvMap);

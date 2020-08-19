@@ -9,22 +9,9 @@ using namespace irr::video;
 using namespace ext::ToneMapper;
 
 
-void CToneMapper::registerBuiltinGLSLIncludes(IGLSLCompiler* compilerToAddBuiltinIncludeTo)
-{
-	static bool addedBuiltinHeader = false;
-	if (addedBuiltinHeader)
-		return;
-
-	if (!compilerToAddBuiltinIncludeTo)
-		return;
-
-	compilerToAddBuiltinIncludeTo->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSLToneMappingBuiltinIncludeLoader>());
-	addedBuiltinHeader = true;
-}
-
 core::SRange<const IGPUDescriptorSetLayout::SBinding> CToneMapper::getDefaultBindings(IVideoDriver* driver, bool usingLumaMeter)
 {
-	auto lumaBindings = ext::LumaMeter::CGLSLLumaBuiltinIncludeLoader::getDefaultBindings(driver);
+	auto lumaBindings = ext::LumaMeter::CLumaMeter::getDefaultBindings(driver);
 	const auto inputImageBinding = lumaBindings.begin()[2];
 	if (usingLumaMeter)
 	{
@@ -220,6 +207,16 @@ R"===(#version 430 core
 
 #include "irr/builtin/glsl/ext/ToneMapper/operators.glsl"
 
+#ifndef irr_glsl_ext_ToneMapper_Params_t
+	#if _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_IRR_GLSL_EXT_TONE_MAPPER_REINHARD_OPERATOR
+		#define irr_glsl_ext_ToneMapper_Params_t irr_glsl_ext_ToneMapper_ReinhardParams_t
+	#elif _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_IRR_GLSL_EXT_TONE_MAPPER_ACES_OPERATOR
+		#define irr_glsl_ext_ToneMapper_Params_t irr_glsl_ext_ToneMapper_ACESParams_t
+	#else
+		#error "Unsupported Tonemapping Operator"
+	#endif
+#endif
+
 
 #ifndef _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_
 #define _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_ 0
@@ -246,16 +243,17 @@ R"===(#version 430 core
 %s // _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
 
 #ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
+	#define _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT (_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_*_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_)
+
+	#define _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT %d
+	#define _IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION %d
+
 	#define _IRR_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_ %d
 	#define _IRR_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_ %d
 
 	#define _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_ %d
 
 	#include "irr/builtin/glsl/ext/LumaMeter/common.glsl"
-
-	#if _IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT!=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_*_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_
-		#error "_IRR_GLSL_EXT_LUMA_METER_INVOCATION_COUNT does not equal the product of the dispatch sizes!"
-	#endif
 
 
 	#ifndef _IRR_GLSL_EXT_TONE_MAPPER_UNIFORMS_DEFINED_
@@ -388,9 +386,9 @@ layout(set=_IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLS
 		irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t retval;
 		#define FETCH_STRUCT lumaParams[(pc.currentFirstPassOutput!=0 ? textureSize(inputImage,0).z:0)+int(gl_WorkGroupID.z)]
 
-		#if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MODE
+		#if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN
 			retval = FETCH_STRUCT.packedHistogram[gl_LocalInvocationIndex];
-			for (int i=0; i<_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION; i++)
+			for (int i=1; i<_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION; i++)
 				retval += FETCH_STRUCT.packedHistogram[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT];
 		#elif _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
 			retval = FETCH_STRUCT.unormAverage;
@@ -448,8 +446,14 @@ void irr_glsl_ext_ToneMapper() // bool wgExecutionMask, then do if(any(wgExecuti
 	float toLastLumaDiff = irr_glsl_ext_ToneMapper_getLastFrameLuma()-extraNegEV;
 	extraNegEV += toLastLumaDiff*irr_glsl_ext_ToneMapper_getExposureAdaptationFactor(toLastLumaDiff);
 	irr_glsl_ext_ToneMapper_setLastFrameLuma(extraNegEV);
+	#if _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_IRR_GLSL_EXT_TONE_MAPPER_REINHARD_OPERATOR
+		params.keyAndManualLinearExposure *= exp2(-extraNegEV);
+		colorCIEXYZ.rgb = irr_glsl_ext_ToneMapper_Reinhard(params,colorCIEXYZ.rgb);
+	#elif _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_IRR_GLSL_EXT_TONE_MAPPER_ACES_OPERATOR
+		params.exposure -= extraNegEV;
+		colorCIEXYZ.rgb = irr_glsl_ext_ToneMapper_ACES(params,colorCIEXYZ.rgb);
+	#endif
 #endif
-	colorCIEXYZ.rgb = irr_glsl_ext_ToneMapper_operator(params,colorCIEXYZ.rgb,extraNegEV);
 
 	// TODO: Add dithering
 	vec3 rand = vec3(0.5);
@@ -486,13 +490,12 @@ void main()
 	snprintf(
 		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(),sourceFmt,
 		DEFAULT_WORKGROUP_DIM,DEFAULT_WORKGROUP_DIM,_operator,
-		usingLumaMeterDefine,reinterpret_cast<const int32_t&>(minLuma),reinterpret_cast<const int32_t&>(maxLuma),meterMode,
+		usingLumaMeterDefine,DEFAULT_WORKGROUP_DIM*DEFAULT_WORKGROUP_DIM,LumaMeter::CLumaMeter::DEFAULT_BIN_GLOBAL_REPLICATION,
+		reinterpret_cast<const int32_t&>(minLuma),reinterpret_cast<const int32_t&>(maxLuma),meterMode,
 		usingTemporalAdaptationDefine,
 		outViewFormatQualifier,eotf,inXYZMatrix,outXYZMatrix,oetf,quantization
 	);
 
-	registerBuiltinGLSLIncludes(compilerToAddBuiltinIncludeTo);
-	LumaMeter::CLumaMeter::registerBuiltinGLSLIncludes(compilerToAddBuiltinIncludeTo);
 	return core::make_smart_refctd_ptr<ICPUSpecializedShader>(
 		core::make_smart_refctd_ptr<ICPUShader>(std::move(shader),ICPUShader::buffer_contains_glsl),
 		ISpecializedShader::SInfo{nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE}

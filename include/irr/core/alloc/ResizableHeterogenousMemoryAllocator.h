@@ -1,7 +1,6 @@
 #ifndef __IRR_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
 #define __IRR_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
 
-#include "irr/static_if.h"
 
 #include "irr/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
 

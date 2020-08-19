@@ -8,7 +8,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "irr/static_if.h"
 #include "irr/type_traits.h"
 #include "irr/core/math/floatutil.h"
 
@@ -85,50 +84,50 @@ template<typename T, typename U>
 IRR_FORCE_INLINE T mix(const T & a, const T & b, const U & t)
 {
 	T retval;
-	IRR_PSEUDO_IF_CONSTEXPR_BEGIN(irr::is_any_of<U,vectorSIMDBool<2>,vectorSIMDBool<4>,vectorSIMDBool<8>,vectorSIMDBool<16> >::value)
+	if constexpr(irr::is_any_of<U,vectorSIMDBool<2>,vectorSIMDBool<4>,vectorSIMDBool<8>,vectorSIMDBool<16> >::value)
 	{
-		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,vectorSIMDf>::value)
+		if constexpr(std::is_same<T,vectorSIMDf>::value)
 		{
 			retval = _mm_castsi128_ps(_mm_or_si128(_mm_castps_si128((a&(~t)).getAsRegister()),_mm_castps_si128((b&t).getAsRegister())));
 		}
-		IRR_PSEUDO_ELSE_CONSTEXPR
+		else
 		{
 			retval = (a&(~t))|(b&t);
 		}
-		IRR_PSEUDO_IF_CONSTEXPR_END
+		
 	}
-	IRR_PSEUDO_ELSE_CONSTEXPR
+	else
 	{
-		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<U,bool>::value)
+		if constexpr(std::is_same<U,bool>::value)
 		{
 			retval = t ? b:a;
 		}
-		IRR_PSEUDO_ELSE_CONSTEXPR
+		else
 		{
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(irr::is_any_of<T,matrix4SIMD,matrix3x4SIMD>::value)
+			if constexpr(irr::is_any_of<T,matrix4SIMD,matrix3x4SIMD>::value)
 			{
 				for (uint32_t i=0u; i<T::VectorCount; i++)
 				{
-					IRR_PSEUDO_IF_CONSTEXPR_BEGIN(irr::is_any_of<U, matrix4SIMD, matrix3x4SIMD>::value)
+					if constexpr(irr::is_any_of<U, matrix4SIMD, matrix3x4SIMD>::value)
 					{
 						retval[i] = core::mix<vectorSIMDf, vectorSIMDf>(a.rows[i], b.rows[i], t.rows[i]);
 					}
-					IRR_PSEUDO_ELSE_CONSTEXPR
+					else
 					{
 						retval[i] = core::mix<vectorSIMDf, U>(a.rows[i], b.rows[i], t);
 					}
-					IRR_PSEUDO_IF_CONSTEXPR_END
+					
 				}
 			}
-			IRR_PSEUDO_ELSE_CONSTEXPR
+			else
 			{
 				retval = core::fma<T>(b-a,t,a);
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
+			
 		}
-		IRR_PSEUDO_IF_CONSTEXPR_END
+		
 	}
-	IRR_PSEUDO_IF_CONSTEXPR_END
+	
 	return retval;
 }
 

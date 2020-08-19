@@ -6,7 +6,7 @@
 #include "irr/video/CGPUSkinnedMesh.h"
 
 #include "vectorSIMD.h"
-
+ 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 
 #include "irr/video/COpenGLImageView.h"
@@ -20,7 +20,7 @@
 
 #include "COpenGLBuffer.h"
 #include "COpenGLFrameBuffer.h"
-#include "COpenGLQuery.h"
+#include "COpenGLQuery.h" 
 #include "COpenGLTimestampQuery.h"
 #include "os.h"
 #include "irr/asset/spvUtils.h"
@@ -1292,13 +1292,11 @@ bool COpenGLDriver::pushConstants(const IGPUPipelineLayout* _layout, uint32_t _s
 core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(core::smart_refctd_ptr<const asset::ICPUShader>&& _cpushader)
 {
 	auto source = _cpushader->getSPVorGLSL();
+    auto clone = core::smart_refctd_ptr_static_cast<asset::ICPUBuffer>(source->clone(1u));
 	if (_cpushader->containsGLSL())
-	    return core::make_smart_refctd_ptr<COpenGLShader>(reinterpret_cast<const char*>(source->getPointer()));
-	
-	// need to do this so its a copy (and doesn't get wiped when cpu resources are released)
-	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(source->getSize());
-	memcpy(buffer->getPointer(),source->getPointer(),source->getSize());
-	return core::make_smart_refctd_ptr<COpenGLShader>(std::move(buffer));
+	    return core::make_smart_refctd_ptr<COpenGLShader>(std::move(clone),IGPUShader::buffer_contains_glsl);
+    else
+	    return core::make_smart_refctd_ptr<COpenGLShader>(std::move(clone));
 }
 
 core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo)
@@ -1309,8 +1307,11 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     const asset::ISpecializedShader::E_SHADER_STAGE stage = _specInfo.shaderStage;
 
     core::smart_refctd_ptr<asset::ICPUShader> spvCPUShader = nullptr;
-    if (glUnspec->containsGLSL()) {
-        std::string glsl = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
+    if (glUnspec->containsGLSL())
+    {
+        auto begin = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
+        auto end = begin+glUnspec->getSPVorGLSL()->getSize();
+        std::string glsl(begin,end);
         asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions().get());
         auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.c_str());
         //{
@@ -1327,8 +1328,9 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
 
         if (!spvCode)
             return nullptr;
+        GLfloat a;
 
-// #define FIX_AMD_DRIVER_BUG // TODO: @Crisspl get this code manipulation to pass on the `boxFrustCull.comp` shader of ex 26
+// #define FIX_AMD_DRIVER_BUG // TODO: @Crisspl get this code manipulation to pass on the `boxFrustCull.comp` shader of ex 26 also update it to the fact i've converted the workaround to an overloaded function (name has now changed!)
 #ifdef FIX_AMD_DRIVER_BUG
         AMDbugfixCompiler comp(reinterpret_cast<const uint32_t*>(spvCode->getPointer()), spvCode->getSize()/4u);
         comp.set_entry_point(EP, asset::ESS2spvExecModel(stage));
@@ -1631,6 +1633,12 @@ void COpenGLDriver::invalidateMappedMemoryRanges(uint32_t memoryRangeCount, cons
     }
 }
 
+
+void COpenGLDriver::fillBuffer(IGPUBuffer* buffer, size_t offset, size_t length, uint32_t value)
+{
+    COpenGLBuffer* glbuffer = static_cast<COpenGLBuffer*>(buffer);
+    extGlClearNamedBufferSubData(glbuffer->getOpenGLName(),GL_R32UI,offset,length,GL_RED,GL_UNSIGNED_INT,&value);
+}
 
 void COpenGLDriver::copyBuffer(IGPUBuffer* readBuffer, IGPUBuffer* writeBuffer, size_t readOffset, size_t writeOffset, size_t length)
 {

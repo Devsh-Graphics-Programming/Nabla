@@ -18,8 +18,6 @@ int main()
 	irr::core::address_allocator_traits<core::StackAddressAllocatorST<uint32_t> >::printDebugInfo();
 	printf("Pool \n");
 	irr::core::address_allocator_traits<core::PoolAddressAllocatorST<uint32_t> >::printDebugInfo();
-	printf("Cont \n");
-	irr::core::address_allocator_traits<core::ContiguousPoolAddressAllocatorST<uint32_t> >::printDebugInfo();
 	printf("General \n");
 	irr::core::address_allocator_traits<core::GeneralpurposeAddressAllocatorST<uint32_t> >::printDebugInfo();
 
@@ -28,8 +26,6 @@ int main()
 	irr::core::address_allocator_traits<core::LinearAddressAllocatorMT<uint32_t,std::recursive_mutex> >::printDebugInfo();
 	printf("Pool \n");
 	irr::core::address_allocator_traits<core::PoolAddressAllocatorMT<uint32_t,std::recursive_mutex> >::printDebugInfo();
-	printf("Cont \n");
-	irr::core::address_allocator_traits<core::ContiguousPoolAddressAllocatorMT<uint32_t,std::recursive_mutex> >::printDebugInfo();
 	printf("General \n");
 	irr::core::address_allocator_traits<core::GeneralpurposeAddressAllocatorMT<uint32_t,std::recursive_mutex> >::printDebugInfo();
 

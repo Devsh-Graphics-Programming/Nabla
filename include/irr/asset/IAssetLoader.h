@@ -85,7 +85,8 @@ public:
 	{
 		ELPF_NONE = 0,											//!< default value, it doesn't do anything
 		ELPF_RIGHT_HANDED_MESHES = 0x1,							//!< specifies that a mesh will be flipped in such a way that it'll look correctly in right-handed camera system
-		ELPF_DONT_COMPILE_GLSL = 0x2							//!< it states that GLSL won't be compiled to SPIR-V if it is loaded or generated						
+		ELPF_DONT_COMPILE_GLSL = 0x2,							//!< it states that GLSL won't be compiled to SPIR-V if it is loaded or generated
+		ELPF_LOAD_METADATA_ONLY = 0x4							//!< it forces the loader to not load the entire scene for performance in special cases to fetch metadata.
 	};
 
     struct SAssetLoadParams
@@ -100,9 +101,9 @@ public:
 
         size_t decryptionKeyLen;
         const uint8_t* decryptionKey;
-        const E_CACHING_FLAGS cacheFlags;
+        E_CACHING_FLAGS cacheFlags;
         const char* relativeDir;
-        const E_LOADER_PARAMETER_FLAGS loaderFlags;				//!< Flags having an impact on extraordinary tasks during loading process
+        E_LOADER_PARAMETER_FLAGS loaderFlags;				//!< Flags having an impact on extraordinary tasks during loading process
 		IMeshManipulator* meshManipulatorOverride = nullptr;    //!< pointer used for specifying custom mesh manipulator to use, if nullptr - default mesh manipulator will be used
     };
 

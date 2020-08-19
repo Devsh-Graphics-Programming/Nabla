@@ -24,6 +24,8 @@ SOFTWARE.
 
 #include "os.h"
 
+#include "irr/asset/IImageAssetHandlerBase.h"
+
 #ifdef _IRR_COMPILE_WITH_GLI_
 #include "gli/gli.hpp"
 #else
@@ -202,7 +204,7 @@ namespace irr
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
 
 			if (imageInfo.format == asset::EF_R8_SRGB)
-				image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(image);
+				image = IImageAssetHandlerBase::convertR8ToR8G8B8Image(image);
 
 			ICPUImageView::SCreationParams imageViewInfo;
 			imageViewInfo.image = std::move(image);

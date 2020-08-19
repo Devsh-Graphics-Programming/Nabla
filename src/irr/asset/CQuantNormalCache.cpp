@@ -1,4 +1,7 @@
 #include "irr/asset/CQuantNormalCache.h"
+
+#include "os.h"
+
 #include "parallel-hashmap/parallel_hashmap/phmap_dump.h"
 
 namespace irr
@@ -86,7 +89,7 @@ core::vectorSIMDf CQuantNormalCache::findBestFit(const uint32_t& bits, const cor
 	return bestFit;
 }
 
-bool CQuantNormalCache::saveCacheToBuffer(const E_QUANT_NORM_CACHE_TYPE type, SBufferBinding<ICPUBuffer>& buffer)
+bool CQuantNormalCache::saveCacheToBuffer(const E_CACHE_TYPE type, SBufferBinding<ICPUBuffer>& buffer)
 {
 	const uint64_t bufferSize = buffer.buffer.get()->getSize();
 	const uint64_t offset = buffer.offset;
@@ -99,17 +102,17 @@ bool CQuantNormalCache::saveCacheToBuffer(const E_QUANT_NORM_CACHE_TYPE type, SB
 
 	switch (type)
 	{
-	case E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10:
+	case E_CACHE_TYPE::ECT_2_10_10_10:
 	{
 		CWriteBufferWrap buffWrap(buffer);
 		return normalCacheFor2_10_10_10Quant.dump(buffWrap);
 	}
-	case E_QUANT_NORM_CACHE_TYPE::Q_8_8_8:
+	case E_CACHE_TYPE::ECT_8_8_8:
 	{
 		CWriteBufferWrap buffWrap(buffer);
 		return normalCacheFor8_8_8Quant.dump(buffWrap);
 	}
-	case E_QUANT_NORM_CACHE_TYPE::Q_16_16_16:
+	case E_CACHE_TYPE::ECT_16_16_16:
 	{
 		CWriteBufferWrap buffWrap(buffer);
 		return normalCacheFor16_16_16Quant.dump(buffWrap);
@@ -119,7 +122,7 @@ bool CQuantNormalCache::saveCacheToBuffer(const E_QUANT_NORM_CACHE_TYPE type, SB
 	return false;
 }
 
-bool CQuantNormalCache::validateSerializedCache(E_QUANT_NORM_CACHE_TYPE type, const SBufferRange<ICPUBuffer>& buffer)
+bool CQuantNormalCache::validateSerializedCache(E_CACHE_TYPE type, const SBufferRange<ICPUBuffer>& buffer)
 {
 	if (buffer.buffer.get()->getSize() == 0 || buffer.size == 0)
 		return true;
@@ -140,7 +143,7 @@ bool CQuantNormalCache::validateSerializedCache(E_QUANT_NORM_CACHE_TYPE type, co
 		return true;
 
 	size_t expectedCacheSize = sizeof(size_t) * 2 + 17;
-	expectedCacheSize += (type == E_QUANT_NORM_CACHE_TYPE::Q_16_16_16) ? 17 * capacity : 13 * capacity;
+	expectedCacheSize += (type == E_CACHE_TYPE::ECT_16_16_16) ? 17 * capacity : 13 * capacity;
 
 	if ((buffer.offset + buffer.size) == expectedCacheSize)
 		return true;

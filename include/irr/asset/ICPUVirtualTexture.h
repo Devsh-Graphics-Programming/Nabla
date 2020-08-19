@@ -5,6 +5,8 @@
 #include <irr/asset/ICPUImageView.h>
 #include <irr/asset/ICPUDescriptorSet.h>
 
+#include "irr/asset/filters/CMipMapGenerationImageFilter.h"
+
 namespace irr {
 namespace asset
 {
@@ -59,7 +61,7 @@ public:
     {
         const auto& params = _img->getCreationParameters();
         const auto originalExtent = params.extent;
-        const uint32_t paddedExtent = core::roundUpToPoT(std::max(params.extent.width,params.extent.height));
+        const uint32_t paddedExtent = core::roundUpToPoT(std::max<uint32_t>(params.extent.width,params.extent.height));
 
         //create PoT and square image with regions for all mips
         ICPUImage::SCreationParams paddedParams = params;
@@ -162,10 +164,10 @@ public:
             storage = static_cast<ICPUVTResidentStorage*>(found->second.get());
         }
 
-        const VkExtent3D extent = {_addr.origsize_x, _addr.origsize_y, 1u};
+        const VkExtent3D extent = {static_cast<uint32_t>(_addr.origsize_x), static_cast<uint32_t>(_addr.origsize_y), 1u};
 
         const uint32_t levelsTakingAtLeastOnePageCount = countLevelsTakingAtLeastOnePage(extent);
-        const uint32_t levelsToPack = std::min(_subres.levelCount, m_pageTable->getCreationParameters().mipLevels+m_pgSzxy_log2);
+        const uint32_t levelsToPack = std::min<uint32_t>(_subres.levelCount, m_pageTable->getCreationParameters().mipLevels+m_pgSzxy_log2);
 
         uint32_t miptailPgAddr = SPhysPgOffset::invalid_addr;
 
@@ -231,9 +233,9 @@ public:
                     copy.extentLayerCount = core::vectorSIMDu32(m_pgSzxy, m_pgSzxy, 1u, 1u);
                     copy.relativeOffset = {0u,0u,0u};
                     if (x == w-1u)
-                        copy.extentLayerCount.x = std::max(extent.width>>i,1u)-copy.inOffsetBaseLayer.x;
+                        copy.extentLayerCount.x = std::max<uint32_t>(extent.width>>i,1u)-copy.inOffsetBaseLayer.x;
                     if (y == h-1u)
-                        copy.extentLayerCount.y = std::max(extent.height>>i,1u)-copy.inOffsetBaseLayer.y;
+                        copy.extentLayerCount.y = std::max<uint32_t>(extent.height>>i,1u)-copy.inOffsetBaseLayer.y;
                     memcpy(&copy.paddedExtent.width,(copy.extentLayerCount+core::vectorSIMDu32(2u*m_tilePadding)).pointer, 2u*sizeof(uint32_t));
                     copy.paddedExtent.depth = 1u;
                     if (w>1u)
@@ -274,7 +276,10 @@ public:
         if (!validateAliasCreation(_addr, _viewingFormat, _subresRelativeToMaster))
             return SViewAliasTextureData::invalid();
 
-        const VkExtent3D extent = {_addr.origsize_x>>_subresRelativeToMaster.baseArrayLayer, _addr.origsize_y>>_subresRelativeToMaster.baseArrayLayer, 1u};
+        const VkExtent3D extent = {
+            static_cast<uint32_t>(_addr.origsize_x>>_subresRelativeToMaster.baseArrayLayer),
+            static_cast<uint32_t>(_addr.origsize_y>>_subresRelativeToMaster.baseArrayLayer),
+            1u};
         SMasterTextureData aliasAddr = alloc(_viewingFormat, VkExtent3D{static_cast<uint32_t>(_addr.origsize_x), static_cast<uint32_t>(_addr.origsize_y), 1u}, _subresRelativeToMaster, ISampler::ETC_CLAMP_TO_BORDER, ISampler::ETC_CLAMP_TO_BORDER);
         if (SMasterTextureData::is_invalid(aliasAddr))
             return SViewAliasTextureData::invalid();
@@ -291,7 +296,7 @@ public:
         {
             copy.inMipLevel = _subresRelativeToMaster.baseMipLevel+i;
             copy.outMipLevel = i;
-            copy.extent = {std::max(extent.width>>i,1u), std::max(extent.height>>i,1u), 1u};
+            copy.extent = {std::max<uint32_t>(extent.width>>i,1u), std::max<uint32_t>(extent.height>>i,1u), 1u};
             copy.inOffset = {static_cast<uint32_t>(_addr.pgTab_x>>(copy.inMipLevel)),static_cast<uint32_t>(_addr.pgTab_y>>(copy.inMipLevel)),0u};
             copy.outOffset = {static_cast<uint32_t>(aliasAddr.pgTab_x>>i), static_cast<uint32_t>(aliasAddr.pgTab_y>>i), 0u};
 
@@ -310,7 +315,7 @@ public:
             return nullptr;
 
         //free physical pages
-        VkExtent3D extent = {_addr.origsize_x, _addr.origsize_y, 1u};
+        VkExtent3D extent = {static_cast<uint32_t>(_addr.origsize_x), static_cast<uint32_t>(_addr.origsize_y), 1u};
         const uint32_t levelCount = _addr.maxMip+1u;
 
 #ifdef _IRR_DEBUG

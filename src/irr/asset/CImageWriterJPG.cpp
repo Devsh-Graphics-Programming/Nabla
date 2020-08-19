@@ -9,6 +9,9 @@
 #include "IWriteFile.h"
 #include "irr/asset/format/convertColor.h"
 #include "irr/asset/ICPUImageView.h"
+
+#include "irr/asset/IImageAssetHandlerBase.h"
+
 #include "os.h"
 
 #ifdef _IRR_COMPILE_WITH_LIBJPEG_

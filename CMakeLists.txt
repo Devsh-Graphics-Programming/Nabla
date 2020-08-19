@@ -240,7 +240,12 @@ execute_process(COMMAND git submodule sync --recursive
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
-add_subdirectory(source/Irrlicht) # Irrlicht code
+OPTION(IRR_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
+
+
+add_subdirectory(src/irr) # Irrlicht code	|	Moved cmakelists.txt from source/Irrlicht to src/irr
+
+
 
 if(IRR_BUILD_TOOLS)
 	add_subdirectory(tools) # convert2BAW

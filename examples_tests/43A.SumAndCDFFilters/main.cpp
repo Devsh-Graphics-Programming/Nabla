@@ -109,7 +109,9 @@ int main()
 			*/
 
 			const auto fullMipMapExtent = image->getMipSize(MIPMAP_IMAGE);
-			const size_t bufferByteSize = fullMipMapExtent.x * fullMipMapExtent.y * fullMipMapExtent.z * newImageParams.arrayLayers * asset::getTexelOrBlockBytesize(newImageParams.format);
+			const auto info = image->getTexelBlockInfo();
+			const auto fullMipMapExtentInBlocks = info.convertTexelsToBlocks(fullMipMapExtent);
+			const size_t bufferByteSize = fullMipMapExtentInBlocks.x * fullMipMapExtentInBlocks.y * fullMipMapExtentInBlocks.z * newImageParams.arrayLayers * asset::getTexelOrBlockBytesize(newImageParams.format);
 			newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferByteSize);
 
 			auto newFirstRegion = newRegions->begin();
@@ -120,6 +122,7 @@ int main()
 			auto newSecondRegion = newRegions->begin() + 1;
 			*newSecondRegion = *newFirstRegion;
 
+			newSecondRegion->bufferRowLength = fullMipMapExtent.x;
 			newSecondRegion->bufferImageHeight = fullMipMapExtent.y;
 
 			auto simdImageOffset = fullMipMapExtent / 4;
@@ -128,6 +131,7 @@ int main()
 			auto simdImageExtent = fullMipMapExtent / 2;
 			newSecondRegion->imageExtent = { simdImageExtent.x, simdImageExtent.y, 1 };
 
+			newSecondRegion->bufferOffset = newFirstRegion->getByteOffset(simdImageOffset,newFirstRegion->getByteStrides(info));
 			#endif // OVERLAPPING_REGIONS
 
 			#endif // IMAGE_VIEW
@@ -178,12 +182,12 @@ int main()
 
 	#ifdef IMAGE_VIEW
 	auto bundle = assetManager->getAsset("../../media/GLI/earth-cubemap3.dds", lp);
-	auto cpuImageViewFetched = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents().first[0]);
+	auto cpuImageViewFetched = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents().begin()[0]);
 
 	auto cpuImage = getSummedImage(cpuImageViewFetched->getCreationParameters().image);
 	#else
 	auto bundle = assetManager->getAsset("../../media/colorexr.exr", lp);
-	auto cpuImage = getSummedImage(core::smart_refctd_ptr_static_cast<asset::ICPUImage>(bundle.getContents().first[0]));
+	auto cpuImage = getSummedImage(core::smart_refctd_ptr_static_cast<asset::ICPUImage>(bundle.getContents().begin()[0]));
 	#endif // IMAGE_VIEW
 
 	ICPUImageView::SCreationParams viewParams;
