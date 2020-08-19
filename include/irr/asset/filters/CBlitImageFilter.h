@@ -36,6 +36,7 @@ class CBlitImageFilterBase : public CBasicImageFilterCommon
 					EAS_COUNT
 				};
 
+				// we need scratch memory because we'll decode the whole image into one contiguous chunk of memory for faster filtering amongst other things
 				uint8_t*							scratchMemory = nullptr;
 				uint32_t							scratchMemoryByteSize = 0u;
 				_IRR_STATIC_INLINE_CONSTEXPR auto	NumWrapAxes = 3;
@@ -43,19 +44,21 @@ class CBlitImageFilterBase : public CBasicImageFilterCommon
 				ISampler::E_TEXTURE_BORDER_COLOR	borderColor = ISampler::ETBC_FLOAT_TRANSPARENT_BLACK;
 				E_ALPHA_SEMANTIC					alphaSemantic = EAS_NONE_OR_PREMULTIPLIED;
 				double								alphaRefValue = 0.5; // only required to make sense if `alphaSemantic==EAS_REFERENCE_OR_COVERAGE`
-				uint32_t							alphaChannel = 3u;
+				uint32_t							alphaChannel = 3u; // index of the alpha channel (could be different cause of swizzles)
 		};
 
 	protected:
 		CBlitImageFilterBase() {}
 		virtual ~CBlitImageFilterBase() {}
 
+		// this will be called by derived classes because it doesn't account for all scratch needed, just the stuff for coverage adjustment
 		template<class Kernel>
 		static inline uint32_t getRequiredScratchByteSize(	const Kernel& k,
 															typename CStateBase::E_ALPHA_SEMANTIC alphaSemantic=CStateBase::EAS_NONE_OR_PREMULTIPLIED,
 															const core::vectorSIMDu32& outExtentLayerCount=core::vectorSIMDu32(0,0,0,0))
 		{
 			uint32_t retval = 0u;
+			// 
 			if (alphaSemantic==CStateBase::EAS_REFERENCE_OR_COVERAGE)
 			{
 				// no mul by channel count because we're only after alpha
@@ -64,9 +67,27 @@ class CBlitImageFilterBase : public CBasicImageFilterCommon
 			return retval*sizeof(typename Kernel::value_type);
 		}
 
+		// nothing to validate here really
 		static inline bool validate(CStateBase* state)
 		{
 			if (!state)
+				return false;
+
+			// only check that scratch exists, the derived class will check for actual size
+			if (!state->scratchMemory)
+				return false;
+
+			for (auto i=0; i<CStateBase::NumWrapAxes; i++)
+			if (state->axisWraps[i]>=ISampler::ETC_COUNT)
+				return false;
+
+			if (state->borderColor>=ISampler::ETBC_COUNT)
+				return false;
+
+			if (state->alphaSemantic>=CStateBase::EAS_COUNT)
+				return false;
+
+			if (state->alphaChannel>=4)
 				return false;
 
 			return true;
@@ -74,7 +95,7 @@ class CBlitImageFilterBase : public CBasicImageFilterCommon
 };
 
 
-// copy while filtering the input into the output
+// copy while filtering the input into the output, a rare filter where the input and output extents can be different, still works one mip level at a time
 template<class Kernel=CBoxImageFilterKernel>
 class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public CBlitImageFilterBase
 {

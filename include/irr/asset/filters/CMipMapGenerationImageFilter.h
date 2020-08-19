@@ -14,7 +14,7 @@ namespace irr
 namespace asset
 {
 
-// specialized case of CBlitImageFilter
+// Could be viewed as a specialized case of CBlitImageFilter, functionality is not derived, its composed.
 template<class ResamplingKernel=CKaiserImageFilterKernel<>, class ReconstructionKernel=CMitchellImageFilterKernel<> >
 class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<ResamplingKernel,ReconstructionKernel> >, public CBasicImageFilterCommon
 {
