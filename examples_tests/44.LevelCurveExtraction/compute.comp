@@ -1,17 +1,12 @@
-#version 440
-struct DrawIndirectArrays_t
-{
-    uint  count;
-    uint  instanceCount;
-    uint  first;
-    uint  baseInstance;
-};
-layout(set = 0, binding = 0) coherent buffer LineCount
-{
-    DrawIndirectArrays_t lineDraw;
-};
+#version 440 core
+
+layout(local_size_x = 2) in;
+
+#include "common.glsl"
 
 void main()
 {
-	lineDraw.count = min(11184810,lineDraw.count);
+	uint uncapped = lineDraw[mdiIndex].count;
+	barrier();
+	lineDraw[gl_LocalInvocationIndex].count = min(LINE_VERTEX_LIMIT,gl_LocalInvocationIndex!=mdiIndex ? 0u:uncapped);
 }
