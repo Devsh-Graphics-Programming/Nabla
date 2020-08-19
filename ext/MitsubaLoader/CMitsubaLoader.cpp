@@ -75,6 +75,188 @@ void main()
 
 )";
 
+_IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_PROLOGUE =
+R"(#version 430 core
+)";
+_IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_DEFINITIONS =
+R"(
+layout (location = 0) in vec3 WorldPos;
+layout (location = 1) flat in uint InstanceIndex;
+layout (location = 2) in vec3 Normal;
+layout (location = 3) in vec2 UV;
+
+layout (location = 0) out vec4 OutColor;
+
+#define _IRR_VT_DESCRIPTOR_SET 0
+#define _IRR_VT_PAGE_TABLE_BINDING 0
+
+#define _IRR_VT_FLOAT_VIEWS_BINDING 1 
+#define _IRR_VT_FLOAT_VIEWS_COUNT 4
+#define _IRR_VT_FLOAT_VIEWS
+
+#define _IRR_VT_INT_VIEWS_BINDING 2
+#define _IRR_VT_INT_VIEWS_COUNT 0
+#define _IRR_VT_INT_VIEWS
+
+#define _IRR_VT_UINT_VIEWS_BINDING 3
+#define _IRR_VT_UINT_VIEWS_COUNT 0
+#define _IRR_VT_UINT_VIEWS
+#include <irr/builtin/glsl/virtual_texturing/descriptors.glsl>
+
+layout (set = 0, binding = 2, std430) restrict readonly buffer PrecomputedStuffSSBO
+{
+    uint pgtab_sz_log2;
+    float vtex_sz_rcp;
+    float phys_pg_tex_sz_rcp[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
+    uint layer_to_sampler_ix[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
+} precomputed;
+
+layout (set = 0, binding = 3, std430) restrict readonly buffer INSTR_BUF
+{
+	instr_t data[];
+} instr_buf;
+layout (set = 0, binding = 4, std430) restrict readonly buffer BSDF_BUF
+{
+	bsdf_data_t data[];
+} bsdf_buf;
+
+uint irr_glsl_VT_layer2pid(in uint layer)
+{
+    return precomputed.layer_to_sampler_ix[layer];
+}
+uint irr_glsl_VT_getPgTabSzLog2()
+{
+    return precomputed.pgtab_sz_log2;
+}
+float irr_glsl_VT_getPhysPgTexSzRcp(in uint layer)
+{
+    return precomputed.phys_pg_tex_sz_rcp[layer];
+}
+float irr_glsl_VT_getVTexSzRcp()
+{
+    return precomputed.vtex_sz_rcp;
+}
+#define _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
+
+#include <irr/builtin/glsl/virtual_texturing/functions.glsl/7/8>
+
+#include <irr/builtin/glsl/utils/common.glsl>
+
+layout (set = 1, binding = 0, row_major, std140) uniform UBO {
+    irr_glsl_SBasicViewParameters params;
+} CamData;
+
+struct InstanceData
+{
+	mat4x3 tform;
+	vec3 normalMatrixRow0;
+	uint bsdf_instrOffset;
+	vec3 normalMatrixRow1;
+	uint bsdf_instrCount;
+	vec3 normalMatrixRow2;
+	uint _padding;//not needed
+	uvec2 prefetch_instrStream;
+	uvec2 nprecomp_instrStream;
+	uvec2 genchoice_instrStream;
+	uvec2 emissive;
+};
+layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
+	InstanceData data[];
+} InstData;
+
+vec3 irr_glsl_MC_getCamPos()
+{
+	vec3 campos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
+	return campos;
+}
+instr_t irr_glsl_MC_fetchInstr(in uint ix)
+{
+	return instr_buf.data[ix];
+}
+bsdf_data_t irr_glsl_MC_fetchBSDFData(in uint ix)
+{
+	return bsdf_buf.data[ix];
+}
+#define _IRR_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
+)";
+_IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
+#include <irr/builtin/glsl/format/decode.glsl>
+
+instr_stream_t getEvalStream()
+{
+	instr_stream_t stream;
+	stream.offset = InstData.data[InstanceIndex].bsdf_instrOffset;
+	stream.count = InstData.data[InstanceIndex].bsdf_instrCount;
+
+	return stream;
+}
+instr_stream_t getTexPrefetchStream()
+{
+	uvec2 s = InstData.data[InstanceIndex].prefetch_instrStream;
+	instr_stream_t stream;
+	stream.offset = s.x;
+	stream.count = s.y;
+
+	return stream;
+}
+instr_stream_t getNormalPrecompStream()
+{
+	uvec2 s = InstData.data[InstanceIndex].nprecomp_instrStream;
+	instr_stream_t stream;
+	stream.offset = s.x;
+	stream.count = s.y;
+
+	return stream;
+}
+
+#ifndef _IRR_BSDF_COS_EVAL_DEFINED_
+#define _IRR_BSDF_COS_EVAL_DEFINED_
+// Spectrum can be exchanged to a float for monochrome
+#define Spectrum vec3
+//! This is the function that evaluates the BSDF for specific view and observer direction
+// params can be either BSDFIsotropicParams or BSDFAnisotropicParams
+Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
+{
+	instr_stream_t eval_instrStream = getEvalStream();
+	
+	return runEvalStream(eval_instrStream, params.L);
+}
+#endif
+
+#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_
+#define _IRR_COMPUTE_LIGHTING_DEFINED_
+vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
+{
+	vec3 emissive = irr_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
+
+	vec3 campos = irr_glsl_MC_getCamPos();
+	irr_glsl_BSDFIsotropicParams params;
+	params.L = campos-WorldPos;
+	out_interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, normalize(Normal));
+
+	return irr_bsdf_cos_eval(params, out_interaction, dUV)*50.0/dot(params.L,params.L) + emissive;
+}
+#endif
+
+void main()
+{
+	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
+
+	InstanceData instData = InstData.data[InstanceIndex];
+#ifdef TEX_PREFETCH_STREAM
+	runTexPrefetchStream(getTexPrefetchStream(), dUV);
+#endif
+#ifdef NORM_PRECOMP_STREAM
+	runNormalPrecompStream(getNormalPrecompStream(), dUV);
+#endif
+
+	irr_glsl_IsotropicViewSurfaceInteraction inter;
+	vec3 color = irr_computeLighting(inter, dUV);
+
+	OutColor = vec4(color, 1.0);
+}
+)";
+
 _IRR_STATIC_INLINE_CONSTEXPR const char* PIPELINE_LAYOUT_CACHE_KEY = "irr/builtin/pipeline_layout/loaders/mitsuba_xml/default";
 _IRR_STATIC_INLINE_CONSTEXPR const char* VERTEX_SHADER_CACHE_KEY = "irr/builtin/specialized_shader/loaders/mitsuba_xml/default";
 
@@ -172,6 +354,17 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createAndCacheVertex
 	insertAssetIntoCache(vs, VERTEX_SHADER_CACHE_KEY, _manager);
 
 	return vs;
+}
+static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createFragmentShader(const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _mcRes)
+{
+	std::string source = 
+		FRAGMENT_SHADER_PROLOGUE +
+		_mcRes.fragmentShaderSource_declarations +
+		FRAGMENT_SHADER_DEFINITIONS +
+		_mcRes.fragmentShaderSource +
+		FRAGMENT_SHADER_IMPL;
+
+	return createSpecShader(source.c_str(), asset::ISpecializedShader::ESS_FRAGMENT);
 }
 static core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline> createPipeline(core::smart_refctd_ptr<asset::ICPUPipelineLayout>&& _layout, core::smart_refctd_ptr<asset::ICPUSpecializedShader>&& _vertshader, core::smart_refctd_ptr<asset::ICPUSpecializedShader>&& _fragshader)
 {
@@ -280,7 +473,7 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		);
 		if (!getBuiltinAsset<asset::ICPUPipelineLayout, asset::IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager))
 		{
-			auto layout = createAndCachePipelineLayout(m_manager, ctx.backend_ctx.vt.get());
+			createAndCachePipelineLayout(m_manager, ctx.backend_ctx.vt.get());
 			createAndCacheVertexShader(m_manager, DUMMY_VERTEX_SHADER);
 		}
 
@@ -316,12 +509,18 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 			}
 
 			auto bsdf = getBSDFtreeTraversal(ctx, shapedef->bsdf);
-			metadataptr->instances.push_back({ shapedef->getAbsoluteTransform(),bsdf,shapedef->obtainEmitter() });
+			std::string bsdf_id = shapedef->bsdf->id;
+			metadataptr->instances.push_back({ shapedef->getAbsoluteTransform(),bsdf,std::move(bsdf_id),shapedef->obtainEmitter() });
 		}
 
 		auto compResult = ctx.backend.compile(&ctx.backend_ctx, ctx.ir.get());
-		auto metadata = createPipelineMetadata(createDS0(ctx, compResult, meshes.begin(), meshes.end()), getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager).get());
-		auto basePipeline = createPipeline();
+		auto pipeline_metadata = createPipelineMetadata(createDS0(ctx, compResult, meshes.begin(), meshes.end()), getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager).get());
+		auto fragShader = createFragmentShader(compResult);
+		auto basePipeline = createPipeline(
+			getBuiltinAsset<asset::ICPUPipelineLayout, asset::IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager),
+			getBuiltinAsset<asset::ICPUSpecializedShader, asset::IAsset::ET_SPECIALIZED_SHADER>(VERTEX_SHADER_CACHE_KEY, m_manager),
+			std::move(fragShader)
+		);
 		for (auto& mesh : meshes)
 		{
 			auto* meshmeta = static_cast<const IMeshMetadata*>(mesh->getMetadata());
@@ -348,9 +547,9 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 					ctx.pipelineCache.insert({ cacheKey, pipeline });
 				}
 
-				asset::ICPURenderpassIndependentPipeline* pipeline = mb->getPipeline();
+				mb->setPipeline(core::smart_refctd_ptr(pipeline));
 				if (!pipeline->getMetadata())
-					m_manager->setAssetMetadata(pipeline, core::smart_refctd_ptr(metadata));
+					m_manager->setAssetMetadata(pipeline.get(), core::smart_refctd_ptr(pipeline_metadata));
 
 				mb->setInstanceCount(meshmeta->getInstances().size());
 			}
@@ -665,37 +864,6 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 		mesh = std::move(newMesh);
 	}
 #endif
-	//meshbuffer processing
-	auto builtinPipeline = getBuiltinAsset<ICPURenderpassIndependentPipeline, IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE>(PIPELINE_CACHE_KEY, m_manager);
-	for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
-	{
-		auto* meshbuffer = mesh->getMeshBuffer(i);
-		// add some metadata
-		///auto meshbuffermeta = core::make_smart_refctd_ptr<IMeshBufferMetadata>(shapedef->type,shapedef->emitter ? shapedef->emitter.area:CElementEmitter::Area());
-		///manager->setAssetMetadata(meshbuffer,std::move(meshbuffermeta));
-		auto* prevPipeline = meshbuffer->getPipeline();
-		//TODO do something to not always create new pipeline
-		SContext::SPipelineCacheKey cacheKey;
-		cacheKey.vtxParams = prevPipeline->getVertexInputParams();
-		cacheKey.primParams = prevPipeline->getPrimitiveAssemblyParams();
-		auto found = ctx.pipelineCache.find(cacheKey);
-		core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline> pipeline;
-		if (found != ctx.pipelineCache.end())
-		{
-			pipeline = found->second;
-		}
-		else
-		{
-			pipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(//shallow copy because we're going to override parameter structs
-				builtinPipeline->clone(0u)
-				);
-			pipeline->getVertexInputParams() = cacheKey.vtxParams;
-			pipeline->getPrimitiveAssemblyParams() = cacheKey.primParams;
-			ctx.pipelineCache.insert({cacheKey, pipeline});
-		}
-
-		meshbuffer->setPipeline(std::move(pipeline));
-	}
 
 	// cache and return
 	ctx.shapeCache.insert({ shape,mesh });
@@ -943,13 +1111,13 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 	auto* ds0layout = pplnLayout->getDescriptorSetLayout(0u);
 
 	auto ds0 = core::make_smart_refctd_ptr<ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(ds0layout));
-	/*{
-		auto count = _ctx.VT->getDescriptorSetWrites(nullptr, nullptr, nullptr);
+	{
+		auto count = _ctx.backend_ctx.vt->getDescriptorSetWrites(nullptr, nullptr, nullptr);
 
 		auto writes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSet::SWriteDescriptorSet>>(count.first);
 		auto info = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSet::SDescriptorInfo>>(count.second);
 
-		_ctx.VT->getDescriptorSetWrites(writes->data(), info->data(), ds0.get());
+		_ctx.backend_ctx.vt->getDescriptorSetWrites(writes->data(), info->data(), ds0.get());
 
 		for (const auto& w : (*writes))
 		{
@@ -957,7 +1125,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			for (uint32_t i = 0u; i < w.count; ++i)
 				descRng.begin()[w.arrayElement+i].assign(w.info[i], w.descriptorType);
 		}
-	}*/
+	}
 	auto d = ds0->getDescriptors(PRECOMPUTED_VT_DATA_BINDING).begin();
 	{
 		auto precompDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(asset::ICPUVirtualTexture::SPrecomputedData));
@@ -1002,6 +1170,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			_IRR_DEBUG_BREAK_IF(streams_it==_compResult.streams.end());
 			const auto& streams = streams_it->second;
 
+			os::Printer::log("Debug print BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
 			_ctx.backend.debugPrint(std::cout, streams, _compResult, &_ctx.backend_ctx);
 
 			SInstanceData instData;

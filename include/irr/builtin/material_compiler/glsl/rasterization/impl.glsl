@@ -1,3 +1,6 @@
+#ifndef _IRR_BUILTIN_MATERIAL_COMPILER_GLSL_RASTERIZATION_IMPL_INCLUDED_
+#define _IRR_BUILTIN_MATERIAL_COMPILER_GLSL_RASTERIZATION_IMPL_INCLUDED_
+
 #include <irr/builtin/material_compiler/glsl/common.glsl>
 
 void instr_eval_execute(in instr_t instr, in vec3 L)
@@ -82,63 +85,14 @@ void instr_eval_execute(in instr_t instr, in vec3 L)
 	{} //else "empty braces"
 }
 
-bxdf_eval_t runEvalStream(in uvec2 stream)
+bxdf_eval_t runEvalStream(in instr_stream_t stream, in vec3 L)
 {
-	for (uint i = 0u; i < stream.y; ++i)
+	for (uint i = 0u; i < stream.count; ++i)
 	{
-		instr_t instr = instr_buf.data[stream.x+i];
-		instr_eval_execute(instr, params.L);
+		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
+		instr_eval_execute(instr, L);
 	}
-	return readReg3(0u);
+	return readReg3(0u);//result is always in regs 0,1,2
 }
 
-#ifndef _IRR_BSDF_COS_EVAL_DEFINED_
-#define _IRR_BSDF_COS_EVAL_DEFINED_
-// Spectrum can be exchanged to a float for monochrome
-#define Spectrum vec3
-//! This is the function that evaluates the BSDF for specific view and observer direction
-// params can be either BSDFIsotropicParams or BSDFAnisotropicParams
-Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
-{
-	uvec2 eval_instrStream(InstData.data[InstanceIndex].bsdf_instrOffset, InstData.data[InstanceIndex].bsdf_instrCount);
-	for (uint i = 0u; i < eval_instrStream.y; ++i)
-	{
-		instr_t instr = instr_buf.data[eval_instrStream.x+i];
-		instr_eval_execute(instr, params.L);
-	}
-	return readReg3(0u);
-}
 #endif
-
-#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_
-#define _IRR_COMPUTE_LIGHTING_DEFINED_
-vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
-{
-	vec3 emissive = decodeRGB19E7(InstData.data[InstanceIndex].emissive);
-
-	vec3 campos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
-	irr_glsl_BSDFIsotropicParams params;
-	params.L = campos-WorldPos;
-	out_interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, normalize(Normal));
-
-	return irr_bsdf_cos_eval(params, out_interaction, dUV)*50.0/dot(params.L,params.L) + emissive;
-}
-#endif
-
-void main()
-{
-	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
-
-	InstanceData instData = InstData.data[InstanceIndex];
-#ifdef TEX_PREFETCH_STREAM
-	runTexPrefetchStream(instData.prefetch_instrStream);
-#endif
-#ifdef NORM_PRECOMP_STREAM
-	runNormalPrecompStream(instData.nprecomp_instrStream);
-#endif
-
-	irr_glsl_IsotropicViewSurfaceInteraction inter;
-	vec3 color = irr_computeLighting(inter, dUV);
-
-	OutColor = vec4(color, 1.0);
-}

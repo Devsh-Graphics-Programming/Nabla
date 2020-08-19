@@ -1,6 +1,7 @@
 #include <irr/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.h>
 
 #include <iostream>
+#include "..\..\..\..\include\irr\asset\material_compiler\CMaterialCompilerGLSLBackendCommon.h"
 
 namespace irr
 {
@@ -1078,6 +1079,84 @@ instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const travers
 	return traversal;
 }
 
+std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const result_t& _res)
+{
+	using namespace std::string_literals;
+
+	std::string defs;
+	defs += "\n#define REG_COUNT " + std::to_string(_res.usedRegisterCount);
+
+	for (E_OPCODE op : _res.opcodes)
+		defs += "\n#define "s + OPCODE_NAMES[op] + " " + std::to_string(op);
+	defs += "\n#define OP_MAX_BRDF " + std::to_string(OP_COATING);
+	defs += "\n#define OP_MAX_BSDF " + std::to_string(OP_DIELECTRIC);
+
+	defs += "\n#define NDF_BECKMANN " + std::to_string(NDF_BECKMANN);
+	defs += "\n#define NDF_GGX " + std::to_string(NDF_GGX);
+	defs += "\n#define NDF_PHONG " + std::to_string(NDF_PHONG);
+	defs += "\n#define NDF_AS " + std::to_string(NDF_AS);
+
+	constexpr size_t size_of_uvec4 = 16ull;
+	defs += "\n#define sizeof_bsdf_data " + std::to_string((sizeof(SBSDFUnion)+size_of_uvec4-1u)/size_of_uvec4);
+
+	if (!_res.noPrefetchStream)
+		defs += "\n#define TEX_PREFETCH_STREAM";
+	if (!_res.noNormPrecompStream)
+		defs += "\n#define NORM_PRECOMP_STREAM";
+	if (_res.prefetch_sameNumOfChannels)
+	{
+		assert(_res.prefetch_numOfChannels==1u || _res.prefetch_numOfChannels==3u);
+		if (_res.prefetch_numOfChannels==1u)
+			defs += "\n#define PREFETCH_REGS_ALWAYS_1";
+		else if (_res.prefetch_numOfChannels==3u)
+			defs += "\n#define PREFETCH_REGS_ALWAYS_3";
+	}
+
+	//instruction bitfields
+	defs += "\n#define INSTR_OPCODE_MASK " + std::to_string(INSTR_OPCODE_MASK);
+	defs += "\n#define INSTR_BSDF_BUF_OFFSET_SHIFT " + std::to_string(BITFIELDS_BSDF_BUF_OFFSET_SHIFT);
+	defs += "\n#define INSTR_BSDF_BUF_OFFSET_MASK " + std::to_string(BITFIELDS_BSDF_BUF_OFFSET_MASK);
+	defs += "\n#define INSTR_NDF_SHIFT " + std::to_string(BITFIELDS_SHIFT_NDF);
+	defs += "\n#define INSTR_NDF_MASK " + std::to_string(BITFIELDS_MASK_NDF);
+	defs += "\n#define INSTR_ALPHA_U_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_ALPHA_U_TEX);
+	defs += "\n#define INSTR_ALPHA_V_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_ALPHA_V_TEX);
+	defs += "\n#define INSTR_REFL_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_REFL_TEX);
+	defs += "\n#define INSTR_TRANS_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_TRANS_TEX);
+	defs += "\n#define INSTR_SIGMA_A_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_SIGMA_A_TEX);
+	defs += "\n#define INSTR_WEIGHT_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_WEIGHT_TEX);
+	defs += "\n#define INSTR_TWOSIDED_SHIFT " + std::to_string(BITFIELDS_SHIFT_TWOSIDED);
+	defs += "\n#define INSTR_MASKFLAG_SHIFT " + std::to_string(BITFIELDS_SHIFT_MASKFLAG);
+	defs += "\n#define INSTR_1ST_PARAM_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_1ST_PARAM_TEX);
+	defs += "\n#define INSTR_2ND_PARAM_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_2ND_PARAM_TEX);
+	defs += "\n#define INSTR_NORMAL_ID_SHIFT " + std::to_string(INSTR_NORMAL_ID_SHIFT);
+	defs += "\n#define INSTR_NORMAL_ID_MASK " + std::to_string(INSTR_NORMAL_ID_MASK);
+	//remainder_and_pdf
+	{
+		using namespace remainder_and_pdf;
+
+		defs += "\n#define INSTR_REG_MASK " + std::to_string(INSTR_REG_MASK);
+		defs += "\n#define INSTR_REG_DST_SHIFT " + std::to_string(INSTR_REG_DST_SHIFT);
+		defs += "\n#define INSTR_REG_SRC1_SHIFT " + std::to_string(INSTR_REG_SRC1_SHIFT);
+		defs += "\n#define INSTR_REG_SRC2_SHIFT " + std::to_string(INSTR_REG_SRC2_SHIFT);
+	}
+	//tex_prefetch
+	{
+		using namespace tex_prefetch;
+
+		defs += "\n#define INSTR_FETCH_FLAG_TEX_0_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_0_SHIFT);
+		defs += "\n#define INSTR_FETCH_FLAG_TEX_1_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_1_SHIFT);
+		defs += "\n#define INSTR_FETCH_FLAG_TEX_2_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_2_SHIFT);
+
+		defs += "\n#define INSTR_FETCH_TEX_0_REG_CNT_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT);
+		defs += "\n#define INSTR_FETCH_TEX_1_REG_CNT_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT);
+		defs += "\n#define INSTR_FETCH_TEX_2_REG_CNT_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_2_REG_CNT_SHIFT);
+		defs += "\n#define INSTR_FETCH_TEX_REG_CNT_MASK " + std::to_string(BITFIELDS_FETCH_TEX_2_REG_CNT_MASK);
+	}
+	defs += "\n";
+
+	return defs;
+}
+
 core::unordered_map<uint32_t, uint32_t> CMaterialCompilerGLSLBackendCommon::createBsdfDataIndexMapForPrefetchedTextures(SContext* _ctx, const instr_stream::traversal_t& _tex_prefetch_stream, const core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _tex2reg) const
 {
 	core::unordered_map<uint32_t, uint32_t> ix2ix;
@@ -1206,6 +1285,12 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 	for (instr_t i : res.instructions)
 		res.opcodes.insert(instr_stream::getOpcode(i));
 
+	res.fragmentShaderSource_declarations =
+		genPreprocDefinitions(res) +
+R"(
+#include <irr/builtin/material_compiler/glsl/common_declarations.glsl>
+)";
+
 	return res;
 }
 
@@ -1316,14 +1401,17 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 
 	const auto op = getOpcode(instr);
 
-	auto ndfAndAnisoAlphaTexPrint = [&_out,&paramVal1OrRegStr,&ndf](instr_t instr, const SBSDFUnion& data) {
+	auto ndfAndAnisoAlphaTexPrint = [&_out,&paramVal1OrRegStr,&ndf](instr_t instr, const SBSDFUnion& data, bool _printAlpha_v) {
 		_out << "NDF = " << ndf[core::bitfieldExtract(instr, BITFIELDS_SHIFT_NDF, BITFIELDS_WIDTH_NDF)] << "\n";
 		bool au = core::bitfieldExtract(instr, BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 		_out << "Alpha_u tex " << au << "\n";
 		_out << "Alpha_u val/reg " << paramVal1OrRegStr(data.param[0], au) << "\n";
-		bool av = core::bitfieldExtract(instr, BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
-		_out << "Alpha_v tex " << av << "\n";
-		_out << "Alpha_v val/reg " << paramVal1OrRegStr(data.param[1], av) << "\n";
+		if (_printAlpha_v)
+		{
+			bool av = core::bitfieldExtract(instr, BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
+			_out << "Alpha_v tex " << av << "\n";
+			_out << "Alpha_v val/reg " << paramVal1OrRegStr(data.param[1], av) << "\n";
+		}
 	};
 
 	const uint32_t bsdf_ix = core::bitfieldExtract(instr, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
@@ -1340,21 +1428,21 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	{
 	case OP_DIFFUSE:
 	{
-		bool refl = core::bitfieldExtract(instr, BITFIELDS_SHIFT_REFL_TEX, 1);
-		_out << "Refl tex " << refl << "\n";
-		_out << "Refl val/reg " << paramVal3OrRegStr(data.diffuse.reflectance, refl) << "\n";
 		bool alpha = core::bitfieldExtract(instr, BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 		_out << "Alpha tex " << alpha << "\n";
 		_out << "Alpha val/reg " << paramVal1OrRegStr(data.diffuse.alpha, alpha) << "\n";
+		bool refl = core::bitfieldExtract(instr, BITFIELDS_SHIFT_REFL_TEX, 1);
+		_out << "Refl tex " << refl << "\n";
+		_out << "Refl val/reg " << paramVal3OrRegStr(data.diffuse.reflectance, refl) << "\n";
 	}
 	break;
 	case OP_DIELECTRIC:
 	case OP_CONDUCTOR:
-		ndfAndAnisoAlphaTexPrint(instr, data);
+		ndfAndAnisoAlphaTexPrint(instr, data, true);
 		break;
 	case OP_PLASTIC:
 	{
-		ndfAndAnisoAlphaTexPrint(instr, data);
+		ndfAndAnisoAlphaTexPrint(instr, data, false);
 		bool refl = core::bitfieldExtract(instr, BITFIELDS_SHIFT_REFL_TEX, 1);
 		_out << "Refl tex " << refl << "\n";
 		_out << "Refl val/reg " << paramVal3OrRegStr(data.diffuse.reflectance, refl) << "\n";
@@ -1362,7 +1450,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	break;
 	case OP_COATING:
 	{
-		ndfAndAnisoAlphaTexPrint(instr, data);
+		ndfAndAnisoAlphaTexPrint(instr, data, false);
 		bool sigma = core::bitfieldExtract(instr, BITFIELDS_SHIFT_SIGMA_A_TEX, 1);
 		_out << "SigmaA tex " << sigma << "\n";
 		_out << "SigmaA val/reg " << paramVal3OrRegStr(data.coating.sigmaA, sigma) << "\n";

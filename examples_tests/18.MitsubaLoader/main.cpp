@@ -15,6 +15,9 @@ using namespace core;
 constexpr const char* GLSL_COMPUTE_LIGHTING =
 R"(
 #define _IRR_COMPUTE_LIGHTING_DEFINED_
+
+#include <irr/builtin/glsl/format/decode.glsl>
+
 struct SLight
 {
 	vec3 position;
@@ -28,7 +31,7 @@ layout (set = 2, binding = 0, std430) readonly restrict buffer Lights
 
 vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
-	vec3 emissive = decodeRGB19E7(InstData.data[InstanceIndex].emissive);
+	vec3 emissive = irr_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
 	irr_glsl_BSDFIsotropicParams params;
 	vec3 color = vec3(0.0);

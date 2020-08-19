@@ -1,119 +1,12 @@
-#include <irr/builtin/glsl/virtual_texturing/extensions.glsl>
+#ifndef _IRR_BUILTIN_MATERIAL_COMPILER_GLSL_COMMON_INCLUDED_
+#define _IRR_BUILTIN_MATERIAL_COMPILER_GLSL_COMMON_INCLUDED_
 
-layout (location = 0) in vec3 WorldPos;
-layout (location = 1) flat in uint InstanceIndex;
-layout (location = 2) in vec3 Normal;
-layout (location = 3) in vec2 UV;
+#include <irr/builtin/material_compiler/glsl/common_declarations.glsl>
 
-layout (location = 0) out vec4 OutColor;
+#ifndef _IRR_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
+	#error "You need to define 'vec3 irr_glsl_MC_getCamPos()', 'instr_t irr_glsl_MC_fetchInstr(in uint)', 'bsdf_data_t irr_glsl_MC_fetchBSDFData(in uint)' functions above"
+#endif
 
-#define instr_t uvec2
-#define reg_t uint
-#define params_t mat3x3
-#define bxdf_eval_t vec3
-
-struct bsdf_data_t
-{
-	uvec4 data[sizeof_bsdf_data];
-};
-
-#define _IRR_VT_DESCRIPTOR_SET 0
-#define _IRR_VT_PAGE_TABLE_BINDING 0
-
-#define _IRR_VT_FLOAT_VIEWS_BINDING 1 
-#define _IRR_VT_FLOAT_VIEWS_COUNT 4
-#define _IRR_VT_FLOAT_VIEWS
-
-#define _IRR_VT_INT_VIEWS_BINDING 2
-#define _IRR_VT_INT_VIEWS_COUNT 0
-#define _IRR_VT_INT_VIEWS
-
-#define _IRR_VT_UINT_VIEWS_BINDING 3
-#define _IRR_VT_UINT_VIEWS_COUNT 0
-#define _IRR_VT_UINT_VIEWS
-#include <irr/builtin/glsl/virtual_texturing/descriptors.glsl>
-
-layout (set = 0, binding = 2, std430) restrict readonly buffer PrecomputedStuffSSBO
-{
-    uint pgtab_sz_log2;
-    float vtex_sz_rcp;
-    float phys_pg_tex_sz_rcp[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
-    uint layer_to_sampler_ix[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
-} precomputed;
-
-layout (set = 0, binding = 3, std430) restrict readonly buffer INSTR_BUF
-{
-	instr_t data[];
-} instr_buf;
-layout (set = 0, binding = 4, std430) restrict readonly buffer BSDF_BUF
-{
-	bsdf_data_t data[];
-} bsdf_buf;
-
-uint irr_glsl_VT_layer2pid(in uint layer)
-{
-    return precomputed.layer_to_sampler_ix[layer];
-}
-uint irr_glsl_VT_getPgTabSzLog2()
-{
-    return precomputed.pgtab_sz_log2;
-}
-float irr_glsl_VT_getPhysPgTexSzRcp(in uint layer)
-{
-    return precomputed.phys_pg_tex_sz_rcp[layer];
-}
-float irr_glsl_VT_getVTexSzRcp()
-{
-    return precomputed.vtex_sz_rcp;
-}
-#define _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
-
-#include <irr/builtin/glsl/virtual_texturing/functions.glsl/7/8>
-
-#include <irr/builtin/glsl/utils/common.glsl>
-
-layout (set = 1, binding = 0, row_major, std140) uniform UBO {
-    irr_glsl_SBasicViewParameters params;
-} CamData;
-
-struct InstanceData
-{
-	mat4x3 tform;
-	vec3 normalMatrixRow0;
-	uint bsdf_instrOffset;
-	vec3 normalMatrixRow1;
-	uint bsdf_instrCount;
-	vec3 normalMatrixRow2;
-	uint _padding;//not needed
-	uvec2 prefetch_instrStream;
-	uvec2 nprecomp_instrStream;
-	uvec2 genchoice_instrStream;
-	uvec2 emissive;
-};
-layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
-	InstanceData data[];
-} InstData;
-
-//put this into some builtin
-#define RGB19E7_MANTISSA_BITS 19
-#define RGB19E7_MANTISSA_MASK 0x7ffff
-#define RGB19E7_EXPONENT_BITS 7
-#define RGB19E7_EXP_BIAS 63
-vec3 decodeRGB19E7(in uvec2 x)
-{
-	int exp = int(bitfieldExtract(x.y, 3*RGB19E7_MANTISSA_BITS-32, RGB19E7_EXPONENT_BITS) - RGB19E7_EXP_BIAS - RGB19E7_MANTISSA_BITS);
-	float scale = exp2(float(exp));//uintBitsToFloat((uint(exp)+127u)<<23u)
-	
-	vec3 v;
-	v.x = int(bitfieldExtract(x.x, 0, RGB19E7_MANTISSA_BITS))*scale;
-	v.y = int(
-		bitfieldExtract(x.x, RGB19E7_MANTISSA_BITS, 32-RGB19E7_MANTISSA_BITS) | 
-		(bitfieldExtract(x.y, 0, RGB19E7_MANTISSA_BITS-(32-RGB19E7_MANTISSA_BITS))<<(32-RGB19E7_MANTISSA_BITS))
-	) * scale;
-	v.z = int(bitfieldExtract(x.y, RGB19E7_MANTISSA_BITS-(32-RGB19E7_MANTISSA_BITS), RGB19E7_MANTISSA_BITS)) * scale;
-	
-	return v;
-}
 
 uint instr_getNormalId(in instr_t instr)
 {
@@ -196,7 +89,7 @@ uvec3 instr_decodeRegisters(in instr_t instr)
 bsdf_data_t fetchBSDFDataForInstr(in instr_t instr)
 {
 	uint ix = instr_getBSDFbufOffset(instr);
-	return bsdf_buf.data[ix];
+	return irr_glsl_MC_fetchBSDFData(ix);
 }
 
 bool op_isBRDF(in uint op)
@@ -289,7 +182,7 @@ vec3 readReg3(uint n)
 
 void setCurrBSDFParams(in vec3 n, in vec3 L)
 {
-	vec3 campos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
+	vec3 campos = irr_glsl_MC_getCamPos();
 	irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, n);
 	currInteraction = irr_glsl_calcAnisotropicInteraction(interaction);
 	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(interaction, L);
@@ -369,8 +262,8 @@ void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in float DG, in pa
 		//float au = getAlpha(params);
 		//float av = getAlphaV(params);
 		mat2x3 eta;
-		eta[0] = decodeRGB19E7(data.data[2].yz);
-		eta[1] = decodeRGB19E7(uvec2(data.data[2].w,data.data[3].x));
+		eta[0] = irr_glsl_decodeRGB19E7(data.data[2].yz);
+		eta[1] = irr_glsl_decodeRGB19E7(uvec2(data.data[2].w,data.data[3].x));
 		vec3 fr = irr_glsl_fresnel_conductor(eta[0],eta[1],currBSDFParams.isotropic.VdotH);
 		writeReg(REG_DST(regs), DG*fr);
 	}
@@ -449,12 +342,11 @@ uint instr_getTexFetchFlags(in instr_t i)
 	return flags;
 }
 
-#ifdef TEX_PREFETCH_STREAM
-void runTexPrefetchStream(uvec2 stream, in mat2 dUV)
+void runTexPrefetchStream(in instr_stream_t stream, in mat2 dUV)
 {
-	for (uint i = 0u; i < stream.y; ++i)
+	for (uint i = 0u; i < stream.count; ++i)
 	{
-		instr_t instr = instr_buf.data[stream.x+i];
+		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
 
 #if !defined(PREFETCH_REGS_ALWAYS_1) && !defined(PREFETCH_REGS_ALWAYS_3)
 		uvec3 regcnt = ( instr.yyy >> (uvec3(INSTR_FETCH_TEX_0_REG_CNT_SHIFT,INSTR_FETCH_TEX_1_REG_CNT_SHIFT,INSTR_FETCH_TEX_2_REG_CNT_SHIFT)-uvec3(32)) ) & uvec3(INSTR_FETCH_TEX_REG_CNT_MASK);
@@ -512,21 +404,19 @@ void runTexPrefetchStream(uvec2 stream, in mat2 dUV)
 		}
 	}
 }
-#endif
 
-#ifdef NORM_PRECOMP_STREAM
-void runNormalPrecompStream(in uvec2 stream, in mat2 dUV)
+void runNormalPrecompStream(in instr_stream_t stream, in mat2 dUV)
 {
-	for (uint i = 0u; i < stream.y; ++i)
+	for (uint i = 0u; i < stream.count; ++i)
 	{
-		instr_t instr = instr_buf.data[stream.x+i];
+		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
 
 		bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
 
 		uint reg = REG_DST(instr_decodeRegisters(instr));
 
-		uvec2 bm = data.data[0].xy;
-		float scale = uintBitsToFloat(data.data[0].z);
+		uvec2 bm = bsdf_data.data[0].xy;
+		float scale = uintBitsToFloat(bsdf_data.data[0].z);
 		//dirty trick for getting height map derivatives in divergent workflow
 		vec2 dHdScreen = vec2(
 			irr_glsl_vTextureGrad(bm, UV+0.5*dUV[0], dUV).x - irr_glsl_vTextureGrad(bm, UV-0.5*dUV[0], dUV).x,
@@ -537,4 +427,5 @@ void runNormalPrecompStream(in uvec2 stream, in mat2 dUV)
 		);
 	}
 }
+
 #endif

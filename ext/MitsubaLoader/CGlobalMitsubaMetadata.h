@@ -60,6 +60,7 @@ class IMeshMetadata : public IMitsubaMetadata
 		{
 			core::matrix3x4SIMD tform;
 			SContext::bsdf_type bsdf;
+			std::string bsdf_id;
 			CElementEmitter emitter; // type is invalid if not used
 		};
 

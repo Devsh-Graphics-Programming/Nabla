@@ -196,6 +196,7 @@ set(IRR_ASSET_SOURCES
 	
 # Material compiler
 	${IRR_ROOT_PATH}/src/irr/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/material_compiler/CMaterialCompilerGLSLRasterBackend.cpp
 )
 set(IRR_VIDEO_SOURCES
 # Allocators
