@@ -131,7 +131,7 @@ int main()
 			auto simdImageExtent = fullMipMapExtent / 2;
 			newSecondRegion->imageExtent = { simdImageExtent.x, simdImageExtent.y, 1 };
 
-			newSecondRegion->bufferOffset = newFirstRegion->getByteOffset(simdImageOffset,newFirstRegion->getByteStrides(info));
+			newSecondRegion->bufferOffset = newFirstRegion->getByteOffset(simdImageOffset,newFirstRegion->getByteStrides(TexelBlockInfo(newImageParams.format)));
 			#endif // OVERLAPPING_REGIONS
 
 			#endif // IMAGE_VIEW
