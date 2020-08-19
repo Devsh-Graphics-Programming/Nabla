@@ -30,7 +30,8 @@ class CSummedAreaTableImageFilterBase
 				uint8_t*	scratchMemory = nullptr;										//!< memory covering all regions used for temporary filling within computation of sum values
 				size_t	scratchMemoryByteSize = {};											//!< required byte size for entire scratch memory
 				bool normalizeImageByTotalSATValues = false;								//!< after sum performation division will be performed for the entire image by the max sum values in (maxX, 0, z) depending on input image - needed for UNORM and SNORM
-				
+				asset::IImageView<asset::ICPUImage>::SComponentMapping swizzle;				//!< swizzle used to remap memory while decoding input image
+
 				static inline size_t getRequiredScratchByteSize(const ICPUImage* inputImage, asset::VkExtent3D extent)
 				{
 					const auto& inputCreationParams = inputImage->getCreationParameters();
@@ -130,6 +131,12 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			const auto arrayLayers = state->inImage->getCreationParameters().arrayLayers;
 			static constexpr auto maxChannels = 4u;
 
+			asset::DefaultSwizzle swizzleMapping;
+			{
+				const auto swizzle = state->swizzle;
+				swizzleMapping.swizzle = swizzle;
+			}
+
 			#ifdef _IRR_DEBUG
 			memset(scratchMemory, 0, state->scratchMemoryByteSize);
 			#endif // _IRR_DEBUG
@@ -191,13 +198,6 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					bool is3DAndBelow = state->inImage->getCreationParameters().type == IImage::ET_3D;
 					const core::vectorSIMDu32 limit(1, is2DAndBelow, is3DAndBelow);
 					const core::vectorSIMDu32 movingExclusiveVector = limit, movingOnYZorXZorXYCheckingVector = limit;
-					
-
-					/*
-						TODO:
-
-						swizzle memory while decoding!
-					*/
 
 					auto decode = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 					{
@@ -214,12 +214,16 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 							if (isSatMemorySafe.all())
 							{
 								decodeType decodeBuffer[maxChannels] = {};
+								decodeType swizzleDecodeBuffer[maxChannels] = {};
+
 								for (auto blockY = 0u; blockY < blockDims.y; blockY++)
 									for (auto blockX = 0u; blockX < blockDims.x; blockX++)
 									{
 										asset::decodePixelsRuntime(inFormat, inSourcePixels, decodeBuffer, blockX, blockY);
+										swizzleMapping(decodeBuffer, swizzleDecodeBuffer);
+
 										const size_t movedOffset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(movedLocalOutPos.x + blockX, movedLocalOutPos.y + blockY, movedLocalOutPos.z), scratchByteStrides);
-										memcpy(reinterpret_cast<uint8_t*>(scratchMemory) + movedOffset, decodeBuffer, scratchTexelByteSize);
+										memcpy(reinterpret_cast<uint8_t*>(scratchMemory) + movedOffset, swizzleDecodeBuffer, scratchTexelByteSize);
 									}
 							}
 						}

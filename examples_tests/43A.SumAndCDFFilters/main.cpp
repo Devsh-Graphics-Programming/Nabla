@@ -48,7 +48,7 @@ int main()
 	auto assetManager = device->getAssetManager();
 	auto sceneManager = device->getSceneManager();
 
-	auto getSummedImage = [](const core::smart_refctd_ptr<ICPUImage> image) -> core::smart_refctd_ptr<ICPUImage>
+	auto getSummedImage = [](const core::smart_refctd_ptr<ICPUImage> image, const asset::IImageView<ICPUImage>::SComponentMapping swizzle = {}) -> core::smart_refctd_ptr<ICPUImage>
 	{
 		using SUM_FILTER = CSummedAreaTableImageFilter<EXCLUSIVE_SUM>;
 
@@ -148,6 +148,7 @@ int main()
 			state.inBaseLayer = 0;
 			state.outOffset = { 0, 0, 0 };
 			state.outBaseLayer = 0;
+			state.swizzle = swizzle;
 
 			#ifdef IMAGE_VIEW
 			const auto fullMipMapExtent = image->getMipSize(MIPMAP_IMAGE_VIEW);
@@ -157,10 +158,9 @@ int main()
 			#endif // IMAGE_VIEW
 
 			state.layerCount = newSumImage->getCreationParameters().arrayLayers;
-
+			
 			state.scratchMemoryByteSize = state.getRequiredScratchByteSize(state.inImage, state.extent);
 			state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
-
 			#ifdef IMAGE_VIEW
 			state.inMipLevel = MIPMAP_IMAGE_VIEW;
 			state.outMipLevel = MIPMAP_IMAGE_VIEW;
@@ -183,8 +183,9 @@ int main()
 	#ifdef IMAGE_VIEW
 	auto bundle = assetManager->getAsset("../../media/GLI/earth-cubemap3.dds", lp);
 	auto cpuImageViewFetched = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents().begin()[0]);
+	const auto swizzle = cpuImageViewFetched->getComponents();
 
-	auto cpuImage = getSummedImage(cpuImageViewFetched->getCreationParameters().image);
+	auto cpuImage = getSummedImage(cpuImageViewFetched->getCreationParameters().image, swizzle);
 	#else
 	auto bundle = assetManager->getAsset("../../media/colorexr.exr", lp);
 	auto cpuImage = getSummedImage(core::smart_refctd_ptr_static_cast<asset::ICPUImage>(bundle.getContents().begin()[0]));
