@@ -192,6 +192,13 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					const core::vectorSIMDu32 limit(1, is2DAndBelow, is3DAndBelow);
 					const core::vectorSIMDu32 movingExclusiveVector = limit, movingOnYZorXZorXYCheckingVector = limit;
 					
+
+					/*
+						TODO:
+
+						swizzle memory while decoding!
+					*/
+
 					auto decode = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 					{
 						core::vectorSIMDu32 localOutPos = readBlockPos * blockDims - core::vectorSIMDu32(state->inOffset.x, state->inOffset.y, state->inOffset.z);

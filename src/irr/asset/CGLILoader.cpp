@@ -297,11 +297,6 @@ namespace irr
 
 		inline std::pair<E_FORMAT, ICPUImageView::SComponentMapping> getTranslatedGLIFormat(const gli::texture& texture, const gli::gl& glVersion)
 		{
-			/*
-				ooooooooooo shit it's wrong, actually we should leave swizzles untouched and return only what's in texture.format()
-				TODO!
-			*/
-
 			using namespace gli;
 			gli::gl::format formatToTranslate = glVersion.translate(texture.format(), texture.swizzles());
 			ICPUImageView::SComponentMapping compomentMapping;
