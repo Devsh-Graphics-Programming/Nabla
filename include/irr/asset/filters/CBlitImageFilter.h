@@ -107,25 +107,27 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 
 		virtual ~CBlitImageFilter() {}
 
-		class CProtoState : public IImageFilter::IState
+		class CState : public IImageFilter::IState, public CBlitImageFilterBase::CStateBase
 		{
 			public:
-				CProtoState()
+				CState()
 				{
 					inOffsetBaseLayer = core::vectorSIMDu32();
 					inExtentLayerCount = core::vectorSIMDu32();
 					outOffsetBaseLayer = core::vectorSIMDu32();
 					outExtentLayerCount = core::vectorSIMDu32();
 				}
-				CProtoState(const CProtoState& other) : inMipLevel(other.inMipLevel),outMipLevel(other.outMipLevel),inImage(other.inImage),outImage(other.outImage),kernel(other.kernel)
+				CState(const CState& other) : inMipLevel(other.inMipLevel),outMipLevel(other.outMipLevel),inImage(other.inImage),outImage(other.outImage),kernel(other.kernel)
 				{
 					inOffsetBaseLayer = other.inOffsetBaseLayer;
 					inExtentLayerCount = other.inExtentLayerCount;
 					outOffsetBaseLayer = other.outOffsetBaseLayer;
 					outExtentLayerCount = other.outExtentLayerCount;
 				}
-				virtual ~CProtoState() {}
+				virtual ~CState() {}
 
+				// we'll need to rescale the kernel support to be relative to the output image but in the input image coordinate system
+				// (if support is 3 pixels, it needs to be 3 output texels, but measured in input texels)
 				inline auto contructScaledKernel() const
 				{
 					const core::vectorSIMDf fInExtent(inExtentLayerCount);
@@ -176,14 +178,12 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 				ICPUImage*				outImage = nullptr;
 				Kernel					kernel;
 		};
-		class CState : public CProtoState, public CBlitImageFilterBase::CStateBase
-		{
-		};
 		using state_type = CState;
 		
 
 		static inline uint32_t getRequiredScratchByteSize(const state_type* state)
 		{
+			// need to add the memory for ping pong buffers
 			uint32_t retval = getScratchOffset(state,true);
 			retval += CBlitImageFilterBase::getRequiredScratchByteSize<Kernel>(state->kernel,state->alphaSemantic,state->outExtentLayerCount);
 			return retval;
@@ -480,15 +480,19 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Kernel> >, public 
 			const auto& window_size = kernel.getWindowSize();
 			return window_size-core::vectorSIMDi32(1,inType!=IImage::ET_1D ? 1:window_size[1],inType!=IImage::ET_2D ? 1:window_size[2],0);
 		}
+		// the blit filter will filter one axis at a time, hence necessitating "ping ponging" between two scratch buffers
 		static inline uint32_t getScratchOffset(const state_type* state, bool secondPong)
 		{
 			const auto inType = state->inImage->getCreationParameters().type;
 			const auto window_last = getKernelWindowLastCoord(state->contructScaledKernel(),inType);
 			// TODO: account for the size needed for coverage adjustment
+			// the first pass will be along X, so new temporary image will have the width of the output extent, but the height and depth will need to be padded
+			// but the last pass will be along Z and the new temporary image will have the exact dimensions of `outExtent` which is why there is a `core::max`
 			auto texelCount = state->outExtent.width*core::max<uint32_t>((state->inExtent.height+window_last[1])*(state->inExtent.depth+window_last[2]),state->outExtent.height*state->outExtent.depth);
+			// the second pass will result in an image that has the width and height equal to `outExtent`
 			if (secondPong)
 				texelCount += core::max<uint32_t>(state->outExtent.width*state->outExtent.height*(state->inExtent.depth+window_last[2]),state->inExtent.width+window_last[0]);
-			//
+			// obviously we have multiple channels and each channel has a certain type for arithmetic
 			return texelCount*Kernel::MaxChannels*sizeof(value_type);
 		}
 };

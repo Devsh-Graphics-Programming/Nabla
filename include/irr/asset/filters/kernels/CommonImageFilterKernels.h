@@ -15,6 +15,7 @@ namespace irr
 namespace asset
 {
 
+// base class for all kernels that require the pixels and arithmetic to be done in precise floats
 class CFloatingPointOnlyImageFilterKernelBase
 {
 	public:

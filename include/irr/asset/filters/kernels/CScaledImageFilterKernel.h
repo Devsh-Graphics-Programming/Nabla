@@ -24,11 +24,14 @@ class CScaledImageFilterKernelBase
 	public:
 		CScaledImageFilterKernelBase(const core::vectorSIMDf& _rscale) : rscale(_rscale.x,_rscale.y,_rscale.z,_rscale.x*_rscale.y*_rscale.z) {}
 
+		// reciprocal of the scale, the w component holds the scale that needs to be applied to the kernel values to preserve the integral
+		// 1/(A*B*C) InfiniteIntegral f(x/A,y/B,z/C) dx dy dz == InfiniteIntegral f(x,y,z) dx dy dz
 		const core::vectorSIMDf rscale;
 };
 
 }
 
+// this kernel will become a stretched version of the original kernel while keeping its integral constant
 template<class Kernel>
 class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilterKernelBase, public CImageFilterKernel<CScaledImageFilterKernel<Kernel>,typename Kernel::value_type>
 {
