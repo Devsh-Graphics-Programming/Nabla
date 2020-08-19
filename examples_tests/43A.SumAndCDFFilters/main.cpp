@@ -21,8 +21,8 @@ using namespace video;
 	otherwise in inclusive mode 
 */
 
-// #define IMAGE_VIEW 
-#define OVERLAPPING_REGIONS					// @devsh I leave it for you
+#define IMAGE_VIEW 
+// #define OVERLAPPING_REGIONS				// @devsh I leave it for you
 constexpr bool EXCLUSIVE_SUM = true;
 constexpr auto MIPMAP_IMAGE_VIEW = 2u;		// feel free to change the mipmap
 constexpr auto MIPMAP_IMAGE = 0u;			// ordinary image used in the example has only 0-th mipmap
@@ -110,6 +110,7 @@ int main()
 
 			const auto fullMipMapExtent = image->getMipSize(MIPMAP_IMAGE);
 			const size_t bufferByteSize = fullMipMapExtent.x * fullMipMapExtent.y * fullMipMapExtent.z * newImageParams.arrayLayers * asset::getTexelOrBlockBytesize(newImageParams.format);
+			newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferByteSize);
 
 			auto newFirstRegion = newRegions->begin();
 			*newFirstRegion = *(referenceRegion++);
@@ -126,8 +127,6 @@ int main()
 
 			auto simdImageExtent = fullMipMapExtent / 2;
 			newSecondRegion->imageExtent = { simdImageExtent.x, simdImageExtent.y, 1 };
-
-			newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferByteSize);
 
 			#endif // OVERLAPPING_REGIONS
 

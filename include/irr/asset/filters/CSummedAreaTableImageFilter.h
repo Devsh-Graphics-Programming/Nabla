@@ -172,7 +172,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 				state->layerCount = copyLayerCount;
 			};
 
-			for (uint16_t w = 0u; w < copyLayerCount - copyInBaseLayer; ++w) 
+			for (uint16_t w = 0u; w < copyLayerCount; ++w)
 			{
 				std::array<decodeType, maxChannels> minDecodeValues = {};
 				std::array<decodeType, maxChannels> maxDecodeValues = {};
@@ -187,15 +187,14 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 						otherwise memory leaks may occur
 					*/
 
-					bool is2DAndBellow = state->inImage->getCreationParameters().type == IImage::ET_2D;
-					bool is3DAndBellow = state->inImage->getCreationParameters().type == IImage::ET_3D;
-					const core::vectorSIMDu32 limit(1, is2DAndBellow, is3DAndBellow);
+					bool is2DAndBelow = state->inImage->getCreationParameters().type == IImage::ET_2D;
+					bool is3DAndBelow = state->inImage->getCreationParameters().type == IImage::ET_3D;
+					const core::vectorSIMDu32 limit(1, is2DAndBelow, is3DAndBelow);
 					const core::vectorSIMDu32 movingExclusiveVector = limit, movingOnYZorXZorXYCheckingVector = limit;
 					
 					auto decode = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 					{
-						auto newReadBlockPos = (readBlockPos - decltype(readBlockPos)(state->inOffset.x, state->inOffset.y, state->inOffset.z)); 
-						core::vectorSIMDu32 localOutPos = newReadBlockPos * blockDims;
+						core::vectorSIMDu32 localOutPos = readBlockPos * blockDims - core::vectorSIMDu32(state->inOffset.x, state->inOffset.y, state->inOffset.z);
 
 						auto* inDataAdress = inData + readBlockArrayOffset;
 						const void* inSourcePixels[maxPlanes] = { inDataAdress, nullptr, nullptr, nullptr };
@@ -204,36 +203,25 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 						{
 							auto movedLocalOutPos = localOutPos + movingExclusiveVector;
 							const auto isSatMemorySafe = (movedLocalOutPos < core::vectorSIMDu32(state->extent.width, state->extent.height, state->extent.depth, movedLocalOutPos.w + 1)); // force true on .w
-							const auto doesItMoveOnYZorXZorXY = (localOutPos < movingOnYZorXZorXYCheckingVector);
 
 							if (isSatMemorySafe.all())
 							{
+								decodeType decodeBuffer[maxChannels] = {};
 								for (auto blockY = 0u; blockY < blockDims.y; blockY++)
 									for (auto blockX = 0u; blockX < blockDims.x; blockX++)
 									{
-										decodeType decodeBuffer[maxChannels] = {};
-
-										if (doesItMoveOnYZorXZorXY.any())
-										{
-											const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(localOutPos.x + blockX, localOutPos.y + blockY, localOutPos.z), scratchByteStrides);
-											memcpy(reinterpret_cast<uint8_t*>(scratchMemory) + offset, decodeBuffer, scratchTexelByteSize);
-										}
-										else
-										{
-											asset::decodePixelsRuntime(inFormat, inSourcePixels, decodeBuffer, blockX, blockY);
-											const size_t movedOffset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(movedLocalOutPos.x + blockX, movedLocalOutPos.y + blockY, movedLocalOutPos.z), scratchByteStrides);
-											memcpy(reinterpret_cast<uint8_t*>(scratchMemory) + movedOffset, decodeBuffer, scratchTexelByteSize);
-										}
+										asset::decodePixelsRuntime(inFormat, inSourcePixels, decodeBuffer, blockX, blockY);
+										const size_t movedOffset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(movedLocalOutPos.x + blockX, movedLocalOutPos.y + blockY, movedLocalOutPos.z), scratchByteStrides);
+										memcpy(reinterpret_cast<uint8_t*>(scratchMemory) + movedOffset, decodeBuffer, scratchTexelByteSize);
 									}
 							}
 						}
 						else
 						{
+							decodeType decodeBuffer[maxChannels] = {};
 							for (auto blockY = 0u; blockY < blockDims.y; blockY++)
 								for (auto blockX = 0u; blockX < blockDims.x; blockX++)
 								{
-									decodeType decodeBuffer[maxChannels] = {};
-
 									asset::decodePixelsRuntime(inFormat, inSourcePixels, decodeBuffer, blockX, blockY);
 									const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(localOutPos.x + blockX, localOutPos.y + blockY, localOutPos.z), scratchByteStrides);
 									memcpy(reinterpret_cast<uint8_t*>(scratchMemory) + offset, decodeBuffer, scratchTexelByteSize);
@@ -247,6 +235,25 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 					auto& inRegions = state->inImage->getRegions(state->inMipLevel);
 					CBasicImageFilterCommon::executePerRegion(state->inImage, decode, inRegions.begin(), inRegions.end(), clipFunctor);
+
+					if constexpr (ExclusiveMode)
+					{
+						core::vector3du32_SIMD localCoord;
+						for (auto& z = localCoord[2] = 0u; z < state->extent.depth; ++z)
+							for (auto& y = localCoord[1] = 0u; y < state->extent.height; ++y)
+								for (auto& x = localCoord[0] = 0u; x < state->extent.width; ++x)
+								{
+									auto resetSATMemory = [&](const core::vector3du32_SIMD& position)
+									{
+										const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(position, scratchByteStrides);
+										memset(reinterpret_cast<uint8_t*>(scratchMemory) + offset, 0, scratchTexelByteSize);
+									};
+
+									const auto doesItMoveOnYZorXZorXY = (localCoord < movingOnYZorXZorXYCheckingVector);
+									if (doesItMoveOnYZorXZorXY.any())
+										resetSATMemory(localCoord);
+								}
+					}
 				}
 
 				{
@@ -319,10 +326,10 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 							{
 								uint8_t offset = &itrValue - current;
 
-								if (maxDecodeValues[offset] > itrValue)
+								if (maxDecodeValues[offset] < itrValue)
 									maxDecodeValues[offset] = itrValue;
 
-								if (minDecodeValues[offset] < itrValue)
+								if (minDecodeValues[offset] > itrValue)
 									minDecodeValues[offset] = itrValue;
 							}
 						);
@@ -336,37 +343,8 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 									sum(core::vectorSIMDu32(x, y, z));
 					}
 
-					auto normalizeScratch = [&](bool isNormalizedFormat, bool isSignedFormat)
+					auto normalizeScratch = [&](bool isSignedFormat)
 					{
-						auto normalizeAsUsual = [&](decodeType* entryScratchAdress)
-						{
-							for (uint8_t channel = 0; channel < currentChannelCount; ++channel)
-								entryScratchAdress[channel] /= maxDecodeValues[channel];
-						};
-
-						auto normalizeAsSigned = [&](decodeType* entryScratchAdress)
-						{
-							for (uint8_t channel = 0; channel < currentChannelCount; ++channel)
-								entryScratchAdress[channel] = (2.0 * entryScratchAdress[channel] - maxDecodeValues[channel] - minDecodeValues[channel]) / (maxDecodeValues[channel] - minDecodeValues[channel]);
-						};
-
-						auto normalizeAsUnsigned = [&](decodeType* entryScratchAdress)
-						{
-							for (uint8_t channel = 0; channel < currentChannelCount; ++channel)
-								entryScratchAdress[channel] = (entryScratchAdress[channel] - minDecodeValues[channel]) / (maxDecodeValues[channel] - minDecodeValues[channel]);
-						};
-
-						std::function<void(decodeType*)> normalize;
-						{
-							if (isNormalizedFormat)
-								if (isSignedFormat)
-									normalize = normalizeAsSigned;
-								else
-									normalize = normalizeAsUnsigned;
-							else
-								normalize = normalizeAsUsual;
-						}
-
 						core::vector3du32_SIMD localCoord;
 							for (auto& z = localCoord[2] = 0u; z < state->extent.depth; ++z)
 								for (auto& y = localCoord[1] = 0u; y < state->extent.height; ++y)
@@ -375,24 +353,27 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 										const size_t scratchOffset = asset::IImage::SBufferCopy::getLocalByteOffset(localCoord, scratchByteStrides);
 										decodeType* entryScratchAdress = reinterpret_cast<decodeType*>(reinterpret_cast<uint8_t*>(scratchMemory) + scratchOffset);
 
-										normalize(entryScratchAdress);
+										if(isSignedFormat)
+											for (uint8_t channel = 0; channel < currentChannelCount; ++channel)
+												entryScratchAdress[channel] = (2.0 * entryScratchAdress[channel] - maxDecodeValues[channel] - minDecodeValues[channel]) / (maxDecodeValues[channel] - minDecodeValues[channel]);
+										else
+											for (uint8_t channel = 0; channel < currentChannelCount; ++channel)
+												entryScratchAdress[channel] = (entryScratchAdress[channel] - minDecodeValues[channel]) / (maxDecodeValues[channel] - minDecodeValues[channel]);
 									}
 					};
 					
 					bool normalized = asset::isNormalizedFormat(inFormat);
 					if (state->normalizeImageByTotalSATValues || normalized)
-						normalizeScratch(normalized, asset::isSignedFormat(inFormat));
+						normalizeScratch(asset::isSignedFormat(inFormat));
 
 					{
 						uint8_t* outData = reinterpret_cast<uint8_t*>(state->outImage->getBuffer()->getPointer());
 						const auto blockDims = asset::getBlockDimensions(outFormat);
 
-						auto encode = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
+						auto encode = [&](uint32_t writeBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 						{
-							auto newReadBlockPos = (readBlockPos - decltype(readBlockPos)(state->outOffset.x, state->outOffset.y, state->outOffset.z));
-
-							auto localOutPos = newReadBlockPos * blockDims;
-							uint8_t* outDataAdress = outData + readBlockArrayOffset;
+							auto localOutPos = readBlockPos * blockDims - core::vectorSIMDu32(state->outOffset.x, state->outOffset.y, state->outOffset.z);
+							uint8_t* outDataAdress = outData + writeBlockArrayOffset;
 
 							for (auto blockY = 0u; blockY < blockDims.y; blockY++)
 								for (auto blockX = 0u; blockX < blockDims.x; blockX++)
