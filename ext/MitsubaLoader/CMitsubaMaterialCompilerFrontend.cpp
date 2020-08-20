@@ -169,6 +169,7 @@ namespace MitsubaLoader
             getSpectrumOrTexture(current->plastic.diffuseReflectance, node_diffuse->reflectance);
             node_diffuse->alpha_u = node_specular->alpha_u;
             node_diffuse->alpha_v = node_specular->alpha_v;
+            node_diffuse->eta = node_specular->eta;
         }
         break;
         case CElementBSDF::DIELECTRIC:
@@ -209,7 +210,7 @@ namespace MitsubaLoader
             node_trans->shadowing = node_refl->shadowing;
             node_trans->alpha_u = node_refl->alpha_u;
             node_trans->alpha_v = node_refl->alpha_v;
-            node_trans->eta = IR::INode::color_t(eta);
+            node_trans->eta = node_refl->eta;
         }
         break;
         case CElementBSDF::BUMPMAP:

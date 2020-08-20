@@ -7,6 +7,7 @@
 	#error "You need to define 'vec3 irr_glsl_MC_getCamPos()', 'instr_t irr_glsl_MC_fetchInstr(in uint)', 'bsdf_data_t irr_glsl_MC_fetchBSDFData(in uint)' functions above"
 #endif
 
+#include <irr/builtin/glsl/format/decode.glsl>
 
 uint instr_getNormalId(in instr_t instr)
 {
@@ -102,7 +103,14 @@ bool op_isBSDF(in uint op)
 }
 bool op_hasSpecular(in uint op)
 {
-	return op_isBSDF(op) && op!=OP_DIFFUSE && op!=OP_DIFFTRANS;
+	return op<=OP_MAX_BSDF
+#ifdef OP_DIFFUSE
+	&& op!=OP_DIFFUSE
+#endif
+#ifdef OP_DIFFTRANS
+	&& op!=OP_DIFFTRANS
+#endif
+	;
 }
 
 #include <irr/builtin/glsl/bxdf/common.glsl>
@@ -141,10 +149,10 @@ float textureOrRconst(in uvec3 data, in bool texPresenceFlag)
 
 bvec3 instr_getTexPresence(in instr_t i)
 {
-	return bvec3 p(
-		instr_get1stParamTexPresence(instr),
-		instr_get2ndParamTexPresence(instr),
-		instr_getOpacityTexPresence(instr)
+	return bvec3(
+		instr_get1stParamTexPresence(i),
+		instr_get2ndParamTexPresence(i),
+		instr_getOpacityTexPresence(i)
 	);
 }
 params_t instr_getParameters(in instr_t i, in bsdf_data_t data)
@@ -176,7 +184,7 @@ float readReg1(uint n)
 vec3 readReg3(uint n)
 {
 	return vec3(
-		readReg(n), readReg(n+1u), readReg(n+2u)
+		readReg1(n), readReg1(n+1u), readReg1(n+2u)
 	);
 }
 
@@ -207,11 +215,11 @@ float getAlphaV(in params_t p)
 }
 vec3 getSigmaA(in params_t p)
 {
-	return getReflectance(data,texPresence);
+	return p[1];
 }
 float getBlendWeight(in params_t p)
 {
-	return getAlpha(data,texPresence);
+	return p[0].x;
 }
 vec3 getTransmittance(in params_t p)
 {
@@ -288,7 +296,7 @@ void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in float DG, in para
 
 		writeReg(REG_DST(regs), specular+diffuse);
 	}
-	writeReg(REG_DST(regs), bxdf_eval_t(0.0));
+	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
 #endif
 #ifdef OP_COATING

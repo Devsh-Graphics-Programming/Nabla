@@ -114,12 +114,32 @@ namespace instr_stream
 		NDF_BECKMANN	= 0b00,
 		NDF_GGX			= 0b01,
 		NDF_PHONG		= 0b10,
-		NDF_AS			= 0b11
+		NDF_AS			= 0b11,
+
+		NDF_COUNT = 4
 	};
+
+	inline bool opHasSpecular(E_OPCODE op)
+	{
+		switch (op)
+		{
+		case OP_DIELECTRIC:
+		case OP_CONDUCTOR:
+		case OP_PLASTIC:
+		case OP_COATING:
+			return true;
+		default: return false;
+		}
+	}
 
 	inline E_OPCODE getOpcode(const instr_t& i)
 	{
 		return static_cast<E_OPCODE>(core::bitfieldExtract(i, INSTR_OPCODE_SHIFT, INSTR_OPCODE_WIDTH));
+	}
+
+	inline E_NDF getNDF(const instr_t& i)
+	{
+		return static_cast<E_NDF>(core::bitfieldExtract(i, BITFIELDS_SHIFT_NDF, BITFIELDS_WIDTH_NDF));
 	}
 
 	inline bool isTwosided(const instr_t& i)
@@ -265,7 +285,7 @@ namespace tex_prefetch
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_COUNT = 3u;
 
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_REG_CNT_WIDTH = 2u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_2_REG_CNT_MASK = 0b11;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_REG_CNT_MASK = 0b11;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT = INSTR_NORMAL_ID_SHIFT;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT = BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT + BITFIELDS_FETCH_TEX_REG_CNT_WIDTH;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_2_REG_CNT_SHIFT = BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT + BITFIELDS_FETCH_TEX_REG_CNT_WIDTH;
@@ -310,6 +330,12 @@ protected:
 		"OP_SET_GEOM_NORMAL",
 		"OP_INVALID",
 		"OP_NOOP"
+	};
+	_IRR_STATIC_INLINE_CONSTEXPR const char* NDF_NAMES[instr_stream::NDF_COUNT]{
+		"NDF_BECKMANN",
+		"NDF_GGX",
+		"NDF_PHONG",
+		"NDF_AS"
 	};
 	static std::string genPreprocDefinitions(const result_t& _res);
 
@@ -386,6 +412,7 @@ public:
 		uint32_t prefetch_numOfChannels;
 
 		core::unordered_set<instr_stream::E_OPCODE> opcodes;
+		core::unordered_set<instr_stream::E_NDF> NDFs;
 
 		//one element for each input IR root node
 		core::unordered_map<const IR::INode*, instr_streams_t> streams;

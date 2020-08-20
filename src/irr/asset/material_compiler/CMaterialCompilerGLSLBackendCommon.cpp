@@ -149,9 +149,9 @@ namespace instr_stream
 				auto* specular = static_cast<const IR::CMicrofacetSpecularBSDFNode*>(s);
 
 				if (diffuse->reflectance.source == IR::INode::EPS_TEXTURE)
-					_dst.plastic.alpha.setTexture(packTexture(diffuse->reflectance.value.texture), diffuse->reflectance.value.texture.scale);
+					_dst.plastic.reflectance.setTexture(packTexture(diffuse->reflectance.value.texture), diffuse->reflectance.value.texture.scale);
 				else
-					_dst.plastic.alpha.setConst(diffuse->reflectance.value.constant.pointer);
+					_dst.plastic.reflectance.setConst(diffuse->reflectance.value.constant.pointer);
 				if (diffuse->alpha_u.source == IR::INode::EPS_TEXTURE)
 					_dst.plastic.alpha.setTexture(packTexture(diffuse->alpha_u.value.texture), diffuse->alpha_u.value.texture.scale);
 				else
@@ -447,6 +447,7 @@ namespace remainder_and_pdf
 
 	private:
 		_IRR_STATIC_INLINE_CONSTEXPR instr_t SPECIAL_VAL = ~static_cast<instr_t>(0);
+		_IRR_STATIC_INLINE_CONSTEXPR size_t OP_RESULT_REG_COUNT = 3ull;
 
 		static void setRegisters(instr_t& i, uint32_t rdst, uint32_t rsrc1 = 0u, uint32_t rsrc2 = 0u)
 		{
@@ -478,7 +479,7 @@ namespace remainder_and_pdf
 		{
 			reorderBumpMapStreams();
 			specifyRegisters(regCount, _out_usedRegs);
-			++_out_usedRegs;
+			_out_usedRegs += OP_RESULT_REG_COUNT;
 
 			return std::move(m_input);
 		}
@@ -786,9 +787,9 @@ void instr_stream::remainder_and_pdf::CTraversalManipulator::specifyRegisters(ui
 {
 	core::stack<uint32_t> freeRegs;
 	{
-		regCount /= 3u;
+		regCount /= OP_RESULT_REG_COUNT;
 		for (uint32_t i = 0u; i < regCount; ++i)
-			freeRegs.push(3u*(regCount - 1u - i));
+			freeRegs.push(OP_RESULT_REG_COUNT*(regCount - 1u - i));
 	}
 	//registers with result of bump-map substream
 	core::stack<uint32_t> bmRegs;
@@ -948,7 +949,7 @@ instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTrav
 		const IR::INode* node;
 		instr_t instr;
 		std::tie(instr, node) = processSubtree(_root, next);
-		push(instr, node, next, 0u, INVALID_INDEX);
+		push(instr, node, next, instr, INVALID_INDEX);
 	}
 	while (!m_stack.empty())
 	{
@@ -1091,10 +1092,10 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	defs += "\n#define OP_MAX_BRDF " + std::to_string(OP_COATING);
 	defs += "\n#define OP_MAX_BSDF " + std::to_string(OP_DIELECTRIC);
 
-	defs += "\n#define NDF_BECKMANN " + std::to_string(NDF_BECKMANN);
-	defs += "\n#define NDF_GGX " + std::to_string(NDF_GGX);
-	defs += "\n#define NDF_PHONG " + std::to_string(NDF_PHONG);
-	defs += "\n#define NDF_AS " + std::to_string(NDF_AS);
+	for (E_NDF ndf : _res.NDFs)
+		defs += "\n#define "s + NDF_NAMES[ndf] + " " + std::to_string(ndf);
+	if (_res.NDFs.size()==1ull)
+		defs += "\n#define ONLY_ONE_NDF";
 
 	constexpr size_t size_of_uvec4 = 16ull;
 	defs += "\n#define sizeof_bsdf_data " + std::to_string((sizeof(SBSDFUnion)+size_of_uvec4-1u)/size_of_uvec4);
@@ -1124,6 +1125,7 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	defs += "\n#define INSTR_TRANS_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_TRANS_TEX);
 	defs += "\n#define INSTR_SIGMA_A_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_SIGMA_A_TEX);
 	defs += "\n#define INSTR_WEIGHT_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_WEIGHT_TEX);
+	defs += "\n#define INSTR_OPACITY_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_OPACITY_TEX);
 	defs += "\n#define INSTR_TWOSIDED_SHIFT " + std::to_string(BITFIELDS_SHIFT_TWOSIDED);
 	defs += "\n#define INSTR_MASKFLAG_SHIFT " + std::to_string(BITFIELDS_SHIFT_MASKFLAG);
 	defs += "\n#define INSTR_1ST_PARAM_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_1ST_PARAM_TEX);
@@ -1150,7 +1152,7 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 		defs += "\n#define INSTR_FETCH_TEX_0_REG_CNT_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT);
 		defs += "\n#define INSTR_FETCH_TEX_1_REG_CNT_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT);
 		defs += "\n#define INSTR_FETCH_TEX_2_REG_CNT_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_2_REG_CNT_SHIFT);
-		defs += "\n#define INSTR_FETCH_TEX_REG_CNT_MASK " + std::to_string(BITFIELDS_FETCH_TEX_2_REG_CNT_MASK);
+		defs += "\n#define INSTR_FETCH_TEX_REG_CNT_MASK " + std::to_string(BITFIELDS_FETCH_TEX_REG_CNT_MASK);
 	}
 	defs += "\n";
 
@@ -1282,8 +1284,13 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 	if (res.prefetch_sameNumOfChannels)
 		res.prefetch_numOfChannels = core::findLSB(prefetchRegCntFlags);
 
-	for (instr_t i : res.instructions)
-		res.opcodes.insert(instr_stream::getOpcode(i));
+	for (instr_t i : res.instructions) {
+		const E_OPCODE op = instr_stream::getOpcode(i);
+		const E_NDF ndf = instr_stream::getNDF(i);
+		res.opcodes.insert(op);
+		if (instr_stream::opHasSpecular(op))
+			res.NDFs.insert(ndf);
+	}
 
 	res.fragmentShaderSource_declarations =
 		genPreprocDefinitions(res) +

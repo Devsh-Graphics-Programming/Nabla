@@ -19,21 +19,49 @@ void instr_eval_execute(in instr_t instr, in vec3 L)
 
 	if (op_hasSpecular(op))
 	{
+#ifdef NDF_GGX
+#ifndef ONLY_ONE_NDF
 		if (ndf==NDF_GGX) {
+#endif
 			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, a2);
-		}
-		else if (ndf==NDF_BECKMANN) {
+#ifndef ONLY_ONE_NDF
+		} else
+#endif
+#endif
+#ifdef NDF_BECKMANN
+#ifndef ONLY_ONE_NDF
+		if (ndf==NDF_BECKMANN) {
+#endif
 			bxdf_eval_scalar_part = irr_glsl_beckmann_smith_height_correlated_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, a2);
-		}
-		else if (ndf==NDF_PHONG) {
+#ifndef ONLY_ONE_NDF
+		} else
+#endif
+#endif
+#ifdef NDF_PHONG
+#ifndef ONLY_ONE_NDF
+		if (ndf==NDF_PHONG) {
+#endif
 			float n = irr_glsl_alpha2_to_phong_exp(a2);
 			bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, n, a2);
-		}
-		else if (ndf==NDF_AS) {
+#ifndef ONLY_ONE_NDF
+		} else
+#endif
+#endif
+#ifdef NDF_AS
+#ifndef ONLY_ONE_NDF
+		if (ndf==NDF_AS) {
+#endif
 			float nx = irr_glsl_alpha2_to_phong_exp(a2);
 			float ny = irr_glsl_alpha2_to_phong_exp(ay2);
 			bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(currBSDFParams, currInteraction, nx, ny, a2, ay2);
-		}
+#ifndef ONLY_ONE_NDF
+		} else
+#endif
+#endif
+
+#ifndef ONLY_ONE_NDF
+		{} //else "empty braces"
+#endif
 	}
 
 	uvec3 regs = instr_decodeRegisters(instr);
@@ -57,27 +85,27 @@ void instr_eval_execute(in instr_t instr, in vec3 L)
 		instr_execute_COATING(instr, regs, params, bsdf_data);
 	} else
 #endif
-#ifndef OP_DIFFTRANS
+#ifdef OP_DIFFTRANS
 	if (op==OP_DIFFTRANS) {
 		instr_execute_DIFFTRANS(instr, regs, params, bsdf_data);
 	} else
 #endif
-#ifndef OP_DIELECTRIC
+#ifdef OP_DIELECTRIC
 	if (op==OP_DIELECTRIC) {
 		instr_execute_DIELECTRIC(instr, regs, params, bsdf_data);
 	} else
 #endif
-#ifndef OP_BLEND
+#ifdef OP_BLEND
 	if (op==OP_BLEND) {
 		instr_execute_BLEND(instr, regs, params, bsdf_data);
 	} else
 #endif
-#ifndef OP_BUMPMAP
+#ifdef OP_BUMPMAP
 	if (op==OP_BUMPMAP) {
 		instr_execute_BUMPMAP(instr, L);
 	} else
 #endif
-#ifndef OP_SET_GEOM_NORMAL
+#ifdef OP_SET_GEOM_NORMAL
 	if (op==OP_SET_GEOM_NORMAL) {
 		instr_execute_SET_GEOM_NORMAL(L);
 	} else
