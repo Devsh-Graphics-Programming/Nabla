@@ -534,7 +534,7 @@ inline rgb32f rgb19e7_to_rgb32f(uint64_t _rgb19e7)
 	rgb19e7 u;
 	u.u64 = _rgb19e7;
 	int32_t exp = u.field.e - RGB19E7_EXP_BIAS - RGB19E7_MANTISSA_BITS;
-	float scale = static_cast<float>(std::pow(2, exp));
+	float scale = static_cast<float>(std::exp2(exp));
 
 	rgb32f r;
 	r.x = u.field.r * scale;

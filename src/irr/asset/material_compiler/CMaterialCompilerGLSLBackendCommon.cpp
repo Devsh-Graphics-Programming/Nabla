@@ -45,8 +45,8 @@ namespace instr_stream
 
 		virtual void writeInheritableBitfields(instr_t& dst, instr_t parent) const
 		{
-			dst = core::bitfieldInsert(dst, parent, BITFIELDS_SHIFT_TWOSIDED, 1);
-			dst = core::bitfieldInsert(dst, parent, BITFIELDS_SHIFT_MASKFLAG, 1);
+			dst = core::bitfieldInsert(dst, parent>>BITFIELDS_SHIFT_TWOSIDED, BITFIELDS_SHIFT_TWOSIDED, 1);
+			dst = core::bitfieldInsert(dst, parent>>BITFIELDS_SHIFT_MASKFLAG, BITFIELDS_SHIFT_MASKFLAG, 1);
 		}
 
 		void writeBumpmapBitfields(instr_t& dst)
@@ -323,7 +323,7 @@ namespace instr_stream
 
 			auto handleSpecularBitfields = [&ndfMap](instr_t dst, const IR::CMicrofacetSpecularBSDFNode* node, bool _writeAlphaV) -> instr_t
 			{
-				assert(_writeAlphaV == (ndfMap[node->ndf] == NDF_AS));
+				//assert(_writeAlphaV == (ndfMap[node->ndf] == NDF_AS));
 
 				dst = core::bitfieldInsert<instr_t>(dst, ndfMap[node->ndf], BITFIELDS_SHIFT_NDF, BITFIELDS_WIDTH_NDF);
 				if (_writeAlphaV && ndfMap[node->ndf] == NDF_AS && node->alpha_v.source == IR::INode::EPS_TEXTURE)
@@ -522,7 +522,7 @@ namespace remainder_and_pdf
 		{
 			base_t::writeInheritableBitfields(dst, parent);
 			
-			dst = core::bitfieldInsert(dst, parent, INSTR_NORMAL_ID_SHIFT, INSTR_NORMAL_ID_WIDTH);
+			dst = core::bitfieldInsert(dst, parent>>INSTR_NORMAL_ID_SHIFT, INSTR_NORMAL_ID_SHIFT, INSTR_NORMAL_ID_WIDTH);
 		}
 
 		traversal_t genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs) override;
@@ -896,7 +896,7 @@ instr_stream::traversal_t instr_stream::remainder_and_pdf::CTraversalGenerator::
 		const IR::INode* node;
 		instr_t instr;
 		std::tie(instr, node) = processSubtree(_root, next);
-		push(instr, node, next, 0u, false);
+		push(instr, node, next, instr, false);
 	}
 	while (!m_stack.empty())
 	{
@@ -1392,7 +1392,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 		}
 	};
 
-	constexpr const char* ndf[4]{
+	constexpr const char* ndf_names[4]{
 		"BECKMANN",
 		"GGX",
 		"PHONG",
@@ -1401,12 +1401,13 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 
 	const auto op = getOpcode(instr);
 
-	auto ndfAndAnisoAlphaTexPrint = [&_out,&paramVal1OrRegStr,&ndf](instr_t instr, const SBSDFUnion& data, bool _printAlpha_v) {
-		_out << "NDF = " << ndf[core::bitfieldExtract(instr, BITFIELDS_SHIFT_NDF, BITFIELDS_WIDTH_NDF)] << "\n";
+	auto ndfAndAnisoAlphaTexPrint = [&_out,&paramVal1OrRegStr,&ndf_names](instr_t instr, const SBSDFUnion& data, bool _printAlpha_v) {
+		const E_NDF ndf = static_cast<E_NDF>(core::bitfieldExtract(instr, BITFIELDS_SHIFT_NDF, BITFIELDS_WIDTH_NDF));
+		_out << "NDF = " << ndf_names[ndf] << "\n";
 		bool au = core::bitfieldExtract(instr, BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 		_out << "Alpha_u tex " << au << "\n";
 		_out << "Alpha_u val/reg " << paramVal1OrRegStr(data.param[0], au) << "\n";
-		if (_printAlpha_v)
+		if (_printAlpha_v && ndf==NDF_AS)
 		{
 			bool av = core::bitfieldExtract(instr, BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
 			_out << "Alpha_v tex " << av << "\n";
@@ -1437,8 +1438,26 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	}
 	break;
 	case OP_DIELECTRIC:
-	case OP_CONDUCTOR:
+	{
 		ndfAndAnisoAlphaTexPrint(instr, data, true);
+
+		const auto& data = _res.bsdfData[bsdf_ix];
+		const float eta = data.dielectric.eta;
+
+		_out << "Eta: " << eta << "\n";
+	}
+		break;
+	case OP_CONDUCTOR:
+	{
+		ndfAndAnisoAlphaTexPrint(instr, data, true);
+
+		const auto& data = _res.bsdfData[bsdf_ix];
+		const auto eta = core::rgb19e7_to_rgb32f(data.conductor.eta[0]);
+		const auto etak = core::rgb19e7_to_rgb32f(data.conductor.eta[1]);
+
+		_out << "Eta:  { " << eta.x << ", " << eta.y << ", " << eta.z << " }\n";
+		_out << "EtaK: { " << etak.x << ", " << etak.y << ", " << etak.z << " }\n";
+	}
 		break;
 	case OP_PLASTIC:
 	{
@@ -1446,6 +1465,10 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 		bool refl = core::bitfieldExtract(instr, BITFIELDS_SHIFT_REFL_TEX, 1);
 		_out << "Refl tex " << refl << "\n";
 		_out << "Refl val/reg " << paramVal3OrRegStr(data.diffuse.reflectance, refl) << "\n";
+
+		const auto& data = _res.bsdfData[bsdf_ix];
+		const float eta = data.plastic.eta;
+		_out << "Eta: " << eta << "\n";
 	}
 	break;
 	case OP_COATING:
@@ -1454,6 +1477,13 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 		bool sigma = core::bitfieldExtract(instr, BITFIELDS_SHIFT_SIGMA_A_TEX, 1);
 		_out << "SigmaA tex " << sigma << "\n";
 		_out << "SigmaA val/reg " << paramVal3OrRegStr(data.coating.sigmaA, sigma) << "\n";
+
+		const auto& data = _res.bsdfData[bsdf_ix];
+		const uint32_t thickness_eta = data.coating.thickness_eta;
+		const float thickness = core::Float16Compressor::decompress(thickness_eta&0xffffu);
+		const float eta = core::Float16Compressor::decompress(thickness_eta>>16);
+		_out << "Eta: " << eta << "\n";
+		_out << "Thickness: " << thickness << "\n";
 	}
 	break;
 	case OP_BLEND:
