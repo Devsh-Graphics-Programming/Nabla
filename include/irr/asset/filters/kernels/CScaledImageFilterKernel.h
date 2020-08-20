@@ -38,11 +38,14 @@ class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilter
 		using StaticPolymorphicBase = CImageFilterKernel<CScaledImageFilterKernel<Kernel>, typename Kernel::value_type>;
 
 	public:
+		// we preserve all basic properties of the original kernel
 		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels;
 		using value_type = typename Kernel::value_type;
 
 		_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = Kernel::is_separable;
 
+		// the scale is how much we want to stretch the support, so if we have a box function kernel with support -0.5,0.5 then scaling it with `_scale=4.0`
+		// would give us a kernel with support -2.0,2.0 which still has the same area under the curve (integral)
 		CScaledImageFilterKernel(const core::vectorSIMDf& _scale, Kernel&& k=Kernel()) : Kernel(std::move(k)),
 			impl::CScaledImageFilterKernelBase(core::vectorSIMDf(1.f).preciseDivision(_scale)),
 			StaticPolymorphicBase(
@@ -51,8 +54,17 @@ class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilter
 				)
 		{
 		}
+		// overload for uniform scale in all dimensions
 		CScaledImageFilterKernel(const core::vectorSIMDf& _scale, const Kernel& k=Kernel()) : CScaledImageFilterKernel(_scale,Kernel(k)) {}
 
+		// the validation usually is not support dependent, its usually about the input/output formats of an image, etc. so we use old Kernel validation
+		static inline bool validate(ICPUImage* inImage, ICPUImage* outImage)
+		{
+			return Kernel::validate(inImage, outImage);
+		}
+
+		// `StaticPolymorphicBase` takes care of all this for us from the newly computed support values
+		// we need to use forwarding for some silly compiler scoping reason instead of leaving the function overload undeclared
 		template<typename... Args>
 		inline core::vectorSIMDi32 getWindowMinCoord(Args&&... args) const
 		{
@@ -63,21 +75,17 @@ class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilter
 		{
 			return StaticPolymorphicBase::getWindowSize();
 		}
-		inline int32_t getWindowVolume() const
-		{
-			return StaticPolymorphicBase::getWindowVolume();
-		}
-
-
-		static inline bool validate(ICPUImage* inImage, ICPUImage* outImage)
-		{
-			return Kernel::validate(inImage,outImage);
-		}
 		
+		// we need to use forwarding for some silly compiler scoping reason instead of leaving the function overload undeclared, it basically will do same as the base
 		template<class PreFilter=const typename StaticPolymorphicBase::default_sample_functor_t, class PostFilter=const typename StaticPolymorphicBase::default_sample_functor_t>
 		inline void evaluate(const core::vectorSIMDf& globalPos, PreFilter& preFilter, PostFilter& postFilter) const
 		{
 			StaticPolymorphicBase::evaluate(globalPos,preFilter,postFilter);
+		}
+		template<class PreFilter, class PostFilter>
+		inline void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord) const
+		{
+			StaticPolymorphicBase::evaluateImpl(preFilter,postFilter,windowSample,relativePosAndFactor,globalTexelCoord);
 		}
 
 		template<class PreFilter, class PostFilter>
@@ -106,12 +114,6 @@ class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilter
 		inline auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const
 		{
 			return sample_functor_t(this,preFilter,postFilter);
-		}
-
-		template<class PreFilter, class PostFilter>
-		inline void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord) const
-		{
-			StaticPolymorphicBase::evaluateImpl(preFilter,postFilter,windowSample,relativePosAndFactor,globalTexelCoord);
 		}
 };
 
