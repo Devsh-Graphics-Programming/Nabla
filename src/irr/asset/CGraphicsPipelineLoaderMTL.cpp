@@ -172,51 +172,33 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_a
 
 
     constexpr const char* MISSING_MTL_PIPELINE_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mtl/missing_material_pipeline";
-    
-    /*
-    if possible, it would be great to use CImageLoaderPNG here
+    auto default_texture_file = m_assetMgr->getFileSystem()->createMemoryReadFile(MISSING_CHECKERBOARD_TEXTURE_CONTENT, sizeof(MISSING_CHECKERBOARD_TEXTURE_CONTENT), "checkerboard.png");
 
-    auto imgDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(MISSING_CHECKERBOARD_TEXTURE_CONTENT));
-    void* dst = reinterpret_cast<uint8_t*>(imgDataBuf->getPointer());
-    const void* src = &MISSING_CHECKERBOARD_TEXTURE_CONTENT;
-    memcpy(dst, src, sizeof(MISSING_CHECKERBOARD_TEXTURE_CONTENT));
-    ICPUImage::SCreationParams imageParams;
-    imageParams.type = 
-    ICPUImage img();
-   
-
-   
-    
-    */
-    auto texture_file = m_assetMgr->getFileSystem()->createMemoryReadFile(MISSING_CHECKERBOARD_TEXTURE_CONTENT, sizeof(MISSING_CHECKERBOARD_TEXTURE_CONTENT), "checkerboard.png");
-
-    SAssetLoadParams params;
-    auto imageBundle = m_assetMgr->getAsset(texture_file, std::string("checkerboard.png"), params);
+    SAssetLoadParams assetLoadParams;
+    auto imageBundle = m_assetMgr->getAsset(default_texture_file, std::string("checkerboard.png"), assetLoadParams);
     auto image = core::smart_refctd_ptr_dynamic_cast<ICPUImage>(imageBundle.getContents().begin()[0]);
+    default_texture_file->drop();
     ICPUImageView::SCreationParams viewParams;
-    viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-    viewParams.format = EF_UNKNOWN;
-    viewParams.viewType = IImageView<ICPUImage>::ET_2D;
-    viewParams.subresourceRange.baseArrayLayer = 0u;
-    viewParams.subresourceRange.layerCount = 1u;
-    viewParams.subresourceRange.baseMipLevel = 0u;
-    viewParams.subresourceRange.levelCount = 1u;
-    viewParams.image = std::move(image);
+    {
+        viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+        viewParams.format = EF_UNKNOWN;
+        viewParams.viewType = IImageView<ICPUImage>::ET_2D;
+        viewParams.subresourceRange.baseArrayLayer = 0u;
+        viewParams.subresourceRange.layerCount = 1u;
+        viewParams.subresourceRange.baseMipLevel = 0u;
+        viewParams.subresourceRange.levelCount = 1u;
+        viewParams.image = std::move(image);
+    }
+    auto imageView = ICPUImageView::create(std::move(viewParams));
+    SAssetBundle imageViewBundle{ imageView };
+    m_assetMgr->changeAssetKey(imageViewBundle, MISSING_CHECKERBOARD_TEXTURE_CACHE_KEY);
+    m_assetMgr->insertAssetIntoCache(imageViewBundle);
 
-    image_views_set_t views;
-    views[0] = ICPUImageView::create(std::move(viewParams));
-
-    auto file = m_assetMgr->getFileSystem()->createMemoryReadFile(DUMMY_MTL_CONTENT, strlen(DUMMY_MTL_CONTENT), "default IrrlichtBAW material");
-    auto bundle = loadAsset(file, params);
-    auto pipeline = static_cast< ICPURenderpassIndependentPipeline*>( bundle.getContents().begin()->get());
-    file->drop();
-    auto p = core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>(pipeline);
-    auto ds3 = makeDescSet(std::move(views), p->getLayout()->getDescriptorSetLayout(3u));
-
-    SAssetBundle ds3Bundle{ ds3 };
-    m_assetMgr->changeAssetKey(ds3Bundle, MISSING_CHECKERBOARD_TEXTURE_CACHE_KEY);
-    m_assetMgr->insertAssetIntoCache(ds3Bundle);
-
+    auto default_mtl_file = m_assetMgr->getFileSystem()->createMemoryReadFile(DUMMY_MTL_CONTENT, strlen(DUMMY_MTL_CONTENT), "default IrrlichtBAW material");
+    auto bundle = loadAsset(default_mtl_file, assetLoadParams);
+    auto pipelinePtr = static_cast< ICPURenderpassIndependentPipeline*>( bundle.getContents().begin()->get());
+    default_mtl_file->drop();
+    auto p = core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>(pipelinePtr);
     insertPipelineIntoCache(std::move(p), MISSING_MTL_PIPELINE_CACHE_KEY, m_assetMgr);
 }
 
@@ -397,12 +379,17 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
                     }
                 }
             }
-            else {
+            else
+            {
                 const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_DESCRIPTOR_SET, (asset::IAsset::E_TYPE)0u };
-                auto b = m_assetMgr->findAssets(dsCacheKey, types);
-                if (b)
+                SAssetLoadParams assetloadparams;
+                auto default_imageview_bundle = m_assetMgr->getAsset(dsCacheKey, assetloadparams);
+                if (!default_imageview_bundle.isEmpty())
                 {
-                    ds3 = core::smart_refctd_ptr_dynamic_cast<ICPUDescriptorSet>(b->begin()->getContents().begin()[0]);
+                    auto assetptr = core::smart_refctd_ptr_dynamic_cast<ICPUImageView>(default_imageview_bundle.getContents().begin()[0]);
+                    image_views_set_t views;
+                    views[0] = assetptr;
+                    ds3 = makeDescSet(std::move(views), layout->getDescriptorSetLayout(3u));
                 }
             }
         }
