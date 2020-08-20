@@ -30,7 +30,6 @@ class CSummedAreaTableImageFilterBase
 				uint8_t*	scratchMemory = nullptr;										//!< memory covering all regions used for temporary filling within computation of sum values
 				size_t	scratchMemoryByteSize = {};											//!< required byte size for entire scratch memory
 				bool normalizeImageByTotalSATValues = false;								//!< after sum performation division will be performed for the entire image by the max sum values in (maxX, 0, z) depending on input image - needed for UNORM and SNORM
-				asset::IImageView<asset::ICPUImage>::SComponentMapping swizzle;				//!< swizzle used to remap memory while decoding input image
 
 				static inline size_t getRequiredScratchByteSize(const ICPUImage* inputImage, asset::VkExtent3D extent)
 				{
@@ -131,12 +130,6 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			const auto arrayLayers = state->inImage->getCreationParameters().arrayLayers;
 			static constexpr auto maxChannels = 4u;
 
-			asset::DefaultSwizzle swizzleMapping;
-			{
-				const auto swizzle = state->swizzle;
-				swizzleMapping.swizzle = swizzle;
-			}
-
 			#ifdef _IRR_DEBUG
 			memset(scratchMemory, 0, state->scratchMemoryByteSize);
 			#endif // _IRR_DEBUG
@@ -214,16 +207,13 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 							if (isSatMemorySafe.all())
 							{
 								decodeType decodeBuffer[maxChannels] = {};
-								decodeType swizzleDecodeBuffer[maxChannels] = {};
 
 								for (auto blockY = 0u; blockY < blockDims.y; blockY++)
 									for (auto blockX = 0u; blockX < blockDims.x; blockX++)
 									{
 										asset::decodePixelsRuntime(inFormat, inSourcePixels, decodeBuffer, blockX, blockY);
-										swizzleMapping(decodeBuffer, swizzleDecodeBuffer);
-
 										const size_t movedOffset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(movedLocalOutPos.x + blockX, movedLocalOutPos.y + blockY, movedLocalOutPos.z), scratchByteStrides);
-										memcpy(reinterpret_cast<uint8_t*>(scratchMemory) + movedOffset, swizzleDecodeBuffer, scratchTexelByteSize);
+										memcpy(reinterpret_cast<uint8_t*>(scratchMemory) + movedOffset, decodeBuffer, scratchTexelByteSize);
 									}
 							}
 						}
@@ -348,7 +338,6 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 					/*
 					
-
 					{
 						core::vector3du32_SIMD localCoord;
 						for (auto& z = localCoord[2] = 0u; z < state->extent.depth; ++z)
@@ -356,7 +345,6 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 								for (auto& x = localCoord[0] = 0u; x < state->extent.width; ++x)
 									sum(core::vectorSIMDu32(x, y, z));
 					}
-
 
 					*/
 
@@ -389,24 +377,15 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 					{
 						uint8_t* outData = reinterpret_cast<uint8_t*>(state->outImage->getBuffer()->getPointer());
-						const auto blockDims = asset::getBlockDimensions(outFormat);
 
 						auto encode = [&](uint32_t writeBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 						{
-							auto localOutPos = readBlockPos * blockDims - core::vectorSIMDu32(state->outOffset.x, state->outOffset.y, state->outOffset.z);
+							// encoding format cannot be block compressed so in this case block==texel
+							auto localOutPos = readBlockPos - core::vectorSIMDu32(state->outOffset.x, state->outOffset.y, state->outOffset.z, readBlockPos.w); // force 0 on .w compoment to obtain valid offset
 							uint8_t* outDataAdress = outData + writeBlockArrayOffset;
 
-							for (auto blockY = 0u; blockY < blockDims.y; blockY++)
-								for (auto blockX = 0u; blockX < blockDims.x; blockX++)
-								{
-									/*
-										We haven't supported BC encoding yet,
-										the loop will perform one time
-									*/
-
-									const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(localOutPos.x + blockX, localOutPos.y + blockY, localOutPos.z), scratchByteStrides);
-									asset::encodePixelsRuntime(outFormat, outDataAdress, reinterpret_cast<uint8_t*>(scratchMemory) + offset); // overrrides texels, so region-overlapping case is fine
-								}
+							const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(localOutPos, scratchByteStrides);
+							asset::encodePixelsRuntime(outFormat, outDataAdress, reinterpret_cast<uint8_t*>(scratchMemory) + offset); // overrrides texels, so region-overlapping case is fine
 						};
 
 						IImage::SSubresourceLayers subresource = { static_cast<IImage::E_ASPECT_FLAGS>(0u), state->outMipLevel, state->outBaseLayer, 1 };
