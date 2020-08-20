@@ -9,6 +9,7 @@
 
 #include "irr/asset/CGraphicsPipelineLoaderMTL.h"
 #include "irr/asset/IGLSLEmbeddedIncludeLoader.h"
+#include "irr/builtin/MTLdefaults.h"
 
 
 namespace
@@ -116,13 +117,33 @@ void main()
 using namespace irr;
 using namespace asset;
 
+static void insertPipelineIntoCache(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>&& asset, const char* path, IAssetManager* _assetMgr)
+{
+    asset::SAssetBundle bundle({ std::move(asset) });
+    _assetMgr->changeAssetKey(bundle, path);
+    _assetMgr->insertAssetIntoCache(bundle);
+}
 static void insertShaderIntoCache(core::smart_refctd_ptr<ICPUSpecializedShader>& asset, const char* path, IAssetManager* _assetMgr)
 {
     asset::SAssetBundle bundle({ asset });
     _assetMgr->changeAssetKey(bundle, path);
     _assetMgr->insertAssetIntoCache(bundle);
 }
+template<typename AssetType, IAsset::E_TYPE assetType>
+static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
+{
+    size_t storageSz = 1ull;
+    asset::SAssetBundle bundle;
+    const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
 
+    _assetMgr->findAssets(storageSz, &bundle, _key, types);
+    if (bundle.isEmpty())
+        return nullptr;
+    auto assets = bundle.getContents();
+    //assert(assets.first != assets.second);
+
+    return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
+}
 #define VERT_SHADER_NO_UV_CACHE_KEY "irr/builtin/shaders/loaders/mtl/vertex_no_uv.vert"
 #define VERT_SHADER_UV_CACHE_KEY "irr/builtin/shaders/loaders/mtl/vertex_uv.vert"
 #define FRAG_SHADER_NO_UV_CACHE_KEY "irr/builtin/shaders/loaders/mtl/fragment_no_uv.frag"
@@ -148,6 +169,55 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_a
     registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
     registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
     registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
+
+
+    constexpr const char* MISSING_MTL_PIPELINE_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mtl/missing_material_pipeline";
+    
+    /*
+    if possible, it would be great to use CImageLoaderPNG here
+
+    auto imgDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(MISSING_CHECKERBOARD_TEXTURE_CONTENT));
+    void* dst = reinterpret_cast<uint8_t*>(imgDataBuf->getPointer());
+    const void* src = &MISSING_CHECKERBOARD_TEXTURE_CONTENT;
+    memcpy(dst, src, sizeof(MISSING_CHECKERBOARD_TEXTURE_CONTENT));
+    ICPUImage::SCreationParams imageParams;
+    imageParams.type = 
+    ICPUImage img();
+   
+
+   
+    
+    */
+    auto texture_file = m_assetMgr->getFileSystem()->createMemoryReadFile(MISSING_CHECKERBOARD_TEXTURE_CONTENT, sizeof(MISSING_CHECKERBOARD_TEXTURE_CONTENT), "checkerboard.png");
+
+    SAssetLoadParams params;
+    auto imageBundle = m_assetMgr->getAsset(texture_file, std::string("checkerboard.png"), params);
+    auto image = core::smart_refctd_ptr_dynamic_cast<ICPUImage>(imageBundle.getContents().begin()[0]);
+    ICPUImageView::SCreationParams viewParams;
+    viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+    viewParams.format = EF_UNKNOWN;
+    viewParams.viewType = IImageView<ICPUImage>::ET_2D;
+    viewParams.subresourceRange.baseArrayLayer = 0u;
+    viewParams.subresourceRange.layerCount = 1u;
+    viewParams.subresourceRange.baseMipLevel = 0u;
+    viewParams.subresourceRange.levelCount = 1u;
+    viewParams.image = std::move(image);
+
+    image_views_set_t views;
+    views[0] = ICPUImageView::create(std::move(viewParams));
+
+    auto file = m_assetMgr->getFileSystem()->createMemoryReadFile(DUMMY_MTL_CONTENT, strlen(DUMMY_MTL_CONTENT), "default IrrlichtBAW material");
+    auto bundle = loadAsset(file, params);
+    auto pipeline = static_cast< ICPURenderpassIndependentPipeline*>( bundle.getContents().begin()->get());
+    file->drop();
+    auto p = core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>(pipeline);
+    auto ds3 = makeDescSet(std::move(views), p->getLayout()->getDescriptorSetLayout(3u));
+
+    SAssetBundle ds3Bundle{ ds3 };
+    m_assetMgr->changeAssetKey(ds3Bundle, MISSING_CHECKERBOARD_TEXTURE_CACHE_KEY);
+    m_assetMgr->insertAssetIntoCache(ds3Bundle);
+
+    insertPipelineIntoCache(std::move(p), MISSING_MTL_PIPELINE_CACHE_KEY, m_assetMgr);
 }
 
 bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) const
@@ -167,21 +237,6 @@ bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) con
     return mtl.find("newmtl") != std::string::npos;
 }
 
-template<typename AssetType, IAsset::E_TYPE assetType>
-static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
-{
-    size_t storageSz = 1ull;
-    asset::SAssetBundle bundle;
-    const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
-
-    _assetMgr->findAssets(storageSz, &bundle, _key, types);
-    if (bundle.isEmpty())
-        return nullptr;
-    auto assets = bundle.getContents();
-    //assert(assets.first != assets.second);
-
-    return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
-}
 
 core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipelineLayoutFromMtl(const SMtl& _mtl, bool _noDS3)
 {
@@ -324,19 +379,30 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
 
         core::smart_refctd_ptr<ICPUDescriptorSet> ds3;
         {
-            const std::string dsCacheKey = std::string(fullName.c_str())+"?"+materials[i].name+"?_ds";
-            const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_DESCRIPTOR_SET, (asset::IAsset::E_TYPE)0u };
-            auto ds_bundle = _override->findCachedAsset(dsCacheKey, types, ctx.inner, _hierarchyLevel + ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
-            if (!ds_bundle.isEmpty())
-                ds3 = core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(ds_bundle.getContents().begin()[0]);
-            else 
+                const std::string dsCacheKey = std::string(fullName.c_str()) + "?" + materials[i].name + "?_ds";
+            if (_override)
             {
-                auto views = loadImages(relPath.c_str(), materials[i], ctx);
-                ds3 = makeDescSet(std::move(views), layout->getDescriptorSetLayout(3u));
-                if (ds3)
+                const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_DESCRIPTOR_SET, (asset::IAsset::E_TYPE)0u };
+                auto ds_bundle = _override->findCachedAsset(dsCacheKey, types, ctx.inner, _hierarchyLevel + ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
+                if (!ds_bundle.isEmpty())
+                    ds3 = core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(ds_bundle.getContents().begin()[0]);
+                else
                 {
-                    SAssetBundle bundle{ds3};
-                    _override->insertAssetIntoCache(bundle, dsCacheKey, ctx.inner, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
+                    auto views = loadImages(relPath.c_str(), materials[i], ctx);
+                    ds3 = makeDescSet(std::move(views), layout->getDescriptorSetLayout(3u));
+                    if (ds3)
+                    {
+                        SAssetBundle bundle{ ds3 };
+                        _override->insertAssetIntoCache(bundle, dsCacheKey, ctx.inner, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
+                    }
+                }
+            }
+            else {
+                const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_DESCRIPTOR_SET, (asset::IAsset::E_TYPE)0u };
+                auto b = m_assetMgr->findAssets(dsCacheKey, types);
+                if (b)
+                {
+                    ds3 = core::smart_refctd_ptr_dynamic_cast<ICPUDescriptorSet>(b->begin()->getContents().begin()[0]);
                 }
             }
         }
@@ -662,7 +728,6 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mt
         ICPUImage::SCreationParams cubemapParams = images[CMTLPipelineMetadata::EMP_REFL_POSX]->getCreationParameters();
         cubemapParams.arrayLayers = 6u;
         cubemapParams.type = IImage::ET_2D;
-
         auto cubemap = ICPUImage::create(std::move(cubemapParams));
         auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(regions_);
         cubemap->setBufferAndRegions(std::move(imgDataBuf), regions);
