@@ -336,8 +336,6 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 						);
 					};
 
-					/*
-					
 					{
 						core::vector3du32_SIMD localCoord;
 						for (auto& z = localCoord[2] = 0u; z < state->extent.depth; ++z)
@@ -345,8 +343,6 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 								for (auto& x = localCoord[0] = 0u; x < state->extent.width; ++x)
 									sum(core::vectorSIMDu32(x, y, z));
 					}
-
-					*/
 
 					auto normalizeScratch = [&](bool isSignedFormat)
 					{
@@ -366,14 +362,10 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 												entryScratchAdress[channel] = (entryScratchAdress[channel] - minDecodeValues[channel]) / (maxDecodeValues[channel] - minDecodeValues[channel]);
 									}
 					};
-					
-					/*
 
 					bool normalized = asset::isNormalizedFormat(inFormat);
 					if (state->normalizeImageByTotalSATValues || normalized)
 						normalizeScratch(asset::isSignedFormat(inFormat));
-
-					*/
 
 					{
 						uint8_t* outData = reinterpret_cast<uint8_t*>(state->outImage->getBuffer()->getPointer());
