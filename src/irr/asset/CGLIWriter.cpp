@@ -159,9 +159,11 @@ bool CGLIWriter::writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* 
 	{
 		uint32_t currentMipLevel;
 		core::vectorSIMDu32 outStrides;
-		core::vectorSIMDu32 outDimension;
+		core::vectorSIMDu32 outBlocks;
 	} state;
-	auto writeTexel = [&data,&texelBlockByteSize,getCurrentGliLayerAndFace,&state,&texture,&imageInfo](uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord) -> void
+	const bool isBC = asset::isBlockCompressionFormat(imageInfo.format);
+	const bool isInteger = asset::isIntegerFormat(imageInfo.format);
+	auto writeTexel = [&data,&texelBlockByteSize,getCurrentGliLayerAndFace,&state,&texture,&imageInfo,&swizzleMapping,&isBC,&isInteger](uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord) -> void
 	{
 		const uint8_t* inData = data+ptrOffset;
 
@@ -170,36 +172,33 @@ bool CGLIWriter::writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* 
 		const auto gliFace = layersData.second;
 		uint8_t* outData = reinterpret_cast<uint8_t*>(texture.data(gliLayer,gliFace,state.currentMipLevel));
 		outData += asset::IImage::SBufferCopy::getLocalByteOffset(texelCoord, state.outStrides);
-		
-		/*
 
-		DO SWIZZLE - TODO
+		if (isBC)
+			memcpy(outData, inData, texelBlockByteSize);
+		else
+		{
+			const void* sourcePixels[] = { inData, nullptr, nullptr, nullptr };
+			constexpr uint8_t maxChannels = 4;
+			double decodeBuffer[maxChannels] = {};
+			double swizzleDecodeBuffer[maxChannels] = {};
 
-		constexpr uint8_t maxChannels = 4;
-		double decodeBuffer[maxChannels] = {};
-		double swizzleDecodeBuffer[maxChannels] = {};
-
-		for (auto blockY = 0u; blockY < state.outDimension.y; blockY++)
-			for (auto blockX = 0u; blockX < state.outDimension.x; blockX++)
-			{
-				asset::decodePixelsRuntime(imageInfo.format, INSOURCEPIXELS, decodeBuffer, blockX, blockY);
-				const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(texelCoord.x + blockX, texelCoord.y + blockY, texelCoord.z), state.outStrides);
-				memcpy(MEMORY + offset, decodeBuffer, BYTESIZE);
-			}
-
-		*/
-
-		memcpy(outData,inData,texelBlockByteSize);
+			asset::decodePixelsRuntime(imageInfo.format, sourcePixels, decodeBuffer, 0, 0);
+			if(isInteger)
+				swizzleMapping(reinterpret_cast<uint64_t*>(decodeBuffer), reinterpret_cast<uint64_t*>(swizzleDecodeBuffer));
+			else
+				swizzleMapping(decodeBuffer, swizzleDecodeBuffer);
+			asset::encodePixelsRuntime(imageInfo.format, outData, swizzleDecodeBuffer);
+		}
 	};
 	const TexelBlockInfo blockInfo(imageInfo.format);
 	auto updateState = [&state,&blockInfo,texelBlockByteSize,image](const IImage::SBufferCopy& newRegion, const IImage::SBufferCopy* referenceRegion) -> bool
 	{
 		state.currentMipLevel = referenceRegion->imageSubresource.mipLevel;
 
-		state.outDimension = blockInfo.convertTexelsToBlocks(image->getMipSize(state.currentMipLevel));
+		state.outBlocks = blockInfo.convertTexelsToBlocks(image->getMipSize(state.currentMipLevel));
 		state.outStrides[0] = texelBlockByteSize;
-		state.outStrides[1] = state.outDimension[0]*texelBlockByteSize;
-		state.outStrides[2] = state.outDimension[1]*state.outStrides[1];
+		state.outStrides[1] = state.outBlocks[0]*texelBlockByteSize;
+		state.outStrides[2] = state.outBlocks[1]*state.outStrides[1];
 		state.outStrides[3] = 0; // GLI function gets the correct layer by itself
 		return true;
 	};

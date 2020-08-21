@@ -195,6 +195,7 @@ int main()
 	viewParams.format = viewParams.image->getCreationParameters().format;
 
 	#ifdef IMAGE_VIEW
+	viewParams.components = cpuImageViewFetched->getComponents();
 	viewParams.viewType = IImageView<ICPUImage>::ET_2D_ARRAY;
 	#else
 	viewParams.viewType = IImageView<ICPUImage>::ET_2D;
