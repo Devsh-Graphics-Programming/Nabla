@@ -263,40 +263,40 @@ int main()
 		return outputFileName;
 	};
 
-	auto getDisConvolutedImage = [&](const core::smart_refctd_ptr<ICPUImage> image) -> core::smart_refctd_ptr<ICPUImage>
+	auto getDisConvolutedImage = [&](const core::smart_refctd_ptr<ICPUImage> inImage) -> core::smart_refctd_ptr<ICPUImage>
 	{
-		auto outImage = core::move_and_static_cast<core::smart_refctd_ptr<ICPUImage>>(image->clone());
+		auto outImage = core::move_and_static_cast<ICPUImage>(inImage->clone());
 
 		using DISCRETE_CONVOLUTION_BLIT_FILTER = asset::CBlitImageFilter<CDiscreteConvolutionFilterKernel>;
 		DISCRETE_CONVOLUTION_BLIT_FILTER blitImageFilter;
 		DISCRETE_CONVOLUTION_BLIT_FILTER::state_type state;
+		
+		core::vectorSIMDu32 extentLayerCount;
+		#ifdef IMAGE_VIEW
+		state.inMipLevel = MIPMAP_IMAGE_VIEW;
+		state.outMipLevel = MIPMAP_IMAGE_VIEW;
+		extentLayerCount = core::vectorSIMDu32(0, 0, 0, inImage->getCreationParameters().arrayLayers) + inImage->getMipSize(MIPMAP_IMAGE_VIEW);
+		#else
+		state.inMipLevel = MIPMAP_IMAGE;
+		state.outMipLevel = MIPMAP_IMAGE;
+		extentLayerCount = core::vectorSIMDu32(0, 0, 0, inImage->getCreationParameters().arrayLayers) + inImage->getMipSize(MIPMAP_IMAGE);
+		#endif // IMAGE_VIEW
 
-		/* TODO: fill it
+		state.inOffsetBaseLayer = core::vectorSIMDu32();
+		state.inExtentLayerCount = extentLayerCount;
+		state.inImage = inImage.get();
 
-		state.alphaChannel = ? ;
-		state.alphaRefValue = ? ;
-		state.alphaSemantic = ? ;
-		state.axisWraps = ? ;
-		state.borderColor = ? ;
-		state.inBaseLayer = ? ;
-		state.inExtent = ? ;
-		state.inImage = ? ;
-		state.inLayerCount = ? ;
-		state.inMipLevel = ? ;
-		state.inOffset = ? ;
-		state.kernel = ? ;
-		state.NumWrapAxes = ? ;
-		state.outBaseLayer = ? ;
-		state.outExtent = ? ;
-		state.outImage = ? ;
-		state.outLayerCount = ? ;
-		state.outMipLevel = ? ;
-		state.outOffset = ? ;
+		state.outOffsetBaseLayer = core::vectorSIMDu32();
+		state.outExtentLayerCount = extentLayerCount;
+		state.outImage = outImage.get();
 
-		*/
+		state.scratchMemoryByteSize = blitImageFilter.getRequiredScratchByteSize(&state);
+		state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
 
-		if (blitImageFilter.execute(&state))
+		if (!blitImageFilter.execute(&state))
 			os::Printer::log("Something went wrong while performing discrete convolution operation!", ELL_WARNING);
+
+		_IRR_ALIGNED_FREE(state.scratchMemory);
 
 		return outImage;
 	};
@@ -315,6 +315,7 @@ int main()
 
 		viewParams.image = cpuImage;
 		viewParams.format = cpuImage->getCreationParameters().format;
+		viewParams.components = {};
 
 		auto cpuImageView = ICPUImageView::create(std::move(viewParams));
 		assert(cpuImageView.get(), "The imageView didn't pass creation validation!");
