@@ -25,6 +25,7 @@ SOFTWARE.
 #ifdef _IRR_COMPILE_WITH_GLI_WRITER_
 
 #include "irr/asset/filters/CBasicImageFilterCommon.h"
+#include "irr/asset/filters/CSwizzleAndConvertImageFilter.h"
 
 #ifdef _IRR_COMPILE_WITH_GLI_
 #include "gli/gli.hpp"

@@ -33,11 +33,11 @@ class IImageFilterKernel
 			// `relativePosAndFactor.xyz` holds the coordinate of the pixel relative to the window's center (can be fractional so its a float),
 			// `relativePosAndFactor.w` holds a case-dependant factor (usually its a scale factor)
 			// `globalTexelCoord` is the unnormalized corner sampled coordinate of the pixel relative to the image origin
-			inline void operator()(void* windowSample, const core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
+			inline void operator()(void* windowSample, core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
 			{
 			}
 		};
-		using sample_functor_operator_t = void(void*, const core::vectorSIMDf&, const core::vectorSIMDi32&);
+		using sample_functor_operator_t = void(void*, core::vectorSIMDf&, const core::vectorSIMDi32&);
 
 		// Whether we can break up the convolution in multiple dimensions as a separate convlution per dimension all followed after each other,this is very important for performance
 		// as it turns a convolution from a O(window_size.x*image_extent.x*window_size.y*image_extent.y...) to O(window_size.x*image_extent.x+window_size.y*image_extent.y+..)

@@ -96,13 +96,16 @@ class CScaledImageFilterKernel : public impl::CScaledImageFilterKernelBase<Kerne
 				sample_functor_t(const CScaledImageFilterKernel<Kernel>* __this, PreFilter& _preFilter, PostFilter& _postFilter) :
 					_this(__this), preFilter(_preFilter), postFilter(_postFilter) {}
 
+				// so this functor wraps the original one of the unscaled in a peculiar way
 				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
 				{
+					// it actually injects an extra preFilter functor after the original to rescale the `relativePosAndFactor`
 					auto wrap = [this](value_type* windowSample, core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord)
 					{
 						preFilter(windowSample,relativePosAndFactor,globalTexelCoord);
 						relativePosAndFactor *= _this->rscale;
 					};
+					// but it doesnt wrap or do anything to the postFilter functor
 					static_cast<const Kernel*>(_this)->create_sample_functor_t(wrap,postFilter)(windowSample,relativePosAndFactor,globalTexelCoord);
 				}
 

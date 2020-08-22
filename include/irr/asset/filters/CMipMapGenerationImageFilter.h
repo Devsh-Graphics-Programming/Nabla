@@ -18,9 +18,10 @@ namespace asset
 // Each mip-map will be constructed from the convolution of the previous by the scaled kernel.
 // For Sinc/Lanczos and Box Kernels this hierarchical computation gives the exact result.
 // However if you desire to use other filters then you should carefully consider the implications
-// For example in the gaussian case you want to filter with 1/resolution, 2/resolution, 4/resolution supports
-// but iterative application of the filter will give you 1/resolution, 3/resolution, 7/resolution supports
-// the correct usage is to compute the first mip map with a 1 pixel support kernel, then subsequent iterations with 0.5 pixel support
+// For example in the gaussian case you want to filter with 2/originalResolution, 4/originalResolution, 8/originalResolution supports
+// but iterative application of the filter will give you 2/originalResolution, 6/originalResolution, 14/originalResolution supports
+// the correct usage is to compute the first mip map with a 100% support kernel, then subsequent iterations with 50% smaller pixel supports
+// (actually in the case of using a Gaussian for both resampling and reconstruction, this is equivalent to using a single kernel of 3,3,5,9,..)
 template<class ResamplingKernel=CKaiserImageFilterKernel<>, class ReconstructionKernel=CMitchellImageFilterKernel<> >
 class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<ResamplingKernel,ReconstructionKernel> >, public CBasicImageFilterCommon
 {
