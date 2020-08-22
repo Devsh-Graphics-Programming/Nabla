@@ -31,7 +31,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 		// TODO: Improve and implement the cached convolution kernel
 		using Kernel = ResamplingKernel;//CKernelConvolution<ResamplingKernel, ReconstructionKernel>;
 
-		class CState : public IImageFilter::IState, public CBlitImageFilterBase::CStateBase
+		class CState : public IImageFilter::IState, public CBlitImageFilterBase<typename Kernel::value_type>::CStateBase
 		{
 			public:
 				virtual ~CState() {}
@@ -108,7 +108,8 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			blit.outMipLevel = inMipLevel;
 			blit.inImage = blit.outImage = state->inOutImage;
 			//blit.kernel = Kernel(); // gets default constructed, we should probably do a `static_assert` about this property
-			static_cast<typename CBlitImageFilterBase::CStateBase&>(blit) = *static_cast<const typename CBlitImageFilterBase::CStateBase*>(state);
+			using state_base_t = typename CBlitImageFilterBase<typename Kernel::value_type>::CStateBase;
+			static_cast<state_base_t&>(blit) = *static_cast<const state_base_t*>(state);
 			return blit;
 		}
 };
