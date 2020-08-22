@@ -85,6 +85,7 @@ class CFloatingPointIsotropicSeparableImageFilterKernelBase : public CImageFilte
 		}
 
 	protected:
+		using isotropic_support_as_ratio = Support;
 		// utility function so we dont evaluate `weight` function in children outside the support and just are able to return 0.f
 		inline bool inDomain(float x) const
 		{
