@@ -18,11 +18,19 @@ namespace asset
 
 namespace impl
 {
-
-class CScaledImageFilterKernelBase
+	
+template<class Kernel>
+class CScaledImageFilterKernelBase : protected Kernel
 {
 	public:
-		CScaledImageFilterKernelBase(const core::vectorSIMDf& _rscale) : rscale(_rscale.x,_rscale.y,_rscale.z,_rscale.x*_rscale.y*_rscale.z) {}
+		// we preserve all basic properties of the original kernel
+		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels;
+		using value_type = typename Kernel::value_type;
+
+		_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = Kernel::is_separable;
+
+		// constructor
+		CScaledImageFilterKernelBase(const core::vectorSIMDf& _rscale, Kernel&& k) : Kernel(std::move(k)), rscale(_rscale.x,_rscale.y,_rscale.z,_rscale.x*_rscale.y*_rscale.z) {}
 
 		// reciprocal of the scale, the w component holds the scale that needs to be applied to the kernel values to preserve the integral
 		// 1/(A*B*C) InfiniteIntegral f(x/A,y/B,z/C) dx dy dz == InfiniteIntegral f(x,y,z) dx dy dz
@@ -33,21 +41,15 @@ class CScaledImageFilterKernelBase
 
 // this kernel will become a stretched version of the original kernel while keeping its integral constant
 template<class Kernel>
-class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilterKernelBase, public CImageFilterKernel<CScaledImageFilterKernel<Kernel>,typename Kernel::value_type>
+class CScaledImageFilterKernel : public impl::CScaledImageFilterKernelBase<Kernel>, public CImageFilterKernel<CScaledImageFilterKernel<Kernel>,typename impl::CScaledImageFilterKernelBase<Kernel>::value_type>
 {
-		using StaticPolymorphicBase = CImageFilterKernel<CScaledImageFilterKernel<Kernel>, typename Kernel::value_type>;
+		using Base = impl::CScaledImageFilterKernelBase<Kernel>;
+		using StaticPolymorphicBase = CImageFilterKernel<CScaledImageFilterKernel<Kernel>, typename Base::value_type>;
 
 	public:
-		// we preserve all basic properties of the original kernel
-		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels;
-		using value_type = typename Kernel::value_type;
-
-		_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = Kernel::is_separable;
-
 		// the scale is how much we want to stretch the support, so if we have a box function kernel with support -0.5,0.5 then scaling it with `_scale=4.0`
 		// would give us a kernel with support -2.0,2.0 which still has the same area under the curve (integral)
-		CScaledImageFilterKernel(const core::vectorSIMDf& _scale, Kernel&& k=Kernel()) : Kernel(std::move(k)),
-			impl::CScaledImageFilterKernelBase(core::vectorSIMDf(1.f).preciseDivision(_scale)),
+		CScaledImageFilterKernel(const core::vectorSIMDf& _scale, Kernel&& k=Kernel()) : Base(core::vectorSIMDf(1.f).preciseDivision(_scale),std::move(k)),
 			StaticPolymorphicBase(
 					{Kernel::positive_support[0]*_scale[0],Kernel::positive_support[1]*_scale[1],Kernel::positive_support[2]*_scale[2]},
 					{Kernel::negative_support[0]*_scale[0],Kernel::negative_support[1]*_scale[1],Kernel::negative_support[2]*_scale[2]}
@@ -76,7 +78,7 @@ class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilter
 			return StaticPolymorphicBase::getWindowSize();
 		}
 		
-		// we need to use forwarding for some silly compiler scoping reason instead of leaving the function overload undeclared, it basically will do same as the base
+		// we need to use forwarding for some silly compiler scoping reason (probably because we inherit from Kernel) instead of leaving the function overload undeclared, it basically will do same as the base
 		template<class PreFilter=const typename StaticPolymorphicBase::default_sample_functor_t, class PostFilter=const typename StaticPolymorphicBase::default_sample_functor_t>
 		inline void evaluate(const core::vectorSIMDf& globalPos, PreFilter& preFilter, PostFilter& postFilter) const
 		{
@@ -110,6 +112,7 @@ class CScaledImageFilterKernel : private Kernel, public impl::CScaledImageFilter
 				PostFilter& postFilter;
 		};
 
+		// the method all kernels must define and overload
 		template<class PreFilter, class PostFilter>
 		inline auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const
 		{
