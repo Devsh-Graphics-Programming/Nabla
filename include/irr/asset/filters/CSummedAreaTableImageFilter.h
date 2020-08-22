@@ -30,7 +30,7 @@ class CSummedAreaTableImageFilterBase
 				uint8_t*	scratchMemory = nullptr;										//!< memory covering all regions used for temporary filling within computation of sum values
 				size_t	scratchMemoryByteSize = {};											//!< required byte size for entire scratch memory
 				bool normalizeImageByTotalSATValues = false;								//!< after sum performation division will be performed for the entire image by the max sum values in (maxX, 0, z) depending on input image - needed for UNORM and SNORM
-				
+
 				static inline size_t getRequiredScratchByteSize(const ICPUImage* inputImage, asset::VkExtent3D extent)
 				{
 					const auto& inputCreationParams = inputImage->getCreationParameters();
@@ -191,7 +191,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					bool is3DAndBelow = state->inImage->getCreationParameters().type == IImage::ET_3D;
 					const core::vectorSIMDu32 limit(1, is2DAndBelow, is3DAndBelow);
 					const core::vectorSIMDu32 movingExclusiveVector = limit, movingOnYZorXZorXYCheckingVector = limit;
-					
+
 					auto decode = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 					{
 						core::vectorSIMDu32 localOutPos = readBlockPos * blockDims - core::vectorSIMDu32(state->inOffset.x, state->inOffset.y, state->inOffset.z);
@@ -207,6 +207,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 							if (isSatMemorySafe.all())
 							{
 								decodeType decodeBuffer[maxChannels] = {};
+
 								for (auto blockY = 0u; blockY < blockDims.y; blockY++)
 									for (auto blockX = 0u; blockX < blockDims.x; blockX++)
 									{
@@ -334,7 +335,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 							}
 						);
 					};
-					
+
 					{
 						core::vector3du32_SIMD localCoord;
 						for (auto& z = localCoord[2] = 0u; z < state->extent.depth; ++z)
@@ -361,7 +362,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 												entryScratchAdress[channel] = (entryScratchAdress[channel] - minDecodeValues[channel]) / (maxDecodeValues[channel] - minDecodeValues[channel]);
 									}
 					};
-					
+
 					bool normalized = asset::isNormalizedFormat(inFormat);
 					if (state->normalizeImageByTotalSATValues || normalized)
 						normalizeScratch(asset::isSignedFormat(inFormat));
@@ -372,7 +373,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 						auto encode = [&](uint32_t writeBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
 						{
 							// encoding format cannot be block compressed so in this case block==texel
-							auto localOutPos = readBlockPos - core::vectorSIMDu32(state->outOffset.x, state->outOffset.y, state->outOffset.z);
+							auto localOutPos = readBlockPos - core::vectorSIMDu32(state->outOffset.x, state->outOffset.y, state->outOffset.z, readBlockPos.w); // force 0 on .w compoment to obtain valid offset
 							uint8_t* outDataAdress = outData + writeBlockArrayOffset;
 
 							const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(localOutPos, scratchByteStrides);

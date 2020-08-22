@@ -22,10 +22,37 @@ using namespace video;
 */
 
 // #define IMAGE_VIEW 
-#define OVERLAPPING_REGIONS				// @devsh I leave it for you
-constexpr bool EXCLUSIVE_SUM = false;
+// #define OVERLAPPING_REGIONS				// @devsh I leave it for you
+constexpr bool EXCLUSIVE_SUM = true;
 constexpr auto MIPMAP_IMAGE_VIEW = 2u;		// feel free to change the mipmap
 constexpr auto MIPMAP_IMAGE = 0u;			// ordinary image used in the example has only 0-th mipmap
+
+/*
+	Discrete convolution for getting input image after SAT calculations
+
+	- support [-1.5,1.5]
+	- (weight = -1) in [-1.5,-0.5]
+	- (weight = 1) in [-0.5,0.5]
+	- (weight = 0) in [0.5,1.5] and in range over the support
+*/
+
+using CDiscreteConvolutionRatioForSupport = std::ratio<3, 2>; //!< 1.5
+class CDiscreteConvolutionFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CDiscreteConvolutionFilterKernel, CDiscreteConvolutionRatioForSupport >
+{
+	using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CDiscreteConvolutionFilterKernel, CDiscreteConvolutionRatioForSupport >;
+
+public:
+	inline float weight(float x) const
+	{
+		if (x >= -1.5f && x <= -0.5f)
+			return -1.0f;
+		else if (x >= -0.5f && x <= 0.5f)
+			return 1.0f;
+		else
+			return 0.0f;
+	}
+
+};
 
 int main()
 {
@@ -157,10 +184,9 @@ int main()
 			#endif // IMAGE_VIEW
 
 			state.layerCount = newSumImage->getCreationParameters().arrayLayers;
-
+			
 			state.scratchMemoryByteSize = state.getRequiredScratchByteSize(state.inImage, state.extent);
 			state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
-
 			#ifdef IMAGE_VIEW
 			state.inMipLevel = MIPMAP_IMAGE_VIEW;
 			state.outMipLevel = MIPMAP_IMAGE_VIEW;
@@ -196,6 +222,7 @@ int main()
 	viewParams.format = viewParams.image->getCreationParameters().format;
 
 	#ifdef IMAGE_VIEW
+	viewParams.components = cpuImageViewFetched->getComponents();
 	viewParams.viewType = IImageView<ICPUImage>::ET_2D_ARRAY;
 	#else
 	viewParams.viewType = IImageView<ICPUImage>::ET_2D;
@@ -209,25 +236,91 @@ int main()
 	auto cpuImageView = ICPUImageView::create(std::move(viewParams));
 	assert(cpuImageView.get(), "The imageView didn't pass creation validation!");
 
-	constexpr std::string_view MODE = [&]() constexpr 
+	auto writeSATandGetItsOutputName = [&]() -> std::string
 	{
-		if constexpr (EXCLUSIVE_SUM)
-			return "EXCLUSIVE_SAT_";
-		else
-			return "INCLUSIVE_SAT_";
+		std::string outputFileName;
+
+		constexpr std::string_view MODE = [&]() constexpr
+		{
+			if constexpr (EXCLUSIVE_SUM)
+				return "EXCLUSIVE_SAT_";
+			else
+				return "INCLUSIVE_SAT_";
+		}
+		();
+
+		asset::IAssetWriter::SAssetWriteParams wparams(cpuImageView.get());
+		#ifdef IMAGE_VIEW
+		assetManager->writeAsset(outputFileName = std::string(MODE.data()) + "IMG_VIEW.dds", wparams);
+		#else
+			#ifdef OVERLAPPING_REGIONS
+			assetManager->writeAsset(outputFileName = std::string(MODE.data()) + "IMG_OVERLAPPING_REGIONS.exr", wparams);
+			#else 
+			assetManager->writeAsset(outputFileName = std::string(MODE.data()) + "IMG.exr", wparams);
+			#endif // OVERLAPPING_REGIONS
+		#endif // IMAGE_VIEW
+
+		return outputFileName;
+	};
+
+	auto getDisConvolutedImage = [&](const core::smart_refctd_ptr<ICPUImage> inImage) -> core::smart_refctd_ptr<ICPUImage>
+	{
+		auto outImage = core::move_and_static_cast<ICPUImage>(inImage->clone());
+
+		using DISCRETE_CONVOLUTION_BLIT_FILTER = asset::CBlitImageFilter<CDiscreteConvolutionFilterKernel>;
+		DISCRETE_CONVOLUTION_BLIT_FILTER blitImageFilter;
+		DISCRETE_CONVOLUTION_BLIT_FILTER::state_type state;
+		
+		core::vectorSIMDu32 extentLayerCount;
+		#ifdef IMAGE_VIEW
+		state.inMipLevel = MIPMAP_IMAGE_VIEW;
+		state.outMipLevel = MIPMAP_IMAGE_VIEW;
+		extentLayerCount = core::vectorSIMDu32(0, 0, 0, inImage->getCreationParameters().arrayLayers) + inImage->getMipSize(MIPMAP_IMAGE_VIEW);
+		#else
+		state.inMipLevel = MIPMAP_IMAGE;
+		state.outMipLevel = MIPMAP_IMAGE;
+		extentLayerCount = core::vectorSIMDu32(0, 0, 0, inImage->getCreationParameters().arrayLayers) + inImage->getMipSize(MIPMAP_IMAGE);
+		#endif // IMAGE_VIEW
+
+		state.inOffsetBaseLayer = core::vectorSIMDu32();
+		state.inExtentLayerCount = extentLayerCount;
+		state.inImage = inImage.get();
+
+		state.outOffsetBaseLayer = core::vectorSIMDu32();
+		state.outExtentLayerCount = extentLayerCount;
+		state.outImage = outImage.get();
+
+		state.scratchMemoryByteSize = blitImageFilter.getRequiredScratchByteSize(&state);
+		state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
+
+		if (!blitImageFilter.execute(&state))
+			os::Printer::log("Something went wrong while performing discrete convolution operation!", ELL_WARNING);
+
+		_IRR_ALIGNED_FREE(state.scratchMemory);
+
+		return outImage;
+	};
+
+	{
+		const std::string satFileName = writeSATandGetItsOutputName();
+		const std::string convolutedSatFileName = "CONVOLUTED_" + satFileName;
+
+		auto bundle = assetManager->getAsset(satFileName, lp);
+		#ifdef IMAGE_VIEW
+		auto cpuImageViewFetched = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(bundle.getContents().begin()[0]);
+		auto cpuImage = getDisConvolutedImage(cpuImageViewFetched->getCreationParameters().image);
+		#else
+		auto cpuImage = getDisConvolutedImage(core::smart_refctd_ptr_static_cast<asset::ICPUImage>(bundle.getContents().begin()[0]));
+		#endif // IMAGE_VIEW
+
+		viewParams.image = cpuImage;
+		viewParams.format = cpuImage->getCreationParameters().format;
+		viewParams.components = {};
+
+		auto cpuImageView = ICPUImageView::create(std::move(viewParams));
+		assert(cpuImageView.get(), "The imageView didn't pass creation validation!");
+
+		asset::IAssetWriter::SAssetWriteParams wparams(cpuImageView.get());
+		assetManager->writeAsset(convolutedSatFileName, wparams);
 	}
-	();
-
-	asset::IAssetWriter::SAssetWriteParams wparams(cpuImageView.get());
-	#ifdef IMAGE_VIEW
-	assetManager->writeAsset(std::string(MODE.data()) + "IMG_VIEW.dds", wparams);
-	#else
-
-		#ifdef OVERLAPPING_REGIONS
-		assetManager->writeAsset(std::string(MODE.data()) + "IMG_OVERLAPPING_REGIONS.exr", wparams);
-		#else 
-		assetManager->writeAsset(std::string(MODE.data()) + "IMG.exr", wparams);
-		#endif // OVERLAPPING_REGIONS
-
-	#endif // IMAGE_VIEW
 }

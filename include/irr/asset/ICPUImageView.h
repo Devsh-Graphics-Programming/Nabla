@@ -56,6 +56,7 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
 		//!
+		const SComponentMapping& getComponents() const { return params.components; }
 		SComponentMapping&	getComponents() { return params.components; }
 
 	protected:
