@@ -1,10 +1,9 @@
 #ifndef _IRR_BSDF_BRDF_SPECULAR_BECKMANN_SMITH_INCLUDED_
 #define _IRR_BSDF_BRDF_SPECULAR_BECKMANN_SMITH_INCLUDED_
-
+//TODO rename this file to beckmann.glsl
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ndf/beckmann.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/geom/smith.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/fresnel/fresnel.glsl>
 #include <irr/builtin/glsl/math/functions.glsl>
 
 #include <irr/builtin/glsl/math/functions.glsl>
@@ -83,44 +82,70 @@ irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_Anisotropic
 
 	return irr_glsl_createBSDFSample(H,localV,dot(H,localV),m);
 }
-irr_glsl_BSDFSample irr_glsl_beckmann_smith_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in uvec2 _sample, in float _ax, in float _ay)
-{
-    vec2 u = vec2(_sample)/float(UINT_MAX);
-    return irr_glsl_beckmann_smith_cos_generate(interaction, u, _ax, _ay);
-}
 
-vec3 irr_glsl_beckmann_smith_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior2, in float ax, in float ay)
+vec3 irr_glsl_beckmann_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float a2)
 {
-	float a2 = ax*ay;
 	float NdotL2 = s.NdotL*s.NdotL;
-	float lambda_V = irr_glsl_smith_beckmann_Lambda(irr_glsl_smith_beckmann_C2(interaction.NdotV_squared, a2));
-	float lambda_L = irr_glsl_smith_beckmann_Lambda(irr_glsl_smith_beckmann_C2(NdotL2, a2));
+	float lambda_V = irr_glsl_smith_beckmann_Lambda(interaction.NdotV_squared, a2);
 	float onePlusLambda_V = 1.0 + lambda_V;
-	float G = 1.0 / onePlusLambda_V;
-	pdf = irr_glsl_beckmann(a2,s.NdotH*s.NdotH)*G*abs(s.VdotH)/interaction.NdotV;
-	G = onePlusLambda_V/(onePlusLambda_V+lambda_L);//remainder
+
+	float G1 = 1.0 / onePlusLambda_V;
+	pdf = irr_glsl_beckmann(a2,s.NdotH*s.NdotH)*G1*0.25/interaction.NdotV;
+
+	float G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(onePlusLambda_V, s.NdotL, NdotL2, a2);
 	
-	vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], s.VdotH);
-	return fr*G / (4.0 * interaction.NdotV);
+	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
+	return fr*G2_over_G1;
+}
+vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ax2, in float ay, in float ay2)
+{
+	float NdotL2 = s.NdotL*s.NdotL;
+    float TdotV2 = interaction.TdotV*interaction.TdotV;
+    float BdotV2 = interaction.BdotV*interaction.BdotV;
+
+    float c2 = irr_glsl_smith_beckmann_C2(TdotV2, BdotV2, interaction.isotropic.NdotV_squared, ax2, ay2);
+	float lambda_V = irr_glsl_smith_beckmann_Lambda(c2);
+	float onePlusLambda_V = 1.0 + lambda_V;
+
+	float G1 = 1.0 / onePlusLambda_V;
+	pdf = irr_glsl_beckmann(ax,ay,ax2,ay2,s.TdotH*s.TdotH,s.BdotH*s.BdotH,s.NdotH*s.NdotH)*G1*0.25/interaction.isotropic.NdotV;
+
+	float G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(onePlusLambda_V, s.NdotL, s.TdotL*s.TdotL, s.BdotL*s.BdotL, NdotL2, ax2, ay2);
+	
+	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
+	return fr*G2_over_G1;
 }
 
-float irr_glsl_beckmann_smith_height_correlated(in float NdotV2, in float NdotL2, in float a2)
+vec3 irr_glsl_beckmann_smith_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction interaction,  in mat2x3 ior, in float a2)
 {
-    float c2 = irr_glsl_smith_beckmann_C2(NdotV2, a2);
-    float L_v = irr_glsl_smith_beckmann_Lambda(c2);
-    c2 = irr_glsl_smith_beckmann_C2(NdotL2, a2);
-    float L_l = irr_glsl_smith_beckmann_Lambda(c2);
-    return 1.0 / (1.0 + L_v + L_l);
-}
-
-//TODO get rid of `a` parameter
-vec3 irr_glsl_beckmann_smith_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction interaction,  in mat2x3 ior2, in float a, in float a2)
-{
-    float g = irr_glsl_beckmann_smith_height_correlated(interaction.NdotV_squared, params.NdotL_squared, a2);
     float ndf = irr_glsl_beckmann(a2, params.NdotH*params.NdotH);
-    vec3 fr = irr_glsl_fresnel_conductor(ior2[0], ior2[1], params.VdotH);
+    float scalar_part = ndf / (4.0 * interaction.NdotV);
+    if  (a2>FLT_MIN)
+    {
+        float g = irr_glsl_beckmann_smith_correlated(interaction.NdotV_squared, params.NdotL_squared, a2);
+        scalar_part *= g;
+    }
+    vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], params.VdotH);
     
-    return g*ndf*fr / (4.0 * interaction.NdotV);
+    return scalar_part*fr;
+}
+
+vec3 irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction,  in mat2x3 ior, in float ax, in float ax2, in float ay, in float ay2)
+{
+    float ndf = irr_glsl_beckmann(ax, ay, ax2, ay2, params.TdotH*params.TdotH, params.BdotH*params.BdotH, params.isotropic.NdotH*params.isotropic.NdotH);
+    float scalar_part = ndf / (4.0 * interaction.isotropic.NdotV);
+    if (ax>FLT_MIN || ay>FLT_MIN)
+    {
+        float TdotV2 = interaction.TdotV*interaction.TdotV;
+        float BdotV2 = interaction.BdotV*interaction.BdotV;
+        float TdotL2 = params.TdotL*params.TdotL;
+        float BdotL2 = params.BdotL*params.BdotL;
+        float g = irr_glsl_beckmann_smith_correlated(TdotV2, BdotV2, interaction.isotropic.NdotV_squared, TdotL2, BdotL2, params.isotropic.NdotL_squared, ax2, ay2);
+        scalar_part *= g;
+    }
+    vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], params.isotropic.VdotH);
+    
+    return scalar_part*fr;
 }
 
 #endif

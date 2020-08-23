@@ -1,9 +1,9 @@
 #ifndef _BRDF_DIFFUSE_OREN_NAYAR_INCLUDED_
 #define _BRDF_DIFFUSE_OREN_NAYAR_INCLUDED_
 
-#include <irr/builtin/glsl/bxdf/common.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl>
 
-float irr_glsl_oren_nayar(in float _a2, in float VdotL, in float NdotL, in float NdotV)
+float irr_glsl_oren_nayar_rec_pi_factored_out(in float _a2, in float VdotL, in float NdotL, in float NdotV)
 {
     // theta - polar angles
     // phi - azimuth angles
@@ -16,12 +16,27 @@ float irr_glsl_oren_nayar(in float _a2, in float VdotL, in float NdotL, in float
     // and `theta_i` is the sine of the angle between L and N, similarily for `theta_o` but with V
     float cos_phi_sin_theta = max(VdotL-NdotL*NdotV,0.0);
     
-    return (AB.x + AB.y * cos_phi_sin_theta * C) * irr_glsl_RECIPROCAL_PI;
+    return (AB.x + AB.y * cos_phi_sin_theta * C);
 }
 
 float irr_glsl_oren_nayar_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in float a2)
 {
-    return params.NdotL * irr_glsl_oren_nayar(a2, params.VdotL, params.NdotL, inter.NdotV);
+    return max(params.NdotL,0.0)* irr_glsl_RECIPROCAL_PI * irr_glsl_oren_nayar_rec_pi_factored_out(a2, params.VdotL, params.NdotL, inter.NdotV);
+}
+
+
+irr_glsl_BSDFSample irr_glsl_oren_nayar_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u, in float a2)
+{
+    // until we find something better
+    return irr_glsl_lambertian_cos_generate(interaction,u);
+}
+
+float irr_glsl_oren_nayar_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float a2)
+{
+    // paired with the generation function
+    irr_glsl_lambertian_cos_remainder_and_pdf(pdf,s,interaction);
+    // but the remainder is different
+    return irr_glsl_oren_nayar_rec_pi_factored_out(a2, dot(interaction.V.dir,s.L), s.NdotL, interaction.NdotV);
 }
 
 #endif

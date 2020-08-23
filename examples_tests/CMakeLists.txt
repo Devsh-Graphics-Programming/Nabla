@@ -51,7 +51,7 @@ if (IRR_BUILD_MITSUBA_LOADER AND IRR_BUILD_OPTIX)
 	#add_subdirectory(28.OptiXPathTracing EXCLUDE_FROM_ALL)
 endif()
 add_subdirectory(29.SpecializationConstants EXCLUDE_FROM_ALL)
-#add_subdirectory(31.SkinningDataBenchmark EXCLUDE_FROM_ALL)
+add_subdirectory(31.SkinningDataBenchmark EXCLUDE_FROM_ALL)
 add_subdirectory(32.MultiThreadedRefCounting EXCLUDE_FROM_ALL) # TODO: @Anastazluk make this into example 04
 add_subdirectory(33.Draw3DLine EXCLUDE_FROM_ALL)
 add_subdirectory(34.AddressAllocatorTraitsTest EXCLUDE_FROM_ALL)
@@ -65,4 +65,8 @@ endif()
 add_subdirectory(40.GLITest EXCLUDE_FROM_ALL)
 #add_subdirectory(41.VisibilityBuffer EXCLUDE_FROM_ALL)
 add_subdirectory(42.EnvmapLookup EXCLUDE_FROM_ALL)
+add_subdirectory(43A.SumAndCDFFilters EXCLUDE_FROM_ALL) #TODO: @Anastazluk rename to ex 43
 add_subdirectory(43.AllocatorTest EXCLUDE_FROM_ALL) #TODO: @Anastazluk merge example 43,34 into ex 10
+add_subdirectory(44.LevelCurveExtraction EXCLUDE_FROM_ALL)
+add_subdirectory(45.BRDFEvalTest EXCLUDE_FROM_ALL)
+add_subdirectory(46.SamplingValidation EXCLUDE_FROM_ALL)

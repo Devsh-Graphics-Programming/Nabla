@@ -350,10 +350,11 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
                 // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
                 this->copyBuffer(defaultUploadBuffer.get()->getBuffer(),buffer,localOffset,offset+uploadedSize,subSize);
                 // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-                // no glFlush needed because waitCPU is not done to block execution until GPU is done on the allocations
-                defaultUploadBuffer.get()->multi_free(1u,&localOffset,&subSize,this->placeFence());
+                defaultUploadBuffer.get()->multi_free(1u,&localOffset,&subSize,this->placeFence(true));
                 uploadedSize += subSize;
             }
+            // TODO: for other threads to play nice.
+            //glFlush();
         }
 
 

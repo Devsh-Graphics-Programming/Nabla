@@ -482,6 +482,17 @@ IRR_FORCE_INLINE T cyl_bessel_i(const T& v, const T& x)
 	return std::cyl_bessel_i(double(v),double(x));
 }
 
+template<>
+IRR_FORCE_INLINE vectorSIMDf d_cyl_bessel_i<vectorSIMDf>(const vectorSIMDf& v, const vectorSIMDf& x)
+{
+	return vectorSIMDf(d_cyl_bessel_i<float>(v[0],x[0]),d_cyl_bessel_i<float>(v[1],x[1]),d_cyl_bessel_i<float>(v[2],x[2]),d_cyl_bessel_i<float>(v[3],x[3]));
+}
+template<typename T>
+IRR_FORCE_INLINE T d_cyl_bessel_i(const T& v, const T& x)
+{
+	return 0.5*(std::cyl_bessel_i(double(v)-1.0,double(x))+std::cyl_bessel_i(double(v)+1.0,double(x)));
+}
+
 
 } // end namespace core
 } // end namespace irr
