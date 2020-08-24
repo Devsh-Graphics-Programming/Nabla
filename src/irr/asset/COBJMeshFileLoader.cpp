@@ -50,8 +50,8 @@ static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAsse
 
 static const uint32_t WORD_BUFFER_LENGTH = 512;
 
-constexpr const char* MISSING_MTL_PIPELINE_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mtl/missing_material_pipeline";
-
+constexpr const char* MISSING_MTL_PIPELINE_NO_UV_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mtl/missing_material_pipeline_no_uv";
+constexpr const char* MISSING_MTL_PIPELINE_UV_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mtl/missing_material_pipeline_uv";
 constexpr uint32_t POSITION = 0u;
 constexpr uint32_t UV = 2u;
 constexpr uint32_t NORMAL = 3u;
@@ -416,7 +416,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			//if there's no pipeline for this meshbuffer, set dummy one
 			if (!submeshes[i]->getPipeline())
 			{
-				auto pipeline = getDefaultAsset<ICPURenderpassIndependentPipeline, IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE>(MISSING_MTL_PIPELINE_CACHE_KEY, AssetManager);
+				auto pipeline = getDefaultAsset<ICPURenderpassIndependentPipeline, IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE>(hasUV? MISSING_MTL_PIPELINE_UV_CACHE_KEY: MISSING_MTL_PIPELINE_NO_UV_CACHE_KEY, AssetManager);
 				submeshes[i]->setPipeline(std::move(pipeline));
 			}
         }

@@ -35,6 +35,8 @@ namespace asset
 	public:
         CGraphicsPipelineLoaderMTL(IAssetManager* _am);
 
+        void initialize();
+
 		bool isALoadableFileFormat(io::IReadFile* _file) const override;
 
 		const char** getAssociatedFileExtensions() const override
