@@ -417,7 +417,17 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			if (!submeshes[i]->getPipeline())
 			{
 				auto pipeline = getDefaultAsset<ICPURenderpassIndependentPipeline, IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE>(hasUV? MISSING_MTL_PIPELINE_UV_CACHE_KEY: MISSING_MTL_PIPELINE_NO_UV_CACHE_KEY, AssetManager);
+				const CMTLPipelineMetadata* metadata = static_cast<const CMTLPipelineMetadata*>(pipeline->getMetadata());
+				auto ds3 = core::smart_refctd_ptr<ICPUDescriptorSet>(metadata->getDescriptorSet());
+				const uint32_t pcoffset = pipeline->getLayout()->getPushConstantRanges().begin()[0].offset;
+				submeshes[i]->setAttachedDescriptorSet(std::move(ds3));
+				memcpy(
+					submeshes[i]->getPushConstantsDataPtr() + pcoffset,
+					&metadata->getMaterialParams(),
+					sizeof(CMTLPipelineMetadata::SMTLMaterialParameters)
+				);
 				submeshes[i]->setPipeline(std::move(pipeline));
+
 			}
         }
 
