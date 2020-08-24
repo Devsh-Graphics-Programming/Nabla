@@ -30,6 +30,8 @@ namespace MitsubaLoader
         if (src.value.type == SPropertyElementData::INVALID)
         {
             dst.source = IR::INode::EPS_TEXTURE;
+            //make sure smart_refctd_ptr assignment ptr wont try to drop() -- .value is union
+            dst.value.constant = 0.f;
             std::tie(dst.value.texture.image, dst.value.texture.sampler, dst.value.texture.scale) = getTexture(src.texture);
         }
         else
@@ -43,6 +45,8 @@ namespace MitsubaLoader
         if (src.value.type == SPropertyElementData::INVALID)
         {
             dst.source = IR::INode::EPS_TEXTURE;
+            //make sure smart_refctd_ptr assignment ptr wont try to drop() -- .value is union
+            dst.value.constant = IR::INode::color_t(0.f);
             std::tie(dst.value.texture.image, dst.value.texture.sampler, dst.value.texture.scale) = getTexture(src.texture);
         }
         else
@@ -51,6 +55,8 @@ namespace MitsubaLoader
             dst.value.constant = src.value.vvalue;
         }
     };
+    if (_bsdf->id == "Foam")
+        printf("");
 
     constexpr IR::CMicrofacetSpecularBSDFNode::E_NDF ndfMap[4]{
         IR::CMicrofacetSpecularBSDFNode::ENDF_BECKMANN,
@@ -58,7 +64,6 @@ namespace MitsubaLoader
         IR::CMicrofacetSpecularBSDFNode::ENDF_PHONG,
         IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY
     };
-
     IR::INode* root = ir->allocRootNode<IR::CMaterialNode>();
     root->children.count = 1u;
     bool twosided = false;
@@ -72,9 +77,9 @@ namespace MitsubaLoader
     core::queue<const CElementBSDF*> bsdfQ;
     bsdfQ.push(_bsdf);
     core::queue<IR::INode*> nodeQ;
-    nodeQ.push(root);
+    //nodeQ.push(root);
     uint32_t childrenCountdown = 1u;
-    IR::INode* parent = nodeQ.front();
+    IR::INode* parent = root;//nodeQ.front();
 
     while (!bsdfQ.empty())
     {
@@ -216,6 +221,8 @@ namespace MitsubaLoader
         case CElementBSDF::BUMPMAP:
         {
             nextSym = ir->allocNode<IR::CGeomModifierNode>(IR::CGeomModifierNode::ET_HEIGHT);
+            nextSym->children.count = 1u;
+
             auto* node = static_cast<IR::CGeomModifierNode*>(nextSym);
             node->source = IR::CGeomModifierNode::ESRC_TEXTURE;
             std::tie(node->texture.image, node->texture.sampler, node->texture.scale) = getTexture(current->bumpmap.texture);
@@ -281,7 +288,7 @@ namespace MitsubaLoader
         IR::INode* newParent = nullptr;
         if (nextSym->children)
             nodeQ.push(nextSym);
-        if (!--childrenCountdown)
+        if (!--childrenCountdown && !nodeQ.empty())
         {
             newParent = nodeQ.front();
             nodeQ.pop();
@@ -304,12 +311,12 @@ namespace MitsubaLoader
     IR::INode::children_array_t surfaces;
     surfaces.count = twosided?2u:1u;
     surfaces[0] = ir->allocNode<IR::INode>(IR::INode::ES_FRONT_SURFACE);
-    surfaces[0]->children = root->children;
+    surfaces[0]->children = surfParent->children;
     if (surfaces.count>1u) {
         surfaces[1] = ir->allocNode<IR::INode>(IR::INode::ES_BACK_SURFACE);
-        surfaces[1]->children = root->children;
+        surfaces[1]->children = surfParent->children;
     }
-    root->children = surfaces;
+    surfParent->children = surfaces;
 
     return root;
 }

@@ -159,11 +159,18 @@ public:
             }
             SParameter<type_of_const>& operator=(const SParameter<type_of_const>& rhs)
             {
+                const auto prevSource = source;
                 source = rhs.source;
-                if (source == EPS_CONSTANT)
+                if (source == EPS_CONSTANT) {
+                    if (prevSource == EPS_TEXTURE)
+                        value.texture.~STextureSource();
                     value.constant = rhs.value.constant;
-                else
+                }
+                else {
+                    if (prevSource == EPS_CONSTANT)
+                        value.constant = type_of_const();
                     value.texture = rhs.value.texture;
+                }
 
                 return *this;
             }

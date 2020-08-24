@@ -234,7 +234,7 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 	params.L = campos-WorldPos;
 	out_interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, normalize(Normal));
 
-	return irr_bsdf_cos_eval(params, out_interaction, dUV)*50.0/dot(params.L,params.L) + emissive;
+	return irr_bsdf_cos_eval(params, out_interaction, dUV)*1000.0/dot(params.L,params.L) + emissive;
 }
 #endif
 
@@ -508,7 +508,8 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 				metadataptr = static_cast<IMeshMetadata*>(mesh->getMetadata());
 			}
 
-			auto bsdf = getBSDFtreeTraversal(ctx, shapedef->bsdf);
+			CElementBSDF* bsdf_mts_node = shapedef->type==CElementShape::Type::INSTANCE ? shapedef->instance.parent->bsdf : shapedef->bsdf;
+			auto bsdf = getBSDFtreeTraversal(ctx, bsdf_mts_node);
 			std::string bsdf_id = shapedef->bsdf->id;
 			metadataptr->instances.push_back({ shapedef->getAbsoluteTransform(),bsdf,std::move(bsdf_id),shapedef->obtainEmitter() });
 		}
@@ -1154,6 +1155,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		d->desc = std::move(bsdfbuf);
 	}
 
+	std::ofstream ofile("log.txt");
 	core::vector<SInstanceData> instanceData;
 	for (auto it = meshBegin; it != meshEnd; ++it)
 	{
@@ -1171,7 +1173,8 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			const auto& streams = streams_it->second;
 
 			os::Printer::log("Debug print BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
-			_ctx.backend.debugPrint(std::cout, streams, _compResult, &_ctx.backend_ctx);
+			ofile << "Debug print BSDF with id = " << inst.bsdf_id << std::endl;
+			_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
 
 			SInstanceData instData;
 			instData.tform = inst.tform;

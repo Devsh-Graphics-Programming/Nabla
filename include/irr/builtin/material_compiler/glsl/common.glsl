@@ -35,15 +35,15 @@ bool instr_get2ndParamTexPresence(in instr_t instr)
 	return (instr.x&(1u<<INSTR_2ND_PARAM_TEX_SHIFT)) != 0u;
 }
 
-bool instr_getAlphaUTexPresence(in instr_t instr)
+bool instr_params_getAlphaUTexPresence(in instr_t instr)
 {
 	return instr_get1stParamTexPresence(instr);
 }
-bool instr_getAlphaVTexPresence(in instr_t instr)
+bool instr_params_getAlphaVTexPresence(in instr_t instr)
 {
 	return instr_get2ndParamTexPresence(instr);
 }
-bool instr_getReflectanceTexPresence(in instr_t instr)
+bool instr_params_getReflectanceTexPresence(in instr_t instr)
 {
 	return instr_get2ndParamTexPresence(instr);
 }
@@ -197,31 +197,31 @@ void setCurrBSDFParams(in vec3 n, in vec3 L)
 	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(isoparams, currInteraction);
 }
 
-float getAlpha(in params_t p)
+float params_getAlpha(in params_t p)
 {
 	return p[0].x;
 }
-vec3 getReflectance(in params_t p)
+vec3 params_getReflectance(in params_t p)
 {
 	return p[1];
 }
-vec3 getOpacity(in params_t p)
+vec3 params_getOpacity(in params_t p)
 {
 	return p[2];
 }
-float getAlphaV(in params_t p)
+float params_getAlphaV(in params_t p)
 {
 	return p[1].x;
 }
-vec3 getSigmaA(in params_t p)
+vec3 params_getSigmaA(in params_t p)
 {
 	return p[1];
 }
-float getBlendWeight(in params_t p)
+float params_getBlendWeight(in params_t p)
 {
 	return p[0].x;
 }
-vec3 getTransmittance(in params_t p)
+vec3 params_getTransmittance(in params_t p)
 {
 	return p[0];
 }
@@ -232,8 +232,8 @@ void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in params_t params, 
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
-		vec3 refl = getReflectance(params);
-		float a = getAlpha(params);
+		vec3 refl = params_getReflectance(params);
+		float a = params_getAlpha(params);
 		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic,currInteraction.isotropic,a*a) * refl;
 		writeReg(REG_DST(regs), diffuse);
 	}
@@ -243,7 +243,7 @@ void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in params_t params, 
 #ifdef OP_DIFFTRANS
 void instr_execute_DIFFTRANS(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
-	vec3 tr = getTransmittance(params);
+	vec3 tr = params_getTransmittance(params);
 	writeReg(REG_DST(regs), bxdf_eval_t(1.0,0.0,0.0));
 }
 #endif
@@ -252,8 +252,8 @@ void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in params_t param
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
-		//float au = getAlpha(params);
-		//float av = getAlphaV(params);
+		//float au = params_getAlpha(params);
+		//float av = params_getAlphaV(params);
 		vec3 eta = vec3(uintBitsToFloat(data.data[2].y));
 		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic,currInteraction.isotropic) * vec3(0.89);
 		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
@@ -267,8 +267,8 @@ void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in float DG, in pa
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
-		//float au = getAlpha(params);
-		//float av = getAlphaV(params);
+		//float au = params_getAlpha(params);
+		//float av = params_getAlphaV(params);
 		mat2x3 eta;
 		eta[0] = irr_glsl_decodeRGB19E7(data.data[2].yz);
 		eta[1] = irr_glsl_decodeRGB19E7(uvec2(data.data[2].w,data.data[3].x));
@@ -285,8 +285,8 @@ void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in float DG, in para
 	{
 		vec3 eta = vec3(uintBitsToFloat(data.data[2].y));
 		vec3 eta2 = eta*eta;
-		vec3 refl = getReflectance(params);
-		float a2 = getAlpha(params);
+		vec3 refl = params_getReflectance(params);
+		float a2 = params_getAlpha(params);
 		a2*=a2;
 
 		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic, currInteraction.isotropic, a2) * refl;
@@ -303,8 +303,8 @@ void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in float DG, in para
 void instr_execute_COATING(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	//vec2 thickness_eta = unpackHalf2x16(data.data[2].y);
-	//vec3 sigmaA = getSigmaA(params);
-	//float a = getAlpha(params);
+	//vec3 sigmaA = params_getSigmaA(params);
+	//float a = params_getAlpha(params);
 	writeReg(REG_DST(regs), bxdf_eval_t(1.0,0.0,0.0));
 }
 #endif
@@ -325,7 +325,7 @@ void instr_execute_SET_GEOM_NORMAL(in vec3 L)
 #ifdef OP_BLEND
 void instr_execute_BLEND(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
-	float w = getBlendWeight(params);
+	float w = params_getBlendWeight(params);
 	bxdf_eval_t bxdf1 = readReg3(REG_SRC1(regs));
 	bxdf_eval_t bxdf2 = readReg3(REG_SRC2(regs));
 

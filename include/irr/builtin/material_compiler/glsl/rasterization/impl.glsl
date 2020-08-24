@@ -12,9 +12,9 @@ void instr_eval_execute(in instr_t instr, in vec3 L)
 	params_t params = instr_getParameters(instr, bsdf_data);
 	float bxdf_eval_scalar_part;
 	uint ndf = instr_getNDF(instr);
-	float a = getAlpha(params);
+	float a = params_getAlpha(params);
 	float a2 = a*a;
-	float ay = getAlphaV(params);
+	float ay = params_getAlphaV(params);
 	float ay2 = ay*ay;
 
 	if (op_hasSpecular(op))

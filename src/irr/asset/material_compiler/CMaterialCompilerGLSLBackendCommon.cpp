@@ -629,10 +629,14 @@ std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(
 		instr_t retval = OP_INVALID;
 
 		size_t ix = 0u;
+		if (node->children[0]->symbol==IR::INode::ES_GEOM_MODIFIER)
+			printf("");
 		if (node->children.find(IR::INode::ES_GEOM_MODIFIER, &ix))
 		{
 			auto* geom_node = static_cast<const IR::CGeomModifierNode*>(node->children[ix]);
 			next = geom_node->children;
+			if (geom_node->children.find(IR::INode::ES_FRONT_SURFACE, &ix))
+				twosided = isTwosided(geom_node, ix, next);
 			retval = (geom_node->type != IR::CGeomModifierNode::ET_HEIGHT) ? OP_INVALID : OP_BUMPMAP;
 		}
 		else if (node->children.find(IR::INode::ES_FRONT_SURFACE, &ix))
@@ -819,7 +823,7 @@ void instr_stream::remainder_and_pdf::CTraversalManipulator::specifyRegisters(ui
 		--bmStreamEndCounter;
 		if (op == OP_BUMPMAP)
 		{
-			bmStreamEndCounter = m_streamLengths.front() - 2u;
+			bmStreamEndCounter = m_streamLengths.front() - 1u;
 			m_streamLengths.pop();
 
 			//OP_BUMPMAP doesnt care about usual registers, so dont set them
@@ -1284,12 +1288,18 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 	if (res.prefetch_sameNumOfChannels)
 		res.prefetch_numOfChannels = core::findLSB(prefetchRegCntFlags);
 
-	for (instr_t i : res.instructions) {
-		const E_OPCODE op = instr_stream::getOpcode(i);
-		const E_NDF ndf = instr_stream::getNDF(i);
-		res.opcodes.insert(op);
-		if (instr_stream::opHasSpecular(op))
-			res.NDFs.insert(ndf);
+	for (const auto& e : res.streams)
+	{
+		const result_t::instr_streams_t& streams = e.second;
+		for (uint32_t i = 0u; i < streams.rem_and_pdf.count; ++i) {
+			const instr_t instr = res.instructions[streams.rem_and_pdf.first+i];
+
+			const E_OPCODE op = instr_stream::getOpcode(instr);
+			const E_NDF ndf = instr_stream::getNDF(instr);
+			res.opcodes.insert(op);
+			if (instr_stream::opHasSpecular(op))
+				res.NDFs.insert(ndf);
+		}
 	}
 
 	res.fragmentShaderSource_declarations =
