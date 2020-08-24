@@ -622,16 +622,27 @@ std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<
 auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mtl, SContext& _ctx) -> image_views_set_t
 {
     images_set_t images;
+    image_views_set_t views;
 
     std::string relDir = _relDir;
     for (uint32_t i = 0u; i < images.size(); ++i)
     {
         SAssetLoadParams lp;
-        if (_mtl.maps[i].size())
+        if (_mtl.maps[i].size() )
         {
+            io::path output;
+            core::getFileNameExtension(output,_mtl.maps[i].c_str());
+            if (output == ".dds")
+            {
+                auto bundle = interm_getAssetInHierarchy(m_assetMgr, relDir + _mtl.maps[i], lp, _ctx.topHierarchyLevel + ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride);
+                if (!bundle.isEmpty())
+                    views[i] = core::smart_refctd_ptr_static_cast<ICPUImageView>(bundle.getContents().begin()[0]);
+            }else
+            {
             auto bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride);
             if (!bundle.isEmpty())
                 images[i] = core::smart_refctd_ptr_static_cast<ICPUImage>(bundle.getContents().begin()[0]);
+            }
         }
     }
 
@@ -714,7 +725,6 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mt
         }
     }
 
-    image_views_set_t views;
     for (uint32_t i = 0u; i < views.size(); ++i)
     {
         if (!images[i])
