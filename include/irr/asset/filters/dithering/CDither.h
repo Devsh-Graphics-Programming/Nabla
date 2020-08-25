@@ -40,14 +40,12 @@ namespace irr
 
 				using state_type = CState;
 
-				float pGet(const state_type* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel) final override
+				float pGet(const IDither::IState* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel) final override
 				{
 					return get(state, pixelCoord, channel);
 				}
 
-			private:
-			
-				static float get(const state_type* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel)
+				static float get(const IDither::IState* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel)
 				{
 					return CRTP::get(state, pixelCoord, channel);
 				}
