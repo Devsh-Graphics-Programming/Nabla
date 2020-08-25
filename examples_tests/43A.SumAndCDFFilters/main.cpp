@@ -37,21 +37,22 @@ constexpr auto MIPMAP_IMAGE = 0u;			// ordinary image used in the example has on
 */
 
 using CDiscreteConvolutionRatioForSupport = std::ratio<3, 2>; //!< 1.5
-class CDiscreteConvolutionFilterKernel : public CFloatingPointIsotropicSeparableImageFilterKernelBase<CDiscreteConvolutionFilterKernel, CDiscreteConvolutionRatioForSupport >
+class CDiscreteConvolutionFilterKernel : public CFloatingPointSeparableImageFilterKernelBase<CDiscreteConvolutionFilterKernel>
 {
-	using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CDiscreteConvolutionFilterKernel, CDiscreteConvolutionRatioForSupport >;
+		using Base = CFloatingPointSeparableImageFilterKernelBase<CDiscreteConvolutionFilterKernel>;
 
-public:
-	inline float weight(float x) const
-	{
-		if (x >= -1.5f && x <= -0.5f)
-			return -1.0f;
-		else if (x >= -0.5f && x <= 0.5f)
-			return 1.0f;
-		else
-			return 0.0f;
-	}
+	public:
+		CDiscreteConvolutionFilterKernel() : Base(1.5f,0.5f) {}
 
+		inline float weight(float x, int32_t channel) const
+		{
+			if (x >= -1.5f && x <= -0.5f)
+				return -1.0f;
+			else if (x >= -0.5f && x <= 0.5f)
+				return 1.0f;
+			else
+				return 0.0f;
+		}
 };
 
 int main()

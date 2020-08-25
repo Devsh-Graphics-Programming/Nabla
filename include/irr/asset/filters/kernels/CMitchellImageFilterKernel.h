@@ -23,7 +23,7 @@ class CMitchellImageFilterKernel : public CFloatingPointIsotropicSeparableImageF
 		using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CMitchellImageFilterKernel<B,C>,std::ratio<2,1> >;
 
 	public:
-		inline float weight(float x) const
+		inline float weight(float x, int32_t channel) const
 		{
 			if (Base::inDomain(x))
 			{
@@ -34,7 +34,7 @@ class CMitchellImageFilterKernel : public CFloatingPointIsotropicSeparableImageF
 		}
 
 		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = true;
-		inline float d_weight(float x) const
+		inline float d_weight(float x, int32_t channel) const
 		{
 			if (Base::inDomain(x))
 			{

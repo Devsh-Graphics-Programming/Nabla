@@ -20,7 +20,7 @@ class CTriangleImageFilterKernel : public CFloatingPointIsotropicSeparableImageF
 		using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CTriangleImageFilterKernel,std::ratio<1,1> >;
 
 	public:
-		inline float weight(float x) const
+		inline float weight(float x, int32_t channel) const
 		{
 			if (Base::inDomain(x))
 				return 1.f-core::abs(x);
