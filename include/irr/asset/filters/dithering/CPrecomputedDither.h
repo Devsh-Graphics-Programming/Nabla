@@ -28,23 +28,34 @@ namespace irr
 					in full extent of image.
 				*/
 				
-				class CState : protected CDither::CState
+				class CState : public CDither::CState
 				{
 					public:
 						CState(core::smart_refctd_ptr<asset::ICPUImage> _ditheringImage) 
-							: ditheringImage(std::move(_ditheringImage))
+							: ditheringImage(core::smart_refctd_ptr<asset::ICPUImage>(_ditheringImage))
 						{
-							imageData.buffer = ditheringImage->getBuffer();
+							ditherImageData.buffer = ditheringImage->getBuffer();
 							const auto extent = ditheringImage->getMipSize();
-							imageData.strides = TexelBlockInfo(ditheringImage->getCreationParameters().format).convert3DTexelStridesTo1DByteStrides(extent);
-							imageData.extent = extent;
+							ditherImageData.format = ditheringImage->getCreationParameters().format;
+							ditherImageData.strides = TexelBlockInfo(ditherImageData.format).convert3DTexelStridesTo1DByteStrides(extent);
+							texelRange = { extent.x, extent.y, extent.z };
+
+							assert(!asset::isBlockCompressionFormat(ditherImageData.format), "Precomputed dither image musn't be a BC format!");
+							assert(asset::getFormatChannelCount(ditherImageData.format) == 4, "Precomputed dither image must contain all the rgba channels!");
 						}
 
 						virtual ~CState() {}
 
-						const ImageData& getImageData() const { return imageData; }
+						const auto& getDitherImageData() const { return ditherImageData; }
 
 					private:
+
+						struct
+						{
+							asset::ICPUBuffer* buffer;
+							core::vectorSIMDu32 strides;
+							asset::E_FORMAT format;
+						} ditherImageData;
 
 						core::smart_refctd_ptr<asset::ICPUImage> ditheringImage;
 				};
@@ -55,14 +66,24 @@ namespace irr
 				/*
 					@param state Input state
 					@param pixelCoord Current pixel coordinate of processing input image
-					we will be applying dithering to
+					we will be applying dithering to in \btexels\b!
+					@param channel Current channel
 				*/
 
-				static float get(const state_type* state, const core::vectorSIMDu32& pixelCoord)
+				static float get(const state_type* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel) 
 				{
-					const auto& imageData = state->getImageData();
+					const auto& ditherImageData = state->getDitherImageData();
+					const core::vectorSIMDu32 tiledPixelCoord(pixelCoord.x % state->texelRange.extent.width - 1, pixelCoord.y % state->texelRange.extent.height -1, pixelCoord.z);
+					const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(tiledPixelCoord, ditherImageData.strides);
 
-					// if it has to be float, we should change something there cuz we aren't able to fetch the value due to channels
+					const auto* dstPointer = reinterpret_cast<const uint8_t*>(ditherImageData.buffer->getPointer()) + offset;
+					const void* srcPointers[] = { dstPointer, nullptr, nullptr, nullptr };
+
+					constexpr uint8_t MAX_CHANNELS = 4;
+					double decodeBuffer[MAX_CHANNELS];
+					asset::decodePixelsRuntime(ditherImageData.format, srcPointers, decodeBuffer, 0, 0); // little slow
+
+					return static_cast<float>(decodeBuffer[channel]);
 				}
 		};
 	}

@@ -18,7 +18,6 @@ namespace irr
 			- CWhiteNoiseDither
 			- CBayerMatrixDither
 			- CPrecomputedDither
-			- CHashDither
 
 			Each of them put some noise on a processed image.
 		*/
@@ -36,21 +35,21 @@ namespace irr
 						CState() {}
 						virtual ~CState() {}
 
-						ImageData imageData;
+						TexelRange texelRange;
 				};
 
 				using state_type = CState;
 
-				float pGet(const state_type* state, const core::vectorSIMDu32& pixelCoord) final override
+				float pGet(const state_type* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel) final override
 				{
-					return get(state, pixelCoord);
+					return get(state, pixelCoord, channel);
 				}
 
 			private:
 			
-				static float get(const state_type* state, const core::vectorSIMDu32& pixelCoord)
+				static float get(const state_type* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel)
 				{
-					return CRTP::get(state, pixelCoord);
+					return CRTP::get(state, pixelCoord, channel);
 				}
 		};
 	}

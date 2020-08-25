@@ -27,8 +27,7 @@ namespace irr
 
                 //! Base state interface class
                 /*
-                    Holds certain image data which makes a user
-                    able to dither the image
+                    Holds texel range of an image
                 */
 
                 class IState
@@ -36,15 +35,14 @@ namespace irr
                     public:
                         virtual ~IState() {}
 
-                        struct ImageData
+                        struct TexelRange
                         {
-                            asset::ICPUBuffer* buffer;
-                            core::vectorSIMDu32 strides;
-                            core::vectorSIMDu32 extent;
+                            VkOffset3D	offset = { 0u,0u,0u };
+                            VkExtent3D	extent = { 0u,0u,0u };
                         };
                 };
 
-                virtual float pGet(const IState* state, const core::vectorSIMDu32& pixelCoord) = 0;
+                virtual float pGet(const IState* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel) = 0;
         };
     }
 }

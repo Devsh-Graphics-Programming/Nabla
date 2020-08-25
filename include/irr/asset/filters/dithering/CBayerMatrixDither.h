@@ -1,6 +1,8 @@
 // This file is part of the "IrrlichtBAW" engine.
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
+#if 0 // TODO
+
 #ifndef __IRR_C_BAYER_MATRIX_DITHER_H_INCLUDED__
 #define __IRR_C_BAYER_MATRIX_DITHER_H_INCLUDED__
 
@@ -25,7 +27,7 @@ namespace irr
 
 				using state_type = CState;
 			
-				static float get(const state_type* state, const core::vectorSIMDu32& pixelCoord)
+				static float get(const state_type* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel)
 				{
 					// TODO: to define in future
 				}
@@ -34,3 +36,5 @@ namespace irr
 }
 
 #endif // __IRR_C_BAYER_MATRIX_DITHER_H_INCLUDED__
+
+#endif // TODO

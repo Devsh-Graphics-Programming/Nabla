@@ -421,11 +421,21 @@ void main()
 		return imageIDString;
 	};
 
+	auto ditheringBundle = am->getAsset("../../media/blueNoiseDithering/LDR_RGBA.png", {});
+	const auto ditheringStatus = ditheringBundle.isEmpty();
+	if (ditheringStatus)
+	{
+		os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Could not load the dithering image from media directory!", ELL_ERROR);
+		assert(ditheringStatus);
+	}
+	auto ditheringImage = core::move_and_static_cast<asset::ICPUImage>(ditheringBundle.getContents().begin()[0]);
+
 	core::vector<ImageToDenoise> images(inputFilesAmount);
 	// load images
 	uint32_t maxResolution[EII_COUNT][2] = { 0 };
 	{
 		asset::IAssetLoader::SAssetLoadParams lp(0ull,nullptr);
+
 		for (size_t i=0; i < inputFilesAmount; i++)
 		{
 			const auto imageIDString = makeImageIDString(i, colorFileNameBundle);
@@ -991,7 +1001,7 @@ void main()
 			auto getConvertedPNGImageView = [&](core::smart_refctd_ptr<ICPUImage> image)
 			{
 				constexpr auto pngFormat = EF_R8G8B8_SRGB;
-				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_R16G16B16A16_SFLOAT, pngFormat, true>; // TESTING
+				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_R16G16B16A16_SFLOAT, pngFormat, true, asset::CPrecomputedDither>; // TESTING
 
 				core::smart_refctd_ptr<ICPUImage> newConvertedImage;
 				{
@@ -1013,6 +1023,8 @@ void main()
 
 					CONVERSION_FILTER convertFilter;
 					CONVERSION_FILTER::state_type state;
+					
+					state.ditherState = _IRR_NEW(decltype(state.ditherState), ditheringImage);
 
 					state.inImage = image.get();
 					state.outImage = newConvertedImage.get();
