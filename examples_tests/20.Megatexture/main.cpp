@@ -456,7 +456,7 @@ int main()
         write.binding = ds1UboBinding;
         write.count = 1u;
         write.arrayElement = 0u;
-        write.descriptorType = asset::EDT_STORAGE_BUFFER;
+        write.descriptorType = asset::EDT_UNIFORM_BUFFER;
         video::IGPUDescriptorSet::SDescriptorInfo info;
         {
             info.desc = gpuubo;
@@ -481,7 +481,7 @@ int main()
             write[0].arrayElement = 0u;
             write[0].binding = 0u;
             write[0].count = 1u;
-            write[0].descriptorType = asset::EDT_UNIFORM_BUFFER;
+            write[0].descriptorType = asset::EDT_STORAGE_BUFFER;
             write[0].dstSet = gpuds2.get();
             write[0].info = info;
             write[0].info->desc = buffer;
