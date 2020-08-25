@@ -7,11 +7,10 @@
 
 #include "irr/core/core.h"
 
-
 #include <type_traits>
 
-
 #include "irr/asset/filters/CMatchedSizeInOutImageFilterCommon.h"
+#include "irr/asset/filters/dithering/CPrecomputedDither.h"
 
 #include "irr/asset/ICPUImageView.h"
 
@@ -150,11 +149,18 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 			typedef std::conditional<asset::isIntegerFormat<inFormat>(), uint64_t, double>::type decodeBufferType;
 			typedef std::conditional<asset::isIntegerFormat<outFormat>(), uint64_t, double>::type encodeBufferType;
 
-			auto perOutputRegion = [&blockDims,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
+			struct
+			{
+				using BLUE_NOISE_DITHER = asset::CPrecomputedDither;
+				BLUE_NOISE_DITHER dithering;
+				BLUE_NOISE_DITHER::state_type state;  /* how should I use asset manager there in constructor? i dont have an access */
+			} blueNoise;
+			
+			auto perOutputRegion = [&blockDims,&state,&blueNoise](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
 				constexpr uint32_t clampBufferChannelsAmount = asset::getFormatChannelCount<outFormat>();
 
-				auto swizzle = [&commonExecuteData,&blockDims,&state,&clampBufferChannelsAmount](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
+				auto swizzle = [&commonExecuteData,&blockDims,&state,&clampBufferChannelsAmount,&blueNoise](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
 				{
 					constexpr auto MaxPlanes = 4;
 					const void* srcPix[MaxPlanes] = { commonExecuteData.inData+readBlockArrayOffset,nullptr,nullptr,nullptr };
@@ -193,7 +199,21 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 
 						if constexpr (clamp)
 							clampBuffer();
-							
+
+						/*
+							TODO: apply dithering
+
+							- fetch channel's texel dither img value
+
+							encodeBuffer[x] += dither img value * scale
+
+							where scale is: asset::getFormatPrecision<value_type>(outFormat,channel,unditheredValue)
+							and dither img value is:
+						*/
+
+						// too few info to do it - CHANNELS!
+						const float ditheredValue = blueNoise.dithering.pGet(&blueNoise.state, localOutPos + core::vectorSIMDu32(blockX, blockY));
+						
 						asset::encodePixels<outFormat>(dstPix, reinterpret_cast<encodeBufferType*>(encodeBuffer));
 					}
 				};

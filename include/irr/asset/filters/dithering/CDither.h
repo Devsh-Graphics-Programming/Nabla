@@ -5,23 +5,30 @@
 #ifndef __IRR_C_DITHER_H_INCLUDED__
 #define __IRR_C_DITHER_H_INCLUDED__
 
-#include "../include/irr/asset/filters/dithering/IDither.h"
+#include "../include/irr/asset/IDither.h"
 
 namespace irr
 {
 	namespace asset
 	{
+		//! Base CRTP class for dithering classes
+		/*
+			There are several dithering classes:
+
+			- CWhiteNoiseDither
+			- CBayerMatrixDither
+			- CPrecomputedDither
+			- CHashDither
+
+			Each of them put some noise on a processed image.
+		*/
+
 		template<class CRTP>
 		class CDither : public IDither
 		{
 			public:
 				CDither() {}
 				virtual ~CDither() {}
-				
-				float pGet(const core::vectorSIMDu32& pixelCoord) override
-				{
-					return CRTP::get(pixelCoord);
-				}
 
 				class CState : public IDither::IState
 				{
@@ -29,16 +36,21 @@ namespace irr
 						CState() {}
 						virtual ~CState() {}
 
-						ImageAsset imageAsset; // do we want to only handle ICPUImage or should I distinguish it to ICPUImageView?
+						ImageData imageData;
 				};
 
 				using state_type = CState;
 
+				float pGet(const state_type* state, const core::vectorSIMDu32& pixelCoord) final override
+				{
+					return get(state, pixelCoord);
+				}
+
 			private:
 			
-				float get(const state_type* state, const core::vectorSIMDu32& pixelCoord)
+				static float get(const state_type* state, const core::vectorSIMDu32& pixelCoord)
 				{
-					// use blue noise tile ability to fetch suitable texel pointer from texture
+					return CRTP::get(state, pixelCoord);
 				}
 		};
 	}
