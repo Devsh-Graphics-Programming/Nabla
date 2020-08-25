@@ -22,6 +22,9 @@ namespace impl
 template<class Kernel>
 class CScaledImageFilterKernelBase : protected Kernel
 {
+	protected:
+		const IImageFilterKernel::ScaleFactorUserData userData;
+
 	public:
 		// we preserve all basic properties of the original kernel
 		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels;
@@ -35,7 +38,6 @@ class CScaledImageFilterKernelBase : protected Kernel
 		// reciprocal of the scale, the w component holds the scale that needs to be applied to the kernel values to preserve the integral
 		// 1/(A*B*C) InfiniteIntegral f(x/A,y/B,z/C) dx dy dz == InfiniteIntegral f(x,y,z) dx dy dz
 		const core::vectorSIMDf rscale;
-		const IImageFilterKernel::ScaleFactorUserData userData;
 };
 
 }
@@ -62,7 +64,7 @@ class CScaledImageFilterKernel : public impl::CScaledImageFilterKernelBase<Kerne
 		// overload for uniform scale in all dimensions
 		CScaledImageFilterKernel(const core::vectorSIMDf& _scale, const Kernel& k=Kernel()) : CScaledImageFilterKernel(_scale,Kernel(k)) {}
 
-		// no special user data by default
+		// make sure we let everyone know we changed the domain of the function by stretching it
 		inline const IImageFilterKernel::UserData* getUserData() const { return &userData; }
 
 		// the validation usually is not support dependent, its usually about the input/output formats of an image, etc. so we use old Kernel validation

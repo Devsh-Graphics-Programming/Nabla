@@ -16,6 +16,43 @@ namespace irr
 namespace asset
 {
 
+namespace impl
+{
+
+class CChannelIndependentImageFilterKernelBase
+{
+		const bool haveScale;
+		template<class... Kernels>
+		static inline bool doesHaveScale(const Kernels&... kernels)
+		{
+			return IImageFilterKernel::ScaleFactorUserData::cast(kernels.getUserData())&&...;
+		}
+
+		const IImageFilterKernel::ScaleFactorUserData scale;
+		template<class... Kernels>
+		static inline IImageFilterKernel::ScaleFactorUserData computeScale(bool bother, const Kernels&... kernels)
+		{
+			IImageFilterKernel::ScaleFactorUserData retval(1.f);
+			if (bother)
+			{
+				std::array<const IImageFilterKernel::ScaleFactorUserData,sizeof...(kernels)> userData = {IImageFilterKernel::ScaleFactorUserData::cast(kernels.getUserData())...};
+				for (auto i=0; i<userData.size(); i++)
+				{
+					retval.factor[i] = userData[i]->factor[i];
+				}
+			}
+			return retval;
+		}
+
+	public:
+		template<class... Kernels>
+		CChannelIndependentImageFilterKernelBase(const Kernels&... kernels) : haveScale(doesHaveScale(kernels...)), scale(computeScale(haveScale,kernels...))
+		{
+		}
+};
+
+}
+
 // kernel that is composed of different kernels for each color channel, you can disable the final channels by passing `void`
 template<class KernelR, class KernelG, class KernelB, class KernelA>
 class CChannelIndependentImageFilterKernel;
@@ -26,6 +63,9 @@ class CChannelIndependentImageFilterKernel<KernelR,void,void,void> : public CFlo
 {
 	public:
 		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = 1;
+
+		// pass on any scale
+		inline const IImageFilterKernel::UserData* getUserData() const { return haveScale ? &scale:nullptr; }
 
 		inline float weight(float x, int32_t channel) const
 		{

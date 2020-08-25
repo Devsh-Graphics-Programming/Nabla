@@ -387,10 +387,10 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<KernelX,KernelX,Ke
 							otherScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelX.getUserData());
 							break;
 						case IImage::ET_2D:
-							otherScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelX.getUserData());
+							otherScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelY.getUserData());
 							break;
 						case IImage::ET_3D:
-							otherScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelX.getUserData());
+							otherScale = IImageFilterKernel::ScaleFactorUserData::cast(kernelZ.getUserData());
 							break;
 					}
 					if (otherScale)
