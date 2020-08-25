@@ -27,6 +27,7 @@ namespace instr_stream
 		//bsdf
 		OP_DIFFTRANS,
 		OP_DIELECTRIC,
+		OP_THINDIELECTRIC,
 		//blend
 		OP_BLEND,
 		//specials
@@ -325,6 +326,7 @@ protected:
 		"OP_COATING",
 		"OP_DIFFTRANS",
 		"OP_DIELECTRIC",
+		"OP_THINDIELECTRIC",
 		"OP_BLEND",
 		"OP_BUMPMAP",
 		"OP_SET_GEOM_NORMAL",

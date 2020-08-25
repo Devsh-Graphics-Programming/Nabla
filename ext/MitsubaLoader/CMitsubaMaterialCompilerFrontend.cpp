@@ -55,8 +55,6 @@ namespace MitsubaLoader
             dst.value.constant = src.value.vvalue;
         }
     };
-    if (_bsdf->id == "Foam")
-        printf("");
 
     constexpr IR::CMicrofacetSpecularBSDFNode::E_NDF ndfMap[4]{
         IR::CMicrofacetSpecularBSDFNode::ENDF_BECKMANN,
@@ -64,14 +62,18 @@ namespace MitsubaLoader
         IR::CMicrofacetSpecularBSDFNode::ENDF_PHONG,
         IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY
     };
+
     IR::INode* root = ir->allocRootNode<IR::CMaterialNode>();
     root->children.count = 1u;
+
     bool twosided = false;
     IR::INode::SParameter<IR::INode::color_t> opacity;
     {
         opacity.source = IR::INode::EPS_CONSTANT;
         opacity.value.constant = IR::INode::color_t(1.f);
     }
+    bool thin = false;
+
     const CElementBSDF* current = _bsdf;
 
     core::queue<const CElementBSDF*> bsdfQ;
@@ -216,6 +218,8 @@ namespace MitsubaLoader
             node_trans->alpha_u = node_refl->alpha_u;
             node_trans->alpha_v = node_refl->alpha_v;
             node_trans->eta = node_refl->eta;
+
+            thin = (currType == CElementBSDF::THINDIELECTRIC);
         }
         break;
         case CElementBSDF::BUMPMAP:
@@ -303,6 +307,7 @@ namespace MitsubaLoader
     }
 
     static_cast<IR::CMaterialNode*>(root)->opacity = opacity;
+    static_cast<IR::CMaterialNode*>(root)->thin = thin;
 
     IR::INode* surfParent = root;
     if (surfParent->children[0]->symbol == IR::INode::ES_GEOM_MODIFIER)

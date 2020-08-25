@@ -256,13 +256,14 @@ public:
 
     struct CMaterialNode : public INode
     {
-        CMaterialNode() : INode(ES_MATERIAL)
+        CMaterialNode() : INode(ES_MATERIAL), thin(false)
         {
             opacity.source = EPS_CONSTANT;
             opacity.value.constant = color_t(1.f);
         }
 
         SParameter<color_t> opacity;
+        bool thin;
     };
 
     struct CGeomModifierNode : public INode

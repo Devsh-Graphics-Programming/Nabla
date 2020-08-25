@@ -17,7 +17,7 @@ namespace instr_stream
 	public:
 		static const IR::INode* translateMixIntoBlends(IR* ir, const IR::INode* _mix);
 
-		static std::pair<instr_t, const IR::INode*> processSubtree(IR* ir, const IR::INode* tree, IR::INode::children_array_t& next);
+		static std::pair<instr_t, const IR::INode*> processSubtree(IR* ir, const IR::INode* tree, bool thin, IR::INode::children_array_t& next);
 	};
 
 	template <typename stack_el_t>
@@ -69,10 +69,10 @@ namespace instr_stream
 			return static_cast<const IR::CMaterialNode*>(_root)->opacity;
 		}
 
-		std::pair<instr_t, const IR::INode*> processSubtree(const IR::INode* tree, IR::INode::children_array_t& next)
+		std::pair<instr_t, const IR::INode*> processSubtree(const IR::INode* tree, bool thin, IR::INode::children_array_t& next)
 		{
 			//TODO deduplication
-			return CInterpreter::processSubtree(m_ir, tree, next);
+			return CInterpreter::processSubtree(m_ir, tree, thin, next);
 		}
 
 		void setBSDFData(SBSDFUnion& _dst, E_OPCODE _op, const IR::INode* _node, const IR::INode::SParameter<IR::INode::color_t>& _opacity)
@@ -92,7 +92,8 @@ namespace instr_stream
 					_dst.diffuse.reflectance.setConst(node->reflectance.value.constant.pointer);
 			}
 			break;
-			case OP_DIELECTRIC:
+			case OP_DIELECTRIC: _IRR_FALLTHROUGH;
+			case OP_THINDIELECTRIC:
 			{
 				auto* blend = static_cast<const IR::CBSDFCombinerNode*>(_node);
 				auto* refl = static_cast<const IR::CMicrofacetSpecularBSDFNode*>(blend->children[0]);
@@ -298,6 +299,7 @@ namespace instr_stream
 			case OP_DIFFUSE: _IRR_FALLTHROUGH;
 			case OP_DIFFTRANS: _IRR_FALLTHROUGH;
 			case OP_DIELECTRIC: _IRR_FALLTHROUGH;
+			case OP_THINDIELECTRIC: _IRR_FALLTHROUGH;
 			case OP_CONDUCTOR: _IRR_FALLTHROUGH;
 			case OP_PLASTIC: _IRR_FALLTHROUGH;
 			case OP_COATING: _IRR_FALLTHROUGH;
@@ -346,7 +348,8 @@ namespace instr_stream
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, BITFIELDS_SHIFT_REFL_TEX, 1);
 			}
 			break;
-			case OP_DIELECTRIC:
+			case OP_DIELECTRIC: _IRR_FALLTHROUGH;
+			case OP_THINDIELECTRIC:
 			{
 				auto* blend = static_cast<const IR::CBSDFCombinerNode*>(_node);
 				auto* refl = static_cast<const IR::CMicrofacetSpecularBSDFNode*>(blend->children[0]);
@@ -598,7 +601,7 @@ const IR::INode* instr_stream::CInterpreter::translateMixIntoBlends(IR* ir, cons
 	return q.front().node;
 }
 
-std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(IR* ir, const IR::INode* tree, IR::INode::children_array_t& next)
+std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(IR* ir, const IR::INode* tree, bool thin, IR::INode::children_array_t& out_next)
 {
 	auto isTwosided = [](const IR::INode* _node, size_t _frontSurfIx, IR::INode::children_array_t& _frontSurfChildren) -> bool
 	{
@@ -629,19 +632,17 @@ std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(
 		instr_t retval = OP_INVALID;
 
 		size_t ix = 0u;
-		if (node->children[0]->symbol==IR::INode::ES_GEOM_MODIFIER)
-			printf("");
 		if (node->children.find(IR::INode::ES_GEOM_MODIFIER, &ix))
 		{
 			auto* geom_node = static_cast<const IR::CGeomModifierNode*>(node->children[ix]);
-			next = geom_node->children;
+			out_next = geom_node->children;
 			if (geom_node->children.find(IR::INode::ES_FRONT_SURFACE, &ix))
-				twosided = isTwosided(geom_node, ix, next);
+				twosided = isTwosided(geom_node, ix, out_next);
 			retval = (geom_node->type != IR::CGeomModifierNode::ET_HEIGHT) ? OP_INVALID : OP_BUMPMAP;
 		}
 		else if (node->children.find(IR::INode::ES_FRONT_SURFACE, &ix))
 		{
-			twosided = isTwosided(node, ix, next);
+			twosided = isTwosided(node, ix, out_next);
 			retval = OP_NOOP; //returning OP_NOOP causes not adding this instruction to resulting stream, but doesnt stop processing (effectively is used to forward flags only)
 		}
 		if (twosided)
@@ -657,7 +658,7 @@ std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(
 		auto* node = static_cast<const IR::CGeomModifierNode*>(tree);
 		size_t ix;
 		if (node->children.find(IR::INode::ES_FRONT_SURFACE, &ix))
-			twosided = isTwosided(node, ix, next);
+			twosided = isTwosided(node, ix, out_next);
 
 		instr_t retval;
 		if (node->type == IR::CGeomModifierNode::ET_HEIGHT)
@@ -677,7 +678,7 @@ std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(
 		switch (node->type)
 		{
 		case IR::CBSDFCombinerNode::ET_WEIGHT_BLEND:
-			next = node->children;
+			out_next = node->children;
 			instr = OP_BLEND;
 			break;
 		case IR::CBSDFCombinerNode::ET_DIFFUSE_AND_SPECULAR:
@@ -699,14 +700,14 @@ std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(
 			assert(type == IR::CBSDFNode::ET_MICROFACET_SPECULAR);
 			type = static_cast<const IR::CBSDFNode*>(node->children[1])->type;
 			assert(type == IR::CBSDFNode::ET_MICROFACET_SPECULAR);
-			instr = OP_DIELECTRIC;
+			instr = thin ? OP_THINDIELECTRIC : OP_DIELECTRIC;
 		}
 		break;
 		case IR::CBSDFCombinerNode::ET_MIX:
 		{
 			tree = translateMixIntoBlends(ir, node);
 			instr = OP_BLEND;
-			next = tree->children;
+			out_next = tree->children;
 		}
 		break;
 		}
@@ -724,7 +725,7 @@ std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(
 		case IR::CBSDFNode::ET_MICROFACET_SPECULAR:
 			instr = OP_CONDUCTOR; break;
 		case IR::CBSDFNode::ET_COATING:
-			next = node->children;
+			out_next = node->children;
 			assert(node->children.count==1u);
 			instr = OP_COATING;
 			break;
@@ -895,12 +896,15 @@ instr_stream::traversal_t instr_stream::remainder_and_pdf::CTraversalGenerator::
 {
 	traversal_t traversal;
 
+	assert(_root->symbol == IR::INode::ES_MATERIAL);
+	const bool thin = static_cast<const IR::CMaterialNode*>(_root)->thin;
+
 	auto opacity = extractOpacity(_root);
 	{
 		IR::INode::children_array_t next;
 		const IR::INode* node;
 		instr_t instr;
-		std::tie(instr, node) = processSubtree(_root, next);
+		std::tie(instr, node) = processSubtree(_root, thin, next);
 		push(instr, node, next, instr, false);
 	}
 	while (!m_stack.empty())
@@ -926,7 +930,7 @@ instr_stream::traversal_t instr_stream::remainder_and_pdf::CTraversalGenerator::
 				const IR::INode* node = nullptr;
 				IR::INode::children_array_t next2;
 				instr_t instr2;
-				std::tie(instr2, node) = processSubtree(*it, next2);
+				std::tie(instr2, node) = processSubtree(*it, thin, next2);
 				pushedCount += push(instr2, node, next2, top.instr, false);
 			}
 			_IRR_DEBUG_BREAK_IF(pushedCount > 2ull);
@@ -945,6 +949,9 @@ instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTrav
 {
 	constexpr uint32_t INVALID_INDEX = 0xdeadbeefu;
 
+	assert(_root->symbol == IR::INode::ES_MATERIAL);
+	const bool thin = static_cast<const IR::CMaterialNode*>(_root)->thin;
+
 	traversal_t traversal;
 
 	auto opacity = extractOpacity(_root);
@@ -952,7 +959,7 @@ instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTrav
 		IR::INode::children_array_t next;
 		const IR::INode* node;
 		instr_t instr;
-		std::tie(instr, node) = processSubtree(_root, next);
+		std::tie(instr, node) = processSubtree(_root, thin, next);
 		push(instr, node, next, instr, INVALID_INDEX);
 	}
 	while (!m_stack.empty())
@@ -978,7 +985,7 @@ instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTrav
 				const IR::INode* node = nullptr;
 				IR::INode::children_array_t next2;
 				instr_t instr2;
-				std::tie(instr2, node) = processSubtree(*it, next2);
+				std::tie(instr2, node) = processSubtree(*it, thin, next2);
 				pushedCount += push(instr2, node, next2, top.instr, it == top.children.begin() + 1 ? currIx : INVALID_INDEX);
 			}
 			_IRR_DEBUG_BREAK_IF(pushedCount>2ull);
@@ -1052,6 +1059,7 @@ instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const travers
 			write_fetch_bitfields(i, bsdf_data.difftrans.transmittance.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_TRANS_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 3u);
 			break;
 		case OP_DIELECTRIC: _IRR_FALLTHROUGH;
+		case OP_THINDIELECTRIC: _IRR_FALLTHROUGH;
 		case OP_CONDUCTOR:
 			write_fetch_bitfields(i, bsdf_data.param[0].tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);//alpha_u
 			write_fetch_bitfields(i, bsdf_data.param[1].tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_ALPHA_V_TEX, BITFIELDS_REG_1_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, 1u);//alpha_v
@@ -1094,7 +1102,7 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	for (E_OPCODE op : _res.opcodes)
 		defs += "\n#define "s + OPCODE_NAMES[op] + " " + std::to_string(op);
 	defs += "\n#define OP_MAX_BRDF " + std::to_string(OP_COATING);
-	defs += "\n#define OP_MAX_BSDF " + std::to_string(OP_DIELECTRIC);
+	defs += "\n#define OP_MAX_BSDF " + std::to_string(OP_THINDIELECTRIC);
 
 	for (E_NDF ndf : _res.NDFs)
 		defs += "\n#define "s + NDF_NAMES[ndf] + " " + std::to_string(ndf);
@@ -1454,7 +1462,8 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 		_out << "Refl val/reg " << paramVal3OrRegStr(data.diffuse.reflectance, refl) << "\n";
 	}
 	break;
-	case OP_DIELECTRIC:
+	case OP_DIELECTRIC: _IRR_FALLTHROUGH;
+	case OP_THINDIELECTRIC:
 	{
 		ndfAndAnisoAlphaTexPrint(instr, data, true);
 
