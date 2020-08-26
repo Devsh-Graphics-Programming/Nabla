@@ -14,6 +14,9 @@ using namespace irr;
 using namespace asset;
 using namespace video;
 
+//! Comment if you want to apply blue noise on generated png files
+#define BLUE_NOISE_ON_PNG
+
 enum E_IMAGE_INPUT : uint32_t
 {
 	EII_COLOR,
@@ -420,15 +423,6 @@ void main()
 
 		return imageIDString;
 	};
-
-	auto ditheringBundle = am->getAsset("../../media/blueNoiseDithering/LDR_RGBA.png", {});
-	const auto ditheringStatus = ditheringBundle.isEmpty();
-	if (ditheringStatus)
-	{
-		os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Could not load the dithering image from media directory!", ELL_ERROR);
-		assert(ditheringStatus);
-	}
-	auto ditheringImage = core::move_and_static_cast<asset::ICPUImage>(ditheringBundle.getContents().begin()[0]);
 
 	core::vector<ImageToDenoise> images(inputFilesAmount);
 	// load images
@@ -1001,7 +995,7 @@ void main()
 			auto getConvertedPNGImageView = [&](core::smart_refctd_ptr<ICPUImage> image)
 			{
 				constexpr auto pngFormat = EF_R8G8B8_SRGB;
-				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_R16G16B16A16_SFLOAT, pngFormat, true, asset::CPrecomputedDither>; // TESTING
+				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_UNKNOWN, pngFormat, true, asset::CPrecomputedDither>;
 
 				core::smart_refctd_ptr<ICPUImage> newConvertedImage;
 				{
@@ -1024,7 +1018,17 @@ void main()
 					CONVERSION_FILTER convertFilter;
 					CONVERSION_FILTER::state_type state;
 					
-					state.ditherState = _IRR_NEW(std::remove_pointer<decltype(state.ditherState)>::type, ditheringImage);
+					#ifdef BLUE_NOISE_ON_PNG
+					auto ditheringBundle = am->getAsset("../../media/blueNoiseDithering/LDR_RGBA.png", {});
+					const auto ditheringStatus = ditheringBundle.isEmpty();
+					if (ditheringStatus)
+					{
+						os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Could not load the dithering image!", ELL_ERROR);
+						assert(ditheringStatus);
+					}
+					auto ditheringImage = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(ditheringBundle.getContents().begin()[0]);
+					state.ditherState = _IRR_NEW(std::remove_pointer<decltype(state.ditherState)>::type, ditheringImage.get());
+					#endif // BLUE_NOISE_ON_PNG
 
 					state.inImage = image.get();
 					state.outImage = newConvertedImage.get();
@@ -1043,7 +1047,9 @@ void main()
 					if (!convertFilter.execute(&state))
 						os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Something went wrong while converting the image!", ELL_WARNING);
 
+					#ifdef BLUE_NOISE_ON_PNG
 					_IRR_DELETE(state.ditherState);
+					#endif // BLUE_NOISE_ON_PNG
 				}
 
 				// create image view
@@ -1058,7 +1064,6 @@ void main()
 				return newImageView;
 			};
 
-//#if 0 // @Anastazluk uncomment when dither and clamp is done
 			// convert to .PNG and save it as well 
 			{
 				auto newImageView = getConvertedPNGImageView(imageView->getCreationParameters().image);
@@ -1072,7 +1077,6 @@ void main()
 
 				am->writeAsset(fileName, wp);
 			}
-//#endif
 
 			// destroy link to CPUBuffer's data (we need to free it)
 			imageView->convertToDummyObject(~0u);

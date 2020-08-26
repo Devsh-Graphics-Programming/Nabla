@@ -37,7 +37,7 @@ class CSwizzleAndConvertImageFilterBase : public CMatchedSizeInOutImageFilterCom
 			public:
 				Dither dither;
 				using DitherState = typename Dither::state_type;
-				DitherState* ditherState;
+				DitherState* ditherState = nullptr;
 		};
 		using state_type = CState;
 
@@ -66,7 +66,7 @@ class CSwizzleAndConvertImageFilterBase<PolymorphicSwizzle, Dither> : public CMa
 				PolymorphicSwizzle* swizzle;
 				Dither dither;
 				using DitherState = typename Dither::state_type;
-				DitherState* ditherState;
+				DitherState* ditherState = nullptr;
 		};
 		using state_type = CState;
 
