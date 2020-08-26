@@ -31,16 +31,7 @@ bool traceRay(in ImmutableRay_t _immutable)
     float intersectionT = _immutable.maxT;
 	for (int i=0; i<SPHERE_COUNT; i++)
     {
-        vec3 origin = _immutable.origin-spheres[i].position;
-        float originLen2 = dot(origin,origin);
-        const float radius2 = spheres[i].radius2;
-
-        float dirDotOrigin = dot(_immutable.direction,origin);
-        float det = radius2-originLen2+dirDotOrigin*dirDotOrigin;
-
-        // do some speculative math here
-        float detsqrt = sqrt(det);
-        float t = -dirDotOrigin+(originLen2>radius2 ? (-detsqrt):detsqrt);
+        float t = Sphere_intersect(spheres[i],_immutable.origin,_immutable.direction);
         bool closerIntersection = t>0.0 && t<intersectionT;
 
 		objectID = closerIntersection ? i:objectID;

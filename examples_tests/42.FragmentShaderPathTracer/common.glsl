@@ -40,6 +40,21 @@ Sphere Sphere_Sphere(in vec3 position, in float radius, in uint bsdfID, in uint 
     return sphere;
 }
 
+// return intersection distance if found, FLT_NAN otherwise
+float Sphere_intersect(in Sphere sphere, in vec3 origin, in vec3 direction)
+{
+    vec3 relOrigin = origin-sphere.position;
+    float relOriginLen2 = dot(relOrigin,relOrigin);
+    const float radius2 = sphere.radius2;
+
+    float dirDotRelOrigin = dot(direction,relOrigin);
+    float det = radius2-relOriginLen2+dirDotRelOrigin*dirDotRelOrigin;
+
+    // do some speculative math here
+    float detsqrt = sqrt(det);
+    return -dirDotRelOrigin+(relOriginLen2>radius2 ? (-detsqrt):detsqrt);
+}
+
 float Sphere_getSolidAngle_impl(in float cosThetaMax)
 {
     return 2.0*irr_glsl_PI*(1.0-cosThetaMax);
