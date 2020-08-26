@@ -1,10 +1,6 @@
-#version 430 core
-#extension GL_GOOGLE_include_directive : require
-
-
 // basic settings
 #define MAX_DEPTH 8
-#define SAMPLES 128
+#define SAMPLES 16
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -25,6 +21,7 @@ layout(set = 1, binding = 0, row_major, std140) uniform UBO
 {
 	irr_glsl_SBasicViewParameters params;
 } cameraData;
+
 
 #define INVALID_ID_16BIT 0xffffu
 struct Sphere
@@ -53,18 +50,19 @@ float Sphere_getSolidAngle(in Sphere sphere, in vec3 origin)
     return Sphere_getSolidAngle_impl(cosThetaMax);
 }
 
-#define SPHERE_COUNT 9
-Sphere spheres[SPHERE_COUNT] = {
-    Sphere_Sphere(vec3(0.0,-100.5,-1.0),100.0,0u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(2.0,0.0,-1.0),0.5,1u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(0.0,0.0,-1.0),0.5,2u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(-2.0,0.0,-1.0),0.5,3u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(2.0,0.0,1.0),0.5,4u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(0.0,0.0,1.0),0.5,4u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(-2.0,0.0,1.0),0.5,5u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(0.5,1.0,0.5),0.5,6u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(-1.5,1.5,0.0),0.3,INVALID_ID_16BIT,0u)
+
+struct Triangle
+{
+    mat4x3 planes;
 };
+
+Triangle Triangle_Triangle(in mat3 vertices, in uint bsdfID, in uint lightID)
+{
+    Triangle tri;
+    //tri.
+    //sphere.bsdfLightIDs = bitfieldInsert(bsdfID,lightID,16,16);
+    return tri;
+}
 
 
 #define DIFFUSE_OP 0u
@@ -139,10 +137,6 @@ struct Light
     uint objectID;
 };
 
-#define LIGHT_COUNT 1
-Light lights[LIGHT_COUNT] = {
-    {vec3(30.0,25.0,15.0),8u}
-};
 vec3 Light_getRadiance(in Light light)
 {
     return light.radiance;
@@ -153,10 +147,12 @@ uint Light_getObjectID(in Light light)
 }
 
 
+#define LIGHT_COUNT 1
 float scene_getLightChoicePdf(in Light light)
 {
     return 1.0/float(LIGHT_COUNT);
 }
+
 
 
 #define ANY_HIT_FLAG (-2147483648)
@@ -178,7 +174,6 @@ struct MutableRay_t
     vec2 barycentrics;
     */
 };
-
 struct Payload_t
 {
     vec3 accumulation;
@@ -188,6 +183,7 @@ struct Payload_t
     bool hasDiffuse;
     #endif
 };
+
 struct Ray_t
 {
     ImmutableRay_t _immutable;
@@ -204,6 +200,7 @@ bool anyHitProgram(in ImmutableRay_t _immutable)
     return true;
 }
 
+
 #define INTERSECTION_ERROR_BOUND_LOG2 (-13.0)
 float getTolerance_common(in int depth)
 {
@@ -219,6 +216,7 @@ float getEndTolerance(in int depth)
     return 1.0-exp2(getTolerance_common(depth)+1.0);
 }
 
+#if 0
 bool traceRay(in ImmutableRay_t _immutable)
 {
     const bool anyHit = bitfieldExtract(_immutable.typeDepthSampleIx,31,1)!=0;
@@ -251,7 +249,7 @@ bool traceRay(in ImmutableRay_t _immutable)
     // hit
     return anyHit;
 }
-
+#endif
 
 #include <irr/builtin/glsl/math/constants.glsl>
 vec2 SampleSphericalMap(vec3 v)
@@ -334,6 +332,7 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _
     return remainder;
 }
 
+#if 0
 // the interaction here is the interaction at the illuminator-end of the ray, not the receiver
 vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
 {
@@ -402,7 +401,7 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
     
     return irr_glsl_createLightSample(L,interaction);
 }
-
+#endif
 
 layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
 layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
@@ -451,6 +450,7 @@ vec3 rand3d(in uint protoDimension, in uint _sample, inout irr_glsl_xoroshiro64s
     return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
 }
 
+#if 0
 void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64star_state_t scramble_state)
 {
     const MutableRay_t mutable = rayStack[stackPtr]._mutable;
@@ -563,6 +563,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
     }
 }
 
+//! @Crisspl move this
 vec2 irr_glsl_BoxMullerTransform(in vec2 xi, in float stddev)
 {
     float sinPhi,cosPhi;
@@ -664,39 +665,5 @@ void main()
     #endif
 
     pixelColor = vec4(color, 1.0);
-
-/** TODO: Improving Rendering
-
-Now:
-- Proper Universal&Robust Materials
-- Test MIS alpha (roughness) scheme
-
-Quality:
--* Reweighting Noise Removal
--* Covariance Rendering
--* Geometry Specular AA (Curvature adjusted roughness)
-
-When proper scheduling is available:
-- Russian Roulette
-- Divergence Optimization
-- Adaptive Sampling
-
-Offline firefly removal:
-- Density Based Outlier Rejection (requires fast k-nearest neighbours on the GPU, at which point we've pretty much got photonmapping ready)
-
-When finally texturing:
-- Covariance Rendering
-- CLEAR/LEAN/Toksvig for simult roughness + bumpmap filtering
-
-Many Lights:
-- Path Guiding
-- Light Importance Lists/Classification
-
-Indirect Light:
-- Bidirectional Path Tracing 
-- Uniform Path Sampling / Vertex Connection and Merging / Path Space Regularization
-
-Animations:
-- A-SVGF / BMFR
-**/
 }	
+#endif
