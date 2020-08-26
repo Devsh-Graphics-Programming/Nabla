@@ -244,7 +244,9 @@ void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in params_t params, 
 void instr_execute_DIFFTRANS(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	vec3 tr = params_getTransmittance(params);
-	writeReg(REG_DST(regs), bxdf_eval_t(1.0,0.0,0.0));
+	//transmittance*cos/2pi
+	vec3 c = currBSDFParams.isotropic.NdotL*irr_glsl_RECIPROCAL_PI*0.5*tr;
+	writeReg(REG_DST(regs), c);
 }
 #endif
 #ifdef OP_DIELECTRIC
@@ -254,7 +256,7 @@ void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in params_t param
 	{
 		//float au = params_getAlpha(params);
 		//float av = params_getAlphaV(params);
-		vec3 eta = vec3(uintBitsToFloat(data.data[2].y));
+		vec3 eta = vec3(1.5);
 		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic,currInteraction.isotropic) * vec3(0.89);
 		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
 		writeReg(REG_DST(regs), diffuse);

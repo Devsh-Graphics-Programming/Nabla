@@ -201,6 +201,7 @@ namespace instr_stream
 				else
 					_dst.difftrans.transmittance.setConst(difftrans->transmittance.value.constant.pointer);
 			}
+			break;
 			case OP_BUMPMAP:
 			{
 				const IR::CGeomModifierNode* bm = nullptr;

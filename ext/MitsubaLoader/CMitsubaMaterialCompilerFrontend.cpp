@@ -36,7 +36,7 @@ namespace MitsubaLoader
             if (!dst.value.texture.image) {
                 assert(!dst.value.texture.sampler);
                 dst.source = IR::INode::EPS_CONSTANT;
-                dst.value.constant = 0.f;
+                dst.value.constant = 0.f;//0 in case when didnt find texture
             }
 
         }
@@ -54,10 +54,10 @@ namespace MitsubaLoader
             //make sure smart_refctd_ptr assignment ptr wont try to drop() -- .value is union
             dst.value.constant = IR::INode::color_t(0.f);
             std::tie(dst.value.texture.image, dst.value.texture.sampler, dst.value.texture.scale) = getTexture(src.texture);
-            if (!dst.value.texture.image) {
+            if (!dst.value.texture.image) { //TODO should be using loader override here
                 assert(!dst.value.texture.sampler);
                 dst.source = IR::INode::EPS_CONSTANT;
-                dst.value.constant = IR::INode::color_t(1.f, 0.f, 0.f);//red
+                dst.value.constant = IR::INode::color_t(1.f, 0.f, 0.f);//red in case when didnt find texture
             }
         }
         else

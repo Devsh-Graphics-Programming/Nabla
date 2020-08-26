@@ -1080,6 +1080,9 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 				cacheTexture(bsdf->diffuse.reflectance);
 				cacheTexture(bsdf->diffuse.alpha);
 				break;
+			case CElementBSDF::DIFFUSE_TRANSMITTER:
+				cacheTexture(bsdf->difftrans.transmittance);
+				break;
 			case CElementBSDF::DIELECTRIC:
 			case CElementBSDF::THINDIELECTRIC:
 			case CElementBSDF::ROUGHDIELECTRIC:

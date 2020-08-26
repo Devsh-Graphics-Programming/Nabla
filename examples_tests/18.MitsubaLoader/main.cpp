@@ -363,7 +363,6 @@ int main()
         write.info = &info;
         driver->updateDescriptorSets(1u, &write, 0u, nullptr);
     }
-	std::cout << "light count: " << lights.size() << std::endl;
 	auto gpuds2layout = driver->getGPUObjectsFromAssets(&ds2layout.get(), &ds2layout.get()+1)->front();
 	auto gpuds2 = driver->createGPUDescriptorSet(std::move(gpuds2layout));
 	{
