@@ -35,12 +35,12 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 
 	irr_glsl_BSDFIsotropicParams params;
 	vec3 color = vec3(0.0);
-	for (int i = 0; i < 13; ++i)
+	for (int i = 0; i < 132; ++i)
 	{
 		SLight l = lights[i];
 		vec3 L = l.position-WorldPos;
 		params.L = L;
-		color += irr_bsdf_cos_eval(params, out_interaction, dUV)*l.intensity*0.01 / dot(L,L);
+		color += irr_bsdf_cos_eval(params, out_interaction, dUV)*l.intensity*4.0 / dot(L,L);
 	}
 	return color+emissive;
 }
@@ -363,7 +363,7 @@ int main()
         write.info = &info;
         driver->updateDescriptorSets(1u, &write, 0u, nullptr);
     }
-
+	std::cout << "light count: " << lights.size() << std::endl;
 	auto gpuds2layout = driver->getGPUObjectsFromAssets(&ds2layout.get(), &ds2layout.get()+1)->front();
 	auto gpuds2 = driver->createGPUDescriptorSet(std::move(gpuds2layout));
 	{
@@ -402,7 +402,7 @@ int main()
 		viewport = core::recti(core::position2di(film.cropOffsetX,film.cropOffsetY), core::position2di(film.cropWidth,film.cropHeight));
 
 		auto extent = sceneBound.getExtent();
-		camera = smgr->addCameraSceneNodeFPS(nullptr,100.f,core::min(extent.X,extent.Y,extent.Z)*0.001f);
+		camera = smgr->addCameraSceneNodeFPS(nullptr,100.f,core::min(extent.X,extent.Y,extent.Z)*0.00001f);
 		// need to extract individual components
 		bool leftHandedCamera = false;
 		{

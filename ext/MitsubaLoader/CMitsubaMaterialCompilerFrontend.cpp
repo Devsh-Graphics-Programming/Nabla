@@ -33,6 +33,12 @@ namespace MitsubaLoader
             //make sure smart_refctd_ptr assignment ptr wont try to drop() -- .value is union
             dst.value.constant = 0.f;
             std::tie(dst.value.texture.image, dst.value.texture.sampler, dst.value.texture.scale) = getTexture(src.texture);
+            if (!dst.value.texture.image) {
+                assert(!dst.value.texture.sampler);
+                dst.source = IR::INode::EPS_CONSTANT;
+                dst.value.constant = 0.f;
+            }
+
         }
         else
         {
@@ -48,6 +54,11 @@ namespace MitsubaLoader
             //make sure smart_refctd_ptr assignment ptr wont try to drop() -- .value is union
             dst.value.constant = IR::INode::color_t(0.f);
             std::tie(dst.value.texture.image, dst.value.texture.sampler, dst.value.texture.scale) = getTexture(src.texture);
+            if (!dst.value.texture.image) {
+                assert(!dst.value.texture.sampler);
+                dst.source = IR::INode::EPS_CONSTANT;
+                dst.value.constant = IR::INode::color_t(1.f, 0.f, 0.f);//red
+            }
         }
         else
         {
@@ -140,6 +151,14 @@ namespace MitsubaLoader
             {
                 node->setSmooth();
             }
+        }
+        break;
+        case CElementBSDF::DIFFUSE_TRANSMITTER:
+        {
+            nextSym = ir->allocNode<IR::CDifftransBSDFNode>();
+            auto* node = static_cast<IR::CDifftransBSDFNode*>(nextSym);
+
+            getSpectrumOrTexture(current->difftrans.transmittance, node->transmittance);
         }
         break;
         case CElementBSDF::PLASTIC:

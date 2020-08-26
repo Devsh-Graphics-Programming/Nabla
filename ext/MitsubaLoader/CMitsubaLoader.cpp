@@ -485,33 +485,42 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 			if (shapedef->type == CElementShape::Type::SHAPEGROUP)
 				continue;
 
-			core::smart_refctd_ptr<asset::ICPUMesh> mesh = getMesh(ctx, _hierarchyLevel, shapedef);
-			if (!mesh)
-				continue;
-
-			IMeshMetadata* metadataptr = nullptr;
-			auto found = meshes.find(mesh);
-			if (found == meshes.end())
+			auto lowermeshes = getMesh(ctx, _hierarchyLevel, shapedef);
+			for (auto& mesh : lowermeshes)
 			{
-				auto metadata = core::make_smart_refctd_ptr<IMeshMetadata>(
-					core::smart_refctd_ptr(parserManager.m_globalMetadata),
-					std::move(shapepair.second),
-					shapedef
-					);
-				metadataptr = metadata.get();
-				m_manager->setAssetMetadata(mesh.get(), std::move(metadata));
-				meshes.insert(std::move(mesh));
-			}
-			else
-			{
-				assert(mesh->getMetadata() && strcmpi(mesh->getMetadata()->getLoaderName(), IMeshMetadata::LoaderName) == 0);
-				metadataptr = static_cast<IMeshMetadata*>(mesh->getMetadata());
-			}
+				if (!mesh)
+					continue;
 
-			CElementBSDF* bsdf_mts_node = shapedef->type==CElementShape::Type::INSTANCE ? shapedef->instance.parent->bsdf : shapedef->bsdf;
-			auto bsdf = getBSDFtreeTraversal(ctx, bsdf_mts_node);
-			std::string bsdf_id = shapedef->bsdf->id;
-			metadataptr->instances.push_back({ shapedef->getAbsoluteTransform(),bsdf,std::move(bsdf_id),shapedef->obtainEmitter() });
+				auto found = meshes.find(mesh);
+				if (found == meshes.end())
+				{
+					auto metadata = core::make_smart_refctd_ptr<IMeshMetadata>(
+						core::smart_refctd_ptr(parserManager.m_globalMetadata),
+						std::move(shapepair.second),
+						shapedef
+						);
+					m_manager->setAssetMetadata(mesh.get(), std::move(metadata));
+					meshes.insert(std::move(mesh));
+				}
+			}
+		}
+
+		//insert all instances into metadata
+		for (auto& mesh_ : meshes)
+		{
+			auto* mesh = mesh_.get();
+			auto* meshmeta = static_cast<IMeshMetadata*>(mesh->getMetadata());
+			auto instances_rng = ctx.mapMesh2instanceData.equal_range(mesh);
+			assert(instances_rng.first!=instances_rng.second);
+			for (auto it = instances_rng.first; it!=instances_rng.second; ++it) {
+				const auto& inst = it->second;
+				meshmeta->instances.push_back({inst.tform, inst.bsdf, inst.bsdf_id, inst.emitter});
+			}
+			if (meshmeta->instances.size() > 1ull)
+				printf("");
+
+			for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+				mesh->getMeshBuffer(i)->setInstanceCount(meshmeta->instances.size());
 		}
 
 		auto compResult = ctx.backend.compile(&ctx.backend_ctx, ctx.ir.get());
@@ -524,7 +533,6 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		);
 		for (auto& mesh : meshes)
 		{
-			auto* meshmeta = static_cast<const IMeshMetadata*>(mesh->getMetadata());
 			for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 			{
 				asset::ICPUMeshBuffer* mb = mesh->getMeshBuffer(i);
@@ -551,8 +559,6 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 				mb->setPipeline(core::smart_refctd_ptr(pipeline));
 				if (!pipeline->getMetadata())
 					m_manager->setAssetMetadata(pipeline.get(), core::smart_refctd_ptr(pipeline_metadata));
-
-				mb->setInstanceCount(meshmeta->getInstances().size());
 			}
 		}
 
@@ -560,62 +566,56 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 	}
 }
 
-SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape)
+core::vector<SContext::shape_ass_type> CMitsubaLoader::getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape)
 {
 	if (!shape)
-		return nullptr;
+		return {};
 
 	if (shape->type!=CElementShape::Type::INSTANCE)
-		return loadBasicShape(ctx, hierarchyLevel, shape);
+		return {loadBasicShape(ctx, hierarchyLevel, shape, core::matrix3x4SIMD())};
 	else
 	{
+		core::matrix3x4SIMD relTform = shape->getAbsoluteTransform();
 		// get group reference
 		const CElementShape* parent = shape->instance.parent;
 		if (!parent)
-			return nullptr;
+			return {};
 		assert(parent->type==CElementShape::Type::SHAPEGROUP);
 		const CElementShape::ShapeGroup* shapegroup = &parent->shapegroup;
 		
-		return loadShapeGroup(ctx, hierarchyLevel, shapegroup);
+		return loadShapeGroup(ctx, hierarchyLevel, shapegroup, relTform);
 	}
 }
 
-SContext::group_ass_type CMitsubaLoader::loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup)
+core::vector<SContext::shape_ass_type> CMitsubaLoader::loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix3x4SIMD& relTform)
 {
 	// find group
-	auto found = ctx.groupCache.find(shapegroup);
-	if (found != ctx.groupCache.end())
-		return found->second;
+	//auto found = ctx.groupCache.find(shapegroup);
+	//if (found != ctx.groupCache.end())
+	//	return found->second;
 
 	const auto children = shapegroup->children;
 
-	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
+	core::vector<SContext::shape_ass_type> meshes;
 	for (auto i=0u; i<shapegroup->childCount; i++)
 	{
 		auto child = children[i];
 		if (!child)
 			continue;
 
-		core::smart_refctd_ptr<asset::ICPUMesh> lowermesh;
 		assert(child->type!=CElementShape::Type::INSTANCE);
-		if (child->type!=CElementShape::Type::SHAPEGROUP)
-			lowermesh = loadBasicShape(ctx, hierarchyLevel, child);
-		else
-			lowermesh = loadShapeGroup(ctx, hierarchyLevel, &child->shapegroup);
-		
-		// skip if dead
-		if (!lowermesh)
-			continue;
-
-		for (auto j=0u; j<lowermesh->getMeshBufferCount(); j++)
-			mesh->addMeshBuffer(core::smart_refctd_ptr<asset::ICPUMeshBuffer>(lowermesh->getMeshBuffer(j)));
+		if (child->type != CElementShape::Type::SHAPEGROUP) {
+			auto lowermesh = loadBasicShape(ctx, hierarchyLevel, child, relTform);
+			meshes.push_back(std::move(lowermesh));
+		}
+		else {
+			auto lowermeshes = loadShapeGroup(ctx, hierarchyLevel, &child->shapegroup, relTform);
+			meshes.insert(meshes.begin(), std::make_move_iterator(lowermeshes.begin()), std::make_move_iterator(lowermeshes.end()));
+		}
 	}
-	if (!mesh->getMeshBufferCount())
-		return nullptr;
 
-	mesh->recalculateBoundingBox();
-	ctx.groupCache.insert({shapegroup,mesh});
-	return mesh;
+	//ctx.groupCache.insert({shapegroup,meshes});
+	return meshes;
 }
 
 static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeometryCreator::return_type&& _data, asset::IAssetManager* _manager)
@@ -644,13 +644,24 @@ static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeo
 	return mesh;
 }
 
-SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape)
+SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const core::matrix3x4SIMD& relTform)
 {
 	constexpr uint32_t UV_ATTRIB_ID = 2U;
 
+	auto addInstance = [shape,&ctx,&relTform,this](SContext::shape_ass_type& mesh) {
+		assert(shape->bsdf);
+		auto bsdf = getBSDFtreeTraversal(ctx, shape->bsdf);
+		core::matrix3x4SIMD tform = core::concatenateBFollowedByA(relTform, shape->getAbsoluteTransform());
+		SContext::SInstanceData instance{ tform, bsdf, shape->bsdf->id, shape->obtainEmitter() };
+		ctx.mapMesh2instanceData.insert({ mesh.get(), instance });
+	};
+
 	auto found = ctx.shapeCache.find(shape);
-	if (found != ctx.shapeCache.end())
+	if (found != ctx.shapeCache.end()) {
+		addInstance(found->second);
+
 		return found->second;
+	}
 
 	auto loadModel = [&](const ext::MitsubaLoader::SPropertyElementData& filename, int64_t index=-1) -> core::smart_refctd_ptr<asset::ICPUMesh>
 	{
@@ -866,6 +877,7 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 	}
 #endif
 
+	addInstance(mesh);
 	// cache and return
 	ctx.shapeCache.insert({ shape,mesh });
 	return mesh;
@@ -997,8 +1009,8 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 				samplerParams.TextureWrapU = getWrapMode(tex->bitmap.wrapModeU);
 				samplerParams.TextureWrapV = getWrapMode(tex->bitmap.wrapModeV);
 
-				auto view = core::make_smart_refctd_ptr<ICPUImageView>(std::move(viewParams));
-				auto sampler = core::make_smart_refctd_ptr<ICPUSampler>(samplerParams);
+				auto view = ICPUImageView::create(std::move(viewParams));
+				core::smart_refctd_ptr<ICPUSampler> sampler = view ? core::make_smart_refctd_ptr<ICPUSampler>(samplerParams) : nullptr;
 
 				SContext::tex_ass_type tex_ass(std::move(view), std::move(sampler), 1.f);
 				ctx.textureCache.insert({ tex,tex_ass });

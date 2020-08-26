@@ -171,6 +171,7 @@ bool CElementShape::addProperty(SNamedPropertyElement&& _property)
 	auto setCollapse = SET_PROPERTY_TEMPLATE(collapse,SNamedPropertyElement::Type::BOOLEAN, Obj);
 	auto setSRGB = SET_PROPERTY_TEMPLATE(srgb,SNamedPropertyElement::Type::BOOLEAN, Ply);
 	auto setShapeIndex = SET_PROPERTY_TEMPLATE(shapeIndex,SNamedPropertyElement::Type::INTEGER, Serialized);
+	//auto setToWorld = SET_PROPERTY_TEMPLATE(toWorld, SNamedPropertyElement::Type::MATRIX, Instance);
 
 	const core::unordered_map<std::string, std::function<void()>, core::CaseInsensitiveHash, core::CaseInsensitiveEquals> SetPropertyMap =
 	{
