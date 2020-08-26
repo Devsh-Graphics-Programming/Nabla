@@ -130,8 +130,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
 
         isotropic.V.dir = -_immutable.direction;
         //isotropic.V.dPosdScreen = screw that
-        const float radiusRcp = inversesqrt(sphere.radius2);
-        isotropic.N = (intersection-sphere.position)*radiusRcp;
+        isotropic.N = Sphere_getNormal(sphere,intersection);
         isotropic.NdotV = dot(isotropic.V.dir,isotropic.N);
         isotropic.NdotV_squared = isotropic.NdotV*isotropic.NdotV;
 

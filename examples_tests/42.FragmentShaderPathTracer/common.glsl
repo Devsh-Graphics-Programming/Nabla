@@ -15,6 +15,8 @@ layout(location = 0) in vec2 TexCoord;
 layout(location = 0) out vec4 pixelColor;
 
 
+#include <irr/builtin/glsl/limits/numeric.glsl>
+#include <irr/builtin/glsl/math/constants.glsl>
 #include <irr/builtin/glsl/utils/common.glsl>
 
 layout(set = 1, binding = 0, row_major, std140) uniform UBO
@@ -55,6 +57,12 @@ float Sphere_intersect(in Sphere sphere, in vec3 origin, in vec3 direction)
     return -dirDotRelOrigin+(relOriginLen2>radius2 ? (-detsqrt):detsqrt);
 }
 
+vec3 Sphere_getNormal(in Sphere sphere, in vec3 position)
+{
+    const float radiusRcp = inversesqrt(sphere.radius2);
+    return (position-sphere.position)*radiusRcp;
+}
+
 float Sphere_getSolidAngle_impl(in float cosThetaMax)
 {
     return 2.0*irr_glsl_PI*(1.0-cosThetaMax);
@@ -68,15 +76,43 @@ float Sphere_getSolidAngle(in Sphere sphere, in vec3 origin)
 
 struct Triangle
 {
-    mat4x3 planes;
+    vec4 planeEq;
+    vec4 boundaryPlanes[2];
+    uint bsdfLightIDs;
 };
 
 Triangle Triangle_Triangle(in mat3 vertices, in uint bsdfID, in uint lightID)
 {
+    const vec3 edges[2] = vec3[2](vertices[1]-vertices[0],vertices[2]-vertices[0]);
+
     Triangle tri;
-    //tri.
-    //sphere.bsdfLightIDs = bitfieldInsert(bsdfID,lightID,16,16);
+    tri.planeEq.xyz = normalize(cross(edges[0],edges[1]));
+    tri.planeEq.w = -dot(tri.planeEq.xyz,vertices[0]);
+    tri.boundaryPlanes[0].xyz = cross(tri.planeEq.xyz,edges[0]);
+    tri.boundaryPlanes[0].w = dot(tri.boundaryPlanes[0].xyz,vertices[0]);
+    tri.boundaryPlanes[1].xyz = cross(edges[1],tri.planeEq.xyz);
+    tri.boundaryPlanes[1].w = dot(tri.boundaryPlanes[1].xyz,vertices[0]);
+    tri.bsdfLightIDs = bitfieldInsert(bsdfID,lightID,16,16);
     return tri;
+}
+
+// return intersection distance if found, FLT_NAN otherwise
+float Triangle_intersect(in Triangle tri, in vec3 origin, in vec3 direction)
+{
+    const float NdotD = dot(direction,tri.planeEq.xyz);
+    const float t = (tri.planeEq.w-dot(origin,tri.planeEq.xyz))/NdotD;
+    // speculative intersection
+    const vec3 intersectionPoint = origin+direction*t;
+    const float distToEdge[2] = float[2](
+        dot(intersectionPoint,tri.boundaryPlanes[0].xyz)+tri.boundaryPlanes[0].w,
+        dot(intersectionPoint,tri.boundaryPlanes[1].xyz)+tri.boundaryPlanes[1].w
+    );
+    return t<0.f||distToEdge[0]<0.f||distToEdge[1]<0.f||(distToEdge[0]+distToEdge[1])>1.f ? irr_glsl_FLT_NAN:t;
+}
+
+vec3 Triangle_getNormal(in Triangle tri)
+{
+    return tri.planeEq.xyz;
 }
 
 
@@ -266,7 +302,6 @@ bool traceRay(in ImmutableRay_t _immutable)
 }
 #endif
 
-#include <irr/builtin/glsl/math/constants.glsl>
 vec2 SampleSphericalMap(vec3 v)
 {
     vec2 uv = vec2(atan(v.z, v.x), asin(v.y));

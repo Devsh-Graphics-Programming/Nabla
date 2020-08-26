@@ -34,19 +34,22 @@ bool traceRay(in ImmutableRay_t _immutable)
     float intersectionT = _immutable.maxT;
 	for (int i=0; i<SPHERE_COUNT; i++)
     {
-        vec3 origin = _immutable.origin-spheres[i].position;
-        float originLen2 = dot(origin,origin);
-        const float radius2 = spheres[i].radius2;
-
-        float dirDotOrigin = dot(_immutable.direction,origin);
-        float det = radius2-originLen2+dirDotOrigin*dirDotOrigin;
-
-        // do some speculative math here
-        float detsqrt = sqrt(det);
-        float t = -dirDotOrigin+(originLen2>radius2 ? (-detsqrt):detsqrt);
+        float t = Sphere_intersect(spheres[i],_immutable.origin,_immutable.direction);
         bool closerIntersection = t>0.0 && t<intersectionT;
 
 		objectID = closerIntersection ? i:objectID;
+        intersectionT = closerIntersection ? t:intersectionT;
+        
+        // allowing early out results in a performance regression, WTF!?
+        //if (anyHit && closerIntersection && anyHitProgram(_immutable))
+           //break;
+    }
+	for (int i=0; i<SPHERE_COUNT; i++)
+    {
+        float t = Triangle_intersect(triangles[i],_immutable.origin,_immutable.direction);
+        bool closerIntersection = t>0.0 && t<intersectionT;
+
+		objectID = closerIntersection ? (i+SPHERE_COUNT):objectID;
         intersectionT = closerIntersection ? t:intersectionT;
         
         // allowing early out results in a performance regression, WTF!?
@@ -60,9 +63,9 @@ bool traceRay(in ImmutableRay_t _immutable)
 }
 
 
-
+#if 0
 // the interaction here is the interaction at the illuminator-end of the ray, not the receiver
-vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
+vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in Triangle tri, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
 {
     // we don't have to worry about solid angle of the light w.r.t. surface of the light because this function only ever gets called from closestHit routine, so such ray cannot be produced
     pdf = scene_getLightChoicePdf(light)/Sphere_getSolidAngle(sphere,origin);
@@ -129,13 +132,14 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
     
     return irr_glsl_createLightSample(L,interaction);
 }
+#endif
 
 void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64star_state_t scramble_state)
 {
     const MutableRay_t mutable = rayStack[stackPtr]._mutable;
 
-    Sphere sphere = spheres[mutable.objectID];
     vec3 intersection = _immutable.origin+_immutable.direction*mutable.intersectionT;
+    const uint objectID = [mutable.objectID;
     
     irr_glsl_AnisotropicViewSurfaceInteraction interaction;
     {
@@ -240,13 +244,6 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
             stackPtr++;
         }
     }
-}
-
-vec2 irr_glsl_BoxMullerTransform(in vec2 xi, in float stddev)
-{
-    float sinPhi,cosPhi;
-    irr_glsl_sincos(2.0*irr_glsl_PI*xi.y-irr_glsl_PI,sinPhi,cosPhi);
-    return vec2(cosPhi,sinPhi)*sqrt(-2.0*log(xi.x))*stddev;
 }
 
 void main()
