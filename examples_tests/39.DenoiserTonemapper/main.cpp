@@ -1024,7 +1024,7 @@ void main()
 					CONVERSION_FILTER convertFilter;
 					CONVERSION_FILTER::state_type state;
 					
-					state.ditherState = _IRR_NEW(decltype(state.ditherState), ditheringImage);
+					state.ditherState = _IRR_NEW(std::remove_pointer<decltype(state.ditherState)>::type, ditheringImage);
 
 					state.inImage = image.get();
 					state.outImage = newConvertedImage.get();
@@ -1042,6 +1042,8 @@ void main()
 
 					if (!convertFilter.execute(&state))
 						os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Something went wrong while converting the image!", ELL_WARNING);
+
+					_IRR_DELETE(state.ditherState);
 				}
 
 				// create image view
