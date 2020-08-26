@@ -27,7 +27,7 @@ namespace impl
 {
 
 
-template<typename Swizzle, class Dither>
+template<typename Swizzle, typename Dither>
 class CSwizzleAndConvertImageFilterBase : public CMatchedSizeInOutImageFilterCommon
 {
 	public:
@@ -36,7 +36,8 @@ class CSwizzleAndConvertImageFilterBase : public CMatchedSizeInOutImageFilterCom
 		{
 			public:
 				Dither dither;
-				Dither::state_type* ditherState;
+				using DitherState = typename Dither::state_type;
+				DitherState* ditherState;
 		};
 		using state_type = CState;
 
@@ -53,7 +54,7 @@ class CSwizzleAndConvertImageFilterBase : public CMatchedSizeInOutImageFilterCom
 		}
 };
 
-template<class Dither>
+template<typename Dither>
 class CSwizzleAndConvertImageFilterBase<PolymorphicSwizzle, Dither> : public CMatchedSizeInOutImageFilterCommon
 {
 	public:
@@ -64,8 +65,8 @@ class CSwizzleAndConvertImageFilterBase<PolymorphicSwizzle, Dither> : public CMa
 			public:
 				PolymorphicSwizzle* swizzle;
 				Dither dither;
-				Dither::state_type* ditherState;
-				
+				using DitherState = typename Dither::state_type;
+				DitherState* ditherState;
 		};
 		using state_type = CState;
 
@@ -119,7 +120,7 @@ inline void DefaultSwizzle::operator()(const InT* in, OutT* out) const
 	Do a per-pixel recombination of image channels while converting
 */
 
-template<E_FORMAT inFormat=EF_UNKNOWN, E_FORMAT outFormat=EF_UNKNOWN, typename Swizzle=DefaultSwizzle, bool Clamp = false, class Dither = asset::CPrecomputedDither>
+template<E_FORMAT inFormat=EF_UNKNOWN, E_FORMAT outFormat=EF_UNKNOWN, typename Swizzle=DefaultSwizzle, bool Clamp = false, typename Dither = asset::CPrecomputedDither>
 class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImageFilter<inFormat,outFormat,Swizzle,Clamp,Dither>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither>
 {
 	public:
@@ -159,7 +160,7 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 			{
 				constexpr uint32_t outChannelsAmount = asset::getFormatChannelCount<outFormat>();
 
-				auto swizzle = [&commonExecuteData,&blockDims,&state,&outChannelsAmount,](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
+				auto swizzle = [&commonExecuteData,&blockDims,&state,&outChannelsAmount](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
 				{
 					constexpr auto MaxPlanes = 4;
 					const void* srcPix[MaxPlanes] = { commonExecuteData.inData+readBlockArrayOffset,nullptr,nullptr,nullptr };
@@ -227,7 +228,7 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 	Runtime specialization of CSwizzleAndConvertImageFilter
 */
 
-template<typename Swizzle, bool Clamp, class Dither>
+template<typename Swizzle, bool Clamp, typename Dither>
 class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Clamp,Dither> : public CImageFilter<CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Clamp,Dither>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither>
 {
 	public:
@@ -309,7 +310,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Clamp,Dither> 
 		}
 };
 
-template<E_FORMAT outFormat, typename Swizzle, bool Clamp, class Dither>
+template<E_FORMAT outFormat, typename Swizzle, bool Clamp, typename Dither>
 class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Clamp,Dither> : public CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Clamp,Dither>
 {
 	public:
@@ -335,7 +336,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Clamp,Dither> :
 		}
 };
 
-template<E_FORMAT inFormat, typename Swizzle, bool Clamp, class Dither>
+template<E_FORMAT inFormat, typename Swizzle, bool Clamp, typename Dither>
 class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Clamp,Dither> : public CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Clamp,Dither>
 {
 	public:

@@ -44,10 +44,10 @@ namespace irr
 				{
 					return get(state, pixelCoord, channel);
 				}
-
-				static float get(const IDither::IState* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel)
+				
+				float get(const IDither::IState* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel)
 				{
-					return CRTP::get(state, pixelCoord, channel);
+					return static_cast<CRTP*>(this)->get(reinterpret_cast<const typename CRTP::CState*>(state), pixelCoord, channel);
 				}
 		};
 	}
