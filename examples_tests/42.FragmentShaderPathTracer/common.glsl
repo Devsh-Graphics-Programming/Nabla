@@ -19,6 +19,14 @@ layout(location = 0) out vec4 pixelColor;
 #include <irr/builtin/glsl/math/constants.glsl>
 #include <irr/builtin/glsl/utils/common.glsl>
 
+//! @Crisspl move this
+vec2 irr_glsl_BoxMullerTransform(in vec2 xi, in float stddev)
+{
+    float sinPhi, cosPhi;
+    irr_glsl_sincos(2.0 * irr_glsl_PI * xi.y - irr_glsl_PI, sinPhi, cosPhi);
+    return vec2(cosPhi, sinPhi) * sqrt(-2.0 * log(xi.x)) * stddev;
+}
+
 layout(set = 1, binding = 0, row_major, std140) uniform UBO
 {
 	irr_glsl_SBasicViewParameters params;
@@ -267,40 +275,6 @@ float getEndTolerance(in int depth)
     return 1.0-exp2(getTolerance_common(depth)+1.0);
 }
 
-#if 0
-bool traceRay(in ImmutableRay_t _immutable)
-{
-    const bool anyHit = bitfieldExtract(_immutable.typeDepthSampleIx,31,1)!=0;
-
-	int objectID = -1;
-    float intersectionT = _immutable.maxT;
-	for (int i=0; i<SPHERE_COUNT; i++)
-    {
-        vec3 origin = _immutable.origin-spheres[i].position;
-        float originLen2 = dot(origin,origin);
-        const float radius2 = spheres[i].radius2;
-
-        float dirDotOrigin = dot(_immutable.direction,origin);
-        float det = radius2-originLen2+dirDotOrigin*dirDotOrigin;
-
-        // do some speculative math here
-        float detsqrt = sqrt(det);
-        float t = -dirDotOrigin+(originLen2>radius2 ? (-detsqrt):detsqrt);
-        bool closerIntersection = t>0.0 && t<intersectionT;
-
-		objectID = closerIntersection ? i:objectID;
-        intersectionT = closerIntersection ? t:intersectionT;
-        
-        // allowing early out results in a performance regression, WTF!?
-        //if (anyHit && closerIntersection && anyHitProgram(_immutable))
-           //break;
-    }
-    rayStack[stackPtr]._mutable.objectID = objectID;
-    rayStack[stackPtr]._mutable.intersectionT = intersectionT;
-    // hit
-    return anyHit;
-}
-#endif
 
 vec2 SampleSphericalMap(vec3 v)
 {
@@ -382,14 +356,6 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _
     return remainder;
 }
 
-#if 0
-// the interaction here is the interaction at the illuminator-end of the ray, not the receiver
-vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
-{
-    // we don't have to worry about solid angle of the light w.r.t. surface of the light because this function only ever gets called from closestHit routine, so such ray cannot be produced
-    pdf = scene_getLightChoicePdf(light)/Sphere_getSolidAngle(sphere,origin);
-    return Light_getRadiance(light);
-}
 
 #define GeneratorSample irr_glsl_BSDFSample
 #define irr_glsl_LightSample irr_glsl_BSDFSample
@@ -413,45 +379,6 @@ irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in irr_glsl_Anisotrop
     
     return s;
 }
-irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in int depth)
-{
-    // normally we'd pick from set of lights, using `u.z`
-    const Light light = lights[0];
-    const float choicePdf = scene_getLightChoicePdf(light);
-
-    const Sphere sphere = spheres[Light_getObjectID(light)];
-
-    vec3 Z = sphere.position-origin;
-    const float distanceSQ = dot(Z,Z);
-    const float cosThetaMax2 = 1.0-sphere.radius2/distanceSQ;
-    const float rcpDistance = inversesqrt(distanceSQ);
-
-    const bool possibilityOfLightVisibility = cosThetaMax2>0.0;
-    Z *= rcpDistance;
-    
-    // following only have valid values if `possibilityOfLightVisibility` is true
-    const float cosThetaMax = sqrt(cosThetaMax2);
-    const float cosTheta = mix(1.0,cosThetaMax,u.x);
-
-    vec3 L = Z*cosTheta;
-
-    const float cosTheta2 = cosTheta*cosTheta;
-    const float sinTheta = sqrt(1.0-cosTheta2);
-    float sinPhi,cosPhi;
-    irr_glsl_sincos(2.0*irr_glsl_PI*u.y-irr_glsl_PI,sinPhi,cosPhi);
-    mat2x3 XY = irr_glsl_frisvad(Z);
-    
-    L += (XY[0]*cosPhi+XY[1]*sinPhi)*sinTheta;
-    
-    const float rcpPdf = Sphere_getSolidAngle_impl(cosThetaMax)/choicePdf;
-    remainder = Light_getRadiance(light)*(possibilityOfLightVisibility ? rcpPdf:0.0); // this ternary operator kills invalid rays
-    pdf = 1.0/rcpPdf;
-    
-    newRayMaxT = (cosTheta-sqrt(cosTheta2-cosThetaMax2))/rcpDistance*getEndTolerance(depth);
-    
-    return irr_glsl_createLightSample(L,interaction);
-}
-#endif
 
 layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
 layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
@@ -612,14 +539,10 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
         }
     }
 }
+#endif
 
-//! @Crisspl move this
-vec2 irr_glsl_BoxMullerTransform(in vec2 xi, in float stddev)
-{
-    float sinPhi,cosPhi;
-    irr_glsl_sincos(2.0*irr_glsl_PI*xi.y-irr_glsl_PI,sinPhi,cosPhi);
-    return vec2(cosPhi,sinPhi)*sqrt(-2.0*log(xi.x))*stddev;
-}
+bool traceRay(in ImmutableRay_t _immutable);
+void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64star_state_t scramble_state);
 
 void main()
 {
@@ -715,5 +638,39 @@ void main()
     #endif
 
     pixelColor = vec4(color, 1.0);
-}	
-#endif
+}
+/** TODO: Improving Rendering
+
+Now:
+- Always MIS (path correlated reuse)
+- Proper Universal&Robust Materials
+- Test MIS alpha (roughness) scheme
+
+Quality:
+-* Reweighting Noise Removal
+-* Covariance Rendering
+-* Geometry Specular AA (Curvature adjusted roughness)
+
+When proper scheduling is available:
+- Russian Roulette
+- Divergence Optimization
+- Adaptive Sampling
+
+Offline firefly removal:
+- Density Based Outlier Rejection (requires fast k-nearest neighbours on the GPU, at which point we've pretty much got photonmapping ready)
+
+When finally texturing:
+- Covariance Rendering
+- CLEAR/LEAN/Toksvig for simult roughness + bumpmap filtering
+
+Many Lights:
+- Path Guiding
+- Light Importance Lists/Classification
+
+Indirect Light:
+- Bidirectional Path Tracing
+- Uniform Path Sampling / Vertex Connection and Merging / Path Space Regularization
+
+Animations:
+- A-SVGF / BMFR
+**/

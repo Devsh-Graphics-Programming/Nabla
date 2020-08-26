@@ -44,7 +44,7 @@ bool traceRay(in ImmutableRay_t _immutable)
         //if (anyHit && closerIntersection && anyHitProgram(_immutable))
            //break;
     }
-	for (int i=0; i<SPHERE_COUNT; i++)
+	for (int i=0; i<TRIANGLE_COUNT; i++)
     {
         float t = Triangle_intersect(triangles[i],_immutable.origin,_immutable.direction);
         bool closerIntersection = t>0.0 && t<intersectionT;
@@ -139,27 +139,37 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
     const MutableRay_t mutable = rayStack[stackPtr]._mutable;
 
     vec3 intersection = _immutable.origin+_immutable.direction*mutable.intersectionT;
-    const uint objectID = [mutable.objectID;
+    const uint objectID = mutable.objectID;
     
+    uint bsdfLightIDs;
     irr_glsl_AnisotropicViewSurfaceInteraction interaction;
     {
         irr_glsl_IsotropicViewSurfaceInteraction isotropic;
 
         isotropic.V.dir = -_immutable.direction;
         //isotropic.V.dPosdScreen = screw that
-        const float radiusRcp = inversesqrt(sphere.radius2);
-        isotropic.N = (intersection-sphere.position)*radiusRcp;
+        if (objectID<SPHERE_COUNT)
+        {
+            Sphere sphere = spheres[objectID];
+            isotropic.N = Sphere_getNormal(sphere,intersection);
+            bsdfLightIDs = sphere.bsdfLightIDs;
+        }
+        else
+        {
+            Triangle tri = triangles[objectID-SPHERE_COUNT];
+            isotropic.N = Triangle_getNormal(tri);
+            bsdfLightIDs = tri.bsdfLightIDs;
+        }
         isotropic.NdotV = dot(isotropic.V.dir,isotropic.N);
         isotropic.NdotV_squared = isotropic.NdotV*isotropic.NdotV;
 
         interaction = irr_glsl_calcAnisotropicInteraction(isotropic);
     }
 
-    const uint bsdfLightIDs = sphere.bsdfLightIDs;
     const uint lightID = bitfieldExtract(bsdfLightIDs,16,16);
 
     vec3 throughput = rayStack[stackPtr]._payload.throughput;
-    
+#if 0    
     // finish MIS
     if (lightID!=INVALID_ID_16BIT) // has emissive
     {
@@ -244,135 +254,6 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
             stackPtr++;
         }
     }
+#else
+#endif
 }
-
-void main()
-{
-    if (((MAX_DEPTH-1)>>MAX_DEPTH_LOG2)>0 || ((SAMPLES-1)>>MAX_SAMPLES_LOG2)>0)
-    {
-        pixelColor = vec4(1.0,0.0,0.0,1.0);
-        return;
-    }
-
-	irr_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,TexCoord,0).rg;
-    const vec2 pixOffsetParam = vec2(1.0)/vec2(textureSize(scramblebuf,0));
-
-
-    const mat4 invMVP = inverse(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(cameraData.params.MVP));
-    
-    vec4 NDC = vec4(TexCoord*vec2(2.0,-2.0)+vec2(-1.0,1.0),0.0,1.0);
-    vec3 camPos;
-    {
-        vec4 tmp = invMVP*NDC;
-        camPos = tmp.xyz/tmp.w;
-        NDC.z = 1.0;
-    }
-
-    vec3 color = vec3(0.0);
-    float meanLumaSquared = 0.0;
-    for (int i=0; i<SAMPLES; i++)
-    {
-        irr_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
-
-        stackPtr = 0;
-        // raygen
-        {
-            rayStack[stackPtr]._immutable.origin = camPos;
-            rayStack[stackPtr]._immutable.maxT = FLT_MAX;
-
-            vec4 tmp = NDC;
-            // apply stochastic reconstruction filter
-            const float gaussianFilterCutoff = 2.5;
-            const float truncation = exp(-0.5*gaussianFilterCutoff*gaussianFilterCutoff);
-            vec2 remappedRand = rand3d(0u,i,scramble_state).xy;
-            remappedRand.x *= 1.0-truncation;
-            remappedRand.x += truncation;
-            tmp.xy += pixOffsetParam*irr_glsl_BoxMullerTransform(remappedRand,1.5);
-            // for depth of field we could do another stochastic point-pick
-            tmp = invMVP*tmp;
-            rayStack[stackPtr]._immutable.direction = normalize(tmp.xyz/tmp.w-camPos);
-            
-            rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(i,1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
-
-
-            rayStack[stackPtr]._payload.accumulation = vec3(0.0);
-            rayStack[stackPtr]._payload.otherTechniqueHeuristic = 0.0; // needed for direct eye-light paths
-            rayStack[stackPtr]._payload.throughput = vec3(1.0);
-            #ifdef KILL_DIFFUSE_SPECULAR_PATHS
-            rayStack[stackPtr]._payload.hasDiffuse = false;
-            #endif
-        }
-
-        // trace
-        while (stackPtr!=-1)
-        {
-            ImmutableRay_t _immutable = rayStack[stackPtr]._immutable;
-            bool anyHitType = traceRay(_immutable);
-                
-            if (rayStack[stackPtr]._mutable.intersectionT>=_immutable.maxT)
-            {
-                missProgram();
-            }
-            else if (!anyHitType)
-            {
-                closestHitProgram(_immutable,scramble_state);
-            }
-            stackPtr--;
-        }
-
-        vec3 accumulation = rayStack[0]._payload.accumulation;
-
-        float rcpSampleSize = 1.0/float(i+1);
-        color += (accumulation-color)*rcpSampleSize;
-        
-        #ifdef VISUALIZE_HIGH_VARIANCE
-            float luma = getLuma(accumulation);
-            meanLumaSquared += (luma*luma-meanLumaSquared)*rcpSampleSize;
-        #endif
-    }
-
-    #ifdef VISUALIZE_HIGH_VARIANCE
-        float variance = getLuma(color);
-        variance *= variance;
-        variance = meanLumaSquared-variance;
-        if (variance>5.0)
-            color = vec3(1.0,0.0,0.0);
-    #endif
-
-    pixelColor = vec4(color, 1.0);
-
-/** TODO: Improving Rendering
-
-Now:
-- Proper Universal&Robust Materials
-- Test MIS alpha (roughness) scheme
-
-Quality:
--* Reweighting Noise Removal
--* Covariance Rendering
--* Geometry Specular AA (Curvature adjusted roughness)
-
-When proper scheduling is available:
-- Russian Roulette
-- Divergence Optimization
-- Adaptive Sampling
-
-Offline firefly removal:
-- Density Based Outlier Rejection (requires fast k-nearest neighbours on the GPU, at which point we've pretty much got photonmapping ready)
-
-When finally texturing:
-- Covariance Rendering
-- CLEAR/LEAN/Toksvig for simult roughness + bumpmap filtering
-
-Many Lights:
-- Path Guiding
-- Light Importance Lists/Classification
-
-Indirect Light:
-- Bidirectional Path Tracing 
-- Uniform Path Sampling / Vertex Connection and Merging / Path Space Regularization
-
-Animations:
-- A-SVGF / BMFR
-**/
-}	
