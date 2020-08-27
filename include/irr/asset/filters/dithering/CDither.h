@@ -50,6 +50,22 @@ namespace irr
 					return static_cast<CRTP*>(this)->get(static_cast<const typename CRTP::CState*>(state), pixelCoord, channel);
 				}
 		};
+
+		/*
+			Identity Dither is used for not providing any Dither in a state.
+		*/
+
+		class IdentityDither : public CDither<IdentityDither>
+		{
+			public:
+				IdentityDither() {}
+				virtual ~IdentityDither() {}
+
+				static float get(const state_type* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel)
+				{
+					return {};
+				}
+		};
 	}
 }
 

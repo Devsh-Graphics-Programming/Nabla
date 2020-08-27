@@ -17,7 +17,7 @@ namespace asset
 {
 
 // copy while converting format from input image to output image
-template<E_FORMAT inFormat=EF_UNKNOWN, E_FORMAT outFormat=EF_UNKNOWN, bool clamp = false, class Dither = asset::CPrecomputedDither>
+template<E_FORMAT inFormat=EF_UNKNOWN, E_FORMAT outFormat=EF_UNKNOWN, bool clamp = false, class Dither = IdentityDither>
 class CConvertFormatImageFilter : public CSwizzleAndConvertImageFilter<inFormat,outFormat,VoidSwizzle,clamp,Dither>
 {
 	public:

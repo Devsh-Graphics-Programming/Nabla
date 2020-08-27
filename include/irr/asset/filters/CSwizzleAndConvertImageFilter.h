@@ -10,10 +10,8 @@
 #include <type_traits>
 
 #include "irr/asset/filters/CMatchedSizeInOutImageFilterCommon.h"
-#include "irr/asset/filters/dithering/CPrecomputedDither.h"
-
+#include "irr/asset/filters/CSwizzleableAndDitherableFilterBase.h"
 #include "irr/asset/ICPUImageView.h"
-
 #include "irr/asset/format/convertColor.h"
 
 
@@ -21,106 +19,36 @@ namespace irr
 {
 namespace asset
 {
-
-
 namespace impl
 {
-
-
-template<typename Swizzle, typename Dither>
-class CSwizzleAndConvertImageFilterBase : public CMatchedSizeInOutImageFilterCommon
-{
-	public:
-
-		class CState : public CMatchedSizeInOutImageFilterCommon::state_type, public Swizzle
-		{
-			public:
-				Dither dither;
-				using DitherState = typename Dither::state_type;
-				DitherState* ditherState = nullptr;					//! To use dithering in the filter - allocate, create and make the dither state pointer valid
-		};
-		using state_type = CState;
-
-		static inline bool validate(state_type* state)
-		{
-			if (!CMatchedSizeInOutImageFilterCommon::validate(state))
-				return false;
-
-			// TODO: need to triple check it works when we finally enable this feature
-			if (isBlockCompressionFormat(state->outImage->getCreationParameters().format))
-				return false;
-
-			return true;
-		}
-};
-
-template<typename Dither>
-class CSwizzleAndConvertImageFilterBase<PolymorphicSwizzle, Dither> : public CMatchedSizeInOutImageFilterCommon
-{
-	public:
-		virtual ~CSwizzleAndConvertImageFilterBase() {}
-
-		class CState : public CMatchedSizeInOutImageFilterCommon::state_type
-		{
-			public:
-				PolymorphicSwizzle* swizzle;
-				Dither dither;
-				using DitherState = typename Dither::state_type;
-				DitherState* ditherState = nullptr;					//! To use dithering in the filter - allocate, create and make the dither state pointer valid
-		};
-		using state_type = CState;
-
-		static inline bool validate(state_type* state)
-		{
-			if (!CSwizzleAndConvertImageFilterBase<PolymorphicSwizzle, Dither>::validate(state))
-				return false;
-
-			if (!state->swizzle)
-				return false;
-
-			return true;
-		}
-};
-
-
-}
-
-struct DefaultSwizzle
-{
-	ICPUImageView::SComponentMapping swizzle;
-
-	/*
-		Performs swizzle on out compoments following
-		swizzle member with all four compoments. You 
-		can specify channels for custom pointers.
-	*/
-
-	template<typename InT, typename OutT>
-	void operator()(const InT* in, OutT* out, uint8_t channels = SwizzleBase::MaxChannels) const;
-};
-
-template<>
-inline void DefaultSwizzle::operator() <void, void> (const void* in, void* out, uint8_t channels) const
-{
-	operator()(reinterpret_cast<const uint64_t*>(in), reinterpret_cast<uint64_t*>(out), channels);
-}
-
-template<typename InT, typename OutT>
-inline void DefaultSwizzle::operator()(const InT* in, OutT* out, uint8_t channels) const
-{
-	auto getComponent = [&in](ICPUImageView::SComponentMapping::E_SWIZZLE s, auto id) -> InT
+	template<bool Clamp, typename Swizzle, typename Dither>
+	class CSwizzleAndConvertImageFilterBase : public CSwizzleableAndDitherableFilterBase<Clamp, Swizzle, Dither>, public CMatchedSizeInOutImageFilterCommon
 	{
-		if (s < ICPUImageView::SComponentMapping::ES_IDENTITY)
-			return in[id];
-		else if (s < ICPUImageView::SComponentMapping::ES_ZERO)
-			return InT(0);
-		else if (s == ICPUImageView::SComponentMapping::ES_ONE)
-			return InT(1);
-		else
-			return in[s - ICPUImageView::SComponentMapping::ES_R];
+		public:
+			class CState : public CSwizzleableAndDitherableFilterBase<Clamp, Swizzle, Dither>::state_type, public CMatchedSizeInOutImageFilterCommon::state_type
+			{
+				public:
+					CState() {}
+					virtual ~CState() {}
+			};
+
+			using state_type = CState;
+
+			static inline bool validate(state_type* state)
+			{
+				if (!CSwizzleableAndDitherableFilterBase<Clamp, Swizzle, Dither>::validate(state))
+					return false;
+
+				if (!CMatchedSizeInOutImageFilterCommon::validate(state))
+					return false;
+
+				// TODO: need to triple check it works when we finally enable this feature
+				if (isBlockCompressionFormat(state->outImage->getCreationParameters().format))
+					return false;
+
+				return true;
+			}
 	};
-	for (auto i = 0; i < channels; i++)
-		out[i] = OutT(getComponent((&swizzle.r)[i], i));
 }
 
 //! Compile time CSwizzleAndConvertImageFilter
@@ -128,17 +56,17 @@ inline void DefaultSwizzle::operator()(const InT* in, OutT* out, uint8_t channel
 	Do a per-pixel recombination of image channels while converting
 */
 
-template<E_FORMAT inFormat=EF_UNKNOWN, E_FORMAT outFormat=EF_UNKNOWN, typename Swizzle=DefaultSwizzle, bool Clamp = false, typename Dither = asset::CPrecomputedDither>
+template<E_FORMAT inFormat=EF_UNKNOWN, E_FORMAT outFormat=EF_UNKNOWN, typename Swizzle=DefaultSwizzle, bool Clamp = false, typename Dither = IdentityDither>
 class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImageFilter<inFormat,outFormat,Swizzle,Clamp,Dither>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither>
 {
 	public:
 		virtual ~CSwizzleAndConvertImageFilter() {}
 
-		using state_type = typename impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither>::state_type;
+		using state_type = typename impl::CSwizzleAndConvertImageFilterBase<Clamp, Swizzle,Dither>::state_type;
 
 		static inline bool validate(state_type* state)
 		{
-			if (!impl::CSwizzleAndConvertImageFilterBase<Swizzle, Dither>::validate(state))
+			if (!impl::CSwizzleAndConvertImageFilterBase<Clamp, Swizzle, Dither>::validate(state))
 				return false;
 
 			if (state->inImage->getCreationParameters().format!=inFormat)
@@ -179,6 +107,14 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
 						uint8_t* dstPix = commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos + core::vectorSIMDu32(blockX, blockY),commonExecuteData.outByteStrides);
 						
+						/*
+							TODO: replace with
+
+							- onDecode
+							- onEncode
+
+
+
 						auto getSwizzle = [&]() -> Swizzle&
 						{
 							if constexpr (std::is_base_of<PolymorphicSwizzle, Swizzle>::value)
@@ -196,19 +132,21 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 						asset::decodePixels<inFormat>(srcPix, reinterpret_cast<decodeBufferType*>(decodeBuffer), blockX, blockY);
 						swizzle.template operator()<void, void>(decodeBuffer, encodeBuffer);
 
-						auto ditherBuffer = [&]()
+						if constexpr (!std::is_base_of<IdentityDither, Dither>::value)
 						{
-							for (uint8_t i = 0; i < outChannelsAmount; ++i) 
+							auto ditherBuffer = [&]()
 							{
-								const float ditheredValue = state->dither.pGet(state->ditherState, localOutPos + core::vectorSIMDu32(blockX, blockY), i);
-								auto* encodeValue = reinterpret_cast<encodeBufferType*>(encodeBuffer) + i;
-								const encodeBufferType scale = asset::getFormatPrecision<encodeBufferType>(outFormat, i, *encodeValue);
-								*encodeValue += static_cast<encodeBufferType>(ditheredValue) * scale;
-							}
-						};
+								for (uint8_t i = 0; i < outChannelsAmount; ++i)
+								{
+									const float ditheredValue = state->dither.pGet(state->ditherState, localOutPos + core::vectorSIMDu32(blockX, blockY), i);
+									auto* encodeValue = reinterpret_cast<encodeBufferType*>(encodeBuffer) + i;
+									const encodeBufferType scale = asset::getFormatPrecision<encodeBufferType>(outFormat, i, *encodeValue);
+									*encodeValue += static_cast<encodeBufferType>(ditheredValue)* scale;
+								}
+							};
 
-						if(state->ditherState)
 							ditherBuffer();
+						}
 
 						auto clampBuffer = [&]()
 						{
@@ -223,6 +161,8 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 							clampBuffer();
 						
 						asset::encodePixels<outFormat>(dstPix, reinterpret_cast<encodeBufferType*>(encodeBuffer));
+
+						*/
 					}
 				};
 				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
@@ -237,16 +177,16 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 */
 
 template<typename Swizzle, bool Clamp, typename Dither>
-class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Clamp,Dither> : public CImageFilter<CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Clamp,Dither>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither>
+class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Clamp,Dither> : public CImageFilter<CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Clamp,Dither>>, public impl::CSwizzleAndConvertImageFilterBase<Clamp,Swizzle,Dither>
 {
 	public:
 		virtual ~CSwizzleAndConvertImageFilter() {}
 
-		using state_type = typename impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither>::state_type;
+		using state_type = typename impl::CSwizzleAndConvertImageFilterBase<Clamp,Swizzle,Dither>::state_type;
 
 		static inline bool validate(state_type* state)
 		{
-			return impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither>::validate(state);
+			return impl::CSwizzleAndConvertImageFilterBase<Clamp,Swizzle,Dither>::validate(state);
 		}
 
 		static inline bool execute(state_type* state)
@@ -328,7 +268,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Clamp,Dither> :
 
 		static inline bool validate(state_type* state)
 		{
-			if (!impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither>::validate(state))
+			if (!impl::CSwizzleAndConvertImageFilterBase<Clamp,Swizzle,Dither>::validate(state))
 				return false;
 
 			if (state->inImage->getCreationParameters().format!=outFormat)
@@ -354,7 +294,7 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Clamp,Dither> : 
 
 		static inline bool validate(state_type* state)
 		{
-			if (!impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither>::validate(state))
+			if (!impl::CSwizzleAndConvertImageFilterBase<Clamp,Swizzle,Dither>::validate(state))
 				return false;
 
 			if (state->inImage->getCreationParameters().format!=inFormat)
