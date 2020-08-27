@@ -16,7 +16,7 @@ namespace irr
 namespace asset
 {
 
-#if 0 //TODO: Implement later
+#if 0 // implementations are a TODO (we probably need a polyphase kernel to cache these results)
 // class for an image filter kernel which is a convolution of two image filter kernels
 template<class KernelA, class KernelB>
 class CConvolutionImageFilterKernel;
@@ -24,19 +24,19 @@ class CConvolutionImageFilterKernel;
 namespace impl
 {
 	template<class KernelA, class KernelB, class CRTP>
-	class CConvolutionImageFilterKernelBase : protected KernelA, protected KernelB, public CImageFilterKernel<CConvolutionImageFilterKernelBase<KernelA,KernelB,CRTP>, typename KernelA::value_type>
+	class CConvolutionImageFilterKernelBase : protected KernelA, protected KernelB, public CFloatingPointSeparableImageFilterKernelBase<CConvolutionImageFilterKernelBase<KernelA,KernelB,CRTP>>
 	{
-			static_assert(std::is_same_v<typename KernelA::value_type,typename KernelB::value_type>::value, "Both kernels must use the same value_type!");
-			struct priv_t
-			{
-				const float positive_support[3];
-				const float negative_support[3];
-			};
-			const priv;
+		// TODO: figure out what I meant to do here
+			//static_assert(std::is_same_v<typename KernelA::value_type,typename KernelB::value_type>::value, "Both kernels must use the same value_type!");
+			static_assert(
+				std::is_base_of<CFloatingPointIsotropicSeparableImageFilterKernelBase<KernelA>,typename KernelA>::value&&
+				std::is_base_of<CFloatingPointIsotropicSeparableImageFilterKernelBase<KernelB>,typename KernelB>::value,
+				"Both kernels must be derived from CFloatingPointIsotropicSeparableImageFilterKernelBase!"
+			);
 
 		protected:
 			CConvolutionImageFilterKernelBase(KernelA&& a, KernelB&& b) : KernelA(std::move(a)), KernelB(std::move(b)),
-				IImageFilterKernel{
+				CFloatingPointSeparableImageFilterKernelBase<CConvolutionImageFilterKernelBase<KernelA, KernelB, CRTP>>{
 						{
 							KernelA::positive_support[0]+KernelB::positive_support[0],
 							KernelA::positive_support[1]+KernelB::positive_support[1],
@@ -59,9 +59,11 @@ namespace impl
 				return KernelA::validate(inImage, outImage) && KernelB::validate(inImage, outImage);
 			}
 
-			inline float evaluate(const core::vectorSIMDf& inPos)
+			static_assert(CConvolutionImageFilterKernelBase<KernelA, KernelB>::is_separable, "Convolving Non-Separable Filters is a TODO!");
+			// specialization defines this
+			inline float weight(float x, int32_t channel) const
 			{
-				return CRTP::evaluate
+				return CRTP::weight(x,channel);
 			}
 	};
 }
@@ -93,22 +95,17 @@ class CConvolutionImageFilterKernel : public impl::CConvolutionImageFilterKernel
 		using Base::Base;
 
 		// this is a special implementation for general 
-		static_assert(CConvolutionImageFilterKernelBase<KernelA, KernelB>::is_separable, "Convolving Non-Separable Filters is a TODO!");
-		inline float evaluate(const core::vectorSIMDf& inPos, uint32_t iterations=64u)
+		inline float weight(const float x, int32_t channel, uint32_t iterations=64u)
 		{
-			#ifdef _IRR_DEBUG
-				static_assert(false,"Not Implemented Yet!");
-				const double dx = (positive_support[0]-negative_support[0])/double(iterations+1u);
-				double sum = 0.0;
-				for (uint32_t i=0u; i<iterations; i++)
-				{
-					auto fakePos = inPos;
-					sum += KernelA::evaluate(fakePos)*KernelB::evaluate(inPos-fakePos);
-				}
-				return sum/double(iterations);
-			#else
-				static_assert(false,"You shouldn't be using this in production!");
-			#endif
+			static_assert(false,"Not Implemented Yet!");
+			const double dx = (positive_support[0]-negative_support[0])/double(iterations+1u);
+			double sum = 0.0;
+			for (uint32_t i=0u; i<iterations; i++)
+			{
+				auto fakePos = inPos;
+				sum += KernelA::evaluate(fakePos)*KernelB::evaluate(inPos-fakePos);
+			}
+			return sum/double(iterations);
 		}
 };
 #endif

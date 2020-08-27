@@ -211,9 +211,9 @@ int main()
 
 	auto fullScreenTriangle = ext::FullScreenTriangle::createFullScreenTriangle(device->getAssetManager(), device->getVideoDriver());
 
-	auto createGpuResources = [&](std::string pathToShadersWithoutExtension) -> std::pair<core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>, core::smart_refctd_ptr<video::IGPUMeshBuffer>>
+	auto createGpuResources = [&](std::string pathToShader) -> std::pair<core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline>, core::smart_refctd_ptr<video::IGPUMeshBuffer>>
 	{
-		auto cpuFragmentSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(assetManager->getAsset(pathToShadersWithoutExtension + ".frag", {}).getContents().begin()[0]);
+		auto cpuFragmentSpecializedShader = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(assetManager->getAsset(pathToShader, {}).getContents().begin()[0]);
 		ISpecializedShader::SInfo info = cpuFragmentSpecializedShader->getSpecializationInfo();
 		info.m_backingBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(ShaderParameters));
 		memcpy(info.m_backingBuffer->getPointer(),&kShaderParameters,sizeof(ShaderParameters));
@@ -250,7 +250,8 @@ int main()
 		return { gpuPipeline, gpuMeshBuffer };
 	};
 
-	auto gpuEnvmapResources = createGpuResources("../envCubeMapShaders/envmap");
+	constexpr bool litByTriangle = false;
+	auto gpuEnvmapResources = createGpuResources(litByTriangle ? "../litByTriangle.frag":"../litBySphere.frag");
 	auto gpuEnvmapPipeline = gpuEnvmapResources.first;
 	auto gpuEnvmapMeshBuffer = gpuEnvmapResources.second;
 

@@ -77,7 +77,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 				if (!CBlitImageFilter<Kernel>::validate(&blit))
 					return false;
 			}
-			return Kernel::validate(image,image);
+			return true; // CBlit already checks kernel
 		}
 
 		static inline bool execute(state_type* state)
