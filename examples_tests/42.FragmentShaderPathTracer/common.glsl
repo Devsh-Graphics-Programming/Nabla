@@ -1,5 +1,5 @@
 // basic settings
-#define MAX_DEPTH 8
+#define MAX_DEPTH 5
 #define SAMPLES 16
 
 // firefly and variance reduction techniques
@@ -86,23 +86,41 @@ struct Triangle
 {
     vec4 planeEq;
     vec4 boundaryPlanes[2];
+    float area;
     uint bsdfLightIDs;
 };
 
 Triangle Triangle_Triangle(in mat3 vertices, in uint bsdfID, in uint lightID)
 {
     const vec3 edges[2] = vec3[2](vertices[1]-vertices[0],vertices[2]-vertices[0]);
-
+    //
     Triangle tri;
-    tri.planeEq.xyz = normalize(cross(edges[0],edges[1]));
-    tri.planeEq.w = -dot(tri.planeEq.xyz,vertices[0]);
+    tri.planeEq.xyz = cross(edges[0],edges[1]);
     tri.boundaryPlanes[0].xyz = cross(tri.planeEq.xyz,edges[0]);
-    tri.boundaryPlanes[0].w = dot(tri.boundaryPlanes[0].xyz,vertices[0]);
+    tri.boundaryPlanes[0].xyz/= dot(tri.boundaryPlanes[0].xyz,edges[1]);
     tri.boundaryPlanes[1].xyz = cross(edges[1],tri.planeEq.xyz);
-    tri.boundaryPlanes[1].w = dot(tri.boundaryPlanes[1].xyz,vertices[0]);
-    tri.bsdfLightIDs = bitfieldInsert(bsdfID,lightID,16,16);
+    tri.boundaryPlanes[1].xyz/= dot(tri.boundaryPlanes[1].xyz,edges[0]);
+    //
+    tri.planeEq.w = dot(tri.planeEq.xyz, vertices[0]);
+    tri.boundaryPlanes[0].w = -dot(tri.boundaryPlanes[0].xyz, vertices[0]);
+    tri.boundaryPlanes[1].w = -dot(tri.boundaryPlanes[1].xyz, vertices[0]);
+    //
+    tri.area = length(tri.planeEq.xyz)*0.5;
+    //
+    tri.bsdfLightIDs = bitfieldInsert(bsdfID, lightID, 16, 16);
     return tri;
 }
+
+// N x (B-A) = P
+
+// |P| = |C-A||B-A|^2
+// P . (C-A) = |C-A|^2|B-A|^2cos(theta) = 1
+// P = 
+
+// |P| = |B-A|
+// P . (C-A) = |B-A||C-A|cos(theta) = 1
+// P = 
+
 
 // return intersection distance if found, FLT_NAN otherwise
 float Triangle_intersect(in Triangle tri, in vec3 origin, in vec3 direction)
@@ -121,6 +139,11 @@ float Triangle_intersect(in Triangle tri, in vec3 origin, in vec3 direction)
 vec3 Triangle_getNormal(in Triangle tri)
 {
     return tri.planeEq.xyz;
+}
+
+float Triangle_getArea(in Triangle tri)
+{
+    return tri.area;
 }
 
 

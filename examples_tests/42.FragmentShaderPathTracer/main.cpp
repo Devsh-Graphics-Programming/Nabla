@@ -250,7 +250,7 @@ int main()
 		return { gpuPipeline, gpuMeshBuffer };
 	};
 
-	constexpr bool litByTriangle = false;
+	constexpr bool litByTriangle = true;
 	auto gpuEnvmapResources = createGpuResources(litByTriangle ? "../litByTriangle.frag":"../litBySphere.frag");
 	auto gpuEnvmapPipeline = gpuEnvmapResources.first;
 	auto gpuEnvmapMeshBuffer = gpuEnvmapResources.second;

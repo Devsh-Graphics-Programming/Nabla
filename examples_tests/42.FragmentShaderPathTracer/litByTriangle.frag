@@ -16,13 +16,13 @@ Sphere spheres[SPHERE_COUNT] = {
 };
 #define TRIANGLE_COUNT 1
 Triangle triangles[TRIANGLE_COUNT] = {
-    Triangle_Triangle(mat3(vec3(-1.8,1.2,0.3),vec3(-1.5,1.2,0.0),vec3(-1.5,1.8,0.0)),INVALID_ID_16BIT,0u)
+    Triangle_Triangle(mat3(vec3(-1.8,1.2,0.3),vec3(-1.2,1.2,0.0),vec3(-1.5,1.8,0.0)),INVALID_ID_16BIT,0u)
 };
 
 
 #define LIGHT_COUNT 1
 Light lights[LIGHT_COUNT] = {
-    {vec3(30.0,25.0,15.0),8u}
+    {vec3(30.0,25.0,15.0),0u}
 };
 
 
@@ -63,45 +63,25 @@ bool traceRay(in ImmutableRay_t _immutable)
 }
 
 
-#if 0
 // the interaction here is the interaction at the illuminator-end of the ray, not the receiver
-vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in Triangle tri, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
+vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in float intersectionT, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
 {
     // we don't have to worry about solid angle of the light w.r.t. surface of the light because this function only ever gets called from closestHit routine, so such ray cannot be produced
-    pdf = scene_getLightChoicePdf(light)/Sphere_getSolidAngle(sphere,origin);
+    pdf = scene_getLightChoicePdf(light)*abs(interaction.isotropic.NdotV)/(intersectionT*intersectionT*Triangle_getArea(triangles[Light_getObjectID(light)]));
     return Light_getRadiance(light);
 }
 
-#define GeneratorSample irr_glsl_BSDFSample
-#define irr_glsl_LightSample irr_glsl_BSDFSample
-irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
-{
-    irr_glsl_BSDFSample s;
-    s.L = L;
-
-    s.TdotL = dot(interaction.T,L);
-    s.BdotL = dot(interaction.B,L);
-    s.NdotL = dot(interaction.isotropic.N,L);
-   
-    float VdotL = dot(interaction.isotropic.V.dir,L);
-    float LplusV_rcpLen = inversesqrt(2.0+2.0*VdotL);
-
-    s.TdotH = (interaction.TdotV+s.TdotL)*LplusV_rcpLen;
-    s.BdotH = (interaction.BdotV+s.BdotL)*LplusV_rcpLen;
-    s.NdotH = (interaction.isotropic.NdotV+s.NdotL)*LplusV_rcpLen;
-
-    s.VdotH = LplusV_rcpLen+LplusV_rcpLen*VdotL;
-    
-    return s;
-}
 irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in int depth)
 {
     // normally we'd pick from set of lights, using `u.z`
     const Light light = lights[0];
     const float choicePdf = scene_getLightChoicePdf(light);
 
-    const Sphere sphere = spheres[Light_getObjectID(light)];
-
+    const Triangle tri = triangles[Light_getObjectID(light)];
+    
+    // point = ?
+    vec3 L; // = point-origin;
+#if 0
     vec3 Z = sphere.position-origin;
     const float distanceSQ = dot(Z,Z);
     const float cosThetaMax2 = 1.0-sphere.radius2/distanceSQ;
@@ -124,15 +104,15 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
     
     L += (XY[0]*cosPhi+XY[1]*sinPhi)*sinTheta;
     
-    const float rcpPdf = Sphere_getSolidAngle_impl(cosThetaMax)/choicePdf;
-    remainder = Light_getRadiance(light)*(possibilityOfLightVisibility ? rcpPdf:0.0); // this ternary operator kills invalid rays
+    const float rcpPdf = Triangle_getArea(tri)/(abs(dot(Triangle_getNormal(tri),L))*choicePdf);
+    remainder = Light_getRadiance(light)*rcpPdf;
     pdf = 1.0/rcpPdf;
     
     newRayMaxT = (cosTheta-sqrt(cosTheta2-cosThetaMax2))/rcpDistance*getEndTolerance(depth);
+#endif
     
     return irr_glsl_createLightSample(L,interaction);
 }
-#endif
 
 void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64star_state_t scramble_state)
 {
@@ -169,12 +149,11 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
     const uint lightID = bitfieldExtract(bsdfLightIDs,16,16);
 
     vec3 throughput = rayStack[stackPtr]._payload.throughput;
-#if 0    
     // finish MIS
     if (lightID!=INVALID_ID_16BIT) // has emissive
     {
         float lightPdf;
-        vec3 lightVal = irr_glsl_light_deferred_eval_and_prob(lightPdf,sphere,_immutable.origin,interaction,lights[lightID]);
+        vec3 lightVal = irr_glsl_light_deferred_eval_and_prob(lightPdf,mutable.intersectionT,interaction,lights[lightID]);
         rayStack[stackPtr]._payload.accumulation += throughput*lightVal/(1.0+lightPdf*lightPdf*rayStack[stackPtr]._payload.otherTechniqueHeuristic);
     }
     
@@ -254,6 +233,4 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
             stackPtr++;
         }
     }
-#else
-#endif
 }
