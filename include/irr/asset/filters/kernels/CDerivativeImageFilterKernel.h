@@ -2,8 +2,8 @@
 // This file is part of the "IrrlichtBAW" engine.
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#ifndef __IRR_C_SCALED_IMAGE_FILTER_KERNEL_H_INCLUDED__
-#define __IRR_C_SCALED_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#ifndef __IRR_C_DERIVATIVE_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#define __IRR_C_DERIVATIVE_IMAGE_FILTER_KERNEL_H_INCLUDED__
 
 #include "irr/core/core.h"
 
