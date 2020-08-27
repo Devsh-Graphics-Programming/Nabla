@@ -140,7 +140,6 @@ int main()
         asset::MeshPackerBase::AllocationParams allocationParams;
 
         auto& mbRange = mbRangesTex[i].mbRanges;
-        core::vector<asset::MeshPackerBase::PackedMeshBufferData> pmbData;
         const ptrdiff_t meshBuffersInRangeCnt = std::distance(mbRange.begin(), mbRange.end());
 
         allocationParams.indexBuffSupportedCnt = 20000000u;
@@ -155,31 +154,24 @@ int main()
             //pack mesh buffers
         asset::CCPUMeshPacker<CustomIndirectCommand> packer(inputParams, allocationParams, std::numeric_limits<uint16_t>::max() / 3u, std::numeric_limits<uint16_t>::max() / 3u);
         
-        core::vector<MeshPackerBase::ReservedAllocationMeshBuffers> resData;
+        MeshPackerBase::ReservedAllocationMeshBuffers resData;
+        asset::MeshPackerBase::PackedMeshBufferData pmbData;
         
-        resData.reserve(meshBuffersInRangeCnt);
-
-        for (uint32_t j = 0u; j < meshBuffersInRangeCnt; j++)
-        {
-            resData.emplace_back(packer.alloc(mbRange.begin() + j, mbRange.begin() + j + 1));
-            assert(resData[j].isValid());
-        }
+        resData = packer.alloc(mbRange.begin(), mbRange.end());
+        assert(resData.isValid());
 
         packer.instantiateDataStorage();
 
-        for (uint32_t j = 0u; j < meshBuffersInRangeCnt; j++)
-        {
-            pmbData.emplace_back(packer.commit(mbRange.begin() + j, mbRange.begin() + j + 1, resData[j]));
-            assert(pmbData[j].isValid());
-        }
+        pmbData = packer.commit(mbRange.begin(), mbRange.end(), resData);
+        assert(pmbData.isValid());
 
         packedMeshBuffer[i] = packer.getPackedMeshBuffer();
         assert(packedMeshBuffer[i].isValid());
 
             //fill ssbo with correct values
-            //TODO: check for out of bounds access
         auto& textures = mbRangesTex[i].textures;
         CustomIndirectCommand* ssboBuffer = static_cast<CustomIndirectCommand*>(packedMeshBuffer[i].MDIDataBuffer->getPointer());
+        const size_t mdiBuffSz = packedMeshBuffer[i].MDIDataBuffer->getSize();
 
         uint32_t mbIdx = 0u;
         for (auto it = mbRange.begin(); it != mbRange.end(); it++)
@@ -196,29 +188,19 @@ int main()
             const uint32_t texBindDiffuse = (*texBindDiffuseIt).second;
             const uint32_t texBindBump = (*texBindBumpIt).second;
 
-            auto mdiCmdForMb = ssboBuffer + mbIdx;
-            mbIdx++;
+            auto mdiCmdForMb = ssboBuffer + mbIdx++;
             mdiCmdForMb->diffuseTexBinding = texBindDiffuse;
             mdiCmdForMb->bumpTexBinding = texBindBump;
         }
 
-            //create draw call inputs
-        size_t paramCntAcc = 0ull;
-        //make sure mdi structs are adjacent in memory
-        {
-            for (uint32_t j = 0u; j < pmbData.size(); j++)
-            {
-                assert(pmbData[j].mdiParameterOffset == paramCntAcc);
-                assert(pmbData[j].mdiParameterCount == 1u);
-                paramCntAcc +=  pmbData[j].mdiParameterCount;
-            }
-        }
+        assert(pmbData.mdiParameterCount == meshBuffersInRangeCnt);
 
+            //create draw call inputs
         mdiCallParams[i].indexBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(packedMeshBuffer[i].indexBuffer.buffer->getSize(), packedMeshBuffer[i].indexBuffer.buffer->getPointer());
 
         auto& cpuVtxBuff = packedMeshBuffer[i].vertexBufferBindings[0].buffer;
 
-        gpuIndirectDrawBuffer[i] = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(CustomIndirectCommand) * paramCntAcc, packedMeshBuffer[i].MDIDataBuffer->getPointer());
+        gpuIndirectDrawBuffer[i] = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(CustomIndirectCommand) * pmbData.mdiParameterCount, packedMeshBuffer[i].MDIDataBuffer->getPointer());
         mdiCallParams[i].indirectDrawBuff = core::smart_refctd_ptr(gpuIndirectDrawBuffer[i]);
 
         auto gpuVtxBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuVtxBuff->getSize(), cpuVtxBuff->getPointer());
@@ -227,7 +209,7 @@ int main()
             mdiCallParams[i].vtxBindings[j] = { packedMeshBuffer[i].vertexBufferBindings[j].offset, gpuVtxBuff };
 
         mdiCallParams[i].stride = sizeof(CustomIndirectCommand);
-        mdiCallParams[i].maxCount = paramCntAcc;
+        mdiCallParams[i].maxCount = pmbData.mdiParameterCount;
     }
 
         //create pipeline
