@@ -127,8 +127,10 @@ int main()
 		compPipeline = driver->createGPUComputePipeline(nullptr, std::move(layout), std::move(shader));
 	}
 
+	auto renderObject = driver->getGPUObjectsFromAssets(&outImgViewRawPtr, &outImgViewRawPtr + 1)->front();
+
 	auto blitFBO = driver->addFrameBuffer();
-	blitFBO->attach(video::EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr_dynamic_cast<video::IGPUImageView>(am->findGPUObject(outImgViewRawPtr)));
+	blitFBO->attach(video::EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr_dynamic_cast<video::IGPUImageView>(renderObject));
 
 	while (device->run())
 	{

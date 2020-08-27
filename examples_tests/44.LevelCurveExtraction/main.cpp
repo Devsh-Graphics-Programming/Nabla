@@ -4,6 +4,8 @@
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
 
+#include "common.glsl"
+
 
 const char* vertShaderCode = R"===(
 #version 430 core
@@ -28,14 +30,8 @@ void main()
 )===";
 
 const char* geometryShaderCode = R"===(
-#version 440 core
-
 layout(triangles) in;
 layout(triangle_strip, max_vertices = 3) out;
-
-
-#include "irr/builtin/glsl/limits/numeric.glsl"
-#include "irr/builtin/glsl/utils/indirect_commands.glsl"
 
 
 layout(location = 0) in vec3 LocalPos[];
@@ -50,18 +46,7 @@ layout(location = 3) in vec2 UV[];
 layout(location = 3) out vec2 fragUV;
 #endif
 
-layout(set = 0, binding = 0) coherent buffer LineCount
-{
-    irr_glsl_DrawArraysIndirectCommand_t lineDraw;
-};
-layout(set = 0, binding = 1) writeonly buffer Lines
-{
-    float linePoints[]; // 6 floats decribe a line, 3d start, 3d end
-};
-layout(set = 0, binding = 2) uniform LevelCurveSettings
-{
-    float intersectionPlaneSpacing;
-};
+#include "../common.glsl"
 
 void main()
 {
@@ -95,7 +80,7 @@ void main()
     numHorLines = uint(floor(maxLevel/levelPlanesDistance)-ceil(minLevel/levelPlanesDistance-1));
     if(numHorLines>0)
     {
-        uint outID = atomicAdd(lineDraw.count,2 * numHorLines) * 3;
+        uint outID = atomicAdd(lineDraw[mdiIndex].count,2*numHorLines)*3;
         float beginLevel = ceil(minLevel/levelPlanesDistance)*levelPlanesDistance;
 
         const vec3 edgeVectors[3] = vec3[3](
@@ -164,32 +149,46 @@ using namespace irr;
 using namespace core;
 
 
-void SaveBufferToCSV(video::IVideoDriver* driver, const uint32_t &bufferBytesize, const uint32_t& alignment,video::IGPUBuffer *bufferToCopy)
+void SaveBufferToCSV(video::IVideoDriver* driver, size_t mdiIndex, video::IGPUBuffer* drawIndirectBuffer, video::IGPUBuffer* lineBuffer)
 {
+    constexpr uint64_t timeoutInNanoSeconds = 15000000000u;
+    const uint32_t alignment = sizeof(float);
     auto downloadStagingArea = driver->getDefaultDownStreamingBuffer();
-    uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address;
-    constexpr uint64_t timeoutInNanoSeconds = 300000000000u;
-    auto unallocatedSize = downloadStagingArea->multi_alloc(std::chrono::nanoseconds(timeoutInNanoSeconds), 1u, &address, &bufferBytesize, &alignment);
-    if (unallocatedSize)
+    auto downBuffer = downloadStagingArea->getBuffer();
+
+    auto getData = [&alignment,timeoutInNanoSeconds,downloadStagingArea,driver, downBuffer](video::IGPUBuffer* buf, const uint32_t origOffset, const uint32_t bytelen) -> void*
     {
-        os::Printer::log("Could not download the buffer from the GPU!", ELL_ERROR);
-        return;
-    }
-    driver->copyBuffer(bufferToCopy, downloadStagingArea->getBuffer(), 0u, address, bufferBytesize);
-    auto downloadFence = driver->placeFence(true);
-    auto* data = reinterpret_cast<float*>(downloadStagingArea->getBufferPointer()) + address;
-    auto result = downloadFence->waitCPU(timeoutInNanoSeconds, true);
-    if (result == video::E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED || result == video::E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
-    {
-        os::Printer::log("Could not download the buffer from the GPU, fence not signalled!", ELL_ERROR);
-        downloadStagingArea->multi_free(1u, &address, &bufferBytesize, nullptr);
-        return;
-    }
-    if (downloadStagingArea->needsManualFlushOrInvalidate())
-        driver->invalidateMappedMemoryRanges({ {downloadStagingArea->getBuffer()->getBoundMemory(),address,bufferBytesize} });
+        uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address;
+        auto unallocatedSize = downloadStagingArea->multi_alloc(std::chrono::nanoseconds(timeoutInNanoSeconds), 1u, &address, &bytelen, &alignment);
+        if (unallocatedSize)
+        {
+            os::Printer::log("Could not download the buffer from the GPU!", ELL_ERROR);
+            return nullptr;
+        }
+        driver->copyBuffer(buf, downBuffer, origOffset, address, bytelen);
+        auto downloadFence = driver->placeFence(true);
+        auto result = downloadFence->waitCPU(timeoutInNanoSeconds, true);
+        if (result==video::E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED || result==video::E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
+        {
+            os::Printer::log("Could not download the buffer from the GPU, fence not signalled!", ELL_ERROR);
+            downloadStagingArea->multi_free(1u, &address, &bytelen, nullptr);
+            return nullptr;
+        }
+        if (downloadStagingArea->needsManualFlushOrInvalidate())
+            driver->invalidateMappedMemoryRanges({ {downloadStagingArea->getBuffer()->getBoundMemory(),address,bytelen} });
+        // this is abuse of the API, the memory should be freed AFTER the pointer is finished being used, however no one else is using this staging buffer so we can allow it without experiencing data corruption
+        downloadStagingArea->multi_free(1u, &address, &bytelen, nullptr);
+        return reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer())+address;
+    };
+
+    // get the line count
+    auto vertexCount = *reinterpret_cast<const uint32_t*>(getData(drawIndirectBuffer,sizeof(asset::DrawArraysIndirectCommand_t)*mdiIndex+offsetof(irr::asset::DrawArraysIndirectCommand_t,count),sizeof(asset::DrawArraysIndirectCommand_t::count)));
+
+    // get the lines
+    auto* data = reinterpret_cast<float*>(getData(lineBuffer,0u,vertexCount*sizeof(float)*3u));
     std::ofstream csvFile ("../linesbuffer_content.csv");
     csvFile << "A_x;A_y;A_z;B_x;B_y;B_z\n";
-    for (size_t i = 0; i < bufferBytesize-5; i+=6)
+    for (uint32_t i = 0; i<vertexCount*3u; i+=6u)
     {
         csvFile << data[i + 0] << ";";
         csvFile << data[i + 1] << ";";
@@ -205,7 +204,7 @@ void SaveBufferToCSV(video::IVideoDriver* driver, const uint32_t &bufferBytesize
 
 int main()
 {
-    constexpr auto linesBufferSize = 268435456u; //256 MB = 2^28B = 268435456 B
+    constexpr auto linesBufferSize = LINE_VERTEX_LIMIT*3u*sizeof(float); // 128 MB, max for Intel HD Graphics
     constexpr auto maxLineCount = linesBufferSize/(sizeof(float)*6u);
 
 	// create device with full flexibility over creation parameters
@@ -239,6 +238,142 @@ int main()
 	auto* smgr = device->getSceneManager();
     auto* am = device->getAssetManager();
     auto* fs = am->getFileSystem();
+
+
+    // prepate geometry shaders for modified OBJ pipelines
+    auto unspecializedGeomShaderUV = core::make_smart_refctd_ptr<asset::ICPUShader>((std::string("#version 440 core\n") + geometryShaderCode).c_str());
+    auto unspecializedGeomShaderNOUV = core::make_smart_refctd_ptr<asset::ICPUShader>((std::string("#version 440 core\n#define _NO_UV\n") + geometryShaderCode).c_str());
+    auto geomShaderUV = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedGeomShaderUV), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_GEOMETRY));
+    auto geomShaderNOUV = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedGeomShaderNOUV), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_GEOMETRY));
+
+
+    // create buffers for draw indirect structs
+    asset::DrawArraysIndirectCommand_t drawArraysIndirectCmd[2] = { { 0u,1u,0u,0u }, { 0u,1u,0u,0u } };
+    auto lineCountBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(core::alignUp(sizeof(drawArraysIndirectCmd), 16ull), drawArraysIndirectCmd);
+
+    //create buffers for the geometry shader
+    auto linesBuffer = driver->createDeviceLocalGPUBufferOnDedMem(linesBufferSize);
+
+    auto uniformLinesSettingsBuffer = driver->createDeviceLocalGPUBufferOnDedMem(roundUp(sizeof(GlobalUniforms),16ull));
+
+    // prepare line pipeline
+    core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> drawIndirect_pipeline;
+    {
+        // set up the shaders
+        auto lineVertShader = driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(vertShaderCode));
+        auto lineFragShader = driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(fragShaderCode));
+        auto linevshader = driver->createGPUSpecializedShader(lineVertShader.get(), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_VERTEX));
+        auto linefshader = driver->createGPUSpecializedShader(lineFragShader.get(), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_FRAGMENT));
+
+        // the layout
+        asset::SPushConstantRange pcRange[1] = { asset::ISpecializedShader::ESS_VERTEX,0,sizeof(core::matrix4SIMD) };
+        auto linePipelineLayout = driver->createGPUPipelineLayout(pcRange, pcRange+1u, nullptr, nullptr, nullptr, nullptr);
+
+        //set up the pipeline
+        asset::SPrimitiveAssemblyParams assemblyParams = { asset::EPT_LINE_LIST,false,2u };
+        asset::SVertexInputParams inputParams;
+        inputParams.enabledAttribFlags = 0b11u;
+        inputParams.enabledBindingFlags = 0b1u;
+        inputParams.attributes[0].binding = 0u;
+        inputParams.attributes[0].format = asset::EF_R32G32B32_SFLOAT;
+        inputParams.attributes[0].relativeOffset = 0u;
+        inputParams.bindings[0].stride = sizeof(float) * 3;
+        inputParams.bindings[0].inputRate = asset::EVIR_PER_VERTEX;
+
+        video::IGPUSpecializedShader* shaders[2] = { linevshader.get(),linefshader.get() };
+        asset::SBlendParams blendParams; // defaults are fine
+        asset::SRasterizationParams rasterParams;
+        rasterParams.polygonMode = asset::EPM_LINE;
+
+        drawIndirect_pipeline = driver->createGPURenderpassIndependentPipeline(nullptr, std::move(linePipelineLayout), shaders, shaders + sizeof(shaders) / sizeof(void*), inputParams, blendParams, assemblyParams, rasterParams);
+    }
+
+    // prepare global descriptor set layout
+    core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds0layout;
+    {
+        asset::ICPUDescriptorSetLayout::SBinding b[3];
+        b[0].binding = 0u;
+        b[0].count = 1u;
+        b[0].samplers = nullptr;
+        b[0].stageFlags = asset::ISpecializedShader::ESS_GEOMETRY;
+        b[0].type = asset::EDT_STORAGE_BUFFER;
+
+        b[1].binding = 1u;
+        b[1].count = 1u;
+        b[1].samplers = nullptr;
+        b[1].stageFlags = asset::ISpecializedShader::ESS_GEOMETRY;
+        b[1].type = asset::EDT_STORAGE_BUFFER;
+
+        b[2].binding = 2u;
+        b[2].count = 1u;
+        b[2].samplers = nullptr;
+        b[2].stageFlags = asset::ISpecializedShader::ESS_GEOMETRY;
+        b[2].type = asset::EDT_UNIFORM_BUFFER;
+        ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(b, b+3);
+    }
+    auto gpuds0layout = driver->getGPUObjectsFromAssets(&ds0layout,&ds0layout+1)->front();
+
+    // and the actual descriptor set
+    core::smart_refctd_ptr<video::IGPUDescriptorSet> gpuds[4] = {};
+    gpuds[0] = driver->createGPUDescriptorSet(smart_refctd_ptr(gpuds0layout));
+    {
+        video::IGPUDescriptorSet::SWriteDescriptorSet write[3];
+        video::IGPUDescriptorSet::SDescriptorInfo info[3];
+        write[0].arrayElement = 0;
+        write[0].binding = 0u;
+        write[0].count = 1u;
+        write[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+        write[0].dstSet = gpuds[0].get();
+        write[0].info = info;
+        info[0].desc = lineCountBuffer;
+        info[0].buffer.offset = 0;
+        info[0].buffer.size = lineCountBuffer->getSize();
+
+        write[1].arrayElement = 0;
+        write[1].binding = 1u;
+        write[1].count = 1u;
+        write[1].descriptorType = asset::EDT_STORAGE_BUFFER;
+        write[1].dstSet = gpuds[0].get();
+        write[1].info = info+1;
+        info[1].desc = linesBuffer;
+        info[1].buffer.offset = 0;
+        info[1].buffer.size = linesBuffer->getSize();
+
+        write[2].arrayElement = 0;
+        write[2].binding = 2u;
+        write[2].count = 1u;
+        write[2].descriptorType = asset::EDT_UNIFORM_BUFFER;
+        write[2].dstSet = gpuds[0].get();
+        write[2].info = info+2;
+        info[2].desc = uniformLinesSettingsBuffer;
+        info[2].buffer.offset = 0;
+        info[2].buffer.size = uniformLinesSettingsBuffer->getSize();
+        driver->updateDescriptorSets(3u, write, 0u, nullptr);
+    }
+
+    // finally the vertex input bindings for line shader
+    asset::SBufferBinding<video::IGPUBuffer> bufferBinding[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT] = {};
+    bufferBinding[0].offset = 0;
+    bufferBinding[0].buffer = linesBuffer;
+
+
+    // set up compute shader to clamp line count and bind it persistently
+    {
+        auto layout = driver->createGPUPipelineLayout(nullptr, nullptr, std::move(gpuds0layout), nullptr, nullptr, nullptr);
+        core::smart_refctd_ptr<video::IGPUSpecializedShader> compShader;
+        {
+            asset::IAssetLoader::SAssetLoadParams lp;
+            auto cs_bundle = am->getAsset("../compute.comp", lp);
+            auto cs = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
+
+            auto cs_rawptr = cs.get();
+            compShader = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
+        }
+        auto compPipeline = driver->createGPUComputePipeline(nullptr, std::move(layout), std::move(compShader));
+        driver->bindComputePipeline(compPipeline.get());
+        driver->bindDescriptorSets(video::EPBP_COMPUTE, compPipeline->getLayout(), 0u, 1u, &gpuds[0].get(), nullptr);
+    }
+
 
     //
     asset::IAssetLoader::SAssetLoadParams lp;
@@ -276,171 +411,41 @@ int main()
     //! and we don't want a jittery cursor in the middle distracting us
     device->getCursorControl()->setVisible(false);
 
-
+    // process mesh slightly
     auto mesh = meshes_bundle.getContents().begin()[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
-  
-    //copy the pipeline
-    auto pipeline_cp = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(mesh_raw->getMeshBuffer(0u)->getPipeline()->clone(3u));
-    //get the simple geometry shader data and turn it into ICPUSpecializedShader
-    auto unspecializedVertShader = driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(vertShaderCode));
-    auto unspecializedFragShader = driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(fragShaderCode));
-    auto unspecializedGeomShader = core::make_smart_refctd_ptr<asset::ICPUShader>(geometryShaderCode);
 
-
-    auto vshader = driver->createGPUSpecializedShader(unspecializedVertShader.get(), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_VERTEX));
-    auto fshader = driver->createGPUSpecializedShader(unspecializedFragShader.get(), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_FRAGMENT));
-    auto geomShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedGeomShader), asset::ISpecializedShader::SInfo({}, nullptr, "main", asset::ISpecializedShader::ESS_GEOMETRY));
-
-    pipeline_cp->setShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_GEOMETRY_SHADER_IX, geomShader.get());
-    auto* layout = pipeline_cp->getLayout();
-    core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds0layout;
-    {
-        asset::ICPUDescriptorSetLayout::SBinding b[3];
-        b[0].binding = 0u;
-        b[0].count = 1u;
-        b[0].samplers = nullptr;
-        b[0].stageFlags = asset::ISpecializedShader::ESS_GEOMETRY;
-        b[0].type = asset::EDT_STORAGE_BUFFER;
-
-        b[1].binding = 1u;
-        b[1].count = 1u;
-        b[1].samplers = nullptr;
-        b[1].stageFlags = asset::ISpecializedShader::ESS_GEOMETRY;
-        b[1].type = asset::EDT_STORAGE_BUFFER;
-
-        b[2].binding = 2u;
-        b[2].count = 1u;
-        b[2].samplers = nullptr;
-        b[2].stageFlags = asset::ISpecializedShader::ESS_GEOMETRY;
-        b[2].type = asset::EDT_UNIFORM_BUFFER;
-        ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(b,b+3);
-    }
-
-    //set up draw indirect pipeline
-    asset::SPrimitiveAssemblyParams assemblyParams = { asset::EPT_LINE_LIST,false,2u };
-    asset::SVertexInputParams inputParams;
-    inputParams.enabledAttribFlags = 0b11u;
-    inputParams.enabledBindingFlags = 0b1u;
-    inputParams.attributes[0].binding = 0u;
-    inputParams.attributes[0].format = asset::EF_R32G32B32_SFLOAT;
-    inputParams.attributes[0].relativeOffset = 0u;
-    inputParams.bindings[0].stride = sizeof(float)*3;
-    inputParams.bindings[0].inputRate = asset::EVIR_PER_VERTEX;
-
-    asset::SPushConstantRange pcRange[1] = { asset::ISpecializedShader::ESS_VERTEX,0,sizeof(core::matrix4SIMD) };
-    auto pLayout = driver->createGPUPipelineLayout(pcRange, pcRange + 1u, nullptr, nullptr, nullptr, nullptr);
-    video::IGPUSpecializedShader* shaders[2] = { vshader.get(),fshader.get() };
-    asset::SBlendParams blendParams;
-    blendParams.logicOpEnable = false;
-    blendParams.logicOp = asset::ELO_NO_OP;
-    for (size_t i = 1ull; i < asset::SBlendParams::MAX_COLOR_ATTACHMENT_COUNT; i++)
-        blendParams.blendParams[i].attachmentEnabled = false;
-    asset::SRasterizationParams rasterParams;
-    rasterParams.polygonMode = asset::EPM_LINE;
-    rasterParams.depthBiasEnable = 1;
-    rasterParams.depthBiasConstantFactor = 1;
-    rasterParams.depthBiasSlopeFactor = 1;
-
-    auto drawIndirect_pipeline = driver->createGPURenderpassIndependentPipeline(nullptr, std::move(pLayout), shaders, shaders + sizeof(shaders) / sizeof(void*), inputParams, blendParams, assemblyParams, rasterParams);
-
-    
-    layout->setDescriptorSetLayout(0,core::smart_refctd_ptr(ds0layout));
-    auto gpuds0layout = driver->getGPUObjectsFromAssets(&ds0layout, &ds0layout + 1)->front();
-
-    for (size_t i = 0; i < mesh_raw->getMeshBufferCount(); i++)
-    {
-        mesh_raw->getMeshBuffer(i)->setPipeline(core::smart_refctd_ptr(pipeline_cp));
-    }
-    core::smart_refctd_ptr<video::IGPUComputePipeline> compPipeline;
-    {
-        core::smart_refctd_ptr<video::IGPUPipelineLayout> computeLayout;
-        {
-            asset::SPushConstantRange range;
-            range.offset = 0u;
-            range.size = sizeof(uint32_t) * 2u;
-            range.stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
-            computeLayout = driver->createGPUPipelineLayout(&range, &range + 1,smart_refctd_ptr(gpuds0layout), nullptr, nullptr, nullptr);
-        }
-        core::smart_refctd_ptr<video::IGPUSpecializedShader> compShader;
-        {
-            auto f = core::smart_refctd_ptr<io::IReadFile>(fs->createAndOpenFile("../compute.comp"));
-
-            //auto cs_unspec = am->getGLSLCompiler()->createSPIRVFromGLSL(f.get(), asset::ISpecializedShader::ESS_COMPUTE, "main", "comp");
-            asset::IAssetLoader::SAssetLoadParams lp;
-            auto cs_bundle = am->getAsset("../compute.comp", lp);
-            auto cs = core::smart_refctd_ptr_static_cast<asset::ICPUSpecializedShader>(*cs_bundle.getContents().begin());
-
-            auto cs_rawptr = cs.get();
-            compShader = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
-        }
-        compPipeline = driver->createGPUComputePipeline(nullptr, std::move(computeLayout), std::move(compShader));
-
-    }
-
-
-    //create buffers for the geometry shader
-    asset::DrawArraysIndirectCommand_t drawArraysIndirectCmd;
-    drawArraysIndirectCmd.instanceCount = 1u;
-    drawArraysIndirectCmd.baseInstance = 0u;
-    drawArraysIndirectCmd.count = 0u;
-    drawArraysIndirectCmd.first = 0u;
-    //auto lineCountBuffer = driver->createDeviceLocalGPUBufferOnDedMem(roundUp(sizeof(irr::asset::DrawArraysIndirectCommand_t),16ull));
-    auto lineCountBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(roundUp(sizeof(irr::asset::DrawArraysIndirectCommand_t), 16ull), &drawArraysIndirectCmd);
     uint32_t triangleCount;
     if (!asset::IMeshManipulator::getPolyCount(triangleCount, mesh_raw))
         assert(false);
-    float levelCurveSpacing = 10.0f;
-    float planeX = 0, planeY = 1, planeZ = 0;
-    auto linesBuffer = driver->createDeviceLocalGPUBufferOnDedMem(linesBufferSize);  
-    auto uniformLinesSettingsBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(roundUp(4 * sizeof(float), 16ull), &levelCurveSpacing);
-    
-    auto gpuds0 = driver->createGPUDescriptorSet(std::move(gpuds0layout));
+  
+    const asset::CMTLPipelineMetadata* pipelineMetadata = nullptr;
+    core::map<const asset::ICPURenderpassIndependentPipeline*,core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>> modifiedPipelines;
+    for (uint32_t i=0u; i<mesh_raw->getMeshBufferCount(); i++)
     {
-        video::IGPUDescriptorSet::SWriteDescriptorSet w[3];
-        video::IGPUDescriptorSet::SDescriptorInfo i[3];
-        w[0].arrayElement = 0;
-        w[0].binding = 0u;
-        w[0].count = 1u;
-        w[0].descriptorType = asset::EDT_STORAGE_BUFFER;
-        w[0].dstSet = gpuds0.get();
-        w[0].info = i;
-        i[0].desc = lineCountBuffer;
-        i[0].buffer.offset = 0;
-        i[0].buffer.size = lineCountBuffer->getSize();
+        auto mb = mesh_raw->getMeshBuffer(i);
+        auto* pipeline = mb->getPipeline();
+        auto found = modifiedPipelines.find(pipeline);
+        if (found==modifiedPipelines.end())
+        {
+            // new pipeline to modify, copy the pipeline
+            auto pipeline_cp = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(pipeline->clone(1u));
 
-        w[1].arrayElement = 0;
-        w[1].binding = 1u;
-        w[1].count = 1u;
-        w[1].descriptorType = asset::EDT_STORAGE_BUFFER;
-        w[1].dstSet = gpuds0.get();
-        w[1].info = i+1;
-        i[1].desc = linesBuffer;
-        i[1].buffer.offset = 0;
-        i[1].buffer.size = linesBuffer->getSize();
+            // insert a geometry shader into the pipeline
+            assert(pipelineMetadata->getLoaderName() == "CGraphicsPipelineLoaderMTL");
+            pipelineMetadata = static_cast<const asset::CMTLPipelineMetadata*>(pipeline->getMetadata());
+            pipeline_cp->setShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_GEOMETRY_SHADER_IX,(pipelineMetadata->usesShaderWithUVs() ? geomShaderUV:geomShaderNOUV).get());
 
-        w[2].arrayElement = 0;
-        w[2].binding = 2u;
-        w[2].count = 1u;
-        w[2].descriptorType = asset::EDT_UNIFORM_BUFFER;
-        w[2].dstSet = gpuds0.get();
-        w[2].info = i + 2;
-        i[2].desc = uniformLinesSettingsBuffer;
-        i[2].buffer.offset = 0;
-        i[2].buffer.size = uniformLinesSettingsBuffer->getSize();
-        driver->updateDescriptorSets(3u, w, 0u, nullptr);
+            // add descriptor set layout with one that has an SSBO and UBO
+            auto* layout = pipeline_cp->getLayout();
+            layout->setDescriptorSetLayout(0, core::smart_refctd_ptr(ds0layout));
+
+            // cache the result
+            found = modifiedPipelines.emplace(pipeline,std::move(pipeline_cp)).first;
+        }
+        mb->setPipeline(core::smart_refctd_ptr(found->second));
     }
-
-    asset::SBufferBinding<video::IGPUBuffer> bufferBinding[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
-    bufferBinding[0].offset = 0;
-    bufferBinding[0].buffer = linesBuffer; 
-   for (size_t i = 1; i < video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
-    {
-        bufferBinding[i].offset = 0;
-        bufferBinding[i].buffer = nullptr;
-    }
-
-    
+    assert(pipelineMetadata);
 
 
     //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
@@ -456,19 +461,19 @@ int main()
 
     size_t neededDS1UBOsz = 0ull;
     {
-        auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(mesh_raw->getMeshBuffer(0u)->getPipeline()->getMetadata());
         for (const auto& shdrIn : pipelineMetadata->getCommonRequiredInputs())
             if (shdrIn.descriptorSection.type==asset::IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
                 neededDS1UBOsz = std::max<size_t>(neededDS1UBOsz, shdrIn.descriptorSection.uniformBufferObject.relByteoffset+shdrIn.descriptorSection.uniformBufferObject.bytesize);
     }
 
-    auto gpuds1layout = driver->getGPUObjectsFromAssets(&ds1layout, &ds1layout+1)->front();
 
     auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(neededDS1UBOsz);
-    auto gpuds1 = driver->createGPUDescriptorSet(std::move(gpuds1layout));
+
+    auto gpuds1layout = driver->getGPUObjectsFromAssets(&ds1layout,&ds1layout+1)->front();
+    gpuds[1] = driver->createGPUDescriptorSet(std::move(gpuds1layout));
     {
         video::IGPUDescriptorSet::SWriteDescriptorSet write;
-        write.dstSet = gpuds1.get();
+        write.dstSet = gpuds[1].get();
         write.binding = ds1UboBinding;
         write.count = 1u;
         write.arrayElement = 0u;
@@ -482,9 +487,9 @@ int main()
         write.info = &info;
         driver->updateDescriptorSets(1u, &write, 0u, nullptr);
     }
-    //DescriptorSetLayout is null
-    auto gpumesh = driver->getGPUObjectsFromAssets(&mesh_raw, &mesh_raw+1)->front();
 
+    // finally get our GPU mesh
+    auto gpumesh = driver->getGPUObjectsFromAssets(&mesh_raw, &mesh_raw+1)->front();
 
 
 	//! we want to move around the scene and view it from different angles
@@ -498,34 +503,22 @@ int main()
     smgr->setActiveCamera(camera);
 	uint64_t lastFPSTime = 0;
     
+    GlobalUniforms globalUniforms = { 0u,10.f };
 	while(device->run() && receiver.keepOpen())
 	{
         driver->beginScene(true, true, video::SColor(255,128,128,128) );
 
-        if (levelCurveSpacing != receiver.getSpacing())
-        {
-            levelCurveSpacing = receiver.getSpacing();
-            driver->updateBufferRangeViaStagingBuffer(uniformLinesSettingsBuffer.get(), 0, sizeof(float), &levelCurveSpacing);
-        }
+        // always update cause of mdiIndex
+        globalUniforms.intersectionPlaneSpacing = receiver.getSpacing();
+        driver->updateBufferRangeViaStagingBuffer(uniformLinesSettingsBuffer.get(), 0, sizeof(globalUniforms), &globalUniforms);
 
-        
-      
-        // zero out buffer LineCount
-        driver->fillBuffer(lineCountBuffer.get(), offsetof(irr::asset::DrawArraysIndirectCommand_t, count), sizeof(uint32_t), 0u);
-
-        //emit "memory barrier" of type GL_SHADER_STORAGE_BITS before scene is drawn - same as pre render? or post invoking render but before it finishes?
-        //did you mean GL_SHADER_STORAGE_BARRIER_BIT?
-        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 
         //! This animates (moves) the camera and sets the transforms
 		camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
-
-
 		camera->render();
 
 
         core::vector<uint8_t> uboData(gpuubo->getSize());
-        auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(mesh_raw->getMeshBuffer(0u)->getPipeline()->getMetadata());
         for (const auto& shdrIn : pipelineMetadata->getCommonRequiredInputs())
         {
             if (shdrIn.descriptorSection.type==asset::IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
@@ -555,6 +548,7 @@ int main()
         }       
         driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), uboData.data());
 
+        // draw the meshbuffers and compute lines
         for (uint32_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
         {
             video::IGPUMeshBuffer* gpumb = gpumesh->getMeshBuffer(i);
@@ -562,36 +556,30 @@ int main()
             const video::IGPUDescriptorSet* ds3 = gpumb->getAttachedDescriptorSet();
 
             driver->bindGraphicsPipeline(pipeline);
-            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 0u, 1u, &gpuds0.get(), nullptr);
-            const video::IGPUDescriptorSet* gpuds1_ptr = gpuds1.get();
-            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 1u, 1u, &gpuds1_ptr, nullptr);
+            driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 0u, 2u, reinterpret_cast<const video::IGPUDescriptorSet**>(gpuds), nullptr);
             const video::IGPUDescriptorSet* gpuds3_ptr = gpumb->getAttachedDescriptorSet();
             if (gpuds3_ptr)
                 driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 3u, 1u, &gpuds3_ptr, nullptr);
-            driver->pushConstants(pipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, gpumb->MAX_PUSH_CONSTANT_BYTESIZE, gpumb->getPushConstantsDataPtr());
+            driver->pushConstants(pipeline->getLayout(), video::IGPUSpecializedShader::ESS_FRAGMENT|video::IGPUSpecializedShader::ESS_VERTEX, 0u, gpumb->MAX_PUSH_CONSTANT_BYTESIZE, gpumb->getPushConstantsDataPtr());
             driver->drawMeshBuffer(gpumb);
         }
 
-        //emit "memory barrier" of type GL_ALL_BARRIER_BITS after the entire scene finishes drawing
-        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_ALL_BARRIER_BITS);
-        driver->bindComputePipeline(compPipeline.get());
-        driver->bindDescriptorSets(video::EPBP_COMPUTE, compPipeline->getLayout(), 0u, 1u, &gpuds0.get(), nullptr);
-        driver->dispatch(1u,1u,1u);
-
+        // emit "memory barrier" of type GL_SHADER_STORAGE_BARRIER_BIT after the entire scene finishes drawing because we'll use the outputs as SSBOs
         video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+        driver->dispatch(1u,1u,1u);
+        // emit another memory barrier telling that we'll use the previously async written SSBO as MDI source, vertex data source, possibly to download and finally we'll re-use in the geometry shader as a clear buffer (cleared to 0 lines)
+        const bool willDownloadThisFrame = receiver.doBufferSave();
+        video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_COMMAND_BARRIER_BIT|GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT|(willDownloadThisFrame ? GL_BUFFER_UPDATE_BARRIER_BIT:0u)|GL_SHADER_STORAGE_BARRIER_BIT);
 
         driver->bindGraphicsPipeline(drawIndirect_pipeline.get());
         driver->pushConstants(drawIndirect_pipeline->getLayout(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), camera->getConcatenatedMatrix().pointer());
-
-
         //invoke drawIndirect and use linesBuffer
-        driver->drawArraysIndirect(bufferBinding, asset::EPT_LINE_LIST, lineCountBuffer.get(), 0u, 1u, sizeof(asset::DrawArraysIndirectCommand_t));
+        driver->drawArraysIndirect(bufferBinding, asset::EPT_LINE_LIST, lineCountBuffer.get(), sizeof(asset::DrawArraysIndirectCommand_t)* globalUniforms.mdiIndex, 1u, sizeof(asset::DrawArraysIndirectCommand_t));
 		driver->endScene();
         
-        if (receiver.doBufferSave())
-        {
-            SaveBufferToCSV(driver,6*1024*4,4,linesBuffer.get());
-        }
+        if (willDownloadThisFrame)
+            SaveBufferToCSV(driver,globalUniforms.mdiIndex,lineCountBuffer.get(),linesBuffer.get());
+        globalUniforms.mdiIndex ^= 0x1u;
 
 		// display frames per second in window title
 		uint64_t time = device->getTimer()->getRealTime();

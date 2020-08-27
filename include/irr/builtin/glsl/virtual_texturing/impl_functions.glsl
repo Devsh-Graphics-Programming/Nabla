@@ -78,7 +78,7 @@ vec3 irr_glsl_vTexture_helper(in uint formatID, in vec3 virtualUV, in int clippe
     return physicalUV;
 }
 
-#include <irr/builtin/glsl/utils/vertex.glsl>
+#include <irr/builtin/glsl/math/functions.glsl>
 
 #if _IRR_VT_FLOAT_VIEWS_COUNT
 // textureGrad emulation

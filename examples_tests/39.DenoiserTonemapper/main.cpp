@@ -426,6 +426,7 @@ void main()
 	uint32_t maxResolution[EII_COUNT][2] = { 0 };
 	{
 		asset::IAssetLoader::SAssetLoadParams lp(0ull,nullptr);
+
 		for (size_t i=0; i < inputFilesAmount; i++)
 		{
 			const auto imageIDString = makeImageIDString(i, colorFileNameBundle);
@@ -990,8 +991,8 @@ void main()
 
 			auto getConvertedPNGImageView = [&](core::smart_refctd_ptr<ICPUImage> image)
 			{
-				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_UNKNOWN, EF_UNKNOWN, true>; // TESTING
-				constexpr auto pngFormat = EF_R8G8B8A8_SRGB;
+				constexpr auto pngFormat = EF_R8G8B8_SRGB;
+				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_UNKNOWN, pngFormat, true, asset::CPrecomputedDither>;
 
 				core::smart_refctd_ptr<ICPUImage> newConvertedImage;
 				{
@@ -1013,6 +1014,16 @@ void main()
 
 					CONVERSION_FILTER convertFilter;
 					CONVERSION_FILTER::state_type state;
+					
+					auto ditheringBundle = am->getAsset("../../media/blueNoiseDithering/HDR_RGBA.exr", {});
+					const auto ditheringStatus = ditheringBundle.isEmpty();
+					if (ditheringStatus)
+					{
+						os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Could not load the dithering image!", ELL_ERROR);
+						assert(ditheringStatus);
+					}
+					auto ditheringImage = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(ditheringBundle.getContents().begin()[0]);
+					state.ditherState = _IRR_NEW(std::remove_pointer<decltype(state.ditherState)>::type, ditheringImage.get());
 
 					state.inImage = image.get();
 					state.outImage = newConvertedImage.get();
@@ -1030,6 +1041,8 @@ void main()
 
 					if (!convertFilter.execute(&state))
 						os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Something went wrong while converting the image!", ELL_WARNING);
+
+					_IRR_DELETE(state.ditherState);
 				}
 
 				// create image view
@@ -1044,7 +1057,6 @@ void main()
 				return newImageView;
 			};
 
-//#if 0 // @Anastazluk uncomment when dither and clamp is done
 			// convert to .PNG and save it as well 
 			{
 				auto newImageView = getConvertedPNGImageView(imageView->getCreationParameters().image);
@@ -1058,7 +1070,6 @@ void main()
 
 				am->writeAsset(fileName, wp);
 			}
-//#endif
 
 			// destroy link to CPUBuffer's data (we need to free it)
 			imageView->convertToDummyObject(~0u);

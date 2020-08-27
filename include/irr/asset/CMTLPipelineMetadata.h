@@ -95,6 +95,8 @@ public:
     const char* getLoaderName() const override { return LoaderName; }
 
     uint32_t getHashVal() const { return m_hash; }
+    bool usesShaderWithUVs() const { return m_hash&0x1u;}
+
     ICPUDescriptorSet* getDescriptorSet() const { return m_descriptorSet3.get(); }
 
 private:

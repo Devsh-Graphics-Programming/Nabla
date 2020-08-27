@@ -14,20 +14,27 @@ namespace irr
 namespace asset
 {
 
-// specialized case of CBlitImageFilter
+// Could be viewed as a specialized case of CBlitImageFilter, functionality is not derived, its composed.
+// Each mip-map will be constructed from the convolution of the previous by the scaled kernel.
+// For Sinc/Lanczos and Box Kernels this hierarchical computation gives the exact result.
+// However if you desire to use other filters then you should carefully consider the implications
+// For example in the gaussian case you want to filter with 2/originalResolution, 4/originalResolution, 8/originalResolution supports
+// but iterative application of the filter will give you 2/originalResolution, 6/originalResolution, 14/originalResolution supports
+// the correct usage is to compute the first mip map with a 100% support kernel, then subsequent iterations with 50% smaller pixel supports
+// (actually in the case of using a Gaussian for both resampling and reconstruction, this is equivalent to using a single kernel of 3,3,5,9,..)
 template<class ResamplingKernel=CKaiserImageFilterKernel<>, class ReconstructionKernel=CMitchellImageFilterKernel<> >
 class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageFilter<ResamplingKernel,ReconstructionKernel> >, public CBasicImageFilterCommon
 {
 	public:
 		virtual ~CMipMapGenerationImageFilter() {}
 
-		// TODO: Improve
+		// TODO: Improve and implement the cached convolution kernel
 		using Kernel = ResamplingKernel;//CKernelConvolution<ResamplingKernel, ReconstructionKernel>;
 
-		class CProtoState : public IImageFilter::IState
+		class CState : public IImageFilter::IState, public CBlitImageFilterBase<typename Kernel::value_type>::CStateBase
 		{
 			public:
-				virtual ~CProtoState() {}
+				virtual ~CState() {}
 
 				uint32_t							baseLayer= 0u;
 				uint32_t							layerCount = 0u;
@@ -35,12 +42,9 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 				uint32_t							endMipLevel = 0u;
 				ICPUImage*							inOutImage = nullptr;
 		};
-		class CState : public CProtoState, public CBlitImageFilterBase::CStateBase
-		{
-		};
 		using state_type = CState;
 		
-
+		// since the only thing the mip map generator does is call the blit filter, the scratch memory amount is the same
 		static inline uint32_t getRequiredScratchByteSize(const state_type* state)
 		{
 			auto blit = buildBlitState(state,state->startMipLevel);
@@ -66,7 +70,13 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			// TODO: remove this later when we can actually write/encode to block formats
 			if (isBlockCompressionFormat(state->inOutImage->getCreationParameters().format))
 				return false;
-
+			
+			for (auto inMipLevel=state->startMipLevel; inMipLevel!=state->endMipLevel; inMipLevel++)
+			{
+				auto blit = buildBlitState(state, inMipLevel);
+				if (!CBlitImageFilter<Kernel>::validate(&blit))
+					return false;
+			}
 			return Kernel::validate(image,image);
 		}
 
@@ -97,8 +107,9 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			blit.inMipLevel = prevLevel;
 			blit.outMipLevel = inMipLevel;
 			blit.inImage = blit.outImage = state->inOutImage;
-			//blit.kernel = Kernel();
-			static_cast<typename CBlitImageFilterBase::CStateBase&>(blit) = *static_cast<const typename CBlitImageFilterBase::CStateBase*>(state);
+			//blit.kernel = Kernel(); // gets default constructed, we should probably do a `static_assert` about this property
+			using state_base_t = typename CBlitImageFilterBase<typename Kernel::value_type>::CStateBase;
+			static_cast<state_base_t&>(blit) = *static_cast<const state_base_t*>(state);
 			return blit;
 		}
 };

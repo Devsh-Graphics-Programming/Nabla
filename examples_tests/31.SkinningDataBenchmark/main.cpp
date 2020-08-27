@@ -160,22 +160,26 @@ int main()
 
         uint32_t* buffPtr = static_cast<uint32_t*>(boneIDBuffer.buffer->getPointer());
         for (int i = 0; i < meshBuffer->calcVertexCount(); i++)
-            *(buffPtr + i) = bonesCreatedCnt + getRandomNumber<uint32_t>(1u, boneMatMaxCnt[mbID]) - 1u;
-
+            buffPtr[i] = bonesCreatedCnt + getRandomNumber<uint32_t>(1u, boneMatMaxCnt[mbID]) - 1u;
+        // don't want total random access to bones, sort roughly 
+        std::sort(buffPtr,buffPtr+meshBuffer->calcVertexCount());
 
         meshBuffer->setVertexBufferBinding(std::move(boneIDBuffer), 1);
 
         auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(nullptr, nullptr, nullptr, newInputParams, SBlendParams(), SPrimitiveAssemblyParams(), SRasterizationParams());
         meshBuffer->setPipeline(std::move(pipeline));
     };
+    const auto MaxBufferSize = driver->getMaxSSBOSize();
 #ifdef _IRR_DEBUG
     const core::vector4du32_SIMD diskBlockDim(5u, 5u, 5u);
 #else
-    const core::vector4du32_SIMD diskBlockDim(1u, 1u, 2999u);
+    const uint32_t multiplier = core::min<uint32_t>(MAX_OBJ_CNT*(MaxBufferSize>>20u)/(0x1u<<10u),MAX_OBJ_CNT);
+    const core::vector4du32_SIMD diskBlockDim(1u, 1u, multiplier);
 #endif
     const size_t diskCount = diskBlockDim.x * diskBlockDim.y * diskBlockDim.z;
+    os::Printer::print("Disks count "+std::to_string(diskCount)+"\n");
 
-    assert(diskCount <= MAT_MAX_CNT);
+    assert(diskCount <= MAX_OBJ_CNT);
 
     std::vector<uint16_t> tesselation(diskCount);
     
@@ -190,7 +194,7 @@ int main()
 
         //get random bone cnt for disks
         boneMatMaxCnt = core::vector<uint16_t>(diskCount);
-        std::generate(boneMatMaxCnt.begin(), boneMatMaxCnt.end(), [&]() { return getRandomNumber<uint16_t>(1u, 9u);  });
+        std::generate(boneMatMaxCnt.begin(), boneMatMaxCnt.end(), [&]() { return getRandomNumber<uint16_t>(1u, MAX_BONE_CNT);  });
     }
 
     const uint32_t boneMatrixCnt = std::accumulate(boneMatMaxCnt.begin(), boneMatMaxCnt.end(), 0u);
@@ -229,6 +233,8 @@ int main()
             disk.assemblyParams.primitiveType = EPT_TRIANGLE_LIST;
             createMeshBufferFromGeometryCreatorReturnData(disk, disks[i], i, bonesCreated);
             bonesCreated += boneMatMaxCnt[i];
+            if (i%50u==1u)
+                os::Printer::print("Disks progress " + std::to_string(float(i)/float(diskCount)*100.f) + "\%\n");
         }
     }
 #endif
@@ -251,9 +257,9 @@ int main()
 #else
         allocParams.MDIDataBuffSupportedCnt = 500000 * 2;
         allocParams.MDIDataBuffMinAllocSize = 1024;
-        allocParams.indexBuffSupportedCnt = std::pow(1024, 3) / 2.0;
+        allocParams.indexBuffSupportedCnt = MaxBufferSize/sizeof(uint16_t);
         allocParams.indexBufferMinAllocSize = 512 * 1024;
-        allocParams.vertexBuffSupportedCnt = 2 * std::pow(1024, 3) / 32.0;
+        allocParams.vertexBuffSupportedCnt = MaxBufferSize/sizeof(uint32_t);
         allocParams.vertexBufferMinAllocSize = 512 * 1024;
 #endif
 
@@ -288,11 +294,10 @@ int main()
         size_t offset = 0u; 
         size_t maxCount = 0u;
         size_t stride = 0u;
-        core::smart_refctd_ptr<IGPUBuffer> countBuffer = nullptr;
         size_t countOffset = 0u;
     };
 
-        //create inputs for `drawIndexedIndirect`
+    //create inputs for `drawIndexedIndirect`
     DrawIndexedIndirectInput mdi;
     {
         mdi.indexBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(packedMeshBuffer.indexBuffer.buffer->getSize(), packedMeshBuffer.indexBuffer.buffer->getPointer());
@@ -582,15 +587,10 @@ int main()
     exitCondition = []() { return true; };
 #endif
 
-#ifndef _IRR_DEBUG
-    driver->setRenderTarget(depthFBO);
-    driver->clearZBuffer(1.0f);
-#endif
-
     COpenGLDriver* driverOGL = dynamic_cast<COpenGLDriver*>(driver);
-    IQueryObject* query = driver->createElapsedTimeQuery();
 
-    constexpr uint32_t iterationCnt = 10000u;
+    constexpr uint32_t iterationCnt = 1000u;
+    constexpr uint32_t warmupIterationCnt = iterationCnt / 10u;
     for (uint32_t caseID = 0u; caseID < 4u; caseID++)
     {
         os::Printer::print(std::string("Benchmark for case nr. " + std::to_string(caseID)));
@@ -601,38 +601,53 @@ int main()
 
 #ifndef _IRR_DEBUG
         driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
+        driver->setRenderTarget(depthFBO);
         driver->clearZBuffer(1.0f);
-#endif
 
-        driver->beginQuery(query);
-        for (uint32_t i = 0u; i < iterationCnt && exitCondition(); i++)
-        {
-#ifdef _IRR_DEBUG
-            driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
-            timeMS = std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count();
-
-            camera->OnAnimate(timeMS);
-            camera->render();
-
-            constructMatrices();
-
-            updateSSBO(caseID);
-#endif
+        for (uint32_t i = 0u; i < warmupIterationCnt; i++)
             driver->drawIndexedIndirect(mdi.vtxBindings, mdi.mode, mdi.indexType, mdi.indexBuff.get(), mdi.indirectDrawBuff.get(), mdi.offset, mdi.maxCount, mdi.stride);
-#ifdef _IRR_DEBUG
-            driver->endScene();
 #endif
+        float avg = 0.0f;
+        for (uint32_t j = 0u; j < 5u && exitCondition(); j++)
+        {
+            IQueryObject* query = driver->createElapsedTimeQuery();
+            driver->beginQuery(query);
+            for (uint32_t i = 0u; i < iterationCnt && exitCondition(); i++)
+            {
+#ifdef _IRR_DEBUG
+                driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
+                timeMS = std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count();
+
+                camera->OnAnimate(timeMS);
+                camera->render();
+
+                constructMatrices();
+
+                updateSSBO(caseID);
+#endif
+                driver->drawIndexedIndirect(mdi.vtxBindings, mdi.mode, mdi.indexType, mdi.indexBuff.get(), mdi.indirectDrawBuff.get(), mdi.offset, mdi.maxCount, mdi.stride);
+#ifdef _IRR_DEBUG
+                driver->endScene();
+#endif
+            }
+            glFlush();
+            driver->endQuery(query);
+            driver->setRenderTarget(nullptr);
+
+            uint32_t timeElapsed = 0u;
+            query->getQueryResult(&timeElapsed);
+            query->drop();
+
+            os::Printer::print(std::string("Result ") + std::to_string(j) + std::string(": ") + std::to_string(static_cast<double>(timeElapsed) / 1000000.0) + std::string("ms."));
+            avg += static_cast<double>(timeElapsed) / 1000000.0;
+
+            if (j == 4)
+                os::Printer::print(std::string("Avg time: ") + std::to_string(avg / 5.0f) + std::string("\n"));
         }
-        driver->endQuery(query);
-        glFlush();
 
-        uint32_t timeElapsed = 0u;
-        query->getQueryResult(&timeElapsed);
-
-        os::Printer::print(std::string("Result: ") + std::to_string(static_cast<double>(timeElapsed) / 1000000.0) + std::string("ms."));
     }
-
 #ifndef _IRR_DEBUG
+    os::Printer::print(std::string("Type Something to Exit:"));
     std::cin.get();
 #endif
     return 0;

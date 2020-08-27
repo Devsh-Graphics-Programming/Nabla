@@ -447,7 +447,6 @@ const char** CMitsubaLoader::getAssociatedFileExtensions() const
 	return ext;
 }
 
-
 asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	ParserManager parserManager(m_manager->getFileSystem(),_override);
