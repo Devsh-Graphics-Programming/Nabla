@@ -1,5 +1,5 @@
 // basic settings
-#define MAX_DEPTH 5
+#define MAX_DEPTH 2
 #define SAMPLES 16
 
 // firefly and variance reduction techniques
@@ -84,6 +84,14 @@ float Sphere_getSolidAngle(in Sphere sphere, in vec3 origin)
 
 struct Triangle
 {
+    /*
+    vec3 vertex0;
+    uint bsdfLightIDs;
+    vec3 vertex1;
+    uint padding;
+    vec3 vertex2;
+    uint padding;
+    */
     vec4 planeEq;
     vec4 boundaryPlanes[2];
     float area;
@@ -111,16 +119,6 @@ Triangle Triangle_Triangle(in mat3 vertices, in uint bsdfID, in uint lightID)
     return tri;
 }
 
-// N x (B-A) = P
-
-// |P| = |C-A||B-A|^2
-// P . (C-A) = |C-A|^2|B-A|^2cos(theta) = 1
-// P = 
-
-// |P| = |B-A|
-// P . (C-A) = |B-A||C-A|cos(theta) = 1
-// P = 
-
 
 // return intersection distance if found, FLT_NAN otherwise
 float Triangle_intersect(in Triangle tri, in vec3 origin, in vec3 direction)
@@ -136,14 +134,9 @@ float Triangle_intersect(in Triangle tri, in vec3 origin, in vec3 direction)
     return t<0.f||distToEdge[0]<0.f||distToEdge[1]<0.f||(distToEdge[0]+distToEdge[1])>1.f ? irr_glsl_FLT_NAN:t;
 }
 
-vec3 Triangle_getNormal(in Triangle tri)
+vec3 Triangle_getNormalTimesArea(in Triangle tri)
 {
     return tri.planeEq.xyz;
-}
-
-float Triangle_getArea(in Triangle tri)
-{
-    return tri.area;
 }
 
 

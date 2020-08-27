@@ -16,7 +16,7 @@ Sphere spheres[SPHERE_COUNT] = {
 };
 #define TRIANGLE_COUNT 1
 Triangle triangles[TRIANGLE_COUNT] = {
-    Triangle_Triangle(mat3(vec3(-1.8,1.2,0.3),vec3(-1.2,1.2,0.0),vec3(-1.5,1.8,0.0)),INVALID_ID_16BIT,0u)
+    Triangle_Triangle(mat3(vec3(-1.8,0.35,0.3),vec3(-1.2,0.35,0.0),vec3(-1.5,0.8,-0.3)),INVALID_ID_16BIT,0u)
 };
 
 
@@ -67,7 +67,7 @@ bool traceRay(in ImmutableRay_t _immutable)
 vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in float intersectionT, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
 {
     // we don't have to worry about solid angle of the light w.r.t. surface of the light because this function only ever gets called from closestHit routine, so such ray cannot be produced
-    pdf = scene_getLightChoicePdf(light)*abs(interaction.isotropic.NdotV)/(intersectionT*intersectionT*Triangle_getArea(triangles[Light_getObjectID(light)]));
+    pdf = scene_getLightChoicePdf(light)*intersectionT*intersectionT/abs(dot(Triangle_getNormalTimesArea(triangles[Light_getObjectID(light)]),interaction.isotropic.V.dir));
     return Light_getRadiance(light);
 }
 
@@ -79,37 +79,18 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
 
     const Triangle tri = triangles[Light_getObjectID(light)];
     
-    // point = ?
-    vec3 L; // = point-origin;
-#if 0
-    vec3 Z = sphere.position-origin;
-    const float distanceSQ = dot(Z,Z);
-    const float cosThetaMax2 = 1.0-sphere.radius2/distanceSQ;
-    const float rcpDistance = inversesqrt(distanceSQ);
-
-    const bool possibilityOfLightVisibility = cosThetaMax2>0.0;
-    Z *= rcpDistance;
+    vec3 point = vec3(-1.5,0.5,0.0);//-inverse(transpose(mat3(tri.planeEq.xyz,tri.boundaryPlanes[0].xyz,tri.boundaryPlanes[1].xyz)))*vec3(tri.planeEq.w,-tri.boundaryPlanes[0].w,-tri.boundaryPlanes[1].w);
+    vec3 L = point-origin;
     
-    // following only have valid values if `possibilityOfLightVisibility` is true
-    const float cosThetaMax = sqrt(cosThetaMax2);
-    const float cosTheta = mix(1.0,cosThetaMax,u.x);
-
-    vec3 L = Z*cosTheta;
-
-    const float cosTheta2 = cosTheta*cosTheta;
-    const float sinTheta = sqrt(1.0-cosTheta2);
-    float sinPhi,cosPhi;
-    irr_glsl_sincos(2.0*irr_glsl_PI*u.y-irr_glsl_PI,sinPhi,cosPhi);
-    mat2x3 XY = irr_glsl_frisvad(Z);
+    const float distanceSq = dot(L,L);
+    const float rcpDistance = inversesqrt(distanceSq);
+    L *= rcpDistance;
     
-    L += (XY[0]*cosPhi+XY[1]*sinPhi)*sinTheta;
-    
-    const float rcpPdf = Triangle_getArea(tri)/(abs(dot(Triangle_getNormal(tri),L))*choicePdf);
+    const float rcpPdf = abs(dot(Triangle_getNormalTimesArea(tri),L))/(distanceSq*choicePdf);
     remainder = Light_getRadiance(light)*rcpPdf;
     pdf = 1.0/rcpPdf;
-    
-    newRayMaxT = (cosTheta-sqrt(cosTheta2-cosThetaMax2))/rcpDistance*getEndTolerance(depth);
-#endif
+
+    newRayMaxT = getEndTolerance(depth)/rcpDistance;
     
     return irr_glsl_createLightSample(L,interaction);
 }
@@ -137,7 +118,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
         else
         {
             Triangle tri = triangles[objectID-SPHERE_COUNT];
-            isotropic.N = Triangle_getNormal(tri);
+            isotropic.N = normalize(Triangle_getNormalTimesArea(tri));
             bsdfLightIDs = tri.bsdfLightIDs;
         }
         isotropic.NdotV = dot(isotropic.V.dir,isotropic.N);
