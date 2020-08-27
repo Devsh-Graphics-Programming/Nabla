@@ -24,15 +24,14 @@ namespace irr
 				//! State of precomputed dithering class
 				/*
 					The state requires only input dithering image
-					which will be completly used in dithering process
+					which buffer will be used in dithering process
 					in full extent of image.
 				*/
 				
 				class CState : public CDither::CState
 				{
 					public:
-						CState(const asset::ICPUImage* const _ditheringImage) 
-							: ditheringImage(_ditheringImage)
+						CState(const asset::ICPUImage* const ditheringImage) 
 						{
 							ditherImageData.buffer = ditheringImage->getBuffer();
 							const auto extent = ditheringImage->getMipSize();
@@ -56,8 +55,6 @@ namespace irr
 							core::vectorSIMDu32 strides;
 							asset::E_FORMAT format;
 						} ditherImageData;
-
-						const asset::ICPUImage* const ditheringImage;
 				};
 
 				using state_type = CState;

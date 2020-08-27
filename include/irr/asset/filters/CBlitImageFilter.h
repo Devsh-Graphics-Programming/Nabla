@@ -174,6 +174,17 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<KernelX,KernelX,Ke
 						uint32_t		outLayerCount;
 					};
 				};
+
+				union NormalizeValues
+				{ 
+					NormalizeValues() {}
+					~NormalizeValues() {}
+
+					core::vectorSIMDu32 f; 
+					core::vectorSIMDu32 u;
+					core::vectorSIMDi32 i;
+				} oldMaxValue, oldMinValue;
+				
 				uint32_t				inMipLevel = 0u;
 				uint32_t				outMipLevel = 0u;
 				ICPUImage*				inImage = nullptr;
@@ -181,6 +192,8 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<KernelX,KernelX,Ke
 				KernelX					kernelX;
 				KernelY					kernelY;
 				KernelZ					kernelZ;
+				asset::DefaultSwizzle defaultSwizzle;
+				bool normalize = false;
 		};
 		using state_type = CState;
 		
@@ -415,6 +428,10 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<KernelX,KernelX,Ke
 
 								auto sample = lineBuffer+i*MaxChannels;
 								decodePixels<value_type>(inFormat,srcPix,sample,inBlockCoord.x,inBlockCoord.y);
+
+								value_type swizzledSample[MaxChannels];
+								state->defaultSwizzle(sample, swizzledSample, MaxChannels);
+								memcpy(sample, swizzledSample, sizeof(value_type) * MaxChannels);
 
 								if (nonPremultBlendSemantic)
 								{

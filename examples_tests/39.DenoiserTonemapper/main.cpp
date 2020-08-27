@@ -14,9 +14,6 @@ using namespace irr;
 using namespace asset;
 using namespace video;
 
-//! Comment if you want to apply blue noise on generated png files
-#define BLUE_NOISE_ON_PNG
-
 enum E_IMAGE_INPUT : uint32_t
 {
 	EII_COLOR,
@@ -1018,8 +1015,7 @@ void main()
 					CONVERSION_FILTER convertFilter;
 					CONVERSION_FILTER::state_type state;
 					
-					#ifdef BLUE_NOISE_ON_PNG
-					auto ditheringBundle = am->getAsset("../../media/blueNoiseDithering/LDR_RGBA.png", {});
+					auto ditheringBundle = am->getAsset("../../media/blueNoiseDithering/HDR_RGBA.exr", {});
 					const auto ditheringStatus = ditheringBundle.isEmpty();
 					if (ditheringStatus)
 					{
@@ -1028,7 +1024,6 @@ void main()
 					}
 					auto ditheringImage = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(ditheringBundle.getContents().begin()[0]);
 					state.ditherState = _IRR_NEW(std::remove_pointer<decltype(state.ditherState)>::type, ditheringImage.get());
-					#endif // BLUE_NOISE_ON_PNG
 
 					state.inImage = image.get();
 					state.outImage = newConvertedImage.get();
@@ -1047,9 +1042,7 @@ void main()
 					if (!convertFilter.execute(&state))
 						os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Something went wrong while converting the image!", ELL_WARNING);
 
-					#ifdef BLUE_NOISE_ON_PNG
 					_IRR_DELETE(state.ditherState);
-					#endif // BLUE_NOISE_ON_PNG
 				}
 
 				// create image view

@@ -89,16 +89,24 @@ struct DefaultSwizzle
 {
 	ICPUImageView::SComponentMapping swizzle;
 
+	/*
+		Performs swizzle on out compoments following
+		swizzle member with all four compoments. You 
+		can specify channels for custom pointers.
+	*/
+
 	template<typename InT, typename OutT>
-	void operator()(const InT* in, OutT* out) const;
+	void operator()(const InT* in, OutT* out, uint8_t channels = SwizzleBase::MaxChannels) const;
 };
+
 template<>
-inline void DefaultSwizzle::operator()<void,void>(const void* in, void* out) const
+inline void DefaultSwizzle::operator() <void, void> (const void* in, void* out, uint8_t channels) const
 {
-	operator()(reinterpret_cast<const uint64_t*>(in),reinterpret_cast<uint64_t*>(out));
+	operator()(reinterpret_cast<const uint64_t*>(in), reinterpret_cast<uint64_t*>(out), channels);
 }
+
 template<typename InT, typename OutT>
-inline void DefaultSwizzle::operator()(const InT* in, OutT* out) const
+inline void DefaultSwizzle::operator()(const InT* in, OutT* out, uint8_t channels) const
 {
 	auto getComponent = [&in](ICPUImageView::SComponentMapping::E_SWIZZLE s, auto id) -> InT
 	{
@@ -109,10 +117,10 @@ inline void DefaultSwizzle::operator()(const InT* in, OutT* out) const
 		else if (s == ICPUImageView::SComponentMapping::ES_ONE)
 			return InT(1);
 		else
-			return in[s-ICPUImageView::SComponentMapping::ES_R];
+			return in[s - ICPUImageView::SComponentMapping::ES_R];
 	};
-	for (auto i=0; i<SwizzleBase::MaxChannels; i++)
-		out[i] = OutT(getComponent((&swizzle.r)[i],i));
+	for (auto i = 0; i < channels; i++)
+		out[i] = OutT(getComponent((&swizzle.r)[i], i));
 }
 
 //! Compile time CSwizzleAndConvertImageFilter
