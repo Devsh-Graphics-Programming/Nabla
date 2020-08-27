@@ -21,8 +21,8 @@ using namespace video;
 	otherwise in inclusive mode 
 */
 
- #define IMAGE_VIEW 
-// #define OVERLAPPING_REGIONS				// @devsh I leave it for you
+// #define IMAGE_VIEW 
+// #define OVERLAPPING_REGIONS			
 constexpr bool EXCLUSIVE_SUM = true;
 constexpr auto MIPMAP_IMAGE_VIEW = 2u;		// feel free to change the mipmap
 constexpr auto MIPMAP_IMAGE = 0u;			// ordinary image used in the example has only 0-th mipmap
@@ -289,6 +289,8 @@ int main()
 		state.outOffsetBaseLayer = core::vectorSIMDu32();
 		state.outExtentLayerCount = extentLayerCount;
 		state.outImage = outImage.get();
+
+		state.defaultSwizzle.swizzle = {};
 
 		state.scratchMemoryByteSize = blitImageFilter.getRequiredScratchByteSize(&state);
 		state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
