@@ -1,6 +1,6 @@
 // basic settings
 #define MAX_DEPTH 2
-#define SAMPLES 16
+#define SAMPLES 1
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -84,59 +84,48 @@ float Sphere_getSolidAngle(in Sphere sphere, in vec3 origin)
 
 struct Triangle
 {
-    /*
     vec3 vertex0;
     uint bsdfLightIDs;
     vec3 vertex1;
-    uint padding;
+    uint padding0;
     vec3 vertex2;
-    uint padding;
-    */
-    vec4 planeEq;
-    vec4 boundaryPlanes[2];
-    float area;
-    uint bsdfLightIDs;
+    uint padding1;
 };
 
 Triangle Triangle_Triangle(in mat3 vertices, in uint bsdfID, in uint lightID)
 {
-    const vec3 edges[2] = vec3[2](vertices[1]-vertices[0],vertices[2]-vertices[0]);
-    //
     Triangle tri;
-    tri.planeEq.xyz = cross(edges[0],edges[1]);
-    tri.boundaryPlanes[0].xyz = cross(tri.planeEq.xyz,edges[0]);
-    tri.boundaryPlanes[0].xyz/= dot(tri.boundaryPlanes[0].xyz,edges[1]);
-    tri.boundaryPlanes[1].xyz = cross(edges[1],tri.planeEq.xyz);
-    tri.boundaryPlanes[1].xyz/= dot(tri.boundaryPlanes[1].xyz,edges[0]);
-    //
-    tri.planeEq.w = dot(tri.planeEq.xyz, vertices[0]);
-    tri.boundaryPlanes[0].w = -dot(tri.boundaryPlanes[0].xyz, vertices[0]);
-    tri.boundaryPlanes[1].w = -dot(tri.boundaryPlanes[1].xyz, vertices[0]);
-    //
-    tri.area = length(tri.planeEq.xyz)*0.5;
+    tri.vertex0 = vertices[0];
+    tri.vertex1 = vertices[1];
+    tri.vertex2 = vertices[2];
     //
     tri.bsdfLightIDs = bitfieldInsert(bsdfID, lightID, 16, 16);
     return tri;
 }
 
-
 // return intersection distance if found, FLT_NAN otherwise
 float Triangle_intersect(in Triangle tri, in vec3 origin, in vec3 direction)
 {
-    const float NdotD = dot(direction,tri.planeEq.xyz);
-    const float t = (tri.planeEq.w-dot(origin,tri.planeEq.xyz))/NdotD;
-    // speculative intersection
-    const vec3 intersectionPoint = origin+direction*t;
-    const float distToEdge[2] = float[2](
-        dot(intersectionPoint,tri.boundaryPlanes[0].xyz)+tri.boundaryPlanes[0].w,
-        dot(intersectionPoint,tri.boundaryPlanes[1].xyz)+tri.boundaryPlanes[1].w
-    );
-    return t<0.f||distToEdge[0]<0.f||distToEdge[1]<0.f||(distToEdge[0]+distToEdge[1])>1.f ? irr_glsl_FLT_NAN:t;
+    const vec3 edges[2] = vec3[2](tri.vertex1-tri.vertex0,tri.vertex2-tri.vertex0);
+
+    const vec3 h = cross(direction,edges[1]);
+    const float a = dot(edges[0],h);
+
+    const vec3 relOrigin = origin-tri.vertex0;
+
+    const float u = dot(relOrigin,h)/a;
+
+    const vec3 q = cross(relOrigin,edges[0]);
+    const float v = dot(direction,q)/a;
+
+    const float t = dot(edges[1],q)/a;
+
+    return t>0.f&&u>=0.f&&v>=0.f&&(u+v)<=1.f ? t:irr_glsl_FLT_NAN;
 }
 
 vec3 Triangle_getNormalTimesArea(in Triangle tri)
 {
-    return tri.planeEq.xyz;
+    return cross(tri.vertex1-tri.vertex0,tri.vertex2-tri.vertex0)*0.5;
 }
 
 
@@ -183,7 +172,7 @@ float BSDFNode_getMISWeight(in BSDFNode bsdf)
 {
     const float alpha = BSDFNode_getRoughness(bsdf);
     const bool notDiffuse = BSDFNode_isNotDiffuse(bsdf);
-    const float DIFFUSE_MIS_WEIGHT = 0.5;
+    const float DIFFUSE_MIS_WEIGHT = 0.0;
     return notDiffuse ? mix(1.0,DIFFUSE_MIS_WEIGHT,alpha):DIFFUSE_MIS_WEIGHT; // TODO: test alpha*alpha
 }
 
@@ -311,7 +300,7 @@ void missProgram()
 	        vec2 uv = SampleSphericalMap(rayStack[stackPtr]._immutable.direction);
             finalContribution *= textureLod(envMap, uv, 0.0).rgb;
         #else
-            const vec3 kConstantEnvLightRadiance = vec3(0.15,0.21,0.3);
+        const vec3 kConstantEnvLightRadiance = vec3(0.0);// 0.15, 0.21, 0.3);
             finalContribution *= kConstantEnvLightRadiance;
         #endif
     }

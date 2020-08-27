@@ -16,12 +16,14 @@ Sphere spheres[SPHERE_COUNT] = {
 };
 #define TRIANGLE_COUNT 1
 Triangle triangles[TRIANGLE_COUNT] = {
-    Triangle_Triangle(mat3(vec3(-1.8,0.35,0.3),vec3(-1.2,0.35,0.0),vec3(-1.5,0.8,-0.3)),INVALID_ID_16BIT,0u)
+    //Triangle_Triangle(mat3(vec3(-1.8,0.35,0.3),vec3(-1.2,0.35,0.0),vec3(-1.5,0.8,-0.3)),INVALID_ID_16BIT,0u)
+    Triangle_Triangle(mat3(vec3(-4,0.7,-4),vec3(0.0,0.7,0.0),vec3(-4.0,0.8,4.0)),INVALID_ID_16BIT,0u)
 };
 
 
 #define LIGHT_COUNT 1
 Light lights[LIGHT_COUNT] = {
+    //{vec3(30.0,25.0,15.0)*0.01,0u}
     {vec3(30.0,25.0,15.0),0u}
 };
 
@@ -71,6 +73,7 @@ vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in float intersectionT
     return Light_getRadiance(light);
 }
 
+
 irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in int depth)
 {
     // normally we'd pick from set of lights, using `u.z`
@@ -79,7 +82,8 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
 
     const Triangle tri = triangles[Light_getObjectID(light)];
     
-    vec3 point = vec3(-1.5,0.5,0.0);//-inverse(transpose(mat3(tri.planeEq.xyz,tri.boundaryPlanes[0].xyz,tri.boundaryPlanes[1].xyz)))*vec3(tri.planeEq.w,-tri.boundaryPlanes[0].w,-tri.boundaryPlanes[1].w);
+    const vec3 edges[2] = vec3[2](tri.vertex1-tri.vertex0,tri.vertex2-tri.vertex0);
+    vec3 point = tri.vertex0+edges[0]*(1.0-u.y)+edges[1]*u.y*sqrt(u.x);
     vec3 L = point-origin;
     
     const float distanceSq = dot(L,L);
