@@ -1,11 +1,8 @@
 #define _IRR_STATIC_LIB_
-#include <iostream>
-#include <cstdio>
 #include <irrlicht.h>
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
-#include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
 #include <irr/asset/CCPUMeshPacker.h>
 //#include "../../ext/ScreenShot/ScreenShot.h"
 
@@ -89,8 +86,6 @@ int main()
             auto ds3 = dynamic_cast<CMTLPipelineMetadata*>((*it)->getPipeline()->getMetadata())->getDescriptorSet();
             ICPUImageView* tex = dynamic_cast<ICPUImageView*>(ds3->getDescriptors(0u).begin()->desc.get());
             ICPUImageView* texBump = dynamic_cast<ICPUImageView*>(ds3->getDescriptors(6u).begin()->desc.get());
-            assert(tex);
-            assert(texBump);
 
             auto a = textures.insert(std::make_pair(tex, texBinding));
             if (a.second == true)
@@ -158,7 +153,7 @@ int main()
         allocationParams.perInstanceVertexBufferMinAllocSize = 0u;
 
             //pack mesh buffers
-        asset::CCPUMeshPacker<CustomIndirectCommand> packer(inputParams, allocationParams, std::numeric_limits<uint16_t>::max(), std::numeric_limits<uint16_t>::max());
+        asset::CCPUMeshPacker<CustomIndirectCommand> packer(inputParams, allocationParams, std::numeric_limits<uint16_t>::max() / 3u, std::numeric_limits<uint16_t>::max() / 3u);
         
         core::vector<MeshPackerBase::ReservedAllocationMeshBuffers> resData;
         
@@ -192,8 +187,6 @@ int main()
             auto ds3 = dynamic_cast<CMTLPipelineMetadata*>((*it)->getPipeline()->getMetadata())->getDescriptorSet();
             ICPUImageView* tex = dynamic_cast<ICPUImageView*>(ds3->getDescriptors(0u).begin()->desc.get());
             ICPUImageView* texBump = dynamic_cast<ICPUImageView*>(ds3->getDescriptors(6u).begin()->desc.get());
-            assert(tex);
-            assert(texBump);
 
             auto texBindDiffuseIt = textures.find(tex);
             auto texBindBumpIt = textures.find(texBump);
@@ -288,11 +281,8 @@ int main()
         auto gpuShaders = driver->getGPUObjectsFromAssets(shaders, shaders + 2);
         IGPUSpecializedShader* shaders[2] = { gpuShaders->operator[](0).get(), gpuShaders->operator[](1).get() };
 
-        SRasterizationParams rasterParams;
-        rasterParams.faceCullingMode = EFCM_NONE;
-
         gpuPipelineLayout = driver->createGPUPipelineLayout(range, range + 1, core::smart_refctd_ptr(ds0layout), core::smart_refctd_ptr(ds1layout));
-        gpuPipeline = driver->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(gpuPipelineLayout), shaders, shaders + 2u, packedMeshBuffer[0].vertexInputParams, asset::SBlendParams(), asset::SPrimitiveAssemblyParams(), rasterParams);
+        gpuPipeline = driver->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(gpuPipelineLayout), shaders, shaders + 2u, packedMeshBuffer[0].vertexInputParams, asset::SBlendParams(), asset::SPrimitiveAssemblyParams(), SRasterizationParams());
     }
     using GpuDescriptoSetPair = std::pair<core::smart_refctd_ptr<IGPUDescriptorSet>, core::smart_refctd_ptr<IGPUDescriptorSet>>;
     core::vector<GpuDescriptoSetPair> desc(mbRangesTex.size());
@@ -361,14 +351,14 @@ int main()
     while (device->run() && receiver.keepOpen())
     {
         driver->bindGraphicsPipeline(gpuPipeline.get());
-        
-        driver->pushConstants(gpuPipelineLayout.get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), camera->getConcatenatedMatrix().pointer());
 
         driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
 
         //! This animates (moves) the camera and sets the transforms
         camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
         camera->render();
+        
+        driver->pushConstants(gpuPipelineLayout.get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), camera->getConcatenatedMatrix().pointer());
 
         for (uint32_t i = 0u; i < mdiCallParams.size(); i++)
         {

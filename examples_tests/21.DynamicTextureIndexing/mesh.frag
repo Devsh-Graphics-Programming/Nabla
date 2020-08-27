@@ -14,10 +14,8 @@ layout(set = 0, binding = 0, std430) restrict readonly buffer SSBO
 
 layout(set = 0, binding = 1) uniform sampler2D tex[16];
 
-layout(location = 0) in vec3 worldPos;
-layout(location = 1) in vec2 texCoord;
-layout(location = 2) in vec3 normal;
-layout(location = 3) flat in uint drawID;
+layout(location = 0) in vec2 texCoord;
+layout(location = 1) flat in uint drawID;
 
 layout(location = 0) out vec4 pixelColor;
 

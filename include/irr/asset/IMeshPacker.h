@@ -108,6 +108,10 @@ class IMeshPacker : public MeshPackerBase
     static_assert(std::is_base_of<DrawElementsIndirectCommand_t, MDIStructType>::value);
 
 public:
+    /*
+    @param minTriangleCountPerMDIData must be <= 21845
+    @param maxTriangleCountPerMDIData must be <= 21845
+    */
     IMeshPacker(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
         :MeshPackerBase(allocParams),
          m_maxTriangleCountPerMDIData(maxTriangleCountPerMDIData),
@@ -115,6 +119,9 @@ public:
          m_MDIDataAlctrResSpc(nullptr), m_idxBuffAlctrResSpc(nullptr),
          m_vtxBuffAlctrResSpc(nullptr), m_perInsVtxBuffAlctrResSpc(nullptr)
     {
+        assert(minTriangleCountPerMDIData <= 21845);
+        assert(maxTriangleCountPerMDIData <= 21845);
+
         m_outVtxInputParams.enabledAttribFlags  = preDefinedLayout.enabledAttribFlags;
         m_outVtxInputParams.enabledBindingFlags = preDefinedLayout.enabledAttribFlags;
 
