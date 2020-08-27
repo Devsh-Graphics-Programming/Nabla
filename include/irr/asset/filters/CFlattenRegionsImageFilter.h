@@ -29,10 +29,9 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 				virtual ~CState() {}
 
 				ICPUImage*							inImage = nullptr;
-				// `outImage` pointer might change after execution, can be null, we'll just make a new texture
-				core::smart_refctd_ptr<ICPUImage>	outImage = nullptr;
-				bool								preFill = true;
-				IImageFilter::IState::ColorValue	fillValue;
+				core::smart_refctd_ptr<ICPUImage>	outImage = nullptr;		//!< outImage pointer might change after execution, \bcan be null\b, we'll just make a new texture
+				bool								preFill = true;			//!< state whether to fill values using fillValue if there is a pixel and any region doesn't cover it with
+				IImageFilter::IState::ColorValue	fillValue;				//! values for a pixel for which any region doesn't cover it with
 		};
 		using state_type = CState;
 

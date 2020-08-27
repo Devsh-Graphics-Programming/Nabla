@@ -5,6 +5,7 @@
 #define __IRR_C_PRECOMPUTED_DITHER_H_INCLUDED__
 
 #include "../include/irr/asset/filters/dithering/CDither.h"
+#include "../include/irr/asset/filters/CFlattenRegionsImageFilter.h"
 
 namespace irr
 {
@@ -33,9 +34,17 @@ namespace irr
 					public:
 						CState(const asset::ICPUImage* const ditheringImage) 
 						{
-							ditherImageData.buffer = ditheringImage->getBuffer();
-							const auto extent = ditheringImage->getMipSize();
-							ditherImageData.format = ditheringImage->getCreationParameters().format;
+							using FLATTEN_FILTER = CFlattenRegionsImageFilter;
+							FLATTEN_FILTER flattenFilter;
+							FLATTEN_FILTER::state_type state;
+
+							state.inImage = const_cast<asset::ICPUImage*>(ditheringImage); // TODO change quls in the filter
+							state.outImage = core::smart_refctd_ptr<ICPUImage>(flattenDitheringImage);
+							assert(flattenFilter.execute(&state));
+
+							ditherImageData.buffer = flattenDitheringImage->getBuffer();
+							const auto extent = flattenDitheringImage->getMipSize();
+							ditherImageData.format = flattenDitheringImage->getCreationParameters().format;
 							ditherImageData.strides = TexelBlockInfo(ditherImageData.format).convert3DTexelStridesTo1DByteStrides(extent);
 							texelRange.extent = { extent.x, extent.y, extent.z };
 
@@ -48,6 +57,8 @@ namespace irr
 						const auto& getDitherImageData() const { return ditherImageData; }
 
 					private:
+
+						core::smart_refctd_ptr<ICPUImage> flattenDitheringImage;
 
 						struct
 						{
