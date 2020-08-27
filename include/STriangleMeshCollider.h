@@ -15,18 +15,22 @@ class STriangleCollider// : public AllocationOverrideDefault EBO inheritance pro
         STriangleCollider() {}
         STriangleCollider(const vectorSIMDf& A, const vectorSIMDf& B, const vectorSIMDf& C, bool& validTriangle)
         {
-            vectorSIMDf normal = planeEq = cross(B-A,C-A);
+            const vectorSIMDf edges[2] = {B-A,C-A};
+
+            vectorSIMDf normal = planeEq = cross(edges[0],edges[1]);
             if ((normal==vectorSIMDf(0.f)).all())
             {
                 validTriangle = false;
                 return;
             }
-            boundaryPlanes[0] = cross(normal,B-A);
-            boundaryPlanes[1] = cross(C-A,normal);
+            boundaryPlanes[0] = cross(normal,edges[0]);
+            boundaryPlanes[1] = cross(edges[1],normal);
+            boundaryPlanes[0] /= dot(boundaryPlanes[0],edges[1]);
+            boundaryPlanes[1] /= dot(boundaryPlanes[1],edges[0]);
 
             planeEq.W = dot(planeEq,A).X;
-            boundaryPlanes[0].W = dot(boundaryPlanes[0],A).X;
-            boundaryPlanes[1].W = dot(boundaryPlanes[1],A).X;
+            boundaryPlanes[0].W = -dot(boundaryPlanes[0],A).X;
+            boundaryPlanes[1].W = -dot(boundaryPlanes[1],A).X;
             validTriangle = true;
         }
 
@@ -35,23 +39,24 @@ class STriangleCollider// : public AllocationOverrideDefault EBO inheritance pro
 			direction.makeSafe3D();
 			origin.makeSafe3D();
 
-            float NdotD = dot(direction,planeEq).X;
+            const float NdotD = dot(direction,planeEq).X;
             if (NdotD!=0.f)
                 return false;
 
-            float NdotOrigin = -dot(origin,planeEq).X;
-            float d = planeEq.W;
+            const float NdotOrigin = dot(origin,planeEq).X;
+            const float d = planeEq.W;
 
-            float t = (NdotOrigin-d)/NdotD;
+            const float t = (d-NdotOrigin)/NdotD;
             if (t>=dirMaxMultiplier||t<0.f)
                 return false;
 
             vectorSIMDf outPoint = origin+direction*t;
 
             vectorSIMDf extraComponent(0.f,0.f,0.f,1.f);
-            vectorSIMDf outPointW1 = outPoint|reinterpret_cast<const vectorSIMDu32&>(extraComponent);
+            const vectorSIMDf outPointW1 = outPoint|reinterpret_cast<const vectorSIMDu32&>(extraComponent);
 
-            if (dot(outPointW1,boundaryPlanes[0]).X>=0.f&&dot(outPointW1,boundaryPlanes[1]).X>=0.f)
+            const float distToEdge[2] ={dot(outPointW1,boundaryPlanes[0])[0],dot(outPointW1,boundaryPlanes[1])[0]};
+            if (distToEdge[0]<0.f||distToEdge[1]<0.f||(distToEdge[0]+distToEdge[1])>1.f)
             {
                 collisionDistance = t;
                 return true;
