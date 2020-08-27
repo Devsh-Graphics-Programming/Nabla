@@ -1015,7 +1015,7 @@ void main()
 					CONVERSION_FILTER convertFilter;
 					CONVERSION_FILTER::state_type state;
 					
-					auto ditheringBundle = am->getAsset("../../media/blueNoiseDithering/HDR_RGBA.exr", {});
+					auto ditheringBundle = am->getAsset("../../media/blueNoiseDithering/LDR_RGBA.png", {});
 					const auto ditheringStatus = ditheringBundle.isEmpty();
 					if (ditheringStatus)
 					{
