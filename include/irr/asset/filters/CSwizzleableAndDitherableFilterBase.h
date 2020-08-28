@@ -51,13 +51,17 @@ namespace irr
 					}
 
 					/*
-						Performs decode doing swizzle at first on a given pointer.
+						Performs decode doing swizzle at first on a given pointer
+						and putting the result to the encodeBuffer.
+
+						The function supports compile-time decode.
 					*/
 
-					template<E_FORMAT inFormat, typename Tdec>
-					static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, uint32_t blockX, uint32_t blockY)
+					template<E_FORMAT inFormat, typename Tdec, typename Tenc>
+					static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
 					{
-						asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY, static_cast<Swizzle&>(state*));
+						asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
+						static_cast<Swizzle&>(*state).operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
 					}
 
 					/*
@@ -66,6 +70,8 @@ namespace irr
 
 						The function may perform clamping.
 						@see CSwizzleableAndDitherableFilterBase
+
+						The function supports compile-time encode.
 					*/
 
 					template<E_FORMAT outFormat, typename Tenc>
@@ -76,7 +82,7 @@ namespace irr
 							const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
 							auto* encodeValue = encodeBuffer + i;
 							const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
-							*encodeValue += static_cast<encodeBufferType>(ditheredValue)* scale;
+							*encodeValue += static_cast<Tenc>(ditheredValue)* scale;
 						}
 
 						if constexpr (Clamp)
@@ -120,13 +126,17 @@ namespace irr
 					}
 
 					/*
-						Performs decode doing swizzle at first on a given pointer.
+						Performs decode doing swizzle at first on a given pointer
+						and putting the result to the encodeBuffer.
+
+						The function supports compile-time decode.
 					*/
 
-					template<E_FORMAT inFormat, typename Tdec>
-					static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, uint32_t blockX, uint32_t blockY)
+					template<E_FORMAT inFormat, typename Tdec, typename Tenc>
+					static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
 					{
-						asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY, static_cast<Swizzle&>(state*));
+						asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
+						static_cast<Swizzle&>(*state).operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
 					}
 
 					/*
@@ -135,6 +145,8 @@ namespace irr
 
 						The function may perform clamping.
 						@see CSwizzleableAndDitherableFilterBase
+
+						The function supports compile-time encode.
 					*/
 
 					template<E_FORMAT outFormat, typename Tenc>
@@ -190,9 +202,55 @@ namespace irr
 
 						return true;
 					}
+					
+					/*
+						Performs decode doing swizzle at first on a given pointer
+						and putting the result to the encodeBuffer.
+
+						The function supports compile-time decode.
+					*/
+
+					template<E_FORMAT inFormat, typename Tdec, typename Tenc>
+					static void onDecode(state_type* state, const void* srcPix[4], Tdec* decodeBuffer, Tenc* encodeBuffer, uint32_t blockX, uint32_t blockY)
+					{
+						asset::decodePixels<inFormat>(srcPix, decodeBuffer, blockX, blockY);
+						state->swizzle->operator() < Tdec, Tenc > (decodeBuffer, encodeBuffer);
+					}
+
+					/*
+						Performs encode doing dithering at first on a given encode buffer in pointer.
+						The encode buffer is a buffer holding decoded (and swizzled optionally) values.
+
+						The function may perform clamping.
+						@see CSwizzleableAndDitherableFilterBase
+
+						The function supports compile-time encode.
+					*/
+
+					template<E_FORMAT outFormat, typename Tenc>
+					static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+					{
+						for (uint8_t i = 0; i < channels; ++i)
+						{
+							const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
+							auto* encodeValue = encodeBuffer + i;
+							const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
+							*encodeValue += static_cast<Tenc>(ditheredValue) * scale;
+						}
+
+						if constexpr (Clamp)
+						{
+							for (uint8_t i = 0; i < channels; ++i)
+							{
+								auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
+								*encodeValue = core::clamp(*encodeValue, min, max);
+							}
+						}
+
+						asset::encodePixels<outFormat>(dstPix, encodeBuffer);
+					}
 
 
-					// TODO
 			};
 		}
 

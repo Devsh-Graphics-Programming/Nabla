@@ -39,8 +39,8 @@ namespace irr
 							FLATTEN_FILTER::state_type state;
 
 							state.inImage = const_cast<asset::ICPUImage*>(ditheringImage); // TODO change quls in the filter
-							state.outImage = core::smart_refctd_ptr<ICPUImage>(flattenDitheringImage);
 							assert(flattenFilter.execute(&state));
+							flattenDitheringImage = std::move(state.outImage);
 
 							ditherImageData.buffer = flattenDitheringImage->getBuffer();
 							const auto extent = flattenDitheringImage->getMipSize();
@@ -90,6 +90,8 @@ namespace irr
 					constexpr uint8_t MAX_CHANNELS = 4;
 					double decodeBuffer[MAX_CHANNELS];
 					asset::decodePixelsRuntime(ditherImageData.format, srcPointers, decodeBuffer, 0, 0); // little slow
+
+					// TODO - read from DECODED buffer to not wasting time on decodePixelsRuntime and decoding x channels at one execution of get
 
 					return static_cast<float>(decodeBuffer[channel]);
 				}

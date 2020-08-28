@@ -4,6 +4,7 @@
 #include <irrlicht.h>
 
 #include "CommandLineHandler.hpp"
+#include "../../include/irr/asset/filters/dithering/CPrecomputedDither.h"
 
 #include "../ext/ToneMapper/CToneMapper.h"
 #include "../../ext/OptiX/Manager.h"
@@ -991,8 +992,9 @@ void main()
 
 			auto getConvertedPNGImageView = [&](core::smart_refctd_ptr<ICPUImage> image)
 			{
+				constexpr auto IN_FORMAT = EF_R16G16B16A16_SFLOAT;
 				constexpr auto pngFormat = EF_R8G8B8_SRGB;
-				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_UNKNOWN, pngFormat, true, asset::CPrecomputedDither>;
+				using CONVERSION_FILTER = CConvertFormatImageFilter<IN_FORMAT, pngFormat, true, asset::CPrecomputedDither>;
 
 				core::smart_refctd_ptr<ICPUImage> newConvertedImage;
 				{

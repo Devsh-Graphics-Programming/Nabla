@@ -57,7 +57,7 @@ namespace impl
 */
 
 template<E_FORMAT inFormat=EF_UNKNOWN, E_FORMAT outFormat=EF_UNKNOWN, typename Swizzle=DefaultSwizzle, bool Clamp = false, typename Dither = IdentityDither>
-class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImageFilter<inFormat,outFormat,Swizzle,Clamp,Dither>>, public impl::CSwizzleAndConvertImageFilterBase<Swizzle,Dither>
+class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImageFilter<inFormat,outFormat,Swizzle,Clamp,Dither>>, public impl::CSwizzleAndConvertImageFilterBase<Clamp,Swizzle,Dither>
 {
 	public:
 		virtual ~CSwizzleAndConvertImageFilter() {}
@@ -107,62 +107,12 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
 						uint8_t* dstPix = commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos + core::vectorSIMDu32(blockX, blockY),commonExecuteData.outByteStrides);
 						
-						/*
-							TODO: replace with
-
-							- onDecode
-							- onEncode
-
-
-
-						auto getSwizzle = [&]() -> Swizzle&
-						{
-							if constexpr (std::is_base_of<PolymorphicSwizzle, Swizzle>::value)
-								return state->swizzle;
-							else
-								return *state;
-						};
-
-						const Swizzle& swizzle = getSwizzle();
-
 						constexpr auto maxChannels = 4;
-						uint64_t decodeBuffer[maxChannels] = {};
-						uint64_t encodeBuffer[maxChannels] = {};
+						decodeBufferType decodeBuffer[maxChannels] = {};
+						encodeBufferType encodeBuffer[maxChannels] = {};
 
-						asset::decodePixels<inFormat>(srcPix, reinterpret_cast<decodeBufferType*>(decodeBuffer), blockX, blockY);
-						swizzle.template operator()<void, void>(decodeBuffer, encodeBuffer);
-
-						if constexpr (!std::is_base_of<IdentityDither, Dither>::value)
-						{
-							auto ditherBuffer = [&]()
-							{
-								for (uint8_t i = 0; i < outChannelsAmount; ++i)
-								{
-									const float ditheredValue = state->dither.pGet(state->ditherState, localOutPos + core::vectorSIMDu32(blockX, blockY), i);
-									auto* encodeValue = reinterpret_cast<encodeBufferType*>(encodeBuffer) + i;
-									const encodeBufferType scale = asset::getFormatPrecision<encodeBufferType>(outFormat, i, *encodeValue);
-									*encodeValue += static_cast<encodeBufferType>(ditheredValue)* scale;
-								}
-							};
-
-							ditherBuffer();
-						}
-
-						auto clampBuffer = [&]()
-						{
-							for (uint8_t i = 0; i < outChannelsAmount; ++i)
-							{
-								auto&& [min, max, encodeValue] = std::make_tuple<encodeBufferType&&, encodeBufferType&&, encodeBufferType*>(asset::getFormatMinValue<encodeBufferType>(outFormat, i), asset::getFormatMaxValue<encodeBufferType>(outFormat, i), reinterpret_cast<encodeBufferType*>(encodeBuffer) + i);
-								*encodeValue = core::clamp(*encodeValue, min, max);
-							}
-						};
-
-						if constexpr (Clamp)
-							clampBuffer();
-						
-						asset::encodePixels<outFormat>(dstPix, reinterpret_cast<encodeBufferType*>(encodeBuffer));
-
-						*/
+						impl::CSwizzleAndConvertImageFilterBase<Clamp, Swizzle, Dither>::onDecode<inFormat>(state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
+						impl::CSwizzleAndConvertImageFilterBase<Clamp, Swizzle, Dither>::onEncode<outFormat>(state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
 				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
@@ -213,42 +163,21 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Clamp,Dither> 
 					{
 						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifference;
 						uint8_t* dstPix = commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos + core::vectorSIMDu32(blockX, blockY),commonExecuteData.outByteStrides);
+						/*
 
-						auto getSwizzle = [&]() -> Swizzle&
-						{
-							if constexpr (std::is_base_of<PolymorphicSwizzle, Swizzle>::value)
-								return state->swizzle;
-							else
-								return *state;
-						};
+						TODO: 
+						Make it look like this bellow
+						Move In/Out format from template params to args of function
 
-						const Swizzle& swizzle = getSwizzle();
 
 						constexpr auto maxChannels = 4;
-						uint64_t decodeBuffer[maxChannels] = {};
-						uint64_t encodeBuffer[maxChannels] = {};
+						decodeBufferType decodeBuffer[maxChannels] = {};
+						encodeBufferType encodeBuffer[maxChannels] = {};
 
-						decodePixelsRuntime(inFormat, srcPix, decodeBuffer, blockX, blockY);
-						swizzle.template operator()<void, void>(decodeBuffer, encodeBuffer);
+						impl::CSwizzleAndConvertImageFilterBase<Clamp, Swizzle, Dither>::onDecode(inFormat, state, srcPix, decodeBuffer, encodeBuffer, blockX, blockY);
+						impl::CSwizzleAndConvertImageFilterBase<Clamp, Swizzle, Dither>::onEncode(outFormat, state, dstPix, encodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 
-						auto clampBuffer = [&](auto templateType)
-						{
-							using bufferType = decltype(templateType);
-
-							for (uint8_t i = 0; i < maxChannels; ++i)
-							{
-								auto&& [min, max, encodeValue] = std::make_tuple<bufferType&&, bufferType&&, bufferType*>(asset::getFormatMinValue<bufferType>(outFormat, i), asset::getFormatMaxValue<bufferType>(outFormat, i), reinterpret_cast<bufferType*>(encodeBuffer) + i);
-								*encodeValue = core::clamp(*encodeValue, min, max);
-							}
-						};
-						
-						if constexpr(Clamp)
-							if (asset::isIntegerFormat(outFormat))
-								clampBuffer(uint64_t());
-							else
-								clampBuffer(double());
-
-						encodePixelsRuntime(outFormat, dstPix, encodeBuffer);
+						*/
 					}
 				};
 				CBasicImageFilterCommon::executePerRegion(commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
