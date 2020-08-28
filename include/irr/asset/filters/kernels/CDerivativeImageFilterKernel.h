@@ -20,7 +20,11 @@ namespace asset
 template<class Kernel>
 class CDerivativeImageFilterKernel : public CFloatingPointSeparableImageFilterKernelBase<CDerivativeImageFilterKernel<Kernel>>, private Kernel
 {
+		using Base = CFloatingPointSeparableImageFilterKernelBase<CDerivativeImageFilterKernel<Kernel>>;
+
 	public:
+		CDerivativeImageFilterKernel(float _negative_support, float _positive_support) : Base(_negative_support, _positive_support) {}
+
 		inline float weight(float x, int32_t channel) const
 		{
 			auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(static_cast<const Kernel*>(this)->getUserData());

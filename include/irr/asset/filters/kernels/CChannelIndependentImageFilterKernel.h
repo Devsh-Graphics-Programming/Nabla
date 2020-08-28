@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #ifndef __IRR_C_CHANNEL_INDEPENDENT_IMAGE_FILTER_KERNEL_H_INCLUDED__
-#define __IRR_C_DERIVATIVE_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#define __IRR_C_CHANNEL_INDEPENDENT_IMAGE_FILTER_KERNEL_H_INCLUDED__
 
 #include "irr/core/core.h"
 
@@ -61,8 +61,13 @@ class CChannelIndependentImageFilterKernel;
 template<class KernelR>
 class CChannelIndependentImageFilterKernel<KernelR,void,void,void> : public CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR,void,void,void>>, private KernelR
 {
+		using base_t = CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR, void, void, void>>;
 	public:
+		using value_type = typename base_t::value_type;
+
 		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = 1;
+
+		CChannelIndependentImageFilterKernel(float _negative_support, float _positive_support, KernelR&& kernel_r) : base_t(_negative_support, _positive_support), KernelR(std::move(kernel_r)) {}
 
 		// pass on any scale
 		inline const IImageFilterKernel::UserData* getUserData() const { return haveScale ? &scale:nullptr; }
@@ -80,24 +85,38 @@ class CChannelIndependentImageFilterKernel<KernelR,void,void,void> : public CFlo
 		}
 
 		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = KernelR::has_derivative;
-		inline std::enable_if_t<has_derivative,float> d_weight(float x, int32_t channel) const
+		inline float d_weight(float x, int32_t channel) const
 		{
 			switch (channel)
 			{
 				case 0:
-					return KernelR::d_weight(x,0);
+					if constexpr (KernelR::has_derivative)
+					{
+						return KernelR::d_weight(x, 0);
+					}
+					_IRR_DEBUG_BREAK_IF(!KernelR::has_derivative);
+					break;
 				default:
 					break;
 			}
 			return 0.f;
 		}
+
+		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(base_t)
 };
 
 template<class KernelR, class KernelG>
 class CChannelIndependentImageFilterKernel<KernelR,KernelG,void,void> : public CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR,KernelG,void,void>>, private KernelR,KernelG
 {
+		using base_t = CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR, KernelG, void, void>>;
+
 	public:
+		using value_type = typename base_t::value_type;
+
 		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = 2;
+
+		CChannelIndependentImageFilterKernel(float _negative_support, float _positive_support, KernelR&& kernel_r, KernelG&& kernel_g) : 
+			base_t(_negative_support, _positive_support), KernelR(std::move(kernel_r)), KernelG(std::move(kernel_g)) {}
 
 		inline float weight(float x, int32_t channel) const
 		{
@@ -113,27 +132,45 @@ class CChannelIndependentImageFilterKernel<KernelR,KernelG,void,void> : public C
 			return 0.f;
 		}
 
-		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = KernelR::has_derivative&&KernelG::has_derivative;
-		inline std::enable_if_t<has_derivative,float> d_weight(float x, int32_t channel) const
+		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = KernelR::has_derivative||KernelG::has_derivative;
+		inline float d_weight(float x, int32_t channel) const
 		{
 			switch (channel)
 			{
 				case 0:
-					return KernelR::d_weight(x,0);
+					if constexpr (KernelR::has_derivative)
+					{
+						return KernelR::d_weight(x, 0);
+					}
+					_IRR_DEBUG_BREAK_IF(!KernelR::has_derivative);
+					break;
 				case 1:
-					return KernelG::d_weight(x,1);
+					if constexpr (KernelG::has_derivative)
+					{
+						return KernelG::d_weight(x, 1);
+					}
+					_IRR_DEBUG_BREAK_IF(!KernelG::has_derivative);
+					break;
 				default:
 					break;
 			}
 			return 0.f;
 		}
+
+		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(base_t)
 };
 
 template<class KernelR, class KernelG, class KernelB>
 class CChannelIndependentImageFilterKernel<KernelR,KernelG,KernelB,void> : public CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR,KernelG,KernelB,void>>, private KernelR,KernelG,KernelB
 {
+		using base_t = CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR, KernelG, KernelB, void>>;
 	public:
+		using value_type = typename base_t::value_type;
+
 		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = 3;
+
+		CChannelIndependentImageFilterKernel(float _negative_support, float _positive_support, KernelR&& kernel_r, KernelG&& kernel_g, KernelB&& kernel_b) :
+			base_t(_negative_support, _positive_support), KernelR(std::move(kernel_r)), KernelG(std::move(kernel_g)), KernelB(std::move(kernel_b)) {}
 
 		inline float weight(float x, int32_t channel) const
 		{
@@ -151,29 +188,53 @@ class CChannelIndependentImageFilterKernel<KernelR,KernelG,KernelB,void> : publi
 			return 0.f;
 		}
 
-		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = KernelR::has_derivative&&KernelG::has_derivative&&KernelB::has_derivative;
-		inline std::enable_if_t<has_derivative,float> d_weight(float x, int32_t channel) const
+		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = KernelR::has_derivative||KernelG::has_derivative||KernelB::has_derivative;
+		inline float d_weight(float x, int32_t channel) const
 		{
 			switch (channel)
 			{
 				case 0:
-					return KernelR::d_weight(x,0);
+					if constexpr (KernelR::has_derivative)
+					{
+						return KernelR::d_weight(x, 0);
+					}
+					_IRR_DEBUG_BREAK_IF(!KernelR::has_derivative);
+					break;
 				case 1:
-					return KernelG::d_weight(x,1);
+					if constexpr (KernelG::has_derivative)
+					{
+						return KernelG::d_weight(x, 1);
+					}
+					_IRR_DEBUG_BREAK_IF(!KernelG::has_derivative);
+					break;
 				case 2:
-					return KernelB::d_weight(x,2);
+					if constexpr (KernelB::has_derivative)
+					{
+						return KernelB::d_weight(x, 2);
+					}
+					_IRR_DEBUG_BREAK_IF(!KernelB::has_derivative);
+					break;
 				default:
 					break;
 			}
 			return 0.f;
 		}
+
+		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(base_t)
 };
 
 template<class KernelR, class KernelG, class KernelB, class KernelA>
 class CChannelIndependentImageFilterKernel : public CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR,KernelG,KernelB,KernelA>>, private KernelR,KernelG,KernelB,KernelA
 {
+		using base_t = CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR, KernelG, KernelB, KernelA>>;
+
 	public:
+		using value_type = typename base_t::value_type;
+
 		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = 4;
+
+		CChannelIndependentImageFilterKernel(float _negative_support, float _positive_support, KernelR&& kernel_r, KernelG&& kernel_g, KernelB&& kernel_b, KernelA&& kernel_a) :
+			base_t(_negative_support, _positive_support), KernelR(std::move(kernel_r)), KernelG(std::move(kernel_g)), KernelB(std::move(kernel_b)), KernelA(std::move(kernel_a)) {}
 
 		inline float weight(float x, int32_t channel) const
 		{
@@ -196,19 +257,39 @@ class CChannelIndependentImageFilterKernel : public CFloatingPointSeparableImage
 			return 0.f;
 		}
 
-		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = KernelR::has_derivative&&KernelG::has_derivative&&KernelB::has_derivative&&KernelA::has_derivative;
-		inline std::enable_if_t<has_derivative,float> d_weight(float x, int32_t channel) const
+		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = KernelR::has_derivative||KernelG::has_derivative||KernelB::has_derivative||KernelA::has_derivative;
+		inline float d_weight(float x, int32_t channel) const
 		{
 			switch (channel)
 			{
 				case 0:
-					return KernelR::d_weight(x,0);
+					if constexpr (KernelR::has_derivative)
+					{
+						return KernelR::d_weight(x, 0);
+					}
+					_IRR_DEBUG_BREAK_IF(!KernelR::has_derivative);
+					break;
 				case 1:
-					return KernelG::d_weight(x,1);
+					if constexpr (KernelG::has_derivative)
+					{
+						return KernelG::d_weight(x, 1);
+					}
+					_IRR_DEBUG_BREAK_IF(!KernelG::has_derivative);
+					break;
 				case 2:
-					return KernelB::d_weight(x,2);
+					if constexpr (KernelB::has_derivative)
+					{
+						return KernelB::d_weight(x, 2);
+					}
+					_IRR_DEBUG_BREAK_IF(!KernelB::has_derivative);
+					break;
 				case 3:
-					return KernelA::d_weight(x,3);
+					if constexpr (KernelA::has_derivative)
+					{
+						return KernelA::d_weight(x, 3);
+					}
+					_IRR_DEBUG_BREAK_IF(!KernelA::has_derivative);
+					break;
 				default:
 					break;
 			}
@@ -217,6 +298,8 @@ class CChannelIndependentImageFilterKernel : public CFloatingPointSeparableImage
 			#endif
 			return 0.f;
 		}
+
+		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(base_t)
 };
 
 

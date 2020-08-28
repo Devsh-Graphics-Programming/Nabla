@@ -1,7 +1,7 @@
 #include <irr/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.h>
 
 #include <iostream>
-#include "..\..\..\..\include\irr\asset\material_compiler\CMaterialCompilerGLSLBackendCommon.h"
+#include <irr\asset\material_compiler\CMaterialCompilerGLSLBackendCommon.h>
 
 namespace irr
 {

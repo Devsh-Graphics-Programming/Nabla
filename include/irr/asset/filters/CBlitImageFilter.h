@@ -45,6 +45,7 @@ class CBlitImageFilterBase : public CBasicImageFilterCommon
 				E_ALPHA_SEMANTIC					alphaSemantic = EAS_NONE_OR_PREMULTIPLIED;
 				double								alphaRefValue = 0.5; // only required to make sense if `alphaSemantic==EAS_REFERENCE_OR_COVERAGE`
 				uint32_t							alphaChannel = 3u; // index of the alpha channel (could be different cause of swizzles)
+				asset::DefaultSwizzle				defaultSwizzle;
 		};
 
 	protected:
@@ -111,12 +112,16 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<KernelX,KernelX,Ke
 		class CState : public IImageFilter::IState, public CBlitImageFilterBase<value_type>::CStateBase
 		{
 			public:
-				CState()
+				CState(KernelX&& kernel_x, KernelY&& kernel_y, KernelZ&& kernel_z) :
+					kernelX(std::move(kernel_x)), kernelY(std::move(kernel_y)), kernelZ(std::move(kernel_z))
 				{
 					inOffsetBaseLayer = core::vectorSIMDu32();
 					inExtentLayerCount = core::vectorSIMDu32();
 					outOffsetBaseLayer = core::vectorSIMDu32();
 					outExtentLayerCount = core::vectorSIMDu32();
+				}
+				CState() : CState(KernelX(), KernelY(), KernelZ())
+				{
 				}
 				CState(const CState& other) : CBlitImageFilterBase<value_type>::CStateBase{other}, inMipLevel(other.inMipLevel),outMipLevel(other.outMipLevel),inImage(other.inImage),outImage(other.outImage),kernelX(other.kernelX), kernelY(other.kernelY), kernelZ(other.kernelZ)
 				{
@@ -192,7 +197,6 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<KernelX,KernelX,Ke
 				KernelX					kernelX;
 				KernelY					kernelY;
 				KernelZ					kernelZ;
-				asset::DefaultSwizzle defaultSwizzle;
 				bool normalize = false;
 		};
 		using state_type = CState;
@@ -208,7 +212,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<KernelX,KernelX,Ke
 
 		static inline bool validate(state_type* state)
 		{
-			if (!CBlitImageFilterBase::validate(state))
+			if (!CBlitImageFilterBase<value_type>::validate(state))
 				return false;
 			
 			if (state->scratchMemoryByteSize<getRequiredScratchByteSize(state))
