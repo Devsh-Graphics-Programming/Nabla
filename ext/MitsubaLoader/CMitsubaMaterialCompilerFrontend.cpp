@@ -2,6 +2,11 @@
 #include "../../ext/MitsubaLoader/SContext.h"
 
 #include <irr/core/Types.h>
+#include <irr/asset/filters/kernels/CGaussianImageFilterKernel.h>
+#include <irr/asset/filters/kernels/CDerivativeImageFilterKernel.h>
+#include <irr/asset/filters/kernels/CBoxImageFilterKernel.h>
+#include <irr/asset/filters/kernels/CChannelIndependentImageFilterKernel.h>
+#include <irr/asset/filters/CMipMapGenerationImageFilter.h>
 
 namespace irr
 {
@@ -9,6 +14,92 @@ namespace ext
 {
 namespace MitsubaLoader
 {
+    static core::smart_refctd_ptr<asset::ICPUImage> createDerivMapFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
+    {
+        using namespace asset;
+
+        assert(asset::getFormatChannelCount(_inImg->getCreationParameters().format) == 1u);
+
+        auto getRGformat = [](asset::E_FORMAT f) -> asset::E_FORMAT {
+            const uint32_t bytesPerChannel = asset::getTexelOrBlockBytesize(f);
+            switch (bytesPerChannel)
+            {
+            case 1u:
+                return asset::EF_R8G8_UNORM;
+            case 2u:
+                return asset::EF_R16G16_SFLOAT;
+            case 4u:
+                return asset::EF_R32G32_SFLOAT;
+            case 8u:
+                return asset::EF_R64G64_SFLOAT;
+            default:
+                return asset::EF_UNKNOWN;
+            }
+        };
+
+        using ReconstructionKernel = CGaussianImageFilterKernel<>; // or Mitchell
+        using DerivKernel = CDerivativeImageFilterKernel<ReconstructionKernel>;
+        using XDerivKernel = CChannelIndependentImageFilterKernel<CDerivativeImageFilterKernel<ReconstructionKernel>, CBoxImageFilterKernel, void, void>;
+        using YDerivKernel = CChannelIndependentImageFilterKernel<CBoxImageFilterKernel, CDerivativeImageFilterKernel<ReconstructionKernel>, void, void>;
+        using DerivativeMapFilter = CBlitImageFilter<
+            XDerivKernel,
+            YDerivKernel,
+            CBoxImageFilterKernel
+        >;
+
+        constexpr float SUPPORT = 3.f;
+        XDerivKernel xderiv(SUPPORT, SUPPORT, DerivKernel(SUPPORT, SUPPORT), CBoxImageFilterKernel());
+        YDerivKernel yderiv(SUPPORT, SUPPORT, CBoxImageFilterKernel(), DerivKernel(SUPPORT, SUPPORT));
+
+        using swizzle_t = asset::ICPUImageView::SComponentMapping;
+        DerivativeMapFilter::state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());
+        state.defaultSwizzle.swizzle.r = swizzle_t::ES_R;
+        state.defaultSwizzle.swizzle.g = swizzle_t::ES_R;
+        state.defaultSwizzle.swizzle.b = swizzle_t::ES_R;
+        state.defaultSwizzle.swizzle.a = swizzle_t::ES_R;
+
+        const auto& inParams = _inImg->getCreationParameters();
+        auto outParams = inParams;
+        outParams.format = getRGformat(outParams.format);
+        auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(outParams.format) * outParams.extent.width * outParams.extent.height);
+        asset::ICPUImage::SBufferCopy region;
+        region.imageOffset = { 0,0,0 };
+        region.imageExtent = outParams.extent;
+        region.imageSubresource.baseArrayLayer = 0u;
+        region.imageSubresource.layerCount = 1u;
+        region.imageSubresource.mipLevel = 0u;
+        region.bufferRowLength = outParams.extent.width;
+        region.bufferImageHeight = 0u;
+        region.bufferOffset = 0u;
+        auto outImg = asset::ICPUImage::create(std::move(outParams));
+        outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
+
+        state.inOffset = { 0,0,0 };
+        state.inBaseLayer = 0u;
+        state.outOffset = { 0,0,0 };
+        state.outBaseLayer = 0u;
+        state.inExtent = inParams.extent;
+        state.outExtent = state.inExtent;
+        state.inLayerCount = 1u;
+        state.outLayerCount = 1u;
+        state.inMipLevel = 0u;
+        state.outMipLevel = 0u;
+        state.inImage = _inImg;
+        //state.outImage = 
+        state.axisWraps[0] = _uwrap;
+        state.axisWraps[1] = _vwrap;
+        state.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
+        state.borderColor = _borderColor;
+        state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
+        state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, _IRR_SIMD_ALIGNMENT));
+
+        DerivativeMapFilter::execute(&state);
+
+        _IRR_ALIGNED_FREE(state.scratchMemory);
+
+        return outImg;
+    }
+
     auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _element) const -> tex_ass_type
     {
         static_assert(std::is_same_v<tex_ass_type, SContext::tex_ass_type>, "These types must be same!");
