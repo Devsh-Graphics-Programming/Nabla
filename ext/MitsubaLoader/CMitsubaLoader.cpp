@@ -1,6 +1,7 @@
 #include "os.h"
 
 #include <cwchar>
+#include <irr/asset/filters/CSwizzleAndConvertImageFilter.h>
 
 #include "../../ext/MitsubaLoader/CMitsubaLoader.h"
 #include "../../ext/MitsubaLoader/ParserUtil.h"
@@ -921,7 +922,7 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 					{
 						auto texture = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
 
-						switch (tex->bitmap.channel)
+						switch (tex->bitmap.channel!=CElementTexture::Bitmap::CHANNEL::INVALID)
 						{
 							// no GL_R8_SRGB support yet
 							case CElementTexture::Bitmap::CHANNEL::R:
@@ -1007,6 +1008,61 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 				};
 				samplerParams.TextureWrapU = getWrapMode(tex->bitmap.wrapModeU);
 				samplerParams.TextureWrapV = getWrapMode(tex->bitmap.wrapModeV);
+
+				//in case of <channel>, extract one channel
+				if (viewParams.components.g!=asset::ICPUImageView::SComponentMapping::ES_G)
+				{
+					auto get1ChannelFormat = [](asset::E_FORMAT f) -> asset::E_FORMAT {
+						const uint32_t bytesPerChannel = (getBytesPerPixel(f) * core::rational(1, getFormatChannelCount(f))).getIntegerApprox();
+						switch (bytesPerChannel) 
+						{
+						case 1u:
+							return asset::EF_R8_UNORM;
+						case 2u:
+							return asset::EF_R16_SFLOAT;
+						case 4u:
+							return asset::EF_R32_SFLOAT;
+						case 8u:
+							return asset::EF_R64_SFLOAT;
+						default:
+							return asset::EF_UNKNOWN;
+						}
+					};
+
+					auto outParams = viewParams.image->getCreationParameters();
+					outParams.format = get1ChannelFormat(outParams.format);
+					auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(outParams.format)*outParams.extent.width*outParams.extent.height);
+					asset::ICPUImage::SBufferCopy region;
+					region.imageOffset = {0,0,0};
+					region.imageExtent = outParams.extent;
+					region.imageSubresource.baseArrayLayer = 0u;
+					region.imageSubresource.layerCount = 1u;
+					region.imageSubresource.mipLevel = 0u;
+					region.bufferRowLength = outParams.extent.width;
+					region.bufferImageHeight = 0u;
+					region.bufferOffset = 0u;
+					auto outImg = asset::ICPUImage::create(std::move(outParams));
+					outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
+
+					using convert_filter_t = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN>;
+					convert_filter_t::state_type conv;
+					conv.swizzle = viewParams.components;
+					conv.extent = viewParams.image->getCreationParameters().extent;
+					conv.layerCount = 1u;
+					conv.inMipLevel = 0u;
+					conv.outMipLevel = 0u;
+					conv.inBaseLayer = 0u;
+					conv.outBaseLayer = 0u;
+					conv.inOffset = {0u,0u,0u};
+					conv.outOffset = {0u,0u,0u};
+					conv.inImage = viewParams.image.get();
+					conv.outImage = outImg.get();
+
+					viewParams.components = asset::ICPUImageView::SComponentMapping{};
+					convert_filter_t::execute(&conv);
+					viewParams.format = outImg->getCreationParameters().format;
+					viewParams.image = std::move(outImg);
+				}
 
 				auto view = ICPUImageView::create(std::move(viewParams));
 				core::smart_refctd_ptr<ICPUSampler> sampler = view ? core::make_smart_refctd_ptr<ICPUSampler>(samplerParams) : nullptr;
