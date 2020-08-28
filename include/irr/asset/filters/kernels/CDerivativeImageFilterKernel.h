@@ -18,7 +18,7 @@ namespace asset
 
 // A Kernel that's a derivative of another, `Kernel` must have a `d_weight` function
 template<class Kernel>
-class CDerivativeImageFilterKernel : public CFloatingPointSeparableImageFilterKernelBase<CDerivativeImageFilterKernel<Kernel>,typename Kernel::isotropic_support_as_ratio>, private Kernel
+class CDerivativeImageFilterKernel : public CFloatingPointSeparableImageFilterKernelBase<CDerivativeImageFilterKernel<Kernel>>, private Kernel
 {
 	public:
 		inline float weight(float x, int32_t channel) const
