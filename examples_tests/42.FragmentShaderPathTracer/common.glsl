@@ -81,7 +81,7 @@ float Sphere_getSolidAngle(in Sphere sphere, in vec3 origin)
     return Sphere_getSolidAngle_impl(cosThetaMax);
 }
 
-
+#define TRIANGLE_METHOD 1 // 0 area sampling, 1 solid angle sampling, 2 approximate projected solid angle sampling
 struct Triangle
 {
     vec3 vertex0;
