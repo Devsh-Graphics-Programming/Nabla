@@ -38,10 +38,11 @@ namespace irr
 							FLATTEN_FILTER flattenFilter;
 							FLATTEN_FILTER::state_type state;
 
-							state.inImage = const_cast<asset::ICPUImage*>(ditheringImage); // TODO change quls in the filter
-							assert(flattenFilter.execute(&state));
-							flattenDitheringImage = std::move(state.outImage);
+							state.inImage = ditheringImage; 
+							bool status = flattenFilter.execute(&state);
+							assert(status);
 
+							flattenDitheringImage = std::move(state.outImage);
 							ditherImageData.buffer = flattenDitheringImage->getBuffer();
 							const auto extent = flattenDitheringImage->getMipSize();
 							ditherImageData.format = flattenDitheringImage->getCreationParameters().format;
@@ -62,7 +63,7 @@ namespace irr
 
 						struct
 						{
-							const asset::ICPUBuffer* buffer;
+							const asset::ICPUBuffer* buffer = nullptr;
 							core::vectorSIMDu32 strides;
 							asset::E_FORMAT format;
 						} ditherImageData;
