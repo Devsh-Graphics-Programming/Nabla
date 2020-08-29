@@ -4,7 +4,7 @@
 #include <irrlicht.h>
 
 #include "CommandLineHandler.hpp"
-#include "../../include/irr/asset/filters/dithering/CPrecomputedDither.h"
+#include "irr/asset/filters/dithering/CPrecomputedDither.h"
 
 #include "../ext/ToneMapper/CToneMapper.h"
 #include "../../ext/OptiX/Manager.h"

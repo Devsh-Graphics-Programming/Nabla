@@ -26,7 +26,8 @@ namespace irr
 				/*
 					The state requires only input dithering image
 					which buffer will be used in dithering process
-					in full extent of image.
+					in full extent of image. Dithering will be applied
+					using first 0th mipmap and layer either.
 				*/
 				
 				class CState : public CDither::CState
@@ -34,6 +35,12 @@ namespace irr
 					public:
 						CState(const asset::ICPUImage* const ditheringImage) 
 						{
+							const bool isBC = asset::isBlockCompressionFormat(ditheringImage->getCreationParameters().format);
+							assert(!isBC, "Precomputed dither image musn't be a BC format!");
+
+							const bool isCorrectChannelCount = asset::getFormatChannelCount(ditheringImage->getCreationParameters().format) == 4;
+							assert(isCorrectChannelCount, "Precomputed dither image must contain all the rgba channels!");
+
 							using FLATTEN_FILTER = CFlattenRegionsImageFilter;
 							FLATTEN_FILTER flattenFilter;
 							FLATTEN_FILTER::state_type state;
@@ -41,16 +48,52 @@ namespace irr
 							state.inImage = ditheringImage; 
 							bool status = flattenFilter.execute(&state);
 							assert(status);
-
 							flattenDitheringImage = std::move(state.outImage);
-							ditherImageData.buffer = flattenDitheringImage->getBuffer();
-							const auto extent = flattenDitheringImage->getMipSize();
-							ditherImageData.format = flattenDitheringImage->getCreationParameters().format;
-							ditherImageData.strides = TexelBlockInfo(ditherImageData.format).convert3DTexelStridesTo1DByteStrides(extent);
-							texelRange.extent = { extent.x, extent.y, extent.z };
 
-							assert(!asset::isBlockCompressionFormat(ditherImageData.format), "Precomputed dither image musn't be a BC format!");
-							assert(asset::getFormatChannelCount(ditherImageData.format) == 4, "Precomputed dither image must contain all the rgba channels!");
+							const auto& creationParams = flattenDitheringImage->getCreationParameters();
+							const auto& extent = creationParams.extent;
+							const size_t newDecodeBufferSize = extent.width * extent.height * extent.depth * decodeTexelByteSize;
+							const core::vector3du32_SIMD decodeBufferByteStrides = TexelBlockInfo(decodeFormat).convert3DTexelStridesTo1DByteStrides(core::vector3du32_SIMD(extent.width, extent.height, extent.depth));
+							auto decodeFlattenBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(newDecodeBufferSize);
+					
+							auto* inData = reinterpret_cast<uint8_t*>(flattenDitheringImage->getBuffer()->getPointer());
+							auto* outData = reinterpret_cast<uint8_t*>(decodeFlattenBuffer->getPointer());
+
+							auto decode = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
+							{
+								const core::vectorSIMDu32& localOutPos = readBlockPos;
+
+								auto* inDataAdress = inData + readBlockArrayOffset;
+								const void* inSourcePixels[] = { inDataAdress, nullptr, nullptr, nullptr };
+
+								double decodeBuffer[forcedChannels] = {};
+								
+								asset::decodePixelsRuntime(creationParams.format, inSourcePixels, decodeBuffer, 0, 0);
+								const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(localOutPos, decodeBufferByteStrides);
+								memcpy(outData + offset, decodeBuffer, decodeTexelByteSize);	
+							};
+
+							CBasicImageFilterCommon::executePerRegion(flattenDitheringImage.get(), decode, flattenDitheringImage->getRegions().begin(), flattenDitheringImage->getRegions().end());
+
+							auto decodeCreationParams = creationParams;
+							decodeCreationParams.format = decodeFormat;
+							decodeCreationParams.mipLevels = 1;
+							decodeCreationParams.arrayLayers = 1;
+
+							auto decodeFlattenImage = ICPUImage::create(std::move(decodeCreationParams));
+							auto decodeFlattenRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1);
+							*decodeFlattenRegions->begin() = *flattenDitheringImage->getRegions().begin();
+							decodeFlattenRegions->begin()->imageSubresource.baseArrayLayer = 0;
+							decodeFlattenRegions->begin()->imageSubresource.layerCount = 1;
+
+							decodeFlattenImage->setBufferAndRegions(std::move(decodeFlattenBuffer), decodeFlattenRegions);
+							flattenDitheringImage = std::move(decodeFlattenImage);
+							{
+								ditherImageData.buffer = flattenDitheringImage->getBuffer();
+								ditherImageData.format = decodeFormat;
+								ditherImageData.strides = decodeBufferByteStrides;
+								texelRange.extent = extent;
+							}
 						}
 
 						virtual ~CState() {}
@@ -58,6 +101,10 @@ namespace irr
 						const auto& getDitherImageData() const { return ditherImageData; }
 
 					private:
+
+						static constexpr auto decodeFormat = EF_R64G64B64A64_SFLOAT;
+						static constexpr auto decodeTexelByteSize = asset::getTexelOrBlockBytesize<decodeFormat>();
+						static constexpr auto forcedChannels = 4;
 
 						core::smart_refctd_ptr<ICPUImage> flattenDitheringImage;
 
@@ -85,16 +132,8 @@ namespace irr
 					const core::vectorSIMDu32 tiledPixelCoord(pixelCoord.x % (state->texelRange.extent.width - 1), pixelCoord.y % (state->texelRange.extent.height -1), pixelCoord.z);
 					const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(tiledPixelCoord, ditherImageData.strides);
 
-					const auto* dstPointer = reinterpret_cast<const uint8_t*>(ditherImageData.buffer->getPointer()) + offset;
-					const void* srcPointers[] = { dstPointer, nullptr, nullptr, nullptr };
-
-					constexpr uint8_t MAX_CHANNELS = 4;
-					double decodeBuffer[MAX_CHANNELS];
-					asset::decodePixelsRuntime(ditherImageData.format, srcPointers, decodeBuffer, 0, 0); // little slow
-
-					// TODO - read from DECODED buffer to not wasting time on decodePixelsRuntime and decoding x channels at one execution of get
-
-					return static_cast<float>(decodeBuffer[channel]);
+					const auto* channelTexelValue = reinterpret_cast<const double*>(reinterpret_cast<const uint8_t*>(ditherImageData.buffer->getPointer()) + offset) + channel;
+					return static_cast<float>(*channelTexelValue);
 				}
 		};
 	}
