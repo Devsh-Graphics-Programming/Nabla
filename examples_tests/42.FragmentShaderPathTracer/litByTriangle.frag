@@ -16,15 +16,15 @@ Sphere spheres[SPHERE_COUNT] = {
 };
 #define TRIANGLE_COUNT 1
 Triangle triangles[TRIANGLE_COUNT] = {
-    Triangle_Triangle(mat3(vec3(-1.8,0.35,0.3),vec3(-1.2,0.35,0.0),vec3(-1.5,0.8,-0.3)),INVALID_ID_16BIT,0u)
-    //Triangle_Triangle(mat3(vec3(-4,0.7,-4),vec3(0.0,0.7,0.0),vec3(-4.0,0.8,4.0)),INVALID_ID_16BIT,0u)
+    //Triangle_Triangle(mat3(vec3(-1.8,0.35,0.3),vec3(-1.2,0.35,0.0),vec3(-1.5,0.8,-0.3)),INVALID_ID_16BIT,0u)
+    Triangle_Triangle(mat3(vec3(-4,0.7,-4),vec3(0.0,0.7,0.0),vec3(-4.0,0.8,4.0)),INVALID_ID_16BIT,0u)
 };
 
 
 #define LIGHT_COUNT 1
 Light lights[LIGHT_COUNT] = {
-    {vec3(30.0,25.0,15.0),0u}
-    //{vec3(30.0,25.0,15.0)*0.01,0u}
+    //{vec3(30.0,25.0,15.0),0u}
+    {vec3(30.0,25.0,15.0)*0.01,0u}
 };
 
 
@@ -82,13 +82,20 @@ vec3 irr_glsl_slerp_impl_impl(in vec3 start, in vec3 preScaledWaypoint, float co
 
 // @Crisspl move this to `irr/builtin/glsl/shapes/triangle.glsl`
 
+//
+mat3 irr_glsl_shapes_getSphericalTriangle(in mat3 vertices, in vec3 origin)
+{
+    // the `normalize` cannot be optimized out
+    return mat3(normalize(vertices[0]-origin),normalize(vertices[1]-origin),normalize(vertices[2]-origin));
+}
+
 // returns solid angle of a spherical triangle
 // WARNING: can and will return NAN if one or three of the triangle edges are near zero length
 // this function is beyond optimized.
-float irr_glsl_SolidAngleOfTriangle(in vec3 A, in vec3 B, in vec3 C, out vec3 cos_vertices, out vec3 sin_vertices, out float cosC, out float cscB)
+float irr_glsl_shapes_SolidAngleOfTriangle(in mat3 sphericalVertices, out vec3 cos_vertices, out vec3 sin_vertices, out float cosC, out float cscB)
 {    
     // The sides are denoted by lower-case letters a, b, and c. On the unit sphere their lengths are numerically equal to the radian measure of the angles that the great circle arcs subtend at the centre. The sides of proper spherical triangles are (by convention) less than PI
-    const vec3 cos_sides = vec3(dot(B,C),dot(C,A),dot(A,B));
+    const vec3 cos_sides = vec3(dot(sphericalVertices[1],sphericalVertices[2]),dot(sphericalVertices[2],sphericalVertices[0]),dot(sphericalVertices[0],sphericalVertices[1]));
     const vec3 csc_sides = inversesqrt(vec3(1.0)-cos_sides*cos_sides);
 
     // these variables might eventually get optimized out
@@ -109,32 +116,48 @@ float irr_glsl_SolidAngleOfTriangle(in vec3 A, in vec3 B, in vec3 C, out vec3 co
 	return ((something0 ? something2:something1) ? (-absArccosSumABC):absArccosSumABC)+(something0||something1 ? irr_glsl_PI:(-irr_glsl_PI));
 }
 // returns solid angle of a triangle given by its world-space vertices and world-space viewing position
-float irr_glsl_SolidAngleOfTriangle(in mat3 vertices, in vec3 origin)
+float irr_glsl_shapes_SolidAngleOfTriangle(in mat3 vertices, in vec3 origin)
 {
-    // the `normalize` cannot be optimized out
-    const vec3 A = normalize(vertices[0]-origin);
-    const vec3 B = normalize(vertices[1]-origin);
-    const vec3 C = normalize(vertices[2]-origin);
-
     vec3 dummy0,dummy1;
     float dummy2,dummy3;
-    return irr_glsl_SolidAngleOfTriangle(A,B,C,dummy0,dummy1,dummy2,dummy3);
+    return irr_glsl_shapes_SolidAngleOfTriangle(irr_glsl_shapes_getSphericalTriangle(vertices,origin),dummy0,dummy1,dummy2,dummy3);
 }
+
+// @Crisspl move this to `irr/builtin/glsl/sampling/bilinear.glsl`
+
+float irr_glsl_sampling_generateLinearSample(in vec2 linearCoeffs, in float u)
+{
+    const float rcpDiff = 1.0/(linearCoeffs[0]-linearCoeffs[1]);
+    const vec2 squaredCoeffs = linearCoeffs*linearCoeffs;
+    return abs(rcpDiff)<FLT_MAX ? (linearCoeffs[0]-sqrt(mix(squaredCoeffs[0],squaredCoeffs[1],u)))*rcpDiff:u;
+}
+
+// The square's vertex values are defined in Z-order, so indices 0,1,2,3 (xyzw) correspond to (0,0),(1,0),(0,1),(1,1)
+vec2 irr_glsl_sampling_generateBilinearSample(out float rcpPdf, in vec4 bilinearCoeffs, vec2 u)
+{
+    const vec2 twiceAreasUnderXCurve = vec2(bilinearCoeffs[0]+bilinearCoeffs[1],bilinearCoeffs[2]+bilinearCoeffs[3]);
+    u.y = irr_glsl_sampling_generateLinearSample(twiceAreasUnderXCurve,u.y);
+
+    const vec2 ySliceEndPoints = vec2(mix(bilinearCoeffs[0],bilinearCoeffs[2],u.y),mix(bilinearCoeffs[1],bilinearCoeffs[3],u.y));
+    u.x = irr_glsl_sampling_generateLinearSample(ySliceEndPoints,u.x);
+
+    rcpPdf = (twiceAreasUnderXCurve[0]+twiceAreasUnderXCurve[1])/(4.0*mix(ySliceEndPoints[0],ySliceEndPoints[1],u.x));
+
+    return u;
+}
+
+// @Crisspl move this to `irr/builtin/glsl/sampling/triangle.glsl`
+
 // WARNING: can and will return NAN if one or three of the triangle edges are near zero length
 // this function could use some more optimizing
-vec3 irr_glsl_sampling_generateSphericalTriangleSample(out float rcpPdf, in mat3 vertices, in vec3 origin, in vec2 u)
+vec3 irr_glsl_sampling_generateSphericalTriangleSample(out float rcpPdf, in mat3 sphericalVertices, in vec2 u)
 {
-    // the `normalize` cannot be optimized out
-    const vec3 A = normalize(vertices[0]-origin);
-    const vec3 B = normalize(vertices[1]-origin);
-    const vec3 C = normalize(vertices[2]-origin);
-
     // for angles between view-to-vertex vectors
     float cosC,cscB;
     // Both vertices and angles at the vertices are denoted by the same upper case letters A, B, and C. The angles A, B, C of the triangle are equal to the angles between the planes that intersect the surface of the sphere or, equivalently, the angles between the tangent vectors of the great circle arcs where they meet at the vertices. Angles are in radians. The angles of proper spherical triangles are (by convention) less than PI
     vec3 cos_vertices,sin_vertices;
     // get solid angle, which is also the reciprocal of the probability
-    rcpPdf = irr_glsl_SolidAngleOfTriangle(A,B,C,cos_vertices,sin_vertices,cosC,cscB);
+    rcpPdf = irr_glsl_shapes_SolidAngleOfTriangle(sphericalVertices,cos_vertices,sin_vertices,cosC,cscB);
 
     // this part literally cannot be optimized further
     float negSinSubSolidAngle,negCosSubSolidAngle;
@@ -149,14 +172,64 @@ vec3 irr_glsl_sampling_generateSphericalTriangleSample(out float rcpPdf, in mat3
 
 	const float cosAngleAlongAC = clamp(((v_*q - u_*p)*cos_vertices[0] - v_) / ((v_*p + u_*q)*sin_vertices[0]), -1.0, 1.0); // TODO: get rid of this clamp (by improving the precision here)
 
-	vec3 C_s = irr_glsl_slerp_impl_impl(A, C*cscB, cosAngleAlongAC);
+	vec3 C_s = irr_glsl_slerp_impl_impl(sphericalVertices[0], sphericalVertices[2]*cscB, cosAngleAlongAC);
 
-    const float cosBC_s = dot(C_s,B);
+    const float cosBC_s = dot(C_s,sphericalVertices[1]);
 	const float cosAngleAlongBC_s = cosBC_s*u.y - u.y + 1.0;
 
-	return irr_glsl_slerp_impl_impl(B, C_s*inversesqrt(1.0-cosBC_s*cosBC_s), cosAngleAlongBC_s);
+	return irr_glsl_slerp_impl_impl(sphericalVertices[1], C_s*inversesqrt(1.0-cosBC_s*cosBC_s), cosAngleAlongBC_s);
 }
-// End-of @Crisspl move this to `irr/builtin/glsl/shapes/triangle.glsl`
+vec3 irr_glsl_sampling_generateSphericalTriangleSample(out float rcpPdf, in mat3 vertices, in vec3 origin, in vec2 u)
+{
+    return irr_glsl_sampling_generateSphericalTriangleSample(rcpPdf,irr_glsl_shapes_getSphericalTriangle(vertices,origin),u);
+}
+
+// There are two different modes of sampling, one for BSDF and one for BRDF (depending if we throw away bottom hemisphere or not)
+vec3 irr_glsl_sampling_generateProjectedSphericalTriangleSample(out float rcpPdf, in mat3 sphericalVertices, in vec3 receiverNormal, vec2 u, in bool isBSDF)
+{
+    // I don't see any problems with this being 0
+    const float minimumProjSolidAngle = 0.0;
+
+    vec3 bxdfPdfAtVertex = transpose(sphericalVertices)*receiverNormal;
+    // take abs of the value is we have a BSDF
+    bxdfPdfAtVertex = uintBitsToFloat(floatBitsToUint(bxdfPdfAtVertex)&uvec3(isBSDF ? 0x7fFFffFFu:0xffFFffFFu));
+    bxdfPdfAtVertex = max(bxdfPdfAtVertex,vec3(minimumProjSolidAngle));
+
+    // the swizzle needs to match the mapping of the [0,1]^2 square to the triangle vertices
+    const vec4 bilinearDist = bxdfPdfAtVertex.yyxz;
+    // pre-warp according to proj solid angle approximation
+    u = irr_glsl_sampling_generateBilinearSample(rcpPdf,bilinearDist,u);
+
+    // now warp the points onto a spherical triangle
+    float solidAngle;
+    const vec3 L = irr_glsl_sampling_generateSphericalTriangleSample(solidAngle,sphericalVertices,u);
+    rcpPdf *= solidAngle;
+
+    return L;
+}
+vec3 irr_glsl_sampling_generateProjectedSphericalTriangleSample(out float rcpPdf, in mat3 vertices, in vec3 origin, in vec3 receiverNormal, in vec2 u, in bool isBSDF)
+{
+    return irr_glsl_sampling_generateProjectedSphericalTriangleSample(rcpPdf,irr_glsl_shapes_getSphericalTriangle(vertices,origin),receiverNormal,u,isBSDF);
+}
+/*
+//
+vec2 irr_glsl_sampling_generateSphericalTriangleSampleInverse(out float rcpPdf, in mat3 sphericalVertices, in vec3 L)
+{
+    // for angles between view-to-vertex vectors
+    float cosC,cscB;
+    // Both vertices and angles at the vertices are denoted by the same upper case letters A, B, and C. The angles A, B, C of the triangle are equal to the angles between the planes that intersect the surface of the sphere or, equivalently, the angles between the tangent vectors of the great circle arcs where they meet at the vertices. Angles are in radians. The angles of proper spherical triangles are (by convention) less than PI
+    vec3 cos_vertices,sin_vertices;
+    // get solid angle, which is also the reciprocal of the probability
+    rcpPdf = irr_glsl_shapes_SolidAngleOfTriangle(sphericalVertices,cos_vertices,sin_vertices,cosC,cscB);
+
+    return vec2(0.5,0.5);
+}
+vec2 irr_glsl_sampling_generateSphericalTriangleSampleInverse(out float rcpPdf, in mat3 vertices, in vec3 origin, in vec3 L)
+{
+    return irr_glsl_sampling_generateSphericalTriangleSample(rcpPdf,irr_glsl_shapes_getSphericalTriangle(vertices,origin),L);
+}
+*/
+// End-of @Crisspl move this to `irr/builtin/glsl/sampling/triangle.glsl`
 
 // the interaction here is the interaction at the illuminator-end of the ray, not the receiver
 vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in vec3 origin, in float intersectionT, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
@@ -171,7 +244,7 @@ vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in vec3 origin, in flo
     float rcpProb = irr_glsl_SolidAngleOfTriangle(mat3(tri.vertex0,tri.vertex1,tri.vertex2),origin);
     pdf /= isnan(rcpProb) ? 0.0:rcpProb;
 #elif TRIANGLE_METHOD==2
-    pdf /= Triangle_getApproxProjSolidAngle(tri,origin,interaction.isotropic.V.dir);
+    //pdf /= Triangle_getApproxProjSolidAngle(tri,origin,interaction.isotropic.V.dir);
 #endif
     return Light_getRadiance(light);
 }
@@ -198,15 +271,19 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
     const float dist = 1.0/rcpDistance;
     
     const float rcpPdf = abs(dot(Triangle_getNormalTimesArea_impl(edges),L))/(distanceSq*choicePdf);
-#elif TRIANGLE_METHOD==1
+#else 
     float rcpPdf;
-    const vec3 L = irr_glsl_sampling_generateSphericalTriangleSample(rcpPdf,mat3(tri.vertex0,tri.vertex1,tri.vertex2),origin,u.xy);
+
+    const mat3 sphericalVertices = irr_glsl_shapes_getSphericalTriangle(mat3(tri.vertex0,tri.vertex1,tri.vertex2),origin);
+#if TRIANGLE_METHOD==1
+    const vec3 L = irr_glsl_sampling_generateSphericalTriangleSample(rcpPdf,sphericalVertices,u.xy);
+#elif TRIANGLE_METHOD==2
+    const vec3 L = irr_glsl_sampling_generateProjectedSphericalTriangleSample(rcpPdf,sphericalVertices,interaction.isotropic.N,u.xy,false);
+#endif
     rcpPdf = isnan(rcpPdf) ? 0.0:rcpPdf;
 
     const vec3 N = Triangle_getNormalTimesArea(tri);
     const float dist = dot(N,tri.vertex0-origin)/dot(N,L);
-#elif TRIANGLE_METHOD==2
-    const float rcpPdf = Triangle_getApproxProjSolidAngle(tri,origin,interaction.isotropic.V.dir);
 #endif
 
     remainder = Light_getRadiance(light)*rcpPdf;
