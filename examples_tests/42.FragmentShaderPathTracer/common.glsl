@@ -1,6 +1,6 @@
 // basic settings
-#define MAX_DEPTH 2
-#define SAMPLES 1
+#define MAX_DEPTH 6
+#define SAMPLES 16
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -19,7 +19,7 @@ layout(location = 0) out vec4 pixelColor;
 #include <irr/builtin/glsl/math/constants.glsl>
 #include <irr/builtin/glsl/utils/common.glsl>
 
-//! @Crisspl move this
+//! @Crisspl move this to `irr/builtin/glsl/sampling.glsl` (along with the circle transform)
 vec2 irr_glsl_BoxMullerTransform(in vec2 xi, in float stddev)
 {
     float sinPhi, cosPhi;
@@ -81,7 +81,7 @@ float Sphere_getSolidAngle(in Sphere sphere, in vec3 origin)
     return Sphere_getSolidAngle_impl(cosThetaMax);
 }
 
-#define TRIANGLE_METHOD 1 // 0 area sampling, 1 solid angle sampling, 2 approximate projected solid angle sampling
+#define TRIANGLE_METHOD 0 // 0 area sampling, 1 solid angle sampling, 2 approximate projected solid angle sampling
 struct Triangle
 {
     vec3 vertex0;
@@ -123,9 +123,13 @@ float Triangle_intersect(in Triangle tri, in vec3 origin, in vec3 direction)
     return t>0.f&&u>=0.f&&v>=0.f&&(u+v)<=1.f ? t:irr_glsl_FLT_NAN;
 }
 
+vec3 Triangle_getNormalTimesArea_impl(in mat2x3 edges)
+{
+    return cross(edges[0],edges[1])*0.5;
+}
 vec3 Triangle_getNormalTimesArea(in Triangle tri)
 {
-    return cross(tri.vertex1-tri.vertex0,tri.vertex2-tri.vertex0)*0.5;
+    return Triangle_getNormalTimesArea_impl(mat2x3(tri.vertex1-tri.vertex0,tri.vertex2-tri.vertex0));
 }
 
 
@@ -172,7 +176,7 @@ float BSDFNode_getMISWeight(in BSDFNode bsdf)
 {
     const float alpha = BSDFNode_getRoughness(bsdf);
     const bool notDiffuse = BSDFNode_isNotDiffuse(bsdf);
-    const float DIFFUSE_MIS_WEIGHT = 0.0;
+    const float DIFFUSE_MIS_WEIGHT = 0.5;
     return notDiffuse ? mix(1.0,DIFFUSE_MIS_WEIGHT,alpha):DIFFUSE_MIS_WEIGHT; // TODO: test alpha*alpha
 }
 
@@ -300,7 +304,7 @@ void missProgram()
 	        vec2 uv = SampleSphericalMap(rayStack[stackPtr]._immutable.direction);
             finalContribution *= textureLod(envMap, uv, 0.0).rgb;
         #else
-        const vec3 kConstantEnvLightRadiance = vec3(0.0);// 0.15, 0.21, 0.3);
+        const vec3 kConstantEnvLightRadiance = vec3(0.15, 0.21, 0.3);
             finalContribution *= kConstantEnvLightRadiance;
         #endif
     }

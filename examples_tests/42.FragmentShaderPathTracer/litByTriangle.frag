@@ -16,15 +16,15 @@ Sphere spheres[SPHERE_COUNT] = {
 };
 #define TRIANGLE_COUNT 1
 Triangle triangles[TRIANGLE_COUNT] = {
-    //Triangle_Triangle(mat3(vec3(-1.8,0.35,0.3),vec3(-1.2,0.35,0.0),vec3(-1.5,0.8,-0.3)),INVALID_ID_16BIT,0u)
-    Triangle_Triangle(mat3(vec3(-4,0.7,-4),vec3(0.0,0.7,0.0),vec3(-4.0,0.8,4.0)),INVALID_ID_16BIT,0u)
+    Triangle_Triangle(mat3(vec3(-1.8,0.35,0.3),vec3(-1.2,0.35,0.0),vec3(-1.5,0.8,-0.3)),INVALID_ID_16BIT,0u)
+    //Triangle_Triangle(mat3(vec3(-4,0.7,-4),vec3(0.0,0.7,0.0),vec3(-4.0,0.8,4.0)),INVALID_ID_16BIT,0u)
 };
 
 
 #define LIGHT_COUNT 1
 Light lights[LIGHT_COUNT] = {
-    //{vec3(30.0,25.0,15.0),0u}
-    {vec3(30.0,25.0,15.0)*0.01,0u}
+    {vec3(30.0,25.0,15.0),0u}
+    //{vec3(30.0,25.0,15.0)*0.01,0u}
 };
 
 
@@ -65,25 +65,8 @@ bool traceRay(in ImmutableRay_t _immutable)
 }
 
 
-// the interaction here is the interaction at the illuminator-end of the ray, not the receiver
-vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in float intersectionT, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
-{
-    // we don't have to worry about solid angle of the light w.r.t. surface of the light because this function only ever gets called from closestHit routine, so such ray cannot be produced
-    pdf = scene_getLightChoicePdf(light);
-
-    Triangle tri = triangles[Light_getObjectID(light)];
-#if TRIANGLE_METHOD==0
-    pdf *= intersectionT*intersectionT/abs(dot(Triangle_getNormalTimesArea(tri),interaction.isotropic.V.dir));
-#elif TRIANGLE_METHOD==1
-    //pdf /= Triangle_getSolidAngle(tri),origin);
-#elif TRIANGLE_METHOD==2
-    pdf /= Triangle_getApproxProjSolidAngle(tri,origin,interaction.isotropic.V.dir);
-#endif
-    return Light_getRadiance(light);
-}
-
-
-vec3 faster_slerp(in vec3 start, in vec3 preScaledWaypoint, float cosAngleFromStart)
+// @Crisspl move this to `irr/builtin/glsl/math/quaternions.glsl`
+vec3 irr_glsl_slerp_impl_impl(in vec3 start, in vec3 preScaledWaypoint, float cosAngleFromStart)
 {
     vec3 planeNormal = cross(start,preScaledWaypoint);
     
@@ -97,35 +80,61 @@ vec3 faster_slerp(in vec3 start, in vec3 preScaledWaypoint, float cosAngleFromSt
     return start+precompPart*cosAngle+cross(planeNormal,precompPart);
 }
 
-// WARNING: can and will return NAN if  one or three of the triangle edges are near zero length
-vec3 sampleSphericalTriangle(out float rcpPdf, in mat3 vertices, in vec3 origin, in vec2 u)
-{
-    mat3 localVertices = mat3(vertices[0]-origin,vertices[1]-origin,vertices[2]-origin);
+// @Crisspl move this to `irr/builtin/glsl/shapes/triangle.glsl`
 
-    const vec3 A = normalize(localVertices[0]);
-    const vec3 B = normalize(localVertices[1]);
-    const vec3 C = normalize(localVertices[2]);
-
+// returns solid angle of a spherical triangle
+// WARNING: can and will return NAN if one or three of the triangle edges are near zero length
+// this function is beyond optimized.
+float irr_glsl_SolidAngleOfTriangle(in vec3 A, in vec3 B, in vec3 C, out vec3 cos_vertices, out vec3 sin_vertices, out float cosC, out float cscB)
+{    
     // The sides are denoted by lower-case letters a, b, and c. On the unit sphere their lengths are numerically equal to the radian measure of the angles that the great circle arcs subtend at the centre. The sides of proper spherical triangles are (by convention) less than PI
     const vec3 cos_sides = vec3(dot(B,C),dot(C,A),dot(A,B));
     const vec3 csc_sides = inversesqrt(vec3(1.0)-cos_sides*cos_sides);
 
+    // these variables might eventually get optimized out
+    cosC = cos_sides[2];
+    cscB = csc_sides[1];
+    
     // Both vertices and angles at the vertices are denoted by the same upper case letters A, B, and C. The angles A, B, C of the triangle are equal to the angles between the planes that intersect the surface of the sphere or, equivalently, the angles between the tangent vectors of the great circle arcs where they meet at the vertices. Angles are in radians. The angles of proper spherical triangles are (by convention) less than PI
-    const vec3 cos_vertices = (cos_sides-cos_sides.yzx*cos_sides.zxy)*csc_sides.yzx*csc_sides.zxy; // using Spherical Law of Cosines
-    const vec3 sin_vertices = sqrt(vec3(1.0)-cos_vertices*cos_vertices);
+    cos_vertices = (cos_sides-cos_sides.yzx*cos_sides.zxy)*csc_sides.yzx*csc_sides.zxy; // using Spherical Law of Cosines
+    sin_vertices = sqrt(vec3(1.0)-cos_vertices*cos_vertices);
 
+    // sorry about the naming of `something` I just can't seem to be able to give good name to the variables that is consistent with semantics
+	const bool something0 = cos_vertices[0]<-cos_vertices[1];
+    const float cosSumAB = cos_vertices[0]*cos_vertices[1]-sin_vertices[0]*sin_vertices[1];
+	const bool something1 = cosSumAB<(-cos_vertices[2]);
+	const bool something2 = cosSumAB<cos_vertices[2];
+	// apply triple angle formula
+	const float absArccosSumABC = acos(cosSumAB*cos_vertices[2]-(cos_vertices[0]*sin_vertices[1]+sin_vertices[0]*cos_vertices[1])*sin_vertices[2]);
+	return ((something0 ? something2:something1) ? (-absArccosSumABC):absArccosSumABC)+(something0||something1 ? irr_glsl_PI:(-irr_glsl_PI));
+}
+// returns solid angle of a triangle given by its world-space vertices and world-space viewing position
+float irr_glsl_SolidAngleOfTriangle(in mat3 vertices, in vec3 origin)
+{
+    // the `normalize` cannot be optimized out
+    const vec3 A = normalize(vertices[0]-origin);
+    const vec3 B = normalize(vertices[1]-origin);
+    const vec3 C = normalize(vertices[2]-origin);
+
+    vec3 dummy0,dummy1;
+    float dummy2,dummy3;
+    return irr_glsl_SolidAngleOfTriangle(A,B,C,dummy0,dummy1,dummy2,dummy3);
+}
+// WARNING: can and will return NAN if one or three of the triangle edges are near zero length
+// this function could use some more optimizing
+vec3 irr_glsl_sampling_generateSphericalTriangleSample(out float rcpPdf, in mat3 vertices, in vec3 origin, in vec2 u)
+{
+    // the `normalize` cannot be optimized out
+    const vec3 A = normalize(vertices[0]-origin);
+    const vec3 B = normalize(vertices[1]-origin);
+    const vec3 C = normalize(vertices[2]-origin);
+
+    // for angles between view-to-vertex vectors
+    float cosC,cscB;
+    // Both vertices and angles at the vertices are denoted by the same upper case letters A, B, and C. The angles A, B, C of the triangle are equal to the angles between the planes that intersect the surface of the sphere or, equivalently, the angles between the tangent vectors of the great circle arcs where they meet at the vertices. Angles are in radians. The angles of proper spherical triangles are (by convention) less than PI
+    vec3 cos_vertices,sin_vertices;
     // get solid angle, which is also the reciprocal of the probability
-    {
-        // sorry about the naming of `something` I just can't seem to be able to give good name to the variables that is consistent with semantics
-	    bool something0 = cos_vertices[0]<-cos_vertices[1];
-        float cosSumAB = cos_vertices[0]*cos_vertices[1]-sin_vertices[0]*sin_vertices[1];
-	    bool something1 = cosSumAB<(-cos_vertices[2]);
-	    bool something2 = cosSumAB<cos_vertices[2];
-	    // apply triple angle formula
-	    float absArccosSumABC = acos(cosSumAB*cos_vertices[2]-(cos_vertices[0]*sin_vertices[1]+sin_vertices[0]*cos_vertices[1])*sin_vertices[2]);
-	    rcpPdf = (something0 ? something2:something1) ? (-absArccosSumABC):absArccosSumABC;
-	    rcpPdf += something0||something1 ? irr_glsl_PI:(-irr_glsl_PI);
-    }
+    rcpPdf = irr_glsl_SolidAngleOfTriangle(A,B,C,cos_vertices,sin_vertices,cosC,cscB);
 
     // this part literally cannot be optimized further
     float negSinSubSolidAngle,negCosSubSolidAngle;
@@ -136,16 +145,35 @@ vec3 sampleSphericalTriangle(out float rcpPdf, in mat3 vertices, in vec3 origin,
 	const float q = -negSinSubSolidAngle*sin_vertices[0]-negCosSubSolidAngle*cos_vertices[0];
 
 	float u_ = q - cos_vertices[0];
-	float v_ = p + sin_vertices[0]*cos_sides[2];
+	float v_ = p + sin_vertices[0]*cosC;
 
 	const float cosAngleAlongAC = clamp(((v_*q - u_*p)*cos_vertices[0] - v_) / ((v_*p + u_*q)*sin_vertices[0]), -1.0, 1.0); // TODO: get rid of this clamp (by improving the precision here)
 
-	vec3 C_s = faster_slerp(A, C*csc_sides[1], cosAngleAlongAC);
+	vec3 C_s = irr_glsl_slerp_impl_impl(A, C*cscB, cosAngleAlongAC);
 
     const float cosBC_s = dot(C_s,B);
 	const float cosAngleAlongBC_s = cosBC_s*u.y - u.y + 1.0;
 
-	return faster_slerp(B, C_s*inversesqrt(1.0-cosBC_s*cosBC_s), cosAngleAlongBC_s);
+	return irr_glsl_slerp_impl_impl(B, C_s*inversesqrt(1.0-cosBC_s*cosBC_s), cosAngleAlongBC_s);
+}
+// End-of @Crisspl move this to `irr/builtin/glsl/shapes/triangle.glsl`
+
+// the interaction here is the interaction at the illuminator-end of the ray, not the receiver
+vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in vec3 origin, in float intersectionT, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
+{
+    // we don't have to worry about solid angle of the light w.r.t. surface of the light because this function only ever gets called from closestHit routine, so such ray cannot be produced
+    pdf = scene_getLightChoicePdf(light);
+
+    Triangle tri = triangles[Light_getObjectID(light)];
+#if TRIANGLE_METHOD==0
+    pdf *= intersectionT*intersectionT/abs(dot(Triangle_getNormalTimesArea(tri),interaction.isotropic.V.dir));
+#elif TRIANGLE_METHOD==1
+    float rcpProb = irr_glsl_SolidAngleOfTriangle(mat3(tri.vertex0,tri.vertex1,tri.vertex2),origin);
+    pdf /= isnan(rcpProb) ? 0.0:rcpProb;
+#elif TRIANGLE_METHOD==2
+    pdf /= Triangle_getApproxProjSolidAngle(tri,origin,interaction.isotropic.V.dir);
+#endif
+    return Light_getRadiance(light);
 }
 
 
@@ -158,8 +186,9 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
     const Triangle tri = triangles[Light_getObjectID(light)];
     
 #if TRIANGLE_METHOD==0
-    const vec3 edges[2] = vec3[2](tri.vertex1-tri.vertex0,tri.vertex2-tri.vertex0);
-    vec3 point = tri.vertex0+edges[0]*(1.0-u.y)+edges[1]*u.y*sqrt(u.x);
+    const mat2x3 edges = mat2x3(tri.vertex1-tri.vertex0,tri.vertex2-tri.vertex0);
+    const float sqrtU = sqrt(u.x);
+    vec3 point = tri.vertex0+edges[0]*(1.0-sqrtU)+edges[1]*sqrtU*u.y;
     vec3 L = point-origin;
     
     const float distanceSq = dot(L,L);
@@ -168,10 +197,10 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
 
     const float dist = 1.0/rcpDistance;
     
-    const float rcpPdf = abs(dot(Triangle_getNormalTimesArea(tri),L))/(distanceSq*choicePdf);
+    const float rcpPdf = abs(dot(Triangle_getNormalTimesArea_impl(edges),L))/(distanceSq*choicePdf);
 #elif TRIANGLE_METHOD==1
     float rcpPdf;
-    const vec3 L = sampleSphericalTriangle(rcpPdf,mat3(tri.vertex0,tri.vertex1,tri.vertex2),origin,u.xy);
+    const vec3 L = irr_glsl_sampling_generateSphericalTriangleSample(rcpPdf,mat3(tri.vertex0,tri.vertex1,tri.vertex2),origin,u.xy);
     rcpPdf = isnan(rcpPdf) ? 0.0:rcpPdf;
 
     const vec3 N = Triangle_getNormalTimesArea(tri);
@@ -227,7 +256,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
     if (lightID!=INVALID_ID_16BIT) // has emissive
     {
         float lightPdf;
-        vec3 lightVal = irr_glsl_light_deferred_eval_and_prob(lightPdf,mutable.intersectionT,interaction,lights[lightID]);
+        vec3 lightVal = irr_glsl_light_deferred_eval_and_prob(lightPdf,_immutable.origin,mutable.intersectionT,interaction,lights[lightID]);
         rayStack[stackPtr]._payload.accumulation += throughput*lightVal/(1.0+lightPdf*lightPdf*rayStack[stackPtr]._payload.otherTechniqueHeuristic);
     }
     
