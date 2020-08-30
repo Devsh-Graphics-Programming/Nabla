@@ -327,22 +327,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Clamp,Swizzle,Dith
 						sample[i] /= sample[alphaChannel];
 				}
 
-				///// PUT ENCODE
-
 				impl::CSwizzleAndConvertImageFilterBase<Clamp, Swizzle, Dither>::onEncode(outFormat, state, dstPix, sample, localOutPos, 0, 0, MaxChannels);
-
-				/*
-
-				for (auto i=0; i<MaxChannels; i++)
-				{
-					//sample[i] = core::clamp<value_type,value_type>(sample[i],0.0,1.0);
-					// @Crisspl replace this with epic quantization (actually it would be good if you cached the max and min values for the 4 channels outside the hot loop
-					sample[i] += double(sampler.nextSample())*(asset::getFormatPrecision<value_type>(outFormat,i,sample[i])/double(~0u));
-					sample[i] = core::clamp<value_type,value_type>(sample[i], asset::getFormatMinValue<value_type>(outFormat,i), asset::getFormatMaxValue<value_type>(outFormat,i));
-				}
-				asset::encodePixels<value_type>(outFormat,dstPix,sample);
-
-				*/
 			};
 			const core::SRange<const IImage::SBufferCopy> outRegions = outImg->getRegions(outMipLevel);
 			auto storeToImage = [coverageSemantic,outExtent,intermediateStorage,&sampler,outFormat,alphaRefValue,outData,intermediateStrides,alphaChannel,storeToTexel,outMipLevel,outOffset,outRegions,outImg](const core::rational<>& inverseCoverage, const int axis, const core::vectorSIMDu32& outOffsetLayer) -> void

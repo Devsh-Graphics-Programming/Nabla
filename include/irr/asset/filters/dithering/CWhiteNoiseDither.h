@@ -35,7 +35,7 @@ namespace irr
 					auto getWangHash = [&]()
 					{
 						IImage::SBufferCopy::getLocalByteOffset(pixelCoord, bufferStridesHash);
-						size_t seed = IImage::SBufferCopy::getLocalByteOffset(pixelCoord, bufferStridesHash) * channel;
+						uint32_t seed = IImage::SBufferCopy::getLocalByteOffset(pixelCoord, bufferStridesHash) * channel;
 
 						seed = (seed ^ 61) ^ (seed >> 16);
 						seed *= 9;
@@ -45,7 +45,7 @@ namespace irr
 						return seed;
 					};
 					
-					const size_t hash = getWangHash();
+					const auto hash = static_cast<double>(getWangHash());
 					return static_cast<float>(static_cast<double>(hash) / double(~0u));
 				}
 
