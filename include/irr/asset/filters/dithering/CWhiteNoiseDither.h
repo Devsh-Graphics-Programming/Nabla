@@ -10,13 +10,18 @@ namespace irr
 {
 	namespace asset
 	{
+		//! A class to apply dithering to an image using wang hash function
+		/*
+			The wang hash function has quite similar distribution to white noise.
+		*/
+
 		class CWhiteNoiseDither : public CDither<CWhiteNoiseDither>
 		{
 			public:
 				CWhiteNoiseDither() {}
 				virtual ~CWhiteNoiseDither() {}
 
-				class CState
+				class CState : public CDither::CState
 				{
 					public:
 						CState() {}

@@ -267,7 +267,7 @@ int main()
 	{
 		auto outImage = core::move_and_static_cast<ICPUImage>(inImage->clone());
 
-		using DISCRETE_CONVOLUTION_BLIT_FILTER = asset::CBlitImageFilter<CDiscreteConvolutionFilterKernel,CDiscreteConvolutionFilterKernel,CBoxImageFilterKernel>;
+		using DISCRETE_CONVOLUTION_BLIT_FILTER = asset::CBlitImageFilter<true,DefaultSwizzle,IdentityDither,CDiscreteConvolutionFilterKernel,CDiscreteConvolutionFilterKernel,CBoxImageFilterKernel>;
 		DISCRETE_CONVOLUTION_BLIT_FILTER blitImageFilter;
 		DISCRETE_CONVOLUTION_BLIT_FILTER::state_type state;
 		
@@ -290,14 +290,16 @@ int main()
 		state.outExtentLayerCount = extentLayerCount;
 		state.outImage = outImage.get();
 
-		state.defaultSwizzle.swizzle = {};
+		state.swizzle = {};
 
+		//state.ditherState = _IRR_NEW(std::remove_pointer<decltype(state.ditherState)>::type);
 		state.scratchMemoryByteSize = blitImageFilter.getRequiredScratchByteSize(&state);
 		state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
 
 		if (!blitImageFilter.execute(&state))
 			os::Printer::log("Something went wrong while performing discrete convolution operation!", ELL_WARNING);
 
+		//_IRR_DELETE(state.ditherState);
 		_IRR_ALIGNED_FREE(state.scratchMemory);
 
 		return outImage;
