@@ -19,44 +19,34 @@ namespace irr
 				class CState
 				{
 					public:
-						CState()
-							: sampler(std::chrono::high_resolution_clock::now().time_since_epoch().count())
-						{
-						
-						}
+						CState() {}
 						virtual ~CState() {}
-
-						core::RandomSampler sampler;
 				};
 
 				using state_type = CState;
 
 				static float get(const state_type* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel)
 				{
-					/*
-
-						TODO - handle it somehow
-
-					auto storeToTexel = [nonPremultBlendSemantic, alphaChannel, &sampler, outFormat](value_type* const sample, void* const dstPix) -> void
+					auto getWangHash = [&]()
 					{
-						if (nonPremultBlendSemantic && sample[alphaChannel] > FLT_MIN * 1024.0 * 512.0)
-						{
-							for (auto i = 0; i < MaxChannels; i++)
-								if (i != alphaChannel)
-									sample[i] /= sample[alphaChannel];
-						}
-						for (auto i = 0; i < MaxChannels; i++)
-						{
-							//sample[i] = core::clamp<value_type,value_type>(sample[i],0.0,1.0);
-							// @Crisspl replace this with epic quantization (actually it would be good if you cached the max and min values for the 4 channels outside the hot loop
-							sample[i] += double(sampler.nextSample()) * (asset::getFormatPrecision<value_type>(outFormat, i, sample[i]) / double(~0u));
-							sample[i] = core::clamp<value_type, value_type>(sample[i], asset::getFormatMinValue<value_type>(outFormat, i), asset::getFormatMaxValue<value_type>(outFormat, i));
-						}
-						asset::encodePixels<value_type>(outFormat, dstPix, sample);
-					};
+						IImage::SBufferCopy::getLocalByteOffset(pixelCoord, bufferStridesHash);
+						size_t seed = IImage::SBufferCopy::getLocalByteOffset(pixelCoord, bufferStridesHash) * channel;
 
-					*/
+						seed = (seed ^ 61) ^ (seed >> 16);
+						seed *= 9;
+						seed = seed ^ (seed >> 4);
+						seed *= 0x27d4eb2d;
+						seed = seed ^ (seed >> 15);
+						return seed;
+					};
+					
+					const size_t hash = getWangHash();
+					return static_cast<float>(static_cast<double>(hash) / double(~0u));
 				}
+
+			private:
+
+				static inline const core::vector3du32_SIMD bufferStridesHash = TexelBlockInfo(EF_R8G8B8A8_UINT).convert3DTexelStridesTo1DByteStrides(core::vector3du32_SIMD(uint16_t(~0), uint16_t(~0), uint16_t(~0)));
 		};
 	}
 }

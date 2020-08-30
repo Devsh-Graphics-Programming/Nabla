@@ -95,7 +95,7 @@ namespace irr
 							const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
 							auto* encodeValue = encodeBuffer + i;
 							const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
-							*encodeValue += static_cast<Tenc>(ditheredValue)* scale;
+							*encodeValue += static_cast<Tenc>(ditheredValue) * scale;
 						}
 
 						if constexpr (Clamp)
