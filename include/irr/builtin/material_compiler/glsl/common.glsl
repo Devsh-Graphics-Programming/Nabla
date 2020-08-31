@@ -293,7 +293,7 @@ void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in float DG, in para
 
 		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic, currInteraction.isotropic, a2) * refl;
 		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta2) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
-		vec3 fr = irr_glsl_fresnel_dielectric(eta,currBSDFParams.isotropic.VdotH);
+		vec3 fr = vec3(1.0);//irr_glsl_fresnel_dielectric(eta,currBSDFParams.isotropic.VdotH);
 		vec3 specular = DG*fr;
 
 		writeReg(REG_DST(regs), specular+diffuse);

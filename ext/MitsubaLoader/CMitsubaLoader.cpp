@@ -922,7 +922,7 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 					{
 						auto texture = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
 
-						switch (tex->bitmap.channel!=CElementTexture::Bitmap::CHANNEL::INVALID)
+						switch (tex->bitmap.channel)
 						{
 							// no GL_R8_SRGB support yet
 							case CElementTexture::Bitmap::CHANNEL::R:
@@ -948,10 +948,13 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 								constexpr auto ALPHA = ICPUImageView::SComponentMapping::ES_A;
 								viewParams.components = {ALPHA,ALPHA,ALPHA,ALPHA};
 								}
-								break;/* special conversions needed to CIE space
+								break;
+							/* special conversions needed to CIE space
 							case CElementTexture::Bitmap::CHANNEL::X:
 							case CElementTexture::Bitmap::CHANNEL::Y:
 							case CElementTexture::Bitmap::CHANNEL::Z:*/
+							case CElementTexture::Bitmap::CHANNEL::INVALID:
+								_IRR_FALLTHROUGH;
 							default:
 								break;
 						}
@@ -1030,15 +1033,16 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 					};
 
 					auto outParams = viewParams.image->getCreationParameters();
-					outParams.format = get1ChannelFormat(outParams.format);
-					auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(outParams.format)*outParams.extent.width*outParams.extent.height);
 					asset::ICPUImage::SBufferCopy region;
+					outParams.format = get1ChannelFormat(outParams.format);
+					const size_t texelBytesz = asset::getTexelOrBlockBytesize(outParams.format);
+					region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, texelBytesz);
+					auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(texelBytesz*region.bufferRowLength*outParams.extent.height);
 					region.imageOffset = {0,0,0};
 					region.imageExtent = outParams.extent;
 					region.imageSubresource.baseArrayLayer = 0u;
 					region.imageSubresource.layerCount = 1u;
 					region.imageSubresource.mipLevel = 0u;
-					region.bufferRowLength = outParams.extent.width;
 					region.bufferImageHeight = 0u;
 					region.bufferOffset = 0u;
 					auto outImg = asset::ICPUImage::create(std::move(outParams));
@@ -1059,7 +1063,8 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 					conv.outImage = outImg.get();
 
 					viewParams.components = asset::ICPUImageView::SComponentMapping{};
-					convert_filter_t::execute(&conv);
+					if (!convert_filter_t::execute(&conv))
+						_IRR_DEBUG_BREAK_IF(true);
 					viewParams.format = outImg->getCreationParameters().format;
 					viewParams.image = std::move(outImg);
 				}

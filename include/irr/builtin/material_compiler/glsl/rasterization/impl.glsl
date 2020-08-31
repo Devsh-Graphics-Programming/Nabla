@@ -17,7 +17,9 @@ void instr_eval_execute(in instr_t instr, in vec3 L)
 	float ay = params_getAlphaV(params);
 	float ay2 = ay*ay;
 
-	if (op_hasSpecular(op))
+	float cosFactor = op_isBSDF(op) ? abs(currBSDFParams.isotropic.NdotL):max(currBSDFParams.isotropic.NdotL,0.0);
+
+	if (cosFactor>FLT_MIN && op_hasSpecular(op))
 	{
 #ifdef NDF_GGX
 #ifndef ONLY_ONE_NDF
@@ -115,9 +117,33 @@ void instr_eval_execute(in instr_t instr, in vec3 L)
 
 bxdf_eval_t runEvalStream(in instr_stream_t stream, in vec3 L)
 {
+	bool ts = false;
 	for (uint i = 0u; i < stream.count; ++i)
 	{
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
+#ifdef OP_BUMPMAP
+		ts = instr_getOpcode(instr)==OP_BUMPMAP ? false:ts;
+#endif
+		if (!ts && instr_getTwosided(instr))
+		{
+			ts = true;
+			if (currInteraction.isotropic.NdotV<0.0)
+			{
+				currInteraction.isotropic.N = -currInteraction.isotropic.N;
+				currInteraction.isotropic.NdotV = -currInteraction.isotropic.NdotV;
+				currInteraction.T = -currInteraction.T;
+				currInteraction.B = -currInteraction.B;
+				currInteraction.TdotV = -currInteraction.TdotV;
+				currInteraction.BdotV = -currInteraction.BdotV;
+
+				currBSDFParams.isotropic.NdotL = -currBSDFParams.isotropic.NdotL;
+				currBSDFParams.isotropic.NdotH = -currBSDFParams.isotropic.NdotH;
+				currBSDFParams.TdotL = -currBSDFParams.TdotL;
+				currBSDFParams.BdotL = -currBSDFParams.BdotL;
+				currBSDFParams.TdotH = -currBSDFParams.TdotH;
+				currBSDFParams.BdotH = -currBSDFParams.BdotH;
+			}
+		}
 		instr_eval_execute(instr, L);
 	}
 	return readReg3(0u);//result is always in regs 0,1,2
