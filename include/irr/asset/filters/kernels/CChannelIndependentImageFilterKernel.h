@@ -21,6 +21,7 @@ namespace impl
 
 class CChannelIndependentImageFilterKernelBase
 {
+	protected:
 		const bool haveScale;
 		template<class... Kernels>
 		static inline bool doesHaveScale(const Kernels&... kernels)
@@ -59,7 +60,8 @@ class CChannelIndependentImageFilterKernel;
 
 
 template<class KernelR>
-class CChannelIndependentImageFilterKernel<KernelR,void,void,void> : public CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR,void,void,void>>, private KernelR
+class CChannelIndependentImageFilterKernel<KernelR,void,void,void> : 
+	public CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR,void,void,void>>, public impl::CChannelIndependentImageFilterKernelBase, private KernelR
 {
 		using base_t = CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR, void, void, void>>;
 	public:
@@ -106,7 +108,8 @@ class CChannelIndependentImageFilterKernel<KernelR,void,void,void> : public CFlo
 };
 
 template<class KernelR, class KernelG>
-class CChannelIndependentImageFilterKernel<KernelR,KernelG,void,void> : public CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR,KernelG,void,void>>, private KernelR,KernelG
+class CChannelIndependentImageFilterKernel<KernelR,KernelG,void,void> : 
+	public CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR,KernelG,void,void>>, public impl::CChannelIndependentImageFilterKernelBase, private KernelR,KernelG
 {
 		using base_t = CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR, KernelG, void, void>>;
 
@@ -117,6 +120,9 @@ class CChannelIndependentImageFilterKernel<KernelR,KernelG,void,void> : public C
 
 		CChannelIndependentImageFilterKernel(float _negative_support, float _positive_support, KernelR&& kernel_r, KernelG&& kernel_g) : 
 			base_t(_negative_support, _positive_support), KernelR(std::move(kernel_r)), KernelG(std::move(kernel_g)) {}
+
+		// pass on any scale
+		inline const IImageFilterKernel::UserData* getUserData() const { return haveScale ? &scale : nullptr; }
 
 		inline float weight(float x, int32_t channel) const
 		{
@@ -161,7 +167,8 @@ class CChannelIndependentImageFilterKernel<KernelR,KernelG,void,void> : public C
 };
 
 template<class KernelR, class KernelG, class KernelB>
-class CChannelIndependentImageFilterKernel<KernelR,KernelG,KernelB,void> : public CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR,KernelG,KernelB,void>>, private KernelR,KernelG,KernelB
+class CChannelIndependentImageFilterKernel<KernelR,KernelG,KernelB,void> : 
+	public CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR,KernelG,KernelB,void>>, public impl::CChannelIndependentImageFilterKernelBase, private KernelR,KernelG,KernelB
 {
 		using base_t = CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR, KernelG, KernelB, void>>;
 	public:
@@ -171,6 +178,9 @@ class CChannelIndependentImageFilterKernel<KernelR,KernelG,KernelB,void> : publi
 
 		CChannelIndependentImageFilterKernel(float _negative_support, float _positive_support, KernelR&& kernel_r, KernelG&& kernel_g, KernelB&& kernel_b) :
 			base_t(_negative_support, _positive_support), KernelR(std::move(kernel_r)), KernelG(std::move(kernel_g)), KernelB(std::move(kernel_b)) {}
+
+		// pass on any scale
+		inline const IImageFilterKernel::UserData* getUserData() const { return haveScale ? &scale : nullptr; }
 
 		inline float weight(float x, int32_t channel) const
 		{
@@ -224,7 +234,8 @@ class CChannelIndependentImageFilterKernel<KernelR,KernelG,KernelB,void> : publi
 };
 
 template<class KernelR, class KernelG, class KernelB, class KernelA>
-class CChannelIndependentImageFilterKernel : public CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR,KernelG,KernelB,KernelA>>, private KernelR,KernelG,KernelB,KernelA
+class CChannelIndependentImageFilterKernel : 
+	public CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR,KernelG,KernelB,KernelA>>, public impl::CChannelIndependentImageFilterKernelBase, private KernelR,KernelG,KernelB,KernelA
 {
 		using base_t = CFloatingPointSeparableImageFilterKernelBase<CChannelIndependentImageFilterKernel<KernelR, KernelG, KernelB, KernelA>>;
 
@@ -235,6 +246,9 @@ class CChannelIndependentImageFilterKernel : public CFloatingPointSeparableImage
 
 		CChannelIndependentImageFilterKernel(float _negative_support, float _positive_support, KernelR&& kernel_r, KernelG&& kernel_g, KernelB&& kernel_b, KernelA&& kernel_a) :
 			base_t(_negative_support, _positive_support), KernelR(std::move(kernel_r)), KernelG(std::move(kernel_g)), KernelB(std::move(kernel_b)), KernelA(std::move(kernel_a)) {}
+
+		// pass on any scale
+		inline const IImageFilterKernel::UserData* getUserData() const { return haveScale ? &scale : nullptr; }
 
 		inline float weight(float x, int32_t channel) const
 		{

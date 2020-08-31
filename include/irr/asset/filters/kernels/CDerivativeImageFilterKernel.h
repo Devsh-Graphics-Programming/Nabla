@@ -23,7 +23,12 @@ class CDerivativeImageFilterKernel : public CFloatingPointSeparableImageFilterKe
 		using Base = CFloatingPointSeparableImageFilterKernelBase<CDerivativeImageFilterKernel<Kernel>>;
 
 	public:
+		using value_type = typename Base::value_type;
+
 		CDerivativeImageFilterKernel(float _negative_support, float _positive_support) : Base(_negative_support, _positive_support) {}
+
+		// no special user data by default
+		inline const IImageFilterKernel::UserData* getUserData() const { return nullptr; }
 
 		inline float weight(float x, int32_t channel) const
 		{
@@ -34,6 +39,8 @@ class CDerivativeImageFilterKernel : public CFloatingPointSeparableImageFilterKe
 		}
 
 		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
+
+		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
 };
 
 
