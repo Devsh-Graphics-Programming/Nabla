@@ -20,7 +20,7 @@ namespace impl
 {
 	
 template<class Kernel>
-class CScaledImageFilterKernelBase : protected Kernel
+class CScaledImageFilterKernelBase
 {
 	protected:
 		const IImageFilterKernel::ScaleFactorUserData userData;
@@ -33,8 +33,9 @@ class CScaledImageFilterKernelBase : protected Kernel
 		_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = Kernel::is_separable;
 
 		// constructor
-		CScaledImageFilterKernelBase(const core::vectorSIMDf& _rscale, Kernel&& k) : Kernel(std::move(k)), rscale(_rscale.x,_rscale.y,_rscale.z,1.f), userData(_rscale.x*_rscale.y*_rscale.z) {}
+		CScaledImageFilterKernelBase(const core::vectorSIMDf& _rscale, Kernel&& k) : kernel(std::move(k)), rscale(_rscale.x,_rscale.y,_rscale.z,1.f), userData(_rscale.x*_rscale.y*_rscale.z) {}
 
+		Kernel kernel;
 		// reciprocal of the scale, the w component holds the scale that needs to be applied to the kernel values to preserve the integral
 		// 1/(A*B*C) InfiniteIntegral f(x/A,y/B,z/C) dx dy dz == InfiniteIntegral f(x,y,z) dx dy dz
 		const core::vectorSIMDf rscale;
@@ -44,7 +45,8 @@ class CScaledImageFilterKernelBase : protected Kernel
 
 // this kernel will become a stretched version of the original kernel while keeping its integral constant
 template<class Kernel>
-class CScaledImageFilterKernel : public impl::CScaledImageFilterKernelBase<Kernel>, public CImageFilterKernel<CScaledImageFilterKernel<Kernel>,typename impl::CScaledImageFilterKernelBase<Kernel>::value_type>
+class CScaledImageFilterKernel : //order of bases is important! do not change
+	public impl::CScaledImageFilterKernelBase<Kernel>, public CImageFilterKernel<CScaledImageFilterKernel<Kernel>,typename impl::CScaledImageFilterKernelBase<Kernel>::value_type>
 {
 		using Base = impl::CScaledImageFilterKernelBase<Kernel>;
 		using StaticPolymorphicBase = CImageFilterKernel<CScaledImageFilterKernel<Kernel>,typename Base::value_type>;
@@ -56,8 +58,8 @@ class CScaledImageFilterKernel : public impl::CScaledImageFilterKernelBase<Kerne
 		// would give us a kernel with support -2.0,2.0 which still has the same area under the curve (integral)
 		CScaledImageFilterKernel(const core::vectorSIMDf& _scale, Kernel&& k=Kernel()) : Base(core::vectorSIMDf(1.f).preciseDivision(_scale),std::move(k)),
 			StaticPolymorphicBase(
-					{Kernel::positive_support[0]*_scale[0],Kernel::positive_support[1]*_scale[1],Kernel::positive_support[2]*_scale[2]},
-					{Kernel::negative_support[0]*_scale[0],Kernel::negative_support[1]*_scale[1],Kernel::negative_support[2]*_scale[2]}
+					{kernel.positive_support[0]*_scale[0],kernel.positive_support[1]*_scale[1],kernel.positive_support[2]*_scale[2]},
+					{kernel.negative_support[0]*_scale[0],kernel.negative_support[1]*_scale[1],kernel.negative_support[2]*_scale[2]}
 				)
 		{
 		}
@@ -70,6 +72,7 @@ class CScaledImageFilterKernel : public impl::CScaledImageFilterKernelBase<Kerne
 		// the validation usually is not support dependent, its usually about the input/output formats of an image, etc. so we use old Kernel validation
 		static inline bool validate(ICPUImage* inImage, ICPUImage* outImage)
 		{
+			//is validate() always static?
 			return Kernel::validate(inImage, outImage);
 		}
 
@@ -80,8 +83,8 @@ class CScaledImageFilterKernel : public impl::CScaledImageFilterKernelBase<Kerne
 		template<class PreFilter, class PostFilter>
 		struct sample_functor_t
 		{
-				sample_functor_t(const CScaledImageFilterKernel<Kernel>* __this, PreFilter& _preFilter, PostFilter& _postFilter) :
-					_this(__this), preFilter(_preFilter), postFilter(_postFilter) {}
+				sample_functor_t(const CScaledImageFilterKernel<Kernel>* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
+					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
 
 				// so this functor wraps the original one of the unscaled in a peculiar way
 				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData)
@@ -93,7 +96,7 @@ class CScaledImageFilterKernel : public impl::CScaledImageFilterKernelBase<Kerne
 						relativePos *= _this->rscale;
 					};
 					// inject the wrap as a pre-filter instead of the original in the non-scaled kernel functor
-					static_cast<const Kernel*>(_this)->create_sample_functor_t(wrap,postFilter)(windowSample,relativePos,globalTexelCoord,userData);
+					_this->kernel.create_sample_functor_t(wrap,postFilter)(windowSample,relativePos,globalTexelCoord,userData);
 				}
 
 			private:

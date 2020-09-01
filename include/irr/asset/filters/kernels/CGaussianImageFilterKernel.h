@@ -36,7 +36,7 @@ class CGaussianImageFilterKernel : public CFloatingPointIsotropicSeparableImageF
 		inline float d_weight(float x, int32_t channel) const
 		{
 			if (Base::inDomain(x))
-				return -x*CGaussianImageFilterKernel<support>::weight(x);
+				return -x*CGaussianImageFilterKernel<support>::weight(x,channel);
 			return 0.f;
 		}
 };

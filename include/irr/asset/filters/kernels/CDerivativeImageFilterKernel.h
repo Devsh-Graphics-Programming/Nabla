@@ -18,24 +18,26 @@ namespace asset
 
 // A Kernel that's a derivative of another, `Kernel` must have a `d_weight` function
 template<class Kernel>
-class CDerivativeImageFilterKernel : public CFloatingPointSeparableImageFilterKernelBase<CDerivativeImageFilterKernel<Kernel>>, private Kernel
+class CDerivativeImageFilterKernel : public CFloatingPointSeparableImageFilterKernelBase<CDerivativeImageFilterKernel<Kernel>>
 {
 		using Base = CFloatingPointSeparableImageFilterKernelBase<CDerivativeImageFilterKernel<Kernel>>;
+
+		Kernel kernel;
 
 	public:
 		using value_type = typename Base::value_type;
 
-		CDerivativeImageFilterKernel(float _negative_support, float _positive_support) : Base(_negative_support, _positive_support) {}
+		CDerivativeImageFilterKernel(Kernel&& k) : Base(k.negative_support.x, k.positive_support.x) {}
 
 		// no special user data by default
 		inline const IImageFilterKernel::UserData* getUserData() const { return nullptr; }
 
 		inline float weight(float x, int32_t channel) const
 		{
-			auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(static_cast<const Kernel*>(this)->getUserData());
+			auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(kernel.getUserData());
 			if (scale)
 				x *= scale->factor[channel];
-			return Kernel::d_weight(x,channel);
+			return kernel.d_weight(x,channel);
 		}
 
 		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = false;

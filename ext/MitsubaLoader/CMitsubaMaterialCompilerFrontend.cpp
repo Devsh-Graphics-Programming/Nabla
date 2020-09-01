@@ -14,7 +14,7 @@ namespace ext
 {
 namespace MitsubaLoader
 {
-    /*
+
     static core::smart_refctd_ptr<asset::ICPUImage> createDerivMapFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
     {
         using namespace asset;
@@ -40,8 +40,8 @@ namespace MitsubaLoader
 
         using ReconstructionKernel = CGaussianImageFilterKernel<>; // or Mitchell
         using DerivKernel = CDerivativeImageFilterKernel<ReconstructionKernel>;
-        using XDerivKernel = CChannelIndependentImageFilterKernel<CDerivativeImageFilterKernel<ReconstructionKernel>, CBoxImageFilterKernel, void, void>;
-        using YDerivKernel = CChannelIndependentImageFilterKernel<CBoxImageFilterKernel, CDerivativeImageFilterKernel<ReconstructionKernel>, void, void>;
+        using XDerivKernel = CChannelIndependentImageFilterKernel<CDerivativeImageFilterKernel<ReconstructionKernel>, CBoxImageFilterKernel>;
+        using YDerivKernel = CChannelIndependentImageFilterKernel<CBoxImageFilterKernel, CDerivativeImageFilterKernel<ReconstructionKernel>>;
         using DerivativeMapFilter = CBlitImageFilter<
             XDerivKernel,
             YDerivKernel,
@@ -49,8 +49,8 @@ namespace MitsubaLoader
         >;
 
         constexpr float SUPPORT = 3.f;
-        XDerivKernel xderiv(SUPPORT, SUPPORT, DerivKernel(SUPPORT, SUPPORT), CBoxImageFilterKernel());
-        YDerivKernel yderiv(SUPPORT, SUPPORT, CBoxImageFilterKernel(), DerivKernel(SUPPORT, SUPPORT));
+        XDerivKernel xderiv{ DerivKernel(ReconstructionKernel()), CBoxImageFilterKernel() };
+        YDerivKernel yderiv{ CBoxImageFilterKernel(), DerivKernel(ReconstructionKernel()) };
 
         using swizzle_t = asset::ICPUImageView::SComponentMapping;
         DerivativeMapFilter::state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());
@@ -100,7 +100,6 @@ namespace MitsubaLoader
 
         return outImg;
     }
-    */
 
     auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _element) const -> tex_ass_type
     {
