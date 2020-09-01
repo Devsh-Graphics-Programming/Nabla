@@ -214,8 +214,10 @@ namespace instr_stream
 				else if (_node->symbol == IR::INode::ES_GEOM_MODIFIER)
 					bm = static_cast<const IR::CGeomModifierNode*>(_node);
 
-				_dst.bumpmap.bumpmap.vtid = bm ? packTexture(bm->texture) : VTID::invalid();
-				core::uintBitsToFloat(_dst.bumpmap.bumpmap.scale) = bm ? bm->texture.scale : 0.f;
+				assert(bm->type == IR::CGeomModifierNode::ET_DERIVATIVE);
+
+				_dst.bumpmap.derivmap.vtid = bm ? packTexture(bm->texture) : VTID::invalid();
+				core::uintBitsToFloat(_dst.bumpmap.derivmap.scale) = bm ? bm->texture.scale : 0.f;
 			}
 			break;
 			}
@@ -561,7 +563,7 @@ namespace gen_choice
 }
 namespace tex_prefetch
 {
-	static traversal_t genTraversal(const traversal_t& _t, const core::vector<instr_stream::SBSDFUnion>& _bsdfData, core::unordered_map<STextureData, uint32_t, STextureData::hash>& _tex2reg, uint32_t _firstFreeReg, uint32_t& _out_usedRegs, uint32_t& _out_regCntFlags);
+	static traversal_t genTraversal(const traversal_t& _t, const core::vector<instr_stream::SBSDFUnion>& _bsdfData, core::unordered_map<STextureData, uint32_t, STextureData::hash>& _tex2reg, uint32_t _firstFreeReg, uint32_t& _out_usedRegs, uint32_t& _out_regCntFlags, uint32_t& _out_prefetchFlags);
 }
 }
 
@@ -639,7 +641,7 @@ std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(
 			out_next = geom_node->children;
 			if (geom_node->children.find(IR::INode::ES_FRONT_SURFACE, &ix))
 				twosided = isTwosided(geom_node, ix, out_next);
-			retval = (geom_node->type != IR::CGeomModifierNode::ET_HEIGHT) ? OP_INVALID : OP_BUMPMAP;
+			retval = (geom_node->type != IR::CGeomModifierNode::ET_DERIVATIVE) ? OP_INVALID : OP_BUMPMAP;
 		}
 		else if (node->children.find(IR::INode::ES_FRONT_SURFACE, &ix))
 		{
@@ -1001,11 +1003,11 @@ instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTrav
 	return traversal;
 }
 
-instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const traversal_t& _t, const core::vector<instr_stream::SBSDFUnion>& _bsdfData, core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _out_tex2reg, uint32_t _firstFreeReg, uint32_t& _out_usedRegs, uint32_t& _out_regCntFlags)
+instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const traversal_t& _t, const core::vector<instr_stream::SBSDFUnion>& _bsdfData, core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _out_tex2reg, uint32_t _firstFreeReg, uint32_t& _out_usedRegs, uint32_t& _out_regCntFlags, uint32_t& _out_prefetchFlags)
 {
 	core::unordered_set<STextureData, STextureData::hash> processed;
 	uint32_t regNum = _firstFreeReg;
-	auto write_fetch_bitfields = [&processed,&regNum,&_out_regCntFlags,&_out_tex2reg](instr_t& i, const STextureData& tex, int32_t dstbit, int32_t srcbit, int32_t reg_bitfield_shift, int32_t reg_count_bitfield_shift, uint32_t reg_count) -> bool {
+	auto write_fetch_bitfields = [&processed,&regNum,&_out_regCntFlags,&_out_prefetchFlags,&_out_tex2reg](instr_t& i, const STextureData& tex, int32_t dstbit, int32_t srcbit, int32_t reg_bitfield_shift, int32_t reg_count_bitfield_shift, uint32_t reg_count) -> bool {
 		auto bit = core::bitfieldExtract(i, srcbit, 1);
 		uint32_t reg = 0u;
 		if (bit)
@@ -1025,6 +1027,7 @@ instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const travers
 		if (bit) {
 			_out_tex2reg.insert({tex,reg});
 			_out_regCntFlags |= (1u << reg_count);
+			_out_prefetchFlags |= (1u << dstbit);
 		}
 
 		return bit;
@@ -1037,8 +1040,7 @@ instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const travers
 	{
 		const E_OPCODE op = getOpcode(i);
 
-		if (op==OP_NOOP || op==OP_INVALID || op==OP_SET_GEOM_NORMAL
-			|| op==OP_BUMPMAP)//prefetching bumpmaps is pointless because OP_BUMPMAP performs 4 samples to compute gradient, this can be avoided if we make gradient map from bumpmap
+		if (op==OP_NOOP || op==OP_INVALID || op==OP_SET_GEOM_NORMAL)
 			continue;
 
 		//zero-out fetch flags
@@ -1071,8 +1073,7 @@ instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const travers
 			break;
 		case OP_BUMPMAP:
 			i = core::bitfieldInsert<instr_t>(i, 1u, BITFIELDS_FETCH_TEX_0_SHIFT, 1);
-			//TODO change reg count to 2u if we have derivative maps instead of bump maps
-			write_fetch_bitfields(i, bsdf_data.bumpmap.bumpmap, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);
+			write_fetch_bitfields(i, bsdf_data.bumpmap.derivmap, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 2u);
 			break;
 		case OP_BLEND:
 			write_fetch_bitfields(i, bsdf_data.blend.weight.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_WEIGHT_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);
@@ -1117,14 +1118,6 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 		defs += "\n#define TEX_PREFETCH_STREAM";
 	if (!_res.noNormPrecompStream)
 		defs += "\n#define NORM_PRECOMP_STREAM";
-	if (_res.prefetch_sameNumOfChannels)
-	{
-		assert(_res.prefetch_numOfChannels==1u || _res.prefetch_numOfChannels==3u);
-		if (_res.prefetch_numOfChannels==1u)
-			defs += "\n#define PREFETCH_REGS_ALWAYS_1";
-		else if (_res.prefetch_numOfChannels==3u)
-			defs += "\n#define PREFETCH_REGS_ALWAYS_3";
-	}
 
 	//instruction bitfields
 	defs += "\n#define INSTR_OPCODE_MASK " + std::to_string(INSTR_OPCODE_MASK);
@@ -1166,6 +1159,19 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 		defs += "\n#define INSTR_FETCH_TEX_1_REG_CNT_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT);
 		defs += "\n#define INSTR_FETCH_TEX_2_REG_CNT_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_2_REG_CNT_SHIFT);
 		defs += "\n#define INSTR_FETCH_TEX_REG_CNT_MASK " + std::to_string(BITFIELDS_FETCH_TEX_REG_CNT_MASK);
+
+		if (_res.globalPrefetchRegCountFlags & (1u << 1))
+			defs += "\n#define PREFETCH_REG_COUNT_1";
+		if (_res.globalPrefetchRegCountFlags & (1u << 2))
+			defs += "\n#define PREFETCH_REG_COUNT_2";
+		if (_res.globalPrefetchRegCountFlags & (1u << 3))
+			defs += "\n#define PREFETCH_REG_COUNT_3";
+		if (core::bitfieldExtract(_res.globalPrefetchFlags, BITFIELDS_FETCH_TEX_0_SHIFT, 1))
+			defs += "\n#define PREFETCH_TEX_0";
+		if (core::bitfieldExtract(_res.globalPrefetchFlags, BITFIELDS_FETCH_TEX_1_SHIFT, 1))
+			defs += "\n#define PREFETCH_TEX_1";
+		if (core::bitfieldExtract(_res.globalPrefetchFlags, BITFIELDS_FETCH_TEX_2_SHIFT, 1))
+			defs += "\n#define PREFETCH_TEX_2";
 	}
 	defs += "\n";
 
@@ -1216,8 +1222,9 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 	res.noNormPrecompStream = true;
 	res.noPrefetchStream = true;
 	res.usedRegisterCount = 0u;
+	res.globalPrefetchFlags = 0u;
+	res.globalPrefetchRegCountFlags = 0u;
 
-	uint32_t prefetchRegCntFlags = 0u;
 	for (const IR::INode* root : _ir->roots)
 	{
 		uint32_t registerPool = instr_stream::MAX_REGISTER_COUNT;
@@ -1242,15 +1249,19 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 		traversal_t tex_prefetch_stream;
 		{
 			core::unordered_map<STextureData, uint32_t, STextureData::hash> tex2reg;
-			tex_prefetch_stream = tex_prefetch::genTraversal(rem_pdf_stream, res.bsdfData, tex2reg, MAX_REGISTER_COUNT-registerPool, usedRegs, prefetchRegCntFlags);
+			tex_prefetch_stream = tex_prefetch::genTraversal(rem_pdf_stream, res.bsdfData, tex2reg, MAX_REGISTER_COUNT-registerPool, usedRegs, res.globalPrefetchRegCountFlags, res.globalPrefetchFlags);
 			assert(usedRegs <= registerPool);
 			registerPool -= usedRegs;
 
 			ix2ix = createBsdfDataIndexMapForPrefetchedTextures(_ctx, tex_prefetch_stream, tex2reg);
 		}
 
-		traversal_t normal_precomp_stream;
 		const uint32_t regNum = MAX_REGISTER_COUNT-registerPool;
+
+		adjustBSDFDataIndices(rem_pdf_stream, ix2ix);
+		adjustBSDFDataIndices(gen_choice_stream, ix2ix);
+
+		traversal_t normal_precomp_stream;
 		{
 			normal_precomp_stream.reserve(std::count_if(rem_pdf_stream.begin(), rem_pdf_stream.end(), [](instr_t i) {return getOpcode(i)==OP_BUMPMAP;}));
 			assert(regNum+3u*normal_precomp_stream.capacity() <= MAX_REGISTER_COUNT);
@@ -1267,9 +1278,8 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 			registerPool = MAX_REGISTER_COUNT - regNum - 3u*normal_precomp_stream.size();
 		}
 
-		adjustBSDFDataIndices(rem_pdf_stream, ix2ix);
+		//src1 reg for OP_BUMPMAPs is set to dst reg of corresponding instruction in normal precomp stream
 		setSourceRegForBumpmaps(rem_pdf_stream, regNum);
-		adjustBSDFDataIndices(gen_choice_stream, ix2ix);
 		setSourceRegForBumpmaps(gen_choice_stream, regNum);
 
 		result_t::instr_streams_t streams;
@@ -1292,10 +1302,6 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 	}
 
 	_ir->deinitTmpNodes();
-
-	res.prefetch_sameNumOfChannels = core::isPoT(prefetchRegCntFlags);
-	if (res.prefetch_sameNumOfChannels)
-		res.prefetch_numOfChannels = core::findLSB(prefetchRegCntFlags);
 
 	for (const auto& e : res.streams)
 	{
@@ -1392,7 +1398,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		const SBSDFUnion& data = _res.bsdfData[bsdf_ix];
 
 		_out << "### instr " << i << "\n";
-		_out << reg << " <- " << reinterpret_cast<const uint64_t&>(data.bumpmap.bumpmap.vtid) << ", " << reinterpret_cast<const float&>(data.bumpmap.bumpmap.scale) << "\n";
+		_out << reg << " <- " << reinterpret_cast<const uint64_t&>(data.bumpmap.derivmap.vtid) << ", " << reinterpret_cast<const float&>(data.bumpmap.derivmap.scale) << "\n";
 	}
 }
 

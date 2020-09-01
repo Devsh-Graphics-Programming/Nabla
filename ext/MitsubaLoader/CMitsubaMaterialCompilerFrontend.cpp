@@ -40,8 +40,8 @@ namespace MitsubaLoader
 
         using ReconstructionKernel = CGaussianImageFilterKernel<>; // or Mitchell
         using DerivKernel = CDerivativeImageFilterKernel<ReconstructionKernel>;
-        using XDerivKernel = CChannelIndependentImageFilterKernel<CDerivativeImageFilterKernel<ReconstructionKernel>, CBoxImageFilterKernel>;
-        using YDerivKernel = CChannelIndependentImageFilterKernel<CBoxImageFilterKernel, CDerivativeImageFilterKernel<ReconstructionKernel>>;
+        using XDerivKernel = CChannelIndependentImageFilterKernel<DerivKernel, CBoxImageFilterKernel>;
+        using YDerivKernel = CChannelIndependentImageFilterKernel<CBoxImageFilterKernel, DerivKernel>;
         using DerivativeMapFilter = CBlitImageFilter<
             XDerivKernel,
             YDerivKernel,
@@ -86,7 +86,7 @@ namespace MitsubaLoader
         state.inMipLevel = 0u;
         state.outMipLevel = 0u;
         state.inImage = _inImg;
-        //state.outImage = 
+        state.outImage = outImg.get();
         state.axisWraps[0] = _uwrap;
         state.axisWraps[1] = _vwrap;
         state.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
@@ -99,6 +99,35 @@ namespace MitsubaLoader
         _IRR_ALIGNED_FREE(state.scratchMemory);
 
         return outImg;
+    }
+    static core::smart_refctd_ptr<asset::ICPUImageView> createImageView(core::smart_refctd_ptr<asset::ICPUImage>&& _img)
+    {
+        const auto& iparams = _img->getCreationParameters();
+
+        asset::ICPUImageView::SCreationParams params;
+        params.format = iparams.format;
+        params.subresourceRange.baseArrayLayer = 0u;
+        params.subresourceRange.layerCount = iparams.arrayLayers;
+        assert(params.subresourceRange.layerCount==1u);
+        params.subresourceRange.baseMipLevel = 0u;
+        params.subresourceRange.levelCount = iparams.mipLevels;
+        params.viewType = asset::IImageView<asset::ICPUImage>::ET_2D;
+        params.flags = static_cast<asset::IImageView<asset::ICPUImage>::E_CREATE_FLAGS>(0);
+        params.image = std::move(_img);
+
+        return asset::ICPUImageView::create(std::move(params));
+    }
+    static core::smart_refctd_ptr<asset::ICPUImageView> createDerivMap(asset::ICPUImage* _heightMap, asset::ICPUSampler* _smplr)
+    {
+        const auto& sp = _smplr->getParams();
+        return createImageView(
+            createDerivMapFromHeightMap(
+                _heightMap, 
+                static_cast<asset::ICPUSampler::E_TEXTURE_CLAMP>(sp.TextureWrapU),
+                static_cast<asset::ICPUSampler::E_TEXTURE_CLAMP>(sp.TextureWrapV),
+                static_cast<asset::ICPUSampler::E_TEXTURE_BORDER_COLOR>(sp.BorderColor)
+            )
+        );
     }
 
     auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _element) const -> tex_ass_type
@@ -335,12 +364,17 @@ namespace MitsubaLoader
         break;
         case CElementBSDF::BUMPMAP:
         {
-            nextSym = ir->allocNode<IR::CGeomModifierNode>(IR::CGeomModifierNode::ET_HEIGHT);
+            nextSym = ir->allocNode<IR::CGeomModifierNode>(IR::CGeomModifierNode::ET_DERIVATIVE);
             nextSym->children.count = 1u;
 
             auto* node = static_cast<IR::CGeomModifierNode*>(nextSym);
             node->source = IR::CGeomModifierNode::ESRC_TEXTURE;
-            std::tie(node->texture.image, node->texture.sampler, node->texture.scale) = getTexture(current->bumpmap.texture);
+            auto bm = getTexture(current->bumpmap.texture);
+
+            auto& img = std::get<0>(bm)->getCreationParameters().image;
+            auto smplr = std::get<1>(bm);
+
+            std::tie(node->texture.image, node->texture.sampler, node->texture.scale) = std::make_tuple(createDerivMap(img.get(), smplr.get()), std::move(smplr), std::get<2>(bm));
             bsdfQ.push(current->bumpmap.bsdf[0]);
         }
         break;

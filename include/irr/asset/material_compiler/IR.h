@@ -272,7 +272,8 @@ public:
         {
             ET_DISPLACEMENT,
             ET_HEIGHT,
-            ET_NORMAL
+            ET_NORMAL,
+            ET_DERIVATIVE
         };
         enum E_SOURCE
         {

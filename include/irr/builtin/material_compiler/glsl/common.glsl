@@ -171,6 +171,11 @@ void writeReg(uint n, float v)
 {
 	registers[n] = floatBitsToUint(v);
 }
+void writeReg(uint n, vec2 v)
+{
+	writeReg(n   ,v.x);
+	writeReg(n+1u,v.y);	
+}
 void writeReg(uint n, vec3 v)
 {
 	writeReg(n   ,v.x);
@@ -180,6 +185,12 @@ void writeReg(uint n, vec3 v)
 float readReg1(uint n)
 {
 	return uintBitsToFloat( registers[n] );
+}
+vec2 readReg2(uint n)
+{
+	return vec2(
+		readReg1(n), readReg1(n+1u)
+	);
 }
 vec3 readReg3(uint n)
 {
@@ -358,60 +369,82 @@ void runTexPrefetchStream(in instr_stream_t stream, in mat2 dUV)
 	{
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
 
-#if !defined(PREFETCH_REGS_ALWAYS_1) && !defined(PREFETCH_REGS_ALWAYS_3)
 		uvec3 regcnt = ( instr.yyy >> (uvec3(INSTR_FETCH_TEX_0_REG_CNT_SHIFT,INSTR_FETCH_TEX_1_REG_CNT_SHIFT,INSTR_FETCH_TEX_2_REG_CNT_SHIFT)-uvec3(32)) ) & uvec3(INSTR_FETCH_TEX_REG_CNT_MASK);
-#endif
 		bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
 
 		uint fetchFlags = instr_getTexFetchFlags(instr);
 		uvec3 regs = instr_decodeRegisters(instr);
+#ifdef PREFETCH_TEX_0
 		if ((fetchFlags & 0x01u) == 0x01u)
 		{
 			vec3 val = fetchTex(bsdf_data.data[0].xyz, UV, dUV);
 			uint reg = REG_PREFETCH0(regs);
-#if !defined(PREFETCH_REGS_ALWAYS_1) && !defined(PREFETCH_REGS_ALWAYS_3)
+#ifdef PREFETCH_REG_COUNT_1
 			if (regcnt.x==1u)
 				writeReg(reg, val.x);
 			else
-				writeReg(reg, val);
-#elif defined(PREFETCH_REGS_ALWAYS_1)
-			writeReg(reg, val.x);
-#elif defined(PREFETCH_REGS_ALWAYS_3)
-			writeReg(reg, val);
 #endif
+#ifdef PREFETCH_REG_COUNT_2
+			if (regcnt.x==2u)
+				writeReg(reg, val.xy);
+			else
+#endif
+#ifdef PREFETCH_REG_COUNT_3
+			if (regcnt.x==3u)
+				writeReg(reg, val);
+			else
+#endif
+			{} //else "empty braces"
 		}
+#endif
+#ifdef PREFETCH_TEX_1
 		if ((fetchFlags & 0x02u) == 0x02u)
 		{
 			uvec3 texid = uvec3(bsdf_data.data[0].w,bsdf_data.data[1].xy);
 			vec3 val = fetchTex(texid,UV,dUV);
 			uint reg = REG_PREFETCH1(regs);
-#if !defined(PREFETCH_REGS_ALWAYS_1) && !defined(PREFETCH_REGS_ALWAYS_3)
+#ifdef PREFETCH_REG_COUNT_1
 			if (regcnt.y==1u)
 				writeReg(reg, val.x);
 			else
-				writeReg(reg, val);
-#elif defined(PREFETCH_REGS_ALWAYS_1)
-			writeReg(reg, val.x);
-#elif defined(PREFETCH_REGS_ALWAYS_3)
-			writeReg(reg, val);
 #endif
+#ifdef PREFETCH_REG_COUNT_2
+			if (regcnt.y==2u)
+				writeReg(reg, val.xy);
+			else
+#endif
+#ifdef PREFETCH_REG_COUNT_3
+			if (regcnt.y==3u)
+				writeReg(reg, val);
+			else
+#endif
+			{} //else "empty braces"
 		}
+#endif
+#ifdef PREFETCH_TEX_2
 		if ((fetchFlags & 0x04u) == 0x04u)
 		{
 			uvec3 texid = uvec3(bsdf_data.data[1].zw, bsdf_data.data[2].x);
 			vec3 val = fetchTex(texid,UV,dUV);
 			uint reg = REG_PREFETCH2(regs);
-#if !defined(PREFETCH_REGS_ALWAYS_1) && !defined(PREFETCH_REGS_ALWAYS_3)
+#ifdef PREFETCH_REG_COUNT_1
 			if (regcnt.z==1u)
 				writeReg(reg, val.x);
 			else
-				writeReg(reg, val);
-#elif defined(PREFETCH_REGS_ALWAYS_1)
-			writeReg(reg, val.x);
-#elif defined(PREFETCH_REGS_ALWAYS_3)
-			writeReg(reg, val);
 #endif
+#ifdef PREFETCH_REG_COUNT_2
+			if (regcnt.z==2u)
+				writeReg(reg, val.xy);
+			else
+#endif
+#ifdef PREFETCH_REG_COUNT_3
+			if (regcnt.z==3u)
+				writeReg(reg, val);
+			else
+#endif
+			{} //else "empty braces"
 		}
+#endif
 	}
 }
 
@@ -423,17 +456,13 @@ void runNormalPrecompStream(in instr_stream_t stream, in mat2 dUV)
 
 		bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
 
-		uint reg = REG_DST(instr_decodeRegisters(instr));
+		uint srcreg = bsdf_data.data[0].z;
+		uint dstreg = REG_DST(instr_decodeRegisters(instr));
 
-		uvec2 bm = bsdf_data.data[0].xy;
-		float scale = uintBitsToFloat(bsdf_data.data[0].z);
-		//dirty trick for getting height map derivatives in divergent workflow
-		vec2 dHdScreen = vec2(
-			irr_glsl_vTextureGrad(bm, UV+0.5*dUV[0], dUV).x - irr_glsl_vTextureGrad(bm, UV-0.5*dUV[0], dUV).x,
-			irr_glsl_vTextureGrad(bm, UV+0.5*dUV[1], dUV).x - irr_glsl_vTextureGrad(bm, UV-0.5*dUV[1], dUV).x
-		) * scale;
-		writeReg(reg,
-			irr_glsl_perturbNormal_heightMap(currInteraction.isotropic.N, currInteraction.isotropic.V.dPosdScreen, dHdScreen)
+		vec2 dh = readReg2(srcreg);
+		
+		writeReg(dstreg,
+			irr_glsl_perturbNormal_derivativeMap(currInteraction.isotropic.N, dh, currInteraction.isotropic.V.dPosdScreen, dUV)
 		);
 	}
 }

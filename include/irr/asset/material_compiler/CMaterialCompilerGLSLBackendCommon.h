@@ -237,7 +237,7 @@ namespace instr_stream
 	struct SBumpMap
 	{
 		//texture data for VT
-		STextureData bumpmap;
+		STextureData derivmap;
 	} PACK_STRUCT;
 	struct SBlend
 	{
@@ -410,8 +410,8 @@ public:
 		bool noPrefetchStream;
 		bool noNormPrecompStream;
 		uint32_t usedRegisterCount;
-		bool prefetch_sameNumOfChannels;
-		uint32_t prefetch_numOfChannels;
+		uint32_t globalPrefetchFlags;
+		uint32_t globalPrefetchRegCountFlags;
 
 		core::unordered_set<instr_stream::E_OPCODE> opcodes;
 		core::unordered_set<instr_stream::E_NDF> NDFs;

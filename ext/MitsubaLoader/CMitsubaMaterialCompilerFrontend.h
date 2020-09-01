@@ -15,9 +15,9 @@ namespace MitsubaLoader
 class CMitsubaMaterialCompilerFrontend
 {
     const SContext* m_loaderContext;
-    core::unordered_map<const CElementBSDF*, asset::material_compiler::IR::INode*> m_treeCache;
 
     using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>, core::smart_refctd_ptr<asset::ICPUSampler>, float>;
+    core::unordered_map<core::smart_refctd_ptr<asset::ICPUImage>, core::smart_refctd_ptr<asset::ICPUImageView>> m_treeCache;
 
     tex_ass_type getTexture(const CElementTexture* _element) const;
 
