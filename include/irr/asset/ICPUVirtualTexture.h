@@ -113,7 +113,7 @@ public:
 
         asset::CPaddedCopyImageFilter::execute(&copy);
 
-        using mip_gen_filter_t = asset::CMipMapGenerationImageFilter<false,VoidSwizzle,IdentityDither,asset::CBoxImageFilterKernel,asset::CBoxImageFilterKernel>;
+        using mip_gen_filter_t = asset::CMipMapGenerationImageFilter<false,false,VoidSwizzle,IdentityDither,asset::CBoxImageFilterKernel,asset::CBoxImageFilterKernel>;
         //generate all mip levels
         {
             mip_gen_filter_t::state_type genmips;

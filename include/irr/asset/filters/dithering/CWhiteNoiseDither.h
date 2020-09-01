@@ -34,8 +34,8 @@ namespace irr
 				{
 					auto getWangHash = [&]()
 					{
-						IImage::SBufferCopy::getLocalByteOffset(pixelCoord, bufferStridesHash);
-						uint32_t seed = IImage::SBufferCopy::getLocalByteOffset(pixelCoord, bufferStridesHash) * channel;
+						using REQUIRED_TYPE = uint32_t;
+						REQUIRED_TYPE seed = ((channel * uint8_t(~0) + pixelCoord.z) * uint8_t(~0) + pixelCoord.y) * uint8_t(~0) + pixelCoord.x;
 
 						seed = (seed ^ 61) ^ (seed >> 16);
 						seed *= 9;
@@ -45,13 +45,9 @@ namespace irr
 						return seed;
 					};
 					
-					const auto hash = static_cast<double>(getWangHash());
-					return static_cast<float>(static_cast<double>(hash) / double(~0u));
+					const auto hash = static_cast<float>(getWangHash());
+					return hash / float(~0u);
 				}
-
-			private:
-
-				static inline const core::vector3du32_SIMD bufferStridesHash = TexelBlockInfo(EF_R8G8B8A8_UINT).convert3DTexelStridesTo1DByteStrides(core::vector3du32_SIMD(uint16_t(~0), uint16_t(~0), uint16_t(~0)));
 		};
 	}
 }

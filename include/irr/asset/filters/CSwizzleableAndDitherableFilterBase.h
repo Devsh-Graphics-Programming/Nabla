@@ -17,20 +17,124 @@ namespace irr
 	{
 		namespace impl
 		{
+			namespace detail
+			{
+				union NormalizeValues
+				{
+					NormalizeValues() {}
+					~NormalizeValues() {}
+
+					NormalizeValues(NormalizeValues& copy)
+					{
+						std::memmove(this, &copy, sizeof(NormalizeValues));
+					}
+
+					NormalizeValues(const NormalizeValues& copy)
+					{
+						std::memmove(this, &copy, sizeof(NormalizeValues));
+					}
+
+					NormalizeValues& operator=(NormalizeValues& copy)
+					{
+						std::memmove(this, &copy, sizeof(NormalizeValues));
+						return *this;
+					}
+
+					NormalizeValues& operator=(const NormalizeValues& copy)
+					{
+						std::memmove(this, &copy, sizeof(NormalizeValues));
+						return *this;
+					}
+
+					core::vectorSIMDu32 f;
+					core::vectorSIMDu32 u;
+					core::vectorSIMDi32 i;
+				};
+
+				//! Normalizing state
+				/*
+					The class provides mininum and maximum values per texel
+					that may be used for normalizing texels.
+				*/
+
+				template<bool Normalize>
+				class CNormalizeState
+				{
+					public:
+						CNormalizeState() {}
+						virtual ~CNormalizeState() {}
+
+						NormalizeValues oldMaxValue, oldMinValue;
+
+					protected:
+
+						/*
+							The function normalizes curret texel passed to the function
+							using oldMaxValue and oldMinValue provided by the state.
+
+							It's a user or a programmer responsibility to update those
+							variables to contain proper values for normalizing the texel.
+
+							The function supports compile-time normalize.
+						*/
+
+						template<E_FORMAT format, typename Tenc>
+						void normalize(Tenc* encodeBuffer, const uint8_t& channels)
+						{
+							if constexpr (isSignedFormat<format>())
+								for (uint8_t channel = 0; channel < channels; ++channel)
+									encodeBuffer[channel] = (2.0 * encodeBuffer[channel] - oldMaxValue.f[channel] - oldMinValue.f[channel]) / (oldMaxValue.f[channel] - oldMinValue.f[channel]);
+							else
+								for (uint8_t channel = 0; channel < channels; ++channel)
+									encodeBuffer[channel] = (encodeBuffer[channel] - oldMinValue.f[channel]) / (oldMaxValue.f[channel] - oldMinValue.f[channel]);
+						}
+
+						/*
+							Runtime version of normalize
+
+							@see normalize
+						*/
+
+						template<typename Tenc>
+						void normalize(const E_FORMAT& format, Tenc* encodeBuffer, const uint8_t& channels)
+						{
+							if (isSignedFormat(format))
+								for (uint8_t channel = 0; channel < channels; ++channel)
+									encodeBuffer[channel] = (2.0 * encodeBuffer[channel] - oldMaxValue.f[channel] - oldMinValue.f[channel]) / (oldMaxValue.f[channel] - oldMinValue.f[channel]);
+							else
+								for (uint8_t channel = 0; channel < channels; ++channel)
+									encodeBuffer[channel] = (encodeBuffer[channel] - oldMinValue.f[channel]) / (oldMaxValue.f[channel] - oldMinValue.f[channel]);
+						}
+				};
+
+				template<>
+				class CNormalizeState<false>
+				{
+					public:
+						CNormalizeState() {}
+						virtual ~CNormalizeState() {}
+
+						NormalizeValues oldMaxValue, oldMinValue;
+				};
+			}
+
 			/*
 				Common base class for Swizzleable or Ditherable ones
 				with custom compile time swizzle and custom dither.
 
+				Normalize paramteter is required to decide whether the
+				values being encoded should be previously normalized.
+
 				Clamping paramter is required to decide whether values
-				being encoded will be previously clamped to valid format 
+				being encoded should be previously clamped to valid format 
 				max and min values.
 			*/
 
-			template<bool Clamp, typename Swizzle, typename Dither>
+			template<bool Normalize, bool Clamp, typename Swizzle, typename Dither>
 			class CSwizzleableAndDitherableFilterBase
 			{
 				public:
-					class CState : public Swizzle
+					class CState : public Swizzle, public detail::CNormalizeState<Normalize>
 					{
 						public:
 							CState() {}
@@ -84,11 +188,15 @@ namespace irr
 						The function may perform clamping.
 						@see CSwizzleableAndDitherableFilterBase
 
+						The function may perform normalizing if normalizing is
+						available and query normalize bool is true.
+						@see detail::CNormalizeState
+
 						The function supports compile-time encode.
 					*/
 
 					template<E_FORMAT outFormat, typename Tenc>
-					static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+					static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels, bool queryNormalizing = false)
 					{
 						for (uint8_t i = 0; i < channels; ++i)
 						{
@@ -97,6 +205,10 @@ namespace irr
 							const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
 							*encodeValue += static_cast<Tenc>(ditheredValue) * scale;
 						}
+
+						if constexpr (Normalize)
+							if (queryNormalizing)
+								static_cast<detail::CNormalizeState<Normalize>&>(*state).normalize<outFormat>(encodeBuffer, channels);
 
 						if constexpr (Clamp)
 						{
@@ -117,7 +229,7 @@ namespace irr
 					*/
 
 					template<typename Tenc>
-					static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+					static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels, bool queryNormalizing = false)
 					{
 						for (uint8_t i = 0; i < channels; ++i)
 						{
@@ -126,6 +238,10 @@ namespace irr
 							const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
 							*encodeValue += static_cast<Tenc>(ditheredValue)* scale;
 						}
+
+						if constexpr (Normalize)
+							if (queryNormalizing)
+								static_cast<detail::CNormalizeState<Normalize>&>(*state).normalize(outFormat, encodeBuffer, channels);
 
 						if constexpr (Clamp)
 						{
@@ -143,18 +259,21 @@ namespace irr
 			/*
 				Non-dither version of CSwizzleableAndDitherableFilterBase with custom compile time swizzle.
 
+				Normalize paramteter is required to decide whether the
+				values being encoded should be previously normalized.
+
 				Clamping paramter is required to decide whether values
 				being encoded will be previously clamped to valid format
 				max values.
 			*/
 
-			template<bool Clamp, typename Swizzle>
-			class CSwizzleableAndDitherableFilterBase<Clamp, Swizzle, IdentityDither>
+			template<bool Normalize, bool Clamp, typename Swizzle>
+			class CSwizzleableAndDitherableFilterBase<Normalize, Clamp, Swizzle, IdentityDither>
 			{
 				public:
 					virtual ~CSwizzleableAndDitherableFilterBase() {}
 
-					class CState : public Swizzle
+					class CState : public Swizzle, public detail::CNormalizeState<Normalize>
 					{
 						public:
 							CState() {}
@@ -201,12 +320,20 @@ namespace irr
 						The function may perform clamping.
 						@see CSwizzleableAndDitherableFilterBase
 
+						The function may perform normalizing if normalizing is
+						available and query normalize bool is true.
+						@see detail::CNormalizeState
+
 						The function supports compile-time encode.
 					*/
 
 					template<E_FORMAT outFormat, typename Tenc>
-					static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+					static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels, bool queryNormalizing = false)
 					{
+						if constexpr (Normalize)
+							if (queryNormalizing)
+								static_cast<detail::CNormalizeState<Normalize>&>(*state).normalize<outFormat>(encodeBuffer, channels);
+
 						if constexpr (Clamp)
 						{
 							for (uint8_t i = 0; i < channels; ++i)
@@ -226,8 +353,12 @@ namespace irr
 					*/
 
 					template<typename Tenc>
-					static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+					static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels, bool queryNormalizing = false)
 					{
+						if constexpr (Normalize)
+							if (queryNormalizing)
+								static_cast<detail::CNormalizeState<Normalize>&>(*state).normalize(outFormat, encodeBuffer, channels);
+
 						if constexpr (Clamp)
 						{
 							for (uint8_t i = 0; i < channels; ++i)
@@ -244,18 +375,21 @@ namespace irr
 			/*
 				Swizzle-runtime version of CSwizzleableAndDitherableFilterBase with custom dither.
 
+				Normalize paramteter is required to decide whether the
+				values being encoded should be previously normalized.
+
 				Clamping paramter is required to decide whether values
 				being encoded will be previously clamped to valid format
 				max values.
 			*/
 			
-			template<bool Clamp, typename Dither>
-			class CSwizzleableAndDitherableFilterBase<Clamp, PolymorphicSwizzle, Dither>
+			template<bool Normalize, bool Clamp, typename Dither>
+			class CSwizzleableAndDitherableFilterBase<Normalize, Clamp, PolymorphicSwizzle, Dither>
 			{
 				public:
 					virtual ~CSwizzleableAndDitherableFilterBase() {}
 
-					class CState
+					class CState : public detail::CNormalizeState<Normalize>
 					{
 						public:
 							CState() {}
@@ -313,11 +447,15 @@ namespace irr
 						The function may perform clamping.
 						@see CSwizzleableAndDitherableFilterBase
 
+						The function may perform normalizing if normalizing is
+						available and query normalize bool is true.
+						@see detail::CNormalizeState
+
 						The function supports compile-time encode.
 					*/
 
 					template<E_FORMAT outFormat, typename Tenc>
-					static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+					static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels, bool queryNormalizing = false)
 					{
 						for (uint8_t i = 0; i < channels; ++i)
 						{
@@ -326,6 +464,10 @@ namespace irr
 							const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
 							*encodeValue += static_cast<Tenc>(ditheredValue) * scale;
 						}
+
+						if constexpr (Normalize)
+							if (queryNormalizing)
+								static_cast<detail::CNormalizeState<Normalize>&>(*state).normalize<outFormat>(encodeBuffer, channels);
 
 						if constexpr (Clamp)
 						{
@@ -346,7 +488,7 @@ namespace irr
 					*/
 
 					template<typename Tenc>
-					static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+					static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, core::vectorSIMDu32 position, uint32_t blockX, uint32_t blockY, uint8_t channels, bool queryNormalizing = false)
 					{
 						for (uint8_t i = 0; i < channels; ++i)
 						{
@@ -355,6 +497,10 @@ namespace irr
 							const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
 							*encodeValue += static_cast<Tenc>(ditheredValue)* scale;
 						}
+
+						if constexpr (Normalize)
+							if (queryNormalizing)
+								static_cast<detail::CNormalizeState<Normalize>&>(*state).normalize(outFormat, encodeBuffer, channels);
 
 						if constexpr (Clamp)
 						{

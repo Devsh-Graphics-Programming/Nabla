@@ -24,13 +24,16 @@ namespace asset
 {
 
 
-template<typename value_type, bool Clamp, typename Swizzle, typename Dither>
-class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Clamp, Swizzle, Dither>, public CBasicImageFilterCommon
+template<typename value_type, bool Normalize, bool Clamp, typename Swizzle, typename Dither>
+class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Normalize, Clamp, Swizzle, Dither>, public CBasicImageFilterCommon
 {
 	public:
-		class CStateBase : public impl::CSwizzleableAndDitherableFilterBase<Clamp, Swizzle, Dither>::state_type
+		class CStateBase : public impl::CSwizzleableAndDitherableFilterBase<Normalize, Clamp, Swizzle, Dither>::state_type
 		{
 			public:
+				CStateBase() {}
+				virtual ~CStateBase() {}
+
 				enum E_ALPHA_SEMANTIC : uint32_t
 				{
 					EAS_NONE_OR_PREMULTIPLIED = 0u, // just filter the channels independently (also works for a texture for blending equation `dstCol*(1-srcAlpha)+srcCol`)
@@ -91,7 +94,7 @@ class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Cl
 			if (state->alphaChannel>=4)
 				return false;
 
-			if (!impl::CSwizzleableAndDitherableFilterBase<Clamp, Swizzle, Dither>::validate(state))
+			if (!impl::CSwizzleableAndDitherableFilterBase<Normalize, Clamp, Swizzle, Dither>::validate(state))
 				return false;
 
 			return true;
@@ -99,8 +102,8 @@ class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Cl
 };
 
 // copy while filtering the input into the output, a rare filter where the input and output extents can be different, still works one mip level at a time
-template<bool Clamp = false, typename Swizzle = DefaultSwizzle, typename Dither = CWhiteNoiseDither, class KernelX=CBoxImageFilterKernel, class KernelY=KernelX, class KernelZ=KernelX>
-class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Clamp,Swizzle,Dither,KernelX,KernelX,KernelX>>, public CBlitImageFilterBase<typename KernelX::value_type,Clamp,Swizzle,Dither>
+template<bool Normalize, bool Clamp = false, typename Swizzle = DefaultSwizzle, typename Dither = CWhiteNoiseDither, class KernelX=CBoxImageFilterKernel, class KernelY=KernelX, class KernelZ=KernelX>
+class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Swizzle,Dither,KernelX,KernelX,KernelX>>, public CBlitImageFilterBase<typename KernelX::value_type,Normalize,Clamp,Swizzle,Dither>
 {
 		static_assert(std::is_same<typename KernelX::value_type,typename KernelY::value_type>::value&&std::is_same<typename KernelZ::value_type,typename KernelY::value_type>::value,"Kernel value_type need to be identical");
 		using value_type = typename KernelX::value_type;
@@ -179,16 +182,6 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Clamp,Swizzle,Dith
 						uint32_t		outLayerCount;
 					};
 				};
-
-				union NormalizeValues
-				{ 
-					NormalizeValues() {}
-					~NormalizeValues() {}
-
-					core::vectorSIMDu32 f; 
-					core::vectorSIMDu32 u;
-					core::vectorSIMDi32 i;
-				} oldMaxValue, oldMinValue;
 				
 				uint32_t				inMipLevel = 0u;
 				uint32_t				outMipLevel = 0u;
@@ -197,7 +190,6 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Clamp,Swizzle,Dith
 				KernelX					kernelX;
 				KernelY					kernelY;
 				KernelZ					kernelZ;
-				bool normalize = false;
 		};
 		using state_type = CState;
 		
@@ -205,7 +197,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Clamp,Swizzle,Dith
 		{
 			// need to add the memory for ping pong buffers
 			uint32_t retval = getScratchOffset(state,true);
-			retval += CBlitImageFilterBase<value_type,Clamp,Swizzle,Dither>::getRequiredScratchByteSize(state->alphaSemantic,state->outExtentLayerCount);
+			retval += CBlitImageFilterBase<value_type,Normalize,Clamp,Swizzle,Dither>::getRequiredScratchByteSize(state->alphaSemantic,state->outExtentLayerCount);
 			return retval;
 		}
 
@@ -327,7 +319,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Clamp,Swizzle,Dith
 						sample[i] /= sample[alphaChannel];
 				}
 
-				impl::CSwizzleAndConvertImageFilterBase<Clamp, Swizzle, Dither>::onEncode(outFormat, state, dstPix, sample, localOutPos, 0, 0, MaxChannels);
+				impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::onEncode(outFormat, state, dstPix, sample, localOutPos, 0, 0, MaxChannels);
 			};
 			const core::SRange<const IImage::SBufferCopy> outRegions = outImg->getRegions(outMipLevel);
 			auto storeToImage = [coverageSemantic,outExtent,intermediateStorage,&sampler,outFormat,alphaRefValue,outData,intermediateStrides,alphaChannel,storeToTexel,outMipLevel,outOffset,outRegions,outImg](const core::rational<>& inverseCoverage, const int axis, const core::vectorSIMDu32& outOffsetLayer) -> void
@@ -429,7 +421,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Clamp,Swizzle,Dith
 								value_type swizzledSample[MaxChannels];
 
 								// TODO: make sure there is no leak due to MaxChannels!
-								impl::CSwizzleAndConvertImageFilterBase<Clamp, Swizzle, Dither>::onDecode(inFormat, state, srcPix, sample, swizzledSample, inBlockCoord.x, inBlockCoord.y);
+								impl::CSwizzleAndConvertImageFilterBase<Normalize, Clamp, Swizzle, Dither>::onDecode(inFormat, state, srcPix, sample, swizzledSample, inBlockCoord.x, inBlockCoord.y);
 
 								if (nonPremultBlendSemantic)
 								{
