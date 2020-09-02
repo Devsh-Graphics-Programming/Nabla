@@ -117,7 +117,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 
 		virtual ~CBlitImageFilter() {}
 
-		class CState : public IImageFilter::IState, public CBlitImageFilterBase<value_type>::CStateBase
+		class CState : public IImageFilter::IState, public CBlitImageFilterBase<value_type, Normalize, Clamp, Swizzle, Dither>::CStateBase
 		{
 			public:
 				CState(KernelX&& kernel_x, KernelY&& kernel_y, KernelZ&& kernel_z) :
@@ -131,7 +131,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 				CState() : CState(KernelX(), KernelY(), KernelZ())
 				{
 				}
-				CState(const CState& other) : CBlitImageFilterBase<value_type>::CStateBase{other}, inMipLevel(other.inMipLevel),outMipLevel(other.outMipLevel),inImage(other.inImage),outImage(other.outImage),kernelX(other.kernelX), kernelY(other.kernelY), kernelZ(other.kernelZ)
+				CState(const CState& other) : CBlitImageFilterBase<value_type, Normalize, Clamp, Swizzle, Dither>::CStateBase{other}, inMipLevel(other.inMipLevel),outMipLevel(other.outMipLevel),inImage(other.inImage),outImage(other.outImage),kernelX(other.kernelX), kernelY(other.kernelY), kernelZ(other.kernelZ)
 				{
 					inOffsetBaseLayer = other.inOffsetBaseLayer;
 					inExtentLayerCount = other.inExtentLayerCount;
@@ -208,7 +208,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 
 		static inline bool validate(state_type* state)
 		{
-			if (!CBlitImageFilterBase<value_type>::validate(state))
+			if (!CBlitImageFilterBase<value_type, Normalize, Clamp, Swizzle, Dither>::validate(state))
 				return false;
 			
 			if (state->scratchMemoryByteSize<getRequiredScratchByteSize(state))
