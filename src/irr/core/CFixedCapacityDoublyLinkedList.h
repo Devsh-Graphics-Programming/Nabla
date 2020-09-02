@@ -16,6 +16,13 @@ namespace irr {
 			inline Snode(const Value& v) : data(v)
 			{
 			}
+			inline Snode& operator=(const Snode& other)
+			{
+				this.data = other.data;
+				this.prev = other.prev;
+				this.next = other.next;
+				return *this;
+			}
 		};
 
 		template<typename Value>
