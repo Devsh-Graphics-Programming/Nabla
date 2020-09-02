@@ -116,7 +116,7 @@ vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BS
 	return fr*G2_over_G1;
 }
 
-vec3 irr_glsl_beckmann_smith_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction interaction,  in mat2x3 ior, in float a2)
+float irr_glsl_beckmann_smith_height_correlated_cos_eval_DG(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float a2)
 {
     float ndf = irr_glsl_beckmann(a2, params.NdotH*params.NdotH);
     float scalar_part = ndf / (4.0 * interaction.NdotV);
@@ -125,12 +125,18 @@ vec3 irr_glsl_beckmann_smith_height_correlated_cos_eval(in irr_glsl_BSDFIsotropi
         float g = irr_glsl_beckmann_smith_correlated(interaction.NdotV_squared, params.NdotL_squared, a2);
         scalar_part *= g;
     }
+    
+    return scalar_part;
+}
+vec3 irr_glsl_beckmann_smith_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction interaction,  in mat2x3 ior, in float a2)
+{
+    float scalar_part = irr_glsl_beckmann_smith_height_correlated_cos_eval_DG(params, interaction, a2);
     vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], params.VdotH);
     
     return scalar_part*fr;
 }
 
-vec3 irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction,  in mat2x3 ior, in float ax, in float ax2, in float ay, in float ay2)
+float irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval_DG(in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in float ax, in float ax2, in float ay, in float ay2)
 {
     float ndf = irr_glsl_beckmann(ax, ay, ax2, ay2, params.TdotH*params.TdotH, params.BdotH*params.BdotH, params.isotropic.NdotH*params.isotropic.NdotH);
     float scalar_part = ndf / (4.0 * interaction.isotropic.NdotV);
@@ -143,6 +149,12 @@ vec3 irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval(in irr_glsl_BSDFAn
         float g = irr_glsl_beckmann_smith_correlated(TdotV2, BdotV2, interaction.isotropic.NdotV_squared, TdotL2, BdotL2, params.isotropic.NdotL_squared, ax2, ay2);
         scalar_part *= g;
     }
+    
+    return scalar_part;
+}
+vec3 irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction interaction,  in mat2x3 ior, in float ax, in float ax2, in float ay, in float ay2)
+{
+    float scalar_part = irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval_DG(params, interaction, ax, ax2, ay, ay2);
     vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], params.isotropic.VdotH);
     
     return scalar_part*fr;

@@ -1,10 +1,6 @@
-#version 430 core
-#extension GL_GOOGLE_include_directive : require
-
-
 // basic settings
 #define MAX_DEPTH 8
-#define SAMPLES 128
+#define SAMPLES 16
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -19,12 +15,23 @@ layout(location = 0) in vec2 TexCoord;
 layout(location = 0) out vec4 pixelColor;
 
 
+#include <irr/builtin/glsl/limits/numeric.glsl>
+#include <irr/builtin/glsl/math/constants.glsl>
 #include <irr/builtin/glsl/utils/common.glsl>
+
+//! @Crisspl move this
+vec2 irr_glsl_BoxMullerTransform(in vec2 xi, in float stddev)
+{
+    float sinPhi, cosPhi;
+    irr_glsl_sincos(2.0 * irr_glsl_PI * xi.y - irr_glsl_PI, sinPhi, cosPhi);
+    return vec2(cosPhi, sinPhi) * sqrt(-2.0 * log(xi.x)) * stddev;
+}
 
 layout(set = 1, binding = 0, row_major, std140) uniform UBO
 {
 	irr_glsl_SBasicViewParameters params;
 } cameraData;
+
 
 #define INVALID_ID_16BIT 0xffffu
 struct Sphere
@@ -43,6 +50,27 @@ Sphere Sphere_Sphere(in vec3 position, in float radius, in uint bsdfID, in uint 
     return sphere;
 }
 
+// return intersection distance if found, FLT_NAN otherwise
+float Sphere_intersect(in Sphere sphere, in vec3 origin, in vec3 direction)
+{
+    vec3 relOrigin = origin-sphere.position;
+    float relOriginLen2 = dot(relOrigin,relOrigin);
+    const float radius2 = sphere.radius2;
+
+    float dirDotRelOrigin = dot(direction,relOrigin);
+    float det = radius2-relOriginLen2+dirDotRelOrigin*dirDotRelOrigin;
+
+    // do some speculative math here
+    float detsqrt = sqrt(det);
+    return -dirDotRelOrigin+(relOriginLen2>radius2 ? (-detsqrt):detsqrt);
+}
+
+vec3 Sphere_getNormal(in Sphere sphere, in vec3 position)
+{
+    const float radiusRcp = inversesqrt(sphere.radius2);
+    return (position-sphere.position)*radiusRcp;
+}
+
 float Sphere_getSolidAngle_impl(in float cosThetaMax)
 {
     return 2.0*irr_glsl_PI*(1.0-cosThetaMax);
@@ -53,18 +81,47 @@ float Sphere_getSolidAngle(in Sphere sphere, in vec3 origin)
     return Sphere_getSolidAngle_impl(cosThetaMax);
 }
 
-#define SPHERE_COUNT 9
-Sphere spheres[SPHERE_COUNT] = {
-    Sphere_Sphere(vec3(0.0,-100.5,-1.0),100.0,0u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(2.0,0.0,-1.0),0.5,1u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(0.0,0.0,-1.0),0.5,2u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(-2.0,0.0,-1.0),0.5,3u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(2.0,0.0,1.0),0.5,4u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(0.0,0.0,1.0),0.5,4u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(-2.0,0.0,1.0),0.5,5u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(0.5,1.0,0.5),0.5,6u,INVALID_ID_16BIT),
-    Sphere_Sphere(vec3(-1.5,1.5,0.0),0.3,INVALID_ID_16BIT,0u)
+
+struct Triangle
+{
+    vec4 planeEq;
+    vec4 boundaryPlanes[2];
+    uint bsdfLightIDs;
 };
+
+Triangle Triangle_Triangle(in mat3 vertices, in uint bsdfID, in uint lightID)
+{
+    const vec3 edges[2] = vec3[2](vertices[1]-vertices[0],vertices[2]-vertices[0]);
+
+    Triangle tri;
+    tri.planeEq.xyz = normalize(cross(edges[0],edges[1]));
+    tri.planeEq.w = -dot(tri.planeEq.xyz,vertices[0]);
+    tri.boundaryPlanes[0].xyz = cross(tri.planeEq.xyz,edges[0]);
+    tri.boundaryPlanes[0].w = dot(tri.boundaryPlanes[0].xyz,vertices[0]);
+    tri.boundaryPlanes[1].xyz = cross(edges[1],tri.planeEq.xyz);
+    tri.boundaryPlanes[1].w = dot(tri.boundaryPlanes[1].xyz,vertices[0]);
+    tri.bsdfLightIDs = bitfieldInsert(bsdfID,lightID,16,16);
+    return tri;
+}
+
+// return intersection distance if found, FLT_NAN otherwise
+float Triangle_intersect(in Triangle tri, in vec3 origin, in vec3 direction)
+{
+    const float NdotD = dot(direction,tri.planeEq.xyz);
+    const float t = (tri.planeEq.w-dot(origin,tri.planeEq.xyz))/NdotD;
+    // speculative intersection
+    const vec3 intersectionPoint = origin+direction*t;
+    const float distToEdge[2] = float[2](
+        dot(intersectionPoint,tri.boundaryPlanes[0].xyz)+tri.boundaryPlanes[0].w,
+        dot(intersectionPoint,tri.boundaryPlanes[1].xyz)+tri.boundaryPlanes[1].w
+    );
+    return t<0.f||distToEdge[0]<0.f||distToEdge[1]<0.f||(distToEdge[0]+distToEdge[1])>1.f ? irr_glsl_FLT_NAN:t;
+}
+
+vec3 Triangle_getNormal(in Triangle tri)
+{
+    return tri.planeEq.xyz;
+}
 
 
 #define DIFFUSE_OP 0u
@@ -139,10 +196,6 @@ struct Light
     uint objectID;
 };
 
-#define LIGHT_COUNT 1
-Light lights[LIGHT_COUNT] = {
-    {vec3(30.0,25.0,15.0),8u}
-};
 vec3 Light_getRadiance(in Light light)
 {
     return light.radiance;
@@ -153,10 +206,12 @@ uint Light_getObjectID(in Light light)
 }
 
 
+#define LIGHT_COUNT 1
 float scene_getLightChoicePdf(in Light light)
 {
     return 1.0/float(LIGHT_COUNT);
 }
+
 
 
 #define ANY_HIT_FLAG (-2147483648)
@@ -178,7 +233,6 @@ struct MutableRay_t
     vec2 barycentrics;
     */
 };
-
 struct Payload_t
 {
     vec3 accumulation;
@@ -188,6 +242,7 @@ struct Payload_t
     bool hasDiffuse;
     #endif
 };
+
 struct Ray_t
 {
     ImmutableRay_t _immutable;
@@ -204,6 +259,7 @@ bool anyHitProgram(in ImmutableRay_t _immutable)
     return true;
 }
 
+
 #define INTERSECTION_ERROR_BOUND_LOG2 (-13.0)
 float getTolerance_common(in int depth)
 {
@@ -219,41 +275,7 @@ float getEndTolerance(in int depth)
     return 1.0-exp2(getTolerance_common(depth)+1.0);
 }
 
-bool traceRay(in ImmutableRay_t _immutable)
-{
-    const bool anyHit = bitfieldExtract(_immutable.typeDepthSampleIx,31,1)!=0;
 
-	int objectID = -1;
-    float intersectionT = _immutable.maxT;
-	for (int i=0; i<SPHERE_COUNT; i++)
-    {
-        vec3 origin = _immutable.origin-spheres[i].position;
-        float originLen2 = dot(origin,origin);
-        const float radius2 = spheres[i].radius2;
-
-        float dirDotOrigin = dot(_immutable.direction,origin);
-        float det = radius2-originLen2+dirDotOrigin*dirDotOrigin;
-
-        // do some speculative math here
-        float detsqrt = sqrt(det);
-        float t = -dirDotOrigin+(originLen2>radius2 ? (-detsqrt):detsqrt);
-        bool closerIntersection = t>0.0 && t<intersectionT;
-
-		objectID = closerIntersection ? i:objectID;
-        intersectionT = closerIntersection ? t:intersectionT;
-        
-        // allowing early out results in a performance regression, WTF!?
-        //if (anyHit && closerIntersection && anyHitProgram(_immutable))
-           //break;
-    }
-    rayStack[stackPtr]._mutable.objectID = objectID;
-    rayStack[stackPtr]._mutable.intersectionT = intersectionT;
-    // hit
-    return anyHit;
-}
-
-
-#include <irr/builtin/glsl/math/constants.glsl>
 vec2 SampleSphericalMap(vec3 v)
 {
     vec2 uv = vec2(atan(v.z, v.x), asin(v.y));
@@ -334,13 +356,6 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _
     return remainder;
 }
 
-// the interaction here is the interaction at the illuminator-end of the ray, not the receiver
-vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
-{
-    // we don't have to worry about solid angle of the light w.r.t. surface of the light because this function only ever gets called from closestHit routine, so such ray cannot be produced
-    pdf = scene_getLightChoicePdf(light)/Sphere_getSolidAngle(sphere,origin);
-    return Light_getRadiance(light);
-}
 
 #define GeneratorSample irr_glsl_BSDFSample
 #define irr_glsl_LightSample irr_glsl_BSDFSample
@@ -364,45 +379,6 @@ irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in irr_glsl_Anisotrop
     
     return s;
 }
-irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in int depth)
-{
-    // normally we'd pick from set of lights, using `u.z`
-    const Light light = lights[0];
-    const float choicePdf = scene_getLightChoicePdf(light);
-
-    const Sphere sphere = spheres[Light_getObjectID(light)];
-
-    vec3 Z = sphere.position-origin;
-    const float distanceSQ = dot(Z,Z);
-    const float cosThetaMax2 = 1.0-sphere.radius2/distanceSQ;
-    const float rcpDistance = inversesqrt(distanceSQ);
-
-    const bool possibilityOfLightVisibility = cosThetaMax2>0.0;
-    Z *= rcpDistance;
-    
-    // following only have valid values if `possibilityOfLightVisibility` is true
-    const float cosThetaMax = sqrt(cosThetaMax2);
-    const float cosTheta = mix(1.0,cosThetaMax,u.x);
-
-    vec3 L = Z*cosTheta;
-
-    const float cosTheta2 = cosTheta*cosTheta;
-    const float sinTheta = sqrt(1.0-cosTheta2);
-    float sinPhi,cosPhi;
-    irr_glsl_sincos(2.0*irr_glsl_PI*u.y-irr_glsl_PI,sinPhi,cosPhi);
-    mat2x3 XY = irr_glsl_frisvad(Z);
-    
-    L += (XY[0]*cosPhi+XY[1]*sinPhi)*sinTheta;
-    
-    const float rcpPdf = Sphere_getSolidAngle_impl(cosThetaMax)/choicePdf;
-    remainder = Light_getRadiance(light)*(possibilityOfLightVisibility ? rcpPdf:0.0); // this ternary operator kills invalid rays
-    pdf = 1.0/rcpPdf;
-    
-    newRayMaxT = (cosTheta-sqrt(cosTheta2-cosThetaMax2))/rcpDistance*getEndTolerance(depth);
-    
-    return irr_glsl_createLightSample(L,interaction);
-}
-
 
 layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
 layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
@@ -451,6 +427,7 @@ vec3 rand3d(in uint protoDimension, in uint _sample, inout irr_glsl_xoroshiro64s
     return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
 }
 
+#if 0
 void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64star_state_t scramble_state)
 {
     const MutableRay_t mutable = rayStack[stackPtr]._mutable;
@@ -562,13 +539,10 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
         }
     }
 }
+#endif
 
-vec2 irr_glsl_BoxMullerTransform(in vec2 xi, in float stddev)
-{
-    float sinPhi,cosPhi;
-    irr_glsl_sincos(2.0*irr_glsl_PI*xi.y-irr_glsl_PI,sinPhi,cosPhi);
-    return vec2(cosPhi,sinPhi)*sqrt(-2.0*log(xi.x))*stddev;
-}
+bool traceRay(in ImmutableRay_t _immutable);
+void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64star_state_t scramble_state);
 
 void main()
 {
@@ -664,10 +638,11 @@ void main()
     #endif
 
     pixelColor = vec4(color, 1.0);
-
+}
 /** TODO: Improving Rendering
 
 Now:
+- Always MIS (path correlated reuse)
 - Proper Universal&Robust Materials
 - Test MIS alpha (roughness) scheme
 
@@ -693,10 +668,9 @@ Many Lights:
 - Light Importance Lists/Classification
 
 Indirect Light:
-- Bidirectional Path Tracing 
+- Bidirectional Path Tracing
 - Uniform Path Sampling / Vertex Connection and Merging / Path Space Regularization
 
 Animations:
 - A-SVGF / BMFR
 **/
-}	

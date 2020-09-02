@@ -22,7 +22,7 @@ class CGaussianImageFilterKernel : public CFloatingPointIsotropicSeparableImageF
 		using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CGaussianImageFilterKernel<support>,std::ratio<support,1> >;
 
 	public:
-		inline float weight(float x) const
+		inline float weight(float x, int32_t channel) const
 		{
 			if (Base::inDomain(x))
 			{
@@ -33,10 +33,10 @@ class CGaussianImageFilterKernel : public CFloatingPointIsotropicSeparableImageF
 		}
 
 		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = true;
-		inline float d_weight(float x) const
+		inline float d_weight(float x, int32_t channel) const
 		{
 			if (Base::inDomain(x))
-				return -x*CGaussianImageFilterKernel<support>::weight(x);
+				return -x*CGaussianImageFilterKernel<support>::weight(x,channel);
 			return 0.f;
 		}
 };

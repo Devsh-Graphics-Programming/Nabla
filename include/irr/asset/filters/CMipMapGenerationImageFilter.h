@@ -29,7 +29,9 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 		virtual ~CMipMapGenerationImageFilter() {}
 
 		// TODO: Improve and implement the cached convolution kernel
-		using Kernel = ResamplingKernel;//CKernelConvolution<ResamplingKernel, ReconstructionKernel>;
+		using KernelX = ResamplingKernelX;//CKernelConvolution<ResamplingKernelX, ReconstructionKernelX>;
+		using KernelY = ResamplingKernelY;//CKernelConvolution<ResamplingKernelY, ReconstructionKernelY>;
+		using KernelZ = ResamplingKernelZ;//CKernelConvolution<ResamplingKernelZ, ReconstructionKernelZ>;
 
 		class CState : public IImageFilter::IState, public CBlitImageFilterBase<typename Kernel::value_type,Normalize,Clamp,Swizzle,Dither>::CStateBase
 		{
@@ -77,7 +79,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 				if (!CBlitImageFilter<Normalize,Clamp,Swizzle,Dither,Kernel>::validate(&blit))
 					return false;
 			}
-			return Kernel::validate(image,image);
+			return true; // CBlit already checks kernel
 		}
 
 		static inline bool execute(state_type* state)
@@ -107,6 +109,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			blit.inMipLevel = prevLevel;
 			blit.outMipLevel = inMipLevel;
 			blit.inImage = blit.outImage = state->inOutImage;
+			//not all kernels are default-constructible, this is going to be a problem (i already added appropriate ctor for blit filter state class though)
 			//blit.kernel = Kernel(); // gets default constructed, we should probably do a `static_assert` about this property
 			using state_base_t = typename CBlitImageFilterBase<typename Kernel::value_type, Normalize,Clamp,Swizzle,Dither>::CStateBase;
 			static_cast<state_base_t&>(blit) = *static_cast<const state_base_t*>(state);

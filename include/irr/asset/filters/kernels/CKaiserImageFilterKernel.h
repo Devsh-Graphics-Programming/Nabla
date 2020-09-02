@@ -25,7 +25,7 @@ class CKaiserImageFilterKernel : public CFloatingPointIsotropicSeparableImageFil
 		// important constant, do not touch, do not tweak
 		_IRR_STATIC_INLINE_CONSTEXPR float alpha = 3.f;
 
-		inline float weight(float x) const
+		inline float weight(float x, int32_t channel) const
 		{
 			if (Base::inDomain(x))
 			{
@@ -36,7 +36,7 @@ class CKaiserImageFilterKernel : public CFloatingPointIsotropicSeparableImageFil
 		}
 
 		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = true;
-		inline float d_weight(float x) const
+		inline float d_weight(float x, int32_t channel) const
 		{
 			if (Base::inDomain(x))
 			{

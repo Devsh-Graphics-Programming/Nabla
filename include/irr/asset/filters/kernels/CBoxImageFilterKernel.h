@@ -22,7 +22,7 @@ class CBoxImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilter
 		using Base = CFloatingPointIsotropicSeparableImageFilterKernelBase<CBoxImageFilterKernel,std::ratio<1,2> >;
 
 	public:
-		inline float weight(float x) const
+		inline float weight(float x, int32_t channel) const
 		{
 			return Base::inDomain(x) ? 1.f:0.f;
 		}
