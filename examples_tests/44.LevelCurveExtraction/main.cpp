@@ -491,9 +491,12 @@ int main()
     // finally get our GPU mesh
     auto gpumesh = driver->getGPUObjectsFromAssets(&mesh_raw, &mesh_raw+1)->front();
 
+    auto startingCameraSpeed = gpumesh->getBoundingBox().getExtent().getLength() * 0.0005f;
+    float cameraSpeed = 1;
+
     auto boundingBoxSize = gpumesh->getBoundingBox().getExtent().getLength();
 	//! we want to move around the scene and view it from different angles
-	scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0,100.0f, boundingBoxSize * 0.0005f);
+    scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0, 100.0f, startingCameraSpeed);
 
 	camera->setPosition(core::vector3df(-4,0,0));
 	camera->setTarget(core::vector3df(0,0,0));
@@ -502,10 +505,29 @@ int main()
 
     smgr->setActiveCamera(camera);
 	uint64_t lastFPSTime = 0;
-    
     GlobalUniforms globalUniforms = { 0u,10.f };
 	while(device->run() && receiver.keepOpen())
 	{
+        if (receiver.resetCameraPosition())
+        {
+            camera->setPosition(core::vector3df(-4, 0, 0));
+            camera->setTarget(core::vector3df(0, 0, 0));
+        }
+        if (cameraSpeed != receiver.getCameraSpeed())
+        {
+            cameraSpeed = receiver.getCameraSpeed();
+            auto pos = camera->getPosition();
+            auto rot = camera->getRotation();
+            smgr->addToDeletionQueue(camera);
+            camera = smgr->addCameraSceneNodeFPS(0, 100.0f, startingCameraSpeed * cameraSpeed);
+            smgr->setActiveCamera(camera);
+            camera->setPosition(pos);
+            camera->setRotation(rot);
+            camera->setNearValue(1.f);
+            camera->setFarValue(5000.0f);
+        }
+
+
         driver->beginScene(true, true, video::SColor(255,128,128,128) );
 
         // always update cause of mdiIndex
