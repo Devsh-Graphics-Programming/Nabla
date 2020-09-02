@@ -21,20 +21,19 @@ namespace irr {
 		template<typename Value>
 		class DoublyLinkedList
 		{
-		public:
-
+			typedef Snode<Value>* iteratorptr_t;
 
 		private:
 			PoolAddressAllocator<uint32_t> alloc;
-			Snode* p_begin;
-			Snode* p_end;
+			iteratorptr_t p_begin;
+			iteratorptr_t p_end;
 			uint32_t cap;
 
 			inline void popBack()
 			{
 				if(p_end->prev != nullptr)
 					p_end->prev->next = nullptr;
-				Snode* temp = p_end;
+				iteratorptr_t temp = p_end;
 				p_end = p_end->prev;
 				alloc.free_addr(reinterpret_cast<uint32_t>(temp), sizeof(Snode));
 			}
@@ -44,7 +43,7 @@ namespace irr {
 			inline void pushFront(Value &val) 
 			{
 				uint32_t addr = alloc.alloc_addr(1u, 1u);
-				Snode* n = new(addr) Snode(val);
+				iteratorptr_t n = new(addr) Snode(val);
 				n->prev = nullptr;
 				
 				n->next = p_begin;
@@ -56,11 +55,11 @@ namespace irr {
 				p_begin = n;
 			}
 
-			inline Snode* begin() { return p_begin; }
+			inline iteratorptr_t begin() { return p_begin; }
 
-			inline Snode* end() { return p_end; }
+			inline iteratorptr_t end() { return p_end; }
 
-			inline void erase(Snode* node)
+			inline void erase(iteratorptr_t node)
 			{
 				if(node->prev != nullptr)
 				node->prev->next = node->next;
@@ -69,7 +68,7 @@ namespace irr {
 				alloc.free_addr(reinterpret_cast<uint32_t>(node), sizeof(Snode));
 			}
 
-			inline void moveToFront(Snode* node)
+			inline void moveToFront(iteratorptr_t node)
 			{
 				if (p_begin == node) return;
 				p_begin->prev = node;
