@@ -1,319 +1,355 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 
-#include "../ext/ScreenShot/ScreenShot.h"
+//! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
-#include "../../source/Irrlicht/COpenGLVAOSpec.h"
+#include <irr/asset/CCPUMeshPacker.h>
+//#include "../../ext/ScreenShot/ScreenShot.h"
 
 using namespace irr;
 using namespace core;
-
-
-class SimpleCallBack : public video::IShaderConstantSetCallBack
-{
-public:
-	SimpleCallBack() {}
-
-	virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
-	{
-	}
-
-	virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
-	{
-		services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(), 0u, video::ESCT_FLOAT_MAT4, 1);
-	}
-
-	virtual void OnUnsetMaterial() {}
-};
-
-
-
-struct DrawElementsIndirectCommand
-{
-	uint32_t count;
-	uint32_t instanceCount;
-	uint32_t firstIndex;
-	uint32_t baseVertex;
-	uint32_t baseInstance;
-};
-
-struct IndirectDrawInfo
-{
-	// maybe a unique transform in the future
-
-	video::SGPUMaterial material;
-	core::smart_refctd_ptr<asset::IMeshDataFormatDesc<video::IGPUBuffer> > pipeline;
-	asset::E_PRIMITIVE_TYPE primitiveType;
-	asset::E_INDEX_TYPE indexType;
-
-	core::vector<DrawElementsIndirectCommand> indirectDrawData;
-	core::smart_refctd_ptr<video::IGPUBuffer> indirectDrawBuffer;
-
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxTexturesPerDraw = 2u; // need full bindless (by handle) to handle more than 32 textures
-	core::vector<std::array<core::smart_refctd_ptr<video::IVirtualTexture>,MaxTexturesPerDraw> > textures;
-
-	core::vector<video::IGPUMeshBuffer*> backup;
-};
-
-
-struct IndirectDrawKey : video::COpenGLVAOSpec::HashAttribs
-{
-	IndirectDrawKey(asset::IMeshDataFormatDesc<video::IGPUBuffer>* pipeline) : video::COpenGLVAOSpec::HashAttribs(dynamic_cast<video::COpenGLVAOSpec*>(pipeline)->getHash())
-	{
-		for (auto i = 0u; i < asset::EVAI_COUNT; i++)
-		{
-			auto attr = static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(i);
-			offset[i] = pipeline->getMappedBufferOffset(attr);
-		}
-	}
-
-	inline bool operator<(const IndirectDrawKey& other) const
-	{
-		if (video::COpenGLVAOSpec::HashAttribs::operator<(other))
-			return true;
-
-		if (video::COpenGLVAOSpec::HashAttribs::operator!=(other))
-			return false;
-
-		// parents equal, now compare children
-		for (auto i = 0u; i < asset::EVAI_COUNT; i++)
-		{
-			if (offset[i] < other.offset[i])
-				return true;
-			if (offset[i] > other.offset[i])
-				return false;
-		}
-		return false;
-	}
-
-	inline bool operator!=(const IndirectDrawKey& other) const
-	{
-		if (video::COpenGLVAOSpec::HashAttribs::operator!=(other))
-			return true;
-
-		for (auto i = 0u; i < asset::EVAI_COUNT; i++)
-		{
-			if (offset[i] != other.offset[i])
-				return true;
-		}
-		return false;
-	}
-
-	inline bool operator==(const IndirectDrawKey& other) const
-	{
-		return !((*this) != other);
-	}
-
-	uint32_t offset[asset::EVAI_COUNT];
-};
+using namespace asset;
+using namespace video;
 
 int main()
 {
-	srand(time(0));
-	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
-	params.Bits = 24; //may have to set to 32bit for some platforms
-	params.ZBufferBits = 24; //we'd like 32bit here
-	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-	params.WindowSize = dimension2d<uint32_t>(1280, 720);
-	params.Fullscreen = false;
-	params.Vsync = false;
-	params.Doublebuffer = true;
-	params.Stencilbuffer = false; //! This will not even be a choice soon
-	IrrlichtDevice* device = createDeviceEx(params);
+    // create device with full flexibility over creation parameters
+    // you can add more parameters if desired, check irr::SIrrlichtCreationParameters
+    irr::SIrrlichtCreationParameters params;
+    params.Bits = 24; //may have to set to 32bit for some platforms
+    params.ZBufferBits = 24; //we'd like 32bit here
+    params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
+    params.WindowSize = dimension2d<uint32_t>(1280, 720);
+    params.Fullscreen = false;
+    params.Vsync = true; //! If supported by target platform
+    params.Doublebuffer = true;
+    params.Stencilbuffer = false; //! This will not even be a choice soon
+    auto device = createDeviceEx(params);
 
-	if (device == 0)
-		return 1; // could not create selected driver.
+    if (!device)
+        return 1; // could not create selected driver.
 
+    //! disable mouse cursor, since camera will force it to the middle
+    //! and we don't want a jittery cursor in the middle distracting us
+    device->getCursorControl()->setVisible(false);
 
-	device->getCursorControl()->setVisible(false);
-
-	QToQuitEventReceiver receiver;
-	device->setEventReceiver(&receiver);
-
-
-	video::IVideoDriver* driver = device->getVideoDriver();
-
-	SimpleCallBack* cb = new SimpleCallBack();
-	video::E_MATERIAL_TYPE newMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
-		"", "", "", //! No Geometry or Tessellation Shaders
-		"../mesh.frag",
-		3, video::EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only
-		cb, //! Our Shader Callback
-		0); //! No custom user data
-	cb->drop();
+    //! Since our cursor will be enslaved, there will be no way to close the window
+    //! So we listen for the "Q" key being pressed and exit the application
+    QToQuitEventReceiver receiver;
+    device->setEventReceiver(&receiver);
 
 
+    auto* driver = device->getVideoDriver();
+    auto* smgr = device->getSceneManager();
+    auto* am = device->getAssetManager();
+    auto* fs = am->getFileSystem();
 
-	scene::ISceneManager* smgr = device->getSceneManager();
-	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
-	scene::ICameraSceneNode* camera =
-		smgr->addCameraSceneNodeFPS(0, 100.0f, 1.f);
-	camera->setPosition(core::vector3df(-4, 0, 0));
-	camera->setTarget(core::vector3df(0, 0, 0));
-	camera->setNearValue(1.f);
-	camera->setFarValue(10000.0f);
-	smgr->setActiveCamera(camera);
+    //
+    auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
+    //loading cache from file
+    qnc->loadNormalQuantCacheFromFile<asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
 
-	io::IFileSystem* fs = device->getFileSystem();
-	auto am = device->getAssetManager();
+    // register the zip
+    device->getFileSystem()->addFileArchive("../../media/sponza.zip");
 
-	//! Load big-ass sponza model
-	// really want to get it working with a "../../media/sponza.zip?sponza.obj" path handling
-	fs->addFileArchive("../../media/sponza.zip");
+    asset::IAssetLoader::SAssetLoadParams lp;
+    auto meshes_bundle = am->getAsset("sponza.obj", lp);
+    assert(!meshes_bundle.isEmpty());
+    auto mesh = meshes_bundle.getContents().begin()[0];
+    auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
 
+    //saving cache to file
+    //qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
+    
+    const uint32_t mbCount = mesh_raw->getMeshBufferCount();
 
+    core::vector<ICPUMeshBuffer*> meshBuffers(mbCount);
+    for (uint32_t i = 0u; i < mbCount; i++)
+        meshBuffers[i] = mesh_raw->getMeshBuffer(i);
 
-	using pipeline_type = asset::IMeshDataFormatDesc<video::IGPUBuffer>;
-	core::map<IndirectDrawKey, IndirectDrawInfo> indirectDraws;
-	//{
-		//! read cache results -- speeds up mesh generation
-		{
-			io::IReadFile* cacheFile = device->getFileSystem()->createAndOpenFile("../../tmp/normalCache101010.sse");
-			if (cacheFile)
-			{
-				asset::normalCacheFor2_10_10_10Quant.resize(cacheFile->getSize() / sizeof(asset::QuantizationCacheEntry2_10_10_10));
-				cacheFile->read(asset::normalCacheFor2_10_10_10Quant.data(), cacheFile->getSize());
-				cacheFile->drop();
+        //divide mesh buffers into sets, where sum of textures used by meshes in one set is <= 16
+    struct MBRangeTexturesPair
+    {
+        core::SRange<void, core::vector<ICPUMeshBuffer*>::iterator> mbRanges;
+        core::unordered_map<ICPUImageView*, uint32_t> textures;
+    };
 
-				//make sure its still ok
-				std::sort(asset::normalCacheFor2_10_10_10Quant.begin(), asset::normalCacheFor2_10_10_10Quant.end());
-			}
-		}
+    core::vector<MBRangeTexturesPair> mbRangesTex;
+    {
+        auto rangeBegin = meshBuffers.begin();
+        core::unordered_map<ICPUImageView*, uint32_t> textures;
+        textures.reserve(16u);
+        uint32_t texBinding = 0u;
 
-		asset::IAssetLoader::SAssetLoadParams lparams; // crashes OBJ loader with those (0u, nullptr, asset::IAssetLoader::ECF_DONT_CACHE_REFERENCES);
-		auto asset = am->getAsset("sponza.obj", lparams);
-		auto cpumesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*asset.getContents().first);
-		auto gpumesh = driver->getGPUObjectsFromAssets(&cpumesh.get(), (&cpumesh.get()) + 1)->operator[](0);
+        for (auto it = meshBuffers.begin(); it < meshBuffers.end(); it++)
+        {
+            auto ds3 = dynamic_cast<CMTLPipelineMetadata*>((*it)->getPipeline()->getMetadata())->getDescriptorSet();
+            ICPUImageView* tex = dynamic_cast<ICPUImageView*>(ds3->getDescriptors(0u).begin()->desc.get());
+            ICPUImageView* texBump = dynamic_cast<ICPUImageView*>(ds3->getDescriptors(6u).begin()->desc.get());
 
-		//! cache results -- speeds up mesh generation on second run
-		{
-			io::IWriteFile* cacheFile = device->getFileSystem()->createAndWriteFile("../../tmp/normalCache101010.sse");
-			cacheFile->write(asset::normalCacheFor2_10_10_10Quant.data(), asset::normalCacheFor2_10_10_10Quant.size() * sizeof(asset::QuantizationCacheEntry2_10_10_10));
-			cacheFile->drop();
-		}
+            auto a = textures.insert(std::make_pair(tex, texBinding));
+            if (a.second == true)
+                texBinding++;
 
+            auto b = textures.insert(std::make_pair(texBump, texBinding));
+            if (b.second == true)
+                texBinding++;
 
-		for (auto i = 0u; i < gpumesh->getMeshBufferCount(); i++)
-		{
-			auto* mb = gpumesh->getMeshBuffer(i);
-			pipeline_type* pipeline = mb->getMeshDataAndFormat();
-			const auto& descriptors = mb->getMaterial();
+            if (texBinding >= 15u)
+            {
+                mbRangesTex.push_back({ {rangeBegin, it + 1}, textures });
+                rangeBegin = it + 1;
+                texBinding = 0;
+                textures.clear();
+            }
 
-			auto& info = indirectDraws[IndirectDrawKey(pipeline)];
-			if (info.indirectDrawData.size() == 0u)
-			{
-				info.material = mb->getMaterial();
-				info.material.MaterialType = newMaterialType;
-				info.pipeline = core::smart_refctd_ptr<asset::IMeshDataFormatDesc<video::IGPUBuffer> >(pipeline);
-				info.primitiveType = mb->getPrimitiveType();
-				info.indexType = mb->getIndexType();
-				assert(info.indexType != asset::EIT_UNKNOWN);
-			}
-			else
-			{
-				assert(info.primitiveType == mb->getPrimitiveType());
-				assert(info.indexType == mb->getIndexType());
+            if (it + 1 == meshBuffers.end())
+            {
+                mbRangesTex.push_back({ {rangeBegin, meshBuffers.end()}, textures });
+                break;
+            }
+        }
+    }
+    
+    struct CustomIndirectCommand : DrawElementsIndirectCommand_t
+    {
+        uint32_t diffuseTexBinding = std::numeric_limits<uint32_t>::max();
+        uint32_t bumpTexBinding = std::numeric_limits<uint32_t>::max();
+    };
 
-				assert(info.backup.front()->getMeshDataAndFormat()->getIndexBuffer() == pipeline->getIndexBuffer());
-				for (auto j = 0u; j < asset::EVAI_COUNT; j++)
-				{
-					auto attr = static_cast<asset::E_VERTEX_ATTRIBUTE_ID>(j);
-					assert(info.backup.front()->getMeshDataAndFormat()->getMappedBuffer(attr) == pipeline->getMappedBuffer(attr));
-					assert(info.backup.front()->getMeshDataAndFormat()->getMappedBufferOffset(attr) == pipeline->getMappedBufferOffset(attr));
-					assert(info.backup.front()->getMeshDataAndFormat()->getMappedBufferStride(attr) == pipeline->getMappedBufferStride(attr));
-				}
-			}
+    struct DrawIndexedIndirectInput
+    {
+        asset::SBufferBinding<video::IGPUBuffer> vtxBindings[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
+        asset::E_PRIMITIVE_TOPOLOGY mode = asset::EPT_TRIANGLE_LIST;
+        asset::E_INDEX_TYPE indexType = asset::EIT_16BIT;
+        core::smart_refctd_ptr<video::IGPUBuffer> indexBuff = nullptr;
+        core::smart_refctd_ptr<video::IGPUBuffer> indirectDrawBuff = nullptr;
+        size_t offset = 0u;
+        size_t maxCount = 0u;
+        size_t stride = 0u;
+        core::smart_refctd_ptr<video::IGPUBuffer> countBuffer = nullptr;
+        size_t countOffset = 0u;
+    };
 
-			DrawElementsIndirectCommand cmd;
-			cmd.count = mb->getIndexCount();
-			cmd.instanceCount = mb->getInstanceCount();
-			cmd.firstIndex = mb->getIndexBufferOffset()/(info.indexType!=asset::EIT_32BIT ? sizeof(uint16_t):sizeof(uint32_t));
-			cmd.baseVertex = mb->getBaseVertex();
-			cmd.baseInstance = mb->getBaseInstance();
-			info.indirectDrawData.push_back(std::move(cmd));
+    core::vector<asset::MeshPackerBase::PackedMeshBuffer<asset::ICPUBuffer>> packedMeshBuffer(mbRangesTex.size());
+    core::vector<DrawIndexedIndirectInput> mdiCallParams(mbRangesTex.size());
+    core::vector<core::smart_refctd_ptr<IGPUBuffer>> gpuIndirectDrawBuffer(mbRangesTex.size());
+    for(size_t i = 0u; i < mbRangesTex.size(); i++)
+    {
+        asset::SVertexInputParams& inputParams = mesh_raw->getMeshBuffer(0u)->getPipeline()->getVertexInputParams();
+        asset::MeshPackerBase::AllocationParams allocationParams;
 
-			decltype(IndirectDrawInfo::textures)::value_type textures;
-			for (uint32_t i=0u; i<IndirectDrawInfo::MaxTexturesPerDraw; i++)
-				textures[i] = mb->getMaterial().TextureLayer[i].Texture;
-			info.textures.push_back(std::move(textures));
+        auto& mbRange = mbRangesTex[i].mbRanges;
+        const ptrdiff_t meshBuffersInRangeCnt = std::distance(mbRange.begin(), mbRange.end());
 
-			info.backup.emplace_back(mb);
-		}
-	//}
-	for (auto& draw : indirectDraws)
-	{
-		draw.second.indirectDrawBuffer = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createFilledDeviceLocalGPUBufferOnDedMem(draw.second.indirectDrawData.size()*sizeof(DrawElementsIndirectCommand),draw.second.indirectDrawData.data()));
-	}
+        allocationParams.indexBuffSupportedCnt = 20000000u;
+        allocationParams.indexBufferMinAllocSize = 5000u;
+        allocationParams.vertexBuffSupportedCnt = 20000000u;
+        allocationParams.vertexBufferMinAllocSize = 5000u;
+        allocationParams.MDIDataBuffSupportedCnt = 20000u;
+        allocationParams.MDIDataBuffMinAllocSize = 1u; //so structs are adjacent in memory
+        allocationParams.perInstanceVertexBuffSupportedCnt = 0u;
+        allocationParams.perInstanceVertexBufferMinAllocSize = 0u;
 
+            //pack mesh buffers
+        asset::CCPUMeshPacker<CustomIndirectCommand> packer(inputParams, allocationParams, std::numeric_limits<uint16_t>::max() / 3u, std::numeric_limits<uint16_t>::max() / 3u);
+        
+        MeshPackerBase::ReservedAllocationMeshBuffers resData;
+        asset::MeshPackerBase::PackedMeshBufferData pmbData;
+        
+        resData = packer.alloc(mbRange.begin(), mbRange.end());
+        assert(resData.isValid());
 
-	uint64_t lastFPSTime = 0;
+        packer.instantiateDataStorage();
 
-	while (device->run() && receiver.keepOpen())
-	{
-		driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
+        pmbData = packer.commit(mbRange.begin(), mbRange.end(), resData);
+        assert(pmbData.isValid());
 
-		//! Draw the view
-		smgr->drawAll();
+        packedMeshBuffer[i] = packer.getPackedMeshBuffer();
+        assert(packedMeshBuffer[i].isValid());
 
-		for (auto& draw : indirectDraws)
-		{
-			auto& info = draw.second;
-			if (!info.indirectDrawBuffer)
-				continue; 
+            //fill ssbo with correct values
+        auto& textures = mbRangesTex[i].textures;
+        CustomIndirectCommand* ssboBuffer = static_cast<CustomIndirectCommand*>(packedMeshBuffer[i].MDIDataBuffer->getPointer());
+        const size_t mdiBuffSz = packedMeshBuffer[i].MDIDataBuffer->getSize();
 
-			driver->setMaterial(info.material);
-			{
-				GLuint textures[1024u] = { 0u };
-				GLenum targets[1024u] = { GL_INVALID_ENUM };
+        uint32_t mbIdx = 0u;
+        for (auto it = mbRange.begin(); it != mbRange.end(); it++)
+        {
+            auto ds3 = dynamic_cast<CMTLPipelineMetadata*>((*it)->getPipeline()->getMetadata())->getDescriptorSet();
+            ICPUImageView* tex = dynamic_cast<ICPUImageView*>(ds3->getDescriptors(0u).begin()->desc.get());
+            ICPUImageView* texBump = dynamic_cast<ICPUImageView*>(ds3->getDescriptors(6u).begin()->desc.get());
 
-				uint32_t count = 0u;
-				for (const auto& usedTexs : info.textures)
-				for (auto& tex : usedTexs)
-				{
-					auto* gltex = dynamic_cast<video::COpenGLTexture*>(tex.get());
-					if (gltex)
-					{
-						textures[count] = gltex->getOpenGLName();
-						targets[count] = gltex->getOpenGLTextureType();
-					}
-					else
-					{
-						textures[count] = 0u;
-						targets[count] = GL_INVALID_ENUM;
-					}
-					count++;
-				}
+            auto texBindDiffuseIt = textures.find(tex);
+            auto texBindBumpIt = textures.find(texBump);
+            assert(texBindDiffuseIt != textures.end());
+            assert(texBindBumpIt != textures.end());
 
-				video::COpenGLExtensionHandler::extGlBindTextures(0u, count, textures, targets);
-			}
-			driver->drawIndexedIndirect(info.pipeline.get(), info.primitiveType, info.indexType, info.indirectDrawBuffer.get(), 0, info.indirectDrawBuffer->getSize()/sizeof(DrawElementsIndirectCommand), sizeof(DrawElementsIndirectCommand));
-		}
+            const uint32_t texBindDiffuse = (*texBindDiffuseIt).second;
+            const uint32_t texBindBump = (*texBindBumpIt).second;
 
-		driver->endScene();
+            auto mdiCmdForMb = ssboBuffer + mbIdx++;
+            mdiCmdForMb->diffuseTexBinding = texBindDiffuse;
+            mdiCmdForMb->bumpTexBinding = texBindBump;
+        }
 
-		// display frames per second in window title
-		uint64_t time = device->getTimer()->getRealTime();
-		if (time - lastFPSTime > 1000)
-		{
-			std::wostringstream sstr;
-			sstr << L"Builtin Nodes Demo - Irrlicht Engine FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
+        assert(pmbData.mdiParameterCount == meshBuffersInRangeCnt);
 
-			device->setWindowCaption(sstr.str().c_str());
-			lastFPSTime = time;
-		}
-	}
+            //create draw call inputs
+        mdiCallParams[i].indexBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(packedMeshBuffer[i].indexBuffer.buffer->getSize(), packedMeshBuffer[i].indexBuffer.buffer->getPointer());
 
+        auto& cpuVtxBuff = packedMeshBuffer[i].vertexBufferBindings[0].buffer;
 
-	//create a screenshot
-	{
-		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
-		ext::ScreenShot::dirtyCPUStallingScreenshot(device, "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
-	}
+        gpuIndirectDrawBuffer[i] = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(CustomIndirectCommand) * pmbData.mdiParameterCount, packedMeshBuffer[i].MDIDataBuffer->getPointer());
+        mdiCallParams[i].indirectDrawBuff = core::smart_refctd_ptr(gpuIndirectDrawBuffer[i]);
 
+        auto gpuVtxBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(cpuVtxBuff->getSize(), cpuVtxBuff->getPointer());
 
-	device->drop();
+        for (uint32_t j = 0u; j < video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; j++)
+            mdiCallParams[i].vtxBindings[j] = { packedMeshBuffer[i].vertexBufferBindings[j].offset, gpuVtxBuff };
 
-	return 0;
+        mdiCallParams[i].stride = sizeof(CustomIndirectCommand);
+        mdiCallParams[i].maxCount = pmbData.mdiParameterCount;
+    }
+
+        //create pipeline
+    auto vertexShaderBundle = am->getAsset("../mesh.vert", lp);
+    auto fragShaderBundle = am->getAsset("../mesh.frag", lp);
+    ICPUSpecializedShader* shaders[2] =
+    {
+        IAsset::castDown<ICPUSpecializedShader>(vertexShaderBundle.getContents().begin()->get()),
+        IAsset::castDown<ICPUSpecializedShader>(fragShaderBundle.getContents().begin()->get())
+    };
+
+    core::smart_refctd_ptr<IGPUPipelineLayout> gpuPipelineLayout;
+    core::smart_refctd_ptr<IGPURenderpassIndependentPipeline> gpuPipeline;
+    core::smart_refctd_ptr<IGPUDescriptorSetLayout> ds0layout;
+    core::smart_refctd_ptr<IGPUDescriptorSetLayout> ds1layout;
+
+    ISampler::SParams sp;
+    sp.TextureWrapU = ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
+    sp.TextureWrapV = ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
+    sp.MinFilter = ISampler::E_TEXTURE_FILTER::ETF_LINEAR;
+    sp.MaxFilter = ISampler::E_TEXTURE_FILTER::ETF_LINEAR;
+    auto sampler = driver->createGPUSampler(sp);
+    {
+        asset::SPushConstantRange range[1] = { asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD) };
+
+        core::smart_refctd_ptr<IGPUSampler> samplerArray[16u] = { nullptr };
+        for (uint32_t i = 0u; i < 16u; i++)
+            samplerArray[i] = core::smart_refctd_ptr(sampler);
+
+        //set layout
+        {
+            video::IGPUDescriptorSetLayout::SBinding b[1];
+            b[0].binding = 1u;
+            b[0].count = 16u;
+            b[0].type = EDT_COMBINED_IMAGE_SAMPLER;
+            b[0].stageFlags = ISpecializedShader::ESS_FRAGMENT;
+            b[0].samplers = samplerArray;
+
+            ds0layout = driver->createGPUDescriptorSetLayout(b, b + 1);
+        }
+        {
+            video::IGPUDescriptorSetLayout::SBinding b[1];
+            b[0].binding = 0u;
+            b[0].count = 1u;
+            b[0].type = EDT_STORAGE_BUFFER;
+            b[0].stageFlags = ISpecializedShader::ESS_FRAGMENT;
+
+            ds1layout = driver->createGPUDescriptorSetLayout(b, b + 1);
+        }
+
+        auto gpuShaders = driver->getGPUObjectsFromAssets(shaders, shaders + 2);
+        IGPUSpecializedShader* shaders[2] = { gpuShaders->operator[](0).get(), gpuShaders->operator[](1).get() };
+
+        gpuPipelineLayout = driver->createGPUPipelineLayout(range, range + 1, core::smart_refctd_ptr(ds0layout), core::smart_refctd_ptr(ds1layout));
+        gpuPipeline = driver->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(gpuPipelineLayout), shaders, shaders + 2u, packedMeshBuffer[0].vertexInputParams, asset::SBlendParams(), asset::SPrimitiveAssemblyParams(), SRasterizationParams());
+    }
+    using GpuDescriptoSetPair = std::pair<core::smart_refctd_ptr<IGPUDescriptorSet>, core::smart_refctd_ptr<IGPUDescriptorSet>>;
+    core::vector<GpuDescriptoSetPair> desc(mbRangesTex.size());
+    for(uint32_t i = 0u; i < mbRangesTex.size(); i++)
+    {
+        auto& texDesc = desc[i].first;
+        auto& ssboDesc = desc[i].second;
+
+        auto& range = mbRangesTex[i].mbRanges;
+        auto& textures = mbRangesTex[i].textures;
+        const uint32_t texCnt = textures.size();
+
+        texDesc = driver->createGPUDescriptorSet(core::smart_refctd_ptr(ds0layout));
+        ssboDesc = driver->createGPUDescriptorSet(core::smart_refctd_ptr(ds1layout));
+        video::IGPUDescriptorSet::SDescriptorInfo info[16u];
+        video::IGPUDescriptorSet::SWriteDescriptorSet w[16u];
+
+        for(auto& texBind : textures)
+        {
+            auto texture = texBind.first;
+            const uint32_t bind = texBind.second;
+            auto gpuTexture = driver->getGPUObjectsFromAssets(&texture, &texture + 1)->front();
+
+            info[bind].image.imageLayout = asset::EIL_UNDEFINED;
+            info[bind].image.sampler = core::smart_refctd_ptr(sampler);
+            info[bind].desc = core::smart_refctd_ptr(gpuTexture);
+            
+            w[bind].binding = 1u;
+            w[bind].arrayElement = bind;
+            w[bind].count = 1u;
+            w[bind].descriptorType = EDT_COMBINED_IMAGE_SAMPLER;
+            w[bind].dstSet = texDesc.get();
+            w[bind].info = &info[bind];
+        }
+        driver->updateDescriptorSets(texCnt, w, 0u, nullptr);
+
+        {
+            video::IGPUDescriptorSet::SDescriptorInfo _info;
+            _info.buffer.offset = 0u;
+            _info.buffer.size = gpuIndirectDrawBuffer[i]->getSize();
+            _info.desc = core::smart_refctd_ptr(gpuIndirectDrawBuffer[i]);
+
+            video::IGPUDescriptorSet::SWriteDescriptorSet _w;
+            _w.binding = 0u;
+            _w.arrayElement = 0u;
+            _w.count = 1u;
+            _w.descriptorType = EDT_STORAGE_BUFFER;
+            _w.dstSet = ssboDesc.get();
+            _w.info = &_info;
+
+            driver->updateDescriptorSets(1u, &_w, 0u, nullptr);
+        }
+    }
+
+    //! we want to move around the scene and view it from different angles
+    scene::ICameraSceneNode* camera = smgr->addCameraSceneNodeFPS(0, 100.0f, 0.5f);
+
+    camera->setPosition(core::vector3df(-4, 0, 0));
+    camera->setTarget(core::vector3df(0, 0, 0));
+    camera->setNearValue(1.f);
+    camera->setFarValue(5000.0f);
+
+    smgr->setActiveCamera(camera);
+
+    uint64_t lastFPSTime = 0;
+    while (device->run() && receiver.keepOpen())
+    {
+        driver->bindGraphicsPipeline(gpuPipeline.get());
+
+        driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
+
+        //! This animates (moves) the camera and sets the transforms
+        camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
+        camera->render();
+        
+        driver->pushConstants(gpuPipelineLayout.get(), asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD), camera->getConcatenatedMatrix().pointer());
+
+        for (uint32_t i = 0u; i < mdiCallParams.size(); i++)
+        {
+            driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline->getLayout(), 0u, 2u, &desc[i].first.get(), nullptr);
+            driver->drawIndexedIndirect(mdiCallParams[i].vtxBindings, mdiCallParams[i].mode, mdiCallParams[i].indexType, mdiCallParams[i].indexBuff.get(), mdiCallParams[i].indirectDrawBuff.get(), mdiCallParams[i].offset, mdiCallParams[i].maxCount, mdiCallParams[i].stride);
+        }
+        
+        driver->endScene();
+    }
+
+    return 0;
 }

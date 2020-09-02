@@ -153,7 +153,7 @@ class IImage : public IDescriptor
 			{
 				return info.convert3DTexelStridesTo1DByteStrides(getTexelStrides());
 			}
-			inline uint64_t				getLocalByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides) const
+			static inline uint64_t				getLocalByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides)
 			{
 				return core::dot(localXYZLayerOffset,byteStrides)[0];
 			}
