@@ -27,7 +27,7 @@ class LRUcache
 public:
 
 	//LRUcache();
-	inline LRUcache(uint32_t& capacity) : m_capacity(capacity), m_shortcut_map(), m_list(capacity)
+	inline LRUcache(const uint32_t& capacity) : m_capacity(capacity), m_shortcut_map(), m_list(capacity)
 	{
 		assert(capacity > 1);
 		m_shortcut_map.reserve(capacity);
