@@ -14,8 +14,10 @@ void instr_eval_execute(in instr_t instr, in vec3 L)
 	uint ndf = instr_getNDF(instr);
 	float a = params_getAlpha(params);
 	float a2 = a*a;
+#ifndef ALL_ISOTROPIC_BXDFS
 	float ay = params_getAlphaV(params);
 	float ay2 = ay*ay;
+#endif
 
 	float cosFactor = op_isBSDF(op) ? abs(currBSDFParams.isotropic.NdotL):max(currBSDFParams.isotropic.NdotL,0.0);
 
@@ -25,30 +27,55 @@ void instr_eval_execute(in instr_t instr, in vec3 L)
 #ifndef ONLY_ONE_NDF
 		if (ndf==NDF_GGX) {
 #endif
+
+#ifdef ALL_ISOTROPIC_BXDFS
 			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, a2);
+#else
+			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(currBSDFParams, currInteraction, a, ay);
+#endif
+
+
 #ifndef ONLY_ONE_NDF
 		} else
 #endif
 #endif
+
 #ifdef NDF_BECKMANN
 #ifndef ONLY_ONE_NDF
 		if (ndf==NDF_BECKMANN) {
 #endif
+
+#ifdef ALL_ISOTROPIC_BXDFS
 			bxdf_eval_scalar_part = irr_glsl_beckmann_smith_height_correlated_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, a2);
+#else
+			bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval_DG(currBSDFParams, currInteraction, a, a2, ay, ay2);
+#endif
+
 #ifndef ONLY_ONE_NDF
 		} else
 #endif
 #endif
+
 #ifdef NDF_PHONG
 #ifndef ONLY_ONE_NDF
 		if (ndf==NDF_PHONG) {
 #endif
+
+
 			float n = irr_glsl_alpha2_to_phong_exp(a2);
+#ifdef ALL_ISOTROPIC_BXDFS
 			bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, n, a2);
+#else
+			float ny = irr_glsl_alpha2_to_phong_exp(ay2);
+			bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(currBSDFParams, currInteraction, n, ny, a2, ay2);
+#endif
+
+
 #ifndef ONLY_ONE_NDF
 		} else
 #endif
 #endif
+/*
 #ifdef NDF_AS
 #ifndef ONLY_ONE_NDF
 		if (ndf==NDF_AS) {
@@ -60,7 +87,7 @@ void instr_eval_execute(in instr_t instr, in vec3 L)
 		} else
 #endif
 #endif
-
+*/
 #ifndef ONLY_ONE_NDF
 		{} //else "empty braces"
 #endif

@@ -108,13 +108,10 @@ namespace instr_stream
 					_dst.dielectric.alpha_u.setTexture(packTexture(refl->alpha_u.value.texture), refl->alpha_u.value.texture.scale);
 				else
 					_dst.dielectric.alpha_u.setConst(refl->alpha_u.value.constant);
-				if (refl->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
-				{
-					if (refl->alpha_v.source == IR::INode::EPS_TEXTURE)
-						_dst.dielectric.alpha_v.setTexture(packTexture(refl->alpha_v.value.texture), refl->alpha_v.value.texture.scale);
-					else
-						_dst.dielectric.alpha_v.setConst(refl->alpha_v.value.constant);
-				}
+				if (refl->alpha_v.source == IR::INode::EPS_TEXTURE)
+					_dst.dielectric.alpha_v.setTexture(packTexture(refl->alpha_v.value.texture), refl->alpha_v.value.texture.scale);
+				else
+					_dst.dielectric.alpha_v.setConst(refl->alpha_v.value.constant);
 			}
 			break;
 			case OP_CONDUCTOR:
@@ -125,13 +122,10 @@ namespace instr_stream
 					_dst.conductor.alpha_u.setTexture(packTexture(node->alpha_u.value.texture), node->alpha_u.value.texture.scale);
 				else
 					_dst.conductor.alpha_u.setConst(node->alpha_u.value.constant);
-				if (node->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
-				{
-					if (node->alpha_v.source == IR::INode::EPS_TEXTURE)
-						_dst.conductor.alpha_v.setTexture(packTexture(node->alpha_v.value.texture), node->alpha_v.value.texture.scale);
-					else
-						_dst.conductor.alpha_v.setConst(node->alpha_v.value.constant);
-				}
+				if (node->alpha_v.source == IR::INode::EPS_TEXTURE)
+					_dst.conductor.alpha_v.setTexture(packTexture(node->alpha_v.value.texture), node->alpha_v.value.texture.scale);
+				else
+					_dst.conductor.alpha_v.setConst(node->alpha_v.value.constant);
 				_dst.conductor.eta[0] = core::rgb32f_to_rgb19e7(node->eta.pointer);
 				_dst.conductor.eta[1] = core::rgb32f_to_rgb19e7(node->etaK.pointer);
 			}
@@ -153,12 +147,16 @@ namespace instr_stream
 					_dst.plastic.reflectance.setTexture(packTexture(diffuse->reflectance.value.texture), diffuse->reflectance.value.texture.scale);
 				else
 					_dst.plastic.reflectance.setConst(diffuse->reflectance.value.constant.pointer);
-				if (diffuse->alpha_u.source == IR::INode::EPS_TEXTURE)
-					_dst.plastic.alpha.setTexture(packTexture(diffuse->alpha_u.value.texture), diffuse->alpha_u.value.texture.scale);
+				if (specular->alpha_u.source == IR::INode::EPS_TEXTURE)
+					_dst.plastic.alpha_u.setTexture(packTexture(specular->alpha_u.value.texture), specular->alpha_u.value.texture.scale);
 				else
-					_dst.plastic.alpha.setConst(diffuse->alpha_u.value.constant);
+					_dst.plastic.alpha_u.setConst(specular->alpha_u.value.constant);
+				if (specular->alpha_v.source == IR::INode::EPS_TEXTURE)
+					_dst.plastic.alpha_v.setTexture(packTexture(specular->alpha_v.value.texture), specular->alpha_v.value.texture.scale);
+				else
+					_dst.plastic.alpha_v.setConst(specular->alpha_v.value.constant);
 
-				_dst.plastic.eta = diffuse->eta.x;
+				_dst.plastic.eta = specular->eta.x;
 			}
 			break;
 			case OP_COATING:
@@ -166,9 +164,13 @@ namespace instr_stream
 				auto* coat = static_cast<const IR::CCoatingBSDFNode*>(_node);
 
 				if (coat->alpha_u.source == IR::INode::EPS_TEXTURE)
-					_dst.coating.alpha.setTexture(packTexture(coat->alpha_u.value.texture), coat->alpha_u.value.texture.scale);
+					_dst.coating.alpha_u.setTexture(packTexture(coat->alpha_u.value.texture), coat->alpha_u.value.texture.scale);
 				else
-					_dst.coating.alpha.setConst(coat->alpha_u.value.constant);
+					_dst.coating.alpha_u.setConst(coat->alpha_u.value.constant);
+				if (coat->alpha_v.source == IR::INode::EPS_TEXTURE)
+					_dst.coating.alpha_v.setTexture(packTexture(coat->alpha_v.value.texture), coat->alpha_v.value.texture.scale);
+				else
+					_dst.coating.alpha_v.setConst(coat->alpha_v.value.constant);
 				if (coat->sigmaA.source == IR::INode::EPS_TEXTURE)
 					_dst.coating.sigmaA.setTexture(packTexture(coat->alpha_u.value.texture), coat->sigmaA.value.texture.scale);
 				else
@@ -322,16 +324,14 @@ namespace instr_stream
 			{
 				NDF_BECKMANN,
 				NDF_GGX,
-				NDF_AS,
+				NDF_PHONG,
 				NDF_PHONG
 			};
 
-			auto handleSpecularBitfields = [&ndfMap](instr_t dst, const IR::CMicrofacetSpecularBSDFNode* node, bool _writeAlphaV) -> instr_t
+			auto handleSpecularBitfields = [&ndfMap](instr_t dst, const IR::CMicrofacetSpecularBSDFNode* node) -> instr_t
 			{
-				//assert(_writeAlphaV == (ndfMap[node->ndf] == NDF_AS));
-
 				dst = core::bitfieldInsert<instr_t>(dst, ndfMap[node->ndf], BITFIELDS_SHIFT_NDF, BITFIELDS_WIDTH_NDF);
-				if (_writeAlphaV && ndfMap[node->ndf] == NDF_AS && node->alpha_v.source == IR::INode::EPS_TEXTURE)
+				if (node->alpha_v.source == IR::INode::EPS_TEXTURE)
 					dst = core::bitfieldInsert<instr_t>(dst, 1u, BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
 				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
 					dst = core::bitfieldInsert<instr_t>(dst, 1u, BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
@@ -363,13 +363,13 @@ namespace instr_stream
 				assert(refl->alpha_u == trans->alpha_u);
 				assert(refl->alpha_v == trans->alpha_v);
 
-				_instr = handleSpecularBitfields(_instr, refl, true);
+				_instr = handleSpecularBitfields(_instr, refl);
 			}
 			break;
 			case OP_CONDUCTOR:
 			{
 				auto* node = static_cast<const IR::CMicrofacetSpecularBSDFNode*>(_node);
-				_instr = handleSpecularBitfields(_instr, node, true);
+				_instr = handleSpecularBitfields(_instr, node);
 			}
 			break;
 			case OP_PLASTIC:
@@ -382,7 +382,7 @@ namespace instr_stream
 				if (diffuse->type == IR::CBSDFNode::ET_MICROFACET_SPECULAR)
 					std::swap(diffuse, specular);
 
-				_instr = handleSpecularBitfields(_instr, static_cast<const IR::CMicrofacetSpecularBSDFNode*>(specular), false);
+				_instr = handleSpecularBitfields(_instr, static_cast<const IR::CMicrofacetSpecularBSDFNode*>(specular));
 				if (static_cast<const IR::CMicrofacetDiffuseBSDFNode*>(diffuse)->reflectance.source == IR::INode::EPS_TEXTURE)
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, BITFIELDS_SHIFT_REFL_TEX, 1);
 			}
@@ -391,7 +391,7 @@ namespace instr_stream
 			{
 				auto* coat = static_cast<const IR::CCoatingBSDFNode*>(_node);
 
-				_instr = handleSpecularBitfields(_instr, coat, false);
+				_instr = handleSpecularBitfields(_instr, coat);
 				if (coat->sigmaA.source == IR::INode::EPS_TEXTURE)
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, BITFIELDS_SHIFT_SIGMA_A_TEX, 1);
 			}
@@ -1021,6 +1021,7 @@ instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const travers
 				bit = 0;
 		}
 		i = core::bitfieldInsert(i, bit, dstbit, 1);
+		assert(reg<(1u<<BITFIELDS_REG_WIDTH));
 		i = core::bitfieldInsert<instr_t>(i, reg, reg_bitfield_shift, BITFIELDS_REG_WIDTH);
 		i = core::bitfieldInsert<instr_t>(i, reg_count, reg_count_bitfield_shift, BITFIELDS_FETCH_TEX_REG_CNT_WIDTH);
 
@@ -1047,16 +1048,19 @@ instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const travers
 		i = core::bitfieldInsert<instr_t>(i, 0, BITFIELDS_FETCH_TEX_0_SHIFT, 1);
 		i = core::bitfieldInsert<instr_t>(i, 0, BITFIELDS_FETCH_TEX_1_SHIFT, 1);
 		i = core::bitfieldInsert<instr_t>(i, 0, BITFIELDS_FETCH_TEX_2_SHIFT, 1);
+		i = core::bitfieldInsert<instr_t>(i, 0, BITFIELDS_FETCH_TEX_3_SHIFT, 1);
 			
 		const uint32_t bsdf_ix = core::bitfieldExtract(i, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
 		const SBSDFUnion& bsdf_data = _bsdfData[bsdf_ix];
 
 		switch (op)
 		{
-		case OP_DIFFUSE: _IRR_FALLTHROUGH;
 		case OP_PLASTIC:
-			write_fetch_bitfields(i, bsdf_data.param[0].tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);//alpha
-			write_fetch_bitfields(i, bsdf_data.param[1].tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_REFL_TEX, BITFIELDS_REG_1_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, 3u);//reflectance
+			write_fetch_bitfields(i, bsdf_data.plastic.alpha_v.tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_ALPHA_V_TEX, BITFIELDS_REG_1_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, 1u);
+			_IRR_FALLTHROUGH;
+		case OP_DIFFUSE:
+			write_fetch_bitfields(i, bsdf_data.param[0].tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);//alpha_u
+			write_fetch_bitfields(i, bsdf_data.param[3].tex, BITFIELDS_FETCH_TEX_3_SHIFT, BITFIELDS_SHIFT_REFL_TEX, BITFIELDS_REG_3_SHIFT, BITFIELDS_FETCH_TEX_3_REG_CNT_SHIFT, 3u);//reflectance
 			break;
 		case OP_DIFFTRANS:
 			write_fetch_bitfields(i, bsdf_data.difftrans.transmittance.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_TRANS_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 3u);
@@ -1068,8 +1072,9 @@ instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const travers
 			write_fetch_bitfields(i, bsdf_data.param[1].tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_ALPHA_V_TEX, BITFIELDS_REG_1_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, 1u);//alpha_v
 			break;
 		case OP_COATING:
-			write_fetch_bitfields(i, bsdf_data.coating.alpha.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);
-			write_fetch_bitfields(i, bsdf_data.coating.sigmaA.tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_SIGMA_A_TEX, BITFIELDS_REG_1_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, 3u);
+			write_fetch_bitfields(i, bsdf_data.coating.alpha_u.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);
+			write_fetch_bitfields(i, bsdf_data.coating.alpha_v.tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_ALPHA_V_TEX, BITFIELDS_REG_1_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, 1u);
+			write_fetch_bitfields(i, bsdf_data.coating.sigmaA.tex, BITFIELDS_FETCH_TEX_3_SHIFT, BITFIELDS_SHIFT_SIGMA_A_TEX, BITFIELDS_REG_3_SHIFT, BITFIELDS_FETCH_TEX_3_REG_CNT_SHIFT, 3u);
 			break;
 		case OP_BUMPMAP:
 			i = core::bitfieldInsert<instr_t>(i, 1u, BITFIELDS_FETCH_TEX_0_SHIFT, 1);
@@ -1118,6 +1123,8 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 		defs += "\n#define TEX_PREFETCH_STREAM";
 	if (!_res.noNormPrecompStream)
 		defs += "\n#define NORM_PRECOMP_STREAM";
+	if (_res.allIsotropic)
+		defs += "\n#define ALL_ISOTROPIC_BXDFS";
 
 	//instruction bitfields
 	defs += "\n#define INSTR_OPCODE_MASK " + std::to_string(INSTR_OPCODE_MASK);
@@ -1136,6 +1143,8 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	defs += "\n#define INSTR_MASKFLAG_SHIFT " + std::to_string(BITFIELDS_SHIFT_MASKFLAG);
 	defs += "\n#define INSTR_1ST_PARAM_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_1ST_PARAM_TEX);
 	defs += "\n#define INSTR_2ND_PARAM_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_2ND_PARAM_TEX);
+	defs += "\n#define INSTR_3RD_PARAM_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_3RD_PARAM_TEX);
+	defs += "\n#define INSTR_4TH_PARAM_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_4TH_PARAM_TEX);
 	defs += "\n#define INSTR_NORMAL_ID_SHIFT " + std::to_string(INSTR_NORMAL_ID_SHIFT);
 	defs += "\n#define INSTR_NORMAL_ID_MASK " + std::to_string(INSTR_NORMAL_ID_MASK);
 	//remainder_and_pdf
@@ -1154,11 +1163,19 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 		defs += "\n#define INSTR_FETCH_FLAG_TEX_0_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_0_SHIFT);
 		defs += "\n#define INSTR_FETCH_FLAG_TEX_1_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_1_SHIFT);
 		defs += "\n#define INSTR_FETCH_FLAG_TEX_2_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_2_SHIFT);
+		defs += "\n#define INSTR_FETCH_FLAG_TEX_3_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_3_SHIFT);
 
 		defs += "\n#define INSTR_FETCH_TEX_0_REG_CNT_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT);
 		defs += "\n#define INSTR_FETCH_TEX_1_REG_CNT_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT);
 		defs += "\n#define INSTR_FETCH_TEX_2_REG_CNT_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_2_REG_CNT_SHIFT);
+		defs += "\n#define INSTR_FETCH_TEX_3_REG_CNT_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_3_REG_CNT_SHIFT);
 		defs += "\n#define INSTR_FETCH_TEX_REG_CNT_MASK " + std::to_string(BITFIELDS_FETCH_TEX_REG_CNT_MASK);
+
+		defs += "\n#define INSTR_PREFETCH_REG_MASK " + std::to_string((1u<<BITFIELDS_REG_WIDTH) - 1u);
+		defs += "\n#define INSTR_PREFETCH_REG_0_SHIFT " + std::to_string(BITFIELDS_REG_0_SHIFT);
+		defs += "\n#define INSTR_PREFETCH_REG_1_SHIFT " + std::to_string(BITFIELDS_REG_1_SHIFT);
+		defs += "\n#define INSTR_PREFETCH_REG_2_SHIFT " + std::to_string(BITFIELDS_REG_2_SHIFT);
+		defs += "\n#define INSTR_PREFETCH_REG_3_SHIFT " + std::to_string(BITFIELDS_REG_3_SHIFT);
 
 		if (_res.globalPrefetchRegCountFlags & (1u << 1))
 			defs += "\n#define PREFETCH_REG_COUNT_1";
@@ -1172,6 +1189,8 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 			defs += "\n#define PREFETCH_TEX_1";
 		if (core::bitfieldExtract(_res.globalPrefetchFlags, BITFIELDS_FETCH_TEX_2_SHIFT, 1))
 			defs += "\n#define PREFETCH_TEX_2";
+		if (core::bitfieldExtract(_res.globalPrefetchFlags, BITFIELDS_FETCH_TEX_3_SHIFT, 1))
+			defs += "\n#define PREFETCH_TEX_3";
 	}
 	defs += "\n";
 
@@ -1196,7 +1215,8 @@ core::unordered_map<uint32_t, uint32_t> CMaterialCompilerGLSLBackendCommon::crea
 		constexpr uint32_t tex_fetch_flag_shift[tex_prefetch::BITFIELDS_FETCH_TEX_COUNT]{
 			tex_prefetch::BITFIELDS_FETCH_TEX_0_SHIFT,
 			tex_prefetch::BITFIELDS_FETCH_TEX_1_SHIFT,
-			tex_prefetch::BITFIELDS_FETCH_TEX_2_SHIFT
+			tex_prefetch::BITFIELDS_FETCH_TEX_2_SHIFT,
+			tex_prefetch::BITFIELDS_FETCH_TEX_3_SHIFT
 		};
 		for (uint32_t i = 0u; i < SBSDFUnion::MAX_TEXTURES; ++i)
 			if (core::bitfieldExtract(instr, tex_fetch_flag_shift[i], 1))
@@ -1303,17 +1323,44 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 
 	_ir->deinitTmpNodes();
 
+	auto isAniso = [&res](instr_stream::instr_t _i) -> bool {
+		const E_OPCODE op = getOpcode(_i);
+		if (!instr_stream::opHasSpecular(op))
+			return false;
+
+		const bool au_tex = core::bitfieldExtract(_i, BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
+		const bool av_tex = core::bitfieldExtract(_i, BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
+		if (au_tex != av_tex)
+			return false;
+
+		const uint32_t ix = getBSDFDataIx(_i);
+		
+		const auto& au = res.bsdfData[ix].param[0];
+		const auto& av = res.bsdfData[ix].param[1];
+
+		if (au_tex)
+			return au.tex.prefetch_reg != av.tex.prefetch_reg;
+		else
+			return au.constant[0] != av.constant[0];
+	};
+
+	res.allIsotropic = true;
 	for (const auto& e : res.streams)
 	{
 		const result_t::instr_streams_t& streams = e.second;
 		for (uint32_t i = 0u; i < streams.rem_and_pdf.count; ++i) {
-			const instr_t instr = res.instructions[streams.rem_and_pdf.first+i];
+			const uint32_t first = streams.rem_and_pdf.first;
+			const instr_t instr = res.instructions[first+i];
 
 			const E_OPCODE op = instr_stream::getOpcode(instr);
 			const E_NDF ndf = instr_stream::getNDF(instr);
 			res.opcodes.insert(op);
 			if (instr_stream::opHasSpecular(op))
+			{
 				res.NDFs.insert(ndf);
+				bool aniso = isAniso(instr);
+				res.allIsotropic = res.allIsotropic && !aniso;
+			}
 		}
 	}
 
@@ -1344,7 +1391,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		_out << "Registers:\n";
 		if (op!=OP_BUMPMAP && op!=OP_SET_GEOM_NORMAL)
 			_out << "DST  = " << regs.x << "\n";
-		if (rcnt>0u)
+		if (rcnt>0u || op==OP_BUMPMAP)
 			_out << "SRC1 = " << regs.y << "\n";
 		if (rcnt>1u)
 			_out << "SRC2 = " << regs.z << "\n";
@@ -1368,9 +1415,9 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 	{
 		using namespace tex_prefetch;
 
-		const uint32_t flag_shift[3]{ BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_FETCH_TEX_2_SHIFT };
-		const uint32_t regcnt_shift[3]{ BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, BITFIELDS_FETCH_TEX_2_REG_CNT_SHIFT };
-		const uint32_t reg_shift[3]{ BITFIELDS_REG_0_SHIFT, BITFIELDS_REG_1_SHIFT, BITFIELDS_REG_2_SHIFT };
+		const uint32_t flag_shift[BITFIELDS_FETCH_TEX_COUNT]{ BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_FETCH_TEX_2_SHIFT, BITFIELDS_FETCH_TEX_3_SHIFT };
+		const uint32_t regcnt_shift[BITFIELDS_FETCH_TEX_COUNT]{ BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, BITFIELDS_FETCH_TEX_2_REG_CNT_SHIFT, BITFIELDS_FETCH_TEX_3_REG_CNT_SHIFT };
+		const uint32_t reg_shift[BITFIELDS_FETCH_TEX_COUNT]{ BITFIELDS_REG_0_SHIFT, BITFIELDS_REG_1_SHIFT, BITFIELDS_REG_2_SHIFT, BITFIELDS_REG_3_SHIFT };
 
 		const instr_t instr = _res.instructions[_streams.tex_prefetch.first + i];
 
@@ -1398,7 +1445,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		const SBSDFUnion& data = _res.bsdfData[bsdf_ix];
 
 		_out << "### instr " << i << "\n";
-		_out << reg << " <- " << reinterpret_cast<const uint64_t&>(data.bumpmap.derivmap.vtid) << ", " << reinterpret_cast<const float&>(data.bumpmap.derivmap.scale) << "\n";
+		_out << reg << " <- perturbNormal( reg " << data.bumpmap.derivmap.prefetch_reg << " )\n";
 	}
 }
 
@@ -1433,18 +1480,17 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 
 	const auto op = getOpcode(instr);
 
-	auto ndfAndAnisoAlphaTexPrint = [&_out,&paramVal1OrRegStr,&ndf_names](instr_t instr, const SBSDFUnion& data, bool _printAlpha_v) {
+	auto ndfAndAnisoAlphaTexPrint = [&_out,&paramVal1OrRegStr,&ndf_names](instr_t instr, const SBSDFUnion& data) {
 		const E_NDF ndf = static_cast<E_NDF>(core::bitfieldExtract(instr, BITFIELDS_SHIFT_NDF, BITFIELDS_WIDTH_NDF));
 		_out << "NDF = " << ndf_names[ndf] << "\n";
+
 		bool au = core::bitfieldExtract(instr, BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 		_out << "Alpha_u tex " << au << "\n";
 		_out << "Alpha_u val/reg " << paramVal1OrRegStr(data.param[0], au) << "\n";
-		if (_printAlpha_v && ndf==NDF_AS)
-		{
-			bool av = core::bitfieldExtract(instr, BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
-			_out << "Alpha_v tex " << av << "\n";
-			_out << "Alpha_v val/reg " << paramVal1OrRegStr(data.param[1], av) << "\n";
-		}
+
+		bool av = core::bitfieldExtract(instr, BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
+		_out << "Alpha_v tex " << av << "\n";
+		_out << "Alpha_v val/reg " << paramVal1OrRegStr(data.param[1], av) << "\n";
 	};
 
 	const uint32_t bsdf_ix = core::bitfieldExtract(instr, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
@@ -1472,7 +1518,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	case OP_DIELECTRIC: _IRR_FALLTHROUGH;
 	case OP_THINDIELECTRIC:
 	{
-		ndfAndAnisoAlphaTexPrint(instr, data, true);
+		ndfAndAnisoAlphaTexPrint(instr, data);
 
 		const auto& data = _res.bsdfData[bsdf_ix];
 		const float eta = data.dielectric.eta;
@@ -1482,7 +1528,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 		break;
 	case OP_CONDUCTOR:
 	{
-		ndfAndAnisoAlphaTexPrint(instr, data, true);
+		ndfAndAnisoAlphaTexPrint(instr, data);
 
 		const auto& data = _res.bsdfData[bsdf_ix];
 		const auto eta = core::rgb19e7_to_rgb32f(data.conductor.eta[0]);
@@ -1494,7 +1540,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 		break;
 	case OP_PLASTIC:
 	{
-		ndfAndAnisoAlphaTexPrint(instr, data, false);
+		ndfAndAnisoAlphaTexPrint(instr, data);
 		bool refl = core::bitfieldExtract(instr, BITFIELDS_SHIFT_REFL_TEX, 1);
 		_out << "Refl tex " << refl << "\n";
 		_out << "Refl val/reg " << paramVal3OrRegStr(data.diffuse.reflectance, refl) << "\n";
@@ -1506,7 +1552,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	break;
 	case OP_COATING:
 	{
-		ndfAndAnisoAlphaTexPrint(instr, data, false);
+		ndfAndAnisoAlphaTexPrint(instr, data);
 		bool sigma = core::bitfieldExtract(instr, BITFIELDS_SHIFT_SIGMA_A_TEX, 1);
 		_out << "SigmaA tex " << sigma << "\n";
 		_out << "SigmaA val/reg " << paramVal3OrRegStr(data.coating.sigmaA, sigma) << "\n";

@@ -19,16 +19,22 @@ namespace MitsubaLoader
     {
         using namespace asset;
 
-        assert(asset::getFormatChannelCount(_inImg->getCreationParameters().format) == 1u);
-
         auto getRGformat = [](asset::E_FORMAT f) -> asset::E_FORMAT {
-            const uint32_t bytesPerChannel = asset::getTexelOrBlockBytesize(f);
+            const uint32_t bytesPerChannel = (getBytesPerPixel(f) * core::rational(1, getFormatChannelCount(f))).getIntegerApprox();
             switch (bytesPerChannel)
             {
             case 1u:
+#ifndef DERIV_MAP_FLOAT32
                 return asset::EF_R8G8_UNORM;
+#else
+                _IRR_FALLTHROUGH;
+#endif
             case 2u:
+#ifndef DERIV_MAP_FLOAT32
                 return asset::EF_R16G16_SFLOAT;
+#else
+                _IRR_FALLTHROUGH;
+#endif
             case 4u:
                 return asset::EF_R32G32_SFLOAT;
             case 8u:
@@ -48,7 +54,6 @@ namespace MitsubaLoader
             CBoxImageFilterKernel
         >;
 
-        constexpr float SUPPORT = 3.f;
         XDerivKernel xderiv{ DerivKernel(ReconstructionKernel()), CBoxImageFilterKernel() };
         YDerivKernel yderiv{ CBoxImageFilterKernel(), DerivKernel(ReconstructionKernel()) };
 

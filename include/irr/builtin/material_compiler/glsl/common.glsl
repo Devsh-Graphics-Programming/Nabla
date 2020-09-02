@@ -34,6 +34,14 @@ bool instr_get2ndParamTexPresence(in instr_t instr)
 {
 	return (instr.x&(1u<<INSTR_2ND_PARAM_TEX_SHIFT)) != 0u;
 }
+bool instr_get3rdParamTexPresence(in instr_t instr)
+{
+	return (instr.x&(1u<<INSTR_3RD_PARAM_TEX_SHIFT)) != 0u;
+}
+bool instr_get4thParamTexPresence(in instr_t instr)
+{
+	return (instr.x&(1u<<INSTR_4TH_PARAM_TEX_SHIFT)) != 0u;
+}
 
 bool instr_params_getAlphaUTexPresence(in instr_t instr)
 {
@@ -45,11 +53,11 @@ bool instr_params_getAlphaVTexPresence(in instr_t instr)
 }
 bool instr_params_getReflectanceTexPresence(in instr_t instr)
 {
-	return instr_get2ndParamTexPresence(instr);
+	return instr_get4thParamTexPresence(instr);
 }
 bool instr_getSigmaATexPresence(in instr_t instr)
 {
-	return instr_get2ndParamTexPresence(instr);
+	return instr_get4thParamTexPresence(instr);
 }
 bool instr_getTransmittanceTexPresence(in instr_t instr)
 {
@@ -61,7 +69,7 @@ bool instr_getWeightTexPresence(in instr_t instr)
 }
 bool instr_getOpacityTexPresence(in instr_t instr)
 {
-	return (instr.x&(1u<<INSTR_OPACITY_TEX_SHIFT)) != 0u;
+	return instr_get3rdParamTexPresence(instr);
 }
 
 bool instr_getTwosided(in instr_t instr)
@@ -86,6 +94,7 @@ uvec3 instr_decodeRegisters(in instr_t instr)
 #define REG_PREFETCH0(r) REG_DST(r)
 #define REG_PREFETCH1(r) REG_SRC1(r)
 #define REG_PREFETCH2(r) REG_SRC2(r)
+#define REG_PREFETCH3(r) (r).w
 
 bsdf_data_t fetchBSDFDataForInstr(in instr_t instr)
 {
@@ -147,22 +156,24 @@ float textureOrRconst(in uvec3 data, in bool texPresenceFlag)
 		uintBitsToFloat(data.x);
 }
 
-bvec3 instr_getTexPresence(in instr_t i)
+bvec4 instr_getTexPresence(in instr_t i)
 {
-	return bvec3(
+	return bvec4(
 		instr_get1stParamTexPresence(i),
 		instr_get2ndParamTexPresence(i),
-		instr_getOpacityTexPresence(i)
+		instr_get3rdParamTexPresence(i),
+		instr_get4thParamTexPresence(i)
 	);
 }
 params_t instr_getParameters(in instr_t i, in bsdf_data_t data)
 {
 	params_t p;
-	bvec3 presence = instr_getTexPresence(i);
+	bvec4 presence = instr_getTexPresence(i);
 	//speculatively always read RGB
 	p[0] = textureOrRGBconst(data.data[0].xyz, presence.x);
 	p[1] = textureOrRGBconst(uvec3(data.data[0].w,data.data[1].xy), presence.y);
 	p[2] = textureOrRGBconst(uvec3(data.data[1].zw,data.data[2].x), presence.z);
+	p[3] = textureOrRGBconst(data.data[2].yzw, presence.w);
 
 	return p;
 }
@@ -214,7 +225,7 @@ float params_getAlpha(in params_t p)
 }
 vec3 params_getReflectance(in params_t p)
 {
-	return p[1];
+	return p[3];
 }
 vec3 params_getOpacity(in params_t p)
 {
@@ -226,7 +237,7 @@ float params_getAlphaV(in params_t p)
 }
 vec3 params_getSigmaA(in params_t p)
 {
-	return p[1];
+	return p[3];
 }
 float params_getBlendWeight(in params_t p)
 {
@@ -296,7 +307,7 @@ void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in float DG, in para
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
-		vec3 eta = vec3(uintBitsToFloat(data.data[2].y));
+		vec3 eta = vec3(uintBitsToFloat(data.data[3].x));
 		vec3 eta2 = eta*eta;
 		vec3 refl = params_getReflectance(params);
 		float a2 = params_getAlpha(params);
@@ -315,7 +326,7 @@ void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in float DG, in para
 #ifdef OP_COATING
 void instr_execute_COATING(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
-	//vec2 thickness_eta = unpackHalf2x16(data.data[2].y);
+	//vec2 thickness_eta = unpackHalf2x16(data.data[3].x);
 	//vec3 sigmaA = params_getSigmaA(params);
 	//float a = params_getAlpha(params);
 	writeReg(REG_DST(regs), bxdf_eval_t(1.0,0.0,0.0));
@@ -359,8 +370,15 @@ uint instr_getTexFetchFlags(in instr_t i)
 	uint flags = bitfieldExtract(i.x,INSTR_FETCH_FLAG_TEX_0_SHIFT,1);
 	flags |= bitfieldExtract(i.x,INSTR_FETCH_FLAG_TEX_1_SHIFT,1)<<1;
 	flags |= bitfieldExtract(i.x,INSTR_FETCH_FLAG_TEX_2_SHIFT,1)<<2;
+	flags |= bitfieldExtract(i.x,INSTR_FETCH_FLAG_TEX_3_SHIFT,1)<<3;
 
 	return flags;
+}
+
+uvec4 instr_decodePrefetchRegs(in instr_t i)
+{
+	return 
+	(i.yyyy >> (uvec4(INSTR_PREFETCH_REG_0_SHIFT,INSTR_PREFETCH_REG_1_SHIFT,INSTR_PREFETCH_REG_2_SHIFT,INSTR_PREFETCH_REG_3_SHIFT)-32u)) & uvec4(INSTR_PREFETCH_REG_MASK);
 }
 
 void runTexPrefetchStream(in instr_stream_t stream, in mat2 dUV)
@@ -369,11 +387,12 @@ void runTexPrefetchStream(in instr_stream_t stream, in mat2 dUV)
 	{
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
 
-		uvec3 regcnt = ( instr.yyy >> (uvec3(INSTR_FETCH_TEX_0_REG_CNT_SHIFT,INSTR_FETCH_TEX_1_REG_CNT_SHIFT,INSTR_FETCH_TEX_2_REG_CNT_SHIFT)-uvec3(32)) ) & uvec3(INSTR_FETCH_TEX_REG_CNT_MASK);
+		uvec4 regcnt = 
+		( instr.yyyy >> (uvec4(INSTR_FETCH_TEX_0_REG_CNT_SHIFT,INSTR_FETCH_TEX_1_REG_CNT_SHIFT,INSTR_FETCH_TEX_2_REG_CNT_SHIFT,INSTR_FETCH_TEX_3_REG_CNT_SHIFT)-uvec4(32)) ) & uvec4(INSTR_FETCH_TEX_REG_CNT_MASK);
 		bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
 
 		uint fetchFlags = instr_getTexFetchFlags(instr);
-		uvec3 regs = instr_decodeRegisters(instr);
+		uvec4 regs = instr_decodePrefetchRegs(instr);
 #ifdef PREFETCH_TEX_0
 		if ((fetchFlags & 0x01u) == 0x01u)
 		{
@@ -439,6 +458,29 @@ void runTexPrefetchStream(in instr_stream_t stream, in mat2 dUV)
 #endif
 #ifdef PREFETCH_REG_COUNT_3
 			if (regcnt.z==3u)
+				writeReg(reg, val);
+			else
+#endif
+			{} //else "empty braces"
+		}
+#endif
+#ifdef PREFETCH_TEX_3
+		if ((fetchFlags & 0x08u) == 0x08u)
+		{
+			vec3 val = fetchTex(bsdf_data.data[2].yzw, UV, dUV);
+			uint reg = REG_PREFETCH3(regs);
+#ifdef PREFETCH_REG_COUNT_1
+			if (regcnt.w==1u)
+				writeReg(reg, val.x);
+			else
+#endif
+#ifdef PREFETCH_REG_COUNT_2
+			if (regcnt.w==2u)
+				writeReg(reg, val.xy);
+			else
+#endif
+#ifdef PREFETCH_REG_COUNT_3
+			if (regcnt.w==3u)
 				writeReg(reg, val);
 			else
 #endif

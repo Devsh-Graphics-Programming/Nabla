@@ -4,6 +4,8 @@
 #include "../../ext/MitsubaLoader/CElementBSDF.h"
 #include <irr/asset/material_compiler/IR.h>
 
+#define DERIV_MAP_FLOAT32
+
 namespace irr
 {
 namespace ext
