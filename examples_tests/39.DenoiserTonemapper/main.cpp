@@ -1025,7 +1025,20 @@ void main()
 						assert(ditheringStatus);
 					}
 					auto ditheringImage = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(ditheringBundle.getContents().begin()[0]);
-					state.ditherState = _IRR_NEW(std::remove_pointer<decltype(state.ditherState)>::type, ditheringImage.get());
+
+					ICPUImageView::SCreationParams imageViewInfo;
+					imageViewInfo.image = ditheringImage;
+					imageViewInfo.format = ditheringImage->getCreationParameters().format;
+					imageViewInfo.viewType = decltype(imageViewInfo.viewType)::ET_2D;
+					imageViewInfo.components = {};
+					imageViewInfo.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+					imageViewInfo.subresourceRange.baseArrayLayer = 0u;
+					imageViewInfo.subresourceRange.baseMipLevel = 0u;
+					imageViewInfo.subresourceRange.layerCount = ditheringImage->getCreationParameters().arrayLayers;
+					imageViewInfo.subresourceRange.levelCount = ditheringImage->getCreationParameters().mipLevels;
+
+					auto ditheringImageView = ICPUImageView::create(std::move(imageViewInfo));
+					state.ditherState = _IRR_NEW(std::remove_pointer<decltype(state.ditherState)>::type, ditheringImageView.get());
 
 					state.inImage = image.get();
 					state.outImage = newConvertedImage.get();

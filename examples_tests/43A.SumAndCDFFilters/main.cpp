@@ -267,7 +267,7 @@ int main()
 	{
 		auto outImage = core::move_and_static_cast<ICPUImage>(inImage->clone());
 
-		using DISCRETE_CONVOLUTION_BLIT_FILTER = asset::CBlitImageFilter<true,DefaultSwizzle,CWhiteNoiseDither,CDiscreteConvolutionFilterKernel,CDiscreteConvolutionFilterKernel,CBoxImageFilterKernel>;
+		using DISCRETE_CONVOLUTION_BLIT_FILTER = asset::CBlitImageFilter<false,true,DefaultSwizzle,CWhiteNoiseDither,CDiscreteConvolutionFilterKernel,CDiscreteConvolutionFilterKernel,CBoxImageFilterKernel>;
 		DISCRETE_CONVOLUTION_BLIT_FILTER blitImageFilter;
 		DISCRETE_CONVOLUTION_BLIT_FILTER::state_type state;
 		

@@ -48,7 +48,12 @@ namespace irr
 				float get(const IDither::IState* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel)
 				{
 					const auto& return_value = static_cast<CRTP*>(this)->get(static_cast<const typename CRTP::CState*>(state), pixelCoord, channel);
-					assert(return_value >= 0 && return_value <= 1, "The dither value must be limited to the range!");
+
+					#ifdef _IRR_DEBUG
+					bool status = return_value >= 0 && return_value <= 1;
+					assert(status);
+					#endif // _IRR_DEBUG
+					
 					return return_value;
 				}
 		};

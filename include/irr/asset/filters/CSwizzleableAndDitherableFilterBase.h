@@ -81,6 +81,8 @@ namespace irr
 						template<E_FORMAT format, typename Tenc>
 						void normalize(Tenc* encodeBuffer, const uint8_t& channels)
 						{
+							static_assert(!isSignedFormat<format>(), "The format musn't be a pure-integer!");
+
 							if constexpr (isSignedFormat<format>())
 								for (uint8_t channel = 0; channel < channels; ++channel)
 									encodeBuffer[channel] = (2.0 * encodeBuffer[channel] - oldMaxValue.f[channel] - oldMinValue.f[channel]) / (oldMaxValue.f[channel] - oldMinValue.f[channel]);
@@ -98,6 +100,11 @@ namespace irr
 						template<typename Tenc>
 						void normalize(const E_FORMAT& format, Tenc* encodeBuffer, const uint8_t& channels)
 						{
+							#ifdef _IRR_DEBUG
+							bool status = !isScaledFormat(format);
+							assert(status);
+							#endif // _IRR_DEBUG
+
 							if (isSignedFormat(format))
 								for (uint8_t channel = 0; channel < channels; ++channel)
 									encodeBuffer[channel] = (2.0 * encodeBuffer[channel] - oldMaxValue.f[channel] - oldMinValue.f[channel]) / (oldMaxValue.f[channel] - oldMinValue.f[channel]);
