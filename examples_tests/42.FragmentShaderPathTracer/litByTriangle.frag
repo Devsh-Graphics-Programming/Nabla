@@ -208,7 +208,7 @@ vec3 irr_glsl_sampling_generateSphericalTriangleSample(out float rcpPdf, in mat3
 
 vec4 irr_glsl_sampling_computeBilinearPatchForProjSphericalTriangle(in mat3 sphericalVertices, in vec3 receiverNormal, in bool isBSDF)
 {
-    // I don't see any problems with this being 0
+    // a positive would prevent us from a scenario where `irr_glsl_sampling_rcpProbBilinearSample` will return NAN
     const float minimumProjSolidAngle = 0.0;
 
     vec3 bxdfPdfAtVertex = transpose(sphericalVertices)*receiverNormal;
@@ -292,7 +292,8 @@ vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in vec3 origin, in vec
     #elif TRIANGLE_METHOD==2
         float rcpProb = irr_glsl_sampling_rcpProbProjectedSphericalTriangleSample(sphericalVertices,normalAtOrigin,wasBSDFAtOrigin,interaction.isotropic.V.dir);
     #endif
-    pdf /= isnan(rcpProb) ? 0.0:rcpProb;
+    // if `rcpProb` is NAN or INF then the triangle's projectedSolidAngle was close to 0.0 
+    pdf = rcpProb<=FLT_MAX ? (pdf/rcpProb):0.0;
 #endif
     return Light_getRadiance(light);
 }
