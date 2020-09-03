@@ -41,11 +41,11 @@ namespace irr {
 			typedef Snode<Value>* iteratorptr_t;
 
 		private:
+			void* reservedSpace;
 			PoolAddressAllocator<uint32_t> alloc;
 			iteratorptr_t p_begin;
 			iteratorptr_t p_end;
 			uint32_t cap;
-			void* reservedSpace;
 
 			inline void popBack()
 			{
@@ -62,7 +62,7 @@ namespace irr {
 			{
 
 				uint32_t addr = alloc.alloc_addr(1u, 1u);
-				iteratorptr_t n = new(reinterpret_cast<uint32_t>(reservedSpace) + addr) Snode(val);
+				iteratorptr_t n = new(reinterpret_cast<iteratorptr_t>(reservedSpace) + addr) Snode(val);
 				n->prev = nullptr;
 				
 				n->next = p_begin;
@@ -74,9 +74,9 @@ namespace irr {
 				p_begin = n;
 			}
 
-			inline iteratorptr_t begin() { return p_begin; }
+			inline iteratorptr_t getFirst() { return p_begin; }
 
-			inline iteratorptr_t end() { return p_end; }
+			inline iteratorptr_t getLast() { return p_end; }
 
 			inline void erase(iteratorptr_t node)
 			{
@@ -97,7 +97,10 @@ namespace irr {
 				p_begin = node;
 			}
 
-			inline DoublyLinkedList(const uint32_t& capacity): alloc(reservedSpace, 0u, 0u, (capacity - 1u), 1u, 1u), reservedSpace(malloc(sizeof(Snode<Value>)* capacity))
+			DoublyLinkedList(const uint32_t& capacity) :
+				alloc(reservedSpace, 0u,0u, (capacity-1), capacity, 1u),
+				reservedSpace(malloc(sizeof(Snode<Value>)* capacity)),
+				cap(capacity)
 			{
 				p_begin = nullptr;
 				p_end = nullptr;
