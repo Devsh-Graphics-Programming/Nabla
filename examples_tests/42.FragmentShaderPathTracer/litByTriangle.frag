@@ -118,9 +118,9 @@ vec2 irr_glsl_sampling_generateBilinearSample(out float rcpPdf, in vec4 bilinear
 
     return u;
 }
-float irr_glsl_sampling_rcpProbBilinearSample(in vec4 bilinearCoeffs, vec2 u)
+float irr_glsl_sampling_probBilinearSample(in vec4 bilinearCoeffs, vec2 u)
 {
-    return (bilinearCoeffs[0]+bilinearCoeffs[1]+bilinearCoeffs[2]+bilinearCoeffs[3])/(4.0*mix(mix(bilinearCoeffs[0],bilinearCoeffs[1],u.x),mix(bilinearCoeffs[2],bilinearCoeffs[3],u.x),u.y));
+    return 4.0*mix(mix(bilinearCoeffs[0],bilinearCoeffs[1],u.x),mix(bilinearCoeffs[2],bilinearCoeffs[3],u.x),u.y)/(bilinearCoeffs[0]+bilinearCoeffs[1]+bilinearCoeffs[2]+bilinearCoeffs[3]);
 }
 
 
@@ -240,60 +240,80 @@ vec3 irr_glsl_sampling_generateProjectedSphericalTriangleSample(out float rcpPdf
 
 
 //
-vec2 irr_glsl_sampling_generateProjectedSphericalTriangleSampleInverse(out float rcpPdf, in mat3 sphericalVertices, in vec3 L)
+vec2 irr_glsl_sampling_generateSphericalTriangleSampleInverse(out float pdf, in mat3 sphericalVertices, in vec3 L)
 {
     // for angles between view-to-vertex vectors
     float cos_a,cos_c,csc_b,csc_c;
     // Both vertices and angles at the vertices are denoted by the same upper case letters A, B, and C. The angles A, B, C of the triangle are equal to the angles between the planes that intersect the surface of the sphere or, equivalently, the angles between the tangent vectors of the great circle arcs where they meet at the vertices. Angles are in radians. The angles of proper spherical triangles are (by convention) less than PI
     vec3 cos_vertices,sin_vertices;
     // get solid angle, which is also the reciprocal of the probability
-    rcpPdf = irr_glsl_shapes_SolidAngleOfTriangle(sphericalVertices,cos_vertices,sin_vertices,cos_a,cos_c,csc_b,csc_c);
+    pdf = 1.0/irr_glsl_shapes_SolidAngleOfTriangle(sphericalVertices,cos_vertices,sin_vertices,cos_a,cos_c,csc_b,csc_c);
 
-    // get the modified B angle of the first subtriangle by getting it from the first
-    const vec2 cos_subtri_sides = vec2(dot(L,sphericalVertices[1]),dot(L,sphericalVertices[0]));
-    const float cosB_ = (cos_subtri_sides[1]-cos_a*cos_subtri_sides[0])*csc_c*inversesqrt(1.0-cos_subtri_sides[0]*cos_subtri_sides[0]);
+    // get the modified B angle of the first subtriangle by getting it from the triangle formed by vertices A,B and the light sample L
+    const float cosAngleAlongBC_s = dot(L,sphericalVertices[1]);
+    const float csc_a_ = inversesqrt(1.0-cosAngleAlongBC_s*cosAngleAlongBC_s); // only NaN if L is close to B which implies v=0
+    const float cos_b_ = dot(L,sphericalVertices[0]);
 
-    const float cosC_ = sin_vertices[0]*sin_vertices[1]*cos_c-cos_vertices[0]*cos_vertices[1];
+    const float cosB_ = (cos_b_-cosAngleAlongBC_s*cos_c)*csc_a_*csc_c; // only NaN if `csc_a_` (L close to B) is NaN OR if `csc_c` is NaN (which would mean zero solid angle triangle to begin with, so uv can be whatever)
+    const float sinB_ = sqrt(1.0-cosB_*cosB_);
+
+    // now all that remains is to obtain the modified C angle, which is the angle at the unknown vertex `C_s`
+    const float cosC_ = sin_vertices[0]*sinB_*cos_c-cos_vertices[0]*cosB_; // if cosB_ is NaN then cosC_ doesn't matter because the subtriangle has zero Solid Angle (we could pretend its `-cos_vertices[0]`)
     const float sinC_ = sqrt(1.0-cosC_*cosC_);
-    const float u = irr_glsl_getArccosSumofABC_minus_PI(cos_vertices[0],cosB_,cosC_,sin_vertices[0],sqrt(1.0-cosB_*cosB_),sinC_)/rcpPdf;
 
-    //
-    const float cosAngleAlongBC_s = cos_subtri_sides[0];
-    const float cosBC_s = (cos_vertices[0]+cosB_*cosC_)/(sin_vertices[0]*sinC_);
-    const float v = (1.0-cosAngleAlongBC_s)/(1.0-cosBC_s);
+    const float subTriSolidAngleRatio = irr_glsl_getArccosSumofABC_minus_PI(cos_vertices[0],cosB_,cosC_,sin_vertices[0],sinB_,sinC_)*pdf; // will only be NaN if either the original triangle has zero solid angle or the subtriangle has zero solid angle (all can be satisfied with u=0) 
+    const float u = subTriSolidAngleRatio>FLT_MIN ? subTriSolidAngleRatio:0.0; // tiny overruns of u>1.0 will not affect the PDF much because a bilinear warp is used and the gradient has a bound (won't be true if LTC will get used)
 
-    return vec2(isnan(u) ? 0.5:u,isnan(v) ? 0.5:v);
+    // INF if any angle is 0 degrees, which implies L lays along BA arc, if the angle at A is PI minus the angle at either B_ or C_ while the other of C_ or B_ has a zero angle, we get a NaN (which is also a zero solid angle subtriangle, implying L along AB arc)
+    const float cosBC_s = (cos_vertices[0]+cosB_*cosC_)/(sinB_*sinC_);
+    // if cosBC_s is really large then we have numerical issues (should be 1.0 which means the arc is really short), if its NaN then either the original or sub-triangle has zero solid angle, in both cases we can consider that the BC_s arc is actually the BA arc and substitute
+    const float v = (1.0-cosAngleAlongBC_s)/(1.0-(cosBC_s<uintBitsToFloat(0x3f7fffff) ? cosBC_s:cos_c));
+
+    return vec2(u,v);
 }
 
 //
-float irr_glsl_sampling_rcpProbProjectedSphericalTriangleSample(in mat3 sphericalVertices, in vec3 receiverNormal, in bool receiverWasBSDF, in vec3 L)
+float irr_glsl_sampling_probProjectedSphericalTriangleSample(in mat3 sphericalVertices, in vec3 receiverNormal, in bool receiverWasBSDF, in vec3 L)
 {
-    float rcpPdf;
-    const vec2 u = irr_glsl_sampling_generateProjectedSphericalTriangleSampleInverse(rcpPdf,sphericalVertices,L);
+    float pdf;
+    const vec2 u = irr_glsl_sampling_generateSphericalTriangleSampleInverse(pdf,sphericalVertices,L);
 
-    return rcpPdf*irr_glsl_sampling_rcpProbBilinearSample(irr_glsl_sampling_computeBilinearPatchForProjSphericalTriangle(sphericalVertices,receiverNormal,receiverWasBSDF),u);
+    return pdf*irr_glsl_sampling_probBilinearSample(irr_glsl_sampling_computeBilinearPatchForProjSphericalTriangle(sphericalVertices,receiverNormal,receiverWasBSDF),u);
 }
 // End-of @Crisspl move this to `irr/builtin/glsl/sampling/triangle.glsl`
 
 
 // the interaction here is the interaction at the illuminator-end of the ray, not the receiver
-vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in vec3 origin, in vec3 normalAtOrigin, in bool wasBSDFAtOrigin, in float intersectionT, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
+vec3 irr_glsl_light_deferred_eval_and_prob(
+    out float pdf, in Light light, in vec3 L,
+#if TRIANGLE_METHOD==0
+    in float intersectionT,
+#else
+    in vec3 origin,
+#if TRIANGLE_METHOD==2
+    in vec3 normalAtOrigin, in bool wasBSDFAtOrigin
+#endif
+#endif
+)
 {
     // we don't have to worry about solid angle of the light w.r.t. surface of the light because this function only ever gets called from closestHit routine, so such ray cannot be produced
     pdf = scene_getLightChoicePdf(light);
 
     Triangle tri = triangles[Light_getObjectID(light)];
 #if TRIANGLE_METHOD==0
-    pdf *= intersectionT*intersectionT/abs(dot(Triangle_getNormalTimesArea(tri),interaction.isotropic.V.dir));
+    pdf *= intersectionT*intersectionT/abs(dot(Triangle_getNormalTimesArea(tri),L));
 #else
     const mat3 sphericalVertices = irr_glsl_shapes_getSphericalTriangle(mat3(tri.vertex0,tri.vertex1,tri.vertex2),origin);
+    Triangle tmpTri = Triangle_Triangle(mat3(tri.vertex0,tri.vertex1,tri.vertex2),0u,0u);
     #if TRIANGLE_METHOD==1
         float rcpProb = irr_glsl_shapes_SolidAngleOfTriangle(sphericalVertices);
+        // if `rcpProb` is NAN then the triangle's solid angle was close to 0.0 
+        pdf = rcpProb>FLT_MIN ? (pdf/rcpProb):FLT_MAX;
     #elif TRIANGLE_METHOD==2
-        float rcpProb = irr_glsl_sampling_rcpProbProjectedSphericalTriangleSample(sphericalVertices,normalAtOrigin,wasBSDFAtOrigin,interaction.isotropic.V.dir);
+        pdf *= irr_glsl_sampling_probProjectedSphericalTriangleSample(sphericalVertices,normalAtOrigin,wasBSDFAtOrigin,L);
+        // if `pdf` is NAN then the triangle's projected solid angle was close to 0.0, if its close to INF then the triangle was very small
+        pdf = pdf<FLT_MAX ? pdf:0.0;
     #endif
-    // if `rcpProb` is NAN or INF then the triangle's projectedSolidAngle was close to 0.0 
-    pdf = rcpProb<=FLT_MAX ? (pdf/rcpProb):0.0;
 #endif
     return Light_getRadiance(light);
 }
@@ -329,7 +349,8 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
 #elif TRIANGLE_METHOD==2
     const vec3 L = irr_glsl_sampling_generateProjectedSphericalTriangleSample(rcpPdf,sphericalVertices,interaction.isotropic.N,isBSDF,u.xy);
 #endif
-    rcpPdf = isnan(rcpPdf) ? 0.0:rcpPdf;
+    // if `rcpProb` is NAN or negative then the triangle's solidAngle or projectedSolidAngle was close to 0.0 
+    rcpPdf = rcpPdf>FLT_MIN ? rcpPdf:0.0;
 
     const vec3 N = Triangle_getNormalTimesArea(tri);
     const float dist = dot(N,tri.vertex0-origin)/dot(N,L);
@@ -382,7 +403,17 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
     if (lightID!=INVALID_ID_16BIT) // has emissive
     {
         float lightPdf;
-        vec3 lightVal = irr_glsl_light_deferred_eval_and_prob(lightPdf,_immutable.origin,_immutable.normalAtOrigin,_immutable.wasBSDFAtOrigin,mutable.intersectionT,interaction,lights[lightID]);
+        vec3 lightVal = irr_glsl_light_deferred_eval_and_prob(
+            lightPdf,lights[lightID],_immutable.direction,
+        #if TRIANGLE_METHOD==0
+            mutable.intersectionT,
+        #else
+            _immutable.origin,
+        #if TRIANGLE_METHOD==2
+            _immutable.normalAtOrigin,_immutable.wasBSDFAtOrigin
+        #endif
+        #endif
+        );
         rayStack[stackPtr]._payload.accumulation += throughput*lightVal/(1.0+lightPdf*lightPdf*rayStack[stackPtr]._payload.otherTechniqueHeuristic);
     }
     

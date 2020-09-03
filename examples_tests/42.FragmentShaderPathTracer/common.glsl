@@ -1,6 +1,6 @@
 // basic settings
 #define MAX_DEPTH 2
-#define SAMPLES 128
+#define SAMPLES 512
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -177,9 +177,10 @@ mat2x3 BSDFNode_getEta(in BSDFNode node)
 
 float BSDFNode_getMISWeight(in BSDFNode bsdf)
 {
+    return 0.5;
     const float alpha = BSDFNode_getRoughness(bsdf);
     const bool notDiffuse = BSDFNode_isNotDiffuse(bsdf);
-    const float DIFFUSE_MIS_WEIGHT = 0.0;
+    const float DIFFUSE_MIS_WEIGHT = 0.5;
     return notDiffuse ? mix(1.0,DIFFUSE_MIS_WEIGHT,alpha):DIFFUSE_MIS_WEIGHT; // TODO: test alpha*alpha
 }
 
