@@ -4,6 +4,7 @@
 #include <irrlicht.h>
 
 #include "CommandLineHandler.hpp"
+#include "irr/asset/filters/dithering/CPrecomputedDither.h"
 
 #include "../ext/ToneMapper/CToneMapper.h"
 #include "../../ext/OptiX/Manager.h"
@@ -991,8 +992,9 @@ void main()
 
 			auto getConvertedPNGImageView = [&](core::smart_refctd_ptr<ICPUImage> image)
 			{
+				//constexpr auto IN_FORMAT = EF_R16G16B16A16_SFLOAT;
 				constexpr auto pngFormat = EF_R8G8B8_SRGB;
-				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_UNKNOWN, pngFormat, true, asset::CPrecomputedDither>;
+				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_UNKNOWN, pngFormat, false, true, asset::CPrecomputedDither>;
 
 				core::smart_refctd_ptr<ICPUImage> newConvertedImage;
 				{
@@ -1015,7 +1017,7 @@ void main()
 					CONVERSION_FILTER convertFilter;
 					CONVERSION_FILTER::state_type state;
 					
-					auto ditheringBundle = am->getAsset("../../media/blueNoiseDithering/HDR_RGBA.exr", {});
+					auto ditheringBundle = am->getAsset("../../media/blueNoiseDithering/LDR_RGBA.png", {});
 					const auto ditheringStatus = ditheringBundle.isEmpty();
 					if (ditheringStatus)
 					{
@@ -1023,7 +1025,20 @@ void main()
 						assert(ditheringStatus);
 					}
 					auto ditheringImage = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(ditheringBundle.getContents().begin()[0]);
-					state.ditherState = _IRR_NEW(std::remove_pointer<decltype(state.ditherState)>::type, ditheringImage.get());
+
+					ICPUImageView::SCreationParams imageViewInfo;
+					imageViewInfo.image = ditheringImage;
+					imageViewInfo.format = ditheringImage->getCreationParameters().format;
+					imageViewInfo.viewType = decltype(imageViewInfo.viewType)::ET_2D;
+					imageViewInfo.components = {};
+					imageViewInfo.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+					imageViewInfo.subresourceRange.baseArrayLayer = 0u;
+					imageViewInfo.subresourceRange.baseMipLevel = 0u;
+					imageViewInfo.subresourceRange.layerCount = ditheringImage->getCreationParameters().arrayLayers;
+					imageViewInfo.subresourceRange.levelCount = ditheringImage->getCreationParameters().mipLevels;
+
+					auto ditheringImageView = ICPUImageView::create(std::move(imageViewInfo));
+					state.ditherState = _IRR_NEW(std::remove_pointer<decltype(state.ditherState)>::type, ditheringImageView.get());
 
 					state.inImage = image.get();
 					state.outImage = newConvertedImage.get();

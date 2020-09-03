@@ -114,6 +114,7 @@ public:
         asset::CPaddedCopyImageFilter::execute(&copy);
 
         using mip_gen_filter_t = asset::CMipMapGenerationImageFilter<
+            false, false, VoidSwizzle, IdentityDither,
             asset::CBoxImageFilterKernel, asset::CBoxImageFilterKernel,
             asset::CBoxImageFilterKernel, asset::CBoxImageFilterKernel,
             asset::CBoxImageFilterKernel, asset::CBoxImageFilterKernel

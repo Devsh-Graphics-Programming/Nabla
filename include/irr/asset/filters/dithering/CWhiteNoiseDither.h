@@ -1,8 +1,6 @@
 // This file is part of the "IrrlichtBAW" engine.
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
-#if 0 // TODO
-
 #ifndef __IRR_C_WHITE_NOISE_DITHER_H_INCLUDED__
 #define __IRR_C_WHITE_NOISE_DITHER_H_INCLUDED__
 
@@ -12,13 +10,18 @@ namespace irr
 {
 	namespace asset
 	{
+		//! A class to apply dithering to an image using wang hash function
+		/*
+			The wang hash function has quite similar distribution to white noise.
+		*/
+
 		class CWhiteNoiseDither : public CDither<CWhiteNoiseDither>
 		{
 			public:
 				CWhiteNoiseDither() {}
 				virtual ~CWhiteNoiseDither() {}
 
-				class CState
+				class CState : public CDither::CState
 				{
 					public:
 						CState() {}
@@ -29,12 +32,24 @@ namespace irr
 
 				static float get(const state_type* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel)
 				{
-					// TODO: to define in future
+					auto getWangHash = [&]()
+					{
+						using REQUIRED_TYPE = uint32_t;
+						REQUIRED_TYPE seed = ((channel * uint8_t(~0) + pixelCoord.z) * uint8_t(~0) + pixelCoord.y) * uint8_t(~0) + pixelCoord.x;
+
+						seed = (seed ^ 61) ^ (seed >> 16);
+						seed *= 9;
+						seed = seed ^ (seed >> 4);
+						seed *= 0x27d4eb2d;
+						seed = seed ^ (seed >> 15);
+						return seed;
+					};
+					
+					const auto hash = static_cast<float>(getWangHash());
+					return hash / float(~0u);
 				}
 		};
 	}
 }
 
 #endif // __IRR_C_WHITE_NOISE_DITHER_H_INCLUDED__
-
-#endif // TODO
