@@ -48,7 +48,9 @@ namespace MitsubaLoader
         using DerivKernel = CDerivativeImageFilterKernel<ReconstructionKernel>;
         using XDerivKernel = CChannelIndependentImageFilterKernel<DerivKernel, CBoxImageFilterKernel>;
         using YDerivKernel = CChannelIndependentImageFilterKernel<CBoxImageFilterKernel, DerivKernel>;
-        using DerivativeMapFilter = CBlitImageFilter<
+        using DerivativeMapFilter = CBlitImageFilter
+        <
+            false, false, DefaultSwizzle, IdentityDither, // (Criss, look at impl::CSwizzleAndConvertImageFilterBase)
             XDerivKernel,
             YDerivKernel,
             CBoxImageFilterKernel
@@ -59,10 +61,8 @@ namespace MitsubaLoader
 
         using swizzle_t = asset::ICPUImageView::SComponentMapping;
         DerivativeMapFilter::state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());
-        state.defaultSwizzle.swizzle.r = swizzle_t::ES_R;
-        state.defaultSwizzle.swizzle.g = swizzle_t::ES_R;
-        state.defaultSwizzle.swizzle.b = swizzle_t::ES_R;
-        state.defaultSwizzle.swizzle.a = swizzle_t::ES_R;
+
+        state.swizzle = { swizzle_t::ES_R, swizzle_t::ES_R, swizzle_t::ES_R, swizzle_t::ES_R };
 
         const auto& inParams = _inImg->getCreationParameters();
         auto outParams = inParams;

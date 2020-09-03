@@ -51,7 +51,6 @@ class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<No
 				E_ALPHA_SEMANTIC					alphaSemantic = EAS_NONE_OR_PREMULTIPLIED;
 				double								alphaRefValue = 0.5; // only required to make sense if `alphaSemantic==EAS_REFERENCE_OR_COVERAGE`
 				uint32_t							alphaChannel = 3u; // index of the alpha channel (could be different cause of swizzles)
-				asset::DefaultSwizzle				defaultSwizzle;
 		};
 
 	protected:
