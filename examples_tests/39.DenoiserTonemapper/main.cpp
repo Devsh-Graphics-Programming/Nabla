@@ -990,11 +990,9 @@ void main()
 				am->writeAsset(outputFileBundle[i].value().c_str(), wp);
 			}
 
-			auto getConvertedPNGImageView = [&](core::smart_refctd_ptr<ICPUImage> image)
+			auto getConvertedImageView = [&](core::smart_refctd_ptr<ICPUImage> image, const E_FORMAT& outFormat)
 			{
-				//constexpr auto IN_FORMAT = EF_R16G16B16A16_SFLOAT;
-				constexpr auto pngFormat = EF_R8G8B8_SRGB;
-				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_UNKNOWN, pngFormat, false, true, asset::CPrecomputedDither>;
+				using CONVERSION_FILTER = CConvertFormatImageFilter<EF_UNKNOWN, EF_UNKNOWN, false, true, asset::CPrecomputedDither>;
 
 				core::smart_refctd_ptr<ICPUImage> newConvertedImage;
 				{
@@ -1002,7 +1000,7 @@ void main()
 					auto referenceBuffer = image->getBuffer();
 					auto referenceRegions = image->getRegions();
 					auto referenceRegion = referenceRegions.begin();
-					const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(pngFormat);
+					const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(outFormat);
 
 					auto newImageParams = referenceImageParams;
 					auto newCpuBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(referenceRegion->getExtent().width * referenceRegion->getExtent().height * referenceRegion->getExtent().depth * newTexelOrBlockByteSize);
@@ -1010,7 +1008,7 @@ void main()
 
 					*newRegions->begin() = *referenceRegion;
 
-					newImageParams.format = pngFormat;
+					newImageParams.format = outFormat;
 					newConvertedImage = ICPUImage::create(std::move(newImageParams));
 					newConvertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
 
@@ -1072,18 +1070,18 @@ void main()
 				return newImageView;
 			};
 
-			// convert to .PNG and save it as well 
+			// convert to EF_R8G8B8_SRGB and save it as .png and .jpg
 			{
-				auto newImageView = getConvertedPNGImageView(imageView->getCreationParameters().image);
+				auto newImageView = getConvertedImageView(imageView->getCreationParameters().image, EF_R8G8B8_SRGB);
 				IAssetWriter::SAssetWriteParams wp(newImageView.get());
 				std::string fileName = outputFileBundle[i].value().c_str();
 
 				while (fileName.back() != '.')
 					fileName.pop_back();
 
-				fileName += "png";
-
-				am->writeAsset(fileName, wp);
+				const std::string& nonFormatFileName = fileName;
+				am->writeAsset(nonFormatFileName + "png", wp);
+				am->writeAsset(nonFormatFileName + "jpg", wp);
 			}
 
 			// destroy link to CPUBuffer's data (we need to free it)
