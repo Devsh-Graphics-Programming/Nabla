@@ -17,7 +17,6 @@
 #include "COBJMeshFileLoader.h"
 
 
-
 namespace irr
 {
 namespace asset
@@ -51,9 +50,8 @@ static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAsse
 
 static const uint32_t WORD_BUFFER_LENGTH = 512;
 
-constexpr const char* DUMMY_PIPELINE_UV_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/obj/dummy_uv";
-constexpr const char* DUMMY_PIPELINE_NO_UV_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/obj/dummy_no_uv";
-
+constexpr const char* MISSING_MTL_PIPELINE_NO_UV_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mtl/missing_material_pipeline_no_uv";
+constexpr const char* MISSING_MTL_PIPELINE_UV_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mtl/missing_material_pipeline_uv";
 constexpr uint32_t POSITION = 0u;
 constexpr uint32_t UV = 2u;
 constexpr uint32_t NORMAL = 3u;
@@ -62,46 +60,6 @@ constexpr uint32_t BND_NUM = 0u;
 //! Constructor
 COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager* _manager) : AssetManager(_manager), FileSystem(_manager->getFileSystem())
 {
-	SVertexInputParams vtxParams;
-	vtxParams.enabledAttribFlags = (1u << POSITION) | (1u << NORMAL);
-	vtxParams.enabledBindingFlags = 1u << BND_NUM;
-	vtxParams.bindings[BND_NUM].stride = sizeof(SObjVertex);
-	vtxParams.bindings[BND_NUM].inputRate = EVIR_PER_VERTEX;
-	//position
-	vtxParams.attributes[POSITION].binding = BND_NUM;
-	vtxParams.attributes[POSITION].format = EF_R32G32B32_SFLOAT;
-	vtxParams.attributes[POSITION].relativeOffset = offsetof(SObjVertex, pos);
-	//normal
-	vtxParams.attributes[NORMAL].binding = BND_NUM;
-	vtxParams.attributes[NORMAL].format = EF_A2B10G10R10_SNORM_PACK32;
-	vtxParams.attributes[NORMAL].relativeOffset = offsetof(SObjVertex, normal32bit);
-
-	//creating dummy pipelines (i.e. without layout and shaders and all params default except vertex input)
-	//for when there's no material for meshbuffer
-	//2 variations: with and without UV attribute
-	auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
-		nullptr, nullptr, nullptr,
-		vtxParams,
-		SBlendParams(),
-		SPrimitiveAssemblyParams(),
-		SRasterizationParams()
-	);
-	insertPipelineIntoCache(std::move(pipeline), DUMMY_PIPELINE_NO_UV_CACHE_KEY, AssetManager);
-
-	//uv
-    vtxParams.enabledAttribFlags |= (1u << UV);
-    vtxParams.attributes[UV].binding = BND_NUM;
-    vtxParams.attributes[UV].format = EF_R32G32_SFLOAT;
-    vtxParams.attributes[UV].relativeOffset = offsetof(SObjVertex, uv);
-
-	pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
-		nullptr, nullptr, nullptr,
-		vtxParams,
-		SBlendParams(),
-		SPrimitiveAssemblyParams(),
-		SRasterizationParams()
-		);
-	insertPipelineIntoCache(std::move(pipeline), DUMMY_PIPELINE_UV_CACHE_KEY, AssetManager);
 }
 
 
@@ -458,11 +416,18 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			//if there's no pipeline for this meshbuffer, set dummy one
 			if (!submeshes[i]->getPipeline())
 			{
-				auto pipeline = getDefaultAsset<ICPURenderpassIndependentPipeline, IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE>(
-					hasUV ? DUMMY_PIPELINE_UV_CACHE_KEY : DUMMY_PIPELINE_NO_UV_CACHE_KEY,
-					AssetManager
+				auto pipeline = getDefaultAsset<ICPURenderpassIndependentPipeline, IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE>(hasUV? MISSING_MTL_PIPELINE_UV_CACHE_KEY: MISSING_MTL_PIPELINE_NO_UV_CACHE_KEY, AssetManager);
+				const CMTLPipelineMetadata* metadata = static_cast<const CMTLPipelineMetadata*>(pipeline->getMetadata());
+				auto ds3 = core::smart_refctd_ptr<ICPUDescriptorSet>(metadata->getDescriptorSet());
+				const uint32_t pcoffset = pipeline->getLayout()->getPushConstantRanges().begin()[0].offset;
+				submeshes[i]->setAttachedDescriptorSet(std::move(ds3));
+				memcpy(
+					submeshes[i]->getPushConstantsDataPtr() + pcoffset,
+					&metadata->getMaterialParams(),
+					sizeof(CMTLPipelineMetadata::SMTLMaterialParameters)
 				);
 				submeshes[i]->setPipeline(std::move(pipeline));
+
 			}
         }
 

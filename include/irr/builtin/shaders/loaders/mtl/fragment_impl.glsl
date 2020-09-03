@@ -209,8 +209,11 @@ vec3 irr_computeLighting(out irr_glsl_IsotropicViewSurfaceInteraction out_intera
 
 void main()
 {
+#ifndef _NO_UV
     mat2 dUV = mat2(dFdx(UV), dFdy(UV));    
-
+#else
+    mat2 dUV = mat2(vec2(0,0),vec2(0,0));    
+#endif
     irr_glsl_IsotropicViewSurfaceInteraction interaction;
     vec3 color = irr_computeLighting(interaction, dUV);
 
