@@ -17,15 +17,13 @@ Sphere spheres[SPHERE_COUNT] = {
 };
 #define TRIANGLE_COUNT 1
 Triangle triangles[TRIANGLE_COUNT] = {
-    //Triangle_Triangle(mat3(vec3(-1.8,0.35,0.3),vec3(-1.2,0.35,0.0),vec3(-1.5,0.8,-0.3)),INVALID_ID_16BIT,0u)
-    Triangle_Triangle(mat3(vec3(-4,0.7,-4),vec3(0.0,0.7,0.0),vec3(-4.0,0.8,4.0)),INVALID_ID_16BIT,0u)
+    Triangle_Triangle(mat3(vec3(-1.8,0.35,0.3),vec3(-1.2,0.35,0.0),vec3(-1.5,0.8,-0.3)),INVALID_ID_16BIT,0u)
 };
 
 
 #define LIGHT_COUNT 1
 Light lights[LIGHT_COUNT] = {
-    //{vec3(30.0,25.0,15.0),0u}
-    {vec3(30.0,25.0,15.0)*0.01,0u}
+    {vec3(30.0,25.0,15.0),0u}
 };
 
 
@@ -285,13 +283,13 @@ float irr_glsl_sampling_probProjectedSphericalTriangleSample(in mat3 sphericalVe
 
 // the interaction here is the interaction at the illuminator-end of the ray, not the receiver
 vec3 irr_glsl_light_deferred_eval_and_prob(
-    out float pdf, in Light light, in vec3 L,
+    out float pdf, in Light light, in vec3 L
 #if TRIANGLE_METHOD==0
-    in float intersectionT,
+    ,in float intersectionT
 #else
-    in vec3 origin,
+    ,in vec3 origin
 #if TRIANGLE_METHOD==2
-    in vec3 normalAtOrigin, in bool wasBSDFAtOrigin
+    ,in vec3 normalAtOrigin, in bool wasBSDFAtOrigin
 #endif
 #endif
 )
@@ -404,13 +402,13 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
     {
         float lightPdf;
         vec3 lightVal = irr_glsl_light_deferred_eval_and_prob(
-            lightPdf,lights[lightID],_immutable.direction,
+            lightPdf,lights[lightID],_immutable.direction
         #if TRIANGLE_METHOD==0
-            mutable.intersectionT,
+            ,mutable.intersectionT
         #else
-            _immutable.origin,
+            ,_immutable.origin
         #if TRIANGLE_METHOD==2
-            _immutable.normalAtOrigin,_immutable.wasBSDFAtOrigin
+            ,_immutable.normalAtOrigin,_immutable.wasBSDFAtOrigin
         #endif
         #endif
         );

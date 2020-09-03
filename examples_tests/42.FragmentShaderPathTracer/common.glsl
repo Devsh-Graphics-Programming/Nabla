@@ -1,6 +1,6 @@
 // basic settings
-#define MAX_DEPTH 2
-#define SAMPLES 512
+#define MAX_DEPTH 8
+#define SAMPLES 16
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -177,7 +177,6 @@ mat2x3 BSDFNode_getEta(in BSDFNode node)
 
 float BSDFNode_getMISWeight(in BSDFNode bsdf)
 {
-    return 0.5;
     const float alpha = BSDFNode_getRoughness(bsdf);
     const bool notDiffuse = BSDFNode_isNotDiffuse(bsdf);
     const float DIFFUSE_MIS_WEIGHT = 0.5;
@@ -312,7 +311,7 @@ void missProgram()
 	        vec2 uv = SampleSphericalMap(rayStack[stackPtr]._immutable.direction);
             finalContribution *= textureLod(envMap, uv, 0.0).rgb;
         #else
-        const vec3 kConstantEnvLightRadiance = vec3(0.0);// 0.15, 0.21, 0.3);
+        const vec3 kConstantEnvLightRadiance = vec3(0.15, 0.21, 0.3);
             finalContribution *= kConstantEnvLightRadiance;
         #endif
     }
