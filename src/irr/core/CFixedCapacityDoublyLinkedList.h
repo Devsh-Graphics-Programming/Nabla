@@ -41,7 +41,7 @@ namespace irr {
 			typedef Snode<Value>* iteratorptr_t;
 
 		private:
-			PoolAddressAllocator<uint32_t>* alloc;
+			PoolAddressAllocator<uint32_t> alloc;
 			iteratorptr_t p_begin;
 			iteratorptr_t p_end;
 			uint32_t cap;
@@ -60,8 +60,9 @@ namespace irr {
 
 			inline void pushFront(Value &val) 
 			{
+
 				uint32_t addr = alloc.alloc_addr(1u, 1u);
-				iteratorptr_t n = new(addr) Snode(val);
+				iteratorptr_t n = new(reinterpret_cast<uint32_t>(reservedSpace) + addr) Snode(val);
 				n->prev = nullptr;
 				
 				n->next = p_begin;
@@ -96,10 +97,8 @@ namespace irr {
 				p_begin = node;
 			}
 
-			inline DoublyLinkedList(const uint32_t& capacity)
+			inline DoublyLinkedList(const uint32_t& capacity): alloc(reservedSpace, 0u, 0u, (capacity - 1u), 1u, 1u), reservedSpace(malloc(sizeof(Snode<Value>)* capacity))
 			{
-				reservedSpace = malloc(sizeof(Snode<Value>) * capacity);
-				alloc = new PoolAddressAllocator<uint32_t>(reservedSpace, 0u, 0u, (capacity - 1u), 1u, 1u);
 				p_begin = nullptr;
 				p_end = nullptr;
 			}
