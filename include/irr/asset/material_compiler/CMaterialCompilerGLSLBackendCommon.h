@@ -424,6 +424,7 @@ public:
 		bool noPrefetchStream;
 		bool noNormPrecompStream;
 		bool allIsotropic;
+		bool noTwosided;
 		uint32_t usedRegisterCount;
 		uint32_t globalPrefetchFlags;
 		uint32_t globalPrefetchRegCountFlags;

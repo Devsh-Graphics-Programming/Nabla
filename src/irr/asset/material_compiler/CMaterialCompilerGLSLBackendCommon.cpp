@@ -1125,6 +1125,8 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 		defs += "\n#define NORM_PRECOMP_STREAM";
 	if (_res.allIsotropic)
 		defs += "\n#define ALL_ISOTROPIC_BXDFS";
+	if (_res.noTwosided)
+		defs += "\n#define NO_TWOSIDED";
 
 	//instruction bitfields
 	defs += "\n#define INSTR_OPCODE_MASK " + std::to_string(INSTR_OPCODE_MASK);
@@ -1345,12 +1347,16 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 	};
 
 	res.allIsotropic = true;
+	res.noTwosided = true;
 	for (const auto& e : res.streams)
 	{
 		const result_t::instr_streams_t& streams = e.second;
 		for (uint32_t i = 0u; i < streams.rem_and_pdf.count; ++i) {
 			const uint32_t first = streams.rem_and_pdf.first;
 			const instr_t instr = res.instructions[first+i];
+
+			const bool ts = core::bitfieldExtract(instr, BITFIELDS_SHIFT_TWOSIDED, 1);
+			res.noTwosided = res.noTwosided && !ts;
 
 			const E_OPCODE op = instr_stream::getOpcode(instr);
 			const E_NDF ndf = instr_stream::getNDF(instr);

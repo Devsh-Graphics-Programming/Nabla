@@ -144,10 +144,13 @@ void instr_eval_execute(in instr_t instr, in vec3 L)
 
 bxdf_eval_t runEvalStream(in instr_stream_t stream, in vec3 L)
 {
+#ifndef NO_TWOSIDED
 	bool ts = false;
+#endif
 	for (uint i = 0u; i < stream.count; ++i)
 	{
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
+#ifndef NO_TWOSIDED
 #ifdef OP_BUMPMAP
 		ts = instr_getOpcode(instr)==OP_BUMPMAP ? false:ts;
 #endif
@@ -171,6 +174,7 @@ bxdf_eval_t runEvalStream(in instr_stream_t stream, in vec3 L)
 				currBSDFParams.BdotH = -currBSDFParams.BdotH;
 			}
 		}
+#endif
 		instr_eval_execute(instr, L);
 	}
 	return readReg3(0u);//result is always in regs 0,1,2
