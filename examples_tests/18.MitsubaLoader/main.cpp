@@ -28,20 +28,43 @@ layout (set = 2, binding = 0, std430) readonly restrict buffer Lights
 {
 	SLight lights[];
 };
+layout(set = 2, binding = 1) uniform sampler2D envMap;
+
+vec2 SampleSphericalMap(in vec3 v)
+{
+    vec2 uv = vec2(atan(v.z, v.x), asin(v.y));
+    uv *= irr_glsl_RECIPROCAL_PI*0.5;
+    uv += 0.5; 
+    return uv;
+}
 
 vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
 	vec3 emissive = irr_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
-	irr_glsl_BSDFIsotropicParams params;
 	vec3 color = vec3(0.0);
-	for (int i = 0; i < 132; ++i)
+/*
+	instr_stream_t gcs = getGenChoiceStream();
+	const int N = 100;
+	for (int i = 0; i < N; ++i)
+	{
+		vec3 rem;
+		vec2 rand;//TODO
+		vec3 L = runGeneratorChoiceStream(gcs, rand, rem);
+		vec2 uv = SampleSphericalMap(L);
+		color += rem*textureLod(envMap, uv, 0.0).xyz;
+	}
+*/
+	irr_glsl_BSDFIsotropicParams params;
+	for (int i = 0; i < 13; ++i)
 	{
 		SLight l = lights[i];
 		vec3 L = l.position-WorldPos;
 		params.L = L;
-		color += irr_bsdf_cos_eval(params, out_interaction, dUV)*l.intensity*4.0 / dot(L,L);
+#define INTENSITY 0.01 //ehh might want to render to hdr fbo and do tonemapping
+		color += irr_bsdf_cos_eval(params, out_interaction, dUV)*l.intensity*INTENSITY / dot(L,L);
 	}
+
 	return color+emissive;
 }
 )";
@@ -63,6 +86,33 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragSh
 
     return fsNew;
 }
+
+static auto createGPUImageView(const std::string& path, asset::IAssetManager* am, video::IVideoDriver* driver)
+{
+	using namespace asset;
+	using namespace video;
+
+	IAssetLoader::SAssetLoadParams lp(0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES);
+	auto cpuTexture = am->getAsset(path, lp);
+	auto cpuTextureContents = cpuTexture.getContents();
+
+	auto asset = *cpuTextureContents.begin();
+	auto cpuimg = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
+
+	IGPUImageView::SCreationParams viewParams;
+	viewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
+	viewParams.image = driver->getGPUObjectsFromAssets(&cpuimg.get(),&cpuimg.get()+1u)->front();
+	viewParams.format = viewParams.image->getCreationParameters().format;
+	viewParams.viewType = IImageView<IGPUImage>::ET_2D;
+	viewParams.subresourceRange.baseArrayLayer = 0u;
+	viewParams.subresourceRange.layerCount = 1u;
+	viewParams.subresourceRange.baseMipLevel = 0u;
+	viewParams.subresourceRange.levelCount = viewParams.image->getCreationParameters().mipLevels;
+
+	auto gpuImageView = driver->createGPUImageView(std::move(viewParams));
+
+	return gpuImageView;
+};
 
 #include "irr/irrpack.h"
 //std430-compatible
@@ -190,17 +240,27 @@ int main()
 
 
 	video::IVideoDriver* driver = device->getVideoDriver();
+	asset::IAssetManager* am = device->getAssetManager();
 
 	core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds2layout;
 	{
-		asset::ICPUDescriptorSetLayout::SBinding bnd;
-		bnd.binding = 0u;
-		bnd.count = 1u;
-		bnd.samplers = nullptr;
-		bnd.stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-		bnd.type = asset::EDT_STORAGE_BUFFER;
+		asset::ICPUDescriptorSetLayout::SBinding bnd[2];
+		bnd[0].binding = 0u;
+		bnd[0].count = 1u;
+		bnd[0].samplers = nullptr;
+		bnd[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		bnd[0].type = asset::EDT_STORAGE_BUFFER;
 
-		ds2layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
+		using namespace asset;
+		ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+		auto smplr = core::make_smart_refctd_ptr<asset::ICPUSampler>(samplerParams);
+		bnd[1].binding = 1u;
+		bnd[1].count = 1u;
+		bnd[1].samplers = &smplr;
+		bnd[1].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		bnd[1].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+
+		ds2layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bnd, bnd + 2);
 	}
 
 	//gather all meshes into core::vector and modify their pipelines
@@ -363,23 +423,35 @@ int main()
         write.info = &info;
         driver->updateDescriptorSets(1u, &write, 0u, nullptr);
     }
+
 	auto gpuds2layout = driver->getGPUObjectsFromAssets(&ds2layout.get(), &ds2layout.get()+1)->front();
 	auto gpuds2 = driver->createGPUDescriptorSet(std::move(gpuds2layout));
 	{
-		video::IGPUDescriptorSet::SDescriptorInfo info;
-		video::IGPUDescriptorSet::SWriteDescriptorSet w;
-		w.arrayElement = 0u;
-		w.binding = 0u;
-		w.count = 1u;
-		w.descriptorType = asset::EDT_STORAGE_BUFFER;
-		w.dstSet = gpuds2.get();
-		w.info = &info;
+		video::IGPUDescriptorSet::SDescriptorInfo info[2];
+		video::IGPUDescriptorSet::SWriteDescriptorSet w[2];
+		w[0].arrayElement = 0u;
+		w[0].binding = 0u;
+		w[0].count = 1u;
+		w[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+		w[0].dstSet = gpuds2.get();
+		w[0].info = info+0;
 		auto lightsBuf = driver->createFilledDeviceLocalGPUBufferOnDedMem(lights.size()*sizeof(SLight), lights.data());
-		info.buffer.offset = 0u;
-		info.buffer.size = lightsBuf->getSize();
-		info.desc = std::move(lightsBuf);
+		info[0].buffer.offset = 0u;
+		info[0].buffer.size = lightsBuf->getSize();
+		info[0].desc = std::move(lightsBuf);
 
-		driver->updateDescriptorSets(1u, &w, 0u, nullptr);
+		w[1].arrayElement = 0u;
+		w[1].binding = 1u;
+		w[1].count = 1u;
+		w[1].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
+		w[1].dstSet = gpuds2.get();
+		w[1].info = info+1;
+		auto gpuEnvmapImageView = createGPUImageView("../../media/envmap/envmap_0.exr", am, driver);
+		info[1].image.imageLayout = asset::EIL_UNDEFINED;
+		info[1].image.sampler = nullptr;
+		info[1].desc = std::move(gpuEnvmapImageView);
+
+		driver->updateDescriptorSets(2u, w, 0u, nullptr);
 	}
 
 	// camera and viewport
@@ -401,7 +473,7 @@ int main()
 		viewport = core::recti(core::position2di(film.cropOffsetX,film.cropOffsetY), core::position2di(film.cropWidth,film.cropHeight));
 
 		auto extent = sceneBound.getExtent();
-		camera = smgr->addCameraSceneNodeFPS(nullptr,100.f,core::min(extent.X,extent.Y,extent.Z)*0.00001f);
+		camera = smgr->addCameraSceneNodeFPS(nullptr,100.f,core::min(extent.X,extent.Y,extent.Z)*0.0001f);
 		// need to extract individual components
 		bool leftHandedCamera = false;
 		{

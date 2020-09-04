@@ -989,7 +989,7 @@ instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTrav
 				IR::INode::children_array_t next2;
 				instr_t instr2;
 				std::tie(instr2, node) = processSubtree(*it, thin, next2);
-				pushedCount += push(instr2, node, next2, top.instr, it == top.children.begin() + 1 ? currIx : INVALID_INDEX);
+				pushedCount += push(instr2, node, next2, top.instr, it == top.children.begin()+1 ? currIx : INVALID_INDEX);
 			}
 			_IRR_DEBUG_BREAK_IF(pushedCount>2ull);
 		}
@@ -997,6 +997,8 @@ instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTrav
 
 	//remove NOOPs
 	filterNOOPs(traversal);
+	if (getOpcode(traversal.front())!=OP_BUMPMAP)
+		traversal.insert(traversal.begin(), OP_SET_GEOM_NORMAL);
 
 	_out_usedRegs = 0u;
 
@@ -1116,8 +1118,7 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	if (_res.NDFs.size()==1ull)
 		defs += "\n#define ONLY_ONE_NDF";
 
-	constexpr size_t size_of_uvec4 = 16ull;
-	defs += "\n#define sizeof_bsdf_data " + std::to_string((sizeof(SBSDFUnion)+size_of_uvec4-1u)/size_of_uvec4);
+	defs += "\n#define sizeof_bsdf_data " + std::to_string((sizeof(SBSDFUnion)+instr_stream::sizeof_uvec4-1u)/instr_stream::sizeof_uvec4);
 
 	if (!_res.noPrefetchStream)
 		defs += "\n#define TEX_PREFETCH_STREAM";
@@ -1158,6 +1159,13 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 		defs += "\n#define INSTR_REG_SRC1_SHIFT " + std::to_string(INSTR_REG_SRC1_SHIFT);
 		defs += "\n#define INSTR_REG_SRC2_SHIFT " + std::to_string(INSTR_REG_SRC2_SHIFT);
 	}
+	//gen_choice
+	{
+		using namespace gen_choice;
+
+		defs += "\n#define INSTR_RIGHT_JUMP_SHIFT " + std::to_string(INSTR_RIGHT_JUMP_SHIFT);
+		defs += "\n#define INSTR_RIGHT_JUMP_WIDTH " + std::to_string(INSTR_RIGHT_JUMP_WIDTH);
+	}
 	//tex_prefetch
 	{
 		using namespace tex_prefetch;
@@ -1194,6 +1202,18 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 		if (core::bitfieldExtract(_res.globalPrefetchFlags, BITFIELDS_FETCH_TEX_3_SHIFT, 1))
 			defs += "\n#define PREFETCH_TEX_3";
 	}
+
+	//parameter numbers
+	{
+		defs += "\n#define PARAMS_ALPHA_U_IX " + std::to_string(ALPHA_U_TEX_IX);
+		defs += "\n#define PARAMS_ALPHA_V_IX " + std::to_string(ALPHA_V_TEX_IX);
+		defs += "\n#define PARAMS_REFLECTANCE_IX " + std::to_string(REFLECTANCE_TEX_IX);
+		defs += "\n#define PARAMS_TRANSMITTANCE_IX " + std::to_string(TRANSMITTANCE_TEX_IX);
+		defs += "\n#define PARAMS_SIGMA_A_IX " + std::to_string(SIGMA_A_TEX_IX);
+		defs += "\n#define PARAMS_WEIGHT_IX " + std::to_string(WEIGHT_TEX_IX);
+		defs += "\n#define PARAMS_OPACITY_IX " + std::to_string(OPACITY_TEX_IX);
+	}
+
 	defs += "\n";
 
 	return defs;

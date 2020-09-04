@@ -27,7 +27,7 @@ class CDerivativeImageFilterKernel : public CFloatingPointSeparableImageFilterKe
 	public:
 		using value_type = typename Base::value_type;
 
-		CDerivativeImageFilterKernel(Kernel&& k) : Base(k.negative_support.x, k.positive_support.x) {}
+		CDerivativeImageFilterKernel(Kernel&& k) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)) {}
 
 		// no special user data by default
 		inline const IImageFilterKernel::UserData* getUserData() const { return nullptr; }

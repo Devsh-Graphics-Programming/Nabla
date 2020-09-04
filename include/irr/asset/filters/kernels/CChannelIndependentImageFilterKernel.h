@@ -108,12 +108,12 @@ class CChannelIndependentImageFilterKernel :
 		static float getMaxNegSupport(const Kernels&... kernels) 
 		{ 
 			core::vectorSIMDf v = maxSupport({ kernels.negative_support... });
-			return *std::max_element(v.pointer,v.pointer+3);
+			return *std::max_element(v.pointer,v.pointer+MaxChannels);
 		}
 		static float getMaxPosSupport(const Kernels&... kernels)
 		{
 			core::vectorSIMDf v = maxSupport({ kernels.positive_support... });
-			return *std::max_element(v.pointer,v.pointer+3);
+			return *std::max_element(v.pointer,v.pointer+MaxChannels);
 		}
 
 	public:

@@ -14,6 +14,31 @@ namespace ext
 {
 namespace MitsubaLoader
 {
+    template<class Kernel>
+    class MyKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>
+    {
+        using Base = asset::CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>;
+
+        Kernel kernel;
+        float multiplier;
+
+    public:
+        using value_type = typename Base::value_type;
+
+        MyKernel(Kernel&& k, float _imgExtent) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)), multiplier(_imgExtent) {}
+
+        // no special user data by default
+        inline const asset::IImageFilterKernel::UserData* getUserData() const { return nullptr; }
+
+        inline float weight(float x, int32_t channel) const
+        {
+            return kernel.weight(x, channel)*multiplier;
+        }
+
+        _IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
+
+        IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
+    };
 
     static core::smart_refctd_ptr<asset::ICPUImage> createDerivMapFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
     {
@@ -45,7 +70,8 @@ namespace MitsubaLoader
         };
 
         using ReconstructionKernel = CGaussianImageFilterKernel<>; // or Mitchell
-        using DerivKernel = CDerivativeImageFilterKernel<ReconstructionKernel>;
+        using DerivKernel_ = CDerivativeImageFilterKernel<ReconstructionKernel>;
+        using DerivKernel = MyKernel<DerivKernel_>;
         using XDerivKernel = CChannelIndependentImageFilterKernel<DerivKernel, CBoxImageFilterKernel>;
         using YDerivKernel = CChannelIndependentImageFilterKernel<CBoxImageFilterKernel, DerivKernel>;
         using DerivativeMapFilter = CBlitImageFilter
@@ -56,8 +82,10 @@ namespace MitsubaLoader
             CBoxImageFilterKernel
         >;
 
-        XDerivKernel xderiv{ DerivKernel(ReconstructionKernel()), CBoxImageFilterKernel() };
-        YDerivKernel yderiv{ CBoxImageFilterKernel(), DerivKernel(ReconstructionKernel()) };
+        const auto extent = _inImg->getCreationParameters().extent;
+        const float mlt = static_cast<float>( std::max(extent.width, extent.height) );
+        XDerivKernel xderiv{ DerivKernel(DerivKernel_(ReconstructionKernel()), mlt), CBoxImageFilterKernel() };
+        YDerivKernel yderiv{ CBoxImageFilterKernel(), DerivKernel(DerivKernel_(ReconstructionKernel()), mlt) };
 
         using swizzle_t = asset::ICPUImageView::SComponentMapping;
         DerivativeMapFilter::state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());

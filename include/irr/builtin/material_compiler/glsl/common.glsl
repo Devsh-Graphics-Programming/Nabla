@@ -25,6 +25,10 @@ uint instr_getNDF(in instr_t instr)
 {
 	return (instr.x>>INSTR_NDF_SHIFT) & INSTR_NDF_MASK;
 }
+uint instr_getRightJump(in instr_t instr)
+{
+	return bitfieldExtract(instr.y, int(INSTR_RIGHT_JUMP_SHIFT-32u), int(INSTR_RIGHT_JUMP_WIDTH));
+}
 
 bool instr_get1stParamTexPresence(in instr_t instr)
 {
@@ -110,6 +114,10 @@ bool op_isBSDF(in uint op)
 {
 	return !op_isBRDF(op) && op<=OP_MAX_BSDF;
 }
+bool op_isBXDF(in uint op)
+{
+	return op<=OP_MAX_BSDF;
+}
 bool op_hasSpecular(in uint op)
 {
 	return op<=OP_MAX_BSDF
@@ -131,6 +139,7 @@ bool op_hasSpecular(in uint op)
 #include <irr/builtin/glsl/bxdf/brdf/specular/beckmann_smith.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/cos_weighted_sample.glsl>
 #include <irr/builtin/glsl/bump_mapping/utils.glsl>
 
 irr_glsl_BSDFAnisotropicParams currBSDFParams;
@@ -178,6 +187,36 @@ params_t instr_getParameters(in instr_t i, in bsdf_data_t data)
 	return p;
 }
 
+//this should thought better
+mat2x3 bsdf_data_decodeIoR(in bsdf_data_t data, in uint op)
+{
+	mat2x3 ior = mat2x3(0.0);
+#ifdef OP_CONDUCTOR
+	if (op==OP_CONDUCTOR) {
+		ior[0] = irr_glsl_decodeRGB19E7(data.data[2].yz);
+		ior[1] = irr_glsl_decodeRGB19E7(uvec2(data.data[2].w,data.data[3].x));
+	} else
+#endif
+#ifdef OP_PLASTIC
+	if (op==OP_PLASTIC) {
+		ior[0] = vec3(uintBitsToFloat(data.data[3].x));
+	} else
+#endif
+#ifdef OP_DIELECTRIC
+	if (op==OP_DIELECTRIC) {
+		ior[0] = vec3(uintBitsToFloat(data.data[3].x));
+	} else
+#endif
+#ifdef OP_COATING
+	if (op==OP_COATING) {
+		ior[0] = vec3(unpackHalf2x16(data.data[3].x).y);
+	} else
+#endif
+	{}
+
+	return ior;
+}
+
 void writeReg(uint n, float v)
 {
 	registers[n] = floatBitsToUint(v);
@@ -210,42 +249,46 @@ vec3 readReg3(uint n)
 	);
 }
 
-void setCurrBSDFParams(in vec3 n, in vec3 L)
+void setCurrInteraction(in vec3 N)
 {
 	vec3 campos = irr_glsl_MC_getCamPos();
-	irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, n);
+	irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, N);
 	currInteraction = irr_glsl_calcAnisotropicInteraction(interaction);
-	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(interaction, L);
+}
+void setCurrBSDFParams(in vec3 N, in vec3 L)
+{
+	setCurrInteraction(N);
+	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(currInteraction.isotropic, L);
 	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(isoparams, currInteraction);
 }
 
 float params_getAlpha(in params_t p)
 {
-	return p[0].x;
+	return p[PARAMS_ALPHA_U_IX].x;
 }
 vec3 params_getReflectance(in params_t p)
 {
-	return p[3];
+	return p[PARAMS_REFLECTANCE_IX];
 }
 vec3 params_getOpacity(in params_t p)
 {
-	return p[2];
+	return p[PARAMS_OPACITY_IX];
 }
 float params_getAlphaV(in params_t p)
 {
-	return p[1].x;
+	return p[PARAMS_ALPHA_V_IX].x;
 }
 vec3 params_getSigmaA(in params_t p)
 {
-	return p[3];
+	return p[PARAMS_SIGMA_A_IX];
 }
 float params_getBlendWeight(in params_t p)
 {
-	return p[0].x;
+	return p[PARAMS_WEIGHT_IX].x;
 }
 vec3 params_getTransmittance(in params_t p)
 {
-	return p[0];
+	return p[PARAMS_TRANSMITTANCE_IX];
 }
 
 
@@ -333,14 +376,23 @@ void instr_execute_COATING(in instr_t instr, in uvec3 regs, in params_t params, 
 }
 #endif
 #ifdef OP_BUMPMAP
+void instr_execute_BUMPMAP_interactionOnly(in instr_t instr)
+{
+	vec3 N = readReg3( REG_SRC1(instr_decodeRegisters(instr)) );
+	setCurrInteraction(N);
+}
 void instr_execute_BUMPMAP(in instr_t instr, in vec3 L)
 {
-	vec3 n = readReg3( REG_SRC1(instr_decodeRegisters(instr)) );
-	setCurrBSDFParams(n, L);
+	vec3 N = readReg3( REG_SRC1(instr_decodeRegisters(instr)) );
+	setCurrBSDFParams(N, L);
 }
 #endif
 #ifdef OP_SET_GEOM_NORMAL
 //executed at most once
+void instr_execute_SET_GEOM_NORMAL_interactionOnly()
+{
+	setCurrInteraction(normalize(Normal));
+}
 void instr_execute_SET_GEOM_NORMAL(in vec3 L)
 {
 	setCurrBSDFParams(normalize(Normal), L);
@@ -507,6 +559,57 @@ void runNormalPrecompStream(in instr_stream_t stream, in mat2 dUV)
 			irr_glsl_perturbNormal_derivativeMap(currInteraction.isotropic.N, dh, currInteraction.isotropic.V.dPosdScreen, dUV)
 		);
 	}
+}
+
+void flipCurrInteraction()
+{
+	currInteraction.isotropic.N = -currInteraction.isotropic.N;
+	currInteraction.isotropic.NdotV = -currInteraction.isotropic.NdotV;
+	currInteraction.T = -currInteraction.T;
+	currInteraction.B = -currInteraction.B;
+	currInteraction.TdotV = -currInteraction.TdotV;
+	currInteraction.BdotV = -currInteraction.BdotV;
+}
+//call before executing an instruction/evaluating bsdf
+void handleTwosided_interactionOnly(inout bool ts_flag, in instr_t instr)
+{
+#ifndef NO_TWOSIDED
+	if (!ts_flag && instr_getTwosided(instr))
+	{
+		ts_flag = true;
+		if (currInteraction.isotropic.NdotV<0.0)
+		{
+			flipCurrInteraction();
+		}
+	}
+#ifdef OP_BUMPMAP
+	ts_flag = instr_getOpcode(instr)==OP_BUMPMAP ? false:ts_flag;
+#endif
+#endif	
+}
+//call before executing an instruction/evaluating bsdf
+void handleTwosided(inout bool ts_flag, in instr_t instr)
+{
+#ifndef NO_TWOSIDED
+	if (!ts_flag && instr_getTwosided(instr))
+	{
+		ts_flag = true;
+		if (currInteraction.isotropic.NdotV<0.0)
+		{
+			flipCurrInteraction();
+
+			currBSDFParams.isotropic.NdotL = -currBSDFParams.isotropic.NdotL;
+			currBSDFParams.isotropic.NdotH = -currBSDFParams.isotropic.NdotH;
+			currBSDFParams.TdotL = -currBSDFParams.TdotL;
+			currBSDFParams.BdotL = -currBSDFParams.BdotL;
+			currBSDFParams.TdotH = -currBSDFParams.TdotH;
+			currBSDFParams.BdotH = -currBSDFParams.BdotH;
+		}
+	}
+#ifdef OP_BUMPMAP
+	ts_flag = instr_getOpcode(instr)==OP_BUMPMAP ? false:ts_flag;
+#endif
+#endif
 }
 
 #endif

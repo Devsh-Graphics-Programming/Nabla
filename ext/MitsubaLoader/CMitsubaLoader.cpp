@@ -191,6 +191,15 @@ instr_stream_t getEvalStream()
 
 	return stream;
 }
+instr_stream_t getGenChoiceStream()
+{
+	instr_stream_t stream;
+	uvec2 s = InstData.data[InstanceIndex].genchoice_instrStream;
+	stream.offset = s.x;
+	stream.count =  s.y;
+
+	return stream;
+}
 instr_stream_t getTexPrefetchStream()
 {
 	uvec2 s = InstData.data[InstanceIndex].prefetch_instrStream;

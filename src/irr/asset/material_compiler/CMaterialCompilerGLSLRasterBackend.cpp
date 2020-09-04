@@ -9,7 +9,8 @@ namespace material_compiler
 
 auto CMaterialCompilerGLSLRasterBackend::compile(SContext* _ctx, IR* _ir) -> result_t
 {
-    result_t res = base_t::compile(_ctx, _ir, false);
+    constexpr bool WITH_GENERATOR_CHOICE = true;
+    result_t res = base_t::compile(_ctx, _ir, WITH_GENERATOR_CHOICE);
 
     res.fragmentShaderSource = 
     R"(

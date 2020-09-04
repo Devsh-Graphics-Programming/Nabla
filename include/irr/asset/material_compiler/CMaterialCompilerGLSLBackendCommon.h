@@ -217,6 +217,7 @@ namespace instr_stream
 		STextureOrConstant alpha_u;
 		STextureOrConstant alpha_v;
 		STextureOrConstant opacity;
+		STextureOrConstant dummy;
 		float eta;
 	} PACK_STRUCT;
 	struct SAllConductor
@@ -255,7 +256,20 @@ namespace instr_stream
 	} PACK_STRUCT;
 #include "irr/irrunpack.h"
 
-	union alignas(16) SBSDFUnion
+#define _TEXTURE_INDEX(s,m) offsetof(s,m)/sizeof(STextureOrConstant)
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t ALPHA_U_TEX_IX = _TEXTURE_INDEX(SAllDielectric,alpha_u);
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t ALPHA_V_TEX_IX = _TEXTURE_INDEX(SAllDielectric, alpha_v);
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t REFLECTANCE_TEX_IX = _TEXTURE_INDEX(SAllDiffuse, reflectance);
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t TRANSMITTANCE_TEX_IX = _TEXTURE_INDEX(SDiffuseTransmitter, transmittance);
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t SIGMA_A_TEX_IX = _TEXTURE_INDEX(SAllCoating, sigmaA);
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t WEIGHT_TEX_IX = _TEXTURE_INDEX(SBlend, weight);
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t OPACITY_TEX_IX = _TEXTURE_INDEX(SAllDiffuse, opacity);
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t DERIV_MAP_TEX_IX = _TEXTURE_INDEX(SBumpMap, derivmap);
+
+#undef _TEXTURE_INDEX
+
+	constexpr size_t sizeof_uvec4 = 16ull;
+	union alignas(sizeof_uvec4) SBSDFUnion
 	{
 		_IRR_STATIC_INLINE_CONSTEXPR size_t MAX_TEXTURES = 4ull;
 

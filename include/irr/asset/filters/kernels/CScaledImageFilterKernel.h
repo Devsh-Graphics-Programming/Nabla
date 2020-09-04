@@ -22,9 +22,6 @@ namespace impl
 template<class Kernel>
 class CScaledImageFilterKernelBase
 {
-	protected:
-		const IImageFilterKernel::ScaleFactorUserData userData;
-
 	public:
 		// we preserve all basic properties of the original kernel
 		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels;
@@ -39,6 +36,9 @@ class CScaledImageFilterKernelBase
 		// reciprocal of the scale, the w component holds the scale that needs to be applied to the kernel values to preserve the integral
 		// 1/(A*B*C) InfiniteIntegral f(x/A,y/B,z/C) dx dy dz == InfiniteIntegral f(x,y,z) dx dy dz
 		const core::vectorSIMDf rscale;
+
+protected:
+	const IImageFilterKernel::ScaleFactorUserData userData;
 };
 
 }

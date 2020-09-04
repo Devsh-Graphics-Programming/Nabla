@@ -224,7 +224,7 @@ inline void evaluate(const core::vectorSIMDf& globalPos, PreFilter& preFilter, P
 	BASENAME::evaluate(globalPos, preFilter, postFilter); \
 } \
 template<class PreFilter, class PostFilter> \
-inline void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData) const \
+inline void evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const irr::asset::IImageFilterKernel::UserData* userData) const \
 { \
 	BASENAME::evaluateImpl(preFilter, postFilter, windowSample, relativePos, globalTexelCoord, userData); \
 }
