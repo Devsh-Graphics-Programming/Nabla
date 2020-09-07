@@ -70,3 +70,4 @@ add_subdirectory(43.AllocatorTest EXCLUDE_FROM_ALL) #TODO: @Anastazluk merge exa
 add_subdirectory(44.LevelCurveExtraction EXCLUDE_FROM_ALL)
 add_subdirectory(45.BRDFEvalTest EXCLUDE_FROM_ALL)
 add_subdirectory(46.SamplingValidation EXCLUDE_FROM_ALL)
+add_subdirectory(47.DerivMapTest EXCLUDE_FROM_ALL)
