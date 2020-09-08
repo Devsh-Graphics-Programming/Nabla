@@ -329,6 +329,21 @@ void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in params_t param
 	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
 #endif
+#ifdef OP_THINDIELECTRIC
+void instr_execute_THINDIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+{
+	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
+	{
+		//float au = params_getAlpha(params);
+		//float av = params_getAlphaV(params);
+		vec3 eta = vec3(1.5);
+		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic,currInteraction.isotropic) * vec3(0.89);
+		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
+		writeReg(REG_DST(regs), diffuse);
+	}
+	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
+}
+#endif
 #ifdef OP_CONDUCTOR
 void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data)
 {

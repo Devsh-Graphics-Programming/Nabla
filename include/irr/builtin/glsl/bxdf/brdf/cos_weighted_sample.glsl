@@ -25,7 +25,7 @@ irr_glsl_BSDFSample irr_glsl_cos_weighted_cos_generate(in irr_glsl_AnisotropicVi
 
 vec3 irr_glsl_cos_weighted_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
 {
-	pdf = s.NdotL*irr_glsl_RECIPROCAL_PI;
+	pdf = max(s.NdotL,0.0)*irr_glsl_RECIPROCAL_PI;
 	return vec3(1.0);
 }
 
