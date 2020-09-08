@@ -287,7 +287,7 @@ vec2 SampleSphericalMap(vec3 v)
 void missProgram() 
 {
     vec3 finalContribution = rayStack[stackPtr]._payload.throughput; 
-    //#define USE_ENVMAP
+    #define USE_ENVMAP
     // true miss
     if (rayStack[stackPtr]._immutable.maxT>=FLT_MAX)
     {
@@ -384,40 +384,7 @@ layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
 layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
 
 
-// TODO: @Przemog move to a GLSL math header, unless there is a native GLSL function for this
-uint irr_glsl_rotl(in uint x, in uint k)
-{
-	return (x<<k) | (x>>(32u-k));
-}
-
-
-// TODO: @Przemog move to a GLSL built-in "random" header
-#define irr_glsl_xoroshiro64star_state_t uvec2
-#define irr_glsl_xoroshiro64starstar_state_t uvec2
-void irr_glsl_xoroshiro64_state_advance(inout uvec2 state)
-{
-	state[1] ^= state[0];
-	state[0] = irr_glsl_rotl(state[0], 26u) ^ state[1] ^ (state[1]<<9u); // a, b
-	state[1] = irr_glsl_rotl(state[1], 13u); // c
-}
-
-uint irr_glsl_xoroshiro64star(inout irr_glsl_xoroshiro64starstar_state_t state)
-{
-	const uint result = state[0]*0x9E3779BBu;
-
-    irr_glsl_xoroshiro64_state_advance(state);
-
-	return result;
-}
-uint irr_glsl_xoroshiro64starstar(inout irr_glsl_xoroshiro64starstar_state_t state)
-{
-	const uint result = irr_glsl_rotl(state[0]*0x9E3779BBu,5u)*5u;
-    
-    irr_glsl_xoroshiro64_state_advance(state);
-
-	return result;
-}
-// dont move anything below this line
+#include <irr/builtin/glsl/random/xoroshiro.glsl>
 
 vec3 rand3d(in uint protoDimension, in uint _sample, inout irr_glsl_xoroshiro64star_state_t scramble_state)
 {

@@ -49,6 +49,7 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/virtual_texturing/impl_functions.glsl"
   "irr/builtin/glsl/format/decode.glsl"
   "irr/builtin/glsl/format/constants.glsl"
+  "irr/builtin/glsl/random/xoroshiro.glsl"
   #material_compiler
   "irr/builtin/material_compiler/glsl/common.glsl"
   "irr/builtin/material_compiler/glsl/common_declarations.glsl"

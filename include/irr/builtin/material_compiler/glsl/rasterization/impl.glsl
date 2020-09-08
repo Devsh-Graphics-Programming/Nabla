@@ -158,7 +158,6 @@ bxdf_eval_t runEvalStream(in instr_stream_t stream, in vec3 L)
 	return readReg3(0u);//result is always in regs 0,1,2
 }
 
-//TODO OPTIMIZE THIS FOR MULTIPLE ITERATIONS
 vec3 runGeneratorChoiceStream(in instr_stream_t stream, in vec2 rand, out vec3 out_remainder)
 {
 	uint rescaleChoice = 0u;
@@ -211,11 +210,13 @@ vec3 runGeneratorChoiceStream(in instr_stream_t stream, in vec2 rand, out vec3 o
 	bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
 	params_t params = instr_getParameters(instr, bsdf_data);
 	//speculatively
-	float ax = params_getAlpha(params);
-	float ax2 = ax*ax;
-	float ay = params_getAlphaV(params);
-	float ay2 = ay*ay;
-	mat2x3 ior = bsdf_data_decodeIoR(bsdf_data,op);
+	const float ax = params_getAlpha(params);
+	const float ax2 = ax*ax;
+	const float ay = params_getAlphaV(params);
+	const float ay2 = ay*ay;
+	const mat2x3 ior = bsdf_data_decodeIoR(bsdf_data,op);
+	const bool is_bsdf = !op_isBRDF(op);
+	const vec3 refl = params_getReflectance(params);
 
 #ifndef NO_TWOSIDED
 	bool ts_flag = false;
@@ -227,8 +228,8 @@ vec3 runGeneratorChoiceStream(in instr_stream_t stream, in vec2 rand, out vec3 o
 	vec3 L;
 #ifdef OP_DIFFUSE
 	if (op==OP_DIFFUSE) {
-		irr_glsl_BSDFSample s = irr_glsl_cos_weighted_cos_generate(currInteraction, rand);
-		out_remainder = irr_glsl_cos_weighted_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic);
+		irr_glsl_BSDFSample s = irr_glsl_oren_nayar_cos_generate(currInteraction, rand, ax2);
+		out_remainder = refl*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ax2);
 		L = s.L;
 	} else 
 #endif //OP_DIFFUSE
@@ -242,6 +243,7 @@ vec3 runGeneratorChoiceStream(in instr_stream_t stream, in vec2 rand, out vec3 o
 	} else
 #endif //OP_DIFFTRANS
 
+//TODO need to distinguish BSDFs and BRDFs
 #ifdef NDF_GGX
 	if (ndf == NDF_GGX) {
 		irr_glsl_BSDFSample s = irr_glsl_ggx_cos_generate(currInteraction, rand, ax, ay);

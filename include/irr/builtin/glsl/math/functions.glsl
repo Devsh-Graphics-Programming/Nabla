@@ -160,4 +160,9 @@ bool irr_glsl_partitionRandVariable(in float leftProb, inout float xi, out float
     return pickRight;
 }
 
+uint irr_glsl_rotl(in uint x, in uint k)
+{
+	return (x<<k) | (x>>(32u-k));
+}
+
 #endif
