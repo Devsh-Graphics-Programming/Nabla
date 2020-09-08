@@ -303,7 +303,7 @@ void ApplicationHandler::performImageTest(std::string path)
 		if(!tryToWrite(copyImageView.get()))
 			os::Printer::log("An unexcepted error occoured while trying to write the asset!", irr::ELL_WARNING);
 
-	assetManager->removeCachedGPUObject(asset.get(), gpuImageView);
+	assetManager->removeCachedGPUObject(cpuImageView.get(), gpuImageView);
 	assetManager->removeAssetFromCache(cpuTexture);
 }
 
