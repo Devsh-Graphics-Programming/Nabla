@@ -25,4 +25,4 @@ jobs:
         source_repo: "buildaworldnet/IrrlichtBAW"
         source_branch: "shader_pipeline"
         destination_branch: "shader_pipeline_irrlichtbaw"
-        github_token: ${{ secrets.GITHUB_TOKEN }}
+        github_token: ${{ secrets.WORKFLOW_TOKEN }}
