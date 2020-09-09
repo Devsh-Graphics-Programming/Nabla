@@ -9,6 +9,8 @@
 #include "../../ext/MitsubaLoader/CMitsubaLoader.h"
 #include <irr/video/IGPUVirtualTexture.h>
 
+#define USE_ENVMAP
+
 using namespace irr;
 using namespace core;
 
@@ -56,6 +58,7 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 
 	vec3 color = vec3(0.0);
 
+#ifdef USE_ENVMAP
 	instr_stream_t gcs = getGenChoiceStream();
 	for (int i = 0; i < SAMPLE_COUNT; ++i)
 	{
@@ -68,6 +71,7 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 		color += rem*textureLod(envMap, uv, 0.0).xyz;
 	}
 	color /= float(SAMPLE_COUNT);
+#endif
 
 	irr_glsl_BSDFIsotropicParams params;
 	for (int i = 0; i < LIGHT_COUNT; ++i)
@@ -92,6 +96,9 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragSh
 		"\n#define LIGHT_COUNT " + std::to_string(lightCnt) +
 		"\n#define SAMPLE_COUNT " + std::to_string(smplCnt) +
 		"\n#define LIGHT_INTENSITY_SCALE " + std::to_string(intensityScale) +
+#ifdef USE_ENVMAP
+		"\n#define USE_ENVMAP" +
+#endif
 		GLSL_COMPUTE_LIGHTING;
 
     glsl.insert(glsl.find("#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_"), extra);
@@ -381,7 +388,7 @@ int main()
 		}
 	}
 
-	constexpr uint32_t ENVMAP_SAMPLE_COUNT = 20u;
+	constexpr uint32_t ENVMAP_SAMPLE_COUNT = 64u;
 	constexpr float LIGHT_INTENSITY_SCALE = 0.01f;
 
 	core::unordered_set<const asset::ICPURenderpassIndependentPipeline*> modifiedPipelines;
@@ -465,16 +472,16 @@ int main()
 
 	smart_refctd_ptr<video::IGPUBufferView> gpuSequenceBufferView;
 	{
-		constexpr uint32_t MaxSamples = ENVMAP_SAMPLE_COUNT*2u;//times 2 (RG) channels
+		constexpr uint32_t MaxSamples = ENVMAP_SAMPLE_COUNT;
 
-		auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t) * MaxSamples);
+		auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t) * MaxSamples*2u);
 
 		core::OwenSampler sampler(1u, 0xdeadbeefu);
 
 		auto out = reinterpret_cast<uint32_t*>(sampleSequence->getPointer());
-		for (uint32_t i = 0; i < MaxSamples; i++)
+		for (uint32_t i = 0; i < MaxSamples*2u; i++)
 		{
-			out[i] = sampler.sample(0u, i);
+			out[i] = sampler.sample(i&1u, i>>1);
 		}
 		auto gpuSequenceBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(), sampleSequence->getPointer());
 		gpuSequenceBufferView = driver->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32_UINT);

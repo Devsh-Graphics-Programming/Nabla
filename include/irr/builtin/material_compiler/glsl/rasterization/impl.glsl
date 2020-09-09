@@ -124,9 +124,11 @@ void instr_eval_execute(in instr_t instr, in vec3 L)
 		instr_execute_DIELECTRIC(instr, regs, params, bsdf_data);
 	} else
 #endif
+#ifdef OP_THINDIELECTRIC
 	if (op==OP_THINDIELECTRIC) {
 		instr_execute_THINDIELECTRIC(instr, regs, params, bsdf_data);
 	} else
+#endif
 #ifdef OP_BLEND
 	if (op==OP_BLEND) {
 		instr_execute_BLEND(instr, regs, params, bsdf_data);
