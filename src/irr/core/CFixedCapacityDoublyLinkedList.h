@@ -10,15 +10,15 @@ namespace irr {
 		struct Snode
 		{
 			Value data;
-			Snode* prev;
-			Snode* next;
+			uint32_t prev;
+			uint32_t next;
 
 			Snode(const Value& val) : data(val)
 			{ }
-			Snode(Snode&& other) : data(std::move(other.data)), prev(std::move(other.prev)), next(std::move(other.next))
+			Snode(Snode<Value>&& other) : data(std::move(other.data)), prev(std::move(other.prev)), next(std::move(other.next))
 			{ }
 
-			Snode& operator=(const Snode& other)
+			Snode<Value>& operator=(const Snode<Value>& other)
 			{
 				this.data = other.data;
 				this.prev = other.prev;
@@ -26,7 +26,7 @@ namespace irr {
 				return *this;
 			}
 
-			Snode& operator=(Snode&& other)
+			Snode<Value>& operator=(Snode<Value>&& other)
 			{
 				this.data = std::move(other.data);
 				this.prev = std::move(other.prev);
@@ -38,73 +38,84 @@ namespace irr {
 		template<typename Value>
 		class DoublyLinkedList
 		{
-			typedef Snode<Value>* iteratorptr_t;
-
+			typedef uint32_t node_address;
+			
 		private:
 			void* reservedSpace;
 			PoolAddressAllocator<uint32_t> alloc;
-			iteratorptr_t p_begin;
-			iteratorptr_t p_end;
+			node_address m_back;
+			node_address m_begin;
+			Snode<Value>* m_array;
 			uint32_t cap;
 
-			inline void popBack()
-			{
-				if(p_end->prev != nullptr)
-					p_end->prev->next = nullptr;
-				iteratorptr_t temp = p_end;
-				p_end = p_end->prev;
-				alloc.free_addr(reinterpret_cast<uint32_t>(temp), 1u);
-			}
+			#define invalid_iterator alloc.invalid_address	//0xdeadbeef
 
 		public:
 
+			inline void popBack()
+			{
+				if(m_back->prev != invalid_iterator)
+					m_back->prev->next = invalid_iterator;
+				uint32_t temp = m_end;
+				m_end = m_back->prev;
+				alloc.free_addr(temp, 1u);
+			}
+
 			inline void pushFront(Value &val) 
 			{
-
 				uint32_t addr = alloc.alloc_addr(1u, 1u);
-				iteratorptr_t n = new(reinterpret_cast<iteratorptr_t>(reservedSpace) + addr) Snode(val);
-				n->prev = nullptr;
-				
-				n->next = p_begin;
+				Snode<Value>* n = (reinterpret_cast<Snode<Value>*>(reservedSpace) + addr);
+				n->prev = invalid_iterator;
+				n->data = val;
+				n->next = m_begin;
 
-				if (p_begin != nullptr)
-					p_begin->prev = n;
-				if (p_end == nullptr)
-					p_end = n;
-				p_begin = n;
+				m_array[addr] = *n;
+				if (m_begin != invalid_iterator)
+					m_begin->prev = n;
+				m_begin = n;
 			}
 
-			inline iteratorptr_t getFirst() { return p_begin; }
+			inline node_address getBegin() { return m_begin; }
 
-			inline iteratorptr_t getLast() { return p_end; }
+			inline node_address getBack() { return m_back; }
 
-			inline void erase(iteratorptr_t node)
+			inline void erase(uint32_t& nodeAddr)
 			{
-				if(node->prev != nullptr)
-				node->prev->next = node->next;
-				if (node->next != nullptr)
-				node->next->prev = node->prev;
-				delete node;
-				alloc.free_addr(reinterpret_cast<uint32_t>(node), 1u);
+				if(nodeAddr->prev != invalid_iterator)
+				nodeAddr->prev->next = nodeAddr->next;
+				if (nodeAddr->next != invalid_iterator)
+				nodeAddr->next->prev = nodeAddr->prev;
+				nodeAddr->~Snode<Value>();
+				alloc.free_addr(nodeAddr, 1u);
 			}
 
-			inline void moveToFront(iteratorptr_t node)
+			inline void moveToFront(uint32_t& node)
 			{
-				if (p_begin == node) return;
-				p_begin->prev = node;
-				node->next = p_begin;
-				node->prev = nullptr;
-				p_begin = node;
+				if (m_begin == node) return;
+				m_begin->prev = node;
+				if (node->next != invalid_iterator)
+					node->next->prev = node->prev;
+				if (node->prev != invalid_iterator)
+					node->next->prev = node->prev;
+				node->next = m_begin;
+				node->prev = invalid_iterator;
+				m_begin = node;
 			}
 
 			DoublyLinkedList(const uint32_t& capacity) :
-				alloc(reservedSpace, 0u,0u, (capacity-1), capacity, 1u),
-				reservedSpace(malloc(sizeof(Snode<Value>)* capacity)),
+				alloc(reservedSpace, 0u, 0u, 1u, capacity, 1u),
+				reservedSpace(_IRR_ALIGNED_MALLOC(PoolAddressAllocator<uint32_t>::reserved_size(1u, capacity, 1u), alignof(void*))),
 				cap(capacity)
 			{
-				p_begin = nullptr;
-				p_end = nullptr;
+				m_back = invalid_iterator;
+				m_begin = invalid_iterator;
+				m_array = new (reservedSpace) Snode<Value>;
 			}
+			~DoublyLinkedList()
+			{
+				_IRR_ALIGNED_FREE(reservedSpace);
+			}
+			#undef invalid_iterator
 		};
 
 
