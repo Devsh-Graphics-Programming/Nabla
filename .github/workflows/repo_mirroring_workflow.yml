@@ -18,7 +18,7 @@ jobs:
         source_repo: "buildaworldnet/IrrlichtBAW"
         source_branch: "master"
         destination_branch: "master_irrlichtbaw"
-        github_token: ${{ secrets.GITHUB_TOKEN }}
+        github_token: ${{ secrets.WORKFLOW_TOKEN }}
     - name: repo-sync-shader-pipeline
       uses: repo-sync/github-sync@v2
       with:
