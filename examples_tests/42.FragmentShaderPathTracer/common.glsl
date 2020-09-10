@@ -1,6 +1,6 @@
 // basic settings
 #define MAX_DEPTH 8
-#define SAMPLES 16
+#define SAMPLES 128
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -322,7 +322,6 @@ void missProgram()
     rayStack[stackPtr]._payload.accumulation += finalContribution;
 }
 
-#include <irr/builtin/glsl/bxdf/brdf/cos_weighted_sample.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
