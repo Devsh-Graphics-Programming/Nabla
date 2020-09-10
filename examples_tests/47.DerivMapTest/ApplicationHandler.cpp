@@ -62,41 +62,8 @@ void ApplicationHandler::presentImageOnTheScreen(irr::core::smart_refctd_ptr<irr
 
 	driver->updateDescriptorSets(1u, &write, 0u, nullptr);
 
-	std::string viewType;
-	auto getCurrentGPUPipeline = [&]()
-	{
-		switch (gpuImageView->getCreationParameters().viewType)
-		{
-			case IImageView<IGPUImage>::ET_2D:
-			{
-				viewType = "2D";
-				return currentGpuPipelineFor2D;
-			}
-
-			case IImageView<IGPUImage>::ET_2D_ARRAY:
-			{
-				viewType = "2D array";
-				return currentGpuPipelineFor2DArrays;
-			}
-				
-			case IImageView<IGPUImage>::ET_CUBE_MAP:
-			{
-				viewType = "cube map";
-				return currentGpuPipelineForCubemaps;
-			}
-
-			default:
-			{
-				os::Printer::log("Not supported image view in the example!", ELL_ERROR);
-				return gpuPipeline();
-			}
-		}
-	};
-
-	auto currentGpuPipeline = getCurrentGPUPipeline();
-
 	std::wostringstream characterStream;
-	characterStream << L"Color Space Test Demo - Irrlicht Engine [" << driver->getName() << "] - CURRENT IMAGE: " << currentHandledImageFileName.c_str() << " - VIEW TYPE: " << viewType.c_str() << " - EXTENSION: " << currentHandledImageExtension.c_str();
+	characterStream << L"Color Space Test Demo - Irrlicht Engine [" << driver->getName() << "] - CURRENT IMAGE: " << currentHandledImageFileName.c_str() << " - EXTENSION: " << currentHandledImageExtension.c_str();
 	device->setWindowCaption(characterStream.str().c_str());
 
 	auto startPoint = std::chrono::high_resolution_clock::now();
@@ -109,8 +76,8 @@ void ApplicationHandler::presentImageOnTheScreen(irr::core::smart_refctd_ptr<irr
 
 		driver->beginScene(true, true);
 
-		driver->bindGraphicsPipeline(currentGpuPipeline.get());
-		driver->bindDescriptorSets(EPBP_GRAPHICS, currentGpuPipeline->getLayout(), 3u, 1u, &samplerDescriptorSet3.get(), nullptr);
+		driver->bindGraphicsPipeline(currentGpuPipelineFor2D.get());
+		driver->bindDescriptorSets(EPBP_GRAPHICS, currentGpuPipelineFor2D->getLayout(), 3u, 1u, &samplerDescriptorSet3.get(), nullptr);
 		driver->drawMeshBuffer(currentGpuMeshBuffer.get());
 
 		driver->blitRenderTargets(nullptr, screenShotFrameBuffer, false, false);
@@ -122,9 +89,9 @@ void ApplicationHandler::presentImageOnTheScreen(irr::core::smart_refctd_ptr<irr
 
 namespace
 {
-	template<class Kernel>
-	class MyKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>
-	{
+template<class Kernel>
+class MyKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>
+{
 		using Base = asset::CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>;
 
 		Kernel kernel;
@@ -142,11 +109,91 @@ namespace
 		{
 			return kernel.weight(x, channel) * multiplier;
 		}
+		
+		// we need to ensure to override the default behaviour of `CFloatingPointSeparableImageFilterKernelBase` which applies the weight along every axis
+		template<class PreFilter, class PostFilter>
+		struct sample_functor_t
+		{
+				sample_functor_t(const MyKernel* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
+					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
+
+				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData)
+				{
+					preFilter(windowSample, relativePos, globalTexelCoord, userData);
+					auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(userData);
+					for (int32_t i=0; i<MaxChannels; i++)
+					{
+						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
+						windowSample[i] *= _this->weight(relativePos.x, i);
+						if (scale)
+							windowSample[i] *= scale->factor[i];
+					}
+					postFilter(windowSample, relativePos, globalTexelCoord, userData);
+				}
+
+			private:
+				const MyKernel* _this;
+				PreFilter& preFilter;
+				PostFilter& postFilter;
+		};
 
 		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
 
 		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
-	};
+};
+	
+template<class Kernel>
+class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<SeparateOutXAxisKernel<Kernel>>
+{
+		using Base = asset::CFloatingPointSeparableImageFilterKernelBase<SeparateOutXAxisKernel<Kernel>>;
+
+		Kernel kernel;
+
+	public:
+		// passthrough everything
+		using value_type = typename Kernel::value_type;
+
+		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels; // derivative map only needs 2 channels
+
+		SeparateOutXAxisKernel(Kernel&& k) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)) {}
+
+		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
+					
+		// we need to ensure to override the default behaviour of `CFloatingPointSeparableImageFilterKernelBase` which applies the weight along every axis
+		template<class PreFilter, class PostFilter>
+		struct sample_functor_t
+		{
+				sample_functor_t(const SeparateOutXAxisKernel<Kernel>* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
+					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
+
+				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData)
+				{
+					preFilter(windowSample, relativePos, globalTexelCoord, userData);
+					auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(userData);
+					for (int32_t i=0; i<MaxChannels; i++)
+					{
+						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
+						windowSample[i] *= _this->kernel.weight(relativePos.x, i);
+						if (scale)
+							windowSample[i] *= scale->factor[i];
+					}
+					postFilter(windowSample, relativePos, globalTexelCoord, userData);
+				}
+
+			private:
+				const SeparateOutXAxisKernel<Kernel>* _this;
+				PreFilter& preFilter;
+				PostFilter& postFilter;
+		};
+
+		// the method all kernels must define and overload
+		template<class PreFilter, class PostFilter>
+		inline auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const
+		{
+			return sample_functor_t(this,preFilter,postFilter);
+		}
+};
+
 }
 static core::smart_refctd_ptr<asset::ICPUImage> createDerivMapFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
 {
@@ -181,8 +228,10 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMapFromHeightMap(asse
 	using ReconstructionKernel = CGaussianImageFilterKernel<>; // or Mitchell
 	using DerivKernel_ = CDerivativeImageFilterKernel<ReconstructionKernel>;
 	using DerivKernel = MyKernel<DerivKernel_>;
-	using XDerivKernel = CChannelIndependentImageFilterKernel<DerivKernel, CBoxImageFilterKernel>;
-	using YDerivKernel = CChannelIndependentImageFilterKernel<CBoxImageFilterKernel, DerivKernel>;
+	using XDerivKernel_ = CChannelIndependentImageFilterKernel<DerivKernel, CBoxImageFilterKernel>;
+	using YDerivKernel_ = CChannelIndependentImageFilterKernel<CBoxImageFilterKernel, DerivKernel>;
+	using XDerivKernel = SeparateOutXAxisKernel<XDerivKernel_>;
+	using YDerivKernel = SeparateOutXAxisKernel<YDerivKernel_>;
 	using DerivativeMapFilter = CBlitImageFilter
 		<
 		false, false, DefaultSwizzle, IdentityDither, // (Criss, look at impl::CSwizzleAndConvertImageFilterBase)
@@ -193,8 +242,8 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMapFromHeightMap(asse
 
 	const auto extent = _inImg->getCreationParameters().extent;
 	const float mlt = static_cast<float>(std::max(extent.width, extent.height));
-	XDerivKernel xderiv{ DerivKernel(DerivKernel_(ReconstructionKernel()), mlt), CBoxImageFilterKernel() };
-	YDerivKernel yderiv{ CBoxImageFilterKernel(), DerivKernel(DerivKernel_(ReconstructionKernel()), mlt) };
+	XDerivKernel xderiv(XDerivKernel_( DerivKernel(DerivKernel_(ReconstructionKernel()), mlt), CBoxImageFilterKernel() ));
+	YDerivKernel yderiv(YDerivKernel_( CBoxImageFilterKernel(), DerivKernel(DerivKernel_(ReconstructionKernel()), mlt) ));
 
 	using swizzle_t = asset::ICPUImageView::SComponentMapping;
 	DerivativeMapFilter::state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());
@@ -381,8 +430,6 @@ bool ApplicationHandler::initializeApplication()
 	};
 
 	currentGpuPipelineFor2D = createGPUPipeline(IImageView<ICPUImage>::E_TYPE::ET_2D);
-	currentGpuPipelineFor2DArrays = createGPUPipeline(IImageView<ICPUImage>::E_TYPE::ET_2D_ARRAY);
-	currentGpuPipelineForCubemaps = createGPUPipeline(IImageView<ICPUImage>::E_TYPE::ET_CUBE_MAP);
 
 	{
 		SBufferBinding<IGPUBuffer> idxBinding{ 0ull, nullptr };

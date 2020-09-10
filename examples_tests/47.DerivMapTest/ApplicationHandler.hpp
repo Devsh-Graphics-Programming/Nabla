@@ -37,8 +37,6 @@ class ApplicationHandler
 		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSetLayout> gpuDescriptorSetLayout3;
 
 		gpuPipeline currentGpuPipelineFor2D;
-		gpuPipeline currentGpuPipelineFor2DArrays;
-		gpuPipeline currentGpuPipelineForCubemaps;
 
 		irr::video::IFrameBuffer* screenShotFrameBuffer;
 		irr::core::vector<std::string> imagePaths;

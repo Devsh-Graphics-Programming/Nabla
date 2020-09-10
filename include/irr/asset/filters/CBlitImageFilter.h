@@ -11,7 +11,7 @@
 #include <algorithm>
 
 #include "irr/asset/filters/CMatchedSizeInOutImageFilterCommon.h"
-#include "irr/asset/filters/CSwizzleableAndDitherableFilterBase.h"
+#include "irr/asset/filters/CSwizzleAndConvertImageFilter.h"
 #include "irr/asset/filters/dithering/CWhiteNoiseDither.h"
 
 #include "irr/asset/filters/kernels/kernels.h"
