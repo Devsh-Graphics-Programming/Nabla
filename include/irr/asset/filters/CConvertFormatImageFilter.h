@@ -17,13 +17,13 @@ namespace asset
 {
 
 // copy while converting format from input image to output image
-template<E_FORMAT inFormat=EF_UNKNOWN, E_FORMAT outFormat=EF_UNKNOWN>
-class CConvertFormatImageFilter : public CSwizzleAndConvertImageFilter<inFormat,outFormat,VoidSwizzle>
+template<E_FORMAT inFormat=EF_UNKNOWN, E_FORMAT outFormat=EF_UNKNOWN, bool Normalize = false, bool Clamp = false, class Dither = IdentityDither>
+class CConvertFormatImageFilter : public CSwizzleAndConvertImageFilter<inFormat,outFormat,VoidSwizzle,Normalize,Clamp,Dither>
 {
 	public:
 		virtual ~CConvertFormatImageFilter() {}
 		
-		using state_type = typename CSwizzleAndConvertImageFilter<inFormat,outFormat,VoidSwizzle>::state_type;
+		using state_type = typename CSwizzleAndConvertImageFilter<inFormat,outFormat,VoidSwizzle,Normalize,Clamp,Dither>::state_type;
 };
 
 } // end namespace asset

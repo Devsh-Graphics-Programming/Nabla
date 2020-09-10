@@ -47,6 +47,12 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/virtual_texturing/descriptors.glsl"
   "irr/builtin/glsl/virtual_texturing/extensions.glsl"
   "irr/builtin/glsl/virtual_texturing/impl_functions.glsl"
+  "irr/builtin/glsl/format/decode.glsl"
+  "irr/builtin/glsl/format/constants.glsl"
+  #material_compiler
+  "irr/builtin/material_compiler/glsl/common.glsl"
+  "irr/builtin/material_compiler/glsl/common_declarations.glsl"
+  "irr/builtin/material_compiler/glsl/rasterization/impl.glsl"
   #bxdf
   "irr/builtin/glsl/bxdf/common.glsl"
   "irr/builtin/glsl/bxdf/common_samples.glsl"

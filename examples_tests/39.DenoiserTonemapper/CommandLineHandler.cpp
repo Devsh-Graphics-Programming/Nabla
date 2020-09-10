@@ -365,6 +365,8 @@ irr::core::matrix3x4SIMD CommandLineHandler::getCameraTransform(uint64_t id)
 			for (auto j = 0; j < 3u && sit != send; j++)
 				cameraTransform(i, j) = std::stof(*(sit++));
 
+		cameraTransform.rows[1] *= vectorSIMDf(-1.f, -1.f, -1.f, 1.f);
+
 		return cameraTransform;
 	};
 

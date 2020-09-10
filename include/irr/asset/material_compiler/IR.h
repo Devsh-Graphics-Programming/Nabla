@@ -16,7 +16,7 @@ class IR : public core::IReferenceCounted
 {
     class SBackingMemManager
     {
-        _IRR_STATIC_INLINE_CONSTEXPR size_t INITIAL_MEM_SIZE = 1ull<<14;
+        _IRR_STATIC_INLINE_CONSTEXPR size_t INITIAL_MEM_SIZE = 1ull<<20;
         _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_MEM_SIZE = 1ull<<20;
         _IRR_STATIC_INLINE_CONSTEXPR size_t ALIGNMENT = _IRR_SIMD_ALIGNMENT;
 
@@ -35,6 +35,9 @@ class IR : public core::IReferenceCounted
         uint8_t* alloc(size_t bytes)
         {
             auto addr = addrAlctr.alloc_addr(bytes, ALIGNMENT);
+            //TODO reallocation will invalidate all pointers to nodes, so...
+            //1) never reallocate (just have reasonably big buffer for nodes)
+            //2) make some node_handle class that will work as pointer but is based on offset instead of actual address
             if (addr+bytes > currSz) {
                 size_t newSz = currSz<<1;
                 if (newSz > MAX_MEM_SIZE) {
@@ -53,7 +56,39 @@ class IR : public core::IReferenceCounted
         }
     };
 
+protected:
+    ~IR()
+    {
+        //call destructors on all nodes
+        for (auto* root : roots)
+        {
+            core::stack<decltype(root)> s;
+            s.push(root);
+            while (!s.empty())
+            {
+                auto* n = s.top();
+                s.pop();
+                for (auto* c : n->children)
+                    s.push(c);
+
+                if (!n->deinited) {
+                    n->~INode();
+                    n->deinited = true;
+                }
+            }
+        }
+    }
+
 public:
+    IR() : memMgr() {}
+
+    void deinitTmpNodes()
+    {
+        for (INode* n : tmp)
+            n->~INode();
+        tmp.clear();
+    }
+
     template <typename NodeType, typename ...Args>
     NodeType* allocNode(Args&& ...args)
     {
@@ -66,6 +101,13 @@ public:
         auto* root = allocNode<NodeType>(std::forward<Args>(args)...);
         roots.push_back(root);
         return root;
+    }
+    template <typename NodeType, typename ...Args>
+    NodeType* allocTmpNode(Args&& ...args)
+    {
+        auto* node = allocNode<NodeType>(std::forward<Args>(args)...);
+        tmp.push_back(node);
+        return node;
     }
 
     struct INode
@@ -110,13 +152,25 @@ public:
                     value.texture.~STextureSource();
             }
 
+            SParameter() = default;
+            SParameter(const SParameter<type_of_const>& other)
+            {
+                *this = other;
+            }
             SParameter<type_of_const>& operator=(const SParameter<type_of_const>& rhs)
             {
+                const auto prevSource = source;
                 source = rhs.source;
-                if (source == EPS_CONSTANT)
+                if (source == EPS_CONSTANT) {
+                    if (prevSource == EPS_TEXTURE)
+                        value.texture.~STextureSource();
                     value.constant = rhs.value.constant;
-                else
+                }
+                else {
+                    if (prevSource == EPS_CONSTANT)
+                        value.constant = type_of_const();
                     value.texture = rhs.value.texture;
+                }
 
                 return *this;
             }
@@ -143,13 +197,52 @@ public:
             INode* array[MAX_CHILDREN] {};
             size_t count = 0ull;
 
+            inline bool operator!=(const children_array_t& rhs) const
+            {
+                if (count != rhs.count)
+                    return true;
+
+                for (uint32_t i = 0u; i < count; ++i)
+                    if (array[i]!=rhs.array[i])
+                        return true;
+                return false;
+            }
+            inline bool operator==(const children_array_t& rhs) const
+            {
+                return !operator!=(rhs);
+            }
+
+            inline bool find(E_SYMBOL s, size_t* ix = nullptr) const 
+            { 
+                auto found = std::find_if(begin(),end(),[s](const INode* child){return child->symbol==s;});
+                if (found != (array+count))
+                {
+                    if (ix)
+                        ix[0] = found-array;
+                    return true;
+                }
+                return false;
+            }
+
             operator bool() const { return count!=0ull; }
+
+            INode** begin() { return array; }
+            const INode*const* begin() const { return array; }
+            INode** end() { return array+count; }
+            const INode*const* end() const { return array+count; }
 
             inline INode*& operator[](size_t i) { assert(i<count); return array[i]; }
             inline const INode* const& operator[](size_t i) const { assert(i<count); return array[i]; }
         };
         template <typename ...Contents>
-        static inline children_array_t createChildrenArray(Contents... children) { return { {children...}, sizeof...(children) }; }
+        static inline children_array_t createChildrenArray(Contents... children) 
+        { 
+            children_array_t a;
+            const INode* ch[]{ children... };
+            memcpy(a.array, ch, sizeof(ch));
+            a.count = sizeof...(children);
+            return a; 
+        }
 
         using color_t = core::vector3df_SIMD;
 
@@ -158,17 +251,19 @@ public:
 
         children_array_t children;
         E_SYMBOL symbol;
+        bool deinited = false;
     };
 
     struct CMaterialNode : public INode
     {
-        CMaterialNode() : INode(ES_MATERIAL)
+        CMaterialNode() : INode(ES_MATERIAL), thin(false)
         {
             opacity.source = EPS_CONSTANT;
             opacity.value.constant = color_t(1.f);
         }
 
         SParameter<color_t> opacity;
+        bool thin;
     };
 
     struct CGeomModifierNode : public INode
@@ -177,7 +272,8 @@ public:
         {
             ET_DISPLACEMENT,
             ET_HEIGHT,
-            ET_NORMAL
+            ET_NORMAL,
+            ET_DERIVATIVE
         };
         enum E_SOURCE
         {
@@ -232,8 +328,7 @@ public:
     {
         CBSDFMixNode() : CBSDFCombinerNode(ET_MIX) {}
 
-        using weights_t = core::smart_refctd_dynamic_array<float>;
-        weights_t weights;
+        float weights[MAX_CHILDREN];
     };
 
     struct CBSDFNode : INode
@@ -280,6 +375,14 @@ public:
 
         CMicrofacetSpecularBSDFNode(E_TYPE t = ET_MICROFACET_SPECULAR) : CBSDFNode(t) {}
 
+        void setSmooth(E_NDF _ndf = ENDF_GGX)
+        {
+            ndf = _ndf;
+            alpha_u.source = EPS_CONSTANT;
+            alpha_u.value.constant = 0.f;
+            alpha_v = alpha_u;
+        }
+
         E_NDF ndf;
         E_SHADOWING_TERM shadowing;
         E_SCATTER_MODE scatteringMode;
@@ -289,6 +392,13 @@ public:
     struct CMicrofacetDiffuseBSDFNode : CBSDFNode
     {
         CMicrofacetDiffuseBSDFNode() : CBSDFNode(ET_MICROFACET_DIFFUSE) {}
+
+        void setSmooth()
+        {
+            alpha_u.source = EPS_CONSTANT;
+            alpha_u.value.constant = 0.f;
+            alpha_v = alpha_u;
+        }
 
         SParameter<color_t> reflectance;
         SParameter<float> alpha_u;
@@ -310,6 +420,8 @@ public:
 
     SBackingMemManager memMgr;
     core::vector<INode*> roots;
+
+    core::vector<INode*> tmp;
 };
 
 }}}

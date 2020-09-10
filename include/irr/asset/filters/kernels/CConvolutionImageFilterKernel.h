@@ -16,6 +16,7 @@ namespace irr
 namespace asset
 {
 
+//during implementation remember about composition instead of inheritance
 #if 0 // implementations are a TODO (we probably need a polyphase kernel to cache these results)
 // class for an image filter kernel which is a convolution of two image filter kernels
 template<class KernelA, class KernelB>

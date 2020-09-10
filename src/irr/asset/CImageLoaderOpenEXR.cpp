@@ -299,7 +299,6 @@ namespace irr
 					else if (params.format == EF_R32G32B32A32_UINT)
 						ReadTexels(image.get(), perImageData.uint32_tPixelMapArray);
 
-					irr::asset::IImageAssetHandlerBase::performImageFlip(image);
 					m_manager->setAssetMetadata(image.get(), std::move(openEXRMetadata));
 
 					images.push_back(std::move(image));
