@@ -64,9 +64,13 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 	{
 		irr_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
 
-		vec2 rand = rand2d(i,scramble_state);
-		vec3 rem;
-		vec3 L = runGeneratorChoiceStream(gcs, rand, rem);
+		instr_stream_t gcs = getGenChoiceStream();
+		instr_stream_t rnps = getRemAndPdfStream();
+
+		vec2 rand = rand2d(i,scramble_state);//TODO has to be 3d
+		float pdf;
+		runGenerateAndRemainderStream(gcs, rnps, rand, pdf);
+
 		vec2 uv = SampleSphericalMap(L);
 		color += rem*textureLod(envMap, uv, 0.0).xyz;
 	}

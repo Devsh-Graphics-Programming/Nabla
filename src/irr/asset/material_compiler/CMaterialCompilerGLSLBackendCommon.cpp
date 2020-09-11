@@ -453,7 +453,6 @@ namespace remainder_and_pdf
 
 	private:
 		_IRR_STATIC_INLINE_CONSTEXPR instr_t SPECIAL_VAL = ~static_cast<instr_t>(0);
-		_IRR_STATIC_INLINE_CONSTEXPR size_t OP_RESULT_REG_COUNT = 3ull;
 
 		static void setRegisters(instr_t& i, uint32_t rdst, uint32_t rsrc1 = 0u, uint32_t rsrc2 = 0u)
 		{
@@ -475,17 +474,18 @@ namespace remainder_and_pdf
 
 		traversal_t m_input;
 		core::queue<uint32_t> m_streamLengths;
+		uint32_t m_regsPerResult;
 
 		void reorderBumpMapStreams_impl(traversal_t& _input, traversal_t& _output, const substream_t& _stream);
 
 	public:
-		CTraversalManipulator(traversal_t&& _traversal) : m_input(std::move(_traversal)) {}
+		CTraversalManipulator(traversal_t&& _traversal, uint32_t _regsPerResult) : m_input(std::move(_traversal)), m_regsPerResult(_regsPerResult) {}
 
 		traversal_t&& process(uint32_t regCount, uint32_t& _out_usedRegs)&&
 		{
 			reorderBumpMapStreams();
 			specifyRegisters(regCount, _out_usedRegs);
-			_out_usedRegs += OP_RESULT_REG_COUNT;
+			_out_usedRegs += m_regsPerResult;
 
 			return std::move(m_input);
 		}
@@ -522,8 +522,12 @@ namespace remainder_and_pdf
 	{
 		using base_t = ITraveralGenerator<stack_el>;
 
+		uint32_t m_regsPerRes;
+
 	public:
-		using base_t::base_t;
+		CTraversalGenerator(SContext* _ctx, IR* _ir, uint32_t _regCount, uint32_t _regsPerResult) :
+			base_t(_ctx,_ir,_regCount), m_regsPerRes(_regsPerResult)
+		{}
 
 		void writeInheritableBitfields(instr_t& dst, instr_t parent) const override
 		{
@@ -795,9 +799,9 @@ void instr_stream::remainder_and_pdf::CTraversalManipulator::specifyRegisters(ui
 {
 	core::stack<uint32_t> freeRegs;
 	{
-		regCount /= OP_RESULT_REG_COUNT;
+		regCount /= m_regsPerResult;
 		for (uint32_t i = 0u; i < regCount; ++i)
-			freeRegs.push(OP_RESULT_REG_COUNT*(regCount - 1u - i));
+			freeRegs.push(m_regsPerResult*(regCount - 1u - i));
 	}
 	//registers with result of bump-map substream
 	core::stack<uint32_t> bmRegs;
@@ -943,7 +947,7 @@ instr_stream::traversal_t instr_stream::remainder_and_pdf::CTraversalGenerator::
 	//remove NOOPs
 	filterNOOPs(traversal);
 
-	traversal = std::move(CTraversalManipulator(std::move(traversal)).process(m_registerPool, _out_usedRegs));
+	traversal = std::move(CTraversalManipulator(std::move(traversal), m_regsPerRes).process(m_registerPool, _out_usedRegs));
 
 	return traversal;
 }
@@ -1101,7 +1105,7 @@ instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const travers
 	return traversal;
 }
 
-std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const result_t& _res)
+std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const result_t& _res, bool _genChoiceStream)
 {
 	using namespace std::string_literals;
 
@@ -1120,6 +1124,8 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 
 	defs += "\n#define sizeof_bsdf_data " + std::to_string((sizeof(SBSDFUnion)+instr_stream::sizeof_uvec4-1u)/instr_stream::sizeof_uvec4);
 
+	if (_genChoiceStream)
+		defs += "\n#define GEN_CHOICE_STREAM";
 	if (!_res.noPrefetchStream)
 		defs += "\n#define TEX_PREFETCH_STREAM";
 	if (!_res.noNormPrecompStream)
@@ -1274,7 +1280,13 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 		uint32_t usedRegs{};
 		traversal_t rem_pdf_stream;
 		{
-			remainder_and_pdf::CTraversalGenerator gen(_ctx, _ir, registerPool);
+			//In case of presence of generator choice stream, remainder_and_pdf stream has 2 roles in raster backend:
+			//* eval stream
+			//* remainder-and-pdf stream (for use in envmap sampling, as an example); in which case instructions need to write their PDF as well
+			//In raytracing backend _computeGenChoiceStream is always true
+			const uint32_t regsPerRes = _computeGenChoiceStream ? 4u : 3u;
+
+			remainder_and_pdf::CTraversalGenerator gen(_ctx, _ir, registerPool, regsPerRes);
 			rem_pdf_stream = gen.genTraversal(root, usedRegs);
 			assert(usedRegs <= registerPool);
 			registerPool -= usedRegs;
@@ -1391,7 +1403,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 	}
 
 	res.fragmentShaderSource_declarations =
-		genPreprocDefinitions(res) +
+		genPreprocDefinitions(res, _computeGenChoiceStream) +
 R"(
 #include <irr/builtin/material_compiler/glsl/common_declarations.glsl>
 )";

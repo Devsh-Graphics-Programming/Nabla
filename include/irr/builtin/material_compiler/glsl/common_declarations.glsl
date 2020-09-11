@@ -7,6 +7,7 @@
 #define reg_t uint
 #define params_t mat4x3
 #define bxdf_eval_t vec3
+#define eval_and_pdf_t vec4
 
 struct bsdf_data_t
 {

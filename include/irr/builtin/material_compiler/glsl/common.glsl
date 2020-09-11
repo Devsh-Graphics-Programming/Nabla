@@ -7,6 +7,7 @@
 	#error "You need to define 'vec3 irr_glsl_MC_getCamPos()', 'instr_t irr_glsl_MC_fetchInstr(in uint)', 'bsdf_data_t irr_glsl_MC_fetchBSDFData(in uint)' functions above"
 #endif
 
+#include <irr/builtin/glsl/math/functions.glsl>
 #include <irr/builtin/glsl/format/decode.glsl>
 
 uint instr_getNormalId(in instr_t instr)
@@ -118,6 +119,10 @@ bool op_isBXDF(in uint op)
 {
 	return op<=OP_MAX_BSDF;
 }
+bool op_isBXDForBlend(in uint op)
+{
+	return op<=OP_BLEND;
+}
 bool op_hasSpecular(in uint op)
 {
 	return op<=OP_MAX_BSDF
@@ -217,35 +222,46 @@ mat2x3 bsdf_data_decodeIoR(in bsdf_data_t data, in uint op)
 	return ior;
 }
 
-void writeReg(uint n, float v)
+void writeReg(in uint n, in float v)
 {
 	registers[n] = floatBitsToUint(v);
 }
-void writeReg(uint n, vec2 v)
+void writeReg(in uint n, in vec2 v)
 {
 	writeReg(n   ,v.x);
 	writeReg(n+1u,v.y);	
 }
-void writeReg(uint n, vec3 v)
+void writeReg(in uint n, in vec3 v)
 {
 	writeReg(n   ,v.x);
 	writeReg(n+1u,v.y);
 	writeReg(n+2u,v.z);
 }
-float readReg1(uint n)
+void writeReg(in uint n, in vec4 v)
+{
+	writeReg(n   ,v.xyz);
+	writeReg(n+3u,v.w);
+}
+float readReg1(in uint n)
 {
 	return uintBitsToFloat( registers[n] );
 }
-vec2 readReg2(uint n)
+vec2 readReg2(in uint n)
 {
 	return vec2(
 		readReg1(n), readReg1(n+1u)
 	);
 }
-vec3 readReg3(uint n)
+vec3 readReg3(in uint n)
 {
 	return vec3(
 		readReg1(n), readReg1(n+1u), readReg1(n+2u)
+	);
+}
+vec4 readReg4(in uint n)
+{
+	return vec4(
+		readReg3(n), readReg1(n+3u)
 	);
 }
 
@@ -293,7 +309,7 @@ vec3 params_getTransmittance(in params_t p)
 
 
 #ifdef OP_DIFFUSE
-void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+void instr_execute_cos_eval_DIFFUSE(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
@@ -305,17 +321,20 @@ void instr_execute_DIFFUSE(in instr_t instr, in uvec3 regs, in params_t params, 
 	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
 #endif
+
 #ifdef OP_DIFFTRANS
-void instr_execute_DIFFTRANS(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+void instr_execute_cos_eval_DIFFTRANS(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	vec3 tr = params_getTransmittance(params);
 	//transmittance*cos/2pi
 	vec3 c = currBSDFParams.isotropic.NdotL*irr_glsl_RECIPROCAL_PI*0.5*tr;
 	writeReg(REG_DST(regs), c);
 }
+//TODO instr_execute_cos_eval_pdf
 #endif
+
 #ifdef OP_DIELECTRIC
-void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+void instr_execute_cos_eval_DIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
@@ -329,8 +348,9 @@ void instr_execute_DIELECTRIC(in instr_t instr, in uvec3 regs, in params_t param
 	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
 #endif
+
 #ifdef OP_THINDIELECTRIC
-void instr_execute_THINDIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+void instr_execute_cos_eval_THINDIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
@@ -344,8 +364,9 @@ void instr_execute_THINDIELECTRIC(in instr_t instr, in uvec3 regs, in params_t p
 	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
 #endif
+
 #ifdef OP_CONDUCTOR
-void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data)
+void instr_execute_cos_eval_CONDUCTOR(in instr_t instr, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
@@ -360,8 +381,9 @@ void instr_execute_CONDUCTOR(in instr_t instr, in uvec3 regs, in float DG, in pa
 	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
 #endif
+
 #ifdef OP_PLASTIC
-void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data)
+void instr_execute_cos_eval_PLASTIC(in instr_t instr, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
@@ -380,9 +402,19 @@ void instr_execute_PLASTIC(in instr_t instr, in uvec3 regs, in float DG, in para
 	}
 	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
+float instr_execute_cos_eval_pdf_PLASTIC(in instr_t instr, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data, in irr_glsl_BSDFSample s, in float specular_pdf)
+{
+	float a2 = params_getAlpha(params);
+	a2 *= a2;
+	instr_execute_cos_eval_PLASTIC(instr, regs, DG, params, data);
+
+	//TODO those weights should be different
+	return 0.5*specular_pdf + 0.5*irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic, a2);
+}
 #endif
+
 #ifdef OP_COATING
-void instr_execute_COATING(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+void instr_execute_cos_eval_COATING(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	//vec2 thickness_eta = unpackHalf2x16(data.data[3].x);
 	//vec3 sigmaA = params_getSigmaA(params);
@@ -390,6 +422,7 @@ void instr_execute_COATING(in instr_t instr, in uvec3 regs, in params_t params, 
 	writeReg(REG_DST(regs), bxdf_eval_t(1.0,0.0,0.0));
 }
 #endif
+
 #ifdef OP_BUMPMAP
 void instr_execute_BUMPMAP_interactionOnly(in instr_t instr)
 {
@@ -402,6 +435,7 @@ void instr_execute_BUMPMAP(in instr_t instr, in vec3 L)
 	setCurrBSDFParams(N, L);
 }
 #endif
+
 #ifdef OP_SET_GEOM_NORMAL
 //executed at most once
 void instr_execute_SET_GEOM_NORMAL_interactionOnly()
@@ -413,8 +447,9 @@ void instr_execute_SET_GEOM_NORMAL(in vec3 L)
 	setCurrBSDFParams(normalize(Normal), L);
 }
 #endif
+
 #ifdef OP_BLEND
-void instr_execute_BLEND(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+void instr_execute_cos_eval_BLEND(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	float w = params_getBlendWeight(params);
 	bxdf_eval_t bxdf1 = readReg3(REG_SRC1(regs));
@@ -422,6 +457,44 @@ void instr_execute_BLEND(in instr_t instr, in uvec3 regs, in params_t params, in
 
 	bxdf_eval_t blend = mix(bxdf1, bxdf2, w);
 	writeReg(REG_DST(regs), blend);
+}
+void instr_execute_cos_eval_pdf_BLEND(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+{
+	float w = params_getBlendWeight(params);
+	eval_and_pdf_t bxdf1 = readReg4(REG_SRC1(regs));
+	eval_and_pdf_t bxdf2 = readReg4(REG_SRC2(regs));
+
+	float wa = w;
+	float wb = 1.0-wa;
+	bxdf_eval_t a = bxdf1.rgb;
+	float pdfa = bxdf1.a;
+	bxdf_eval_t b = bxdf2.rgb;
+	float pdfb = bxdf2.a;
+	float pdf = mix(pdfa,pdfb,wa);
+
+	bxdf_eval_t blend;
+	/*
+	//generator is denoted as the one with negative probability
+	if (pdfa<0.0) {//`a` is remainder
+		pdfa = abs(pdfa);
+		vec3 rem = (a*wa + b/pdfa*wb) / (wa + pdfb/pdfa*wb);
+		blend = rem_and_pdf_t(rem, pdf);
+	}
+	else
+	if (pdfb<0.0) {//`b` is remainder
+		pdfb = abs(pdfb);
+		vec3 rem = (b*wb + a/pdfb*wa) / (wb + pdfa/pdfb*wa);
+		blend = rem_and_pdf_t(rem, pdf);
+	}
+	else {
+		vec3 rem = mix(a,b,wa);
+		blend = rem_and_pdf_t( rem,pdf );
+	}
+	*/
+	blend = mix(a,b,wa);
+	writeReg(REG_DST(regs), blend);
+
+	return mix(pdfa,pdfb,wa);
 }
 #endif
 
@@ -626,5 +699,264 @@ void handleTwosided(inout bool ts_flag, in instr_t instr)
 #endif
 #endif
 }
+
+#ifdef GEN_CHOICE_STREAM
+void instr_remainder_and_pdf_execute(in instr_t instr, in irr_glsl_BSDFSample s)
+{
+	uint op = instr_getOpcode(instr);
+
+	//speculative execution
+	bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
+	params_t params = instr_getParameters(instr, bsdf_data);
+	uint ndf = instr_getNDF(instr);
+	float a = params_getAlpha(params);
+	float a2 = a*a;
+	float n = irr_glsl_alpha2_to_phong_exp(a2);
+#ifndef ALL_ISOTROPIC_BXDFS
+	float ay = params_getAlphaV(params);
+	float ay2 = ay*ay;
+	float ny = irr_glsl_alpha2_to_phong_exp(ay2);
+#endif
+	float bxdf_eval_scalar_part = 0.0;
+	float pdf = 0.0;
+
+	float cosFactor = op_isBSDF(op) ? abs(currBSDFParams.isotropic.NdotL):max(currBSDFParams.isotropic.NdotL,0.0);
+
+	if (cosFactor>FLT_MIN && op_hasSpecular(op))//does cos>0 check even has any point here? L comes from a sample..
+	{
+#ifdef OP_DIFFUSE
+		if (op==OP_DIFFUSE) {
+			pdf = irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic, a2);
+		} else
+#endif
+
+#ifdef NDF_GGX
+		if (ndf==NDF_GGX) {
+
+#ifdef ALL_ISOTROPIC_BXDFS
+			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, a2);
+			pdf = irr_glsl_ggx_pdf(s, currInteraction.isotropic, a2);
+#else
+			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(currBSDFParams, currInteraction, a, ay);
+			pdf = irr_glsl_ggx_pdf(s, currInteraction, a, ay, a2, ay2);
+#endif
+
+		} else
+#endif
+
+#ifdef NDF_BECKMANN
+		if (ndf==NDF_BECKMANN) {
+
+#ifdef ALL_ISOTROPIC_BXDFS
+			bxdf_eval_scalar_part = irr_glsl_beckmann_smith_height_correlated_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, a2);
+			pdf = irr_glsl_beckmann_pdf(s, currInteraction.isotropic, a2);
+#else
+			bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval_DG(currBSDFParams, currInteraction, a, a2, ay, ay2);
+			pdf = irr_glsl_beckmann_pdf(s, currInteraction, a, a2, ay, ay2);
+#endif
+
+		} else
+#endif
+
+#ifdef NDF_PHONG
+		if (ndf==NDF_PHONG) {
+
+#ifdef ALL_ISOTROPIC_BXDFS
+			bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, n, a2);
+			pdf = irr_glsl_beckmann_pdf(s, currInteraction.isotropic, a2);
+#else
+			bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(currBSDFParams, currInteraction, n, ny, a2, ay2);
+			pdf = irr_glsl_beckmann_pdf(s, currInteraction, a, a2, ay, ay2);
+#endif
+
+		} else
+#endif
+
+#ifndef ONLY_ONE_NDF
+		{} //else "empty braces"
+#endif
+	}
+
+	uvec3 regs = instr_decodeRegisters(instr);
+#ifdef OP_DIFFUSE
+	if (op==OP_DIFFUSE) {
+		instr_execute_cos_eval_DIFFUSE(instr, regs, params, bsdf_data);
+	} else
+#endif
+#ifdef OP_CONDUCTOR
+	if (op==OP_CONDUCTOR) {
+		instr_execute_cos_eval_CONDUCTOR(instr, regs, bxdf_eval_scalar_part, params, bsdf_data);
+	} else
+#endif
+#ifdef OP_PLASTIC
+	if (op==OP_PLASTIC) {
+		pdf = instr_execute_cos_eval_pdf_PLASTIC(instr, regs, bxdf_eval_scalar_part, params, bsdf_data, s, pdf);
+	} else
+#endif
+#ifdef OP_COATING
+	if (op==OP_COATING) {
+		instr_execute_cos_eval_COATING(instr, regs, params, bsdf_data);
+	} else
+#endif
+#ifdef OP_DIFFTRANS
+	if (op==OP_DIFFTRANS) {
+		instr_execute_cos_eval_DIFFTRANS(instr, regs, params, bsdf_data);
+	} else
+#endif
+#ifdef OP_DIELECTRIC
+	if (op==OP_DIELECTRIC) {
+		instr_execute_cos_eval_DIELECTRIC(instr, regs, params, bsdf_data);
+	} else
+#endif
+#ifdef OP_THINDIELECTRIC
+	if (op==OP_THINDIELECTRIC) {
+		instr_execute_cos_eval_THINDIELECTRIC(instr, regs, params, bsdf_data);
+	} else
+#endif
+#ifdef OP_BLEND
+	if (op==OP_BLEND) {
+		pdf = instr_execute_cos_eval_pdf_BLEND(instr, regs, params, bsdf_data);
+	} else
+#endif
+#ifdef OP_BUMPMAP
+	if (op==OP_BUMPMAP) {
+		instr_execute_BUMPMAP(instr, L);
+	} else
+#endif
+#ifdef OP_SET_GEOM_NORMAL
+	if (op==OP_SET_GEOM_NORMAL) {
+		instr_execute_SET_GEOM_NORMAL(L);
+	} else
+#endif
+	{} //else "empty braces"
+
+	if (op_isBXDForBlend(op)) //OP_BLEND writes pdf as well, but it happens in instr_execute_cos_eval_pdf_BLEND()
+		writeReg(REG_DST(regs)+3u, pdf);
+}
+
+vec3 irr_bsdf_cos_remainder_and_pdf(in instr_stream_t stream, in irr_glsl_BSDFSample s, out float _out_pdf)
+{
+#ifndef NO_TWOSIDED
+	bool ts = false;
+#endif
+	for (uint i = 0u; i < stream.count; ++i)
+	{
+		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
+#ifndef NO_TWOSIDED
+		handleTwosided(ts, instr);
+#endif
+		instr_remainder_and_pdf_execute(instr, s);
+	}
+
+	eval_and_pdf_t eval_and_pdf = readReg4(0u);
+	_out_pdf = eval_and_pdf.w;
+	return eval_and_pdf.rgb/eval_and_pdf.w;
+}
+
+irr_glsl_BSDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand)
+{
+	uint ix = 0u;
+	instr_t instr = irr_glsl_MC_fetchInstr(stream.offset);
+	uint op = instr_getOpcode(instr);
+	while (!op_isBXDF(op))
+	{
+#ifdef OP_BLEND
+		if (op==OP_BLEND) {
+			bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
+			params_t params = instr_getParameters(instr, bsdf_data);
+			float w = params_getBlendWeight(params);
+			float rcpChoiceProb;
+			bool choseRight = irr_glsl_partitionRandVariable(w, rand.z, rcpChoiceProb);
+
+			uint right = instr_getRightJump(instr);
+			ix = choseRight ? right:(ix+1u);
+		}
+		else 
+#endif //OP_BLEND
+		{
+#ifdef OP_SET_GEOM_NORMAL
+			if (op==OP_SET_GEOM_NORMAL)
+			{
+				instr_execute_SET_GEOM_NORMAL_interactionOnly();
+			} else 
+#endif //OP_SET_GEOM_NORMAL
+#ifdef OP_BUMPMAP
+			if (op==OP_BUMPMAP)
+			{
+				instr_execute_BUMPMAP_interactionOnly(instr);
+			} else
+#endif //OP_BUMPMAP
+			{}
+			ix = ix + 1u;
+		}
+
+		instr = irr_glsl_MC_fetchInstr(stream.offset+ix);
+		op = instr_getOpcode(instr);
+	}
+
+	bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
+	params_t params = instr_getParameters(instr, bsdf_data);
+	//speculatively
+	const float ax = params_getAlpha(params);
+	const float ax2 = ax*ax;
+	const float ay = params_getAlphaV(params);
+	const float ay2 = ay*ay;
+	const mat2x3 ior = bsdf_data_decodeIoR(bsdf_data,op);
+	const bool is_bsdf = !op_isBRDF(op);
+	const vec3 refl = params_getReflectance(params);
+
+#ifndef NO_TWOSIDED
+	bool ts_flag = false;
+	handleTwosided_interactionOnly(ts_flag, instr);
+#endif //NO_TWOSIDED
+
+	uint ndf = instr_getNDF(instr);
+	irr_glsl_BSDFSample s;
+#ifdef OP_DIFFUSE
+	if (op==OP_DIFFUSE) {
+		s = irr_glsl_oren_nayar_cos_generate(currInteraction, rand.xy, ax2);
+	} else 
+#endif //OP_DIFFUSE
+
+#ifdef OP_DIFFTRANS
+	if (op==OP_DIFFTRANS) {
+		//TODO take into account full sphere
+		s = irr_glsl_cos_weighted_cos_generate(currInteraction, rand.xy);
+	} else
+#endif //OP_DIFFTRANS
+
+//TODO need to distinguish BSDFs and BRDFs
+#ifdef NDF_GGX
+	if (ndf == NDF_GGX) {
+		s = irr_glsl_ggx_cos_generate(currInteraction, rand.xy, ax, ay);
+	} else
+#endif //NDF_GGX
+
+#ifdef NDF_BECKMANN
+	if (ndf == NDF_BECKMANN) {
+		s = irr_glsl_beckmann_smith_cos_generate(currInteraction, rand.xy, ax, ay);
+	} else
+#endif //NDF_BECKMANN
+
+#ifdef NDF_PHONG
+	if (ndf == NDF_PHONG) {
+		s = irr_glsl_beckmann_smith_cos_generate(currInteraction, rand.xy, ax, ay);
+	} else
+#endif //NDF_PHONG
+	{}
+
+	return s;
+}
+
+vec3 runGenerateAndRemainderStream(in instr_stream_t gcs, in instr_stream rnps, in vec3 rand, out float pdf)
+{
+	irr_glsl_BSDFSample s = irr_bsdf_cos_generate(gcs, rand);
+	irr_glsl_updateBSDFParams(currBSDFParams, s, currInteraction);
+	vec3 rem = irr_bsdf_cos_remainder_and_pdf(rnps, s, pdf);
+
+	return rem;
+}
+
+#endif //GEN_CHOICE_STREAM
 
 #endif

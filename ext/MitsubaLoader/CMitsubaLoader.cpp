@@ -191,6 +191,11 @@ instr_stream_t getEvalStream()
 
 	return stream;
 }
+//rem'n'pdf and eval use the same instruction stream
+instr_stream_t getRemAndPdfStream()
+{
+	return getEvalStream();
+}
 instr_stream_t getGenChoiceStream()
 {
 	instr_stream_t stream;

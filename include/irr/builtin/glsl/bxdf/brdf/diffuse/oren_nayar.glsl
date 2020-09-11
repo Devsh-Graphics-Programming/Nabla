@@ -31,6 +31,11 @@ irr_glsl_BSDFSample irr_glsl_oren_nayar_cos_generate(in irr_glsl_AnisotropicView
     return irr_glsl_lambertian_cos_generate(interaction,u);
 }
 
+float irr_glsl_oren_nayar_pdf(in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float a2)
+{
+    return irr_glsl_lambertian_pdf(s, interaction);
+}
+
 vec3 irr_glsl_oren_nayar_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float a2)
 {
     // paired with the generation function

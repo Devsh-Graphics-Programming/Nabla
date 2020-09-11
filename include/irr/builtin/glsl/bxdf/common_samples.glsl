@@ -79,6 +79,28 @@ irr_glsl_BSDFSample irr_glsl_createBSDFSample(out vec3 reflectivity, in vec3 H, 
 
 #include <irr/builtin/glsl/bxdf/common.glsl>
 
+void irr_glsl_updateBSDFParams(out irr_glsl_BSDFIsotropicParams p, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction inter)
+{
+    p.NdotL = s.NdotL;
+    p.NdotL_squared = p.NdotL * p.NdotL;
+    p.NdotH = s.NdotH;
+    p.VdotH = s.VdotH;
+    p.L = s.L;
+    p.VdotL = dot(p.L, inter.V.dir);
+
+    p.LplusV_rcpLen = irr_glsl_FLT_INF;
+    p.invlenL2 = irr_glsl_FLT_INF;
+}
+void irr_glsl_updateBSDFParams(out irr_glsl_BSDFAnisotropicParams p, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction inter)
+{
+    irr_glsl_updateBSDFParams(p.isotropic, s, inter.isotropic);
+
+    p.TdotL = s.TdotL;
+    p.TdotH = s.TdotH;
+    p.BdotL = s.BdotL;
+    p.BdotH = s.BdotH;
+}
+
 
 irr_glsl_BSDFSample irr_glsl_transmission_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {

@@ -23,6 +23,11 @@ irr_glsl_BSDFSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicView
     return irr_glsl_cos_weighted_cos_generate(interaction,u);
 }
 
+float irr_glsl_lambertian_pdf(in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
+{
+    return irr_glsl_cos_weighted_pdf(s, interaction);
+}
+
 vec3 irr_glsl_lambertian_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
 {
     return irr_glsl_cos_weighted_cos_remainder_and_pdf(pdf,s,interaction);
