@@ -68,6 +68,7 @@ class AllocatorHandler
 {
 public:
 	using PoolAdressAllocator = core::PoolAddressAllocatorST<uint32_t>;
+	using Traits = core::address_allocator_traits<PoolAdressAllocator>;
 	
 	AllocatorHandler(AllocationCreationParameters& allocationCreationParameters)
 		: creationParameters(allocationCreationParameters) 
@@ -123,18 +124,42 @@ private:
 		uint32_t randBlockSz = rng.getRandomNumber(0u, randAddressSpaceSize - 1u); //?
 
 		uint32_t allocationAmountForSingeFrameTest = rng.getRndAllocCnt();
-		for (size_t i = 0; i < allocationAmountForSingeFrameTest; ++i)
-		{
-			perFrameData.sizes[i] = rng.getRndBuffSize();
-			perFrameData.alignments[i] = rng.getRndMaxAlign();
-		}
 		
 		const auto reservedSize = PoolAdressAllocator::reserved_size(randMaxAlign, randAddressSpaceSize, randBlockSz); // 3rd parameter onward is custom for each address alloc type
 		void* reservedSpace = _IRR_ALIGNED_MALLOC(reservedSize, _IRR_SIMD_ALIGNMENT);
-		auto poolAllocator = PoolAdressAllocator(reservedSpace, randOffset, randAlignOffset, randMaxAlign, randAddressSpaceSize, randBlockSz);
-	
-		core::address_allocator_traits<PoolAdressAllocator>::multi_alloc_addr(poolAllocator, maxAllocs, perFrameData.outAddr, perFrameData.sizes, perFrameData.alignments);
-	
+		auto poolAlctr = PoolAdressAllocator(reservedSpace, randOffset, randAlignOffset, randMaxAlign, randAddressSpaceSize, randBlockSz);
+
+		// randomly decide how many `multi_allocs` to do
+		const uint32_t multiAllocCnt = rng.getRandomNumber(1u, 5u); //range?
+		for (uint32_t i = 0u; i < multiAllocCnt; i++)
+		{
+			// randomly decide how many allocs in a `multi_alloc` NOTE: must pick number less than `traits::max_multi_alloc`
+			const uint32_t allocCntInMultiAlloc = rng.getRandomNumber(2u, 5u /*traits::max_multi_alloc*/);
+
+			for (size_t i = 0u; i < allocCntInMultiAlloc; ++i)
+			{
+				// randomly decide sizes (but always less than `address_allocator_traits::max_size`)
+				perFrameData.sizes[i] = rng.getRandomNumber(1u, Traits::max_size(poolAlctr));
+				perFrameData.alignments[i] = rng.getRndMaxAlign();
+			}
+
+			Traits::multi_alloc_addr(poolAlctr, allocCntInMultiAlloc, perFrameData.outAddr, perFrameData.sizes, perFrameData.alignments);
+
+			// record all successful alloc addresses to the `core::vector`
+			if (perFrameData.outAddr[i] != PoolAdressAllocator::invalid_address)
+				results.push_back({ perFrameData.outAddr[i], perFrameData.sizes[i], perFrameData.alignments[i] });
+
+			/*for (auto begin = results.begin(); begin != results.end(); begin++)
+			{
+				std::cout << "addr: " << begin->outAddr << std::endl;
+				std::cout << "size: " << begin->size << std::endl;
+				std::cout << "align: " << begin->align << std::endl << std::endl;
+				__debugbreak();
+			}*/
+		}
+
+		
+
 		 //TODO capturing states
 		  //record all allocated addresses to the `core::vector`
 		 
@@ -169,7 +194,3 @@ int main()
 	AllocatorHandler handler(creationParams);
 	handler.executeAllocatorTest();
 }
-
-
-
-	
