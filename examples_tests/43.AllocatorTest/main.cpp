@@ -1,53 +1,175 @@
 #define _IRR_STATIC_LIB_
-
 #include <irrlicht.h>
-#include "irr/core/alloc/GeneralpurposeAddressAllocator.h"
+#include <random>
+#include <cmath>
 
 using namespace irr;
-
+using namespace core;
 
 /*
-	Problems with GeneralPurposeallocator:
-		1. GeneralPurposeallocator is not able to allocate as much address space as it is expected to
-		2. Program doesn't compile, when I try to call safe_shrink_size
-		3. "Assertion failed: false, file *\include\irr\core\alloc\GeneralpurposeAddressAllocator.h, line 368"
+	If traits say address allocator supports arbitrary order free,
+	then ETAT_CHOOSE_RANDOMLY is valid. Otherwise ETAT_CHOOSE_MOST_RECENTLY_ALLOCATED
 */
+
+enum E_TRAITS_ALLOCATION_TYPE
+{
+	ETAT_CHOOSE_RANDOMLY,
+	ETAT_CHOOSE_MOST_RECENTLY_ALLOCATED,
+	ETAT_COUNT
+};
+
+struct AllocationCreationParameters
+{	
+	size_t multiAllocCnt;              //! Specifies amount of adress to be allocated with certain choosen allocator
+	size_t adressesToDeallocateCnt;    //! Specifies amount of adress to be deallocated with certain choosen allocator. Must be less than all allocated and must pick number less than `traits::max_multi_free`, but we don't have `max_multi_free`
+};
+
+constexpr size_t minAllocs = 10000u;
+constexpr size_t maxAllocs = 20000u;
+constexpr size_t maxSizeForSquaring = 1024u;
+constexpr size_t maxAlignmentExp = 6u;
+constexpr size_t minByteSizeForReservingMemory = 2048;			// 2kB
+constexpr size_t maxByteSizeForReservingMemory = 2147483648;	// 2GB
+constexpr size_t maxOffset = 512;
+constexpr size_t maxAlignOffset = 64;
+constexpr size_t maxBlockSize = 600;
+
+//TODO: full static
+class RandomNumberGenerator
+{
+public:
+	inline uint32_t getRndAllocCnt()    { return  allocsPerFrameRange(mt);  }
+	inline uint32_t getRndSize()        { return  sizePerFrameRange(mt); }
+	inline uint32_t getRndMaxAlign()    { return  (1u << maxAlignmentExpPerFrameRange(mt)); } //128 is max
+	inline uint32_t getRndBuffSize()    { return  buffSzRange(mt); }
+	inline uint32_t getRndOffset()      { return  offsetPerFrameRange(mt); }
+	inline uint32_t getRndAlignOffset() { return  alignOffsetPerFrameRange(mt); }
+	inline uint32_t getRndBlockSize()   { return  allocsPerFrameRange(mt); }
+
+	inline uint32_t getRandomNumber(uint32_t rangeBegin, uint32_t rangeEnd)   
+	{
+		std::uniform_int_distribution<uint32_t> dist(rangeBegin, rangeEnd);
+		return dist(mt);
+	}
+
+private:
+	std::mt19937 mt;
+	const std::uniform_int_distribution<uint32_t> allocsPerFrameRange = std::uniform_int_distribution<uint32_t>(minAllocs, maxAllocs);
+	const std::uniform_int_distribution<uint32_t> sizePerFrameRange = std::uniform_int_distribution<uint32_t>(1u, maxSizeForSquaring);
+	const std::uniform_int_distribution<uint32_t> maxAlignmentExpPerFrameRange = std::uniform_int_distribution<uint32_t>(1, maxAlignmentExp);
+
+	const std::uniform_int_distribution<uint32_t> buffSzRange = std::uniform_int_distribution<uint32_t>(minByteSizeForReservingMemory, maxByteSizeForReservingMemory);
+	const std::uniform_int_distribution<uint32_t> offsetPerFrameRange = std::uniform_int_distribution<uint32_t>(0u, maxOffset);
+	const std::uniform_int_distribution<uint32_t> alignOffsetPerFrameRange = std::uniform_int_distribution<uint32_t>(0u, maxAlignOffset);
+	const std::uniform_int_distribution<uint32_t> blockSizePerFrameRange = std::uniform_int_distribution<uint32_t>(1, maxBlockSize);
+};
+
+class AllocatorHandler
+{
+public:
+	using PoolAdressAllocator = core::PoolAddressAllocatorST<uint32_t>;
+	
+	AllocatorHandler(AllocationCreationParameters& allocationCreationParameters)
+		: creationParameters(allocationCreationParameters) 
+	{
+	}
+	
+	struct EntryForFrameData
+	{
+		uint32_t outAddr[maxAllocs] = { ~0u };
+		uint32_t sizes[maxAllocs] = { 0u };
+		uint32_t alignments[maxAllocs] = { 0u };
+	} perFrameData;
+	
+	void executeAllocatorTest()
+	{
+		os::Printer::log("Executing Pool Allocator Test!", ELL_INFORMATION);
+	
+		for (size_t i = 0; i < creationParameters.multiAllocCnt; ++i)
+			executeForFrame();
+	}
+
+private:
+	// function to test allocator
+		// pick random alignment, rand buffer size (between 2kb and 2GB), random offset (less than buffer size), random alignment offset (less than alignment) and other parameters randomly
+
+		// allocate reserved space (for allocator state)
+
+		// create address allocator
+
+		// randomly decide the number of iterations of allocation and reset
+			// declare `core::vector` to hold allocated addresses and sizes
+
+			// randomly decide how many `multi_allocs` to do
+				// randomly decide how many allocs in a `multi_alloc` NOTE: must pick number less than `traits::max_multi_alloc`
+					// randomly decide sizes (but always less than `address_allocator_traits::max_size`)
+				// record all successful alloc addresses to the `core::vector`
+
+				// run random dealloc function
+			//
+
+			// run random dealloc function
+
+			// randomly choose between reset and freeing all `core::vector` elements
+				// reset
+			// ELSE
+				// free everything with a series of multi_free
+	void executeForFrame()
+	{
+		uint32_t randMaxAlign = rng.getRndMaxAlign();
+		uint32_t randAddressSpaceSize = rng.getRndBuffSize();
+		uint32_t randAlignOffset = rng.getRandomNumber(0u, randMaxAlign - 1u);
+		uint32_t randOffset = rng.getRandomNumber(0u, randAddressSpaceSize - 1u); //?
+		uint32_t randBlockSz = rng.getRandomNumber(0u, randAddressSpaceSize - 1u); //?
+
+		uint32_t allocationAmountForSingeFrameTest = rng.getRndAllocCnt();
+		for (size_t i = 0; i < allocationAmountForSingeFrameTest; ++i)
+		{
+			perFrameData.sizes[i] = rng.getRndBuffSize();
+			perFrameData.alignments[i] = rng.getRndMaxAlign();
+		}
+		
+		const auto reservedSize = PoolAdressAllocator::reserved_size(randMaxAlign, randAddressSpaceSize, randBlockSz); // 3rd parameter onward is custom for each address alloc type
+		void* reservedSpace = _IRR_ALIGNED_MALLOC(reservedSize, _IRR_SIMD_ALIGNMENT);
+		auto poolAllocator = PoolAdressAllocator(reservedSpace, randOffset, randAlignOffset, randMaxAlign, randAddressSpaceSize, randBlockSz);
+	
+		core::address_allocator_traits<PoolAdressAllocator>::multi_alloc_addr(poolAllocator, maxAllocs, perFrameData.outAddr, perFrameData.sizes, perFrameData.alignments);
+	
+		 //TODO capturing states
+		  //record all allocated addresses to the `core::vector`
+		 
+		_IRR_ALIGNED_FREE(reservedSpace);
+	}
+
+	// random dealloc function
+		// randomly decide how many calls to `multi_alloc`
+			// randomly how many addresses we should deallocate (but obvs less than all allocated) NOTE: must pick number less than `traits::max_multi_free`
+				// if traits say address allocator supports arbitrary order free, then choose randomly, else choose most recently allocated
+	
+	struct AllocationResults
+	{
+		uint32_t outAddr;
+		uint32_t size;
+		uint32_t align;
+	};
+
+	RandomNumberGenerator rng;
+	AllocationCreationParameters creationParameters;
+	
+	core::vector<AllocationResults> results;
+
+};
 
 int main()
 {
-	//1
-	{
-		void* resSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint32_t), 16u, 1u), _IRR_SIMD_ALIGNMENT);
-		assert(resSpc != nullptr);
-		auto alctr = core::GeneralpurposeAddressAllocator<uint32_t>(resSpc, 0u, 0u, alignof(uint32_t), 16u, 1u);
+	AllocationCreationParameters creationParams;
+	creationParams.multiAllocCnt = 1000;				// TODO
+	creationParams.adressesToDeallocateCnt = 1000;		// TODO
 
-		for (int i = 0; i < 16u; i++)
-		{
-			auto addr = alctr.alloc_addr(1u, 1u);
-			if (addr == alctr.invalid_address)
-				os::Printer::print("invalid adress");
-			else
-				os::Printer::print(std::to_string(addr));
-		}
-		_IRR_ALIGNED_FREE(resSpc);
-	}
-	
-	//2
-	{
-		void* resSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint32_t), 16u, 1u), _IRR_SIMD_ALIGNMENT);
-		auto alctr = core::GeneralpurposeAddressAllocator<uint32_t>(resSpc, 0u, 0u, alignof(uint32_t), 16u, 1u);
-		alctr.safe_shrink_size(8u);
-		_IRR_ALIGNED_FREE(resSpc);
-	}
-
-	//3
-	{
-		void* resSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint32_t), 1413, 32), _IRR_SIMD_ALIGNMENT);
-		auto alctr = core::GeneralpurposeAddressAllocator<uint32_t>(resSpc, 0u, 0u, alignof(uint32_t), 1413, 32);
-
-		auto a = alctr.alloc_addr(1401, 1);
-		_IRR_ALIGNED_FREE(resSpc);
-	}
-
-	return 0;
+	AllocatorHandler handler(creationParams);
+	handler.executeAllocatorTest();
 }
+
+
+
+	
