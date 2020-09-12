@@ -153,11 +153,18 @@ private:
 			randFreeAllocatedAddresses(poolAlctr);
 		}
 
-		//TODO:
 		// randomly choose between reset and freeing all `core::vector` elements
-				// reset
-			// ELSE
-				// free everything with a series of multi_free
+		bool reset = static_cast<bool>(rng.getRandomNumber(0u, 1u));
+		if (reset)
+		{
+			poolAlctr.reset();
+		}
+		else
+		{
+			// free everything with a series of multi_free
+			while (results.size() != 0u)
+				randFreeAllocatedAddresses(poolAlctr);
+		}
 		 
 		_IRR_ALIGNED_FREE(reservedSpace);
 	}
