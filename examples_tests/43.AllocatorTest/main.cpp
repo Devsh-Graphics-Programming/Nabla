@@ -67,14 +67,15 @@ private:
 class AllocatorHandler
 {
 public:
-	using PoolAdressAllocator = core::PoolAddressAllocatorST<uint32_t>;
-	using Traits = core::address_allocator_traits<PoolAdressAllocator>;
+	using PoolAddressAllocator = core::PoolAddressAllocatorST<uint32_t>;
+	using Traits = core::address_allocator_traits<PoolAddressAllocator>;
 	
 	AllocatorHandler(AllocationCreationParameters& allocationCreationParameters)
 		: creationParameters(allocationCreationParameters) 
 	{
 	}
 	
+	//struct for holding temporary data (inputs of `multi_alloc_addr` i `multi_free_addr`)
 	struct EntryForFrameData
 	{
 		uint32_t outAddr[maxAllocs] = { ~0u };
@@ -125,16 +126,16 @@ private:
 
 		uint32_t allocationAmountForSingeFrameTest = rng.getRndAllocCnt();
 		
-		const auto reservedSize = PoolAdressAllocator::reserved_size(randMaxAlign, randAddressSpaceSize, randBlockSz); // 3rd parameter onward is custom for each address alloc type
+		const auto reservedSize = PoolAddressAllocator::reserved_size(randMaxAlign, randAddressSpaceSize, randBlockSz); // 3rd parameter onward is custom for each address alloc type
 		void* reservedSpace = _IRR_ALIGNED_MALLOC(reservedSize, _IRR_SIMD_ALIGNMENT);
-		auto poolAlctr = PoolAdressAllocator(reservedSpace, randOffset, randAlignOffset, randMaxAlign, randAddressSpaceSize, randBlockSz);
+		auto poolAlctr = PoolAddressAllocator(reservedSpace, randOffset, randAlignOffset, randMaxAlign, randAddressSpaceSize, randBlockSz);
 
 		// randomly decide how many `multi_allocs` to do
 		const uint32_t multiAllocCnt = rng.getRandomNumber(1u, 5u); //range?
 		for (uint32_t i = 0u; i < multiAllocCnt; i++)
 		{
 			// randomly decide how many allocs in a `multi_alloc` NOTE: must pick number less than `traits::max_multi_alloc`
-			const uint32_t allocCntInMultiAlloc = rng.getRandomNumber(2u, 5u /*traits::max_multi_alloc*/);
+			const uint32_t allocCntInMultiAlloc = rng.getRandomNumber(1u, 4096u); //?
 
 			for (size_t i = 0u; i < allocCntInMultiAlloc; ++i)
 			{
@@ -146,30 +147,45 @@ private:
 			Traits::multi_alloc_addr(poolAlctr, allocCntInMultiAlloc, perFrameData.outAddr, perFrameData.sizes, perFrameData.alignments);
 
 			// record all successful alloc addresses to the `core::vector`
-			if (perFrameData.outAddr[i] != PoolAdressAllocator::invalid_address)
+			if (perFrameData.outAddr[i] != PoolAddressAllocator::invalid_address)
 				results.push_back({ perFrameData.outAddr[i], perFrameData.sizes[i], perFrameData.alignments[i] });
 
-			/*for (auto begin = results.begin(); begin != results.end(); begin++)
-			{
-				std::cout << "addr: " << begin->outAddr << std::endl;
-				std::cout << "size: " << begin->size << std::endl;
-				std::cout << "align: " << begin->align << std::endl << std::endl;
-				__debugbreak();
-			}*/
+			randFreeAllocatedAddresses(poolAlctr);
 		}
 
-		
-
-		 //TODO capturing states
-		  //record all allocated addresses to the `core::vector`
+		//TODO:
+		// randomly choose between reset and freeing all `core::vector` elements
+				// reset
+			// ELSE
+				// free everything with a series of multi_free
 		 
 		_IRR_ALIGNED_FREE(reservedSpace);
 	}
 
 	// random dealloc function
-		// randomly decide how many calls to `multi_alloc`
+		// randomly decide how many calls to `multi_alloc` | ??
 			// randomly how many addresses we should deallocate (but obvs less than all allocated) NOTE: must pick number less than `traits::max_multi_free`
 				// if traits say address allocator supports arbitrary order free, then choose randomly, else choose most recently allocated
+	void randFreeAllocatedAddresses(PoolAddressAllocator& alctr)
+	{
+		//here I'm freeing previously generated addresses, is it ok?
+
+		if(results.size() == 0u)
+			return;
+
+		// randomly how many addresses we should deallocate (but obvs less than all allocated) NOTE: must pick number less than `traits::max_multi_free`
+		//TODO: random interval
+		const uint32_t addressesToFreeCnt = rng.getRandomNumber(0u, results.size());
+
+		for (uint32_t i = 0u; i < addressesToFreeCnt; i++)
+		{
+			perFrameData.outAddr[i] = results[i].outAddr;
+			perFrameData.sizes[i] = results[i].size;
+		}
+
+		Traits::multi_free_addr(alctr, addressesToFreeCnt, perFrameData.outAddr, perFrameData.sizes);
+		results.erase(results.begin(), results.begin() + addressesToFreeCnt);
+	}
 	
 	struct AllocationResults
 	{
