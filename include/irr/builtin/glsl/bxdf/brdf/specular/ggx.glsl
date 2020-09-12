@@ -17,7 +17,7 @@ vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval(in irr_glsl_BSDFAnisotropicPa
 }
 */
 //defined using NDF function with better API (compared to burley used above) and new impl of correlated smith
-vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction inter, in mat2x3 ior, in float ax, in float ay)
+float irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction inter, in float ax, in float ay)
 {
     float ax2 = ax*ax;
     float ay2 = ay*ay;
@@ -33,11 +33,17 @@ vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval(in irr_glsl_BSDFAnisotropicPa
         scalar_part *= g;
     }
 
+    return scalar_part;
+}
+vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction inter, in mat2x3 ior, in float ax, in float ay)
+{
+    float scalar_part = irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(params, inter, ax, ay);
 
     vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], params.isotropic.VdotH);
     return fr*scalar_part;
 }
-vec3 irr_glsl_ggx_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in mat2x3 ior, in float a2)
+
+float irr_glsl_ggx_height_correlated_cos_eval_DG(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in float a2)
 {
     float ndf = irr_glsl_ggx_trowbridge_reitz(a2, params.NdotH*params.NdotH);
     float scalar_part = ndf*params.NdotL;
@@ -46,6 +52,13 @@ vec3 irr_glsl_ggx_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams par
         float g = irr_glsl_ggx_smith_correlated_wo_numerator(inter.NdotV, inter.NdotV_squared, params.NdotL, params.NdotL_squared, a2);
         scalar_part *= g;
     }
+
+    return scalar_part;
+}
+vec3 irr_glsl_ggx_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in mat2x3 ior, in float a2)
+{
+    float scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG(params, inter, a2);
+
     vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], params.VdotH);
     return fr*scalar_part;
 }
@@ -73,9 +86,10 @@ irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurface
     t2 = (1.0 - s)*sqrt(1.0 - t1*t1) + s*t2;
     
     //reprojection onto hemisphere
+	//TODO try it wothout the max(), not sure if -t1*t1-t2*t2>-1.0
     vec3 H = t1*T1 + t2*T2 + sqrt(max(0.0, 1.0-t1*t1-t2*t2))*V;
     //unstretch
-    H = normalize(vec3(_ax*H.x, _ay*H.y, max(0.0,H.z)));
+    H = normalize(vec3(_ax*H.x, _ay*H.y, H.z));
     float NdotH = H.z;
 
 	return irr_glsl_createBSDFSample(H,localV,dot(H,localV),m);

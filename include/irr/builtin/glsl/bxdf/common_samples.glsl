@@ -109,5 +109,4 @@ float irr_glsl_reflection_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFS
 	return 1.0;
 }
 
-
 #endif

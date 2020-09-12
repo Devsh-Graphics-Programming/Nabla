@@ -47,11 +47,17 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/virtual_texturing/descriptors.glsl"
   "irr/builtin/glsl/virtual_texturing/extensions.glsl"
   "irr/builtin/glsl/virtual_texturing/impl_functions.glsl"
+  "irr/builtin/glsl/format/decode.glsl"
+  "irr/builtin/glsl/format/constants.glsl"
+  #material_compiler
+  "irr/builtin/material_compiler/glsl/common.glsl"
+  "irr/builtin/material_compiler/glsl/common_declarations.glsl"
+  "irr/builtin/material_compiler/glsl/rasterization/impl.glsl"
   #bxdf
   "irr/builtin/glsl/bxdf/common.glsl"
   "irr/builtin/glsl/bxdf/common_samples.glsl"
   "irr/builtin/glsl/bxdf/fresnel.glsl"
-  "irr/builtin/glsl/bxdf/brdf/cos_weighted_sample.glsl"
+  "irr/builtin/glsl/bxdf/cos_weighted_sample.glsl"
   "irr/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl"
   "irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl"
   "irr/builtin/glsl/bxdf/brdf/specular/ndf/ggx.glsl"
@@ -62,6 +68,7 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/bxdf/brdf/specular/ndf/beckmann.glsl"
   "irr/builtin/glsl/bxdf/brdf/specular/beckmann_smith.glsl"
   "irr/builtin/glsl/bxdf/brdf/diffuse/fresnel_correction.glsl"
+  "irr/builtin/glsl/bxdf/bsdf/diffuse/lambert.glsl"
   "irr/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl"
  # ext shouldn't be built into the engine, but there's no harm including some non-dynamic GLSL source to make life easier
   #"irr/builtin/glsl/ext/.glsl"

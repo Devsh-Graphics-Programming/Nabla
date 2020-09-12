@@ -25,11 +25,10 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 
 		static const uint32_t MAX_PITCH_ALIGNMENT = 8u;										             
 
-		/*
+		/**
 			 Returns pitch for buffer row lenght, because
 			 OpenGL cannot transfer rows with arbitrary padding
 		*/
-
 		static inline uint32_t calcPitchInBlocks(uint32_t width, uint32_t blockByteSize)       
 		{
 			auto rowByteSize = width * blockByteSize;
@@ -179,7 +178,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			constexpr auto inputFormat = EF_R8_SRGB;
 			constexpr auto outputFormat = EF_R8G8B8_SRGB;
 		
-			using CONVERSION_SWIZZLE_FILTER = CSwizzleAndConvertImageFilter<inputFormat, outputFormat >;
+			using CONVERSION_SWIZZLE_FILTER = CSwizzleAndConvertImageFilter<inputFormat, outputFormat>;
 
 			core::smart_refctd_ptr<ICPUImage> newConvertedImage;
 			{
