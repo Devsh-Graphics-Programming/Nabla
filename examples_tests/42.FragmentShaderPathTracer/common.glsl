@@ -325,7 +325,7 @@ void missProgram()
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
-irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf)
+irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf, in vec3 luminosityContributionHint)
 {
     const float a = BSDFNode_getRoughness(bsdf);
     const mat2x3 ior = BSDFNode_getEta(bsdf);
@@ -340,32 +340,36 @@ irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfac
             smpl = irr_glsl_ggx_cos_generate(interaction,u.xy,a,a);
             break;
         default:
-            smpl = irr_glsl_thin_smooth_dielectric_cos_sample(interaction,u,ior[0]);
+            smpl = irr_glsl_thin_smooth_dielectric_cos_generate(interaction,u,ior[0],luminosityContributionHint);
             break;
     }
     return smpl;
 }
 
-vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in BSDFNode bsdf)
+vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in BSDFNode bsdf, in vec3 luminosityContributionHint)
 {
     const vec3 reflectance = BSDFNode_getReflectance(bsdf);
     const float a = max(BSDFNode_getRoughness(bsdf),0.01);
     mat2x3 ior = BSDFNode_getEta(bsdf);
+    
+    // if V and L are on different sides of the surface normal, then their dot product sign bits will differ, hence XOR will yield 1 at last bit
+    const bool transmitted = ((floatBitsToUint(interaction.isotropic.NdotV)^floatBitsToUint(_sample.NdotL))&0x80000000u)!=0u;
+
+    const bool transmissive = BSDFNode_isBSDF(bsdf);
+    _sample.NdotL = irr_glsl_conditionalAbsOrMax(transmissive,_sample.NdotL,0.0);
+    interaction.isotropic.NdotV = irr_glsl_conditionalAbsOrMax(transmissive,interaction.isotropic.NdotV,0.0);
 
     vec3 remainder;
     switch (BSDFNode_getType(bsdf))
     {
         case DIFFUSE_OP:
-            _sample.NdotL = max(_sample.NdotL,0.0); // TODO: check if this actually proects us
-            remainder = reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,a*a);
+            remainder = reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf,_sample,interaction.isotropic,a*a);
             break;
         case CONDUCTOR_OP:
-            _sample.NdotL = max(_sample.NdotL,0.0); // TODO: check if this actually proects us
             remainder = irr_glsl_ggx_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,ior,a*a);
             break;
         default:
-            _sample.NdotL = abs(_sample.NdotL); // TODO: check if this actually proects us
-            remainder = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,ior[0]);
+            remainder = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(pdf,transmitted,interaction.isotropic.NdotV,ior[0],luminosityContributionHint);
             break;
     }
     return remainder;

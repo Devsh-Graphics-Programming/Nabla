@@ -145,7 +145,7 @@ mat2x3 irr_glsl_frisvad(in vec3 n)
 	return (n.z<-0.9999999) ? mat2x3(vec3(0.0,-1.0,0.0),vec3(-1.0,0.0,0.0)):mat2x3(vec3(1.0-n.x*n.x*a, b, -n.x),vec3(b, 1.0-n.y*n.y*a, -n.y));
 }
 
-// @return if picked left choice
+// @return if picked right choice
 bool irr_glsl_partitionRandVariable(in float leftProb, inout float xi, out float rcpChoiceProb)
 {
     const float NEXT_ULP_AFTER_UNITY = uintBitsToFloat(0x3f800001u);
@@ -158,6 +158,28 @@ bool irr_glsl_partitionRandVariable(in float leftProb, inout float xi, out float
     xi *= rcpChoiceProb;
 
     return pickRight;
+}
+
+// @ return abs(x) if cond==true, max(x,0.0) otherwise
+float irr_glsl_conditionalAbsOrMax(in bool cond, in float x, in float limit)
+{
+    const float condAbs = uintBitsToFloat(floatBitsToUint(x) & uint(cond ? 0x7fFFffFFu:0xffFFffFFu));
+    return max(condAbs,limit);
+}
+vec2 irr_glsl_conditionalAbsOrMax(in bool cond, in vec2 x, in vec2 limit)
+{
+    const vec2 condAbs = uintBitsToFloat(floatBitsToUint(x) & uvec2(cond ? 0x7fFFffFFu:0xffFFffFFu));
+    return max(condAbs,limit);
+}
+vec3 irr_glsl_conditionalAbsOrMax(in bool cond, in vec3 x, in vec3 limit)
+{
+    const vec3 condAbs = uintBitsToFloat(floatBitsToUint(x) & uvec3(cond ? 0x7fFFffFFu:0xffFFffFFu));
+    return max(condAbs,limit);
+}
+vec4 irr_glsl_conditionalAbsOrMax(in bool cond, in vec4 x, in vec4 limit)
+{
+    const vec4 condAbs = uintBitsToFloat(floatBitsToUint(x) & uvec4(cond ? 0x7fFFffFFu:0xffFFffFFu));
+    return max(condAbs,limit);
 }
 
 #endif

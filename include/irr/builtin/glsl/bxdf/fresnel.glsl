@@ -50,4 +50,16 @@ vec3 irr_glsl_fresnel_dielectric(vec3 Eta, in float CosTheta)
     return irr_glsl_fresnel_dielectric_common(Eta*Eta,backside ? (-CosTheta):CosTheta);
 }
 
+// gets the sum of all R, T R T, T R^3 T, T R^5 T, ... paths
+vec3 irr_glsl_thindielectric_infinite_scatter(in vec3 singleInterfaceReflectance)
+{
+    const vec3 doubleInterfaceReflectance = singleInterfaceReflectance*singleInterfaceReflectance;
+    return mix((singleInterfaceReflectance-doubleInterfaceReflectance)/(vec3(1.0)-doubleInterfaceReflectance)*2.0,vec3(1.0),greaterThan(doubleInterfaceReflectance,vec3(0.9999)));
+}
+float irr_glsl_thindielectric_infinite_scatter(in float singleInterfaceReflectance)
+{
+    const float doubleInterfaceReflectance = singleInterfaceReflectance*singleInterfaceReflectance;
+    return doubleInterfaceReflectance>0.9999 ? 1.0:((singleInterfaceReflectance-doubleInterfaceReflectance)/(1.0-doubleInterfaceReflectance)*2.0);
+}
+
 #endif
