@@ -8,7 +8,7 @@ float irr_glsl_lambertian_transmitter()
     return irr_glsl_RECIPROCAL_PI*0.5;
 }
 
-float irr_glsl_lambertian_transmitter_cos_eval_rec_2pi_factored_out_wo_clamps(in float abs00NdotL)
+float irr_glsl_lambertian_transmitter_cos_eval_rec_2pi_factored_out_wo_clamps(in float absNdotL)
 {
    return absNdotL;
 }
@@ -17,9 +17,9 @@ float irr_glsl_lambertian_transmitter_cos_eval_rec_2pi_factored_out(in float Ndo
    return irr_glsl_lambertian_transmitter_cos_eval_rec_2pi_factored_out_wo_clamps(abs(NdotL));
 }
 
-float irr_glsl_lambertian_transmitter_cos_eval_wo_clamps(in irr_glsl_BSDFIsotropicParams params)
+float irr_glsl_lambertian_transmitter_cos_eval_wo_clamps(in float absNdotL)
 {
-   return irr_glsl_lambertian_transmitter_cos_eval_rec_2pi_factored_out_wo_clamps(params.NdotL)*irr_glsl_lambertian_transmitter();
+   return irr_glsl_lambertian_transmitter_cos_eval_rec_2pi_factored_out_wo_clamps(absNdotL)*irr_glsl_lambertian_transmitter();
 }
 float irr_glsl_lambertian_transmitter_cos_eval(in irr_glsl_BSDFIsotropicParams params)
 {
@@ -44,9 +44,9 @@ irr_glsl_BSDFSample irr_glsl_lambertian_transmitter_cos_generate(in irr_glsl_Ani
     return s;
 }
 
-float irr_glsl_lambertian_transmitter_cos_remainder_and_pdf_wo_clamps(out float pdf, in float NdotL)
+float irr_glsl_lambertian_transmitter_cos_remainder_and_pdf_wo_clamps(out float pdf, in float absNdotL)
 {
-    return irr_glsl_projected_sphere_remainder_and_pdf(pdf,NdotL);
+    return irr_glsl_projected_sphere_remainder_and_pdf(pdf,absNdotL);
 }
 float irr_glsl_lambertian_transmitter_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s)
 {

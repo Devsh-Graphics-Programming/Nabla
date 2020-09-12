@@ -303,7 +303,7 @@ vec2 SampleSphericalMap(vec3 v)
 void missProgram() 
 {
     vec3 finalContribution = rayStack[stackPtr]._payload.throughput; 
-    #define USE_ENVMAP
+    //#define USE_ENVMAP
     // true miss
     if (rayStack[stackPtr]._immutable.maxT>=FLT_MAX)
     {
@@ -352,24 +352,24 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _
     const float a = max(BSDFNode_getRoughness(bsdf),0.01);
     mat2x3 ior = BSDFNode_getEta(bsdf);
     
-    // if V and L are on different sides of the surface normal, then their dot product sign bits will differ, hence XOR will yield 1 at last bit
-    const bool transmitted = ((floatBitsToUint(interaction.isotropic.NdotV)^floatBitsToUint(_sample.NdotL))&0x80000000u)!=0u;
+    const float VdotL = dot(interaction.isotropic.V.dir,_sample.L);
+    const bool transmitted = VdotL<0.0;
 
     const bool transmissive = BSDFNode_isBSDF(bsdf);
-    _sample.NdotL = irr_glsl_conditionalAbsOrMax(transmissive,_sample.NdotL,0.0);
-    interaction.isotropic.NdotV = irr_glsl_conditionalAbsOrMax(transmissive,interaction.isotropic.NdotV,0.0);
+    const float clampedNdotL = irr_glsl_conditionalAbsOrMax(transmissive,_sample.NdotL,0.0);
+    const float clampedNdotV = irr_glsl_conditionalAbsOrMax(transmissive,interaction.isotropic.NdotV,0.0);
 
     vec3 remainder;
     switch (BSDFNode_getType(bsdf))
     {
         case DIFFUSE_OP:
-            remainder = reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf,_sample,interaction.isotropic,a*a);
+            remainder = reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf,a*a,VdotL,clampedNdotL,clampedNdotV);
             break;
         case CONDUCTOR_OP:
             remainder = irr_glsl_ggx_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,ior,a*a);
             break;
         default:
-            remainder = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(pdf,transmitted,interaction.isotropic.NdotV,ior[0],luminosityContributionHint);
+            remainder = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(pdf,transmitted,clampedNdotV,ior[0],luminosityContributionHint);
             break;
     }
     return remainder;

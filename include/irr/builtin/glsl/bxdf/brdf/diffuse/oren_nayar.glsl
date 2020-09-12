@@ -20,15 +20,14 @@ float irr_glsl_oren_nayar_cos_rec_pi_factored_out_wo_clamps(in float _a2, in flo
 }
 
 
-float irr_glsl_oren_nayar_cos_eval_wo_clamps(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in float a2)
+float irr_glsl_oren_nayar_cos_eval_wo_clamps(in float a2, in float VdotL, in float maxNdotL, in float maxNdotV)
 {
-    return params.NdotL * irr_glsl_RECIPROCAL_PI * irr_glsl_oren_nayar_cos_rec_pi_factored_out_wo_clamps(a2, params.VdotL, params.NdotL, inter.NdotV);
+    return maxNdotL*irr_glsl_RECIPROCAL_PI*irr_glsl_oren_nayar_cos_rec_pi_factored_out_wo_clamps(a2,VdotL,maxNdotL,maxNdotV);
 }
 
 float irr_glsl_oren_nayar_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in float a2)
 {
-    const float clamped_NdotL = max(params.NdotL,0.0);
-    return clamped_NdotL* irr_glsl_RECIPROCAL_PI * irr_glsl_oren_nayar_cos_rec_pi_factored_out_wo_clamps(a2, params.VdotL, clamped_NdotL, max(inter.NdotV,0.0));
+    return irr_glsl_oren_nayar_cos_eval_wo_clamps(a2, params.VdotL, max(params.NdotL,0.0), max(inter.NdotV,0.0));
 }
 
 
@@ -39,26 +38,21 @@ irr_glsl_BSDFSample irr_glsl_oren_nayar_cos_generate(in irr_glsl_AnisotropicView
 }
 
 
-float irr_glsl_oren_nayar_pdf_wo_clamps(in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float a2)
+float irr_glsl_oren_nayar_pdf_wo_clamps(in float maxNdotL)
 {
-    return irr_glsl_lambertian_pdf_wo_clamps(s,interaction);
+    return irr_glsl_lambertian_pdf_wo_clamps(maxNdotL);
 }
 
 
-float irr_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float a2)
+float irr_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(out float pdf, in float a2, in float VdotL, in float maxNdotL, in float maxNdotV)
 {
-    // paired with the generation function
-    irr_glsl_lambertian_cos_remainder_and_pdf(pdf,s);
-    // but the remainder is different
-    return irr_glsl_oren_nayar_cos_rec_pi_factored_out_wo_clamps(a2, dot(interaction.V.dir,s.L), s.NdotL, interaction.NdotV);
+    pdf = irr_glsl_oren_nayar_pdf_wo_clamps(maxNdotL);
+    return irr_glsl_oren_nayar_cos_rec_pi_factored_out_wo_clamps(a2,VdotL,maxNdotL,maxNdotV);
 }
 
 float irr_glsl_oren_nayar_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float a2)
 {
-    // paired with the generation function
-    irr_glsl_lambertian_cos_remainder_and_pdf(pdf,s);
-    // but the remainder is different
-    return irr_glsl_oren_nayar_cos_rec_pi_factored_out_wo_clamps(a2, dot(interaction.V.dir,s.L), max(s.NdotL,0.0), max(interaction.NdotV,0.0));
+    return irr_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf,a2,dot(interaction.V.dir,s.L), max(s.NdotL,0.0), max(interaction.NdotV,0.0));
 }
 
 #endif

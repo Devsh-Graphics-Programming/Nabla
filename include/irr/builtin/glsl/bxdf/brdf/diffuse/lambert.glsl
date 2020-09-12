@@ -17,9 +17,9 @@ float irr_glsl_lambertian_cos_eval_rec_pi_factored_out(in float NdotL)
    return irr_glsl_lambertian_cos_eval_rec_pi_factored_out_wo_clamps(max(NdotL,0.0));
 }
 
-float irr_glsl_lambertian_cos_eval_wo_clamps(in irr_glsl_BSDFIsotropicParams params)
+float irr_glsl_lambertian_cos_eval_wo_clamps(in float maxNdotL)
 {
-   return irr_glsl_lambertian_cos_eval_rec_pi_factored_out_wo_clamps(params.NdotL)*irr_glsl_lambertian();
+   return irr_glsl_lambertian_cos_eval_rec_pi_factored_out_wo_clamps(maxNdotL)*irr_glsl_lambertian();
 }
 float irr_glsl_lambertian_cos_eval(in irr_glsl_BSDFIsotropicParams params)
 {
@@ -31,7 +31,7 @@ irr_glsl_BSDFSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicView
     vec3 L = irr_glsl_projected_hemisphere_generate(u);
 
     irr_glsl_BSDFSample s;
-    s.L = irr_glsl_getTangentFrame(interaction) * L;
+    s.L = irr_glsl_getTangentFrame(interaction)*L;
     s.TdotL = L.x;
     s.BdotL = L.y;
     s.NdotL = L.z;
@@ -45,17 +45,17 @@ irr_glsl_BSDFSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicView
 }
 
 
-float irr_glsl_lambertian_pdf_wo_clamps(in irr_glsl_BSDFSample s)
+float irr_glsl_lambertian_pdf_wo_clamps(in float maxNdotL)
 {
     float pdf;
-    irr_glsl_projected_hemisphere_remainder_and_pdf(pdf,s.NdotL);
+    irr_glsl_projected_hemisphere_remainder_and_pdf(pdf,maxNdotL);
     return pdf;
 }
 
 
-float irr_glsl_lambertian_cos_remainder_and_pdf_wo_clamps(out float pdf, in irr_glsl_BSDFSample s)
+float irr_glsl_lambertian_cos_remainder_and_pdf_wo_clamps(out float pdf, in float maxNdotL)
 {
-    return irr_glsl_projected_hemisphere_remainder_and_pdf(pdf,s.NdotL);
+    return irr_glsl_projected_hemisphere_remainder_and_pdf(pdf,maxNdotL);
 }
 float irr_glsl_lambertian_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s)
 {
