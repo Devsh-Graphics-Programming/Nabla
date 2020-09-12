@@ -349,9 +349,14 @@ irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfac
 vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in BSDFNode bsdf, in vec3 luminosityContributionHint)
 {
     const vec3 reflectance = BSDFNode_getReflectance(bsdf);
-    const float a = max(BSDFNode_getRoughness(bsdf),0.01);
-    mat2x3 ior = BSDFNode_getEta(bsdf);
+    const float a = max(BSDFNode_getRoughness(bsdf),0.01); // TODO: @Crisspl 0-roughness still doesn't work! Also Beckmann has a weird dark rim instead as fresnel!?
+    const float a2 = a*a;
+
+    const mat2x3 ior = BSDFNode_getEta(bsdf);
     
+    const float NdotH2 = _sample.NdotH*_sample.NdotH;
+    const float NdotL2 = _sample.NdotL*_sample.NdotL;
+
     const float VdotL = dot(interaction.isotropic.V.dir,_sample.L);
     const bool transmitted = VdotL<0.0;
 
@@ -359,14 +364,14 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _
     const float clampedNdotL = irr_glsl_conditionalAbsOrMax(transmissive,_sample.NdotL,0.0);
     const float clampedNdotV = irr_glsl_conditionalAbsOrMax(transmissive,interaction.isotropic.NdotV,0.0);
 
-    vec3 remainder;
+    vec3 remainder; // TODO should just return a 0.0 remainder if NdotV<FLT_MIN and BSDF is not transmissive
     switch (BSDFNode_getType(bsdf))
     {
         case DIFFUSE_OP:
             remainder = reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf,a*a,VdotL,clampedNdotL,clampedNdotV);
             break;
         case CONDUCTOR_OP:
-            remainder = irr_glsl_ggx_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,ior,a*a);
+            remainder = irr_glsl_ggx_cos_remainder_and_pdf_wo_clamps(pdf,irr_glsl_ggx_trowbridge_reitz(a2,NdotH2),clampedNdotL,NdotL2,clampedNdotV,interaction.isotropic.NdotV_squared,_sample.VdotH,ior,a2);
             break;
         default:
             remainder = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(pdf,transmitted,clampedNdotV,ior[0],luminosityContributionHint);
