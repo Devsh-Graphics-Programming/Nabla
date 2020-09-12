@@ -39,6 +39,12 @@ irr_glsl_BSDFSample irr_glsl_oren_nayar_cos_generate(in irr_glsl_AnisotropicView
 }
 
 
+float irr_glsl_oren_nayar_pdf_wo_clamps(in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float a2)
+{
+    return irr_glsl_lambertian_pdf_wo_clamps(s,interaction);
+}
+
+
 float irr_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float a2)
 {
     // paired with the generation function

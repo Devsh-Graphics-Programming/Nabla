@@ -182,4 +182,10 @@ vec4 irr_glsl_conditionalAbsOrMax(in bool cond, in vec4 x, in vec4 limit)
     return max(condAbs,limit);
 }
 
+//
+uint irr_glsl_rotl(in uint x, in uint k)
+{
+	return (x<<k) | (x>>(32u-k));
+}
+
 #endif

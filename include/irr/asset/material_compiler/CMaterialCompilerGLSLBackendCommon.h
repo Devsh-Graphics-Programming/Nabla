@@ -367,7 +367,7 @@ protected:
 		"NDF_GGX",
 		"NDF_PHONG"
 	};
-	static std::string genPreprocDefinitions(const result_t& _res);
+	static std::string genPreprocDefinitions(const result_t& _res, bool _genChoiceStream);
 
 	core::unordered_map<uint32_t, uint32_t> createBsdfDataIndexMapForPrefetchedTextures(SContext* _ctx, const instr_stream::traversal_t& _tex_prefetch_stream, const core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _tex2reg) const;
 

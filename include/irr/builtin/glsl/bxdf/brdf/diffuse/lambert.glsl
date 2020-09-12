@@ -44,6 +44,15 @@ irr_glsl_BSDFSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicView
     return s;
 }
 
+
+float irr_glsl_lambertian_pdf_wo_clamps(in irr_glsl_BSDFSample s)
+{
+    float pdf;
+    irr_glsl_projected_hemisphere_remainder_and_pdf(pdf,s.NdotL);
+    return pdf;
+}
+
+
 float irr_glsl_lambertian_cos_remainder_and_pdf_wo_clamps(out float pdf, in irr_glsl_BSDFSample s)
 {
     return irr_glsl_projected_hemisphere_remainder_and_pdf(pdf,s.NdotL);

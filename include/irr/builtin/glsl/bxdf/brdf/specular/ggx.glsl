@@ -95,26 +95,54 @@ irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurface
 	return irr_glsl_createBSDFSample(H,localV,dot(H,localV),m);
 }
 
-vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float a2)
+float irr_glsl_ggx_pdf(in float ndf, in float devsh_v, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
 {
-	float one_minus_a2 = 1.0-a2;
-    float devsh_v = irr_glsl_smith_ggx_devsh_part(interaction.NdotV_squared,a2,one_minus_a2);
-	pdf = irr_glsl_ggx_trowbridge_reitz(a2,s.NdotH*s.NdotH)*irr_glsl_GGXSmith_G1_wo_numerator(interaction.NdotV,devsh_v)*0.5;
-	
-    float G2_over_G1 = irr_glsl_ggx_smith_G2_over_G1_devsh(s.NdotL, s.NdotL*s.NdotL, interaction.NdotV, devsh_v, a2, one_minus_a2);
-	
-	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
-	return fr*G2_over_G1;
+    return ndf * irr_glsl_GGXSmith_G1_wo_numerator(interaction.NdotV, devsh_v) * 0.5;
 }
 
-vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ay)
+float irr_glsl_ggx_pdf(in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction inter, in float a2)
 {
-    float ax2 = ax*ax;
-    float ay2 = ay*ay;
-    float TdotV2 = interaction.TdotV*interaction.TdotV;
-    float BdotV2 = interaction.BdotV*interaction.BdotV;
+    float ndf = irr_glsl_ggx_trowbridge_reitz(a2, s.NdotH * s.NdotH);
+    float devsh_v = irr_glsl_smith_ggx_devsh_part(inter.NdotV_squared, a2, 1.0-a2);
+
+    return irr_glsl_ggx_pdf(ndf, devsh_v, inter);
+}
+
+vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in float ndf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float a2)
+{
+    float one_minus_a2 = 1.0 - a2;
+    float devsh_v = irr_glsl_smith_ggx_devsh_part(interaction.NdotV_squared, a2, one_minus_a2);
+    pdf = irr_glsl_ggx_pdf(ndf, devsh_v, interaction);
+
+    float G2_over_G1 = irr_glsl_ggx_smith_G2_over_G1_devsh(s.NdotL, s.NdotL * s.NdotL, interaction.NdotV, devsh_v, a2, one_minus_a2);
+
+    vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
+    return fr * G2_over_G1;
+}
+vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float a2)
+{
+    float ndf = irr_glsl_ggx_trowbridge_reitz(a2, s.NdotH * s.NdotH);
+    return irr_glsl_ggx_cos_remainder_and_pdf(pdf, ndf, s, interaction, ior, a2);
+}
+
+float irr_glsl_ggx_pdf(in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in float ax, in float ay, in float ax2, in float ay2)
+{
+    float ndf = irr_glsl_ggx_aniso(s.TdotH*s.TdotH, s.BdotH*s.BdotH, s.NdotH*s.NdotH, ax, ay, ax2, ay2);
+    float TdotV2 = interaction.TdotV * interaction.TdotV;
+    float BdotV2 = interaction.BdotV * interaction.BdotV;
     float devsh_v = irr_glsl_smith_ggx_devsh_part(TdotV2, BdotV2, interaction.isotropic.NdotV_squared, ax2, ay2);
-    pdf = irr_glsl_ggx_aniso(s.TdotH*s.TdotH,s.BdotH*s.BdotH,s.NdotH*s.NdotH,ax,ay,ax2,ay2)*irr_glsl_GGXSmith_G1_wo_numerator(interaction.isotropic.NdotV, devsh_v)*0.5;
+
+    return irr_glsl_ggx_pdf(ndf, devsh_v, interaction);
+}
+
+vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in float ndf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ay)
+{
+    float ax2 = ax * ax;
+    float ay2 = ay * ay;
+    float TdotV2 = interaction.TdotV * interaction.TdotV;
+    float BdotV2 = interaction.BdotV * interaction.BdotV;
+    float devsh_v = irr_glsl_smith_ggx_devsh_part(TdotV2, BdotV2, interaction.isotropic.NdotV_squared, ax2, ay2);
+    pdf = irr_glsl_ggx_pdf(ndf, devsh_v, interaction.isotropic);
 
     float G2_over_G1 = irr_glsl_ggx_smith_G2_over_G1(
         s.NdotL, s.TdotL*s.TdotL, s.BdotL*s.BdotL, s.NdotL*s.NdotL,
@@ -122,8 +150,16 @@ vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSam
         ax2, ay2
     );
 
-	vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
-	return fr*G2_over_G1;
+    vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], s.VdotH);
+    return fr * G2_over_G1;
+}
+vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ay)
+{
+    float ax2 = ax*ax;
+    float ay2 = ay*ay;
+    float ndf = irr_glsl_ggx_aniso(s.TdotH*s.TdotH, s.BdotH*s.BdotH, s.NdotH*s.NdotH, ax, ay, ax2, ay2);
+
+	return irr_glsl_ggx_aniso_cos_remainder_and_pdf(pdf, ndf, s, interaction, ior, ax, ay);
 }
 
 #endif
