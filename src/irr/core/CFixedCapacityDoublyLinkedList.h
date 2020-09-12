@@ -14,6 +14,8 @@ namespace irr {
 			uint32_t prev;
 			uint32_t next;
 
+			Snode() {}
+
 			Snode(const Value& val) : data(val)
 			{
 				prev = invalid_iterator;
@@ -42,7 +44,7 @@ namespace irr {
 
 		template<typename Value>
 		class DoublyLinkedList
-		{		
+		{
 			_IRR_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = 0xdeadbeefu;
 
 			void* reservedSpace;
@@ -52,62 +54,71 @@ namespace irr {
 			Snode<Value>* m_array;
 			uint32_t cap;
 
-
 		public:
 
+			inline Snode<Value>* get(uint32_t address)
+			{
+				return &(m_array[address]);
+			}
 			inline void popBack()
 			{
-				if(m_back->prev != invalid_iterator)
-					m_back->prev->next = invalid_iterator;
+				if (m_back == invalid_iterator)	return;
+				auto backNode = getBack();
+				if (backNode->prev != invalid_iterator)
+					get(backNode->prev)->next = invalid_iterator;
 				uint32_t temp = m_back;
-				m_back = m_back->prev;
+				m_back = backNode->prev;
 				alloc.free_addr(temp, 1u);
 			}
 
-			inline void pushFront(Value &&val) 
+			inline void pushFront(Value&& val)
 			{
 				uint32_t addr = alloc.alloc_addr(1u, 1u);
-				Snode<Value>* n = m_array[addr];
-				n->prev = invalid_iterator;
-				n->data = std::move(val);
-				n->next = m_begin;
+				Snode<Value> n = m_array[addr];
+				n.prev = invalid_iterator;
+				n.data = std::swap(n.data, val);
+				n.next = m_begin;
 
 				if (m_begin != invalid_iterator)
-					m_begin->prev = addr;
+					getBegin()->prev = addr;
 				m_begin = addr;
 			}
 
-			inline Snode<Value>* getBegin() { return m_array[m_begin]; }
-
-			inline Snode<Value>* getBack() { return m_array[m_back]; }
+			inline Snode<Value>* getBegin() { return &(m_array[m_begin]); }
+			inline Snode<Value>* getBack() { return &(m_array[m_back]); }
+			inline uint32_t getFirstAddress() { return m_begin; }
 
 			inline void erase(uint32_t nodeAddr)
 			{
-				if(nodeAddr->prev != invalid_iterator)
-				nodeAddr->prev->next = nodeAddr->next;
-				if (nodeAddr->next != invalid_iterator)
-				nodeAddr->next->prev = nodeAddr->prev;
-				nodeAddr->~Snode<Value>();
+				assert(nodeAddr != invalid_iterator);
+				auto node = get(nodeAddr);
+				if (node->prev != invalid_iterator)
+					get(node->prev)->next = node->next;
+				if (node->next != invalid_iterator)
+					get(node->next)->prev = node->prev;
+				//node->~Snode<Value>();	destructor not defined
 				alloc.free_addr(nodeAddr, 1u);
 			}
 
 			inline void moveToFront(uint32_t nodeAddr)
 			{
 				if (m_begin == nodeAddr) return;
-				m_begin->prev = nodeAddr;
-				if (nodeAddr->next != invalid_iterator)
-					nodeAddr->next->prev = nodeAddr->prev;
-				if (nodeAddr->prev != invalid_iterator)
-					nodeAddr->next->prev = nodeAddr->prev;
-				nodeAddr->next = m_begin;
-				nodeAddr->prev = invalid_iterator;
+				getBegin()->prev = nodeAddr;
+
+				auto node = get(nodeAddr);
+				if (node->next != invalid_iterator)
+					get(node->next)->prev = node->prev;
+				if (node->prev != invalid_iterator)
+					get(node->next)->prev = node->prev;
+				node->next = m_begin;
+				node->prev = invalid_iterator;
 				m_begin = nodeAddr;
 			}
 
 			DoublyLinkedList(const uint32_t& capacity) :
-				cap(capacity)
+				cap(capacity),
 				reservedSpace(_IRR_ALIGNED_MALLOC(PoolAddressAllocator<uint32_t>::reserved_size(1u, capacity, 1u), alignof(void*))),
-				alloc(reservedSpace, 0u, 0u, 1u, capacity, 1u),
+				alloc(reservedSpace, 0u, 0u, 1u, capacity, 1u)
 			{
 				m_back = invalid_iterator;
 				m_begin = invalid_iterator;

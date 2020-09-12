@@ -9,8 +9,9 @@ namespace irr {
 template<typename Key, typename Value, typename MapHash = std::hash<Key>, typename MapEquals = std::equal_to<Key>>
 class LRUcache
 {
-#define invalid_address 0xdeadbeefu
 	typedef std::pair<Key, Value> list_template_t;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = Snode<list_template_t>::invalid_iterator;
+
 	DoublyLinkedList<list_template_t> m_list;
 	unordered_map<Key, uint32_t, MapHash, MapEquals> m_shortcut_map;
 	uint32_t m_capacity;
@@ -21,7 +22,7 @@ class LRUcache
 		{
 			return m_shortcut_map[key];
 		}
-		return invalid_address;
+		return invalid_iterator;
 	}
 
 public:
@@ -34,12 +35,13 @@ public:
 	}
 	inline void print()
 	{
-		uint32_t i = m_list.getBegin();
-		while (i != invalid_address)
+		auto node = m_list.getBegin();
+		while (true)
 		{
-			auto node = reinterpret_cast<Snode<list_template_t>*>(i);
 			std::cout << node->data.first << ' ' << node->data.second << std::endl;
-			i = node->next;
+			if (node->next == invalid_iterator)
+				break;
+			node = m_list.get(node->next);
 		}
 	}
 	inline void insert(Key& k, Value& v)
@@ -51,7 +53,7 @@ public:
 				m_shortcut_map.erase(reinterpret_cast<Snode<list_template_t>*>(m_list.getBack())->data.first);
 				m_list.popBack();
 				m_list.pushFront(std::pair<Key, Value>(k, v));
-				m_shortcut_map[k] = m_list.getBegin();
+				m_shortcut_map[k] = m_list.getFirstAddress();
 			}
 		}
 		else
@@ -64,7 +66,7 @@ public:
 	inline Value get(Key& key)
 	{
 		auto i = common_peek(key);
-		if (i != invalid_address)
+		if (i != invalid_iterator)
 		{
 			m_list.moveToFront(i);
 			return reinterpret_cast<Snode<list_template_t>*>(i)->data.second;
@@ -74,13 +76,13 @@ public:
 	inline Value peek(Key& key)
 	{
 		uint32_t i = common_peek(key);
-		if (i == invalid_address) return nullptr;
+		if (i == invalid_iterator) return nullptr;
 		else return  reinterpret_cast<Snode<list_template_t>*>(i)->data.second;
 	}
 	inline void erase(Key& key)
 	{
 		uint32_t i = common_peek(key);
-		if (i != invalid_address)
+		if (i != invalid_iterator)
 			m_list.erase(i);
 	}
 };
