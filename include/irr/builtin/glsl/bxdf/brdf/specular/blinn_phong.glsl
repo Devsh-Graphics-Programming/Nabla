@@ -3,8 +3,8 @@
 
 #include <irr/builtin/glsl/bxdf/common.glsl>
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/ndf/blinn_phong.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/geom/smith.glsl>
+#include <irr/builtin/glsl/bxdf/ndf/blinn_phong.glsl>
+#include <irr/builtin/glsl/bxdf/geom/smith/beckmann.glsl>
 
 //conversion between alpha and Phong exponent, Walter et.al.
 float irr_glsl_phong_exp_to_alpha2(in float n)

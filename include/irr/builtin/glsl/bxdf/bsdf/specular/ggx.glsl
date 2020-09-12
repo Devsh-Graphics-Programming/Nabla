@@ -1,22 +1,11 @@
-#ifndef _IRR_BXDF_BRDF_SPECULAR_GGX_INCLUDED_
-#define _IRR_BXDF_BRDF_SPECULAR_GGX_INCLUDED_
+#ifndef _IRR_BUILTIN_GLSL_BXDF_BSDF_SPECULAR_GGX_INCLUDED_
+#define _IRR_BUILTIN_GLSL_BXDF_BSDF_SPECULAR_GGX_INCLUDED_
 
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
 #include <irr/builtin/glsl/bxdf/ndf/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/geom/smith/ggx.glsl>
 
-//depr
-/*
-vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction inter, in mat2x3 ior, in float a2, in vec2 atb, in float aniso)
-{
-    float g = irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(atb.x, atb.y, params.TdotL, inter.TdotV, params.BdotL, inter.BdotV, params.isotropic.NdotL, inter.isotropic.NdotV);
-    float ndf = irr_glsl_ggx_burley_aniso(aniso, a2, params.TdotH, params.BdotH, params.isotropic.NdotH);
-    vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], params.isotropic.VdotH);
 
-    return params.isotropic.NdotL * g*ndf*fr;
-}
-*/
-//defined using NDF function with better API (compared to burley used above) and new impl of correlated smith
 float irr_glsl_ggx_height_correlated_aniso_cos_eval_DG_wo_clamps(in float NdotH2, in float TdotH2, in float BdotH2, in float maxNdotL, in float NdotL2, in float TdotL2, in float BdotL2, in float maxNdotV, in float NdotV2, in float TdotV2, in float BdotV2, in float ax, in float ax2, in float ay, in float ay2)
 {
     float ndf = irr_glsl_ggx_aniso(TdotH2,BdotH2,NdotH2, ax, ay, ax2, ay2);
@@ -88,7 +77,7 @@ vec3 irr_glsl_ggx_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams par
 
 
 //Heitz's 2018 paper "Sampling the GGX Distribution of Visible Normals"
-irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float _ax, in float _ay)
+irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 _sample, in float _ax, in float _ay)
 {
     vec2 u = _sample;
 
@@ -116,7 +105,8 @@ irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurface
     H = normalize(vec3(_ax*H.x, _ay*H.y, H.z));
     float NdotH = H.z;
 
-	return irr_glsl_createBSDFSample(H,localV,dot(H,localV),m);
+    irr_glsl_BSDFSample _sample = irr_glsl_ggx_cos_generate(interaction,_sample.xy,_ax,_ay);
+    return _sample;
 }
 
 
