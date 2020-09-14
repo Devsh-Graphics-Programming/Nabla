@@ -325,12 +325,12 @@ void missProgram()
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
-irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf, in vec3 luminosityContributionHint)
+irr_glsl_BxDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf, in vec3 luminosityContributionHint)
 {
     const float a = BSDFNode_getRoughness(bsdf);
     const mat2x3 ior = BSDFNode_getEta(bsdf);
 
-    irr_glsl_BSDFSample smpl;
+    irr_glsl_BxDFSample smpl;
     switch (BSDFNode_getType(bsdf))
     {
         case DIFFUSE_OP:
@@ -340,13 +340,13 @@ irr_glsl_BSDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfac
             smpl = irr_glsl_ggx_cos_generate(interaction,u.xy,a,a);
             break;
         default:
-            smpl = irr_glsl_thin_smooth_dielectric_cos_generate(interaction,u,ior[0],luminosityContributionHint);
+            smpl = irr_glsl_smooth_dielectric_cos_generate(interaction,u,dot(ior[0],luminosityContributionHint));
             break;
     }
     return smpl;
 }
 
-vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in BSDFNode bsdf, in vec3 luminosityContributionHint)
+vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BxDFSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in BSDFNode bsdf, in vec3 luminosityContributionHint)
 {
     const vec3 reflectance = BSDFNode_getReflectance(bsdf);
     const float a = max(BSDFNode_getRoughness(bsdf),0.01); // TODO: @Crisspl 0-roughness still doesn't work! Also Beckmann has a weird dark rim instead as fresnel!?
@@ -374,18 +374,21 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample _
             remainder = irr_glsl_ggx_cos_remainder_and_pdf_wo_clamps(pdf,irr_glsl_ggx_trowbridge_reitz(a2,NdotH2),clampedNdotL,NdotL2,clampedNdotV,interaction.isotropic.NdotV_squared,_sample.VdotH,ior,a2);
             break;
         default:
-            remainder = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(pdf,transmitted,clampedNdotV,ior[0],luminosityContributionHint);
+            {
+                const float _eta = dot(ior[0],luminosityContributionHint);
+                remainder = vec3(irr_glsl_smooth_dielectric_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,_eta*_eta));
+            }
             break;
     }
     return remainder;
 }
 
 
-#define GeneratorSample irr_glsl_BSDFSample
-#define irr_glsl_LightSample irr_glsl_BSDFSample
+#define GeneratorSample irr_glsl_BxDFSample
+#define irr_glsl_LightSample irr_glsl_BxDFSample
 irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
-    irr_glsl_BSDFSample s;
+    irr_glsl_BxDFSample s;
     s.L = L;
 
     s.TdotL = dot(interaction.T,L);

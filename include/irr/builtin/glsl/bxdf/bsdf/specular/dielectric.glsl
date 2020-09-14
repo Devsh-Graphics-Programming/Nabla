@@ -48,7 +48,6 @@ irr_glsl_BxDFSample irr_glsl_thin_smooth_dielectric_cos_generate(in irr_glsl_Ani
 }
 
 
-
 vec3 irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(out float pdf, in vec3 remainderMetadata)
 {
     pdf = 1.0 / 0.0; // should be reciprocal probability of the fresnel choice divided by 0.0, but would still be an INF.
@@ -68,8 +67,7 @@ vec3 irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(out float p
 
 vec3 irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(out float pdf, in irr_glsl_BxDFSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in vec3 eta, in vec3 luminosityContributionHint)
 {
-    // if V and L are on different sides of the surface normal, then their dot product sign bits will differ, hence XOR will yield 1 at last bit
-    const bool transmitted = ((floatBitsToUint(interaction.NdotV)^floatBitsToUint(_sample.NdotL))&0x80000000u)!=0u;
+    const bool transmitted = irr_glsl_isTransmissionPath(interaction.NdotV,_sample.NdotL);
     return irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(pdf,transmitted,abs(interaction.NdotV),eta,luminosityContributionHint);
 }
 
@@ -85,6 +83,7 @@ irr_glsl_BxDFSample irr_glsl_smooth_dielectric_cos_generate_wo_clamps(in vec3 V,
 
     irr_glsl_BxDFSample smpl;
     smpl.L = irr_glsl_reflect_refract(transmitted, V, N, NdotV, NdotV2, eta);
+    smpl.NdotL = dot(N, smpl.L);
     /* Undefined
     s.TdotL = L.x;
     s.BdotL = L.y;
@@ -102,11 +101,12 @@ irr_glsl_BxDFSample irr_glsl_smooth_dielectric_cos_generate(in irr_glsl_Anisotro
 }
 
 
-
-float irr_glsl_smooth_dielectric_cos_remainder_and_pdf(out float pdf)
+float irr_glsl_smooth_dielectric_cos_remainder_and_pdf(out float pdf, in irr_glsl_BxDFSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float eta2)
 {
+    const bool transmitted = irr_glsl_isTransmissionPath(interaction.NdotV,_sample.NdotL);
+
     pdf = 1.0 / 0.0; // should be reciprocal probability of the fresnel choice divided by 0.0, but would still be an INF.
-    return 1.0;
+    return transmitted ? (interaction.NdotV<0.0 ? (1.0/eta2):eta2):1.0;
 }
 
 

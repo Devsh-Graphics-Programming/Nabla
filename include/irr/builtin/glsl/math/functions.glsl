@@ -130,6 +130,13 @@ vec3 irr_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in float N
     return N*(NdotI*(_refract ? eta:2.0)+(backside ? k:(-k))) - I*(_refract ? eta:1.0);
 }
 
+
+// if V and L are on different sides of the surface normal, then their dot product sign bits will differ, hence XOR will yield 1 at last bit
+bool irr_glsl_isTransmissionPath(in float NdotV, in float NdotL)
+{
+    return ((floatBitsToUint(NdotV)^floatBitsToUint(NdotL)) & 0x80000000u) != 0u;
+}
+
 // valid only for `theta` in [-PI,PI]
 void irr_glsl_sincos(in float theta, out float s, out float c)
 {
