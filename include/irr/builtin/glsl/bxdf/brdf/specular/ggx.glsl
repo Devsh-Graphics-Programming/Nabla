@@ -1,7 +1,8 @@
-#ifndef _IRR_BXDF_BRDF_SPECULAR_GGX_INCLUDED_
-#define _IRR_BXDF_BRDF_SPECULAR_GGX_INCLUDED_
+#ifndef _IRR_BUILTIN_GLSL_BXDF_BRDF_SPECULAR_GGX_INCLUDED_
+#define _IRR_BUILTIN_GLSL_BXDF_BRDF_SPECULAR_GGX_INCLUDED_
 
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
+#include <irr/builtin/glsl/bxdf/fresnel.glsl>
 #include <irr/builtin/glsl/bxdf/ndf/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/geom/smith/ggx.glsl>
 
@@ -88,7 +89,7 @@ vec3 irr_glsl_ggx_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams par
 
 
 //Heitz's 2018 paper "Sampling the GGX Distribution of Visible Normals"
-irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float _ax, in float _ay)
+irr_glsl_BxDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float _ax, in float _ay)
 {
     vec2 u = _sample;
 
@@ -116,7 +117,7 @@ irr_glsl_BSDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurface
     H = normalize(vec3(_ax*H.x, _ay*H.y, H.z));
     float NdotH = H.z;
 
-	return irr_glsl_createBSDFSample(H,localV,dot(H,localV),m);
+	return irr_glsl_createBRDFSample(H,localV,dot(H,localV),m);
 }
 
 
@@ -132,7 +133,7 @@ float irr_glsl_ggx_pdf_wo_clamps(in float NdotH2, in float maxNdotV, in float Nd
 
     return irr_glsl_ggx_pdf_wo_clamps(ndf, devsh_v, maxNdotV);
 }
-float irr_glsl_ggx_pdf(in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction inter, in float a2)
+float irr_glsl_ggx_pdf(in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction inter, in float a2)
 {
     return irr_glsl_ggx_pdf_wo_clamps(s.NdotH*s.NdotH, max(inter.NdotV,0.0), inter.NdotV_squared, a2);
 }
@@ -144,7 +145,7 @@ float irr_glsl_ggx_pdf_wo_clamps(in float NdotH2, in float TdotH2, in float Bdot
 
     return irr_glsl_ggx_pdf_wo_clamps(ndf, devsh_v, maxNdotV);
 }
-float irr_glsl_ggx_pdf(in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in float ax, in float ay, in float ax2, in float ay2)
+float irr_glsl_ggx_pdf(in irr_glsl_BxDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in float ax, in float ay, in float ax2, in float ay2)
 {
     float NdotH2 = s.NdotH * s.NdotH;
     float TdotH2 = s.TdotH * s.TdotH;
@@ -170,7 +171,7 @@ vec3 irr_glsl_ggx_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, i
     return fr * G2_over_G1;
 }
 
-vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float a2)
+vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float a2)
 {
     const float NdotH2 = s.NdotH * s.NdotH;
 
@@ -197,7 +198,7 @@ vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf_wo_clamps(out float pdf, in float 
     return fr * G2_over_G1;
 }
 
-vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ay)
+vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BxDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ay)
 {
     const float NdotH2 = s.NdotH * s.NdotH;
     const float TdotH2 = s.TdotH * s.TdotH;

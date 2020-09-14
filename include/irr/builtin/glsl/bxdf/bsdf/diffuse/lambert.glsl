@@ -26,11 +26,11 @@ float irr_glsl_lambertian_transmitter_cos_eval(in irr_glsl_BSDFIsotropicParams p
    return irr_glsl_lambertian_transmitter_cos_eval_rec_2pi_factored_out(params.NdotL)*irr_glsl_lambertian_transmitter();
 }
 
-irr_glsl_BSDFSample irr_glsl_lambertian_transmitter_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u)
+irr_glsl_BxDFSample irr_glsl_lambertian_transmitter_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u)
 {
     vec3 L = irr_glsl_projected_sphere_generate(u);
 
-    irr_glsl_BSDFSample s;
+    irr_glsl_BxDFSample s;
     s.L = irr_glsl_getTangentFrame(interaction) * L;
     s.TdotL = L.x;
     s.BdotL = L.y;
@@ -48,7 +48,7 @@ float irr_glsl_lambertian_transmitter_cos_remainder_and_pdf_wo_clamps(out float 
 {
     return irr_glsl_projected_sphere_remainder_and_pdf(pdf,absNdotL);
 }
-float irr_glsl_lambertian_transmitter_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s)
+float irr_glsl_lambertian_transmitter_cos_remainder_and_pdf(out float pdf, in irr_glsl_BxDFSample s)
 {
     return irr_glsl_lambertian_transmitter_cos_remainder_and_pdf_wo_clamps(pdf,abs(s.NdotL));
 }

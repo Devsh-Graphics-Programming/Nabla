@@ -1,8 +1,9 @@
-#ifndef _IRR_BSDF_BRDF_SPECULAR_BLINN_PHONG_INCLUDED_
-#define _IRR_BSDF_BRDF_SPECULAR_BLINN_PHONG_INCLUDED_
+#ifndef _IRR_BUILTIN_GLSL_BXDF_BRDF_SPECULAR_BLINN_PHONG_INCLUDED_
+#define _IRR_BUILTIN_GLSL_BXDF_BRDF_SPECULAR_BLINN_PHONG_INCLUDED_
 
 #include <irr/builtin/glsl/bxdf/common.glsl>
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
+#include <irr/builtin/glsl/bxdf/fresnel.glsl>
 #include <irr/builtin/glsl/bxdf/ndf/blinn_phong.glsl>
 #include <irr/builtin/glsl/bxdf/geom/smith/beckmann.glsl>
 
@@ -20,7 +21,7 @@ float irr_glsl_alpha2_to_phong_exp(in float a2)
 //https://zhuanlan.zhihu.com/p/58205525
 //only NDF sampling
 //however we dont really care about phong sampling
-irr_glsl_BSDFSample irr_glsl_blinn_phong_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float n)
+irr_glsl_BxDFSample irr_glsl_blinn_phong_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float n)
 {
     vec2 u = _sample;
 
@@ -34,11 +35,11 @@ irr_glsl_BSDFSample irr_glsl_blinn_phong_cos_generate(in irr_glsl_AnisotropicVie
     vec3 H = vec3(cosPhi*sinTheta, sinPhi*sinTheta, cosTheta);
     vec3 localV = interaction.isotropic.V.dir*m;
 
-	return irr_glsl_createBSDFSample(H,localV,dot(H,localV),m);
+	return irr_glsl_createBRDFSample(H,localV,dot(H,localV),m);
 }
 
 /*
-vec3 irr_glsl_blinn_phong_dielectric_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float n, in vec3 ior)
+vec3 irr_glsl_blinn_phong_dielectric_cos_remainder_and_pdf(out float pdf, in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float n, in vec3 ior)
 {
 	pdf = (n+1.0)*0.5*irr_glsl_RECIPROCAL_PI * 0.25*pow(s.NdotH,n)/s.VdotH;
 
@@ -46,7 +47,7 @@ vec3 irr_glsl_blinn_phong_dielectric_cos_remainder_and_pdf(out float pdf, in irr
     return fr * s.NdotL * (n*(n + 6.0) + 8.0) * s.VdotH / ((pow(0.5,0.5*n) + n) * (n + 1.0));
 }
 
-vec3 irr_glsl_blinn_phong_conductor_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float n, in mat2x3 ior)
+vec3 irr_glsl_blinn_phong_conductor_cos_remainder_and_pdf(out float pdf, in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float n, in mat2x3 ior)
 {
 	pdf = (n+1.0)*0.5*irr_glsl_RECIPROCAL_PI * 0.25*pow(s.NdotH,n)/s.VdotH;
 

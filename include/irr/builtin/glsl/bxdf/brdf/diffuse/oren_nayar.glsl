@@ -31,7 +31,7 @@ float irr_glsl_oren_nayar_cos_eval(in irr_glsl_BSDFIsotropicParams params, in ir
 }
 
 
-irr_glsl_BSDFSample irr_glsl_oren_nayar_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u, in float a2)
+irr_glsl_BxDFSample irr_glsl_oren_nayar_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u, in float a2)
 {
     // until we find something better
     return irr_glsl_lambertian_cos_generate(interaction,u);
@@ -50,7 +50,7 @@ float irr_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(out float pdf, in floa
     return irr_glsl_oren_nayar_cos_rec_pi_factored_out_wo_clamps(a2,VdotL,maxNdotL,maxNdotV);
 }
 
-float irr_glsl_oren_nayar_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float a2)
+float irr_glsl_oren_nayar_cos_remainder_and_pdf(out float pdf, in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float a2)
 {
     return irr_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf,a2,dot(interaction.V.dir,s.L), max(s.NdotL,0.0), max(interaction.NdotV,0.0));
 }

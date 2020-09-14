@@ -1,14 +1,15 @@
-#ifndef _IRR_BUILTIN_BXDF_BRDF_SPECULAR_BECKMANN_INCLUDED_
-#define _IRR_BUILTIN_BXDF_BRDF_SPECULAR_BECKMANN_INCLUDED_
+#ifndef _IRR_BUILTIN_GLSL_BXDF_BRDF_SPECULAR_BECKMANN_INCLUDED_
+#define _IRR_BUILTIN_GLSL_BXDF_BRDF_SPECULAR_BECKMANN_INCLUDED_
 
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
+#include <irr/builtin/glsl/bxdf/fresnel.glsl>
 #include <irr/builtin/glsl/bxdf/ndf/beckmann.glsl>
 #include <irr/builtin/glsl/bxdf/geom/smith/beckmann.glsl>
 #include <irr/builtin/glsl/math/functions.glsl>
 
 #include <irr/builtin/glsl/math/functions.glsl>
 
-irr_glsl_BSDFSample irr_glsl_beckmann_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float ax, in float ay)
+irr_glsl_BxDFSample irr_glsl_beckmann_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float ax, in float ay)
 {
     vec2 u = _sample;
     
@@ -80,7 +81,7 @@ irr_glsl_BSDFSample irr_glsl_beckmann_cos_generate(in irr_glsl_AnisotropicViewSu
 
     vec3 H = normalize(vec3(-slope, 1.0));
 
-	return irr_glsl_createBSDFSample(H,localV,dot(H,localV),m);
+	return irr_glsl_createBRDFSample(H,localV,dot(H,localV),m);
 }
 
 
@@ -124,7 +125,7 @@ vec3 irr_glsl_beckmann_cos_remainder_and_pdf_wo_clamps(out float pdf, in float n
     vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
     return fr * G2_over_G1;
 }
-vec3 irr_glsl_beckmann_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float a2)
+vec3 irr_glsl_beckmann_cos_remainder_and_pdf(out float pdf, in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float a2)
 {
     const float NdotH2 = s.NdotH * s.NdotH;
 
@@ -151,7 +152,7 @@ vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf_wo_clamps(out float pdf, in f
     vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
     return fr * G2_over_G1;
 }
-vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ax2, in float ay, in float ay2)
+vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BxDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ax2, in float ay, in float ay2)
 {
     const float NdotH2 = s.NdotH * s.NdotH;
     const float TdotH2 = s.TdotH * s.TdotH;

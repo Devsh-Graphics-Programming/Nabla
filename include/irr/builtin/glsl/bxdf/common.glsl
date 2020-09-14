@@ -62,7 +62,7 @@ struct irr_glsl_BSDFAnisotropicParams
    float BdotH;
 };
 
-//TODO move to different glsl header @Przemog
+//TODO move to different glsl header @Crisspl (The code is not DRY, you have something similar in material compiler!)
 // chain rule on various functions (usually vertex attributes and barycentrics)
 vec2 irr_glsl_applyScreenSpaceChainRule1D3(in vec3 dFdG, in mat2x3 dGdScreen)
 {
@@ -81,7 +81,7 @@ mat2x4 irr_glsl_applyScreenSpaceChainRule4D3(in mat3x4 dFdG, in mat2x3 dGdScreen
    return dFdG*dGdScreen;
 }
 
-//TODO move to different glsl header @Przemog
+//TODO move to different glsl header @Crisspl
 vec2 irr_glsl_concentricMapping(in vec2 _u)
 {
     //map [0;1]^2 to [-1;1]^2

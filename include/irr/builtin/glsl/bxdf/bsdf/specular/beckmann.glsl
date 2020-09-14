@@ -4,43 +4,35 @@
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
 #include <irr/builtin/glsl/bxdf/ndf/beckmann.glsl>
 #include <irr/builtin/glsl/bxdf/geom/smith/beckmann.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
 
 #include <irr/builtin/glsl/math/functions.glsl>
 
-irr_glsl_BSDFSample irr_glsl_beckmann_transmitter_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float ax, in float ay)
+irr_glsl_BxDFSample irr_glsl_beckmann_transmitter_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float ax, in float ay)
 {
-    irr_glsl_BSDFSample _sample = irr_glsl_beckmann_cos_generate(interaction, _sample.xy, _ax, _ay);
+    irr_glsl_BxDFSample _sample = irr_glsl_beckmann_cos_generate(interaction, _sample.xy, _ax, _ay); // TODO
     return _sample;
 }
 
 
 
-float irr_glsl_beckmann_pdf_wo_clamps(in float ndf, in float lambdaV, in float maxNdotV)
+float irr_glsl_beckmann_transmitter_pdf_wo_clamps(in float ndf, in float lambdaV, in float maxNdotV)
 {
-    float G1 = 1.0 / (1.0 + lambdaV);
-
-    return ndf*G1*0.25 / maxNdotV;
-}
-
-float irr_glsl_beckmann_pdf_wo_clamps(in float NdotH2, in float maxNdotV, in float NdotV2, in float a2)
-{
-    float lambda = irr_glsl_smith_beckmann_Lambda(NdotV2, a2);
-    float ndf = irr_glsl_beckmann(a2, NdotH2);
-
     return irr_glsl_beckmann_pdf_wo_clamps(ndf, lambda, maxNdotV);
 }
 
-float irr_glsl_beckmann_pdf_wo_clamps(in float NdotH2, in float TdotH2, in float BdotH2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in float ax, in float ax2, in float ay, in float ay2)
+float irr_glsl_beckmann_transmitter_pdf_wo_clamps(in float NdotH2, in float maxNdotV, in float NdotV2, in float a2)
 {
-    float c2 = irr_glsl_smith_beckmann_C2(TdotV2, BdotV2, NdotV2, ax2, ay2);
-    float lambda = irr_glsl_smith_beckmann_Lambda(c2);
-    float ndf = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, NdotH2);
+    return irr_glsl_beckmann_pdf_wo_clamps(NdotH2, maxNdotV, maxNdotV, a2);
+}
 
-    return irr_glsl_beckmann_pdf_wo_clamps(ndf, lambda, maxNdotV);
+float irr_glsl_beckmann_transmitter_pdf_wo_clamps(in float NdotH2, in float TdotH2, in float BdotH2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in float ax, in float ax2, in float ay, in float ay2)
+{
+    return irr_glsl_beckmann_pdf_wo_clamps(NdotH2,TdotH2,BdotH2,maxNdotV,TdotV2,BdotV2,NdotV2,ax,ax2,ay,ay2);
 }
 
 
-
+// TODO
 vec3 irr_glsl_beckmann_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in float maxNdotL, in float NdotL2, in float maxNdotV, in float NdotV2, in float VdotH, in mat2x3 ior, in float a2)
 {
     float lambda_V = irr_glsl_smith_beckmann_Lambda(NdotV2, a2);
@@ -66,7 +58,7 @@ vec3 irr_glsl_beckmann_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSamp
 }
 
 
-
+// TODO
 vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in float maxNdotL, in float NdotL2, in float TdotL2, in float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in float VdotH, in mat2x3 ior, in float ax2, in float ay2)
 {
     float c2 = irr_glsl_smith_beckmann_C2(TdotV2, BdotV2, NdotV2, ax2, ay2);
@@ -101,18 +93,6 @@ vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BS
 
 
 
-float irr_glsl_beckmann_smith_height_correlated_cos_eval_DG_wo_clamps(in float NdotH2, in float NdotL2, in float maxNdotV, in float NdotV2, in float a2)
-{
-    float ndf = irr_glsl_beckmann(a2, NdotH2);
-    float scalar_part = ndf / (4.0 * maxNdotV);
-    if  (a2>FLT_MIN)
-    {
-        float g = irr_glsl_beckmann_smith_correlated(NdotV2, NdotL2, a2);
-        scalar_part *= g;
-    }
-    
-    return scalar_part;
-}
 vec3 irr_glsl_beckmann_smith_height_correlated_cos_eval_wo_clamps(in float NdotH2, in float NdotL2, in float maxNdotV, in float NdotV2, in float VdotH, in mat2x3 ior, in float a2)
 {
     float scalar_part = irr_glsl_beckmann_smith_height_correlated_cos_eval_DG_wo_clamps(NdotH2, NdotL2, maxNdotV, NdotV2, a2);
@@ -127,18 +107,7 @@ vec3 irr_glsl_beckmann_smith_height_correlated_cos_eval(in irr_glsl_BSDFIsotropi
     return irr_glsl_beckmann_smith_height_correlated_cos_eval_wo_clamps(NdotH2,params.NdotL_squared,max(interaction.NdotV,0.0),interaction.NdotV_squared,params.VdotH,ior,a2);
 }
 
-float irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval_DG_wo_clamps(in float NdotH2, in float TdotH2, in float BdotH2, in float NdotL2, in float TdotL2, in float BdotL2, in float maxNdotV, in float NdotV2, in float TdotV2, in float BdotV2, in float ax, in float ax2, in float ay, in float ay2)
-{
-    float ndf = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, NdotH2);
-    float scalar_part = ndf / (4.0 * maxNdotV);
-    if (ax>FLT_MIN || ay>FLT_MIN)
-    {
-        float g = irr_glsl_beckmann_smith_correlated(TdotV2, BdotV2, NdotV2, TdotL2, BdotL2, NdotL2, ax2, ay2);
-        scalar_part *= g;
-    }
-    
-    return scalar_part;
-}
+
 vec3 irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval_wo_clamps(in float NdotH2, in float TdotH2, in float BdotH2, in float NdotL2, in float TdotL2, in float BdotL2, in float maxNdotV, in float NdotV2, in float TdotV2, in float BdotV2, in float VdotH, in mat2x3 ior, in float ax, in float ax2, in float ay, in float ay2)
 {
     float scalar_part = irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval_DG_wo_clamps(NdotH2,TdotH2,BdotH2, NdotL2,TdotL2,BdotL2, maxNdotV,NdotV2,TdotV2,BdotV2, ax, ax2, ay, ay2);
