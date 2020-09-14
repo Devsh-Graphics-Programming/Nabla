@@ -50,11 +50,12 @@ public:
 		{
 			if (m_shortcut_map.size() >= m_capacity)
 			{
-				m_shortcut_map.erase(reinterpret_cast<Snode<list_template_t>*>(m_list.getBack())->data.first);
+				m_shortcut_map.erase(m_list.getBack()->data.first);
 				m_list.popBack();
+			}
 				m_list.pushFront(std::pair<Key, Value>(k, v));
 				m_shortcut_map[k] = m_list.getFirstAddress();
-			}
+			
 		}
 		else
 		{
@@ -77,7 +78,7 @@ public:
 	{
 		uint32_t i = common_peek(key);
 		if (i == invalid_iterator) return nullptr;
-		else return  reinterpret_cast<Snode<list_template_t>*>(i)->data.second;
+		else return  m_list.get(i)->data.second;
 	}
 	inline void erase(Key& key)
 	{

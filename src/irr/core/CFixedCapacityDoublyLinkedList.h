@@ -27,17 +27,17 @@ namespace irr {
 
 			Snode<Value>& operator=(const Snode<Value>& other)
 			{
-				this.data = other.data;
-				this.prev = other.prev;
-				this.next = other.next;
+				this->data = other.data;
+				this->prev = other.prev;
+				this->next = other.next;
 				return *this;
 			}
 
 			Snode<Value>& operator=(Snode<Value>&& other)
 			{
-				this.data = std::move(other.data);
-				this.prev = std::move(other.prev);
-				this.next = std::move(other.next);
+				this->data = std::move(other.data);
+				this->prev = std::move(other.prev);
+				this->next = std::move(other.next);
 				return *this;
 			}
 		};
@@ -58,7 +58,7 @@ namespace irr {
 
 			inline Snode<Value>* get(uint32_t address)
 			{
-				return &(m_array[address]);
+				return (m_array+address);
 			}
 			inline void popBack()
 			{
@@ -74,10 +74,10 @@ namespace irr {
 			inline void pushFront(Value&& val)
 			{
 				uint32_t addr = alloc.alloc_addr(1u, 1u);
-				Snode<Value> n = m_array[addr];
-				n.prev = invalid_iterator;
-				n.data = std::move(val);
-				n.next = m_begin;
+				m_array[addr] = *(new Snode<Value>(std::move(val)));
+				auto n = m_array+addr;
+				n->prev = invalid_iterator;
+				n->next = m_begin;
 
 				if (m_begin != invalid_iterator)
 					getBegin()->prev = addr;
@@ -127,6 +127,8 @@ namespace irr {
 			~DoublyLinkedList()
 			{
 				_IRR_ALIGNED_FREE(reservedSpace);
+				free(m_array);
+
 			}
 		};
 
