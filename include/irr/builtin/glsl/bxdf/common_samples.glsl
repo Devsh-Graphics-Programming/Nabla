@@ -38,11 +38,11 @@ irr_glsl_BxDFSample irr_glsl_createBRDFSample(in vec3 H, in vec3 V, in float Vdo
 }
 
 // refraction or reflection from microfacet
-irr_glsl_BxDFSample irr_glsl_createBSDFSample(in bool _refract, in vec3 H, in vec3 V, in float VdotH, in float VdotH2, in mat3 m, in float eta)
+irr_glsl_BxDFSample irr_glsl_createBSDFSample(in bool _refract, in vec3 H, in vec3 V, in bool backside, in float VdotH, in float VdotH2, in mat3 m, in float rcpOrientedEta, in float rcpOrientedEta2)
 {
     irr_glsl_BxDFSample s;
 
-    vec3 L = irr_glsl_reflect_refract(_refract, V, H, VdotH, VdotH2, eta);
+    vec3 L = irr_glsl_reflect_refract(_refract, V, H, backside, VdotH, VdotH2, rcpOrientedEta, rcpOrientedEta2);
     s.L = m * L; // m must be an orthonormal matrix
     s.TdotL = L.x;
     s.BdotL = L.y;

@@ -340,7 +340,10 @@ irr_glsl_BxDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfac
             smpl = irr_glsl_ggx_cos_generate(interaction,u.xy,a,a);
             break;
         default:
-            smpl = irr_glsl_smooth_dielectric_cos_generate(interaction,u,dot(ior[0],luminosityContributionHint));
+            {
+                const float _eta = dot(ior[0],luminosityContributionHint);
+                smpl = irr_glsl_thin_smooth_dielectric_cos_generate(interaction,u,ior[0]*ior[0],luminosityContributionHint);
+            }
             break;
     }
     return smpl;
@@ -358,11 +361,14 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BxDFSample _
     const float NdotL2 = _sample.NdotL*_sample.NdotL;
 
     const float VdotL = dot(interaction.isotropic.V.dir,_sample.L);
-    const bool transmitted = VdotL<0.0;
+    const bool transmitted = irr_glsl_isTransmissionPath(interaction.isotropic.NdotV,_sample.NdotL);
 
     const bool transmissive = BSDFNode_isBSDF(bsdf);
     const float clampedNdotL = irr_glsl_conditionalAbsOrMax(transmissive,_sample.NdotL,0.0);
     const float clampedNdotV = irr_glsl_conditionalAbsOrMax(transmissive,interaction.isotropic.NdotV,0.0);
+    
+    vec3 rcpOrientedEta, orientedEta2, rcpOrientedEta2;
+    const bool viewerInsideMedium = irr_glsl_getOrientedEtas(rcpOrientedEta,orientedEta2,rcpOrientedEta2,interaction.isotropic.NdotV,ior[0]);//dot(ior[0],luminosityContributionHint));
 
     vec3 remainder; // TODO should just return a 0.0 remainder if NdotV<FLT_MIN and BSDF is not transmissive
     switch (BSDFNode_getType(bsdf))
@@ -374,10 +380,8 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BxDFSample _
             remainder = irr_glsl_ggx_cos_remainder_and_pdf_wo_clamps(pdf,irr_glsl_ggx_trowbridge_reitz(a2,NdotH2),clampedNdotL,NdotL2,clampedNdotV,interaction.isotropic.NdotV_squared,_sample.VdotH,ior,a2);
             break;
         default:
-            {
-                const float _eta = dot(ior[0],luminosityContributionHint);
-                remainder = vec3(irr_glsl_smooth_dielectric_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,_eta*_eta));
-            }
+            remainder = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(pdf, transmitted, clampedNdotV, ior[0] * ior[0], luminosityContributionHint);
+            //remainder = vec3(irr_glsl_smooth_dielectric_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,orientedEta2));
             break;
     }
     return remainder;
