@@ -76,7 +76,7 @@ namespace irr {
 				uint32_t addr = alloc.alloc_addr(1u, 1u);
 				Snode<Value> n = m_array[addr];
 				n.prev = invalid_iterator;
-				n.data = std::swap(n.data, val);
+				n.data = std::move(val);
 				n.next = m_begin;
 
 				if (m_begin != invalid_iterator)
@@ -115,7 +115,7 @@ namespace irr {
 				m_begin = nodeAddr;
 			}
 
-			DoublyLinkedList(const uint32_t& capacity) :
+			DoublyLinkedList(const uint32_t capacity) :
 				cap(capacity),
 				reservedSpace(_IRR_ALIGNED_MALLOC(PoolAddressAllocator<uint32_t>::reserved_size(1u, capacity, 1u), alignof(void*))),
 				alloc(reservedSpace, 0u, 0u, 1u, capacity, 1u)
