@@ -53,4 +53,9 @@ float irr_glsl_lambertian_transmitter_cos_remainder_and_pdf(out float pdf, in ir
     return irr_glsl_lambertian_transmitter_cos_remainder_and_pdf_wo_clamps(pdf,abs(s.NdotL));
 }
 
+float irr_glsl_lambertian_transmitter_pdf_wo_clamps(in float absNdotL)
+{
+    return irr_glsl_projected_sphere_pdf(absNdotL);
+}
+
 #endif

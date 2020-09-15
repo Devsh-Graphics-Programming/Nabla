@@ -35,11 +35,11 @@ irr_glsl_BxDFSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicView
     s.TdotL = L.x;
     s.BdotL = L.y;
     s.NdotL = L.z;
-    /* Undefined
-    s.TdotH = H.x;
-    s.BdotH = H.y;
-    s.NdotH = H.z;
-    s.VdotH = VdotH;*/
+    //assuming H=N, i have to set them to something to jump between diffuse and specular generators (plastic)
+    s.TdotH = 0.0;
+    s.BdotH = 0.0;
+    s.NdotH = 1.0;
+    s.VdotH = L.z;
 
     return s;
 }
@@ -47,9 +47,7 @@ irr_glsl_BxDFSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicView
 
 float irr_glsl_lambertian_pdf_wo_clamps(in float maxNdotL)
 {
-    float pdf;
-    irr_glsl_projected_hemisphere_remainder_and_pdf(pdf,maxNdotL);
-    return pdf;
+    return irr_glsl_projected_hemisphere_pdf(maxNdotL);
 }
 
 

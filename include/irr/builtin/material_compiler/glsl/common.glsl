@@ -149,6 +149,8 @@ bool op_hasSpecular(in uint op)
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl>
 #include <irr/builtin/glsl/bxdf/cos_weighted_sample.glsl>
+#include <irr/builtin/glsl/bxdf/bsdf/diffuse/lambert.glsl>
+#include <irr/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
 #include <irr/builtin/glsl/bump_mapping/utils.glsl>
 
 irr_glsl_BSDFAnisotropicParams currBSDFParams;
@@ -334,13 +336,12 @@ void instr_execute_cos_eval_DIFFTRANS(in instr_t instr, in uvec3 regs, in params
 	vec3 c = currBSDFParams.isotropic.NdotL*irr_glsl_RECIPROCAL_PI*0.5*tr;
 	writeReg(REG_DST(regs), c);
 }
-//TODO instr_execute_cos_eval_pdf
 #endif
 
 #ifdef OP_DIELECTRIC
 void instr_execute_cos_eval_DIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
-	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
+	/*if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
 		//float au = params_getAlpha(params);
 		//float av = params_getAlphaV(params);
@@ -349,14 +350,19 @@ void instr_execute_cos_eval_DIELECTRIC(in instr_t instr, in uvec3 regs, in param
 		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
 		writeReg(REG_DST(regs), diffuse);
 	}
-	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
+	else*/ writeReg(REG_DST(regs), bxdf_eval_t(0.0));
+}
+float instr_execute_cos_eval_pdf_DIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+{
+	instr_execute_cos_eval_DIELECTRIC(instr, regs, params, data);
+	return 1.0;// / 0.0;
 }
 #endif
 
 #ifdef OP_THINDIELECTRIC
 void instr_execute_cos_eval_THINDIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
-	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
+	/*if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
 		//float au = params_getAlpha(params);
 		//float av = params_getAlphaV(params);
@@ -365,7 +371,13 @@ void instr_execute_cos_eval_THINDIELECTRIC(in instr_t instr, in uvec3 regs, in p
 		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
 		writeReg(REG_DST(regs), diffuse);
 	}
-	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
+	else*/ 
+	writeReg(REG_DST(regs), bxdf_eval_t(0.0));
+}
+float instr_execute_cos_eval_pdf_THINDIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+{
+	instr_execute_cos_eval_THINDIELECTRIC(instr, regs, params, data);
+	return 1.0;// / 0.0;
 }
 #endif
 
@@ -397,14 +409,15 @@ void instr_execute_cos_eval_PLASTIC(in instr_t instr, in uvec3 regs, in float DG
 
 		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic, currInteraction.isotropic, a2) * refl;
 		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta2) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
-		vec3 fr = vec3(1.0);//irr_glsl_fresnel_dielectric(eta,currBSDFParams.isotropic.VdotH);
+		vec3 fr = irr_glsl_fresnel_dielectric(eta,currBSDFParams.isotropic.VdotH);
 		vec3 specular = DG*fr;
 
 		writeReg(REG_DST(regs), specular+diffuse);
 	}
 	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
-float instr_execute_cos_eval_pdf_PLASTIC(in instr_t instr, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data, in irr_glsl_BSDFSample s, in float specular_pdf)
+//TODO wrong pdf is being returned!
+float instr_execute_cos_eval_pdf_PLASTIC(in instr_t instr, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data, in irr_glsl_BxDFSample s, in float specular_pdf)
 {
 	float a2 = params_getAlpha(params);
 	a2 *= a2;
@@ -704,7 +717,7 @@ void handleTwosided(inout bool ts_flag, in instr_t instr)
 }
 
 #ifdef GEN_CHOICE_STREAM
-void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BSDFSample s)
+void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BxDFSample s)
 {
 	uint op = instr_getOpcode(instr);
 
@@ -729,14 +742,13 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BSDFSample s)
 	{
 #ifdef OP_DIFFUSE
 		if (op==OP_DIFFUSE) {
-			pdf = irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic, a2);
+			pdf = irr_glsl_oren_nayar_pdf_wo_clamps(max(s.NdotL,0.0));
 		} else
 #endif
 
 #ifdef OP_DIFFTRANS
 		if (op==OP_DIFFTRANS) {
-			//TODO take into account full sphere
-			pdf = irr_glsl_lambertian_pdf(s, currInteraction.isotropic);
+			pdf = irr_glsl_lambertian_transmitter_pdf_wo_clamps(abs(s.NdotL));
 		}
 		else
 #endif //OP_DIFFTRANS
@@ -811,14 +823,18 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BSDFSample s)
 		instr_execute_cos_eval_COATING(instr, regs, params, bsdf_data);
 	} else
 #endif
+//TODO currently only smooth dielectrics work
 #ifdef OP_DIELECTRIC
 	if (op==OP_DIELECTRIC) {
-		instr_execute_cos_eval_DIELECTRIC(instr, regs, params, bsdf_data);//TODO!!!
+		pdf = instr_execute_cos_eval_pdf_DIELECTRIC(instr, regs, params, bsdf_data);
+		//pdf = 1.0; ?
 	} else
 #endif
+//TODO currently only smooth dielectrics work
 #ifdef OP_THINDIELECTRIC
 	if (op==OP_THINDIELECTRIC) {
-		instr_execute_cos_eval_THINDIELECTRIC(instr, regs, params, bsdf_data);//TODO!!!
+		pdf = instr_execute_cos_eval_pdf_THINDIELECTRIC(instr, regs, params, bsdf_data);
+		//pdf = 1.0; ?
 	} else
 #endif
 #ifdef OP_BLEND
@@ -842,7 +858,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BSDFSample s)
 		writeReg(REG_DST(regs)+3u, pdf);
 }
 
-eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, in irr_glsl_BSDFSample s, in instr_t generator)
+eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, in irr_glsl_BxDFSample s, in instr_t generator)
 {
 #ifndef NO_TWOSIDED
 	bool ts = false;
@@ -870,7 +886,7 @@ eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, in irr_glsl_BSDFS
 	return eval_and_pdf;
 }
 
-irr_glsl_BSDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand, out vec3 out_remainder, out float out_pdf, out instr_t out_generatorInstr)
+irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand, out vec3 out_remainder, out float out_pdf, out instr_t out_generatorInstr)
 {
 	uint ix = 0u;
 	instr_t instr = irr_glsl_MC_fetchInstr(stream.offset);
@@ -945,7 +961,7 @@ irr_glsl_BSDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 	float pdf;
 	vec3 rem;
 	uint ndf = instr_getNDF(instr);
-	irr_glsl_BSDFSample s;
+	irr_glsl_BxDFSample s;
 
 #ifdef OP_PLASTIC
 	float plastic_spec_weight;
@@ -966,12 +982,28 @@ irr_glsl_BSDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 #endif //OP_DIFFUSE
 
 #ifdef OP_DIFFTRANS
-	if (op==OP_DIFFTRANS) {
-		//TODO take into account full sphere
-		s = irr_glsl_cos_weighted_cos_generate(currInteraction, u.xy);
-		rem = irr_glsl_cos_weighted_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic);
+	if (op == OP_DIFFTRANS) {
+		s = irr_glsl_lambertian_transmitter_cos_generate(currInteraction, u);
+		rem = refl*irr_glsl_lambertian_transmitter_cos_remainder_and_pdf(pdf, s);
 	} else
 #endif //OP_DIFFTRANS
+
+#ifdef OP_DIELECTRIC
+	if (op == OP_DIELECTRIC) {
+		s = irr_glsl_smooth_dielectric_cos_generate(currInteraction, u, ior[0].x);
+		rem = vec3( irr_glsl_smooth_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ior[0].x) );
+		pdf = 1.0;
+	} else
+#endif //OP_DIELECTRIC
+
+#ifdef OP_THINDIELECTRIC
+	if (op == OP_THINDIELECTRIC) {
+		//TODO luminosityContributionHint
+		s = irr_glsl_thin_smooth_dielectric_cos_generate(currInteraction, u, ior[0]*ior[0], vec3(1.0));
+		rem = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ior[0]*ior[0], vec3(1.0));
+		pdf = 1.0;
+	} else
+#endif
 
 //TODO need to distinguish BSDFs and BRDFs
 #ifdef NDF_GGX
@@ -1001,7 +1033,6 @@ irr_glsl_BSDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 	{
 		irr_glsl_updateBSDFParams(currBSDFParams, s, currInteraction);//TODO i could avoid this if using wo_clamps version of cos_eval()s
 
-		//proposed weights: len(fresnel), len(reflectance)
 		vec3 eval;
 		float pdf_b;
 		float wa;
@@ -1050,12 +1081,12 @@ irr_glsl_BSDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 	return s;
 }
 
-vec3 runGenerateAndRemainderStream(in instr_stream_t gcs, in instr_stream_t rnps, in vec3 rand, out float out_pdf, out irr_glsl_BSDFSample out_smpl)
+vec3 runGenerateAndRemainderStream(in instr_stream_t gcs, in instr_stream_t rnps, in vec3 rand, out float out_pdf, out irr_glsl_BxDFSample out_smpl)
 {
 	instr_t generator;
 	vec3 generator_rem;
 	float generator_pdf;
-	irr_glsl_BSDFSample s = irr_bsdf_cos_generate(gcs, rand, generator_rem, generator_pdf, generator);
+	irr_glsl_BxDFSample s = irr_bsdf_cos_generate(gcs, rand, generator_rem, generator_pdf, generator);
 	irr_glsl_updateBSDFParams(currBSDFParams, s, currInteraction);
 	eval_and_pdf_t eval_pdf = irr_bsdf_eval_and_pdf(rnps, s, generator);
 	bxdf_eval_t acc = eval_pdf.rgb;
