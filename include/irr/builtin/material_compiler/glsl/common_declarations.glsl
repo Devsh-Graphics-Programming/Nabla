@@ -9,6 +9,9 @@
 #define bxdf_eval_t vec3
 #define eval_and_pdf_t vec4
 
+#define INSTR_1ST_DWORD(instr) (instr).x
+#define INSTR_2ND_DWORD(instr) (instr).y
+
 struct bsdf_data_t
 {
 	uvec4 data[sizeof_bsdf_data];

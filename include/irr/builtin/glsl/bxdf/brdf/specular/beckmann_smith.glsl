@@ -116,7 +116,7 @@ vec3 irr_glsl_beckmann_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSamp
 {
     float ndf = irr_glsl_beckmann(a2, s.NdotH * s.NdotH);
 	
-    return irr_glsl_beckmann_cos_remainder_and_pdf(pdf, s, interaction, ior, a2);
+    return irr_glsl_beckmann_cos_remainder_and_pdf(pdf, ndf, s, interaction, ior, a2);
 }
 
 float irr_glsl_beckmann_pdf(in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in float ax, in float ax2, in float ay, in float ay2)

@@ -132,7 +132,7 @@ float irr_glsl_ggx_pdf(in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurf
     float BdotV2 = interaction.BdotV * interaction.BdotV;
     float devsh_v = irr_glsl_smith_ggx_devsh_part(TdotV2, BdotV2, interaction.isotropic.NdotV_squared, ax2, ay2);
 
-    return irr_glsl_ggx_pdf(ndf, devsh_v, interaction);
+    return irr_glsl_ggx_pdf(ndf, devsh_v, interaction.isotropic);
 }
 
 vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in float ndf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ay)

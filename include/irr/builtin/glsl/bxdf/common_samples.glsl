@@ -88,8 +88,8 @@ void irr_glsl_updateBSDFParams(out irr_glsl_BSDFIsotropicParams p, in irr_glsl_B
     p.L = s.L;
     p.VdotL = dot(p.L, inter.V.dir);
 
-    p.LplusV_rcpLen = irr_glsl_FLT_INF;
-    p.invlenL2 = irr_glsl_FLT_INF;
+    p.LplusV_rcpLen = inversesqrt(2.0 + 2.0*p.VdotL);
+    p.invlenL2 = 1.0;
 }
 void irr_glsl_updateBSDFParams(out irr_glsl_BSDFAnisotropicParams p, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction inter)
 {

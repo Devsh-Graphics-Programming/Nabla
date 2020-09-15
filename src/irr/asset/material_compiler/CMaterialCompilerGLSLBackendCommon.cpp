@@ -1539,7 +1539,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	const bool masked = core::bitfieldExtract(instr, BITFIELDS_SHIFT_MASKFLAG, 1);
 	const bool twosided = core::bitfieldExtract(instr, BITFIELDS_SHIFT_TWOSIDED, 1);
 
-	_out << "### " << OPCODE_NAMES[op] << " " << (masked ? "M " : "") << (twosided ? "TS" : "") << "\n";
+	_out << "### " << OPCODE_NAMES[op] << " " << (masked ? "M " : "") << (twosided ? "TS " : "") << (reinterpret_cast<uint32_t*>(&instr)[0]) << "\n";
 	_out << "BSDF data index = " << bsdf_ix << "\n";
 	switch (op)
 	{

@@ -96,9 +96,9 @@ uvec3 instr_decodeRegisters(in instr_t instr)
 #define REG_DST(r)	(r).x
 #define REG_SRC1(r)	(r).y
 #define REG_SRC2(r)	(r).z
-#define REG_PREFETCH0(r) REG_DST(r)
-#define REG_PREFETCH1(r) REG_SRC1(r)
-#define REG_PREFETCH2(r) REG_SRC2(r)
+#define REG_PREFETCH0(r) (r).x
+#define REG_PREFETCH1(r) (r).y
+#define REG_PREFETCH2(r) (r).z
 #define REG_PREFETCH3(r) (r).w
 
 bsdf_data_t fetchBSDFDataForInstr(in instr_t instr)
@@ -121,7 +121,11 @@ bool op_isBXDF(in uint op)
 }
 bool op_isBXDForBlend(in uint op)
 {
+#ifdef OP_BLEND
 	return op<=OP_BLEND;
+#else
+	return op_isBXDF(op);
+#endif
 }
 bool op_hasSpecular(in uint op)
 {
@@ -370,8 +374,6 @@ void instr_execute_cos_eval_CONDUCTOR(in instr_t instr, in uvec3 regs, in float 
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
-		//float au = params_getAlpha(params);
-		//float av = params_getAlphaV(params);
 		mat2x3 eta;
 		eta[0] = irr_glsl_decodeRGB19E7(data.data[2].yz);
 		eta[1] = irr_glsl_decodeRGB19E7(uvec2(data.data[2].w,data.data[3].x));
@@ -409,7 +411,8 @@ float instr_execute_cos_eval_pdf_PLASTIC(in instr_t instr, in uvec3 regs, in flo
 	instr_execute_cos_eval_PLASTIC(instr, regs, DG, params, data);
 
 	//TODO those weights should be different
-	return 0.5*specular_pdf + 0.5*irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic, a2);
+	//return 0.5*specular_pdf + 0.5*irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic, a2);
+	return specular_pdf;
 }
 #endif
 
@@ -701,7 +704,7 @@ void handleTwosided(inout bool ts_flag, in instr_t instr)
 }
 
 #ifdef GEN_CHOICE_STREAM
-void instr_remainder_and_pdf_execute(in instr_t instr, in irr_glsl_BSDFSample s)
+void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BSDFSample s)
 {
 	uint op = instr_getOpcode(instr);
 
@@ -729,6 +732,14 @@ void instr_remainder_and_pdf_execute(in instr_t instr, in irr_glsl_BSDFSample s)
 			pdf = irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic, a2);
 		} else
 #endif
+
+#ifdef OP_DIFFTRANS
+		if (op==OP_DIFFTRANS) {
+			//TODO take into account full sphere
+			pdf = irr_glsl_lambertian_pdf(s, currInteraction.isotropic);
+		}
+		else
+#endif //OP_DIFFTRANS
 
 #ifdef NDF_GGX
 		if (ndf==NDF_GGX) {
@@ -771,16 +782,18 @@ void instr_remainder_and_pdf_execute(in instr_t instr, in irr_glsl_BSDFSample s)
 
 		} else
 #endif
-
-#ifndef ONLY_ONE_NDF
 		{} //else "empty braces"
-#endif
 	}
 
 	uvec3 regs = instr_decodeRegisters(instr);
 #ifdef OP_DIFFUSE
 	if (op==OP_DIFFUSE) {
 		instr_execute_cos_eval_DIFFUSE(instr, regs, params, bsdf_data);
+	} else
+#endif
+#ifdef OP_DIFFTRANS
+	if (op==OP_DIFFTRANS) {
+		instr_execute_cos_eval_DIFFTRANS(instr, regs, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_CONDUCTOR
@@ -798,19 +811,14 @@ void instr_remainder_and_pdf_execute(in instr_t instr, in irr_glsl_BSDFSample s)
 		instr_execute_cos_eval_COATING(instr, regs, params, bsdf_data);
 	} else
 #endif
-#ifdef OP_DIFFTRANS
-	if (op==OP_DIFFTRANS) {
-		instr_execute_cos_eval_DIFFTRANS(instr, regs, params, bsdf_data);
-	} else
-#endif
 #ifdef OP_DIELECTRIC
 	if (op==OP_DIELECTRIC) {
-		instr_execute_cos_eval_DIELECTRIC(instr, regs, params, bsdf_data);
+		instr_execute_cos_eval_DIELECTRIC(instr, regs, params, bsdf_data);//TODO!!!
 	} else
 #endif
 #ifdef OP_THINDIELECTRIC
 	if (op==OP_THINDIELECTRIC) {
-		instr_execute_cos_eval_THINDIELECTRIC(instr, regs, params, bsdf_data);
+		instr_execute_cos_eval_THINDIELECTRIC(instr, regs, params, bsdf_data);//TODO!!!
 	} else
 #endif
 #ifdef OP_BLEND
@@ -820,21 +828,21 @@ void instr_remainder_and_pdf_execute(in instr_t instr, in irr_glsl_BSDFSample s)
 #endif
 #ifdef OP_BUMPMAP
 	if (op==OP_BUMPMAP) {
-		instr_execute_BUMPMAP(instr, L);
+		instr_execute_BUMPMAP(instr, s.L);
 	} else
 #endif
 #ifdef OP_SET_GEOM_NORMAL
 	if (op==OP_SET_GEOM_NORMAL) {
-		instr_execute_SET_GEOM_NORMAL(L);
+		instr_execute_SET_GEOM_NORMAL(s.L);
 	} else
 #endif
 	{} //else "empty braces"
 
-	if (op_isBXDForBlend(op)) //OP_BLEND writes pdf as well, but it happens in instr_execute_cos_eval_pdf_BLEND()
+	if (op_isBXDForBlend(op))
 		writeReg(REG_DST(regs)+3u, pdf);
 }
 
-vec3 irr_bsdf_cos_remainder_and_pdf(in instr_stream_t stream, in irr_glsl_BSDFSample s, out float _out_pdf)
+eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, in irr_glsl_BSDFSample s, in instr_t generator)
 {
 #ifndef NO_TWOSIDED
 	bool ts = false;
@@ -842,18 +850,27 @@ vec3 irr_bsdf_cos_remainder_and_pdf(in instr_stream_t stream, in irr_glsl_BSDFSa
 	for (uint i = 0u; i < stream.count; ++i)
 	{
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
+
+		if (INSTR_1ST_DWORD(instr) != INSTR_1ST_DWORD(generator))
+		{
 #ifndef NO_TWOSIDED
-		handleTwosided(ts, instr);
+			handleTwosided(ts, instr);
 #endif
-		instr_remainder_and_pdf_execute(instr, s);
+			instr_eval_and_pdf_execute(instr, s);
+		}
+		else
+		{
+			//assert(isBXDF(instr));
+			uvec3 regs = instr_decodeRegisters(instr);
+			writeReg(REG_DST(regs), eval_and_pdf_t(0.0));
+		}
 	}
 
 	eval_and_pdf_t eval_and_pdf = readReg4(0u);
-	_out_pdf = eval_and_pdf.w;
-	return eval_and_pdf.rgb/eval_and_pdf.w;
+	return eval_and_pdf;
 }
 
-irr_glsl_BSDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand)
+irr_glsl_BSDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand, out vec3 out_remainder, out float out_pdf, out instr_t out_generatorInstr)
 {
 	uint ix = 0u;
 	instr_t instr = irr_glsl_MC_fetchInstr(stream.offset);
@@ -910,11 +927,40 @@ irr_glsl_BSDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 	handleTwosided_interactionOnly(ts_flag, instr);
 #endif //NO_TWOSIDED
 
+	const bool is_plastic = op==OP_PLASTIC;
+
+#ifdef OP_DIFFUSE
+
+#define OP_DIFFUSE_ALIAS OP_DIFFUSE
+
+#else
+
+#define OP_DIFFUSE_ALIAS 0xdeadbeefu
+
+#endif
+
+	float pdf;
+	vec3 rem;
 	uint ndf = instr_getNDF(instr);
 	irr_glsl_BSDFSample s;
-#ifdef OP_DIFFUSE
-	if (op==OP_DIFFUSE) {
+	//TODO OP_PLASTIC sampling: random choice sample diffuse or specular
+/*#ifdef OP_PLASTIC
+	float plastic_weight;
+	if (is_plastic) {
+		float wa = max(fresnel.x, max(fresnel.y,fresnel.z));
+		vec3 fresnel = vec3(1.0);//TODO
+		float wb = max(refl.x, max(refl.y, refl.z));
+		float sum = wa+wb;
+		wa /= sum;
+		bool choseDiffuse = rand.z>=wa;
+		op = choseDiffuse ? OP_DIFFUSE_ALIAS : op;
+	}
+#endif*/
+
+#if defined(OP_DIFFUSE)// || defined(OP_PLASTIC)
+	if (op==OP_DIFFUSE_ALIAS) {
 		s = irr_glsl_oren_nayar_cos_generate(currInteraction, rand.xy, ax2);
+		rem = refl*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ax2);
 	} else 
 #endif //OP_DIFFUSE
 
@@ -922,6 +968,7 @@ irr_glsl_BSDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 	if (op==OP_DIFFTRANS) {
 		//TODO take into account full sphere
 		s = irr_glsl_cos_weighted_cos_generate(currInteraction, rand.xy);
+		rem = irr_glsl_cos_weighted_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic);
 	} else
 #endif //OP_DIFFTRANS
 
@@ -929,30 +976,54 @@ irr_glsl_BSDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 #ifdef NDF_GGX
 	if (ndf == NDF_GGX) {
 		s = irr_glsl_ggx_cos_generate(currInteraction, rand.xy, ax, ay);
+		rem = irr_glsl_ggx_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, ior, ax, ay);
 	} else
 #endif //NDF_GGX
 
 #ifdef NDF_BECKMANN
 	if (ndf == NDF_BECKMANN) {
 		s = irr_glsl_beckmann_smith_cos_generate(currInteraction, rand.xy, ax, ay);
+		rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, ior, ax, ax2, ay, ay2);
 	} else
 #endif //NDF_BECKMANN
 
 #ifdef NDF_PHONG
 	if (ndf == NDF_PHONG) {
 		s = irr_glsl_beckmann_smith_cos_generate(currInteraction, rand.xy, ax, ay);
+		rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, ior, ax, ax2, ay, ay2);
 	} else
 #endif //NDF_PHONG
 	{}
 
+	/*if (is_plastic)
+	{
+		proposed weights: len(fresnel), len(reflectance)
+		pdf = 0.5*pdf + 0.5*irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic, ax2);
+		//TODO remainder
+	}*/
+
+	out_remainder = rem;
+	out_pdf = pdf;
+	out_generatorInstr = instr;
+
 	return s;
 }
 
-vec3 runGenerateAndRemainderStream(in instr_stream_t gcs, in instr_stream rnps, in vec3 rand, out float pdf)
+vec3 runGenerateAndRemainderStream(in instr_stream_t gcs, in instr_stream_t rnps, in vec3 rand, out float out_pdf, out irr_glsl_BSDFSample out_smpl)
 {
-	irr_glsl_BSDFSample s = irr_bsdf_cos_generate(gcs, rand);
+	instr_t generator;
+	vec3 generator_rem;
+	float generator_pdf;
+	irr_glsl_BSDFSample s = irr_bsdf_cos_generate(gcs, rand, generator_rem, generator_pdf, generator);
 	irr_glsl_updateBSDFParams(currBSDFParams, s, currInteraction);
-	vec3 rem = irr_bsdf_cos_remainder_and_pdf(rnps, s, pdf);
+	eval_and_pdf_t eval_pdf = irr_bsdf_eval_and_pdf(rnps, s, generator);
+	bxdf_eval_t acc = eval_pdf.rgb;
+	float restPdf = eval_pdf.a;
+	float pdf = generator_pdf + restPdf;
+
+	out_smpl = s;
+
+	vec3 rem = generator_rem/(1.0 + restPdf/generator_pdf) + acc/pdf;
 
 	return rem;
 }

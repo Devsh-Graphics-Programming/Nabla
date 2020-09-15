@@ -35,11 +35,11 @@ layout(set = 2, binding = 1) uniform sampler2D envMap;
 layout(set = 2, binding = 2) uniform usamplerBuffer sampleSequence;
 layout(set = 2, binding = 3) uniform usampler2D scramblebuf;
 
-vec2 rand2d(in uint _sample, inout irr_glsl_xoroshiro64star_state_t scramble_state)
+vec3 rand3d(in uint _sample, inout irr_glsl_xoroshiro64star_state_t scramble_state)
 {
-	uvec2 seqVal = texelFetch(sampleSequence,int(_sample)).xy;
-	seqVal ^= uvec2(irr_glsl_xoroshiro64star(scramble_state),irr_glsl_xoroshiro64star(scramble_state));
-    return vec2(seqVal)*uintBitsToFloat(0x2f800004u);
+	uvec3 seqVal = texelFetch(sampleSequence,int(_sample)).xyz;
+	seqVal ^= uvec3(irr_glsl_xoroshiro64star(scramble_state),irr_glsl_xoroshiro64star(scramble_state),irr_glsl_xoroshiro64star(scramble_state));
+    return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
 }
 
 vec2 SampleSphericalMap(in vec3 v)
@@ -67,11 +67,12 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 		instr_stream_t gcs = getGenChoiceStream();
 		instr_stream_t rnps = getRemAndPdfStream();
 
-		vec2 rand = rand2d(i,scramble_state);//TODO has to be 3d
+		vec3 rand = rand3d(i,scramble_state);
 		float pdf;
-		runGenerateAndRemainderStream(gcs, rnps, rand, pdf);
+		irr_glsl_BSDFSample s;
+		vec3 rem = runGenerateAndRemainderStream(gcs, rnps, rand, pdf, s);
 
-		vec2 uv = SampleSphericalMap(L);
+		vec2 uv = SampleSphericalMap(s.L);
 		color += rem*textureLod(envMap, uv, 0.0).xyz;
 	}
 	color /= float(SAMPLE_COUNT);
@@ -477,18 +478,19 @@ int main()
 	smart_refctd_ptr<video::IGPUBufferView> gpuSequenceBufferView;
 	{
 		constexpr uint32_t MaxSamples = ENVMAP_SAMPLE_COUNT;
+		constexpr uint32_t Channels = 3u;
 
-		auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t) * MaxSamples*2u);
+		auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t) * MaxSamples*Channels);
 
 		core::OwenSampler sampler(1u, 0xdeadbeefu);
 
 		auto out = reinterpret_cast<uint32_t*>(sampleSequence->getPointer());
-		for (uint32_t i = 0; i < MaxSamples*2u; i++)
+		for (uint32_t i = 0; i < MaxSamples*Channels; i++)
 		{
-			out[i] = sampler.sample(i&1u, i>>1);
+			out[i] = sampler.sample(i%Channels, i/Channels);
 		}
 		auto gpuSequenceBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(), sampleSequence->getPointer());
-		gpuSequenceBufferView = driver->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32_UINT);
+		gpuSequenceBufferView = driver->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
 	}
 
 	smart_refctd_ptr<video::IGPUImageView> gpuScrambleImageView;
