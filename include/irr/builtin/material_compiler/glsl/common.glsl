@@ -875,6 +875,8 @@ irr_glsl_BSDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 	uint ix = 0u;
 	instr_t instr = irr_glsl_MC_fetchInstr(stream.offset);
 	uint op = instr_getOpcode(instr);
+	float weight = 1.0;
+	vec3 u = rand;
 	while (!op_isBXDF(op))
 	{
 #ifdef OP_BLEND
@@ -883,10 +885,11 @@ irr_glsl_BSDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 			params_t params = instr_getParameters(instr, bsdf_data);
 			float w = params_getBlendWeight(params);
 			float rcpChoiceProb;
-			bool choseRight = irr_glsl_partitionRandVariable(w, rand.z, rcpChoiceProb);
+			bool choseRight = irr_glsl_partitionRandVariable(w, u.z, rcpChoiceProb);
 
 			uint right = instr_getRightJump(instr);
 			ix = choseRight ? right:(ix+1u);
+			weight *= choseRight ? (1.0-w):w;
 		}
 		else 
 #endif //OP_BLEND
@@ -943,23 +946,21 @@ irr_glsl_BSDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 	vec3 rem;
 	uint ndf = instr_getNDF(instr);
 	irr_glsl_BSDFSample s;
-	//TODO OP_PLASTIC sampling: random choice sample diffuse or specular
-/*#ifdef OP_PLASTIC
-	float plastic_weight;
-	if (is_plastic) {
-		float wa = max(fresnel.x, max(fresnel.y,fresnel.z));
-		vec3 fresnel = vec3(1.0);//TODO
-		float wb = max(refl.x, max(refl.y, refl.z));
-		float sum = wa+wb;
-		wa /= sum;
-		bool choseDiffuse = rand.z>=wa;
-		op = choseDiffuse ? OP_DIFFUSE_ALIAS : op;
-	}
-#endif*/
 
-#if defined(OP_DIFFUSE)// || defined(OP_PLASTIC)
+#ifdef OP_PLASTIC
+	float plastic_spec_weight;
+	if (is_plastic) {
+		vec3 fresnel = irr_glsl_fresnel_dielectric(ior[0],currBSDFParams.isotropic.VdotH);
+		float ws = max(fresnel.x, max(fresnel.y, fresnel.z));
+		bool choseDiffuse = u.z>=ws;
+		op = choseDiffuse ? OP_DIFFUSE_ALIAS : op;
+		plastic_spec_weight = ws;
+	}
+#endif
+
+#if defined(OP_DIFFUSE) || defined(OP_PLASTIC)
 	if (op==OP_DIFFUSE_ALIAS) {
-		s = irr_glsl_oren_nayar_cos_generate(currInteraction, rand.xy, ax2);
+		s = irr_glsl_oren_nayar_cos_generate(currInteraction, u.xy, ax2);
 		rem = refl*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ax2);
 	} else 
 #endif //OP_DIFFUSE
@@ -967,7 +968,7 @@ irr_glsl_BSDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 #ifdef OP_DIFFTRANS
 	if (op==OP_DIFFTRANS) {
 		//TODO take into account full sphere
-		s = irr_glsl_cos_weighted_cos_generate(currInteraction, rand.xy);
+		s = irr_glsl_cos_weighted_cos_generate(currInteraction, u.xy);
 		rem = irr_glsl_cos_weighted_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic);
 	} else
 #endif //OP_DIFFTRANS
@@ -975,35 +976,75 @@ irr_glsl_BSDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 //TODO need to distinguish BSDFs and BRDFs
 #ifdef NDF_GGX
 	if (ndf == NDF_GGX) {
-		s = irr_glsl_ggx_cos_generate(currInteraction, rand.xy, ax, ay);
+		s = irr_glsl_ggx_cos_generate(currInteraction, u.xy, ax, ay);
 		rem = irr_glsl_ggx_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, ior, ax, ay);
 	} else
 #endif //NDF_GGX
 
 #ifdef NDF_BECKMANN
 	if (ndf == NDF_BECKMANN) {
-		s = irr_glsl_beckmann_smith_cos_generate(currInteraction, rand.xy, ax, ay);
+		s = irr_glsl_beckmann_smith_cos_generate(currInteraction, u.xy, ax, ay);
 		rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, ior, ax, ax2, ay, ay2);
 	} else
 #endif //NDF_BECKMANN
 
 #ifdef NDF_PHONG
 	if (ndf == NDF_PHONG) {
-		s = irr_glsl_beckmann_smith_cos_generate(currInteraction, rand.xy, ax, ay);
+		s = irr_glsl_beckmann_smith_cos_generate(currInteraction, u.xy, ax, ay);
 		rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, ior, ax, ax2, ay, ay2);
 	} else
 #endif //NDF_PHONG
 	{}
 
-	/*if (is_plastic)
+#ifdef OP_PLASTIC
+	if (is_plastic)
 	{
-		proposed weights: len(fresnel), len(reflectance)
-		pdf = 0.5*pdf + 0.5*irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic, ax2);
-		//TODO remainder
-	}*/
+		irr_glsl_updateBSDFParams(currBSDFParams, s, currInteraction);//TODO i could avoid this if using wo_clamps version of cos_eval()s
 
-	out_remainder = rem;
-	out_pdf = pdf;
+		//proposed weights: len(fresnel), len(reflectance)
+		vec3 eval;
+		float pdf_b;
+		float wa;
+		float wb;
+		if (u.z>=plastic_spec_weight) { //chose diffuse as generator
+			wb = plastic_spec_weight;
+			wa = 1.0-wb;
+#ifdef NDF_GGX
+			if (ndf == NDF_GGX) {
+				eval = irr_glsl_ggx_height_correlated_aniso_cos_eval(currBSDFParams, currInteraction, ior, ax, ay);
+				pdf_b = irr_glsl_ggx_pdf(s, currInteraction, ax, ay, ax2, ay2);
+			} else
+#endif //NDF_GGX
+
+#ifdef NDF_BECKMANN
+			if (ndf == NDF_BECKMANN) {
+				eval = irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval(currBSDFParams, currInteraction, ior, ax, ax2, ay, ay2);
+				pdf_b = irr_glsl_beckmann_pdf(s, currInteraction, ax, ax2, ay, ay2);
+			} else
+#endif //NDF_BECKMANN
+
+#ifdef NDF_PHONG
+			if (ndf == NDF_PHONG) {
+				eval = irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval(currBSDFParams, currInteraction, ior, ax, ax2, ay, ay2);
+				pdf_b = irr_glsl_beckmann_pdf(s, currInteraction, ax, ax2, ay, ay2);
+			} else
+#endif //NDF_PHONG
+			{}
+		}
+		else { //specular was generator
+			wa = plastic_spec_weight;
+			wb = 1.0-wa;
+			eval = refl*irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic, currInteraction.isotropic, ax2);//TODO fresnels and correction
+			pdf_b = irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic, ax2);
+		}
+
+		rem = (rem*wa + eval/pdf*wb)/(wa + pdf_b/pdf*wb);
+		pdf = pdf*wa + pdf_b*wb;
+	}
+#endif
+
+	out_remainder = weight*rem;
+	out_pdf = weight*pdf;
 	out_generatorInstr = instr;
 
 	return s;

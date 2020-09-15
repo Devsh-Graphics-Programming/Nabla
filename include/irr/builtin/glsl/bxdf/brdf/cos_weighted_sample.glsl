@@ -19,6 +19,11 @@ irr_glsl_BSDFSample irr_glsl_cos_weighted_cos_generate(in irr_glsl_AnisotropicVi
 	smpl.NdotL = z;
     smpl.TdotL = p.x;
     smpl.BdotL = p.y;
+    //assuming H=N, i have to set them to something to jump between diffuse and specular generators (plastic)
+    smpl.VdotH = z;
+    smpl.NdotH = 1.0;
+    smpl.TdotH = 0.0;
+    smpl.BdotH = 0.0;
 
     return smpl;
 }

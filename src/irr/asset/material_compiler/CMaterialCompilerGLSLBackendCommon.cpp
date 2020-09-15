@@ -103,6 +103,7 @@ namespace instr_stream
 				assert(refl->ndf == trans->ndf);
 				assert(refl->alpha_u == trans->alpha_u);
 				assert(refl->alpha_v == trans->alpha_v);
+				assert((refl->eta == trans->eta).xyzz().all());
 
 				if (refl->alpha_u.source == IR::INode::EPS_TEXTURE)
 					_dst.dielectric.alpha_u.setTexture(packTexture(refl->alpha_u.value.texture), refl->alpha_u.value.texture.scale);
@@ -112,6 +113,7 @@ namespace instr_stream
 					_dst.dielectric.alpha_v.setTexture(packTexture(refl->alpha_v.value.texture), refl->alpha_v.value.texture.scale);
 				else
 					_dst.dielectric.alpha_v.setConst(refl->alpha_v.value.constant);
+				_dst.dielectric.eta = refl->eta.x;
 			}
 			break;
 			case OP_CONDUCTOR:
