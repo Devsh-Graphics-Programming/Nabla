@@ -104,7 +104,7 @@ irr_glsl_BxDFSample irr_glsl_smooth_dielectric_cos_generate(in irr_glsl_Anisotro
         interaction.isotropic.N,
         backside,
         interaction.isotropic.NdotV,
-        max(interaction.isotropic.NdotV,0.0),
+        abs(interaction.isotropic.NdotV),
         interaction.isotropic.NdotV*interaction.isotropic.NdotV,
         u,
         rcpOrientedEta, orientedEta2, rcpOrientedEta2,
