@@ -1,39 +1,11 @@
-#ifndef _IRR_BUILTIN_GLSL_BXDF_BRDF_SPECULAR_GGX_INCLUDED_
-#define _IRR_BUILTIN_GLSL_BXDF_BRDF_SPECULAR_GGX_INCLUDED_
+#ifndef _IRR_BUILTIN_GLSL_BXDF_BSDF_SPECULAR_GGX_INCLUDED_
+#define _IRR_BUILTIN_GLSL_BXDF_BSDF_SPECULAR_GGX_INCLUDED_
 
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
-#include <irr/builtin/glsl/bxdf/fresnel.glsl>
 #include <irr/builtin/glsl/bxdf/ndf/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/geom/smith/ggx.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
 
-//depr
-/*
-vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction inter, in mat2x3 ior, in float a2, in vec2 atb, in float aniso)
-{
-    float g = irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(atb.x, atb.y, params.TdotL, inter.TdotV, params.BdotL, inter.BdotV, params.isotropic.NdotL, inter.isotropic.NdotV);
-    float ndf = irr_glsl_ggx_burley_aniso(aniso, a2, params.TdotH, params.BdotH, params.isotropic.NdotH);
-    vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], params.isotropic.VdotH);
-
-    return params.isotropic.NdotL * g*ndf*fr;
-}
-*/
-//defined using NDF function with better API (compared to burley used above) and new impl of correlated smith
-float irr_glsl_ggx_height_correlated_aniso_cos_eval_DG_wo_clamps(in float NdotH2, in float TdotH2, in float BdotH2, in float maxNdotL, in float NdotL2, in float TdotL2, in float BdotL2, in float maxNdotV, in float NdotV2, in float TdotV2, in float BdotV2, in float ax, in float ax2, in float ay, in float ay2)
-{
-    float ndf = irr_glsl_ggx_aniso(TdotH2,BdotH2,NdotH2, ax, ay, ax2, ay2);
-    float scalar_part = ndf*maxNdotL;
-    if (ax>FLT_MIN || ay>FLT_MIN)
-    {
-        float g = irr_glsl_ggx_smith_correlated_wo_numerator(
-            maxNdotV, TdotV2, BdotV2, NdotV2,
-            maxNdotL, TdotL2, BdotL2, NdotL2,
-            ax2, ay2
-        );
-        scalar_part *= g;
-    }
-
-    return scalar_part;
-}
 
 vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval_wo_clamps(in float NdotH2, in float TdotH2, in float BdotH2, in float maxNdotL, in float NdotL2, in float TdotL2, in float BdotL2, in float maxNdotV, in float NdotV2, in float TdotV2, in float BdotV2, in float VdotH, in mat2x3 ior, in float ax, in float ax2, in float ay, in float ay2)
 {
@@ -58,19 +30,6 @@ vec3 irr_glsl_ggx_height_correlated_aniso_cos_eval(in irr_glsl_BSDFAnisotropicPa
 }
 
 
-float irr_glsl_ggx_height_correlated_cos_eval_DG_wo_clamps(in float NdotH2, in float maxNdotL, in float NdotL2, in float maxNdotV, in float NdotV2, in float a2)
-{
-    float ndf = irr_glsl_ggx_trowbridge_reitz(a2, NdotH2);
-    float scalar_part = ndf*maxNdotL;
-    if (a2>FLT_MIN)
-    {
-        float g = irr_glsl_ggx_smith_correlated_wo_numerator(maxNdotV, NdotV2, maxNdotL, NdotL2, a2);
-        scalar_part *= g;
-    }
-
-    return scalar_part;
-}
-
 vec3 irr_glsl_ggx_height_correlated_cos_eval_wo_clamps(in float NdotH2, in float maxNdotL, in float NdotL2, in float maxNdotV, in float NdotV2, in float VdotH, in mat2x3 ior, in float a2)
 {
     float scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG_wo_clamps(NdotH2, maxNdotL, NdotL2, maxNdotV, NdotV2, a2);
@@ -88,36 +47,10 @@ vec3 irr_glsl_ggx_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams par
 
 
 
-//Heitz's 2018 paper "Sampling the GGX Distribution of Visible Normals"
-irr_glsl_BxDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float _ax, in float _ay)
+irr_glsl_BxDFSample irr_glsl_ggx_transmitter_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 _sample, in float _ax, in float _ay)
 {
-    vec2 u = _sample;
-
-    mat3 m = irr_glsl_getTangentFrame(interaction);
-
-    vec3 localV = interaction.isotropic.V.dir;
-    localV = normalize(localV*m);//transform to tangent space
-    vec3 V = normalize(vec3(_ax*localV.x, _ay*localV.y, localV.z));//stretch view vector so that we're sampling as if roughness=1.0
-
-    float lensq = V.x*V.x + V.y*V.y;
-    vec3 T1 = lensq > 0.0 ? vec3(-V.y, V.x, 0.0)*inversesqrt(lensq) : vec3(1.0,0.0,0.0);
-    vec3 T2 = cross(V,T1);
-
-    float r = sqrt(u.x);
-    float phi = 2.0 * irr_glsl_PI * u.y;
-    float t1 = r * cos(phi);
-    float t2 = r * sin(phi);
-    float s = 0.5 * (1.0 + V.z);
-    t2 = (1.0 - s)*sqrt(1.0 - t1*t1) + s*t2;
-    
-    //reprojection onto hemisphere
-	//TODO try it wothout the max(), not sure if -t1*t1-t2*t2>-1.0
-    vec3 H = t1*T1 + t2*T2 + sqrt(max(0.0, 1.0-t1*t1-t2*t2))*V;
-    //unstretch
-    H = normalize(vec3(_ax*H.x, _ay*H.y, H.z));
-    float NdotH = H.z;
-
-	return irr_glsl_createBRDFSample(H,localV,dot(H,localV),m);
+    irr_glsl_BSDFSample _sample = irr_glsl_ggx_cos_generate(interaction,_sample.xy,_ax,_ay);
+    return _sample;
 }
 
 
@@ -133,7 +66,7 @@ float irr_glsl_ggx_pdf_wo_clamps(in float NdotH2, in float maxNdotV, in float Nd
 
     return irr_glsl_ggx_pdf_wo_clamps(ndf, devsh_v, maxNdotV);
 }
-float irr_glsl_ggx_pdf(in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction inter, in float a2)
+float irr_glsl_ggx_pdf(in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction inter, in float a2)
 {
     return irr_glsl_ggx_pdf_wo_clamps(s.NdotH*s.NdotH, max(inter.NdotV,0.0), inter.NdotV_squared, a2);
 }
@@ -145,7 +78,7 @@ float irr_glsl_ggx_pdf_wo_clamps(in float NdotH2, in float TdotH2, in float Bdot
 
     return irr_glsl_ggx_pdf_wo_clamps(ndf, devsh_v, maxNdotV);
 }
-float irr_glsl_ggx_pdf(in irr_glsl_BxDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in float ax, in float ay, in float ax2, in float ay2)
+float irr_glsl_ggx_pdf(in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in float ax, in float ay, in float ax2, in float ay2)
 {
     float NdotH2 = s.NdotH * s.NdotH;
     float TdotH2 = s.TdotH * s.TdotH;
@@ -171,7 +104,7 @@ vec3 irr_glsl_ggx_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, i
     return fr * G2_over_G1;
 }
 
-vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float a2)
+vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float a2)
 {
     const float NdotH2 = s.NdotH * s.NdotH;
 
@@ -198,7 +131,7 @@ vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf_wo_clamps(out float pdf, in float 
     return fr * G2_over_G1;
 }
 
-vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BxDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ay)
+vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in mat2x3 ior, in float ax, in float ay)
 {
     const float NdotH2 = s.NdotH * s.NdotH;
     const float TdotH2 = s.TdotH * s.TdotH;

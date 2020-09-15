@@ -8,6 +8,7 @@ vec3 irr_glsl_fresnel_schlick(in vec3 F0, in float VdotH)
     return F0 + (1.0 - F0) * x*x*x*x*x;
 }
 
+// TODO: provide a `irr_glsl_fresnel_conductor_impl` that take `Eta` and `EtaLen2` directly
 // conductors, only works for `CosTheta>=0`
 vec3 irr_glsl_fresnel_conductor(vec3 Eta, vec3 Etak, float CosTheta)
 {  
@@ -27,14 +28,28 @@ vec3 irr_glsl_fresnel_conductor(vec3 Eta, vec3 Etak, float CosTheta)
 }
 
 // dielectrics
-vec3 irr_glsl_fresnel_dielectric_common(in vec3 Eta2, in float AbsCosTheta)
+float irr_glsl_fresnel_dielectric_common(in float orientedEta2, in float AbsCosTheta)
+{
+    const float SinTheta2 = 1.0-AbsCosTheta*AbsCosTheta;
+
+    // the max() clamping can handle TIR when orientedEta2<1.0
+    const float t0 = sqrt(max(orientedEta2-SinTheta2,0.0));
+    const float rs = (AbsCosTheta - t0) / (AbsCosTheta + t0);
+
+    const float t2 = orientedEta2 * AbsCosTheta;
+    const float rp = (t0 - t2) / (t0 + t2);
+
+    return (rs * rs + rp * rp) * 0.5;
+}
+vec3 irr_glsl_fresnel_dielectric_common(in vec3 orientedEta2, in float AbsCosTheta)
 {
    const float SinTheta2 = 1.0-AbsCosTheta*AbsCosTheta;
 
-   const vec3 t0 = sqrt(vec3(Eta2)-SinTheta2);
+   // the max() clamping can handle TIR when orientedEta2<1.0
+   const vec3 t0 = sqrt(max(vec3(orientedEta2)-SinTheta2,vec3(0.0)));
    const vec3 rs = (vec3(AbsCosTheta) - t0) / (vec3(AbsCosTheta) + t0);
 
-   const vec3 t2 = Eta2*AbsCosTheta;
+   const vec3 t2 = orientedEta2*AbsCosTheta;
    const vec3 rp = (t0 - t2) / (t0 + t2);
 
    return (rs*rs + rp*rp)*0.5;
@@ -45,9 +60,21 @@ vec3 irr_glsl_fresnel_dielectric_frontface_only(in vec3 Eta, in float CosTheta)
 }
 vec3 irr_glsl_fresnel_dielectric(vec3 Eta, in float CosTheta)
 {
-    const bool backside = CosTheta<0.0;
-    Eta = backside ? (1.0/Eta):Eta;
-    return irr_glsl_fresnel_dielectric_common(Eta*Eta,backside ? (-CosTheta):CosTheta);
+    vec3 dummy0,orientedEta2,dummy1;
+    bool backside = irr_glsl_getOrientedEtas(dummy0,orientedEta2,dummy1,CosTheta,Eta);
+    return irr_glsl_fresnel_dielectric_common(orientedEta2,backside ? (-CosTheta):CosTheta);
+}
+
+// gets the sum of all R, T R T, T R^3 T, T R^5 T, ... paths
+vec3 irr_glsl_thindielectric_infinite_scatter(in vec3 singleInterfaceReflectance)
+{
+    const vec3 doubleInterfaceReflectance = singleInterfaceReflectance*singleInterfaceReflectance;
+    return mix((singleInterfaceReflectance-doubleInterfaceReflectance)/(vec3(1.0)-doubleInterfaceReflectance)*2.0,vec3(1.0),greaterThan(doubleInterfaceReflectance,vec3(0.9999)));
+}
+float irr_glsl_thindielectric_infinite_scatter(in float singleInterfaceReflectance)
+{
+    const float doubleInterfaceReflectance = singleInterfaceReflectance*singleInterfaceReflectance;
+    return doubleInterfaceReflectance>0.9999 ? 1.0:((singleInterfaceReflectance-doubleInterfaceReflectance)/(1.0-doubleInterfaceReflectance)*2.0);
 }
 
 #endif

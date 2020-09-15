@@ -66,9 +66,34 @@ public:
         }
     };
 
+    template <typename MeshIterator>
+    struct MeshPackerConfigParams
+    {
+        SVertexInputParams vertexInputParams;
+        core::SRange<void, MeshIterator> belongingMeshes; // pointers to sections of `sortedMeshBuffersOut`
+    };
+
 protected:
     MeshPackerBase(const AllocationParams& allocParams)
         :m_allocParams(allocParams) {};
+
+    static bool cmpVtxInputParams(const SVertexInputParams& lhs, const SVertexInputParams& rhs)
+    {
+        if (lhs.enabledAttribFlags != rhs.enabledAttribFlags)
+            return false;
+
+        for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
+        {
+            if (!(attrBit & lhs.enabledAttribFlags))
+                continue;
+
+            if (lhs.attributes[location].format != rhs.attributes[location].format ||
+                lhs.bindings[lhs.attributes[location].binding].inputRate != rhs.bindings[rhs.attributes[location].binding].inputRate)
+                return false;
+        }
+
+        return true;
+    }
 
 protected:
     const AllocationParams m_allocParams;
@@ -77,12 +102,16 @@ protected:
 
 //TODO: allow mesh buffers with only per instance attributes
 
-template <typename MeshBufferType, typename MDIStructType>
+template <typename MeshBufferType, typename MDIStructType = DrawElementsIndirectCommand_t>
 class IMeshPacker : public MeshPackerBase
 {
     static_assert(std::is_base_of<DrawElementsIndirectCommand_t, MDIStructType>::value);
 
 public:
+    /*
+    @param minTriangleCountPerMDIData must be <= 21845
+    @param maxTriangleCountPerMDIData must be <= 21845
+    */
     IMeshPacker(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
         :MeshPackerBase(allocParams),
          m_maxTriangleCountPerMDIData(maxTriangleCountPerMDIData),
@@ -90,6 +119,9 @@ public:
          m_MDIDataAlctrResSpc(nullptr), m_idxBuffAlctrResSpc(nullptr),
          m_vtxBuffAlctrResSpc(nullptr), m_perInsVtxBuffAlctrResSpc(nullptr)
     {
+        assert(minTriangleCountPerMDIData <= 21845);
+        assert(maxTriangleCountPerMDIData <= 21845);
+
         m_outVtxInputParams.enabledAttribFlags  = preDefinedLayout.enabledAttribFlags;
         m_outVtxInputParams.enabledBindingFlags = preDefinedLayout.enabledAttribFlags;
 
@@ -138,6 +170,104 @@ public:
         }
     }
 
+    //TODO: update comment
+    // returns number of distinct mesh packers needed to pack the meshes and a sorted list of meshes by the meshpacker ID they should be packed into, as well as the parameters for the packers
+    // `packerParamsOut` should be big enough to fit `std::distance(begin,end)` entries, the return value will tell you how many were actually written
+    template<typename MeshIterator>
+    static uint32_t getPackerCreationParamsFromMeshBufferRange(const MeshIterator begin, const MeshIterator end, MeshIterator sortedMeshBuffersOut,
+        MeshPackerBase::MeshPackerConfigParams<MeshIterator>* packerParamsOut)
+    {
+        assert(begin <= end);
+        if (begin == end)
+            return 0;
+
+        uint32_t packersNeeded = 1u;
+
+        MeshPackerBase::MeshPackerConfigParams<MeshIterator> firstInpuParams
+        {
+            (*begin)->getPipeline()->getVertexInputParams(),
+            SRange<void, MeshIterator>(sortedMeshBuffersOut, sortedMeshBuffersOut)
+        };
+        memcpy(packerParamsOut, &firstInpuParams, sizeof(SVertexInputParams));
+
+        //fill array
+        auto test1 = std::distance(begin, end);
+        auto* packerParamsOutEnd = packerParamsOut + 1u;
+        for (MeshIterator it = begin + 1; it != end; it++)
+        {
+            auto& currMeshVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
+
+            bool alreadyInserted = false;
+            for (auto* packerParamsIt = packerParamsOut; packerParamsIt != packerParamsOutEnd; packerParamsIt++)
+            {
+                alreadyInserted = cmpVtxInputParams(packerParamsIt->vertexInputParams, currMeshVtxInputParams);
+
+                if (alreadyInserted)
+                    break;
+            }
+
+            if (!alreadyInserted)
+            {
+                packersNeeded++;
+
+                MeshPackerBase::MeshPackerConfigParams<MeshIterator> configParams
+                {
+                    currMeshVtxInputParams,
+                    SRange<void, MeshIterator>(sortedMeshBuffersOut, sortedMeshBuffersOut)
+                };
+                memcpy(packerParamsOutEnd, &configParams, sizeof(SVertexInputParams));
+                packerParamsOutEnd++;
+            }
+        }
+
+        auto getIndexOfArrayElement = [&](const SVertexInputParams& vtxInputParams) -> int32_t
+        {
+            int32_t offset = 0u;
+            for (auto* it = packerParamsOut; it != packerParamsOutEnd; it++, offset++)
+            {
+                if (cmpVtxInputParams(vtxInputParams, it->vertexInputParams))
+                    return offset;
+
+                if (it == packerParamsOut - 1)
+                    return -1;
+            }
+        };
+
+        //sort meshes by SVertexInputParams
+        const MeshIterator sortedMeshBuffersOutEnd = sortedMeshBuffersOut + std::distance(begin, end);
+
+        std::copy(begin, end, sortedMeshBuffersOut);
+        std::sort(sortedMeshBuffersOut, sortedMeshBuffersOutEnd,
+            [&](const MeshBufferType* lhs, const MeshBufferType* rhs)
+            {
+                return getIndexOfArrayElement(lhs->getPipeline()->getVertexInputParams()) < getIndexOfArrayElement(rhs->getPipeline()->getVertexInputParams());
+            }
+        );
+
+        //set ranges
+        MeshIterator sortedMeshBuffersIt = sortedMeshBuffersOut;
+        for (auto* inputParamsIt = packerParamsOut; inputParamsIt != packerParamsOutEnd; inputParamsIt++)
+        {
+            MeshIterator firstMBForThisRange = sortedMeshBuffersIt;
+            MeshIterator lastMBForThisRange = sortedMeshBuffersIt;
+            for (MeshIterator it = firstMBForThisRange; it != sortedMeshBuffersOutEnd; it++)
+            {
+                if (!cmpVtxInputParams(inputParamsIt->vertexInputParams, (*it)->getPipeline()->getVertexInputParams()))
+                {
+                    lastMBForThisRange = it;
+                    break;
+                }
+            }
+
+            if (inputParamsIt == packerParamsOutEnd - 1)
+                lastMBForThisRange = sortedMeshBuffersOutEnd;
+
+            inputParamsIt->belongingMeshes = SRange<void, MeshIterator>(firstMBForThisRange, lastMBForThisRange);
+            sortedMeshBuffersIt = lastMBForThisRange;
+        }
+
+        return packersNeeded;
+    }
 protected:
     virtual ~IMeshPacker() 
     {

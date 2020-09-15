@@ -145,10 +145,10 @@ bool op_hasSpecular(in uint op)
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ndf/ggx.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/beckmann_smith.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/cos_weighted_sample.glsl>
+#include <irr/builtin/glsl/bxdf/cos_weighted_sample.glsl>
 #include <irr/builtin/glsl/bump_mapping/utils.glsl>
 
 irr_glsl_BSDFAnisotropicParams currBSDFParams;

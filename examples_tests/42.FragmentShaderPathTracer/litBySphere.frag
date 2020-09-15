@@ -171,16 +171,18 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
             );
             throughput *= lightRemainder;
         }
-        else
+        const vec3 throughputCIE_Y = transpose(irr_glsl_sRGBtoXYZ)[1]*throughput;
+        const vec3 luminosityContributionHint = throughputCIE_Y/(throughputCIE_Y.r+throughputCIE_Y.g+throughputCIE_Y.b);
+        if (!doNEE)
         {
             maxT = FLT_MAX;
-            _sample = irr_glsl_bsdf_cos_generate(interaction,epsilon,bsdf);
+            _sample = irr_glsl_bsdf_cos_generate(interaction,epsilon,bsdf,luminosityContributionHint);
         }
             
         // do a cool trick and always compute the bsdf parts this way! (no divergence)
         float bsdfPdf;
         // the value of the bsdf divided by the probability of the sample being generated
-        throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf);
+        throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf,luminosityContributionHint);
 
         // OETF smallest perceptible value
         const float bsdfPdfThreshold = getLuma(irr_glsl_eotf_sRGB(vec3(1.0)/255.0));
