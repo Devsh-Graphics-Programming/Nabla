@@ -144,7 +144,7 @@ bool op_hasSpecular(in uint op)
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/fresnel_correction.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/ndf/ggx.glsl>
+#include <irr/builtin/glsl/bxdf/ndf/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl>
@@ -284,9 +284,12 @@ void setCurrBSDFParams(in vec3 N, in vec3 L)
 	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(isoparams, currInteraction);
 }
 
+//clamping alpha to min MIN_ALPHA because we're using microfacet BxDFs for deltas as well (and NDFs often end up NaN when given alpha=0) because of less deivergence
+//probably temporary solution
+#define MIN_ALPHA 0.0001
 float params_getAlpha(in params_t p)
 {
-	return p[PARAMS_ALPHA_U_IX].x;
+	return max(p[PARAMS_ALPHA_U_IX].x,MIN_ALPHA);
 }
 vec3 params_getReflectance(in params_t p)
 {
@@ -298,7 +301,7 @@ vec3 params_getOpacity(in params_t p)
 }
 float params_getAlphaV(in params_t p)
 {
-	return p[PARAMS_ALPHA_V_IX].x;
+	return max(p[PARAMS_ALPHA_V_IX].x,MIN_ALPHA);
 }
 vec3 params_getSigmaA(in params_t p)
 {
@@ -355,6 +358,7 @@ void instr_execute_cos_eval_DIELECTRIC(in instr_t instr, in uvec3 regs, in param
 float instr_execute_cos_eval_pdf_DIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	instr_execute_cos_eval_DIELECTRIC(instr, regs, params, data);
+	//WARNING 1.0 instead of INF
 	return 1.0;// / 0.0;
 }
 #endif
@@ -377,6 +381,7 @@ void instr_execute_cos_eval_THINDIELECTRIC(in instr_t instr, in uvec3 regs, in p
 float instr_execute_cos_eval_pdf_THINDIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	instr_execute_cos_eval_THINDIELECTRIC(instr, regs, params, data);
+	//WARNING 1.0 instead of INF
 	return 1.0;// / 0.0;
 }
 #endif
@@ -716,6 +721,83 @@ void handleTwosided(inout bool ts_flag, in instr_t instr)
 #endif
 }
 
+//TODO move or rename those
+float irr_glsl_ggx_height_correlated_cos_eval_DG(in float NdotH, in float NdotL, in float NdotV, in float a2)
+{
+	float NdotH2 = NdotH*NdotH;
+	float maxNdotL = max(NdotL, 0.0);
+	float NdotL2 = NdotL*NdotL;
+	float maxNdotV = max(NdotV,0.0);
+	float NdotV2 = NdotV*NdotV;
+
+	return irr_glsl_ggx_height_correlated_cos_eval_DG_wo_clamps(NdotH2, maxNdotL, NdotL2, maxNdotV, NdotV2, a2);
+}
+float irr_glsl_ggx_height_correlated_cos_eval_DG(in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction i, in float a2)
+{
+	return irr_glsl_ggx_height_correlated_cos_eval_DG(
+		s.NdotH,
+		s.NdotL,
+		i.NdotV,
+		a2
+	);
+}
+float irr_glsl_ggx_height_correlated_cos_eval_DG(in irr_glsl_BSDFIsotropicParams p, in irr_glsl_IsotropicViewSurfaceInteraction i, in float a2)
+{
+	return irr_glsl_ggx_height_correlated_cos_eval_DG(
+		p.NdotH,
+		p.NdotL,
+		i.NdotV,
+		a2
+	);
+}
+
+float irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(in float NdotH, in float TdotH, in float BdotH, in float NdotL, in float TdotL, in float BdotL, in float NdotV, in float TdotV, in float BdotV, in float ax, in float ax2, in float ay, in float ay2)
+{
+	float NdotH2 = NdotH * NdotH;
+	float TdotH2 = TdotH * TdotH;
+	float BdotH2 = BdotH * BdotH;
+	float maxNdotL = max(NdotL, 0.0);
+	float NdotL2 = NdotL * NdotL;
+	float TdotL2 = TdotL * TdotL;
+	float BdotL2 = BdotL * BdotL;
+	float maxNdotV = max(NdotV, 0.0);
+	float NdotV2 = NdotV * NdotV;
+	float TdotV2 = TdotV * TdotV;
+	float BdotV2 = BdotV * BdotV;
+
+	return irr_glsl_ggx_height_correlated_aniso_cos_eval_DG_wo_clamps(NdotH2, TdotH2, BdotH2, maxNdotL, NdotL2, TdotL2, BdotL2, maxNdotV, NdotV2, TdotV2, BdotV2, ax, ax2, ay ,ay2);
+}
+float irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(in irr_glsl_BxDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction i, in float ax, in float ax2, in float ay, in float ay2)
+{
+	return irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(
+		s.NdotH,
+		s.TdotH,
+		s.BdotH,
+		s.NdotL,
+		s.TdotL,
+		s.BdotL,
+		i.isotropic.NdotV,
+		i.TdotV,
+		i.BdotV,
+		ax, ax2, ay, ay2
+	);
+}
+float irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(in irr_glsl_BSDFAnisotropicParams p, in irr_glsl_AnisotropicViewSurfaceInteraction i, in float ax, in float ax2, in float ay, in float ay2)
+{
+	return irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(
+		p.isotropic.NdotH,
+		p.TdotH,
+		p.BdotH,
+		p.isotropic.NdotL,
+		p.TdotL,
+		p.BdotL,
+		i.isotropic.NdotV,
+		i.TdotV,
+		i.BdotV,
+		ax, ax2, ay, ay2
+	);
+}
+
 #ifdef GEN_CHOICE_STREAM
 void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BxDFSample s)
 {
@@ -757,10 +839,10 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BxDFSample s)
 		if (ndf==NDF_GGX) {
 
 #ifdef ALL_ISOTROPIC_BXDFS
-			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, a2);
+			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG(s, currInteraction.isotropic, a2);
 			pdf = irr_glsl_ggx_pdf(s, currInteraction.isotropic, a2);
 #else
-			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(currBSDFParams, currInteraction, a, ay);
+			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(s, currInteraction, a, a2, ay, ay2);
 			pdf = irr_glsl_ggx_pdf(s, currInteraction, a, ay, a2, ay2);
 #endif
 
@@ -999,13 +1081,14 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 #ifdef OP_THINDIELECTRIC
 	if (op == OP_THINDIELECTRIC) {
 		//TODO luminosityContributionHint
-		s = irr_glsl_thin_smooth_dielectric_cos_generate(currInteraction, u, ior[0]*ior[0], vec3(1.0));
-		rem = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ior[0]*ior[0], vec3(1.0));
+		vec3 luminosityContributionHint = vec3(0.2126,0.7152,0.0722);
+		s = irr_glsl_thin_smooth_dielectric_cos_generate(currInteraction, u, ior[0]*ior[0], luminosityContributionHint);
+		rem = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ior[0]*ior[0], luminosityContributionHint);
 		pdf = 1.0;
 	} else
 #endif
 
-//TODO need to distinguish BSDFs and BRDFs
+//TODO need to distinguish BSDFs and BRDFs (later, for now DIELECTRIC and THINDIELECTRIC are treated separately)
 #ifdef NDF_GGX
 	if (ndf == NDF_GGX) {
 		s = irr_glsl_ggx_cos_generate(currInteraction, u.xy, ax, ay);
@@ -1031,7 +1114,7 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 #ifdef OP_PLASTIC
 	if (is_plastic)
 	{
-		irr_glsl_updateBSDFParams(currBSDFParams, s, currInteraction);//TODO i could avoid this if using wo_clamps version of cos_eval()s
+		irr_glsl_updateBxDFParams(currBSDFParams, s, currInteraction);//TODO i could avoid this if using wo_clamps version of cos_eval()s
 
 		vec3 eval;
 		float pdf_b;
@@ -1042,7 +1125,7 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 			wa = 1.0-wb;
 #ifdef NDF_GGX
 			if (ndf == NDF_GGX) {
-				eval = irr_glsl_ggx_height_correlated_aniso_cos_eval(currBSDFParams, currInteraction, ior, ax, ay);
+				eval = irr_glsl_ggx_height_correlated_aniso_cos_eval(currBSDFParams, currInteraction, ior, ax, ax2, ay, ay2);
 				pdf_b = irr_glsl_ggx_pdf(s, currInteraction, ax, ay, ax2, ay2);
 			} else
 #endif //NDF_GGX
@@ -1066,7 +1149,7 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 			wa = plastic_spec_weight;
 			wb = 1.0-wa;
 			eval = refl*irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic, currInteraction.isotropic, ax2);//TODO fresnels and correction
-			pdf_b = irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic, ax2);
+			pdf_b = irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic);
 		}
 
 		rem = (rem*wa + eval/pdf*wb)/(wa + pdf_b/pdf*wb);
@@ -1087,7 +1170,7 @@ vec3 runGenerateAndRemainderStream(in instr_stream_t gcs, in instr_stream_t rnps
 	vec3 generator_rem;
 	float generator_pdf;
 	irr_glsl_BxDFSample s = irr_bsdf_cos_generate(gcs, rand, generator_rem, generator_pdf, generator);
-	irr_glsl_updateBSDFParams(currBSDFParams, s, currInteraction);
+	irr_glsl_updateBxDFParams(currBSDFParams, s, currInteraction);
 	eval_and_pdf_t eval_pdf = irr_bsdf_eval_and_pdf(rnps, s, generator);
 	bxdf_eval_t acc = eval_pdf.rgb;
 	float restPdf = eval_pdf.a;

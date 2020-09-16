@@ -69,7 +69,7 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 
 		vec3 rand = rand3d(i,scramble_state);
 		float pdf;
-		irr_glsl_BSDFSample s;
+		irr_glsl_BxDFSample s;
 		vec3 rem = runGenerateAndRemainderStream(gcs, rnps, rand, pdf, s);
 
 		vec2 uv = SampleSphericalMap(s.L);

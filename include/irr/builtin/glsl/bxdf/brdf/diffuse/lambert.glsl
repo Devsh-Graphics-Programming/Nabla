@@ -50,6 +50,10 @@ float irr_glsl_lambertian_pdf_wo_clamps(in float maxNdotL)
     return irr_glsl_projected_hemisphere_pdf(maxNdotL);
 }
 
+float irr_glsl_lambertian_pdf(in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction i)
+{
+    return irr_glsl_lambertian_pdf_wo_clamps(max(s.NdotL,0.0));
+}
 
 float irr_glsl_lambertian_cos_remainder_and_pdf_wo_clamps(out float pdf, in float maxNdotL)
 {
