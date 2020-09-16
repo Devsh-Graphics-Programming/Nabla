@@ -32,6 +32,7 @@ struct irr_glsl_AnisotropicViewSurfaceInteraction
     float TdotV;
     float BdotV;
 };
+
 vec3 irr_glsl_getTangentSpaceV(in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
     return vec3(interaction.TdotV,interaction.BdotV,interaction.isotropic.NdotV);
@@ -41,26 +42,56 @@ mat3 irr_glsl_getTangentFrame(in irr_glsl_AnisotropicViewSurfaceInteraction inte
     return mat3(interaction.T,interaction.B,interaction.isotropic.N);
 }
 
-// do not use this struct in SSBO or UBO, its wasteful on memory
-struct irr_glsl_BSDFIsotropicParams
+
+struct irr_glsl_LightSample
 {
-   float NdotL;
-   float NdotL_squared;
-   float VdotL; // same as LdotV
-   float NdotH;
-   float VdotH;
-   float LdotH;
+    vec3 L;  // incoming direction, normalized
+    float VdotL;
+
+    float TdotL; 
+    float BdotL;
+    float NdotL;
+    float NdotL2;
 };
 
-// do not use this struct in SSBO or UBO, its wasteful on memory
-struct irr_glsl_BSDFAnisotropicParams
+// require tangentSpaceL already be normalized and in tangent space (tangentSpaceL==vec3(TdotL,BdotL,NdotL))
+irr_glsl_LightSample irr_glsl_createLightSampleTangentSpaceL(in vec3 V, in vec3 tangentSpaceL, in mat3 tangentFrame)
 {
-   irr_glsl_BSDFIsotropicParams isotropic;
-   float TdotL;
-   float TdotH;
-   float BdotL;
-   float BdotH;
-};
+    irr_glsl_LightSample s;
+
+    s.L = tangentFrame*tangentSpaceL; // m must be an orthonormal matrix
+    s.VdotL = dot(V,s.L);
+
+    s.TdotL = tangentSpaceL.x;
+    s.BdotL = tangentSpaceL.y;
+    s.NdotL = tangentSpaceL.z;
+    s.NdotL2 = s.NdotL*s.NdotL;
+
+    return s;
+}
+irr_glsl_LightSample irr_glsl_createLightSampleTangentSpaceL(in vec3 tangentSpaceL, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
+{
+    return irr_glsl_createLightSample(interaction.V.dir,tangentSpaceL,irr_glsl_getTangentFrame(interaction));
+}
+
+irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in float VdotL, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
+{
+    irr_glsl_LightSample s;
+
+    s.L = L;
+    s.VdotL = VdotL;
+
+    s.TdotL = dot(interaction.T,L);
+    s.BdotL = dot(interaction.B,L);
+    s.NdotL = dot(interaction.isotropic.N,L);
+    s.NdotL2 = s.NdotL*s.NdotL;
+
+    return s;
+}
+irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
+{
+    return irr_glsl_createLightSample(L,dot(interaction.V.dir,L);
+}
 
 //TODO move to different glsl header @Crisspl (The code is not DRY, you have something similar in material compiler!)
 // chain rule on various functions (usually vertex attributes and barycentrics)
@@ -185,65 +216,97 @@ irr_glsl_IsotropicViewSurfaceInteraction  irr_glsl_calcRaySurfaceInteraction(in 
 }
 */
 
-// require normalized L vector 
-void irr_glsl_calcBxDFIsotropicParams_common(out irr_glsl_BSDFIsotropicParams params, in vec3 normalizedL, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
+
+// do not use this struct in SSBO or UBO, its wasteful on memory
+struct irr_glsl_IsotropicMicrofacetCache
 {
-    // this stuff only works with normalized L,N,V
-    params.NdotL = dot(interaction.N,normalizedL);
-    params.NdotL_squared = params.NdotL*params.NdotL;
+    float VdotH;
+    float LdotH;
+    float NdotH;
+};
 
-    params.VdotL = dot(interaction.V.dir, normalizedL);
-}
-irr_glsl_BSDFIsotropicParams irr_glsl_calcBSDFIsotropicParams(in bool transmitted, in vec3 normalizedL, in float NdotL, in float orientedEta, in irr_glsl_IsotropicViewSurfaceInteraction interaction, out vec3 H)
+// do not use this struct in SSBO or UBO, its wasteful on memory
+struct irr_glsl_AnisotropicMicrofacetCache
 {
-   irr_glsl_BSDFIsotropicParams params;
-   irr_glsl_calcBxDFIsotropicParams_common(params, normalizedL, interaction);
+    irr_glsl_IsotropicMicrofacetCache isotropic;
+    float TdotH;
+    float BdotH;
+};
 
-   H = irr_glsl_computeMicrofacetNormal(transmitted,interaction.V.dir,normalizedL,orientedEta); // TODO
-
-   params.NdotH = dot(interaction.N,H);
-   params.VdotH = dot(interaction.V.dir,H);
-   params.LdotH = dot(normalizedL,H);
-
-   return params;
-}
-irr_glsl_BSDFIsotropicParams irr_glsl_calcBRDFIsotropicParams(in vec3 normalizedL, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
+// returns if the configuration of V and L can be achieved 
+bool irr_glsl_calcIsotropicMicrofacetCache(out irr_glsl_IsotropicMicrofacetCache _cache, in bool transmitted, in vec3 V, in vec3 L, in vec3 N, in float NdotL, in float orientedEta, in float rcpOrientedEta, out vec3 H)
 {
-    irr_glsl_BSDFIsotropicParams params;
-    irr_glsl_calcBxDFIsotropicParams_common(params, normalizedL, interaction);
+    H = irr_glsl_computeMicrofacetNormal(transmitted, V, L, orientedEta);
     
-    const float LplusV_rcpLen = inversesqrt(2.0+2.0*params.VdotL);
+    _cache.VdotH = dot(V,H);
+    _cache.LdotH = dot(L,H);
+    _cache.NdotH = dot(N,H);
 
-    params.NdotH = (params.NdotL+interaction.NdotV)*LplusV_rcpLen;
-    params.VdotH = LplusV_rcpLen*params.VdotL+LplusV_rcpLen;
-    params.LdotH = params.VdotH;
+    // not coming from the medium and exiting at the macro scale AND ( (not L outside the cone of possible directions given IoR with constraint VdotH*LdotH<0.0) OR (microfacet not facing toward the macrosurface, i.e. non heightfield profile of microsurface) ) 
+    return !(transmitted && (VdotL > -min(orientedEta,rcpOrientedEta) || _cache.NdotH < 0.0));
+}
+bool irr_glsl_calcIsotropicMicrofacetCache(out irr_glsl_IsotropicMicrofacetCache _cache, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_LightSample _sample, in float eta)
+{
+    const float NdotV = interaction.NdotV;
+    const float NdotL = _sample.NdotL;
+    const bool transmitted = irr_glsl_isTransmissionPath(NdotV,NdotL);
+    
+    float orientedEta, rcpOrientedEta;
+    const bool backside = irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, NdotV, eta);
 
-    return params;
+    return irr_glsl_calcIsotropicMicrofacetCache(_cache,transmitted,interaction.V.dir,_sample.L,interaction.N,NdotL,orientedEta,rcpOrientedEta);
+}
+// always valid because its specialized for the reflective case
+void irr_glsl_calcIsotropicMicrofacetCache(out irr_glsl_IsotropicMicrofacetCache _cache, in float NdotV, in float NdotL, in float VdotL, out float LplusV_rcpLen)
+{
+    LplusV_rcpLen = inversesqrt(2.0+2.0*VdotL);
+
+    irr_glsl_IsotropicMicrofacetCache _cache;
+    _cache.VdotH = LplusV_rcpLen*VdotL+LplusV_rcpLen;
+    _cache.LdotH = _cache.VdotH;
+    _cache.NdotH = (NdotL+NdotV)*LplusV_rcpLen;
+
+    return _cache;
+}
+irr_glsl_IsotropicMicrofacetCache irr_glsl_calcIsotropicMicrofacetCache(in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_LightSample _sample)
+{
+    irr_glsl_IsotropicMicrofacetCache _cache;
+
+    float dummy;
+    return irr_glsl_calcIsotropicMicrofacetCache(_cache,interaction.NdotV,_sample.NdotL,_sample.VdotL,dummy);
 }
 
 // get extra stuff for anisotropy, here we actually require T and B to be normalized
-irr_glsl_BSDFAnisotropicParams irr_glsl_calcBSDFAnisotropicParams(in vec3 normalizedL, in vec3 H, in irr_glsl_BSDFIsotropicParams isotropic, in irr_glsl_AnisotropicViewSurfaceInteraction inter)
+bool irr_glsl_calcAnisotropicMicrofacetCache(out irr_glsl_AnisotropicMicrofacetCache _cache, in bool transmitted, in vec3 V, in vec3 L, in vec3 T, in vec3 B, in vec3 N, in float NdotL, in float orientedEta, in float rcpOrientedEta)
 {
-    irr_glsl_BSDFAnisotropicParams params;
-    params.isotropic = isotropic;
+    vec3 H;
+    const bool valid = irr_glsl_calcIsotropicMicrofacetCache(_cache.isotropic,transmitted,V,L,N,NdotL,orientedEta,rcpOrientedEta);
 
-    // meat
-    params.TdotL = dot(inter.T,normalizedL);
-    params.TdotH = dot(inter.T,H);
-    params.BdotL = dot(inter.B,normalizedL);
-    params.BdotH = dot(inter.B,H);
+    _cache.TdotH = dot(T,H);
+    _cache.BdotH = dot(B,H);
 
-    return params;
+    return valid;
 }
-irr_glsl_BSDFAnisotropicParams irr_glsl_calcBRDFAnisotropicParams(in vec3 normalizedL, in float LplusV_rcpLen, in irr_glsl_BSDFIsotropicParams isotropic, in irr_glsl_AnisotropicViewSurfaceInteraction inter)
+bool irr_glsl_calcAnisotropicMicrofacetCache(out irr_glsl_AnisotropicMicrofacetCache _cache, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_LightSample _sample, in float eta)
 {
-    irr_glsl_BSDFAnisotropicParams params;
-    params.isotropic = isotropic;
+    const float NdotV = interaction.NdotV;
+    const float NdotL = _sample.NdotL;
+    const bool transmitted = irr_glsl_isTransmissionPath(NdotV,NdotL);
+    
+    float orientedEta, rcpOrientedEta;
+    const bool backside = irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, NdotV, eta);
 
-    // meat
-    params.TdotL = dot(inter.T,normalizedL);
+    return irr_glsl_calcAnisotropicMicrofacetCache(_cache,transmitted,interaction.V.dir,_sample.L,interaction.T,interaction.B,interaction.N,NdotL,orientedEta,rcpOrientedEta);
+}
+// always valid because its for the reflective case
+irr_glsl_AnisotropicMicrofacetCache irr_glsl_calcAnisotropicMicrofacetCache(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_LightSample _sample)
+{
+    irr_glsl_AnisotropicMicrofacetCache _cache;
+
+    float LplusV_rcpLen;
+    _cache.isotropic = irr_glsl_calcIsotropicMicrofacetCache(interaction.isotropic,_sample,LplusV_rcpLen);
+
     params.TdotH = (inter.TdotV+params.TdotL)*LplusV_rcpLen;
-    params.BdotL = dot(inter.B,normalizedL);
     params.BdotH = (inter.BdotV+params.BdotL)*LplusV_rcpLen;
 
    return params;
