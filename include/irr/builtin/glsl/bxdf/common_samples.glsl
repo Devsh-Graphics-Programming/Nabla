@@ -37,6 +37,12 @@ irr_glsl_BxDFSample irr_glsl_createBRDFSample(in vec3 H, in vec3 V, in float Vdo
     return s;
 }
 
+
+float irr_glsl_compute_LdotH(in bool backside, in float VdotH2, in float rcpOrientedEta2)
+{
+    return 0.0;
+}
+
 // refraction or reflection from microfacet
 irr_glsl_BxDFSample irr_glsl_createBSDFSample(in bool _refract, in vec3 H, in vec3 V, in bool backside, in float VdotH, in float VdotH2, in mat3 m, in float rcpOrientedEta, in float rcpOrientedEta2)
 {

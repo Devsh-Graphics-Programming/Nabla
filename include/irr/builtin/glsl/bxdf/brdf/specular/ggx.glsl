@@ -89,14 +89,8 @@ vec3 irr_glsl_ggx_height_correlated_cos_eval(in irr_glsl_BSDFIsotropicParams par
 
 
 //Heitz's 2018 paper "Sampling the GGX Distribution of Visible Normals"
-irr_glsl_BxDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float _ax, in float _ay)
+vec3 irr_glsl_ggx_cos_generate(in vec3 localV, in vec2 u, in float _ax, in float _ay)
 {
-    vec2 u = _sample;
-
-    mat3 m = irr_glsl_getTangentFrame(interaction);
-
-    vec3 localV = interaction.isotropic.V.dir;
-    localV = normalize(localV*m);//transform to tangent space
     vec3 V = normalize(vec3(_ax*localV.x, _ay*localV.y, localV.z));//stretch view vector so that we're sampling as if roughness=1.0
 
     float lensq = V.x*V.x + V.y*V.y;
@@ -114,10 +108,14 @@ irr_glsl_BxDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurface
 	//TODO try it wothout the max(), not sure if -t1*t1-t2*t2>-1.0
     vec3 H = t1*T1 + t2*T2 + sqrt(max(0.0, 1.0-t1*t1-t2*t2))*V;
     //unstretch
-    H = normalize(vec3(_ax*H.x, _ay*H.y, H.z));
-    float NdotH = H.z;
-
-	return irr_glsl_createBRDFSample(H,localV,dot(H,localV),m);
+    return normalize(vec3(_ax*H.x, _ay*H.y, H.z));
+}
+irr_glsl_BxDFSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u, in float _ax, in float _ay)
+{
+    const vec3 localV = irr_glsl_getTangentSpaceV(interaction);
+    const vec3 H = irr_glsl_ggx_cos_generate(localV,u,_ax,_ay);
+    const mat3 m = irr_glsl_getTangentFrame(interaction);
+    return irr_glsl_createBRDFSample(H, localV, dot(H,localV), m);
 }
 
 

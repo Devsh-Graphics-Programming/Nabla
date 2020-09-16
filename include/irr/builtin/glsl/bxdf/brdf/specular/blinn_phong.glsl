@@ -21,21 +21,21 @@ float irr_glsl_alpha2_to_phong_exp(in float a2)
 //https://zhuanlan.zhihu.com/p/58205525
 //only NDF sampling
 //however we dont really care about phong sampling
-irr_glsl_BxDFSample irr_glsl_blinn_phong_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 _sample, in float n)
+vec3 irr_glsl_blinn_phong_cos_generate(in vec2 u, in float n)
 {
-    vec2 u = _sample;
-
-    mat3 m = irr_glsl_getTangentFrame(interaction);
-
     float phi = 2.0*irr_glsl_PI*u.y;
     float cosTheta = pow(u.x, 1.0/(n+1.0));
     float sinTheta = sqrt(1.0 - cosTheta*cosTheta);
     float cosPhi = cos(phi);
     float sinPhi = sin(phi);
-    vec3 H = vec3(cosPhi*sinTheta, sinPhi*sinTheta, cosTheta);
-    vec3 localV = interaction.isotropic.V.dir*m;
-
-	return irr_glsl_createBRDFSample(H,localV,dot(H,localV),m);
+    return vec3(cosPhi*sinTheta, sinPhi*sinTheta, cosTheta);
+}
+irr_glsl_BxDFSample irr_glsl_blinn_phong_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u, in float n)
+{
+    const vec3 localV = irr_glsl_getTangentSpaceV(interaction);
+    const vec3 H = irr_glsl_blinn_phong_cos_generate(u,ax,ay);
+    const mat3 m = irr_glsl_getTangentFrame(interaction);
+    return irr_glsl_createBRDFSample(H, localV, dot(H,localV), m);
 }
 
 /*
