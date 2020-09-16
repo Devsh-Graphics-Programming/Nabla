@@ -5,6 +5,8 @@
 
 namespace irr {
 	namespace core {
+
+		//Struct for use in a doubly linked list. Stores data and pointers to next and previous elements the list, or invalid iterator if it is first/last
 		template<typename Value>
 		struct Snode
 		{
@@ -42,6 +44,7 @@ namespace irr {
 			}
 		};
 
+
 		template<typename Value>
 		class DoublyLinkedList
 		{
@@ -56,10 +59,13 @@ namespace irr {
 
 		public:
 
+			//get node at iterator
 			inline Snode<Value>* get(uint32_t address)
 			{
 				return (m_array+address);
 			}
+
+			//remove the last element in the list
 			inline void popBack()
 			{
 				if (m_back == invalid_iterator)	return;
@@ -71,9 +77,11 @@ namespace irr {
 				alloc.free_addr(temp, 1u);
 			}
 
+			//add new item to the list. This function does not make space to store the new node. in case the list is full, popBack() needs to be called beforehand
 			inline void pushFront(Value&& val)
 			{
 				uint32_t addr = alloc.alloc_addr(1u, 1u);
+				assert(addr < cap);
 				m_array[addr] = *(new Snode<Value>(std::move(val)));
 				auto n = m_array+addr;
 				n->prev = invalid_iterator;
@@ -84,10 +92,16 @@ namespace irr {
 				m_begin = addr;
 			}
 
+			//get node ptr of the first item in the list
 			inline Snode<Value>* getBegin() { return &(m_array[m_begin]); }
+
+			//get node ptr of the last item in the list
 			inline Snode<Value>* getBack() { return &(m_array[m_back]); }
+
+			//get index/iterator of the first element
 			inline uint32_t getFirstAddress() { return m_begin; }
 
+			//remove a node at nodeAddr from the list
 			inline void erase(uint32_t nodeAddr)
 			{
 				assert(nodeAddr != invalid_iterator);
@@ -100,6 +114,7 @@ namespace irr {
 				alloc.free_addr(nodeAddr, 1u);
 			}
 
+			//move a node at nodeAddr to the front of the list
 			inline void moveToFront(uint32_t nodeAddr)
 			{
 				if (m_begin == nodeAddr) return;
@@ -114,7 +129,7 @@ namespace irr {
 				node->prev = invalid_iterator;
 				m_begin = nodeAddr;
 			}
-
+			//Constructor, capacity determines the amount of allocated space
 			DoublyLinkedList(const uint32_t capacity) :
 				cap(capacity),
 				reservedSpace(_IRR_ALIGNED_MALLOC(PoolAddressAllocator<uint32_t>::reserved_size(1u, capacity, 1u), alignof(void*))),

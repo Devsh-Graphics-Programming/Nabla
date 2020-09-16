@@ -6,6 +6,9 @@
 namespace irr {
 	namespace core {
 
+//Key-Value LRU cache
+//Stores fixed size amount of elements. 
+//When inserting new, prevents overflow by removing the least recently used element.
 template<typename Key, typename Value, typename MapHash = std::hash<Key>, typename MapEquals = std::equal_to<Key>>
 class LRUcache
 {
@@ -16,6 +19,7 @@ class LRUcache
 	unordered_map<Key, uint32_t, MapHash, MapEquals> m_shortcut_map;
 	uint32_t m_capacity;
 
+	//get iterator associated with a key, or invalid_iterator if key is not within the cache
 	inline uint32_t common_peek(Key& key)
 	{
 		if (m_shortcut_map.find(key) != m_shortcut_map.end())
@@ -27,12 +31,14 @@ class LRUcache
 
 public:
 
-	//LRUcache();
+	//Constructor
 	inline LRUcache(const uint32_t& capacity) : m_capacity(capacity), m_shortcut_map(), m_list(capacity)
 	{
 		assert(capacity > 1);
 		m_shortcut_map.reserve(capacity);
 	}
+
+#ifdef _IRR_DEBUG
 	inline void print()
 	{
 		auto node = m_list.getBegin();
@@ -44,6 +50,9 @@ public:
 			node = m_list.get(node->next);
 		}
 	}
+#endif // _IRR_DEBUG
+
+	//add element to the cache, or move to the front if key exists. In case of the latter, it doesnt update the value
 	inline void insert(Key& k, Value& v)
 	{
 		if (m_shortcut_map.find(k) == m_shortcut_map.end())
@@ -63,28 +72,35 @@ public:
 		}
 
 	}
-	//Try getting the value from the cache, or null if key doesnt exist in cache or has been removed
+	//get the value from the cache, or null if key doesnt exist in cache or has been removed. Moves the element to the front of the cache.
 	inline Value get(Key& key)
 	{
 		auto i = common_peek(key);
 		if (i != invalid_iterator)
 		{
 			m_list.moveToFront(i);
-			return reinterpret_cast<Snode<list_template_t>*>(i)->data.second;
+			return m_list.get(i)->data.second;
 		}
 		return nullptr;
 	}
+
+	//get value without reordering the list
 	inline Value peek(Key& key)
 	{
 		uint32_t i = common_peek(key);
 		if (i == invalid_iterator) return nullptr;
 		else return  m_list.get(i)->data.second;
 	}
+
+	//remove element at key if present
 	inline void erase(Key& key)
 	{
 		uint32_t i = common_peek(key);
 		if (i != invalid_iterator)
+		{
+			m_shortcut_map.erase(key);
 			m_list.erase(i);
+		}
 	}
 };
 
