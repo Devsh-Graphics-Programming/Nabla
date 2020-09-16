@@ -22,7 +22,7 @@ struct irr_glsl_IsotropicViewSurfaceInteraction
    irr_glsl_DirAndDifferential V; // outgoing direction, NOT NORMALIZED; V.dir can have undef value for lambertian BSDF
    vec3 N; // surface normal, NOT NORMALIZED
    float NdotV;
-   float NdotV_squared;
+   float NdotV_squared; // TODO: rename to NdotV2
 };
 struct irr_glsl_AnisotropicViewSurfaceInteraction
 {
@@ -74,6 +74,25 @@ irr_glsl_LightSample irr_glsl_createLightSampleTangentSpaceL(in vec3 tangentSpac
     return irr_glsl_createLightSampleTangentSpaceL(interaction.isotropic.V.dir,tangentSpaceL,irr_glsl_getTangentFrame(interaction));
 }
 
+//
+irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in float VdotL, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
+{
+    irr_glsl_LightSample s;
+
+    s.L = L;
+    s.VdotL = VdotL;
+
+    s.TdotL = irr_glsl_FLT_NAN;
+    s.BdotL = irr_glsl_FLT_NAN;
+    s.NdotL = dot(interaction.N,L);
+    s.NdotL2 = s.NdotL*s.NdotL;
+
+    return s;
+}
+irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
+{
+    return irr_glsl_createLightSample(L,dot(interaction.V.dir,L),interaction);
+}
 irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in float VdotL, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
     irr_glsl_LightSample s;
@@ -223,6 +242,7 @@ struct irr_glsl_IsotropicMicrofacetCache
     float VdotH;
     float LdotH;
     float NdotH;
+    float NdotH2;
 };
 
 // do not use this struct in SSBO or UBO, its wasteful on memory
@@ -241,6 +261,7 @@ bool irr_glsl_calcIsotropicMicrofacetCache(out irr_glsl_IsotropicMicrofacetCache
     _cache.VdotH = dot(V,H);
     _cache.LdotH = dot(L,H);
     _cache.NdotH = dot(N,H);
+    _cache.NdotH2 = _cache.NdotH*_cache.NdotH;
 
     // not coming from the medium and exiting at the macro scale AND ( (not L outside the cone of possible directions given IoR with constraint VdotH*LdotH<0.0) OR (microfacet not facing toward the macrosurface, i.e. non heightfield profile of microsurface) ) 
     return !(transmitted && (VdotL > -min(orientedEta,rcpOrientedEta) || _cache.NdotH < 0.0));
@@ -270,6 +291,7 @@ irr_glsl_IsotropicMicrofacetCache irr_glsl_calcIsotropicMicrofacetCache(in float
     _cache.VdotH = LplusV_rcpLen*VdotL+LplusV_rcpLen;
     _cache.LdotH = _cache.VdotH;
     _cache.NdotH = (NdotL+NdotV)*LplusV_rcpLen;
+    _cache.NdotH2 = _cache.NdotH*_cache.NdotH;
 
     return _cache;
 }
@@ -317,4 +339,37 @@ irr_glsl_AnisotropicMicrofacetCache irr_glsl_calcAnisotropicMicrofacetCache(in i
 
    return _cache;
 }
+
+void irr_glsl_calcAnisotropicMicrofacetCache_common(out irr_glsl_AnisotropicMicrofacetCache _cache, in vec3 tangentSpaceV, in vec3 tangentSpaceH)
+{
+    _cache.isotropic.VdotH = dot(tangentSpaceV,tangentSpaceH);
+
+    _cache.isotropic.NdotH = tangentSpaceH.z;
+    _cache.isotropic.NdotH2 = tangentSpaceH.z*tangentSpaceH.z;
+    _cache.TdotH = tangentSpaceH.x;
+    _cache.BdotH = tangentSpaceH.y;
+}
+// always valid, by construction
+irr_glsl_AnisotropicMicrofacetCache irr_glsl_calcAnisotropicMicrofacetCache(in vec3 tangentSpaceV, in vec3 tangentSpaceH, out vec3 tangentSpaceL)
+{
+    irr_glsl_AnisotropicMicrofacetCache _cache;
+    irr_glsl_calcAnisotropicMicrofacetCache_common(_cache,tangentSpaceV,tangentSpaceH);
+
+    _cache.isotropic.LdotH = _cache.isotropic.VdotH;
+    tangentSpaceL = irr_glsl_reflect(tangentSpaceV,tangentSpaceH,_cache.isotropic.VdotH);
+
+    return _cache;
+}
+irr_glsl_AnisotropicMicrofacetCache irr_glsl_calcAnisotropicMicrofacetCache(in bool transmitted, in vec3 tangentSpaceV, in vec3 tangentSpaceH, out vec3 tangentSpaceL, in float rcpOrientedEta, in float rcpOrientedEta2)
+{
+    irr_glsl_AnisotropicMicrofacetCache _cache;
+    irr_glsl_calcAnisotropicMicrofacetCache_common(_cache,tangentSpaceV,tangentSpaceH);
+
+    const float VdotH = _cache.isotropic.VdotH;
+    _cache.isotropic.LdotH = transmitted ? irr_glsl_refract_compute_NdotT(VdotH<0.0,VdotH*VdotH,rcpOrientedEta2):VdotH;
+    tangentSpaceL = irr_glsl_reflect_refract_impl(transmitted, tangentSpaceV,tangentSpaceH, VdotH,_cache.isotropic.LdotH, rcpOrientedEta);
+
+    return _cache;
+}
+
 #endif
