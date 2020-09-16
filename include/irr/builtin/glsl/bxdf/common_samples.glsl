@@ -19,6 +19,27 @@ struct irr_glsl_BxDFSample
     float LdotH;
 };
 
+// compute the half vector just in case the generated sample needs to be used in a combined BSDF of diffuse + specular
+irr_glsl_BxDFSample irr_glsl_createBRDFSampleForDiffuse(in vec3 tangentSpaceV, in vec3 L, in float VdotL, in mat3 m)
+{
+    const float LplusV_rcpLen = inversesqrt(2.0+2.0*VdotL);
+    const vec3 H = (L+tangentSpaceV)*LplusV_rcpLen;
+
+    irr_glsl_BxDFSample s;
+
+    s.L = m * L; // m must be an orthonormal matrix
+    s.TdotL = L.x;
+    s.BdotL = L.y;
+    s.NdotL = L.z;
+    s.TdotH = H.x;
+    s.BdotH = H.y;
+    s.NdotH = H.z;
+    s.VdotH = VdotL*LplusV_rcpLen+LplusV_rcpLen;
+    s.LdotH = VdotH; // or NaN, or leave undefined?
+
+    return s;
+}
+
 // require H and V already be normalized
 // reflection from microfacet
 irr_glsl_BxDFSample irr_glsl_createBRDFSample(in vec3 H, in vec3 V, in float VdotH, in mat3 m)

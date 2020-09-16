@@ -31,10 +31,15 @@ float irr_glsl_oren_nayar_cos_eval(in irr_glsl_BSDFIsotropicParams params, in ir
 }
 
 
-irr_glsl_BxDFSample irr_glsl_oren_nayar_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u, in float a2)
+irr_glsl_BxDFSample irr_glsl_oren_nayar_cos_generate_wo_clamps(in vec3 tangentSpaceV, in mat3 m, in vec2 u)
 {
     // until we find something better
-    return irr_glsl_lambertian_cos_generate(interaction,u);
+    return irr_glsl_lambertian_cos_generate(tangentSpaceV, m, u);
+}
+irr_glsl_BxDFSample irr_glsl_oren_nayar_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u, in float a2)
+{
+    const vec3 tangentSpaceV = vec3(interaction.TdotV,interaction.BdotV,interaction.isotropic.NdotV);
+    return irr_glsl_oren_nayar_cos_generate_wo_clamps(tangentSpaceV,irr_glsl_getTangentFrame(interaction),u);
 }
 
 

@@ -26,23 +26,16 @@ float irr_glsl_lambertian_cos_eval(in irr_glsl_BSDFIsotropicParams params)
     return irr_glsl_lambertian_cos_eval_rec_pi_factored_out(params.NdotL)*irr_glsl_lambertian();
 }
 
-irr_glsl_BxDFSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u)
+irr_glsl_BxDFSample irr_glsl_lambertian_cos_generate_wo_clamps(in vec3 tangentSpaceV, in mat3 m, in vec2 u)
 {
     vec3 L = irr_glsl_projected_hemisphere_generate(u);
 
-    irr_glsl_BxDFSample s;
-    s.L = irr_glsl_getTangentFrame(interaction)*L;
-    s.TdotL = L.x;
-    s.BdotL = L.y;
-    s.NdotL = L.z;
-    /* Undefined
-    s.TdotH = H.x;
-    s.BdotH = H.y;
-    s.NdotH = H.z;
-    s.VdotH = VdotH;
-    s.LdotH = LdotH;*/
-
-    return s;
+    return irr_glsl_createBRDFSampleForDiffuse(tangentSpaceV,L,dot(tangentSpaceV,L),m);
+}
+irr_glsl_BxDFSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u)
+{
+    const vec3 tangentSpaceV = vec3(interaction.TdotV,interaction.BdotV,interaction.isotropic.NdotV);
+    return irr_glsl_lambertian_cos_generate_wo_clamps(tangentSpaceV,irr_glsl_getTangentFrame(interaction),u);
 }
 
 

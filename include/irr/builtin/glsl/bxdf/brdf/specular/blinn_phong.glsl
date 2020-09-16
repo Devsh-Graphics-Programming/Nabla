@@ -56,9 +56,9 @@ vec3 irr_glsl_blinn_phong_conductor_cos_remainder_and_pdf(out float pdf, in irr_
 }
 */
 
-float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float maxNdotH, in float maxNdotV, in float NdotV_squared, in float NdotL_squared, in float n, in float a2)
+float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float NdotH, in float maxNdotV, in float NdotV_squared, in float NdotL_squared, in float n, in float a2)
 {
-    float d = irr_glsl_blinn_phong(maxNdotH, n);
+    float d = irr_glsl_blinn_phong(NdotH, n);
     float scalar_part = d/(4.0*maxNdotV);
     if (a2>FLT_MIN)
     {
@@ -67,33 +67,32 @@ float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float maxNdotH, in float max
     }
     return scalar_part;
 }
-float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float maxNdotH, in float maxNdotV, in float NdotV_squared, in float NdotL_squared, in float n)
+float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float NdotH, in float maxNdotV, in float NdotV_squared, in float NdotL_squared, in float n)
 {
     float a2 = irr_glsl_phong_exp_to_alpha2(n);
-    return irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(maxNdotH, maxNdotV, NdotV_squared, NdotL_squared, n, a2);
+    return irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, maxNdotV, NdotV_squared, NdotL_squared, n, a2);
 }
 
-vec3 irr_glsl_blinn_phong_cos_eval_wo_clamps(in float maxNdotH, in float maxNdotV, in float NdotV_squared, in float NdotL_squared, in float VdotH, in float n, in mat2x3 ior, in float a2)
+vec3 irr_glsl_blinn_phong_cos_eval_wo_clamps(in float NdotH, in float maxNdotV, in float NdotV_squared, in float NdotL_squared, in float VdotH, in float n, in mat2x3 ior, in float a2)
 {
-    float scalar_part = irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(maxNdotH, maxNdotV, NdotV_squared, NdotL_squared, n, a2);
+    float scalar_part = irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, maxNdotV, NdotV_squared, NdotL_squared, n, a2);
     return scalar_part*irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
 }
-vec3 irr_glsl_blinn_phong_cos_eval_wo_clamps(in float maxNdotH, in float maxNdotV, in float NdotV_squared, in float NdotL_squared, in float VdotH, in float n, in mat2x3 ior)
+vec3 irr_glsl_blinn_phong_cos_eval_wo_clamps(in float NdotH, in float maxNdotV, in float NdotV_squared, in float NdotL_squared, in float VdotH, in float n, in mat2x3 ior)
 {
     float a2 = irr_glsl_phong_exp_to_alpha2(n);
-    return irr_glsl_blinn_phong_cos_eval_wo_clamps(maxNdotH, maxNdotV, NdotV_squared, NdotL_squared, VdotH, n, ior, a2);
+    return irr_glsl_blinn_phong_cos_eval_wo_clamps(NdotH, maxNdotV, NdotV_squared, NdotL_squared, VdotH, n, ior, a2);
 }
 vec3 irr_glsl_blinn_phong_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in float n, in mat2x3 ior)
 {
-    const float maxNdotH = max(params.NdotH,0.0);
     const float maxNdotV = max(inter.NdotV,0.0);
-    return irr_glsl_blinn_phong_cos_eval_wo_clamps(maxNdotH, maxNdotV, inter.NdotV_squared, params.NdotL_squared, params.VdotH, n, ior);
+    return irr_glsl_blinn_phong_cos_eval_wo_clamps(params.NdotH, maxNdotV, inter.NdotV_squared, params.NdotL_squared, params.VdotH, n, ior);
 }
 
 
-float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float maxNdotH, in float NdotH2, in float TdotH2, in float BdotH2, float TdotL2, float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV_squared, in float NdotL_squared, in float nx, in float ny, in float ax2, in float ay2)
+float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float NdotH, in float NdotH2, in float TdotH2, in float BdotH2, float TdotL2, float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV_squared, in float NdotL_squared, in float nx, in float ny, in float ax2, in float ay2)
 {
-    float d = irr_glsl_blinn_phong(maxNdotH, 1.0/(1.0-NdotH2), TdotH2, BdotH2, nx, ny);
+    float d = irr_glsl_blinn_phong(NdotH, 1.0/(1.0-NdotH2), TdotH2, BdotH2, nx, ny);
     float scalar_part = d/(4.0*maxNdotV);
     if (ax2>FLT_MIN || ay2>FLT_MIN)
     {
@@ -103,30 +102,29 @@ float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float maxNdotH, in float Ndo
 
     return scalar_part;
 }
-float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float maxNdotH, in float NdotH2, in float TdotH2, in float BdotH2, in float TdotL2, in float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV_squared, in float NdotL_squared, in float nx, in float ny)
+float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float NdotH, in float NdotH2, in float TdotH2, in float BdotH2, in float TdotL2, in float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV_squared, in float NdotL_squared, in float nx, in float ny)
 {
     float ax2 = irr_glsl_phong_exp_to_alpha2(nx);
     float ay2 = irr_glsl_phong_exp_to_alpha2(ny);
 
-    return irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(maxNdotH, NdotH2, TdotH2, BdotH2, TdotL2, BdotL2, maxNdotV, TdotV2, BdotV2, NdotV_squared, NdotL_squared, nx, ny, ax2, ay2);
+    return irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, NdotH2, TdotH2, BdotH2, TdotL2, BdotL2, maxNdotV, TdotV2, BdotV2, NdotV_squared, NdotL_squared, nx, ny, ax2, ay2);
 }
 
-vec3 irr_glsl_blinn_phong_cos_eval_wo_clamps(in float maxNdotH, in float NdotH2, in float TdotH2, in float BdotH2, in float TdotL2, in float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV_squared, in float NdotL_squared, in float VdotH, in float nx, in float ny, in mat2x3 ior, in float ax2, in float ay2)
+vec3 irr_glsl_blinn_phong_cos_eval_wo_clamps(in float NdotH, in float NdotH2, in float TdotH2, in float BdotH2, in float TdotL2, in float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV_squared, in float NdotL_squared, in float VdotH, in float nx, in float ny, in mat2x3 ior, in float ax2, in float ay2)
 {
-    float scalar_part = irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(maxNdotH, NdotH2, TdotH2, BdotH2, TdotL2, BdotL2, maxNdotV, TdotV2, BdotV2, NdotV_squared, NdotL_squared, nx, ny, ax2, ay2);
+    float scalar_part = irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, NdotH2, TdotH2, BdotH2, TdotL2, BdotL2, maxNdotV, TdotV2, BdotV2, NdotV_squared, NdotL_squared, nx, ny, ax2, ay2);
 
     return scalar_part*irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
 }
-vec3 irr_glsl_blinn_phong_cos_eval_wo_clamps(in float maxNdotH, in float NdotH2, in float TdotH2, in float BdotH2, in float TdotL2, in float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV_squared, in float NdotL_squared, in float VdotH, in float nx, in float ny, in mat2x3 ior)
+vec3 irr_glsl_blinn_phong_cos_eval_wo_clamps(in float NdotH, in float NdotH2, in float TdotH2, in float BdotH2, in float TdotL2, in float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV_squared, in float NdotL_squared, in float VdotH, in float nx, in float ny, in mat2x3 ior)
 {
     float ax2 = irr_glsl_phong_exp_to_alpha2(nx);
     float ay2 = irr_glsl_phong_exp_to_alpha2(ny);
 
-    return irr_glsl_blinn_phong_cos_eval_wo_clamps(maxNdotH, NdotH2, TdotH2, BdotH2, TdotL2, BdotL2, maxNdotV, TdotV2, BdotV2, NdotV_squared, NdotL_squared, VdotH, nx, ny, ior, ax2, ay2);
+    return irr_glsl_blinn_phong_cos_eval_wo_clamps(NdotH, NdotH2, TdotH2, BdotH2, TdotL2, BdotL2, maxNdotV, TdotV2, BdotV2, NdotV_squared, NdotL_squared, VdotH, nx, ny, ior, ax2, ay2);
 }
 vec3 irr_glsl_blinn_phong_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in irr_glsl_AnisotropicViewSurfaceInteraction inter, in float nx, in float ny, in mat2x3 ior)
 {
-    const float maxNdotH = max(params.isotropic.NdotH, 0.0);
     const float NdotH2 = params.isotropic.NdotH * params.isotropic.NdotH;
     const float TdotH2 = params.TdotH * params.TdotH;
     const float BdotH2 = params.BdotH * params.BdotH;
@@ -135,6 +133,6 @@ vec3 irr_glsl_blinn_phong_cos_eval(in irr_glsl_BSDFAnisotropicParams params, in 
     const float maxNdotV = max(inter.isotropic.NdotV, 0.0);
     const float TdotV2 = inter.TdotV * inter.TdotV;
     const float BdotV2 = inter.BdotV * inter.BdotV;
-    return irr_glsl_blinn_phong_cos_eval_wo_clamps(maxNdotH, NdotH2, TdotH2, BdotH2, TdotL2, BdotL2, maxNdotV, TdotV2, BdotV2, inter.isotropic.NdotV_squared, params.isotropic.NdotL_squared, params.isotropic.VdotH, nx, ny, ior);
+    return irr_glsl_blinn_phong_cos_eval_wo_clamps(params.isotropic.NdotH, NdotH2, TdotH2, BdotH2, TdotL2, BdotL2, maxNdotV, TdotV2, BdotV2, inter.isotropic.NdotV_squared, params.isotropic.NdotL_squared, params.isotropic.VdotH, nx, ny, ior);
 }
 #endif
