@@ -30,7 +30,8 @@ irr_glsl_BxDFSample irr_glsl_thin_smooth_dielectric_cos_generate_wo_clamps(in ve
     s.TdotH = H.x;
     s.BdotH = H.y;
     s.NdotH = H.z;
-    s.VdotH = VdotH;*/
+    s.VdotH = VdotH;
+    s.LdotH = LdotH;*/
     return smpl;
 }
 

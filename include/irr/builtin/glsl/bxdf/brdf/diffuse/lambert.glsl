@@ -39,7 +39,8 @@ irr_glsl_BxDFSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicView
     s.TdotH = H.x;
     s.BdotH = H.y;
     s.NdotH = H.z;
-    s.VdotH = VdotH;*/
+    s.VdotH = VdotH;
+    s.LdotH = LdotH;*/
 
     return s;
 }
