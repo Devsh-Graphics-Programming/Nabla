@@ -14,8 +14,9 @@ struct irr_glsl_BxDFSample
     float TdotH;
     float BdotH;
     float NdotH;
+
     float VdotH;
-    // you don't need LdotH, you think you do, but you don't!
+    float LdotH;
 };
 
 // require H and V already be normalized
@@ -33,14 +34,9 @@ irr_glsl_BxDFSample irr_glsl_createBRDFSample(in vec3 H, in vec3 V, in float Vdo
     s.BdotH = H.y;
     s.NdotH = H.z;
     s.VdotH = VdotH;
+    s.LdotH = VdotH; // or NaN, or leave undefined?
 
     return s;
-}
-
-
-float irr_glsl_compute_LdotH(in bool backside, in float VdotH2, in float rcpOrientedEta2)
-{
-    return 0.0;
 }
 
 // refraction or reflection from microfacet
@@ -48,7 +44,9 @@ irr_glsl_BxDFSample irr_glsl_createBSDFSample(in bool _refract, in vec3 H, in ve
 {
     irr_glsl_BxDFSample s;
 
-    vec3 L = irr_glsl_reflect_refract(_refract, V, H, backside, VdotH, VdotH2, rcpOrientedEta, rcpOrientedEta2);
+    const float LdotH = _refract ? irr_glsl_refract_compute_NdotT(backside,VdotH2,rcpOrientedEta2):VdotH;
+
+    vec3 L = irr_glsl_reflect_refract_impl(_refract, V, H, VdotH, LdotH, rcpOrientedEta);
     s.L = m * L; // m must be an orthonormal matrix
     s.TdotL = L.x;
     s.BdotL = L.y;
@@ -57,6 +55,7 @@ irr_glsl_BxDFSample irr_glsl_createBSDFSample(in bool _refract, in vec3 H, in ve
     s.BdotH = H.y;
     s.NdotH = H.z;
     s.VdotH = VdotH;
+    s.LdotH = LdotH;
 
     return s;
 }
@@ -71,20 +70,18 @@ vec3 irr_glsl_sampleWavelengthContributionForRefraction(out float pdf, out float
 
 #include <irr/builtin/glsl/bxdf/common.glsl>
 
-void irr_glsl_updateBxDFParams(out irr_glsl_BSDFIsotropicParams p, in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction inter)
+void irr_glsl_updateBxDFParams(inout irr_glsl_BSDFIsotropicParams p, in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction inter)
 {
     p.NdotL = s.NdotL;
     p.NdotL_squared = p.NdotL * p.NdotL;
     p.NdotH = s.NdotH;
-    p.VdotH = s.VdotH;
-    p.L = s.L;
-    p.VdotL = dot(p.L, inter.V.dir);
 
-    // @Crisspl wouldn't NaN be better here (or just nothing, you might be giving compiler more credit that its due)?
-    p.LplusV_rcpLen = irr_glsl_FLT_INF;
-    p.invlenL2 = irr_glsl_FLT_INF;
+    p.VdotH = s.VdotH;
+    p.LdotH = s.LdotH;
+
+    p.VdotL = dot(s.L, inter.V.dir);
 }
-void irr_glsl_updateBxDFParams(out irr_glsl_BSDFAnisotropicParams p, in irr_glsl_BxDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction inter)
+void irr_glsl_updateBxDFParams(inout irr_glsl_BSDFAnisotropicParams p, in irr_glsl_BxDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction inter)
 {
     irr_glsl_updateBxDFParams(p.isotropic, s, inter.isotropic);
 

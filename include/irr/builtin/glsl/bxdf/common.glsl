@@ -48,12 +48,8 @@ struct irr_glsl_BSDFIsotropicParams
    float NdotL_squared;
    float VdotL; // same as LdotV
    float NdotH;
-   float VdotH; // same as LdotH
-   // left over for anisotropic calc and BSDF that want to implement fast bump mapping
-   float LplusV_rcpLen;
-   // basically metadata
-   vec3 L;
-   float invlenL2;
+   float VdotH;
+   float LdotH;
 };
 
 // do not use this struct in SSBO or UBO, its wasteful on memory
@@ -189,43 +185,66 @@ irr_glsl_IsotropicViewSurfaceInteraction  irr_glsl_calcRaySurfaceInteraction(in 
 }
 */
 
-// will normalize all the vectors
-irr_glsl_BSDFIsotropicParams irr_glsl_calcBSDFIsotropicParams(in irr_glsl_IsotropicViewSurfaceInteraction interaction, in vec3 L)
+// require normalized L vector 
+void irr_glsl_calcBxDFIsotropicParams_common(out irr_glsl_BSDFIsotropicParams params, in vec3 normalizedL, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
 {
-   float invlenL2 = inversesqrt(dot(L,L));
+    // this stuff only works with normalized L,N,V
+    params.NdotL = dot(interaction.N,normalizedL);
+    params.NdotL_squared = params.NdotL*params.NdotL;
 
+    params.VdotL = dot(interaction.V.dir, normalizedL);
+}
+irr_glsl_BSDFIsotropicParams irr_glsl_calcBSDFIsotropicParams(in bool transmitted, in vec3 normalizedL, in float NdotL, in float orientedEta, in irr_glsl_IsotropicViewSurfaceInteraction interaction, out vec3 H)
+{
    irr_glsl_BSDFIsotropicParams params;
+   irr_glsl_calcBxDFIsotropicParams_common(params, normalizedL, interaction);
 
-   // totally useless vectors, will probably get optimized away by compiler if they don't get used
-   // but useful as temporaries
-   params.L = L*invlenL2;
-   params.invlenL2 = invlenL2;
+   H = irr_glsl_computeMicrofacetNormal(transmitted,interaction.V.dir,normalizedL,orientedEta); // TODO
 
-   // this stuff only works with normalized L,N,V
-   params.NdotL = dot(interaction.N,params.L);
-   params.NdotL_squared = params.NdotL*params.NdotL;
-
-   params.VdotL = dot(interaction.V.dir,params.L);
-   float LplusV_rcpLen = inversesqrt(2.0 + 2.0*params.VdotL);
-   params.LplusV_rcpLen = LplusV_rcpLen;
-
-   // this stuff works unnormalized L,N,V
-   params.NdotH = (params.NdotL+interaction.NdotV)*LplusV_rcpLen;
-   params.VdotH = LplusV_rcpLen + LplusV_rcpLen*params.VdotL;
+   params.NdotH = dot(interaction.N,H);
+   params.VdotH = dot(interaction.V.dir,H);
+   params.LdotH = dot(normalizedL,H);
 
    return params;
 }
-// get extra stuff for anisotropy, here we actually require T and B to be normalized
-irr_glsl_BSDFAnisotropicParams irr_glsl_calcBSDFAnisotropicParams(in irr_glsl_BSDFIsotropicParams isotropic, in irr_glsl_AnisotropicViewSurfaceInteraction inter)
+irr_glsl_BSDFIsotropicParams irr_glsl_calcBRDFIsotropicParams(in vec3 normalizedL, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
 {
-   irr_glsl_BSDFAnisotropicParams params;
-   params.isotropic = isotropic;
+    irr_glsl_BSDFIsotropicParams params;
+    irr_glsl_calcBxDFIsotropicParams_common(params, normalizedL, interaction);
+    
+    const float LplusV_rcpLen = inversesqrt(2.0+2.0*params.VdotL);
 
-   // meat
-   params.TdotL = dot(inter.T,isotropic.L);
-   params.TdotH = (inter.TdotV+params.TdotL)*isotropic.LplusV_rcpLen;
-   params.BdotL = dot(inter.B,isotropic.L);
-   params.BdotH = (inter.BdotV+params.BdotL)*isotropic.LplusV_rcpLen;
+    params.NdotH = (params.NdotL+interaction.NdotV)*LplusV_rcpLen;
+    params.VdotH = LplusV_rcpLen*params.VdotL+LplusV_rcpLen;
+    params.LdotH = params.VdotH;
+
+    return params;
+}
+
+// get extra stuff for anisotropy, here we actually require T and B to be normalized
+irr_glsl_BSDFAnisotropicParams irr_glsl_calcBSDFAnisotropicParams(in vec3 normalizedL, in vec3 H, in irr_glsl_BSDFIsotropicParams isotropic, in irr_glsl_AnisotropicViewSurfaceInteraction inter)
+{
+    irr_glsl_BSDFAnisotropicParams params;
+    params.isotropic = isotropic;
+
+    // meat
+    params.TdotL = dot(inter.T,normalizedL);
+    params.TdotH = dot(inter.T,H);
+    params.BdotL = dot(inter.B,normalizedL);
+    params.BdotH = dot(inter.B,H);
+
+    return params;
+}
+irr_glsl_BSDFAnisotropicParams irr_glsl_calcBRDFAnisotropicParams(in vec3 normalizedL, in float LplusV_rcpLen, in irr_glsl_BSDFIsotropicParams isotropic, in irr_glsl_AnisotropicViewSurfaceInteraction inter)
+{
+    irr_glsl_BSDFAnisotropicParams params;
+    params.isotropic = isotropic;
+
+    // meat
+    params.TdotL = dot(inter.T,normalizedL);
+    params.TdotH = (inter.TdotV+params.TdotL)*LplusV_rcpLen;
+    params.BdotL = dot(inter.B,normalizedL);
+    params.BdotH = (inter.BdotV+params.BdotL)*LplusV_rcpLen;
 
    return params;
 }

@@ -166,7 +166,10 @@ vec3 irr_computeLighting(out irr_glsl_IsotropicViewSurfaceInteraction out_intera
         interaction.N = irr_glsl_perturbNormal_heightMap(interaction.N, interaction.V.dPosdScreen, dHdScreen);
     }
 #endif
-    irr_glsl_BSDFIsotropicParams params = irr_glsl_calcBSDFIsotropicParams(interaction, -ViewPos);
+    const vec3 L = -ViewPos;
+    const float lenL2 = dot(L,L);
+    const float invLenL = inversesqrt(lenL2);
+    irr_glsl_BSDFIsotropicParams params = irr_glsl_calcBRDFIsotropicParams(L*invLenL, interaction);
 
     vec3 Ka;
     switch ((PC.params.extra&ILLUM_MODEL_MASK))
@@ -198,7 +201,7 @@ vec3 irr_computeLighting(out irr_glsl_IsotropicViewSurfaceInteraction out_intera
 
     out_interaction = interaction;
 #define Intensity 1000.0
-    return Intensity*params.invlenL2*irr_bsdf_cos_eval(params,interaction, dUV) + Ka;
+    return (Intensity/lenL2)*irr_bsdf_cos_eval(params,interaction, dUV) + Ka;
 #undef Intensity
 }
 #endif //_IRR_COMPUTE_LIGHTING_DEFINED_

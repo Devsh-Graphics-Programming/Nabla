@@ -271,11 +271,15 @@ void setCurrInteraction(in vec3 N)
 	irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, N);
 	currInteraction = irr_glsl_calcAnisotropicInteraction(interaction);
 }
-void setCurrBSDFParams(in vec3 N, in vec3 L)
+void setCurrBSDFParams(in vec3 N, in vec3 L, in float orientedEta)
 {
 	setCurrInteraction(N);
-	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(currInteraction.isotropic, L);
-	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(isoparams, currInteraction);
+
+	const float NdotL = dot(N,L);
+
+	vec3 H; // @Crisspl its your reponsibility not to evaluate/execute (then) if irr_glsl_isTransmissionPath==true and either the BSDF is not tranmissive, or the microfacet normal is invalid
+	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV,NdotL), L, orientedEta, currInteraction.isotropic, H);
+	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(L, H, isoparams, currInteraction);
 }
 
 float params_getAlpha(in params_t p)
@@ -820,12 +824,12 @@ void instr_remainder_and_pdf_execute(in instr_t instr, in irr_glsl_BSDFSample s)
 #endif
 #ifdef OP_BUMPMAP
 	if (op==OP_BUMPMAP) {
-		instr_execute_BUMPMAP(instr, L);
+		instr_execute_BUMPMAP(instr, L); // @Crisspl is your L a global or something?
 	} else
 #endif
 #ifdef OP_SET_GEOM_NORMAL
 	if (op==OP_SET_GEOM_NORMAL) {
-		instr_execute_SET_GEOM_NORMAL(L);
+		instr_execute_SET_GEOM_NORMAL(L); // @Crisspl is your L a global or something?
 	} else
 #endif
 	{} //else "empty braces"

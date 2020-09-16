@@ -149,10 +149,14 @@ vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float eta)
     return irr_glsl_refract(I, N, NdotI, eta);
 }
 
-vec3 irr_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in bool backside, in float NdotI, in float NdotI2, in float rcpOrientedEta, in float rcpOrientedEta2)
+vec3 irr_glsl_reflect_refract_impl(in bool _refract, in vec3 I, in vec3 N, in float NdotI, in float NdotTorR, in float rcpOrientedEta)
 {    
-    const float k = _refract ? irr_glsl_refract_compute_NdotT(backside,NdotI2,rcpOrientedEta2):0.0;
-    return N*(NdotI*(_refract ? rcpOrientedEta:2.0)+k) - I*(_refract ? rcpOrientedEta:1.0);
+    return N*(NdotI*(_refract ? rcpOrientedEta:1.0)+NdotTorR) - I*(_refract ? rcpOrientedEta:1.0);
+}
+vec3 irr_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in bool backside, in float NdotI, in float NdotI2, in float rcpOrientedEta, in float rcpOrientedEta2)
+{
+    const float NdotTorR = _refract ? irr_glsl_refract_compute_NdotT(backside,NdotI2,rcpOrientedEta2):NdotI;
+    return irr_glsl_reflect_refract_impl(_refract,I,N,NdotI,NdotTorR,rcpOrientedEta);
 }
 vec3 irr_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in float NdotI, in float NdotI2, in float eta)
 {
@@ -161,6 +165,20 @@ vec3 irr_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in float N
     return irr_glsl_reflect_refract(_refract, I, N, backside, NdotI, NdotI2, rcpOrientedEta, rcpOrientedEta2);
 }
 
+// returns unnormalized vector
+vec3 irr_glsl_computeUnnormalizedMicrofacetNormal(in bool _refract, in vec3 V, in vec3 L, in float orientedEta)
+{
+    const float etaFactor = (_refract ? orientedEta:1.0);
+    const vec3 tmpH = V+L*etaFactor;
+    return _refract ? (-tmpH):tmpH;
+}
+// returns normalized vector, but NaN when 
+vec3 irr_glsl_computeMicrofacetNormal(in bool _refract, in vec3 V, in vec3 L, in float orientedEta)
+{
+    const vec3 H = irr_glsl_computeUnnormalizedMicrofacetNormal(_refract,V,L,orientedEta);
+    const float unnormRcpLen = inversesqrt(dot(H,H));
+    return H*unnormRcpLen;
+}
 
 // if V and L are on different sides of the surface normal, then their dot product sign bits will differ, hence XOR will yield 1 at last bit
 bool irr_glsl_isTransmissionPath(in float NdotV, in float NdotL)
