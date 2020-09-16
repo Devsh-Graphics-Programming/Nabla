@@ -71,7 +71,7 @@ irr_glsl_LightSample irr_glsl_createLightSampleTangentSpaceL(in vec3 V, in vec3 
 }
 irr_glsl_LightSample irr_glsl_createLightSampleTangentSpaceL(in vec3 tangentSpaceL, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
-    return irr_glsl_createLightSample(interaction.V.dir,tangentSpaceL,irr_glsl_getTangentFrame(interaction));
+    return irr_glsl_createLightSampleTangentSpaceL(interaction.isotropic.V.dir,tangentSpaceL,irr_glsl_getTangentFrame(interaction));
 }
 
 irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in float VdotL, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
@@ -90,7 +90,7 @@ irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in float VdotL, in ir
 }
 irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
-    return irr_glsl_createLightSample(L,dot(interaction.V.dir,L);
+    return irr_glsl_createLightSample(L,dot(interaction.isotropic.V.dir,L),interaction);
 }
 
 //TODO move to different glsl header @Crisspl (The code is not DRY, you have something similar in material compiler!)
@@ -234,7 +234,7 @@ struct irr_glsl_AnisotropicMicrofacetCache
 };
 
 // returns if the configuration of V and L can be achieved 
-bool irr_glsl_calcIsotropicMicrofacetCache(out irr_glsl_IsotropicMicrofacetCache _cache, in bool transmitted, in vec3 V, in vec3 L, in vec3 N, in float NdotL, in float orientedEta, in float rcpOrientedEta, out vec3 H)
+bool irr_glsl_calcIsotropicMicrofacetCache(out irr_glsl_IsotropicMicrofacetCache _cache, in bool transmitted, in vec3 V, in vec3 L, in vec3 N, in float NdotL, in float VdotL, in float orientedEta, in float rcpOrientedEta, out vec3 H)
 {
     H = irr_glsl_computeMicrofacetNormal(transmitted, V, L, orientedEta);
     
@@ -254,14 +254,19 @@ bool irr_glsl_calcIsotropicMicrofacetCache(out irr_glsl_IsotropicMicrofacetCache
     float orientedEta, rcpOrientedEta;
     const bool backside = irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, NdotV, eta);
 
-    return irr_glsl_calcIsotropicMicrofacetCache(_cache,transmitted,interaction.V.dir,_sample.L,interaction.N,NdotL,orientedEta,rcpOrientedEta);
+    const vec3 V = interaction.V.dir;
+    const vec3 L = _sample.L;
+    const float VdotL = dot(V,L);
+    vec3 dummy;
+    return irr_glsl_calcIsotropicMicrofacetCache(_cache,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta,rcpOrientedEta,dummy);
 }
 // always valid because its specialized for the reflective case
-void irr_glsl_calcIsotropicMicrofacetCache(out irr_glsl_IsotropicMicrofacetCache _cache, in float NdotV, in float NdotL, in float VdotL, out float LplusV_rcpLen)
+irr_glsl_IsotropicMicrofacetCache irr_glsl_calcIsotropicMicrofacetCache(in float NdotV, in float NdotL, in float VdotL, out float LplusV_rcpLen)
 {
+    irr_glsl_IsotropicMicrofacetCache _cache;
+
     LplusV_rcpLen = inversesqrt(2.0+2.0*VdotL);
 
-    irr_glsl_IsotropicMicrofacetCache _cache;
     _cache.VdotH = LplusV_rcpLen*VdotL+LplusV_rcpLen;
     _cache.LdotH = _cache.VdotH;
     _cache.NdotH = (NdotL+NdotV)*LplusV_rcpLen;
@@ -270,17 +275,15 @@ void irr_glsl_calcIsotropicMicrofacetCache(out irr_glsl_IsotropicMicrofacetCache
 }
 irr_glsl_IsotropicMicrofacetCache irr_glsl_calcIsotropicMicrofacetCache(in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_LightSample _sample)
 {
-    irr_glsl_IsotropicMicrofacetCache _cache;
-
     float dummy;
-    return irr_glsl_calcIsotropicMicrofacetCache(_cache,interaction.NdotV,_sample.NdotL,_sample.VdotL,dummy);
+    return irr_glsl_calcIsotropicMicrofacetCache(interaction.NdotV,_sample.NdotL,_sample.VdotL,dummy);
 }
 
 // get extra stuff for anisotropy, here we actually require T and B to be normalized
-bool irr_glsl_calcAnisotropicMicrofacetCache(out irr_glsl_AnisotropicMicrofacetCache _cache, in bool transmitted, in vec3 V, in vec3 L, in vec3 T, in vec3 B, in vec3 N, in float NdotL, in float orientedEta, in float rcpOrientedEta)
+bool irr_glsl_calcAnisotropicMicrofacetCache(out irr_glsl_AnisotropicMicrofacetCache _cache, in bool transmitted, in vec3 V, in vec3 L, in vec3 T, in vec3 B, in vec3 N, in float NdotL, in float VdotL, in float orientedEta, in float rcpOrientedEta)
 {
     vec3 H;
-    const bool valid = irr_glsl_calcIsotropicMicrofacetCache(_cache.isotropic,transmitted,V,L,N,NdotL,orientedEta,rcpOrientedEta);
+    const bool valid = irr_glsl_calcIsotropicMicrofacetCache(_cache.isotropic,transmitted,V,L,N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
 
     _cache.TdotH = dot(T,H);
     _cache.BdotH = dot(B,H);
@@ -289,14 +292,17 @@ bool irr_glsl_calcAnisotropicMicrofacetCache(out irr_glsl_AnisotropicMicrofacetC
 }
 bool irr_glsl_calcAnisotropicMicrofacetCache(out irr_glsl_AnisotropicMicrofacetCache _cache, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_LightSample _sample, in float eta)
 {
-    const float NdotV = interaction.NdotV;
+    const float NdotV = interaction.isotropic.NdotV;
     const float NdotL = _sample.NdotL;
     const bool transmitted = irr_glsl_isTransmissionPath(NdotV,NdotL);
     
     float orientedEta, rcpOrientedEta;
     const bool backside = irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, NdotV, eta);
-
-    return irr_glsl_calcAnisotropicMicrofacetCache(_cache,transmitted,interaction.V.dir,_sample.L,interaction.T,interaction.B,interaction.N,NdotL,orientedEta,rcpOrientedEta);
+    
+    const vec3 V = interaction.isotropic.V.dir;
+    const vec3 L = _sample.L;
+    const float VdotL = dot(V,L);
+    return irr_glsl_calcAnisotropicMicrofacetCache(_cache,transmitted,V,L,interaction.T,interaction.B,interaction.isotropic.N,NdotL,VdotL,orientedEta,rcpOrientedEta);
 }
 // always valid because its for the reflective case
 irr_glsl_AnisotropicMicrofacetCache irr_glsl_calcAnisotropicMicrofacetCache(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_LightSample _sample)
@@ -304,11 +310,11 @@ irr_glsl_AnisotropicMicrofacetCache irr_glsl_calcAnisotropicMicrofacetCache(in i
     irr_glsl_AnisotropicMicrofacetCache _cache;
 
     float LplusV_rcpLen;
-    _cache.isotropic = irr_glsl_calcIsotropicMicrofacetCache(interaction.isotropic,_sample,LplusV_rcpLen);
+    _cache.isotropic = irr_glsl_calcIsotropicMicrofacetCache(interaction.isotropic.NdotV,_sample.NdotL,dot(interaction.isotropic.V.dir,_sample.L),LplusV_rcpLen);
 
-    params.TdotH = (inter.TdotV+params.TdotL)*LplusV_rcpLen;
-    params.BdotH = (inter.BdotV+params.BdotL)*LplusV_rcpLen;
+    _cache.TdotH = (interaction.TdotV+_sample.TdotL)*LplusV_rcpLen;
+    _cache.BdotH = (interaction.BdotV+_sample.BdotL)*LplusV_rcpLen;
 
-   return params;
+   return _cache;
 }
 #endif
