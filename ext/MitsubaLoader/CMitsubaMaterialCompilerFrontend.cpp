@@ -14,124 +14,211 @@ namespace ext
 {
 namespace MitsubaLoader
 {
-    template<class Kernel>
-    class MyKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>
-    {
-        using Base = asset::CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>;
+namespace
+{
+template<class Kernel>
+class MyKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>
+{
+		using Base = asset::CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>;
 
-        Kernel kernel;
-        float multiplier;
+		Kernel kernel;
+		float multiplier;
 
-    public:
-        using value_type = typename Base::value_type;
+	public:
+		using value_type = typename Base::value_type;
 
-        MyKernel(Kernel&& k, float _imgExtent) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)), multiplier(_imgExtent) {}
+		MyKernel(Kernel&& k, float _imgExtent) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)), multiplier(_imgExtent) {}
 
-        // no special user data by default
-        inline const asset::IImageFilterKernel::UserData* getUserData() const { return nullptr; }
+		// no special user data by default
+		inline const asset::IImageFilterKernel::UserData* getUserData() const { return nullptr; }
 
-        inline float weight(float x, int32_t channel) const
-        {
-            return kernel.weight(x, channel)*multiplier;
-        }
+		inline float weight(float x, int32_t channel) const
+		{
+			return kernel.weight(x, channel) * multiplier;
+		}
+		
+		// we need to ensure to override the default behaviour of `CFloatingPointSeparableImageFilterKernelBase` which applies the weight along every axis
+		template<class PreFilter, class PostFilter>
+		struct sample_functor_t
+		{
+				sample_functor_t(const MyKernel* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
+					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
 
-        _IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
+				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const asset::IImageFilterKernel::UserData* userData)
+				{
+					preFilter(windowSample, relativePos, globalTexelCoord, userData);
+					auto* scale = asset::IImageFilterKernel::ScaleFactorUserData::cast(userData);
+					for (int32_t i=0; i<MaxChannels; i++)
+					{
+						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
+						windowSample[i] *= _this->weight(relativePos.x, i);
+						if (scale)
+							windowSample[i] *= scale->factor[i];
+					}
+					postFilter(windowSample, relativePos, globalTexelCoord, userData);
+				}
 
-        IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
-    };
+			private:
+				const MyKernel* _this;
+				PreFilter& preFilter;
+				PostFilter& postFilter;
+		};
+
+		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
+
+		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
+};
+	
+template<class Kernel>
+class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<SeparateOutXAxisKernel<Kernel>>
+{
+		using Base = asset::CFloatingPointSeparableImageFilterKernelBase<SeparateOutXAxisKernel<Kernel>>;
+
+		Kernel kernel;
+
+	public:
+		// passthrough everything
+		using value_type = typename Kernel::value_type;
+
+		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels; // derivative map only needs 2 channels
+
+		SeparateOutXAxisKernel(Kernel&& k) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)) {}
+
+		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
+					
+		// we need to ensure to override the default behaviour of `CFloatingPointSeparableImageFilterKernelBase` which applies the weight along every axis
+		template<class PreFilter, class PostFilter>
+		struct sample_functor_t
+		{
+				sample_functor_t(const SeparateOutXAxisKernel<Kernel>* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
+					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
+
+				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const asset::IImageFilterKernel::UserData* userData)
+				{
+					preFilter(windowSample, relativePos, globalTexelCoord, userData);
+					auto* scale = asset::IImageFilterKernel::ScaleFactorUserData::cast(userData);
+					for (int32_t i=0; i<MaxChannels; i++)
+					{
+						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
+						windowSample[i] *= _this->kernel.weight(relativePos.x, i);
+						if (scale)
+							windowSample[i] *= scale->factor[i];
+					}
+					postFilter(windowSample, relativePos, globalTexelCoord, userData);
+				}
+
+			private:
+				const SeparateOutXAxisKernel<Kernel>* _this;
+				PreFilter& preFilter;
+				PostFilter& postFilter;
+		};
+
+		// the method all kernels must define and overload
+		template<class PreFilter, class PostFilter>
+		inline auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const
+		{
+			return sample_functor_t(this,preFilter,postFilter);
+		}
+};
+
+}
 
     static core::smart_refctd_ptr<asset::ICPUImage> createDerivMapFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
     {
-        using namespace asset;
+	    using namespace asset;
 
-        auto getRGformat = [](asset::E_FORMAT f) -> asset::E_FORMAT {
-            const uint32_t bytesPerChannel = (getBytesPerPixel(f) * core::rational(1, getFormatChannelCount(f))).getIntegerApprox();
-            switch (bytesPerChannel)
-            {
-            case 1u:
-#ifndef DERIV_MAP_FLOAT32
-                return asset::EF_R8G8_UNORM;
-#else
-                _IRR_FALLTHROUGH;
-#endif
-            case 2u:
-#ifndef DERIV_MAP_FLOAT32
-                return asset::EF_R16G16_SFLOAT;
-#else
-                _IRR_FALLTHROUGH;
-#endif
-            case 4u:
-                return asset::EF_R32G32_SFLOAT;
-            case 8u:
-                return asset::EF_R64G64_SFLOAT;
-            default:
-                return asset::EF_UNKNOWN;
-            }
-        };
+	    auto getRGformat = [](asset::E_FORMAT f) -> asset::E_FORMAT {
+		    const uint32_t bytesPerChannel = (getBytesPerPixel(f) * core::rational(1, getFormatChannelCount(f))).getIntegerApprox();
+		    switch (bytesPerChannel)
+		    {
+		    case 1u:
+    #ifndef DERIV_MAP_FLOAT32
+			    return asset::EF_R8G8_UNORM;
+    #else
+			    _IRR_FALLTHROUGH;
+    #endif
+		    case 2u:
+    #ifndef DERIV_MAP_FLOAT32
+			    return asset::EF_R16G16_SFLOAT;
+    #else
+			    _IRR_FALLTHROUGH;
+    #endif
+		    case 4u:
+			    return asset::EF_R32G32_SFLOAT;
+		    case 8u:
+			    return asset::EF_R64G64_SFLOAT;
+		    default:
+			    return asset::EF_UNKNOWN;
+		    }
+	    };
 
-        using ReconstructionKernel = CGaussianImageFilterKernel<>; // or Mitchell
-        using DerivKernel_ = CDerivativeImageFilterKernel<ReconstructionKernel>;
-        using DerivKernel = MyKernel<DerivKernel_>;
-        using XDerivKernel = CChannelIndependentImageFilterKernel<DerivKernel, CBoxImageFilterKernel>;
-        using YDerivKernel = CChannelIndependentImageFilterKernel<CBoxImageFilterKernel, DerivKernel>;
-        using DerivativeMapFilter = CBlitImageFilter
-        <
-            false, false, DefaultSwizzle, IdentityDither, // (Criss, look at impl::CSwizzleAndConvertImageFilterBase)
-            XDerivKernel,
-            YDerivKernel,
-            CBoxImageFilterKernel
-        >;
+	    using ReconstructionKernel = CGaussianImageFilterKernel<>; // or Mitchell
+	    using DerivKernel_ = CDerivativeImageFilterKernel<ReconstructionKernel>;
+	    using DerivKernel = MyKernel<DerivKernel_>;
+	    using XDerivKernel_ = CChannelIndependentImageFilterKernel<DerivKernel, CBoxImageFilterKernel>;
+	    using YDerivKernel_ = CChannelIndependentImageFilterKernel<CBoxImageFilterKernel, DerivKernel>;
+	    using XDerivKernel = SeparateOutXAxisKernel<XDerivKernel_>;
+	    using YDerivKernel = SeparateOutXAxisKernel<YDerivKernel_>;
+        constexpr bool NORMALIZE = false;
+	    using DerivativeMapFilter = CBlitImageFilter
+		    <
+            NORMALIZE, false, DefaultSwizzle, IdentityDither, // (Criss, look at impl::CSwizzleAndConvertImageFilterBase)
+		    XDerivKernel,
+		    YDerivKernel,
+		    CBoxImageFilterKernel
+		    >;
 
-        const auto extent = _inImg->getCreationParameters().extent;
-        const float mlt = static_cast<float>( std::max(extent.width, extent.height) );
-        XDerivKernel xderiv{ DerivKernel(DerivKernel_(ReconstructionKernel()), mlt), CBoxImageFilterKernel() };
-        YDerivKernel yderiv{ CBoxImageFilterKernel(), DerivKernel(DerivKernel_(ReconstructionKernel()), mlt) };
+	    const auto extent = _inImg->getCreationParameters().extent;
+        const float mlt = 1.f;// static_cast<float>(std::max(extent.width, extent.height));
+	    XDerivKernel xderiv(XDerivKernel_( DerivKernel(DerivKernel_(ReconstructionKernel()), mlt), CBoxImageFilterKernel() ));
+	    YDerivKernel yderiv(YDerivKernel_( CBoxImageFilterKernel(), DerivKernel(DerivKernel_(ReconstructionKernel()), mlt) ));
 
-        using swizzle_t = asset::ICPUImageView::SComponentMapping;
-        DerivativeMapFilter::state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());
+	    using swizzle_t = asset::ICPUImageView::SComponentMapping;
+	    DerivativeMapFilter::state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());
 
-        state.swizzle = { swizzle_t::ES_R, swizzle_t::ES_R, swizzle_t::ES_R, swizzle_t::ES_R };
+	    state.swizzle = { swizzle_t::ES_R, swizzle_t::ES_R, swizzle_t::ES_R, swizzle_t::ES_R };
 
-        const auto& inParams = _inImg->getCreationParameters();
-        auto outParams = inParams;
-        outParams.format = getRGformat(outParams.format);
-        auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(outParams.format) * outParams.extent.width * outParams.extent.height);
-        asset::ICPUImage::SBufferCopy region;
-        region.imageOffset = { 0,0,0 };
-        region.imageExtent = outParams.extent;
-        region.imageSubresource.baseArrayLayer = 0u;
-        region.imageSubresource.layerCount = 1u;
-        region.imageSubresource.mipLevel = 0u;
-        region.bufferRowLength = outParams.extent.width;
-        region.bufferImageHeight = 0u;
-        region.bufferOffset = 0u;
-        auto outImg = asset::ICPUImage::create(std::move(outParams));
-        outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
+	    const auto& inParams = _inImg->getCreationParameters();
+	    auto outParams = inParams;
+	    outParams.format = getRGformat(outParams.format);
+	    const uint32_t pitch = IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, asset::getTexelOrBlockBytesize(outParams.format));
+	    auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(outParams.format) * pitch * outParams.extent.height);
+	    asset::ICPUImage::SBufferCopy region;
+	    region.imageOffset = { 0,0,0 };
+	    region.imageExtent = outParams.extent;
+	    region.imageSubresource.baseArrayLayer = 0u;
+	    region.imageSubresource.layerCount = 1u;
+	    region.imageSubresource.mipLevel = 0u;
+	    region.bufferRowLength = pitch;
+	    region.bufferImageHeight = 0u;
+	    region.bufferOffset = 0u;
+	    auto outImg = asset::ICPUImage::create(std::move(outParams));
+	    outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
 
-        state.inOffset = { 0,0,0 };
-        state.inBaseLayer = 0u;
-        state.outOffset = { 0,0,0 };
-        state.outBaseLayer = 0u;
-        state.inExtent = inParams.extent;
-        state.outExtent = state.inExtent;
-        state.inLayerCount = 1u;
-        state.outLayerCount = 1u;
-        state.inMipLevel = 0u;
-        state.outMipLevel = 0u;
-        state.inImage = _inImg;
-        state.outImage = outImg.get();
-        state.axisWraps[0] = _uwrap;
-        state.axisWraps[1] = _vwrap;
-        state.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
-        state.borderColor = _borderColor;
-        state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
-        state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, _IRR_SIMD_ALIGNMENT));
+	    state.inOffset = { 0,0,0 };
+	    state.inBaseLayer = 0u;
+	    state.outOffset = { 0,0,0 };
+	    state.outBaseLayer = 0u;
+	    state.inExtent = inParams.extent;
+	    state.outExtent = state.inExtent;
+	    state.inLayerCount = 1u;
+	    state.outLayerCount = 1u;
+	    state.inMipLevel = 0u;
+	    state.outMipLevel = 0u;
+	    state.inImage = _inImg;
+	    state.outImage = outImg.get();
+	    state.axisWraps[0] = _uwrap;
+	    state.axisWraps[1] = _vwrap;
+	    state.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
+	    state.borderColor = _borderColor;
+	    state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
+	    state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, _IRR_SIMD_ALIGNMENT));
 
-        DerivativeMapFilter::execute(&state);
+	    DerivativeMapFilter::execute(&state);
 
-        _IRR_ALIGNED_FREE(state.scratchMemory);
+	    _IRR_ALIGNED_FREE(state.scratchMemory);
 
-        return outImg;
+	    return outImg;
     }
     static core::smart_refctd_ptr<asset::ICPUImageView> createImageView(core::smart_refctd_ptr<asset::ICPUImage>&& _img)
     {

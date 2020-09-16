@@ -258,6 +258,7 @@ void main()
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
 	InstanceData instData = InstData.data[InstanceIndex];
+	instr_execute_SET_GEOM_NORMAL_interactionOnly();
 #ifdef TEX_PREFETCH_STREAM
 	runTexPrefetchStream(getTexPrefetchStream(), dUV);
 #endif
