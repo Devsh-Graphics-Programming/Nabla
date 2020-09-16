@@ -32,6 +32,10 @@ struct irr_glsl_AnisotropicViewSurfaceInteraction
     float TdotV;
     float BdotV;
 };
+vec3 irr_glsl_getTangentSpaceV(in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
+{
+    return vec3(interaction.TdotV,interaction.BdotV,interaction.isotropic.NdotV);
+}
 mat3 irr_glsl_getTangentFrame(in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
     return mat3(interaction.T,interaction.B,interaction.isotropic.N);

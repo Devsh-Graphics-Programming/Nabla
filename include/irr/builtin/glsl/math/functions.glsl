@@ -124,14 +124,18 @@ bool irr_glsl_getOrientedEtas(out vec3 rcpOrientedEta, out vec3 orientedEta2, ou
     return backside;
 }
 
-float irr_glsl_refract_compute_k(in bool backside, in float NdotI2, in float rcpOrientedEta2)
+float irr_glsl_refract_compute_NdotT2(in float NdotI2, in float rcpOrientedEta2)
 {
-    const float abs_k = sqrt(rcpOrientedEta2*NdotI2 + 1.0 - rcpOrientedEta2);
-    return backside ? abs_k:(-abs_k);
+    return rcpOrientedEta2*NdotI2 + 1.0 - rcpOrientedEta2;
+}
+float irr_glsl_refract_compute_NdotT(in bool backside, in float NdotI2, in float rcpOrientedEta2)
+{
+    const float abs_NdotT = sqrt(irr_glsl_refract_compute_NdotT2(NdotI2,rcpOrientedEta2));
+    return backside ? abs_NdotT:(-abs_NdotT);
 }
 vec3 irr_glsl_refract(in vec3 I, in vec3 N, in bool backside, in float NdotI, in float NdotI2, in float rcpOrientedEta, in float rcpOrientedEta2)
 {
-    return N*(NdotI*rcpOrientedEta + irr_glsl_refract_compute_k(backside,NdotI2,rcpOrientedEta2)) - rcpOrientedEta*I;
+    return N*(NdotI*rcpOrientedEta + irr_glsl_refract_compute_NdotT(backside,NdotI2,rcpOrientedEta2)) - rcpOrientedEta*I;
 }
 vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float NdotI, in float eta)
 {
@@ -147,7 +151,7 @@ vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float eta)
 
 vec3 irr_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in bool backside, in float NdotI, in float NdotI2, in float rcpOrientedEta, in float rcpOrientedEta2)
 {    
-    const float k = _refract ? irr_glsl_refract_compute_k(backside,NdotI2,rcpOrientedEta2):0.0;
+    const float k = _refract ? irr_glsl_refract_compute_NdotT(backside,NdotI2,rcpOrientedEta2):0.0;
     return N*(NdotI*(_refract ? rcpOrientedEta:2.0)+k) - I*(_refract ? rcpOrientedEta:1.0);
 }
 vec3 irr_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in float NdotI, in float NdotI2, in float eta)
