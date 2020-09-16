@@ -103,24 +103,20 @@ vec3 irr_glsl_reflect(in vec3 I, in vec3 N)
 }
 
 // for refraction the orientation of the normal matters, because a different IoR will be used
-bool irr_glsl_getOrientedEtas(out float rcpOrientedEta, out float orientedEta2, out float rcpOrientedEta2, in float NdotI, in float eta)
+bool irr_glsl_getOrientedEtas(out float orientedEta, out float rcpOrientedEta, in float NdotI, in float eta)
 {
     const bool backside = NdotI<0.0;
     const float rcpEta = 1.0/eta;
-    const float orientedEta = backside ? rcpEta:eta;
+    orientedEta = backside ? rcpEta:eta;
     rcpOrientedEta = backside ? eta:rcpEta;
-    orientedEta2 = orientedEta * orientedEta;
-    rcpOrientedEta2 = rcpOrientedEta*rcpOrientedEta;
     return backside;
 }
-bool irr_glsl_getOrientedEtas(out vec3 rcpOrientedEta, out vec3 orientedEta2, out vec3 rcpOrientedEta2, in float NdotI, in vec3 eta)
+bool irr_glsl_getOrientedEtas(out vec3 orientedEta, out vec3 rcpOrientedEta, in float NdotI, in vec3 eta)
 {
     const bool backside = NdotI<0.0;
-    const vec3 rcpEta = 1.0 / eta;
-    const vec3 orientedEta = backside ? rcpEta:eta;
+    const vec3 rcpEta = vec3(1.0) / eta;
+    orientedEta = backside ? rcpEta:eta;
     rcpOrientedEta = backside ? eta:rcpEta;
-    orientedEta2 = orientedEta * orientedEta;
-    rcpOrientedEta2 = rcpOrientedEta*rcpOrientedEta;
     return backside;
 }
 
@@ -139,9 +135,9 @@ vec3 irr_glsl_refract(in vec3 I, in vec3 N, in bool backside, in float NdotI, in
 }
 vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float NdotI, in float eta)
 {
-    float rcpOrientedEta, dummy, rcpOrientedEta2;
-    const bool backside = irr_glsl_getOrientedEtas(rcpOrientedEta, dummy, rcpOrientedEta2, NdotI, eta);
-    return irr_glsl_refract(I, N, backside, NdotI, NdotI*NdotI, rcpOrientedEta, rcpOrientedEta2);
+    float orientedEta, rcpOrientedEta;
+    const bool backside = irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, NdotI, eta);
+    return irr_glsl_refract(I, N, backside, NdotI, NdotI*NdotI, rcpOrientedEta, rcpOrientedEta*rcpOrientedEta);
 }
 vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float eta)
 {
@@ -160,9 +156,9 @@ vec3 irr_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in bool ba
 }
 vec3 irr_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in float NdotI, in float NdotI2, in float eta)
 {
-    float rcpOrientedEta, dummy, rcpOrientedEta2;
-    const bool backside = irr_glsl_getOrientedEtas(rcpOrientedEta, dummy, rcpOrientedEta2, NdotI, eta);
-    return irr_glsl_reflect_refract(_refract, I, N, backside, NdotI, NdotI2, rcpOrientedEta, rcpOrientedEta2);
+    float orientedEta, rcpOrientedEta;
+    const bool backside = irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, NdotI, eta);
+    return irr_glsl_reflect_refract(_refract, I, N, backside, NdotI, NdotI2, rcpOrientedEta, rcpOrientedEta*rcpOrientedEta);
 }
 
 // returns unnormalized vector

@@ -271,7 +271,7 @@ void setCurrInteraction(in vec3 N)
 	irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, N);
 	currInteraction = irr_glsl_calcAnisotropicInteraction(interaction);
 }
-void setCurrBSDFParams(in vec3 N, in vec3 L, in float orientedEta)
+void setCurrBSDFParams(in vec3 N, in vec3 L, )
 {
 	setCurrInteraction(N);
 
@@ -298,7 +298,7 @@ When transmission occurs and you need to compute a new `irr_glsl_MicrofacetCache
 **/
 
 	vec3 H; // @Crisspl its your reponsibility not to evaluate/execute (then) if irr_glsl_isTransmissionPath==true and either the BSDF is not tranmissive, or the microfacet normal is invalid
-	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV,NdotL), L, orientedEta, currInteraction.isotropic, H);
+	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV,NdotL), L, , currInteraction.isotropic, H);
 	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(L, H, isoparams, currInteraction);
 }
 
