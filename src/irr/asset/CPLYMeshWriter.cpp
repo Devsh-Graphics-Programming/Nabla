@@ -66,7 +66,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 
     SAssetWriteContext ctx{_params, _file};
 
-    const asset::ICPUMesh* mesh = IAsset::castDown<ICPUMesh>(_params.rootAsset);
+    const asset::ICPUMesh* mesh = IAsset::castDown<const ICPUMesh>(_params.rootAsset);
     if (!mesh)
         return false;
 
@@ -193,7 +193,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 
         header += "element face ";
         header += std::to_string(faceCount) + '\n';
-        idxT = vtxCount <= (1u<<16 - 1) ? asset::EIT_16BIT : asset::EIT_32BIT;
+        idxT = vtxCount <= ((1u<<16) - 1) ? asset::EIT_16BIT : asset::EIT_32BIT;
         const std::string idxTypeStr = idxT == asset::EIT_32BIT ? "uint32" : "uint16";
         header += "property list uchar " + idxTypeStr + " vertex_indices\n";
     }

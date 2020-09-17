@@ -2,87 +2,55 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**IrrlichtBAW** is a new renovated version of old **[Irrlicht](http://irrlicht.sourceforge.net/)** engine. The project currently aims for a thread-able and *Vulkan*-centered API, but currently works on *OpenGL* only. This framework has been kindly begun and almost entirely sponsored by **Build A World Aps**., and now by **[Ditt](https://www.ditt.nl/)** company. The `stable-ish` branch is used in production releases of **[Build A World EDU](https://edu.buildaworld.net/)**, since 2015.
+**IrrlichtBAW** is a new renovated version of older **[Irrlicht](http://irrlicht.sourceforge.net/)** engine. The project currently aims for a thread-able and *Vulkan*-centered API, but currently works on *OpenGL* only. This framework has been kindly begun by the founder ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** of **[Devsh Graphics Programming Sp. z O.O.](http://devsh.eu/)**  and almost entirely sponsored by **Build A World Aps**. in it's early days, and now picked up by the **[Ditt](https://www.ditt.nl/)** company. The `stable-ish` branch is used in production releases of **[Build A World EDU](https://edu.buildaworld.net/)**, since 2015. The framework has been used both for game development and ArchViz.
+
+## Contracting
+
+The members of **Devsh Graphics Programming Sp. z O.O.** (Company Registration (KRS) #: 0000764661) are available (individually or collectively) for contracts on projects of various scopes and timescales, especially on foreign frameworks, codebases and third-party 3D frameworks. We provide expertise in *OpenGL, OpenGL ES, WebGL, Vulkan, OpenCL, CUDA, D3D12 and D3D11, computer vision, Audio programming, DSP, video encoding and decoding as well as more generalized High Performance Computing*. Our language of choice is C++17 with C++11 and C11 coming in close second, however we're also amenable to Java, Python and related languages.
+
+Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** (e-mail available in the GitHub profile) with inquires into contracting.
 
 ## Showcase
 
-### Screen Shots
+### Videos
 
-<u>**BRDF Explorer**</u>
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/BRDF%20Explorer.png?raw=true)
-
-<u>**Many light raytracing**</u>
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Many%20light%20raytracing.png?raw=true)
-
-<u>**Many light raytracing**</u>
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Many%20light%20raytracing%202.png?raw=true)
-
-**<u>Cylindrical light source</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Cylindrical%20light%20source.png?raw=true)
-
-**<u>Two area lights</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Two%20area%20lights.png?raw=true)
-
-**<u>.OBJ Loader with MTL pipeline integration</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/.OBJ%20Loader%20with%20MTL%20pipeline%20integration.png?raw=true)
-
-**<u>Over 10 area lights</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Over%2010%20area%20lights.png?raw=true)
-
-**<u>Raytracing sample</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample.png?raw=true)
-
-**<u>Raytracing sample</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%202.png?raw=true)
-
-**<u>Light emitters</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Light%20emitters.png?raw=true)
-
-**<u>Raytracing sample</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%203.png?raw=true)
-
-**<u>1 Megapixel, 1 Million Samples</u>**
-
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/1%20Megapixel,%201%20Million%20Samples.png?raw=true)
+#### [Multiple Importance Sampling and Depth of Field](https://www.youtube.com/watch?v=BuyVlQPV7Ks)
 
 
 
-### Gifs - [Raytracing flythrough](https://www.youtube.com/watch?v=bwVVoAsRjHI)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%202.gif?raw=true)
 
 
 
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%201.gif?raw=true)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%203.gif?raw=true)
 
 
 
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%202.gif?raw=true)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%205.gif?raw=true)
 
 
 
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%203.gif?raw=true)
+### [Delta BRDF Test](https://www.youtube.com/watch?v=jIJWG0eaxU8)
 
 
 
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%204.gif?raw=true)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Delta%20BRDF%20Test%201.gif?raw=true)
 
 
 
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%205.gif?raw=true)
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Delta%20BRDF%20Test%202.gif?raw=true)
 
 
 
-### Gifs - [Raytracing With Optix AI Denoising [Albedo and Normals]](https://www.youtube.com/watch?v=VFad-Y-dSxQ&feature=youtu.be)
+### Tonemapping with AutoExposure and Temporal Adaptation
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/65504ccfd2de1a8682a1e948603a35e3c0a02996/site_media/readme/gifs/autoexposure/exposure.gif?raw=true)
+
+
+
+### [Raytracing With Optix AI Denoising [Albedo and Normals]](https://www.youtube.com/watch?v=VFad-Y-dSxQ&feature=youtu.be)
 
 
 
@@ -108,6 +76,74 @@
 
 ![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/denoisingalbedoandnormals/denoising%207.gif?raw=true)
 
+
+### [Raytracing flythrough](https://www.youtube.com/watch?v=bwVVoAsRjHI)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%201.gif?raw=true)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%202.gif?raw=true)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%203.gif?raw=true)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%204.gif?raw=true)
+
+
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/gifs/raytracingflythrough/raytracing%205.gif?raw=true)
+
+
+
+### Screenshots
+
+### Screen Shots
+
+##### <u>Pseudo Spectral rendering</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/spectral%20renderering.png?raw=true)
+
+##### <u>Thindielectric</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/thindielectric.png?raw=true)
+
+##### <u>Over 10 area lights</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Over%2010%20area%20lights.png?raw=true)
+
+##### <u>Raytracing sample</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample.png?raw=true)
+
+##### <u>Raytracing sample</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%202.png?raw=true)
+
+##### <u>1 Megapixel, 1 Million Samples</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/1%20Megapixel,%201%20Million%20Samples.png?raw=true)
+
+##### <u>Raytracing sample</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%203.png?raw=true)
+
+##### <u>BRDF Explorer</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/BRDF%20Explorer.png?raw=true)
+
+##### <u>.OBJ Loader with MTL pipeline integration</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/.OBJ%20Loader%20with%20MTL%20pipeline%20integration.png?raw=true)
+
+##### <u>Different Shape Area Light emitters</u>
+
+![](https://github.com/buildaworldnet/IrrlichtBAW/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Light%20emitters.png?raw=true)
 
 
 ## Main Features
@@ -154,7 +190,7 @@
 - **[Vulkan SDK](https://vulkan.lunarg.com/sdk/home)**
 - **[Perl](https://www.perl.org/get.html)**
 - **[NASM](https://www.nasm.us/pub/nasm/releasebuilds/?C=M;O=D)**
-- **[Python 2.7](https://www.python.org/download/releases/2.7/)** or later
+- **[Python 3.8](https://www.python.org/downloads/release/python-380/)** or later
 
 ### Vanilla + CUDA Build
 
@@ -205,14 +241,24 @@ Begin with cloning **IrrlichtBAW** with:
 git clone --recurse-submodules -j8 https://github.com/buildaworldnet/IrrlichtBAW.git
 ```
 
-If you haven't cloned `recursive`ly, you can still fix that with:
+If you haven't cloned `recursive`ly, you have to also perform:
 
 ```shell
 git submodule init
 git submodule update
 ```
 
-*CMake* config script will try to initialize submodules for you however as well.
+*CMake* config script will try to initialize submodules for you however as well, but it doesn't mean the initialization attempt will be successful.
+
+### Submodules
+
+If you haven't initialized the submodules yourself before the *CMake* configure step, and out *CMake* submodule update script destroyed them (badly/half initialized), you can run the following set of commands, but **beware** - it will completely wipe any changes to submodules.
+
+```shell
+git submodule foreach --recursive git clean -xfd
+git submodule foreach --recursive git reset --hard
+git submodule update --init --recursive
+```
 
 #### Weird CMake behaviour, notes
 
@@ -232,11 +278,17 @@ in *glew* directory that you can find in ***3rdparty/CEGUI/glew*** directory bec
 
 ### CMake notes
 
+#### Make sure Python's executable is found
+
+- The paragraph concerns *Windows system* only
+
+Unfortunately on Windows there are often troubles with **Python 3.0+** versions, because it isn't able to find and determine `PYTHON_EXECUTABLE` variable, so you have to fill it manually. If you use **CMake-GUI** you will find it in advanced options.
+
 #### Consider CMake and Visual Studio version, **important**! 
 
 - The paragraph concerns *Visual Studio* only
 
-Make sure you have installed the latest version of *Visual Studio* and *CMake*. Within older versions sometimes there may occour that *Visual Studio* outputs an error associated with compiler heap space. If you don't get any error, just skip the point. It's because having *x64* project opened the solution still uses *32 bit compiler exe* and cannot allocate **more than 4G of memory**, therefore **IrrlichtBAW** is unbuildable. Furthermore *Visual Studio* doesn't provide any option to change that. Because of that you have to manually modify **.vcxproj xml** and add `x64` to `PropertyGroup` nodes. Pay attention that *CMake* generates a standard `PropertyGroup` node, but it isn't enough, because you need to put it into the target where building type is directly specified. It should look for instance as following:
+Make sure you have installed the latest version of *Visual Studio* and *CMake*. Within older versions sometimes there may occur that *Visual Studio* outputs an error associated with compiler heap space. If you don't get any error, just skip the point. It's because having *x64* project opened the solution still uses *32 bit compiler exe* and cannot allocate **more than 4G of memory**, therefore **IrrlichtBAW** is unbuildable. Furthermore *Visual Studio* doesn't provide any option to change that. Because of that you have to manually modify **.vcxproj xml** and add `x64` to `PropertyGroup` nodes. Pay attention that *CMake* generates a standard `PropertyGroup` node, but it isn't enough, because you need to put it into the target where building type is directly specified. It should look for instance as following:
 
 ```xml
 <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -280,6 +332,90 @@ We recommend the ***[Codelite IDE](https://codelite.org/)*** as that has a *CMak
 ## First examples launching, significant notes
 
 Remember you have to set up **starting target project** in *Visual Studio* before you begin to launch your example. To do that click on **Solution Explorer**, find the example name, hover on it and click on **Set as StartUp Project**. You can disable building examples by `IRR_BUILD_EXAMPLES` option in *CMake*.
+
+## Use IrrlichtBaW in your project!
+
+To get **IrrlichtBaW** to be used by an external application *without adding it as a subdirectory*,but still using a submodule, you should perform following:
+
+```cmake
+list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_DOCS:BOOL=OFF") # enable only if you have doxygen installed and detectable by cmake
+list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_EXAMPLES:BOOL=OFF")
+list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_TOOLS:BOOL=OFF") # the tools don't work yet (Apr 2020 status, might have changed since then)
+list(APPEND IRR_CMAKE_ARGS "-DIRR_BUILD_MITSUBA_LOADER:BOOL=OFF") # you probably don't want this extension
+list(APPEND IRR_CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX:PATH=${IRR_INSTALL_DIR}") # because of https://gitlab.kitware.com/cmake/cmake/-/issues/18790
+ExternalProject_Add(IrrlichtBaW
+    DOWNLOAD_COMMAND  ""
+    SOURCE_DIR        "${IRR_SOURCE_DIR}"
+    BINARY_DIR        "${IRR_BINARY_DIR}"
+    CMAKE_ARGS        ${IRR_CMAKE_ARGS}
+    TEST_COMMAND      ""
+)
+
+# replace with whatever you need ${PROJECT_NAME}
+target_include_directories(${PROJECT_NAME}
+    PUBLIC
+        $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/include>
+        $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/include>
+        $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/include>
+     # these are needed because we haven't cleaned up the API properly yet
+        $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/source/Irrlicht>
+        $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/source/Irrlicht>
+        $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/source/Irrlicht>
+)
+target_link_libraries(${PROJECT_NAME} 
+	 $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/lib/Irrlicht_debug.lib>
+	 $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/lib/Irrlicht_rwdi.lib>
+	 $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/lib/Irrlicht.lib>
+)
+function(link_irr_dependency DEPENDENCY_NAME)
+	target_link_libraries(${PROJECT_NAME} 
+		 $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/lib/${DEPENDENCY_NAME}d.lib>
+		 $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/lib/${DEPENDENCY_NAME}.lib>
+		 $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/lib/${DEPENDENCY_NAME}.lib>
+	)
+endfunction()
+function(link_irr_dependency_ DEPENDENCY_NAME)
+	target_link_libraries(${PROJECT_NAME} 
+		 $<$<CONFIG:Debug>:${IRR_INSTALL_DIR}/debug/lib/${DEPENDENCY_NAME}_d.lib>
+		 $<$<CONFIG:RelWithDebInfo>:${IRR_INSTALL_DIR}/relwithdebinfo/lib/${DEPENDENCY_NAME}.lib>
+		 $<$<CONFIG:Release>:${IRR_INSTALL_DIR}/lib/${DEPENDENCY_NAME}.lib>
+	)
+endfunction()
+link_irr_dependency(glslang)
+link_irr_dependency_(jpeg)
+link_irr_dependency_(IlmImf-2_4)
+link_irr_dependency_(IexMath-2_4)
+link_irr_dependency_(Iex-2_4)
+link_irr_dependency_(IlmThread-2_4)
+link_irr_dependency_(Half-2_4)
+link_irr_dependency_(Imath-2_4)
+link_irr_dependency(libpng16_static)
+# OpenSSL only ever exists in the Release variant
+if(WIN32)
+	target_link_libraries(${PROJECT_NAME} 
+		 ${IRR_INSTALL_DIR}/lib/libeay32.lib
+		 ${IRR_INSTALL_DIR}/lib/ssleay32.lib
+	)
+else()
+	target_link_libraries(${PROJECT_NAME} 
+		 ${IRR_INSTALL_DIR}/lib/libcrypto.lib
+		 ${IRR_INSTALL_DIR}/lib/libssl.lib
+	)
+endif()
+link_irr_dependency_(shaderc)
+link_irr_dependency_(shaderc_util)
+link_irr_dependency(SPIRV)
+link_irr_dependency_(SPIRV-Tools)
+link_irr_dependency_(SPIRV-Tools-opt)
+link_irr_dependency(OGLCompiler)
+link_irr_dependency(OSDependent)
+link_irr_dependency(HLSL)
+link_irr_dependency(zlibstatic)
+```
+
+ If you want to use git (without a submodule) then you can use `ExternalProject_Add` with the `GIT_` properties instead.
+
+I recommend you use `ExternalProject_Add` instead of `add_subdirectory` for **IrrlichtBaW** as we haven't  tested its use by *3rdparty* applications that use *CMake* to build themselves yet (**BaW EDU** uses it directly from *MSVC*/*make* like it's still the stone-age of build systems).
 
 ## License
 

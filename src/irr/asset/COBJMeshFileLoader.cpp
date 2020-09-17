@@ -17,41 +17,32 @@
 #include "COBJMeshFileLoader.h"
 
 
-
-/*
-namespace std
-{
-    template <>
-    struct hash<irr::asset::SObjVertex>
-    {
-        std::size_t operator()(const irr::asset::SObjVertex& k) const
-        {
-            using std::size_t;
-            using std::hash;
-
-            return hash(k.normal32bit)^
-                    (reinterpret_cast<const uint32_t&>(k.pos[0])*4996156539000000107ull)^
-                    (reinterpret_cast<const uint32_t&>(k.pos[1])*620612627000000023ull)^
-                    (reinterpret_cast<const uint32_t&>(k.pos[2])*1231379668000000199ull)^
-                    (reinterpret_cast<const uint32_t&>(k.uv[0])*1099543332000000001ull)^
-                    (reinterpret_cast<const uint32_t&>(k.uv[1])*1123461104000000009ull);
-        }
-    };
-
-}
-*/
-
 namespace irr
 {
 namespace asset
 {
 
-static void insertShaderIntoCache(core::smart_refctd_ptr<ICPUSpecializedShader>& asset, const char* path, IAssetManager* _assetMgr)
+static void insertPipelineIntoCache(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>&& asset, const char* path, IAssetManager* _assetMgr)
 {
-    asset::SAssetBundle bundle({ asset });
+    asset::SAssetBundle bundle({ std::move(asset) });
     _assetMgr->changeAssetKey(bundle, path);
     _assetMgr->insertAssetIntoCache(bundle);
-};
+}
+template<typename AssetType, IAsset::E_TYPE assetType>
+static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
+{
+	size_t storageSz = 1ull;
+	asset::SAssetBundle bundle;
+	const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
+
+	_assetMgr->findAssets(storageSz, &bundle, _key, types);
+	if (bundle.isEmpty())
+		return nullptr;
+	auto assets = bundle.getContents();
+	//assert(assets.first != assets.second);
+
+	return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
+}
 
 //#ifdef _IRR_DEBUG
 #define _IRR_DEBUG_OBJ_LOADER_
@@ -59,6 +50,12 @@ static void insertShaderIntoCache(core::smart_refctd_ptr<ICPUSpecializedShader>&
 
 static const uint32_t WORD_BUFFER_LENGTH = 512;
 
+constexpr const char* MISSING_MTL_PIPELINE_NO_UV_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mtl/missing_material_pipeline_no_uv";
+constexpr const char* MISSING_MTL_PIPELINE_UV_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mtl/missing_material_pipeline_uv";
+constexpr uint32_t POSITION = 0u;
+constexpr uint32_t UV = 2u;
+constexpr uint32_t NORMAL = 3u;
+constexpr uint32_t BND_NUM = 0u;
 
 //! Constructor
 COBJMeshFileLoader::COBJMeshFileLoader(IAssetManager* _manager) : AssetManager(_manager), FileSystem(_manager->getFileSystem())
@@ -144,6 +141,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     core::vector<std::string> submeshMaterialNames;
     core::vector<uint32_t> vtxSmoothGrp;
 
+	constexpr const char* NO_MATERIAL_MTL_NAME = "#";
+	bool noMaterial = true;
+	bool dummyMaterialCreated = false;
 	while(bufPtr != bufEnd)
 	{
 		switch(bufPtr[0])
@@ -161,9 +161,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 std::replace(mtllib.begin(), mtllib.end(), '\\', '/');
                 SAssetLoadParams loadParams;
                 auto bundle = interm_getAssetInHierarchy(AssetManager, mtllib, loadParams, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW, _override);
-                for (auto it = bundle.getContents().first; it != bundle.getContents().second; ++it)
+				for (auto ass : bundle.getContents())
                 {
-                    auto pipeln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(*it);
+                    auto pipeln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(ass);
                     auto metadata = static_cast<const CMTLPipelineMetadata*>(pipeln->getMetadata());
                     std::string mtlfilepath = relPath+tmpbuf;
 
@@ -175,6 +175,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			break;
 
 		case 'v':               // v, vn, vt
+			//reset flags
+			noMaterial = true;
+			dummyMaterialCreated = false;
 			switch(bufPtr[1])
 			{
 			case ' ':          // vertex
@@ -225,6 +228,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		case 'u': // usemtl
 			// get name of material
 			{
+				noMaterial = false;
 				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
 #ifdef _IRR_DEBUG_OBJ_LOADER_
 	os::Printer::log("Loaded material start",tmpbuf, ELL_DEBUG);
@@ -236,15 +240,16 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     asset::IAsset::E_TYPE types[] {asset::IAsset::ET_SUB_MESH, (asset::IAsset::E_TYPE)0u };
                     auto mb_bundle = _override->findCachedAsset(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName), types, ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
                     auto mbs = mb_bundle.getContents();
+					bool notempty = mbs.size()!=0ull;
                     {
-                        auto mb = (mbs.first != mbs.second) ? core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(*mbs.first) : core::make_smart_refctd_ptr<ICPUMeshBuffer>();
-						if (mbs.first != mbs.second)
-							mb->setNormalnAttributeIx(3u);
+                        auto mb = notempty ? core::smart_refctd_ptr_static_cast<ICPUMeshBuffer>(*mbs.begin()) : core::make_smart_refctd_ptr<ICPUMeshBuffer>();
+						if (notempty)
+							mb->setNormalnAttributeIx(NORMAL);
                         submeshes.push_back(std::move(mb));
                     }
                     indices.emplace_back();
                     recalcNormals.push_back(false);
-                    submeshWasLoadedFromCache.push_back(mbs.first!=mbs.second);
+                    submeshWasLoadedFromCache.push_back(notempty);
                     //if submesh was loaded from cache - insert empty "cache key" (submesh loaded from cache won't be added to cache again)
                     submeshCacheKeys.push_back(submeshWasLoadedFromCache.back() ? "" : genKeyForMeshBuf(ctx, _file->getFileName().c_str(), mtlName, grpName));
                     submeshMaterialNames.push_back(mtlName);
@@ -253,6 +258,19 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			break;
 		case 'f':               // face
 		{
+			if (noMaterial && !dummyMaterialCreated)
+			{
+				dummyMaterialCreated = true;
+
+				submeshes.push_back(core::make_smart_refctd_ptr<ICPUMeshBuffer>());
+				submeshes.back()->setNormalnAttributeIx(NORMAL);
+				indices.emplace_back();
+				recalcNormals.push_back(false);
+				submeshWasLoadedFromCache.push_back(false);
+				submeshCacheKeys.push_back(genKeyForMeshBuf(ctx, _file->getFileName().c_str(), NO_MATERIAL_MTL_NAME, grpName));
+				submeshMaterialNames.push_back(NO_MATERIAL_MTL_NAME);
+			}
+
 			SObjVertex v;
 
 			// get all vertices data in this face (current line of obj _file)
@@ -297,7 +315,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 					core::vectorSIMDf simdNormal;
 					simdNormal.set(normalsBuffer[Idx[2]].data);
                     simdNormal.makeSafe3D();
-					v.normal32bit = quantNormalCache->quantizeNormal<E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(simdNormal);
+					v.normal32bit = quantNormalCache->quantizeNormal<CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(simdNormal);
                 }
 				else
 				{
@@ -354,10 +372,6 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		bufPtr = goNextLine(bufPtr, bufEnd);
 	}	// end while(bufPtr && (bufPtr-buf<filesize))
 
-    constexpr uint32_t POSITION = 0u;
-    constexpr uint32_t UV       = 2u;
-    constexpr uint32_t NORMAL   = 3u;
-    constexpr uint32_t BND_NUM  = 0u;
     {
         uint64_t ixBufOffset = 0ull;
         for (size_t i = 0ull; i < submeshes.size(); ++i)
@@ -399,6 +413,22 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     break;
                 }
             }
+			//if there's no pipeline for this meshbuffer, set dummy one
+			if (!submeshes[i]->getPipeline())
+			{
+				auto pipeline = getDefaultAsset<ICPURenderpassIndependentPipeline, IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE>(hasUV? MISSING_MTL_PIPELINE_UV_CACHE_KEY: MISSING_MTL_PIPELINE_NO_UV_CACHE_KEY, AssetManager);
+				const CMTLPipelineMetadata* metadata = static_cast<const CMTLPipelineMetadata*>(pipeline->getMetadata());
+				auto ds3 = core::smart_refctd_ptr<ICPUDescriptorSet>(metadata->getDescriptorSet());
+				const uint32_t pcoffset = pipeline->getLayout()->getPushConstantRanges().begin()[0].offset;
+				submeshes[i]->setAttachedDescriptorSet(std::move(ds3));
+				memcpy(
+					submeshes[i]->getPushConstantsDataPtr() + pcoffset,
+					&metadata->getMaterialParams(),
+					sizeof(CMTLPipelineMetadata::SMTLMaterialParameters)
+				);
+				submeshes[i]->setPipeline(std::move(pipeline));
+
+			}
         }
 
         core::smart_refctd_ptr<ICPUBuffer> vtxBuf = core::make_smart_refctd_ptr<ICPUBuffer>(vertices.size() * sizeof(SObjVertex));

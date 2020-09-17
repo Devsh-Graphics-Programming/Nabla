@@ -212,7 +212,7 @@ class COpenCLHandler
             return platformInformation.size()!=0ull;
         }
 
-        static const cl_uint& getPlatformCount() {return platformInformation.size();}
+        static auto getPlatformCount() {return platformInformation.size();}
 
         static const SOpenCLPlatformInfo& getPlatformInfo(const size_t& ix) {return platformInformation[ix];}
 

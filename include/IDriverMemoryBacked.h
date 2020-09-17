@@ -70,8 +70,8 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
             if (!isPowerOfTwo(a.vulkanReqs.alignment) || !isPowerOfTwo(b.vulkanReqs.alignment))
                 return false;
 
-            out.vulkanReqs.size = std::max(a.vulkanReqs.size,b.vulkanReqs.size);
-            out.vulkanReqs.alignment = std::max(a.vulkanReqs.alignment,b.vulkanReqs.alignment);
+            out.vulkanReqs.size = std::max<uint32_t>(a.vulkanReqs.size,b.vulkanReqs.size);
+            out.vulkanReqs.alignment = std::max<uint32_t>(a.vulkanReqs.alignment,b.vulkanReqs.alignment);
             out.vulkanReqs.memoryTypeBits = a.vulkanReqs.memoryTypeBits&b.vulkanReqs.memoryTypeBits;
             if (out.vulkanReqs.memoryTypeBits!=0u)
                 return false;

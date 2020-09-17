@@ -225,8 +225,8 @@ class CElementShape : public IElement
 		inline core::matrix3x4SIMD getAbsoluteTransform() const
 		{
 			auto local = transform.matrix.extractSub3x4();
-			if (type==CElementShape::INSTANCE && instance.parent)
-				return core::concatenateBFollowedByA(local,instance.parent->getAbsoluteTransform());
+			//if (type==CElementShape::INSTANCE && instance.parent)
+			//	return core::concatenateBFollowedByA(local,instance.parent->getAbsoluteTransform());
 			return local;
 		}
 

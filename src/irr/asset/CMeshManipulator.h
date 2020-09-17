@@ -6,7 +6,7 @@
 #define __C_MESH_MANIPULATOR_H_INCLUDED__
 
 #include "irr/asset/IMeshManipulator.h"
-#include "CQuantNormalCache.h"
+#include "irr/asset/CQuantNormalCache.h"
 
 namespace irr
 {
@@ -109,12 +109,12 @@ class CMeshManipulator : public IMeshManipulator
 		template<typename T>
 		static inline core::smart_refctd_ptr<ICPUBuffer> trianglesFanToTriangles(const void* _input, size_t _idxCount)
 		{
-			const size_t outputSize = ((_idxCount - 1) / 2) * 3;
+			const size_t outputSize = (_idxCount - 2) * 3;
 
 			auto output = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(T)*outputSize);
 			const T* iptr = reinterpret_cast<const T*>(_input);
 			T* optr = reinterpret_cast<T*>(output->getPointer());
-			for (size_t i = 0, j = 1; i < outputSize; j += 2)
+			for (size_t i = 0, j = 1; i < outputSize; j++)
 			{
 				optr[i++] = iptr[0];
 				optr[i++] = iptr[j];

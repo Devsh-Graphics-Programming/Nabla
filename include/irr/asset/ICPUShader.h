@@ -20,7 +20,7 @@ namespace asset
 	@see IAsset
 */
 
-class ICPUShader : public IAsset, public IShader<ICPUBuffer>
+class ICPUShader : public IAsset, public IShader
 {
 	protected:
 		virtual ~ICPUShader() = default;
@@ -30,12 +30,15 @@ class ICPUShader : public IAsset, public IShader<ICPUBuffer>
 
 	public:
         ICPUShader(core::smart_refctd_ptr<ICPUBuffer>&& _spirv) : ICPUShader(std::move(_spirv), false) {}
+        ICPUShader(core::smart_refctd_ptr<ICPUBuffer>&& _glsl, buffer_contains_glsl_t _buffer_contains_glsl) : ICPUShader(std::move(_glsl), true) {}
 		ICPUShader(const char* _glsl) : ICPUShader(core::make_smart_refctd_ptr<ICPUBuffer>(strlen(_glsl) + 1u), true)
 		{
 			memcpy(m_code->getPointer(), _glsl, m_code->getSize());
 		}
 
-		IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SHADER; }
+		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SHADER;
+		inline E_TYPE getAssetType() const override { return AssetType; }
+
 		size_t conservativeSizeEstimate() const override 
 		{ 
 			return m_code->getSize();

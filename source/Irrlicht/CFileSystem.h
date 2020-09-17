@@ -27,7 +27,7 @@ class CFileSystem : public IFileSystem
     public:
 
         //! constructor
-        CFileSystem();
+        CFileSystem(std::string&& _builtinResourceDirectory);
 
         //! opens a file for read access
         virtual IReadFile* createAndOpenFile(const io::path& filename);

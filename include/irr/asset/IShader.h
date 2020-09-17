@@ -5,8 +5,7 @@
 #include <string>
 
 
-#include "irr/core/SRange.h"
-#include "irr/core/IBuffer.h"
+#include "irr/core/core.h"
 
 namespace spirv_cross
 {
@@ -28,10 +27,12 @@ namespace asset
 	to Specialized Shader constructor.
 */
 
-template<typename BufferType>
-class IShader
+class IShader : public virtual core::IReferenceCounted
 {
 	public:
+		struct buffer_contains_glsl_t {};
+		_IRR_STATIC_INLINE const buffer_contains_glsl_t buffer_contains_glsl = {};
+
 		static inline void insertGLSLExtensionsDefines(std::string& _glsl, const core::refctd_dynamic_array<std::string>* _exts)
 		{
             if (!_exts)
@@ -41,9 +42,9 @@ class IShader
 			{
 				size_t hashPos = _glsl.find_first_of('#');
                 if (hashPos >= _glsl.length())
-                    return ~0ull;
+                    return _glsl.npos;
 				if (_glsl.compare(hashPos, 8, "#version"))
-					return ~0ull;
+					return _glsl.npos;
 
 				size_t searchPos = hashPos + 8ull;
 
@@ -56,12 +57,14 @@ class IShader
 				}
                 size_t nlPos = _glsl.find_first_of('\n', searchPos);
 
-				return (nlPos >= _glsl.length()) ? ~0ull : nlPos+1ull;
+				return (nlPos >= _glsl.length()) ? _glsl.npos : nlPos+1ull;
 			};
 
 			const size_t pos = findLineJustAfterVersionOrPragmaShaderStageDirective();
-			if (pos == ~0ull)
+			if (pos == _glsl.npos)
 				return;
+
+			const size_t ln = std::count(_glsl.begin(),_glsl.begin()+pos, '\n')+1;//+1 to count from 1
 
 			std::string insertion = "\n";
 			for (const std::string& ext : (*_exts))
@@ -72,6 +75,7 @@ class IShader
 
 				insertion += str;
 			}
+			insertion += "#line " + std::to_string(ln) + "\n";
 
 			_glsl.insert(pos, insertion);
 		}

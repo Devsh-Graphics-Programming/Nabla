@@ -8,21 +8,22 @@
 #include <array>
 #include <ostream>
 
-#include "irr/core/Types.h"
+#include "irr/core/core.h"
 #include "CConcurrentObjectCache.h"
 
 #include "IFileSystem.h"
 #include "IReadFile.h"
 #include "IWriteFile.h"
-#include "IAssetLoader.h"
-#include "IAssetWriter.h"
+
 #include "irr/core/Types.h"
 #include "irr/asset/IGLSLCompiler.h"
 
-#include "irr/asset/IGeometryCreator.h"
+#include "irr/asset/IGeometryCreator.h"/*
 #include "irr/asset/IMeshManipulator.h"
+#include "irr/asset/CQuantNormalCache.h"*/
 #include "irr/asset/IAssetLoader.h"
 #include "irr/asset/IAssetWriter.h"
+
 
 #define USE_MAPS_FOR_PATH_BASED_CACHE //benchmark and choose, paths can be full system paths
 
@@ -50,7 +51,7 @@ std::function<void(SAssetBundle&)> makeAssetDisposeFunc(const IAssetManager* con
 	@see IAsset
 
 */
-class IAssetManager : public core::IReferenceCounted
+class IAssetManager : public core::IReferenceCounted, public core::QuitSignalling
 {
         // the point of those functions is that lambdas returned by them "inherits" friendship
         friend std::function<void(SAssetBundle&)> makeAssetGreetFunc(const IAssetManager* const _mgr);
@@ -141,8 +142,8 @@ class IAssetManager : public core::IReferenceCounted
             for (size_t i = 0u; i < m_cpuGpuCache.size(); ++i)
                 m_cpuGpuCache[i] = new CpuGpuCacheType();
 
-			addLoadersAndWriters();
             insertBuiltinAssets();
+			addLoadersAndWriters();
         }
 
 		inline io::IFileSystem* getFileSystem() const { return m_fileSystem.get(); }
@@ -154,6 +155,8 @@ class IAssetManager : public core::IReferenceCounted
     protected:
 		virtual ~IAssetManager()
 		{
+            quitEventHandler.execute();
+
 			for (size_t i = 0u; i < m_assetCache.size(); ++i)
 				if (m_assetCache[i])
 					delete m_assetCache[i];
@@ -232,10 +235,10 @@ class IAssetManager : public core::IReferenceCounted
                 return {};//return empty bundle
 
             auto capableLoadersRng = m_loaders.perFileExt.findRange(getFileExt(filename.c_str()));
-
-            for (auto loaderItr = capableLoadersRng.first; loaderItr != capableLoadersRng.second; ++loaderItr) // loaders associated with the file's extension tryout
+            // loaders associated with the file's extension tryout
+            for (auto& loader : capableLoadersRng)
             {
-                if (loaderItr->second->isALoadableFileFormat(file) && !(asset = loaderItr->second->loadAsset(file, params, _override, _hierarchyLevel)).isEmpty())
+                if (loader.second->isALoadableFileFormat(file) && !(asset = loader.second->loadAsset(file, params, _override, _hierarchyLevel)).isEmpty())
                     break;
             }
             for (auto loaderItr = std::begin(m_loaders.vector); asset.isEmpty() && loaderItr != std::end(m_loaders.vector); ++loaderItr) // all loaders tryout
@@ -413,7 +416,9 @@ class IAssetManager : public core::IReferenceCounted
         }
 
         //! Insert an asset into the cache (calls the private methods of IAsset behind the scenes)
-        /** \return boolean if was added into cache (no duplicate under same key found) and grab() was called on the asset. */
+        /** Keeping assets around and caching them (by their name-like keys) helps a lot by letting the loaders
+        retrieve them from the cache and not load cpu objects again, which have been loaded before.
+        \return boolean if was added into cache (no duplicate under same key found) and grab() was called on the asset. */
         //TODO change name
         bool insertAssetIntoCache(SAssetBundle& _asset)
         {
@@ -437,16 +442,23 @@ class IAssetManager : public core::IReferenceCounted
                     m_assetCache[i]->clear();
         }
 
+
+        //! This function does not free the memory consumed by IAssets, but allows you to cache GPU objects already created from given assets so that no unnecessary GPU-side duplicates get created.
+        /** Keeping assets around (by their pointers) helps a lot by making sure that the same asset is not converted to a gpu resource multiple times, or created and deleted multiple times.
+        However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
+        void insertGPUObjectIntoCache(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject)
+        {
+            const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
+            if (m_cpuGpuCache[ix]->insert(_asset, std::move(_gpuObject)))
+                _asset->grab();
+        }
+
         //! This function frees most of the memory consumed by IAssets, but not destroying them.
-        /** Keeping assets around (by their pointers) helps a lot by letting the loaders retrieve them from the cache 
-		and not load cpu objects which have been loaded, converted to gpu resources and then would have been disposed of.
-		However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
+        /** However each dummy object needs to have a GPU object associated with it in yet-another-cache for use when we convert CPU objects to GPU objects.*/
         void convertAssetToEmptyCacheHandle(IAsset* _asset, core::smart_refctd_ptr<core::IReferenceCounted>&& _gpuObject, uint32_t referenceLevelsBelowToConvert=~0u)
         {
             _asset->convertToDummyObject(referenceLevelsBelowToConvert);
-			const uint32_t ix = IAsset::typeFlagToIndex(_asset->getAssetType());
-            if (m_cpuGpuCache[ix]->insert(_asset, std::move(_gpuObject)))
-                _asset->grab();
+            insertGPUObjectIntoCache(_asset,std::move(_gpuObject));
         }
 
 		core::smart_refctd_ptr<core::IReferenceCounted> findGPUObject(const IAsset* _asset)
@@ -486,10 +498,10 @@ class IAssetManager : public core::IReferenceCounted
 			for (auto it=assets->begin(); it!=assets->end(); it++)
 			{
 				const auto& contents = it->getContents();
-				for (auto it2=contents.first; it2!=contents.second; it2++)
+                for (auto ass : contents)
 				{
 					size_t storageSz = 1u;
-					m_cpuGpuCache[ix]->findAndStoreRange(it2->get(), storageSz, outIt++);
+					m_cpuGpuCache[ix]->findAndStoreRange(ass.get(), storageSz, outIt++);
 					assert(storageSz);
 				}
 			}
@@ -551,9 +563,9 @@ class IAssetManager : public core::IReferenceCounted
 
             auto capableWritersRng = m_writers.perTypeAndFileExt.findRange({_params.rootAsset->getAssetType(), getFileExt(_file->getFileName())});
 
-            for (auto it = capableWritersRng.first; it != capableWritersRng.second; ++it)
-                if (it->second->writeAsset(_file, _params, _override))
-                    return true;
+            for (auto& writer : capableWritersRng)
+            if (writer.second->writeAsset(_file, _params, _override))
+                return true;
             return false;
         }
         bool writeAsset(const std::string& _filename, const IAssetWriter::SAssetWriteParams& _params)

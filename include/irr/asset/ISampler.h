@@ -25,7 +25,9 @@ class ISampler : public virtual core::IReferenceCounted
 			//! Texture is mirrored once and then clamped to edge
 			ETC_MIRROR_CLAMP_TO_EDGE,
 			//! Texture is mirrored once and then clamped to border
-			ETC_MIRROR_CLAMP_TO_BORDER
+			ETC_MIRROR_CLAMP_TO_BORDER,
+
+			ETC_COUNT
 		};
 
 		enum E_TEXTURE_BORDER_COLOR
@@ -35,7 +37,9 @@ class ISampler : public virtual core::IReferenceCounted
 			ETBC_FLOAT_OPAQUE_BLACK,
 			ETBC_INT_OPAQUE_BLACK,
 			ETBC_FLOAT_OPAQUE_WHITE,
-			ETBC_INT_OPAQUE_WHITE
+			ETBC_INT_OPAQUE_WHITE,
+
+			ETBC_COUNT
 		};
 
 		enum E_TEXTURE_FILTER

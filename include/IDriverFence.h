@@ -144,8 +144,8 @@ class GPUEventWrapper : public core::Uncopyable
             {
                 uint64_t nanosecondsLeft = 0ull;
                 if (currentClockTime<timeout_time)
-                    nanosecondsLeft = std::chrono::duration_cast<std::chrono::nanoseconds>(currentClockTime-timeout_time).count();
-                switch (mFence->waitCPU(nanosecondsLeft))
+                    nanosecondsLeft = std::chrono::duration_cast<std::chrono::nanoseconds>(timeout_time-currentClockTime).count();
+                switch (mFence->waitCPU(nanosecondsLeft,mFence->canDeferredFlush()))
                 {
                     case EDFR_FAIL:
                         return true;
@@ -164,7 +164,7 @@ class GPUEventWrapper : public core::Uncopyable
 
         inline bool poll()
         {
-            switch (mFence->waitCPU(0u))
+            switch (mFence->waitCPU(0u,mFence->canDeferredFlush()))
             {
                 case EDFR_FAIL:
                 case EDFR_CONDITION_SATISFIED:
@@ -188,7 +188,7 @@ class GPUEventWrapper : public core::Uncopyable
 };
 
 template<class Functor>
-using GPUEventDeferredHandlerST = core::EventDeferredHandlerST<GPUEventWrapper,Functor>;
+using GPUDeferredEventHandlerST = core::DeferredEventHandlerST<core::DeferredEvent<GPUEventWrapper,Functor> >;
 
 } // end namespace scene
 } // end namespace irr

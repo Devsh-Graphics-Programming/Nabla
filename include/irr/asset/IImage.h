@@ -153,7 +153,7 @@ class IImage : public IDescriptor
 			{
 				return info.convert3DTexelStridesTo1DByteStrides(getTexelStrides());
 			}
-			inline uint64_t				getLocalByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides) const
+			static inline uint64_t				getLocalByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides)
 			{
 				return core::dot(localXYZLayerOffset,byteStrides)[0];
 			}
@@ -219,10 +219,10 @@ class IImage : public IDescriptor
 			switch (type)
 			{
 				case ET_3D:
-					maxSideLen = core::max(extent.depth,maxSideLen);
+					maxSideLen = core::max<uint32_t>(extent.depth,maxSideLen);
 					_IRR_FALLTHROUGH;
 				case ET_2D:
-					maxSideLen = core::max(extent.height,maxSideLen);
+					maxSideLen = core::max<uint32_t>(extent.height,maxSideLen);
 					break;
 				default:
 					break;
@@ -432,6 +432,11 @@ class IImage : public IDescriptor
 			return params;
 		}
 
+		inline const auto& getTexelBlockInfo() const
+		{
+			return info;
+		}
+
 		//! Returns bits per pixel.
 		inline core::rational<uint32_t> getBytesPerPixel() const
 		{
@@ -441,11 +446,14 @@ class IImage : public IDescriptor
 		//!
 		inline core::vector3du32_SIMD getMipSize(uint32_t level=0u) const
 		{
-			return core::max(	core::vector3du32_SIMD(	params.extent.width,
-														params.extent.height,
-														params.extent.depth)
-										/ (0x1u<<level),
-								core::vector3du32_SIMD(1u,1u,1u));      
+			return	core::max<core::vector3du32_SIMD>(
+						core::vector3du32_SIMD(
+							params.extent.width,
+							params.extent.height,
+							params.extent.depth
+						)/(0x1u<<level),
+						core::vector3du32_SIMD(1u,1u,1u)
+					);      
 		}
 
 		//! Returns image data size in bytes
@@ -487,7 +495,7 @@ class IImage : public IDescriptor
 				return false;
 			
 			bool die = false;
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_base_of<IImage, SourceType>::value)
+			if constexpr(std::is_base_of<IImage, SourceType>::value)
 			{
 				if (params.samples!=src->getCreationParameters().samples)
 					die = true;
@@ -496,12 +504,12 @@ class IImage : public IDescriptor
 				//if (!asset::areFormatsCompatible(params.format,src->format))
 					//die = true;
 			}
-			IRR_PSEUDO_ELSE_CONSTEXPR
+			else
 			{
 				if (params.samples!=ESCF_1_BIT)
 					die = true;
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
+			
 			if (die)
 				return false;
 
@@ -548,7 +556,7 @@ class IImage : public IDescriptor
 
 				auto maxPt2 = core::vector3du32_SIMD(ext2.width,ext2.height,ext2.depth);
 				bool die = false;
-				IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_base_of<IImage,SourceType>::value)
+				if constexpr(std::is_base_of<IImage,SourceType>::value)
 				{
 					//if (!formatHasAspects(src->params.format,it->srcSubresource.aspectMask))
 						//die = true;
@@ -572,7 +580,7 @@ class IImage : public IDescriptor
 
 					// TODO: The union of all source regions, and the union of all destination regions, specified by the elements of pRegions, must not overlap in memory
 				}
-				IRR_PSEUDO_ELSE_CONSTEXPR
+				else
 				{
 					// count on the user not being an idiot
 					#ifdef _IRR_DEBUG
@@ -599,7 +607,7 @@ class IImage : public IDescriptor
 
 					// TODO: The union of all source regions, and the union of all destination regions, specified by the elements of pRegions, must not overlap in memory
 				}
-				IRR_PSEUDO_IF_CONSTEXPR_END
+				
 
 				if (die)
 					return false;

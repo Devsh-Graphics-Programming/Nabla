@@ -85,7 +85,7 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 
 				SDescriptorInfo()
 				{
-					memset(&buffer, 0, std::max(sizeof(buffer), sizeof(image)));
+					memset(&buffer, 0, core::max<size_t>(sizeof(buffer), sizeof(image)));
 				}
 				~SDescriptorInfo()
 				{
@@ -149,7 +149,7 @@ class IEmulatedDescriptorSet
 {
 	public:
 		//! Contructor computes the flattened out array of descriptors
-		IEmulatedDescriptorSet(const LayoutType* _layout)
+		IEmulatedDescriptorSet(LayoutType* _layout)
 		{
 			if (!_layout)
 				return;

@@ -243,7 +243,7 @@ namespace irr
 					const auto mapOfChannels = data.second;
 					PerImageData perImageData;
 
-					auto openEXRMetadata = core::make_smart_refctd_ptr<COpenEXRImageMetadata>(suffixOfChannels, IImageMetadata::ColorSemantic{ ECS_SRGB,EOTF_IDENTITY });
+					auto openEXRMetadata = core::make_smart_refctd_ptr<COpenEXRImageMetadata>(suffixOfChannels, IImageMetadata::ColorSemantic{ ECP_SRGB,EOTF_IDENTITY });
 
 					int width;
 					int height;
@@ -343,7 +343,7 @@ namespace irr
 
 			for (uint8_t rgbaChannelIndex = 0; rgbaChannelIndex < availableChannels; ++rgbaChannelIndex)
 			{
-				std::string name = suffixOfChannels + "." + rgbaSignatureAsText[rgbaChannelIndex];
+				std::string name = suffixOfChannels.empty() ? rgbaSignatureAsText[rgbaChannelIndex] : suffixOfChannels + "." + rgbaSignatureAsText[rgbaChannelIndex];
 				frameBuffer.insert
 				(
 					name.c_str(),																					// name

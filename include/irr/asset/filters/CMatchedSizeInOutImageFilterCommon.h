@@ -164,8 +164,8 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 			uint8_t* const outData;
 			const core::SRange<const IImage::SBufferCopy> inRegions;
 			const core::SRange<const IImage::SBufferCopy> outRegions;
-			const IImage::SBufferCopy* oit;
-			core::vectorSIMDu32 offsetDifference, outByteStrides;
+			const IImage::SBufferCopy* oit;									//!< oit is a current output handled region by commonExecute lambda. Notice that the lambda may execute executePerRegion a few times with different oits data since regions may overlap in a certain mipmap in an image!
+			core::vectorSIMDu32 offsetDifference, outByteStrides; 
 		};
 		template<typename PerOutputFunctor>
 		static inline bool commonExecute(state_type* state, PerOutputFunctor& perOutput)
@@ -204,7 +204,7 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 				// setup convert state
 				// I know my two's complement wraparound well enough to make this work
 				const auto& outRegionOffset = commonExecuteData.oit->imageOffset;
-				commonExecuteData.offsetDifference = state->outOffsetBaseLayer-(core::vectorSIMDu32(outRegionOffset.x,outRegionOffset.y,outRegionOffset.z,commonExecuteData.oit->imageSubresource.baseArrayLayer)+state->inOffsetBaseLayer);
+				commonExecuteData.offsetDifference = state->outOffsetBaseLayer - (core::vectorSIMDu32(outRegionOffset.x, outRegionOffset.y, outRegionOffset.z, commonExecuteData.oit->imageSubresource.baseArrayLayer) + state->inOffsetBaseLayer);
 				commonExecuteData.outByteStrides = commonExecuteData.oit->getByteStrides(TexelBlockInfo(commonExecuteData.outFormat));
 				if (!perOutput(commonExecuteData,clip))
 					return false;

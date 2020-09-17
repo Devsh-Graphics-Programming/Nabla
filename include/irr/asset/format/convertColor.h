@@ -4,7 +4,6 @@
 #include <cassert>
 #include <type_traits>
 
-#include "irr/static_if.h"
 #include "irr/asset/format/EFormat.h"
 #include "decodePixels.h"
 #include "encodePixels.h"
@@ -43,6 +42,9 @@ inline void VoidSwizzle::operator()(const InT* in, OutT* out) const
     std::copy<const InT*,OutT*>(in,in+4,out);
 }
 
+/*
+    Base class for \bruntime\b swizzle - stateful
+*/
 
 struct PolymorphicSwizzle : SwizzleBase
 {

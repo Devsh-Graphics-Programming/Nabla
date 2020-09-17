@@ -3,6 +3,12 @@
 
 #include "irr/core/core.h"
 
+#include "ILogger.h"
+#include "os.h"
+
+#include "irr/asset/filters/CCopyImageFilter.h"
+#include "irr/asset/filters/CSwizzleAndConvertImageFilter.h"
+
 namespace irr
 {
 namespace asset
@@ -19,11 +25,10 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 
 		static const uint32_t MAX_PITCH_ALIGNMENT = 8u;										             
 
-		/*
+		/**
 			 Returns pitch for buffer row lenght, because
 			 OpenGL cannot transfer rows with arbitrary padding
 		*/
-
 		static inline uint32_t calcPitchInBlocks(uint32_t width, uint32_t blockByteSize)       
 		{
 			auto rowByteSize = width * blockByteSize;
@@ -173,7 +178,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			constexpr auto inputFormat = EF_R8_SRGB;
 			constexpr auto outputFormat = EF_R8G8B8_SRGB;
 		
-			using CONVERSION_SWIZZLE_FILTER = CSwizzleAndConvertImageFilter<inputFormat, outputFormat >;
+			using CONVERSION_SWIZZLE_FILTER = CSwizzleAndConvertImageFilter<inputFormat, outputFormat>;
 
 			core::smart_refctd_ptr<ICPUImage> newConvertedImage;
 			{
@@ -229,6 +234,33 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			}
 			return newConvertedImage;
 		};
+
+		/*
+			Performs image's texel flip. A processing image must
+			be have appropriate texel buffer and regions attached.
+		*/
+
+		static inline void performImageFlip(core::smart_refctd_ptr<asset::ICPUImage> image)
+		{
+			bool status = image->getBuffer() && image->getRegions().begin();
+			assert(status);// , "An image doesn't have a texel buffer and regions attached!");
+
+			auto format = image->getCreationParameters().format;
+			asset::TexelBlockInfo blockInfo(format);
+			core::vector3du32_SIMD trueExtent = blockInfo.convertTexelsToBlocks(image->getRegions().begin()->getTexelStrides());
+
+			auto entry = reinterpret_cast<uint8_t*>(image->getBuffer()->getPointer());
+			auto end = entry + image->getBuffer()->getSize();
+			auto stride = trueExtent.X * getTexelOrBlockBytesize(format);
+
+			performImageFlip(entry, end, trueExtent.Y, stride);
+		}
+
+		static inline void performImageFlip(uint8_t* entry, uint8_t* end, uint32_t height, uint32_t rowPitch)
+		{
+			for (uint32_t y = 0, yRising = 0; y < height; y += 2, ++yRising)
+				std::swap_ranges(entry + (yRising * rowPitch), entry + ((yRising + 1) * rowPitch), end - ((yRising + 1) * rowPitch));
+		}
 
 	private:
 };

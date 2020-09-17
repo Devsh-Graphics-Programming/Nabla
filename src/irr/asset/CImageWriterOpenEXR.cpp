@@ -108,6 +108,8 @@ namespace asset
 		constexpr std::array<const char*, availableChannels> rgbaSignatureAsText = { "R", "G", "B", "A" };
 		for (uint8_t channel = 0; channel < rgbaSignatureAsText.size(); ++channel)
 		{
+			auto rowPitch = sizeof(*pixelsArrayIlm[channel]) * width;
+
 			header.channels().insert(rgbaSignatureAsText[channel], Channel(pixelType));
 			frameBuffer.insert
 			(
@@ -115,7 +117,7 @@ namespace asset
 				Slice(pixelType,                                                                             // type
 				(char*) pixelsArrayIlm[channel],                                                             // base
 				sizeof(*pixelsArrayIlm[channel]) * 1,                                                        // xStride
-				sizeof(*pixelsArrayIlm[channel]) * width)                                                    // yStride
+				rowPitch)																					 // yStride
 			);
 		}
 
@@ -134,7 +136,7 @@ namespace asset
 
 		SAssetWriteContext ctx{ _params, _file };
 
-		auto imageSmart = asset::IImageAssetHandlerBase::createImageDataForCommonWriting(IAsset::castDown<ICPUImageView>(_params.rootAsset));
+		auto imageSmart = asset::IImageAssetHandlerBase::createImageDataForCommonWriting(IAsset::castDown<const ICPUImageView>(_params.rootAsset));
 		const asset::ICPUImage* image = imageSmart.get();
 
 		if (image->getBuffer()->isADummyObjectForCache())

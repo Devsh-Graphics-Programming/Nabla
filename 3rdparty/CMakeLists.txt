@@ -103,22 +103,26 @@ add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
 set(SKIP_INSTALL_ALL ${_OLD_SKIP_INSTALL_ALL})
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 get_target_property(ZLIB_BINARY_DIR zlibstatic "BINARY_DIR")
+#https://stackoverflow.com/questions/47175912/using-cmake-how-to-stop-the-debug-and-release-subdirectories
+set_target_properties(zlibstatic PROPERTIES ARCHIVE_OUTPUT_DIRECTORY $<1:${ZLIB_BINARY_DIR}>)
 if (MSVC)
-	set(ZLIB_BINARY_DIR_DEBUG "${ZLIB_BINARY_DIR}/Debug")
-	set(ZLIB_BINARY_DIR_RELEASE "${ZLIB_BINARY_DIR}/Release")
+	set(ZLIB_BINARY_DIR_DEBUG "${ZLIB_BINARY_DIR}")
+	set(ZLIB_BINARY_DIR_RELEASE "${ZLIB_BINARY_DIR}")
+	set(ZLIB_BINARY_DIR_RELWITHDEBINFO "${ZLIB_BINARY_DIR}")
 	get_target_property(ZLIB_NAME zlibstatic "NAME")
 	set(ZLIB_DEBUG_POSTFIX "d") # zlib's cmake is a zjeb
 else()
 	set(ZLIB_BINARY_DIR_DEBUG ${ZLIB_BINARY_DIR})
 	set(ZLIB_BINARY_DIR_RELEASE ${ZLIB_BINARY_DIR})
+	set(ZLIB_BINARY_DIR_RELWITHDEBINFO ${ZLIB_BINARY_DIR})
 	get_target_property(ZLIB_NAME zlibstatic "OUTPUT_NAME")
 	set(ZLIB_DEBUG_POSTFIX "${CMAKE_DEBUG_POSTFIX}")
 endif()
 get_target_property(ZLIB_DEBUG_POSTFIX zlibstatic "DEBUG_POSTFIX")
-set(ZLIB_INCLUDE_DIR "${THIRD_PARTY_SOURCE_DIR}/zlib;${THIRD_PARTY_BINARY_DIR}/zlib" CACHE STRING "" FORCE)
-set(ZLIB_LIBRARY_DEBUG "${ZLIB_BINARY_DIR_DEBUG}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${ZLIB_DEBUG_POSTFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE STRING "" FORCE)
-set(ZLIB_LIBRARY_RELEASE "${ZLIB_BINARY_DIR_RELEASE}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE STRING "" FORCE)
-
+set(ZLIB_INCLUDE_DIR "${THIRD_PARTY_SOURCE_DIR}/zlib;${THIRD_PARTY_BINARY_DIR}/zlib" CACHE INTERNAL "" FORCE)
+set(ZLIB_LIBRARY_DEBUG "${ZLIB_BINARY_DIR_DEBUG}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${ZLIB_DEBUG_POSTFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE INTERNAL "" FORCE)
+set(ZLIB_LIBRARY_RELEASE "${ZLIB_BINARY_DIR_RELEASE}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE INTERNAL "" FORCE)
+set(ZLIB_LIBRARY_RELWITHDEBINFO "${ZLIB_BINARY_DIR_RELWITHDEBINFO}/${CMAKE_STATIC_LIBRARY_PREFIX}${ZLIB_NAME}${CMAKE_STATIC_LIBRARY_SUFFIX}" CACHE INTERNAL "" FORCE)
 
 set(SPIRV_HEADERS_SKIP_EXAMPLES ON CACHE BOOL "Skip SPIRV-Headers examples")
 add_subdirectory(SPIRV-Headers SPIRV-Headers EXCLUDE_FROM_ALL)
@@ -374,6 +378,11 @@ if (IRR_BUILD_CEGUI)
 		DESTINATION ./debug/include/irr/ext/CEGUI
 		CONFIGURATIONS Debug
 	)
+	install(
+		DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include/CEGUI
+		DESTINATION ./relwithdebinfo/include/irr/ext/CEGUI
+		CONFIGURATIONS RelWithDebInfo
+	)
 	# CEGUI generated headers
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/cegui/include/CEGUI
@@ -385,6 +394,11 @@ if (IRR_BUILD_CEGUI)
 		DESTINATION ./debug/include/irr/ext/CEGUI
 		CONFIGURATIONS Debug
 	)
+	install(
+		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/cegui/include/CEGUI
+		DESTINATION ./relwithdebinfo/include/irr/ext/CEGUI
+		CONFIGURATIONS RelWithDebInfo
+	)
 	# CEGUI libs
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/
@@ -395,6 +409,11 @@ if (IRR_BUILD_CEGUI)
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/
 		DESTINATION ./debug/lib/irr/ext/CEGUI
 		CONFIGURATIONS Debug
+	)
+	install(
+		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/
+		DESTINATION ./relwithdebinfo/lib/irr/ext/CEGUI
+		CONFIGURATIONS RelWithDebInfo
 	)
 endif()
 
@@ -431,3 +450,57 @@ endif()
 if (IRR_COMPILE_WITH_CUDA)
 	update_git_submodule(./jitify)
 endif()
+
+set(IRR_3RDPARTY_TARGETS
+				lzma
+				lz4
+				aesGladman
+				spirv_cross
+				png_static
+				zlibstatic
+				shaderc_util
+				shaderc
+				jpeg
+				Imath
+				IlmThread
+				IlmImf
+				Half
+				convert_utf
+				bzip2			
+				glslang
+				OGLCompiler 
+				OSDependent
+				SPIRV 
+				Iex
+				IexMath
+				SPIRV-Tools
+				SPIRV-Tools-opt )
+#TODO insert more targets that are conditionally built
+if (IRR_BUILD_MITSUBA_LOADER)
+	list(APPEND IRR_3RDPARTY_TARGETS expat)
+endif()
+if(ENABLE_HLSL)
+	list(APPEND IRR_3RDPARTY_TARGETS HLSL)
+endif()
+foreach(trgt IN LISTS IRR_3RDPARTY_TARGETS)
+		set_property(TARGET ${trgt} PROPERTY
+             MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endforeach()
+
+
+# parallel hashmap headers
+install(
+	DIRECTORY ./parallel-hashmap/parallel_hashmap 
+	DESTINATION ./include/parallel-hashmap
+	CONFIGURATIONS Release
+)
+install(
+	DIRECTORY ./parallel-hashmap//parallel_hashmap 
+	DESTINATION ./debug/include/parallel-hashmap
+	CONFIGURATIONS Debug
+)
+install(
+	DIRECTORY ./parallel-hashmap/parallel_hashmap 
+	DESTINATION ./relwithdebinfo/include/parallel-hashmap
+	CONFIGURATIONS RelWithDebInfo
+)

@@ -8,7 +8,15 @@
 
 #include "irr/asset/filters/kernels/IImageFilterKernel.h"
 #include "irr/asset/filters/kernels/CommonImageFilterKernels.h"
+#include "irr/asset/filters/kernels/CBoxImageFilterKernel.h"
+#include "irr/asset/filters/kernels/CTriangleImageFilterKernel.h"
+#include "irr/asset/filters/kernels/CGaussianImageFilterKernel.h"
+#include "irr/asset/filters/kernels/CKaiserImageFilterKernel.h"
+#include "irr/asset/filters/kernels/CMitchellImageFilterKernel.h"
 #include "irr/asset/filters/kernels/CScaledImageFilterKernel.h"
+#include "irr/asset/filters/kernels/CChannelIndependentImageFilterKernel.h"
+#include "irr/asset/filters/kernels/CDerivativeImageFilterKernel.h"
+#include "irr/asset/filters/kernels/CConvolutionImageFilterKernel.h"
 
 namespace irr
 {
@@ -16,7 +24,7 @@ namespace asset
 {
 	
 /*
-// caches weights
+// caches weights, also should we call it Polyphase?
 template<class Kernel>
 class CMultiphaseKernel : public CImageFilterKernel<CMultiphaseKernel<Kernel> >, private Kernel
 {
@@ -43,67 +51,46 @@ class CMultiphaseKernel : public CImageFilterKernel<CMultiphaseKernel<Kernel> >,
 			}
 		}
 };
-
-template<class KernelA, class KernelB>
-class CKernelConvolution : public CImageFilterKernel<CKernelConvolution<KernelA,KernelB> >, private KernelA, private KernelB
-{
-	public:
-		_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = KernelA::is_separable&&KernelB::is_separable;
-		static_assert(is_separable,"Convolving Non-Separable Filters is a TODO!");
-
-		const float positive_support[3];
-		const float negative_support[3];
-		CKernelConvolution(KernelA&& a, KernelB&& b) : KernelA(std::move(a)), KernelB(std::move(b)),
-			positive_support({
-								KernelA::positive_support[0]+KernelB::positive_support[0],
-								KernelA::positive_support[1]+KernelB::positive_support[1],
-								KernelA::positive_support[2]+KernelB::positive_support[2]
-							}),
-			negative_support({
-								KernelA::negative_support[0]+KernelB::negative_support[0],
-								KernelA::negative_support[1]+KernelB::negative_support[1],
-								KernelA::negative_support[2]+KernelB::negative_support[2]
-							})
-		{}
-
-	
-		static inline bool validate(ICPUImage* inImage, ICPUImage* outImage)
-		{
-			return KernelA::validate(inImage,outImage) && KernelB::validate(inImage,outImage);
-		}
-
-		inline float evaluate(const core::vectorSIMDf& inPos, uint32_t iterations=64u)
-		{
-			const double dx = (positive_support[0]-negative_support[0])/double(iterations);
-			double sum = 0.0;
-			for (uint32_t i=0u; i<iterations; i++)
-			{
-				auto fakePos = ;
-				sum += KernelA::evaluate(fakePos)*KernelB::evaluate(inPos-fakePos);
-			}
-			return sum;
-		}
-};
 */
-	
+
+// to be inline this function relies on any kernel's `create_sample_functor_t` being defined
 template<class CRTP, typename value_type>
 template<class PreFilter, class PostFilter>
-inline void CImageFilterKernel<CRTP,value_type>::evaluateImpl(PreFilter& preFilter, PostFilter& postFilter, value_type* windowSample, core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord) const
+inline void CImageFilterKernel<CRTP,value_type>::evaluateImpl(
+	PreFilter& preFilter,
+	PostFilter& postFilter,
+	value_type* windowSample,
+	core::vectorSIMDf& relativePos,
+	const core::vectorSIMDi32& globalTexelCoord,
+	const UserData* userData
+) const
 {
-	static_cast<const CRTP*>(this)->create_sample_functor_t(preFilter,postFilter)(windowSample,relativePosAndFactor,globalTexelCoord);
+	// static cast is because I'm calling a non-static but non-virtual function
+	static_cast<const CRTP*>(this)->create_sample_functor_t(preFilter,postFilter)(windowSample,relativePos,globalTexelCoord,userData);
 }
 
-template<class CRTP, class Ratio>
+// @see CImageFilterKernel::evaluate
+template<class CRTP>
 template<class PreFilter, class PostFilter>
-inline void CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Ratio>::sample_functor_t<PreFilter,PostFilter>::operator()(
-		value_type* windowSample, core::vectorSIMDf& relativePosAndFactor, const core::vectorSIMDi32& globalTexelCoord
-	)
+inline void CFloatingPointSeparableImageFilterKernelBase<CRTP>::sample_functor_t<PreFilter,PostFilter>::operator()(
+		value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const IImageFilterKernel::UserData* userData
+)
 {
-	preFilter(windowSample, relativePosAndFactor, globalTexelCoord);
-	const auto weight = _this->weight(relativePosAndFactor.x) * _this->weight(relativePosAndFactor.y) * _this->weight(relativePosAndFactor.z) * relativePosAndFactor.w;
-	for (int32_t i = 0; i < StaticPolymorphicBase::MaxChannels; i++)
-		windowSample[i] *= weight;
-	postFilter(windowSample, relativePosAndFactor, globalTexelCoord);
+	// this is programmable, but usually in the case of a convolution filter it would be loading the values from a temporary and decoded copy of the input image
+	preFilter(windowSample, relativePos, globalTexelCoord, userData);
+
+	// by default there's no optimization so operation is O(SupportExtent^3) even though the filter is separable
+	// its possible that the original kernel which defines the `weight` function was stretched or modified, so a correction factor is applied
+	auto* scale = IImageFilterKernel::ScaleFactorUserData::cast(userData);
+	for (int32_t i=0; i<CRTP::MaxChannels; i++)
+	{
+		windowSample[i] *= _this->weight(relativePos.x,i)*_this->weight(relativePos.y,i)*_this->weight(relativePos.z,i);
+		if (scale)
+			windowSample[i] *= scale->factor[i];
+	}
+
+	// this is programmable, but usually in the case of a convolution filter it would be summing the values
+	postFilter(windowSample, relativePos, globalTexelCoord, userData);
 }
 
 } // end namespace asset

@@ -4,7 +4,6 @@
 #include <type_traits>
 #include <mutex>
 
-#include "irr/static_if.h"
 #include "irr/void_t.h"
 
 #include "irr/core/IReferenceCounted.h"
@@ -136,7 +135,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         };
         constexpr static bool UsingDefaultFunctor = std::is_same<CustomDeferredFreeFunctor,void>::value;
         typedef typename std::conditional<UsingDefaultFunctor,DefaultDeferredFreeFunctor,CustomDeferredFreeFunctor>::type DeferredFreeFunctor;
-        GPUEventDeferredHandlerST<DeferredFreeFunctor> deferredFrees;
+        GPUDeferredEventHandlerST<DeferredFreeFunctor> deferredFrees;
         core::allocator<std::tuple<size_type,size_type> > functorAllocator; // TODO : RobustGeneralpurposeAllocator a-la naughty dog, unbounded allocation, but without resize, use blocks
 
     public:
@@ -161,15 +160,15 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             auto allocation = mAllocator.getCurrentBufferAllocation();
 
             IGPUBuffer* retval;
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(is_std_get_0_defined<decltype(allocation)>::value)
+			if constexpr(is_std_get_0_defined<decltype(allocation)>::value)
 			{
 				retval = std::get<0u>(allocation);
 			}
-			IRR_PSEUDO_ELSE_CONSTEXPR
+			else
 			{
 				retval = allocation;
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
+			
 
             return retval;
         }

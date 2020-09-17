@@ -4,6 +4,7 @@ include(../../cmake/common.cmake)
 set(IRR_EXT_MITSUBA_LOADER_H
 	PropertyElement.h
 	IElement.h
+	CMitsubaMetadata.h
 	CElementIntegrator.h
 	CElementSensor.h
 	CElementFilm.h
@@ -19,6 +20,7 @@ set(IRR_EXT_MITSUBA_LOADER_H
 	ParserUtil.h
 	CSerializedLoader.h
 	CMitsubaLoader.h
+	CMitsubaMaterialCompilerFrontend.h
 )
 
 set(IRR_EXT_MITSUBA_LOADER_SRC
@@ -37,6 +39,7 @@ set(IRR_EXT_MITSUBA_LOADER_SRC
 	ParserUtil.cpp
 	CSerializedLoader.cpp
 	CMitsubaLoader.cpp
+	CMitsubaMaterialCompilerFrontend.cpp
 )
 
 set(IRR_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE

@@ -8,61 +8,9 @@
 
 
 #include "irr/asset/CGraphicsPipelineLoaderMTL.h"
+#include "irr/asset/IGLSLEmbeddedIncludeLoader.h"
+#include "irr/builtin/MTLdefaults.h"
 
-
-namespace irr
-{
-namespace asset
-{    
-
-class CGLSL_MTLBuiltinIncludeLoader : public IBuiltinIncludeLoader
-{
-public:
-    const char* getVirtualDirectoryName() const override { return "glsl/graphicspipeline/loaders/mtl/"; }
-
-private:
-    static std::string getMTLloaderCommonDefinitions(const std::string&)
-    {
-        return
-R"(#ifndef _IRR_MTL_LOADER_COMMON_INCLUDED_
-#define _IRR_MTL_LOADER_COMMON_INCLUDED_
-
-struct irr_glsl_MTLMaterialParameters
-{
-    vec3 Ka;
-    vec3 Kd;
-    vec3 Ks;
-    vec3 Ke;
-    vec4 Tf;//w component doesnt matter
-    float Ns;
-    float d;
-    float bm;
-    float Ni;
-    float roughness;
-    float metallic;
-    float sheen;
-    float clearcoatThickness;
-    float clearcoatRoughness;
-    float anisotropy;
-    float anisoRotation;
-    //extra info
-    uint extra;
-};
-
-#endif
-)";
-    }
-
-protected:
-    irr::core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
-    {
-        return {
-            { std::regex{"common\\.glsl"}, &getMTLloaderCommonDefinitions },
-        };
-    }
-};
-
-}}
 
 namespace
 {
@@ -163,334 +111,84 @@ void main()
 }
 )";
 */
-    constexpr const char* VERT_SHADER_UV = 
-R"(#version 430 core
-
-#ifndef _IRR_VERT_INPUTS_DEFINED_
-#define _IRR_VERT_INPUTS_DEFINED_
-layout (location = 0) in vec3 vPos;
-#ifndef _NO_UV
-layout (location = 2) in vec2 vUV;
-#endif
-layout (location = 3) in vec3 vNormal;
-#endif //_IRR_VERT_INPUTS_DEFINED_
-
-#ifndef _IRR_VERT_OUTPUTS_DEFINED_
-#define _IRR_VERT_OUTPUTS_DEFINED_
-layout (location = 0) out vec3 LocalPos;
-layout (location = 1) out vec3 ViewPos;
-layout (location = 2) out vec3 Normal;
-#ifndef _NO_UV
-layout (location = 3) out vec2 UV;
-#endif
-#endif //_IRR_VERT_OUTPUTS_DEFINED_
-
-#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
-
-#ifndef _IRR_VERT_SET1_BINDINGS_DEFINED_
-#define _IRR_VERT_SET1_BINDINGS_DEFINED_
-layout (set = 1, binding = 0, row_major, std140) uniform UBO {
-    irr_glsl_SBasicViewParameters params;
-} CamData;
-#endif //_IRR_VERT_SET1_BINDINGS_DEFINED_
-
-#ifndef _IRR_VERT_MAIN_DEFINED_
-#define _IRR_VERT_MAIN_DEFINED_
-void main()
-{
-    LocalPos = vPos;
-    gl_Position = irr_glsl_pseudoMul4x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x4(CamData.params.MVP), vPos);
-    ViewPos = irr_glsl_pseudoMul3x4with3x1(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x3(CamData.params.MV), vPos);
-    mat3 normalMat = irr_glsl_SBasicViewParameters_GetNormalMat(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_mat4x3(CamData.params.NormalMatAndEyePos));
-    Normal = normalMat*normalize(vNormal);
-#ifndef _NO_UV
-    UV = vUV;
-#endif
-}
-#endif //_IRR_VERT_MAIN_DEFINED_
-)";
-    constexpr const char* FRAG_SHADER_UV =
-R"(#version 430 core
-
-#ifndef _IRR_FRAG_INPUTS_DEFINED_
-#define _IRR_FRAG_INPUTS_DEFINED_
-layout (location = 0) in vec3 LocalPos;
-layout (location = 1) in vec3 ViewPos;
-layout (location = 2) in vec3 Normal;
-#ifndef _NO_UV
-layout (location = 3) in vec2 UV;
-#endif
-#endif //_IRR_FRAG_INPUTS_DEFINED_
-
-#ifndef _IRR_FRAG_OUTPUTS_DEFINED_
-#define _IRR_FRAG_OUTPUTS_DEFINED_
-layout (location = 0) out vec4 OutColor;
-#endif //_IRR_FRAG_OUTPUTS_DEFINED_
-
-#define ILLUM_MODEL_MASK 0x0fu
-#define map_Ka_MASK uint(1u<<4u)
-#define map_Kd_MASK uint(1u<<5u)
-#define map_Ks_MASK uint(1u<<6u)
-#define map_Ns_MASK uint(1u<<8u)
-#define map_d_MASK uint(1u<<9u)
-#define map_bump_MASK uint(1u<<10u)
-#define map_normal_MASK uint(1u<<11u)
-
-#include <irr/builtin/glsl/bsdf/common.glsl>
-
-#ifndef _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
-#define _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
-
-#include <irr/builtin/glsl/graphicspipeline/loaders/mtl/common.glsl>
-
-layout (push_constant) uniform Block {
-    irr_glsl_MTLMaterialParameters params;
-} PC;
-#endif //_IRR_FRAG_PUSH_CONSTANTS_DEFINED_
-
-#if !defined(_IRR_FRAG_SET3_BINDINGS_DEFINED_) && !defined(_NO_UV)
-#define _IRR_FRAG_SET3_BINDINGS_DEFINED_
-layout (set = 3, binding = 0) uniform sampler2D map_Ka;
-layout (set = 3, binding = 1) uniform sampler2D map_Kd;
-layout (set = 3, binding = 2) uniform sampler2D map_Ks;
-layout (set = 3, binding = 4) uniform sampler2D map_Ns;
-layout (set = 3, binding = 5) uniform sampler2D map_d;
-layout (set = 3, binding = 6) uniform sampler2D map_bump;
-#endif //_IRR_FRAG_SET3_BINDINGS_DEFINED_
-
-#include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/diffuse/fresnel_correction.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/diffuse/lambert.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/blinn_phong.glsl>
-
-#ifndef _IRR_BSDF_COS_EVAL_DEFINED_
-#define _IRR_BSDF_COS_EVAL_DEFINED_
-
-// Spectrum can be exchanged to a float for monochrome
-#define Spectrum vec3
-
-//! This is the function that evaluates the BSDF for specific view and observer direction
-// params can be either BSDFIsotropicParams or BSDFAnisotropicParams 
-Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params)
-{
-    vec3 Kd;
-#ifndef _NO_UV
-    if ((PC.params.extra&(map_Kd_MASK)) == (map_Kd_MASK))
-        Kd = texture(map_Kd, UV).rgb;
-    else
-#endif
-        Kd = PC.params.Kd;
-
-    vec3 color = vec3(0.0);
-    vec3 Ks;
-    float Ns;
-
-#ifndef _NO_UV
-    if ((PC.params.extra&(map_Ks_MASK)) == (map_Ks_MASK))
-        Ks = texture(map_Ks, UV).rgb;
-    else
-#endif
-        Ks = PC.params.Ks;
-#ifndef _NO_UV
-    if ((PC.params.extra&(map_Ns_MASK)) == (map_Ns_MASK))
-        Ns = texture(map_Ns, UV).x;
-    else
-#endif
-        Ns = PC.params.Ns;
-
-    vec3 Ni = vec3(PC.params.Ni);
-
-    vec3 diff = irr_glsl_lambertian_cos_eval(params) * Kd * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotV));
-    diff *= irr_glsl_diffuseFresnelCorrectionFactor(Ni, Ni*Ni);
-    switch (PC.params.extra&ILLUM_MODEL_MASK)
-    {
-    case 0:
-        color = vec3(0.0);
-        break;
-    case 1:
-        color = diff;
-        break;
-    case 2:
-    case 3://2 + IBL
-    case 5://basically same as 3
-    case 8://basically same as 5
-    {
-        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, Ns, Ni);
-        color = (diff + spec);
-    }
-        break;
-    case 4:
-    case 6:
-    case 7:
-    case 9://basically same as 4
-    {
-        vec3 spec = Ks*irr_glsl_blinn_phong_fresnel_dielectric_cos_eval(params, Ns, Ni);
-        color = spec;
-    }
-        break;
-    default:
-        break;
-    }
-
-    return color;  
-}
-
-#endif //_IRR_BSDF_COS_EVAL_DEFINED_
-
-#include <irr/builtin/glsl/bump_mapping/height_mapping.glsl>
-
-#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_
-#define _IRR_COMPUTE_LIGHTING_DEFINED_
-
-vec3 irr_computeLighting(out irr_glsl_ViewSurfaceInteraction out_interaction)
-{
-    irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(vec3(0.0), ViewPos, Normal);
-
-#ifndef _NO_UV
-    if ((PC.params.extra&map_bump_MASK) == map_bump_MASK)
-    {
-        interaction.N = normalize(interaction.N);
-
-        float h = texture(map_bump, UV).x;
-
-        vec2 dHdScreen = vec2(dFdx(h), dFdy(h));
-        interaction.N = irr_glsl_perturbNormal_heightMap(interaction.N, interaction.V.dPosdScreen, dHdScreen);
-    }
-#endif
-    irr_glsl_BSDFIsotropicParams params = irr_glsl_calcBSDFIsotropicParams(interaction, -ViewPos);
-
-    vec3 Ka;
-    switch ((PC.params.extra&ILLUM_MODEL_MASK))
-    {
-    case 0:
-    {
-#ifndef _NO_UV
-    if ((PC.params.extra&(map_Kd_MASK)) == (map_Kd_MASK))
-        Ka = texture(map_Kd, UV).rgb;
-    else
-#endif
-        Ka = PC.params.Kd;
-    }
-    break;
-    default:
-#define Ia 0.1
-    {
-#ifndef _NO_UV
-    if ((PC.params.extra&(map_Ka_MASK)) == (map_Ka_MASK))
-        Ka = texture(map_Ka, UV).rgb;
-    else
-#endif
-        Ka = PC.params.Ka;
-    Ka *= Ia;
-    }
-#undef Ia
-    break;
-    }
-
-    out_interaction = params.interaction;
-#define Intensity 1000.0
-    return Intensity*params.invlenL2*irr_bsdf_cos_eval(params) + Ka;
-#undef Intensity
-}
-#endif //_IRR_COMPUTE_LIGHTING_DEFINED_
-
-
-#ifndef _IRR_FRAG_MAIN_DEFINED_
-#define _IRR_FRAG_MAIN_DEFINED_
-
-void main()
-{
-    irr_glsl_ViewSurfaceInteraction interaction;
-    vec3 color = irr_computeLighting(interaction);
-
-    float d = PC.params.d;
-
-    //another illum model switch, required for illum=4,6,7,9 to compute alpha from fresnel (taken from opacity map or constant otherwise)
-    switch (PC.params.extra&ILLUM_MODEL_MASK)
-    {
-    case 4:
-    case 6:
-    case 7:
-    case 9:
-    {
-        float VdotN = dot(interaction.N, interaction.V.dir);
-        d = irr_glsl_fresnel_dielectric(vec3(PC.params.Ni), VdotN).x;
-    }
-        break;
-    default:
-#ifndef _NO_UV
-        if ((PC.params.extra&(map_d_MASK)) == (map_d_MASK))
-        {
-            d = texture(map_d, UV).r;
-            color *= d;
-        }
-#endif
-        break;
-    }
-
-    OutColor = vec4(color, d);
-}
-#endif //_IRR_FRAG_MAIN_DEFINED_
-)";
 }
 
 
 using namespace irr;
 using namespace asset;
 
+static void insertPipelineIntoCache(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>&& asset, const char* path, IAssetManager* _assetMgr)
+{
+    asset::SAssetBundle bundle({ std::move(asset) });
+    _assetMgr->changeAssetKey(bundle, path);
+    _assetMgr->insertAssetIntoCache(bundle);
+}
 static void insertShaderIntoCache(core::smart_refctd_ptr<ICPUSpecializedShader>& asset, const char* path, IAssetManager* _assetMgr)
 {
     asset::SAssetBundle bundle({ asset });
     _assetMgr->changeAssetKey(bundle, path);
     _assetMgr->insertAssetIntoCache(bundle);
 }
+template<typename AssetType, IAsset::E_TYPE assetType>
+static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
+{
+    size_t storageSz = 1ull;
+    asset::SAssetBundle bundle;
+    const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
 
-_IRR_STATIC_INLINE_CONSTEXPR const char* VERT_SHADER_NO_UV_CACHE_KEY = "irr/builtin/shader/loaders/mtl/vertex_no_uv";
-_IRR_STATIC_INLINE_CONSTEXPR const char* VERT_SHADER_UV_CACHE_KEY = "irr/builtin/shader/loaders/mtl/vertex_uv";
-_IRR_STATIC_INLINE_CONSTEXPR const char* FRAG_SHADER_NO_UV_CACHE_KEY = "irr/builtin/shader/loaders/mtl/fragment_no_uv";
-_IRR_STATIC_INLINE_CONSTEXPR const char* FRAG_SHADER_UV_CACHE_KEY = "irr/builtin/shader/loaders/mtl/fragment_uv";
+    _assetMgr->findAssets(storageSz, &bundle, _key, types);
+    if (bundle.isEmpty())
+        return nullptr;
+    auto assets = bundle.getContents();
+    //assert(assets.first != assets.second);
+
+    return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
+}
+#define VERT_SHADER_NO_UV_CACHE_KEY "irr/builtin/shaders/loaders/mtl/vertex_no_uv.vert"
+#define VERT_SHADER_UV_CACHE_KEY "irr/builtin/shaders/loaders/mtl/vertex_uv.vert"
+#define FRAG_SHADER_NO_UV_CACHE_KEY "irr/builtin/shaders/loaders/mtl/fragment_no_uv.frag"
+#define FRAG_SHADER_UV_CACHE_KEY "irr/builtin/shaders/loaders/mtl/fragment_uv.frag"
 
 CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_assetMgr{_am}
 {
-    m_assetMgr->getGLSLCompiler()->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSL_MTLBuiltinIncludeLoader>());
-
     //create vertex shaders and insert them into cache
+    auto registerShader = [&](auto constexprStringType, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
     {
-        std::string vs_nouv_source = VERT_SHADER_UV;
-        vs_nouv_source.insert(vs_nouv_source.find("\n")+1ull, "#define _NO_UV\n"); 
+        auto data = m_assetMgr->getFileSystem()->loadBuiltinData<decltype(constexprStringType)>();
+        auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(data), asset::ICPUShader::buffer_contains_glsl);
+        
+        ICPUSpecializedShader::SInfo specInfo(
+            {}, nullptr, "main", stage,
+            stage!=ICPUSpecializedShader::ESS_VERTEX ? "?IrrlichtBAW PipelineLoaderMTL FragmentShader?":"?IrrlichtBAW PipelineLoaderMTL VertexShader?"
+        );
+		auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader),std::move(specInfo));
+        insertShaderIntoCache(shader, decltype(constexprStringType)::value, m_assetMgr);
+    };
 
-        auto vs_nouv_unspec = core::make_smart_refctd_ptr<ICPUShader>(vs_nouv_source.c_str());
-        auto vs_uv_unspec = core::make_smart_refctd_ptr<ICPUShader>(VERT_SHADER_UV);
+    registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_VERTEX);
+    registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+    registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
+    registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
 
-        ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_VERTEX);
-        auto vs_nouv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(vs_nouv_unspec), ICPUSpecializedShader::SInfo(specinfo));
-        auto vs_uv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(vs_uv_unspec), std::move(specinfo));
 
-        insertShaderIntoCache(vs_nouv, VERT_SHADER_NO_UV_CACHE_KEY, m_assetMgr);
-        insertShaderIntoCache(vs_uv, VERT_SHADER_UV_CACHE_KEY, m_assetMgr);
-    }
-    //create fragment shaders and insert them into cache
-    {
-        std::string fs_nouv_source = FRAG_SHADER_UV;
-        fs_nouv_source.insert(fs_nouv_source.find('\n') + 1ull,
-            R"(
-#ifndef _IRR_FRAG_SET3_BINDINGS_DEFINED_
-#define _IRR_FRAG_SET3_BINDINGS_DEFINED_
-#endif
-)"
-);
-        fs_nouv_source.insert(fs_nouv_source.find("\n")+1ull, "#define _NO_UV\n");
+  
+}
 
-        auto fs_nouv_unspec = core::make_smart_refctd_ptr<ICPUShader>(fs_nouv_source.c_str());
-        auto fs_uv_unspec = core::make_smart_refctd_ptr<ICPUShader>(FRAG_SHADER_UV);
+void CGraphicsPipelineLoaderMTL::initialize()
+{
+    constexpr const char* MISSING_MTL_PIPELINE_NO_UV_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mtl/missing_material_pipeline_no_uv";
+    constexpr const char* MISSING_MTL_PIPELINE_UV_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mtl/missing_material_pipeline_uv";
+    SAssetLoadParams assetLoadParams;
+  
+    auto default_mtl_file = m_assetMgr->getFileSystem()->createMemoryReadFile(DUMMY_MTL_CONTENT, strlen(DUMMY_MTL_CONTENT), "default IrrlichtBAW material");
+    auto bundle = loadAsset(default_mtl_file, assetLoadParams);
+    auto pipelineAssets = bundle.getContents().begin();
+    default_mtl_file->drop();
+    auto pNoUV = core::smart_refctd_ptr_dynamic_cast<ICPURenderpassIndependentPipeline>(pipelineAssets[0]);
+    auto pUV = core::smart_refctd_ptr_dynamic_cast<ICPURenderpassIndependentPipeline>(pipelineAssets[1]);
 
-        ICPUSpecializedShader::SInfo specinfo({}, nullptr, "main", ICPUSpecializedShader::ESS_FRAGMENT);
-        auto fs_nouv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(fs_nouv_unspec), ICPUSpecializedShader::SInfo(specinfo));
-        auto fs_uv = core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(fs_uv_unspec), std::move(specinfo));
-
-        insertShaderIntoCache(fs_nouv, FRAG_SHADER_NO_UV_CACHE_KEY, m_assetMgr);
-        insertShaderIntoCache(fs_uv, FRAG_SHADER_UV_CACHE_KEY, m_assetMgr);
-    }
+    insertPipelineIntoCache(std::move(pNoUV), MISSING_MTL_PIPELINE_NO_UV_CACHE_KEY, m_assetMgr);
+    insertPipelineIntoCache(std::move(pUV), MISSING_MTL_PIPELINE_UV_CACHE_KEY, m_assetMgr);
 }
 
 bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) const
@@ -510,21 +208,6 @@ bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) con
     return mtl.find("newmtl") != std::string::npos;
 }
 
-template<typename AssetType, IAsset::E_TYPE assetType>
-static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
-{
-    size_t storageSz = 1ull;
-    asset::SAssetBundle bundle;
-    const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
-
-    _assetMgr->findAssets(storageSz, &bundle, _key, types);
-    if (bundle.isEmpty())
-        return nullptr;
-    auto assets = bundle.getContents();
-    //assert(assets.first != assets.second);
-
-    return core::smart_refctd_ptr_static_cast<AssetType>(assets.first[0]);
-}
 
 core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipelineLayoutFromMtl(const SMtl& _mtl, bool _noDS3)
 {
@@ -667,19 +350,34 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
 
         core::smart_refctd_ptr<ICPUDescriptorSet> ds3;
         {
-            const std::string dsCacheKey = std::string(fullName.c_str())+"?"+materials[i].name+"?_ds";
-            const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_DESCRIPTOR_SET, (asset::IAsset::E_TYPE)0u };
-            auto ds_bundle = _override->findCachedAsset(dsCacheKey, types, ctx.inner, _hierarchyLevel + ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
-            if (!ds_bundle.isEmpty())
-                ds3 = core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(ds_bundle.getContents().first[0]);
-            else 
+            const std::string dsCacheKey = std::string(fullName.c_str()) + "?" + materials[i].name + "?_ds";
+            if (_override)
             {
-                auto views = loadImages(relPath.c_str(), materials[i], ctx);
-                ds3 = makeDescSet(std::move(views), layout->getDescriptorSetLayout(3u));
-                if (ds3)
+                const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_DESCRIPTOR_SET, (asset::IAsset::E_TYPE)0u };
+                auto ds_bundle = _override->findCachedAsset(dsCacheKey, types, ctx.inner, _hierarchyLevel + ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
+                if (!ds_bundle.isEmpty())
+                    ds3 = core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(ds_bundle.getContents().begin()[0]);
+                else
                 {
-                    SAssetBundle bundle{ds3};
-                    _override->insertAssetIntoCache(bundle, dsCacheKey, ctx.inner, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
+                    auto views = loadImages(relPath.c_str(), materials[i], ctx);
+                    ds3 = makeDescSet(std::move(views), layout->getDescriptorSetLayout(3u));
+                    if (ds3)
+                    {
+                        SAssetBundle bundle{ ds3 };
+                        _override->insertAssetIntoCache(bundle, dsCacheKey, ctx.inner, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
+                    }
+                }
+            }
+            else
+            {
+                SAssetLoadParams assetloadparams;
+                auto default_imageview_bundle = m_assetMgr->getAsset("irr/builtin/image_views/dummy2d", assetloadparams);
+                if (!default_imageview_bundle.isEmpty())
+                {
+                    auto assetptr = core::smart_refctd_ptr_static_cast<ICPUImageView>(default_imageview_bundle.getContents().begin()[0]);
+                    image_views_set_t views;
+                    views[0] = assetptr;
+                    ds3 = makeDescSet(std::move(views), layout->getDescriptorSetLayout(3u));
                 }
             }
         }
@@ -924,16 +622,27 @@ std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<
 auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mtl, SContext& _ctx) -> image_views_set_t
 {
     images_set_t images;
+    image_views_set_t views;
 
     std::string relDir = _relDir;
     for (uint32_t i = 0u; i < images.size(); ++i)
     {
         SAssetLoadParams lp;
-        if (_mtl.maps[i].size())
+        if (_mtl.maps[i].size() )
         {
+            io::path output;
+            core::getFileNameExtension(output,_mtl.maps[i].c_str());
+            if (output == ".dds")
+            {
+                auto bundle = interm_getAssetInHierarchy(m_assetMgr, relDir + _mtl.maps[i], lp, _ctx.topHierarchyLevel + ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride);
+                if (!bundle.isEmpty())
+                    views[i] = core::smart_refctd_ptr_static_cast<ICPUImageView>(bundle.getContents().begin()[0]);
+            }else
+            {
             auto bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride);
             if (!bundle.isEmpty())
-                images[i] = core::smart_refctd_ptr_static_cast<ICPUImage>(bundle.getContents().first[0]);
+                images[i] = core::smart_refctd_ptr_static_cast<ICPUImage>(bundle.getContents().begin()[0]);
+            }
         }
     }
 
@@ -1005,7 +714,6 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mt
         ICPUImage::SCreationParams cubemapParams = images[CMTLPipelineMetadata::EMP_REFL_POSX]->getCreationParameters();
         cubemapParams.arrayLayers = 6u;
         cubemapParams.type = IImage::ET_2D;
-
         auto cubemap = ICPUImage::create(std::move(cubemapParams));
         auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(regions_);
         cubemap->setBufferAndRegions(std::move(imgDataBuf), regions);
@@ -1017,7 +725,6 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mt
         }
     }
 
-    image_views_set_t views;
     for (uint32_t i = 0u; i < views.size(); ++i)
     {
         if (!images[i])

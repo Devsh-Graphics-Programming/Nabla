@@ -8,7 +8,6 @@
 #include <type_traits>
 #include <utility>
 
-#include "irr/static_if.h"
 #include "irr/type_traits.h"
 #include "irr/core/math/floatutil.h"
 
@@ -64,6 +63,13 @@ IRR_FORCE_INLINE float reciprocal_approxim<float>(const float& x);
 template<>
 IRR_FORCE_INLINE vectorSIMDf reciprocal_approxim<vectorSIMDf>(const vectorSIMDf& x);
 
+template<typename T>
+IRR_FORCE_INLINE T exp2(const T& x);
+template<>
+IRR_FORCE_INLINE float exp2<float>(const float& x);
+template<>
+IRR_FORCE_INLINE double exp2<double>(const double& x);
+
 //! TODO : find some intrinsics
 template<typename T>
 IRR_FORCE_INLINE T fma(const T& a, const T& b, const T& c)
@@ -78,50 +84,50 @@ template<typename T, typename U>
 IRR_FORCE_INLINE T mix(const T & a, const T & b, const U & t)
 {
 	T retval;
-	IRR_PSEUDO_IF_CONSTEXPR_BEGIN(irr::is_any_of<U,vectorSIMDBool<2>,vectorSIMDBool<4>,vectorSIMDBool<8>,vectorSIMDBool<16> >::value)
+	if constexpr(irr::is_any_of<U,vectorSIMDBool<2>,vectorSIMDBool<4>,vectorSIMDBool<8>,vectorSIMDBool<16> >::value)
 	{
-		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<T,vectorSIMDf>::value)
+		if constexpr(std::is_same<T,vectorSIMDf>::value)
 		{
 			retval = _mm_castsi128_ps(_mm_or_si128(_mm_castps_si128((a&(~t)).getAsRegister()),_mm_castps_si128((b&t).getAsRegister())));
 		}
-		IRR_PSEUDO_ELSE_CONSTEXPR
+		else
 		{
 			retval = (a&(~t))|(b&t);
 		}
-		IRR_PSEUDO_IF_CONSTEXPR_END
+		
 	}
-	IRR_PSEUDO_ELSE_CONSTEXPR
+	else
 	{
-		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(std::is_same<U,bool>::value)
+		if constexpr(std::is_same<U,bool>::value)
 		{
 			retval = t ? b:a;
 		}
-		IRR_PSEUDO_ELSE_CONSTEXPR
+		else
 		{
-			IRR_PSEUDO_IF_CONSTEXPR_BEGIN(irr::is_any_of<T,matrix4SIMD,matrix3x4SIMD>::value)
+			if constexpr(irr::is_any_of<T,matrix4SIMD,matrix3x4SIMD>::value)
 			{
 				for (uint32_t i=0u; i<T::VectorCount; i++)
 				{
-					IRR_PSEUDO_IF_CONSTEXPR_BEGIN(irr::is_any_of<U, matrix4SIMD, matrix3x4SIMD>::value)
+					if constexpr(irr::is_any_of<U, matrix4SIMD, matrix3x4SIMD>::value)
 					{
 						retval[i] = core::mix<vectorSIMDf, vectorSIMDf>(a.rows[i], b.rows[i], t.rows[i]);
 					}
-					IRR_PSEUDO_ELSE_CONSTEXPR
+					else
 					{
 						retval[i] = core::mix<vectorSIMDf, U>(a.rows[i], b.rows[i], t);
 					}
-					IRR_PSEUDO_IF_CONSTEXPR_END
+					
 				}
 			}
-			IRR_PSEUDO_ELSE_CONSTEXPR
+			else
 			{
 				retval = core::fma<T>(b-a,t,a);
 			}
-			IRR_PSEUDO_IF_CONSTEXPR_END
+			
 		}
-		IRR_PSEUDO_IF_CONSTEXPR_END
+		
 	}
-	IRR_PSEUDO_IF_CONSTEXPR_END
+	
 	return retval;
 }
 
@@ -386,6 +392,44 @@ IRR_FORCE_INLINE uint32_t bitCount(int64_t x) {return core::bitCount(static_cast
 
 // Extras
 
+template <typename T>
+IRR_FORCE_INLINE constexpr std::enable_if_t<std::is_integral_v<T> && !std::is_signed_v<T>, T> bitfieldExtract(T value, int32_t offset, int32_t bits)
+{
+	constexpr T one = static_cast<T>(1);
+
+	T retval = value;
+	retval >>= offset;
+	return retval & ((one<<bits) - one);
+}
+template <typename T>
+IRR_FORCE_INLINE constexpr std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>, T> bitfieldExtract(T value, int32_t offset, int32_t bits)
+{
+	constexpr T one = static_cast<T>(1);
+	constexpr T all_set = static_cast<T>(~0ull);
+
+	T retval = value;
+	retval >>= offset;
+	retval &= ((one<<bits) - one);
+	if (retval & (one << (bits-1)))//sign extension
+		retval |= (all_set << bits);
+
+	return retval;
+}
+
+template <typename T>
+IRR_FORCE_INLINE constexpr T bitfieldInsert(T base, T insert, int32_t offset, int32_t bits)
+{
+	constexpr T one = static_cast<T>(1);
+	const T mask = (one << bits) - one;
+	const T shifted_mask = mask << offset;
+
+	insert &= mask;
+	base &= (~shifted_mask);
+	base |= (insert << offset);
+
+	return base;
+}
+
 //! returns if a equals b, taking possible rounding errors into account
 template<typename T>
 IRR_FORCE_INLINE bool equals(const T& a, const T& b, const T& tolerance);
@@ -441,15 +485,35 @@ IRR_FORCE_INLINE T sinc(const T& x)
 					abs<T>(x)<T(0.0001)
 				);
 }
+template<typename T>
+IRR_FORCE_INLINE T d_sinc(const T& x)
+{
+	// TODO: do a direct series/computation in the future
+	return mix<T>(	(cos<T>(x)-sin<T>(x)/x)/x,
+					x*(x*x*T(4.0/120.0)-T(2.0/6.0)),
+					abs<T>(x)<T(0.0001)
+				);
+}
 
 template<typename T>
 IRR_FORCE_INLINE T cyl_bessel_i(const T& v, const T& x);
+template<typename T>
+IRR_FORCE_INLINE T d_cyl_bessel_i(const T& v, const T& x);
 
 template<typename T>
 IRR_FORCE_INLINE T KaiserWindow(const T& x, const T& alpha, const T& width)
 {
 	auto p = x/width;
 	return cyl_bessel_i<T>(T(0.0),sqrt<T>(T(1.0)-p*p)*alpha)/cyl_bessel_i<T>(T(0.0),alpha);
+}
+template<typename T>
+IRR_FORCE_INLINE T d_KaiserWindow(const T& x, const T& alpha, const T& width)
+{
+	auto p = x/width;
+	T s = sqrt<T>(T(1.0)-p*p);
+	T u = s*alpha;
+	T du = -p*alpha/(width*s);
+	return du*d_cyl_bessel_i<T>(T(0.0),u)/cyl_bessel_i<T>(T(0.0),alpha);
 }
 
 

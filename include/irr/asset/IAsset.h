@@ -118,20 +118,34 @@ class IAsset : virtual public core::IReferenceCounted
 
 			It will perform assert if the attempt fails.
 		*/
+		template<typename T>
+		using asset_cv_t = typename std::conditional<std::is_const<T>::value,const IAsset,IAsset>::type;
 		template<typename assetType>
-		static const assetType* castDown(const IAsset* rootAsset)
+		static assetType* castDown(asset_cv_t<assetType>* rootAsset)
 		{
-			const assetType* image =
-				#ifdef _IRR_DEBUG
-					static_cast<const assetType*>(rootAsset);
-				#else
-					dynamic_cast<const assetType*>(rootAsset);
-				#endif
-
+			if (!rootAsset)
+				return nullptr;
+			assetType* image = rootAsset->getAssetType()!=assetType::AssetType ? nullptr:static_cast<assetType*>(rootAsset);
+			#ifdef _IRR_DEBUG
 				assert(image);
+			#endif
 			return image;
 		}
+		//! Smart pointer variant
+		template<typename assetType>
+		static inline core::smart_refctd_ptr<assetType> castDown(const core::smart_refctd_ptr<asset_cv_t<assetType> >& rootAsset)
+		{
+			return core::smart_refctd_ptr<assetType>(castDown<assetType>(rootAsset.get()));
+		}
+		template<typename assetType>
+		static inline core::smart_refctd_ptr<assetType> castDown(core::smart_refctd_ptr<asset_cv_t<assetType> >&& rootAsset)
+		{
+			if (!castDown<assetType>(rootAsset.get()))
+				return nullptr;
+			return core::smart_refctd_ptr_static_cast<assetType>(std::move(rootAsset));
+		}
 
+		//!
 		IAsset() : m_metadata{nullptr}, isDummyObjectForCacheAliasing{false} {}
 
 		//! Returns correct size reserved associated with an Asset and its data
@@ -253,9 +267,14 @@ class SAssetBundle
 		inline IAsset::E_TYPE getAssetType() const { return m_contents->front()->getAssetType(); }
 
 		//! Getting beginning and end of an Asset stored by m_contents
-		inline std::pair<const core::smart_refctd_ptr<IAsset>*, const core::smart_refctd_ptr<IAsset>*> getContents() const
+		inline core::SRange<const core::smart_refctd_ptr<IAsset>> getContents() const
 		{
-			return {m_contents->begin(), m_contents->end()};
+			return core::SRange<const core::smart_refctd_ptr<IAsset>>(m_contents->begin(),m_contents->end());
+		}
+
+		inline core::SRange<core::smart_refctd_ptr<IAsset>> getContents()
+		{
+			return core::SRange<core::smart_refctd_ptr<IAsset>>(m_contents->begin(),m_contents->end());
 		}
 
 		//! Whether this asset bundle is in a cache and should be removed from cache to destroy

@@ -9,7 +9,9 @@
 #include <float.h>
 #include <stdint.h>
 #include <cmath>
+#include <algorithm>
 
+#include "BuildConfigOptions.h"
 #include "irr/macros.h"
 
 
@@ -141,15 +143,53 @@ union FloatIntUnion32
 	float f;
 };
 
-//! code is taken from IceFPU
 //! Integer representation of a floating-point value and the reverse.
 #ifdef __IRR_FAST_MATH
-#define IR(x)                           ((uint32_t&)(x))
-#define FR(x)                           ((float&)(x))
+IRR_FORCE_INLINE uint32_t& IR(float& x)
+{
+	return reinterpret_cast<uint32_t&>(x);
+}
+IRR_FORCE_INLINE const uint32_t& IR(const float& x)
+{
+	return reinterpret_cast<const uint32_t&>(x);
+}
+IRR_FORCE_INLINE float& FR(uint32_t& x)
+{
+	return reinterpret_cast<float&>(x);
+}
+IRR_FORCE_INLINE const float& FR(const uint32_t& x)
+{
+	return reinterpret_cast<const float&>(x);
+}
+IRR_FORCE_INLINE float& FR(int32_t& x)
+{
+	return reinterpret_cast<float&>(x);
+}
+IRR_FORCE_INLINE const float& FR(const int32_t& x)
+{
+	return reinterpret_cast<const float&>(x);
+}
 #else
-IRR_FORCE_INLINE uint32_t IR(float x) { inttofloat tmp; tmp.f = x; return tmp.u; }
-IRR_FORCE_INLINE float FR(uint32_t x) { inttofloat tmp; tmp.u = x; return tmp.f; }
-IRR_FORCE_INLINE float FR(int32_t x) { inttofloat tmp; tmp.s = x; return tmp.f; }
+// C++ full standard compat use memcpy
+static_assert(sizeof(float)==sizeof(uint32_t));
+IRR_FORCE_INLINE uint32_t IR(float x)
+{
+	uint32_t retval;
+	memcpy(&retval,&x,sizeof(float));
+	return retval;
+}
+IRR_FORCE_INLINE float FR(uint32_t x)
+{
+	float retval;
+	memcpy(&retval, &x, sizeof(float));
+	return retval;
+}
+IRR_FORCE_INLINE float FR(int32_t x)
+{
+	float retval;
+	memcpy(&retval, &x, sizeof(float));
+	return retval;
+}
 #endif
 
 //! We compare the difference in ULP's (spacing between floating-point numbers, aka ULP=1 means there exists no float between).
@@ -386,6 +426,123 @@ class Float16Compressor
 			return v.f;
 		}
 };
+
+inline uint64_t rgb32f_to_rgb19e7(const float _rgb[3])
+{
+	union rgb19e7 {
+		uint64_t u64;
+		struct field {
+			uint64_t r : 19;
+			uint64_t g : 19;
+			uint64_t b : 19;
+			uint64_t e : 7;
+		} field;
+	};
+
+	constexpr uint32_t RGB19E7_EXP_BITS = 7u;
+	constexpr uint32_t RGB19E7_MANTISSA_BITS = 19u;
+	constexpr uint32_t RGB19E7_EXP_BIAS = 63u;
+	constexpr uint32_t RGB19E7_MAX_VALID_BIASED_EXP = 127u;
+	constexpr uint32_t MAX_RGB19E7_EXP = RGB19E7_MAX_VALID_BIASED_EXP - RGB19E7_EXP_BIAS;
+	constexpr uint32_t RGB19E7_MANTISSA_VALUES = 1u<<RGB19E7_MANTISSA_BITS;
+	constexpr uint32_t MAX_RGB19E7_MANTISSA = RGB19E7_MANTISSA_VALUES-1u;
+	constexpr float MAX_RGB19E7 = static_cast<float>(MAX_RGB19E7_MANTISSA)/RGB19E7_MANTISSA_VALUES * (1LL<<(MAX_RGB19E7_EXP-32)) * (1LL<<32);
+	constexpr float EPSILON_RGB19E7 = (1.f/RGB19E7_MANTISSA_VALUES) / (1LL<<(RGB19E7_EXP_BIAS-32)) / (1LL<<32);
+
+	auto clamp_rgb19e7 = [=](float x) -> float {
+		return std::max(0.f, std::min(x, MAX_RGB19E7));
+	};
+
+	const float r = clamp_rgb19e7(_rgb[0]);
+	const float g = clamp_rgb19e7(_rgb[1]);
+	const float b = clamp_rgb19e7(_rgb[2]);
+
+	auto f32_exp = [](float x) -> int32_t { return ((reinterpret_cast<int32_t&>(x)>>23) & 0xff) - 127; };
+
+	const float maxrgb = std::max({r,g,b});
+	int32_t exp_shared = std::max(-static_cast<int32_t>(RGB19E7_EXP_BIAS)-1, f32_exp(maxrgb)) + 1 + RGB19E7_EXP_BIAS;
+	assert(exp_shared <= RGB19E7_MAX_VALID_BIASED_EXP);
+	assert(exp_shared >= 0);
+
+	double denom = std::pow(2.0, static_cast<int32_t>(exp_shared-RGB19E7_EXP_BIAS-RGB19E7_MANTISSA_BITS));
+
+	const int32_t maxm = maxrgb/denom + 0.5;
+	if (maxm == MAX_RGB19E7_MANTISSA+1)
+	{
+		denom *= 2.0;
+		++exp_shared;
+		assert(exp_shared <= RGB19E7_MAX_VALID_BIASED_EXP);
+	}
+	else
+	{
+		assert(maxm <= MAX_RGB19E7_MANTISSA);
+	}
+
+	int32_t rm = r/denom + 0.5;
+	int32_t gm = g/denom + 0.5;
+	int32_t bm = b/denom + 0.5;
+
+	assert(rm <= MAX_RGB19E7_MANTISSA);
+	assert(gm <= MAX_RGB19E7_MANTISSA);
+	assert(bm <= MAX_RGB19E7_MANTISSA);
+	assert(rm >= 0);
+	assert(gm >= 0);
+	assert(bm >= 0);
+
+	rgb19e7 retval;
+	retval.field.r = rm;
+	retval.field.g = gm;
+	retval.field.b = bm;
+	retval.field.e = exp_shared;
+
+	return retval.u64;
+}
+inline uint64_t rgb32f_to_rgb19e7(const uint32_t _rgb[3])
+{
+	return rgb32f_to_rgb19e7(reinterpret_cast<const float*>(_rgb));
+}
+inline uint64_t rgb32f_to_rgb19e7(float r, float g, float b)
+{
+	const float rgb[3]{ r,g,b };
+
+	return rgb32f_to_rgb19e7(rgb);
+}
+struct rgb32f {
+	float x, y, z;
+};
+inline rgb32f rgb19e7_to_rgb32f(uint64_t _rgb19e7)
+{
+	constexpr uint32_t RGB19E7_EXP_BITS = 7u;
+	constexpr uint32_t RGB19E7_MANTISSA_BITS = 19u;
+	constexpr uint32_t RGB19E7_EXP_BIAS = 63u;
+	constexpr uint32_t RGB19E7_MAX_VALID_BIASED_EXP = 127u;
+	constexpr uint32_t MAX_RGB19E7_EXP = RGB19E7_MAX_VALID_BIASED_EXP - RGB19E7_EXP_BIAS;
+	constexpr uint32_t RGB19E7_MANTISSA_VALUES = 1u<<RGB19E7_MANTISSA_BITS;
+	constexpr uint32_t MAX_RGB19E7_MANTISSA = RGB19E7_MANTISSA_VALUES-1u;
+	constexpr float MAX_RGB19E7 = static_cast<float>(MAX_RGB19E7_MANTISSA)/RGB19E7_MANTISSA_VALUES * (1LL<<(MAX_RGB19E7_EXP-32)) * (1LL<<32);
+	constexpr float EPSILON_RGB19E7 = (1.f/RGB19E7_MANTISSA_VALUES) / (1LL<<(RGB19E7_EXP_BIAS-32)) / (1LL<<32);
+
+	union rgb19e7 {
+		uint64_t u64;
+		struct field {
+			uint64_t r : 19;
+			uint64_t g : 19;
+			uint64_t b : 19;
+			uint64_t e : 7;
+		} field;
+	};
+	rgb19e7 u;
+	u.u64 = _rgb19e7;
+	int32_t exp = u.field.e - RGB19E7_EXP_BIAS - RGB19E7_MANTISSA_BITS;
+	float scale = static_cast<float>(std::exp2(exp));
+
+	rgb32f r;
+	r.x = u.field.r * scale;
+	r.y = u.field.g * scale;
+	r.z = u.field.b * scale;
+
+	return r;
+}
 
 IRR_FORCE_INLINE float nextafter32(float x, float y)
 {

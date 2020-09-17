@@ -26,21 +26,25 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 		{
 		}
 
+		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = IAsset::ET_SPECIALIZED_SHADER;
+		IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
-		IAsset::E_TYPE getAssetType() const override { return IAsset::ET_SPECIALIZED_SHADER; }
 		size_t conservativeSizeEstimate() const override
 		{
-			size_t estimate = m_specInfo.entryPoint.size()+sizeof(uint16_t)+2u*sizeof(void*);
-			if (m_specInfo.m_entries)
-				estimate += sizeof(SInfo::SMapEntry)*m_specInfo.m_entries->size();
+			size_t estimate = m_specInfo.entryPoint.size()+sizeof(uint32_t);
+			if (m_specInfo.getEntries())
+				estimate += sizeof(void*)+sizeof(SInfo::SMapEntry)*m_specInfo.getEntries()->size();
+			estimate += m_specInfo.m_filePathHint.size();
 			return estimate;
 		}
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
             auto info = m_specInfo;
-            if (_depth > 0u && info.m_backingBuffer)
-                info.m_backingBuffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(info.m_backingBuffer->clone(_depth-1u));
+			if (_depth > 0u && info.getEntries() && info.getBackingBuffer())
+			{
+				info.setEntries(core::smart_refctd_dynamic_array<SInfo::SMapEntry>(info.getEntries()),core::smart_refctd_ptr_static_cast<ICPUBuffer>(info.getBackingBuffer()->clone(_depth-1u)));
+			}
             auto unspec = m_unspecialized;
 
             auto cp = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
@@ -58,13 +62,14 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
                 return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
-			m_specInfo.m_entries = {};
 			if (referenceLevelsBelowToConvert)
 			{
-				if (m_specInfo.m_backingBuffer)
-					m_specInfo.m_backingBuffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
+				//NEVER DO THIS: OpenGL backend needs this data
+				//if (m_specInfo.getBackingBuffer())
+					//m_specInfo.getBackingBuffer()->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 				m_unspecialized->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 			}
+			m_specInfo.setEntries(nullptr,core::smart_refctd_ptr<ICPUBuffer>(m_specInfo.getBackingBuffer()));
 		}
 
 		inline E_SHADER_STAGE getStage() const { return m_specInfo.shaderStage; }

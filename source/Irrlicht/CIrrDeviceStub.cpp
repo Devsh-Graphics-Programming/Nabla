@@ -11,13 +11,15 @@
 #include "CLogger.h"
 #include "irr/asset/CIncludeHandler.h"
 
+#include "CFileSystem.h"
+
 namespace irr
 {
 //! constructor
 CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
 : IrrlichtDevice(), VideoDriver(0), SceneManager(0),
 	Timer(0), CursorControl(0), UserReceiver(params.EventReceiver),
-	Logger(0), Operator(0), FileSystem(0),
+	Logger(0), Operator(0),
 	InputReceivingSceneManager(0),
 	CreationParams(params), Close(false)
 {
@@ -37,7 +39,7 @@ CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
 
 	os::Printer::Logger = Logger;
 
-	FileSystem = io::createFileSystem();
+	FileSystem = core::make_smart_refctd_ptr<io::CFileSystem>(std::string(CreationParams.builtinResourceDirectoryPath));
 
 	core::stringc s = "Irrlicht Engine version ";
 	s.append(getVersion());
@@ -49,8 +51,6 @@ CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
 
 CIrrDeviceStub::~CIrrDeviceStub()
 {
-	FileSystem->drop();
-
 	if (Operator)
 		Operator->drop();
 
@@ -65,7 +65,7 @@ CIrrDeviceStub::~CIrrDeviceStub()
 void CIrrDeviceStub::createGUIAndScene()
 {
 	// create Scene manager
-	SceneManager = new scene::CSceneManager(this, VideoDriver, Timer, FileSystem, CursorControl);
+	SceneManager = new scene::CSceneManager(this, VideoDriver, Timer, FileSystem.get(), CursorControl);
 
 	setEventReceiver(UserReceiver);
 }
@@ -76,15 +76,6 @@ video::IVideoDriver* CIrrDeviceStub::getVideoDriver()
 {
 	return VideoDriver;
 }
-
-
-
-//! return file system
-io::IFileSystem* CIrrDeviceStub::getFileSystem()
-{
-	return FileSystem;
-}
-
 
 
 

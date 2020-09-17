@@ -83,7 +83,7 @@ IRR_FORCE_INLINE float reciprocal_approxim<float>(const float& x)
     _mm_store_ss(&result,_mm_rcp_ps(_mm_load_ss(&x)));
     return result;
 #else // no fast math
-	return reciprocal<T>(x);
+	return reciprocal<float>(x);
 #endif
 }
 template<typename T>
@@ -92,6 +92,16 @@ IRR_FORCE_INLINE T reciprocal_approxim(const T& x)
     return reciprocal<T>(x);
 }
 
+template<>
+IRR_FORCE_INLINE float exp2<float>(const float& x)
+{
+	return std::exp2f(x);
+}
+template<>
+IRR_FORCE_INLINE double exp2<double>(const double& x)
+{
+	return std::exp2(x);
+}
 
 
 
@@ -470,6 +480,17 @@ template<typename T>
 IRR_FORCE_INLINE T cyl_bessel_i(const T& v, const T& x)
 {
 	return std::cyl_bessel_i(double(v),double(x));
+}
+
+template<>
+IRR_FORCE_INLINE vectorSIMDf d_cyl_bessel_i<vectorSIMDf>(const vectorSIMDf& v, const vectorSIMDf& x)
+{
+	return vectorSIMDf(d_cyl_bessel_i<float>(v[0],x[0]),d_cyl_bessel_i<float>(v[1],x[1]),d_cyl_bessel_i<float>(v[2],x[2]),d_cyl_bessel_i<float>(v[3],x[3]));
+}
+template<typename T>
+IRR_FORCE_INLINE T d_cyl_bessel_i(const T& v, const T& x)
+{
+	return 0.5*(std::cyl_bessel_i(double(v)-1.0,double(x))+std::cyl_bessel_i(double(v)+1.0,double(x)));
 }
 
 

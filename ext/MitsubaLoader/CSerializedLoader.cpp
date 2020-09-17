@@ -5,6 +5,7 @@
 #include "os.h"
 
 #include "../../ext/MitsubaLoader/CSerializedLoader.h"
+#include "CMitsubaSerializedPipelineMetadata.h"
 
 #ifndef _IRR_COMPILE_WITH_ZLIB_
 #error "Need zlib for this loader"
@@ -13,6 +14,7 @@
 
 namespace irr
 {
+	using namespace asset;
 namespace ext
 {
 namespace MitsubaLoader
@@ -30,7 +32,7 @@ static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAsse
 		return nullptr;
 	auto assets = bundle.getContents();
 
-	return core::smart_refctd_ptr_static_cast<AssetType>(assets.first[0]);
+	return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
 }
 
 enum MESH_FLAGS
@@ -242,9 +244,9 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 		{
 			constexpr std::array<std::pair<uint8_t, std::string_view>, 3> avaiableOptionsForShaders
 			{
-				std::make_pair(COLOR_ATTRIBUTE, "irr/builtin/materials/debug/vertex_color_debug_shader/specializedshader"),
-				std::make_pair(UV_ATTRIBUTE, "irr/builtin/materials/debug/uv_debug_shader/specializedshader"),
-				std::make_pair(NORMAL_ATTRIBUTE, "irr/builtin/materials/debug/normal_debug_shader/specializedshader")
+				std::make_pair(COLOR_ATTRIBUTE, "irr/builtin/materials/debug/vertex_color/specializedshader"),
+				std::make_pair(UV_ATTRIBUTE, "irr/builtin/materials/debug/vertex_uv/specializedshader"),
+				std::make_pair(NORMAL_ATTRIBUTE, "irr/builtin/materials/debug/vertex_normal/specializedshader")
 			};
 
 			for (auto& it : avaiableOptionsForShaders)
@@ -257,25 +259,16 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 			return avaiableOptionsForShaders[0].second.data(); // if only positions are present, shaders with debug vertex colors are assumed
 		};
 		
-		auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
-		auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
+		core::smart_refctd_ptr<ICPUSpecializedShader> mbVertexShader;
+		core::smart_refctd_ptr<ICPUSpecializedShader> mbFragmentShader;
 		{
 			const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
-			auto bundle = manager->findAssets(chooseShaderPath(), types);
+			const std::string basepath = chooseShaderPath();
 
-			auto refCountedBundle =
-			{
-				core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().first[0]),
-				core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>((bundle->begin() + 1)->getContents().first[0])
-			};
-
-			for (auto& shader : refCountedBundle)
-			{
-				if (shader->getStage() == ISpecializedShader::ESS_VERTEX)
-					mbVertexShader = std::move(shader);
-				else if (shader->getStage() == ISpecializedShader::ESS_FRAGMENT)
-					mbFragmentShader = std::move(shader);
-			}
+			auto bundle = manager->findAssets(basepath+".vert", types);
+			mbVertexShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().begin()[0]);
+			bundle = manager->findAssets(basepath+".frag", types);
+			mbFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().begin()[0]);
 		}
 		auto mbPipelineLayout = getDefaultAsset<ICPUPipelineLayout, asset::IAsset::ET_PIPELINE_LAYOUT>("irr/builtin/materials/lambertian/no_texture/pipelinelayout", manager);
 

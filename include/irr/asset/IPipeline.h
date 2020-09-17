@@ -11,6 +11,30 @@ namespace irr
 namespace asset
 {
 
+struct DrawArraysIndirectCommand_t
+{
+	uint32_t  count;
+	uint32_t  instanceCount;
+	uint32_t  first;
+	uint32_t  baseInstance;
+};
+
+struct DrawElementsIndirectCommand_t
+{
+	uint32_t count;
+	uint32_t instanceCount;
+	uint32_t firstIndex;
+	uint32_t baseVertex;
+	uint32_t baseInstance;
+};
+
+struct DispatchIndirectCommand_t
+{
+	uint32_t  num_groups_x;
+	uint32_t  num_groups_y;
+	uint32_t  num_groups_z;
+};
+
 //! Interface class for for concreting graphics and compute pipelines
 /*
 	The pipeline object gathers all the information about the resources

@@ -63,7 +63,8 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
             return cp;
         }
 
-		E_TYPE getAssetType() const override { return ET_RENDERPASS_INDEPENDENT_PIPELINE; }
+		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_RENDERPASS_INDEPENDENT_PIPELINE;
+		inline E_TYPE getAssetType() const override { return AssetType; }
 
 		inline ICPUPipelineLayout* getLayout() { return m_layout.get(); }
 		const inline ICPUPipelineLayout* getLayout() const { return m_layout.get(); }

@@ -11,6 +11,9 @@
 #include "irr/asset/format/convertColor.h"
 #include "irr/asset/ICPUImage.h"
 
+#include "irr/asset/IImageAssetHandlerBase.h"
+#include "irr/asset/filters/CConvertFormatImageFilter.h"
+
 namespace irr
 {
 namespace asset
@@ -168,18 +171,7 @@ core::smart_refctd_ptr<ICPUImage> createAndconvertImageData(ICPUImage::SCreation
 		
 		bool OpenGlFlip = flip;
 		if (OpenGlFlip)
-		{
-			auto format = inputCreationImage->getCreationParameters().format;
-			asset::TexelBlockInfo blockInfo(format);
-			core::vector3du32_SIMD trueExtent = blockInfo.convertTexelsToBlocks(inputCreationImage->getRegions().begin()->getTexelStrides());
-
-			auto entry = reinterpret_cast<uint8_t*>(inputCreationImage->getBuffer()->getPointer());
-			auto end = entry + inputCreationImage->getBuffer()->getSize();
-			auto stride = trueExtent.X * getTexelOrBlockBytesize(format);
-
-			for (uint32_t y = 0, yRising = 0; y < trueExtent.Y; y += 2, ++yRising)
-				std::swap_ranges(entry + (yRising * stride), entry + ((yRising + 1) * stride), end - ((yRising + 1) * stride));
-		}
+			asset::IImageAssetHandlerBase::performImageFlip(inputCreationImage);
 	}
 
 	if (srcFormat == destFormat)

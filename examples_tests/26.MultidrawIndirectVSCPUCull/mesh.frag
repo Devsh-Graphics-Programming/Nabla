@@ -1,7 +1,7 @@
 #version 430 core
 
-in vec4 Color; //per vertex output color, will be interpolated across the triangle
-flat in vec3 Normal;
+layout(location = 0) in vec4 Color; //per vertex output color, will be interpolated across the triangle
+layout(location = 1) flat in vec3 Normal;
 
 layout(location = 0) out vec4 pixelColor;
 

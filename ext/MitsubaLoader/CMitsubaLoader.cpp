@@ -1,6 +1,7 @@
 #include "os.h"
 
 #include <cwchar>
+#include <irr/asset/filters/CSwizzleAndConvertImageFilter.h>
 
 #include "../../ext/MitsubaLoader/CMitsubaLoader.h"
 #include "../../ext/MitsubaLoader/ParserUtil.h"
@@ -14,466 +15,273 @@ namespace ext
 namespace MitsubaLoader
 {
 
-static uint64_t rgb32f_to_rgb19e7(const uint32_t _rgb[3])
-{
-	constexpr uint32_t mantissa_bitlen = 19u;
-	constexpr uint32_t exp_bitlen = 7u;
-	constexpr uint32_t exp_bias = 63u;
-
-	constexpr uint32_t mantissa_bitlen_f32 = 23u;
-	constexpr uint32_t exp_bitlen_f32 = 8u;
-	constexpr uint32_t exp_bias_f32 = 127u;
-
-	constexpr uint32_t mantissa_len_diff = mantissa_bitlen_f32 - mantissa_bitlen;
-	constexpr uint32_t exp_bias_diff = exp_bias_f32 - exp_bias;
-
-	uint64_t rgb19e7 = 0ull;
-	for (uint32_t i = 0u; i < 3u; ++i)
-	{
-		uint64_t mantissa = _rgb[i] & 0x7fffffu;
-		mantissa >>= mantissa_len_diff;
-		mantissa <<= (mantissa_bitlen * i);
-		rgb19e7 |= mantissa;
-	}
-	uint64_t exp = (_rgb[0] >> mantissa_bitlen_f32) & 0xffu;
-	exp -= exp_bias_diff;
-	rgb19e7 |= (exp << (3u * mantissa_bitlen));
-
-	return rgb19e7;
-}
-
-bsdf::SBSDFUnion CMitsubaLoader::bsdfNode2bsdfStruct(SContext& _ctx, const CElementBSDF* _node, uint32_t _texHierLvl, float _mix2blend_weight, const CElementBSDF* _maskParent)
-{
-	auto textureData = [&, this](CElementTexture* _tex) {
-		auto imgview = getTexture(_ctx, _texHierLvl, _tex).first;
-		auto& img = imgview->getCreationParameters().image;
-		return bsdf::getTextureData(img.get(), m_texPacker.get());
-	};
-	auto inheritOpacity = [_maskParent,&textureData](auto& _bsdfStruct) {
-		if (_maskParent)
-		{
-			if (_maskParent->mask.opacity.value.type == SPropertyElementData::SPECTRUM)
-				_bsdfStruct.opacity.constant_rgb19e7 = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_maskParent->mask.opacity.value.vvalue.pointer));
-			else if (_maskParent->mask.opacity.value.type == SPropertyElementData::INVALID)
-				_bsdfStruct.opacity.texData = textureData(_maskParent->mask.opacity.texture);
-		}
-	};
-	bsdf::SBSDFUnion retval;
-	switch (_node->type)
-	{
-	case CElementBSDF::Type::DIFFUSE:
-		_IRR_FALLTHROUGH;
-	case CElementBSDF::Type::ROUGHDIFFUSE:
-		if (_node->diffuse.reflectance.value.type==SPropertyElementData::SPECTRUM)
-			retval.diffuse.reflectance.constant_rgb19e7 = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->diffuse.reflectance.value.vvalue.pointer));
-		else if (_node->diffuse.reflectance.value.type==SPropertyElementData::INVALID)
-			retval.diffuse.reflectance.texData = textureData(_node->diffuse.reflectance.texture);
-
-		if (_node->diffuse.alpha.value.type==SPropertyElementData::FLOAT)
-			core::uintBitsToFloat(retval.diffuse.alpha.constant_f32) = _node->diffuse.alpha.value.fvalue;
-		else if (_node->diffuse.alpha.value.type==SPropertyElementData::INVALID)
-			retval.diffuse.alpha.texData = textureData(_node->diffuse.alpha.texture);
-
-		inheritOpacity(retval.diffuse);
-		break;
-	case CElementBSDF::Type::DIELECTRIC:
-		_IRR_FALLTHROUGH;
-	case CElementBSDF::Type::THINDIELECTRIC:
-		_IRR_FALLTHROUGH;
-	case CElementBSDF::Type::ROUGHDIELECTRIC:
-		if (_node->dielectric.alpha.value.type==SPropertyElementData::FLOAT)
-			core::uintBitsToFloat(retval.dielectric.alpha_u.constant_f32) = _node->dielectric.alpha.value.fvalue;
-		else if (_node->dielectric.alpha.value.type==SPropertyElementData::INVALID)
-			retval.dielectric.alpha_u.texData = textureData(_node->dielectric.alpha.texture);
-
-		if (_node->dielectric.distribution==CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-		{
-			if (_node->dielectric.alphaV.value.type==SPropertyElementData::FLOAT)
-				core::uintBitsToFloat(retval.dielectric.alpha_v.constant_f32) = _node->dielectric.alphaV.value.fvalue;
-			else if (_node->dielectric.alphaV.value.type==SPropertyElementData::INVALID)
-				retval.dielectric.alpha_v.texData = textureData(_node->dielectric.alphaV.texture);
-		}
-		
-		retval.dielectric.eta = _node->dielectric.intIOR/_node->dielectric.extIOR;
-
-		inheritOpacity(retval.dielectric);
-		break;
-	case CElementBSDF::Type::CONDUCTOR:
-		_IRR_FALLTHROUGH;
-	case CElementBSDF::Type::ROUGHCONDUCTOR:
-		if (_node->conductor.alpha.value.type==SPropertyElementData::FLOAT)
-			core::uintBitsToFloat(retval.conductor.alpha_u.constant_f32) = _node->conductor.alpha.value.fvalue;
-		else if (_node->conductor.alpha.value.type == SPropertyElementData::INVALID)
-			retval.conductor.alpha_u.texData = textureData(_node->conductor.alpha.texture);
-		if (_node->conductor.distribution==CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-		{
-			if (_node->conductor.alphaV.value.type==SPropertyElementData::FLOAT)
-				core::uintBitsToFloat(retval.conductor.alpha_v.constant_f32) = _node->conductor.alphaV.value.fvalue;
-			else if (_node->conductor.alphaV.value.type==SPropertyElementData::INVALID)
-				retval.conductor.alpha_v.texData = textureData(_node->conductor.alphaV.texture);
-		}
-		if (_node->conductor.eta.type==SPropertyElementData::SPECTRUM)
-			retval.conductor.eta[0] = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>((_node->conductor.eta.vvalue/_node->conductor.extEta).pointer));
-		if (_node->conductor.eta.type == SPropertyElementData::SPECTRUM)
-			retval.conductor.eta[1] = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>((_node->conductor.k.vvalue/_node->conductor.extEta).pointer));
-
-		inheritOpacity(retval.conductor);
-		break;
-	case CElementBSDF::Type::PLASTIC:
-		_IRR_FALLTHROUGH;
-	case CElementBSDF::Type::ROUGHPLASTIC:
-		if (_node->plastic.alpha.value.type==SPropertyElementData::FLOAT)
-			core::uintBitsToFloat(retval.plastic.alpha_u.constant_f32) = _node->plastic.alpha.value.fvalue;
-		else if (_node->plastic.alpha.value.type==SPropertyElementData::INVALID)
-			retval.plastic.alpha_u.texData = textureData(_node->plastic.alpha.texture);
-
-		if (_node->plastic.distribution==CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-		{
-			if (_node->plastic.alphaV.value.type==SPropertyElementData::FLOAT)
-				core::uintBitsToFloat(retval.plastic.alpha_v.constant_f32) = _node->plastic.alphaV.value.fvalue;
-			else if (_node->plastic.alphaV.value.type==SPropertyElementData::INVALID)
-				retval.plastic.alpha_v.texData = textureData(_node->plastic.alphaV.texture);
-		}
-		
-		retval.plastic.eta = _node->plastic.intIOR/_node->plastic.extIOR;
-
-		inheritOpacity(retval.plastic);
-		break;
-	case CElementBSDF::Type::COATING:
-		_IRR_FALLTHROUGH;
-	case CElementBSDF::Type::ROUGHCOATING:
-		if (_node->coating.alpha.value.type==SPropertyElementData::FLOAT)
-			core::uintBitsToFloat(retval.coating.alpha_u.constant_f32) = _node->coating.alpha.value.fvalue;
-		else if (_node->coating.alpha.value.type==SPropertyElementData::INVALID)
-			retval.coating.alpha_u.texData = textureData(_node->coating.alpha.texture);
-
-		if (_node->coating.distribution==CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-		{
-			if (_node->coating.alphaV.value.type==SPropertyElementData::FLOAT)
-				core::uintBitsToFloat(retval.coating.alpha_v.constant_f32) = _node->coating.alphaV.value.fvalue;
-			else if (_node->coating.alphaV.value.type==SPropertyElementData::INVALID)
-				retval.coating.alpha_v.texData = textureData(_node->coating.alphaV.texture);
-		}
-
-		retval.coating.thickness_eta = core::Float16Compressor::compress(_node->coating.thickness);
-		retval.coating.thickness_eta |= static_cast<uint32_t>(core::Float16Compressor::compress(_node->coating.intIOR/_node->coating.extIOR))<<16;
-
-		if (_node->coating.sigmaA.value.type==SPropertyElementData::SPECTRUM)
-			retval.coating.sigmaA.constant_rgb19e7 = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->coating.sigmaA.value.vvalue.pointer));
-		else if (_node->coating.sigmaA.value.type==SPropertyElementData::INVALID)
-			retval.coating.sigmaA.texData = textureData(_node->coating.sigmaA.texture);
-
-		inheritOpacity(retval.coating);
-		break;
-	case CElementBSDF::Type::BUMPMAP:
-		break;
-	case CElementBSDF::Type::PHONG:
-		_IRR_DEBUG_BREAK_IF(1);//we dont care about PHONG
-		break;
-	case CElementBSDF::Type::WARD:
-		if (_node->ward.alphaU.value.type==SPropertyElementData::FLOAT)
-			core::uintBitsToFloat(retval.ward.alpha_u.constant_f32) = _node->ward.alphaU.value.fvalue;
-		else if (_node->ward.alphaU.value.type==SPropertyElementData::INVALID)
-			retval.ward.alpha_u.texData = textureData(_node->ward.alphaU.texture);
-
-		if (_node->ward.alphaV.value.type==SPropertyElementData::FLOAT)
-			core::uintBitsToFloat(retval.ward.alpha_v.constant_f32) = _node->ward.alphaV.value.fvalue;
-		else if (_node->ward.alphaV.value.type==SPropertyElementData::INVALID)
-			retval.ward.alpha_u.texData = textureData(_node->ward.alphaV.texture);
-
-		inheritOpacity(retval.ward);
-		break;
-	case CElementBSDF::Type::MIXTURE_BSDF:
-	{
-		constexpr float vec3_one[3] {1.f,1.f,1.f};
-		const core::vectorSIMDf w(_mix2blend_weight);
-		retval.blend.weightL.constant_rgb19e7 = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(vec3_one));
-		retval.blend.weightR.constant_rgb19e7 = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(w.pointer));
-	}
-		break;
-	case CElementBSDF::Type::BLEND_BSDF:
-		if (_node->blendbsdf.weight.value.type==SPropertyElementData::FLOAT)
-		{
-			const core::vectorSIMDf weight_r = core::vectorSIMDf(_node->blendbsdf.weight.value.fvalue);
-			const core::vectorSIMDf weight_l = core::vectorSIMDf(1.f)-weight_r;
-			retval.blend.weightL.constant_rgb19e7 = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(weight_l.pointer));
-			retval.blend.weightR.constant_rgb19e7 = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(weight_r.pointer));
-		}
-		else if (_node->blendbsdf.weight.value.type==SPropertyElementData::INVALID)
-		{
-			retval.blend.weightL.texData = textureData(_node->blendbsdf.weight.texture);
-		}
-		break;
-	case CElementBSDF::Type::MASK: _IRR_FALLTHROUGH;
-	case CElementBSDF::Type::TWO_SIDED:
-		assert(0);//TWO_SIDED and MASK shouldnt get to this function (they are translated into bitfields in instruction)
-		break;
-	case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
-		if (_node->difftrans.transmittance.value.type==SPropertyElementData::SPECTRUM)
-			retval.diffuseTransmitter.transmittance.constant_rgb19e7 = rgb32f_to_rgb19e7(reinterpret_cast<const uint32_t*>(_node->difftrans.transmittance.value.vvalue.pointer));
-		else if (_node->difftrans.transmittance.value.type==SPropertyElementData::INVALID)
-			retval.diffuseTransmitter.transmittance.texData = textureData(_node->difftrans.transmittance.texture);
-
-		inheritOpacity(retval.diffuseTransmitter);
-		break;
-	}
-
-	return retval;
-}
-
-_IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER =
+_IRR_STATIC_INLINE_CONSTEXPR const char* DUMMY_VERTEX_SHADER =
 R"(#version 430 core
 
-layout (location = 0) in vec3 LocalPos;
-layout (location = 1) in vec3 ViewPos;
+layout (location = 0) in vec3 vPosition;
+layout (location = 2) in vec2 vUV;
+layout (location = 3) in vec3 vNormal;
+
+layout (location = 0) out vec3 WorldPos;
+layout (location = 1) flat out uint InstanceIndex;
+layout (location = 2) out vec3 Normal;
+layout (location = 3) out vec2 UV;
+
+#include <irr/builtin/glsl/utils/common.glsl>
+#include <irr/builtin/glsl/utils/transform.glsl>
+
+layout (push_constant) uniform Block {
+    uint instDataOffset;
+} PC;
+
+#ifndef _IRR_VERT_SET1_BINDINGS_DEFINED_
+#define _IRR_VERT_SET1_BINDINGS_DEFINED_
+layout (set = 1, binding = 0, row_major, std140) uniform UBO {
+    irr_glsl_SBasicViewParameters params;
+} CamData;
+#endif //_IRR_VERT_SET1_BINDINGS_DEFINED_
+
+struct InstanceData
+{
+	mat4x3 tform;
+	vec3 normalMatrixRow0;
+	uint bsdf_instrOffset;
+	vec3 normalMatrixRow1;
+	uint bsdf_instrCount;
+	vec3 normalMatrixRow2;
+	uint _padding;//not needed
+	uvec2 prefetch_instrStream;
+	uvec2 nprecomp_instrStream;
+	uvec2 genchoice_instrStream;
+	uvec2 emissive;
+};
+layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
+	InstanceData data[];
+} InstData;
+
+void main()
+{
+	uint instIx = PC.instDataOffset+gl_InstanceIndex;
+	mat4x3 tform = InstData.data[instIx].tform;
+	mat4 mvp = irr_glsl_pseudoMul4x4with4x3(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(CamData.params.MVP), tform);
+	gl_Position = irr_glsl_pseudoMul4x4with3x1(mvp, vPosition);
+	WorldPos = irr_glsl_pseudoMul3x4with3x1(tform, vPosition);
+	//InstrOffsetCount = uvec2(InstData.data[instIx].instrOffset,InstData.data[instIx].instrCount);
+	mat3 normalMat = mat3(InstData.data[instIx].normalMatrixRow0,InstData.data[instIx].normalMatrixRow1,InstData.data[instIx].normalMatrixRow2);
+	Normal = transpose(normalMat)*normalize(vNormal);
+	UV = vUV;
+	//Emissive = InstData.data[instIx].emissive;
+	InstanceIndex = instIx;
+}
+
+)";
+
+_IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_PROLOGUE =
+R"(#version 430 core
+)";
+_IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_DEFINITIONS =
+R"(
+layout (location = 0) in vec3 WorldPos;
+layout (location = 1) flat in uint InstanceIndex;
 layout (location = 2) in vec3 Normal;
 layout (location = 3) in vec2 UV;
-layout (location = 4) in vec3 Color;
 
 layout (location = 0) out vec4 OutColor;
 
-#define instr_t uvec2
-//maybe will change to vec3
-#define reg_t vec4
-struct bsdf_data_t
-{
-	uvec4 data[3];
-};
+#define _IRR_VT_DESCRIPTOR_SET 0
+#define _IRR_VT_PAGE_TABLE_BINDING 0
 
-struct texture_data_t
-{
-	//2x unorm16
-	uint pgTabUV;
-	//2x unorm16 originalTexSz/maxAllocatableTexSz ratio
-	uint size;
-};
-vec2 decodeRG16(in uint unorm16)
-{
-	vec2 uv = vec2( float(unorm16 & 0xffffu), float((unorm16>>16) & 0xffffu) );
-	return uv * 1.52290219e-5;
-}
-vec2 unpackVirtualUV(in texture_data_t texData)
-{
-	return decodeRG16(texData.pgTabUV);
-}
-vec2 unpackSize(in texture_data_t texData)
-{
-	return decodeRG16(texData.size);
-}
+#define _IRR_VT_FLOAT_VIEWS_BINDING 1 
+#define _IRR_VT_FLOAT_VIEWS_COUNT 5
+#define _IRR_VT_FLOAT_VIEWS
 
-layout (set = 0, binding = 0) usampler2D pgTabTex;
-layout (set = 0, binding = 1) sampler2DArray physPgTex;
-layout (set = 0, binding = 2, std430) buffer INSTR_BUF //TODO maybe UBO instead of SSBO for instr buf? (only sequential access in this case, not so random)
+#define _IRR_VT_INT_VIEWS_BINDING 2
+#define _IRR_VT_INT_VIEWS_COUNT 0
+#define _IRR_VT_INT_VIEWS
+
+#define _IRR_VT_UINT_VIEWS_BINDING 3
+#define _IRR_VT_UINT_VIEWS_COUNT 0
+#define _IRR_VT_UINT_VIEWS
+#include <irr/builtin/glsl/virtual_texturing/descriptors.glsl>
+
+layout (set = 0, binding = 2, std430) restrict readonly buffer PrecomputedStuffSSBO
+{
+    uint pgtab_sz_log2;
+    float vtex_sz_rcp;
+    float phys_pg_tex_sz_rcp[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
+    uint layer_to_sampler_ix[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
+} precomputed;
+
+layout (set = 0, binding = 3, std430) restrict readonly buffer INSTR_BUF
 {
 	instr_t data[];
 } instr_buf;
-layout (set = 0, binding = 3, std430) buffer BSDF_BUF
+layout (set = 0, binding = 4, std430) restrict readonly buffer BSDF_BUF
 {
 	bsdf_data_t data[];
 } bsdf_buf;
 
-//in case of OBJ mesh albedo might be textured OR constant (in this case put albedo into push constants)
-// (TODO) so OBJ meshes will need slightly different shader (doable with #ifdefs)
-layout (set = 3, binding = 1) uniform sampler2D albedoMap;
-
-layout (push_constant) uniform Block
+uint irr_glsl_VT_layer2pid(in uint layer)
 {
-	vec3 albedo;//for OBJ meshes
-	uint instrOffset;
-	uint instrCount;
-} PC;
-
-#define REG_COUNT 16
-#define NORMAL_REG_COUNT 4
-
-//i think ill have to create some c++ macro or something to create string with those
-//becasue it's too fucked up to remember about every change in c++ and have to update everything here
-#define INSTR_OPCODE_MASK			0x0fu
-#define INSTR_REG_MASK				0xffu
-#define INSTR_BSDF_BUF_OFFSET_SHIFT 13
-#define INSTR_BSDF_BUF_OFFSET_MASK	0x7ffffu
-#define INSTR_NDF_SHIFT 4
-#define INSTR_NDF_MASK 0x3u
-#define INSTR_NORMAL_REG_SHIFT		11
-#define INSTR_NORMAL_REG_MASK		0x03u
-
-//remember to keep it compliant with c++ enum!!
-#define OP_DIFFUSE			0u
-#define OP_ROUGHDIFFUSE		1u
-#define OP_DIFFTRANS		2u
-#define OP_DIELECTRIC		3u
-#define OP_ROUGHDIELECTRIC	4u
-#define OP_CONDUCTOR		5u
-#define OP_ROUGHCONDUCTOR	6u
-#define OP_PLASTIC			7u
-#define OP_ROUGHPLASTIC		8u
-#define OP_WARD				9u
-#define OP_INVALID			10u
-#define OP_COATING			11u
-#define OP_ROUGHCOATING		12u
-#define OP_BUMPMAP			13u
-#define OP_BLEND			14u
-
-#define NDF_BECKMANN	0u
-#define NDF_GGX			1u
-#define NDF_PHONG		2u
-#define NDF_AS			3u
-
-#include <irr/builtin/glsl/bsdf/common.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/diffuse/fresnel_correction.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/diffuse/lambert.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/diffuse/oren_nayar.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/ndf/ggx.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/ashikhmin_shirley.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/beckmann_smith.glsl>
-#include <irr/builtin/glsl/bsdf/brdf/specular/ggx.glsl>
-#include <irr/builtin/glsl/bump_mapping/height_mapping.glsl>
-
-//first NORMAL_REG_COUNT registers are for normals
-//register[0] always stores geometry normal (instructions not influenced by bumpmap in bsdf-tree specify normal register number as 0)
-//all the other normal registers are used by OP_BUMPMAP instrctions to store perturbed geometry normal
-//all register numbered >=NORMAL_REG_COUNT are general purpose and used by other instructions to store result
-reg_t registers[REG_COUNT+NORMAL_REG_COUNT];
-
-#define ADDR_LAYER_SHIFT 12
-#define ADDR_Y_SHIFT 6
-#define ADDR_X_MASK 0x3fu
-
-#define TEXTURE_TILE_PER_DIMENSION 64
-#define PAGE_SZ 128
-#define TILE_PADDING 9
-
-vec3 unpackPageID(in uint pageID)
+    return precomputed.layer_to_sampler_ix[layer];
+}
+uint irr_glsl_VT_getPgTabSzLog2()
 {
-	vec2 uv = vec2(float(pageID & ADDR_X_MASK), float((pageID>>ADDR_Y_SHIFT) & ADDR_X_MASK))*(PAGE_SZ+TILE_PADDING) + TILE_PADDING;
-	uv /= vec2(textureSize(physPgTex.xy,0));
-	return vec3(uv, float(pageID >> ADDR_LAYER_SHIFT));
+    return precomputed.pgtab_sz_log2;
+}
+float irr_glsl_VT_getPhysPgTexSzRcp(in uint layer)
+{
+    return precomputed.phys_pg_tex_sz_rcp[layer];
+}
+float irr_glsl_VT_getVTexSzRcp()
+{
+    return precomputed.vtex_sz_rcp;
+}
+#define _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
+
+#include <irr/builtin/glsl/virtual_texturing/functions.glsl/7/8>
+
+#include <irr/builtin/glsl/utils/common.glsl>
+
+layout (set = 1, binding = 0, row_major, std140) uniform UBO {
+    irr_glsl_SBasicViewParameters params;
+} CamData;
+
+struct InstanceData
+{
+	mat4x3 tform;
+	vec3 normalMatrixRow0;
+	uint bsdf_instrOffset;
+	vec3 normalMatrixRow1;
+	uint bsdf_instrCount;
+	vec3 normalMatrixRow2;
+	uint _padding;//not needed
+	uvec2 prefetch_instrStream;
+	uvec2 nprecomp_instrStream;
+	uvec2 genchoice_instrStream;
+	uvec2 emissive;
+};
+layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
+	InstanceData data[];
+} InstData;
+
+vec3 irr_glsl_MC_getCamPos()
+{
+	vec3 campos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
+	return campos;
+}
+instr_t irr_glsl_MC_fetchInstr(in uint ix)
+{
+	return instr_buf.data[ix];
+}
+bsdf_data_t irr_glsl_MC_fetchBSDFData(in uint ix)
+{
+	return bsdf_buf.data[ix];
+}
+#define _IRR_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
+)";
+_IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
+#include <irr/builtin/glsl/format/decode.glsl>
+
+instr_stream_t getEvalStream()
+{
+	instr_stream_t stream;
+	stream.offset = InstData.data[InstanceIndex].bsdf_instrOffset;
+	stream.count = InstData.data[InstanceIndex].bsdf_instrCount;
+
+	return stream;
+}
+//rem'n'pdf and eval use the same instruction stream
+instr_stream_t getRemAndPdfStream()
+{
+	return getEvalStream();
+}
+instr_stream_t getGenChoiceStream()
+{
+	instr_stream_t stream;
+	uvec2 s = InstData.data[InstanceIndex].genchoice_instrStream;
+	stream.offset = s.x;
+	stream.count =  s.y;
+
+	return stream;
+}
+instr_stream_t getTexPrefetchStream()
+{
+	uvec2 s = InstData.data[InstanceIndex].prefetch_instrStream;
+	instr_stream_t stream;
+	stream.offset = s.x;
+	stream.count = s.y;
+
+	return stream;
+}
+instr_stream_t getNormalPrecompStream()
+{
+	uvec2 s = InstData.data[InstanceIndex].nprecomp_instrStream;
+	instr_stream_t stream;
+	stream.offset = s.x;
+	stream.count = s.y;
+
+	return stream;
 }
 
-#define PGTAB_SZ 128
-#define MAX_LOD 7
-vec4 vTextureGrad_helper(in vec2 virtualUV, int LoD, in mat2 gradients)
+#ifndef _IRR_BSDF_COS_EVAL_DEFINED_
+#define _IRR_BSDF_COS_EVAL_DEFINED_
+// Spectrum can be exchanged to a float for monochrome
+#define Spectrum vec3
+//! This is the function that evaluates the BSDF for specific view and observer direction
+// params can be either BSDFIsotropicParams or BSDFAnisotropicParams
+Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
 {
-	int pgtabLoD = min(LoD,MAX_LOD); // assert(MAX_LOD<log2(PGTAB_SZ))
-	int tilesInLodLevel = PGTAB_SZ>>LoD;
-	ivec2 tileCoord = ivec2(virtualUV.xy*vec2(tilesInLodLevel));
-	uvec2 pageID = texelFetch(pgTabTex,tileCoord,pgtabLoD).rg;
-	vec3 physicalUV = unpackPageID(pgtabLoD<LoD ? pageID.y : pageID.x); // unpack to normalized coord offset + Layer in physical texture (just bit operations) and multiples
-	//TODO if (pgtabLoD<LoD) then we're going into mip-tail page! (extra offsets needed)
-	//TODO not sure about correctness of those 3 lines below, seems weird and i dont really understand
-	vec2 tileFractionalCoordinate = virtualUV.xy-vec2(tileCoord)/tilesInLodLevel;
-	tileFractionalCoordinate *= (PAGE_SZ/(PAGE_SZ+TILE_PADDING)); // take border into account
-	physicalUV.xy += tileFractionalCoordinate;
-	return textureGrad(physicalTileTexture,physicalUV,gradients);
-}
-
-
-//returns: x=dst, y=src1, z=src2
-uvec3 instr_decodeRegisters(in instr_t instr)
-{
-	uvec3 regs(instr.y, (instr.y>>8), (instr.y>>16));
-	return regs & uvec3(INSTR_REG_MASK); //this will do element-wise bit-wise AND, right?
-}
-#define REG_DST(r)	r.x
-#define REG_SRC1(r)	r.y
-#define REG_SRC2(r)	r.z
-
-void instr_execute_ROUGHDIELECTRIC(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params)
-{
-	uint bsdf_i = (instr.x>>INSTR_BSDF_BUF_OFFSET_SHIFT) & INSTR_BSDF_BUF_OFFSET_MASK;
-	uint ndf_i = (instr.x>>INSTR_NDF_SHIFT) & INSTR_NDF_MASK;
-	bsdf_data_t bsdf_data = bsdf_buf.data[bsdf_i];
-
-	float eta = uintBitsToFloat(bsdf_data.data[0].x);
-	mat2x3 eta2 = mat2x3(vec3(eta*eta),vec3(0.0));
-	vec2 a;
-	a.x = uintBitsToFloat(bsdf_data.data[0].y);
-
-	//TODO albedo (texture [this can go without VT] or vtx color attrib)
-	//TODO figure out what to put as alpha into oren_nayar in case of anisotropic surface, a.x is wrong for sure (oren-nayar handles anisotropic surfaces for sure, i just need to define alpha)
-	vec3 diff = irr_glsl_oren_nayar_cos_eval(params.isotropic, a.x) * (1.0-irr_glsl_fresnel_dielectric(eta,params.isotropic.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(eta,params.isotropic.NdotV));
-	diff *= irr_glsl_diffuseFresnelCorrectionFactor(vec3(eta), eta2[0]);
-	vec3 spec;
-	switch (ndf_i)
-	{
-	case NDF_BECKMANN:
-		spec = irr_glsl_beckmann_smith_height_correlated_cos_eval(params.isotropic, eta2, sqrt(a.x), a.x);
-		break;
-	case NDF_GGX:
-		spec = irr_glsl_ggx_height_correlated_cos_eval(params.isotropic, eta2, a.x);
-		break;
-	case NDF_PHONG:
-		spec = vec3(0.0);
-		break;
-	case NDF_AS:
-		a.y = uintBitsToFloat(bsdf_data.data[0].w);
-		//TODO: sin_cos_phi
-		//spec = irr_glsl_ashikhmin_shirley_cos_eval(params, vec2(1.0)/a, sin_cos_phi, a, eta2);
-		break;
-	}
-
-	registers[NORMAL_REG_COUNT+REG_DST(regs)].xyz = diff+spec;
-}
-void instr_execute_BUMPMAP(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params)
-{
-	//TODO dHdScreen, need for sample from bumpmap and dFdx,dFdy but cannot do it here, need some trick for it (like keep VT tex data of bumpmaps in push consts)
-	uint normal_reg = (instr.x >> INSTR_NORMAL_REG_SHIFT) & INSTR_NORMAL_REG_MASK;
-	registers[normal_reg].xyz = irr_glsl_perturbNormal_heightMap(params.isotropic.interaction.N, params.isotropic.interaction.V.dPosdScreen, dHdScreen);
-}
-void instr_execute(in instr_t instr, in uvec3 regs, in irr_glsl_BSDFAnisotropicParams params, in mat2 dUV)
-{
-	switch (instr.x & INSTR_REG_MASK)
-	{
+	instr_stream_t eval_instrStream = getEvalStream();
 	
-	case OP_ROUGHDIELECTRIC: 
-		instr_execute_ROUGHDIELECTRIC(instr, regs, params);
-		break;
-	//run func depending on opcode
-	//the func will decide whether to (and which ones) fetch registers from `regs` array
-	//and whether to fetch bsdf data from bsdf_buf (not all opcodes need it)
-	//also stores the result into dst reg
-	//....
-	}
+	return runEvalStream(eval_instrStream, params.L);
 }
+#endif
+
+#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_
+#define _IRR_COMPUTE_LIGHTING_DEFINED_
+vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
+{
+	vec3 emissive = irr_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
+
+	vec3 campos = irr_glsl_MC_getCamPos();
+	irr_glsl_BSDFIsotropicParams params;
+	params.L = campos-WorldPos;
+	out_interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, normalize(Normal));
+
+	return irr_bsdf_cos_eval(params, out_interaction, dUV)*1000.0/dot(params.L,params.L) + emissive;
+}
+#endif
 
 void main()
 {
-	registers[0].xyz = normalize(Normal);
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
-	//all lighting computations are done in view space
+	InstanceData instData = InstData.data[InstanceIndex];
+#ifdef TEX_PREFETCH_STREAM
+	runTexPrefetchStream(getTexPrefetchStream(), dUV);
+#endif
+#ifdef NORM_PRECOMP_STREAM
+	runNormalPrecompStream(getNormalPrecompStream(), dUV);
+#endif
 
-	//TODO 
-	//ignoring bump maps as for now, however i think we could keep array of irr_glsl_BSDFAnisotropicParams and call 
-	//irr_glsl_calcBSDFIsotropicParams() just once per bumpmap (everytime an OP_BUMPMAP instr is executed)
-	//although.. such array would statically consume A LOT of registers and we're already using quite much
-	irr_glsl_ViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(vec3(0.0), ViewPos, registers[0].xyz);
-	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(interaction, -ViewPos);
-	//TODO: T,B tangents
-	irr_glsl_BSDFAnisotropicParams params = irr_glsl_calcBSDFAnisotropicParams(isoparams, T, B);
+	irr_glsl_IsotropicViewSurfaceInteraction inter;
+	vec3 color = irr_computeLighting(inter, dUV);
 
-	//TODO will conform to irrbaw shader standards later (irr_bsdf_cos_eval, irr_computeLighting...)
-	for (uint i = 0u; i < PC.instrCount; ++i)
-	{
-		instr_t instr = instr_buf.data[PC.instrOffset+i];
-		uvec3 regs = instr_decodeRegisters(instr);
-
-		instr_execute(instr, regs, params);
-	}
-
-	OutColor = vec4(registers[NORMAL_REG_COUNT].xyz,1.0);//result is always in first general purpose reg
+	OutColor = vec4(color, 1.0);
 }
 )";
 
-
 _IRR_STATIC_INLINE_CONSTEXPR const char* PIPELINE_LAYOUT_CACHE_KEY = "irr/builtin/pipeline_layout/loaders/mitsuba_xml/default";
-_IRR_STATIC_INLINE_CONSTEXPR const char* PIPELINE_CACHE_KEY = "irr/builtin/graphics_pipeline/loaders/mitsuba_xml/default";
+_IRR_STATIC_INLINE_CONSTEXPR const char* VERTEX_SHADER_CACHE_KEY = "irr/builtin/specialized_shader/loaders/mitsuba_xml/default";
 
 _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_TAB_TEX_BINDING = 0u;
-_IRR_STATIC_INLINE_CONSTEXPR uint32_t PHYS_PAGE_TEX_BINDING = 1u;
-_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BUF_BINDING = 2u;
-_IRR_STATIC_INLINE_CONSTEXPR uint32_t BSDF_BUF_BINDING = 3u;
+_IRR_STATIC_INLINE_CONSTEXPR uint32_t PHYS_PAGE_VIEWS_BINDING = 1u;
+_IRR_STATIC_INLINE_CONSTEXPR uint32_t PRECOMPUTED_VT_DATA_BINDING = 2u;
+_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BUF_BINDING = 3u;
+_IRR_STATIC_INLINE_CONSTEXPR uint32_t BSDF_BUF_BINDING = 4u;
+_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTANCE_DATA_BINDING = 5u;
+_IRR_STATIC_INLINE_CONSTEXPR uint32_t DS0_BINDING_COUNT_WO_VT = 4u;
 
 template <typename AssetT>
 static void insertAssetIntoCache(core::smart_refctd_ptr<AssetT>& asset, const char* path, IAssetManager* _assetMgr)
@@ -493,9 +301,105 @@ static core::smart_refctd_ptr<AssetType> getBuiltinAsset(const char* _key, IAsse
 	if (bundle.isEmpty())
 		return nullptr;
 	auto assets = bundle.getContents();
-	//assert(assets.first != assets.second);
+	//assert(!assets.empty());
 
-	return core::smart_refctd_ptr_static_cast<AssetType>(assets.first[0]);
+	return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
+}
+
+static core::smart_refctd_ptr<asset::ICPUPipelineLayout> createAndCachePipelineLayout(asset::IAssetManager* _manager, asset::ICPUVirtualTexture* _vt)
+{
+	SPushConstantRange pcrng;
+	pcrng.offset = 0u;
+	pcrng.size = sizeof(uint32_t);//instance data offset
+	pcrng.stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
+
+	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout;
+	{
+		auto sizes = _vt->getDSlayoutBindings(nullptr, nullptr);
+		auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSetLayout::SBinding>>(sizes.first+DS0_BINDING_COUNT_WO_VT);
+		auto samplers = core::make_refctd_dynamic_array< core::smart_refctd_dynamic_array<core::smart_refctd_ptr<asset::ICPUSampler>>>(sizes.second);
+
+		_vt->getDSlayoutBindings(bindings->data(), samplers->data(), PAGE_TAB_TEX_BINDING, PHYS_PAGE_VIEWS_BINDING);
+		auto* b = bindings->data()+(bindings->size()-DS0_BINDING_COUNT_WO_VT);
+		b[0].binding = PRECOMPUTED_VT_DATA_BINDING;
+		b[0].count = 1u;
+		b[0].samplers = nullptr;
+		b[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		b[0].type = asset::EDT_STORAGE_BUFFER;
+
+		b[1].binding = INSTR_BUF_BINDING;
+		b[1].count = 1u;
+		b[1].samplers = nullptr;
+		b[1].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		b[1].type = asset::EDT_STORAGE_BUFFER;
+
+		b[2].binding = BSDF_BUF_BINDING;
+		b[2].count = 1u;
+		b[2].samplers = nullptr;
+		b[2].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		b[2].type = asset::EDT_STORAGE_BUFFER;
+
+		b[3].binding = INSTANCE_DATA_BINDING;
+		b[3].count = 1u;
+		b[3].samplers = nullptr;
+		b[3].stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
+		b[3].type = asset::EDT_STORAGE_BUFFER;
+
+		ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings->data(), bindings->data()+bindings->size());
+	}
+	auto ds1layout = getBuiltinAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("irr/builtin/descriptor_set_layout/basic_view_parameters", _manager);
+
+	auto layout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pcrng, &pcrng+1, std::move(ds0layout), std::move(ds1layout), nullptr, nullptr);
+	insertAssetIntoCache(layout, PIPELINE_LAYOUT_CACHE_KEY, _manager);
+
+	return layout;
+}
+static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createSpecShader(const char* _glsl, asset::ISpecializedShader::E_SHADER_STAGE _stage)
+{
+	auto shader = core::make_smart_refctd_ptr<asset::ICPUShader>(_glsl);
+	asset::ICPUSpecializedShader::SInfo info(nullptr, nullptr, "main", _stage);
+	auto specd = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(shader), std::move(info));
+
+	return specd;
+}
+static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createAndCacheVertexShader(asset::IAssetManager* _manager, const char* _glsl)
+{
+	auto vs = createSpecShader(_glsl, asset::ISpecializedShader::ESS_VERTEX);
+
+	insertAssetIntoCache(vs, VERTEX_SHADER_CACHE_KEY, _manager);
+
+	return vs;
+}
+static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createFragmentShader(const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _mcRes)
+{
+	std::string source = 
+		FRAGMENT_SHADER_PROLOGUE +
+		_mcRes.fragmentShaderSource_declarations +
+		FRAGMENT_SHADER_DEFINITIONS +
+		_mcRes.fragmentShaderSource +
+		FRAGMENT_SHADER_IMPL;
+
+	return createSpecShader(source.c_str(), asset::ISpecializedShader::ESS_FRAGMENT);
+}
+static core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline> createPipeline(core::smart_refctd_ptr<asset::ICPUPipelineLayout>&& _layout, core::smart_refctd_ptr<asset::ICPUSpecializedShader>&& _vertshader, core::smart_refctd_ptr<asset::ICPUSpecializedShader>&& _fragshader)
+{
+	auto vs = std::move(_vertshader);
+	auto fs = std::move(_fragshader);
+	asset::ICPUSpecializedShader* shaders[2]{ vs.get(), fs.get() };
+
+	SRasterizationParams rasterParams;
+	rasterParams.faceCullingMode = asset::EFCM_NONE;
+	auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
+		std::move(_layout),
+		shaders, shaders+2,
+		//all the params will be overriden with those loaded with meshes
+		SVertexInputParams(),
+		SBlendParams(),
+		SPrimitiveAssemblyParams(),
+		rasterParams
+	);
+
+	return pipeline;
 }
 
 CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager) : asset::IAssetLoader(), m_manager(_manager)
@@ -503,77 +407,6 @@ CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager) : asset::IAssetLo
 #ifdef _IRR_DEBUG
 	setDebugName("CMitsubaLoader");
 #endif
-
-	core::smart_refctd_ptr<ICPUPipelineLayout> layout;
-	{
-		SPushConstantRange pcrng;
-		pcrng.offset = 0u;
-		pcrng.size = 2u*sizeof(uint32_t);//instr offset and count
-		pcrng.stageFlags = ISpecializedShader::ESS_FRAGMENT;
-
-		//those descriptors can go as ds0 since they're always the same for all geometry within scene loaded from mitsuba xml
-		//(so ds itself will need to be returned through pipeline metadata same way as in MTL loader)
-		//@devsh tell me if it's ok
-		core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout;
-		{
-			std::array<ICPUDescriptorSetLayout::SBinding,4> bnds;
-			//page table texture
-			bnds[0].count = 1u;
-			bnds[0].stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
-			bnds[0].type = EDT_COMBINED_IMAGE_SAMPLER;
-			bnds[0].binding = 0u;
-			//physical pages texture
-			bnds[1].count = 1u;
-			bnds[1].stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
-			bnds[1].type = EDT_COMBINED_IMAGE_SAMPLER;
-			bnds[1].binding = 1u;
-			//instruction buffer
-			bnds[2].count = 1u;
-			bnds[2].stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
-			bnds[2].type = EDT_STORAGE_BUFFER;
-			bnds[2].binding = 2u;
-			//bsdf buffer
-			bnds[3].count = 1u;
-			bnds[3].stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
-			bnds[3].type = EDT_STORAGE_BUFFER;
-			bnds[3].binding = 3u;
-
-			ds0layout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bnds.data(),bnds.data()+bnds.size());
-		}
-		auto ds1layout = getBuiltinAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("irr/builtin/descriptor_set_layout/basic_view_parameters", m_manager);
-
-		layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(
-			&pcrng, &pcrng+1,
-			std::move(ds0layout), std::move(ds1layout), nullptr, nullptr
-		);
-
-		insertAssetIntoCache(layout, PIPELINE_LAYOUT_CACHE_KEY, m_manager);
-	}
-	{
-		SRasterizationParams rasterParams;
-		rasterParams.faceCullingMode = asset::EFCM_NONE;
-		auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
-			std::move(layout),
-			nullptr, nullptr, //TODO shaders (will be same for all)
-			//all the params will be overriden with those loaded with meshes
-			SVertexInputParams(),
-			SBlendParams(),
-			SPrimitiveAssemblyParams(),
-			rasterParams
-		);
-
-		insertAssetIntoCache(pipeline, PIPELINE_CACHE_KEY, m_manager);
-	}
-}
-
-static core::smart_refctd_ptr<ICPUDescriptorSet> makeDSForMeshbuffer()
-{
-	auto pplnlayout = getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, nullptr/*TODO*/);
-	auto ds3layout = pplnlayout->getDescriptorSetLayout(3u);
-
-	auto ds3 = core::make_smart_refctd_ptr<ICPUDescriptorSet>(std::move(ds3layout));
-	auto d = ds3->getDescriptors(0u).begin();
-	d->desc = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(SBasicViewParameters));
 }
 
 bool CMitsubaLoader::isALoadableFileFormat(io::IReadFile* _file) const
@@ -629,133 +462,187 @@ const char** CMitsubaLoader::getAssociatedFileExtensions() const
 	return ext;
 }
 
-
 asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	ParserManager parserManager(m_manager->getFileSystem(),_override);
 	if (!parserManager.parse(_file))
 		return {};
 
-	//
-	auto currentDir = io::IFileSystem::getFileDir(_file->getFileName()) + "/";
-	SContext ctx = {
-		m_manager->getGeometryCreator(),
-		m_manager->getMeshManipulator(),
-		asset::IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen,_params.decryptionKey,_params.cacheFlags,currentDir.c_str()),
-		_override,
-		parserManager.m_globalMetadata.get()
-	};
-
-	core::unordered_set<core::smart_refctd_ptr<asset::ICPUMesh>,core::smart_refctd_ptr<asset::ICPUMesh>::hash> meshes;
-
-	for (auto& shapepair : parserManager.shapegroups)
+	if (_params.loaderFlags & IAssetLoader::ELPF_LOAD_METADATA_ONLY)
 	{
-		auto* shapedef = shapepair.first;
-		if (shapedef->type==CElementShape::Type::SHAPEGROUP)
-			continue;
-
-		core::smart_refctd_ptr<asset::ICPUMesh> mesh = getMesh(ctx,_hierarchyLevel,shapedef);
-		if (!mesh)
-			continue;
-
-		IMeshMetadata* metadataptr = nullptr;
-		auto found = meshes.find(mesh);
-		if (found==meshes.end())
-		{
-			auto metadata = core::make_smart_refctd_ptr<IMeshMetadata>(
-								core::smart_refctd_ptr(parserManager.m_globalMetadata),
-								std::move(shapepair.second),
-								shapedef
-							);
-			metadataptr = metadata.get();
-			m_manager->setAssetMetadata(mesh.get(), std::move(metadata));
-			meshes.insert(std::move(mesh));
-		}
-		else
-		{
-			assert(mesh->getMetadata() && strcmpi(mesh->getMetadata()->getLoaderName(),IMeshMetadata::LoaderName)==0);
-			metadataptr = static_cast<IMeshMetadata*>(mesh->getMetadata());
-		}
-
-		metadataptr->instances.push_back({shapedef->getAbsoluteTransform(),shapedef->obtainEmitter()});
+		auto emptyMesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
+		m_manager->setAssetMetadata(emptyMesh.get(), core::make_smart_refctd_ptr<ext::MitsubaLoader::CMitsubaMetadata>(parserManager.m_globalMetadata));
+		return SAssetBundle({ std::move(emptyMesh) });
 	}
-
-	auto metadata = createPipelineMetadata(createDS0(ctx), getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager).get());
-	for (auto& mesh : meshes)
-	{
-		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
-		{
-			asset::ICPUMeshBuffer* mb = mesh->getMeshBuffer(i);
-			asset::ICPURenderpassIndependentPipeline* pipeline = mb->getPipeline();
-			if (!pipeline->getMetadata())
-				m_manager->setAssetMetadata(pipeline, core::smart_refctd_ptr(metadata));
-		}
-	}
-
-	return {meshes};
-}
-
-CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape)
-{
-	if (!shape)
-		return nullptr;
-
-	if (shape->type!=CElementShape::Type::INSTANCE)
-		return loadBasicShape(ctx, hierarchyLevel, shape);
 	else
 	{
+		//
+		auto currentDir = io::IFileSystem::getFileDir(_file->getFileName()) + "/";
+		SContext ctx(
+			m_manager->getGeometryCreator(),
+			m_manager->getMeshManipulator(),
+			asset::IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen, _params.decryptionKey, _params.cacheFlags, currentDir.c_str()),
+			_override,
+			parserManager.m_globalMetadata.get()
+		);
+		if (!getBuiltinAsset<asset::ICPUPipelineLayout, asset::IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager))
+		{
+			createAndCachePipelineLayout(m_manager, ctx.backend_ctx.vt.get());
+			createAndCacheVertexShader(m_manager, DUMMY_VERTEX_SHADER);
+		}
+
+		core::set<core::smart_refctd_ptr<asset::ICPUMesh>> meshes;
+
+		for (auto& shapepair : parserManager.shapegroups)
+		{
+			auto* shapedef = shapepair.first;
+			if (shapedef->type == CElementShape::Type::SHAPEGROUP)
+				continue;
+
+			auto lowermeshes = getMesh(ctx, _hierarchyLevel, shapedef);
+			for (auto& mesh : lowermeshes)
+			{
+				if (!mesh)
+					continue;
+
+				auto found = meshes.find(mesh);
+				if (found == meshes.end())
+				{
+					auto metadata = core::make_smart_refctd_ptr<IMeshMetadata>(
+						core::smart_refctd_ptr(parserManager.m_globalMetadata),
+						std::move(shapepair.second),
+						shapedef
+						);
+					m_manager->setAssetMetadata(mesh.get(), std::move(metadata));
+					meshes.insert(std::move(mesh));
+				}
+			}
+		}
+
+		//insert all instances into metadata
+		for (auto& mesh_ : meshes)
+		{
+			auto* mesh = mesh_.get();
+			auto* meshmeta = static_cast<IMeshMetadata*>(mesh->getMetadata());
+			auto instances_rng = ctx.mapMesh2instanceData.equal_range(mesh);
+			assert(instances_rng.first!=instances_rng.second);
+			for (auto it = instances_rng.first; it!=instances_rng.second; ++it) {
+				const auto& inst = it->second;
+				meshmeta->instances.push_back({inst.tform, inst.bsdf, inst.bsdf_id, inst.emitter});
+			}
+			if (meshmeta->instances.size() > 1ull)
+				printf("");
+
+			for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+				mesh->getMeshBuffer(i)->setInstanceCount(meshmeta->instances.size());
+		}
+
+		auto compResult = ctx.backend.compile(&ctx.backend_ctx, ctx.ir.get());
+		auto pipeline_metadata = createPipelineMetadata(createDS0(ctx, compResult, meshes.begin(), meshes.end()), getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager).get());
+		auto fragShader = createFragmentShader(compResult);
+		auto basePipeline = createPipeline(
+			getBuiltinAsset<asset::ICPUPipelineLayout, asset::IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager),
+			getBuiltinAsset<asset::ICPUSpecializedShader, asset::IAsset::ET_SPECIALIZED_SHADER>(VERTEX_SHADER_CACHE_KEY, m_manager),
+			std::move(fragShader)
+		);
+		for (auto& mesh : meshes)
+		{
+			for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+			{
+				asset::ICPUMeshBuffer* mb = mesh->getMeshBuffer(i);
+				auto* prevPipeline = mb->getPipeline();
+				SContext::SPipelineCacheKey cacheKey;
+				cacheKey.vtxParams = prevPipeline->getVertexInputParams();
+				cacheKey.primParams = prevPipeline->getPrimitiveAssemblyParams();
+				auto found = ctx.pipelineCache.find(cacheKey);
+				core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline> pipeline;
+				if (found != ctx.pipelineCache.end())
+				{
+					pipeline = found->second;
+				}
+				else
+				{
+					pipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(//shallow copy because we're going to override parameter structs
+						basePipeline->clone(0u)
+						);
+					pipeline->getVertexInputParams() = cacheKey.vtxParams;
+					pipeline->getPrimitiveAssemblyParams() = cacheKey.primParams;
+					ctx.pipelineCache.insert({ cacheKey, pipeline });
+				}
+
+				mb->setPipeline(core::smart_refctd_ptr(pipeline));
+				if (!pipeline->getMetadata())
+					m_manager->setAssetMetadata(pipeline.get(), core::smart_refctd_ptr(pipeline_metadata));
+			}
+		}
+
+		return { meshes };
+	}
+}
+
+core::vector<SContext::shape_ass_type> CMitsubaLoader::getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape)
+{
+	if (!shape)
+		return {};
+
+	if (shape->type!=CElementShape::Type::INSTANCE)
+		return {loadBasicShape(ctx, hierarchyLevel, shape, core::matrix3x4SIMD())};
+	else
+	{
+		core::matrix3x4SIMD relTform = shape->getAbsoluteTransform();
 		// get group reference
 		const CElementShape* parent = shape->instance.parent;
 		if (!parent)
-			return nullptr;
+			return {};
 		assert(parent->type==CElementShape::Type::SHAPEGROUP);
 		const CElementShape::ShapeGroup* shapegroup = &parent->shapegroup;
 		
-		return loadShapeGroup(ctx, hierarchyLevel, shapegroup);
+		return loadShapeGroup(ctx, hierarchyLevel, shapegroup, relTform);
 	}
 }
 
-CMitsubaLoader::SContext::group_ass_type CMitsubaLoader::loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup)
+core::vector<SContext::shape_ass_type> CMitsubaLoader::loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix3x4SIMD& relTform)
 {
 	// find group
-	auto found = ctx.groupCache.find(shapegroup);
-	if (found != ctx.groupCache.end())
-		return found->second;
+	//auto found = ctx.groupCache.find(shapegroup);
+	//if (found != ctx.groupCache.end())
+	//	return found->second;
 
 	const auto children = shapegroup->children;
 
-	auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
+	core::vector<SContext::shape_ass_type> meshes;
 	for (auto i=0u; i<shapegroup->childCount; i++)
 	{
 		auto child = children[i];
 		if (!child)
 			continue;
 
-		core::smart_refctd_ptr<asset::ICPUMesh> lowermesh;
 		assert(child->type!=CElementShape::Type::INSTANCE);
-		if (child->type!=CElementShape::Type::SHAPEGROUP)
-			lowermesh = loadBasicShape(ctx, hierarchyLevel, child);
-		else
-			lowermesh = loadShapeGroup(ctx, hierarchyLevel, &child->shapegroup);
-		
-		// skip if dead
-		if (!lowermesh)
-			continue;
-
-		for (auto j=0u; j<lowermesh->getMeshBufferCount(); j++)
-			mesh->addMeshBuffer(core::smart_refctd_ptr<asset::ICPUMeshBuffer>(lowermesh->getMeshBuffer(j)));
+		if (child->type != CElementShape::Type::SHAPEGROUP) {
+			auto lowermesh = loadBasicShape(ctx, hierarchyLevel, child, relTform);
+			meshes.push_back(std::move(lowermesh));
+		}
+		else {
+			auto lowermeshes = loadShapeGroup(ctx, hierarchyLevel, &child->shapegroup, relTform);
+			meshes.insert(meshes.begin(), std::make_move_iterator(lowermeshes.begin()), std::make_move_iterator(lowermeshes.end()));
+		}
 	}
-	if (!mesh->getMeshBufferCount())
-		return nullptr;
 
-	mesh->recalculateBoundingBox();
-	ctx.groupCache.insert({shapegroup,mesh});
-	return mesh;
+	//ctx.groupCache.insert({shapegroup,meshes});
+	return meshes;
 }
 
-//TODO : vtx input and assembly params are now ignored (mb is created without pipeline), later they need to be somehow forwarded and set on already created pipeline
 static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeometryCreator::return_type&& _data, asset::IAssetManager* _manager)
 {
+	//creating pipeline just to forward vtx and primitive params
+	auto pipeline = core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(
+		nullptr, nullptr, nullptr, //no layout nor shaders
+		_data.inputParams, 
+		asset::SBlendParams(),
+		_data.assemblyParams,
+		asset::SRasterizationParams()
+		);
+
 	auto mb = core::make_smart_refctd_ptr<ICPUMeshBuffer>(
 		nullptr, nullptr,
 		_data.bindings, std::move(_data.indexBuffer)
@@ -763,6 +650,7 @@ static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeo
 	mb->setIndexCount(_data.indexCount);
 	mb->setIndexType(_data.indexType);
 	mb->setBoundingBox(_data.bbox);
+	mb->setPipeline(std::move(pipeline));
 
 	auto mesh = core::make_smart_refctd_ptr<CCPUMesh>();
 	mesh->addMeshBuffer(std::move(mb));
@@ -770,33 +658,36 @@ static core::smart_refctd_ptr<ICPUMesh> createMeshFromGeomCreatorReturnType(IGeo
 	return mesh;
 }
 
-CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape)
+SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const core::matrix3x4SIMD& relTform)
 {
-	auto found = ctx.shapeCache.find(shape);
-	if (found != ctx.shapeCache.end())
-		return found->second;
+	constexpr uint32_t UV_ATTRIB_ID = 2U;
 
-	//! TODO: remove, after loader handedness fix
-	static auto applyTransformToMB = [](asset::ICPUMeshBuffer* meshbuffer, core::matrix3x4SIMD tform) -> void
-	{
-		const auto index = meshbuffer->getPositionAttributeIx();
-		core::vectorSIMDf vpos;
-		for (uint32_t i = 0u; meshbuffer->getAttribute(vpos, index, i); i++)
-		{
-			tform.transformVect(vpos);
-			meshbuffer->setAttribute(vpos, index, i);
-		}
-		meshbuffer->recalculateBoundingBox();
+	auto addInstance = [shape,&ctx,&relTform,this](SContext::shape_ass_type& mesh) {
+		assert(shape->bsdf);
+		auto bsdf = getBSDFtreeTraversal(ctx, shape->bsdf);
+		core::matrix3x4SIMD tform = core::concatenateBFollowedByA(relTform, shape->getAbsoluteTransform());
+		SContext::SInstanceData instance{ tform, bsdf, shape->bsdf->id, shape->obtainEmitter() };
+		ctx.mapMesh2instanceData.insert({ mesh.get(), instance });
 	};
+
+	auto found = ctx.shapeCache.find(shape);
+	if (found != ctx.shapeCache.end()) {
+		addInstance(found->second);
+
+		return found->second;
+	}
+
 	auto loadModel = [&](const ext::MitsubaLoader::SPropertyElementData& filename, int64_t index=-1) -> core::smart_refctd_ptr<asset::ICPUMesh>
 	{
 		assert(filename.type==ext::MitsubaLoader::SPropertyElementData::Type::STRING);
-		auto retval = interm_getAssetInHierarchy(m_manager, filename.svalue, ctx.params, hierarchyLevel/*+ICPUSCene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override);
+		auto loadParams = ctx.params;
+		loadParams.loaderFlags = static_cast<IAssetLoader::E_LOADER_PARAMETER_FLAGS>(loadParams.loaderFlags | IAssetLoader::ELPF_RIGHT_HANDED_MESHES);
+		auto retval = interm_getAssetInHierarchy(m_manager, filename.svalue, loadParams, hierarchyLevel/*+ICPUSCene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override);
 		auto contentRange = retval.getContents();
 		//
 		uint32_t actualIndex = 0;
 		if (index>=0ll)
-		for (auto it=contentRange.first; it!=contentRange.second; it++)
+		for (auto it=contentRange.begin(); it!=contentRange.end(); it++)
 		{
 			auto meta = it->get()->getMetadata();
 			if (!meta || core::strcmpi(meta->getLoaderName(),ext::MitsubaLoader::CSerializedMetadata::LoaderName))
@@ -804,13 +695,13 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 			auto serializedMeta = static_cast<CSerializedMetadata*>(meta);
 			if (serializedMeta->id!=static_cast<uint32_t>(index))
 				continue;
-			actualIndex = it-contentRange.first;
+			actualIndex = it-contentRange.begin();
 			break;
 		}
 		//
-		if (contentRange.first+actualIndex < contentRange.second)
+		if (contentRange.begin()+actualIndex < contentRange.end())
 		{
-			auto asset = contentRange.first[actualIndex];
+			auto asset = contentRange.begin()[actualIndex];
 			if (asset && asset->getAssetType()==asset::IAsset::ET_MESH)
 			{
 				// make a (shallow) copy because the mesh will get mutilated and abused for metadata
@@ -889,24 +780,16 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 			flipNormals = flipNormals==shape->obj.flipNormals;
 			faceNormals = shape->obj.faceNormals;
 			maxSmoothAngle = shape->obj.maxSmoothAngle;
-			if (mesh) // awaiting the LEFT vs RIGHT HAND flag (just load as right handed in the future plz)
-			{
-				core::matrix3x4SIMD tform;
-				tform.rows[0].x = -1.f; // restore handedness
-				for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
-					applyTransformToMB(mesh->getMeshBuffer(i), tform);
-				mesh->recalculateBoundingBox();
-			}
 			if (mesh && shape->obj.flipTexCoords)
 			{
 				for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
 				{
 					auto meshbuffer = mesh->getMeshBuffer(i);
 					core::vectorSIMDf uv;
-					for (uint32_t i=0u; meshbuffer->getAttribute(uv, 2u, i); i++)
+					for (uint32_t i=0u; meshbuffer->getAttribute(uv, UV_ATTRIB_ID, i); i++)
 					{
 						uv.y = -uv.y;
-						meshbuffer->setAttribute(uv, 2u, i);
+						meshbuffer->setAttribute(uv, UV_ATTRIB_ID, i);
 					}
 				}
 			}
@@ -915,11 +798,11 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 		case CElementShape::Type::PLY:
 			_IRR_DEBUG_BREAK_IF(true); // this code has never been tested
 			mesh = loadModel(shape->ply.filename);
-			mesh = mesh->clone(~0u);//clone everything
+			mesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(~0u));//clone everything
 			flipNormals = flipNormals!=shape->ply.flipNormals;
 			faceNormals = shape->ply.faceNormals;
 			maxSmoothAngle = shape->ply.maxSmoothAngle;
-			if (mesh && shape->ply.srgb)//TODO this probably shouldnt modify original mesh (the one cached in asset cache)
+			if (mesh && shape->ply.srgb)
 			{
 				uint32_t totalVertexCount = 0u;
 				for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
@@ -937,7 +820,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 						for (uint32_t i=0u; meshbuffer->getAttribute(rgb, 1u, i); i++,it++)
 						{
 							for (auto i=0; i<3u; i++)
-								rgb[i] = video::impl::srgb2lin(rgb[i]);
+								rgb[i] = core::srgb2lin(rgb[i]);
 							meshbuffer->setAttribute(rgb,it,asset::EF_A2B10G10R10_UNORM_PACK32);
 						}
 						constexpr uint32_t COLOR_BUF_BINDING = 15u;
@@ -977,7 +860,7 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 	for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
 		ctx.manipulator->flipSurfaces(mesh->getMeshBuffer(i));
 	// flip normals if necessary
-#define CRISS_FIX_THIS
+//#define CRISS_FIX_THIS
 #ifdef CRISS_FIX_THIS
 	if (faceNormals || !std::isnan(maxSmoothAngle))
 	{
@@ -1008,168 +891,13 @@ CMitsubaLoader::SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext
 	}
 #endif
 
-	std::pair<uint32_t, uint32_t> instrBufOffsetAndCount;
-	{
-		auto it = ctx.instrStreamCache.find(shape->bsdf);
-		if (it != ctx.instrStreamCache.end())
-			instrBufOffsetAndCount = it->second;
-		else {
-			instrBufOffsetAndCount = genBSDFtreeTraversal(ctx, shape->bsdf);
-			ctx.instrStreamCache.insert({shape->bsdf,instrBufOffsetAndCount});
-		}
-	}
-
-	//meshbuffer processing
-	auto builtinPipeline = getBuiltinAsset<ICPURenderpassIndependentPipeline, IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE>(PIPELINE_CACHE_KEY, m_manager);
-	for (auto i = 0u; i < mesh->getMeshBufferCount(); i++)
-	{
-		auto* meshbuffer = mesh->getMeshBuffer(i);
-		//write starting instr buf offset (instr-wise) and instruction count
-		uint32_t* pcData = reinterpret_cast<uint32_t*>(meshbuffer->getPushConstantsDataPtr());
-		pcData[0] = instrBufOffsetAndCount.first;
-		pcData[1] = instrBufOffsetAndCount.second;
-		// add some metadata
-		///auto meshbuffermeta = core::make_smart_refctd_ptr<IMeshBufferMetadata>(shapedef->type,shapedef->emitter ? shapedef->emitter.area:CElementEmitter::Area());
-		///manager->setAssetMetadata(meshbuffer,std::move(meshbuffermeta));
-		// TODO: change this with shader pipeline
-		//meshbuffer->getMaterial() = getBSDF(ctx, hierarchyLevel + asset::ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW, shape->bsdf);
-		auto* prevPipeline = meshbuffer->getPipeline();
-		//TODO do something to not always create new pipeline
-		auto pipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(//shallow copy because we're going to override parameter structs
-			builtinPipeline->clone(0u)
-		);
-		pipeline->getVertexInputParams() = prevPipeline->getVertexInputParams();
-		pipeline->getPrimitiveAssemblyParams() = prevPipeline->getPrimitiveAssemblyParams();
-		//TODO blend and raster probably shouldnt be copied
-		//pipeline->getBlendParams() = prevPipeline->getBlendParams();
-		//pipeline->getRasterizationParams() = prevPipeline->getRasterizationParams();
-
-		meshbuffer->setPipeline(std::move(pipeline));
-	}
-
+	addInstance(mesh);
 	// cache and return
 	ctx.shapeCache.insert({ shape,mesh });
 	return mesh;
 }
 
-//! TODO: change to CPU graphics pipeline
-//TODO this function will most likely be deleted, basically only instr buf offset/count pair is needed, pipelines wont change that much
-CMitsubaLoader::SContext::bsdf_ass_type CMitsubaLoader::getBSDF(SContext& ctx, uint32_t hierarchyLevel, const CElementBSDF* bsdf)
-{
-	if (!bsdf)
-		return nullptr; 
-
-	auto found = ctx.pipelineCache.find(bsdf);
-	if (found != ctx.pipelineCache.end())
-		return found->second;
-
-	const std::pair<uint32_t,uint32_t> instrBufOffsetAndCount = genBSDFtreeTraversal(ctx, bsdf);
-	auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
-		getBuiltinAsset<ICPUPipelineLayout,IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager),//layout
-		nullptr, nullptr,//TODO shaders
-		SVertexInputParams(),
-		SBlendParams(),
-		SPrimitiveAssemblyParams(),
-		SRasterizationParams()
-	);
-
-	// shader construction would take place here in the new pipeline
-	SContext::bsdf_ass_type pipeline;
-	NastyTemporaryBitfield nasty = { 0u };
-	auto getColor = [](const SPropertyElementData& data) -> core::vectorSIMDf
-	{
-		switch (data.type)
-		{
-			case SPropertyElementData::Type::FLOAT:
-				return core::vectorSIMDf(data.fvalue);
-			case SPropertyElementData::Type::RGB:
-				_IRR_FALLTHROUGH;
-			case SPropertyElementData::Type::SRGB:
-				return data.vvalue;
-				break;
-			case SPropertyElementData::Type::SPECTRUM:
-				return data.vvalue;
-				break;
-			default:
-				assert(false);
-				break;
-		}
-		return core::vectorSIMDf();
-	};
-	constexpr uint32_t IMAGEVIEW_HIERARCHYLEVEL_BELOW = 1u; // below ICPUMesh, will move it there eventually with shader pipeline and become 2
-	auto setTextureOrColorFrom = [&](const CElementTexture::SpectrumOrTexture& spctex) -> void
-	{
-		if (spctex.value.type!=SPropertyElementData::INVALID)
-		{
-			_mm_storeu_ps((float*)&pipeline.AmbientColor, getColor(spctex.value).getAsRegister());
-		}
-		else
-		{
-			pipeline.TextureLayer[0] = getTexture(ctx,hierarchyLevel+IMAGEVIEW_HIERARCHYLEVEL_BELOW,spctex.texture);
-			nasty._bitfield |= MITS_USE_TEXTURE;
-		}
-	};
-	// @criss you know that I'm doing absolutely nothing worth keeping around (not caring about BSDF actually)
-	switch (bsdf->type)
-	{
-		case CElementBSDF::Type::DIFFUSE:
-		case CElementBSDF::Type::ROUGHDIFFUSE:
-			setTextureOrColorFrom(bsdf->diffuse.reflectance);
-			break;
-		case CElementBSDF::Type::DIELECTRIC:
-		case CElementBSDF::Type::THINDIELECTRIC: // basically glass with no refraction
-		case CElementBSDF::Type::ROUGHDIELECTRIC:
-			{
-				core::vectorSIMDf color(bsdf->dielectric.extIOR/bsdf->dielectric.intIOR);
-				_mm_storeu_ps((float*)& pipeline.AmbientColor, color.getAsRegister());
-			}
-			break;
-		case CElementBSDF::Type::CONDUCTOR:
-		case CElementBSDF::Type::ROUGHCONDUCTOR:
-			{
-				auto color = core::vectorSIMDf(1.f)-getColor(bsdf->conductor.k);
-				_mm_storeu_ps((float*)& pipeline.AmbientColor, color.getAsRegister());
-			}
-			break;
-		case CElementBSDF::Type::PLASTIC:
-		case CElementBSDF::Type::ROUGHPLASTIC:
-			setTextureOrColorFrom(bsdf->plastic.diffuseReflectance);
-			break;
-		case CElementBSDF::Type::BUMPMAP:
-			{
-				pipeline = getBSDF(ctx,hierarchyLevel,bsdf->bumpmap.bsdf[0]);
-				pipeline.TextureLayer[1] = getTexture(ctx,hierarchyLevel+IMAGEVIEW_HIERARCHYLEVEL_BELOW,bsdf->bumpmap.texture);
-				nasty._bitfield |= MITS_BUMPMAP|reinterpret_cast<uint32_t&>(pipeline.MaterialTypeParam);				
-			}
-			break;
-		case CElementBSDF::Type::TWO_SIDED:
-			{
-				pipeline = getBSDF(ctx,hierarchyLevel,bsdf->twosided.bsdf[0]);
-				nasty._bitfield |= MITS_TWO_SIDED|reinterpret_cast<uint32_t&>(pipeline.MaterialTypeParam);				
-			}
-			break;
-		case CElementBSDF::Type::MASK:
-			{
-				pipeline = getBSDF(ctx,hierarchyLevel,bsdf->mask.bsdf[0]);
-				//bsdf->mask.opacity // ran out of space in SMaterial (can be texture or constant)
-				nasty._bitfield |= /*MITS_MASK|*/reinterpret_cast<uint32_t&>(pipeline.MaterialTypeParam);				
-			}
-			break;
-		case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
-			setTextureOrColorFrom(bsdf->difftrans.transmittance);
-			break;
-		default:
-			_IRR_DEBUG_BREAK_IF(true); // TODO: more BSDF untangling!
-			break;
-	}
-	reinterpret_cast<uint32_t&>(pipeline.MaterialTypeParam) = nasty._bitfield;
-	pipeline.BackfaceCulling = false;
-
-	ctx.pipelineCache.insert({bsdf,pipeline});
-	return pipeline;
-}
-
-CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* tex)
+SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* tex)
 {
 	if (!tex)
 		return {};
@@ -1194,15 +922,16 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 	samplerParams.CompareFunc = ISampler::ECO_NEVER;
 	samplerParams.MaxLod = 10000.f;
 	samplerParams.MinLod = 0.f;
+
 	switch (tex->type)
 	{
 		case CElementTexture::Type::BITMAP:
-			{
+		{
 				auto retval = interm_getAssetInHierarchy(m_manager,tex->bitmap.filename.svalue,ctx.params,hierarchyLevel,ctx.override);
 				auto contentRange = retval.getContents();
-				if (contentRange.first < contentRange.second)
+				if (contentRange.begin() < contentRange.end())
 				{
-					auto asset = contentRange.first[0];
+					auto asset = contentRange.begin()[0];
 					if (asset && asset->getAssetType() == asset::IAsset::ET_IMAGE)
 					{
 						auto texture = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
@@ -1233,10 +962,13 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 								constexpr auto ALPHA = ICPUImageView::SComponentMapping::ES_A;
 								viewParams.components = {ALPHA,ALPHA,ALPHA,ALPHA};
 								}
-								break;/* special conversions needed to CIE space
+								break;
+							/* special conversions needed to CIE space
 							case CElementTexture::Bitmap::CHANNEL::X:
 							case CElementTexture::Bitmap::CHANNEL::Y:
 							case CElementTexture::Bitmap::CHANNEL::Z:*/
+							case CElementTexture::Bitmap::CHANNEL::INVALID:
+								_IRR_FALLTHROUGH;
 							default:
 								break;
 						}
@@ -1270,7 +1002,7 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 						samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
 						break;
 				}
-				auto getWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode)// -> video::E_TEXTURE_CLAMP
+				auto getWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode)
 				{
 					switch (mode)
 					{
@@ -1293,370 +1025,210 @@ CMitsubaLoader::SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx,
 				};
 				samplerParams.TextureWrapU = getWrapMode(tex->bitmap.wrapModeU);
 				samplerParams.TextureWrapV = getWrapMode(tex->bitmap.wrapModeV);
-			}
+
+				//in case of <channel>, extract one channel
+				if (viewParams.components.g!=asset::ICPUImageView::SComponentMapping::ES_G)
+				{
+					auto get1ChannelFormat = [](asset::E_FORMAT f) -> asset::E_FORMAT {
+						const uint32_t bytesPerChannel = (getBytesPerPixel(f) * core::rational(1, getFormatChannelCount(f))).getIntegerApprox();
+						switch (bytesPerChannel) 
+						{
+						case 1u:
+							return asset::EF_R8_UNORM;
+						case 2u:
+							return asset::EF_R16_SFLOAT;
+						case 4u:
+							return asset::EF_R32_SFLOAT;
+						case 8u:
+							return asset::EF_R64_SFLOAT;
+						default:
+							return asset::EF_UNKNOWN;
+						}
+					};
+
+					auto outParams = viewParams.image->getCreationParameters();
+					asset::ICPUImage::SBufferCopy region;
+					outParams.format = get1ChannelFormat(outParams.format);
+					const size_t texelBytesz = asset::getTexelOrBlockBytesize(outParams.format);
+					region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, texelBytesz);
+					auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(texelBytesz*region.bufferRowLength*outParams.extent.height);
+					region.imageOffset = {0,0,0};
+					region.imageExtent = outParams.extent;
+					region.imageSubresource.baseArrayLayer = 0u;
+					region.imageSubresource.layerCount = 1u;
+					region.imageSubresource.mipLevel = 0u;
+					region.bufferImageHeight = 0u;
+					region.bufferOffset = 0u;
+					auto outImg = asset::ICPUImage::create(std::move(outParams));
+					outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
+
+					using convert_filter_t = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN>;
+					convert_filter_t::state_type conv;
+					conv.swizzle = viewParams.components;
+					conv.extent = viewParams.image->getCreationParameters().extent;
+					conv.layerCount = 1u;
+					conv.inMipLevel = 0u;
+					conv.outMipLevel = 0u;
+					conv.inBaseLayer = 0u;
+					conv.outBaseLayer = 0u;
+					conv.inOffset = {0u,0u,0u};
+					conv.outOffset = {0u,0u,0u};
+					conv.inImage = viewParams.image.get();
+					conv.outImage = outImg.get();
+
+					viewParams.components = asset::ICPUImageView::SComponentMapping{};
+					if (!convert_filter_t::execute(&conv))
+						_IRR_DEBUG_BREAK_IF(true);
+					viewParams.format = outImg->getCreationParameters().format;
+					viewParams.image = std::move(outImg);
+				}
+
+				auto view = ICPUImageView::create(std::move(viewParams));
+				core::smart_refctd_ptr<ICPUSampler> sampler = view ? core::make_smart_refctd_ptr<ICPUSampler>(samplerParams) : nullptr;
+
+				SContext::tex_ass_type tex_ass(std::move(view), std::move(sampler), 1.f);
+				ctx.textureCache.insert({ tex,tex_ass });
+
+				return tex_ass;
+		}
 			break;
 		case CElementTexture::Type::SCALE:
-			_IRR_DEBUG_BREAK_IF(true); // TODO
-			return getTexture(ctx,hierarchyLevel,tex->scale.texture);
+		{
+			auto retval = getTexture(ctx,hierarchyLevel,tex->scale.texture);
+			std::get<float>(retval) *= tex->scale.scale;
+			ctx.textureCache[tex] = retval;
+
+			return retval;
+		}
 			break;
 		default:
 			_IRR_DEBUG_BREAK_IF(true);
+			return SContext::tex_ass_type{nullptr,nullptr,0.f};
 			break;
 	}
-	auto view = core::make_smart_refctd_ptr<ICPUImageView>(std::move(viewParams));
-	auto sampler = core::make_smart_refctd_ptr<ICPUSampler>(samplerParams);
-	SContext::tex_ass_type tex_ass{std::move(view),std::move(sampler)};
-	ctx.textureCache.insert({tex,tex_ass});
-
-	return tex_ass;
 }
 
-static bsdf::E_OPCODE BSDFtype2opcode(const CElementBSDF* bsdf)
+auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf) -> SContext::bsdf_type
 {
-	switch (bsdf->type)
+	auto found = ctx.instrStreamCache.find(bsdf);
+	if (found!=ctx.instrStreamCache.end())
+		return found->second;
+	auto retval = genBSDFtreeTraversal(ctx, bsdf);
+	ctx.instrStreamCache.insert({bsdf,retval});
+	return retval;
+}
+
+auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bsdf) -> SContext::bsdf_type
+{
 	{
-	case CElementBSDF::Type::DIFFUSE:
-		return bsdf::OP_DIFFUSE;
-	case CElementBSDF::Type::ROUGHDIFFUSE:
-		return bsdf::OP_ROUGHDIFFUSE;
-	case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
-		return bsdf::OP_DIFFTRANS;
-	case CElementBSDF::Type::DIELECTRIC: _IRR_FALLTHROUGH;
-	case CElementBSDF::Type::THINDIELECTRIC:
-		return bsdf::OP_DIELECTRIC;
-	case CElementBSDF::Type::ROUGHDIELECTRIC:
-		return bsdf::OP_ROUGHDIELECTRIC;
-	case CElementBSDF::Type::CONDUCTOR:
-		return bsdf::OP_CONDUCTOR;
-	case CElementBSDF::Type::ROUGHCONDUCTOR:
-		return bsdf::OP_ROUGHCONDUCTOR;
-	case CElementBSDF::Type::PLASTIC:
-		return bsdf::OP_PLASTIC;
-	case CElementBSDF::Type::ROUGHPLASTIC:
-		return bsdf::OP_ROUGHPLASTIC;
-	case CElementBSDF::Type::COATING:
-		return bsdf::OP_COATING;
-	case CElementBSDF::Type::ROUGHCOATING:
-		return bsdf::OP_ROUGHCOATING;
-	case CElementBSDF::Type::BUMPMAP:
-		return bsdf::OP_BUMPMAP;
-	case CElementBSDF::Type::WARD:
-		return bsdf::OP_WARD;
-	case CElementBSDF::Type::BLEND_BSDF: _IRR_FALLTHROUGH;
-	case CElementBSDF::Type::MIXTURE_BSDF:
-		return bsdf::OP_BLEND;
-	case CElementBSDF::Type::MASK:
-		return BSDFtype2opcode(bsdf->mask.bsdf[0]);
-	case CElementBSDF::Type::TWO_SIDED:
-		return BSDFtype2opcode(bsdf->twosided.bsdf[0]);
-	default:
-		return bsdf::OP_INVALID;
-	}
-}
-
-std::pair<uint32_t, uint32_t> CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf)
-{
-	struct stack_el {
-		const CElementBSDF* bsdf;
-		uint32_t instr_1st_dword;
-		bool visited;
-		uint32_t weight_ix;
-		const CElementBSDF* maskParent;
-	};
-	core::stack<stack_el> stack;
-	uint32_t firstFreeNormalReg = 1u;//normal reg val 0 means geom normal without any perturbations
-	auto push = [&](const CElementBSDF* _bsdf, uint32_t _parent1stDword, const CElementBSDF* _maskParent) {
-		auto writeInheritableFlags = [](uint32_t& dst, uint32_t parent) {
-			dst |= (parent & (bsdf::BITFIELDS_MASK_TWOSIDED << bsdf::BITFIELDS_SHIFT_TWOSIDED));
-			dst |= (parent & (bsdf::BITFIELDS_MASK_MASKFLAG << bsdf::BITFIELDS_SHIFT_MASKFLAG));
-			dst |= (parent & (bsdf::INSTR_NORMAL_REG_MASK << bsdf::INSTR_NORMAL_REG_SHIFT));
+		auto cacheTexture = [&](const auto& const_or_tex) {
+			if (const_or_tex.value.type == SPropertyElementData::INVALID)
+				getTexture(ctx, 0u, const_or_tex.texture);
 		};
-		uint32_t _1stdword = BSDFtype2opcode(_bsdf);
-		writeInheritableFlags(_1stdword, _parent1stDword);
-		switch (_bsdf->type)
-		{
-		case CElementBSDF::Type::DIFFUSE:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::ROUGHDIFFUSE:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::DIFFUSE_TRANSMITTER:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::DIELECTRIC:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::THINDIELECTRIC:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::ROUGHDIELECTRIC:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::CONDUCTOR:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::ROUGHCONDUCTOR:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::PLASTIC:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::ROUGHPLASTIC:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::WARD:
-			stack.push({_bsdf,_1stdword,false,0,_maskParent});
-			break;
-		case CElementBSDF::Type::COATING:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::ROUGHCOATING:
-			_IRR_FALLTHROUGH;
-		case CElementBSDF::Type::BUMPMAP:
-			_1stdword &= (~(bsdf::INSTR_NORMAL_REG_MASK<<bsdf::INSTR_NORMAL_REG_SHIFT));//zero-out normal reg bitfield
-			_IRR_DEBUG_BREAK_IF(firstFreeNormalReg>bsdf::INSTR_NORMAL_REG_MASK);
-			_1stdword |= (firstFreeNormalReg & bsdf::INSTR_NORMAL_REG_MASK) << bsdf::INSTR_NORMAL_REG_SHIFT;//write new val
-			++firstFreeNormalReg;
-			stack.push({_bsdf,_1stdword,false,0,_maskParent});
 
-			_1stdword = BSDFtype2opcode(_bsdf->meta_common.bsdf[0]);
-			writeInheritableFlags(_1stdword, _parent1stDword);
-			stack.push({_bsdf->meta_common.bsdf[0],_1stdword,false,0,_maskParent});
-			break;
-		case CElementBSDF::Type::BLEND_BSDF:
-			stack.push({ _bsdf,_1stdword,false,0,_maskParent });
-			_1stdword = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[1]);
-			writeInheritableFlags(_1stdword, _parent1stDword);
-			stack.push({ _bsdf->meta_common.bsdf[1],_1stdword,false,0,_maskParent });
-			_1stdword = BSDFtype2opcode(_bsdf->blendbsdf.bsdf[0]);
-			writeInheritableFlags(_1stdword, _parent1stDword);
-			stack.push({ _bsdf->meta_common.bsdf[0],_1stdword,false,0,_maskParent });
-			break;
-		case CElementBSDF::Type::MIXTURE_BSDF:
-		{
-			//mixture is translated into tree of blends
-			uint32_t blendbsdf = _1stdword;
-			assert(_bsdf->mixturebsdf.childCount > 1u);
-			for (uint32_t i = 0u; i < _bsdf->mixturebsdf.childCount-1ull; ++i)
-			{
-				uint32_t weight_ix = _bsdf->mixturebsdf.childCount-i-1u;
-				stack.push({_bsdf,blendbsdf,false,weight_ix,_maskParent});
-				auto* mixchild_bsdf = _bsdf->mixturebsdf.bsdf[weight_ix];
-				uint32_t mixchild = BSDFtype2opcode(mixchild_bsdf);
-				writeInheritableFlags(mixchild, _parent1stDword);
-				stack.push({mixchild_bsdf,mixchild,false,0,_maskParent});
-			}
-			uint32_t child0 = BSDFtype2opcode(_bsdf->mixturebsdf.bsdf[0]);
-			writeInheritableFlags(child0, _parent1stDword);
-			stack.push({_bsdf->mixturebsdf.bsdf[0],child0,false,0});
-		}	
-			break;
-		case CElementBSDF::Type::MASK:
-			_1stdword |= 1u<<bsdf::BITFIELDS_SHIFT_MASKFLAG;
-			stack.push({_bsdf->mask.bsdf[0],_1stdword,false,0,_bsdf});
-			break;
-		case CElementBSDF::Type::TWO_SIDED:
-			_1stdword |= 1u<<bsdf::BITFIELDS_SHIFT_TWOSIDED;
-			stack.push({_bsdf->twosided.bsdf[0],_1stdword,false,0,_maskParent});
-			break;
-		case CElementBSDF::Type::PHONG:
-			_IRR_DEBUG_BREAK_IF(1);
-			break;
-		}
-	};
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_SHIFT_REL = 32u;
-	auto emitInstr = [](uint32_t _1stdword, const CElementBSDF* _node, uint32_t _regs, uint32_t _bsdfBufOffset) -> bsdf::instr_t {
-		uint32_t op = (_1stdword & bsdf::INSTR_OPCODE_MASK);
-		switch (op)
-		{
-		case bsdf::OP_ROUGHDIFFUSE:
-			_1stdword |= static_cast<uint32_t>(_node->diffuse.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_MASK_ALPHA_U_TEX;
-			_IRR_FALLTHROUGH;
-		case bsdf::OP_DIFFUSE:
-			_1stdword |= static_cast<uint32_t>(_node->diffuse.reflectance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_REFL_TEX;
-			break;
-		case bsdf::OP_ROUGHDIELECTRIC:
-			_1stdword |= _node->dielectric.distribution << bsdf::BITFIELDS_SHIFT_NDF;
-			_1stdword |= static_cast<uint32_t>(_node->dielectric.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
-			if (_node->dielectric.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-				_1stdword |= static_cast<uint32_t>(_node->dielectric.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
-			break;
-		case bsdf::OP_ROUGHCONDUCTOR:
-			_1stdword |= _node->conductor.distribution << bsdf::BITFIELDS_SHIFT_NDF;
-			_1stdword |= static_cast<uint32_t>(_node->conductor.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
-			if (_node->conductor.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-				_1stdword |= static_cast<uint32_t>(_node->conductor.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
-			break;
-		case bsdf::OP_ROUGHPLASTIC:
-			_1stdword |= _node->plastic.distribution << bsdf::BITFIELDS_SHIFT_NDF;
-			_1stdword |= static_cast<uint32_t>(_node->plastic.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
-			if (_node->plastic.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-				_1stdword |= static_cast<uint32_t>(_node->plastic.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
-			_IRR_FALLTHROUGH;
-		case bsdf::OP_PLASTIC:
-			_1stdword |= static_cast<uint32_t>(_node->plastic.nonlinear) << bsdf::BITFIELDS_SHIFT_NONLINEAR;
-			break;
-		case bsdf::OP_ROUGHCOATING:
-			_1stdword |= _node->coating.distribution << bsdf::BITFIELDS_SHIFT_NDF;
-			_1stdword |= static_cast<uint32_t>(_node->coating.alpha.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
-			if (_node->coating.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-				_1stdword |= static_cast<uint32_t>(_node->coating.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
-			_IRR_FALLTHROUGH;
-		case bsdf::OP_COATING:
-			_1stdword |= static_cast<uint32_t>(_node->coating.sigmaA.value.type == SPropertyElementData::INVALID) >> bsdf::BITFIELDS_SHIFT_SIGMA_A_TEX;
-			break;
-		case bsdf::OP_WARD:
-			_1stdword |= _node->ward.variant << bsdf::BITFIELDS_SHIFT_WARD_VARIANT;
-			_1stdword |= static_cast<uint32_t>(_node->ward.alphaU.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_U_TEX;
-			_1stdword |= static_cast<uint32_t>(_node->ward.alphaV.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_ALPHA_V_TEX;
-			break;
-		case bsdf::OP_BLEND:
-			switch (_node->type)
-			{
-			case CElementBSDF::Type::BLEND_BSDF:
-				_1stdword |= static_cast<uint32_t>(_node->blendbsdf.weight.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_WEIGHT_TEX;
-				break;
-			case CElementBSDF::Type::MASK:
-				_1stdword |= static_cast<uint32_t>(_node->mask.opacity.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_WEIGHT_TEX;
-				break;
-			case CElementBSDF::Type::MIXTURE_BSDF:
-				//always constant weights (not texture) -- leaving weight tex flag as 0
-				break;
-			default: break; //do not let warnings rise
-			}
-			break;
-		case bsdf::OP_DIFFTRANS:
-			_1stdword |= static_cast<uint32_t>(_node->difftrans.transmittance.value.type == SPropertyElementData::INVALID) << bsdf::BITFIELDS_SHIFT_SPEC_TRANS_TEX;
-			break;
-		default: break; //any other ones dont need any extra flags
-		}
-		//write index into bsdf buffer
-		_1stdword &= (~(bsdf::INSTR_BSDF_BUF_OFFSET_MASK<<bsdf::INSTR_BSDF_BUF_OFFSET_SHIFT));
-		_1stdword |= ((_bsdfBufOffset & bsdf::INSTR_BSDF_BUF_OFFSET_MASK) << bsdf::INSTR_BSDF_BUF_OFFSET_SHIFT);
+		core::stack<const CElementBSDF*> stack;
+		stack.push(_bsdf);
 
-		bsdf::instr_t instr = _1stdword;
-		instr |= static_cast<bsdf::instr_t>(_regs)<<INSTR_REG_SHIFT_REL;
-		return instr;
-	};
-	uint32_t firstFreeReg = 0u;
-	const uint32_t instrBufBase = ctx.instrBuffer.size();
-	push(bsdf, 0u, nullptr);
-	while (!stack.empty())
-	{
-		auto& top = stack.top();
-		uint32_t op = ((top.instr_1st_dword >> bsdf::INSTR_OPCODE_SHIFT) & bsdf::INSTR_OPCODE_MASK);
-		_IRR_DEBUG_BREAK_IF(op==bsdf::OP_INVALID);
-		if (op <= bsdf::OP_INVALID || top.visited)
+		while (!stack.empty())
 		{
-			uint32_t regs = 0u;
-			if (op <= bsdf::OP_INVALID)
-			{
-				regs = (firstFreeReg & bsdf::INSTR_REG_MASK) << (bsdf::INSTR_REG_DST_SHIFT - INSTR_REG_SHIFT_REL);
-				++firstFreeReg;
-			}
-			else if (op < bsdf::OP_BLEND)
-			{
-				regs = ((firstFreeReg-1u) & bsdf::INSTR_REG_MASK) << (bsdf::INSTR_REG_DST_SHIFT - INSTR_REG_SHIFT_REL);
-				regs |= ((firstFreeReg-1u) & bsdf::INSTR_REG_MASK) << (bsdf::INSTR_REG_SRC1_SHIFT - INSTR_REG_SHIFT_REL);
-			}
-			else if (op == bsdf::OP_BLEND)
-			{
-				--firstFreeReg;
-				regs = ((firstFreeReg-1u) & bsdf::INSTR_REG_MASK) << (bsdf::INSTR_REG_DST_SHIFT - INSTR_REG_SHIFT_REL);
-				regs |= ((firstFreeReg-1u) & bsdf::INSTR_REG_MASK) << (bsdf::INSTR_REG_SRC1_SHIFT - INSTR_REG_SHIFT_REL);
-				regs |= (firstFreeReg & bsdf::INSTR_REG_MASK) << (bsdf::INSTR_REG_SRC2_SHIFT - INSTR_REG_SHIFT_REL);
-			}
-
-			const uint32_t bsdfBufIx = ctx.bsdfBuffer.size();
-			if (top.bsdf)//if top.bsdf is nullptr, then bsdf buf offset will be irrelevant for this instruction (may be any value and won't ever be fetched anyway)
-			{
-				ctx.bsdfBuffer.push_back(
-					bsdfNode2bsdfStruct(ctx, top.bsdf, 0u, top.bsdf->type==CElementBSDF::Type::MIXTURE_BSDF ? top.bsdf->mixturebsdf.weights[top.weight_ix] : 0.f, top.maskParent)
-				);
-				assert(bsdfBufIx < bsdf::INSTR_BSDF_BUF_OFFSET_MASK);
-			}
-			ctx.instrBuffer.push_back(emitInstr(top.instr_1st_dword, top.bsdf, regs, bsdfBufIx));
+			auto* bsdf = stack.top();
 			stack.pop();
-		}
-		else if (!top.visited)
-		{
-			top.visited = true;
-			switch ((top.instr_1st_dword & bsdf::INSTR_OPCODE_MASK))
+			switch (bsdf->type)
 			{
-			case bsdf::OP_BLEND:
-				push(top.bsdf->blendbsdf.bsdf[1], top.instr_1st_dword, top.maskParent);
-				_IRR_FALLTHROUGH;
-			default:
-				push(top.bsdf->blendbsdf.bsdf[0], top.instr_1st_dword, top.maskParent);
+			case CElementBSDF::COATING:
+			case CElementBSDF::ROUGHCOATING:
+			case CElementBSDF::BUMPMAP:
+			case CElementBSDF::BLEND_BSDF:
+			case CElementBSDF::MIXTURE_BSDF:
+			case CElementBSDF::MASK:
+			case CElementBSDF::TWO_SIDED:
+				for (uint32_t i = 0u; i < bsdf->meta_common.childCount; ++i)
+					stack.push(bsdf->meta_common.bsdf[i]);
+			default: break;
+			}
+
+			switch (bsdf->type)
+			{
+			case CElementBSDF::DIFFUSE:
+			case CElementBSDF::ROUGHDIFFUSE:
+				cacheTexture(bsdf->diffuse.reflectance);
+				cacheTexture(bsdf->diffuse.alpha);
 				break;
+			case CElementBSDF::DIFFUSE_TRANSMITTER:
+				cacheTexture(bsdf->difftrans.transmittance);
+				break;
+			case CElementBSDF::DIELECTRIC:
+			case CElementBSDF::THINDIELECTRIC:
+			case CElementBSDF::ROUGHDIELECTRIC:
+				cacheTexture(bsdf->dielectric.alphaU);
+				if (bsdf->dielectric.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+					cacheTexture(bsdf->dielectric.alphaV);
+				break;
+			case CElementBSDF::CONDUCTOR:
+				cacheTexture(bsdf->conductor.alphaU);
+				if (bsdf->conductor.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+					cacheTexture(bsdf->conductor.alphaV);
+				break;
+			case CElementBSDF::PLASTIC:
+			case CElementBSDF::ROUGHPLASTIC:
+				cacheTexture(bsdf->plastic.diffuseReflectance);
+				cacheTexture(bsdf->plastic.alphaU);
+				if (bsdf->plastic.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
+					cacheTexture(bsdf->plastic.alphaV);
+				break;
+			case CElementBSDF::BUMPMAP:
+				getTexture(ctx, 0u, bsdf->bumpmap.texture);
+				break;
+			case CElementBSDF::BLEND_BSDF:
+				cacheTexture(bsdf->blendbsdf.weight);
+				break;
+			case CElementBSDF::MASK:
+				cacheTexture(bsdf->mask.opacity);
+				break;
+			default: break;
 			}
 		}
 	}
-	//reorder bumpmap instructions (they must be executed BEFORE instructions of tree nodes below it)
-	core::vector<uint32_t> ixs;//indices of bumpmap instructions to reorder
-	ixs.reserve(bsdf::INSTR_NORMAL_REG_MASK);
-	for (uint32_t i = 0u; i < (ctx.instrBuffer.size()-instrBufBase); ++i)
-	{
-		const uint32_t ix = instrBufBase + i;
-		const bsdf::instr_t& instr = ctx.instrBuffer[ix];
-		if ((instr & bsdf::INSTR_OPCODE_MASK) == bsdf::OP_BUMPMAP)
-			ixs.push_back(ix);
-		_IRR_DEBUG_BREAK_IF(ixs.size()>bsdf::INSTR_NORMAL_REG_MASK);
-	}
-	//reorder
-	for (uint32_t ix : ixs)
-	{
-		const bsdf::instr_t instr = ctx.instrBuffer[ix];
-		const uint32_t bmNormalReg = (instr >> bsdf::INSTR_NORMAL_REG_SHIFT)&bsdf::INSTR_NORMAL_REG_MASK;
-		auto it = std::find_if(ctx.instrBuffer.begin()+instrBufBase, ctx.instrBuffer.begin()+ix, [bmNormalReg] (const bsdf::instr_t& _i) { return ((_i>>bsdf::INSTR_NORMAL_REG_SHIFT)&bsdf::INSTR_NORMAL_REG_MASK) != bmNormalReg; });
-		//move bumpmap instruction to before first instruction which is using normal register of interest
-		ctx.instrBuffer.erase(ctx.instrBuffer.begin()+ix);
-		ctx.instrBuffer.insert(it, instr);
-	}
 
-	return {instrBufBase, ctx.instrBuffer.size()-instrBufBase};
+	return ctx.frontend.compileToIRTree(ctx.ir.get(), _bsdf);
 }
 
-core::smart_refctd_ptr<ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx)
+// Also sets instance data buffer offset into meshbuffers' push constants
+template<typename Iter>
+inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd)
 {
 	auto pplnLayout = getBuiltinAsset<ICPUPipelineLayout,IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager);
-	auto ds0layout = pplnLayout->getDescriptorSetLayout(0u);
+	auto* ds0layout = pplnLayout->getDescriptorSetLayout(0u);
 
-	auto ds0 = core::make_smart_refctd_ptr<ICPUDescriptorSet>(std::move(ds0layout));
-	auto d = ds0->getDescriptors(PAGE_TAB_TEX_BINDING).begin();
+	auto ds0 = core::make_smart_refctd_ptr<ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(ds0layout));
 	{
-		auto* pgtab = m_texPacker->getPageTable();
+		auto count = _ctx.backend_ctx.vt->getDescriptorSetWrites(nullptr, nullptr, nullptr);
 
-		ICPUImageView::SCreationParams params;
-		params.flags = static_cast<IImageView<ICPUImage>::E_CREATE_FLAGS>(0);
-		params.format = pgtab->getCreationParameters().format;
-		params.image = core::smart_refctd_ptr<ICPUImage>(pgtab);
-		params.viewType = IImageView<ICPUImage>::ET_2D;
-		params.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
-		params.subresourceRange.baseArrayLayer = 0u;
-		params.subresourceRange.layerCount = 1u;
-		params.subresourceRange.baseMipLevel = 0u;
-		params.subresourceRange.levelCount = pgtab->getCreationParameters().mipLevels;
-		auto pgtabView = ICPUImageView::create(std::move(params));
+		auto writes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSet::SWriteDescriptorSet>>(count.first);
+		auto info = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSet::SDescriptorInfo>>(count.second);
 
-		d->desc = std::move(pgtabView);
-		d->image.imageLayout = EIL_UNDEFINED;
-		d->image.sampler = nullptr;//TODO
+		_ctx.backend_ctx.vt->getDescriptorSetWrites(writes->data(), info->data(), ds0.get());
+
+		for (const auto& w : (*writes))
+		{
+			auto descRng = ds0->getDescriptors(w.binding);
+			for (uint32_t i = 0u; i < w.count; ++i)
+				descRng.begin()[w.arrayElement+i].assign(w.info[i], w.descriptorType);
+		}
 	}
-	d = ds0->getDescriptors(PHYS_PAGE_TEX_BINDING).begin();
+	auto d = ds0->getDescriptors(PRECOMPUTED_VT_DATA_BINDING).begin();
 	{
-		auto* physpgTex = m_texPacker->getPhysicalAddressTexture();
+		auto precompDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(asset::ICPUVirtualTexture::SPrecomputedData));
+		memcpy(precompDataBuf->getPointer(), &_ctx.backend_ctx.vt->getPrecomputedData(), precompDataBuf->getSize());
 
-		ICPUImageView::SCreationParams params;
-		params.flags = static_cast<IImageView<ICPUImage>::E_CREATE_FLAGS>(0);
-		params.format = physpgTex->getCreationParameters().format;
-		params.image = core::smart_refctd_ptr<ICPUImage>(physpgTex);
-		params.viewType = IImageView<ICPUImage>::ET_2D_ARRAY;
-		params.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
-		params.subresourceRange.baseArrayLayer = 0u;
-		params.subresourceRange.layerCount = physpgTex->getCreationParameters().arrayLayers;
-		params.subresourceRange.baseMipLevel = 0u;
-		params.subresourceRange.levelCount = 1u;
-		auto physPgTexView = ICPUImageView::create(std::move(params));
-
-		d->desc = std::move(physPgTexView);
-		d->image.imageLayout = EIL_UNDEFINED;
-		d->image.sampler = nullptr;//TODO
+		d->buffer.offset = 0u;
+		d->buffer.size = precompDataBuf->getSize();
+		d->desc = std::move(precompDataBuf);
 	}
 	d = ds0->getDescriptors(INSTR_BUF_BINDING).begin();
 	{
-		auto instrbuf = core::make_smart_refctd_ptr<ICPUBuffer>(_ctx.instrBuffer.size()*sizeof(decltype(_ctx.instrBuffer)::value_type));
-		memcpy(instrbuf->getPointer(), _ctx.instrBuffer.data(), instrbuf->getSize());
+		auto instrbuf = core::make_smart_refctd_ptr<ICPUBuffer>(_compResult.instructions.size()*sizeof(decltype(_compResult.instructions)::value_type));
+		memcpy(instrbuf->getPointer(), _compResult.instructions.data(), instrbuf->getSize());
 
 		d->buffer.offset = 0u;
 		d->buffer.size = instrbuf->getSize();
@@ -1664,12 +1236,61 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CMitsubaLoader::createDS0(const SConte
 	}
 	d = ds0->getDescriptors(BSDF_BUF_BINDING).begin();
 	{
-		auto bsdfbuf = core::make_smart_refctd_ptr<ICPUBuffer>(_ctx.bsdfBuffer.size()*sizeof(decltype(_ctx.bsdfBuffer)::value_type));
-		memcpy(bsdfbuf->getPointer(), _ctx.bsdfBuffer.data(), bsdfbuf->getSize());
+		auto bsdfbuf = core::make_smart_refctd_ptr<ICPUBuffer>(_compResult.bsdfData.size()*sizeof(decltype(_compResult.bsdfData)::value_type));
+		memcpy(bsdfbuf->getPointer(), _compResult.bsdfData.data(), bsdfbuf->getSize());
 
 		d->buffer.offset = 0u;
 		d->buffer.size = bsdfbuf->getSize();
 		d->desc = std::move(bsdfbuf);
+	}
+
+	std::ofstream ofile("log.txt");
+	core::vector<SInstanceData> instanceData;
+	for (auto it = meshBegin; it != meshEnd; ++it)
+	{
+		auto& mesh = *it;
+		auto* meta = static_cast<const IMeshMetadata*>(mesh->getMetadata());
+		
+		core::vectorSIMDf emissive;
+		uint32_t instDataOffset = instanceData.size();
+		for (const auto& inst : meta->getInstances()) {
+			emissive = inst.emitter.type==CElementEmitter::AREA ? inst.emitter.area.radiance : core::vectorSIMDf(0.f);
+
+			auto bsdf = inst.bsdf;
+			auto streams_it = _compResult.streams.find(bsdf);
+			_IRR_DEBUG_BREAK_IF(streams_it==_compResult.streams.end());
+			const auto& streams = streams_it->second;
+
+			os::Printer::log("Debug print BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
+			ofile << "Debug print BSDF with id = " << inst.bsdf_id << std::endl;
+			_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
+
+			SInstanceData instData;
+			instData.tform = inst.tform;
+			instData.tform.getSub3x3InverseTranspose(instData.normalMatrix);
+			instData.emissive = core::rgb32f_to_rgb19e7(emissive.pointer);
+			core::floatBitsToUint(instData.normalMatrix(0u, 3u)) = streams.rem_and_pdf.first;
+			core::floatBitsToUint(instData.normalMatrix(1u, 3u)) = streams.rem_and_pdf.count;
+			instData.prefetch_instrStream = {streams.tex_prefetch.first, streams.tex_prefetch.count};
+			instData.nprecomp_instrStream = {streams.norm_precomp.first, streams.norm_precomp.count};
+			instData.genchoice_instrStream = {streams.gen_choice.first, streams.gen_choice.count};
+
+			instanceData.push_back(instData);
+		}
+		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+		{
+			auto* mb = mesh->getMeshBuffer(i);
+			reinterpret_cast<uint32_t*>(mb->getPushConstantsDataPtr())[0] = instDataOffset;
+		}
+	}
+	d = ds0->getDescriptors(INSTANCE_DATA_BINDING).begin();
+	{
+		auto instDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(instanceData.size()*sizeof(SInstanceData));
+		memcpy(instDataBuf->getPointer(), instanceData.data(), instDataBuf->getSize());
+
+		d->buffer.offset = 0u;
+		d->buffer.size = instDataBuf->getSize();
+		d->desc = std::move(instDataBuf);
 	}
 
 	return ds0;
@@ -1701,6 +1322,59 @@ core::smart_refctd_ptr<CMitsubaPipelineMetadata> CMitsubaLoader::createPipelineM
 	return core::make_smart_refctd_ptr<CMitsubaPipelineMetadata>(std::move(_ds0), std::move(inputs));
 }
 
+SContext::SContext(
+	const asset::IGeometryCreator* _geomCreator,
+	const asset::IMeshManipulator* _manipulator,
+	const asset::IAssetLoader::SAssetLoadParams& _params,
+	asset::IAssetLoader::IAssetLoaderOverride* _override,
+	CGlobalMitsubaMetadata* _metadata
+) : creator(_geomCreator), manipulator(_manipulator), params(_params), override(_override), globalMeta(_metadata),
+	ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this)
+{
+	//TODO (maybe) dynamically decide which of those are needed OR just wait until IVirtualTexture does it on itself (dynamically creates resident storages)
+	constexpr asset::E_FORMAT formats[]{ asset::EF_R8_UNORM, asset::EF_R8G8_UNORM, asset::EF_R8G8B8_SRGB, asset::EF_R8G8B8A8_SRGB
+#ifdef DERIV_MAP_FLOAT32
+		, asset::EF_R32G32_SFLOAT
+#endif
+	};
+	constexpr size_t formatCount = sizeof(formats)/sizeof(*formats);
+	std::array<asset::ICPUVirtualTexture::ICPUVTResidentStorage::SCreationParams, formatCount> storage;
+	storage[0].formatClass = asset::EFC_8_BIT;
+	storage[0].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
+	storage[0].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
+	storage[0].formatCount = 1u;
+	storage[0].formats = formats;
+
+	storage[1].formatClass = asset::EFC_16_BIT;
+	storage[1].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
+	storage[1].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
+	storage[1].formatCount = 1u;
+	storage[1].formats = formats+1;
+
+	storage[2].formatClass = asset::EFC_24_BIT;
+	storage[2].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
+	storage[2].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
+	storage[2].formatCount = 1u;
+	storage[2].formats = formats+2;
+
+	storage[3].formatClass = asset::EFC_32_BIT;
+	storage[3].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
+	storage[3].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
+	storage[3].formatCount = 1u;
+	storage[3].formats = formats+3;
+
+#ifdef DERIV_MAP_FLOAT32
+	storage[4].formatClass = asset::EFC_64_BIT;
+	storage[4].layerCount = 2u;
+	storage[4].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
+	storage[4].formatCount = 1u;
+	storage[4].formats = formats+4;
+#endif
+
+	backend_ctx.vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(storage.data(), storage.size(), VT_PAGE_SZ_LOG2, VT_PAGE_TABLE_LAYERS, VT_PAGE_PADDING, VT_MAX_ALLOCATABLE_TEX_SZ_LOG2);
+
+	globalMeta->VT = backend_ctx.vt;
+}
 
 }
 }

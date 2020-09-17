@@ -14,10 +14,10 @@ namespace video
 	@see IReferenceCounted
 */
 
-class IGPUShader : public core::IReferenceCounted
+class IGPUShader : public asset::IShader
 {
-protected:
-    virtual ~IGPUShader() = default;
+    protected:
+        virtual ~IGPUShader() = default;
 };
 
 }

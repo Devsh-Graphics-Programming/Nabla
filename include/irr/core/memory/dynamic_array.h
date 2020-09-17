@@ -122,6 +122,10 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
             auto gccHappyVar = allocator();
 			return std::allocator_traits<allocator>::allocate(gccHappyVar, this_real_type::size_of(length) / sizeof(T));
 		}
+		static inline void* allocate_dynamic_array(size_t length, const T&)
+		{
+			return allocate_dynamic_array(length);
+		}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
 		static inline void* allocate_dynamic_array(const container_t& _containter)
 		{
@@ -131,6 +135,10 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
 		static inline void* allocate_dynamic_array(size_t length, allocator& _alctr)
 		{
 			return std::allocator_traits<allocator>::allocate(_alctr,this_real_type::size_of(length)/sizeof(T));
+		}
+		static inline void* allocate_dynamic_array(size_t length, const T&, allocator& _alctr)
+		{
+			return allocate_dynamic_array(length, _alctr);
 		}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
 		static inline void* allocate_dynamic_array(const container_t& _containter, allocator& _alctr)
@@ -203,6 +211,8 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
 		inline size_t			size() const noexcept { return base_t::item_count; }
 		inline bool				empty() const noexcept { return !size(); }
 
+		inline size_t			bytesize() const noexcept { return base_t::item_count*sizeof(T); }
+
 		inline const T&			operator[](size_t ix) const noexcept { return data()[ix]; }
 		template<typename U=T, typename = typename std::enable_if<!is_const>::type>
 		inline T&				operator[](size_t ix) noexcept { return data()[ix]; }
@@ -214,8 +224,9 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
 		inline T&				back() noexcept { return *(end()-1); }
 		inline const T&			back() const noexcept { return *(end()-1); }
 		template<typename U=T, typename = typename std::enable_if<!is_const>::type>
-		inline pointer			data() noexcept { return reinterpret_cast<T*>(this)+dummy_item_count; }
-		inline const_pointer	data() const noexcept { return reinterpret_cast<const T*>(this)+dummy_item_count; }
+		// little explainer what is happening here, the derived CRTP class could have some other ancestors before us, so we need static cast to get pointer to CRTP head
+		inline pointer			data() noexcept { return reinterpret_cast<T*>(static_cast<this_real_type*>(this))+this_real_type::dummy_item_count; }
+		inline const_pointer	data() const noexcept { return reinterpret_cast<const T*>(static_cast<const this_real_type*>(this))+this_real_type::dummy_item_count; }
 };
 
 
