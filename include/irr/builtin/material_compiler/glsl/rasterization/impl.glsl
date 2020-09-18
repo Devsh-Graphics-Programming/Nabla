@@ -31,7 +31,7 @@ void instr_eval_execute(in instr_t instr, in vec3 L)
 #ifdef ALL_ISOTROPIC_BXDFS
 			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, a2);
 #else
-			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(currBSDFParams, currInteraction, a, ay);
+			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(currBSDFParams, currInteraction, a, a2, ay, ay2);
 #endif
 
 
@@ -46,9 +46,9 @@ void instr_eval_execute(in instr_t instr, in vec3 L)
 #endif
 
 #ifdef ALL_ISOTROPIC_BXDFS
-			bxdf_eval_scalar_part = irr_glsl_beckmann_smith_height_correlated_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, a2);
+			bxdf_eval_scalar_part = irr_glsl_beckmann_height_correlated_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, a2);
 #else
-			bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval_DG(currBSDFParams, currInteraction, a, a2, ay, ay2);
+			bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(currBSDFParams, currInteraction, a, a2, ay, ay2);
 #endif
 
 #ifndef ONLY_ONE_NDF

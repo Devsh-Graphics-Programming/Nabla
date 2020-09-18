@@ -317,7 +317,6 @@ vec3 params_getTransmittance(in params_t p)
 }
 
 
-#ifdef OP_DIFFUSE
 void instr_execute_cos_eval_DIFFUSE(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
@@ -329,9 +328,7 @@ void instr_execute_cos_eval_DIFFUSE(in instr_t instr, in uvec3 regs, in params_t
 	}
 	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
-#endif
 
-#ifdef OP_DIFFTRANS
 void instr_execute_cos_eval_DIFFTRANS(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	vec3 tr = params_getTransmittance(params);
@@ -339,9 +336,7 @@ void instr_execute_cos_eval_DIFFTRANS(in instr_t instr, in uvec3 regs, in params
 	vec3 c = currBSDFParams.isotropic.NdotL*irr_glsl_RECIPROCAL_PI*0.5*tr;
 	writeReg(REG_DST(regs), c);
 }
-#endif
 
-#ifdef OP_DIELECTRIC
 void instr_execute_cos_eval_DIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	/*if (currBSDFParams.isotropic.NdotL>FLT_MIN)
@@ -361,9 +356,7 @@ float instr_execute_cos_eval_pdf_DIELECTRIC(in instr_t instr, in uvec3 regs, in 
 	//WARNING 1.0 instead of INF
 	return 1.0;// / 0.0;
 }
-#endif
 
-#ifdef OP_THINDIELECTRIC
 void instr_execute_cos_eval_THINDIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	/*if (currBSDFParams.isotropic.NdotL>FLT_MIN)
@@ -384,9 +377,7 @@ float instr_execute_cos_eval_pdf_THINDIELECTRIC(in instr_t instr, in uvec3 regs,
 	//WARNING 1.0 instead of INF
 	return 1.0;// / 0.0;
 }
-#endif
 
-#ifdef OP_CONDUCTOR
 void instr_execute_cos_eval_CONDUCTOR(in instr_t instr, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
@@ -399,9 +390,7 @@ void instr_execute_cos_eval_CONDUCTOR(in instr_t instr, in uvec3 regs, in float 
 	}
 	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
-#endif
 
-#ifdef OP_PLASTIC
 void instr_execute_cos_eval_PLASTIC(in instr_t instr, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data)
 {
 	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
@@ -432,9 +421,7 @@ float instr_execute_cos_eval_pdf_PLASTIC(in instr_t instr, in uvec3 regs, in flo
 	//return 0.5*specular_pdf + 0.5*irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic, a2);
 	return specular_pdf;
 }
-#endif
 
-#ifdef OP_COATING
 void instr_execute_cos_eval_COATING(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	//vec2 thickness_eta = unpackHalf2x16(data.data[3].x);
@@ -442,9 +429,7 @@ void instr_execute_cos_eval_COATING(in instr_t instr, in uvec3 regs, in params_t
 	//float a = params_getAlpha(params);
 	writeReg(REG_DST(regs), bxdf_eval_t(1.0,0.0,0.0));
 }
-#endif
 
-#ifdef OP_BUMPMAP
 void instr_execute_BUMPMAP_interactionOnly(in instr_t instr)
 {
 	vec3 N = readReg3( REG_SRC1(instr_decodeRegisters(instr)) );
@@ -455,10 +440,7 @@ void instr_execute_BUMPMAP(in instr_t instr, in vec3 L)
 	vec3 N = readReg3( REG_SRC1(instr_decodeRegisters(instr)) );
 	setCurrBSDFParams(N, L);
 }
-#endif
 
-#ifdef OP_SET_GEOM_NORMAL
-//executed at most once
 void instr_execute_SET_GEOM_NORMAL_interactionOnly()
 {
 	setCurrInteraction(normalize(Normal));
@@ -467,9 +449,7 @@ void instr_execute_SET_GEOM_NORMAL(in vec3 L)
 {
 	setCurrBSDFParams(normalize(Normal), L);
 }
-#endif
 
-#ifdef OP_BLEND
 void instr_execute_cos_eval_BLEND(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	float w = params_getBlendWeight(params);
@@ -479,7 +459,7 @@ void instr_execute_cos_eval_BLEND(in instr_t instr, in uvec3 regs, in params_t p
 	bxdf_eval_t blend = mix(bxdf1, bxdf2, w);
 	writeReg(REG_DST(regs), blend);
 }
-void instr_execute_cos_eval_pdf_BLEND(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+float instr_execute_cos_eval_pdf_BLEND(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	float w = params_getBlendWeight(params);
 	eval_and_pdf_t bxdf1 = readReg4(REG_SRC1(regs));
@@ -517,7 +497,6 @@ void instr_execute_cos_eval_pdf_BLEND(in instr_t instr, in uvec3 regs, in params
 
 	return mix(pdfa,pdfb,wa);
 }
-#endif
 
 vec3 fetchTex(in uvec3 texid, in vec2 uv, in mat2 dUV)
 {
@@ -722,6 +701,7 @@ void handleTwosided(inout bool ts_flag, in instr_t instr)
 }
 
 //TODO move or rename those
+//ggx
 float irr_glsl_ggx_height_correlated_cos_eval_DG(in float NdotH, in float NdotL, in float NdotV, in float a2)
 {
 	float NdotH2 = NdotH*NdotH;
@@ -798,6 +778,121 @@ float irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(in irr_glsl_BSDFAnisotrop
 	);
 }
 
+//beckmann
+float irr_glsl_beckmann_height_correlated_cos_eval_DG(in float NdotH, in float NdotL, in float NdotV, in float a2)
+{
+	float NdotH2 = NdotH*NdotH;
+	float NdotL2 = NdotL*NdotL;
+	float maxNdotV = max(NdotV,0.0);
+	float NdotV2 = NdotV*NdotV;
+
+	return irr_glsl_beckmann_height_correlated_cos_eval_DG_wo_clamps(NdotH2, NdotL2, maxNdotV, NdotV2, a2);
+}
+float irr_glsl_beckmann_height_correlated_cos_eval_DG(in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction i, in float a2)
+{
+	return irr_glsl_beckmann_height_correlated_cos_eval_DG(s.NdotH, s.NdotL, i.NdotV, a2);
+}
+float irr_glsl_beckmann_height_correlated_cos_eval_DG(in irr_glsl_BSDFIsotropicParams p, in irr_glsl_IsotropicViewSurfaceInteraction i, in float a2)
+{
+	return irr_glsl_beckmann_height_correlated_cos_eval_DG(p.NdotH, p.NdotL, i.NdotV, a2);
+}
+
+float irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(in float NdotH, in float TdotH, in float BdotH, in float NdotL, in float TdotL, in float BdotL, in float NdotV, in float TdotV, in float BdotV, in float ax, in float ax2, in float ay, in float ay2)
+{
+	return irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG_wo_clamps(
+		NdotH*NdotH,
+		TdotH*TdotH,
+		BdotH*BdotH,
+		NdotL*NdotL,
+		TdotL*TdotL,
+		BdotL*BdotL,
+		max(NdotV,0.0),
+		NdotV*NdotV,
+		TdotV*TdotV,
+		BdotV*BdotV,
+		ax, ax2, ay, ay2
+	);
+}
+float irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(in irr_glsl_BSDFAnisotropicParams p, in irr_glsl_AnisotropicViewSurfaceInteraction i, in float ax, in float ax2, in float ay, in float ay2)
+{
+	return irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(
+		p.isotropic.NdotH,
+		p.TdotH,
+		p.BdotH,
+		p.isotropic.NdotL,
+		p.TdotL,
+		p.BdotL,
+		i.isotropic.NdotV,
+		i.TdotV,
+		i.BdotV,
+		ax, ax2, ay, ay2
+	);
+}
+float irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(in irr_glsl_BxDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction i, in float ax, in float ax2, in float ay, in float ay2)
+{
+	return irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(
+		s.NdotH,
+		s.TdotH,
+		s.BdotH,
+		s.NdotL,
+		s.TdotL,
+		s.BdotL,
+		i.isotropic.NdotV,
+		i.TdotV,
+		i.BdotV,
+		ax, ax2, ay, ay2
+	);
+}
+
+//blinn-phong
+float irr_glsl_blinn_phong_cos_eval_DG(in float NdotH, in float NdotV, in float NdotL, in float n, in float a2)
+{
+	return irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(max(NdotH,0.0), max(NdotV,0.0), NdotV*NdotV, NdotL*NdotL, n, a2);
+}
+float irr_glsl_blinn_phong_cos_eval_DG(in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction i, in float n, in float a2)
+{
+	return irr_glsl_blinn_phong_cos_eval_DG(s.NdotH, i.NdotV, s.NdotL, n, a2);
+}
+float irr_glsl_blinn_phong_cos_eval_DG(in irr_glsl_BSDFIsotropicParams p, in irr_glsl_IsotropicViewSurfaceInteraction i, in float n, in float a2)
+{
+	return irr_glsl_blinn_phong_cos_eval_DG(p.NdotH, i.NdotV, p.NdotL, n, a2);
+}
+
+float irr_glsl_blinn_phong_cos_eval_DG(in float NdotH, in float TdotH, in float BdotH, in float NdotL, in float TdotL, in float BdotL, in float NdotV, in float TdotV, in float BdotV, in float nx, in float ny, in float ax2, in float ay2)
+{
+	return irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(max(NdotH, 0.0), NdotH * NdotH, TdotH * TdotH, BdotH * BdotH, TdotL * TdotL, BdotL * BdotL, max(NdotV, 0.0), TdotV * TdotV, BdotV * BdotV, NdotV * NdotV, NdotL * NdotL, nx, ny, ax2, ay2);
+}
+float irr_glsl_blinn_phong_cos_eval_DG(in irr_glsl_BxDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction i, in float nx, in float ny, in float ax2, in float ay2)
+{
+	return irr_glsl_blinn_phong_cos_eval_DG(
+		s.NdotH,
+		s.TdotH,
+		s.BdotH,
+		s.NdotL,
+		s.TdotL,
+		s.BdotL,
+		i.isotropic.NdotV,
+		i.TdotV,
+		i.BdotV,
+		nx, ny, ax2, ay2
+	);
+}
+float irr_glsl_blinn_phong_cos_eval_DG(in irr_glsl_BSDFAnisotropicParams p, in irr_glsl_AnisotropicViewSurfaceInteraction i, in float nx, in float ny, in float ax2, in float ay2)
+{
+	return irr_glsl_blinn_phong_cos_eval_DG(
+		p.isotropic.NdotH,
+		p.TdotH,
+		p.BdotH,
+		p.isotropic.NdotL,
+		p.TdotL,
+		p.BdotL,
+		i.isotropic.NdotV,
+		i.TdotV,
+		i.BdotV,
+		nx, ny, ax2, ay2
+	);
+}
+
 #ifdef GEN_CHOICE_STREAM
 void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BxDFSample s)
 {
@@ -853,10 +948,10 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BxDFSample s)
 		if (ndf==NDF_BECKMANN) {
 
 #ifdef ALL_ISOTROPIC_BXDFS
-			bxdf_eval_scalar_part = irr_glsl_beckmann_smith_height_correlated_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, a2);
+			bxdf_eval_scalar_part = irr_glsl_beckmann_height_correlated_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, a2);
 			pdf = irr_glsl_beckmann_pdf(s, currInteraction.isotropic, a2);
 #else
-			bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval_DG(currBSDFParams, currInteraction, a, a2, ay, ay2);
+			bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(currBSDFParams, currInteraction, a, a2, ay, ay2);
 			pdf = irr_glsl_beckmann_pdf(s, currInteraction, a, a2, ay, ay2);
 #endif
 
@@ -1098,14 +1193,14 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 
 #ifdef NDF_BECKMANN
 	if (ndf == NDF_BECKMANN) {
-		s = irr_glsl_beckmann_smith_cos_generate(currInteraction, u.xy, ax, ay);
+		s = irr_glsl_beckmann_cos_generate(currInteraction, u.xy, ax, ay);
 		rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, ior, ax, ax2, ay, ay2);
 	} else
 #endif //NDF_BECKMANN
 
 #ifdef NDF_PHONG
 	if (ndf == NDF_PHONG) {
-		s = irr_glsl_beckmann_smith_cos_generate(currInteraction, u.xy, ax, ay);
+		s = irr_glsl_beckmann_cos_generate(currInteraction, u.xy, ax, ay);
 		rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, ior, ax, ax2, ay, ay2);
 	} else
 #endif //NDF_PHONG
@@ -1132,14 +1227,14 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 
 #ifdef NDF_BECKMANN
 			if (ndf == NDF_BECKMANN) {
-				eval = irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval(currBSDFParams, currInteraction, ior, ax, ax2, ay, ay2);
+				eval = irr_glsl_beckmann_aniso_height_correlated_cos_eval(currBSDFParams, currInteraction, ior, ax, ax2, ay, ay2);
 				pdf_b = irr_glsl_beckmann_pdf(s, currInteraction, ax, ax2, ay, ay2);
 			} else
 #endif //NDF_BECKMANN
 
 #ifdef NDF_PHONG
 			if (ndf == NDF_PHONG) {
-				eval = irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval(currBSDFParams, currInteraction, ior, ax, ax2, ay, ay2);
+				eval = irr_glsl_beckmann_aniso_height_correlated_cos_eval(currBSDFParams, currInteraction, ior, ax, ax2, ay, ay2);
 				pdf_b = irr_glsl_beckmann_pdf(s, currInteraction, ax, ax2, ay, ay2);
 			} else
 #endif //NDF_PHONG

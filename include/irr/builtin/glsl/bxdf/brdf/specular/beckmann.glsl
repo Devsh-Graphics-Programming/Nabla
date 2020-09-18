@@ -110,6 +110,19 @@ float irr_glsl_beckmann_pdf_wo_clamps(in float NdotH2, in float TdotH2, in float
     return irr_glsl_beckmann_pdf_wo_clamps(ndf, lambda, maxNdotV);
 }
 
+float irr_glsl_beckmann_pdf(in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction inter, in float a2)
+{
+    return irr_glsl_beckmann_pdf_wo_clamps(s.NdotH*s.NdotH, max(inter.NdotV,0.0), inter.NdotV*inter.NdotV, a2);
+}
+
+float irr_glsl_beckmann_pdf(in irr_glsl_BxDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction inter, in float ax, in float ax2, in float ay, in float ay2)
+{
+    float TdotV2 = inter.TdotV*inter.TdotV;
+    float BdotV2 = inter.BdotV*inter.BdotV;
+    float NdotV2 = inter.isotropic.NdotV*inter.isotropic.NdotV;
+
+    return irr_glsl_beckmann_pdf_wo_clamps(s.NdotH*s.NdotH, s.TdotH*s.TdotH, s.BdotH*s.BdotH, max(inter.isotropic.NdotV,0.0), TdotV2, BdotV2, NdotV2, ax, ax2, ay, ay2);
+}
 
 
 vec3 irr_glsl_beckmann_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in float maxNdotL, in float NdotL2, in float maxNdotV, in float NdotV2, in float VdotH, in mat2x3 ior, in float a2)
