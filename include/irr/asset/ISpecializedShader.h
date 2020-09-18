@@ -21,6 +21,26 @@ namespace asset
 
 	@see IShader
 	@see IReferenceCounted
+
+	It also handles Specialization Constants.
+
+	In Vulkan, all shaders get halfway-compiled into SPIR-V and
+	then the rest-of-the-way compiled by the Vulkan driver.
+	Normally, the half-way compile finalizes all constant values
+	and compiles the code that uses them.
+	But, it would be nice every so often to have your Vulkan
+	program sneak into the halfway-compiled binary and
+	manipulate some constants at runtime. This is what
+	Specialization Constants are for. 
+	
+	So A Specialization Constant is
+	a way of injecting an integer, Boolean, uint, float, or double
+	constant into a halfway-compiled version of a shader right
+	before the rest-of-the-way compilation.
+
+	Without Specialization Constants, you would have to commit
+	to a final value before the SPIR-V compile was done, which
+	could have been a long time ago.
 */
 
 class ISpecializedShader : public virtual core::IReferenceCounted

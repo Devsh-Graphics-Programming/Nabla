@@ -353,6 +353,10 @@ enum E_VERTEX_ATTRIBUTE_ID
     be used when creating the pipeline. This would have made it impossible to
     load models in a "screen agnostic way".
 
+    Graphics pipelines consist of multiple shader stages,
+    multiple fixed-function pipeline stages, 
+    and a pipeline layout.
+
     @see IPipeline
 */
 

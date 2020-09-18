@@ -3,7 +3,6 @@
 
 #include <utility>
 
-
 #include "irr/core/IReferenceCounted.h"
 
 namespace irr
@@ -37,22 +36,17 @@ struct DispatchIndirectCommand_t
 
 //! Interface class for for concreting graphics and compute pipelines
 /*
-	The pipeline object gathers all the information about the resources
-	(types) and settings you'll be using while rendering, so that there
-	are no nasty surprises in the "hot" render-loop.
+	A pipeline refers to a succession of fixed stages 
+	through which a data input flows; each stage processes 
+	the incoming data and hands it over to the next stage. 
+	The final product will be either a 2D raster drawing image 
+	(the graphics pipeline) or updated resources (buffers or images) 
+	with computational logic and calculations (the compute pipeline).
 
-	Pipeline specifies all the settings (programmable and fixed pipeline
-	state) necessary to execute a \b{Multi}{Indirect}Draw\b or
-	\b{Indirect}Dispatch\b, but \bnone\b of the specific inputs like:
-
-	- buffers
-	- images
-	- samplers
-
-	or outputs like:
-
-	- buffers
-	- images
+	Vulkan supports two types of pipeline:
+	
+	- graphics pipeline
+	- compute pipeline
 */
 
 template<typename LayoutType>

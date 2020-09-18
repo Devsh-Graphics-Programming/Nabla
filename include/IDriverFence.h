@@ -70,10 +70,8 @@ enum E_DRIVER_FENCE_RETVAL
     }
     \endcode
 
-    Also you should look at IDriver::flushMappedMemoryRanges function. It:
-
-    - flushes when CPU is writing and GPU is reading
-    - invalidates when CPU is reading and GPU is writing
+    Also you should look at IDriver::flushMappedMemoryRanges function. 
+    It flushes when CPU is writing and GPU is reading.
 
     @see IDriver::flushMappedMemoryRanges
 
