@@ -11,7 +11,7 @@ layout (push_constant) uniform PC {
 } pc;
 
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/beckmann_smith.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl>
@@ -56,7 +56,7 @@ void main()
         brdf = vec3( 4.0*params_.NdotL*inter_.NdotV*irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(ax, ay, params.TdotL, inter.TdotV, params.BdotL, inter.BdotV, params.isotropic.NdotL, inter.isotropic.NdotV) );
         //brdf *= irr_glsl_fresnel_conductor(ior[0], ior[1], params.isotropic.VdotH);
     #else
-        brdf = irr_glsl_beckmann_smith_height_correlated_cos_eval(params_, inter_, ior, a2);
+        brdf = irr_glsl_beckmann_height_correlated_cos_eval(params_, inter_, ior, a2);
     #endif
 #elif defined(TEST_PHONG)
     float n = irr_glsl_alpha2_to_phong_exp(a2);
@@ -69,7 +69,7 @@ void main()
 #elif defined(TEST_OREN_NAYAR)
     brdf = albedo*irr_glsl_oren_nayar_cos_eval(params_, inter_, a2);
 #elif defined(TEST_LAMBERT)
-    brdf = albedo*irr_glsl_lambertian_cos_eval(params_, inter_);
+    brdf = albedo*irr_glsl_lambertian_cos_eval(params_);
 #endif
     //red output means brdf>1.0
     //outColor = any(greaterThan(brdf,vec3(1.0))) ? vec4(1.0,0.0,0.0,1.0) : vec4(Intensity*brdf/dot(L,L), 1.0);
