@@ -39,7 +39,7 @@ int main()
 	IAssetManager* am = device->getAssetManager();
 
 	IAssetLoader::SAssetLoadParams lp;
-	auto imageBundle = am->getAsset("../../media/OpenEXR/56_render_0_2_256.exr", lp);
+	auto imageBundle = am->getAsset("../../media/noises/spp_benchmark_4k_512.exr", lp);
 
 	E_FORMAT inFormat;
 	constexpr auto outFormat = EF_R8G8B8A8_SRGB;
