@@ -164,7 +164,7 @@ vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf_wo_clamps(out float pdf, in f
     float G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(onePlusLambda_V, maxNdotL, TdotL2, BdotL2, NdotL2, ax2, ay2);
     return reflectance * G2_over_G1;
 }
-vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_AnisotropicMicrofacetCache _cache, in mat2x3 ior, in float ax, in float ax2, in float ay, in float ay2)
+vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_AnisotropicMicrofacetCache _cache, in mat2x3 ior, in float ax, in float ay)
 {    
     if (_sample.NdotL>FLT_MIN && interaction.isotropic.NdotV>FLT_MIN)
     {
@@ -177,6 +177,8 @@ vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_Li
         const float TdotV2 = interaction.TdotV*interaction.TdotV;
         const float BdotV2 = interaction.BdotV*interaction.BdotV;
     
+        const float ax2 = ax*ax;
+        const float ay2 = ay*ay;
         const float ndf = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, _cache.isotropic.NdotH2);
         const vec3 reflectance = irr_glsl_fresnel_conductor(ior[0], ior[1], _cache.isotropic.VdotH);
 
@@ -237,7 +239,7 @@ vec3 irr_glsl_beckmann_aniso_height_correlated_cos_eval_wo_clamps(in float NdotH
     
     return scalar_part*fr;
 }
-vec3 irr_glsl_beckmann_aniso_height_correlated_cos_eval(in irr_glsl_LightSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_AnisotropicMicrofacetCache _cache, in mat2x3 ior, in float ax, in float ax2, in float ay, in float ay2)
+vec3 irr_glsl_beckmann_aniso_height_correlated_cos_eval(in irr_glsl_LightSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_AnisotropicMicrofacetCache _cache, in mat2x3 ior, in float ax, in float ay)
 {    
     if (interaction.isotropic.NdotV>FLT_MIN)
     {
@@ -249,7 +251,7 @@ vec3 irr_glsl_beckmann_aniso_height_correlated_cos_eval(in irr_glsl_LightSample 
 
         const float TdotV2 = interaction.TdotV*interaction.TdotV;
         const float BdotV2 = interaction.BdotV*interaction.BdotV;
-      return irr_glsl_beckmann_aniso_height_correlated_cos_eval_wo_clamps(_cache.isotropic.NdotH2,TdotH2,BdotH2, _sample.NdotL2,TdotL2,BdotL2, interaction.isotropic.NdotV,interaction.isotropic.NdotV_squared,TdotV2,BdotV2, _cache.isotropic.VdotH, ior,ax,ax2,ay,ay2);
+      return irr_glsl_beckmann_aniso_height_correlated_cos_eval_wo_clamps(_cache.isotropic.NdotH2,TdotH2,BdotH2, _sample.NdotL2,TdotL2,BdotL2, interaction.isotropic.NdotV,interaction.isotropic.NdotV_squared,TdotV2,BdotV2, _cache.isotropic.VdotH, ior,ax,ax*ax,ay,ay*ay);
     }
     else
         return vec3(0.0);

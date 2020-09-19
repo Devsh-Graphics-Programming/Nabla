@@ -9,7 +9,7 @@
 // its basically a set of weights that determine 
 // assert(1.0==luminosityContributionHint.r+luminosityContributionHint.g+luminosityContributionHint.b);
 // `remainderMetadata` is a variable in which the generator function returns byproducts of sample generation that would otherwise have to be redundantly calculated in `remainder_and_pdf`
-irr_glsl_BxDFSample irr_glsl_thin_smooth_dielectric_cos_generate_wo_clamps(in vec3 V, in vec3 N, in float NdotV, in float absNdotV, vec3 u, in vec3 eta2, in vec3 luminosityContributionHint, out vec3 remainderMetadata)
+irr_glsl_LightSample irr_glsl_thin_smooth_dielectric_cos_generate_wo_clamps(in vec3 V, in vec3 N, in float NdotV, in float absNdotV, vec3 u, in vec3 eta2, in vec3 luminosityContributionHint, out vec3 remainderMetadata)
 {
     // we will only ever intersect from the outside
     const vec3 reflectance = irr_glsl_thindielectric_infinite_scatter(irr_glsl_fresnel_dielectric_common(eta2,absNdotV));
@@ -35,7 +35,7 @@ irr_glsl_BxDFSample irr_glsl_thin_smooth_dielectric_cos_generate_wo_clamps(in ve
     return smpl;
 }
 
-irr_glsl_BxDFSample irr_glsl_thin_smooth_dielectric_cos_generate_wo_clamps(in vec3 V, in vec3 N, in float NdotV, in float absNdotV, vec3 u, in vec3 eta2, in vec3 luminosityContributionHint)
+irr_glsl_LightSample irr_glsl_thin_smooth_dielectric_cos_generate_wo_clamps(in vec3 V, in vec3 N, in float NdotV, in float absNdotV, vec3 u, in vec3 eta2, in vec3 luminosityContributionHint)
 {
     vec3 dummy;
     irr_glsl_BxDFSample smpl = irr_glsl_thin_smooth_dielectric_cos_generate_wo_clamps(V,N,NdotV,absNdotV,u,eta2,luminosityContributionHint,dummy);
@@ -43,7 +43,7 @@ irr_glsl_BxDFSample irr_glsl_thin_smooth_dielectric_cos_generate_wo_clamps(in ve
     return smpl;
 }
 
-irr_glsl_BxDFSample irr_glsl_thin_smooth_dielectric_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, vec3 u, in vec3 eta2, in vec3 luminosityContributionHint)
+irr_glsl_LightSample irr_glsl_thin_smooth_dielectric_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, vec3 u, in vec3 eta2, in vec3 luminosityContributionHint)
 {
     return irr_glsl_thin_smooth_dielectric_cos_generate_wo_clamps(interaction.isotropic.V.dir,interaction.isotropic.N,interaction.isotropic.NdotV,abs(interaction.isotropic.NdotV),u,eta2,luminosityContributionHint);
 }
@@ -74,7 +74,7 @@ vec3 irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(out float pdf, in irr
 
 
 
-irr_glsl_BxDFSample irr_glsl_smooth_dielectric_cos_generate_wo_clamps(in vec3 V, in vec3 N, in bool backside, in float NdotV, in float absNdotV, in float NdotV2, vec3 u, in float rcpOrientedEta, in float orientedEta2, in float rcpOrientedEta2, out bool transmitted)
+irr_glsl_LightSample irr_glsl_smooth_dielectric_cos_generate_wo_clamps(in vec3 V, in vec3 N, in bool backside, in float NdotV, in float absNdotV, in float NdotV2, vec3 u, in float rcpOrientedEta, in float orientedEta2, in float rcpOrientedEta2, out bool transmitted)
 {
     const float reflectance = irr_glsl_fresnel_dielectric_common(orientedEta2,absNdotV);
 
