@@ -87,10 +87,12 @@ vec3 irr_glsl_blinn_phong_cos_eval_wo_clamps(in float NdotH, in float maxNdotV, 
     float a2 = irr_glsl_phong_exp_to_alpha2(n);
     return irr_glsl_blinn_phong_cos_eval_wo_clamps(NdotH, maxNdotV, NdotV_squared, NdotL2, VdotH, n, ior, a2);
 }
-vec3 irr_glsl_blinn_phong_cos_eval(in irr_glsl_LightSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction inter, in irr_glsl_IsotropicMicrofacetCache _cache, in float n, in mat2x3 ior)
+vec3 irr_glsl_blinn_phong_cos_eval(in irr_glsl_LightSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_IsotropicMicrofacetCache _cache, in float n, in mat2x3 ior)
 {
-    const float maxNdotV = max(inter.NdotV,0.0);
-    return irr_glsl_blinn_phong_cos_eval_wo_clamps(_cache.NdotH, maxNdotV, inter.NdotV_squared, _sample.NdotL2, _cache.VdotH, n, ior);
+    if (interaction.NdotV>FLT_MIN)
+        return irr_glsl_blinn_phong_cos_eval_wo_clamps(_cache.NdotH, interaction.NdotV, interaction.NdotV_squared, _sample.NdotL2, _cache.VdotH, n, ior);
+    else
+        return vec3(0.0);
 }
 
 
@@ -127,16 +129,21 @@ vec3 irr_glsl_blinn_phong_cos_eval_wo_clamps(in float NdotH, in float NdotH2, in
 
     return irr_glsl_blinn_phong_cos_eval_wo_clamps(NdotH, NdotH2, TdotH2, BdotH2, TdotL2, BdotL2, maxNdotV, TdotV2, BdotV2, NdotV_squared, NdotL2, VdotH, nx, ny, ior, ax2, ay2);
 }
-vec3 irr_glsl_blinn_phong_cos_eval(in irr_glsl_LightSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction inter, in irr_glsl_AnisotropicMicrofacetCache _cache, in float nx, in float ny, in mat2x3 ior)
-{
-    const float NdotH2 = _cache.isotropic.NdotH2;
-    const float TdotH2 = _cache.TdotH * _cache.TdotH;
-    const float BdotH2 = _cache.BdotH * _cache.BdotH;
-    const float TdotL2 = _sample.TdotL * _sample.TdotL;
-    const float BdotL2 = _sample.BdotL * _sample.BdotL;
-    const float maxNdotV = max(inter.isotropic.NdotV, 0.0);
-    const float TdotV2 = inter.TdotV * inter.TdotV;
-    const float BdotV2 = inter.BdotV * inter.BdotV;
-    return irr_glsl_blinn_phong_cos_eval_wo_clamps(_cache.isotropic.NdotH, NdotH2, TdotH2, BdotH2, TdotL2, BdotL2, maxNdotV, TdotV2, BdotV2, inter.isotropic.NdotV_squared, _sample.NdotL2, _cache.isotropic.VdotH, nx, ny, ior);
+vec3 irr_glsl_blinn_phong_cos_eval(in irr_glsl_LightSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_AnisotropicMicrofacetCache _cache, in float nx, in float ny, in mat2x3 ior)
+{    
+    if (interaction.isotropic.NdotV>FLT_MIN)
+    {
+        const float TdotH2 = _cache.TdotH*_cache.TdotH;
+        const float BdotH2 = _cache.BdotH*_cache.BdotH;
+
+        const float TdotL2 = _sample.TdotL*_sample.TdotL;
+        const float BdotL2 = _sample.BdotL*_sample.BdotL;
+
+        const float TdotV2 = interaction.TdotV*interaction.TdotV;
+        const float BdotV2 = interaction.BdotV*interaction.BdotV;
+        return irr_glsl_blinn_phong_cos_eval_wo_clamps(_cache.isotropic.NdotH, _cache.isotropic.NdotH2, TdotH2, BdotH2, TdotL2, BdotL2, interaction.isotropic.NdotV, TdotV2, BdotV2, interaction.isotropic.NdotV_squared, _sample.NdotL2, _cache.isotropic.VdotH, nx, ny, ior);
+    }
+    else
+        return vec3(0.0);
 }
 #endif

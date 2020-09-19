@@ -82,7 +82,7 @@ float irr_glsl_ggx_smith_G2_over_G1(in float NdotL, in float TdotL2, in float Bd
 
     return G2_over_G1;
 }
-float irr_glsl_ggx_smith_G2_over_G1(in float NdotL, in float TdotL2, in float BdotL2, in float NdotL2, in float NdotV, in float devsh_v, in float ax2, in float ay2)
+float irr_glsl_ggx_smith_G2_over_G1_devsh(in float NdotL, in float TdotL2, in float BdotL2, in float NdotL2, in float NdotV, in float devsh_v, in float ax2, in float ay2)
 {
 	float G2_over_G1 = NdotL*(devsh_v + NdotV);
 	G2_over_G1 /= NdotV*irr_glsl_smith_ggx_devsh_part(TdotL2,BdotL2,NdotL2,ax2,ay2) + NdotL*devsh_v;
