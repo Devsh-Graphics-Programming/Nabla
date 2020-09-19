@@ -130,12 +130,12 @@ float irr_glsl_beckmann_pdf_wo_clamps(in float NdotH2, in float TdotH2, in float
 
 
 
-vec3 irr_glsl_beckmann_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in float maxNdotL, in float NdotL2, in float maxNdotV, in float NdotV2, in vec3 reflectance, in float a2)
+vec3 irr_glsl_beckmann_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in float NdotL2, in float maxNdotV, in float NdotV2, in vec3 reflectance, in float a2)
 {
     float onePlusLambda_V;
     pdf = irr_glsl_beckmann_pdf_wo_clamps(ndf,maxNdotV,NdotV2,a2,onePlusLambda_V);
 
-    float G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(onePlusLambda_V, maxNdotL, NdotL2, a2);
+    float G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(onePlusLambda_V, NdotL2, a2);
     return reflectance*G2_over_G1;
 }
 vec3 irr_glsl_beckmann_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_IsotropicMicrofacetCache _cache, in mat2x3 ior, in float a2)
@@ -145,7 +145,7 @@ vec3 irr_glsl_beckmann_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSam
         const float ndf = irr_glsl_beckmann(a2, _cache.NdotH2);
         const vec3 reflectance = irr_glsl_fresnel_conductor(ior[0], ior[1], _cache.VdotH);
     
-        return irr_glsl_beckmann_cos_remainder_and_pdf_wo_clamps(pdf, ndf, _sample.NdotL, _sample.NdotL2, interaction.NdotV, interaction.NdotV_squared, reflectance, a2);
+        return irr_glsl_beckmann_cos_remainder_and_pdf_wo_clamps(pdf, ndf, _sample.NdotL2, interaction.NdotV, interaction.NdotV_squared, reflectance, a2);
     }
     else
     {
@@ -156,12 +156,12 @@ vec3 irr_glsl_beckmann_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSam
 
 
 
-vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in float maxNdotL, in float NdotL2, in float TdotL2, in float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in vec3 reflectance, in float ax2, in float ay2)
+vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in float NdotL2, in float TdotL2, in float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in vec3 reflectance, in float ax2, in float ay2)
 {
     float onePlusLambda_V;
     pdf = irr_glsl_beckmann_pdf_wo_clamps(ndf,maxNdotV,TdotV2,BdotV2,NdotV2,ax2,ay2,onePlusLambda_V);
 
-    float G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(onePlusLambda_V, maxNdotL, TdotL2, BdotL2, NdotL2, ax2, ay2);
+    float G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(onePlusLambda_V, TdotL2, BdotL2, NdotL2, ax2, ay2);
     return reflectance * G2_over_G1;
 }
 vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_AnisotropicMicrofacetCache _cache, in mat2x3 ior, in float ax, in float ay)
@@ -182,7 +182,7 @@ vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_Li
         const float ndf = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, _cache.isotropic.NdotH2);
         const vec3 reflectance = irr_glsl_fresnel_conductor(ior[0], ior[1], _cache.isotropic.VdotH);
 
-	    return irr_glsl_beckmann_aniso_cos_remainder_and_pdf_wo_clamps(pdf, ndf, _sample.NdotL, _sample.NdotL2,TdotL2,BdotL2, interaction.isotropic.NdotV,TdotV2,BdotV2, interaction.isotropic.NdotV_squared, reflectance, ax2, ay2);
+	    return irr_glsl_beckmann_aniso_cos_remainder_and_pdf_wo_clamps(pdf, ndf, _sample.NdotL2,TdotL2,BdotL2, interaction.isotropic.NdotV,TdotV2,BdotV2, interaction.isotropic.NdotV_squared, reflectance, ax2, ay2);
     }
     else
     {

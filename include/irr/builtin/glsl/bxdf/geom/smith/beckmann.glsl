@@ -39,18 +39,18 @@ float irr_glsl_beckmann_smith_correlated(in float TdotV2, in float BdotV2, in fl
     return 1.0 / (1.0 + L_v + L_l);
 }
 
-float irr_glsl_beckmann_smith_G2_over_G1(in float lambdaV_plus_one, in float NdotL, in float NdotL2, in float a2)
+float irr_glsl_beckmann_smith_G2_over_G1(in float lambdaV_plus_one, in float NdotL2, in float a2)
 {
     float lambdaL = irr_glsl_smith_beckmann_Lambda(NdotL2, a2);
 
-    return NdotL*lambdaV_plus_one / (lambdaV_plus_one+lambdaL);
+    return lambdaV_plus_one / (lambdaV_plus_one+lambdaL);
 }
-float irr_glsl_beckmann_smith_G2_over_G1(in float lambdaV_plus_one, in float NdotL, in float TdotL2, in float BdotL2, in float NdotL2, in float ax2, in float ay2)
+float irr_glsl_beckmann_smith_G2_over_G1(in float lambdaV_plus_one, in float TdotL2, in float BdotL2, in float NdotL2, in float ax2, in float ay2)
 {
     float c2 = irr_glsl_smith_beckmann_C2(TdotL2, BdotL2, NdotL2, ax2, ay2);
 	float lambdaL = irr_glsl_smith_beckmann_Lambda(c2);
 
-    return NdotL*lambdaV_plus_one / (lambdaV_plus_one + lambdaL);
+    return lambdaV_plus_one / (lambdaV_plus_one + lambdaL);
 }
 
 #endif

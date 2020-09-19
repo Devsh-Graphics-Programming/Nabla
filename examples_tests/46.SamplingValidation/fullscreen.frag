@@ -6,7 +6,7 @@
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
 #include <irr/builtin/glsl/bxdf/bsdf/diffuse/lambert.glsl>
-#include <irr/builtin/glsl/bxdf/bsdf/specular/ggx.glsl>
+//#include <irr/builtin/glsl/bxdf/bsdf/specular/ggx.glsl>
 //#include <irr/builtin/glsl/bxdf/bsdf/specular/beckmann.glsl>
 
 layout (location = 0) out vec4 Color;
@@ -15,7 +15,7 @@ layout (push_constant) uniform PC {
     vec2 a;
     uint test;
 } pc;
-
+ 
 #define ETC_LAMBERT 0u
 #define ETC_GGX 1u
 #define ETC_BECKMANN 2u
@@ -36,7 +36,6 @@ void main()
     float pdf = 0.0;
     vec3 rem = vec3(0.0);
     vec3 brdf = vec3(0.0);
-    float multiplier = 0.5;
     if (pc.test==ETC_LAMBERT)
     {
         s = irr_glsl_lambertian_cos_generate(inter,u.xy);
@@ -56,28 +55,33 @@ void main()
         s = irr_glsl_beckmann_cos_generate(inter, u.xy, ax, ay, _cache);
         rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, inter, _cache, ior, ax, ay);
         brdf = irr_glsl_beckmann_aniso_height_correlated_cos_eval(s, inter, _cache, ior, ax, ay);
+    /*
+        s = irr_glsl_beckmann_cos_generate(inter,u.xy,ax,ay,_cache);
+        rem = vec3(1.0);//4.0/inter.isotropic.NdotV);
+        pdf = irr_glsl_beckmann_pdf_wo_clamps(_cache.isotropic.NdotH2,max(inter.isotropic.NdotV,0.0),inter.isotropic.NdotV_squared,ax*ay);
+        brdf = vec3(pdf);
+        */
     }
     else if (pc.test==ETC_LAMBERT)
     {
         s = irr_glsl_lambertian_transmitter_cos_generate(inter,u);
         rem = vec3(irr_glsl_lambertian_cos_remainder_and_pdf(pdf, s));
         brdf = vec3(irr_glsl_lambertian_cos_eval(s));
-        multiplier = 0.25;
-    }
+    }/* cant do the tests properly :(, would need a 3D derivative and determinant
     else if (pc.test==ETC_GGX)
     {
         irr_glsl_AnisotropicMicrofacetCache _cache;
         s = irr_glsl_ggx_transmitter_cos_generate(inter, u.xy, ax, ay, _cache);
-        rem = irr_glsl_ggx_aniso_cos_remainder_and_pdf(pdf, s, inter, _cache, ior, ax, ay);
-        brdf = irr_glsl_ggx_height_correlated_aniso_cos_eval(s, inter, _cache, ior, ax, ay);
+        rem = irr_glsl_ggx_transmitter_aniso_cos_remainder_and_pdf(pdf, s, inter, _cache, ior[0].g, ax, ay);
+        brdf = irr_glsl_ggx_transmitter_height_correlated_aniso_cos_eval(s, inter, _cache, ior[0].g, ax, ay);
         multiplier = 0.25;
-    }/*
+    }
     else if (pc.test==ETC_BECKMANN)
     {
         irr_glsl_AnisotropicMicrofacetCache _cache;
         s = irr_glsl_beckmann_transmitter_cos_generate(inter, u.xy, ax, ay, _cache);
-        rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, inter, _cache, ior, ax, ay);
-        brdf = irr_glsl_beckmann_aniso_height_correlated_cos_eval(s, inter, _cache, ior, ax, ay);
+        rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, inter, _cache, ior[0].g, ax, ay);
+        brdf = irr_glsl_beckmann_aniso_height_correlated_cos_eval(s, inter, _cache, ior[0].g, ax, ay);
         multiplier = 0.25;
     }*/
 
@@ -90,6 +94,12 @@ void main()
     );
     float det = determinant(m);
 
-    Color = vec4(abs(rem*pdf-brdf),multiplier*abs(det*pdf/s.NdotL)); // preferred version of the test
-    //Color = vec4(multiplier*abs(det*pdf/s.NdotL),abs(rem*pdf-brdf));
+    const vec4 validColor = vec4(0.0,0.0,0.0,0.5); 
+    if (s.NdotL>0.0)
+    {
+        Color = vec4(abs(rem*pdf-brdf),abs(det*pdf/s.NdotL)*0.5); // preferred version of the test
+        //Color = vec4(abs(det*pdf/s.NdotL)*0.5,abs(rem*pdf-brdf));
+    }
+    else
+        Color = validColor;
 }

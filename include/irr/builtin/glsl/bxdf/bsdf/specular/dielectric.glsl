@@ -35,6 +35,8 @@ irr_glsl_LightSample irr_glsl_thin_smooth_dielectric_cos_generate_wo_clamps(in v
     return smpl;
 }
 
+
+
 irr_glsl_LightSample irr_glsl_thin_smooth_dielectric_cos_generate_wo_clamps(in vec3 V, in vec3 N, in float NdotV, in float absNdotV, vec3 u, in vec3 eta2, in vec3 luminosityContributionHint)
 {
     vec3 dummy;
@@ -47,6 +49,7 @@ irr_glsl_LightSample irr_glsl_thin_smooth_dielectric_cos_generate(in irr_glsl_An
 {
     return irr_glsl_thin_smooth_dielectric_cos_generate_wo_clamps(interaction.isotropic.V.dir,interaction.isotropic.N,interaction.isotropic.NdotV,abs(interaction.isotropic.NdotV),u,eta2,luminosityContributionHint);
 }
+
 
 
 vec3 irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(out float pdf, in vec3 remainderMetadata)
@@ -71,6 +74,7 @@ vec3 irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(out float pdf, in irr
     const bool transmitted = irr_glsl_isTransmissionPath(interaction.NdotV,_sample.NdotL);
     return irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(pdf,transmitted,abs(interaction.NdotV),eta2,luminosityContributionHint);
 }
+
 
 
 
