@@ -1,11 +1,11 @@
 #ifndef __C_ELEMENT_SENSOR_H_INCLUDED__
 #define __C_ELEMENT_SENSOR_H_INCLUDED__
 
-#include "../../ext/MitsubaLoader/IElement.h"
-#include "../../ext/MitsubaLoader/CElementTransform.h"
-//#include "../../ext/MitsubaLoader/CElementAnimation.h"
-#include "../../ext/MitsubaLoader/CElementFilm.h"
-#include "../../ext/MitsubaLoader/CElementSampler.h"
+#include "irr/ext/MitsubaLoader/IElement.h"
+#include "irr/ext/MitsubaLoader/CElementTransform.h"
+//#include "irr/ext/MitsubaLoader/CElementAnimation.h"
+#include "irr/ext/MitsubaLoader/CElementFilm.h"
+#include "irr/ext/MitsubaLoader/CElementSampler.h"
 
 
 namespace irr

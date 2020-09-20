@@ -6,8 +6,8 @@
 #include "irr/asset/IAssetLoader.h"
 #include "irr/asset/CCPUMesh.h"
 
-#include "../../ext/MitsubaLoader/CElementFactory.h"
-#include "../../ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
+#include "irr/ext/MitsubaLoader/CElementFactory.h"
+#include "irr/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
 
 #include "expat/lib/expat.h"
 

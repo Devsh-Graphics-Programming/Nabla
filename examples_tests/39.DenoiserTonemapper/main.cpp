@@ -5,8 +5,8 @@
 
 #include "CommandLineHandler.hpp"
 
-#include "../ext/ToneMapper/CToneMapper.h"
-#include "../../ext/OptiX/Manager.h"
+#include "irr/ext/ToneMapper/CToneMapper.h"
+#include "irr/ext/OptiX/Manager.h"
 
 #include "CommonPushConstants.h"
 

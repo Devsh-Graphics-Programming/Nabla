@@ -2,7 +2,7 @@
 
 #include "../../source/Irrlicht/CMemoryFile.h"
 
-#include "../../ext/OptiX/Manager.h"
+#include "irr/ext/OptiX/Manager.h"
 
 #include "optix_function_table_definition.h"
 

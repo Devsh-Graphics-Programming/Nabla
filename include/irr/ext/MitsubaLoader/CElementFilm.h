@@ -3,7 +3,7 @@
 
 #include "irr/macros.h"
 
-#include "../../ext/MitsubaLoader/CElementRFilter.h"
+#include "irr/ext/MitsubaLoader/CElementRFilter.h"
 
 namespace irr
 {

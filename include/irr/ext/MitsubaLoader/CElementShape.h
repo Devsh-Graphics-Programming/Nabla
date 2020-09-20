@@ -1,10 +1,10 @@
 #ifndef __C_ELEMENT_SHAPE_H_INCLUDED__
 #define __C_ELEMENT_SHAPE_H_INCLUDED__
 
-#include "../../ext/MitsubaLoader/IElement.h"
-#include "../../ext/MitsubaLoader/CElementTransform.h"
-#include "../../ext/MitsubaLoader/CElementBSDF.h"
-#include "../../ext/MitsubaLoader/CElementEmitter.h"
+#include "irr/ext/MitsubaLoader/IElement.h"
+#include "irr/ext/MitsubaLoader/CElementTransform.h"
+#include "irr/ext/MitsubaLoader/CElementBSDF.h"
+#include "irr/ext/MitsubaLoader/CElementEmitter.h"
 
 
 namespace irr

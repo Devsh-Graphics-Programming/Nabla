@@ -1,7 +1,7 @@
 #ifndef __C_ELEMENT_SAMPLER_H_INCLUDED__
 #define __C_ELEMENT_SAMPLER_H_INCLUDED__
 
-#include "../../ext/MitsubaLoader/IElement.h"
+#include "irr/ext/MitsubaLoader/IElement.h"
 
 namespace irr
 {

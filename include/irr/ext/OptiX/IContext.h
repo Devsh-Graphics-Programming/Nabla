@@ -5,8 +5,8 @@
 #include "irrlicht.h"
 
 
-#include "../../ext/OptiX/IModule.h"
-#include "../../ext/OptiX/IDenoiser.h"
+#include "irr/ext/OptiX/IModule.h"
+#include "irr/ext/OptiX/IDenoiser.h"
 
 namespace irr
 {

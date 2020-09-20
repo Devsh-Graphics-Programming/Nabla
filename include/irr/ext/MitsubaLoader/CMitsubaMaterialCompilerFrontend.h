@@ -1,7 +1,7 @@
 #ifndef __C_MITSUBA_MATERIAL_COMPILER_FRONTEND_H_INCLUDED__
 #define __C_MITSUBA_MATERIAL_COMPILER_FRONTEND_H_INCLUDED__
 
-#include "../../ext/MitsubaLoader/CElementBSDF.h"
+#include "irr/ext/MitsubaLoader/CElementBSDF.h"
 #include <irr/asset/material_compiler/IR.h>
 
 namespace irr

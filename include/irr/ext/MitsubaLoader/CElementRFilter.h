@@ -1,9 +1,9 @@
 #ifndef __C_ELEMENT_R_FILTER_H_INCLUDED__
 #define __C_ELEMENT_R_FILTER_H_INCLUDED__
 
-#include "../../ext/MitsubaLoader/PropertyElement.h"
+#include "irr/ext/MitsubaLoader/PropertyElement.h"
 
-#include "../../ext/MitsubaLoader/IElement.h"
+#include "irr/ext/MitsubaLoader/IElement.h"
 
 namespace irr
 {

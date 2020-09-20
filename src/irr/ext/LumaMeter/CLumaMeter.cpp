@@ -1,4 +1,4 @@
-﻿#include "../ext/LumaMeter/CLumaMeter.h"
+﻿#include "irr/ext/LumaMeter/CLumaMeter.h"
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
 #include <cstdio>

@@ -1,7 +1,7 @@
 #include <irrlicht.h>
 
 #include "../../../include/irr/asset/filters/CSummedAreaTableImageFilter.h"
-#include "../ext/ScreenShot/ScreenShot.h"
+#include "irr/ext/ScreenShot/ScreenShot.h"
 
 using namespace irr;
 using namespace core;

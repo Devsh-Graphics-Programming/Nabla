@@ -5,7 +5,7 @@
 #include "irr/core/IReferenceCounted.h"
 #include "btBulletDynamicsCommon.h"
 
-#include "../../ext/DebugDraw/CDraw3DLine.h"
+#include "irr/ext/DebugDraw/CDraw3DLine.h"
 
 namespace irr
 {

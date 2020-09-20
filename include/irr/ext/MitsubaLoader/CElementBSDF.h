@@ -1,7 +1,7 @@
 #ifndef __C_ELEMENT_BSDF_H_INCLUDED__
 #define __C_ELEMENT_BSDF_H_INCLUDED__
 
-#include "../../ext/MitsubaLoader/CElementTexture.h"
+#include "irr/ext/MitsubaLoader/CElementTexture.h"
 
 namespace irr
 {

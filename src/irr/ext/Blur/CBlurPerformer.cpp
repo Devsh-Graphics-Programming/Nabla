@@ -1,4 +1,4 @@
-#include "../../ext/Blur/CBlurPerformer.h"
+#include "irr/ext/Blur/CBlurPerformer.h"
 
 #include "../../source/Irrlicht/COpenGLBuffer.h"
 #include "../../source/Irrlicht/COpenGLDriver.h"

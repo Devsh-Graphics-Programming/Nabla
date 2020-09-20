@@ -1,6 +1,6 @@
 #include "CDebugRender.h"
 #include "BulletUtility.h"
-#include "../../ext/DebugDraw/Draw3DLineShaders.h"
+#include "irr/ext/DebugDraw/Draw3DLineShaders.h"
 
 
 #include <iostream>

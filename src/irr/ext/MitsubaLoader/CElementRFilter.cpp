@@ -1,7 +1,7 @@
 #include "irr/core/string/stringutil.h"
 
-#include "../../ext/MitsubaLoader/ParserUtil.h"
-#include "../../ext/MitsubaLoader/CElementFactory.h"
+#include "irr/ext/MitsubaLoader/ParserUtil.h"
+#include "irr/ext/MitsubaLoader/CElementFactory.h"
 
 namespace irr
 {

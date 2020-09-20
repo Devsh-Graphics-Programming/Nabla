@@ -6,11 +6,11 @@
 #include "IFileSystem.h"
 #include "irr/asset/ICPUVirtualTexture.h"
 
-#include "../../ext/MitsubaLoader/CSerializedLoader.h"
-#include "../../ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
-#include "../../ext/MitsubaLoader/CElementShape.h"
-#include "../../ext/MitsubaLoader/CMitsubaPipelineMetadata.h"
-#include "../../ext/MitsubaLoader/CMitsubaMetadata.h"
+#include "irr/ext/MitsubaLoader/CSerializedLoader.h"
+#include "irr/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
+#include "irr/ext/MitsubaLoader/CElementShape.h"
+#include "irr/ext/MitsubaLoader/CMitsubaPipelineMetadata.h"
+#include "irr/ext/MitsubaLoader/CMitsubaMetadata.h"
 
 namespace irr
 {

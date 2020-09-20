@@ -1,9 +1,9 @@
 #ifndef __C_GLOBAL_MITSUBA_METADATA_H_INCLUDED__
 #define __C_GLOBAL_MITSUBA_METADATA_H_INCLUDED__
 
-#include "../../ext/MitsubaLoader/CElementIntegrator.h"
-#include "../../ext/MitsubaLoader/CElementSensor.h"
-#include "../../ext/MitsubaLoader/CElementShape.h"
+#include "irr/ext/MitsubaLoader/CElementIntegrator.h"
+#include "irr/ext/MitsubaLoader/CElementSensor.h"
+#include "irr/ext/MitsubaLoader/CElementShape.h"
 #include <irr/asset/ICPUVirtualTexture.h>
 
 namespace irr

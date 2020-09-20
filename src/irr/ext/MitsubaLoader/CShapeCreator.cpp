@@ -1,6 +1,6 @@
-#include "../../ext/MitsubaLoader/CShapeCreator.h"
-#include "../../ext/MitsubaLoader/PropertyElement.h"
-#include "../../ext/MitsubaLoader/ParserUtil.h"
+#include "irr/ext/MitsubaLoader/CShapeCreator.h"
+#include "irr/ext/MitsubaLoader/PropertyElement.h"
+#include "irr/ext/MitsubaLoader/ParserUtil.h"
 
 namespace irr { namespace ext { namespace MitsubaLoader {
 

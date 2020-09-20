@@ -1,6 +1,6 @@
 #include "CInstancedMotionState.h"
 
-#include "../../ext/DebugDraw/CDraw3DLine.h"
+#include "irr/ext/DebugDraw/CDraw3DLine.h"
 using namespace irr;
 using namespace ext;
 using namespace Bullet3;

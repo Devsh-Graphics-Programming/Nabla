@@ -1,4 +1,4 @@
-#include "../ext/ToneMapper/CToneMapper.h"
+#include "irr/ext/ToneMapper/CToneMapper.h"
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
 #include <cstdio>

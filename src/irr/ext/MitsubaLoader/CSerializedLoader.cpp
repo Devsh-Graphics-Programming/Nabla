@@ -4,7 +4,7 @@
 #include "IReadFile.h"
 #include "os.h"
 
-#include "../../ext/MitsubaLoader/CSerializedLoader.h"
+#include "irr/ext/MitsubaLoader/CSerializedLoader.h"
 #include "CMitsubaSerializedPipelineMetadata.h"
 
 #ifndef _IRR_COMPILE_WITH_ZLIB_

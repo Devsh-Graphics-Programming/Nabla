@@ -3,8 +3,8 @@
 #include "matrix4SIMD.h"
 #include "irr/asset/format/decodePixels.h"
 
-#include "../../ext/MitsubaLoader/PropertyElement.h"
-#include "../../ext/MitsubaLoader/ParserUtil.h"
+#include "irr/ext/MitsubaLoader/PropertyElement.h"
+#include "irr/ext/MitsubaLoader/ParserUtil.h"
 
 namespace irr
 {

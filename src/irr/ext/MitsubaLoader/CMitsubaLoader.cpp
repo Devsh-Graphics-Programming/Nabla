@@ -2,8 +2,8 @@
 
 #include <cwchar>
 
-#include "../../ext/MitsubaLoader/CMitsubaLoader.h"
-#include "../../ext/MitsubaLoader/ParserUtil.h"
+#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
+#include "irr/ext/MitsubaLoader/ParserUtil.h"
 
 namespace irr
 {

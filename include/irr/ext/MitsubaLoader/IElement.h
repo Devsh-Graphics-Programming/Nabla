@@ -2,7 +2,7 @@
 #define __I_ELEMENT_H_INCLUDED__
 
 #include "irr/asset/IAssetLoader.h"
-#include "../../ext/MitsubaLoader/PropertyElement.h"
+#include "irr/ext/MitsubaLoader/PropertyElement.h"
 
 
 namespace irr

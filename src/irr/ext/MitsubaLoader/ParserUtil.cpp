@@ -1,7 +1,7 @@
 #include "os.h"
 
-#include "../../ext/MitsubaLoader/ParserUtil.h"
-#include "../../ext/MitsubaLoader/CElementFactory.h"
+#include "irr/ext/MitsubaLoader/ParserUtil.h"
+#include "irr/ext/MitsubaLoader/CElementFactory.h"
 
 #include "expat/lib/expat.h"
 

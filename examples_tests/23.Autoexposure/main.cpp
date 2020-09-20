@@ -4,7 +4,7 @@
 #include <cstdio>
 
 
-#include "../ext/ToneMapper/CToneMapper.h"
+#include "irr/ext/ToneMapper/CToneMapper.h"
 
 #include "../common/QToQuitEventReceiver.h"
 

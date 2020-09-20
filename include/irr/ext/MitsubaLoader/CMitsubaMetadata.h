@@ -2,7 +2,7 @@
 #define __IRR_C_MITSUBA_METADATA_H_INCLUDED__
 
 #include "irr/asset/IAssetMetadata.h"
-#include "../../ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
+#include "irr/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
 
 namespace irr
 {

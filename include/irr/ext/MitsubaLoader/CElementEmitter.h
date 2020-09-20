@@ -4,7 +4,7 @@
 #include <cmath>
 
 #include "vectorSIMD.h"
-#include "../../ext/MitsubaLoader/CElementTexture.h"
+#include "irr/ext/MitsubaLoader/CElementTexture.h"
 
 namespace irr
 {

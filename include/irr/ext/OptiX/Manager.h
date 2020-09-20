@@ -3,9 +3,9 @@
 
 #include "irrlicht.h"
 
-#include "../ext/OptiX/SbtRecord.h"
-#include "../ext/OptiX/IContext.h"
-#include "../ext/OptiX/IDenoiser.h"
+#include "irr/ext/OptiX/SbtRecord.h"
+#include "irr/ext/OptiX/IContext.h"
+#include "irr/ext/OptiX/IDenoiser.h"
 
 #include "optix.h"
 #include "optix_stubs.h"
