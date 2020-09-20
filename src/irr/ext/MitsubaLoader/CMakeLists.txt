@@ -1,25 +1,25 @@
-include(../../cmake/common.cmake)
+include(../../../../cmake/common.cmake)
 
 
 set(IRR_EXT_MITSUBA_LOADER_H
-	PropertyElement.h
-	IElement.h
-	CMitsubaMetadata.h
-	CElementIntegrator.h
-	CElementSensor.h
-	CElementFilm.h
-	CElementRFilter.h
-	CElementSampler.h
-	CElementTransform.h
-	CElementShape.h
-	CElementBSDF.h
-	CElementTexture.h
-	CElementEmitter.h
-	CElementFactory.h
-	CGlobalMitsubaMetadata.h
-	ParserUtil.h
-	CSerializedLoader.h
-	CMitsubaLoader.h
+	../../../../include/irr/ext/MitsubaLoader/PropertyElement.h
+	../../../../include/irr/ext/MitsubaLoader/IElement.h
+	../../../../include/irr/ext/MitsubaLoader/CMitsubaMetadata.h
+	../../../../include/irr/ext/MitsubaLoader/CElementIntegrator.h
+	../../../../include/irr/ext/MitsubaLoader/CElementSensor.h
+	../../../../include/irr/ext/MitsubaLoader/CElementFilm.h
+	../../../../include/irr/ext/MitsubaLoader/CElementRFilter.h
+	../../../../include/irr/ext/MitsubaLoader/CElementSampler.h
+	../../../../include/irr/ext/MitsubaLoader/CElementTransform.h
+	../../../../include/irr/ext/MitsubaLoader/CElementShape.h
+	../../../../include/irr/ext/MitsubaLoader/CElementBSDF.h
+	../../../../include/irr/ext/MitsubaLoader/CElementTexture.h
+	../../../../include/irr/ext/MitsubaLoader/CElementEmitter.h
+	../../../../include/irr/ext/MitsubaLoader/CElementFactory.h
+	../../../../include/irr/ext/MitsubaLoader/CGlobalMitsubaMetadata.h
+	../../../../include/irr/ext/MitsubaLoader/ParserUtil.h
+	../../../../include/irr/ext/MitsubaLoader/CSerializedLoader.h
+	../../../../include/irr/ext/MitsubaLoader/CMitsubaLoader.h
 )
 
 set(IRR_EXT_MITSUBA_LOADER_SRC

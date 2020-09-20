@@ -2,7 +2,7 @@
 #define _IRR_EXT_TONE_MAPPER_C_TONE_MAPPER_INCLUDED_
 
 #include "irrlicht.h"
-#include "irr/ext/LumaMeter/CLumaMeter.h"
+#include "../../../irr/ext/LumaMeter/CLumaMeter.h"
 
 namespace irr
 {

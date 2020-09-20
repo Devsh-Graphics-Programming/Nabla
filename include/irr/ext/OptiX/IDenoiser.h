@@ -1,7 +1,7 @@
 #ifndef __IRR_EXT_OPTIX_DENOISER_H_INCLUDED__
 #define __IRR_EXT_OPTIX_DENOISER_H_INCLUDED__
 
-#include "../src/irr/video/CCUDAHandler.h"
+#include "../../../../src/irr/video/CCUDAHandler.h"
 
 #include "optix.h"
 

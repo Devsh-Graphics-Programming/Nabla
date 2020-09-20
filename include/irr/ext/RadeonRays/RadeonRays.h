@@ -5,11 +5,11 @@
 
 #define RR_STATIC_LIBRARY
 #define USE_OPENCL
-#include "radeonrays/RadeonRays/include/radeon_rays_cl.h"
+#include "../radeonrays/RadeonRays/include/radeon_rays_cl.h"
 #undef USE_OPENCL
 #undef RR_STATIC_LIBRARY
 
-#include "irr/ext/RadeonRays/RadeonRaysIncludeLoader.h"
+#include "../../../irr/ext/RadeonRays/RadeonRaysIncludeLoader.h"
 
 namespace irr
 {

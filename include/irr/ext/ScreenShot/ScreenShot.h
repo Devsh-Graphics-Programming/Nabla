@@ -3,9 +3,9 @@
 
 #include "irrlicht.h"
 
-#include "../source/Irrlicht/COpenGLBuffer.h"
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
-#include "irr/asset/IImageAssetHandlerBase.h"
+#include "../../../../source/Irrlicht/COpenGLBuffer.h"
+#include "../../../../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "../../../irr/asset/IImageAssetHandlerBase.h"
 
 namespace irr
 {
