@@ -60,9 +60,9 @@ vec3 irr_glsl_fresnel_dielectric_frontface_only(in vec3 Eta, in float CosTheta)
 }
 vec3 irr_glsl_fresnel_dielectric(vec3 Eta, in float CosTheta)
 {
-    vec3 dummy0,orientedEta2,dummy1;
-    bool backside = irr_glsl_getOrientedEtas(dummy0,orientedEta2,dummy1,CosTheta,Eta);
-    return irr_glsl_fresnel_dielectric_common(orientedEta2,backside ? (-CosTheta):CosTheta);
+    vec3 orientedEta,rcpOrientedEta;
+    bool backside = irr_glsl_getOrientedEtas(orientedEta,rcpOrientedEta,CosTheta,Eta);
+    return irr_glsl_fresnel_dielectric_common(orientedEta*orientedEta,backside ? (-CosTheta):CosTheta);
 }
 
 // gets the sum of all R, T R T, T R^3 T, T R^5 T, ... paths

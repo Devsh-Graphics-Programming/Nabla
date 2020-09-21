@@ -43,7 +43,8 @@ const char* vertexSource = R"===(
 layout(location = 0) in vec4 vPos;
 layout(location = 3) in vec3 vNormal;
 
-#include <irr/builtin/glsl/utils/vertex.glsl>
+#include <irr/builtin/glsl/utils/common.glsl>
+#include <irr/builtin/glsl/utils/transform.glsl>
 #include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
 
 layout( push_constant, row_major ) uniform Block {

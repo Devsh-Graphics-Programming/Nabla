@@ -277,11 +277,35 @@ void setCurrInteraction(in vec3 N)
 	irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, N);
 	currInteraction = irr_glsl_calcAnisotropicInteraction(interaction);
 }
-void setCurrBSDFParams(in vec3 N, in vec3 L)
+void setCurrBSDFParams(in vec3 N, in vec3 L, )
 {
 	setCurrInteraction(N);
-	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(currInteraction.isotropic, L);
-	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(isoparams, currInteraction);
+
+	const float NdotL = dot(N,L);
+
+#error "This needs a complete rewrite"
+/**
+New API works like this:
+1) `irr_glsl_*ViewSurfaceInteraction` holds all the stuff about the T,B,N,V and their dot products
+2) `irr_glsl_LightSample` holds all stuff about L and its dot products
+3) `irr_glsl_*MicrofacetCache` caches `H` and its dot products, its only reusable for reflection events or for transmissions with identical IoR
+4) generators, i.e. `cos_generate` for BxDFs (but light and path guiding in the future) generate `irr_glsl_LightSample`
+
+The BxDF generators may optionally return a microfacet Cache
+
+In your material generator stream, you will call `remainder_and_pdf` of the generator BSDF at the end and cache the remainder and pdf. You can keep a `irr_glsl_MicrofacetCache`
+
+However for the remainder stream, you will call `cos_eval` on all the leafs which are not identical to the generator, hence you CANNOT use the cached `irr_glsl_MicrofacetCache` from the generator if:
+- irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV,NdotL) is true
+
+For the evaluation stream, the rules are the same, you can compute a `irr_glsl_MicrofacetCache` to be used directly in the `cos_eval` calls if the light is on the same side of the surface as the view vector.
+
+When transmission occurs and you need to compute a new `irr_glsl_MicrofacetCache` I've provided functions called `irr_glsl_calcIsotropicMicrofacetCache` and `irr_glsl_calcAnisotropicMicrofacetCache` that will do this given an oriented IoR.
+**/
+
+	vec3 H; // @Crisspl its your reponsibility not to evaluate/execute (then) if irr_glsl_isTransmissionPath==true and either the BSDF is not tranmissive, or the microfacet normal is invalid
+	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV,NdotL), L, , currInteraction.isotropic, H);
+	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(L, H, isoparams, currInteraction);
 }
 
 //clamping alpha to min MIN_ALPHA because we're using microfacet BxDFs for deltas as well (and NDFs often end up NaN when given alpha=0) because of less deivergence

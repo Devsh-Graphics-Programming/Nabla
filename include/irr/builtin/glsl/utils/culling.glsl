@@ -1,7 +1,6 @@
 #ifndef _IRR_BUILTIN_GLSL_UTILS_CULLING_INCLUDED_
 #define _IRR_BUILTIN_GLSL_UTILS_CULLING_INCLUDED_
 
-// TODO: culling include
 bool irr_glsl_couldBeVisible(in mat4 proj, in mat2x3 bbox)
 {
     mat4 pTpose = transpose(proj);

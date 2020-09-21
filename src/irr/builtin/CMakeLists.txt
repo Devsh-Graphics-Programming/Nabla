@@ -72,6 +72,7 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl"
   "irr/builtin/glsl/bxdf/brdf/diffuse/fresnel_correction.glsl"
   "irr/builtin/glsl/bxdf/bsdf/diffuse/lambert.glsl"
+  "irr/builtin/glsl/bxdf/bsdf/specular/common.glsl"
   "irr/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl"
   "irr/builtin/glsl/bxdf/bsdf/specular/beckmann.glsl"
   "irr/builtin/glsl/bxdf/bsdf/specular/ggx.glsl"

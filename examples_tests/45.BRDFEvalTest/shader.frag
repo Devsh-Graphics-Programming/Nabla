@@ -32,49 +32,38 @@ void main()
     {
         irr_glsl_IsotropicViewSurfaceInteraction inter_ = irr_glsl_calcFragmentShaderSurfaceInteraction(pc.campos, Pos, N);
         irr_glsl_AnisotropicViewSurfaceInteraction inter = irr_glsl_calcAnisotropicInteraction(inter_);
-        irr_glsl_BSDFIsotropicParams params_ = irr_glsl_calcBSDFIsotropicParams(inter_, Lnorm);
-        irr_glsl_BSDFAnisotropicParams params = irr_glsl_calcBSDFAnisotropicParams(params_, inter);
+
+        irr_glsl_LightSample _sample = irr_glsl_createLightSample(Lnorm,inter);
+
+        irr_glsl_AnisotropicMicrofacetCache cache = irr_glsl_calcAnisotropicMicrofacetCache(inter, _sample);
+
         const mat2x3 ior = mat2x3(vec3(1.02,1.3,1.02), vec3(1.0,2.0,1.0));
         const vec3 albedo = vec3(0.5);
 
         vec3 brdf = vec3(0.0);
 
-//when TEST_GGX_SMITH is defined: 
-//key 1 = iso ggx smith
-//key 2 = aniso ggx smith
-//#define TEST_GGX_SMITH
-
 #ifdef TEST_GGX
-    #ifdef TEST_GGX_SMITH
-        brdf = vec3( irr_glsl_ggx_smith_height_correlated(a2, params_.NdotL, inter_.NdotV) );
-        //brdf *= irr_glsl_fresnel_conductor(ior[0], ior[1], params.isotropic.VdotH);
-    #else
-        brdf = irr_glsl_ggx_height_correlated_cos_eval(params_, inter_, ior, a2);
-    #endif
+        brdf = irr_glsl_ggx_height_correlated_cos_eval(_sample, inter_, cache.isotropic, ior, a2);
 #elif defined(TEST_BECKMANN)
-    #ifdef TEST_GGX_SMITH
-        brdf = vec3( 4.0*params_.NdotL*inter_.NdotV*irr_glsl_ggx_smith_height_correlated_aniso_wo_numerator(ax, ay, params.TdotL, inter.TdotV, params.BdotL, inter.BdotV, params.isotropic.NdotL, inter.isotropic.NdotV) );
-        //brdf *= irr_glsl_fresnel_conductor(ior[0], ior[1], params.isotropic.VdotH);
-    #else
-        brdf = irr_glsl_beckmann_height_correlated_cos_eval(params_, inter_, ior, a2);
-    #endif
+        brdf = irr_glsl_beckmann_height_correlated_cos_eval(_sample, inter_, cache.isotropic, ior, a2);
 #elif defined(TEST_PHONG)
-    float n = irr_glsl_alpha2_to_phong_exp(a2);
-    brdf = irr_glsl_blinn_phong_cos_eval(params_, inter_, n, ior);
+        float n = irr_glsl_alpha2_to_phong_exp(a2);
+        brdf = irr_glsl_blinn_phong_cos_eval(_sample, inter_, cache.isotropic, n, ior);
 #elif defined(TEST_AS)
-    float nx = irr_glsl_alpha2_to_phong_exp(a2);
-    float aa = 1.0-Alpha;
-    float ny = irr_glsl_alpha2_to_phong_exp(aa*aa);
-    brdf = irr_glsl_blinn_phong_cos_eval(params, inter, nx, ny, ior);
+        float nx = irr_glsl_alpha2_to_phong_exp(a2);
+        float aa = 1.0-Alpha;
+        float ny = irr_glsl_alpha2_to_phong_exp(aa*aa);
+        brdf = irr_glsl_blinn_phong_cos_eval(_sample, inter, cache, nx, ny, ior);
 #elif defined(TEST_OREN_NAYAR)
-    brdf = albedo*irr_glsl_oren_nayar_cos_eval(params_, inter_, a2);
+        brdf = albedo*irr_glsl_oren_nayar_cos_eval(_sample, inter_, a2);
 #elif defined(TEST_LAMBERT)
-    brdf = albedo*irr_glsl_lambertian_cos_eval(params_);
+        brdf = albedo*irr_glsl_lambertian_cos_eval(_sample);
 #endif
-    //red output means brdf>1.0
-    //outColor = any(greaterThan(brdf,vec3(1.0))) ? vec4(1.0,0.0,0.0,1.0) : vec4(Intensity*brdf/dot(L,L), 1.0);
-    outColor = vec4(Intensity*brdf/dot(L,L), 1.0);
-    //outColor = (inter_.NdotV<0.0||params_.NdotL<0.0) ? vec4(1.0,0.0,0.0,1.0) : vec4(Intensity*brdf/*/dot(L,L)*/, 1.0);
+        const vec3 col = Intensity*brdf/dot(L,L);
+        //red output means brdf>1.0
+        //outColor = any(greaterThan(brdf,vec3(1.0))) ? vec4(1.0,0.0,0.0,1.0) : vec4(Intensity*brdf/dot(L,L), 1.0);
+        outColor = vec4(col, 1.0);
+        //outColor = (inter_.NdotV<0.0||_sample.NdotL<0.0) ? vec4(1.0,0.0,0.0,1.0) : vec4(col, 1.0);
     }
     else outColor = vec4(0.0,0.0,0.0,1.0);
 }
