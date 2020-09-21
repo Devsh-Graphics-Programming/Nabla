@@ -195,7 +195,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
         // OETF smallest perceptible value
         const float bsdfPdfThreshold = getLuma(irr_glsl_eotf_sRGB(vec3(1.0)/255.0));
         const float lumaThroughputThreshold = bsdfPdfThreshold;
-        if (bsdfPdf>bsdfPdfThreshold && getLuma(throughput)>lumaThroughputThreshold)
+        if (bsdfPdf>bsdfPdfThreshold && (!doNEE || bsdfPdf<FLT_MAX) && getLuma(throughput)>lumaThroughputThreshold)
         {
             rayStack[stackPtr]._payload.throughput = throughput*rcpChoiceProb;
 

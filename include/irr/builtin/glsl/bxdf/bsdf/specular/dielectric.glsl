@@ -58,6 +58,7 @@ vec3 irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(out float p
     return irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(pdf, sampleValue / sampleProb);
 }
 
+// for information why we don't check the relation between `V` and `L` or `N` and `H`, see comments for `irr_glsl_transmission_cos_remainder_and_pdf` in `irr/builtin/glsl/bxdf/common_samples.glsl`
 vec3 irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in vec3 eta2, in vec3 luminosityContributionHint)
 {
     const bool transmitted = irr_glsl_isTransmissionPath(interaction.NdotV,_sample.NdotL);
@@ -104,6 +105,7 @@ float irr_glsl_smooth_dielectric_cos_remainder_and_pdf(out float pdf, in bool tr
     return transmitted ? rcpOrientedEta2:1.0;
 }
 
+// for information why we don't check the relation between `V` and `L` or `N` and `H`, see comments for `irr_glsl_transmission_cos_remainder_and_pdf` in `irr/builtin/glsl/bxdf/common_samples.glsl`
 float irr_glsl_smooth_dielectric_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float eta)
 {
     const bool transmitted = irr_glsl_isTransmissionPath(interaction.NdotV,_sample.NdotL);
