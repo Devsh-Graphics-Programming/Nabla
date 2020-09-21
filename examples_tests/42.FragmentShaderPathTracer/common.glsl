@@ -331,12 +331,16 @@ void missProgram()
 #include <irr/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/bsdf/diffuse/lambert.glsl>
-//#include <irr/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
+#include <irr/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
 //#include <irr/builtin/glsl/bxdf/bsdf/specular/beckmann.glsl>
 irr_glsl_LightSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf, in float monochromeEta, out irr_glsl_AnisotropicMicrofacetCache _cache)
 {
     const float a = BSDFNode_getRoughness(bsdf);
     const mat2x3 ior = BSDFNode_getEta(bsdf);
+    
+    // fresnel stuff for dielectrics
+    float orientedEta, rcpOrientedEta;
+    const bool viewerInsideMedium = irr_glsl_getOrientedEtas(orientedEta,rcpOrientedEta,interaction.isotropic.NdotV,monochromeEta);
 
     irr_glsl_LightSample smpl;
     irr_glsl_AnisotropicMicrofacetCache dummy;
@@ -349,7 +353,7 @@ irr_glsl_LightSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfa
             smpl = irr_glsl_ggx_cos_generate(interaction,u.xy,a,a,_cache);
             break;
         default:
-            smpl = irr_glsl_beckmann_cos_generate(interaction,u.xy,a,a,_cache);
+            smpl = irr_glsl_smooth_dielectric_cos_generate(interaction,u,monochromeEta);
             //smpl = irr_glsl_beckmann_dielectric_cos_generate(interaction,u,a,a,monochromeEta,_cache);
             break;
     }
@@ -363,24 +367,24 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample 
 
     // is the BSDF or BRDF, if it is then we make the dot products `abs` before `max(,0.0)`
     const bool transmissive = BSDFNode_isBSDF(bsdf);
-    
-    // obtain stuff for transmissive parts of BSDFs
-    float orientedEta, rcpOrientedEta;
-    const bool viewerInsideMedium = irr_glsl_getOrientedEtas(orientedEta,rcpOrientedEta,interaction.isotropic.NdotV,monochromeEta);
+    const float clampedNdotL = irr_glsl_conditionalAbsOrMax(transmissive,_sample.NdotL,0.0);
+    const float clampedNdotV = irr_glsl_conditionalAbsOrMax(transmissive,interaction.isotropic.NdotV,0.0);
 
     vec3 remainder;
-    if (transmissive || !transmitted)
+
+    const float minimumProjVectorLen = 0.00000001;
+    if (clampedNdotV>minimumProjVectorLen && clampedNdotL>minimumProjVectorLen)
     {
-        //
+        // fresnel stuff for conductors (but reflectance also doubles as albedo)
         const mat2x3 ior = BSDFNode_getEta(bsdf);
         const vec3 reflectance = BSDFNode_getReflectance(bsdf,_cache.isotropic.VdotH);
 
+        // fresnel stuff for dielectrics
+        float orientedEta, rcpOrientedEta;
+        const bool viewerInsideMedium = irr_glsl_getOrientedEtas(orientedEta,rcpOrientedEta,interaction.isotropic.NdotV,monochromeEta);
+
         //
         const float VdotL = dot(interaction.isotropic.V.dir,_sample.L);
-
-        // is the BSDF or BRDF, if it is then we make the dot products `abs` before `max(,0.0)`
-        const float clampedNdotL = irr_glsl_conditionalAbsOrMax(transmissive,_sample.NdotL,0.0);
-        const float clampedNdotV = irr_glsl_conditionalAbsOrMax(transmissive,interaction.isotropic.NdotV,0.0);
 
         //
         const float a = max(BSDFNode_getRoughness(bsdf),0.01); // TODO: @Crisspl 0-roughness still doesn't work! Also Beckmann has a weird dark rim instead as fresnel!?
@@ -395,8 +399,7 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample 
                 remainder = irr_glsl_ggx_cos_remainder_and_pdf_wo_clamps(pdf,irr_glsl_ggx_trowbridge_reitz(a2,_cache.isotropic.NdotH2),clampedNdotL,_sample.NdotL2,clampedNdotV,interaction.isotropic.NdotV_squared,reflectance,a2);
                 break;
             default:
-                remainder = irr_glsl_beckmann_cos_remainder_and_pdf_wo_clamps(pdf,irr_glsl_beckmann(a2,_cache.isotropic.NdotH2),_sample.NdotL2,clampedNdotV,interaction.isotropic.NdotV_squared,reflectance,a2);
-                //remainder = vec3(irr_glsl_lambertian_transmitter_cos_remainder_and_pdf(pdf,_sample));
+                remainder = vec3(irr_glsl_smooth_dielectric_cos_remainder_and_pdf(pdf,_sample,interaction.isotropic,monochromeEta));
                 //remainder = vec3(irr_glsl_beckmann_dielectric_cos_remainder_and_pdf(pdf, _sample, interaction.isotropic, monochromeEta, a2));
                 break;
         }

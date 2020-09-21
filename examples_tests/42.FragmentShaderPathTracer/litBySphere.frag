@@ -172,13 +172,12 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
             );
             throughput *= lightRemainder;
         }
+
+        bool validPath = true;
         const vec3 throughputCIE_Y = transpose(irr_glsl_sRGBtoXYZ)[1]*throughput;
         const float monochromeEta = dot(throughputCIE_Y,BSDFNode_getEta(bsdf)[0])/(throughputCIE_Y.r+throughputCIE_Y.g+throughputCIE_Y.b);
         if (doNEE)
-        {
-            const bool validPath = irr_glsl_calcAnisotropicMicrofacetCache(_cache,interaction,_sample,monochromeEta);
-            throughput = validPath ? throughput:vec3(0.0);
-        }
+            validPath = irr_glsl_calcAnisotropicMicrofacetCache(_cache,interaction,_sample,monochromeEta);
         else
         {
             maxT = FLT_MAX;
@@ -188,7 +187,10 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
         // do a cool trick and always compute the bsdf parts this way! (no divergence)
         float bsdfPdf;
         // the value of the bsdf divided by the probability of the sample being generated
-        throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf,monochromeEta,_cache);
+        if (validPath)
+            throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf,monochromeEta,_cache);
+        else
+            throughput = vec3(0.0);
 
         // OETF smallest perceptible value
         const float bsdfPdfThreshold = getLuma(irr_glsl_eotf_sRGB(vec3(1.0)/255.0));

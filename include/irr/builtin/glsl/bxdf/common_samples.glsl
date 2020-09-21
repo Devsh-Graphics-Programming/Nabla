@@ -6,7 +6,7 @@
 
 irr_glsl_LightSample irr_glsl_transmission_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
-    return irr_glsl_createLightSample(-interaction.isotropic.V.dir,-1.0,interaction);
+    return irr_glsl_createLightSample(-interaction.isotropic.V.dir,-1.0,interaction.T,interaction.B,interaction.isotropic.N);
 }
 
 float irr_glsl_transmission_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample s)
