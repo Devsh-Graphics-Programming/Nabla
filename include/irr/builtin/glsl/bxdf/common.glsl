@@ -55,12 +55,12 @@ struct irr_glsl_LightSample
 };
 
 // require tangentSpaceL already be normalized and in tangent space (tangentSpaceL==vec3(TdotL,BdotL,NdotL))
-irr_glsl_LightSample irr_glsl_createLightSampleTangentSpaceL(in vec3 V, in vec3 tangentSpaceL, in mat3 tangentFrame)
+irr_glsl_LightSample irr_glsl_createLightSampleTangentSpace(in vec3 tangentSpaceV, in vec3 tangentSpaceL, in mat3 tangentFrame)
 {
     irr_glsl_LightSample s;
 
     s.L = tangentFrame*tangentSpaceL; // m must be an orthonormal matrix
-    s.VdotL = dot(V,s.L);
+    s.VdotL = dot(tangentSpaceV,tangentSpaceL);
 
     s.TdotL = tangentSpaceL.x;
     s.BdotL = tangentSpaceL.y;
@@ -68,10 +68,6 @@ irr_glsl_LightSample irr_glsl_createLightSampleTangentSpaceL(in vec3 V, in vec3 
     s.NdotL2 = s.NdotL*s.NdotL;
 
     return s;
-}
-irr_glsl_LightSample irr_glsl_createLightSampleTangentSpaceL(in vec3 tangentSpaceL, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
-{
-    return irr_glsl_createLightSampleTangentSpaceL(interaction.isotropic.V.dir,tangentSpaceL,irr_glsl_getTangentFrame(interaction));
 }
 
 //

@@ -39,7 +39,7 @@ irr_glsl_LightSample irr_glsl_blinn_phong_cos_generate(in irr_glsl_AnisotropicVi
     _cache = irr_glsl_calcAnisotropicMicrofacetCache(localV,H,localL);
     
     const mat3 m = irr_glsl_getTangentFrame(interaction);
-    return irr_glsl_createLightSampleTangentSpaceL(localV, localL, m);
+    return irr_glsl_createLightSampleTangentSpace(localV, localL, m);
 }
 
 /*

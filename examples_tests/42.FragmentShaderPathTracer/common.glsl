@@ -1,6 +1,6 @@
 // basic settings
 #define MAX_DEPTH 8
-#define SAMPLES 128
+#define SAMPLES 32
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -158,10 +158,6 @@ float BSDFNode_getRoughness(in BSDFNode node)
 {
     return uintBitsToFloat(node.data[1].w);
 }
-vec3 BSDFNode_getReflectance(in BSDFNode node)
-{
-    return uintBitsToFloat(node.data[0].rgb);
-}
 vec3 BSDFNode_getRealEta(in BSDFNode node)
 {
     return uintBitsToFloat(node.data[0].rgb);
@@ -173,6 +169,15 @@ vec3 BSDFNode_getImaginaryEta(in BSDFNode node)
 mat2x3 BSDFNode_getEta(in BSDFNode node)
 {
     return mat2x3(BSDFNode_getRealEta(node),BSDFNode_getImaginaryEta(node));
+}
+#include <irr/builtin/glsl/bxdf/fresnel.glsl>
+vec3 BSDFNode_getReflectance(in BSDFNode node, in float VdotH)
+{
+    const vec3 albedoOrRealIoR = uintBitsToFloat(node.data[0].rgb);
+    if (BSDFNode_isNotDiffuse(node))
+        return irr_glsl_fresnel_conductor(albedoOrRealIoR, BSDFNode_getImaginaryEta(node), VdotH);
+    else
+        return albedoOrRealIoR;
 }
 
 float BSDFNode_getMISWeight(in BSDFNode bsdf)
@@ -198,7 +203,7 @@ BSDFNode bsdfs[BSDF_COUNT] = {
     {{uvec4(floatBitsToUint(vec3(1.02,1.02,1.3)),CONDUCTOR_OP),floatBitsToUint(vec4(1.0,1.0,2.0,0.0))}},
     {{uvec4(floatBitsToUint(vec3(1.02,1.3,1.02)),CONDUCTOR_OP),floatBitsToUint(vec4(1.0,2.0,1.0,0.0))}},
     {{uvec4(floatBitsToUint(vec3(1.02,1.3,1.02)),CONDUCTOR_OP),floatBitsToUint(vec4(1.0,2.0,1.0,0.15))}},
-    {{uvec4(floatBitsToUint(vec3(1.4,1.45,1.5)),DIELECTRIC_OP),floatBitsToUint(vec4(0.0,0.0,0.0,0.0))}}
+    {{uvec4(floatBitsToUint(vec3(1.4,1.45,1.5)),DIELECTRIC_OP),floatBitsToUint(vec4(0.0,0.0,0.0,0.05))}}
 };
 
 
@@ -323,91 +328,82 @@ void missProgram()
 }
 
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
+#include <irr/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
-#include <irr/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
-irr_glsl_BxDFSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf, in vec3 luminosityContributionHint)
+#include <irr/builtin/glsl/bxdf/bsdf/diffuse/lambert.glsl>
+//#include <irr/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
+//#include <irr/builtin/glsl/bxdf/bsdf/specular/beckmann.glsl>
+irr_glsl_LightSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf, in float monochromeEta, out irr_glsl_AnisotropicMicrofacetCache _cache)
 {
     const float a = BSDFNode_getRoughness(bsdf);
     const mat2x3 ior = BSDFNode_getEta(bsdf);
 
-    irr_glsl_BxDFSample smpl;
+    irr_glsl_LightSample smpl;
+    irr_glsl_AnisotropicMicrofacetCache dummy;
     switch (BSDFNode_getType(bsdf))
     {
         case DIFFUSE_OP:
             smpl = irr_glsl_oren_nayar_cos_generate(interaction,u.xy,a*a);
             break;
         case CONDUCTOR_OP:
-            smpl = irr_glsl_ggx_cos_generate(interaction,u.xy,a,a);
+            smpl = irr_glsl_ggx_cos_generate(interaction,u.xy,a,a,_cache);
             break;
         default:
-            {
-                const float _eta = dot(ior[0],luminosityContributionHint);
-                smpl = irr_glsl_smooth_dielectric_cos_generate(interaction,u,_eta);
-            }
+            smpl = irr_glsl_beckmann_cos_generate(interaction,u.xy,a,a,_cache);
+            //smpl = irr_glsl_beckmann_dielectric_cos_generate(interaction,u,a,a,monochromeEta,_cache);
             break;
     }
     return smpl;
 }
 
-vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_BxDFSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in BSDFNode bsdf, in vec3 luminosityContributionHint)
+vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in BSDFNode bsdf, in float monochromeEta, in irr_glsl_AnisotropicMicrofacetCache _cache)
 {
-    const vec3 reflectance = BSDFNode_getReflectance(bsdf);
-    const float a = max(BSDFNode_getRoughness(bsdf),0.01); // TODO: @Crisspl 0-roughness still doesn't work! Also Beckmann has a weird dark rim instead as fresnel!?
-    const float a2 = a*a;
-
-    const mat2x3 ior = BSDFNode_getEta(bsdf);
-    
-    const float NdotH2 = _sample.NdotH*_sample.NdotH;
-    const float NdotL2 = _sample.NdotL*_sample.NdotL;
-
-    const float VdotL = dot(interaction.isotropic.V.dir,_sample.L);
+    // are V and L on opposite sides of the surface?
     const bool transmitted = irr_glsl_isTransmissionPath(interaction.isotropic.NdotV,_sample.NdotL);
 
+    // is the BSDF or BRDF, if it is then we make the dot products `abs` before `max(,0.0)`
     const bool transmissive = BSDFNode_isBSDF(bsdf);
-    const float clampedNdotL = irr_glsl_conditionalAbsOrMax(transmissive,_sample.NdotL,0.0);
-    const float clampedNdotV = irr_glsl_conditionalAbsOrMax(transmissive,interaction.isotropic.NdotV,0.0);
     
-    float rcpOrientedEta, orientedEta2, rcpOrientedEta2;
-    const bool viewerInsideMedium = irr_glsl_getOrientedEtas(rcpOrientedEta,orientedEta2,rcpOrientedEta2,interaction.isotropic.NdotV,dot(ior[0],luminosityContributionHint));
+    // obtain stuff for transmissive parts of BSDFs
+    float orientedEta, rcpOrientedEta;
+    const bool viewerInsideMedium = irr_glsl_getOrientedEtas(orientedEta,rcpOrientedEta,interaction.isotropic.NdotV,monochromeEta);
 
-    vec3 remainder; // TODO should just return a 0.0 remainder if NdotV<FLT_MIN and BSDF is not transmissive
-    switch (BSDFNode_getType(bsdf))
+    vec3 remainder;
+    if (transmissive || !transmitted)
     {
-        case DIFFUSE_OP:
-            remainder = reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf,a*a,VdotL,clampedNdotL,clampedNdotV);
-            break;
-        case CONDUCTOR_OP:
-            remainder = irr_glsl_ggx_cos_remainder_and_pdf_wo_clamps(pdf,irr_glsl_ggx_trowbridge_reitz(a2,NdotH2),clampedNdotL,NdotL2,clampedNdotV,interaction.isotropic.NdotV_squared,_sample.VdotH,ior,a2);
-            break;
-        default:
-            remainder = vec3(irr_glsl_smooth_dielectric_cos_remainder_and_pdf(pdf, transmitted, rcpOrientedEta2));
-            break;
+        //
+        const mat2x3 ior = BSDFNode_getEta(bsdf);
+        const vec3 reflectance = BSDFNode_getReflectance(bsdf,_cache.isotropic.VdotH);
+
+        //
+        const float VdotL = dot(interaction.isotropic.V.dir,_sample.L);
+
+        // is the BSDF or BRDF, if it is then we make the dot products `abs` before `max(,0.0)`
+        const float clampedNdotL = irr_glsl_conditionalAbsOrMax(transmissive,_sample.NdotL,0.0);
+        const float clampedNdotV = irr_glsl_conditionalAbsOrMax(transmissive,interaction.isotropic.NdotV,0.0);
+
+        //
+        const float a = max(BSDFNode_getRoughness(bsdf),0.01); // TODO: @Crisspl 0-roughness still doesn't work! Also Beckmann has a weird dark rim instead as fresnel!?
+        const float a2 = a*a;
+
+        switch (BSDFNode_getType(bsdf))
+        {
+            case DIFFUSE_OP:
+                remainder = reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf,a*a,VdotL,clampedNdotL,clampedNdotV);
+                break;
+            case CONDUCTOR_OP:
+                remainder = irr_glsl_ggx_cos_remainder_and_pdf_wo_clamps(pdf,irr_glsl_ggx_trowbridge_reitz(a2,_cache.isotropic.NdotH2),clampedNdotL,_sample.NdotL2,clampedNdotV,interaction.isotropic.NdotV_squared,reflectance,a2);
+                break;
+            default:
+                remainder = irr_glsl_beckmann_cos_remainder_and_pdf_wo_clamps(pdf,irr_glsl_beckmann(a2,_cache.isotropic.NdotH2),_sample.NdotL2,clampedNdotV,interaction.isotropic.NdotV_squared,reflectance,a2);
+                //remainder = vec3(irr_glsl_lambertian_transmitter_cos_remainder_and_pdf(pdf,_sample));
+                //remainder = vec3(irr_glsl_beckmann_dielectric_cos_remainder_and_pdf(pdf, _sample, interaction.isotropic, monochromeEta, a2));
+                break;
+        }
     }
+    else
+        remainder = vec3(0.0);
     return remainder;
-}
-
-
-#define GeneratorSample irr_glsl_BxDFSample
-#define irr_glsl_LightSample irr_glsl_BxDFSample
-irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
-{
-    irr_glsl_BxDFSample s;
-    s.L = L;
-
-    s.TdotL = dot(interaction.T,L);
-    s.BdotL = dot(interaction.B,L);
-    s.NdotL = dot(interaction.isotropic.N,L);
-   
-    float VdotL = dot(interaction.isotropic.V.dir,L);
-    float LplusV_rcpLen = inversesqrt(2.0+2.0*VdotL);
-
-    s.TdotH = (interaction.TdotV+s.TdotL)*LplusV_rcpLen;
-    s.BdotH = (interaction.BdotV+s.BdotL)*LplusV_rcpLen;
-    s.NdotH = (interaction.isotropic.NdotV+s.NdotL)*LplusV_rcpLen;
-
-    s.VdotH = LplusV_rcpLen+LplusV_rcpLen*VdotL;
-    
-    return s;
 }
 
 layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;

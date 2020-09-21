@@ -31,14 +31,14 @@ float irr_glsl_oren_nayar_cos_eval(in irr_glsl_LightSample _sample, in irr_glsl_
 }
 
 
-irr_glsl_LightSample irr_glsl_oren_nayar_cos_generate_wo_clamps(in vec3 V, in mat3 m, in vec2 u)
+irr_glsl_LightSample irr_glsl_oren_nayar_cos_generate_wo_clamps(in vec3 tangentSpaceV, in mat3 m, in vec2 u)
 {
     // until we find something better
-    return irr_glsl_lambertian_cos_generate_wo_clamps(V, m, u);
+    return irr_glsl_lambertian_cos_generate_wo_clamps(tangentSpaceV, m, u);
 }
 irr_glsl_LightSample irr_glsl_oren_nayar_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u, in float a2)
 {
-    return irr_glsl_oren_nayar_cos_generate_wo_clamps(interaction.isotropic.V.dir,irr_glsl_getTangentFrame(interaction),u);
+    return irr_glsl_oren_nayar_cos_generate_wo_clamps(irr_glsl_getTangentSpaceV(interaction),irr_glsl_getTangentFrame(interaction),u);
 }
 
 

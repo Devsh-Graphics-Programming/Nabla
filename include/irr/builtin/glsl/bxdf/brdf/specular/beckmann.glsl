@@ -84,7 +84,7 @@ irr_glsl_LightSample irr_glsl_beckmann_cos_generate_wo_clamps(in vec3 localV, in
     vec3 localL;
     _cache = irr_glsl_calcAnisotropicMicrofacetCache(localV,H,localL);
     
-    return irr_glsl_createLightSampleTangentSpaceL(localV,localL,m);
+    return irr_glsl_createLightSampleTangentSpace(localV,localL,m);
 }
 
 irr_glsl_LightSample irr_glsl_beckmann_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u, in float ax, in float ay, out irr_glsl_AnisotropicMicrofacetCache _cache)

@@ -445,7 +445,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
         float maxT;
         // the probability of generating a sample w.r.t. the light generator only possible and used when it was generated with it!
         float lightPdf;
-        GeneratorSample _sample;
+        irr_glsl_LightSample _sample;
         const bool isBSDF = BSDFNode_isBSDF(bsdf);
         if (doNEE)
         {
