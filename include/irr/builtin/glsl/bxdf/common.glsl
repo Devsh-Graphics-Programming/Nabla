@@ -108,6 +108,11 @@ irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in irr_glsl_Anisotrop
     return irr_glsl_createLightSample(L,dot(interaction.isotropic.V.dir,L),interaction.T,interaction.B,interaction.isotropic.N);
 }
 
+vec3 irr_glsl_getTangentSpaceL(in irr_glsl_LightSample s)
+{
+    return vec3(s.TdotL, s.BdotL, s.NdotL);
+}
+
 //TODO move to different glsl header @Crisspl (The code is not DRY, you have something similar in material compiler!)
 // chain rule on various functions (usually vertex attributes and barycentrics)
 vec2 irr_glsl_applyScreenSpaceChainRule1D3(in vec3 dFdG, in mat2x3 dGdScreen)

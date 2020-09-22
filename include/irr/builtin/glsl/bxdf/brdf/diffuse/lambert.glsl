@@ -44,7 +44,7 @@ float irr_glsl_lambertian_pdf_wo_clamps(in float maxNdotL)
     return irr_glsl_projected_hemisphere_pdf(maxNdotL);
 }
 
-float irr_glsl_lambertian_pdf(in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction i)
+float irr_glsl_lambertian_pdf(in irr_glsl_LightSample s, in irr_glsl_IsotropicViewSurfaceInteraction i)
 {
     return irr_glsl_lambertian_pdf_wo_clamps(max(s.NdotL,0.0));
 }

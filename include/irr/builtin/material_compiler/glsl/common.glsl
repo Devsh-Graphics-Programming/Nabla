@@ -153,7 +153,7 @@ bool op_hasSpecular(in uint op)
 #include <irr/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
 #include <irr/builtin/glsl/bump_mapping/utils.glsl>
 
-irr_glsl_BSDFAnisotropicParams currBSDFParams;
+//irr_glsl_BSDFAnisotropicParams currBSDFParams;
 irr_glsl_AnisotropicViewSurfaceInteraction currInteraction;
 reg_t registers[REG_COUNT];
 
@@ -277,6 +277,7 @@ void setCurrInteraction(in vec3 N)
 	irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, N);
 	currInteraction = irr_glsl_calcAnisotropicInteraction(interaction);
 }
+#if 0
 void setCurrBSDFParams(in vec3 N, in vec3 L, )
 {
 	setCurrInteraction(N);
@@ -307,6 +308,7 @@ When transmission occurs and you need to compute a new `irr_glsl_MicrofacetCache
 	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV,NdotL), L, , currInteraction.isotropic, H);
 	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(L, H, isoparams, currInteraction);
 }
+#endif
 
 //clamping alpha to min MIN_ALPHA because we're using microfacet BxDFs for deltas as well (and NDFs often end up NaN when given alpha=0) because of less deivergence
 //probably temporary solution
@@ -341,27 +343,27 @@ vec3 params_getTransmittance(in params_t p)
 }
 
 
-void instr_execute_cos_eval_DIFFUSE(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+void instr_execute_cos_eval_DIFFUSE(in instr_t instr, in irr_glsl_LightSample s, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
-	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
+	if (s.NdotL>FLT_MIN)
 	{
 		vec3 refl = params_getReflectance(params);
 		float a = params_getAlpha(params);
-		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic,currInteraction.isotropic,a*a) * refl;
+		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(s,currInteraction.isotropic,a*a) * refl;
 		writeReg(REG_DST(regs), diffuse);
 	}
 	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
 
-void instr_execute_cos_eval_DIFFTRANS(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+void instr_execute_cos_eval_DIFFTRANS(in instr_t instr, in irr_glsl_LightSample s, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	vec3 tr = params_getTransmittance(params);
 	//transmittance*cos/2pi
-	vec3 c = currBSDFParams.isotropic.NdotL*irr_glsl_RECIPROCAL_PI*0.5*tr;
+	vec3 c = s.NdotL*irr_glsl_RECIPROCAL_PI*0.5*tr;
 	writeReg(REG_DST(regs), c);
 }
 
-void instr_execute_cos_eval_DIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+void instr_execute_cos_eval_DIELECTRIC(in instr_t instr, in irr_glsl_LightSample s, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	/*if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
@@ -374,14 +376,14 @@ void instr_execute_cos_eval_DIELECTRIC(in instr_t instr, in uvec3 regs, in param
 	}
 	else*/ writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
-float instr_execute_cos_eval_pdf_DIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+float instr_execute_cos_eval_pdf_DIELECTRIC(in instr_t instr, in irr_glsl_LightSample s, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
-	instr_execute_cos_eval_DIELECTRIC(instr, regs, params, data);
+	instr_execute_cos_eval_DIELECTRIC(instr, s, regs, params, data);
 	//WARNING 1.0 instead of INF
 	return 1.0;// / 0.0;
 }
 
-void instr_execute_cos_eval_THINDIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+void instr_execute_cos_eval_THINDIELECTRIC(in instr_t instr, in irr_glsl_LightSample s, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
 	/*if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
@@ -395,29 +397,29 @@ void instr_execute_cos_eval_THINDIELECTRIC(in instr_t instr, in uvec3 regs, in p
 	else*/ 
 	writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
-float instr_execute_cos_eval_pdf_THINDIELECTRIC(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+float instr_execute_cos_eval_pdf_THINDIELECTRIC(in instr_t instr, in irr_glsl_LightSample s, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
-	instr_execute_cos_eval_THINDIELECTRIC(instr, regs, params, data);
+	instr_execute_cos_eval_THINDIELECTRIC(instr, s, regs, params, data);
 	//WARNING 1.0 instead of INF
 	return 1.0;// / 0.0;
 }
 
-void instr_execute_cos_eval_CONDUCTOR(in instr_t instr, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data)
+void instr_execute_cos_eval_CONDUCTOR(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data)
 {
-	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
+	if (s.NdotL>FLT_MIN)
 	{
 		mat2x3 eta;
 		eta[0] = irr_glsl_decodeRGB19E7(data.data[2].yz);
 		eta[1] = irr_glsl_decodeRGB19E7(uvec2(data.data[2].w,data.data[3].x));
-		vec3 fr = irr_glsl_fresnel_conductor(eta[0],eta[1],currBSDFParams.isotropic.VdotH);
+		vec3 fr = irr_glsl_fresnel_conductor(eta[0],eta[1],uf.isotropic.VdotH);
 		writeReg(REG_DST(regs), DG*fr);
 	}
 	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
 
-void instr_execute_cos_eval_PLASTIC(in instr_t instr, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data)
+void instr_execute_cos_eval_PLASTIC(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data)
 {
-	if (currBSDFParams.isotropic.NdotL>FLT_MIN)
+	if (s.NdotL>FLT_MIN)
 	{
 		vec3 eta = vec3(uintBitsToFloat(data.data[3].x));
 		vec3 eta2 = eta*eta;
@@ -425,9 +427,9 @@ void instr_execute_cos_eval_PLASTIC(in instr_t instr, in uvec3 regs, in float DG
 		float a2 = params_getAlpha(params);
 		a2*=a2;
 
-		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic, currInteraction.isotropic, a2) * refl;
-		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta2) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
-		vec3 fr = irr_glsl_fresnel_dielectric(eta,currBSDFParams.isotropic.VdotH);
+		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(s, currInteraction.isotropic, a2) * refl;
+		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta2) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, s.NdotL));
+		vec3 fr = irr_glsl_fresnel_dielectric(eta,uf.isotropic.VdotH);
 		vec3 specular = DG*fr;
 
 		writeReg(REG_DST(regs), specular+diffuse);
@@ -435,11 +437,11 @@ void instr_execute_cos_eval_PLASTIC(in instr_t instr, in uvec3 regs, in float DG
 	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
 //TODO wrong pdf is being returned!
-float instr_execute_cos_eval_pdf_PLASTIC(in instr_t instr, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data, in irr_glsl_BxDFSample s, in float specular_pdf)
+float instr_execute_cos_eval_pdf_PLASTIC(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data, in float specular_pdf)
 {
 	float a2 = params_getAlpha(params);
 	a2 *= a2;
-	instr_execute_cos_eval_PLASTIC(instr, regs, DG, params, data);
+	instr_execute_cos_eval_PLASTIC(instr, s, uf, regs, DG, params, data);
 
 	//TODO those weights should be different
 	//return 0.5*specular_pdf + 0.5*irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic, a2);
@@ -454,24 +456,15 @@ void instr_execute_cos_eval_COATING(in instr_t instr, in uvec3 regs, in params_t
 	writeReg(REG_DST(regs), bxdf_eval_t(1.0,0.0,0.0));
 }
 
-void instr_execute_BUMPMAP_interactionOnly(in instr_t instr)
+void instr_execute_BUMPMAP(in instr_t instr)
 {
 	vec3 N = readReg3( REG_SRC1(instr_decodeRegisters(instr)) );
 	setCurrInteraction(N);
 }
-void instr_execute_BUMPMAP(in instr_t instr, in vec3 L)
-{
-	vec3 N = readReg3( REG_SRC1(instr_decodeRegisters(instr)) );
-	setCurrBSDFParams(N, L);
-}
 
-void instr_execute_SET_GEOM_NORMAL_interactionOnly()
+void instr_execute_SET_GEOM_NORMAL()
 {
 	setCurrInteraction(normalize(Normal));
-}
-void instr_execute_SET_GEOM_NORMAL(in vec3 L)
-{
-	setCurrBSDFParams(normalize(Normal), L);
 }
 
 void instr_execute_cos_eval_BLEND(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
@@ -498,6 +491,8 @@ float instr_execute_cos_eval_pdf_BLEND(in instr_t instr, in uvec3 regs, in param
 	float pdf = mix(pdfa,pdfb,wa);
 
 	bxdf_eval_t blend;
+	//instead of doing this here, remainder and pdf returned from generator stream is weighted
+	//so it correctly adds up at the end
 	/*
 	//generator is denoted as the one with negative probability
 	if (pdfa<0.0) {//`a` is remainder
@@ -519,7 +514,7 @@ float instr_execute_cos_eval_pdf_BLEND(in instr_t instr, in uvec3 regs, in param
 	blend = mix(a,b,wa);
 	writeReg(REG_DST(regs), blend);
 
-	return mix(pdfa,pdfb,wa);
+	return pdf;
 }
 
 vec3 fetchTex(in uvec3 texid, in vec2 uv, in mat2 dUV)
@@ -700,7 +695,7 @@ void handleTwosided_interactionOnly(inout bool ts_flag, in instr_t instr)
 #endif	
 }
 //call before executing an instruction/evaluating bsdf
-void handleTwosided(inout bool ts_flag, in instr_t instr)
+void handleTwosided(inout bool ts_flag, in instr_t instr, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache uf)
 {
 #ifndef NO_TWOSIDED
 	if (!ts_flag && instr_getTwosided(instr))
@@ -710,12 +705,12 @@ void handleTwosided(inout bool ts_flag, in instr_t instr)
 		{
 			flipCurrInteraction();
 
-			currBSDFParams.isotropic.NdotL = -currBSDFParams.isotropic.NdotL;
-			currBSDFParams.isotropic.NdotH = -currBSDFParams.isotropic.NdotH;
-			currBSDFParams.TdotL = -currBSDFParams.TdotL;
-			currBSDFParams.BdotL = -currBSDFParams.BdotL;
-			currBSDFParams.TdotH = -currBSDFParams.TdotH;
-			currBSDFParams.BdotH = -currBSDFParams.BdotH;
+			s.NdotL = -s.NdotL;
+			s.TdotL = -s.TdotL;
+			s.BdotL = -s.BdotL;
+			uf.isotropic.NdotH = -uf.isotropic.NdotH;
+			uf.TdotH = -uf.TdotH;
+			uf.BdotH = -uf.BdotH;
 		}
 	}
 #ifdef OP_BUMPMAP
@@ -736,20 +731,11 @@ float irr_glsl_ggx_height_correlated_cos_eval_DG(in float NdotH, in float NdotL,
 
 	return irr_glsl_ggx_height_correlated_cos_eval_DG_wo_clamps(NdotH2, maxNdotL, NdotL2, maxNdotV, NdotV2, a2);
 }
-float irr_glsl_ggx_height_correlated_cos_eval_DG(in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction i, in float a2)
+float irr_glsl_ggx_height_correlated_cos_eval_DG(in irr_glsl_LightSample s, in irr_glsl_IsotropicMicrofacetCache uf, in irr_glsl_IsotropicViewSurfaceInteraction i, in float a2)
 {
 	return irr_glsl_ggx_height_correlated_cos_eval_DG(
-		s.NdotH,
+		uf.NdotH,
 		s.NdotL,
-		i.NdotV,
-		a2
-	);
-}
-float irr_glsl_ggx_height_correlated_cos_eval_DG(in irr_glsl_BSDFIsotropicParams p, in irr_glsl_IsotropicViewSurfaceInteraction i, in float a2)
-{
-	return irr_glsl_ggx_height_correlated_cos_eval_DG(
-		p.NdotH,
-		p.NdotL,
 		i.NdotV,
 		a2
 	);
@@ -771,30 +757,15 @@ float irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(in float NdotH, in float 
 
 	return irr_glsl_ggx_height_correlated_aniso_cos_eval_DG_wo_clamps(NdotH2, TdotH2, BdotH2, maxNdotL, NdotL2, TdotL2, BdotL2, maxNdotV, NdotV2, TdotV2, BdotV2, ax, ax2, ay ,ay2);
 }
-float irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(in irr_glsl_BxDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction i, in float ax, in float ax2, in float ay, in float ay2)
+float irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in irr_glsl_AnisotropicViewSurfaceInteraction i, in float ax, in float ax2, in float ay, in float ay2)
 {
 	return irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(
-		s.NdotH,
-		s.TdotH,
-		s.BdotH,
+		uf.isotropic.NdotH,
+		uf.TdotH,
+		uf.BdotH,
 		s.NdotL,
 		s.TdotL,
 		s.BdotL,
-		i.isotropic.NdotV,
-		i.TdotV,
-		i.BdotV,
-		ax, ax2, ay, ay2
-	);
-}
-float irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(in irr_glsl_BSDFAnisotropicParams p, in irr_glsl_AnisotropicViewSurfaceInteraction i, in float ax, in float ax2, in float ay, in float ay2)
-{
-	return irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(
-		p.isotropic.NdotH,
-		p.TdotH,
-		p.BdotH,
-		p.isotropic.NdotL,
-		p.TdotL,
-		p.BdotL,
 		i.isotropic.NdotV,
 		i.TdotV,
 		i.BdotV,
@@ -812,13 +783,9 @@ float irr_glsl_beckmann_height_correlated_cos_eval_DG(in float NdotH, in float N
 
 	return irr_glsl_beckmann_height_correlated_cos_eval_DG_wo_clamps(NdotH2, NdotL2, maxNdotV, NdotV2, a2);
 }
-float irr_glsl_beckmann_height_correlated_cos_eval_DG(in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction i, in float a2)
+float irr_glsl_beckmann_height_correlated_cos_eval_DG(in irr_glsl_LightSample s, in irr_glsl_IsotropicMicrofacetCache uf, in irr_glsl_IsotropicViewSurfaceInteraction i, in float a2)
 {
-	return irr_glsl_beckmann_height_correlated_cos_eval_DG(s.NdotH, s.NdotL, i.NdotV, a2);
-}
-float irr_glsl_beckmann_height_correlated_cos_eval_DG(in irr_glsl_BSDFIsotropicParams p, in irr_glsl_IsotropicViewSurfaceInteraction i, in float a2)
-{
-	return irr_glsl_beckmann_height_correlated_cos_eval_DG(p.NdotH, p.NdotL, i.NdotV, a2);
+	return irr_glsl_beckmann_height_correlated_cos_eval_DG(uf.NdotH, s.NdotL, i.NdotV, a2);
 }
 
 float irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(in float NdotH, in float TdotH, in float BdotH, in float NdotL, in float TdotL, in float BdotL, in float NdotV, in float TdotV, in float BdotV, in float ax, in float ax2, in float ay, in float ay2)
@@ -837,27 +804,12 @@ float irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(in float NdotH, in f
 		ax, ax2, ay, ay2
 	);
 }
-float irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(in irr_glsl_BSDFAnisotropicParams p, in irr_glsl_AnisotropicViewSurfaceInteraction i, in float ax, in float ax2, in float ay, in float ay2)
+float irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in irr_glsl_AnisotropicViewSurfaceInteraction i, in float ax, in float ax2, in float ay, in float ay2)
 {
 	return irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(
-		p.isotropic.NdotH,
-		p.TdotH,
-		p.BdotH,
-		p.isotropic.NdotL,
-		p.TdotL,
-		p.BdotL,
-		i.isotropic.NdotV,
-		i.TdotV,
-		i.BdotV,
-		ax, ax2, ay, ay2
-	);
-}
-float irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(in irr_glsl_BxDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction i, in float ax, in float ax2, in float ay, in float ay2)
-{
-	return irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(
-		s.NdotH,
-		s.TdotH,
-		s.BdotH,
+		uf.isotropic.NdotH,
+		uf.TdotH,
+		uf.BdotH,
 		s.NdotL,
 		s.TdotL,
 		s.BdotL,
@@ -871,27 +823,23 @@ float irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(in irr_glsl_BxDFSamp
 //blinn-phong
 float irr_glsl_blinn_phong_cos_eval_DG(in float NdotH, in float NdotV, in float NdotL, in float n, in float a2)
 {
-	return irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(max(NdotH,0.0), max(NdotV,0.0), NdotV*NdotV, NdotL*NdotL, n, a2);
+	return irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, max(NdotV,0.0), NdotV*NdotV, NdotL*NdotL, n, a2);
 }
-float irr_glsl_blinn_phong_cos_eval_DG(in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction i, in float n, in float a2)
+float irr_glsl_blinn_phong_cos_eval_DG(in irr_glsl_LightSample s, in irr_glsl_IsotropicMicrofacetCache uf, in irr_glsl_IsotropicViewSurfaceInteraction i, in float n, in float a2)
 {
-	return irr_glsl_blinn_phong_cos_eval_DG(s.NdotH, i.NdotV, s.NdotL, n, a2);
-}
-float irr_glsl_blinn_phong_cos_eval_DG(in irr_glsl_BSDFIsotropicParams p, in irr_glsl_IsotropicViewSurfaceInteraction i, in float n, in float a2)
-{
-	return irr_glsl_blinn_phong_cos_eval_DG(p.NdotH, i.NdotV, p.NdotL, n, a2);
+	return irr_glsl_blinn_phong_cos_eval_DG(uf.NdotH, i.NdotV, s.NdotL, n, a2);
 }
 
 float irr_glsl_blinn_phong_cos_eval_DG(in float NdotH, in float TdotH, in float BdotH, in float NdotL, in float TdotL, in float BdotL, in float NdotV, in float TdotV, in float BdotV, in float nx, in float ny, in float ax2, in float ay2)
 {
-	return irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(max(NdotH, 0.0), NdotH * NdotH, TdotH * TdotH, BdotH * BdotH, TdotL * TdotL, BdotL * BdotL, max(NdotV, 0.0), TdotV * TdotV, BdotV * BdotV, NdotV * NdotV, NdotL * NdotL, nx, ny, ax2, ay2);
+	return irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, NdotH * NdotH, TdotH * TdotH, BdotH * BdotH, TdotL * TdotL, BdotL * BdotL, max(NdotV, 0.0), TdotV * TdotV, BdotV * BdotV, NdotV * NdotV, NdotL * NdotL, nx, ny, ax2, ay2);
 }
-float irr_glsl_blinn_phong_cos_eval_DG(in irr_glsl_BxDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction i, in float nx, in float ny, in float ax2, in float ay2)
+float irr_glsl_blinn_phong_cos_eval_DG(in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in irr_glsl_AnisotropicViewSurfaceInteraction i, in float nx, in float ny, in float ax2, in float ay2)
 {
 	return irr_glsl_blinn_phong_cos_eval_DG(
-		s.NdotH,
-		s.TdotH,
-		s.BdotH,
+		uf.isotropic.NdotH,
+		uf.TdotH,
+		uf.BdotH,
 		s.NdotL,
 		s.TdotL,
 		s.BdotL,
@@ -901,24 +849,9 @@ float irr_glsl_blinn_phong_cos_eval_DG(in irr_glsl_BxDFSample s, in irr_glsl_Ani
 		nx, ny, ax2, ay2
 	);
 }
-float irr_glsl_blinn_phong_cos_eval_DG(in irr_glsl_BSDFAnisotropicParams p, in irr_glsl_AnisotropicViewSurfaceInteraction i, in float nx, in float ny, in float ax2, in float ay2)
-{
-	return irr_glsl_blinn_phong_cos_eval_DG(
-		p.isotropic.NdotH,
-		p.TdotH,
-		p.BdotH,
-		p.isotropic.NdotL,
-		p.TdotL,
-		p.BdotL,
-		i.isotropic.NdotV,
-		i.TdotV,
-		i.BdotV,
-		nx, ny, ax2, ay2
-	);
-}
 
 #ifdef GEN_CHOICE_STREAM
-void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BxDFSample s)
+void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf)
 {
 	uint op = instr_getOpcode(instr);
 
@@ -937,19 +870,19 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BxDFSample s)
 	float bxdf_eval_scalar_part = 0.0;
 	float pdf = 0.0;
 
-	float cosFactor = op_isBSDF(op) ? abs(currBSDFParams.isotropic.NdotL):max(currBSDFParams.isotropic.NdotL,0.0);
+	float cosFactor = op_isBSDF(op) ? abs(s.NdotL):max(s.NdotL,0.0);
 
 	if (cosFactor>FLT_MIN && op_hasSpecular(op))//does cos>0 check even has any point here? L comes from a sample..
 	{
 #ifdef OP_DIFFUSE
 		if (op==OP_DIFFUSE) {
-			pdf = irr_glsl_oren_nayar_pdf_wo_clamps(max(s.NdotL,0.0));
+			pdf = irr_glsl_oren_nayar_pdf_wo_clamps(cosFactor);
 		} else
 #endif
 
 #ifdef OP_DIFFTRANS
 		if (op==OP_DIFFTRANS) {
-			pdf = irr_glsl_lambertian_transmitter_pdf_wo_clamps(abs(s.NdotL));
+			pdf = irr_glsl_lambertian_transmitter_pdf_wo_clamps(cosFactor);
 		}
 		else
 #endif //OP_DIFFTRANS
@@ -958,11 +891,11 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BxDFSample s)
 		if (ndf==NDF_GGX) {
 
 #ifdef ALL_ISOTROPIC_BXDFS
-			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG(s, currInteraction.isotropic, a2);
-			pdf = irr_glsl_ggx_pdf(s, currInteraction.isotropic, a2);
+			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG(s, uf.isotropic, currInteraction.isotropic, a2);
+			pdf = irr_glsl_ggx_pdf(currInteraction.isotropic, uf.isotropic, a2);
 #else
-			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(s, currInteraction, a, a2, ay, ay2);
-			pdf = irr_glsl_ggx_pdf(s, currInteraction, a, ay, a2, ay2);
+			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(s, uf, currInteraction, a, a2, ay, ay2);
+			pdf = irr_glsl_ggx_pdf(currInteraction, uf, a, ay, a2, ay2);
 #endif
 
 		} else
@@ -972,11 +905,11 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BxDFSample s)
 		if (ndf==NDF_BECKMANN) {
 
 #ifdef ALL_ISOTROPIC_BXDFS
-			bxdf_eval_scalar_part = irr_glsl_beckmann_height_correlated_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, a2);
-			pdf = irr_glsl_beckmann_pdf(s, currInteraction.isotropic, a2);
+			bxdf_eval_scalar_part = irr_glsl_beckmann_height_correlated_cos_eval_DG(s, uf.isotropic, currInteraction.isotropic, a2);
+			pdf = irr_glsl_beckmann_pdf(currInteraction.isotropic, uf.isotropic, a2);
 #else
-			bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(currBSDFParams, currInteraction, a, a2, ay, ay2);
-			pdf = irr_glsl_beckmann_pdf(s, currInteraction, a, a2, ay, ay2);
+			bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(s, uf, currInteraction, a, a2, ay, ay2);
+			pdf = irr_glsl_beckmann_pdf(currInteraction, uf, a, a2, ay, ay2);
 #endif
 
 		} else
@@ -986,11 +919,11 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BxDFSample s)
 		if (ndf==NDF_PHONG) {
 
 #ifdef ALL_ISOTROPIC_BXDFS
-			bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(currBSDFParams.isotropic, currInteraction.isotropic, n, a2);
-			pdf = irr_glsl_beckmann_pdf(s, currInteraction.isotropic, a2);
+			bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(s, uf.isotropic, currInteraction.isotropic, n, a2);
+			pdf = irr_glsl_beckmann_pdf(currInteraction.isotropic, uf.isotropic, a2);
 #else
-			bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(currBSDFParams, currInteraction, n, ny, a2, ay2);
-			pdf = irr_glsl_beckmann_pdf(s, currInteraction, a, a2, ay, ay2);
+			bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(s, uf, currInteraction, n, ny, a2, ay2);
+			pdf = irr_glsl_beckmann_pdf(currInteraction, uf, a, a2, ay, ay2);
 #endif
 
 		} else
@@ -1001,22 +934,22 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BxDFSample s)
 	uvec3 regs = instr_decodeRegisters(instr);
 #ifdef OP_DIFFUSE
 	if (op==OP_DIFFUSE) {
-		instr_execute_cos_eval_DIFFUSE(instr, regs, params, bsdf_data);
+		instr_execute_cos_eval_DIFFUSE(instr, s, regs, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_DIFFTRANS
 	if (op==OP_DIFFTRANS) {
-		instr_execute_cos_eval_DIFFTRANS(instr, regs, params, bsdf_data);
+		instr_execute_cos_eval_DIFFTRANS(instr, s, regs, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_CONDUCTOR
 	if (op==OP_CONDUCTOR) {
-		instr_execute_cos_eval_CONDUCTOR(instr, regs, bxdf_eval_scalar_part, params, bsdf_data);
+		instr_execute_cos_eval_CONDUCTOR(instr, s, uf, regs, bxdf_eval_scalar_part, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_PLASTIC
 	if (op==OP_PLASTIC) {
-		pdf = instr_execute_cos_eval_pdf_PLASTIC(instr, regs, bxdf_eval_scalar_part, params, bsdf_data, s, pdf);
+		pdf = instr_execute_cos_eval_pdf_PLASTIC(instr, s, uf, regs, bxdf_eval_scalar_part, params, bsdf_data, pdf);
 	} else
 #endif
 #ifdef OP_COATING
@@ -1027,14 +960,14 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BxDFSample s)
 //TODO currently only smooth dielectrics work
 #ifdef OP_DIELECTRIC
 	if (op==OP_DIELECTRIC) {
-		pdf = instr_execute_cos_eval_pdf_DIELECTRIC(instr, regs, params, bsdf_data);
+		pdf = instr_execute_cos_eval_pdf_DIELECTRIC(instr, s, regs, params, bsdf_data);
 		//pdf = 1.0; ?
 	} else
 #endif
 //TODO currently only smooth dielectrics work
 #ifdef OP_THINDIELECTRIC
 	if (op==OP_THINDIELECTRIC) {
-		pdf = instr_execute_cos_eval_pdf_THINDIELECTRIC(instr, regs, params, bsdf_data);
+		pdf = instr_execute_cos_eval_pdf_THINDIELECTRIC(instr, s, regs, params, bsdf_data);
 		//pdf = 1.0; ?
 	} else
 #endif
@@ -1045,12 +978,12 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BxDFSample s)
 #endif
 #ifdef OP_BUMPMAP
 	if (op==OP_BUMPMAP) {
-		instr_execute_BUMPMAP(instr, s.L);
+		instr_execute_BUMPMAP(instr);
 	} else
 #endif
 #ifdef OP_SET_GEOM_NORMAL
 	if (op==OP_SET_GEOM_NORMAL) {
-		instr_execute_SET_GEOM_NORMAL(s.L);
+		instr_execute_SET_GEOM_NORMAL();
 	} else
 #endif
 	{} //else "empty braces"
@@ -1059,11 +992,13 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_BxDFSample s)
 		writeReg(REG_DST(regs)+3u, pdf);
 }
 
-eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, in irr_glsl_BxDFSample s, in instr_t generator)
+eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, in irr_glsl_LightSample _s, in instr_t generator, in irr_glsl_AnisotropicMicrofacetCache _uf)
 {
 #ifndef NO_TWOSIDED
 	bool ts = false;
 #endif
+	irr_glsl_LightSample s = _s;
+	irr_glsl_AnisotropicMicrofacetCache uf = _uf;
 	for (uint i = 0u; i < stream.count; ++i)
 	{
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
@@ -1071,9 +1006,9 @@ eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, in irr_glsl_BxDFS
 		if (INSTR_1ST_DWORD(instr) != INSTR_1ST_DWORD(generator))
 		{
 #ifndef NO_TWOSIDED
-			handleTwosided(ts, instr);
+			handleTwosided(ts, instr, s, uf);
 #endif
-			instr_eval_and_pdf_execute(instr, s);
+			instr_eval_and_pdf_execute(instr, s, uf);//TODO recompute microfacet if isBSDF(instr) && irr_glsl_isTransmissionPath()
 		}
 		else
 		{
@@ -1100,7 +1035,7 @@ irr_glsl_AnisotropicMicrofacetCache getSmoothMicrofacetCache(in float NdotV, in 
 	return uf;
 }
 
-irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand, out vec3 out_remainder, out float out_pdf, out instr_t out_generatorInstr)
+irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand, out vec3 out_remainder, out float out_pdf, out instr_t out_generatorInstr, out irr_glsl_AnisotropicMicrofacetCache out_uf)
 {
 	uint ix = 0u;
 	instr_t instr = irr_glsl_MC_fetchInstr(stream.offset);
@@ -1127,13 +1062,13 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 #ifdef OP_SET_GEOM_NORMAL
 			if (op==OP_SET_GEOM_NORMAL)
 			{
-				instr_execute_SET_GEOM_NORMAL_interactionOnly();
+				instr_execute_SET_GEOM_NORMAL();
 			} else 
 #endif //OP_SET_GEOM_NORMAL
 #ifdef OP_BUMPMAP
 			if (op==OP_BUMPMAP)
 			{
-				instr_execute_BUMPMAP_interactionOnly(instr);
+				instr_execute_BUMPMAP(instr);
 			} else
 #endif //OP_BUMPMAP
 			{}
@@ -1181,7 +1116,10 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 #ifdef OP_PLASTIC
 	float plastic_spec_weight;
 	if (is_plastic) {
-		vec3 fresnel = irr_glsl_fresnel_dielectric(ior[0],currBSDFParams.isotropic.VdotH);
+		//TODO
+		//erm i fucked up here before.. generator choice depends on generated sample (L), how to omit this??
+		//for now: constant 0.5
+		vec3 fresnel = vec3(0.5);//irr_glsl_fresnel_dielectric(ior[0],currBSDFParams.isotropic.VdotH);//TODO we dont have BSDF params any more!
 		float ws = max(fresnel.x, max(fresnel.y, fresnel.z));
 		bool choseDiffuse = u.z>=ws;
 		op = choseDiffuse ? OP_DIFFUSE_ALIAS : op;
@@ -1219,6 +1157,7 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 		//TODO luminosityContributionHint
 		const vec3 luminosityContributionHint = vec3(0.2126,0.7152,0.0722);
 		s = irr_glsl_thin_smooth_dielectric_cos_generate(currInteraction, u, ior[0]*ior[0], luminosityContributionHint);
+		uf = getSmoothMicrofacetCache(currInteraction.isotropic.NdotV, s.NdotL);
 		rem = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ior[0]*ior[0], luminosityContributionHint);
 		pdf = 1.0;
 	} else
@@ -1227,22 +1166,22 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 //TODO need to distinguish BSDFs and BRDFs (later, for now DIELECTRIC and THINDIELECTRIC are treated separately)
 #ifdef NDF_GGX
 	if (ndf == NDF_GGX) {
-		s = irr_glsl_ggx_cos_generate(currInteraction, u.xy, ax, ay);
-		rem = irr_glsl_ggx_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, ior, ax, ay);
+		s = irr_glsl_ggx_cos_generate(currInteraction, u.xy, ax, ay, uf);
+		rem = irr_glsl_ggx_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, uf, ior, ax, ay);
 	} else
 #endif //NDF_GGX
 
 #ifdef NDF_BECKMANN
 	if (ndf == NDF_BECKMANN) {
-		s = irr_glsl_beckmann_cos_generate(currInteraction, u.xy, ax, ay);
-		rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, ior, ax, ax2, ay, ay2);
+		s = irr_glsl_beckmann_cos_generate(currInteraction, u.xy, ax, ay, uf);
+		rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, uf, ior, ax, ay);
 	} else
 #endif //NDF_BECKMANN
 
 #ifdef NDF_PHONG
 	if (ndf == NDF_PHONG) {
-		s = irr_glsl_beckmann_cos_generate(currInteraction, u.xy, ax, ay);
-		rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, ior, ax, ax2, ay, ay2);
+		s = irr_glsl_beckmann_cos_generate(currInteraction, u.xy, ax, ay, uf);
+		rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, uf, ior, ax, ay);
 	} else
 #endif //NDF_PHONG
 	{}
@@ -1250,7 +1189,7 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 #ifdef OP_PLASTIC
 	if (is_plastic)
 	{
-		irr_glsl_updateBxDFParams(currBSDFParams, s, currInteraction);//TODO i could avoid this if using wo_clamps version of cos_eval()s
+		//irr_glsl_updateBxDFParams(currBSDFParams, s, currInteraction);//TODO i could avoid this if using wo_clamps version of cos_eval()s
 
 		vec3 eval;
 		float pdf_b;
@@ -1261,22 +1200,22 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 			wa = 1.0-wb;
 #ifdef NDF_GGX
 			if (ndf == NDF_GGX) {
-				eval = irr_glsl_ggx_height_correlated_aniso_cos_eval(currBSDFParams, currInteraction, ior, ax, ax2, ay, ay2);
-				pdf_b = irr_glsl_ggx_pdf(s, currInteraction, ax, ay, ax2, ay2);
+				eval = irr_glsl_ggx_height_correlated_aniso_cos_eval(s, currInteraction, uf, ior, ax, ay);
+				pdf_b = irr_glsl_ggx_pdf(currInteraction, uf, ax, ay, ax2, ay2);
 			} else
 #endif //NDF_GGX
 
 #ifdef NDF_BECKMANN
 			if (ndf == NDF_BECKMANN) {
-				eval = irr_glsl_beckmann_aniso_height_correlated_cos_eval(currBSDFParams, currInteraction, ior, ax, ax2, ay, ay2);
-				pdf_b = irr_glsl_beckmann_pdf(s, currInteraction, ax, ax2, ay, ay2);
+				eval = irr_glsl_beckmann_aniso_height_correlated_cos_eval(s, currInteraction, uf, ior, ax, ay);
+				pdf_b = irr_glsl_beckmann_pdf(currInteraction, uf, ax, ax2, ay, ay2);
 			} else
 #endif //NDF_BECKMANN
 
 #ifdef NDF_PHONG
 			if (ndf == NDF_PHONG) {
-				eval = irr_glsl_beckmann_aniso_height_correlated_cos_eval(currBSDFParams, currInteraction, ior, ax, ax2, ay, ay2);
-				pdf_b = irr_glsl_beckmann_pdf(s, currInteraction, ax, ax2, ay, ay2);
+				eval = irr_glsl_beckmann_aniso_height_correlated_cos_eval(s, currInteraction, uf, ior, ax, ay);
+				pdf_b = irr_glsl_beckmann_pdf(currInteraction, uf, ax, ax2, ay, ay2);
 			} else
 #endif //NDF_PHONG
 			{}
@@ -1284,7 +1223,7 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 		else { //specular was generator
 			wa = plastic_spec_weight;
 			wb = 1.0-wa;
-			eval = refl*irr_glsl_oren_nayar_cos_eval(currBSDFParams.isotropic, currInteraction.isotropic, ax2);//TODO fresnels and correction
+			eval = refl*irr_glsl_oren_nayar_cos_eval(s, currInteraction.isotropic, ax2);//TODO fresnels and correction
 			pdf_b = irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic);
 		}
 
@@ -1296,18 +1235,20 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 	out_remainder = weight*rem;
 	out_pdf = weight*pdf;
 	out_generatorInstr = instr;
+	out_uf = uf;
 
 	return s;
 }
 
-vec3 runGenerateAndRemainderStream(in instr_stream_t gcs, in instr_stream_t rnps, in vec3 rand, out float out_pdf, out irr_glsl_BxDFSample out_smpl)
+vec3 runGenerateAndRemainderStream(in instr_stream_t gcs, in instr_stream_t rnps, in vec3 rand, out float out_pdf, out irr_glsl_LightSample out_smpl)
 {
 	instr_t generator;
 	vec3 generator_rem;
 	float generator_pdf;
-	irr_glsl_BxDFSample s = irr_bsdf_cos_generate(gcs, rand, generator_rem, generator_pdf, generator);
-	irr_glsl_updateBxDFParams(currBSDFParams, s, currInteraction);
-	eval_and_pdf_t eval_pdf = irr_bsdf_eval_and_pdf(rnps, s, generator);
+	irr_glsl_AnisotropicMicrofacetCache uf;
+	irr_glsl_LightSample s = irr_bsdf_cos_generate(gcs, rand, generator_rem, generator_pdf, generator, uf);
+	//irr_glsl_updateBxDFParams(currBSDFParams, s, currInteraction);
+	eval_and_pdf_t eval_pdf = irr_bsdf_eval_and_pdf(rnps, s, generator, uf);//TODO make `s`,`uf` inout?
 	bxdf_eval_t acc = eval_pdf.rgb;
 	float restPdf = eval_pdf.a;
 	float pdf = generator_pdf + restPdf;

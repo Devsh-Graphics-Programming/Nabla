@@ -166,7 +166,7 @@ float irr_glsl_ggx_pdf(in irr_glsl_AnisotropicViewSurfaceInteraction i, irr_glsl
     float NdotV2 = i.isotropic.NdotV_squared;
     float TdotV2 = i.TdotV*i.TdotV;
     float BdotV2 = i.BdotV*i.BdotV;
-    return irr_glsl_ggx_pdf(h.isotropic.NdotH2, TdotH2, BdotH2, maxNdotV, NdotV2, TdotV2, BdotV2, ax, ay, ax2, ay2);
+    return irr_glsl_ggx_pdf_wo_clamps(h.isotropic.NdotH2, TdotH2, BdotH2, maxNdotV, NdotV2, TdotV2, BdotV2, ax, ay, ax2, ay2);
 }
 
 

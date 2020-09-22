@@ -47,7 +47,7 @@ float irr_glsl_oren_nayar_pdf_wo_clamps(in float maxNdotL)
     return irr_glsl_lambertian_pdf_wo_clamps(maxNdotL);
 }
 
-float irr_glsl_oren_nayar_pdf(in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction i)
+float irr_glsl_oren_nayar_pdf(in irr_glsl_LightSample s, in irr_glsl_IsotropicViewSurfaceInteraction i)
 {
     return irr_glsl_lambertian_pdf(s, i);
 }
