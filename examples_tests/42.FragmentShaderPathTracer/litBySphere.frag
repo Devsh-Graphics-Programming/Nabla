@@ -177,7 +177,12 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
         const vec3 throughputCIE_Y = transpose(irr_glsl_sRGBtoXYZ)[1]*throughput;
         const float monochromeEta = dot(throughputCIE_Y,BSDFNode_getEta(bsdf)[0])/(throughputCIE_Y.r+throughputCIE_Y.g+throughputCIE_Y.b);
         if (doNEE)
+        {
+            // if we allowed non-watertight transmitters (single water surface), it would make sense just to apply this line.
             validPath = irr_glsl_calcAnisotropicMicrofacetCache(_cache,interaction,_sample,monochromeEta);
+            // but we don't allow non watertight transmitters in this renderer
+            validPath = validPath && _sample.NdotL>0.0;
+        }
         else
         {
             maxT = FLT_MAX;
