@@ -26,15 +26,15 @@ float irr_glsl_lambertian_cos_eval(in irr_glsl_LightSample _sample)
     return irr_glsl_lambertian_cos_eval_rec_pi_factored_out(_sample.NdotL)*irr_glsl_lambertian();
 }
 
-irr_glsl_LightSample irr_glsl_lambertian_cos_generate_wo_clamps(in vec3 V, in mat3 m, in vec2 u)
+irr_glsl_LightSample irr_glsl_lambertian_cos_generate_wo_clamps(in vec3 tangentSpaceV, in mat3 m, in vec2 u)
 {
     vec3 L = irr_glsl_projected_hemisphere_generate(u);
 
-    return irr_glsl_createLightSampleTangentSpaceL(V,L,m);
+    return irr_glsl_createLightSampleTangentSpace(tangentSpaceV,L,m);
 }
 irr_glsl_LightSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u)
 {
-    return irr_glsl_lambertian_cos_generate_wo_clamps(interaction.isotropic.V.dir,irr_glsl_getTangentFrame(interaction),u);
+    return irr_glsl_lambertian_cos_generate_wo_clamps(irr_glsl_getTangentSpaceV(interaction),irr_glsl_getTangentFrame(interaction),u);
 }
 
 

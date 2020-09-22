@@ -55,12 +55,12 @@ struct irr_glsl_LightSample
 };
 
 // require tangentSpaceL already be normalized and in tangent space (tangentSpaceL==vec3(TdotL,BdotL,NdotL))
-irr_glsl_LightSample irr_glsl_createLightSampleTangentSpaceL(in vec3 V, in vec3 tangentSpaceL, in mat3 tangentFrame)
+irr_glsl_LightSample irr_glsl_createLightSampleTangentSpace(in vec3 tangentSpaceV, in vec3 tangentSpaceL, in mat3 tangentFrame)
 {
     irr_glsl_LightSample s;
 
     s.L = tangentFrame*tangentSpaceL; // m must be an orthonormal matrix
-    s.VdotL = dot(V,s.L);
+    s.VdotL = dot(tangentSpaceV,tangentSpaceL);
 
     s.TdotL = tangentSpaceL.x;
     s.BdotL = tangentSpaceL.y;
@@ -69,13 +69,9 @@ irr_glsl_LightSample irr_glsl_createLightSampleTangentSpaceL(in vec3 V, in vec3 
 
     return s;
 }
-irr_glsl_LightSample irr_glsl_createLightSampleTangentSpaceL(in vec3 tangentSpaceL, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
-{
-    return irr_glsl_createLightSampleTangentSpaceL(interaction.isotropic.V.dir,tangentSpaceL,irr_glsl_getTangentFrame(interaction));
-}
 
 //
-irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in float VdotL, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
+irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in float VdotL, in vec3 N)
 {
     irr_glsl_LightSample s;
 
@@ -84,32 +80,32 @@ irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in float VdotL, in ir
 
     s.TdotL = irr_glsl_FLT_NAN;
     s.BdotL = irr_glsl_FLT_NAN;
-    s.NdotL = dot(interaction.N,L);
+    s.NdotL = dot(N,L);
     s.NdotL2 = s.NdotL*s.NdotL;
 
     return s;
 }
 irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
 {
-    return irr_glsl_createLightSample(L,dot(interaction.V.dir,L),interaction);
+    return irr_glsl_createLightSample(L,dot(interaction.V.dir,L),interaction.N);
 }
-irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in float VdotL, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
+irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in float VdotL, in vec3 T, in vec3 B, in vec3 N)
 {
     irr_glsl_LightSample s;
 
     s.L = L;
     s.VdotL = VdotL;
 
-    s.TdotL = dot(interaction.T,L);
-    s.BdotL = dot(interaction.B,L);
-    s.NdotL = dot(interaction.isotropic.N,L);
+    s.TdotL = dot(T,L);
+    s.BdotL = dot(B,L);
+    s.NdotL = dot(N,L);
     s.NdotL2 = s.NdotL*s.NdotL;
 
     return s;
 }
 irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in irr_glsl_AnisotropicViewSurfaceInteraction interaction)
 {
-    return irr_glsl_createLightSample(L,dot(interaction.isotropic.V.dir,L),interaction);
+    return irr_glsl_createLightSample(L,dot(interaction.isotropic.V.dir,L),interaction.T,interaction.B,interaction.isotropic.N);
 }
 
 //TODO move to different glsl header @Crisspl (The code is not DRY, you have something similar in material compiler!)

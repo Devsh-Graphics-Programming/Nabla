@@ -6,91 +6,79 @@
 #include <irr/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
 #include <irr/builtin/glsl/bxdf/bsdf/specular/common.glsl>
 
-irr_glsl_BxDFSample irr_glsl_beckmann_dielectric_cos_generate_wo_clamps(in vec3 localV, in bool backside, in vec3 upperHemisphereLocalV, in mat3 m, in vec3 u, in float ax, in float ay, in float rcpOrientedEta, in float orientedEta2, in float rcpOrientedEta2)
+irr_glsl_LightSample irr_glsl_beckmann_dielectric_cos_generate_wo_clamps(in vec3 localV, in bool backside, in vec3 upperHemisphereLocalV, in mat3 m, in vec3 u, in float ax, in float ay, in float rcpOrientedEta, in float orientedEta2, in float rcpOrientedEta2, out irr_glsl_AnisotropicMicrofacetCache _cache)
 {
     // thanks to this manouvre the H will always be in the upper hemisphere (NdotH>0.0)
     const vec3 H = irr_glsl_beckmann_cos_generate_wo_clamps(upperHemisphereLocalV,u.xy,ax,ay);
-    
-    const float reflectance = 1.0;// irr_glsl_fresnel_dielectric_common(orientedEta2, upperHemisphereLocalV.z);
+
+    const float VdotH = dot(localV,H);
+    const float reflectance = irr_glsl_fresnel_dielectric_common(orientedEta2,abs(VdotH));
     
     float rcpChoiceProb;
     bool transmitted = irr_glsl_partitionRandVariable(reflectance, u.z, rcpChoiceProb);
     
-    const float VdotH = dot(localV,H);
-    return irr_glsl_createBSDFSample(transmitted,H,localV,backside,VdotH,VdotH*VdotH,m,rcpOrientedEta,rcpOrientedEta2);
+    vec3 localL;
+    _cache = irr_glsl_calcAnisotropicMicrofacetCache(transmitted,localV,H,localL,rcpOrientedEta,rcpOrientedEta2);
+    
+    return irr_glsl_createLightSampleTangentSpace(localV,localL,m);
 }
 
-irr_glsl_BxDFSample irr_glsl_beckmann_dielectric_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in float ax, in float ay, in float eta)
+irr_glsl_LightSample irr_glsl_beckmann_dielectric_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in float ax, in float ay, in float eta, out irr_glsl_AnisotropicMicrofacetCache _cache)
 {
     const vec3 localV = irr_glsl_getTangentSpaceV(interaction);
-    const float NdotV = localV.z;
     
-    float rcpOrientedEta, orientedEta2, rcpOrientedEta2;
-    const bool backside = irr_glsl_getOrientedEtas(rcpOrientedEta, orientedEta2, rcpOrientedEta2, NdotV, eta);
+    float orientedEta, rcpOrientedEta;
+    const bool backside = irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, interaction.isotropic.NdotV, eta);
     
     const vec3 upperHemisphereV = backside ? (-localV):localV;
 
     const mat3 m = irr_glsl_getTangentFrame(interaction);
-    return irr_glsl_beckmann_dielectric_cos_generate_wo_clamps(localV,backside,upperHemisphereV,m,u,ax,ay, rcpOrientedEta,orientedEta2,rcpOrientedEta2);
+    return irr_glsl_beckmann_dielectric_cos_generate_wo_clamps(localV,backside,upperHemisphereV,m, u,ax,ay, rcpOrientedEta,orientedEta*orientedEta,rcpOrientedEta*rcpOrientedEta,_cache);
 }
 
 
 
 // isotropic PDF
-float irr_glsl_beckmann_dielectric_pdf_wo_clamps(in bool transmitted, in float reflectance, in float ndf, in float absNdotV, in float NdotV2, in float a2, out float onePlusLambda_V)
+float irr_glsl_beckmann_dielectric_pdf_wo_clamps(in bool transmitted, in float reflectance, in float ndf, in float absNdotV, in float NdotV2, in float VdotH, in float LdotH, in float VdotHLdotH, in float a2, in float orientedEta, out float onePlusLambda_V)
 {
-    return irr_glsl_VNDF_fresnel_sampled_BRDF_pdf_to_BSDF_pdf(transmitted,reflectance,irr_glsl_beckmann_pdf_wo_clamps(ndf,absNdotV,NdotV2,a2,onePlusLambda_V));
-}
-
-float irr_glsl_beckmann_dielectric_pdf_wo_clamps(in bool transmitted, in float reflectance, in float NdotH2, in float absNdotV, in float NdotV2, in float a2)
-{
-    return irr_glsl_VNDF_fresnel_sampled_BRDF_pdf_to_BSDF_pdf(transmitted,reflectance,irr_glsl_beckmann_pdf_wo_clamps(NdotH2,absNdotV,NdotV2,a2));
+    const float lambda = irr_glsl_smith_beckmann_Lambda(NdotV2, a2);
+    return irr_glsl_smith_VNDF_pdf_wo_clamps(ndf,lambda,absNdotV,transmitted,VdotH,LdotH,VdotHLdotH,orientedEta,reflectance,onePlusLambda_V);
 }
 
 // anisotropic PDF
-float irr_glsl_beckmann_dielectric_pdf_wo_clamps(in bool transmitted, in float reflectance, in float ndf, in float absNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in float ax2, in float ay2, out float onePlusLambda_V)
+float irr_glsl_beckmann_dielectric_pdf_wo_clamps(in bool transmitted, in float reflectance, in float ndf, in float absNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in float VdotH, in float LdotH, in float VdotHLdotH, in float ax2, in float ay2, in float orientedEta, out float onePlusLambda_V)
 {
-    return irr_glsl_VNDF_fresnel_sampled_BRDF_pdf_to_BSDF_pdf(transmitted,reflectance,irr_glsl_beckmann_pdf_wo_clamps(ndf,absNdotV,TdotV2,BdotV2,NdotV2,ax2,ay2,onePlusLambda_V));
-}
-
-float irr_glsl_beckmann_dielectric_pdf_wo_clamps(in bool transmitted, in float reflectance, in float NdotH2, in float TdotH2, in float BdotH2, in float absNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in float ax, in float ax2, in float ay, in float ay2)
-{
-    return irr_glsl_VNDF_fresnel_sampled_BRDF_pdf_to_BSDF_pdf(transmitted,reflectance,irr_glsl_beckmann_pdf_wo_clamps(NdotH2,TdotH2,BdotH2,absNdotV,TdotV2,BdotV2,NdotV2,ax,ax2,ay,ay2));
+    float c2 = irr_glsl_smith_beckmann_C2(TdotV2, BdotV2, NdotV2, ax2, ay2);
+    float lambda = irr_glsl_smith_beckmann_Lambda(c2);
+    return irr_glsl_smith_VNDF_pdf_wo_clamps(ndf,lambda,absNdotV,transmitted,VdotH,LdotH,VdotHLdotH,orientedEta,reflectance,onePlusLambda_V);
 }
 
 
 
-float irr_glsl_beckmann_dielectric_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in bool transmitted, in float absNdotL, in float NdotL2, in float absNdotV, in float NdotV2, in float reflectance, in float transmission_relative_to_reflection_differential_factor, in float a2)
+float irr_glsl_beckmann_dielectric_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in bool transmitted, in float NdotL2, in float absNdotV, in float NdotV2, in float VdotH, in float LdotH, in float VdotHLdotH, in float reflectance, in float orientedEta, in float a2)
 {
     float onePlusLambda_V;
-    pdf = irr_glsl_beckmann_dielectric_pdf_wo_clamps(transmitted, 1.0, ndf, absNdotV, NdotV2, a2, onePlusLambda_V);
+    pdf = irr_glsl_beckmann_dielectric_pdf_wo_clamps(transmitted, reflectance, ndf, absNdotV, NdotV2, VdotH, LdotH, VdotHLdotH, a2, orientedEta, onePlusLambda_V);
 
-    const float G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(onePlusLambda_V, absNdotL, NdotL2, a2);
-    return G2_over_G1;
-    //return irr_glsl_VNDF_fresnel_sampled_BSDF_cos_remainder(transmitted,G2_over_G1,transmission_relative_to_reflection_differential_factor);
+    return irr_glsl_beckmann_smith_G2_over_G1(onePlusLambda_V, NdotL2, a2);
 }
-float irr_glsl_beckmann_dielectric_cos_remainder_and_pdf(out float pdf, in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in float eta, in float a2)
+
+float irr_glsl_beckmann_dielectric_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_IsotropicMicrofacetCache _cache, in float eta, in float a2)
 {
-    const float NdotH2 = s.NdotH * s.NdotH;
-    const float ndf = irr_glsl_beckmann(a2, NdotH2);
+    const float ndf = irr_glsl_beckmann(a2,_cache.NdotH2);
+    
+    float orientedEta, rcpOrientedEta;
+    const bool backside = irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, _cache.VdotH, eta);
+    const float orientedEta2 = orientedEta*orientedEta;
+    const float rcpOrientedEta2 = rcpOrientedEta*rcpOrientedEta;
 
-    const float NdotL2 = s.NdotL * s.NdotL;
- 
+    const float VdotHLdotH = _cache.VdotH*_cache.LdotH;
+    const bool transmitted = VdotHLdotH<0.0;
+    
+    const float reflectance = irr_glsl_fresnel_dielectric_common(orientedEta2,abs(_cache.VdotH));
+
     const float absNdotV = abs(interaction.NdotV);
-
-    float orientedEta, orientedEta2, rcpOrientedEta2;
-    const bool backside = irr_glsl_getOrientedEtas(orientedEta, orientedEta2, rcpOrientedEta2, interaction.NdotV, eta);
-    const float VdotH2 = s.VdotH * s.VdotH;
-    const float LdotH = irr_glsl_refract_compute_NdotT(backside,VdotH2,rcpOrientedEta2);
-
-    const float VdotHLdotH = s.VdotH*LdotH;
-    const bool transmitted = isnan(LdotH);//VdotHLdotH < 0.0;
-
-    const float reflectance = irr_glsl_fresnel_dielectric_common(orientedEta2,s.VdotH);
-
-    const float factor = 1.0;// irr_glsl_microfacet_transmission_relative_to_reflection_differential_factor(s.VdotH, LdotH, VdotHLdotH, 1.0 / orientedEta);
-
-    return irr_glsl_beckmann_dielectric_cos_remainder_and_pdf_wo_clamps(pdf, ndf, transmitted, abs(s.NdotL), NdotL2, absNdotV, interaction.NdotV_squared, reflectance, factor, a2);
+    return irr_glsl_beckmann_dielectric_cos_remainder_and_pdf_wo_clamps(pdf, ndf, transmitted, _sample.NdotL2, absNdotV, interaction.NdotV_squared, _cache.VdotH, _cache.LdotH, VdotHLdotH, reflectance, orientedEta, a2);
 }
 
 #if 0

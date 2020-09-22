@@ -30,11 +30,11 @@ irr_glsl_LightSample irr_glsl_lambertian_transmitter_cos_generate_wo_clamps(in v
 {
     vec3 L = irr_glsl_projected_sphere_generate(u);
     
-    return irr_glsl_createLightSampleTangentSpaceL(tangentSpaceV,L,m);
+    return irr_glsl_createLightSampleTangentSpace(tangentSpaceV,L,m);
 }
 irr_glsl_LightSample irr_glsl_lambertian_transmitter_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u)
 {
-    return irr_glsl_lambertian_transmitter_cos_generate_wo_clamps(interaction.isotropic.V.dir,irr_glsl_getTangentFrame(interaction),u);
+    return irr_glsl_lambertian_transmitter_cos_generate_wo_clamps(irr_glsl_getTangentSpaceV(interaction),irr_glsl_getTangentFrame(interaction),u);
 }
 
 

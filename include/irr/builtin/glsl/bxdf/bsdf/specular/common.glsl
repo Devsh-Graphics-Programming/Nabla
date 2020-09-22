@@ -6,28 +6,19 @@
 #include <irr/builtin/glsl/bxdf/common_samples.glsl>
 #include <irr/builtin/glsl/bxdf/fresnel.glsl>
 
-// assert(VdotHLdotH<0.0)
-float irr_glsl_microfacet_transmission_relative_to_reflection_differential_factor(in float VdotH, in float LdotH, in float VdotHLdotH, in float orientedEta)
-{
-    const float den_sqrt = VdotH+orientedEta*LdotH;
-    return -4.0*VdotHLdotH/(den_sqrt*den_sqrt);
-}
 
-float irr_glsl_microfacet_transmission_relative_to_reflection_differential_factor(in float VdotH, in float LdotH, in float orientedEta)
+float irr_glsl_smith_VNDF_pdf_wo_clamps(in float ndf, in float lambda_V, in float absNdotV, in bool transmitted, in float VdotH, in float LdotH, in float VdotHLdotH, in float orientedEta, in float reflectance, out float onePlusLambda_V)
 {
-    return irr_glsl_microfacet_transmission_relative_to_reflection_differential_factor(VdotH,LdotH,VdotH*LdotH,orientedEta);
-}
+    onePlusLambda_V = 1.0+lambda_V;
 
-
-// assuming VNDF sampling followed by transmission selection according to the fresnel has been used we can compute the remainder for every subsurface model
-float irr_glsl_VNDF_fresnel_sampled_BSDF_cos_remainder(in bool transmitted, in float G2_over_G1, in float transmission_relative_to_reflection_differential_factor)
-{
-    return G2_over_G1*(transmitted ? transmission_relative_to_reflection_differential_factor:1.0);
-}
-
-float irr_glsl_VNDF_fresnel_sampled_BRDF_pdf_to_BSDF_pdf(in bool transmitted, in float reflectance, in float vndf_sampling_pdf)
-{
-    return (transmitted ? (1.0-reflectance):reflectance)*vndf_sampling_pdf;
+    float denominator = absNdotV*onePlusLambda_V;
+    if (transmitted)
+    {
+        const float VdotH_etaLdotH = (VdotH+orientedEta*LdotH);
+        denominator *= VdotH_etaLdotH*VdotH_etaLdotH;
+    }
+    // VdotHLdotH is negative under transmission, so thats why fresnel transmission has a negative form
+    return ndf*(transmitted ? VdotHLdotH:0.25)*(transmitted ? (reflectance-1.0):reflectance)/denominator;
 }
 
 #endif
