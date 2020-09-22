@@ -110,6 +110,10 @@ float irr_glsl_beckmann_pdf_wo_clamps(in float NdotH2, in float maxNdotV, in flo
     float dummy;
     return irr_glsl_beckmann_pdf_wo_clamps(ndf, maxNdotV,NdotV2, a2, dummy);
 }
+float irr_glsl_beckmann_pdf(in irr_glsl_IsotropicViewSurfaceInteraction i, irr_glsl_IsotropicMicrofacetCache h, in float a2)
+{
+    return irr_glsl_beckmann_pdf_wo_clamps(h.NdotH2, max(i.NdotV, 0.0), i.NdotV_squared, a2);
+}
 
 // anisotropic PDF
 float irr_glsl_beckmann_pdf_wo_clamps(in float ndf, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in float ax2, in float ay2, out float onePlusLambda_V)
@@ -120,22 +124,6 @@ float irr_glsl_beckmann_pdf_wo_clamps(in float ndf, in float maxNdotV, in float 
     return irr_glsl_smith_VNDF_pdf_wo_clamps(ndf, lambda, maxNdotV, onePlusLambda_V);
 }
 
-/*
-float irr_glsl_beckmann_pdf(in irr_glsl_BxDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction inter, in float a2)
-{
-    return irr_glsl_beckmann_pdf_wo_clamps(s.NdotH*s.NdotH, max(inter.NdotV,0.0), inter.NdotV*inter.NdotV, a2);
-}
-
-float irr_glsl_beckmann_pdf(in irr_glsl_BxDFSample s, in irr_glsl_AnisotropicViewSurfaceInteraction inter, in float ax, in float ax2, in float ay, in float ay2)
-{
-    float TdotV2 = inter.TdotV*inter.TdotV;
-    float BdotV2 = inter.BdotV*inter.BdotV;
-    float NdotV2 = inter.isotropic.NdotV*inter.isotropic.NdotV;
-
-    return irr_glsl_beckmann_pdf_wo_clamps(s.NdotH*s.NdotH, s.TdotH*s.TdotH, s.BdotH*s.BdotH, max(inter.isotropic.NdotV,0.0), TdotV2, BdotV2, NdotV2, ax, ax2, ay, ay2);
-}
-*/
-
 float irr_glsl_beckmann_pdf_wo_clamps(in float NdotH2, in float TdotH2, in float BdotH2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV2, in float ax, in float ax2, in float ay, in float ay2)
 {
     float ndf = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, NdotH2);
@@ -144,6 +132,16 @@ float irr_glsl_beckmann_pdf_wo_clamps(in float NdotH2, in float TdotH2, in float
     return irr_glsl_beckmann_pdf_wo_clamps(ndf, maxNdotV, TdotV2, BdotV2, NdotV2, ax2, ay2, dummy);
 }
 
+float irr_glsl_beckmann_pdf(in irr_glsl_AnisotropicViewSurfaceInteraction i, irr_glsl_AnisotropicMicrofacetCache h, in float ax, in float ax2, in float ay, in float ay2)
+{
+    float TdotH2 = h.TdotH * h.TdotH;
+    float BdotH2 = h.BdotH * h.BdotH;
+    float maxNdotV = max(0.0, i.isotropic.NdotV);
+    float NdotV2 = i.isotropic.NdotV_squared;
+    float TdotV2 = i.TdotV * i.TdotV;
+    float BdotV2 = i.BdotV * i.BdotV;
+    return irr_glsl_ggx_pdf(h.isotropic.NdotH2, TdotH2, BdotH2, maxNdotV, TdotV2, BdotV2, NdotV2, ax, ax2, ay, ay2);
+}
 
 
 vec3 irr_glsl_beckmann_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in float NdotL2, in float maxNdotV, in float NdotV2, in vec3 reflectance, in float a2)

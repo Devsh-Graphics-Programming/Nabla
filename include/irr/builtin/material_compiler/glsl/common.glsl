@@ -1087,6 +1087,19 @@ eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, in irr_glsl_BxDFS
 	return eval_and_pdf;
 }
 
+irr_glsl_AnisotropicMicrofacetCache getSmoothMicrofacetCache(in float NdotV, in float NdotL)
+{
+	irr_glsl_AnisotropicMicrofacetCache uf;
+	uf.isotropic.VdotH = NdotV;
+	uf.isotropic.LdotH = NdotL;
+	uf.isotropic.NdotH = 0.0;
+	uf.isotropic.NdotH2 = 0.0;
+	uf.TdotH = 1.0;
+	uf.BdotH = 1.0;
+
+	return uf;
+}
+
 irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand, out vec3 out_remainder, out float out_pdf, out instr_t out_generatorInstr)
 {
 	uint ix = 0u;
@@ -1162,7 +1175,8 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 	float pdf;
 	vec3 rem;
 	uint ndf = instr_getNDF(instr);
-	irr_glsl_BxDFSample s;
+	irr_glsl_LightSample s;
+	irr_glsl_AnisotropicMicrofacetCache uf;
 
 #ifdef OP_PLASTIC
 	float plastic_spec_weight;
@@ -1178,6 +1192,7 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 #if defined(OP_DIFFUSE) || defined(OP_PLASTIC)
 	if (op==OP_DIFFUSE_ALIAS) {
 		s = irr_glsl_oren_nayar_cos_generate(currInteraction, u.xy, ax2);
+		uf = getSmoothMicrofacetCache(currInteraction.isotropic.NdotV, s.NdotL);
 		rem = refl*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ax2);
 	} else 
 #endif //OP_DIFFUSE
@@ -1185,6 +1200,7 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 #ifdef OP_DIFFTRANS
 	if (op == OP_DIFFTRANS) {
 		s = irr_glsl_lambertian_transmitter_cos_generate(currInteraction, u);
+		uf = getSmoothMicrofacetCache(currInteraction.isotropic.NdotV, s.NdotL);//TODO
 		rem = refl*irr_glsl_lambertian_transmitter_cos_remainder_and_pdf(pdf, s);
 	} else
 #endif //OP_DIFFTRANS
@@ -1192,6 +1208,7 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 #ifdef OP_DIELECTRIC
 	if (op == OP_DIELECTRIC) {
 		s = irr_glsl_smooth_dielectric_cos_generate(currInteraction, u, ior[0].x);
+		uf = getSmoothMicrofacetCache(currInteraction.isotropic.NdotV, s.NdotL);
 		rem = vec3( irr_glsl_smooth_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ior[0].x) );
 		pdf = 1.0;
 	} else
@@ -1200,7 +1217,7 @@ irr_glsl_BxDFSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand
 #ifdef OP_THINDIELECTRIC
 	if (op == OP_THINDIELECTRIC) {
 		//TODO luminosityContributionHint
-		vec3 luminosityContributionHint = vec3(0.2126,0.7152,0.0722);
+		const vec3 luminosityContributionHint = vec3(0.2126,0.7152,0.0722);
 		s = irr_glsl_thin_smooth_dielectric_cos_generate(currInteraction, u, ior[0]*ior[0], luminosityContributionHint);
 		rem = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ior[0]*ior[0], luminosityContributionHint);
 		pdf = 1.0;

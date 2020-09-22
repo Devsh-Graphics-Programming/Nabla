@@ -146,6 +146,10 @@ float irr_glsl_ggx_pdf_wo_clamps(in float NdotH2, in float maxNdotV, in float Nd
 
     return irr_glsl_ggx_pdf_wo_clamps(ndf, devsh_v, maxNdotV);
 }
+float irr_glsl_ggx_pdf(in irr_glsl_IsotropicViewSurfaceInteraction i, irr_glsl_IsotropicMicrofacetCache h, in float a2)
+{
+    return irr_glsl_ggx_pdf_wo_clamps(h.NdotH2, max(i.NdotV, 0.0), i.NdotV_squared, a2);
+}
 
 float irr_glsl_ggx_pdf_wo_clamps(in float NdotH2, in float TdotH2, in float BdotH2, in float maxNdotV, in float NdotV2, in float TdotV2, in float BdotV2, in float ax, in float ay, in float ax2, in float ay2)
 {
@@ -154,7 +158,16 @@ float irr_glsl_ggx_pdf_wo_clamps(in float NdotH2, in float TdotH2, in float Bdot
 
     return irr_glsl_ggx_pdf_wo_clamps(ndf, devsh_v, maxNdotV);
 }
-
+float irr_glsl_ggx_pdf(in irr_glsl_AnisotropicViewSurfaceInteraction i, irr_glsl_AnisotropicMicrofacetCache h, in float ax, in float ay, in float ax2, in float ay2)
+{
+    float TdotH2 = h.TdotH*h.TdotH;
+    float BdotH2 = h.BdotH*h.BdotH;
+    float maxNdotV = max(0.0,i.isotropic.NdotV);
+    float NdotV2 = i.isotropic.NdotV_squared;
+    float TdotV2 = i.TdotV*i.TdotV;
+    float BdotV2 = i.BdotV*i.BdotV;
+    return irr_glsl_ggx_pdf(h.isotropic.NdotH2, TdotH2, BdotH2, maxNdotV, NdotV2, TdotV2, BdotV2, ax, ay, ax2, ay2);
+}
 
 
 vec3 irr_glsl_ggx_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in float maxNdotL, in float NdotL2, in float maxNdotV, in float NdotV2, in float VdotH, in vec3 reflectance, in float a2)
