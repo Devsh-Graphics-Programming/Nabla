@@ -203,7 +203,7 @@ BSDFNode bsdfs[BSDF_COUNT] = {
     {{uvec4(floatBitsToUint(vec3(1.02,1.02,1.3)),CONDUCTOR_OP),floatBitsToUint(vec4(1.0,1.0,2.0,0.0))}},
     {{uvec4(floatBitsToUint(vec3(1.02,1.3,1.02)),CONDUCTOR_OP),floatBitsToUint(vec4(1.0,2.0,1.0,0.0))}},
     {{uvec4(floatBitsToUint(vec3(1.02,1.3,1.02)),CONDUCTOR_OP),floatBitsToUint(vec4(1.0,2.0,1.0,0.15))}},
-    {{uvec4(floatBitsToUint(vec3(1.4,1.45,1.5)),DIELECTRIC_OP),floatBitsToUint(vec4(0.0,0.0,0.0,0.125))}}
+    {{uvec4(floatBitsToUint(vec3(1.4,1.45,1.5)),DIELECTRIC_OP),floatBitsToUint(vec4(0.0,0.0,0.0,0.0625))}}
 };
 
 
@@ -281,7 +281,7 @@ bool anyHitProgram(in ImmutableRay_t _immutable)
 }
 
 
-#define INTERSECTION_ERROR_BOUND_LOG2 (-9.0)
+#define INTERSECTION_ERROR_BOUND_LOG2 (-8.0)
 float getTolerance_common(in int depth)
 {
     float depthRcp = 1.0/float(depth);
@@ -398,7 +398,7 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample 
                 remainder = irr_glsl_ggx_cos_remainder_and_pdf_wo_clamps(pdf,irr_glsl_ggx_trowbridge_reitz(a2,_cache.isotropic.NdotH2),clampedNdotL,_sample.NdotL2,clampedNdotV,interaction.isotropic.NdotV_squared,reflectance,a2);
                 break;
             default:
-                remainder = vec3(irr_glsl_beckmann_dielectric_cos_remainder_and_pdf(pdf, _sample, interaction.isotropic, _cache.isotropic, monochromeEta, a2));
+                remainder = vec3(irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, _sample, interaction, _cache, monochromeEta, a,a));
                 break;
         }
     }

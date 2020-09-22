@@ -2,6 +2,7 @@
 #define _IRR_BUILTIN_GLSL_BXDF_GGX_INCLUDED_
 
 #include <irr/builtin/glsl/math/constants.glsl>
+#include <irr/builtin/glsl/bxdf/ndf/common.glsl>
 
 float irr_glsl_ggx_trowbridge_reitz(in float a2, in float NdotH2)
 {

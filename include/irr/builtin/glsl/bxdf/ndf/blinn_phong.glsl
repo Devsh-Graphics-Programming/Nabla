@@ -2,6 +2,7 @@
 #define _IRR_BXDF_NDF_BLINN_PHONG_INCLUDED_
 
 #include <irr/builtin/glsl/math/constants.glsl>
+#include <irr/builtin/glsl/bxdf/ndf/common.glsl>
 
 float irr_glsl_blinn_phong(in float NdotH, in float n)
 {
