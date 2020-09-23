@@ -160,7 +160,8 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
         float maxT;
         // the probability of generating a sample w.r.t. the light generator only possible and used when it was generated with it!
         float lightPdf;
-        GeneratorSample _sample;
+        irr_glsl_LightSample _sample;
+        irr_glsl_AnisotropicMicrofacetCache _cache;
         if (doNEE)
         {
             vec3 lightRemainder;
@@ -171,21 +172,35 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
             );
             throughput *= lightRemainder;
         }
+
+        bool validPath = true;
+        const vec3 throughputCIE_Y = transpose(irr_glsl_sRGBtoXYZ)[1]*throughput;
+        const float monochromeEta = dot(throughputCIE_Y,BSDFNode_getEta(bsdf)[0])/(throughputCIE_Y.r+throughputCIE_Y.g+throughputCIE_Y.b);
+        if (doNEE)
+        {
+            // if we allowed non-watertight transmitters (single water surface), it would make sense just to apply this line.
+            validPath = irr_glsl_calcAnisotropicMicrofacetCache(_cache,interaction,_sample,monochromeEta);
+            // but we don't allow non watertight transmitters in this renderer
+            validPath = validPath && _sample.NdotL>0.0;
+        }
         else
         {
             maxT = FLT_MAX;
-            _sample = irr_glsl_bsdf_cos_generate(interaction,epsilon,bsdf);
+            _sample = irr_glsl_bsdf_cos_generate(interaction,epsilon,bsdf,monochromeEta,_cache);
         }
             
         // do a cool trick and always compute the bsdf parts this way! (no divergence)
         float bsdfPdf;
         // the value of the bsdf divided by the probability of the sample being generated
-        throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf);
+        if (validPath)
+            throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf,monochromeEta,_cache);
+        else
+            throughput = vec3(0.0);
 
         // OETF smallest perceptible value
         const float bsdfPdfThreshold = getLuma(irr_glsl_eotf_sRGB(vec3(1.0)/255.0));
         const float lumaThroughputThreshold = bsdfPdfThreshold;
-        if (bsdfPdf>bsdfPdfThreshold && getLuma(throughput)>lumaThroughputThreshold)
+        if (bsdfPdf>bsdfPdfThreshold && (!doNEE || bsdfPdf<FLT_MAX) && getLuma(throughput)>lumaThroughputThreshold)
         {
             rayStack[stackPtr]._payload.throughput = throughput*rcpChoiceProb;
 

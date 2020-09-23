@@ -2,7 +2,8 @@
 
 layout (location = 0) in vec3 vPos;
 
-#include <irr/builtin/glsl/utils/vertex.glsl>
+#include <irr/builtin/glsl/utils/common.glsl>
+#include <irr/builtin/glsl/utils/transform.glsl>
 
 layout (set = 0, binding = 0, row_major, std140) uniform UBO
 {

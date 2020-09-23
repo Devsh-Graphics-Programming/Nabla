@@ -4,15 +4,6 @@
     #define mat3 core::matrix3x4SIMD
 #endif
 
-struct DrawElementsIndirectCommand_t
-{
-    uint count;
-    uint instanceCount;
-    uint firstIndex;
-    uint baseVertex;
-    uint baseInstance;
-};
-
 struct CullShaderData_t
 {
     mat4 viewProjMatrix;

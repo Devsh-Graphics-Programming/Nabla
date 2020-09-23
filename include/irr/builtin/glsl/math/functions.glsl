@@ -103,17 +103,41 @@ vec3 irr_glsl_reflect(in vec3 I, in vec3 N)
 }
 
 // for refraction the orientation of the normal matters, because a different IoR will be used
-vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float NdotI, in float NdotI2, float eta)
+bool irr_glsl_getOrientedEtas(out float orientedEta, out float rcpOrientedEta, in float NdotI, in float eta)
 {
-    const bool backside = NdotI < 0.0;
-    eta = backside ? eta : (1.0 / eta);
-    const float eta2 = eta * eta;
-    const float k = sqrt(eta2 * NdotI2 + 1.0 - eta2);
-    return N * (NdotI * eta + (backside ? k : (-k))) - eta * I;
+    const bool backside = NdotI<0.0;
+    const float rcpEta = 1.0/eta;
+    orientedEta = backside ? rcpEta:eta;
+    rcpOrientedEta = backside ? eta:rcpEta;
+    return backside;
+}
+bool irr_glsl_getOrientedEtas(out vec3 orientedEta, out vec3 rcpOrientedEta, in float NdotI, in vec3 eta)
+{
+    const bool backside = NdotI<0.0;
+    const vec3 rcpEta = vec3(1.0) / eta;
+    orientedEta = backside ? rcpEta:eta;
+    rcpOrientedEta = backside ? eta:rcpEta;
+    return backside;
+}
+
+float irr_glsl_refract_compute_NdotT2(in float NdotI2, in float rcpOrientedEta2)
+{
+    return rcpOrientedEta2*NdotI2 + 1.0 - rcpOrientedEta2;
+}
+float irr_glsl_refract_compute_NdotT(in bool backside, in float NdotI2, in float rcpOrientedEta2)
+{
+    const float abs_NdotT = sqrt(irr_glsl_refract_compute_NdotT2(NdotI2,rcpOrientedEta2));
+    return backside ? abs_NdotT:(-abs_NdotT);
+}
+vec3 irr_glsl_refract(in vec3 I, in vec3 N, in bool backside, in float NdotI, in float NdotI2, in float rcpOrientedEta, in float rcpOrientedEta2)
+{
+    return N*(NdotI*rcpOrientedEta + irr_glsl_refract_compute_NdotT(backside,NdotI2,rcpOrientedEta2)) - rcpOrientedEta*I;
 }
 vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float NdotI, in float eta)
 {
-    return irr_glsl_refract(I, N, NdotI, NdotI*NdotI, eta);
+    float orientedEta, rcpOrientedEta;
+    const bool backside = irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, NdotI, eta);
+    return irr_glsl_refract(I, N, backside, NdotI, NdotI*NdotI, rcpOrientedEta, rcpOrientedEta*rcpOrientedEta);
 }
 vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float eta)
 {
@@ -121,13 +145,41 @@ vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float eta)
     return irr_glsl_refract(I, N, NdotI, eta);
 }
 
-vec3 irr_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in float NdotI, in float NdotI2, float eta)
+vec3 irr_glsl_reflect_refract_impl(in bool _refract, in vec3 I, in vec3 N, in float NdotI, in float NdotTorR, in float rcpOrientedEta)
+{    
+    return N*(NdotI*(_refract ? rcpOrientedEta:1.0)+NdotTorR) - I*(_refract ? rcpOrientedEta:1.0);
+}
+vec3 irr_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in bool backside, in float NdotI, in float NdotI2, in float rcpOrientedEta, in float rcpOrientedEta2)
 {
-    const bool backside = NdotI < 0.0;
-    eta = backside ? eta : (1.0 / eta);
-    const float eta2 = eta * eta;
-    const float k = _refract ? sqrt(eta2 * NdotI2 + 1.0 - eta2):0.0;
-    return N*(NdotI*(_refract ? eta:2.0)+(backside ? k:(-k))) - I*(_refract ? eta:1.0);
+    const float NdotTorR = _refract ? irr_glsl_refract_compute_NdotT(backside,NdotI2,rcpOrientedEta2):NdotI;
+    return irr_glsl_reflect_refract_impl(_refract,I,N,NdotI,NdotTorR,rcpOrientedEta);
+}
+vec3 irr_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in float NdotI, in float NdotI2, in float eta)
+{
+    float orientedEta, rcpOrientedEta;
+    const bool backside = irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, NdotI, eta);
+    return irr_glsl_reflect_refract(_refract, I, N, backside, NdotI, NdotI2, rcpOrientedEta, rcpOrientedEta*rcpOrientedEta);
+}
+
+// returns unnormalized vector
+vec3 irr_glsl_computeUnnormalizedMicrofacetNormal(in bool _refract, in vec3 V, in vec3 L, in float orientedEta)
+{
+    const float etaFactor = (_refract ? orientedEta:1.0);
+    const vec3 tmpH = V+L*etaFactor;
+    return _refract ? (-tmpH):tmpH;
+}
+// returns normalized vector, but NaN when 
+vec3 irr_glsl_computeMicrofacetNormal(in bool _refract, in vec3 V, in vec3 L, in float orientedEta)
+{
+    const vec3 H = irr_glsl_computeUnnormalizedMicrofacetNormal(_refract,V,L,orientedEta);
+    const float unnormRcpLen = inversesqrt(dot(H,H));
+    return H*unnormRcpLen;
+}
+
+// if V and L are on different sides of the surface normal, then their dot product sign bits will differ, hence XOR will yield 1 at last bit
+bool irr_glsl_isTransmissionPath(in float NdotV, in float NdotL)
+{
+    return ((floatBitsToUint(NdotV)^floatBitsToUint(NdotL)) & 0x80000000u) != 0u;
 }
 
 // valid only for `theta` in [-PI,PI]
@@ -145,7 +197,7 @@ mat2x3 irr_glsl_frisvad(in vec3 n)
 	return (n.z<-0.9999999) ? mat2x3(vec3(0.0,-1.0,0.0),vec3(-1.0,0.0,0.0)):mat2x3(vec3(1.0-n.x*n.x*a, b, -n.x),vec3(b, 1.0-n.y*n.y*a, -n.y));
 }
 
-// @return if picked left choice
+// @return if picked right choice
 bool irr_glsl_partitionRandVariable(in float leftProb, inout float xi, out float rcpChoiceProb)
 {
     const float NEXT_ULP_AFTER_UNITY = uintBitsToFloat(0x3f800001u);
@@ -158,6 +210,34 @@ bool irr_glsl_partitionRandVariable(in float leftProb, inout float xi, out float
     xi *= rcpChoiceProb;
 
     return pickRight;
+}
+
+// @ return abs(x) if cond==true, max(x,0.0) otherwise
+float irr_glsl_conditionalAbsOrMax(in bool cond, in float x, in float limit)
+{
+    const float condAbs = uintBitsToFloat(floatBitsToUint(x) & uint(cond ? 0x7fFFffFFu:0xffFFffFFu));
+    return max(condAbs,limit);
+}
+vec2 irr_glsl_conditionalAbsOrMax(in bool cond, in vec2 x, in vec2 limit)
+{
+    const vec2 condAbs = uintBitsToFloat(floatBitsToUint(x) & uvec2(cond ? 0x7fFFffFFu:0xffFFffFFu));
+    return max(condAbs,limit);
+}
+vec3 irr_glsl_conditionalAbsOrMax(in bool cond, in vec3 x, in vec3 limit)
+{
+    const vec3 condAbs = uintBitsToFloat(floatBitsToUint(x) & uvec3(cond ? 0x7fFFffFFu:0xffFFffFFu));
+    return max(condAbs,limit);
+}
+vec4 irr_glsl_conditionalAbsOrMax(in bool cond, in vec4 x, in vec4 limit)
+{
+    const vec4 condAbs = uintBitsToFloat(floatBitsToUint(x) & uvec4(cond ? 0x7fFFffFFu:0xffFFffFFu));
+    return max(condAbs,limit);
+}
+
+//
+uint irr_glsl_rotl(in uint x, in uint k)
+{
+	return (x<<k) | (x>>(32u-k));
 }
 
 #endif

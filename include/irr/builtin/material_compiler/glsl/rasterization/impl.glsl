@@ -75,19 +75,7 @@ void instr_eval_execute(in instr_t instr, in vec3 L)
 		} else
 #endif
 #endif
-/*
-#ifdef NDF_AS
-#ifndef ONLY_ONE_NDF
-		if (ndf==NDF_AS) {
-#endif
-			float nx = irr_glsl_alpha2_to_phong_exp(a2);
-			float ny = irr_glsl_alpha2_to_phong_exp(ay2);
-			bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(currBSDFParams, currInteraction, nx, ny, a2, ay2);
-#ifndef ONLY_ONE_NDF
-		} else
-#endif
-#endif
-*/
+
 #ifndef ONLY_ONE_NDF
 		{} //else "empty braces"
 #endif
@@ -96,37 +84,42 @@ void instr_eval_execute(in instr_t instr, in vec3 L)
 	uvec3 regs = instr_decodeRegisters(instr);
 #ifdef OP_DIFFUSE
 	if (op==OP_DIFFUSE) {
-		instr_execute_DIFFUSE(instr, regs, params, bsdf_data);
+		instr_execute_cos_eval_DIFFUSE(instr, regs, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_CONDUCTOR
 	if (op==OP_CONDUCTOR) {
-		instr_execute_CONDUCTOR(instr, regs, bxdf_eval_scalar_part, params, bsdf_data);
+		instr_execute_cos_eval_CONDUCTOR(instr, regs, bxdf_eval_scalar_part, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_PLASTIC
 	if (op==OP_PLASTIC) {
-		instr_execute_PLASTIC(instr, regs, bxdf_eval_scalar_part, params, bsdf_data);
+		instr_execute_cos_eval_PLASTIC(instr, regs, bxdf_eval_scalar_part, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_COATING
 	if (op==OP_COATING) {
-		instr_execute_COATING(instr, regs, params, bsdf_data);
+		instr_execute_cos_eval_COATING(instr, regs, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_DIFFTRANS
 	if (op==OP_DIFFTRANS) {
-		instr_execute_DIFFTRANS(instr, regs, params, bsdf_data);
+		instr_execute_cos_eval_DIFFTRANS(instr, regs, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_DIELECTRIC
 	if (op==OP_DIELECTRIC) {
-		instr_execute_DIELECTRIC(instr, regs, params, bsdf_data);
+		instr_execute_cos_eval_DIELECTRIC(instr, regs, params, bsdf_data);
+	} else
+#endif
+#ifdef OP_THINDIELECTRIC
+	if (op==OP_THINDIELECTRIC) {
+		instr_execute_cos_eval_THINDIELECTRIC(instr, regs, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_BLEND
 	if (op==OP_BLEND) {
-		instr_execute_BLEND(instr, regs, params, bsdf_data);
+		instr_execute_cos_eval_BLEND(instr, regs, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_BUMPMAP
@@ -156,118 +149,6 @@ bxdf_eval_t runEvalStream(in instr_stream_t stream, in vec3 L)
 		instr_eval_execute(instr, L);
 	}
 	return readReg3(0u);//result is always in regs 0,1,2
-}
-
-//TODO OPTIMIZE THIS FOR MULTIPLE ITERATIONS
-vec3 runGeneratorChoiceStream(in instr_stream_t stream, in vec2 rand, out vec3 out_remainder)
-{
-	uint rescaleChoice = 0u;
-	uint ix = 0u;
-	instr_t instr = irr_glsl_MC_fetchInstr(stream.offset);
-	uint op = instr_getOpcode(instr);
-	while (!op_isBXDF(op))
-	{
-#ifdef OP_BLEND
-		if (op==OP_BLEND) {
-			bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
-			params_t params = instr_getParameters(instr, bsdf_data);
-			float w = params_getBlendWeight(params);
-			float u = rescaleChoice==0u ? rand.x:rand.y;
-			bool choseRight = u>=w;
-			u -= choseRight ? w:0.0;
-			u /= choseRight ? (1.0-w):w;
-			if (rescaleChoice==0u)
-				rand.x = u;
-			else
-				rand.y = u;
-			rescaleChoice ^= 0x1u;
-
-			uint right = instr_getRightJump(instr);
-			ix = choseRight ? right:(ix+1u);
-		}
-		else 
-#endif //OP_BLEND
-		{
-#ifdef OP_SET_GEOM_NORMAL
-			if (op==OP_SET_GEOM_NORMAL)
-			{
-				instr_execute_SET_GEOM_NORMAL_interactionOnly();
-			} else 
-#endif //OP_SET_GEOM_NORMAL
-#ifdef OP_BUMPMAP
-			if (op==OP_BUMPMAP)
-			{
-				instr_execute_BUMPMAP_interactionOnly(instr);
-			} else
-#endif //OP_BUMPMAP
-			{}
-			ix = ix + 1u;
-		}
-
-		instr = irr_glsl_MC_fetchInstr(stream.offset+ix);
-		op = instr_getOpcode(instr);
-	}
-
-	bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
-	params_t params = instr_getParameters(instr, bsdf_data);
-	//speculatively
-	float ax = params_getAlpha(params);
-	float ax2 = ax*ax;
-	float ay = params_getAlphaV(params);
-	float ay2 = ay*ay;
-	mat2x3 ior = bsdf_data_decodeIoR(bsdf_data,op);
-
-#ifndef NO_TWOSIDED
-	bool ts_flag = false;
-	handleTwosided_interactionOnly(ts_flag, instr);
-#endif //NO_TWOSIDED
-
-	uint ndf = instr_getNDF(instr);
-	float pdf;
-	vec3 L;
-#ifdef OP_DIFFUSE
-	if (op==OP_DIFFUSE) {
-		irr_glsl_BSDFSample s = irr_glsl_cos_weighted_cos_generate(currInteraction, rand);
-		out_remainder = irr_glsl_cos_weighted_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic);
-		L = s.L;
-	} else 
-#endif //OP_DIFFUSE
-
-#ifdef OP_DIFFTRANS
-	if (op==OP_DIFFTRANS) {
-		//TODO take into account full sphere
-		irr_glsl_BSDFSample s = irr_glsl_cos_weighted_cos_generate(currInteraction, rand);
-		out_remainder = irr_glsl_cos_weighted_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic);
-		L = s.L;
-	} else
-#endif //OP_DIFFTRANS
-
-#ifdef NDF_GGX
-	if (ndf == NDF_GGX) {
-		irr_glsl_BSDFSample s = irr_glsl_ggx_cos_generate(currInteraction, rand, ax, ay);
-		out_remainder = irr_glsl_ggx_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, ior, ax, ay);
-		L = s.L;
-	} else
-#endif //NDF_GGX
-
-#ifdef NDF_BECKMANN
-	if (ndf == NDF_BECKMANN) {
-		irr_glsl_BSDFSample s = irr_glsl_beckmann_smith_cos_generate(currInteraction, rand, ax, ay);
-		out_remainder = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, ior, ax, ax2, ay, ay2);
-		L = s.L;
-	} else
-#endif //NDF_BECKMANN
-
-#ifdef NDF_PHONG
-	if (ndf == NDF_PHONG) {
-		irr_glsl_BSDFSample s = irr_glsl_beckmann_smith_cos_generate(currInteraction, rand, ax, ay);
-		out_remainder = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, ior, ax, ax2, ay, ay2);
-		L = s.L;
-	} else
-#endif //NDF_PHONG
-	{}
-
-	return L;
 }
 
 #endif
