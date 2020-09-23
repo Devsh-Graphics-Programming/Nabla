@@ -32,7 +32,7 @@ class LRUcache
 public:
 
 	//Constructor
-	inline LRUcache(const uint32_t& capacity) : m_capacity(capacity), m_shortcut_map(), m_list(capacity)
+	inline LRUcache(const uint32_t capacity) : m_capacity(capacity), m_shortcut_map(), m_list(capacity)
 	{
 		assert(capacity > 1);
 		m_shortcut_map.reserve(capacity);
@@ -53,24 +53,45 @@ public:
 #endif // _IRR_DEBUG
 
 	//add element to the cache, or move to the front if key exists. In case of the latter, it doesnt update the value
-	inline void insert(Key& k, Value& v)
+	inline void insert(Key& k, const Value& v)
 	{
-		if (m_shortcut_map.find(k) == m_shortcut_map.end())
+		auto iterator = m_shortcut_map.find(k);
+		if (iterator == m_shortcut_map.end())
 		{
 			if (m_shortcut_map.size() >= m_capacity)
 			{
 				m_shortcut_map.erase(m_list.getBack()->data.first);
 				m_list.popBack();
 			}
-				m_list.pushFront(std::pair<Key, Value>(k, v));
-				m_shortcut_map[k] = m_list.getFirstAddress();
-			
+			m_list.pushFront(std::pair<Key, Value>(k, v));
+			m_shortcut_map[k] = m_list.getFirstAddress();
 		}
 		else
 		{
-			m_list.moveToFront(m_shortcut_map[k]);
+			m_list.get(iterator->second)->data = std::pair<Key, Value>(k, v);
+			m_list.moveToFront(iterator->second);
 		}
 
+	}
+	inline void insert(Key& k, Value&& v)
+	{
+		auto iterator = m_shortcut_map.find(k);
+		if (iterator == m_shortcut_map.end())
+		{
+			if (m_shortcut_map.size() >= m_capacity)
+			{
+				m_shortcut_map.erase(m_list.getBack()->data.first);
+				m_list.popBack();
+			}
+			m_list.pushFront(std::pair<Key, Value>(k, std::move(v)));
+			m_shortcut_map[k] = m_list.getFirstAddress();
+
+		}
+		else
+		{
+			m_list.get(iterator->second)->data = std::pair<Key, Value>(k, std::move(v));
+			m_list.moveToFront(iterator->second);
+		}
 	}
 	//get the value from the cache, or null if key doesnt exist in cache or has been removed. Moves the element to the front of the cache.
 	inline Value get(Key& key)

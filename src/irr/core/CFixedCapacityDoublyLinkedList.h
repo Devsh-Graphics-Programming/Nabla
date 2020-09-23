@@ -10,15 +10,19 @@ namespace irr {
 		template<typename Value>
 		struct Snode
 		{
-			_IRR_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = 0xdeadbeefu;
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = DoublyLinkedList<Value>::invalid_iterator;
 
 			Value data;
 			uint32_t prev;
 			uint32_t next;
 
 			Snode() {}
-
 			Snode(const Value& val) : data(val)
+			{
+				prev = invalid_iterator;
+				next = invalid_iterator;
+			}
+			Snode(Value&& val) : data(std::move(val))
 			{
 				prev = invalid_iterator;
 				next = invalid_iterator;
@@ -48,7 +52,6 @@ namespace irr {
 		template<typename Value>
 		class DoublyLinkedList
 		{
-			_IRR_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = 0xdeadbeefu;
 
 			void* reservedSpace;
 			PoolAddressAllocator<uint32_t> alloc;
@@ -58,6 +61,7 @@ namespace irr {
 			uint32_t cap;
 
 		public:
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = 0xdeadbeefu;
 
 			//get node at iterator
 			inline Snode<Value>* get(uint32_t address)
