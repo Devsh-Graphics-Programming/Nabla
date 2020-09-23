@@ -146,6 +146,7 @@ bool op_hasSpecular(in uint op)
 #include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
 #include <irr/builtin/glsl/bxdf/ndf/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
+#include <irr/builtin/glsl/bxdf/bsdf/specular/beckmann.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl>
 #include <irr/builtin/glsl/bxdf/cos_weighted_sample.glsl>
@@ -363,24 +364,9 @@ void instr_execute_cos_eval_DIFFTRANS(in instr_t instr, in irr_glsl_LightSample 
 	writeReg(REG_DST(regs), c);
 }
 
-void instr_execute_cos_eval_DIELECTRIC(in instr_t instr, in irr_glsl_LightSample s, in uvec3 regs, in params_t params, in bsdf_data_t data)
+void instr_execute_cos_eval_DIELECTRIC(in instr_t instr, in irr_glsl_LightSample s, in uvec3 regs, in float eval)
 {
-	/*if (currBSDFParams.isotropic.NdotL>FLT_MIN)
-	{
-		//float au = params_getAlpha(params);
-		//float av = params_getAlphaV(params);
-		vec3 eta = vec3(1.5);
-		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic,currInteraction.isotropic) * vec3(0.89);
-		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
-		writeReg(REG_DST(regs), diffuse);
-	}
-	else*/ writeReg(REG_DST(regs), bxdf_eval_t(0.0));
-}
-float instr_execute_cos_eval_pdf_DIELECTRIC(in instr_t instr, in irr_glsl_LightSample s, in uvec3 regs, in params_t params, in bsdf_data_t data)
-{
-	instr_execute_cos_eval_DIELECTRIC(instr, s, regs, params, data);
-	//WARNING 1.0 instead of INF
-	return 1.0;// / 0.0;
+	writeReg(REG_DST(regs), bxdf_eval_t(eval));
 }
 
 void instr_execute_cos_eval_THINDIELECTRIC(in instr_t instr, in irr_glsl_LightSample s, in uvec3 regs, in params_t params, in bsdf_data_t data)
@@ -651,6 +637,7 @@ void runTexPrefetchStream(in instr_stream_t stream, in mat2 dUV)
 
 void runNormalPrecompStream(in instr_stream_t stream, in mat2 dUV)
 {
+	instr_execute_SET_GEOM_NORMAL();
 	for (uint i = 0u; i < stream.count; ++i)
 	{
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
@@ -870,6 +857,9 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_LightSample s, in 
 	float bxdf_eval_scalar_part = 0.0;
 	float pdf = 0.0;
 
+	const mat2x3 ior = bsdf_data_decodeIoR(bsdf_data,op);
+	const bool is_bsdf = !op_isBRDF(op);
+
 	float cosFactor = op_isBSDF(op) ? abs(s.NdotL):max(s.NdotL,0.0);
 
 	if (cosFactor>FLT_MIN && op_hasSpecular(op))//does cos>0 check even has any point here? L comes from a sample..
@@ -889,7 +879,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_LightSample s, in 
 
 #ifdef NDF_GGX
 		if (ndf==NDF_GGX) {
-
+			//TODO if (is_bsdf) {...}
 #ifdef ALL_ISOTROPIC_BXDFS
 			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG(s, uf.isotropic, currInteraction.isotropic, a2);
 			pdf = irr_glsl_ggx_pdf(currInteraction.isotropic, uf.isotropic, a2);
@@ -904,20 +894,35 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_LightSample s, in 
 #ifdef NDF_BECKMANN
 		if (ndf==NDF_BECKMANN) {
 
+#if defined(OP_THINDIELECTRIC) || defined(OP_DIELECTRIC)
+			if (is_bsdf) {
 #ifdef ALL_ISOTROPIC_BXDFS
-			bxdf_eval_scalar_part = irr_glsl_beckmann_height_correlated_cos_eval_DG(s, uf.isotropic, currInteraction.isotropic, a2);
-			pdf = irr_glsl_beckmann_pdf(currInteraction.isotropic, uf.isotropic, a2);
+				bxdf_eval_scalar_part = irr_glsl_beckmann_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, uf.isotropic, ior[0].x, a2);
+				bxdf_eval_scalar_part *= pdf;
 #else
-			bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(s, uf, currInteraction, a, a2, ay, ay2);
-			pdf = irr_glsl_beckmann_pdf(currInteraction, uf, a, a2, ay, ay2);
+				//TODO anisotropic
+				bxdf_eval_scalar_part = irr_glsl_beckmann_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, uf.isotropic, ior[0].x, a2);
+				bxdf_eval_scalar_part *= pdf;
 #endif
+			}
+			else
+#endif
+			{
+#ifdef ALL_ISOTROPIC_BXDFS
+				bxdf_eval_scalar_part = irr_glsl_beckmann_height_correlated_cos_eval_DG(s, uf.isotropic, currInteraction.isotropic, a2);
+				pdf = irr_glsl_beckmann_pdf(currInteraction.isotropic, uf.isotropic, a2);
+#else
+				bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(s, uf, currInteraction, a, a2, ay, ay2);
+				pdf = irr_glsl_beckmann_pdf(currInteraction, uf, a, a2, ay, ay2);
+#endif
+			}
 
 		} else
 #endif
 
 #ifdef NDF_PHONG
 		if (ndf==NDF_PHONG) {
-
+			//TODO if (is_bsdf) {...}
 #ifdef ALL_ISOTROPIC_BXDFS
 			bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(s, uf.isotropic, currInteraction.isotropic, n, a2);
 			pdf = irr_glsl_beckmann_pdf(currInteraction.isotropic, uf.isotropic, a2);
@@ -957,11 +962,9 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_LightSample s, in 
 		instr_execute_cos_eval_COATING(instr, regs, params, bsdf_data);
 	} else
 #endif
-//TODO currently only smooth dielectrics work
 #ifdef OP_DIELECTRIC
 	if (op==OP_DIELECTRIC) {
-		pdf = instr_execute_cos_eval_pdf_DIELECTRIC(instr, s, regs, params, bsdf_data);
-		//pdf = 1.0; ?
+		instr_execute_cos_eval_DIELECTRIC(instr, s, regs, bxdf_eval_scalar_part);
 	} else
 #endif
 //TODO currently only smooth dielectrics work
@@ -999,6 +1002,7 @@ eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, in irr_glsl_Light
 #endif
 	irr_glsl_LightSample s = _s;
 	irr_glsl_AnisotropicMicrofacetCache uf = _uf;
+	instr_execute_SET_GEOM_NORMAL();
 	for (uint i = 0u; i < stream.count; ++i)
 	{
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
@@ -1042,6 +1046,8 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 	uint op = instr_getOpcode(instr);
 	float weight = 1.0;
 	vec3 u = rand;
+
+	instr_execute_SET_GEOM_NORMAL();
 	while (!op_isBXDF(op))
 	{
 #ifdef OP_BLEND
@@ -1119,7 +1125,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 		//TODO
 		//erm i fucked up here before.. generator choice depends on generated sample (L), how to omit this??
 		//for now: constant 0.5
-		vec3 fresnel = vec3(0.5);//irr_glsl_fresnel_dielectric(ior[0],currBSDFParams.isotropic.VdotH);//TODO we dont have BSDF params any more!
+		vec3 fresnel = vec3(0.5);//irr_glsl_fresnel_dielectric(ior[0],currBSDFParams.isotropic.VdotH);
 		float ws = max(fresnel.x, max(fresnel.y, fresnel.z));
 		bool choseDiffuse = u.z>=ws;
 		op = choseDiffuse ? OP_DIFFUSE_ALIAS : op;
@@ -1138,23 +1144,23 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 #ifdef OP_DIFFTRANS
 	if (op == OP_DIFFTRANS) {
 		s = irr_glsl_lambertian_transmitter_cos_generate(currInteraction, u);
-		uf = getSmoothMicrofacetCache(currInteraction.isotropic.NdotV, s.NdotL);//TODO
+		uf = getSmoothMicrofacetCache(currInteraction.isotropic.NdotV, s.NdotL);//TODO?
 		rem = refl*irr_glsl_lambertian_transmitter_cos_remainder_and_pdf(pdf, s);
 	} else
 #endif //OP_DIFFTRANS
 
-#ifdef OP_DIELECTRIC
+/*#ifdef OP_DIELECTRIC
 	if (op == OP_DIELECTRIC) {
 		s = irr_glsl_smooth_dielectric_cos_generate(currInteraction, u, ior[0].x);
 		uf = getSmoothMicrofacetCache(currInteraction.isotropic.NdotV, s.NdotL);
 		rem = vec3( irr_glsl_smooth_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ior[0].x) );
 		pdf = 1.0;
 	} else
-#endif //OP_DIELECTRIC
+#endif*/ //OP_DIELECTRIC
 
 #ifdef OP_THINDIELECTRIC
 	if (op == OP_THINDIELECTRIC) {
-		//TODO luminosityContributionHint
+		//TODO THINDIELECTRIC always endup black
 		const vec3 luminosityContributionHint = vec3(0.2126,0.7152,0.0722);
 		s = irr_glsl_thin_smooth_dielectric_cos_generate(currInteraction, u, ior[0]*ior[0], luminosityContributionHint);
 		uf = getSmoothMicrofacetCache(currInteraction.isotropic.NdotV, s.NdotL);
@@ -1166,22 +1172,50 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 //TODO need to distinguish BSDFs and BRDFs (later, for now DIELECTRIC and THINDIELECTRIC are treated separately)
 #ifdef NDF_GGX
 	if (ndf == NDF_GGX) {
-		s = irr_glsl_ggx_cos_generate(currInteraction, u.xy, ax, ay, uf);
-		rem = irr_glsl_ggx_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, uf, ior, ax, ay);
+#if defined(OP_THINDIELECTRIC) || defined(OP_DIELECTRIC)
+		if (is_bsdf) {
+			//TODO : those are calls for BRDFs (temporary)
+			s = irr_glsl_ggx_cos_generate(currInteraction, u.xy, ax, ay, uf);
+			rem = irr_glsl_ggx_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, uf, ior, ax, ay);
+		}
+		else 
+#endif
+		{
+			s = irr_glsl_ggx_cos_generate(currInteraction, u.xy, ax, ay, uf);
+			rem = irr_glsl_ggx_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, uf, ior, ax, ay);
+		}
 	} else
 #endif //NDF_GGX
 
 #ifdef NDF_BECKMANN
 	if (ndf == NDF_BECKMANN) {
-		s = irr_glsl_beckmann_cos_generate(currInteraction, u.xy, ax, ay, uf);
-		rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, uf, ior, ax, ay);
+#if defined(OP_THINDIELECTRIC) || defined(OP_DIELECTRIC)
+		if (is_bsdf) {
+			s = irr_glsl_beckmann_dielectric_cos_generate(currInteraction, u, ax, ay, ior[0].x, uf);
+			rem = vec3( irr_glsl_beckmann_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, uf.isotropic, ior[0].x, ax2) );//TODO change to aniso
+		}
+		else
+#endif
+		{
+			s = irr_glsl_beckmann_cos_generate(currInteraction, u.xy, ax, ay, uf);
+			rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, uf, ior, ax, ay);
+		}
 	} else
 #endif //NDF_BECKMANN
 
 #ifdef NDF_PHONG
 	if (ndf == NDF_PHONG) {
-		s = irr_glsl_beckmann_cos_generate(currInteraction, u.xy, ax, ay, uf);
-		rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, uf, ior, ax, ay);
+#if defined(OP_THINDIELECTRIC) || defined(OP_DIELECTRIC)
+		if (is_bsdf) {
+			s = irr_glsl_beckmann_dielectric_cos_generate(currInteraction, u, ax, ay, ior[0].x, uf);
+			rem = vec3( irr_glsl_beckmann_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, uf, ior[0].x, ax2) );//TODO change to aniso
+		}
+		else
+#endif
+		{
+			s = irr_glsl_beckmann_cos_generate(currInteraction, u.xy, ax, ay, uf);
+			rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, uf, ior, ax, ay);
+		}
 	} else
 #endif //NDF_PHONG
 	{}
@@ -1189,8 +1223,6 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 #ifdef OP_PLASTIC
 	if (is_plastic)
 	{
-		//irr_glsl_updateBxDFParams(currBSDFParams, s, currInteraction);//TODO i could avoid this if using wo_clamps version of cos_eval()s
-
 		vec3 eval;
 		float pdf_b;
 		float wa;

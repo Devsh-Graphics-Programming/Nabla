@@ -230,11 +230,11 @@ instr_stream_t getNormalPrecompStream()
 #define Spectrum vec3
 //! This is the function that evaluates the BSDF for specific view and observer direction
 // params can be either BSDFIsotropicParams or BSDFAnisotropicParams
-Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
+Spectrum irr_bsdf_cos_eval(in vec3 L, in irr_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
 {
 	instr_stream_t eval_instrStream = getEvalStream();
 	
-	return runEvalStream(eval_instrStream, params.L);
+	return runEvalStream(eval_instrStream, L);
 }
 #endif
 
@@ -245,11 +245,11 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 	vec3 emissive = irr_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
 	vec3 campos = irr_glsl_MC_getCamPos();
-	irr_glsl_BSDFIsotropicParams params;
-	params.L = campos-WorldPos;
+	//irr_glsl_BSDFIsotropicParams params;
+	//params.L = campos-WorldPos;
 	out_interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, normalize(Normal));
 
-	return irr_bsdf_cos_eval(params, out_interaction, dUV)*1000.0/dot(params.L,params.L) + emissive;
+	return irr_bsdf_cos_eval(normalize(campos-WorldPos), out_interaction, dUV)*1000.0/dot(params.L,params.L) + emissive;
 }
 #endif
 
@@ -258,7 +258,6 @@ void main()
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
 	InstanceData instData = InstData.data[InstanceIndex];
-	instr_execute_SET_GEOM_NORMAL_interactionOnly();
 #ifdef TEX_PREFETCH_STREAM
 	runTexPrefetchStream(getTexPrefetchStream(), dUV);
 #endif

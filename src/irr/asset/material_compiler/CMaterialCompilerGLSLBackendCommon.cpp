@@ -841,7 +841,8 @@ void instr_stream::remainder_and_pdf::CTraversalManipulator::specifyRegisters(ui
 			continue;
 		}
 		//if bmStreamEndCounter reaches value of -1 and next instruction is not OP_BUMPMAP, then emit some SET_GEOM_NORMAL instr
-		else if (bmStreamEndCounter == -1)
+		//but do not insert if we are at the very beginning - interaction is computed for geometry normal at the beginning of each stream implicitely anyway
+		else if (bmStreamEndCounter==-1 && j!=0u)
 		{
 			//just opcode, no registers nor other bitfields in this instruction
 			m_input.insert(m_input.begin() + j, instr_t(OP_SET_GEOM_NORMAL));

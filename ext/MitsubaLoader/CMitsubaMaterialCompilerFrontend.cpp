@@ -448,7 +448,8 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
 
             const float eta = current->dielectric.intIOR/current->dielectric.extIOR;
             _IRR_DEBUG_BREAK_IF(eta==1.f);
-            os::Printer::log("WARNING: Dielectric with IoR=1.0!", current->id, ELL_WARNING);
+            if (eta==1.f)
+                os::Printer::log("WARNING: Dielectric with IoR=1.0!", current->id, ELL_WARNING);
 
             auto& refl = nextSym->children[0];
             refl = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>();
@@ -472,7 +473,8 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
             }
             else
             {
-                node_refl->setSmooth();
+                //TODO go back to default GGX (beckmann is for testing purposes)
+                node_refl->setSmooth(IR::CMicrofacetSpecularBSDFNode::ENDF_BECKMANN);
             }
             node_trans->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_TRANSMIT;
             node_trans->ndf = node_refl->ndf;

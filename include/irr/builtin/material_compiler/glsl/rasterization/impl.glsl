@@ -9,6 +9,7 @@ void instr_eval_execute(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl
 
 	//speculative execution
 	bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
+	mat2x3 ior = bsdf_data_decodeIoR(bsdf_data,op);
 	params_t params = instr_getParameters(instr, bsdf_data);
 	float bxdf_eval_scalar_part;
 	uint ndf = instr_getNDF(instr);
@@ -19,7 +20,8 @@ void instr_eval_execute(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl
 	float ay2 = ay*ay;
 #endif
 
-	float cosFactor = op_isBSDF(op) ? abs(s.NdotL):max(s.NdotL,0.0);
+	const bool is_bsdf = !op_isBRDF(op);
+	float cosFactor = is_bsdf ? abs(s.NdotL):max(s.NdotL,0.0);
 
 	if (cosFactor>FLT_MIN && op_hasSpecular(op))
 	{
@@ -45,11 +47,27 @@ void instr_eval_execute(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl
 		if (ndf==NDF_BECKMANN) {
 #endif
 
+#if defined(OP_THINDIELECTRIC) || defined(OP_DIELECTRIC)
+			if (is_bsdf) {
+				float pdf;
 #ifdef ALL_ISOTROPIC_BXDFS
-			bxdf_eval_scalar_part = irr_glsl_beckmann_height_correlated_cos_eval_DG(s, uf.isotropic, currInteraction.isotropic, a2);
+				bxdf_eval_scalar_part = irr_glsl_beckmann_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, uf.isotropic, ior[0].x, a2);
+				bxdf_eval_scalar_part *= pdf;
 #else
-			bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(s, uf, currInteraction, a, a2, ay, ay2);
+				//TODO anisotropic
+				bxdf_eval_scalar_part = irr_glsl_beckmann_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, uf.isotropic, ior[0].x, a2);
+				bxdf_eval_scalar_part *= pdf;
 #endif
+			}
+			else
+#endif
+			{
+#ifdef ALL_ISOTROPIC_BXDFS
+				bxdf_eval_scalar_part = irr_glsl_beckmann_height_correlated_cos_eval_DG(s, uf.isotropic, currInteraction.isotropic, a2);
+#else
+				bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(s, uf, currInteraction, a, a2, ay, ay2);
+#endif
+			}
 
 #ifndef ONLY_ONE_NDF
 		} else
@@ -109,7 +127,7 @@ void instr_eval_execute(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl
 #endif
 #ifdef OP_DIELECTRIC
 	if (op==OP_DIELECTRIC) {
-		instr_execute_cos_eval_DIELECTRIC(instr, s, regs, params, bsdf_data);
+		instr_execute_cos_eval_DIELECTRIC(instr, s, regs, bxdf_eval_scalar_part);
 	} else
 #endif
 #ifdef OP_THINDIELECTRIC
@@ -140,18 +158,24 @@ bxdf_eval_t runEvalStream(in instr_stream_t stream, in vec3 L)
 #ifndef NO_TWOSIDED
 	bool ts = false;
 #endif
-	irr_glsl_LightSample s;
-	irr_glsl_AnisotropicMicrofacetCache uf;
+	instr_execute_SET_GEOM_NORMAL();
+	irr_glsl_LightSample s = irr_glsl_createLightSample(L, currInteraction);
+	//Warning: here using function for reflective case only (TODO)
+	irr_glsl_AnisotropicMicrofacetCache uf = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
 	for (uint i = 0u; i < stream.count; ++i)
 	{
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
 		uint op = instr_getOpcode(instr);
 #ifndef NO_TWOSIDED
-		handleTwosided(ts, instr, s, uf); //TODO make sure it always executes when s and uf are already computed
+		handleTwosided(ts, instr, s, uf);
 #endif
 		instr_eval_execute(instr, s, uf);
 
-		if (op==OP_SET_GEOM_NORMAL
+#if defined(OP_SET_GEOM_NORMAL)||defined(OP_BUMPMAP)
+		if (
+#ifdef OP_SET_GEOM_NORMAL
+			op==OP_SET_GEOM_NORMAL
+#endif
 #ifdef OP_BUMPMAP
 			|| op==OP_BUMPMAP
 #endif
@@ -161,6 +185,7 @@ bxdf_eval_t runEvalStream(in instr_stream_t stream, in vec3 L)
 			//Warning: here using function for reflective case only
 			uf = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
 		}
+#endif
 	}
 	return readReg3(0u);//result is always in regs 0,1,2
 }
