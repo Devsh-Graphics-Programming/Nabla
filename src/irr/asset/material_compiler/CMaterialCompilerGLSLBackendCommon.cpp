@@ -1004,8 +1004,6 @@ instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTrav
 
 	//remove NOOPs
 	filterNOOPs(traversal);
-	if (getOpcode(traversal.front())!=OP_BUMPMAP)
-		traversal.insert(traversal.begin(), OP_SET_GEOM_NORMAL);
 
 	_out_usedRegs = 0u;
 
