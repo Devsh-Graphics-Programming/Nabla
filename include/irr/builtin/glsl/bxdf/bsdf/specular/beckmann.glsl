@@ -96,7 +96,6 @@ float irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_L
     const float BdotH2 = _cache.BdotH*_cache.BdotH;
     const float ndf = irr_glsl_beckmann(ax,ay,ax2,ay2, TdotH2,BdotH2,_cache.isotropic.NdotH2);
 
-    const float NdotL2 = _sample.NdotL*_sample.NdotL;
     const float TdotL2 = _sample.TdotL*_sample.TdotL;
     const float BdotL2 = _sample.BdotL*_sample.BdotL;
     
@@ -113,7 +112,7 @@ float irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_L
     const bool transmitted = VdotHLdotH<0.0;
     
     const float reflectance = irr_glsl_fresnel_dielectric_common(orientedEta2,abs(VdotH));
-	return irr_glsl_beckmann_aniso_dielectric_cos_remainder_and_pdf_wo_clamps(pdf, ndf, transmitted, NdotL2,TdotL2,BdotL2, abs(interaction.isotropic.NdotV),TdotV2,BdotV2, interaction.isotropic.NdotV_squared, VdotH,_cache.isotropic.LdotH,VdotHLdotH, reflectance,orientedEta, ax2,ay2);
+	return irr_glsl_beckmann_aniso_dielectric_cos_remainder_and_pdf_wo_clamps(pdf, ndf, transmitted, _sample.NdotL2,TdotL2,BdotL2, abs(interaction.isotropic.NdotV),TdotV2,BdotV2, interaction.isotropic.NdotV_squared, VdotH,_cache.isotropic.LdotH,VdotHLdotH, reflectance,orientedEta, ax2,ay2);
 }
 
 
