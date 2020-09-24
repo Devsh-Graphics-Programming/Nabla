@@ -69,7 +69,7 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 
 		vec3 rand = rand3d(i,scramble_state);
 		float pdf;
-		irr_glsl_BxDFSample s;
+		irr_glsl_LightSample s;
 		vec3 rem = runGenerateAndRemainderStream(gcs, rnps, rand, pdf, s);
 
 		vec2 uv = SampleSphericalMap(s.L);
@@ -78,14 +78,14 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 	color /= float(SAMPLE_COUNT);
 #endif
 
-	irr_glsl_BSDFIsotropicParams params;
+	//irr_glsl_BSDFIsotropicParams params;//TODO get rid of this
 	for (int i = 0; i < LIGHT_COUNT; ++i)
 	{
 		SLight l = lights[i];
 		vec3 L = l.position-WorldPos;
-		params.L = L;
+		//params.L = L;
 		const float intensityScale = LIGHT_INTENSITY_SCALE;//ehh might want to render to hdr fbo and do tonemapping
-		color += irr_bsdf_cos_eval(params, out_interaction, dUV)*l.intensity*intensityScale / dot(L,L);
+		color += irr_bsdf_cos_eval(normalize(L), out_interaction, dUV)*l.intensity*intensityScale / dot(L,L);
 	}
 
 	return color+emissive;
