@@ -60,27 +60,23 @@ vec3 irr_glsl_blinn_phong_conductor_cos_remainder_and_pdf(out float pdf, in irr_
 }
 */
 
-float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float NdotH, in float maxNdotV, in float NdotV_squared, in float NdotL2, in float n, in float a2)
+float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float NdotH, in float NdotV_squared, in float NdotL2, in float n, in float a2)
 {
-    float d = irr_glsl_blinn_phong(NdotH, n);
-    float scalar_part = d/(4.0*maxNdotV);
+    float NG = irr_glsl_blinn_phong(NdotH, n);
     if (a2>FLT_MIN)
-    {
-        float g = irr_glsl_beckmann_smith_correlated(NdotV_squared, NdotL2, a2);
-        scalar_part *= g;
-    }
+        NG *= irr_glsl_beckmann_smith_correlated(NdotV_squared, NdotL2, a2);
     return scalar_part;
 }
-float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float NdotH, in float maxNdotV, in float NdotV_squared, in float NdotL2, in float n)
+float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float NdotH, in float NdotV_squared, in float NdotL2, in float n)
 {
     float a2 = irr_glsl_phong_exp_to_alpha2(n);
-    return irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, maxNdotV, NdotV_squared, NdotL2, n, a2);
+    return irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, NdotV_squared, NdotL2, n, a2);
 }
 
 vec3 irr_glsl_blinn_phong_cos_eval_wo_clamps(in float NdotH, in float maxNdotV, in float NdotV_squared, in float NdotL2, in float VdotH, in float n, in mat2x3 ior, in float a2)
 {
-    float scalar_part = irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, maxNdotV, NdotV_squared, NdotL2, n, a2);
-    return scalar_part*irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
+    float scalar_part = irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, NdotV_squared, NdotL2, n, a2);
+    return irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH)*irr_glsl_microfacet_to_light_measure_transform(scalar_part,maxNdotV);
 }
 vec3 irr_glsl_blinn_phong_cos_eval_wo_clamps(in float NdotH, in float maxNdotV, in float NdotV_squared, in float NdotL2, in float VdotH, in float n, in mat2x3 ior)
 {
@@ -96,31 +92,26 @@ vec3 irr_glsl_blinn_phong_cos_eval(in irr_glsl_LightSample _sample, in irr_glsl_
 }
 
 
-float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float NdotH, in float NdotH2, in float TdotH2, in float BdotH2, float TdotL2, float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV_squared, in float NdotL2, in float nx, in float ny, in float ax2, in float ay2)
+float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float NdotH, in float NdotH2, in float TdotH2, in float BdotH2, float TdotL2, float BdotL2, in float TdotV2, in float BdotV2, in float NdotV_squared, in float NdotL2, in float nx, in float ny, in float ax2, in float ay2)
 {
     float d = irr_glsl_blinn_phong(NdotH, 1.0/(1.0-NdotH2), TdotH2, BdotH2, nx, ny);
-    float scalar_part = d/(4.0*maxNdotV);
     if (ax2>FLT_MIN || ay2>FLT_MIN)
-    {
-        float g = irr_glsl_beckmann_smith_correlated(TdotV2, BdotV2, NdotV_squared, TdotL2, BdotL2, NdotL2, ax2, ay2);
-        scalar_part *= g;
-    }
-
+        NG *= irr_glsl_beckmann_smith_correlated(TdotV2, BdotV2, NdotV_squared, TdotL2, BdotL2, NdotL2, ax2, ay2);
     return scalar_part;
 }
-float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float NdotH, in float NdotH2, in float TdotH2, in float BdotH2, in float TdotL2, in float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV_squared, in float NdotL2, in float nx, in float ny)
+float irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(in float NdotH, in float NdotH2, in float TdotH2, in float BdotH2, in float TdotL2, in float BdotL2, in float TdotV2, in float BdotV2, in float NdotV_squared, in float NdotL2, in float nx, in float ny)
 {
     float ax2 = irr_glsl_phong_exp_to_alpha2(nx);
     float ay2 = irr_glsl_phong_exp_to_alpha2(ny);
 
-    return irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, NdotH2, TdotH2, BdotH2, TdotL2, BdotL2, maxNdotV, TdotV2, BdotV2, NdotV_squared, NdotL2, nx, ny, ax2, ay2);
+    return irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, NdotH2, TdotH2, BdotH2, TdotL2, BdotL2, TdotV2, BdotV2, NdotV_squared, NdotL2, nx, ny, ax2, ay2);
 }
 
 vec3 irr_glsl_blinn_phong_cos_eval_wo_clamps(in float NdotH, in float NdotH2, in float TdotH2, in float BdotH2, in float TdotL2, in float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV_squared, in float NdotL2, in float VdotH, in float nx, in float ny, in mat2x3 ior, in float ax2, in float ay2)
 {
     float scalar_part = irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, NdotH2, TdotH2, BdotH2, TdotL2, BdotL2, maxNdotV, TdotV2, BdotV2, NdotV_squared, NdotL2, nx, ny, ax2, ay2);
 
-    return scalar_part*irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
+    return irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH)*irr_glsl_microfacet_to_light_measure_transform(scalar_part,maxNdotV);
 }
 vec3 irr_glsl_blinn_phong_cos_eval_wo_clamps(in float NdotH, in float NdotH2, in float TdotH2, in float BdotH2, in float TdotL2, in float BdotL2, in float maxNdotV, in float TdotV2, in float BdotV2, in float NdotV_squared, in float NdotL2, in float VdotH, in float nx, in float ny, in mat2x3 ior)
 {

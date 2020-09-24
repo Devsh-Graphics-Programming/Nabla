@@ -30,7 +30,7 @@ float irr_glsl_ggx_microfacet_to_light_measure_transform(in float NDFcos_already
     }
     return NDFcos_already_in_reflective_dL_measure*factor;
 }
-float irr_glsl_microfacet_to_light_measure_transform(in float ndf, in float maxNdotL)
+float irr_glsl_ggx_microfacet_to_light_measure_transform(in float NDFcos_already_in_reflective_dL_measure, in float maxNdotL)
 {
     return NDFcos_already_in_reflective_dL_measure*maxNdotL;
 }

@@ -77,29 +77,42 @@ vec3 irr_glsl_ggx_height_correlated_cos_eval(in irr_glsl_LightSample _sample, in
 
 
 
-// TODO: unifty the two following functions into `irr_glsl_microfacet_BRDF_cos_generate_wo_clamps(vec3 H,...)` and `irr_glsl_microfacet_BRDF_cos_generate` or at least a auto declaration macro in lieu of a template
-irr_glsl_LightSample irr_glsl_ggx_cos_generate_wo_clamps(in vec3 localV, in mat3 m, in vec2 u, in float _ax, in float _ay, out irr_glsl_AnisotropicMicrofacetCache _cache)
+// TODO: unifty the two following functions into `irr_glsl_microfacet_BSDF_cos_generate_wo_clamps(vec3 H,...)` and `irr_glsl_microfacet_BSDF_cos_generate` or at least a auto declaration macro in lieu of a template
+irr_glsl_LightSample irr_glsl_ggx_dielectric_cos_generate_wo_clamps(in vec3 localV, in bool backside, in vec3 upperHemisphereLocalV, in mat3 m, in vec3 u, in float _ax, in float _ay, in float rcpOrientedEta, in float orientedEta2, in float rcpOrientedEta2, out irr_glsl_AnisotropicMicrofacetCache _cache)
 {
-    const vec3 H = irr_glsl_ggx_cos_generate(localV,u,_ax,_ay);
+    // thanks to this manouvre the H will always be in the upper hemisphere (NdotH>0.0)
+    const vec3 H = irr_glsl_ggx_cos_generate(upperHemisphereLocalV,u.xy,_ax,_ay);
+
+    const float VdotH = dot(localV, H);
+    const float reflectance = irr_glsl_fresnel_dielectric_common(orientedEta2, abs(VdotH));
+    
+    float rcpChoiceProb;
+    bool transmitted = irr_glsl_partitionRandVariable(reflectance, u.z, rcpChoiceProb);
     
     vec3 localL;
-    _cache = irr_glsl_calcAnisotropicMicrofacetCache(localV,H,localL);
+    _cache = irr_glsl_calcAnisotropicMicrofacetCache(transmitted,localV,H,localL,rcpOrientedEta,rcpOrientedEta2);
     
     return irr_glsl_createLightSampleTangentSpace(localV,localL,m);
 }
 
-irr_glsl_LightSample irr_glsl_ggx_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u, in float _ax, in float _ay, out irr_glsl_AnisotropicMicrofacetCache _cache)
+irr_glsl_LightSample irr_glsl_ggx_dielectric_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in float ax, in float ay, in float eta, out irr_glsl_AnisotropicMicrofacetCache _cache)
 {
     const vec3 localV = irr_glsl_getTangentSpaceV(interaction);
+    
+    float orientedEta, rcpOrientedEta;
+    const bool backside = irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, interaction.isotropic.NdotV, eta);
+    
+    const vec3 upperHemisphereV = backside ? (-localV):localV;
+
     const mat3 m = irr_glsl_getTangentFrame(interaction);
-    return irr_glsl_ggx_cos_generate_wo_clamps(localV,m,u,_ax,_ay,_cache);
+    return irr_glsl_ggx_dielectric_cos_generate_wo_clamps(localV,backside,upperHemisphereV,m, u,ax,ay, rcpOrientedEta,orientedEta*orientedEta,rcpOrientedEta*rcpOrientedEta,_cache);
 }
 
-
-
+#if 0
+// TODO
 float irr_glsl_ggx_pdf_wo_clamps(in float ndf, in float devsh_v, in float maxNdotV)
 {
-    return irr_glsl_smith_VNDF_pdf_wo_clamps(ndf,irr_glsl_GGXSmith_G1_wo_numerator(maxNdotV,devsh_v));
+    return irr_glsl_smith_VNDF_pdf_wo_clamps(ndf,irr_glsl_GGXSmith_G1_wo_numerator(maxNdotV,devsh_v),);
 }
 float irr_glsl_ggx_pdf_wo_clamps(in float NdotH2, in float maxNdotV, in float NdotV2, in float a2)
 {
@@ -187,5 +200,6 @@ vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSa
         return vec3(0.0);
     }
 }
+#endif
 
 #endif
