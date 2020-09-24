@@ -194,7 +194,6 @@ vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_Li
 }
 
 
-
 float irr_glsl_beckmann_height_correlated_cos_eval_DG_wo_clamps(in float NdotH2, in float NdotL2, in float NdotV2, in float a2)
 {
     float NG = irr_glsl_beckmann(a2, NdotH2);
@@ -205,11 +204,11 @@ float irr_glsl_beckmann_height_correlated_cos_eval_DG_wo_clamps(in float NdotH2,
 }
 vec3 irr_glsl_beckmann_height_correlated_cos_eval_wo_clamps(in float NdotH2, in float NdotL2, in float maxNdotV, in float NdotV2, in float VdotH, in mat2x3 ior, in float a2)
 {
-    const float scalar_part = irr_glsl_beckmann_height_correlated_cos_eval_DG_wo_clamps(NdotH2, NdotL2, NdotV2, a2);
+    const float NG = irr_glsl_beckmann_height_correlated_cos_eval_DG_wo_clamps(NdotH2, NdotL2, NdotV2, a2);
 
     const vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
 
-    return fr*irr_glsl_microfacet_to_light_measure_transform(scalar_part,maxNdotV);
+    return fr*irr_glsl_microfacet_to_light_measure_transform(NG,maxNdotV);
 }
 vec3 irr_glsl_beckmann_height_correlated_cos_eval(in irr_glsl_LightSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_IsotropicMicrofacetCache _cache, in mat2x3 ior, in float a2)
 {
@@ -229,11 +228,11 @@ float irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG_wo_clamps(in float N
 }
 vec3 irr_glsl_beckmann_aniso_height_correlated_cos_eval_wo_clamps(in float NdotH2, in float TdotH2, in float BdotH2, in float NdotL2, in float TdotL2, in float BdotL2, in float maxNdotV, in float NdotV2, in float TdotV2, in float BdotV2, in float VdotH, in mat2x3 ior, in float ax, in float ax2, in float ay, in float ay2)
 {
-    const float scalar_part = irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG_wo_clamps(NdotH2,TdotH2,BdotH2, NdotL2,TdotL2,BdotL2, NdotV2,TdotV2,BdotV2, ax, ax2, ay, ay2);
+    const float NG = irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG_wo_clamps(NdotH2,TdotH2,BdotH2, NdotL2,TdotL2,BdotL2, NdotV2,TdotV2,BdotV2, ax, ax2, ay, ay2);
 
     const vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
     
-    return fr*irr_glsl_microfacet_to_light_measure_transform(scalar_part,maxNdotV);
+    return fr*irr_glsl_microfacet_to_light_measure_transform(NG,maxNdotV);
 }
 vec3 irr_glsl_beckmann_aniso_height_correlated_cos_eval(in irr_glsl_LightSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_AnisotropicMicrofacetCache _cache, in mat2x3 ior, in float ax, in float ay)
 {    
