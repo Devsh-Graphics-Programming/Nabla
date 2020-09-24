@@ -1,7 +1,6 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
-// Code contributed by skreamz
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "CPakReader.h"
 
