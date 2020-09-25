@@ -473,8 +473,7 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
             }
             else
             {
-                //TODO go back to default GGX (beckmann is for testing purposes)
-                node_refl->setSmooth(IR::CMicrofacetSpecularBSDFNode::ENDF_BECKMANN);
+                node_refl->setSmooth();
             }
             node_trans->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_TRANSMIT;
             node_trans->ndf = node_refl->ndf;

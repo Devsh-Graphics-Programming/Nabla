@@ -83,8 +83,6 @@ float irr_glsl_ggx_height_correlated_dielectric_cos_eval(in irr_glsl_LightSample
     );
 }
 
-
-
 // TODO: unifty the two following functions into `irr_glsl_microfacet_BSDF_cos_generate_wo_clamps(vec3 H,...)` and `irr_glsl_microfacet_BSDF_cos_generate` or at least a auto declaration macro in lieu of a template
 irr_glsl_LightSample irr_glsl_ggx_dielectric_cos_generate_wo_clamps(in vec3 localV, in bool backside, in vec3 upperHemisphereLocalV, in mat3 m, in vec3 u, in float _ax, in float _ay, in float rcpOrientedEta, in float orientedEta2, in float rcpOrientedEta2, out irr_glsl_AnisotropicMicrofacetCache _cache)
 {
@@ -138,7 +136,29 @@ float irr_glsl_ggx_dielectric_pdf_wo_clamps(in bool transmitted, in float reflec
     return irr_glsl_ggx_dielectric_pdf_wo_clamps(transmitted,reflectance, ndf,devsh_v, absNdotV, VdotH,LdotH,VdotHLdotH, orientedEta);
 }
 
+// before calling you must ensure that `irr_glsl_AnisotropicMicrofacetCache` is valid (if a given V vector can "see" the L vector)
+float irr_glsl_ggx_height_correlated_dielectric_cos_eval_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_IsotropicMicrofacetCache _cache, in float eta, in float a2)
+{
+    float orientedEta, dummy;
+    const bool backside = irr_glsl_getOrientedEtas(orientedEta, dummy, _cache.VdotH, eta);
+    const float orientedEta2 = orientedEta * orientedEta;
 
+    const float VdotHLdotH = _cache.VdotH * _cache.LdotH;
+    const bool transmitted = VdotHLdotH < 0.0;
+
+    const float absNdotV = abs(interaction.NdotV);
+    const float NdotV2 = interaction.NdotV_squared;
+
+    const float reflectance = irr_glsl_fresnel_dielectric_common(orientedEta2, abs(_cache.VdotH));
+
+    pdf = irr_glsl_ggx_dielectric_pdf_wo_clamps(transmitted, reflectance, _cache.NdotH2, absNdotV, NdotV2, _cache.VdotH, _cache.LdotH, a2, orientedEta);
+
+    return irr_glsl_ggx_height_correlated_dielectric_cos_eval_wo_clamps(
+        _cache.NdotH2, abs(_sample.NdotL), _sample.NdotL2,
+        abs(interaction.NdotV), interaction.NdotV_squared,
+        transmitted, _cache.VdotH, _cache.LdotH, VdotHLdotH, orientedEta, orientedEta2, a2
+    );
+}
 
 float irr_glsl_ggx_dielectric_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in bool transmitted, in float absNdotL, in float NdotL2, in float absNdotV, in float NdotV2, in float VdotH, in float LdotH, in float VdotHLdotH, in float reflectance, in float orientedEta, in float a2)
 {

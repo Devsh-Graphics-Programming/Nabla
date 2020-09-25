@@ -30,12 +30,23 @@ void instr_eval_execute(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl
 		if (ndf==NDF_GGX) {
 #endif
 
+#if defined(OP_THINDIELECTRIC) || defined(OP_DIELECTRIC)
+			if (is_bsdf) {
 #ifdef ALL_ISOTROPIC_BXDFS
-			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG(s, uf.isotropic, currInteraction.isotropic, a2);
+				bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_dielectric_cos_eval(s, currInteraction.isotropic, uf.isotropic, ior[0].x, a2);
 #else
-			bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(s, uf, currInteraction, a, a2, ay, ay2);
+				bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_dielectric_cos_eval(s, currInteraction.isotropic, uf.isotropic, ior[0].x, a2);
 #endif
-
+			}
+			else
+#endif
+			{
+#ifdef ALL_ISOTROPIC_BXDFS
+				bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG(s, uf.isotropic, currInteraction.isotropic, a2);
+#else
+				bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(s, uf, currInteraction, a, a2, ay, ay2);
+#endif
+			}
 
 #ifndef ONLY_ONE_NDF
 		} else
@@ -49,14 +60,10 @@ void instr_eval_execute(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl
 
 #if defined(OP_THINDIELECTRIC) || defined(OP_DIELECTRIC)
 			if (is_bsdf) {
-				float pdf;
 #ifdef ALL_ISOTROPIC_BXDFS
-				bxdf_eval_scalar_part = irr_glsl_beckmann_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, uf.isotropic, ior[0].x, a2);
-				bxdf_eval_scalar_part *= pdf;
+				bxdf_eval_scalar_part = irr_glsl_beckmann_smith_height_correlated_dielectric_cos_eval_wo_cache_validation(s, currInteraction, uf, ior[0].x, a2);
 #else
-				//TODO anisotropic
-				bxdf_eval_scalar_part = irr_glsl_beckmann_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, uf.isotropic, ior[0].x, a2);
-				bxdf_eval_scalar_part *= pdf;
+				bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval_wo_cache_validation(s, currInteraction, uf, ior[0].x, a, a2, ay, ay2);
 #endif
 			}
 			else
@@ -79,15 +86,25 @@ void instr_eval_execute(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl
 		if (ndf==NDF_PHONG) {
 #endif
 
-
-			float n = irr_glsl_alpha2_to_phong_exp(a2);
+#if defined(OP_THINDIELECTRIC) || defined(OP_DIELECTRIC)
+			if (is_bsdf) {
 #ifdef ALL_ISOTROPIC_BXDFS
-			bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(s, uf.isotropic, currInteraction.isotropic, n, a2);
+				bxdf_eval_scalar_part = irr_glsl_beckmann_smith_height_correlated_dielectric_cos_eval_wo_cache_validation(s, currInteraction, uf, ior[0].x, a2);
 #else
-			float ny = irr_glsl_alpha2_to_phong_exp(ay2);
-			bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(s, uf, currInteraction, n, ny, a2, ay2);
+				bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval_wo_cache_validation(s, currInteraction, uf, ior[0].x, a, a2, ay, ay2);
 #endif
-
+			}
+			else
+#endif
+			{
+				float n = irr_glsl_alpha2_to_phong_exp(a2);
+#ifdef ALL_ISOTROPIC_BXDFS
+				bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(s, uf.isotropic, currInteraction.isotropic, n, a2);
+#else
+				float ny = irr_glsl_alpha2_to_phong_exp(ay2);
+				bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(s, uf, currInteraction, n, ny, a2, ay2);
+#endif
+			}
 
 #ifndef ONLY_ONE_NDF
 		} else
