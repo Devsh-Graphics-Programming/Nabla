@@ -59,6 +59,7 @@ vec3 irr_glsl_beckmann_cos_generate_wo_clamps(in vec3 localV, in vec2 u, in floa
 
             b -= value/derivative;
         }
+        // TODO: investigate if we can replace these two erf^-1 calls with a box muller transform
         slope.x = irr_glsl_erfInv(b);
         slope.y = irr_glsl_erfInv(2.0 * max(u.y,1.0e-6) - 1.0);
     }
@@ -77,6 +78,7 @@ vec3 irr_glsl_beckmann_cos_generate_wo_clamps(in vec3 localV, in vec2 u, in floa
     return normalize(vec3(-slope, 1.0));
 }
 
+// TODO: unifty the two following functions into `irr_glsl_microfacet_BRDF_cos_generate_wo_clamps(vec3 H,...)` and `irr_glsl_microfacet_BRDF_cos_generate` or at least a auto declaration macro in lieu of a template
 irr_glsl_LightSample irr_glsl_beckmann_cos_generate_wo_clamps(in vec3 localV, in mat3 m, in vec2 u, in float ax, in float ay, out irr_glsl_AnisotropicMicrofacetCache _cache)
 {
     const vec3 H = irr_glsl_beckmann_cos_generate_wo_clamps(localV,u,ax,ay);
@@ -206,25 +208,21 @@ vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_Li
 }
 
 
-
-float irr_glsl_beckmann_height_correlated_cos_eval_DG_wo_clamps(in float NdotH2, in float NdotL2, in float maxNdotV, in float NdotV2, in float a2)
+float irr_glsl_beckmann_height_correlated_cos_eval_DG_wo_clamps(in float NdotH2, in float NdotL2, in float NdotV2, in float a2)
 {
-    float ndf = irr_glsl_beckmann(a2, NdotH2);
-    float scalar_part = ndf / (4.0 * maxNdotV);
+    float NG = irr_glsl_beckmann(a2, NdotH2);
     if  (a2>FLT_MIN)
-    {
-        float g = irr_glsl_beckmann_smith_correlated(NdotV2, NdotL2, a2);
-        scalar_part *= g;
-    }
+        NG *= irr_glsl_beckmann_smith_correlated(NdotV2, NdotL2, a2);
     
-    return scalar_part;
+    return NG;
 }
 vec3 irr_glsl_beckmann_height_correlated_cos_eval_wo_clamps(in float NdotH2, in float NdotL2, in float maxNdotV, in float NdotV2, in float VdotH, in mat2x3 ior, in float a2)
 {
-    float scalar_part = irr_glsl_beckmann_height_correlated_cos_eval_DG_wo_clamps(NdotH2, NdotL2, maxNdotV, NdotV2, a2);
-    vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
-    
-    return scalar_part*fr;
+    const float NG = irr_glsl_beckmann_height_correlated_cos_eval_DG_wo_clamps(NdotH2, NdotL2, NdotV2, a2);
+
+    const vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
+
+    return fr*irr_glsl_microfacet_to_light_measure_transform(NG,maxNdotV);
 }
 vec3 irr_glsl_beckmann_height_correlated_cos_eval(in irr_glsl_LightSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_IsotropicMicrofacetCache _cache, in mat2x3 ior, in float a2)
 {
@@ -234,24 +232,21 @@ vec3 irr_glsl_beckmann_height_correlated_cos_eval(in irr_glsl_LightSample _sampl
         return vec3(0.0);
 }
 
-float irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG_wo_clamps(in float NdotH2, in float TdotH2, in float BdotH2, in float NdotL2, in float TdotL2, in float BdotL2, in float maxNdotV, in float NdotV2, in float TdotV2, in float BdotV2, in float ax, in float ax2, in float ay, in float ay2)
+float irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG_wo_clamps(in float NdotH2, in float TdotH2, in float BdotH2, in float NdotL2, in float TdotL2, in float BdotL2, in float NdotV2, in float TdotV2, in float BdotV2, in float ax, in float ax2, in float ay, in float ay2)
 {
-    float ndf = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, NdotH2);
-    float scalar_part = ndf / (4.0 * maxNdotV);
+    float NG = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, NdotH2);
     if (ax>FLT_MIN || ay>FLT_MIN)
-    {
-        float g = irr_glsl_beckmann_smith_correlated(TdotV2, BdotV2, NdotV2, TdotL2, BdotL2, NdotL2, ax2, ay2);
-        scalar_part *= g;
-    }
+        NG *= irr_glsl_beckmann_smith_correlated(TdotV2, BdotV2, NdotV2, TdotL2, BdotL2, NdotL2, ax2, ay2);
     
-    return scalar_part;
+    return NG;
 }
 vec3 irr_glsl_beckmann_aniso_height_correlated_cos_eval_wo_clamps(in float NdotH2, in float TdotH2, in float BdotH2, in float NdotL2, in float TdotL2, in float BdotL2, in float maxNdotV, in float NdotV2, in float TdotV2, in float BdotV2, in float VdotH, in mat2x3 ior, in float ax, in float ax2, in float ay, in float ay2)
 {
-    float scalar_part = irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG_wo_clamps(NdotH2,TdotH2,BdotH2, NdotL2,TdotL2,BdotL2, maxNdotV,NdotV2,TdotV2,BdotV2, ax, ax2, ay, ay2);
-    vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
+    const float NG = irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG_wo_clamps(NdotH2,TdotH2,BdotH2, NdotL2,TdotL2,BdotL2, NdotV2,TdotV2,BdotV2, ax, ax2, ay, ay2);
+
+    const vec3 fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
     
-    return scalar_part*fr;
+    return fr*irr_glsl_microfacet_to_light_measure_transform(NG,maxNdotV);
 }
 vec3 irr_glsl_beckmann_aniso_height_correlated_cos_eval(in irr_glsl_LightSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_AnisotropicMicrofacetCache _cache, in mat2x3 ior, in float ax, in float ay)
 {    
