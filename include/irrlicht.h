@@ -1,4 +1,4 @@
-/* irrlicht.h -- interface of the 'IrrlichtBAW Engine'
+/* irrlicht.h -- interface of the 'Nabla Engine'
 
   Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
 

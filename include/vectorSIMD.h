@@ -1,7 +1,6 @@
-// Copyright (C) 2014 Mateusz 'DevSH' Kielan
-// This file is part of the "Irrlicht Engine".
-// Contributed from "Build a World"
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
 #ifndef __IRR_VECTOR_SIMD_H_INCLUDED__
 #define __IRR_VECTOR_SIMD_H_INCLUDED__
