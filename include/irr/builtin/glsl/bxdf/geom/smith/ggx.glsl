@@ -1,6 +1,5 @@
-#ifndef _IRR_BXDF_GEOM_SMITH_GGX_INCLUDED_
-#define _IRR_BXDF_GEOM_SMITH_GGX_INCLUDED_
-
+#ifndef _IRR_BUILTIN_GLSL_BXDF_GEOM_SMITH_GGX_INCLUDED_
+#define _IRR_BUILTIN_GLSL_BXDF_GEOM_SMITH_GGX_INCLUDED_
 
 float irr_glsl_smith_ggx_devsh_part(in float NdotX2, in float a2, in float one_minus_a2)
 {

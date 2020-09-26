@@ -59,6 +59,7 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/bxdf/common_samples.glsl"
   "irr/builtin/glsl/bxdf/fresnel.glsl"
   "irr/builtin/glsl/bxdf/cos_weighted_sample.glsl"
+  "irr/builtin/glsl/bxdf/ndf/common.glsl"
   "irr/builtin/glsl/bxdf/ndf/blinn_phong.glsl"
   "irr/builtin/glsl/bxdf/ndf/beckmann.glsl"
   "irr/builtin/glsl/bxdf/ndf/ggx.glsl"
