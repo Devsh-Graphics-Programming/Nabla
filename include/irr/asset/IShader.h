@@ -19,6 +19,14 @@ namespace irr
 namespace asset
 {
 
+//! Interface class for Unspecialized Shaders
+/*
+	The purpose for the class is for storing raw GLSL code
+	to be compiled or already compiled (but unspecialized) 
+	SPIR-V code. Such a shader has to be passed
+	to Specialized Shader constructor.
+*/
+
 class IShader : public virtual core::IReferenceCounted
 {
 	public:

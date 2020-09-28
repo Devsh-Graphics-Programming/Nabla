@@ -10,6 +10,11 @@ namespace irr
 namespace video
 {
 
+//! GPU Version of Descriptor Set Layout
+/*
+    @see IDescriptorSetLayout
+*/
+
 class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>
 {
 public:

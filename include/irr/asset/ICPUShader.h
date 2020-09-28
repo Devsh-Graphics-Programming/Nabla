@@ -14,6 +14,12 @@ namespace irr
 namespace asset
 {
 
+//! CPU Version of Unspecialized Shader
+/*
+	@see IShader
+	@see IAsset
+*/
+
 class ICPUShader : public IAsset, public IShader
 {
 	protected:

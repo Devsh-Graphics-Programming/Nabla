@@ -16,6 +16,25 @@ namespace irr
 namespace asset
 {
 
+//! Copy Filter
+/*
+	Copy a one input image's texel data in strictly defined way to another one output image.
+	The usage is as follows:
+	- create a convert filter reference by \busing YOUR_COPY_FILTER = CCopyImageFilter;\b
+	- provide it's state by \bYOUR_COPY_FILTER::state_type\b and fill appropriate fields
+	- launch one of \bexecute\b calls
+
+	\attention
+	{
+		Take a look any overlapping regions shall be copied into the output in exactly 
+		the order they were when specifying the image. So the last region copies into image 
+		last, overwriting any overlapped pixels.
+	}
+	
+	@see IImageFilter
+	@see CMatchedSizeInOutImageFilterCommon
+*/
+
 // copy while converting format from input image to output image
 class CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedSizeInOutImageFilterCommon
 {

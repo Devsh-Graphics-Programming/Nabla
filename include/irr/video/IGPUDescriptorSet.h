@@ -14,6 +14,11 @@ namespace irr
 namespace video
 {
 
+//! GPU Version of Descriptor Set
+/*
+	@see IDescriptorSet
+*/
+
 class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLayout>
 {
 	public:
