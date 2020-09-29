@@ -1140,10 +1140,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 #ifdef OP_PLASTIC
 	float plastic_spec_weight;
 	if (is_plastic) {
-		//TODO
-		//erm i fucked up here before.. generator choice depends on generated sample (L), how to omit this??
-		//for now: constant 0.5
-		vec3 fresnel = vec3(0.5);//irr_glsl_fresnel_dielectric(ior[0],currBSDFParams.isotropic.VdotH);
+		vec3 fresnel = irr_glsl_fresnel_dielectric(ior[0],currInteraction.isotropic.NdotV);
 		float ws = max(fresnel.x, max(fresnel.y, fresnel.z));
 		bool choseDiffuse = u.z>=ws;
 		op = choseDiffuse ? OP_DIFFUSE_ALIAS : op;
