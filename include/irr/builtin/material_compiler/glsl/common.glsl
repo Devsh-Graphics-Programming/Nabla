@@ -915,7 +915,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_LightSample s, in 
 #ifdef ALL_ISOTROPIC_BXDFS
 				bxdf_eval_scalar_part = irr_glsl_beckmann_smith_height_correlated_dielectric_cos_eval_and_pdf(pdf, s, currInteraction.isotropic, uf.isotropic, ior[0].x, a2);
 #else
-				bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_smith_height_correlated_dielectric_cos_eval_and_pdf(pdf, s, currInteraction, uf, ior[0].x, ax, ay);
+				bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_smith_height_correlated_dielectric_cos_eval_and_pdf(pdf, s, currInteraction, uf, ior[0].x, a, ay);
 #endif
 			}
 			else
@@ -941,7 +941,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_LightSample s, in 
 #ifdef ALL_ISOTROPIC_BXDFS
 				bxdf_eval_scalar_part = irr_glsl_beckmann_smith_height_correlated_dielectric_cos_eval_and_pdf(pdf, s, currInteraction.isotropic, uf.isotropic, ior[0].x, a2);
 #else
-				bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_smith_height_correlated_dielectric_cos_eval_and_pdf(pdf, s, currInteraction, uf, ior[0].x, ax, ay);
+				bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_smith_height_correlated_dielectric_cos_eval_and_pdf(pdf, s, currInteraction, uf, ior[0].x, a, ay);
 #endif
 			}
 			else
@@ -1053,12 +1053,13 @@ eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, in irr_glsl_Light
 irr_glsl_AnisotropicMicrofacetCache getSmoothMicrofacetCache(in float NdotV, in float NdotL)
 {
 	irr_glsl_AnisotropicMicrofacetCache uf;
-	uf.isotropic.VdotH = NdotV;
-	uf.isotropic.LdotH = NdotL;
-	uf.isotropic.NdotH = 0.0;
-	uf.isotropic.NdotH2 = 0.0;
-	uf.TdotH = 1.0;
-	uf.BdotH = 1.0;
+	const float d = 1e-4;//some delta to avoid zeroes... not a perfect solution but for now..
+	uf.isotropic.VdotH = NdotV-d;
+	uf.isotropic.LdotH = NdotL-d;
+	uf.isotropic.NdotH = d;
+	uf.isotropic.NdotH2 = d*d;
+	uf.TdotH = 1.0-d;
+	uf.BdotH = 1.0-d;
 
 	return uf;
 }
