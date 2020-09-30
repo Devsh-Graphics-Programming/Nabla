@@ -220,6 +220,12 @@ mat2x3 bsdf_data_decodeIoR(in bsdf_data_t data, in uint op)
 		ior[0] = vec3(uintBitsToFloat(data.data[3].x));
 	} else
 #endif
+#ifdef OP_THINDIELECTRIC
+		if (op == OP_THINDIELECTRIC) {
+			ior[0] = vec3(uintBitsToFloat(data.data[3].x));
+		}
+		else
+#endif
 #ifdef OP_COATING
 	if (op==OP_COATING) {
 		ior[0] = vec3(unpackHalf2x16(data.data[3].x).y);
