@@ -449,7 +449,7 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
             const float eta = current->dielectric.intIOR/current->dielectric.extIOR;
             _IRR_DEBUG_BREAK_IF(eta==1.f);
             if (eta==1.f)
-                os::Printer::log("WARNING: Dielectric with IoR=1.0!", current->id, ELL_WARNING);
+                os::Printer::log("WARNING: Dielectric with IoR=1.0!", current->id, ELL_ERROR);
 
             auto& refl = nextSym->children[0];
             refl = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>();
