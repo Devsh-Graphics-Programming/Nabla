@@ -192,9 +192,12 @@ bxdf_eval_t runEvalStream(in instr_stream_t stream, in vec3 L)
 		if (
 #ifdef OP_SET_GEOM_NORMAL
 			op==OP_SET_GEOM_NORMAL
+#ifdef OP_BUMPMAP
+			||
+#endif
 #endif
 #ifdef OP_BUMPMAP
-			|| op==OP_BUMPMAP
+			op==OP_BUMPMAP
 #endif
 		) {
 			s = irr_glsl_createLightSample(L, currInteraction);

@@ -165,7 +165,7 @@ vec3 irr_glsl_beckmann_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSam
     }
     else
     {
-        pdf = 0.0;
+        pdf = irr_glsl_beckmann_pdf(interaction, _cache, a2);
         return vec3(0.0);
     }
 }
@@ -202,7 +202,7 @@ vec3 irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_Li
     }
     else
     {
-        pdf = 0.0;
+        pdf = irr_glsl_beckmann_pdf(interaction, _cache, ax, ax*ax, ay, ay*ay);
         return vec3(0.0);
     }
 }

@@ -188,7 +188,7 @@ vec3 irr_glsl_ggx_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample _
     }
     else
     {
-        pdf = 0.0;
+        pdf = irr_glsl_ggx_pdf(interaction,_cache,a2);
         return vec3(0.0);
     }
 }
@@ -230,7 +230,7 @@ vec3 irr_glsl_ggx_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSa
     }
     else
     {
-        pdf = 0.0;
+        pdf = irr_glsl_ggx_pdf(interaction, _cache, ax, ay, ax*ax, ay*ay);
         return vec3(0.0);
     }
 }
