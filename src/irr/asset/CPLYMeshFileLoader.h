@@ -1,6 +1,7 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
-// This file is part of the "Nabla Engine".
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
 #ifndef __C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 #define __C_PLY_MESH_FILE_LOADER_H_INCLUDED__
