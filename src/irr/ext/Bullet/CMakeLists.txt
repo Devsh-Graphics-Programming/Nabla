@@ -7,17 +7,17 @@ file(GLOB_RECURSE BULLETCOLLISION_H ${BULLET_INCLUDE_PATH}/BulletCollision/*.h)
 file(GLOB_RECURSE BULLETDYNAMICS_H ${BULLET_INCLUDE_PATH}/BulletDynamics/*.h)
 file(GLOB_RECURSE LINEARMATH_H ${BULLET_INCLUDE_PATH}/LinearMath/*.h)
 
-
+set(IRR_EXT_INTERNAL_INCLUDE_DIR "../../../../include/irr/ext/Bullet")
 
 set(IRR_EXT_BULLET_H
   ${BULLETCOLLISION_H}
   ${BULLETDYNAMICS_H}
   ${LINEARMATH_H}
-  BulletUtility.h 
-  CDebugRender.h 
-  CInstancedMotionState.h
-  CPhysicsWorld.h
-  IMotionStateBase.h
+  ${IRR_EXT_INTERNAL_INCLUDE_DIR}/BulletUtility.h 
+  ${IRR_EXT_INTERNAL_INCLUDE_DIR}/CDebugRender.h 
+  ${IRR_EXT_INTERNAL_INCLUDE_DIR}/CInstancedMotionState.h
+  ${IRR_EXT_INTERNAL_INCLUDE_DIR}/CPhysicsWorld.h
+  ${IRR_EXT_INTERNAL_INCLUDE_DIR}/IMotionStateBase.h
 )
 
 set(IRR_EXT_BULLET_SRC

@@ -1,25 +1,26 @@
 include(../../../../cmake/common.cmake)
+set(IRR_EXT_INTERNAL_INCLUDE_DIR "../../../../include/irr/ext/MitsubaLoader")
 
 
 set(IRR_EXT_MITSUBA_LOADER_H
-	../../../../include/irr/ext/MitsubaLoader/PropertyElement.h
-	../../../../include/irr/ext/MitsubaLoader/IElement.h
-	../../../../include/irr/ext/MitsubaLoader/CMitsubaMetadata.h
-	../../../../include/irr/ext/MitsubaLoader/CElementIntegrator.h
-	../../../../include/irr/ext/MitsubaLoader/CElementSensor.h
-	../../../../include/irr/ext/MitsubaLoader/CElementFilm.h
-	../../../../include/irr/ext/MitsubaLoader/CElementRFilter.h
-	../../../../include/irr/ext/MitsubaLoader/CElementSampler.h
-	../../../../include/irr/ext/MitsubaLoader/CElementTransform.h
-	../../../../include/irr/ext/MitsubaLoader/CElementShape.h
-	../../../../include/irr/ext/MitsubaLoader/CElementBSDF.h
-	../../../../include/irr/ext/MitsubaLoader/CElementTexture.h
-	../../../../include/irr/ext/MitsubaLoader/CElementEmitter.h
-	../../../../include/irr/ext/MitsubaLoader/CElementFactory.h
-	../../../../include/irr/ext/MitsubaLoader/CGlobalMitsubaMetadata.h
-	../../../../include/irr/ext/MitsubaLoader/ParserUtil.h
-	../../../../include/irr/ext/MitsubaLoader/CSerializedLoader.h
-	../../../../include/irr/ext/MitsubaLoader/CMitsubaLoader.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/PropertyElement.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/IElement.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaMetadata.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementIntegrator.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementSensor.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementFilm.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementRFilter.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementSampler.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementTransform.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementShape.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementBSDF.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementTexture.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementEmitter.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementFactory.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CGlobalMitsubaMetadata.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/ParserUtil.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CSerializedLoader.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaLoader.h
 )
 
 set(IRR_EXT_MITSUBA_LOADER_SRC

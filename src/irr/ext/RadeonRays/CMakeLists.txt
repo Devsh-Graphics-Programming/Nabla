@@ -1,8 +1,8 @@
-include(../../cmake/common.cmake)
-
+include(../../../../cmake/common.cmake)
+set(IRR_EXT_INTERNAL_INCLUDE_DIR "../../../../include/irr/ext/RadeonRays")
 
 set(IRR_EXT_RADEON_RAYS_H
-	RadeonRays.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/RadeonRays.h
 )
 
 set(IRR_EXT_RADEON_RAYS_SRC

@@ -1,12 +1,12 @@
-include(../../cmake/common.cmake)
-
+include(../../../../cmake/common.cmake)
+set(IRR_EXT_INTERNAL_INCLUDE_DIR "../../../../include/irr/ext/OptiX")
 
 set(IRR_EXT_OPTIX_H
-	SbtRecord.h
-	IModule.h
-	IContext.h
-	IDenoiser.h
-	Manager.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/SbtRecord.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/IModule.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/IContext.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/IDenoiser.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/Manager.h
 )
 
 set(IRR_EXT_OPTIX_SRC

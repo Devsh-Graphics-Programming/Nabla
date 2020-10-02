@@ -1,12 +1,13 @@
-include(../../cmake/common.cmake)
+include(../../../../cmake/common.cmake)
 update_git_submodule(./stb)
+set(IRR_EXT_INTERNAL_INCLUDE_DIR "../../../../include/irr/ext/CEGUI")
 
 
 set(IRR_EXT_CEGUI_H
-  ExtCEGUI.h
-	CEGUIOpenGLState.h
-	CEGUIOpenGLClip.h
-	Helpers.h
+  ${IRR_EXT_INTERNAL_INCLUDE_DIR}/ExtCEGUI.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CEGUIOpenGLState.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CEGUIOpenGLClip.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/Helpers.h
 )
 
 set(IRR_EXT_CEGUI_SRC
