@@ -358,6 +358,15 @@ macro(irr_target_link_gli _trgt)
 	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
 endmacro()
+# simdjson
+macro(irr_target_link_simdjson _trgt)
+	add_dependencies(${_trgt} simdjson)
+	target_link_libraries(${_trgt} INTERFACE
+		simdjson
+	)
+	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/simdjson)
+	set_target_properties(simdjson PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endmacro()
 
 add_library(Irrlicht STATIC
 	${IRRLICHT_SRCS_COMMON}
@@ -385,6 +394,7 @@ if(_IRR_COMPILE_WITH_GLI_)
 	irr_target_link_gli(Irrlicht)
 endif()
 irr_target_include_parallel_hashmap(Irrlicht)
+irr_target_link_simdjson(Irrlicht)
 
 target_link_libraries(Irrlicht INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
@@ -496,3 +506,4 @@ irr_install_lib(SPIRV-Tools-opt)
 irr_install_lib(OGLCompiler)
 irr_install_lib(OSDependent)
 irr_install_lib(zlibstatic)
+irr_install_lib(simdjson)

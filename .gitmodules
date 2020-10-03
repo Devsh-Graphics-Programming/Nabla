@@ -97,3 +97,6 @@
 [submodule "3rdparty/volk"]
 	path = 3rdparty/volk
 	url = https://github.com/zeux/volk.git
+[submodule "3rdparty/simdjson"]
+	path = 3rdparty/simdjson
+	url = https://github.com/simdjson/simdjson

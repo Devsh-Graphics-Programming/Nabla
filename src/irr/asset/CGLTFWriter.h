@@ -12,6 +12,12 @@ namespace irr
 {
 	namespace asset
 	{
+		//! glTF Writer capable of writing .gltf files
+		/*
+			glTF bridges the gap between 3D content creation tools and modern 3D applications
+			by providing an efficient, extensible, interoperable format for the transmission and loading of 3D content.
+		*/
+
 		class CGLTFWriter final : public asset::IAssetWriter
 		{
 			protected:

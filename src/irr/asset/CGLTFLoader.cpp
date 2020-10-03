@@ -6,6 +6,7 @@
 
 #ifdef _IRR_COMPILE_WITH_GLTF_LOADER_
 
+#include "simdjson/singleheader/simdjson.h"
 #include "os.h"
 
 namespace irr
@@ -20,7 +21,9 @@ namespace irr
 
 		asset::SAssetBundle CGLTFLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
-			// TODO: implementation
+			simdjson::dom::parser parser;
+			simdjson::dom::element tweets = parser.load(_file->getFileName().c_str());
+
 			return {};
 		}
 	}

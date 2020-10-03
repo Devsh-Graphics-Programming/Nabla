@@ -14,7 +14,6 @@
 
 include(../cmake/common.cmake)
 
-
 # mandatory
 update_git_submodule(./SDL2)
 update_git_submodule(./volk)
@@ -36,6 +35,7 @@ update_git_submodule(./libjpeg) # soon to be killed
 update_git_submodule(./parallel-hashmap)
 # exceptions that get automatically cloned
 update_git_submodule(./glm)
+update_git_submodule(./simdjson)
 update_git_submodule(./freetype2)
 update_git_submodule(./portable-file-dialogs)
 
@@ -93,6 +93,18 @@ set(LIBSAMPLERATE_SHARED ON)
 set(WAYLAND_SHARED ON)
 set(X11_SHARED ON)
 add_subdirectory(SDL2 SDL2 EXCLUDE_FROM_ALL)
+
+# simdjson
+set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
+set(_OLD_BUILD_TESTING ${BUILD_TESTING})
+set(BUILD_SHARED_LIBS OFF)
+set(BUILD_STATIC_LIBS OFF)
+set(BUILD_TESTING OFF)
+add_subdirectory(simdjson simdjson EXCLUDE_FROM_ALL)
+set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
+set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
+set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 
 # zlib (target is zlibstatic)
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
