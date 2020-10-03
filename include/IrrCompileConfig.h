@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_COMPILE_CONFIG_H_INCLUDED__
-#define __IRR_COMPILE_CONFIG_H_INCLUDED__
+#ifndef __NBL_COMPILE_CONFIG_H_INCLUDED__
+#define __NBL_COMPILE_CONFIG_H_INCLUDED__
 
 //! Irrlicht SDK Version
 #define IRRLICHTBAW_VERSION_MAJOR 0

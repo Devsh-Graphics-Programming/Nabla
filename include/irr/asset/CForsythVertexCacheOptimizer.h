@@ -22,8 +22,8 @@
 
 // Implementation taken from https://github.com/GarageGames/Torque3D and customized to Irrlicht
 
-#ifndef __C_FORSYTH_VERTEX_CACHE_OPTIMIZER_H_INCLUDED__
-#define __C_FORSYTH_VERTEX_CACHE_OPTIMIZER_H_INCLUDED__
+#ifndef __NBL_FORSYTH_VERTEX_CACHE_OPTIMIZER_H_INCLUDED__
+#define __NBL_FORSYTH_VERTEX_CACHE_OPTIMIZER_H_INCLUDED__
 
 #include <cstdint>
 #include <cstring>

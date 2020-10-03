@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
-#define __IRR_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
+#ifndef __NBL_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
+#define __NBL_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
 
 
 #include "irr/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"

@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_EVENT_DEFERRED_HANDLER_H__
-#define __IRR_EVENT_DEFERRED_HANDLER_H__
+#ifndef __NBL_IRR_EVENT_DEFERRED_HANDLER_H__
+#define __NBL_IRR_EVENT_DEFERRED_HANDLER_H__
 
 
 #include "irr/core/Types.h"

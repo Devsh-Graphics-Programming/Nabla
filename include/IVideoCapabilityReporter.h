@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_VIDEO_CAPABILITY_REPORTER_H_INCLUDED__
-#define __IRR_I_VIDEO_CAPABILITY_REPORTER_H_INCLUDED__
+#ifndef __NBL_I_VIDEO_CAPABILITY_REPORTER_H_INCLUDED__
+#define __NBL_I_VIDEO_CAPABILITY_REPORTER_H_INCLUDED__
 
 #include <string>
 

@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __I_EVENT_RECEIVER_H_INCLUDED__
-#define __I_EVENT_RECEIVER_H_INCLUDED__
+#ifndef __NBL_I_EVENT_RECEIVER_H_INCLUDED__
+#define __NBL_I_EVENT_RECEIVER_H_INCLUDED__
 
 #include "ILogger.h"
 #include "Keycodes.h"

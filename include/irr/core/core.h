@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_CORE_H_INCLUDED__
-#define __IRR_CORE_H_INCLUDED__
+#ifndef __NBL_IRR_CORE_H_INCLUDED__
+#define __NBL_IRR_CORE_H_INCLUDED__
 
 //overarching includes (compiler tricks mostly)
 #include "IrrCompileConfig.h" // what's this still doing here?

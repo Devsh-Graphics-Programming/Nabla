@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __I_GPU_SKINNED_MESH_H_INCLUDED__
-#define __I_GPU_SKINNED_MESH_H_INCLUDED__
+#ifndef __NBL_I_GPU_SKINNED_MESH_H_INCLUDED__
+#define __NBL_I_GPU_SKINNED_MESH_H_INCLUDED__
 
 #include "irr/core/core.h"
 #include "irr/video/IGPUMesh.h"

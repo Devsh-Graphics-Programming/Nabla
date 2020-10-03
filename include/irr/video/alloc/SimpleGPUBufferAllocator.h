@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_SIMPLE_GPU_BUFFER_ALLOCATOR_H__
-#define __IRR_SIMPLE_GPU_BUFFER_ALLOCATOR_H__
+#ifndef __NBL_SIMPLE_GPU_BUFFER_ALLOCATOR_H__
+#define __NBL_SIMPLE_GPU_BUFFER_ALLOCATOR_H__
 
 #include "irr/core/alloc/address_allocator_traits.h"
 #include "irr/video/alloc/GPUMemoryAllocatorBase.h"

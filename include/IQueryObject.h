@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __I_QUERY_OBJECT_H_INCLUDED__
-#define __I_QUERY_OBJECT_H_INCLUDED__
+#ifndef __NBL_I_QUERY_OBJECT_H_INCLUDED__
+#define __NBL_I_QUERY_OBJECT_H_INCLUDED__
 
 #include "irr/core/Types.h"
 #include "irr/core/IReferenceCounted.h"

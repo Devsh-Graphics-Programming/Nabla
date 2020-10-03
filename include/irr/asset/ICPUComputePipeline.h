@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_CPU_COMPUTE_PIPELINE_H_INCLUDED__
-#define __IRR_I_CPU_COMPUTE_PIPELINE_H_INCLUDED__
+#ifndef __NBL_I_CPU_COMPUTE_PIPELINE_H_INCLUDED__
+#define __NBL_I_CPU_COMPUTE_PIPELINE_H_INCLUDED__
 
 #include "irr/asset/IComputePipeline.h"
 #include "irr/asset/ICPUPipelineLayout.h"

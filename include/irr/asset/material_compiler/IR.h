@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_MATERIAL_COMPILER_IR_H_INCLUDED__
-#define __IRR_MATERIAL_COMPILER_IR_H_INCLUDED__
+#ifndef __NBL_MATERIAL_COMPILER_IR_H_INCLUDED__
+#define __NBL_MATERIAL_COMPILER_IR_H_INCLUDED__
 
 #include <irr/core/IReferenceCounted.h>
 #include <irr/core/memory/refctd_dynamic_array.h>

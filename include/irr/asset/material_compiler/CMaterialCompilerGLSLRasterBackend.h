@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __C_MITSUBA_MATERIAL_COMPILER_GLSL_RASTER_BACKEND_H_INCLUDED__
-#define __C_MITSUBA_MATERIAL_COMPILER_GLSL_RASTER_BACKEND_H_INCLUDED__
+#ifndef __NBL_C_MITSUBA_MATERIAL_COMPILER_GLSL_RASTER_BACKEND_H_INCLUDED__
+#define __NBL_C_MITSUBA_MATERIAL_COMPILER_GLSL_RASTER_BACKEND_H_INCLUDED__
 
 #include <irr/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.h>
 

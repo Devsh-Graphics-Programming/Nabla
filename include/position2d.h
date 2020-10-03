@@ -6,8 +6,8 @@
 //! As of Irrlicht 1.6, position2d is a synonym for vector2d.
 /** You should consider position2d to be deprecated, and use vector2d by preference. */
 
-#ifndef __IRR_POSITION_H_INCLUDED__
-#define __IRR_POSITION_H_INCLUDED__
+#ifndef __NBL_POSITION_H_INCLUDED__
+#define __NBL_POSITION_H_INCLUDED__
 
 #include "vector2d.h"
 

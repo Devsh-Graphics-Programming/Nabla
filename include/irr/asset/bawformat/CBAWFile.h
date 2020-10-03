@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_BAW_FILE_H_INCLUDED__
-#define __IRR_BAW_FILE_H_INCLUDED__
+#ifndef __NBL_BAW_FILE_H_INCLUDED__
+#define __NBL_BAW_FILE_H_INCLUDED__
 
 
 #include "aabbox3d.h"

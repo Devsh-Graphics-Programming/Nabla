@@ -14,8 +14,8 @@
   See README.md for all mentions of 3rd party software used.
 */
 
-#ifndef __IRRLICHT_H_INCLUDED__
-#define __IRRLICHT_H_INCLUDED__
+#ifndef __NABLA_H_INCLUDED__
+#define __NABLA_H_INCLUDED__
 
 // core lib
 #include "irr/core/core.h"

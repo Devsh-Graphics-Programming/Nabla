@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_HETEROGENOUS_MEMORY_ADDRESS_ALLOCATOR_ADAPTOR_H___
-#define __IRR_HETEROGENOUS_MEMORY_ADDRESS_ALLOCATOR_ADAPTOR_H___
+#ifndef __NBL_HETEROGENOUS_MEMORY_ADDRESS_ALLOCATOR_ADAPTOR_H___
+#define __NBL_HETEROGENOUS_MEMORY_ADDRESS_ALLOCATOR_ADAPTOR_H___
 
 #include "irr/core/Types.h"
 #include "irr/core/alloc/address_allocator_traits.h"

@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __I_DRIVER_FENCE_H_INCLUDED__
-#define __I_DRIVER_FENCE_H_INCLUDED__
+#ifndef __NBL_I_DRIVER_FENCE_H_INCLUDED__
+#define __NBL_I_DRIVER_FENCE_H_INCLUDED__
 
 #include <chrono>
 #include "irr/core/BaseClasses.h"
