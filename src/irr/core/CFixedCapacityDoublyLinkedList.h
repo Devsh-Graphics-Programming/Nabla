@@ -46,6 +46,10 @@ namespace irr {
 				this->next = std::move(other.next);
 				return *this;
 			}
+			~Snode()
+			{
+
+			}
 		};
 
 
@@ -61,12 +65,16 @@ namespace irr {
 			uint32_t cap;
 
 		public:
-			_IRR_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = 0xdeadbeefu;
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = PoolAddressAllocator<uint32_t>::invalid_address;
 
 			//get node at iterator
 			inline Snode<Value>* get(uint32_t address)
 			{
 				return (m_array+address);
+			}
+			inline Snode<Value>* get(const uint32_t address) const
+			{
+				return (m_array + address);;
 			}
 
 			//remove the last element in the list
@@ -76,8 +84,9 @@ namespace irr {
 				auto backNode = getBack();
 				if (backNode->prev != invalid_iterator)
 					get(backNode->prev)->next = invalid_iterator;
-				uint32_t temp = m_back;
+			    uint32_t temp = m_back;
 				m_back = backNode->prev;
+				get(temp)->~Snode<Value>();
 				alloc.free_addr(temp, 1u);
 			}
 
@@ -86,21 +95,23 @@ namespace irr {
 			{
 				uint32_t addr = alloc.alloc_addr(1u, 1u);
 				assert(addr < cap);
-				m_array[addr] = *(new Snode<Value>(std::move(val)));
-				auto n = m_array+addr;
+				Snode<Value>* n =  new(m_array+addr) Snode<Value>(std::move(val));
+				m_array[addr] = *n;
 				n->prev = invalid_iterator;
 				n->next = m_begin;
 
 				if (m_begin != invalid_iterator)
 					getBegin()->prev = addr;
+				if (m_back == invalid_iterator)
+					m_back = addr;
 				m_begin = addr;
 			}
 
 			//get node ptr of the first item in the list
-			inline Snode<Value>* getBegin() { return &(m_array[m_begin]); }
+			inline Snode<Value>* getBegin() { return m_array+m_begin; }
 
 			//get node ptr of the last item in the list
-			inline Snode<Value>* getBack() { return &(m_array[m_back]); }
+			inline Snode<Value>* getBack() { return m_array+m_back; }
 
 			//get index/iterator of the first element
 			inline uint32_t getFirstAddress() { return m_begin; }
@@ -114,21 +125,21 @@ namespace irr {
 					get(node->prev)->next = node->next;
 				if (node->next != invalid_iterator)
 					get(node->next)->prev = node->prev;
-				//node->~Snode<Value>();	destructor not defined
+				node->~Snode<Value>();
 				alloc.free_addr(nodeAddr, 1u);
 			}
 
 			//move a node at nodeAddr to the front of the list
 			inline void moveToFront(uint32_t nodeAddr)
 			{
-				if (m_begin == nodeAddr) return;
+				if (m_begin == nodeAddr || nodeAddr == invalid_iterator ) return;
 				getBegin()->prev = nodeAddr;
 
 				auto node = get(nodeAddr);
 				if (node->next != invalid_iterator)
 					get(node->next)->prev = node->prev;
 				if (node->prev != invalid_iterator)
-					get(node->next)->prev = node->prev;
+					get(node->prev)->next = node->next;
 				node->next = m_begin;
 				node->prev = invalid_iterator;
 				m_begin = nodeAddr;
@@ -146,7 +157,7 @@ namespace irr {
 			~DoublyLinkedList()
 			{
 				_IRR_ALIGNED_FREE(reservedSpace);
-				free(m_array);
+				delete[] m_array;
 
 			}
 		};

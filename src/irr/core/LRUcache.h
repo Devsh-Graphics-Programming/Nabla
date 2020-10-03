@@ -6,12 +6,13 @@
 namespace irr {
 	namespace core {
 
-//Key-Value LRU cache
+//Key-Value Least Recently Used cache
 //Stores fixed size amount of elements. 
-//When inserting new, prevents overflow by removing the least recently used element.
+//When the cache is full inserting will remove the least used entry
 template<typename Key, typename Value, typename MapHash = std::hash<Key>, typename MapEquals = std::equal_to<Key>>
 class LRUcache
 {
+	typedef LRUcache<Key, Value, MapHash, MapEquals> base_t;
 	typedef std::pair<Key, Value> list_template_t;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = Snode<list_template_t>::invalid_iterator;
 
@@ -22,15 +23,43 @@ class LRUcache
 	//get iterator associated with a key, or invalid_iterator if key is not within the cache
 	inline uint32_t common_peek(Key& key)
 	{
-		if (m_shortcut_map.find(key) != m_shortcut_map.end())
-		{
-			return m_shortcut_map[key];
-		}
+		auto i = m_shortcut_map.find(key);
+		if (i != m_shortcut_map.end())
+			return i->second;
 		return invalid_iterator;
 	}
+	inline const uint32_t common_peek(const Key& key) const 
+	{
+		return const_cast<base_t*>(this)->common_peek(const_cast<Key&>(key));
+	}
 
+	inline void common_erase(uint32_t iterator, Key& key)
+	{
+		m_shortcut_map.erase(key);
+		m_list.erase(iterator);
+	}
+
+	template<typename K,typename V>
+	inline void common_insert(K&& k, V&& v)
+	{
+		auto iterator = m_shortcut_map.find(k);
+		if (iterator == m_shortcut_map.end())
+		{
+			if (m_shortcut_map.size() >= m_capacity)
+			{
+				m_shortcut_map.erase(m_list.getBack()->data.first);
+				m_list.popBack();
+			}
+			m_list.pushFront(std::make_pair(std::forward<K>(k), std::forward<V>(v)));
+			m_shortcut_map[k] = m_list.getFirstAddress();
+		}
+		else
+		{
+			m_list.get(iterator->second)->data.second = std::forward<V>(v);
+			m_list.moveToFront(iterator->second);
+		}
+	}
 public:
-
 	//Constructor
 	inline LRUcache(const uint32_t capacity) : m_capacity(capacity), m_shortcut_map(), m_list(capacity)
 	{
@@ -52,76 +81,48 @@ public:
 	}
 #endif // _IRR_DEBUG
 
-	//add element to the cache, or move to the front if key exists. In case of the latter, it doesnt update the value
-	inline void insert(Key& k, const Value& v)
-	{
-		auto iterator = m_shortcut_map.find(k);
-		if (iterator == m_shortcut_map.end())
-		{
-			if (m_shortcut_map.size() >= m_capacity)
-			{
-				m_shortcut_map.erase(m_list.getBack()->data.first);
-				m_list.popBack();
-			}
-			m_list.pushFront(std::pair<Key, Value>(k, v));
-			m_shortcut_map[k] = m_list.getFirstAddress();
-		}
-		else
-		{
-			m_list.get(iterator->second)->data = std::pair<Key, Value>(k, v);
-			m_list.moveToFront(iterator->second);
-		}
+	//insert an element into the cache, or update an existing one with the same key
+	inline void insert(Key&& k, Value&& v) { common_insert(std::move(k), std::move(v)); }
+	inline void insert(Key&& k, const Value& v) { common_insert(std::move(k), v); }
+	inline void insert(const Key& k, Value&& v) { common_insert(k, std::move(v)); }
+	inline void insert(const Key& k, const Value& v) { common_insert(k, v); }
 
-	}
-	inline void insert(Key& k, Value&& v)
-	{
-		auto iterator = m_shortcut_map.find(k);
-		if (iterator == m_shortcut_map.end())
-		{
-			if (m_shortcut_map.size() >= m_capacity)
-			{
-				m_shortcut_map.erase(m_list.getBack()->data.first);
-				m_list.popBack();
-			}
-			m_list.pushFront(std::pair<Key, Value>(k, std::move(v)));
-			m_shortcut_map[k] = m_list.getFirstAddress();
-
-		}
-		else
-		{
-			m_list.get(iterator->second)->data = std::pair<Key, Value>(k, std::move(v));
-			m_list.moveToFront(iterator->second);
-		}
-	}
-	//get the value from the cache, or null if key doesnt exist in cache or has been removed. Moves the element to the front of the cache.
-	inline Value get(Key& key)
+	//get the value from cache at an associated Key, or nullptr if Key is not contained within cache. Marks the returned value as most recently used
+	inline Value* get(Key& key)
 	{
 		auto i = common_peek(key);
-		if (i != invalid_iterator)
-		{
+		if (i == invalid_iterator) return nullptr;
+		else {
 			m_list.moveToFront(i);
 			return m_list.get(i)->data.second;
 		}
-		return nullptr;
+	}
+	inline const Value* get(const Key& key) const
+	{
+		return const_cast<base_t*>(this)->get(const_cast<Key&>(key));
 	}
 
-	//get value without reordering the list
-	inline Value peek(Key& key)
+	//get the value from cache at an associated Key, or nullptr if Key is not contained within cache. Does not alter the value use order
+	inline Value* peek(Key& key) const
 	{
 		uint32_t i = common_peek(key);
 		if (i == invalid_iterator) return nullptr;
-		else return  m_list.get(i)->data.second;
+		else return &(m_list.get(i)->data.second);
 	}
-
+	inline const Value* peek(const Key& key) const
+	{
+		return const_cast<base_t*>(this)->peek(const_cast<Key&>(key));
+	}
 	//remove element at key if present
 	inline void erase(Key& key)
 	{
 		uint32_t i = common_peek(key);
 		if (i != invalid_iterator)
-		{
-			m_shortcut_map.erase(key);
-			m_list.erase(i);
-		}
+			common_erase(i, key);
+	}
+	inline void erase(const Key& key) const
+	{
+		const_cast<base_t*>(this)->erase(const_cast<Key&>(key));
 	}
 };
 
