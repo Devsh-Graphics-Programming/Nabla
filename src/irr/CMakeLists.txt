@@ -56,6 +56,8 @@ option(_IRR_COMPILE_WITH_OPENEXR_LOADER_ "Compile with OpenEXR Loader" ON)
 option(_IRR_COMPILE_WITH_OPENEXR_WRITER_ "Compile with OpenEXR Writer" ON)
 option(_IRR_COMPILE_WITH_GLI_LOADER_ "Compile with GLI Loader" ON)
 option(_IRR_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
+option(_IRR_COMPILE_WITH_GLTF_LOADER_ "Compile with GLTF Loader" ON)
+option(_IRR_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" ON)
 
 irr_get_conf_dir(IRRLICHT_CONF_DIR_DEBUG Debug)
 irr_get_conf_dir(IRRLICHT_CONF_DIR_RELEASE Release)
@@ -157,6 +159,7 @@ set(IRR_ASSET_SOURCES
 
 # Mesh loaders
 	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshFileLoader.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CGLTFLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/COBJMeshFileLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshFileLoader.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshFileLoader.cpp
@@ -164,6 +167,7 @@ set(IRR_ASSET_SOURCES
 
 # Mesh writers
 	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshWriter.cpp
+	${IRR_ROOT_PATH}/src/irr/asset/CGLTFWriter.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshWriter.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshWriter.cpp
 

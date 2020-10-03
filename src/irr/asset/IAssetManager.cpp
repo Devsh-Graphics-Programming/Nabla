@@ -23,6 +23,10 @@
 #include "irr/asset/CBAWMeshFileLoader.h"
 #endif
 
+#ifdef _IRR_COMPILE_WITH_GLTF_LOADER_
+#include "irr/asset/CGLTFLoader.h"
+#endif
+
 #ifdef _IRR_COMPILE_WITH_JPG_LOADER_
 #include "irr/asset/CImageLoaderJPG.h"
 #endif
@@ -53,6 +57,10 @@
 
 #ifdef _IRR_COMPILE_WITH_BAW_WRITER_
 #include"irr/asset/CBAWMeshWriter.h"
+#endif
+
+#ifdef _IRR_COMPILE_WITH_GLTF_WRITER_
+#include"irr/asset/CGLTFWriter.h"
 #endif
 
 #ifdef _IRR_COMPILE_WITH_TGA_WRITER_
@@ -135,6 +143,9 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _IRR_COMPILE_WITH_BAW_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
 #endif
+#ifdef _IRR_COMPILE_WITH_GLTF_LOADER_
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CGLTFLoader>());
+#endif
 #ifdef _IRR_COMPILE_WITH_JPG_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderJPG>());
 #endif
@@ -155,6 +166,9 @@ void IAssetManager::addLoadersAndWriters()
 
 #ifdef _IRR_COMPILE_WITH_BAW_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CBAWMeshWriter>(getFileSystem()));
+#endif
+#ifdef _IRR_COMPILE_WITH_GLTF_WRITER_
+    addAssetWriter(core::make_smart_refctd_ptr<asset::CGLTFWriter>());
 #endif
 #ifdef _IRR_COMPILE_WITH_PLY_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CPLYMeshWriter>());
