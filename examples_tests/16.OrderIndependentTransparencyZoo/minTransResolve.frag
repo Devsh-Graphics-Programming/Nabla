@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #version 420 core
 layout(binding = 0) uniform sampler2DMS tex0; //color
 layout(binding = 1) uniform sampler2DMS tex1; //depth

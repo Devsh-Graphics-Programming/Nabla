@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #define COMPUTE_WG_SIZE 256u
 layout(local_size_x=COMPUTE_WG_SIZE) in;
 
