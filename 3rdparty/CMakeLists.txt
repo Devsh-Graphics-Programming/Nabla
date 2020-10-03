@@ -36,6 +36,12 @@ update_git_submodule(./parallel-hashmap)
 # exceptions that get automatically cloned
 update_git_submodule(./glm)
 update_git_submodule(./simdjson)
+
+option(NBL_BUILD_GLTF_TEST "Build glTF example and provide glTF resources" OFF)
+if (NBL_BUILD_GLTF_TEST)
+update_git_submodule(./glTFSampleModels)
+endif()
+
 update_git_submodule(./freetype2)
 update_git_submodule(./portable-file-dialogs)
 

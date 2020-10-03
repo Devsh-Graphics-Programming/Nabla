@@ -100,3 +100,6 @@
 [submodule "3rdparty/simdjson"]
 	path = 3rdparty/simdjson
 	url = https://github.com/simdjson/simdjson
+[submodule "glTFSampleModels"]
+	path = 3rdparty/glTFSampleModels
+	url = https://github.com/KhronosGroup/glTF-Sample-Models

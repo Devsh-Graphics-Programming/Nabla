@@ -34,7 +34,8 @@ int main()
     auto* fileSystem = assetManager->getFileSystem();
 
     asset::IAssetLoader::SAssetLoadParams loadingParams;
-    auto meshes_bundle = assetManager->getAsset("C:/Users/devsh/OneDrive/Pulpit/glTF-Sample-Models-master/2.0/BoxTextured/glTF/BoxTextured.gltf", loadingParams);
+
+    auto meshes_bundle = assetManager->getAsset("../../../3rdparty/glTFSampleModels/2.0/BoxTextured/glTF/BoxTextured.gltf", loadingParams);
     assert(!meshes_bundle.isEmpty());
     auto mesh = meshes_bundle.getContents().begin()[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());

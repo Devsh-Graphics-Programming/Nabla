@@ -36,6 +36,13 @@ namespace irr
 				uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
 				asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+
+			private:
+
+				struct CGLTFHeader
+				{
+					uint32_t version;
+				} header;
 		};
 	}
 }
