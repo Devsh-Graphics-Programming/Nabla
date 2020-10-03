@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __C_SCENE_NODE_ANIMATOR_CAMERA_FPS_H_INCLUDED__
-#define __C_SCENE_NODE_ANIMATOR_CAMERA_FPS_H_INCLUDED__
+#ifndef __NBL_C_SCENE_NODE_ANIMATOR_CAMERA_FPS_H_INCLUDED__
+#define __NBL_C_SCENE_NODE_ANIMATOR_CAMERA_FPS_H_INCLUDED__
 
 #include "ISceneNodeAnimatorCameraFPS.h"
 #include "vector2d.h"

@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __C_SCENE_NODE_ANIMATOR_FOLLOW_SPLINE_H_INCLUDED__
-#define __C_SCENE_NODE_ANIMATOR_FOLLOW_SPLINE_H_INCLUDED__
+#ifndef __NBL_C_SCENE_NODE_ANIMATOR_FOLLOW_SPLINE_H_INCLUDED__
+#define __NBL_C_SCENE_NODE_ANIMATOR_FOLLOW_SPLINE_H_INCLUDED__
 
 #include "ISceneNode.h"
 

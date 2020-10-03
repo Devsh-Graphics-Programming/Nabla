@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __IRR_STL_MESH_WRITER_H_INCLUDED__
-#define __IRR_STL_MESH_WRITER_H_INCLUDED__
+#ifndef __NBL_STL_MESH_WRITER_H_INCLUDED__
+#define __NBL_STL_MESH_WRITER_H_INCLUDED__
 
 #include "irr/asset/IAssetWriter.h"
 #include "irr/asset/ICPUMesh.h"

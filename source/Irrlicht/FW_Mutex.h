@@ -5,8 +5,8 @@
 #include "stdint.h"
 #include "IrrCompileConfig.h"
 
-#ifndef _FW_MUTEX_H_
-#define _FW_MUTEX_H_
+#ifndef __NBL_FW_MUTEX_H_
+#define __NBL_FW_MUTEX_H_
 
 #include "IrrCompileConfig.h"
 //#define FW_MUTEX_H_CXX11_IMPL
