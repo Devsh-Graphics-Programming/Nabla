@@ -6,8 +6,6 @@
 using namespace irr;
 using namespace core;
 
-//TODO: merge examples nr. 10, 34 and old 43 into this one, then rename this example to "10. Allocator_tests"
-
 #define ALLOCATOR_TEST
 //#define ALLOCATOR_TEST_OLD
 //#define ADDRESS_ALLOCATOR_TRAITS_TEST
@@ -281,6 +279,7 @@ int main()
 #endif
 
 #ifdef ALLOCATOR_TEST_OLD
+
 /*
 	Problems with GeneralPurposeallocator:
 		1. GeneralPurposeallocator is not able to allocate as much address space as it is expected to
@@ -329,6 +328,7 @@ int main()
 #endif
 
 #ifdef ADDRESS_ALLOCATOR_TRAITS_TEST
+
 int main()
 {
 	printf("SINGLE THREADED======================================================\n");
@@ -354,6 +354,7 @@ int main()
 #endif
 
 #ifdef ALLOC_PREF_TEST
+
 #define kNumHardwareInstancesX 10
 #define kNumHardwareInstancesY 20
 #define kNumHardwareInstancesZ 30
