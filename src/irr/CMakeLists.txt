@@ -58,6 +58,7 @@ option(_IRR_COMPILE_WITH_GLI_LOADER_ "Compile with GLI Loader" ON)
 option(_IRR_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
 option(_IRR_COMPILE_WITH_GLTF_LOADER_ "Compile with GLTF Loader" ON)
 option(_IRR_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" ON)
+option(_IRR_COMPILE_WITH_BIN_LOADER_ "Compile with BIN Loader" ON)
 
 irr_get_conf_dir(IRRLICHT_CONF_DIR_DEBUG Debug)
 irr_get_conf_dir(IRRLICHT_CONF_DIR_RELEASE Release)

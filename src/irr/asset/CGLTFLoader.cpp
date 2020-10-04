@@ -89,7 +89,7 @@ namespace irr
 				{
 					for (auto& buffer : value)
 					{
-						auto& byteLength = value.at_key("byteLength");
+						auto& byteLength = buffer.at_key("byteLength");
 						if (byteLength.error() != simdjson::error_code::NO_SUCH_FIELD)
 						{
 							auto byteLengthVal = byteLength.get_uint64().value();
@@ -99,10 +99,10 @@ namespace irr
 						else
 							continue;
 
-						auto& uri = value.at_key("uri");
+						auto& uri = buffer.at_key("uri");
 						if (uri.error() != simdjson::error_code::NO_SUCH_FIELD)
 						{
-							std::string_view uriBin = byteLength.get_string().value(); // TODO
+							std::string_view uriBin = uri.get_string().value();
 
 							const asset::IAssetLoader::SAssetLoadParams params;
 							auto buffer_bundle = assetManager->getAsset(rootAssetDirectory + uriBin.data(), params);
@@ -305,7 +305,7 @@ namespace irr
 				{
 					for (auto& image : value)
 					{
-						auto& uri = value.at_key("uri");
+						auto& uri = image.at_key("uri");
 						if (uri.error() != simdjson::error_code::NO_SUCH_FIELD)
 						{
 							std::string_view uriImage = uri.get_string().value();

@@ -15,9 +15,11 @@ namespace irr
 		class CBufferLoaderBIN final : public asset::IAssetLoader
 		{
 		protected:
-			~CBufferLoaderBIN();
+			virtual ~CBufferLoaderBIN() {}
 
 		public:
+			CBufferLoaderBIN() {}
+
 			bool isALoadableFileFormat(io::IReadFile* _file) const override;
 
 			const char** getAssociatedFileExtensions() const override

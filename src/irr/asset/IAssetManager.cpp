@@ -47,6 +47,10 @@
 #include "irr/asset/CGLILoader.h"
 #endif
 
+#ifdef _IRR_COMPILE_WITH_BIN_LOADER_
+#include "irr/asset/CBufferLoaderBIN.h"
+#endif
+
 #ifdef _IRR_COMPILE_WITH_STL_WRITER_
 #include "irr/asset/CSTLMeshWriter.h"
 #endif
@@ -160,6 +164,9 @@ void IAssetManager::addLoadersAndWriters()
 #endif 
 #ifdef _IRR_COMPILE_WITH_TGA_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>());
+#endif
+#ifdef _IRR_COMPILE_WITH_BIN_LOADER_
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CBufferLoaderBIN>());
 #endif
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>());
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
