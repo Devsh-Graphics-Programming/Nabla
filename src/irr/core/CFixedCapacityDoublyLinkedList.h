@@ -63,6 +63,19 @@ namespace irr {
 			uint32_t m_begin;
 			Snode<Value>* m_array;
 			uint32_t cap;
+			inline void common_delete(uint32_t address)
+			{
+				get(address)->~Snode<Value>();
+				alloc.free_addr(address, 1u);
+			}
+
+			inline void common_detach(Snode<Value>* node)
+			{
+				if (node->next != invalid_iterator)
+					get(node->next)->prev = node->prev;
+				if (node->prev != invalid_iterator)
+					get(node->prev)->next = node->next;
+			}
 
 		public:
 			_IRR_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = PoolAddressAllocator<uint32_t>::invalid_address;
@@ -70,9 +83,9 @@ namespace irr {
 			//get node at iterator
 			inline Snode<Value>* get(uint32_t address)
 			{
-				return (m_array+address);
+				return (m_array + address);
 			}
-			inline Snode<Value>* get(const uint32_t address) const
+			inline const Snode<Value>* get(const uint32_t address) const
 			{
 				return (m_array + address);;
 			}
@@ -82,12 +95,12 @@ namespace irr {
 			{
 				if (m_back == invalid_iterator)	return;
 				auto backNode = getBack();
+
 				if (backNode->prev != invalid_iterator)
 					get(backNode->prev)->next = invalid_iterator;
 			    uint32_t temp = m_back;
 				m_back = backNode->prev;
-				get(temp)->~Snode<Value>();
-				alloc.free_addr(temp, 1u);
+				common_delete(temp);
 			}
 
 			//add new item to the list. This function does not make space to store the new node. in case the list is full, popBack() needs to be called beforehand
@@ -114,19 +127,16 @@ namespace irr {
 			inline Snode<Value>* getBack() { return m_array+m_back; }
 
 			//get index/iterator of the first element
-			inline uint32_t getFirstAddress() { return m_begin; }
+			inline uint32_t getFirstAddress() const { return m_begin; } 
 
 			//remove a node at nodeAddr from the list
 			inline void erase(uint32_t nodeAddr)
 			{
 				assert(nodeAddr != invalid_iterator);
+				assert(nodeAddr < cap);
 				auto node = get(nodeAddr);
-				if (node->prev != invalid_iterator)
-					get(node->prev)->next = node->next;
-				if (node->next != invalid_iterator)
-					get(node->next)->prev = node->prev;
-				node->~Snode<Value>();
-				alloc.free_addr(nodeAddr, 1u);
+				common_detach(node);
+				common_delete(nodeAddr);
 			}
 
 			//move a node at nodeAddr to the front of the list
@@ -136,10 +146,7 @@ namespace irr {
 				getBegin()->prev = nodeAddr;
 
 				auto node = get(nodeAddr);
-				if (node->next != invalid_iterator)
-					get(node->next)->prev = node->prev;
-				if (node->prev != invalid_iterator)
-					get(node->prev)->next = node->next;
+				common_detach(node);
 				node->next = m_begin;
 				node->prev = invalid_iterator;
 				m_begin = nodeAddr;
