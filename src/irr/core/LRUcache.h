@@ -94,7 +94,7 @@ public:
 		if (i == invalid_iterator) return nullptr;
 		else {
 			m_list.moveToFront(i);
-			return m_list.get(i)->data.second;
+			return &(m_list.get(i)->data.second);
 		}
 	}
 	inline const Value* get(const Key& key) const
@@ -103,7 +103,7 @@ public:
 	}
 
 	//get the value from cache at an associated Key, or nullptr if Key is not contained within cache. Does not alter the value use order
-	inline Value* peek(Key& key) const
+	inline const Value* peek(Key& key) const
 	{
 		uint32_t i = common_peek(key);
 		if (i == invalid_iterator) return nullptr;
