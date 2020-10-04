@@ -47,15 +47,206 @@ namespace irr
 			constexpr uint8_t NORMAL_ATTRIBUTE = 3;
 
 			auto mesh = core::make_smart_refctd_ptr<CCPUMesh>();
+			auto meshBuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
+			meshBuffer->setPositionAttributeIx(POSITION_ATTRIBUTE);
+			meshBuffer->setNormalnAttributeIx(NORMAL_ATTRIBUTE);
+
 			auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 			auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 
+			auto& extensionsUsed = tweets.at_key("extensionsUsed");
+			auto& extensionsRequired = tweets.at_key("extensionsRequired");
+			auto& accessors = tweets.at_key("accessors");
+			auto& animations = tweets.at_key("animations");
+			auto& asset = tweets.at_key("asset");
+			auto& buffers = tweets.at_key("buffers");
+			auto& bufferViews = tweets.at_key("bufferViews");
+			auto& cameras = tweets.at_key("cameras");
+			auto& images = tweets.at_key("images");
+			auto& materials = tweets.at_key("materials");
+			auto& meshes = tweets.at_key("meshes");
+			auto& nodes = tweets.at_key("nodes");
+			auto& samplers = tweets.at_key("samplers");
+			auto& scene = tweets.at_key("scene");
+			auto& scenes = tweets.at_key("scenes");
+			auto& skins = tweets.at_key("skins");
+			auto& textures = tweets.at_key("textures");
+			auto& extensions = tweets.at_key("extensions");
+			auto& extras = tweets.at_key("extras");
+
+			if (bufferViews.error() != simdjson::error_code::NO_SUCH_FIELD)
+			{
+				auto& bVData = bufferViews.get_array();
+				for (size_t iteratorID = 0; iteratorID < bVData.size(); ++iteratorID)
+				{
+					auto& bufferView = bVData.at(iteratorID);
+					auto& bufferViewBufferID = bufferView.at_key("buffer");
+
+					if (bufferViewBufferID.error() != simdjson::error_code::NO_SUCH_FIELD)
+					{
+						auto& bufferViewBufferIDVal = bufferViewBufferID.get_uint64().value();
+						auto& buffer = tweets.at_key("buffers").at(bufferViewBufferIDVal);
+
+						auto& bufferUri = buffer.at_key("uri");
+						auto& bufferName = buffer.at_key("name");
+						auto& bufferExtensions = buffer.at_key("extensions");
+						auto& bufferExtras = buffer.at_key("extras");
+
+						if (bufferUri.error() != simdjson::error_code::NO_SUCH_FIELD)
+						{
+							std::string_view uriBin = bufferUri.get_string().value();
+
+							const asset::IAssetLoader::SAssetLoadParams params;
+							auto buffer_bundle = assetManager->getAsset(rootAssetDirectory + uriBin.data(), params);
+							auto cpuBuffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer_bundle.getContents().begin()[0]);
+
+							auto& bufferByteOffset = bufferView.at_key("byteOffset");
+
+							SBufferBinding<ICPUBuffer> bufferBinding;
+							bufferBinding.offset = bufferByteOffset.error() == simdjson::error_code::NO_SUCH_FIELD ? 0 : bufferByteOffset.get_uint64().value();
+							bufferBinding.buffer = cpuBuffer;
+
+							meshBuffer->setVertexBufferBinding(std::move(bufferBinding), iteratorID);
+
+							auto& bufferViewByteLength = bufferView.at_key("byteLength");
+							auto& bufferViewByteStride = bufferView.at_key("byteStride");
+							auto& bufferViewTarget = bufferView.at_key("target");
+							auto& bufferViewName = bufferView.at_key("name");
+							auto& bufferViewExtensions = bufferView.at_key("extensions");
+							auto& bufferViewExtras = bufferView.at_key("extras");
+
+							// TODO
+
+						}
+					}
+					else
+						continue;
+				}
+			}
+
+			if (accessors.error() != simdjson::error_code::NO_SUCH_FIELD)
+			{
+				auto& acData = accessors.get_array();
+				for (size_t iteratorID = 0; iteratorID < acData.size(); ++iteratorID)
+				{
+					auto& accessor = acData.at(iteratorID);
+					auto& accessorBufferView = accessor.at_key("bufferView");
+					auto& accessorByteOffset = accessor.at_key("byteOffset");
+					auto& accessorComponentType = accessor.at_key("componentType");
+					auto& accessorCount = accessor.at_key("count");
+					auto& accessorType = accessor.at_key("type");
+					auto& accessorMax = accessor.at_key("max");
+					auto& accessorMin = accessor.at_key("min");
+					auto& accessorSparse = accessor.at_key("sparse");
+					auto& accessorName = accessor.at_key("name");
+					auto& accessorExtensions = accessor.at_key("extensions");
+					auto& accessorExtras = accessor.at_key("extras");
+
+					if (accessorComponentType.error() != simdjson::error_code::NO_SUCH_FIELD)
+					{
+						auto& type = accessorComponentType.get_uint64().value();
+
+						switch (type)
+						{
+							case 5120: // BYTE
+							{
+
+							} break;
+
+							case 5121: // UNSIGNED_BYTE
+							{
+
+							} break;
+
+							case 5122: // SHORT
+							{
+
+							} break;
+
+							case 5123: // UNSIGNED_SHORT
+							{
+
+							} break;
+
+							case 5124: // UNSIGNED_INT
+							{
+
+							} break;
+
+							case 5125: // FLOAT
+							{
+
+							} break;
+
+							case 5126:
+							{
+
+							} break;
+
+							default:
+							{
+								return {}; // TODO
+							} break;
+						}
+					}
+					else
+						continue;
+
+					if (accessorCount.error() != simdjson::error_code::NO_SUCH_FIELD)
+					{
+						auto& countVal = accessorCount.get_uint64().value();
+						if (countVal < 1)
+							continue;
+					}
+					else
+						continue;
+
+					if (accessorType.error() != simdjson::error_code::NO_SUCH_FIELD)
+					{
+						auto& typeVal = accessorType.get_string().value();
+
+						if (typeVal.data() == "SCALAR")
+						{
+
+						}
+						else if (typeVal.data() == "VEC2")
+						{
+
+						}
+						else if (typeVal.data() == "VEC3")
+						{
+
+						}
+						else if (typeVal.data() == "VEC4")
+						{
+
+						}
+						else if (typeVal.data() == "MAT2")
+						{
+
+						}
+						else if (typeVal.data() == "MAT3")
+						{
+
+						}
+						else if (typeVal.data() == "MAT4")
+						{
+
+						}
+					}
+				}
+			}
+
+
+			/*
+			
+					TODO: bottom to change
+
+					put the bellows to the top to make it easy to load and change the way of loading
+			
+
 			for (auto& [key, value] : tweets)
 			{
-				auto meshbuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
-				meshbuffer->setPositionAttributeIx(POSITION_ATTRIBUTE);
-				meshbuffer->setNormalnAttributeIx(NORMAL_ATTRIBUTE);
-
 				if (key == "asset")
 				{
 					tweets.at_key("asset").at_key("version").get(element);
@@ -78,12 +269,12 @@ namespace irr
 						header.copyright = copyright.get_string().value().data();
 				}
 
-				/*
+				
 					Buffers and buffer views do not contain type information.
 					They simply define the raw data for retrieval from the file.
 					Objects within the glTF file (meshes, skins, animations) access buffers
 					or buffer views via accessors.
-				*/
+				
 
 				else if (key == "buffers")
 				{
@@ -107,6 +298,8 @@ namespace irr
 							const asset::IAssetLoader::SAssetLoadParams params;
 							auto buffer_bundle = assetManager->getAsset(rootAssetDirectory + uriBin.data(), params);
 							auto buffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer_bundle.getContents().begin()[0]);
+
+							// put
 						}
 						else
 							continue;
@@ -121,16 +314,18 @@ namespace irr
 
 						auto& buffer = bufferView.at_key("buffer");
 						if (buffer.error() != simdjson::error_code::NO_SUCH_FIELD)
-							buffer.get_uint64().value(); // TODO
+						{
+							auto& bufferID = buffer.get_uint64().value();
+						}
 						else
 							continue;
 					}
 				}
 
-				/*
+				
 					 Meshes are defined as arrays of primitives.
 					 Primitives correspond to the data required for GPU draw calls
-				*/
+				
 
 				else if (key == "meshes")
 				{
@@ -170,10 +365,10 @@ namespace irr
 					}
 				}
 
-				/*
+				
 					All large data for meshes, skins, and animations is stored in buffers and retrieved via accessors.
 					An accessor defines a method for retrieving data as typed arrays from within a bufferView.
-				*/
+				
 
 				else if (key == "accessors")
 				{
@@ -278,10 +473,10 @@ namespace irr
 					}
 				}
 
-				/*
+		
 					A texture is defined by an image resource, denoted by
 					the source property and a sampler index (sampler).
-				*/
+				
 
 				else if (key == "textures")
 				{
@@ -297,9 +492,9 @@ namespace irr
 					}
 				}
 
-				/*
+				
 					Images referred to by textures are stored in the images.
-				*/
+				
 
 				else if (key == "images")
 				{
@@ -319,9 +514,9 @@ namespace irr
 					}
 				}
 
-				/*
+				
 					Each sampler specifies filter and wrapping options corresponding to the GL types.
-				*/
+				
 
 				else if (key == "samplers")
 				{
@@ -345,19 +540,17 @@ namespace irr
 					}
 				}
 
-				/*
+		
 					There are materials using a common set of parameters that are based on widely 
 					used material representations from Physically-Based Rendering (PBR).
-				*/
 
 				else if (key == "materials")
 				{
 					// TODO
 				}
 
-				/*
 					A camera defines the projection matrix that transforms from view to clip coordinates.
-				*/
+				
 
 				else if (key == "cameras")
 				{
@@ -458,6 +651,8 @@ namespace irr
 					auto& sceneID = value.get_uint64().value(); 
 				}
 			}
+
+			*/
 
 			return {};
 		}
