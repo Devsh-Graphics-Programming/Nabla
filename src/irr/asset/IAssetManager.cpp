@@ -144,7 +144,7 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
 #endif
 #ifdef _IRR_COMPILE_WITH_GLTF_LOADER_
-    addAssetLoader(core::make_smart_refctd_ptr<asset::CGLTFLoader>());
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CGLTFLoader>(this));
 #endif
 #ifdef _IRR_COMPILE_WITH_JPG_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderJPG>());

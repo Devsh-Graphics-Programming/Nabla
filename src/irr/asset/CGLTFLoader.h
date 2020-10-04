@@ -23,7 +23,7 @@ namespace irr
 				virtual ~CGLTFLoader() {}
 
 			public:
-				CGLTFLoader() {}
+				CGLTFLoader(asset::IAssetManager* _m_assetMgr) : assetManager(_m_assetMgr) {}
 
 				bool isALoadableFileFormat(io::IReadFile* _file) const override;
 
@@ -42,7 +42,12 @@ namespace irr
 				struct CGLTFHeader
 				{
 					uint32_t version;
-				} header;
+					std::optional<uint32_t> minVersion;
+					std::optional<std::string> generator;
+					std::optional<std::string> copyright;
+				};
+
+				asset::IAssetManager* const assetManager;
 		};
 	}
 }
