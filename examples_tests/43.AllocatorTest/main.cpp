@@ -6,17 +6,7 @@
 using namespace irr;
 using namespace core;
 
-/*
-	If traits say address allocator supports arbitrary order free,
-	then ETAT_CHOOSE_RANDOMLY is valid. Otherwise ETAT_CHOOSE_MOST_RECENTLY_ALLOCATED
-*/
-
-enum E_TRAITS_ALLOCATION_TYPE
-{
-	ETAT_CHOOSE_RANDOMLY,
-	ETAT_CHOOSE_MOST_RECENTLY_ALLOCATED,
-	ETAT_COUNT
-};
+//TODO: merge examples nr. 10, 34 and old 43 into this one, then rename this example to "10. Allocator_tests"
 
 struct AllocationCreationParameters
 {	
@@ -27,14 +17,13 @@ struct AllocationCreationParameters
 constexpr size_t minAllocs = 10000u;
 constexpr size_t maxAllocs = 20000u;
 constexpr size_t maxSizeForSquaring = 1024u;
-constexpr size_t maxAlignmentExp = 6u;
-constexpr size_t minByteSizeForReservingMemory = 2048;			// 2kB
-constexpr size_t maxByteSizeForReservingMemory = 2147483648;	// 2GB
+constexpr size_t maxAlignmentExp = 12u;                         // 4096
+constexpr size_t minVirtualMemoryBufferSize = 2048;             // 2kB
+constexpr size_t maxVirtualMemoryBufferSize = 2147483648;       // 2GB
 constexpr size_t maxOffset = 512;
 constexpr size_t maxAlignOffset = 64;
 constexpr size_t maxBlockSize = 600;
 
-//TODO: full static
 class RandomNumberGenerator
 {
 public:
@@ -58,155 +47,200 @@ private:
 	const std::uniform_int_distribution<uint32_t> sizePerFrameRange = std::uniform_int_distribution<uint32_t>(1u, maxSizeForSquaring);
 	const std::uniform_int_distribution<uint32_t> maxAlignmentExpPerFrameRange = std::uniform_int_distribution<uint32_t>(1, maxAlignmentExp);
 
-	const std::uniform_int_distribution<uint32_t> buffSzRange = std::uniform_int_distribution<uint32_t>(minByteSizeForReservingMemory, maxByteSizeForReservingMemory);
+	const std::uniform_int_distribution<uint32_t> buffSzRange = std::uniform_int_distribution<uint32_t>(minVirtualMemoryBufferSize, maxVirtualMemoryBufferSize);
 	const std::uniform_int_distribution<uint32_t> offsetPerFrameRange = std::uniform_int_distribution<uint32_t>(0u, maxOffset);
 	const std::uniform_int_distribution<uint32_t> alignOffsetPerFrameRange = std::uniform_int_distribution<uint32_t>(0u, maxAlignOffset);
 	const std::uniform_int_distribution<uint32_t> blockSizePerFrameRange = std::uniform_int_distribution<uint32_t>(1, maxBlockSize);
 };
 
+template<typename AlctrType>
 class AllocatorHandler
 {
+	using Traits = core::address_allocator_traits<AlctrType>;
 public:
-	using PoolAddressAllocator = core::PoolAddressAllocatorST<uint32_t>;
-	using Traits = core::address_allocator_traits<PoolAddressAllocator>;
 	
 	AllocatorHandler(AllocationCreationParameters& allocationCreationParameters)
 		: creationParameters(allocationCreationParameters) 
 	{
 	}
 	
-	//struct for holding temporary data (inputs of `multi_alloc_addr` i `multi_free_addr`)
-	struct EntryForFrameData
-	{
-		uint32_t outAddr[maxAllocs] = { ~0u };
-		uint32_t sizes[maxAllocs] = { 0u };
-		uint32_t alignments[maxAllocs] = { 0u };
-	} perFrameData;
-	
 	void executeAllocatorTest()
 	{
-		os::Printer::log("Executing Pool Allocator Test!", ELL_INFORMATION);
-	
 		for (size_t i = 0; i < creationParameters.multiAllocCnt; ++i)
 			executeForFrame();
 	}
 
 private:
-	// function to test allocator
-		// pick random alignment, rand buffer size (between 2kb and 2GB), random offset (less than buffer size), random alignment offset (less than alignment) and other parameters randomly
+	struct AllocationData
+	{
+		uint32_t outAddr = AlctrType::invalid_address;
+		uint32_t size = 0u;
+		uint32_t align = 0u;
+	};
 
-		// allocate reserved space (for allocator state)
+	struct RandParams
+	{
+		uint32_t maxAlign;
+		uint32_t addressSpaceSize;
+		uint32_t alignOffset;
+		uint32_t offset;
+		uint32_t blockSz;
+	};
 
-		// create address allocator
-
-		// randomly decide the number of iterations of allocation and reset
-			// declare `core::vector` to hold allocated addresses and sizes
-
-			// randomly decide how many `multi_allocs` to do
-				// randomly decide how many allocs in a `multi_alloc` NOTE: must pick number less than `traits::max_multi_alloc`
-					// randomly decide sizes (but always less than `address_allocator_traits::max_size`)
-				// record all successful alloc addresses to the `core::vector`
-
-				// run random dealloc function
-			//
-
-			// run random dealloc function
-
-			// randomly choose between reset and freeing all `core::vector` elements
-				// reset
-			// ELSE
-				// free everything with a series of multi_free
+private:
 	void executeForFrame()
 	{
-		uint32_t randMaxAlign = rng.getRndMaxAlign();
-		uint32_t randAddressSpaceSize = rng.getRndBuffSize();
-		uint32_t randAlignOffset = rng.getRandomNumber(0u, randMaxAlign - 1u);
-		uint32_t randOffset = rng.getRandomNumber(0u, randAddressSpaceSize - 1u); //?
-		uint32_t randBlockSz = rng.getRandomNumber(0u, randAddressSpaceSize - 1u); //?
+		RandParams randAllocParams = getRandParams();
+		void* reservedSpace = nullptr;
+		AlctrType alctr;
 
-		uint32_t allocationAmountForSingeFrameTest = rng.getRndAllocCnt();
-		
-		const auto reservedSize = PoolAddressAllocator::reserved_size(randMaxAlign, randAddressSpaceSize, randBlockSz); // 3rd parameter onward is custom for each address alloc type
-		void* reservedSpace = _IRR_ALIGNED_MALLOC(reservedSize, _IRR_SIMD_ALIGNMENT);
-		auto poolAlctr = PoolAddressAllocator(reservedSpace, randOffset, randAlignOffset, randMaxAlign, randAddressSpaceSize, randBlockSz);
+		if constexpr (std::is_same<AlctrType, core::LinearAddressAllocator<uint32_t>>::value)
+		{
+			alctr = AlctrType(nullptr, randAllocParams.offset, randAllocParams.alignOffset, randAllocParams.maxAlign, randAllocParams.addressSpaceSize);
+		}
+		else
+		{
+			const auto reservedSize = AlctrType::reserved_size(randAllocParams.maxAlign, randAllocParams.addressSpaceSize, randAllocParams.blockSz);
+			reservedSpace = _IRR_ALIGNED_MALLOC(reservedSize, _IRR_SIMD_ALIGNMENT);
+			alctr = AlctrType(reservedSpace, randAllocParams.offset, randAllocParams.alignOffset, randAllocParams.maxAlign, randAllocParams.addressSpaceSize, randAllocParams.blockSz);
+		}
 
 		// randomly decide how many `multi_allocs` to do
-		const uint32_t multiAllocCnt = rng.getRandomNumber(1u, 5u); //range?
+		const uint32_t multiAllocCnt = rng.getRandomNumber(1u, 5u); //TODO: will change it later
 		for (uint32_t i = 0u; i < multiAllocCnt; i++)
 		{
+			outAddresses.clear();
+			sizes.clear();
+			alignments.clear();
+
 			// randomly decide how many allocs in a `multi_alloc` NOTE: must pick number less than `traits::max_multi_alloc`
-			const uint32_t allocCntInMultiAlloc = rng.getRandomNumber(1u, 4096u); //?
+			constexpr uint32_t upperBound = core::address_allocator_traits<AlctrType>::maxMultiOps;
+			const uint32_t allocCntInMultiAlloc = rng.getRandomNumber(1u, upperBound);
 
 			for (size_t i = 0u; i < allocCntInMultiAlloc; ++i)
 			{
 				// randomly decide sizes (but always less than `address_allocator_traits::max_size`)
-				perFrameData.sizes[i] = rng.getRandomNumber(1u, Traits::max_size(poolAlctr));
-				perFrameData.alignments[i] = rng.getRndMaxAlign();
+				outAddresses.emplace_back(AlctrType::invalid_address);
+
+				if constexpr (std::is_same<AlctrType, core::PoolAddressAllocator<uint32_t>>::value)
+				{
+					sizes.emplace_back(randAllocParams.blockSz);
+					alignments.emplace_back(randAllocParams.blockSz);
+				}
+				else
+				{
+					sizes.emplace_back(rng.getRandomNumber(1u, Traits::max_size(alctr)));
+					alignments.emplace_back(rng.getRndMaxAlign());
+				}
 			}
 
-			Traits::multi_alloc_addr(poolAlctr, allocCntInMultiAlloc, perFrameData.outAddr, perFrameData.sizes, perFrameData.alignments);
+			Traits::multi_alloc_addr(alctr, allocCntInMultiAlloc, outAddresses.data(), sizes.data(), alignments.data());
 
 			// record all successful alloc addresses to the `core::vector`
-			if (perFrameData.outAddr[i] != PoolAddressAllocator::invalid_address)
-				results.push_back({ perFrameData.outAddr[i], perFrameData.sizes[i], perFrameData.alignments[i] });
+			for (uint32_t i = 0u; i < outAddresses.size(); i++)
+			{
+				if (outAddresses[i] != AlctrType::invalid_address)
+					results.push_back({ outAddresses[i], sizes[i], alignments[i] });
+			}
 
-			randFreeAllocatedAddresses(poolAlctr);
+			// run random dealloc function
+			// linear address allocator is always reseted here
+			randFreeAllocatedAddresses(alctr);
 		}
 
 		// randomly choose between reset and freeing all `core::vector` elements
-		bool reset = static_cast<bool>(rng.getRandomNumber(0u, 1u));
-		if (reset)
+		if constexpr (!std::is_same<AlctrType, core::LinearAddressAllocator<uint32_t>>::value) //linear address allocator is always reseted in the `randFreeAllocatedAddresses()`
 		{
-			poolAlctr.reset();
-		}
-		else
-		{
-			// free everything with a series of multi_free
-			while (results.size() != 0u)
-				randFreeAllocatedAddresses(poolAlctr);
+			bool reset = static_cast<bool>(rng.getRandomNumber(0u, 1u));
+			if (reset)
+			{
+				alctr.reset();
+				results.clear();
+			}
+			else
+			{
+				// free everything with a series of multi_free
+				while (results.size() != 0u)
+					randFreeAllocatedAddresses(alctr);
+			}
 		}
 		 
-		_IRR_ALIGNED_FREE(reservedSpace);
+		if constexpr (!std::is_same<AlctrType, core::LinearAddressAllocator<uint32_t>>::value)
+			_IRR_ALIGNED_FREE(reservedSpace);
+
 	}
 
 	// random dealloc function
-		// randomly decide how many calls to `multi_alloc` | ??
-			// randomly how many addresses we should deallocate (but obvs less than all allocated) NOTE: must pick number less than `traits::max_multi_free`
-				// if traits say address allocator supports arbitrary order free, then choose randomly, else choose most recently allocated
-	void randFreeAllocatedAddresses(PoolAddressAllocator& alctr)
+	void randFreeAllocatedAddresses(AlctrType& alctr)
 	{
-		//here I'm freeing previously generated addresses, is it ok?
-
 		if(results.size() == 0u)
 			return;
 
-		// randomly how many addresses we should deallocate (but obvs less than all allocated) NOTE: must pick number less than `traits::max_multi_free`
-		//TODO: random interval
-		const uint32_t addressesToFreeCnt = rng.getRandomNumber(0u, results.size());
+		outAddresses.clear();
+		sizes.clear();
+		alignments.clear();
 
-		for (uint32_t i = 0u; i < addressesToFreeCnt; i++)
+		// randomly decide how many calls to `multi_free`
+		const uint32_t multiFreeCnt = rng.getRandomNumber(1u, 5u); //TODO
+
+		//TODO:
+		//shuffle results
+
+		for (uint32_t i = 0u; i < multiFreeCnt; i++)
 		{
-			perFrameData.outAddr[i] = results[i].outAddr;
-			perFrameData.sizes[i] = results[i].size;
-		}
+			// randomly how many addresses we should deallocate (but obvs less than all allocated) NOTE: must pick number less than `traits::max_multi_free`
+			const uint32_t addressesToFreeCnt = rng.getRandomNumber(0u, results.size()); //that should be restrained somehow, I think... so it it less likely to free all of allocated addresses
 
-		Traits::multi_free_addr(alctr, addressesToFreeCnt, perFrameData.outAddr, perFrameData.sizes);
-		results.erase(results.begin(), results.begin() + addressesToFreeCnt);
+			for (uint32_t i = 0u; i < addressesToFreeCnt; i++)
+			{
+				outAddresses.push_back(results[i].outAddr);
+				sizes.push_back(results[i].size);
+			}
+
+			Traits::multi_free_addr(alctr, addressesToFreeCnt, outAddresses.data(), sizes.data());
+			results.erase(results.begin(), results.begin() + addressesToFreeCnt);
+		}
 	}
 	
-	struct AllocationResults
+	RandParams getRandParams()
 	{
-		uint32_t outAddr;
-		uint32_t size;
-		uint32_t align;
-	};
+		RandParams randParams;
 
+		randParams.maxAlign = rng.getRndMaxAlign();
+		randParams.addressSpaceSize = rng.getRndBuffSize();
+
+		randParams.alignOffset = rng.getRandomNumber(0u, randParams.maxAlign - 1u);
+		randParams.offset = rng.getRandomNumber(0u, randParams.addressSpaceSize - 1u);
+
+		randParams.blockSz = rng.getRandomNumber(0u, (randParams.addressSpaceSize - randParams.offset) / 2u);
+		assert(randParams.blockSz > 0u);
+
+		return randParams;
+	}
+
+private:
 	RandomNumberGenerator rng;
 	AllocationCreationParameters creationParameters;
-	
-	core::vector<AllocationResults> results;
+	core::vector<AllocationData> results;
 
+	//these hold inputs for `multi_alloc_addr` and `multi_free_addr`
+	core::vector<uint32_t> outAddresses;
+	core::vector<uint32_t> sizes;
+	core::vector<uint32_t> alignments;
 };
+
+template<>
+void AllocatorHandler<core::LinearAddressAllocator<uint32_t>>::randFreeAllocatedAddresses(core::LinearAddressAllocator<uint32_t>& alctr)
+{
+	alctr.reset();
+	results.clear();
+}
+
+template<>
+void AllocatorHandler<core::StackAddressAllocator<uint32_t>>::randFreeAllocatedAddresses(core::StackAddressAllocator<uint32_t>& alctr)
+{
+	//TODO;
+}
 
 int main()
 {
@@ -214,6 +248,25 @@ int main()
 	creationParams.multiAllocCnt = 1000;				// TODO
 	creationParams.adressesToDeallocateCnt = 1000;		// TODO
 
-	AllocatorHandler handler(creationParams);
-	handler.executeAllocatorTest();
+	//TODO:
+	/*{
+		AllocatorHandler<core::StackAddressAllocator<uint32_t>> stackAlctrHandler(creationParams);
+		stackAlctrHandler.executeAllocatorTest();
+	}*/
+	
+	{
+		AllocatorHandler<core::PoolAddressAllocator<uint32_t>> poolAlctrHandler(creationParams);
+		poolAlctrHandler.executeAllocatorTest();
+	}
+
+	{
+		AllocatorHandler<core::LinearAddressAllocator<uint32_t>> linearAlctrHandler(creationParams);
+		linearAlctrHandler.executeAllocatorTest();
+	}
+	
+	//crashes..
+	{
+		AllocatorHandler<core::GeneralpurposeAddressAllocator<uint32_t>> generalpurposeAlctrHandler(creationParams);
+		generalpurposeAlctrHandler.executeAllocatorTest();
+	}
 }
