@@ -13,7 +13,7 @@ template<typename Key, typename Value, typename MapHash = std::hash<Key>, typena
 class LRUcache
 {
 	typedef LRUcache<Key, Value, MapHash, MapEquals> base_t;
-	typedef std::pair<Key, Value> list_template_t;
+	typedef std::pair<Key*, Value> list_template_t;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = Snode<list_template_t>::invalid_iterator;
 
 	DoublyLinkedList<list_template_t> m_list;
@@ -47,11 +47,17 @@ class LRUcache
 		{
 			if (m_shortcut_map.size() >= m_capacity)
 			{
-				m_shortcut_map.erase(m_list.getBack()->data.first);
+				m_shortcut_map.erase(*(m_list.getBack()->data.first));
 				m_list.popBack();
 			}
-			m_list.pushFront(std::make_pair(std::forward<K>(k), std::forward<V>(v)));
-			m_shortcut_map[k] = m_list.getFirstAddress();
+			uint32_t newElementAddress = m_list.reserveAddress();
+			auto newIterator = m_shortcut_map.insert(std::make_pair(k,newElementAddress));		//newIterator type is pair<iterator,bool>
+			assert(newIterator.second);															//check whether insertion was successful
+			m_list.insertAt(
+				newElementAddress,
+				std::make_pair< Key* ,Value>(
+					const_cast<Key*>(&(newIterator.first->first)  ), /* referencing the key's copy inside m_shortcut_map */
+					std::forward<V>(v)));
 		}
 		else
 		{
@@ -73,7 +79,7 @@ public:
 		auto node = m_list.getBegin();
 		while (true)
 		{
-			std::cout << node->data.first << ' ' << node->data.second << std::endl;
+			std::cout <<"k:" << *(node->data.first) << "    v:" << node->data.second << std::endl;
 			if (node->next == invalid_iterator)
 				break;
 			node = m_list.get(node->next);

@@ -98,17 +98,23 @@ namespace irr {
 
 				if (backNode->prev != invalid_iterator)
 					get(backNode->prev)->next = invalid_iterator;
-			    uint32_t temp = m_back;
+				uint32_t temp = m_back;
 				m_back = backNode->prev;
 				common_delete(temp);
 			}
 
-			//add new item to the list. This function does not make space to store the new node. in case the list is full, popBack() needs to be called beforehand
-			inline void pushFront(Value&& val)
+			//allocate and get the address of the next free node
+			inline uint32_t reserveAddress()
 			{
 				uint32_t addr = alloc.alloc_addr(1u, 1u);
+				return addr;
+			}
+
+			//create a new node which stores data at already allocated address, 
+			inline void insertAt(uint32_t addr, Value&& val)
+			{
 				assert(addr < cap);
-				Snode<Value>* n =  new(m_array+addr) Snode<Value>(std::move(val));
+				Snode<Value>* n = new(m_array + addr) Snode<Value>(std::move(val));
 				m_array[addr] = *n;
 				n->prev = invalid_iterator;
 				n->next = m_begin;
@@ -119,15 +125,20 @@ namespace irr {
 					m_back = addr;
 				m_begin = addr;
 			}
+			//add new item to the list. This function does not make space to store the new node. in case the list is full, popBack() needs to be called beforehand
+			inline void pushFront(Value&& val)
+			{
+				insertAt(reserveAddress(), std::move(val))
+			}
 
 			//get node ptr of the first item in the list
-			inline Snode<Value>* getBegin() { return m_array+m_begin; }
+			inline Snode<Value>* getBegin() { return m_array + m_begin; }
 
 			//get node ptr of the last item in the list
-			inline Snode<Value>* getBack() { return m_array+m_back; }
+			inline Snode<Value>* getBack() { return m_array + m_back; }
 
 			//get index/iterator of the first element
-			inline uint32_t getFirstAddress() const { return m_begin; } 
+			inline uint32_t getFirstAddress() const { return m_begin; }
 
 			//remove a node at nodeAddr from the list
 			inline void erase(uint32_t nodeAddr)
@@ -142,7 +153,7 @@ namespace irr {
 			//move a node at nodeAddr to the front of the list
 			inline void moveToFront(uint32_t nodeAddr)
 			{
-				if (m_begin == nodeAddr || nodeAddr == invalid_iterator ) return;
+				if (m_begin == nodeAddr || nodeAddr == invalid_iterator) return;
 				getBegin()->prev = nodeAddr;
 
 				auto node = get(nodeAddr);
