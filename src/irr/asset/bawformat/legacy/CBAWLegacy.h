@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_CBAW_LEGACY_H_INCLUDED__
-#define __NBL_CBAW_LEGACY_H_INCLUDED__
+#ifndef __NBL_ASSET_CBAW_LEGACY_H_INCLUDED__
+#define __NBL_ASSET_CBAW_LEGACY_H_INCLUDED__
 
 #include "irr/asset/format/EFormat.h"
 #include "irr/asset/bawformat/Blob.h"

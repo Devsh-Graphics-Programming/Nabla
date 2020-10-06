@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_C_WHITE_NOISE_DITHER_H_INCLUDED__
-#define __NBL_C_WHITE_NOISE_DITHER_H_INCLUDED__
+#ifndef __NBL_ASSET_C_WHITE_NOISE_DITHER_H_INCLUDED__
+#define __NBL_ASSET_C_WHITE_NOISE_DITHER_H_INCLUDED__
 
 #include "../include/irr/asset/filters/dithering/CDither.h"
 

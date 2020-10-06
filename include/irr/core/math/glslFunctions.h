@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_GLSL_FUNCTIONS_H_INCLUDED__
-#define __NBL_GLSL_FUNCTIONS_H_INCLUDED__
+#ifndef __NBL_CORE_GLSL_FUNCTIONS_H_INCLUDED__
+#define __NBL_CORE_GLSL_FUNCTIONS_H_INCLUDED__
 
 #include <type_traits>
 #include <utility>

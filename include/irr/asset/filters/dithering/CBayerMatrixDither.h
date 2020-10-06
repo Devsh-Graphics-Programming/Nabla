@@ -4,8 +4,8 @@
 
 #if 0 // TODO
 
-#ifndef __NBL_C_BAYER_MATRIX_DITHER_H_INCLUDED__
-#define __NBL_C_BAYER_MATRIX_DITHER_H_INCLUDED__
+#ifndef __NBL_ASSET_C_BAYER_MATRIX_DITHER_H_INCLUDED__
+#define __NBL_ASSET_C_BAYER_MATRIX_DITHER_H_INCLUDED__
 
 #include "../include/irr/asset/filters/dithering/CDither.h"
 

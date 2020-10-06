@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_C_IMAGE_WRITER_GLI__
-#define __NBL_C_IMAGE_WRITER_GLI__
+#ifndef __NBL_ASSET_C_IMAGE_WRITER_GLI__
+#define __NBL_ASSET_C_IMAGE_WRITER_GLI__
 
 #include "IrrCompileConfig.h"
 

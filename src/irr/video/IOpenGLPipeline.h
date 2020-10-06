@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_I_OPENGL_PIPELINE_H_INCLUDED__
-#define __NBL_I_OPENGL_PIPELINE_H_INCLUDED__
+#ifndef __NBL_VIDEO_I_OPENGL_PIPELINE_H_INCLUDED__
+#define __NBL_VIDEO_I_OPENGL_PIPELINE_H_INCLUDED__
 
 #include "irr/video/COpenGLSpecializedShader.h"
 #include "irr/video/IGPUMeshBuffer.h"//for IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE

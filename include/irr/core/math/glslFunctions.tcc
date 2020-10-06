@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_GLSL_FUNCTIONS_TCC_INCLUDED__
-#define __IRR_GLSL_FUNCTIONS_TCC_INCLUDED__
+#ifndef __NBL_CORE_GLSL_FUNCTIONS_TCC_INCLUDED__
+#define __NBL_CORE_GLSL_FUNCTIONS_TCC_INCLUDED__
 
 #include "irr/core/math/glslFunctions.h"
 #include "irr/core/math/floatutil.tcc"

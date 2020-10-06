@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_I_GPU_MESH_BUFFER_H_INCLUDED__
-#define __NBL_I_GPU_MESH_BUFFER_H_INCLUDED__
+#ifndef __NBL_VIDEO_I_GPU_MESH_BUFFER_H_INCLUDED__
+#define __NBL_VIDEO_I_GPU_MESH_BUFFER_H_INCLUDED__
 
 #include <algorithm>
 

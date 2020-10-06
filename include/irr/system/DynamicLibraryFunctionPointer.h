@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_DYNAMIC_LIBRARY_FUNCTION_POINTER_H_INCLUDED__
-#define __NBL_DYNAMIC_LIBRARY_FUNCTION_POINTER_H_INCLUDED__
+#ifndef __NBL_SYSTEM_DYNAMIC_LIBRARY_FUNCTION_POINTER_H_INCLUDED__
+#define __NBL_SYSTEM_DYNAMIC_LIBRARY_FUNCTION_POINTER_H_INCLUDED__
 
 
 #include <functional>

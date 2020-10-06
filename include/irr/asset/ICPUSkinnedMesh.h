@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_I_CPU_SKINNED_MESH_INCLUDED__
-#define __NBL_I_CPU_SKINNED_MESH_INCLUDED__
+#ifndef __NBL_ASSET_I_CPU_SKINNED_MESH_INCLUDED__
+#define __NBL_ASSET_I_CPU_SKINNED_MESH_INCLUDED__
 
 #include "quaternion.h"
 

@@ -4,8 +4,8 @@
 
 //New skinned mesh
 
-#ifndef __NBL_C_GPU_SKINNED_MESH_H_INCLUDED__
-#define __NBL_C_GPU_SKINNED_MESH_H_INCLUDED__
+#ifndef __NBL_VIDEO_C_GPU_SKINNED_MESH_H_INCLUDED__
+#define __NBL_VIDEO_C_GPU_SKINNED_MESH_H_INCLUDED__
 
 #include "irr/video/IGPUSkinnedMesh.h"
 #include "CFinalBoneHierarchy.h"

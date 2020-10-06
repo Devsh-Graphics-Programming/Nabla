@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_C_OPENGL_SAMPLER_H_INCLUDED__
-#define __NBL_C_OPENGL_SAMPLER_H_INCLUDED__
+#ifndef __NBL_VIDEO_C_OPENGL_SAMPLER_H_INCLUDED__
+#define __NBL_VIDEO_C_OPENGL_SAMPLER_H_INCLUDED__
 
 #include "irr/video/IGPUSampler.h"
 #include "COpenGLExtensionHandler.h"

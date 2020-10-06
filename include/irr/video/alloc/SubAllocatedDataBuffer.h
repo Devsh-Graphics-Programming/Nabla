@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_SUB_ALLOCATED_DATA_BUFFER_H__
-#define __NBL_SUB_ALLOCATED_DATA_BUFFER_H__
+#ifndef __NBL_VIDEO_SUB_ALLOCATED_DATA_BUFFER_H__
+#define __NBL_VIDEO_SUB_ALLOCATED_DATA_BUFFER_H__
 
 #include <type_traits>
 #include <mutex>

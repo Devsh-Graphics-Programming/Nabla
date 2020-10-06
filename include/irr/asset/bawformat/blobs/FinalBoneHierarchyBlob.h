@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 
-#ifndef __NBL_FINAL_BONE_HIERARCHY_BLOB_H_INCLUDED__
-#define __NBL_FINAL_BONE_HIERARCHY_BLOB_H_INCLUDED__
+#ifndef __NBL_ASSET_FINAL_BONE_HIERARCHY_BLOB_H_INCLUDED__
+#define __NBL_ASSET_FINAL_BONE_HIERARCHY_BLOB_H_INCLUDED__
 
 #include "irr/core/core.h"
 

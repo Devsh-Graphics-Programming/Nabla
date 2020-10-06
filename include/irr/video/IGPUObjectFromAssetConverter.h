@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 // Do not include this in headers, please
-#ifndef __NBL_I_GPU_OBJECT_FROM_ASSET_CONVERTER_H_INCLUDED__
-#define __NBL_I_GPU_OBJECT_FROM_ASSET_CONVERTER_H_INCLUDED__
+#ifndef __NBL_VIDEO_I_GPU_OBJECT_FROM_ASSET_CONVERTER_H_INCLUDED__
+#define __NBL_VIDEO_I_GPU_OBJECT_FROM_ASSET_CONVERTER_H_INCLUDED__
 
 #include "irr/core/core.h"
 #include "irr/asset/asset.h"
