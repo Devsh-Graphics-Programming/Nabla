@@ -222,19 +222,19 @@ class CElementEmitter : public IElement
 						switch (type)
 						{
 							case Type::POINT:
-								_NBL_FALLTHROUGH;
+								[[fallthrough]];
 							case Type::SPOT:
-								_NBL_FALLTHROUGH;
+								[[fallthrough]];
 							case Type::DIRECTIONAL:
-								_NBL_FALLTHROUGH;
+								[[fallthrough]];
 							case Type::COLLIMATED:
-								_NBL_FALLTHROUGH;/*
+								[[fallthrough]];/*
 							case Type::SKY:
-								_NBL_FALLTHROUGH;
+								[[fallthrough]];
 							case Type::SUN:
-								_NBL_FALLTHROUGH;
+								[[fallthrough]];
 							case Type::SUNSKY:
-								_NBL_FALLTHROUGH;*/
+								[[fallthrough]];*/
 							case Type::ENVMAP:
 								transform = *tform;
 								return true;

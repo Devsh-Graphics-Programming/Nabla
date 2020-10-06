@@ -62,25 +62,25 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				switch (m_bindingInfo->operator[](i).descriptorType)
 				{
 					case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
-						_NBL_FALLTHROUGH;
+						[[fallthrough]];
 					case asset::EDT_UNIFORM_BUFFER:
 						m_flatOffsets->operator[](i) = uboCount;
 						uboCount += count;
 						break;
 					case asset::EDT_STORAGE_BUFFER_DYNAMIC:
-						_NBL_FALLTHROUGH;
+						[[fallthrough]];
 					case asset::EDT_STORAGE_BUFFER:
 						m_flatOffsets->operator[](i) = ssboCount;
 						ssboCount += count;
 						break;
 					case asset::EDT_UNIFORM_TEXEL_BUFFER: //GL_TEXTURE_BUFFER
-						_NBL_FALLTHROUGH;
+						[[fallthrough]];
 					case asset::EDT_COMBINED_IMAGE_SAMPLER:
 						m_flatOffsets->operator[](i) = textureCount;
 						textureCount += count;
 						break;
 					case asset::EDT_STORAGE_IMAGE:
-						_NBL_FALLTHROUGH;
+						[[fallthrough]];
 					case asset::EDT_STORAGE_TEXEL_BUFFER:
 						m_flatOffsets->operator[](i) = imageCount;
 						imageCount += count;

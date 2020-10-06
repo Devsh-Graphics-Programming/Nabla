@@ -68,13 +68,6 @@
 // Defines a deprecated macro which generates a warning at compile time
 #define _NBL_DEPRECATED_ [[deprecated]]
 
-// Disables a switch case fallthrough warning for a particular case label
-#if __cplusplus >= 201703L
-    #define _NBL_FALLTHROUGH [[fallthrough]]
-#else
-    #define _NBL_FALLTHROUGH
-#endif // __cplusplus
-
 // Disables a maybe used uninitialized warning for a particular variable
 #if __cplusplus >= 201703L
     #define _NBL_MAYBE_UNUSED [[maybe_unused]]

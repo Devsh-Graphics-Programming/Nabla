@@ -847,7 +847,7 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 			maxSmoothAngle = shape->serialized.maxSmoothAngle;
 			break;
 		case CElementShape::Type::SHAPEGROUP:
-			_NBL_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementShape::Type::INSTANCE:
 			assert(false);
 			break;
@@ -972,7 +972,7 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 							case CElementTexture::Bitmap::CHANNEL::Y:
 							case CElementTexture::Bitmap::CHANNEL::Z:*/
 							case CElementTexture::Bitmap::CHANNEL::INVALID:
-								_NBL_FALLTHROUGH;
+								[[fallthrough]];
 							default:
 								break;
 						}
@@ -994,7 +994,7 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 				switch (tex->bitmap.filterType)
 				{
 					case CElementTexture::Bitmap::FILTER_TYPE::EWA:
-						_NBL_FALLTHROUGH; // we dont support this fancy stuff
+						[[fallthrough]]; // we dont support this fancy stuff
 					case CElementTexture::Bitmap::FILTER_TYPE::TRILINEAR:
 						samplerParams.MinFilter = ISampler::ETF_LINEAR;
 						samplerParams.MaxFilter = ISampler::ETF_LINEAR;

@@ -103,11 +103,11 @@ public:
             {
             case ISampler::ETC_REPEAT:
                 return EWM_REPEAT;
-            case ISampler::ETC_CLAMP_TO_EDGE: _NBL_FALLTHROUGH;
+            case ISampler::ETC_CLAMP_TO_EDGE: [[fallthrough]];
             case ISampler::ETC_CLAMP_TO_BORDER:
                 return EWM_CLAMP;
-            case ISampler::ETC_MIRROR: _NBL_FALLTHROUGH;
-            case ISampler::ETC_MIRROR_CLAMP_TO_EDGE: _NBL_FALLTHROUGH;
+            case ISampler::ETC_MIRROR: [[fallthrough]];
+            case ISampler::ETC_MIRROR_CLAMP_TO_EDGE: [[fallthrough]];
             case ISampler::ETC_MIRROR_CLAMP_TO_BORDER:
                 return EWM_MIRROR;
             default:
@@ -118,7 +118,7 @@ public:
         {
             switch (_ewm)
             {
-            case EWM_INVALID: _NBL_FALLTHROUGH;
+            case EWM_INVALID: [[fallthrough]];
             case EWM_REPEAT:
                 return ISampler::ETC_REPEAT;
             case EWM_CLAMP:

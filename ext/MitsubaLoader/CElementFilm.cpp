@@ -277,9 +277,9 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 			switch (fileFormat)
 			{
 				case OPENEXR:
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case RGBE:
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case PFM:
 					break;
 				default:
@@ -303,9 +303,9 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 			switch (fileFormat)
 			{
 				case PNG:
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case JPEG:
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 					break;
 				default:
 					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
@@ -315,13 +315,13 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 			switch (pixelFormat)
 			{
 				case LUMINANCE_ALPHA:
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case RGBA:
 					if (type==PNG)
 						break;
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case XYZ:
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case XYZA:
 					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this pixel format");
 					_NBL_DEBUG_BREAK_IF(true);
@@ -335,9 +335,9 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 			switch (fileFormat)
 			{
 				case MATLAB:
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case MATHEMATICA:
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case NUMPY:
 					break;
 				default:
@@ -348,7 +348,7 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 			switch (pixelFormat)
 			{
 				case XYZ:
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case XYZA:
 					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this pixel format");
 					_NBL_DEBUG_BREAK_IF(true);

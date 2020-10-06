@@ -280,7 +280,7 @@ class CElementIntegrator : public IElement
 			switch (type)
 			{
 				case Type::IRR_CACHE:
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case Type::MULTI_CHANNEL:
 					if (_child->getType() != IElement::Type::INTEGRATOR)
 						return false;

@@ -220,7 +220,7 @@ class IImage : public IDescriptor
 			{
 				case ET_3D:
 					maxSideLen = core::max<uint32_t>(extent.depth,maxSideLen);
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case ET_2D:
 					maxSideLen = core::max<uint32_t>(extent.height,maxSideLen);
 					break;
@@ -306,7 +306,7 @@ class IImage : public IDescriptor
 				case ET_1D:
 					if (_params.extent.height > 1u)
 						return false;
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case ET_2D:
 					if (_params.extent.depth > 1u)
 						return false;
@@ -385,7 +385,7 @@ class IImage : public IDescriptor
 						case ET_1D:
 							if (off.y>0u || ext.height>1u)
 								return false;
-							_NBL_FALLTHROUGH;
+							[[fallthrough]];
 						case ET_2D:
 							if (off.z>0u || ext.depth>1u)
 								return false;
@@ -536,7 +536,7 @@ class IImage : public IDescriptor
 					case ET_1D:
 						if (off2.y>0u||ext2.height>1u)
 							return false;
-						_NBL_FALLTHROUGH;
+						[[fallthrough]];
 					case ET_2D:
 						if (off2.z>0u||ext2.depth>1u)
 							return false;

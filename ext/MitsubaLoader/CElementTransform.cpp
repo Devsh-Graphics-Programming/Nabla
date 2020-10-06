@@ -29,13 +29,13 @@ bool CElementTransform::addProperty(SNamedPropertyElement&& _property)
 	switch (_property.type)
 	{
 		case SNamedPropertyElement::Type::MATRIX:
-			_NBL_FALLTHROUGH;
+			[[fallthrough]];
 		case SNamedPropertyElement::Type::TRANSLATE:
-			_NBL_FALLTHROUGH;
+			[[fallthrough]];
 		case SNamedPropertyElement::Type::ROTATE:
-			_NBL_FALLTHROUGH;
+			[[fallthrough]];
 		case SNamedPropertyElement::Type::SCALE:
-			_NBL_FALLTHROUGH;
+			[[fallthrough]];
 		case SNamedPropertyElement::Type::LOOKAT:
 			matrix = core::concatenateBFollowedByA(_property.mvalue, matrix);
 			break;

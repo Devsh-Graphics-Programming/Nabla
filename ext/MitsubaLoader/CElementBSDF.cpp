@@ -68,29 +68,29 @@ CElementFactory::return_type CElementFactory::createElement<CElementBSDF>(const 
 	switch (obj->type)
 	{
 		case CElementBSDF::Type::DIFFUSE:
-			_NBL_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementBSDF::Type::ROUGHDIFFUSE:
 			obj->diffuse = CElementBSDF::AllDiffuse();
 			break;
 		case CElementBSDF::Type::DIELECTRIC:
-			_NBL_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementBSDF::Type::THINDIELECTRIC:
-			_NBL_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementBSDF::Type::ROUGHDIELECTRIC:
 			obj->dielectric = CElementBSDF::AllDielectric();
 			break;
 		case CElementBSDF::Type::CONDUCTOR:
-			_NBL_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementBSDF::Type::ROUGHCONDUCTOR:
 			obj->conductor = CElementBSDF::AllConductor();
 			break;
 		case CElementBSDF::Type::PLASTIC:
-			_NBL_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementBSDF::Type::ROUGHPLASTIC:
 			obj->plastic = CElementBSDF::AllPlastic();
 			break;
 		case CElementBSDF::Type::COATING:
-			_NBL_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementBSDF::Type::ROUGHCOATING:
 			obj->coating = CElementBSDF::AllCoating();
 			break;
@@ -257,29 +257,29 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 		switch (type)
 		{
 			case CElementBSDF::Type::DIFFUSE:
-				_NBL_FALLTHROUGH;
+				[[fallthrough]];
 			case CElementBSDF::Type::ROUGHDIFFUSE:
 				func(diffuse);
 				break;
 			case CElementBSDF::Type::DIELECTRIC:
-				_NBL_FALLTHROUGH;
+				[[fallthrough]];
 			case CElementBSDF::Type::THINDIELECTRIC:
-				_NBL_FALLTHROUGH;
+				[[fallthrough]];
 			case CElementBSDF::Type::ROUGHDIELECTRIC:
 				func(dielectric);
 				break;
 			case CElementBSDF::Type::CONDUCTOR:
-				_NBL_FALLTHROUGH;
+				[[fallthrough]];
 			case CElementBSDF::Type::ROUGHCONDUCTOR:
 				func(conductor);
 				break;
 			case CElementBSDF::Type::PLASTIC:
-				_NBL_FALLTHROUGH;
+				[[fallthrough]];
 			case CElementBSDF::Type::ROUGHPLASTIC:
 				func(plastic);
 				break;
 			case CElementBSDF::Type::COATING:
-				_NBL_FALLTHROUGH;
+				[[fallthrough]];
 			case CElementBSDF::Type::ROUGHCOATING:
 				func(coating);
 				break;
@@ -615,29 +615,29 @@ bool CElementBSDF::processChildData(IElement* _child, const std::string& name)
 					switch (type)
 					{
 						case CElementBSDF::Type::DIFFUSE:
-							_NBL_FALLTHROUGH;
+							[[fallthrough]];
 						case CElementBSDF::Type::ROUGHDIFFUSE:
 							func(diffuse);
 							break;
 						case CElementBSDF::Type::DIELECTRIC:
-							_NBL_FALLTHROUGH;
+							[[fallthrough]];
 						case CElementBSDF::Type::THINDIELECTRIC:
-							_NBL_FALLTHROUGH;
+							[[fallthrough]];
 						case CElementBSDF::Type::ROUGHDIELECTRIC:
 							func(dielectric);
 							break;
 						case CElementBSDF::Type::CONDUCTOR:
-							_NBL_FALLTHROUGH;
+							[[fallthrough]];
 						case CElementBSDF::Type::ROUGHCONDUCTOR:
 							func(conductor);
 							break;
 						case CElementBSDF::Type::PLASTIC:
-							_NBL_FALLTHROUGH;
+							[[fallthrough]];
 						case CElementBSDF::Type::ROUGHPLASTIC:
 							func(plastic);
 							break;
 						case CElementBSDF::Type::COATING:
-							_NBL_FALLTHROUGH;
+							[[fallthrough]];
 						case CElementBSDF::Type::ROUGHCOATING:
 							func(coating);
 							break;
@@ -751,7 +751,7 @@ bool CElementBSDF::processChildData(IElement* _child, const std::string& name)
 				switch (type)
 				{
 					case Type::COATING:
-						_NBL_FALLTHROUGH;
+						[[fallthrough]];
 					case Type::ROUGHCOATING:
 						if (coating.childCount < AllCoating::MaxChildCount)
 							coating.bsdf[coating.childCount++] = _bsdf;

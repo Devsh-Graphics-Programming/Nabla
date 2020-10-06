@@ -300,29 +300,29 @@ class CElementBSDF : public IElement
 			switch (type)
 			{
 				case CElementBSDF::Type::DIFFUSE:
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case CElementBSDF::Type::ROUGHDIFFUSE:
 					diffuse = other.diffuse;
 					break;
 				case CElementBSDF::Type::DIELECTRIC:
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case CElementBSDF::Type::THINDIELECTRIC:
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case CElementBSDF::Type::ROUGHDIELECTRIC:
 					dielectric = other.dielectric;
 					break;
 				case CElementBSDF::Type::CONDUCTOR:
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case CElementBSDF::Type::ROUGHCONDUCTOR:
 					conductor = other.conductor;
 					break;
 				case CElementBSDF::Type::PLASTIC:
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case CElementBSDF::Type::ROUGHPLASTIC:
 					plastic = other.plastic;
 					break;
 				case CElementBSDF::Type::COATING:
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case CElementBSDF::Type::ROUGHCOATING:
 					coating = other.coating;
 					break;

@@ -96,7 +96,7 @@ namespace instr_stream
 					_dst.diffuse.reflectance.setConst(node->reflectance.value.constant.pointer);
 			}
 			break;
-			case OP_DIELECTRIC: _NBL_FALLTHROUGH;
+			case OP_DIELECTRIC: [[fallthrough]];
 			case OP_THINDIELECTRIC:
 			{
 				auto* blend = static_cast<const IR::CBSDFCombinerNode*>(_node);
@@ -241,7 +241,7 @@ namespace instr_stream
 		{
 			switch (_op)
 			{
-			case OP_INVALID: _NBL_FALLTHROUGH;
+			case OP_INVALID: [[fallthrough]];
 			case OP_NOOP:
 				return 0ull;
 			default: break;
@@ -304,15 +304,15 @@ namespace instr_stream
 			{
 			case OP_BUMPMAP:
 				writeBumpmapBitfields(instr);
-				_NBL_FALLTHROUGH;
-			case OP_DIFFUSE: _NBL_FALLTHROUGH;
-			case OP_DIFFTRANS: _NBL_FALLTHROUGH;
-			case OP_DIELECTRIC: _NBL_FALLTHROUGH;
-			case OP_THINDIELECTRIC: _NBL_FALLTHROUGH;
-			case OP_CONDUCTOR: _NBL_FALLTHROUGH;
-			case OP_PLASTIC: _NBL_FALLTHROUGH;
-			case OP_COATING: _NBL_FALLTHROUGH;
-			case OP_BLEND: _NBL_FALLTHROUGH;
+				[[fallthrough]];
+			case OP_DIFFUSE: [[fallthrough]];
+			case OP_DIFFTRANS: [[fallthrough]];
+			case OP_DIELECTRIC: [[fallthrough]];
+			case OP_THINDIELECTRIC: [[fallthrough]];
+			case OP_CONDUCTOR: [[fallthrough]];
+			case OP_PLASTIC: [[fallthrough]];
+			case OP_COATING: [[fallthrough]];
+			case OP_BLEND: [[fallthrough]];
 			case OP_NOOP:
 				pushIt = true;
 				break;
@@ -355,7 +355,7 @@ namespace instr_stream
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, BITFIELDS_SHIFT_REFL_TEX, 1);
 			}
 			break;
-			case OP_DIELECTRIC: _NBL_FALLTHROUGH;
+			case OP_DIELECTRIC: [[fallthrough]];
 			case OP_THINDIELECTRIC:
 			{
 				auto* blend = static_cast<const IR::CBSDFCombinerNode*>(_node);
@@ -1067,7 +1067,7 @@ instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const travers
 		{
 		case OP_PLASTIC:
 			write_fetch_bitfields(i, bsdf_data.plastic.alpha_v.tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_ALPHA_V_TEX, BITFIELDS_REG_1_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, 1u);
-			_NBL_FALLTHROUGH;
+			[[fallthrough]];
 		case OP_DIFFUSE:
 			write_fetch_bitfields(i, bsdf_data.param[0].tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);//alpha_u
 			write_fetch_bitfields(i, bsdf_data.param[3].tex, BITFIELDS_FETCH_TEX_3_SHIFT, BITFIELDS_SHIFT_REFL_TEX, BITFIELDS_REG_3_SHIFT, BITFIELDS_FETCH_TEX_3_REG_CNT_SHIFT, 3u);//reflectance
@@ -1075,8 +1075,8 @@ instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const travers
 		case OP_DIFFTRANS:
 			write_fetch_bitfields(i, bsdf_data.difftrans.transmittance.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_TRANS_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 3u);
 			break;
-		case OP_DIELECTRIC: _NBL_FALLTHROUGH;
-		case OP_THINDIELECTRIC: _NBL_FALLTHROUGH;
+		case OP_DIELECTRIC: [[fallthrough]];
+		case OP_THINDIELECTRIC: [[fallthrough]];
 		case OP_CONDUCTOR:
 			write_fetch_bitfields(i, bsdf_data.param[0].tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);//alpha_u
 			write_fetch_bitfields(i, bsdf_data.param[1].tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_ALPHA_V_TEX, BITFIELDS_REG_1_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, 1u);//alpha_v
@@ -1557,7 +1557,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 		_out << "Refl val/reg " << paramVal3OrRegStr(data.diffuse.reflectance, refl) << "\n";
 	}
 	break;
-	case OP_DIELECTRIC: _NBL_FALLTHROUGH;
+	case OP_DIELECTRIC: [[fallthrough]];
 	case OP_THINDIELECTRIC:
 	{
 		ndfAndAnisoAlphaTexPrint(instr, data);

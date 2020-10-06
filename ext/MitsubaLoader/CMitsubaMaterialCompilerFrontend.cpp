@@ -56,13 +56,13 @@ namespace MitsubaLoader
 #ifndef DERIV_MAP_FLOAT32
                 return asset::EF_R8G8_UNORM;
 #else
-                _NBL_FALLTHROUGH;
+                [[fallthrough]];
 #endif
             case 2u:
 #ifndef DERIV_MAP_FLOAT32
                 return asset::EF_R16G16_SFLOAT;
 #else
-                _NBL_FALLTHROUGH;
+                [[fallthrough]];
 #endif
             case 4u:
                 return asset::EF_R32G32_SFLOAT;

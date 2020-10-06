@@ -185,7 +185,7 @@ class IImageView : public IDescriptor
 						return false;
 					if (actualLayerCount>1u)
 						return false;
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case ET_1D_ARRAY:
 					if (imgParams.extent.height>1u || imgParams.extent.depth>1u)
 						return false;
@@ -195,7 +195,7 @@ class IImageView : public IDescriptor
 						return false;
 					if (actualLayerCount>1u)
 						return false;
-					_NBL_FALLTHROUGH;
+					[[fallthrough]];
 				case ET_2D_ARRAY:
 					if (sourceIs3D)
 					{

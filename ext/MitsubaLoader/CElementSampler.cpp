@@ -50,12 +50,12 @@ CElementFactory::return_type CElementFactory::createElement<CElementSampler>(con
 	switch (obj->type)
 	{
 		case CElementSampler::Type::STRATIFIED:
-			_NBL_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementSampler::Type::LDSAMPLER:
 			obj->dimension = 4;
 			break;
 		case CElementSampler::Type::HALTON:
-			_NBL_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementSampler::Type::HAMMERSLEY:
 			obj->scramble = -1;
 			break;

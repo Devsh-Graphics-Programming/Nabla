@@ -51,7 +51,7 @@ CElementFactory::return_type CElementFactory::createElement<CElementRFilter>(con
 	switch (obj->type)
 	{
 		case CElementRFilter::Type::BOX:
-			_NBL_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementRFilter::Type::TENT:
 			break;
 		case CElementRFilter::Type::GAUSSIAN:
