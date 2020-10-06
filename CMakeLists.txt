@@ -179,9 +179,9 @@ macro(irr_adjust_definitions)
 endmacro()
 
 if(WIN32)
-	set(_IRR_PLATFORM_WINDOWS_ 1)
+	set(_NBL_PLATFORM_WINDOWS_ 1)
 elseif(UNIX)
-	set(_IRR_PLATFORM_LINUX_ 1)
+	set(_NBL_PLATFORM_LINUX_ 1)
 endif()
 
 #uncomment in the future

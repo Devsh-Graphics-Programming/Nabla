@@ -7,7 +7,7 @@
 
 #include "IQueryObject.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 #include "COpenGLExtensionHandler.h"
 
 namespace irr
@@ -58,7 +58,7 @@ class COpenGLQuery : public IQueryObject
 
 }
 }
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
 
 #endif // __C_OPENGL_QUERY_H_INCLUDED__
 

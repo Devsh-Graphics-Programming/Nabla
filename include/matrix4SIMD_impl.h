@@ -48,7 +48,7 @@ inline bool matrix4SIMD::isIdentity(float _tolerance) const
 	return core::equals<matrix4SIMD>(*this, matrix4SIMD(), core::ROUNDING_ERROR<matrix4SIMD>());
 }
 
-#ifdef __IRR_COMPILE_WITH_SSE3
+#ifdef __NBL_COMPILE_WITH_SSE3
 #define BROADCAST32(fpx) _MM_SHUFFLE(fpx, fpx, fpx, fpx)
 #define BUILD_MASKF(_x_, _y_, _z_, _w_) _mm_setr_epi32(_x_*0xffffffff, _y_*0xffffffff, _z_*0xffffffff, _w_*0xffffffff)
 inline matrix4SIMD matrix4SIMD::concatenateBFollowedByA(const matrix4SIMD& _a, const matrix4SIMD& _b)

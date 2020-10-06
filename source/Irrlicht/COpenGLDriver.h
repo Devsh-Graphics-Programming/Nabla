@@ -18,7 +18,7 @@ namespace irr
 	class CIrrDeviceMacOSX;
 }
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 
 #include "IDriverMemoryAllocation.h"
 #include "irr/video/COpenGLSpecializedShader.h"
@@ -218,21 +218,21 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 	public:
         struct SAuxContext;
 
-		#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+		#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp);
 		//! inits the windows specific parts of the open gl driver
 		bool initDriver(CIrrDeviceWin32* device);
 		bool changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceWin32* device);
 		#endif
 
-		#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+		#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp);
 		//! inits the GLX specific parts of the open gl driver
 		bool initDriver(CIrrDeviceLinux* device, SAuxContext* auxCtxts);
 		bool changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceLinux* device);
 		#endif
 
-		#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+		#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceSDL* device, const asset::IGLSLCompiler* glslcomp);
 		#endif
 
@@ -828,13 +828,13 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 		//!
 		const size_t& getMaxShaderInvocationsPerALU() const {return maxALUShaderInvocations;}
 
-#ifdef _IRR_COMPILE_WITH_OPENCL_
+#ifdef _NBL_COMPILE_WITH_OPENCL_
         const cl_device_id& getOpenCLAssociatedDevice() const {return clDevice;}
 		const cl_context_properties* getOpenCLAssociatedContextProperties() const { return clProperties; }
 
         size_t getOpenCLAssociatedDeviceID() const {return clDeviceIx;}
         size_t getOpenCLAssociatedPlatformID() const {return clPlatformIx;}
-#endif // _IRR_COMPILE_WITH_OPENCL_
+#endif // _NBL_COMPILE_WITH_OPENCL_
 
         struct SAuxContext
         {
@@ -885,11 +885,11 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             #ifdef _NBL_WINDOWS_API_
                 HGLRC ctx;
             #endif
-            #ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+            #ifdef _NBL_COMPILE_WITH_X11_DEVICE_
                 GLXContext ctx;
                 GLXPbuffer pbuff;
             #endif
-            #ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
+            #ifdef _NBL_COMPILE_WITH_OSX_DEVICE_
                 AppleMakesAUselessOSWhichHoldsBackTheGamingIndustryAndSabotagesOpenStandards ctx;
             #endif
 
@@ -1054,30 +1054,30 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 		#ifdef _NBL_WINDOWS_API_
 			HDC HDc; // Private GDI Device Context
 			HWND Window;
-		#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+		#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 			CIrrDeviceWin32 *Win32Device;
 		#endif
 		#endif
-		#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+		#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 			GLXDrawable Drawable;
 			Display* X11Display;
 			CIrrDeviceLinux *X11Device;
 		#endif
-		#ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
+		#ifdef _NBL_COMPILE_WITH_OSX_DEVICE_
 			CIrrDeviceMacOSX *OSXDevice;
 		#endif
-		#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+		#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
 			CIrrDeviceSDL *SDLDevice;
 		#endif
 
         size_t maxALUShaderInvocations;
         size_t maxConcurrentShaderInvocations;
         uint32_t maxShaderComputeUnits;
-#ifdef _IRR_COMPILE_WITH_OPENCL_
+#ifdef _NBL_COMPILE_WITH_OPENCL_
         cl_device_id clDevice;
 		cl_context_properties clProperties[7];
         size_t clPlatformIx, clDeviceIx;
-#endif // _IRR_COMPILE_WITH_OPENCL_
+#endif // _NBL_COMPILE_WITH_OPENCL_
 
         std::mutex glContextMutex;
 		SAuxContext* AuxContexts;
@@ -1090,6 +1090,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 } // end namespace irr
 
 
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
 #endif
 

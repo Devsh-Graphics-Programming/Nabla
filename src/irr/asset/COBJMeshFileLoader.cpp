@@ -8,7 +8,7 @@
 #include "irr/asset/IMeshManipulator.h"
 #include "irr/asset/IAssetManager.h"
 
-#ifdef _IRR_COMPILE_WITH_OBJ_LOADER_
+#ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 
 #include "os.h"
 #include "IFileSystem.h"
@@ -704,4 +704,4 @@ std::string COBJMeshFileLoader::genKeyForMeshBuf(const SContext& _ctx, const std
 } // end namespace scene
 } // end namespace irr
 
-#endif // _IRR_COMPILE_WITH_OBJ_LOADER_
+#endif // _NBL_COMPILE_WITH_OBJ_LOADER_

@@ -7,7 +7,7 @@
 
 #include "IrrCompileConfig.h"
 
-#ifdef _IRR_COMPILE_WITH_GLI_WRITER_
+#ifdef _NBL_COMPILE_WITH_GLI_WRITER_
 
 #include "irr/asset/IAssetWriter.h"
 #include "irr/asset/ICPUImageView.h"
@@ -70,5 +70,5 @@ class CGLIWriter final : public asset::IAssetWriter
 }
 }
 
-#endif // _IRR_COMPILE_WITH_GLI_WRITER_
+#endif // _NBL_COMPILE_WITH_GLI_WRITER_
 #endif // #ifndef __C_IMAGE_WRITER_GLI__

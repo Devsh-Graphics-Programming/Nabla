@@ -6,7 +6,7 @@
 
 #include "CMemoryFile.h"
 
-#ifdef _IRR_COMPILE_WITH_CUDA_
+#ifdef _NBL_COMPILE_WITH_CUDA_
 #include "jitify/jitify.hpp"
 
 
@@ -696,4 +696,4 @@ nvrtcResult CCUDAHandler::getPTX(nvrtcProgram prog, std::string& ptx)
 }
 }
 
-#endif // _IRR_COMPILE_WITH_CUDA_
+#endif // _NBL_COMPILE_WITH_CUDA_

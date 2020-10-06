@@ -9,14 +9,14 @@
 #include "IrrCompileConfig.h"
 #include "irr/core/core.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 
 #include "COpenGLStateManager.h"
 
 #ifdef _NBL_WINDOWS_API_
 	// include windows headers for HWND
 	#include "../src/3rdparty/GL/wglext.h"
-#elif defined(_IRR_COMPILE_WITH_X11_)
+#elif defined(_NBL_COMPILE_WITH_X11_)
     #include "GL/glx.h"
     #include "../src/3rdparty/GL/glxext.h"
 #endif
@@ -4501,13 +4501,13 @@ inline void COpenGLExtensionHandler::extGlTextureBarrier()
 inline void COpenGLExtensionHandler::extGlSwapInterval(int interval)
 {
 	// we have wglext, so try to use that
-#if defined(_NBL_WINDOWS_API_) && defined(_IRR_COMPILE_WITH_WINDOWS_DEVICE_)
+#if defined(_NBL_WINDOWS_API_) && defined(_NBL_COMPILE_WITH_WINDOWS_DEVICE_)
 #ifdef WGL_EXT_swap_control
 	if (pWglSwapIntervalEXT)
 		pWglSwapIntervalEXT(interval);
 #endif
 #endif
-#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 	//TODO: Check GLX_EXT_swap_control and GLX_MESA_swap_control
 #ifdef GLX_SGI_swap_control
 	// does not work with interval==0

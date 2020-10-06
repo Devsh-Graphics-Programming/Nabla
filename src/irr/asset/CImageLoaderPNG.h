@@ -10,7 +10,7 @@
 
 #include "IrrCompileConfig.h"
 
-#ifdef _IRR_COMPILE_WITH_PNG_LOADER_
+#ifdef _NBL_COMPILE_WITH_PNG_LOADER_
 
 #include "irr/asset/IAssetLoader.h"
 

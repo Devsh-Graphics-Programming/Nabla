@@ -8,7 +8,7 @@
 
 #include "IrrCompileConfig.h"
 
-#ifdef __IRR_COMPILE_WITH_PAK_ARCHIVE_LOADER_
+#ifdef __NBL_COMPILE_WITH_PAK_ARCHIVE_LOADER_
 
 #include "irr/core/IReferenceCounted.h"
 #include "IReadFile.h"
@@ -116,7 +116,7 @@ namespace io
 } // end namespace io
 } // end namespace irr
 
-#endif // __IRR_COMPILE_WITH_PAK_ARCHIVE_LOADER_
+#endif // __NBL_COMPILE_WITH_PAK_ARCHIVE_LOADER_
 
 #endif // __C_PAK_READER_H_INCLUDED__
 

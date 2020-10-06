@@ -26,7 +26,7 @@ SOFTWARE.
 
 #include "CImageWriterOpenEXR.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
+#ifdef _NBL_COMPILE_WITH_OPENEXR_WRITER_
 
 #include "irr/asset/COpenEXRImageMetadata.h"
 
@@ -170,4 +170,4 @@ namespace asset
 }
 }
 
-#endif // _IRR_COMPILE_WITH_OPENEXR_WRITER_
+#endif // _NBL_COMPILE_WITH_OPENEXR_WRITER_

@@ -44,7 +44,7 @@ NBL_FORCE_INLINE double sqrt<double>(const double& x)
 template<>
 NBL_FORCE_INLINE vectorSIMDf sqrt(const vectorSIMDf& x)
 {
-#ifdef __IRR_COMPILE_WITH_X86_SIMD_
+#ifdef __NBL_COMPILE_WITH_X86_SIMD_
 	return _mm_sqrt_ps(x.getAsRegister());
 #else
 #error "no implementation"
@@ -54,7 +54,7 @@ NBL_FORCE_INLINE vectorSIMDf sqrt(const vectorSIMDf& x)
 template<>
 NBL_FORCE_INLINE vectorSIMDf inversesqrt<vectorSIMDf>(const vectorSIMDf& x)
 {
-#ifdef __IRR_COMPILE_WITH_X86_SIMD_
+#ifdef __NBL_COMPILE_WITH_X86_SIMD_
 	return _mm_rsqrt_ps(x.getAsRegister());
 #else
 #error "no implementation"
@@ -69,7 +69,7 @@ NBL_FORCE_INLINE T inversesqrt(const T& x)
 template<>
 NBL_FORCE_INLINE vectorSIMDf reciprocal_approxim<vectorSIMDf>(const vectorSIMDf& x)
 {
-#ifdef __IRR_COMPILE_WITH_X86_SIMD_
+#ifdef __NBL_COMPILE_WITH_X86_SIMD_
     return _mm_rcp_ps(x.getAsRegister());
 #else
 #error "no implementation"
@@ -78,7 +78,7 @@ NBL_FORCE_INLINE vectorSIMDf reciprocal_approxim<vectorSIMDf>(const vectorSIMDf&
 template<>
 NBL_FORCE_INLINE float reciprocal_approxim<float>(const float& x)
 {
-#if defined (__IRR_FAST_MATH) && defined ( __IRR_COMPILE_WITH_X86_SIMD_ )
+#if defined (__NBL_FAST_MATH) && defined ( __NBL_COMPILE_WITH_X86_SIMD_ )
     float result;
     _mm_store_ss(&result,_mm_rcp_ps(_mm_load_ss(&x)));
     return result;
@@ -118,7 +118,7 @@ NBL_FORCE_INLINE double floor<double>(const double& x)
 template<>
 NBL_FORCE_INLINE vectorSIMDf floor<vectorSIMDf>(const vectorSIMDf& x)
 {
-#ifdef __IRR_COMPILE_WITH_SSE3
+#ifdef __NBL_COMPILE_WITH_SSE3
 	return _mm_floor_ps(x.getAsRegister());
 #else
 #error "no implementation"
@@ -149,7 +149,7 @@ NBL_FORCE_INLINE double ceil<double>(const double& x)
 template<>
 NBL_FORCE_INLINE vectorSIMDf ceil<vectorSIMDf>(const vectorSIMDf& x)
 {
-#ifdef __IRR_COMPILE_WITH_SSE3
+#ifdef __NBL_COMPILE_WITH_SSE3
 	return _mm_ceil_ps(x.getAsRegister());
 #else
 #error "no implementation"
@@ -159,7 +159,7 @@ NBL_FORCE_INLINE vectorSIMDf ceil<vectorSIMDf>(const vectorSIMDf& x)
 template<>
 NBL_FORCE_INLINE vectorSIMDf min<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b)
 {
-#ifdef __IRR_COMPILE_WITH_SSE3
+#ifdef __NBL_COMPILE_WITH_SSE3
 	return _mm_min_ps(a.getAsRegister(),b.getAsRegister());
 #else
 #error "no implementation"
@@ -168,7 +168,7 @@ NBL_FORCE_INLINE vectorSIMDf min<vectorSIMDf>(const vectorSIMDf& a, const vector
 template<>
 NBL_FORCE_INLINE vectorSIMDu32 min<vectorSIMDu32>(const vectorSIMDu32& a, const vectorSIMDu32& b)
 {
-#ifdef __IRR_COMPILE_WITH_SSE3
+#ifdef __NBL_COMPILE_WITH_SSE3
 	return _mm_min_epu32(a.getAsRegister(),b.getAsRegister());
 #else
 #error "no implementation"
@@ -177,7 +177,7 @@ NBL_FORCE_INLINE vectorSIMDu32 min<vectorSIMDu32>(const vectorSIMDu32& a, const 
 template<>
 NBL_FORCE_INLINE vectorSIMDi32 min<vectorSIMDi32>(const vectorSIMDi32& a, const vectorSIMDi32& b)
 {
-#ifdef __IRR_COMPILE_WITH_SSE3
+#ifdef __NBL_COMPILE_WITH_SSE3
 	return _mm_min_epi32(a.getAsRegister(),b.getAsRegister());
 #else
 #error "no implementation"
@@ -195,7 +195,7 @@ NBL_FORCE_INLINE T min(const T& a, const T& b)
 template<>
 NBL_FORCE_INLINE vectorSIMDf max<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b)
 {
-#ifdef __IRR_COMPILE_WITH_SSE3
+#ifdef __NBL_COMPILE_WITH_SSE3
 	return _mm_max_ps(a.getAsRegister(),b.getAsRegister());
 #else
 #error "no implementation"
@@ -204,7 +204,7 @@ NBL_FORCE_INLINE vectorSIMDf max<vectorSIMDf>(const vectorSIMDf& a, const vector
 template<>
 NBL_FORCE_INLINE vectorSIMDu32 max<vectorSIMDu32>(const vectorSIMDu32& a, const vectorSIMDu32& b)
 {
-#ifdef __IRR_COMPILE_WITH_SSE3
+#ifdef __NBL_COMPILE_WITH_SSE3
 	return _mm_max_epu32(a.getAsRegister(),b.getAsRegister());
 #else
 #error "no implementation"
@@ -213,7 +213,7 @@ NBL_FORCE_INLINE vectorSIMDu32 max<vectorSIMDu32>(const vectorSIMDu32& a, const 
 template<>
 NBL_FORCE_INLINE vectorSIMDi32 max<vectorSIMDi32>(const vectorSIMDi32& a, const vectorSIMDi32& b)
 {
-#ifdef __IRR_COMPILE_WITH_SSE3
+#ifdef __NBL_COMPILE_WITH_SSE3
 	return _mm_max_epi32(a.getAsRegister(),b.getAsRegister());
 #else
 #error "no implementation"
@@ -234,7 +234,7 @@ NBL_FORCE_INLINE vectorSIMDf dot<vectorSIMDf>(const vectorSIMDf& a, const vector
 {
     __m128 xmm0 = a.getAsRegister();
     __m128 xmm1 = b.getAsRegister();
-#ifdef __IRR_COMPILE_WITH_SSE3
+#ifdef __NBL_COMPILE_WITH_SSE3
     xmm0 = _mm_mul_ps(xmm0,xmm1);
     xmm0 = _mm_hadd_ps(xmm0,xmm0);
     return _mm_hadd_ps(xmm0,xmm0);
@@ -246,7 +246,7 @@ template<>
 NBL_FORCE_INLINE vectorSIMDi32 dot<vectorSIMDi32>(const vectorSIMDi32& a, const vectorSIMDi32& b)
 {
     __m128i xmm0 = (a*b).getAsRegister();
-#ifdef __IRR_COMPILE_WITH_SSE3
+#ifdef __NBL_COMPILE_WITH_SSE3
     xmm0 = _mm_hadd_epi32(xmm0,xmm0);
     return _mm_hadd_epi32(xmm0,xmm0);
 #else
@@ -257,7 +257,7 @@ template<>
 NBL_FORCE_INLINE vectorSIMDu32 dot<vectorSIMDu32>(const vectorSIMDu32& a, const vectorSIMDu32& b)
 {
     __m128i xmm0 = (a*b).getAsRegister();
-#ifdef __IRR_COMPILE_WITH_SSE3
+#ifdef __NBL_COMPILE_WITH_SSE3
     xmm0 = _mm_hadd_epi32(xmm0,xmm0);
     return _mm_hadd_epi32(xmm0,xmm0);
 #else
@@ -268,7 +268,7 @@ NBL_FORCE_INLINE vectorSIMDu32 dot<vectorSIMDu32>(const vectorSIMDu32& a, const 
 template<>
 NBL_FORCE_INLINE vectorSIMDf cross<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b)
 {
-#ifdef __IRR_COMPILE_WITH_X86_SIMD_
+#ifdef __NBL_COMPILE_WITH_X86_SIMD_
     __m128 xmm0 = a.getAsRegister();
     __m128 xmm1 = b.getAsRegister();
     __m128 backslash = _mm_mul_ps(FAST_FLOAT_SHUFFLE(xmm0,_MM_SHUFFLE(3,0,2,1)),FAST_FLOAT_SHUFFLE(xmm1,_MM_SHUFFLE(3,1,0,2)));

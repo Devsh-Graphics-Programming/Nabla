@@ -6,7 +6,7 @@
 #define __NBL_C_OPENGL_TIMESTAMP_QUERY_H_INCLUDED__
 
 #include "IGPUTimestampQuery.h"
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 #include "COpenGLExtensionHandler.h"
 
 namespace irr
@@ -60,7 +60,7 @@ class COpenGLTimestampQuery : public IGPUTimestampQuery
 
 }
 }
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
 
 #endif // __I_GPU_TIMESTAMP_QUERY_H_INCLUDED__
 

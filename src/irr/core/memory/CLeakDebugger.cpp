@@ -37,14 +37,14 @@ namespace std
 
 
 #ifdef _NBL_DEBUG
-#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 
 #include <execinfo.h>
 #include <libunwind.h>
 
 #include <cxxabi.h>
 
-#endif // _IRR_COMPILE_WITH_X11_DEVICE_
+#endif // _NBL_COMPILE_WITH_X11_DEVICE_
 #endif // _NBL_DEBUG
 
 namespace irr
@@ -115,7 +115,7 @@ core::vector<std::string> getBackTrace(void)
 {
     core::vector<std::string> retval;
 #ifdef _NBL_DEBUG
-#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 /*
     void* funcAddrs[256];
     int callStackLen = backtrace(funcAddrs,256);

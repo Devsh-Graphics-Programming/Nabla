@@ -18,7 +18,7 @@
 #endif
 #endif
 
-#if defined(_IRR_COMPILE_WITH_X11_DEVICE_)
+#if defined(_NBL_COMPILE_WITH_X11_DEVICE_)
 #include "CIrrDeviceLinux.h"
 #include <fstream>
 #endif
@@ -26,7 +26,7 @@
 namespace irr
 {
 
-#if defined(_IRR_COMPILE_WITH_X11_DEVICE_)
+#if defined(_NBL_COMPILE_WITH_X11_DEVICE_)
 // constructor  linux
 	COSOperator::COSOperator(const core::stringc& osVersion, CIrrDeviceLinux* device)
 : OperatingSystem(osVersion), IrrDeviceLinux(device)
@@ -76,7 +76,7 @@ void COSOperator::copyToClipboard(const char* text) const
 	SetClipboardData(CF_TEXT, clipbuffer);
 	CloseClipboard();
 
-#elif defined(_IRR_COMPILE_WITH_X11_DEVICE_)
+#elif defined(_NBL_COMPILE_WITH_X11_DEVICE_)
     if ( IrrDeviceLinux )
         IrrDeviceLinux->copyToClipboard(text);
 #else
@@ -103,7 +103,7 @@ const char* COSOperator::getTextFromClipboard() const
 	CloseClipboard();
 	return buffer;
 
-#elif defined(_IRR_COMPILE_WITH_X11_DEVICE_)
+#elif defined(_NBL_COMPILE_WITH_X11_DEVICE_)
     if ( IrrDeviceLinux )
         return IrrDeviceLinux->getTextFromClipboard();
     return 0;

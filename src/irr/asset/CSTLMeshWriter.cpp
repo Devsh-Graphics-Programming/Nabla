@@ -5,7 +5,7 @@
 
 #include "irr/core/core.h"
 
-#ifdef _IRR_COMPILE_WITH_STL_WRITER_
+#ifdef _NBL_COMPILE_WITH_STL_WRITER_
 
 #include "CSTLMeshWriter.h"
 

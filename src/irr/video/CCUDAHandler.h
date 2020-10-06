@@ -10,7 +10,7 @@
 #include "irr/system/system.h"
 
 
-#ifdef _IRR_COMPILE_WITH_CUDA_
+#ifdef _NBL_COMPILE_WITH_CUDA_
 
 #include "cuda.h"
 #include "nvrtc.h"
@@ -18,13 +18,13 @@
 	#error "Need CUDA 9.0 SDK or higher."
 #endif
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 	#include "COpenGLDriver.h"
 	// make CUDA play nice
 	#define WGL_NV_gpu_affinity 0
 	#include "cudaGL.h"
 	#undef WGL_NV_gpu_affinity
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
 
 // useful includes in the future
 //#include "cudaEGL.h"
@@ -506,6 +506,6 @@ class CCUDAHandler
 }
 }
 
-#endif // _IRR_COMPILE_WITH_CUDA_
+#endif // _NBL_COMPILE_WITH_CUDA_
 
 #endif

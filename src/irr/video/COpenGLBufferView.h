@@ -11,7 +11,7 @@
 #include "COpenGLBuffer.h"
 
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 namespace irr
 {
 namespace video

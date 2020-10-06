@@ -7,7 +7,7 @@
 
 #include "IrrCompileConfig.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
+#ifdef _NBL_COMPILE_WITH_OPENEXR_LOADER_
 
 #include "irr/asset/IImageLoader.h"
 
@@ -43,5 +43,5 @@ namespace irr
 	}
 }
 
-#endif // _IRR_COMPILE_WITH_OPENEXR_LOADER_
+#endif // _NBL_COMPILE_WITH_OPENEXR_LOADER_
 #endif // __C_IMAGE_LOADER_OPENEXR__

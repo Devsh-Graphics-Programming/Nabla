@@ -344,7 +344,7 @@ template<typename T>
 NBL_FORCE_INLINE T normalize(const T& v)
 {
 	auto d = dot<T>(v, v);
-#ifdef __IRR_FAST_MATH
+#ifdef __NBL_FAST_MATH
 	return v * core::inversesqrt<T>(d);
 #else
 	return v / core::sqrt<T>(d);

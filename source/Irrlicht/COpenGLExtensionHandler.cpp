@@ -5,7 +5,7 @@
 
 #include "COpenGLExtensionHandler.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 namespace irr
 {
 namespace video
@@ -992,7 +992,7 @@ void COpenGLExtensionHandler::loadFunctions()
 
 #ifdef _NBL_WINDOWS_API_
 	#define IRR_OGL_LOAD_EXTENSION(x) wglGetProcAddress(reinterpret_cast<const char*>(x))
-#elif defined(_IRR_COMPILE_WITH_SDL_DEVICE_) && !defined(_IRR_COMPILE_WITH_X11_DEVICE_)
+#elif defined(_NBL_COMPILE_WITH_SDL_DEVICE_) && !defined(_NBL_COMPILE_WITH_X11_DEVICE_)
 	#define IRR_OGL_LOAD_EXTENSION(x) SDL_GL_GetProcAddress(reinterpret_cast<const char*>(x))
 #else
     #define IRR_OGL_LOAD_EXTENSION(X) glXGetProcAddress(reinterpret_cast<const GLubyte*>(X))
@@ -1462,16 +1462,16 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlGetInternalformati64v = (PFNGLGETINTERNALFORMATI64VPROC) IRR_OGL_LOAD_EXTENSION("glGetInternalformati64v");
 
 	// get vsync extension
-	#if defined(WGL_EXT_swap_control) && !defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+	#if defined(WGL_EXT_swap_control) && !defined(_NBL_COMPILE_WITH_SDL_DEVICE_)
 		pWglSwapIntervalEXT = (PFNWGLSWAPINTERVALEXTPROC) IRR_OGL_LOAD_EXTENSION("wglSwapIntervalEXT");
 	#endif
-	#if defined(GLX_SGI_swap_control) && !defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+	#if defined(GLX_SGI_swap_control) && !defined(_NBL_COMPILE_WITH_SDL_DEVICE_)
 		pGlxSwapIntervalSGI = (PFNGLXSWAPINTERVALSGIPROC)IRR_OGL_LOAD_EXTENSION("glXSwapIntervalSGI");
 	#endif
-	#if defined(GLX_EXT_swap_control) && !defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+	#if defined(GLX_EXT_swap_control) && !defined(_NBL_COMPILE_WITH_SDL_DEVICE_)
 		pGlxSwapIntervalEXT = (PFNGLXSWAPINTERVALEXTPROC)IRR_OGL_LOAD_EXTENSION("glXSwapIntervalEXT");
 	#endif
-	#if defined(GLX_MESA_swap_control) && !defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+	#if defined(GLX_MESA_swap_control) && !defined(_NBL_COMPILE_WITH_SDL_DEVICE_)
 		pGlxSwapIntervalMESA = (PFNGLXSWAPINTERVALMESAPROC)IRR_OGL_LOAD_EXTENSION("glXSwapIntervalMESA");
 	#endif
 

@@ -8,13 +8,13 @@
 
 #include "IrrCompileConfig.h"
 
-#ifdef __IRR_COMPILE_WITH_X86_SIMD_
+#ifdef __NBL_COMPILE_WITH_X86_SIMD_
 
-#ifdef __IRR_COMPILE_WITH_X86_SIMD_
+#ifdef __NBL_COMPILE_WITH_X86_SIMD_
     #include <nmmintrin.h>
 #else
     #error "Check your compiler or project settings for the -m*sse* flag, or upgrade your CPU"
-#endif // __IRR_COMPILE_WITH_X86_SIMD_
+#endif // __NBL_COMPILE_WITH_X86_SIMD_
 
 #include <type_traits>
 #include <stdint.h>
@@ -607,7 +607,7 @@ namespace core
 
 		inline vectorSIMDf operator*(const vectorSIMDf& other) const { return _mm_mul_ps(getAsRegister(),other.getAsRegister()); }
 		inline vectorSIMDf& operator*=(const vectorSIMDf& other) { _mm_store_ps(pointer,_mm_mul_ps(getAsRegister(),other.getAsRegister())); return *this; }
-#ifdef __IRR_FAST_MATH
+#ifdef __NBL_FAST_MATH
 		inline vectorSIMDf operator/(const vectorSIMDf& other) const { return _mm_mul_ps(getAsRegister(),_mm_rcp_ps(other.getAsRegister())); }
 		inline vectorSIMDf& operator/=(const vectorSIMDf& other) { _mm_store_ps(pointer,_mm_mul_ps(getAsRegister(),_mm_rcp_ps(other.getAsRegister()))); return *this; }
 #else
@@ -627,7 +627,7 @@ namespace core
 		inline vectorSIMDf  operator*(float val) const { return (*this)*vectorSIMDf(val); }
 		inline vectorSIMDf& operator*=(float val) { return ( (*this) *= vectorSIMDf(val) ); }
 
-#ifdef __IRR_FAST_MATH
+#ifdef __NBL_FAST_MATH
 		inline vectorSIMDf operator/(float v) const { return vectorSIMDf(_mm_mul_ps(_mm_rcp_ps(_mm_load_ps1(&v)),getAsRegister())); }
 		inline vectorSIMDf& operator/=(float v) { _mm_store_ps(pointer,_mm_mul_ps(_mm_rcp_ps(_mm_load_ps1(&v)),getAsRegister())); return *this; }
 #else

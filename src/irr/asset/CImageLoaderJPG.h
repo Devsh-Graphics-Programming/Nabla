@@ -8,7 +8,7 @@
 
 #include "irr/core/core.h"
 
-#ifdef _IRR_COMPILE_WITH_JPG_LOADER_
+#ifdef _NBL_COMPILE_WITH_JPG_LOADER_
 
 #include "irr/asset/IAssetLoader.h"
 

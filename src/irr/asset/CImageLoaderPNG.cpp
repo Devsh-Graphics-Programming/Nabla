@@ -5,11 +5,11 @@
 
 #include "CImageLoaderPNG.h"
 
-#ifdef _IRR_COMPILE_WITH_PNG_LOADER_
+#ifdef _NBL_COMPILE_WITH_PNG_LOADER_
 
-#ifdef _IRR_COMPILE_WITH_LIBPNG_
+#ifdef _NBL_COMPILE_WITH_LIBPNG_
 #   include "libpng/png.h"
-#endif // _IRR_COMPILE_WITH_LIBPNG_
+#endif // _NBL_COMPILE_WITH_LIBPNG_
 
 #include "irr/asset/ICPUImageView.h"
 
@@ -23,7 +23,7 @@ namespace irr
 namespace asset
 {
 
-#ifdef _IRR_COMPILE_WITH_LIBPNG_
+#ifdef _NBL_COMPILE_WITH_LIBPNG_
 // PNG function for error handling
 static void png_cpexcept_error(png_structp png_ptr, png_const_charp msg)
 {
@@ -50,13 +50,13 @@ void PNGAPI user_read_data_fcn(png_structp png_ptr, png_bytep data, png_size_t l
 	if (check != length)
 		png_error(png_ptr, "Read Error");
 }
-#endif // _IRR_COMPILE_WITH_LIBPNG_
+#endif // _NBL_COMPILE_WITH_LIBPNG_
 
 
 //! returns true if the file maybe is able to be loaded by this class
 bool CImageLoaderPng::isALoadableFileFormat(io::IReadFile* _file) const
 {
-#ifdef _IRR_COMPILE_WITH_LIBPNG_
+#ifdef _NBL_COMPILE_WITH_LIBPNG_
 	if (!_file)
 		return false;
 
@@ -75,14 +75,14 @@ bool CImageLoaderPng::isALoadableFileFormat(io::IReadFile* _file) const
 	return !png_sig_cmp(buffer, 0, 8);
 #else
 	return false;
-#endif // _IRR_COMPILE_WITH_LIBPNG_
+#endif // _NBL_COMPILE_WITH_LIBPNG_
 }
 
 
 // load in the image data
 asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-#ifdef _IRR_COMPILE_WITH_LIBPNG_
+#ifdef _NBL_COMPILE_WITH_LIBPNG_
 	if (!_file)
         return {};
 
@@ -305,7 +305,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	png_destroy_read_struct(&png_ptr,&info_ptr, 0); // Clean up memory
 #else
     return {};
-#endif // _IRR_COMPILE_WITH_LIBPNG_
+#endif // _NBL_COMPILE_WITH_LIBPNG_
 
 	image = ICPUImage::create(std::move(imgInfo));
 

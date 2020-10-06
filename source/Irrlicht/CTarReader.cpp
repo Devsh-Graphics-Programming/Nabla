@@ -5,7 +5,7 @@
 
 #include "CTarReader.h"
 
-#ifdef __IRR_COMPILE_WITH_TAR_ARCHIVE_LOADER_
+#ifdef __NBL_COMPILE_WITH_TAR_ARCHIVE_LOADER_
 
 #include "CFileList.h"
 #include "CLimitReadFile.h"
@@ -238,4 +238,4 @@ IReadFile* CTarReader::createAndOpenFile(const io::path& filename)
 } // end namespace io
 } // end namespace irr
 
-#endif // __IRR_COMPILE_WITH_TAR_ARCHIVE_LOADER_
+#endif // __NBL_COMPILE_WITH_TAR_ARCHIVE_LOADER_

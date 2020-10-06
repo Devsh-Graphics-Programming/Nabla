@@ -11,7 +11,7 @@
 #include "../../ext/MitsubaLoader/CSerializedLoader.h"
 #include "CMitsubaSerializedPipelineMetadata.h"
 
-#ifndef _IRR_COMPILE_WITH_ZLIB_
+#ifndef _NBL_COMPILE_WITH_ZLIB_
 #error "Need zlib for this loader"
 #endif
 #include "zlib/zlib.h"

@@ -16,7 +16,7 @@
     #include <Windows.h>
     #include <wingdi.h>
 #endif
-#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_) && !(defined(_IRR_COMPILE_WITH_X11_DEVICE_)||defined(_NBL_WINDOWS_API_))
+#if defined(_NBL_COMPILE_WITH_SDL_DEVICE_) && !(defined(_NBL_COMPILE_WITH_X11_DEVICE_)||defined(_NBL_WINDOWS_API_))
 	#include <SDL/SDL_video.h>
     #define GL_GLEXT_LEGACY 1
 	#include <SDL/SDL_opengl.h>

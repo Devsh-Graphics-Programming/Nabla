@@ -14,7 +14,7 @@ namespace irr
 namespace asset
 {
 
-#if defined(_IRR_COMPILE_WITH_TGA_LOADER_) || defined(_IRR_COMPILE_WITH_TGA_WRITER_)
+#if defined(_NBL_COMPILE_WITH_TGA_LOADER_) || defined(_NBL_COMPILE_WITH_TGA_WRITER_)
 
 // byte-align structures
 #include "irr/irrpack.h"
@@ -87,7 +87,7 @@ namespace asset
 
 #endif // compiled with loader or reader
 
-#ifdef _IRR_COMPILE_WITH_TGA_LOADER_
+#ifdef _NBL_COMPILE_WITH_TGA_LOADER_
 
 /*!
 	Surface Loader for targa images

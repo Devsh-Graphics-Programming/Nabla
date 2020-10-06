@@ -24,7 +24,7 @@ std::pair<const uint8_t*,size_t> get_resource_runtime(const std::string&);
 }
 }
 
-#ifndef _IRR_EMBED_BUILTIN_RESOURCES_
+#ifndef _NBL_EMBED_BUILTIN_RESOURCES_
 // will only be available in the app or library using irrlicht
 #if defined(_IRR_STATIC_LIB_) || !defined(IRRLICHT_EXPORTS)
 

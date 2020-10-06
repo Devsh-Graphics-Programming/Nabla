@@ -10,12 +10,12 @@
 
 #include <string>
 
-#ifdef _IRR_COMPILE_WITH_OPENCL_
+#ifdef _NBL_COMPILE_WITH_OPENCL_
 
 #include "CL/opencl.h"
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
     #include "COpenGLExtensionHandler.h"
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
 
 #include "os.h"
 
@@ -220,7 +220,7 @@ class COpenCLHandler
 
         static const SOpenCLPlatformInfo& getPlatformInfo(const size_t& ix) {return platformInformation[ix];}
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
         static bool getCLDeviceFromGLContext(cl_device_id& outDevice, cl_context_properties properties[7],
 #if defined(_NBL_WINDOWS_API_)
                                              const HGLRC& context, const HDC& hDC)
@@ -326,6 +326,6 @@ class COpenCLHandler
 }
 }
 
-#endif // _IRR_COMPILE_WITH_OPENCL_
+#endif // _NBL_COMPILE_WITH_OPENCL_
 
 #endif

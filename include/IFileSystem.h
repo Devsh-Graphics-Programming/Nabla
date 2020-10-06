@@ -10,7 +10,7 @@
 #include "irr/asset/ICPUBuffer.h"
 #include "irr/core/core.h"
 
-#ifdef _IRR_EMBED_BUILTIN_RESOURCES_
+#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
 #include "irr/builtin/common.h"
 #endif
 namespace irr
@@ -247,7 +247,7 @@ class IFileSystem : public virtual core::IReferenceCounted
 		//! Run-time resource ID, `builtinPath` includes the "irr/builtin" prefix
 		inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData(const std::string& builtinPath)
 		{
-			#ifdef _IRR_EMBED_BUILTIN_RESOURCES_
+			#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
 				std::pair<const uint8_t*, size_t> found = irr::builtin::get_resource_runtime(builtinPath);
 				if (found.first && found.second)
 				{
@@ -280,7 +280,7 @@ class IFileSystem : public virtual core::IReferenceCounted
 		template<typename StringUniqueType>
 		inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData()
 		{
-			#ifdef _IRR_EMBED_BUILTIN_RESOURCES_
+			#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
 				std::pair<const uint8_t*, size_t> found = irr::builtin::get_resource<StringUniqueType>();
 				if (found.first && found.second)
 				{

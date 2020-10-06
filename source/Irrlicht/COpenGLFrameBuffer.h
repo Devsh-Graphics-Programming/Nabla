@@ -10,7 +10,7 @@
 
 #include "irr/video/COpenGLImageView.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 
 
 namespace irr
@@ -53,6 +53,6 @@ class COpenGLFrameBuffer final : public IFrameBuffer
 } // end namespace irr
 
 #endif
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
 
 

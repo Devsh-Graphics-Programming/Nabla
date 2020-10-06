@@ -144,7 +144,7 @@ union FloatIntUnion32
 };
 
 //! Integer representation of a floating-point value and the reverse.
-#ifdef __IRR_FAST_MATH
+#ifdef __NBL_FAST_MATH
 NBL_FORCE_INLINE uint32_t& IR(float& x)
 {
 	return reinterpret_cast<uint32_t&>(x);

@@ -10,7 +10,7 @@
 #include "irr/asset/bawformat/legacy/CBAWLegacy.h"
 #include "CFinalBoneHierarchy.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENSSL_
+#ifdef _NBL_COMPILE_WITH_OPENSSL_
 #include "openssl/evp.h"
 #endif
 
@@ -304,7 +304,7 @@ MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::legacyv0::MeshDa
 
 bool encAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag)
 {
-#ifdef _IRR_COMPILE_WITH_OPENSSL_
+#ifdef _NBL_COMPILE_WITH_OPENSSL_
 	EVP_CIPHER_CTX *ctx;
 	int outlen;
 
@@ -327,7 +327,7 @@ bool encAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _out
 }
 bool decAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag)
 {
-#ifdef _IRR_COMPILE_WITH_OPENSSL_
+#ifdef _NBL_COMPILE_WITH_OPENSSL_
 	EVP_CIPHER_CTX *ctx;
 	int outlen;
 

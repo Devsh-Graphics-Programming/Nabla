@@ -15,15 +15,15 @@ static const char* const copyright = "Irrlicht Engine (c) 2002-2011 Nikolaus Geb
 #endif
 
 #include "irrlicht.h"
-#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 #include "CIrrDeviceWin32.h"
 #endif
 
-#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 #include "CIrrDeviceLinux.h"
 #endif
 
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
 #include "CIrrDeviceSDL.h"
 #endif
 
@@ -53,15 +53,15 @@ namespace irr
 	{
 		core::smart_refctd_ptr<IrrlichtDevice> dev;
 
-#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 		if (params.DeviceType == EIDT_WIN32 || (!dev && params.DeviceType == EIDT_BEST))
 			dev = core::make_smart_refctd_ptr<CIrrDeviceWin32>(params);
 #endif
-#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 		if (params.DeviceType == EIDT_X11 || (!dev && params.DeviceType == EIDT_BEST))
 			dev = core::make_smart_refctd_ptr<CIrrDeviceLinux>(params);
 #endif
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
 		if (params.DeviceType == EIDT_SDL || (!dev && params.DeviceType == EIDT_BEST))
 			dev = core::make_smart_refctd_ptr<CIrrDeviceSDL>(params);
 #endif

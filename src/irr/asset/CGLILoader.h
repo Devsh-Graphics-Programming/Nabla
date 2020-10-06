@@ -7,7 +7,7 @@
 
 #include "IrrCompileConfig.h"
 
-#ifdef _IRR_COMPILE_WITH_GLI_LOADER_
+#ifdef _NBL_COMPILE_WITH_GLI_LOADER_
 
 #include "irr/asset/ICPUImageView.h"
 #include "irr/asset/IAssetLoader.h"
@@ -63,5 +63,5 @@ namespace asset
 }
 }
 
-#endif // _IRR_COMPILE_WITH_GLI_LOADER_
+#endif // _NBL_COMPILE_WITH_GLI_LOADER_
 #endif // __C_IMAGE_LOADER_GLI__

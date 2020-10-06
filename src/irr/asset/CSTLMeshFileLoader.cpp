@@ -5,7 +5,7 @@
 
 #include "IrrCompileConfig.h"
 
-#ifdef _IRR_COMPILE_WITH_STL_LOADER_
+#ifdef _NBL_COMPILE_WITH_STL_LOADER_
 
 #include "irr/asset/asset.h"
 #include "irr/asset/CQuantNormalCache.h"
@@ -378,4 +378,4 @@ void CSTLMeshFileLoader::goNextLine(io::IReadFile* file) const
 }
 
 
-#endif // _IRR_COMPILE_WITH_STL_LOADER_
+#endif // _NBL_COMPILE_WITH_STL_LOADER_

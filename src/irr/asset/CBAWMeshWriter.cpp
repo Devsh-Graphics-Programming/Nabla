@@ -361,9 +361,9 @@ struct LzmaMemMngmnt
 		if (!_data)
 			return pushCorruptedOffset(_ctx);
 
-#ifndef _IRR_COMPILE_WITH_OPENSSL_
+#ifndef _NBL_COMPILE_WITH_OPENSSL_
 		_encrypt = false;
-#endif // _IRR_COMPILE_WITH_OPENSSL_
+#endif // _NBL_COMPILE_WITH_OPENSSL_
 
 		uint8_t stack[1u<<14];
 

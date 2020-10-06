@@ -8,7 +8,7 @@
 
 #include "IrrCompileConfig.h"
 
-#ifdef _IRR_COMPILE_WITH_JPG_WRITER_
+#ifdef _NBL_COMPILE_WITH_JPG_WRITER_
 
 #include "irr/asset/IAssetWriter.h"
 

@@ -4,7 +4,7 @@
 // See the original file in irrlicht source for authors
 
 #include "IrrCompileConfig.h"
-#ifdef _IRR_COMPILE_WITH_PLY_LOADER_
+#ifdef _NBL_COMPILE_WITH_PLY_LOADER_
 
 #include <numeric>
 
@@ -1015,4 +1015,4 @@ uint32_t CPLYMeshFileLoader::getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 } // end namespace scene
 } // end namespace irr
 
-#endif // _IRR_COMPILE_WITH_PLY_LOADER_
+#endif // _NBL_COMPILE_WITH_PLY_LOADER_

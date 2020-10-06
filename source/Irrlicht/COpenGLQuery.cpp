@@ -6,7 +6,7 @@
 #include "COpenGLBuffer.h"
 #include "COpenGLExtensionHandler.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 namespace irr
 {
 namespace video
@@ -197,4 +197,4 @@ void COpenGLQuery::isQueryReady64(IGPUBuffer* buffer, const size_t& offset)
 
 }
 }
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_

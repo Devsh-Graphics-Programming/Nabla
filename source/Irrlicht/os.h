@@ -23,7 +23,7 @@ namespace os
 	{
 			Byteswap() = delete;
 		public:
-			#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+			#if defined(_NBL_COMPILE_WITH_SDL_DEVICE_)
 			#include <SDL/SDL_endian.h>
 			#define bswap_16(X) SDL_Swap16(X)
 			#define bswap_32(X) SDL_Swap32(X)

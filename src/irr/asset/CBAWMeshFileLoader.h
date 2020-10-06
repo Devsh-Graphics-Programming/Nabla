@@ -433,7 +433,7 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData_t<HeaderT> & _data,
 
     if (encrypted)
     {
-#ifdef _IRR_COMPILE_WITH_OPENSSL_
+#ifdef _NBL_COMPILE_WITH_OPENSSL_
         const size_t size = _data.header->effectiveSize();
         void* out = _IRR_ALIGNED_MALLOC(size, _IRR_SIMD_ALIGNMENT);
         const bool ok = asset::decAes128gcm(dstCompressed, size, out, size, _pwd, _ctx.iv, _data.header->gcmTag);

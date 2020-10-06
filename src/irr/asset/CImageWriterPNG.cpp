@@ -6,7 +6,7 @@
 #include "irr/core/core.h"
 #include "CImageWriterPNG.h"
 
-#ifdef _IRR_COMPILE_WITH_PNG_WRITER_
+#ifdef _NBL_COMPILE_WITH_PNG_WRITER_
 
 #include "CImageLoaderPNG.h"
 
@@ -16,16 +16,16 @@
 
 #include "irr/asset/IImageAssetHandlerBase.h"
 
-#ifdef _IRR_COMPILE_WITH_LIBPNG_
+#ifdef _NBL_COMPILE_WITH_LIBPNG_
 	#include "libpng/png.h"
-#endif // _IRR_COMPILE_WITH_LIBPNG_
+#endif // _NBL_COMPILE_WITH_LIBPNG_
 
 namespace irr
 {
 namespace asset
 {
 
-#ifdef _IRR_COMPILE_WITH_LIBPNG_
+#ifdef _NBL_COMPILE_WITH_LIBPNG_
 // PNG function for error handling
 static void png_cpexcept_error(png_structp png_ptr, png_const_charp msg)
 {
@@ -50,7 +50,7 @@ void PNGAPI user_write_data_fcn(png_structp png_ptr, png_bytep data, png_size_t 
 	if (check != length)
 		png_error(png_ptr, "Write Error");
 }
-#endif // _IRR_COMPILE_WITH_LIBPNG_
+#endif // _NBL_COMPILE_WITH_LIBPNG_
 
 CImageWriterPNG::CImageWriterPNG()
 {
@@ -64,7 +64,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
     if (!_override)
         getDefaultOverride(_override);
 
-#if defined(_IRR_COMPILE_WITH_LIBPNG_)
+#if defined(_NBL_COMPILE_WITH_LIBPNG_)
 
 	SAssetWriteContext ctx{ _params, _file };
 
@@ -202,7 +202,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 #else
 	_NBL_DEBUG_BREAK_IF(true);
 	return false;
-#endif//defined(_IRR_COMPILE_WITH_LIBPNG_)
+#endif//defined(_NBL_COMPILE_WITH_LIBPNG_)
 }
 
 } // namespace video
