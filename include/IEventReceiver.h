@@ -304,7 +304,7 @@ process events. Events usually start at a postEventFromUser function and are
 passed down through a chain of event receivers until OnEvent returns true. See
 irr::EEVENT_TYPE for a description of where each type of event starts, and the
 path it takes through the system. */
-class IRR_FORCE_EBO IEventReceiver
+class NBL_FORCE_EBO IEventReceiver
 {
 public:
 	//! Called if an event happened.

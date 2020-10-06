@@ -359,18 +359,18 @@ namespace scene
             };
             inline core::matrix4x3* getGlobalMatrices(BoneHierarchyInstanceData* currentInstance)
             {
-                #ifdef _IRR_DEBUG
+                #ifdef _NBL_DEBUG
                 size_t addr = reinterpret_cast<size_t>(currentInstance+1u);
                 assert((addr&0xfu) == 0u);
-                #endif // _IRR_DEBUG
+                #endif // _NBL_DEBUG
                 return reinterpret_cast<core::matrix4x3*>(currentInstance+1u);
             }
             inline IBoneSceneNode** getBones(BoneHierarchyInstanceData* currentInstance)
             {
-                #ifdef _IRR_DEBUG
+                #ifdef _NBL_DEBUG
                 size_t addr = reinterpret_cast<size_t>(currentInstance+1u);
                 assert((addr&0xfu) == 0u);
-                #endif // _IRR_DEBUG
+                #endif // _NBL_DEBUG
                 return reinterpret_cast<IBoneSceneNode**>(reinterpret_cast<core::matrix4x3*>(currentInstance+1u)+referenceHierarchy->getBoneCount());
             }
             uint8_t* instanceData;

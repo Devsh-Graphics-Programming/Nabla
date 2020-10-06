@@ -16,8 +16,8 @@ template<class ImageType>
 class IImageView : public IDescriptor
 {
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR size_t remaining_mip_levels = ~static_cast<size_t>(0u);
-		_IRR_STATIC_INLINE_CONSTEXPR size_t remaining_array_layers = ~static_cast<size_t>(0u);
+		_NBL_STATIC_INLINE_CONSTEXPR size_t remaining_mip_levels = ~static_cast<size_t>(0u);
+		_NBL_STATIC_INLINE_CONSTEXPR size_t remaining_array_layers = ~static_cast<size_t>(0u);
 
 		// no flags for now, yet
 		enum E_CREATE_FLAGS
@@ -185,7 +185,7 @@ class IImageView : public IDescriptor
 						return false;
 					if (actualLayerCount>1u)
 						return false;
-					_IRR_FALLTHROUGH;
+					_NBL_FALLTHROUGH;
 				case ET_1D_ARRAY:
 					if (imgParams.extent.height>1u || imgParams.extent.depth>1u)
 						return false;
@@ -195,7 +195,7 @@ class IImageView : public IDescriptor
 						return false;
 					if (actualLayerCount>1u)
 						return false;
-					_IRR_FALLTHROUGH;
+					_NBL_FALLTHROUGH;
 				case ET_2D_ARRAY:
 					if (sourceIs3D)
 					{

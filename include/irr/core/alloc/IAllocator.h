@@ -13,7 +13,7 @@ namespace irr
 namespace core
 {
 
-class IRR_FORCE_EBO IAllocator
+class NBL_FORCE_EBO IAllocator
 {
     public:
         virtual         ~IAllocator() {}
@@ -26,7 +26,7 @@ class IRR_FORCE_EBO IAllocator
 
 
 template <class Alloc>
-class IRR_FORCE_EBO IAllocatorAdaptor final : private Alloc, public IAllocator
+class NBL_FORCE_EBO IAllocatorAdaptor final : private Alloc, public IAllocator
 {
         inline Alloc& getBaseRef() noexcept {return static_cast<Alloc&>(*this);}
     public:

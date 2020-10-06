@@ -176,7 +176,7 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::ICPUImageView* imag
 
 CImageWriterJPG::CImageWriterJPG()
 {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	setDebugName("CImageWriterJPG");
 #endif
 }

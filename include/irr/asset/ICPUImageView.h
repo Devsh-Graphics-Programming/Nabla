@@ -56,7 +56,7 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 		}
 
 		//!
-		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_IMAGE_VIEW;
+		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_IMAGE_VIEW;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
 		//!

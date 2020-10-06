@@ -72,7 +72,7 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             isDummyObjectForCacheAliasing = true;
         }
 
-        _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER;
+        _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
         virtual size_t conservativeSizeEstimate() const override { return getSize(); }

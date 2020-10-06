@@ -20,9 +20,9 @@ class IR : public core::IReferenceCounted
 {
     class SBackingMemManager
     {
-        _IRR_STATIC_INLINE_CONSTEXPR size_t INITIAL_MEM_SIZE = 1ull<<20;
-        _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_MEM_SIZE = 1ull<<20;
-        _IRR_STATIC_INLINE_CONSTEXPR size_t ALIGNMENT = _IRR_SIMD_ALIGNMENT;
+        _NBL_STATIC_INLINE_CONSTEXPR size_t INITIAL_MEM_SIZE = 1ull<<20;
+        _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_MEM_SIZE = 1ull<<20;
+        _NBL_STATIC_INLINE_CONSTEXPR size_t ALIGNMENT = _IRR_SIMD_ALIGNMENT;
 
         uint8_t* mem;
         size_t currSz;
@@ -196,7 +196,7 @@ public:
             UTextureOrConstant<type_of_const> value;
         };
 
-        _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_CHILDREN = 16ull;
+        _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_CHILDREN = 16ull;
         struct children_array_t {
             INode* array[MAX_CHILDREN] {};
             size_t count = 0ull;

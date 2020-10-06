@@ -13,7 +13,7 @@ namespace asset
 class ICPUSkinnedMeshBuffer;
 
 #include "irr/irrpack.h"
-struct IRR_FORCE_EBO SkinnedMeshBufferBlobV3 : TypedBlob<SkinnedMeshBufferBlobV3, ICPUSkinnedMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV3, ICPUSkinnedMeshBuffer>
+struct NBL_FORCE_EBO SkinnedMeshBufferBlobV3 : TypedBlob<SkinnedMeshBufferBlobV3, ICPUSkinnedMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV3, ICPUSkinnedMeshBuffer>
 {
 	//! Constructor filling all members
 	explicit SkinnedMeshBufferBlobV3(const ICPUSkinnedMeshBuffer*);

@@ -21,7 +21,7 @@ class IImageFilterKernel
 {
 	public:
 		// All kernels are by default, defined on max 4 channels
-		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = 4;
+		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = 4;
 
 		// some user data structs commonly used
 		struct UserData
@@ -36,7 +36,7 @@ class IImageFilterKernel
 		};
 		struct ScaleFactorUserData : UserData
 		{
-			_IRR_STATIC_INLINE_CONSTEXPR E_USER_DATA_TYPE Type = EUDT_SCALE_FACTOR;
+			_NBL_STATIC_INLINE_CONSTEXPR E_USER_DATA_TYPE Type = EUDT_SCALE_FACTOR;
 			ScaleFactorUserData(float _factor=1.f) : UserData{Type}, factor{_factor,_factor,_factor,_factor} {}
 
 			inline bool valid() const {return type==Type;}

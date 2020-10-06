@@ -167,15 +167,15 @@ class CCUDAHandler
 	protected:
         CCUDAHandler() = default;
 
-		_IRR_STATIC_INLINE int CudaVersion = 0;
-		_IRR_STATIC_INLINE int DeviceCount = 0;
+		_NBL_STATIC_INLINE int CudaVersion = 0;
+		_NBL_STATIC_INLINE int DeviceCount = 0;
 		static core::vector<Device> devices;
 		
 		static core::vector<core::smart_refctd_ptr<const io::IReadFile> > headers;
 		static core::vector<const char*> headerContents;
 		static core::vector<const char*> headerNames;
 
-		_IRR_STATIC_INLINE_CONSTEXPR const char* virtualCUDAArchitectures[] = {	"-arch=compute_30",
+		_NBL_STATIC_INLINE_CONSTEXPR const char* virtualCUDAArchitectures[] = {	"-arch=compute_30",
 																				"-arch=compute_32",
 																				"-arch=compute_35",
 																				"-arch=compute_37",
@@ -189,12 +189,12 @@ class CCUDAHandler
 																				"-arch=compute_72",
 																				"-arch=compute_75",
 																				"-arch=compute_80"};
-		_IRR_STATIC_INLINE const char* virtualCUDAArchitecture = nullptr;
+		_NBL_STATIC_INLINE const char* virtualCUDAArchitecture = nullptr;
 
 		#ifdef _MSC_VER
-			_IRR_STATIC_INLINE_CONSTEXPR const char* CUDA_EXTRA_DEFINES = "#ifndef _WIN64\n#define _WIN64\n#endif\n";
+			_NBL_STATIC_INLINE_CONSTEXPR const char* CUDA_EXTRA_DEFINES = "#ifndef _WIN64\n#define _WIN64\n#endif\n";
 		#else
-			_IRR_STATIC_INLINE_CONSTEXPR const char* CUDA_EXTRA_DEFINES = "#ifndef __LP64__\n#define __LP64__\n#endif\n";
+			_NBL_STATIC_INLINE_CONSTEXPR const char* CUDA_EXTRA_DEFINES = "#ifndef __LP64__\n#define __LP64__\n#endif\n";
 		#endif
 
 	public:
@@ -334,7 +334,7 @@ class CCUDAHandler
 						printf(R"===(CudaHandler: `pnvrtcGetErrorString` is nullptr, the nvrtc library probably not found on the system.\n)===");
 					break;
 			}
-			_IRR_DEBUG_BREAK_IF(true);
+			_NBL_DEBUG_BREAK_IF(true);
 			return false;
 		}
 

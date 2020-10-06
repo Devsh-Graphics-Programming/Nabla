@@ -32,7 +32,7 @@
 namespace irr { namespace asset
 {
 
-class IRR_FORCE_EBO CForsythVertexCacheOptimizer
+class NBL_FORCE_EBO CForsythVertexCacheOptimizer
 {
 	struct VertData
 	{

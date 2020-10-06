@@ -29,20 +29,20 @@ bool CElementTransform::addProperty(SNamedPropertyElement&& _property)
 	switch (_property.type)
 	{
 		case SNamedPropertyElement::Type::MATRIX:
-			_IRR_FALLTHROUGH;
+			_NBL_FALLTHROUGH;
 		case SNamedPropertyElement::Type::TRANSLATE:
-			_IRR_FALLTHROUGH;
+			_NBL_FALLTHROUGH;
 		case SNamedPropertyElement::Type::ROTATE:
-			_IRR_FALLTHROUGH;
+			_NBL_FALLTHROUGH;
 		case SNamedPropertyElement::Type::SCALE:
-			_IRR_FALLTHROUGH;
+			_NBL_FALLTHROUGH;
 		case SNamedPropertyElement::Type::LOOKAT:
 			matrix = core::concatenateBFollowedByA(_property.mvalue, matrix);
 			break;
 		default:
 			{
 				ParserLog::invalidXMLFileStructure("The transform element does not take child property: "+_property.type);
-				_IRR_DEBUG_BREAK_IF(true);
+				_NBL_DEBUG_BREAK_IF(true);
 				return false;
 			}
 			break;

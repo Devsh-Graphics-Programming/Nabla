@@ -25,7 +25,7 @@ class SimpleBlockBasedAllocator
 {
 	public:
 		using size_type = typename address_allocator_traits<AddressAllocator>::size_type;
-		_IRR_STATIC_INLINE_CONSTEXPR size_type meta_alignment = 64u;
+		_NBL_STATIC_INLINE_CONSTEXPR size_type meta_alignment = 64u;
 
 	private:
 		class Block

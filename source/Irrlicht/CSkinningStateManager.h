@@ -17,7 +17,7 @@ namespace scene
 
     class CSkinningStateManager : public ISkinningStateManager
     {
-            _IRR_STATIC_INLINE_CONSTEXPR asset::E_FORMAT TBO_FORMAT = asset::EF_R32G32B32A32_SFLOAT;
+            _NBL_STATIC_INLINE_CONSTEXPR asset::E_FORMAT TBO_FORMAT = asset::EF_R32G32B32A32_SFLOAT;
             video::IVideoDriver* Driver;
             core::smart_refctd_ptr<video::IGPUBufferView> TBO;
 

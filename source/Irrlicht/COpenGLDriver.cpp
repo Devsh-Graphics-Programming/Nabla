@@ -236,7 +236,7 @@ COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
 	AuxContexts(0), GLSLCompiler(glslcomp), DeviceType(EIDT_WIN32)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("COpenGLDriver");
 	#endif
 }
@@ -439,7 +439,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 		wglExtensions = irrGetExtensionsString(HDc);
 #endif
 	const bool pixel_format_supported = (wglExtensions.find("WGL_ARB_pixel_format") != -1);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	os::Printer::log("WGL_extensions", wglExtensions.c_str());
 #endif
 
@@ -678,7 +678,7 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 			runningInRenderDoc(false), ColorFormat(asset::EF_R8G8B8_UNORM),
 			X11Device(device), DeviceType(EIDT_X11), AuxContexts(0), GLSLCompiler(glslcomp)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("COpenGLDriver");
 	#endif
 }
@@ -897,7 +897,7 @@ uint16_t COpenGLDriver::retrieveDisplayRefreshRate() const
 
     return rate;
 #   else
-#       ifdef _IRR_DEBUG
+#       ifdef _NBL_DEBUG
     os::Printer::log("Refresh rate retrieval without Xrandr compiled in is not supprted!\n", ELL_WARNING);
 #       endif
     return 0u;
@@ -982,7 +982,7 @@ bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
 	if (!AuxContexts) // opengl dead and never inited
 		return false;
 
-#ifdef _IRR_WINDOWS_API_
+#ifdef _NBL_WINDOWS_API_
     if (GetModuleHandleA("renderdoc.dll"))
 #elif defined(_IRR_ANDROID_PLATFORM_)
     if (dlopen("libVkLayer_GLES_RenderDoc.so", RTLD_NOW | RTLD_NOLOAD))
@@ -1396,7 +1396,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
     if (!introspection)
     {
-        _IRR_DEBUG_BREAK_IF(true);
+        _NBL_DEBUG_BREAK_IF(true);
         os::Printer::log("Unable to introspect the SPIR-V shader to extract information about bindings and push constants. Creation failed.", ELL_ERROR);
         return nullptr;
     }
@@ -1404,7 +1404,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     core::vector<COpenGLSpecializedShader::SUniform> uniformList;
     if (!COpenGLSpecializedShader::getUniformsFromPushConstants(&uniformList,introspection))
     {
-        _IRR_DEBUG_BREAK_IF(true);
+        _NBL_DEBUG_BREAK_IF(true);
         os::Printer::log("Attempted to create OpenGL GPU specialized shader from SPIR-V without debug info - unable to set push constants. Creation failed.", ELL_ERROR);
         return nullptr;
     }
@@ -1613,10 +1613,10 @@ void COpenGLDriver::flushMappedMemoryRanges(uint32_t memoryRangeCount, const vid
     for (uint32_t i=0; i<memoryRangeCount; i++)
     {
         auto range = pMemoryRanges+i;
-        #ifdef _IRR_DEBUG
+        #ifdef _NBL_DEBUG
         if (!range->memory->haveToMakeVisible())
             os::Printer::log("Why are you flushing mapped memory that does not need to be flushed!?",ELL_WARNING);
-        #endif // _IRR_DEBUG
+        #endif // _NBL_DEBUG
         extGlFlushMappedNamedBufferRange(static_cast<COpenGLBuffer*>(range->memory)->getOpenGLName(),range->offset,range->length);
     }
 }
@@ -1626,10 +1626,10 @@ void COpenGLDriver::invalidateMappedMemoryRanges(uint32_t memoryRangeCount, cons
     for (uint32_t i=0; i<memoryRangeCount; i++)
     {
         auto range = pMemoryRanges+i;
-        #ifdef _IRR_DEBUG
+        #ifdef _NBL_DEBUG
         if (!range->memory->haveToMakeVisible())
             os::Printer::log("Why are you invalidating mapped memory that does not need to be invalidated!?",ELL_WARNING);
-        #endif // _IRR_DEBUG
+        #endif // _NBL_DEBUG
         extGlMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
     }
 }
@@ -2246,7 +2246,7 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
             if (nextState.pipeline.graphics.usedShadersHash != currentState.pipeline.graphics.usedShadersHash)
             {
                 currentState.pipeline.graphics.usedPipeline = 0u;
-                #ifndef _IRR_DEBUG
+                #ifndef _NBL_DEBUG
                     assert(nextState.pipeline.graphics.usedPipeline==0u);
                 #endif
 

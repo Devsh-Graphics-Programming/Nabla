@@ -9,9 +9,9 @@ static const char* const copyright = "Irrlicht Engine (c) 2002-2011 Nikolaus Geb
 
 #ifdef _IRR_WINDOWS_
 	#include <windows.h>
-	#if defined(_IRR_DEBUG) && !defined(__GNUWIN32__) && !defined(_WIN32_WCE)
+	#if defined(_NBL_DEBUG) && !defined(__GNUWIN32__) && !defined(_WIN32_WCE)
 		#include <crtdbg.h>
-	#endif // _IRR_DEBUG
+	#endif // _NBL_DEBUG
 #endif
 
 #include "irrlicht.h"
@@ -81,7 +81,7 @@ namespace irr
 } // end namespace irr
 
 
-#if defined(_IRR_WINDOWS_API_)
+#if defined(_NBL_WINDOWS_API_)
 
 BOOL APIENTRY DllMain( HANDLE hModule,
                        DWORD  ul_reason_for_call,
@@ -92,7 +92,7 @@ BOOL APIENTRY DllMain( HANDLE hModule,
     switch (ul_reason_for_call)
 	{
 		case DLL_PROCESS_ATTACH:
-			#if defined(_IRR_DEBUG) && !defined(__GNUWIN32__) && !defined(__BORLANDC__)
+			#if defined(_NBL_DEBUG) && !defined(__GNUWIN32__) && !defined(__BORLANDC__)
 				_CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF | _CRTDBG_ALLOC_MEM_DF);
 			#endif
 			break;

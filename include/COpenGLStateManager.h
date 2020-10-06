@@ -8,7 +8,7 @@
 #include <limits>       // std::numeric_limits
 #include <utility>
 
-#ifdef _IRR_WINDOWS_API_
+#ifdef _NBL_WINDOWS_API_
     #define WIN32_LEAN_AND_MEAN
     #ifndef NOMINMAX
         #define NOMINMAX
@@ -16,7 +16,7 @@
     #include <Windows.h>
     #include <wingdi.h>
 #endif
-#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_) && !(defined(_IRR_COMPILE_WITH_X11_DEVICE_)||defined(_IRR_WINDOWS_API_))
+#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_) && !(defined(_IRR_COMPILE_WITH_X11_DEVICE_)||defined(_NBL_WINDOWS_API_))
 	#include <SDL/SDL_video.h>
     #define GL_GLEXT_LEGACY 1
 	#include <SDL/SDL_opengl.h>

@@ -27,7 +27,7 @@ class CCPUSkinnedMesh : public ICPUSkinnedMesh
 		//! constructor
 		CCPUSkinnedMesh() : HasAnimation(false)
 		{
-			#ifdef _IRR_DEBUG
+			#ifdef _NBL_DEBUG
 				setDebugName("CCPUSkinnedMesh");
 			#endif
 		}

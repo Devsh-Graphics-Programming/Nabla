@@ -295,8 +295,8 @@ namespace asset
 				break;
 			}
 
-			_IRR_DEBUG_BREAK_IF(!errorFunc)
-				_IRR_DEBUG_BREAK_IF(!cmpFunc)
+			_NBL_DEBUG_BREAK_IF(!errorFunc)
+				_NBL_DEBUG_BREAK_IF(!cmpFunc)
 				if (!errorFunc || !cmpFunc)
 					return false;
 

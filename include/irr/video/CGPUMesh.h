@@ -32,7 +32,7 @@ namespace video
                 if (leakDebugger)
                     leakDebugger->registerObj(this);
 
-                #ifdef _IRR_DEBUG
+                #ifdef _NBL_DEBUG
                 setDebugName("SGPUMesh");
                 #endif
             }

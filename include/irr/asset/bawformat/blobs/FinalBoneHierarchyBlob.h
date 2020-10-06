@@ -14,7 +14,7 @@ namespace asset
 {
 
 #include "irr/irrpack.h"
-struct IRR_FORCE_EBO FinalBoneHierarchyBlobV3 : VariableSizeBlob<FinalBoneHierarchyBlobV3,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>
+struct NBL_FORCE_EBO FinalBoneHierarchyBlobV3 : VariableSizeBlob<FinalBoneHierarchyBlobV3,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>
 {
 public:
 	enum E_BLOB_FINAL_BONE_HIERARCHY_FLAG : uint32_t

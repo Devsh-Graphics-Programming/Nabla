@@ -20,7 +20,7 @@ CSceneNodeAnimatorFlyCircle::CSceneNodeAnimatorFlyCircle(uint32_t time,
 			: Center(center), Direction(direction), Radius(radius),
 			RadiusEllipsoid(radiusEllipsoid), Speed(speed), StartTime(time)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CSceneNodeAnimatorFlyCircle");
 	#endif
 	init();

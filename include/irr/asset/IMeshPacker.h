@@ -137,7 +137,7 @@ public:
         {
             m_vtxBuffAlctrResSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.vertexBuffSupportedCnt, allocParams.vertexBufferMinAllocSize), _IRR_SIMD_ALIGNMENT);
             //for now mesh packer will not allow mesh buffers without any per vertex attributes
-            _IRR_DEBUG_BREAK_IF(m_vtxBuffAlctrResSpc == nullptr);
+            _NBL_DEBUG_BREAK_IF(m_vtxBuffAlctrResSpc == nullptr);
             assert(m_vtxBuffAlctrResSpc != nullptr);
             m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_vtxBuffAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.vertexBuffSupportedCnt, allocParams.vertexBufferMinAllocSize);
         }
@@ -146,18 +146,18 @@ public:
         if (m_perInstVtxSize)
         {
             m_perInsVtxBuffAlctrResSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedCnt, allocParams.perInstanceVertexBufferMinAllocSize), _IRR_SIMD_ALIGNMENT);
-            _IRR_DEBUG_BREAK_IF(m_perInsVtxBuffAlctrResSpc == nullptr);
+            _NBL_DEBUG_BREAK_IF(m_perInsVtxBuffAlctrResSpc == nullptr);
             assert(m_perInsVtxBuffAlctrResSpc != nullptr);
             m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_perInsVtxBuffAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedCnt, allocParams.perInstanceVertexBufferMinAllocSize);
         }
 
         m_idxBuffAlctrResSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocSize), _IRR_SIMD_ALIGNMENT);
-        _IRR_DEBUG_BREAK_IF(m_idxBuffAlctrResSpc == nullptr);
+        _NBL_DEBUG_BREAK_IF(m_idxBuffAlctrResSpc == nullptr);
         assert(m_idxBuffAlctrResSpc != nullptr);
         m_idxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_idxBuffAlctrResSpc, 0u, 0u, alignof(uint16_t), allocParams.indexBuffSupportedCnt, allocParams.indexBufferMinAllocSize);
 
         m_MDIDataAlctrResSpc = _IRR_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(MDIStructType), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocSize), _IRR_SIMD_ALIGNMENT);
-        _IRR_DEBUG_BREAK_IF(m_MDIDataAlctrResSpc == nullptr);
+        _NBL_DEBUG_BREAK_IF(m_MDIDataAlctrResSpc == nullptr);
         assert(m_MDIDataAlctrResSpc != nullptr);
         m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_MDIDataAlctrResSpc, 0u, 0u, alignof(MDIStructType), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocSize);
 
@@ -326,8 +326,8 @@ protected:
     uint32_t m_vtxSize;
     uint32_t m_perInstVtxSize;
 
-    _IRR_STATIC_INLINE_CONSTEXPR uint32_t INVALID_ADDRESS = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
-    _IRR_STATIC_INLINE_CONSTEXPR ReservedAllocationMeshBuffers invalidReservedAllocationMeshBuffers{ INVALID_ADDRESS, 0, 0, 0, 0, 0, 0, 0 };
+    _NBL_STATIC_INLINE_CONSTEXPR uint32_t INVALID_ADDRESS = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
+    _NBL_STATIC_INLINE_CONSTEXPR ReservedAllocationMeshBuffers invalidReservedAllocationMeshBuffers{ INVALID_ADDRESS, 0, 0, 0, 0, 0, 0, 0 };
 };
 
 }

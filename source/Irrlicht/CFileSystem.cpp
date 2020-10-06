@@ -19,7 +19,7 @@
 #include "CLimitReadFile.h"
 
 
-#if defined (_IRR_WINDOWS_API_)
+#if defined (_NBL_WINDOWS_API_)
 	#if !defined ( _WIN32_WCE )
 		#include <direct.h> // for _chdir
 		#include <io.h> // for _access
@@ -46,7 +46,7 @@ namespace io
 //! constructor
 CFileSystem::CFileSystem(std::string&& _builtinResourceDirectory) : IFileSystem(std::move(_builtinResourceDirectory))
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CFileSystem");
 	#endif
 
@@ -489,7 +489,7 @@ const io::path& CFileSystem::getWorkingDirectory()
 	}
 	else
 	{
-		#if defined(_IRR_WINDOWS_API_)
+		#if defined(_NBL_WINDOWS_API_)
 			char tmp[_MAX_PATH];
 			#if defined(_IRR_WCHAR_FILESYSTEM )
 				_wgetcwd(tmp, _MAX_PATH);
@@ -582,7 +582,7 @@ bool CFileSystem::changeWorkingDirectoryTo(const io::path& newDirectory)
 
 io::path CFileSystem::getAbsolutePath(const io::path& filename) const
 {
-#if defined(_IRR_WINDOWS_API_)
+#if defined(_NBL_WINDOWS_API_)
 	char *p=0;
 	char fpath[_MAX_PATH];
 	#if defined(_IRR_WCHAR_FILESYSTEM )
@@ -668,7 +668,7 @@ path CFileSystem::getRelativeFilename(const path& filename, const path& director
 	it1=list1.begin();
 	it2=list2.begin();
 
-	#if defined (_IRR_WINDOWS_API_)
+	#if defined (_NBL_WINDOWS_API_)
 	char partition1 = 0, partition2 = 0;
 	io::path prefix1, prefix2;
 	if ( it1 != list1.end() )
@@ -689,7 +689,7 @@ path CFileSystem::getRelativeFilename(const path& filename, const path& director
 
 
 	for (; i<list1.size() && i<list2.size()
-#if defined (_IRR_WINDOWS_API_)
+#if defined (_NBL_WINDOWS_API_)
 		&& (io::path(*it1).make_lower()==io::path(*it2).make_lower())
 #else
 		&& (*it1==*it2)
@@ -740,7 +740,7 @@ IFileList* CFileSystem::createFileList()
 	{
 		// --------------------------------------------
 		//! Windows version
-		#ifdef _IRR_WINDOWS_API_
+		#ifdef _NBL_WINDOWS_API_
 		#if !defined ( _WIN32_WCE )
 
 		r = new CFileList(Path);

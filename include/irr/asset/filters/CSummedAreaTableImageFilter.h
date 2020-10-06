@@ -130,9 +130,9 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			const auto arrayLayers = state->inImage->getCreationParameters().arrayLayers;
 			static constexpr auto maxChannels = 4u;
 
-			#ifdef _IRR_DEBUG
+			#ifdef _NBL_DEBUG
 			memset(scratchMemory, 0, state->scratchMemoryByteSize);
-			#endif // _IRR_DEBUG
+			#endif // _NBL_DEBUG
 
 			const core::vector3du32_SIMD scratchByteStrides = [&]()
 			{

@@ -96,7 +96,7 @@ CIrrDeviceLinux::CIrrDeviceLinux(const SIrrlichtCreationParameters& param)
 	UseXVidMode(false), UseXRandR(false),
 	ExternalWindow(false), AutorepeatSupport(0)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CIrrDeviceLinux");
 	#endif
 
@@ -331,21 +331,21 @@ EKEY_CODE CIrrDeviceLinux::getKeyCode(const uint32_t& xEventKey)
 		if ( !x11Key )
 		{
 			keyCode = (EKEY_CODE)(xEventKey+KEY_KEY_CODES_COUNT+1);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 			os::Printer::log("No such X11Key, using event keycode", std::to_string(xEventKey), ELL_INFORMATION);
 		}
 		else if (it == KeyMap.end())
 		{
 			keyCode = (EKEY_CODE)(x11Key+KEY_KEY_CODES_COUNT+1);
 			os::Printer::log("EKEY_CODE not found, using orig. X11 keycode", std::to_string(x11Key), ELL_INFORMATION);
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 		}
 		else
 		{
 			keyCode = (EKEY_CODE)(x11Key+KEY_KEY_CODES_COUNT+1);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 			os::Printer::log("EKEY_CODE is 0, using orig. X11 keycode", std::to_string(x11Key), ELL_INFORMATION);
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 		}
  	}
 	return keyCode;
@@ -786,7 +786,7 @@ bool CIrrDeviceLinux::createWindow()
 		display=0;
 		return false;
 	}
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	else
 		os::Printer::log("Visual chosen: ", std::to_string(static_cast<uint32_t>(visual->visualid)), ELL_DEBUG);
 #endif

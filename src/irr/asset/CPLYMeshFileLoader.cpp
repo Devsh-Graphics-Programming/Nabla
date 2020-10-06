@@ -426,7 +426,7 @@ bool CPLYMeshFileLoader::readFace(SContext& _ctx, const SPLYElement& Element, co
 			Element.Properties[i].Name == "vertex_index") && Element.Properties[i].Type == EPLYPT_LIST)
 		{
 			int32_t count = getInt(_ctx, Element.Properties[i].Data.List.CountType);
-			//_IRR_DEBUG_BREAK_IF(count != 3)
+			//_NBL_DEBUG_BREAK_IF(count != 3)
 
 			uint32_t a = getInt(_ctx, Element.Properties[i].Data.List.ItemType),
 				b = getInt(_ctx, Element.Properties[i].Data.List.ItemType),

@@ -17,7 +17,7 @@ class ICPUMeshBuffer;
 
 #include "irr/irrpack.h"
 //! Simple struct of essential data of ICPUMeshBuffer that has to be exported
-struct IRR_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV3, ICPUMeshBuffer>
+struct NBL_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV3, ICPUMeshBuffer>
 {
 	//! Constructor filling all members
 	explicit MeshBufferBlobV3(const ICPUMeshBuffer*);

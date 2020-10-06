@@ -53,7 +53,7 @@ namespace impl
 			}
 
 		public:
-			_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = KernelA::is_separable&&KernelB::is_separable;
+			_NBL_STATIC_INLINE_CONSTEXPR bool is_separable = KernelA::is_separable&&KernelB::is_separable;
 
 			static inline bool validate(ICPUImage* inImage, ICPUImage* outImage)
 			{

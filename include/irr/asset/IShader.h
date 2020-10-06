@@ -27,7 +27,7 @@ class IShader : public virtual core::IReferenceCounted
 {
 	public:
 		struct buffer_contains_glsl_t {};
-		_IRR_STATIC_INLINE const buffer_contains_glsl_t buffer_contains_glsl = {};
+		_NBL_STATIC_INLINE const buffer_contains_glsl_t buffer_contains_glsl = {};
 
 		static inline void insertGLSLExtensionsDefines(std::string& _glsl, const core::refctd_dynamic_array<std::string>* _exts)
 		{

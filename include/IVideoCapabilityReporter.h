@@ -19,7 +19,7 @@ namespace irr
 namespace video
 {
 	//! .
-	class IRR_FORCE_EBO IVideoCapabilityReporter
+	class NBL_FORCE_EBO IVideoCapabilityReporter
 	{
 	public:
 		//! Get type of video driver

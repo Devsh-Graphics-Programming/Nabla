@@ -45,8 +45,8 @@ static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAsse
 	return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
 }
 
-//#ifdef _IRR_DEBUG
-#define _IRR_DEBUG_OBJ_LOADER_
+//#ifdef _NBL_DEBUG
+#define _NBL_DEBUG_OBJ_LOADER_
 //#endif
 
 static const uint32_t WORD_BUFFER_LENGTH = 512;
@@ -82,7 +82,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
 	if (_params.meshManipulatorOverride == nullptr)
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		assert(false);
 	}
 
@@ -154,7 +154,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			if (ctx.useMaterials)
 			{
 				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-#ifdef _IRR_DEBUG_OBJ_LOADER_
+#ifdef _NBL_DEBUG_OBJ_LOADER_
 				os::Printer::log("Reading material _file",tmpbuf);
 #endif
 
@@ -216,7 +216,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		case 's': // smoothing can be a group or off (equiv. to 0)
 			{
 				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-#ifdef _IRR_DEBUG_OBJ_LOADER_
+#ifdef _NBL_DEBUG_OBJ_LOADER_
 	os::Printer::log("Loaded smoothing group start",tmpbuf, ELL_DEBUG);
 #endif
 				if (strcmp("off", tmpbuf)==0)
@@ -231,7 +231,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			{
 				noMaterial = false;
 				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-#ifdef _IRR_DEBUG_OBJ_LOADER_
+#ifdef _NBL_DEBUG_OBJ_LOADER_
 	os::Printer::log("Loaded material start",tmpbuf, ELL_DEBUG);
 #endif
 				mtlName=tmpbuf;

@@ -56,7 +56,7 @@
 
 // The Windows platform and API support SDL and WINDOW device
 #if defined(_IRR_PLATFORM_WINDOWS_)
-#   define _IRR_WINDOWS_API_
+#   define _NBL_WINDOWS_API_
 #   define _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 #   if defined(_MSC_VER) && (_MSC_VER < 1300)
 #       error "Only Microsoft Visual Studio 7.0 and later are supported."
@@ -186,7 +186,7 @@ currently only supports zip archives, though. */
 
 // Some cleanup and standard stuff
 
-#ifdef _IRR_WINDOWS_API_
+#ifdef _NBL_WINDOWS_API_
 
 // To build Irrlicht as a static library, you must define _IRR_STATIC_LIB_ in both the
 // Irrlicht build, *and* in the user application, before #including <irrlicht.h>
@@ -207,7 +207,7 @@ currently only supports zip archives, though. */
 #define IRRCALLCONV __cdecl
 #endif // STDCALL_SUPPORTED
 
-#else // _IRR_WINDOWS_API_
+#else // _NBL_WINDOWS_API_
 
 // Force symbol export in shared libraries built with gcc.
 #if (__GNUC__ >= 4) && !defined(_IRR_STATIC_LIB_) && defined(IRRLICHT_EXPORTS)
@@ -218,9 +218,9 @@ currently only supports zip archives, though. */
 
 #define IRRCALLCONV
 
-#endif // _IRR_WINDOWS_API_
+#endif // _NBL_WINDOWS_API_
 
-#ifndef _IRR_WINDOWS_API_
+#ifndef _NBL_WINDOWS_API_
 #   undef _IRR_WCHAR_FILESYSTEM
 #endif
 

@@ -20,7 +20,7 @@ class aabbox3d;
 class matrix4SIMD// : public AlignedBase<_IRR_SIMD_ALIGNMENT> don't inherit from AlignedBase (which is empty) because member `rows[4]` inherits from it as well
 {
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t VectorCount = 4u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t VectorCount = 4u;
 		vectorSIMDf rows[VectorCount];
 
 		inline explicit matrix4SIMD(const vectorSIMDf& _r0 = vectorSIMDf(1.f, 0.f, 0.f, 0.f),

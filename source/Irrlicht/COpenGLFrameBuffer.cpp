@@ -60,14 +60,14 @@ bool checkFBOStatus(const GLuint &fbo, COpenGLDriver* Driver)
 			break;
 	}
 	os::Printer::log("FBO error", ELL_ERROR);
-//	_IRR_DEBUG_BREAK_IF(true);
+//	_NBL_DEBUG_BREAK_IF(true);
 	return false;
 }
 
 //! constructor
 COpenGLFrameBuffer::COpenGLFrameBuffer(COpenGLDriver* driver) : Driver(driver), fboSize(), frameBuffer(0)
 {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	setDebugName("COpenGLFrameBuffer");
 #endif
     Driver->extGlCreateFramebuffers(1,&frameBuffer);

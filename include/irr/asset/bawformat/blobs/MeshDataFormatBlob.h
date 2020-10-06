@@ -21,7 +21,7 @@ namespace legacyv0
 
 #ifndef NEW_SHADERS
 #include "irr/irrpack.h"
-struct IRR_FORCE_EBO MeshDataFormatDescBlobV1 : TypedBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >
+struct NBL_FORCE_EBO MeshDataFormatDescBlobV1 : TypedBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >
 {
 private:
     enum { VERTEX_ATTRIB_CNT = 16 };

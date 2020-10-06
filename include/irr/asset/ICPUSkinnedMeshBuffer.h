@@ -24,7 +24,7 @@ class ICPUSkinnedMeshBuffer final : public ICPUMeshBuffer
         //! Default constructor
         ICPUSkinnedMeshBuffer() : indexValMin(0), indexValMax(0), maxVertexBoneInfluences(1)
         {
-            #ifdef _IRR_DEBUG
+            #ifdef _NBL_DEBUG
             setDebugName("ICPUSkinnedMeshBuffer");
             #endif
         }

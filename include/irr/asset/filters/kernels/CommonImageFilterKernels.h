@@ -36,7 +36,7 @@ class CFloatingPointOnlyImageFilterKernelBase
 class CSeparableImageFilterKernelBase
 {
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = true;
+		_NBL_STATIC_INLINE_CONSTEXPR bool is_separable = true;
 
 	protected:
 		CSeparableImageFilterKernelBase() {}
@@ -102,7 +102,7 @@ class CIsotropicImageFilterKernelBase
 	public:
 		using isotropic_support_as_ratio = Support;
 	protected:
-		_IRR_STATIC_INLINE_CONSTEXPR float isotropic_support = float(Support::num)/float(Support::den);
+		_NBL_STATIC_INLINE_CONSTEXPR float isotropic_support = float(Support::num)/float(Support::den);
 };
 
 // same as CFloatingPointSeparableImageFilterKernelBase but with added constraint that support is symmetric around the orign

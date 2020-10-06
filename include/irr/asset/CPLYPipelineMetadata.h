@@ -20,7 +20,7 @@ namespace irr
 
             core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const override { return { m_shaderInputs->begin(), m_shaderInputs->end() }; }
 
-            _IRR_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CPLYMeshFileLoader";
+            _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CPLYMeshFileLoader";
             const char* getLoaderName() const override { return LoaderName; }
 
             uint32_t getHashVal() const { return m_hash; }

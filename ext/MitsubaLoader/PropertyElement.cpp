@@ -88,7 +88,7 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 	const char* desiredAttributes[SPropertyElementData::MaxAttributes] = { nullptr };
 	if (!result.initialize(_atts, desiredAttributes))
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		return std::make_pair(false, SNamedPropertyElement());
 	}
 
@@ -239,7 +239,7 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 			break;
 	}
 
-	_IRR_DEBUG_BREAK_IF(!success);
+	_NBL_DEBUG_BREAK_IF(!success);
 	if (success)
 		return std::make_pair(true, std::move(result));
 
@@ -259,7 +259,7 @@ bool CPropertyElementManager::retrieveBooleanValue(const std::string& _data, boo
 	}
 	else
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		ParserLog::invalidXMLFileStructure("Invalid boolean specified.");
 		success = false;
 		return false; // so GCC doesn't moan
@@ -282,7 +282,7 @@ core::matrix4SIMD CPropertyElementManager::retrieveMatrix(const std::string& _da
 
 		if (isnan(f))
 		{
-			_IRR_DEBUG_BREAK_IF(true);
+			_NBL_DEBUG_BREAK_IF(true);
 			ParserLog::invalidXMLFileStructure("Invalid matrix specified.");
 			success = false;
 			return core::matrix4SIMD();

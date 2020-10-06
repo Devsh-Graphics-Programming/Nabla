@@ -54,7 +54,7 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 			m_pushConstantRanges = nullptr;
 		}
 
-        _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_LAYOUT;
+        _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
 	protected:

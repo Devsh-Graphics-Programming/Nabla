@@ -28,7 +28,7 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
 			if (!validateCopies_template(pRegionsBegin, pRegionsEnd, src))
 				return false;
 			
-			#ifdef _IRR_DEBUG // TODO: When Vulkan comes
+			#ifdef _NBL_DEBUG // TODO: When Vulkan comes
 			#endif
 			return true;
 		}
@@ -38,7 +38,7 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
 			if (!validateCopies_template(pRegionsBegin, pRegionsEnd, src))
 				return false;
 
-			#ifdef _IRR_DEBUG // TODO: When Vulkan comes
+			#ifdef _NBL_DEBUG // TODO: When Vulkan comes
 				// image offset and extent must respect granularity requirements
 				// buffer has memory bound (with sparse exceptions)
 				// check buffer has transfer usage flag

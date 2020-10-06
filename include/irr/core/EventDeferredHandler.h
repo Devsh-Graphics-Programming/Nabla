@@ -146,9 +146,9 @@ class DeferredEventHandlerST
         //! Abort does not call the operator()
         inline uint32_t abortEvent(const event_t& eventToAbort)
         {
-            #ifdef _IRR_DEBUG
+            #ifdef _NBL_DEBUG
             assert(mEvents.size());
-            #endif // _IRR_DEBUG
+            #endif // _NBL_DEBUG
             std::remove_if(mEvents.begin(),mEvents.end(),[&](const DeferredEvent& x){return x.m_event==eventToAbort;});
             mLastEvent = ?
             return mEvents.size();

@@ -62,25 +62,25 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				switch (m_bindingInfo->operator[](i).descriptorType)
 				{
 					case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
-						_IRR_FALLTHROUGH;
+						_NBL_FALLTHROUGH;
 					case asset::EDT_UNIFORM_BUFFER:
 						m_flatOffsets->operator[](i) = uboCount;
 						uboCount += count;
 						break;
 					case asset::EDT_STORAGE_BUFFER_DYNAMIC:
-						_IRR_FALLTHROUGH;
+						_NBL_FALLTHROUGH;
 					case asset::EDT_STORAGE_BUFFER:
 						m_flatOffsets->operator[](i) = ssboCount;
 						ssboCount += count;
 						break;
 					case asset::EDT_UNIFORM_TEXEL_BUFFER: //GL_TEXTURE_BUFFER
-						_IRR_FALLTHROUGH;
+						_NBL_FALLTHROUGH;
 					case asset::EDT_COMBINED_IMAGE_SAMPLER:
 						m_flatOffsets->operator[](i) = textureCount;
 						textureCount += count;
 						break;
 					case asset::EDT_STORAGE_IMAGE:
-						_IRR_FALLTHROUGH;
+						_NBL_FALLTHROUGH;
 					case asset::EDT_STORAGE_TEXEL_BUFFER:
 						m_flatOffsets->operator[](i) = imageCount;
 						imageCount += count;
@@ -171,7 +171,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			assert(getDescriptorCountAtIndex(_write.binding)>0u);
 			assert(_write.count>0);
 			const auto type = _write.descriptorType;
-			#ifdef _IRR_DEBUG
+			#ifdef _NBL_DEBUG
 				auto info = m_bindingInfo->operator[](_write.binding);
 				assert(type==info.descriptorType);
 				auto layoutBinding = getLayoutBinding(_write.binding);
@@ -182,7 +182,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			auto* output = getDescriptors(_write.binding)+_write.arrayElement;
 			for (uint32_t i=0u; i<_write.count; i++,output++)
 			{
-				#ifdef _IRR_DEBUG
+				#ifdef _NBL_DEBUG
 					auto found = getBindingInfo(output-m_descriptors->begin());
 					assert(found->descriptorType == type);
 					layoutBinding = getLayoutBinding(found-m_bindingInfo->begin());
@@ -216,7 +216,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				assert(input+_copy.count<=output||output+_copy.count<=input);
 			for (uint32_t i=0u; i<_copy.count; i++,input++,output++)
 			{
-				#ifdef _IRR_DEBUG
+				#ifdef _NBL_DEBUG
 					auto foundIn = getBindingInfo(input-srcGLSet->m_descriptors->begin());
 					auto foundOut = getBindingInfo(output-m_descriptors->begin());
 					assert(foundOut->descriptorType==foundOut->descriptorType);

@@ -19,7 +19,7 @@ namespace io
 CArchiveLoaderMount::CArchiveLoaderMount( io::IFileSystem* fs)
 : FileSystem(fs)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CArchiveLoaderMount");
 	#endif
 }

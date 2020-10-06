@@ -45,7 +45,7 @@ class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<No
 				// we need scratch memory because we'll decode the whole image into one contiguous chunk of memory for faster filtering amongst other things
 				uint8_t*							scratchMemory = nullptr;
 				uint32_t							scratchMemoryByteSize = 0u;
-				_IRR_STATIC_INLINE_CONSTEXPR auto	NumWrapAxes = 3;
+				_NBL_STATIC_INLINE_CONSTEXPR auto	NumWrapAxes = 3;
 				ISampler::E_TEXTURE_CLAMP			axisWraps[NumWrapAxes] = { ISampler::ETC_REPEAT,ISampler::ETC_REPEAT,ISampler::ETC_REPEAT };
 				ISampler::E_TEXTURE_BORDER_COLOR	borderColor = ISampler::ETBC_FLOAT_TRANSPARENT_BLACK;
 				E_ALPHA_SEMANTIC					alphaSemantic = EAS_NONE_OR_PREMULTIPLIED;
@@ -108,7 +108,7 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 		static_assert(std::is_same<typename KernelX::value_type,typename KernelY::value_type>::value&&std::is_same<typename KernelZ::value_type,typename KernelY::value_type>::value,"Kernel value_type need to be identical");
 		using value_type = typename KernelX::value_type;
 		
-		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = KernelX::MaxChannels>KernelY::MaxChannels ? (KernelX::MaxChannels>KernelZ::MaxChannels ? KernelX::MaxChannels:KernelZ::MaxChannels):(KernelY::MaxChannels>KernelZ::MaxChannels ? KernelY::MaxChannels:KernelZ::MaxChannels);
+		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = KernelX::MaxChannels>KernelY::MaxChannels ? (KernelX::MaxChannels>KernelZ::MaxChannels ? KernelX::MaxChannels:KernelZ::MaxChannels):(KernelY::MaxChannels>KernelZ::MaxChannels ? KernelY::MaxChannels:KernelZ::MaxChannels);
 
 	public:
 		// we'll probably never remove this requirement

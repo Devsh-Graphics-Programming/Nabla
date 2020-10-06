@@ -25,7 +25,7 @@ void ParserLog::invalidXMLFileStructure(const std::string& errorMessage)
 		+ errorMessage + '\'';
 
 	os::Printer::log(message.c_str(), ELL_ERROR);
-	_IRR_DEBUG_BREAK_IF(true);
+	_NBL_DEBUG_BREAK_IF(true);
 }
 
 void ParserManager::elementHandlerStart(void* _data, const char* _el, const char** _atts)
@@ -77,7 +77,7 @@ bool ParserManager::parse(io::IReadFile* _file)
 			}
 			break;
 		case XML_STATUS_OK:
-			#ifdef _IRR_DEBUG
+			#ifdef _NBL_DEBUG
 				os::Printer::log("Parse status: XML_STATUS_OK", ELL_INFORMATION);
 			#endif
 			break;

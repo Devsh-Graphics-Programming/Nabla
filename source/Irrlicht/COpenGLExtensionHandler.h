@@ -13,7 +13,7 @@
 
 #include "COpenGLStateManager.h"
 
-#ifdef _IRR_WINDOWS_API_
+#ifdef _NBL_WINDOWS_API_
 	// include windows headers for HWND
 	#include "../src/3rdparty/GL/wglext.h"
 #elif defined(_IRR_COMPILE_WITH_X11_)
@@ -556,7 +556,7 @@ static const char* const OpenGLFeatureStrings[] = {
     "GL_NVX_multiview_per_view_attributes"
 };
 //extra extension name that is reported as supported when irrbaw app is running in renderdoc
-_IRR_STATIC_INLINE_CONSTEXPR const char* RUNNING_IN_RENDERDOC_EXTENSION_NAME = "GL_IRR_RUNNING_IN_RENDERDOC";
+_NBL_STATIC_INLINE_CONSTEXPR const char* RUNNING_IN_RENDERDOC_EXTENSION_NAME = "GL_IRR_RUNNING_IN_RENDERDOC";
 
 
 class COpenGLExtensionHandler
@@ -1068,7 +1068,7 @@ class COpenGLExtensionHandler
         IRR_NVX_multiview_per_view_attributes,
 		IRR_OpenGL_Feature_Count
 	};
-    _IRR_STATIC_INLINE_CONSTEXPR EOpenGLFeatures m_GLSLExtensions[]{
+    _NBL_STATIC_INLINE_CONSTEXPR EOpenGLFeatures m_GLSLExtensions[]{
         IRR_AMD_gcn_shader,
         IRR_AMD_gpu_shader_half_float_fetch,
         IRR_AMD_shader_ballot,
@@ -2204,20 +2204,20 @@ inline void COpenGLExtensionHandler::extGlGetTextureSubImage(GLuint texture, GLi
 {
     if (Version>=450||FeatureAvailable[IRR_ARB_get_texture_sub_image])
 		pGlGetTextureSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, bufSize, pixels);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	else
 		os::Printer::log("EDF_GET_TEXTURE_SUB_IMAGE Not Available! Tell DevSH to implement!\n", ELL_ERROR);
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 }
 
 inline void COpenGLExtensionHandler::extGlGetCompressedTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLsizei bufSize, void* pixels)
 {
 	if (Version >= 450 || FeatureAvailable[IRR_ARB_get_texture_sub_image])
 		extGlGetCompressedTextureSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, bufSize, pixels);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	else
 		os::Printer::log("EDF_GET_TEXTURE_SUB_IMAGE Not Available! Tell DevSH to implement!\n", ELL_ERROR);
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 }
 
 inline void COpenGLExtensionHandler::extGlGetTextureImage(GLuint texture, GLenum target, GLint level, GLenum format, GLenum type, GLsizei bufSizeHint, void* pixels)
@@ -4491,17 +4491,17 @@ inline void COpenGLExtensionHandler::extGlTextureBarrier()
 		pGlTextureBarrier();
 	else if (FeatureAvailable[IRR_NV_texture_barrier])
 		pGlTextureBarrierNV();
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     else
         os::Printer::log("EDF_TEXTURE_BARRIER Not Available!\n",ELL_ERROR);
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 }
 
 
 inline void COpenGLExtensionHandler::extGlSwapInterval(int interval)
 {
 	// we have wglext, so try to use that
-#if defined(_IRR_WINDOWS_API_) && defined(_IRR_COMPILE_WITH_WINDOWS_DEVICE_)
+#if defined(_NBL_WINDOWS_API_) && defined(_IRR_COMPILE_WITH_WINDOWS_DEVICE_)
 #ifdef WGL_EXT_swap_control
 	if (pWglSwapIntervalEXT)
 		pWglSwapIntervalEXT(interval);

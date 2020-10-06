@@ -797,9 +797,9 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     auto isBufferDesc = [](asset::E_DESCRIPTOR_TYPE t) {
         using namespace asset;
         switch (t) {
-        case EDT_UNIFORM_BUFFER: _IRR_FALLTHROUGH;
-        case EDT_STORAGE_BUFFER: _IRR_FALLTHROUGH;
-        case EDT_UNIFORM_BUFFER_DYNAMIC: _IRR_FALLTHROUGH;
+        case EDT_UNIFORM_BUFFER: _NBL_FALLTHROUGH;
+        case EDT_STORAGE_BUFFER: _NBL_FALLTHROUGH;
+        case EDT_UNIFORM_BUFFER_DYNAMIC: _NBL_FALLTHROUGH;
         case EDT_STORAGE_BUFFER_DYNAMIC:
             return true;
             break;

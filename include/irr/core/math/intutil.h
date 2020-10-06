@@ -24,40 +24,40 @@ namespace core
 
 
 template<typename INT_TYPE>
-IRR_FORCE_INLINE constexpr bool isNPoT(INT_TYPE value)
+NBL_FORCE_INLINE constexpr bool isNPoT(INT_TYPE value)
 {
     static_assert(std::is_integral<INT_TYPE>::value, "Integral required.");
     return value & (value - static_cast<INT_TYPE>(1));
 }
 
 template<typename INT_TYPE>
-IRR_FORCE_INLINE constexpr bool isPoT(INT_TYPE value)
+NBL_FORCE_INLINE constexpr bool isPoT(INT_TYPE value)
 {
     return !isNPoT<INT_TYPE>(value);
 }
 
 
 template<typename INT_TYPE>
-IRR_FORCE_INLINE constexpr INT_TYPE roundUpToPoT(INT_TYPE value)
+NBL_FORCE_INLINE constexpr INT_TYPE roundUpToPoT(INT_TYPE value)
 {
         return INT_TYPE(0x1u)<<INT_TYPE(1+core::findMSB<INT_TYPE>(value-INT_TYPE(1)));
 }
 
 template<typename INT_TYPE>
-IRR_FORCE_INLINE constexpr INT_TYPE roundDownToPoT(INT_TYPE value)
+NBL_FORCE_INLINE constexpr INT_TYPE roundDownToPoT(INT_TYPE value)
 {
     return INT_TYPE(0x1u)<<core::findMSB<INT_TYPE>(value);
 }
 
 template<typename INT_TYPE>
-IRR_FORCE_INLINE constexpr INT_TYPE roundUp(INT_TYPE value, INT_TYPE multiple)
+NBL_FORCE_INLINE constexpr INT_TYPE roundUp(INT_TYPE value, INT_TYPE multiple)
 {
     INT_TYPE tmp = (value+multiple-1u)/multiple;
     return tmp*multiple;
 }
 
 template<typename INT_TYPE>
-IRR_FORCE_INLINE constexpr INT_TYPE align(INT_TYPE alignment, INT_TYPE size, INT_TYPE& address, INT_TYPE& space)
+NBL_FORCE_INLINE constexpr INT_TYPE align(INT_TYPE alignment, INT_TYPE size, INT_TYPE& address, INT_TYPE& space)
 {
     INT_TYPE nextAlignedAddr = roundUp<INT_TYPE>(address,alignment);
 
@@ -81,7 +81,7 @@ IRR_FORCE_INLINE constexpr INT_TYPE align(INT_TYPE alignment, INT_TYPE size, INT
 */
 
 template<typename BITMASK_TYPE>
-IRR_FORCE_INLINE constexpr uint64_t createBitmask(std::initializer_list<BITMASK_TYPE> initializer)
+NBL_FORCE_INLINE constexpr uint64_t createBitmask(std::initializer_list<BITMASK_TYPE> initializer)
 {
     static_assert(std::is_integral<BITMASK_TYPE>::value || std::is_enum<BITMASK_TYPE>::value, "Integral or enum required.");
     uint64_t retval {};

@@ -129,7 +129,7 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 			//m_bindingInfo = nullptr;
 		}
 
-		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET;
+		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
 		inline ICPUDescriptorSetLayout* getLayout() { return m_layout.get(); }

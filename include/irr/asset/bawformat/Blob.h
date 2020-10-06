@@ -15,7 +15,7 @@ namespace asset
 	struct BlobLoadingParams;
 
 #include "irr/irrpack.h"
-	struct IRR_FORCE_EBO Blob
+	struct NBL_FORCE_EBO Blob
 	{
 		//! Coding method of blob's data enumeration
 		enum E_BLOB_CODING_TYPE
@@ -47,7 +47,7 @@ namespace asset
 
 
 	template<template<typename, typename> class SizingT, typename B, typename T>
-	struct IRR_FORCE_EBO SizedBlob
+	struct NBL_FORCE_EBO SizedBlob
 	{
 	protected: // not intended for direct usage
 		SizedBlob() {}
@@ -82,7 +82,7 @@ namespace asset
 	};
 
 	template<typename B, typename T>
-	struct IRR_FORCE_EBO VariableSizeBlob : SizedBlob<VariableSizeBlob, B, T>
+	struct NBL_FORCE_EBO VariableSizeBlob : SizedBlob<VariableSizeBlob, B, T>
 	{
 	protected: // not intended for direct usage
 		VariableSizeBlob() {}
@@ -90,7 +90,7 @@ namespace asset
 	};
 
 	template<typename B, typename T>
-	struct IRR_FORCE_EBO FixedSizeBlob : SizedBlob<FixedSizeBlob, B, T>
+	struct NBL_FORCE_EBO FixedSizeBlob : SizedBlob<FixedSizeBlob, B, T>
 	{
 	protected: // not intended for direct usage
 		FixedSizeBlob() {}
@@ -98,7 +98,7 @@ namespace asset
 	};
 
 	template<typename B, typename T>
-	struct IRR_FORCE_EBO TypedBlob : Blob
+	struct NBL_FORCE_EBO TypedBlob : Blob
 	{
 		static core::unordered_set<uint64_t> getNeededDeps(const void* _blob);
 		static void* instantiateEmpty(const void* _blob, size_t _blobSize, BlobLoadingParams& _params);

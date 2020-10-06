@@ -39,7 +39,7 @@ struct SPropertyElementData
 	};
 
 	static const core::unordered_map<std::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxAttributes = 4u;
+	_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxAttributes = 4u;
 	static const char* attributeStrings[Type::INVALID][MaxAttributes];
 
 	inline SPropertyElementData() : type(Type::INVALID)

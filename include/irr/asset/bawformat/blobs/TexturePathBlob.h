@@ -20,7 +20,7 @@ namespace asset
 {
 
 #include "irr/irrpack.h"
-struct IRR_FORCE_EBO TexturePathBlobV0 : TypedBlob<TexturePathBlobV0, ICPUTexture>, VariableSizeBlob<TexturePathBlobV0, ICPUTexture>
+struct NBL_FORCE_EBO TexturePathBlobV0 : TypedBlob<TexturePathBlobV0, ICPUTexture>, VariableSizeBlob<TexturePathBlobV0, ICPUTexture>
 {};
 #include "irr/irrunpack.h"
 

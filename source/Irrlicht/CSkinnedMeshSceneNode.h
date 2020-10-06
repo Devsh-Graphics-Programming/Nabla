@@ -54,7 +54,7 @@ namespace scene
                 LoopCallBack(NULL), FramesPerSecond(0.025f), desiredUpdateFrequency(1000.f/120.f), StartFrame(0.f), EndFrame(0.f), CurrentFrameNr(0.f), LastTimeMs(0),
                 Looping(true), PassCount(0)
             {
-                #ifdef _IRR_DEBUG
+                #ifdef _NBL_DEBUG
                 setDebugName("CSkinnedMeshSceneNode");
                 #endif
                 setMesh(std::move(_mesh),boneControlMode);

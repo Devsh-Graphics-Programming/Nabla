@@ -15,7 +15,7 @@ namespace io
 CWriteFile::CWriteFile(const io::path& fileName, bool append)
 : FileSize(0)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CWriteFile");
 	#endif
 

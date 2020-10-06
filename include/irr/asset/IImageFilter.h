@@ -35,8 +35,8 @@ class IImageFilter
 					ColorValue() {}
 					~ColorValue() {}
 
-					_IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_CHANNELS = 4u;
-					_IRR_STATIC_INLINE_CONSTEXPR uint32_t LARGEST_COMPRESSED_BLOCK_SIZE = 16u;
+					_NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_CHANNELS = 4u;
+					_NBL_STATIC_INLINE_CONSTEXPR uint32_t LARGEST_COMPRESSED_BLOCK_SIZE = 16u;
 					union
 					{
 						uint8_t				pointer[sizeof(double)*MAX_CHANNELS];

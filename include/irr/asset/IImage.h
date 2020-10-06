@@ -220,7 +220,7 @@ class IImage : public IDescriptor
 			{
 				case ET_3D:
 					maxSideLen = core::max<uint32_t>(extent.depth,maxSideLen);
-					_IRR_FALLTHROUGH;
+					_NBL_FALLTHROUGH;
 				case ET_2D:
 					maxSideLen = core::max<uint32_t>(extent.height,maxSideLen);
 					break;
@@ -306,7 +306,7 @@ class IImage : public IDescriptor
 				case ET_1D:
 					if (_params.extent.height > 1u)
 						return false;
-					_IRR_FALLTHROUGH;
+					_NBL_FALLTHROUGH;
 				case ET_2D:
 					if (_params.extent.depth > 1u)
 						return false;
@@ -366,7 +366,7 @@ class IImage : public IDescriptor
 					return false;
 
 				// count on the user not being an idiot
-				#ifdef _IRR_DEBUG
+				#ifdef _NBL_DEBUG
 					if (it->srcSubresource.mipLevel>=srcImage->getCreationParameters().mipLevels)
 					{
 						assert(false);
@@ -385,7 +385,7 @@ class IImage : public IDescriptor
 						case ET_1D:
 							if (off.y>0u || ext.height>1u)
 								return false;
-							_IRR_FALLTHROUGH;
+							_NBL_FALLTHROUGH;
 						case ET_2D:
 							if (off.z>0u || ext.depth>1u)
 								return false;
@@ -536,7 +536,7 @@ class IImage : public IDescriptor
 					case ET_1D:
 						if (off2.y>0u||ext2.height>1u)
 							return false;
-						_IRR_FALLTHROUGH;
+						_NBL_FALLTHROUGH;
 					case ET_2D:
 						if (off2.z>0u||ext2.depth>1u)
 							return false;
@@ -583,7 +583,7 @@ class IImage : public IDescriptor
 				else
 				{
 					// count on the user not being an idiot
-					#ifdef _IRR_DEBUG
+					#ifdef _NBL_DEBUG
 						size_t imageHeight = it->bufferImageHeight ? it->bufferImageHeight:it->imageExtent.height;
 						imageHeight += dstBlockDims.y-1u;
 						imageHeight /= dstBlockDims.y;
@@ -647,7 +647,7 @@ class IImage : public IDescriptor
 				return false;
 
 			// check regions don't overlap (function is complete)
-			#ifdef _IRR_DEBUG
+			#ifdef _NBL_DEBUG
 			for (auto it2=it+1u; it2!=pRegionsEnd; it2++)
 			{
 				const auto& subresource2 = it2->getDstSubresource();

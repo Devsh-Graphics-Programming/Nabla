@@ -169,7 +169,7 @@ class CShaderIntrospector : public core::Uncopyable
 		core::smart_refctd_ptr<ICPUDescriptorSetLayout> createApproximateDescriptorSetLayoutFromIntrospection_impl(uint32_t _set, const CIntrospectionData** const begin, const CIntrospectionData** const end, const ICPUSpecializedShader* const* const shaders);
 		core::smart_refctd_ptr<ICPUPipelineLayout> createApproximatePipelineLayoutFromIntrospection_impl(const CIntrospectionData** const begin, const CIntrospectionData** const end, const ICPUSpecializedShader* const* const shaders);
 
-		_IRR_STATIC_INLINE_CONSTEXPR size_t MAX_STAGE_COUNT = 14ull;
+		_NBL_STATIC_INLINE_CONSTEXPR size_t MAX_STAGE_COUNT = 14ull;
 		bool introspectAllShaders(const CIntrospectionData** introspection, ICPUSpecializedShader** const begin, ICPUSpecializedShader** const end, const std::string* _extensionsBegin, const std::string* _extensionsEnd);
 
 		core::smart_refctd_ptr<CIntrospectionData> doIntrospection(spirv_cross::Compiler& _comp, const SIntrospectionParams& _ep) const;

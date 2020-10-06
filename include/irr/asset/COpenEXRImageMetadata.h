@@ -22,7 +22,7 @@ namespace asset
                 return name;
             }
 
-            _IRR_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CImageLoaderOpenEXR";
+            _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CImageLoaderOpenEXR";
             const char* getLoaderName() const override { return LoaderName; }
 
         private:

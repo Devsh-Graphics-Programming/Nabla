@@ -22,7 +22,7 @@ namespace asset
 class IVirtualTextureBase
 {
 public:
-    _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PAGE_TABLE_LAYERS = 256u;
+    _NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_PAGE_TABLE_LAYERS = 256u;
 #include "irr/irrpack.h"
     //! std430-compatible layout
     struct SPrecomputedData
@@ -43,15 +43,15 @@ protected:
     //! SPhysPgOffset is what is stored in texels of page table!
     struct SPhysPgOffset
     {
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t invalid_addr = 0xffffu;
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_addr = 0xffffu;
 
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_BITLENGTH = 16u;
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_MASK = (1u<<PAGE_ADDR_BITLENGTH)-1u;
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_X_BITS = 4u;
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_X_MASK = (1u<<PAGE_ADDR_X_BITS)-1u;
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_Y_BITS = 4u;
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_Y_MASK = (1u<<PAGE_ADDR_Y_BITS)-1u;
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_LAYER_SHIFT = PAGE_ADDR_BITLENGTH - PAGE_ADDR_X_BITS - PAGE_ADDR_Y_BITS;
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_BITLENGTH = 16u;
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_MASK = (1u<<PAGE_ADDR_BITLENGTH)-1u;
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_X_BITS = 4u;
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_X_MASK = (1u<<PAGE_ADDR_X_BITS)-1u;
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_Y_BITS = 4u;
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_Y_MASK = (1u<<PAGE_ADDR_Y_BITS)-1u;
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_ADDR_LAYER_SHIFT = PAGE_ADDR_BITLENGTH - PAGE_ADDR_X_BITS - PAGE_ADDR_Y_BITS;
 
         inline uint32_t x() const { return addr & PAGE_ADDR_X_MASK; }
         inline uint32_t y() const { return (addr >> PAGE_ADDR_X_BITS)& PAGE_ADDR_Y_MASK; }
@@ -72,8 +72,8 @@ protected:
     }
 
 public:
-    _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PAGE_TABLE_EXTENT_LOG2 = 8u;
-    _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_PHYSICAL_PAGE_SIZE_LOG2 = 9u;
+    _NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_PAGE_TABLE_EXTENT_LOG2 = 8u;
+    _NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_PHYSICAL_PAGE_SIZE_LOG2 = 9u;
     struct SMiptailPacker
     {
         struct rect
@@ -88,7 +88,7 @@ public:
 #include "irr/irrpack.h"
     //must be 64bit
     template <typename CRTP>
-    struct IRR_FORCE_EBO STextureData
+    struct NBL_FORCE_EBO STextureData
     {
         enum E_WRAP_MODE
         {
@@ -103,11 +103,11 @@ public:
             {
             case ISampler::ETC_REPEAT:
                 return EWM_REPEAT;
-            case ISampler::ETC_CLAMP_TO_EDGE: _IRR_FALLTHROUGH;
+            case ISampler::ETC_CLAMP_TO_EDGE: _NBL_FALLTHROUGH;
             case ISampler::ETC_CLAMP_TO_BORDER:
                 return EWM_CLAMP;
-            case ISampler::ETC_MIRROR: _IRR_FALLTHROUGH;
-            case ISampler::ETC_MIRROR_CLAMP_TO_EDGE: _IRR_FALLTHROUGH;
+            case ISampler::ETC_MIRROR: _NBL_FALLTHROUGH;
+            case ISampler::ETC_MIRROR_CLAMP_TO_EDGE: _NBL_FALLTHROUGH;
             case ISampler::ETC_MIRROR_CLAMP_TO_BORDER:
                 return EWM_MIRROR;
             default:
@@ -118,7 +118,7 @@ public:
         {
             switch (_ewm)
             {
-            case EWM_INVALID: _IRR_FALLTHROUGH;
+            case EWM_INVALID: _NBL_FALLTHROUGH;
             case EWM_REPEAT:
                 return ISampler::ETC_REPEAT;
             case EWM_CLAMP:
@@ -158,7 +158,7 @@ public:
     } PACK_STRUCT;
 #include "irr/irrunpack.h"
 
-    struct IRR_FORCE_EBO SMasterTextureData : STextureData<SMasterTextureData> 
+    struct NBL_FORCE_EBO SMasterTextureData : STextureData<SMasterTextureData> 
     {
         friend class this_type;
     private:
@@ -166,7 +166,7 @@ public:
     };
     static_assert(sizeof(SMasterTextureData)==sizeof(uint64_t), "SMasterTextureData is not 64bit!");
 
-    struct IRR_FORCE_EBO SViewAliasTextureData : STextureData<SViewAliasTextureData>
+    struct NBL_FORCE_EBO SViewAliasTextureData : STextureData<SViewAliasTextureData>
     {
         friend class this_type;
     private:
@@ -265,8 +265,8 @@ protected:
         return pgtExtent.width*pgtExtent.height;
     }
 
-    _IRR_STATIC_INLINE_CONSTEXPR uint32_t INVALID_SAMPLER_INDEX = 0xdeadbeefu;
-    _IRR_STATIC_INLINE_CONSTEXPR uint32_t INVALID_LAYER_INDEX = 0xdeadbeefu;
+    _NBL_STATIC_INLINE_CONSTEXPR uint32_t INVALID_SAMPLER_INDEX = 0xdeadbeefu;
+    _NBL_STATIC_INLINE_CONSTEXPR uint32_t INVALID_LAYER_INDEX = 0xdeadbeefu;
 
     uint32_t findFreePageTableLayer() const
     {
@@ -339,7 +339,7 @@ protected:
                 bufOffset += regionSz;
             }
             auto buf = core::make_smart_refctd_ptr<ICPUBuffer>(bufOffset);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
             uint32_t* bufptr = reinterpret_cast<uint32_t*>(buf->getPointer());
             std::fill(bufptr, bufptr+bufOffset/sizeof(uint32_t), SPhysPgOffset::invalid_addr);
 #endif
@@ -397,8 +397,8 @@ protected:
     class IVTResidentStorage : public core::IReferenceCounted
     {
     protected:
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_TILES_PER_DIM = std::min<uint32_t>(SPhysPgOffset::PAGE_ADDR_X_MASK,SPhysPgOffset::PAGE_ADDR_Y_MASK) + 1u;
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_LAYERS = (1u<<(SPhysPgOffset::PAGE_ADDR_BITLENGTH-SPhysPgOffset::PAGE_ADDR_LAYER_SHIFT));
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_TILES_PER_DIM = std::min<uint32_t>(SPhysPgOffset::PAGE_ADDR_X_MASK,SPhysPgOffset::PAGE_ADDR_Y_MASK) + 1u;
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_LAYERS = (1u<<(SPhysPgOffset::PAGE_ADDR_BITLENGTH-SPhysPgOffset::PAGE_ADDR_LAYER_SHIFT));
 
         virtual ~IVTResidentStorage()
         {
@@ -812,7 +812,7 @@ public:
     }
 
     struct reset_update_t {};
-    _IRR_STATIC_INLINE_CONSTEXPR reset_update_t reset_update{};
+    _NBL_STATIC_INLINE_CONSTEXPR reset_update_t reset_update{};
     const auto& getPrecomputedData(reset_update_t)
     {
         m_precomputedWasUpdatedSinceLastQuery = false;

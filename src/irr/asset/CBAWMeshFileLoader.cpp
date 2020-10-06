@@ -39,7 +39,7 @@ CBAWMeshFileLoader::~CBAWMeshFileLoader()
 
 CBAWMeshFileLoader::CBAWMeshFileLoader(IAssetManager* _manager) : m_manager(_manager), m_fileSystem(_manager->getFileSystem())
 {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	setDebugName("CBAWMeshFileLoader");
 #endif
 }
@@ -47,9 +47,9 @@ CBAWMeshFileLoader::CBAWMeshFileLoader(IAssetManager* _manager) : m_manager(_man
 SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 #ifndef NEW_SHADERS
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     auto time = std::chrono::high_resolution_clock::now();
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 
 	SContext ctx{
         asset::IAssetLoader::SAssetLoadContext{
@@ -340,12 +340,12 @@ SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 
 	ctx.releaseAllButThisOne(meshBlobDataIter); // call drop on all loaded objects except mesh
 
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	std::ostringstream tmpString("Time to load ");
 	tmpString.seekp(0, std::ios_base::end);
 	tmpString << "BAW file: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-time).count() << "us";
 	os::Printer::log(tmpString.str());
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 
 	asset::ICPUMesh* mesh = reinterpret_cast<asset::ICPUMesh*>(retval);
 		

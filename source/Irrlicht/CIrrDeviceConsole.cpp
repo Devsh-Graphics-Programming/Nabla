@@ -287,7 +287,7 @@ bool CIrrDeviceConsole::run()
 // This should bring down processor usage without major performance loss for Irrlicht
 void CIrrDeviceConsole::yield()
 {
-#ifdef _IRR_WINDOWS_API_
+#ifdef _NBL_WINDOWS_API_
 	Sleep(1);
 #else
 	struct timespec ts = {0,0};
@@ -300,7 +300,7 @@ void CIrrDeviceConsole::sleep(uint32_t timeMs, bool pauseTimer)
 {
 	const bool wasStopped = Timer ? Timer->isStopped() : true;
 
-#ifdef _IRR_WINDOWS_API_
+#ifdef _NBL_WINDOWS_API_
 	Sleep(timeMs);
 #else
 	struct timespec ts;

@@ -40,7 +40,7 @@ class CDerivativeImageFilterKernel : public CFloatingPointSeparableImageFilterKe
 			return kernel.d_weight(x,channel);
 		}
 
-		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
+		_NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
 
 		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
 };

@@ -54,7 +54,7 @@ void PNGAPI user_write_data_fcn(png_structp png_ptr, png_bytep data, png_size_t 
 
 CImageWriterPNG::CImageWriterPNG()
 {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	setDebugName("CImageWriterPNG");
 #endif
 }
@@ -200,7 +200,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	png_destroy_write_struct(&png_ptr, &info_ptr);
 	return true;
 #else
-	_IRR_DEBUG_BREAK_IF(true);
+	_NBL_DEBUG_BREAK_IF(true);
 	return false;
 #endif//defined(_IRR_COMPILE_WITH_LIBPNG_)
 }

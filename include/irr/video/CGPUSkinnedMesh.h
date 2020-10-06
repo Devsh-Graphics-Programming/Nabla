@@ -35,7 +35,7 @@ namespace video
         public:
             CGPUSkinnedMesh(core::smart_refctd_ptr<const asset::CFinalBoneHierarchy>&& boneHierarchy) : IGPUSkinnedMesh(std::move(boneHierarchy))
             {
-                #ifdef _IRR_DEBUG
+                #ifdef _NBL_DEBUG
                 setDebugName("CGPUSkinnedMesh");
                 #endif
             }

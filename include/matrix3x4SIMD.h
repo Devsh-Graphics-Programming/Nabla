@@ -22,7 +22,7 @@ static_assert(_IRR_MATRIX_ALIGNMENT>=_IRR_VECTOR_ALIGNMENT,"Matrix must be equal
 class matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> EBO inheritance problem w.r.t `rows[3]`
 {
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t VectorCount = 3u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t VectorCount = 3u;
 		vectorSIMDf rows[VectorCount];
 
 		explicit matrix3x4SIMD(	const vectorSIMDf& _r0 = vectorSIMDf(1.f, 0.f, 0.f, 0.f),

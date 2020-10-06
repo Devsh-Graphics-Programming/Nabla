@@ -100,10 +100,10 @@ namespace irr
 						template<typename Tenc>
 						void normalize(const E_FORMAT& format, Tenc* encodeBuffer, const uint8_t& channels)
 						{
-							#ifdef _IRR_DEBUG
+							#ifdef _NBL_DEBUG
 							bool status = !isScaledFormat(format);
 							assert(status);
-							#endif // _IRR_DEBUG
+							#endif // _NBL_DEBUG
 
 							if (isSignedFormat(format))
 								for (uint8_t channel = 0; channel < channels; ++channel)

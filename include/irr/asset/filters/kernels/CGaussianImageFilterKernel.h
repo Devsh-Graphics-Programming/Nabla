@@ -32,7 +32,7 @@ class CGaussianImageFilterKernel : public CFloatingPointIsotropicSeparableImageF
 			return 0.f;
 		}
 
-		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = true;
+		_NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = true;
 		inline float d_weight(float x, int32_t channel) const
 		{
 			if (Base::inDomain(x))

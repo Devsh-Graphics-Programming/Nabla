@@ -25,7 +25,7 @@ namespace asset
 
 struct SwizzleBase
 {
-    _IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = 4;
+    _NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = 4;
 };
 
 struct VoidSwizzle : SwizzleBase

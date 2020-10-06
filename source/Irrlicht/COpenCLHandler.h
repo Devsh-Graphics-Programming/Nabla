@@ -222,7 +222,7 @@ class COpenCLHandler
 
 #ifdef _IRR_COMPILE_WITH_OPENGL_
         static bool getCLDeviceFromGLContext(cl_device_id& outDevice, cl_context_properties properties[7],
-#if defined(_IRR_WINDOWS_API_)
+#if defined(_NBL_WINDOWS_API_)
                                              const HGLRC& context, const HDC& hDC)
 #else
                                              const GLXContext& context, const Display* display)
@@ -236,7 +236,7 @@ class COpenCLHandler
 
             properties[0] = CL_GL_CONTEXT_KHR;
 			properties[1] = (cl_context_properties)context;
-#if defined(_IRR_WINDOWS_API_)
+#if defined(_NBL_WINDOWS_API_)
 			properties[2] = CL_WGL_HDC_KHR;
 			properties[3] = (cl_context_properties)hDC;
 #else

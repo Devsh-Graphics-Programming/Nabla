@@ -290,8 +290,8 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 			os::Printer::log("The given TGA doesn't have image data", _file->getFileName().c_str(), ELL_ERROR);
 			return {};
 		}
-		case STIT_UNCOMPRESSED_RGB_IMAGE: _IRR_FALLTHROUGH;
-		case STIT_UNCOMPRESSED_GRAYSCALE_IMAGE: _IRR_FALLTHROUGH;
+		case STIT_UNCOMPRESSED_RGB_IMAGE: _NBL_FALLTHROUGH;
+		case STIT_UNCOMPRESSED_GRAYSCALE_IMAGE: _NBL_FALLTHROUGH;
 		{
 			region.bufferRowLength = calcPitchInBlocks(region.imageExtent.width, getTexelOrBlockBytesize(EF_R8G8B8_SRGB));
 			const int32_t imageSize = endBufferSize = region.imageExtent.height * region.bufferRowLength * bytesPerTexel;

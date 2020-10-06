@@ -29,7 +29,7 @@ template<class Kernel>
 class CMultiphaseKernel : public CImageFilterKernel<CMultiphaseKernel<Kernel> >, private Kernel
 {
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = Kernel;
+		_NBL_STATIC_INLINE_CONSTEXPR bool is_separable = Kernel;
 
 		CMultiphaseKernel(Kernel&& k) : Kernel(std::move(k)
 		{

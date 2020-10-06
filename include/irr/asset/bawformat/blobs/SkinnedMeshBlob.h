@@ -14,7 +14,7 @@ class ICPUSkinnedMesh;
 
 #include "irr/irrpack.h"
 //! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-struct IRR_FORCE_EBO SkinnedMeshBlobV3 : VariableSizeBlob<SkinnedMeshBlobV3,ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV3, ICPUSkinnedMesh>
+struct NBL_FORCE_EBO SkinnedMeshBlobV3 : VariableSizeBlob<SkinnedMeshBlobV3,ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV3, ICPUSkinnedMesh>
 {
 public:
 	enum E_BLOB_MESH_FLAG : uint32_t

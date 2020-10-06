@@ -348,9 +348,9 @@ inline GLenum	getSizedOpenGLFormatFromOurFormat(asset::E_FORMAT format)
 		default:
 			break;
 	}
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	os::Printer::log("Unsupported texture format", ELL_ERROR);
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 	return GL_INVALID_ENUM;
 }
 

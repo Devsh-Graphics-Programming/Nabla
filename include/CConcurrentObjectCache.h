@@ -13,7 +13,7 @@ namespace irr { namespace core
 
 namespace impl
 {
-    struct IRR_FORCE_EBO CConcurrentObjectCacheBase
+    struct NBL_FORCE_EBO CConcurrentObjectCacheBase
     {
         CConcurrentObjectCacheBase() = default;
         // explicitely making concurrent caches non-copy-and-move-constructible and non-copy-and-move-assignable

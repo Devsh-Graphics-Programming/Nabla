@@ -30,7 +30,7 @@ class CCPUMesh final : public ICPUMesh
 			if (leakDebugger)
 				leakDebugger->registerObj(this);
 
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 			setDebugName("SCPUMesh");
 	#endif
 		}

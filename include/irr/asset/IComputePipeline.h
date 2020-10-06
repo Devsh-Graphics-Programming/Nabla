@@ -18,7 +18,7 @@ template<typename SpecShaderType, typename LayoutType>
 class IComputePipeline : public IPipeline<LayoutType>
 {
     public:
-		_IRR_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 1u;
+		_NBL_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 1u;
 
         const SpecShaderType* getShader() const { return m_shader.get(); }
         inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }

@@ -19,7 +19,7 @@ template<typename BufferType>
 class IBufferView : public IDescriptor
 {
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR size_t whole_buffer = ~static_cast<size_t>(0u);
+		_NBL_STATIC_INLINE_CONSTEXPR size_t whole_buffer = ~static_cast<size_t>(0u);
 
 	protected:
 		IBufferView(core::smart_refctd_ptr<BufferType>&& _buffer, E_FORMAT _format, size_t _offset, size_t _size) :

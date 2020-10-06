@@ -23,7 +23,7 @@ class IPropertyPool : public core::IReferenceCounted
 	public:
 		using PropertyAddressAllocator = core::PoolAddressAllocatorST<uint32_t>;
 
-        _IRR_STATIC_INLINE_CONSTEXPR auto InvalidIndex = PropertyAddressAllocator::invalid_address;
+        _NBL_STATIC_INLINE_CONSTEXPR auto InvalidIndex = PropertyAddressAllocator::invalid_address;
 
 
         //
@@ -46,7 +46,7 @@ class IPropertyPool : public core::IReferenceCounted
         }
 
 
-        _IRR_STATIC_INLINE_CONSTEXPR auto MaxPropertiesPerCS = 15;
+        _NBL_STATIC_INLINE_CONSTEXPR auto MaxPropertiesPerCS = 15;
         struct PipelineKey
         {
             uint32_t getPropertyCount() const

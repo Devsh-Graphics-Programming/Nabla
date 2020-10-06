@@ -54,7 +54,7 @@ static asset::E_FORMAT getCorrespondingIntegerFormat(asset::E_FORMAT _fmt)
 
 CPLYMeshWriter::CPLYMeshWriter()
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CPLYMeshWriter");
 	#endif
 }

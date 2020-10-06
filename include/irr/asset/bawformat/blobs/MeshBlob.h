@@ -17,7 +17,7 @@ class ICPUMesh;
 
 #include "irr/irrpack.h"
 //! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-struct IRR_FORCE_EBO MeshBlobV3 : VariableSizeBlob<MeshBlobV3,asset::ICPUMesh>, TypedBlob<MeshBlobV3, asset::ICPUMesh>
+struct NBL_FORCE_EBO MeshBlobV3 : VariableSizeBlob<MeshBlobV3,asset::ICPUMesh>, TypedBlob<MeshBlobV3, asset::ICPUMesh>
 {
 public:
 	enum E_BLOB_MESH_FLAG : uint32_t

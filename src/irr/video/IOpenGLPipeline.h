@@ -56,7 +56,7 @@ class IOpenGLPipeline
             GLuint GLname = getShaderGLnameForCtx(_stageIx, _ctxID);
             uint8_t* state = getPushConstantsStateForStage(_stageIx, _ctxID);
 
-            IRR_ASSUME_ALIGNED(_pcData, 128);
+            NBL_ASSUME_ALIGNED(_pcData, 128);
 
             using gl = COpenGLExtensionHandler;
 	        uint32_t loc_i = 0u;
@@ -84,12 +84,12 @@ class IOpenGLPipeline
                     arrayStride = (m.count <= 1u) ? arrayStride1 : m.arrayStride;
                 }
 		        assert(m.mtxStride==0u || arrayStride%m.mtxStride==0u);
-		        IRR_ASSUME_ALIGNED(valueptr, sizeof(float));
-		        //IRR_ASSUME_ALIGNED(valueptr, arrayStride); // should get the std140/std430 alignment of the type instead
+		        NBL_ASSUME_ALIGNED(valueptr, sizeof(float));
+		        //NBL_ASSUME_ALIGNED(valueptr, arrayStride); // should get the std140/std430 alignment of the type instead
 		
 		        auto* baseOffset = _pcData+m.offset;
-		        IRR_ASSUME_ALIGNED(baseOffset, sizeof(float));
-		        //IRR_ASSUME_ALIGNED(baseOffset, arrayStride); // should get the std140/std430 alignment of the type instead
+		        NBL_ASSUME_ALIGNED(baseOffset, sizeof(float));
+		        //NBL_ASSUME_ALIGNED(baseOffset, arrayStride); // should get the std140/std430 alignment of the type instead
 
 		        constexpr uint32_t MAX_DWORD_SIZE = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE/sizeof(uint32_t);
 		        alignas(128u) std::array<uint32_t,MAX_DWORD_SIZE> packed_data;

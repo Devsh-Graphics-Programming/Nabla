@@ -393,7 +393,7 @@ void* TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>::instantiateEmpty
 	for (size_t i = 0; i < blob->boneCount; ++i)
 	{
 		size_t len = strlen(strPtr) + 1;
-		_IRR_DEBUG_BREAK_IF(strPtr + len > blobEnd)
+		_NBL_DEBUG_BREAK_IF(strPtr + len > blobEnd)
 		if ((uint8_t*)boneNames == stack)
 			new (boneNames + i) core::stringc(strPtr);
 		else

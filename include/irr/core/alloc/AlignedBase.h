@@ -25,7 +25,7 @@ namespace core
 To make sure your object is aligned on heaps as well you need to inherit from
 `AlignedAllocOverrideBase` or one of its aliases instead. **/
 template<size_t object_alignment=_IRR_SIMD_ALIGNMENT>
-class IRR_FORCE_EBO alignas(object_alignment) AlignedBase
+class NBL_FORCE_EBO alignas(object_alignment) AlignedBase
 {
     static_assert(is_alignment(object_alignment),"Alignments must be PoT and positive!");
     static_assert(object_alignment<=128,"Pending migration to GCC 7+ highest alignment on c++ class is 128 bytes");
@@ -36,13 +36,13 @@ namespace impl
 {
     //! Variadic template class for metaprogrammatically resolving max alignment resulting from multiple inheritance of AlignedBase. PLEASE DO NOT USE ANYWHERE ELSE.
     template <class... Ts>
-    class IRR_FORCE_EBO ResolveAlignment
+    class NBL_FORCE_EBO ResolveAlignment
     {
     };
 
     //! Specialization of ResolveAlignment for recursively resolving the alignment of many types.
     template <class T, class... Ts>
-    class IRR_FORCE_EBO ResolveAlignment<T, Ts...> :  public T, public Ts...
+    class NBL_FORCE_EBO ResolveAlignment<T, Ts...> :  public T, public Ts...
     {
         private:
             struct DummyForConditional {typedef uint8_t most_aligned_type;};
@@ -64,14 +64,14 @@ namespace impl
             using DefaultAlignedAllocationOverriden = ResolveAlignment<AlignedBase<std::alignment_of<most_aligned_type>::value> >;
 
             //! Some meta-functions to allow us for static checking of metaprogrammatically derived most_aligned_type
-            template<class U> using operator_new_t                  = decltype(IRR_TYPENAME_4_STTC_MBR U::operator new(0ull));
-            template<class U> using operator_new_array_t            = decltype(IRR_TYPENAME_4_STTC_MBR U::operator new[](0ull));
-            template<class U> using operator_placement_new_t        = decltype(IRR_TYPENAME_4_STTC_MBR U::operator new(0ull,nullptr));
-            template<class U> using operator_placement_new_array_t  = decltype(IRR_TYPENAME_4_STTC_MBR U::operator new[](0ull,nullptr));
-            template<class U> using operator_delete_t               = decltype(IRR_TYPENAME_4_STTC_MBR U::operator delete(nullptr));
-            template<class U> using operator_delete_array_t         = decltype(IRR_TYPENAME_4_STTC_MBR U::operator delete[](nullptr));
-            template<class U> using operator_delete_w_size_t        = decltype(IRR_TYPENAME_4_STTC_MBR U::operator delete(nullptr,0ull));
-            template<class U> using operator_delete_array_w_size_t  = decltype(IRR_TYPENAME_4_STTC_MBR U::operator delete[](nullptr,0ull));
+            template<class U> using operator_new_t                  = decltype(NBL_TYPENAME_4_STTC_MBR U::operator new(0ull));
+            template<class U> using operator_new_array_t            = decltype(NBL_TYPENAME_4_STTC_MBR U::operator new[](0ull));
+            template<class U> using operator_placement_new_t        = decltype(NBL_TYPENAME_4_STTC_MBR U::operator new(0ull,nullptr));
+            template<class U> using operator_placement_new_array_t  = decltype(NBL_TYPENAME_4_STTC_MBR U::operator new[](0ull,nullptr));
+            template<class U> using operator_delete_t               = decltype(NBL_TYPENAME_4_STTC_MBR U::operator delete(nullptr));
+            template<class U> using operator_delete_array_t         = decltype(NBL_TYPENAME_4_STTC_MBR U::operator delete[](nullptr));
+            template<class U> using operator_delete_w_size_t        = decltype(NBL_TYPENAME_4_STTC_MBR U::operator delete(nullptr,0ull));
+            template<class U> using operator_delete_array_w_size_t  = decltype(NBL_TYPENAME_4_STTC_MBR U::operator delete[](nullptr,0ull));
 
             template<class,class=void> struct has_new_operator                  : std::false_type {};
             template<class,class=void> struct has_new_array_operator            : std::false_type {};
@@ -133,7 +133,7 @@ namespace impl
     /** Note regarding C++17, we don't overload the alignment on the versions with std::align_val_t.
     Why? Because we want to respect and not f-up the explicitly requested alignment. **/
     template <size_t object_alignment>
-    class IRR_FORCE_EBO ResolveAlignment<AlignedBase<object_alignment> > :  public AlignedBase<object_alignment>
+    class NBL_FORCE_EBO ResolveAlignment<AlignedBase<object_alignment> > :  public AlignedBase<object_alignment>
     {
         public:
             //! The maximally aligned type for this recursion of N template parameters
@@ -203,7 +203,7 @@ static_assert(sizeof(AllocationOverrideDefault)==_IRR_SIMD_ALIGNMENT,"This compi
             static inline void operator delete(void* ptr, size_t size)   noexcept {irr::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete(ptr,size);} \
             static inline void operator delete[](void* ptr, size_t size) noexcept {irr::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete[](ptr,size);}
 #else
-struct IRR_FORCE_EBO AllocationOverrideDefault {};
+struct NBL_FORCE_EBO AllocationOverrideDefault {};
 
 #define _IRR_RESOLVE_NEW_DELETE_AMBIGUITY(...)
 #endif // IRR_TEST_NO_NEW_DELETE_OVERRIDE

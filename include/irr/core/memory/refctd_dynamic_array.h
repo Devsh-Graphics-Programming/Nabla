@@ -38,7 +38,7 @@ namespace core
 	@see core::dynamic_array
 */
 template<typename T, class allocator=core::allocator<typename std::remove_const<T>::type>, typename... OverAlignmentTypes>
-class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dynamic_array<T,allocator,refctd_dynamic_array<T,allocator,OverAlignmentTypes...>,OverAlignmentTypes...>
+class NBL_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dynamic_array<T,allocator,refctd_dynamic_array<T,allocator,OverAlignmentTypes...>,OverAlignmentTypes...>
 {
 	public:
 		using this_type = refctd_dynamic_array<T,allocator,OverAlignmentTypes...>;
@@ -51,9 +51,9 @@ class IRR_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dyna
 		static_assert(sizeof(base_t) == sizeof(meta_base_t), "non-CRTP and CRTP base class definitions differ in size");
 		static_assert(sizeof(meta_base_t) == sizeof(impl::dynamic_array_base<allocator,T,OverAlignmentTypes...>), "memory has been added to dynamic_array"); // TODO: fix
 
-		class IRR_FORCE_EBO fake_size_class : public IReferenceCounted, meta_base_t {};
+		class NBL_FORCE_EBO fake_size_class : public IReferenceCounted, meta_base_t {};
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR size_t dummy_item_count = (sizeof(fake_size_class)+sizeof(T)-1ull)/sizeof(T);
+		_NBL_STATIC_INLINE_CONSTEXPR size_t dummy_item_count = (sizeof(fake_size_class)+sizeof(T)-1ull)/sizeof(T);
 
 		_IRR_RESOLVE_NEW_DELETE_AMBIGUITY(base_t) // only want new and delete operators from `dynamic_array`
 

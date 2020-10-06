@@ -29,7 +29,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			public:
 				virtual ~CState() {}
 				
-				_IRR_STATIC_INLINE_CONSTEXPR auto NumWrapAxes = 3;
+				_NBL_STATIC_INLINE_CONSTEXPR auto NumWrapAxes = 3;
 				ISampler::E_TEXTURE_CLAMP axisWraps[NumWrapAxes] = {ISampler::ETC_REPEAT,ISampler::ETC_REPEAT,ISampler::ETC_REPEAT};
 				ISampler::E_TEXTURE_BORDER_COLOR borderColor;
 				VkOffset3D relativeOffset;

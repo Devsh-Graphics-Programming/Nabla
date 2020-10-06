@@ -38,7 +38,7 @@ CElementFactory::return_type CElementFactory::createElement<CElementRFilter>(con
 	if (found==StringToType.end())
 	{
 		ParserLog::invalidXMLFileStructure("unknown type");
-		_IRR_DEBUG_BREAK_IF(false);
+		_NBL_DEBUG_BREAK_IF(false);
 		return CElementFactory::return_type(nullptr, "");
 	}
 
@@ -51,7 +51,7 @@ CElementFactory::return_type CElementFactory::createElement<CElementRFilter>(con
 	switch (obj->type)
 	{
 		case CElementRFilter::Type::BOX:
-			_IRR_FALLTHROUGH;
+			_NBL_FALLTHROUGH;
 		case CElementRFilter::Type::TENT:
 			break;
 		case CElementRFilter::Type::GAUSSIAN:
@@ -79,7 +79,7 @@ bool CElementRFilter::addProperty(SNamedPropertyElement&& _property)
 		if (core::strcmpi(_property.name,std::string("lobes")))
 		{
 			ParserLog::invalidXMLFileStructure("\"lobes\" must be an integer property");
-			_IRR_DEBUG_BREAK_IF(true);
+			_NBL_DEBUG_BREAK_IF(true);
 			return false;
 		}
 		lanczos.lobes = _property.ivalue;
@@ -104,7 +104,7 @@ bool CElementRFilter::addProperty(SNamedPropertyElement&& _property)
 	else
 	{
 		ParserLog::invalidXMLFileStructure("this reconstruction filter type does not take this parameter type for parameter: " + _property.name);
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 	}
 
 	return false;
@@ -115,7 +115,7 @@ bool CElementRFilter::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _overr
 	if (type == Type::INVALID)
 	{
 		ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		return true;
 	}
 

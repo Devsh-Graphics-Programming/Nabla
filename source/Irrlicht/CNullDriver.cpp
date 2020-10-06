@@ -34,7 +34,7 @@ int32_t CNullDriver::incrementAndFetchReallocCounter()
 CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const SIrrlichtCreationParameters& _params)
 			: IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), Params(_params), PrimitivesDrawn(0), DerivativeMapCreator()
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CNullDriver");
 	#endif
 

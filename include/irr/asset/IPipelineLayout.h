@@ -51,7 +51,7 @@ template<typename DescLayoutType>
 class IPipelineLayout
 {
 public:
-    _IRR_STATIC_INLINE_CONSTEXPR uint32_t DESCRIPTOR_SET_COUNT = 4u;
+    _NBL_STATIC_INLINE_CONSTEXPR uint32_t DESCRIPTOR_SET_COUNT = 4u;
 
     const DescLayoutType* getDescriptorSetLayout(uint32_t _set) const { return m_descSetLayouts[_set].get(); }
     core::SRange<const SPushConstantRange> getPushConstantRanges() const 

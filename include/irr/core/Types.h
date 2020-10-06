@@ -89,7 +89,7 @@ typedef std::mutex  fast_mutex;
 }
 
 
-#ifdef _IRR_WINDOWS_API_
+#ifdef _NBL_WINDOWS_API_
 //! Defines for s{w,n}printf because these methods do not match the ISO C
 //! standard on Windows platforms, but it does on all others.
 //! These should be int snprintf(char *str, size_t size, const char *format, ...);
@@ -102,7 +102,7 @@ typedef std::mutex  fast_mutex;
 #define snprintf _snprintf
 #endif
 
-#endif // _IRR_WINDOWS_API_
+#endif // _NBL_WINDOWS_API_
 
 
 
@@ -112,7 +112,7 @@ typedef std::mutex  fast_mutex;
 
 
 // memory debugging
-#if defined(_IRR_DEBUG) && defined(IRRLICHT_EXPORTS) && defined(_MSC_VER) && \
+#if defined(_NBL_DEBUG) && defined(IRRLICHT_EXPORTS) && defined(_MSC_VER) && \
 	(_MSC_VER > 1299) && !defined(_IRR_DONT_DO_MEMORY_DEBUGGING_HERE) && !defined(_WIN32_WCE)
 
 	#define CRTDBG_MAP_ALLOC
@@ -126,7 +126,7 @@ typedef std::mutex  fast_mutex;
 
 //! ignore VC8 warning deprecated
 /** The microsoft compiler */
-#if defined(_IRR_WINDOWS_API_) && defined(_MSC_VER) && (_MSC_VER >= 1400)
+#if defined(_NBL_WINDOWS_API_) && defined(_MSC_VER) && (_MSC_VER >= 1400)
 	//#pragma warning( disable: 4996)
 	//#define _CRT_SECURE_NO_DEPRECATE 1
 	//#define _CRT_NONSTDC_NO_DEPRECATE 1

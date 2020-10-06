@@ -8,52 +8,52 @@
 #include "irr/core/memory/memory.h"
 
 #define _IRR_INTERFACE_CHILD(TYPE) \
-            _IRR_NO_PUBLIC_DELETE(TYPE)
+            _NBL_NO_PUBLIC_DELETE(TYPE)
 
 #define _IRR_INTERFACE_CHILD_DEFAULT(TYPE) \
-            _IRR_NO_PUBLIC_DELETE_DEFAULT(TYPE)
+            _NBL_NO_PUBLIC_DELETE_DEFAULT(TYPE)
 
 namespace irr
 {
 namespace core
 {
 
-class IRR_FORCE_EBO IRR_NO_VTABLE Uncopyable
+class NBL_FORCE_EBO NBL_NO_VTABLE Uncopyable
 {
     public:
         Uncopyable() = default;
-        _IRR_NO_COPY_FINAL(Uncopyable);
+        _NBL_NO_COPY_FINAL(Uncopyable);
 };
 
-class IRR_FORCE_EBO IRR_NO_VTABLE Interface : public Uncopyable
+class NBL_FORCE_EBO NBL_NO_VTABLE Interface : public Uncopyable
 {
-        _IRR_NO_PUBLIC_DELETE_DEFAULT(Interface);
+        _NBL_NO_PUBLIC_DELETE_DEFAULT(Interface);
     protected:
         Interface() = default;
 };
 
-class IRR_FORCE_EBO IRR_NO_VTABLE Unmovable
+class NBL_FORCE_EBO NBL_NO_VTABLE Unmovable
 {
     public:
         Unmovable() = default;
-        _IRR_NO_MOVE_FINAL(Unmovable);
+        _NBL_NO_MOVE_FINAL(Unmovable);
 };
 
-class IRR_FORCE_EBO IRR_NO_VTABLE InterfaceUnmovable : public Interface, public Unmovable
+class NBL_FORCE_EBO NBL_NO_VTABLE InterfaceUnmovable : public Interface, public Unmovable
 {
         _IRR_INTERFACE_CHILD_DEFAULT(InterfaceUnmovable);
     public:
         InterfaceUnmovable() = default;
 };
 
-class IRR_FORCE_EBO IRR_NO_VTABLE TotalInterface : public Interface
+class NBL_FORCE_EBO NBL_NO_VTABLE TotalInterface : public Interface
 {
         _IRR_INTERFACE_CHILD_DEFAULT(TotalInterface);
     public:
-        _IRR_NO_DEFAULT_FINAL(TotalInterface);
+        _NBL_NO_DEFAULT_FINAL(TotalInterface);
 };
 
-class IRR_FORCE_EBO IRR_NO_VTABLE TotalInterfaceUnmovable : public TotalInterface, public Unmovable
+class NBL_FORCE_EBO NBL_NO_VTABLE TotalInterfaceUnmovable : public TotalInterface, public Unmovable
 {
         _IRR_INTERFACE_CHILD_DEFAULT(TotalInterfaceUnmovable);
 };

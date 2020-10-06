@@ -557,7 +557,7 @@ void COpenGLExtensionHandler::dump(std::string* outStr, bool onlyAvailable) cons
 
 void COpenGLExtensionHandler::dumpFramebufferFormats() const
 {
-#ifdef _IRR_WINDOWS_API_
+#ifdef _NBL_WINDOWS_API_
 	HDC hdc=wglGetCurrentDC();
 	std::string wglExtensions;
 #ifdef WGL_ARB_extensions_string
@@ -572,7 +572,7 @@ void COpenGLExtensionHandler::dumpFramebufferFormats() const
 	const bool pixel_format_supported = (wglExtensions.find("WGL_ARB_pixel_format") != std::string::npos);
 	const bool multi_sample_supported = ((wglExtensions.find("WGL_ARB_multisample") != std::string::npos) ||
 		(wglExtensions.find("WGL_EXT_multisample") != std::string::npos) || (wglExtensions.find("WGL_3DFX_multisample") != std::string::npos) );
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	os::Printer::log("WGL_extensions", wglExtensions);
 #endif
 
@@ -954,7 +954,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
     //num=100000000u;
 	//glGetIntegerv(GL_MAX_ELEMENTS_INDICES,&num);
 #ifdef WIN32
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	if (FeatureAvailable[IRR_NVX_gpu_memory_info])
 	{
 		// undocumented flags, so use the RAW values
@@ -990,7 +990,7 @@ void COpenGLExtensionHandler::loadFunctions()
 
 
 
-#ifdef _IRR_WINDOWS_API_
+#ifdef _NBL_WINDOWS_API_
 	#define IRR_OGL_LOAD_EXTENSION(x) wglGetProcAddress(reinterpret_cast<const char*>(x))
 #elif defined(_IRR_COMPILE_WITH_SDL_DEVICE_) && !defined(_IRR_COMPILE_WITH_X11_DEVICE_)
 	#define IRR_OGL_LOAD_EXTENSION(x) SDL_GL_GetProcAddress(reinterpret_cast<const char*>(x))

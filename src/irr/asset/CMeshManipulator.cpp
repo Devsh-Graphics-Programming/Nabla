@@ -231,7 +231,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOp
 
 	_IRR_ALIGNED_FREE(remapBuffer);
 
-	_IRR_DEBUG_BREAK_IF(nextVert > vertexCount)
+	_NBL_DEBUG_BREAK_IF(nextVert > vertexCount)
 
 	return outbuffer;
 #else
@@ -356,14 +356,14 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::calculateSmoothNormals(
 {
 	if (inbuffer == nullptr)
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		return nullptr;
 	}
 
 	//Mesh has to have unique primitives
 	if (inbuffer->getIndexType() != E_INDEX_TYPE::EIT_UNKNOWN)
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		return nullptr;
 	}
 
@@ -765,14 +765,14 @@ void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
 
 	const size_t activeAttributeCount = attribsI.size() + attribsF.size();
 
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	{
 		core::unordered_set<size_t> sizesSet;
 		for (core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<CMeshManipulator::SIntegerAttr>>::iterator it = attribsI.begin(); it != attribsI.end(); ++it)
 			sizesSet.insert(it->second.size());
 		for (core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<core::vectorSIMDf>>::iterator it = attribsF.begin(); it != attribsF.end(); ++it)
 			sizesSet.insert(it->second.size());
-		_IRR_DEBUG_BREAK_IF(sizesSet.size() != 1);
+		_NBL_DEBUG_BREAK_IF(sizesSet.size() != 1);
 	}
 #endif
 	const size_t vertexCnt = (!attribsI.empty() ? attribsI.begin()->second.size() : (!attribsF.empty() ? attribsF.begin()->second.size() : 0));
@@ -805,7 +805,7 @@ void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
 			for (size_t ai = 0u; ai < attrVec.size(); ++ai)
 			{
 				const bool check = _meshbuffer->setAttribute(attrVec[ai].pointer, newAttribs[i].vaid, ai);
-				_IRR_DEBUG_BREAK_IF(!check)
+				_NBL_DEBUG_BREAK_IF(!check)
 			}
 			continue;
 		}
@@ -817,7 +817,7 @@ void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
 			for (size_t ai = 0u; ai < attrVec.size(); ++ai)
 			{
 				const bool check = _meshbuffer->setAttribute(attrVec[ai], newAttribs[i].vaid, ai);
-				_IRR_DEBUG_BREAK_IF(!check)
+				_NBL_DEBUG_BREAK_IF(!check)
 			}
 		}
 	}
@@ -1519,7 +1519,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 		};
 	}
 
-	_IRR_DEBUG_BREAK_IF(!quantFunc)
+	_NBL_DEBUG_BREAK_IF(!quantFunc)
 	if (!quantFunc)
 		return false;
 

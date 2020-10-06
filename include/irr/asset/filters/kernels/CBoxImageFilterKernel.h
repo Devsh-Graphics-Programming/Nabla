@@ -27,7 +27,7 @@ class CBoxImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilter
 			return Base::inDomain(x) ? 1.f:0.f;
 		}
 
-		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
+		_NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
 };
 
 } // end namespace asset

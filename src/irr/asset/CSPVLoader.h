@@ -14,7 +14,7 @@ namespace asset
 
 class CSPVLoader final : public asset::IAssetLoader
 {
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t SPV_MAGIC_NUMBER = 0x07230203u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t SPV_MAGIC_NUMBER = 0x07230203u;
 	public:
 		bool isALoadableFileFormat(io::IReadFile* _file) const override
 		{

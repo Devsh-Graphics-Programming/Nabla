@@ -45,7 +45,7 @@ CUresult CCUDAHandler::init()
 
 
 	cuda = CUDA(
-		#if defined(_IRR_WINDOWS_API_)
+		#if defined(_NBL_WINDOWS_API_)
 			"nvcuda"
 		#elif defined(_IRR_POSIX_API_)
 			"cuda"
@@ -111,7 +111,7 @@ CUresult CCUDAHandler::init()
 			
 	#undef SAFE_CUDA_CALL
 
-	#if defined(_IRR_WINDOWS_API_)
+	#if defined(_NBL_WINDOWS_API_)
 	const char* nvrtc64_versions[] = {"nvrtc64_102","nvrtc64_101","nvrtc64_100","nvrtc64_92","nvrtc64_91","nvrtc64_90","nvrtc64_80","nvrtc64_75","nvrtc64_70",nullptr};
 	const char* nvrtc64_suffices[] = {"","_","_0","_1","_2",nullptr};
 	for (auto verpath=nvrtc64_versions; *verpath; verpath++)
@@ -661,7 +661,7 @@ bool CCUDAHandler::defaultHandleResult(CUresult result)
 			printf("CCUDAHandler: Unknown CUDA Error!\n");
 			break;
 	}
-	_IRR_DEBUG_BREAK_IF(true);
+	_NBL_DEBUG_BREAK_IF(true);
 	return false;
 }
 

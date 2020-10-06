@@ -150,10 +150,10 @@ inline aabbox3df transformBoxEx(const aabbox3df& box, const matrix3x4SIMD& _mat)
 
 inline matrix3x4SIMD matrix3x4SIMD::concatenateBFollowedByA(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b)
 {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	assert(is_aligned_to(&_a, _IRR_SIMD_ALIGNMENT));
 	assert(is_aligned_to(&_b, _IRR_SIMD_ALIGNMENT));
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 	__m128 r0 = _a.rows[0].getAsRegister();
 	__m128 r1 = _a.rows[1].getAsRegister();
 	__m128 r2 = _a.rows[2].getAsRegister();

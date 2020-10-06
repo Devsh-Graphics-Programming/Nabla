@@ -242,38 +242,38 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             using namespace asset;
             switch (_fmt)
             {
-				case EF_R8_UNORM: _IRR_FALLTHROUGH;
-				case EF_R16_UNORM: _IRR_FALLTHROUGH;
-				case EF_R16_SFLOAT: _IRR_FALLTHROUGH;
-				case EF_R32_SFLOAT: _IRR_FALLTHROUGH;
-				case EF_R8_SINT: _IRR_FALLTHROUGH;
-				case EF_R16_SINT: _IRR_FALLTHROUGH;
-				case EF_R32_SINT: _IRR_FALLTHROUGH;
-				case EF_R8_UINT: _IRR_FALLTHROUGH;
-				case EF_R16_UINT: _IRR_FALLTHROUGH;
-				case EF_R32_UINT: _IRR_FALLTHROUGH;
-				case EF_R8G8_UNORM: _IRR_FALLTHROUGH;
-				case EF_R16G16_UNORM: _IRR_FALLTHROUGH;
-				case EF_R16G16_SFLOAT: _IRR_FALLTHROUGH;
-				case EF_R32G32_SFLOAT: _IRR_FALLTHROUGH;
-				case EF_R8G8_SINT: _IRR_FALLTHROUGH;
-				case EF_R16G16_SINT: _IRR_FALLTHROUGH;
-				case EF_R32G32_SINT: _IRR_FALLTHROUGH;
-				case EF_R8G8_UINT: _IRR_FALLTHROUGH;
-				case EF_R16G16_UINT: _IRR_FALLTHROUGH;
-				case EF_R32G32_UINT: _IRR_FALLTHROUGH;
-				case EF_R32G32B32_SFLOAT: _IRR_FALLTHROUGH;
-				case EF_R32G32B32_SINT: _IRR_FALLTHROUGH;
-				case EF_R32G32B32_UINT: _IRR_FALLTHROUGH;
-				case EF_R8G8B8A8_UNORM: _IRR_FALLTHROUGH;
-				case EF_R16G16B16A16_UNORM: _IRR_FALLTHROUGH;
-				case EF_R16G16B16A16_SFLOAT: _IRR_FALLTHROUGH;
-				case EF_R32G32B32A32_SFLOAT: _IRR_FALLTHROUGH;
-				case EF_R8G8B8A8_SINT: _IRR_FALLTHROUGH;
-				case EF_R16G16B16A16_SINT: _IRR_FALLTHROUGH;
-				case EF_R32G32B32A32_SINT: _IRR_FALLTHROUGH;
-				case EF_R8G8B8A8_UINT: _IRR_FALLTHROUGH;
-				case EF_R16G16B16A16_UINT: _IRR_FALLTHROUGH;
+				case EF_R8_UNORM: _NBL_FALLTHROUGH;
+				case EF_R16_UNORM: _NBL_FALLTHROUGH;
+				case EF_R16_SFLOAT: _NBL_FALLTHROUGH;
+				case EF_R32_SFLOAT: _NBL_FALLTHROUGH;
+				case EF_R8_SINT: _NBL_FALLTHROUGH;
+				case EF_R16_SINT: _NBL_FALLTHROUGH;
+				case EF_R32_SINT: _NBL_FALLTHROUGH;
+				case EF_R8_UINT: _NBL_FALLTHROUGH;
+				case EF_R16_UINT: _NBL_FALLTHROUGH;
+				case EF_R32_UINT: _NBL_FALLTHROUGH;
+				case EF_R8G8_UNORM: _NBL_FALLTHROUGH;
+				case EF_R16G16_UNORM: _NBL_FALLTHROUGH;
+				case EF_R16G16_SFLOAT: _NBL_FALLTHROUGH;
+				case EF_R32G32_SFLOAT: _NBL_FALLTHROUGH;
+				case EF_R8G8_SINT: _NBL_FALLTHROUGH;
+				case EF_R16G16_SINT: _NBL_FALLTHROUGH;
+				case EF_R32G32_SINT: _NBL_FALLTHROUGH;
+				case EF_R8G8_UINT: _NBL_FALLTHROUGH;
+				case EF_R16G16_UINT: _NBL_FALLTHROUGH;
+				case EF_R32G32_UINT: _NBL_FALLTHROUGH;
+				case EF_R32G32B32_SFLOAT: _NBL_FALLTHROUGH;
+				case EF_R32G32B32_SINT: _NBL_FALLTHROUGH;
+				case EF_R32G32B32_UINT: _NBL_FALLTHROUGH;
+				case EF_R8G8B8A8_UNORM: _NBL_FALLTHROUGH;
+				case EF_R16G16B16A16_UNORM: _NBL_FALLTHROUGH;
+				case EF_R16G16B16A16_SFLOAT: _NBL_FALLTHROUGH;
+				case EF_R32G32B32A32_SFLOAT: _NBL_FALLTHROUGH;
+				case EF_R8G8B8A8_SINT: _NBL_FALLTHROUGH;
+				case EF_R16G16B16A16_SINT: _NBL_FALLTHROUGH;
+				case EF_R32G32B32A32_SINT: _NBL_FALLTHROUGH;
+				case EF_R8G8B8A8_UINT: _NBL_FALLTHROUGH;
+				case EF_R16G16B16A16_UINT: _NBL_FALLTHROUGH;
 				case EF_R32G32B32A32_UINT:
 					return true;
 					break;
@@ -846,8 +846,8 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
                 uint64_t lastUsed;
             };
 
-            _IRR_STATIC_INLINE_CONSTEXPR size_t maxVAOCacheSize = 0x1u<<10; //make this cache configurable
-            _IRR_STATIC_INLINE_CONSTEXPR size_t maxPipelineCacheSize = 0x1u<<13;//8k
+            _NBL_STATIC_INLINE_CONSTEXPR size_t maxVAOCacheSize = 0x1u<<10; //make this cache configurable
+            _NBL_STATIC_INLINE_CONSTEXPR size_t maxPipelineCacheSize = 0x1u<<13;//8k
 
             SAuxContext() : threadId(std::thread::id()), ctx(NULL),
                             CurrentFBO(0), CurrentRendertargetSize(0,0)
@@ -882,7 +882,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         //private:
             std::thread::id threadId;
             uint8_t ID; //index in array of contexts, just to be easier in use
-            #ifdef _IRR_WINDOWS_API_
+            #ifdef _NBL_WINDOWS_API_
                 HGLRC ctx;
             #endif
             #ifdef _IRR_COMPILE_WITH_X11_DEVICE_
@@ -927,7 +927,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
 				if (pushConstantsState<PBP>()->layout && !pushConstantsState<PBP>()->layout->isCompatibleForPushConstants(_layout))
 				{
-				//#ifdef _IRR_DEBUG
+				//#ifdef _NBL_DEBUG
 					constexpr size_t toFill = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE / sizeof(uint64_t);
 					constexpr size_t bytesLeft = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE - (toFill * sizeof(uint64_t));
 					constexpr uint64_t pattern = 0xdeadbeefDEADBEEFull;
@@ -1051,7 +1051,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
         mutable core::smart_refctd_dynamic_array<std::string> m_supportedGLSLExtsNames;
 
-		#ifdef _IRR_WINDOWS_API_
+		#ifdef _NBL_WINDOWS_API_
 			HDC HDc; // Private GDI Device Context
 			HWND Window;
 		#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_

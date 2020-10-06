@@ -26,7 +26,7 @@ namespace irr
 			ZoomDelta(0.0f), ZoomWithRMB(zoomWithRMB), StepZooming(false), ScrllZoomSpeed(-scrollZoomSpeed),
 			Zooming(false), Rotating(false), Moving(false), Translating(false), ShiftTranslating(false), MouseShift(false)
 		{
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 			setDebugName("CSceneNodeAnimatorCameraModifiedMaya");
 #endif
 

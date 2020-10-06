@@ -327,7 +327,7 @@ public:
         VkExtent3D extent = {static_cast<uint32_t>(_addr.origsize_x), static_cast<uint32_t>(_addr.origsize_y), 1u};
         const uint32_t levelCount = _addr.maxMip+1u;
 
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
         CFillImageFilter::state_type fill;
         fill.outImage = m_pageTable.get();
         fill.subresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
@@ -365,7 +365,7 @@ public:
                 }
 
             addrsOffset += w*h;
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
             fill.subresource.mipLevel = i;
             fill.outRange.offset = {static_cast<uint32_t>(_addr.pgTab_x>>i),static_cast<uint32_t>(_addr.pgTab_y>>i),0u};
             fill.outRange.extent = {w,h,1u};

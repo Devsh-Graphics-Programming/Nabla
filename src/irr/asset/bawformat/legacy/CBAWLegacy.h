@@ -76,7 +76,7 @@ enum E_COMPONENT_TYPE
 //! Simple struct of essential data of ICPUMeshDataFormatDesc that has to be exported
 //! Irrelevant in version 1.
 //! @see @ref MeshDataFormatDescBlobV1
-struct IRR_FORCE_EBO MeshDataFormatDescBlobV0 : TypedBlob<MeshDataFormatDescBlobV0, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >, VariableSizeBlob<MeshDataFormatDescBlobV0, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >
+struct NBL_FORCE_EBO MeshDataFormatDescBlobV0 : TypedBlob<MeshDataFormatDescBlobV0, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >, VariableSizeBlob<MeshDataFormatDescBlobV0, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >
 {
 private:
     enum { VERTEX_ATTRIB_CNT = 16 };
@@ -103,7 +103,7 @@ asset::E_FORMAT mapECT_plus_ECPA_onto_E_FORMAT(E_COMPONENT_TYPE _ct, E_COMPONENT
 
 
 #include "irr/irrpack.h"
-struct IRR_FORCE_EBO FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, CFinalBoneHierarchy>
+struct NBL_FORCE_EBO FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, CFinalBoneHierarchy>
 {
 public:
 	inline uint8_t* getBoneData()
@@ -126,7 +126,7 @@ class ICPUMesh;
 
 #include "irr/irrpack.h"
 //! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-struct IRR_FORCE_EBO MeshBlobV0 : VariableSizeBlob<MeshBlobV0, asset::ICPUMesh>, TypedBlob<MeshBlobV0, asset::ICPUMesh>
+struct NBL_FORCE_EBO MeshBlobV0 : VariableSizeBlob<MeshBlobV0, asset::ICPUMesh>, TypedBlob<MeshBlobV0, asset::ICPUMesh>
 {
 public:
 	core::aabbox3df box;
@@ -146,7 +146,7 @@ class ICPUSkinnedMesh;
 
 #include "irr/irrpack.h"
 //! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-struct IRR_FORCE_EBO SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0, ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV0, ICPUSkinnedMesh>
+struct NBL_FORCE_EBO SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0, ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV0, ICPUSkinnedMesh>
 {
 public:
 	uint64_t boneHierarchyPtr;
@@ -164,7 +164,7 @@ static_assert(
 
 #include "irr/irrpack.h"
 //! Simple struct of essential data of ICPUMeshBuffer that has to be exported
-struct IRR_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, ICPUMeshBuffer>
+struct NBL_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, ICPUMeshBuffer>
 {
 #ifndef NEW_SHADERS
 	video::SCPUMaterial mat;
@@ -195,7 +195,7 @@ static_assert(
 class ICPUSkinnedMeshBuffer;
 
 #include "irr/irrpack.h"
-struct IRR_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>
+struct NBL_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>
 {
 #ifndef NEW_SHADERS
 	video::SCPUMaterial mat;
@@ -243,7 +243,7 @@ namespace legacyv2
 {
 
 #include "irr/irrpack.h"
-struct IRR_FORCE_EBO FinalBoneHierarchyBlobV2 : VariableSizeBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>
+struct NBL_FORCE_EBO FinalBoneHierarchyBlobV2 : VariableSizeBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>
 {
 public:
 

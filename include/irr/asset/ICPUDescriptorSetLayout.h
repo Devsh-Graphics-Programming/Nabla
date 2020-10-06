@@ -68,7 +68,7 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 			m_samplers = nullptr;
 		}
 
-        _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
+        _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
 	protected:

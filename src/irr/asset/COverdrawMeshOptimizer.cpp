@@ -31,7 +31,7 @@ core::smart_refctd_ptr<asset::ICPUMeshBuffer> COverdrawMeshOptimizer::createOpti
 	void* const indices = outbuffer->getIndices();
 	if (!indices)
 	{
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 		os::Printer::log("Overdraw optimization: no index buffer -- mesh buffer left unchanged.");
 #endif
 		return outbuffer;
@@ -147,7 +147,7 @@ size_t COverdrawMeshOptimizer::genSoftBoundaries(uint32_t* _dst, const IdxT* _in
 		const size_t start = _clusters[i];
 		const size_t end = (i + 1 < _clusterCount) ? _clusters[i+1] : _idxCount/3;
 
-		_IRR_DEBUG_BREAK_IF(start > end);
+		_NBL_DEBUG_BREAK_IF(start > end);
 
 		timestamp += CACHE_SIZE + 1; // reset cache
 
@@ -194,7 +194,7 @@ size_t COverdrawMeshOptimizer::genSoftBoundaries(uint32_t* _dst, const IdxT* _in
 
 	_IRR_ALIGNED_FREE(cacheTimestamps);
 
-	_IRR_DEBUG_BREAK_IF(retval < _clusterCount || retval > _idxCount/3u)
+	_NBL_DEBUG_BREAK_IF(retval < _clusterCount || retval > _idxCount/3u)
 
 	return retval;
 }
@@ -212,7 +212,7 @@ void COverdrawMeshOptimizer::calcSortData(ClusterSortData* _dst, const IdxT* _in
 		// TODO: why are the fucking clusters only 1 triangle !?!?!?
 		const size_t begin = _clusters[cluster] * 3;
 		const size_t end = (_clusterCount > cluster + 1) ? _clusters[cluster+1] * 3 : _idxCount;
-		_IRR_DEBUG_BREAK_IF(begin > end);
+		_NBL_DEBUG_BREAK_IF(begin > end);
 
 		float clusterArea = 0.f;
 		core::vectorSIMDf clusterCentroid;

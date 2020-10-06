@@ -27,7 +27,7 @@ class CTriangleImageFilterKernel : public CFloatingPointIsotropicSeparableImageF
 			return 0.f;
 		}
 
-		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
+		_NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
 		/* Derivative at 0 not defined so we cannot use
 		inline float d_weight(float x) const
 		{

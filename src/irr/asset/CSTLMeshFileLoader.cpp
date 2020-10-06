@@ -43,7 +43,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 {
 	if (_params.meshManipulatorOverride == nullptr)
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		assert(false);
 	}
 

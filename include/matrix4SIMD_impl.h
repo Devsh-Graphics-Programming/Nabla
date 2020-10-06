@@ -244,10 +244,10 @@ inline void matrix4SIMD::transformVect(vectorSIMDf& _out, const vectorSIMDf& _in
 inline matrix4SIMD matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar)
 {
 	const float h = core::reciprocal<float>(tanf(fieldOfViewRadians*0.5f));
-	_IRR_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
+	_NBL_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
 	const float w = h / aspectRatio;
 
-	_IRR_DEBUG_BREAK_IF(zNear == zFar); //division by zero
+	_NBL_DEBUG_BREAK_IF(zNear == zFar); //division by zero
 
 	matrix4SIMD m;
 	m.rows[0] = vectorSIMDf(w, 0.f, 0.f, 0.f);
@@ -260,10 +260,10 @@ inline matrix4SIMD matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(float fiel
 inline matrix4SIMD matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar)
 {
 	const float h = core::reciprocal<float>(tanf(fieldOfViewRadians*0.5f));
-	_IRR_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
+	_NBL_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
 	const float w = h / aspectRatio;
 
-	_IRR_DEBUG_BREAK_IF(zNear == zFar); //division by zero
+	_NBL_DEBUG_BREAK_IF(zNear == zFar); //division by zero
 
 	matrix4SIMD m;
 	m.rows[0] = vectorSIMDf(w, 0.f, 0.f, 0.f);
@@ -276,9 +276,9 @@ inline matrix4SIMD matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(float fiel
 
 inline matrix4SIMD matrix4SIMD::buildProjectionMatrixOrthoRH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar)
 {
-	_IRR_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
-	_IRR_DEBUG_BREAK_IF(heightOfViewVolume == 0.f); //division by zero
-	_IRR_DEBUG_BREAK_IF(zNear == zFar); //division by zero
+	_NBL_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
+	_NBL_DEBUG_BREAK_IF(heightOfViewVolume == 0.f); //division by zero
+	_NBL_DEBUG_BREAK_IF(zNear == zFar); //division by zero
 
 	matrix4SIMD m;
 	m.rows[0] = vectorSIMDf(2.f/widthOfViewVolume, 0.f, 0.f, 0.f);
@@ -290,9 +290,9 @@ inline matrix4SIMD matrix4SIMD::buildProjectionMatrixOrthoRH(float widthOfViewVo
 }
 inline matrix4SIMD matrix4SIMD::buildProjectionMatrixOrthoLH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar)
 {
-	_IRR_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
-	_IRR_DEBUG_BREAK_IF(heightOfViewVolume == 0.f); //division by zero
-	_IRR_DEBUG_BREAK_IF(zNear == zFar); //division by zero
+	_NBL_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
+	_NBL_DEBUG_BREAK_IF(heightOfViewVolume == 0.f); //division by zero
+	_NBL_DEBUG_BREAK_IF(zNear == zFar); //division by zero
 
 	matrix4SIMD m;
 	m.rows[0] = vectorSIMDf(2.f/widthOfViewVolume, 0.f, 0.f, 0.f);

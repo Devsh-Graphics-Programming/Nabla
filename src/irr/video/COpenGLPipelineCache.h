@@ -74,7 +74,7 @@ public:
 	void insert(SCacheKey&& _key, SCacheVal&& _val)
 	{
 		const std::lock_guard<std::mutex> _(m_bin_cache_mutex);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 		assert(!find(_key).binary);
 #endif
 

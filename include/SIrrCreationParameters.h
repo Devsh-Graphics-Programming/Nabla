@@ -38,7 +38,7 @@ namespace irr
 			StreamingUploadBufferSize(0x4000000u), // 64MB should be enough to stream one 4K image in 64bit HDR without breaking it into chunks
 			EventReceiver(0),
 			WindowId(0),
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 			LoggingLevel(ELL_DEBUG),
 #else
 			LoggingLevel(ELL_INFORMATION),

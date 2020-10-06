@@ -9,5 +9,5 @@ using namespace core;
 
 IReferenceCounted::~IReferenceCounted()
 {
-    _IRR_DEBUG_BREAK_IF(ReferenceCounter!=0);
+    _NBL_DEBUG_BREAK_IF(ReferenceCounter!=0);
 }

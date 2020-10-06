@@ -17,7 +17,7 @@ namespace core
 {
 
 template <class Alloc, size_t overAlign=_IRR_DEFAULT_ALIGNMENT(typename std::allocator_traits<Alloc>::value_type)>
-class IRR_FORCE_EBO aligned_allocator_adaptor : public Alloc
+class NBL_FORCE_EBO aligned_allocator_adaptor : public Alloc
 {
     public:
         typedef std::allocator_traits<Alloc>                    traits;

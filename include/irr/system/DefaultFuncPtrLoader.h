@@ -7,7 +7,7 @@
 
 #include "irr/system/FuncPtrLoader.h"
 
-#if defined(_IRR_WINDOWS_API_)
+#if defined(_NBL_WINDOWS_API_)
 	#include <windows.h> 
 	#include <stdio.h> 
 #elif defined(_IRR_POSIX_API_)
@@ -23,7 +23,7 @@ namespace system
 class DefaultFuncPtrLoader final : FuncPtrLoader
 {
 	protected:
-		#if defined(_IRR_WINDOWS_API_)
+		#if defined(_NBL_WINDOWS_API_)
 			HINSTANCE lib;
 		#elif defined(_IRR_POSIX_API_)
 			void* lib;
@@ -32,7 +32,7 @@ class DefaultFuncPtrLoader final : FuncPtrLoader
 		DefaultFuncPtrLoader() : lib(NULL) {}
 		DefaultFuncPtrLoader(const char* name) : DefaultFuncPtrLoader()
 		{
-			#if defined(_IRR_WINDOWS_API_)
+			#if defined(_NBL_WINDOWS_API_)
 				std::string libname(name);
 				libname += ".dll";
 				lib = LoadLibrary(libname.c_str());
@@ -50,7 +50,7 @@ class DefaultFuncPtrLoader final : FuncPtrLoader
 		~DefaultFuncPtrLoader()
 		{
 			if (lib != NULL)
-			#if defined(_IRR_WINDOWS_API_)
+			#if defined(_NBL_WINDOWS_API_)
 				FreeLibrary(lib);
 			#elif defined(_IRR_POSIX_API_)
 				dlclose(lib);
@@ -70,7 +70,7 @@ class DefaultFuncPtrLoader final : FuncPtrLoader
 
 		inline void* loadFuncPtr(const char* funcname) override final
 		{
-			#if defined(_IRR_WINDOWS_API_)
+			#if defined(_NBL_WINDOWS_API_)
 				return GetProcAddress(lib,funcname);
 			#elif defined(_IRR_POSIX_API_)
 				return dlsym(lib,funcname);

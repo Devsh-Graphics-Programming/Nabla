@@ -10,7 +10,7 @@ namespace irr
 namespace asset
 {
 
-class IRR_FORCE_EBO BlobSerializable
+class NBL_FORCE_EBO BlobSerializable
 {
 	public:
 		virtual ~BlobSerializable() {}

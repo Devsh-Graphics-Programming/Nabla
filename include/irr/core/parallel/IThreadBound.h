@@ -12,7 +12,7 @@ namespace irr
 namespace core
 {
 
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     #define _IRR_CHECK_OWNING_THREAD(_obj, EXTRA_BODY_TO_EXEC) \
         if (!_obj->belongsToCurrentThread()) \
         { \
@@ -28,7 +28,7 @@ namespace core
 #endif
 
 //! Base class for things that cannot be shared between threads
-class IRR_FORCE_EBO IThreadBound
+class NBL_FORCE_EBO IThreadBound
 {
         std::thread::id tid;
     protected:

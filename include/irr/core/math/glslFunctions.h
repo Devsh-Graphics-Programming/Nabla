@@ -26,12 +26,12 @@ class matrix3x4SIMD;
 
 
 template<typename T>
-IRR_FORCE_INLINE T radians(const T& degrees)
+NBL_FORCE_INLINE T radians(const T& degrees)
 {
 	return degrees*PI<T>()/T(180);
 }
 template<typename T>
-IRR_FORCE_INLINE T degrees(const T& radians)
+NBL_FORCE_INLINE T degrees(const T& radians)
 {
 	return radians*T(180)/PI<T>();
 }
@@ -39,40 +39,40 @@ IRR_FORCE_INLINE T degrees(const T& radians)
 
 // TODO : pow,exp,log,exp2,log2
 template<typename T>
-IRR_FORCE_INLINE T sqrt(const T& x);
+NBL_FORCE_INLINE T sqrt(const T& x);
 template<>
-IRR_FORCE_INLINE float sqrt<float>(const float& x);
+NBL_FORCE_INLINE float sqrt<float>(const float& x);
 template<>
-IRR_FORCE_INLINE double sqrt<double>(const double& x);
+NBL_FORCE_INLINE double sqrt<double>(const double& x);
 template<>
-IRR_FORCE_INLINE vectorSIMDf sqrt<vectorSIMDf>(const vectorSIMDf& x);
+NBL_FORCE_INLINE vectorSIMDf sqrt<vectorSIMDf>(const vectorSIMDf& x);
 
 template<typename T>
-IRR_FORCE_INLINE T inversesqrt(const T& x);
+NBL_FORCE_INLINE T inversesqrt(const T& x);
 
 template<typename T>
-IRR_FORCE_INLINE T reciprocal(const T& x)
+NBL_FORCE_INLINE T reciprocal(const T& x)
 {
 	return T(1.0)/x;
 }
 
 template<typename T>
-IRR_FORCE_INLINE T reciprocal_approxim(const T& x);
+NBL_FORCE_INLINE T reciprocal_approxim(const T& x);
 template<>
-IRR_FORCE_INLINE float reciprocal_approxim<float>(const float& x);
+NBL_FORCE_INLINE float reciprocal_approxim<float>(const float& x);
 template<>
-IRR_FORCE_INLINE vectorSIMDf reciprocal_approxim<vectorSIMDf>(const vectorSIMDf& x);
+NBL_FORCE_INLINE vectorSIMDf reciprocal_approxim<vectorSIMDf>(const vectorSIMDf& x);
 
 template<typename T>
-IRR_FORCE_INLINE T exp2(const T& x);
+NBL_FORCE_INLINE T exp2(const T& x);
 template<>
-IRR_FORCE_INLINE float exp2<float>(const float& x);
+NBL_FORCE_INLINE float exp2<float>(const float& x);
 template<>
-IRR_FORCE_INLINE double exp2<double>(const double& x);
+NBL_FORCE_INLINE double exp2<double>(const double& x);
 
 //! TODO : find some intrinsics
 template<typename T>
-IRR_FORCE_INLINE T fma(const T& a, const T& b, const T& c)
+NBL_FORCE_INLINE T fma(const T& a, const T& b, const T& c)
 {
 	return a * b + c;
 }
@@ -81,7 +81,7 @@ IRR_FORCE_INLINE T fma(const T& a, const T& b, const T& c)
 //! only defined for floating point scalar and vector types
 //! \return: a if t==0, b if t==1, and the linear interpolation else
 template<typename T, typename U>
-IRR_FORCE_INLINE T mix(const T & a, const T & b, const U & t)
+NBL_FORCE_INLINE T mix(const T & a, const T & b, const U & t)
 {
 	T retval;
 	if constexpr(irr::is_any_of<U,vectorSIMDBool<2>,vectorSIMDBool<4>,vectorSIMDBool<8>,vectorSIMDBool<16> >::value)
@@ -133,13 +133,13 @@ IRR_FORCE_INLINE T mix(const T & a, const T & b, const U & t)
 
 //! returns abs of two values. Own implementation to get rid of STL (VS6 problems)
 template<class T>
-IRR_FORCE_INLINE T abs(const T& a);
+NBL_FORCE_INLINE T abs(const T& a);
 template<>
-IRR_FORCE_INLINE vectorSIMDf abs<vectorSIMDf>(const vectorSIMDf& a);
+NBL_FORCE_INLINE vectorSIMDf abs<vectorSIMDf>(const vectorSIMDf& a);
 
 //! returns 1 if a>0, 0 if a==0, -1 if a<0
 template<class T>
-IRR_FORCE_INLINE T sign(const T& a)
+NBL_FORCE_INLINE T sign(const T& a)
 {
 	auto isneg = a < T(0);
 	using bool_type = typename std::remove_reference<decltype(isneg)>::type;
@@ -150,98 +150,98 @@ IRR_FORCE_INLINE T sign(const T& a)
 
 //! round down
 template<typename T>
-IRR_FORCE_INLINE T floor(const T& x);
+NBL_FORCE_INLINE T floor(const T& x);
 template<>
-IRR_FORCE_INLINE float floor<float>(const float& x);
+NBL_FORCE_INLINE float floor<float>(const float& x);
 template<>
-IRR_FORCE_INLINE double floor<double>(const double& x);
+NBL_FORCE_INLINE double floor<double>(const double& x);
 template<>
-IRR_FORCE_INLINE vectorSIMDf floor<vectorSIMDf>(const vectorSIMDf& x);/*
+NBL_FORCE_INLINE vectorSIMDf floor<vectorSIMDf>(const vectorSIMDf& x);/*
 template<typename T, typename I>
-IRR_FORCE_INLINE I floor(const T& x)
+NBL_FORCE_INLINE I floor(const T& x)
 {
 	return I(core::floor<T>(x));
 }*/
 
 //! round towards zero
 template<typename T>
-IRR_FORCE_INLINE T trunc(const T& x);/*
+NBL_FORCE_INLINE T trunc(const T& x);/*
 template<typename T, typename I>
-IRR_FORCE_INLINE I trunc(const T& x)
+NBL_FORCE_INLINE I trunc(const T& x)
 {
 	return I(core::trunc<T>(x));
 }*/
 
 //! round to nearest integer
 template<typename T>
-IRR_FORCE_INLINE T round(const T& x)
+NBL_FORCE_INLINE T round(const T& x)
 {
 	return core::floor<T>(x+T(0.5));
 }
 template<typename T, typename I>
-IRR_FORCE_INLINE I round(const T& x)
+NBL_FORCE_INLINE I round(const T& x)
 {
 	return I(core::round<T>(x));
 }
 
 //! No idea how this shit works, unimplemented
 template<typename T>
-IRR_FORCE_INLINE T roundEven(const T& x);
+NBL_FORCE_INLINE T roundEven(const T& x);
 template<typename T, typename I>
-IRR_FORCE_INLINE I roundEven(const T& x)
+NBL_FORCE_INLINE I roundEven(const T& x)
 {
 	return I(core::trunc<T>(x));
 }
 
 //! round up
 template<typename T>
-IRR_FORCE_INLINE T ceil(const T& x);
+NBL_FORCE_INLINE T ceil(const T& x);
 template<>
-IRR_FORCE_INLINE float ceil<float>(const float& x);
+NBL_FORCE_INLINE float ceil<float>(const float& x);
 template<>
-IRR_FORCE_INLINE double ceil<double>(const double& x);
+NBL_FORCE_INLINE double ceil<double>(const double& x);
 template<>
-IRR_FORCE_INLINE vectorSIMDf ceil<vectorSIMDf>(const vectorSIMDf& x);/*
+NBL_FORCE_INLINE vectorSIMDf ceil<vectorSIMDf>(const vectorSIMDf& x);/*
 template<typename T, typename I>
-IRR_FORCE_INLINE I ceil(const T& x)
+NBL_FORCE_INLINE I ceil(const T& x)
 {
 	return I(core::ceil<T>(x));
 }*/
 
 //! 
 template<typename T>
-IRR_FORCE_INLINE T fract(const T& x)
+NBL_FORCE_INLINE T fract(const T& x)
 {
 	return x - core::floor<T>(x);
 }
 
 //! 
 template<typename T, typename U=T>
-IRR_FORCE_INLINE T mod(const T& x, const U& y)
+NBL_FORCE_INLINE T mod(const T& x, const U& y)
 {
 	return core::fma<T>(-core::floor<T>(x / y),y,x);
 }
 
 //! 
 template<typename T, typename U>
-IRR_FORCE_INLINE T modf(const T& x, U& i)
+NBL_FORCE_INLINE T modf(const T& x, U& i)
 {
 	i = x; // floor
 	return x - T(i);
 }
 
 template<class T>
-IRR_FORCE_INLINE T min(const T& a, const T& b);
+NBL_FORCE_INLINE T min(const T& a, const T& b);
 template<>
-IRR_FORCE_INLINE vectorSIMDf min<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b);
+NBL_FORCE_INLINE vectorSIMDf min<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b);
 template<class T, typename U>
-IRR_FORCE_INLINE T min(const T& a, const U& b)
+NBL_FORCE_INLINE T min(const T& a, const U& b)
 {
 	return core::min<T>(a,T(b));
 }
 
 template<class T, typename U=T>
-IRR_FORCE_INLINE T min(const T& a, const U& b, const U& c)
+NBL_FORCE_INLINE T min(const T& a, const U& b, const U& c)
 {
 	T vb = T(b);
 	return core::min<T,T>(core::min<T,T>(a,vb), min<T,U>(vb,c));
@@ -258,17 +258,17 @@ struct min_t
 */
 
 template<class T>
-IRR_FORCE_INLINE T max(const T& a, const T& b);
+NBL_FORCE_INLINE T max(const T& a, const T& b);
 template<>
-IRR_FORCE_INLINE vectorSIMDf max<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b);
+NBL_FORCE_INLINE vectorSIMDf max<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b);
 template<class T, typename U>
-IRR_FORCE_INLINE T max(const T& a, const U& b)
+NBL_FORCE_INLINE T max(const T& a, const U& b)
 {
 	return core::max<T>(a, T(b));
 }
 
 template<class T, typename U=T>
-IRR_FORCE_INLINE T max(const T& a, const U& b, const U& c)
+NBL_FORCE_INLINE T max(const T& a, const U& b, const U& c)
 {
 	T vb = T(b);
 	return core::max<T,T>(core::max<T,T>(a,vb),max<T,U>(vb,c));
@@ -286,14 +286,14 @@ struct max_t
 
 //! clamps a value between low and high
 template <class T, typename U=T>
-IRR_FORCE_INLINE const T clamp(const T& value, const U& low, const U& high)
+NBL_FORCE_INLINE const T clamp(const T& value, const U& low, const U& high)
 {
 	return core::min<T,U>(core::max<T,U>(value, low), high);
 }
 
 //! alias for core::mix()
 template<typename T, typename U=T>
-IRR_FORCE_INLINE T lerp(const T& a, const T& b, const U& t)
+NBL_FORCE_INLINE T lerp(const T& a, const T& b, const U& t)
 {
 	return core::mix<T,U>(a,b,t);
 }
@@ -304,44 +304,44 @@ IRR_FORCE_INLINE T lerp(const T& a, const T& b, const U& t)
 // TODO : packUnorm2x16, packSnorm2x16, packUnorm4x8, packSnorm4x8, unpackUnorm2x16, unpackSnorm2x16, unpackUnorm4x8, unpackSnorm4x8, packHalf2x16, unpackHalf2x16, packDouble2x32, unpackDouble2x32
 // MOVE : faceforward, reflect, refract, any, all, not
 template<typename T>
-IRR_FORCE_INLINE T dot(const T& a, const T& b);
+NBL_FORCE_INLINE T dot(const T& a, const T& b);
 template<>
-IRR_FORCE_INLINE vectorSIMDf dot<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b);
+NBL_FORCE_INLINE vectorSIMDf dot<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b);
 template<>
-IRR_FORCE_INLINE vectorSIMD_32<int32_t> dot<vectorSIMD_32<int32_t>>(const vectorSIMD_32<int32_t>& a, const vectorSIMD_32<int32_t>& b);
+NBL_FORCE_INLINE vectorSIMD_32<int32_t> dot<vectorSIMD_32<int32_t>>(const vectorSIMD_32<int32_t>& a, const vectorSIMD_32<int32_t>& b);
 template<>
-IRR_FORCE_INLINE vectorSIMD_32<uint32_t> dot<vectorSIMD_32<uint32_t>>(const vectorSIMD_32<uint32_t>& a, const vectorSIMD_32<uint32_t>& b);
+NBL_FORCE_INLINE vectorSIMD_32<uint32_t> dot<vectorSIMD_32<uint32_t>>(const vectorSIMD_32<uint32_t>& a, const vectorSIMD_32<uint32_t>& b);
 
 
 template<typename T>
-IRR_FORCE_INLINE T lengthsquared(const T& v)
+NBL_FORCE_INLINE T lengthsquared(const T& v)
 {
 	return core::dot<T>(v, v);
 }
 template<typename T>
-IRR_FORCE_INLINE T length(const T& v)
+NBL_FORCE_INLINE T length(const T& v)
 {
 	return core::sqrt<T>(lengthsquared<T>(v));
 }
 
 template<typename T>
-IRR_FORCE_INLINE T distance(const T& a, const T& b)
+NBL_FORCE_INLINE T distance(const T& a, const T& b)
 {
 	return core::length<T>(a-b);
 }
 template<typename T>
-IRR_FORCE_INLINE T distancesquared(const T& a, const T& b)
+NBL_FORCE_INLINE T distancesquared(const T& a, const T& b)
 {
 	return core::lengthsquared<T>(a-b);
 }
 
 template<typename T>
-IRR_FORCE_INLINE T cross(const T& a, const T& b);
+NBL_FORCE_INLINE T cross(const T& a, const T& b);
 template<>
-IRR_FORCE_INLINE vectorSIMDf cross<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b);
+NBL_FORCE_INLINE vectorSIMDf cross<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b);
 
 template<typename T>
-IRR_FORCE_INLINE T normalize(const T& v)
+NBL_FORCE_INLINE T normalize(const T& v)
 {
 	auto d = dot<T>(v, v);
 #ifdef __IRR_FAST_MATH
@@ -353,47 +353,47 @@ IRR_FORCE_INLINE T normalize(const T& v)
 
 // TODO : matrixCompMult, outerProduct, inverse
 template<typename T>
-IRR_FORCE_INLINE T transpose(const T& m);
+NBL_FORCE_INLINE T transpose(const T& m);
 template<>
-IRR_FORCE_INLINE matrix4SIMD transpose(const matrix4SIMD& m);
+NBL_FORCE_INLINE matrix4SIMD transpose(const matrix4SIMD& m);
 
 template<typename T>
-IRR_FORCE_INLINE float determinant(const T& m);
+NBL_FORCE_INLINE float determinant(const T& m);
 template<>
-IRR_FORCE_INLINE float determinant(const matrix4SIMD& m);
+NBL_FORCE_INLINE float determinant(const matrix4SIMD& m);
 
 // MAKE AIASES: lessThan, lessThanEqual, greaterThan, greaterThanEqual, equal, notEqual
 // TODO : uaddCarry, usubBorrow, umulExtended, imulExtended, bitfieldExtract, bitfieldInsert, bitfieldReverse, bitCount
 
 template<typename INT_TYPE>
-IRR_FORCE_INLINE int32_t findLSB(INT_TYPE x);
+NBL_FORCE_INLINE int32_t findLSB(INT_TYPE x);
 template<>
-IRR_FORCE_INLINE int32_t findLSB<uint32_t>(uint32_t x);
+NBL_FORCE_INLINE int32_t findLSB<uint32_t>(uint32_t x);
 template<>
-IRR_FORCE_INLINE int32_t findLSB<uint64_t>(uint64_t x);
+NBL_FORCE_INLINE int32_t findLSB<uint64_t>(uint64_t x);
 
 template<typename INT_TYPE>
-IRR_FORCE_INLINE int32_t findMSB(INT_TYPE x);
+NBL_FORCE_INLINE int32_t findMSB(INT_TYPE x);
 template<>
-IRR_FORCE_INLINE int32_t findMSB<uint32_t>(uint32_t x);
+NBL_FORCE_INLINE int32_t findMSB<uint32_t>(uint32_t x);
 template<>
-IRR_FORCE_INLINE int32_t findMSB<uint64_t>(uint64_t x);
+NBL_FORCE_INLINE int32_t findMSB<uint64_t>(uint64_t x);
 
 template<typename INT_TYPE>
-IRR_FORCE_INLINE uint32_t bitCount(INT_TYPE x);
+NBL_FORCE_INLINE uint32_t bitCount(INT_TYPE x);
 template<>
-IRR_FORCE_INLINE uint32_t bitCount(uint32_t x);
+NBL_FORCE_INLINE uint32_t bitCount(uint32_t x);
 template<>
-IRR_FORCE_INLINE uint32_t bitCount(uint64_t x);
+NBL_FORCE_INLINE uint32_t bitCount(uint64_t x);
 template<>
-IRR_FORCE_INLINE uint32_t bitCount(int32_t x) {return core::bitCount(static_cast<const uint32_t&>(x));}
+NBL_FORCE_INLINE uint32_t bitCount(int32_t x) {return core::bitCount(static_cast<const uint32_t&>(x));}
 template<>
-IRR_FORCE_INLINE uint32_t bitCount(int64_t x) {return core::bitCount(static_cast<const uint64_t&>(x));}
+NBL_FORCE_INLINE uint32_t bitCount(int64_t x) {return core::bitCount(static_cast<const uint64_t&>(x));}
 
 // Extras
 
 template <typename T>
-IRR_FORCE_INLINE constexpr std::enable_if_t<std::is_integral_v<T> && !std::is_signed_v<T>, T> bitfieldExtract(T value, int32_t offset, int32_t bits)
+NBL_FORCE_INLINE constexpr std::enable_if_t<std::is_integral_v<T> && !std::is_signed_v<T>, T> bitfieldExtract(T value, int32_t offset, int32_t bits)
 {
 	constexpr T one = static_cast<T>(1);
 
@@ -402,7 +402,7 @@ IRR_FORCE_INLINE constexpr std::enable_if_t<std::is_integral_v<T> && !std::is_si
 	return retval & ((one<<bits) - one);
 }
 template <typename T>
-IRR_FORCE_INLINE constexpr std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>, T> bitfieldExtract(T value, int32_t offset, int32_t bits)
+NBL_FORCE_INLINE constexpr std::enable_if_t<std::is_integral_v<T> && std::is_signed_v<T>, T> bitfieldExtract(T value, int32_t offset, int32_t bits)
 {
 	constexpr T one = static_cast<T>(1);
 	constexpr T all_set = static_cast<T>(~0ull);
@@ -417,7 +417,7 @@ IRR_FORCE_INLINE constexpr std::enable_if_t<std::is_integral_v<T> && std::is_sig
 }
 
 template <typename T>
-IRR_FORCE_INLINE constexpr T bitfieldInsert(T base, T insert, int32_t offset, int32_t bits)
+NBL_FORCE_INLINE constexpr T bitfieldInsert(T base, T insert, int32_t offset, int32_t bits)
 {
 	constexpr T one = static_cast<T>(1);
 	const T mask = (one << bits) - one;
@@ -432,41 +432,41 @@ IRR_FORCE_INLINE constexpr T bitfieldInsert(T base, T insert, int32_t offset, in
 
 //! returns if a equals b, taking possible rounding errors into account
 template<typename T>
-IRR_FORCE_INLINE bool equals(const T& a, const T& b, const T& tolerance);
+NBL_FORCE_INLINE bool equals(const T& a, const T& b, const T& tolerance);
 template<>
-IRR_FORCE_INLINE bool equals<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& tolerance);
+NBL_FORCE_INLINE bool equals<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& tolerance);
 template<>
-IRR_FORCE_INLINE bool equals<matrix4SIMD>(const matrix4SIMD& a, const matrix4SIMD& b, const matrix4SIMD& tolerance);
+NBL_FORCE_INLINE bool equals<matrix4SIMD>(const matrix4SIMD& a, const matrix4SIMD& b, const matrix4SIMD& tolerance);
 template<>
-IRR_FORCE_INLINE bool equals<matrix3x4SIMD>(const matrix3x4SIMD& a, const matrix3x4SIMD& b, const matrix3x4SIMD& tolerance);
+NBL_FORCE_INLINE bool equals<matrix3x4SIMD>(const matrix3x4SIMD& a, const matrix3x4SIMD& b, const matrix3x4SIMD& tolerance);
 
 
 //! returns if a equals zero, taking rounding errors into account
 template<typename T>
-IRR_FORCE_INLINE auto iszero(const T& a, const T& tolerance)
+NBL_FORCE_INLINE auto iszero(const T& a, const T& tolerance)
 {
 	return core::abs<T>(a) <= tolerance;
 }
 template<typename T, typename U=T>
-IRR_FORCE_INLINE auto iszero(const T& a, const U& tolerance = ROUNDING_ERROR<U>())
+NBL_FORCE_INLINE auto iszero(const T& a, const U& tolerance = ROUNDING_ERROR<U>())
 {
 	return core::iszero(a,T(tolerance));
 }
 
 
 template<typename T>
-IRR_FORCE_INLINE T sin(const T& a);
+NBL_FORCE_INLINE T sin(const T& a);
 
 
-IRR_FORCE_INLINE float& intBitsToFloat(int32_t& _i) { return reinterpret_cast<float&>(_i); }
-IRR_FORCE_INLINE float& uintBitsToFloat(uint32_t& _u) { return reinterpret_cast<float&>(_u); }
-IRR_FORCE_INLINE int32_t& floatBitsToInt(float& _f) { return reinterpret_cast<int32_t&>(_f); }
-IRR_FORCE_INLINE uint32_t& floatBitsToUint(float& _f) { return reinterpret_cast<uint32_t&>(_f); }
+NBL_FORCE_INLINE float& intBitsToFloat(int32_t& _i) { return reinterpret_cast<float&>(_i); }
+NBL_FORCE_INLINE float& uintBitsToFloat(uint32_t& _u) { return reinterpret_cast<float&>(_u); }
+NBL_FORCE_INLINE int32_t& floatBitsToInt(float& _f) { return reinterpret_cast<int32_t&>(_f); }
+NBL_FORCE_INLINE uint32_t& floatBitsToUint(float& _f) { return reinterpret_cast<uint32_t&>(_f); }
 //rvalue ref parameters to ensure that functions returning a copy will be called for rvalues only (functions for lvalues returns same memory but with reinterpreted type)
-IRR_FORCE_INLINE float intBitsToFloat(int32_t&& _i) { return reinterpret_cast<float&>(_i); }
-IRR_FORCE_INLINE float uintBitsToFloat(uint32_t&& _u) { return reinterpret_cast<float&>(_u); }
-IRR_FORCE_INLINE int32_t floatBitsToInt(float&& _f) { return reinterpret_cast<int32_t&>(_f); }
-IRR_FORCE_INLINE uint32_t floatBitsToUint(float&& _f) { return reinterpret_cast<uint32_t&>(_f); }
+NBL_FORCE_INLINE float intBitsToFloat(int32_t&& _i) { return reinterpret_cast<float&>(_i); }
+NBL_FORCE_INLINE float uintBitsToFloat(uint32_t&& _u) { return reinterpret_cast<float&>(_u); }
+NBL_FORCE_INLINE int32_t floatBitsToInt(float&& _f) { return reinterpret_cast<int32_t&>(_f); }
+NBL_FORCE_INLINE uint32_t floatBitsToUint(float&& _f) { return reinterpret_cast<uint32_t&>(_f); }
 
 
 
@@ -474,10 +474,10 @@ IRR_FORCE_INLINE uint32_t floatBitsToUint(float&& _f) { return reinterpret_cast<
 
 
 template<typename T>
-IRR_FORCE_INLINE T gcd(const T& a, const T& b);
+NBL_FORCE_INLINE T gcd(const T& a, const T& b);
 
 template<typename T>
-IRR_FORCE_INLINE T sinc(const T& x)
+NBL_FORCE_INLINE T sinc(const T& x)
 {
 	// TODO: do a direct series/computation in the future
 	return mix<T>(	sin<T>(x)/x,
@@ -486,7 +486,7 @@ IRR_FORCE_INLINE T sinc(const T& x)
 				);
 }
 template<typename T>
-IRR_FORCE_INLINE T d_sinc(const T& x)
+NBL_FORCE_INLINE T d_sinc(const T& x)
 {
 	// TODO: do a direct series/computation in the future
 	return mix<T>(	(cos<T>(x)-sin<T>(x)/x)/x,
@@ -496,18 +496,18 @@ IRR_FORCE_INLINE T d_sinc(const T& x)
 }
 
 template<typename T>
-IRR_FORCE_INLINE T cyl_bessel_i(const T& v, const T& x);
+NBL_FORCE_INLINE T cyl_bessel_i(const T& v, const T& x);
 template<typename T>
-IRR_FORCE_INLINE T d_cyl_bessel_i(const T& v, const T& x);
+NBL_FORCE_INLINE T d_cyl_bessel_i(const T& v, const T& x);
 
 template<typename T>
-IRR_FORCE_INLINE T KaiserWindow(const T& x, const T& alpha, const T& width)
+NBL_FORCE_INLINE T KaiserWindow(const T& x, const T& alpha, const T& width)
 {
 	auto p = x/width;
 	return cyl_bessel_i<T>(T(0.0),sqrt<T>(T(1.0)-p*p)*alpha)/cyl_bessel_i<T>(T(0.0),alpha);
 }
 template<typename T>
-IRR_FORCE_INLINE T d_KaiserWindow(const T& x, const T& alpha, const T& width)
+NBL_FORCE_INLINE T d_KaiserWindow(const T& x, const T& alpha, const T& width)
 {
 	auto p = x/width;
 	T s = sqrt<T>(T(1.0)-p*p);

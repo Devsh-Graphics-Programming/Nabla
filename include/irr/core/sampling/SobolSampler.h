@@ -66,7 +66,7 @@ namespace core
 class SobolSampler
 {
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t SOBOL_BITS = sizeof(uint32_t)*8u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t SOBOL_BITS = sizeof(uint32_t)*8u;
 
 		SobolSampler(uint32_t _dimensions) : dimensions(_dimensions)
 		{
@@ -8294,7 +8294,7 @@ class SobolSampler
 		};
 
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t SOBOL_MAX_DIMENSIONS = sizeof(SOBOL_NUMBERS)/sizeof(SobolDirectionNumbers)+1u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t SOBOL_MAX_DIMENSIONS = sizeof(SOBOL_NUMBERS)/sizeof(SobolDirectionNumbers)+1u;
 
 	protected:
 		uint32_t dimensions;
@@ -8340,7 +8340,7 @@ class SobolSampler
 							v[i] ^= (((a >> (s-1u-k)) & 1u) * v[i-k]);
 					}
 				}
-				#ifdef _IRR_DEBUG
+				#ifdef _NBL_DEBUG
 					for (uint32_t i=0u; i<L; i++)
 						assert((v[i]&(0x7fffffffu>>i)) == 0u);
 				#endif

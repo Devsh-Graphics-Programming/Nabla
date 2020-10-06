@@ -34,7 +34,7 @@ class ICPUShader : public IAsset, public IShader
 			memcpy(m_code->getPointer(), _glsl, m_code->getSize());
 		}
 
-		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SHADER;
+		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SHADER;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
 		size_t conservativeSizeEstimate() const override 

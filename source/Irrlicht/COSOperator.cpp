@@ -5,7 +5,7 @@
 
 #include "COSOperator.h"
 
-#ifdef _IRR_WINDOWS_API_
+#ifdef _NBL_WINDOWS_API_
 #ifndef _IRR_XBOX_PLATFORM_
 #include <windows.h>
 #endif
@@ -37,7 +37,7 @@ namespace irr
 // constructor
 COSOperator::COSOperator(const core::stringc& osVersion) : OperatingSystem(osVersion)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("COSOperator");
 	#endif
 }
@@ -58,7 +58,7 @@ void COSOperator::copyToClipboard(const char* text) const
 
 // Windows version
 #if defined(_IRR_XBOX_PLATFORM_)
-#elif defined(_IRR_WINDOWS_API_)
+#elif defined(_NBL_WINDOWS_API_)
 	if (!OpenClipboard(NULL) || text == 0)
 		return;
 
@@ -91,7 +91,7 @@ const char* COSOperator::getTextFromClipboard() const
 {
 #if defined(_IRR_XBOX_PLATFORM_)
 		return 0;
-#elif defined(_IRR_WINDOWS_API_)
+#elif defined(_NBL_WINDOWS_API_)
 	if (!OpenClipboard(NULL))
 		return 0;
 
@@ -117,7 +117,7 @@ const char* COSOperator::getTextFromClipboard() const
 
 bool COSOperator::getProcessorSpeedMHz(uint32_t* MHz) const
 {
-#if defined(_IRR_WINDOWS_API_) && !defined(_WIN32_WCE ) && !defined (_IRR_XBOX_PLATFORM_)
+#if defined(_NBL_WINDOWS_API_) && !defined(_WIN32_WCE ) && !defined (_IRR_XBOX_PLATFORM_)
 	LONG Error;
 
 	HKEY Key;
@@ -184,7 +184,7 @@ bool COSOperator::getProcessorSpeedMHz(uint32_t* MHz) const
 
 bool COSOperator::getSystemMemory(uint32_t* Total, uint32_t* Avail) const
 {
-#if defined(_IRR_WINDOWS_API_) && !defined (_IRR_XBOX_PLATFORM_)
+#if defined(_NBL_WINDOWS_API_) && !defined (_IRR_XBOX_PLATFORM_)
 	MEMORYSTATUS MemoryStatus;
 	MemoryStatus.dwLength = sizeof(MEMORYSTATUS);
 

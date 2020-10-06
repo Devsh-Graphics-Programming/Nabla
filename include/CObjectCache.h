@@ -27,7 +27,7 @@ namespace irr { namespace core
 #ifndef INTELLISENSE_WORKAROUND
 namespace impl
 {
-    struct IRR_FORCE_EBO IRR_NO_VTABLE CMultiCache_tag {};
+    struct NBL_FORCE_EBO NBL_NO_VTABLE CMultiCache_tag {};
 
     template<template<typename...> class, template<typename...> class>
     struct is_same_templ : std::false_type {};
@@ -59,12 +59,12 @@ namespace impl
     struct is_assoc_container<std::unordered_multimap> : std::true_type {};
 
     template<typename K, typename...>
-    struct IRR_FORCE_EBO IRR_NO_VTABLE PropagKeyTypeTypedef_ { using KeyType = K; };
+    struct NBL_FORCE_EBO NBL_NO_VTABLE PropagKeyTypeTypedef_ { using KeyType = K; };
     template<typename ...K>
-    struct IRR_FORCE_EBO IRR_NO_VTABLE PropagKeyTypeTypedef : PropagKeyTypeTypedef_<K...> {};
+    struct NBL_FORCE_EBO NBL_NO_VTABLE PropagKeyTypeTypedef : PropagKeyTypeTypedef_<K...> {};
 
     template<typename T, typename ...K>
-    struct IRR_FORCE_EBO IRR_NO_VTABLE PropagTypedefs : PropagKeyTypeTypedef<K...> { using CachedType = T; };
+    struct NBL_FORCE_EBO NBL_NO_VTABLE PropagTypedefs : PropagKeyTypeTypedef<K...> { using CachedType = T; };
 
     template<
         template<typename...> class ContainerT_T,
@@ -72,7 +72,7 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct IRR_FORCE_EBO CObjectCacheBase
+    struct NBL_FORCE_EBO CObjectCacheBase
     {
     private:
         template<bool isAssoc, template<typename...> class C>
@@ -318,7 +318,7 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct IRR_FORCE_EBO CMultiObjectCacheBase<true, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>, public CMultiCache_tag
+    struct NBL_FORCE_EBO CMultiObjectCacheBase<true, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>, public CMultiCache_tag
     {
     private:
         using Base = CObjectCacheBase<ContainerT_T, Alloc, T, K...>;
@@ -350,7 +350,7 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct IRR_FORCE_EBO CMultiObjectCacheBase<false, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>, public CMultiCache_tag
+    struct NBL_FORCE_EBO CMultiObjectCacheBase<false, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>, public CMultiCache_tag
     {
     private:
         using Base = CObjectCacheBase<ContainerT_T, Alloc, T, K...>;
@@ -399,7 +399,7 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct IRR_FORCE_EBO CMultiObjectCacheBaseExt : public CMultiObjectCacheBase<!IsVectorContainer, ContainerT_T, Alloc, T, K...>
+    struct NBL_FORCE_EBO CMultiObjectCacheBaseExt : public CMultiObjectCacheBase<!IsVectorContainer, ContainerT_T, Alloc, T, K...>
     {
     private:
         using Base = CMultiObjectCacheBase<!IsVectorContainer, ContainerT_T, Alloc, T, K...>;
@@ -469,7 +469,7 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct IRR_FORCE_EBO CUniqObjectCacheBase;
+    struct NBL_FORCE_EBO CUniqObjectCacheBase;
 
     template<
         template<typename...> class ContainerT_T,
@@ -477,7 +477,7 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct IRR_FORCE_EBO CUniqObjectCacheBase<true, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>
+    struct NBL_FORCE_EBO CUniqObjectCacheBase<true, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>
     {
     private:
         using Base = CObjectCacheBase<ContainerT_T, Alloc, T, K...>;
@@ -512,7 +512,7 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct IRR_FORCE_EBO CUniqObjectCacheBase<false, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>
+    struct NBL_FORCE_EBO CUniqObjectCacheBase<false, ContainerT_T, Alloc, T, K...> : public CObjectCacheBase<ContainerT_T, Alloc, T, K...>
     {
     private:
         using Base = CObjectCacheBase<ContainerT_T, Alloc, T, K...>;
@@ -602,7 +602,7 @@ namespace impl
         typename T, //value type for container
         typename ...K //optionally key type for std::map/std::unordered_map
     >
-    struct IRR_FORCE_EBO CDirectCacheBase :
+    struct NBL_FORCE_EBO CDirectCacheBase :
         public std::conditional<forMultiCache, CMultiObjectCacheBaseExt<isVectorContainer, ContainerT_T, Alloc, T, K...>, CUniqObjectCacheBaseExt<isVectorContainer, ContainerT_T, Alloc, T, K...>>::type
     {
     private:
@@ -698,7 +698,7 @@ template<
     typename Alloc = core::allocator<typename impl::key_val_pair_type_for<ContainerT_T, K, T>::type>,
     bool = impl::is_same_templ<ContainerT_T, std::vector>::value
 >
-class IRR_FORCE_EBO CMultiObjectCache;
+class NBL_FORCE_EBO CMultiObjectCache;
 
 template<
     typename K,
@@ -706,7 +706,7 @@ template<
     template<typename...> class ContainerT_T,
     typename Alloc
 >
-class IRR_FORCE_EBO CMultiObjectCache<K, T, ContainerT_T, Alloc, true> :
+class NBL_FORCE_EBO CMultiObjectCache<K, T, ContainerT_T, Alloc, true> :
     public impl::CDirectMultiCacheBase<true, ContainerT_T, Alloc, std::pair<K, T>>,
     public impl::PropagTypedefs<T, K>
 {
@@ -722,7 +722,7 @@ template<
     template<typename...> class ContainerT_T,
     typename Alloc
 >
-class IRR_FORCE_EBO CMultiObjectCache<K, T, ContainerT_T, Alloc, false> :
+class NBL_FORCE_EBO CMultiObjectCache<K, T, ContainerT_T, Alloc, false> :
     public impl::CDirectMultiCacheBase<false, ContainerT_T, Alloc, T, const K>,
     public impl::PropagTypedefs<T, const K>
 {
@@ -742,7 +742,7 @@ template<
     typename Alloc = core::allocator<typename impl::key_val_pair_type_for<ContainerT_T, K, T>::type>,
     bool = impl::is_same_templ<ContainerT_T, std::vector>::value
 >
-class IRR_FORCE_EBO CObjectCache;
+class NBL_FORCE_EBO CObjectCache;
 
 template<
     typename K,
@@ -750,7 +750,7 @@ template<
     template<typename...> class ContainerT_T,
     typename Alloc
 >
-class IRR_FORCE_EBO CObjectCache<K, T, ContainerT_T, Alloc, true> :
+class NBL_FORCE_EBO CObjectCache<K, T, ContainerT_T, Alloc, true> :
     public impl::CDirectUniqCacheBase<true, ContainerT_T, Alloc, std::pair<K, T>>,
     public impl::PropagTypedefs<T, K>
 {
@@ -767,7 +767,7 @@ template<
     template<typename...> class ContainerT_T,
     typename Alloc
 >
-class IRR_FORCE_EBO CObjectCache<K, T, ContainerT_T, Alloc, false> :
+class NBL_FORCE_EBO CObjectCache<K, T, ContainerT_T, Alloc, false> :
     public impl::CDirectUniqCacheBase<false, ContainerT_T, Alloc, T, const K>,
     public impl::PropagTypedefs<T, const K>
 {

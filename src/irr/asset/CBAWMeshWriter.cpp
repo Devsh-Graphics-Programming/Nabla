@@ -33,7 +33,7 @@ struct LzmaMemMngmnt
 
 	CBAWMeshWriter::CBAWMeshWriter(io::IFileSystem* _fs) : m_fileSystem(_fs)
 	{
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 		setDebugName("CBAWMeshWriter");
 #endif
 	}
@@ -407,7 +407,7 @@ struct LzmaMemMngmnt
 			}
 			else
 			{
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 				os::Printer::log("Failed to encrypt! Blob exported without encryption.", ELL_WARNING);
 #endif
 				_IRR_ALIGNED_FREE(in);
@@ -446,7 +446,7 @@ struct LzmaMemMngmnt
 				_IRR_ALIGNED_FREE(data);
 			compressedSize = _inputSize;
 			data = const_cast<void*>(_input);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 			os::Printer::log("Failed to compress (lz4). Blob exported without compression.", ELL_WARNING);
 #endif
 		}
@@ -484,7 +484,7 @@ struct LzmaMemMngmnt
 			_IRR_ALIGNED_FREE(data);
 			data = (uint8_t*)const_cast<void*>(_input);
 			destSize = _inputSize;
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 			os::Printer::log("Failed to compress (lzma). Blob exported without compression.", ELL_WARNING);
 #endif
 		}

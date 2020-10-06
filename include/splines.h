@@ -589,7 +589,7 @@ class CQuadraticSpline : public ISpline
 					}
 					else
 					{
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 						assert(integrationConstants[0] < 10000000.f);
 						assert(integrationConstants[2] >= 0.f);
 #endif

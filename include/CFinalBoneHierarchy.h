@@ -89,16 +89,16 @@ namespace asset
 				const void* _nonInterpAnimsBegin, const void* _nonInterpAnimsEnd, bool _flipXonOutput)
 			: boneCount((BoneReferenceData*)_bonesEnd - (BoneReferenceData*)_bonesBegin), NumLevelsInHierarchy(_levelsEnd - _levelsBegin), keyframeCount(_keyframesEnd - _keyframesBegin), flipXonOutput(_flipXonOutput)
 			{
-				_IRR_DEBUG_BREAK_IF(_bonesBegin > _bonesEnd ||
+				_NBL_DEBUG_BREAK_IF(_bonesBegin > _bonesEnd ||
 					_boneNamesBegin > _boneNamesEnd ||
 					_levelsBegin > _levelsEnd ||
 					_keyframesBegin > _keyframesEnd ||
 					_interpAnimsBegin > _interpAnimsEnd ||
 					_nonInterpAnimsBegin > _nonInterpAnimsEnd
 				)
-				_IRR_DEBUG_BREAK_IF(_boneNamesEnd - _boneNamesBegin != static_cast<std::make_signed<decltype(boneCount)>::type>(boneCount))
-				_IRR_DEBUG_BREAK_IF((AnimationKeyData*)_interpAnimsEnd - (AnimationKeyData*)_interpAnimsBegin != static_cast<std::make_signed<decltype(boneCount)>::type>(getAnimationCount()))
-				_IRR_DEBUG_BREAK_IF((AnimationKeyData*)_nonInterpAnimsEnd - (AnimationKeyData*)_nonInterpAnimsBegin != static_cast<std::make_signed<decltype(boneCount)>::type>(getAnimationCount()))
+				_NBL_DEBUG_BREAK_IF(_boneNamesEnd - _boneNamesBegin != static_cast<std::make_signed<decltype(boneCount)>::type>(boneCount))
+				_NBL_DEBUG_BREAK_IF((AnimationKeyData*)_interpAnimsEnd - (AnimationKeyData*)_interpAnimsBegin != static_cast<std::make_signed<decltype(boneCount)>::type>(getAnimationCount()))
+				_NBL_DEBUG_BREAK_IF((AnimationKeyData*)_nonInterpAnimsEnd - (AnimationKeyData*)_nonInterpAnimsBegin != static_cast<std::make_signed<decltype(boneCount)>::type>(getAnimationCount()))
 
 				boneNames = _IRR_NEW_ARRAY(core::stringc,boneCount);
 				boneFlatArray = (BoneReferenceData*)malloc(sizeof(BoneReferenceData)*boneCount);

@@ -45,7 +45,7 @@ namespace core
 	the name of the method does not start with 'create'. The texture
 	is stored somewhere by the driver.
 	*/
-	class IRR_FORCE_EBO IReferenceCounted : public Interface, public AllocationOverrideDefault
+	class NBL_FORCE_EBO IReferenceCounted : public Interface, public AllocationOverrideDefault
 	{
 	public:
 		//! Grabs the object. Increments the reference counter by one.
@@ -112,7 +112,7 @@ namespace core
 		{
 			auto ctrVal = ReferenceCounter--;
 			// someone is doing bad reference counting.
-			_IRR_DEBUG_BREAK_IF(ctrVal == 0)
+			_NBL_DEBUG_BREAK_IF(ctrVal == 0)
 			if (ctrVal==1)
 			{
 			    // https://eli.thegreenplace.net/2015/c-deleting-destructors-and-virtual-operator-delete/
@@ -144,7 +144,7 @@ namespace core
 		IReferenceCounted()
 			: DebugName(0), ReferenceCounter(1)
 		{
-			_IRR_DEBUG_BREAK_IF(!ReferenceCounter.is_lock_free()) //incompatibile platform
+			_NBL_DEBUG_BREAK_IF(!ReferenceCounter.is_lock_free()) //incompatibile platform
 #if __cplusplus >= 201703L
 			static_assert(decltype(ReferenceCounter)::is_always_lock_free,"Unsupported Platform, Lock-less Atomic Reference Couting is Impossible!");
 #endif //

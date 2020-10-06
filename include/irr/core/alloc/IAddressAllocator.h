@@ -14,7 +14,7 @@ namespace irr
 namespace core
 {
 
-class IRR_FORCE_EBO IAddressAllocator : Interface
+class NBL_FORCE_EBO IAddressAllocator : Interface
 {
         _IRR_INTERFACE_CHILD_DEFAULT(IAddressAllocator);
     public:
@@ -39,7 +39,7 @@ class IRR_FORCE_EBO IAddressAllocator : Interface
 
 
 template <class AddressAllocator>
-class IRR_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, public IAddressAllocator
+class NBL_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, public IAddressAllocator
 {
         inline AddressAllocator&    getBaseRef() noexcept {return static_cast<AddressAllocator&>(*this);}
     public:

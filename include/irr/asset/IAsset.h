@@ -130,7 +130,7 @@ class IAsset : virtual public core::IReferenceCounted
 			if (!rootAsset)
 				return nullptr;
 			assetType* image = rootAsset->getAssetType()!=assetType::AssetType ? nullptr:static_cast<assetType*>(rootAsset);
-			#ifdef _IRR_DEBUG
+			#ifdef _NBL_DEBUG
 				assert(image);
 			#endif
 			return image;

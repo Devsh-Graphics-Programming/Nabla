@@ -21,7 +21,7 @@ namespace core
 core::vector<std::string> getBackTrace(void);
 
 //! Utility class easing the process of finding memory leaks. Usable only in debug build. Thread-safe. No Windows implementation yet.
-class IRR_FORCE_EBO CLeakDebugger : public AllocationOverrideDefault, public Uncopyable
+class NBL_FORCE_EBO CLeakDebugger : public AllocationOverrideDefault, public Uncopyable
 {
         std::string name;
     public:

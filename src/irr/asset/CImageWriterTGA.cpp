@@ -23,7 +23,7 @@ namespace asset
 
 CImageWriterTGA::CImageWriterTGA()
 {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	setDebugName("CImageWriterTGA");
 #endif
 }

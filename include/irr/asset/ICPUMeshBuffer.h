@@ -135,7 +135,7 @@ public:
 		}
 	}
 
-    _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SUB_MESH;
+    _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SUB_MESH;
     inline E_TYPE getAssetType() const override { return AssetType; }
 
     inline size_t conservativeSizeEstimate() const override { return sizeof(base_t) + sizeof(posAttrId) + sizeof(normalAttrId); }
@@ -307,9 +307,9 @@ public:
     {
         if (attrId >= MAX_VERTEX_ATTRIB_COUNT)
         {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
             //os::Printer::log("MeshBuffer setPositionAttributeIx attribute ID out of range!\n",ELL_ERROR);
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
             return;
         }
 
@@ -324,9 +324,9 @@ public:
     {
         if (attrId >= MAX_VERTEX_ATTRIB_COUNT)
         {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
             //os::Printer::log("MeshBuffer setNormalAttributeIx attribute ID out of range!\n",ELL_ERROR);
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
             return;
         }
 
@@ -364,12 +364,12 @@ public:
     {
         core::vectorSIMDf outPos(0.f, 0.f, 0.f, 1.f);
         bool success = getAttribute(outPos, posAttrId, ix);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
         if (!success)
         {
             //os::Printer::log("SOME DEBUG MESSAGE!\n",ELL_ERROR);
         }
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
         return outPos;
     }
 

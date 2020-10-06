@@ -27,7 +27,7 @@ class MultiBufferingAllocatorBase<AddressAllocator,false>
         inline void resetPushRange() {}
         inline void resetPullRange() {}
 
-        _IRR_STATIC_INLINE_CONSTEXPR bool alwaysSwapEntireRange = true;
+        _NBL_STATIC_INLINE_CONSTEXPR bool alwaysSwapEntireRange = true;
     public:
         inline void markRangeForPush(typename AddressAllocator::size_type begin, typename AddressAllocator::size_type end)
         {
@@ -49,7 +49,7 @@ class MultiBufferingAllocatorBase<AddressAllocator,true>
         inline void resetPushRange() {pushRange.first = ~static_cast<typename AddressAllocator::size_type>(0u); pushRange.second = 0u;}
         inline void resetPullRange() {pullRange.first = ~static_cast<typename AddressAllocator::size_type>(0u); pullRange.second = 0u;}
 
-        _IRR_STATIC_INLINE_CONSTEXPR bool alwaysSwapEntireRange = false;
+        _NBL_STATIC_INLINE_CONSTEXPR bool alwaysSwapEntireRange = false;
     public:
         inline decltype(pushRange) getPushRange() const {return pushRange;}
         inline decltype(pullRange) getPullRange() const {return pullRange;}

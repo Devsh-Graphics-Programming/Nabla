@@ -78,7 +78,7 @@ class ParserManager
 		//
 		inline void killParseWithError(const Context& ctx, const std::string& message)
 		{
-			_IRR_DEBUG_BREAK_IF(true);
+			_NBL_DEBUG_BREAK_IF(true);
 			ParserLog::invalidXMLFileStructure(message);
 			XML_StopParser(ctx.parser, false);
 		}

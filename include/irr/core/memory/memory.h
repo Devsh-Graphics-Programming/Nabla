@@ -21,17 +21,17 @@
 
 //! Very useful for enabling compiler optimizations
 #if defined(_MSC_VER)
-    #define _IRR_ASSUME_ALIGNED(ptr, alignment) \
+    #define _NBL_ASSUME_ALIGNED(ptr, alignment) \
     __assume((reinterpret_cast<size_t>(ptr) & ((alignment) - 1)) == 0)
 #elif (__GNUC__ * 100 + __GNUC_MINOR__) >= 407 // ||(CLANG&&__has_builtin(__builtin_assume_aligned))
-    #define _IRR_ASSUME_ALIGNED(ptr, alignment) \
+    #define _NBL_ASSUME_ALIGNED(ptr, alignment) \
     (ptr) = static_cast<decltype(ptr)>(__builtin_assume_aligned((ptr), (alignment)))
 #else
-    #define _IRR_ASSUME_ALIGNED(ptr,alignment)
+    #define _NBL_ASSUME_ALIGNED(ptr,alignment)
 #endif
 
-//! Utility so we don't have to write out _IRR_ASSUME_ALIGNED(ptr,_IRR_SIMD_ALIGNMENT) constantly
-#define _IRR_ASSUME_SIMD_ALIGNED(ptr) _IRR_ASSUME_ALIGNED(ptr,_IRR_SIMD_ALIGNMENT)
+//! Utility so we don't have to write out _NBL_ASSUME_ALIGNED(ptr,_IRR_SIMD_ALIGNMENT) constantly
+#define _IRR_ASSUME_SIMD_ALIGNED(ptr) _NBL_ASSUME_ALIGNED(ptr,_IRR_SIMD_ALIGNMENT)
 
 
 //! You can swap these out for whatever you like, jemalloc, tcmalloc etc. but make them noexcept

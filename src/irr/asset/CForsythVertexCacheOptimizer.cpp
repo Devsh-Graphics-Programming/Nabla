@@ -40,7 +40,7 @@ namespace irr { namespace asset
 		}
 
 		const uint32_t NumPrimitives = _numIndices / 3;
-		_IRR_DEBUG_BREAK_IF(NumPrimitives != uint32_t(std::floor(_numIndices / 3.0f))); // Number of indicies not divisible by 3, not a good triangle list.
+		_NBL_DEBUG_BREAK_IF(NumPrimitives != uint32_t(std::floor(_numIndices / 3.0f))); // Number of indicies not divisible by 3, not a good triangle list.
 
 		//
 		// Step 1: Run through the data, and initialize
@@ -56,7 +56,7 @@ namespace irr { namespace asset
 			for (int32_t c = 0; c < 3; c++)
 			{
 				const IdxT &curVIdx = _indices[curIdx];
-				_IRR_DEBUG_BREAK_IF(curVIdx >= _numVerts); // Out of range index.
+				_NBL_DEBUG_BREAK_IF(curVIdx >= _numVerts); // Out of range index.
 
 				// Add this vert to the list of verts that define the triangle
 				curTri.vertIdx[c] = curVIdx;
@@ -83,7 +83,7 @@ namespace irr { namespace asset
 		int32_t nextNextBestTriIdx = -1, nextBestTriIdx = -1;
 		float nextNextBestTriScore = -1.0f, nextBestTriScore = -1.0f;
 
-#define _VALIDATE_TRI_IDX(idx) if(idx > -1) { _IRR_DEBUG_BREAK_IF(idx >= NumPrimitives); /*Out of range triangle index.*/ _IRR_DEBUG_BREAK_IF(triangleData[idx].isInList); /*Triangle already in list, bad.*/ }
+#define _VALIDATE_TRI_IDX(idx) if(idx > -1) { _NBL_DEBUG_BREAK_IF(idx >= NumPrimitives); /*Out of range triangle index.*/ _NBL_DEBUG_BREAK_IF(triangleData[idx].isInList); /*Triangle already in list, bad.*/ }
 #define _CHECK_NEXT_NEXT_BEST(scr, idx) { if(scr > nextNextBestTriScore) { nextNextBestTriIdx = idx; nextNextBestTriScore = scr; } }
 #define _CHECK_NEXT_BEST(scr, idx) { if(scr > nextBestTriScore) { _CHECK_NEXT_NEXT_BEST(nextBestTriScore, nextBestTriIdx); nextBestTriIdx = idx; nextBestTriScore = scr; } _VALIDATE_TRI_IDX(nextBestTriIdx); }
 
@@ -97,7 +97,7 @@ namespace irr { namespace asset
 			for (int32_t c = 0; c < 3; c++)
 			{
 				const IdxT &curVIdx = _indices[curIdx];
-				_IRR_DEBUG_BREAK_IF(curVIdx >= _numVerts); // Out of range index.
+				_NBL_DEBUG_BREAK_IF(curVIdx >= _numVerts); // Out of range index.
 				VertData &curVert = vertexData[curVIdx];
 
 				// Add triangle to triangle list
@@ -139,11 +139,11 @@ namespace irr { namespace asset
 					}
 				}
 			}
-			_IRR_DEBUG_BREAK_IF(nextBestTriIdx <= -1); // Ran out of 'nextBestTriangle' before I ran out of indices...not good.
+			_NBL_DEBUG_BREAK_IF(nextBestTriIdx <= -1); // Ran out of 'nextBestTriangle' before I ran out of indices...not good.
 
 			// Emit the next best triangle
 			TriData &nextBestTri = triangleData[nextBestTriIdx];
-			_IRR_DEBUG_BREAK_IF(nextBestTri.isInList); // Next best triangle already in list, this is no good.
+			_NBL_DEBUG_BREAK_IF(nextBestTri.isInList); // Next best triangle already in list, this is no good.
 			for (int32_t i = 0; i < 3; i++)
 			{
 				// Emit index
@@ -382,7 +382,7 @@ namespace irr { namespace asset
 			}
 			else
 			{
-				_IRR_DEBUG_BREAK_IF(vertexData.cachePosition >= maxSIZE_VERTEX_CACHE); // Out of range cache position for vertex
+				_NBL_DEBUG_BREAK_IF(vertexData.cachePosition >= maxSIZE_VERTEX_CACHE); // Out of range cache position for vertex
 
 				// Points for being high in the cache.
 				const float Scaler = 1.0f / (maxSIZE_VERTEX_CACHE - 3);
