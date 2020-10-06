@@ -3,7 +3,7 @@
 
 #include "irr/core/IReferenceCounted.h"
 #include "irr/core/alloc/AlignedBase.h"
-#include "irr/core/memory/dynamic_array.h"
+#include "irr/core/containers/dynamic_array.h"
 
 namespace irr
 {
