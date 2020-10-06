@@ -82,4 +82,4 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 }
 }
 
-#endif //__IRR_I_CPU_MESH_H_INCLUDED__
+#endif

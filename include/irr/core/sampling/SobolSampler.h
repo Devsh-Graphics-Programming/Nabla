@@ -8352,4 +8352,4 @@ class SobolSampler
 }
 }
 
-#endif // _IRR_CORE_SOBOL_SAMPLER_H_
+#endif

@@ -64,4 +64,4 @@ namespace asset
 }
 
 #endif // _NBL_COMPILE_WITH_GLI_LOADER_
-#endif // __C_IMAGE_LOADER_GLI__
+#endif

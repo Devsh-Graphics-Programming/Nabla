@@ -76,4 +76,4 @@ namespace irr
 	}
 }
 
-#endif //__IRR_E_COLOR_SPACE_H_INCLUDED__
+#endif

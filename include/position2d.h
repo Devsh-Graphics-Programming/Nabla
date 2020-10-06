@@ -29,5 +29,5 @@ typedef vector2d<int32_t> position2di;
 // ...and use a #define to catch the rest, for (e.g.) position2d<double>
 #define position2d vector2d
 
-#endif // __IRR_POSITION_H_INCLUDED__
+#endif
 

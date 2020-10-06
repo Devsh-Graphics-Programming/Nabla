@@ -269,4 +269,4 @@ using SkinnedMeshBufferBlobV2 = legacyv1::SkinnedMeshBufferBlobV1;
 }
 } //irr::asset
 
-#endif //__IRR_CBAW_LEGACY_H_INCLUDED__
+#endif

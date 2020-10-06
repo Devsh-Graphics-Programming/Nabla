@@ -522,4 +522,4 @@ inline __m128d matrix3x4SIMD::doJob_d(const __m128d& _a0, const __m128d& _a1, co
 }
 } // irr::core
 
-#endif // __IRR_MATRIX4SIMD_IMPL_H_INCLUDED__
+#endif

@@ -119,4 +119,4 @@ inline void convertColor(E_FORMAT sF, E_FORMAT dF, const void* srcPix[4], void* 
     #pragma GCC diagnostic pop
 #endif
 
-#endif //__IRR_CONVERT_COLOR_H_INCLUDED__
+#endif

@@ -69,6 +69,6 @@ class MultiBufferingAllocatorBase<AddressAllocator,true>
 }
 }
 
-#endif // __IRR_C_DOUBLE_BUFFERING_ALLOCATOR_H__
+#endif
 
 

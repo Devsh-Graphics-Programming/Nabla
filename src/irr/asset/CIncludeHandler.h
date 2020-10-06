@@ -60,4 +60,4 @@ private:
 }
 }
 
-#endif//__IRR_C_INCLUDE_HANDLER_H_INCLUDED__
+#endif

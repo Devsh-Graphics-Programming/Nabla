@@ -16,7 +16,7 @@ namespace video
 
 class IGPUTimestampQuery : public core::IReferenceCounted
 {
-	    _IRR_INTERFACE_CHILD(IGPUTimestampQuery) {}
+	    _NBL_INTERFACE_CHILD(IGPUTimestampQuery) {}
     public:
 		virtual bool isQueryReady() = 0;
 
@@ -26,6 +26,6 @@ class IGPUTimestampQuery : public core::IReferenceCounted
 }
 }
 
-#endif // __I_GPU_TIMESTAMP_QUERY_H_INCLUDED__
+#endif
 
 

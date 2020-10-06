@@ -106,4 +106,4 @@ namespace core
 }
 }
 
-#endif // _IRR_CORE_OWEN_SAMPLER_H_
+#endif

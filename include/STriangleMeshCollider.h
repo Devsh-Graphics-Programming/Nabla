@@ -76,7 +76,7 @@ class STriangleCollider// : public AllocationOverrideDefault EBO inheritance pro
 
 class STriangleMeshCollider : public IReferenceCounted
 {
-	    _IRR_INTERFACE_CHILD(STriangleMeshCollider) {}
+	    _NBL_INTERFACE_CHILD(STriangleMeshCollider) {}
 
         SAABoxCollider BBox;
         ///matrix4x3 cachedTransformInverse;

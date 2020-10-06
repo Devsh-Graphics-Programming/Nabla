@@ -98,4 +98,4 @@ private:
 
 }}
 
-#endif // __C_FORSYTH_VERTEX_CACHE_OPTIMIZER_H_INCLUDED__
+#endif

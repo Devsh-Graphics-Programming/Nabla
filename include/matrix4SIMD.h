@@ -207,4 +207,4 @@ inline matrix4SIMD concatenateBFollowedByAPrecisely(const matrix4SIMD& _a, const
 
 }} // irr::core
 
-#endif // __IRR_MATRIX4SIMD_H_INCLUDED__
+#endif

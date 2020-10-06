@@ -32,4 +32,4 @@ namespace asset
 }   
 }
 
-#endif // __IRR_C_OPENEXR_IMAGE_METADATA_H_INCLUDED__
+#endif

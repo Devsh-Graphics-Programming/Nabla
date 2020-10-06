@@ -285,4 +285,4 @@ class DeferredEventHandlerST
 }
 }
 
-#endif // __IRR_EVENT_DEFERRED_HANDLER_H__
+#endif

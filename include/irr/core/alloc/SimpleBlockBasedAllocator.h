@@ -213,6 +213,6 @@ class SimpleBlockBasedAllocator
 }
 }
 
-#endif // __IRR_CONTIGUOUS_POOL_ADDRESS_ALLOCATOR_H_INCLUDED__
+#endif
 
 

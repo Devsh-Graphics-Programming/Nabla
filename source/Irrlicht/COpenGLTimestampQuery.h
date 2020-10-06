@@ -62,6 +62,6 @@ class COpenGLTimestampQuery : public IGPUTimestampQuery
 }
 #endif // _NBL_COMPILE_WITH_OPENGL_
 
-#endif // __I_GPU_TIMESTAMP_QUERY_H_INCLUDED__
+#endif
 
 

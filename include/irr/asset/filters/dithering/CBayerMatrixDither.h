@@ -36,6 +36,6 @@ namespace irr
 	}
 }
 
-#endif // __IRR_C_BAYER_MATRIX_DITHER_H_INCLUDED__
+#endif
 
 #endif // TODO

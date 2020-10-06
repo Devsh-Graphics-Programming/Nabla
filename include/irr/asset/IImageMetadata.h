@@ -40,4 +40,4 @@ namespace irr
 	}
 }
 
-#endif // __IRR_I_IMAGE_METADATA_H_INCLUDED__
+#endif

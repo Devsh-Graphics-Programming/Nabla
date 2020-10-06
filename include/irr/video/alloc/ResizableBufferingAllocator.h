@@ -89,7 +89,7 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
 }
 }
 
-#endif // __IRR_RESIZABLE_BUFFERING_ALLOCATOR_H__
+#endif
 
 
 

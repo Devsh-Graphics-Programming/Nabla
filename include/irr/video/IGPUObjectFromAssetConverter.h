@@ -1006,4 +1006,4 @@ inline created_gpu_object_array<asset::ICPUComputePipeline> IGPUObjectFromAssetC
 
 }}//irr::video
 
-#endif //__IRR_I_GPU_OBJECT_FROM_ASSET_CONVERTER_H_INCLUDED__
+#endif

@@ -567,4 +567,4 @@ namespace irr
 	} // end namespace asset
 } // end namespace irr
 
-#endif // __IRR_C_SWIZZLEABLE_AND_DITHERABLE_FILTER_BASE_H_INCLUDED__
+#endif

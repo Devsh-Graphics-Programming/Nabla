@@ -22,7 +22,7 @@ namespace scene
 	template<class T>
 	class IAnimationEndCallBack : public virtual core::IReferenceCounted
 	{
-            _IRR_INTERFACE_CHILD(IAnimationEndCallBack) {}
+            _NBL_INTERFACE_CHILD(IAnimationEndCallBack) {}
         public:
 
             //! Will be called when the animation playback has ended.

@@ -48,4 +48,4 @@ class CImageWriterOpenEXR final : public IImageWriter
 }
 
 #endif // _NBL_COMPILE_WITH_OPENEXR_WRITER_
-#endif // __C_IMAGE_WRITER_OPENEXR__
+#endif

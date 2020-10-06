@@ -7,10 +7,10 @@
 
 #include "irr/core/memory/memory.h"
 
-#define _IRR_INTERFACE_CHILD(TYPE) \
+#define _NBL_INTERFACE_CHILD(TYPE) \
             _NBL_NO_PUBLIC_DELETE(TYPE)
 
-#define _IRR_INTERFACE_CHILD_DEFAULT(TYPE) \
+#define _NBL_INTERFACE_CHILD_DEFAULT(TYPE) \
             _NBL_NO_PUBLIC_DELETE_DEFAULT(TYPE)
 
 namespace irr
@@ -41,21 +41,21 @@ class NBL_FORCE_EBO NBL_NO_VTABLE Unmovable
 
 class NBL_FORCE_EBO NBL_NO_VTABLE InterfaceUnmovable : public Interface, public Unmovable
 {
-        _IRR_INTERFACE_CHILD_DEFAULT(InterfaceUnmovable);
+        _NBL_INTERFACE_CHILD_DEFAULT(InterfaceUnmovable);
     public:
         InterfaceUnmovable() = default;
 };
 
 class NBL_FORCE_EBO NBL_NO_VTABLE TotalInterface : public Interface
 {
-        _IRR_INTERFACE_CHILD_DEFAULT(TotalInterface);
+        _NBL_INTERFACE_CHILD_DEFAULT(TotalInterface);
     public:
         _NBL_NO_DEFAULT_FINAL(TotalInterface);
 };
 
 class NBL_FORCE_EBO NBL_NO_VTABLE TotalInterfaceUnmovable : public TotalInterface, public Unmovable
 {
-        _IRR_INTERFACE_CHILD_DEFAULT(TotalInterfaceUnmovable);
+        _NBL_INTERFACE_CHILD_DEFAULT(TotalInterfaceUnmovable);
 };
 
 }

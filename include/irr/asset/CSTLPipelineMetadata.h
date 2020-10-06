@@ -30,4 +30,4 @@ namespace irr
     }
 }
 
-#endif // __IRR_C_STL_PIPELINE_METADATA_H_INCLUDED__
+#endif

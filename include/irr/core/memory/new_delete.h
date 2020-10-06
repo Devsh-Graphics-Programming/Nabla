@@ -151,5 +151,5 @@ struct alligned_delete
 }
 }
 
-#endif // __IRR_NEW_DELETE_H_INCLUDED__
+#endif
 

@@ -181,7 +181,7 @@ class FactoryAndStaticSafeMT : protected FactoryAndStaticSafeST<T>
 }
 }
 
-#endif // __IRR_CORE_SINGLE_EVENT_HANDLER_H__
+#endif
 
 
 

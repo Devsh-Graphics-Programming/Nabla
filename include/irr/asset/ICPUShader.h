@@ -73,4 +73,4 @@ class ICPUShader : public IAsset, public IShader
 }
 }
 
-#endif//__IRR_I_CPU_SHADER_H_INCLUDED__
+#endif

@@ -231,5 +231,5 @@ using PoolAddressAllocatorMT = AddressAllocatorBasicConcurrencyAdaptor<PoolAddre
 }
 }
 
-#endif // __IRR_POOL_ADDRESS_ALLOCATOR_H_INCLUDED__
+#endif
 

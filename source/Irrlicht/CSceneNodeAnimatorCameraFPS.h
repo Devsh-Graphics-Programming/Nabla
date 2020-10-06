@@ -120,5 +120,5 @@ namespace scene
 } // end namespace scene
 } // end namespace irr
 
-#endif // __C_SCENE_NODE_ANIMATOR_CAMERA_FPS_H_INCLUDED__
+#endif
 

@@ -61,7 +61,7 @@ class IFrameBuffer : public virtual core::IReferenceCounted, public core::IThrea
 		virtual const core::dimension2du& getSize() const = 0;
 
     protected:
-        _IRR_INTERFACE_CHILD(IFrameBuffer) {}
+        _NBL_INTERFACE_CHILD(IFrameBuffer) {}
 };
 
 

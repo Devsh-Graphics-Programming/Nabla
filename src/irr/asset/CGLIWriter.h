@@ -71,4 +71,4 @@ class CGLIWriter final : public asset::IAssetWriter
 }
 
 #endif // _NBL_COMPILE_WITH_GLI_WRITER_
-#endif // #ifndef __C_IMAGE_WRITER_GLI__
+#endif

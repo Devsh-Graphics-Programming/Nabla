@@ -53,4 +53,4 @@ namespace irr
 	}
 }
 
-#endif // __IRR_C_WHITE_NOISE_DITHER_H_INCLUDED__
+#endif

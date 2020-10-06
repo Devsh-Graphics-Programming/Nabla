@@ -86,4 +86,4 @@ class StreamingGPUBufferAllocator : protected SimpleGPUBufferAllocator
 }
 }
 
-#endif // __IRR_STREAMING_GPUBUFFER_ALLOCATOR_H__
+#endif

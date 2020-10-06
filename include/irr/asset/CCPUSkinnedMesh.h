@@ -129,4 +129,4 @@ class CCPUSkinnedMesh : public ICPUSkinnedMesh
 
 }}
 
-#endif //__IRR_C_CPU_SKINNED_MESH_INCLUDED__
+#endif

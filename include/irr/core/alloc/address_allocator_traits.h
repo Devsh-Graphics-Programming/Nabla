@@ -253,4 +253,4 @@ namespace core
 }
 }
 
-#endif // __IRR_ADDRESS_ALLOCATOR_TYPE_TRAITS_H_INCLUDED__
+#endif

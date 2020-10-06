@@ -34,4 +34,4 @@ class IImageWriter : public IAssetWriter, public IImageAssetHandlerBase
 }
 }
 
-#endif // __IRR_I_IMAGE_WRITER_H_INCLUDED__
+#endif

@@ -488,4 +488,4 @@ inline void FW_AtomicCounterUnBlockIncr(FW_AtomicCounter &lock)
 #endif // defined
 
 
-#endif // _FW_MUTEX_H_
+#endif

@@ -45,4 +45,4 @@ class IBuiltinIncludeLoader : public core::IReferenceCounted
 }
 }
 
-#endif//__IRR_I_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
+#endif

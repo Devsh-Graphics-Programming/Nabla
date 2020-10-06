@@ -41,6 +41,6 @@ public:
 }
 }
 
-#endif // _C_IMAGE_WRITER_JPG_H_INCLUDED__
+#endif
 #endif
 

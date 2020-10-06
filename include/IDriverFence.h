@@ -29,7 +29,7 @@ enum E_DRIVER_FENCE_RETVAL
 //! Persistently Mapped buffer
 class IDriverFence : public core::IReferenceCounted
 {
-	    _IRR_INTERFACE_CHILD(IDriverFence) {}
+	    _NBL_INTERFACE_CHILD(IDriverFence) {}
     public:
         //! This tells us if we can set the `flush` argument of the `waitCPU` function to true
         virtual bool canDeferredFlush() const = 0;

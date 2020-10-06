@@ -73,4 +73,4 @@ class CBuiltinIncluder : public IIncluder
 }
 }
 
-#endif//__IRR_C_BUILTIN_INCLUDER_H_INCLUDED__
+#endif

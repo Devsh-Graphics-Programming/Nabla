@@ -401,4 +401,4 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 } // end namespace asset
 } // end namespace irr
 
-#endif // __IRR_C_SUMMED_AREA_TABLE_IMAGE_FILTER_H_INCLUDED__
+#endif

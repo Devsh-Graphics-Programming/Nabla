@@ -41,6 +41,6 @@ public:
 } // namespace video
 } // namespace irr
 
-#endif // _C_IMAGE_WRITER_TGA_H_INCLUDED__
+#endif
 #endif
 

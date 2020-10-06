@@ -202,4 +202,4 @@ protected:
 
 }}
 
-#endif // !__IRR_I_GPU_VIRTUAL_TEXTURE_H_INCLUDED__
+#endif

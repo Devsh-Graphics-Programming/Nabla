@@ -22,4 +22,4 @@ class IGPUMesh : public asset::IMesh<IGPUMeshBuffer>
 }
 }
 
-#endif //__IRR_I_GPU_MESH_H_INCLUDED__
+#endif

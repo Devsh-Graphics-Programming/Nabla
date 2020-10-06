@@ -49,4 +49,4 @@ class IAssetMetadata : public core::IReferenceCounted
 }
 }
 
-#endif // __IRR_I_ASSET_METADATA_H_INCLUDED__
+#endif

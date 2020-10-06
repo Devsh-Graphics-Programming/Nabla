@@ -2891,4 +2891,4 @@ namespace std
     };
 }
 
-#endif //__IRR_E_COLOR_H_INCLUDED__
+#endif

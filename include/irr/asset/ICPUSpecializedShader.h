@@ -86,4 +86,4 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 
 }}
 
-#endif//__IRR_I_CPU_SPECIALIZED_SHADER_H_INCLUDED__
+#endif

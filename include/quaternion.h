@@ -458,5 +458,5 @@ inline quaternion& quaternion::set(const float& roll, const float& pitch, const 
 } // end namespace core
 } // end namespace irr
 
-#endif // __IRR_QUATERNION_H_INCLUDED__
+#endif
 

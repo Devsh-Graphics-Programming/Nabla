@@ -24,7 +24,7 @@ class IBuffer : public virtual IReferenceCounted
 
         virtual const uint64_t& getLastTimeReallocated() const {return lastTimeReallocated;}
     protected:
-        _IRR_INTERFACE_CHILD(IBuffer) {}
+        _NBL_INTERFACE_CHILD(IBuffer) {}
 
         uint64_t lastTimeReallocated;
 };

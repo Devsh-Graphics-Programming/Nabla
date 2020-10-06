@@ -150,4 +150,4 @@ class ICPUSkinnedMesh : public ICPUMesh
 
 }}//irr::asset
 
-#endif //__IRR_I_CPU_SKINNED_MESH_INCLUDED__
+#endif

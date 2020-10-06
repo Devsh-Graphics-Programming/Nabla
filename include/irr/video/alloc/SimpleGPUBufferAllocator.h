@@ -69,5 +69,5 @@ namespace video
 }
 }
 
-#endif // __IRR_SIMPLE_GPU_BUFFER_ALLOCATOR_H__
+#endif
 

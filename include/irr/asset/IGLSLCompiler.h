@@ -88,4 +88,4 @@ class IGLSLCompiler final : public core::IReferenceCounted
 }
 }
 
-#endif//__IRR_I_GLSL_COMPILER_H_INCLUDED__
+#endif

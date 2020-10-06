@@ -232,5 +232,5 @@ namespace irr
 
 } // end namespace irr
 
-#endif // __C_IRR_DEVICE_CONSOLE_H_INCLUDED__
+#endif
 

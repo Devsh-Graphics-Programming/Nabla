@@ -126,4 +126,4 @@ namespace io
 } // end namespace irr
 
 #endif // __NBL_COMPILE_WITH_TAR_ARCHIVE_LOADER_
-#endif // __C_TAR_READER_H_INCLUDED__
+#endif

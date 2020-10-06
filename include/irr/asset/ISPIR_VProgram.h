@@ -31,4 +31,4 @@ class ISPIR_VProgram : public core::IReferenceCounted
 }
 }
 
-#endif//__IRR_I_SPIR_V_PROGRAM_H_INCLUDED__
+#endif

@@ -118,5 +118,5 @@ namespace io
 
 #endif // __NBL_COMPILE_WITH_PAK_ARCHIVE_LOADER_
 
-#endif // __C_PAK_READER_H_INCLUDED__
+#endif
 

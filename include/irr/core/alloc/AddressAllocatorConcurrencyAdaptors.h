@@ -116,4 +116,4 @@ class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
 }
 }
 
-#endif // __IRR_ADDRESS_ALLOCATOR_CONCURRENCY_ADAPTORS_H_INCLUDED__
+#endif

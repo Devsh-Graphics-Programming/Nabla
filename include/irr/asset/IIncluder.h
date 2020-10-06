@@ -60,4 +60,4 @@ class IIncluder : public core::IReferenceCounted
 }
 }
 
-#endif//__IRR_I_INCLUDER_H_INCLUDED__
+#endif

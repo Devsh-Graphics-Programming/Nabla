@@ -91,4 +91,4 @@ HostDeviceMirrorBufferAllocator<HostAllocator>::HostDeviceMirrorBufferAllocator(
 }
 }
 
-#endif // __IRR_HOST_DEVICE_MIRROR_BUFFER_ALLOCATOR_H__
+#endif

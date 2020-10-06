@@ -46,4 +46,4 @@ class NBL_FORCE_EBO IAllocatorAdaptor final : private Alloc, public IAllocator
 }
 }
 
-#endif // __IRR_I_ALLOCATOR_H_INCLUDED__
+#endif

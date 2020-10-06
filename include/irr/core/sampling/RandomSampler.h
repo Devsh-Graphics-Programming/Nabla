@@ -37,4 +37,4 @@ namespace core
 }
 }
 
-#endif // _IRR_CORE_RANDOM_SAMPLER_H_
+#endif

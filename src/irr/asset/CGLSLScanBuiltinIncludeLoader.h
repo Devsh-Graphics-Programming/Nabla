@@ -81,4 +81,4 @@ private:
 
 }}
 
-#endif //__IRR_C_GLSL_SCAN_BUILTIN_LOADER_H_INCLUDED__
+#endif

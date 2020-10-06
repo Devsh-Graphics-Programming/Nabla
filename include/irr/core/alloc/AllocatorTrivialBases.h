@@ -43,4 +43,4 @@ class NBL_FORCE_EBO AllocatorTrivialBase
 }
 }
 
-#endif // __IRR_ALLOCATOR_TRIVIAL_BASES_H_INCLUDED__
+#endif

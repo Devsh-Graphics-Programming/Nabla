@@ -169,4 +169,4 @@ class IPipelineMetadata : public IAssetMetadata
 }
 }
 
-#endif // __IRR_I_PIPELINE_METADATA_H_INCLUDED__
+#endif

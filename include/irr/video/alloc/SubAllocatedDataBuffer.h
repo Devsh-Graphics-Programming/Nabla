@@ -266,7 +266,7 @@ using SubAllocatedDataBufferST = SubAllocatedDataBuffer<core::HeterogenousMemory
 }
 }
 
-#endif // __IRR_SUB_ALLOCATED_DATA_BUFFER_H__
+#endif
 
 
 

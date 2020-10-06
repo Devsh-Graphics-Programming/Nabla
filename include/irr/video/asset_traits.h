@@ -95,4 +95,4 @@ using created_gpu_object_array = core::smart_refctd_dynamic_array<core::smart_re
 }
 }
 
-#endif //__IRR_ASSET_TRAITS_H_INCLUDED__
+#endif

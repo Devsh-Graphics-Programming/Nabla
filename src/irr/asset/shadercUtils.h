@@ -32,5 +32,5 @@ inline shaderc_shader_kind ESStoShadercEnum(ISpecializedShader::E_SHADER_STAGE _
 
 }}
 
-#endif // __IRR_SHADERC_UTILS_H_INCLUDED__
+#endif
 

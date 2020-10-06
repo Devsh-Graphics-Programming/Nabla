@@ -148,5 +148,5 @@ namespace core
 }
 }
 
-#endif // __IRR_ADDRESS_ALLOCATOR_BASE_H_INCLUDED__
+#endif
 

@@ -53,4 +53,4 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 }
 }
 
-#endif//__IRR_I_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
+#endif

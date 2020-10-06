@@ -36,4 +36,4 @@ class IIncludeHandler : public core::IReferenceCounted
 }
 }
 
-#endif//__IRR_I_INCLUDE_HANDLER_H_INCLUDED__
+#endif

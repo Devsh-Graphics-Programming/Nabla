@@ -38,4 +38,4 @@ inline matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& other_a, const mat
 }
 }
 
-#endif // __IRR_MATRIX_UTIL_H_INCLUDED__
+#endif

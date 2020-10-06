@@ -44,4 +44,4 @@ namespace irr
 }
 
 #endif // _NBL_COMPILE_WITH_OPENEXR_LOADER_
-#endif // __C_IMAGE_LOADER_OPENEXR__
+#endif

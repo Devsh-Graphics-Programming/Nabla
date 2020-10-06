@@ -220,5 +220,5 @@ namespace io
 } // end namespace irr
 
 #endif // __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
-#endif // __C_ZIP_READER_H_INCLUDED__
+#endif
 

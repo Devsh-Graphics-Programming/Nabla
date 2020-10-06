@@ -1742,4 +1742,4 @@ namespace asset
 }
 }
 
-#endif //__IRR_DECODE_PIXELS_H_INCLUDED__
+#endif

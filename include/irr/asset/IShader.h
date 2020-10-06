@@ -80,4 +80,4 @@ class IShader : public virtual core::IReferenceCounted
 }
 }
 
-#endif//__IRR_I_SHADER_H_INCLUDED__
+#endif

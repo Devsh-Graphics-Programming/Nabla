@@ -60,5 +60,5 @@ class COpenGLQuery : public IQueryObject
 }
 #endif // _NBL_COMPILE_WITH_OPENGL_
 
-#endif // __C_OPENGL_QUERY_H_INCLUDED__
+#endif
 

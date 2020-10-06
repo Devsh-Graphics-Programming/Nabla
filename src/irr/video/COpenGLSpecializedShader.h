@@ -130,4 +130,4 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 }
 #endif
 
-#endif//__IRR_C_OPENGL_SPECIALIZED_SHADER_H_INCLUDED__
+#endif

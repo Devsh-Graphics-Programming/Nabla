@@ -192,4 +192,4 @@ protected:
 
 }} //irr::asset
 
-#endif //__IRR_I_ASSET_WRITER_H_INCLUDED__
+#endif

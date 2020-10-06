@@ -52,5 +52,5 @@ namespace irr
 
 } // end namespace irr
 
-#endif // __E_DEVICE_TYPES_H_INCLUDED__
+#endif
 

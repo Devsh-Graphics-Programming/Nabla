@@ -145,4 +145,4 @@ private:
 } // io
 } // irr
 
-#endif // __IRR_PATH_H_INCLUDED__
+#endif

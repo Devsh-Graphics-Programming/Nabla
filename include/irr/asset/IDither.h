@@ -47,4 +47,4 @@ namespace irr
     }
 }
 
-#endif // __IRR_I_DITHER_H_INCLUDED__
+#endif

@@ -96,7 +96,7 @@ namespace gui
 	//! Interface to manipulate the mouse cursor.
 	class ICursorControl : public core::IReferenceCounted
 	{
-	    _IRR_INTERFACE_CHILD(ICursorControl) {}
+	    _NBL_INTERFACE_CHILD(ICursorControl) {}
 	public:
 
 		//! Changes the visible state of the mouse cursor.

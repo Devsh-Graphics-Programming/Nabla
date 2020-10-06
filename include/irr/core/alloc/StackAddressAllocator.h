@@ -136,5 +136,5 @@ using StackAddressAllocatorST = StackAddressAllocator<size_type>;
 }
 }
 
-#endif // __IRR_STACK_ADDRESS_ALLOCATOR_H_INCLUDED__
+#endif
 

@@ -50,7 +50,7 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
 		}
 
     protected:
-        _IRR_INTERFACE_CHILD(IGPUImage) {}
+        _NBL_INTERFACE_CHILD(IGPUImage) {}
 
         //! constructor
 		IGPUImage(SCreationParams&& _params)

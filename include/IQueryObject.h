@@ -26,7 +26,7 @@ enum E_QUERY_OBJECT_TYPE
 
 class IQueryObject : public core::IReferenceCounted
 {
-	    _IRR_INTERFACE_CHILD(IQueryObject) {}
+	    _NBL_INTERFACE_CHILD(IQueryObject) {}
     public:
         /// ALL will STALL CPU IF QUERY NOT READY
 		virtual void getQueryResult(uint32_t* queryResult) = 0;
@@ -48,5 +48,5 @@ class IQueryObject : public core::IReferenceCounted
 }
 }
 
-#endif // __I_QUERY_OBJECT_H_INCLUDED__
+#endif
 

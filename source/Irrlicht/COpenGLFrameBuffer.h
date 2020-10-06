@@ -53,6 +53,6 @@ class COpenGLFrameBuffer final : public IFrameBuffer
 } // end namespace irr
 
 #endif
-#endif // _NBL_COMPILE_WITH_OPENGL_
+#endif
 
 

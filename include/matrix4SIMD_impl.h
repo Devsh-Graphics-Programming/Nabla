@@ -373,4 +373,4 @@ inline bool matrix4SIMD::isBoxInFrustum(const aabbox3d<float>& bbox)
 }
 } // irr::core
 
-#endif // __IRR_MATRIX4SIMD_IMPL_H_INCLUDED__
+#endif

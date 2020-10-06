@@ -186,7 +186,7 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
 }
 }
 
-#endif // __IRR_STREAMING_TRANSIENT_DATA_BUFFER_H__
+#endif
 
 
 

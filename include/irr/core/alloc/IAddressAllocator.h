@@ -16,7 +16,7 @@ namespace core
 
 class NBL_FORCE_EBO IAddressAllocator : Interface
 {
-        _IRR_INTERFACE_CHILD_DEFAULT(IAddressAllocator);
+        _NBL_INTERFACE_CHILD_DEFAULT(IAddressAllocator);
     public:
         virtual size_t              get_real_addr(size_t allocated_addr) const noexcept = 0;
 
@@ -86,5 +86,5 @@ class NBL_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, p
 }
 }
 
-#endif // __IRR_I_ADDRESS_ALLOCATOR_H_INCLUDED__
+#endif
 

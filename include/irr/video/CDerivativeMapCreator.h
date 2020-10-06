@@ -35,4 +35,4 @@ class CDerivativeMapCreator final : public core::IReferenceCounted
 }
 }
 
-#endif//__IRR_C_DERIVATIVE_MAP_CREATOR_H_INCLUDED__
+#endif

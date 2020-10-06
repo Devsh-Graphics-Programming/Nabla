@@ -30,4 +30,4 @@ class GPUMemoryAllocatorBase
 }
 
 
-#endif // __IRR_GPU_MEMORY_ALLOCATOR_BASE_H__
+#endif

@@ -210,6 +210,6 @@ struct NBL_FORCE_EBO AllocationOverrideDefault {};
 }
 }
 
-#endif // __IRR_ALIGNMENT_H_INCLUDED__
+#endif
 
 

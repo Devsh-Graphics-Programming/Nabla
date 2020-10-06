@@ -71,5 +71,5 @@ namespace video
 } // end namespace video
 } // end namespace irr
 
-#endif//__S_GPU_MESH_H_INCLUDED__
+#endif
 

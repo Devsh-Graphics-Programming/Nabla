@@ -30,4 +30,4 @@ private:
 
 }} // irr::asset
 
-#endif // __IRR_C_GLSL_VERTEX_SHADER_BUILTIN_LOADER_H_INCLUDED__
+#endif

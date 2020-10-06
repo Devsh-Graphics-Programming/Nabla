@@ -33,4 +33,4 @@ namespace irr
     }
 }
 
-#endif // __IRR_C_PLY_PIPELINE_METADATA_H_INCLUDED__
+#endif

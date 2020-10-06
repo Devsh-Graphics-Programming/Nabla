@@ -49,4 +49,4 @@ struct SBufferRange
 }
 }
 
-#endif//__IRR_ASSET_I_BUFFER_H_INCLUDED__
+#endif

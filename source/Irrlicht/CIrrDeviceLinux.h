@@ -415,5 +415,5 @@ namespace irr
 } // end namespace irr
 
 #endif // _NBL_COMPILE_WITH_X11_DEVICE_
-#endif // __C_IRR_DEVICE_LINUX_H_INCLUDED__
+#endif
 

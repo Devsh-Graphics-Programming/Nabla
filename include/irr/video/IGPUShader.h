@@ -22,4 +22,4 @@ class IGPUShader : public asset::IShader
 }
 }
 
-#endif//__IRR_I_GPU_SHADER_H_INCLUDED__
+#endif

@@ -832,4 +832,4 @@ public:
 
 #undef INSERT_IMPL_VEC
 #undef INSERT_IMPL_ASSOC
-#endif //__C_OBJECT_CACHE_H_INCLUDED__
+#endif

@@ -95,4 +95,4 @@ constexpr inline bool is_aligned_to(const void* value, size_t alignment)
 }
 
 
-#endif // __IRR_MEMORY_H_INCLUDED__
+#endif

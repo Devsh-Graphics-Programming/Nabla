@@ -205,7 +205,7 @@ class ResizableHeterogenousMemoryAllocator : public impl::ResizableHeterogenousM
 }
 }
 
-#endif // __IRR_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
+#endif
 
 
 

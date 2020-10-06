@@ -325,4 +325,4 @@ class SAssetBundle
 }
 }
 
-#endif // __IRR_I_ASSET_H_INCLUDED__
+#endif

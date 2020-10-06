@@ -44,4 +44,4 @@ struct SBasicViewParameters
 
 }}
 
-#endif//__IRR_ASSET_UTILS_H_INCLUDED__
+#endif

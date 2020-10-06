@@ -57,4 +57,4 @@ private:
 
 }}
 
-#endif//__IRR_C_OVERDRAW_MESH_OPTIMIZER_H_INCLUDED__
+#endif

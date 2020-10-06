@@ -254,4 +254,4 @@ inline bool operator<(const SShaderInfoVariant& _lhs, const SShaderInfoVariant& 
 
 }}
 
-#endif//__IRR_SHADER_RES_H_INCLUDED__
+#endif

@@ -144,5 +144,5 @@ code like 'code', but some generate warnings so we use this macro here */
 #define _strcmpi(a,b) strcmpi(a,b)
 #endif
 
-#endif // __IRR_TYPES_H_INCLUDED__
+#endif
 

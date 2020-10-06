@@ -31,4 +31,4 @@ class IImageLoader : public IAssetLoader, public IImageAssetHandlerBase
 }
 }
 
-#endif // __IRR_I_IMAGE_LOADER_H_INCLUDED__
+#endif

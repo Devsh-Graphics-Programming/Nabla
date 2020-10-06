@@ -151,4 +151,4 @@ inline bool operator<(const ISpecializedShader::SInfo::SMapEntry& _a, const ISpe
 }
 }
 
-#endif // __IRR_I_SPECIALIZED_SHADER_H_INCLUDED__
+#endif

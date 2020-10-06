@@ -43,4 +43,4 @@ private:
 
 }}
 
-#endif//__IRR_C_INCLUDER_H_INCLUDED__
+#endif
