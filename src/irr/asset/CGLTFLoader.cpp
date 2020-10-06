@@ -46,7 +46,8 @@ namespace irr
 			constexpr uint8_t POSITION_ATTRIBUTE = 0;
 			constexpr uint8_t NORMAL_ATTRIBUTE = 3;
 
-			auto mesh = core::make_smart_refctd_ptr<CCPUMesh>();
+			std::unordered_map<std::string, core::smart_refctd_ptr<CCPUMesh>> cpuMeshes;
+
 			auto meshBuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
 			meshBuffer->setPositionAttributeIx(POSITION_ATTRIBUTE);
 			meshBuffer->setNormalnAttributeIx(NORMAL_ATTRIBUTE);
@@ -73,6 +74,77 @@ namespace irr
 			auto& textures = tweets.at_key("textures");
 			auto& extensions = tweets.at_key("extensions");
 			auto& extras = tweets.at_key("extras");
+
+			if (meshes.error() != simdjson::error_code::NO_SUCH_FIELD)
+			{
+				auto& mData = meshes.get_array();
+				for (size_t iteratorID = 0; iteratorID < mData.size(); ++iteratorID)
+				{
+					auto& mesh = mData.at(iteratorID);
+					auto& primitives = mesh.at_key("primitives");
+					auto& weights = mesh.at_key("weights");
+					auto& name = mesh.at_key("name");
+					auto& extensions = mesh.at_key("extensions");
+					auto& extras = mesh.at_key("extras");
+
+					if (primitives.error() == simdjson::error_code::NO_SUCH_FIELD)
+						return {};
+
+					auto& pData = primitives.get_array();
+					for (size_t iteratorID = 0; iteratorID < pData.size(); ++iteratorID)
+					{
+						auto& primitive = pData.at(iteratorID);
+						auto& attributes = primitive.at_key("attributes");
+						auto& indices = primitive.at_key("indices");
+						auto& material = primitive.at_key("material");
+						auto& mode = primitive.at_key("mode");
+						auto& targets = primitive.at_key("targets");
+						auto& extensions = primitive.at_key("extensions");
+						auto& extras = primitive.at_key("extras");
+
+						if (attributes.error() != simdjson::error_code::NO_SUCH_FIELD)
+						{
+							auto& position = attributes.at_key("POSITION");
+							auto& normal = attributes.at_key("NORMAL");
+							auto& tangent = attributes.at_key("TANGENT");
+							auto& texcoord0 = attributes.at_key("TEXCOORD_0");
+							auto& texcoord1 = attributes.at_key("TEXCOORD_1");
+							auto& color0 = attributes.at_key("COLOR_0");
+							auto& joint0 = attributes.at_key("JOINTS_0");
+							auto& weight0 = attributes.at_key("WEIGHTS_0");
+
+							// TODO
+						}
+						else
+							return {};
+
+						auto getMode = [&]() -> E_PRIMITIVE_TOPOLOGY
+						{
+							switch (mode.get_uint64().value())
+							{
+								case SGLTFPT_POINTS:
+									return EPT_POINT_LIST;
+								case SGLTFPT_LINES:
+									return EPT_LINE_LIST;
+								case SGLTFPT_LINE_LOOP:
+									return EPT_LINE_LIST_WITH_ADJACENCY; // check it
+								case SGLTFPT_LINE_STRIP: 
+									return EPT_LINE_STRIP;
+								case SGLTFPT_TRIANGLES: 
+									return EPT_TRIANGLE_LIST;
+								case SGLTFPT_TRIANGLE_STRIP:
+									return EPT_TRIANGLE_STRIP;
+								case SGLTFPT_TRIANGLE_FAN: 
+									return EPT_TRIANGLE_STRIP_WITH_ADJACENCY; // check it
+								default:
+									return {};
+							}
+						};
+
+						const E_PRIMITIVE_TOPOLOGY primitiveTopology = mode.error() == simdjson::error_code::NO_SUCH_FIELD ? EPT_TRIANGLE_LIST : getMode();
+					}
+				}
+			}
 
 			if (bufferViews.error() != simdjson::error_code::NO_SUCH_FIELD)
 			{

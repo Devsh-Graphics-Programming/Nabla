@@ -47,6 +47,17 @@ namespace irr
 					std::optional<std::string> copyright;
 				};
 
+				enum SGLTFPrimitiveTopology
+				{
+					SGLTFPT_POINTS,
+					SGLTFPT_LINES,
+					SGLTFPT_LINE_LOOP,
+					SGLTFPT_LINE_STRIP,
+					SGLTFPT_TRIANGLES,
+					SGLTFPT_TRIANGLE_STRIP,
+					SGLTFPT_TRIANGLE_FAN
+				};
+
 				asset::IAssetManager* const assetManager;
 		};
 	}
