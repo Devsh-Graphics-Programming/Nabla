@@ -184,6 +184,7 @@ class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedLis
 		inline void insertAt(uint32_t addr, Value&& val)
 		{
 			assert(addr < cap);
+			assert(addr != invalid_iterator);
 			SDoublyLinkedNode<Value>* n = new(m_array + addr) SDoublyLinkedNode<Value>(std::move(val));
 			m_array[addr] = *n;
 			n->prev = invalid_iterator;
