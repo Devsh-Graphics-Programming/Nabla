@@ -1,9 +1,9 @@
 #include "irr/ext/Blur/CBlurPerformer.h"
 
-#include "../../source/Irrlicht/COpenGLBuffer.h"
-#include "../../source/Irrlicht/COpenGLDriver.h"
-#include "../../source/Irrlicht/COpenGLExtensionHandler.h"
-#include "../../source/Irrlicht/COpenGL2DTexture.h"
+#include "../../../../source/Irrlicht/COpenGLBuffer.h"
+#include "../../../../source/Irrlicht/COpenGLDriver.h"
+#include "../../../../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "../../../../source/Irrlicht/COpenGL2DTexture.h"
 
 using namespace irr;
 using namespace ext;

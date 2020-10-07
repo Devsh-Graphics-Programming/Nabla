@@ -30,7 +30,7 @@ SOFTWARE.
 
 #include "stb/stb_image.h"
 #include "portable-file-dialogs/portable-file-dialogs.h"
-#include "Helpers.h"
+#include "irr/ext/CEGUI/Helpers.h"
 
 #include <string>
 #include <fstream>

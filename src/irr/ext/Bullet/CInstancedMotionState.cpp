@@ -1,4 +1,4 @@
-#include "CInstancedMotionState.h"
+#include "irr/ext/Bullet/CInstancedMotionState.h"
 
 #include "irr/ext/DebugDraw/CDraw3DLine.h"
 using namespace irr;

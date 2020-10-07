@@ -1,4 +1,4 @@
-#include "CMitsubaMaterialCompilerFrontend.h"
+#include "irr/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
 
 #include <irr/core/Types.h>
 
