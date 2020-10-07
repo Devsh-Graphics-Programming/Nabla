@@ -14,20 +14,10 @@
 //#define IRRLICHT_VERSION_SVN -alpha
 #define NABLA_SDK_VERSION "0.3.0-beta2"
 
-#define NEW_MESHES
-
 #include <stdio.h> // TODO: Although included elsewhere this is required at least for mingw
-
-//! Uncomment this line to compile with the SDL device
-//#define _NBL_COMPILE_WITH_SDL_DEVICE_
-#ifdef NO_NBL_COMPILE_WITH_SDL_DEVICE_
-#undef _NBL_COMPILE_WITH_SDL_DEVICE_
-#endif
 
 // this actually includes file depending on build type (Debug/Release)
 #include "BuildConfigOptions.h"
-
-#define NEW_SHADERS 1
 
 #ifdef _NBL_TARGET_ARCH_ARM_
 #   define __NBL_COMPILE_WITH_ARM_SIMD_ // NEON

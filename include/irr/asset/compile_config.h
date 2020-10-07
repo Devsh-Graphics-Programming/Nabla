@@ -7,8 +7,6 @@
 
 #define NEW_MESHES
 
-#include <stdio.h> // TODO: Although included elsewhere this is required at least for mingw
-
 #define NEW_SHADERS 1
 
 //! Define _NBL_COMPILE_WITH_OPENSSL_ to enable compiling the engine using libssl.

@@ -5,14 +5,6 @@
 #ifndef __NBL_SYSTEM_COMPILE_CONFIG_H_INCLUDED__
 #define __NBL_SYSTEM_COMPILE_CONFIG_H_INCLUDED__
 
-#include <stdio.h> // TODO: Although included elsewhere this is required at least for mingw
-
-//! Uncomment this line to compile with the SDL device
-//#define _NBL_COMPILE_WITH_SDL_DEVICE_
-#ifdef NO_NBL_COMPILE_WITH_SDL_DEVICE_
-#undef _NBL_COMPILE_WITH_SDL_DEVICE_
-#endif
-
 #if defined(_NBL_PLATFORM_LINUX_)
 #   define _NBL_POSIX_API_
 #   define _NBL_COMPILE_WITH_X11_DEVICE_
