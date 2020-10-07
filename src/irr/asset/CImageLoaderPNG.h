@@ -1,10 +1,9 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
 // this file was created by rt (www.tomkorp.com), based on ttk's png-reader
-// i wanted to be able to read in PNG images with irrlicht :)
-// why?  lossless compression with 8-bit alpha channel!
 
 #ifndef __C_IMAGE_LOADER_PNG_H_INCLUDED__
 #define __C_IMAGE_LOADER_PNG_H_INCLUDED__
