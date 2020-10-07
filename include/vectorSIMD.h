@@ -25,7 +25,7 @@
 #include "vector3d.h"
 
 
-#define _IRR_VECTOR_ALIGNMENT _IRR_SIMD_ALIGNMENT // if this gets changed to non-16 it can and will break external code
+#define _IRR_VECTOR_ALIGNMENT _NBL_SIMD_ALIGNMENT // if this gets changed to non-16 it can and will break external code
 
 
 namespace irr

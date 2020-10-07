@@ -83,7 +83,7 @@ struct SPropertyElementData
 	~SPropertyElementData()
 	{
 		if (type == Type::STRING)
-			_IRR_ALIGNED_FREE((void*)svalue);
+			_NBL_ALIGNED_FREE((void*)svalue);
 	}
 
 	inline SPropertyElementData& operator=(const SPropertyElementData& other)
@@ -103,7 +103,7 @@ struct SPropertyElementData
 			case Type::STRING:
 			{
 				auto len = strlen(other.svalue);
-				auto* tmp = (char*)_IRR_ALIGNED_MALLOC(len+1u,64u);
+				auto* tmp = (char*)_NBL_ALIGNED_MALLOC(len+1u,64u);
 				memcpy(tmp,other.svalue,len);
 				tmp[len] = 0;
 				svalue = tmp;

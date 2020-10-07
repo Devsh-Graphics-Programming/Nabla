@@ -116,7 +116,7 @@ class ResizableHeterogenousMemoryAllocator : public impl::ResizableHeterogenousM
             const void* oldReserved = alloc_traits::getReservedSpacePtr(mAddrAlloc);
 
             Base::mReservedSize = alloc_traits::reserved_size(mAddrAlloc,newSize);
-            void* newReserved = Base::mReservedAlloc.allocate(Base::mReservedSize,_IRR_SIMD_ALIGNMENT);
+            void* newReserved = Base::mReservedAlloc.allocate(Base::mReservedSize,_NBL_SIMD_ALIGNMENT);
 
 
             Base::mDataSize = newSize;
@@ -152,7 +152,7 @@ class ResizableHeterogenousMemoryAllocator : public impl::ResizableHeterogenousM
             const void* oldReserved = alloc_traits::getReservedSpacePtr(mAddrAlloc);
 
             Base::mReservedSize = alloc_traits::reserved_size(mAddrAlloc,newSize);
-            void* newReserved = Base::mReservedAlloc.allocate(Base::mReservedSize,_IRR_SIMD_ALIGNMENT);
+            void* newReserved = Base::mReservedAlloc.allocate(Base::mReservedSize,_NBL_SIMD_ALIGNMENT);
 
 
             Base::mDataSize = newSize;

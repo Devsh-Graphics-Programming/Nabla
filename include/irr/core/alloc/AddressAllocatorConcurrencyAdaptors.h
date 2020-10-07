@@ -24,7 +24,7 @@ class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
 
         AddressAllocator& getBaseRef() {return reinterpret_cast<AddressAllocator&>(*this);}
     public:
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(typename AddressAllocator::size_type);
+        _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(typename AddressAllocator::size_type);
 
         typedef address_allocator_traits<AddressAllocator>              traits;
         static_assert(address_allocator_traits<AddressAllocator>::supportsArbitraryOrderFrees,"AddressAllocator does not support arbitrary order frees!");

@@ -22,7 +22,7 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
     public:
         static constexpr bool supportsArbitraryOrderFrees = false;
 
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+        _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
         static constexpr bool supportsNullBuffer = true;
 

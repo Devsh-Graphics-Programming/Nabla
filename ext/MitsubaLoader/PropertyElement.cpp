@@ -112,7 +112,7 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 			FAIL_IF_ATTRIBUTE_NULL(0u)
 			{
 				auto len = strlen(desiredAttributes[0]);
-				auto* tmp = (char*)_IRR_ALIGNED_MALLOC(len + 1u, 64u);
+				auto* tmp = (char*)_NBL_ALIGNED_MALLOC(len + 1u, 64u);
 				strcpy(tmp, desiredAttributes[0]); tmp[len] = 0;
 				result.svalue = tmp;
 			}

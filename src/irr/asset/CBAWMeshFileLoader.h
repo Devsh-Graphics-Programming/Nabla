@@ -52,7 +52,7 @@ private:
         SBlobData_t<HeaderT>& operator=(const SBlobData_t<HeaderT>&) = delete;
 		~SBlobData_t() {
             if (heapBlob)
-                _IRR_ALIGNED_FREE(heapBlob);
+                _NBL_ALIGNED_FREE(heapBlob);
         }
 
 			bool validate() const {
@@ -61,7 +61,7 @@ private:
 			}
 
 		};
-		using SBlobData = SBlobData_t<asset::BlobHeaderVn<_IRR_BAW_FORMAT_VERSION>>;
+		using SBlobData = SBlobData_t<asset::BlobHeaderVn<_NBL_FORMAT_VERSION>>;
 
 		struct SContext
 		{
@@ -117,8 +117,8 @@ private:
 			const size_t prevPos = _file->getPos();
 			_file->seek(0u);
 			bool res = false;
-			for (uint32_t i = 0u; i <= _IRR_BAW_FORMAT_VERSION; ++i)
-				res |= verifyFile(_IRR_BAW_FORMAT_VERSION-i, ctx);
+			for (uint32_t i = 0u; i <= _NBL_FORMAT_VERSION; ++i)
+				res |= verifyFile(_NBL_FORMAT_VERSION-i, ctx);
 			_file->seek(prevPos);
 
 			return res;
@@ -265,7 +265,7 @@ private:
 
 		//! Converts file from format version (IntoVersion-1) into version IntoVersion (i.e. specialization with IntoVersion == 0 would be invalid).
 		//! Must return _original if _original's version is IntoVersion.
-		//! If new format version comes up, just increment _IRR_BAW_FORMAT_VERSION and specialize this template. All the other code will take care of itself.
+		//! If new format version comes up, just increment _NBL_FORMAT_VERSION and specialize this template. All the other code will take care of itself.
 		template<uint64_t IntoVersion>
 		io::IReadFile* createConvertIntoVer_spec(SContext& _ctx, io::IReadFile* _original, asset::IAssetLoader::IAssetLoaderOverride* _override, const CommonDataTuple<IntoVersion-1ull>& _common); // here goes unpack tuple
 		template<uint64_t IntoVersion>
@@ -293,10 +293,10 @@ private:
 		template<uint64_t ...Versions>
 		io::IReadFile* tryCreateNewestFormatVersionFile(io::IReadFile* _originalFile, asset::IAssetLoader::IAssetLoaderOverride* _override, std::integer_sequence<uint64_t, Versions...>)
 		{
-			static_assert(sizeof...(Versions)==_IRR_BAW_FORMAT_VERSION, "sizeof...(Versions) must be equal to _IRR_BAW_FORMAT_VERSION");
+			static_assert(sizeof...(Versions)==_NBL_FORMAT_VERSION, "sizeof...(Versions) must be equal to _NBL_FORMAT_VERSION");
 
 			using convertFuncT = io::IReadFile*(CBAWMeshFileLoader::*)(io::IReadFile*, asset::IAssetLoader::IAssetLoaderOverride*);
-			convertFuncT convertFunc[_IRR_BAW_FORMAT_VERSION]{ &CBAWMeshFileLoader::createConvertIntoVer<Versions+1ull>... };
+			convertFuncT convertFunc[_NBL_FORMAT_VERSION]{ &CBAWMeshFileLoader::createConvertIntoVer<Versions+1ull>... };
 
 			if (!_originalFile)
 				return nullptr;
@@ -309,7 +309,7 @@ private:
 			_originalFile->seek(0u);
 
 			io::IReadFile* newestFormatFile = _originalFile;
-			while (version != _IRR_BAW_FORMAT_VERSION)
+			while (version != _NBL_FORMAT_VERSION)
 			{
 	#define CALL_MEMBER_FN(object,ptrToMember)  ((object).*(ptrToMember))
 				io::IReadFile* tmp = CALL_MEMBER_FN(*this, convertFunc[version])(newestFormatFile, _override);
@@ -361,8 +361,8 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
         return false;
     if (!safeRead(_ctx.inner.mainFile, _ctx.iv, 16))
         return false;
-    uint32_t* const offsets = *_offsets = (uint32_t*)_IRR_ALIGNED_MALLOC(*_blobCnt*sizeof(uint32_t), _IRR_SIMD_ALIGNMENT);
-    *_headers = _IRR_ALIGNED_MALLOC(*_blobCnt*sizeof(HeaderT), _IRR_SIMD_ALIGNMENT);
+    uint32_t* const offsets = *_offsets = (uint32_t*)_NBL_ALIGNED_MALLOC(*_blobCnt*sizeof(uint32_t), _NBL_SIMD_ALIGNMENT);
+    *_headers = _NBL_ALIGNED_MALLOC(*_blobCnt*sizeof(HeaderT), _NBL_SIMD_ALIGNMENT);
     HeaderT* const headers = (HeaderT*)*_headers;
 
     bool nope = false;
@@ -389,8 +389,8 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
 
     if (nope)
     {
-        _IRR_ALIGNED_FREE(offsets);
-        _IRR_ALIGNED_FREE(*_headers);
+        _NBL_ALIGNED_FREE(offsets);
+        _NBL_ALIGNED_FREE(*_headers);
         return false;
     }
     return true;
@@ -403,14 +403,14 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData_t<HeaderT> & _data,
     if (_stackPtr && _data.header->blobSizeDecompr <= _stackSize && _data.header->effectiveSize() <= _stackSize)
         dst = _stackPtr;
     else
-        dst = _IRR_ALIGNED_MALLOC(BlobHeaderVn<_IRR_BAW_FORMAT_VERSION>::calcEncSize(_data.header->blobSizeDecompr), _IRR_SIMD_ALIGNMENT);
+        dst = _NBL_ALIGNED_MALLOC(BlobHeaderVn<_NBL_FORMAT_VERSION>::calcEncSize(_data.header->blobSizeDecompr), _NBL_SIMD_ALIGNMENT);
 
     const bool encrypted = (_data.header->compressionType & asset::Blob::EBCT_AES128_GCM);
     const bool compressed = (_data.header->compressionType & asset::Blob::EBCT_LZ4) || (_data.header->compressionType & asset::Blob::EBCT_LZMA);
 
     void* dstCompressed = dst; // ptr to mem to load possibly compressed data
     if (compressed)
-        dstCompressed = _IRR_ALIGNED_MALLOC(_data.header->effectiveSize(), _IRR_SIMD_ALIGNMENT);
+        dstCompressed = _NBL_ALIGNED_MALLOC(_data.header->effectiveSize(), _NBL_SIMD_ALIGNMENT);
 
     _ctx.inner.mainFile->seek(_data.absOffset);
     _ctx.inner.mainFile->read(dstCompressed, _data.header->effectiveSize());
@@ -422,12 +422,12 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData_t<HeaderT> & _data,
 #endif
         if (compressed)
         {
-            _IRR_ALIGNED_FREE(dstCompressed);
+            _NBL_ALIGNED_FREE(dstCompressed);
             if (dst != _stackPtr)
-                _IRR_ALIGNED_FREE(dst);
+                _NBL_ALIGNED_FREE(dst);
         }
         else if (dst != _stackPtr)
-            _IRR_ALIGNED_FREE(dstCompressed);
+            _NBL_ALIGNED_FREE(dstCompressed);
         return NULL;
     }
 
@@ -435,15 +435,15 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData_t<HeaderT> & _data,
     {
 #ifdef _NBL_COMPILE_WITH_OPENSSL_
         const size_t size = _data.header->effectiveSize();
-        void* out = _IRR_ALIGNED_MALLOC(size, _IRR_SIMD_ALIGNMENT);
+        void* out = _NBL_ALIGNED_MALLOC(size, _NBL_SIMD_ALIGNMENT);
         const bool ok = asset::decAes128gcm(dstCompressed, size, out, size, _pwd, _ctx.iv, _data.header->gcmTag);
         if (dstCompressed != _stackPtr)
-            _IRR_ALIGNED_FREE(dstCompressed);
+            _NBL_ALIGNED_FREE(dstCompressed);
         if (!ok)
         {
             if (dst != _stackPtr && dstCompressed != dst)
-                _IRR_ALIGNED_FREE(dst);
-            _IRR_ALIGNED_FREE(out);
+                _NBL_ALIGNED_FREE(dst);
+            _NBL_ALIGNED_FREE(out);
 #ifdef _NBL_DEBUG
             os::Printer::log("Blob decryption failed!", ELL_ERROR);
 #       endif
@@ -455,12 +455,12 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData_t<HeaderT> & _data,
 #else
         if (compressed)
         {
-            _IRR_ALIGNED_FREE(dstCompressed);
+            _NBL_ALIGNED_FREE(dstCompressed);
             if (dst != _stackPtr)
-                _IRR_ALIGNED_FREE(dst);
+                _NBL_ALIGNED_FREE(dst);
         }
         else if (dst != _stackPtr)
-            _IRR_ALIGNED_FREE(dstCompressed);
+            _NBL_ALIGNED_FREE(dstCompressed);
         return NULL;
 #endif
     }
@@ -475,11 +475,11 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData_t<HeaderT> & _data,
         else if (comprType & asset::Blob::EBCT_LZMA)
             res = decompressLzma(dst, _data.header->blobSizeDecompr, dstCompressed, _data.header->blobSize);
 
-        _IRR_ALIGNED_FREE(dstCompressed);
+        _NBL_ALIGNED_FREE(dstCompressed);
         if (!res)
         {
             if (dst != _stackPtr && dst != dstCompressed)
-                _IRR_ALIGNED_FREE(dst);
+                _NBL_ALIGNED_FREE(dst);
 #ifdef _NBL_DEBUG
             os::Printer::log("Blob decompression failed!", ELL_ERROR);
 #endif

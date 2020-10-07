@@ -187,7 +187,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOp
 		if (outDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i))
 			activeAttribs.push_back((E_VERTEX_ATTRIBUTE_ID)i);
 
-	uint32_t* remapBuffer = (uint32_t*)_IRR_ALIGNED_MALLOC(vertexCount*4,_IRR_SIMD_ALIGNMENT);
+	uint32_t* remapBuffer = (uint32_t*)_NBL_ALIGNED_MALLOC(vertexCount*4,_NBL_SIMD_ALIGNMENT);
 	memset(remapBuffer, 0xffffffffu, vertexCount*4);
 
 	const E_INDEX_TYPE idxType = outbuffer->getIndexType();
@@ -229,7 +229,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOp
 			((uint16_t*)indices)[i] = remap;
 	}
 
-	_IRR_ALIGNED_FREE(remapBuffer);
+	_NBL_ALIGNED_FREE(remapBuffer);
 
 	_NBL_DEBUG_BREAK_IF(nextVert > vertexCount)
 
@@ -460,7 +460,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(
 
     uint32_t maxRedirect = 0;
 
-    uint8_t* epicData = (uint8_t*)_IRR_ALIGNED_MALLOC(vertexSize*vertexCount,_IRR_SIMD_ALIGNMENT);
+    uint8_t* epicData = (uint8_t*)_NBL_ALIGNED_MALLOC(vertexSize*vertexCount,_NBL_SIMD_ALIGNMENT);
     for (size_t i=0; i < vertexCount; i++)
     {
         uint8_t* currentVertexPtr = epicData+i*vertexSize;
@@ -494,7 +494,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(
         if (redir>maxRedirect)
             maxRedirect = redir;
     }
-    _IRR_ALIGNED_FREE(epicData);
+    _NBL_ALIGNED_FREE(epicData);
 
     void* oldIndices = inbuffer->getIndices();
     core::smart_refctd_ptr<ICPUMeshBuffer> clone;
@@ -645,7 +645,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 	// STEP: reduce index buffer to 16bit or completely get rid of it
 	{
 		const void* const indices = outbuffer->getIndices();
-		uint32_t* indicesCopy = (uint32_t*)_IRR_ALIGNED_MALLOC(outbuffer->getIndexCount()*4,_IRR_SIMD_ALIGNMENT);
+		uint32_t* indicesCopy = (uint32_t*)_NBL_ALIGNED_MALLOC(outbuffer->getIndexCount()*4,_NBL_SIMD_ALIGNMENT);
 		memcpy(indicesCopy, indices, outbuffer->getIndexCount()*4);
 		std::sort(indicesCopy, indicesCopy + outbuffer->getIndexCount());
 
@@ -673,7 +673,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 		const uint32_t minIdx = indicesCopy[0];
 		const uint32_t maxIdx = indicesCopy[outbuffer->getIndexCount() - 1];
 
-		_IRR_ALIGNED_FREE(indicesCopy);
+		_NBL_ALIGNED_FREE(indicesCopy);
 
 		core::smart_refctd_ptr<ICPUBuffer> newIdxBuffer;
 		bool verticesMustBeReordered = false;
@@ -720,7 +720,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 
 			const size_t vertexSize = outbuffer->getMeshDataAndFormat()->getMappedBufferStride(outbuffer->getPositionAttributeIx());
 			uint8_t* const v = (uint8_t*)(outbuffer->getMeshDataAndFormat()->getMappedBuffer(outbuffer->getPositionAttributeIx())->getPointer()); // after prefetch optim. we have guarantee of single vertex buffer so we can do like this
-			uint8_t* const vCopy = (uint8_t*)_IRR_ALIGNED_MALLOC(outbuffer->getMeshDataAndFormat()->getMappedBuffer(outbuffer->getPositionAttributeIx())->getSize(),_IRR_SIMD_ALIGNMENT);
+			uint8_t* const vCopy = (uint8_t*)_NBL_ALIGNED_MALLOC(outbuffer->getMeshDataAndFormat()->getMappedBuffer(outbuffer->getPositionAttributeIx())->getSize(),_NBL_SIMD_ALIGNMENT);
 			memcpy(vCopy, v, outbuffer->getMeshDataAndFormat()->getMappedBuffer(outbuffer->getPositionAttributeIx())->getSize());
 
 			size_t baseVtx = outbuffer->getBaseVertex();
@@ -731,7 +731,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 					memcpy(v + (vertexSize*(i + baseVtx)), vCopy + (vertexSize*idx), vertexSize);
 			}
 #undef _ACCESS_IDX
-			_IRR_ALIGNED_FREE(vCopy);
+			_NBL_ALIGNED_FREE(vCopy);
 		}
 	}
 
@@ -967,7 +967,7 @@ template<typename IdxT>
 void CMeshManipulator::_filterInvalidTriangles(ICPUMeshBuffer* _input)
 {
     const size_t size = _input->getIndexCount() * sizeof(IdxT);
-    void* const copy = _IRR_ALIGNED_MALLOC(size,_IRR_SIMD_ALIGNMENT);
+    void* const copy = _NBL_ALIGNED_MALLOC(size,_NBL_SIMD_ALIGNMENT);
     memcpy(copy, _input->getIndices(), size);
 
     struct Triangle
@@ -988,7 +988,7 @@ void CMeshManipulator::_filterInvalidTriangles(ICPUMeshBuffer* _input)
 
     auto newBuf = core::make_smart_refctd_ptr<ICPUBuffer>(newSize);
     memcpy(newBuf->getPointer(), copy, newSize);
-    _IRR_ALIGNED_FREE(copy);
+    _NBL_ALIGNED_FREE(copy);
 
     SBufferBinding<ICPUBuffer> idxBufBinding;
     idxBufBinding.offset = 0ull;

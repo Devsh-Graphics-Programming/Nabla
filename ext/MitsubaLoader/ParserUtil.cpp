@@ -60,13 +60,13 @@ bool ParserManager::parse(io::IReadFile* _file)
 	XML_SetUserData(parser, &ctx);
 
 
-	char* buff = (char*)_IRR_ALIGNED_MALLOC(_file->getSize(), 4096u);
+	char* buff = (char*)_NBL_ALIGNED_MALLOC(_file->getSize(), 4096u);
 
 	_file->seek(0u);
 	_file->read((void*)buff, _file->getSize());
 
 	XML_Status parseStatus = XML_Parse(parser, buff, _file->getSize(), 0);
-	_IRR_ALIGNED_FREE(buff);
+	_NBL_ALIGNED_FREE(buff);
 	XML_ParserFree(parser);
 	switch (parseStatus)
 	{

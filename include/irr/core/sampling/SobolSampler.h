@@ -70,12 +70,12 @@ class SobolSampler
 
 		SobolSampler(uint32_t _dimensions) : dimensions(_dimensions)
 		{
-			directions = _IRR_ALIGNED_MALLOC(dimensions*SOBOL_BITS*sizeof(uint32_t), 64u);
+			directions = _NBL_ALIGNED_MALLOC(dimensions*SOBOL_BITS*sizeof(uint32_t), 64u);
 			generate_direction_vectors();
 		}
 		~SobolSampler()
 		{
-			_IRR_ALIGNED_FREE(directions);
+			_NBL_ALIGNED_FREE(directions);
 		}
 		
 		// Idea for optimization, do PoT samples per pass, then can precompute most of the `retval`

@@ -13,7 +13,7 @@ namespace irr
 namespace core
 {
 
-    #define _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(SIZE_TYPE) \
+    #define _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(SIZE_TYPE) \
             typedef SIZE_TYPE                                   size_type;\
             typedef typename std::make_signed<size_type>::type  difference_type;\
             typedef uint8_t*                                    ubyte_pointer;\
@@ -23,7 +23,7 @@ namespace core
     class AddressAllocatorBase
     {
         public:
-            _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+            _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
             #define DUMMY_DEFAULT_CONSTRUCTOR AddressAllocatorBase() :\
                 reservedSpace(nullptr), addressOffset(invalid_address), alignOffset(invalid_address),\
@@ -68,7 +68,7 @@ namespace core
             {
                 #ifdef _NBL_DEBUG
                      // pointer to reserved memory has to be aligned to SIMD types!
-                    assert((reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u))==0ull);
+                    assert((reinterpret_cast<size_t>(reservedSpace)&(_NBL_SIMD_ALIGNMENT-1u))==0ull);
                     assert(maxAllocatableAlignment);
                     assert(core::isPoT(maxRequestableAlignment)); // this is not a proper alignment value
                 #endif // _NBL_DEBUG
@@ -81,7 +81,7 @@ namespace core
                 reservedSpace = newReservedSpc;
                 #ifdef _NBL_DEBUG
                     // reserved space has to be aligned at least to SIMD
-                    assert((reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u))==0ull);
+                    assert((reinterpret_cast<size_t>(reservedSpace)&(_NBL_SIMD_ALIGNMENT-1u))==0ull);
                 #endif // _NBL_DEBUG
             }
             AddressAllocatorBase(CRTP&& other, void* newReservedSpc, _size_type newAddressOffset, _size_type newAlignOffset) :
@@ -97,7 +97,7 @@ namespace core
             {
                 #ifdef _NBL_DEBUG
                     // reserved space has to be aligned at least to SIMD
-                    assert((reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u))==0ull);
+                    assert((reinterpret_cast<size_t>(reservedSpace)&(_NBL_SIMD_ALIGNMENT-1u))==0ull);
                 #endif // _NBL_DEBUG
             }
             AddressAllocatorBase(const CRTP& other, void* newReservedSpc, _size_type newAddressOffset, _size_type newAlignOffset) :

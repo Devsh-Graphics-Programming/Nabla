@@ -99,22 +99,22 @@ struct AlignedWithAllocator
 }
 
 //use these by default instead of new and delete, single object (non-array) new takes constructor parameters as va_args
-#define _IRR_NEW(_obj_type, ... )                               irr::core::impl::AlignedWithAllocator<_obj_type,_IRR_DEFAULT_ALLOCATOR_METATYPE<_obj_type> >::VA_ARGS_comma_workaround(_IRR_DEFAULT_ALIGNMENT(_obj_type)).new_(__VA_ARGS__)
+#define _IRR_NEW(_obj_type, ... )                               irr::core::impl::AlignedWithAllocator<_obj_type,_IRR_DEFAULT_ALLOCATOR_METATYPE<_obj_type> >::VA_ARGS_comma_workaround(_NBL_DEFAULT_ALIGNMENT(_obj_type)).new_(__VA_ARGS__)
 #define _IRR_DELETE(_obj)                                       irr::core::impl::AlignedWithAllocator<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,_IRR_DEFAULT_ALLOCATOR_METATYPE<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type> >::delete_(_obj)
 
-#define _IRR_NEW_ARRAY(_obj_type,count)                         irr::core::impl::AlignedWithAllocator<_obj_type,_IRR_DEFAULT_ALLOCATOR_METATYPE<_obj_type> >::new_array(count,_IRR_DEFAULT_ALIGNMENT(_obj_type))
+#define _IRR_NEW_ARRAY(_obj_type,count)                         irr::core::impl::AlignedWithAllocator<_obj_type,_IRR_DEFAULT_ALLOCATOR_METATYPE<_obj_type> >::new_array(count,_NBL_DEFAULT_ALIGNMENT(_obj_type))
 #define _IRR_DELETE_ARRAY(_obj,count)                           irr::core::impl::AlignedWithAllocator<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,_IRR_DEFAULT_ALLOCATOR_METATYPE<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type> >::delete_array(_obj,count)
 
 //! Extra Utility Macros for when you don't want to always have to deduce the alignment but want to use a specific allocator
 //#define _IRR_ASSERT_ALLOCATOR_VALUE_TYPE(_obj_type,_allocator_type)     static_assert(std::is_same<_obj_type,_allocator_type::value_type>::value,"Wrong allocator value_type!")
 #define _IRR_ASSERT_ALLOCATOR_VALUE_TYPE(_obj_type,_allocator_type)     static_assert(std::is_same<_obj_type,std::allocator_traits<_allocator_type >::value_type>::value,"Wrong allocator value_type!")
 
-#define _IRR_NEW_W_ALLOCATOR(_obj_type,_allocator, ... )        irr::core::impl::AlignedWithAllocator<_obj_type,_IRR_DEFAULT_ALLOCATOR_METATYPE<_obj_type> >::VA_ARGS_comma_workaround(_IRR_DEFAULT_ALIGNMENT(_obj_type),_allocator).new_(__VA_ARGS__); \
+#define _IRR_NEW_W_ALLOCATOR(_obj_type,_allocator, ... )        irr::core::impl::AlignedWithAllocator<_obj_type,_IRR_DEFAULT_ALLOCATOR_METATYPE<_obj_type> >::VA_ARGS_comma_workaround(_NBL_DEFAULT_ALIGNMENT(_obj_type),_allocator).new_(__VA_ARGS__); \
                                                                     _IRR_ASSERT_ALLOCATOR_VALUE_TYPE(_obj_type,decltype(_allocator))
 #define _IRR_DELETE_W_ALLOCATOR(_obj,_allocator)                irr::core::impl::AlignedWithAllocator<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,_IRR_DEFAULT_ALLOCATOR_METATYPE<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type> >::delete_(_obj,_allocator); \
                                                                     _IRR_ASSERT_ALLOCATOR_VALUE_TYPE(std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,decltype(_allocator))
 
-#define _IRR_NEW_ARRAY_W_ALLOCATOR(_obj_type,count,_allocator)  irr::core::impl::AlignedWithAllocator<_obj_type,_IRR_DEFAULT_ALLOCATOR_METATYPE<_obj_type> >::new_array(count,_IRR_DEFAULT_ALIGNMENT(_obj_type),_allocator); \
+#define _IRR_NEW_ARRAY_W_ALLOCATOR(_obj_type,count,_allocator)  irr::core::impl::AlignedWithAllocator<_obj_type,_IRR_DEFAULT_ALLOCATOR_METATYPE<_obj_type> >::new_array(count,_NBL_DEFAULT_ALIGNMENT(_obj_type),_allocator); \
                                                                     _IRR_ASSERT_ALLOCATOR_VALUE_TYPE(_obj_type,decltype(_allocator))
 #define _IRR_DELETE_ARRAY_W_ALLOCATOR(_obj,count,_allocator)    irr::core::impl::AlignedWithAllocator<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,_IRR_DEFAULT_ALLOCATOR_METATYPE<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type> >::delete_array(_obj,count,_allocator); \
                                                                     _IRR_ASSERT_ALLOCATOR_VALUE_TYPE(std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,decltype(_allocator))
@@ -143,7 +143,7 @@ struct alligned_delete
         if (ptr)
         {
             ptr->~T();
-            _IRR_ALIGNED_FREE(ptr);
+            _NBL_ALIGNED_FREE(ptr);
         }
     }
 };

@@ -10,11 +10,11 @@
 #include "irr/video/CGPUMesh.h"
 #include "irr/video/CGPUSkinnedMesh.h"
 
-//! Adds support of given blob type to BlobsLoadingManager. For use ONLY inside BlobsLoadingManager's member functions. _IRR_SUPPORTED_BLOBS is defined in IrrCompileConfig.h.
+//! Adds support of given blob type to BlobsLoadingManager. For use ONLY inside BlobsLoadingManager's member functions. _NBL_SUPPORTED_BLOBS is defined in IrrCompileConfig.h.
 #define _IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(Function, BlobType, ...)\
 switch(BlobType)\
 {\
-_IRR_SUPPORTED_BLOBS(Function, __VA_ARGS__)\
+_NBL_SUPPORTED_BLOBS(Function, __VA_ARGS__)\
 }
 
 namespace irr { namespace asset

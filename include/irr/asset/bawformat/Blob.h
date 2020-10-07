@@ -68,7 +68,7 @@ namespace asset
 			const size_t actualObjSize = calcBlobSizeForObj(_obj);
 			void* mem;
 			if (!_stackPtr || actualObjSize > _size)
-				mem = _IRR_ALIGNED_MALLOC(actualObjSize, _IRR_SIMD_ALIGNMENT);
+				mem = _NBL_ALIGNED_MALLOC(actualObjSize, _NBL_SIMD_ALIGNMENT);
 			else if (_stackPtr && _size >= actualObjSize)
 				mem = _stackPtr;
 			else

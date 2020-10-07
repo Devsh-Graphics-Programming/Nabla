@@ -40,7 +40,7 @@
 #include <dlfcn.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-#ifdef _IRR_LINUX_X11_RANDR_
+#ifdef _NBL_LINUX_X11_RANDR_
 #include <X11/extensions/Xrandr.h>
 #endif
 #endif
@@ -888,7 +888,7 @@ uint16_t COpenGLDriver::retrieveDisplayRefreshRate() const
         return 0u;
     return static_cast<uint16_t>(dm.dmDisplayFrequency);
 #elif defined(_NBL_COMPILE_WITH_X11_DEVICE_)
-#   ifdef _IRR_LINUX_X11_RANDR_
+#   ifdef _NBL_LINUX_X11_RANDR_
     Display* disp = XOpenDisplay(NULL);
     Window root = RootWindow(disp, 0);
 
@@ -901,7 +901,7 @@ uint16_t COpenGLDriver::retrieveDisplayRefreshRate() const
     os::Printer::log("Refresh rate retrieval without Xrandr compiled in is not supprted!\n", ELL_WARNING);
 #       endif
     return 0u;
-#   endif // _IRR_LINUX_X11_RANDR_
+#   endif // _NBL_LINUX_X11_RANDR_
 #else
     return 0u;
 #endif
@@ -986,7 +986,7 @@ bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
     if (GetModuleHandleA("renderdoc.dll"))
 #elif defined(_IRR_ANDROID_PLATFORM_)
     if (dlopen("libVkLayer_GLES_RenderDoc.so", RTLD_NOW | RTLD_NOLOAD))
-#elif defined(_IRR_LINUX_PLATFORM_)
+#elif defined(_NBL_LINUX_PLATFORM_)
     if (dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
 #else
     if (false)

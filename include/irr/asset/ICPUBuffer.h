@@ -43,7 +43,7 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 		*/
         ICPUBuffer(size_t sizeInBytes) : size(0)
         {
-			data = _IRR_ALIGNED_MALLOC(sizeInBytes,_IRR_SIMD_ALIGNMENT);
+			data = _NBL_ALIGNED_MALLOC(sizeInBytes,_NBL_SIMD_ALIGNMENT);
             if (!data)
                 return;
 
@@ -66,7 +66,7 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
             if (data)
-                _IRR_ALIGNED_FREE(data);
+                _NBL_ALIGNED_FREE(data);
             data = nullptr;
             size = 0ull;
             isDummyObjectForCacheAliasing = true;

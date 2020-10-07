@@ -12,9 +12,9 @@
 #include <cstddef>
 
 
-#define _IRR_SIMD_ALIGNMENT                 16u // change to 32 or 64 for AVX or AVX2 compatibility respectively, might break BaW file format!
+#define _NBL_SIMD_ALIGNMENT                 16u // change to 32 or 64 for AVX or AVX2 compatibility respectively, might break BaW file format!
 //! Default alignment for a type
-#define _IRR_DEFAULT_ALIGNMENT(_obj_type)   (std::alignment_of<_obj_type>::value>(_IRR_SIMD_ALIGNMENT) ? std::alignment_of<_obj_type>::value:(_IRR_SIMD_ALIGNMENT))
+#define _NBL_DEFAULT_ALIGNMENT(_obj_type)   (std::alignment_of<_obj_type>::value>(_NBL_SIMD_ALIGNMENT) ? std::alignment_of<_obj_type>::value:(_NBL_SIMD_ALIGNMENT))
 
 #define _IRR_MIN_MAP_BUFFER_ALIGNMENT       64u// GL_MIN_MAP_BUFFER_ALIGNMENT
 
@@ -30,14 +30,14 @@
     #define _NBL_ASSUME_ALIGNED(ptr,alignment)
 #endif
 
-//! Utility so we don't have to write out _NBL_ASSUME_ALIGNED(ptr,_IRR_SIMD_ALIGNMENT) constantly
-#define _IRR_ASSUME_SIMD_ALIGNED(ptr) _NBL_ASSUME_ALIGNED(ptr,_IRR_SIMD_ALIGNMENT)
+//! Utility so we don't have to write out _NBL_ASSUME_ALIGNED(ptr,_NBL_SIMD_ALIGNMENT) constantly
+#define _IRR_ASSUME_SIMD_ALIGNED(ptr) _NBL_ASSUME_ALIGNED(ptr,_NBL_SIMD_ALIGNMENT)
 
 
 //! You can swap these out for whatever you like, jemalloc, tcmalloc etc. but make them noexcept
 #ifdef _NBL_PLATFORM_WINDOWS_
-    #define _IRR_ALIGNED_MALLOC(size,alignment)     ::_aligned_malloc(size,alignment)
-    #define _IRR_ALIGNED_FREE(addr)                 ::_aligned_free(addr)
+    #define _NBL_ALIGNED_MALLOC(size,alignment)     ::_aligned_malloc(size,alignment)
+    #define _NBL_ALIGNED_FREE(addr)                 ::_aligned_free(addr)
 #else
 
 namespace irr
@@ -53,8 +53,8 @@ namespace impl
     }
 }
 }
-    #define _IRR_ALIGNED_MALLOC(size,alignment)     irr::impl::aligned_malloc(size,alignment)
-    #define _IRR_ALIGNED_FREE(addr)                 ::free(addr)
+    #define _NBL_ALIGNED_MALLOC(size,alignment)     irr::impl::aligned_malloc(size,alignment)
+    #define _NBL_ALIGNED_FREE(addr)                 ::free(addr)
 #endif
 
 

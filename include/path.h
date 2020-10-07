@@ -132,9 +132,9 @@ struct SNamedPath// : public AllocationOverrideDefault
 		path name(p);
 		//handleBackslashes(&name);
 		name.replace('\\' , '/'); //! On Linux just delete them
-#ifndef _IRR_POSIX_API_
+#ifndef _NBL_POSIX_API_
 		name.make_lower();
-#endif // _IRR_POSIX_API_
+#endif // _NBL_POSIX_API_
 		return name;
 	}
 

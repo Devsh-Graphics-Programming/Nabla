@@ -35,7 +35,7 @@ class IOpenGLPipeline
                 }
 
             const size_t uVals_sz = _STAGE_COUNT*_ctxCount*IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE;
-            m_uniformValues = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(uVals_sz, 128));
+            m_uniformValues = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(uVals_sz, 128));
         }
         ~IOpenGLPipeline()
         {
@@ -43,7 +43,7 @@ class IOpenGLPipeline
             for (const auto& p : (*m_GLprograms))
                 if (p.GLname != 0u)
                     COpenGLExtensionHandler::extGlDeleteProgram(p.GLname);
-            _IRR_ALIGNED_FREE(m_uniformValues);
+            _NBL_ALIGNED_FREE(m_uniformValues);
         }
 
         uint8_t* getPushConstantsStateForStage(uint32_t _stageIx, uint32_t _ctxID) const { return const_cast<uint8_t*>(m_uniformValues + ((_STAGE_COUNT*_ctxID + _stageIx)*IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE)); }

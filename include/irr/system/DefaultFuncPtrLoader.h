@@ -10,7 +10,7 @@
 #if defined(_NBL_WINDOWS_API_)
 	#include <windows.h> 
 	#include <stdio.h> 
-#elif defined(_IRR_POSIX_API_)
+#elif defined(_NBL_POSIX_API_)
 	#include <dlfcn.h>
 #endif
 
@@ -25,7 +25,7 @@ class DefaultFuncPtrLoader final : FuncPtrLoader
 	protected:
 		#if defined(_NBL_WINDOWS_API_)
 			HINSTANCE lib;
-		#elif defined(_IRR_POSIX_API_)
+		#elif defined(_NBL_POSIX_API_)
 			void* lib;
 		#endif
 	public:
@@ -36,7 +36,7 @@ class DefaultFuncPtrLoader final : FuncPtrLoader
 				std::string libname(name);
 				libname += ".dll";
 				lib = LoadLibrary(libname.c_str());
-			#elif defined(_IRR_POSIX_API_)
+			#elif defined(_NBL_POSIX_API_)
 				std::string libname("lib");
 				libname += name;
 				libname += ".so";
@@ -52,7 +52,7 @@ class DefaultFuncPtrLoader final : FuncPtrLoader
 			if (lib != NULL)
 			#if defined(_NBL_WINDOWS_API_)
 				FreeLibrary(lib);
-			#elif defined(_IRR_POSIX_API_)
+			#elif defined(_NBL_POSIX_API_)
 				dlclose(lib);
 			#endif
 		}
@@ -72,7 +72,7 @@ class DefaultFuncPtrLoader final : FuncPtrLoader
 		{
 			#if defined(_NBL_WINDOWS_API_)
 				return GetProcAddress(lib,funcname);
-			#elif defined(_IRR_POSIX_API_)
+			#elif defined(_NBL_POSIX_API_)
 				return dlsym(lib,funcname);
 			#endif
 		}

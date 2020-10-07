@@ -132,13 +132,13 @@ public:
             genmips.endMipLevel = paddedImg->getCreationParameters().mipLevels;
             genmips.inOutImage = paddedImg.get();
             genmips.scratchMemoryByteSize = mip_gen_filter_t::getRequiredScratchByteSize(&genmips);
-            genmips.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(genmips.scratchMemoryByteSize,_IRR_SIMD_ALIGNMENT));
+            genmips.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(genmips.scratchMemoryByteSize,_NBL_SIMD_ALIGNMENT));
             genmips.axisWraps[0] = _wrapu;
             genmips.axisWraps[1] = _wrapv;
             genmips.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
             genmips.borderColor = _borderColor;
             mip_gen_filter_t::execute(&genmips);
-            _IRR_ALIGNED_FREE(genmips.scratchMemory);
+            _NBL_ALIGNED_FREE(genmips.scratchMemory);
         }
 
         return std::make_pair(std::move(paddedImg), originalExtent);

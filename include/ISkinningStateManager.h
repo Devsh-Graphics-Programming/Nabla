@@ -272,7 +272,7 @@ namespace scene
                 if (instanceDataSize!=instanceCapacity)
                 {
                     auto newInstanceDataSize = instanceCapacity*actualSizeOfInstanceDataElement;
-                    uint8_t* newInstanceData = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(newInstanceDataSize,_IRR_SIMD_ALIGNMENT));
+                    uint8_t* newInstanceData = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(newInstanceDataSize,_NBL_SIMD_ALIGNMENT));
                     auto oldInstanceDataByteSize = instanceDataSize*actualSizeOfInstanceDataElement;
                     if (newInstanceDataSize<oldInstanceDataByteSize)
                         memcpy(newInstanceData,instanceData,newInstanceDataSize);
@@ -330,7 +330,7 @@ namespace scene
                 instanceBoneDataAllocator->drop();
 
                 if (instanceData)
-                    _IRR_ALIGNED_FREE(instanceData);
+                    _NBL_ALIGNED_FREE(instanceData);
             }
 
             int8_t usingGPUorCPUBoning;
@@ -338,7 +338,7 @@ namespace scene
             const asset::CFinalBoneHierarchy* referenceHierarchy;
 
             size_t actualSizeOfInstanceDataElement;
-            class BoneHierarchyInstanceData : public core::AlignedBase<_IRR_SIMD_ALIGNMENT>
+            class BoneHierarchyInstanceData : public core::AlignedBase<_NBL_SIMD_ALIGNMENT>
             {
                 public:
                     BoneHierarchyInstanceData() : refCount(0), frame(0.f), lastAnimatedFrame(-1.f), interpolateAnimation(true), attachedNode(NULL)

@@ -259,7 +259,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asse
     const uint64_t alignment =
         std::max<uint64_t>(
             std::max<uint64_t>(m_driver->getRequiredTBOAlignment(), m_driver->getRequiredUBOAlignment()),
-            std::max<uint64_t>(m_driver->getRequiredSSBOAlignment(), _IRR_SIMD_ALIGNMENT)
+            std::max<uint64_t>(m_driver->getRequiredSSBOAlignment(), _NBL_SIMD_ALIGNMENT)
         );
 
 

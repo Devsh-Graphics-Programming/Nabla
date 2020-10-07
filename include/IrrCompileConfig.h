@@ -6,13 +6,13 @@
 #define __NBL_COMPILE_CONFIG_H_INCLUDED__
 
 //! Irrlicht SDK Version
-#define IRRLICHTBAW_VERSION_MAJOR 0
-#define IRRLICHTBAW_VERSION_MINOR 3
-#define IRRLICHTBAW_VERSION_REVISION 0
+#define NABLA_VERSION_MAJOR 0
+#define NABLA_VERSION_MINOR 3
+#define NABLA_VERSION_REVISION 0
 // This flag will be defined only in SVN, the official release code will have
 // it undefined
 //#define IRRLICHT_VERSION_SVN -alpha
-#define IRRLICHTBAW_SDK_VERSION "0.3.0-beta2"
+#define NABLA_SDK_VERSION "0.3.0-beta2"
 
 #define NEW_MESHES
 
@@ -36,7 +36,7 @@
 
 #define NEW_SHADERS 1
 
-#ifdef _IRR_TARGET_ARCH_ARM_
+#ifdef _NBL_TARGET_ARCH_ARM_
 #   define __NBL_COMPILE_WITH_ARM_SIMD_ // NEON
 #else // target arch x86
 #   define __NBL_COMPILE_WITH_SSE3
@@ -45,7 +45,7 @@
 #endif
 
 
-#if defined(_IRR_SERVER_)
+#if defined(_NBL_SERVER_)
 #   define NO_NBL_COMPILE_WITH_VULKAN_
 #   define NO_NBL_COMPILE_WITH_OPENGL_
 #endif
@@ -64,12 +64,12 @@
 #endif
 
 #if defined(_NBL_PLATFORM_LINUX_)
-#   define _IRR_POSIX_API_
+#   define _NBL_POSIX_API_
 #   define _NBL_COMPILE_WITH_X11_DEVICE_
 #endif
 
-#ifdef _IRR_SERVER_
-#   define NO_IRR_LINUX_X11_RANDR_
+#ifdef _NBL_SERVER_
+#   define NO_NBL_LINUX_X11_RANDR_
 #endif
 
 #ifdef _MSC_VER
@@ -77,19 +77,19 @@
 #endif
 
 //! VidMode is ANCIENT
-//#define NO_IRR_LINUX_X11_VIDMODE_
+//#define NO_NBL_LINUX_X11_VIDMODE_
 
 //! On some Linux systems the XF86 vidmode extension or X11 RandR are missing. Use these flags
 //! to remove the dependencies such that Irrlicht will compile on those systems, too.
 //! If you don't need colored cursors you can also disable the Xcursor extension
 #if defined(_NBL_PLATFORM_LINUX_) && defined(_NBL_COMPILE_WITH_X11_)
-#   define _IRR_LINUX_X11_VIDMODE_
-#   define _IRR_LINUX_X11_RANDR_
-#   ifdef NO_IRR_LINUX_X11_VIDMODE_
-#       undef _IRR_LINUX_X11_VIDMODE_
+#   define _NBL_LINUX_X11_VIDMODE_
+#   define _NBL_LINUX_X11_RANDR_
+#   ifdef NO_NBL_LINUX_X11_VIDMODE_
+#       undef _NBL_LINUX_X11_VIDMODE_
 #   endif
-#   ifdef NO_IRR_LINUX_X11_RANDR_
-#       undef _IRR_LINUX_X11_RANDR_
+#   ifdef NO_NBL_LINUX_X11_RANDR_
+#       undef _NBL_LINUX_X11_RANDR_
 #   endif
 #endif
 
@@ -97,7 +97,7 @@
 /** If you do not wish the engine to be compiled with X11, comment this
 define out. */
 // Only used in LinuxDevice.
-///#ifndef _IRR_SERVER_
+///#ifndef _NBL_SERVER_
 #define _NBL_COMPILE_WITH_X11_
 ///#endif
 #ifdef NO_NBL_COMPILE_WITH_X11_
@@ -188,60 +188,60 @@ currently only supports zip archives, though. */
 
 #ifdef _NBL_WINDOWS_API_
 
-// To build Irrlicht as a static library, you must define _IRR_STATIC_LIB_ in both the
+// To build Irrlicht as a static library, you must define _NBL_STATIC_LIB_ in both the
 // Irrlicht build, *and* in the user application, before #including <irrlicht.h>
-#ifndef _IRR_STATIC_LIB_
-#ifdef IRRLICHT_EXPORTS
-#define IRRLICHT_API __declspec(dllexport)
+#ifndef _NBL_STATIC_LIB_
+#ifdef NABLA_EXPORTS
+#define NABLA_API __declspec(dllexport)
 #else
-#define IRRLICHT_API __declspec(dllimport)
-#endif // IRRLICHT_EXPORT
+#define NABLA_API __declspec(dllimport)
+#endif // NABLA_EXPORT
 #else
-#define IRRLICHT_API
-#endif // _IRR_STATIC_LIB_
+#define NABLA_API
+#endif // _NBL_STATIC_LIB_
 
 // Declare the calling convention.
 #if defined(_STDCALL_SUPPORTED)
-#define IRRCALLCONV __stdcall
+#define NBLCALLCONV __stdcall
 #else
-#define IRRCALLCONV __cdecl
+#define NBLCALLCONV __cdecl
 #endif // STDCALL_SUPPORTED
 
 #else // _NBL_WINDOWS_API_
 
 // Force symbol export in shared libraries built with gcc.
-#if (__GNUC__ >= 4) && !defined(_IRR_STATIC_LIB_) && defined(IRRLICHT_EXPORTS)
-#define IRRLICHT_API __attribute__ ((visibility("default")))
+#if (__GNUC__ >= 4) && !defined(_NBL_STATIC_LIB_) && defined(NABLA_EXPORTS)
+#define NABLA_API __attribute__ ((visibility("default")))
 #else
-#define IRRLICHT_API
+#define NABLA_API
 #endif
 
-#define IRRCALLCONV
+#define NBLCALLCONV
 
 #endif // _NBL_WINDOWS_API_
 
 #ifndef _NBL_WINDOWS_API_
-#   undef _IRR_WCHAR_FILESYSTEM
+#   undef _NBL_WCHAR_FILESYSTEM
 #endif
 
 
-#define _IRR_BAW_FORMAT_VERSION 3
+#define _NBL_FORMAT_VERSION 3
 
 //! @see @ref CBlobsLoadingManager
-#define _IRR_ADD_BLOB_SUPPORT(BlobClassName, EnumValue, Function, ...) \
+#define _NBL_ADD_BLOB_SUPPORT(BlobClassName, EnumValue, Function, ...) \
 case asset::Blob::EnumValue:\
 	return asset::BlobClassName::Function(__VA_ARGS__);
 
 //! Used inside CBlobsLoadingManager. Adds support of given blob types.
 // @crisspl / @Anastazluk fix this shit for new pipeline !!!
-#define _IRR_SUPPORTED_BLOBS(Function, ...) \
-_IRR_ADD_BLOB_SUPPORT(RawBufferBlobV3, EBT_RAW_DATA_BUFFER, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(TexturePathBlobV3, EBT_TEXTURE_PATH, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(MeshBlobV3, EBT_MESH, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(SkinnedMeshBlobV3, EBT_SKINNED_MESH, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(MeshBufferBlobV3, EBT_MESH_BUFFER, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(SkinnedMeshBufferBlobV3, EBT_SKINNED_MESH_BUFFER, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(MeshDataFormatDescBlobV3, EBT_DATA_FORMAT_DESC, Function, __VA_ARGS__)\
-_IRR_ADD_BLOB_SUPPORT(FinalBoneHierarchyBlobV3, EBT_FINAL_BONE_HIERARCHY, Function, __VA_ARGS__)
+#define _NBL_SUPPORTED_BLOBS(Function, ...) \
+_NBL_ADD_BLOB_SUPPORT(RawBufferBlobV3, EBT_RAW_DATA_BUFFER, Function, __VA_ARGS__)\
+_NBL_ADD_BLOB_SUPPORT(TexturePathBlobV3, EBT_TEXTURE_PATH, Function, __VA_ARGS__)\
+_NBL_ADD_BLOB_SUPPORT(MeshBlobV3, EBT_MESH, Function, __VA_ARGS__)\
+_NBL_ADD_BLOB_SUPPORT(SkinnedMeshBlobV3, EBT_SKINNED_MESH, Function, __VA_ARGS__)\
+_NBL_ADD_BLOB_SUPPORT(MeshBufferBlobV3, EBT_MESH_BUFFER, Function, __VA_ARGS__)\
+_NBL_ADD_BLOB_SUPPORT(SkinnedMeshBufferBlobV3, EBT_SKINNED_MESH_BUFFER, Function, __VA_ARGS__)\
+_NBL_ADD_BLOB_SUPPORT(MeshDataFormatDescBlobV3, EBT_DATA_FORMAT_DESC, Function, __VA_ARGS__)\
+_NBL_ADD_BLOB_SUPPORT(FinalBoneHierarchyBlobV3, EBT_FINAL_BONE_HIERARCHY, Function, __VA_ARGS__)
 
 #endif

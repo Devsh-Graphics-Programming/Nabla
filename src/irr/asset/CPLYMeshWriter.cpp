@@ -84,7 +84,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     std::string header = "ply\n";
     header += (flags & asset::EWF_BINARY) ? "format binary_little_endian 1.0" : "format ascii 1.0";
 	header += "\ncomment IrrlichtBAW ";
-	header +=  IRRLICHTBAW_SDK_VERSION;
+	header +=  NABLA_SDK_VERSION;
 
 	// get vertex and triangle counts
 	size_t vtxCount = mesh->getMeshBuffer(0)->calcVertexCount();
@@ -166,7 +166,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
             }
             needToFreeIndices = true;
             faceCount = buf->getSize() / (idxtype == asset::EIT_16BIT ? 2u : 4u) / 3u;
-            indices = _IRR_ALIGNED_MALLOC(buf->getSize(),_IRR_SIMD_ALIGNMENT);
+            indices = _NBL_ALIGNED_MALLOC(buf->getSize(),_NBL_SIMD_ALIGNMENT);
             memcpy(indices, buf->getPointer(), buf->getSize());
         }
     }
@@ -212,7 +212,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
         writeText(file, meshBuffer, vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite, _params);
 
     if (needToFreeIndices)
-        _IRR_ALIGNED_FREE(indices);
+        _NBL_ALIGNED_FREE(indices);
 
 	return true;
 }
@@ -250,7 +250,7 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
     void* indices = _indices;
     if (_forceFaces)
     {
-        indices = _IRR_ALIGNED_MALLOC((_idxType == asset::EIT_32BIT ? 4 : 2) * listSize * _fcCount,_IRR_SIMD_ALIGNMENT);
+        indices = _NBL_ALIGNED_MALLOC((_idxType == asset::EIT_32BIT ? 4 : 2) * listSize * _fcCount,_NBL_SIMD_ALIGNMENT);
         if (_idxType == asset::EIT_16BIT)
         {
             for (uint16_t i = 0u; i < _fcCount; ++i)
@@ -284,7 +284,7 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
     }
 
     if (_forceFaces)
-        _IRR_ALIGNED_FREE(indices);
+        _NBL_ALIGNED_FREE(indices);
 }
 
 void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], const SAssetWriteParams& _params) const
@@ -351,7 +351,7 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mb
     void* indices = _indices;
     if (_forceFaces)
     {
-        indices = _IRR_ALIGNED_MALLOC((_idxType == asset::EIT_32BIT ? 4 : 2) * 3 * _fcCount,_IRR_SIMD_ALIGNMENT);
+        indices = _NBL_ALIGNED_MALLOC((_idxType == asset::EIT_32BIT ? 4 : 2) * 3 * _fcCount,_NBL_SIMD_ALIGNMENT);
         if (_idxType == asset::EIT_16BIT)
         {
             for (uint16_t i = 0u; i < _fcCount; ++i)
@@ -387,7 +387,7 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mb
     }
 
     if (_forceFaces)
-        _IRR_ALIGNED_FREE(indices);
+        _NBL_ALIGNED_FREE(indices);
 }
 
 void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, uint32_t _vaid, size_t _ix, size_t _cpa, bool flipAttribute) const

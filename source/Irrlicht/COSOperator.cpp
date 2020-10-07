@@ -198,7 +198,7 @@ bool COSOperator::getSystemMemory(uint32_t* Total, uint32_t* Avail) const
 
 	return true;
 
-#elif defined(_IRR_POSIX_API_) && !defined(__FreeBSD__)
+#elif defined(_NBL_POSIX_API_) && !defined(__FreeBSD__)
 #if defined(_SC_PHYS_PAGES) && defined(_SC_AVPHYS_PAGES)
         long ps = sysconf(_SC_PAGESIZE);
         long pp = sysconf(_SC_PHYS_PAGES);

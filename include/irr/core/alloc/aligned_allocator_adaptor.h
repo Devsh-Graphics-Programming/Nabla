@@ -16,7 +16,7 @@ namespace irr
 namespace core
 {
 
-template <class Alloc, size_t overAlign=_IRR_DEFAULT_ALIGNMENT(typename std::allocator_traits<Alloc>::value_type)>
+template <class Alloc, size_t overAlign=_NBL_DEFAULT_ALIGNMENT(typename std::allocator_traits<Alloc>::value_type)>
 class NBL_FORCE_EBO aligned_allocator_adaptor : public Alloc
 {
     public:

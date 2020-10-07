@@ -26,7 +26,7 @@
 		#include <tchar.h>
 	#endif
 #else
-	#if (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
+	#if (defined(_NBL_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
 		#include <stdio.h>
 		#include <stdlib.h>
 		#include <string.h>
@@ -491,7 +491,7 @@ const io::path& CFileSystem::getWorkingDirectory()
 	{
 		#if defined(_NBL_WINDOWS_API_)
 			char tmp[_MAX_PATH];
-			#if defined(_IRR_WCHAR_FILESYSTEM )
+			#if defined(_NBL_WCHAR_FILESYSTEM )
 				_wgetcwd(tmp, _MAX_PATH);
 				WorkingDirectory[FILESYSTEM_NATIVE] = tmp;
 			#else
@@ -501,13 +501,13 @@ const io::path& CFileSystem::getWorkingDirectory()
             handleBackslashes(&WorkingDirectory[FILESYSTEM_NATIVE]);
 		#endif
 
-		#if (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
+		#if (defined(_NBL_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
 
 			// getting the CWD is rather complex as we do not know the size
 			// so try it until the call was successful
 			// Note that neither the first nor the second parameter may be 0 according to POSIX
 
-			#if defined(_IRR_WCHAR_FILESYSTEM )
+			#if defined(_NBL_WCHAR_FILESYSTEM )
 				uint32_t pathSize=256;
 				wchar_t *tmpPath = new wchar_t[pathSize];
 				while ((pathSize < (1<<16)) && !(wgetcwd(tmpPath,pathSize)))
@@ -562,13 +562,13 @@ bool CFileSystem::changeWorkingDirectoryTo(const io::path& newDirectory)
 		WorkingDirectory[FILESYSTEM_NATIVE] = newDirectory;
 
 #if defined(_MSC_VER)
-	#if defined(_IRR_WCHAR_FILESYSTEM)
+	#if defined(_NBL_WCHAR_FILESYSTEM)
 		success = (_wchdir(newDirectory.c_str()) == 0);
 	#else
 		success = (_chdir(newDirectory.c_str()) == 0);
 	#endif
 #else
-    #if defined(_IRR_WCHAR_FILESYSTEM)
+    #if defined(_NBL_WCHAR_FILESYSTEM)
 		success = (_wchdir(newDirectory.c_str()) == 0);
     #else
         success = (chdir(newDirectory.c_str()) == 0);
@@ -585,7 +585,7 @@ io::path CFileSystem::getAbsolutePath(const io::path& filename) const
 #if defined(_NBL_WINDOWS_API_)
 	char *p=0;
 	char fpath[_MAX_PATH];
-	#if defined(_IRR_WCHAR_FILESYSTEM )
+	#if defined(_NBL_WCHAR_FILESYSTEM )
 		p = _wfullpath(fpath, filename.c_str(), _MAX_PATH);
 		core::stringw tmp(p);
 	#else
@@ -594,7 +594,7 @@ io::path CFileSystem::getAbsolutePath(const io::path& filename) const
 	#endif
 	handleBackslashes(&tmp);
 	return tmp;
-#elif (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
+#elif (defined(_NBL_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
 	char* p=0;
 	char fpath[4096];
 	fpath[0]=0;
@@ -773,7 +773,7 @@ IFileList* CFileSystem::createFileList()
 
 		// --------------------------------------------
 		//! Linux version
-		#if (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
+		#if (defined(_NBL_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
 
 
 		r = new CFileList(Path);
@@ -866,13 +866,13 @@ bool CFileSystem::existFile(const io::path& filename) const
 	}
 
 #if defined(_MSC_VER)
-    #if defined(_IRR_WCHAR_FILESYSTEM)
+    #if defined(_NBL_WCHAR_FILESYSTEM)
         return (_waccess(filename.c_str(), 0) != -1);
     #else
         return (_access(filename.c_str(), 0) != -1);
     #endif
 #elif defined(F_OK)
-    #if defined(_IRR_WCHAR_FILESYSTEM)
+    #if defined(_NBL_WCHAR_FILESYSTEM)
         return (_waccess(filename.c_str(), F_OK) != -1);
     #else
         return (access(filename.c_str(), F_OK) != -1);

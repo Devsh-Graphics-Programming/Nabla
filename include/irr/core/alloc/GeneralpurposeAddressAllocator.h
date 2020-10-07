@@ -25,7 +25,7 @@ class GeneralpurposeAddressAllocatorBase
 {
     protected:
         //types
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+        _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
         struct Block
         {
             size_type startOffset;
@@ -322,7 +322,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
         typedef GeneralpurposeAddressAllocatorBase<_size_type>  Base;
     protected:
         typedef typename Base::Block                            Block;
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+        _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
         using Base::Base;
 
@@ -375,7 +375,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
         typedef GeneralpurposeAddressAllocatorBase<_size_type>  Base;
     protected:
         typedef typename Base::Block                            Block;
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+        _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
         using Base::Base;
 
@@ -438,7 +438,7 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
         typedef AddressAllocatorBase<GeneralpurposeAddressAllocator<_size_type>,_size_type> Base;
         typedef typename AllocStrategy::Block                                               Block;
     public:
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+        _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
         static constexpr bool supportsNullBuffer = true;
 

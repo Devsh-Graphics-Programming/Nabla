@@ -20,7 +20,7 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
 {
         typedef AddressAllocatorBase<LinearAddressAllocator<_size_type>,_size_type> Base;
     public:
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+        _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
         static constexpr bool supportsNullBuffer = true;
 

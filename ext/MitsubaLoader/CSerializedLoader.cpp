@@ -110,7 +110,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 	core::vector<core::smart_refctd_ptr<asset::CCPUMesh> > meshes;
 	meshes.reserve(ctx.meshCount);
 
-	uint8_t* data = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(maxSize,alignof(double)));
+	uint8_t* data = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(maxSize,alignof(double)));
 	constexpr size_t CHUNK = 256ull*1024ull;
 	core::vector<Page_t> decompressed(CHUNK/sizeof(Page_t));
 	for (uint32_t i=0; i<ctx.meshCount; i++)
@@ -397,7 +397,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 
 		meshes.push_back(std::move(mesh));
 	}
-	_IRR_ALIGNED_FREE(data);
+	_NBL_ALIGNED_FREE(data);
 
 	return meshes;
 }

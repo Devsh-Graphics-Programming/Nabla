@@ -62,7 +62,7 @@ CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver
 	{
         size_t redundantMeshDataBufSize = sizeof(char)*24*3+ //data for the skybox positions
                                         0;
-        void* tmpMem = _IRR_ALIGNED_MALLOC(redundantMeshDataBufSize,_IRR_SIMD_ALIGNMENT);
+        void* tmpMem = _NBL_ALIGNED_MALLOC(redundantMeshDataBufSize,_NBL_SIMD_ALIGNMENT);
         {
             char* skyBoxesVxPositions = (char*)tmpMem;
             skyBoxesVxPositions[0*3+0] = -1;
@@ -177,7 +177,7 @@ CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver
         redundantMeshDataBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
         if (redundantMeshDataBuf)
             redundantMeshDataBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),tmpMem);
-        _IRR_ALIGNED_FREE(tmpMem);
+        _NBL_ALIGNED_FREE(tmpMem);
 	}
 }
 

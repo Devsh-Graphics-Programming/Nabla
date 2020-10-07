@@ -112,7 +112,7 @@ typedef std::mutex  fast_mutex;
 
 
 // memory debugging
-#if defined(_NBL_DEBUG) && defined(IRRLICHT_EXPORTS) && defined(_MSC_VER) && \
+#if defined(_NBL_DEBUG) && defined(NABLA_EXPORTS) && defined(_MSC_VER) && \
 	(_MSC_VER > 1299) && !defined(_IRR_DONT_DO_MEMORY_DEBUGGING_HERE) && !defined(_WIN32_WCE)
 
 	#define CRTDBG_MAP_ALLOC

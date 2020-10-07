@@ -403,7 +403,7 @@ protected:
         virtual ~IVTResidentStorage()
         {
             if (m_alctrReservedSpace)
-                _IRR_ALIGNED_FREE(m_alctrReservedSpace);
+                _NBL_ALIGNED_FREE(m_alctrReservedSpace);
         }
 
     public:
@@ -420,7 +420,7 @@ protected:
         //_format implies format class and also is the format image is created with
         IVTResidentStorage(uint32_t _layers, uint32_t _tilesPerDim) :
             image(nullptr),//initialized in derived class's constructor
-            m_alctrReservedSpace(reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(phys_pg_addr_alctr_t::reserved_size(1u, _layers*_tilesPerDim*_tilesPerDim, 1u), _IRR_SIMD_ALIGNMENT))),
+            m_alctrReservedSpace(reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(phys_pg_addr_alctr_t::reserved_size(1u, _layers*_tilesPerDim*_tilesPerDim, 1u), _NBL_SIMD_ALIGNMENT))),
             tileAlctr(m_alctrReservedSpace, 0u, 0u, 1u, _layers*_tilesPerDim*_tilesPerDim, 1u),
             m_decodeAddr_layerShift(core::findLSB(_tilesPerDim)<<1),
             m_decodeAddr_xMask((1u<<(m_decodeAddr_layerShift>>1))-1u)
@@ -431,7 +431,7 @@ protected:
         
         IVTResidentStorage(core::smart_refctd_ptr<image_t>&& _image, const phys_pg_addr_alctr_t& _alctr, const void* _reservedSpc, uint32_t _layerShift, uint32_t _xmask) :
             image(std::move(_image)),
-            m_alctrReservedSpace(reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(phys_pg_addr_alctr_t::reserved_size(_alctr, _alctr.get_total_size()),_IRR_SIMD_ALIGNMENT))),
+            m_alctrReservedSpace(reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(phys_pg_addr_alctr_t::reserved_size(_alctr, _alctr.get_total_size()),_NBL_SIMD_ALIGNMENT))),
             tileAlctr(_alctr.get_total_size(), _alctr, m_alctrReservedSpace),
             m_decodeAddr_layerShift(_layerShift),
             m_decodeAddr_xMask(_xmask)
@@ -527,7 +527,7 @@ protected:
     virtual ~IVirtualTexture()
     {
         if (m_pgTabAddrAlctr_reservedSpc)
-            _IRR_ALIGNED_FREE(m_pgTabAddrAlctr_reservedSpc);
+            _NBL_ALIGNED_FREE(m_pgTabAddrAlctr_reservedSpc);
     }
 
     IVTResidentStorage* getStorageForFormatClass(E_FORMAT_CLASS _fc) const
@@ -658,7 +658,7 @@ public:
             uint32_t pgtabSzSqr = (1u << _pgTabSzxy_log2);
             pgtabSzSqr *= pgtabSzSqr;
             const size_t spacePerAllocator = pg_tab_addr_alctr_t::reserved_size(pgtabSzSqr, pgtabSzSqr, 1u);
-            m_pgTabAddrAlctr_reservedSpc = reinterpret_cast<uint8_t*>( _IRR_ALIGNED_MALLOC(spacePerAllocator*_pgTabLayers, _IRR_SIMD_ALIGNMENT) );
+            m_pgTabAddrAlctr_reservedSpc = reinterpret_cast<uint8_t*>( _NBL_ALIGNED_MALLOC(spacePerAllocator*_pgTabLayers, _NBL_SIMD_ALIGNMENT) );
             for (uint32_t i = 0u; i < _pgTabLayers; ++i)
             {
                 auto& alctr = m_pageTableLayerAllocators[i];
@@ -779,7 +779,7 @@ public:
         _count = std::min<uint32_t>(_count, m_pageTable->getCreationParameters().arrayLayers);
         const uint32_t bufSz = m_pageTableLayerAllocators[0].get_total_size();
         const uint32_t resSpcPerAlctr = pg_tab_addr_alctr_t::reserved_size(m_pageTableLayerAllocators[0].get_total_size(), m_pageTableLayerAllocators[0]);
-        uint8_t* reservedSpc = reinterpret_cast<uint8_t*>( _IRR_ALIGNED_MALLOC(resSpcPerAlctr*_count, _IRR_SIMD_ALIGNMENT) );
+        uint8_t* reservedSpc = reinterpret_cast<uint8_t*>( _NBL_ALIGNED_MALLOC(resSpcPerAlctr*_count, _NBL_SIMD_ALIGNMENT) );
 
         for (uint32_t i = 0u; i < _count; ++i)
             _dstArray[i] = pg_tab_addr_alctr_t(bufSz, m_pageTableLayerAllocators[i], reservedSpc+resSpcPerAlctr);

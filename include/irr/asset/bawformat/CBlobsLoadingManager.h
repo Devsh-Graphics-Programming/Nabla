@@ -52,7 +52,7 @@ namespace asset
 			-# `void* instantiateEmpty(const void* _blob, size_t _blobSize, BlobLoadingParams& _params);` - instantiates (i.e. dynamically by `new` allocates) an object without creating any possible dependent objects that have to be loaded from file as another blob
 			-# `void* finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params);` - finalizes the object assigning any dependent object to appropriate field of the object being finalized
 			-# `void releaseObj(const void* _obj);` - destroys given object
-		- Let `BlobsLoadingManager` know about your blob type, by editing _IRR_SUPPORTED_BLOBS accesible in IrrCompileConfig.h.
+		- Let `BlobsLoadingManager` know about your blob type, by editing _NBL_SUPPORTED_BLOBS accesible in IrrCompileConfig.h.
 
 	Feature not ready yet. (only loading actually)
 	*/

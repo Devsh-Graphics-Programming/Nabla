@@ -47,7 +47,7 @@ CUresult CCUDAHandler::init()
 	cuda = CUDA(
 		#if defined(_NBL_WINDOWS_API_)
 			"nvcuda"
-		#elif defined(_IRR_POSIX_API_)
+		#elif defined(_NBL_POSIX_API_)
 			"cuda"
 		#endif
 	);
@@ -127,7 +127,7 @@ CUresult CCUDAHandler::init()
 		if (nvrtc.pnvrtcVersion)
 			break;
 	}
-	#elif defined(_IRR_POSIX_API_)
+	#elif defined(_NBL_POSIX_API_)
 	nvrtc = NVRTC("nvrtc");
 	//nvrtc_builtins = NVRTC("nvrtc-builtins");
 	#endif
@@ -234,7 +234,7 @@ CUresult CCUDAHandler::acquireAndGetPointers(GraphicsAPIObjLink<video::IGPUBuffe
 {
 	if (linksBegin+MaxAquireOps<linksEnd)
 		return CUDA_ERROR_OUT_OF_MEMORY;
-	alignas(_IRR_SIMD_ALIGNMENT) uint8_t stackScratch[MaxAquireOps*sizeof(void*)];
+	alignas(_NBL_SIMD_ALIGNMENT) uint8_t stackScratch[MaxAquireOps*sizeof(void*)];
 
 	CUresult result = acquireResourcesFromGraphics(stackScratch,linksBegin,linksEnd,stream);
 	if (result != CUDA_SUCCESS)
@@ -257,7 +257,7 @@ CUresult CCUDAHandler::acquireAndGetMipmappedArray(GraphicsAPIObjLink<video::IGP
 {
 	if (linksBegin+MaxAquireOps<linksEnd)
 		return CUDA_ERROR_OUT_OF_MEMORY;
-	alignas(_IRR_SIMD_ALIGNMENT) uint8_t stackScratch[MaxAquireOps*sizeof(void*)];
+	alignas(_NBL_SIMD_ALIGNMENT) uint8_t stackScratch[MaxAquireOps*sizeof(void*)];
 
 	CUresult result = acquireResourcesFromGraphics(stackScratch,linksBegin,linksEnd,stream);
 	if (result != CUDA_SUCCESS)
@@ -278,7 +278,7 @@ CUresult CCUDAHandler::acquireAndGetArray(GraphicsAPIObjLink<video::IGPUImage>* 
 {
 	if (linksBegin+MaxAquireOps<linksEnd)
 		return CUDA_ERROR_OUT_OF_MEMORY;
-	alignas(_IRR_SIMD_ALIGNMENT) uint8_t stackScratch[MaxAquireOps*sizeof(void*)];
+	alignas(_NBL_SIMD_ALIGNMENT) uint8_t stackScratch[MaxAquireOps*sizeof(void*)];
 
 	CUresult result = acquireResourcesFromGraphics(stackScratch,linksBegin,linksEnd,stream);
 	if (result != CUDA_SUCCESS)

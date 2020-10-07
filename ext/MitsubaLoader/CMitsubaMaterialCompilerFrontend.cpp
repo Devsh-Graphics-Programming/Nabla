@@ -129,11 +129,11 @@ namespace MitsubaLoader
         state.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
         state.borderColor = _borderColor;
         state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
-        state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, _IRR_SIMD_ALIGNMENT));
+        state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
 
         DerivativeMapFilter::execute(&state);
 
-        _IRR_ALIGNED_FREE(state.scratchMemory);
+        _NBL_ALIGNED_FREE(state.scratchMemory);
 
         return outImg;
     }

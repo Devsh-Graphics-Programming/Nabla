@@ -45,7 +45,7 @@ namespace scene
             {
                 uint32_t newID = kInvalidInstanceID;
 
-                const uint32_t align = _IRR_SIMD_ALIGNMENT;
+                const uint32_t align = _NBL_SIMD_ALIGNMENT;
                 instanceBoneDataAllocator->multi_alloc_addr(1u,&newID,&instanceFinalBoneDataSize,&align);
                 if (newID==kInvalidInstanceID)
                     return kInvalidInstanceID;
@@ -58,7 +58,7 @@ namespace scene
                         TBO = Driver->createGPUBufferView(instanceBoneDataAllocator->getFrontBuffer(), TBO_FORMAT);
 
                     auto newInstanceDataSize = instanceCapacity*actualSizeOfInstanceDataElement;
-                    uint8_t* newInstanceData = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(newInstanceDataSize,_IRR_SIMD_ALIGNMENT));
+                    uint8_t* newInstanceData = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(newInstanceDataSize,_NBL_SIMD_ALIGNMENT));
                     auto oldInstanceDataByteSize = instanceDataSize*actualSizeOfInstanceDataElement;
                     if (newInstanceDataSize<oldInstanceDataByteSize)
                         memcpy(newInstanceData,instanceData,newInstanceDataSize);

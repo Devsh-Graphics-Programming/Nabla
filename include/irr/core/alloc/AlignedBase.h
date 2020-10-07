@@ -24,7 +24,7 @@ namespace core
 `object_alignment`, unfortunately this is only enforced for objects on the stack.
 To make sure your object is aligned on heaps as well you need to inherit from
 `AlignedAllocOverrideBase` or one of its aliases instead. **/
-template<size_t object_alignment=_IRR_SIMD_ALIGNMENT>
+template<size_t object_alignment=_NBL_SIMD_ALIGNMENT>
 class NBL_FORCE_EBO alignas(object_alignment) AlignedBase
 {
     static_assert(is_alignment(object_alignment),"Alignments must be PoT and positive!");
@@ -144,12 +144,12 @@ namespace impl
             static inline void* operator new(size_t size) noexcept
             {
                 //std::cout << "Alloc aligned to " << object_alignment << std::endl;
-                return _IRR_ALIGNED_MALLOC(size,object_alignment);
+                return _NBL_ALIGNED_MALLOC(size,object_alignment);
             }
             static inline void* operator new[](size_t size) noexcept
             {
                 //std::cout << "Alloc aligned to " << object_alignment << std::endl;
-                return _IRR_ALIGNED_MALLOC(size,object_alignment);
+                return _NBL_ALIGNED_MALLOC(size,object_alignment);
             }
             static inline void* operator new(size_t size, void* where) noexcept
             {
@@ -163,12 +163,12 @@ namespace impl
             static inline void operator delete(void* ptr) noexcept
             {
                 //std::cout << "Delete aligned to " << object_alignment << std::endl;
-                _IRR_ALIGNED_FREE(ptr);
+                _NBL_ALIGNED_FREE(ptr);
             }
             static inline void  operator delete[](void* ptr) noexcept
             {
                 //std::cout << "Delete aligned to " << object_alignment << std::endl;
-                _IRR_ALIGNED_FREE(ptr);
+                _NBL_ALIGNED_FREE(ptr);
             }
             static inline void operator delete(void* ptr, size_t size) noexcept {operator delete(ptr);} //roll back to own operator with no size
             static inline void operator delete[](void* ptr, size_t size) noexcept {operator delete[](ptr);} //roll back to own operator with no size
@@ -187,9 +187,9 @@ using AllocationOverrideBase = impl::ResolveAlignment<AlignedBase<_in_alignment>
 //#define IRR_TEST_NO_NEW_DELETE_OVERRIDE
 
 #ifndef IRR_TEST_NO_NEW_DELETE_OVERRIDE
-using AllocationOverrideDefault = AllocationOverrideBase<_IRR_SIMD_ALIGNMENT>;
-static_assert(alignof(AllocationOverrideDefault)==_IRR_SIMD_ALIGNMENT,"This compiler has a problem respecting alignment!");
-static_assert(sizeof(AllocationOverrideDefault)==_IRR_SIMD_ALIGNMENT,"This compiler has a problem respecting empty bases!");
+using AllocationOverrideDefault = AllocationOverrideBase<_NBL_SIMD_ALIGNMENT>;
+static_assert(alignof(AllocationOverrideDefault)==_NBL_SIMD_ALIGNMENT,"This compiler has a problem respecting alignment!");
+static_assert(sizeof(AllocationOverrideDefault)==_NBL_SIMD_ALIGNMENT,"This compiler has a problem respecting empty bases!");
 
 
 //! Put in class if the compiler is complaining about ambiguous references to new and delete operators. Needs to be placed in the public section of methods

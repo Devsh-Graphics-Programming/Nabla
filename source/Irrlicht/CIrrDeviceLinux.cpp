@@ -24,7 +24,7 @@
 #include <X11/XKBlib.h>
 #include <X11/Xatom.h>
 
-#ifdef _IRR_LINUX_XCURSOR_
+#ifdef _NBL_LINUX_XCURSOR_
 #include <X11/Xcursor/Xcursor.h>
 #endif
 
@@ -374,14 +374,14 @@ bool CIrrDeviceLinux::switchToFullscreen(bool reset)
 		return true;
 	if (reset)
 	{
-#ifdef _IRR_LINUX_X11_VIDMODE_
+#ifdef _NBL_LINUX_X11_VIDMODE_
 		if (UseXVidMode && CreationParams.Fullscreen)
 		{
 			XF86VidModeSwitchToMode(display, screennr, &oldVideoMode);
 			XF86VidModeSetViewPort(display, screennr, 0, 0);
 		}
 		#endif
-		#ifdef _IRR_LINUX_X11_RANDR_
+		#ifdef _NBL_LINUX_X11_RANDR_
 		if (UseXRandR && CreationParams.Fullscreen)
 		{
 			XRRScreenConfiguration *config=XRRGetScreenInfo(display,DefaultRootWindow(display));
@@ -392,12 +392,12 @@ bool CIrrDeviceLinux::switchToFullscreen(bool reset)
 		return true;
 	}
 
-	#if defined(_IRR_LINUX_X11_VIDMODE_) || defined(_IRR_LINUX_X11_RANDR_)
+	#if defined(_NBL_LINUX_X11_VIDMODE_) || defined(_NBL_LINUX_X11_RANDR_)
 	int32_t eventbase, errorbase;
 	int32_t bestMode = -1;
 	#endif
 
-	#ifdef _IRR_LINUX_X11_VIDMODE_
+	#ifdef _NBL_LINUX_X11_VIDMODE_
 	if (XF86VidModeQueryExtension(display, &eventbase, &errorbase))
 	{
 		// enumerate video modes
@@ -447,7 +447,7 @@ bool CIrrDeviceLinux::switchToFullscreen(bool reset)
 	}
 	else
 	#endif
-	#ifdef _IRR_LINUX_X11_RANDR_
+	#ifdef _NBL_LINUX_X11_RANDR_
 	if (XRRQueryExtension(display, &eventbase, &errorbase))
 	{
 		int32_t modeCount;

@@ -15,7 +15,7 @@ namespace core
 
 class matrix4x3;
 
-#define _IRR_MATRIX_ALIGNMENT _IRR_SIMD_ALIGNMENT
+#define _IRR_MATRIX_ALIGNMENT _NBL_SIMD_ALIGNMENT
 static_assert(_IRR_MATRIX_ALIGNMENT>=_IRR_VECTOR_ALIGNMENT,"Matrix must be equally or more aligned than vector!");
 
 //! Equivalent of GLSL's mat4x3

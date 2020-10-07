@@ -23,8 +23,8 @@ namespace asset
 
 struct LzmaMemMngmnt
 {
-        static void *alloc(ISzAllocPtr, size_t _size) { return _IRR_ALIGNED_MALLOC(_size,_IRR_SIMD_ALIGNMENT); }
-        static void release(ISzAllocPtr, void* _addr) { _IRR_ALIGNED_FREE(_addr); }
+        static void *alloc(ISzAllocPtr, size_t _size) { return _NBL_ALIGNED_MALLOC(_size,_NBL_SIMD_ALIGNMENT); }
+        static void release(ISzAllocPtr, void* _addr) { _NBL_ALIGNED_FREE(_addr); }
     private:
         LzmaMemMngmnt() {}
 };
@@ -54,7 +54,7 @@ struct LzmaMemMngmnt
 		tryWrite(data, _file, _ctx, MeshBlobV3::calcBlobSizeForObj(_obj), _headerIdx, flags, encrPwd, comprLvl);
 
 		if ((uint8_t*)data != stackData)
-			_IRR_ALIGNED_FREE(data);
+			_NBL_ALIGNED_FREE(data);
 	}
 	template<>
 	void CBAWMeshWriter::exportAsBlob<ICPUSkinnedMesh>(ICPUSkinnedMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
@@ -72,7 +72,7 @@ struct LzmaMemMngmnt
 		tryWrite(data, _file, _ctx, SkinnedMeshBlobV3::calcBlobSizeForObj(_obj), _headerIdx, flags, encrPwd, comprLvl);
 
 		if ((uint8_t*)data != stackData)
-			_IRR_ALIGNED_FREE(data);
+			_NBL_ALIGNED_FREE(data);
 	}
 	template<>
 	void CBAWMeshWriter::exportAsBlob<ICPUMeshBuffer>(ICPUMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
@@ -123,7 +123,7 @@ struct LzmaMemMngmnt
 		tryWrite(data, _file, _ctx, FinalBoneHierarchyBlobV3::calcBlobSizeForObj(_obj), _headerIdx, EWF_NONE);
 
 		if ((uint8_t*)data != stackData)
-			_IRR_ALIGNED_FREE(data);
+			_NBL_ALIGNED_FREE(data);
 	}
 #ifndef NEW_SHADERS
 	template<>
@@ -164,7 +164,7 @@ struct LzmaMemMngmnt
 
 		uint64_t header[4];
 		memcpy(header, BAW_FILE_HEADER, FILE_HEADER_SIZE);
-		header[3] = _IRR_BAW_FORMAT_VERSION;
+		header[3] = _NBL_FORMAT_VERSION;
 
 		_file->write(header, FILE_HEADER_SIZE);
 
@@ -390,19 +390,19 @@ struct LzmaMemMngmnt
 		if (_flags & EWF_ENCRYPTED)
 		{
 			const size_t encrSize = BlobHeaderLatest::calcEncSize(compressedSize);
-			void* in = _IRR_ALIGNED_MALLOC(encrSize,_IRR_SIMD_ALIGNMENT);
+			void* in = _NBL_ALIGNED_MALLOC(encrSize,_NBL_SIMD_ALIGNMENT);
 			memset(((uint8_t*)in) + (compressedSize-16), 0, 16);
 			memcpy(in, data, compressedSize);
 
-			void* out = _IRR_ALIGNED_MALLOC(encrSize, _IRR_SIMD_ALIGNMENT);
+			void* out = _NBL_ALIGNED_MALLOC(encrSize, _NBL_SIMD_ALIGNMENT);
 
             const WriteProperties* props = reinterpret_cast<const WriteProperties*>(_ctx.inner.params.userData);
 			if (encAes128gcm(data, encrSize, out, encrSize, _encrPwd, props->initializationVector, _ctx.headers[_headerIdx].gcmTag))
 			{
 				if (data != _data && data != stack) // allocated in compressing functions?
-					_IRR_ALIGNED_FREE(data);
+					_NBL_ALIGNED_FREE(data);
 				data = out;
-				_IRR_ALIGNED_FREE(in);
+				_NBL_ALIGNED_FREE(in);
 				comprType |= Blob::EBCT_AES128_GCM;
 			}
 			else
@@ -410,8 +410,8 @@ struct LzmaMemMngmnt
 #ifdef _NBL_DEBUG
 				os::Printer::log("Failed to encrypt! Blob exported without encryption.", ELL_WARNING);
 #endif
-				_IRR_ALIGNED_FREE(in);
-				_IRR_ALIGNED_FREE(out);
+				_NBL_ALIGNED_FREE(in);
+				_NBL_ALIGNED_FREE(out);
 			}
 		}
 
@@ -421,7 +421,7 @@ struct LzmaMemMngmnt
 		calcAndPushNextOffset(!_headerIdx ? 0 : _ctx.headers[_headerIdx - 1].effectiveSize(), _ctx);
 
 		if (data != stack && data != _data)
-			_IRR_ALIGNED_FREE(const_cast<void*>(data)); // safe const_cast since the only case when this executes is when `data` points to _IRR_ALIGNED_MALLOC'd memory
+			_NBL_ALIGNED_FREE(const_cast<void*>(data)); // safe const_cast since the only case when this executes is when `data` points to _NBL_ALIGNED_MALLOC'd memory
 	}
 
 	void* CBAWMeshWriter::compressWithLz4AndTryOnStack(const void* _input, uint32_t _inputSize, void* _stack, uint32_t _stackSize, size_t& _outComprSize) const
@@ -436,14 +436,14 @@ struct LzmaMemMngmnt
 			if (lz4CompressBound > _stackSize)
 			{
 				dstSize = BlobHeaderLatest::calcEncSize(lz4CompressBound);
-				data = _IRR_ALIGNED_MALLOC(dstSize,_IRR_SIMD_ALIGNMENT);
+				data = _NBL_ALIGNED_MALLOC(dstSize,_NBL_SIMD_ALIGNMENT);
 			}
 			compressedSize = LZ4_compress_default((const char*)_input, (char*)data, _inputSize, dstSize);
 		}
 		if (!compressedSize) // if compression did not succeed
 		{
 			if (data != _stack)
-				_IRR_ALIGNED_FREE(data);
+				_NBL_ALIGNED_FREE(data);
 			compressedSize = _inputSize;
 			data = const_cast<void*>(_input);
 #ifdef _NBL_DEBUG
@@ -475,13 +475,13 @@ struct LzmaMemMngmnt
 		props.lp = 2; // 2^2==sizeof(float)
 
 		const SizeT heapSize = _inputSize + LZMA_PROPS_SIZE;
-		uint8_t* data = (uint8_t*)_IRR_ALIGNED_MALLOC(heapSize,_IRR_SIMD_ALIGNMENT);
+		uint8_t* data = (uint8_t*)_NBL_ALIGNED_MALLOC(heapSize,_NBL_SIMD_ALIGNMENT);
 		SizeT destSize = heapSize;
 
 		SRes res = LzmaEncode(data+propsSize, &destSize, (const Byte*)_input, _inputSize, &props, data, &propsSize, props.writeEndMark, NULL, &alloc, &alloc);
 		if (res != SZ_OK)
 		{
-			_IRR_ALIGNED_FREE(data);
+			_NBL_ALIGNED_FREE(data);
 			data = (uint8_t*)const_cast<void*>(_input);
 			destSize = _inputSize;
 #ifdef _NBL_DEBUG

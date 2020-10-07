@@ -98,7 +98,7 @@ ITimer* CIrrDeviceStub::getTimer()
 //! Returns the version of the engine.
 const char* CIrrDeviceStub::getVersion() const
 {
-	return IRRLICHTBAW_SDK_VERSION;
+	return NABLA_SDK_VERSION;
 }
 
 //! \return Returns a pointer to the mouse cursor control interface.

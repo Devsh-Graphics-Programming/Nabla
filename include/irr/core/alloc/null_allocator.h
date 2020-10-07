@@ -14,7 +14,7 @@ namespace irr
 namespace core
 {
 
-template <class T, size_t overAlign=_IRR_DEFAULT_ALIGNMENT(T)>
+template <class T, size_t overAlign=_NBL_DEFAULT_ALIGNMENT(T)>
 class NBL_FORCE_EBO null_allocator : public irr::core::AllocatorTrivialBase<T>
 {
     public:
