@@ -5,6 +5,8 @@
 #ifndef __NBL_SYSTEM_H_INCLUDED__
 #define __NBL_SYSTEM_H_INCLUDED__
 
+#include "irr/system/compile_config.h"
+
 // dependencies
 #include "irr/core/core.h"
 

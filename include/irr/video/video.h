@@ -5,6 +5,8 @@
 #ifndef __NBL_VIDEO_H_INCLUDED__
 #define __NBL_VIDEO_H_INCLUDED__
 
+#include "irr/video/compile_config.h"
+
 // dependencies
 #include "irr/asset/asset.h"
 #include "irr/ui/ui.h" // unsure yet

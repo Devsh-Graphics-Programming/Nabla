@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_H_INCLUDED__
 #define __NBL_ASSET_H_INCLUDED__
 
-#include "irr/asset/NblAssetCompileConfig.h"
+#include "irr/asset/compile_config.h"
 
 // dependencies
 #include "irr/system/system.h"
