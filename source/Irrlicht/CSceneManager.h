@@ -216,27 +216,16 @@ namespace scene
 					Node(n), renderPriority(0x80000000u)
 				{
 					renderPriority = n->getRenderPriorityScore();
-#ifndef NEW_SHADERS
-					if (n->getMaterialCount())
-						Material = n->getMaterial(0).MaterialType;
-#endif
 				}
 
 				bool operator < (const DefaultNodeEntry& other) const
 				{
-#ifndef NEW_SHADERS
-					return (renderPriority < other.renderPriority)||(renderPriority==other.renderPriority && Material<other.Material);
-#else
 					return renderPriority < other.renderPriority;
-#endif
 				}
 
 				ISceneNode* Node;
 			private:
 				uint32_t renderPriority;
-#ifndef NEW_SHADERS
-				video::E_MATERIAL_TYPE Material;
-#endif
 		};
 
 		//! sort on distance (center) to camera

@@ -92,16 +92,6 @@ void CSkinnedMeshSceneNode::OnRegisterSceneNode()
             if (!mb||mb->getIndexCount()<1)
                 continue;
 
-#ifndef NEW_SHADERS
-            video::IMaterialRenderer* rnd =
-                driver->getMaterialRenderer(mb->getMaterial().MaterialType);
-
-            if (rnd && rnd->isTransparent())
-                ++transparentCount;
-            else
-                ++solidCount;
-#endif
-
             if (solidCount && transparentCount)
                 break;
         }
@@ -158,56 +148,6 @@ void CSkinnedMeshSceneNode::OnAnimate(uint32_t timeMs)
 //! renders the node.
 void CSkinnedMeshSceneNode::render()
 {
-#ifndef NEW_SHADERS
-	video::IVideoDriver* driver = SceneManager->getVideoDriver();
-
-	if (!mesh || !driver)
-		return;
-
-
-	bool isTransparentPass =
-		SceneManager->getSceneNodeRenderPass() == scene::ESNRP_TRANSPARENT;
-
-	++PassCount;
-
-
-
-    if (canProceedPastFence())
-    {
-        driver->setTransform(video::E4X3TS_WORLD, core::matrix3x4SIMD().set(AbsoluteTransformation));
-
-        // render original meshes
-        for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
-        {
-            video::IGPUMeshBuffer* mb = mesh->getMeshBuffer(i);
-            if (mb)
-            {
-                const video::SGPUMaterial& material = mb->getMaterial();
-
-                video::IMaterialRenderer* rnd = driver->getMaterialRenderer(0);
-                bool transparent = (rnd && rnd->isTransparent());
-
-                // only render transparent buffer if this is the transparent render pass
-                // and solid only in solid pass
-                if (transparent == isTransparentPass)
-                {
-                    driver->setMaterial(material);
-                    driver->drawMeshBuffer(mb);
-                }
-            }
-        }
-    }
-
-	// for debug purposes only:
-	if (DebugDataVisible && PassCount==1)
-	{
-        driver->setTransform(video::E4X3TS_WORLD, AbsoluteTransformation);
-
-		video::SGPUMaterial debug_mat;
-        debug_mat.Thickness = 3.f;
-		driver->setMaterial(debug_mat);
-	}
-#endif
 }
 
 

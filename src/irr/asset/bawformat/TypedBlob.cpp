@@ -61,52 +61,6 @@ void TypedBlob<RawBufferBlobV3, asset::ICPUBuffer>::releaseObj(const void* _obj)
 		reinterpret_cast<const asset::ICPUBuffer*>(_obj)->drop();
 }
 
-#ifndef NEW_SHADERS
-template<>
-core::unordered_set<uint64_t> TypedBlob<TexturePathBlobV3, asset::ICPUTexture>::getNeededDeps(const void* _blob)
-{
-	return core::unordered_set<uint64_t>();
-}
-
-template<>
-void* TypedBlob<TexturePathBlobV3, asset::ICPUTexture>::instantiateEmpty(const void* _blob, size_t _blobSize, BlobLoadingParams& _params)
-{
-	if (!_blob || !_params.fs || !_params.ldr || !_params.manager)
-		return nullptr;
-
-	auto* blob = (TexturePathBlobV3*)_blob;
-
-    // set ECF_DONT_CACHE_TOP_LEVEL flag because it will get cached in BAW loader
-    asset::IAssetLoader::SAssetLoadParams params(_params.params.decryptionKeyLen, _params.params.decryptionKey, asset::IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL, _params.filePath.c_str());
-	constexpr uint32_t hierarchyLevel = 0u; // due to the above comment, absolutely meaningless right now
-
-	const char* const texname = (const char*)blob->getData();
-	auto bundle = static_cast<CBAWMeshFileLoader*>(_params.ldr)->interm_getAssetInHierarchy(_params.manager, std::string(texname), params, hierarchyLevel, _params.loaderOverride);
-
-	auto assetRange = bundle.getContents();
-	if (assetRange.first != assetRange.second)
-	{
-		auto texture = assetRange.first->get();
-		texture->grab();
-		return texture;
-	}
-	else
-		return nullptr;
-}
-
-template<>
-void* TypedBlob<TexturePathBlobV3, asset::ICPUTexture>::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params)
-{
-	return _obj;
-}
-
-template<>
-void TypedBlob<TexturePathBlobV3, asset::ICPUTexture>::releaseObj(const void* _obj)
-{
-	if (_obj)
-		reinterpret_cast<const asset::ICPUTexture*>(_obj)->drop();
-}
-#endif
 template<>
 core::unordered_set<uint64_t> TypedBlob<MeshBlobV3, asset::ICPUMesh>::getNeededDeps(const void* _blob)
 {
@@ -213,14 +167,7 @@ core::unordered_set<uint64_t> TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>
 	auto* blob = (MeshBufferBlobV3*)_blob;
 	core::unordered_set<uint64_t> deps;
 	deps.insert(blob->descPtr);
-#ifndef NEW_SHADERS
-	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
-	{
-		uint64_t tex = reinterpret_cast<uint64_t>(blob->mat.getTexture(i));
-		if (tex)
-			deps.insert(tex);
-	}
-#endif
+
 	return deps;
 }
 
@@ -232,26 +179,6 @@ void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::instantiateEmpty(const
 
 	const auto* blob = (const MeshBufferBlobV3*)_blob;
 	asset::ICPUMeshBuffer* buf = new asset::ICPUMeshBuffer();
-#ifndef NEW_SHADERS
-	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SCPUMaterial));
-	buf->getMaterial().setBitfields(*(blob)->mat.bitfieldsPtr());
-	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
-	{
-		memset(&buf->getMaterial().TextureLayer[i].Texture,0,sizeof(const void*));
-		buf->getMaterial().TextureLayer[i].SamplingParams.setBitfields(*(blob)->mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
-	}
-
-	buf->setBoundingBox(blob->box);
-	buf->setIndexType((asset::E_INDEX_TYPE)blob->indexType);
-	buf->setBaseVertex(blob->baseVertex);
-	buf->setIndexCount(blob->indexCount);
-	buf->setIndexBufferOffset(blob->indexBufOffset);
-	buf->setInstanceCount(blob->instanceCount);
-	buf->setBaseInstance(blob->baseInstance);
-	buf->setPrimitiveType((asset::E_PRIMITIVE_TYPE)blob->primitiveType);
-	buf->setPositionAttributeIx((asset::E_VERTEX_ATTRIBUTE_ID)blob->posAttrId);
-	buf->setNormalnAttributeIx((asset::E_VERTEX_ATTRIBUTE_ID)blob->normalAttrId);
-#endif
 
 	return buf;
 }
@@ -264,15 +191,6 @@ void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::finalize(void* _obj, c
 
 	const auto* blob = (const MeshBufferBlobV3*)_blob;
 	asset::ICPUMeshBuffer* buf = reinterpret_cast<asset::ICPUMeshBuffer*>(_obj);
-#ifndef NEW_SHADERS
-	buf->setMeshDataAndFormat(impl::castPtrAndRefcount<asset::IMeshDataFormatDesc<asset::ICPUBuffer> >(_deps[blob->descPtr]));
-	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
-	{
-		uint64_t tex = reinterpret_cast<uint64_t>(blob->mat.getTexture(i));
-		if (tex)
-			buf->getMaterial().setTexture(i, impl::castPtrAndRefcount<asset::ICPUTexture>(_deps[tex]));
-	}
-#endif
 
 	return _obj;
 }
@@ -298,28 +216,6 @@ void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::instanti
 
 	const auto* blob = (const SkinnedMeshBufferBlobV3*)_blob;
 	asset::ICPUSkinnedMeshBuffer* buf = new asset::ICPUSkinnedMeshBuffer();
-#ifndef NEW_SHADERS
-	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SCPUMaterial));
-	buf->getMaterial().setBitfields(*(blob)->mat.bitfieldsPtr());
-	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
-	{
-		memset(&buf->getMaterial().TextureLayer[i].Texture, 0, sizeof(const void*));
-		buf->getMaterial().TextureLayer[i].SamplingParams.setBitfields(*(blob)->mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
-	}
-
-	buf->setBoundingBox(blob->box);
-	buf->setIndexType((asset::E_INDEX_TYPE)blob->indexType);
-	buf->setBaseVertex(blob->baseVertex);
-	buf->setIndexCount(blob->indexCount);
-	buf->setIndexBufferOffset(blob->indexBufOffset);
-	buf->setInstanceCount(blob->instanceCount);
-	buf->setBaseInstance(blob->baseInstance);
-	buf->setPrimitiveType((asset::E_PRIMITIVE_TYPE)blob->primitiveType);
-	buf->setPositionAttributeIx((asset::E_VERTEX_ATTRIBUTE_ID)blob->posAttrId);
-	buf->setNormalnAttributeIx((asset::E_VERTEX_ATTRIBUTE_ID)blob->normalAttrId);
-	buf->setIndexRange(blob->indexValMin, blob->indexValMax);
-	buf->setMaxVertexBoneInfluences(blob->maxVertexBoneInfluences);
-#endif
 
 	return buf;
 }
@@ -332,15 +228,6 @@ void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::finalize
 
 	const auto* blob = (const SkinnedMeshBufferBlobV3*)_blob;
 	asset::ICPUSkinnedMeshBuffer* buf = reinterpret_cast<asset::ICPUSkinnedMeshBuffer*>(_obj);
-#ifndef NEW_SHADERS
-	buf->setMeshDataAndFormat(impl::castPtrAndRefcount<asset::IMeshDataFormatDesc<asset::ICPUBuffer> >(_deps[blob->descPtr]));
-	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
-	{
-		uint64_t tex = reinterpret_cast<uint64_t>(blob->mat.getTexture(i));
-		if (tex)
-			buf->getMaterial().setTexture(i, impl::castPtrAndRefcount<asset::ICPUTexture>(_deps[tex]));
-	}
-#endif
 
 	return _obj;
 }
@@ -432,59 +319,4 @@ void TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>::releaseObj(const 
 		reinterpret_cast<const CFinalBoneHierarchy*>(_obj)->drop();
 }
 
-
-#ifndef NEW_SHADERS
-
-template<>
-core::unordered_set<uint64_t> TypedBlob<MeshDataFormatDescBlobV3, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::getNeededDeps(const void* _blob)
-{
-	auto blob = (MeshDataFormatDescBlobV3*)_blob;
-	core::unordered_set<uint64_t> deps;
-	if (blob->idxBufPtr)
-		deps.insert(blob->idxBufPtr);
-	for (uint32_t i = 0; i < asset::EVAI_COUNT; ++i)
-		if (blob->attrBufPtrs[i])
-			deps.insert(blob->attrBufPtrs[i]);
-	return deps;
-}
-
-template<>
-void* TypedBlob<MeshDataFormatDescBlobV3, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::instantiateEmpty(const void* _blob, size_t _blobSize, BlobLoadingParams& _params)
-{
-	return new asset::ICPUMeshDataFormatDesc();
-}
-
-template<>
-void* TypedBlob<MeshDataFormatDescBlobV3, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params)
-{
-	if (!_obj || !_blob)
-		return nullptr;
-
-	const auto* blob = (const MeshDataFormatDescBlobV3*)_blob;
-	asset::IMeshDataFormatDesc<asset::ICPUBuffer>* desc = reinterpret_cast<asset::ICPUMeshDataFormatDesc*>(_obj);
-	for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
-	{
-		if (blob->attrBufPtrs[(int)i])
-			desc->setVertexAttrBuffer(
-				impl::castPtrAndRefcount<asset::ICPUBuffer>(_deps[blob->attrBufPtrs[i]]),
-				i,
-				static_cast<asset::E_FORMAT>(blob->attrFormat[i]),
-				blob->attrStride[i],
-				blob->attrOffset[i],
-				(blob->attrDivisor>>i)&1u
-			);
-	}
-	if (blob->idxBufPtr)
-		desc->setIndexBuffer(impl::castPtrAndRefcount<asset::ICPUBuffer>(_deps[blob->idxBufPtr]));
-	return _obj;
-}
-
-template<>
-void TypedBlob<MeshDataFormatDescBlobV3, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::releaseObj(const void* _obj)
-{
-	if (_obj)
-		reinterpret_cast<const asset::IMeshDataFormatDesc<asset::ICPUBuffer>*>(_obj)->drop();
-}
-
-#endif//ifndef NEW_SHADERS
 }} // irr:core

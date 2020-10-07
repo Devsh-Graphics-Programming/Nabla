@@ -156,20 +156,6 @@ class SCompoundCollider : public IReferenceCounted
 
                 switch (colliderData.attachedNode->getType())
                 {
-#ifndef NEW_SHADERS
-                    case scene::ESNT_MESH_INSTANCED:
-                        {
-							matrix3x4SIMD instanceTform = static_cast<scene::IMeshSceneNodeInstanced*>(colliderData.attachedNode)->getInstanceTransform(colliderData.instanceID);
-                            retval = instanceTform.makeInverse();
-                            if (!retval)
-                                return false;
-
-                            instanceTform.transformVect(origin);
-                            instanceTform.mulSub3x3WithNx1(direction);
-                        }
-                        break;
-                    ///case ESNT_INSTANCED_ANIMATED_MESH:
-#endif // !NEW_SHADERS
                     default:
                         break;
                 }
