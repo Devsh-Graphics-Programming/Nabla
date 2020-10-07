@@ -175,9 +175,6 @@ class CNullDriver : public IVideoDriver
 		//! Returns the maximum texture size supported.
 		virtual const uint32_t* getMaxTextureSize(IGPUImageView::E_TYPE type) const override;
 
-		//!
-		const CDerivativeMapCreator* getDerivativeMapCreator() const override { return DerivativeMapCreator.get(); };
-
 	protected:
         void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count,
 										const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** _destPplnLayouts);
@@ -193,8 +190,6 @@ class CNullDriver : public IVideoDriver
 		CFPSCounter FPSCounter;
 
 		uint32_t PrimitivesDrawn;
-
-		core::smart_refctd_ptr<CDerivativeMapCreator> DerivativeMapCreator;
 
 		SExposedVideoData ExposedData;
 

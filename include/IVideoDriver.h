@@ -14,7 +14,6 @@
 #include "IDriverFence.h"
 #include "SExposedVideoData.h"
 #include "IDriver.h"
-#include "irr/video/CDerivativeMapCreator.h"
 #include "irr/video/IGPUBufferView.h"
 #include "irr/video/IGPURenderpassIndependentPipeline.h"
 
@@ -206,7 +205,6 @@ namespace video
 		it. */
 		virtual void enableClipPlane(uint32_t index, bool enable) {}
 
-        virtual const CDerivativeMapCreator* getDerivativeMapCreator() const { return nullptr; }
 	};
 
 } // end namespace video

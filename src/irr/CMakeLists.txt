@@ -266,9 +266,6 @@ set(IRRLICHT_SRCS_NORMAL
 
 	# OpenCL
 	${IRR_ROOT_PATH}/source/Irrlicht/COpenCLHandler.cpp
-
-	# abstract (move this out eventually)
-	${IRR_ROOT_PATH}/src/irr/video/CDerivativeMapCreator.cpp
 )
 
 set(COMMON_INCLUDE_DIRS

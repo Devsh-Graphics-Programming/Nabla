@@ -32,7 +32,7 @@ int32_t CNullDriver::incrementAndFetchReallocCounter()
 
 //! constructor
 CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const SIrrlichtCreationParameters& _params)
-			: IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), Params(_params), PrimitivesDrawn(0), DerivativeMapCreator()
+			: IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), Params(_params), PrimitivesDrawn(0)
 {
 	#ifdef _NBL_DEBUG
 	setDebugName("CNullDriver");
@@ -109,8 +109,6 @@ bool CNullDriver::genericDriverInit(asset::IAssetManager* assMgr)
 		reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
 		defaultUploadBuffer = core::make_smart_refctd_ptr < video::StreamingTransientDataBufferMT<> >(this, reqs);
 	}
-
-	DerivativeMapCreator = core::make_smart_refctd_ptr<CDerivativeMapCreator>(this);
 
 	return true;
 }
