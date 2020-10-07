@@ -175,6 +175,14 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 			else
 				return nullptr;
 		}
+		inline Value* peek(const Key& key)
+		{
+			uint32_t i = common_peek(key);
+			if (i != invalid_iterator)
+				return &(m_list.get(i)->data.second);
+			else
+				return nullptr;
+		}
 
 		//remove element at key if present
 		inline void erase(const Key& key)
