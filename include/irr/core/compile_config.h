@@ -19,6 +19,10 @@
 // this actually includes file depending on build type (Debug/Release)
 #include "BuildConfigOptions.h"
 
+#if defined(_NBL_PLATFORM_LINUX_)
+#   define _NBL_POSIX_API_
+#endif
+
 #ifdef _NBL_TARGET_ARCH_ARM_
 #   define __NBL_COMPILE_WITH_ARM_SIMD_ // NEON
 #else // target arch x86

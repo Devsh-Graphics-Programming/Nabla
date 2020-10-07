@@ -6,7 +6,6 @@
 #define __NBL_SYSTEM_COMPILE_CONFIG_H_INCLUDED__
 
 #if defined(_NBL_PLATFORM_LINUX_)
-#   define _NBL_POSIX_API_
 #   define _NBL_COMPILE_WITH_X11_DEVICE_
 #endif
 
