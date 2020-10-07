@@ -8,7 +8,6 @@
 #include "irr/core/compile_config.h"
 
 //overarching includes (compiler tricks mostly)
-#include "IrrCompileConfig.h" // what's this still doing here?
 #include "irr/macros.h"
 #include "irr/type_traits.h"
 #include "irr/void_t.h"

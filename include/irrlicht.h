@@ -36,7 +36,6 @@
 #include "irr/scene/scene.h"
 
 
-#include "IrrCompileConfig.h"
 #include "aabbox3d.h"
 #include "vector2d.h"
 #include "vector3d.h"
