@@ -72,7 +72,7 @@ namespace impl
 }
 
 template<typename Value>
-class FixedCapacityDoublyLinkedList : private FixedCapacityDoublyLinkedListBase
+class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedListBase
 {
 	public:
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = PoolAddressAllocator<uint32_t>::invalid_address;
@@ -109,7 +109,7 @@ class FixedCapacityDoublyLinkedList : private FixedCapacityDoublyLinkedListBase
 		//add new item to the list. This function does not make space to store the new node. in case the list is full, popBack() needs to be called beforehand
 		inline void pushFront(Value&& val)
 		{
-			insertAt(reserveAddress(), std::move(val))
+			insertAt(reserveAddress(), std::move(val));
 		}
 
 		//get node ptr of the first item in the list
@@ -153,7 +153,7 @@ class FixedCapacityDoublyLinkedList : private FixedCapacityDoublyLinkedListBase
 		//Constructor, capacity determines the amount of allocated space
 		FixedCapacityDoublyLinkedList(const uint32_t capacity) :
 			FixedCapacityDoublyLinkedListBase(capacity,m_reservedSpace,m_array),
-			alloc(m_reservedSpace, 0u, 0u, 1u, cap, 1u)
+			alloc(m_reservedSpace, 0u, 0u, 1u, capacity, 1u)
 		{
 			cap = capacity;
 			m_back = invalid_iterator;
@@ -166,7 +166,7 @@ class FixedCapacityDoublyLinkedList : private FixedCapacityDoublyLinkedListBase
 
 	private:
 		PoolAddressAllocator<uint32_t> alloc;
-		void* reservedSpace;
+		void* m_reservedSpace;
 		node_t* m_array;
 
 		uint32_t cap;
@@ -184,7 +184,7 @@ class FixedCapacityDoublyLinkedList : private FixedCapacityDoublyLinkedListBase
 		inline void insertAt(uint32_t addr, Value&& val)
 		{
 			assert(addr < cap);
-			Snode<Value>* n = new(m_array + addr) Snode<Value>(std::move(val));
+			SDoublyLinkedNode<Value>* n = new(m_array + addr) SDoublyLinkedNode<Value>(std::move(val));
 			m_array[addr] = *n;
 			n->prev = invalid_iterator;
 			n->next = m_begin;

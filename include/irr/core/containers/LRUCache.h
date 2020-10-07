@@ -25,7 +25,7 @@ namespace impl
 			MapEquals m_equals;
 
 		protected:
-			const Key* searchedKey;
+			const mutable Key* searchedKey;
 
 			inline LRUCacheBase(const uint32_t capacity, MapHash&& _hash, MapEquals&& _equals) : m_list(capacity), m_hash(std::move(_hash)), m_equals(std::move(_equals)), searchedKey(nullptr)
 			{
@@ -35,7 +35,7 @@ namespace impl
 			inline const Key& getReference(const uint32_t nodeAddr) const
 			{
 				if (nodeAddr!=invalid_iterator)
-					return *m_list.get(nodeAddr);
+					return m_list.get(nodeAddr)->data.first;
 				else
 					return *searchedKey;
 			}
@@ -103,7 +103,7 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 		inline void common_insert(K&& k, V&& v)
 		{
 			bool success;
-			shortcut_iterator_t iterator = common_find(key,success);
+			shortcut_iterator_t iterator = common_find(k,success);
 			if (success)
 			{
 				const auto nodeAddr = *iterator;
@@ -167,14 +167,6 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 		}
 
 		//get the value from cache at an associated Key, or nullptr if Key is not contained within cache. Does not alter the value use order
-		inline Value* peek(const Key& key)
-		{
-			uint32_t i = common_peek(key);
-			if (i!=invalid_iterator)
-				return &(m_list.get(i)->data.second);
-			else
-				return nullptr;
-		}
 		inline const Value* peek(const Key& key) const
 		{
 			uint32_t i = common_peek(key);
