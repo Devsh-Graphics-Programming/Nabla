@@ -58,6 +58,62 @@ namespace irr
 					SGLTFPT_TRIANGLE_FAN
 				};
 
+				struct SGLTFNode
+				{
+					std::optional<std::string> name;
+					std::optional<std::vector<uint32_t>> children;
+					std::optional<uint32_t> mesh;
+					std::optional<uint32_t> camera;
+					std::optional<uint32_t> skin;
+					std::optional<uint32_t> weights;
+
+					struct SGLTFNTransformationTRS
+					{
+						core::vector3df_SIMD translation;	//!< translation, local coordinate system
+						core::vector3df_SIMD scale;			//!< scale, local coordinate system
+						core::vector4df_SIMD rotation;		//!< quaternion, local coordinate system
+					};
+
+					union SGLTFTransformation
+					{
+						SGLTFTransformation() {}
+						~SGLTFTransformation() {}
+
+						SGLTFNTransformationTRS trs;
+						core::matrix4SIMD matrix;
+					} transformation;
+
+					bool validate()
+					{
+						if (mesh.has_value() && mesh.value() < 0)
+							return false;
+
+						if (camera.has_value() && camera.value() < 0)
+							return false;
+
+						if (skin.has_value() && skin.value() < 0)
+							return false;
+					}
+				};
+
+				struct SGLTFAccessor
+				{
+					enum SCompomentType
+					{
+						SCT_BYTE = 5120,
+						SCT_UNSIGNED_BYTE = 5121,
+						SCT_SHORT = 5122,
+						SCT_UNSIGNED_SHORT = 5123,
+						SCT_UNSIGNED_INT = 5125,
+						SCT_FLOAT = 5126
+					};
+				};
+
+				struct SGLTFData
+				{
+					std::vector<SGLTFNode> nodes;
+				};
+
 				asset::IAssetManager* const assetManager;
 		};
 	}

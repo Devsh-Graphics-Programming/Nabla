@@ -35,6 +35,8 @@ namespace irr
 
 		asset::SAssetBundle CGLTFLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
+			SGLTFData glTfData;
+
 			CGLTFHeader header;
 			simdjson::dom::parser parser;
 			simdjson::dom::object tweets = parser.load(_file->getFileName().c_str());
@@ -45,8 +47,6 @@ namespace irr
 
 			constexpr uint8_t POSITION_ATTRIBUTE = 0;
 			constexpr uint8_t NORMAL_ATTRIBUTE = 3;
-
-			std::unordered_map<std::string, core::smart_refctd_ptr<CCPUMesh>> cpuMeshes;
 
 			auto meshBuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
 			meshBuffer->setPositionAttributeIx(POSITION_ATTRIBUTE);
@@ -220,37 +220,32 @@ namespace irr
 
 						switch (type)
 						{
-							case 5120: // BYTE
+							case SGLTFAccessor::SCT_BYTE:
 							{
 
 							} break;
 
-							case 5121: // UNSIGNED_BYTE
+							case SGLTFAccessor::SCT_UNSIGNED_BYTE:
 							{
 
 							} break;
 
-							case 5122: // SHORT
+							case SGLTFAccessor::SCT_SHORT:
 							{
 
 							} break;
 
-							case 5123: // UNSIGNED_SHORT
+							case SGLTFAccessor::SCT_UNSIGNED_SHORT:
 							{
 
 							} break;
 
-							case 5124: // UNSIGNED_INT
+							case SGLTFAccessor::SCT_UNSIGNED_INT:
 							{
 
 							} break;
 
-							case 5125: // FLOAT
-							{
-
-							} break;
-
-							case 5126:
+							case SGLTFAccessor::SCT_FLOAT:
 							{
 
 							} break;
@@ -304,6 +299,84 @@ namespace irr
 						else if (typeVal.data() == "MAT4")
 						{
 
+						}
+					}
+				}
+			}
+
+			if (nodes.error() != simdjson::error_code::NO_SUCH_FIELD)
+			{
+				auto& nData = nodes.get_array();
+				for (size_t iteratorID = 0; iteratorID < nData.size(); ++iteratorID)
+				{
+					auto& node = nData.at(iteratorID);
+
+					auto& camera = node.at_key("camera");
+					auto& children = node.at_key("children");
+					auto& skin = node.at_key("skin");
+					auto& matrix = node.at_key("matrix");
+					auto& mesh = node.at_key("mesh");
+					auto& rotation = node.at_key("rotation");
+					auto& scale = node.at_key("scale");
+					auto& translation = node.at_key("translation");
+					auto& weights = node.at_key("weights");
+					auto& name = node.at_key("name");
+					auto& extensions = node.at_key("extensions");
+					auto& extras = node.at_key("extras");
+
+					auto& currentNode = glTfData.nodes.emplace_back();
+
+					if (camera.error() != simdjson::error_code::NO_SUCH_FIELD)
+						currentNode.camera = camera.get_uint64().value();
+
+					if (children.error() != simdjson::error_code::NO_SUCH_FIELD)
+					{
+						currentNode.children = {};
+						for (auto& child : children)
+							currentNode.children.value().emplace_back() = child.get_uint64().value();
+					}
+
+					if (skin.error() != simdjson::error_code::NO_SUCH_FIELD)
+						currentNode.skin = skin.get_uint64().value();
+
+					if (matrix.error() != simdjson::error_code::NO_SUCH_FIELD)
+					{
+						auto& matrixArray = matrix.get_array();
+						core::matrix4SIMD tmpMatrix;
+
+						memcpy(tmpMatrix.pointer(), &(*matrixArray.begin()), matrixArray.size() * sizeof(float)); // TODO check it out
+						// TODO tmpMatrix (coulmn major) to row major (currentNode.matrix)
+					}
+					else
+					{
+						if (translation.error() != simdjson::error_code::NO_SUCH_FIELD)
+						{
+							auto& translationArray = translation.get_array();
+							for (auto& val : translationArray)
+							{
+								size_t index = &val - &(*translationArray.begin());
+								currentNode.transformation.trs.translation[index] = val.get_double().value();
+							}
+						}
+
+						if (rotation.error() != simdjson::error_code::NO_SUCH_FIELD)
+						{
+							auto& rotationArray = rotation.get_array();
+							for (auto& val : rotationArray)
+							{
+								size_t index = &val - &(*rotationArray.begin());
+								currentNode.transformation.trs.rotation[index] = val.get_double().value();
+							}
+						}
+
+						if (scale.error() != simdjson::error_code::NO_SUCH_FIELD)
+						{
+							auto& scaleArray = scale.get_array();
+							for (auto& val : scaleArray)
+							{
+								size_t index = &val - &(*scaleArray.begin());
+								currentNode.transformation.trs.scale[index] = val.get_double().value();
+							}
 						}
 					}
 				}
