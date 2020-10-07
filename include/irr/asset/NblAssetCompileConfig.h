@@ -24,53 +24,10 @@
 //! different library versions without having to change the sources.
 //! Example: NO_NBL_COMPILE_WITH_X11_ would disable X11
 
-
-//! Uncomment this line to compile with the SDL device
-//#define _NBL_COMPILE_WITH_SDL_DEVICE_
-#ifdef NO_NBL_COMPILE_WITH_SDL_DEVICE_
-#undef _NBL_COMPILE_WITH_SDL_DEVICE_
-#endif
-
 // this actually includes file depending on build type (Debug/Release)
 #include "BuildConfigOptions.h"
 
 #define NEW_SHADERS 1
-
-#ifdef _NBL_TARGET_ARCH_ARM_
-#   define __NBL_COMPILE_WITH_ARM_SIMD_ // NEON
-#else // target arch x86
-#   define __NBL_COMPILE_WITH_SSE3
-#   define __NBL_COMPILE_WITH_X86_SIMD_ // SSE 4.2 
-#   include <immintrin.h>
-#endif
-
-
-#if defined(_NBL_SERVER_)
-#   define NO_NBL_COMPILE_WITH_VULKAN_
-#   define NO_NBL_COMPILE_WITH_OPENGL_
-#endif
-
-#ifdef NO_NBL_COMPILE_WITH_OPENGL_
-#   undef _NBL_COMPILE_WITH_OPENGL_
-#endif
-
-// The Windows platform and API support SDL and WINDOW device
-#if defined(_NBL_PLATFORM_WINDOWS_)
-#   define _NBL_WINDOWS_API_
-#   define _NBL_COMPILE_WITH_WINDOWS_DEVICE_
-#   if defined(_MSC_VER) && (_MSC_VER < 1300)
-#       error "Only Microsoft Visual Studio 7.0 and later are supported."
-#   endif
-#endif
-
-#if defined(_NBL_PLATFORM_LINUX_)
-#   define _NBL_POSIX_API_
-#   define _NBL_COMPILE_WITH_X11_DEVICE_
-#endif
-
-#ifdef _NBL_SERVER_
-#   define NO_NBL_LINUX_X11_RANDR_
-#endif
 
 #ifdef _MSC_VER
 #	define _ENABLE_EXTENDED_ALIGNED_STORAGE
