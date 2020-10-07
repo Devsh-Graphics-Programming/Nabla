@@ -1,7 +1,7 @@
-#ifndef _IRR_BXDF_COS_WEIGHTED_SAMPLE_INCLUDED_
-#define _IRR_BXDF_COS_WEIGHTED_SAMPLE_INCLUDED_
+#ifndef _NBL_BUILTIN_GLSL_SAMPLING_COS_WEIGHTED_INCLUDED_
+#define _NBL_BUILTIN_GLSL_SAMPLING_COS_WEIGHTED_INCLUDED_
 
-#include <irr/builtin/glsl/bxdf/common_samples.glsl>
+#include <irr/builtin/glsl/sampling/concentric_mapping.glsl>
 
 vec3 irr_glsl_projected_hemisphere_generate(in vec2 _sample)
 {
