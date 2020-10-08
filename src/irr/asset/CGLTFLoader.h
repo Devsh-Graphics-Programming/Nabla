@@ -58,20 +58,25 @@ namespace irr
 					SGLTFPT_TRIANGLE_FAN
 				};
 
+				/*
+					A node in the node hierarchy. A node can have either a matrix or any combination of 
+					translation/rotation/scale (TRS) properties.
+				*/
+
 				struct SGLTFNode
 				{
-					std::optional<std::string> name;
-					std::optional<std::vector<uint32_t>> children;
-					std::optional<uint32_t> mesh;
-					std::optional<uint32_t> camera;
-					std::optional<uint32_t> skin;
-					std::optional<uint32_t> weights;
+					std::optional<std::string> name;	//!< The user-defined name of this object.
+					std::optional<std::vector<uint32_t>> children;	//!< The indices of this node's children.
+					std::optional<uint32_t> mesh;		//!< The index of the mesh in this node.
+					std::optional<uint32_t> camera;		//!< The index of the camera referenced by this node.
+					std::optional<uint32_t> skin;		//!< The index of the skin referenced by this node.
+					std::optional<uint32_t> weights;	//!< The weights of the instantiated Morph Target. Number of elements must match number of Morph Targets of used mesh.
 
 					struct SGLTFNTransformationTRS
 					{
-						core::vector3df_SIMD translation;	//!< translation, local coordinate system
-						core::vector3df_SIMD scale;			//!< scale, local coordinate system
-						core::vector4df_SIMD rotation;		//!< quaternion, local coordinate system
+						core::vector3df_SIMD translation;	//!< The node's translation along the x, y, and z axes.
+						core::vector3df_SIMD scale;			//!< The node's non-uniform scale, given as the scaling factors along the x, y, and z axes.
+						core::vector4df_SIMD rotation;		//!< The node's unit quaternion rotation in the order (x, y, z, w), where w is the scalar.
 					};
 
 					union SGLTFTransformation
@@ -79,8 +84,8 @@ namespace irr
 						SGLTFTransformation() {}
 						~SGLTFTransformation() {}
 
-						SGLTFNTransformationTRS trs;
-						core::matrix4SIMD matrix;
+						SGLTFNTransformationTRS trs;	
+						core::matrix4SIMD matrix;		//!< A floating-point 4x4 transformation matrix stored in column-major order.
 					} transformation;
 
 					bool validate()
@@ -95,6 +100,27 @@ namespace irr
 							return false;
 					}
 				};
+
+				/*
+					A set of primitives to be rendered. A node can contain one mesh. 
+					A node's transform places the mesh in the scene.
+				*/
+
+				struct SGLTFMesh
+				{
+					struct SPrimitive
+					{
+						std::unordered_map<std::string, uint32_t> attributes;	//!< A dictionary object, where each key corresponds to mesh attribute semantic and each value is the index of the accessor containing attribute's data.
+						std::optional<uint32_t> indices;						//!< The index of the accessor that contains the indices.
+						std::optional<uint32_t> material;						//!< The index of the material to apply to this primitive when rendering.
+						std::optional<uint32_t> mode;							//!< The type of primitives to render.
+						std::optional<std::unordered_map<std::string, uint32_t>> targets;	//!< An array of Morph Targets, each Morph Target is a dictionary mapping attributes (only POSITION, NORMAL, and TANGENT supported) to their deviations in the Morph Target.
+					};
+
+					std::vector<SPrimitive> primitives;					//!< An array of primitives, each defining geometry to be rendered with a material.
+					std::optional<std::vector<uint32_t>> weights;		//!< Array of weights to be applied to the Morph Targets.
+					std::optional<std::string> name;					//!< The user-defined name of this object.
+				};	
 
 				struct SGLTFAccessor
 				{
@@ -112,6 +138,7 @@ namespace irr
 				struct SGLTFData
 				{
 					std::vector<SGLTFNode> nodes;
+					std::vector<SGLTFMesh> meshes;
 				};
 
 				asset::IAssetManager* const assetManager;
