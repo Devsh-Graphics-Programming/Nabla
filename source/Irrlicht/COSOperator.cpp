@@ -10,7 +10,7 @@
 #else
 #include <string.h>
 #include <unistd.h>
-#ifndef _IRR_SOLARIS_PLATFORM_
+#ifndef _NBL_SOLARIS_PLATFORM_
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #endif
@@ -135,7 +135,7 @@ bool COSOperator::getProcessorSpeedMHz(uint32_t* MHz) const
 		*MHz = Speed;
 	return true;
 
-#elif defined(_IRR_OSX_PLATFORM_)
+#elif defined(_NBL_OSX_PLATFORM_)
 	struct clockinfo CpuClock;
 	size_t Size = sizeof(clockinfo);
 

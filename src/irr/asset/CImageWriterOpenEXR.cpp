@@ -77,7 +77,7 @@ namespace asset
 			return false;
 
 		for (auto& channelPixelsPtr : pixelsArrayIlm)
-			channelPixelsPtr = _IRR_NEW_ARRAY(ilmType, width * height);
+			channelPixelsPtr = _NBL_NEW_ARRAY(ilmType, width * height);
 
 		const auto* data = reinterpret_cast<const uint8_t*>(image->getBuffer()->getPointer());
 		auto writeTexel = [&creationParams,&data,&pixelsArrayIlm](uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord) -> void
@@ -126,7 +126,7 @@ namespace asset
 		file.writePixels(height);
 
 		for (auto channelPixelsPtr : pixelsArrayIlm)
-			_IRR_DELETE_ARRAY(channelPixelsPtr, width * height);
+			_NBL_DELETE_ARRAY(channelPixelsPtr, width * height);
 	}
 
 	bool CImageWriterOpenEXR::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)

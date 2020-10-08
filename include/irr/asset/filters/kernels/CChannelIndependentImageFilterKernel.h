@@ -186,7 +186,7 @@ class CChannelIndependentImageFilterKernel :
 			return 0.f;
 		}
 
-		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(base_t)
+		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(base_t)
 };
 
 } // end namespace asset

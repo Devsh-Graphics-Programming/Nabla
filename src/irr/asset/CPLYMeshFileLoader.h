@@ -142,7 +142,7 @@ private:
 		{ 
 			if (Buffer)
 			{
-				_IRR_DELETE_ARRAY(Buffer, PLY_INPUT_BUFFER_SIZE);
+				_NBL_DELETE_ARRAY(Buffer, PLY_INPUT_BUFFER_SIZE);
 				Buffer = nullptr;
 			}
 			ElementList.clear();

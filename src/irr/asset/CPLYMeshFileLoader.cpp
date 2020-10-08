@@ -497,7 +497,7 @@ bool CPLYMeshFileLoader::allocateBuffer(SContext& _ctx)
 	_ctx.ElementList.clear();
 
 	if (!_ctx.Buffer)
-        _ctx.Buffer = _IRR_NEW_ARRAY(char, PLY_INPUT_BUFFER_SIZE);
+        _ctx.Buffer = _NBL_NEW_ARRAY(char, PLY_INPUT_BUFFER_SIZE);
 
 	// not enough memory?
 	if (!_ctx.Buffer)

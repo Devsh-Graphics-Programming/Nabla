@@ -106,14 +106,14 @@ typedef std::mutex  fast_mutex;
 
 
 
-#define _IRR_TEXT(X) X
+#define _NBL_TEXT(X) X
 
 
 
 
 // memory debugging
 #if defined(_NBL_DEBUG) && defined(NABLA_EXPORTS) && defined(_MSC_VER) && \
-	(_MSC_VER > 1299) && !defined(_IRR_DONT_DO_MEMORY_DEBUGGING_HERE) && !defined(_WIN32_WCE)
+	(_MSC_VER > 1299) && !defined(_NBL_DONT_DO_MEMORY_DEBUGGING_HERE) && !defined(_WIN32_WCE)
 
 	#define CRTDBG_MAP_ALLOC
 	#define _CRTDBG_MAP_ALLOC
@@ -136,7 +136,7 @@ typedef std::mutex  fast_mutex;
 //! creates four CC codes used in Irrlicht for simple ids
 /** some compilers can create those by directly writing the
 code like 'code', but some generate warnings so we use this macro here */
-#define MAKE_IRR_ID(c0, c1, c2, c3) \
+#define MAKE_NBL_ID(c0, c1, c2, c3) \
 		((uint32_t)(uint8_t)(c0) | ((uint32_t)(uint8_t)(c1) << 8) | \
 		((uint32_t)(uint8_t)(c2) << 16) | ((uint32_t)(uint8_t)(c3) << 24 ))
 

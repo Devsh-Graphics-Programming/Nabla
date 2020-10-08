@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_BUILTIN_COMMON_H_INCLUDED_
-#define _IRR_BUILTIN_COMMON_H_INCLUDED_
+#ifndef _NBL_BUILTIN_COMMON_H_INCLUDED_
+#define _NBL_BUILTIN_COMMON_H_INCLUDED_
 
 #include "BuildConfigOptions.h"
 
@@ -28,7 +28,7 @@ std::pair<const uint8_t*,size_t> get_resource_runtime(const std::string&);
 // will only be available in the app or library using irrlicht
 #if defined(_NBL_STATIC_LIB_) || !defined(NABLA_EXPORTS)
 
-#define _IRR_BUILTIN_PATH_AVAILABLE
+#define _NBL_BUILTIN_PATH_AVAILABLE
 namespace irr
 {
 namespace builtin

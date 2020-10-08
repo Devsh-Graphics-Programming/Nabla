@@ -20,7 +20,7 @@ namespace video
 class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset::IImage>
 {
     public:
-        _IRR_RESOLVE_NEW_DELETE_AMBIGUITY(IDriverMemoryBacked,asset::IImage)
+        _NBL_RESOLVE_NEW_DELETE_AMBIGUITY(IDriverMemoryBacked,asset::IImage)
 			
 		//!
 		virtual bool validateCopies(const SBufferCopy* pRegionsBegin, const SBufferCopy* pRegionsEnd, const IGPUBuffer* src)

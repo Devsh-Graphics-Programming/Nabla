@@ -214,7 +214,7 @@ core::unordered_set<uint64_t> TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>
 	core::unordered_set<uint64_t> deps;
 	deps.insert(blob->descPtr);
 #ifdef OLD_SHADERS
-	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+	for (uint32_t i = 0; i < _NBL_MATERIAL_MAX_TEXTURES_; ++i)
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(blob->mat.getTexture(i));
 		if (tex)
@@ -235,7 +235,7 @@ void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::instantiateEmpty(const
 #ifdef OLD_SHADERS
 	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SCPUMaterial));
 	buf->getMaterial().setBitfields(*(blob)->mat.bitfieldsPtr());
-	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+	for (size_t i = 0; i < _NBL_MATERIAL_MAX_TEXTURES_; ++i)
 	{
 		memset(&buf->getMaterial().TextureLayer[i].Texture,0,sizeof(const void*));
 		buf->getMaterial().TextureLayer[i].SamplingParams.setBitfields(*(blob)->mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
@@ -266,7 +266,7 @@ void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::finalize(void* _obj, c
 	asset::ICPUMeshBuffer* buf = reinterpret_cast<asset::ICPUMeshBuffer*>(_obj);
 #ifdef OLD_SHADERS
 	buf->setMeshDataAndFormat(impl::castPtrAndRefcount<asset::IMeshDataFormatDesc<asset::ICPUBuffer> >(_deps[blob->descPtr]));
-	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+	for (uint32_t i = 0; i < _NBL_MATERIAL_MAX_TEXTURES_; ++i)
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(blob->mat.getTexture(i));
 		if (tex)
@@ -301,7 +301,7 @@ void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::instanti
 #ifdef OLD_SHADERS
 	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SCPUMaterial));
 	buf->getMaterial().setBitfields(*(blob)->mat.bitfieldsPtr());
-	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+	for (size_t i = 0; i < _NBL_MATERIAL_MAX_TEXTURES_; ++i)
 	{
 		memset(&buf->getMaterial().TextureLayer[i].Texture, 0, sizeof(const void*));
 		buf->getMaterial().TextureLayer[i].SamplingParams.setBitfields(*(blob)->mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
@@ -334,7 +334,7 @@ void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::finalize
 	asset::ICPUSkinnedMeshBuffer* buf = reinterpret_cast<asset::ICPUSkinnedMeshBuffer*>(_obj);
 #ifdef OLD_SHADERS
 	buf->setMeshDataAndFormat(impl::castPtrAndRefcount<asset::IMeshDataFormatDesc<asset::ICPUBuffer> >(_deps[blob->descPtr]));
-	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+	for (uint32_t i = 0; i < _NBL_MATERIAL_MAX_TEXTURES_; ++i)
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(blob->mat.getTexture(i));
 		if (tex)

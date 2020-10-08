@@ -233,7 +233,7 @@ namespace irr
 		"works on my machine" problems, as this method is not 100% cross platform, i.e. if the engine's headers'
 		install directory is different between computers then it will surely not work.*/
 		std::string builtinResourceDirectoryPath =
-		#ifdef _IRR_BUILTIN_PATH_AVAILABLE
+		#ifdef _NBL_BUILTIN_PATH_AVAILABLE
 			builtin::getBuiltinResourcesDirectoryPath();
 		#else
       		"";

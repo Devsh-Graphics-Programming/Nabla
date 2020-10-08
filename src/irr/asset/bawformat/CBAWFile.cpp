@@ -71,7 +71,7 @@ MeshBufferBlobV3::MeshBufferBlobV3(const asset::ICPUMeshBuffer* _mb)
 #ifdef OLD_SHADERS
 	memcpy(&mat, &_mb->getMaterial(), sizeof(video::SCPUMaterial));
 	_mb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
-	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+	for (size_t i = 0; i < _NBL_MATERIAL_MAX_TEXTURES_; ++i)
 		_mb->getMaterial().TextureLayer[i].SamplingParams.serializeBitfields(mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
 
 	memcpy(&box, &_mb->getBoundingBox(), sizeof(core::aabbox3df));
@@ -99,7 +99,7 @@ SkinnedMeshBufferBlobV3::SkinnedMeshBufferBlobV3(const asset::ICPUSkinnedMeshBuf
 #ifdef OLD_SHADERS
 	memcpy(&mat, &_smb->getMaterial(), sizeof(video::SCPUMaterial));
 	_smb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
-	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+	for (size_t i = 0; i < _NBL_MATERIAL_MAX_TEXTURES_; ++i)
 		_smb->getMaterial().TextureLayer[i].SamplingParams.serializeBitfields(mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
 
 	memcpy(&box, &_smb->getBoundingBox(), sizeof(core::aabbox3df));

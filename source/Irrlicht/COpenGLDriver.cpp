@@ -575,7 +575,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 		return false;
 	}
 
-    AuxContexts = _IRR_NEW_ARRAY(SAuxContext,Params.AuxGLContexts+1);
+    AuxContexts = _NBL_NEW_ARRAY(SAuxContext,Params.AuxGLContexts+1);
     {
         AuxContexts[0].threadId = std::this_thread::get_id();
         AuxContexts[0].ctx = hrc;
@@ -598,7 +598,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 	{
 		os::Printer::log("Cannot activate GL rendering context", ELL_ERROR);
 		wglDeleteContext(hrc);
-		_IRR_DELETE_ARRAY(AuxContexts,Params.AuxGLContexts+1);
+		_NBL_DELETE_ARRAY(AuxContexts,Params.AuxGLContexts+1);
 		return false;
 	}
 
@@ -869,7 +869,7 @@ COpenGLDriver::~COpenGLDriver()
         }
     }
 #endif // _NBL_COMPILE_WITH_X11_DEVICE_
-    _IRR_DELETE_ARRAY(AuxContexts,Params.AuxGLContexts+1);
+    _NBL_DELETE_ARRAY(AuxContexts,Params.AuxGLContexts+1);
     glContextMutex.unlock();
 }
 
@@ -2911,7 +2911,7 @@ void COpenGLDriver::removeFrameBuffer(IFrameBuffer* framebuf)
     if (!framebuf)
         return;
 
-    _IRR_CHECK_OWNING_THREAD(framebuf,return;);
+    _NBL_CHECK_OWNING_THREAD(framebuf,return;);
 
     SAuxContext* found = getThreadContext_helper(false);
     if (!found)
@@ -3053,7 +3053,7 @@ bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewpo
         return true;
     }
 
-    _IRR_CHECK_OWNING_THREAD(frameBuffer,return false;);
+    _NBL_CHECK_OWNING_THREAD(frameBuffer,return false;);
 
     core::dimension2du newRTTSize = frameBuffer->getSize();
     found->CurrentRendertargetSize = newRTTSize;

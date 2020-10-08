@@ -115,7 +115,7 @@ namespace video
 		virtual uint32_t getRequiredTBOAlignment() const { return 0u; }
 
 		//!
-		virtual uint32_t getMinimumMemoryMapAlignment() const { return _IRR_MIN_MAP_BUFFER_ALIGNMENT; }
+		virtual uint32_t getMinimumMemoryMapAlignment() const { return _NBL_MIN_MAP_BUFFER_ALIGNMENT; }
 
         virtual uint16_t retrieveDisplayRefreshRate() const { return 0u; }
 

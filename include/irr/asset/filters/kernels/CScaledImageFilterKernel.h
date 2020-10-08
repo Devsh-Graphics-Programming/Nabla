@@ -77,7 +77,7 @@ class CScaledImageFilterKernel : //order of bases is important! do not change
 		}
 
 		// need this to resolve to correct base
-		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(StaticPolymorphicBase)
+		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(StaticPolymorphicBase)
 
 		// this is the only bit that differs
 		template<class PreFilter, class PostFilter>

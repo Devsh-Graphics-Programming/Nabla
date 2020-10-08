@@ -324,7 +324,7 @@ inline quaternion quaternion::slerp(const quaternion &q1, const quaternion &q2, 
 }
 
 
-#if !IRR_TEST_BROKEN_QUATERNION_USE
+#if !NBL_TEST_BROKEN_QUATERNION_USE
 //! axis must be unit length, angle in radians
 inline quaternion quaternion::fromAngleAxis(const float& angle, const vector3df_SIMD& axis)
 {

@@ -15,11 +15,11 @@ namespace core
 
 class matrix4x3;
 
-#define _IRR_MATRIX_ALIGNMENT _NBL_SIMD_ALIGNMENT
-static_assert(_IRR_MATRIX_ALIGNMENT>=_IRR_VECTOR_ALIGNMENT,"Matrix must be equally or more aligned than vector!");
+#define _NBL_MATRIX_ALIGNMENT _NBL_SIMD_ALIGNMENT
+static_assert(_NBL_MATRIX_ALIGNMENT>=_NBL_VECTOR_ALIGNMENT,"Matrix must be equally or more aligned than vector!");
 
 //! Equivalent of GLSL's mat4x3
-class matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> EBO inheritance problem w.r.t `rows[3]`
+class matrix3x4SIMD// : private AllocationOverrideBase<_NBL_MATRIX_ALIGNMENT> EBO inheritance problem w.r.t `rows[3]`
 {
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t VectorCount = 3u;

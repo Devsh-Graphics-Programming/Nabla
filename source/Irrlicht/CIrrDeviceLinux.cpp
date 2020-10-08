@@ -571,7 +571,7 @@ bool CIrrDeviceLinux::createWindow()
         None
     };
 
-    #define IRR_OGL_LOAD_EXTENSION(X) glXGetProcAddress(reinterpret_cast<const GLubyte*>(X))
+    #define NBL_OGL_LOAD_EXTENSION(X) glXGetProcAddress(reinterpret_cast<const GLubyte*>(X))
 
     int major,minor;
 	bool isAvailableGLX=false;
@@ -867,7 +867,7 @@ bool CIrrDeviceLinux::createWindow()
 		GLXContext tmpCtx = glXCreateContext(display, visual, NULL, True);
 		glXMakeCurrent(display, window, tmpCtx);
         //if (glXMakeCurrent(display, window, Context))
-            PFNGLXCREATECONTEXTATTRIBSARBPROC pGlxCreateContextAttribsARB = (PFNGLXCREATECONTEXTATTRIBSARBPROC)IRR_OGL_LOAD_EXTENSION("glXCreateContextAttribsARB");
+            PFNGLXCREATECONTEXTATTRIBSARBPROC pGlxCreateContextAttribsARB = (PFNGLXCREATECONTEXTATTRIBSARBPROC)NBL_OGL_LOAD_EXTENSION("glXCreateContextAttribsARB");
 
 		if (tmpCtx)
         {
@@ -901,7 +901,7 @@ bool CIrrDeviceLinux::createWindow()
 
                 if (Context)
                 {
-                    AuxContexts = _IRR_NEW_ARRAY(video::COpenGLDriver::SAuxContext,CreationParams.AuxGLContexts+1);
+                    AuxContexts = _NBL_NEW_ARRAY(video::COpenGLDriver::SAuxContext,CreationParams.AuxGLContexts+1);
                     {
                         reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].threadId = std::this_thread::get_id();
                         reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].ctx = Context;
@@ -933,7 +933,7 @@ bool CIrrDeviceLinux::createWindow()
                             glXDestroyContext(display,reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[i].ctx);
                         }
 
-                        _IRR_DELETE_ARRAY(reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts),CreationParams.AuxGLContexts+1);
+                        _NBL_DELETE_ARRAY(reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts),CreationParams.AuxGLContexts+1);
 
                         glXDestroyContext(display, Context);
                         glXMakeCurrent(display, None, NULL);

@@ -42,7 +42,7 @@ class COpenCLHandler
                 {
                     NBL_KHR_GL_SHARING=0,
 					NBL_KHR_GL_EVENT,
-                    IRR_OpenCL_Feature_Count
+                    NBL_OpenCL_Feature_Count
                 };
                 class SOpenCLDeviceInfo : public core::AllocationOverrideDefault
                 {
@@ -60,7 +60,7 @@ class COpenCLHandler
                 std::string Name;
                 uint32_t Version;
                 std::string ReportedExtensions;
-                bool FeatureAvailable[IRR_OpenCL_Feature_Count] = { false };
+                bool FeatureAvailable[NBL_OpenCL_Feature_Count] = { false };
 
                 core::vector<cl_device_id> devices;
                 core::vector<SOpenCLDeviceInfo> deviceInformation;
@@ -164,7 +164,7 @@ class COpenCLHandler
                     for (std::string extension; iss>>extension; )
                     {
                         // TODO: turn into find_if
-                        for (size_t m=0; m<SOpenCLPlatformInfo::IRR_OpenCL_Feature_Count; m++)
+                        for (size_t m=0; m<SOpenCLPlatformInfo::NBL_OpenCL_Feature_Count; m++)
                         {
                             if (extension==OpenCLFeatureStrings[m])
                             {
@@ -277,7 +277,7 @@ class COpenCLHandler
         // function pointers
 		using LibLoader = system::DefaultFuncPtrLoader;
 
-		IRR_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(OpenCL, LibLoader
+		NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(OpenCL, LibLoader
             ,clGetExtensionFunctionAddress
             ,clGetPlatformIDs
             ,clGetPlatformInfo
@@ -317,7 +317,7 @@ class COpenCLHandler
 			        return pClGetExtensionFunctionAddress(funcname);
 		        }
         };
-        IRR_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(OpenCLExtensions, OpenCLExtensionLoader
+        NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(OpenCLExtensions, OpenCLExtensionLoader
             ,clGetGLContextInfoKHR
         );
         static OpenCLExtensions ocl_ext;

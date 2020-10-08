@@ -16,7 +16,7 @@
 //! Default alignment for a type
 #define _NBL_DEFAULT_ALIGNMENT(_obj_type)   (std::alignment_of<_obj_type>::value>(_NBL_SIMD_ALIGNMENT) ? std::alignment_of<_obj_type>::value:(_NBL_SIMD_ALIGNMENT))
 
-#define _IRR_MIN_MAP_BUFFER_ALIGNMENT       64u// GL_MIN_MAP_BUFFER_ALIGNMENT
+#define _NBL_MIN_MAP_BUFFER_ALIGNMENT       64u// GL_MIN_MAP_BUFFER_ALIGNMENT
 
 
 //! Very useful for enabling compiler optimizations
@@ -31,7 +31,7 @@
 #endif
 
 //! Utility so we don't have to write out _NBL_ASSUME_ALIGNED(ptr,_NBL_SIMD_ALIGNMENT) constantly
-#define _IRR_ASSUME_SIMD_ALIGNED(ptr) _NBL_ASSUME_ALIGNED(ptr,_NBL_SIMD_ALIGNMENT)
+#define _NBL_ASSUME_SIMD_ALIGNED(ptr) _NBL_ASSUME_ALIGNED(ptr,_NBL_SIMD_ALIGNMENT)
 
 
 //! You can swap these out for whatever you like, jemalloc, tcmalloc etc. but make them noexcept

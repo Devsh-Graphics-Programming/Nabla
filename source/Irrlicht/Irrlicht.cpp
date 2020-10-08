@@ -7,7 +7,7 @@
 
 static const char* const copyright = "Irrlicht Engine (c) 2002-2011 Nikolaus Gebhardt";
 
-#ifdef _IRR_WINDOWS_
+#ifdef _NBL_WINDOWS_
 	#include <windows.h>
 	#if defined(_NBL_DEBUG) && !defined(__GNUWIN32__) && !defined(_WIN32_WCE)
 		#include <crtdbg.h>
@@ -104,5 +104,5 @@ BOOL APIENTRY DllMain( HANDLE hModule,
     return TRUE;
 }
 
-#endif // defined(_IRR_WINDOWS_)
+#endif // defined(_NBL_WINDOWS_)
 

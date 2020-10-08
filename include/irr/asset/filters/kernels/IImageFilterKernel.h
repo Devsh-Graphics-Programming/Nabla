@@ -208,7 +208,7 @@ class CImageFilterKernel : public IImageFilterKernel
 };
 
 //use this whenever you have diamond inheritance and ambiguous resolves
-#define IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(BASENAME) \
+#define NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(BASENAME) \
 template<typename... Args> \
 inline core::vectorSIMDi32 getWindowMinCoord(Args&&... args) const \
 { \

@@ -37,7 +37,7 @@ namespace irr
 namespace cuda
 {
 
-#define _IRR_DEFAULT_NVRTC_OPTIONS "--std=c++14",virtualCUDAArchitecture,"-dc","-use_fast_math"
+#define _NBL_DEFAULT_NVRTC_OPTIONS "--std=c++14",virtualCUDAArchitecture,"-dc","-use_fast_math"
 
 
 class CCUDAHandler
@@ -45,7 +45,7 @@ class CCUDAHandler
     public:
 		using LibLoader = system::DefaultFuncPtrLoader;
 
-		IRR_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(CUDA, LibLoader
+		NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(CUDA, LibLoader
 			,cuCtxCreate_v2
 			,cuDevicePrimaryCtxRetain
 			,cuDevicePrimaryCtxRelease
@@ -149,7 +149,7 @@ class CCUDAHandler
 			int attributes[CU_DEVICE_ATTRIBUTE_MAX] = {};
 		};
 
-		IRR_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(NVRTC, LibLoader,
+		NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(NVRTC, LibLoader,
 			nvrtcGetErrorString,
 			nvrtcVersion,
 			nvrtcAddNameExpression,
@@ -366,12 +366,12 @@ class CCUDAHandler
 			auto extraLen = strlen(CUDA_EXTRA_DEFINES);
 			auto origLen = strlen(source);
 			auto totalLen = extraLen+origLen;
-			auto tmp = _IRR_NEW_ARRAY(char,totalLen+1u);
+			auto tmp = _NBL_NEW_ARRAY(char,totalLen+1u);
 			memcpy(tmp, CUDA_EXTRA_DEFINES, extraLen);
 			memcpy(tmp+extraLen, source, origLen);
 			tmp[totalLen] = 0;
 			auto result = nvrtc.pnvrtcCreateProgram(prog, tmp, name, headerCount, headersBegin, includeNamesBegin);
-			_IRR_DELETE_ARRAY(tmp,totalLen);
+			_NBL_DELETE_ARRAY(tmp,totalLen);
 			return result;
 		}
 
@@ -414,7 +414,7 @@ class CCUDAHandler
 		}
 		
 		template<typename OptionsT = const std::initializer_list<const char*>&>
-		static nvrtcResult compileProgram(nvrtcProgram prog, OptionsT options={_IRR_DEFAULT_NVRTC_OPTIONS})
+		static nvrtcResult compileProgram(nvrtcProgram prog, OptionsT options={_NBL_DEFAULT_NVRTC_OPTIONS})
 		{
 			return nvrtc.pnvrtcCompileProgram(prog, options.size(), options.begin());
 		}
@@ -435,7 +435,7 @@ class CCUDAHandler
 		static nvrtcResult compileDirectlyToPTX(std::string& ptx, const char* source, const char* filename,
 			const char* const* headersBegin = nullptr, const char* const* headersEnd = nullptr,
 			const char* const* includeNamesBegin = nullptr, const char* const* includeNamesEnd = nullptr,
-			OptionsT options = { _IRR_DEFAULT_NVRTC_OPTIONS },
+			OptionsT options = { _NBL_DEFAULT_NVRTC_OPTIONS },
 			std::string* log = nullptr)
 		{
 			nvrtcProgram program = nullptr;
@@ -457,7 +457,7 @@ class CCUDAHandler
 		static nvrtcResult compileDirectlyToPTX(std::string& ptx, irr::io::IReadFile* main,
 			const char* const* headersBegin = nullptr, const char* const* headersEnd = nullptr,
 			const char* const* includeNamesBegin = nullptr, const char* const* includeNamesEnd = nullptr,
-			OptionsT options = { _IRR_DEFAULT_NVRTC_OPTIONS },
+			OptionsT options = { _NBL_DEFAULT_NVRTC_OPTIONS },
 			std::string* log = nullptr)
 		{
 			char* data = new char[main->getSize()+1ull];
@@ -472,7 +472,7 @@ class CCUDAHandler
 		template<typename CompileArgsT, typename OptionsT=const std::initializer_list<const char*>&>
 		static nvrtcResult compileDirectlyToPTX(std::string& ptx, irr::io::IReadFile* main,
 												CompileArgsT includesBegin, CompileArgsT includesEnd,
-												OptionsT options={_IRR_DEFAULT_NVRTC_OPTIONS},
+												OptionsT options={_NBL_DEFAULT_NVRTC_OPTIONS},
 												std::string* log=nullptr)
 		{
 			nvrtcProgram program = nullptr;

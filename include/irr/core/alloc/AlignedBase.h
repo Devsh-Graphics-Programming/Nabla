@@ -184,16 +184,16 @@ namespace impl
 template <size_t _in_alignment>
 using AllocationOverrideBase = impl::ResolveAlignment<AlignedBase<_in_alignment> >;
 
-//#define IRR_TEST_NO_NEW_DELETE_OVERRIDE
+//#define NBL_TEST_NO_NEW_DELETE_OVERRIDE
 
-#ifndef IRR_TEST_NO_NEW_DELETE_OVERRIDE
+#ifndef NBL_TEST_NO_NEW_DELETE_OVERRIDE
 using AllocationOverrideDefault = AllocationOverrideBase<_NBL_SIMD_ALIGNMENT>;
 static_assert(alignof(AllocationOverrideDefault)==_NBL_SIMD_ALIGNMENT,"This compiler has a problem respecting alignment!");
 static_assert(sizeof(AllocationOverrideDefault)==_NBL_SIMD_ALIGNMENT,"This compiler has a problem respecting empty bases!");
 
 
 //! Put in class if the compiler is complaining about ambiguous references to new and delete operators. Needs to be placed in the public section of methods
-#define _IRR_RESOLVE_NEW_DELETE_AMBIGUITY(...) \
+#define _NBL_RESOLVE_NEW_DELETE_AMBIGUITY(...) \
             static inline void* operator new(size_t size)                noexcept {return (irr::core::impl::ResolveAlignment<__VA_ARGS__>::operator new(size));} \
             static inline void* operator new[](size_t size)              noexcept {return irr::core::impl::ResolveAlignment<__VA_ARGS__>::operator new[](size);} \
             static inline void* operator new(size_t size, void* where)   noexcept {return (irr::core::impl::ResolveAlignment<__VA_ARGS__>::operator new(size,where));} \
@@ -205,8 +205,8 @@ static_assert(sizeof(AllocationOverrideDefault)==_NBL_SIMD_ALIGNMENT,"This compi
 #else
 struct NBL_FORCE_EBO AllocationOverrideDefault {};
 
-#define _IRR_RESOLVE_NEW_DELETE_AMBIGUITY(...)
-#endif // IRR_TEST_NO_NEW_DELETE_OVERRIDE
+#define _NBL_RESOLVE_NEW_DELETE_AMBIGUITY(...)
+#endif // NBL_TEST_NO_NEW_DELETE_OVERRIDE
 }
 }
 

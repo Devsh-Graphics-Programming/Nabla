@@ -55,7 +55,7 @@ class NBL_FORCE_EBO refctd_dynamic_array : public IReferenceCounted, public dyna
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR size_t dummy_item_count = (sizeof(fake_size_class)+sizeof(T)-1ull)/sizeof(T);
 
-		_IRR_RESOLVE_NEW_DELETE_AMBIGUITY(base_t) // only want new and delete operators from `dynamic_array`
+		_NBL_RESOLVE_NEW_DELETE_AMBIGUITY(base_t) // only want new and delete operators from `dynamic_array`
 
 		virtual ~refctd_dynamic_array() = default; // would like to move to `protected`
 	protected:

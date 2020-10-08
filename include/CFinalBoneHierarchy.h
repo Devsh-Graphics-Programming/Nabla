@@ -45,7 +45,7 @@ namespace asset
                     keyframeCount(0), keyframes(NULL), interpolatedAnimations(NULL), nonInterpolatedAnimations(NULL), flipXonOutput(false)
             {
                 boneFlatArray = (BoneReferenceData*)malloc(sizeof(BoneReferenceData)*boneCount);
-                boneNames = _IRR_NEW_ARRAY(core::stringc,boneCount);
+                boneNames = _NBL_NEW_ARRAY(core::stringc,boneCount);
                 for (size_t i=0; i<boneCount; i++)
                 {
                     asset::ICPUSkinnedMesh::SJoint* joint = inLevelFixedJoints[i];
@@ -100,7 +100,7 @@ namespace asset
 				_NBL_DEBUG_BREAK_IF((AnimationKeyData*)_interpAnimsEnd - (AnimationKeyData*)_interpAnimsBegin != static_cast<std::make_signed<decltype(boneCount)>::type>(getAnimationCount()))
 				_NBL_DEBUG_BREAK_IF((AnimationKeyData*)_nonInterpAnimsEnd - (AnimationKeyData*)_nonInterpAnimsBegin != static_cast<std::make_signed<decltype(boneCount)>::type>(getAnimationCount()))
 
-				boneNames = _IRR_NEW_ARRAY(core::stringc,boneCount);
+				boneNames = _NBL_NEW_ARRAY(core::stringc,boneCount);
 				boneFlatArray = (BoneReferenceData*)malloc(sizeof(BoneReferenceData)*boneCount);
 				boneTreeLevelEnd = (size_t*)malloc(sizeof(size_t)*NumLevelsInHierarchy);
 				keyframes = (float*)malloc(sizeof(float)*keyframeCount);
@@ -455,7 +455,7 @@ namespace asset
 			virtual ~CFinalBoneHierarchy()
 			{
 				if (boneNames)
-					_IRR_DELETE_ARRAY(boneNames, boneCount);
+					_NBL_DELETE_ARRAY(boneNames, boneCount);
 				if (boneFlatArray)
 					free(boneFlatArray);
 				if (boneTreeLevelEnd)

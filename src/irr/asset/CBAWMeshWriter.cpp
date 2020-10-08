@@ -294,7 +294,7 @@ struct LzmaMemMngmnt
 				countedObjects.insert(meshBuffer);
 
 				const video::SCPUMaterial & mat = meshBuffer->getMaterial();
-				for (int tid = 0; tid < _IRR_MATERIAL_MAX_TEXTURES_; ++tid) // texture path blob headers
+				for (int tid = 0; tid < _NBL_MATERIAL_MAX_TEXTURES_; ++tid) // texture path blob headers
 				{
                     ICPUTexture* texture = mat.getTexture(tid);
 					if (mat.getTexture(tid) && countedObjects.find(texture) == countedObjects.end())
