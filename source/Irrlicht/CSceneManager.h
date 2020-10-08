@@ -318,9 +318,9 @@ namespace scene
 
 		//! constants for reading and writing XML.
 		//! Not made static due to portability problems.
-		const core::stringw IRR_XML_FORMAT_SCENE;
-		const core::stringw IRR_XML_FORMAT_NODE;
-		const core::stringw IRR_XML_FORMAT_NODE_ATTR_TYPE;
+		const core::stringw NBL_XML_FORMAT_SCENE;
+		const core::stringw NBL_XML_FORMAT_NODE;
+		const core::stringw NBL_XML_FORMAT_NODE_ATTR_TYPE;
 	};
 
 } // end namespace video

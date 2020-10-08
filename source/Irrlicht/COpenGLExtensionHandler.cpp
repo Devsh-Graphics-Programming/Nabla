@@ -764,7 +764,7 @@ void COpenGLExtensionHandler::dumpFramebufferFormats() const
 		}
 	}
 #endif
-#elif defined(IRR_LINUX_DEVICE)
+#elif defined(NBL_LINUX_DEVICE)
 #endif
 }
 

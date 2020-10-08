@@ -984,7 +984,7 @@ bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
 
 #ifdef _NBL_WINDOWS_API_
     if (GetModuleHandleA("renderdoc.dll"))
-#elif defined(_IRR_ANDROID_PLATFORM_)
+#elif defined(_NBL_ANDROID_PLATFORM_)
     if (dlopen("libVkLayer_GLES_RenderDoc.so", RTLD_NOW | RTLD_NOLOAD))
 #elif defined(_NBL_LINUX_PLATFORM_)
     if (dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))

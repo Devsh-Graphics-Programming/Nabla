@@ -32,11 +32,11 @@ other information in the wchar_t.
 
 enum eLocaleID
 {
-	IRR_LOCALE_ANSI = 0,
-	IRR_LOCALE_GERMAN = 1
+	NBL_LOCALE_ANSI = 0,
+	NBL_LOCALE_GERMAN = 1
 };
 
-static eLocaleID locale_current = IRR_LOCALE_ANSI;
+static eLocaleID locale_current = NBL_LOCALE_ANSI;
 static inline void locale_set ( eLocaleID id )
 {
 	locale_current = id;
@@ -47,8 +47,8 @@ static inline uint32_t locale_lower ( uint32_t x )
 {
 	switch ( locale_current )
 	{
-		case IRR_LOCALE_GERMAN:
-		case IRR_LOCALE_ANSI:
+		case NBL_LOCALE_GERMAN:
+		case NBL_LOCALE_ANSI:
 			break;
 	}
 	// ansi
@@ -60,8 +60,8 @@ static inline uint32_t locale_upper ( uint32_t x )
 {
 	switch ( locale_current )
 	{
-		case IRR_LOCALE_GERMAN:
-		case IRR_LOCALE_ANSI:
+		case NBL_LOCALE_GERMAN:
+		case NBL_LOCALE_ANSI:
 			break;
 	}
 

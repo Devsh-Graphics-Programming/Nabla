@@ -40,7 +40,7 @@ CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver
 : ISceneNode(0, 0), Driver(driver), Timer(timer), FileSystem(fs), Device(device),
 	CursorControl(cursorControl),
 	ActiveCamera(0), CurrentRendertime(ESNRP_NONE),
-	IRR_XML_FORMAT_SCENE(L"irr_scene"), IRR_XML_FORMAT_NODE(L"node"), IRR_XML_FORMAT_NODE_ATTR_TYPE(L"type")
+	NBL_XML_FORMAT_SCENE(L"irr_scene"), NBL_XML_FORMAT_NODE(L"node"), NBL_XML_FORMAT_NODE_ATTR_TYPE(L"type")
 {
 	#ifdef _NBL_DEBUG
 	ISceneManager::setDebugName("CSceneManager ISceneManager");
