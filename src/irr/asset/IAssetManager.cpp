@@ -218,27 +218,27 @@ void IAssetManager::insertBuiltinAssets()
 		};
 		auto fileSystem = getFileSystem();
 
-		buildInGLSLShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/specializedshaders/fullscreentriangle.vert")>(),
+		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/specializedshaders/fullscreentriangle.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
 			{"irr/builtin/specializedshaders/fullscreentriangle.vert"});
-		buildInGLSLShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/singletexture/specializedshader.vert")>(),
+		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/singletexture/specializedshader.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
 			{"irr/builtin/materials/lambertian/singletexture/specializedshader.vert","irr/builtin/materials/debug/vertex_uv/specializedshader.vert"});
-		buildInGLSLShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/singletexture/specializedshader.frag")>(), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
+		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/lambertian/singletexture/specializedshader.frag")>(), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
 			asset::ISpecializedShader::ESS_FRAGMENT, 
 			{"irr/builtin/materials/lambertian/singletexture/specializedshader.frag"});
 
 		// TODO
-		buildInGLSLShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/debug/vertex_normal/specializedshader.vert")>(),
+		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/debug/vertex_normal/specializedshader.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
 			{"irr/builtin/materials/debug/vertex_normal/specializedshader.vert"});
-		buildInGLSLShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/debug/vertex_color/specializedshader.vert")>(),
+		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/debug/vertex_color/specializedshader.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
 			{"irr/builtin/materials/debug/vertex_color/specializedshader.vert"});
-		buildInGLSLShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/debug/vertex_uv/specializedshader.frag")>(),
+		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/debug/vertex_uv/specializedshader.frag")>(),
 			asset::ISpecializedShader::ESS_FRAGMENT,
 			{"irr/builtin/materials/debug/vertex_uv/specializedshader.frag"});
-		buildInGLSLShader(fileSystem->loadBuiltinData<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/debug/vertex_normal/specializedshader.frag")>(),
+		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("irr/builtin/materials/debug/vertex_normal/specializedshader.frag")>(),
 			asset::ISpecializedShader::ESS_FRAGMENT,
 			{"irr/builtin/materials/debug/vertex_normal/specializedshader.frag","irr/builtin/materials/debug/vertex_color/specializedshader.frag"});
 	}

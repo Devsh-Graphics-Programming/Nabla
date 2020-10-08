@@ -168,7 +168,7 @@ IRR_CORE_GET_CHAR(s,127)
 
 
 //
-#define IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(s)  irr::core::CharParameterPackToStringLiteral<IRR_CORE_STRING_TO_CHAR_PARAMETER_PACK(s)>
+#define NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(s)  irr::core::CharParameterPackToStringLiteral<IRR_CORE_STRING_TO_CHAR_PARAMETER_PACK(s)>
 
 
 #endif

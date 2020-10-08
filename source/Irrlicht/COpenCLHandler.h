@@ -40,8 +40,8 @@ class COpenCLHandler
             public:
                 enum EOpenCLFeatures
                 {
-                    IRR_KHR_GL_SHARING=0,
-					IRR_KHR_GL_EVENT,
+                    NBL_KHR_GL_SHARING=0,
+					NBL_KHR_GL_EVENT,
                     IRR_OpenCL_Feature_Count
                 };
                 class SOpenCLDeviceInfo : public core::AllocationOverrideDefault

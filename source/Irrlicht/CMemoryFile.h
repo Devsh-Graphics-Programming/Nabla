@@ -91,7 +91,7 @@ namespace io
 
 
     template<
-        typename Alloc = _IRR_DEFAULT_ALLOCATOR_METATYPE<uint8_t>,
+        typename Alloc = _NBL_DEFAULT_ALLOCATOR_METATYPE<uint8_t>,
         bool = std::is_same<Alloc, core::null_allocator<typename Alloc::value_type>>::value
     >
     class CCustomAllocatorMemoryReadFile;

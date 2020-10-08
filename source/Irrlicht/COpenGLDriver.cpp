@@ -1980,7 +1980,7 @@ void COpenGLDriver::drawArraysIndirect(const asset::SBufferBinding<IGPUBuffer> _
     if (!found->nextState.pipeline.graphics.pipeline)
         return;
 
-    if (countBuffer && !FeatureAvailable[IRR_ARB_indirect_parameters] && (Version < 460u))
+    if (countBuffer && !FeatureAvailable[NBL_ARB_indirect_parameters] && (Version < 460u))
     {
         os::Printer::log("OpenGL driver: glMultiDrawArraysIndirectCount() not supported!");
         return;
@@ -2012,38 +2012,38 @@ bool COpenGLDriver::queryFeature(const E_DRIVER_FEATURE &feature) const
 	switch (feature)
 	{
         case EDF_ALPHA_TO_COVERAGE:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_multisample]||true; //vulkan+android
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_multisample]||true; //vulkan+android
         case EDF_GEOMETRY_SHADER:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_geometry_shader4]||true; //vulkan+android
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_geometry_shader4]||true; //vulkan+android
         case EDF_TESSELLATION_SHADER:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_tessellation_shader]||true; //vulkan+android
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_tessellation_shader]||true; //vulkan+android
         case EDF_GET_TEXTURE_SUB_IMAGE:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_get_texture_sub_image]; //only on OpenGL
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_get_texture_sub_image]; //only on OpenGL
         case EDF_TEXTURE_BARRIER:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_texture_barrier]||COpenGLExtensionHandler::FeatureAvailable[IRR_NV_texture_barrier]||Version>=450;
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_texture_barrier]||COpenGLExtensionHandler::FeatureAvailable[NBL_NV_texture_barrier]||Version>=450;
         case EDF_STENCIL_ONLY_TEXTURE:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_texture_stencil8]||Version>=440;
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_texture_stencil8]||Version>=440;
 		case EDF_SHADER_DRAW_PARAMS:
-			return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_shader_draw_parameters]||Version>=460;
+			return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_shader_draw_parameters]||Version>=460;
 		case EDF_MULTI_DRAW_INDIRECT_COUNT:
-			return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_indirect_parameters]||Version>=460;
+			return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_indirect_parameters]||Version>=460;
         case EDF_SHADER_GROUP_VOTE:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_NV_gpu_shader5]||COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_shader_group_vote]||Version>=460;
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_NV_gpu_shader5]||COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_shader_group_vote]||Version>=460;
         case EDF_SHADER_GROUP_BALLOT:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_NV_shader_thread_group]||COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_shader_ballot];
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_NV_shader_thread_group]||COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_shader_ballot];
 		case EDF_SHADER_GROUP_SHUFFLE:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_NV_shader_thread_shuffle];
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_NV_shader_thread_shuffle];
         case EDF_FRAGMENT_SHADER_INTERLOCK:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_INTEL_fragment_shader_ordering]||COpenGLExtensionHandler::FeatureAvailable[IRR_NV_fragment_shader_interlock]||COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_fragment_shader_interlock];
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_INTEL_fragment_shader_ordering]||COpenGLExtensionHandler::FeatureAvailable[NBL_NV_fragment_shader_interlock]||COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_fragment_shader_interlock];
         case EDF_BINDLESS_TEXTURE:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_bindless_texture]||Version>=450;
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_bindless_texture]||Version>=450;
         case EDF_DYNAMIC_SAMPLER_INDEXING:
             return queryFeature(EDF_BINDLESS_TEXTURE);
         case EDF_INPUT_ATTACHMENTS:
             return 
-                COpenGLExtensionHandler::FeatureAvailable[IRR_EXT_shader_pixel_local_storage] || 
-                COpenGLExtensionHandler::FeatureAvailable[IRR_EXT_shader_framebuffer_fetch] ||
-                COpenGLExtensionHandler::FeatureAvailable[IRR_EXT_shader_framebuffer_fetch_non_coherent];
+                COpenGLExtensionHandler::FeatureAvailable[NBL_EXT_shader_pixel_local_storage] || 
+                COpenGLExtensionHandler::FeatureAvailable[NBL_EXT_shader_framebuffer_fetch] ||
+                COpenGLExtensionHandler::FeatureAvailable[NBL_EXT_shader_framebuffer_fetch_non_coherent];
         default:
             break;
 	};
@@ -2066,7 +2066,7 @@ void COpenGLDriver::drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> 
     if (!found->nextState.pipeline.graphics.pipeline)
         return;
 
-    if (countBuffer && !FeatureAvailable[IRR_ARB_indirect_parameters] && (Version < 460u))
+    if (countBuffer && !FeatureAvailable[NBL_ARB_indirect_parameters] && (Version < 460u))
     {
         os::Printer::log("OpenGL driver: glMultiDrawElementsIndirectCount() not supported!");
         return;
@@ -2853,7 +2853,7 @@ void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const asset::SBuffe
     buf = static_cast<const COpenGLBuffer*>(_indirectDrawBuffer);
     nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr<const COpenGLBuffer>(buf);
 
-    if (FeatureAvailable[IRR_ARB_indirect_parameters] || (Version >= 460u))
+    if (FeatureAvailable[NBL_ARB_indirect_parameters] || (Version >= 460u))
     {
         buf = static_cast<const COpenGLBuffer*>(_paramBuffer);
         nextState.vertexInputParams.parameterBuf = core::smart_refctd_ptr<const COpenGLBuffer>(buf);

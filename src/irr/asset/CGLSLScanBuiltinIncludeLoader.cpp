@@ -97,7 +97,7 @@ std::string CGLSLScanBuiltinIncludeLoader::getReduceAndScanExtensionEnables() co
 )===";
 /*
 #ifdef _NBL_COMPILE_WITH_OPENGL_
-    if (m_capabilityReporter->getDriverType()==EDT_OPENGL&&COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_NV_shader_thread_group])
+    if (m_capabilityReporter->getDriverType()==EDT_OPENGL&&COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_NV_shader_thread_group])
     {
         int32_t tmp;
         glGetIntegerv(GL_WARP_SIZE_NV,&tmp);

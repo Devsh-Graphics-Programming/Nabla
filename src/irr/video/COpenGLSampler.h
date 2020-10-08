@@ -37,13 +37,13 @@ class COpenGLSampler : public IGPUSampler
 				mode = GL_MIRRORED_REPEAT;
 				break;
 			case ETC_MIRROR_CLAMP_TO_EDGE:
-				if (COpenGLExtensionHandler::Version >= 440 || COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_mirror_clamp] || COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_ATI_texture_mirror_once])
+				if (COpenGLExtensionHandler::Version >= 440 || COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_mirror_clamp] || COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_ATI_texture_mirror_once])
 					mode = GL_MIRROR_CLAMP_TO_EDGE;
 				else
 					mode = GL_CLAMP;
 				break;
 			case ETC_MIRROR_CLAMP_TO_BORDER:
-				if (COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_mirror_clamp])
+				if (COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_mirror_clamp])
 					mode = GL_MIRROR_CLAMP_TO_BORDER_EXT;
 				else
 					mode = GL_CLAMP;

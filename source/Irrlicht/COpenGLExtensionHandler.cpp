@@ -525,7 +525,7 @@ void COpenGLExtensionHandler::dump(std::string* outStr, bool onlyAvailable) cons
 {
     if (onlyAvailable)
     {
-        for (uint32_t i=0; i<IRR_OpenGL_Feature_Count; ++i)
+        for (uint32_t i=0; i<NBL_OpenGL_Feature_Count; ++i)
         {
             if (FeatureAvailable[i])
             {
@@ -541,7 +541,7 @@ void COpenGLExtensionHandler::dump(std::string* outStr, bool onlyAvailable) cons
     }
     else
     {
-        for (uint32_t i=0; i<IRR_OpenGL_Feature_Count; ++i)
+        for (uint32_t i=0; i<NBL_OpenGL_Feature_Count; ++i)
         {
             if (outStr)
             {
@@ -779,7 +779,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	loadFunctions();
 
 
-	TextureCompressionExtension = FeatureAvailable[IRR_ARB_texture_compression];
+	TextureCompressionExtension = FeatureAvailable[NBL_ARB_texture_compression];
 	StencilBuffer = stencilBuffer;
 
 
@@ -813,20 +813,20 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	glGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &num);
 	MaxArrayTextureLayers = num;
 
-	if (FeatureAvailable[IRR_EXT_texture_filter_anisotropic])
+	if (FeatureAvailable[NBL_EXT_texture_filter_anisotropic])
 	{
 		glGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &num);
 		MaxAnisotropy = static_cast<uint8_t>(num);
 	}
 
 
-    if (FeatureAvailable[IRR_ARB_geometry_shader4])
+    if (FeatureAvailable[NBL_ARB_geometry_shader4])
     {
         glGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, &num);
         MaxGeometryVerticesOut = static_cast<uint32_t>(num);
     }
 
-	if (FeatureAvailable[IRR_EXT_texture_lod_bias])
+	if (FeatureAvailable[NBL_EXT_texture_lod_bias])
 		glGetFloatv(GL_MAX_TEXTURE_LOD_BIAS_EXT, &MaxTextureLODBias);
 
 
@@ -850,7 +850,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	if (IsIntelGPU)
 	{
 		Version = 440;
-		FeatureAvailable[IRR_ARB_direct_state_access] = false;
+		FeatureAvailable[NBL_ARB_direct_state_access] = false;
 		pGlCreateTextures = nullptr;
 		pGlTextureStorage1D = nullptr;
 		pGlTextureStorage2D = nullptr;
@@ -907,7 +907,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	}/*
     //! Non-DSA testing
     Version = 430;
-    FeatureAvailable[IRR_EXT_direct_state_access] = FeatureAvailable[IRR_ARB_direct_state_access] = false;
+    FeatureAvailable[NBL_EXT_direct_state_access] = FeatureAvailable[NBL_ARB_direct_state_access] = false;
     pGlTextureStorage1DEXT = nullptr;
     pGlTextureStorage2DEXT = nullptr;
     pGlTextureStorage3DEXT = nullptr;
@@ -955,7 +955,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 	//glGetIntegerv(GL_MAX_ELEMENTS_INDICES,&num);
 #ifdef WIN32
 #ifdef _NBL_DEBUG
-	if (FeatureAvailable[IRR_NVX_gpu_memory_info])
+	if (FeatureAvailable[NBL_NVX_gpu_memory_info])
 	{
 		// undocumented flags, so use the RAW values
 		GLint val;
@@ -966,7 +966,7 @@ void COpenGLExtensionHandler::initExtensions(bool stencilBuffer)
 		glGetIntegerv(0x9049, &val);
 		os::Printer::log("Available video memory (kB)", std::to_string(val));
 	}
-	if (FeatureAvailable[IRR_ATI_meminfo])
+	if (FeatureAvailable[NBL_ATI_meminfo])
 	{
 		GLint val[4];
 		glGetIntegerv(GL_TEXTURE_FREE_MEMORY_ATI, val);
@@ -985,7 +985,7 @@ void COpenGLExtensionHandler::loadFunctions()
     if (functionsAlreadyLoaded)
         return;
 
-	for (uint32_t i=0; i<IRR_OpenGL_Feature_Count; ++i)
+	for (uint32_t i=0; i<NBL_OpenGL_Feature_Count; ++i)
 		FeatureAvailable[i]=false;
 
 
@@ -1019,7 +1019,7 @@ void COpenGLExtensionHandler::loadFunctions()
 		{
 			const char* extensionName = reinterpret_cast<const char*>(pGlGetStringi(GL_EXTENSIONS,i));
 
-			for (uint32_t j=0; j<IRR_OpenGL_Feature_Count; ++j)
+			for (uint32_t j=0; j<NBL_OpenGL_Feature_Count; ++j)
 			{
 				if (!strcmp(OpenGLFeatureStrings[j], extensionName))
 				{
@@ -1036,7 +1036,7 @@ void COpenGLExtensionHandler::loadFunctions()
 		extname.reserve(100);
 		while (std::getline(ss, extname))
 		{
-			for (uint32_t j=0; j<IRR_OpenGL_Feature_Count; ++j)
+			for (uint32_t j=0; j<NBL_OpenGL_Feature_Count; ++j)
 			{
 				if (extname==OpenGLFeatureStrings[j])
 				{
@@ -1063,7 +1063,7 @@ void COpenGLExtensionHandler::loadFunctions()
 	glGetIntegerv(GL_MAX_SERVER_WAIT_TIMEOUT, &num);
     MaxGPUWaitTimeout = reinterpret_cast<const uint32_t&>(num);
 
-    if (FeatureAvailable[IRR_NV_shader_thread_group])
+    if (FeatureAvailable[NBL_NV_shader_thread_group])
     {
         glGetIntegerv(GL_WARP_SIZE_NV, &num);
         InvocationSubGroupSize[0] = InvocationSubGroupSize[1] = reinterpret_cast<const uint32_t&>(num);
@@ -1074,7 +1074,7 @@ void COpenGLExtensionHandler::loadFunctions()
         InvocationSubGroupSize[1] = 32;
     }
 
-    if (FeatureAvailable[IRR_ARB_spirv_extensions])
+    if (FeatureAvailable[NBL_ARB_spirv_extensions])
     {
         glGetIntegerv(GL_NUM_SPIR_V_EXTENSIONS, reinterpret_cast<GLint*>(&SPIR_VextensionsCount));
         if (SPIR_VextensionsCount)
@@ -1397,7 +1397,7 @@ void COpenGLExtensionHandler::loadFunctions()
         pGlMultiDrawArrysIndirectCount = (PFNGLMULTIDRAWARRAYSINDIRECTCOUNTPROC) IRR_OGL_LOAD_EXTENSION("glMultiDrawArraysIndirectCount");
         pGlMultiDrawElementsIndirectCount = (PFNGLMULTIDRAWELEMENTSINDIRECTCOUNTPROC) IRR_OGL_LOAD_EXTENSION("glMultiDrawElementsIndirectCount");
     }
-    else if (FeatureAvailable[IRR_ARB_indirect_parameters])
+    else if (FeatureAvailable[NBL_ARB_indirect_parameters])
     {
         pGlMultiDrawArrysIndirectCount = (PFNGLMULTIDRAWARRAYSINDIRECTCOUNTARBPROC) IRR_OGL_LOAD_EXTENSION("glMultiDrawArraysIndirectCountARB");
         pGlMultiDrawElementsIndirectCount = (PFNGLMULTIDRAWELEMENTSINDIRECTCOUNTARBPROC) IRR_OGL_LOAD_EXTENSION("glMultiDrawElementsIndirectCountARB");
@@ -1443,9 +1443,9 @@ void COpenGLExtensionHandler::loadFunctions()
 	pGlBeginConditionalRender = (PFNGLBEGINCONDITIONALRENDERPROC) IRR_OGL_LOAD_EXTENSION("glBeginConditionalRender");
     pGlEndConditionalRender = (PFNGLENDCONDITIONALRENDERPROC) IRR_OGL_LOAD_EXTENSION("glEndConditionalRender");
 
-    if (FeatureAvailable[IRR_ARB_texture_barrier])
+    if (FeatureAvailable[NBL_ARB_texture_barrier])
         pGlTextureBarrier = (PFNGLTEXTUREBARRIERPROC) IRR_OGL_LOAD_EXTENSION("glTextureBarrier");
-    else if (FeatureAvailable[IRR_NV_texture_barrier])
+    else if (FeatureAvailable[NBL_NV_texture_barrier])
         pGlTextureBarrierNV = (PFNGLTEXTUREBARRIERNVPROC) IRR_OGL_LOAD_EXTENSION("glTextureBarrierNV");
 
 
@@ -1493,7 +1493,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::vector<std::string>* fai
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_EXT_texture_filter_anisotropic]||Version>=460))
+    if (!(FeatureAvailable[NBL_EXT_texture_filter_anisotropic]||Version>=460))
     {
         retval =  false;
         std::string error = "No anisotropic filtering\n";
@@ -1503,7 +1503,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::vector<std::string>* fai
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_EXT_texture_compression_s3tc]))
+    if (!(FeatureAvailable[NBL_EXT_texture_compression_s3tc]))
     {
         retval =  false;
         std::string error = "DXTn compression missing\n";
@@ -1513,7 +1513,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::vector<std::string>* fai
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_ARB_buffer_storage]||Version>=440))
+    if (!(FeatureAvailable[NBL_ARB_buffer_storage]||Version>=440))
     {
         retval =  false;
         std::string error = "GL_ARB_buffer_storage missing\n";
@@ -1523,7 +1523,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::vector<std::string>* fai
             os::Printer::log(error.c_str(), ELL_ERROR);
     }
 
-    if (!(FeatureAvailable[IRR_ARB_clip_control]||Version>=450))
+    if (!(FeatureAvailable[NBL_ARB_clip_control]||Version>=450))
     {
         retval =  false;
         std::string error = "GL_ARB_clip_control missing\n";
@@ -1534,7 +1534,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::vector<std::string>* fai
     }
 
 /*
-    if (!(FeatureAvailable[IRR_NV_texture_barrier]||FeatureAvailable[IRR_ARB_texture_barrier]||Version>=450))
+    if (!(FeatureAvailable[NBL_NV_texture_barrier]||FeatureAvailable[NBL_ARB_texture_barrier]||Version>=450))
     {
         retval =  false;
         std::string error = "GL_NV_texture_barrier missing\n";
@@ -1545,7 +1545,7 @@ bool COpenGLExtensionHandler::isDeviceCompatibile(core::vector<std::string>* fai
     }
 */
 
-    if (!(FeatureAvailable[IRR_ARB_direct_state_access] || FeatureAvailable[IRR_EXT_direct_state_access] || Version>=450))
+    if (!(FeatureAvailable[NBL_ARB_direct_state_access] || FeatureAvailable[NBL_EXT_direct_state_access] || Version>=450))
     {
         retval =  false;
         std::string error = "Direct State Access Extension missing\n";

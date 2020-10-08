@@ -107,7 +107,7 @@ bool COpenGLQuery::getQueryResult32(IGPUBuffer* buffer, const size_t& offset, co
     }
 
     COpenGLExtensionHandler::extGlGetQueryBufferObjectuiv(object,asGLBuf->getOpenGLName(),conditionalWrite ? GL_QUERY_RESULT_NO_WAIT:GL_QUERY_RESULT,offset);
-    return COpenGLExtensionHandler::Version>=440&&COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_ARB_query_buffer_object];
+    return COpenGLExtensionHandler::Version>=440&&COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_ARB_query_buffer_object];
 }
 
 bool COpenGLQuery::getQueryResult64(IGPUBuffer* buffer, const size_t& offset, const bool& conditionalWrite)
@@ -130,7 +130,7 @@ bool COpenGLQuery::getQueryResult64(IGPUBuffer* buffer, const size_t& offset, co
     }
 
     COpenGLExtensionHandler::extGlGetQueryBufferObjectui64v(object,asGLBuf->getOpenGLName(),conditionalWrite ? GL_QUERY_RESULT_NO_WAIT:GL_QUERY_RESULT,offset);
-    return COpenGLExtensionHandler::Version>=440&&COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_ARB_query_buffer_object];
+    return COpenGLExtensionHandler::Version>=440&&COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_ARB_query_buffer_object];
 }
 
 
@@ -173,7 +173,7 @@ void COpenGLQuery::isQueryReady32(IGPUBuffer* buffer, const size_t& offset)
 
 void COpenGLQuery::isQueryReady64(IGPUBuffer* buffer, const size_t& offset)
 {
-    //if (COpenGLExtensionHandler::Version<440 && !COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_query_buffer_object])
+    //if (COpenGLExtensionHandler::Version<440 && !COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_query_buffer_object])
 #ifdef _NBL_DEBUG
     if (active)
     {

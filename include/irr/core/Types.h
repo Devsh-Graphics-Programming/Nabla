@@ -36,7 +36,7 @@ namespace irr
 namespace core
 {
 template<typename T>
-using allocator = _IRR_DEFAULT_ALLOCATOR_METATYPE<T>;
+using allocator = _NBL_DEFAULT_ALLOCATOR_METATYPE<T>;
 
 
 

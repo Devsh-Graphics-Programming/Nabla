@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __NBL_C_IRR_DEVICE_STUB_H_INCLUDED__
-#define __NBL_C_IRR_DEVICE_STUB_H_INCLUDED__
+#ifndef __NBL_C_NBL_DEVICE_STUB_H_INCLUDED__
+#define __NBL_C_NBL_DEVICE_STUB_H_INCLUDED__
 
 #include "IrrlichtDevice.h"
 #include "SIrrCreationParameters.h"

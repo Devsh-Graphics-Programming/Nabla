@@ -36,7 +36,7 @@ class FuncPtrLoader : public core::Uncopyable
 		{
 			using FuncPtrT = decltype(&FuncT);
 			constexpr char FunctionName[] = std::reflection::name<FuncPtrT>::value;
-			return DynamicLibraryFunctionPointer<FuncPtrT,IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FunctionName)>(this->loadFuncPtr(FunctionName));
+			return DynamicLibraryFunctionPointer<FuncPtrT,NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FunctionName)>(this->loadFuncPtr(FunctionName));
 		}
 		*/
 };

@@ -56,14 +56,14 @@ inline GLenum	getSizedOpenGLFormatFromOurFormat(asset::E_FORMAT format)
 			return GL_R8;
 			break;
 		case asset::EF_R8_SRGB:
-			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_sRGB_R8])
+			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_sRGB_R8])
 				return GL_SR8_EXT;
 			break;
 		case asset::EF_R8G8_UNORM:
 			return GL_RG8;
 			break;
 		case asset::EF_R8G8_SRGB:
-			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_sRGB_RG8])
+			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_sRGB_RG8])
 				return GL_SRG8_EXT;
 			break;
 		case asset::EF_R8G8B8_UNORM:
@@ -872,7 +872,7 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 		break;
 		case asset::EF_R8_SRGB:
 		{
-			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_sRGB_R8])
+			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_sRGB_R8])
 				break;
 			colorformat = GL_RED;
 			type = GL_UNSIGNED_BYTE;
@@ -892,7 +892,7 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 		break;
 		case asset::EF_R8G8_SRGB:
 		{
-			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_sRGB_RG8])
+			if (!COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_sRGB_RG8])
 				break;
 			colorformat = GL_RG;
 			type = GL_UNSIGNED_BYTE;

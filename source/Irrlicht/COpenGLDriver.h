@@ -620,7 +620,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 				case EF_ASTC_10x10_SRGB_BLOCK:
 				case EF_ASTC_12x10_SRGB_BLOCK:
 				case EF_ASTC_12x12_SRGB_BLOCK:
-					return queryOpenGLFeature(IRR_KHR_texture_compression_astc_ldr);
+					return queryOpenGLFeature(NBL_KHR_texture_compression_astc_ldr);
 
 				default: return false;
             }

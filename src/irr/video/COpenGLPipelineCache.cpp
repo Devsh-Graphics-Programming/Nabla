@@ -89,7 +89,7 @@ core::smart_refctd_ptr<asset::ICPUPipelineCache> COpenGLPipelineCache::convertTo
 		uuid += std::to_string(COpenGLExtensionHandler::Version);
 
 		std::string exts;
-		for (uint32_t k = 0u; k < COpenGLExtensionHandler::IRR_OpenGL_Feature_Count; ++k)
+		for (uint32_t k = 0u; k < COpenGLExtensionHandler::NBL_OpenGL_Feature_Count; ++k)
 		{
 			if (COpenGLExtensionHandler::FeatureAvailable[k])
 				exts += OpenGLFeatureStrings[k];
