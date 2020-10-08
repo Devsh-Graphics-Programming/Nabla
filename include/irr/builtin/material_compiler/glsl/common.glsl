@@ -1148,7 +1148,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 	float plastic_spec_weight;
 	if (is_plastic) {
 		vec3 fresnel = irr_glsl_fresnel_dielectric(ior[0],currInteraction.isotropic.NdotV);
-		float ws = max(fresnel.x, max(fresnel.y, fresnel.z));
+		float ws = dot(fresnel, CIE_XYZ_Luma_Y_coeffs);
 		bool choseDiffuse = u.z>=ws;
 		op = choseDiffuse ? OP_DIFFUSE_ALIAS : op;
 		plastic_spec_weight = ws;
@@ -1182,8 +1182,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 
 #ifdef OP_THINDIELECTRIC
 	if (op == OP_THINDIELECTRIC) {
-		//TODO THINDIELECTRIC always endup black
-		const vec3 luminosityContributionHint = vec3(0.2126,0.7152,0.0722);
+		const vec3 luminosityContributionHint = CIE_XYZ_Luma_Y_coeffs;
 		s = irr_glsl_thin_smooth_dielectric_cos_generate(currInteraction, u, ior[0]*ior[0], luminosityContributionHint);
 		uf = getSmoothMicrofacetCache(currInteraction.isotropic.NdotV, s.NdotL);
 		rem = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ior[0]*ior[0], luminosityContributionHint);

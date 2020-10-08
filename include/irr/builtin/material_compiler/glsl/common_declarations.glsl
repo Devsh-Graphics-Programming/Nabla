@@ -23,4 +23,6 @@ struct instr_stream_t
 	uint count;
 };
 
+#define CIE_XYZ_Luma_Y_coeffs vec3(0.2126,0.7152,0.0722)
+
 #endif

@@ -49,6 +49,13 @@ namespace instr_stream
 			dst = core::bitfieldInsert(dst, parent>>BITFIELDS_SHIFT_MASKFLAG, BITFIELDS_SHIFT_MASKFLAG, 1);
 		}
 
+		// Extra operations performed on instruction just before it is pushed on stack
+		virtual void onBeforeStackPush(instr_t& instr) const
+		{
+			if (getOpcode(instr) == OP_DIELECTRIC && isTwosided(instr))
+				setOpcode(instr, OP_THINDIELECTRIC);
+		}
+
 		void writeBumpmapBitfields(instr_t& dst)
 		{
 			++m_firstFreeNormalID;
@@ -315,8 +322,12 @@ namespace instr_stream
 				pushIt = true;
 				break;
 			}
-			if (pushIt)
+
+			if (pushIt) 
+			{
+				onBeforeStackPush(instr);
 				m_stack.push(stack_el_t(instr, _node, _children, std::forward<Params>(args)...));
+			}
 
 			return pushIt;
 		}

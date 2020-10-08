@@ -128,6 +128,11 @@ namespace instr_stream
 		}
 	}
 
+	inline void setOpcode(instr_t& i, E_OPCODE op)
+	{
+		i = core::bitfieldInsert<instr_t>(i, static_cast<instr_t>(op), INSTR_OPCODE_SHIFT, INSTR_OPCODE_WIDTH);
+	}
+
 	inline E_OPCODE getOpcode(const instr_t& i)
 	{
 		return static_cast<E_OPCODE>(core::bitfieldExtract(i, INSTR_OPCODE_SHIFT, INSTR_OPCODE_WIDTH));
