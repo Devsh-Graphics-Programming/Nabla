@@ -8,7 +8,7 @@
 	#include "../../ext/MitsubaLoader/CMitsubaLoader.h"
 #endif
 
-#ifndef _IRR_BUILD_OPTIX_
+#ifndef _NBL_BUILD_OPTIX_
 	#define __C_CUDA_HANDLER_H__ // don't want CUDA declarations and defines to pollute here
 #endif
 
@@ -651,7 +651,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneMa
 		m_rayBufferAsRR(nullptr,nullptr), m_intersectionBufferAsRR(nullptr,nullptr), m_rayCountBufferAsRR(nullptr,nullptr),
 		nodes(), sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), rrInstances(),
 		m_lightCount(0u)
-	#ifdef _IRR_BUILD_OPTIX_
+	#ifdef _NBL_BUILD_OPTIX_
 		,m_cudaStream(nullptr)
 	#endif
 {
@@ -664,7 +664,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneMa
 		0); //! No custom user data
 	cb->drop();
 
-	#ifdef _IRR_BUILD_OPTIX_
+	#ifdef _NBL_BUILD_OPTIX_
 		while (useDenoiser)
 		{
 			useDenoiser = false;
@@ -794,17 +794,17 @@ void Renderer::init(const SAssetBundle& meshes,
 							light.analytical.transformCofactors = -light.analytical.transformCofactors;
 							break;
 						case ext::MitsubaLoader::CElementShape::Type::CYLINDER:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case ext::MitsubaLoader::CElementShape::Type::DISK:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case ext::MitsubaLoader::CElementShape::Type::RECTANGLE:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case ext::MitsubaLoader::CElementShape::Type::CUBE:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case ext::MitsubaLoader::CElementShape::Type::OBJ:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case ext::MitsubaLoader::CElementShape::Type::PLY:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case ext::MitsubaLoader::CElementShape::Type::SERIALIZED:
 							light.type = SLight::ET_TRIANGLE;
 							if (!totalTriangleCount)
@@ -1110,7 +1110,7 @@ void Renderer::init(const SAssetBundle& meshes,
 	auto objCount = sizeof(clObjects)/sizeof(cl_mem);
 	clEnqueueAcquireGLObjects(m_rrManager->getCLCommandQueue(), objCount, clObjects, 0u, nullptr, nullptr);
 
-#ifdef _IRR_BUILD_OPTIX_
+#ifdef _NBL_BUILD_OPTIX_
 	while (m_denoiser)
 	{
 		m_denoiser->computeMemoryResources(&m_denoiserMemReqs,renderSize);
@@ -1243,7 +1243,7 @@ void Renderer::deinit()
 
 	m_rightHanded = false;
 
-#ifdef _IRR_BUILD_OPTIX_
+#ifdef _NBL_BUILD_OPTIX_
 	if (m_cudaStream)
 		cuda::CCUDAHandler::cuda.pcuStreamSynchronize(m_cudaStream);
 	m_denoiserInputBuffer = {};
@@ -1405,30 +1405,30 @@ void Renderer::render()
 
 		COpenGLExtensionHandler::extGlUseProgram(m_compostProgram);
 
-#ifdef _IRR_BUILD_OPTIX_
+#ifdef _NBL_BUILD_OPTIX_
 		auto resolveBufferPtr = m_denoiserInputBuffer.getObject();
 #endif
 		const COpenGLBuffer* buffers[] ={	static_cast<const COpenGLBuffer*>(m_rayBuffer.get()),
 											static_cast<const COpenGLBuffer*>(m_intersectionBuffer.get()),
 											static_cast<const COpenGLBuffer*>(m_lightRadianceBuffer.get())
-#ifdef _IRR_BUILD_OPTIX_
+#ifdef _NBL_BUILD_OPTIX_
 											,static_cast<const COpenGLBuffer*>(resolveBufferPtr)
 											,static_cast<const COpenGLBuffer*>(resolveBufferPtr)
 											,static_cast<const COpenGLBuffer*>(resolveBufferPtr)
 #endif
 										};
 		ptrdiff_t offsets[] =	{	0,0,0
-#ifdef _IRR_BUILD_OPTIX_
+#ifdef _NBL_BUILD_OPTIX_
 									,m_denoiserInputs[EDI_COLOR].data,m_denoiserInputs[EDI_ALBEDO].data,m_denoiserInputs[EDI_NORMAL].data
 #endif
 								};
-#ifdef _IRR_BUILD_OPTIX_
+#ifdef _NBL_BUILD_OPTIX_
 		auto getDenoiserBufferSize = [&resolveBufferPtr](const OptixImage2D& img) -> size_t {return resolveBufferPtr ? img.height*img.rowStrideInBytes:0u;};
 #endif
 		ptrdiff_t sizes[] = {	m_rayBuffer->getSize(),
 								m_intersectionBuffer->getSize(),
 								m_lightRadianceBuffer->getSize()
-#ifdef _IRR_BUILD_OPTIX_
+#ifdef _NBL_BUILD_OPTIX_
 								,getDenoiserBufferSize(m_denoiserInputs[EDI_COLOR])
 								,getDenoiserBufferSize(m_denoiserInputs[EDI_ALBEDO])
 								,getDenoiserBufferSize(m_denoiserInputs[EDI_NORMAL])
@@ -1457,7 +1457,7 @@ void Renderer::render()
 		COpenGLExtensionHandler::extGlUseProgram(prevProgram);
 
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT
-#ifndef _IRR_BUILD_OPTIX_
+#ifndef _NBL_BUILD_OPTIX_
 			|GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT
 #else
 			|(m_denoisedBuffer.getObject() ? (GL_PIXEL_BUFFER_BARRIER_BIT|GL_BUFFER_UPDATE_BARRIER_BIT):(GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT))
@@ -1466,7 +1466,7 @@ void Renderer::render()
 	}
 
 	// TODO: tonemap properly
-#ifdef _IRR_BUILD_OPTIX_
+#ifdef _NBL_BUILD_OPTIX_
 	if (m_denoisedBuffer.getObject())
 	{
 		cuda::CCUDAHandler::acquireAndGetPointers(&m_denoiserInputBuffer,&m_denoiserScratchBuffer+1,m_cudaStream);

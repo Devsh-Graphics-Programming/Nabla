@@ -25,8 +25,8 @@ SOFTWARE.
 
 */
 
-#ifndef _IRR_BRDF_EXPLORER_APP_INCLUDED_
-#define _IRR_BRDF_EXPLORER_APP_INCLUDED_
+#ifndef _NBL_BRDF_EXPLORER_APP_INCLUDED_
+#define _NBL_BRDF_EXPLORER_APP_INCLUDED_
 
 #include <map>
 #include <string>
@@ -264,4 +264,4 @@ class BRDFExplorerApp {
 };
 
 } // namespace irr
-#endif // _IRR_BRDF_EXPLORER_APP_INCLUDED_
+#endif

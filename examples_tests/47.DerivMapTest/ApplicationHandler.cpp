@@ -141,9 +141,9 @@ class MyKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<MyKe
 				PostFilter& postFilter;
 		};
 
-		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
+		_NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
 
-		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
+		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
 };
 	
 template<class Kernel>
@@ -157,11 +157,11 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
 		// passthrough everything
 		using value_type = typename Kernel::value_type;
 
-		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels; // derivative map only needs 2 channels
+		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels; // derivative map only needs 2 channels
 
 		SeparateOutXAxisKernel(Kernel&& k) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)) {}
 
-		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
+		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
 					
 		// we need to ensure to override the default behaviour of `CFloatingPointSeparableImageFilterKernelBase` which applies the weight along every axis
 		template<class PreFilter, class PostFilter>
@@ -212,13 +212,13 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMapFromHeightMap(asse
 #ifndef DERIV_MAP_FLOAT32
 			return asset::EF_R8G8_UNORM;
 #else
-			_IRR_FALLTHROUGH;
+			[[fallthrough]];
 #endif
 		case 2u:
 #ifndef DERIV_MAP_FLOAT32
 			return asset::EF_R16G16_SFLOAT;
 #else
-			_IRR_FALLTHROUGH;
+			[[fallthrough]];
 #endif
 		case 4u:
 			return asset::EF_R32G32_SFLOAT;
@@ -288,11 +288,11 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMapFromHeightMap(asse
 	state.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
 	state.borderColor = _borderColor;
 	state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
-	state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, _IRR_SIMD_ALIGNMENT));
+	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
 
 	DerivativeMapFilter::execute(&state);
 
-	_IRR_ALIGNED_FREE(state.scratchMemory);
+	_NBL_ALIGNED_FREE(state.scratchMemory);
 
 	return outImg;
 }

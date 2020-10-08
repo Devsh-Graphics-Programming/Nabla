@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#define _IRR_STATIC_LIB_
+#define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
 #include <irrlicht.h>
@@ -204,7 +204,7 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
 
 class EventReceiver : public irr::IEventReceiver
 {
-    _IRR_STATIC_INLINE_CONSTEXPR int32_t MAX_LOD = 8;
+    _NBL_STATIC_INLINE_CONSTEXPR int32_t MAX_LOD = 8;
 	public:
 		bool OnEvent(const irr::SEvent& event)
 		{

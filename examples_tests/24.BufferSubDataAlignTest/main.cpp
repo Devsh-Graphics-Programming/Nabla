@@ -5,7 +5,7 @@
 #include <iostream>
 #include <cstdio>
 
-#define _IRR_STATIC_LIB_
+#define _NBL_STATIC_LIB_
 #include <irrlicht.h>
 
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
@@ -120,7 +120,7 @@ int main()
 
 
 	video::IVideoDriver* driver = device->getVideoDriver();
-    if (video::COpenGLExtensionHandler::FeatureAvailable[video::COpenGLExtensionHandler::IRR_KHR_debug])
+    if (video::COpenGLExtensionHandler::FeatureAvailable[video::COpenGLExtensionHandler::NBL_KHR_debug])
     {
         //glEnable(GL_DEBUG_OUTPUT);
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
