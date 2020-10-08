@@ -18,7 +18,7 @@ struct NBL_FORCE_EBO SkinnedMeshBufferBlobV3 : TypedBlob<SkinnedMeshBufferBlobV3
 	//! Constructor filling all members
 	explicit SkinnedMeshBufferBlobV3(const ICPUSkinnedMeshBuffer*);
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	video::SCPUMaterial mat;
 #endif
 	core::aabbox3df box;
@@ -39,7 +39,7 @@ struct NBL_FORCE_EBO SkinnedMeshBufferBlobV3 : TypedBlob<SkinnedMeshBufferBlobV3
 //TODO bring it back
 //static_assert(sizeof(SkinnedMeshBufferBlobV0::mat)==197, "sizeof(MeshBufferBlobV0::mat) must be 197");
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 static_assert(
     sizeof(SkinnedMeshBufferBlobV3) ==
     sizeof(SkinnedMeshBufferBlobV3::mat) + sizeof(SkinnedMeshBufferBlobV3::box) + sizeof(SkinnedMeshBufferBlobV3::descPtr) + sizeof(SkinnedMeshBufferBlobV3::indexType) + sizeof(SkinnedMeshBufferBlobV3::baseVertex)

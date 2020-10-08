@@ -11,7 +11,7 @@ namespace irr
 		template<>
 		io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<3>(SContext & _ctx, io::IReadFile * _baw2file, asset::IAssetLoader::IAssetLoaderOverride * _override, const CommonDataTuple<2> & _common)
 		{
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 			uint32_t blobCnt{};
 			BlobHeaderVn<2> * headers = nullptr;
 			uint32_t* offsets = nullptr;
@@ -212,7 +212,7 @@ namespace irr
         template<>
         io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<2>(SContext& _ctx, io::IReadFile* _baw1file, asset::IAssetLoader::IAssetLoaderOverride* _override, const CommonDataTuple<1>& _common)
         {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
             uint32_t blobCnt{};
 			BlobHeaderVn<1>* headers = nullptr;
             uint32_t* offsets = nullptr;
@@ -348,7 +348,7 @@ namespace irr
         template<>
         io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<1>(SContext& _ctx, io::IReadFile* _baw0file, asset::IAssetLoader::IAssetLoaderOverride* _override, const CommonDataTuple<0>& _common)
         {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
             uint32_t blobCnt{};
             BlobHeaderVn<0>* headers = nullptr;
             uint32_t* offsets = nullptr;

@@ -22,7 +22,7 @@ struct NBL_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuff
 	//! Constructor filling all members
 	explicit MeshBufferBlobV3(const ICPUMeshBuffer*);
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	video::SCPUMaterial mat;
 #endif
 	core::aabbox3df box;
@@ -41,7 +41,7 @@ struct NBL_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuff
 //TODO bring it back
 //static_assert(sizeof(MeshBufferBlobV0::mat)==197, "sizeof(MeshBufferBlobV0::mat) must be 197");
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 static_assert(
     sizeof(MeshBufferBlobV3) ==
     sizeof(MeshBufferBlobV3::mat) + sizeof(MeshBufferBlobV3::box) + sizeof(MeshBufferBlobV3::descPtr) + sizeof(MeshBufferBlobV3::indexType) + sizeof(MeshBufferBlobV3::baseVertex)

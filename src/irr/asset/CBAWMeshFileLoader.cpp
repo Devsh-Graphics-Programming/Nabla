@@ -46,7 +46,7 @@ CBAWMeshFileLoader::CBAWMeshFileLoader(IAssetManager* _manager) : m_manager(_man
 
 SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 #ifdef _NBL_DEBUG
     auto time = std::chrono::high_resolution_clock::now();
 #endif // _NBL_DEBUG

@@ -26,7 +26,7 @@ namespace asset
 
 class CBAWMeshFileLoader : public asset::IAssetLoader
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	friend struct TypedBlob<TexturePathBlobV3, asset::ICPUTexture>; // needed for loading textures
 #endif
 
@@ -175,7 +175,7 @@ private:
 			// add here when more asset types will be available
 			switch (_blobType)
 			{
-#ifndef NEW_MESHES
+#ifdef OLD_MESHES
 				case asset::Blob::EBT_MESH:
 				case asset::Blob::EBT_SKINNED_MESH:
 					assert(_assetAddr->getAssetType()==asset::IAsset::ET_MESH);
@@ -215,7 +215,7 @@ private:
 				case asset::Blob::EBT_RAW_DATA_BUFFER:
 					asset = reinterpret_cast<asset::ICPUBuffer*>(_asset);
 					break;
-#ifdef NEW_MESHES
+#ifndef OLD_MESHES
 				default:
 					assert(false); // unhandled type
 					break;

@@ -344,7 +344,7 @@ IMeshSceneNode* CSceneManager::addSkyBoxSceneNode(core::smart_refctd_ptr<video::
 {
 	if (!parent)
 		parent = this;
-#ifdef NEW_SHADERS
+#ifndef OLD_SHADERS
 	return nullptr;
 #else
 	ISceneNode* node = new CSkyBoxSceneNode(std::move(top), std::move(bottom), std::move(left), std::move(right),
@@ -364,7 +364,7 @@ IMeshSceneNode* CSceneManager::addSkyDomeSceneNode(	core::smart_refctd_ptr<video
 {
 	if (!parent)
 		parent = this;
-#ifdef NEW_SHADERS
+#ifndef OLD_SHADERS
 	return nullptr;
 #else
 	ISceneNode* node = new CSkyDomeSceneNode(std::move(texture), horiRes, vertRes,
@@ -497,7 +497,7 @@ void CSceneManager::drawAll()
 
 	uint32_t i; // new ISO for scoping problem in some compilers
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	// reset all transforms
 	Driver->setMaterial(video::SGPUMaterial());
 	Driver->setTransform(video::EPTS_PROJ,core::matrix4SIMD());
@@ -774,7 +774,7 @@ void CSceneManager::removeAll()
 	ISceneNode::removeAll();
 	setActiveCamera(0);
 	// Make sure the driver is reset, might need a more complex method at some point
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	if (Driver)
 		Driver->setMaterial(video::SGPUMaterial());
 #endif

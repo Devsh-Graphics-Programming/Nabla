@@ -7,7 +7,7 @@
 #define __NBL_ASSET_TEXTURE_PATH_BLOB_H_INCLUDED__
 
 //! kill this whole file soon (upgrade BaW format to V3)
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 #include "irr/asset/ICPUTexture.h"
 
 namespace irr

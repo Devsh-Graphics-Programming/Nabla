@@ -27,7 +27,7 @@ size_t SizedBlob<VariableSizeBlob, RawBufferBlobV0, ICPUBuffer>::calcBlobSizeFor
 	return _obj->getSize();
 }
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 template<>
 size_t SizedBlob<VariableSizeBlob, TexturePathBlobV0, ICPUTexture>::calcBlobSizeForObj(const ICPUTexture* _obj)
 {
@@ -68,7 +68,7 @@ size_t SizedBlob<VariableSizeBlob, SkinnedMeshBlobV3, asset::ICPUSkinnedMesh>::c
 
 MeshBufferBlobV3::MeshBufferBlobV3(const asset::ICPUMeshBuffer* _mb)
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	memcpy(&mat, &_mb->getMaterial(), sizeof(video::SCPUMaterial));
 	_mb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
 	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
@@ -96,7 +96,7 @@ size_t SizedBlob<FixedSizeBlob, MeshBufferBlobV3, asset::ICPUMeshBuffer>::calcBl
 
 SkinnedMeshBufferBlobV3::SkinnedMeshBufferBlobV3(const asset::ICPUSkinnedMeshBuffer* _smb)
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	memcpy(&mat, &_smb->getMaterial(), sizeof(video::SCPUMaterial));
 	_smb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
 	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
@@ -260,7 +260,7 @@ size_t FinalBoneHierarchyBlobV3::calcNonInterpolatedAnimsByteSize() const
 
 
 // .baw VERSION 1
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::IMeshDataFormatDesc<asset::ICPUBuffer>* _desc) : attrDivisor{0u}
 {
     static_assert(VERTEX_ATTRIB_CNT == EVAI_COUNT, "VERTEX_ATTRIB_CNT != EVAI_COUNT");

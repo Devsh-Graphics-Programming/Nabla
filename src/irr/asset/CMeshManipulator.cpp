@@ -26,7 +26,7 @@ namespace asset
 //! \param mesh: Mesh on which the operation is performed.
 void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	if (!inbuffer)
 		return;
 
@@ -130,7 +130,7 @@ void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
 
 core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshBuffer* _inbuffer)
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	if (!_inbuffer || !_inbuffer->getMeshDataAndFormat() || !_inbuffer->getIndices())
 		return NULL;
 
@@ -242,7 +242,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOp
 //! Creates a copy of the mesh, which will only consist of unique primitives
 core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniquePrimitives(ICPUMeshBuffer* inbuffer, bool _makeIndexBuf)
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	if (!inbuffer)
 		return 0;
     IMeshDataFormatDesc<ICPUBuffer>* oldDesc = inbuffer->getMeshDataAndFormat();
@@ -376,7 +376,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::calculateSmoothNormals(
 // Used by createMeshBufferWelded only
 static bool cmpVertices(ICPUMeshBuffer* _inbuf, const void* _va, const void* _vb, size_t _vsize, const IMeshManipulator::SErrorMetric* _errMetrics)
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
     auto cmpInteger = [](uint32_t* _a, uint32_t* _b, size_t _n) -> bool {
         return !memcmp(_a, _b, _n*4);
     };
@@ -422,7 +422,7 @@ static bool cmpVertices(ICPUMeshBuffer* _inbuf, const void* _va, const void* _vb
 //! Creates a copy of a mesh, which will have identical vertices welded together
 core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const SErrorMetric* _errMetrics, const bool& optimIndexType, const bool& makeNewMesh)
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
     if (!inbuffer)
         return nullptr;
     IMeshDataFormatDesc<ICPUBuffer>* oldDesc = inbuffer->getMeshDataAndFormat();
@@ -567,7 +567,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(
 
 core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer* _inbuffer, const SErrorMetric* _errMetric)
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	if (!_inbuffer)
 		return nullptr;
 	auto outbuffer = createMeshBufferDuplicate(_inbuffer);
@@ -743,7 +743,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 
 void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric)
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	CMeshManipulator::SAttrib newAttribs[EVAI_COUNT];
 	for (size_t i = 0u; i < EVAI_COUNT; ++i)
 		newAttribs[i].vaid = (E_VERTEX_ATTRIBUTE_ID)i;
@@ -883,7 +883,7 @@ void CMeshManipulator::copyMeshBufferMemberVars<ICPUSkinnedMeshBuffer>(ICPUSkinn
 
 core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferDuplicate(const ICPUMeshBuffer* _src)
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	if (!_src)
 		return nullptr;
 

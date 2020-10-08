@@ -14,8 +14,6 @@
 //#define IRRLICHT_VERSION_SVN -alpha
 #define NABLA_SDK_VERSION "0.3.0-beta2"
 
-#define NEW_MESHES
-
 #include <stdio.h> // TODO: Although included elsewhere this is required at least for mingw
 
 //! Passing defines to the compiler which have NO in front of the _NBL definename is an alternative
@@ -33,8 +31,6 @@
 
 // this actually includes file depending on build type (Debug/Release)
 #include "BuildConfigOptions.h"
-
-#define NEW_SHADERS 1
 
 #ifdef _NBL_TARGET_ARCH_ARM_
 #   define __NBL_COMPILE_WITH_ARM_SIMD_ // NEON

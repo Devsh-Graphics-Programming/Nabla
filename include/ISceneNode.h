@@ -219,7 +219,7 @@ namespace scene
 		directly modify the material of a scene node.
 		\param num Zero based index. The maximal value is getMaterialCount() - 1.
 		\return The material at that index. */
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 		virtual video::SGPUMaterial& getMaterial(uint32_t num)
 		{
 			return video::SGPUMaterial();
@@ -233,7 +233,7 @@ namespace scene
 			return 0;
 		}
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 		//! Sets the texture of the specified layer in all materials of this scene node to the new texture.
 		/** \param textureLayer Layer of texture to be set. Must be a
 		value smaller than MATERIAL_MAX_TEXTURES.

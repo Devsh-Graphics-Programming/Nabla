@@ -19,7 +19,7 @@ namespace legacyv0
 	struct MeshDataFormatDescBlobV0;
 }
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 #include "irr/irrpack.h"
 struct NBL_FORCE_EBO MeshDataFormatDescBlobV1 : TypedBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >
 {

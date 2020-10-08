@@ -96,7 +96,7 @@ struct LzmaMemMngmnt
         const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 1u);
 		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, flags, encrPwd, comprLvl);
 	}
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	template<>
 	void CBAWMeshWriter::exportAsBlob<ICPUTexture>(ICPUTexture* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
@@ -125,7 +125,7 @@ struct LzmaMemMngmnt
 		if ((uint8_t*)data != stackData)
 			_NBL_ALIGNED_FREE(data);
 	}
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	template<>
 	void CBAWMeshWriter::exportAsBlob<IMeshDataFormatDesc<ICPUBuffer> >(IMeshDataFormatDesc<ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
@@ -146,7 +146,7 @@ struct LzmaMemMngmnt
 
 	bool CBAWMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 	{
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
         if (!_file)
             return false;
 
@@ -237,7 +237,7 @@ struct LzmaMemMngmnt
 
 	uint32_t CBAWMeshWriter::genHeaders(const ICPUMesh* _mesh, SContext& _ctx)
 	{
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 		_ctx.headers.clear();
 
 		//! @Anastazluk this will all need to change to robustly support arbitrary serialization

@@ -188,7 +188,7 @@ void CCameraSceneNode::render()
 		viewMatrix = core::matrix3x4SIMD::buildCameraLookAtMatrixRH(pos, Target, up);
 	concatMatrix = core::matrix4SIMD::concatenateBFollowedByAPrecisely(projMatrix, core::matrix4SIMD(viewMatrix));
 	recalculateViewArea();
-#ifndef  NEW_SHADERS
+#ifdef OLD_SHADERS
 	video::IVideoDriver* driver = SceneManager->getVideoDriver();
 	if ( driver)
 	{

@@ -71,7 +71,7 @@ enum E_COMPONENT_TYPE
     ECT_COUNT
 };
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 #include "irr/irrpack.h"
 //! Simple struct of essential data of ICPUMeshDataFormatDesc that has to be exported
 //! Irrelevant in version 1.
@@ -97,7 +97,7 @@ static_assert(
     sizeof(MeshDataFormatDescBlobV0::cpa) + sizeof(MeshDataFormatDescBlobV0::attrType) + sizeof(MeshDataFormatDescBlobV0::attrStride) + sizeof(MeshDataFormatDescBlobV0::attrOffset) + sizeof(MeshDataFormatDescBlobV0::attrDivisor) + sizeof(MeshDataFormatDescBlobV0::attrBufPtrs) + sizeof(MeshDataFormatDescBlobV0::idxBufPtr),
     "MeshDataFormatDescBlobV0: Size of blob is not sum of its contents!"
 );
-#endif// !NEW_SHADERS
+#endif
 
 asset::E_FORMAT mapECT_plus_ECPA_onto_E_FORMAT(E_COMPONENT_TYPE _ct, E_COMPONENTS_PER_ATTRIBUTE _cpa);
 
@@ -166,7 +166,7 @@ static_assert(
 //! Simple struct of essential data of ICPUMeshBuffer that has to be exported
 struct NBL_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, ICPUMeshBuffer>
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	video::SCPUMaterial mat;
 #endif
 	core::aabbox3df box;
@@ -181,7 +181,7 @@ struct NBL_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuff
 	uint32_t posAttrId;
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 static_assert(sizeof(MeshBufferBlobV0::mat) == 197, "sizeof(MeshBufferBlobV0::mat) must be 197");
 static_assert(
 	sizeof(MeshBufferBlobV0) ==
@@ -197,7 +197,7 @@ class ICPUSkinnedMeshBuffer;
 #include "irr/irrpack.h"
 struct NBL_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	video::SCPUMaterial mat;
 #endif
 	core::aabbox3df box;
@@ -215,7 +215,7 @@ struct NBL_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0
 	uint32_t maxVertexBoneInfluences;
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 static_assert(sizeof(SkinnedMeshBufferBlobV0::mat) == 197, "sizeof(MeshBufferBlobV0::mat) must be 197");
 static_assert(
 	sizeof(SkinnedMeshBufferBlobV0) ==
