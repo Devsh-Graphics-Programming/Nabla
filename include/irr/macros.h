@@ -65,16 +65,6 @@
 #define _NBL_DEBUG_BREAK_IF( _CONDITION_ )
 #endif
 
-// Defines a deprecated macro which generates a warning at compile time
-#define _NBL_DEPRECATED_ [[deprecated]]
-
-// Disables a maybe used uninitialized warning for a particular variable
-#if __cplusplus >= 201703L
-    #define _NBL_MAYBE_UNUSED [[maybe_unused]]
-#else
-    #define _NBL_MAYBE_UNUSED
-#endif // __cplusplus
-
 //! Workarounds for compiler specific bugs
 // MSVC 2019 is a special snowflake
 #if defined(_MSC_VER) && _MSC_VER>=1920

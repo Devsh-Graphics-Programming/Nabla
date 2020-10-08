@@ -145,9 +145,7 @@ namespace core
 			: DebugName(0), ReferenceCounter(1)
 		{
 			_NBL_DEBUG_BREAK_IF(!ReferenceCounter.is_lock_free()) //incompatibile platform
-#if __cplusplus >= 201703L
 			static_assert(decltype(ReferenceCounter)::is_always_lock_free,"Unsupported Platform, Lock-less Atomic Reference Couting is Impossible!");
-#endif //
 		}
 
 		// Old destructor, but needed virtual for abstractness!

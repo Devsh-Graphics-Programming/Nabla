@@ -95,9 +95,7 @@ namespace scene
                             memset(getBones(tmp),0,sizeof(IBoneSceneNode*)*referenceHierarchy->getBoneCount());
                             break;
                         }
-#if __cplusplus >= 201703L
                         [[fallthrough]];
-#endif
                     case EBUM_CONTROL:
                         tmp->needToRecomputeParentBBox = false;
                         for (size_t i=0; i<referenceHierarchy->getBoneCount(); i++)
