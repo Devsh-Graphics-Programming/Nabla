@@ -66,7 +66,7 @@ namespace impl
 			{
 				const auto firstPart = core::alignUp(PoolAddressAllocator<uint32_t>::reserved_size(1u,capacity,1u),alignof(T));
 				_reservedSpace = _IRR_ALIGNED_MALLOC(firstPart+capacity*sizeof(T),alignof(T));
-				_array = reinterpret_cast<T*>(_reservedSpace)+firstPart/sizeof(T);
+				_array = reinterpret_cast<T*>(reinterpret_cast<uint8_t*>(_reservedSpace)+firstPart);
 			}
 	};
 }
@@ -186,7 +186,6 @@ class FixedCapacityDoublyLinkedList : private impl::FixedCapacityDoublyLinkedLis
 			assert(addr < cap);
 			assert(addr != invalid_iterator);
 			SDoublyLinkedNode<Value>* n = new(m_array + addr) SDoublyLinkedNode<Value>(std::move(val));
-			m_array[addr] = *n;
 			n->prev = invalid_iterator;
 			n->next = m_begin;
 
