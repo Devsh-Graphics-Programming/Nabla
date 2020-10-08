@@ -2,7 +2,7 @@
 #define __IRR_C_MITSUBA_PIPELINE_METADATA_H_INCLUDED__
 
 #include "irr/core/IReferenceCounted.h"
-#include "irr/core/memory/refctd_dynamic_array.h"
+#include "irr/core/containers/refctd_dynamic_array.h"
 #include "irr/asset/ICPUDescriptorSet.h"
 #include "irr/asset/IPipelineMetadata.h"
 
