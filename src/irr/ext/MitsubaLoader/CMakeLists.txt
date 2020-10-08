@@ -1,5 +1,6 @@
-include(../../../../cmake/common.cmake)
-set(IRR_EXT_INTERNAL_INCLUDE_DIR "../../../../include/irr/ext/MitsubaLoader")
+include(${CMAKE_SOURCE_DIR}/cmake/common.cmake)
+
+set(IRR_EXT_INTERNAL_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/include/irr/ext/MitsubaLoader")
 
 
 set(IRR_EXT_MITSUBA_LOADER_H
@@ -21,6 +22,7 @@ set(IRR_EXT_MITSUBA_LOADER_H
 	${IRR_EXT_INTERNAL_INCLUDE_DIR}/ParserUtil.h
 	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CSerializedLoader.h
 	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaLoader.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaMaterialCompilerFrontend.h
 )
 
 set(IRR_EXT_MITSUBA_LOADER_SRC
@@ -39,6 +41,7 @@ set(IRR_EXT_MITSUBA_LOADER_SRC
 	ParserUtil.cpp
 	CSerializedLoader.cpp
 	CMitsubaLoader.cpp
+	CMitsubaMaterialCompilerFrontend.cpp
 )
 
 set(IRR_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE
