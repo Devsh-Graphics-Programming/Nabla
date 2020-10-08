@@ -21,6 +21,8 @@ namespace irr
 namespace asset
 {
 
+static constexpr shaderc_spirv_version TARGET_SPIRV_VERSION = shaderc_spirv_version_1_5;
+
 IGLSLCompiler::IGLSLCompiler(io::IFileSystem* _fs) : m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_fs)), m_fs(_fs)
 {
     //m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLScanBuiltinIncludeLoader>());
@@ -37,6 +39,7 @@ core::smart_refctd_ptr<ICPUBuffer> IGLSLCompiler::compileSPIRVFromGLSL(const cha
 
     shaderc::Compiler comp;
     shaderc::CompileOptions options;//default options
+    options.SetTargetSpirv(TARGET_SPIRV_VERSION);
     const shaderc_shader_kind stage = _stage==ISpecializedShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(_stage);
     const size_t glsl_len = strlen(_glslCode);
     if (_genDebugInfo)
@@ -222,7 +225,8 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::resolveIncludeDirectives(std::
 {
     impl::disableAllDirectivesExceptIncludes(glslCode);//all "#", except those in "#include"/"#version"/"#pragma shader_stage(...)", replaced with `PREPROC_DIRECTIVE_DISABLER`
     shaderc::Compiler comp;
-    shaderc::CompileOptions options;//default options
+    shaderc::CompileOptions options;
+    options.SetTargetSpirv(TARGET_SPIRV_VERSION);
     options.SetIncluder(std::make_unique<impl::Includer>(m_inclHandler.get(), m_fs, _maxSelfInclusionCnt+1u));//custom #include handler
     const shaderc_shader_kind stage = _stage==ISpecializedShader::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(_stage);
     auto res = comp.PreprocessGlsl(glslCode, stage, _originFilepath, options);
