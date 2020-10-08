@@ -8,8 +8,6 @@
 #include <type_traits>
 #include <mutex>
 
-#include "irr/void_t.h"
-
 #include "irr/core/IReferenceCounted.h"
 #include "irr/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "irr/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
@@ -40,7 +38,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
 
         template<class U> using std_get_0 = decltype(std::get<0u>(std::declval<U&>()));
         template<class,class=void> struct is_std_get_0_defined                                   : std::false_type {};
-        template<class U> struct is_std_get_0_defined<U,void_t<std_get_0<U> > > : std::true_type {};
+        template<class U> struct is_std_get_0_defined<U,std::void_t<std_get_0<U> > > : std::true_type {};
     protected:
         HeterogenousMemoryAddressAllocator mAllocator;
 

@@ -10,7 +10,6 @@
 //overarching includes (compiler tricks mostly)
 #include "irr/macros.h"
 #include "irr/type_traits.h"
-#include "irr/void_t.h"
 // allocator
 #include "irr/core/alloc/AddressAllocatorBase.h"
 #include "irr/core/alloc/AddressAllocatorConcurrencyAdaptors.h"

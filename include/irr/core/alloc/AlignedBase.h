@@ -81,14 +81,14 @@ namespace impl
             template<class,class=void> struct has_delete_array_operator         : std::false_type {};
             template<class,class=void> struct has_delete_operator_w_size        : std::false_type {};
             template<class,class=void> struct has_delete_array_operator_w_size  : std::false_type {};
-            template<class U> struct has_new_operator<U,void_t<operator_new_t<U> > >                                    : std::is_same<operator_new_t<U>,void*> {};
-            template<class U> struct has_new_array_operator<U,void_t<operator_new_array_t<U> > >                        : std::is_same<operator_new_array_t<U>,void*> {};
-            template<class U> struct has_placement_new_operator<U,void_t<operator_placement_new_t<U> > >                : std::is_same<operator_placement_new_t<U>,void*> {};
-            template<class U> struct has_placement_new_array_operator<U,void_t<operator_placement_new_array_t<U> > >    : std::is_same<operator_placement_new_array_t<U>,void*> {};
-            template<class U> struct has_delete_operator<U,void_t<operator_delete_t<U> > >                              : std::is_same<operator_delete_t<U>,void> {};
-            template<class U> struct has_delete_array_operator<U,void_t<operator_delete_array_t<U> > >                  : std::is_same<operator_delete_array_t<U>,void> {};
-            template<class U> struct has_delete_operator_w_size<U,void_t<operator_delete_w_size_t<U> > >                : std::is_same<operator_delete_w_size_t<U>,void> {};
-            template<class U> struct has_delete_array_operator_w_size<U,void_t<operator_delete_array_w_size_t<U> > >    : std::is_same<operator_delete_array_w_size_t<U>,void> {};
+            template<class U> struct has_new_operator<U,std::void_t<operator_new_t<U> > >                                    : std::is_same<operator_new_t<U>,void*> {};
+            template<class U> struct has_new_array_operator<U,std::void_t<operator_new_array_t<U> > >                        : std::is_same<operator_new_array_t<U>,void*> {};
+            template<class U> struct has_placement_new_operator<U,std::void_t<operator_placement_new_t<U> > >                : std::is_same<operator_placement_new_t<U>,void*> {};
+            template<class U> struct has_placement_new_array_operator<U,std::void_t<operator_placement_new_array_t<U> > >    : std::is_same<operator_placement_new_array_t<U>,void*> {};
+            template<class U> struct has_delete_operator<U,std::void_t<operator_delete_t<U> > >                              : std::is_same<operator_delete_t<U>,void> {};
+            template<class U> struct has_delete_array_operator<U,std::void_t<operator_delete_array_t<U> > >                  : std::is_same<operator_delete_array_t<U>,void> {};
+            template<class U> struct has_delete_operator_w_size<U,std::void_t<operator_delete_w_size_t<U> > >                : std::is_same<operator_delete_w_size_t<U>,void> {};
+            template<class U> struct has_delete_array_operator_w_size<U,std::void_t<operator_delete_array_w_size_t<U> > >    : std::is_same<operator_delete_array_w_size_t<U>,void> {};
         public:
             /** Now we could override the new and delete operators always with the same thing, and allocate aligned to `std::alignment_of<most_aligned_type>::value`,
             however we want to call the most aligned class' new and delete operators (if such exist) so its overrides actually matter.

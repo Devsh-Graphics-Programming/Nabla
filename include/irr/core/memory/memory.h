@@ -6,7 +6,6 @@
 #define __NBL_CORE_MEMORY_H_INCLUDED__
 
 #include "irr/core/math/intutil.h"
-#include "irr/void_t.h"
 
 #include <typeinfo>
 #include <cstddef>
