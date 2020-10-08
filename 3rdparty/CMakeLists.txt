@@ -235,13 +235,13 @@ add_library(aesGladman OBJECT
 	aesGladman/sha1.c
 )
 
-if (IRR_BUILD_CEGUI) # I absolutely hate and despise GLM
+if (NBL_BUILD_CEGUI) # I absolutely hate and despise GLM
 	set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 	set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
 	set(BUILD_SHARED_LIBS OFF)
 	set(BUILD_STATIC_LIBS OFF)
 	option(GLM_TEST_ENABLE_CXX_14 "Enable C++ 14" ON)
-	if (IRR_FAST_MATH)
+	if (NBL_FAST_MATH)
 	   option(GLM_TEST_ENABLE_FAST_MATH "Enable fast math optimizations" ON)
 	endif()
 	option(GLM_TEST_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" ON)
@@ -257,7 +257,7 @@ option(GLM_TEST_ENABLE "Build unit tests" OFF)
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 
-if (IRR_BUILD_MITSUBA_LOADER)
+if (NBL_BUILD_MITSUBA_LOADER)
    update_git_submodule(./libexpat)
 
    option(BUILD_tools "EXPAT: build the xmlwf tool for expat library" OFF)
@@ -280,7 +280,7 @@ if (IRR_BUILD_MITSUBA_LOADER)
    set(MITSUBA_LOADER_DEPENDENT_LIBS ${MITSUBA_LOADER_DEPENDENT_LIBS} PARENT_SCOPE)
 endif()
 
-if (IRR_BUILD_CEGUI)
+if (NBL_BUILD_CEGUI)
 	update_git_submodule(./libexpat)
 	update_git_submodule(./CEGUI/pcre)
 	update_git_submodule(./CEGUI/glew)
@@ -407,7 +407,7 @@ if (IRR_BUILD_CEGUI)
 	)
 endif()
 
-if (IRR_BUILD_RADEON_RAYS)
+if (NBL_BUILD_RADEON_RAYS)
 	update_git_submodule(./radeonrays)
 
 	option(RR_NO_TESTS "RADEON_RAYS: don't do tests" ON)
@@ -427,7 +427,7 @@ if (IRR_BUILD_RADEON_RAYS)
 	set(RADEON_RAYS_DEPENDENT_LIBS ${RADEON_RAYS_DEPENDENT_LIBS} PARENT_SCOPE)
 endif()
 
-if (IRR_BUILD_BULLET)
+if (NBL_BUILD_BULLET)
 	update_git_submodule(./bullet3)
 	set(BULLET_INCLUDE_PATH
 		${CMAKE_CURRENT_SOURCE_DIR}/bullet3/src
@@ -437,11 +437,11 @@ if (IRR_BUILD_BULLET)
 endif()
 
 
-if (IRR_COMPILE_WITH_CUDA)
+if (NBL_COMPILE_WITH_CUDA)
 	update_git_submodule(./jitify)
 endif()
 
-set(IRR_3RDPARTY_TARGETS
+set(NBL_3RDPARTY_TARGETS
 				lzma
 				lz4
 				aesGladman
@@ -466,13 +466,13 @@ set(IRR_3RDPARTY_TARGETS
 				SPIRV-Tools
 				SPIRV-Tools-opt )
 #TODO insert more targets that are conditionally built
-if (IRR_BUILD_MITSUBA_LOADER)
-	list(APPEND IRR_3RDPARTY_TARGETS expat)
+if (NBL_BUILD_MITSUBA_LOADER)
+	list(APPEND NBL_3RDPARTY_TARGETS expat)
 endif()
 if(ENABLE_HLSL)
-	list(APPEND IRR_3RDPARTY_TARGETS HLSL)
+	list(APPEND NBL_3RDPARTY_TARGETS HLSL)
 endif()
-foreach(trgt IN LISTS IRR_3RDPARTY_TARGETS)
+foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		set_property(TARGET ${trgt} PROPERTY
              MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endforeach()

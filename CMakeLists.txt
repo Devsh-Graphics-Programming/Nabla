@@ -18,27 +18,27 @@ else()
 	message(STATUS "Vulkan driver is not enabled")
 endif()
 
-option(IRR_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
+option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
 
 # CUDA test
 include(CheckLanguage)
 check_language(CUDA)
 #if(NOT CMAKE_CUDA_COMPILER OR CMAKE_CUDA_COMPILER_VERSION VERSION_LESS "9.0")
 if(NOT CMAKE_CUDA_COMPILER)
-	if (IRR_COMPILE_WITH_CUDA)
+	if (NBL_COMPILE_WITH_CUDA)
 		#message(WARNING "CUDA not found or version (${CMAKE_CUDA_COMPILER_VERSION}) lower than 9.0 found, version 9.0+ needed for C++14 support.")
 		message(WARNING "CUDA not found.")
 	endif()
 else()
-	if (IRR_COMPILE_WITH_CUDA)
+	if (NBL_COMPILE_WITH_CUDA)
 		enable_language(CUDA)
 	else()
-		message(STATUS "CUDA version 9.0+ found, you can enable the IRR_COMPILE_WITH_CUDA option.")
+		message(STATUS "CUDA version 9.0+ found, you can enable the NBL_COMPILE_WITH_CUDA option.")
 	endif()
 endif()
 
 #
-get_filename_component(IRR_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
+get_filename_component(NBL_ROOT_PATH "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
 
 # Configure CCache if available
 find_program(CCACHE_FOUND ccache)
@@ -56,7 +56,7 @@ set(CMAKE_CODELITE_USE_TARGETS ON CACHE BOOL "")
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Cause CUDA is a special snowflake
-if (IRR_COMPILE_WITH_CUDA)
+if (NBL_COMPILE_WITH_CUDA)
 	set(CMAKE_CUDA_STANDARD 14)
 	set(CMAKE_CUDA_STANDARD_REQUIRED ON)
 endif()
@@ -73,17 +73,17 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 if (DEFINED ENV{NUMBER_OF_PROCESSORS})
-	set(IRR_PARALLEL_BUILD_JOBS $ENV{NUMBER_OF_PROCESSORS})
+	set(NBL_PARALLEL_BUILD_JOBS $ENV{NUMBER_OF_PROCESSORS})
 else()
-	set(IRR_PARALLEL_BUILD_JOBS 8)
+	set(NBL_PARALLEL_BUILD_JOBS 8)
 endif()
 
 macro(irr_adjust_flags)
-	option(IRR_GCC_SANITIZE_ADDRESS OFF)
-	option(IRR_GCC_SANITIZE_THREAD OFF)
+	option(NBL_GCC_SANITIZE_ADDRESS OFF)
+	option(NBL_GCC_SANITIZE_THREAD OFF)
 
 	if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-		if (NOT IRR_BUILD_CEGUI)
+		if (NOT NBL_BUILD_CEGUI)
 			add_compile_options(-fno-exceptions)
 		endif()
 
@@ -110,10 +110,10 @@ macro(irr_adjust_flags)
 			#"$<$<CONFIG:RELEASE>:-O3>" # added by default and apparently cmake is not clever enough to filter duplicates for this one
 			"$<$<CONFIG:RELEASE>:-fexpensive-optimizations>"
 		)
-		if (IRR_GCC_SANITIZE_ADDRESS)
+		if (NBL_GCC_SANITIZE_ADDRESS)
 			add_compile_options(-fsanitize=address)
 		endif()
-		if (IRR_GCC_SANITIZE_THREAD)
+		if (NBL_GCC_SANITIZE_THREAD)
 			add_compile_options(-fsanitize=thread)
 		endif()
 		if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.1)
@@ -185,40 +185,40 @@ elseif(UNIX)
 endif()
 
 #uncomment in the future
-#option(IRR_TARGET_ARCH_ARM "Build for ARM?" OFF)
+#option(NBL_TARGET_ARCH_ARM "Build for ARM?" OFF)
 
-option(IRR_COMPILE_WITH_OPENGL "Compile with OpenGL backend?" ON)
-option(IRR_COMPILE_WITH_OPENCL "Compile with OpenCL interop?" ON)
+option(NBL_COMPILE_WITH_OPENGL "Compile with OpenGL backend?" ON)
+option(NBL_COMPILE_WITH_OPENCL "Compile with OpenCL interop?" ON)
 
-option(IRR_PCH "Enable pre-compiled header" ON)
+option(NBL_PCH "Enable pre-compiled header" ON)
 
-option(IRR_FAST_MATH "Enable fast low-precision math" ON)
+option(NBL_FAST_MATH "Enable fast low-precision math" ON)
 
-option(IRR_BUILD_EXAMPLES "Enable building examples" ON)
+option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
 
-option(IRR_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
+option(NBL_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 
-option(IRR_BUILD_MITSUBA_LOADER "Enable irr::ext::MitsubaLoader?" ON)
+option(NBL_BUILD_MITSUBA_LOADER "Enable irr::ext::MitsubaLoader?" ON)
 
-option(IRR_BUILD_RADEON_RAYS "Enable irr::ext::RadeonRays?" OFF)
+option(NBL_BUILD_RADEON_RAYS "Enable irr::ext::RadeonRays?" OFF)
 
-if (IRR_COMPILE_WITH_CUDA)
+if (NBL_COMPILE_WITH_CUDA)
 	find_package(OPTIX)
 	if (OPTIX_FOUND)
-		message(STATUS "CUDA and OptiX found, you can enable IRR_BUILD_OPTIX")
+		message(STATUS "CUDA and OptiX found, you can enable NBL_BUILD_OPTIX")
 	else()
 		message(STATUS "OptiX not found")
 	endif()
-	option(IRR_BUILD_OPTIX "Enable irr::ext::OptiX?" OFF)
+	option(NBL_BUILD_OPTIX "Enable irr::ext::OptiX?" OFF)
 else()
-	message(STATUS "Because IRR_COMPILE_WITH_CUDA is not enabled, the IRR_BUILD_OPTIX option will be hidden.")
+	message(STATUS "Because NBL_COMPILE_WITH_CUDA is not enabled, the NBL_BUILD_OPTIX option will be hidden.")
 endif()
 
-option(IRR_BUILD_CEGUI "Enable CEGUI building and integration?" OFF)
+option(NBL_BUILD_CEGUI "Enable CEGUI building and integration?" OFF)
 
-option(IRR_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
+option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 
-option(IRR_BUILD_DOCS "Enable building documentation?" ON)
+option(NBL_BUILD_DOCS "Enable building documentation?" ON)
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 set(THIRD_PARTY_BINARY_DIR "${PROJECT_BINARY_DIR}/3rdparty")
@@ -229,23 +229,23 @@ execute_process(COMMAND git submodule sync --recursive
 		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
-OPTION(IRR_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
+OPTION(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 
 
 add_subdirectory(src/irr) # Irrlicht code	|	Moved cmakelists.txt from source/Irrlicht to src/irr
 
 
 
-if(IRR_BUILD_TOOLS)
+if(NBL_BUILD_TOOLS)
 	add_subdirectory(tools) # convert2BAW
 endif()
 
 add_subdirectory(ext)
 
-if(IRR_BUILD_EXAMPLES)
+if(NBL_BUILD_EXAMPLES)
 	add_subdirectory(examples_tests)
 endif()
 
-if(IRR_BUILD_DOCS)
+if(NBL_BUILD_DOCS)
 	add_subdirectory(docs)
 endif()
