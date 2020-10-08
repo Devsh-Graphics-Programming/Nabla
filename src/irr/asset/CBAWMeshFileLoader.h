@@ -26,6 +26,9 @@ namespace asset
 
 class CBAWMeshFileLoader : public asset::IAssetLoader
 {
+#ifndef NEW_SHADERS
+	friend struct TypedBlob<TexturePathBlobV3, asset::ICPUTexture>; // needed for loading textures
+#endif
 
 private:
     template<typename HeaderT>
@@ -172,6 +175,24 @@ private:
 			// add here when more asset types will be available
 			switch (_blobType)
 			{
+#ifndef NEW_MESHES
+				case asset::Blob::EBT_MESH:
+				case asset::Blob::EBT_SKINNED_MESH:
+					assert(_assetAddr->getAssetType()==asset::IAsset::ET_MESH);
+					return static_cast<asset::ICPUMesh*>(_assetAddr);
+				case asset::Blob::EBT_MESH_BUFFER:
+					assert(_assetAddr->getAssetType()==asset::IAsset::ET_SUB_MESH);
+					return static_cast<asset::ICPUMeshBuffer*>(_assetAddr);
+				case asset::Blob::EBT_SKINNED_MESH_BUFFER:
+					assert(_assetAddr->getAssetType()==asset::IAsset::ET_SUB_MESH);
+					return static_cast<asset::ICPUSkinnedMeshBuffer*>(_assetAddr);
+				case asset::Blob::EBT_RAW_DATA_BUFFER:
+					assert(_assetAddr->getAssetType()==asset::IAsset::ET_BUFFER);
+					return static_cast<asset::ICPUBuffer*>(_assetAddr);
+				case asset::Blob::EBT_TEXTURE_PATH:
+					assert(_assetAddr->getAssetType()==asset::IAsset::ET_IMAGE);
+					return static_cast<asset::ICPUTexture*>(_assetAddr);
+#endif
 				default: return nullptr;
 			}
 		}
@@ -194,9 +215,11 @@ private:
 				case asset::Blob::EBT_RAW_DATA_BUFFER:
 					asset = reinterpret_cast<asset::ICPUBuffer*>(_asset);
 					break;
+#ifdef NEW_MESHES
 				default:
 					assert(false); // unhandled type
 					break;
+#endif
 			}
 			if (asset)
 			{

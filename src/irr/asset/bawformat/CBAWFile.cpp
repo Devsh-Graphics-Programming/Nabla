@@ -27,6 +27,14 @@ size_t SizedBlob<VariableSizeBlob, RawBufferBlobV0, ICPUBuffer>::calcBlobSizeFor
 	return _obj->getSize();
 }
 
+#ifndef NEW_SHADERS
+template<>
+size_t SizedBlob<VariableSizeBlob, TexturePathBlobV0, ICPUTexture>::calcBlobSizeForObj(const ICPUTexture* _obj)
+{
+	return _obj->getSourceFilename().size();
+}
+#endif
+
 MeshBlobV3::MeshBlobV3(const asset::ICPUMesh* _mesh) : box(_mesh->getBoundingBox()), meshBufCnt(_mesh->getMeshBufferCount())
 {
 	for (uint32_t i = 0; i < meshBufCnt; ++i)
@@ -60,6 +68,24 @@ size_t SizedBlob<VariableSizeBlob, SkinnedMeshBlobV3, asset::ICPUSkinnedMesh>::c
 
 MeshBufferBlobV3::MeshBufferBlobV3(const asset::ICPUMeshBuffer* _mb)
 {
+#ifndef NEW_SHADERS
+	memcpy(&mat, &_mb->getMaterial(), sizeof(video::SCPUMaterial));
+	_mb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
+	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+		_mb->getMaterial().TextureLayer[i].SamplingParams.serializeBitfields(mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
+
+	memcpy(&box, &_mb->getBoundingBox(), sizeof(core::aabbox3df));
+	descPtr = reinterpret_cast<uint64_t>(_mb->getMeshDataAndFormat());
+	indexType = _mb->getIndexType();
+	baseVertex = _mb->getBaseVertex();
+	indexCount = _mb->getIndexCount();
+	indexBufOffset = _mb->getIndexBufferOffset();
+	instanceCount = _mb->getInstanceCount();
+	baseInstance = _mb->getBaseInstance();
+	primitiveType = _mb->getPrimitiveType();
+	posAttrId = _mb->getPositionAttributeIx();
+	normalAttrId = _mb->getNormalAttributeIx();
+#endif
 }
 
 template<>
@@ -70,6 +96,27 @@ size_t SizedBlob<FixedSizeBlob, MeshBufferBlobV3, asset::ICPUMeshBuffer>::calcBl
 
 SkinnedMeshBufferBlobV3::SkinnedMeshBufferBlobV3(const asset::ICPUSkinnedMeshBuffer* _smb)
 {
+#ifndef NEW_SHADERS
+	memcpy(&mat, &_smb->getMaterial(), sizeof(video::SCPUMaterial));
+	_smb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
+	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+		_smb->getMaterial().TextureLayer[i].SamplingParams.serializeBitfields(mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
+
+	memcpy(&box, &_smb->getBoundingBox(), sizeof(core::aabbox3df));
+	descPtr = reinterpret_cast<uint64_t>(_smb->getMeshDataAndFormat());
+	indexType = _smb->getIndexType();
+	baseVertex = _smb->getBaseVertex();
+	indexCount = _smb->getIndexCount();
+	indexBufOffset = _smb->getIndexBufferOffset();
+	instanceCount = _smb->getInstanceCount();
+	baseInstance = _smb->getBaseInstance();
+	primitiveType = _smb->getPrimitiveType();
+	posAttrId = _smb->getPositionAttributeIx();
+	normalAttrId = _smb->getNormalAttributeIx();
+	indexValMin = _smb->getIndexMinBound();
+	indexValMax = _smb->getIndexMaxBound();
+	maxVertexBoneInfluences = _smb->getMaxVertexBoneInfluences();
+#endif
 }
 
 template<>
@@ -210,6 +257,50 @@ size_t FinalBoneHierarchyBlobV3::calcNonInterpolatedAnimsByteSize() const
 {
 	return keyframeCount * boneCount * CFinalBoneHierarchy::getSizeOfSingleAnimationData();
 }
+
+
+// .baw VERSION 1
+#ifndef NEW_SHADERS
+MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::IMeshDataFormatDesc<asset::ICPUBuffer>* _desc) : attrDivisor{0u}
+{
+    static_assert(VERTEX_ATTRIB_CNT == EVAI_COUNT, "VERTEX_ATTRIB_CNT != EVAI_COUNT");
+
+    for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
+        attrFormat[(int)i] = _desc->getAttribFormat(i);
+    for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
+        attrStride[(int)i] = _desc->getMappedBufferStride(i);
+    for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
+        attrOffset[(int)i] = _desc->getMappedBufferOffset(i);
+    for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
+        attrDivisor |= (_desc->getAttribDivisor(i)<<i);
+    for (E_VERTEX_ATTRIBUTE_ID i = EVAI_ATTR0; i < EVAI_COUNT; i = E_VERTEX_ATTRIBUTE_ID((int)i + 1))
+        attrBufPtrs[(int)i] = reinterpret_cast<uint64_t>(_desc->getMappedBuffer(i));
+
+    idxBufPtr = reinterpret_cast<uint64_t>(_desc->getIndexBuffer());
+}
+
+MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::legacyv0::MeshDataFormatDescBlobV0& _v0blob) : attrDivisor{0u}
+{
+    for (uint32_t i = 0u; i < EVAI_COUNT; ++i)
+    {
+        attrFormat[i] =
+            asset::legacyv0::mapECT_plus_ECPA_onto_E_FORMAT(
+                static_cast<asset::legacyv0::E_COMPONENT_TYPE>(_v0blob.attrType[i]),
+                static_cast<asset::legacyv0::E_COMPONENTS_PER_ATTRIBUTE>(_v0blob.cpa[i])
+            );
+    }
+    for (uint32_t i = 0u; i < EVAI_COUNT; ++i)
+        attrStride[i] = static_cast<uint32_t>(_v0blob.attrStride[i]); // calm the compiler down, this is old code.
+    for (uint32_t i = 0u; i < EVAI_COUNT; ++i)
+        attrOffset[i] = _v0blob.attrOffset[i];
+    for (uint32_t i = 0u; i < EVAI_COUNT; ++i)
+        attrDivisor |= (std::min(_v0blob.attrDivisor[i], 1u) << i); // attribute divisor can be equal max 1 now
+    for (uint32_t i = 0u; i < EVAI_COUNT; ++i)
+        attrBufPtrs[i] = _v0blob.attrBufPtrs[i];
+
+    idxBufPtr = _v0blob.idxBufPtr;
+}
+#endif
 
 bool encAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag)
 {

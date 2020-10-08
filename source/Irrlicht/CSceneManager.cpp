@@ -344,8 +344,15 @@ IMeshSceneNode* CSceneManager::addSkyBoxSceneNode(core::smart_refctd_ptr<video::
 {
 	if (!parent)
 		parent = this;
-
+#ifdef NEW_SHADERS
 	return nullptr;
+#else
+	ISceneNode* node = new CSkyBoxSceneNode(std::move(top), std::move(bottom), std::move(left), std::move(right),
+											std::move(front), std::move(back), core::smart_refctd_ptr(redundantMeshDataBuf), 0, parent, this, id);
+
+	node->drop();
+	return node;
+#endif
 }
 
 
@@ -357,8 +364,15 @@ IMeshSceneNode* CSceneManager::addSkyDomeSceneNode(	core::smart_refctd_ptr<video
 {
 	if (!parent)
 		parent = this;
-
+#ifdef NEW_SHADERS
 	return nullptr;
+#else
+	ISceneNode* node = new CSkyDomeSceneNode(std::move(texture), horiRes, vertRes,
+		texturePercentage, spherePercentage, radius, parent, this, id);
+
+	node->drop();
+	return node;
+#endif
 }
 
 //! Adds a dummy transformation scene node to the scene tree.
@@ -483,6 +497,13 @@ void CSceneManager::drawAll()
 
 	uint32_t i; // new ISO for scoping problem in some compilers
 
+#ifndef NEW_SHADERS
+	// reset all transforms
+	Driver->setMaterial(video::SGPUMaterial());
+	Driver->setTransform(video::EPTS_PROJ,core::matrix4SIMD());
+	Driver->setTransform(video::E4X3TS_VIEW,core::matrix3x4SIMD());
+	Driver->setTransform(video::E4X3TS_WORLD,core::matrix3x4SIMD());
+#endif
 	// do animations and other stuff.
 	OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(Timer->getTime()).count());
 
@@ -752,6 +773,11 @@ void CSceneManager::removeAll()
 {
 	ISceneNode::removeAll();
 	setActiveCamera(0);
+	// Make sure the driver is reset, might need a more complex method at some point
+#ifndef NEW_SHADERS
+	if (Driver)
+		Driver->setMaterial(video::SGPUMaterial());
+#endif
 }
 
 

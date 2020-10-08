@@ -71,6 +71,34 @@ enum E_COMPONENT_TYPE
     ECT_COUNT
 };
 
+#ifndef NEW_SHADERS
+#include "irr/irrpack.h"
+//! Simple struct of essential data of ICPUMeshDataFormatDesc that has to be exported
+//! Irrelevant in version 1.
+//! @see @ref MeshDataFormatDescBlobV1
+struct NBL_FORCE_EBO MeshDataFormatDescBlobV0 : TypedBlob<MeshDataFormatDescBlobV0, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >, VariableSizeBlob<MeshDataFormatDescBlobV0, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >
+{
+private:
+    enum { VERTEX_ATTRIB_CNT = 16 };
+public:
+    //! was storing scene::E_COMPONENTS_PER_ATTRIBUTE in .baw v0 (in version 1 MeshDataFormatDescBlobV1 is used)
+    uint32_t cpa[VERTEX_ATTRIB_CNT];
+    //! was storing E_COMPONENT_TYPE in .baw v0
+    uint32_t attrType[VERTEX_ATTRIB_CNT];
+    size_t attrStride[VERTEX_ATTRIB_CNT];
+    size_t attrOffset[VERTEX_ATTRIB_CNT];
+    uint32_t attrDivisor[VERTEX_ATTRIB_CNT];
+    uint64_t attrBufPtrs[VERTEX_ATTRIB_CNT];
+    uint64_t idxBufPtr;
+} PACK_STRUCT;
+#include "irr/irrunpack.h"
+static_assert(
+    sizeof(MeshDataFormatDescBlobV0) == 
+    sizeof(MeshDataFormatDescBlobV0::cpa) + sizeof(MeshDataFormatDescBlobV0::attrType) + sizeof(MeshDataFormatDescBlobV0::attrStride) + sizeof(MeshDataFormatDescBlobV0::attrOffset) + sizeof(MeshDataFormatDescBlobV0::attrDivisor) + sizeof(MeshDataFormatDescBlobV0::attrBufPtrs) + sizeof(MeshDataFormatDescBlobV0::idxBufPtr),
+    "MeshDataFormatDescBlobV0: Size of blob is not sum of its contents!"
+);
+#endif// !NEW_SHADERS
+
 asset::E_FORMAT mapECT_plus_ECPA_onto_E_FORMAT(E_COMPONENT_TYPE _ct, E_COMPONENTS_PER_ATTRIBUTE _cpa);
 
 
@@ -138,6 +166,9 @@ static_assert(
 //! Simple struct of essential data of ICPUMeshBuffer that has to be exported
 struct NBL_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, ICPUMeshBuffer>
 {
+#ifndef NEW_SHADERS
+	video::SCPUMaterial mat;
+#endif
 	core::aabbox3df box;
 	uint64_t descPtr;
 	uint32_t indexType;
@@ -150,12 +181,25 @@ struct NBL_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuff
 	uint32_t posAttrId;
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
+#ifndef NEW_SHADERS
+static_assert(sizeof(MeshBufferBlobV0::mat) == 197, "sizeof(MeshBufferBlobV0::mat) must be 197");
+static_assert(
+	sizeof(MeshBufferBlobV0) ==
+	sizeof(MeshBufferBlobV0::mat) + sizeof(MeshBufferBlobV0::box) + sizeof(MeshBufferBlobV0::descPtr) + sizeof(MeshBufferBlobV0::indexType) + sizeof(MeshBufferBlobV0::baseVertex)
+	+ sizeof(MeshBufferBlobV0::indexCount) + sizeof(MeshBufferBlobV0::indexBufOffset) + sizeof(MeshBufferBlobV0::instanceCount) + sizeof(MeshBufferBlobV0::baseInstance)
+	+ sizeof(MeshBufferBlobV0::primitiveType) + sizeof(MeshBufferBlobV0::posAttrId),
+	"MeshBufferBlobV0: Size of blob is not sum of its contents!"
+	);
+#endif
 
 class ICPUSkinnedMeshBuffer;
 
 #include "irr/irrpack.h"
 struct NBL_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>
 {
+#ifndef NEW_SHADERS
+	video::SCPUMaterial mat;
+#endif
 	core::aabbox3df box;
 	uint64_t descPtr;
 	uint32_t indexType;
@@ -171,6 +215,16 @@ struct NBL_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0
 	uint32_t maxVertexBoneInfluences;
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
+#ifndef NEW_SHADERS
+static_assert(sizeof(SkinnedMeshBufferBlobV0::mat) == 197, "sizeof(MeshBufferBlobV0::mat) must be 197");
+static_assert(
+	sizeof(SkinnedMeshBufferBlobV0) ==
+	sizeof(SkinnedMeshBufferBlobV0::mat) + sizeof(SkinnedMeshBufferBlobV0::box) + sizeof(SkinnedMeshBufferBlobV0::descPtr) + sizeof(SkinnedMeshBufferBlobV0::indexType) + sizeof(SkinnedMeshBufferBlobV0::baseVertex)
+	+ sizeof(SkinnedMeshBufferBlobV0::indexCount) + sizeof(SkinnedMeshBufferBlobV0::indexBufOffset) + sizeof(SkinnedMeshBufferBlobV0::instanceCount) + sizeof(SkinnedMeshBufferBlobV0::baseInstance)
+	+ sizeof(SkinnedMeshBufferBlobV0::primitiveType) + sizeof(SkinnedMeshBufferBlobV0::posAttrId) + sizeof(SkinnedMeshBufferBlobV0::indexValMin) + sizeof(SkinnedMeshBufferBlobV0::indexValMax) + sizeof(SkinnedMeshBufferBlobV0::maxVertexBoneInfluences),
+	"SkinnedMeshBufferBlobV0: Size of blob is not sum of its contents!"
+	);
+#endif
 }
 
 

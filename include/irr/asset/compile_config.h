@@ -5,6 +5,10 @@
 #ifndef __NBL_ASSET_COMPILE_CONFIG_H_INCLUDED__
 #define __NBL_ASSET_COMPILE_CONFIG_H_INCLUDED__
 
+#define NEW_MESHES
+
+#define NEW_SHADERS 1
+
 //! Define _NBL_COMPILE_WITH_OPENSSL_ to enable compiling the engine using libssl.
 /** This enables the engine to read and write encrypted BAW format files.
 If you comment this out, the engine will no longer read or write encrypted .baw files! */

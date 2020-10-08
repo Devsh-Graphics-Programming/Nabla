@@ -96,6 +96,24 @@ struct LzmaMemMngmnt
         const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 1u);
 		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, flags, encrPwd, comprLvl);
 	}
+#ifndef NEW_SHADERS
+	template<>
+	void CBAWMeshWriter::exportAsBlob<ICPUTexture>(ICPUTexture* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
+	{
+        ICPUTexture* tex = _obj;
+
+        const WriteProperties* props = reinterpret_cast<const WriteProperties*>(_ctx.inner.params.userData);
+		const io::path fileDir = props->relPath.size() ? props->relPath : io::IFileSystem::getFileDir(m_fileSystem->getAbsolutePath(_file->getFileName())); // get relative-file's directory
+		io::path path = m_fileSystem->getRelativeFilename(tex->getSourceFilename().c_str(), fileDir); // get texture-file path relative to the file's directory
+		const uint32_t len = strlen(path.c_str()) + 1;
+
+        const E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 2u);
+        const uint8_t* encrPwd = nullptr;
+        _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 2u);
+        const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 2u);
+		tryWrite(&path[0], _file, _ctx, len, _headerIdx, flags, encrPwd, comprLvl);
+	}
+#endif
 	template<>
 	void CBAWMeshWriter::exportAsBlob<CFinalBoneHierarchy>(CFinalBoneHierarchy* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
@@ -107,6 +125,15 @@ struct LzmaMemMngmnt
 		if ((uint8_t*)data != stackData)
 			_NBL_ALIGNED_FREE(data);
 	}
+#ifndef NEW_SHADERS
+	template<>
+	void CBAWMeshWriter::exportAsBlob<IMeshDataFormatDesc<ICPUBuffer> >(IMeshDataFormatDesc<ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
+	{
+        MeshDataFormatDescBlobV3 data(_obj);
+
+		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, EWF_NONE);
+	}
+#endif
 	template<>
 	void CBAWMeshWriter::exportAsBlob<ICPUBuffer>(ICPUBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
@@ -119,12 +146,209 @@ struct LzmaMemMngmnt
 
 	bool CBAWMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 	{
+#ifndef NEW_SHADERS
+        if (!_file)
+            return false;
+
+        if (!_params.rootAsset || _params.rootAsset->getAssetType() != IAsset::ET_MESH)
+            return false;
+
+        CBAWOverride bawOverride;
+        if (!_override)
+            _override = &bawOverride;
+
+        const ICPUMesh* mesh = static_cast<const ICPUMesh*>(_params.rootAsset);
+
+		constexpr uint32_t FILE_HEADER_SIZE = 32;
+        static_assert(FILE_HEADER_SIZE == sizeof(BAWFileV3::fileHeader), "BAW header is not 32 bytes long!");
+
+		uint64_t header[4];
+		memcpy(header, BAW_FILE_HEADER, FILE_HEADER_SIZE);
+		header[3] = _NBL_FORMAT_VERSION;
+
+		_file->write(header, FILE_HEADER_SIZE);
+
+        SContext ctx{ IAssetWriter::SAssetWriteContext{_params, _file}, _override }; // context of this call of `writeMesh`
+
+		const uint32_t numOfInternalBlobs = genHeaders(mesh, ctx);
+		const uint32_t OFFSETS_FILE_OFFSET = FILE_HEADER_SIZE + sizeof(uint32_t) + sizeof(BAWFileV3::iv);
+		const uint32_t HEADERS_FILE_OFFSET = OFFSETS_FILE_OFFSET + numOfInternalBlobs * sizeof(ctx.offsets[0]);
+
+		ctx.offsets.resize(numOfInternalBlobs);
+
+		_file->write(&numOfInternalBlobs, sizeof(numOfInternalBlobs));
+		//_file->write(ctx.pwdVer, 2);
+        const WriteProperties* bawSpecific = reinterpret_cast<const WriteProperties*>(ctx.inner.params.userData);
+		_file->write(bawSpecific->initializationVector, 16);
+		// will be overwritten after actually calculating offsets
+		_file->write(ctx.offsets.data(), ctx.offsets.size() * sizeof(ctx.offsets[0]));
+
+		// will be overwritten after calculating not known yet data (hash and size for texture paths)
+		_file->write(ctx.headers.data(), ctx.headers.size() * sizeof(BlobHeaderLatest));
+
+		ctx.offsets.resize(0); // set `used` to 0, to allow push starting from 0 index
+		for (int i = 0; i < ctx.headers.size(); ++i)
+		{
+			switch (ctx.headers[i].blobType)
+			{
+			case Blob::EBT_MESH:
+				exportAsBlob(reinterpret_cast<ICPUMesh*>(ctx.headers[i].handle), i, _file, ctx);
+				break;
+			case Blob::EBT_SKINNED_MESH:
+				exportAsBlob(reinterpret_cast<ICPUSkinnedMesh*>(ctx.headers[i].handle), i, _file, ctx);
+				break;
+			case Blob::EBT_MESH_BUFFER:
+				exportAsBlob(reinterpret_cast<ICPUMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx);
+				break;
+			case Blob::EBT_SKINNED_MESH_BUFFER:
+				exportAsBlob(reinterpret_cast<ICPUSkinnedMeshBuffer*>(ctx.headers[i].handle), i, _file, ctx);
+				break;
+			case Blob::EBT_RAW_DATA_BUFFER:
+				exportAsBlob(reinterpret_cast<ICPUBuffer*>(ctx.headers[i].handle), i, _file, ctx);
+				break;
+			case Blob::EBT_DATA_FORMAT_DESC:
+				exportAsBlob(reinterpret_cast<IMeshDataFormatDesc<ICPUBuffer>*>(ctx.headers[i].handle), i, _file, ctx);
+				break;
+			case Blob::EBT_FINAL_BONE_HIERARCHY:
+				exportAsBlob(reinterpret_cast<CFinalBoneHierarchy*>(ctx.headers[i].handle), i, _file, ctx);
+				break;
+			case Blob::EBT_TEXTURE_PATH:
+				exportAsBlob(reinterpret_cast<ICPUTexture*>(ctx.headers[i].handle), i, _file, ctx);
+				break;
+			}
+		}
+
+		const size_t prevPos = _file->getPos();
+
+		// overwrite offsets
+		_file->seek(OFFSETS_FILE_OFFSET);
+		_file->write(ctx.offsets.data(), ctx.offsets.size() * sizeof(ctx.offsets[0]));
+		// overwrite headers
+		_file->seek(HEADERS_FILE_OFFSET);
+		_file->write(ctx.headers.data(), ctx.headers.size() * sizeof(BlobHeaderLatest));
+
+		_file->seek(prevPos);
+
+		return true;
+#else
         return false;
+#endif
 	}
 
 	uint32_t CBAWMeshWriter::genHeaders(const ICPUMesh* _mesh, SContext& _ctx)
 	{
+#ifndef NEW_SHADERS
+		_ctx.headers.clear();
+
+		//! @Anastazluk this will all need to change to robustly support arbitrary serialization
+		// the function signature must be a (const IAsset** _begin, const IAsset** _end, SContext& _ctx)
+		// needs to have a static_assert that all of the objects in _begin to _end have the same type
+		// the loop that gathers [referece] counted objects needs to be far more robust and flexible
+		// possibly add a method to `BlobSerializable::genHeadersRecursively(BlobHeaderLatest& , core::unordered_set<const IReferenceCounted*>&)`
+
+		bool isMeshAnimated = true;
+		const ICPUSkinnedMesh* skinnedMesh = nullptr;
+
+		if (_mesh)
+		{
+			skinnedMesh = _mesh->getMeshType()!=EMT_ANIMATED_SKINNED ? NULL:dynamic_cast<const ICPUSkinnedMesh*>(_mesh); //ICPUSkinnedMesh is a direct non-virtual inheritor
+			if (!skinnedMesh || (skinnedMesh && skinnedMesh->isStatic()))
+				isMeshAnimated = false;
+
+            BlobHeaderLatest bh;
+			bh.handle = reinterpret_cast<uint64_t>(_mesh);
+			bh.compressionType = Blob::EBCT_RAW; // will get changed by the system automatically
+			bh.blobType = isMeshAnimated ? Blob::EBT_SKINNED_MESH : Blob::EBT_MESH;
+			_ctx.headers.push_back(bh);
+			// no need to add to `countedObjects` set since there's only one mesh
+		}
+		else return 0;
+
+		if (isMeshAnimated)
+		{
+            BlobHeaderLatest bh;
+			bh.handle = reinterpret_cast<uint64_t>(skinnedMesh->getBoneReferenceHierarchy());
+			bh.compressionType = Blob::EBCT_RAW; // will get changed by the system automatically
+			bh.blobType = Blob::EBT_FINAL_BONE_HIERARCHY;
+			_ctx.headers.push_back(bh);
+			// no need to add to `countedObjects` set since there's only one bone hierarchy
+		}
+
+		// make sure we dont serialize an object twice just because its referenced multiple times
+		core::unordered_set<const IReferenceCounted*> countedObjects;
+		for (uint32_t i = 0; i < _mesh->getMeshBufferCount(); ++i)
+		{
+			const ICPUMeshBuffer* const meshBuffer = _mesh->getMeshBuffer(i);
+			const IMeshDataFormatDesc<ICPUBuffer>* const desc = meshBuffer->getMeshDataAndFormat();
+
+			if (!meshBuffer || !desc)
+				continue;
+
+			if (countedObjects.find(meshBuffer) == countedObjects.end())
+			{
+                BlobHeaderLatest bh;
+				bh.handle = reinterpret_cast<uint64_t>(meshBuffer);
+				bh.compressionType = Blob::EBCT_RAW;
+				bh.blobType = isMeshAnimated ? Blob::EBT_SKINNED_MESH_BUFFER : Blob::EBT_MESH_BUFFER;
+				_ctx.headers.push_back(bh);
+				countedObjects.insert(meshBuffer);
+
+				const video::SCPUMaterial & mat = meshBuffer->getMaterial();
+				for (int tid = 0; tid < _IRR_MATERIAL_MAX_TEXTURES_; ++tid) // texture path blob headers
+				{
+                    ICPUTexture* texture = mat.getTexture(tid);
+					if (mat.getTexture(tid) && countedObjects.find(texture) == countedObjects.end())
+					{
+						bh.handle = reinterpret_cast<uint64_t>(texture);
+						bh.compressionType = Blob::EBCT_RAW;
+						bh.blobType = Blob::EBT_TEXTURE_PATH;
+						_ctx.headers.push_back(bh);
+						countedObjects.insert(texture);
+					}
+					else continue;
+				}
+			}
+
+			if (countedObjects.find(desc) == countedObjects.end())
+			{
+                BlobHeaderLatest bh;
+				bh.handle = reinterpret_cast<uint64_t>(desc);
+				bh.compressionType = Blob::EBCT_RAW;
+				bh.blobType = Blob::EBT_DATA_FORMAT_DESC;
+				_ctx.headers.push_back(bh);
+				countedObjects.insert(desc);
+			}
+
+			const ICPUBuffer* idxBuffer = desc->getIndexBuffer();
+			if (idxBuffer && countedObjects.find(idxBuffer) == countedObjects.end())
+			{
+                BlobHeaderLatest bh;
+				bh.handle = reinterpret_cast<uint64_t>(idxBuffer);
+				bh.compressionType = Blob::EBCT_RAW;
+				bh.blobType = Blob::EBT_RAW_DATA_BUFFER;
+				_ctx.headers.push_back(bh);
+				countedObjects.insert(desc->getIndexBuffer());
+			}
+
+			for (int attId = 0; attId < EVAI_COUNT; ++attId)
+			{
+				const ICPUBuffer* attBuffer = desc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)attId);
+				if (attBuffer && countedObjects.find(attBuffer) == countedObjects.end())
+				{
+                    BlobHeaderLatest bh;
+					bh.handle = reinterpret_cast<uint64_t>(attBuffer);
+					bh.compressionType = Blob::EBCT_RAW;
+					bh.blobType = Blob::EBT_RAW_DATA_BUFFER;
+					bh.blobSize = bh.blobSizeDecompr = attBuffer->getSize();
+					_ctx.headers.push_back(bh);
+					countedObjects.insert(attBuffer);
+				}
+			}
+		}
+		return _ctx.headers.size();
+#else
     return 0u;
+#endif
 	}
 
 	void CBAWMeshWriter::calcAndPushNextOffset(uint32_t _blobSize, SContext& _ctx) const

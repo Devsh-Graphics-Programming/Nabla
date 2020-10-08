@@ -26,17 +26,329 @@ namespace asset
 //! \param mesh: Mesh on which the operation is performed.
 void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
 {
+#ifndef NEW_SHADERS
+	if (!inbuffer)
+		return;
+
+    const uint32_t idxcnt = inbuffer->getIndexCount();
+    if (!inbuffer->getIndices())
+        return;
+
+
+    if (inbuffer->getIndexType() == EIT_16BIT)
+    {
+        uint16_t* idx = reinterpret_cast<uint16_t*>(inbuffer->getIndices());
+        switch (inbuffer->getPrimitiveType())
+        {
+        case EPT_TRIANGLE_FAN:
+            for (uint32_t i=1; i<idxcnt; i+=2)
+            {
+                const uint16_t tmp = idx[i];
+                idx[i] = idx[i+1];
+                idx[i+1] = tmp;
+            }
+            break;
+        case EPT_TRIANGLE_STRIP:
+            if (idxcnt%2) //odd
+            {
+                for (uint32_t i=0; i<(idxcnt>>1); i++)
+                {
+                    const uint16_t tmp = idx[i];
+                    idx[i] = idx[idxcnt-1-i];
+                    idx[idxcnt-1-i] = tmp;
+                }
+            }
+            else //even
+            {
+                auto newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>((idxcnt+1u)*sizeof(uint16_t));
+				auto* destPtr = reinterpret_cast<uint16_t*>(newIndexBuffer->getPointer());
+				destPtr[0] = idx[0];
+                memcpy(destPtr+1u,idx,sizeof(uint16_t)*idxcnt);
+                inbuffer->setIndexCount(idxcnt+1u);
+                inbuffer->setIndexBufferOffset(0);
+                inbuffer->getMeshDataAndFormat()->setIndexBuffer(std::move(newIndexBuffer));
+            }
+            break;
+        case EPT_TRIANGLES:
+            for (uint32_t i=0; i<idxcnt; i+=3)
+            {
+                const uint16_t tmp = idx[i+1];
+                idx[i+1] = idx[i+2];
+                idx[i+2] = tmp;
+            }
+            break;
+        default: break;
+        }
+    }
+    else if (inbuffer->getIndexType() == EIT_32BIT)
+    {
+        uint32_t* idx = reinterpret_cast<uint32_t*>(inbuffer->getIndices());
+        switch (inbuffer->getPrimitiveType())
+        {
+        case EPT_TRIANGLE_FAN:
+            for (uint32_t i=1; i<idxcnt; i+=2)
+            {
+                const uint32_t tmp = idx[i];
+                idx[i] = idx[i+1];
+                idx[i+1] = tmp;
+            }
+            break;
+        case EPT_TRIANGLE_STRIP:
+            if (idxcnt%2) //odd
+            {
+                for (uint32_t i=0; i<(idxcnt>>1); i++)
+                {
+                    const uint32_t tmp = idx[i];
+                    idx[i] = idx[idxcnt-1-i];
+                    idx[idxcnt-1-i] = tmp;
+                }
+            }
+            else //even
+            {
+                auto newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>((idxcnt+1u)*sizeof(uint32_t));
+				auto* destPtr = reinterpret_cast<uint32_t*>(newIndexBuffer->getPointer());
+				destPtr[0] = idx[0];
+                memcpy(destPtr+1u,idx,sizeof(uint32_t)*idxcnt);
+                inbuffer->setIndexCount(idxcnt+1);
+                inbuffer->setIndexBufferOffset(0);
+                inbuffer->getMeshDataAndFormat()->setIndexBuffer(std::move(newIndexBuffer));
+            }
+            break;
+        case EPT_TRIANGLES:
+            for (uint32_t i=0; i<idxcnt; i+=3)
+            {
+                const uint32_t tmp = idx[i+1];
+                idx[i+1] = idx[i+2];
+                idx[i+2] = tmp;
+            }
+            break;
+        default: break;
+        }
+    }
+#endif
 }
 
 core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshBuffer* _inbuffer)
 {
+#ifndef NEW_SHADERS
+	if (!_inbuffer || !_inbuffer->getMeshDataAndFormat() || !_inbuffer->getIndices())
+		return NULL;
+
+	auto outbuffer = createMeshBufferDuplicate(_inbuffer);
+    IMeshDataFormatDesc<ICPUBuffer>* outDesc = outbuffer->getMeshDataAndFormat();
+
+	// Find vertex count
+	size_t vertexCount = _inbuffer->calcVertexCount();
+	const void* ind = _inbuffer->getIndices();
+
+	core::unordered_set<const ICPUBuffer*> buffers;
+	for (size_t i = 0; i < EVAI_COUNT; ++i)
+		buffers.insert(outDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i));
+
+	size_t offsets[EVAI_COUNT];
+	memset(offsets, -1, sizeof(offsets));
+	E_FORMAT types[EVAI_COUNT];
+	if (buffers.size() != 1)
+	{
+		size_t lastOffset = 0u;
+		size_t lastSize = 0u;
+		for (size_t i = 0; i < EVAI_COUNT; ++i)
+		{
+			if (outDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i))
+			{
+				types[i] = outDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i);
+
+                const uint32_t typeSz = getTexelOrBlockBytesize(types[i]);
+                const size_t alignment = (typeSz/getFormatChannelCount(types[i]) == 8u) ? 8ull : 4ull; // if format 64bit per channel, than align to 8
+
+				offsets[i] = lastOffset + lastSize;
+				const size_t mod = offsets[i] % alignment;
+				offsets[i] += mod;
+
+				lastOffset = offsets[i];
+                lastSize = typeSz;
+			}
+		}
+		const size_t vertexSize = lastOffset + lastSize;
+
+		auto newVertBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(vertexCount*vertexSize);
+		for (size_t i = 0; i < EVAI_COUNT; ++i)
+		{
+			if (offsets[i] < 0xffffffff)
+			{
+				outDesc->setVertexAttrBuffer(core::smart_refctd_ptr(newVertBuffer), (E_VERTEX_ATTRIBUTE_ID)i, types[i], vertexSize, offsets[i]);
+			}
+		}
+	}
+	outbuffer->setBaseVertex(0);
+
+	core::vector<E_VERTEX_ATTRIBUTE_ID> activeAttribs;
+	for (size_t i = 0; i < EVAI_COUNT; ++i)
+		if (outDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i))
+			activeAttribs.push_back((E_VERTEX_ATTRIBUTE_ID)i);
+
+	uint32_t* remapBuffer = (uint32_t*)_NBL_ALIGNED_MALLOC(vertexCount*4,_NBL_SIMD_ALIGNMENT);
+	memset(remapBuffer, 0xffffffffu, vertexCount*4);
+
+	const E_INDEX_TYPE idxType = outbuffer->getIndexType();
+	void* indices = outbuffer->getIndices();
+	size_t nextVert = 0u;
+
+	for (size_t i = 0; i < outbuffer->getIndexCount(); ++i)
+	{
+		const uint32_t index = idxType == EIT_32BIT ? ((uint32_t*)indices)[i] : ((uint16_t*)indices)[i];
+
+		uint32_t& remap = remapBuffer[index];
+
+		if (remap == 0xffffffffu)
+		{
+			for (size_t j = 0; j < activeAttribs.size(); ++j)
+			{
+				E_FORMAT type = types[activeAttribs[j]];
+
+                if (!isNormalizedFormat(type) && (isIntegerFormat(type) || isScaledFormat(type)))
+				{
+					uint32_t dst[4];
+					_inbuffer->getAttribute(dst, (E_VERTEX_ATTRIBUTE_ID)activeAttribs[j], index);
+					outbuffer->setAttribute(dst, (E_VERTEX_ATTRIBUTE_ID)activeAttribs[j], nextVert);
+				}
+				else
+				{
+					core::vectorSIMDf dst;
+					_inbuffer->getAttribute(dst, (E_VERTEX_ATTRIBUTE_ID)activeAttribs[j], index);
+					outbuffer->setAttribute(dst, (E_VERTEX_ATTRIBUTE_ID)activeAttribs[j], nextVert);
+				}
+			}
+
+			remap = nextVert++;
+		}
+
+		if (idxType == EIT_32BIT)
+			((uint32_t*)indices)[i] = remap;
+		else
+			((uint16_t*)indices)[i] = remap;
+	}
+
+	_NBL_ALIGNED_FREE(remapBuffer);
+
+	_NBL_DEBUG_BREAK_IF(nextVert > vertexCount)
+
+	return outbuffer;
+#else
     return nullptr;
+#endif
 }
 
 //! Creates a copy of the mesh, which will only consist of unique primitives
 core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniquePrimitives(ICPUMeshBuffer* inbuffer, bool _makeIndexBuf)
 {
+#ifndef NEW_SHADERS
+	if (!inbuffer)
+		return 0;
+    IMeshDataFormatDesc<ICPUBuffer>* oldDesc = inbuffer->getMeshDataAndFormat();
+    if (!oldDesc)
+        return 0;
+
+    if (!inbuffer->getIndices())
+        return core::smart_refctd_ptr<ICPUMeshBuffer>(inbuffer); // yes we want an extra grab
+    
+    const uint32_t idxCnt = inbuffer->getIndexCount();
+    auto clone = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
+    clone->setBoundingBox(inbuffer->getBoundingBox());
+    clone->setIndexCount(idxCnt);
+    const E_PRIMITIVE_TYPE ept = inbuffer->getPrimitiveType();
+    clone->setPrimitiveType(ept);
+    clone->getMaterial() = inbuffer->getMaterial();
+
+	{
+		auto desc = core::make_smart_refctd_ptr<ICPUMeshDataFormatDesc>();
+
+		size_t stride = 0;
+		int32_t offset[EVAI_COUNT];
+		size_t newAttribSizes[EVAI_COUNT];
+		uint8_t* sourceBuffers[EVAI_COUNT] = {NULL};
+		size_t sourceBufferStrides[EVAI_COUNT];
+		for (size_t i=0; i< EVAI_COUNT; i++)
+		{
+			const ICPUBuffer* vbuf = oldDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i);
+			if (vbuf)
+			{
+				offset[i] = stride;
+				newAttribSizes[i] = getTexelOrBlockBytesize(oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i));
+				stride += newAttribSizes[i];
+				if (stride>=0xdeadbeefu)
+					return nullptr;
+
+				sourceBuffers[i] = (uint8_t*)vbuf->getPointer();
+				sourceBuffers[i] += oldDesc->getMappedBufferOffset((E_VERTEX_ATTRIBUTE_ID)i);
+				sourceBufferStrides[i] = oldDesc->getMappedBufferStride((E_VERTEX_ATTRIBUTE_ID)i);
+			}
+			else
+				offset[i] = -1;
+		}
+
+		auto vertexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(stride*idxCnt);
+		for (size_t i=0; i<EVAI_COUNT; i++)
+		{
+			if (offset[i]>=0)
+				desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexBuffer),(E_VERTEX_ATTRIBUTE_ID)i,oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i),stride,offset[i]);
+		}
+
+		uint8_t* destPointer = (uint8_t*)vertexBuffer->getPointer();
+		if (inbuffer->getIndexType()==EIT_16BIT)
+		{
+			uint16_t* idx = reinterpret_cast<uint16_t*>(inbuffer->getIndices());
+			for (uint64_t i=0; i<idxCnt; i++,idx++)
+			for (size_t j=0; j<EVAI_COUNT; j++)
+			{
+				if (offset[j]<0)
+					continue;
+
+				memcpy(destPointer,sourceBuffers[j]+(int64_t(*idx)+inbuffer->getBaseVertex())*sourceBufferStrides[j],newAttribSizes[j]);
+				destPointer += newAttribSizes[j];
+			}
+		}
+		else if (inbuffer->getIndexType()==EIT_32BIT)
+		{
+			uint32_t* idx = reinterpret_cast<uint32_t*>(inbuffer->getIndices());
+			for (uint64_t i=0; i<idxCnt; i++,idx++)
+			for (size_t j=0; j<EVAI_COUNT; j++)
+			{
+				if (offset[j]<0)
+					continue;
+
+				memcpy(destPointer,sourceBuffers[j]+(int64_t(*idx)+inbuffer->getBaseVertex())*sourceBufferStrides[j],newAttribSizes[j]);
+				destPointer += newAttribSizes[j];
+			}
+		}
+        
+        if (_makeIndexBuf)
+        {
+            auto idxbuf = core::make_smart_refctd_ptr<ICPUBuffer>(idxCnt*(idxCnt<0x10000 ? 2u : 4u));
+            if (idxCnt<0x10000u)
+            {
+                for (uint32_t i = 0u; i < idxCnt; ++i)
+                    reinterpret_cast<uint16_t*>(idxbuf->getPointer())[i] = i;
+                clone->setIndexType(EIT_16BIT);
+                clone->setIndexBufferOffset(0);
+            }
+            else
+            {
+                for (uint32_t i = 0u; i < idxCnt; ++i)
+                    reinterpret_cast<uint32_t*>(idxbuf->getPointer())[i] = i;
+                clone->setIndexType(EIT_32BIT);
+                clone->setIndexBufferOffset(0);
+            }
+            desc->setIndexBuffer(std::move(idxbuf));
+        }
+
+		clone->setMeshDataAndFormat(std::move(desc));
+	}
+
+	return clone;
+#else
     return nullptr;
+#endif
 }
 
 //
@@ -64,22 +376,452 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::calculateSmoothNormals(
 // Used by createMeshBufferWelded only
 static bool cmpVertices(ICPUMeshBuffer* _inbuf, const void* _va, const void* _vb, size_t _vsize, const IMeshManipulator::SErrorMetric* _errMetrics)
 {
+#ifndef NEW_SHADERS
+    auto cmpInteger = [](uint32_t* _a, uint32_t* _b, size_t _n) -> bool {
+        return !memcmp(_a, _b, _n*4);
+    };
+
+    const uint8_t* va = (uint8_t*)_va, *vb = (uint8_t*)_vb;
+    auto desc = _inbuf->getMeshDataAndFormat();
+    for (size_t i = 0u; i < EVAI_COUNT; ++i)
+    {
+        if (!desc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i))
+            continue;
+
+        const auto atype = desc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i);
+        const auto cpa = getFormatChannelCount(atype);
+
+        if (isIntegerFormat(atype) || isScaledFormat(atype))
+        {
+            uint32_t attr[8];
+            ICPUMeshBuffer::getAttribute(attr, va, atype);
+            ICPUMeshBuffer::getAttribute(attr+4, vb, atype);
+            if (!cmpInteger(attr, attr+4, cpa))
+                return false;
+        }
+        else
+        {
+            core::vectorSIMDf attr[2];
+            ICPUMeshBuffer::getAttribute(attr[0], va, atype);
+            ICPUMeshBuffer::getAttribute(attr[1], vb, atype);
+            if (!IMeshManipulator::compareFloatingPointAttribute(attr[0], attr[1], cpa, _errMetrics[i]))
+                return false;
+        }
+
+        const uint32_t sz = getTexelOrBlockBytesize(atype);
+        va += sz;
+        vb += sz;
+    }
+
+    return true;
+#else
     return false;
+#endif
 }
 
 //! Creates a copy of a mesh, which will have identical vertices welded together
 core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(ICPUMeshBuffer *inbuffer, const SErrorMetric* _errMetrics, const bool& optimIndexType, const bool& makeNewMesh)
 {
+#ifndef NEW_SHADERS
+    if (!inbuffer)
+        return nullptr;
+    IMeshDataFormatDesc<ICPUBuffer>* oldDesc = inbuffer->getMeshDataAndFormat();
+    if (!oldDesc)
+        return nullptr;
+
+    bool bufferPresent[EVAI_COUNT];
+
+    size_t vertexAttrSize[EVAI_COUNT];
+    size_t vertexSize = 0;
+    for (size_t i=0; i<EVAI_COUNT; i++)
+    {
+        const ICPUBuffer* buf = oldDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i);
+        bufferPresent[i] = buf;
+        if (buf)
+        {
+            const E_FORMAT componentType = oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i);
+            vertexAttrSize[i] = getTexelOrBlockBytesize(componentType);
+            vertexSize += vertexAttrSize[i];
+        }
+    }
+
+    auto cmpfunc = [&, inbuffer, vertexSize, _errMetrics](const void* _va, const void* _vb) {
+        return cmpVertices(inbuffer, _va, _vb, vertexSize, _errMetrics);
+    };
+
+    size_t vertexCount = inbuffer->calcVertexCount();
+    E_INDEX_TYPE oldIndexType = inbuffer->getIndexType();
+
+    if (vertexCount==0)
+        return nullptr;
+
+    // reset redirect list
+    uint32_t* redirects = new uint32_t[vertexCount];
+
+    uint32_t maxRedirect = 0;
+
+    uint8_t* epicData = (uint8_t*)_NBL_ALIGNED_MALLOC(vertexSize*vertexCount,_NBL_SIMD_ALIGNMENT);
+    for (size_t i=0; i < vertexCount; i++)
+    {
+        uint8_t* currentVertexPtr = epicData+i*vertexSize;
+        for (size_t k=0; k<EVAI_COUNT; k++)
+        {
+            if (!bufferPresent[k])
+                continue;
+
+            size_t stride = oldDesc->getMappedBufferStride((E_VERTEX_ATTRIBUTE_ID)k);
+            uint8_t* sourcePtr = inbuffer->getAttribPointer((E_VERTEX_ATTRIBUTE_ID)k)+i*stride;
+            memcpy(currentVertexPtr,sourcePtr,vertexAttrSize[k]);
+            currentVertexPtr += vertexAttrSize[k];
+        }
+    }
+
+    for (size_t i=0; i<vertexCount; i++)
+    {
+        uint32_t redir = i;
+        for (size_t j = 0u; j < vertexCount; ++j)
+        {
+            if (i == j)
+                continue;
+            if (cmpfunc(epicData+vertexSize*i, epicData+vertexSize*j))
+            {
+                redir = j;
+                break;
+            }
+        }
+
+        redirects[i] = redir;
+        if (redir>maxRedirect)
+            maxRedirect = redir;
+    }
+    _NBL_ALIGNED_FREE(epicData);
+
+    void* oldIndices = inbuffer->getIndices();
+    core::smart_refctd_ptr<ICPUMeshBuffer> clone;
+    if (makeNewMesh)
+        clone = createMeshBufferDuplicate(inbuffer);
+    else
+    {
+        if (!oldDesc->getIndexBuffer())
+        {
+            oldDesc->setIndexBuffer(core::make_smart_refctd_ptr<ICPUBuffer>((maxRedirect >= 0x10000u ? sizeof(uint32_t) : sizeof(uint16_t)) * inbuffer->getIndexCount()));
+            inbuffer->setIndexType(maxRedirect>=0x10000u ? EIT_32BIT:EIT_16BIT);
+        }
+    }
+
+
+    if (oldIndexType==EIT_16BIT)
+    {
+        uint16_t* indicesIn = reinterpret_cast<uint16_t*>(oldIndices);
+        if ((makeNewMesh ? clone.get():inbuffer)->getIndexType()==EIT_32BIT)
+        {
+            uint32_t* indicesOut = reinterpret_cast<uint32_t*>((makeNewMesh ? clone.get():inbuffer)->getIndices());
+            for (size_t i=0; i<inbuffer->getIndexCount(); i++)
+                indicesOut[i] = redirects[indicesIn[i]];
+        }
+        else if ((makeNewMesh ? clone.get():inbuffer)->getIndexType()==EIT_16BIT)
+        {
+            uint16_t* indicesOut = reinterpret_cast<uint16_t*>((makeNewMesh ? clone.get():inbuffer)->getIndices());
+            for (size_t i=0; i<inbuffer->getIndexCount(); i++)
+                indicesOut[i] = redirects[indicesIn[i]];
+        }
+    }
+    else if (oldIndexType==EIT_32BIT)
+    {
+        uint32_t* indicesIn = reinterpret_cast<uint32_t*>(oldIndices);
+        if ((makeNewMesh ? clone.get():inbuffer)->getIndexType()==EIT_32BIT)
+        {
+            uint32_t* indicesOut = reinterpret_cast<uint32_t*>((makeNewMesh ? clone.get():inbuffer)->getIndices());
+            for (size_t i=0; i<inbuffer->getIndexCount(); i++)
+                indicesOut[i] = redirects[indicesIn[i]];
+        }
+        else if ((makeNewMesh ? clone.get():inbuffer)->getIndexType()==EIT_16BIT)
+        {
+            uint16_t* indicesOut = reinterpret_cast<uint16_t*>((makeNewMesh ? clone.get():inbuffer)->getIndices());
+            for (size_t i=0; i<inbuffer->getIndexCount(); i++)
+                indicesOut[i] = redirects[indicesIn[i]];
+        }
+    }
+    else if ((makeNewMesh ? clone.get():inbuffer)->getIndexType()==EIT_32BIT)
+    {
+        uint32_t* indicesOut = reinterpret_cast<uint32_t*>((makeNewMesh ? clone.get():inbuffer)->getIndices());
+        for (size_t i=0; i<inbuffer->getIndexCount(); i++)
+            indicesOut[i] = redirects[i];
+    }
+    else if ((makeNewMesh ? clone.get():inbuffer)->getIndexType()==EIT_16BIT)
+    {
+        uint16_t* indicesOut = reinterpret_cast<uint16_t*>((makeNewMesh ? clone.get():inbuffer)->getIndices());
+        for (size_t i=0; i<inbuffer->getIndexCount(); i++)
+            indicesOut[i] = redirects[i];
+    }
+    delete [] redirects;
+
+    if (makeNewMesh)
+        return clone;
+    else
+        return core::smart_refctd_ptr<ICPUMeshBuffer>(inbuffer);
+#else
     return nullptr;
+#endif
 }
 
 core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuffer(const ICPUMeshBuffer* _inbuffer, const SErrorMetric* _errMetric)
 {
+#ifndef NEW_SHADERS
+	if (!_inbuffer)
+		return nullptr;
+	auto outbuffer = createMeshBufferDuplicate(_inbuffer);
+	if (!outbuffer->getMeshDataAndFormat())
+		return outbuffer;
+
+	// Find vertex count
+	size_t vertexCount = outbuffer->calcVertexCount();
+
+	// make index buffer 0,1,2,3,4,... if nothing's mapped
+	if (!outbuffer->getIndices())
+	{
+		auto ib = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uint32_t)*vertexCount);
+		IMeshDataFormatDesc<ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
+		uint32_t* indices = (uint32_t*)ib->getPointer();
+		for (uint32_t i = 0; i < vertexCount; ++i)
+			indices[i] = i;
+		newDesc->setIndexBuffer(std::move(ib));
+		outbuffer->setIndexCount(vertexCount);
+		outbuffer->setIndexType(EIT_32BIT);
+	}
+
+	// make 32bit index buffer if 16bit one is present
+	if (outbuffer->getIndexType() == EIT_16BIT)
+	{
+        IMeshDataFormatDesc<ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
+		newDesc->setIndexBuffer(CMeshManipulator::create32BitFrom16BitIdxBufferSubrange(reinterpret_cast<uint16_t*>(outbuffer->getIndices()), outbuffer->getIndexCount()));
+		// no need to set index buffer offset to 0 because it already is
+		outbuffer->setIndexType(EIT_32BIT);
+	}
+
+	// convert index buffer for triangle primitives
+	if (outbuffer->getPrimitiveType() == EPT_TRIANGLE_FAN)
+	{
+		IMeshDataFormatDesc<ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
+		const ICPUBuffer* ib = newDesc->getIndexBuffer();
+		outbuffer->setPrimitiveType(EPT_TRIANGLES);
+		auto newIb = idxBufferFromTrianglesFanToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), EIT_32BIT);
+		outbuffer->setIndexCount(newIb->getSize() / sizeof(uint32_t));
+		newDesc->setIndexBuffer(std::move(newIb));
+	}
+	else if (outbuffer->getPrimitiveType() == EPT_TRIANGLE_STRIP)
+	{
+		IMeshDataFormatDesc<ICPUBuffer>* newDesc = outbuffer->getMeshDataAndFormat();
+		outbuffer->setPrimitiveType(EPT_TRIANGLES);
+		auto newIb = idxBufferFromTriangleStripsToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), EIT_32BIT);
+		outbuffer->setIndexCount(newIb->getSize() / sizeof(uint32_t));
+		newDesc->setIndexBuffer(std::move(newIb));
+	}
+	else if (outbuffer->getPrimitiveType() != EPT_TRIANGLES)
+		return nullptr;
+
+	// STEP: weld
+    createMeshBufferWelded(outbuffer.get(), _errMetric, false, false);
+
+    // STEP: filter invalid triangles
+    filterInvalidTriangles(outbuffer.get());
+
+	// STEP: overdraw optimization
+	COverdrawMeshOptimizer::createOptimized(outbuffer.get(), false);
+
+	// STEP: Forsyth
+	{
+		uint32_t* indices = reinterpret_cast<uint32_t*>(outbuffer->getIndices());
+		CForsythVertexCacheOptimizer forsyth;
+		forsyth.optimizeTriangleOrdering(vertexCount, outbuffer->getIndexCount(), indices, indices);
+	}
+
+	// STEP: prefetch optimization
+	outbuffer = CMeshManipulator::createMeshBufferFetchOptimized(outbuffer.get()); // here we also get interleaved attributes (single vertex buffer)
+	
+	// STEP: requantization
+	requantizeMeshBuffer(outbuffer.get(), _errMetric);
+
+	// STEP: reduce index buffer to 16bit or completely get rid of it
+	{
+		const void* const indices = outbuffer->getIndices();
+		uint32_t* indicesCopy = (uint32_t*)_NBL_ALIGNED_MALLOC(outbuffer->getIndexCount()*4,_NBL_SIMD_ALIGNMENT);
+		memcpy(indicesCopy, indices, outbuffer->getIndexCount()*4);
+		std::sort(indicesCopy, indicesCopy + outbuffer->getIndexCount());
+
+		bool continuous = true; // indices are i.e. 0,1,2,3,4,5,... (also implies indices being unique)
+		bool unique = true; // indices are unique (but not necessarily continuos)
+
+		for (size_t i = 0; i < outbuffer->getIndexCount(); ++i)
+		{
+			uint32_t idx = indicesCopy[i], prevIdx = 0xffffffffu;
+			if (i)
+			{
+				prevIdx = indicesCopy[i-1];
+
+				if (idx == prevIdx)
+				{
+					unique = false;
+					continuous = false;
+					break;
+				}
+				if (idx != prevIdx + 1)
+					continuous = false;
+			}
+		}
+
+		const uint32_t minIdx = indicesCopy[0];
+		const uint32_t maxIdx = indicesCopy[outbuffer->getIndexCount() - 1];
+
+		_NBL_ALIGNED_FREE(indicesCopy);
+
+		core::smart_refctd_ptr<ICPUBuffer> newIdxBuffer;
+		bool verticesMustBeReordered = false;
+        E_INDEX_TYPE newIdxType = EIT_UNKNOWN;
+
+		if (!continuous)
+		{
+			if (unique)
+			{
+				// no index buffer
+				// vertices have to be reordered
+				verticesMustBeReordered = true;
+			}
+			else
+			{
+				if (maxIdx - minIdx <= USHRT_MAX)
+					newIdxType = EIT_16BIT;
+				else
+					newIdxType = EIT_32BIT;
+
+				outbuffer->setBaseVertex(outbuffer->getBaseVertex() + minIdx);
+
+				if (newIdxType == EIT_16BIT)
+				{
+					newIdxBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uint16_t)*outbuffer->getIndexCount());
+					// no need to change index buffer offset because it's always 0 (after duplicating original mesh)
+					for (size_t i = 0; i < outbuffer->getIndexCount(); ++i)
+						reinterpret_cast<uint16_t*>(newIdxBuffer->getPointer())[i] = reinterpret_cast<const uint32_t*>(indices)[i] - minIdx;
+				}
+			}
+		}
+		else
+		{
+			outbuffer->setBaseVertex(outbuffer->getBaseVertex()+minIdx);
+		}
+
+		outbuffer->setIndexType(newIdxType);
+		outbuffer->getMeshDataAndFormat()->setIndexBuffer(std::move(newIdxBuffer));
+
+		if (verticesMustBeReordered)
+		{
+			// reorder vertices according to index buffer
+#define _ACCESS_IDX(n) ((newIdxType == EIT_32BIT) ? *(reinterpret_cast<const uint32_t*>(indices)+(n)) : *(reinterpret_cast<const uint16_t*>(indices)+(n)))
+
+			const size_t vertexSize = outbuffer->getMeshDataAndFormat()->getMappedBufferStride(outbuffer->getPositionAttributeIx());
+			uint8_t* const v = (uint8_t*)(outbuffer->getMeshDataAndFormat()->getMappedBuffer(outbuffer->getPositionAttributeIx())->getPointer()); // after prefetch optim. we have guarantee of single vertex buffer so we can do like this
+			uint8_t* const vCopy = (uint8_t*)_NBL_ALIGNED_MALLOC(outbuffer->getMeshDataAndFormat()->getMappedBuffer(outbuffer->getPositionAttributeIx())->getSize(),_NBL_SIMD_ALIGNMENT);
+			memcpy(vCopy, v, outbuffer->getMeshDataAndFormat()->getMappedBuffer(outbuffer->getPositionAttributeIx())->getSize());
+
+			size_t baseVtx = outbuffer->getBaseVertex();
+			for (size_t i = 0; i < outbuffer->getIndexCount(); ++i)
+			{
+				const uint32_t idx = _ACCESS_IDX(i+baseVtx);
+				if (idx != i+baseVtx)
+					memcpy(v + (vertexSize*(i + baseVtx)), vCopy + (vertexSize*idx), vertexSize);
+			}
+#undef _ACCESS_IDX
+			_NBL_ALIGNED_FREE(vCopy);
+		}
+	}
+
+	return outbuffer;
+#else
     return nullptr;
+#endif
 }
 
 void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric)
 {
+#ifndef NEW_SHADERS
+	CMeshManipulator::SAttrib newAttribs[EVAI_COUNT];
+	for (size_t i = 0u; i < EVAI_COUNT; ++i)
+		newAttribs[i].vaid = (E_VERTEX_ATTRIBUTE_ID)i;
+
+	core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<CMeshManipulator::SIntegerAttr>> attribsI;
+	core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<core::vectorSIMDf>> attribsF;
+	for (size_t vaid = EVAI_ATTR0; vaid < (size_t)EVAI_COUNT; ++vaid)
+	{
+		const E_FORMAT type = _meshbuffer->getMeshDataAndFormat()->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)vaid);
+
+		if (_meshbuffer->getMeshDataAndFormat()->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)vaid))
+		{
+			if (!isNormalizedFormat(type) && isIntegerFormat(type))
+				attribsI[(E_VERTEX_ATTRIBUTE_ID)vaid] = CMeshManipulator::findBetterFormatI(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].prevType, _meshbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid, _errMetric[vaid]);
+			else
+				attribsF[(E_VERTEX_ATTRIBUTE_ID)vaid] = CMeshManipulator::findBetterFormatF(&newAttribs[vaid].type, &newAttribs[vaid].size, &newAttribs[vaid].prevType, _meshbuffer, (E_VERTEX_ATTRIBUTE_ID)vaid, _errMetric[vaid]);
+		}
+	}
+
+	const size_t activeAttributeCount = attribsI.size() + attribsF.size();
+
+#ifdef _NBL_DEBUG
+	{
+		core::unordered_set<size_t> sizesSet;
+		for (core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<CMeshManipulator::SIntegerAttr>>::iterator it = attribsI.begin(); it != attribsI.end(); ++it)
+			sizesSet.insert(it->second.size());
+		for (core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<core::vectorSIMDf>>::iterator it = attribsF.begin(); it != attribsF.end(); ++it)
+			sizesSet.insert(it->second.size());
+		_NBL_DEBUG_BREAK_IF(sizesSet.size() != 1);
+	}
+#endif
+	const size_t vertexCnt = (!attribsI.empty() ? attribsI.begin()->second.size() : (!attribsF.empty() ? attribsF.begin()->second.size() : 0));
+
+	std::sort(newAttribs, newAttribs + EVAI_COUNT, std::greater<CMeshManipulator::SAttrib>()); // sort decreasing by size
+
+	for (size_t i = 0u; i < activeAttributeCount; ++i)
+	{
+        const uint32_t typeSz = getTexelOrBlockBytesize(newAttribs[i].type);
+        const size_t alignment = (typeSz / getFormatChannelCount(newAttribs[i].type) == 8u) ? 8ull : 4ull; // if format 64bit per channel, than align to 8
+
+		newAttribs[i].offset = (i ? newAttribs[i - 1].offset + newAttribs[i - 1].size : 0u);
+		const size_t mod = newAttribs[i].offset % alignment;
+		newAttribs[i].offset += mod;
+	}
+
+	const size_t vertexSize = newAttribs[activeAttributeCount - 1].offset + newAttribs[activeAttributeCount - 1].size;
+
+    IMeshDataFormatDesc<ICPUBuffer>* desc = _meshbuffer->getMeshDataAndFormat();
+	auto newVertexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(vertexCnt * vertexSize);
+
+	for (size_t i = 0u; i < activeAttributeCount; ++i)
+	{
+		desc->setVertexAttrBuffer(core::smart_refctd_ptr(newVertexBuffer), newAttribs[i].vaid, newAttribs[i].type, vertexSize, newAttribs[i].offset);
+
+		core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<CMeshManipulator::SIntegerAttr>>::iterator iti = attribsI.find(newAttribs[i].vaid);
+		if (iti != attribsI.end())
+		{
+			const core::vector<CMeshManipulator::SIntegerAttr>& attrVec = iti->second;
+			for (size_t ai = 0u; ai < attrVec.size(); ++ai)
+			{
+				const bool check = _meshbuffer->setAttribute(attrVec[ai].pointer, newAttribs[i].vaid, ai);
+				_NBL_DEBUG_BREAK_IF(!check)
+			}
+			continue;
+		}
+
+		core::unordered_map<E_VERTEX_ATTRIBUTE_ID, core::vector<core::vectorSIMDf>>::iterator itf = attribsF.find(newAttribs[i].vaid);
+		if (itf != attribsF.end())
+		{
+			const core::vector<core::vectorSIMDf>& attrVec = itf->second;
+			for (size_t ai = 0u; ai < attrVec.size(); ++ai)
+			{
+				const bool check = _meshbuffer->setAttribute(attrVec[ai], newAttribs[i].vaid, ai);
+				_NBL_DEBUG_BREAK_IF(!check)
+			}
+		}
+	}
+#endif
 }
 
 
@@ -141,7 +883,69 @@ void CMeshManipulator::copyMeshBufferMemberVars<ICPUSkinnedMeshBuffer>(ICPUSkinn
 
 core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferDuplicate(const ICPUMeshBuffer* _src)
 {
+#ifndef NEW_SHADERS
+	if (!_src)
+		return nullptr;
+
+	core::smart_refctd_ptr<ICPUMeshBuffer> dst;
+    if (_src->getMeshBufferType() == asset::EMT_ANIMATED_SKINNED)
+    {
+        dst = core::make_smart_refctd_ptr<ICPUSkinnedMeshBuffer>();
+		CMeshManipulator::copyMeshBufferMemberVars(static_cast<ICPUSkinnedMeshBuffer*>(dst.get()), static_cast<const ICPUSkinnedMeshBuffer*>(_src));
+    }
+    else
+    {
+        dst = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
+		CMeshManipulator::copyMeshBufferMemberVars(dst.get(), _src);
+    }
+
+	if (!_src->getMeshDataAndFormat())
+		return dst;
+
+	core::smart_refctd_ptr<ICPUBuffer> idxBuffer;
+	if (_src->getIndices())
+	{
+		idxBuffer = core::make_smart_refctd_ptr<ICPUBuffer>((_src->getIndexType() == EIT_16BIT ? 2 : 4) * _src->getIndexCount());
+		memcpy(idxBuffer->getPointer(), _src->getIndices(), idxBuffer->getSize());
+		dst->setIndexBufferOffset(0);
+	}
+
+    auto newDesc = core::make_smart_refctd_ptr<ICPUMeshDataFormatDesc>();
+	const IMeshDataFormatDesc<ICPUBuffer>* oldDesc = _src->getMeshDataAndFormat();
+
+	core::unordered_map<const ICPUBuffer*, E_VERTEX_ATTRIBUTE_ID> oldBuffers;
+	for (size_t i = 0; i < EVAI_COUNT; ++i)
+	{
+		const ICPUBuffer* oldBuf = oldDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i);
+		if (!oldBuf)
+			continue;
+		core::smart_refctd_ptr<ICPUBuffer> newBuf;
+
+		core::unordered_map<const ICPUBuffer*, E_VERTEX_ATTRIBUTE_ID>::iterator itr = oldBuffers.find(oldBuf);
+		if (itr == oldBuffers.end())
+		{
+			oldBuffers[oldBuf] = (E_VERTEX_ATTRIBUTE_ID)i;
+			newBuf = core::make_smart_refctd_ptr<ICPUBuffer>(oldBuf->getSize());
+			memcpy(newBuf->getPointer(), oldBuf->getPointer(), newBuf->getSize());
+		}
+		else
+		{
+			const ICPUBuffer* dupBuff = const_cast<const ICPUMeshDataFormatDesc*>(newDesc.get())->getMappedBuffer(itr->second);
+			newBuf = core::smart_refctd_ptr<ICPUBuffer>(const_cast<ICPUBuffer*>(dupBuff));
+		}
+
+		newDesc->setVertexAttrBuffer(std::move(newBuf), (E_VERTEX_ATTRIBUTE_ID)i, oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i),
+			oldDesc->getMappedBufferStride((E_VERTEX_ATTRIBUTE_ID)i), oldDesc->getMappedBufferOffset((E_VERTEX_ATTRIBUTE_ID)i), oldDesc->getAttribDivisor((E_VERTEX_ATTRIBUTE_ID)i));
+	}
+	if (idxBuffer)
+		newDesc->setIndexBuffer(std::move(idxBuffer));
+
+	dst->setMeshDataAndFormat(std::move(newDesc));
+
+	return dst;
+#else
     return nullptr;
+#endif
 }
 
 void IMeshManipulator::filterInvalidTriangles(ICPUMeshBuffer* _input)
