@@ -10,9 +10,12 @@ using namespace core;
 
 enum E_TEST_CASE : uint32_t
 {
-    ETC_COS_WEIGHTED,
+    ETC_LAMBERT,
     ETC_GGX,
-    ETC_BECKMANN
+    ETC_BECKMANN,
+    ETC_LAMBERT_TRANSMIT,
+    ETC_GGX_TRANSMIT,
+    ETC_BECKMANN_TRANSMIT
 };
 class EventReceiver : public irr::IEventReceiver
 {
@@ -28,13 +31,22 @@ public:
 					running = false;
 					return true;
                 case irr::KEY_KEY_1:
-                    test = ETC_GGX;
+                    test = ETC_LAMBERT;
                     return true;
                 case irr::KEY_KEY_2:
-                    test = ETC_BECKMANN;
+                    test = ETC_GGX;
                     return true;
                 case irr::KEY_KEY_3:
-                    test = ETC_COS_WEIGHTED;
+                    test = ETC_BECKMANN;
+                    return true;
+                case irr::KEY_KEY_4:
+                    test = ETC_LAMBERT_TRANSMIT;
+                    return true;
+                case irr::KEY_KEY_5:
+                    test = ETC_GGX_TRANSMIT;
+                    return true;
+                case irr::KEY_KEY_6:
+                    test = ETC_BECKMANN_TRANSMIT;
                     return true;
                 case irr::KEY_KEY_S:
                     ss = true;

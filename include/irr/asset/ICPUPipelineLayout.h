@@ -10,6 +10,11 @@ namespace irr
 namespace asset
 {
 
+//! CPU Version of Pipeline Layout
+/*
+    @see IPipelineLayout
+*/
+
 class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorSetLayout>
 {
 	public:

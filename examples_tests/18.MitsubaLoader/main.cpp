@@ -9,12 +9,18 @@
 #include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
 #include <irr/video/IGPUVirtualTexture.h>
 
+#define USE_ENVMAP
+
 using namespace irr;
 using namespace core;
 
 constexpr const char* GLSL_COMPUTE_LIGHTING =
 R"(
 #define _IRR_COMPUTE_LIGHTING_DEFINED_
+
+#include <irr/builtin/glsl/format/decode.glsl>
+#include <irr/builtin/glsl/random/xoroshiro.glsl>
+
 struct SLight
 {
 	vec3 position;
@@ -25,30 +31,81 @@ layout (set = 2, binding = 0, std430) readonly restrict buffer Lights
 {
 	SLight lights[];
 };
+layout(set = 2, binding = 1) uniform sampler2D envMap;
+layout(set = 2, binding = 2) uniform usamplerBuffer sampleSequence;
+layout(set = 2, binding = 3) uniform usampler2D scramblebuf;
+
+vec2 rand2d(in uint _sample, inout irr_glsl_xoroshiro64star_state_t scramble_state)
+{
+	uvec2 seqVal = texelFetch(sampleSequence,int(_sample)).xy;
+	seqVal ^= uvec2(irr_glsl_xoroshiro64star(scramble_state),irr_glsl_xoroshiro64star(scramble_state));
+    return vec2(seqVal)*uintBitsToFloat(0x2f800004u);
+}
+
+vec2 SampleSphericalMap(in vec3 v)
+{
+    vec2 uv = vec2(atan(v.z, v.x), asin(v.y));
+    uv *= irr_glsl_RECIPROCAL_PI*0.5;
+    uv += 0.5; 
+    return uv;
+}
 
 vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
-	vec3 emissive = decodeRGB19E7(InstData.data[InstanceIndex].emissive);
+	irr_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,gl_FragCoord.xy/VIEWPORT_SZ,0).rg;
+
+	vec3 emissive = irr_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
+
+	vec3 color = vec3(0.0);
+
+#ifdef USE_ENVMAP
+	instr_stream_t gcs = getGenChoiceStream();
+	for (int i = 0; i < SAMPLE_COUNT; ++i)
+	{
+		irr_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
+
+		instr_stream_t gcs = getGenChoiceStream();
+		instr_stream_t rnps = getRemAndPdfStream();
+
+		vec2 rand = rand2d(i,scramble_state);//TODO has to be 3d
+		float pdf;
+		runGenerateAndRemainderStream(gcs, rnps, rand, pdf);
+
+		vec2 uv = SampleSphericalMap(L);
+		color += rem*textureLod(envMap, uv, 0.0).xyz;
+	}
+	color /= float(SAMPLE_COUNT);
+#endif
 
 	irr_glsl_BSDFIsotropicParams params;
-	vec3 color = vec3(0.0);
-	for (int i = 0; i < 13; ++i)
+	for (int i = 0; i < LIGHT_COUNT; ++i)
 	{
 		SLight l = lights[i];
 		vec3 L = l.position-WorldPos;
 		params.L = L;
-		color += irr_bsdf_cos_eval(params, out_interaction, dUV)*l.intensity*0.01 / dot(L,L);
+		const float intensityScale = LIGHT_INTENSITY_SCALE;//ehh might want to render to hdr fbo and do tonemapping
+		color += irr_bsdf_cos_eval(params, out_interaction, dUV)*l.intensity*intensityScale / dot(L,L);
 	}
+
 	return color+emissive;
 }
 )";
-static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(const asset::ICPUSpecializedShader* _fs)
+static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(const asset::ICPUSpecializedShader* _fs, uint32_t viewport_w, uint32_t viewport_h, uint32_t lightCnt, uint32_t smplCnt, float intensityScale)
 {
     const asset::ICPUShader* unspec = _fs->getUnspecialized();
     assert(unspec->containsGLSL());
 
     std::string glsl = reinterpret_cast<const char*>( unspec->getSPVorGLSL()->getPointer() );
-    glsl.insert(glsl.find("#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_"), GLSL_COMPUTE_LIGHTING);
+	std::string extra = "\n#define VIEWPORT_SZ vec2(" + std::to_string(viewport_w)+","+std::to_string(viewport_h)+")" +
+		"\n#define LIGHT_COUNT " + std::to_string(lightCnt) +
+		"\n#define SAMPLE_COUNT " + std::to_string(smplCnt) +
+		"\n#define LIGHT_INTENSITY_SCALE " + std::to_string(intensityScale) +
+#ifdef USE_ENVMAP
+		"\n#define USE_ENVMAP" +
+#endif
+		GLSL_COMPUTE_LIGHTING;
+
+    glsl.insert(glsl.find("#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_"), extra);
 
     //auto* f = fopen("fs.glsl","w");
     //fwrite(glsl.c_str(), 1, glsl.size(), f);
@@ -60,6 +117,33 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragSh
 
     return fsNew;
 }
+
+static auto createGPUImageView(const std::string& path, asset::IAssetManager* am, video::IVideoDriver* driver)
+{
+	using namespace asset;
+	using namespace video;
+
+	IAssetLoader::SAssetLoadParams lp(0ull, nullptr, IAssetLoader::ECF_DONT_CACHE_REFERENCES);
+	auto cpuTexture = am->getAsset(path, lp);
+	auto cpuTextureContents = cpuTexture.getContents();
+
+	auto asset = *cpuTextureContents.begin();
+	auto cpuimg = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
+
+	IGPUImageView::SCreationParams viewParams;
+	viewParams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
+	viewParams.image = driver->getGPUObjectsFromAssets(&cpuimg.get(),&cpuimg.get()+1u)->front();
+	viewParams.format = viewParams.image->getCreationParameters().format;
+	viewParams.viewType = IImageView<IGPUImage>::ET_2D;
+	viewParams.subresourceRange.baseArrayLayer = 0u;
+	viewParams.subresourceRange.layerCount = 1u;
+	viewParams.subresourceRange.baseMipLevel = 0u;
+	viewParams.subresourceRange.levelCount = viewParams.image->getCreationParameters().mipLevels;
+
+	auto gpuImageView = driver->createGPUImageView(std::move(viewParams));
+
+	return gpuImageView;
+};
 
 #include "irr/irrpack.h"
 //std430-compatible
@@ -187,49 +271,50 @@ int main()
 
 
 	video::IVideoDriver* driver = device->getVideoDriver();
+	asset::IAssetManager* am = device->getAssetManager();
 
 	core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds2layout;
 	{
-		asset::ICPUDescriptorSetLayout::SBinding bnd;
-		bnd.binding = 0u;
-		bnd.count = 1u;
-		bnd.samplers = nullptr;
-		bnd.stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-		bnd.type = asset::EDT_STORAGE_BUFFER;
+		asset::ICPUDescriptorSetLayout::SBinding bnd[4];
+		bnd[0].binding = 0u;
+		bnd[0].count = 1u;
+		bnd[0].samplers = nullptr;
+		bnd[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		bnd[0].type = asset::EDT_STORAGE_BUFFER;
 
-		ds2layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
+		using namespace asset;
+		ISampler::SParams samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_FLOAT_OPAQUE_BLACK, ISampler::ETF_LINEAR, ISampler::ETF_LINEAR, ISampler::ESMM_LINEAR, 0u, false, ECO_ALWAYS };
+		auto smplr = core::make_smart_refctd_ptr<asset::ICPUSampler>(samplerParams);
+		bnd[1].binding = 1u;
+		bnd[1].count = 1u;
+		bnd[1].samplers = &smplr;
+		bnd[1].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		bnd[1].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+
+		bnd[2].binding = 2u;
+		bnd[2].count = 1u;
+		bnd[2].samplers = nullptr;
+		bnd[2].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		bnd[2].type = asset::EDT_UNIFORM_TEXEL_BUFFER;
+
+		samplerParams = { ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETC_CLAMP_TO_EDGE, ISampler::ETBC_INT_OPAQUE_BLACK, ISampler::ETF_NEAREST, ISampler::ETF_NEAREST, ISampler::ESMM_NEAREST, 0u, false, ECO_ALWAYS };
+		auto smplr_int = core::make_smart_refctd_ptr<asset::ICPUSampler>(samplerParams);
+		bnd[3].binding = 3u;
+		bnd[3].count = 1u;
+		bnd[3].samplers = &smplr_int;
+		bnd[3].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		bnd[3].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+
+		ds2layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bnd, bnd + 4);
 	}
 
 	//gather all meshes into core::vector and modify their pipelines
-	core::unordered_set<const asset::ICPURenderpassIndependentPipeline*> modifiedPipelines;
-	core::unordered_map<core::smart_refctd_ptr<asset::ICPUSpecializedShader>, core::smart_refctd_ptr<asset::ICPUSpecializedShader>> modifiedShaders;
 	core::vector<core::smart_refctd_ptr<asset::ICPUMesh>> cpumeshes;
 	cpumeshes.reserve(meshes.getSize());
 	for (auto it = meshes.getContents().begin(); it != meshes.getContents().end(); ++it)
 	{
 		cpumeshes.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(std::move(*it)));
-		//modify pipeline layouts with our custom DS2 layout (DS2 will be used for lights buffer)
-		for (uint32_t i = 0u; i < cpumeshes.back()->getMeshBufferCount(); ++i)
-		{
-			auto* pipeline = cpumeshes.back()->getMeshBuffer(i)->getPipeline();
-			if (modifiedPipelines.find(pipeline)==modifiedPipelines.end())
-			{
-				//if (!pipeline->getLayout()->getDescriptorSetLayout(2u))
-				pipeline->getLayout()->setDescriptorSetLayout(2u, core::smart_refctd_ptr(ds2layout));
-				auto* fs = pipeline->getShaderAtStage(asset::ICPUSpecializedShader::ESS_FRAGMENT);
-				auto found = modifiedShaders.find(core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs));
-				if (found != modifiedShaders.end())
-					pipeline->setShaderAtStage(asset::ICPUSpecializedShader::ESS_FRAGMENT, found->second.get());
-				else {
-					auto newfs = createModifiedFragShader(fs);
-					modifiedShaders.insert({ core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs),newfs});
-					pipeline->setShaderAtStage(asset::ICPUSpecializedShader::ESS_FRAGMENT, newfs.get());
-				}
-				modifiedPipelines.insert(pipeline);
-			}
-		}
 	}
-	modifiedShaders.clear();
 
 	core::smart_refctd_ptr<asset::ICPUDescriptorSet> cpuds0;
 	{
@@ -307,7 +392,35 @@ int main()
 		}
 	}
 
-	constexpr uint32_t MAX_INSTANCES = 512u;
+	constexpr uint32_t ENVMAP_SAMPLE_COUNT = 64u;
+	constexpr float LIGHT_INTENSITY_SCALE = 0.01f;
+
+	core::unordered_set<const asset::ICPURenderpassIndependentPipeline*> modifiedPipelines;
+	core::unordered_map<core::smart_refctd_ptr<asset::ICPUSpecializedShader>, core::smart_refctd_ptr<asset::ICPUSpecializedShader>> modifiedShaders;
+	for (auto& mesh : cpumeshes)
+	{
+		//modify pipeline layouts with our custom DS2 layout (DS2 will be used for lights buffer)
+		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+		{
+			auto* pipeline = mesh->getMeshBuffer(i)->getPipeline();
+			if (modifiedPipelines.find(pipeline) == modifiedPipelines.end())
+			{
+				//if (!pipeline->getLayout()->getDescriptorSetLayout(2u))
+				pipeline->getLayout()->setDescriptorSetLayout(2u, core::smart_refctd_ptr(ds2layout));
+				auto* fs = pipeline->getShaderAtStage(asset::ICPUSpecializedShader::ESS_FRAGMENT);
+				auto found = modifiedShaders.find(core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs));
+				if (found != modifiedShaders.end())
+					pipeline->setShaderAtStage(asset::ICPUSpecializedShader::ESS_FRAGMENT, found->second.get());
+				else {
+					auto newfs = createModifiedFragShader(fs, params.WindowSize.Width, params.WindowSize.Height, lights.size(), ENVMAP_SAMPLE_COUNT, LIGHT_INTENSITY_SCALE);
+					modifiedShaders.insert({ core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs),newfs });
+					pipeline->setShaderAtStage(asset::ICPUSpecializedShader::ESS_FRAGMENT, newfs.get());
+				}
+				modifiedPipelines.insert(pipeline);
+			}
+		}
+	}
+	modifiedShaders.clear();
 
 	core::aabbox3df sceneBound;
 	auto gpumeshes = driver->getGPUObjectsFromAssets(cpumeshes.data(), cpumeshes.data()+cpumeshes.size());
@@ -361,23 +474,104 @@ int main()
         driver->updateDescriptorSets(1u, &write, 0u, nullptr);
     }
 
+	smart_refctd_ptr<video::IGPUBufferView> gpuSequenceBufferView;
+	{
+		constexpr uint32_t MaxSamples = ENVMAP_SAMPLE_COUNT;
+
+		auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t) * MaxSamples*2u);
+
+		core::OwenSampler sampler(1u, 0xdeadbeefu);
+
+		auto out = reinterpret_cast<uint32_t*>(sampleSequence->getPointer());
+		for (uint32_t i = 0; i < MaxSamples*2u; i++)
+		{
+			out[i] = sampler.sample(i&1u, i>>1);
+		}
+		auto gpuSequenceBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(), sampleSequence->getPointer());
+		gpuSequenceBufferView = driver->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32_UINT);
+	}
+
+	smart_refctd_ptr<video::IGPUImageView> gpuScrambleImageView;
+	{
+		video::IGPUImage::SCreationParams imgParams;
+		imgParams.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
+		imgParams.type = asset::IImage::ET_2D;
+		imgParams.format = asset::EF_R32G32_UINT;
+		imgParams.extent = {params.WindowSize.Width,params.WindowSize.Height,1u};
+		imgParams.mipLevels = 1u;
+		imgParams.arrayLayers = 1u;
+		imgParams.samples = asset::IImage::ESCF_1_BIT;
+
+		video::IGPUImage::SBufferCopy region;
+		region.imageExtent = imgParams.extent;
+		region.imageSubresource.layerCount = 1u;
+
+		constexpr auto ScrambleStateChannels = 2u;
+		const auto renderPixelCount = imgParams.extent.width*imgParams.extent.height;
+		core::vector<uint32_t> random(renderPixelCount*ScrambleStateChannels);
+		{
+			core::RandomSampler rng(0xbadc0ffeu);
+			for (auto& pixel : random)
+				pixel = rng.nextSample();
+		}
+		auto buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(random.size()*sizeof(uint32_t),random.data());
+
+		video::IGPUImageView::SCreationParams viewParams;
+		viewParams.flags = static_cast<video::IGPUImageView::E_CREATE_FLAGS>(0u);
+		viewParams.image = driver->createFilledDeviceLocalGPUImageOnDedMem(std::move(imgParams),buffer.get(),1u,&region);
+		viewParams.viewType = video::IGPUImageView::ET_2D;
+		viewParams.format = asset::EF_R32G32_UINT;
+		viewParams.subresourceRange.levelCount = 1u;
+		viewParams.subresourceRange.layerCount = 1u;
+		gpuScrambleImageView = driver->createGPUImageView(std::move(viewParams));
+	}
+
 	auto gpuds2layout = driver->getGPUObjectsFromAssets(&ds2layout.get(), &ds2layout.get()+1)->front();
 	auto gpuds2 = driver->createGPUDescriptorSet(std::move(gpuds2layout));
 	{
-		video::IGPUDescriptorSet::SDescriptorInfo info;
-		video::IGPUDescriptorSet::SWriteDescriptorSet w;
-		w.arrayElement = 0u;
-		w.binding = 0u;
-		w.count = 1u;
-		w.descriptorType = asset::EDT_STORAGE_BUFFER;
-		w.dstSet = gpuds2.get();
-		w.info = &info;
+		video::IGPUDescriptorSet::SDescriptorInfo info[4];
+		video::IGPUDescriptorSet::SWriteDescriptorSet w[4];
+		w[0].arrayElement = 0u;
+		w[0].binding = 0u;
+		w[0].count = 1u;
+		w[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+		w[0].dstSet = gpuds2.get();
+		w[0].info = info+0;
 		auto lightsBuf = driver->createFilledDeviceLocalGPUBufferOnDedMem(lights.size()*sizeof(SLight), lights.data());
-		info.buffer.offset = 0u;
-		info.buffer.size = lightsBuf->getSize();
-		info.desc = std::move(lightsBuf);
+		info[0].buffer.offset = 0u;
+		info[0].buffer.size = lightsBuf->getSize();
+		info[0].desc = std::move(lightsBuf);
 
-		driver->updateDescriptorSets(1u, &w, 0u, nullptr);
+		w[1].arrayElement = 0u;
+		w[1].binding = 1u;
+		w[1].count = 1u;
+		w[1].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
+		w[1].dstSet = gpuds2.get();
+		w[1].info = info+1;
+		auto gpuEnvmapImageView = createGPUImageView("../../media/envmap/envmap_0.exr", am, driver);
+		info[1].image.imageLayout = asset::EIL_UNDEFINED;
+		info[1].image.sampler = nullptr;
+		info[1].desc = std::move(gpuEnvmapImageView);
+
+		w[2].arrayElement = 0u;
+		w[2].binding = 2u;
+		w[2].count = 1u;
+		w[2].descriptorType = asset::EDT_UNIFORM_TEXEL_BUFFER;
+		w[2].dstSet = gpuds2.get();
+		w[2].info = info+2;
+		info[2].desc = gpuSequenceBufferView;
+
+		w[3].arrayElement = 0u;
+		w[3].binding = 3u;
+		w[3].count = 1u;
+		w[3].descriptorType = asset::EDT_COMBINED_IMAGE_SAMPLER;
+		w[3].dstSet = gpuds2.get();
+		w[3].info = info+3;
+		info[3].image.imageLayout = asset::EIL_UNDEFINED;
+		info[3].image.sampler = nullptr;//imm sampler is present
+		info[3].desc = gpuScrambleImageView;
+
+		driver->updateDescriptorSets(4u, w, 0u, nullptr);
 	}
 
 	// camera and viewport
@@ -399,7 +593,7 @@ int main()
 		viewport = core::recti(core::position2di(film.cropOffsetX,film.cropOffsetY), core::position2di(film.cropWidth,film.cropHeight));
 
 		auto extent = sceneBound.getExtent();
-		camera = smgr->addCameraSceneNodeFPS(nullptr,100.f,core::min(extent.X,extent.Y,extent.Z)*0.001f);
+		camera = smgr->addCameraSceneNodeFPS(nullptr,100.f,core::min(extent.X,extent.Y,extent.Z)*0.0001f);
 		// need to extract individual components
 		bool leftHandedCamera = false;
 		{
@@ -487,6 +681,7 @@ int main()
 	uint64_t lastFPSTime = 0;
 	float lastFastestMeshFrameNr = -1.f;
 
+	constexpr uint32_t MAX_INSTANCES = 512u;
 	core::vector<core::matrix4SIMD> uboData(MAX_INSTANCES);
 	while (device->run() && receiver.keepOpen())
 	{

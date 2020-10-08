@@ -676,7 +676,7 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
         member.name = _comp.get_member_name(_parentType.self, m);
         member.size = _comp.get_declared_struct_member_size(_parentType, m);
         member.offset = _baseOffset + _comp.type_struct_member_offset(_parentType, m);
-        member.rowMajor = _comp.get_member_decoration(_parentType.self, m, spv::DecorationRowMajor);//TODO check whether spirv-cross works with this decor
+        member.rowMajor = _comp.get_member_decoration(_parentType.self, m, spv::DecorationRowMajor);
         member.type = spvcrossType2E_TYPE(mtype.basetype);
 
         if (mtype.array.size())

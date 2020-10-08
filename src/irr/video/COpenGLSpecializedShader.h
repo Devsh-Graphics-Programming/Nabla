@@ -7,7 +7,7 @@
 #include "COpenGLExtensionHandler.h"
 #include "irr/video/COpenGLShader.h"
 #include "irr/asset/CShaderIntrospector.h"
-#include "irr/core/memory/refctd_dynamic_array.h"
+#include "irr/core/containers/refctd_dynamic_array.h"
 #include "irr/video/IGPUMeshBuffer.h"
 #include "irr/video/COpenGLPipelineLayout.h"
 #include <algorithm>

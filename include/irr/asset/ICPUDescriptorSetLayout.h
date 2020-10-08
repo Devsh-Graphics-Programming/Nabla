@@ -10,6 +10,12 @@ namespace irr
 namespace asset
 {
 
+//! CPU Version of Descriptor Set Layout
+/*
+    @see IDescriptorSetLayout
+    @see IAsset
+*/
+
 class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public IAsset
 {
 	public:

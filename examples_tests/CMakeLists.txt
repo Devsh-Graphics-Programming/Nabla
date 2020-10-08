@@ -54,7 +54,7 @@ add_subdirectory(29.SpecializationConstants EXCLUDE_FROM_ALL)
 add_subdirectory(31.SkinningDataBenchmark EXCLUDE_FROM_ALL)
 add_subdirectory(32.MultiThreadedRefCounting EXCLUDE_FROM_ALL) # TODO: @Anastazluk make this into example 04
 add_subdirectory(33.Draw3DLine EXCLUDE_FROM_ALL)
-add_subdirectory(34.AddressAllocatorTraitsTest EXCLUDE_FROM_ALL)
+add_subdirectory(34.LRUCacheUnitTest EXCLUDE_FROM_ALL)
 add_subdirectory(35.GeometryCreator EXCLUDE_FROM_ALL)
 add_subdirectory(36.CUDAInterop EXCLUDE_FROM_ALL)
 #add_subdirectory(37.OptiXTriangle EXCLUDE_FROM_ALL)
@@ -70,3 +70,4 @@ add_subdirectory(43.AllocatorTest EXCLUDE_FROM_ALL) #TODO: @Anastazluk merge exa
 add_subdirectory(44.LevelCurveExtraction EXCLUDE_FROM_ALL)
 add_subdirectory(45.BRDFEvalTest EXCLUDE_FROM_ALL)
 add_subdirectory(46.SamplingValidation EXCLUDE_FROM_ALL)
+add_subdirectory(47.DerivMapTest EXCLUDE_FROM_ALL)
