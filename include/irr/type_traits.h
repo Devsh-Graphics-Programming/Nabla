@@ -10,13 +10,8 @@
 namespace irr
 {
 
-#if __cplusplus >= 201703L
 template<bool B>
 using bool_constant = std::bool_constant<B>;
-#else
-template<bool B>
-using bool_constant = std::integral_constant<bool, B>;
-#endif // C
 
 
 template<typename T, typename U, typename... Us>

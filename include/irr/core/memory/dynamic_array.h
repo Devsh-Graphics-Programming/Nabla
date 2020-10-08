@@ -171,7 +171,6 @@ class NBL_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
 		// no arrays
 		static void operator delete[](void* ptr) = delete;
 		static void operator delete[](void* ptr, std::size_t sz) = delete;
-#if __cplusplus >= 201703L
 		static void* operator new(size_t size, std::align_val_t al) = delete;
 		static void* operator new[](size_t size, std::align_val_t al) = delete;
 
@@ -186,7 +185,6 @@ class NBL_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
 		static void operator delete(dynamic_array<T,allocator,CRTP,OverAlignmentTypes...>* ptr, std::destroying_delete_t, std::align_val_t al) = delete;
 		static void operator delete(dynamic_array<T,allocator,CRTP,OverAlignmentTypes...>* ptr, std::destroying_delete_t, std::size_t sz) = delete;
 		static void operator delete(dynamic_array<T,allocator,CRTP,OverAlignmentTypes...>* ptr, std::destroying_delete_t, std::size_t sz, std::align_val_t al) = delete;
-#endif
 #endif
 
 		inline bool operator!=(const this_real_type& _other) const
