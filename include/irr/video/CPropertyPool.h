@@ -76,7 +76,7 @@ class CPropertyPool final : public IPropertyPool
 		virtual uint32_t getPropertySize(uint32_t ix) const {return PropertySizes[ix];}
 
 	protected:
-        CPropertyPool(core::SBufferRange<IGPUBuffer>&& _memoryBlock, uint32_t capacity, void* reserved, allocator<uint8_t>&& _alloc)
+        CPropertyPool(asset::SBufferRange<IGPUBuffer>&& _memoryBlock, uint32_t capacity, void* reserved, allocator<uint8_t>&& _alloc)
             : IPropertyPool(std::move(_memoryBlock),capacity,reserved), alloc(std::move(_alloc))
         {
         }

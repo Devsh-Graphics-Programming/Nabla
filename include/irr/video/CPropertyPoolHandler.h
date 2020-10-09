@@ -87,27 +87,43 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 					constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
 					const uint32_t upAllocations = 1u+(download ? 0u:propertiesThisPass);
 
+
 					const auto poolsLocalBegin = poolIt;
 					uint32_t distinctPools = 1u;
-					m_tmpSizes[0u] = sizeof(uint32_t)*3u*propertiesThisPass; // TODO
-					for (uint32_t i=0; i<propertiesThisPass; i++)
 					{
-						const IPropertyPool* pool = *poolIt;
-						const auto poolID = std::distance(poolsBegin,poolIt);
+						m_tmpSizes[0u] = 3u*propertiesThisPass;
 
-						m_transientPassData[i] = {&pool->getMemoryBlock(),data[poolID][localPropID],pool->getPropertySize(localPropID)};
-
-						const auto elements = std::distance(indicesBegin[poolID],indicesEnd[poolID]);
-						assert(elements);
-						m_tmpSizes[i+1u] = elements*m_transientPassData[i].propSize;
-
-						if ((++localPropID) >= pool->getPropertyCount())
+						auto transientPassDataIt = m_transientPassData.data();
+						uint32_t elements;
+						uint32_t indexOffset = 0u;
+						for (uint32_t i=0; i<propertiesThisPass; i++)
 						{
-							localPropID = 0u;
-							poolIt++;
 							assert(poolIt!=poolsEnd);
-							distinctPools++;
+							const IPropertyPool* pool = *poolIt;
+							const auto poolID = std::distance(poolsBegin,poolIt);
+
+							const auto propSize = pool->getPropertySize(localPropID);
+
+							transientPassDataIt->memBlock = &pool->getMemoryBlock();
+							transientPassDataIt->data = data[poolID][localPropID];
+							transientPassDataIt->propDWORDSize = propSize/sizeof(uint32_t);
+							transientPassDataIt->indexOffset = indexOffset;
+
+							elements = std::distance(indicesBegin[poolID],indicesEnd[poolID]);
+							assert(elements);
+							m_tmpSizes[i+1u] = elements*propSize;
+
+							if ((++localPropID) >= pool->getPropertyCount())
+							{
+								localPropID = 0u;
+								indexOffset += elements;
+								poolIt++;
+								distinctPools++;
+							}
 						}
+						indexOffset += elements;
+						m_tmpSizes[0u] += indexOffset;
+						m_tmpSizes[0u] *= sizeof(uint32_t);
 					}
 
 					// allocate indices and upload/allocate data
@@ -123,14 +139,14 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 						for (uint32_t i=1u; i<=upAllocations; i++)
 						if (m_tmpAddresses[i]!=invalid_address)
 							memcpy(reinterpret_cast<uint8_t*>(upBuff->getBufferPointer())+m_tmpAddresses[i],m_transientPassData[i].data,m_tmpSizes[i]);
-						
+
 						auto* indexBufferPtr = reinterpret_cast<uint32_t*>(upBuff->getBufferPointer())+m_tmpAddresses[0u]/sizeof(uint32_t);
 						// write `elementCount`
 						for (uint32_t i=0; i<propertiesThisPass; i++)
-							*(indexBufferPtr++) = m_tmpSizes[i+1u]/m_transientPassData[i].propSize;
+							*(indexBufferPtr++) = m_tmpSizes[i+1u]/(sizeof(uint32_t)*m_transientPassData[i].propDWORDSize);
 						// write `propertyDWORDsize_upDownFlag`
 						for (uint32_t i=0; i<propertiesThisPass; i++)
-							*reinterpret_cast<int32_t*>(indexBufferPtr++) = (download ? -1:1)*m_transientPassData[i].propSize;
+							*reinterpret_cast<int32_t*>(indexBufferPtr++) = (download ? -1:1)*m_transientPassData[i].propDWORDSize;
 						// write `indexOffset`
 						for (uint32_t i=0; i<propertiesThisPass; i++)
 							*(indexBufferPtr++) = m_transientPassData[i].indexOffset;
@@ -139,12 +155,12 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 						{
 							const auto poolID = std::distance(poolsBegin,poolsLocalBegin)+i;
 							const auto indexCount = indicesEnd[poolID]-indicesBegin[poolID];
-							maxElements = core::max(indexCount,maxElements);
-							memcpy(indexBufferPtr,indicesBegin[poolID],indexCount);
+							memcpy(indexBufferPtr,indicesBegin[poolID],sizeof(uint32_t)*indexCount);
 							indexBufferPtr += indexCount;
+
+							maxElements = core::max(indexCount,maxElements);
 						}
 					}
-
 					const auto pipelineIndex = propertiesThisPass-1u;
 					auto& items = m_perPropertyCountItems[pipelineIndex];
 					auto pipeline = items.pipeline.get();
@@ -152,10 +168,10 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 
 					// update desc sets
 					auto set = items.descriptorSetCache.getNextSet(
-						download,m_driver
+						download,m_driver,
 						m_tmpAddresses[0],m_tmpSizes[0],
 						m_tmpAddresses.data()+1u,m_tmpSizes.data()+1u,
-						m_transientPassData
+						m_transientPassData.data()
 					);
 					if (!set)
 					{
@@ -178,7 +194,6 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 				};
 
 				//
-				core::smart_refctd_ptr<IDriverFence> fence;
 				for (uint32_t i=0; i<fullPasses; i++)
 				{
 					copyPass(maxPropertiesPerPass);
@@ -199,7 +214,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 		{
 			const asset::SBufferRange<IGPUBuffer>* memBlock;
 			const void* data;
-			int32_t propSize;
+			int32_t propDWORDSize;
 			uint32_t indexOffset;
 		};
 		class DescriptorSetCache

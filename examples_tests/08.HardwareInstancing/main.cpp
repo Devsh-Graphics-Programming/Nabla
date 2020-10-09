@@ -9,15 +9,6 @@ using namespace core;
 using namespace scene;
 
 
-#define kNumHardwareInstancesX 10
-#define kNumHardwareInstancesY 20
-#define kNumHardwareInstancesZ 30
-
-#define kHardwareInstancesTOTAL (kNumHardwareInstancesX*kNumHardwareInstancesY*kNumHardwareInstancesZ)
-
-
-constexpr float instanceLoDDistances[] = {8.f,50.f};
-
 #if 0
 const char* uniformNames[] =
 {
@@ -116,43 +107,45 @@ public:
 
     virtual void OnUnsetMaterial() {}
 };
-
-
- core::smart_refctd_ptr<asset::IMeshDataFormatDesc<video::IGPUBuffer> > vaoSetupOverride(ISceneManager* smgr, video::IGPUBuffer* instanceDataBuffer, const size_t& dataSizePerInstanceOutput, const asset::IMeshDataFormatDesc<video::IGPUBuffer>* oldVAO, void* userData)
- {
-    video::IVideoDriver* driver = smgr->getVideoDriver();
-    auto vao = driver->createGPUMeshDataFormatDesc();
-
-    //
-    for (size_t k=0; k<asset::EVAI_COUNT; k++)
-    {
-        asset::E_VERTEX_ATTRIBUTE_ID attrId = (asset::E_VERTEX_ATTRIBUTE_ID)k;
-        if (!oldVAO->getMappedBuffer(attrId))
-            continue;
-
-        vao->setVertexAttrBuffer(	core::smart_refctd_ptr<video::IGPUBuffer>(const_cast<video::IGPUBuffer*>(oldVAO->getMappedBuffer(attrId))),
-									attrId,oldVAO->getAttribFormat(attrId), oldVAO->getMappedBufferStride(attrId),oldVAO->getMappedBufferOffset(attrId),
-									oldVAO->getAttribDivisor(attrId));
-    }
-
-    // I know what attributes are unused in my mesh and I've set up the shader to use thse as instance data
-    vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR4,asset::EF_R32G32B32A32_SFLOAT,28*sizeof(float),0,1);
-    vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR5,asset::EF_R32G32B32A32_SFLOAT,28*sizeof(float),4*sizeof(float),1);
-    vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR6,asset::EF_R32G32B32A32_SFLOAT,28*sizeof(float),8*sizeof(float),1);
-    vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR2,asset::EF_R32G32B32A32_SFLOAT,28*sizeof(float),12*sizeof(float),1);
-
-    vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR7,asset::EF_R32G32B32_SFLOAT,28*sizeof(float),16*sizeof(float),1);
-    vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR8,asset::EF_R32G32B32_SFLOAT,28*sizeof(float),19*sizeof(float),1);
-    vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR9,asset::EF_R32G32B32_SFLOAT,28*sizeof(float),22*sizeof(float),1);
-    vao->setVertexAttrBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(instanceDataBuffer),asset::EVAI_ATTR10,asset::EF_R32G32B32_SFLOAT,28*sizeof(float),25*sizeof(float),1);
-
-
-    if (oldVAO->getIndexBuffer())
-        vao->setIndexBuffer(core::smart_refctd_ptr<video::IGPUBuffer>(const_cast<video::IGPUBuffer*>(oldVAO->getIndexBuffer())));
-
-    return vao;
- }
 #endif
+
+
+struct ViewInvariantProps
+{
+	core::matrix3x4SIMD tform;
+};
+struct ViewDependentObjectInvariantProps
+{
+	core::matrix4SIMD mvp;
+	union
+	{
+		struct
+		{
+			float normalMatrixRow0[3];
+			uint32_t objectUUID;
+			float normalMatrixRow1[3];
+			uint32_t objectUUID;
+			float normalMatrixRow2[3];
+			uint32_t padding;
+		};
+		core::matrix3x4SIMD normalMatrix;
+	};
+};
+// perView.data[gl_DrawID][gl_InstanceIndex]
+
+struct ModelLoD
+{
+	ModelLoD(asset::IAssetManager* assMgr, video::IVideoDriver* driver, float _distance, const char* modelPath) : mb(nullptr), distance(_distance)
+	{
+		// load model
+		// override vertex shader
+		// assert that the mesh is indexed
+		// convert to GPU Mesh
+	}
+
+	core::smart_refctd_ptr<video::IGPUMesh> mesh;
+	float distance;
+};
 
 int main()
 {
@@ -178,142 +171,120 @@ int main()
 	device->setEventReceiver(&receiver);
 
 
-	video::IVideoDriver* driver = device->getVideoDriver();
-
-	auto instanceWorldTransforms = video::CPropertyPool<core::allocator,core::matrix3x4SIMD>::create();
-#if 0
-    SimpleCallBack* cb = new SimpleCallBack();
-    video::E_MATERIAL_TYPE newMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
-                                                        "","","", //! No Geometry or Tessellation Shaders
-                                                        "../mesh.frag",
-                                                        3,video::EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only
-                                                        cb, //! Our Shader Callback
-                                                        0); //! No custom user data
-    cb->drop();
+	auto assMgr = device->getAssetManager();
+	auto driver = device->getVideoDriver();
 
 
+	constexpr auto kNumHardwareInstancesX = 10;
+	constexpr auto kNumHardwareInstancesY = 20;
+	constexpr auto kNumHardwareInstancesZ = 30;
 
-	IMeshSceneNodeInstanced* node;
-	uint32_t instanceIDs[kNumHardwareInstancesZ][kNumHardwareInstancesY][kNumHardwareInstancesX];
+	constexpr auto kHardwareInstancesTOTAL = kNumHardwareInstancesX * kNumHardwareInstancesY * kNumHardwareInstancesZ;
+
+	const ModelLoD instanceLoDs[] = { ModelLoD(assMgr,driver,8.f,"../../media/cow.obj"),ModelLoD(assMgr,driver,50.f,"../../media/yellowflower.obj") };
+	constexpr auto kLoDLevels = sizeof(instanceLoDs) / sizeof(ModelLoD);
+
+	// create the pool
+	auto instanceData = [&]()
 	{
-		asset::IAssetLoader::SAssetLoadParams lparams;
-		video::created_gpu_object_array<asset::ICPUMesh> gpumeshes;
-		//! Test Loading of Obj
-		{
-			core::vector<core::smart_refctd_ptr<asset::ICPUMesh> > cpumeshes;
-			cpumeshes.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*device->getAssetManager()->getAsset("../../media/cow.obj", lparams).getContents().first));
-			cpumeshes.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(*device->getAssetManager()->getAsset("../../media/yellowflower.obj", lparams).getContents().first));
+		asset::SBufferRange<video::IGPUBuffer> memoryBlock;
+		memoryBlock.buffer = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(ViewInvariantProps) * kHardwareInstancesTOTAL);
+		memoryBlock.size = memoryBlock.buffer->getSize();
+		return video::CPropertyPool<core::allocator, ViewInvariantProps>::create(std::move(memoryBlock));
+	}();
 
-			gpumeshes = std::move(driver->getGPUObjectsFromAssets(reinterpret_cast<asset::ICPUMesh**>(cpumeshes.data()), reinterpret_cast<asset::ICPUMesh**>(cpumeshes.data())+2));
+	// use the pool
+	core::vector<uint32_t> instanceIDs(kHardwareInstancesTOTAL);
+	{
+		// create the instances
+		{
+			core::vector<ViewInvariantProps> props(kHardwareInstancesTOTAL);
+		
+			auto propIt = props.begin();
+			for (size_t z=0; z<kNumHardwareInstancesZ; z++)
+			for (size_t y=0; y<kNumHardwareInstancesY; y++)
+			for (size_t x=0; x<kNumHardwareInstancesX; x++)
+			{
+				propIt->tform.setTranslation(core::vectorSIMDf(x,y,z)*2.f);
+				propIt++;
+			}
+
+			video::IPropertyPool* pool = instanceData.get();
+			uint32_t* indicesBegin = instanceIDs.data();
+			const void* data = props.data();
+			const void* const* pData = &data;
+			driver->getDefaultPropertyPoolHandler()->addProperties(&pool,&pool+1u,&indicesBegin,&indicesBegin+1u,&pData);
 		}
-		for (auto j=0u; j<gpumeshes->size(); j++)
-		{
-			auto gpumesh = gpumeshes->operator[](j);
-			for (size_t i=0; i<gpumesh->getMeshBufferCount(); i++)
-				gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = (video::E_MATERIAL_TYPE)newMaterialType;
-		}
 
-
-		video::SGPUMaterial cullingXFormFeedbackShader;
-		const char* xformFeedbackOutputs[] =
-		{
-			"outLoD0_worldViewProjMatCol0",
-			"outLoD0_worldViewProjMatCol1",
-			"outLoD0_worldViewProjMatCol2",
-			"outLoD0_worldViewProjMatCol3",
-			"outLoD0_worldViewMatCol0",
-			"outLoD0_worldViewMatCol1",
-			"outLoD0_worldViewMatCol2",
-			"outLoD0_worldViewMatCol3",
-			"gl_NextBuffer",
-			"outLoD1_worldViewProjMatCol0",
-			"outLoD1_worldViewProjMatCol1",
-			"outLoD1_worldViewProjMatCol2",
-			"outLoD1_worldViewProjMatCol3",
-			"outLoD1_worldViewMatCol0",
-			"outLoD1_worldViewMatCol1",
-			"outLoD1_worldViewMatCol2",
-			"outLoD1_worldViewMatCol3"
-		};
-		cullingXFormFeedbackShader.MaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../culling.vert","","","../culling.geom","",3,video::EMT_SOLID,cb,xformFeedbackOutputs,17);
-		cullingXFormFeedbackShader.RasterizerDiscard = true;
-
-		node = smgr->addMeshSceneNodeInstanced(smgr->getRootSceneNode());
-        node->setBBoxUpdateEnabled();
-        node->setAutomaticCulling(scene::EAC_FRUSTUM_BOX);
-        {
-            core::vector<scene::IMeshSceneNodeInstanced::MeshLoD> LevelsOfDetail;
-            LevelsOfDetail.resize(2);
-            LevelsOfDetail[0].mesh = gpumeshes->operator[](0u).get();
-            LevelsOfDetail[0].lodDistance = instanceLoDDistances[0];
-            LevelsOfDetail[1].mesh = gpumeshes->operator[](1u).get();
-            LevelsOfDetail[1].lodDistance = instanceLoDDistances[1];
-
-            bool success = node->setLoDMeshes(LevelsOfDetail,28*sizeof(float),cullingXFormFeedbackShader,vaoSetupOverride,2,NULL,0);
-            assert(success);
-            cb->instanceLoDInvariantBBox = node->getLoDInvariantBBox();
-        }
-
-        //! Special Juice for INSTANCING
-        for (size_t z=0; z<kNumHardwareInstancesZ; z++)
-        for (size_t y=0; y<kNumHardwareInstancesY; y++)
-        for (size_t x=0; x<kNumHardwareInstancesX; x++)
-        {
-            core::matrix3x4SIMD mat;
-            mat.setTranslation(core::vectorSIMDf(x,y,z)*2.f);
-            instanceIDs[z][y][x] = node->addInstance(mat);
-        }
-
-        srand(6945);
-
+		// remove some randomly
+		srand(6945);
         for (size_t i=0; i<600; i++)
         {
-            uint32_t x = rand()%kNumHardwareInstancesX;
-            uint32_t y = rand()%kNumHardwareInstancesY;
-            uint32_t z = rand()%kNumHardwareInstancesZ;
-            uint32_t& instanceID = instanceIDs[z][y][x];
-            if (instanceID==0xdeadbeefu)
+            uint32_t ix = rand()%kHardwareInstancesTOTAL;
+            uint32_t& instanceID = instanceIDs[ix];
+            if (instanceID==video::IPropertyPool::invalid_index)
                 continue;
 
-            node->removeInstance(instanceID);
-            instanceID = 0xdeadbeefu;
+			instanceData->freeProperties(&instanceID,&instanceID+1);
+            instanceID = video::IPropertyPool::invalid_index;
         }
+
+		// remember which ones we need to get rid of
+		auto newEnd = std::remove(instanceIDs.begin(),instanceIDs.end(),video::IPropertyPool::invalid_index);
+		instanceIDs.resize(std::distance(instanceIDs.begin(),newEnd));
 	}
+
+	auto perViewInstanceData = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(ViewDependentObjectInvariantProps)*kHardwareInstancesTOTAL);
 	
+	auto drawIndirectData = [&]()
+	{
+		/*
+		uint32_t count;
+		uint32_t instanceCount;
+		uint32_t firstIndex;
+		uint32_t baseVertex;
+		uint32_t baseInstance;
+		*/
+		core::vector<asset::DrawElementsIndirectCommand_t> indirectCmds(instanceLoDs[0].mesh->getMeshBufferCount()+instanceLoDs[1].mesh->getMeshBufferCount());
+		// TODO: fill
+		return driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(asset::DrawElementsIndirectCommand_t)*indirectCmds.size(),indirectCmds.data());
+	}();
 
-    size_t removeCount = 0u;
-    uint32_t instancesToRemove[kHardwareInstancesTOTAL];
-    for (size_t z=0; z<kNumHardwareInstancesZ; z++)
-    for (size_t y=0; y<kNumHardwareInstancesY; y++)
-    for (size_t x=0; x<kNumHardwareInstancesX; x++)
-    {
-        auto instanceID = instanceIDs[z][y][x];
-        if (instanceID==0xdeadbeefu)
-            continue;
-
-        instancesToRemove[removeCount++] = instanceID;
-    }
+	core::vectorSIMDf lodInvariantAABB[2];
+	{
+		core::aabbox3df bbox = instanceLoDs[0].mesh->getBoundingBox();
+		for (auto i=1u; i<kLoDLevels; i++)
+			bbox.addInternalBox(instanceLoDs[i].mesh->getBoundingBox());
+	}
 
 
+	scene::ICameraSceneNode* camera = device->getSceneManager()->addCameraSceneNodeFPS(0, 100.0f, 0.01f);
+	camera->setPosition(core::vector3df(-4, 0, 0));
+	camera->setTarget(core::vector3df(0, 0, 0));
+	camera->setNearValue(0.01f);
+	camera->setFarValue(100.0f);
 
+	// render
+	while (true)
+	{
+		// TODO: task for junior, make the instances spin
 
-    node->removeInstances(removeCount,instancesToRemove);
-    node->remove();
+		// compute shader culling
 
+		// barrier
+		
+		// draw indirects
+	}
 
+	instanceData->freeProperties(instanceIDs.data(),instanceIDs.data()+instanceIDs.size());
+
+#if 0
 	//create a screenshot
 	{
 		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
 		ext::ScreenShot::dirtyCPUStallingScreenshot(driver,device->getAssetManager(), "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
 	}
 #endif
-
-	scene::ICameraSceneNode* camera =
-		smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
-	camera->setPosition(core::vector3df(-4,0,0));
-	camera->setTarget(core::vector3df(0,0,0));
-	camera->setNearValue(0.01f);
-	camera->setFarValue(100.0f);
 
 	return 0;
 }
