@@ -80,7 +80,8 @@ public:
         ir.for_each_typed_id<spirv_cross::SPIRVariable>(//gather all instances of SSBO and UBO blocks
             [&](uint32_t, const spirv_cross::SPIRVariable& var) {
                 auto& type = this->get<spirv_cross::SPIRType>(var.basetype);
-                if (type.storage == spv::StorageClassUniform || type.storage == spv::StorageClassStorageBuffer)
+                // UBO only uncomment below to take ssbo into account as well
+                if (type.storage == spv::StorageClassUniform/* || type.storage == spv::StorageClassStorageBuffer*/)
                 {
                     vars.push_back(var.self);
                 }
