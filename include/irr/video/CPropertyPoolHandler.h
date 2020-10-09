@@ -33,19 +33,21 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 		inline const IGPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t ix) const { return m_perPropertyCountItems[ix].descriptorSetLayout.get(); }
 
 
+		#define DEFAULT_WAIT std::chrono::nanoseconds(50000ull)
+
 		// allocate and upload properties, indices need to be pre-initialized to `invalid_index`
-		bool addProperties(IPropertyPool* const* poolsBegin, IPropertyPool* const* poolsEnd, uint32_t* const* indicesBegin, uint32_t* const* indicesEnd, const void* const* const* dataBegin, const void* const* const* dataEnd);
+		bool addProperties(IPropertyPool* const* poolsBegin, IPropertyPool* const* poolsEnd, uint32_t* const* indicesBegin, uint32_t* const* indicesEnd, const void* const* const* data, const std::chrono::nanoseconds& maxWait=DEFAULT_WAIT);
 
         //
-		inline bool uploadProperties(const IPropertyPool* const* poolsBegin, const IPropertyPool* const* poolsEnd, const uint32_t* const* indicesBegin, const uint32_t* const* indicesEnd, const void* const* const* dataBegin, const void* const* const* dataEnd)
+		inline bool uploadProperties(const IPropertyPool* const* poolsBegin, const IPropertyPool* const* poolsEnd, const uint32_t* const* indicesBegin, const uint32_t* const* indicesEnd, const void* const* const* data, const std::chrono::nanoseconds& maxWait=DEFAULT_WAIT)
 		{
-			return transferProperties(false,poolsBegin,poolsEnd,indicesBegin,indicesEnd,dataBegin,dataEnd);
+			return transferProperties(false,poolsBegin,poolsEnd,indicesBegin,indicesEnd,data,maxWait);
 		}
 
         //
-		bool downloadProperties(const IPropertyPool* const* poolsBegin, const IPropertyPool* const* poolsEnd, const uint32_t* const* indicesBegin, const uint32_t* const* indicesEnd, void* const* const* dataBegin, void* const* const* dataEnd)
+		bool downloadProperties(const IPropertyPool* const* poolsBegin, const IPropertyPool* const* poolsEnd, const uint32_t* const* indicesBegin, const uint32_t* const* indicesEnd, void* const* const* data, const std::chrono::nanoseconds& maxWait=DEFAULT_WAIT)
 		{
-			return transferProperties(true,poolsBegin,poolsEnd,indicesBegin,indicesEnd,dataBegin,dataEnd);
+			return transferProperties(true,poolsBegin,poolsEnd,indicesBegin,indicesEnd,data,maxWait);
 		}
 
     protected:
@@ -55,11 +57,13 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 		}
 
 		template<typename T>
-		inline bool transferProperties(bool download, const IPropertyPool* const* poolsBegin, const IPropertyPool* const* poolsEnd, const uint32_t* const* indicesBegin, const uint32_t* const* indicesEnd, T dataBegin, T dataEnd)
+		inline bool transferProperties(bool download, const IPropertyPool* const* poolsBegin, const IPropertyPool* const* poolsEnd, const uint32_t* const* indicesBegin, const uint32_t* const* indicesEnd, T* const* const* data, const std::chrono::nanoseconds& maxWait)
 		{
+			const auto poolCount = std::distance(poolsBegin,poolsEnd);
+
 			uint32_t totalProps = 0u;
-			for (auto it=poolsBegin; it!=poolsEnd; it++)
-				totalProps += (*it)->getPropertyCount();
+			for (auto i=0u; i<poolCount; i++)
+				totalProps += poolsBegin[i]->getPropertyCount();
 
 			bool success = true;
 			if (totalProps!=0u)
@@ -70,18 +74,41 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 				auto upBuff = m_driver->getDefaultUpStreamingBuffer();
 				auto downBuff = m_driver->getDefaultDownStreamingBuffer();
 
-				const IPropertyPool* const* pool = poolsBegin;
+				auto poolIt = poolsBegin;
 				uint32_t localPropID = 0u;
 
 				//
 				auto copyPass = [&](uint32_t propertiesThisPass)
 				{
 					uint32_t maxElements = 0u;
+					for (uint32_t i=0; i<propertiesThisPass; i++)
+					{
+						const IPropertyPool* pool = *poolIt;
+						const auto poolID = std::distance(poolsBegin,poolIt);
+
+						const uint32_t* indices = indicesBegin[poolID];
+						// T data = data[poolID]
+
+						const auto elements = std::distance(indices,indicesEnd[poolID]);
+						assert(elements);
+						if (elements>maxElements)
+							maxElements = elements;
+
+						//
+
+						if ((++localPropID) >= pool->getPropertyCount())
+						{
+							localPropID = 0u;
+							poolIt++;
+							assert(poolIt!=poolsEnd);
+						}
+					}
+
 					// allocate indices and data
 					{
 						std::chrono::nanoseconds maxWait;
 						uint32_t outaddresses, bytesize, alignment;
-						m_driver->getDefaultUpStreamingBuffer()->multi_alloc(maxWait,2u,outaddresses,bytesize,alignment);
+						upBuff->multi_alloc(maxWait,2u,outaddresses,bytesize,alignment);
 					}
 					// upload indices (and data if !download)
 					for (uint32_t i=0; i<propertiesThisPass; i++)

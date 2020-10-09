@@ -87,7 +87,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(IVideoDriver* driver, IGPUPipelineCac
 }
 
 //
-bool CPropertyPoolHandler::addProperties(IPropertyPool* const* poolsBegin, IPropertyPool* const* poolsEnd, uint32_t* const* indicesBegin, uint32_t* const* indicesEnd, const void* const* const* dataBegin, const void* const* const* dataEnd)
+bool CPropertyPoolHandler::addProperties(IPropertyPool* const* poolsBegin, IPropertyPool* const* poolsEnd, uint32_t* const* indicesBegin, uint32_t* const* indicesEnd, const void* const* const* dataBegin, const std::chrono::nanoseconds& maxWait)
 {
 	bool success = true;
 
@@ -100,7 +100,7 @@ bool CPropertyPoolHandler::addProperties(IPropertyPool* const* poolsBegin, IProp
 		poolIndicesEnd++;
 	}
 
-	return uploadProperties(poolsBegin,poolsEnd,indicesBegin,indicesEnd,dataBegin,dataEnd) && success;
+	return uploadProperties(poolsBegin,poolsEnd,indicesBegin,indicesEnd,dataBegin,maxWait) && success;
 }
 
 
