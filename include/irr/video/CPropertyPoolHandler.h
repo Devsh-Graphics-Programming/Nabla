@@ -130,10 +130,12 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 					uint32_t maxElements = 0u;
 					{
 						std::fill(m_tmpAddresses.begin(),m_tmpAddresses.begin()+upAllocations,invalid_address);
+#if 0 // TODO
 						upBuff->multi_alloc(maxWaitPoint,upAllocations,m_tmpAddresses.data(),m_tmpSizes.data(),m_alignments.data());
 
 						if (download)
 							downBuff->multi_alloc(maxWaitPoint,propertiesThisPass,m_tmpAddresses.data()+1u,m_tmpSizes.data()+1u,m_alignments.data());
+#endif
 						
 						// upload
 						for (uint32_t i=1u; i<=upAllocations; i++)

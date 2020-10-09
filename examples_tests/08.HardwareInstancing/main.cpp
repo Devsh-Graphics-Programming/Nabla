@@ -110,6 +110,10 @@ public:
 #endif
 
 
+struct MaterialMetadataProps
+{
+	uint32_t someData;
+};
 struct ViewInvariantProps
 {
 	core::matrix3x4SIMD tform;
@@ -188,9 +192,9 @@ int main()
 	auto instanceData = [&]()
 	{
 		asset::SBufferRange<video::IGPUBuffer> memoryBlock;
-		memoryBlock.buffer = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(ViewInvariantProps) * kHardwareInstancesTOTAL);
+		memoryBlock.buffer = driver->createDeviceLocalGPUBufferOnDedMem((sizeof(ViewInvariantProps)+sizeof(MaterialMetadataProps))*kHardwareInstancesTOTAL);
 		memoryBlock.size = memoryBlock.buffer->getSize();
-		return video::CPropertyPool<core::allocator, ViewInvariantProps>::create(std::move(memoryBlock));
+		return video::CPropertyPool<core::allocator,ViewInvariantProps,MaterialMetadataProps>::create(std::move(memoryBlock));
 	}();
 
 	// use the pool
@@ -198,22 +202,23 @@ int main()
 	{
 		// create the instances
 		{
-			core::vector<ViewInvariantProps> props(kHardwareInstancesTOTAL);
+			core::vector<ViewInvariantProps> propsA(kHardwareInstancesTOTAL);
+			core::vector<MaterialMetadataProps> propsB(kHardwareInstancesTOTAL);
 		
-			auto propIt = props.begin();
+			auto propAIt = propsA.begin();
+			auto propBIt = propsB.begin();
 			for (size_t z=0; z<kNumHardwareInstancesZ; z++)
 			for (size_t y=0; y<kNumHardwareInstancesY; y++)
 			for (size_t x=0; x<kNumHardwareInstancesX; x++)
 			{
-				propIt->tform.setTranslation(core::vectorSIMDf(x,y,z)*2.f);
-				propIt++;
+				propAIt->tform.setTranslation(core::vectorSIMDf(x,y,z)*2.f);
+				propAIt++,propBIt++;
 			}
 
 			video::IPropertyPool* pool = instanceData.get();
 			uint32_t* indicesBegin = instanceIDs.data();
-			const void* data = props.data();
-			const void* const* pData = &data;
-			driver->getDefaultPropertyPoolHandler()->addProperties(&pool,&pool+1u,&indicesBegin,&indicesBegin+1u,&pData);
+			const void* data[] = {propsA.data(),propsB.data()};
+			driver->getDefaultPropertyPoolHandler()->addProperties(&pool,&pool+1u,&indicesBegin,&indicesBegin+1u,reinterpret_cast<const void* const* const*>(&data));
 		}
 
 		// remove some randomly
