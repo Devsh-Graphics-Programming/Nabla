@@ -96,13 +96,10 @@ public:
                         auto& param_type = get_type(func.arguments[0].type);
 
                         const uint32_t ix = (param_type.basetype==spirv_cross::SPIRType::BaseType::Double ? 1u:0u)*(3u*3u) + (3u*(param_type.vecsize-2u)) + param_type.columns-2u;
-                        const char* szstr = nm.c_str()+sizeof(expected)-1u;
 
-                        if (ix < fixFuncs.size())
-                        {
-                            fixFuncs[ix].restype = get_type(func.return_type).self;
-                            fixFuncs[ix].id = fid;
-                        }
+                        assert(ix < fixFuncs.size());
+                        fixFuncs[ix].restype = get_type(func.return_type).self;
+                        fixFuncs[ix].id = fid;
                     }
             }
         );
