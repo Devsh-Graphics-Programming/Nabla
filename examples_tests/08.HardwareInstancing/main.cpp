@@ -4,6 +4,9 @@
 #include "../ext/ScreenShot/ScreenShot.h"
 #include "../common/QToQuitEventReceiver.h"
 
+
+#include "irr/video/IPropertyPoolFactory.h"
+
 using namespace irr;
 using namespace core;
 using namespace scene;
@@ -18,6 +21,7 @@ using namespace scene;
 
 constexpr float instanceLoDDistances[] = {8.f,50.f};
 
+#if 0
 const char* uniformNames[] =
 {
     "ProjViewWorldMat",
@@ -151,7 +155,7 @@ public:
 
     return vao;
  }
-
+#endif
 
 int main()
 {
@@ -166,9 +170,9 @@ int main()
 	params.Vsync = true; //! If supported by target platform
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
-	IrrlichtDevice* device = createDeviceEx(params);
+	auto device = createDeviceEx(params);
 
-	if (device == 0)
+	if (!device)
 		return 1; // could not create selected driver.
 
 	device->getCursorControl()->setVisible(false);
@@ -177,9 +181,10 @@ int main()
 	device->setEventReceiver(&receiver);
 
 
-
 	video::IVideoDriver* driver = device->getVideoDriver();
 
+
+#if 0
     SimpleCallBack* cb = new SimpleCallBack();
     video::E_MATERIAL_TYPE newMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
                                                         "","","", //! No Geometry or Tessellation Shaders
@@ -334,9 +339,7 @@ int main()
 		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
 		ext::ScreenShot::dirtyCPUStallingScreenshot(driver,device->getAssetManager(), "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
 	}
-
-
-	device->drop();
+#endif
 
 	return 0;
 }
