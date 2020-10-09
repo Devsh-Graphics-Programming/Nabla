@@ -109,47 +109,13 @@ public:
             [&](uint32_t, const spirv_cross::SPIRFunction& func) {
                     uint32_t fid = func.self;
                     const std::string& nm = get_name(fid);
-                    const char expected[] = "irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_";
-                    if (nm.length()>sizeof(expected)-1u && strncmp(nm.c_str(), expected, sizeof(expected)-1u)==0)
+                    const char expected[] = "irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier";
+                    if (strncmp(nm.c_str(), expected, sizeof(expected)-1u) == 0)
                     {
-                        uint32_t ix = ~0u;
+                        auto& param_type = get_type(func.arguments[0].type);
+
+                        const uint32_t ix = (param_type.basetype==spirv_cross::SPIRType::BaseType::Double ? 1u:0u)*(3u*3u) + (3u*(param_type.vecsize-2u)) + param_type.columns-2u;
                         const char* szstr = nm.c_str()+sizeof(expected)-1u;
-                        if (strncmp(szstr, "dmat2x2", 7) == 0)
-                            ix = EAFF_d2x2;
-                        else if (strncmp(szstr, "dmat2x3", 7) == 0)
-                            ix = EAFF_d2x3;
-                        else if (strncmp(szstr, "dmat2x4", 7) == 0)
-                            ix = EAFF_d2x4;
-                        else if (strncmp(szstr, "dmat3x2", 7) == 0)
-                            ix = EAFF_d3x2;
-                        else if (strncmp(szstr, "dmat3x3", 7) == 0)
-                            ix = EAFF_d3x3;
-                        else if (strncmp(szstr, "dmat3x4", 7) == 0)
-                            ix = EAFF_d3x4;
-                        else if (strncmp(szstr, "dmat4x2", 7) == 0)
-                            ix = EAFF_d4x2;
-                        else if (strncmp(szstr, "dmat4x3", 7) == 0)
-                            ix = EAFF_d4x3;
-                        else if (strncmp(szstr, "dmat4x4", 7) == 0)
-                            ix = EAFF_d4x4;
-                        else if (strncmp(szstr, "mat2x2", 6) == 0)
-                            ix = EAFF_2x2;
-                        else if (strncmp(szstr, "mat2x3", 6) == 0)
-                            ix = EAFF_2x3;
-                        else if (strncmp(szstr, "mat2x4", 6) == 0)
-                            ix = EAFF_2x4;
-                        else if (strncmp(szstr, "mat3x2", 6) == 0)
-                            ix = EAFF_3x2;
-                        else if (strncmp(szstr, "mat3x3", 6) == 0)
-                            ix = EAFF_3x3;
-                        else if (strncmp(szstr, "mat3x4", 6) == 0)
-                            ix = EAFF_3x4;
-                        else if (strncmp(szstr, "mat4x2", 6) == 0)
-                            ix = EAFF_4x2;
-                        else if (strncmp(szstr, "mat4x3", 6) == 0)
-                            ix = EAFF_4x3;
-                        else if (strncmp(szstr, "mat4x4", 6) == 0)
-                            ix = EAFF_4x4;
 
                         if (ix < fixFuncs.size())
                         {
@@ -1330,7 +1296,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
             return nullptr;
         GLfloat a;
 
-// #define FIX_AMD_DRIVER_BUG // TODO: @Crisspl get this code manipulation to pass on the `boxFrustCull.comp` shader of ex 26 also update it to the fact i've converted the workaround to an overloaded function (name has now changed!)
+#define FIX_AMD_DRIVER_BUG // TODO: @Crisspl get this code manipulation to pass on the `boxFrustCull.comp` shader of ex 26 also update it to the fact i've converted the workaround to an overloaded function (name has now changed!)
 #ifdef FIX_AMD_DRIVER_BUG
         AMDbugfixCompiler comp(reinterpret_cast<const uint32_t*>(spvCode->getPointer()), spvCode->getSize()/4u);
         comp.set_entry_point(EP, asset::ESS2spvExecModel(stage));
