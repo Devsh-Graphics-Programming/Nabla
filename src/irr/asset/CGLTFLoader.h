@@ -65,12 +65,15 @@ namespace irr
 
 				struct SGLTFNode
 				{
-					std::optional<std::string> name;	//!< The user-defined name of this object.
+					SGLTFNode() {}
+					virtual ~SGLTFNode() {}
+
+					std::optional<std::string> name;				//!< The user-defined name of this object.
 					std::optional<std::vector<uint32_t>> children;	//!< The indices of this node's children.
-					std::optional<uint32_t> mesh;		//!< The index of the mesh in this node.
-					std::optional<uint32_t> camera;		//!< The index of the camera referenced by this node.
-					std::optional<uint32_t> skin;		//!< The index of the skin referenced by this node.
-					std::optional<uint32_t> weights;	//!< The weights of the instantiated Morph Target. Number of elements must match number of Morph Targets of used mesh.
+					std::optional<uint32_t> mesh;					//!< The index of the mesh in this node.
+					std::optional<uint32_t> camera;					//!< The index of the camera referenced by this node.
+					std::optional<uint32_t> skin;					//!< The index of the skin referenced by this node.
+					std::optional<uint32_t> weights;				//!< The weights of the instantiated Morph Target. Number of elements must match number of Morph Targets of used mesh.
 
 					struct SGLTFNTransformationTRS
 					{
@@ -83,6 +86,28 @@ namespace irr
 					{
 						SGLTFTransformation() {}
 						~SGLTFTransformation() {}
+
+						SGLTFTransformation(SGLTFTransformation& copy)
+						{
+							std::memmove(this, &copy, sizeof(SGLTFTransformation));
+						}
+
+						SGLTFTransformation(const SGLTFTransformation& copy)
+						{
+							std::memmove(this, &copy, sizeof(SGLTFTransformation));
+						}
+
+						SGLTFTransformation& operator=(SGLTFTransformation& copy)
+						{
+							std::memmove(this, &copy, sizeof(SGLTFTransformation));
+							return *this;
+						}
+
+						SGLTFTransformation& operator=(const SGLTFTransformation& copy)
+						{
+							std::memmove(this, &copy, sizeof(SGLTFTransformation));
+							return *this;
+						}
 
 						SGLTFNTransformationTRS trs;	
 						core::matrix4SIMD matrix;		//!< A floating-point 4x4 transformation matrix stored in column-major order.
@@ -110,11 +135,40 @@ namespace irr
 				{
 					struct SPrimitive
 					{
-						std::unordered_map<std::string, uint32_t> attributes;	//!< A dictionary object, where each key corresponds to mesh attribute semantic and each value is the index of the accessor containing attribute's data.
-						std::optional<uint32_t> indices;						//!< The index of the accessor that contains the indices.
-						std::optional<uint32_t> material;						//!< The index of the material to apply to this primitive when rendering.
-						std::optional<uint32_t> mode;							//!< The type of primitives to render.
+						/*
+							Valid attribute semantic property names include POSITION, NORMAL, TANGENT, TEXCOORD_0, TEXCOORD_1, COLOR_0, JOINTS_0, and WEIGHTS_0. 
+							Application-specific semantics must start with an underscore, e.g., _TEMPERATURE. TEXCOORD, COLOR, JOINTS, and WEIGHTS attribute 
+							semantic property names must be of the form [semantic]_[set_index], e.g., TEXCOORD_0, TEXCOORD_1, COLOR_0.
+						*/
+
+						std::unordered_map<std::string, uint32_t> attributes;				//!< A dictionary object, where each key corresponds to mesh attribute semantic and each value is the index of the accessor containing attribute's data.
+						std::optional<uint32_t> indices;									//!< The index of the accessor that contains the indices.
+						std::optional<uint32_t> material;									//!< The index of the material to apply to this primitive when rendering.
+						std::optional<uint32_t> mode;										//!< The type of primitives to render.
 						std::optional<std::unordered_map<std::string, uint32_t>> targets;	//!< An array of Morph Targets, each Morph Target is a dictionary mapping attributes (only POSITION, NORMAL, and TANGENT supported) to their deviations in the Morph Target.
+
+						E_PRIMITIVE_TOPOLOGY getMode(uint32_t input)
+						{
+							switch (input)
+							{
+								case SGLTFPT_POINTS:
+									return EPT_POINT_LIST;
+								case SGLTFPT_LINES:
+									return EPT_LINE_LIST;
+								case SGLTFPT_LINE_LOOP:
+									return EPT_LINE_LIST_WITH_ADJACENCY; // check it
+								case SGLTFPT_LINE_STRIP:
+									return EPT_LINE_STRIP;
+								case SGLTFPT_TRIANGLES:
+									return EPT_TRIANGLE_LIST;
+								case SGLTFPT_TRIANGLE_STRIP:
+									return EPT_TRIANGLE_STRIP;
+								case SGLTFPT_TRIANGLE_FAN:
+									return EPT_TRIANGLE_STRIP_WITH_ADJACENCY; // check it
+								default:
+									return {};
+							}
+						};
 					};
 
 					std::vector<SPrimitive> primitives;					//!< An array of primitives, each defining geometry to be rendered with a material.
