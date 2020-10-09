@@ -22,7 +22,11 @@ class IPropertyPool : public core::IReferenceCounted
         _IRR_STATIC_INLINE_CONSTEXPR auto invalid_index = PropertyAddressAllocator::invalid_address;
 
 		//
+		inline const asset::SBufferRange<IGPUBuffer>& getMemoryBlock() const { return memoryBlock; }
+
+		//
 		virtual uint32_t getPropertyCount() const =0;
+		virtual uint32_t getPropertySize(uint32_t ix) const =0;
 
         //
         inline uint32_t getAllocated() const

@@ -73,6 +73,7 @@ class CPropertyPool final : public IPropertyPool
 
 		//
 		virtual uint32_t getPropertyCount() const {return PropertyCount;}
+		virtual uint32_t getPropertySize(uint32_t ix) const {return PropertySizes[ix];}
 
 	protected:
         CPropertyPool(core::SBufferRange<IGPUBuffer>&& _memoryBlock, uint32_t capacity, void* reserved, allocator<uint8_t>&& _alloc)

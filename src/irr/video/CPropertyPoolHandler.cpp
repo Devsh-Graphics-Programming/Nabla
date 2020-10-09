@@ -73,11 +73,15 @@ CPropertyPoolHandler::CPropertyPoolHandler(IVideoDriver* driver, IGPUPipelineCac
 {
 	assert(m_driver);
 	const auto maxSSBO = m_driver->getMaxSSBOBindings(); // TODO: make sure not dynamic offset
-	const uint32_t maxPropertiesPerPass = (maxSSBO-1u)/2u;
 
+	const uint32_t maxPropertiesPerPass = (maxSSBO-1u)/2u;
 	m_perPropertyCountItems.reserve(maxPropertiesPerPass);
-	m_tmpSizes.resize(maxPropertiesPerPass);
-	m_alignments.resize(maxPropertiesPerPass,alignof(uint32_t));
+
+	const auto maxSteamingAllocations = maxPropertiesPerPass+1u;
+	m_transientPassData.resize(maxSteamingAllocations);
+	m_tmpAddresses.resize(maxSteamingAllocations);
+	m_tmpSizes.resize(maxSteamingAllocations);
+	m_alignments.resize(maxSteamingAllocations,alignof(uint32_t));
 
 	for (uint32_t i=0u; i<maxPropertiesPerPass; i++)
 	{
@@ -87,7 +91,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(IVideoDriver* driver, IGPUPipelineCac
 }
 
 //
-bool CPropertyPoolHandler::addProperties(IPropertyPool* const* poolsBegin, IPropertyPool* const* poolsEnd, uint32_t* const* indicesBegin, uint32_t* const* indicesEnd, const void* const* const* dataBegin, const std::chrono::nanoseconds& maxWait)
+CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(IPropertyPool* const* poolsBegin, IPropertyPool* const* poolsEnd, uint32_t* const* indicesBegin, uint32_t* const* indicesEnd, const void* const* const* dataBegin, const std::chrono::nanoseconds& maxWait)
 {
 	bool success = true;
 
@@ -100,12 +104,15 @@ bool CPropertyPoolHandler::addProperties(IPropertyPool* const* poolsBegin, IProp
 		poolIndicesEnd++;
 	}
 
-	return uploadProperties(poolsBegin,poolsEnd,indicesBegin,indicesEnd,dataBegin,maxWait) && success;
+	if (!success)
+		return {false,nullptr};
+
+	return uploadProperties(poolsBegin,poolsEnd,indicesBegin,indicesEnd,dataBegin,maxWait);
 }
 
 
 //
-CPropertyPoolHandler::PerPropertyCountItems::PerPropertyCountItems(IVideoDriver* driver, IGPUPipelineCache* pipelineCache, uint32_t propertyCount)
+CPropertyPoolHandler::PerPropertyCountItems::PerPropertyCountItems(IVideoDriver* driver, IGPUPipelineCache* pipelineCache, uint32_t propertyCount) : descriptorSetCache(driver,propertyCount)
 {
 	std::string shaderSource("#version 440 core\n");
 	// property count
@@ -121,7 +128,6 @@ CPropertyPoolHandler::PerPropertyCountItems::PerPropertyCountItems(IVideoDriver*
 
 	auto shader = driver->createGPUShader(std::move(cpushader));
 	auto specshader = driver->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE});
-
 
 	auto layout = driver->createGPUPipelineLayout(nullptr,nullptr,descriptorSetCache.getLayout());
 	pipeline = driver->createGPUComputePipeline(pipelineCache,std::move(layout),std::move(specshader));
@@ -146,9 +152,10 @@ CPropertyPoolHandler::DescriptorSetCache::DescriptorSetCache(IVideoDriver* drive
 
 CPropertyPoolHandler::DescriptorSetCache::DeferredDescriptorSetReclaimer::single_poll_t CPropertyPoolHandler::DescriptorSetCache::DeferredDescriptorSetReclaimer::single_poll;
 core::smart_refctd_ptr<IGPUDescriptorSet> CPropertyPoolHandler::DescriptorSetCache::getNextSet(
-	IVideoDriver* driver, uint32_t indexByteOffset, uint32_t indexByteSize,
-	const uint32_t* uploadByteOffsets, const uint32_t* uploadByteSizes,
-	const uint32_t* downloadByteOffets, const uint32_t* downloadByteSize
+	bool download, IVideoDriver* driver,
+	uint32_t indexByteOffset, uint32_t indexByteSize,
+	const uint32_t* cpuByteOffsets, const uint32_t* dataByteSizes,
+	const TransientPassData* transientData
 )
 {
 	deferredReclaims.pollForReadyEvents(DeferredDescriptorSetReclaimer::single_poll);
@@ -173,15 +180,35 @@ core::smart_refctd_ptr<IGPUDescriptorSet> CPropertyPoolHandler::DescriptorSetCac
 		uint32_t ix = 0u;
 		info[ix].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
 		info[ix].buffer = { indexByteOffset,indexByteSize };
+		// in buffers
 		for (ix=1u; ix<=propertyCount; ix++)
 		{
-			info[ix].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
-			info[ix].buffer = { *(uploadByteOffsets++),*(uploadByteSizes++) };
+			if (download)
+			{
+				info[ix].desc = core::smart_refctd_ptr<asset::IDescriptor>(transientData->memBlock->buffer);
+				info[ix].buffer = { transientData->memBlock->offset,transientData->memBlock->size };
+				transientData++;
+			}
+			else
+			{
+				info[ix].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
+				info[ix].buffer = { *(cpuByteOffsets++),*(dataByteSizes++) };
+			}
 		}
+		// out buffers
 		for (ix=propertyCount+1u; ix<=propertyCount*2u; ix++)
 		{
-			info[ix].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
-			info[ix].buffer = { *(uploadByteOffsets++),*(uploadByteSizes++) };
+			if (download)
+			{
+				info[ix].desc = core::smart_refctd_ptr<asset::IDescriptor>(downBuff);
+				info[ix].buffer = { *(cpuByteOffsets++),*(dataByteSizes++) };
+			}
+			else
+			{
+				info[ix].desc = core::smart_refctd_ptr<asset::IDescriptor>(transientData->memBlock->buffer);
+				info[ix].buffer = { transientData->memBlock->offset,transientData->memBlock->size };
+				transientData++;
+			}
 		}
 	}
 	for (auto i=0u; i<3u; i++)

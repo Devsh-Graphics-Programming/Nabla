@@ -26,7 +26,7 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
         virtual ~StreamingTransientDataBufferST() {}
     public:
         typedef typename Base::size_type    size_type;
-        static constexpr size_type                  invalid_address = Base::invalid_address;
+        static constexpr size_type          invalid_address = Base::invalid_address;
 
         #define DUMMY_DEFAULT_CONSTRUCTOR StreamingTransientDataBufferST() {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
