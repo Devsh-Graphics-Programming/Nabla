@@ -4,11 +4,11 @@ Stuff which is not 100% necessary for a GPGPU engine, or could have 3 or 4 possi
 none of which would be optimal for all circumstances such as shadows or deferred rendering.
 
 ## General rules for extensions are:
-1) **Put a LICENSE.md file at the root of your extension directory**
+1) **Put a LICENSE.md file at include/irr/ext/YourExtension directory**
 2) Include a short README.md outlining external API, but not as documentation
 3) Put all your source code in the irr::ext::YourExtension namespace
 4) Keep all your header files in `./include/irr/ext/`, source files in `./src/irr/ext/`
-5) Include your own files (even in your own .c/cpp files) by specifying their paths relative to the irrlicht root (see rule 2). So instead of your extension's source files (and the users source files) asking for `#include "YourHeader.h"` they should ask for `#include "../../irr/ext/YourExtension/YourHeader.h"
+5) Include your own files (even in your own .c/cpp files) by specifying their paths relative to the irrlicht root (see rule 2). So instead of your extension's source files (and the users source files) asking for `#include "YourHeader.h"` they should ask for `#include "../../include/irr/ext/YourExtension/YourHeader.h"
 6) Provide a CMakeLists.txt
 7) Add a `IRR_BUILD_YOUR_EXTENION` CMake option that controls the building of any examples using Your Extension and that it is set to OFF by default. This is to make sure that your extension does not harm everybody's build-time and should Your Extension's dependencies fail to pull/configure it doesn't affect the rest of the library.
 8) Make sure your extension's PUBLIC headers (if its a header only or a source inclusion only extension then all headers) are installed to `${CMAKE_INSTALL_PREFIX}/include/irr/ext/YourExtension/`
