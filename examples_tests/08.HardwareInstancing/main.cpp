@@ -4,9 +4,6 @@
 #include "../ext/ScreenShot/ScreenShot.h"
 #include "../common/QToQuitEventReceiver.h"
 
-
-#include "irr/video/IPropertyPoolFactory.h"
-
 using namespace irr;
 using namespace core;
 using namespace scene;
@@ -183,7 +180,7 @@ int main()
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 
-
+	auto instanceWorldTransforms = video::CPropertyPool<core::allocator,core::matrix3x4SIMD>::create();
 #if 0
     SimpleCallBack* cb = new SimpleCallBack();
     video::E_MATERIAL_TYPE newMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
@@ -195,16 +192,6 @@ int main()
     cb->drop();
 
 
-
-	scene::ISceneManager* smgr = device->getSceneManager();
-	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
-	scene::ICameraSceneNode* camera =
-		smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
-	camera->setPosition(core::vector3df(-4,0,0));
-	camera->setTarget(core::vector3df(0,0,0));
-	camera->setNearValue(0.01f);
-	camera->setFarValue(100.0f);
-    smgr->setActiveCamera(camera);
 
 	IMeshSceneNodeInstanced* node;
 	uint32_t instanceIDs[kNumHardwareInstancesZ][kNumHardwareInstancesY][kNumHardwareInstancesX];
@@ -307,28 +294,8 @@ int main()
         instancesToRemove[removeCount++] = instanceID;
     }
 
-	uint64_t lastFPSTime = 0;
-	while(device->run() && receiver.keepOpen() )
-	{
-		driver->beginScene(true, true, video::SColor(255,0,0,255) );
 
-        //! This animates (moves) the camera and sets the transforms
-        //! Also draws the meshbuffer
-        smgr->drawAll();
 
-		driver->endScene();
-
-		// display frames per second in window title
-		uint64_t time = device->getTimer()->getRealTime();
-		if (time-lastFPSTime > 1000)
-		{
-			std::wostringstream str;
-			str << L"Builtin Nodes Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
-
-			device->setWindowCaption(str.str());
-			lastFPSTime = time;
-		}
-	}
 
     node->removeInstances(removeCount,instancesToRemove);
     node->remove();
@@ -340,6 +307,13 @@ int main()
 		ext::ScreenShot::dirtyCPUStallingScreenshot(driver,device->getAssetManager(), "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
 	}
 #endif
+
+	scene::ICameraSceneNode* camera =
+		smgr->addCameraSceneNodeFPS(0,100.0f,0.01f);
+	camera->setPosition(core::vector3df(-4,0,0));
+	camera->setTarget(core::vector3df(0,0,0));
+	camera->setNearValue(0.01f);
+	camera->setFarValue(100.0f);
 
 	return 0;
 }

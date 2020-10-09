@@ -10,7 +10,7 @@ namespace video
 {
 
     
-template<template<class> class allocator=core::allocator, typename... Properties>
+template<template<class...> class allocator=core::allocator, typename... Properties>
 class CPropertyPool final : public IPropertyPool
 {
         using this_t = CPropertyPool<allocator,Properties...>;
@@ -70,6 +70,9 @@ class CPropertyPool final : public IPropertyPool
 
             return core::make_smart_refctd_ptr<CPropertyPool>(std::move(_memoryBlock),capacity,reserved,std::move(alloc));
         }
+
+		//
+		virtual uint32_t getPropertyCount() const {return PropertyCount;}
 
 	protected:
         CPropertyPool(core::SBufferRange<IGPUBuffer>&& _memoryBlock, uint32_t capacity, void* reserved, allocator<uint8_t>&& _alloc)

@@ -4,8 +4,7 @@
 
 #include "irr/asset/asset.h"
 
-#include "IVideoDriver.h"
-#include "irr/video/IGPUComputePipeline.h"
+#include "IGPUBuffer.h"
 
 
 namespace irr
@@ -22,6 +21,8 @@ class IPropertyPool : public core::IReferenceCounted
 
         _IRR_STATIC_INLINE_CONSTEXPR auto invalid_index = PropertyAddressAllocator::invalid_address;
 
+		//
+		virtual uint32_t getPropertyCount() const =0;
 
         //
         inline uint32_t getAllocated() const
@@ -91,7 +92,7 @@ class IPropertyPool : public core::IReferenceCounted
         }
         #undef PROPERTY_ADDRESS_ALLOCATOR_ARGS
 
-		virtual ~IPropertyPool() =0;
+		virtual ~IPropertyPool() {}
 
 
         asset::SBufferRange<IGPUBuffer> memoryBlock;

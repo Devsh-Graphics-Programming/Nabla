@@ -17,6 +17,7 @@ namespace video
 {
 	class IGPUMeshDataFormatDesc;
 	class IGPUObjectFromAssetConverter;
+	class CPropertyPoolHandler;
 }
 }
 
@@ -361,6 +362,9 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 		//! Fill out the descriptor sets with descriptors
 		virtual void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) {}
 
+
+		//!
+		virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const = 0;
 
 	//====================== THIS STUFF NEEDS A REWRITE =====================
         //! Creates a framebuffer object with no attachments

@@ -207,7 +207,6 @@ set(IRR_VIDEO_SOURCES
 	${IRR_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
 
 # Property Pools
-	${IRR_ROOT_PATH}/src/irr/video/IPropertyPool.cpp
 	${IRR_ROOT_PATH}/src/irr/video/CPropertyPoolHandler.cpp
 
 # Junk to refactor
