@@ -22,13 +22,15 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 		CPropertyPoolHandler(IVideoDriver* driver, IGPUPipelineCache* pipelineCache);
 
         _IRR_STATIC_INLINE_CONSTEXPR auto MinimumPropertyAlignment = alignof(uint32_t);
-        _IRR_STATIC_INLINE_CONSTEXPR auto MaxPropertiesPerCS = 15; // TODO: Remove this and make flexible
 
         //
-		inline uint32_t getPipelineCount() const { return m_pipelineCount; }
+		inline uint32_t getPipelineCount() const { return m_perPropertyCountItems.size(); }
         //
-		inline IGPUComputePipeline* getPipeline(uint32_t ix) { return m_pipelines[ix].get(); }
-		inline const IGPUComputePipeline* getPipeline(uint32_t ix) const { return m_pipelines[ix].get(); }
+		inline IGPUComputePipeline* getPipeline(uint32_t ix) { return m_perPropertyCountItems[ix].pipeline.get(); }
+		inline const IGPUComputePipeline* getPipeline(uint32_t ix) const { return m_perPropertyCountItems[ix].pipeline.get(); }
+        //
+		inline IGPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t ix) { return m_perPropertyCountItems[ix].descriptorSetLayout.get(); }
+		inline const IGPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t ix) const { return m_perPropertyCountItems[ix].descriptorSetLayout.get(); }
 
 
 		// allocate and upload properties, indices need to be pre-initialized to `invalid_index`
@@ -62,7 +64,8 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 			bool success = true;
 			if (totalProps!=0u)
 			{
-				const auto fullPasses = totalProps/MaxPropertiesPerCS;
+				const uint32_t maxPropertiesPerPass = m_perPropertyCountItems.size();
+				const auto fullPasses = totalProps/maxPropertiesPerPass;
 
 				auto upBuff = m_driver->getDefaultUpStreamingBuffer();
 				auto downBuff = m_driver->getDefaultDownStreamingBuffer();
@@ -91,12 +94,13 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 					uint indices[];
 
 					const auto pipelineIndex = propertiesThisPass-1u;
-					auto pipeline = m_pipelines[pipelineIndex].get();
+					auto& items = m_perPropertyCountItems[pipelineIndex];
+					auto pipeline = items.pipeline.get();
 					m_driver->bindComputePipeline(pipeline);
 
 					// update desc sets
-					auto set = m_descriptorSetCache[pipelineIndex].getNextSet(
-						m_driver,core::smart_refctd_ptr(m_descriptorSetLayout),
+					auto set = items.descriptorSetCache.getNextSet(
+						m_driver
 						offsets[0],sizes[0],
 						offsets+1u,sizes+1u,
 						offsets+1u+propertiesThisPass,sizes+1u+propertiesThisPass
@@ -116,17 +120,17 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 
 					// deferred release resources
 
-					m_descriptorSetCache[pipelineIndex].releaseSet(core::smart_refctd_ptr(fence),std::move(set));
+					items.descriptorSetCache.releaseSet(core::smart_refctd_ptr(fence),std::move(set));
 					return fence;
 				};
 
 				//
 				for (uint32_t i=0; i<fullPasses; i++)
 				{
-					copyPass(MaxPropertiesPerCS);
+					copyPass(maxPropertiesPerPass);
 				}
 
-				const auto leftOverProps = totalProps-fullPasses*MaxPropertiesPerCS;
+				const auto leftOverProps = totalProps-fullPasses*maxPropertiesPerPass;
 				if (leftOverProps)
 					copyPass(leftOverProps);
 			}
@@ -138,7 +142,6 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 		_IRR_STATIC_INLINE_CONSTEXPR auto IdealWorkGroupSize = 256u;
 
         IVideoDriver* m_driver;
-		core::smart_refctd_ptr<IGPUDescriptorSetLayout> m_descriptorSetLayout;
 		class DescriptorSetCache
 		{
 				class DeferredDescriptorSetReclaimer
@@ -189,21 +192,33 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 				};
 				GPUDeferredEventHandlerST<DeferredDescriptorSetReclaimer> deferredReclaims;
 				core::vector<core::smart_refctd_ptr<IGPUDescriptorSet>> unusedSets;
+				core::smart_refctd_ptr<IGPUDescriptorSetLayout> layout;
 				uint32_t propertyCount;
 		
 			public:
+				DescriptorSetCache(IVideoDriver* driver, uint32_t _propertyCount);
+				// ~DescriptorSetCache(); destructor of `deferredReclaims` will wait for all fences
+
+				core::smart_refctd_ptr<IGPUDescriptorSetLayout> getLayout() const { return core::smart_refctd_ptr(layout); }
+
 				core::smart_refctd_ptr<IGPUDescriptorSet> getNextSet(
-					IVideoDriver* driver, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout,
-					uint32_t indexByteOffsets, uint32_t indexByteSizes,
+					IVideoDriver* driver, uint32_t indexByteOffsets, uint32_t indexByteSizes,
 					const uint32_t* uploadByteOffsets, const uint32_t* uploadByteSizes,
 					const uint32_t* downloadByteOffets, const uint32_t* downloadByteSizes
 				);
 
 				void releaseSet(core::smart_refctd_ptr<IDriverFence>&& fence, core::smart_refctd_ptr<IGPUDescriptorSet>&& set);
 		};
-		DescriptorSetCache m_descriptorSetCache[MaxPropertiesPerCS];
-        core::smart_refctd_ptr<IGPUComputePipeline> m_pipelines[MaxPropertiesPerCS];
-		uint32_t m_pipelineCount;
+		struct PerPropertyCountItems
+		{
+			PerPropertyCountItems(IVideoDriver* driver, IGPUPipelineCache* pipelineCache, uint32_t propertyCount);
+
+			DescriptorSetCache descriptorSetCache;
+			core::smart_refctd_ptr<IGPUComputePipeline> pipeline;
+		};
+		// TODO: Optimize to only use one allocation for all these arrays
+		core::vector<PerPropertyCountItems> m_perPropertyCountItems;
+        core::vector<uint32_t> m_tmpSizes,m_alignments;
 };
 
 

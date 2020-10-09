@@ -72,43 +72,17 @@ void main()
 CPropertyPoolHandler::CPropertyPoolHandler(IVideoDriver* driver, IGPUPipelineCache* pipelineCache) : m_driver(driver)
 {
 	assert(m_driver);
-	const auto maxSSBO = m_driver->getMaxSSBOBindings(); // TODO: make sure non dynamic
-	assert(maxSSBO>MaxPropertiesPerCS);
-	m_pipelineCount = (maxSSBO-1u)/2u;
-	for (uint32_t i=0u; i<m_pipelineCount; i++)
+	const auto maxSSBO = m_driver->getMaxSSBOBindings(); // TODO: make sure not dynamic offset
+	const uint32_t maxPropertiesPerPass = (maxSSBO-1u)/2u;
+
+	m_perPropertyCountItems.reserve(maxPropertiesPerPass);
+	m_tmpSizes.resize(maxPropertiesPerPass);
+	m_alignments.resize(maxPropertiesPerPass,alignof(uint32_t));
+
+	for (uint32_t i=0u; i<maxPropertiesPerPass; i++)
 	{
 		const auto propCount = i+1u;
-
-		std::string shaderSource("#version 440 core\n");
-		// property count
-		shaderSource += "#define _IRR_BUILTIN_PROPERTY_COUNT_ ";
-		shaderSource += std::to_string(propCount)+"\n";
-		// workgroup sizes
-		shaderSource += "#define _IRR_BUILTIN_PROPERTY_COPY_GROUP_SIZE_ ";
-		shaderSource += std::to_string(IdealWorkGroupSize)+"\n";
-		//
-		shaderSource += copyCsSource;
-
-		auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSource.c_str());
-
-		auto shader = m_driver->createGPUShader(std::move(cpushader));
-		auto specshader = m_driver->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE});
-
-		IGPUDescriptorSetLayout::SBinding bindings[3];
-		for (auto j=0; j<3; j++)
-		{
-			bindings[j].binding = j;
-			bindings[j].type = asset::EDT_STORAGE_BUFFER;
-			bindings[j].count = j ? propCount:1u;
-			bindings[j].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
-			bindings[j].samplers = nullptr;
-		}
-		m_descriptorSetLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+3);
-
-		auto layout = m_driver->createGPUPipelineLayout(nullptr,nullptr,core::smart_refctd_ptr(m_descriptorSetLayout));
-
-		assert(!m_pipelines[i]); // protect against compiler shit
-		m_pipelines[i] = m_driver->createGPUComputePipeline(pipelineCache,std::move(layout),std::move(specshader));
+		m_perPropertyCountItems.emplace_back(m_driver,pipelineCache,propCount);
 	}
 }
 
@@ -131,10 +105,48 @@ bool CPropertyPoolHandler::addProperties(IPropertyPool* const* poolsBegin, IProp
 
 
 //
+CPropertyPoolHandler::PerPropertyCountItems::PerPropertyCountItems(IVideoDriver* driver, IGPUPipelineCache* pipelineCache, uint32_t propertyCount)
+{
+	std::string shaderSource("#version 440 core\n");
+	// property count
+	shaderSource += "#define _IRR_BUILTIN_PROPERTY_COUNT_ ";
+	shaderSource += std::to_string(propertyCount)+"\n";
+	// workgroup sizes
+	shaderSource += "#define _IRR_BUILTIN_PROPERTY_COPY_GROUP_SIZE_ ";
+	shaderSource += std::to_string(IdealWorkGroupSize)+"\n";
+	//
+	shaderSource += copyCsSource;
+
+	auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSource.c_str());
+
+	auto shader = driver->createGPUShader(std::move(cpushader));
+	auto specshader = driver->createGPUSpecializedShader(shader.get(),{nullptr,nullptr,"main",asset::ISpecializedShader::ESS_COMPUTE});
+
+
+	auto layout = driver->createGPUPipelineLayout(nullptr,nullptr,descriptorSetCache.getLayout());
+	pipeline = driver->createGPUComputePipeline(pipelineCache,std::move(layout),std::move(specshader));
+}
+
+
+//
+CPropertyPoolHandler::DescriptorSetCache::DescriptorSetCache(IVideoDriver* driver, uint32_t _propertyCount) : propertyCount(_propertyCount)
+{
+	IGPUDescriptorSetLayout::SBinding bindings[3];
+	for (auto j=0; j<3; j++)
+	{
+		bindings[j].binding = j;
+		bindings[j].type = asset::EDT_STORAGE_BUFFER;
+		bindings[j].count = j ? propertyCount:1u;
+		bindings[j].stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+		bindings[j].samplers = nullptr;
+	}
+	layout = driver->createGPUDescriptorSetLayout(bindings,bindings+3);
+	unusedSets.reserve(4u); // 4 frames worth at least
+}
+
 CPropertyPoolHandler::DescriptorSetCache::DeferredDescriptorSetReclaimer::single_poll_t CPropertyPoolHandler::DescriptorSetCache::DeferredDescriptorSetReclaimer::single_poll;
 core::smart_refctd_ptr<IGPUDescriptorSet> CPropertyPoolHandler::DescriptorSetCache::getNextSet(
-	IVideoDriver* driver, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout,
-	uint32_t indexByteOffset, uint32_t indexByteSize,
+	IVideoDriver* driver, uint32_t indexByteOffset, uint32_t indexByteSize,
 	const uint32_t* uploadByteOffsets, const uint32_t* uploadByteSizes,
 	const uint32_t* downloadByteOffets, const uint32_t* downloadByteSize
 )
@@ -148,7 +160,7 @@ core::smart_refctd_ptr<IGPUDescriptorSet> CPropertyPoolHandler::DescriptorSetCac
 		unusedSets.pop_back();
 	}
 	else
-		retval = driver->createGPUDescriptorSet(std::move(layout));
+		retval = driver->createGPUDescriptorSet(core::smart_refctd_ptr(layout));
 
 	constexpr auto kSyntheticMax = 64;
 	assert(propertyCount<kSyntheticMax);
