@@ -128,3 +128,69 @@ bool CPropertyPoolHandler::addProperties(IPropertyPool* const* poolsBegin, IProp
 
 	return uploadProperties(poolsBegin,poolsEnd,indicesBegin,indicesEnd,dataBegin,dataEnd) && success;
 }
+
+
+//
+CPropertyPoolHandler::DescriptorSetCache::DeferredDescriptorSetReclaimer::single_poll_t CPropertyPoolHandler::DescriptorSetCache::DeferredDescriptorSetReclaimer::single_poll;
+core::smart_refctd_ptr<IGPUDescriptorSet> CPropertyPoolHandler::DescriptorSetCache::getNextSet(
+	IVideoDriver* driver, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout,
+	uint32_t indexByteOffset, uint32_t indexByteSize,
+	const uint32_t* uploadByteOffsets, const uint32_t* uploadByteSizes,
+	const uint32_t* downloadByteOffets, const uint32_t* downloadByteSize
+)
+{
+	deferredReclaims.pollForReadyEvents(DeferredDescriptorSetReclaimer::single_poll);
+
+	core::smart_refctd_ptr<IGPUDescriptorSet> retval;
+	if (unusedSets.size())
+	{
+		retval = std::move(unusedSets.back());
+		unusedSets.pop_back();
+	}
+	else
+		retval = driver->createGPUDescriptorSet(std::move(layout));
+
+	constexpr auto kSyntheticMax = 64;
+	assert(propertyCount<kSyntheticMax);
+	IGPUDescriptorSet::SDescriptorInfo info[kSyntheticMax];
+	IGPUDescriptorSet::SWriteDescriptorSet dsWrite[3u];
+	{
+		auto upBuff = driver->getDefaultUpStreamingBuffer()->getBuffer();
+		auto downBuff = driver->getDefaultDownStreamingBuffer()->getBuffer();
+
+		uint32_t ix = 0u;
+		info[ix].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
+		info[ix].buffer = { indexByteOffset,indexByteSize };
+		for (ix=1u; ix<=propertyCount; ix++)
+		{
+			info[ix].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
+			info[ix].buffer = { *(uploadByteOffsets++),*(uploadByteSizes++) };
+		}
+		for (ix=propertyCount+1u; ix<=propertyCount*2u; ix++)
+		{
+			info[ix].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
+			info[ix].buffer = { *(uploadByteOffsets++),*(uploadByteSizes++) };
+		}
+	}
+	for (auto i=0u; i<3u; i++)
+	{
+		dsWrite[i].dstSet = retval.get();
+		dsWrite[i].binding = i;
+		dsWrite[i].arrayElement = 0u;
+		dsWrite[i].descriptorType = asset::EDT_STORAGE_BUFFER;
+	}
+	dsWrite[0].count = 1u;
+	dsWrite[0].info = info+0;
+	dsWrite[1].count = propertyCount;
+	dsWrite[1].info = info+1;
+	dsWrite[2].count = propertyCount;
+	dsWrite[2].info = info+1+propertyCount;
+	driver->updateDescriptorSets(3u,dsWrite,0u,nullptr);
+
+	return retval;
+}
+
+void CPropertyPoolHandler::DescriptorSetCache::releaseSet(core::smart_refctd_ptr<IDriverFence>&& fence, core::smart_refctd_ptr<IGPUDescriptorSet>&& set)
+{
+	deferredReclaims.addEvent(GPUEventWrapper(std::move(fence)),DeferredDescriptorSetReclaimer(this,std::move(set)));
+}

@@ -62,9 +62,16 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 			bool success = true;
 			if (totalProps!=0u)
 			{
+				const auto fullPasses = totalProps/MaxPropertiesPerCS;
+
+				auto upBuff = m_driver->getDefaultUpStreamingBuffer();
+				auto downBuff = m_driver->getDefaultDownStreamingBuffer();
+
 				const IPropertyPool* const* pool = poolsBegin;
 				uint32_t localPropID = 0u;
-				auto copyPass = [&](uint32_t propertiesThisPass) -> void
+
+				//
+				auto copyPass = [&](uint32_t propertiesThisPass)
 				{
 					uint32_t maxElements = 0u;
 					// allocate indices and data
@@ -83,42 +90,37 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 					uint indexOffset[_IRR_BUILTIN_PROPERTY_COUNT_];
 					uint indices[];
 
-					auto pipeline = m_pipelines[propertiesThisPass-1].get();
+					const auto pipelineIndex = propertiesThisPass-1u;
+					auto pipeline = m_pipelines[pipelineIndex].get();
 					m_driver->bindComputePipeline(pipeline);
 
 					// update desc sets
-					IGPUDescriptorSet* sets[2] = { m_elementDS.get(),nullptr };
+					auto set = m_descriptorSetCache[pipelineIndex].getNextSet(
+						m_driver,core::smart_refctd_ptr(m_descriptorSetLayout),
+						offsets[0],sizes[0],
+						offsets+1u,sizes+1u,
+						offsets+1u+propertiesThisPass,sizes+1u+propertiesThisPass
+					);
+					if (!set)
 					{
-						if (sets[1])
-						{
-							m_elementDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_descriptorSetLayout));
-							IGPUDescriptorSet::SDescriptorInfo info;
-							info.desc = core::smart_refctd_ptr<asset::IDescriptor>(m_driver->getDefaultUpStreamingBuffer()->getBuffer());
-							info.buffer = {0u,69u};
-							IGPUDescriptorSet::SWriteDescriptorSet dsWrite;
-							dsWrite.dstSet = m_elementDS.get();
-							dsWrite.binding = 0u;
-							dsWrite.arrayElement = 0u;
-							dsWrite.count = 1u;
-							dsWrite.descriptorType = asset::EDT_STORAGE_BUFFER;
-							dsWrite.info = &info;
-							m_driver->updateDescriptorSets(1u,&dsWrite,0u,nullptr);
-						}
-						else
-						{
-							success = false;
-							return;
-						}
+						success = false;
+						return;
 					}
 
 					// bind desc sets
-					m_driver->bindDescriptorSets(EPBP_COMPUTE,pipeline->getLayout(),0u,2u,sets,nullptr);
+					m_driver->bindDescriptorSets(EPBP_COMPUTE,pipeline->getLayout(),0u,1u,&set.get(),nullptr);
 		
-					// dispatch
+					// dispatch (this will need to change to a cmd buffer submission with a fence)
 					m_driver->dispatch((maxElements+IdealWorkGroupSize-1u)/IdealWorkGroupSize,propertiesThisPass,1u);
+					auto fence = m_driver->placeFence(true);
+
+					// deferred release resources
+
+					m_descriptorSetCache[pipelineIndex].releaseSet(core::smart_refctd_ptr(fence),std::move(set));
+					return fence;
 				};
 
-				const auto fullPasses = totalProps/MaxPropertiesPerCS;
+				//
 				for (uint32_t i=0; i<fullPasses; i++)
 				{
 					copyPass(MaxPropertiesPerCS);
@@ -137,13 +139,69 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 
         IVideoDriver* m_driver;
 		core::smart_refctd_ptr<IGPUDescriptorSetLayout> m_descriptorSetLayout;
-		// TODO: Cycle through Descriptor Sets so we dont overstep
-		struct
+		class DescriptorSetCache
 		{
-			//FAT;
+				class DeferredDescriptorSetReclaimer
+				{
+						DescriptorSetCache*   cache;
+						core::smart_refctd_ptr<IGPUDescriptorSet> set;
+
+					public:
+						inline DeferredDescriptorSetReclaimer(DescriptorSetCache* _this, core::smart_refctd_ptr<IGPUDescriptorSet>&& _set)
+															: cache(_this), set(std::move(_set))
+						{
+						}
+						DeferredDescriptorSetReclaimer(const DeferredDescriptorSetReclaimer& other) = delete;
+						inline DeferredDescriptorSetReclaimer(DeferredDescriptorSetReclaimer&& other) : cache(nullptr), set()
+						{
+							this->operator=(std::forward<DeferredDescriptorSetReclaimer>(other));
+						}
+
+						inline ~DeferredDescriptorSetReclaimer()
+						{
+						}
+
+						DeferredDescriptorSetReclaimer& operator=(const DeferredDescriptorSetReclaimer& other) = delete;
+						inline DeferredDescriptorSetReclaimer& operator=(DeferredDescriptorSetReclaimer&& other)
+						{
+							cache = other.cache;
+							set   = std::move(other.set);
+							other.cache = nullptr;
+							other.set   = nullptr;
+							return *this;
+						}
+
+						struct single_poll_t {};
+						static single_poll_t single_poll;
+						inline bool operator()(single_poll_t _single_poll)
+						{
+							operator()();
+							return true;
+						}
+
+						inline void operator()()
+						{
+							#ifdef _IRR_DEBUG
+							assert(cache && set.get());
+							#endif // _IRR_DEBUG
+							cache->unusedSets.push_back(std::move(set));
+						}
+				};
+				GPUDeferredEventHandlerST<DeferredDescriptorSetReclaimer> deferredReclaims;
+				core::vector<core::smart_refctd_ptr<IGPUDescriptorSet>> unusedSets;
+				uint32_t propertyCount;
+		
+			public:
+				core::smart_refctd_ptr<IGPUDescriptorSet> getNextSet(
+					IVideoDriver* driver, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout,
+					uint32_t indexByteOffsets, uint32_t indexByteSizes,
+					const uint32_t* uploadByteOffsets, const uint32_t* uploadByteSizes,
+					const uint32_t* downloadByteOffets, const uint32_t* downloadByteSizes
+				);
+
+				void releaseSet(core::smart_refctd_ptr<IDriverFence>&& fence, core::smart_refctd_ptr<IGPUDescriptorSet>&& set);
 		};
-		core::smart_refctd_ptr<IGPUDescriptorSet> m_copyBuffersDS[MaxPropertiesPerCS];
-		//
+		DescriptorSetCache m_descriptorSetCache[MaxPropertiesPerCS];
         core::smart_refctd_ptr<IGPUComputePipeline> m_pipelines[MaxPropertiesPerCS];
 		uint32_t m_pipelineCount;
 };
