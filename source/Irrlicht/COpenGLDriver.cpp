@@ -51,6 +51,8 @@ class AMDbugfixCompiler : public spirv_cross::Compiler
 public:
     using spirv_cross::Compiler::Compiler;
 
+    _IRR_STATIC_INLINE_CONSTEXPR bool ACCOUNT_SSBO = true;
+
     // {numer of possible row counts} * {number of possible col counts} * {number of possible basetypes (float/double)}
     _IRR_STATIC_INLINE_CONSTEXPR uint32_t WORKAROUND_FUNCTION_COUNT = 3u*3u*2u;
     struct SFunction
@@ -80,8 +82,11 @@ public:
         ir.for_each_typed_id<spirv_cross::SPIRVariable>(//gather all instances of SSBO and UBO blocks
             [&](uint32_t, const spirv_cross::SPIRVariable& var) {
                 auto& type = this->get<spirv_cross::SPIRType>(var.basetype);
-                // UBO only uncomment below to take ssbo into account as well
-                if (type.storage == spv::StorageClassUniform/* || type.storage == spv::StorageClassStorageBuffer*/)
+                bool valid = type.storage == spv::StorageClassUniform;
+                if constexpr (ACCOUNT_SSBO) {
+                    valid = valid || (type.storage == spv::StorageClassStorageBuffer);
+                }
+                if (valid)
                 {
                     vars.push_back(var.self);
                 }
