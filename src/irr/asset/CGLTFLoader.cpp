@@ -23,7 +23,9 @@ namespace irr
 		bool CGLTFLoader::isALoadableFileFormat(io::IReadFile* _file) const
 		{
 			simdjson::dom::parser parser;
-			simdjson::dom::object tweets = parser.load(_file->getFileName().c_str());
+
+			auto jsonglTFFileBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(_file->getSize());
+			simdjson::dom::object tweets = parser.parse(reinterpret_cast<uint8_t*>(jsonglTFFileBuffer->getPointer()), jsonglTFFileBuffer->getSize());
 			simdjson::dom::element element;
 
 			if (tweets.at_key("asset").get(element) == simdjson::error_code::SUCCESS)
@@ -35,15 +37,23 @@ namespace irr
 
 		asset::SAssetBundle CGLTFLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
-			SGLTFData glTfData;
+			SGLTF& glTF = loadAndGetGLTF(_file);
 
-			CGLTFHeader header;
-			simdjson::dom::parser parser;
-			simdjson::dom::object tweets = parser.load(_file->getFileName().c_str());
-			simdjson::dom::element element;
+			// TODO: having validated and loaded glTF data we can use it to create pipelines and data
 
-			std::filesystem::path filePath(_file->getFileName().c_str());
-			const std::string rootAssetDirectory = std::filesystem::absolute(filePath.remove_filename()).u8string();
+			core::vector<core::smart_refctd_ptr<ICPUBuffer>> cpuBuffers;
+			for (auto& glTFBuffer : glTF.buffers)
+			{
+				const asset::IAssetLoader::SAssetLoadParams params;
+				auto buffer_bundle = assetManager->getAsset(glTFBuffer.uri.value(), params); // todo
+				auto cpuBuffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer_bundle.getContents().begin()[0]);
+				cpuBuffers.emplace_back() = core::smart_refctd_ptr<ICPUBuffer>(cpuBuffer);
+			}
+
+			// TODO: load resources
+			// ..
+
+			// TODO: pipelines, meshes, etc
 
 			constexpr uint8_t POSITION_ATTRIBUTE = 0;
 			constexpr uint8_t NORMAL_ATTRIBUTE = 3;
@@ -55,316 +65,6 @@ namespace irr
 			auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 			auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 
-			auto& extensionsUsed = tweets.at_key("extensionsUsed");
-			auto& extensionsRequired = tweets.at_key("extensionsRequired");
-			auto& accessors = tweets.at_key("accessors");
-			auto& animations = tweets.at_key("animations");
-			auto& asset = tweets.at_key("asset");
-			auto& buffers = tweets.at_key("buffers");
-			auto& bufferViews = tweets.at_key("bufferViews");
-			auto& cameras = tweets.at_key("cameras");
-			auto& images = tweets.at_key("images");
-			auto& materials = tweets.at_key("materials");
-			auto& meshes = tweets.at_key("meshes");
-			auto& nodes = tweets.at_key("nodes");
-			auto& samplers = tweets.at_key("samplers");
-			auto& scene = tweets.at_key("scene");
-			auto& scenes = tweets.at_key("scenes");
-			auto& skins = tweets.at_key("skins");
-			auto& textures = tweets.at_key("textures");
-			auto& extensions = tweets.at_key("extensions");
-			auto& extras = tweets.at_key("extras");
-
-			if (meshes.error() != simdjson::error_code::NO_SUCH_FIELD)
-			{
-				auto& mData = meshes.get_array();
-				for (size_t iteratorID = 0; iteratorID < mData.size(); ++iteratorID)
-				{
-					auto& mesh = mData.at(iteratorID);
-					auto& primitives = mesh.at_key("primitives");
-					auto& weights = mesh.at_key("weights");
-					auto& name = mesh.at_key("name");
-					auto& extensions = mesh.at_key("extensions");
-					auto& extras = mesh.at_key("extras");
-
-					auto& currentMesh = glTfData.meshes.emplace_back();
-
-					if (primitives.error() == simdjson::error_code::NO_SUCH_FIELD)
-						return {};
-
-					auto& pData = primitives.get_array();
-					for (size_t iteratorID = 0; iteratorID < pData.size(); ++iteratorID)
-					{
-						auto& primitive = pData.at(iteratorID);
-						auto& attributes = primitive.at_key("attributes");
-						auto& indices = primitive.at_key("indices");
-						auto& material = primitive.at_key("material");
-						auto& mode = primitive.at_key("mode");
-						auto& targets = primitive.at_key("targets");
-						auto& extensions = primitive.at_key("extensions");
-						auto& extras = primitive.at_key("extras");
-
-						auto& currentPrimitive = currentMesh.primitives.emplace_back();
-
-						if (attributes.error() != simdjson::error_code::NO_SUCH_FIELD)
-							for (auto& [attributeKey, attributeID] : attributes.get_object())
-								currentPrimitive.attributes[attributeKey.data()] = attributeID.get_uint64().value();
-						else
-							return {};
-
-						if (indices.error() != simdjson::error_code::NO_SUCH_FIELD)
-							currentPrimitive.indices = indices.get_uint64().value();
-
-						if (material.error() != simdjson::error_code::NO_SUCH_FIELD)
-							currentPrimitive.material = material.get_uint64().value();
-
-						if (mode.error() != simdjson::error_code::NO_SUCH_FIELD)
-							currentPrimitive.mode = mode.get_uint64().value();
-						else
-							currentPrimitive.mode = 4;
-
-						if (targets.error() != simdjson::error_code::NO_SUCH_FIELD)
-							for (auto& [targetKey, targetID] : targets.get_object())
-								currentPrimitive.targets.emplace()[targetKey.data()] = targetID.get_uint64().value();
-					}
-				}
-			}
-
-			if (bufferViews.error() != simdjson::error_code::NO_SUCH_FIELD)
-			{
-				auto& bVData = bufferViews.get_array();
-				for (size_t iteratorID = 0; iteratorID < bVData.size(); ++iteratorID)
-				{
-					auto& bufferView = bVData.at(iteratorID);
-					auto& bufferViewBufferID = bufferView.at_key("buffer");
-
-					if (bufferViewBufferID.error() != simdjson::error_code::NO_SUCH_FIELD)
-					{
-						auto& bufferViewBufferIDVal = bufferViewBufferID.get_uint64().value();
-						auto& buffer = tweets.at_key("buffers").at(bufferViewBufferIDVal);
-
-						auto& bufferUri = buffer.at_key("uri");
-						auto& bufferName = buffer.at_key("name");
-						auto& bufferExtensions = buffer.at_key("extensions");
-						auto& bufferExtras = buffer.at_key("extras");
-
-						if (bufferUri.error() != simdjson::error_code::NO_SUCH_FIELD)
-						{
-							std::string_view uriBin = bufferUri.get_string().value();
-
-							const asset::IAssetLoader::SAssetLoadParams params;
-							auto buffer_bundle = assetManager->getAsset(rootAssetDirectory + uriBin.data(), params);
-							auto cpuBuffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer_bundle.getContents().begin()[0]);
-
-							auto& bufferByteOffset = bufferView.at_key("byteOffset");
-
-							SBufferBinding<ICPUBuffer> bufferBinding;
-							bufferBinding.offset = bufferByteOffset.error() == simdjson::error_code::NO_SUCH_FIELD ? 0 : bufferByteOffset.get_uint64().value();
-							bufferBinding.buffer = cpuBuffer;
-
-							meshBuffer->setVertexBufferBinding(std::move(bufferBinding), iteratorID);
-
-							auto& bufferViewByteLength = bufferView.at_key("byteLength");
-							auto& bufferViewByteStride = bufferView.at_key("byteStride");
-							auto& bufferViewTarget = bufferView.at_key("target");
-							auto& bufferViewName = bufferView.at_key("name");
-							auto& bufferViewExtensions = bufferView.at_key("extensions");
-							auto& bufferViewExtras = bufferView.at_key("extras");
-
-							// TODO
-
-						}
-					}
-					else
-						continue;
-				}
-			}
-
-			if (accessors.error() != simdjson::error_code::NO_SUCH_FIELD)
-			{
-				auto& acData = accessors.get_array();
-				for (size_t iteratorID = 0; iteratorID < acData.size(); ++iteratorID)
-				{
-					auto& accessor = acData.at(iteratorID);
-					auto& accessorBufferView = accessor.at_key("bufferView");
-					auto& accessorByteOffset = accessor.at_key("byteOffset");
-					auto& accessorComponentType = accessor.at_key("componentType");
-					auto& accessorCount = accessor.at_key("count");
-					auto& accessorType = accessor.at_key("type");
-					auto& accessorMax = accessor.at_key("max");
-					auto& accessorMin = accessor.at_key("min");
-					auto& accessorSparse = accessor.at_key("sparse");
-					auto& accessorName = accessor.at_key("name");
-					auto& accessorExtensions = accessor.at_key("extensions");
-					auto& accessorExtras = accessor.at_key("extras");
-
-					if (accessorComponentType.error() != simdjson::error_code::NO_SUCH_FIELD)
-					{
-						auto& type = accessorComponentType.get_uint64().value();
-
-						switch (type)
-						{
-							case SGLTFAccessor::SCT_BYTE:
-							{
-
-							} break;
-
-							case SGLTFAccessor::SCT_UNSIGNED_BYTE:
-							{
-
-							} break;
-
-							case SGLTFAccessor::SCT_SHORT:
-							{
-
-							} break;
-
-							case SGLTFAccessor::SCT_UNSIGNED_SHORT:
-							{
-
-							} break;
-
-							case SGLTFAccessor::SCT_UNSIGNED_INT:
-							{
-
-							} break;
-
-							case SGLTFAccessor::SCT_FLOAT:
-							{
-
-							} break;
-
-							default:
-							{
-								return {}; // TODO
-							} break;
-						}
-					}
-					else
-						continue;
-
-					if (accessorCount.error() != simdjson::error_code::NO_SUCH_FIELD)
-					{
-						auto& countVal = accessorCount.get_uint64().value();
-						if (countVal < 1)
-							continue;
-					}
-					else
-						continue;
-
-					if (accessorType.error() != simdjson::error_code::NO_SUCH_FIELD)
-					{
-						auto& typeVal = accessorType.get_string().value();
-
-						if (typeVal.data() == "SCALAR")
-						{
-
-						}
-						else if (typeVal.data() == "VEC2")
-						{
-
-						}
-						else if (typeVal.data() == "VEC3")
-						{
-
-						}
-						else if (typeVal.data() == "VEC4")
-						{
-
-						}
-						else if (typeVal.data() == "MAT2")
-						{
-
-						}
-						else if (typeVal.data() == "MAT3")
-						{
-
-						}
-						else if (typeVal.data() == "MAT4")
-						{
-
-						}
-					}
-				}
-			}
-
-			if (nodes.error() != simdjson::error_code::NO_SUCH_FIELD)
-			{
-				auto& nData = nodes.get_array();
-				for (size_t iteratorID = 0; iteratorID < nData.size(); ++iteratorID)
-				{
-					auto& node = nData.at(iteratorID);
-
-					auto& camera = node.at_key("camera");
-					auto& children = node.at_key("children");
-					auto& skin = node.at_key("skin");
-					auto& matrix = node.at_key("matrix");
-					auto& mesh = node.at_key("mesh");
-					auto& rotation = node.at_key("rotation");
-					auto& scale = node.at_key("scale");
-					auto& translation = node.at_key("translation");
-					auto& weights = node.at_key("weights");
-					auto& name = node.at_key("name");
-					auto& extensions = node.at_key("extensions");
-					auto& extras = node.at_key("extras");
-
-					auto& currentNode = glTfData.nodes.emplace_back();
-
-					if (camera.error() != simdjson::error_code::NO_SUCH_FIELD)
-						currentNode.camera = camera.get_uint64().value();
-
-					if (children.error() != simdjson::error_code::NO_SUCH_FIELD)
-					{
-						currentNode.children = {};
-						for (auto& child : children)
-							currentNode.children.value().emplace_back() = child.get_uint64().value();
-					}
-
-					if (skin.error() != simdjson::error_code::NO_SUCH_FIELD)
-						currentNode.skin = skin.get_uint64().value();
-
-					if (matrix.error() != simdjson::error_code::NO_SUCH_FIELD)
-					{
-						auto& matrixArray = matrix.get_array();
-						core::matrix4SIMD tmpMatrix;
-
-						memcpy(tmpMatrix.pointer(), &(*matrixArray.begin()), matrixArray.size() * sizeof(float)); // TODO check it out
-						// TODO tmpMatrix (coulmn major) to row major (currentNode.matrix)
-					}
-					else
-					{
-						if (translation.error() != simdjson::error_code::NO_SUCH_FIELD)
-						{
-							auto& translationArray = translation.get_array();
-							for (auto& val : translationArray)
-							{
-								size_t index = &val - &(*translationArray.begin());
-								currentNode.transformation.trs.translation[index] = val.get_double().value();
-							}
-						}
-
-						if (rotation.error() != simdjson::error_code::NO_SUCH_FIELD)
-						{
-							auto& rotationArray = rotation.get_array();
-							for (auto& val : rotationArray)
-							{
-								size_t index = &val - &(*rotationArray.begin());
-								currentNode.transformation.trs.rotation[index] = val.get_double().value();
-							}
-						}
-
-						if (scale.error() != simdjson::error_code::NO_SUCH_FIELD)
-						{
-							auto& scaleArray = scale.get_array();
-							for (auto& val : scaleArray)
-							{
-								size_t index = &val - &(*scaleArray.begin());
-								currentNode.transformation.trs.scale[index] = val.get_double().value();
-							}
-						}
-					}
-				}
-			}
 
 
 			/*
@@ -784,6 +484,373 @@ namespace irr
 			*/
 
 			return {};
+		}
+
+		CGLTFLoader::SGLTF& CGLTFLoader::loadAndGetGLTF(io::IReadFile* _file)
+		{
+			SGLTF glTF;
+			simdjson::dom::parser parser;
+
+			auto jsonBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(_file->getSize());
+			_file->read(jsonBuffer->getPointer(), jsonBuffer->getSize());
+
+			simdjson::dom::object tweets = parser.parse(reinterpret_cast<uint8_t*>(jsonBuffer->getPointer()), jsonBuffer->getSize());
+			simdjson::dom::element element;
+
+			//std::filesystem::path filePath(_file->getFileName().c_str());
+			//const std::string rootAssetDirectory = std::filesystem::absolute(filePath.remove_filename()).u8string();
+
+			auto& extensionsUsed = tweets.at_key("extensionsUsed");
+			auto& extensionsRequired = tweets.at_key("extensionsRequired");
+			auto& accessors = tweets.at_key("accessors");
+			auto& animations = tweets.at_key("animations");
+			auto& asset = tweets.at_key("asset");
+			auto& buffers = tweets.at_key("buffers");
+			auto& bufferViews = tweets.at_key("bufferViews");
+			auto& cameras = tweets.at_key("cameras");
+			auto& images = tweets.at_key("images");
+			auto& materials = tweets.at_key("materials");
+			auto& meshes = tweets.at_key("meshes");
+			auto& nodes = tweets.at_key("nodes");
+			auto& samplers = tweets.at_key("samplers");
+			auto& scene = tweets.at_key("scene");
+			auto& scenes = tweets.at_key("scenes");
+			auto& skins = tweets.at_key("skins");
+			auto& textures = tweets.at_key("textures");
+			auto& extensions = tweets.at_key("extensions");
+			auto& extras = tweets.at_key("extras");
+
+			if (buffers.error() != simdjson::error_code::NO_SUCH_FIELD)
+			{
+				auto& jsonBuffers = buffers.get_array();
+				for (auto& jsonBuffer : jsonBuffers)
+				{
+					auto& glTFBuffer = glTF.buffers.emplace_back();
+
+					auto& uri = jsonBuffer.at_key("uri");
+					auto& name = jsonBuffer.at_key("name");
+					auto& extensions = jsonBuffer.at_key("extensions");
+					auto& extras = jsonBuffer.at_key("extras");
+
+					if (uri.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFBuffer.uri = uri.get_string().value();
+
+					if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFBuffer.name = name.get_string().value();
+				}
+			}
+
+			if (bufferViews.error() != simdjson::error_code::NO_SUCH_FIELD)
+			{
+				auto& jsonBufferViews = bufferViews.get_array();
+				for (auto& jsonBufferView : jsonBufferViews)
+				{
+					auto& glTFBufferView = glTF.bufferViews.emplace_back();
+
+					auto& byteOffset = jsonBufferView.at_key("byteOffset");
+					auto& byteLength = jsonBufferView.at_key("byteLength");
+					auto& byteStride = jsonBufferView.at_key("byteStride");
+					auto& target = jsonBufferView.at_key("target");
+					auto& name = jsonBufferView.at_key("name");
+					auto& extensions = jsonBufferView.at_key("extensions");
+					auto& extras = jsonBufferView.at_key("extras");
+
+					if (byteOffset.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFBufferView.byteOffset = byteOffset.get_uint64().value();
+
+					if (byteLength.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFBufferView.byteLength = byteLength.get_uint64().value();
+
+					if (byteStride.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFBufferView.byteStride = byteStride.get_uint64().value();
+
+					if (target.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFBufferView.target = target.get_uint64().value();
+
+					if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFBufferView.name = name.get_string().value();
+				}
+			}
+
+			if (nodes.error() != simdjson::error_code::NO_SUCH_FIELD)
+			{
+				auto& nData = nodes.get_array();
+				for (size_t iteratorID = 0; iteratorID < nData.size(); ++iteratorID)
+				{
+					// TODO: fill the node and get down through the tree (mesh, primitives, attributes, buffer views, materials, etc) till the end.
+
+					auto handleTheGLTFTree = [&]()
+					{
+						auto& glTFnode = glTF.nodes.emplace_back();
+						auto& jsonNode = nData.at(iteratorID);
+
+						auto& camera = jsonNode.at_key("camera");
+						auto& children = jsonNode.at_key("children");
+						auto& skin = jsonNode.at_key("skin");
+						auto& matrix = jsonNode.at_key("matrix");
+						auto& mesh = jsonNode.at_key("mesh");
+						auto& rotation = jsonNode.at_key("rotation");
+						auto& scale = jsonNode.at_key("scale");
+						auto& translation = jsonNode.at_key("translation");
+						auto& weights = jsonNode.at_key("weights");
+						auto& name = jsonNode.at_key("name");
+						auto& extensions = jsonNode.at_key("extensions");
+						auto& extras = jsonNode.at_key("extras");
+
+						if (camera.error() != simdjson::error_code::NO_SUCH_FIELD)
+							glTFnode.camera = camera.get_uint64().value();
+
+						if (children.error() != simdjson::error_code::NO_SUCH_FIELD)
+						{
+							glTFnode.children = {};
+							for (auto& child : children)
+								glTFnode.children.value().emplace_back() = child.get_uint64().value();
+						}
+
+						if (skin.error() != simdjson::error_code::NO_SUCH_FIELD)
+							glTFnode.skin = skin.get_uint64().value();
+
+						if (matrix.error() != simdjson::error_code::NO_SUCH_FIELD)
+						{
+							auto& matrixArray = matrix.get_array();
+							core::matrix4SIMD tmpMatrix;
+
+							memcpy(tmpMatrix.pointer(), &(*matrixArray.begin()), matrixArray.size() * sizeof(float)); // TODO check it out
+							// TODO tmpMatrix (coulmn major) to row major (currentNode.matrix)
+
+							glTFnode.transformation.matrix = tmpMatrix;
+						}
+						else
+						{
+							if (translation.error() != simdjson::error_code::NO_SUCH_FIELD)
+							{
+								auto& translationArray = translation.get_array();
+								for (auto& val : translationArray)
+								{
+									size_t index = &val - &(*translationArray.begin());
+									glTFnode.transformation.trs.translation[index] = val.get_double().value();
+								}
+							}
+
+							if (rotation.error() != simdjson::error_code::NO_SUCH_FIELD)
+							{
+								auto& rotationArray = rotation.get_array();
+								for (auto& val : rotationArray)
+								{
+									size_t index = &val - &(*rotationArray.begin());
+									glTFnode.transformation.trs.rotation[index] = val.get_double().value();
+								}
+							}
+
+							if (scale.error() != simdjson::error_code::NO_SUCH_FIELD)
+							{
+								auto& scaleArray = scale.get_array();
+								for (auto& val : scaleArray)
+								{
+									size_t index = &val - &(*scaleArray.begin());
+									glTFnode.transformation.trs.scale[index] = val.get_double().value();
+								}
+							}
+						}
+
+						if (mesh.error() != simdjson::error_code::NO_SUCH_FIELD)
+							glTFnode.mesh = mesh.get_uint64().value();
+
+						if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
+							glTFnode.name = name.get_string.value();
+
+						// TODO camera, skinning, etc HERE
+
+						if (glTFnode.validate())
+						{
+							auto& jsonMesh = meshes.get_array().at(glTFnode.mesh.value());
+							if (jsonMesh.error() != simdjson::error_code::NO_SUCH_FIELD)
+							{
+								auto& glTFMesh = glTFnode.glTFMesh;
+
+								auto& primitives = jsonMesh.at_key("primitives");
+								auto& weights = jsonMesh.at_key("weights");
+								auto& name = jsonMesh.at_key("name");
+								auto& extensions = jsonMesh.at_key("extensions");
+								auto& extras = jsonMesh.at_key("extras");
+
+								if (primitives.error() == simdjson::error_code::NO_SUCH_FIELD)
+									return false;
+
+								auto& pData = primitives.get_array();
+								for (size_t iteratorID = 0; iteratorID < pData.size(); ++iteratorID)
+								{
+									auto& glTFPrimitive = glTFMesh.primitives.emplace_back();
+									auto& jsonPrimitive = pData.at(iteratorID);
+
+									auto& attributes = jsonPrimitive.at_key("attributes");
+									auto& indices = jsonPrimitive.at_key("indices");
+									auto& material = jsonPrimitive.at_key("material");
+									auto& mode = jsonPrimitive.at_key("mode");
+									auto& targets = jsonPrimitive.at_key("targets");
+									auto& extensions = jsonPrimitive.at_key("extensions");
+									auto& extras = jsonPrimitive.at_key("extras");
+
+									if (attributes.error() != simdjson::error_code::NO_SUCH_FIELD)
+										for (auto& [attributeKey, attributeID] : attributes.get_object())
+										{
+											const auto accessorID = glTFPrimitive.attributes[attributeKey.data()] = attributeID.get_uint64().value();
+											auto& jsonAccessor = accessors.get_array().at(accessorID);
+
+											if (jsonAccessor.error() != simdjson::NO_SUCH_FIELD)
+											{
+												auto& glTFAccessor = glTFPrimitive.accessors.emplace_back();
+
+												auto& bufferView = jsonAccessor.at_key("bufferView");
+												auto& byteOffset = jsonAccessor.at_key("byteOffset");
+												auto& componentType = jsonAccessor.at_key("componentType");
+												auto& normalized = jsonAccessor.at_key("normalized");
+												auto& count = jsonAccessor.at_key("count");
+												auto& type = jsonAccessor.at_key("type");
+												auto& max = jsonAccessor.at_key("max");
+												auto& min = jsonAccessor.at_key("min");
+												auto& sparse = jsonAccessor.at_key("sparse");
+												auto& name = jsonAccessor.at_key("name");
+												auto& extensions = jsonAccessor.at_key("extensions");
+												auto& extras = jsonAccessor.at_key("extras");
+
+												if (bufferView.error() != simdjson::error_code::NO_SUCH_FIELD)
+													glTFAccessor.bufferView = bufferView.get_uint64().value();
+
+												if (byteOffset.error() != simdjson::error_code::NO_SUCH_FIELD)
+													glTFAccessor.byteOffset = byteOffset.get_uint64().value();
+
+												if (componentType.error() != simdjson::error_code::NO_SUCH_FIELD)
+													glTFAccessor.componentType = componentType.get_uint64().value();
+
+												if (normalized.error() != simdjson::error_code::NO_SUCH_FIELD)
+													glTFAccessor.normalized = normalized.get_bool().value();
+
+												if (count.error() != simdjson::error_code::NO_SUCH_FIELD)
+													glTFAccessor.count = count.get_uint64().value();
+
+												if (type.error() != simdjson::error_code::NO_SUCH_FIELD)
+													glTFAccessor.type = type.get_uint64().value();
+
+												if (max.error() != simdjson::error_code::NO_SUCH_FIELD)
+												{
+													glTFAccessor.max = {};
+													auto& maxArray = max.get_array();
+													for (uint32_t i = 0; i < maxArray.size(); ++i)
+														glTFAccessor.max.value().push_back(maxArray.at(i).get_double().value());
+												}
+
+												if (min.error() != simdjson::error_code::NO_SUCH_FIELD)
+												{
+													glTFAccessor.min = {};
+													auto& minArray = min.get_array();
+													for (uint32_t i = 0; i < minArray.size(); ++i)
+														glTFAccessor.min.value().push_back(minArray.at(i).get_double().value());
+												}
+
+												/*
+													TODO: in future
+
+													if (sparse.error() != simdjson::error_code::NO_SUCH_FIELD)
+														glTFAccessor.sparse = ;
+												*/
+
+												if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
+													glTFAccessor.name = count.get_string().value();
+
+												if (!glTFAccessor.validate())
+													return false;
+												/*
+
+												if (accessorType.error() != simdjson::error_code::NO_SUCH_FIELD)
+												{
+													auto& typeVal = accessorType.get_string().value();
+
+													if (typeVal.data() == "SCALAR")
+													{
+
+													}
+													else if (typeVal.data() == "VEC2")
+													{
+
+													}
+													else if (typeVal.data() == "VEC3")
+													{
+
+													}
+													else if (typeVal.data() == "VEC4")
+													{
+
+													}
+													else if (typeVal.data() == "MAT2")
+													{
+
+													}
+													else if (typeVal.data() == "MAT3")
+													{
+
+													}
+													else if (typeVal.data() == "MAT4")
+													{
+
+													}
+												}
+												
+												*/
+
+											}
+											else
+												return false; // todo
+										}
+									else
+										return false;
+
+									if (indices.error() != simdjson::error_code::NO_SUCH_FIELD)
+										glTFPrimitive.indices = indices.get_uint64().value();
+
+									if (material.error() != simdjson::error_code::NO_SUCH_FIELD)
+										glTFPrimitive.material = material.get_uint64().value();
+
+									if (mode.error() != simdjson::error_code::NO_SUCH_FIELD)
+										glTFPrimitive.mode = mode.get_uint64().value();
+									else
+										glTFPrimitive.mode = 4;
+
+									if (targets.error() != simdjson::error_code::NO_SUCH_FIELD)
+										for (auto& [targetKey, targetID] : targets.get_object())
+											glTFPrimitive.targets.emplace()[targetKey.data()] = targetID.get_uint64().value();
+								}
+
+								// weights - TODO in future
+
+								if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
+									glTFMesh.name = name.get_string().value();
+							}
+							else
+							{
+								/*
+									A node doesnt have a mesh -> it is valid by the documentation of the glTF, but I think the
+									loader should do continue, delete the node and handle next node or we should provide the defaults
+								*/
+
+								return false;
+							}
+						}
+						else
+							return false;
+					};
+
+					if (!handleTheGLTFTree())
+					{
+						glTF.nodes.pop_back();
+						continue;
+					}
+				}
+			}
+			else
+				return {};
+
+			return glTF;
 		}
 	}
 }
