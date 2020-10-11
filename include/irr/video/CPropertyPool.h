@@ -19,7 +19,7 @@ class CPropertyPool final : public IPropertyPool
         {
             return (sizeof(Properties) + ...);
         }
-        static size_t calcApproximateCapacity(size_t bufferSize)
+        static uint32_t calcApproximateCapacity(size_t bufferSize)
         {
             return bufferSize/propertyCombinedSize();
         }
@@ -29,7 +29,7 @@ class CPropertyPool final : public IPropertyPool
 	public:
 		static inline core::smart_refctd_ptr<this_t> create(asset::SBufferRange<IGPUBuffer>&& _memoryBlock, allocator<uint8_t>&& alloc = allocator<uint8_t>())
 		{
-			const auto reservedSize = getReservedSize(capacity);
+			const auto reservedSize = getReservedSize(calcApproximateCapacity(_memoryBlock.size));
 			auto reserved = std::allocator_traits<allocator<uint8_t>>::allocate(alloc,reservedSize);
 			if (!reserved)
 				return nullptr;
@@ -46,11 +46,11 @@ class CPropertyPool final : public IPropertyPool
 			assert(_memoryBlock.isValid());
 			assert(reserved);
 
-            const auto approximateCapacity = calcApproximateCapacity(_memoryBlock.size);
+            const size_t approximateCapacity = calcApproximateCapacity(_memoryBlock.size);
             auto capacity = approximateCapacity;
             while (capacity)
             {
-                size_t wouldBeSize = PropertySizes[0]*capacity;
+                auto wouldBeSize = PropertySizes[0]*capacity;
                 // now compute with padding and alignments
                 for (auto i=1; i<PropertyCount; i++)
                 {
@@ -68,30 +68,35 @@ class CPropertyPool final : public IPropertyPool
             if (!capacity)
                 return nullptr;
 
-            return core::make_smart_refctd_ptr<CPropertyPool>(std::move(_memoryBlock),capacity,reserved,std::move(alloc));
+			auto* pool = new CPropertyPool(std::move(_memoryBlock),static_cast<uint32_t>(capacity),reserved,std::move(alloc));
+            return core::smart_refctd_ptr<CPropertyPool>(pool,core::dont_grab);
         }
 
 		//
-		virtual uint32_t getPropertyCount() const {return PropertyCount;}
-		virtual uint32_t getPropertySize(uint32_t ix) const {return PropertySizes[ix];}
+		uint32_t getPropertyCount() const override {return PropertyCount;}
+		size_t getPropertyOffset(uint32_t ix) const override { return propertyOffsets[ix]; }
+		uint32_t getPropertySize(uint32_t ix) const override {return static_cast<uint32_t>(PropertySizes[ix]);}
 
 	protected:
-        CPropertyPool(asset::SBufferRange<IGPUBuffer>&& _memoryBlock, uint32_t capacity, void* reserved, allocator<uint8_t>&& _alloc)
-            : IPropertyPool(std::move(_memoryBlock),capacity,reserved), alloc(std::move(_alloc))
+        CPropertyPool(asset::SBufferRange<IGPUBuffer>&& _memoryBlock, uint32_t capacity, void* _reserved, allocator<uint8_t>&& _alloc)
+            : IPropertyPool(std::move(_memoryBlock),capacity,_reserved), alloc(std::move(_alloc)), reserved(_reserved)
         {
+			propertyOffsets[0] = memoryBlock.offset;
+			for (uint32_t i=1u; i<capacity; i++)
+				propertyOffsets[i] = core::roundUp(propertyOffsets[i-1u]+PropertySizes[i-1u]*size_t(capacity),PropertySizes[i]);
         }
 
         ~CPropertyPool()
         {
-            void* reserved = const_cast<void*>(indexAllocator.getReservedSpacePtr());
-            std::allocator_traits<allocator<uint8_t>>::deallocate(alloc,reserved,getReservedSize(getCapacity()));
+            std::allocator_traits<allocator<uint8_t>>::deallocate(alloc,reinterpret_cast<uint8_t*>(reserved),getReservedSize(getCapacity()));
         }
 
         
-        //
         allocator<uint8_t> alloc;
+		void* reserved;
+		size_t propertyOffsets[PropertyCount];
 
-        _IRR_STATIC_INLINE_CONSTEXPR std::array<uint32_t,PropertyCount> PropertySizes = {sizeof(Properties)...};
+        _IRR_STATIC_INLINE_CONSTEXPR std::array<size_t,PropertyCount> PropertySizes = {sizeof(Properties)...};
 };
 
 

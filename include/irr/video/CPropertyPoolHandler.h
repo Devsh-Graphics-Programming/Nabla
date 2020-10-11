@@ -32,23 +32,38 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 		inline IGPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t ix) { return m_perPropertyCountItems[ix].descriptorSetCache.getLayout().get(); }
 		inline const IGPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t ix) const { return m_perPropertyCountItems[ix].descriptorSetCache.getLayout().get(); }
 
-
-		using transfer_result_t = std::pair<bool,core::smart_refctd_ptr<IDriverFence> >;
+		
+		using transfer_result_t = std::pair<bool, core::smart_refctd_ptr<IDriverFence> >;
 		#define DEFAULT_WAIT std::chrono::nanoseconds(50000ull)
+
 		// allocate and upload properties, indices need to be pre-initialized to `invalid_index`
-		transfer_result_t addProperties(IPropertyPool* const* poolsBegin, IPropertyPool* const* poolsEnd, uint32_t* const* indicesBegin, uint32_t* const* indicesEnd, const void* const* const* data, const std::chrono::nanoseconds& maxWait=DEFAULT_WAIT);
+		struct AllocationRequest
+		{
+			private:
+				bool reserved = false;
+			public:
+				uint32_t propertyID;
+				IPropertyPool* pool;
+				core::SRange<uint32_t> outIndices;
+				const void* data; 
+		};
+		transfer_result_t addProperties(const AllocationRequest* requestsBegin, const AllocationRequest* requestsEnd, const std::chrono::nanoseconds& maxWait=DEFAULT_WAIT);
 
         //
-		inline transfer_result_t uploadProperties(const IPropertyPool* const* poolsBegin, const IPropertyPool* const* poolsEnd, const uint32_t* const* indicesBegin, const uint32_t* const* indicesEnd, const void* const* const* data, const std::chrono::nanoseconds& maxWait=DEFAULT_WAIT)
+		struct TransferRequest
 		{
-			return transferProperties(false,poolsBegin,poolsEnd,indicesBegin,indicesEnd,data,maxWait);
-		}
-
-        //
-		inline transfer_result_t downloadProperties(const IPropertyPool* const* poolsBegin, const IPropertyPool* const* poolsEnd, const uint32_t* const* indicesBegin, const uint32_t* const* indicesEnd, void* const* const* data, const std::chrono::nanoseconds& maxWait=DEFAULT_WAIT)
-		{
-			return transferProperties(true,poolsBegin,poolsEnd,indicesBegin,indicesEnd,data,maxWait);
-		}
+			public:
+				bool download = false;
+				uint32_t propertyID;
+				IPropertyPool* pool;
+				core::SRange<const uint32_t> indices;
+				union
+				{
+					const void* readData;
+					void* writeData;
+				};
+		};
+		transfer_result_t transferProperties(const TransferRequest* requestsBegin, const TransferRequest* requestsEnd, const std::chrono::nanoseconds& maxWait=DEFAULT_WAIT);
 		#undef DEFAULT_WAIT
 
     protected:
@@ -57,168 +72,10 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 			// pipelines drop themselves automatically
 		}
 
-		template<typename T>
-		inline transfer_result_t transferProperties(bool download, const IPropertyPool* const* poolsBegin, const IPropertyPool* const* poolsEnd, const uint32_t* const* indicesBegin, const uint32_t* const* indicesEnd, T* const* const* data, const std::chrono::nanoseconds& maxWait)
-		{
-			const auto poolCount = std::distance(poolsBegin,poolsEnd);
-
-			uint32_t totalProps = 0u;
-			for (auto i=0u; i<poolCount; i++)
-				totalProps += poolsBegin[i]->getPropertyCount();
-
-			transfer_result_t retval = { true,nullptr };
-			if (totalProps!=0u)
-			{
-				const uint32_t maxPropertiesPerPass = m_perPropertyCountItems.size();
-				const auto fullPasses = totalProps/maxPropertiesPerPass;
-
-				auto upBuff = m_driver->getDefaultUpStreamingBuffer();
-				auto downBuff = m_driver->getDefaultDownStreamingBuffer();
-
-				auto poolIt = poolsBegin;
-				uint32_t localPropID = 0u;
-				
-				auto maxWaitPoint = std::chrono::high_resolution_clock::now()+maxWait; // 50 us
-				//
-				auto copyPass = [&](uint32_t propertiesThisPass) -> void
-				{
-					const uint32_t headerSize = sizeof(uint32_t)*3u*propertiesThisPass;
-
-					constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
-					const uint32_t upAllocations = 1u+(download ? 0u:propertiesThisPass);
-
-
-					const auto poolsLocalBegin = poolIt;
-					uint32_t distinctPools = 1u;
-					{
-						m_tmpSizes[0u] = 3u*propertiesThisPass;
-
-						auto transientPassDataIt = m_transientPassData.data();
-						uint32_t elements;
-						uint32_t indexOffset = 0u;
-						for (uint32_t i=0; i<propertiesThisPass; i++)
-						{
-							assert(poolIt!=poolsEnd);
-							const IPropertyPool* pool = *poolIt;
-							const auto poolID = std::distance(poolsBegin,poolIt);
-
-							const auto propSize = pool->getPropertySize(localPropID);
-
-							transientPassDataIt->memBlock = &pool->getMemoryBlock();
-							transientPassDataIt->data = data[poolID][localPropID];
-							transientPassDataIt->propDWORDSize = propSize/sizeof(uint32_t);
-							transientPassDataIt->indexOffset = indexOffset;
-
-							elements = std::distance(indicesBegin[poolID],indicesEnd[poolID]);
-							assert(elements);
-							m_tmpSizes[i+1u] = elements*propSize;
-
-							if ((++localPropID) >= pool->getPropertyCount())
-							{
-								localPropID = 0u;
-								indexOffset += elements;
-								poolIt++;
-								distinctPools++;
-							}
-						}
-						indexOffset += elements;
-						m_tmpSizes[0u] += indexOffset;
-						m_tmpSizes[0u] *= sizeof(uint32_t);
-					}
-
-					// allocate indices and upload/allocate data
-					uint32_t maxElements = 0u;
-					{
-						std::fill(m_tmpAddresses.begin(),m_tmpAddresses.begin()+upAllocations,invalid_address);
-#if 0 // TODO
-						upBuff->multi_alloc(maxWaitPoint,upAllocations,m_tmpAddresses.data(),m_tmpSizes.data(),m_alignments.data());
-
-						if (download)
-							downBuff->multi_alloc(maxWaitPoint,propertiesThisPass,m_tmpAddresses.data()+1u,m_tmpSizes.data()+1u,m_alignments.data());
-#endif
-						
-						// upload
-						for (uint32_t i=1u; i<=upAllocations; i++)
-						if (m_tmpAddresses[i]!=invalid_address)
-							memcpy(reinterpret_cast<uint8_t*>(upBuff->getBufferPointer())+m_tmpAddresses[i],m_transientPassData[i].data,m_tmpSizes[i]);
-
-						auto* indexBufferPtr = reinterpret_cast<uint32_t*>(upBuff->getBufferPointer())+m_tmpAddresses[0u]/sizeof(uint32_t);
-						// write `elementCount`
-						for (uint32_t i=0; i<propertiesThisPass; i++)
-							*(indexBufferPtr++) = m_tmpSizes[i+1u]/(sizeof(uint32_t)*m_transientPassData[i].propDWORDSize);
-						// write `propertyDWORDsize_upDownFlag`
-						for (uint32_t i=0; i<propertiesThisPass; i++)
-							*reinterpret_cast<int32_t*>(indexBufferPtr++) = (download ? -1:1)*m_transientPassData[i].propDWORDSize;
-						// write `indexOffset`
-						for (uint32_t i=0; i<propertiesThisPass; i++)
-							*(indexBufferPtr++) = m_transientPassData[i].indexOffset;
-						// write the indices
-						for (uint32_t i=0; i<distinctPools; i++)
-						{
-							const auto poolID = std::distance(poolsBegin,poolsLocalBegin)+i;
-							const auto indexCount = indicesEnd[poolID]-indicesBegin[poolID];
-							memcpy(indexBufferPtr,indicesBegin[poolID],sizeof(uint32_t)*indexCount);
-							indexBufferPtr += indexCount;
-
-							maxElements = core::max(indexCount,maxElements);
-						}
-					}
-					const auto pipelineIndex = propertiesThisPass-1u;
-					auto& items = m_perPropertyCountItems[pipelineIndex];
-					auto pipeline = items.pipeline.get();
-					m_driver->bindComputePipeline(pipeline);
-
-					// update desc sets
-					auto set = items.descriptorSetCache.getNextSet(
-						download,m_driver,
-						m_tmpAddresses[0],m_tmpSizes[0],
-						m_tmpAddresses.data()+1u,m_tmpSizes.data()+1u,
-						m_transientPassData.data()
-					);
-					if (!set)
-					{
-						retval.first = false;
-						return;
-					}
-
-					// bind desc sets
-					m_driver->bindDescriptorSets(EPBP_COMPUTE,pipeline->getLayout(),0u,1u,&set.get(),nullptr);
-		
-					// dispatch (this will need to change to a cmd buffer submission with a fence)
-					m_driver->dispatch((maxElements+IdealWorkGroupSize-1u)/IdealWorkGroupSize,propertiesThisPass,1u);
-					auto& fence = retval.second = m_driver->placeFence(true);
-
-					// deferred release resources
-					upBuff->multi_free(upAllocations,m_tmpAddresses.data(),m_tmpSizes.data(),core::smart_refctd_ptr(fence));
-					if (download)
-						downBuff->multi_free(propertiesThisPass,m_tmpAddresses.data()+1u,m_tmpSizes.data()+1u,core::smart_refctd_ptr(fence));
-					items.descriptorSetCache.releaseSet(core::smart_refctd_ptr(fence),std::move(set));
-				};
-
-				//
-				for (uint32_t i=0; i<fullPasses; i++)
-				{
-					copyPass(maxPropertiesPerPass);
-				}
-
-				const auto leftOverProps = totalProps-fullPasses*maxPropertiesPerPass;
-				if (leftOverProps)
-					copyPass(leftOverProps);
-			}
-
-			return retval;
-		}
-
 
 		_IRR_STATIC_INLINE_CONSTEXPR auto IdealWorkGroupSize = 256u;
 
-		struct TransientPassData
-		{
-			const asset::SBufferRange<IGPUBuffer>* memBlock;
-			const void* data;
-			int32_t propDWORDSize;
-			uint32_t indexOffset;
-		};
+
 		class DescriptorSetCache
 		{
 				class DeferredDescriptorSetReclaimer
@@ -279,10 +136,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 				core::smart_refctd_ptr<IGPUDescriptorSetLayout> getLayout() const { return core::smart_refctd_ptr(layout); }
 
 				core::smart_refctd_ptr<IGPUDescriptorSet> getNextSet(
-					bool download, IVideoDriver* driver,
-					uint32_t indexByteOffsets, uint32_t indexByteSizes,
-					const uint32_t* cpuByteOffsets, const uint32_t* dataByteSizes,
-					const TransientPassData* transientData
+					IVideoDriver* driver, const TransferRequest* requests, uint32_t parameterBufferSize, const uint32_t* uploadAddresses, const uint32_t* downloadAddresses
 				);
 
 				void releaseSet(core::smart_refctd_ptr<IDriverFence>&& fence, core::smart_refctd_ptr<IGPUDescriptorSet>&& set);
@@ -297,7 +151,12 @@ class CPropertyPoolHandler final : public core::IReferenceCounted
 		IVideoDriver* m_driver;
 		// TODO: Optimize to only use one allocation for all these arrays
 		core::vector<PerPropertyCountItems> m_perPropertyCountItems;
-		core::vector<TransientPassData> m_transientPassData;
+		struct IndexUploadRange
+		{
+			core::SRange<const uint32_t> source;
+			uint32_t destOff;
+		};
+        core::vector<IndexUploadRange> m_tmpIndexRanges;
         core::vector<uint32_t> m_tmpAddresses,m_tmpSizes,m_alignments;
 };
 

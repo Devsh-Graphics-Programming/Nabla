@@ -110,7 +110,7 @@ bool CNullDriver::genericDriverInit(asset::IAssetManager* assMgr)
 		defaultUploadBuffer = core::make_smart_refctd_ptr < video::StreamingTransientDataBufferMT<> >(this, reqs);
 	}
 
-	m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(this);
+	m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(this,nullptr); // TODO: maybe a default logical device's pipeline cache?
 
 	DerivativeMapCreator = core::make_smart_refctd_ptr<CDerivativeMapCreator>(this);
 

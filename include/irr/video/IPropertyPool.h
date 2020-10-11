@@ -26,6 +26,7 @@ class IPropertyPool : public core::IReferenceCounted
 
 		//
 		virtual uint32_t getPropertyCount() const =0;
+		virtual size_t getPropertyOffset(uint32_t ix) const =0;
 		virtual uint32_t getPropertySize(uint32_t ix) const =0;
 
         //

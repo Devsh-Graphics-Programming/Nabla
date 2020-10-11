@@ -76,9 +76,9 @@ CPropertyPoolHandler::CPropertyPoolHandler(IVideoDriver* driver, IGPUPipelineCac
 
 	const uint32_t maxPropertiesPerPass = (maxSSBO-1u)/2u;
 	m_perPropertyCountItems.reserve(maxPropertiesPerPass);
+	m_tmpIndexRanges.reserve(maxPropertiesPerPass);
 
 	const auto maxSteamingAllocations = maxPropertiesPerPass+1u;
-	m_transientPassData.resize(maxSteamingAllocations);
 	m_tmpAddresses.resize(maxSteamingAllocations);
 	m_tmpSizes.resize(maxSteamingAllocations);
 	m_alignments.resize(maxSteamingAllocations,alignof(uint32_t));
@@ -91,23 +91,187 @@ CPropertyPoolHandler::CPropertyPoolHandler(IVideoDriver* driver, IGPUPipelineCac
 }
 
 //
-CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(IPropertyPool* const* poolsBegin, IPropertyPool* const* poolsEnd, uint32_t* const* indicesBegin, uint32_t* const* indicesEnd, const void* const* const* dataBegin, const std::chrono::nanoseconds& maxWait)
+CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(const AllocationRequest* requestsBegin, const AllocationRequest* requestsEnd, const std::chrono::nanoseconds& maxWait)
 {
 	bool success = true;
-
-	auto poolIndicesBegin = indicesBegin;
-	auto poolIndicesEnd = indicesEnd;
-	for (auto it=poolsBegin; it!=poolsEnd; it++)
+	for (auto it=requestsBegin; it!=requestsEnd; it++)
 	{
-		success = (*it)->allocateProperties(*poolIndicesBegin,*poolIndicesEnd) && success;
-		poolIndicesBegin++;
-		poolIndicesEnd++;
+		assert(!reinterpret_cast<const TransferRequest*>(it)->download);
+		success = it->pool->allocateProperties(it->outIndices.begin(),it->outIndices.end()) && success;
 	}
 
 	if (!success)
 		return {false,nullptr};
 
-	return uploadProperties(poolsBegin,poolsEnd,indicesBegin,indicesEnd,dataBegin,maxWait);
+	return transferProperties(reinterpret_cast<const TransferRequest*>(requestsBegin),reinterpret_cast<const TransferRequest*>(requestsEnd),maxWait);
+}
+
+//
+CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties(const TransferRequest* requestsBegin, const TransferRequest* requestsEnd, const std::chrono::nanoseconds& maxWait)
+{
+	const auto totalProps = std::distance(requestsBegin,requestsEnd);
+
+	transfer_result_t retval = { true,nullptr };
+	if (totalProps!=0u)
+	{
+		const uint32_t maxPropertiesPerPass = m_perPropertyCountItems.size();
+		const auto fullPasses = totalProps/maxPropertiesPerPass;
+
+		auto upBuff = m_driver->getDefaultUpStreamingBuffer();
+		auto downBuff = m_driver->getDefaultDownStreamingBuffer();
+		constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
+		uint8_t* upBuffPtr = reinterpret_cast<uint8_t*>(upBuff->getBufferPointer());
+				
+		auto maxWaitPoint = std::chrono::high_resolution_clock::now()+maxWait; // 50 us
+		auto copyPass = [&](const TransferRequest* localRequests, uint32_t propertiesThisPass) -> void
+		{
+			const uint32_t headerSize = sizeof(uint32_t)*3u*propertiesThisPass;
+
+			uint32_t upAllocations = 1u;
+			uint32_t downAllocations = 0u;
+			for (uint32_t i=0u; i<propertiesThisPass; i++)
+			{
+				if (localRequests[i].download)
+					downAllocations++;
+				else
+					upAllocations++;
+			}
+			
+			uint32_t* const upSizes = m_tmpSizes.data()+1u;
+			uint32_t* const downAddresses = m_tmpAddresses.data()+upAllocations;
+			uint32_t* const downSizes = m_tmpSizes.data()+upAllocations;
+
+			// figure out the sizes to allocate
+			{
+				m_tmpSizes[0u] = 3u*propertiesThisPass;
+
+				uint32_t* upSizesIt = upSizes;
+				uint32_t* downSizesIt = downSizes;
+				for (uint32_t i=0; i<propertiesThisPass; i++)
+				{
+					const auto& request = localRequests[i];
+					const auto propSize = request.pool->getPropertySize(request.propertyID);
+					const auto elementsByteSize = request.indices.size()*propSize;
+
+					if (request.download)
+						*(downSizesIt++) = elementsByteSize;
+					else
+						*(upSizesIt++) = elementsByteSize;
+
+					m_tmpIndexRanges[i] = {request.indices,0u};
+				}
+#ifdef TODO
+				// find slabs
+				std::sort(m_tmpIndexRanges.begin(),m_tmpIndexRanges.end(),[](auto lhs, auto rhs)->bool{return lhs.begin()<rhs.begin()});
+				uint32_t indexOffset = 0u;
+				auto prev = m_tmpIndexRanges.begin();
+				for (auto it=m_tmpIndexRanges.begin()+1u; it!=m_tmpIndexRanges.end(); it++)
+				{
+
+				}
+				m_tmpSizes[0u] += indexOffset;
+				m_tmpSizes[0u] *= sizeof(uint32_t);
+#endif
+			}
+
+			// allocate indices and upload/allocate data
+			uint32_t maxElements = 0u;
+			{
+				std::fill(m_tmpAddresses.begin(),m_tmpAddresses.begin()+propertiesThisPass+1u,invalid_address);
+#if 0 // TODO
+				upBuff->multi_alloc(maxWaitPoint,upAllocations,m_tmpAddresses.data(),m_tmpSizes.data(),m_alignments.data());
+#endif
+				uint8_t* indexBufferPtr = upBuffPtr+m_tmpAddresses[0u]/sizeof(uint32_t);
+				// write `elementCount`
+				for (uint32_t i=0; i<propertiesThisPass; i++)
+					*(indexBufferPtr++) = localRequests[i].indices.size();
+				// write `propertyDWORDsize_upDownFlag`
+				for (uint32_t i=0; i<propertiesThisPass; i++)
+				{
+					const auto& request = localRequests[i];
+					int32_t propSize = request.pool->getPropertySize(request.propertyID);
+					propSize /= sizeof(uint32_t);
+					if (request.download)
+						propSize = -propSize;
+					*reinterpret_cast<int32_t*>(indexBufferPtr++) = propSize;
+				}
+#ifdef TODO
+				// write `indexOffset`
+				for (uint32_t i=0; i<propertiesThisPass; i++)
+					*(indexBufferPtr++) = m_transientPassData[i].indexOffset;
+				// write the indices
+				for (uint32_t i=0; i<distinctPools; i++)
+				{
+					const auto poolID = std::distance(poolsBegin,poolsLocalBegin)+i;
+					const auto indexCount = indicesEnd[poolID]-indicesBegin[poolID];
+					memcpy(indexBufferPtr,indicesBegin[poolID],sizeof(uint32_t)*indexCount);
+					indexBufferPtr += indexCount;
+
+					maxElements = core::max(indexCount,maxElements);
+				}
+#endif
+				
+				// upload
+				auto upAddrIt = m_tmpAddresses.begin()+1;
+				for (uint32_t i=0u; i<propertiesThisPass; i++)
+				{
+					const auto& request = localRequests[i];
+					if (request.download)
+						continue;
+					
+					if ((*upAddrIt)!=invalid_address)
+					{
+						size_t propSize = request.pool->getPropertySize(request.propertyID);
+						memcpy(upBuffPtr+(*(upAddrIt++)),request.writeData,request.indices.size()*propSize);
+					}
+				}
+#if 0 // TODO
+				if (downAllocations)
+					downBuff->multi_alloc(maxWaitPoint,downAllocations,downAddresses,downSizes,m_alignments.data());
+#endif
+			}
+
+			const auto pipelineIndex = propertiesThisPass-1u;
+			auto& items = m_perPropertyCountItems[pipelineIndex];
+			auto pipeline = items.pipeline.get();
+			m_driver->bindComputePipeline(pipeline);
+
+			// update desc sets
+			auto set = items.descriptorSetCache.getNextSet(m_driver,localRequests,m_tmpSizes[0],m_tmpAddresses.data(),downAddresses);
+			if (!set)
+			{
+				retval.first = false;
+				return;
+			}
+
+			// bind desc sets
+			m_driver->bindDescriptorSets(EPBP_COMPUTE,pipeline->getLayout(),0u,1u,&set.get(),nullptr);
+		
+			// dispatch (this will need to change to a cmd buffer submission with a fence)
+			m_driver->dispatch((maxElements+IdealWorkGroupSize-1u)/IdealWorkGroupSize,propertiesThisPass,1u);
+			auto& fence = retval.second = m_driver->placeFence(true);
+
+			// deferred release resources
+			upBuff->multi_free(upAllocations,m_tmpAddresses.data(),m_tmpSizes.data(),core::smart_refctd_ptr(fence));
+			if (downAllocations)
+				downBuff->multi_free(downAllocations,downAddresses,downSizes,core::smart_refctd_ptr(fence));
+			items.descriptorSetCache.releaseSet(core::smart_refctd_ptr(fence),std::move(set));
+		};
+
+		
+		auto requests = requestsBegin;
+		for (uint32_t i=0; i<fullPasses; i++)
+		{
+			copyPass(requests,maxPropertiesPerPass);
+			requests += maxPropertiesPerPass;
+		}
+
+		const auto leftOverProps = totalProps-fullPasses*maxPropertiesPerPass;
+		if (leftOverProps)
+			copyPass(requests,leftOverProps);
+	}
+
+	return retval;
 }
 
 
@@ -152,10 +316,7 @@ CPropertyPoolHandler::DescriptorSetCache::DescriptorSetCache(IVideoDriver* drive
 
 CPropertyPoolHandler::DescriptorSetCache::DeferredDescriptorSetReclaimer::single_poll_t CPropertyPoolHandler::DescriptorSetCache::DeferredDescriptorSetReclaimer::single_poll;
 core::smart_refctd_ptr<IGPUDescriptorSet> CPropertyPoolHandler::DescriptorSetCache::getNextSet(
-	bool download, IVideoDriver* driver,
-	uint32_t indexByteOffset, uint32_t indexByteSize,
-	const uint32_t* cpuByteOffsets, const uint32_t* dataByteSizes,
-	const TransientPassData* transientData
+	IVideoDriver* driver, const TransferRequest* requests, uint32_t parameterBufferSize, const uint32_t* uploadAddresses, const uint32_t* downloadAddresses
 )
 {
 	deferredReclaims.pollForReadyEvents(DeferredDescriptorSetReclaimer::single_poll);
@@ -169,45 +330,48 @@ core::smart_refctd_ptr<IGPUDescriptorSet> CPropertyPoolHandler::DescriptorSetCac
 	else
 		retval = driver->createGPUDescriptorSet(core::smart_refctd_ptr(layout));
 
+
 	constexpr auto kSyntheticMax = 64;
 	assert(propertyCount<kSyntheticMax);
 	IGPUDescriptorSet::SDescriptorInfo info[kSyntheticMax];
+
 	IGPUDescriptorSet::SWriteDescriptorSet dsWrite[3u];
 	{
 		auto upBuff = driver->getDefaultUpStreamingBuffer()->getBuffer();
 		auto downBuff = driver->getDefaultDownStreamingBuffer()->getBuffer();
 
-		uint32_t ix = 0u;
-		info[ix].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
-		info[ix].buffer = { indexByteOffset,indexByteSize };
-		// in buffers
-		for (ix=1u; ix<=propertyCount; ix++)
+		info[0].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
+		info[0].buffer = { *(uploadAddresses++),parameterBufferSize };
+		for (uint32_t i=0u; i<propertyCount; i++)
 		{
+			const auto& request = requests[i];
+
+			const bool download = request.download;
+			
+			const auto* pool = request.pool;
+			const auto& poolMemBlock = pool->getMemoryBlock();
+
+			const uint32_t propertySize = pool->getPropertySize(request.propertyID);
+			const uint32_t transferPropertySize = request.indices.size()*propertySize;
+			const uint32_t poolPropertyBlockSize = pool->getCapacity()*propertySize;
+
+			auto& inDescInfo = info[i+1];
+			auto& outDescInfo = info[2*i+1];
 			if (download)
 			{
-				info[ix].desc = core::smart_refctd_ptr<asset::IDescriptor>(transientData->memBlock->buffer);
-				info[ix].buffer = { transientData->memBlock->offset,transientData->memBlock->size };
-				transientData++;
+				inDescInfo.desc = core::smart_refctd_ptr<asset::IDescriptor>(poolMemBlock.buffer);
+				inDescInfo.buffer = { pool->getPropertyOffset(request.propertyID),poolPropertyBlockSize };
+
+				outDescInfo.desc = core::smart_refctd_ptr<asset::IDescriptor>(downBuff);
+				outDescInfo.buffer = { *(downloadAddresses++),transferPropertySize };
 			}
 			else
 			{
-				info[ix].desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
-				info[ix].buffer = { *(cpuByteOffsets++),*(dataByteSizes++) };
-			}
-		}
-		// out buffers
-		for (ix=propertyCount+1u; ix<=propertyCount*2u; ix++)
-		{
-			if (download)
-			{
-				info[ix].desc = core::smart_refctd_ptr<asset::IDescriptor>(downBuff);
-				info[ix].buffer = { *(cpuByteOffsets++),*(dataByteSizes++) };
-			}
-			else
-			{
-				info[ix].desc = core::smart_refctd_ptr<asset::IDescriptor>(transientData->memBlock->buffer);
-				info[ix].buffer = { transientData->memBlock->offset,transientData->memBlock->size };
-				transientData++;
+				inDescInfo.desc = core::smart_refctd_ptr<asset::IDescriptor>(upBuff);
+				inDescInfo.buffer = { *(uploadAddresses++),transferPropertySize };
+					
+				outDescInfo.desc = core::smart_refctd_ptr<asset::IDescriptor>(poolMemBlock.buffer);
+				outDescInfo.buffer = { pool->getPropertyOffset(request.propertyID),poolPropertyBlockSize };
 			}
 		}
 	}
