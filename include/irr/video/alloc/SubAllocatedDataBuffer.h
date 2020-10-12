@@ -68,7 +68,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
                 size_type*  rangeData;
                 size_type   numAllocs;
             public:
-                DefaultDeferredFreeFunctor(ThisType* _this, size_type numAllocsToFree, const size_type* addrs, const size_type* bytes)
+				inline DefaultDeferredFreeFunctor(ThisType* _this, size_type numAllocsToFree, const size_type* addrs, const size_type* bytes)
                                                     : sadbRef(_this), rangeData(nullptr), numAllocs(numAllocsToFree)
                 {
                     rangeData = reinterpret_cast<size_type*>(sadbRef->getFunctorAllocator().allocate(numAllocs,sizeof(size_type)));
@@ -76,12 +76,12 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
                     memcpy(rangeData+numAllocs  ,bytes,sizeof(size_type)*numAllocs);
                 }
                 DefaultDeferredFreeFunctor(const DefaultDeferredFreeFunctor& other) = delete;
-                DefaultDeferredFreeFunctor(DefaultDeferredFreeFunctor&& other) : sadbRef(nullptr), rangeData(nullptr), numAllocs(0u)
+				inline DefaultDeferredFreeFunctor(DefaultDeferredFreeFunctor&& other) : sadbRef(nullptr), rangeData(nullptr), numAllocs(0u)
                 {
                     this->operator=(std::forward<DefaultDeferredFreeFunctor>(other));
                 }
 
-                ~DefaultDeferredFreeFunctor()
+				inline ~DefaultDeferredFreeFunctor()
                 {
                     if (rangeData)
                     {

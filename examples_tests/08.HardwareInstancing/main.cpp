@@ -128,9 +128,9 @@ struct ViewDependentObjectInvariantProps
 			float normalMatrixRow0[3];
 			uint32_t objectUUID;
 			float normalMatrixRow1[3];
-			uint32_t objectUUID;
+			uint32_t padding0;
 			float normalMatrixRow2[3];
-			uint32_t padding;
+			uint32_t padding1;
 		};
 		core::matrix3x4SIMD normalMatrix;
 	};
@@ -139,7 +139,7 @@ struct ViewDependentObjectInvariantProps
 
 struct ModelLoD
 {
-	ModelLoD(asset::IAssetManager* assMgr, video::IVideoDriver* driver, float _distance, const char* modelPath) : mb(nullptr), distance(_distance)
+	ModelLoD(asset::IAssetManager* assMgr, video::IVideoDriver* driver, float _distance, const char* modelPath) : mesh(nullptr), distance(_distance)
 	{
 		// load model
 		// override vertex shader
@@ -179,6 +179,8 @@ int main()
 	auto driver = device->getVideoDriver();
 
 
+	auto poolHandler = driver->getDefaultPropertyPoolHandler();
+
 	constexpr auto kNumHardwareInstancesX = 10;
 	constexpr auto kNumHardwareInstancesY = 20;
 	constexpr auto kNumHardwareInstancesZ = 30;
@@ -198,7 +200,7 @@ int main()
 	}();
 
 	// use the pool
-	core::vector<uint32_t> instanceIDs(kHardwareInstancesTOTAL);
+	core::vector<uint32_t> instanceIDs(kHardwareInstancesTOTAL,video::IPropertyPool::invalid_index);
 	{
 		// create the instances
 		{
@@ -214,11 +216,10 @@ int main()
 				propAIt->tform.setTranslation(core::vectorSIMDf(x,y,z)*2.f);
 				propAIt++,propBIt++;
 			}
-
-			video::IPropertyPool* pool = instanceData.get();
-			uint32_t* indicesBegin = instanceIDs.data();
-			const void* data[] = {propsA.data(),propsB.data()};
-			driver->getDefaultPropertyPoolHandler()->addProperties(&pool,&pool+1u,&indicesBegin,&indicesBegin+1u,reinterpret_cast<const void* const* const*>(&data));
+			
+			const void* data[] = { propsA.data(),propsB.data() };
+			video::CPropertyPoolHandler::AllocationRequest req{ instanceData.get(),{instanceIDs.data(),instanceIDs.data()+instanceIDs.size()},data };
+			poolHandler->addProperties(&req,&req+1);
 		}
 
 		// remove some randomly

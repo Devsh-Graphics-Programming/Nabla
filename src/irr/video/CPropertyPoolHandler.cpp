@@ -91,23 +91,38 @@ CPropertyPoolHandler::CPropertyPoolHandler(IVideoDriver* driver, IGPUPipelineCac
 }
 
 //
-CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(const AllocationRequest* requestsBegin, const AllocationRequest* requestsEnd, const std::chrono::nanoseconds& maxWait)
+CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(const AllocationRequest* requestsBegin, const AllocationRequest* requestsEnd, const std::chrono::steady_clock::time_point& maxWait)
 {
 	bool success = true;
+
+	uint32_t transferCount = 0u;
 	for (auto it=requestsBegin; it!=requestsEnd; it++)
 	{
 		assert(!reinterpret_cast<const TransferRequest*>(it)->download);
 		success = it->pool->allocateProperties(it->outIndices.begin(),it->outIndices.end()) && success;
+
+		transferCount += it->pool->getPropertyCount();
 	}
 
 	if (!success)
 		return {false,nullptr};
 
-	return transferProperties(reinterpret_cast<const TransferRequest*>(requestsBegin),reinterpret_cast<const TransferRequest*>(requestsEnd),maxWait);
+	core::vector<TransferRequest> transferRequests(transferCount);
+	auto oit = transferRequests.begin();
+	for (auto it=requestsBegin; it!=requestsEnd; it++)
+	for (auto i=0u; i<it->pool->getPropertyCount(); i++)
+	{
+		oit->download = false;
+		oit->pool = it->pool;
+		oit->indices = { it->outIndices.begin(),it->outIndices.end() };
+		oit->propertyID = i;
+		oit->readData = it->data[i];
+	}
+	return transferProperties(transferRequests.data(),transferRequests.data()+transferCount,maxWait);
 }
 
 //
-CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties(const TransferRequest* requestsBegin, const TransferRequest* requestsEnd, const std::chrono::nanoseconds& maxWait)
+CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties(const TransferRequest* requestsBegin, const TransferRequest* requestsEnd, const std::chrono::steady_clock::time_point& maxWait)
 {
 	const auto totalProps = std::distance(requestsBegin,requestsEnd);
 
@@ -122,7 +137,6 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 		constexpr auto invalid_address = std::remove_reference_t<decltype(upBuff->getAllocator())>::invalid_address;
 		uint8_t* upBuffPtr = reinterpret_cast<uint8_t*>(upBuff->getBufferPointer());
 				
-		auto maxWaitPoint = std::chrono::high_resolution_clock::now()+maxWait; // 50 us
 		auto copyPass = [&](const TransferRequest* localRequests, uint32_t propertiesThisPass) -> void
 		{
 			const uint32_t headerSize = sizeof(uint32_t)*3u*propertiesThisPass;
@@ -314,7 +328,7 @@ CPropertyPoolHandler::DescriptorSetCache::DescriptorSetCache(IVideoDriver* drive
 	unusedSets.reserve(4u); // 4 frames worth at least
 }
 
-CPropertyPoolHandler::DescriptorSetCache::DeferredDescriptorSetReclaimer::single_poll_t CPropertyPoolHandler::DescriptorSetCache::DeferredDescriptorSetReclaimer::single_poll;
+CPropertyPoolHandler::DeferredDescriptorSetReclaimer::single_poll_t CPropertyPoolHandler::DeferredDescriptorSetReclaimer::single_poll;
 core::smart_refctd_ptr<IGPUDescriptorSet> CPropertyPoolHandler::DescriptorSetCache::getNextSet(
 	IVideoDriver* driver, const TransferRequest* requests, uint32_t parameterBufferSize, const uint32_t* uploadAddresses, const uint32_t* downloadAddresses
 )
@@ -395,5 +409,5 @@ core::smart_refctd_ptr<IGPUDescriptorSet> CPropertyPoolHandler::DescriptorSetCac
 
 void CPropertyPoolHandler::DescriptorSetCache::releaseSet(core::smart_refctd_ptr<IDriverFence>&& fence, core::smart_refctd_ptr<IGPUDescriptorSet>&& set)
 {
-	deferredReclaims.addEvent(GPUEventWrapper(std::move(fence)),DeferredDescriptorSetReclaimer(this,std::move(set)));
+	deferredReclaims.addEvent(GPUEventWrapper(std::move(fence)),DeferredDescriptorSetReclaimer(&unusedSets,std::move(set)));
 }
