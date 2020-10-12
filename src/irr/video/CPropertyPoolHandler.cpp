@@ -91,7 +91,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(IVideoDriver* driver, IGPUPipelineCac
 }
 
 //
-CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(const AllocationRequest* requestsBegin, const AllocationRequest* requestsEnd, const std::chrono::steady_clock::time_point& maxWait)
+CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(const AllocationRequest* requestsBegin, const AllocationRequest* requestsEnd, const std::chrono::steady_clock::time_point& maxWaitPoint)
 {
 	bool success = true;
 
@@ -118,11 +118,11 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(cons
 		oit->propertyID = i;
 		oit->readData = it->data[i];
 	}
-	return transferProperties(transferRequests.data(),transferRequests.data()+transferCount,maxWait);
+	return transferProperties(transferRequests.data(),transferRequests.data()+transferCount,maxWaitPoint);
 }
 
 //
-CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties(const TransferRequest* requestsBegin, const TransferRequest* requestsEnd, const std::chrono::steady_clock::time_point& maxWait)
+CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties(const TransferRequest* requestsBegin, const TransferRequest* requestsEnd, const std::chrono::steady_clock::time_point& maxWaitPoint)
 {
 	const auto totalProps = std::distance(requestsBegin,requestsEnd);
 
@@ -192,9 +192,8 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 			uint32_t maxElements = 0u;
 			{
 				std::fill(m_tmpAddresses.begin(),m_tmpAddresses.begin()+propertiesThisPass+1u,invalid_address);
-#if 0 // TODO
 				upBuff->multi_alloc(maxWaitPoint,upAllocations,m_tmpAddresses.data(),m_tmpSizes.data(),m_alignments.data());
-#endif
+
 				uint8_t* indexBufferPtr = upBuffPtr+m_tmpAddresses[0u]/sizeof(uint32_t);
 				// write `elementCount`
 				for (uint32_t i=0; i<propertiesThisPass; i++)
@@ -239,10 +238,9 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 						memcpy(upBuffPtr+(*(upAddrIt++)),request.writeData,request.indices.size()*propSize);
 					}
 				}
-#if 0 // TODO
+
 				if (downAllocations)
 					downBuff->multi_alloc(maxWaitPoint,downAllocations,downAddresses,downSizes,m_alignments.data());
-#endif
 			}
 
 			const auto pipelineIndex = propertiesThisPass-1u;

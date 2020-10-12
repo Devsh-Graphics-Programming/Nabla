@@ -82,7 +82,7 @@ class CPropertyPool final : public IPropertyPool
             : IPropertyPool(std::move(_memoryBlock),capacity,_reserved), alloc(std::move(_alloc)), reserved(_reserved)
         {
 			propertyOffsets[0] = memoryBlock.offset;
-			for (uint32_t i=1u; i<capacity; i++)
+			for (uint32_t i=1u; i<PropertyCount; i++)
 				propertyOffsets[i] = core::roundUp(propertyOffsets[i-1u]+PropertySizes[i-1u]*size_t(capacity),PropertySizes[i]);
         }
 

@@ -34,7 +34,6 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 
 		
 		using transfer_result_t = std::pair<bool, core::smart_refctd_ptr<IDriverFence> >;
-		#define DEFAULT_WAIT (std::chrono::high_resolution_clock::now()+std::chrono::nanoseconds(50000ull)) // 50 us
 
 		// allocate and upload properties, indices need to be pre-initialized to `invalid_index`
 		struct AllocationRequest
@@ -43,7 +42,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 			core::SRange<uint32_t> outIndices;
 			const void* const* data; 
 		};
-		transfer_result_t addProperties(const AllocationRequest* requestsBegin, const AllocationRequest* requestsEnd, const std::chrono::steady_clock::time_point& maxWaitPoint=DEFAULT_WAIT);
+		transfer_result_t addProperties(const AllocationRequest* requestsBegin, const AllocationRequest* requestsEnd, const std::chrono::steady_clock::time_point& maxWaitPoint=GPUEventWrapper::default_wait());
 
         //
 		struct TransferRequest
@@ -63,8 +62,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				void* writeData;
 			};
 		};
-		transfer_result_t transferProperties(const TransferRequest* requestsBegin, const TransferRequest* requestsEnd, const std::chrono::steady_clock::time_point& maxWaitPoint=DEFAULT_WAIT);
-		#undef DEFAULT_WAIT
+		transfer_result_t transferProperties(const TransferRequest* requestsBegin, const TransferRequest* requestsEnd, const std::chrono::steady_clock::time_point& maxWaitPoint=GPUEventWrapper::default_wait());
 		
 		// only public because GPUDeferredEventHandlerST needs to know about it
 		class DeferredDescriptorSetReclaimer

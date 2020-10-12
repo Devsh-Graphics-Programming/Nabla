@@ -134,8 +134,13 @@ class GPUEventWrapper : public core::Uncopyable
             return *this;
         }
 
-        template<class Clock, class Duration>
-        inline bool wait_until(const std::chrono::time_point<Clock, Duration>& timeout_time)
+        template<class Clock=std::chrono::steady_clock, class Duration=typename Clock::duration>
+        inline static std::chrono::time_point<Clock,Duration> default_wait()
+        {
+            return std::chrono::high_resolution_clock::now()+std::chrono::nanoseconds(50000ull); // 50 us
+        }
+        template<class Clock=std::chrono::steady_clock, class Duration=typename Clock::duration>
+        inline bool wait_until(const std::chrono::time_point<Clock,Duration>& timeout_time)
         {
             auto currentClockTime = Clock::now();
             do

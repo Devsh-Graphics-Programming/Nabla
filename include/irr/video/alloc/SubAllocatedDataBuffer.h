@@ -197,11 +197,12 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         template<typename... Args>
         inline size_type    multi_alloc(uint32_t count, Args&&... args) noexcept
         {
-            return multi_alloc(std::chrono::nanoseconds(50000ull),count,std::forward<Args>(args)...);
+            auto maxWaitPoint = GPUEventWrapper::default_wait();
+            return multi_alloc<decltype(maxWaitPoint)::clock,decltype(maxWaitPoint)::duration,Args...>(maxWaitPoint,count,std::forward<Args>(args)...);
         }
         //!
-        template<typename... Args>
-        inline size_type    multi_alloc(const std::chrono::nanoseconds& maxWait, const Args&... args) noexcept
+        template<class Clock=std::chrono::steady_clock, class Duration=typename Clock::duration, typename... Args>
+        inline size_type    multi_alloc(const std::chrono::time_point<Clock,Duration>& maxWaitPoint, const Args&... args) noexcept
         {
             #ifdef _IRR_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
@@ -213,7 +214,6 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
             if (!unallocatedSize)
                 return 0u;
 
-            auto maxWaitPoint = std::chrono::high_resolution_clock::now()+maxWait; // 50 us
             // then try to wait at least once and allocate
             do
             {
