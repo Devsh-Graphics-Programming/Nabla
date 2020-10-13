@@ -5,7 +5,7 @@
 #ifndef __NBL_C_OPEN_GL_FRAMEBUFFER_H_INCLUDED__
 #define __NBL_C_OPEN_GL_FRAMEBUFFER_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 #include "IFrameBuffer.h"
 
 #include "irr/video/COpenGLImageView.h"

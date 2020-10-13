@@ -5,7 +5,7 @@
 #ifndef __NBL_VIDEO_C_OPEN_GL_IMAGE_H_INCLUDED__
 #define __NBL_VIDEO_C_OPEN_GL_IMAGE_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 
 #include "irr/video/IGPUImage.h"
 

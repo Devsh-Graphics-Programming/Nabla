@@ -7,6 +7,7 @@
 #define __NBL_I_OS_OPERATOR_H_INCLUDED__
 
 #include "irr/core/core.h"
+#include "irr/system/compile_config.h"
 
 namespace irr
 {

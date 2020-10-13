@@ -23,6 +23,11 @@
 #   define _NBL_POSIX_API_
 #endif
 
+#if defined(_NBL_PLATFORM_WINDOWS_)
+#   define _NBL_WINDOWS_API_
+#   define _NBL_COMPILE_WITH_WINDOWS_DEVICE_
+#endif
+
 #ifdef _NBL_TARGET_ARCH_ARM_
 #   define __NBL_COMPILE_WITH_ARM_SIMD_ // NEON
 #else // target arch x86

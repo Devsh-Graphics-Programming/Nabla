@@ -5,7 +5,7 @@
 #ifndef __NBL_SPLINES_H_INCLUDED__
 #define __NBL_SPLINES_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 #include <cmath>       /* sqrt */
 #include "irr/core/math/glslFunctions.tcc"
 

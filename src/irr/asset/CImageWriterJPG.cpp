@@ -3,6 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
+#include "irr/asset/compile_config.h"
+
 #include "CImageWriterJPG.h"
 
 #ifdef _NBL_COMPILE_WITH_JPG_WRITER_

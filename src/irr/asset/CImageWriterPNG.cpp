@@ -4,6 +4,7 @@
 // See the original file in irrlicht source for authors
 
 #include "irr/core/core.h"
+#include "irr/asset/compile_config.h"
 #include "CImageWriterPNG.h"
 
 #ifdef _NBL_COMPILE_WITH_PNG_WRITER_

@@ -23,7 +23,6 @@ extern "C" void bz_internal_error(int errorCode)
 #include "CFileList.h"
 #include "CReadFile.h"
 
-#include "IrrCompileConfig.h"
 #ifdef _NBL_COMPILE_WITH_ZLIB_
 	#include "zlib/zlib.h"
 

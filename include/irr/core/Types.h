@@ -5,7 +5,7 @@
 #ifndef __NBL_CORE_TYPES_H_INCLUDED__
 #define __NBL_CORE_TYPES_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/core/compile_config.h"
 
 #include "stdint.h"
 #include <wchar.h>

@@ -7,6 +7,7 @@
 
 #include "irr/macros.h"
 #include "IReadFile.h"
+#include "irr/core/compile_config.h"
 #include "irr/system/system.h"
 
 

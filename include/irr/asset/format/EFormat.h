@@ -7,7 +7,7 @@
 
 #include <cstdint>
 #include <type_traits>
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 #include "vectorSIMD.h"
 #include "irr/core/math/rational.h"
 

@@ -6,8 +6,8 @@
 #ifndef __NBL_C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
 #define __NBL_C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
 #include "irr/core/core.h"
+#include "irr/system/compile_config.h"
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 

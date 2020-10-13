@@ -8,7 +8,7 @@
 #ifndef __NBL_ASSET_C_IMAGE_LOADER_PNG_H_INCLUDED__
 #define __NBL_ASSET_C_IMAGE_LOADER_PNG_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/asset/compile_config.h"
 
 #ifdef _NBL_COMPILE_WITH_PNG_LOADER_
 

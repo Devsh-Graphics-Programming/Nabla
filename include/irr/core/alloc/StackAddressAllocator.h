@@ -5,7 +5,7 @@
 #ifndef __NBL_CORE_STACK_ADDRESS_ALLOCATOR_H_INCLUDED__
 #define __NBL_CORE_STACK_ADDRESS_ALLOCATOR_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 
 #include "irr/core/alloc/LinearAddressAllocator.h"
 

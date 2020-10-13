@@ -6,7 +6,7 @@
 #ifndef __NBL_ASSET_C_IMAGE_LOADER_TGA_H_INCLUDED__
 #define __NBL_ASSET_C_IMAGE_LOADER_TGA_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildCOnfigOptions.h"
 #include "irr/asset/IImageLoader.h"
 
 namespace irr

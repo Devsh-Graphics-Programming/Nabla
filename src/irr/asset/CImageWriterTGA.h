@@ -6,7 +6,7 @@
 #ifndef __NBL_ASSET_C_IMAGE_WRITER_TGA_H_INCLUDED__
 #define __NBL_ASSET_C_IMAGE_WRITER_TGA_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 
 #ifdef _NBL_COMPILE_WITH_TGA_WRITER_
 

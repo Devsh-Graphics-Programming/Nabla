@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_IMAGE_WRITER_OPENEXR__
 #define __NBL_ASSET_C_IMAGE_WRITER_OPENEXR__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 
 #ifdef _NBL_COMPILE_WITH_OPENEXR_WRITER_
 

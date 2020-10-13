@@ -5,6 +5,7 @@
 #ifndef __NBL_ASSET_C_CPU_MESH_H_INCLUDED__
 #define __NBL_ASSET_C_CPU_MESH_H_INCLUDED__
 
+#include "BuildConfigOptions.h"
 #include "irr/asset/ICPUMesh.h"
 
 namespace irr

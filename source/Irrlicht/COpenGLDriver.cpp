@@ -7,7 +7,7 @@
 #include "irr/video/CGPUSkinnedMesh.h"
 
 #include "vectorSIMD.h"
- 
+
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 
 #include "irr/video/COpenGLImageView.h"

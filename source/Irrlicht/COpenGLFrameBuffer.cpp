@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 #include "COpenGLFrameBuffer.h"

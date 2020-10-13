@@ -6,7 +6,6 @@
 #ifndef __NBL_I_NABLA_DEVICE_H_INCLUDED__
 #define __NBL_I_NABLA_DEVICE_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
 #include "dimension2d.h"
 #include "IVideoDriver.h"
 #include "EDriverTypes.h"

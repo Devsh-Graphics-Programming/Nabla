@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "IrrCompileConfig.h"
+#include "irr/core/compile_config.h"
 
 #ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 

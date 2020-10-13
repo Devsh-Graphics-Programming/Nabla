@@ -3,9 +3,9 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "IrrCompileConfig.h"
-
 static const char* const copyright = "Irrlicht Engine (c) 2002-2011 Nikolaus Gebhardt";
+
+#include "BuildConfigOptions.h"
 
 #ifdef _NBL_WINDOWS_
 	#include <windows.h>

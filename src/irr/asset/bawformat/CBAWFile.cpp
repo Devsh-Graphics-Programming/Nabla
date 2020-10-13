@@ -2,6 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+#include "irr/asset/compile_config.h"
+
 #include "irr/asset/bawformat/CBAWFile.h"
 
 #include "irr/asset/ICPUBuffer.h"

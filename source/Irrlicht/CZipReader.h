@@ -6,7 +6,7 @@
 #ifndef __NBL_C_ZIP_READER_H_INCLUDED__
 #define __NBL_C_ZIP_READER_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/asset/compile_config.h"
 
 #ifdef __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
 

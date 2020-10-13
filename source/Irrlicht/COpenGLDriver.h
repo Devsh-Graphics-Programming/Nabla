@@ -7,6 +7,7 @@
 #define __NBL_C_VIDEO_OPEN_GL_H_INCLUDED__
 
 #include "irr/core/core.h"
+#include "irr/system/compile_config.h"
 
 #include "SIrrCreationParameters.h"
 

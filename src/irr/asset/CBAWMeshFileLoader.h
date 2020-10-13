@@ -5,6 +5,7 @@
 #ifndef __NBL_ASSET_C_BAW_MESH_FILE_LOADER_H_INCLUDED__
 #define __NBL_ASSET_C_BAW_MESH_FILE_LOADER_H_INCLUDED__
 
+#include "irr/asset/compile_config.h"
 
 #include "irr/asset/IAssetManager.h"/*
 #include "irr/asset/IAssetLoader.h"

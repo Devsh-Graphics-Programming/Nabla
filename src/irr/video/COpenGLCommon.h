@@ -5,7 +5,7 @@
 #ifndef __NBL_VIDEO_C_OPENGL_COMMON_H_INCLUDED__
 #define __NBL_VIDEO_C_OPENGL_COMMON_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 #include "COpenGLExtensionHandler.h"
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_

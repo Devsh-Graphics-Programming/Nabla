@@ -6,6 +6,7 @@
 #define __NBL_CORE_C_LEAK_DEBUGGER_H_INCLUDED__
 
 #include "irr/core/core.h"
+#include "irr/system/compile_config.h"
 
 #include <string>
 #include <sstream>

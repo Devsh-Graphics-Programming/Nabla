@@ -6,7 +6,7 @@
 #ifndef __NBL_VECTOR_SIMD_H_INCLUDED__
 #define __NBL_VECTOR_SIMD_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/core/compile_config.h"
 
 #ifdef __NBL_COMPILE_WITH_X86_SIMD_
 

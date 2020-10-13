@@ -5,7 +5,7 @@
 #ifndef __NBL_MATH_H_INCLUDED__
 #define __NBL_MATH_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 
 #include <limits.h> // For INT_MAX / UINT_MAX
 #include <initializer_list>

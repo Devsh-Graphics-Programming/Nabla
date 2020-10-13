@@ -6,7 +6,7 @@
 #ifndef __NBL_C_MOUNT_READER_H_INCLUDED__
 #define __NBL_C_MOUNT_READER_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/asset/compile_config.h"
 
 #ifdef __NBL_COMPILE_WITH_MOUNT_ARCHIVE_LOADER_
 

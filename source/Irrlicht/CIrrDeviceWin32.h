@@ -6,7 +6,8 @@
 #ifndef __NBL_C_NBL_DEVICE_WIN32_H_INCLUDED__
 #define __NBL_C_NBL_DEVICE_WIN32_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/core/compile_config.h"
+
 #ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 
 #include "CIrrDeviceStub.h"

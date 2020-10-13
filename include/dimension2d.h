@@ -6,7 +6,7 @@
 #ifndef __NBL_DIMENSION2D_H_INCLUDED__
 #define __NBL_DIMENSION2D_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 #include <cstdint>
 
 namespace irr

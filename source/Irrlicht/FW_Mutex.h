@@ -3,12 +3,11 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "stdint.h"
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 
 #ifndef __NBL_FW_MUTEX_H_
 #define __NBL_FW_MUTEX_H_
 
-#include "IrrCompileConfig.h"
 //#define FW_MUTEX_H_CXX11_IMPL
 
 #if defined(FW_MUTEX_H_CXX11_IMPL)

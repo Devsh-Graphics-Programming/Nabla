@@ -9,6 +9,7 @@
 #include "IFileArchive.h"
 #include "irr/asset/ICPUBuffer.h"
 #include "irr/core/core.h"
+#include "irr/asset/compile_config.h"
 
 #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
 #include "irr/builtin/common.h"
