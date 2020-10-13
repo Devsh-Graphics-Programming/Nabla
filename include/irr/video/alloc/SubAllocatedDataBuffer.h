@@ -197,8 +197,7 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         template<typename... Args>
         inline size_type    multi_alloc(uint32_t count, Args&&... args) noexcept
         {
-            auto maxWaitPoint = GPUEventWrapper::default_wait();
-            return multi_alloc<decltype(maxWaitPoint)::clock,decltype(maxWaitPoint)::duration,Args...>(maxWaitPoint,count,std::forward<Args>(args)...);
+            return multi_alloc(GPUEventWrapper::default_wait(),count,std::forward<Args>(args)...);
         }
         //!
         template<class Clock=std::chrono::steady_clock, class Duration=typename Clock::duration, typename... Args>
