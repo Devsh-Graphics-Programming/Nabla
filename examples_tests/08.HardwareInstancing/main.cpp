@@ -6,7 +6,7 @@
 
 using namespace irr;
 using namespace core;
-using namespace scene;
+using namespace asset;
 
 
 #if 0
@@ -108,6 +108,8 @@ public:
     virtual void OnUnsetMaterial() {}
 };
 #endif
+
+#include "common.glsl"
 
 struct CullUniformBuffer
 {
@@ -225,17 +227,17 @@ if (lowerBoundofMeshBufferID)
 
 struct ModelLoD
 {
-	ModelLoD(asset::IAssetManager* assMgr, video::IVideoDriver* driver, float _distance, const char* modelPath) : mesh(nullptr), distance(_distance)
+	ModelLoD(IAssetManager* assMgr, video::IVideoDriver* driver, float _distance, const char* modelPath) : mesh(nullptr), distance(_distance)
 	{
 		// load model
-		asset::IAssetLoader::SAssetLoadParams lp;
+		IAssetLoader::SAssetLoadParams lp;
         auto bundle = assMgr->getAsset(modelPath,lp);
 		assert(!bundle.isEmpty());
 		auto cpumesh = bundle.getContents().begin()[0];
-		auto cpumesh_raw = static_cast<asset::ICPUMesh*>(cpumesh.get());
+		auto cpumesh_raw = static_cast<ICPUMesh*>(cpumesh.get());
 
-		//const asset::CMTLPipelineMetadata* pipelineMetadata = nullptr;
-		//core::map<const asset::ICPURenderpassIndependentPipeline*,core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>> modifiedPipelines;
+		const CMTLPipelineMetadata* pipelineMetadata = nullptr;
+		core::map<const ICPURenderpassIndependentPipeline*,core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>> modifiedPipelines;
 		for (uint32_t i=0u; i<cpumesh_raw->getMeshBufferCount(); i++)
 		{
 			auto mb = cpumesh_raw->getMeshBuffer(i);
@@ -243,27 +245,35 @@ struct ModelLoD
 			assert(!!mb->getIndexBufferBinding()->buffer);
 			// override vertex shader
 			auto* pipeline = mb->getPipeline();
-			/*
 			auto found = modifiedPipelines.find(pipeline);
 			if (found==modifiedPipelines.end())
 			{
 				// new pipeline to modify, copy the pipeline
-				auto pipeline_cp = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(pipeline->clone(1u));
+				auto pipeline_cp = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(pipeline->clone(1u));
 
-				// insert a geometry shader into the pipeline
+				// get metadata
 				assert(pipelineMetadata->getLoaderName() == "CGraphicsPipelineLoaderMTL");
-				pipelineMetadata = static_cast<const asset::CMTLPipelineMetadata*>(pipeline->getMetadata());
-				pipeline_cp->setShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_GEOMETRY_SHADER_IX,(pipelineMetadata->usesShaderWithUVs() ? geomShaderUV:geomShaderNOUV).get());
+				pipelineMetadata = static_cast<const CMTLPipelineMetadata*>(pipeline->getMetadata());
 
-				// add descriptor set layout with one that has an SSBO and UBO
+				// add the redirect attribute buffer
+				constexpr uint32_t redirectAttributeID = 15u;
+				auto& vertexInput = pipeline_cp->getVertexInputParams();
+				vertexInput.attributes[redirectAttributeID].binding = 15u;
+				vertexInput.attributes[redirectAttributeID].format = EF_R32_UINT;
+				vertexInput.attributes[redirectAttributeID].relativeOffset = 0u;
+				vertexInput.enabledAttribFlags |= 0x1u<<redirectAttributeID;
+				vertexInput.bindings[redirectAttributeID].stride = sizeof(uint32_t);
+				vertexInput.bindings[redirectAttributeID].inputRate = EVIR_PER_INSTANCE;
+				vertexInput.enabledBindingFlags |= 0x1u<<redirectAttributeID;
+
+				// replace the descriptor set layout with one that ...
 				auto* layout = pipeline_cp->getLayout();
-				layout->setDescriptorSetLayout(0, core::smart_refctd_ptr(ds0layout));
+//				layout->setDescriptorSetLayout(0, core::smart_refctd_ptr(ds0layout));
 
 				// cache the result
 				found = modifiedPipelines.emplace(pipeline,std::move(pipeline_cp)).first;
 			}
 			mb->setPipeline(core::smart_refctd_ptr(found->second));
-			*/
 		}
 		//assert(pipelineMetadata);
 
@@ -273,6 +283,19 @@ struct ModelLoD
 
 	core::smart_refctd_ptr<video::IGPUMesh> mesh;
 	float distance;
+};
+
+struct CameraData
+{
+	CameraData(video::IVideoDriver* driver, scene::ISceneManager* smgr, uint32_t maxUniqueDrawcalls, float moveSpeed=0.01f)
+	{
+		node = smgr->addCameraSceneNodeFPS(nullptr,100.0f,moveSpeed);
+
+		objectUUIDRedirects = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t)*maxUniqueDrawcalls);
+	}
+
+	scene::ICameraSceneNode* node;
+	core::smart_refctd_ptr<video::IGPUBuffer> objectUUIDRedirects;
 };
 
 int main()
@@ -303,9 +326,10 @@ int main()
 	auto driver = device->getVideoDriver();
 
 
+	constexpr auto kHardMeshbufferLimit = 0x1u<<10u;
 
-	const ModelLoD instanceLoDs[] = { ModelLoD(assMgr,driver,8.f,"../../media/cow.obj"),ModelLoD(assMgr,driver,50.f,"../../media/yellowflower.obj") };
-	constexpr auto kLoDLevels = sizeof(instanceLoDs)/sizeof(ModelLoD);
+	const core::vector<ModelLoD> instanceLoDs = { ModelLoD(assMgr,driver,8.f,"../../media/cow.obj"),ModelLoD(assMgr,driver,50.f,"../../media/yellowflower.obj") };
+	const auto kLoDLevels = instanceLoDs.size();
 	
 	core::aabbox3df lodInvariantAABB;
 	{
@@ -327,7 +351,7 @@ int main()
 	// create the pool
 	auto instanceData = [&]()
 	{
-		asset::SBufferRange<video::IGPUBuffer> memoryBlock;
+		SBufferRange<video::IGPUBuffer> memoryBlock;
 		memoryBlock.buffer = driver->createDeviceLocalGPUBufferOnDedMem((sizeof(ViewInvariantProps)+sizeof(MaterialProps))*kHardwareInstancesTOTAL);
 		memoryBlock.size = memoryBlock.buffer->getSize();
 		return video::CPropertyPool<core::allocator,ViewInvariantProps,MaterialProps>::create(std::move(memoryBlock));
@@ -381,39 +405,116 @@ int main()
 		instanceIDs.resize(std::distance(instanceIDs.begin(),newEnd));
 	}
 
+
 	auto perViewInstanceData = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(ViewDependentObjectInvariantProps)*kHardwareInstancesTOTAL);
 	
-	auto drawIndirectData = [&]()
+
+	auto drawCallParameters = [&]()
 	{
-		/*
-		uint32_t count;
-		uint32_t instanceCount;
-		uint32_t firstIndex;
-		uint32_t baseVertex;
-		uint32_t baseInstance;
-		*/
-		core::vector<asset::DrawElementsIndirectCommand_t> indirectCmds(instanceLoDs[0].mesh->getMeshBufferCount()+instanceLoDs[1].mesh->getMeshBufferCount());
-		// TODO: fill
+		core::vector<DrawElementsIndirectCommand_t> indirectCmds;
+		for (auto lod : instanceLoDs)
+		for (uint32_t i=0u; i<lod.mesh->getMeshBufferCount(); i++)
 		{
+			const auto meshbuffer = lod.mesh->getMeshBuffer(i);
+			const auto indexBufferOffset = meshbuffer->getIndexBufferBinding().offset;
+
+			DrawElementsIndirectCommand_t draw;
+			draw.count = meshbuffer->getIndexCount();
+			draw.instanceCount = 0u;
+			switch (meshbuffer->getIndexType())
+			{
+				case EIT_16BIT:
+					draw.firstIndex = indexBufferOffset/sizeof(uint16_t);
+					break;
+				case EIT_32BIT:
+					draw.firstIndex = indexBufferOffset/sizeof(uint32_t);
+					break;
+				default:
+					assert(false);
+					break;
+			}
+			draw.baseVertex = meshbuffer->getBaseVertex();
+			draw.baseInstance = 0u;
+			indirectCmds.push_back(draw);
 		}
-		return driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(asset::DrawElementsIndirectCommand_t)*indirectCmds.size(),indirectCmds.data());
+		assert(instanceLoDs.size()<kHardMeshbufferLimit);
+		return driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(DrawElementsIndirectCommand_t)*indirectCmds.size(),indirectCmds.data());
 	}();
 
 
-	scene::ICameraSceneNode* camera = device->getSceneManager()->addCameraSceneNodeFPS(0, 100.0f, 0.01f);
-	camera->setPosition(core::vector3df(-4, 0, 0));
-	camera->setTarget(core::vector3df(0, 0, 0));
-	camera->setNearValue(0.01f);
-	camera->setFarValue(100.0f);
 
-	// render
-	while (true)
+	const auto extensions = driver->getSupportedGLSLExtensions();
+	CShaderIntrospector introspector(assMgr->getGLSLCompiler());
+	auto createComputePipelineFromFile = [&](const char* shaderPath)
 	{
-		// TODO: task for junior, make the instances spin
+		IAssetLoader::SAssetLoadParams lp;
+		auto shaderBundle = assMgr->getAsset(shaderPath,lp);
+
+		auto cpuCullPipeline = introspector.createApproximateComputePipelineFromIntrospection(
+			IAsset::castDown<ICPUSpecializedShader>(shaderBundle.getContents().begin()->get()),
+			extensions->begin(),extensions->end()
+		);
+		return driver->getGPUObjectsFromAssets(&cpuCullPipeline.get(),&cpuCullPipeline.get()+1)->operator[](0);
+	};
+
+	auto cullObjectsPipeline = createComputePipelineFromFile("../cullObjects.comp");
+	auto clearCameraDrawcallsPipeline = createComputePipelineFromFile("../clearCameraDrawcalls.comp");
+	auto expandObjectsIntoDrawcallsPipeline = createComputePipelineFromFile("../expandObjectsIntoDrawcalls.comp");
+	auto setupRedirectsPipeline = createComputePipelineFromFile("../setupRedirects.comp");
+
+
+	auto smgr = device->getSceneManager();
+
+	CameraData camera(driver,smgr,kHardMeshbufferLimit);
+	camera.node->setPosition(core::vector3df(-4, 0, 0));
+	camera.node->setTarget(core::vector3df(0, 0, 0));
+	camera.node->setNearValue(0.01f);
+	camera.node->setFarValue(100.0f);
+
+	smgr->setActiveCamera(camera.node);
+	uint64_t lastFPSTime = 0;
+	// render
+	while (device->run() && receiver.keepOpen())
+	{
+		driver->beginScene(true, true, video::SColor(255, 128, 128, 128));
+
+		//! This animates (moves) the camera and sets the transforms
+		camera.node->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count());
+		camera.node->render();
+
+		// TODO: task for a junior, make the instances spin
+		{
+			//poolHandler->transferProperties();
+		}
 
 		// compute shader culling
+		{
+			auto workgroupCount = [](uint32_t workItems) -> uint32_t
+			{
+				return (workItems+kOptimalWorkgroupSize-1)/kOptimalWorkgroupSize;
+			};
 
-		// barrier
+            driver->bindComputePipeline(cullObjectsPipeline.get());
+            //driver->bindDescriptorSets(video::EPBP_COMPUTE, gpuCullPipeline->getLayout(), 1u, 1u, &cullDescriptorSet.get(), nullptr);
+            //driver->pushConstants(cullObjectsPipeline->getLayout(), asset::ICPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(CullShaderData_t), &pc);
+            driver->dispatch(workgroupCount(instanceIDs.size()),1u,1u);
+            video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+
+			//
+			driver->bindComputePipeline(clearCameraDrawcallsPipeline.get());
+            //driver->dispatch(workgroupCount(instanceIDs.size()),1u,1u);
+            video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+            
+			//
+			driver->bindComputePipeline(expandObjectsIntoDrawcallsPipeline.get());
+            //driver->dispatch(workgroupCount(instanceIDs.size()),1u,1u);
+			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+            
+			//
+			driver->bindComputePipeline(setupRedirectsPipeline.get());
+            //driver->dispatch(workgroupCount(instanceIDs.size()),1u,1u);
+			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT|GL_COMMAND_BARRIER_BIT);
+		}
 		
 		// draw indirects
 	}
@@ -424,7 +525,7 @@ int main()
 	//create a screenshot
 	{
 		core::rect<uint32_t> sourceRect(0, 0, params.WindowSize.Width, params.WindowSize.Height);
-		ext::ScreenShot::dirtyCPUStallingScreenshot(driver,device->getAssetManager(), "screenshot.png", sourceRect, asset::EF_R8G8B8_SRGB);
+		ext::ScreenShot::dirtyCPUStallingScreenshot(driver,device->getAssetManager(), "screenshot.png", sourceRect, EF_R8G8B8_SRGB);
 	}
 #endif
 
