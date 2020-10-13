@@ -1,9 +1,9 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 #include "../common/QToQuitEventReceiver.h"
-#include "../../ext/ScreenShot/ScreenShot.h"
+#include "irr/ext/ScreenShot/ScreenShot.h"
 
-#include "../../ext/Blur/CBlurPerformer.h"
+#include "irr/ext/Blur/CBlurPerformer.h"
 
 using namespace irr;
 using namespace core;

@@ -27,7 +27,7 @@ if(IRR_BUILD_OPTIX)
 endif()
 
 set(EXTRA_SOURCES
-	../../ext/DebugDraw/CDraw3DLine.cpp
+	../../src/irr/ext/DebugDraw/CDraw3DLine.cpp
 	./dirty_source/ExtraCrap.cpp
 )
 

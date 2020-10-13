@@ -5,7 +5,7 @@ if(NOT RES)
 endif()
 
 irr_create_executable_project(
-	../../ext/DebugDraw/CDraw3DLine.cpp
+	../../src/irr/ext/DebugDraw/CDraw3DLine.cpp
 	"" 
 	"${IRR_EXT_BULLET_INCLUDE_DIRS}" 
 	"${IRR_EXT_BULLET_LIB}"
