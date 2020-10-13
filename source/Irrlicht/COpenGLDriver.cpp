@@ -51,29 +51,10 @@ class AMDbugfixCompiler : public spirv_cross::Compiler
 public:
     using spirv_cross::Compiler::Compiler;
 
-    enum E_AMD_FIX_FUNCS
-    {
-        EAFF_d2x2,
-        EAFF_d2x3,
-        EAFF_d2x4,
-        EAFF_d3x2,
-        EAFF_d3x3,
-        EAFF_d3x4,
-        EAFF_d4x2,
-        EAFF_d4x3,
-        EAFF_d4x4,
-        EAFF_2x2,
-        EAFF_2x3,
-        EAFF_2x4,
-        EAFF_3x2,
-        EAFF_3x3,
-        EAFF_3x4,
-        EAFF_4x2,
-        EAFF_4x3,
-        EAFF_4x4,
+    _IRR_STATIC_INLINE_CONSTEXPR bool ACCOUNT_SSBO = true;
 
-        EAFF_COUNT
-    };
+    // {numer of possible row counts} * {number of possible col counts} * {number of possible basetypes (float/double)}
+    _IRR_STATIC_INLINE_CONSTEXPR uint32_t WORKAROUND_FUNCTION_COUNT = 3u*3u*2u;
     struct SFunction
     {
         uint32_t restype;
@@ -88,19 +69,24 @@ public:
 
         bool operator<(const SLoad& rhs) const { return offset<rhs.offset; }
     };
+    using workaround_functions_t = std::array<SFunction, WORKAROUND_FUNCTION_COUNT>;
 
-    std::pair<irr::core::vector<SLoad>, std::array<SFunction, EAFF_COUNT>> getFixCandidates()
+    std::pair<irr::core::vector<SLoad>, workaround_functions_t> getFixCandidates()
     {
         irr::core::vector<uint32_t> vars;//IDs of UBO or SSBO vars (instances)
         irr::core::vector<SLoad> loads;//OpLoad's that are potentially going to need the fix
         
-        std::array<SFunction, EAFF_COUNT> fixFuncs;
+        workaround_functions_t fixFuncs;
         memset(fixFuncs.data(), 0xff, fixFuncs.size()*sizeof(SFunction));
 
         ir.for_each_typed_id<spirv_cross::SPIRVariable>(//gather all instances of SSBO and UBO blocks
             [&](uint32_t, const spirv_cross::SPIRVariable& var) {
                 auto& type = this->get<spirv_cross::SPIRType>(var.basetype);
-                if (type.storage == spv::StorageClassUniform || type.storage == spv::StorageClassStorageBuffer)
+                bool valid = type.storage == spv::StorageClassUniform;
+                if constexpr (ACCOUNT_SSBO) {
+                    valid = valid || (type.storage == spv::StorageClassStorageBuffer);
+                }
+                if (valid)
                 {
                     vars.push_back(var.self);
                 }
@@ -109,53 +95,16 @@ public:
             [&](uint32_t, const spirv_cross::SPIRFunction& func) {
                     uint32_t fid = func.self;
                     const std::string& nm = get_name(fid);
-                    const char expected[] = "irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier_";
-                    if (nm.length()>sizeof(expected)-1u && strncmp(nm.c_str(), expected, sizeof(expected)-1u)==0)
+                    const char expected[] = "irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier";
+                    if (strncmp(nm.c_str(), expected, sizeof(expected)-1u) == 0)
                     {
-                        uint32_t ix = ~0u;
-                        const char* szstr = nm.c_str()+sizeof(expected)-1u;
-                        if (strncmp(szstr, "dmat2x2", 7) == 0)
-                            ix = EAFF_d2x2;
-                        else if (strncmp(szstr, "dmat2x3", 7) == 0)
-                            ix = EAFF_d2x3;
-                        else if (strncmp(szstr, "dmat2x4", 7) == 0)
-                            ix = EAFF_d2x4;
-                        else if (strncmp(szstr, "dmat3x2", 7) == 0)
-                            ix = EAFF_d3x2;
-                        else if (strncmp(szstr, "dmat3x3", 7) == 0)
-                            ix = EAFF_d3x3;
-                        else if (strncmp(szstr, "dmat3x4", 7) == 0)
-                            ix = EAFF_d3x4;
-                        else if (strncmp(szstr, "dmat4x2", 7) == 0)
-                            ix = EAFF_d4x2;
-                        else if (strncmp(szstr, "dmat4x3", 7) == 0)
-                            ix = EAFF_d4x3;
-                        else if (strncmp(szstr, "dmat4x4", 7) == 0)
-                            ix = EAFF_d4x4;
-                        else if (strncmp(szstr, "mat2x2", 6) == 0)
-                            ix = EAFF_2x2;
-                        else if (strncmp(szstr, "mat2x3", 6) == 0)
-                            ix = EAFF_2x3;
-                        else if (strncmp(szstr, "mat2x4", 6) == 0)
-                            ix = EAFF_2x4;
-                        else if (strncmp(szstr, "mat3x2", 6) == 0)
-                            ix = EAFF_3x2;
-                        else if (strncmp(szstr, "mat3x3", 6) == 0)
-                            ix = EAFF_3x3;
-                        else if (strncmp(szstr, "mat3x4", 6) == 0)
-                            ix = EAFF_3x4;
-                        else if (strncmp(szstr, "mat4x2", 6) == 0)
-                            ix = EAFF_4x2;
-                        else if (strncmp(szstr, "mat4x3", 6) == 0)
-                            ix = EAFF_4x3;
-                        else if (strncmp(szstr, "mat4x4", 6) == 0)
-                            ix = EAFF_4x4;
+                        auto& param_type = get_type(func.arguments[0].type);
 
-                        if (ix < fixFuncs.size())
-                        {
-                            fixFuncs[ix].restype = get_type(func.return_type).self;
-                            fixFuncs[ix].id = fid;
-                        }
+                        const uint32_t ix = (param_type.basetype==spirv_cross::SPIRType::BaseType::Double ? 1u:0u)*(3u*3u) + (3u*(param_type.vecsize-2u)) + param_type.columns-2u;
+
+                        assert(ix < fixFuncs.size());
+                        fixFuncs[ix].restype = get_type(func.return_type).self;
+                        fixFuncs[ix].id = fid;
                     }
             }
         );
@@ -193,7 +142,7 @@ public:
                             getThisOpLoad = false;
                         }
                     }
-                    break;
+                        break;
                     case spv::OpAccessChain:
                     {
                         uint32_t baseptr = ops[2];
@@ -201,14 +150,17 @@ public:
                         if (found != vars.end())
                             getThisOpLoad = true;
                     }
-                    break;
+                        break;
                     case spv::OpFunctionCall:
                     {
                         auto& callee = get<spirv_cross::SPIRFunction>(ops[2]);
                         callstack.push(std::cref(callee));
                     }
-                    break;
-                    default: break;
+                        break;
+                    default: 
+                        // OpLoad should be directly after OpAccessChain, so reset flag if access chained concerned some other op
+                        getThisOpLoad = false; 
+                        break;
                     }
                 }
             }
@@ -1330,7 +1282,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
             return nullptr;
         GLfloat a;
 
-// #define FIX_AMD_DRIVER_BUG // TODO: @Crisspl get this code manipulation to pass on the `boxFrustCull.comp` shader of ex 26 also update it to the fact i've converted the workaround to an overloaded function (name has now changed!)
+#define FIX_AMD_DRIVER_BUG // TODO: fix to work even when user dont wrap matrix fetch with irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier
 #ifdef FIX_AMD_DRIVER_BUG
         AMDbugfixCompiler comp(reinterpret_cast<const uint32_t*>(spvCode->getPointer()), spvCode->getSize()/4u);
         comp.set_entry_point(EP, asset::ESS2spvExecModel(stage));
@@ -1370,12 +1322,19 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
                         break;
                     }
                 }
-                assert(fcall->f_id<(~0u));
+                if (fcall->f_id == (~0u))
+                {
+                    os::Printer::log(_specInfo.m_filePathHint,
+                        "Some of your UBO/SSBO matrix fetches are not wrapped with irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier!",
+                        ELL_ERROR);
+                    assert(false);
+                }
 
                 uint32_t* store = spv.data()+ld.offset+ld.len+extraOffset;
                 store[2] = fcallId;//store result of new OpFunctionCall instead of result of OpStore
 
-                spv.insert(spv.begin()+ld.offset+ld.len+extraOffset, fcall_, fcall_+sizeof(fcall_)/sizeof(*fcall_));
+                const uint32_t offset = ld.offset+ld.len+extraOffset;
+                spv.insert(spv.begin()+offset, fcall_, fcall_+sizeof(fcall_)/sizeof(*fcall_));
                 extraOffset += sizeof(fcall_)/sizeof(*fcall_);
             }
             spvCode = core::make_smart_refctd_ptr<asset::ICPUBuffer>(spv.size()*4ull);
