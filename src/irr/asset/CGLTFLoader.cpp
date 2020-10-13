@@ -50,6 +50,203 @@ namespace irr
 				cpuBuffers.emplace_back() = core::smart_refctd_ptr<ICPUBuffer>(cpuBuffer);
 			}
 
+			core::vector<core::smart_refctd_ptr<CCPUMesh>> cpuMeshes;
+			for (auto& glTFnode : glTF.nodes) 
+			{
+				auto cpuMesh = cpuMeshes.emplace_back();
+
+				for (auto& glTFprimitive : glTFnode.glTFMesh.primitives) 
+				{
+					typedef std::remove_reference<decltype(glTFprimitive)>::type SGLTFPrimitive;
+					
+					auto meshBuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+
+					auto getMode = [&](uint32_t modeValue) -> E_PRIMITIVE_TOPOLOGY
+					{
+						switch (modeValue)
+						{
+							case SGLTFPrimitive::SGLTFPT_POINTS:
+								return EPT_POINT_LIST;
+							case SGLTFPrimitive::SGLTFPT_LINES:
+								return EPT_LINE_LIST;
+							case SGLTFPrimitive::SGLTFPT_LINE_LOOP:
+								return EPT_LINE_LIST_WITH_ADJACENCY; // check it
+							case SGLTFPrimitive::SGLTFPT_LINE_STRIP:
+								return EPT_LINE_STRIP;
+							case SGLTFPrimitive::SGLTFPT_TRIANGLES:
+								return EPT_TRIANGLE_LIST;
+							case SGLTFPrimitive::SGLTFPT_TRIANGLE_STRIP:
+								return EPT_TRIANGLE_STRIP;
+							case SGLTFPrimitive::SGLTFPT_TRIANGLE_FAN:
+								return EPT_TRIANGLE_STRIP_WITH_ADJACENCY; // check it
+						}
+					};
+
+					const E_PRIMITIVE_TOPOLOGY primitiveTopology = getMode(glTFprimitive.mode.value());
+
+					if (glTFprimitive.indices.has_value())
+					{	
+						auto& glTFIndexAccessor = glTFprimitive.accessors["INDEX"];
+
+						// TODO
+					}
+
+					auto statusPosition = glTFprimitive.accessors.find("POSITION");
+					if (statusPosition != glTFprimitive.accessors.end())
+					{
+						// TODO: make it a common lambda for handling accessors
+
+						auto& glTFPositionAccessor = glTFprimitive.accessors["POSITION"];
+
+						typedef std::remove_reference<decltype(glTFPositionAccessor)>::type SGLTFAccessor;
+
+						auto getType = [&](std::string type)
+						{
+							// TODO
+
+							if (type == SGLTFAccessor::SType::SCALAR.data()) 
+							{
+
+							}
+							else if (type == SGLTFAccessor::SType::VEC2.data())
+							{
+
+							}
+							else if (type == SGLTFAccessor::SType::VEC3.data())
+							{
+
+							}
+							else if (type == SGLTFAccessor::SType::VEC4.data())
+							{
+
+							}
+							else if (type == SGLTFAccessor::SType::MAT2.data())
+							{
+
+							}
+							else if (type == SGLTFAccessor::SType::MAT3.data())
+							{
+
+							}
+							else if (type == SGLTFAccessor::SType::MAT4.data())
+							{
+
+							}
+						};
+
+						auto getCompomentType = [&](uint32_t componentType)
+						{
+							// TODO
+
+							switch (componentType)
+							{
+								case SGLTFAccessor::SCT_BYTE:
+								{
+
+								} break;
+
+								case SGLTFAccessor::SCT_FLOAT:
+								{
+
+								} break;
+
+								case SGLTFAccessor::SCT_SHORT:
+								{
+
+								} break;
+
+								case SGLTFAccessor::SCT_UNSIGNED_BYTE:
+								{
+
+								} break;
+
+								case SGLTFAccessor::SCT_UNSIGNED_INT:
+								{
+
+								} break;
+
+								case SGLTFAccessor::SCT_UNSIGNED_SHORT:
+								{
+
+								} break;
+							}
+						};
+
+						// TODO
+					}
+
+					auto statusNormal = glTFprimitive.accessors.find("NORMAL");
+					if (statusNormal != glTFprimitive.accessors.end())
+					{
+						auto& glTFNormalAccessor = glTFprimitive.accessors["NORMAL"];
+
+						// TODO
+					}
+
+					auto statusTangent = glTFprimitive.accessors.find("TANGENT");
+					if (statusTangent != glTFprimitive.accessors.end())
+					{
+						auto& glTFTangentAccessor = glTFprimitive.accessors["TANGENT"];
+
+						// TODO
+					}
+
+					for (uint32_t i = 0; true; ++i)
+					{
+						auto statusTexcoord = glTFprimitive.accessors.find("TEXCOORD_" + std::to_string(i));
+						if (statusTexcoord == glTFprimitive.accessors.end())
+							break;
+						else
+						{
+							auto& glTFTexcoordXAccessor = glTFprimitive.accessors["TEXCOORD_" + std::to_string(i)];
+
+							// TODO
+						}
+					}
+
+					for (uint32_t i = 0; true; ++i)
+					{
+						auto statusColor = glTFprimitive.accessors.find("COLOR_" + std::to_string(i));
+						if (statusColor == glTFprimitive.accessors.end())
+							break;
+						else
+						{
+							auto& glTFColorXAccessor = glTFprimitive.accessors["COLOR_" + std::to_string(i)];
+
+							// TODO
+						}
+					}
+
+					for (uint32_t i = 0; true; ++i)
+					{
+						auto statusJoints = glTFprimitive.accessors.find("JOINTS_" + std::to_string(i));
+						if (statusJoints == glTFprimitive.accessors.end())
+							break;
+						else
+						{
+							auto& glTFJointsXAccessor = glTFprimitive.accessors["JOINTS_" + std::to_string(i)];
+
+							// TODO
+						}
+					}
+
+					for (uint32_t i = 0; true; ++i)
+					{
+						auto statusWeights = glTFprimitive.accessors.find("WEIGHTS_" + std::to_string(i));
+						if (statusWeights == glTFprimitive.accessors.end())
+							break;
+						else
+						{
+							auto& glTFWeightsXAccessor = glTFprimitive.accessors["WEIGHTS_" + std::to_string(i)];
+
+							// TODO
+						}
+					}
+
+				}
+				
+			}
+
 			// TODO: load resources
 			// ..
 
@@ -657,7 +854,7 @@ namespace irr
 							glTFnode.mesh = mesh.get_uint64().value();
 
 						if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
-							glTFnode.name = name.get_string.value();
+							glTFnode.name = name.get_string().value();
 
 						// TODO camera, skinning, etc HERE
 
@@ -691,15 +888,17 @@ namespace irr
 									auto& extensions = jsonPrimitive.at_key("extensions");
 									auto& extras = jsonPrimitive.at_key("extras");
 
+									// TODO: add index accessor to the unordered map as "INDEX"
+
 									if (attributes.error() != simdjson::error_code::NO_SUCH_FIELD)
 										for (auto& [attributeKey, attributeID] : attributes.get_object())
 										{
-											const auto accessorID = glTFPrimitive.attributes[attributeKey.data()] = attributeID.get_uint64().value();
+											const auto accessorID = attributeID.get_uint64().value();
 											auto& jsonAccessor = accessors.get_array().at(accessorID);
 
 											if (jsonAccessor.error() != simdjson::NO_SUCH_FIELD)
 											{
-												auto& glTFAccessor = glTFPrimitive.accessors.emplace_back();
+												auto& glTFAccessor = glTFPrimitive.accessors[attributeKey.data()];
 
 												auto& bufferView = jsonAccessor.at_key("bufferView");
 												auto& byteOffset = jsonAccessor.at_key("byteOffset");
@@ -847,8 +1046,6 @@ namespace irr
 					}
 				}
 			}
-			else
-				return {};
 
 			return glTF;
 		}

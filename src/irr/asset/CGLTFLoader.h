@@ -47,17 +47,6 @@ namespace irr
 					std::optional<std::string> copyright;
 				};
 
-				enum SGLTFPrimitiveTopology
-				{
-					SGLTFPT_POINTS,
-					SGLTFPT_LINES,
-					SGLTFPT_LINE_LOOP,
-					SGLTFPT_LINE_STRIP,
-					SGLTFPT_TRIANGLES,
-					SGLTFPT_TRIANGLE_STRIP,
-					SGLTFPT_TRIANGLE_FAN
-				};
-
 				/*
 					A node in the node hierarchy. A node can have either a matrix or any combination of 
 					translation/rotation/scale (TRS) properties.
@@ -122,13 +111,6 @@ namespace irr
 					{
 						struct SPrimitive
 						{
-							/*
-								Valid attribute semantic property names include POSITION, NORMAL, TANGENT, TEXCOORD_0, TEXCOORD_1, COLOR_0, JOINTS_0, and WEIGHTS_0.
-								Application-specific semantics must start with an underscore, e.g., _TEMPERATURE. TEXCOORD, COLOR, JOINTS, and WEIGHTS attribute
-								semantic property names must be of the form [semantic]_[set_index], e.g., TEXCOORD_0, TEXCOORD_1, COLOR_0.
-							*/
-
-							std::unordered_map<std::string, uint32_t> attributes;				//!< A dictionary object, where each key corresponds to mesh attribute semantic and each value is the index of the accessor containing attribute's data.
 							std::optional<uint32_t> indices;									//!< The index of the accessor that contains the indices.
 							std::optional<uint32_t> material;									//!< The index of the material to apply to this primitive when rendering.
 							std::optional<uint32_t> mode;										//!< The type of primitives to render.
@@ -191,36 +173,28 @@ namespace irr
 								}
 							};
 
-							std::vector<SGLTFAccessor> accessors;
-
 							/*
-							E_PRIMITIVE_TOPOLOGY getMode(uint32_t input)
-							{
-								switch (input)
-								{
-								case SGLTFPT_POINTS:
-									return EPT_POINT_LIST;
-								case SGLTFPT_LINES:
-									return EPT_LINE_LIST;
-								case SGLTFPT_LINE_LOOP:
-									return EPT_LINE_LIST_WITH_ADJACENCY; // check it
-								case SGLTFPT_LINE_STRIP:
-									return EPT_LINE_STRIP;
-								case SGLTFPT_TRIANGLES:
-									return EPT_TRIANGLE_LIST;
-								case SGLTFPT_TRIANGLE_STRIP:
-									return EPT_TRIANGLE_STRIP;
-								case SGLTFPT_TRIANGLE_FAN:
-									return EPT_TRIANGLE_STRIP_WITH_ADJACENCY; // check it
-								default:
-									return {};
-								}
-							};
+								Valid attribute semantic property names include POSITION, NORMAL, TANGENT, TEXCOORD_0, TEXCOORD_1, COLOR_0, JOINTS_0, and WEIGHTS_0.
+								Application-specific semantics must start with an underscore, e.g., _TEMPERATURE. TEXCOORD, COLOR, JOINTS, and WEIGHTS attribute
+								semantic property names must be of the form [semantic]_[set_index], e.g., TEXCOORD_0, TEXCOORD_1, COLOR_0.
 							*/
+
+							std::unordered_map<std::string, SGLTFAccessor> accessors; //! An accessor is queried with an atribute name (like POSITION)
+
+							enum SGLTFPrimitiveTopology
+							{
+								SGLTFPT_POINTS,
+								SGLTFPT_LINES,
+								SGLTFPT_LINE_LOOP,
+								SGLTFPT_LINE_STRIP,
+								SGLTFPT_TRIANGLES,
+								SGLTFPT_TRIANGLE_STRIP,
+								SGLTFPT_TRIANGLE_FAN
+							};
 
 							bool validate()
 							{
-								for (auto& accessor : accessors)
+								for(auto& [attribute, accessor] : accessors)
 									if (!accessor.validate())
 										return false;
 
