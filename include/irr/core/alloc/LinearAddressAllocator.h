@@ -5,8 +5,6 @@
 #ifndef __NBL_CORE_LINEAR_ADDRESS_ALLOCATOR_H_INCLUDED__
 #define __NBL_CORE_LINEAR_ADDRESS_ALLOCATOR_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
-
 #include "irr/core/alloc/AddressAllocatorBase.h"
 
 namespace irr

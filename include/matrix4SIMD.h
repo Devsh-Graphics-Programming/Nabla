@@ -5,7 +5,6 @@
 #ifndef __NBL_MATRIX4SIMD_H_INCLUDED__
 #define __NBL_MATRIX4SIMD_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
 #include "matrix3x4SIMD.h"
 
 namespace irr

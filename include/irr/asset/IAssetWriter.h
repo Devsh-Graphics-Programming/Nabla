@@ -5,8 +5,6 @@
 #ifndef __NBL_ASSET_I_ASSET_WRITER_H_INCLUDED__
 #define __NBL_ASSET_I_ASSET_WRITER_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
-
 #include "IWriteFile.h"
 #include "IAsset.h"
 

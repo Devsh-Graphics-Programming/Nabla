@@ -5,7 +5,6 @@
 #ifndef __NBL_ASSET_C_GRAPHICS_PIPELINE_LOADER_MTL_H_INCLUDED__
 #define __NBL_ASSET_C_GRAPHICS_PIPELINE_LOADER_MTL_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
 #include "irr/asset/IAssetLoader.h"
 #include "irr/asset/CMTLPipelineMetadata.h"
 

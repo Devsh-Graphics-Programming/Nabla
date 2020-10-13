@@ -6,7 +6,6 @@
 #define __NBL_CORE_COLOR_UTIL_H_INCLUDED__
 
 #include <cstdlib>
-#include "IrrCompileConfig.h"
 
 namespace irr { namespace core
 {

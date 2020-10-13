@@ -5,7 +5,6 @@
 #ifndef __NBL_ASSET_BLOB_H_INCLUDED__
 #define __NBL_ASSET_BLOB_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
 #include "irr/core/Types.h"
 
 namespace irr

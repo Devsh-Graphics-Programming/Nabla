@@ -5,8 +5,6 @@
 #ifndef __NBL_CORE_ADDRESS_ALLOCATOR_CONCURRENCY_ADAPTORS_H_INCLUDED__
 #define __NBL_CORE_ADDRESS_ALLOCATOR_CONCURRENCY_ADAPTORS_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
-
 #include "irr/core/alloc/address_allocator_traits.h"
 
 namespace irr

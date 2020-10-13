@@ -7,9 +7,6 @@
 
 #include <string>
 
-
-#include "IrrCompileConfig.h"
-
 #include "irr/video/IGPUImageView.h"
 #include "EDriverTypes.h"
 

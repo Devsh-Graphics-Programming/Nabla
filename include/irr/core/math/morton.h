@@ -6,7 +6,6 @@
 #define __NBL_CORE_MORTON_H_INCLUDED__
 
 #include <cstdint>
-#include "IrrCompileConfig.h"
 #include "irr/macros.h"
 
 namespace irr

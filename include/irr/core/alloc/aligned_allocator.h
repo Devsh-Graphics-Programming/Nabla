@@ -5,7 +5,6 @@
 #ifndef __NBL_CORE_ALIGNED_ALLOCATOR_H_INCLUDED__
 #define __NBL_CORE_ALIGNED_ALLOCATOR_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
 #include "irr/core/memory/memory.h"
 #include "irr/core/alloc/AllocatorTrivialBases.h"
 

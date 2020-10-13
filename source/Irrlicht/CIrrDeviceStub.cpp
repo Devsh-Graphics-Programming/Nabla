@@ -8,7 +8,6 @@
 #include "IEventReceiver.h"
 #include "IFileSystem.h"
 #include "os.h"
-#include "IrrCompileConfig.h"
 #include "CLogger.h"
 #include "irr/asset/CIncludeHandler.h"
 

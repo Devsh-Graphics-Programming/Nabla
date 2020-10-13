@@ -5,7 +5,6 @@
 
 #include "os.h"
 
-#include "IrrCompileConfig.h"
 //#include "irr/core/math/irrMath.h"
 
 

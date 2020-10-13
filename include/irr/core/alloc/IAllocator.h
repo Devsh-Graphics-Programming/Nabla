@@ -5,9 +5,6 @@
 #ifndef __NBL_CORE_I_ALLOCATOR_H_INCLUDED__
 #define __NBL_CORE_I_ALLOCATOR_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
-
-
 namespace irr
 {
 namespace core

@@ -5,8 +5,6 @@
 #ifndef __NBL_CORE_UNIQUE_STRING_LITERAL_TYPE_H_INCLUDED__
 #define __NBL_CORE_UNIQUE_STRING_LITERAL_TYPE_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
-
 #include "irr/macros.h"
 
 

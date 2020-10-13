@@ -5,8 +5,6 @@
 #ifndef __NBL_CORE_SIMPLE_BLOCK_BASED_ALLOCATOR_H_INCLUDED__
 #define __NBL_CORE_SIMPLE_BLOCK_BASED_ALLOCATOR_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
-
 #include "irr/core/Types.h"
 #include "irr/core/alloc/aligned_allocator.h"
 #include "irr/core/alloc/address_allocator_traits.h"
