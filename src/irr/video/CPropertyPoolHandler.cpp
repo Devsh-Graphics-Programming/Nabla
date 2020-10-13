@@ -72,7 +72,7 @@ void main()
 CPropertyPoolHandler::CPropertyPoolHandler(IVideoDriver* driver, IGPUPipelineCache* pipelineCache) : m_driver(driver)
 {
 	assert(m_driver);
-	const auto maxSSBO = m_driver->getMaxSSBOBindings(); // TODO: make sure not dynamic offset
+	const auto maxSSBO = core::min(m_driver->getMaxSSBOBindings(),16u); // TODO: make sure not dynamic offset, support proper queries per stage!
 
 	const uint32_t maxPropertiesPerPass = (maxSSBO-1u)/2u;
 	m_perPropertyCountItems.reserve(maxPropertiesPerPass);
@@ -98,9 +98,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(cons
 	uint32_t transferCount = 0u;
 	for (auto it=requestsBegin; it!=requestsEnd; it++)
 	{
-		assert(!reinterpret_cast<const TransferRequest*>(it)->download);
 		success = it->pool->allocateProperties(it->outIndices.begin(),it->outIndices.end()) && success;
-
 		transferCount += it->pool->getPropertyCount();
 	}
 
@@ -117,6 +115,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(cons
 		oit->indices = { it->outIndices.begin(),it->outIndices.end() };
 		oit->propertyID = i;
 		oit->readData = it->data[i];
+		oit++;
 	}
 	return transferProperties(transferRequests.data(),transferRequests.data()+transferCount,maxWaitPoint);
 }
@@ -156,11 +155,14 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 			uint32_t* const downSizes = m_tmpSizes.data()+upAllocations;
 
 			// figure out the sizes to allocate
+			uint32_t maxElements = 0u;
+			auto RangeComparator = [](auto lhs, auto rhs)->bool{return lhs.source.begin()<rhs.source.begin();};
 			{
 				m_tmpSizes[0u] = 3u*propertiesThisPass;
 
 				uint32_t* upSizesIt = upSizes;
 				uint32_t* downSizesIt = downSizes;
+				m_tmpIndexRanges.resize(propertiesThisPass);
 				for (uint32_t i=0; i<propertiesThisPass; i++)
 				{
 					const auto& request = localRequests[i];
@@ -172,24 +174,41 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 					else
 						*(upSizesIt++) = elementsByteSize;
 
-					m_tmpIndexRanges[i] = {request.indices,0u};
+					m_tmpIndexRanges[i].source = request.indices;
+					m_tmpIndexRanges[i].destOff = 0u;
 				}
-#ifdef TODO
-				// find slabs
-				std::sort(m_tmpIndexRanges.begin(),m_tmpIndexRanges.end(),[](auto lhs, auto rhs)->bool{return lhs.begin()<rhs.begin()});
+
+				// find slabs (reduce index duplication)
+				std::sort(m_tmpIndexRanges.begin(),m_tmpIndexRanges.end(),RangeComparator);
 				uint32_t indexOffset = 0u;
-				auto prev = m_tmpIndexRanges.begin();
+				auto oit = m_tmpIndexRanges.begin();
 				for (auto it=m_tmpIndexRanges.begin()+1u; it!=m_tmpIndexRanges.end(); it++)
 				{
+					const auto& inRange = it->source;
+					maxElements = core::max<uint32_t>(inRange.size(),maxElements);
 
+					// check for discontinuity
+					auto& outRange = oit->source;
+					if (inRange.begin()>outRange.end())
+					{
+						indexOffset += outRange.size();
+						// begin a new slab
+						oit++;
+						*oit = *it;
+						oit->destOff = indexOffset;
+					}
+					else
+						reinterpret_cast<const uint32_t**>(&outRange)[1] = inRange.end();
 				}
+				// note the size of the last slab
+				indexOffset += oit->source.size();
+				m_tmpIndexRanges.resize(std::distance(m_tmpIndexRanges.begin(),++oit));
+
 				m_tmpSizes[0u] += indexOffset;
 				m_tmpSizes[0u] *= sizeof(uint32_t);
-#endif
 			}
 
 			// allocate indices and upload/allocate data
-			uint32_t maxElements = 0u;
 			{
 				std::fill(m_tmpAddresses.begin(),m_tmpAddresses.begin()+propertiesThisPass+1u,invalid_address);
 				upBuff->multi_alloc(maxWaitPoint,upAllocations,m_tmpAddresses.data(),m_tmpSizes.data(),m_alignments.data());
@@ -208,21 +227,28 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties
 						propSize = -propSize;
 					*reinterpret_cast<int32_t*>(indexBufferPtr++) = propSize;
 				}
-#ifdef TODO
+
 				// write `indexOffset`
 				for (uint32_t i=0; i<propertiesThisPass; i++)
-					*(indexBufferPtr++) = m_transientPassData[i].indexOffset;
-				// write the indices
-				for (uint32_t i=0; i<distinctPools; i++)
 				{
-					const auto poolID = std::distance(poolsBegin,poolsLocalBegin)+i;
-					const auto indexCount = indicesEnd[poolID]-indicesBegin[poolID];
-					memcpy(indexBufferPtr,indicesBegin[poolID],sizeof(uint32_t)*indexCount);
-					indexBufferPtr += indexCount;
-
-					maxElements = core::max(indexCount,maxElements);
+					const auto& originalRange = localRequests->indices;
+					// find the slab
+					IndexUploadRange dummy;
+					dummy.source = originalRange;
+					dummy.destOff = 0xdeadbeefu;
+					auto aboveOrEqual = std::lower_bound(m_tmpIndexRanges.begin(),m_tmpIndexRanges.end(),dummy,RangeComparator);
+					auto containing = aboveOrEqual->source.begin()!=originalRange.begin() ? (aboveOrEqual-1):aboveOrEqual;
+					//
+					assert(containing->source.begin()<=originalRange.begin() && originalRange.end()<=containing->source.end());
+					*(indexBufferPtr++) = containing->destOff+(originalRange.begin()-containing->source.begin());
 				}
-#endif
+				// write the indices
+				for (auto slab : m_tmpIndexRanges)
+				{
+					const auto indexCount = slab.source.size();
+					memcpy(indexBufferPtr,slab.source.begin(),sizeof(uint32_t)*indexCount);
+					indexBufferPtr += indexCount;
+				}
 				
 				// upload
 				auto upAddrIt = m_tmpAddresses.begin()+1;

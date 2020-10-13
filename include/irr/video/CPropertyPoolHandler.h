@@ -185,6 +185,8 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 		core::vector<PerPropertyCountItems> m_perPropertyCountItems;
 		struct IndexUploadRange
 		{
+			IndexUploadRange() : source{nullptr,nullptr}, destOff(0xdeadbeefu) {}
+
 			core::SRange<const uint32_t> source;
 			uint32_t destOff;
 		};
