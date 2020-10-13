@@ -1,12 +1,12 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 
-#include "../../ext/ScreenShot/ScreenShot.h"
+#include "irr/ext/ScreenShot/ScreenShot.h"
 
 #include "../common/QToQuitEventReceiver.h"
 
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
-#include "../../ext/MitsubaLoader/CMitsubaLoader.h"
+#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
 #include <irr/video/IGPUVirtualTexture.h>
 
 #define USE_ENVMAP

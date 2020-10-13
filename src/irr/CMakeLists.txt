@@ -1,3 +1,4 @@
+add_subdirectory(ext)
 
 find_package(OpenGL REQUIRED)
 if(UNIX)

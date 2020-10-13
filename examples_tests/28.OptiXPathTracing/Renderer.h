@@ -3,7 +3,7 @@
 
 #include "irrlicht.h"
 
-#include "../../ext/OptiX/OptiXManager.h"
+#include "irr/ext/OptiX/OptiXManager.h"
 
 
 class Renderer : public irr::core::IReferenceCounted, public irr::core::InterfaceUnmovable

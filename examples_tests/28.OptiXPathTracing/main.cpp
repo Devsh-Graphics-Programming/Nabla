@@ -6,7 +6,7 @@
 #include "../common/QToQuitEventReceiver.h"
 
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
-#include "../../ext/MitsubaLoader/CMitsubaLoader.h"
+#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
 
 //#include "Renderer.h"
 
