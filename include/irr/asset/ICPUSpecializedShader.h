@@ -63,7 +63,7 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 					//m_specInfo.getBackingBuffer()->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 				m_unspecialized->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 			}
-			if (m_mutable)
+			if (canBeConvertedToDummy())
 				m_specInfo.setEntries(nullptr,core::smart_refctd_ptr<ICPUBuffer>(m_specInfo.getBackingBuffer()));
 		}
 

@@ -53,7 +53,7 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
                 return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
-            if (m_mutable)
+            if (canBeConvertedToDummy())
 			    m_bindings = nullptr;
 
 			if (referenceLevelsBelowToConvert)
@@ -64,7 +64,7 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 					it->get()->convertToDummyObject(referenceLevelsBelowToConvert);
 			}
 
-            if (m_mutable)
+            if (canBeConvertedToDummy())
 			    m_samplers = nullptr;
 		}
 

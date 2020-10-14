@@ -681,7 +681,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
         //TODO change name
         inline void setAssetCached(SAssetBundle& _asset, bool _val) const { _asset.setCached(_val); }
 
-        inline void setAssetMutable(IAsset* _asset, bool _val) const { _asset->m_mutable = _val; }
+        inline void setAssetMutability(IAsset* _asset, IAsset::E_MUTABILITY _val) const { _asset->m_mutability = _val; }
 
 		//
 		void addLoadersAndWriters();

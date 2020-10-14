@@ -39,6 +39,12 @@ class IAssetManager;
 class IAsset : virtual public core::IReferenceCounted
 {
 	public:
+		enum E_MUTABILITY : uint32_t
+		{
+			EM_CPU_PERSISTENT = 0b01u,
+			EM_IMMUTABLE = 0b11u,
+			EM_MUTABLE = 0b100u
+		};
 
 		/**
 			Values of E_TYPE represents an Asset type.
@@ -167,13 +173,17 @@ class IAsset : virtual public core::IReferenceCounted
 
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
 
+		inline E_MUTABILITY getMutability() const { return m_mutability; }
+		inline bool isImmutable() const { return getMutability() == EM_IMMUTABLE; }
+		inline bool canBeConvertedToDummy() const { return (getMutability()&EM_CPU_PERSISTENT) != EM_CPU_PERSISTENT; }
+
     protected:
         void clone_common(IAsset* _clone) const
         {
             _clone->m_metadata = m_metadata;
             assert(!isDummyObjectForCacheAliasing);
             _clone->isDummyObjectForCacheAliasing = false;
-            _clone->m_mutable = true;
+            _clone->m_mutability = EM_MUTABLE;
         }
 
 	private:
@@ -185,7 +195,7 @@ class IAsset : virtual public core::IReferenceCounted
 	protected:
 		bool isDummyObjectForCacheAliasing; //!< A bool for setting whether Asset is in dummy state. @see convertToDummyObject(uint32_t referenceLevelsBelowToConvert)
 
-        bool m_mutable = true;
+		E_MUTABILITY m_mutability;
 
 		//! To be implemented by base classes, dummies must retain references to other assets
 		//! but cleans up all other resources which are not assets.
@@ -208,7 +218,7 @@ class IAsset : virtual public core::IReferenceCounted
 
         void convertToDummyObject_common(uint32_t referenceLevelsBelowToConvert)
         {
-			if (m_mutable)
+			if (canBeConvertedToDummy())
 				isDummyObjectForCacheAliasing = true;
         }
 

@@ -65,7 +65,7 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             if (isDummyObjectForCacheAliasing)
                 return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
-            if (!m_mutable)
+            if (!canBeConvertedToDummy())
                 return;
 
             if (data)
@@ -125,7 +125,7 @@ class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
             if (isDummyObjectForCacheAliasing)
                 return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
-            if (!m_mutable)
+            if (!canBeConvertedToDummy())
                 return;
 
 			if (ICPUBuffer::data)

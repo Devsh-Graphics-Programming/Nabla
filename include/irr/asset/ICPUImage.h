@@ -50,7 +50,7 @@ class ICPUImage final : public IImage, public IAsset
 			if (buffer)
 				buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 
-			if (m_mutable)
+			if (canBeConvertedToDummy())
 				regions = nullptr;
         }
 

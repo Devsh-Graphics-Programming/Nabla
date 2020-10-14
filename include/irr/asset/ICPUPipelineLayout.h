@@ -48,7 +48,7 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 			        if (it->get())
 				        it->get()->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 
-            if (m_mutable)
+            if (canBeConvertedToDummy())
 			    m_pushConstantRanges = nullptr;
 		}
 

@@ -51,7 +51,7 @@ SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager* _mgr, const
     return _mgr->getAssetInHierarchy(_filename, _params, _hierarchyLevel);
 }
 
-void IAssetLoader::interm_setAssetMutable(const IAssetManager* _mgr, IAsset* _asset, bool _val)
+void IAssetLoader::interm_setAssetMutable(const IAssetManager* _mgr, IAsset* _asset, IAsset::E_MUTABILITY _val)
 {
-    _mgr->setAssetMutable(_asset, _val);
+    _mgr->setAssetMutability(_asset, _val);
 }

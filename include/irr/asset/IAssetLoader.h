@@ -252,7 +252,7 @@ protected:
 	SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override);
 	SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
 	SAssetBundle interm_getAssetInHierarchy(IAssetManager* _mgr, const std::string& _filename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel);
-    void interm_setAssetMutable(const IAssetManager* _mgr, IAsset* _asset, bool _val);
+    void interm_setAssetMutable(const IAssetManager* _mgr, IAsset* _asset, IAsset::E_MUTABILITY _val);
 };
 
 }
