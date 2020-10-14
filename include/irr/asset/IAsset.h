@@ -41,9 +41,9 @@ class IAsset : virtual public core::IReferenceCounted
 	public:
 		enum E_MUTABILITY : uint32_t
 		{
+			EM_MUTABLE = 0u,
 			EM_CPU_PERSISTENT = 0b01u,
 			EM_IMMUTABLE = 0b11u,
-			EM_MUTABLE = 0b100u
 		};
 
 		/**
@@ -152,7 +152,7 @@ class IAsset : virtual public core::IReferenceCounted
 		}
 
 		//!
-		IAsset() : m_metadata{nullptr}, isDummyObjectForCacheAliasing{false} {}
+		IAsset() : m_metadata{nullptr}, isDummyObjectForCacheAliasing{false}, m_mutability{EM_MUTABLE} {}
 
 		//! Returns correct size reserved associated with an Asset and its data
 		/**
@@ -174,23 +174,34 @@ class IAsset : virtual public core::IReferenceCounted
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
 
 		inline E_MUTABILITY getMutability() const { return m_mutability; }
-		inline bool isImmutable() const { return getMutability() == EM_IMMUTABLE; }
+		inline bool isMutable() const { return getMutability() == EM_MUTABLE; }
 		inline bool canBeConvertedToDummy() const { return (getMutability()&EM_CPU_PERSISTENT) != EM_CPU_PERSISTENT; }
 
     protected:
-        void clone_common(IAsset* _clone) const
+        inline void clone_common(IAsset* _clone) const
         {
             _clone->m_metadata = m_metadata;
             assert(!isDummyObjectForCacheAliasing);
             _clone->isDummyObjectForCacheAliasing = false;
             _clone->m_mutability = EM_MUTABLE;
         }
+		inline bool isImmutable_debug()
+		{
+			_IRR_DEBUG_BREAK_IF(!isMutable());
+			return !isMutable();
+		}
 
 	private:
 		friend IAssetManager;
 		core::smart_refctd_ptr<IAssetMetadata> m_metadata;
 
-		void setMetadata(core::smart_refctd_ptr<IAssetMetadata>&& _metadata) { m_metadata = std::move(_metadata); }
+		void setMetadata(core::smart_refctd_ptr<IAssetMetadata>&& _metadata) 
+		{
+			//we have to talk about it (TODO)
+			//if (isImmutable_debug())
+			//	return;
+			m_metadata = std::move(_metadata);
+		}
 
 	protected:
 		bool isDummyObjectForCacheAliasing; //!< A bool for setting whether Asset is in dummy state. @see convertToDummyObject(uint32_t referenceLevelsBelowToConvert)

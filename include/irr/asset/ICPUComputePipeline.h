@@ -48,12 +48,23 @@ public:
     _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_COMPUTE_PIPELINE;
     inline E_TYPE getAssetType() const override { return AssetType; }
 
-    ICPUPipelineLayout* getLayout() { return m_layout.get(); }
+    ICPUPipelineLayout* getLayout() 
+    {
+        return m_layout.get(); 
+    }
     const ICPUPipelineLayout* getLayout() const { return m_layout.get(); }
 
-    ICPUSpecializedShader* getShader() { return m_shader.get(); }
+    ICPUSpecializedShader* getShader()
+    {
+        return m_shader.get();
+    }
     const ICPUSpecializedShader* getShader() const { return m_shader.get(); }
-    void setShader(ICPUSpecializedShader* _cs) { m_shader = core::smart_refctd_ptr<ICPUSpecializedShader>(_cs); }
+    void setShader(ICPUSpecializedShader* _cs) 
+    {
+        if (isImmutable_debug())
+            return;
+        m_shader = core::smart_refctd_ptr<ICPUSpecializedShader>(_cs); 
+    }
 
 protected:
     virtual ~ICPUComputePipeline() = default;

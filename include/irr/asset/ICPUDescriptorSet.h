@@ -128,7 +128,10 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
-		inline ICPUDescriptorSetLayout* getLayout() { return m_layout.get(); }
+		inline ICPUDescriptorSetLayout* getLayout() 
+		{
+			return m_layout.get();
+		}
 		inline const ICPUDescriptorSetLayout* getLayout() const { return m_layout.get(); }
 
 		//!
@@ -148,6 +151,10 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 		//! Can modify the array of descriptors bound to a particular bindings
 		inline core::SRange<SDescriptorInfo> getDescriptors(uint32_t index) 
 		{ 
+			//this must be commented-out, otherwise cpu2gpu doesnt have access to descriptors
+			//if (isImmutable_debug())
+			//	return core::SRange<SDescriptorInfo>{nullptr, nullptr};
+
 			if (m_bindingInfo && index<m_bindingInfo->size())
 			{
 				const auto& info = m_bindingInfo->operator[](index);

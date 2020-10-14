@@ -15,10 +15,18 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 	public:
 		using IPipelineLayout<ICPUDescriptorSetLayout>::IPipelineLayout;
 
-		ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) { return m_descSetLayouts[_set].get(); }
+		ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) 
+        {
+            return m_descSetLayouts[_set].get(); 
+        }
 		const ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) const { return m_descSetLayouts[_set].get(); }
 
-        void setDescriptorSetLayout(uint32_t _set, core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _dslayout) { m_descSetLayouts[_set] = std::move(_dslayout); }
+        void setDescriptorSetLayout(uint32_t _set, core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _dslayout) 
+        { 
+            if (isImmutable_debug())
+                return;
+            m_descSetLayouts[_set] = std::move(_dslayout); 
+        }
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {

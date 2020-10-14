@@ -69,11 +69,19 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 
 		inline E_SHADER_STAGE getStage() const { return m_specInfo.shaderStage; }
 
-		inline void setSpecializationInfo(SInfo&& specInfo) { m_specInfo = std::move(specInfo); }
+		inline void setSpecializationInfo(SInfo&& specInfo) 
+		{
+			if (isImmutable_debug())
+				return;
+			m_specInfo = std::move(specInfo); 
+		}
 		inline const SInfo& getSpecializationInfo() const { return m_specInfo; }
 
 
-		inline ICPUShader* getUnspecialized() { return m_unspecialized.get(); }
+		inline ICPUShader* getUnspecialized() 
+		{
+			return m_unspecialized.get();
+		}
 		inline const ICPUShader* getUnspecialized() const { return m_unspecialized.get(); }
 
 	private:

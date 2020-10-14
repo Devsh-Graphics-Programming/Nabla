@@ -24,6 +24,9 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 		//! recalculates the bounding box
 		virtual void recalculateBoundingBox(const bool recomputeSubBoxes = false)
 		{
+			if (isImmutable_debug())
+				return;
+
 			core::aabbox3df bbox(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
 
 			const auto count = getMeshBufferCount();
@@ -43,6 +46,14 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 			}
 			
 			setBoundingBox(std::move(bbox));
+		}
+
+		void setBoundingBox(const core::aabbox3df& box) override 
+		{ 
+			if (isImmutable_debug())
+				return;
+
+			IMesh<ICPUMeshBuffer>::setBoundingBox(box); 
 		}
 
 		//

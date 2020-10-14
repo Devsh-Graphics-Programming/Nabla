@@ -57,7 +57,11 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 
 		//!
 		const SComponentMapping& getComponents() const { return params.components; }
-		SComponentMapping&	getComponents() { return params.components; }
+		SComponentMapping&	getComponents() 
+		{ 
+			isImmutable_debug();
+			return params.components;
+		}
 
 	protected:
 		virtual ~ICPUImageView() = default;

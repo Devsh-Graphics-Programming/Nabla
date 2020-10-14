@@ -65,10 +65,14 @@ class ICPUImage final : public IImage, public IAsset
 
 		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const ICPUImage* src)
 		{
+			//TODO why is it not const method?
 			return validateCopies_template(pRegionsBegin, pRegionsEnd, src);
 		}
 
-		inline auto* getBuffer() { return buffer.get(); }
+		inline ICPUBuffer* getBuffer() 
+		{
+			return buffer.get(); 
+		}
 		inline const auto* getBuffer() const { return buffer.get(); }
 
 		inline core::SRange<const IImage::SBufferCopy> getRegions() const
@@ -125,6 +129,9 @@ class ICPUImage final : public IImage, public IAsset
 		//
 		inline void* getTexelBlockData(const IImage::SBufferCopy* region, const core::vectorSIMDu32& inRegionCoord, core::vectorSIMDu32& outBlockCoord)
 		{
+			if (isImmutable_debug())
+				return nullptr;
+
 			auto localXYZLayerOffset = inRegionCoord/info.getDimension();
 			outBlockCoord = inRegionCoord-localXYZLayerOffset*info.getDimension();
 			return reinterpret_cast<uint8_t*>(buffer->getPointer())+region->getByteOffset(localXYZLayerOffset,region->getByteStrides(info));
@@ -136,6 +143,9 @@ class ICPUImage final : public IImage, public IAsset
 
 		inline void* getTexelBlockData(uint32_t mipLevel, const core::vectorSIMDu32& boundedTexelCoord, core::vectorSIMDu32& outBlockCoord)
 		{
+			if (isImmutable_debug())
+				return nullptr;
+
 			// get region for coord
 			const auto* region = getRegion(mipLevel,boundedTexelCoord);
 			if (!region)
@@ -154,6 +164,8 @@ class ICPUImage final : public IImage, public IAsset
 		//! regions will be copied and sorted
 		inline bool setBufferAndRegions(core::smart_refctd_ptr<ICPUBuffer>&& _buffer, const core::smart_refctd_dynamic_array<IImage::SBufferCopy>& _regions)
 		{
+			if (isImmutable_debug())
+				return false;
 			if (!IImage::validateCopies(_regions->begin(),_regions->end(),_buffer.get()))
 				return false;
 		

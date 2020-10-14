@@ -84,9 +84,13 @@ set(_IRR_EMBED_BUILTIN_RESOURCES_ ${IRR_EMBED_BUILTIN_RESOURCES})
 #set(_IRR_TARGET_ARCH_ARM_ ${IRR_TARGET_ARCH_ARM}) #uncomment in the future
 set(__IRR_FAST_MATH ${IRR_FAST_MATH})
 set(_IRR_DEBUG 0)
+set(_IRR_RELWITHDEBINFO 0)
 configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_RELEASE}/BuildConfigOptions.h")
+set(_IRR_DEBUG 0)
+set(_IRR_RELWITHDEBINFO 1)
 configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h")
 set(_IRR_DEBUG 1)
+set(_IRR_RELWITHDEBINFO 0)
 configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
 set(IRRLICHT_HEADERS_PUBLIC

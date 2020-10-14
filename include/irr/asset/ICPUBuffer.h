@@ -90,7 +90,12 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 		//! Returns pointer to data.
 		/** WARNING: RESIZE will invalidate pointer.
 		*/
-        virtual void* getPointer() {return data;}
+        virtual void* getPointer() 
+        { 
+            if (isImmutable_debug())
+                return nullptr;
+            return data; 
+        }
 
     protected:
         uint64_t size;

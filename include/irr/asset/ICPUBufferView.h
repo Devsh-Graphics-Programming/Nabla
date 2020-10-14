@@ -44,11 +44,24 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER_VIEW;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
-		ICPUBuffer* getUnderlyingBuffer() { return m_buffer.get(); }
+		ICPUBuffer* getUnderlyingBuffer() 
+		{
+			return m_buffer.get(); 
+		}
 		const ICPUBuffer* getUnderlyingBuffer() const { return m_buffer.get(); }
 
-		inline void setOffsetInBuffer(size_t _offset) { m_offset = _offset; }
-		inline void setSize(size_t _size) { m_size = _size; }
+		inline void setOffsetInBuffer(size_t _offset) 
+		{
+			if (isImmutable_debug())
+				return;
+			m_offset = _offset;
+		}
+		inline void setSize(size_t _size) 
+		{
+			if (isImmutable_debug())
+				return;
+			m_size = _size;
+		}
 
 	protected:
 		virtual ~ICPUBufferView() = default;

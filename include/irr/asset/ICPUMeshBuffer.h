@@ -157,6 +157,9 @@ public:
     }
 	inline void setIndexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding)
 	{
+        if (isImmutable_debug())
+            return;
+
 		m_indexBufferBinding = std::move(bufferBinding);
 	}
 	inline const SBufferBinding<ICPUBuffer>& getIndexBufferBinding() const
@@ -182,6 +185,8 @@ public:
 	}*/
 	inline bool setVertexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding, uint32_t bindingIndex)
 	{
+        if (isImmutable_debug())
+            return false;
 		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT)
 			return false;
 
@@ -207,6 +212,8 @@ public:
 
 	inline void setAttachedDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSet>&& descriptorSet)
 	{
+        if (isImmutable_debug())
+            return;
 		m_descriptorSet = std::move(descriptorSet);
 	}
 	inline ICPUDescriptorSet* getAttachedDescriptorSet()
@@ -220,6 +227,8 @@ public:
 
 	inline void setPipeline(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>&& pipeline)
 	{
+        if (isImmutable_debug())
+            return;
 		m_pipeline = std::move(pipeline);
 	}
 	inline ICPURenderpassIndependentPipeline* getPipeline()
@@ -301,6 +310,9 @@ public:
     //! Sets id of position atrribute.
     inline void setPositionAttributeIx(const uint32_t attrId)
     {
+        if (isImmutable_debug())
+            return;
+
         if (attrId >= MAX_VERTEX_ATTRIB_COUNT)
         {
 #ifdef _IRR_DEBUG
@@ -318,6 +330,9 @@ public:
     //! Sets id of position atrribute.
     inline void setNormalnAttributeIx(const uint32_t& attrId)
     {
+        if (isImmutable_debug())
+            return;
+
         if (attrId >= MAX_VERTEX_ATTRIB_COUNT)
         {
 #ifdef _IRR_DEBUG
@@ -333,6 +348,9 @@ public:
     /** \return Pointer to indices array. */
     inline void* getIndices()
     {
+        if (isImmutable_debug())
+            return nullptr;
+
         if (!m_indexBufferBinding.buffer)
             return nullptr;
 
@@ -377,6 +395,9 @@ public:
     */
     virtual uint8_t* getAttribPointer(uint32_t attrId)
     {
+        if (isImmutable_debug())
+            return nullptr;
+
         if (!m_pipeline)
             return nullptr;
 
@@ -553,6 +574,8 @@ public:
     */
     virtual bool setAttribute(core::vectorSIMDf input, uint32_t attrId, size_t ix)
     {
+        if (isImmutable_debug())
+            return false;
         if (!m_pipeline)
             return false;
         if (!isAttributeEnabled(attrId))
@@ -594,6 +617,8 @@ public:
     //! @copydoc setAttribute(core::vectorSIMDf, const E_VERTEX_ATTRIBUTE_ID&, size_t)
     virtual bool setAttribute(const uint32_t* _input, uint32_t attrId, size_t ix)
     {
+        if (isImmutable_debug())
+            return false;
         if (!m_pipeline)
             return false;
         if (!isAttributeEnabled(attrId))
@@ -612,6 +637,8 @@ public:
     //! Recalculates the bounding box. Should be called if the mesh changed.
     virtual void recalculateBoundingBox()
     {
+        if (isImmutable_debug())
+            return;
 		setBoundingBox(calculateBoundingBox(this));
     }
 
