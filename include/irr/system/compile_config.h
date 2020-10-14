@@ -9,10 +9,6 @@
 #   define _NBL_COMPILE_WITH_X11_DEVICE_
 #endif
 
-#ifdef _NBL_SERVER_
-#   define NO_NBL_LINUX_X11_RANDR_
-#endif
-
 //! VidMode is ANCIENT
 //#define NO_NBL_LINUX_X11_VIDMODE_
 
@@ -22,12 +18,6 @@
 #if defined(_NBL_PLATFORM_LINUX_) && defined(_NBL_COMPILE_WITH_X11_)
 #   define _NBL_LINUX_X11_VIDMODE_
 #   define _NBL_LINUX_X11_RANDR_
-#   ifdef NO_NBL_LINUX_X11_VIDMODE_
-#       undef _NBL_LINUX_X11_VIDMODE_
-#   endif
-#   ifdef NO_NBL_LINUX_X11_RANDR_
-#       undef _NBL_LINUX_X11_RANDR_
-#   endif
 #endif
 
 //! Define _NBL_COMPILE_WITH_X11_ to compile the Irrlicht engine with X11 support.
@@ -37,8 +27,5 @@ define out. */
 ///#ifndef _NBL_SERVER_
 #define _NBL_COMPILE_WITH_X11_
 ///#endif
-#ifdef NO_NBL_COMPILE_WITH_X11_
-#   undef _NBL_COMPILE_WITH_X11_
-#endif
 
 #endif
