@@ -128,7 +128,7 @@ namespace irr
 								std::optional<uint32_t> componentType;
 								std::optional<bool> normalized;
 								std::optional<uint32_t> count;
-								std::optional<uint32_t> type;
+								std::optional<std::string> type;
 								std::optional<std::vector<double>> max; // todo - common number types
 								std::optional<std::vector<double>> min; // todo - common number types
 								// TODO - sparse;
@@ -271,6 +271,12 @@ namespace irr
 						std::optional<uint32_t> byteStride;
 						std::optional<uint32_t> target;
 						std::optional<std::string> name;
+
+						enum SGLTFTarget
+						{
+							SGLTFT_ARRAY_BUFFER = 34962,
+							SGLTFT_ELEMENT_ARRAY_BUFFER = 34963
+						};
 
 						bool validate()
 						{

@@ -100,77 +100,144 @@ namespace irr
 
 						typedef std::remove_reference<decltype(glTFPositionAccessor)>::type SGLTFAccessor;
 
-						auto getType = [&](std::string type)
+						auto getFormat = [&](uint32_t componentType, std::string type)
 						{
-							// TODO
-
-							if (type == SGLTFAccessor::SType::SCALAR.data()) 
-							{
-
-							}
-							else if (type == SGLTFAccessor::SType::VEC2.data())
-							{
-
-							}
-							else if (type == SGLTFAccessor::SType::VEC3.data())
-							{
-
-							}
-							else if (type == SGLTFAccessor::SType::VEC4.data())
-							{
-
-							}
-							else if (type == SGLTFAccessor::SType::MAT2.data())
-							{
-
-							}
-							else if (type == SGLTFAccessor::SType::MAT3.data())
-							{
-
-							}
-							else if (type == SGLTFAccessor::SType::MAT4.data())
-							{
-
-							}
-						};
-
-						auto getCompomentType = [&](uint32_t componentType)
-						{
-							// TODO
-
 							switch (componentType)
 							{
 								case SGLTFAccessor::SCT_BYTE:
 								{
-
+									if (type == SGLTFAccessor::SType::SCALAR.data())
+										return EF_R8_SINT;
+									else if (type == SGLTFAccessor::SType::VEC2.data())
+										return EF_R8G8_SINT;
+									else if (type == SGLTFAccessor::SType::VEC3.data())
+										return EF_R8G8B8_SINT;
+									else if (type == SGLTFAccessor::SType::VEC4.data())
+										return EF_R8G8B8A8_SINT;
+									else if (type == SGLTFAccessor::SType::MAT2.data())
+										return EF_R8G8B8A8_SINT;
+									else if (type == SGLTFAccessor::SType::MAT3.data())
+										return EF_UNKNOWN; // ?
+									else if (type == SGLTFAccessor::SType::MAT4.data())
+										return EF_UNKNOWN; // ?
 								} break;
 
 								case SGLTFAccessor::SCT_FLOAT:
 								{
-
+									if (type == SGLTFAccessor::SType::SCALAR.data())
+										return EF_R32_SFLOAT;
+									else if (type == SGLTFAccessor::SType::VEC2.data())
+										return EF_R32G32_SFLOAT;
+									else if (type == SGLTFAccessor::SType::VEC3.data())
+										return EF_R32G32B32_SFLOAT;
+									else if (type == SGLTFAccessor::SType::VEC4.data())
+										return EF_R32G32B32A32_SFLOAT;
+									else if (type == SGLTFAccessor::SType::MAT2.data())
+										return EF_R32G32B32A32_SFLOAT;
+									else if (type == SGLTFAccessor::SType::MAT3.data())
+										return EF_UNKNOWN; // ?
+									else if (type == SGLTFAccessor::SType::MAT4.data())
+										return EF_UNKNOWN; // ?
 								} break;
 
 								case SGLTFAccessor::SCT_SHORT:
 								{
-
+									if (type == SGLTFAccessor::SType::SCALAR.data())
+										return EF_R16_SINT;
+									else if (type == SGLTFAccessor::SType::VEC2.data())
+										return EF_R16G16_SINT;
+									else if (type == SGLTFAccessor::SType::VEC3.data())
+										return EF_R16G16B16_SINT;
+									else if (type == SGLTFAccessor::SType::VEC4.data())
+										return EF_R16G16B16A16_SINT;
+									else if (type == SGLTFAccessor::SType::MAT2.data())
+										return EF_R16G16B16A16_SINT;
+									else if (type == SGLTFAccessor::SType::MAT3.data())
+										return EF_UNKNOWN; // ?
+									else if (type == SGLTFAccessor::SType::MAT4.data())
+										return EF_UNKNOWN; // ?
 								} break;
 
 								case SGLTFAccessor::SCT_UNSIGNED_BYTE:
 								{
-
+									if (type == SGLTFAccessor::SType::SCALAR.data())
+										return EF_R8_UINT;
+									else if (type == SGLTFAccessor::SType::VEC2.data())
+										return EF_R8G8_UINT;
+									else if (type == SGLTFAccessor::SType::VEC3.data())
+										return EF_R8G8B8_UINT;
+									else if (type == SGLTFAccessor::SType::VEC4.data())
+										return EF_R8G8B8A8_UINT;
+									else if (type == SGLTFAccessor::SType::MAT2.data())
+										return EF_R8G8B8A8_UINT;
+									else if (type == SGLTFAccessor::SType::MAT3.data())
+										return EF_UNKNOWN; // ?
+									else if (type == SGLTFAccessor::SType::MAT4.data())
+										return EF_UNKNOWN; // ?
 								} break;
 
 								case SGLTFAccessor::SCT_UNSIGNED_INT:
 								{
-
+									if (type == SGLTFAccessor::SType::SCALAR.data())
+										return EF_R32_UINT;
+									else if (type == SGLTFAccessor::SType::VEC2.data())
+										return EF_R32G32_UINT;
+									else if (type == SGLTFAccessor::SType::VEC3.data())
+										return EF_R32G32B32_UINT;
+									else if (type == SGLTFAccessor::SType::VEC4.data())
+										return EF_R32G32B32A32_UINT;
+									else if (type == SGLTFAccessor::SType::MAT2.data())
+										return EF_R32G32B32A32_UINT;
+									else if (type == SGLTFAccessor::SType::MAT3.data())
+										return EF_UNKNOWN; // ?
+									else if (type == SGLTFAccessor::SType::MAT4.data())
+										return EF_UNKNOWN; // ?
 								} break;
 
 								case SGLTFAccessor::SCT_UNSIGNED_SHORT:
 								{
-
+									if (type == SGLTFAccessor::SType::SCALAR.data())
+										return EF_R16_UINT;
+									else if (type == SGLTFAccessor::SType::VEC2.data())
+										return EF_R16G16_UINT;
+									else if (type == SGLTFAccessor::SType::VEC3.data())
+										return EF_R16G16B16_UINT;
+									else if (type == SGLTFAccessor::SType::VEC4.data())
+										return EF_R16G16B16A16_UINT;
+									else if (type == SGLTFAccessor::SType::MAT2.data())
+										return EF_R16G16B16A16_UINT;
+									else if (type == SGLTFAccessor::SType::MAT3.data())
+										return EF_UNKNOWN; // ?
+									else if (type == SGLTFAccessor::SType::MAT4.data())
+										return EF_UNKNOWN; // ?
 								} break;
 							}
 						};
+
+						const E_FORMAT format = getFormat(glTFPositionAccessor.componentType.value(), glTFPositionAccessor.type.value());
+
+						auto& glTFbufferView = glTF.bufferViews[glTFPositionAccessor.bufferView.value()];
+						const auto& relativeOffsetInBufferView = glTFPositionAccessor.byteOffset;
+
+						typedef std::remove_reference<decltype(glTFbufferView)>::type SGLTFBufferView;
+
+						auto setBufferBinding = [&](uint32_t target) -> void
+						{
+							switch (target)
+							{
+								case SGLTFBufferView::SGLTFT_ARRAY_BUFFER:
+								{
+									// SBufferBinding
+								} break;
+
+								case SGLTFBufferView::SGLTFT_ELEMENT_ARRAY_BUFFER:
+								{
+									// SBufferIndexBinding
+								} break;
+							}
+						};
+
+						setBufferBinding(glTFbufferView.target.value());
 
 						// TODO
 					}
