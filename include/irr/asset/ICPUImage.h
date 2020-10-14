@@ -49,7 +49,9 @@ class ICPUImage final : public IImage, public IAsset
 			if (referenceLevelsBelowToConvert)
 			if (buffer)
 				buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-            regions = nullptr;
+
+			if (m_mutable)
+				regions = nullptr;
         }
 
 		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_IMAGE;
