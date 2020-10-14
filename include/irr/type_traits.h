@@ -2,21 +2,16 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_TYPE_TRAITS_H_INCLUDED__
-#define __IRR_TYPE_TRAITS_H_INCLUDED__
+#ifndef __NBL_TYPE_TRAITS_H_INCLUDED__
+#define __NBL_TYPE_TRAITS_H_INCLUDED__
 
 #include <type_traits>
 
 namespace irr
 {
 
-#if __cplusplus >= 201703L
 template<bool B>
 using bool_constant = std::bool_constant<B>;
-#else
-template<bool B>
-using bool_constant = std::integral_constant<bool, B>;
-#endif // C
 
 
 template<typename T, typename U, typename... Us>

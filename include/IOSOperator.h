@@ -3,10 +3,11 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __I_OS_OPERATOR_H_INCLUDED__
-#define __I_OS_OPERATOR_H_INCLUDED__
+#ifndef __NBL_I_OS_OPERATOR_H_INCLUDED__
+#define __NBL_I_OS_OPERATOR_H_INCLUDED__
 
 #include "irr/core/core.h"
+#include "irr/system/compile_config.h"
 
 namespace irr
 {

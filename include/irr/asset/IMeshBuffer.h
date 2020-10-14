@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_MESH_BUFFER_H_INCLUDED__
-#define __IRR_I_MESH_BUFFER_H_INCLUDED__
+#ifndef __NBL_ASSET_I_MESH_BUFFER_H_INCLUDED__
+#define __NBL_ASSET_I_MESH_BUFFER_H_INCLUDED__
 
 #include "irr/asset/IRenderpassIndependentPipeline.h"
 #include <algorithm>
@@ -33,10 +33,10 @@ template <class BufferType, class DescSetType, class PipelineType>
 class IMeshBuffer : public virtual core::IReferenceCounted
 {
 public:
-    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_PUSH_CONSTANT_BYTESIZE = 128u;
+    _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_PUSH_CONSTANT_BYTESIZE = 128u;
 
-    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT;
-    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_ATTR_BUF_BINDING_COUNT = SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT;
+    _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT;
+    _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_ATTR_BUF_BINDING_COUNT = SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT;
 
 protected:
     virtual ~IMeshBuffer() = default;
@@ -162,13 +162,13 @@ public:
 	inline bool setIndexCount(const uint64_t &newIndexCount)
 	{
 		/*
-		#ifdef _IRR_DEBUG
+		#ifdef _NBL_DEBUG
 			if (size<0x7fffffffffffffffuLL&&ixbuf&&(ixbuf->getSize()>size+offset))
 			{
 				os::Printer::log("MeshBuffer map vertex buffer overflow!\n",ELL_ERROR);
 				return;
 			}
-		#endif // _IRR_DEBUG
+		#endif // _NBL_DEBUG
 		*/
         indexCount = newIndexCount;
         if (m_indexBufferBinding.buffer)
@@ -227,4 +227,4 @@ public:
 
 }}
 
-#endif //__IRR_I_CPU_MESH_BUFFER_H_INCLUDED__
+#endif

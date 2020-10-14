@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __I_SKIN_MESH_BUFFER_H_INCLUDED__
-#define __I_SKIN_MESH_BUFFER_H_INCLUDED__
+#ifndef __NBL_ASSET_I_SKIN_MESH_BUFFER_H_INCLUDED__
+#define __NBL_ASSET_I_SKIN_MESH_BUFFER_H_INCLUDED__
 
 #include "irr/asset/ICPUMeshBuffer.h"
 #include "irr/asset/bawformat/blobs/SkinnedMeshBufferBlob.h"
@@ -24,7 +24,7 @@ class ICPUSkinnedMeshBuffer final : public ICPUMeshBuffer
         //! Default constructor
         ICPUSkinnedMeshBuffer() : indexValMin(0), indexValMax(0), maxVertexBoneInfluences(1)
         {
-            #ifdef _IRR_DEBUG
+            #ifdef _NBL_DEBUG
             setDebugName("ICPUSkinnedMeshBuffer");
             #endif
         }

@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_CPU_VIRTUAL_TEXTURE_H_INCLUDED__
-#define __IRR_I_CPU_VIRTUAL_TEXTURE_H_INCLUDED__
+#ifndef __NBL_ASSET_I_CPU_VIRTUAL_TEXTURE_H_INCLUDED__
+#define __NBL_ASSET_I_CPU_VIRTUAL_TEXTURE_H_INCLUDED__
 
 #include <irr/asset/IVirtualTexture.h>
 #include <irr/asset/ICPUImageView.h>
@@ -132,13 +132,13 @@ public:
             genmips.endMipLevel = paddedImg->getCreationParameters().mipLevels;
             genmips.inOutImage = paddedImg.get();
             genmips.scratchMemoryByteSize = mip_gen_filter_t::getRequiredScratchByteSize(&genmips);
-            genmips.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(genmips.scratchMemoryByteSize,_IRR_SIMD_ALIGNMENT));
+            genmips.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(genmips.scratchMemoryByteSize,_NBL_SIMD_ALIGNMENT));
             genmips.axisWraps[0] = _wrapu;
             genmips.axisWraps[1] = _wrapv;
             genmips.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
             genmips.borderColor = _borderColor;
             mip_gen_filter_t::execute(&genmips);
-            _IRR_ALIGNED_FREE(genmips.scratchMemory);
+            _NBL_ALIGNED_FREE(genmips.scratchMemory);
         }
 
         return std::make_pair(std::move(paddedImg), originalExtent);
@@ -327,7 +327,7 @@ public:
         VkExtent3D extent = {static_cast<uint32_t>(_addr.origsize_x), static_cast<uint32_t>(_addr.origsize_y), 1u};
         const uint32_t levelCount = _addr.maxMip+1u;
 
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
         CFillImageFilter::state_type fill;
         fill.outImage = m_pageTable.get();
         fill.subresource.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
@@ -365,7 +365,7 @@ public:
                 }
 
             addrsOffset += w*h;
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
             fill.subresource.mipLevel = i;
             fill.outRange.offset = {static_cast<uint32_t>(_addr.pgTab_x>>i),static_cast<uint32_t>(_addr.pgTab_y>>i),0u};
             fill.outRange.extent = {w,h,1u};

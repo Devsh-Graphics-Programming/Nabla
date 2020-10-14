@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_C_MITCHELL_IMAGE_FILTER_KERNEL_H_INCLUDED__
-#define __IRR_C_MITCHELL_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#ifndef __NBL_ASSET_C_MITCHELL_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#define __NBL_ASSET_C_MITCHELL_IMAGE_FILTER_KERNEL_H_INCLUDED__
 
 
 #include "irr/asset/filters/kernels/IImageFilterKernel.h"
@@ -33,7 +33,7 @@ class CMitchellImageFilterKernel : public CFloatingPointIsotropicSeparableImageF
 			return 0.f;
 		}
 
-		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = true;
+		_NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = true;
 		inline float d_weight(float x, int32_t channel) const
 		{
 			if (Base::inDomain(x))
@@ -47,15 +47,15 @@ class CMitchellImageFilterKernel : public CFloatingPointIsotropicSeparableImageF
 		}
 
 	protected:
-		_IRR_STATIC_INLINE_CONSTEXPR float b = float(B::num)/float(B::den);
-		_IRR_STATIC_INLINE_CONSTEXPR float c = float(C::num)/float(C::den);
-		_IRR_STATIC_INLINE_CONSTEXPR float p0 = (6.0f - 2.0f * b) / 6.0f;
-		_IRR_STATIC_INLINE_CONSTEXPR float p2 = (-18.0f + 12.0f * b + 6.0f * c) / 6.0f;
-		_IRR_STATIC_INLINE_CONSTEXPR float p3 = (12.0f - 9.0f * b - 6.0f * c) / 6.0f;
-		_IRR_STATIC_INLINE_CONSTEXPR float q0 = (8.0f * b + 24.0f * c) / 6.0f;
-		_IRR_STATIC_INLINE_CONSTEXPR float q1 = (-12.0f * b - 48.0f * c) / 6.0f;
-		_IRR_STATIC_INLINE_CONSTEXPR float q2 = (6.0f * b + 30.0f * c) / 6.0f;
-		_IRR_STATIC_INLINE_CONSTEXPR float q3 = (-b - 6.0f * c) / 6.0f;
+		_NBL_STATIC_INLINE_CONSTEXPR float b = float(B::num)/float(B::den);
+		_NBL_STATIC_INLINE_CONSTEXPR float c = float(C::num)/float(C::den);
+		_NBL_STATIC_INLINE_CONSTEXPR float p0 = (6.0f - 2.0f * b) / 6.0f;
+		_NBL_STATIC_INLINE_CONSTEXPR float p2 = (-18.0f + 12.0f * b + 6.0f * c) / 6.0f;
+		_NBL_STATIC_INLINE_CONSTEXPR float p3 = (12.0f - 9.0f * b - 6.0f * c) / 6.0f;
+		_NBL_STATIC_INLINE_CONSTEXPR float q0 = (8.0f * b + 24.0f * c) / 6.0f;
+		_NBL_STATIC_INLINE_CONSTEXPR float q1 = (-12.0f * b - 48.0f * c) / 6.0f;
+		_NBL_STATIC_INLINE_CONSTEXPR float q2 = (6.0f * b + 30.0f * c) / 6.0f;
+		_NBL_STATIC_INLINE_CONSTEXPR float q3 = (-b - 6.0f * c) / 6.0f;
 };
 
 } // end namespace asset

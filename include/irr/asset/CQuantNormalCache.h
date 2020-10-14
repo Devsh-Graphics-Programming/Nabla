@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef C_QUANT_NORMAL_CACHE_H_INCLUDED
-#define C_QUANT_NORMAL_CACHE_H_INCLUDED
+#ifndef __NBL_ASSET_C_QUANT_NORMAL_CACHE_H_INCLUDED
+#define __NBL_ASSET_C_QUANT_NORMAL_CACHE_H_INCLUDED
 
 
 #include "irr/core/core.h"

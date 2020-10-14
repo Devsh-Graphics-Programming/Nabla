@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_SHADER_H_INCLUDED__
-#define __IRR_I_SHADER_H_INCLUDED__
+#ifndef __NBL_ASSET_I_SHADER_H_INCLUDED__
+#define __NBL_ASSET_I_SHADER_H_INCLUDED__
 
 #include <algorithm>
 #include <string>
@@ -27,7 +27,7 @@ class IShader : public virtual core::IReferenceCounted
 {
 	public:
 		struct buffer_contains_glsl_t {};
-		_IRR_STATIC_INLINE const buffer_contains_glsl_t buffer_contains_glsl = {};
+		_NBL_STATIC_INLINE const buffer_contains_glsl_t buffer_contains_glsl = {};
 
 		static inline void insertGLSLExtensionsDefines(std::string& _glsl, const core::refctd_dynamic_array<std::string>* _exts)
 		{
@@ -80,4 +80,4 @@ class IShader : public virtual core::IReferenceCounted
 }
 }
 
-#endif//__IRR_I_SHADER_H_INCLUDED__
+#endif

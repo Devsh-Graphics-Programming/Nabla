@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __IRR_AABBOX_3D_H_INCLUDED__
-#define __IRR_AABBOX_3D_H_INCLUDED__
+#ifndef __NBL_AABBOX_3D_H_INCLUDED__
+#define __NBL_AABBOX_3D_H_INCLUDED__
 
 #include "line3d.h"
 

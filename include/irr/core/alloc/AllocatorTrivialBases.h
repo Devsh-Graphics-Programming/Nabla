@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_ALLOCATOR_TRIVIAL_BASES_H_INCLUDED__
-#define __IRR_ALLOCATOR_TRIVIAL_BASES_H_INCLUDED__
+#ifndef __NBL_CORE_ALLOCATOR_TRIVIAL_BASES_H_INCLUDED__
+#define __NBL_CORE_ALLOCATOR_TRIVIAL_BASES_H_INCLUDED__
 
 
 namespace irr
@@ -14,7 +14,7 @@ namespace core
 template<typename T> class AllocatorTrivialBase;
 
 template<>
-class IRR_FORCE_EBO AllocatorTrivialBase<void>
+class NBL_FORCE_EBO AllocatorTrivialBase<void>
 {
     public:
         typedef void                                            value_type;
@@ -26,7 +26,7 @@ class IRR_FORCE_EBO AllocatorTrivialBase<void>
 };
 
 template<typename T>
-class IRR_FORCE_EBO AllocatorTrivialBase
+class NBL_FORCE_EBO AllocatorTrivialBase
 {
     public:
         typedef T                                               value_type;
@@ -43,4 +43,4 @@ class IRR_FORCE_EBO AllocatorTrivialBase
 }
 }
 
-#endif // __IRR_ALLOCATOR_TRIVIAL_BASES_H_INCLUDED__
+#endif

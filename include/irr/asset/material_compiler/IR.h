@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_MATERIAL_COMPILER_IR_H_INCLUDED__
-#define __IRR_MATERIAL_COMPILER_IR_H_INCLUDED__
+#ifndef __NBL_ASSET_MATERIAL_COMPILER_IR_H_INCLUDED__
+#define __NBL_ASSET_MATERIAL_COMPILER_IR_H_INCLUDED__
 
 #include <irr/core/IReferenceCounted.h>
 #include <irr/core/memory/refctd_dynamic_array.h>
@@ -20,9 +20,9 @@ class IR : public core::IReferenceCounted
 {
     class SBackingMemManager
     {
-        _IRR_STATIC_INLINE_CONSTEXPR size_t INITIAL_MEM_SIZE = 1ull<<20;
-        _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_MEM_SIZE = 1ull<<20;
-        _IRR_STATIC_INLINE_CONSTEXPR size_t ALIGNMENT = _IRR_SIMD_ALIGNMENT;
+        _NBL_STATIC_INLINE_CONSTEXPR size_t INITIAL_MEM_SIZE = 1ull<<20;
+        _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_MEM_SIZE = 1ull<<20;
+        _NBL_STATIC_INLINE_CONSTEXPR size_t ALIGNMENT = _NBL_SIMD_ALIGNMENT;
 
         uint8_t* mem;
         size_t currSz;
@@ -30,10 +30,10 @@ class IR : public core::IReferenceCounted
 
     public:
         SBackingMemManager() : currSz(INITIAL_MEM_SIZE), addrAlctr(nullptr, 0u, 0u, ALIGNMENT, MAX_MEM_SIZE) {
-            mem = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(currSz, ALIGNMENT));
+            mem = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(currSz, ALIGNMENT));
         }
         ~SBackingMemManager() {
-            _IRR_ALIGNED_FREE(mem);
+            _NBL_ALIGNED_FREE(mem);
         }
 
         uint8_t* alloc(size_t bytes)
@@ -49,9 +49,9 @@ class IR : public core::IReferenceCounted
                     return nullptr;
                 }
 
-                void* newMem = _IRR_ALIGNED_MALLOC(newSz, ALIGNMENT);
+                void* newMem = _NBL_ALIGNED_MALLOC(newSz, ALIGNMENT);
                 memcpy(newMem, mem, currSz);
-                _IRR_ALIGNED_FREE(mem);
+                _NBL_ALIGNED_FREE(mem);
                 mem = reinterpret_cast<uint8_t*>(newMem);
                 currSz = newSz;
             }
@@ -196,7 +196,7 @@ public:
             UTextureOrConstant<type_of_const> value;
         };
 
-        _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_CHILDREN = 16ull;
+        _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_CHILDREN = 16ull;
         struct children_array_t {
             INode* array[MAX_CHILDREN] {};
             size_t count = 0ull;

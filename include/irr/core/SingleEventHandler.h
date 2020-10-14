@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_CORE_SINGLE_EVENT_HANDLER_H__
-#define __IRR_CORE_SINGLE_EVENT_HANDLER_H__
+#ifndef __NBL_CORE_CORE_SINGLE_EVENT_HANDLER_H__
+#define __NBL_CORE_CORE_SINGLE_EVENT_HANDLER_H__
 
 
 #include "irr/core/Types.h"
@@ -181,7 +181,7 @@ class FactoryAndStaticSafeMT : protected FactoryAndStaticSafeST<T>
 }
 }
 
-#endif // __IRR_CORE_SINGLE_EVENT_HANDLER_H__
+#endif
 
 
 

@@ -212,13 +212,13 @@ class CElementBSDF : public IElement
 		};*/
 	struct MetaBSDF
 	{
-		_IRR_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 32u;
+		_NBL_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 32u;
 		size_t childCount = 0u;
 		CElementBSDF* bsdf[MaxChildCount] = { nullptr };
 	};
 		struct AllCoating : RoughSpecularBase, TransmissiveBase, MetaBSDF
 		{
-			_IRR_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 1u;
+			_NBL_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 1u;
 
 			AllCoating() : RoughSpecularBase(0.1f), TransmissiveBase("bk7","air"), MetaBSDF(), thickness(1.f), sigmaA(0.f) {}
 
@@ -246,7 +246,7 @@ class CElementBSDF : public IElement
 		};
 		struct BlendBSDF : MetaBSDF
 		{
-			_IRR_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 2u;
+			_NBL_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 2u;
 
 			BlendBSDF() : weight(0.5f) {}
 
@@ -254,7 +254,7 @@ class CElementBSDF : public IElement
 		};
 		struct Mask : MetaBSDF
 		{
-			_IRR_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 1u;
+			_NBL_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 1u;
 
 			Mask() : opacity(0.5f) {}
 
@@ -262,7 +262,7 @@ class CElementBSDF : public IElement
 		};
 		struct TwoSided : MetaBSDF
 		{
-			_IRR_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 1u;
+			_NBL_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 1u;
 		};
 		// legacy and evil
 		struct Phong
@@ -300,29 +300,29 @@ class CElementBSDF : public IElement
 			switch (type)
 			{
 				case CElementBSDF::Type::DIFFUSE:
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case CElementBSDF::Type::ROUGHDIFFUSE:
 					diffuse = other.diffuse;
 					break;
 				case CElementBSDF::Type::DIELECTRIC:
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case CElementBSDF::Type::THINDIELECTRIC:
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case CElementBSDF::Type::ROUGHDIELECTRIC:
 					dielectric = other.dielectric;
 					break;
 				case CElementBSDF::Type::CONDUCTOR:
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case CElementBSDF::Type::ROUGHCONDUCTOR:
 					conductor = other.conductor;
 					break;
 				case CElementBSDF::Type::PLASTIC:
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case CElementBSDF::Type::ROUGHPLASTIC:
 					plastic = other.plastic;
 					break;
 				case CElementBSDF::Type::COATING:
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case CElementBSDF::Type::ROUGHCOATING:
 					coating = other.coating;
 					break;

@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_C_OPENGL_PIPELINE_CACHE_H_INCLUDED__
-#define __IRR_C_OPENGL_PIPELINE_CACHE_H_INCLUDED__
+#ifndef __NBL_VIDEO_C_OPENGL_PIPELINE_CACHE_H_INCLUDED__
+#define __NBL_VIDEO_C_OPENGL_PIPELINE_CACHE_H_INCLUDED__
 
 #include "irr/video/IGPUPipelineCache.h"
 #include "COpenGLExtensionHandler.h"
@@ -74,7 +74,7 @@ public:
 	void insert(SCacheKey&& _key, SCacheVal&& _val)
 	{
 		const std::lock_guard<std::mutex> _(m_bin_cache_mutex);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 		assert(!find(_key).binary);
 #endif
 

@@ -2,10 +2,9 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_BLOB_H_INCLUDED__
-#define __IRR_BLOB_H_INCLUDED__
+#ifndef __NBL_ASSET_BLOB_H_INCLUDED__
+#define __NBL_ASSET_BLOB_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
 #include "irr/core/Types.h"
 
 namespace irr
@@ -15,7 +14,7 @@ namespace asset
 	struct BlobLoadingParams;
 
 #include "irr/irrpack.h"
-	struct IRR_FORCE_EBO Blob
+	struct NBL_FORCE_EBO Blob
 	{
 		//! Coding method of blob's data enumeration
 		enum E_BLOB_CODING_TYPE
@@ -47,7 +46,7 @@ namespace asset
 
 
 	template<template<typename, typename> class SizingT, typename B, typename T>
-	struct IRR_FORCE_EBO SizedBlob
+	struct NBL_FORCE_EBO SizedBlob
 	{
 	protected: // not intended for direct usage
 		SizedBlob() {}
@@ -68,7 +67,7 @@ namespace asset
 			const size_t actualObjSize = calcBlobSizeForObj(_obj);
 			void* mem;
 			if (!_stackPtr || actualObjSize > _size)
-				mem = _IRR_ALIGNED_MALLOC(actualObjSize, _IRR_SIMD_ALIGNMENT);
+				mem = _NBL_ALIGNED_MALLOC(actualObjSize, _NBL_SIMD_ALIGNMENT);
 			else if (_stackPtr && _size >= actualObjSize)
 				mem = _stackPtr;
 			else
@@ -82,7 +81,7 @@ namespace asset
 	};
 
 	template<typename B, typename T>
-	struct IRR_FORCE_EBO VariableSizeBlob : SizedBlob<VariableSizeBlob, B, T>
+	struct NBL_FORCE_EBO VariableSizeBlob : SizedBlob<VariableSizeBlob, B, T>
 	{
 	protected: // not intended for direct usage
 		VariableSizeBlob() {}
@@ -90,7 +89,7 @@ namespace asset
 	};
 
 	template<typename B, typename T>
-	struct IRR_FORCE_EBO FixedSizeBlob : SizedBlob<FixedSizeBlob, B, T>
+	struct NBL_FORCE_EBO FixedSizeBlob : SizedBlob<FixedSizeBlob, B, T>
 	{
 	protected: // not intended for direct usage
 		FixedSizeBlob() {}
@@ -98,7 +97,7 @@ namespace asset
 	};
 
 	template<typename B, typename T>
-	struct IRR_FORCE_EBO TypedBlob : Blob
+	struct NBL_FORCE_EBO TypedBlob : Blob
 	{
 		static core::unordered_set<uint64_t> getNeededDeps(const void* _blob);
 		static void* instantiateEmpty(const void* _blob, size_t _blobSize, BlobLoadingParams& _params);

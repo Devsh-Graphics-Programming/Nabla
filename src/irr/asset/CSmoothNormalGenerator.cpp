@@ -141,7 +141,7 @@ namespace irr
 		CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(asset::ICPUMeshBuffer * buffer, float epsilon)
 		{
 			const size_t idxCount = buffer->getIndexCount();
-			_IRR_DEBUG_BREAK_IF((idxCount % 3));
+			_NBL_DEBUG_BREAK_IF((idxCount % 3));
 
 			VertexHashMap vertices(idxCount, std::min(16u * 1024u, core::roundUpToPoT<unsigned int>(idxCount * 1.0f / 32.0f)), epsilon == 0.0f ? 0.00001f : epsilon * 1.00001f);
 

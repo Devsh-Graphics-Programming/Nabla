@@ -2,10 +2,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_SPLINES_H_INCLUDED__
-#define __IRR_SPLINES_H_INCLUDED__
+#ifndef __NBL_SPLINES_H_INCLUDED__
+#define __NBL_SPLINES_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 #include <cmath>       /* sqrt */
 #include "irr/core/math/glslFunctions.tcc"
 
@@ -589,7 +589,7 @@ class CQuadraticSpline : public ISpline
 					}
 					else
 					{
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 						assert(integrationConstants[0] < 10000000.f);
 						assert(integrationConstants[2] >= 0.f);
 #endif

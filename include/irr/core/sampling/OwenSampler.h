@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_CORE_OWEN_SAMPLER_H_
-#define _IRR_CORE_OWEN_SAMPLER_H_
+#ifndef __NBL_CORE_CORE_OWEN_SAMPLER_H_
+#define __NBL_CORE_CORE_OWEN_SAMPLER_H_
 
 #include "irr/core/sampling/RandomSampler.h"
 #include "irr/core/sampling/SobolSampler.h"
@@ -37,7 +37,7 @@ namespace core
 				assert(false);
 
 			uint32_t oldsample = SequenceSampler::sample(dim,sampleNum);
-			#ifdef _IRR_DEBUG
+			#ifdef _NBL_DEBUG
 				assert(sampleNum<MAX_SAMPLES);
 				if (sampleNum)
 					assert((oldsample&(0x7fffffffu>>core::findMSB(sampleNum))) == 0u);
@@ -72,7 +72,7 @@ namespace core
 				uint32_t currentLevelSize = 0x1u<<i;
 				for (uint32_t j=0u; j<currentLevelSize; j++)
 					cachedFlip[currentLevelStart+j] |= cachedFlip[previousLevelStart+(j>>1u)];
-				#ifdef _IRR_DEBUG
+				#ifdef _NBL_DEBUG
 					for (uint32_t j=0u; j<currentLevelSize; j+=2)
 					{
 						const uint32_t highBitMask = 0xffffffffu<<(OUT_BITS-i);
@@ -88,9 +88,9 @@ namespace core
 
 	protected:
 		// if we don't limit the sample count, then due to IEEE754 precision, we'll get duplicate sample coordinate values, ruining the net property
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t OUT_BITS = sizeof(uint32_t)*8u;
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_SAMPLES_LOG2 = 24u;
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_SAMPLES = 0x1u<<MAX_SAMPLES_LOG2;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t OUT_BITS = sizeof(uint32_t)*8u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_SAMPLES_LOG2 = 24u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_SAMPLES = 0x1u<<MAX_SAMPLES_LOG2;
 
 		inline uint32_t getTreeDepth(uint32_t sampleNum)
 		{
@@ -106,4 +106,4 @@ namespace core
 }
 }
 
-#endif // _IRR_CORE_OWEN_SAMPLER_H_
+#endif

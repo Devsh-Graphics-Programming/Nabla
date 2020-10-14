@@ -8,7 +8,7 @@
 #include <algorithm>
 #include "spirv_cross/spirv_parser.hpp"
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 
 namespace irr
 {

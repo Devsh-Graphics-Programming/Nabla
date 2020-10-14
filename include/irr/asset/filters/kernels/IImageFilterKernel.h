@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_IMAGE_FILTER_KERNEL_H_INCLUDED__
-#define __IRR_I_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#ifndef __NBL_ASSET_I_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#define __NBL_ASSET_I_IMAGE_FILTER_KERNEL_H_INCLUDED__
 
 #include "irr/core/core.h"
 
@@ -21,7 +21,7 @@ class IImageFilterKernel
 {
 	public:
 		// All kernels are by default, defined on max 4 channels
-		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = 4;
+		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = 4;
 
 		// some user data structs commonly used
 		struct UserData
@@ -36,7 +36,7 @@ class IImageFilterKernel
 		};
 		struct ScaleFactorUserData : UserData
 		{
-			_IRR_STATIC_INLINE_CONSTEXPR E_USER_DATA_TYPE Type = EUDT_SCALE_FACTOR;
+			_NBL_STATIC_INLINE_CONSTEXPR E_USER_DATA_TYPE Type = EUDT_SCALE_FACTOR;
 			ScaleFactorUserData(float _factor=1.f) : UserData{Type}, factor{_factor,_factor,_factor,_factor} {}
 
 			inline bool valid() const {return type==Type;}
@@ -208,7 +208,7 @@ class CImageFilterKernel : public IImageFilterKernel
 };
 
 //use this whenever you have diamond inheritance and ambiguous resolves
-#define IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(BASENAME) \
+#define NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(BASENAME) \
 template<typename... Args> \
 inline core::vectorSIMDi32 getWindowMinCoord(Args&&... args) const \
 { \

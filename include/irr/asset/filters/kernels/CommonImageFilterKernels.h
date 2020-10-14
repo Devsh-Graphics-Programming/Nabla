@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_COMMON_IMAGE_FILTER_KERNELS_H_INCLUDED__
-#define __IRR_COMMON_IMAGE_FILTER_KERNELS_H_INCLUDED__
+#ifndef __NBL_ASSET_COMMON_IMAGE_FILTER_KERNELS_H_INCLUDED__
+#define __NBL_ASSET_COMMON_IMAGE_FILTER_KERNELS_H_INCLUDED__
 
 
 #include "irr/asset/filters/kernels/IImageFilterKernel.h"
@@ -36,7 +36,7 @@ class CFloatingPointOnlyImageFilterKernelBase
 class CSeparableImageFilterKernelBase
 {
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = true;
+		_NBL_STATIC_INLINE_CONSTEXPR bool is_separable = true;
 
 	protected:
 		CSeparableImageFilterKernelBase() {}
@@ -102,7 +102,7 @@ class CIsotropicImageFilterKernelBase
 	public:
 		using isotropic_support_as_ratio = Support;
 	protected:
-		_IRR_STATIC_INLINE_CONSTEXPR float isotropic_support = float(Support::num)/float(Support::den);
+		_NBL_STATIC_INLINE_CONSTEXPR float isotropic_support = float(Support::num)/float(Support::den);
 };
 
 // same as CFloatingPointSeparableImageFilterKernelBase but with added constraint that support is symmetric around the orign

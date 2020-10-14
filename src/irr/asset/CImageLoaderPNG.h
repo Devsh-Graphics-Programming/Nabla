@@ -5,12 +5,12 @@
 
 // this file was created by rt (www.tomkorp.com), based on ttk's png-reader
 
-#ifndef __C_IMAGE_LOADER_PNG_H_INCLUDED__
-#define __C_IMAGE_LOADER_PNG_H_INCLUDED__
+#ifndef __NBL_ASSET_C_IMAGE_LOADER_PNG_H_INCLUDED__
+#define __NBL_ASSET_C_IMAGE_LOADER_PNG_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/asset/compile_config.h"
 
-#ifdef _IRR_COMPILE_WITH_PNG_LOADER_
+#ifdef _NBL_COMPILE_WITH_PNG_LOADER_
 
 #include "irr/asset/IAssetLoader.h"
 

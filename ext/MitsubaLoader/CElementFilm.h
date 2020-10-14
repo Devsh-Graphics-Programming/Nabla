@@ -85,7 +85,7 @@ class CElementFilm : public IElement
 				variable[4] = 0;
 			}
 			int32_t digits;
-			_IRR_STATIC_INLINE_CONSTEXPR size_t MaxVarNameLen = 63; // matlab
+			_NBL_STATIC_INLINE_CONSTEXPR size_t MaxVarNameLen = 63; // matlab
 			char variable[MaxVarNameLen+1];
 		};
 

@@ -92,7 +92,7 @@ void CSkinnedMeshSceneNode::OnRegisterSceneNode()
             if (!mb||mb->getIndexCount()<1)
                 continue;
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
             video::IMaterialRenderer* rnd =
                 driver->getMaterialRenderer(mb->getMaterial().MaterialType);
 
@@ -158,7 +158,7 @@ void CSkinnedMeshSceneNode::OnAnimate(uint32_t timeMs)
 //! renders the node.
 void CSkinnedMeshSceneNode::render()
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	video::IVideoDriver* driver = SceneManager->getVideoDriver();
 
 	if (!mesh || !driver)

@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_BAW_FILE_H_INCLUDED__
-#define __IRR_BAW_FILE_H_INCLUDED__
+#ifndef __NBL_ASSET_BAW_FILE_H_INCLUDED__
+#define __NBL_ASSET_BAW_FILE_H_INCLUDED__
 
 
 #include "aabbox3d.h"
@@ -76,7 +76,7 @@ namespace asset
 	//! Cast pointer to (first byte of) file buffer to BAWFile*. 256bit header must be first member (start of file).
     //! If something changes in basic format structure, this should go to asset::legacyv0 namespace
     template<uint64_t Version>
-	struct IRR_FORCE_EBO BAWFileVn {
+	struct NBL_FORCE_EBO BAWFileVn {
         static constexpr const char* HEADER_STRING = "IrrlichtBaW BinaryFile";
         static constexpr uint64_t version = Version;
 

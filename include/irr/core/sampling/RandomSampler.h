@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_CORE_RANDOM_SAMPLER_H_
-#define _IRR_CORE_RANDOM_SAMPLER_H_
+#ifndef __NBL_CORE_RANDOM_SAMPLER_H_
+#define __NBL_CORE_RANDOM_SAMPLER_H_
 
 #include <random>
 
@@ -37,4 +37,4 @@ namespace core
 }
 }
 
-#endif // _IRR_CORE_RANDOM_SAMPLER_H_
+#endif

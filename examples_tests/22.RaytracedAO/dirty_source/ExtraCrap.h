@@ -7,7 +7,7 @@
 // pesky leaking defines
 #undef PI
 
-#ifdef _IRR_BUILD_OPTIX_
+#ifdef _NBL_BUILD_OPTIX_
 #include "../../ext/OptiX/Manager.h"
 #endif
 
@@ -103,7 +103,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				switch (type)
 				{
 					case ET_ELLIPSOID:
-						_IRR_FALLTHROUGH;
+						[[fallthrough]];
 					case ET_TRIANGLE:
 						lightFlux *= triangulizationArea;
 						break;
@@ -163,7 +163,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		static_assert(sizeof(SLight)==112u,"Can't keep alignment straight!");
 
 		// No 8k yet, too many rays to store
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxResolution[2] = {7680/2,4320/2};
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxResolution[2] = {7680/2,4320/2};
 
 
 		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, bool useDenoiser = true);
@@ -186,7 +186,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		uint64_t getTotalSamplesComputed() const { return static_cast<uint64_t>(m_samplesComputed)*static_cast<uint64_t>(m_rayCount)/m_samplesPerDispatch; }
 
 
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 4u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 4u;
     protected:
         ~Renderer();
 
@@ -236,7 +236,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightRadianceBuffer;
 #endif
 
-	#ifdef _IRR_BUILD_OPTIX_
+	#ifdef _NBL_BUILD_OPTIX_
 		irr::core::smart_refctd_ptr<irr::ext::OptiX::Manager> m_optixManager;
 		CUstream m_cudaStream;
 		irr::core::smart_refctd_ptr<irr::ext::OptiX::IContext> m_optixContext;

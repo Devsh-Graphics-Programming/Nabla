@@ -4,8 +4,8 @@
 
 //New skinned mesh
 
-#ifndef __C_GPU_SKINNED_MESH_H_INCLUDED__
-#define __C_GPU_SKINNED_MESH_H_INCLUDED__
+#ifndef __NBL_VIDEO_C_GPU_SKINNED_MESH_H_INCLUDED__
+#define __NBL_VIDEO_C_GPU_SKINNED_MESH_H_INCLUDED__
 
 #include "irr/video/IGPUSkinnedMesh.h"
 #include "CFinalBoneHierarchy.h"
@@ -35,7 +35,7 @@ namespace video
         public:
             CGPUSkinnedMesh(core::smart_refctd_ptr<const asset::CFinalBoneHierarchy>&& boneHierarchy) : IGPUSkinnedMesh(std::move(boneHierarchy))
             {
-                #ifdef _IRR_DEBUG
+                #ifdef _NBL_DEBUG
                 setDebugName("CGPUSkinnedMesh");
                 #endif
             }

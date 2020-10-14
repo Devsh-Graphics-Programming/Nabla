@@ -5,7 +5,7 @@
 
 #include "CImageWriterTGA.h"
 
-#ifdef _IRR_COMPILE_WITH_TGA_WRITER_
+#ifdef _NBL_COMPILE_WITH_TGA_WRITER_
 
 #include "CImageLoaderTGA.h"
 #include "IWriteFile.h"
@@ -23,7 +23,7 @@ namespace asset
 
 CImageWriterTGA::CImageWriterTGA()
 {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	setDebugName("CImageWriterTGA");
 #endif
 }

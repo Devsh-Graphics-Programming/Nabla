@@ -2,18 +2,15 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_ALLOCATOR_H_INCLUDED__
-#define __IRR_I_ALLOCATOR_H_INCLUDED__
-
-#include "IrrCompileConfig.h"
-
+#ifndef __NBL_CORE_I_ALLOCATOR_H_INCLUDED__
+#define __NBL_CORE_I_ALLOCATOR_H_INCLUDED__
 
 namespace irr
 {
 namespace core
 {
 
-class IRR_FORCE_EBO IAllocator
+class NBL_FORCE_EBO IAllocator
 {
     public:
         virtual         ~IAllocator() {}
@@ -26,7 +23,7 @@ class IRR_FORCE_EBO IAllocator
 
 
 template <class Alloc>
-class IRR_FORCE_EBO IAllocatorAdaptor final : private Alloc, public IAllocator
+class NBL_FORCE_EBO IAllocatorAdaptor final : private Alloc, public IAllocator
 {
         inline Alloc& getBaseRef() noexcept {return static_cast<Alloc&>(*this);}
     public:
@@ -46,4 +43,4 @@ class IRR_FORCE_EBO IAllocatorAdaptor final : private Alloc, public IAllocator
 }
 }
 
-#endif // __IRR_I_ALLOCATOR_H_INCLUDED__
+#endif

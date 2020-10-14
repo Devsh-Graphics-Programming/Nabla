@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_MATRIX3X4SIMD_IMPL_H_INCLUDED__
-#define __IRR_MATRIX3X4SIMD_IMPL_H_INCLUDED__
+#ifndef __NBL_MATRIX3X4SIMD_IMPL_H_INCLUDED__
+#define __NBL_MATRIX3X4SIMD_IMPL_H_INCLUDED__
 
 #include "matrix3x4SIMD.h"
 #include "irr/core/math/glslFunctions.tcc"
@@ -143,17 +143,17 @@ inline aabbox3df transformBoxEx(const aabbox3df& box, const matrix3x4SIMD& _mat)
 	return aabbox3df(minPt.getAsVector3df(), maxPt.getAsVector3df());
 }
 
-#ifdef __IRR_COMPILE_WITH_SSE3
+#ifdef __NBL_COMPILE_WITH_SSE3
 #define BROADCAST32(fpx) _MM_SHUFFLE(fpx, fpx, fpx, fpx)
 #define BUILD_XORMASKF(_x_, _y_, _z_, _w_) _mm_setr_epi32(_x_ ? 0x80000000u:0x0u, _y_ ? 0x80000000u:0x0u, _z_ ? 0x80000000u:0x0u, _w_ ? 0x80000000u:0x0u)
 #define BUILD_MASKF(_x_, _y_, _z_, _w_) _mm_setr_epi32(_x_*0xffffffff, _y_*0xffffffff, _z_*0xffffffff, _w_*0xffffffff)
 
 inline matrix3x4SIMD matrix3x4SIMD::concatenateBFollowedByA(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b)
 {
-#ifdef _IRR_DEBUG
-	assert(is_aligned_to(&_a, _IRR_SIMD_ALIGNMENT));
-	assert(is_aligned_to(&_b, _IRR_SIMD_ALIGNMENT));
-#endif // _IRR_DEBUG
+#ifdef _NBL_DEBUG
+	assert(is_aligned_to(&_a, _NBL_SIMD_ALIGNMENT));
+	assert(is_aligned_to(&_b, _NBL_SIMD_ALIGNMENT));
+#endif // _NBL_DEBUG
 	__m128 r0 = _a.rows[0].getAsRegister();
 	__m128 r1 = _a.rows[1].getAsRegister();
 	__m128 r2 = _a.rows[2].getAsRegister();
@@ -522,4 +522,4 @@ inline __m128d matrix3x4SIMD::doJob_d(const __m128d& _a0, const __m128d& _a1, co
 }
 } // irr::core
 
-#endif // __IRR_MATRIX4SIMD_IMPL_H_INCLUDED__
+#endif

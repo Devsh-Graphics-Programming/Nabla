@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __IRR_QUATERNION_H_INCLUDED__
-#define __IRR_QUATERNION_H_INCLUDED__
+#ifndef __NBL_QUATERNION_H_INCLUDED__
+#define __NBL_QUATERNION_H_INCLUDED__
 
 
 #include "vectorSIMD.h"
@@ -324,7 +324,7 @@ inline quaternion quaternion::slerp(const quaternion &q1, const quaternion &q2, 
 }
 
 
-#if !IRR_TEST_BROKEN_QUATERNION_USE
+#if !NBL_TEST_BROKEN_QUATERNION_USE
 //! axis must be unit length, angle in radians
 inline quaternion quaternion::fromAngleAxis(const float& angle, const vector3df_SIMD& axis)
 {
@@ -458,5 +458,5 @@ inline quaternion& quaternion::set(const float& roll, const float& pitch, const 
 } // end namespace core
 } // end namespace irr
 
-#endif // __IRR_QUATERNION_H_INCLUDED__
+#endif
 

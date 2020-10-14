@@ -19,7 +19,7 @@ SAssetBundle CGLSLLoader::loadAsset(IReadFile* _file, const IAssetLoader::SAsset
 	_file->seek(0u);
 
 	auto len = _file->getSize();
-	void* source = _IRR_ALIGNED_MALLOC(len+1u,_IRR_SIMD_ALIGNMENT);
+	void* source = _NBL_ALIGNED_MALLOC(len+1u,_NBL_SIMD_ALIGNMENT);
 	_file->read(source,len);
 	reinterpret_cast<char*>(source)[len] = 0;
 
@@ -27,7 +27,7 @@ SAssetBundle CGLSLLoader::loadAsset(IReadFile* _file, const IAssetLoader::SAsset
 
 
 	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source));
-	_IRR_ALIGNED_FREE(source);
+	_NBL_ALIGNED_FREE(source);
 
 	const std::string filename = _file->getFileName().c_str();
 	//! TODO: Actually invoke the GLSL compiler to decode our type from any `#pragma`s

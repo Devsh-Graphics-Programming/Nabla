@@ -26,8 +26,8 @@ namespace asset
 
 struct LzmaMemMngmnt
 {
-        static void *alloc(ISzAllocPtr, size_t _size) { return _IRR_ALIGNED_MALLOC(_size,_IRR_SIMD_ALIGNMENT); }
-        static void release(ISzAllocPtr, void* _addr) { _IRR_ALIGNED_FREE(_addr); }
+        static void *alloc(ISzAllocPtr, size_t _size) { return _NBL_ALIGNED_MALLOC(_size,_NBL_SIMD_ALIGNMENT); }
+        static void release(ISzAllocPtr, void* _addr) { _NBL_ALIGNED_FREE(_addr); }
     private:
         LzmaMemMngmnt() {}
 };
@@ -39,17 +39,17 @@ CBAWMeshFileLoader::~CBAWMeshFileLoader()
 
 CBAWMeshFileLoader::CBAWMeshFileLoader(IAssetManager* _manager) : m_manager(_manager), m_fileSystem(_manager->getFileSystem())
 {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	setDebugName("CBAWMeshFileLoader");
 #endif
 }
 
 SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-#ifndef NEW_SHADERS
-#ifdef _IRR_DEBUG
+#ifdef OLD_SHADERS
+#ifdef _NBL_DEBUG
     auto time = std::chrono::high_resolution_clock::now();
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 
 	SContext ctx{
         asset::IAssetLoader::SAssetLoadContext{
@@ -58,7 +58,7 @@ SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
         }
     };
 
-    ctx.inner.mainFile = tryCreateNewestFormatVersionFile(ctx.inner.mainFile, _override, std::make_integer_sequence<uint64_t, _IRR_BAW_FORMAT_VERSION>{});
+    ctx.inner.mainFile = tryCreateNewestFormatVersionFile(ctx.inner.mainFile, _override, std::make_integer_sequence<uint64_t, _NBL_FORMAT_VERSION>{});
 
     BlobHeaderLatest* headers = nullptr;
 
@@ -67,23 +67,23 @@ SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
             ctx.inner.mainFile->drop();
         ctx.releaseLoadedObjects();
         if (headers)
-            _IRR_ALIGNED_FREE(headers);
+            _NBL_ALIGNED_FREE(headers);
     };
     auto exiter = core::makeRAIIExiter(exitRoutine);
 
-    if (!verifyFile<asset::BAWFileVn<_IRR_BAW_FORMAT_VERSION>>(ctx))
+    if (!verifyFile<asset::BAWFileVn<_NBL_FORMAT_VERSION>>(ctx))
     {
         return {};
     }
 
     uint32_t blobCnt{};
 	uint32_t* offsets = nullptr;
-    if (!validateHeaders<asset::BAWFileVn<_IRR_BAW_FORMAT_VERSION>, asset::BlobHeaderVn<_IRR_BAW_FORMAT_VERSION>>(&blobCnt, &offsets, (void**)&headers, ctx))
+    if (!validateHeaders<asset::BAWFileVn<_NBL_FORMAT_VERSION>, asset::BlobHeaderVn<_NBL_FORMAT_VERSION>>(&blobCnt, &offsets, (void**)&headers, ctx))
     {
         return {};
     }
 
-	const uint32_t BLOBS_FILE_OFFSET = asset::BAWFileVn<_IRR_BAW_FORMAT_VERSION>{ {}, blobCnt }.calcBlobsOffset();
+	const uint32_t BLOBS_FILE_OFFSET = asset::BAWFileVn<_NBL_FORMAT_VERSION>{ {}, blobCnt }.calcBlobsOffset();
 
 	core::unordered_map<uint64_t, SBlobData>::iterator meshBlobDataIter;
 
@@ -94,7 +94,7 @@ SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 		if (data.header->blobType == asset::Blob::EBT_MESH || data.header->blobType == asset::Blob::EBT_SKINNED_MESH)
 			meshBlobDataIter = it;
 	}
-	_IRR_ALIGNED_FREE(offsets);
+	_NBL_ALIGNED_FREE(offsets);
 
     const std::string rootCacheKey = ctx.inner.mainFile->getFileName().c_str();
 
@@ -168,7 +168,7 @@ SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 		{
             void* obj = ctx.createdObjs[handle];
 			ctx.loadingMgr.finalize(blobType, obj, blob, size, ctx.createdObjs, params);
-            _IRR_ALIGNED_FREE(data->heapBlob);
+            _NBL_ALIGNED_FREE(data->heapBlob);
 			blob = data->heapBlob = nullptr;
             insertAssetIntoCache(ctx, _override, obj, blobType, hierLvl, thisCacheKey);
 		}
@@ -340,12 +340,12 @@ SAssetBundle CBAWMeshFileLoader::loadAsset(io::IReadFile* _file, const asset::IA
 
 	ctx.releaseAllButThisOne(meshBlobDataIter); // call drop on all loaded objects except mesh
 
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	std::ostringstream tmpString("Time to load ");
 	tmpString.seekp(0, std::ios_base::end);
 	tmpString << "BAW file: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now()-time).count() << "us";
 	os::Printer::log(tmpString.str());
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 
 	asset::ICPUMesh* mesh = reinterpret_cast<asset::ICPUMesh*>(retval);
 		

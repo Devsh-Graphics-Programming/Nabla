@@ -2,10 +2,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_GENERALPURPOSE_ADDRESS_ALLOCATOR_H_INCLUDED__
-#define __IRR_GENERALPURPOSE_ADDRESS_ALLOCATOR_H_INCLUDED__
+#ifndef __NBL_CORE_GENERALPURPOSE_ADDRESS_ALLOCATOR_H_INCLUDED__
+#define __NBL_CORE_GENERALPURPOSE_ADDRESS_ALLOCATOR_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 
 #include "irr/core/math/intutil.h"
 #include "irr/core/math/glslFunctions.h"
@@ -25,7 +25,7 @@ class GeneralpurposeAddressAllocatorBase
 {
     protected:
         //types
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+        _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
         struct Block
         {
             size_type startOffset;
@@ -36,9 +36,9 @@ class GeneralpurposeAddressAllocatorBase
 
             inline void         validate(size_type level)       const
             {
-                #ifdef _IRR_DEBUG
+                #ifdef _NBL_DEBUG
                 assert(getLength()>>level); // in the right free list
-                #endif // _IRR_DEBUG
+                #endif // _NBL_DEBUG
             }
         };
         static inline uint32_t  findFreeListCount(size_type byteSize, size_type minBlockSz) noexcept
@@ -126,9 +126,9 @@ class GeneralpurposeAddressAllocatorBase
 
                 return true;
             }
-            #ifdef _IRR_DEBUG
+            #ifdef _NBL_DEBUG
             assert(freeSize==totalFree);
-            #endif // _IRR_DEBUG
+            #endif // _NBL_DEBUG
             return false;
         }
         inline uint32_t          findFreeListInsertIndex(size_type byteSize) const noexcept
@@ -166,16 +166,16 @@ class GeneralpurposeAddressAllocatorBase
         inline void             insertFreeBlock(const Block& block)
         {
             auto len = block.getLength();
-        #ifdef _IRR_DEBUG
+        #ifdef _NBL_DEBUG
             if (len<minBlockSize)
                 assert(false);
-        #endif // _IRR_DEBUG
+        #endif // _NBL_DEBUG
             auto level = findFreeListInsertIndex(len);
             block.validate(level);
             freeListStack[level][freeListStackCtr[level]++] = block;
-        #ifdef _IRR_DEBUG
+        #ifdef _NBL_DEBUG
             assert(freeListStackCtr[level]<=bufferSize/(minBlockSize<<level)+(level==0u ? 1u:0u));
-        #endif // _IRR_DEBUG
+        #endif // _NBL_DEBUG
             freeSize += len;
         }
 
@@ -184,9 +184,9 @@ class GeneralpurposeAddressAllocatorBase
         {
             newBlock.startOffset = core::roundUp(origBlock.startOffset,alignment);
             
-        #ifdef _IRR_DEBUG
+        #ifdef _NBL_DEBUG
             assert(&newBlock!=&origBlock);
-        #endif // _IRR_DEBUG
+        #endif // _NBL_DEBUG
             if (origBlock.startOffset!=newBlock.startOffset)
             {
                 auto initialPreceedingBlockSize = newBlock.startOffset-origBlock.startOffset;
@@ -200,9 +200,9 @@ class GeneralpurposeAddressAllocatorBase
         //! Produced blocks can only be larger than `minBlockSize`, so it's easier to reason about the correctness and memory boundedness of the allocation algorithm
         inline size_type calcSubAllocation(Block& retval, const Block* block, const size_type bytes, const size_type alignment) const
         {
-        #ifdef _IRR_DEBUG
+        #ifdef _NBL_DEBUG
             assert(bytes>=minBlockSize);
-        #endif // _IRR_DEBUG
+        #endif // _NBL_DEBUG
             if (!alignBlockStart(retval,*block,alignment))
                 return invalid_address;
 
@@ -266,9 +266,9 @@ class GeneralpurposeAddressAllocatorBase
         //! Lists contain blocks of size < (minBlock<<listIndex)*2 && size >= (minBlock<<listIndex)
         static inline uint32_t  findFreeListInsertIndex(size_type byteSize, size_type minBlockSz) noexcept
         {
-            #ifdef _IRR_DEBUG
+            #ifdef _NBL_DEBUG
                assert(byteSize>=minBlockSz); // logic fail
-            #endif // _IRR_DEBUG
+            #endif // _NBL_DEBUG
             return findMSB(byteSize/minBlockSz);
         }
         //!
@@ -285,13 +285,13 @@ class GeneralpurposeAddressAllocatorBase
                     const auto& block = other.freeListStack[i][j];
                     if (block.startOffset>bufferSize)
                         continue;
-                    #ifdef _IRR_DEBUG
+                    #ifdef _NBL_DEBUG
                     assert(block.endOffset>=bufferSize);
-                    #endif // _IRR_DEBUG
+                    #endif // _NBL_DEBUG
                     insertFreeBlock({block.startOffset,bufferSize});
-                    #ifndef _IRR_DEBUG
+                    #ifndef _NBL_DEBUG
                     notFoundTheSlab = false;
-                    #endif // _IRR_DEBUG
+                    #endif // _NBL_DEBUG
                 }
             }
             else if (bufferSize>other.bufferSize) // insert new
@@ -322,7 +322,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,true> : protected Genera
         typedef GeneralpurposeAddressAllocatorBase<_size_type>  Base;
     protected:
         typedef typename Base::Block                            Block;
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+        _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
         using Base::Base;
 
@@ -375,7 +375,7 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
         typedef GeneralpurposeAddressAllocatorBase<_size_type>  Base;
     protected:
         typedef typename Base::Block                            Block;
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+        _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
         using Base::Base;
 
@@ -399,10 +399,10 @@ class GeneralpurposeAddressAllocatorStrategy<_size_type,false> : protected Gener
                 if (wastedSpace==invalid_address)
                 {
                     // this can only happen if we have tried the largest free blocks possible
-                    #ifdef _IRR_DEBUG
+                    #ifdef _NBL_DEBUG
                     if (level<Base::freeListCount-1u)
                         assert(false);
-                    #endif // _IRR_DEBUG
+                    #endif // _NBL_DEBUG
                     return {{invalid_address,invalid_address},{invalid_address,invalid_address}};
                 }
                 Base::freeSize -= popped.getLength();
@@ -438,7 +438,7 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
         typedef AddressAllocatorBase<GeneralpurposeAddressAllocator<_size_type>,_size_type> Base;
         typedef typename AllocStrategy::Block                                               Block;
     public:
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+        _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
         static constexpr bool supportsNullBuffer = true;
 
@@ -512,24 +512,24 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
             if (found.first.startOffset!=found.second.startOffset)
                 AllocStrategy::insertFreeBlock(Block{found.second.startOffset,found.first.startOffset});
             
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
             // allocation must not be outside the buffer
             assert(found.first.startOffset +bytes<=AllocStrategy::bufferSize);
             // sanity check
             assert(AllocStrategy::freeSize+bytes<=AllocStrategy::bufferSize);
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
             return found.first.startOffset+Base::combinedOffset;
         }
 
         inline void             free_addr(size_type addr, size_type bytes) noexcept
         {
             bytes = std::max(bytes,AllocStrategy::minBlockSize);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
             // address must have had combinedOffset already applied to it, and allocation must not be outside the buffer
             assert(addr>=Base::combinedOffset && addr+bytes<=AllocStrategy::bufferSize+Base::combinedOffset);
             // sanity check
             assert(AllocStrategy::freeSize+bytes<=AllocStrategy::bufferSize);
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 
             addr -= Base::combinedOffset;
 #ifdef _EXTREME_DEBUG
@@ -670,10 +670,10 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
                 lastBlock.endOffset = nextBlock->endOffset;
                 minimum = AllocStrategy::findMinimum(freeListOld,freeListOldEnd);
             }
-            #ifdef _IRR_DEBUG
+            #ifdef _NBL_DEBUG
             for (decltype(AllocStrategy::freeListCount) i=0u; i<AllocStrategy::freeListCount; i++)
                 assert(freeListOld[i]==freeListOldEnd[i]);
-            #endif // _IRR_DEBUG
+            #endif // _NBL_DEBUG
             // put last block on correct free list
             if (lastBlock.getLength())
             {
@@ -707,6 +707,6 @@ using GeneralpurposeAddressAllocatorMT = AddressAllocatorBasicConcurrencyAdaptor
 }
 }
 
-#endif // __IRR_GENERALPURPOSE_ADDRESS_ALLOCATOR_H_INCLUDED__
+#endif
 
 

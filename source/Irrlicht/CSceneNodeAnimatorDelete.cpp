@@ -16,7 +16,7 @@ namespace scene
 CSceneNodeAnimatorDelete::CSceneNodeAnimatorDelete(ISceneManager* manager, uint32_t time)
 : ISceneNodeAnimatorFinishing(time), SceneManager(manager)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CSceneNodeAnimatorDelete");
 	#endif
 }

@@ -29,7 +29,7 @@ namespace irr
 
 					auto getMitsubaMetadata() const { return mitsubaMetadata; }
 
-					_IRR_STATIC_INLINE_CONSTEXPR const char* loaderName = "CMitsubaLoader";
+					_NBL_STATIC_INLINE_CONSTEXPR const char* loaderName = "CMitsubaLoader";
 					const char* getLoaderName() const override { return loaderName; }
 
 				private:

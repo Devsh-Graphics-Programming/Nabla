@@ -3,12 +3,12 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __C_IMAGE_LOADER_JPG_H_INCLUDED__
-#define __C_IMAGE_LOADER_JPG_H_INCLUDED__
+#ifndef __NBL_ASSET_C_IMAGE_LOADER_JPG_H_INCLUDED__
+#define __NBL_ASSET_C_IMAGE_LOADER_JPG_H_INCLUDED__
 
 #include "irr/core/core.h"
 
-#ifdef _IRR_COMPILE_WITH_JPG_LOADER_
+#ifdef _NBL_COMPILE_WITH_JPG_LOADER_
 
 #include "irr/asset/IAssetLoader.h"
 

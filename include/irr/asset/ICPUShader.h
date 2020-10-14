@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_CPU_SHADER_H_INCLUDED__
-#define __IRR_I_CPU_SHADER_H_INCLUDED__
+#ifndef __NBL_ASSET_I_CPU_SHADER_H_INCLUDED__
+#define __NBL_ASSET_I_CPU_SHADER_H_INCLUDED__
 
 #include <algorithm>
 #include <string>
@@ -34,7 +34,7 @@ class ICPUShader : public IAsset, public IShader
 			memcpy(m_code->getPointer(), _glsl, m_code->getSize());
 		}
 
-		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SHADER;
+		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SHADER;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
 		size_t conservativeSizeEstimate() const override 
@@ -73,4 +73,4 @@ class ICPUShader : public IAsset, public IShader
 }
 }
 
-#endif//__IRR_I_CPU_SHADER_H_INCLUDED__
+#endif

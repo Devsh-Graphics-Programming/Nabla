@@ -19,7 +19,7 @@ CLimitReadFile::CLimitReadFile(IReadFile* alreadyOpenedFile, const size_t& pos,
 	: Filename(name), AreaStart(0), AreaEnd(0), Pos(0),
 	File(alreadyOpenedFile)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CLimitReadFile");
 	#endif
 

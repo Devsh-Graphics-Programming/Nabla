@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_MATRIX_4X3_H_INCLUDED__
-#define __IRR_MATRIX_4X3_H_INCLUDED__
+#ifndef __NBL_MATRIX_4X3_H_INCLUDED__
+#define __NBL_MATRIX_4X3_H_INCLUDED__
 
 #include "vector3d.h"
 #include "vectorSIMD.h"
@@ -17,7 +17,7 @@ namespace core
 {
 
 
-	class matrix4x3// : public AlignedBase<_IRR_SIMD_ALIGNMENT> don't inherit from AlignedBase (which is empty) because member `rows[4]` inherits from it as well
+	class matrix4x3// : public AlignedBase<_NBL_SIMD_ALIGNMENT> don't inherit from AlignedBase (which is empty) because member `rows[4]` inherits from it as well
 	{
 		public:
 			//! Default constructor

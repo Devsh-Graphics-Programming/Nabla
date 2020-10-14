@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_C_BOX_IMAGE_FILTER_KERNEL_H_INCLUDED__
-#define __IRR_C_BOX_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#ifndef __NBL_ASSET_C_BOX_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#define __NBL_ASSET_C_BOX_IMAGE_FILTER_KERNEL_H_INCLUDED__
 
 
 #include "irr/asset/filters/kernels/IImageFilterKernel.h"
@@ -27,7 +27,7 @@ class CBoxImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilter
 			return Base::inDomain(x) ? 1.f:0.f;
 		}
 
-		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
+		_NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
 };
 
 } // end namespace asset

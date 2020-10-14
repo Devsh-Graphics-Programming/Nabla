@@ -22,7 +22,7 @@ CSceneNodeAnimatorCameraMaya::CSceneNodeAnimatorCameraMaya(gui::ICursorControl* 
 	CurrentZoom(distance), RotX(0.0f), RotY(0.0f),
 	Zooming(false), Rotating(false), Moving(false), Translating(false)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CSceneNodeAnimatorCameraMaya");
 	#endif
 

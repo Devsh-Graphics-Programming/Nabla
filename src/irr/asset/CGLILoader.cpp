@@ -20,13 +20,13 @@ SOFTWARE.
 
 #include "CGLILoader.h"
 
-#ifdef _IRR_COMPILE_WITH_GLI_LOADER_
+#ifdef _NBL_COMPILE_WITH_GLI_LOADER_
 
 #include "os.h"
 
 #include "irr/asset/IImageAssetHandlerBase.h"
 
-#ifdef _IRR_COMPILE_WITH_GLI_
+#ifdef _NBL_COMPILE_WITH_GLI_
 #include "gli/gli.hpp"
 #else
 #error "It requires GLI library"
@@ -562,4 +562,4 @@ namespace irr
 	}
 }
 
-#endif // _IRR_COMPILE_WITH_GLI_LOADER_
+#endif // _NBL_COMPILE_WITH_GLI_LOADER_

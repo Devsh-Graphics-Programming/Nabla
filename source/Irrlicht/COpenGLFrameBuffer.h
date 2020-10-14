@@ -2,15 +2,15 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __C_OPEN_GL_FRAMEBUFFER_H_INCLUDED__
-#define __C_OPEN_GL_FRAMEBUFFER_H_INCLUDED__
+#ifndef __NBL_C_OPEN_GL_FRAMEBUFFER_H_INCLUDED__
+#define __NBL_C_OPEN_GL_FRAMEBUFFER_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 #include "IFrameBuffer.h"
 
 #include "irr/video/COpenGLImageView.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 
 
 namespace irr
@@ -53,6 +53,6 @@ class COpenGLFrameBuffer final : public IFrameBuffer
 } // end namespace irr
 
 #endif
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif
 
 

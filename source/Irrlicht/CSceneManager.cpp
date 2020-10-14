@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 #include "CSceneManager.h"
 #include "IVideoDriver.h"
 #include "IFileSystem.h"
@@ -40,9 +40,9 @@ CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver
 : ISceneNode(0, 0), Driver(driver), Timer(timer), FileSystem(fs), Device(device),
 	CursorControl(cursorControl),
 	ActiveCamera(0), CurrentRendertime(ESNRP_NONE),
-	IRR_XML_FORMAT_SCENE(L"irr_scene"), IRR_XML_FORMAT_NODE(L"node"), IRR_XML_FORMAT_NODE_ATTR_TYPE(L"type")
+	NBL_XML_FORMAT_SCENE(L"irr_scene"), NBL_XML_FORMAT_NODE(L"node"), NBL_XML_FORMAT_NODE_ATTR_TYPE(L"type")
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	ISceneManager::setDebugName("CSceneManager ISceneManager");
 	ISceneNode::setDebugName("CSceneManager ISceneNode");
 	#endif
@@ -62,7 +62,7 @@ CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver
 	{
         size_t redundantMeshDataBufSize = sizeof(char)*24*3+ //data for the skybox positions
                                         0;
-        void* tmpMem = _IRR_ALIGNED_MALLOC(redundantMeshDataBufSize,_IRR_SIMD_ALIGNMENT);
+        void* tmpMem = _NBL_ALIGNED_MALLOC(redundantMeshDataBufSize,_NBL_SIMD_ALIGNMENT);
         {
             char* skyBoxesVxPositions = (char*)tmpMem;
             skyBoxesVxPositions[0*3+0] = -1;
@@ -177,7 +177,7 @@ CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver
         redundantMeshDataBuf = SceneManager->getVideoDriver()->createGPUBufferOnDedMem(reqs,true);
         if (redundantMeshDataBuf)
             redundantMeshDataBuf->updateSubRange(video::IDriverMemoryAllocation::MemoryRange(0,reqs.vulkanReqs.size),tmpMem);
-        _IRR_ALIGNED_FREE(tmpMem);
+        _NBL_ALIGNED_FREE(tmpMem);
 	}
 }
 
@@ -344,7 +344,7 @@ IMeshSceneNode* CSceneManager::addSkyBoxSceneNode(core::smart_refctd_ptr<video::
 {
 	if (!parent)
 		parent = this;
-#ifdef NEW_SHADERS
+#ifndef OLD_SHADERS
 	return nullptr;
 #else
 	ISceneNode* node = new CSkyBoxSceneNode(std::move(top), std::move(bottom), std::move(left), std::move(right),
@@ -364,7 +364,7 @@ IMeshSceneNode* CSceneManager::addSkyDomeSceneNode(	core::smart_refctd_ptr<video
 {
 	if (!parent)
 		parent = this;
-#ifdef NEW_SHADERS
+#ifndef OLD_SHADERS
 	return nullptr;
 #else
 	ISceneNode* node = new CSkyDomeSceneNode(std::move(texture), horiRes, vertRes,
@@ -430,7 +430,7 @@ void CSceneManager::render()
 //! returns the axis aligned bounding box of this node
 const core::aabbox3d<float>& CSceneManager::getBoundingBox()
 {
-	_IRR_DEBUG_BREAK_IF(true) // Bounding Box of Scene Manager wanted.
+	_NBL_DEBUG_BREAK_IF(true) // Bounding Box of Scene Manager wanted.
 
 	// should never be used.
 	return *((core::aabbox3d<float>*)0);
@@ -497,7 +497,7 @@ void CSceneManager::drawAll()
 
 	uint32_t i; // new ISO for scoping problem in some compilers
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	// reset all transforms
 	Driver->setMaterial(video::SGPUMaterial());
 	Driver->setTransform(video::EPTS_PROJ,core::matrix4SIMD());
@@ -774,7 +774,7 @@ void CSceneManager::removeAll()
 	ISceneNode::removeAll();
 	setActiveCamera(0);
 	// Make sure the driver is reset, might need a more complex method at some point
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	if (Driver)
 		Driver->setMaterial(video::SGPUMaterial());
 #endif

@@ -10,50 +10,50 @@
 #include "irr/video/CGPUMesh.h"
 #include "irr/video/CGPUSkinnedMesh.h"
 
-//! Adds support of given blob type to BlobsLoadingManager. For use ONLY inside BlobsLoadingManager's member functions. _IRR_SUPPORTED_BLOBS is defined in IrrCompileConfig.h.
-#define _IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(Function, BlobType, ...)\
+//! Adds support of given blob type to BlobsLoadingManager. For use ONLY inside BlobsLoadingManager's member functions. _NBL_SUPPORTED_BLOBS is defined in IrrCompileConfig.h.
+#define _NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(Function, BlobType, ...)\
 switch(BlobType)\
 {\
-_IRR_SUPPORTED_BLOBS(Function, __VA_ARGS__)\
+_NBL_SUPPORTED_BLOBS(Function, __VA_ARGS__)\
 }
 
 namespace irr { namespace asset
 {
 core::unordered_set<uint64_t> CBlobsLoadingManager::getNeededDeps(uint32_t _blobType, const void * _blob)
 {
-#ifndef NEW_SHADERS
-	_IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(getNeededDeps, _blobType, _blob)
+#ifdef OLD_SHADERS
+	_NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(getNeededDeps, _blobType, _blob)
 #endif
 	return core::unordered_set<uint64_t>();
 }
 
 void* CBlobsLoadingManager::instantiateEmpty(uint32_t _blobType, const void* _blob, size_t _blobSize, BlobLoadingParams& _params)
 {
-#ifndef NEW_SHADERS
-	_IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(instantiateEmpty, _blobType, _blob, _blobSize, _params)
+#ifdef OLD_SHADERS
+	_NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(instantiateEmpty, _blobType, _blob, _blobSize, _params)
 #endif
 	return nullptr;
 }
 
 void* CBlobsLoadingManager::finalize(uint32_t _blobType, void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params)
 {
-#ifndef NEW_SHADERS
-	_IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(finalize, _blobType, _obj, _blob, _blobSize, _deps, _params)
+#ifdef OLD_SHADERS
+	_NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(finalize, _blobType, _obj, _blob, _blobSize, _deps, _params)
 #endif
 	return nullptr;
 }
 
 void CBlobsLoadingManager::releaseObj(uint32_t _blobType, void * _obj)
 {
-#ifndef NEW_SHADERS
-	_IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(releaseObj, _blobType, _obj)
+#ifdef OLD_SHADERS
+	_NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(releaseObj, _blobType, _obj)
 #endif
 }
 
 /*
 inline core::string memberPackingDebugSupportFunc(uint32_t _blobType)
 {
-    _IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(printMemberPackingDebug, _blobType)
+    _NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(printMemberPackingDebug, _blobType)
 }
 
 void CBlobsLoadingManager::printMemberPackingDebug()
@@ -62,6 +62,6 @@ void CBlobsLoadingManager::printMemberPackingDebug()
         printf("%s\n",memberPackingDebugSupportFunc(blobType));
 }*/
 
-#undef _IRR_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER
+#undef _NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER
 
 }} // irr::asset

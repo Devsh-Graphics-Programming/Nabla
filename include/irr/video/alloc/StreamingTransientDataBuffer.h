@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_STREAMING_TRANSIENT_DATA_BUFFER_H__
-#define __IRR_STREAMING_TRANSIENT_DATA_BUFFER_H__
+#ifndef __NBL_VIDEO_STREAMING_TRANSIENT_DATA_BUFFER_H__
+#define __NBL_VIDEO_STREAMING_TRANSIENT_DATA_BUFFER_H__
 
 #include <cstring>
 
@@ -75,9 +75,9 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
         template<typename... Args>
         inline size_type    multi_place(const std::chrono::nanoseconds& maxWait, uint32_t count, const void* const* dataToPlace, size_type* outAddresses, const size_type* bytes, Args&&... args) noexcept
         {
-        #ifdef _IRR_DEBUG
+        #ifdef _NBL_DEBUG
             assert(getBuffer()->getBoundMemory());
-        #endif // _IRR_DEBUG
+        #endif // _NBL_DEBUG
             auto retval = multi_alloc(maxWait,count,outAddresses,bytes,std::forward<Args>(args)...);
             // fill with data
             for (uint32_t i=0; i<count; i++)
@@ -186,7 +186,7 @@ class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<
 }
 }
 
-#endif // __IRR_STREAMING_TRANSIENT_DATA_BUFFER_H__
+#endif
 
 
 

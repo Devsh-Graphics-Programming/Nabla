@@ -21,7 +21,7 @@ CGeometryCreator::CGeometryCreator(IMeshManipulator* const _defaultMeshManipulat
 {
 	if (defaultMeshManipulator == nullptr)
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		assert(false);
 	}
 }

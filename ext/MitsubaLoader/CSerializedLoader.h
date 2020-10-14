@@ -19,7 +19,7 @@ class CSerializedMetadata : public asset::IAssetMetadata
 	public:
 		CSerializedMetadata(std::string&& _name, uint32_t _id) : name(_name), id(_id) {}
 
-		_IRR_STATIC_INLINE_CONSTEXPR const char* LoaderName = "Mistuba Serialized";
+		_NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "Mistuba Serialized";
 		const char* getLoaderName() const override {return LoaderName;}
 
 		const std::string name;

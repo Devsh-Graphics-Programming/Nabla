@@ -5,7 +5,7 @@
 
 #include "irr/core/core.h"
 
-#ifdef _IRR_COMPILE_WITH_STL_WRITER_
+#ifdef _NBL_COMPILE_WITH_STL_WRITER_
 
 #include "CSTLMeshWriter.h"
 
@@ -26,7 +26,7 @@ constexpr auto NORMAL_ATTRIBUTE = 3;
 
 CSTLMeshWriter::CSTLMeshWriter()
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CSTLMeshWriter");
 	#endif
 }
@@ -45,7 +45,7 @@ bool CSTLMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     SAssetWriteContext ctx{_params, _file};
 
     const asset::ICPUMesh* mesh =
-#   ifndef _IRR_DEBUG
+#   ifndef _NBL_DEBUG
         static_cast<const asset::ICPUMesh*>(_params.rootAsset);
 #   else
         dynamic_cast<const asset::ICPUMesh*>(_params.rootAsset);

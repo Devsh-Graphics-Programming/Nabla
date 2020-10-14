@@ -2,16 +2,16 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __C_OPEN_GL_IMAGE_H_INCLUDED__
-#define __C_OPEN_GL_IMAGE_H_INCLUDED__
+#ifndef __NBL_VIDEO_C_OPEN_GL_IMAGE_H_INCLUDED__
+#define __NBL_VIDEO_C_OPEN_GL_IMAGE_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 
 #include "irr/video/IGPUImage.h"
 
 #include "irr/video/COpenGLCommon.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 
 
 namespace irr
@@ -94,7 +94,7 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 } // end namespace video
 } // end namespace irr
 
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
 
 #endif
 

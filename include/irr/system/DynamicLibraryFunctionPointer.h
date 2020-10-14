@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_DYNAMIC_LIBRARY_FUNCTION_POINTER_H_INCLUDED__
-#define __IRR_DYNAMIC_LIBRARY_FUNCTION_POINTER_H_INCLUDED__
+#ifndef __NBL_SYSTEM_DYNAMIC_LIBRARY_FUNCTION_POINTER_H_INCLUDED__
+#define __NBL_SYSTEM_DYNAMIC_LIBRARY_FUNCTION_POINTER_H_INCLUDED__
 
 
 #include <functional>
@@ -85,6 +85,6 @@ class DynamicLibraryFunctionPointer
 }
 }
 
-#define IRR_SYSTEM_DECLARE_DYNLIB_FUNCPTR(FUNC_NAME) irr::system::DynamicLibraryFunctionPointer<decltype(FUNC_NAME),IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(#FUNC_NAME)> p ## FUNC_NAME;
+#define NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR(FUNC_NAME) irr::system::DynamicLibraryFunctionPointer<decltype(FUNC_NAME),NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(#FUNC_NAME)> p ## FUNC_NAME;
 
 #endif

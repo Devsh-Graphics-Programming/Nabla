@@ -25,7 +25,7 @@ SOFTWARE.
 #include "irr/asset/IAssetManager.h"
 
 
-#ifdef _IRR_COMPILE_WITH_OPENEXR_LOADER_
+#ifdef _NBL_COMPILE_WITH_OPENEXR_LOADER_
 
 #include "irr/asset/filters/CRegionBlockFunctorFilter.h"
 #include "irr/asset/COpenEXRImageMetadata.h"
@@ -494,4 +494,4 @@ namespace irr
 	}
 }
 
-#endif // _IRR_COMPILE_WITH_OPENEXR_LOADER_
+#endif // _NBL_COMPILE_WITH_OPENEXR_LOADER_

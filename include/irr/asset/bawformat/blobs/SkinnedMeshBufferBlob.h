@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_SKINNED_MESH_BUFFER_BLOB_H_INCLUDED__
-#define __IRR_SKINNED_MESH_BUFFER_BLOB_H_INCLUDED__
+#ifndef __NBL_ASSET_SKINNED_MESH_BUFFER_BLOB_H_INCLUDED__
+#define __NBL_ASSET_SKINNED_MESH_BUFFER_BLOB_H_INCLUDED__
 
 namespace irr
 {
@@ -13,12 +13,12 @@ namespace asset
 class ICPUSkinnedMeshBuffer;
 
 #include "irr/irrpack.h"
-struct IRR_FORCE_EBO SkinnedMeshBufferBlobV3 : TypedBlob<SkinnedMeshBufferBlobV3, ICPUSkinnedMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV3, ICPUSkinnedMeshBuffer>
+struct NBL_FORCE_EBO SkinnedMeshBufferBlobV3 : TypedBlob<SkinnedMeshBufferBlobV3, ICPUSkinnedMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV3, ICPUSkinnedMeshBuffer>
 {
 	//! Constructor filling all members
 	explicit SkinnedMeshBufferBlobV3(const ICPUSkinnedMeshBuffer*);
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	video::SCPUMaterial mat;
 #endif
 	core::aabbox3df box;
@@ -39,7 +39,7 @@ struct IRR_FORCE_EBO SkinnedMeshBufferBlobV3 : TypedBlob<SkinnedMeshBufferBlobV3
 //TODO bring it back
 //static_assert(sizeof(SkinnedMeshBufferBlobV0::mat)==197, "sizeof(MeshBufferBlobV0::mat) must be 197");
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 static_assert(
     sizeof(SkinnedMeshBufferBlobV3) ==
     sizeof(SkinnedMeshBufferBlobV3::mat) + sizeof(SkinnedMeshBufferBlobV3::box) + sizeof(SkinnedMeshBufferBlobV3::descPtr) + sizeof(SkinnedMeshBufferBlobV3::indexType) + sizeof(SkinnedMeshBufferBlobV3::baseVertex)

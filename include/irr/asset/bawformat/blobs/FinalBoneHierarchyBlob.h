@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 
-#ifndef __IRR_FINAL_BONE_HIERARCHY_BLOB_H_INCLUDED__
-#define __IRR_FINAL_BONE_HIERARCHY_BLOB_H_INCLUDED__
+#ifndef __NBL_ASSET_FINAL_BONE_HIERARCHY_BLOB_H_INCLUDED__
+#define __NBL_ASSET_FINAL_BONE_HIERARCHY_BLOB_H_INCLUDED__
 
 #include "irr/core/core.h"
 
@@ -14,7 +14,7 @@ namespace asset
 {
 
 #include "irr/irrpack.h"
-struct IRR_FORCE_EBO FinalBoneHierarchyBlobV3 : VariableSizeBlob<FinalBoneHierarchyBlobV3,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>
+struct NBL_FORCE_EBO FinalBoneHierarchyBlobV3 : VariableSizeBlob<FinalBoneHierarchyBlobV3,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>
 {
 public:
 	enum E_BLOB_FINAL_BONE_HIERARCHY_FLAG : uint32_t

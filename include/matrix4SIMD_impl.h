@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_MATRIX4SIMD_IMPL_H_INCLUDED__
-#define __IRR_MATRIX4SIMD_IMPL_H_INCLUDED__
+#ifndef __NBL_MATRIX4SIMD_IMPL_H_INCLUDED__
+#define __NBL_MATRIX4SIMD_IMPL_H_INCLUDED__
 
 #include "matrix4SIMD.h"
 #include "irr/core/math/glslFunctions.tcc"
@@ -48,7 +48,7 @@ inline bool matrix4SIMD::isIdentity(float _tolerance) const
 	return core::equals<matrix4SIMD>(*this, matrix4SIMD(), core::ROUNDING_ERROR<matrix4SIMD>());
 }
 
-#ifdef __IRR_COMPILE_WITH_SSE3
+#ifdef __NBL_COMPILE_WITH_SSE3
 #define BROADCAST32(fpx) _MM_SHUFFLE(fpx, fpx, fpx, fpx)
 #define BUILD_MASKF(_x_, _y_, _z_, _w_) _mm_setr_epi32(_x_*0xffffffff, _y_*0xffffffff, _z_*0xffffffff, _w_*0xffffffff)
 inline matrix4SIMD matrix4SIMD::concatenateBFollowedByA(const matrix4SIMD& _a, const matrix4SIMD& _b)
@@ -244,10 +244,10 @@ inline void matrix4SIMD::transformVect(vectorSIMDf& _out, const vectorSIMDf& _in
 inline matrix4SIMD matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar)
 {
 	const float h = core::reciprocal<float>(tanf(fieldOfViewRadians*0.5f));
-	_IRR_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
+	_NBL_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
 	const float w = h / aspectRatio;
 
-	_IRR_DEBUG_BREAK_IF(zNear == zFar); //division by zero
+	_NBL_DEBUG_BREAK_IF(zNear == zFar); //division by zero
 
 	matrix4SIMD m;
 	m.rows[0] = vectorSIMDf(w, 0.f, 0.f, 0.f);
@@ -260,10 +260,10 @@ inline matrix4SIMD matrix4SIMD::buildProjectionMatrixPerspectiveFovRH(float fiel
 inline matrix4SIMD matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar)
 {
 	const float h = core::reciprocal<float>(tanf(fieldOfViewRadians*0.5f));
-	_IRR_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
+	_NBL_DEBUG_BREAK_IF(aspectRatio == 0.f); //division by zero
 	const float w = h / aspectRatio;
 
-	_IRR_DEBUG_BREAK_IF(zNear == zFar); //division by zero
+	_NBL_DEBUG_BREAK_IF(zNear == zFar); //division by zero
 
 	matrix4SIMD m;
 	m.rows[0] = vectorSIMDf(w, 0.f, 0.f, 0.f);
@@ -276,9 +276,9 @@ inline matrix4SIMD matrix4SIMD::buildProjectionMatrixPerspectiveFovLH(float fiel
 
 inline matrix4SIMD matrix4SIMD::buildProjectionMatrixOrthoRH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar)
 {
-	_IRR_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
-	_IRR_DEBUG_BREAK_IF(heightOfViewVolume == 0.f); //division by zero
-	_IRR_DEBUG_BREAK_IF(zNear == zFar); //division by zero
+	_NBL_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
+	_NBL_DEBUG_BREAK_IF(heightOfViewVolume == 0.f); //division by zero
+	_NBL_DEBUG_BREAK_IF(zNear == zFar); //division by zero
 
 	matrix4SIMD m;
 	m.rows[0] = vectorSIMDf(2.f/widthOfViewVolume, 0.f, 0.f, 0.f);
@@ -290,9 +290,9 @@ inline matrix4SIMD matrix4SIMD::buildProjectionMatrixOrthoRH(float widthOfViewVo
 }
 inline matrix4SIMD matrix4SIMD::buildProjectionMatrixOrthoLH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar)
 {
-	_IRR_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
-	_IRR_DEBUG_BREAK_IF(heightOfViewVolume == 0.f); //division by zero
-	_IRR_DEBUG_BREAK_IF(zNear == zFar); //division by zero
+	_NBL_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
+	_NBL_DEBUG_BREAK_IF(heightOfViewVolume == 0.f); //division by zero
+	_NBL_DEBUG_BREAK_IF(zNear == zFar); //division by zero
 
 	matrix4SIMD m;
 	m.rows[0] = vectorSIMDf(2.f/widthOfViewVolume, 0.f, 0.f, 0.f);
@@ -373,4 +373,4 @@ inline bool matrix4SIMD::isBoxInFrustum(const aabbox3d<float>& bbox)
 }
 } // irr::core
 
-#endif // __IRR_MATRIX4SIMD_IMPL_H_INCLUDED__
+#endif

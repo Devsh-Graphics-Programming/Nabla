@@ -22,8 +22,8 @@
 
 // Implementation taken from https://github.com/GarageGames/Torque3D and customized to Irrlicht
 
-#ifndef __C_FORSYTH_VERTEX_CACHE_OPTIMIZER_H_INCLUDED__
-#define __C_FORSYTH_VERTEX_CACHE_OPTIMIZER_H_INCLUDED__
+#ifndef __NBL_ASSET_FORSYTH_VERTEX_CACHE_OPTIMIZER_H_INCLUDED__
+#define __NBL_ASSET_FORSYTH_VERTEX_CACHE_OPTIMIZER_H_INCLUDED__
 
 #include <cstdint>
 #include <cstring>
@@ -32,7 +32,7 @@
 namespace irr { namespace asset
 {
 
-class IRR_FORCE_EBO CForsythVertexCacheOptimizer
+class NBL_FORCE_EBO CForsythVertexCacheOptimizer
 {
 	struct VertData
 	{
@@ -98,4 +98,4 @@ private:
 
 }}
 
-#endif // __C_FORSYTH_VERTEX_CACHE_OPTIMIZER_H_INCLUDED__
+#endif

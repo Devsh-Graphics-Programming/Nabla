@@ -669,7 +669,7 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
     };
 
     const uint32_t memberCnt = _allMembersTypes.size();
-    _dstMembers.array = _IRR_NEW_ARRAY(MembT, memberCnt);
+    _dstMembers.array = _NBL_NEW_ARRAY(MembT, memberCnt);
     _dstMembers.count = memberCnt;
     std::fill(_dstMembers.array, _dstMembers.array+memberCnt, MemberDefault());
     for (uint32_t m = 0u; m < memberCnt; ++m)
@@ -801,7 +801,7 @@ static void deinitShdrMemBlock(impl::SShaderMemoryBlock& _res)
     while (!stack.empty()) {
         MembersT m = stack.top();
         stack.pop();
-        _IRR_DELETE_ARRAY(m.array, m.count);
+        _NBL_DELETE_ARRAY(m.array, m.count);
     }
 }
 

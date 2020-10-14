@@ -61,7 +61,7 @@ class CElementSensor : public IElement
 
 			void setFoVFromFocalLength(float focalLength)
 			{
-				_IRR_DEBUG_BREAK_IF(true); // TODO
+				_NBL_DEBUG_BREAK_IF(true); // TODO
 			}
 
 			float fov = 53.2f;

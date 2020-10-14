@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_C_SUMMED_AREA_TABLE_IMAGE_FILTER_H_INCLUDED__
-#define __IRR_C_SUMMED_AREA_TABLE_IMAGE_FILTER_H_INCLUDED__
+#ifndef __NBL_ASSET_C_SUMMED_AREA_TABLE_IMAGE_FILTER_H_INCLUDED__
+#define __NBL_ASSET_C_SUMMED_AREA_TABLE_IMAGE_FILTER_H_INCLUDED__
 
 #include "irr/core/core.h"
 
@@ -130,9 +130,9 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			const auto arrayLayers = state->inImage->getCreationParameters().arrayLayers;
 			static constexpr auto maxChannels = 4u;
 
-			#ifdef _IRR_DEBUG
+			#ifdef _NBL_DEBUG
 			memset(scratchMemory, 0, state->scratchMemoryByteSize);
-			#endif // _IRR_DEBUG
+			#endif // _NBL_DEBUG
 
 			const core::vector3du32_SIMD scratchByteStrides = [&]()
 			{
@@ -401,4 +401,4 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 } // end namespace asset
 } // end namespace irr
 
-#endif // __IRR_C_SUMMED_AREA_TABLE_IMAGE_FILTER_H_INCLUDED__
+#endif

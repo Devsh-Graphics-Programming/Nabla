@@ -2,15 +2,14 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_CORE_H_INCLUDED__
-#define __IRR_CORE_H_INCLUDED__
+#ifndef __NBL_CORE_H_INCLUDED__
+#define __NBL_CORE_H_INCLUDED__
+
+#include "irr/core/compile_config.h"
 
 //overarching includes (compiler tricks mostly)
-#include "IrrCompileConfig.h" // what's this still doing here?
 #include "irr/macros.h"
-#include "irr/switch_constexpr.h"
 #include "irr/type_traits.h"
-#include "irr/void_t.h"
 // allocator
 #include "irr/core/alloc/AddressAllocatorBase.h"
 #include "irr/core/alloc/AddressAllocatorConcurrencyAdaptors.h"

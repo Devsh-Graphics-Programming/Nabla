@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_CBAW_LEGACY_H_INCLUDED__
-#define __IRR_CBAW_LEGACY_H_INCLUDED__
+#ifndef __NBL_ASSET_CBAW_LEGACY_H_INCLUDED__
+#define __NBL_ASSET_CBAW_LEGACY_H_INCLUDED__
 
 #include "irr/asset/format/EFormat.h"
 #include "irr/asset/bawformat/Blob.h"
@@ -71,12 +71,12 @@ enum E_COMPONENT_TYPE
     ECT_COUNT
 };
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 #include "irr/irrpack.h"
 //! Simple struct of essential data of ICPUMeshDataFormatDesc that has to be exported
 //! Irrelevant in version 1.
 //! @see @ref MeshDataFormatDescBlobV1
-struct IRR_FORCE_EBO MeshDataFormatDescBlobV0 : TypedBlob<MeshDataFormatDescBlobV0, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >, VariableSizeBlob<MeshDataFormatDescBlobV0, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >
+struct NBL_FORCE_EBO MeshDataFormatDescBlobV0 : TypedBlob<MeshDataFormatDescBlobV0, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >, VariableSizeBlob<MeshDataFormatDescBlobV0, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >
 {
 private:
     enum { VERTEX_ATTRIB_CNT = 16 };
@@ -97,13 +97,13 @@ static_assert(
     sizeof(MeshDataFormatDescBlobV0::cpa) + sizeof(MeshDataFormatDescBlobV0::attrType) + sizeof(MeshDataFormatDescBlobV0::attrStride) + sizeof(MeshDataFormatDescBlobV0::attrOffset) + sizeof(MeshDataFormatDescBlobV0::attrDivisor) + sizeof(MeshDataFormatDescBlobV0::attrBufPtrs) + sizeof(MeshDataFormatDescBlobV0::idxBufPtr),
     "MeshDataFormatDescBlobV0: Size of blob is not sum of its contents!"
 );
-#endif// !NEW_SHADERS
+#endif
 
 asset::E_FORMAT mapECT_plus_ECPA_onto_E_FORMAT(E_COMPONENT_TYPE _ct, E_COMPONENTS_PER_ATTRIBUTE _cpa);
 
 
 #include "irr/irrpack.h"
-struct IRR_FORCE_EBO FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, CFinalBoneHierarchy>
+struct NBL_FORCE_EBO FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, CFinalBoneHierarchy>
 {
 public:
 	inline uint8_t* getBoneData()
@@ -126,7 +126,7 @@ class ICPUMesh;
 
 #include "irr/irrpack.h"
 //! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-struct IRR_FORCE_EBO MeshBlobV0 : VariableSizeBlob<MeshBlobV0, asset::ICPUMesh>, TypedBlob<MeshBlobV0, asset::ICPUMesh>
+struct NBL_FORCE_EBO MeshBlobV0 : VariableSizeBlob<MeshBlobV0, asset::ICPUMesh>, TypedBlob<MeshBlobV0, asset::ICPUMesh>
 {
 public:
 	core::aabbox3df box;
@@ -146,7 +146,7 @@ class ICPUSkinnedMesh;
 
 #include "irr/irrpack.h"
 //! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-struct IRR_FORCE_EBO SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0, ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV0, ICPUSkinnedMesh>
+struct NBL_FORCE_EBO SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0, ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV0, ICPUSkinnedMesh>
 {
 public:
 	uint64_t boneHierarchyPtr;
@@ -164,9 +164,9 @@ static_assert(
 
 #include "irr/irrpack.h"
 //! Simple struct of essential data of ICPUMeshBuffer that has to be exported
-struct IRR_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, ICPUMeshBuffer>
+struct NBL_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, ICPUMeshBuffer>
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	video::SCPUMaterial mat;
 #endif
 	core::aabbox3df box;
@@ -181,7 +181,7 @@ struct IRR_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuff
 	uint32_t posAttrId;
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 static_assert(sizeof(MeshBufferBlobV0::mat) == 197, "sizeof(MeshBufferBlobV0::mat) must be 197");
 static_assert(
 	sizeof(MeshBufferBlobV0) ==
@@ -195,9 +195,9 @@ static_assert(
 class ICPUSkinnedMeshBuffer;
 
 #include "irr/irrpack.h"
-struct IRR_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>
+struct NBL_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	video::SCPUMaterial mat;
 #endif
 	core::aabbox3df box;
@@ -215,7 +215,7 @@ struct IRR_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0
 	uint32_t maxVertexBoneInfluences;
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 static_assert(sizeof(SkinnedMeshBufferBlobV0::mat) == 197, "sizeof(MeshBufferBlobV0::mat) must be 197");
 static_assert(
 	sizeof(SkinnedMeshBufferBlobV0) ==
@@ -243,7 +243,7 @@ namespace legacyv2
 {
 
 #include "irr/irrpack.h"
-struct IRR_FORCE_EBO FinalBoneHierarchyBlobV2 : VariableSizeBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>
+struct NBL_FORCE_EBO FinalBoneHierarchyBlobV2 : VariableSizeBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>
 {
 public:
 
@@ -269,4 +269,4 @@ using SkinnedMeshBufferBlobV2 = legacyv1::SkinnedMeshBufferBlobV1;
 }
 } //irr::asset
 
-#endif //__IRR_CBAW_LEGACY_H_INCLUDED__
+#endif

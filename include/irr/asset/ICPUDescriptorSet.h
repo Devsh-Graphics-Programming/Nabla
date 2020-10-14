@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_CPU_DESCRIPTOR_SET_H_INCLUDED__
-#define __IRR_I_CPU_DESCRIPTOR_SET_H_INCLUDED__
+#ifndef __NBL_ASSET_I_CPU_DESCRIPTOR_SET_H_INCLUDED__
+#define __NBL_ASSET_I_CPU_DESCRIPTOR_SET_H_INCLUDED__
 
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ICPUBufferView.h"
@@ -129,7 +129,7 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 			//m_bindingInfo = nullptr;
 		}
 
-		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET;
+		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
 		inline ICPUDescriptorSetLayout* getLayout() { return m_layout.get(); }

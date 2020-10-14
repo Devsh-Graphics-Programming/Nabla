@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_CONVERT_COLOR_H_INCLUDED__
-#define __IRR_CONVERT_COLOR_H_INCLUDED__
+#ifndef __NBL_ASSET_CONVERT_COLOR_H_INCLUDED__
+#define __NBL_ASSET_CONVERT_COLOR_H_INCLUDED__
 
 #include <cassert>
 #include <type_traits>
@@ -25,7 +25,7 @@ namespace asset
 
 struct SwizzleBase
 {
-    _IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = 4;
+    _NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = 4;
 };
 
 struct VoidSwizzle : SwizzleBase
@@ -119,4 +119,4 @@ inline void convertColor(E_FORMAT sF, E_FORMAT dF, const void* srcPix[4], void* 
     #pragma GCC diagnostic pop
 #endif
 
-#endif //__IRR_CONVERT_COLOR_H_INCLUDED__
+#endif

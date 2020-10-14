@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __IRR_KEY_CODES_H_INCLUDED__
-#define __IRR_KEY_CODES_H_INCLUDED__
+#ifndef __NBL_KEY_CODES_H_INCLUDED__
+#define __NBL_KEY_CODES_H_INCLUDED__
 
 namespace irr
 {

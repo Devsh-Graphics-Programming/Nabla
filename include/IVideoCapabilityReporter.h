@@ -2,13 +2,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_VIDEO_CAPABILITY_REPORTER_H_INCLUDED__
-#define __IRR_I_VIDEO_CAPABILITY_REPORTER_H_INCLUDED__
+#ifndef __NBL_I_VIDEO_CAPABILITY_REPORTER_H_INCLUDED__
+#define __NBL_I_VIDEO_CAPABILITY_REPORTER_H_INCLUDED__
 
 #include <string>
-
-
-#include "IrrCompileConfig.h"
 
 #include "irr/video/IGPUImageView.h"
 #include "EDriverTypes.h"
@@ -19,7 +16,7 @@ namespace irr
 namespace video
 {
 	//! .
-	class IRR_FORCE_EBO IVideoCapabilityReporter
+	class NBL_FORCE_EBO IVideoCapabilityReporter
 	{
 	public:
 		//! Get type of video driver
@@ -115,7 +112,7 @@ namespace video
 		virtual uint32_t getRequiredTBOAlignment() const { return 0u; }
 
 		//!
-		virtual uint32_t getMinimumMemoryMapAlignment() const { return _IRR_MIN_MAP_BUFFER_ALIGNMENT; }
+		virtual uint32_t getMinimumMemoryMapAlignment() const { return _NBL_MIN_MAP_BUFFER_ALIGNMENT; }
 
         virtual uint16_t retrieveDisplayRefreshRate() const { return 0u; }
 

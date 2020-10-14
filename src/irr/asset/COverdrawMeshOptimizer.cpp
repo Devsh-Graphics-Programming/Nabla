@@ -31,14 +31,14 @@ core::smart_refctd_ptr<asset::ICPUMeshBuffer> COverdrawMeshOptimizer::createOpti
 	void* const indices = outbuffer->getIndices();
 	if (!indices)
 	{
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 		os::Printer::log("Overdraw optimization: no index buffer -- mesh buffer left unchanged.");
 #endif
 		return outbuffer;
 	}
 
 	const size_t idxCount = outbuffer->getIndexCount();
-	void* indicesCopy = _IRR_ALIGNED_MALLOC(indexSize*idxCount,_IRR_SIMD_ALIGNMENT);
+	void* indicesCopy = _NBL_ALIGNED_MALLOC(indexSize*idxCount,_NBL_SIMD_ALIGNMENT);
 	memcpy(indicesCopy, indices, indexSize*idxCount);
 	const size_t vertexCount = outbuffer->calcVertexCount();
 	core::vector<core::vectorSIMDf> vertexPositions;
@@ -51,17 +51,17 @@ core::smart_refctd_ptr<asset::ICPUMeshBuffer> COverdrawMeshOptimizer::createOpti
 		}
 	}
 
-	uint32_t* const hardClusters = (uint32_t*)_IRR_ALIGNED_MALLOC((idxCount/3) * 4,_IRR_SIMD_ALIGNMENT);
+	uint32_t* const hardClusters = (uint32_t*)_NBL_ALIGNED_MALLOC((idxCount/3) * 4,_NBL_SIMD_ALIGNMENT);
 	const size_t hardClusterCount = indexType == asset::EIT_16BIT ?
 		genHardBoundaries(hardClusters, (uint16_t*)indices, idxCount, vertexCount) :
 		genHardBoundaries(hardClusters, (uint32_t*)indices, idxCount, vertexCount);
 
-	uint32_t* const softClusters = (uint32_t*)_IRR_ALIGNED_MALLOC((idxCount/3 + 1) * 4,_IRR_SIMD_ALIGNMENT);
+	uint32_t* const softClusters = (uint32_t*)_NBL_ALIGNED_MALLOC((idxCount/3 + 1) * 4,_NBL_SIMD_ALIGNMENT);
 	const size_t softClusterCount = indexType == asset::EIT_16BIT ?
 		genSoftBoundaries(softClusters, (uint16_t*)indices, idxCount, vertexCount, hardClusters, hardClusterCount, _threshold) :
 		genSoftBoundaries(softClusters, (uint32_t*)indices, idxCount, vertexCount, hardClusters, hardClusterCount, _threshold);
 
-	ClusterSortData* sortedData = (ClusterSortData*)_IRR_ALIGNED_MALLOC(softClusterCount*sizeof(ClusterSortData),_IRR_SIMD_ALIGNMENT);
+	ClusterSortData* sortedData = (ClusterSortData*)_NBL_ALIGNED_MALLOC(softClusterCount*sizeof(ClusterSortData),_NBL_SIMD_ALIGNMENT);
 	if (indexType == asset::EIT_16BIT)
 		calcSortData(sortedData, (uint16_t*)indices, idxCount, vertexPositions, softClusters, softClusterCount);
 	else
@@ -96,10 +96,10 @@ core::smart_refctd_ptr<asset::ICPUMeshBuffer> COverdrawMeshOptimizer::createOpti
 		}
 	}
 
-	_IRR_ALIGNED_FREE(indicesCopy);
-	_IRR_ALIGNED_FREE(hardClusters);
-	_IRR_ALIGNED_FREE(softClusters);
-	_IRR_ALIGNED_FREE(sortedData);
+	_NBL_ALIGNED_FREE(indicesCopy);
+	_NBL_ALIGNED_FREE(hardClusters);
+	_NBL_ALIGNED_FREE(softClusters);
+	_NBL_ALIGNED_FREE(sortedData);
 
 	return outbuffer;
 }
@@ -107,7 +107,7 @@ core::smart_refctd_ptr<asset::ICPUMeshBuffer> COverdrawMeshOptimizer::createOpti
 template<typename IdxT>
 size_t COverdrawMeshOptimizer::genHardBoundaries(uint32_t* _dst, const IdxT* _indices, size_t _idxCount, size_t _vtxCount)
 {
-	size_t* cacheTimestamps = (size_t*)_IRR_ALIGNED_MALLOC(sizeof(size_t)*_vtxCount,_IRR_SIMD_ALIGNMENT);
+	size_t* cacheTimestamps = (size_t*)_NBL_ALIGNED_MALLOC(sizeof(size_t)*_vtxCount,_NBL_SIMD_ALIGNMENT);
 	memset(cacheTimestamps, 0, sizeof(size_t)*_vtxCount);
 
 	size_t timestamp = CACHE_SIZE + 1;
@@ -127,7 +127,7 @@ size_t COverdrawMeshOptimizer::genHardBoundaries(uint32_t* _dst, const IdxT* _in
 			_dst[retval++] = (uint32_t)i;
 	}
 
-	_IRR_ALIGNED_FREE(cacheTimestamps);
+	_NBL_ALIGNED_FREE(cacheTimestamps);
 
 	return retval;
 }
@@ -135,7 +135,7 @@ size_t COverdrawMeshOptimizer::genHardBoundaries(uint32_t* _dst, const IdxT* _in
 template<typename IdxT>
 size_t COverdrawMeshOptimizer::genSoftBoundaries(uint32_t* _dst, const IdxT* _indices, size_t _idxCount, size_t _vtxCount, const uint32_t* _clusters, size_t _clusterCount, float _threshold)
 {
-	size_t* cacheTimestamps = (size_t*)_IRR_ALIGNED_MALLOC(sizeof(size_t)*_vtxCount,_IRR_SIMD_ALIGNMENT);
+	size_t* cacheTimestamps = (size_t*)_NBL_ALIGNED_MALLOC(sizeof(size_t)*_vtxCount,_NBL_SIMD_ALIGNMENT);
 	memset(cacheTimestamps, 0, sizeof(size_t)*_vtxCount);
 
 	size_t timestamp = 0u;
@@ -147,7 +147,7 @@ size_t COverdrawMeshOptimizer::genSoftBoundaries(uint32_t* _dst, const IdxT* _in
 		const size_t start = _clusters[i];
 		const size_t end = (i + 1 < _clusterCount) ? _clusters[i+1] : _idxCount/3;
 
-		_IRR_DEBUG_BREAK_IF(start > end);
+		_NBL_DEBUG_BREAK_IF(start > end);
 
 		timestamp += CACHE_SIZE + 1; // reset cache
 
@@ -192,9 +192,9 @@ size_t COverdrawMeshOptimizer::genSoftBoundaries(uint32_t* _dst, const IdxT* _in
 			--retval;
 	}
 
-	_IRR_ALIGNED_FREE(cacheTimestamps);
+	_NBL_ALIGNED_FREE(cacheTimestamps);
 
-	_IRR_DEBUG_BREAK_IF(retval < _clusterCount || retval > _idxCount/3u)
+	_NBL_DEBUG_BREAK_IF(retval < _clusterCount || retval > _idxCount/3u)
 
 	return retval;
 }
@@ -212,7 +212,7 @@ void COverdrawMeshOptimizer::calcSortData(ClusterSortData* _dst, const IdxT* _in
 		// TODO: why are the fucking clusters only 1 triangle !?!?!?
 		const size_t begin = _clusters[cluster] * 3;
 		const size_t end = (_clusterCount > cluster + 1) ? _clusters[cluster+1] * 3 : _idxCount;
-		_IRR_DEBUG_BREAK_IF(begin > end);
+		_NBL_DEBUG_BREAK_IF(begin > end);
 
 		float clusterArea = 0.f;
 		core::vectorSIMDf clusterCentroid;

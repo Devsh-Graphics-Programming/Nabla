@@ -54,7 +54,7 @@ class CElementTexture : public IElement
 						value = std::move(_other);
 						break;
 					default:
-						_IRR_DEBUG_BREAK_IF(true);
+						_NBL_DEBUG_BREAK_IF(true);
 						break;
 				}
 				return *this;
@@ -92,7 +92,7 @@ class CElementTexture : public IElement
 						value = std::move(_other);
 						break;
 					default:
-						_IRR_DEBUG_BREAK_IF(true);
+						_NBL_DEBUG_BREAK_IF(true);
 						break;
 				}
 				return *this;

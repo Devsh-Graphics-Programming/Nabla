@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_IMAGE_METADATA_H_INCLUDED__
-#define __IRR_I_IMAGE_METADATA_H_INCLUDED__
+#ifndef __NBL_ASSET_I_IMAGE_METADATA_H_INCLUDED__
+#define __NBL_ASSET_I_IMAGE_METADATA_H_INCLUDED__
 
 #include "irr/asset/IAssetMetadata.h"
 #include "irr/asset/EColorSpace.h"
@@ -40,4 +40,4 @@ namespace irr
 	}
 }
 
-#endif // __IRR_I_IMAGE_METADATA_H_INCLUDED__
+#endif

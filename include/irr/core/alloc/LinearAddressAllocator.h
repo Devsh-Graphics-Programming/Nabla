@@ -2,10 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_LINEAR_ADDRESS_ALLOCATOR_H_INCLUDED__
-#define __IRR_LINEAR_ADDRESS_ALLOCATOR_H_INCLUDED__
-
-#include "IrrCompileConfig.h"
+#ifndef __NBL_CORE_LINEAR_ADDRESS_ALLOCATOR_H_INCLUDED__
+#define __NBL_CORE_LINEAR_ADDRESS_ALLOCATOR_H_INCLUDED__
 
 #include "irr/core/alloc/AddressAllocatorBase.h"
 
@@ -20,7 +18,7 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
 {
         typedef AddressAllocatorBase<LinearAddressAllocator<_size_type>,_size_type> Base;
     public:
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+        _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
         static constexpr bool supportsNullBuffer = true;
 
@@ -155,4 +153,4 @@ using LinearAddressAllocatorMT = AddressAllocatorBasicConcurrencyAdaptor<LinearA
 }
 }
 
-#endif // __IRR_LINEAR_ADDRESS_ALLOCATOR_H_INCLUDED__
+#endif

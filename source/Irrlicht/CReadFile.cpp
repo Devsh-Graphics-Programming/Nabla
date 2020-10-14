@@ -14,7 +14,7 @@ namespace io
 CReadFile::CReadFile(const io::path& fileName)
 : File(0), FileSize(0), Filename(fileName)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CReadFile");
 	#endif
 
@@ -74,7 +74,7 @@ void CReadFile::openFile()
 		return;
 	}
 
-#if defined ( _IRR_WCHAR_FILESYSTEM )
+#if defined ( _NBL_WCHAR_FILESYSTEM )
 	File = _wfopen(Filename.c_str(), L"rb");
 #else
 	File = fopen(Filename.c_str(), "rb");

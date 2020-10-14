@@ -5,7 +5,7 @@
 
 #include "CPakReader.h"
 
-#ifdef __IRR_COMPILE_WITH_PAK_ARCHIVE_LOADER_
+#ifdef __NBL_COMPILE_WITH_PAK_ARCHIVE_LOADER_
 
 #include "os.h"
 #include "CLimitReadFile.h"
@@ -33,7 +33,7 @@ inline bool isHeaderValid(const SPAKFileHeader& header)
 CArchiveLoaderPAK::CArchiveLoaderPAK( io::IFileSystem* fs)
 : FileSystem(fs)
 {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	setDebugName("CArchiveLoaderPAK");
 #endif
 }
@@ -104,7 +104,7 @@ bool CArchiveLoaderPAK::isALoadableFileFormat(io::IReadFile* file) const
 */
 CPakReader::CPakReader(IReadFile* file) : CFileList(file ? file->getFileName() : io::path("")), File(file)
 {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	setDebugName("CPakReader");
 #endif
 
@@ -149,7 +149,7 @@ bool CPakReader::scanLocalHeader()
 		SPAKFileEntry entry;
 		File->read(&entry, sizeof(entry));
 
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 		os::Printer::log(entry.name);
 #endif
 
@@ -171,5 +171,5 @@ IReadFile* CPakReader::createAndOpenFile(const io::path& filename)
 } // end namespace io
 } // end namespace irr
 
-#endif // __IRR_COMPILE_WITH_PAK_ARCHIVE_LOADER_
+#endif // __NBL_COMPILE_WITH_PAK_ARCHIVE_LOADER_
 

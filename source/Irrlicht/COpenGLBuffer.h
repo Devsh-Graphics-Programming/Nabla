@@ -2,15 +2,15 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __C_OPEN_GL_BUFFER_H_INCLUDED__
-#define __C_OPEN_GL_BUFFER_H_INCLUDED__
+#ifndef __NBL_C_OPEN_GL_BUFFER_H_INCLUDED__
+#define __NBL_C_OPEN_GL_BUFFER_H_INCLUDED__
 
 #include "irr/core/core.h"
 #include "IGPUBuffer.h"
 
 #include "FW_Mutex.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 #include "CNullDriver.h"
 #include "COpenGLExtensionHandler.h"
 #include <assert.h>

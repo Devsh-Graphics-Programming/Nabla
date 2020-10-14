@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_VIDEO_C_PROPERTY_POOL_H_INCLUDED__
-#define __IRR_VIDEO_C_PROPERTY_POOL_H_INCLUDED__
+#ifndef __NBL_VIDEO_C_PROPERTY_POOL_H_INCLUDED__
+#define __NBL_VIDEO_C_PROPERTY_POOL_H_INCLUDED__
 
 #include "irr/video/IPropertyPool.h"
 
@@ -28,7 +28,7 @@ class CPropertyPool : public IPropertyPool
             return bufferSize/propertyCombinedSize();
         }
 
-        _IRR_STATIC_INLINE_CONSTEXPR auto PropertyCount = sizeof...(Properties);
+        _NBL_STATIC_INLINE_CONSTEXPR auto PropertyCount = sizeof...(Properties);
 
 	public:
         static inline core::smart_refctd_ptr<ThisType> create(IVideoDriver* _driver, asset::SBufferRange<IGPUBuffer>&& _memoryBlock, allocator<uint8_t>&& alloc=allocator<uint8_t>())
@@ -139,7 +139,7 @@ class CPropertyPool : public IPropertyPool
         //
         allocator<uint8_t> alloc;
 
-        _IRR_STATIC_INLINE_CONSTEXPR std::array<uint32_t,PropertyCount+1u> PropertySizes = {sizeof(Properties)... , 0u};
+        _NBL_STATIC_INLINE_CONSTEXPR std::array<uint32_t,PropertyCount+1u> PropertySizes = {sizeof(Properties)... , 0u};
 };
 
 

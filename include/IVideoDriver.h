@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __IRR_I_VIDEO_DRIVER_H_INCLUDED__
-#define __IRR_I_VIDEO_DRIVER_H_INCLUDED__
+#ifndef __NBL_I_VIDEO_DRIVER_H_INCLUDED__
+#define __NBL_I_VIDEO_DRIVER_H_INCLUDED__
 
 #include "rect.h"
 #include "SColor.h"
@@ -14,7 +14,6 @@
 #include "IDriverFence.h"
 #include "SExposedVideoData.h"
 #include "IDriver.h"
-#include "irr/video/CDerivativeMapCreator.h"
 #include "irr/video/IGPUBufferView.h"
 #include "irr/video/IGPURenderpassIndependentPipeline.h"
 
@@ -206,7 +205,6 @@ namespace video
 		it. */
 		virtual void enableClipPlane(uint32_t index, bool enable) {}
 
-        virtual const CDerivativeMapCreator* getDerivativeMapCreator() const { return nullptr; }
 	};
 
 } // end namespace video

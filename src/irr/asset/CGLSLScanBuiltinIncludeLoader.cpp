@@ -96,22 +96,22 @@ std::string CGLSLScanBuiltinIncludeLoader::getReduceAndScanExtensionEnables() co
 #define GL_WARP_SIZE_NV 32;
 )===";
 /*
-#ifdef _IRR_COMPILE_WITH_OPENGL_
-    if (m_capabilityReporter->getDriverType()==EDT_OPENGL&&COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_NV_shader_thread_group])
+#ifdef _NBL_COMPILE_WITH_OPENGL_
+    if (m_capabilityReporter->getDriverType()==EDT_OPENGL&&COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_NV_shader_thread_group])
     {
         int32_t tmp;
         glGetIntegerv(GL_WARP_SIZE_NV,&tmp);
         retval += std::to_string(tmp)+"u\n";
     }
-#endif // _IRR_COMPILE_WITH_OPENGL_
-#ifdef _IRR_COMPILE_WITH_VULKAN_
+#endif // _NBL_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_VULKAN_
     
     //else if (m_capabilityReporter->getDriverType()==EDT_VULKAN)
     //{
     //    //! something
    // }
-#endif // _IRR_COMPILE_WITH_VULKAN_
-#if defined(_IRR_COMPILE_WITH_OPENGL_)||defined(_IRR_COMPILE_WITH_VULKAN_)
+#endif // _NBL_COMPILE_WITH_VULKAN_
+#if defined(_NBL_COMPILE_WITH_OPENGL_)||defined(_NBL_COMPILE_WITH_VULKAN_)
     else
 #endif
         retval += "gl_WarpSizeNV\n";

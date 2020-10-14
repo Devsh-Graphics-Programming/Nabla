@@ -3,30 +3,30 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __C_IRR_DEVICE_CONSOLE_H_INCLUDED__
-#define __C_IRR_DEVICE_CONSOLE_H_INCLUDED__
+#ifndef __NBL_C_NBL_DEVICE_CONSOLE_H_INCLUDED__
+#define __NBL_C_NBL_DEVICE_CONSOLE_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/core/compile_config.h"
 
 #include "SIrrCreationParameters.h"
 #include "CIrrDeviceStub.h"
 // for console font
 
-#ifdef _IRR_WINDOWS_API_
+#ifdef _NBL_WINDOWS_API_
 #define WIN32_LEAN_AND_MEAN
-#if !defined(_IRR_XBOX_PLATFORM_)
-	#include <windows.h>
-#endif
+
+#include <windows.h>
+
 #if(_WIN32_WINNT >= 0x0500)
-#define _IRR_WINDOWS_NT_CONSOLE_
+#define _NBL_WINDOWS_NT_CONSOLE_
 #endif
 #else
 #include <time.h>
 #endif
 
 // for now we assume all other terminal types are VT100
-#ifndef _IRR_WINDOWS_NT_CONSOLE_
-#define _IRR_VT100_CONSOLE_
+#ifndef _NBL_WINDOWS_NT_CONSOLE_
+#define _NBL_VT100_CONSOLE_
 #endif
 
 namespace irr
@@ -223,7 +223,7 @@ namespace irr
 
             FILE *OutFile;
 
-    #ifdef _IRR_WINDOWS_NT_CONSOLE_
+    #ifdef _NBL_WINDOWS_NT_CONSOLE_
             HANDLE WindowsSTDIn, WindowsSTDOut;
             uint32_t MouseButtonStates;
     #endif
@@ -232,5 +232,5 @@ namespace irr
 
 } // end namespace irr
 
-#endif // __C_IRR_DEVICE_CONSOLE_H_INCLUDED__
+#endif
 

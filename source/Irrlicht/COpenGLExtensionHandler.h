@@ -3,20 +3,20 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
-#define __C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
+#ifndef __NBL_C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
+#define __NBL_C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
 #include "irr/core/core.h"
+#include "irr/system/compile_config.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 
 #include "COpenGLStateManager.h"
 
-#ifdef _IRR_WINDOWS_API_
+#ifdef _NBL_WINDOWS_API_
 	// include windows headers for HWND
 	#include "../src/3rdparty/GL/wglext.h"
-#elif defined(_IRR_COMPILE_WITH_X11_)
+#elif defined(_NBL_COMPILE_WITH_X11_)
     #include "GL/glx.h"
     #include "../src/3rdparty/GL/glxext.h"
 #endif
@@ -556,589 +556,589 @@ static const char* const OpenGLFeatureStrings[] = {
     "GL_NVX_multiview_per_view_attributes"
 };
 //extra extension name that is reported as supported when irrbaw app is running in renderdoc
-_IRR_STATIC_INLINE_CONSTEXPR const char* RUNNING_IN_RENDERDOC_EXTENSION_NAME = "GL_IRR_RUNNING_IN_RENDERDOC";
+_NBL_STATIC_INLINE_CONSTEXPR const char* RUNNING_IN_RENDERDOC_EXTENSION_NAME = "GL_NBL_RUNNING_IN_RENDERDOC";
 
 
 class COpenGLExtensionHandler
 {
 	public:
 	enum EOpenGLFeatures {
-		IRR_3DFX_multisample = 0,
-		IRR_3DFX_tbuffer,
-		IRR_3DFX_texture_compression_FXT1,
-		IRR_AMD_blend_minmax_factor,
-		IRR_AMD_conservative_depth,
-		IRR_AMD_debug_output,
-		IRR_AMD_depth_clamp_separate,
-		IRR_AMD_draw_buffers_blend,
-		IRR_AMD_multi_draw_indirect,
-		IRR_AMD_name_gen_delete,
-		IRR_AMD_performance_monitor,
-		IRR_AMD_sample_positions,
-		IRR_AMD_seamless_cubemap_per_texture,
-		IRR_AMD_shader_stencil_export,
-		IRR_AMD_texture_texture4,
-		IRR_AMD_transform_feedback3_lines_triangles,
-		IRR_AMD_vertex_shader_tesselator,
-        IRR_AMD_gcn_shader,
-        IRR_AMD_gpu_shader_half_float_fetch,
-        IRR_AMD_shader_explicit_vertex_parameter,
-        IRR_AMD_shader_fragment_mask,
-        IRR_AMD_shader_image_load_store_lod,
-        IRR_AMD_shader_trinary_minmax,
-        IRR_AMD_texture_gather_bias_lod,
-        IRR_AMD_vertex_shader_viewport_index,
-        IRR_AMD_vertex_shader_layer,
-        IRR_AMD_sparse_texture,
-        IRR_AMD_shader_stencil_value_export,
-        IRR_AMD_gpu_shader_int64,
-        IRR_AMD_shader_ballot,
-		IRR_APPLE_aux_depth_stencil,
-		IRR_APPLE_client_storage,
-		IRR_APPLE_element_array,
-		IRR_APPLE_fence,
-		IRR_APPLE_float_pixels,
-		IRR_APPLE_flush_buffer_range,
-		IRR_APPLE_object_purgeable,
-		IRR_APPLE_rgb_422,
-		IRR_APPLE_row_bytes,
-		IRR_APPLE_specular_vector,
-		IRR_APPLE_texture_range,
-		IRR_APPLE_transform_hint,
-		IRR_APPLE_vertex_array_object,
-		IRR_APPLE_vertex_array_range,
-		IRR_APPLE_vertex_program_evaluators,
-		IRR_APPLE_ycbcr_422,
-		IRR_ARB_base_instance,
-		IRR_ARB_bindless_texture,
-		IRR_ARB_buffer_storage,
-		IRR_ARB_blend_func_extended,
-		IRR_ARB_clip_control,
-		IRR_ARB_cl_event,
-		IRR_ARB_color_buffer_float,
-		IRR_ARB_compatibility,
-		IRR_ARB_compressed_texture_pixel_storage,
-		IRR_ARB_compute_shader,
-		IRR_ARB_conservative_depth,
-		IRR_ARB_copy_buffer,
-		IRR_ARB_debug_output,
-		IRR_ARB_depth_buffer_float,
-		IRR_ARB_depth_clamp,
-		IRR_ARB_depth_texture,
-		IRR_ARB_direct_state_access,
-		IRR_ARB_draw_buffers,
-		IRR_ARB_draw_buffers_blend,
-		IRR_ARB_draw_elements_base_vertex,
-		IRR_ARB_draw_indirect,
-		IRR_ARB_draw_instanced,
-		IRR_ARB_ES2_compatibility,
-		IRR_ARB_explicit_attrib_location,
-		IRR_ARB_explicit_uniform_location,
-		IRR_ARB_fragment_coord_conventions,
-		IRR_ARB_fragment_program,
-		IRR_ARB_fragment_program_shadow,
-		IRR_ARB_fragment_shader,
-		IRR_ARB_fragment_shader_interlock,
-		IRR_ARB_framebuffer_object,
-		IRR_ARB_framebuffer_sRGB,
-		IRR_ARB_geometry_shader4,
-		IRR_ARB_get_program_binary,
-		IRR_ARB_get_texture_sub_image,
-		IRR_ARB_gpu_shader5,
-		IRR_ARB_gpu_shader_fp64,
-		IRR_ARB_half_float_pixel,
-		IRR_ARB_half_float_vertex,
-		IRR_ARB_imaging,
-		IRR_ARB_instanced_arrays,
-		IRR_ARB_indirect_parameters,
-		IRR_ARB_internalformat_query,
-		IRR_ARB_internalformat_query2,
-		IRR_ARB_map_buffer_alignment,
-		IRR_ARB_map_buffer_range,
-		IRR_ARB_matrix_palette,
-		IRR_ARB_multi_bind,
-		IRR_ARB_multi_draw_indirect,
-		IRR_ARB_multisample,
-		IRR_ARB_multitexture,
-		IRR_ARB_occlusion_query,
-		IRR_ARB_occlusion_query2,
-		IRR_ARB_pixel_buffer_object,
-		IRR_ARB_point_parameters,
-		IRR_ARB_point_sprite,
-		IRR_ARB_program_interface_query,
-		IRR_ARB_provoking_vertex,
-		IRR_ARB_query_buffer_object,
-		IRR_ARB_robustness,
-		IRR_ARB_sample_shading,
-		IRR_ARB_sampler_objects,
-		IRR_ARB_seamless_cube_map,
-		IRR_ARB_separate_shader_objects,
-		IRR_ARB_shader_atomic_counters,
-		IRR_ARB_shader_ballot,
-		IRR_ARB_shader_bit_encoding,
-		IRR_ARB_shader_draw_parameters,
-		IRR_ARB_shader_group_vote,
-		IRR_ARB_shader_image_load_store,
-		IRR_ARB_shader_objects,
-		IRR_ARB_shader_precision,
-		IRR_ARB_shader_stencil_export,
-		IRR_ARB_shader_subroutine,
-		IRR_ARB_shader_texture_lod,
-		IRR_ARB_shading_language_100,
-		IRR_ARB_shading_language_420pack,
-		IRR_ARB_shading_language_include,
-		IRR_ARB_shading_language_packing,
-		IRR_ARB_shadow,
-		IRR_ARB_shadow_ambient,
-		IRR_ARB_sync,
-		IRR_ARB_tessellation_shader,
-		IRR_ARB_texture_barrier,
-		IRR_ARB_texture_border_clamp,
-		IRR_ARB_texture_buffer_object,
-		IRR_ARB_texture_buffer_object_rgb32,
-		IRR_ARB_texture_buffer_range,
-		IRR_ARB_texture_compression,
-		IRR_ARB_texture_compression_bptc,
-		IRR_ARB_texture_compression_rgtc,
-		IRR_ARB_texture_cube_map,
-		IRR_ARB_texture_cube_map_array,
-		IRR_ARB_texture_env_add,
-		IRR_ARB_texture_env_combine,
-		IRR_ARB_texture_env_crossbar,
-		IRR_ARB_texture_env_dot3,
-		IRR_ARB_texture_float,
-		IRR_ARB_texture_gather,
-		IRR_ARB_texture_mirrored_repeat,
-		IRR_ARB_texture_multisample,
-		IRR_ARB_texture_non_power_of_two,
-		IRR_ARB_texture_query_lod,
-		IRR_ARB_texture_rectangle,
-		IRR_ARB_texture_rg,
-		IRR_ARB_texture_rgb10_a2ui,
-		IRR_ARB_texture_stencil8,
-		IRR_ARB_texture_storage,
-		IRR_ARB_texture_storage_multisample,
-		IRR_ARB_texture_swizzle,
-		IRR_ARB_texture_view,
-		IRR_ARB_timer_query,
-		IRR_ARB_transform_feedback2,
-		IRR_ARB_transform_feedback3,
-		IRR_ARB_transform_feedback_instanced,
-		IRR_ARB_transpose_matrix,
-		IRR_ARB_uniform_buffer_object,
-		IRR_ARB_vertex_array_bgra,
-		IRR_ARB_vertex_array_object,
-		IRR_ARB_vertex_attrib_64bit,
-		IRR_ARB_vertex_attrib_binding,
-		IRR_ARB_vertex_blend,
-		IRR_ARB_vertex_buffer_object,
-		IRR_ARB_vertex_program,
-		IRR_ARB_vertex_shader,
-		IRR_ARB_vertex_type_2_10_10_10_rev,
-		IRR_ARB_viewport_array,
-		IRR_ARB_window_pos,
-        IRR_ARB_enhanced_layouts,
-        IRR_ARB_cull_distance,
-        IRR_ARB_derivative_control,
-        IRR_ARB_shader_texture_image_samples,
-        IRR_ARB_gpu_shader_int64,
-        IRR_ARB_post_depth_coverage,
-        IRR_ARB_shader_clock,
-        IRR_ARB_shader_viewport_layer_array,
-        IRR_ARB_sparse_texture2,
-        IRR_ARB_sparse_texture_clamp,
-        IRR_ARB_gl_spirv,
-        IRR_ARB_spirv_extensions,
-		IRR_ATI_draw_buffers,
-		IRR_ATI_element_array,
-		IRR_ATI_envmap_bumpmap,
-		IRR_ATI_fragment_shader,
-		IRR_ATI_map_object_buffer,
-		IRR_ATI_meminfo,
-		IRR_ATI_pixel_format_float,
-		IRR_ATI_pn_triangles,
-		IRR_ATI_separate_stencil,
-		IRR_ATI_text_fragment_shader,
-		IRR_ATI_texture_env_combine3,
-		IRR_ATI_texture_float,
-		IRR_ATI_texture_mirror_once,
-		IRR_ATI_vertex_array_object,
-		IRR_ATI_vertex_attrib_array_object,
-		IRR_ATI_vertex_streams,
-		IRR_EXT_422_pixels,
-		IRR_EXT_abgr,
-		IRR_EXT_bgra,
-		IRR_EXT_bindable_uniform,
-		IRR_EXT_blend_color,
-		IRR_EXT_blend_equation_separate,
-		IRR_EXT_blend_func_separate,
-		IRR_EXT_blend_logic_op,
-		IRR_EXT_blend_minmax,
-		IRR_EXT_blend_subtract,
-		IRR_EXT_clip_volume_hint,
-		IRR_EXT_cmyka,
-		IRR_EXT_color_subtable,
-		IRR_EXT_compiled_vertex_array,
-		IRR_EXT_convolution,
-		IRR_EXT_coordinate_frame,
-		IRR_EXT_copy_texture,
-		IRR_EXT_cull_vertex,
-		IRR_EXT_depth_bounds_test,
-		IRR_EXT_direct_state_access,
-		IRR_EXT_draw_buffers2,
-		IRR_EXT_draw_instanced,
-		IRR_EXT_draw_range_elements,
-		IRR_EXT_fog_coord,
-		IRR_EXT_framebuffer_blit,
-		IRR_EXT_framebuffer_multisample,
-		IRR_EXT_framebuffer_multisample_blit_scaled,
-		IRR_EXT_framebuffer_object,
-		IRR_EXT_framebuffer_sRGB,
-		IRR_EXT_geometry_shader4,
-		IRR_EXT_gpu_program_parameters,
-		IRR_EXT_gpu_shader4,
-		IRR_EXT_histogram,
-		IRR_EXT_index_array_formats,
-		IRR_EXT_index_func,
-		IRR_EXT_index_material,
-		IRR_EXT_index_texture,
-		IRR_EXT_light_texture,
-		IRR_EXT_misc_attribute,
-		IRR_EXT_multi_draw_arrays,
-		IRR_EXT_multisample,
-		IRR_EXT_packed_depth_stencil,
-		IRR_EXT_packed_float,
-		IRR_EXT_packed_pixels,
-		IRR_EXT_paletted_texture,
-		IRR_EXT_pixel_buffer_object,
-		IRR_EXT_pixel_transform,
-		IRR_EXT_pixel_transform_color_table,
-		IRR_EXT_point_parameters,
-		IRR_EXT_polygon_offset,
-		IRR_EXT_provoking_vertex,
-		IRR_EXT_rescale_normal,
-		IRR_EXT_secondary_color,
-		IRR_EXT_separate_shader_objects,
-		IRR_EXT_separate_specular_color,
-		IRR_EXT_shader_image_load_store,
-		IRR_EXT_shadow_funcs,
-		IRR_EXT_shared_texture_palette,
-		IRR_EXT_stencil_clear_tag,
-		IRR_EXT_stencil_two_side,
-		IRR_EXT_stencil_wrap,
-		IRR_EXT_subtexture,
-		IRR_EXT_texture,
-		IRR_EXT_texture3D,
-		IRR_EXT_texture_array,
-		IRR_EXT_texture_buffer_object,
-		IRR_EXT_texture_compression_latc,
-		IRR_EXT_texture_compression_rgtc,
-		IRR_EXT_texture_compression_s3tc,
-		IRR_EXT_texture_cube_map,
-		IRR_EXT_texture_env_add,
-		IRR_EXT_texture_env_combine,
-		IRR_EXT_texture_env_dot3,
-		IRR_EXT_texture_filter_anisotropic,
-		IRR_EXT_texture_integer,
-		IRR_EXT_texture_lod_bias,
-		IRR_EXT_texture_mirror_clamp,
-		IRR_EXT_texture_object,
-		IRR_EXT_texture_perturb_normal,
-		IRR_EXT_texture_shared_exponent,
-		IRR_EXT_texture_snorm,
-		IRR_EXT_texture_sRGB,
-		IRR_EXT_texture_sRGB_decode,
-		IRR_EXT_texture_sRGB_R8,
-		IRR_EXT_texture_sRGB_RG8,
-		IRR_EXT_texture_swizzle,
-		IRR_EXT_texture_view,
-		IRR_EXT_timer_query,
-		IRR_EXT_transform_feedback,
-		IRR_EXT_vertex_array,
-		IRR_EXT_vertex_array_bgra,
-		IRR_EXT_vertex_attrib_64bit,
-		IRR_EXT_vertex_shader,
-		IRR_EXT_vertex_weighting,
-		IRR_EXT_x11_sync_object,
-        IRR_EXT_shader_pixel_local_storage,
-        IRR_EXT_shader_pixel_local_storage2,
-        IRR_EXT_shader_integer_mix,
-        IRR_EXT_shader_image_load_formatted,
-        IRR_EXT_post_depth_coverage,
-        IRR_EXT_sparse_texture2,
-        IRR_EXT_shader_framebuffer_fetch,
-        IRR_EXT_shader_framebuffer_fetch_non_coherent,
-		IRR_FfdMaskSGIX,
-		IRR_GREMEDY_frame_terminator,
-		IRR_GREMEDY_string_marker,
-		IRR_HP_convolution_border_modes,
-		IRR_HP_image_transform,
-		IRR_HP_occlusion_test,
-		IRR_HP_texture_lighting,
-		IRR_IBM_cull_vertex,
-		IRR_IBM_multimode_draw_arrays,
-		IRR_IBM_rasterpos_clip,
-		IRR_IBM_texture_mirrored_repeat,
-		IRR_IBM_vertex_array_lists,
-		IRR_INGR_blend_func_separate,
-		IRR_INGR_color_clamp,
-		IRR_INGR_interlace_read,
-		IRR_INGR_palette_buffer,
-		IRR_INTEL_fragment_shader_ordering,
-		IRR_INTEL_parallel_arrays,
-		IRR_INTEL_texture_scissor,
-        IRR_INTEL_conservative_rasterization,
-        IRR_INTEL_blackhole_render,
-		IRR_KHR_debug,
-		IRR_MESA_pack_invert,
-		IRR_MESA_resize_buffers,
-		IRR_MESA_window_pos,
-		IRR_MESAX_texture_stack,
-		IRR_MESA_ycbcr_texture,
-		IRR_NV_blend_square,
-		IRR_NV_conditional_render,
-		IRR_NV_copy_depth_to_color,
-		IRR_NV_copy_image,
-		IRR_NV_depth_buffer_float,
-		IRR_NV_depth_clamp,
-		IRR_NV_evaluators,
-		IRR_NV_explicit_multisample,
-		IRR_NV_fence,
-		IRR_NV_float_buffer,
-		IRR_NV_fog_distance,
-		IRR_NV_fragment_program,
-		IRR_NV_fragment_program2,
-		IRR_NV_fragment_program4,
-		IRR_NV_fragment_program_option,
-		IRR_NV_fragment_shader_interlock,
-		IRR_NV_framebuffer_multisample_coverage,
-		IRR_NV_geometry_program4,
-		IRR_NV_geometry_shader4,
-		IRR_NV_gpu_program4,
-		IRR_NV_gpu_program5,
-		IRR_NV_gpu_shader5,
-		IRR_NV_half_float,
-		IRR_NV_light_max_exponent,
-		IRR_NV_multisample_coverage,
-		IRR_NV_multisample_filter_hint,
-		IRR_NV_occlusion_query,
-		IRR_NV_packed_depth_stencil,
-		IRR_NV_parameter_buffer_object,
-		IRR_NV_parameter_buffer_object2,
-		IRR_NV_pixel_data_range,
-		IRR_NV_point_sprite,
-		IRR_NV_present_video,
-		IRR_NV_primitive_restart,
-		IRR_NV_register_combiners,
-		IRR_NV_register_combiners2,
-		IRR_NV_shader_buffer_load,
-		IRR_NV_shader_buffer_store,
-		IRR_NV_shader_thread_group,
-		IRR_NV_shader_thread_shuffle,
-		IRR_NV_tessellation_program5,
-		IRR_NV_texgen_emboss,
-		IRR_NV_texgen_reflection,
-		IRR_NV_texture_barrier,
-		IRR_NV_texture_compression_vtc,
-		IRR_NV_texture_env_combine4,
-		IRR_NV_texture_expand_normal,
-		IRR_NV_texture_multisample,
-		IRR_NV_texture_rectangle,
-		IRR_NV_texture_shader,
-		IRR_NV_texture_shader2,
-		IRR_NV_texture_shader3,
-		IRR_NV_transform_feedback,
-		IRR_NV_transform_feedback2,
-		IRR_NV_vdpau_interop,
-		IRR_NV_vertex_array_range,
-		IRR_NV_vertex_array_range2,
-		IRR_NV_vertex_attrib_integer_64bit,
-		IRR_NV_vertex_buffer_unified_memory,
-		IRR_NV_vertex_program,
-		IRR_NV_vertex_program1_1,
-		IRR_NV_vertex_program2,
-		IRR_NV_vertex_program2_option,
-		IRR_NV_vertex_program3,
-		IRR_NV_vertex_program4,
-		IRR_NV_video_capture,
-        IRR_NV_viewport_array2,
-        IRR_NV_stereo_view_rendering,
-        IRR_NV_sample_mask_override_coverage,
-        IRR_NV_geometry_shader_passthrough,
-        IRR_NV_shader_subgroup_partitioned,
-        IRR_NV_compute_shader_derivatives,
-        IRR_NV_fragment_shader_barycentric,
-        IRR_NV_mesh_shader,
-        IRR_NV_shader_image_footprint,
-        IRR_NV_shading_rate_image,
-        IRR_NV_bindless_texture,
-        IRR_NV_shader_atomic_float,
-        IRR_NV_shader_atomic_int64,
-        IRR_NV_sample_locations,
-        IRR_NV_shader_atomic_fp16_vector,
-        IRR_NV_command_list,
-        IRR_NV_shader_atomic_float64,
-        IRR_NV_conservative_raster_pre_snap,
-        IRR_NV_shader_texture_footprint,
-		IRR_OES_read_format,
-		IRR_OML_interlace,
-		IRR_OML_resample,
-		IRR_OML_subsample,
-        IRR_OVR_multiview,
-        IRR_OVR_multiview2,
-		IRR_PGI_misc_hints,
-		IRR_PGI_vertex_hints,
-		IRR_REND_screen_coordinates,
-		IRR_S3_s3tc,
-		IRR_SGI_color_matrix,
-		IRR_SGI_color_table,
-		IRR_SGI_depth_pass_instrument,
-		IRR_SGIS_detail_texture,
-		IRR_SGIS_fog_function,
-		IRR_SGIS_generate_mipmap,
-		IRR_SGIS_multisample,
-		IRR_SGIS_pixel_texture,
-		IRR_SGIS_point_line_texgen,
-		IRR_SGIS_point_parameters,
-		IRR_SGIS_sharpen_texture,
-		IRR_SGIS_texture4D,
-		IRR_SGIS_texture_border_clamp,
-		IRR_SGIS_texture_color_mask,
-		IRR_SGIS_texture_edge_clamp,
-		IRR_SGIS_texture_filter4,
-		IRR_SGIS_texture_lod,
-		IRR_SGIS_texture_select,
-		IRR_SGI_texture_color_table,
-		IRR_SGIX_async,
-		IRR_SGIX_async_histogram,
-		IRR_SGIX_async_pixel,
-		IRR_SGIX_blend_alpha_minmax,
-		IRR_SGIX_calligraphic_fragment,
-		IRR_SGIX_clipmap,
-		IRR_SGIX_convolution_accuracy,
-		IRR_SGIX_depth_pass_instrument,
-		IRR_SGIX_depth_texture,
-		IRR_SGIX_flush_raster,
-		IRR_SGIX_fog_offset,
-		IRR_SGIX_fog_scale,
-		IRR_SGIX_fragment_lighting,
-		IRR_SGIX_framezoom,
-		IRR_SGIX_igloo_interface,
-		IRR_SGIX_impact_pixel_texture,
-		IRR_SGIX_instruments,
-		IRR_SGIX_interlace,
-		IRR_SGIX_ir_instrument1,
-		IRR_SGIX_list_priority,
-		IRR_SGIX_pixel_texture,
-		IRR_SGIX_pixel_tiles,
-		IRR_SGIX_polynomial_ffd,
-		IRR_SGIX_reference_plane,
-		IRR_SGIX_resample,
-		IRR_SGIX_scalebias_hint,
-		IRR_SGIX_shadow,
-		IRR_SGIX_shadow_ambient,
-		IRR_SGIX_sprite,
-		IRR_SGIX_subsample,
-		IRR_SGIX_tag_sample_buffer,
-		IRR_SGIX_texture_add_env,
-		IRR_SGIX_texture_coordinate_clamp,
-		IRR_SGIX_texture_lod_bias,
-		IRR_SGIX_texture_multi_buffer,
-		IRR_SGIX_texture_scale_bias,
-		IRR_SGIX_texture_select,
-		IRR_SGIX_vertex_preclip,
-		IRR_SGIX_ycrcb,
-		IRR_SGIX_ycrcba,
-		IRR_SGIX_ycrcb_subsample,
-		IRR_SUN_convolution_border_modes,
-		IRR_SUN_global_alpha,
-		IRR_SUN_mesh_array,
-		IRR_SUN_slice_accum,
-		IRR_SUN_triangle_list,
-		IRR_SUN_vertex,
-		IRR_SUNX_constant_data,
-		IRR_WIN_phong_shading,
-		IRR_WIN_specular_fog,
-        IRR_KHR_texture_compression_astc_hdr,
-        IRR_KHR_texture_compression_astc_ldr,
-        IRR_KHR_blend_equation_advanced,
-        IRR_KHR_blend_equation_advanced_coherent,
-		//IRR_GLX_EXT_swap_control_tear,
-		IRR_NVX_gpu_memory_info,
-        IRR_NVX_multiview_per_view_attributes,
-		IRR_OpenGL_Feature_Count
+		NBL_3DFX_multisample = 0,
+		NBL_3DFX_tbuffer,
+		NBL_3DFX_texture_compression_FXT1,
+		NBL_AMD_blend_minmax_factor,
+		NBL_AMD_conservative_depth,
+		NBL_AMD_debug_output,
+		NBL_AMD_depth_clamp_separate,
+		NBL_AMD_draw_buffers_blend,
+		NBL_AMD_multi_draw_indirect,
+		NBL_AMD_name_gen_delete,
+		NBL_AMD_performance_monitor,
+		NBL_AMD_sample_positions,
+		NBL_AMD_seamless_cubemap_per_texture,
+		NBL_AMD_shader_stencil_export,
+		NBL_AMD_texture_texture4,
+		NBL_AMD_transform_feedback3_lines_triangles,
+		NBL_AMD_vertex_shader_tesselator,
+        NBL_AMD_gcn_shader,
+        NBL_AMD_gpu_shader_half_float_fetch,
+        NBL_AMD_shader_explicit_vertex_parameter,
+        NBL_AMD_shader_fragment_mask,
+        NBL_AMD_shader_image_load_store_lod,
+        NBL_AMD_shader_trinary_minmax,
+        NBL_AMD_texture_gather_bias_lod,
+        NBL_AMD_vertex_shader_viewport_index,
+        NBL_AMD_vertex_shader_layer,
+        NBL_AMD_sparse_texture,
+        NBL_AMD_shader_stencil_value_export,
+        NBL_AMD_gpu_shader_int64,
+        NBL_AMD_shader_ballot,
+		NBL_APPLE_aux_depth_stencil,
+		NBL_APPLE_client_storage,
+		NBL_APPLE_element_array,
+		NBL_APPLE_fence,
+		NBL_APPLE_float_pixels,
+		NBL_APPLE_flush_buffer_range,
+		NBL_APPLE_object_purgeable,
+		NBL_APPLE_rgb_422,
+		NBL_APPLE_row_bytes,
+		NBL_APPLE_specular_vector,
+		NBL_APPLE_texture_range,
+		NBL_APPLE_transform_hint,
+		NBL_APPLE_vertex_array_object,
+		NBL_APPLE_vertex_array_range,
+		NBL_APPLE_vertex_program_evaluators,
+		NBL_APPLE_ycbcr_422,
+		NBL_ARB_base_instance,
+		NBL_ARB_bindless_texture,
+		NBL_ARB_buffer_storage,
+		NBL_ARB_blend_func_extended,
+		NBL_ARB_clip_control,
+		NBL_ARB_cl_event,
+		NBL_ARB_color_buffer_float,
+		NBL_ARB_compatibility,
+		NBL_ARB_compressed_texture_pixel_storage,
+		NBL_ARB_compute_shader,
+		NBL_ARB_conservative_depth,
+		NBL_ARB_copy_buffer,
+		NBL_ARB_debug_output,
+		NBL_ARB_depth_buffer_float,
+		NBL_ARB_depth_clamp,
+		NBL_ARB_depth_texture,
+		NBL_ARB_direct_state_access,
+		NBL_ARB_draw_buffers,
+		NBL_ARB_draw_buffers_blend,
+		NBL_ARB_draw_elements_base_vertex,
+		NBL_ARB_draw_indirect,
+		NBL_ARB_draw_instanced,
+		NBL_ARB_ES2_compatibility,
+		NBL_ARB_explicit_attrib_location,
+		NBL_ARB_explicit_uniform_location,
+		NBL_ARB_fragment_coord_conventions,
+		NBL_ARB_fragment_program,
+		NBL_ARB_fragment_program_shadow,
+		NBL_ARB_fragment_shader,
+		NBL_ARB_fragment_shader_interlock,
+		NBL_ARB_framebuffer_object,
+		NBL_ARB_framebuffer_sRGB,
+		NBL_ARB_geometry_shader4,
+		NBL_ARB_get_program_binary,
+		NBL_ARB_get_texture_sub_image,
+		NBL_ARB_gpu_shader5,
+		NBL_ARB_gpu_shader_fp64,
+		NBL_ARB_half_float_pixel,
+		NBL_ARB_half_float_vertex,
+		NBL_ARB_imaging,
+		NBL_ARB_instanced_arrays,
+		NBL_ARB_indirect_parameters,
+		NBL_ARB_internalformat_query,
+		NBL_ARB_internalformat_query2,
+		NBL_ARB_map_buffer_alignment,
+		NBL_ARB_map_buffer_range,
+		NBL_ARB_matrix_palette,
+		NBL_ARB_multi_bind,
+		NBL_ARB_multi_draw_indirect,
+		NBL_ARB_multisample,
+		NBL_ARB_multitexture,
+		NBL_ARB_occlusion_query,
+		NBL_ARB_occlusion_query2,
+		NBL_ARB_pixel_buffer_object,
+		NBL_ARB_point_parameters,
+		NBL_ARB_point_sprite,
+		NBL_ARB_program_interface_query,
+		NBL_ARB_provoking_vertex,
+		NBL_ARB_query_buffer_object,
+		NBL_ARB_robustness,
+		NBL_ARB_sample_shading,
+		NBL_ARB_sampler_objects,
+		NBL_ARB_seamless_cube_map,
+		NBL_ARB_separate_shader_objects,
+		NBL_ARB_shader_atomic_counters,
+		NBL_ARB_shader_ballot,
+		NBL_ARB_shader_bit_encoding,
+		NBL_ARB_shader_draw_parameters,
+		NBL_ARB_shader_group_vote,
+		NBL_ARB_shader_image_load_store,
+		NBL_ARB_shader_objects,
+		NBL_ARB_shader_precision,
+		NBL_ARB_shader_stencil_export,
+		NBL_ARB_shader_subroutine,
+		NBL_ARB_shader_texture_lod,
+		NBL_ARB_shading_language_100,
+		NBL_ARB_shading_language_420pack,
+		NBL_ARB_shading_language_include,
+		NBL_ARB_shading_language_packing,
+		NBL_ARB_shadow,
+		NBL_ARB_shadow_ambient,
+		NBL_ARB_sync,
+		NBL_ARB_tessellation_shader,
+		NBL_ARB_texture_barrier,
+		NBL_ARB_texture_border_clamp,
+		NBL_ARB_texture_buffer_object,
+		NBL_ARB_texture_buffer_object_rgb32,
+		NBL_ARB_texture_buffer_range,
+		NBL_ARB_texture_compression,
+		NBL_ARB_texture_compression_bptc,
+		NBL_ARB_texture_compression_rgtc,
+		NBL_ARB_texture_cube_map,
+		NBL_ARB_texture_cube_map_array,
+		NBL_ARB_texture_env_add,
+		NBL_ARB_texture_env_combine,
+		NBL_ARB_texture_env_crossbar,
+		NBL_ARB_texture_env_dot3,
+		NBL_ARB_texture_float,
+		NBL_ARB_texture_gather,
+		NBL_ARB_texture_mirrored_repeat,
+		NBL_ARB_texture_multisample,
+		NBL_ARB_texture_non_power_of_two,
+		NBL_ARB_texture_query_lod,
+		NBL_ARB_texture_rectangle,
+		NBL_ARB_texture_rg,
+		NBL_ARB_texture_rgb10_a2ui,
+		NBL_ARB_texture_stencil8,
+		NBL_ARB_texture_storage,
+		NBL_ARB_texture_storage_multisample,
+		NBL_ARB_texture_swizzle,
+		NBL_ARB_texture_view,
+		NBL_ARB_timer_query,
+		NBL_ARB_transform_feedback2,
+		NBL_ARB_transform_feedback3,
+		NBL_ARB_transform_feedback_instanced,
+		NBL_ARB_transpose_matrix,
+		NBL_ARB_uniform_buffer_object,
+		NBL_ARB_vertex_array_bgra,
+		NBL_ARB_vertex_array_object,
+		NBL_ARB_vertex_attrib_64bit,
+		NBL_ARB_vertex_attrib_binding,
+		NBL_ARB_vertex_blend,
+		NBL_ARB_vertex_buffer_object,
+		NBL_ARB_vertex_program,
+		NBL_ARB_vertex_shader,
+		NBL_ARB_vertex_type_2_10_10_10_rev,
+		NBL_ARB_viewport_array,
+		NBL_ARB_window_pos,
+        NBL_ARB_enhanced_layouts,
+        NBL_ARB_cull_distance,
+        NBL_ARB_derivative_control,
+        NBL_ARB_shader_texture_image_samples,
+        NBL_ARB_gpu_shader_int64,
+        NBL_ARB_post_depth_coverage,
+        NBL_ARB_shader_clock,
+        NBL_ARB_shader_viewport_layer_array,
+        NBL_ARB_sparse_texture2,
+        NBL_ARB_sparse_texture_clamp,
+        NBL_ARB_gl_spirv,
+        NBL_ARB_spirv_extensions,
+		NBL_ATI_draw_buffers,
+		NBL_ATI_element_array,
+		NBL_ATI_envmap_bumpmap,
+		NBL_ATI_fragment_shader,
+		NBL_ATI_map_object_buffer,
+		NBL_ATI_meminfo,
+		NBL_ATI_pixel_format_float,
+		NBL_ATI_pn_triangles,
+		NBL_ATI_separate_stencil,
+		NBL_ATI_text_fragment_shader,
+		NBL_ATI_texture_env_combine3,
+		NBL_ATI_texture_float,
+		NBL_ATI_texture_mirror_once,
+		NBL_ATI_vertex_array_object,
+		NBL_ATI_vertex_attrib_array_object,
+		NBL_ATI_vertex_streams,
+		NBL_EXT_422_pixels,
+		NBL_EXT_abgr,
+		NBL_EXT_bgra,
+		NBL_EXT_bindable_uniform,
+		NBL_EXT_blend_color,
+		NBL_EXT_blend_equation_separate,
+		NBL_EXT_blend_func_separate,
+		NBL_EXT_blend_logic_op,
+		NBL_EXT_blend_minmax,
+		NBL_EXT_blend_subtract,
+		NBL_EXT_clip_volume_hint,
+		NBL_EXT_cmyka,
+		NBL_EXT_color_subtable,
+		NBL_EXT_compiled_vertex_array,
+		NBL_EXT_convolution,
+		NBL_EXT_coordinate_frame,
+		NBL_EXT_copy_texture,
+		NBL_EXT_cull_vertex,
+		NBL_EXT_depth_bounds_test,
+		NBL_EXT_direct_state_access,
+		NBL_EXT_draw_buffers2,
+		NBL_EXT_draw_instanced,
+		NBL_EXT_draw_range_elements,
+		NBL_EXT_fog_coord,
+		NBL_EXT_framebuffer_blit,
+		NBL_EXT_framebuffer_multisample,
+		NBL_EXT_framebuffer_multisample_blit_scaled,
+		NBL_EXT_framebuffer_object,
+		NBL_EXT_framebuffer_sRGB,
+		NBL_EXT_geometry_shader4,
+		NBL_EXT_gpu_program_parameters,
+		NBL_EXT_gpu_shader4,
+		NBL_EXT_histogram,
+		NBL_EXT_index_array_formats,
+		NBL_EXT_index_func,
+		NBL_EXT_index_material,
+		NBL_EXT_index_texture,
+		NBL_EXT_light_texture,
+		NBL_EXT_misc_attribute,
+		NBL_EXT_multi_draw_arrays,
+		NBL_EXT_multisample,
+		NBL_EXT_packed_depth_stencil,
+		NBL_EXT_packed_float,
+		NBL_EXT_packed_pixels,
+		NBL_EXT_paletted_texture,
+		NBL_EXT_pixel_buffer_object,
+		NBL_EXT_pixel_transform,
+		NBL_EXT_pixel_transform_color_table,
+		NBL_EXT_point_parameters,
+		NBL_EXT_polygon_offset,
+		NBL_EXT_provoking_vertex,
+		NBL_EXT_rescale_normal,
+		NBL_EXT_secondary_color,
+		NBL_EXT_separate_shader_objects,
+		NBL_EXT_separate_specular_color,
+		NBL_EXT_shader_image_load_store,
+		NBL_EXT_shadow_funcs,
+		NBL_EXT_shared_texture_palette,
+		NBL_EXT_stencil_clear_tag,
+		NBL_EXT_stencil_two_side,
+		NBL_EXT_stencil_wrap,
+		NBL_EXT_subtexture,
+		NBL_EXT_texture,
+		NBL_EXT_texture3D,
+		NBL_EXT_texture_array,
+		NBL_EXT_texture_buffer_object,
+		NBL_EXT_texture_compression_latc,
+		NBL_EXT_texture_compression_rgtc,
+		NBL_EXT_texture_compression_s3tc,
+		NBL_EXT_texture_cube_map,
+		NBL_EXT_texture_env_add,
+		NBL_EXT_texture_env_combine,
+		NBL_EXT_texture_env_dot3,
+		NBL_EXT_texture_filter_anisotropic,
+		NBL_EXT_texture_integer,
+		NBL_EXT_texture_lod_bias,
+		NBL_EXT_texture_mirror_clamp,
+		NBL_EXT_texture_object,
+		NBL_EXT_texture_perturb_normal,
+		NBL_EXT_texture_shared_exponent,
+		NBL_EXT_texture_snorm,
+		NBL_EXT_texture_sRGB,
+		NBL_EXT_texture_sRGB_decode,
+		NBL_EXT_texture_sRGB_R8,
+		NBL_EXT_texture_sRGB_RG8,
+		NBL_EXT_texture_swizzle,
+		NBL_EXT_texture_view,
+		NBL_EXT_timer_query,
+		NBL_EXT_transform_feedback,
+		NBL_EXT_vertex_array,
+		NBL_EXT_vertex_array_bgra,
+		NBL_EXT_vertex_attrib_64bit,
+		NBL_EXT_vertex_shader,
+		NBL_EXT_vertex_weighting,
+		NBL_EXT_x11_sync_object,
+        NBL_EXT_shader_pixel_local_storage,
+        NBL_EXT_shader_pixel_local_storage2,
+        NBL_EXT_shader_integer_mix,
+        NBL_EXT_shader_image_load_formatted,
+        NBL_EXT_post_depth_coverage,
+        NBL_EXT_sparse_texture2,
+        NBL_EXT_shader_framebuffer_fetch,
+        NBL_EXT_shader_framebuffer_fetch_non_coherent,
+		NBL_FfdMaskSGIX,
+		NBL_GREMEDY_frame_terminator,
+		NBL_GREMEDY_string_marker,
+		NBL_HP_convolution_border_modes,
+		NBL_HP_image_transform,
+		NBL_HP_occlusion_test,
+		NBL_HP_texture_lighting,
+		NBL_IBM_cull_vertex,
+		NBL_IBM_multimode_draw_arrays,
+		NBL_IBM_rasterpos_clip,
+		NBL_IBM_texture_mirrored_repeat,
+		NBL_IBM_vertex_array_lists,
+		NBL_INGR_blend_func_separate,
+		NBL_INGR_color_clamp,
+		NBL_INGR_interlace_read,
+		NBL_INGR_palette_buffer,
+		NBL_INTEL_fragment_shader_ordering,
+		NBL_INTEL_parallel_arrays,
+		NBL_INTEL_texture_scissor,
+        NBL_INTEL_conservative_rasterization,
+        NBL_INTEL_blackhole_render,
+		NBL_KHR_debug,
+		NBL_MESA_pack_invert,
+		NBL_MESA_resize_buffers,
+		NBL_MESA_window_pos,
+		NBL_MESAX_texture_stack,
+		NBL_MESA_ycbcr_texture,
+		NBL_NV_blend_square,
+		NBL_NV_conditional_render,
+		NBL_NV_copy_depth_to_color,
+		NBL_NV_copy_image,
+		NBL_NV_depth_buffer_float,
+		NBL_NV_depth_clamp,
+		NBL_NV_evaluators,
+		NBL_NV_explicit_multisample,
+		NBL_NV_fence,
+		NBL_NV_float_buffer,
+		NBL_NV_fog_distance,
+		NBL_NV_fragment_program,
+		NBL_NV_fragment_program2,
+		NBL_NV_fragment_program4,
+		NBL_NV_fragment_program_option,
+		NBL_NV_fragment_shader_interlock,
+		NBL_NV_framebuffer_multisample_coverage,
+		NBL_NV_geometry_program4,
+		NBL_NV_geometry_shader4,
+		NBL_NV_gpu_program4,
+		NBL_NV_gpu_program5,
+		NBL_NV_gpu_shader5,
+		NBL_NV_half_float,
+		NBL_NV_light_max_exponent,
+		NBL_NV_multisample_coverage,
+		NBL_NV_multisample_filter_hint,
+		NBL_NV_occlusion_query,
+		NBL_NV_packed_depth_stencil,
+		NBL_NV_parameter_buffer_object,
+		NBL_NV_parameter_buffer_object2,
+		NBL_NV_pixel_data_range,
+		NBL_NV_point_sprite,
+		NBL_NV_present_video,
+		NBL_NV_primitive_restart,
+		NBL_NV_register_combiners,
+		NBL_NV_register_combiners2,
+		NBL_NV_shader_buffer_load,
+		NBL_NV_shader_buffer_store,
+		NBL_NV_shader_thread_group,
+		NBL_NV_shader_thread_shuffle,
+		NBL_NV_tessellation_program5,
+		NBL_NV_texgen_emboss,
+		NBL_NV_texgen_reflection,
+		NBL_NV_texture_barrier,
+		NBL_NV_texture_compression_vtc,
+		NBL_NV_texture_env_combine4,
+		NBL_NV_texture_expand_normal,
+		NBL_NV_texture_multisample,
+		NBL_NV_texture_rectangle,
+		NBL_NV_texture_shader,
+		NBL_NV_texture_shader2,
+		NBL_NV_texture_shader3,
+		NBL_NV_transform_feedback,
+		NBL_NV_transform_feedback2,
+		NBL_NV_vdpau_interop,
+		NBL_NV_vertex_array_range,
+		NBL_NV_vertex_array_range2,
+		NBL_NV_vertex_attrib_integer_64bit,
+		NBL_NV_vertex_buffer_unified_memory,
+		NBL_NV_vertex_program,
+		NBL_NV_vertex_program1_1,
+		NBL_NV_vertex_program2,
+		NBL_NV_vertex_program2_option,
+		NBL_NV_vertex_program3,
+		NBL_NV_vertex_program4,
+		NBL_NV_video_capture,
+        NBL_NV_viewport_array2,
+        NBL_NV_stereo_view_rendering,
+        NBL_NV_sample_mask_override_coverage,
+        NBL_NV_geometry_shader_passthrough,
+        NBL_NV_shader_subgroup_partitioned,
+        NBL_NV_compute_shader_derivatives,
+        NBL_NV_fragment_shader_barycentric,
+        NBL_NV_mesh_shader,
+        NBL_NV_shader_image_footprint,
+        NBL_NV_shading_rate_image,
+        NBL_NV_bindless_texture,
+        NBL_NV_shader_atomic_float,
+        NBL_NV_shader_atomic_int64,
+        NBL_NV_sample_locations,
+        NBL_NV_shader_atomic_fp16_vector,
+        NBL_NV_command_list,
+        NBL_NV_shader_atomic_float64,
+        NBL_NV_conservative_raster_pre_snap,
+        NBL_NV_shader_texture_footprint,
+		NBL_OES_read_format,
+		NBL_OML_interlace,
+		NBL_OML_resample,
+		NBL_OML_subsample,
+        NBL_OVR_multiview,
+        NBL_OVR_multiview2,
+		NBL_PGI_misc_hints,
+		NBL_PGI_vertex_hints,
+		NBL_REND_screen_coordinates,
+		NBL_S3_s3tc,
+		NBL_SGI_color_matrix,
+		NBL_SGI_color_table,
+		NBL_SGI_depth_pass_instrument,
+		NBL_SGIS_detail_texture,
+		NBL_SGIS_fog_function,
+		NBL_SGIS_generate_mipmap,
+		NBL_SGIS_multisample,
+		NBL_SGIS_pixel_texture,
+		NBL_SGIS_point_line_texgen,
+		NBL_SGIS_point_parameters,
+		NBL_SGIS_sharpen_texture,
+		NBL_SGIS_texture4D,
+		NBL_SGIS_texture_border_clamp,
+		NBL_SGIS_texture_color_mask,
+		NBL_SGIS_texture_edge_clamp,
+		NBL_SGIS_texture_filter4,
+		NBL_SGIS_texture_lod,
+		NBL_SGIS_texture_select,
+		NBL_SGI_texture_color_table,
+		NBL_SGIX_async,
+		NBL_SGIX_async_histogram,
+		NBL_SGIX_async_pixel,
+		NBL_SGIX_blend_alpha_minmax,
+		NBL_SGIX_calligraphic_fragment,
+		NBL_SGIX_clipmap,
+		NBL_SGIX_convolution_accuracy,
+		NBL_SGIX_depth_pass_instrument,
+		NBL_SGIX_depth_texture,
+		NBL_SGIX_flush_raster,
+		NBL_SGIX_fog_offset,
+		NBL_SGIX_fog_scale,
+		NBL_SGIX_fragment_lighting,
+		NBL_SGIX_framezoom,
+		NBL_SGIX_igloo_interface,
+		NBL_SGIX_impact_pixel_texture,
+		NBL_SGIX_instruments,
+		NBL_SGIX_interlace,
+		NBL_SGIX_ir_instrument1,
+		NBL_SGIX_list_priority,
+		NBL_SGIX_pixel_texture,
+		NBL_SGIX_pixel_tiles,
+		NBL_SGIX_polynomial_ffd,
+		NBL_SGIX_reference_plane,
+		NBL_SGIX_resample,
+		NBL_SGIX_scalebias_hint,
+		NBL_SGIX_shadow,
+		NBL_SGIX_shadow_ambient,
+		NBL_SGIX_sprite,
+		NBL_SGIX_subsample,
+		NBL_SGIX_tag_sample_buffer,
+		NBL_SGIX_texture_add_env,
+		NBL_SGIX_texture_coordinate_clamp,
+		NBL_SGIX_texture_lod_bias,
+		NBL_SGIX_texture_multi_buffer,
+		NBL_SGIX_texture_scale_bias,
+		NBL_SGIX_texture_select,
+		NBL_SGIX_vertex_preclip,
+		NBL_SGIX_ycrcb,
+		NBL_SGIX_ycrcba,
+		NBL_SGIX_ycrcb_subsample,
+		NBL_SUN_convolution_border_modes,
+		NBL_SUN_global_alpha,
+		NBL_SUN_mesh_array,
+		NBL_SUN_slice_accum,
+		NBL_SUN_triangle_list,
+		NBL_SUN_vertex,
+		NBL_SUNX_constant_data,
+		NBL_WIN_phong_shading,
+		NBL_WIN_specular_fog,
+        NBL_KHR_texture_compression_astc_hdr,
+        NBL_KHR_texture_compression_astc_ldr,
+        NBL_KHR_blend_equation_advanced,
+        NBL_KHR_blend_equation_advanced_coherent,
+		//NBL_GLX_EXT_swap_control_tear,
+		NBL_NVX_gpu_memory_info,
+        NBL_NVX_multiview_per_view_attributes,
+		NBL_OpenGL_Feature_Count
 	};
-    _IRR_STATIC_INLINE_CONSTEXPR EOpenGLFeatures m_GLSLExtensions[]{
-        IRR_AMD_gcn_shader,
-        IRR_AMD_gpu_shader_half_float_fetch,
-        IRR_AMD_shader_ballot,
-        IRR_AMD_shader_explicit_vertex_parameter,
-        IRR_AMD_shader_fragment_mask,
-        IRR_AMD_shader_image_load_store_lod,
-        IRR_AMD_shader_trinary_minmax,
-        IRR_AMD_texture_gather_bias_lod,
-        IRR_NVX_multiview_per_view_attributes,
-        IRR_NV_viewport_array2,
-        IRR_NV_stereo_view_rendering,
-        IRR_NV_sample_mask_override_coverage,
-        IRR_NV_geometry_shader_passthrough,
-        IRR_NV_shader_subgroup_partitioned,
-        IRR_NV_compute_shader_derivatives,
-        IRR_NV_fragment_shader_barycentric,
-        IRR_NV_mesh_shader,
-        IRR_NV_shader_image_footprint,
-        IRR_NV_shading_rate_image,
-        IRR_ARB_shading_language_include,
-        IRR_ARB_shader_stencil_export,
-        IRR_ARB_enhanced_layouts,
-        IRR_ARB_bindless_texture,
-        IRR_ARB_shader_draw_parameters,
-        IRR_ARB_shader_group_vote,
-        IRR_ARB_cull_distance,
-        IRR_ARB_derivative_control,
-        IRR_ARB_shader_texture_image_samples,
-        IRR_KHR_blend_equation_advanced,
-        IRR_KHR_blend_equation_advanced_coherent,
-        IRR_ARB_fragment_shader_interlock,
-        IRR_ARB_gpu_shader_int64,
-        IRR_ARB_post_depth_coverage,
-        IRR_ARB_shader_ballot,
-        IRR_ARB_shader_clock,
-        IRR_ARB_shader_viewport_layer_array,
-        IRR_ARB_sparse_texture2,
-        IRR_ARB_sparse_texture_clamp,
-        IRR_ARB_gl_spirv,
-        IRR_ARB_spirv_extensions,
-        IRR_AMD_shader_stencil_export,
-        IRR_AMD_vertex_shader_viewport_index,
-        IRR_AMD_vertex_shader_layer,
-        IRR_NV_bindless_texture,
-        IRR_NV_shader_atomic_float,
-        IRR_AMD_sparse_texture,
-        IRR_EXT_shader_integer_mix,
-        IRR_INTEL_fragment_shader_ordering,
-        IRR_AMD_shader_stencil_value_export,
-        IRR_NV_shader_thread_group,
-        IRR_NV_shader_thread_shuffle,
-        IRR_EXT_shader_image_load_formatted,
-        IRR_AMD_gpu_shader_int64,
-        IRR_NV_shader_atomic_int64,
-        IRR_EXT_post_depth_coverage,
-        IRR_EXT_sparse_texture2,
-        IRR_NV_fragment_shader_interlock,
-        IRR_NV_sample_locations,
-        IRR_NV_shader_atomic_fp16_vector,
-        IRR_NV_command_list,
-        IRR_OVR_multiview,
-        IRR_OVR_multiview2,
-        IRR_NV_shader_atomic_float64,
-        IRR_INTEL_conservative_rasterization,
-        IRR_NV_conservative_raster_pre_snap,
-        IRR_EXT_shader_framebuffer_fetch,
-        IRR_EXT_shader_framebuffer_fetch_non_coherent,
-        IRR_INTEL_blackhole_render,
-        IRR_NV_shader_texture_footprint,
-        IRR_NV_gpu_shader5
+    _NBL_STATIC_INLINE_CONSTEXPR EOpenGLFeatures m_GLSLExtensions[]{
+        NBL_AMD_gcn_shader,
+        NBL_AMD_gpu_shader_half_float_fetch,
+        NBL_AMD_shader_ballot,
+        NBL_AMD_shader_explicit_vertex_parameter,
+        NBL_AMD_shader_fragment_mask,
+        NBL_AMD_shader_image_load_store_lod,
+        NBL_AMD_shader_trinary_minmax,
+        NBL_AMD_texture_gather_bias_lod,
+        NBL_NVX_multiview_per_view_attributes,
+        NBL_NV_viewport_array2,
+        NBL_NV_stereo_view_rendering,
+        NBL_NV_sample_mask_override_coverage,
+        NBL_NV_geometry_shader_passthrough,
+        NBL_NV_shader_subgroup_partitioned,
+        NBL_NV_compute_shader_derivatives,
+        NBL_NV_fragment_shader_barycentric,
+        NBL_NV_mesh_shader,
+        NBL_NV_shader_image_footprint,
+        NBL_NV_shading_rate_image,
+        NBL_ARB_shading_language_include,
+        NBL_ARB_shader_stencil_export,
+        NBL_ARB_enhanced_layouts,
+        NBL_ARB_bindless_texture,
+        NBL_ARB_shader_draw_parameters,
+        NBL_ARB_shader_group_vote,
+        NBL_ARB_cull_distance,
+        NBL_ARB_derivative_control,
+        NBL_ARB_shader_texture_image_samples,
+        NBL_KHR_blend_equation_advanced,
+        NBL_KHR_blend_equation_advanced_coherent,
+        NBL_ARB_fragment_shader_interlock,
+        NBL_ARB_gpu_shader_int64,
+        NBL_ARB_post_depth_coverage,
+        NBL_ARB_shader_ballot,
+        NBL_ARB_shader_clock,
+        NBL_ARB_shader_viewport_layer_array,
+        NBL_ARB_sparse_texture2,
+        NBL_ARB_sparse_texture_clamp,
+        NBL_ARB_gl_spirv,
+        NBL_ARB_spirv_extensions,
+        NBL_AMD_shader_stencil_export,
+        NBL_AMD_vertex_shader_viewport_index,
+        NBL_AMD_vertex_shader_layer,
+        NBL_NV_bindless_texture,
+        NBL_NV_shader_atomic_float,
+        NBL_AMD_sparse_texture,
+        NBL_EXT_shader_integer_mix,
+        NBL_INTEL_fragment_shader_ordering,
+        NBL_AMD_shader_stencil_value_export,
+        NBL_NV_shader_thread_group,
+        NBL_NV_shader_thread_shuffle,
+        NBL_EXT_shader_image_load_formatted,
+        NBL_AMD_gpu_shader_int64,
+        NBL_NV_shader_atomic_int64,
+        NBL_EXT_post_depth_coverage,
+        NBL_EXT_sparse_texture2,
+        NBL_NV_fragment_shader_interlock,
+        NBL_NV_sample_locations,
+        NBL_NV_shader_atomic_fp16_vector,
+        NBL_NV_command_list,
+        NBL_OVR_multiview,
+        NBL_OVR_multiview2,
+        NBL_NV_shader_atomic_float64,
+        NBL_INTEL_conservative_rasterization,
+        NBL_NV_conservative_raster_pre_snap,
+        NBL_EXT_shader_framebuffer_fetch,
+        NBL_EXT_shader_framebuffer_fetch_non_coherent,
+        NBL_INTEL_blackhole_render,
+        NBL_NV_shader_texture_footprint,
+        NBL_NV_gpu_shader5
     };
 
 	static core::CLeakDebugger bufferLeaker;
@@ -1511,7 +1511,7 @@ class COpenGLExtensionHandler
     static void extGlGetInternalformati64v(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint64* params);
 
 	// the global feature array
-	static bool FeatureAvailable[IRR_OpenGL_Feature_Count];
+	static bool FeatureAvailable[NBL_OpenGL_Feature_Count];
 
 
     //
@@ -1980,7 +1980,7 @@ inline void COpenGLExtensionHandler::extGlBindTextures(const GLuint& first, cons
                                         GL_TEXTURE_1D_ARRAY,GL_TEXTURE_2D_ARRAY,GL_TEXTURE_BUFFER, // GL 3.x
                                         GL_TEXTURE_CUBE_MAP_ARRAY,GL_TEXTURE_2D_MULTISAMPLE,GL_TEXTURE_2D_MULTISAMPLE_ARRAY}; // GL 4.x
 
-    if (Version>=440||FeatureAvailable[IRR_ARB_multi_bind])
+    if (Version>=440||FeatureAvailable[NBL_ARB_multi_bind])
 		pGlBindTextures(first,count,textures);
     else
     {
@@ -2009,7 +2009,7 @@ inline void COpenGLExtensionHandler::extGlBindTextures(const GLuint& first, cons
 
 inline void COpenGLExtensionHandler::extGlCreateTextures(GLenum target, GLsizei n, GLuint *textures)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
 		pGlCreateTextures(target,n,textures);
     else
         glGenTextures(n,textures);
@@ -2017,9 +2017,9 @@ inline void COpenGLExtensionHandler::extGlCreateTextures(GLenum target, GLsizei 
 
 inline void COpenGLExtensionHandler::extGlTextureBuffer(GLuint texture, GLenum internalformat, GLuint buffer)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
 		pGlTextureBuffer(texture,internalformat,buffer);
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
 		pGlTextureBufferEXT(texture,GL_TEXTURE_BUFFER,internalformat,buffer);
     else
     {
@@ -2033,13 +2033,13 @@ inline void COpenGLExtensionHandler::extGlTextureBuffer(GLuint texture, GLenum i
 
 inline void COpenGLExtensionHandler::extGlTextureBufferRange(GLuint texture, GLenum internalformat, GLuint buffer, GLintptr offset, GLsizei length)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
 
         if (pGlTextureBufferRange)
             pGlTextureBufferRange(texture,internalformat,buffer,offset,length);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlTextureBufferRangeEXT)
             pGlTextureBufferRangeEXT(texture,GL_TEXTURE_BUFFER,internalformat,buffer,offset,length);
@@ -2057,12 +2057,12 @@ inline void COpenGLExtensionHandler::extGlTextureBufferRange(GLuint texture, GLe
 
 inline void COpenGLExtensionHandler::extGlTextureStorage1D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlTextureStorage1D)
             pGlTextureStorage1D(texture,levels,internalformat,width);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlTextureStorage1DEXT)
             pGlTextureStorage1DEXT(texture,target,levels,internalformat,width);
@@ -2086,12 +2086,12 @@ inline void COpenGLExtensionHandler::extGlTextureStorage1D(GLuint texture, GLenu
 }
 inline void COpenGLExtensionHandler::extGlTextureStorage2D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlTextureStorage2D)
             pGlTextureStorage2D(texture,levels,internalformat,width,height);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlTextureStorage2DEXT)
             pGlTextureStorage2DEXT(texture,target,levels,internalformat,width,height);
@@ -2124,9 +2124,9 @@ inline void COpenGLExtensionHandler::extGlTextureStorage2D(GLuint texture, GLenu
 }
 inline void COpenGLExtensionHandler::extGlTextureStorage3D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
 		pGlTextureStorage3D(texture,levels,internalformat,width,height,depth);
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
 		pGlTextureStorage3DEXT(texture,target,levels,internalformat,width,height,depth);
     else
     {
@@ -2154,9 +2154,9 @@ inline void COpenGLExtensionHandler::extGlTextureStorage3D(GLuint texture, GLenu
 
 inline void COpenGLExtensionHandler::extGlTextureStorage2DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
 		pGlTextureStorage2DMultisample(texture,samples,internalformat,width,height,fixedsamplelocations);
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
 		pGlTextureStorage2DMultisampleEXT(texture,target,samples,internalformat,width,height,fixedsamplelocations);
 	else
     {
@@ -2175,9 +2175,9 @@ inline void COpenGLExtensionHandler::extGlTextureStorage2DMultisample(GLuint tex
 }
 inline void COpenGLExtensionHandler::extGlTextureStorage3DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedsamplelocations)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
 		pGlTextureStorage3DMultisample(texture,samples,internalformat,width,height,depth,fixedsamplelocations);
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
 		pGlTextureStorage3DMultisampleEXT(texture,target,samples,internalformat,width,height,depth,fixedsamplelocations);
 	else
     {
@@ -2202,29 +2202,29 @@ inline void COpenGLExtensionHandler::extGlTextureView(GLuint texture, GLenum tar
 
 inline void COpenGLExtensionHandler::extGlGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_get_texture_sub_image])
+    if (Version>=450||FeatureAvailable[NBL_ARB_get_texture_sub_image])
 		pGlGetTextureSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, bufSize, pixels);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	else
 		os::Printer::log("EDF_GET_TEXTURE_SUB_IMAGE Not Available! Tell DevSH to implement!\n", ELL_ERROR);
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 }
 
 inline void COpenGLExtensionHandler::extGlGetCompressedTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLsizei bufSize, void* pixels)
 {
-	if (Version >= 450 || FeatureAvailable[IRR_ARB_get_texture_sub_image])
+	if (Version >= 450 || FeatureAvailable[NBL_ARB_get_texture_sub_image])
 		extGlGetCompressedTextureSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, bufSize, pixels);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	else
 		os::Printer::log("EDF_GET_TEXTURE_SUB_IMAGE Not Available! Tell DevSH to implement!\n", ELL_ERROR);
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 }
 
 inline void COpenGLExtensionHandler::extGlGetTextureImage(GLuint texture, GLenum target, GLint level, GLenum format, GLenum type, GLsizei bufSizeHint, void* pixels)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
 		pGlGetTextureImage(texture, level, format, type, bufSizeHint, pixels);
-	else if (FeatureAvailable[IRR_EXT_direct_state_access])
+	else if (FeatureAvailable[NBL_EXT_direct_state_access])
 		pGlGetTextureImageEXT(texture, target, level, format, type, pixels);
     else
     {
@@ -2272,9 +2272,9 @@ inline void COpenGLExtensionHandler::extGlGetTextureImage(GLuint texture, GLenum
 
 inline void COpenGLExtensionHandler::extGlGetCompressedTextureImage(GLuint texture, GLenum target, GLint level, GLsizei bufSizeHint, void* pixels)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
 		pGlGetCompressedTextureImage(texture, level, bufSizeHint, pixels);
-	else if (FeatureAvailable[IRR_EXT_direct_state_access])
+	else if (FeatureAvailable[NBL_EXT_direct_state_access])
 		pGlGetCompressedTextureImageEXT(texture, target, level, pixels);
     else
     {
@@ -2322,9 +2322,9 @@ inline void COpenGLExtensionHandler::extGlGetCompressedTextureImage(GLuint textu
 
 inline void COpenGLExtensionHandler::extGlTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, const void *pixels)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
 		pGlTextureSubImage1D(texture, level, xoffset, width,format, type, pixels);
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
 		pGlTextureSubImage1DEXT(texture, target, level, xoffset, width,format, type, pixels);
     else
     {
@@ -2345,9 +2345,9 @@ inline void COpenGLExtensionHandler::extGlTextureSubImage1D(GLuint texture, GLen
 }
 inline void COpenGLExtensionHandler::extGlTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const void *pixels)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
 		pGlTextureSubImage2D(texture, level, xoffset, yoffset,width, height,format, type, pixels);
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
 		pGlTextureSubImage2DEXT(texture, target, level, xoffset, yoffset,width, height,format, type, pixels);
     else
     {
@@ -2385,9 +2385,9 @@ inline void COpenGLExtensionHandler::extGlTextureSubImage2D(GLuint texture, GLen
 }
 inline void COpenGLExtensionHandler::extGlTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void *pixels)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
 		pGlTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
 		pGlTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
     else
     {
@@ -2420,12 +2420,12 @@ inline void COpenGLExtensionHandler::extGlTextureSubImage3D(GLuint texture, GLen
 }
 inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLsizei imageSize, const void *data)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlCompressedTextureSubImage1D)
             pGlCompressedTextureSubImage1D(texture, level, xoffset, width,format, imageSize, data);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlCompressedTextureSubImage1DEXT)
             pGlCompressedTextureSubImage1DEXT(texture, target, level, xoffset, width,format, imageSize, data);
@@ -2449,12 +2449,12 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage1D(GLuint tex
 }
 inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const void *data)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlCompressedTextureSubImage2D)
             pGlCompressedTextureSubImage2D(texture, level, xoffset, yoffset,width, height,format, imageSize, data);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlCompressedTextureSubImage2DEXT)
             pGlCompressedTextureSubImage2DEXT(texture, target, level, xoffset, yoffset,width, height,format, imageSize, data);
@@ -2489,12 +2489,12 @@ inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage2D(GLuint tex
 }
 inline void COpenGLExtensionHandler::extGlCompressedTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const void *data)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlCompressedTextureSubImage3D)
             pGlCompressedTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlCompressedTextureSubImage3DEXT)
             pGlCompressedTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
@@ -2533,12 +2533,12 @@ inline void COpenGLExtensionHandler::extGlCopyImageSubData(GLuint srcName, GLenu
 
 inline void COpenGLExtensionHandler::extGlGenerateTextureMipmap(GLuint texture, GLenum target)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlGenerateTextureMipmap)
             pGlGenerateTextureMipmap(texture);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlGenerateTextureMipmapEXT)
             pGlGenerateTextureMipmapEXT(texture,target);
@@ -2593,9 +2593,9 @@ inline void COpenGLExtensionHandler::extGlGenerateTextureMipmap(GLuint texture, 
 
 inline void COpenGLExtensionHandler::extGlTextureParameterIuiv(GLuint texture, GLenum target, GLenum pname, const GLuint* params)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
         pGlTextureParameterIuiv(texture,pname,params);
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
 		pGlTextureParameterIuivEXT(texture,target,pname,params);
 	else
 	{
@@ -2668,7 +2668,7 @@ inline void COpenGLExtensionHandler::extGlDeleteSamplers(GLsizei n, GLuint* samp
 
 inline void COpenGLExtensionHandler::extGlBindSamplers(const GLuint& first, const GLsizei& count, const GLuint* samplers)
 {
-    if (Version>=440||FeatureAvailable[IRR_ARB_multi_bind])
+    if (Version>=440||FeatureAvailable[NBL_ARB_multi_bind])
     {
         if (pGlBindSamplers)
             pGlBindSamplers(first,count,samplers);
@@ -3160,7 +3160,7 @@ inline void COpenGLExtensionHandler::extGlCreateFramebuffers(GLsizei n, GLuint *
 {
     if (!needsDSAFramebufferHack)
     {
-        if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+        if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
         {
             pGlCreateFramebuffers(n, framebuffers);
             return;
@@ -3174,9 +3174,9 @@ inline GLenum COpenGLExtensionHandler::extGlCheckNamedFramebufferStatus(GLuint f
 {
     if (!needsDSAFramebufferHack)
     {
-        if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+        if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
             return pGlCheckNamedFramebufferStatus(framebuffer,target);
-        else if (FeatureAvailable[IRR_EXT_direct_state_access])
+        else if (FeatureAvailable[NBL_EXT_direct_state_access])
             return pGlCheckNamedFramebufferStatusEXT(framebuffer,target);
     }
 
@@ -3197,12 +3197,12 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferTexture(GLuint framebu
 {
     if (!needsDSAFramebufferHack)
     {
-        if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+        if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
         {
             pGlNamedFramebufferTexture(framebuffer, attachment, texture, level);
             return;
         }
-        else if (FeatureAvailable[IRR_EXT_direct_state_access])
+        else if (FeatureAvailable[NBL_EXT_direct_state_access])
         {
             pGlNamedFramebufferTextureEXT(framebuffer, attachment, texture, level);
             return;
@@ -3223,7 +3223,7 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferTextureLayer(GLuint fr
 {
     if (!needsDSAFramebufferHack)
     {
-        if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+        if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
         {
             pGlNamedFramebufferTextureLayer(framebuffer, attachment, texture, level, layer);
             return;
@@ -3232,7 +3232,7 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferTextureLayer(GLuint fr
 
 	if (textureType!=GL_TEXTURE_CUBE_MAP)
 	{
-		if (!needsDSAFramebufferHack && FeatureAvailable[IRR_EXT_direct_state_access])
+		if (!needsDSAFramebufferHack && FeatureAvailable[NBL_EXT_direct_state_access])
 		{
             pGlNamedFramebufferTextureLayerEXT(framebuffer, attachment, texture, level, layer);
 		}
@@ -3254,7 +3254,7 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferTextureLayer(GLuint fr
 			GL_TEXTURE_CUBE_MAP_POSITIVE_X,GL_TEXTURE_CUBE_MAP_NEGATIVE_X,GL_TEXTURE_CUBE_MAP_POSITIVE_Y,GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,GL_TEXTURE_CUBE_MAP_POSITIVE_Z,GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
 		};
 
-		if (!needsDSAFramebufferHack && FeatureAvailable[IRR_EXT_direct_state_access])
+		if (!needsDSAFramebufferHack && FeatureAvailable[NBL_EXT_direct_state_access])
 		{
             pGlNamedFramebufferTexture2DEXT(framebuffer, attachment, CubeMapFaceToCubeMapFaceGLenum[layer], texture, level);
 		}
@@ -3276,7 +3276,7 @@ inline void COpenGLExtensionHandler::extGlBlitNamedFramebuffer(GLuint readFrameb
 {
     if (!needsDSAFramebufferHack)
     {
-        if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+        if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
         {
             pGlBlitNamedFramebuffer(readFramebuffer, drawFramebuffer, srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
             return;
@@ -3311,12 +3311,12 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferReadBuffer(GLuint fram
 {
     if (!needsDSAFramebufferHack)
     {
-        if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+        if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
         {
             pGlNamedFramebufferReadBuffer(framebuffer, mode);
             return;
         }
-        else if (FeatureAvailable[IRR_EXT_direct_state_access])
+        else if (FeatureAvailable[NBL_EXT_direct_state_access])
         {
             pGlFramebufferReadBufferEXT(framebuffer, mode);
             return;
@@ -3337,12 +3337,12 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferDrawBuffer(GLuint fram
 {
     if (!needsDSAFramebufferHack)
     {
-        if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+        if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
         {
             pGlNamedFramebufferDrawBuffer(framebuffer, buf);
             return;
         }
-        else if (FeatureAvailable[IRR_EXT_direct_state_access])
+        else if (FeatureAvailable[NBL_EXT_direct_state_access])
         {
             pGlFramebufferDrawBufferEXT(framebuffer, buf);
             return;
@@ -3363,12 +3363,12 @@ inline void COpenGLExtensionHandler::extGlNamedFramebufferDrawBuffers(GLuint fra
 {
     if (!needsDSAFramebufferHack)
     {
-        if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+        if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
         {
             pGlNamedFramebufferDrawBuffers(framebuffer, n, bufs);
             return;
         }
-        else if (FeatureAvailable[IRR_EXT_direct_state_access])
+        else if (FeatureAvailable[NBL_EXT_direct_state_access])
         {
             pGlFramebufferDrawBuffersEXT(framebuffer, n, bufs);
             return;
@@ -3389,7 +3389,7 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferiv(GLuint framebu
 {
     if (!needsDSAFramebufferHack)
     {
-        if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+        if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
         {
             pGlClearNamedFramebufferiv(framebuffer, buffer, drawbuffer, value);
             return;
@@ -3412,7 +3412,7 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferuiv(GLuint frameb
 {
     if (!needsDSAFramebufferHack)
     {
-        if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+        if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
         {
             pGlClearNamedFramebufferuiv(framebuffer, buffer, drawbuffer, value);
             return;
@@ -3435,7 +3435,7 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfv(GLuint framebu
 {
     if (!needsDSAFramebufferHack)
     {
-        if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+        if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
         {
             pGlClearNamedFramebufferfv(framebuffer, buffer, drawbuffer, value);
             return;
@@ -3458,7 +3458,7 @@ inline void COpenGLExtensionHandler::extGlClearNamedFramebufferfi(GLuint framebu
 {
     if (!needsDSAFramebufferHack)
     {
-        if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+        if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
         {
             pGlClearNamedFramebufferfi(framebuffer, buffer, drawbuffer, depth, stencil);
             return;
@@ -3482,7 +3482,7 @@ inline void COpenGLExtensionHandler::extGlCreateBuffers(GLsizei n, GLuint *buffe
         COpenGLExtensionHandler::bufferLeaker.registerObj(buffers);
 #endif // OPENGL_LEAK_DEBUG
 
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlCreateBuffers)
             pGlCreateBuffers(n, buffers);
@@ -3517,7 +3517,7 @@ inline void COpenGLExtensionHandler::extGlBindBuffer(const GLenum& target, const
 
 inline void COpenGLExtensionHandler::extGlBindBuffersBase(const GLenum& target, const GLuint& first, const GLsizei& count, const GLuint* buffers)
 {
-    if (Version>=440||FeatureAvailable[IRR_ARB_multi_bind])
+    if (Version>=440||FeatureAvailable[NBL_ARB_multi_bind])
     {
         if (pGlBindBuffersBase)
             pGlBindBuffersBase(target,first,count,buffers);
@@ -3534,7 +3534,7 @@ inline void COpenGLExtensionHandler::extGlBindBuffersBase(const GLenum& target, 
 
 inline void COpenGLExtensionHandler::extGlBindBuffersRange(const GLenum& target, const GLuint& first, const GLsizei& count, const GLuint* buffers, const GLintptr* offsets, const GLsizeiptr* sizes)
 {
-    if (Version>=440||FeatureAvailable[IRR_ARB_multi_bind])
+    if (Version>=440||FeatureAvailable[NBL_ARB_multi_bind])
     {
         if (pGlBindBuffersRange)
             pGlBindBuffersRange(target,first,count,buffers,offsets,sizes);
@@ -3559,12 +3559,12 @@ inline void COpenGLExtensionHandler::extGlBindBuffersRange(const GLenum& target,
 
 inline void COpenGLExtensionHandler::extGlNamedBufferStorage(GLuint buffer, GLsizeiptr size, const void *data, GLbitfield flags)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlNamedBufferStorage)
             pGlNamedBufferStorage(buffer,size,data,flags);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlNamedBufferStorageEXT)
             pGlNamedBufferStorageEXT(buffer,size,data,flags);
@@ -3581,12 +3581,12 @@ inline void COpenGLExtensionHandler::extGlNamedBufferStorage(GLuint buffer, GLsi
 
 inline void COpenGLExtensionHandler::extGlNamedBufferSubData(GLuint buffer, GLintptr offset, GLsizeiptr size, const void *data)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlNamedBufferSubData)
             pGlNamedBufferSubData(buffer,offset,size,data);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlNamedBufferSubDataEXT)
             pGlNamedBufferSubDataEXT(buffer,offset,size,data);
@@ -3603,12 +3603,12 @@ inline void COpenGLExtensionHandler::extGlNamedBufferSubData(GLuint buffer, GLin
 
 inline void COpenGLExtensionHandler::extGlGetNamedBufferSubData(GLuint buffer, GLintptr offset, GLsizeiptr size, void *data)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlGetNamedBufferSubData)
             pGlGetNamedBufferSubData(buffer,offset,size,data);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlGetNamedBufferSubDataEXT)
             pGlGetNamedBufferSubDataEXT(buffer,offset,size,data);
@@ -3625,12 +3625,12 @@ inline void COpenGLExtensionHandler::extGlGetNamedBufferSubData(GLuint buffer, G
 
 inline void *COpenGLExtensionHandler::extGlMapNamedBuffer(GLuint buffer, GLbitfield access)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlMapNamedBuffer)
             return pGlMapNamedBuffer(buffer,access);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlMapNamedBufferEXT)
             return pGlMapNamedBufferEXT(buffer,access);
@@ -3650,12 +3650,12 @@ inline void *COpenGLExtensionHandler::extGlMapNamedBuffer(GLuint buffer, GLbitfi
 
 inline void *COpenGLExtensionHandler::extGlMapNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length, GLbitfield access)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlMapNamedBufferRange)
             return pGlMapNamedBufferRange(buffer,offset,length,access);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlMapNamedBufferRangeEXT)
             return pGlMapNamedBufferRangeEXT(buffer,offset,length,access);
@@ -3675,12 +3675,12 @@ inline void *COpenGLExtensionHandler::extGlMapNamedBufferRange(GLuint buffer, GL
 
 inline void COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlFlushMappedNamedBufferRange)
             pGlFlushMappedNamedBufferRange(buffer,offset,length);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlFlushMappedNamedBufferRangeEXT)
             pGlFlushMappedNamedBufferRangeEXT(buffer,offset,length);
@@ -3697,12 +3697,12 @@ inline void COpenGLExtensionHandler::extGlFlushMappedNamedBufferRange(GLuint buf
 
 inline GLboolean COpenGLExtensionHandler::extGlUnmapNamedBuffer(GLuint buffer)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlUnmapNamedBuffer)
             return pGlUnmapNamedBuffer(buffer);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlUnmapNamedBufferEXT)
             return pGlUnmapNamedBufferEXT(buffer);
@@ -3722,12 +3722,12 @@ inline GLboolean COpenGLExtensionHandler::extGlUnmapNamedBuffer(GLuint buffer)
 
 inline void COpenGLExtensionHandler::extGlClearNamedBufferData(GLuint buffer, GLenum internalformat, GLenum format, GLenum type, const void *data)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlClearNamedBufferData)
             pGlClearNamedBufferData(buffer,internalformat,format,type,data);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlClearNamedBufferDataEXT)
             pGlClearNamedBufferDataEXT(buffer,internalformat,format,type,data);
@@ -3744,12 +3744,12 @@ inline void COpenGLExtensionHandler::extGlClearNamedBufferData(GLuint buffer, GL
 
 inline void COpenGLExtensionHandler::extGlClearNamedBufferSubData(GLuint buffer, GLenum internalformat, GLintptr offset, GLsizeiptr size, GLenum format, GLenum type, const void *data)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlClearNamedBufferSubData)
             pGlClearNamedBufferSubData(buffer,internalformat,offset,size,format,type,data);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlClearNamedBufferSubDataEXT)
             pGlClearNamedBufferSubDataEXT(buffer,internalformat,offset,size,format,type,data);
@@ -3766,12 +3766,12 @@ inline void COpenGLExtensionHandler::extGlClearNamedBufferSubData(GLuint buffer,
 
 inline void COpenGLExtensionHandler::extGlCopyNamedBufferSubData(GLuint readBuffer, GLuint writeBuffer, GLintptr readOffset, GLintptr writeOffset, GLsizeiptr size)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlCopyNamedBufferSubData)
             pGlCopyNamedBufferSubData(readBuffer, writeBuffer, readOffset, writeOffset, size);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlNamedCopyBufferSubDataEXT)
             pGlNamedCopyBufferSubDataEXT(readBuffer, writeBuffer, readOffset, writeOffset, size);
@@ -3798,12 +3798,12 @@ inline GLboolean COpenGLExtensionHandler::extGlIsBuffer(GLuint buffer)
 
 inline void COpenGLExtensionHandler::extGlGetNamedBufferParameteriv(const GLuint& buffer, const GLenum& value, GLint* data)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlGetNamedBufferParameteriv)
             pGlGetNamedBufferParameteriv(buffer, value, data);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlGetNamedBufferParameterivEXT)
             pGlGetNamedBufferParameterivEXT(buffer, value, data);
@@ -3820,7 +3820,7 @@ inline void COpenGLExtensionHandler::extGlGetNamedBufferParameteriv(const GLuint
 
 inline void COpenGLExtensionHandler::extGlGetNamedBufferParameteri64v(const GLuint& buffer, const GLenum& value, GLint64* data)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlGetNamedBufferParameteri64v)
             pGlGetNamedBufferParameteri64v(buffer, value, data);
@@ -3838,7 +3838,7 @@ inline void COpenGLExtensionHandler::extGlGetNamedBufferParameteri64v(const GLui
 
 inline void COpenGLExtensionHandler::extGlCreateVertexArrays(GLsizei n, GLuint *arrays)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlCreateVertexArrays)
             pGlCreateVertexArrays(n,arrays);
@@ -3866,7 +3866,7 @@ inline void COpenGLExtensionHandler::extGlBindVertexArray(GLuint vaobj)
 
 inline void COpenGLExtensionHandler::extGlVertexArrayElementBuffer(GLuint vaobj, GLuint buffer)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlVertexArrayElementBuffer)
             pGlVertexArrayElementBuffer(vaobj,buffer);
@@ -3884,12 +3884,12 @@ inline void COpenGLExtensionHandler::extGlVertexArrayElementBuffer(GLuint vaobj,
 
 inline void COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(GLuint vaobj, GLuint bindingindex, GLuint buffer, GLintptr offset, GLsizei stride)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlVertexArrayVertexBuffer)
             pGlVertexArrayVertexBuffer(vaobj,bindingindex,buffer,offset,stride);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlVertexArrayBindVertexBufferEXT)
             pGlVertexArrayBindVertexBufferEXT(vaobj,bindingindex,buffer,offset,stride);
@@ -3907,12 +3907,12 @@ inline void COpenGLExtensionHandler::extGlVertexArrayVertexBuffer(GLuint vaobj, 
 
 inline void COpenGLExtensionHandler::extGlVertexArrayAttribBinding(GLuint vaobj, GLuint attribindex, GLuint bindingindex)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlVertexArrayAttribBinding)
             pGlVertexArrayAttribBinding(vaobj,attribindex,bindingindex);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlVertexArrayVertexAttribBindingEXT)
             pGlVertexArrayVertexAttribBindingEXT(vaobj,attribindex,bindingindex);
@@ -3930,12 +3930,12 @@ inline void COpenGLExtensionHandler::extGlVertexArrayAttribBinding(GLuint vaobj,
 
 inline void COpenGLExtensionHandler::extGlEnableVertexArrayAttrib(GLuint vaobj, GLuint index)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlEnableVertexArrayAttrib)
             pGlEnableVertexArrayAttrib(vaobj,index);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlEnableVertexArrayAttribEXT)
             pGlEnableVertexArrayAttribEXT(vaobj,index);
@@ -3953,12 +3953,12 @@ inline void COpenGLExtensionHandler::extGlEnableVertexArrayAttrib(GLuint vaobj, 
 
 inline void COpenGLExtensionHandler::extGlDisableVertexArrayAttrib(GLuint vaobj, GLuint index)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlDisableVertexArrayAttrib)
             pGlDisableVertexArrayAttrib(vaobj,index);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlDisableVertexArrayAttribEXT)
             pGlDisableVertexArrayAttribEXT(vaobj,index);
@@ -3976,12 +3976,12 @@ inline void COpenGLExtensionHandler::extGlDisableVertexArrayAttrib(GLuint vaobj,
 
 inline void COpenGLExtensionHandler::extGlVertexArrayAttribFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLboolean normalized, GLuint relativeoffset)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlVertexArrayAttribFormat)
             pGlVertexArrayAttribFormat(vaobj,attribindex,size,type,normalized,relativeoffset);
     }
-    else if (!IsIntelGPU&&FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (!IsIntelGPU&&FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlVertexArrayVertexAttribFormatEXT)
             pGlVertexArrayVertexAttribFormatEXT(vaobj,attribindex,size,type,normalized,relativeoffset);
@@ -3999,12 +3999,12 @@ inline void COpenGLExtensionHandler::extGlVertexArrayAttribFormat(GLuint vaobj, 
 
 inline void COpenGLExtensionHandler::extGlVertexArrayAttribIFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlVertexArrayAttribIFormat)
             pGlVertexArrayAttribIFormat(vaobj,attribindex,size,type,relativeoffset);
     }
-    else if (!IsIntelGPU&&FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (!IsIntelGPU&&FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlVertexArrayVertexAttribIFormatEXT)
             pGlVertexArrayVertexAttribIFormatEXT(vaobj,attribindex,size,type,relativeoffset);
@@ -4022,12 +4022,12 @@ inline void COpenGLExtensionHandler::extGlVertexArrayAttribIFormat(GLuint vaobj,
 
 inline void COpenGLExtensionHandler::extGlVertexArrayAttribLFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlVertexArrayAttribLFormat)
             pGlVertexArrayAttribLFormat(vaobj,attribindex,size,type,relativeoffset);
     }
-    else if (!IsIntelGPU&&FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (!IsIntelGPU&&FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlVertexArrayVertexAttribLFormatEXT)
             pGlVertexArrayVertexAttribLFormatEXT(vaobj,attribindex,size,type,relativeoffset);
@@ -4045,12 +4045,12 @@ inline void COpenGLExtensionHandler::extGlVertexArrayAttribLFormat(GLuint vaobj,
 
 inline void COpenGLExtensionHandler::extGlVertexArrayBindingDivisor(GLuint vaobj, GLuint bindingindex, GLuint divisor)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlVertexArrayBindingDivisor)
             pGlVertexArrayBindingDivisor(vaobj,bindingindex,divisor);
     }
-    else if (FeatureAvailable[IRR_EXT_direct_state_access])
+    else if (FeatureAvailable[NBL_EXT_direct_state_access])
     {
         if (pGlVertexArrayVertexBindingDivisorEXT)
             pGlVertexArrayVertexBindingDivisorEXT(vaobj,bindingindex,divisor);
@@ -4070,7 +4070,7 @@ inline void COpenGLExtensionHandler::extGlVertexArrayBindingDivisor(GLuint vaobj
 
 inline void COpenGLExtensionHandler::extGlCreateTransformFeedbacks(GLsizei n, GLuint* ids)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlCreateTransformFeedbacks)
             pGlCreateTransformFeedbacks(n,ids);
@@ -4120,7 +4120,7 @@ inline void COpenGLExtensionHandler::extGlEndTransformFeedback()
 
 inline void COpenGLExtensionHandler::extGlTransformFeedbackBufferBase(GLuint xfb, GLuint index, GLuint buffer)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlTransformFeedbackBufferBase)
             pGlTransformFeedbackBufferBase(xfb,index,buffer);
@@ -4137,7 +4137,7 @@ inline void COpenGLExtensionHandler::extGlTransformFeedbackBufferBase(GLuint xfb
 
 inline void COpenGLExtensionHandler::extGlTransformFeedbackBufferRange(GLuint xfb, GLuint index, GLuint buffer, GLintptr offset, GLsizeiptr size)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlTransformFeedbackBufferRange)
             pGlTransformFeedbackBufferRange(xfb,index,buffer,offset,size);
@@ -4352,7 +4352,7 @@ inline void COpenGLExtensionHandler::extGlProgramParameteri(GLuint program, GLen
 
 inline void COpenGLExtensionHandler::extGlCreateQueries(GLenum target, GLsizei n, GLuint *ids)
 {
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlCreateQueries)
             pGlCreateQueries(target, n, ids);
@@ -4416,7 +4416,7 @@ inline void COpenGLExtensionHandler::extGlGetQueryObjectui64v(GLuint id, GLenum 
 
 inline void COpenGLExtensionHandler::extGlGetQueryBufferObjectuiv(GLuint id, GLuint buffer, GLenum pname, GLintptr offset)
 {
-    if (Version<440 && !FeatureAvailable[IRR_ARB_query_buffer_object])
+    if (Version<440 && !FeatureAvailable[NBL_ARB_query_buffer_object])
     {
 #ifdef _DEBuG
         os::Printer::log("GL_ARB_query_buffer_object unsupported!\n");
@@ -4424,7 +4424,7 @@ inline void COpenGLExtensionHandler::extGlGetQueryBufferObjectuiv(GLuint id, GLu
         return;
     }
 
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlGetQueryBufferObjectuiv)
             pGlGetQueryBufferObjectuiv(id, buffer, pname, offset);
@@ -4442,7 +4442,7 @@ inline void COpenGLExtensionHandler::extGlGetQueryBufferObjectuiv(GLuint id, GLu
 
 inline void COpenGLExtensionHandler::extGlGetQueryBufferObjectui64v(GLuint id, GLuint buffer, GLenum pname, GLintptr offset)
 {
-    if (Version<440 && !FeatureAvailable[IRR_ARB_query_buffer_object])
+    if (Version<440 && !FeatureAvailable[NBL_ARB_query_buffer_object])
     {
 #ifdef _DEBuG
         os::Printer::log("GL_ARB_query_buffer_object unsupported!\n");
@@ -4450,7 +4450,7 @@ inline void COpenGLExtensionHandler::extGlGetQueryBufferObjectui64v(GLuint id, G
         return;
     }
 
-    if (Version>=450||FeatureAvailable[IRR_ARB_direct_state_access])
+    if (Version>=450||FeatureAvailable[NBL_ARB_direct_state_access])
     {
         if (pGlGetQueryBufferObjectui64v)
             pGlGetQueryBufferObjectui64v(id, buffer, pname, offset);
@@ -4487,27 +4487,27 @@ inline void COpenGLExtensionHandler::extGlEndConditionalRender()
 
 inline void COpenGLExtensionHandler::extGlTextureBarrier()
 {
-	if (FeatureAvailable[IRR_ARB_texture_barrier])
+	if (FeatureAvailable[NBL_ARB_texture_barrier])
 		pGlTextureBarrier();
-	else if (FeatureAvailable[IRR_NV_texture_barrier])
+	else if (FeatureAvailable[NBL_NV_texture_barrier])
 		pGlTextureBarrierNV();
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     else
         os::Printer::log("EDF_TEXTURE_BARRIER Not Available!\n",ELL_ERROR);
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 }
 
 
 inline void COpenGLExtensionHandler::extGlSwapInterval(int interval)
 {
 	// we have wglext, so try to use that
-#if defined(_IRR_WINDOWS_API_) && defined(_IRR_COMPILE_WITH_WINDOWS_DEVICE_)
+#if defined(_NBL_WINDOWS_API_) && defined(_NBL_COMPILE_WITH_WINDOWS_DEVICE_)
 #ifdef WGL_EXT_swap_control
 	if (pWglSwapIntervalEXT)
 		pWglSwapIntervalEXT(interval);
 #endif
 #endif
-#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 	//TODO: Check GLX_EXT_swap_control and GLX_MESA_swap_control
 #ifdef GLX_SGI_swap_control
 	// does not work with interval==0
@@ -4533,7 +4533,7 @@ inline void COpenGLExtensionHandler::extGlBlendEquation(GLenum mode)
 
 inline void COpenGLExtensionHandler::extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params)
 {
-    if (Version>=460 || FeatureAvailable[IRR_ARB_internalformat_query])
+    if (Version>=460 || FeatureAvailable[NBL_ARB_internalformat_query])
     {
         if (pGlGetInternalformativ)
             pGlGetInternalformativ(target, internalformat, pname, bufSize, params);
@@ -4542,7 +4542,7 @@ inline void COpenGLExtensionHandler::extGlGetInternalformativ(GLenum target, GLe
 
 inline void COpenGLExtensionHandler::extGlGetInternalformati64v(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint64* params)
 {
-    if (Version>=460 || FeatureAvailable[IRR_ARB_internalformat_query])
+    if (Version>=460 || FeatureAvailable[NBL_ARB_internalformat_query])
     {
         if (pGlGetInternalformati64v)
             pGlGetInternalformati64v(target, internalformat, pname, bufSize, params);
