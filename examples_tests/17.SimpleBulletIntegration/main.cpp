@@ -1,16 +1,16 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 
-#include "../../ext/ScreenShot/ScreenShot.h"
+#include "irr/ext/ScreenShot/ScreenShot.h"
 
 #include <btBulletDynamicsCommon.h>
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 
-#include "../../ext/Bullet/BulletUtility.h"
-#include "../../ext/Bullet/CPhysicsWorld.h"
+#include "irr/ext/Bullet/BulletUtility.h"
+#include "irr/ext/Bullet/CPhysicsWorld.h"
 
-#include "../../ext/Bullet/CInstancedMotionState.h"
-#include "../../ext/Bullet/CDebugRender.h"
+#include "irr/ext/Bullet/CInstancedMotionState.h"
+#include "irr/ext/Bullet/CDebugRender.h"
 
 
 #include "../common/QToQuitEventReceiver.h"

@@ -15,14 +15,17 @@ struct DeferredEvent
     using event_t = Event;
     using functor_t = Functor;
 
-    DeferredEvent(event_t&& _event, functor_t&& _function) : m_event(std::move(_event)), m_function(std::move(_function)) {}
-    DeferredEvent(DeferredEvent&& other)
+	inline DeferredEvent(event_t&& _event, functor_t&& _function) : m_event(std::move(_event)), m_function(std::move(_function)) {}
+	DeferredEvent(const DeferredEvent&) = delete;
+	inline DeferredEvent(DeferredEvent&& other)
     {
         operator=(std::move(other));
     }
 
+	DeferredEvent& operator=(const DeferredEvent&) = delete;
     inline DeferredEvent& operator=(DeferredEvent&& other)
     {
+        // TODO: investigate how to handle this without swap
         std::swap(m_event, other.m_event);
         std::swap(m_function, other.m_function);
         return *this;
@@ -38,45 +41,13 @@ class PolymorphicEvent : public core::Uncopyable
         PolymorphicEvent() = default;
         virtual ~PolymorphicEvent() {}
 
-        enum WaitRes
-        {
-            Fail,
-            Timeout,
-            Done
-        };
-        virtual WaitRes wait_for(const std::chrono::nanoseconds& len) = 0;
-
     public:
-        PolymorphicEvent& operator=(const PolymorphicEvent& other) = delete;
+        PolymorphicEvent& operator=(const PolymorphicEvent&) = delete;
         virtual PolymorphicEvent& operator=(PolymorphicEvent&& other) noexcept
         {
         }
 
-        template<class Clock, class Duration>
-        inline bool wait_until(const std::chrono::time_point<Clock, Duration>& timeout_time)
-        {
-            auto currentClockTime = Clock::now();
-            do
-            {
-                uint64_t nanosecondsLeft = 0ull;
-                if (currentClockTime<timeout_time)
-                    nanosecondsLeft = std::chrono::duration_cast<std::chrono::nanoseconds>(timeout_time-currentClockTime).count();
-                switch (wait_for(nanosecondsLeft))
-                {
-                    case Fail:
-                        return true;
-                        break;
-                    case Done:
-                        return true;
-                        break;
-                    default: // Timeout
-                        break;
-                }
-                currentClockTime = Clock::now();
-            } while (currentClockTime<timeout_time);
-
-            return false;
-        }
+        virtual bool wait_until(const std::chrono::steady_clock::time_point& timeout_time) = 0;
 
         virtual bool poll() = 0;
 
@@ -111,6 +82,20 @@ class DeferredEventHandlerST
         DeferredEventHandlerST() : mEventsCount(0u)
         {
             mLastEvent = mEvents.before_begin();
+        }
+        DeferredEventHandlerST(const DeferredEventHandlerST&) = delete;
+        DeferredEventHandlerST(DeferredEventHandlerST&& other) : DeferredEventHandlerST()
+        {
+            operator=(std::move(other));
+        }
+
+        DeferredEventHandlerST& operator=(const DeferredEventHandlerST&) = delete;
+        inline DeferredEventHandlerST& operator=(DeferredEventHandlerST&& other)
+        {
+            std::swap(mEventsCount,other.mEventsCount);
+            std::swap(mEvents,other.mEvents);
+            std::swap(mLastEvent,other.mLastEvent);
+            return *this;
         }
 
         virtual ~DeferredEventHandlerST()
@@ -176,8 +161,8 @@ class DeferredEventHandlerST
         */
 
 
-        template<class Clock, class Duration, typename... Args>
-        inline uint32_t waitUntilForReadyEvents(const std::chrono::time_point<Clock, Duration>& timeout_time, Args&... args)
+        template<class Clock, class Duration=typename Clock::duration, typename... Args>
+        inline uint32_t waitUntilForReadyEvents(const std::chrono::time_point<Clock,Duration>& timeout_time, Args&... args)
         {
             // keep on iterating until there are no events left, we time out or functor tells us we can quit early
             while (mEventsCount)

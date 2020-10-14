@@ -110,7 +110,8 @@ public:
 	size_t conservativeSizeEstimate() const override { return 0ull; /*TODO*/ }
 	void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
 	{
-		m_cache.clear();
+		if (m_mutable)
+			m_cache.clear();
 	}
 
 	_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_CACHE;

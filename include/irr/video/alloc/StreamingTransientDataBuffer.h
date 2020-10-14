@@ -26,7 +26,7 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
         virtual ~StreamingTransientDataBufferST() {}
     public:
         typedef typename Base::size_type    size_type;
-        static constexpr size_type                  invalid_address = Base::invalid_address;
+        static constexpr size_type          invalid_address = Base::invalid_address;
 
         #define DUMMY_DEFAULT_CONSTRUCTOR StreamingTransientDataBufferST() {}
         GCC_CONSTRUCTOR_INHERITANCE_BUG_WORKAROUND(DUMMY_DEFAULT_CONSTRUCTOR)
@@ -59,7 +59,7 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
         template<typename... Args>
         inline size_type    multi_place(uint32_t count, Args&&... args) noexcept
         {
-            return multi_place(std::chrono::nanoseconds(50000ull),count,std::forward<Args>(args)...);
+            return multi_place(GPUEventWrapper::default_wait(),count,std::forward<Args>(args)...);
         }
 
         template<typename... Args>
@@ -68,13 +68,13 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
             return Base::multi_alloc(std::forward<Args>(args)...);
         }
 
-        template<typename... Args>
-        inline size_type    multi_place(const std::chrono::nanoseconds& maxWait, uint32_t count, const void* const* dataToPlace, size_type* outAddresses, const size_type* bytes, Args&&... args) noexcept
+        template<class Clock=std::chrono::steady_clock, class Duration=typename Clock::duration, typename... Args>
+        inline size_type    multi_place(const std::chrono::time_point<Clock,Duration>& maxWaitPoint, uint32_t count, const void* const* dataToPlace, size_type* outAddresses, const size_type* bytes, Args&&... args) noexcept
         {
         #ifdef _IRR_DEBUG
             assert(getBuffer()->getBoundMemory());
         #endif // _IRR_DEBUG
-            auto retval = multi_alloc(maxWait,count,outAddresses,bytes,std::forward<Args>(args)...);
+            auto retval = multi_alloc(maxWaitPoint,count,outAddresses,bytes,std::forward<Args>(args)...);
             // fill with data
             for (uint32_t i=0; i<count; i++)
             {

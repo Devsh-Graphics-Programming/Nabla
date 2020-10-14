@@ -50,7 +50,7 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
 
         //! no waiting because of no fencing
         template<typename... Args>
-        inline void                         multi_alloc_addr(Args&&... args) {Base::multi_alloc(std::chrono::nanoseconds(0ull),std::forward<Args>(args)...);}
+        inline void                         multi_alloc_addr(Args&&... args) {Base::multi_alloc(std::chrono::steady_clock::time_point(),std::forward<Args>(args)...);}
         //! no fencing of deallocations,the data update is already fenced
         inline void                         multi_free_addr(uint32_t count, const size_type* addr, const size_type* bytes) {Base::multi_free(count,addr,bytes,nullptr);}
 

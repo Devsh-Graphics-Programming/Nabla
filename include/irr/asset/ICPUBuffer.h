@@ -65,6 +65,8 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             if (isDummyObjectForCacheAliasing)
                 return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
+            if (!m_mutable)
+                return;
 
             if (data)
                 _IRR_ALIGNED_FREE(data);
@@ -135,6 +137,8 @@ class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
             if (isDummyObjectForCacheAliasing)
                 return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
+            if (!m_mutable)
+                return;
 
 			if (ICPUBuffer::data)
 				m_allocator.deallocate(reinterpret_cast<typename Allocator::pointer>(ICPUBuffer::data), ICPUBuffer::size);

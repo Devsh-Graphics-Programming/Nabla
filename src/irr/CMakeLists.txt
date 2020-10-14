@@ -1,3 +1,4 @@
+add_subdirectory(ext)
 
 find_package(OpenGL REQUIRED)
 if(UNIX)
@@ -202,11 +203,16 @@ set(IRR_VIDEO_SOURCES
 # Allocators
 	${IRR_ROOT_PATH}/src/irr/video/alloc/GPUMemoryAllocatorBase.cpp
 	${IRR_ROOT_PATH}/src/irr/video/alloc/SimpleGPUBufferAllocator.cpp
+	
+# Shaders
+	${IRR_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
+
+# Property Pools
+	${IRR_ROOT_PATH}/src/irr/video/CPropertyPoolHandler.cpp
 
 # Junk to refactor
 ${IRR_ROOT_PATH}/source/Irrlicht/IDriver.cpp
 ${IRR_ROOT_PATH}/source/Irrlicht/CNullDriver.cpp
-	${IRR_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
 	${IRR_ROOT_PATH}/source/Irrlicht/FW_Mutex.cpp
 	${IRR_ROOT_PATH}/source/Irrlicht/CFPSCounter.cpp
 )
