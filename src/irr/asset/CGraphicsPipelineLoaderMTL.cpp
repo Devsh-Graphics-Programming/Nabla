@@ -234,9 +234,7 @@ core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipel
     }
 
     auto ds1layout = getDefaultAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("irr/builtin/descriptor_set_layout/basic_view_parameters", m_assetMgr);
-    // clone DS layout so that the builtin object is not used used in resulting asset (so that builtin object is not transformed into dummy asset key)
-    // this rule concerns every asset type and every loader!
-    ds1layout = core::smart_refctd_ptr_static_cast<ICPUDescriptorSetLayout>(ds1layout->clone(0u));
+
     core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds3Layout = _noDS3 ? nullptr : core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
     SPushConstantRange pcRng;
     pcRng.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
