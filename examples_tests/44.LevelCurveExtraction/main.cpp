@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#define _IRR_STATIC_LIB_
+#define _NBL_STATIC_LIB_
 
 #include "InputEventReciever.h"
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"

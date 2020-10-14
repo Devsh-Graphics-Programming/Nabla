@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_RAW_BUFFER_BLOB_H_INCLUDED__
-#define __IRR_RAW_BUFFER_BLOB_H_INCLUDED__
+#ifndef __NBL_ASSET_RAW_BUFFER_BLOB_H_INCLUDED__
+#define __NBL_ASSET_RAW_BUFFER_BLOB_H_INCLUDED__
 
 #include "irr/asset/bawformat/Blob.h"
 
@@ -15,7 +15,7 @@ namespace asset
 class ICPUBuffer;
 
 #include "irr/irrpack.h"
-struct IRR_FORCE_EBO RawBufferBlobV0 : TypedBlob<RawBufferBlobV0, ICPUBuffer>, VariableSizeBlob<RawBufferBlobV0, ICPUBuffer>
+struct NBL_FORCE_EBO RawBufferBlobV0 : TypedBlob<RawBufferBlobV0, ICPUBuffer>, VariableSizeBlob<RawBufferBlobV0, ICPUBuffer>
 {};
 #include "irr/irrunpack.h"
 

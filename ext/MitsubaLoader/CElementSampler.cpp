@@ -36,7 +36,7 @@ CElementFactory::return_type CElementFactory::createElement<CElementSampler>(con
 	if (found==StringToType.end())
 	{
 		ParserLog::invalidXMLFileStructure("unknown type");
-		_IRR_DEBUG_BREAK_IF(false);
+		_NBL_DEBUG_BREAK_IF(false);
 		return CElementFactory::return_type(nullptr, "");
 	}
 
@@ -50,12 +50,12 @@ CElementFactory::return_type CElementFactory::createElement<CElementSampler>(con
 	switch (obj->type)
 	{
 		case CElementSampler::Type::STRATIFIED:
-			_IRR_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementSampler::Type::LDSAMPLER:
 			obj->dimension = 4;
 			break;
 		case CElementSampler::Type::HALTON:
-			_IRR_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementSampler::Type::HAMMERSLEY:
 			obj->scramble = -1;
 			break;
@@ -94,7 +94,7 @@ bool CElementSampler::addProperty(SNamedPropertyElement&& _property)
 		if (type == Type::INDEPENDENT || type == Type::HALTON || type == Type::HAMMERSLEY)
 		{
 			ParserLog::invalidXMLFileStructure("this sampler type does not take these parameters");
-			_IRR_DEBUG_BREAK_IF(true);
+			_NBL_DEBUG_BREAK_IF(true);
 			return false;
 		}
 	}
@@ -106,13 +106,13 @@ bool CElementSampler::addProperty(SNamedPropertyElement&& _property)
 		if (type==Type::INDEPENDENT || type==Type::STRATIFIED || type == Type::LDSAMPLER)
 		{
 			ParserLog::invalidXMLFileStructure("this sampler type does not take these parameters");
-			_IRR_DEBUG_BREAK_IF(true);
+			_NBL_DEBUG_BREAK_IF(true);
 			return false;
 		}
 	}
 	else
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		return false;
 	}
 
@@ -124,7 +124,7 @@ bool CElementSampler::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _overr
 	if (type == Type::INVALID)
 	{
 		ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		return true;
 	}
 

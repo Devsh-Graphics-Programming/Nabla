@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __C_SKINNING_STATE_MANAGER_H_INCLUDED__
-#define __C_SKINNING_STATE_MANAGER_H_INCLUDED__
+#ifndef __NBL_C_SKINNING_STATE_MANAGER_H_INCLUDED__
+#define __NBL_C_SKINNING_STATE_MANAGER_H_INCLUDED__
 
 
 #include "ISkinningStateManager.h"
@@ -17,7 +17,7 @@ namespace scene
 
     class CSkinningStateManager : public ISkinningStateManager
     {
-            _IRR_STATIC_INLINE_CONSTEXPR asset::E_FORMAT TBO_FORMAT = asset::EF_R32G32B32A32_SFLOAT;
+            _NBL_STATIC_INLINE_CONSTEXPR asset::E_FORMAT TBO_FORMAT = asset::EF_R32G32B32A32_SFLOAT;
             video::IVideoDriver* Driver;
             core::smart_refctd_ptr<video::IGPUBufferView> TBO;
 
@@ -45,7 +45,7 @@ namespace scene
             {
                 uint32_t newID = kInvalidInstanceID;
 
-                const uint32_t align = _IRR_SIMD_ALIGNMENT;
+                const uint32_t align = _NBL_SIMD_ALIGNMENT;
                 instanceBoneDataAllocator->multi_alloc_addr(1u,&newID,&instanceFinalBoneDataSize,&align);
                 if (newID==kInvalidInstanceID)
                     return kInvalidInstanceID;
@@ -58,7 +58,7 @@ namespace scene
                         TBO = Driver->createGPUBufferView(instanceBoneDataAllocator->getFrontBuffer(), TBO_FORMAT);
 
                     auto newInstanceDataSize = instanceCapacity*actualSizeOfInstanceDataElement;
-                    uint8_t* newInstanceData = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(newInstanceDataSize,_IRR_SIMD_ALIGNMENT));
+                    uint8_t* newInstanceData = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(newInstanceDataSize,_NBL_SIMD_ALIGNMENT));
                     auto oldInstanceDataByteSize = instanceDataSize*actualSizeOfInstanceDataElement;
                     if (newInstanceDataSize<oldInstanceDataByteSize)
                         memcpy(newInstanceData,instanceData,newInstanceDataSize);
@@ -95,9 +95,7 @@ namespace scene
                             memset(getBones(tmp),0,sizeof(IBoneSceneNode*)*referenceHierarchy->getBoneCount());
                             break;
                         }
-#if __cplusplus >= 201703L
                         [[fallthrough]];
-#endif
                     case EBUM_CONTROL:
                         tmp->needToRecomputeParentBBox = false;
                         for (size_t i=0; i<referenceHierarchy->getBoneCount(); i++)

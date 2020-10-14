@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_C_CPU_MESH_PACKER_H_INCLUDED__
-#define __IRR_C_CPU_MESH_PACKER_H_INCLUDED__
+#ifndef __NBL_ASSET_C_CPU_MESH_PACKER_H_INCLUDED__
+#define __NBL_ASSET_C_CPU_MESH_PACKER_H_INCLUDED__
 
 #include <irr/asset/ICPUMesh.h>
 #include <irr/asset/IMeshPacker.h>
@@ -121,7 +121,7 @@ MeshPackerBase::ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::all
 		if ((*it)->getIndexBufferBinding()->buffer.get() == nullptr ||
 			pipeline->getPrimitiveAssemblyParams().primitiveType != EPT_TRIANGLE_LIST)
 		{
-			_IRR_DEBUG_BREAK_IF(true);
+			_NBL_DEBUG_BREAK_IF(true);
 			return invalidReservedAllocationMeshBuffers;
 		}
 	}
@@ -140,7 +140,7 @@ MeshPackerBase::ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::all
 			if (mbVtxInputParams.attributes[location].format != m_outVtxInputParams.attributes[location].format ||
 				mbVtxInputParams.bindings[mbVtxInputParams.attributes[location].binding].inputRate != m_outVtxInputParams.bindings[location].inputRate)
 			{
-				_IRR_DEBUG_BREAK_IF(true);
+				_NBL_DEBUG_BREAK_IF(true);
 				return invalidReservedAllocationMeshBuffers;
 			}
 		}
@@ -169,14 +169,14 @@ MeshPackerBase::ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::all
 	MDIAllocAddr = m_MDIDataAlctr.alloc_addr(possibleMDIStructsNeededCnt, 1u);
 	if (MDIAllocAddr == INVALID_ADDRESS)
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		return invalidReservedAllocationMeshBuffers;
 	}
 	
 	idxAllocAddr = m_idxBuffAlctr.alloc_addr(idxCnt, 1u);
 	if (idxAllocAddr == INVALID_ADDRESS)
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 
 		m_MDIDataAlctr.free_addr(MDIAllocAddr, possibleMDIStructsNeededCnt);
 
@@ -188,7 +188,7 @@ MeshPackerBase::ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::all
 		vtxAllocAddr = m_vtxBuffAlctr.alloc_addr((idxCnt + 1u) / 2u, 1u);
 		if (vtxAllocAddr == INVALID_ADDRESS)
 		{
-			_IRR_DEBUG_BREAK_IF(true);
+			_NBL_DEBUG_BREAK_IF(true);
 
 			m_MDIDataAlctr.free_addr(MDIAllocAddr, possibleMDIStructsNeededCnt);
 			m_idxBuffAlctr.free_addr(idxAllocAddr, idxCnt);
@@ -200,12 +200,12 @@ MeshPackerBase::ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::all
 	if (m_perInsVtxBuffAlctrResSpc)
 	{
 		//wont work for meshes with per instance attributes
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 
 		perInsVtxAllocAddr = m_perInsVtxBuffAlctr.alloc_addr((idxCnt + 1u) / 2u, 1u);
 		if (perInsVtxAllocAddr == INVALID_ADDRESS)
 		{
-			_IRR_DEBUG_BREAK_IF(true);
+			_NBL_DEBUG_BREAK_IF(true);
 
 			m_MDIDataAlctr.free_addr(MDIAllocAddr, possibleMDIStructsNeededCnt);
 			m_idxBuffAlctr.free_addr(idxAllocAddr, idxCnt);
@@ -261,7 +261,7 @@ void CCPUMeshPacker<MDIStructType>::instantiateDataStorage()
 			}
 			else if (binding.inputRate == EVIR_PER_INSTANCE)
 			{
-				_IRR_DEBUG_BREAK_IF(true);
+				_NBL_DEBUG_BREAK_IF(true);
 				//TODO #4
 				//outputBuffer.vertexBufferBindings[location] = { perInsBuffOffset,  unifiedVtxBuff };
 				//perVtxBuffOffset += attrSizeArray[location] * m_vtxSize; fix
@@ -337,7 +337,7 @@ auto CCPUMeshPacker<MDIStructType>::constructTriangleBatches(ICPUMeshBuffer& mes
 {
 	const size_t idxCnt = meshBuffer.getIndexCount();
 	const uint32_t triCnt = idxCnt / 3;
-	_IRR_DEBUG_BREAK_IF(idxCnt % 3 != 0);
+	_NBL_DEBUG_BREAK_IF(idxCnt % 3 != 0);
 
 	const uint32_t batchCount = (triCnt + m_maxTriangleCountPerMDIData - 1) / m_maxTriangleCountPerMDIData;
 

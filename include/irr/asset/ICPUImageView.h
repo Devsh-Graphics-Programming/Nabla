@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_CPU_IMAGE_VIEW_H_INCLUDED__
-#define __IRR_I_CPU_IMAGE_VIEW_H_INCLUDED__
+#ifndef __NBL_ASSET_I_CPU_IMAGE_VIEW_H_INCLUDED__
+#define __NBL_ASSET_I_CPU_IMAGE_VIEW_H_INCLUDED__
 
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ICPUImage.h"
@@ -56,7 +56,7 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 		}
 
 		//!
-		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_IMAGE_VIEW;
+		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_IMAGE_VIEW;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
 		//!

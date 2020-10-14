@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_PCH_H_INCLUDED__
-#define __IRR_PCH_H_INCLUDED__
+#ifndef __NBL_PCH_H_INCLUDED__
+#define __NBL_PCH_H_INCLUDED__
 
 #include "irrlicht.h"
 
@@ -120,4 +120,4 @@
 #include "os.h"
 */
 
-#endif //__IRR_PCH_H_INCLUDED__
+#endif

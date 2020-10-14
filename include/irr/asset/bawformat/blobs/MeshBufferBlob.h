@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_MESH_BUFFER_BLOB_H_INCLUDED__
-#define __IRR_MESH_BUFFER_BLOB_H_INCLUDED__
+#ifndef __NBL_ASSET_MESH_BUFFER_BLOB_H_INCLUDED__
+#define __NBL_ASSET_MESH_BUFFER_BLOB_H_INCLUDED__
 
 #include "irr/asset/format/EFormat.h"
 #include "irr/asset/bawformat/Blob.h"
@@ -17,12 +17,12 @@ class ICPUMeshBuffer;
 
 #include "irr/irrpack.h"
 //! Simple struct of essential data of ICPUMeshBuffer that has to be exported
-struct IRR_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV3, ICPUMeshBuffer>
+struct NBL_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV3, ICPUMeshBuffer>
 {
 	//! Constructor filling all members
 	explicit MeshBufferBlobV3(const ICPUMeshBuffer*);
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	video::SCPUMaterial mat;
 #endif
 	core::aabbox3df box;
@@ -41,7 +41,7 @@ struct IRR_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuff
 //TODO bring it back
 //static_assert(sizeof(MeshBufferBlobV0::mat)==197, "sizeof(MeshBufferBlobV0::mat) must be 197");
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 static_assert(
     sizeof(MeshBufferBlobV3) ==
     sizeof(MeshBufferBlobV3::mat) + sizeof(MeshBufferBlobV3::box) + sizeof(MeshBufferBlobV3::descPtr) + sizeof(MeshBufferBlobV3::indexType) + sizeof(MeshBufferBlobV3::baseVertex)

@@ -2,10 +2,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_C_GLSL_SCAN_BUILTIN_LOADER_H_INCLUDED__
-#define __IRR_C_GLSL_SCAN_BUILTIN_LOADER_H_INCLUDED__
+#ifndef __NBL_ASSET_C_GLSL_SCAN_BUILTIN_LOADER_H_INCLUDED__
+#define __NBL_ASSET_C_GLSL_SCAN_BUILTIN_LOADER_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 #include "IVideoCapabilityReporter.h"
 #include "irr/asset/IBuiltinIncludeLoader.h"
 
@@ -81,4 +81,4 @@ private:
 
 }}
 
-#endif //__IRR_C_GLSL_SCAN_BUILTIN_LOADER_H_INCLUDED__
+#endif

@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __IRR_STRING_H_INCLUDED__
-#define __IRR_STRING_H_INCLUDED__
+#ifndef __NBL_STRING_H_INCLUDED__
+#define __NBL_STRING_H_INCLUDED__
 
 #include <stdio.h>
 #include <string>
@@ -32,11 +32,11 @@ other information in the wchar_t.
 
 enum eLocaleID
 {
-	IRR_LOCALE_ANSI = 0,
-	IRR_LOCALE_GERMAN = 1
+	NBL_LOCALE_ANSI = 0,
+	NBL_LOCALE_GERMAN = 1
 };
 
-static eLocaleID locale_current = IRR_LOCALE_ANSI;
+static eLocaleID locale_current = NBL_LOCALE_ANSI;
 static inline void locale_set ( eLocaleID id )
 {
 	locale_current = id;
@@ -47,8 +47,8 @@ static inline uint32_t locale_lower ( uint32_t x )
 {
 	switch ( locale_current )
 	{
-		case IRR_LOCALE_GERMAN:
-		case IRR_LOCALE_ANSI:
+		case NBL_LOCALE_GERMAN:
+		case NBL_LOCALE_ANSI:
 			break;
 	}
 	// ansi
@@ -60,8 +60,8 @@ static inline uint32_t locale_upper ( uint32_t x )
 {
 	switch ( locale_current )
 	{
-		case IRR_LOCALE_GERMAN:
-		case IRR_LOCALE_ANSI:
+		case NBL_LOCALE_GERMAN:
+		case NBL_LOCALE_ANSI:
 			break;
 	}
 
@@ -241,7 +241,7 @@ public:
 	//! Direct access operator
 	T& operator [](const uint32_t index)
 	{
-		_IRR_DEBUG_BREAK_IF(index>=used) // bad index
+		_NBL_DEBUG_BREAK_IF(index>=used) // bad index
 		return array[index];
 	}
 
@@ -249,7 +249,7 @@ public:
 	//! Direct access operator
 	const T& operator [](const uint32_t index) const
 	{
-		_IRR_DEBUG_BREAK_IF(index>=used) // bad index
+		_NBL_DEBUG_BREAK_IF(index>=used) // bad index
 		return array[index];
 	}
 
@@ -1012,7 +1012,7 @@ public:
 	\param index: Index of element to be erased. */
 	string<T,TAlloc>& erase(uint32_t index)
 	{
-		_IRR_DEBUG_BREAK_IF(index>=used) // access violation
+		_NBL_DEBUG_BREAK_IF(index>=used) // access violation
 
 		for (uint32_t i=index+1; i<used; ++i)
 			array[i-1] = array[i];

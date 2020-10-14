@@ -78,7 +78,7 @@ class CElementShape : public IElement
 		};
 		struct ShapeGroup
 		{
-			_IRR_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 128u;
+			_NBL_STATIC_INLINE_CONSTEXPR size_t MaxChildCount = 128u;
 			size_t childCount = 0u;
 			CElementShape* children[MaxChildCount] = { nullptr };
 		};

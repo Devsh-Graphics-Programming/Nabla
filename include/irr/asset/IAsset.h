@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_ASSET_H_INCLUDED__
-#define __IRR_I_ASSET_H_INCLUDED__
+#ifndef __NBL_ASSET_I_ASSET_H_INCLUDED__
+#define __NBL_ASSET_I_ASSET_H_INCLUDED__
 
 #include <string>
 #include "irr/asset/IAssetMetadata.h"
@@ -130,7 +130,7 @@ class IAsset : virtual public core::IReferenceCounted
 			if (!rootAsset)
 				return nullptr;
 			assetType* image = rootAsset->getAssetType()!=assetType::AssetType ? nullptr:static_cast<assetType*>(rootAsset);
-			#ifdef _IRR_DEBUG
+			#ifdef _NBL_DEBUG
 				assert(image);
 			#endif
 			return image;
@@ -325,4 +325,4 @@ class SAssetBundle
 }
 }
 
-#endif // __IRR_I_ASSET_H_INCLUDED__
+#endif

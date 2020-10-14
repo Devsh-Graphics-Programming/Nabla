@@ -3,10 +3,10 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __C_IMAGE_LOADER_TGA_H_INCLUDED__
-#define __C_IMAGE_LOADER_TGA_H_INCLUDED__
+#ifndef __NBL_ASSET_C_IMAGE_LOADER_TGA_H_INCLUDED__
+#define __NBL_ASSET_C_IMAGE_LOADER_TGA_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildCOnfigOptions.h"
 #include "irr/asset/IImageLoader.h"
 
 namespace irr
@@ -14,7 +14,7 @@ namespace irr
 namespace asset
 {
 
-#if defined(_IRR_COMPILE_WITH_TGA_LOADER_) || defined(_IRR_COMPILE_WITH_TGA_WRITER_)
+#if defined(_NBL_COMPILE_WITH_TGA_LOADER_) || defined(_NBL_COMPILE_WITH_TGA_WRITER_)
 
 // byte-align structures
 #include "irr/irrpack.h"
@@ -87,7 +87,7 @@ namespace asset
 
 #endif // compiled with loader or reader
 
-#ifdef _IRR_COMPILE_WITH_TGA_LOADER_
+#ifdef _NBL_COMPILE_WITH_TGA_LOADER_
 
 /*!
 	Surface Loader for targa images

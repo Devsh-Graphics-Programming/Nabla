@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_CPU_BUFFER_VIEW_H_INCLUDED__
-#define __IRR_I_CPU_BUFFER_VIEW_H_INCLUDED__
+#ifndef __NBL_ASSET_I_CPU_BUFFER_VIEW_H_INCLUDED__
+#define __NBL_ASSET_I_CPU_BUFFER_VIEW_H_INCLUDED__
 
 
 #include <utility>
@@ -45,7 +45,7 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 				m_buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}
 
-		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER_VIEW;
+		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER_VIEW;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
 		ICPUBuffer* getUnderlyingBuffer() { return m_buffer.get(); }

@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_SHADERC_UTILS_H_INCLUDED__
-#define __IRR_SHADERC_UTILS_H_INCLUDED__
+#ifndef __NBL_ASSET_SHADERC_UTILS_H_INCLUDED__
+#define __NBL_ASSET_SHADERC_UTILS_H_INCLUDED__
 
 //! This file is not supposed to be included in user-accesible header files
 
@@ -32,5 +32,5 @@ inline shaderc_shader_kind ESStoShadercEnum(ISpecializedShader::E_SHADER_STAGE _
 
 }}
 
-#endif // __IRR_SHADERC_UTILS_H_INCLUDED__
+#endif
 

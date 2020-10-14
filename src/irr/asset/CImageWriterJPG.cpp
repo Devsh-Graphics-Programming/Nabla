@@ -3,9 +3,11 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
+#include "irr/asset/compile_config.h"
+
 #include "CImageWriterJPG.h"
 
-#ifdef _IRR_COMPILE_WITH_JPG_WRITER_
+#ifdef _NBL_COMPILE_WITH_JPG_WRITER_
 
 #include "IWriteFile.h"
 #include "irr/asset/format/convertColor.h"
@@ -15,7 +17,7 @@
 
 #include "os.h"
 
-#ifdef _IRR_COMPILE_WITH_LIBJPEG_
+#ifdef _NBL_COMPILE_WITH_LIBJPEG_
 #include <stdio.h> // required for jpeglib.h
 extern "C"
 {
@@ -172,18 +174,18 @@ static bool writeJPEGFile(io::IWriteFile* file, const asset::ICPUImageView* imag
 
 	return (dest != 0);
 }
-#endif // _IRR_COMPILE_WITH_LIBJPEG_
+#endif // _NBL_COMPILE_WITH_LIBJPEG_
 
 CImageWriterJPG::CImageWriterJPG()
 {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	setDebugName("CImageWriterJPG");
 #endif
 }
 
 bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
-#if !defined(_IRR_COMPILE_WITH_LIBJPEG_ )
+#if !defined(_NBL_COMPILE_WITH_LIBJPEG_ )
 	return false;
 #else
 	SAssetWriteContext ctx{ _params, _file };
@@ -196,7 +198,7 @@ bool CImageWriterJPG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 
 	return writeJPEGFile(file, imageView, (!!(flags & asset::EWF_COMPRESSED)) * static_cast<uint32_t>((1.f-comprLvl)*100.f)); // if quality==0, then it defaults to 75
 
-#endif//!defined(_IRR_COMPILE_WITH_LIBJPEG_ )
+#endif//!defined(_NBL_COMPILE_WITH_LIBJPEG_ )
 }
 
 #undef OUTPUT_BUF_SIZE

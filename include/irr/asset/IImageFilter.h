@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_IMAGE_FILTER_H_INCLUDED__
-#define __IRR_I_IMAGE_FILTER_H_INCLUDED__
+#ifndef __NBL_ASSET_I_IMAGE_FILTER_H_INCLUDED__
+#define __NBL_ASSET_I_IMAGE_FILTER_H_INCLUDED__
 
 #include "irr/core/core.h"
 
@@ -35,8 +35,8 @@ class IImageFilter
 					ColorValue() {}
 					~ColorValue() {}
 
-					_IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_CHANNELS = 4u;
-					_IRR_STATIC_INLINE_CONSTEXPR uint32_t LARGEST_COMPRESSED_BLOCK_SIZE = 16u;
+					_NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_CHANNELS = 4u;
+					_NBL_STATIC_INLINE_CONSTEXPR uint32_t LARGEST_COMPRESSED_BLOCK_SIZE = 16u;
 					union
 					{
 						uint8_t				pointer[sizeof(double)*MAX_CHANNELS];

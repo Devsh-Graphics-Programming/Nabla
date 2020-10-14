@@ -3,12 +3,12 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef _C_IMAGE_WRITER_PNG_H_INCLUDED__
-#define _C_IMAGE_WRITER_PNG_H_INCLUDED__
+#ifndef __NBL_ASSET_C_IMAGE_WRITER_PNG_H_INCLUDED__
+#define __NBL_ASSET_C_IMAGE_WRITER_PNG_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 
-#ifdef _IRR_COMPILE_WITH_PNG_WRITER_
+#ifdef _NBL_COMPILE_WITH_PNG_WRITER_
 
 #include "irr/asset/IAssetWriter.h"
 
@@ -41,6 +41,6 @@ public:
 } // namespace video
 } // namespace irr
 
-#endif // _C_IMAGE_WRITER_PNG_H_INCLUDED__
+#endif
 #endif
 

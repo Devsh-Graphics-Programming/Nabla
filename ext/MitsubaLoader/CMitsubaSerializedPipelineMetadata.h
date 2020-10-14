@@ -25,7 +25,7 @@ namespace irr
 
                 core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const override { return { m_shaderInputs->begin(), m_shaderInputs->end() }; }
 
-                _IRR_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CSerializedLoader";
+                _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CSerializedLoader";
                 const char* getLoaderName() const override { return LoaderName; }
 
             private:

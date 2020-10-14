@@ -4,8 +4,8 @@
 
 #if 0 // TODO
 
-#ifndef __IRR_C_BAYER_MATRIX_DITHER_H_INCLUDED__
-#define __IRR_C_BAYER_MATRIX_DITHER_H_INCLUDED__
+#ifndef __NBL_ASSET_C_BAYER_MATRIX_DITHER_H_INCLUDED__
+#define __NBL_ASSET_C_BAYER_MATRIX_DITHER_H_INCLUDED__
 
 #include "../include/irr/asset/filters/dithering/CDither.h"
 
@@ -36,6 +36,6 @@ namespace irr
 	}
 }
 
-#endif // __IRR_C_BAYER_MATRIX_DITHER_H_INCLUDED__
+#endif
 
 #endif // TODO

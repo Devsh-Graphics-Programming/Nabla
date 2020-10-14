@@ -3,27 +3,27 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "IrrCompileConfig.h"
-
 static const char* const copyright = "Irrlicht Engine (c) 2002-2011 Nikolaus Gebhardt";
 
-#ifdef _IRR_WINDOWS_
+#include "BuildConfigOptions.h"
+
+#ifdef _NBL_WINDOWS_
 	#include <windows.h>
-	#if defined(_IRR_DEBUG) && !defined(__GNUWIN32__) && !defined(_WIN32_WCE)
+	#if defined(_NBL_DEBUG) && !defined(__GNUWIN32__) && !defined(_WIN32_WCE)
 		#include <crtdbg.h>
-	#endif // _IRR_DEBUG
+	#endif // _NBL_DEBUG
 #endif
 
 #include "irrlicht.h"
-#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 #include "CIrrDeviceWin32.h"
 #endif
 
-#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 #include "CIrrDeviceLinux.h"
 #endif
 
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
 #include "CIrrDeviceSDL.h"
 #endif
 
@@ -53,15 +53,15 @@ namespace irr
 	{
 		core::smart_refctd_ptr<IrrlichtDevice> dev;
 
-#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 		if (params.DeviceType == EIDT_WIN32 || (!dev && params.DeviceType == EIDT_BEST))
 			dev = core::make_smart_refctd_ptr<CIrrDeviceWin32>(params);
 #endif
-#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 		if (params.DeviceType == EIDT_X11 || (!dev && params.DeviceType == EIDT_BEST))
 			dev = core::make_smart_refctd_ptr<CIrrDeviceLinux>(params);
 #endif
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
 		if (params.DeviceType == EIDT_SDL || (!dev && params.DeviceType == EIDT_BEST))
 			dev = core::make_smart_refctd_ptr<CIrrDeviceSDL>(params);
 #endif
@@ -81,7 +81,7 @@ namespace irr
 } // end namespace irr
 
 
-#if defined(_IRR_WINDOWS_API_)
+#if defined(_NBL_WINDOWS_API_)
 
 BOOL APIENTRY DllMain( HANDLE hModule,
                        DWORD  ul_reason_for_call,
@@ -92,7 +92,7 @@ BOOL APIENTRY DllMain( HANDLE hModule,
     switch (ul_reason_for_call)
 	{
 		case DLL_PROCESS_ATTACH:
-			#if defined(_IRR_DEBUG) && !defined(__GNUWIN32__) && !defined(__BORLANDC__)
+			#if defined(_NBL_DEBUG) && !defined(__GNUWIN32__) && !defined(__BORLANDC__)
 				_CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF | _CRTDBG_ALLOC_MEM_DF);
 			#endif
 			break;
@@ -104,5 +104,5 @@ BOOL APIENTRY DllMain( HANDLE hModule,
     return TRUE;
 }
 
-#endif // defined(_IRR_WINDOWS_)
+#endif // defined(_NBL_WINDOWS_)
 

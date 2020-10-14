@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_EVENT_DEFERRED_HANDLER_H__
-#define __IRR_EVENT_DEFERRED_HANDLER_H__
+#ifndef __NBL_CORE_EVENT_DEFERRED_HANDLER_H__
+#define __NBL_CORE_EVENT_DEFERRED_HANDLER_H__
 
 
 #include "irr/core/Types.h"
@@ -146,9 +146,9 @@ class DeferredEventHandlerST
         //! Abort does not call the operator()
         inline uint32_t abortEvent(const event_t& eventToAbort)
         {
-            #ifdef _IRR_DEBUG
+            #ifdef _NBL_DEBUG
             assert(mEvents.size());
-            #endif // _IRR_DEBUG
+            #endif // _NBL_DEBUG
             std::remove_if(mEvents.begin(),mEvents.end(),[&](const DeferredEvent& x){return x.m_event==eventToAbort;});
             mLastEvent = ?
             return mEvents.size();
@@ -285,4 +285,4 @@ class DeferredEventHandlerST
 }
 }
 
-#endif // __IRR_EVENT_DEFERRED_HANDLER_H__
+#endif

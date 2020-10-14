@@ -3,21 +3,20 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __C_IRR_DEVICE_WIN32_H_INCLUDED__
-#define __C_IRR_DEVICE_WIN32_H_INCLUDED__
+#ifndef __NBL_C_NBL_DEVICE_WIN32_H_INCLUDED__
+#define __NBL_C_NBL_DEVICE_WIN32_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
-#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+#include "irr/core/compile_config.h"
+
+#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 
 #include "CIrrDeviceStub.h"
 #include "IrrlichtDevice.h"
 
 #define WIN32_LEAN_AND_MEAN
-#if !defined(_IRR_XBOX_PLATFORM_)
 	#include <windows.h>
 	#include <mmsystem.h> // For JOYCAPS
 	#include <windowsx.h>
-#endif
 #if !defined(GET_X_LPARAM)
 #define GET_X_LPARAM(lp) ((int)(short)LOWORD(lp))
 #define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
@@ -400,5 +399,5 @@ namespace irr
 
 } // end namespace irr
 
-#endif // _IRR_COMPILE_WITH_WINDOWS_DEVICE_
-#endif // __C_IRR_DEVICE_WIN32_H_INCLUDED__
+#endif // _NBL_COMPILE_WITH_WINDOWS_DEVICE_
+#endif

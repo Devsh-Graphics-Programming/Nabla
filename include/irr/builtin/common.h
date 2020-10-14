@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_BUILTIN_COMMON_H_INCLUDED_
-#define _IRR_BUILTIN_COMMON_H_INCLUDED_
+#ifndef _NBL_BUILTIN_COMMON_H_INCLUDED_
+#define _NBL_BUILTIN_COMMON_H_INCLUDED_
 
 #include "BuildConfigOptions.h"
 
@@ -14,21 +14,21 @@ namespace irr
 namespace builtin
 {
 
-// if you attempt to use this without `IRR_EMBED_BUILTIN_RESOURCES_` CMake option, you will get loads of undefined references
+// if you attempt to use this without `NBL_EMBED_BUILTIN_RESOURCES_` CMake option, you will get loads of undefined references
 template<typename StringUniqueLiteralType>
 const std::pair<const uint8_t*, size_t> get_resource();
 
-// if you attempt to use this without `IRR_EMBED_BUILTIN_RESOURCES_` CMake option, this will always return `{nullptr,0ull}`
+// if you attempt to use this without `NBL_EMBED_BUILTIN_RESOURCES_` CMake option, this will always return `{nullptr,0ull}`
 std::pair<const uint8_t*,size_t> get_resource_runtime(const std::string&);
 
 }
 }
 
-#ifndef _IRR_EMBED_BUILTIN_RESOURCES_
+#ifndef _NBL_EMBED_BUILTIN_RESOURCES_
 // will only be available in the app or library using irrlicht
-#if defined(_IRR_STATIC_LIB_) || !defined(IRRLICHT_EXPORTS)
+#if defined(_NBL_STATIC_LIB_) || !defined(NABLA_EXPORTS)
 
-#define _IRR_BUILTIN_PATH_AVAILABLE
+#define _NBL_BUILTIN_PATH_AVAILABLE
 namespace irr
 {
 namespace builtin

@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __IRR_OS_H_INCLUDED__
-#define __IRR_OS_H_INCLUDED__
+#ifndef __NBL_OS_H_INCLUDED__
+#define __NBL_OS_H_INCLUDED__
 
 #include "irr/core/core.h"
 #include "irr/core/math/floatutil.h"
@@ -23,15 +23,15 @@ namespace os
 	{
 			Byteswap() = delete;
 		public:
-			#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_)
+			#if defined(_NBL_COMPILE_WITH_SDL_DEVICE_)
 			#include <SDL/SDL_endian.h>
 			#define bswap_16(X) SDL_Swap16(X)
 			#define bswap_32(X) SDL_Swap32(X)
-			#elif defined(_IRR_WINDOWS_API_) && defined(_MSC_VER) && (_MSC_VER > 1298)
+			#elif defined(_NBL_WINDOWS_API_) && defined(_MSC_VER) && (_MSC_VER > 1298)
 			#include <stdlib.h>
 			#define bswap_16(X) _byteswap_ushort(X)
 			#define bswap_32(X) _byteswap_ulong(X)
-			#elif defined(_IRR_OSX_PLATFORM_)
+			#elif defined(_NBL_OSX_PLATFORM_)
 			#include <libkern/OSByteOrder.h>
 			#define bswap_16(X) OSReadSwapInt16(&X,0)
 			#define bswap_32(X) OSReadSwapInt32(&X,0)
@@ -39,7 +39,7 @@ namespace os
 			#include <sys/endian.h>
 			#define bswap_16(X) bswap16(X)
 			#define bswap_32(X) bswap32(X)
-			#elif !defined(_IRR_SOLARIS_PLATFORM_) && !defined(__PPC__) && !defined(_IRR_WINDOWS_API_)
+			#elif !defined(_NBL_SOLARIS_PLATFORM_) && !defined(__PPC__) && !defined(_NBL_WINDOWS_API_)
 			#include <byteswap.h>
 			#else
 			#define bswap_16(X) ((((X)&0xFF) << 8) | (((X)&0xFF00) >> 8))

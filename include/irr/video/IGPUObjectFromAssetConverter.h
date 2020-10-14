@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 // Do not include this in headers, please
-#ifndef __IRR_I_GPU_OBJECT_FROM_ASSET_CONVERTER_H_INCLUDED__
-#define __IRR_I_GPU_OBJECT_FROM_ASSET_CONVERTER_H_INCLUDED__
+#ifndef __NBL_VIDEO_I_GPU_OBJECT_FROM_ASSET_CONVERTER_H_INCLUDED__
+#define __NBL_VIDEO_I_GPU_OBJECT_FROM_ASSET_CONVERTER_H_INCLUDED__
 
 #include "irr/core/core.h"
 #include "irr/asset/asset.h"
@@ -259,7 +259,7 @@ auto IGPUObjectFromAssetConverter::create(asset::ICPUBuffer** const _begin, asse
     const uint64_t alignment =
         std::max<uint64_t>(
             std::max<uint64_t>(m_driver->getRequiredTBOAlignment(), m_driver->getRequiredUBOAlignment()),
-            std::max<uint64_t>(m_driver->getRequiredSSBOAlignment(), _IRR_SIMD_ALIGNMENT)
+            std::max<uint64_t>(m_driver->getRequiredSSBOAlignment(), _NBL_SIMD_ALIGNMENT)
         );
 
 
@@ -797,9 +797,9 @@ inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetCon
     auto isBufferDesc = [](asset::E_DESCRIPTOR_TYPE t) {
         using namespace asset;
         switch (t) {
-        case EDT_UNIFORM_BUFFER: _IRR_FALLTHROUGH;
-        case EDT_STORAGE_BUFFER: _IRR_FALLTHROUGH;
-        case EDT_UNIFORM_BUFFER_DYNAMIC: _IRR_FALLTHROUGH;
+        case EDT_UNIFORM_BUFFER: [[fallthrough]];
+        case EDT_STORAGE_BUFFER: [[fallthrough]];
+        case EDT_UNIFORM_BUFFER_DYNAMIC: [[fallthrough]];
         case EDT_STORAGE_BUFFER_DYNAMIC:
             return true;
             break;
@@ -1006,4 +1006,4 @@ inline created_gpu_object_array<asset::ICPUComputePipeline> IGPUObjectFromAssetC
 
 }}//irr::video
 
-#endif //__IRR_I_GPU_OBJECT_FROM_ASSET_CONVERTER_H_INCLUDED__
+#endif

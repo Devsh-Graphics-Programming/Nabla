@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
-#define __IRR_I_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
+#ifndef __NBL_ASSET_I_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
+#define __NBL_ASSET_I_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
 
 #include <algorithm>
 
@@ -64,8 +64,8 @@ struct SVertexInputBindingParams
 static_assert(sizeof(SVertexInputBindingParams)==5u, "Unexpected size!");
 struct SVertexInputParams
 {
-    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = 16u;
-    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_ATTR_BUF_BINDING_COUNT = 16u;
+    _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = 16u;
+    _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_ATTR_BUF_BINDING_COUNT = 16u;
 
     uint16_t enabledAttribFlags = 0u;
     uint16_t enabledBindingFlags = 0u;
@@ -317,7 +317,7 @@ struct SBlendParams
 {
 	SBlendParams() : logicOpEnable(false), logicOp(ELO_NO_OP), blendParams{} {}
 
-    _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_COLOR_ATTACHMENT_COUNT = 8u;
+    _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_COLOR_ATTACHMENT_COUNT = 8u;
     uint8_t logicOpEnable : 1;
     uint8_t logicOp : 4;
     SColorAttachmentBlendParams blendParams[MAX_COLOR_ATTACHMENT_COUNT];
@@ -353,7 +353,7 @@ template<typename SpecShaderType, typename LayoutType>
 class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 {
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 5u;
+		_NBL_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 5u;
 
 		enum E_SHADER_STAGE_IX : uint32_t
 		{

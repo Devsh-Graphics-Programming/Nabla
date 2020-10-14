@@ -19,7 +19,7 @@ static const io::path emptyFileListEntry;
 
 CFileList::CFileList(const io::path& path) : Path(path)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CFileList");
 	#endif
 

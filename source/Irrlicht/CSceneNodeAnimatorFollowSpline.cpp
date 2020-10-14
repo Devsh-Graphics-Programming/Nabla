@@ -17,7 +17,7 @@ CSceneNodeAnimatorFollowSpline::CSceneNodeAnimatorFollowSpline(uint32_t time,
 : ISceneNodeAnimatorFinishing(0), Points(points), Speed(speed), Tightness(tightness), StartTime(time)
 , Loop(loop), PingPong(pingpong)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CSceneNodeAnimatorFollowSpline");
 	#endif
 }

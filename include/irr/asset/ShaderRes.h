@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_SHADER_RES_H_INCLUDED__
-#define __IRR_SHADER_RES_H_INCLUDED__
+#ifndef __NBL_ASSET_SHADER_RES_H_INCLUDED__
+#define __NBL_ASSET_SHADER_RES_H_INCLUDED__
 
 #include <cstdint>
 #include "irr/macros.h"
@@ -254,4 +254,4 @@ inline bool operator<(const SShaderInfoVariant& _lhs, const SShaderInfoVariant& 
 
 }}
 
-#endif//__IRR_SHADER_RES_H_INCLUDED__
+#endif

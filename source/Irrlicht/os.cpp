@@ -5,11 +5,10 @@
 
 #include "os.h"
 
-#include "IrrCompileConfig.h"
 //#include "irr/core/math/irrMath.h"
 
 
-#if defined(_IRR_WINDOWS_API_)
+#if defined(_NBL_WINDOWS_API_)
 // ----------------------------------------------------------------
 // Windows specific functions
 // ----------------------------------------------------------------

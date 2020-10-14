@@ -2,10 +2,9 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_NULL_ALLOCATOR_H_INCLUDED__
-#define __IRR_NULL_ALLOCATOR_H_INCLUDED__
+#ifndef __NBL_CORE_NULL_ALLOCATOR_H_INCLUDED__
+#define __NBL_CORE_NULL_ALLOCATOR_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
 #include "irr/core/memory/memory.h"
 #include "irr/core/alloc/AllocatorTrivialBases.h"
 
@@ -14,8 +13,8 @@ namespace irr
 namespace core
 {
 
-template <class T, size_t overAlign=_IRR_DEFAULT_ALIGNMENT(T)>
-class IRR_FORCE_EBO null_allocator : public irr::core::AllocatorTrivialBase<T>
+template <class T, size_t overAlign=_NBL_DEFAULT_ALIGNMENT(T)>
+class NBL_FORCE_EBO null_allocator : public irr::core::AllocatorTrivialBase<T>
 {
     public:
         typedef size_t      size_type;

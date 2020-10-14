@@ -2,15 +2,16 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __I_FILE_SYSTEM_H_INCLUDED__
-#define __I_FILE_SYSTEM_H_INCLUDED__
+#ifndef __NBL_I_FILE_SYSTEM_H_INCLUDED__
+#define __NBL_I_FILE_SYSTEM_H_INCLUDED__
 
 #include "irr/core/IReferenceCounted.h"
 #include "IFileArchive.h"
 #include "irr/asset/ICPUBuffer.h"
 #include "irr/core/core.h"
+#include "irr/asset/compile_config.h"
 
-#ifdef _IRR_EMBED_BUILTIN_RESOURCES_
+#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
 #include "irr/builtin/common.h"
 #endif
 namespace irr
@@ -247,7 +248,7 @@ class IFileSystem : public virtual core::IReferenceCounted
 		//! Run-time resource ID, `builtinPath` includes the "irr/builtin" prefix
 		inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData(const std::string& builtinPath)
 		{
-			#ifdef _IRR_EMBED_BUILTIN_RESOURCES_
+			#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
 				std::pair<const uint8_t*, size_t> found = irr::builtin::get_resource_runtime(builtinPath);
 				if (found.first && found.second)
 				{
@@ -280,7 +281,7 @@ class IFileSystem : public virtual core::IReferenceCounted
 		template<typename StringUniqueType>
 		inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData()
 		{
-			#ifdef _IRR_EMBED_BUILTIN_RESOURCES_
+			#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
 				std::pair<const uint8_t*, size_t> found = irr::builtin::get_resource<StringUniqueType>();
 				if (found.first && found.second)
 				{
@@ -328,7 +329,7 @@ class IFileSystem : public virtual core::IReferenceCounted
 			{
 				subdir = directory.subString(lastpos, pos - lastpos + 1);
 
-				if (subdir == _IRR_TEXT("../"))
+				if (subdir == _NBL_TEXT("../"))
 				{
 					if (lastWasRealDir)
 					{
@@ -341,11 +342,11 @@ class IFileSystem : public virtual core::IReferenceCounted
 						lastWasRealDir = false;
 					}
 				}
-				else if (subdir == _IRR_TEXT("/"))
+				else if (subdir == _NBL_TEXT("/"))
 				{
 					dir = root;
 				}
-				else if (subdir != _IRR_TEXT("./"))
+				else if (subdir != _NBL_TEXT("./"))
 				{
 					dir.append(subdir);
 					lastWasRealDir = true;

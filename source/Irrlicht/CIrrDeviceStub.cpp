@@ -8,7 +8,6 @@
 #include "IEventReceiver.h"
 #include "IFileSystem.h"
 #include "os.h"
-#include "IrrCompileConfig.h"
 #include "CLogger.h"
 #include "irr/asset/CIncludeHandler.h"
 
@@ -98,7 +97,7 @@ ITimer* CIrrDeviceStub::getTimer()
 //! Returns the version of the engine.
 const char* CIrrDeviceStub::getVersion() const
 {
-	return IRRLICHTBAW_SDK_VERSION;
+	return NABLA_SDK_VERSION;
 }
 
 //! \return Returns a pointer to the mouse cursor control interface.

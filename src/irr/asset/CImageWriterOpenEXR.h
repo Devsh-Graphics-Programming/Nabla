@@ -2,12 +2,12 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __C_IMAGE_WRITER_OPENEXR__
-#define __C_IMAGE_WRITER_OPENEXR__
+#ifndef __NBL_ASSET_C_IMAGE_WRITER_OPENEXR__
+#define __NBL_ASSET_C_IMAGE_WRITER_OPENEXR__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENEXR_WRITER_
+#ifdef _NBL_COMPILE_WITH_OPENEXR_WRITER_
 
 #include "irr/asset/IImageWriter.h"
 
@@ -47,5 +47,5 @@ class CImageWriterOpenEXR final : public IImageWriter
 }
 }
 
-#endif // _IRR_COMPILE_WITH_OPENEXR_WRITER_
-#endif // __C_IMAGE_WRITER_OPENEXR__
+#endif // _NBL_COMPILE_WITH_OPENEXR_WRITER_
+#endif

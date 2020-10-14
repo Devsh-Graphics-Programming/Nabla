@@ -2,10 +2,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_STACK_ADDRESS_ALLOCATOR_H_INCLUDED__
-#define __IRR_STACK_ADDRESS_ALLOCATOR_H_INCLUDED__
+#ifndef __NBL_CORE_STACK_ADDRESS_ALLOCATOR_H_INCLUDED__
+#define __NBL_CORE_STACK_ADDRESS_ALLOCATOR_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 
 #include "irr/core/alloc/LinearAddressAllocator.h"
 
@@ -22,7 +22,7 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
     public:
         static constexpr bool supportsArbitraryOrderFrees = false;
 
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+        _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
         static constexpr bool supportsNullBuffer = true;
 
@@ -74,13 +74,13 @@ class StackAddressAllocator  : protected LinearAddressAllocator<_size_type>
         inline void         free_addr(size_type addr, size_type bytes) noexcept
         {
             auto amountToFree = reinterpret_cast<size_type*>(Base::reservedSpace)[--allocStackPtr];
-            #ifdef _IRR_DEBUG
+            #ifdef _NBL_DEBUG
                 assert(bytes<=amountToFree);
-            #endif // _IRR_DEBUG
+            #endif // _NBL_DEBUG
             Base::cursor -= amountToFree;
-            #ifdef _IRR_DEBUG
+            #ifdef _NBL_DEBUG
                 assert(Base::cursor+Base::alignOffset<=addr);
-            #endif // _IRR_DEBUG
+            #endif // _NBL_DEBUG
         }
 
         inline void         reset()
@@ -136,5 +136,5 @@ using StackAddressAllocatorST = StackAddressAllocator<size_type>;
 }
 }
 
-#endif // __IRR_STACK_ADDRESS_ALLOCATOR_H_INCLUDED__
+#endif
 

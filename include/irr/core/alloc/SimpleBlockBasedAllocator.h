@@ -2,10 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_SIMPLE_BLOCK_BASED_ALLOCATOR_H_INCLUDED__
-#define __IRR_SIMPLE_BLOCK_BASED_ALLOCATOR_H_INCLUDED__
-
-#include "IrrCompileConfig.h"
+#ifndef __NBL_CORE_SIMPLE_BLOCK_BASED_ALLOCATOR_H_INCLUDED__
+#define __NBL_CORE_SIMPLE_BLOCK_BASED_ALLOCATOR_H_INCLUDED__
 
 #include "irr/core/Types.h"
 #include "irr/core/alloc/aligned_allocator.h"
@@ -25,7 +23,7 @@ class SimpleBlockBasedAllocator
 {
 	public:
 		using size_type = typename address_allocator_traits<AddressAllocator>::size_type;
-		_IRR_STATIC_INLINE_CONSTEXPR size_type meta_alignment = 64u;
+		_NBL_STATIC_INLINE_CONSTEXPR size_type meta_alignment = 64u;
 
 	private:
 		class Block
@@ -213,6 +211,6 @@ class SimpleBlockBasedAllocator
 }
 }
 
-#endif // __IRR_CONTIGUOUS_POOL_ADDRESS_ALLOCATOR_H_INCLUDED__
+#endif
 
 

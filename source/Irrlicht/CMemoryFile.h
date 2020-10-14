@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __C_MEMORY_READ_FILE_H_INCLUDED__
-#define __C_MEMORY_READ_FILE_H_INCLUDED__
+#ifndef __NBL_C_MEMORY_READ_FILE_H_INCLUDED__
+#define __NBL_C_MEMORY_READ_FILE_H_INCLUDED__
 
 #include "IReadFile.h"
 #include "IWriteFile.h"
@@ -91,7 +91,7 @@ namespace io
 
 
     template<
-        typename Alloc = _IRR_DEFAULT_ALLOCATOR_METATYPE<uint8_t>,
+        typename Alloc = _NBL_DEFAULT_ALLOCATOR_METATYPE<uint8_t>,
         bool = std::is_same<Alloc, core::null_allocator<typename Alloc::value_type>>::value
     >
     class CCustomAllocatorMemoryReadFile;

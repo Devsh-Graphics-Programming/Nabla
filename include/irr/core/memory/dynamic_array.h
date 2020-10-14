@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_DYNAMIC_ARRAY_H_INCLUDED__
-#define __IRR_DYNAMIC_ARRAY_H_INCLUDED__
+#ifndef __NBL_CORE_DYNAMIC_ARRAY_H_INCLUDED__
+#define __NBL_CORE_DYNAMIC_ARRAY_H_INCLUDED__
 
 #include "irr/macros.h"
 #include "irr/core/Types.h"//for core::allocator
@@ -16,7 +16,7 @@ namespace core
 namespace impl
 {
 	template<class allocator>
-	class IRR_FORCE_EBO dynamic_array_typeless_base // : public Uncopyable, public Unmovable // cannot due to diamond inheritance
+	class NBL_FORCE_EBO dynamic_array_typeless_base // : public Uncopyable, public Unmovable // cannot due to diamond inheritance
 	{
 		protected:
 			allocator alctr;
@@ -27,12 +27,12 @@ namespace impl
 			virtual ~dynamic_array_typeless_base() {} // do not remove, need for class size computation!
 
 		public:
-			_IRR_NO_COPY_FINAL(dynamic_array_typeless_base);
-			_IRR_NO_MOVE_FINAL(dynamic_array_typeless_base);
+			_NBL_NO_COPY_FINAL(dynamic_array_typeless_base);
+			_NBL_NO_MOVE_FINAL(dynamic_array_typeless_base);
 	};
 
 	template<class allocator, typename... DataTypeAndOverAlignmentTypes>
-	class IRR_FORCE_EBO alignas(ResolveAlignment<dynamic_array_typeless_base<allocator>,AlignedBase<alignof(DataTypeAndOverAlignmentTypes)>...>) dynamic_array_base : public dynamic_array_typeless_base<allocator>
+	class NBL_FORCE_EBO alignas(ResolveAlignment<dynamic_array_typeless_base<allocator>,AlignedBase<alignof(DataTypeAndOverAlignmentTypes)>...>) dynamic_array_base : public dynamic_array_typeless_base<allocator>
 	{
 			using Base = dynamic_array_typeless_base<allocator>;
 
@@ -61,10 +61,10 @@ namespace impl
 	@see core::refctd_dynamic_array
 */
 template<typename T, class allocator, class CRTP, typename... OverAlignmentTypes>
-class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,OverAlignmentTypes...>
+class NBL_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,OverAlignmentTypes...>
 {
 		using base_t = impl::dynamic_array_base<allocator,T,OverAlignmentTypes...>;
-		_IRR_STATIC_INLINE_CONSTEXPR bool is_const = std::is_const<T>::value;
+		_NBL_STATIC_INLINE_CONSTEXPR bool is_const = std::is_const<T>::value;
 
 	public:
 		using allocator_type = allocator;
@@ -103,7 +103,7 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
 		}
 
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR size_t dummy_item_count = (sizeof(base_t)+sizeof(T)-1ull)/sizeof(T);
+		_NBL_STATIC_INLINE_CONSTEXPR size_t dummy_item_count = (sizeof(base_t)+sizeof(T)-1ull)/sizeof(T);
 
 		virtual ~dynamic_array()
 		{
@@ -171,7 +171,6 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
 		// no arrays
 		static void operator delete[](void* ptr) = delete;
 		static void operator delete[](void* ptr, std::size_t sz) = delete;
-#if __cplusplus >= 201703L
 		static void* operator new(size_t size, std::align_val_t al) = delete;
 		static void* operator new[](size_t size, std::align_val_t al) = delete;
 
@@ -186,7 +185,6 @@ class IRR_FORCE_EBO dynamic_array : public impl::dynamic_array_base<allocator,T,
 		static void operator delete(dynamic_array<T,allocator,CRTP,OverAlignmentTypes...>* ptr, std::destroying_delete_t, std::align_val_t al) = delete;
 		static void operator delete(dynamic_array<T,allocator,CRTP,OverAlignmentTypes...>* ptr, std::destroying_delete_t, std::size_t sz) = delete;
 		static void operator delete(dynamic_array<T,allocator,CRTP,OverAlignmentTypes...>* ptr, std::destroying_delete_t, std::size_t sz, std::align_val_t al) = delete;
-#endif
 #endif
 
 		inline bool operator!=(const this_real_type& _other) const

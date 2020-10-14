@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_CPU_PIPELINE_CACHE_H_INCLUDED__
-#define __IRR_I_CPU_PIPELINE_CACHE_H_INCLUDED__
+#ifndef __NBL_ASSET_I_CPU_PIPELINE_CACHE_H_INCLUDED__
+#define __NBL_ASSET_I_CPU_PIPELINE_CACHE_H_INCLUDED__
 
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ICPUDescriptorSetLayout.h"
@@ -117,7 +117,7 @@ public:
 		m_cache.clear();
 	}
 
-	_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_CACHE;
+	_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_CACHE;
 	inline E_TYPE getAssetType() const override { return AssetType; }
 
 	core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override

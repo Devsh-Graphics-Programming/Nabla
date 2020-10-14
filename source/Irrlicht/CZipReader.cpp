@@ -18,22 +18,21 @@ extern "C" void bz_internal_error(int errorCode)
 	irr::os::Printer::log("Error in bzip2 handling", tmp.str().c_str(), irr::ELL_ERROR);
 }
 
-#ifdef __IRR_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
+#ifdef __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
 
 #include "CFileList.h"
 #include "CReadFile.h"
 
-#include "IrrCompileConfig.h"
-#ifdef _IRR_COMPILE_WITH_ZLIB_
+#ifdef _NBL_COMPILE_WITH_ZLIB_
 	#include "zlib/zlib.h"
 
-	#ifdef _IRR_COMPILE_WITH_ZIP_ENCRYPTION_
+	#ifdef _NBL_COMPILE_WITH_ZIP_ENCRYPTION_
 	#include "aesGladman/fileenc.h"
 	#endif
-	#ifdef _IRR_COMPILE_WITH_BZIP2_
+	#ifdef _NBL_COMPILE_WITH_BZIP2_
 	#include "bzip2/bzlib.h"
 	#endif
-	#ifdef _IRR_COMPILE_WITH_LZMA_
+	#ifdef _NBL_COMPILE_WITH_LZMA_
 	#include "lzma/LzmaDec.h"
 	#endif
 #endif
@@ -52,7 +51,7 @@ namespace io
 CArchiveLoaderZIP::CArchiveLoaderZIP(io::IFileSystem* fs)
 : FileSystem(fs)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CArchiveLoaderZIP");
 	#endif
 }
@@ -131,7 +130,7 @@ bool CArchiveLoaderZIP::isALoadableFileFormat(io::IReadFile* file) const
 
 CZipReader::CZipReader(IReadFile* file, bool isGZip) : CFileList(file ? file->getFileName() : io::path("")), File(file), IsGZip(isGZip)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CZipReader");
 	#endif
 
@@ -284,7 +283,7 @@ bool CZipReader::scanZipHeader(bool ignoreGPBits)
 		delete [] tmp;
 	}
 
-#ifdef _IRR_COMPILE_WITH_ZIP_ENCRYPTION_
+#ifdef _NBL_COMPILE_WITH_ZIP_ENCRYPTION_
 	// AES encryption
 	if ((entry.header.GeneralBitFlag & ZIP_FILE_ENCRYPTED) && (entry.header.CompressionMethod == 99))
 	{
@@ -369,7 +368,7 @@ bool CZipReader::scanZipHeader(bool ignoreGPBits)
 	// move forward length of data
 	File->seek(entry.header.DataDescriptor.CompressedSize, true);
 
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	//os::Debuginfo::print("added file from archive", ZipFileName.c_str());
 	#endif
 
@@ -434,7 +433,7 @@ IReadFile* CZipReader::createAndOpenFile(const io::path& filename)
 	IReadFile* decrypted=0;
 	uint8_t* decryptedBuf=0;
 	uint32_t decryptedSize=e.header.DataDescriptor.CompressedSize;
-#ifdef _IRR_COMPILE_WITH_ZIP_ENCRYPTION_
+#ifdef _NBL_COMPILE_WITH_ZIP_ENCRYPTION_
 	if ((e.header.GeneralBitFlag & ZIP_FILE_ENCRYPTED) && (e.header.CompressionMethod == 99))
 	{
 		os::Printer::log("Reading encrypted file.");
@@ -523,7 +522,7 @@ IReadFile* CZipReader::createAndOpenFile(const io::path& filename)
 		}
 	case 8:
 		{
-  			#ifdef _IRR_COMPILE_WITH_ZLIB_
+  			#ifdef _NBL_COMPILE_WITH_ZLIB_
 
 			const uint32_t uncompressedSize = e.header.DataDescriptor.UncompressedSize;
 			char* pBuf = new char[ uncompressedSize ];
@@ -604,7 +603,7 @@ IReadFile* CZipReader::createAndOpenFile(const io::path& filename)
 		}
 	case 12:
 		{
-  			#ifdef _IRR_COMPILE_WITH_BZIP2_
+  			#ifdef _NBL_COMPILE_WITH_BZIP2_
 
 			const uint32_t uncompressedSize = e.header.DataDescriptor.UncompressedSize;
 			char* pBuf = new char[ uncompressedSize ];
@@ -685,7 +684,7 @@ IReadFile* CZipReader::createAndOpenFile(const io::path& filename)
 		}
 	case 14:
 		{
-  			#ifdef _IRR_COMPILE_WITH_LZMA_
+  			#ifdef _NBL_COMPILE_WITH_LZMA_
 
 			uint32_t uncompressedSize = e.header.DataDescriptor.UncompressedSize;
 			char* pBuf = new char[ uncompressedSize ];
@@ -762,12 +761,12 @@ IReadFile* CZipReader::createAndOpenFile(const io::path& filename)
 	};
 }
 
-#ifdef _IRR_COMPILE_WITH_LZMA_
+#ifdef _NBL_COMPILE_WITH_LZMA_
 //! Used for LZMA decompression. The lib has no default memory management
 namespace
 {
-	void *SzAlloc(void *p, size_t size) { p = p; return _IRR_ALIGNED_MALLOC(size,_IRR_SIMD_ALIGNMENT); }
-	void SzFree(void *p, void *address) { p = p; _IRR_ALIGNED_FREE(address); }
+	void *SzAlloc(void *p, size_t size) { p = p; return _NBL_ALIGNED_MALLOC(size,_NBL_SIMD_ALIGNMENT); }
+	void SzFree(void *p, void *address) { p = p; _NBL_ALIGNED_FREE(address); }
 	ISzAlloc lzmaAlloc = { SzAlloc, SzFree };
 }
 #endif
@@ -775,4 +774,4 @@ namespace
 } // end namespace io
 } // end namespace irr
 
-#endif // __IRR_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
+#endif // __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_

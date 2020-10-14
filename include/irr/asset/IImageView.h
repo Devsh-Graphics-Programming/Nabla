@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_IMAGE_VIEW_H_INCLUDED__
-#define __IRR_I_IMAGE_VIEW_H_INCLUDED__
+#ifndef __NBL_ASSET_I_IMAGE_VIEW_H_INCLUDED__
+#define __NBL_ASSET_I_IMAGE_VIEW_H_INCLUDED__
 
 #include "irr/asset/IImage.h"
 
@@ -16,8 +16,8 @@ template<class ImageType>
 class IImageView : public IDescriptor
 {
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR size_t remaining_mip_levels = ~static_cast<size_t>(0u);
-		_IRR_STATIC_INLINE_CONSTEXPR size_t remaining_array_layers = ~static_cast<size_t>(0u);
+		_NBL_STATIC_INLINE_CONSTEXPR size_t remaining_mip_levels = ~static_cast<size_t>(0u);
+		_NBL_STATIC_INLINE_CONSTEXPR size_t remaining_array_layers = ~static_cast<size_t>(0u);
 
 		// no flags for now, yet
 		enum E_CREATE_FLAGS
@@ -185,7 +185,7 @@ class IImageView : public IDescriptor
 						return false;
 					if (actualLayerCount>1u)
 						return false;
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case ET_1D_ARRAY:
 					if (imgParams.extent.height>1u || imgParams.extent.depth>1u)
 						return false;
@@ -195,7 +195,7 @@ class IImageView : public IDescriptor
 						return false;
 					if (actualLayerCount>1u)
 						return false;
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case ET_2D_ARRAY:
 					if (sourceIs3D)
 					{

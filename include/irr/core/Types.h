@@ -2,10 +2,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_TYPES_H_INCLUDED__
-#define __IRR_TYPES_H_INCLUDED__
+#ifndef __NBL_CORE_TYPES_H_INCLUDED__
+#define __NBL_CORE_TYPES_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/core/compile_config.h"
 
 #include "stdint.h"
 #include <wchar.h>
@@ -36,7 +36,7 @@ namespace irr
 namespace core
 {
 template<typename T>
-using allocator = _IRR_DEFAULT_ALLOCATOR_METATYPE<T>;
+using allocator = _NBL_DEFAULT_ALLOCATOR_METATYPE<T>;
 
 
 
@@ -89,7 +89,7 @@ typedef std::mutex  fast_mutex;
 }
 
 
-#ifdef _IRR_WINDOWS_API_
+#ifdef _NBL_WINDOWS_API_
 //! Defines for s{w,n}printf because these methods do not match the ISO C
 //! standard on Windows platforms, but it does on all others.
 //! These should be int snprintf(char *str, size_t size, const char *format, ...);
@@ -102,18 +102,18 @@ typedef std::mutex  fast_mutex;
 #define snprintf _snprintf
 #endif
 
-#endif // _IRR_WINDOWS_API_
+#endif // _NBL_WINDOWS_API_
 
 
 
-#define _IRR_TEXT(X) X
+#define _NBL_TEXT(X) X
 
 
 
 
 // memory debugging
-#if defined(_IRR_DEBUG) && defined(IRRLICHT_EXPORTS) && defined(_MSC_VER) && \
-	(_MSC_VER > 1299) && !defined(_IRR_DONT_DO_MEMORY_DEBUGGING_HERE) && !defined(_WIN32_WCE)
+#if defined(_NBL_DEBUG) && defined(NABLA_EXPORTS) && defined(_MSC_VER) && \
+	(_MSC_VER > 1299) && !defined(_NBL_DONT_DO_MEMORY_DEBUGGING_HERE) && !defined(_WIN32_WCE)
 
 	#define CRTDBG_MAP_ALLOC
 	#define _CRTDBG_MAP_ALLOC
@@ -126,7 +126,7 @@ typedef std::mutex  fast_mutex;
 
 //! ignore VC8 warning deprecated
 /** The microsoft compiler */
-#if defined(_IRR_WINDOWS_API_) && defined(_MSC_VER) && (_MSC_VER >= 1400)
+#if defined(_NBL_WINDOWS_API_) && defined(_MSC_VER) && (_MSC_VER >= 1400)
 	//#pragma warning( disable: 4996)
 	//#define _CRT_SECURE_NO_DEPRECATE 1
 	//#define _CRT_NONSTDC_NO_DEPRECATE 1
@@ -136,7 +136,7 @@ typedef std::mutex  fast_mutex;
 //! creates four CC codes used in Irrlicht for simple ids
 /** some compilers can create those by directly writing the
 code like 'code', but some generate warnings so we use this macro here */
-#define MAKE_IRR_ID(c0, c1, c2, c3) \
+#define MAKE_NBL_ID(c0, c1, c2, c3) \
 		((uint32_t)(uint8_t)(c0) | ((uint32_t)(uint8_t)(c1) << 8) | \
 		((uint32_t)(uint8_t)(c2) << 16) | ((uint32_t)(uint8_t)(c3) << 24 ))
 
@@ -144,5 +144,5 @@ code like 'code', but some generate warnings so we use this macro here */
 #define _strcmpi(a,b) strcmpi(a,b)
 #endif
 
-#endif // __IRR_TYPES_H_INCLUDED__
+#endif
 

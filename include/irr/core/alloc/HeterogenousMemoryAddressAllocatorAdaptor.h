@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_HETEROGENOUS_MEMORY_ADDRESS_ALLOCATOR_ADAPTOR_H___
-#define __IRR_HETEROGENOUS_MEMORY_ADDRESS_ALLOCATOR_ADAPTOR_H___
+#ifndef __NBL_CORE_HETEROGENOUS_MEMORY_ADDRESS_ALLOCATOR_ADAPTOR_H___
+#define __NBL_CORE_HETEROGENOUS_MEMORY_ADDRESS_ALLOCATOR_ADAPTOR_H___
 
 #include "irr/core/Types.h"
 #include "irr/core/alloc/address_allocator_traits.h"
@@ -113,7 +113,7 @@ class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemor
         HeterogenousMemoryAddressAllocatorAdaptor(const HostAllocator& reservedMemAllocator, const BufferAllocator& dataMemAllocator,
                                                                                     size_type addressOffsetToApply, size_type alignOffsetNeeded, size_type maxAllocatableAlignment, size_type bufSz, Args&&... args) :
                                             ImplBase(reservedMemAllocator,dataMemAllocator,maxAllocatableAlignment,bufSz,args...),
-                                            AddressAllocator(ImplBase::mReservedAlloc.allocate(ImplBase::mReservedSize,_IRR_SIMD_ALIGNMENT),
+                                            AddressAllocator(ImplBase::mReservedAlloc.allocate(ImplBase::mReservedSize,_NBL_SIMD_ALIGNMENT),
                                                                         addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment,bufSz,std::forward<Args>(args)...)
         {
             mAllocation = ImplBase::mDataAlloc.allocate(bufSz,maxAllocatableAlignment);
@@ -162,7 +162,7 @@ class HeterogenousMemoryAddressAllocatorAdaptor : public impl::HeterogenousMemor
 }
 }
 
-#endif // __IRR_HETEROGENOUS_MEMORY_ADDRESS_ALLOCATOR_ADAPTOR_H___
+#endif
 
 
 

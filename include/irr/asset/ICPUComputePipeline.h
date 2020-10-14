@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_CPU_COMPUTE_PIPELINE_H_INCLUDED__
-#define __IRR_I_CPU_COMPUTE_PIPELINE_H_INCLUDED__
+#ifndef __NBL_ASSET_I_CPU_COMPUTE_PIPELINE_H_INCLUDED__
+#define __NBL_ASSET_I_CPU_COMPUTE_PIPELINE_H_INCLUDED__
 
 #include "irr/asset/IComputePipeline.h"
 #include "irr/asset/ICPUPipelineLayout.h"
@@ -49,7 +49,7 @@ public:
         return cp;
     }
 
-    _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_COMPUTE_PIPELINE;
+    _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_COMPUTE_PIPELINE;
     inline E_TYPE getAssetType() const override { return AssetType; }
 
     ICPUPipelineLayout* getLayout() { return m_layout.get(); }

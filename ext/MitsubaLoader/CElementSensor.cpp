@@ -40,7 +40,7 @@ CElementFactory::return_type CElementFactory::createElement<CElementSensor>(cons
 	if (found==StringToType.end())
 	{
 		ParserLog::invalidXMLFileStructure("unknown type");
-		_IRR_DEBUG_BREAK_IF(false);
+		_NBL_DEBUG_BREAK_IF(false);
 		return CElementFactory::return_type(nullptr, "");
 	}
 
@@ -187,7 +187,7 @@ bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
 	auto found = SetPropertyMap.find(_property.name);
 	if (found==SetPropertyMap.end())
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		ParserLog::invalidXMLFileStructure("No Integrator can have such property set with name: "+_property.name);
 		return false;
 	}
@@ -201,7 +201,7 @@ bool CElementSensor::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _overri
 	if (type == Type::INVALID)
 	{
 		ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		return true;
 	}
 

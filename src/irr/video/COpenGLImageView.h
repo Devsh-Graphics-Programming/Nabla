@@ -2,14 +2,14 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_C_OPENGL_IMAGE_VIEW_H_INCLUDED__
-#define __IRR_C_OPENGL_IMAGE_VIEW_H_INCLUDED__
+#ifndef __NBL_VIDEO_C_OPENGL_IMAGE_VIEW_H_INCLUDED__
+#define __NBL_VIDEO_C_OPENGL_IMAGE_VIEW_H_INCLUDED__
 
 
 #include "irr/video/IGPUImageView.h"
 #include "irr/video/COpenGLImage.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 namespace irr
 {
 namespace video
@@ -29,10 +29,10 @@ class COpenGLImageView final : public IGPUImageView
 		GLenum internalFormat;
 
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR GLenum ViewTypeToGLenumTarget[IGPUImageView::ET_COUNT] = {
+		_NBL_STATIC_INLINE_CONSTEXPR GLenum ViewTypeToGLenumTarget[IGPUImageView::ET_COUNT] = {
 			GL_TEXTURE_1D,GL_TEXTURE_2D,GL_TEXTURE_3D,GL_TEXTURE_CUBE_MAP,GL_TEXTURE_1D_ARRAY,GL_TEXTURE_2D_ARRAY,GL_TEXTURE_CUBE_MAP_ARRAY
 		};
-		_IRR_STATIC_INLINE_CONSTEXPR GLenum ComponentMappingToGLenumSwizzle[IGPUImageView::SComponentMapping::ES_COUNT] = {GL_INVALID_ENUM,GL_ZERO,GL_ONE,GL_RED,GL_GREEN,GL_BLUE,GL_ALPHA};
+		_NBL_STATIC_INLINE_CONSTEXPR GLenum ComponentMappingToGLenumSwizzle[IGPUImageView::SComponentMapping::ES_COUNT] = {GL_INVALID_ENUM,GL_ZERO,GL_ONE,GL_RED,GL_GREEN,GL_BLUE,GL_ALPHA};
 
 		COpenGLImageView(SCreationParams&& _params) : IGPUImageView(std::move(_params)), name(0u), target(GL_INVALID_ENUM), internalFormat(GL_INVALID_ENUM)
 		{

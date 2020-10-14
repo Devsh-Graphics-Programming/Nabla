@@ -3,12 +3,11 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "stdint.h"
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 
-#ifndef _FW_MUTEX_H_
-#define _FW_MUTEX_H_
+#ifndef __NBL_FW_MUTEX_H_
+#define __NBL_FW_MUTEX_H_
 
-#include "IrrCompileConfig.h"
 //#define FW_MUTEX_H_CXX11_IMPL
 
 #if defined(FW_MUTEX_H_CXX11_IMPL)
@@ -210,9 +209,9 @@ class FW_ConditionVariable
     private:
         FW_ConditionVariable(const FW_ConditionVariable&); // no implementation
         FW_ConditionVariable&   operator=(const FW_ConditionVariable&); // no implementation
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
         FW_Mutex*      mutexAttachedTo;
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 #if defined(FW_MUTEX_H_CXX11_IMPL)
 		std::condition_variable conditionVar;
 #elif _MSC_VER && !__INTEL_COMPILER
@@ -488,4 +487,4 @@ inline void FW_AtomicCounterUnBlockIncr(FW_AtomicCounter &lock)
 #endif // defined
 
 
-#endif // _FW_MUTEX_H_
+#endif

@@ -168,7 +168,7 @@ class CElementIntegrator : public IElement
 		};
 	struct MetaIntegrator
 	{
-		_IRR_STATIC_INLINE_CONSTEXPR size_t maxChildCount = 3u*(FieldExtraction::Type::PRIMITIVE_INDEX+Type::FIELD_EXTRACT);
+		_NBL_STATIC_INLINE_CONSTEXPR size_t maxChildCount = 3u*(FieldExtraction::Type::PRIMITIVE_INDEX+Type::FIELD_EXTRACT);
 		size_t childCount = 0u;
 		CElementIntegrator* children[maxChildCount] = { nullptr };
 	};
@@ -280,7 +280,7 @@ class CElementIntegrator : public IElement
 			switch (type)
 			{
 				case Type::IRR_CACHE:
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case Type::MULTI_CHANNEL:
 					if (_child->getType() != IElement::Type::INTEGRATOR)
 						return false;

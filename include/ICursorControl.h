@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __I_CURSOR_CONTROL_H_INCLUDED__
-#define __I_CURSOR_CONTROL_H_INCLUDED__
+#ifndef __NBL_I_CURSOR_CONTROL_H_INCLUDED__
+#define __NBL_I_CURSOR_CONTROL_H_INCLUDED__
 
 #include "irr/core/IReferenceCounted.h"
 #include "position2d.h"
@@ -96,7 +96,7 @@ namespace gui
 	//! Interface to manipulate the mouse cursor.
 	class ICursorControl : public core::IReferenceCounted
 	{
-	    _IRR_INTERFACE_CHILD(ICursorControl) {}
+	    _NBL_INTERFACE_CHILD(ICursorControl) {}
 	public:
 
 		//! Changes the visible state of the mouse cursor.

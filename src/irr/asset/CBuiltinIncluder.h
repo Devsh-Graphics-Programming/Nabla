@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_C_BUILTIN_INCLUDER_H_INCLUDED__
-#define __IRR_C_BUILTIN_INCLUDER_H_INCLUDED__
+#ifndef __NBL_ASSET_C_BUILTIN_INCLUDER_H_INCLUDED__
+#define __NBL_ASSET_C_BUILTIN_INCLUDER_H_INCLUDED__
 
 #include "irr/asset/IIncluder.h"
 #include "CObjectCache.h"
@@ -73,4 +73,4 @@ class CBuiltinIncluder : public IIncluder
 }
 }
 
-#endif//__IRR_C_BUILTIN_INCLUDER_H_INCLUDED__
+#endif

@@ -37,7 +37,7 @@ CElementFactory::return_type CElementFactory::createElement<CElementFilm>(const 
 	if (found==StringToType.end())
 	{
 		ParserLog::invalidXMLFileStructure("unknown type");
-		_IRR_DEBUG_BREAK_IF(false);
+		_NBL_DEBUG_BREAK_IF(false);
 		return CElementFactory::return_type(nullptr, "");
 	}
 
@@ -255,7 +255,7 @@ bool CElementFilm::addProperty(SNamedPropertyElement&& _property)
 	auto found = SetPropertyMap.find(_property.name);
 	if (found == SetPropertyMap.end())
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		ParserLog::invalidXMLFileStructure("No Film can have such property set with name: " + _property.name+"\nRemember we don't support \"render-time annotations\"");
 		return false;
 	}
@@ -277,14 +277,14 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 			switch (fileFormat)
 			{
 				case OPENEXR:
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case RGBE:
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case PFM:
 					break;
 				default:
 					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
-					_IRR_DEBUG_BREAK_IF(true);
+					_NBL_DEBUG_BREAK_IF(true);
 					return false;
 			};
 			break;
@@ -295,7 +295,7 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 					break;
 				default:
 					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
-					_IRR_DEBUG_BREAK_IF(true);
+					_NBL_DEBUG_BREAK_IF(true);
 					return false;
 			};
 			break;
@@ -303,28 +303,28 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 			switch (fileFormat)
 			{
 				case PNG:
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case JPEG:
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 					break;
 				default:
 					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
-					_IRR_DEBUG_BREAK_IF(true);
+					_NBL_DEBUG_BREAK_IF(true);
 					return false;
 			};
 			switch (pixelFormat)
 			{
 				case LUMINANCE_ALPHA:
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case RGBA:
 					if (type==PNG)
 						break;
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case XYZ:
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case XYZA:
 					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this pixel format");
-					_IRR_DEBUG_BREAK_IF(true);
+					_NBL_DEBUG_BREAK_IF(true);
 					return false;
 					break;
 				default:
@@ -335,23 +335,23 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 			switch (fileFormat)
 			{
 				case MATLAB:
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case MATHEMATICA:
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case NUMPY:
 					break;
 				default:
 					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this file format");
-					_IRR_DEBUG_BREAK_IF(true);
+					_NBL_DEBUG_BREAK_IF(true);
 					return false;
 			};
 			switch (pixelFormat)
 			{
 				case XYZ:
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case XYZA:
 					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this pixel format");
-					_IRR_DEBUG_BREAK_IF(true);
+					_NBL_DEBUG_BREAK_IF(true);
 					return false;
 					break;
 				default:
@@ -363,13 +363,13 @@ bool CElementFilm::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 					break;
 				default:
 					ParserLog::invalidXMLFileStructure(getLogName() + ": film type does not support this component format");
-					_IRR_DEBUG_BREAK_IF(true);
+					_NBL_DEBUG_BREAK_IF(true);
 					return false;
 			};
 			break;
 		default:
 			ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
-			_IRR_DEBUG_BREAK_IF(true);
+			_NBL_DEBUG_BREAK_IF(true);
 			return false;
 	}
 

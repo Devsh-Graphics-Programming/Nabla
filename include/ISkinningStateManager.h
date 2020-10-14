@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __I_SKINNING_STATE_MANAGER_H_INCLUDED__
-#define __I_SKINNING_STATE_MANAGER_H_INCLUDED__
+#ifndef __NBL_I_SKINNING_STATE_MANAGER_H_INCLUDED__
+#define __NBL_I_SKINNING_STATE_MANAGER_H_INCLUDED__
 
 #include "CFinalBoneHierarchy.h"
 #include "IDummyTransformationSceneNode.h"
@@ -272,7 +272,7 @@ namespace scene
                 if (instanceDataSize!=instanceCapacity)
                 {
                     auto newInstanceDataSize = instanceCapacity*actualSizeOfInstanceDataElement;
-                    uint8_t* newInstanceData = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(newInstanceDataSize,_IRR_SIMD_ALIGNMENT));
+                    uint8_t* newInstanceData = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(newInstanceDataSize,_NBL_SIMD_ALIGNMENT));
                     auto oldInstanceDataByteSize = instanceDataSize*actualSizeOfInstanceDataElement;
                     if (newInstanceDataSize<oldInstanceDataByteSize)
                         memcpy(newInstanceData,instanceData,newInstanceDataSize);
@@ -330,7 +330,7 @@ namespace scene
                 instanceBoneDataAllocator->drop();
 
                 if (instanceData)
-                    _IRR_ALIGNED_FREE(instanceData);
+                    _NBL_ALIGNED_FREE(instanceData);
             }
 
             int8_t usingGPUorCPUBoning;
@@ -338,7 +338,7 @@ namespace scene
             const asset::CFinalBoneHierarchy* referenceHierarchy;
 
             size_t actualSizeOfInstanceDataElement;
-            class BoneHierarchyInstanceData : public core::AlignedBase<_IRR_SIMD_ALIGNMENT>
+            class BoneHierarchyInstanceData : public core::AlignedBase<_NBL_SIMD_ALIGNMENT>
             {
                 public:
                     BoneHierarchyInstanceData() : refCount(0), frame(0.f), lastAnimatedFrame(-1.f), interpolateAnimation(true), attachedNode(NULL)
@@ -359,18 +359,18 @@ namespace scene
             };
             inline core::matrix4x3* getGlobalMatrices(BoneHierarchyInstanceData* currentInstance)
             {
-                #ifdef _IRR_DEBUG
+                #ifdef _NBL_DEBUG
                 size_t addr = reinterpret_cast<size_t>(currentInstance+1u);
                 assert((addr&0xfu) == 0u);
-                #endif // _IRR_DEBUG
+                #endif // _NBL_DEBUG
                 return reinterpret_cast<core::matrix4x3*>(currentInstance+1u);
             }
             inline IBoneSceneNode** getBones(BoneHierarchyInstanceData* currentInstance)
             {
-                #ifdef _IRR_DEBUG
+                #ifdef _NBL_DEBUG
                 size_t addr = reinterpret_cast<size_t>(currentInstance+1u);
                 assert((addr&0xfu) == 0u);
-                #endif // _IRR_DEBUG
+                #endif // _NBL_DEBUG
                 return reinterpret_cast<IBoneSceneNode**>(reinterpret_cast<core::matrix4x3*>(currentInstance+1u)+referenceHierarchy->getBoneCount());
             }
             uint8_t* instanceData;

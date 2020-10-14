@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __S_KEY_MAP_H_INCLUDED__
-#define __S_KEY_MAP_H_INCLUDED__
+#ifndef __NBL_S_KEY_MAP_H_INCLUDED__
+#define __NBL_S_KEY_MAP_H_INCLUDED__
 
 #include "Keycodes.h"
 

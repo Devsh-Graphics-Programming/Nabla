@@ -36,16 +36,16 @@ namespace std
 
 
 
-#ifdef _IRR_DEBUG
-#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+#ifdef _NBL_DEBUG
+#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 
 #include <execinfo.h>
 #include <libunwind.h>
 
 #include <cxxabi.h>
 
-#endif // _IRR_COMPILE_WITH_X11_DEVICE_
-#endif // _IRR_DEBUG
+#endif // _NBL_COMPILE_WITH_X11_DEVICE_
+#endif // _NBL_DEBUG
 
 namespace irr
 {
@@ -114,8 +114,8 @@ T lastChar(const std::basic_string<T>& str1)
 core::vector<std::string> getBackTrace(void)
 {
     core::vector<std::string> retval;
-#ifdef _IRR_DEBUG
-#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+#ifdef _NBL_DEBUG
+#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 /*
     void* funcAddrs[256];
     int callStackLen = backtrace(funcAddrs,256);
@@ -180,7 +180,7 @@ CLeakDebugger::~CLeakDebugger()
 
 void CLeakDebugger::registerObj(const void* obj)
 {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     std::lock_guard<std::mutex> lock(tsafer);
 
     core::unordered_map<const void*,StackTrace>::const_iterator found = tracker.find(obj);
@@ -193,12 +193,12 @@ void CLeakDebugger::registerObj(const void* obj)
         printf(strm.str().c_str());
     }
     tracker[obj] = getBackTrace();
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 }
 
 void CLeakDebugger::deregisterObj(const void* obj)
 {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     std::lock_guard<std::mutex> lock(tsafer);
 
     core::unordered_map<const void*,StackTrace>::const_iterator found = tracker.find(obj);
@@ -212,20 +212,20 @@ void CLeakDebugger::deregisterObj(const void* obj)
     }
     else
         tracker.erase(obj);
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 }
 
 void CLeakDebugger::clearLeaks()
 {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     std::lock_guard<std::mutex> lock(tsafer);
     tracker.clear();
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 }
 
 void CLeakDebugger::dumpLeaks()
 {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     core::unordered_multiset<StackTrace> epicCounter;
 
     std::lock_guard<std::mutex> lock(tsafer);
@@ -252,8 +252,8 @@ void CLeakDebugger::dumpLeaks()
         }
     }
 #else
-    printf("Object Leak Tracking Not Enabled, _IRR_DEBUG not defined during Irrlicht compilation!\n");
-#endif // _IRR_DEBUG
+    printf("Object Leak Tracking Not Enabled, _NBL_DEBUG not defined during Irrlicht compilation!\n");
+#endif // _NBL_DEBUG
 }
 
 }

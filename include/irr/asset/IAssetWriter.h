@@ -2,10 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_ASSET_WRITER_H_INCLUDED__
-#define __IRR_I_ASSET_WRITER_H_INCLUDED__
-
-#include "IrrCompileConfig.h"
+#ifndef __NBL_ASSET_I_ASSET_WRITER_H_INCLUDED__
+#define __NBL_ASSET_I_ASSET_WRITER_H_INCLUDED__
 
 #include "IWriteFile.h"
 #include "IAsset.h"
@@ -192,4 +190,4 @@ protected:
 
 }} //irr::asset
 
-#endif //__IRR_I_ASSET_WRITER_H_INCLUDED__
+#endif

@@ -169,7 +169,7 @@ int main()
 	device->getCursorControl()->setVisible(false);
 	auto driver = device->getVideoDriver();
 #ifdef _DEBUG
-	if (video::COpenGLExtensionHandler::FeatureAvailable[video::COpenGLExtensionHandler::IRR_KHR_debug])
+	if (video::COpenGLExtensionHandler::FeatureAvailable[video::COpenGLExtensionHandler::NBL_KHR_debug])
 	{
 		glEnable(GL_DEBUG_OUTPUT);
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);

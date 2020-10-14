@@ -2,10 +2,11 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __C_LEAK_DEBUGGER_H_INCLUDED__
-#define __C_LEAK_DEBUGGER_H_INCLUDED__
+#ifndef __NBL_CORE_C_LEAK_DEBUGGER_H_INCLUDED__
+#define __NBL_CORE_C_LEAK_DEBUGGER_H_INCLUDED__
 
 #include "irr/core/core.h"
+#include "irr/system/compile_config.h"
 
 #include <string>
 #include <sstream>
@@ -21,7 +22,7 @@ namespace core
 core::vector<std::string> getBackTrace(void);
 
 //! Utility class easing the process of finding memory leaks. Usable only in debug build. Thread-safe. No Windows implementation yet.
-class IRR_FORCE_EBO CLeakDebugger : public AllocationOverrideDefault, public Uncopyable
+class NBL_FORCE_EBO CLeakDebugger : public AllocationOverrideDefault, public Uncopyable
 {
         std::string name;
     public:

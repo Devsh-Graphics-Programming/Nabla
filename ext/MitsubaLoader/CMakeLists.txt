@@ -1,7 +1,7 @@
 include(../../cmake/common.cmake)
 
 
-set(IRR_EXT_MITSUBA_LOADER_H
+set(NBL_EXT_MITSUBA_LOADER_H
 	PropertyElement.h
 	IElement.h
 	CMitsubaMetadata.h
@@ -23,7 +23,7 @@ set(IRR_EXT_MITSUBA_LOADER_H
 	CMitsubaMaterialCompilerFrontend.h
 )
 
-set(IRR_EXT_MITSUBA_LOADER_SRC
+set(NBL_EXT_MITSUBA_LOADER_SRC
 	PropertyElement.cpp
 	CElementIntegrator.cpp
 	CElementSensor.cpp
@@ -42,16 +42,16 @@ set(IRR_EXT_MITSUBA_LOADER_SRC
 	CMitsubaMaterialCompilerFrontend.cpp
 )
 
-set(IRR_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE
-	"${IRR_ROOT_PATH}/3rdparty"
-	"${IRR_ROOT_PATH}/3rdparty/libexpat"
+set(NBL_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE
+	"${NBL_ROOT_PATH}/3rdparty"
+	"${NBL_ROOT_PATH}/3rdparty/libexpat"
 )
 
 irr_create_ext_library_project(
 	MITSUBA_LOADER
-	"${IRR_EXT_MITSUBA_LOADER_H}"
-	"${IRR_EXT_MITSUBA_LOADER_SRC}"
-	"${IRR_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE}"
+	"${NBL_EXT_MITSUBA_LOADER_H}"
+	"${NBL_EXT_MITSUBA_LOADER_SRC}"
+	"${NBL_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE}"
 	""
 )
 

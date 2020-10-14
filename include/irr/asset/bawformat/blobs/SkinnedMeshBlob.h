@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_SKINNED_MESH_BLOB_H_INCLUDED__
-#define __IRR_SKINNED_MESH_BLOB_H_INCLUDED__
+#ifndef __NBL_ASSET_SKINNED_MESH_BLOB_H_INCLUDED__
+#define __NBL_ASSET_SKINNED_MESH_BLOB_H_INCLUDED__
 
 namespace irr
 {
@@ -14,7 +14,7 @@ class ICPUSkinnedMesh;
 
 #include "irr/irrpack.h"
 //! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-struct IRR_FORCE_EBO SkinnedMeshBlobV3 : VariableSizeBlob<SkinnedMeshBlobV3,ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV3, ICPUSkinnedMesh>
+struct NBL_FORCE_EBO SkinnedMeshBlobV3 : VariableSizeBlob<SkinnedMeshBlobV3,ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV3, ICPUSkinnedMesh>
 {
 public:
 	enum E_BLOB_MESH_FLAG : uint32_t

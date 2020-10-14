@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_C_SWIZZLE_AND_CONVERT_IMAGE_FILTER_H_INCLUDED__
-#define __IRR_C_SWIZZLE_AND_CONVERT_IMAGE_FILTER_H_INCLUDED__
+#ifndef __NBL_ASSET_C_SWIZZLE_AND_CONVERT_IMAGE_FILTER_H_INCLUDED__
+#define __NBL_ASSET_C_SWIZZLE_AND_CONVERT_IMAGE_FILTER_H_INCLUDED__
 
 #include "irr/core/core.h"
 
@@ -84,7 +84,7 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 				return false;
 
 			const auto blockDims = asset::getBlockDimensions(inFormat);
-			#ifdef _IRR_DEBUG
+			#ifdef _NBL_DEBUG
 				assert(blockDims.z==1u);
 				assert(blockDims.w==1u);
 			#endif
@@ -149,7 +149,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Normalize,Clam
 			const auto outFormat = state->outImage->getCreationParameters().format;
 			const auto blockDims = asset::getBlockDimensions(inFormat);
 			const uint32_t outChannelsAmount = asset::getFormatChannelCount(outFormat);
-			#ifdef _IRR_DEBUG
+			#ifdef _NBL_DEBUG
 				assert(blockDims.z==1u);
 				assert(blockDims.w==1u);
 			#endif
@@ -213,7 +213,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Normalize,Clamp
 
 			const auto inFormat = state->inImage->getCreationParameters().format;
 			const auto blockDims = asset::getBlockDimensions(inFormat);
-			#ifdef _IRR_DEBUG
+			#ifdef _NBL_DEBUG
 			assert(blockDims.z == 1u);
 			assert(blockDims.w == 1u);
 			#endif
@@ -283,7 +283,7 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Normalize,Clamp,
 			const auto outFormat = state->outImage->getCreationParameters().format;
 			const auto blockDims = asset::getBlockDimensions(inFormat);
 			const uint32_t outChannelsAmount = asset::getFormatChannelCount(outFormat);
-			#ifdef _IRR_DEBUG
+			#ifdef _NBL_DEBUG
 			assert(blockDims.z == 1u);
 			assert(blockDims.w == 1u);
 			#endif

@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#ifndef __C_PLY_MESH_FILE_LOADER_H_INCLUDED__
-#define __C_PLY_MESH_FILE_LOADER_H_INCLUDED__
+#ifndef __NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED__
+#define __NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 
 #include "irr/asset/IAssetLoader.h"
 #include "irr/asset/ICPUMeshBuffer.h"
@@ -142,7 +142,7 @@ private:
 		{ 
 			if (Buffer)
 			{
-				_IRR_DELETE_ARRAY(Buffer, PLY_INPUT_BUFFER_SIZE);
+				_NBL_DELETE_ARRAY(Buffer, PLY_INPUT_BUFFER_SIZE);
 				Buffer = nullptr;
 			}
 			ElementList.clear();

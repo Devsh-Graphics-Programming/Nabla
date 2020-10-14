@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_FLOAT_UTIL_H_INCLUDED__
-#define __IRR_FLOAT_UTIL_H_INCLUDED__
+#ifndef __NBL_CORE_FLOAT_UTIL_H_INCLUDED__
+#define __NBL_CORE_FLOAT_UTIL_H_INCLUDED__
 
 
 #include <float.h>
@@ -34,38 +34,38 @@ class matrix4SIMD;
 
 //! Rounding error constant often used when comparing values.
 template<typename T>
-IRR_FORCE_INLINE T ROUNDING_ERROR();
+NBL_FORCE_INLINE T ROUNDING_ERROR();
 template<>
-IRR_FORCE_INLINE float ROUNDING_ERROR<float>();
+NBL_FORCE_INLINE float ROUNDING_ERROR<float>();
 template<>
-IRR_FORCE_INLINE double ROUNDING_ERROR<double>();
+NBL_FORCE_INLINE double ROUNDING_ERROR<double>();
 template<>
-IRR_FORCE_INLINE vectorSIMDf ROUNDING_ERROR<vectorSIMDf>();
+NBL_FORCE_INLINE vectorSIMDf ROUNDING_ERROR<vectorSIMDf>();
 template<>
-IRR_FORCE_INLINE matrix3x4SIMD ROUNDING_ERROR<matrix3x4SIMD>();
+NBL_FORCE_INLINE matrix3x4SIMD ROUNDING_ERROR<matrix3x4SIMD>();
 template<>
-IRR_FORCE_INLINE matrix4SIMD ROUNDING_ERROR<matrix4SIMD>();
+NBL_FORCE_INLINE matrix4SIMD ROUNDING_ERROR<matrix4SIMD>();
 
 #ifdef PI // make sure we don't collide with a define
 #undef PI
 #endif
 //! Constant for PI.
 template<typename T>
-IRR_FORCE_INLINE T PI()
+NBL_FORCE_INLINE T PI()
 {
 	return T(3.14159265358979323846);
 }
 
 //! Constant for reciprocal of PI.
 template<typename T>
-IRR_FORCE_INLINE T RECIPROCAL_PI()
+NBL_FORCE_INLINE T RECIPROCAL_PI()
 {
 	return T(1.0) / PI<T>();
 }
 
 //! Constant for half of PI.
 template<typename T>
-IRR_FORCE_INLINE T HALF_PI()
+NBL_FORCE_INLINE T HALF_PI()
 {
 	return PI<T>() * T(0.5);
 }
@@ -84,40 +84,40 @@ T nan();
 
 //TODO (?) we could have some core::half typedef or something..
 template<>
-IRR_FORCE_INLINE uint16_t nan<uint16_t>() { return impl::NAN_U16; }
+NBL_FORCE_INLINE uint16_t nan<uint16_t>() { return impl::NAN_U16; }
 
 template<>
-IRR_FORCE_INLINE float nan<float>() { return reinterpret_cast<const float&>(impl::NAN_U32); }
+NBL_FORCE_INLINE float nan<float>() { return reinterpret_cast<const float&>(impl::NAN_U32); }
 
 template<>
-IRR_FORCE_INLINE double nan<double>() { return reinterpret_cast<const double&>(impl::NAN_U64); }
+NBL_FORCE_INLINE double nan<double>() { return reinterpret_cast<const double&>(impl::NAN_U64); }
 
 template<typename T>
 T infinity();
 
 template<>
-IRR_FORCE_INLINE float infinity<float>() {return reinterpret_cast<const float&>(impl::INFINITY_U32);}
+NBL_FORCE_INLINE float infinity<float>() {return reinterpret_cast<const float&>(impl::INFINITY_U32);}
 
 
 template<typename T>
 bool isnan(T val);
 
 template<>
-IRR_FORCE_INLINE bool isnan<double>(double val) 
+NBL_FORCE_INLINE bool isnan<double>(double val) 
 {
     //all exponent bits set, at least one mantissa bit set
     return (reinterpret_cast<uint64_t&>(val)&0x7fffffffFFFFFFFFull) > 0x7ff0000000000000ull;
 }
 
 template<>
-IRR_FORCE_INLINE bool isnan<float>(float val) 
+NBL_FORCE_INLINE bool isnan<float>(float val) 
 {
     //all exponent bits set, at least one mantissa bit set
     return (reinterpret_cast<uint32_t&>(val)&0x7fffffffu) > 0x7f800000u;
 }
 
 template<>
-IRR_FORCE_INLINE bool isnan<uint16_t>(uint16_t val)
+NBL_FORCE_INLINE bool isnan<uint16_t>(uint16_t val)
 {
 	//all exponent bits set, at least one mantissa bit set
 	return (val & 0x7fffu) > 0x7c00u;
@@ -127,7 +127,7 @@ template<typename T>
 bool isinf(T val);
 
 template<>
-IRR_FORCE_INLINE bool isinf<float>(float val)
+NBL_FORCE_INLINE bool isinf<float>(float val)
 {
     //all exponent bits set, none mantissa bit set
     return (reinterpret_cast<uint32_t&>(val)&0x7fffffffu) == 0x7f800000u;
@@ -144,47 +144,47 @@ union FloatIntUnion32
 };
 
 //! Integer representation of a floating-point value and the reverse.
-#ifdef __IRR_FAST_MATH
-IRR_FORCE_INLINE uint32_t& IR(float& x)
+#ifdef __NBL_FAST_MATH
+NBL_FORCE_INLINE uint32_t& IR(float& x)
 {
 	return reinterpret_cast<uint32_t&>(x);
 }
-IRR_FORCE_INLINE const uint32_t& IR(const float& x)
+NBL_FORCE_INLINE const uint32_t& IR(const float& x)
 {
 	return reinterpret_cast<const uint32_t&>(x);
 }
-IRR_FORCE_INLINE float& FR(uint32_t& x)
+NBL_FORCE_INLINE float& FR(uint32_t& x)
 {
 	return reinterpret_cast<float&>(x);
 }
-IRR_FORCE_INLINE const float& FR(const uint32_t& x)
+NBL_FORCE_INLINE const float& FR(const uint32_t& x)
 {
 	return reinterpret_cast<const float&>(x);
 }
-IRR_FORCE_INLINE float& FR(int32_t& x)
+NBL_FORCE_INLINE float& FR(int32_t& x)
 {
 	return reinterpret_cast<float&>(x);
 }
-IRR_FORCE_INLINE const float& FR(const int32_t& x)
+NBL_FORCE_INLINE const float& FR(const int32_t& x)
 {
 	return reinterpret_cast<const float&>(x);
 }
 #else
 // C++ full standard compat use memcpy
 static_assert(sizeof(float)==sizeof(uint32_t));
-IRR_FORCE_INLINE uint32_t IR(float x)
+NBL_FORCE_INLINE uint32_t IR(float x)
 {
 	uint32_t retval;
 	memcpy(&retval,&x,sizeof(float));
 	return retval;
 }
-IRR_FORCE_INLINE float FR(uint32_t x)
+NBL_FORCE_INLINE float FR(uint32_t x)
 {
 	float retval;
 	memcpy(&retval, &x, sizeof(float));
 	return retval;
 }
-IRR_FORCE_INLINE float FR(int32_t x)
+NBL_FORCE_INLINE float FR(int32_t x)
 {
 	float retval;
 	memcpy(&retval, &x, sizeof(float));
@@ -194,7 +194,7 @@ IRR_FORCE_INLINE float FR(int32_t x)
 
 //! We compare the difference in ULP's (spacing between floating-point numbers, aka ULP=1 means there exists no float between).
 //\result true when numbers have a ULP <= maxUlpDiff AND have the same sign.
-IRR_FORCE_INLINE bool equalsByUlp(float a, float b, int maxUlpDiff) //consider
+NBL_FORCE_INLINE bool equalsByUlp(float a, float b, int maxUlpDiff) //consider
 {
 	// Based on the ideas and code from Bruce Dawson on
 	// http://www.altdevblogaday.com/2012/02/22/comparing-floating-point-numbers-2012-edition/
@@ -544,11 +544,11 @@ inline rgb32f rgb19e7_to_rgb32f(uint64_t _rgb19e7)
 	return r;
 }
 
-IRR_FORCE_INLINE float nextafter32(float x, float y)
+NBL_FORCE_INLINE float nextafter32(float x, float y)
 {
 	return std::nextafterf(x, y);
 }
-IRR_FORCE_INLINE double nextafter64(double x, double y)
+NBL_FORCE_INLINE double nextafter64(double x, double y)
 {
 	return std::nextafter(x, y);
 }

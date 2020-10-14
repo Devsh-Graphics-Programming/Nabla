@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __I_GEOMETRY_CREATOR_H_INCLUDED__
-#define __I_GEOMETRY_CREATOR_H_INCLUDED__
+#ifndef __NBL_ASSET_I_GEOMETRY_CREATOR_H_INCLUDED__
+#define __NBL_ASSET_I_GEOMETRY_CREATOR_H_INCLUDED__
 
 #include "irr/core/core.h"
 #include "irr/asset/ICPUMesh.h"
@@ -19,7 +19,7 @@ namespace asset
 /** You can get an instance of this class through ISceneManager::getGeometryCreator() */
 class IGeometryCreator : public core::IReferenceCounted
 {
-		_IRR_INTERFACE_CHILD(IGeometryCreator) {}
+		_NBL_INTERFACE_CHILD(IGeometryCreator) {}
 	public:
 		struct return_type
 		{
@@ -118,5 +118,5 @@ class IGeometryCreator : public core::IReferenceCounted
 } // end namespace asset
 } // end namespace irr
 
-#endif // __I_GEOMETRY_CREATOR_H_INCLUDED__
+#endif
 

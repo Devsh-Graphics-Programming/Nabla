@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#define _IRR_STATIC_LIB_
+#define _NBL_STATIC_LIB_
 #include <irrlicht.h>
 
 #include "../common/QToQuitEventReceiver.h"
@@ -319,9 +319,9 @@ core::smart_refctd_ptr<asset::ICPUImage> createPoTPaddedSquareImageWithMipLevels
         genmips.endMipLevel = paddedImg->getCreationParameters().mipLevels;
         genmips.inOutImage = paddedImg.get();
         genmips.scratchMemoryByteSize = mip_gen_filter_t::getRequiredScratchByteSize(&genmips);
-        genmips.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(genmips.scratchMemoryByteSize,_IRR_SIMD_ALIGNMENT));
+        genmips.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(genmips.scratchMemoryByteSize,_NBL_SIMD_ALIGNMENT));
         mip_gen_filter_t::execute(&genmips);
-        _IRR_ALIGNED_FREE(genmips.scratchMemory);
+        _NBL_ALIGNED_FREE(genmips.scratchMemory);
     }
 
     //bring back original extent
@@ -448,7 +448,7 @@ int main()
 
         auto* mb = mesh_raw->getMeshBuffer(i);
         auto* ds = mb->getAttachedDescriptorSet();
-        _IRR_DEBUG_BREAK_IF(!ds);
+        _NBL_DEBUG_BREAK_IF(!ds);
         for (uint32_t k = 0u; k < TEX_OF_INTEREST_CNT; ++k)
         {
             uint32_t j = texturesOfInterest[k];

@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_VIDEO_I_PROPERTY_POOL_H_INCLUDED__
-#define __IRR_VIDEO_I_PROPERTY_POOL_H_INCLUDED__
+#ifndef __NBL_VIDEO_I_PROPERTY_POOL_H_INCLUDED__
+#define __NBL_VIDEO_I_PROPERTY_POOL_H_INCLUDED__
 
 
 #include "irr/asset/asset.h"
@@ -23,7 +23,7 @@ class IPropertyPool : public core::IReferenceCounted
 	public:
 		using PropertyAddressAllocator = core::PoolAddressAllocatorST<uint32_t>;
 
-        _IRR_STATIC_INLINE_CONSTEXPR auto InvalidIndex = PropertyAddressAllocator::invalid_address;
+        _NBL_STATIC_INLINE_CONSTEXPR auto InvalidIndex = PropertyAddressAllocator::invalid_address;
 
 
         //
@@ -46,7 +46,7 @@ class IPropertyPool : public core::IReferenceCounted
         }
 
 
-        _IRR_STATIC_INLINE_CONSTEXPR auto MaxPropertiesPerCS = 15;
+        _NBL_STATIC_INLINE_CONSTEXPR auto MaxPropertiesPerCS = 15;
         struct PipelineKey
         {
             uint32_t getPropertyCount() const

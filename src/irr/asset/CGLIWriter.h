@@ -2,12 +2,12 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __C_IMAGE_WRITER_GLI__
-#define __C_IMAGE_WRITER_GLI__
+#ifndef __NBL_ASSET_C_IMAGE_WRITER_GLI__
+#define __NBL_ASSET_C_IMAGE_WRITER_GLI__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 
-#ifdef _IRR_COMPILE_WITH_GLI_WRITER_
+#ifdef _NBL_COMPILE_WITH_GLI_WRITER_
 
 #include "irr/asset/IAssetWriter.h"
 #include "irr/asset/ICPUImageView.h"
@@ -70,5 +70,5 @@ class CGLIWriter final : public asset::IAssetWriter
 }
 }
 
-#endif // _IRR_COMPILE_WITH_GLI_WRITER_
-#endif // #ifndef __C_IMAGE_WRITER_GLI__
+#endif // _NBL_COMPILE_WITH_GLI_WRITER_
+#endif

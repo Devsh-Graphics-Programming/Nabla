@@ -2,34 +2,34 @@ include(../../cmake/common.cmake)
 update_git_submodule(./stb)
 
 
-set(IRR_EXT_CEGUI_H
+set(NBL_EXT_CEGUI_H
   ExtCEGUI.h
 	CEGUIOpenGLState.h
 	CEGUIOpenGLClip.h
 	Helpers.h
 )
 
-set(IRR_EXT_CEGUI_SRC
+set(NBL_EXT_CEGUI_SRC
   ExtCEGUI.cpp
 	CEGUIOpenGLState.cpp
 	CEGUIOpenGLClip.cpp
 	Helpers.cpp
 )
 
-set(IRR_EXT_CEGUI_EXTERNAL_INCLUDE
+set(NBL_EXT_CEGUI_EXTERNAL_INCLUDE
   "${CEGUI_INCLUDE_PATH}"
-  "${IRR_ROOT_PATH}/3rdparty"
+  "${NBL_ROOT_PATH}/3rdparty"
   "${CMAKE_BINARY_DIR}/3rdparty/CEGUI/dependencies/install/include"
-  "${IRR_ROOT_PATH}/src/3rdparty/"
+  "${NBL_ROOT_PATH}/src/3rdparty/"
 )
 
 add_compile_definitions(CEGUI_STATIC CEGUI_BUILD_STATIC_FACTORY_MODULE)
 
 irr_create_ext_library_project(
   CEGUI
-  "${IRR_EXT_CEGUI_H}"
-  "${IRR_EXT_CEGUI_SRC}"
-  "${IRR_EXT_CEGUI_EXTERNAL_INCLUDE}"
+  "${NBL_EXT_CEGUI_H}"
+  "${NBL_EXT_CEGUI_SRC}"
+  "${NBL_EXT_CEGUI_EXTERNAL_INCLUDE}"
   ""
 )
 

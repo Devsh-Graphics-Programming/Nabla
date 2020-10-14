@@ -169,10 +169,10 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_a
         insertShaderIntoCache(shader, decltype(constexprStringType)::value, m_assetMgr);
     };
 
-    registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_VERTEX);
-    registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
-    registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
-    registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
+    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_VERTEX);
+    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
+    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
 
 
   
@@ -680,7 +680,7 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mt
         for (uint32_t i = CMTLPipelineMetadata::EMP_REFL_POSX; i < CMTLPipelineMetadata::EMP_REFL_POSX + 6u; ++i)
         {
             assert(images[i]);
-#ifndef _IRR_DEBUG
+#ifndef _NBL_DEBUG
             if (images[i])
             {
 #endif
@@ -692,14 +692,14 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mt
                 regions_.back().imageSubresource.baseArrayLayer = (i - CMTLPipelineMetadata::EMP_REFL_POSX);
 
                 bufSz += images[i]->getImageDataSizeInBytes();
-#ifndef _IRR_DEBUG
+#ifndef _NBL_DEBUG
             }
 #endif
         }
         auto imgDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(bufSz);
         for (uint32_t i = CMTLPipelineMetadata::EMP_REFL_POSX, j = 0u; i < CMTLPipelineMetadata::EMP_REFL_POSX + 6u; ++i)
         {
-#ifndef _IRR_DEBUG
+#ifndef _NBL_DEBUG
             if (images[i])
             {
 #endif
@@ -709,7 +709,7 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mt
                 memcpy(dst, src, sz);
 
                 ++j;
-#ifndef _IRR_DEBUG
+#ifndef _NBL_DEBUG
             }
 #endif
         }

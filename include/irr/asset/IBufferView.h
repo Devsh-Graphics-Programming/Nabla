@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_BUFFER_VIEW_H_INCLUDED__
-#define __IRR_I_BUFFER_VIEW_H_INCLUDED__
+#ifndef __NBL_ASSET_I_BUFFER_VIEW_H_INCLUDED__
+#define __NBL_ASSET_I_BUFFER_VIEW_H_INCLUDED__
 
 #include "irr/macros.h"
 
@@ -19,7 +19,7 @@ template<typename BufferType>
 class IBufferView : public IDescriptor
 {
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR size_t whole_buffer = ~static_cast<size_t>(0u);
+		_NBL_STATIC_INLINE_CONSTEXPR size_t whole_buffer = ~static_cast<size_t>(0u);
 
 	protected:
 		IBufferView(core::smart_refctd_ptr<BufferType>&& _buffer, E_FORMAT _format, size_t _offset, size_t _size) :

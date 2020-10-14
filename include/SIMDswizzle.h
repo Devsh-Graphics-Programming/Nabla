@@ -2,13 +2,13 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _SIMD_SWIZZLE_H_
-#define _SIMD_SWIZZLE_H_
+#ifndef __NBL_SIMD_SWIZZLE_H_
+#define __NBL_SIMD_SWIZZLE_H_
 
 #define FAST_FLOAT_SHUFFLE(X,Y) _mm_castsi128_ps(_mm_shuffle_epi32(_mm_castps_si128(X),Y))
 
 template <class T, class X>
-class IRR_FORCE_EBO SIMD_32bitSwizzleAble
+class NBL_FORCE_EBO SIMD_32bitSwizzleAble
 {
 		template<int mask>
 		inline X shuffleFunc(X reg) const;

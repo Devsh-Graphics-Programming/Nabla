@@ -5,7 +5,7 @@
 
 #include "CTarReader.h"
 
-#ifdef __IRR_COMPILE_WITH_TAR_ARCHIVE_LOADER_
+#ifdef __NBL_COMPILE_WITH_TAR_ARCHIVE_LOADER_
 
 #include "CFileList.h"
 #include "CLimitReadFile.h"
@@ -21,7 +21,7 @@ namespace io
 CArchiveLoaderTAR::CArchiveLoaderTAR(io::IFileSystem* fs)
 : FileSystem(fs)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CArchiveLoaderTAR");
 	#endif
 }
@@ -126,7 +126,7 @@ bool CArchiveLoaderTAR::isALoadableFileFormat(io::IReadFile* file) const
 */
 CTarReader::CTarReader(IReadFile* file) : CFileList(file ? file->getFileName() : io::path("")), File(file)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CTarReader");
 	#endif
 
@@ -238,4 +238,4 @@ IReadFile* CTarReader::createAndOpenFile(const io::path& filename)
 } // end namespace io
 } // end namespace irr
 
-#endif // __IRR_COMPILE_WITH_TAR_ARCHIVE_LOADER_
+#endif // __NBL_COMPILE_WITH_TAR_ARCHIVE_LOADER_

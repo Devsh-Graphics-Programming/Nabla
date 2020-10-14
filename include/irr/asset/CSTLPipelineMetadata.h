@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_C_STL_PIPELINE_METADATA_H_INCLUDED__
-#define __IRR_C_STL_PIPELINE_METADATA_H_INCLUDED__
+#ifndef __NBL_ASSET_C_STL_PIPELINE_METADATA_H_INCLUDED__
+#define __NBL_ASSET_C_STL_PIPELINE_METADATA_H_INCLUDED__
 
 #include "irr/asset/IPipelineMetadata.h"
 
@@ -20,7 +20,7 @@ namespace irr
 
             core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const override { return { m_shaderInputs->begin(), m_shaderInputs->end() }; }
 
-            _IRR_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CSTLMeshFileLoader";
+            _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CSTLMeshFileLoader";
             const char* getLoaderName() const override { return LoaderName; }
 
         private:
@@ -30,4 +30,4 @@ namespace irr
     }
 }
 
-#endif // __IRR_C_STL_PIPELINE_METADATA_H_INCLUDED__
+#endif

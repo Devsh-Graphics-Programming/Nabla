@@ -36,7 +36,7 @@ CElementFactory::return_type CElementFactory::createElement<CElementTexture>(con
 	if (found==StringToType.end())
 	{
 		ParserLog::invalidXMLFileStructure("unknown type");
-		_IRR_DEBUG_BREAK_IF(false);
+		_NBL_DEBUG_BREAK_IF(false);
 		return CElementFactory::return_type(nullptr,"");
 	}
 
@@ -246,7 +246,7 @@ bool CElementTexture::addProperty(SNamedPropertyElement&& _property)
 	auto found = SetPropertyMap.find(_property.name);
 	if (found==SetPropertyMap.end())
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		ParserLog::invalidXMLFileStructure("No BSDF can have such property set with name: "+_property.name);
 		return false;
 	}
@@ -272,7 +272,7 @@ bool CElementTexture::processChildData(IElement* _child, const std::string& name
 						scale.texture = _texture;
 						break;
 					default:
-						_IRR_DEBUG_BREAK_IF(true);
+						_NBL_DEBUG_BREAK_IF(true);
 						ParserLog::invalidXMLFileStructure("No supported texture can have a texture as child element, except for \"scale\"");
 						return false;
 						break;
@@ -291,7 +291,7 @@ bool CElementTexture::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _overr
 	if (type == Type::INVALID)
 	{
 		ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		return true;
 	}
 	

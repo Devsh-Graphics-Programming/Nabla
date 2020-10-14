@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_ADDRESS_ALLOCATOR_H_INCLUDED__
-#define __IRR_I_ADDRESS_ALLOCATOR_H_INCLUDED__
+#ifndef __NBL_CORE_I_ADDRESS_ALLOCATOR_H_INCLUDED__
+#define __NBL_CORE_I_ADDRESS_ALLOCATOR_H_INCLUDED__
 
 
 #include "irr/core/BaseClasses.h"
@@ -14,9 +14,9 @@ namespace irr
 namespace core
 {
 
-class IRR_FORCE_EBO IAddressAllocator : Interface
+class NBL_FORCE_EBO IAddressAllocator : Interface
 {
-        _IRR_INTERFACE_CHILD_DEFAULT(IAddressAllocator);
+        _NBL_INTERFACE_CHILD_DEFAULT(IAddressAllocator);
     public:
         virtual size_t              get_real_addr(size_t allocated_addr) const noexcept = 0;
 
@@ -39,7 +39,7 @@ class IRR_FORCE_EBO IAddressAllocator : Interface
 
 
 template <class AddressAllocator>
-class IRR_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, public IAddressAllocator
+class NBL_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, public IAddressAllocator
 {
         inline AddressAllocator&    getBaseRef() noexcept {return static_cast<AddressAllocator&>(*this);}
     public:
@@ -86,5 +86,5 @@ class IRR_FORCE_EBO IAddressAllocatorAdaptor final : private AddressAllocator, p
 }
 }
 
-#endif // __IRR_I_ADDRESS_ALLOCATOR_H_INCLUDED__
+#endif
 

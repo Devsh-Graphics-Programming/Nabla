@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_I_CPU_PIPELINE_LAYOUT_H_INCLUDED__
-#define __IRR_I_CPU_PIPELINE_LAYOUT_H_INCLUDED__
+#ifndef __NBL_ASSET_I_CPU_PIPELINE_LAYOUT_H_INCLUDED__
+#define __NBL_ASSET_I_CPU_PIPELINE_LAYOUT_H_INCLUDED__
 
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ICPUDescriptorSetLayout.h"
@@ -54,7 +54,7 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 			m_pushConstantRanges = nullptr;
 		}
 
-        _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_LAYOUT;
+        _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
 	protected:

@@ -7,8 +7,8 @@
 #include "irr/video/CGPUSkinnedMesh.h"
 
 #include "vectorSIMD.h"
- 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 
 #include "irr/video/COpenGLImageView.h"
 #include "irr/video/COpenGLBufferView.h"
@@ -26,21 +26,21 @@
 #include "os.h"
 #include "irr/asset/spvUtils.h"
 
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
 #include "CIrrDeviceSDL.h"
 #include <SDL/SDL.h>
 #endif
 
-#if defined(_IRR_COMPILE_WITH_WINDOWS_DEVICE_)
+#if defined(_NBL_COMPILE_WITH_WINDOWS_DEVICE_)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include "CIrrDeviceWin32.h"
-#elif defined(_IRR_COMPILE_WITH_X11_DEVICE_)
+#elif defined(_NBL_COMPILE_WITH_X11_DEVICE_)
 #include "CIrrDeviceLinux.h"
 #include <dlfcn.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
-#ifdef _IRR_LINUX_X11_RANDR_
+#ifdef _NBL_LINUX_X11_RANDR_
 #include <X11/extensions/Xrandr.h>
 #endif
 #endif
@@ -227,7 +227,7 @@ namespace video
 // -----------------------------------------------------------------------
 // WINDOWS CONSTRUCTOR
 // -----------------------------------------------------------------------
-#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 //! Windows constructor and init code
 COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp)
@@ -236,7 +236,7 @@ COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
 	AuxContexts(0), GLSLCompiler(glslcomp), DeviceType(EIDT_WIN32)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("COpenGLDriver");
 	#endif
 }
@@ -439,7 +439,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 		wglExtensions = irrGetExtensionsString(HDc);
 #endif
 	const bool pixel_format_supported = (wglExtensions.find("WGL_ARB_pixel_format") != -1);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	os::Printer::log("WGL_extensions", wglExtensions.c_str());
 #endif
 
@@ -575,7 +575,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 		return false;
 	}
 
-    AuxContexts = _IRR_NEW_ARRAY(SAuxContext,Params.AuxGLContexts+1);
+    AuxContexts = _NBL_NEW_ARRAY(SAuxContext,Params.AuxGLContexts+1);
     {
         AuxContexts[0].threadId = std::this_thread::get_id();
         AuxContexts[0].ctx = hrc;
@@ -598,7 +598,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 	{
 		os::Printer::log("Cannot activate GL rendering context", ELL_ERROR);
 		wglDeleteContext(hrc);
-		_IRR_DELETE_ARRAY(AuxContexts,Params.AuxGLContexts+1);
+		_NBL_DELETE_ARRAY(AuxContexts,Params.AuxGLContexts+1);
 		return false;
 	}
 
@@ -620,9 +620,9 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
 			ColorFormat = asset::EF_B5G6R5_UNORM_PACK16;
 	}
 
-#ifdef _IRR_COMPILE_WITH_OPENCL_
+#ifdef _NBL_COMPILE_WITH_OPENCL_
 	ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice,clProperties,hrc,HDc);
-#endif // _IRR_COMPILE_WITH_OPENCL_
+#endif // _NBL_COMPILE_WITH_OPENCL_
 	genericDriverInit(device->getAssetManager());
 
 	extGlSwapInterval(Params.Vsync ? 1 : 0);
@@ -664,13 +664,13 @@ bool COpenGLDriver::deinitAuxContext()
     return retval;
 }
 
-#endif // _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+#endif // _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 
 
 // -----------------------------------------------------------------------
 // LINUX CONSTRUCTOR
 // -----------------------------------------------------------------------
-#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 //! Linux constructor and init code
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp)
@@ -678,7 +678,7 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 			runningInRenderDoc(false), ColorFormat(asset::EF_R8G8B8_UNORM),
 			X11Device(device), DeviceType(EIDT_X11), AuxContexts(0), GLSLCompiler(glslcomp)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("COpenGLDriver");
 	#endif
 }
@@ -745,10 +745,10 @@ bool COpenGLDriver::initDriver(CIrrDeviceLinux* device, SAuxContext* auxCtxts)
 
     AuxContexts = auxCtxts;
 
-#ifdef _IRR_COMPILE_WITH_OPENCL_
+#ifdef _NBL_COMPILE_WITH_OPENCL_
 	if (!ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice,clProperties,reinterpret_cast<GLXContext&>(ExposedData.OpenGLLinux.X11Context),(Display*)ExposedData.OpenGLLinux.X11Display))
         os::Printer::log("Couldn't find matching OpenCL device.\n");
-#endif // _IRR_COMPILE_WITH_OPENCL_
+#endif // _NBL_COMPILE_WITH_OPENCL_
 
 	genericDriverInit(device->getAssetManager());
 
@@ -796,7 +796,7 @@ bool COpenGLDriver::deinitAuxContext()
     return retval;
 }
 
-#endif // _IRR_COMPILE_WITH_X11_DEVICE_
+#endif // _NBL_COMPILE_WITH_X11_DEVICE_
 
 
 //! destructor
@@ -830,7 +830,7 @@ COpenGLDriver::~COpenGLDriver()
             break;
     }
 
-#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 	if (DeviceType == EIDT_WIN32)
 	{
         for (size_t i=1; i<=Params.AuxGLContexts; i++)
@@ -854,11 +854,11 @@ COpenGLDriver::~COpenGLDriver()
         //    UnregisterClass(ClassName, lhInstance);
         //}
 	}
-#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 	else
-#endif // _IRR_COMPILE_WITH_X11_DEVICE_
+#endif // _NBL_COMPILE_WITH_X11_DEVICE_
 #endif
-#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
     if (DeviceType == EIDT_X11)
     {
         for (size_t i=1; i<=Params.AuxGLContexts; i++)
@@ -868,8 +868,8 @@ COpenGLDriver::~COpenGLDriver()
             glXDestroyContext((Display*)ExposedData.OpenGLLinux.X11Display,AuxContexts[i].ctx);
         }
     }
-#endif // _IRR_COMPILE_WITH_X11_DEVICE_
-    _IRR_DELETE_ARRAY(AuxContexts,Params.AuxGLContexts+1);
+#endif // _NBL_COMPILE_WITH_X11_DEVICE_
+    _NBL_DELETE_ARRAY(AuxContexts,Params.AuxGLContexts+1);
     glContextMutex.unlock();
 }
 
@@ -880,15 +880,15 @@ COpenGLDriver::~COpenGLDriver()
 
 uint16_t COpenGLDriver::retrieveDisplayRefreshRate() const
 {
-#if defined(_IRR_COMPILE_WITH_WINDOWS_DEVICE_)
+#if defined(_NBL_COMPILE_WITH_WINDOWS_DEVICE_)
     DEVMODEA dm;
     dm.dmSize = sizeof(DEVMODE);
     dm.dmDriverExtra = 0;
     if (!EnumDisplaySettings(NULL, ENUM_CURRENT_SETTINGS, &dm))
         return 0u;
     return static_cast<uint16_t>(dm.dmDisplayFrequency);
-#elif defined(_IRR_COMPILE_WITH_X11_DEVICE_)
-#   ifdef _IRR_LINUX_X11_RANDR_
+#elif defined(_NBL_COMPILE_WITH_X11_DEVICE_)
+#   ifdef _NBL_LINUX_X11_RANDR_
     Display* disp = XOpenDisplay(NULL);
     Window root = RootWindow(disp, 0);
 
@@ -897,11 +897,11 @@ uint16_t COpenGLDriver::retrieveDisplayRefreshRate() const
 
     return rate;
 #   else
-#       ifdef _IRR_DEBUG
+#       ifdef _NBL_DEBUG
     os::Printer::log("Refresh rate retrieval without Xrandr compiled in is not supprted!\n", ELL_WARNING);
 #       endif
     return 0u;
-#   endif // _IRR_LINUX_X11_RANDR_
+#   endif // _NBL_LINUX_X11_RANDR_
 #else
     return 0u;
 #endif
@@ -982,11 +982,11 @@ bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
 	if (!AuxContexts) // opengl dead and never inited
 		return false;
 
-#ifdef _IRR_WINDOWS_API_
+#ifdef _NBL_WINDOWS_API_
     if (GetModuleHandleA("renderdoc.dll"))
-#elif defined(_IRR_ANDROID_PLATFORM_)
+#elif defined(_NBL_ANDROID_PLATFORM_)
     if (dlopen("libVkLayer_GLES_RenderDoc.so", RTLD_NOW | RTLD_NOLOAD))
-#elif defined(_IRR_LINUX_PLATFORM_)
+#elif defined(_NBL_LINUX_PLATFORM_)
     if (dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD))
 #else
     if (false)
@@ -1012,7 +1012,7 @@ bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
     maxConcurrentShaderInvocations = 4;
     maxALUShaderInvocations = 4;
     maxShaderComputeUnits = 1;
-#ifdef _IRR_COMPILE_WITH_OPENCL_
+#ifdef _NBL_COMPILE_WITH_OPENCL_
     clPlatformIx = 0xdeadbeefu;
     clDeviceIx = 0xdeadbeefu;
     for (size_t i=0; i<ocl::COpenCLHandler::getPlatformCount(); i++)
@@ -1034,7 +1034,7 @@ bool COpenGLDriver::genericDriverInit(asset::IAssetManager* assMgr)
         if (clPlatformIx==i)
             break;
     }
-#endif // _IRR_COMPILE_WITH_OPENCL_
+#endif // _NBL_COMPILE_WITH_OPENCL_
 
 
 	GLint num = 0;
@@ -1111,12 +1111,12 @@ bool COpenGLDriver::endScene()
 {
 	CNullDriver::endScene();
 
-#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 	if (DeviceType == EIDT_WIN32)
 		return SwapBuffers(HDc) == TRUE;
 #endif
 
-#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 	if (DeviceType == EIDT_X11)
 	{
 		glXSwapBuffers(X11Display, Drawable);
@@ -1124,7 +1124,7 @@ bool COpenGLDriver::endScene()
 	}
 #endif
 
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
 	if (DeviceType == EIDT_SDL)
 	{
 		SDL_GL_SwapBuffers();
@@ -1396,7 +1396,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
     if (!introspection)
     {
-        _IRR_DEBUG_BREAK_IF(true);
+        _NBL_DEBUG_BREAK_IF(true);
         os::Printer::log("Unable to introspect the SPIR-V shader to extract information about bindings and push constants. Creation failed.", ELL_ERROR);
         return nullptr;
     }
@@ -1404,7 +1404,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     core::vector<COpenGLSpecializedShader::SUniform> uniformList;
     if (!COpenGLSpecializedShader::getUniformsFromPushConstants(&uniformList,introspection))
     {
-        _IRR_DEBUG_BREAK_IF(true);
+        _NBL_DEBUG_BREAK_IF(true);
         os::Printer::log("Attempted to create OpenGL GPU specialized shader from SPIR-V without debug info - unable to set push constants. Creation failed.", ELL_ERROR);
         return nullptr;
     }
@@ -1613,10 +1613,10 @@ void COpenGLDriver::flushMappedMemoryRanges(uint32_t memoryRangeCount, const vid
     for (uint32_t i=0; i<memoryRangeCount; i++)
     {
         auto range = pMemoryRanges+i;
-        #ifdef _IRR_DEBUG
+        #ifdef _NBL_DEBUG
         if (!range->memory->haveToMakeVisible())
             os::Printer::log("Why are you flushing mapped memory that does not need to be flushed!?",ELL_WARNING);
-        #endif // _IRR_DEBUG
+        #endif // _NBL_DEBUG
         extGlFlushMappedNamedBufferRange(static_cast<COpenGLBuffer*>(range->memory)->getOpenGLName(),range->offset,range->length);
     }
 }
@@ -1626,10 +1626,10 @@ void COpenGLDriver::invalidateMappedMemoryRanges(uint32_t memoryRangeCount, cons
     for (uint32_t i=0; i<memoryRangeCount; i++)
     {
         auto range = pMemoryRanges+i;
-        #ifdef _IRR_DEBUG
+        #ifdef _NBL_DEBUG
         if (!range->memory->haveToMakeVisible())
             os::Printer::log("Why are you invalidating mapped memory that does not need to be invalidated!?",ELL_WARNING);
-        #endif // _IRR_DEBUG
+        #endif // _NBL_DEBUG
         extGlMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT);
     }
 }
@@ -1980,7 +1980,7 @@ void COpenGLDriver::drawArraysIndirect(const asset::SBufferBinding<IGPUBuffer> _
     if (!found->nextState.pipeline.graphics.pipeline)
         return;
 
-    if (countBuffer && !FeatureAvailable[IRR_ARB_indirect_parameters] && (Version < 460u))
+    if (countBuffer && !FeatureAvailable[NBL_ARB_indirect_parameters] && (Version < 460u))
     {
         os::Printer::log("OpenGL driver: glMultiDrawArraysIndirectCount() not supported!");
         return;
@@ -2012,38 +2012,38 @@ bool COpenGLDriver::queryFeature(const E_DRIVER_FEATURE &feature) const
 	switch (feature)
 	{
         case EDF_ALPHA_TO_COVERAGE:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_multisample]||true; //vulkan+android
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_multisample]||true; //vulkan+android
         case EDF_GEOMETRY_SHADER:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_geometry_shader4]||true; //vulkan+android
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_geometry_shader4]||true; //vulkan+android
         case EDF_TESSELLATION_SHADER:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_tessellation_shader]||true; //vulkan+android
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_tessellation_shader]||true; //vulkan+android
         case EDF_GET_TEXTURE_SUB_IMAGE:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_get_texture_sub_image]; //only on OpenGL
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_get_texture_sub_image]; //only on OpenGL
         case EDF_TEXTURE_BARRIER:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_texture_barrier]||COpenGLExtensionHandler::FeatureAvailable[IRR_NV_texture_barrier]||Version>=450;
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_texture_barrier]||COpenGLExtensionHandler::FeatureAvailable[NBL_NV_texture_barrier]||Version>=450;
         case EDF_STENCIL_ONLY_TEXTURE:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_texture_stencil8]||Version>=440;
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_texture_stencil8]||Version>=440;
 		case EDF_SHADER_DRAW_PARAMS:
-			return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_shader_draw_parameters]||Version>=460;
+			return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_shader_draw_parameters]||Version>=460;
 		case EDF_MULTI_DRAW_INDIRECT_COUNT:
-			return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_indirect_parameters]||Version>=460;
+			return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_indirect_parameters]||Version>=460;
         case EDF_SHADER_GROUP_VOTE:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_NV_gpu_shader5]||COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_shader_group_vote]||Version>=460;
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_NV_gpu_shader5]||COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_shader_group_vote]||Version>=460;
         case EDF_SHADER_GROUP_BALLOT:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_NV_shader_thread_group]||COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_shader_ballot];
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_NV_shader_thread_group]||COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_shader_ballot];
 		case EDF_SHADER_GROUP_SHUFFLE:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_NV_shader_thread_shuffle];
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_NV_shader_thread_shuffle];
         case EDF_FRAGMENT_SHADER_INTERLOCK:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_INTEL_fragment_shader_ordering]||COpenGLExtensionHandler::FeatureAvailable[IRR_NV_fragment_shader_interlock]||COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_fragment_shader_interlock];
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_INTEL_fragment_shader_ordering]||COpenGLExtensionHandler::FeatureAvailable[NBL_NV_fragment_shader_interlock]||COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_fragment_shader_interlock];
         case EDF_BINDLESS_TEXTURE:
-            return COpenGLExtensionHandler::FeatureAvailable[IRR_ARB_bindless_texture]||Version>=450;
+            return COpenGLExtensionHandler::FeatureAvailable[NBL_ARB_bindless_texture]||Version>=450;
         case EDF_DYNAMIC_SAMPLER_INDEXING:
             return queryFeature(EDF_BINDLESS_TEXTURE);
         case EDF_INPUT_ATTACHMENTS:
             return 
-                COpenGLExtensionHandler::FeatureAvailable[IRR_EXT_shader_pixel_local_storage] || 
-                COpenGLExtensionHandler::FeatureAvailable[IRR_EXT_shader_framebuffer_fetch] ||
-                COpenGLExtensionHandler::FeatureAvailable[IRR_EXT_shader_framebuffer_fetch_non_coherent];
+                COpenGLExtensionHandler::FeatureAvailable[NBL_EXT_shader_pixel_local_storage] || 
+                COpenGLExtensionHandler::FeatureAvailable[NBL_EXT_shader_framebuffer_fetch] ||
+                COpenGLExtensionHandler::FeatureAvailable[NBL_EXT_shader_framebuffer_fetch_non_coherent];
         default:
             break;
 	};
@@ -2066,7 +2066,7 @@ void COpenGLDriver::drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> 
     if (!found->nextState.pipeline.graphics.pipeline)
         return;
 
-    if (countBuffer && !FeatureAvailable[IRR_ARB_indirect_parameters] && (Version < 460u))
+    if (countBuffer && !FeatureAvailable[NBL_ARB_indirect_parameters] && (Version < 460u))
     {
         os::Printer::log("OpenGL driver: glMultiDrawElementsIndirectCount() not supported!");
         return;
@@ -2246,7 +2246,7 @@ void COpenGLDriver::SAuxContext::flushStateGraphics(uint32_t stateBits)
             if (nextState.pipeline.graphics.usedShadersHash != currentState.pipeline.graphics.usedShadersHash)
             {
                 currentState.pipeline.graphics.usedPipeline = 0u;
-                #ifndef _IRR_DEBUG
+                #ifndef _NBL_DEBUG
                     assert(nextState.pipeline.graphics.usedPipeline==0u);
                 #endif
 
@@ -2853,7 +2853,7 @@ void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const asset::SBuffe
     buf = static_cast<const COpenGLBuffer*>(_indirectDrawBuffer);
     nextState.vertexInputParams.indirectDrawBuf = core::smart_refctd_ptr<const COpenGLBuffer>(buf);
 
-    if (FeatureAvailable[IRR_ARB_indirect_parameters] || (Version >= 460u))
+    if (FeatureAvailable[NBL_ARB_indirect_parameters] || (Version >= 460u))
     {
         buf = static_cast<const COpenGLBuffer*>(_paramBuffer);
         nextState.vertexInputParams.parameterBuf = core::smart_refctd_ptr<const COpenGLBuffer>(buf);
@@ -2911,7 +2911,7 @@ void COpenGLDriver::removeFrameBuffer(IFrameBuffer* framebuf)
     if (!framebuf)
         return;
 
-    _IRR_CHECK_OWNING_THREAD(framebuf,return;);
+    _NBL_CHECK_OWNING_THREAD(framebuf,return;);
 
     SAuxContext* found = getThreadContext_helper(false);
     if (!found)
@@ -3053,7 +3053,7 @@ bool COpenGLDriver::setRenderTarget(IFrameBuffer* frameBuffer, bool setNewViewpo
         return true;
     }
 
-    _IRR_CHECK_OWNING_THREAD(frameBuffer,return false;);
+    _NBL_CHECK_OWNING_THREAD(frameBuffer,return false;);
 
     core::dimension2du newRTTSize = frameBuffer->getSize();
     found->CurrentRendertargetSize = newRTTSize;
@@ -3295,7 +3295,7 @@ void COpenGLDriver::enableClipPlane(uint32_t index, bool enable)
 } // end namespace
 } // end namespace
 
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
 
 namespace irr
 {
@@ -3306,11 +3306,11 @@ namespace video
 // -----------------------------------
 // WINDOWS VERSION
 // -----------------------------------
-#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
 	io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp)
 {
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device, glslcomp);
 	if (!ogl->initDriver(device))
 	{
@@ -3320,22 +3320,22 @@ IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
 	return ogl;
 #else
 	return 0;
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
 }
-#endif // _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+#endif // _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 
 // -----------------------------------
 // X11 VERSION
 // -----------------------------------
-#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 		, COpenGLDriver::SAuxContext* auxCtxts
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
         )
 {
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device, glslcomp);
 	if (!ogl->initDriver(device,auxCtxts))
 	{
@@ -3345,25 +3345,25 @@ IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
 	return ogl;
 #else
 	return 0;
-#endif //  _IRR_COMPILE_WITH_OPENGL_
+#endif //  _NBL_COMPILE_WITH_OPENGL_
 }
-#endif // _IRR_COMPILE_WITH_X11_DEVICE_
+#endif // _NBL_COMPILE_WITH_X11_DEVICE_
 
 
 // -----------------------------------
 // SDL VERSION
 // -----------------------------------
-#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
 IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceSDL* device)
 {
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 	return new COpenGLDriver(params, io, device);
 #else
 	return 0;
-#endif //  _IRR_COMPILE_WITH_OPENGL_
+#endif //  _NBL_COMPILE_WITH_OPENGL_
 }
-#endif // _IRR_COMPILE_WITH_SDL_DEVICE_
+#endif // _NBL_COMPILE_WITH_SDL_DEVICE_
 
 } // end namespace
 } // end namespace
