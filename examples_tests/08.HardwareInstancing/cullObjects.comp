@@ -4,7 +4,25 @@
 
 layout(local_size_x = kOptimalWorkgroupSize) in;
 
+layout(set = 0, binding = 0, std430) restrict readonly buffer ObjectTransformProperty
+{
+    TransformProperty_t objects[];
+};
+layout(set = 1, binding = 0, std430) restrict readonly buffer ObjectIndexBuffer
+{
+    uint objectUUIDs[];
+};
+
+layout(push_constant) uniform PushConstants
+{
+    uint objectCount;
+} pc;
 
 void main()
 {
+    if (gl_GlobalInvocationID.x>=pc.objectCount)
+        return;
+
+    uint objectUUID = objectUUIDs[gl_GlobalInvocationID.x];
+    TransformProperty_t obj = objects[objectUUID];
 }

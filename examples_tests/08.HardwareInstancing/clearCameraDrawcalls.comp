@@ -21,6 +21,6 @@ layout(push_constant, row_major) uniform PushConstants
 void main()
 {
     uint dword = gl_GlobalInvocationID.x;
-    if (dword<drawDataArrayDWORDSize)
+    if (dword<pc.drawDataArrayDWORDSize)
         camera.drawData[dword] = world.drawData[dword];
 }

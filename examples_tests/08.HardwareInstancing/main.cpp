@@ -124,10 +124,6 @@ struct CullUniformBuffer
 	uint32_t LoDDistancesSq[6969];
 };
 
-struct ViewInvariantProps
-{
-	core::matrix3x4SIMD tform;
-};
 struct alignas(uint32_t) MaterialProps
 {
 	uint8_t something[128];
@@ -156,7 +152,7 @@ CULL SHADER (could process numerous cameras)
 mat4 viewProj = pc.viewProj;
 
 uint objectUUID = objectIDs[gl_GlobalInvocationIndex];
-ViewInvariantProps objProps = props[objectUUID];
+TransformProperty_t objProps = props[objectUUID];
 mat4x3 world = objProps.tform;
 mat4 mvp = viewProj*mat4(vec4(world[0],0.0),vec4(world[1],0.0),vec4(world[2],0.0),vec4(world[3],1.0));
 
@@ -352,9 +348,9 @@ int main()
 	auto instanceData = [&]()
 	{
 		SBufferRange<video::IGPUBuffer> memoryBlock;
-		memoryBlock.buffer = driver->createDeviceLocalGPUBufferOnDedMem((sizeof(ViewInvariantProps)+sizeof(MaterialProps))*kHardwareInstancesTOTAL);
+		memoryBlock.buffer = driver->createDeviceLocalGPUBufferOnDedMem((sizeof(TransformProperty_t)+sizeof(MaterialProps))*kHardwareInstancesTOTAL);
 		memoryBlock.size = memoryBlock.buffer->getSize();
-		return video::CPropertyPool<core::allocator,ViewInvariantProps,MaterialProps>::create(std::move(memoryBlock));
+		return video::CPropertyPool<core::allocator,TransformProperty_t,MaterialProps>::create(std::move(memoryBlock));
 	}();
 
 	// use the pool
@@ -362,7 +358,7 @@ int main()
 	{
 		// create the instances
 		{
-			core::vector<ViewInvariantProps> propsA(kHardwareInstancesTOTAL);
+			core::vector<TransformProperty_t> propsA(kHardwareInstancesTOTAL);
 			core::vector<MaterialProps> propsB(kHardwareInstancesTOTAL);
 		
 			auto propAIt = propsA.begin();
@@ -371,7 +367,7 @@ int main()
 			for (size_t y=0; y<kNumHardwareInstancesY; y++)
 			for (size_t x=0; x<kNumHardwareInstancesX; x++)
 			{
-				propAIt->tform.setTranslation(core::vectorSIMDf(x,y,z)*2.f);
+				propAIt->world.setTranslation(core::vectorSIMDf(x,y,z)*2.f);
 				/*
 				for (auto i=0; i<3; i++)
 				{
