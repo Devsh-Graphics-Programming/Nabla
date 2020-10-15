@@ -49,7 +49,7 @@ namespace irr
 				auto cpuBuffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer_bundle.getContents().begin()[0]);
 				cpuBuffers.emplace_back() = core::smart_refctd_ptr<ICPUBuffer>(cpuBuffer);
 			}
-
+		
 			core::vector<core::smart_refctd_ptr<CCPUMesh>> cpuMeshes;
 			for (auto& glTFnode : glTF.nodes) 
 			{
@@ -59,7 +59,7 @@ namespace irr
 				{
 					typedef std::remove_reference<decltype(glTFprimitive)>::type SGLTFPrimitive;
 					
-					auto meshBuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
+					auto cpuMeshBuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
 
 					auto getMode = [&](uint32_t modeValue) -> E_PRIMITIVE_TOPOLOGY
 					{
@@ -84,21 +84,17 @@ namespace irr
 
 					const E_PRIMITIVE_TOPOLOGY primitiveTopology = getMode(glTFprimitive.mode.value());
 
-					if (glTFprimitive.indices.has_value())
-					{	
-						auto& glTFIndexAccessor = glTFprimitive.accessors["INDEX"];
+					using BufferViewReferencingBufferID = uint32_t;
+					std::unordered_map<BufferViewReferencingBufferID, core::smart_refctd_ptr<ICPUBuffer>> idReferenceVertexBuffers;
 
-						// TODO
-					}
+					SVertexInputParams vertexInputParams;
+					SBlendParams blendParams;
+					SPrimitiveAssemblyParams primitiveAssemblyParams;
+					SRasterizationParams rastarizationParmas;
 
-					auto statusPosition = glTFprimitive.accessors.find("POSITION");
-					if (statusPosition != glTFprimitive.accessors.end())
+					auto handleAccessor = [&](decltype(SGLTFPrimitive::accessors)::value_type::second_type& glTFAccessor)
 					{
-						// TODO: make it a common lambda for handling accessors
-
-						auto& glTFPositionAccessor = glTFprimitive.accessors["POSITION"];
-
-						typedef std::remove_reference<decltype(glTFPositionAccessor)>::type SGLTFAccessor;
+						typedef std::remove_reference<decltype(glTFAccessor)>::type SGLTFAccessor;
 
 						auto getFormat = [&](uint32_t componentType, std::string type)
 						{
@@ -214,25 +210,51 @@ namespace irr
 							}
 						};
 
-						const E_FORMAT format = getFormat(glTFPositionAccessor.componentType.value(), glTFPositionAccessor.type.value());
+						const E_FORMAT format = getFormat(glTFAccessor.componentType.value(), glTFAccessor.type.value());
 
-						auto& glTFbufferView = glTF.bufferViews[glTFPositionAccessor.bufferView.value()];
-						const auto& relativeOffsetInBufferView = glTFPositionAccessor.byteOffset;
+						auto& glTFbufferView = glTF.bufferViews[glTFAccessor.bufferView.value()];
+						const auto& relativeOffsetInBufferView = glTFAccessor.byteOffset.value();
+						const uint32_t bufferId = glTFbufferView.buffer.value();
 
 						typedef std::remove_reference<decltype(glTFbufferView)>::type SGLTFBufferView;
 
 						auto setBufferBinding = [&](uint32_t target) -> void
 						{
+							asset::SBufferBinding<ICPUBuffer> bufferBinding;
+							bufferBinding.offset = relativeOffsetInBufferView;
+
+							cpuMeshBuffer->setIndexCount(glTFAccessor.count.value());
+
 							switch (target)
 							{
 								case SGLTFBufferView::SGLTFT_ARRAY_BUFFER:
 								{
-									// SBufferBinding
+									idReferenceVertexBuffers[bufferId] = cpuBuffers[bufferId];
+									bufferBinding.buffer = idReferenceVertexBuffers[bufferId];
+									cpuMeshBuffer->setIndexType(EIT_UNKNOWN);
+									cpuMeshBuffer->setVertexBufferBinding(std::move(bufferBinding), idReferenceVertexBuffers.size());
 								} break;
 
 								case SGLTFBufferView::SGLTFT_ELEMENT_ARRAY_BUFFER:
 								{
-									// SBufferIndexBinding
+									// TODO: make sure glTF data has validated index type
+
+									switch (glTFAccessor.componentType.value())
+									{
+										case SGLTFAccessor::SCT_UNSIGNED_SHORT:
+										{
+											bufferBinding.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(glTFAccessor.count.value() * sizeof(uint16_t));
+											cpuMeshBuffer->setIndexType(EIT_16BIT);
+										} break;
+
+										case SGLTFAccessor::SCT_UNSIGNED_INT:
+										{
+											bufferBinding.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(glTFAccessor.count.value() * sizeof(uint32_t));
+											cpuMeshBuffer->setIndexType(EIT_32BIT);
+										} break;
+									}
+
+									cpuMeshBuffer->setIndexBufferBinding(std::move(bufferBinding));
 								} break;
 							}
 						};
@@ -240,22 +262,36 @@ namespace irr
 						setBufferBinding(glTFbufferView.target.value());
 
 						// TODO
+					};
+
+					primitiveAssemblyParams.primitiveType = primitiveTopology;
+
+					if (glTFprimitive.indices.has_value())
+					{
+						auto& glTFIndexAccessor = glTFprimitive.accessors["INDEX"];
+
+						// TODO
+					}
+
+					auto statusPosition = glTFprimitive.accessors.find("POSITION");
+					if (statusPosition != glTFprimitive.accessors.end())
+					{
+						// TODO: make it a common lambda for pipeline settings
+						// TODO: figure out how to properly map attrib id
+
+						vertexInputParams.enabledAttribFlags |= core::createBitmask({ 0 }); // TODO
+
+						auto& glTFPositionAccessor = glTFprimitive.accessors["POSITION"];
+						handleAccessor(glTFPositionAccessor);						
 					}
 
 					auto statusNormal = glTFprimitive.accessors.find("NORMAL");
 					if (statusNormal != glTFprimitive.accessors.end())
 					{
+						// TODO
+
 						auto& glTFNormalAccessor = glTFprimitive.accessors["NORMAL"];
-
-						// TODO
-					}
-
-					auto statusTangent = glTFprimitive.accessors.find("TANGENT");
-					if (statusTangent != glTFprimitive.accessors.end())
-					{
-						auto& glTFTangentAccessor = glTFprimitive.accessors["TANGENT"];
-
-						// TODO
+						handleAccessor(glTFNormalAccessor);
 					}
 
 					for (uint32_t i = 0; true; ++i)
@@ -265,9 +301,10 @@ namespace irr
 							break;
 						else
 						{
-							auto& glTFTexcoordXAccessor = glTFprimitive.accessors["TEXCOORD_" + std::to_string(i)];
-
 							// TODO
+
+							auto& glTFTexcoordXAccessor = glTFprimitive.accessors["TEXCOORD_" + std::to_string(i)];
+							handleAccessor(glTFTexcoordXAccessor);
 						}
 					}
 
@@ -278,9 +315,10 @@ namespace irr
 							break;
 						else
 						{
-							auto& glTFColorXAccessor = glTFprimitive.accessors["COLOR_" + std::to_string(i)];
-
 							// TODO
+
+							auto& glTFColorXAccessor = glTFprimitive.accessors["COLOR_" + std::to_string(i)];
+							handleAccessor(glTFColorXAccessor);
 						}
 					}
 
@@ -291,9 +329,10 @@ namespace irr
 							break;
 						else
 						{
-							auto& glTFJointsXAccessor = glTFprimitive.accessors["JOINTS_" + std::to_string(i)];
-
 							// TODO
+
+							auto& glTFJointsXAccessor = glTFprimitive.accessors["JOINTS_" + std::to_string(i)];
+							handleAccessor(glTFJointsXAccessor);
 						}
 					}
 
@@ -304,32 +343,28 @@ namespace irr
 							break;
 						else
 						{
-							auto& glTFWeightsXAccessor = glTFprimitive.accessors["WEIGHTS_" + std::to_string(i)];
-
 							// TODO
+
+							auto& glTFWeightsXAccessor = glTFprimitive.accessors["WEIGHTS_" + std::to_string(i)];
+							handleAccessor(glTFWeightsXAccessor);
 						}
 					}
+
+					auto fillVertexInputParamsBindings = [&](uint32_t counter = 0) 
+					{
+						for (auto& [globalId, cpuBuffer] : idReferenceVertexBuffers)
+						{
+							vertexInputParams.enabledBindingFlags |= core::createBitmask({ counter });
+							vertexInputParams.bindings[counter].inputRate = EVIR_PER_VERTEX;
+							vertexInputParams.bindings[counter].stride = 16; // TODO: check it
+							++counter;
+						}
+					}; fillVertexInputParamsBindings();
+					
 
 				}
 				
 			}
-
-			// TODO: load resources
-			// ..
-
-			// TODO: pipelines, meshes, etc
-
-			constexpr uint8_t POSITION_ATTRIBUTE = 0;
-			constexpr uint8_t NORMAL_ATTRIBUTE = 3;
-
-			auto meshBuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
-			meshBuffer->setPositionAttributeIx(POSITION_ATTRIBUTE);
-			meshBuffer->setNormalnAttributeIx(NORMAL_ATTRIBUTE);
-
-			auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
-			auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
-
-
 
 			/*
 			
@@ -996,7 +1031,7 @@ namespace irr
 													glTFAccessor.count = count.get_uint64().value();
 
 												if (type.error() != simdjson::error_code::NO_SUCH_FIELD)
-													glTFAccessor.type = type.get_uint64().value();
+													glTFAccessor.type = type.get_string().value();
 
 												if (max.error() != simdjson::error_code::NO_SUCH_FIELD)
 												{
