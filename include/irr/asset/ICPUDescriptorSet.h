@@ -91,8 +91,6 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 
 		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-            if (isDummyObjectForCacheAliasing)
-                return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
 			if (referenceLevelsBelowToConvert)
@@ -123,6 +121,14 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
             //dont drop descriptors so that we can access GPU descriptors through driver->getGPUObjectsFromAssets()
 			//m_descriptors = nullptr;
 			//m_bindingInfo = nullptr;
+		}
+
+		bool restore(IAsset* _other) override
+		{
+			if (!IAsset::restore(_other))
+				return false;
+
+			return true;
 		}
 
 		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET;

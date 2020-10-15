@@ -52,8 +52,6 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-            if (isDummyObjectForCacheAliasing)
-                return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
 			if (referenceLevelsBelowToConvert)
@@ -65,6 +63,21 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 			}
 			if (canBeConvertedToDummy())
 				m_specInfo.setEntries(nullptr,core::smart_refctd_ptr<ICPUBuffer>(m_specInfo.getBackingBuffer()));
+		}
+
+		bool restore(IAsset* _other) override
+		{
+			if (!IAsset::restore(_other))
+				return false;
+
+			auto* other = static_cast<ICPUSpecializedShader*>(_other);
+			assert(m_specInfo.entryPoint == other->m_specInfo.entryPoint);
+			assert(m_specInfo.m_filePathHint == other->m_specInfo.m_filePathHint);
+			assert(m_specInfo.shaderStage == other->m_specInfo.shaderStage);
+			
+			std::swap(m_specInfo.m_entries, other->m_specInfo.m_entries);
+
+			return true;
 		}
 
 		inline E_SHADER_STAGE getStage() const { return m_specInfo.shaderStage; }

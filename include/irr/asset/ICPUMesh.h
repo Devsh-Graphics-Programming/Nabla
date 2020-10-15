@@ -71,13 +71,19 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 
 		virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-            if (isDummyObjectForCacheAliasing)
-                return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
 			if (referenceLevelsBelowToConvert)
 			for (auto i=0u; i<getMeshBufferCount(); i++)
 				getMeshBuffer(i)->convertToDummyObject(referenceLevelsBelowToConvert-1u);
+		}
+
+		bool restore(IAsset* _other) override
+		{
+			if (!IAsset::restore(_other))
+				return false;
+
+			return true;
 		}
 
 		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_MESH;

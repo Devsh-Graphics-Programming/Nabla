@@ -33,12 +33,24 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-            if (isDummyObjectForCacheAliasing)
-                return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
 			if (referenceLevelsBelowToConvert)
 				m_buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
+		}
+
+		bool restore(IAsset* _other) override
+		{
+			if (!IAsset::restore(_other))
+				return false;
+
+			auto* other = static_cast<ICPUBufferView*>(_other);
+			//does nothing anyway, but still i'll put those checks here
+			assert(m_offset == other->m_offset);
+			assert(m_size == other->m_size);
+			assert(m_format == other->m_format);
+
+			return true;
 		}
 
 		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER_VIEW;

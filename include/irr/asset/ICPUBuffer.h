@@ -60,6 +60,18 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             return cp;
         }
 
+        bool restore(IAsset* _other) override
+        {
+            if (!IAsset::restore(_other))
+                return false;
+
+            auto* other = static_cast<ICPUBuffer*>(_other);
+            std::swap(data, other->data);
+            assert(size == other->size);
+
+            return true;
+        }
+
         virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
         {
             if (isDummyObjectForCacheAliasing)

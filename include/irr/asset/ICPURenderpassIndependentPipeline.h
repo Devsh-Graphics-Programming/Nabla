@@ -16,6 +16,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		using base_t = IRenderpassIndependentPipeline<ICPUSpecializedShader, ICPUPipelineLayout>;
 
 	public:
+		//(TODO) it is true however it causes DSs to not be cached when ECF_DONT_CACHE_TOP_LEVEL is set which isnt really intuitive
         _IRR_STATIC_INLINE_CONSTEXPR uint32_t DESC_SET_HIERARCHYLEVELS_BELOW = 0u;
         _IRR_STATIC_INLINE_CONSTEXPR uint32_t IMAGEVIEW_HIERARCHYLEVELS_BELOW = 1u;
         _IRR_STATIC_INLINE_CONSTEXPR uint32_t IMAGE_HIERARCHYLEVELS_BELOW = 2u;
@@ -35,6 +36,14 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
                     if (m_shaders[i])
 					    m_shaders[i]->convertToDummyObject(referenceLevelsBelowToConvert);
 			}
+		}
+
+		bool restore(IAsset* _other) override
+		{
+			if (!IAsset::restore(_other))
+				return false;
+
+			return true;
 		}
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override

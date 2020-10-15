@@ -42,8 +42,6 @@ class ICPUImage final : public IImage, public IAsset
 
         inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
         {
-            if (isDummyObjectForCacheAliasing)
-                return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
 			if (referenceLevelsBelowToConvert)
@@ -53,6 +51,20 @@ class ICPUImage final : public IImage, public IAsset
 			if (canBeConvertedToDummy())
 				regions = nullptr;
         }
+
+		bool restore(IAsset* _other) override
+		{
+			if (!IAsset::restore(_other))
+				return false;
+
+			auto other = static_cast<ICPUImage*>(_other);
+			assert(info == other->info);
+			assert(params == other->params);
+
+			std::swap(regions, other->regions);
+
+			return true;
+		}
 
 		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_IMAGE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }

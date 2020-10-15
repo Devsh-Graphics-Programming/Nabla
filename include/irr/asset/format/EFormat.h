@@ -1757,6 +1757,18 @@ namespace asset
                 blockByteSize(getTexelOrBlockBytesize(format))
             {}
             
+            inline bool operator==(const TexelBlockInfo& rhs) const
+            {
+                return
+                    (dimension == rhs.dimension).xyzz().all() &&
+                    (maxCoord == rhs.maxCoord).xyzz().all() &&
+                    blockByteSize == rhs.blockByteSize;
+            }
+
+            inline bool operator!=(const TexelBlockInfo& rhs) const
+            {
+                return !this->operator==(rhs);
+            }
 
 			inline auto convertTexelsToBlocks(const core::vector3du32_SIMD& coord) const
 			{

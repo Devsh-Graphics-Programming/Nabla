@@ -110,8 +110,19 @@ public:
 	size_t conservativeSizeEstimate() const override { return 0ull; /*TODO*/ }
 	void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
 	{
-		if (canBeConvertedToDummy())
+		if (!isADummyObjectForCache() && canBeConvertedToDummy())
 			m_cache.clear();
+	}
+
+	bool restore(IAsset* _other) override
+	{
+		if (!IAsset::restore(_other))
+			return false;
+
+		auto* other = static_cast<ICPUPipelineCache*>(_other);
+		std::swap(m_cache, other->m_cache);
+
+		return true;
 	}
 
 	_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_CACHE;

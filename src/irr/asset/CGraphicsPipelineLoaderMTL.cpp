@@ -117,18 +117,6 @@ void main()
 using namespace irr;
 using namespace asset;
 
-static void insertPipelineIntoCache(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>&& asset, const char* path, IAssetManager* _assetMgr)
-{
-    asset::SAssetBundle bundle({ std::move(asset) });
-    _assetMgr->changeAssetKey(bundle, path);
-    _assetMgr->insertAssetIntoCache(bundle);
-}
-static void insertShaderIntoCache(core::smart_refctd_ptr<ICPUSpecializedShader>& asset, const char* path, IAssetManager* _assetMgr)
-{
-    asset::SAssetBundle bundle({ asset });
-    _assetMgr->changeAssetKey(bundle, path);
-    _assetMgr->insertAssetIntoCache(bundle);
-}
 template<typename AssetType, IAsset::E_TYPE assetType>
 static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
 {
@@ -162,16 +150,13 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_a
             stage!=ICPUSpecializedShader::ESS_VERTEX ? "?IrrlichtBAW PipelineLoaderMTL FragmentShader?":"?IrrlichtBAW PipelineLoaderMTL VertexShader?"
         );
 		auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader),std::move(specInfo));
-        insertShaderIntoCache(shader, decltype(constexprStringType)::value, m_assetMgr);
+        insertBuiltinAssetIntoCache(m_assetMgr, core::smart_refctd_ptr_static_cast<IAsset>(std::move(shader)), decltype(constexprStringType)::value);
     };
 
     registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_VERTEX);
     registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
     registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
     registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
-
-
-  
 }
 
 void CGraphicsPipelineLoaderMTL::initialize()
@@ -184,11 +169,11 @@ void CGraphicsPipelineLoaderMTL::initialize()
     auto bundle = loadAsset(default_mtl_file, assetLoadParams);
     auto pipelineAssets = bundle.getContents().begin();
     default_mtl_file->drop();
-    auto pNoUV = core::smart_refctd_ptr_dynamic_cast<ICPURenderpassIndependentPipeline>(pipelineAssets[0]);
-    auto pUV = core::smart_refctd_ptr_dynamic_cast<ICPURenderpassIndependentPipeline>(pipelineAssets[1]);
+    auto pNoUV = pipelineAssets[0];
+    auto pUV = pipelineAssets[1];
 
-    insertPipelineIntoCache(std::move(pNoUV), MISSING_MTL_PIPELINE_NO_UV_CACHE_KEY, m_assetMgr);
-    insertPipelineIntoCache(std::move(pUV), MISSING_MTL_PIPELINE_UV_CACHE_KEY, m_assetMgr);
+    insertBuiltinAssetIntoCache(m_assetMgr, pNoUV, MISSING_MTL_PIPELINE_NO_UV_CACHE_KEY);
+    insertBuiltinAssetIntoCache(m_assetMgr, pUV, MISSING_MTL_PIPELINE_UV_CACHE_KEY);
 }
 
 bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) const
@@ -356,7 +341,9 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
                 const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_DESCRIPTOR_SET, (asset::IAsset::E_TYPE)0u };
                 auto ds_bundle = _override->findCachedAsset(dsCacheKey, types, ctx.inner, _hierarchyLevel + ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
                 if (!ds_bundle.isEmpty())
+                {
                     ds3 = core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(ds_bundle.getContents().begin()[0]);
+                }
                 else
                 {
                     auto views = loadImages(relPath.c_str(), materials[i], ctx);

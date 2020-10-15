@@ -26,6 +26,11 @@ inline bool operator!=(const VkOffset3D& v1, const VkOffset3D& v2)
 {
 	return v1.x!=v2.x||v1.y!=v2.y||v1.z!=v2.z;
 }
+inline bool operator==(const VkOffset3D& v1, const VkOffset3D& v2)
+{
+	return !(v1 != v2);
+}
+
 typedef struct VkExtent3D {
 	uint32_t	width;
 	uint32_t	height;
@@ -34,6 +39,10 @@ typedef struct VkExtent3D {
 inline bool operator!=(const VkExtent3D& v1, const VkExtent3D& v2)
 {
 	return v1.width!=v2.width||v1.height!=v2.height||v1.depth!=v2.depth;
+}
+inline bool operator==(const VkExtent3D& v1, const VkExtent3D& v2)
+{
+	return !(v1 != v2);
 }
 
 
@@ -210,6 +219,13 @@ class IImage : public IDescriptor
 			//E_SHARING_MODE							sharingMode;
 			//core::smart_refctd_dynamic_aray<uint32_t>	queueFamilyIndices;
 			//E_LAYOUT									initialLayout;
+
+			bool operator==(const SCreationParams& rhs) const
+			{
+				return flags == rhs.flags && type == rhs.type && format == rhs.format &&
+					extent == rhs.extent && mipLevels == rhs.mipLevels && arrayLayers == rhs.arrayLayers &&
+					samples == rhs.samples;
+			}
 		};
 
 		//!

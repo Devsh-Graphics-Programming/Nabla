@@ -21,8 +21,6 @@ public:
     size_t conservativeSizeEstimate() const override { return sizeof(void*)*3u+sizeof(uint8_t); }
     void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 	{
-        if (isDummyObjectForCacheAliasing)
-            return;
         convertToDummyObject_common(referenceLevelsBelowToConvert);
 
 		if (referenceLevelsBelowToConvert)
@@ -33,6 +31,14 @@ public:
 			m_layout->convertToDummyObject(referenceLevelsBelowToConvert);
 		}
 	}
+
+    bool restore(IAsset* _other) override
+    {
+        if (!IAsset::restore(_other))
+            return false;
+
+        return true;
+    }
 
     core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
     {

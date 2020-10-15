@@ -49,8 +49,6 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 		size_t conservativeSizeEstimate() const override { return m_bindings->size()*sizeof(SBinding)+m_samplers->size()*sizeof(void*); }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-            if (isDummyObjectForCacheAliasing)
-                return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
             if (canBeConvertedToDummy())
@@ -67,6 +65,16 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
             if (canBeConvertedToDummy())
 			    m_samplers = nullptr;
 		}
+
+        bool restore(IAsset* _other) override
+        {
+            if (!IAsset::restore(_other))
+                return false;
+
+            auto* other = static_cast<ICPUDescriptorSetLayout*>(_other);
+            std::swap(m_bindings, other->m_bindings);
+            std::swap(m_samplers, other->m_samplers);
+        }
 
         _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }

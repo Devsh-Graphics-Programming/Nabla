@@ -173,6 +173,17 @@ class IAsset : virtual public core::IReferenceCounted
 
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
 
+		//! restore() is not recursive!
+		virtual bool restore(IAsset* _other)
+		{
+			if (!this->isADummyObjectForCache())
+				return false;
+			assert(!_other->isADummyObjectForCache());
+
+			isDummyObjectForCacheAliasing = false;
+			return true;
+		}
+
 		inline E_MUTABILITY getMutability() const { return m_mutability; }
 		inline bool isMutable() const { return getMutability() == EM_MUTABLE; }
 		inline bool canBeConvertedToDummy() const { return (getMutability()&EM_CPU_PERSISTENT) != EM_CPU_PERSISTENT; }
@@ -187,8 +198,9 @@ class IAsset : virtual public core::IReferenceCounted
         }
 		inline bool isImmutable_debug()
 		{
-			_IRR_DEBUG_BREAK_IF(!isMutable());
-			return !isMutable();
+			const bool imm = getMutability() == EM_IMMUTABLE;
+			_IRR_DEBUG_BREAK_IF(imm);
+			return imm;
 		}
 
 	private:
@@ -265,18 +277,21 @@ class SAssetBundle
 	public:
 		using contents_container_t = core::refctd_dynamic_array<core::smart_refctd_ptr<IAsset> >;
     
-		SAssetBundle() : m_contents(contents_container_t::create_dynamic_array(0u), core::dont_grab) {}
-		SAssetBundle(std::initializer_list<core::smart_refctd_ptr<IAsset> > _contents) : m_contents(contents_container_t::create_dynamic_array(_contents),core::dont_grab)
+		SAssetBundle(const std::string& _initKey = {}) : m_cacheKey(_initKey), m_contents(contents_container_t::create_dynamic_array(0u), core::dont_grab) {}
+		SAssetBundle(std::initializer_list<core::smart_refctd_ptr<IAsset> > _contents, const std::string& _initKey = {}) : 
+			m_cacheKey(_initKey), m_contents(contents_container_t::create_dynamic_array(_contents),core::dont_grab)
 		{
 			assert(allSameTypeAndNotNull());
 		}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
-		SAssetBundle(const container_t& _contents) : m_contents(contents_container_t::create_dynamic_array(_contents), core::dont_grab)
+		SAssetBundle(const container_t& _contents, const std::string& _initKey = {}) :
+			m_cacheKey(_initKey), m_contents(contents_container_t::create_dynamic_array(_contents), core::dont_grab)
 		{
 			assert(allSameTypeAndNotNull());
 		}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
-		SAssetBundle(container_t&& _contents) : m_contents(contents_container_t::create_dynamic_array(std::move(_contents)), core::dont_grab)
+		SAssetBundle(container_t&& _contents, const std::string& _initKey = {}) : 
+			m_cacheKey(_initKey), m_contents(contents_container_t::create_dynamic_array(std::move(_contents)), core::dont_grab)
 		{
 			assert(allSameTypeAndNotNull());
 		}

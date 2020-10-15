@@ -422,8 +422,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
         //TODO change name
         bool insertAssetIntoCache(SAssetBundle& _asset)
         {
-            const uint32_t ix = IAsset::typeFlagToIndex(_asset.getAssetType());
-            return m_assetCache[ix]->insert(_asset.getCacheKey(), _asset);
+            return insertAssetIntoCache(_asset, IAsset::EM_CPU_PERSISTENT);
         }
 
         //! Remove an asset from cache (calls the private methods of IAsset behind the scenes)
@@ -667,7 +666,46 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
                 _outs << "\tKey: " << wtr.first << ", Value: " << static_cast<void*>(wtr.second) << '\n';
         }
 
-    private:
+        void restoreDummyAsset(SAssetBundle& _bundle)
+        {
+            bool anyIsDummy = false;
+            for (auto ass : _bundle.getContents())
+                anyIsDummy = anyIsDummy || ass->isADummyObjectForCache();
+            if (!anyIsDummy)
+                return;
+
+            const std::string key = _bundle.getCacheKey();
+            IAssetLoader::SAssetLoadParams lp;
+            lp.cacheFlags = IAssetLoader::ECF_DUPLICATE_TOP_LEVEL;
+            auto bundle = getAssetInHierarchy(key, lp, 0u);
+
+            assert(_bundle.getContents().size() == bundle.getContents().size());
+
+            auto* oldContent = _bundle.getContents().begin();
+            auto* newContent = bundle.getContents().begin();
+            for (uint32_t i = 0u; i < _bundle.getContents().size(); ++i)
+            {
+                IAsset* asset = oldContent[i].get();
+                if (!asset->isADummyObjectForCache())
+                    continue;
+
+                asset->restore(newContent[i].get());
+            }
+        }
+
+    protected:
+        bool insertAssetIntoCache(SAssetBundle& _asset, IAsset::E_MUTABILITY _mutability)
+        {
+            const uint32_t ix = IAsset::typeFlagToIndex(_asset.getAssetType());
+            for (auto ass : _asset.getContents())
+                setAssetMutability(ass.get(), _mutability);
+            return m_assetCache[ix]->insert(_asset.getCacheKey(), _asset);
+        }
+        bool insertBuiltinAssetIntoCache(SAssetBundle& _asset)
+        {
+            return insertAssetIntoCache(_asset, IAsset::EM_IMMUTABLE);
+        }
+
         static inline std::string getFileExt(const io::path& _filename)
         {
             int32_t dot = _filename.findLast('.');
