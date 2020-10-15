@@ -28,7 +28,7 @@ void IAssetLoader::IAssetLoaderOverride::insertAssetIntoCache(SAssetBundle& asse
 
     auto levelFlag = ctx.params.cacheFlags >> (uint64_t(hierarchyLevel) * 2ull);
     if (!(levelFlag&ECF_DONT_CACHE_TOP_LEVEL))
-        m_manager->insertAssetIntoCache(asset);
+        m_manager->insertAssetIntoCache(asset, ASSET_MUTABILITY_ON_CACHE_INSERT);
 }
 
 SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
