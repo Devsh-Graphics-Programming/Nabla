@@ -14,6 +14,21 @@ namespace irr
 {
 	namespace asset
 	{
+		namespace SAttributes
+		{
+			_IRR_STATIC_INLINE_CONSTEXPR uint8_t POSITION_ATTRIBUTE_ID = 0;
+			_IRR_STATIC_INLINE_CONSTEXPR uint8_t NORMAL_ATTRIBUTE_ID = 1;
+			_IRR_STATIC_INLINE_CONSTEXPR uint8_t UV_ATTRIBUTE_BEGINING_ID = 2;			//!< those attributes are indexed
+			_IRR_STATIC_INLINE_CONSTEXPR uint8_t COLOR_ATTRIBUTE_BEGINING_ID = 5;		//!< those attributes are indexed
+			_IRR_STATIC_INLINE_CONSTEXPR uint8_t JOINTS_ATTRIBUTE_BEGINING_ID = 8;		//!< those attributes are indexed
+			_IRR_STATIC_INLINE_CONSTEXPR uint8_t WEIGHTS_ATTRIBUTE_BEGINING_ID = 12;	//!< those attributes are indexed
+
+			_IRR_STATIC_INLINE_CONSTEXPR uint8_t MAX_UV_ATTRIBUTES = 3;				
+			_IRR_STATIC_INLINE_CONSTEXPR uint8_t MAX_COLOR_ATTRIBUTES = 3;
+			_IRR_STATIC_INLINE_CONSTEXPR uint8_t MAX_JOINTS_ATTRIBUTES = 4;
+			_IRR_STATIC_INLINE_CONSTEXPR uint8_t MAX_WEIGHTS_ATTRIBUTES = 4;
+		}
+
 		/*
 			Each glTF asset must have an asset property. 
 			In fact, it's the only required top-level property
@@ -92,7 +107,7 @@ namespace irr
 					SPrimitiveAssemblyParams primitiveAssemblyParams;
 					SRasterizationParams rastarizationParmas;
 
-					auto handleAccessor = [&](decltype(SGLTFPrimitive::accessors)::value_type::second_type& glTFAccessor)
+					auto handleAccessor = [&](decltype(SGLTFPrimitive::accessors)::value_type::second_type& glTFAccessor, const uint32_t queryAttributeId)
 					{
 						typedef std::remove_reference<decltype(glTFAccessor)>::type SGLTFAccessor;
 
@@ -230,9 +245,20 @@ namespace irr
 								case SGLTFBufferView::SGLTFT_ARRAY_BUFFER:
 								{
 									idReferenceVertexBuffers[bufferId] = cpuBuffers[bufferId];
+									const uint32_t bindingId = idReferenceVertexBuffers.size();
 									bufferBinding.buffer = idReferenceVertexBuffers[bufferId];
+
 									cpuMeshBuffer->setIndexType(EIT_UNKNOWN);
-									cpuMeshBuffer->setVertexBufferBinding(std::move(bufferBinding), idReferenceVertexBuffers.size());
+									cpuMeshBuffer->setVertexBufferBinding(std::move(bufferBinding), bindingId);
+
+									vertexInputParams.enabledBindingFlags |= core::createBitmask({ bindingId });
+									vertexInputParams.bindings[bindingId].inputRate = EVIR_PER_VERTEX;
+									vertexInputParams.bindings[bindingId].stride = 16; // TODO: check it
+
+									vertexInputParams.enabledAttribFlags |= core::createBitmask({ queryAttributeId });
+									vertexInputParams.attributes[queryAttributeId].binding = bindingId;
+									vertexInputParams.attributes[queryAttributeId].format = format;
+									vertexInputParams.attributes[queryAttributeId].relativeOffset; // TODO
 								} break;
 
 								case SGLTFBufferView::SGLTFT_ELEMENT_ARRAY_BUFFER:
@@ -276,94 +302,65 @@ namespace irr
 					auto statusPosition = glTFprimitive.accessors.find("POSITION");
 					if (statusPosition != glTFprimitive.accessors.end())
 					{
-						// TODO: make it a common lambda for pipeline settings
-						// TODO: figure out how to properly map attrib id
-
-						vertexInputParams.enabledAttribFlags |= core::createBitmask({ 0 }); // TODO
-
 						auto& glTFPositionAccessor = glTFprimitive.accessors["POSITION"];
-						handleAccessor(glTFPositionAccessor);						
+						handleAccessor(glTFPositionAccessor, SAttributes::POSITION_ATTRIBUTE_ID);						
 					}
 
 					auto statusNormal = glTFprimitive.accessors.find("NORMAL");
 					if (statusNormal != glTFprimitive.accessors.end())
 					{
-						// TODO
-
 						auto& glTFNormalAccessor = glTFprimitive.accessors["NORMAL"];
-						handleAccessor(glTFNormalAccessor);
+						handleAccessor(glTFNormalAccessor, SAttributes::NORMAL_ATTRIBUTE_ID);
 					}
 
-					for (uint32_t i = 0; true; ++i)
+					for (uint32_t i = 0; i < SAttributes::MAX_UV_ATTRIBUTES; ++i)
 					{
 						auto statusTexcoord = glTFprimitive.accessors.find("TEXCOORD_" + std::to_string(i));
 						if (statusTexcoord == glTFprimitive.accessors.end())
 							break;
 						else
 						{
-							// TODO
-
 							auto& glTFTexcoordXAccessor = glTFprimitive.accessors["TEXCOORD_" + std::to_string(i)];
-							handleAccessor(glTFTexcoordXAccessor);
+							handleAccessor(glTFTexcoordXAccessor, SAttributes::UV_ATTRIBUTE_BEGINING_ID + i);
 						}
 					}
 
-					for (uint32_t i = 0; true; ++i)
+					for (uint32_t i = 0; i < SAttributes::MAX_COLOR_ATTRIBUTES; ++i)
 					{
 						auto statusColor = glTFprimitive.accessors.find("COLOR_" + std::to_string(i));
 						if (statusColor == glTFprimitive.accessors.end())
 							break;
 						else
 						{
-							// TODO
-
 							auto& glTFColorXAccessor = glTFprimitive.accessors["COLOR_" + std::to_string(i)];
-							handleAccessor(glTFColorXAccessor);
+							handleAccessor(glTFColorXAccessor, SAttributes::COLOR_ATTRIBUTE_BEGINING_ID + i);
 						}
 					}
 
-					for (uint32_t i = 0; true; ++i)
+					for (uint32_t i = 0; i < SAttributes::MAX_JOINTS_ATTRIBUTES; ++i)
 					{
 						auto statusJoints = glTFprimitive.accessors.find("JOINTS_" + std::to_string(i));
 						if (statusJoints == glTFprimitive.accessors.end())
 							break;
 						else
 						{
-							// TODO
-
 							auto& glTFJointsXAccessor = glTFprimitive.accessors["JOINTS_" + std::to_string(i)];
-							handleAccessor(glTFJointsXAccessor);
+							handleAccessor(glTFJointsXAccessor, SAttributes::JOINTS_ATTRIBUTE_BEGINING_ID + i);
 						}
 					}
 
-					for (uint32_t i = 0; true; ++i)
+					for (uint32_t i = 0; i < SAttributes::MAX_WEIGHTS_ATTRIBUTES; ++i)
 					{
 						auto statusWeights = glTFprimitive.accessors.find("WEIGHTS_" + std::to_string(i));
 						if (statusWeights == glTFprimitive.accessors.end())
 							break;
 						else
 						{
-							// TODO
-
 							auto& glTFWeightsXAccessor = glTFprimitive.accessors["WEIGHTS_" + std::to_string(i)];
-							handleAccessor(glTFWeightsXAccessor);
+							handleAccessor(glTFWeightsXAccessor, SAttributes::WEIGHTS_ATTRIBUTE_BEGINING_ID + i);
 						}
 					}
-
-					auto fillVertexInputParamsBindings = [&](uint32_t counter = 0) 
-					{
-						for (auto& [globalId, cpuBuffer] : idReferenceVertexBuffers)
-						{
-							vertexInputParams.enabledBindingFlags |= core::createBitmask({ counter });
-							vertexInputParams.bindings[counter].inputRate = EVIR_PER_VERTEX;
-							vertexInputParams.bindings[counter].stride = 16; // TODO: check it
-							++counter;
-						}
-					}; fillVertexInputParamsBindings();
-					
-
 				}
-				
 			}
 
 			/*
