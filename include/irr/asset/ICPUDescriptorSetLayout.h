@@ -66,14 +66,12 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 			    m_samplers = nullptr;
 		}
 
-        bool restore(IAsset* _other) override
+        bool canBeRestoredFrom(const IAsset* _other) const override
         {
-            if (!IAsset::restore(_other))
+            if (!IAsset::canBeRestoredFrom(_other))
                 return false;
 
-            auto* other = static_cast<ICPUDescriptorSetLayout*>(_other);
-            std::swap(m_bindings, other->m_bindings);
-            std::swap(m_samplers, other->m_samplers);
+            return true;
         }
 
         _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
@@ -81,6 +79,16 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 
 	protected:
 		virtual ~ICPUDescriptorSetLayout() = default;
+
+private:
+    void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+    {
+        auto* other = static_cast<ICPUDescriptorSetLayout*>(_other);
+
+        //TODO hmm should samplers be swapped (and dropped in convertToDummy()) or recursively restored??
+        std::swap(m_bindings, other->m_bindings);
+        std::swap(m_samplers, other->m_samplers);
+    }
 };
 
 }

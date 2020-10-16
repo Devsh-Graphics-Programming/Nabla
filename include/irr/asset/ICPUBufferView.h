@@ -39,16 +39,18 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 				m_buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}
 
-		bool restore(IAsset* _other) override
+		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
-			if (!IAsset::restore(_other))
+			if (!IAsset::canBeRestoredFrom(_other))
 				return false;
 
-			auto* other = static_cast<ICPUBufferView*>(_other);
-			//does nothing anyway, but still i'll put those checks here
-			assert(m_offset == other->m_offset);
-			assert(m_size == other->m_size);
-			assert(m_format == other->m_format);
+			auto* other = static_cast<const ICPUBufferView*>(_other);
+			if (m_size != other->m_size)
+				return false;
+			if (m_offset != other->m_offset)
+				return false;
+			if (m_format != other->m_format)
+				return false;
 
 			return true;
 		}
@@ -74,6 +76,17 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 				return;
 			m_size = _size;
 		}
+
+private:
+	void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+	{
+		auto* other = static_cast<ICPUBufferView*>(_other);
+
+		if (_levelsBelow)
+		{
+			m_buffer->restoreFromDummy(other->m_buffer.get(), _levelsBelow-1u);
+		}
+	}
 
 	protected:
 		virtual ~ICPUBufferView() = default;

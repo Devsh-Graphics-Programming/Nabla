@@ -129,9 +129,25 @@ public:
 		}
 	}
 
-    bool restore(IAsset* _other) override
+    bool canBeRestoredFrom(const IAsset* _other) const override
     {
-        if (!IAsset::restore(_other))
+        if (!IAsset::canBeRestoredFrom(_other))
+            return false;
+
+        auto* other = static_cast<const ICPUMeshBuffer*>(_other);
+        if (memcmp(m_pushConstantsData, other->m_pushConstantsData, sizeof(m_pushConstantsData)) != 0)
+            return false;
+        if (baseVertex != other->baseVertex)
+            return false;
+        if (indexCount != other->indexCount)
+            return false;
+        if (instanceCount != other->instanceCount)
+            return false;
+        if (baseInstance != other->baseInstance)
+            return false;
+        if (posAttrId != other->posAttrId)
+            return false;
+        if (normalAttrId != other->normalAttrId)
             return false;
 
         return true;
@@ -689,6 +705,24 @@ public:
 				retval.reset(mb->getPosition(ix).getAsVector3df());
         }
 		return retval;
+    }
+
+private:
+    void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+    {
+        auto* other = static_cast<ICPUMeshBuffer*>(_other);
+
+        if (_levelsBelow)
+        {
+            --_levelsBelow;
+
+            m_pipeline->restoreFromDummy(other->m_pipeline.get(), _levelsBelow);
+            m_descriptorSet->restoreFromDummy(other->m_descriptorSet.get(), _levelsBelow);
+
+            for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
+                m_vertexBufferBindings[i].buffer->restoreFromDummy(other->m_vertexBufferBindings[i].buffer.get(), _levelsBelow);
+            m_indexBufferBinding.buffer->restoreFromDummy(other->m_indexBufferBinding.buffer.get(), _levelsBelow);
+        }
     }
 };
 

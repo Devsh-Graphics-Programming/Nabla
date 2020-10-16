@@ -56,6 +56,18 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 			IMesh<ICPUMeshBuffer>::setBoundingBox(box); 
 		}
 
+		bool canBeRestoredFrom(const IAsset* _other) const override
+		{
+			if (!IAsset::canBeRestoredFrom(_other))
+				return false;
+
+			auto other = static_cast<const ICPUMesh*>(_other);
+			if (getMeshBufferCount() == other->getMeshBufferCount())
+				return false;
+
+			return true;
+		}
+
 		//
 		virtual E_MESH_TYPE getMeshType() const override { return EMT_NOT_ANIMATED; }
 
@@ -78,18 +90,23 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 				getMeshBuffer(i)->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}
 
-		bool restore(IAsset* _other) override
-		{
-			if (!IAsset::restore(_other))
-				return false;
-
-			return true;
-		}
-
 		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_MESH;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
 		virtual size_t conservativeSizeEstimate() const override { return getMeshBufferCount()*sizeof(void*); }
+
+private:
+		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		{
+			auto* other = static_cast<ICPUMesh*>(_other);
+
+			if (_levelsBelow)
+			{
+				--_levelsBelow;
+				for (uint32_t i = 0u; i < getMeshBufferCount(); i++)
+					getMeshBuffer(i)->restoreFromDummy(other->getMeshBuffer(i), _levelsBelow);
+			}
+		}
 };
 
 }

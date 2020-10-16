@@ -60,14 +60,14 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             return cp;
         }
 
-        bool restore(IAsset* _other) override
+        bool canBeRestoredFrom(const IAsset* _other) const override
         {
-            if (!IAsset::restore(_other))
+            if (!IAsset::canBeRestoredFrom(_other))
                 return false;
 
-            auto* other = static_cast<ICPUBuffer*>(_other);
-            std::swap(data, other->data);
-            assert(size == other->size);
+            auto* other = static_cast<const ICPUBuffer*>(_other);
+            if (size != other->size)
+                return false;
 
             return true;
         }
@@ -112,6 +112,13 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
     protected:
         uint64_t size;
         void* data;
+
+        void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+        {
+            auto* other = static_cast<ICPUBuffer*>(_other);
+
+            std::swap(data, other->data);
+        }
 };
 
 template<

@@ -666,7 +666,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
                 _outs << "\tKey: " << wtr.first << ", Value: " << static_cast<void*>(wtr.second) << '\n';
         }
 
-        void restoreDummyAsset(SAssetBundle& _bundle)
+        void restoreDummyAsset(SAssetBundle& _bundle, uint32_t _levelsBelow = 0u)
         {
             bool anyIsDummy = false;
             for (auto ass : _bundle.getContents())
@@ -689,7 +689,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
                 if (!asset->isADummyObjectForCache())
                     continue;
 
-                asset->restore(newContent[i].get());
+                asset->restoreFromDummy(newContent[i].get(), _levelsBelow);
             }
         }
 

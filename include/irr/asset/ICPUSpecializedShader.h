@@ -65,17 +65,18 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 				m_specInfo.setEntries(nullptr,core::smart_refctd_ptr<ICPUBuffer>(m_specInfo.getBackingBuffer()));
 		}
 
-		bool restore(IAsset* _other) override
+		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
-			if (!IAsset::restore(_other))
+			if (!IAsset::canBeRestoredFrom(_other))
 				return false;
 
-			auto* other = static_cast<ICPUSpecializedShader*>(_other);
-			assert(m_specInfo.entryPoint == other->m_specInfo.entryPoint);
-			assert(m_specInfo.m_filePathHint == other->m_specInfo.m_filePathHint);
-			assert(m_specInfo.shaderStage == other->m_specInfo.shaderStage);
-			
-			std::swap(m_specInfo.m_entries, other->m_specInfo.m_entries);
+			auto* other = static_cast<const ICPUSpecializedShader*>(_other);
+			if (m_specInfo.entryPoint != other->m_specInfo.entryPoint)
+				return false;
+			if (m_specInfo.m_filePathHint != other->m_specInfo.m_filePathHint)
+				return false;
+			if (m_specInfo.shaderStage != other->m_specInfo.shaderStage)
+				return false;
 
 			return true;
 		}
@@ -96,6 +97,18 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 			return m_unspecialized.get();
 		}
 		inline const ICPUShader* getUnspecialized() const { return m_unspecialized.get(); }
+
+	private:
+		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		{
+			auto* other = static_cast<ICPUSpecializedShader*>(_other);
+
+			std::swap(m_specInfo.m_entries, other->m_specInfo.m_entries);
+			if (_levelsBelow--)
+			{
+				m_unspecialized->restoreFromDummy(other->m_unspecialized.get(), _levelsBelow);
+			}
+		}
 
 	private:
 		SInfo								m_specInfo;

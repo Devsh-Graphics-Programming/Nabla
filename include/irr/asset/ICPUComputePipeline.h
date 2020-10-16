@@ -32,9 +32,9 @@ public:
 		}
 	}
 
-    bool restore(IAsset* _other) override
+    bool canBeRestoredFrom(const IAsset* _other) const override
     {
-        if (!IAsset::restore(_other))
+        if (!IAsset::canBeRestoredFrom(_other))
             return false;
 
         return true;
@@ -70,6 +70,19 @@ public:
         if (isImmutable_debug())
             return;
         m_shader = core::smart_refctd_ptr<ICPUSpecializedShader>(_cs); 
+    }
+
+private:
+    void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+    {
+        auto* other = static_cast<ICPUComputePipeline*>(_other);
+
+        if (_levelsBelow)
+        {
+            --_levelsBelow;
+            m_shader->restoreFromDummy(other->m_shader.get(), _levelsBelow);
+            m_layout->restoreFromDummy(other->m_layout.get(), _levelsBelow);
+        }
     }
 
 protected:

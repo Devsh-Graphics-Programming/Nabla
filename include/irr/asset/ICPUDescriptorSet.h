@@ -123,9 +123,9 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 			//m_bindingInfo = nullptr;
 		}
 
-		bool restore(IAsset* _other) override
+		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
-			if (!IAsset::restore(_other))
+			if (!IAsset::canBeRestoredFrom(_other))
 				return false;
 
 			return true;
@@ -191,6 +191,41 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 		inline auto getTotalDescriptorCount() const
 		{
 			return m_descriptors->size();
+		}
+
+	private:
+		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		{
+			auto* other = static_cast<ICPUDescriptorSet*>(_other);
+
+			if (_levelsBelow)
+			{
+				--_levelsBelow;
+				m_layout->restoreFromDummy(other->getLayout(), _levelsBelow);
+				for (auto it = m_descriptors->begin(); it != m_descriptors->end(); it++)
+				{
+					auto descriptor = it->desc.get();
+					if (!descriptor)
+						continue;
+					const auto i = it - m_descriptors->begin();
+					auto* d_other = other->m_descriptors->begin()[i].desc.get();
+
+					switch (descriptor->getTypeCategory())
+					{
+					case IDescriptor::EC_BUFFER:
+						static_cast<asset::ICPUBuffer*>(descriptor)->restoreFromDummy(static_cast<ICPUBuffer*>(d_other), _levelsBelow);
+						break;
+					case IDescriptor::EC_IMAGE:
+						static_cast<asset::ICPUImageView*>(descriptor)->restoreFromDummy(static_cast<ICPUImageView*>(d_other), _levelsBelow);
+						if (descriptor->getTypeCategory() == IDescriptor::EC_IMAGE && it->image.sampler)
+							it->image.sampler->restoreFromDummy(other->m_descriptors->begin()[i].image.sampler.get(), _levelsBelow);
+						break;
+					case IDescriptor::EC_BUFFER_VIEW:
+						static_cast<asset::ICPUBufferView*>(descriptor)->restoreFromDummy(static_cast<ICPUBufferView*>(d_other), _levelsBelow);
+						break;
+					}
+				}
+			}
 		}
 
 	protected:

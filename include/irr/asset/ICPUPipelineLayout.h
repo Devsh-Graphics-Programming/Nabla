@@ -58,19 +58,30 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 			    m_pushConstantRanges = nullptr;
 		}
 
-        bool restore(IAsset* _other) override
+        bool canBeRestoredFrom(const IAsset* _other) const override
         {
-            if (!IAsset::restore(_other))
+            if (!IAsset::canBeRestoredFrom(_other))
                 return false;
-
-            auto* other = static_cast<ICPUPipelineLayout*>(_other);
-            std::swap(m_pushConstantRanges, other->m_pushConstantRanges);
 
             return true;
         }
 
         _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
+
+private:
+    void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+    {
+        auto* other = static_cast<ICPUPipelineLayout*>(_other);
+
+        std::swap(m_pushConstantRanges, other->m_pushConstantRanges);
+        if (_levelsBelow)
+        {
+            --_levelsBelow;
+            for (uint32_t i = 0u; i < m_descSetLayouts.size(); ++i)
+                m_descSetLayouts[i]->restoreFromDummy(other->m_descSetLayouts[i].get(), _levelsBelow);
+        }
+    }
 
 	protected:
 		virtual ~ICPUPipelineLayout() = default;

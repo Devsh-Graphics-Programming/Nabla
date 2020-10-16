@@ -52,16 +52,16 @@ class ICPUImage final : public IImage, public IAsset
 				regions = nullptr;
         }
 
-		bool restore(IAsset* _other) override
+		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
-			if (!IAsset::restore(_other))
+			if (!IAsset::canBeRestoredFrom(_other))
 				return false;
 
-			auto other = static_cast<ICPUImage*>(_other);
-			assert(info == other->info);
-			assert(params == other->params);
-
-			std::swap(regions, other->regions);
+			auto* other = static_cast<const ICPUImage*>(_other);
+			if (info != other->info)
+				return false;
+			if (params != other->params)
+				return false;
 
 			return true;
 		}
@@ -206,6 +206,14 @@ class ICPUImage final : public IImage, public IAsset
 				return _a.imageSubresource.mipLevel < _b.imageSubresource.mipLevel;
 			}
 		};
+private:
+		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		{
+			auto* other = static_cast<ICPUImage*>(_other);
+
+			std::swap(regions, other->regions);
+		}
+
 };
 
 } // end namespace video

@@ -38,9 +38,21 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			}
 		}
 
-		bool restore(IAsset* _other) override
+		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
-			if (!IAsset::restore(_other))
+			if (!IAsset::canBeRestoredFrom(_other))
+				return false;
+
+			auto* other = static_cast<const ICPURenderpassIndependentPipeline*>(_other);
+#define MEMCMP_MEMBER(m) \
+			if (memcmp(&m, &other->m, sizeof(m)) != 0) \
+				return false
+			MEMCMP_MEMBER(m_vertexInputParams);
+			MEMCMP_MEMBER(m_blendParams);
+			MEMCMP_MEMBER(m_primAsmParams);
+			MEMCMP_MEMBER(m_rasterParams);
+#undef MECMP_MEMBER
+			if (m_disableOptimizations != other->m_disableOptimizations)
 				return false;
 
 			return true;
@@ -129,6 +141,21 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			if (isImmutable_debug())
 				return;
 			m_layout = std::move(_layout);
+		}
+
+	private:
+		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		{
+			auto* other = static_cast<ICPURenderpassIndependentPipeline*>(_other);
+
+			if (_levelsBelow)
+			{
+				--_levelsBelow;
+
+				m_layout->restoreFromDummy(other->m_layout.get(), _levelsBelow);
+				for (uint32_t i = 0u; i < SHADER_STAGE_COUNT; ++i)
+					m_shaders[i]->restoreFromDummy(other->m_shaders[i].get(), _levelsBelow);
+			}
 		}
 
 	protected:

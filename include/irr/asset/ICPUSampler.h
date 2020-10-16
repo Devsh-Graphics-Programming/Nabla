@@ -71,16 +71,19 @@ class ICPUSampler : public ISampler, public IAsset
             convertToDummyObject_common(referenceLevelsBelowToConvert);
         }
 
-		bool restore(IAsset* _other) override
+		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
-			if (!IAsset::restore(_other))
-				return false;
-
-			return true;
+			return IAsset::canBeRestoredFrom(_other);
 		}
 
 		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SAMPLER;
 		inline E_TYPE getAssetType() const override { return AssetType; }
+
+	private:
+		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		{
+			
+		}
 };
 
 }

@@ -114,13 +114,14 @@ public:
 			m_cache.clear();
 	}
 
-	bool restore(IAsset* _other) override
+	bool canBeRestoredFrom(const IAsset* _other) const override
 	{
-		if (!IAsset::restore(_other))
+		if (!IAsset::canBeRestoredFrom(_other))
 			return false;
 
-		auto* other = static_cast<ICPUPipelineCache*>(_other);
-		std::swap(m_cache, other->m_cache);
+		auto* other = static_cast<const ICPUPipelineCache*>(_other);
+		if (m_cache.size() != other->m_cache.size())
+			return false;
 
 		return true;
 	}
@@ -136,6 +137,12 @@ public:
 	}
 
 private:
+	void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+	{
+		auto* other = static_cast<ICPUPipelineCache*>(_other);
+		std::swap(m_cache, other->m_cache);
+	}
+
 	entries_map_t m_cache;
 };
 

@@ -173,14 +173,24 @@ class IAsset : virtual public core::IReferenceCounted
 
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
 
-		//! restore() is not recursive!
-		virtual bool restore(IAsset* _other)
+		bool restoreFromDummy(IAsset* _other, uint32_t _levelsBelow)
 		{
-			if (!this->isADummyObjectForCache())
+			if (!canBeRestoredFrom(_other))
 				return false;
-			assert(!_other->isADummyObjectForCache());
 
-			isDummyObjectForCacheAliasing = false;
+			restoreFromDummy_impl(_other, _levelsBelow);
+			return true;
+		}
+
+		virtual bool canBeRestoredFrom(const IAsset* _other) const
+		{
+			if (getMutability() != EM_MUTABLE)
+				return false;
+			if (!isADummyObjectForCache())
+				return false;
+			if (_other->isADummyObjectForCache())
+				return false;
+
 			return true;
 		}
 
@@ -189,6 +199,8 @@ class IAsset : virtual public core::IReferenceCounted
 		inline bool canBeConvertedToDummy() const { return (getMutability()&EM_CPU_PERSISTENT) != EM_CPU_PERSISTENT; }
 
     protected:
+		virtual void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) = 0;
+
         inline void clone_common(IAsset* _clone) const
         {
             _clone->m_metadata = m_metadata;

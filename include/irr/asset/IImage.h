@@ -226,6 +226,10 @@ class IImage : public IDescriptor
 					extent == rhs.extent && mipLevels == rhs.mipLevels && arrayLayers == rhs.arrayLayers &&
 					samples == rhs.samples;
 			}
+			bool operator!=(const SCreationParams& rhs) const
+			{
+				return !operator==(rhs);
+			}
 		};
 
 		//!
