@@ -285,38 +285,6 @@ void setCurrInteraction(in vec3 N)
 	irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, N);
 	currInteraction = irr_glsl_calcAnisotropicInteraction(interaction);
 }
-#if 0
-void setCurrBSDFParams(in vec3 N, in vec3 L, )
-{
-	setCurrInteraction(N);
-
-	const float NdotL = dot(N,L);
-
-#error "This needs a complete rewrite"
-/**
-New API works like this:
-1) `irr_glsl_*ViewSurfaceInteraction` holds all the stuff about the T,B,N,V and their dot products
-2) `irr_glsl_LightSample` holds all stuff about L and its dot products
-3) `irr_glsl_*MicrofacetCache` caches `H` and its dot products, its only reusable for reflection events or for transmissions with identical IoR
-4) generators, i.e. `cos_generate` for BxDFs (but light and path guiding in the future) generate `irr_glsl_LightSample`
-
-The BxDF generators may optionally return a microfacet Cache
-
-In your material generator stream, you will call `remainder_and_pdf` of the generator BSDF at the end and cache the remainder and pdf. You can keep a `irr_glsl_MicrofacetCache`
-
-However for the remainder stream, you will call `cos_eval` on all the leafs which are not identical to the generator, hence you CANNOT use the cached `irr_glsl_MicrofacetCache` from the generator if:
-- irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV,NdotL) is true
-
-For the evaluation stream, the rules are the same, you can compute a `irr_glsl_MicrofacetCache` to be used directly in the `cos_eval` calls if the light is on the same side of the surface as the view vector.
-
-When transmission occurs and you need to compute a new `irr_glsl_MicrofacetCache` I've provided functions called `irr_glsl_calcIsotropicMicrofacetCache` and `irr_glsl_calcAnisotropicMicrofacetCache` that will do this given an oriented IoR.
-**/
-
-	vec3 H; // @Crisspl its your reponsibility not to evaluate/execute (then) if irr_glsl_isTransmissionPath==true and either the BSDF is not tranmissive, or the microfacet normal is invalid
-	irr_glsl_BSDFIsotropicParams isoparams = irr_glsl_calcBSDFIsotropicParams(irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV,NdotL), L, , currInteraction.isotropic, H);
-	currBSDFParams = irr_glsl_calcBSDFAnisotropicParams(L, H, isoparams, currInteraction);
-}
-#endif
 
 //clamping alpha to min MIN_ALPHA because we're using microfacet BxDFs for deltas as well (and NDFs often end up NaN when given alpha=0) because of less deivergence
 //probably temporary solution
@@ -405,40 +373,47 @@ void instr_execute_cos_eval_CONDUCTOR(in instr_t instr, in irr_glsl_LightSample 
 		eta[0] = irr_glsl_decodeRGB19E7(data.data[2].yz);
 		eta[1] = irr_glsl_decodeRGB19E7(uvec2(data.data[2].w,data.data[3].x));
 		vec3 fr = irr_glsl_fresnel_conductor(eta[0],eta[1],uf.isotropic.VdotH);
-		writeReg(REG_DST(regs), DG*fr);
+		writeReg(REG_DST(regs), s.NdotL*DG*fr);
 	}
 	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
 }
 
-void instr_execute_cos_eval_PLASTIC(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data)
+vec2 instr_execute_cos_eval_PLASTIC(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data)
 {
+	//.x - diffuse, .y - specular
+	vec2 weights;
+
+	vec3 eta = vec3(uintBitsToFloat(data.data[3].x));
+	vec3 eta2 = eta * eta;
+
+	vec3 diffuse_weight = irr_glsl_diffuseFresnelCorrectionFactor(eta, eta2) * (vec3(1.0) - irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0) - irr_glsl_fresnel_dielectric(eta, s.NdotL));
+	vec3 fr = irr_glsl_fresnel_dielectric(eta, uf.isotropic.VdotH);
+	weights.x = dot(CIE_XYZ_Luma_Y_coeffs, diffuse_weight);
+	weights.y = dot(CIE_XYZ_Luma_Y_coeffs, fr);
 	if (s.NdotL>FLT_MIN)
 	{
-		vec3 eta = vec3(uintBitsToFloat(data.data[3].x));
-		vec3 eta2 = eta*eta;
 		vec3 refl = params_getReflectance(params);
 		float a2 = params_getAlpha(params);
 		a2*=a2;
 
 		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(s, currInteraction.isotropic, a2) * refl;
-		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta2) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, s.NdotL));
-		vec3 fr = irr_glsl_fresnel_dielectric(eta,uf.isotropic.VdotH);
+		diffuse *= diffuse_weight;
 		vec3 specular = DG*fr;
 
 		writeReg(REG_DST(regs), specular+diffuse);
 	}
 	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
+
+	return weights;
 }
-//TODO wrong pdf is being returned!
 float instr_execute_cos_eval_pdf_PLASTIC(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data, in float specular_pdf)
 {
 	float a2 = params_getAlpha(params);
 	a2 *= a2;
-	instr_execute_cos_eval_PLASTIC(instr, s, uf, regs, DG, params, data);
+	vec2 w = instr_execute_cos_eval_PLASTIC(instr, s, uf, regs, DG, params, data);
+	w /= (w.x + w.y);
 
-	//TODO those weights should be different
-	//return 0.5*specular_pdf + 0.5*irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic, a2);
-	return specular_pdf;
+	return w.y*specular_pdf + w.x*irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic);
 }
 
 void instr_execute_cos_eval_COATING(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
@@ -843,7 +818,7 @@ float irr_glsl_blinn_phong_cos_eval_DG(in irr_glsl_LightSample s, in irr_glsl_An
 }
 
 #ifdef GEN_CHOICE_STREAM
-void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf)
+void instr_eval_and_pdf_execute(in instr_t instr, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache _uf, inout bool ts_flag)
 {
 	uint op = instr_getOpcode(instr);
 
@@ -863,9 +838,27 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_LightSample s, in 
 	float pdf = 0.0;
 
 	const mat2x3 ior = bsdf_data_decodeIoR(bsdf_data,op);
-	const bool is_bsdf = !op_isBRDF(op);
+	const bool is_bsdf = !op_isBRDF(op); //note it actually tells if op is BSDF or BUMPMAP or SET_GEOM_NORMAL (divergence reasons)
 
-	float cosFactor = op_isBSDF(op) ? abs(s.NdotL):max(s.NdotL,0.0);
+#ifndef NO_TWOSIDED
+	handleTwosided(ts_flag, instr, s, _uf);
+#endif
+
+	float cosFactor = is_bsdf ? abs(s.NdotL):max(s.NdotL,0.0);
+
+	irr_glsl_AnisotropicMicrofacetCache uf;
+	//here actually using stronger check for BSDF because it's probably worth it
+	if (op_isBSDF(op) && irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV, s.NdotL))
+	{
+		float orientedEta, rcpOrientedEta;
+		irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, currInteraction.isotropic.NdotV, ior[0].x);
+		const bool valid = irr_glsl_calcAnisotropicMicrofacetCache(uf, true, currInteraction.isotropic.V.dir, s.L, currInteraction.T, currInteraction.B, currInteraction.isotropic.N, s.NdotL, s.VdotL, orientedEta, rcpOrientedEta);
+		//assert(valid);
+	}
+	else
+	{
+		uf = _uf;
+	}
 
 	if (cosFactor>FLT_MIN && op_hasSpecular(op))//does cos>0 check even has any point here? L comes from a sample..
 	{
@@ -1019,24 +1012,19 @@ void instr_eval_and_pdf_execute(in instr_t instr, in irr_glsl_LightSample s, in 
 		writeReg(REG_DST(regs)+3u, pdf);
 }
 
-eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, in irr_glsl_LightSample _s, in instr_t generator, in irr_glsl_AnisotropicMicrofacetCache _uf)
+eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, inout irr_glsl_LightSample s, in instr_t generator, inout irr_glsl_AnisotropicMicrofacetCache uf)
 {
-#ifndef NO_TWOSIDED
 	bool ts = false;
-#endif
-	irr_glsl_LightSample s = _s;
-	irr_glsl_AnisotropicMicrofacetCache uf = _uf;
+	const bool is_generator_bsdf = op_isBRDF(instr_getOpcode(generator));
 	instr_execute_SET_GEOM_NORMAL();
 	for (uint i = 0u; i < stream.count; ++i)
 	{
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
+		uint op = instr_getOpcode(instr);
 
 		if (INSTR_1ST_DWORD(instr) != INSTR_1ST_DWORD(generator))
 		{
-#ifndef NO_TWOSIDED
-			handleTwosided(ts, instr, s, uf);
-#endif
-			instr_eval_and_pdf_execute(instr, s, uf);//TODO recompute microfacet if isBSDF(instr) && irr_glsl_isTransmissionPath()
+			instr_eval_and_pdf_execute(instr, s, uf, ts);
 		}
 		else
 		{
@@ -1044,6 +1032,23 @@ eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, in irr_glsl_Light
 			uvec3 regs = instr_decodeRegisters(instr);
 			writeReg(REG_DST(regs), eval_and_pdf_t(0.0));
 		}
+
+#if defined(OP_SET_GEOM_NORMAL)||defined(OP_BUMPMAP)
+		if (
+#ifdef OP_SET_GEOM_NORMAL
+			op == OP_SET_GEOM_NORMAL
+#ifdef OP_BUMPMAP
+			||
+#endif
+#endif
+#ifdef OP_BUMPMAP
+			op == OP_BUMPMAP
+#endif
+			) {
+			s = irr_glsl_createLightSample(s.L, currInteraction);
+			uf = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
+		}
+#endif
 	}
 
 	eval_and_pdf_t eval_and_pdf = readReg4(0u);

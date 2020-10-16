@@ -78,7 +78,6 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 	color /= float(SAMPLE_COUNT);
 #endif
 
-	//irr_glsl_BSDFIsotropicParams params;//TODO get rid of this
 	for (int i = 0; i < LIGHT_COUNT; ++i)
 	{
 		SLight l = lights[i];

@@ -1,8 +1,6 @@
 #ifndef _IRR_BSDF_COMMON_INCLUDED_
 #define _IRR_BSDF_COMMON_INCLUDED_
 
-#include <irr/builtin/glsl/math/constants.glsl>
-#include <irr/builtin/glsl/math/functions.glsl>
 #include <irr/builtin/glsl/limits/numeric.glsl>
 
 #include <irr/builtin/glsl/math/functions.glsl>

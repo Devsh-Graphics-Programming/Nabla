@@ -3,7 +3,7 @@
 
 #include <irr/builtin/material_compiler/glsl/common.glsl>
 
-void instr_eval_execute(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf)
+void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache _uf, inout bool ts_flag)
 {
 	uint op = instr_getOpcode(instr);
 
@@ -20,8 +20,27 @@ void instr_eval_execute(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl
 	float ay2 = ay*ay;
 #endif
 
-	const bool is_bsdf = !op_isBRDF(op);
-	float cosFactor = is_bsdf ? abs(s.NdotL):max(s.NdotL,0.0);
+	const bool is_bsdf = !op_isBRDF(op); //note it actually tells if op is BSDF or BUMPMAP or SET_GEOM_NORMAL (divergence reasons)
+
+#ifndef NO_TWOSIDED
+	handleTwosided(ts_flag, instr, s, _uf);
+#endif
+
+	const float cosFactor = is_bsdf ? abs(s.NdotL):max(s.NdotL,0.0);
+
+	irr_glsl_AnisotropicMicrofacetCache uf;
+	//here actually using stronger check for BSDF because it's probably worth it
+	if (op_isBSDF(op) && irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV, s.NdotL))
+	{
+		float orientedEta, rcpOrientedEta;
+		irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, currInteraction.isotropic.NdotV, ior[0].x);
+		const bool valid = irr_glsl_calcAnisotropicMicrofacetCache(uf, true, currInteraction.isotropic.V.dir, s.L, currInteraction.T, currInteraction.B, currInteraction.isotropic.N, s.NdotL, s.VdotL, orientedEta, rcpOrientedEta);
+		//assert(valid);
+	}
+	else
+	{
+		uf = _uf;
+	}
 
 	if (cosFactor>FLT_MIN && op_hasSpecular(op))
 	{
@@ -172,21 +191,16 @@ void instr_eval_execute(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl
 
 bxdf_eval_t runEvalStream(in instr_stream_t stream, in vec3 L)
 {
-#ifndef NO_TWOSIDED
 	bool ts = false;
-#endif
 	instr_execute_SET_GEOM_NORMAL();
 	irr_glsl_LightSample s = irr_glsl_createLightSample(L, currInteraction);
-	//Warning: here using function for reflective case only (TODO)
 	irr_glsl_AnisotropicMicrofacetCache uf = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
 	for (uint i = 0u; i < stream.count; ++i)
 	{
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
 		uint op = instr_getOpcode(instr);
-#ifndef NO_TWOSIDED
-		handleTwosided(ts, instr, s, uf);
-#endif
-		instr_eval_execute(instr, s, uf);
+
+		instr_eval_execute(instr, s, uf, ts);
 
 #if defined(OP_SET_GEOM_NORMAL)||defined(OP_BUMPMAP)
 		if (
@@ -201,8 +215,6 @@ bxdf_eval_t runEvalStream(in instr_stream_t stream, in vec3 L)
 #endif
 		) {
 			s = irr_glsl_createLightSample(L, currInteraction);
-			//TODO recompute microfacet if isBSDF(instr) && irr_glsl_isTransmissionPath()
-			//Warning: here using function for reflective case only
 			uf = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
 		}
 #endif
