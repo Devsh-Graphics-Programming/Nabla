@@ -74,11 +74,9 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 
         virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
         {
-            if (isDummyObjectForCacheAliasing)
-                return;
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
             if (!canBeConvertedToDummy())
                 return;
+            convertToDummyObject_common(referenceLevelsBelowToConvert);
 
             if (data)
                 _IRR_ALIGNED_FREE(data);

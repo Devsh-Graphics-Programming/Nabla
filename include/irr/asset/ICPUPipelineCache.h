@@ -110,7 +110,7 @@ public:
 	size_t conservativeSizeEstimate() const override { return 0ull; /*TODO*/ }
 	void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
 	{
-		if (!isADummyObjectForCache() && canBeConvertedToDummy())
+		if (canBeConvertedToDummy())
 			m_cache.clear();
 	}
 

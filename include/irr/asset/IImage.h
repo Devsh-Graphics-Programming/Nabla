@@ -436,7 +436,7 @@ class IImage : public IDescriptor
 		}
 
 		//!
-		virtual bool validateCopies(const SBufferCopy* pRegionsBegin, const SBufferCopy* pRegionsEnd, const asset::ICPUBuffer* src)
+		virtual bool validateCopies(const SBufferCopy* pRegionsBegin, const SBufferCopy* pRegionsEnd, const asset::ICPUBuffer* src) const
 		{
 			return validateCopies_template(pRegionsBegin, pRegionsEnd, src);
 		}
@@ -506,7 +506,7 @@ class IImage : public IDescriptor
 		{}
 		
 		template<typename CopyStructIt, class SourceType>
-		inline bool validateCopies_template(CopyStructIt pRegionsBegin, CopyStructIt pRegionsEnd, const SourceType* src)
+		inline bool validateCopies_template(CopyStructIt pRegionsBegin, CopyStructIt pRegionsEnd, const SourceType* src) const
 		{
 			//if (flags&ECF_SUBSAMPLED)
 				//return false;

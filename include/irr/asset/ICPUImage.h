@@ -75,9 +75,8 @@ class ICPUImage final : public IImage, public IAsset
 			return sizeof(SCreationParams)+sizeof(void*)+sizeof(SBufferCopy)*regions->size();
 		}
 
-		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const ICPUImage* src)
+		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const ICPUImage* src) const
 		{
-			//TODO why is it not const method?
 			return validateCopies_template(pRegionsBegin, pRegionsEnd, src);
 		}
 
