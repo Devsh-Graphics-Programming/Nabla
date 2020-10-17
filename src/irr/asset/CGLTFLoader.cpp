@@ -29,6 +29,27 @@ namespace irr
 			_IRR_STATIC_INLINE_CONSTEXPR uint8_t MAX_WEIGHTS_ATTRIBUTES = 4;
 		}
 
+		namespace SShaderPaths
+		{
+			namespace UV
+			{
+				_IRR_STATIC_INLINE_CONSTEXPR std::string_view vertex = ""; // TODO - include/builtin/...
+				_IRR_STATIC_INLINE_CONSTEXPR std::string_view fragment = ""; // TODO - include/builtin/...
+			}
+
+			namespace Color
+			{
+				_IRR_STATIC_INLINE_CONSTEXPR std::string_view vertex = ""; // TODO - include/builtin/...
+				_IRR_STATIC_INLINE_CONSTEXPR std::string_view fragment = ""; // TODO - include/builtin/...
+			}
+
+			namespace NoUVAndColor
+			{
+				_IRR_STATIC_INLINE_CONSTEXPR std::string_view vertex = ""; // TODO - include/builtin/...
+				_IRR_STATIC_INLINE_CONSTEXPR std::string_view fragment = ""; // TODO - include/builtin/...
+			}
+		}
+
 		/*
 			Each glTF asset must have an asset property. 
 			In fact, it's the only required top-level property
@@ -97,7 +118,7 @@ namespace irr
 						}
 					};
 
-					const E_PRIMITIVE_TOPOLOGY primitiveTopology = getMode(glTFprimitive.mode.value());
+					auto [hasUV, hasColor] = std::make_pair<bool, bool>(false, false);
 
 					using BufferViewReferencingBufferID = uint32_t;
 					std::unordered_map<BufferViewReferencingBufferID, core::smart_refctd_ptr<ICPUBuffer>> idReferenceVertexBuffers;
@@ -290,6 +311,7 @@ namespace irr
 						// TODO
 					};
 
+					const E_PRIMITIVE_TOPOLOGY primitiveTopology = getMode(glTFprimitive.mode.value());
 					primitiveAssemblyParams.primitiveType = primitiveTopology;
 
 					if (glTFprimitive.indices.has_value())
@@ -320,6 +342,7 @@ namespace irr
 							break;
 						else
 						{
+							hasUV = true;
 							auto& glTFTexcoordXAccessor = glTFprimitive.accessors["TEXCOORD_" + std::to_string(i)];
 							handleAccessor(glTFTexcoordXAccessor, SAttributes::UV_ATTRIBUTE_BEGINING_ID + i);
 						}
@@ -332,6 +355,7 @@ namespace irr
 							break;
 						else
 						{
+							hasColor = true;
 							auto& glTFColorXAccessor = glTFprimitive.accessors["COLOR_" + std::to_string(i)];
 							handleAccessor(glTFColorXAccessor, SAttributes::COLOR_ATTRIBUTE_BEGINING_ID + i);
 						}
@@ -360,6 +384,29 @@ namespace irr
 							handleAccessor(glTFWeightsXAccessor, SAttributes::WEIGHTS_ATTRIBUTE_BEGINING_ID + i);
 						}
 					}
+
+					auto getShaders = [&](bool hasUV, bool hasColor) -> std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>>
+					{
+						auto loadShaders = [&](const std::string_view& filename) -> core::smart_refctd_ptr<ICPUSpecializedShader>
+						{
+							auto shader_bundle = assetManager->getAsset("include/irr/builtin/shaders/loaders/gltf/" + std::string(filename.data()), {});
+
+							bool status = !shader_bundle.isEmpty();
+							assert(status);
+
+							auto shader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(shader_bundle.getContents().begin()[0]);
+							return shader;
+						};
+
+						if (hasUV) // if both UV and Color defined - we use the UV
+							return std::make_pair(loadShaders(SShaderPaths::UV::vertex), loadShaders(SShaderPaths::UV::fragment));
+						else if (hasColor)
+							return std::make_pair(loadShaders(SShaderPaths::Color::vertex), loadShaders(SShaderPaths::Color::fragment));
+						else
+							return std::make_pair(loadShaders(SShaderPaths::NoUVAndColor::vertex), loadShaders(SShaderPaths::NoUVAndColor::fragment));
+					};
+
+					auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor);
 				}
 			}
 
