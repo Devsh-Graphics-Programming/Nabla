@@ -10,6 +10,14 @@
 #include <filesystem>
 #include "os.h"
 
+#define VERT_SHADER_UV_CACHE_KEY "irr/builtin/shaders/loaders/gltf/vertex_uv.vert"
+#define VERT_SHADER_COLOR_CACHE_KEY "irr/builtin/shaders/loaders/gltf/vertex_color.vert"
+#define VERT_SHADER_NO_UV_COLOR_CACHE_KEY "irr/builtin/shaders/loaders/gltf/vertex_no_uv_color.vert"
+
+#define FRAG_SHADER_UV_CACHE_KEY "irr/builtin/shaders/loaders/gltf/fragment_uv.frag"
+#define FRAG_SHADER_COLOR_CACHE_KEY "irr/builtin/shaders/loaders/gltf/fragment_color.frag"
+#define FRAG_SHADER_NO_UV_COLOR_CACHE_KEY "irr/builtin/shaders/loaders/gltf/fragment_no_uv_color.frag"
+
 namespace irr
 {
 	namespace asset
@@ -29,39 +37,53 @@ namespace irr
 			_IRR_STATIC_INLINE_CONSTEXPR uint8_t MAX_WEIGHTS_ATTRIBUTES = 4;
 		}
 
-		namespace SShaderPaths
-		{
-			namespace UV
-			{
-				_IRR_STATIC_INLINE_CONSTEXPR std::string_view vertex = ""; // TODO - include/builtin/...
-				_IRR_STATIC_INLINE_CONSTEXPR std::string_view fragment = ""; // TODO - include/builtin/...
-			}
-
-			namespace Color
-			{
-				_IRR_STATIC_INLINE_CONSTEXPR std::string_view vertex = ""; // TODO - include/builtin/...
-				_IRR_STATIC_INLINE_CONSTEXPR std::string_view fragment = ""; // TODO - include/builtin/...
-			}
-
-			namespace NoUVAndColor
-			{
-				_IRR_STATIC_INLINE_CONSTEXPR std::string_view vertex = ""; // TODO - include/builtin/...
-				_IRR_STATIC_INLINE_CONSTEXPR std::string_view fragment = ""; // TODO - include/builtin/...
-			}
-		}
-
 		/*
 			Each glTF asset must have an asset property. 
 			In fact, it's the only required top-level property
 			for JSON to be a valid glTF.
 		*/
 
+		CGLTFLoader::CGLTFLoader(asset::IAssetManager* _m_assetMgr) 
+			: assetManager(_m_assetMgr)
+		{
+			auto registerShader = [&](auto constexprStringType, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
+			{
+				auto shaderData = assetManager->getFileSystem()->loadBuiltinData<decltype(constexprStringType)>();
+				auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(shaderData), asset::ICPUShader::buffer_contains_glsl);
+
+				ICPUSpecializedShader::SInfo specInfo({}, nullptr, "main", stage, stage != ICPUSpecializedShader::ESS_VERTEX ? "?IrrlichtBAW glTFLoader FragmentShader?" : "?IrrlichtBAW glTFLoader VertexShader?");
+				auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), std::move(specInfo));
+
+				auto insertShaderIntoCache = [&](const char* path)
+				{
+					asset::SAssetBundle bundle({ cpuShader });
+					assetManager->changeAssetKey(bundle, path);
+					assetManager->insertAssetIntoCache(bundle);
+				};
+
+				insertShaderIntoCache(decltype(constexprStringType)::value);
+			};
+
+			registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+			registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+			registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+
+			registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
+			registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
+			registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
+		}
+		
 		bool CGLTFLoader::isALoadableFileFormat(io::IReadFile* _file) const
 		{
 			simdjson::dom::parser parser;
 
-			auto jsonglTFFileBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(_file->getSize());
-			simdjson::dom::object tweets = parser.parse(reinterpret_cast<uint8_t*>(jsonglTFFileBuffer->getPointer()), jsonglTFFileBuffer->getSize());
+			auto jsonBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(_file->getSize());
+			{
+				const auto beginPosition = _file->getPos();
+				_file->read(jsonBuffer->getPointer(), jsonBuffer->getSize());
+				_file->seek(beginPosition);
+			}
+			simdjson::dom::object tweets = parser.parse(reinterpret_cast<uint8_t*>(jsonBuffer->getPointer()), jsonBuffer->getSize());
 			simdjson::dom::element element;
 
 			if (tweets.at_key("asset").get(element) == simdjson::error_code::SUCCESS)
@@ -73,14 +95,16 @@ namespace irr
 
 		asset::SAssetBundle CGLTFLoader::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
-			SGLTF& glTF = loadAndGetGLTF(_file);
+			SGLTF glTF;
+			loadAndGetGLTF(glTF, _file);
 
 			// TODO: having validated and loaded glTF data we can use it to create pipelines and data
 
 			core::vector<core::smart_refctd_ptr<ICPUBuffer>> cpuBuffers;
 			for (auto& glTFBuffer : glTF.buffers)
 			{
-				const asset::IAssetLoader::SAssetLoadParams params;
+				std::string relativeDirectory = std::string(assetManager->getFileSystem()->getFileDir(_file->getFileName()).c_str()) + "/";
+				const asset::IAssetLoader::SAssetLoadParams params(0, nullptr, ECF_CACHE_EVERYTHING, relativeDirectory.c_str());
 				auto buffer_bundle = assetManager->getAsset(glTFBuffer.uri.value(), params); // todo
 				auto cpuBuffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer_bundle.getContents().begin()[0]);
 				cpuBuffers.emplace_back() = core::smart_refctd_ptr<ICPUBuffer>(cpuBuffer);
@@ -121,17 +145,17 @@ namespace irr
 					auto [hasUV, hasColor] = std::make_pair<bool, bool>(false, false);
 
 					using BufferViewReferencingBufferID = uint32_t;
-					std::unordered_map<BufferViewReferencingBufferID, core::smart_refctd_ptr<ICPUBuffer>> idReferenceVertexBuffers;
+					std::unordered_map<BufferViewReferencingBufferID, core::smart_refctd_ptr<ICPUBuffer>> idReferenceBindingBuffers;
 
 					SVertexInputParams vertexInputParams;
 					SBlendParams blendParams;
 					SPrimitiveAssemblyParams primitiveAssemblyParams;
 					SRasterizationParams rastarizationParmas;
 
-					auto handleAccessor = [&](decltype(SGLTFPrimitive::accessors)::value_type::second_type& glTFAccessor, const uint32_t queryAttributeId)
-					{
-						typedef std::remove_reference<decltype(glTFAccessor)>::type SGLTFAccessor;
+					typedef std::remove_reference<decltype(SGLTFPrimitive::accessors)::value_type::second_type>::type SGLTFAccessor;
 
+					auto handleAccessor = [&](SGLTFAccessor& glTFAccessor, const std::optional<uint32_t> queryAttributeId = {})
+					{
 						auto getFormat = [&](uint32_t componentType, std::string type)
 						{
 							switch (componentType)
@@ -249,66 +273,48 @@ namespace irr
 						const E_FORMAT format = getFormat(glTFAccessor.componentType.value(), glTFAccessor.type.value());
 
 						auto& glTFbufferView = glTF.bufferViews[glTFAccessor.bufferView.value()];
-						const auto& relativeOffsetInBufferView = glTFAccessor.byteOffset.value();
-						const uint32_t bufferId = glTFbufferView.buffer.value();
+						const uint32_t& bufferBindingId = glTFbufferView.buffer.value();
+						const auto& globalOffsetInBufferBindingResource = glTFbufferView.byteOffset.value();
+						const auto& relativeOffsetInBufferViewAttribute = glTFAccessor.byteOffset.value();
 
 						typedef std::remove_reference<decltype(glTFbufferView)>::type SGLTFBufferView;
 
 						auto setBufferBinding = [&](uint32_t target) -> void
 						{
 							asset::SBufferBinding<ICPUBuffer> bufferBinding;
-							bufferBinding.offset = relativeOffsetInBufferView;
+							bufferBinding.offset = globalOffsetInBufferBindingResource;
 
-							cpuMeshBuffer->setIndexCount(glTFAccessor.count.value());
+							idReferenceBindingBuffers[bufferBindingId] = cpuBuffers[bufferBindingId];
+							bufferBinding.buffer = idReferenceBindingBuffers[bufferBindingId];
 
 							switch (target)
 							{
 								case SGLTFBufferView::SGLTFT_ARRAY_BUFFER:
 								{
-									idReferenceVertexBuffers[bufferId] = cpuBuffers[bufferId];
-									const uint32_t bindingId = idReferenceVertexBuffers.size();
-									bufferBinding.buffer = idReferenceVertexBuffers[bufferId];
+									cpuMeshBuffer->setVertexBufferBinding(std::move(bufferBinding), bufferBindingId);
 
-									cpuMeshBuffer->setIndexType(EIT_UNKNOWN);
-									cpuMeshBuffer->setVertexBufferBinding(std::move(bufferBinding), bindingId);
+									vertexInputParams.enabledBindingFlags |= core::createBitmask({ bufferBindingId });
+									vertexInputParams.bindings[bufferBindingId].inputRate = EVIR_PER_INSTANCE;
+									vertexInputParams.bindings[bufferBindingId].stride = 16; // TODO: check it
 
-									vertexInputParams.enabledBindingFlags |= core::createBitmask({ bindingId });
-									vertexInputParams.bindings[bindingId].inputRate = EVIR_PER_VERTEX;
-									vertexInputParams.bindings[bindingId].stride = 16; // TODO: check it
-
-									vertexInputParams.enabledAttribFlags |= core::createBitmask({ queryAttributeId });
-									vertexInputParams.attributes[queryAttributeId].binding = bindingId;
-									vertexInputParams.attributes[queryAttributeId].format = format;
-									vertexInputParams.attributes[queryAttributeId].relativeOffset; // TODO
+									const auto attributeId = queryAttributeId.value();
+									vertexInputParams.enabledAttribFlags |= core::createBitmask({ attributeId });
+									vertexInputParams.attributes[attributeId].binding = bufferBindingId;
+									vertexInputParams.attributes[attributeId].format = format;
+									vertexInputParams.attributes[attributeId].relativeOffset = relativeOffsetInBufferViewAttribute;
 								} break;
 
 								case SGLTFBufferView::SGLTFT_ELEMENT_ARRAY_BUFFER:
 								{
 									// TODO: make sure glTF data has validated index type
 
-									switch (glTFAccessor.componentType.value())
-									{
-										case SGLTFAccessor::SCT_UNSIGNED_SHORT:
-										{
-											bufferBinding.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(glTFAccessor.count.value() * sizeof(uint16_t));
-											cpuMeshBuffer->setIndexType(EIT_16BIT);
-										} break;
-
-										case SGLTFAccessor::SCT_UNSIGNED_INT:
-										{
-											bufferBinding.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(glTFAccessor.count.value() * sizeof(uint32_t));
-											cpuMeshBuffer->setIndexType(EIT_32BIT);
-										} break;
-									}
-
+									bufferBinding.offset += relativeOffsetInBufferViewAttribute;
 									cpuMeshBuffer->setIndexBufferBinding(std::move(bufferBinding));
 								} break;
 							}
 						};
 
 						setBufferBinding(glTFbufferView.target.value());
-
-						// TODO
 					};
 
 					const E_PRIMITIVE_TOPOLOGY primitiveTopology = getMode(glTFprimitive.mode.value());
@@ -317,16 +323,34 @@ namespace irr
 					if (glTFprimitive.indices.has_value())
 					{
 						auto& glTFIndexAccessor = glTFprimitive.accessors["INDEX"];
+						handleAccessor(glTFIndexAccessor);
 
-						// TODO
+						switch (glTFIndexAccessor.componentType.value())
+						{
+							case SGLTFAccessor::SCT_UNSIGNED_SHORT:
+							{
+								cpuMeshBuffer->setIndexType(EIT_16BIT);
+							} break;
+
+							case SGLTFAccessor::SCT_UNSIGNED_INT:
+							{
+								cpuMeshBuffer->setIndexType(EIT_32BIT);
+							} break;
+						}
+
+						cpuMeshBuffer->setIndexCount(glTFIndexAccessor.count.value());
 					}
 
 					auto statusPosition = glTFprimitive.accessors.find("POSITION");
 					if (statusPosition != glTFprimitive.accessors.end())
 					{
 						auto& glTFPositionAccessor = glTFprimitive.accessors["POSITION"];
-						handleAccessor(glTFPositionAccessor, SAttributes::POSITION_ATTRIBUTE_ID);						
+						handleAccessor(glTFPositionAccessor, SAttributes::POSITION_ATTRIBUTE_ID);
+
+						cpuMeshBuffer->setIndexCount(glTFPositionAccessor.count.value());
 					}
+					else
+						return {};
 
 					auto statusNormal = glTFprimitive.accessors.find("NORMAL");
 					if (statusNormal != glTFprimitive.accessors.end())
@@ -387,26 +411,46 @@ namespace irr
 
 					auto getShaders = [&](bool hasUV, bool hasColor) -> std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>>
 					{
-						auto loadShaders = [&](const std::string_view& filename) -> core::smart_refctd_ptr<ICPUSpecializedShader>
+						auto loadShader = [&](const std::string_view& cacheKey) -> core::smart_refctd_ptr<ICPUSpecializedShader>
 						{
-							auto shader_bundle = assetManager->getAsset("include/irr/builtin/shaders/loaders/gltf/" + std::string(filename.data()), {});
+							size_t storageSz = 1ull;
+							asset::SAssetBundle bundle;
+							const IAsset::E_TYPE types[]{ IAsset::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
 
-							bool status = !shader_bundle.isEmpty();
-							assert(status);
-
-							auto shader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(shader_bundle.getContents().begin()[0]);
-							return shader;
+							assetManager->findAssets(storageSz, &bundle, cacheKey.data(), types);
+							if (bundle.isEmpty())
+								return nullptr;
+							auto assets = bundle.getContents();
+							
+							return core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assets.begin()[0]);
 						};
 
 						if (hasUV) // if both UV and Color defined - we use the UV
-							return std::make_pair(loadShaders(SShaderPaths::UV::vertex), loadShaders(SShaderPaths::UV::fragment));
+							return std::make_pair(loadShader(VERT_SHADER_UV_CACHE_KEY), loadShader(FRAG_SHADER_UV_CACHE_KEY));
 						else if (hasColor)
-							return std::make_pair(loadShaders(SShaderPaths::Color::vertex), loadShaders(SShaderPaths::Color::fragment));
+							return std::make_pair(loadShader(VERT_SHADER_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_COLOR_CACHE_KEY));
 						else
-							return std::make_pair(loadShaders(SShaderPaths::NoUVAndColor::vertex), loadShaders(SShaderPaths::NoUVAndColor::fragment));
+							return std::make_pair(loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY), loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY));
 					};
 
 					auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor);
+					size_t ds0_samplerBinding = 0, ds1_uboBinding = 0;
+
+					asset::ICPUDescriptorSetLayout::SBinding cpuSamplerBinding;
+
+					cpuSamplerBinding.binding = ds0_samplerBinding;
+					cpuSamplerBinding.type = EDT_COMBINED_IMAGE_SAMPLER;
+					cpuSamplerBinding.count = 1u;
+					cpuSamplerBinding.stageFlags = static_cast<ICPUSpecializedShader::E_SHADER_STAGE>(ICPUSpecializedShader::ESS_FRAGMENT);
+					cpuSamplerBinding.samplers = nullptr;
+
+					ICPUDescriptorSetLayout::SBinding cpuUboBinding;
+					cpuUboBinding.count = 1u;
+					cpuUboBinding.binding = ds1_uboBinding;
+					cpuUboBinding.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
+					cpuUboBinding.type = asset::EDT_UNIFORM_BUFFER;
+
+					// TODO
 				}
 			}
 
@@ -829,13 +873,16 @@ namespace irr
 			return {};
 		}
 
-		CGLTFLoader::SGLTF& CGLTFLoader::loadAndGetGLTF(io::IReadFile* _file)
+		void CGLTFLoader::loadAndGetGLTF(SGLTF& glTF, io::IReadFile* _file)
 		{
-			SGLTF glTF;
 			simdjson::dom::parser parser;
 
 			auto jsonBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(_file->getSize());
-			_file->read(jsonBuffer->getPointer(), jsonBuffer->getSize());
+			{
+				const auto beginPosition = _file->getPos();
+				_file->read(jsonBuffer->getPointer(), jsonBuffer->getSize());
+				_file->seek(beginPosition);
+			}
 
 			simdjson::dom::object tweets = parser.parse(reinterpret_cast<uint8_t*>(jsonBuffer->getPointer()), jsonBuffer->getSize());
 			simdjson::dom::element element;
@@ -890,6 +937,7 @@ namespace irr
 				{
 					auto& glTFBufferView = glTF.bufferViews.emplace_back();
 
+					auto& buffer = jsonBufferView.at_key("buffer");
 					auto& byteOffset = jsonBufferView.at_key("byteOffset");
 					auto& byteLength = jsonBufferView.at_key("byteLength");
 					auto& byteStride = jsonBufferView.at_key("byteStride");
@@ -897,6 +945,9 @@ namespace irr
 					auto& name = jsonBufferView.at_key("name");
 					auto& extensions = jsonBufferView.at_key("extensions");
 					auto& extras = jsonBufferView.at_key("extras");
+
+					if (buffer.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFBufferView.buffer = buffer.get_uint64().value();
 
 					if (byteOffset.error() != simdjson::error_code::NO_SUCH_FIELD)
 						glTFBufferView.byteOffset = byteOffset.get_uint64().value();
@@ -945,7 +996,7 @@ namespace irr
 
 						if (children.error() != simdjson::error_code::NO_SUCH_FIELD)
 						{
-							glTFnode.children = {};
+							glTFnode.children.emplace();
 							for (auto& child : children)
 								glTFnode.children.value().emplace_back() = child.get_uint64().value();
 						}
@@ -958,7 +1009,9 @@ namespace irr
 							auto& matrixArray = matrix.get_array();
 							core::matrix4SIMD tmpMatrix;
 
-							memcpy(tmpMatrix.pointer(), &(*matrixArray.begin()), matrixArray.size() * sizeof(float)); // TODO check it out
+							for (uint32_t i = 0; i < matrixArray.size(); ++i)
+								*(tmpMatrix.pointer() + i) = matrixArray.at(i).get_double().value();
+
 							// TODO tmpMatrix (coulmn major) to row major (currentNode.matrix)
 
 							glTFnode.transformation.matrix = tmpMatrix;
@@ -1006,45 +1059,60 @@ namespace irr
 
 						if (glTFnode.validate())
 						{
-							auto& jsonMesh = meshes.get_array().at(glTFnode.mesh.value());
-							if (jsonMesh.error() != simdjson::error_code::NO_SUCH_FIELD)
+							auto& mData = meshes.get_array();
+							for (size_t iteratorID = 0; iteratorID < mData.size(); ++iteratorID)
 							{
-								auto& glTFMesh = glTFnode.glTFMesh;
+								auto& jsonMesh = meshes.get_array().at(iteratorID);
 
-								auto& primitives = jsonMesh.at_key("primitives");
-								auto& weights = jsonMesh.at_key("weights");
-								auto& name = jsonMesh.at_key("name");
-								auto& extensions = jsonMesh.at_key("extensions");
-								auto& extras = jsonMesh.at_key("extras");
-
-								if (primitives.error() == simdjson::error_code::NO_SUCH_FIELD)
-									return false;
-
-								auto& pData = primitives.get_array();
-								for (size_t iteratorID = 0; iteratorID < pData.size(); ++iteratorID)
+								if (jsonMesh.error() != simdjson::error_code::NO_SUCH_FIELD)
 								{
-									auto& glTFPrimitive = glTFMesh.primitives.emplace_back();
-									auto& jsonPrimitive = pData.at(iteratorID);
+									auto& glTFMesh = glTFnode.glTFMesh;
 
-									auto& attributes = jsonPrimitive.at_key("attributes");
-									auto& indices = jsonPrimitive.at_key("indices");
-									auto& material = jsonPrimitive.at_key("material");
-									auto& mode = jsonPrimitive.at_key("mode");
-									auto& targets = jsonPrimitive.at_key("targets");
-									auto& extensions = jsonPrimitive.at_key("extensions");
-									auto& extras = jsonPrimitive.at_key("extras");
+									auto& primitives = jsonMesh.at_key("primitives");
+									auto& weights = jsonMesh.at_key("weights");
+									auto& name = jsonMesh.at_key("name");
+									auto& extensions = jsonMesh.at_key("extensions");
+									auto& extras = jsonMesh.at_key("extras");
 
-									// TODO: add index accessor to the unordered map as "INDEX"
+									if (primitives.error() == simdjson::error_code::NO_SUCH_FIELD)
+										return false;
 
-									if (attributes.error() != simdjson::error_code::NO_SUCH_FIELD)
-										for (auto& [attributeKey, attributeID] : attributes.get_object())
+									auto& pData = primitives.get_array();
+									for (size_t iteratorID = 0; iteratorID < pData.size(); ++iteratorID)
+									{
+										auto& glTFPrimitive = glTFMesh.primitives.emplace_back();
+										auto& jsonPrimitive = pData.at(iteratorID);
+
+										auto& attributes = jsonPrimitive.at_key("attributes");
+										auto& indices = jsonPrimitive.at_key("indices");
+										auto& material = jsonPrimitive.at_key("material");
+										auto& mode = jsonPrimitive.at_key("mode");
+										auto& targets = jsonPrimitive.at_key("targets");
+										auto& extensions = jsonPrimitive.at_key("extensions");
+										auto& extras = jsonPrimitive.at_key("extras");
+
+										if (indices.error() != simdjson::error_code::NO_SUCH_FIELD)
+											glTFPrimitive.indices = indices.get_uint64().value();
+
+										if (material.error() != simdjson::error_code::NO_SUCH_FIELD)
+											glTFPrimitive.material = material.get_uint64().value();
+
+										if (mode.error() != simdjson::error_code::NO_SUCH_FIELD)
+											glTFPrimitive.mode = mode.get_uint64().value();
+										else
+											glTFPrimitive.mode = 4;
+
+										if (targets.error() != simdjson::error_code::NO_SUCH_FIELD)
+											for (auto& [targetKey, targetID] : targets.get_object())
+												glTFPrimitive.targets.emplace()[targetKey.data()] = targetID.get_uint64().value();
+
+										auto insertAccessorIntoGLTFCache = [&](const std::string_view& cacheKey, const uint32_t accessorID)
 										{
-											const auto accessorID = attributeID.get_uint64().value();
 											auto& jsonAccessor = accessors.get_array().at(accessorID);
 
 											if (jsonAccessor.error() != simdjson::NO_SUCH_FIELD)
 											{
-												auto& glTFAccessor = glTFPrimitive.accessors[attributeKey.data()];
+												auto& glTFAccessor = glTFPrimitive.accessors[cacheKey.data()];
 
 												auto& bufferView = jsonAccessor.at_key("bufferView");
 												auto& byteOffset = jsonAccessor.at_key("byteOffset");
@@ -1079,7 +1147,7 @@ namespace irr
 
 												if (max.error() != simdjson::error_code::NO_SUCH_FIELD)
 												{
-													glTFAccessor.max = {};
+													glTFAccessor.max.emplace();
 													auto& maxArray = max.get_array();
 													for (uint32_t i = 0; i < maxArray.size(); ++i)
 														glTFAccessor.max.value().push_back(maxArray.at(i).get_double().value());
@@ -1087,7 +1155,7 @@ namespace irr
 
 												if (min.error() != simdjson::error_code::NO_SUCH_FIELD)
 												{
-													glTFAccessor.min = {};
+													glTFAccessor.min.emplace();
 													auto& minArray = min.get_array();
 													for (uint32_t i = 0; i < minArray.size(); ++i)
 														glTFAccessor.min.value().push_back(minArray.at(i).get_double().value());
@@ -1105,80 +1173,37 @@ namespace irr
 
 												if (!glTFAccessor.validate())
 													return false;
-												/*
-
-												if (accessorType.error() != simdjson::error_code::NO_SUCH_FIELD)
-												{
-													auto& typeVal = accessorType.get_string().value();
-
-													if (typeVal.data() == "SCALAR")
-													{
-
-													}
-													else if (typeVal.data() == "VEC2")
-													{
-
-													}
-													else if (typeVal.data() == "VEC3")
-													{
-
-													}
-													else if (typeVal.data() == "VEC4")
-													{
-
-													}
-													else if (typeVal.data() == "MAT2")
-													{
-
-													}
-													else if (typeVal.data() == "MAT3")
-													{
-
-													}
-													else if (typeVal.data() == "MAT4")
-													{
-
-													}
-												}
-												
-												*/
-
 											}
 											else
 												return false; // todo
+										};
+
+										if (attributes.error() != simdjson::error_code::NO_SUCH_FIELD)
+										{
+											if (glTFPrimitive.indices.has_value())
+												insertAccessorIntoGLTFCache("INDEX", glTFPrimitive.indices.value());
+
+											for (auto& [attributeKey, attributeID] : attributes.get_object())
+												insertAccessorIntoGLTFCache(attributeKey, attributeID.get_uint64().value());
 										}
-									else
-										return false;
+										else
+											return false;
+									}
 
-									if (indices.error() != simdjson::error_code::NO_SUCH_FIELD)
-										glTFPrimitive.indices = indices.get_uint64().value();
+									// weights - TODO in future
 
-									if (material.error() != simdjson::error_code::NO_SUCH_FIELD)
-										glTFPrimitive.material = material.get_uint64().value();
-
-									if (mode.error() != simdjson::error_code::NO_SUCH_FIELD)
-										glTFPrimitive.mode = mode.get_uint64().value();
-									else
-										glTFPrimitive.mode = 4;
-
-									if (targets.error() != simdjson::error_code::NO_SUCH_FIELD)
-										for (auto& [targetKey, targetID] : targets.get_object())
-											glTFPrimitive.targets.emplace()[targetKey.data()] = targetID.get_uint64().value();
+									if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
+										glTFMesh.name = name.get_string().value();
 								}
+								else
+								{
+									/*
+										A node doesnt have a mesh -> it is valid by the documentation of the glTF, but I think the
+										loader should do continue, delete the node and handle next node or we should provide the defaults
+									*/
 
-								// weights - TODO in future
-
-								if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
-									glTFMesh.name = name.get_string().value();
-							}
-							else
-							{
-								/*
-									A node doesnt have a mesh -> it is valid by the documentation of the glTF, but I think the
-									loader should do continue, delete the node and handle next node or we should provide the defaults
-								*/
-
-								return false;
+									return false;
+								}
 							}
 						}
 						else
@@ -1192,8 +1217,6 @@ namespace irr
 					}
 				}
 			}
-
-			return glTF;
 		}
 	}
 }

@@ -23,7 +23,7 @@ namespace irr
 				virtual ~CGLTFLoader() {}
 
 			public:
-				CGLTFLoader(asset::IAssetManager* _m_assetMgr) : assetManager(_m_assetMgr) {}
+				CGLTFLoader(asset::IAssetManager* _m_assetMgr);
 
 				bool isALoadableFileFormat(io::IReadFile* _file) const override;
 
@@ -293,7 +293,7 @@ namespace irr
 					std::vector<SGLTFBufferView> bufferViews; // various resources referenced by accessors, etc may be the same, not unique, we have to hold it here
 				};
 
-				SGLTF& loadAndGetGLTF(io::IReadFile* _file);
+				void loadAndGetGLTF(SGLTF& glTF, io::IReadFile* _file);
 
 				asset::IAssetManager* const assetManager;
 		};
