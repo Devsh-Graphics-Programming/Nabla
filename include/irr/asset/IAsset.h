@@ -186,6 +186,8 @@ class IAsset : virtual public core::IReferenceCounted
 		{
 			if (getMutability() != EM_MUTABLE)
 				return false;
+			if (_other->getMutability() != EM_MUTABLE)
+				return false;
 			if (!isADummyObjectForCache())
 				return false;
 			if (_other->isADummyObjectForCache())
