@@ -149,44 +149,7 @@ struct ViewDependentObjectInvariantProps
 /*
 CULL SHADER (could process numerous cameras)
 
-mat4 viewProj = pc.viewProj;
 
-uint objectUUID = objectIDs[gl_GlobalInvocationIndex];
-TransformProperty_t objProps = props[objectUUID];
-mat4x3 world = objProps.tform;
-mat4 mvp = viewProj*mat4(vec4(world[0],0.0),vec4(world[1],0.0),vec4(world[2],0.0),vec4(world[3],1.0));
-
-vec3 MinEdge = pc.LoDInvariantAABBMinEdge;
-vec3 MaxEdge = pc.LoDInvariantAABBMaxEdge;
-
-if (!culled(mvp,MinEdge,MaxEdge))
-{
-	vec3 toCamera = pc.camPos-world[3];
-	float distanceSq = dot(toCamera,toCamera);
-
-	int lod = specConstantMaxLoDLevels;
-	for (int i<0; i<specConstantMaxLoDLevels; i++)
-	if (distanceSq<pc.LoDDistancesSq[i])
-	{
-		lod = i;
-		break;
-	}
-
-	if (lod<specConstantMaxLoDLevels)
-	{
-		mat3 normalMatrixT = inverse(mat3(pc.view)*mat3(world));
-
-		ViewDependentObjectInvariantProps objectToDraw;
-		objectToDraw.mvp = mvp;
-		objectToDraw.normalMatrixRow0 = normalMatrixT[0];
-		objectToDraw.objectUUID = objectUUID;
-		objectToDraw.normalMatrixRow1 = normalMatrixT[1];
-		objectToDraw.meshUUID = pc.LoDMeshes[lod];
-		objectToDraw.normalMatrixRow2 = normalMatrixT[2];
-		// TODO: could optimize the reduction
-		outView.objects[atomicAdd(outView.objCount,1u)] = objectToDraw;
-	}
-}
 
 
 
@@ -348,9 +311,9 @@ int main()
 	auto instanceData = [&]()
 	{
 		SBufferRange<video::IGPUBuffer> memoryBlock;
-		memoryBlock.buffer = driver->createDeviceLocalGPUBufferOnDedMem((sizeof(TransformProperty_t)+sizeof(MaterialProps))*kHardwareInstancesTOTAL);
+		memoryBlock.buffer = driver->createDeviceLocalGPUBufferOnDedMem((sizeof(SceneNode_t)+sizeof(MaterialProps))*kHardwareInstancesTOTAL);
 		memoryBlock.size = memoryBlock.buffer->getSize();
-		return video::CPropertyPool<core::allocator,TransformProperty_t,MaterialProps>::create(std::move(memoryBlock));
+		return video::CPropertyPool<core::allocator,SceneNode_t,MaterialProps>::create(std::move(memoryBlock));
 	}();
 
 	// use the pool
@@ -358,7 +321,7 @@ int main()
 	{
 		// create the instances
 		{
-			core::vector<TransformProperty_t> propsA(kHardwareInstancesTOTAL);
+			core::vector<SceneNode_t> propsA(kHardwareInstancesTOTAL);
 			core::vector<MaterialProps> propsB(kHardwareInstancesTOTAL);
 		
 			auto propAIt = propsA.begin();
