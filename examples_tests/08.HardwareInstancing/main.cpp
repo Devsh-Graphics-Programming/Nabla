@@ -147,18 +147,6 @@ struct ViewDependentObjectInvariantProps
 };
 
 /*
-CULL SHADER (could process numerous cameras)
-
-
-
-
-
-SORT AND SETUP VIEW
-
-if (gl_GlobalInvocationIndex<TOTAL_MESHBUFFERS)
-	outView.draws[gl_GlobalInvocationIndex] = constWorld.meshbuffers[gl_GlobalInvocationIndex].draw;
-
-
 EXPAND SHADER
 
 uint culledMeshID = someFunc(gl_GlobalInvocationIndex);

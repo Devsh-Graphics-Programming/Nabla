@@ -5,14 +5,17 @@
 layout(local_size_x = kOptimalWorkgroupSize) in;
 
 
-layout(set = 0, binding = 0, std430) restrict readonly buffer Models
-{
-    ModelData_t models[];
-};
-layout(set = 0, binding = 1, std430, row_major) restrict readonly buffer Objects
+layout(set = 0, binding = 0, std430, row_major) restrict readonly buffer Objects
 {
     SceneNode_t objects[];
 };
+layout(set = 0, binding = 1, std430) restrict readonly buffer Models
+{
+    ModelData_t models[];
+};
+// TODO: Mesh SSBO here
+// TODO: MeshBuffer SSBO here
+// TODO: MeshBuffer Indirect Draw SSBO here
 
 layout(set = 1, binding = 0, std430) restrict coherent buffer VisibleObjectCounter
 {
@@ -29,6 +32,8 @@ layout(set = 2, binding = 0, std430, row_major) uniform Cameras
     mat4 viewProjMatrix;
     mat4 viewProjMatrixInverse;
     vec3 cameraPosition;
+    // TODO clear the MDI arrays for cameras in this dispatch
+    uint dwordMDIOffset;
 } camera;
 layout(set = 2, binding = 1, std430) restrict readonly buffer ObjectIndexBuffer
 {
