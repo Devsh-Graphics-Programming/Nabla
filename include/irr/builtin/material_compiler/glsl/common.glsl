@@ -33,19 +33,43 @@ uint instr_getRightJump(in instr_t instr)
 
 bool instr_get1stParamTexPresence(in instr_t instr)
 {
+#if defined(PARAM1_NEVER_TEX)
+	return false;
+#elif defined(PARAM1_ALWAYS_TEX)
+	return true;
+#else
 	return (instr.x&(1u<<INSTR_1ST_PARAM_TEX_SHIFT)) != 0u;
+#endif
 }
 bool instr_get2ndParamTexPresence(in instr_t instr)
 {
+#if defined(PARAM2_NEVER_TEX)
+	return false;
+#elif defined(PARAM2_ALWAYS_TEX)
+	return true;
+#else
 	return (instr.x&(1u<<INSTR_2ND_PARAM_TEX_SHIFT)) != 0u;
+#endif
 }
 bool instr_get3rdParamTexPresence(in instr_t instr)
 {
+#if defined(PARAM3_NEVER_TEX)
+	return false;
+#elif defined(PARAM3_ALWAYS_TEX)
+	return true;
+#else
 	return (instr.x&(1u<<INSTR_3RD_PARAM_TEX_SHIFT)) != 0u;
+#endif
 }
 bool instr_get4thParamTexPresence(in instr_t instr)
 {
+#if defined(PARAM4_NEVER_TEX)
+	return false;
+#elif defined(PARAM4_ALWAYS_TEX)
+	return true;
+#else
 	return (instr.x&(1u<<INSTR_4TH_PARAM_TEX_SHIFT)) != 0u;
+#endif
 }
 
 bool instr_params_getAlphaUTexPresence(in instr_t instr)
@@ -168,14 +192,38 @@ vec3 textureOrRGBconst(in uvec3 data, in bool texPresenceFlag)
 #endif
 		uintBitsToFloat(data);
 }
-float textureOrRconst(in uvec3 data, in bool texPresenceFlag)
+
+vec3 bsdf_data_getParam1(in bsdf_data_t data, in bool texPresence)
 {
-	return 
-#ifdef TEX_PREFETCH_STREAM
-	texPresenceFlag ?
-		uintBitsToFloat(registers[data.z]) :
+#ifdef PARAM1_ALWAYS_SAME_VALUE
+	return PARAM1_VALUE;
+#else
+	return textureOrRGBconst(data.data[0].xyz, texPresence);
 #endif
-		uintBitsToFloat(data.x);
+}
+vec3 bsdf_data_getParam2(in bsdf_data_t data, in bool texPresence)
+{
+#ifdef PARAM2_ALWAYS_SAME_VALUE
+	return PARAM2_VALUE;
+#else
+	return textureOrRGBconst(uvec3(data.data[0].w, data.data[1].xy), texPresence);
+#endif
+}
+vec3 bsdf_data_getParam3(in bsdf_data_t data, in bool texPresence)
+{
+#ifdef PARAM3_ALWAYS_SAME_VALUE
+	return PARAM3_VALUE;
+#else
+	return textureOrRGBconst(uvec3(data.data[1].zw, data.data[2].x), texPresence);
+#endif
+}
+vec3 bsdf_data_getParam4(in bsdf_data_t data, in bool texPresence)
+{
+#ifdef PARAM4_ALWAYS_SAME_VALUE
+	return PARAM4_VALUE;
+#else
+	return textureOrRGBconst(data.data[2].yzw, texPresence);
+#endif
 }
 
 bvec4 instr_getTexPresence(in instr_t i)
@@ -192,10 +240,10 @@ params_t instr_getParameters(in instr_t i, in bsdf_data_t data)
 	params_t p;
 	bvec4 presence = instr_getTexPresence(i);
 	//speculatively always read RGB
-	p[0] = textureOrRGBconst(data.data[0].xyz, presence.x);
-	p[1] = textureOrRGBconst(uvec3(data.data[0].w,data.data[1].xy), presence.y);
-	p[2] = textureOrRGBconst(uvec3(data.data[1].zw,data.data[2].x), presence.z);
-	p[3] = textureOrRGBconst(data.data[2].yzw, presence.w);
+	p[0] = bsdf_data_getParam1(data, presence.x);
+	p[1] = bsdf_data_getParam2(data, presence.y);
+	p[2] = bsdf_data_getParam3(data, presence.z);
+	p[3] = bsdf_data_getParam4(data, presence.w);
 
 	return p;
 }
@@ -279,6 +327,20 @@ vec4 readReg4(in uint n)
 	);
 }
 
+mat2x4 instr_fetchSrcRegs(in instr_t i, in uvec3 regs)
+{
+	uvec3 r = regs;
+	mat2x4 srcs;
+	srcs[0] = readReg4(REG_SRC1(r));
+	srcs[1] = readReg4(REG_SRC2(r));
+	return srcs;
+}
+mat2x4 instr_fetchSrcRegs(in instr_t i)
+{
+	uvec3 r = instr_decodeRegisters(i);
+	return instr_fetchSrcRegs(i, r);
+}
+
 void setCurrInteraction(in vec3 N)
 {
 	vec3 campos = irr_glsl_MC_getCamPos();
@@ -319,32 +381,28 @@ vec3 params_getTransmittance(in params_t p)
 }
 
 
-void instr_execute_cos_eval_DIFFUSE(in instr_t instr, in irr_glsl_LightSample s, in uvec3 regs, in params_t params, in bsdf_data_t data)
+bxdf_eval_t instr_execute_cos_eval_DIFFUSE(in instr_t instr, in irr_glsl_LightSample s, in params_t params, in bsdf_data_t data)
 {
-	if (s.NdotL>FLT_MIN)
-	{
-		vec3 refl = params_getReflectance(params);
-		float a = params_getAlpha(params);
-		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(s,currInteraction.isotropic,a*a) * refl;
-		writeReg(REG_DST(regs), diffuse);
-	}
-	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
+	vec3 refl = params_getReflectance(params);
+	float a = params_getAlpha(params);
+	vec3 diffuse = irr_glsl_oren_nayar_cos_eval(s,currInteraction.isotropic,a*a) * refl;
+	return diffuse;
 }
 
-void instr_execute_cos_eval_DIFFTRANS(in instr_t instr, in irr_glsl_LightSample s, in uvec3 regs, in params_t params, in bsdf_data_t data)
+bxdf_eval_t instr_execute_cos_eval_DIFFTRANS(in instr_t instr, in irr_glsl_LightSample s, in params_t params, in bsdf_data_t data)
 {
 	vec3 tr = params_getTransmittance(params);
 	//transmittance*cos/2pi
-	vec3 c = s.NdotL*irr_glsl_RECIPROCAL_PI*0.5*tr;
-	writeReg(REG_DST(regs), c);
+	vec3 c = irr_glsl_RECIPROCAL_PI*0.5*tr;
+	return c;
 }
 
-void instr_execute_cos_eval_DIELECTRIC(in instr_t instr, in irr_glsl_LightSample s, in uvec3 regs, in float eval)
+bxdf_eval_t instr_execute_cos_eval_DIELECTRIC(in instr_t instr, in irr_glsl_LightSample s, in float eval)
 {
-	writeReg(REG_DST(regs), bxdf_eval_t(eval));
+	return bxdf_eval_t(eval);
 }
 
-void instr_execute_cos_eval_THINDIELECTRIC(in instr_t instr, in irr_glsl_LightSample s, in uvec3 regs, in params_t params, in bsdf_data_t data)
+bxdf_eval_t instr_execute_cos_eval_THINDIELECTRIC(in instr_t instr, in irr_glsl_LightSample s, in params_t params, in bsdf_data_t data)
 {
 	/*if (currBSDFParams.isotropic.NdotL>FLT_MIN)
 	{
@@ -356,77 +414,73 @@ void instr_execute_cos_eval_THINDIELECTRIC(in instr_t instr, in irr_glsl_LightSa
 		writeReg(REG_DST(regs), diffuse);
 	}
 	else*/ 
-	writeReg(REG_DST(regs), bxdf_eval_t(0.0));
+	return bxdf_eval_t(0.0);
 }
-float instr_execute_cos_eval_pdf_THINDIELECTRIC(in instr_t instr, in irr_glsl_LightSample s, in uvec3 regs, in params_t params, in bsdf_data_t data)
+eval_and_pdf_t instr_execute_cos_eval_pdf_THINDIELECTRIC(in instr_t instr, in irr_glsl_LightSample s, in uvec3 regs, in params_t params, in bsdf_data_t data)
 {
-	instr_execute_cos_eval_THINDIELECTRIC(instr, s, regs, params, data);
+	bxdf_eval_t eval = instr_execute_cos_eval_THINDIELECTRIC(instr, s, params, data);
 	//WARNING 1.0 instead of INF
-	return 1.0;// / 0.0;
+	return eval_and_pdf_t(eval, 1.0);
 }
 
-void instr_execute_cos_eval_CONDUCTOR(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data)
+bxdf_eval_t instr_execute_cos_eval_CONDUCTOR(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in float DG, in params_t params, in bsdf_data_t data)
 {
-	if (s.NdotL>FLT_MIN)
-	{
-		mat2x3 eta;
-		eta[0] = irr_glsl_decodeRGB19E7(data.data[2].yz);
-		eta[1] = irr_glsl_decodeRGB19E7(uvec2(data.data[2].w,data.data[3].x));
-		vec3 fr = irr_glsl_fresnel_conductor(eta[0],eta[1],uf.isotropic.VdotH);
-		writeReg(REG_DST(regs), s.NdotL*DG*fr);
-	}
-	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
+	mat2x3 eta;
+	eta[0] = irr_glsl_decodeRGB19E7(data.data[2].yz);
+	eta[1] = irr_glsl_decodeRGB19E7(uvec2(data.data[2].w,data.data[3].x));
+	vec3 fr = irr_glsl_fresnel_conductor(eta[0],eta[1],uf.isotropic.VdotH);
+	return DG*fr;
 }
 
-vec2 instr_execute_cos_eval_PLASTIC(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data)
+bxdf_eval_t instr_execute_cos_eval_PLASTIC(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in float DG, in params_t params, in bsdf_data_t data, out vec2 out_weights)
 {
+	const vec3 eta = vec3(uintBitsToFloat(data.data[3].x));
+	const vec3 eta2 = eta*eta;
+	const vec3 diffuse_weight = irr_glsl_diffuseFresnelCorrectionFactor(eta, eta2) * (vec3(1.0) - irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0) - irr_glsl_fresnel_dielectric(eta, s.NdotL));
+#ifdef GEN_CHOICE_STREAM
 	//.x - diffuse, .y - specular
 	vec2 weights;
-
-	vec3 eta = vec3(uintBitsToFloat(data.data[3].x));
-	vec3 eta2 = eta * eta;
-
-	vec3 diffuse_weight = irr_glsl_diffuseFresnelCorrectionFactor(eta, eta2) * (vec3(1.0) - irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0) - irr_glsl_fresnel_dielectric(eta, s.NdotL));
+	
 	vec3 fr = irr_glsl_fresnel_dielectric(eta, uf.isotropic.VdotH);
 	weights.x = dot(CIE_XYZ_Luma_Y_coeffs, diffuse_weight);
 	weights.y = dot(CIE_XYZ_Luma_Y_coeffs, fr);
-	if (s.NdotL>FLT_MIN)
-	{
-		vec3 refl = params_getReflectance(params);
-		float a2 = params_getAlpha(params);
-		a2*=a2;
+	out_weights = weights;
+#endif
 
-		vec3 diffuse = irr_glsl_oren_nayar_cos_eval(s, currInteraction.isotropic, a2) * refl;
-		diffuse *= diffuse_weight;
-		vec3 specular = DG*fr;
+	vec3 refl = params_getReflectance(params);
+	float a2 = params_getAlpha(params);
+	a2*=a2;
 
-		writeReg(REG_DST(regs), specular+diffuse);
-	}
-	else writeReg(REG_DST(regs), bxdf_eval_t(0.0));
+	bxdf_eval_t diffuse = irr_glsl_oren_nayar_cos_eval(s, currInteraction.isotropic, a2) * refl;
+	diffuse *= diffuse_weight;
+	bxdf_eval_t specular = DG*fr;
 
-	return weights;
+	return (specular+diffuse);
 }
-float instr_execute_cos_eval_pdf_PLASTIC(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data, in float specular_pdf)
+eval_and_pdf_t instr_execute_cos_eval_pdf_PLASTIC(in instr_t instr, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in uvec3 regs, in float DG, in params_t params, in bsdf_data_t data, in float specular_pdf)
 {
 	float a2 = params_getAlpha(params);
 	a2 *= a2;
-	vec2 w = instr_execute_cos_eval_PLASTIC(instr, s, uf, regs, DG, params, data);
+	vec2 w;
+	bxdf_eval_t eval = instr_execute_cos_eval_PLASTIC(instr, s, uf, DG, params, data, w);
 	w /= (w.x + w.y);
 
-	return w.y*specular_pdf + w.x*irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic);
+	float pdf = w.y*specular_pdf + w.x*irr_glsl_oren_nayar_pdf(s, currInteraction.isotropic);
+
+	return eval_and_pdf_t(eval, pdf);
 }
 
-void instr_execute_cos_eval_COATING(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+bxdf_eval_t instr_execute_cos_eval_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in bsdf_data_t data)
 {
 	//vec2 thickness_eta = unpackHalf2x16(data.data[3].x);
 	//vec3 sigmaA = params_getSigmaA(params);
 	//float a = params_getAlpha(params);
-	writeReg(REG_DST(regs), bxdf_eval_t(1.0,0.0,0.0));
+	return bxdf_eval_t(1.0,0.0,0.0);
 }
 
-void instr_execute_BUMPMAP(in instr_t instr)
+void instr_execute_BUMPMAP(in instr_t instr, in mat2x4 srcs)
 {
-	vec3 N = readReg3( REG_SRC1(instr_decodeRegisters(instr)) );
+	vec3 N = srcs[0].xyz;
 	setCurrInteraction(N);
 }
 
@@ -435,20 +489,20 @@ void instr_execute_SET_GEOM_NORMAL()
 	setCurrInteraction(normalize(Normal));
 }
 
-void instr_execute_cos_eval_BLEND(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+bxdf_eval_t instr_execute_cos_eval_BLEND(in instr_t instr, in mat2x4 srcs, in params_t params, in bsdf_data_t data)
 {
 	float w = params_getBlendWeight(params);
-	bxdf_eval_t bxdf1 = readReg3(REG_SRC1(regs));
-	bxdf_eval_t bxdf2 = readReg3(REG_SRC2(regs));
+	bxdf_eval_t bxdf1 = srcs[0].xyz;
+	bxdf_eval_t bxdf2 = srcs[1].xyz;
 
 	bxdf_eval_t blend = mix(bxdf1, bxdf2, w);
-	writeReg(REG_DST(regs), blend);
+	return blend;
 }
-float instr_execute_cos_eval_pdf_BLEND(in instr_t instr, in uvec3 regs, in params_t params, in bsdf_data_t data)
+eval_and_pdf_t instr_execute_cos_eval_pdf_BLEND(in instr_t instr, in mat2x4 srcs, in params_t params, in bsdf_data_t data)
 {
 	float w = params_getBlendWeight(params);
-	eval_and_pdf_t bxdf1 = readReg4(REG_SRC1(regs));
-	eval_and_pdf_t bxdf2 = readReg4(REG_SRC2(regs));
+	eval_and_pdf_t bxdf1 = srcs[0];
+	eval_and_pdf_t bxdf2 = srcs[1];
 
 	float wa = w;
 	float wb = 1.0-wa;
@@ -480,9 +534,8 @@ float instr_execute_cos_eval_pdf_BLEND(in instr_t instr, in uvec3 regs, in param
 	}
 	*/
 	blend = mix(a,b,wa);
-	writeReg(REG_DST(regs), blend);
-
-	return pdf;
+	
+	return eval_and_pdf_t(blend, pdf);
 }
 
 vec3 fetchTex(in uvec3 texid, in vec2 uv, in mat2 dUV)
@@ -954,51 +1007,63 @@ void instr_eval_and_pdf_execute(in instr_t instr, inout irr_glsl_LightSample s, 
 	}
 
 	uvec3 regs = instr_decodeRegisters(instr);
+
+	if (cosFactor<=FLT_MIN && op_isBXDF(op))
+	{
+		writeReg(REG_DST(regs), eval_and_pdf_t(bxdf_eval_t(0.0), pdf));
+		return; //early exit
+	}
+
+	mat2x4 srcs = instr_fetchSrcRegs(instr, regs);
+	eval_and_pdf_t result;
 #ifdef OP_DIFFUSE
 	if (op==OP_DIFFUSE) {
-		instr_execute_cos_eval_DIFFUSE(instr, s, regs, params, bsdf_data);
+		result.xyz = instr_execute_cos_eval_DIFFUSE(instr, s, params, bsdf_data);
+		result.w = pdf;
 	} else
 #endif
 #ifdef OP_DIFFTRANS
 	if (op==OP_DIFFTRANS) {
-		instr_execute_cos_eval_DIFFTRANS(instr, s, regs, params, bsdf_data);
+		result.xyz = instr_execute_cos_eval_DIFFTRANS(instr, s, params, bsdf_data);
+		result.w = pdf;
 	} else
 #endif
 #ifdef OP_CONDUCTOR
 	if (op==OP_CONDUCTOR) {
-		instr_execute_cos_eval_CONDUCTOR(instr, s, uf, regs, bxdf_eval_scalar_part, params, bsdf_data);
+		result.xyz = instr_execute_cos_eval_CONDUCTOR(instr, s, uf, bxdf_eval_scalar_part, params, bsdf_data);
+		result.w = pdf;
 	} else
 #endif
 #ifdef OP_PLASTIC
 	if (op==OP_PLASTIC) {
-		pdf = instr_execute_cos_eval_pdf_PLASTIC(instr, s, uf, regs, bxdf_eval_scalar_part, params, bsdf_data, pdf);
+		result = instr_execute_cos_eval_pdf_PLASTIC(instr, s, uf, regs, bxdf_eval_scalar_part, params, bsdf_data, pdf);
 	} else
 #endif
 #ifdef OP_COATING
 	if (op==OP_COATING) {
-		instr_execute_cos_eval_COATING(instr, regs, params, bsdf_data);
+		result.xyz = instr_execute_cos_eval_COATING(instr, srcs, params, bsdf_data);
+		result.w = pdf;
 	} else
 #endif
 #ifdef OP_DIELECTRIC
 	if (op==OP_DIELECTRIC) {
-		instr_execute_cos_eval_DIELECTRIC(instr, s, regs, bxdf_eval_scalar_part);
+		result.xyz = instr_execute_cos_eval_DIELECTRIC(instr, s, bxdf_eval_scalar_part);
+		result.w = pdf;
 	} else
 #endif
-//TODO currently only smooth dielectrics work
 #ifdef OP_THINDIELECTRIC
 	if (op==OP_THINDIELECTRIC) {
-		pdf = instr_execute_cos_eval_pdf_THINDIELECTRIC(instr, s, regs, params, bsdf_data);
-		//pdf = 1.0; ?
+		result = instr_execute_cos_eval_pdf_THINDIELECTRIC(instr, s, regs, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_BLEND
 	if (op==OP_BLEND) {
-		pdf = instr_execute_cos_eval_pdf_BLEND(instr, regs, params, bsdf_data);
+		result = instr_execute_cos_eval_pdf_BLEND(instr, srcs, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_BUMPMAP
 	if (op==OP_BUMPMAP) {
-		instr_execute_BUMPMAP(instr);
+		instr_execute_BUMPMAP(instr, srcs);
 	} else
 #endif
 #ifdef OP_SET_GEOM_NORMAL
@@ -1008,8 +1073,9 @@ void instr_eval_and_pdf_execute(in instr_t instr, inout irr_glsl_LightSample s, 
 #endif
 	{} //else "empty braces"
 
+	result.xyz *= cosFactor;
 	if (op_isBXDForBlend(op))
-		writeReg(REG_DST(regs)+3u, pdf);
+		writeReg(REG_DST(regs), result);
 }
 
 eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, inout irr_glsl_LightSample s, in instr_t generator, inout irr_glsl_AnisotropicMicrofacetCache uf)
@@ -1104,7 +1170,8 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 #ifdef OP_BUMPMAP
 			if (op==OP_BUMPMAP)
 			{
-				instr_execute_BUMPMAP(instr);
+				mat2x4 srcs = instr_fetchSrcRegs(instr);
+				instr_execute_BUMPMAP(instr, srcs);
 			} else
 #endif //OP_BUMPMAP
 			{}
@@ -1304,8 +1371,7 @@ vec3 runGenerateAndRemainderStream(in instr_stream_t gcs, in instr_stream_t rnps
 	float generator_pdf;
 	irr_glsl_AnisotropicMicrofacetCache uf;
 	irr_glsl_LightSample s = irr_bsdf_cos_generate(gcs, rand, generator_rem, generator_pdf, generator, uf);
-	//irr_glsl_updateBxDFParams(currBSDFParams, s, currInteraction);
-	eval_and_pdf_t eval_pdf = irr_bsdf_eval_and_pdf(rnps, s, generator, uf);//TODO make `s`,`uf` inout?
+	eval_and_pdf_t eval_pdf = irr_bsdf_eval_and_pdf(rnps, s, generator, uf);
 	bxdf_eval_t acc = eval_pdf.rgb;
 	float restPdf = eval_pdf.a;
 	float pdf = generator_pdf + restPdf;

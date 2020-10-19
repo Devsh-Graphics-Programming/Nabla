@@ -28,6 +28,14 @@ void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout ir
 
 	const float cosFactor = is_bsdf ? abs(s.NdotL):max(s.NdotL,0.0);
 
+	uvec3 regs = instr_decodeRegisters(instr);
+
+	if (cosFactor<=FLT_MIN && op_isBXDF(op))
+	{
+		writeReg(REG_DST(regs), bxdf_eval_t(0.0));
+		return; //early exit
+	}
+
 	irr_glsl_AnisotropicMicrofacetCache uf;
 	//here actually using stronger check for BSDF because it's probably worth it
 	if (op_isBSDF(op) && irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV, s.NdotL))
@@ -135,50 +143,52 @@ void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout ir
 #endif
 	}
 
-	uvec3 regs = instr_decodeRegisters(instr);
+	mat2x4 srcs = instr_fetchSrcRegs(instr, regs);
+	bxdf_eval_t result;
 #ifdef OP_DIFFUSE
 	if (op==OP_DIFFUSE) {
-		instr_execute_cos_eval_DIFFUSE(instr, s, regs, params, bsdf_data);
+		result = instr_execute_cos_eval_DIFFUSE(instr, s, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_CONDUCTOR
 	if (op==OP_CONDUCTOR) {
-		instr_execute_cos_eval_CONDUCTOR(instr, s, uf, regs, bxdf_eval_scalar_part, params, bsdf_data);
+		result = instr_execute_cos_eval_CONDUCTOR(instr, s, uf, bxdf_eval_scalar_part, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_PLASTIC
 	if (op==OP_PLASTIC) {
-		instr_execute_cos_eval_PLASTIC(instr, s, uf, regs, bxdf_eval_scalar_part, params, bsdf_data);
+		vec2 dummy;
+		result = instr_execute_cos_eval_PLASTIC(instr, s, uf, bxdf_eval_scalar_part, params, bsdf_data, dummy);
 	} else
 #endif
 #ifdef OP_COATING
 	if (op==OP_COATING) {
-		instr_execute_cos_eval_COATING(instr, regs, params, bsdf_data);
+		result = instr_execute_cos_eval_COATING(instr, srcs, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_DIFFTRANS
 	if (op==OP_DIFFTRANS) {
-		instr_execute_cos_eval_DIFFTRANS(instr, s, regs, params, bsdf_data);
+		result = instr_execute_cos_eval_DIFFTRANS(instr, s, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_DIELECTRIC
 	if (op==OP_DIELECTRIC) {
-		instr_execute_cos_eval_DIELECTRIC(instr, s, regs, bxdf_eval_scalar_part);
+		result = instr_execute_cos_eval_DIELECTRIC(instr, s, bxdf_eval_scalar_part);
 	} else
 #endif
 #ifdef OP_THINDIELECTRIC
 	if (op==OP_THINDIELECTRIC) {
-		instr_execute_cos_eval_THINDIELECTRIC(instr, s, regs, params, bsdf_data);
+		result = instr_execute_cos_eval_THINDIELECTRIC(instr, s, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_BLEND
 	if (op==OP_BLEND) {
-		instr_execute_cos_eval_BLEND(instr, regs, params, bsdf_data);
+		result = instr_execute_cos_eval_BLEND(instr, srcs, params, bsdf_data);
 	} else
 #endif
 #ifdef OP_BUMPMAP
 	if (op==OP_BUMPMAP) {
-		instr_execute_BUMPMAP(instr);
+		instr_execute_BUMPMAP(instr, srcs);
 	} else
 #endif
 #ifdef OP_SET_GEOM_NORMAL
@@ -187,6 +197,9 @@ void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout ir
 	} else
 #endif
 	{} //else "empty braces"
+
+	if (op_isBXDForBlend(op))
+		writeReg(REG_DST(regs), cosFactor*result);
 }
 
 bxdf_eval_t runEvalStream(in instr_stream_t stream, in vec3 L)

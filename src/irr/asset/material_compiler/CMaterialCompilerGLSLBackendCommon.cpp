@@ -1232,6 +1232,24 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 		defs += "\n#define PARAMS_OPACITY_IX " + std::to_string(OPACITY_TEX_IX);
 	}
 
+	for (uint32_t i = 0u; i < INSTR_MAX_PARAMETER_COUNT; ++i)
+	{
+		using namespace std::string_literals;
+		if (_res.paramTexPresence[0][1] == 0u)
+			defs += "\n#define PARAM"s + static_cast<char>(i+1u+'0') + "_NEVER_TEX";
+		else if (_res.paramTexPresence[0][0] == 0u)
+			defs += "\n#define PARAM"s + static_cast<char>(i+1u+'0') + "_ALWAYS_TEX";
+
+		if (_res.paramConstants[i].first)
+		{
+			const auto& c = _res.paramConstants[i].second;
+			defs += "\n#define PARAM"s + static_cast<char>(i+1u+'0') + "_ALWAYS_SAME_VALUE";
+			defs += "\n#define PARAM"s + static_cast<char>(i+1u+'0') + "_VALUE vec3(" +
+				std::to_string(c.x) + ", " + std::to_string(c.y) + ", " + std::to_string(c.z) + ")";
+		}
+	}
+
+
 	defs += "\n";
 
 	return defs;
@@ -1390,6 +1408,12 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 			return au.constant[0] != av.constant[0];
 	};
 
+	for (auto& p : res.paramConstants)
+	{
+		const core::vector3df_SIMD nan = core::vector3df_SIMD(core::nan<float>());
+		p = std::make_pair(true, nan);
+	}
+
 	res.allIsotropic = true;
 	res.noTwosided = true;
 	for (const auto& e : res.streams)
@@ -1398,12 +1422,35 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 		for (uint32_t i = 0u; i < streams.rem_and_pdf.count; ++i) {
 			const uint32_t first = streams.rem_and_pdf.first;
 			const instr_t instr = res.instructions[first+i];
+			const E_OPCODE op = instr_stream::getOpcode(instr);
+			const E_NDF ndf = instr_stream::getNDF(instr);
+
+			const uint32_t paramCount = getParamCount(op);
+			const uint32_t ix = getBSDFDataIx(instr);
+			for (uint32_t i = 0u; i < paramCount; ++i)
+			{
+				const uint32_t shift = BITFIELDS_SHIFT_PARAM_TEX[i];
+				const auto presence = core::bitfieldExtract(instr, shift, 1);
+				res.paramTexPresence[i][presence]++;
+
+				if (res.paramTexPresence[i][1] == 0u)
+				{
+					const auto& data = res.bsdfData[ix];
+					const auto& param = data.param[i];
+					const auto constant = param.getConst();
+					if (!core::isnan(res.paramConstants[i].second.x))
+						res.paramConstants[i].first = res.paramConstants[i].first && (res.paramConstants[i].second == constant).all();
+					res.paramConstants[i].second = constant;
+				}
+				else
+				{
+					res.paramConstants[i].first = false;
+				}
+			}
 
 			const bool ts = core::bitfieldExtract(instr, BITFIELDS_SHIFT_TWOSIDED, 1);
 			res.noTwosided = res.noTwosided && !ts;
 
-			const E_OPCODE op = instr_stream::getOpcode(instr);
-			const E_NDF ndf = instr_stream::getNDF(instr);
 			res.opcodes.insert(op);
 			if (instr_stream::opHasSpecular(op))
 			{
