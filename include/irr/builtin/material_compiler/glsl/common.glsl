@@ -393,7 +393,7 @@ bxdf_eval_t instr_execute_cos_eval_DIFFTRANS(in instr_t instr, in irr_glsl_Light
 {
 	vec3 tr = params_getTransmittance(params);
 	//transmittance*cos/2pi
-	vec3 c = irr_glsl_RECIPROCAL_PI*0.5*tr;
+	vec3 c = abs(s.NdotL)*irr_glsl_RECIPROCAL_PI*0.5*tr;
 	return c;
 }
 
@@ -1073,7 +1073,6 @@ void instr_eval_and_pdf_execute(in instr_t instr, inout irr_glsl_LightSample s, 
 #endif
 	{} //else "empty braces"
 
-	result.xyz *= cosFactor;
 	if (op_isBXDForBlend(op))
 		writeReg(REG_DST(regs), result);
 }

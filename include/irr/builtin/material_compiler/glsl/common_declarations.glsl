@@ -2,6 +2,7 @@
 #define _IRR_BUILTIN_MATERIAL_COMPILER_GLSL_COMMON_DECLARATIONS_INCLUDED_
 
 #include <irr/builtin/glsl/virtual_texturing/extensions.glsl>
+#include <irr/builtin/glsl/colorspace/encodeCIEXYZ.glsl>
 
 #define instr_t uvec2
 #define reg_t uint
@@ -23,6 +24,6 @@ struct instr_stream_t
 	uint count;
 };
 
-#define CIE_XYZ_Luma_Y_coeffs vec3(0.2126,0.7152,0.0722)
+#define CIE_XYZ_Luma_Y_coeffs transpose(irr_glsl_sRGBtoXYZ)[1]
 
 #endif

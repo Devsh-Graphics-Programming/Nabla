@@ -51,7 +51,13 @@ namespace instr_stream
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_2ND_PARAM_TEX = INSTR_OPCODE_WIDTH + 3u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_3RD_PARAM_TEX = INSTR_OPCODE_WIDTH + 8u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_4TH_PARAM_TEX = INSTR_OPCODE_WIDTH + 4u;
-
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_MAX_PARAMETER_COUNT = 4u;
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_PARAM_TEX[INSTR_MAX_PARAMETER_COUNT] = {
+		BITFIELDS_SHIFT_1ST_PARAM_TEX,
+		BITFIELDS_SHIFT_2ND_PARAM_TEX,
+		BITFIELDS_SHIFT_3RD_PARAM_TEX,
+		BITFIELDS_SHIFT_4TH_PARAM_TEX
+	};
 
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_OPACITY_TEX = 0x1u;
 	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_OPACITY_TEX = BITFIELDS_SHIFT_3RD_PARAM_TEX;
@@ -169,6 +175,27 @@ namespace instr_stream
 		i = core::bitfieldInsert<instr_t>(i, ix, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
 	}
 
+	// more like max param number plus one (includes dummies)
+	inline uint32_t getParamCount(E_OPCODE op)
+	{
+		switch (op)
+		{
+		case OP_DIFFUSE: [[fallthrough]];
+		case OP_PLASTIC: [[fallthrough]];
+		case OP_COATING:
+			return 4u;
+		case OP_CONDUCTOR: [[fallthrough]];
+		case OP_DIFFTRANS: [[fallthrough]];
+		case OP_DIELECTRIC: [[fallthrough]];
+		case OP_THINDIELECTRIC:
+			return 3u;
+		case OP_BLEND: [[fallthrough]];
+		case OP_BUMPMAP:
+			return 1u;
+		default: 0u;
+		}
+	}
+
 	using VTID = asset::ICPUVirtualTexture::SMasterTextureData;
 #include "irr/irrpack.h"
 	struct STextureData {
@@ -193,6 +220,12 @@ namespace instr_stream
 		{
 			tex.vtid = _vtid;
 			core::uintBitsToFloat(tex.scale) = _scale;
+		}
+		core::vector3df_SIMD getConst() const
+		{
+			auto ret = core::vector3df_SIMD(reinterpret_cast<const float*>(constant));
+			ret.w = 0.f;
+			return ret;
 		}
 
 		union
@@ -276,7 +309,7 @@ namespace instr_stream
 	constexpr size_t sizeof_uvec4 = 16ull;
 	union alignas(sizeof_uvec4) SBSDFUnion
 	{
-		_IRR_STATIC_INLINE_CONSTEXPR size_t MAX_TEXTURES = 4ull;
+		_IRR_STATIC_INLINE_CONSTEXPR size_t MAX_TEXTURES = INSTR_MAX_PARAMETER_COUNT;
 
 		SBSDFUnion() : bumpmap{} {}
 
@@ -447,6 +480,9 @@ public:
 		uint32_t usedRegisterCount;
 		uint32_t globalPrefetchFlags;
 		uint32_t globalPrefetchRegCountFlags;
+		uint32_t paramTexPresence[instr_stream::SBSDFUnion::MAX_TEXTURES][2];
+		// always same value and the value
+		std::pair<bool, core::vector3df_SIMD> paramConstants[instr_stream::SBSDFUnion::MAX_TEXTURES];
 
 		core::unordered_set<instr_stream::E_OPCODE> opcodes;
 		core::unordered_set<instr_stream::E_NDF> NDFs;

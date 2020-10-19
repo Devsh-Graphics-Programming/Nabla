@@ -39,7 +39,7 @@ class CMitsubaLoader : public asset::IAssetLoader
 		{
 			core::matrix3x4SIMD tform;//mat4x3
 			//elements (0,3) and (1,3) are (first,count) for bsdf_instrStream (remainder and pdf stream in case of RT backend)
-			core::matrix3x4SIMD normalMatrix;//mat4x3
+			core::matrix3x4SIMD normalMatrix;
 			std::pair<uint32_t,uint32_t> prefetch_instrStream;
 			std::pair<uint32_t, uint32_t> nprecomp_instrStream;
 			std::pair<uint32_t, uint32_t> genchoice_instrStream;

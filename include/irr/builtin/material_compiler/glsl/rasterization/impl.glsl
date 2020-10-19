@@ -199,7 +199,7 @@ void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout ir
 	{} //else "empty braces"
 
 	if (op_isBXDForBlend(op))
-		writeReg(REG_DST(regs), cosFactor*result);
+		writeReg(REG_DST(regs), result);
 }
 
 bxdf_eval_t runEvalStream(in instr_stream_t stream, in vec3 L)

@@ -19,7 +19,6 @@ class CMitsubaMaterialCompilerFrontend
     const SContext* m_loaderContext;
 
     using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>, core::smart_refctd_ptr<asset::ICPUSampler>, float>;
-    core::unordered_map<core::smart_refctd_ptr<asset::ICPUImage>, core::smart_refctd_ptr<asset::ICPUImageView>> m_treeCache;
 
     tex_ass_type getTexture(const CElementTexture* _element) const;
 

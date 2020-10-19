@@ -28,7 +28,7 @@ namespace MitsubaLoader
 		const asset::IGeometryCreator* creator;
 		const asset::IMeshManipulator* manipulator;
 		const asset::IAssetLoader::SAssetLoadParams params;
-		asset::IAssetLoader::IAssetLoaderOverride* override;
+		asset::IAssetLoader::IAssetLoaderOverride* override_;
 		CGlobalMitsubaMetadata* globalMeta;
 
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t VT_PAGE_TABLE_LAYERS = 64u;

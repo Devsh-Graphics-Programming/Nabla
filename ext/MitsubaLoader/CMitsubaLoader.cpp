@@ -682,7 +682,7 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 		assert(filename.type==ext::MitsubaLoader::SPropertyElementData::Type::STRING);
 		auto loadParams = ctx.params;
 		loadParams.loaderFlags = static_cast<IAssetLoader::E_LOADER_PARAMETER_FLAGS>(loadParams.loaderFlags | IAssetLoader::ELPF_RIGHT_HANDED_MESHES);
-		auto retval = interm_getAssetInHierarchy(m_manager, filename.svalue, loadParams, hierarchyLevel/*+ICPUSCene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override);
+		auto retval = interm_getAssetInHierarchy(m_manager, filename.svalue, loadParams, hierarchyLevel/*+ICPUSCene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override_);
 		auto contentRange = retval.getContents();
 		//
 		uint32_t actualIndex = 0;
@@ -927,7 +927,7 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 	{
 		case CElementTexture::Type::BITMAP:
 		{
-				auto retval = interm_getAssetInHierarchy(m_manager,tex->bitmap.filename.svalue,ctx.params,hierarchyLevel,ctx.override);
+				auto retval = interm_getAssetInHierarchy(m_manager,tex->bitmap.filename.svalue,ctx.params,hierarchyLevel,ctx.override_);
 				auto contentRange = retval.getContents();
 				if (contentRange.begin() < contentRange.end())
 				{
@@ -1328,7 +1328,7 @@ SContext::SContext(
 	const asset::IAssetLoader::SAssetLoadParams& _params,
 	asset::IAssetLoader::IAssetLoaderOverride* _override,
 	CGlobalMitsubaMetadata* _metadata
-) : creator(_geomCreator), manipulator(_manipulator), params(_params), override(_override), globalMeta(_metadata),
+) : creator(_geomCreator), manipulator(_manipulator), params(_params), override_(_override), globalMeta(_metadata),
 	ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this)
 {
 	//TODO (maybe) dynamically decide which of those are needed OR just wait until IVirtualTexture does it on itself (dynamically creates resident storages)
