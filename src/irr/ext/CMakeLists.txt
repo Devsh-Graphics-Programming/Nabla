@@ -13,6 +13,9 @@
 # limitations under the License.
 
 
+start_tracking_variables_for_propagation_to_parent()
+
+
 if (IRR_BUILD_CEGUI)
     set(_OLD_CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH})
     set(CMAKE_PREFIX_PATH ${CEGUI_DEPS_INSTALL_PATH})
@@ -76,3 +79,6 @@ if (IRR_BUILD_OPTIX)
         PARENT_SCOPE
     )
 endif()
+
+
+propagate_changed_variables_to_parent_scope()

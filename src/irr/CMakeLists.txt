@@ -1,5 +1,3 @@
-add_subdirectory(ext)
-
 find_package(OpenGL REQUIRED)
 if(UNIX)
 	find_package(X11 REQUIRED)
@@ -288,6 +286,7 @@ set(COMMON_INCLUDE_DIRS
 irr_adjust_flags() # macro defined in root CMakeLists
 irr_adjust_definitions() # macro defined in root CMakeLists
 
+# TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
 macro(irr_target_link_zlib _trgt)
 	add_dependencies(${_trgt} zlibstatic)
 
@@ -447,6 +446,12 @@ elseif()
 		list(APPEND IRRLICHT_HEADERS_PUBLIC  ${IRR_ROOT_PATH}/include/${X})
 	endforeach()
 endif()
+
+
+# extensions
+start_tracking_variables_for_propagation_to_parent()
+add_subdirectory(ext)
+propagate_changed_variables_to_parent_scope()
 
 
 set(IRRLICHT_HEADERS_TO_INSTALL 
