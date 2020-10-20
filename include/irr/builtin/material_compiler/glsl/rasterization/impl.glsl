@@ -52,10 +52,9 @@ void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout ir
 
 	if (cosFactor>FLT_MIN && op_hasSpecular(op))
 	{
+		BEGIN_CASES(ndf)
 #ifdef NDF_GGX
-#ifndef ONLY_ONE_NDF
-		if (ndf==NDF_GGX) {
-#endif
+		CASE_BEGIN(ndf, NDF_GGX) {
 
 #if defined(OP_THINDIELECTRIC) || defined(OP_DIELECTRIC)
 			if (is_bsdf) {
@@ -75,15 +74,11 @@ void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout ir
 #endif
 			}
 
-#ifndef ONLY_ONE_NDF
-		} else
-#endif
+		} CASE_END
 #endif
 
 #ifdef NDF_BECKMANN
-#ifndef ONLY_ONE_NDF
-		if (ndf==NDF_BECKMANN) {
-#endif
+		CASE_BEGIN(ndf, NDF_BECKMANN) {
 
 #if defined(OP_THINDIELECTRIC) || defined(OP_DIELECTRIC)
 			if (is_bsdf) {
@@ -103,15 +98,11 @@ void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout ir
 #endif
 			}
 
-#ifndef ONLY_ONE_NDF
-		} else
-#endif
+		} CASE_END
 #endif
 
 #ifdef NDF_PHONG
-#ifndef ONLY_ONE_NDF
-		if (ndf==NDF_PHONG) {
-#endif
+		CASE_BEGIN(ndf, NDF_PHONG) {
 
 #if defined(OP_THINDIELECTRIC) || defined(OP_DIELECTRIC)
 			if (is_bsdf) {
@@ -133,70 +124,72 @@ void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout ir
 #endif
 			}
 
-#ifndef ONLY_ONE_NDF
-		} else
-#endif
+		} CASE_END
 #endif
 
-#ifndef ONLY_ONE_NDF
+		CASE_OTHERWISE
 		{} //else "empty braces"
-#endif
+		END_CASES
 	}
 
 	mat2x4 srcs = instr_fetchSrcRegs(instr, regs);
 	bxdf_eval_t result;
+
+	BEGIN_CASES(op)
 #ifdef OP_DIFFUSE
-	if (op==OP_DIFFUSE) {
+	CASE_BEGIN(op, OP_DIFFUSE) {
 		result = instr_execute_cos_eval_DIFFUSE(instr, s, params, bsdf_data);
-	} else
+	} CASE_END
 #endif
 #ifdef OP_CONDUCTOR
-	if (op==OP_CONDUCTOR) {
+	CASE_BEGIN(op, OP_CONDUCTOR) {
 		result = instr_execute_cos_eval_CONDUCTOR(instr, s, uf, bxdf_eval_scalar_part, params, bsdf_data);
-	} else
+	} CASE_END
 #endif
 #ifdef OP_PLASTIC
-	if (op==OP_PLASTIC) {
+	CASE_BEGIN(op, OP_PLASTIC) {
 		vec2 dummy;
 		result = instr_execute_cos_eval_PLASTIC(instr, s, uf, bxdf_eval_scalar_part, params, bsdf_data, dummy);
-	} else
+	} CASE_END
 #endif
 #ifdef OP_COATING
-	if (op==OP_COATING) {
+	CASE_BEGIN(op, OP_COATING) {
 		result = instr_execute_cos_eval_COATING(instr, srcs, params, bsdf_data);
-	} else
+	} CASE_END
 #endif
 #ifdef OP_DIFFTRANS
-	if (op==OP_DIFFTRANS) {
+	CASE_BEGIN(op, OP_DIFFTRANS) {
 		result = instr_execute_cos_eval_DIFFTRANS(instr, s, params, bsdf_data);
-	} else
+	} CASE_END
 #endif
 #ifdef OP_DIELECTRIC
-	if (op==OP_DIELECTRIC) {
+	CASE_BEGIN(op, OP_DIELECTRIC) {
 		result = instr_execute_cos_eval_DIELECTRIC(instr, s, bxdf_eval_scalar_part);
-	} else
+	} CASE_END
 #endif
 #ifdef OP_THINDIELECTRIC
-	if (op==OP_THINDIELECTRIC) {
+	CASE_BEGIN(op, OP_THINDIELECTRIC) {
 		result = instr_execute_cos_eval_THINDIELECTRIC(instr, s, params, bsdf_data);
-	} else
+	} CASE_END
 #endif
 #ifdef OP_BLEND
-	if (op==OP_BLEND) {
+	CASE_BEGIN(op, OP_BLEND) {
 		result = instr_execute_cos_eval_BLEND(instr, srcs, params, bsdf_data);
-	} else
+	} CASE_END
 #endif
 #ifdef OP_BUMPMAP
-	if (op==OP_BUMPMAP) {
+	CASE_BEGIN(op, OP_BUMPMAP) {
 		instr_execute_BUMPMAP(instr, srcs);
-	} else
+	} CASE_END
 #endif
 #ifdef OP_SET_GEOM_NORMAL
-	if (op==OP_SET_GEOM_NORMAL) {
+	CASE_BEGIN(op, OP_SET_GEOM_NORMAL) {
 		instr_execute_SET_GEOM_NORMAL();
-	} else
+	} CASE_END
 #endif
+	CASE_OTHERWISE
 	{} //else "empty braces"
+	END_CASES
 
 	if (op_isBXDForBlend(op))
 		writeReg(REG_DST(regs), result);

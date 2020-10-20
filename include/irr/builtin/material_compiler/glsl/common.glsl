@@ -1016,62 +1016,65 @@ void instr_eval_and_pdf_execute(in instr_t instr, inout irr_glsl_LightSample s, 
 
 	mat2x4 srcs = instr_fetchSrcRegs(instr, regs);
 	eval_and_pdf_t result;
+	BEGIN_CASES(op)
 #ifdef OP_DIFFUSE
-	if (op==OP_DIFFUSE) {
+	CASE_BEGIN(op, OP_DIFFUSE) {
 		result.xyz = instr_execute_cos_eval_DIFFUSE(instr, s, params, bsdf_data);
 		result.w = pdf;
-	} else
+	} CASE_END
 #endif
 #ifdef OP_DIFFTRANS
-	if (op==OP_DIFFTRANS) {
+	CASE_BEGIN(op, OP_DIFFTRANS) {
 		result.xyz = instr_execute_cos_eval_DIFFTRANS(instr, s, params, bsdf_data);
 		result.w = pdf;
-	} else
+	} CASE_END
 #endif
 #ifdef OP_CONDUCTOR
-	if (op==OP_CONDUCTOR) {
+	CASE_BEGIN(op, OP_CONDUCTOR) {
 		result.xyz = instr_execute_cos_eval_CONDUCTOR(instr, s, uf, bxdf_eval_scalar_part, params, bsdf_data);
 		result.w = pdf;
-	} else
+	} CASE_END
 #endif
 #ifdef OP_PLASTIC
-	if (op==OP_PLASTIC) {
+	CASE_BEGIN(op, OP_PLASTIC) {
 		result = instr_execute_cos_eval_pdf_PLASTIC(instr, s, uf, regs, bxdf_eval_scalar_part, params, bsdf_data, pdf);
-	} else
+	} CASE_END
 #endif
 #ifdef OP_COATING
-	if (op==OP_COATING) {
+	CASE_BEGIN(op, OP_COATING) {
 		result.xyz = instr_execute_cos_eval_COATING(instr, srcs, params, bsdf_data);
 		result.w = pdf;
-	} else
+	} CASE_END
 #endif
 #ifdef OP_DIELECTRIC
-	if (op==OP_DIELECTRIC) {
+	CASE_BEGIN(op, OP_DIELECTRIC) {
 		result.xyz = instr_execute_cos_eval_DIELECTRIC(instr, s, bxdf_eval_scalar_part);
 		result.w = pdf;
-	} else
+	} CASE_END
 #endif
 #ifdef OP_THINDIELECTRIC
-	if (op==OP_THINDIELECTRIC) {
+	CASE_BEGIN(op, OP_THINDIELECTRIC) {
 		result = instr_execute_cos_eval_pdf_THINDIELECTRIC(instr, s, regs, params, bsdf_data);
-	} else
+	} CASE_END
 #endif
 #ifdef OP_BLEND
-	if (op==OP_BLEND) {
+	CASE_BEGIN(op, OP_BLEND) {
 		result = instr_execute_cos_eval_pdf_BLEND(instr, srcs, params, bsdf_data);
-	} else
+	} CASE_END
 #endif
 #ifdef OP_BUMPMAP
-	if (op==OP_BUMPMAP) {
+	CASE_BEGIN(op, OP_BUMPMAP) {
 		instr_execute_BUMPMAP(instr, srcs);
-	} else
+	} CASE_END
 #endif
 #ifdef OP_SET_GEOM_NORMAL
-	if (op==OP_SET_GEOM_NORMAL) {
+	CASE_BEGIN(op, OP_SET_GEOM_NORMAL) {
 		instr_execute_SET_GEOM_NORMAL();
-	} else
+	} CASE_END
 #endif
+	CASE_OTHERWISE
 	{} //else "empty braces"
+	END_CASES
 
 	if (op_isBXDForBlend(op))
 		writeReg(REG_DST(regs), result);
@@ -1215,6 +1218,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 	irr_glsl_LightSample s;
 	irr_glsl_AnisotropicMicrofacetCache uf;
 
+	// the if/else statements below cannot be done as switch/case because it checks both `op` and `ndf`
 #ifdef OP_PLASTIC
 	float plastic_spec_weight;
 	if (is_plastic) {
@@ -1224,7 +1228,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 		op = choseDiffuse ? OP_DIFFUSE_ALIAS : op;
 		plastic_spec_weight = ws;
 	}
-#endif
+#endif //OP_PLASTIC
 
 #if defined(OP_DIFFUSE) || defined(OP_PLASTIC)
 	if (op==OP_DIFFUSE_ALIAS) {
@@ -1241,15 +1245,6 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 		rem = refl*irr_glsl_lambertian_transmitter_cos_remainder_and_pdf(pdf, s);
 	} else
 #endif //OP_DIFFTRANS
-
-/*#ifdef OP_DIELECTRIC
-	if (op == OP_DIELECTRIC) {
-		s = irr_glsl_smooth_dielectric_cos_generate(currInteraction, u, ior[0].x);
-		uf = getSmoothMicrofacetCache(currInteraction.isotropic.NdotV, s.NdotL);
-		rem = vec3( irr_glsl_smooth_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ior[0].x) );
-		pdf = 1.0;
-	} else
-#endif*/ //OP_DIELECTRIC
 
 #ifdef OP_THINDIELECTRIC
 	if (op == OP_THINDIELECTRIC) {
@@ -1321,27 +1316,31 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 		if (u.z>=plastic_spec_weight) { //chose diffuse as generator
 			wb = plastic_spec_weight;
 			wa = 1.0-wb;
+
+			BEGIN_CASES(ndf)
 #ifdef NDF_GGX
-			if (ndf == NDF_GGX) {
+			CASE_BEGIN(ndf, NDF_GGX) {
 				eval = irr_glsl_ggx_height_correlated_aniso_cos_eval(s, currInteraction, uf, ior, ax, ay);
 				pdf_b = irr_glsl_ggx_pdf(currInteraction, uf, ax, ay, ax2, ay2);
-			} else
+			} CASE_END
 #endif //NDF_GGX
 
 #ifdef NDF_BECKMANN
-			if (ndf == NDF_BECKMANN) {
+			CASE_BEGIN(ndf, NDF_BECKMANN) {
 				eval = irr_glsl_beckmann_aniso_height_correlated_cos_eval(s, currInteraction, uf, ior, ax, ay);
 				pdf_b = irr_glsl_beckmann_pdf(currInteraction, uf, ax, ax2, ay, ay2);
-			} else
+			} CASE_END
 #endif //NDF_BECKMANN
 
 #ifdef NDF_PHONG
-			if (ndf == NDF_PHONG) {
+			CASE_BEGIN(ndf, NDF_PHONG) {
 				eval = irr_glsl_beckmann_aniso_height_correlated_cos_eval(s, currInteraction, uf, ior, ax, ay);
 				pdf_b = irr_glsl_beckmann_pdf(currInteraction, uf, ax, ax2, ay, ay2);
-			} else
+			} CASE_END
 #endif //NDF_PHONG
+			CASE_OTHERWISE
 			{}
+			END_CASES
 		}
 		else { //specular was generator
 			wa = plastic_spec_weight;

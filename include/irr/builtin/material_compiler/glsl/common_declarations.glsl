@@ -26,4 +26,19 @@ struct instr_stream_t
 
 #define CIE_XYZ_Luma_Y_coeffs transpose(irr_glsl_sRGBtoXYZ)[1]
 
+//#define MATERIAL_COMPILER_USE_SWTICH
+#ifdef MATERIAL_COMPILER_USE_SWTICH
+#define BEGIN_CASES(X)	switch (X) {
+#define CASE_BEGIN(X,C) case C:
+#define CASE_END		break;
+#define CASE_OTHERWISE	default:
+#define END_CASES		break; }
+#else
+#define BEGIN_CASES(X)
+#define CASE_BEGIN(X,C) if (X==C)
+#define CASE_END		else
+#define CASE_OTHERWISE
+#define END_CASES
+#endif
+
 #endif
