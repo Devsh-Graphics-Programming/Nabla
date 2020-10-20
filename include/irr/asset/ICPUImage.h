@@ -52,15 +52,14 @@ class ICPUImage final : public IImage, public IAsset
 				regions = nullptr;
         }
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
 		{
-			if (!IAsset::canBeRestoredFrom(_other))
-				return false;
-
 			auto* other = static_cast<const ICPUImage*>(_other);
 			if (info != other->info)
 				return false;
 			if (params != other->params)
+				return false;
+			if (!buffer->canBeRestoredFrom_recurseDAG(other->buffer.get()))
 				return false;
 
 			return true;
@@ -210,7 +209,10 @@ private:
 		{
 			auto* other = static_cast<ICPUImage*>(_other);
 
-			std::swap(regions, other->regions);
+			const bool restorable = canBeRestoredFrom(_other);
+
+			if (restorable)
+				std::swap(regions, other->regions);
 		}
 
 };

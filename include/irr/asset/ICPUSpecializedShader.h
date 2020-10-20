@@ -65,17 +65,16 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 				m_specInfo.setEntries(nullptr,core::smart_refctd_ptr<ICPUBuffer>(m_specInfo.getBackingBuffer()));
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
 		{
-			if (!IAsset::canBeRestoredFrom(_other))
-				return false;
-
 			auto* other = static_cast<const ICPUSpecializedShader*>(_other);
 			if (m_specInfo.entryPoint != other->m_specInfo.entryPoint)
 				return false;
 			if (m_specInfo.m_filePathHint != other->m_specInfo.m_filePathHint)
 				return false;
 			if (m_specInfo.shaderStage != other->m_specInfo.shaderStage)
+				return false;
+			if (!m_unspecialized->canBeRestoredFrom_recurseDAG(other->m_unspecialized.get()))
 				return false;
 
 			return true;
@@ -103,7 +102,10 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 		{
 			auto* other = static_cast<ICPUSpecializedShader*>(_other);
 
-			std::swap(m_specInfo.m_entries, other->m_specInfo.m_entries);
+			const bool restorable = canBeRestoredFrom(_other);
+
+			if (restorable)
+				std::swap(m_specInfo.m_entries, other->m_specInfo.m_entries);
 			if (_levelsBelow--)
 			{
 				m_unspecialized->restoreFromDummy(other->m_unspecialized.get(), _levelsBelow);

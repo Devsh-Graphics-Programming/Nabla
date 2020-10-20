@@ -32,11 +32,13 @@ public:
 		}
 	}
 
-    bool canBeRestoredFrom(const IAsset* _other) const override
+    bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
     {
-        if (!IAsset::canBeRestoredFrom(_other))
+        auto* other = static_cast<const ICPUComputePipeline*>(_other);
+        if (!m_shader->canBeRestoredFrom_recurseDAG(other->m_shader.get()))
             return false;
-
+        if (!m_layout->canBeRestoredFrom_recurseDAG(other->m_layout.get()))
+            return false;
         return true;
     }
 

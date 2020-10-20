@@ -71,9 +71,9 @@ class ICPUSampler : public ISampler, public IAsset
             convertToDummyObject_common(referenceLevelsBelowToConvert);
         }
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
 		{
-			return IAsset::canBeRestoredFrom(_other);
+			return true;
 		}
 
 		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SAMPLER;

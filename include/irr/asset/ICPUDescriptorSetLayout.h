@@ -66,11 +66,8 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 			    m_samplers = nullptr;
 		}
 
-        bool canBeRestoredFrom(const IAsset* _other) const override
+        bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
         {
-            if (!IAsset::canBeRestoredFrom(_other))
-                return false;
-
             return true;
         }
 
@@ -85,9 +82,14 @@ private:
     {
         auto* other = static_cast<ICPUDescriptorSetLayout*>(_other);
 
+        const bool restorable = canBeRestoredFrom(_other);
+
         //TODO hmm should samplers be swapped (and dropped in convertToDummy()) or recursively restored??
-        std::swap(m_bindings, other->m_bindings);
-        std::swap(m_samplers, other->m_samplers);
+        if (restorable)
+        {
+            std::swap(m_bindings, other->m_bindings);
+            std::swap(m_samplers, other->m_samplers);
+        }
     }
 };
 

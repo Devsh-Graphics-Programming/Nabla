@@ -39,17 +39,16 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 				m_buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
 		{
-			if (!IAsset::canBeRestoredFrom(_other))
-				return false;
-
 			auto* other = static_cast<const ICPUBufferView*>(_other);
 			if (m_size != other->m_size)
 				return false;
 			if (m_offset != other->m_offset)
 				return false;
 			if (m_format != other->m_format)
+				return false;
+			if (!m_buffer->canBeRestoredFrom_recurseDAG(other->m_buffer.get()))
 				return false;
 
 			return true;

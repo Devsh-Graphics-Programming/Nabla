@@ -56,14 +56,14 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 			IMesh<ICPUMeshBuffer>::setBoundingBox(box); 
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
 		{
-			if (!IAsset::canBeRestoredFrom(_other))
-				return false;
-
 			auto other = static_cast<const ICPUMesh*>(_other);
 			if (getMeshBufferCount() == other->getMeshBufferCount())
 				return false;
+			for (uint32_t i = 0u; i < getMeshBufferCount(); ++i)
+				if (!getMeshBuffer(i)->canBeRestoredFrom_recurseDAG(other->getMeshBuffer(i)))
+					return false;
 
 			return true;
 		}

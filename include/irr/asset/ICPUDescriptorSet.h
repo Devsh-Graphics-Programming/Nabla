@@ -123,12 +123,10 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 			//m_bindingInfo = nullptr;
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
 		{
-			if (!IAsset::canBeRestoredFrom(_other))
-				return false;
-
-			return true;
+			auto* other = static_cast<const ICPUDescriptorSet*>(_other);
+			return m_layout->canBeRestoredFrom_recurseDAG(other->m_layout.get());
 		}
 
 		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET;

@@ -55,13 +55,12 @@ class ICPUShader : public IAsset, public IShader
 				m_code->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
 		{
-			if (!IAsset::canBeRestoredFrom(_other))
-				return false;
-
 			auto* other = static_cast<const ICPUShader*>(_other);
 			if (m_containsGLSL != other->m_containsGLSL)
+				return false;
+			if (!m_code->canBeRestoredFrom_recurseDAG(other->m_code.get()))
 				return false;
 
 			return true;

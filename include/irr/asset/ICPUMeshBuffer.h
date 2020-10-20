@@ -129,11 +129,8 @@ public:
 		}
 	}
 
-    bool canBeRestoredFrom(const IAsset* _other) const override
+    bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
     {
-        if (!IAsset::canBeRestoredFrom(_other))
-            return false;
-
         auto* other = static_cast<const ICPUMeshBuffer*>(_other);
         if (memcmp(m_pushConstantsData, other->m_pushConstantsData, sizeof(m_pushConstantsData)) != 0)
             return false;
@@ -148,6 +145,31 @@ public:
         if (posAttrId != other->posAttrId)
             return false;
         if (normalAttrId != other->normalAttrId)
+            return false;
+        if (m_indexBufferBinding.offset != other->m_indexBufferBinding.offset)
+            return false;
+        if ((!m_indexBufferBinding.buffer || !other->m_indexBufferBinding.buffer) && m_indexBufferBinding.buffer != other->m_indexBufferBinding.buffer)
+            return false;
+        if (!m_indexBufferBinding.buffer->canBeRestoredFrom_recurseDAG(other->m_indexBufferBinding.buffer.get()))
+            return false;
+        for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
+        {
+            if (m_vertexBufferBindings[i].offset != other->m_vertexBufferBindings[i].offset)
+                return false;
+            if ((!m_vertexBufferBindings[i].buffer || !other->m_vertexBufferBindings[i].buffer) && m_vertexBufferBindings[i].buffer != other->m_vertexBufferBindings[i].buffer)
+                return false;
+            if (!m_vertexBufferBindings[i].buffer->canBeRestoredFrom_recurseDAG(other->m_vertexBufferBindings[i].buffer.get()))
+                return false;
+        }
+
+        if ((!m_descriptorSet || !other->m_descriptorSet) && m_descriptorSet != other->m_descriptorSet)
+            return false;
+        if (!m_descriptorSet->canBeRestoredFrom_recurseDAG(other->m_descriptorSet.get()))
+            return false;
+
+        if ((!m_pipeline || !other->m_pipeline) && m_pipeline != other->m_pipeline)
+            return false;
+        if (!m_pipeline->canBeRestoredFrom_recurseDAG(other->m_pipeline.get()))
             return false;
 
         return true;
@@ -716,12 +738,16 @@ private:
         {
             --_levelsBelow;
 
-            m_pipeline->restoreFromDummy(other->m_pipeline.get(), _levelsBelow);
-            m_descriptorSet->restoreFromDummy(other->m_descriptorSet.get(), _levelsBelow);
+            if (m_pipeline)
+                m_pipeline->restoreFromDummy(other->m_pipeline.get(), _levelsBelow);
+            if (m_descriptorSet)
+                m_descriptorSet->restoreFromDummy(other->m_descriptorSet.get(), _levelsBelow);
 
             for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
-                m_vertexBufferBindings[i].buffer->restoreFromDummy(other->m_vertexBufferBindings[i].buffer.get(), _levelsBelow);
-            m_indexBufferBinding.buffer->restoreFromDummy(other->m_indexBufferBinding.buffer.get(), _levelsBelow);
+                if (m_vertexBufferBindings[i].buffer)
+                    m_vertexBufferBindings[i].buffer->restoreFromDummy(other->m_vertexBufferBindings[i].buffer.get(), _levelsBelow);
+            if (m_indexBufferBinding.buffer)
+                m_indexBufferBinding.buffer->restoreFromDummy(other->m_indexBufferBinding.buffer.get(), _levelsBelow);
         }
     }
 };

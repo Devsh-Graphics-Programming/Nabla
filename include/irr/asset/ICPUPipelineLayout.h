@@ -58,11 +58,25 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 			    m_pushConstantRanges = nullptr;
 		}
 
-        bool canBeRestoredFrom(const IAsset* _other) const override
+        bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
         {
-            if (!IAsset::canBeRestoredFrom(_other))
-                return false;
+            auto* other = static_cast<const ICPUPipelineLayout*>(_other);
 
+            if ((!m_pushConstantRanges || !other->m_pushConstantRanges) && m_pushConstantRanges != other->m_pushConstantRanges)
+                return false;
+            if (m_pushConstantRanges->size() != other->m_pushConstantRanges->size())
+                return false;
+            for (uint32_t i = 0u; i < m_pushConstantRanges->size(); ++i)
+                if ((*m_pushConstantRanges)[i] != (*other->m_pushConstantRanges)[i])
+                    return false;
+
+            for (uint32_t i = 0u; i < DESCRIPTOR_SET_COUNT; ++i)
+            {
+                if ((!m_descSetLayouts[i] || !other->m_descSetLayouts[i]) && m_descSetLayouts[i] != other->m_descSetLayouts[i])
+                    return false;
+                if (m_descSetLayouts[i]->canBeRestoredFrom_recurseDAG(other->m_descSetLayouts[i].get()))
+                    return false;
+            }
             return true;
         }
 
@@ -74,7 +88,10 @@ private:
     {
         auto* other = static_cast<ICPUPipelineLayout*>(_other);
 
-        std::swap(m_pushConstantRanges, other->m_pushConstantRanges);
+        const bool restorable = canBeRestoredFrom(_other);
+
+        if (restorable)
+            std::swap(m_pushConstantRanges, other->m_pushConstantRanges);
         if (_levelsBelow)
         {
             --_levelsBelow;

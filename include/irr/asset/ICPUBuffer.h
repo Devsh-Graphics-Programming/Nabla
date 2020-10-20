@@ -60,11 +60,8 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             return cp;
         }
 
-        bool canBeRestoredFrom(const IAsset* _other) const override
+        bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
         {
-            if (!IAsset::canBeRestoredFrom(_other))
-                return false;
-
             auto* other = static_cast<const ICPUBuffer*>(_other);
             if (size != other->size)
                 return false;
@@ -115,7 +112,8 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
         {
             auto* other = static_cast<ICPUBuffer*>(_other);
 
-            std::swap(data, other->data);
+            if (canBeRestoredFrom(_other))
+                std::swap(data, other->data);
         }
 };
 

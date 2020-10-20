@@ -175,15 +175,19 @@ class IAsset : virtual public core::IReferenceCounted
 
 		bool restoreFromDummy(IAsset* _other, uint32_t _levelsBelow)
 		{
-			if (!canBeRestoredFrom(_other))
+			assert(getAssetType() == _other->getAssetType());
+
+			if (!canBeRestoredFrom_recurseDAG(_other))
 				return false;
 
 			restoreFromDummy_impl(_other, _levelsBelow);
 			return true;
 		}
 
-		virtual bool canBeRestoredFrom(const IAsset* _other) const
+		bool canBeRestoredFrom(const IAsset* _other) const
 		{
+			assert(getAssetType() == _other->getAssetType());
+
 			if (getMutability() != EM_MUTABLE)
 				return false;
 			if (_other->getMutability() != EM_MUTABLE)
@@ -195,6 +199,8 @@ class IAsset : virtual public core::IReferenceCounted
 
 			return true;
 		}
+
+		virtual bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const = 0;
 
 		inline E_MUTABILITY getMutability() const { return m_mutability; }
 		inline bool isMutable() const { return getMutability() == EM_MUTABLE; }

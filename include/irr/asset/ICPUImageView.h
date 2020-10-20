@@ -40,11 +40,8 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
             return cp;
         }
 
-		bool canBeRestoredFrom(const IAsset* _other) const override
+		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
 		{
-			if (!IAsset::canBeRestoredFrom(_other))
-				return false;
-
 			auto* other = static_cast<const ICPUImageView*>(_other);
 			const auto& rhs = other->params;
 
@@ -57,6 +54,8 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 			if (params.viewType != rhs.viewType)
 				return false;
 			if (memcmp(&params.subresourceRange, &rhs.subresourceRange, sizeof(params.subresourceRange)))
+				return false;
+			if (!params.image->canBeRestoredFrom_recurseDAG(rhs.image.get()))
 				return false;
 
 			return true;
