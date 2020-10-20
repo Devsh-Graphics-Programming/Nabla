@@ -21,7 +21,7 @@ namespace instr_stream
 	};
 
 	template <typename stack_el_t>
-	class ITraveralGenerator
+	class ITraversalGenerator
 	{
 	protected:
 		using SContext = CMaterialCompilerGLSLBackendCommon::SContext;
@@ -433,7 +433,7 @@ namespace instr_stream
 		}
 
 	public:
-		ITraveralGenerator(SContext* _ctx, IR* _ir, uint32_t _regCount) : m_ctx(_ctx), m_ir(_ir), m_registerPool(_regCount) {}
+		ITraversalGenerator(SContext* _ctx, IR* _ir, uint32_t _regCount) : m_ctx(_ctx), m_ir(_ir), m_registerPool(_regCount) {}
 
 		virtual traversal_t genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs) = 0;
 	};
@@ -531,9 +531,9 @@ namespace remainder_and_pdf
 		IR::INode::children_array_t children;
 		bool visited;
 	};
-	class CTraversalGenerator : public ITraveralGenerator<stack_el>
+	class CTraversalGenerator : public ITraversalGenerator<stack_el>
 	{
-		using base_t = ITraveralGenerator<stack_el>;
+		using base_t = ITraversalGenerator<stack_el>;
 
 		uint32_t m_regsPerRes;
 
@@ -566,9 +566,9 @@ namespace gen_choice
 		IR::INode::children_array_t children;
 		uint32_t parentIx;
 	};
-	class CTraversalGenerator : public ITraveralGenerator<stack_el>
+	class CTraversalGenerator : public ITraversalGenerator<stack_el>
 	{
-		using base_t = ITraveralGenerator<stack_el>;
+		using base_t = ITraversalGenerator<stack_el>;
 
 		uint32_t m_firstFreeNormalID = 0u;
 
