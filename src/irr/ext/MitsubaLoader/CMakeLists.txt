@@ -1,31 +1,31 @@
-include(${IRR_ROOT_PATH}/cmake/common.cmake)
+include(${NBL_ROOT_PATH}/cmake/common.cmake)
 
-set(IRR_EXT_INTERNAL_INCLUDE_DIR "${IRR_ROOT_PATH}/include/irr/ext/MitsubaLoader")
+set(NBL_EXT_INTERNAL_INCLUDE_DIR "${NBL_ROOT_PATH}/include/irr/ext/MitsubaLoader")
 
 
-set(IRR_EXT_MITSUBA_LOADER_H
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/PropertyElement.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/IElement.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaMetadata.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementIntegrator.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementSensor.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementFilm.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementRFilter.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementSampler.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementTransform.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementShape.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementBSDF.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementTexture.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementEmitter.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CElementFactory.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CGlobalMitsubaMetadata.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/ParserUtil.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CSerializedLoader.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaLoader.h
-	${IRR_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaMaterialCompilerFrontend.h
+set(NBL_EXT_MITSUBA_LOADER_H
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/PropertyElement.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/IElement.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaMetadata.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementIntegrator.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementSensor.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementFilm.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementRFilter.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementSampler.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementTransform.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementShape.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementBSDF.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementTexture.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementEmitter.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CElementFactory.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CGlobalMitsubaMetadata.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/ParserUtil.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CSerializedLoader.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaLoader.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/CMitsubaMaterialCompilerFrontend.h
 )
 
-set(IRR_EXT_MITSUBA_LOADER_SRC
+set(NBL_EXT_MITSUBA_LOADER_SRC
 	PropertyElement.cpp
 	CElementIntegrator.cpp
 	CElementSensor.cpp
@@ -44,16 +44,16 @@ set(IRR_EXT_MITSUBA_LOADER_SRC
 	CMitsubaMaterialCompilerFrontend.cpp
 )
 
-set(IRR_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE
-	"${IRR_ROOT_PATH}/3rdparty"
-	"${IRR_ROOT_PATH}/3rdparty/libexpat"
+set(NBL_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE
+	"${NBL_ROOT_PATH}/3rdparty"
+	"${NBL_ROOT_PATH}/3rdparty/libexpat"
 )
 
 irr_create_ext_library_project(
 	MITSUBA_LOADER
-	"${IRR_EXT_MITSUBA_LOADER_H}"
-	"${IRR_EXT_MITSUBA_LOADER_SRC}"
-	"${IRR_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE}"
+	"${NBL_EXT_MITSUBA_LOADER_H}"
+	"${NBL_EXT_MITSUBA_LOADER_SRC}"
+	"${NBL_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE}"
 	""
 )
 

@@ -52,10 +52,10 @@ class AMDbugfixCompiler : public spirv_cross::Compiler
 public:
     using spirv_cross::Compiler::Compiler;
 
-    _IRR_STATIC_INLINE_CONSTEXPR bool ACCOUNT_SSBO = true;
+    _NBL_STATIC_INLINE_CONSTEXPR bool ACCOUNT_SSBO = true;
 
     // {numer of possible row counts} * {number of possible col counts} * {number of possible basetypes (float/double)}
-    _IRR_STATIC_INLINE_CONSTEXPR uint32_t WORKAROUND_FUNCTION_COUNT = 3u*3u*2u;
+    _NBL_STATIC_INLINE_CONSTEXPR uint32_t WORKAROUND_FUNCTION_COUNT = 3u*3u*2u;
     struct SFunction
     {
         uint32_t restype;
