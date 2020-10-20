@@ -125,6 +125,8 @@ set(ENABLE_SPVREMAPPER OFF CACHE BOOL "SPVRemapper is a spirv compression experi
 set(ENABLE_GLSLANG_BINARIES OFF CACHE BOOL "Build glslangValidator and spirv-remap?")
 set(BUILD_TESTING OFF CACHE BOOL "Enable glslang build testing?")
 add_subdirectory(glslang glslang EXCLUDE_FROM_ALL)
+# because we're integrating glslang via add_subdirectory(), build_info.h is generated to wrong directory (relative to Nabla root) so i have to add extra include dir
+target_include_directories(SPIRV PUBLIC "${GLSLANG_GENERATED_INCLUDEDIR}")
 
 set(SHADERC_SKIP_TESTS ON CACHE BOOL "Skip shaderc tests?")
 set(SHADERC_SKIP_INSTALL ON CACHE BOOL "Install shaderc?")
@@ -460,6 +462,8 @@ set(NBL_3RDPARTY_TARGETS
 				glslang
 				OGLCompiler 
 				OSDependent
+				MachineIndependent
+				GenericCodeGen
 				SPIRV 
 				Iex
 				IexMath

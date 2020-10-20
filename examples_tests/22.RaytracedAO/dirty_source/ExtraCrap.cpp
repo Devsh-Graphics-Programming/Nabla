@@ -2,10 +2,10 @@
 
 #include "ExtraCrap.h"
 
-#include "../../ext/ScreenShot/ScreenShot.h"
+#include "irr/ext/ScreenShot/ScreenShot.h"
 
 #ifndef NEW_SHADERS
-	#include "../../ext/MitsubaLoader/CMitsubaLoader.h"
+	#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
 #endif
 
 #ifndef _NBL_BUILD_OPTIX_

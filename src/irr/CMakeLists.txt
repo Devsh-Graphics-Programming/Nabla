@@ -2,6 +2,8 @@
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h
 
+add_subdirectory(ext)
+
 find_package(OpenGL REQUIRED)
 if(UNIX)
 	find_package(X11 REQUIRED)
@@ -203,6 +205,7 @@ set(NBL_ASSET_SOURCES
 )
 set(NBL_VIDEO_SOURCES
 # Allocators
+<<<<<<< HEAD
 	${NBL_ROOT_PATH}/src/irr/video/alloc/GPUMemoryAllocatorBase.cpp
 	${NBL_ROOT_PATH}/src/irr/video/alloc/SimpleGPUBufferAllocator.cpp
 
@@ -212,6 +215,22 @@ ${NBL_ROOT_PATH}/source/Irrlicht/CNullDriver.cpp
 	${NBL_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
 	${NBL_ROOT_PATH}/source/Irrlicht/FW_Mutex.cpp
 	${NBL_ROOT_PATH}/source/Irrlicht/CFPSCounter.cpp
+=======
+	${IRR_ROOT_PATH}/src/irr/video/alloc/GPUMemoryAllocatorBase.cpp
+	${IRR_ROOT_PATH}/src/irr/video/alloc/SimpleGPUBufferAllocator.cpp
+	
+# Shaders
+	${IRR_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
+
+# Property Pools
+	${IRR_ROOT_PATH}/src/irr/video/CPropertyPoolHandler.cpp
+
+# Junk to refactor
+${IRR_ROOT_PATH}/source/Irrlicht/IDriver.cpp
+${IRR_ROOT_PATH}/source/Irrlicht/CNullDriver.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/FW_Mutex.cpp
+	${IRR_ROOT_PATH}/source/Irrlicht/CFPSCounter.cpp
+>>>>>>> 161124a675076a453cebd61216dbc4a713b49049
 )
 set(NBL_SCENE_SOURCES
 # Junk to refactor

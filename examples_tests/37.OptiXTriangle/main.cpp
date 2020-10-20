@@ -6,7 +6,7 @@
 #include <irrlicht.h>
 
 
-#include "../../ext/OptiX/OptiXManager.h"
+#include "irr/ext/OptiX/OptiXManager.h"
 
 // cuda and optix stuff
 #include "vector_types.h"

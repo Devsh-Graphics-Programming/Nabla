@@ -163,7 +163,7 @@ void SaveBufferToCSV(video::IVideoDriver* driver, size_t mdiIndex, video::IGPUBu
     auto getData = [&alignment,timeoutInNanoSeconds,downloadStagingArea,driver, downBuffer](video::IGPUBuffer* buf, const uint32_t origOffset, const uint32_t bytelen) -> void*
     {
         uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address;
-        auto unallocatedSize = downloadStagingArea->multi_alloc(std::chrono::nanoseconds(timeoutInNanoSeconds), 1u, &address, &bytelen, &alignment);
+        auto unallocatedSize = downloadStagingArea->multi_alloc(1u, &address, &bytelen, &alignment);
         if (unallocatedSize)
         {
             os::Printer::log("Could not download the buffer from the GPU!", ELL_ERROR);

@@ -14,6 +14,11 @@ namespace irr
 namespace asset
 {
 
+//! CPU Version of Pipeline Layout
+/*
+    @see IPipelineLayout
+*/
+
 class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorSetLayout>
 {
 	public:
@@ -51,7 +56,9 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 			    for (auto it=m_descSetLayouts.begin(); it!=m_descSetLayouts.end(); it++)
 			        if (it->get())
 				        it->get()->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-			m_pushConstantRanges = nullptr;
+
+            if (m_mutable)
+			    m_pushConstantRanges = nullptr;
 		}
 
         _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_LAYOUT;

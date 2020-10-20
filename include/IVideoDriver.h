@@ -90,7 +90,25 @@ namespace video
 		//!
 		virtual void issueGPUTextureBarrier() =0;
 
-		//!
+		//! Allows data in one framebuffer to be blitted to another framebuffer
+		/** 
+			A blit operation is a special form of copy operation. It copies a
+			rectangular area of pixels from one framebuffer to another. Note that
+			you should take care of your attachement inputs, so if for instance
+			their depth attachements don't match - you must not try to copy depth
+			between them.
+
+			\param in Specifies an in framebuffer which data will be copied to out framebuffer.
+			\param out Specifies an out framebuffer that will be taking data from in framebuffer.
+			\param copyDepth Specifies whether depth attachement should be copied.
+			\param copyStencil Specifies whether stencil attachement should be copied.
+			\param srcRect Rectangular area in pixels for original source needed to copy to \bdstRect\b.
+			\param dstRect Rectangular area in pixels for destination source where \bsrcRect\b is a reference.
+
+			It is perfectly valid to blit from or to the Default Framebuffer,
+			in such a case use \bnullptr\b.
+		*/
+
 		virtual void blitRenderTargets(IFrameBuffer* in, IFrameBuffer* out,
                                         bool copyDepth=true, bool copyStencil=true,
 										core::recti srcRect=core::recti(0,0,0,0),

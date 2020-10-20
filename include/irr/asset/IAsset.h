@@ -212,7 +212,8 @@ class IAsset : virtual public core::IReferenceCounted
 
         void convertToDummyObject_common(uint32_t referenceLevelsBelowToConvert)
         {
-            isDummyObjectForCacheAliasing = true;
+			if (m_mutable)
+				isDummyObjectForCacheAliasing = true;
         }
 
 		//! Checks if the object is either not dummy or dummy but in some cache for a purpose

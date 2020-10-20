@@ -1,0 +1,29 @@
+include(${IRR_ROOT_PATH}/cmake/common.cmake)
+set(IRR_EXT_INTERNAL_INCLUDE_DIR "${IRR_ROOT_PATH}/include/irr/ext/OptiX")
+
+set(IRR_EXT_OPTIX_H
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/SbtRecord.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/IModule.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/IContext.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/IDenoiser.h
+	${IRR_EXT_INTERNAL_INCLUDE_DIR}/Manager.h
+)
+
+set(IRR_EXT_OPTIX_SRC
+	Manager.cpp
+	IContext.cpp
+)
+
+set(IRR_EXT_OPTIX_EXTERNAL_INCLUDE
+	"${IRR_ROOT_PATH}/3rdparty"
+	"${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}"
+	"${OPTIX_INCLUDE_DIR}"
+)
+
+irr_create_ext_library_project(
+	OPTIX
+	"${IRR_EXT_OPTIX_H}"
+	"${IRR_EXT_OPTIX_SRC}"
+	"${IRR_EXT_OPTIX_EXTERNAL_INCLUDE}"
+	""
+)
