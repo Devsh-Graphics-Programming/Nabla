@@ -148,27 +148,30 @@ public:
             return false;
         if (m_indexBufferBinding.offset != other->m_indexBufferBinding.offset)
             return false;
-        if ((!m_indexBufferBinding.buffer || !other->m_indexBufferBinding.buffer) && m_indexBufferBinding.buffer != other->m_indexBufferBinding.buffer)
+        if ((!m_indexBufferBinding.buffer) != (!other->m_indexBufferBinding.buffer))
             return false;
-        if (!m_indexBufferBinding.buffer->canBeRestoredFrom_recurseDAG(other->m_indexBufferBinding.buffer.get()))
+        if (m_indexBufferBinding.buffer && !m_indexBufferBinding.buffer->canBeRestoredFrom_recurseDAG(other->m_indexBufferBinding.buffer.get()))
             return false;
         for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
         {
             if (m_vertexBufferBindings[i].offset != other->m_vertexBufferBindings[i].offset)
                 return false;
-            if ((!m_vertexBufferBindings[i].buffer || !other->m_vertexBufferBindings[i].buffer) && m_vertexBufferBindings[i].buffer != other->m_vertexBufferBindings[i].buffer)
+            if ((!m_vertexBufferBindings[i].buffer) != (!other->m_vertexBufferBindings[i].buffer))
                 return false;
-            if (!m_vertexBufferBindings[i].buffer->canBeRestoredFrom_recurseDAG(other->m_vertexBufferBindings[i].buffer.get()))
+            if (m_vertexBufferBindings[i].buffer && !m_vertexBufferBindings[i].buffer->canBeRestoredFrom_recurseDAG(other->m_vertexBufferBindings[i].buffer.get()))
                 return false;
         }
 
-        if ((!m_descriptorSet || !other->m_descriptorSet) && m_descriptorSet != other->m_descriptorSet)
+        if ((!m_descriptorSet) != (!other->m_descriptorSet))
             return false;
-        if (!m_descriptorSet->canBeRestoredFrom_recurseDAG(other->m_descriptorSet.get()))
+        if (m_descriptorSet && !m_descriptorSet->canBeRestoredFrom_recurseDAG(other->m_descriptorSet.get()))
             return false;
 
+        /*
         if ((!m_pipeline || !other->m_pipeline) && m_pipeline != other->m_pipeline)
             return false;
+        */
+        // pipeline is not optional
         if (!m_pipeline->canBeRestoredFrom_recurseDAG(other->m_pipeline.get()))
             return false;
 

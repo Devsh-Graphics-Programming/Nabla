@@ -62,9 +62,9 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
         {
             auto* other = static_cast<const ICPUPipelineLayout*>(_other);
 
-            if ((!m_pushConstantRanges || !other->m_pushConstantRanges) && m_pushConstantRanges != other->m_pushConstantRanges)
+            if ((!m_pushConstantRanges) != (!other->m_pushConstantRanges))
                 return false;
-            if (m_pushConstantRanges->size() != other->m_pushConstantRanges->size())
+            if (m_pushConstantRanges && m_pushConstantRanges->size() != other->m_pushConstantRanges->size())
                 return false;
             for (uint32_t i = 0u; i < m_pushConstantRanges->size(); ++i)
                 if ((*m_pushConstantRanges)[i] != (*other->m_pushConstantRanges)[i])

@@ -54,9 +54,9 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 
 			for (uint32_t i = 0u; i < SHADER_STAGE_COUNT; ++i)
 			{
-				if ((!m_shaders[i] || !other->m_shaders[i]) && m_shaders[i] != other->m_shaders[i])
+				if ((!m_shaders[i]) != (!other->m_shaders[i]))
 					return false;
-				if (!m_shaders[i]->canBeRestoredFrom_recurseDAG(other->m_shaders[i].get()))
+				if (m_shaders[i] && !m_shaders[i]->canBeRestoredFrom_recurseDAG(other->m_shaders[i].get()))
 					return false;
 			}
 			if (!m_layout->canBeRestoredFrom_recurseDAG(other->m_layout.get()))
