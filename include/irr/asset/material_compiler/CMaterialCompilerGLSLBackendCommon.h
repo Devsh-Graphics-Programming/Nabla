@@ -463,10 +463,17 @@ public:
 				uint32_t first;
 				uint32_t count;
 			};
-			stream_t rem_and_pdf;
-			stream_t gen_choice;
-			stream_t tex_prefetch;
-			stream_t norm_precomp;
+
+			stream_t get_rem_and_pdf() const { return { offset, rem_and_pdf_count }; }
+			stream_t get_gen_choice() const { return {offset + rem_and_pdf_count, gen_choice_count}; }
+			stream_t get_tex_prefetch() const { return { offset + rem_and_pdf_count + gen_choice_count, tex_prefetch_count }; }
+			stream_t get_norm_precomp() const { return { offset + rem_and_pdf_count + gen_choice_count + tex_prefetch_count, norm_precomp_count }; }
+
+			uint32_t offset;
+			uint32_t rem_and_pdf_count;
+			uint32_t gen_choice_count;
+			uint32_t tex_prefetch_count;
+			uint32_t norm_precomp_count;
 		};
 
 		instr_stream::traversal_t instructions;

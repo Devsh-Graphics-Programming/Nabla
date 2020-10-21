@@ -250,6 +250,18 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
         );
     }
 
+    auto CMitsubaMaterialCompilerFrontend::getDerivMap(asset::ICPUImage* _heightMap, asset::ICPUSampler* _smplr) -> deriv_map_cache_val_t
+    {
+        auto key = deriv_map_cache_key_t{core::smart_refctd_ptr<asset::ICPUImage>(_heightMap), core::smart_refctd_ptr<asset::ICPUSampler>(_smplr)};
+        auto found = m_derivMapCache.find(key);
+        if (found != m_derivMapCache.end())
+            return found->second;
+
+        auto map = createDerivMap(_heightMap, _smplr);
+        m_derivMapCache.insert({ std::move(key), map });
+        return map;
+    }
+
     auto CMitsubaMaterialCompilerFrontend::getTexture(const CElementTexture* _element) const -> tex_ass_type
     {
         static_assert(std::is_same_v<tex_ass_type, SContext::tex_ass_type>, "These types must be same!");
@@ -271,7 +283,7 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
         if (src.value.type == SPropertyElementData::INVALID)
         {
             dst.source = IR::INode::EPS_TEXTURE;
-            //make sure smart_refctd_ptr assignment ptr wont try to drop() -- .value is union
+            //making sure smart_refctd_ptr assignment ptr wont try to drop() -- .value is union
             dst.value.constant = 0.f;
             std::tie(dst.value.texture.image, dst.value.texture.sampler, dst.value.texture.scale) = getTexture(src.texture);
             if (!dst.value.texture.image) {
@@ -497,7 +509,7 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
             auto& img = std::get<0>(bm)->getCreationParameters().image;
             auto smplr = std::get<1>(bm);
 
-            std::tie(node->texture.image, node->texture.sampler, node->texture.scale) = std::make_tuple(createDerivMap(img.get(), smplr.get()), std::move(smplr), std::get<2>(bm));
+            std::tie(node->texture.image, node->texture.sampler, node->texture.scale) = std::make_tuple(getDerivMap(img.get(), smplr.get()), std::move(smplr), std::get<2>(bm));
             bsdfQ.push(current->bumpmap.bsdf[0]);
         }
         break;

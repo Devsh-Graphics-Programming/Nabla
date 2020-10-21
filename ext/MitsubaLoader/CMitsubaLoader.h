@@ -38,12 +38,13 @@ class CMitsubaLoader : public asset::IAssetLoader
 		struct SInstanceData
 		{
 			core::matrix3x4SIMD tform;//mat4x3
-			//elements (0,3) and (1,3) are (first,count) for bsdf_instrStream (remainder and pdf stream in case of RT backend)
+			//element (0,3) is offset for instruction streams, element (1,3) is length of rem_and_pdf stream
 			core::matrix3x4SIMD normalMatrix;
-			std::pair<uint32_t,uint32_t> prefetch_instrStream;
-			std::pair<uint32_t, uint32_t> nprecomp_instrStream;
-			std::pair<uint32_t, uint32_t> genchoice_instrStream;
 			uint64_t emissive;//uvec2, rgb19e7
+			uint32_t prefetch_count;
+			uint32_t nprecomp_count;
+			uint32_t genchoice_count;
+			uint32_t _padding[3];
 		} PACK_STRUCT;
 #include "irr/irrunpack.h"
 

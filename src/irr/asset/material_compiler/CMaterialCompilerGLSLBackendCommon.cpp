@@ -1367,21 +1367,26 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 		setSourceRegForBumpmaps(gen_choice_stream, regNum);
 
 		result_t::instr_streams_t streams;
-#define STREAM(first,count) result_t::instr_streams_t::stream_t {static_cast<uint32_t>(first),static_cast<uint32_t>(count)}
-		streams.rem_and_pdf = STREAM(res.instructions.size(), rem_pdf_stream.size());
-		res.instructions.insert(res.instructions.end(), rem_pdf_stream.begin(), rem_pdf_stream.end());
-		streams.gen_choice = STREAM(res.instructions.size(), gen_choice_stream.size());
-		res.instructions.insert(res.instructions.end(), gen_choice_stream.begin(), gen_choice_stream.end());
-		streams.tex_prefetch = STREAM(res.instructions.size(), tex_prefetch_stream.size());
-		res.instructions.insert(res.instructions.end(), tex_prefetch_stream.begin(), tex_prefetch_stream.end());
-		streams.norm_precomp = STREAM(res.instructions.size(), normal_precomp_stream.size());
-		res.instructions.insert(res.instructions.end(), normal_precomp_stream.begin(), normal_precomp_stream.end());
-#undef STREAM
+		{
+			streams.offset = res.instructions.size();
+
+			streams.rem_and_pdf_count = rem_pdf_stream.size();
+			res.instructions.insert(res.instructions.end(), rem_pdf_stream.begin(), rem_pdf_stream.end());
+
+			streams.gen_choice_count = gen_choice_stream.size();
+			res.instructions.insert(res.instructions.end(), gen_choice_stream.begin(), gen_choice_stream.end());
+
+			streams.tex_prefetch_count = tex_prefetch_stream.size();
+			res.instructions.insert(res.instructions.end(), tex_prefetch_stream.begin(), tex_prefetch_stream.end());
+
+			streams.norm_precomp_count = normal_precomp_stream.size();
+			res.instructions.insert(res.instructions.end(), normal_precomp_stream.begin(), normal_precomp_stream.end());
+		}
 
 		res.streams.insert({root,streams});
 
-		res.noNormPrecompStream = res.noNormPrecompStream && (streams.norm_precomp.count==0u);
-		res.noPrefetchStream = res.noPrefetchStream && (streams.tex_prefetch.count==0u);
+		res.noNormPrecompStream = res.noNormPrecompStream && (streams.norm_precomp_count==0u);
+		res.noPrefetchStream = res.noPrefetchStream && (streams.tex_prefetch_count==0u);
 		res.usedRegisterCount = std::max(res.usedRegisterCount, instr_stream::MAX_REGISTER_COUNT-registerPool);
 	}
 
@@ -1419,8 +1424,9 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 	for (const auto& e : res.streams)
 	{
 		const result_t::instr_streams_t& streams = e.second;
-		for (uint32_t i = 0u; i < streams.rem_and_pdf.count; ++i) {
-			const uint32_t first = streams.rem_and_pdf.first;
+		auto rem_and_pdf = streams.get_rem_and_pdf();
+		for (uint32_t i = 0u; i < rem_and_pdf.count; ++i) {
+			const uint32_t first = rem_and_pdf.first;
 			const instr_t instr = res.instructions[first+i];
 			const E_OPCODE op = instr_stream::getOpcode(instr);
 			const E_NDF ndf = instr_stream::getNDF(instr);
@@ -1476,11 +1482,12 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 	using namespace instr_stream;
 
 	_out << "####### remainder_and_pdf stream\n";
-	for (uint32_t i = 0u; i < _streams.rem_and_pdf.count; ++i)
+	auto rem_and_pdf = _streams.get_rem_and_pdf();
+	for (uint32_t i = 0u; i < rem_and_pdf.count; ++i)
 	{
 		using namespace remainder_and_pdf;
 
-		const instr_t instr = _res.instructions[_streams.rem_and_pdf.first+i];
+		const instr_t instr = _res.instructions[rem_and_pdf.first+i];
 		const E_OPCODE op = getOpcode(instr);
 		debugPrintInstr(_out, instr, _res, _ctx);
 		auto regs = getRegisters(instr);
@@ -1494,11 +1501,12 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 			_out << "SRC2 = " << regs.z << "\n";
 	}
 	_out << "####### gen_choice stream\n";
-	for (uint32_t i = 0u; i < _streams.gen_choice.count; ++i)
+	auto gen_choice = _streams.get_gen_choice();
+	for (uint32_t i = 0u; i < gen_choice.count; ++i)
 	{
 		using namespace gen_choice;
 
-		const instr_t instr = _res.instructions[_streams.gen_choice.first + i];
+		const instr_t instr = _res.instructions[gen_choice.first + i];
 		debugPrintInstr(_out, instr, _res, _ctx);
 		if (getOpcode(instr) == OP_BUMPMAP)
 		{
@@ -1508,7 +1516,8 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		_out << "Right jump " << rjump << "\n";
 	}
 	_out << "####### tex_prefetch stream\n";
-	for (uint32_t i = 0u; i < _streams.tex_prefetch.count; ++i)
+	auto tex_prefetch = _streams.get_gen_choice();
+	for (uint32_t i = 0u; i < tex_prefetch.count; ++i)
 	{
 		using namespace tex_prefetch;
 
@@ -1516,7 +1525,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		const uint32_t regcnt_shift[BITFIELDS_FETCH_TEX_COUNT]{ BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, BITFIELDS_FETCH_TEX_2_REG_CNT_SHIFT, BITFIELDS_FETCH_TEX_3_REG_CNT_SHIFT };
 		const uint32_t reg_shift[BITFIELDS_FETCH_TEX_COUNT]{ BITFIELDS_REG_0_SHIFT, BITFIELDS_REG_1_SHIFT, BITFIELDS_REG_2_SHIFT, BITFIELDS_REG_3_SHIFT };
 
-		const instr_t instr = _res.instructions[_streams.tex_prefetch.first + i];
+		const instr_t instr = _res.instructions[tex_prefetch.first + i];
 
 		_out << "### instr " << i << "\n";
 		for (uint32_t t = 0u; t < BITFIELDS_FETCH_TEX_COUNT; ++t)
@@ -1532,11 +1541,12 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		}
 	}
 	_out << "####### normal_precomp stream\n";
-	for (uint32_t i = 0u; i < _streams.norm_precomp.count; ++i)
+	auto norm_precomp = _streams.get_norm_precomp();
+	for (uint32_t i = 0u; i < norm_precomp.count; ++i)
 	{
 		using namespace normal_precomp;
 
-		const instr_t instr = _res.instructions[_streams.norm_precomp.first + i];
+		const instr_t instr = _res.instructions[norm_precomp.first + i];
 		const uint32_t reg = core::bitfieldExtract(instr, BITFIELDS_REG_DST_SHIFT, BITFIELDS_REG_WIDTH);
 		const uint32_t bsdf_ix = core::bitfieldExtract(instr, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
 		const SBSDFUnion& data = _res.bsdfData[bsdf_ix];

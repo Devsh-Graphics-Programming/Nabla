@@ -45,15 +45,15 @@ struct InstanceData
 {
 	mat4x3 tform;
 	vec3 normalMatrixRow0;
-	uint bsdf_instrOffset;
+	uint instr_offset;
 	vec3 normalMatrixRow1;
-	uint bsdf_instrCount;
+	uint rem_pdf_count;
 	vec3 normalMatrixRow2;
 	uint _padding;//not needed
-	uvec2 prefetch_instrStream;
-	uvec2 nprecomp_instrStream;
-	uvec2 genchoice_instrStream;
 	uvec2 emissive;
+	uint prefetch_count;
+	uint nprecomp_count;
+	uint genchoice_count;
 };
 layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
 	InstanceData data[];
@@ -151,15 +151,15 @@ struct InstanceData
 {
 	mat4x3 tform;
 	vec3 normalMatrixRow0;
-	uint bsdf_instrOffset;
+	uint instr_offset;
 	vec3 normalMatrixRow1;
-	uint bsdf_instrCount;
+	uint rem_pdf_count;
 	vec3 normalMatrixRow2;
 	uint _padding;//not needed
-	uvec2 prefetch_instrStream;
-	uvec2 nprecomp_instrStream;
-	uvec2 genchoice_instrStream;
 	uvec2 emissive;
+	uint prefetch_count;
+	uint nprecomp_count;
+	uint genchoice_count;
 };
 layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
 	InstanceData data[];
@@ -186,8 +186,8 @@ _IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
 instr_stream_t getEvalStream()
 {
 	instr_stream_t stream;
-	stream.offset = InstData.data[InstanceIndex].bsdf_instrOffset;
-	stream.count = InstData.data[InstanceIndex].bsdf_instrCount;
+	stream.offset = InstData.data[InstanceIndex].instr_offset;
+	stream.count = InstData.data[InstanceIndex].rem_pdf_count;
 
 	return stream;
 }
@@ -199,27 +199,24 @@ instr_stream_t getRemAndPdfStream()
 instr_stream_t getGenChoiceStream()
 {
 	instr_stream_t stream;
-	uvec2 s = InstData.data[InstanceIndex].genchoice_instrStream;
-	stream.offset = s.x;
-	stream.count =  s.y;
+	stream.offset = InstData.data[InstanceIndex].instr_offset + InstData.data[InstanceIndex].rem_pdf_count;
+	stream.count =  InstData.data[InstanceIndex].genchoice_count;
 
 	return stream;
 }
 instr_stream_t getTexPrefetchStream()
 {
-	uvec2 s = InstData.data[InstanceIndex].prefetch_instrStream;
 	instr_stream_t stream;
-	stream.offset = s.x;
-	stream.count = s.y;
+	stream.offset = InstData.data[InstanceIndex].instr_offset + InstData.data[InstanceIndex].rem_pdf_count + InstData.data[InstanceIndex].genchoice_count;
+	stream.count = InstData.data[InstanceIndex].prefetch_count;
 
 	return stream;
 }
 instr_stream_t getNormalPrecompStream()
 {
-	uvec2 s = InstData.data[InstanceIndex].nprecomp_instrStream;
 	instr_stream_t stream;
-	stream.offset = s.x;
-	stream.count = s.y;
+	stream.offset = InstData.data[InstanceIndex].instr_offset + InstData.data[InstanceIndex].rem_pdf_count + InstData.data[InstanceIndex].genchoice_count + InstData.data[InstanceIndex].prefetch_count;
+	stream.count = InstData.data[InstanceIndex].nprecomp_count;
 
 	return stream;
 }
@@ -1269,11 +1266,11 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			instData.tform = inst.tform;
 			instData.tform.getSub3x3InverseTranspose(instData.normalMatrix);
 			instData.emissive = core::rgb32f_to_rgb19e7(emissive.pointer);
-			core::floatBitsToUint(instData.normalMatrix(0u, 3u)) = streams.rem_and_pdf.first;
-			core::floatBitsToUint(instData.normalMatrix(1u, 3u)) = streams.rem_and_pdf.count;
-			instData.prefetch_instrStream = {streams.tex_prefetch.first, streams.tex_prefetch.count};
-			instData.nprecomp_instrStream = {streams.norm_precomp.first, streams.norm_precomp.count};
-			instData.genchoice_instrStream = {streams.gen_choice.first, streams.gen_choice.count};
+			core::floatBitsToUint(instData.normalMatrix(0u, 3u)) = streams.offset;
+			core::floatBitsToUint(instData.normalMatrix(1u, 3u)) = streams.rem_and_pdf_count;
+			instData.prefetch_count = streams.tex_prefetch_count;
+			instData.nprecomp_count = streams.norm_precomp_count;
+			instData.genchoice_count = streams.gen_choice_count;
 
 			instanceData.push_back(instData);
 		}
