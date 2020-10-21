@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_EXT_BULLET_C_PHYSICS_WORLD_INCLUDED_
-#define _IRR_EXT_BULLET_C_PHYSICS_WORLD_INCLUDED_
+#ifndef _NBL_EXT_BULLET_C_PHYSICS_WORLD_INCLUDED_
+#define _NBL_EXT_BULLET_C_PHYSICS_WORLD_INCLUDED_
 
 #include <cstdint>
 #include <type_traits>
@@ -37,14 +37,14 @@ public:
 
     template<class btObject, typename... Args>
     inline btObject *createbtObject(Args&&... args) {
-        void *mem = _IRR_ALIGNED_MALLOC(sizeof(btObject), 32u);
+        void *mem = _NBL_ALIGNED_MALLOC(sizeof(btObject), 32u);
         return new(mem) btObject(std::forward<Args>(args)...);
     }
 
     template<class btObject>
     inline void deletebtObject(btObject *obj) {
         obj->~btObject();
-        _IRR_ALIGNED_FREE(obj);
+        _NBL_ALIGNED_FREE(obj);
     }
 
 

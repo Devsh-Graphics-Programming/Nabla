@@ -25,8 +25,8 @@ SOFTWARE.
 
 */
 
-#ifndef _IRR_EXT_CEGUI_HELPERS_INCLUDED_
-#define _IRR_EXT_CEGUI_HELPERS_INCLUDED_
+#ifndef _NBL_EXT_CEGUI_HELPERS_INCLUDED_
+#define _NBL_EXT_CEGUI_HELPERS_INCLUDED_
 
 #include <functional>
 #include <iomanip>
@@ -94,4 +94,4 @@ std::string readWindowLayout(const std::string& layoutName);
 } // namespace ext
 } // namespace irr
 
-#endif // _IRR_EXT_CEGUI_HELPERS_INCLUDED_
+#endif

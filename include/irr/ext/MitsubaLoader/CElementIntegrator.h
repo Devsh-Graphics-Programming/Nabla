@@ -37,7 +37,7 @@ class CElementIntegrator : public IElement
 			ADJ_P_TRACER,
 			ADAPTIVE,
 			VPL,
-			IRR_CACHE,
+			NBL_CACHE,
 			MULTI_CHANNEL,
 			FIELD_EXTRACT
 		};
@@ -252,7 +252,7 @@ class CElementIntegrator : public IElement
 				case CElementIntegrator::Type::VPL:
 					vpl = other.vpl;
 					break;
-				case CElementIntegrator::Type::IRR_CACHE:
+				case CElementIntegrator::Type::NBL_CACHE:
 					irrcache = other.irrcache;
 					break;
 				case CElementIntegrator::Type::MULTI_CHANNEL:
@@ -279,7 +279,7 @@ class CElementIntegrator : public IElement
 
 			switch (type)
 			{
-				case Type::IRR_CACHE:
+				case Type::NBL_CACHE:
 					[[fallthrough]];
 				case Type::MULTI_CHANNEL:
 					if (_child->getType() != IElement::Type::INTEGRATOR)
@@ -290,7 +290,7 @@ class CElementIntegrator : public IElement
 			}
 			switch (type)
 			{
-				case Type::IRR_CACHE:
+				case Type::NBL_CACHE:
 					irrcache.children[0u] = static_cast<CElementIntegrator*>(_child);
 					irrcache.childCount = 1u;
 					return true;

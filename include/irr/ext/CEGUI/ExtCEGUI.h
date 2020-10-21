@@ -25,8 +25,8 @@ SOFTWARE.
 
 */
 
-#ifndef _IRR_EXT_CEGUI_INCLUDED_
-#define _IRR_EXT_CEGUI_INCLUDED_
+#ifndef _NBL_EXT_CEGUI_INCLUDED_
+#define _NBL_EXT_CEGUI_INCLUDED_
 
 #include "irrlicht.h"
 #include "Helpers.h"
@@ -118,4 +118,4 @@ class GUIManager: public core::IReferenceCounted, public IEventReceiver
 } // namespace ext
 } // namespace irr
 
-#endif // _IRR_EXT_CEGUI_INCLUDED_
+#endif

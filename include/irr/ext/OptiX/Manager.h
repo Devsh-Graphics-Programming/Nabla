@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_EXT_OPTIX_MANAGER_H_INCLUDED__
-#define __IRR_EXT_OPTIX_MANAGER_H_INCLUDED__
+#ifndef __NBL_EXT_OPTIX_MANAGER_H_INCLUDED__
+#define __NBL_EXT_OPTIX_MANAGER_H_INCLUDED__
 
 #include "irrlicht.h"
 
@@ -54,7 +54,7 @@ class Manager final : public core::IReferenceCounted
 {
 	public:
 		//
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxSLI = 4u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxSLI = 4u;
 		static core::smart_refctd_ptr<Manager> create(video::IVideoDriver* _driver, io::IFileSystem* _filesystem);
 
 		static void defaultCallback(unsigned int level, const char* tag, const char* message, void* cbdata);
@@ -111,7 +111,7 @@ class Manager final : public core::IReferenceCounted
 
 		// modules
 		template<typename OptionsT = const std::initializer_list<const char*>&>
-		inline std::string compileOptiXProgram(const char* source, const char* filename, OptionsT options={_IRR_OPTIX_DEFAULT_NVRTC_OPTIONS}, std::string* log=nullptr)
+		inline std::string compileOptiXProgram(const char* source, const char* filename, OptionsT options={_NBL_OPTIX_DEFAULT_NVRTC_OPTIONS}, std::string* log=nullptr)
 		{
 			std::string ptx;
 			const auto headerCount = optixHeaders.size();
@@ -127,7 +127,7 @@ class Manager final : public core::IReferenceCounted
 		}
 
 		template<typename OptionsT = const std::initializer_list<const char*>&>
-		inline std::string compileOptiXProgram(io::IReadFile* file, OptionsT options={_IRR_OPTIX_DEFAULT_NVRTC_OPTIONS}, std::string* log=nullptr)
+		inline std::string compileOptiXProgram(io::IReadFile* file, OptionsT options={_NBL_OPTIX_DEFAULT_NVRTC_OPTIONS}, std::string* log=nullptr)
 		{
 			if (!file)
 				return "";

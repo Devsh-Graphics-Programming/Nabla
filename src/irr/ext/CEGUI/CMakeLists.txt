@@ -1,6 +1,6 @@
 include(${NBL_ROOT_PATH}/cmake/common.cmake)
 update_git_submodule(./stb)
-set(NBL_EXT_INTERNAL_INCLUDE_DIR "${IRR_ROOT_PATH}/include/irr/ext/CEGUI")
+set(NBL_EXT_INTERNAL_INCLUDE_DIR "${NBL_ROOT_PATH}/include/irr/ext/CEGUI")
 
 
 set(NBL_EXT_CEGUI_H

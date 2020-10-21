@@ -1,5 +1,5 @@
-include(${IRR_ROOT_PATH}/cmake/common.cmake)
-set(IRR_EXT_INTERNAL_INCLUDE_DIR "${IRR_ROOT_PATH}/include/irr/ext/RadeonRays")
+include(${NBL_ROOT_PATH}/cmake/common.cmake)
+set(NBL_EXT_INTERNAL_INCLUDE_DIR "${NBL_ROOT_PATH}/include/irr/ext/RadeonRays")
 
 set(NBL_EXT_RADEON_RAYS_H
 	${NBL_EXT_INTERNAL_INCLUDE_DIR}/RadeonRays.h

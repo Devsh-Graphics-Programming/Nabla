@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_EXT_RADEON_RAYS_INCLUDE_LOADER_H_INCLUDED__
-#define __IRR_EXT_RADEON_RAYS_INCLUDE_LOADER_H_INCLUDED__
+#ifndef __NBL_EXT_RADEON_RAYS_INCLUDE_LOADER_H_INCLUDED__
+#define __NBL_EXT_RADEON_RAYS_INCLUDE_LOADER_H_INCLUDED__
 
 #include "irr/asset/IBuiltinIncludeLoader.h"
 

@@ -28,7 +28,7 @@ namespace irr
 
 		//! A device which uses Simple DirectMedia Layer
 		/** The SDL device works under all platforms supported by SDL but first must be compiled
-		in by defining the IRR_USE_SDL_DEVICE macro in IrrCompileConfig.h */
+		in by defining the NBL_USE_SDL_DEVICE macro in IrrCompileConfig.h */
 		EIDT_SDL,
 
 		//! A device for raw framebuffer access

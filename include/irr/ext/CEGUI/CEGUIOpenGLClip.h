@@ -25,8 +25,8 @@ SOFTWARE.
 
 */
 
-#ifndef _IRR_EXT_CEGUI_OPENGL_CLIP_INCLUDED_
-#define _IRR_EXT_CEGUI_OPENGL_CLIP_INCLUDED_
+#ifndef _NBL_EXT_CEGUI_OPENGL_CLIP_INCLUDED_
+#define _NBL_EXT_CEGUI_OPENGL_CLIP_INCLUDED_
 
 namespace irr
 {
@@ -47,4 +47,4 @@ void resetOpenGLClip();
 } // namespace ext
 } // namespace irr
 
-#endif // _IRR_EXT_CEGUI_OPENGL_CLIP_INCLUDED_
+#endif

@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_EXT_BULLET_C_INSTANCED_MOTION_STATE_INCLUDED_
-#define _IRR_EXT_BULLET_C_INSTANCED_MOTION_STATE_INCLUDED_
+#ifndef _NBL_EXT_BULLET_C_INSTANCED_MOTION_STATE_INCLUDED_
+#define _NBL_EXT_BULLET_C_INSTANCED_MOTION_STATE_INCLUDED_
 
 #include <cstdint>
 #include "irrlicht.h"

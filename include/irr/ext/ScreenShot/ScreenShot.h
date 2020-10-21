@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_EXT_SCREEN_SHOT_INCLUDED_
-#define _IRR_EXT_SCREEN_SHOT_INCLUDED_
+#ifndef _NBL_EXT_SCREEN_SHOT_INCLUDED_
+#define _NBL_EXT_SCREEN_SHOT_INCLUDED_
 
 #include "irrlicht.h"
 
@@ -191,4 +191,4 @@ namespace irr
 	} // namespace ext
 } // namespace irr
 
-#endif // _IRR_EXT_SCREEN_SHOT_INCLUDED_
+#endif

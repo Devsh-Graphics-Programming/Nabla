@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_EXT_LUMA_METER_C_LUMA_METER_INCLUDED_
-#define _IRR_EXT_LUMA_METER_C_LUMA_METER_INCLUDED_
+#ifndef _NBL_EXT_LUMA_METER_C_LUMA_METER_INCLUDED_
+#define _NBL_EXT_LUMA_METER_C_LUMA_METER_INCLUDED_
 
 #include "irrlicht.h"
 
@@ -21,8 +21,8 @@ namespace LumaMeter
 class CLumaMeter : public core::TotalInterface
 {
     public:
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_BIN_COUNT = 256u;
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_BIN_GLOBAL_REPLICATION = 4u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_BIN_COUNT = 256u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_BIN_GLOBAL_REPLICATION = 4u;
 
 		enum E_METERING_MODE
 		{
@@ -105,7 +105,7 @@ class CLumaMeter : public core::TotalInterface
 					retval = DEFAULT_BIN_COUNT*DEFAULT_BIN_GLOBAL_REPLICATION;
 					break;
 				default:
-					_IRR_DEBUG_BREAK_IF(true);
+					_NBL_DEBUG_BREAK_IF(true);
 					break;
 			}
 			return core::roundUp(2ull*arrayLayers*sizeof(uint32_t)*retval,16ull);
@@ -131,7 +131,7 @@ class CLumaMeter : public core::TotalInterface
 		CLumaMeter() = delete;
         //~CLumaMeter() = delete;
 
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_X_DIM = 16u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_X_DIM = 16u;
 
 		template<E_METERING_MODE mode>
 		static inline DispatchInfo_t commonBuildParameters(Uniforms_t<mode>& uniforms, const asset::VkExtent3D& imageSize, const float meteringMinUV[2], const float meteringMaxUV[2], float samplingFactor, uint32_t workGroupXdim=DEFAULT_WORK_GROUP_X_DIM)

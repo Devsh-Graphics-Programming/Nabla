@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_EXT_TONE_MAPPER_C_TONE_MAPPER_INCLUDED_
-#define _IRR_EXT_TONE_MAPPER_C_TONE_MAPPER_INCLUDED_
+#ifndef _NBL_EXT_TONE_MAPPER_C_TONE_MAPPER_INCLUDED_
+#define _NBL_EXT_TONE_MAPPER_C_TONE_MAPPER_INCLUDED_
 
 #include "irrlicht.h"
 #include "../../../irr/ext/LumaMeter/CLumaMeter.h"
@@ -111,7 +111,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		}
 
 		//
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_DESCRIPTOR_COUNT = 4u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_DESCRIPTOR_COUNT = 4u;
 		template<E_OPERATOR _operator, LumaMeter::CLumaMeter::E_METERING_MODE MeterMode=LumaMeter::CLumaMeter::EMM_COUNT>
 		static inline void updateDescriptorSet(
 			video::IVideoDriver* driver, video::IGPUDescriptorSet* set,
@@ -209,7 +209,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 		}
 
 		// we expect user binds correct pipeline, descriptor sets and pushes the push constants by themselves
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORKGROUP_DIM = 16u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORKGROUP_DIM = 16u;
 		static inline void dispatchHelper(
 			video::IVideoDriver* driver, const video::IGPUImageView* outputView,
 			bool issueDefaultBarrier=true, uint32_t workGroupSizeX=DEFAULT_WORKGROUP_DIM, uint32_t workGroupSizeY=DEFAULT_WORKGROUP_DIM
@@ -250,7 +250,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 					break;
 			}
 			// the input format has to be HDR for ths to make sense!
-			_IRR_DEBUG_BREAK_IF(true);
+			_NBL_DEBUG_BREAK_IF(true);
 			return asset::EF_UNKNOWN;
 		}
 		static inline asset::E_FORMAT getOutputViewFormat(asset::E_FORMAT imageFormat)
@@ -259,7 +259,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			if (asset::isBlockCompressionFormat(imageFormat))
 			{
 				// you don't know what you're doing, do you?
-				_IRR_DEBUG_BREAK_IF(true);
+				_NBL_DEBUG_BREAK_IF(true);
 				return asset::EF_UNKNOWN;
 			}
 			switch (imageFormat)
@@ -277,7 +277,7 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 					break;
 			}
 			// other formats not supported yet
-			_IRR_DEBUG_BREAK_IF(true);
+			_NBL_DEBUG_BREAK_IF(true);
 			return asset::EF_UNKNOWN;
 		}
 

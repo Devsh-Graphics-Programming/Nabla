@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_EXT_OPTIX_CONTEXT_H_INCLUDED__
-#define __IRR_EXT_OPTIX_CONTEXT_H_INCLUDED__
+#ifndef __NBL_EXT_OPTIX_CONTEXT_H_INCLUDED__
+#define __NBL_EXT_OPTIX_CONTEXT_H_INCLUDED__
 
 
 #include "irrlicht.h"
@@ -21,7 +21,7 @@ namespace OptiX
 
 class Manager;
 
-#define _IRR_OPTIX_DEFAULT_NVRTC_OPTIONS "--std=c++14",cuda::CCUDAHandler::getCommonVirtualCUDAArchitecture(),"-dc","-use_fast_math","-default-device","--device-debug"
+#define _NBL_OPTIX_DEFAULT_NVRTC_OPTIONS "--std=c++14",cuda::CCUDAHandler::getCommonVirtualCUDAArchitecture(),"-dc","-use_fast_math","-default-device","--device-debug"
 
 class IContext final : public core::IReferenceCounted
 {
@@ -45,7 +45,7 @@ class IContext final : public core::IReferenceCounted
 		template<typename CompileOptionsT = const std::initializer_list<const char*>&>
 		inline core::smart_refctd_ptr<IModule> compileModuleFromSource(	const char* source, const char* filename, const OptixPipelineCompileOptions& pipeline_options,
 																		const OptixModuleCompileOptions& module_options=defaultOptixModuleCompileOptions,
-																		CompileOptionsT compile_options={_IRR_OPTIX_DEFAULT_NVRTC_OPTIONS}, std::string* log=nullptr)
+																		CompileOptionsT compile_options={_NBL_OPTIX_DEFAULT_NVRTC_OPTIONS}, std::string* log=nullptr)
 		{
 			return compileModuleFromSource_helper(source,filename,pipeline_options,module_options,&(*compile_options.begin()),&(*compile_options.end()),log);
 		}
@@ -53,7 +53,7 @@ class IContext final : public core::IReferenceCounted
 		template<typename CompileOptionsT = const std::initializer_list<const char*>&>
 		inline core::smart_refctd_ptr<IModule> compileModuleFromFile(io::IReadFile* file, const OptixPipelineCompileOptions& pipeline_options,
 																	const OptixModuleCompileOptions& module_options=defaultOptixModuleCompileOptions,
-																	CompileOptionsT compile_options={_IRR_OPTIX_DEFAULT_NVRTC_OPTIONS}, std::string* log=nullptr)
+																	CompileOptionsT compile_options={_NBL_OPTIX_DEFAULT_NVRTC_OPTIONS}, std::string* log=nullptr)
 		{
 			if (!file)
 				return nullptr;

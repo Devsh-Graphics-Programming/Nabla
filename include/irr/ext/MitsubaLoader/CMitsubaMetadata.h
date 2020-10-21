@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_C_MITSUBA_METADATA_H_INCLUDED__
-#define __IRR_C_MITSUBA_METADATA_H_INCLUDED__
+#ifndef __NBL_C_MITSUBA_METADATA_H_INCLUDED__
+#define __NBL_C_MITSUBA_METADATA_H_INCLUDED__
 
 #include "irr/asset/IAssetMetadata.h"
 #include "irr/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
@@ -41,4 +41,4 @@ namespace irr
 	}
 }
 
-#endif // __IRR_C_MITSUBA_METADATA_H_INCLUDED__
+#endif

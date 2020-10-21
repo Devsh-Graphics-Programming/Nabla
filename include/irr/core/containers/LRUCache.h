@@ -137,7 +137,7 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 			m_shortcut_map.reserve(capacity);
 		}
 
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 		inline void print()
 		{
 			auto node = m_list.getBegin();
@@ -149,7 +149,7 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 				node = m_list.get(node->next);
 			}
 		}
-	#endif // _IRR_DEBUG
+	#endif // _NBL_DEBUG
 
 		//insert an element into the cache, or update an existing one with the same key
 		inline void insert(Key&& k, Value&& v) { common_insert(std::move(k), std::move(v)); }

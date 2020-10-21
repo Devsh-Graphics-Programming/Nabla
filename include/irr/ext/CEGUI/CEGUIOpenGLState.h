@@ -25,8 +25,8 @@ SOFTWARE.
 
 */
 
-#ifndef _IRR_EXT_CEGUI_OPENGL_STATE_INCLUDED_
-#define _IRR_EXT_CEGUI_OPENGL_STATE_INCLUDED_
+#ifndef _NBL_EXT_CEGUI_OPENGL_STATE_INCLUDED_
+#define _NBL_EXT_CEGUI_OPENGL_STATE_INCLUDED_
 
 namespace irr
 {
@@ -57,4 +57,4 @@ class CEGUIOpenGLState final
 } // namespace ext
 } // namespace irr
 
-#endif // _IRR_EXT_CEGUI_OPENGL_STATE_INCLUDED_
+#endif
