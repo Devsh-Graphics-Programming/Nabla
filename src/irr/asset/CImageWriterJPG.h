@@ -1,13 +1,14 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef _C_IMAGE_WRITER_JPG_H_INCLUDED__
-#define _C_IMAGE_WRITER_JPG_H_INCLUDED__
+#ifndef __NBL_ASSET_C_IMAGE_WRITER_JPG_H_INCLUDED__
+#define __NBL_ASSET_C_IMAGE_WRITER_JPG_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 
-#ifdef _IRR_COMPILE_WITH_JPG_WRITER_
+#ifdef _NBL_COMPILE_WITH_JPG_WRITER_
 
 #include "irr/asset/IAssetWriter.h"
 
@@ -40,6 +41,6 @@ public:
 }
 }
 
-#endif // _C_IMAGE_WRITER_JPG_H_INCLUDED__
+#endif
 #endif
 

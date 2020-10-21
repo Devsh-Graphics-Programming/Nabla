@@ -1,5 +1,9 @@
-#ifndef __IRR_I_INCLUDE_HANDLER_H_INCLUDED__
-#define __IRR_I_INCLUDE_HANDLER_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_ASSET_I_INCLUDE_HANDLER_H_INCLUDED__
+#define __NBL_ASSET_I_INCLUDE_HANDLER_H_INCLUDED__
 
 #include "irr/core/IReferenceCounted.h"
 #include "irr/asset/IBuiltinIncludeLoader.h"
@@ -12,7 +16,7 @@ namespace asset
 class IIncludeHandler : public core::IReferenceCounted
 {
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR char* BUILTIN_PREFIX = "irr/builtin/";
+		_NBL_STATIC_INLINE_CONSTEXPR char* BUILTIN_PREFIX = "irr/builtin/";
 		static bool isBuiltinPath(const std::string& _p)
 		{
 			const size_t prefix_len = strlen(BUILTIN_PREFIX);
@@ -32,4 +36,4 @@ class IIncludeHandler : public core::IReferenceCounted
 }
 }
 
-#endif//__IRR_I_INCLUDE_HANDLER_H_INCLUDED__
+#endif

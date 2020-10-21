@@ -1,9 +1,9 @@
-// Copyright (C) 2020- Mateusz 'DevSH' Kielan
-// This file is part of the "IrrlichtBAW" engine.
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_C_SCALED_IMAGE_FILTER_KERNEL_H_INCLUDED__
-#define __IRR_C_SCALED_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#ifndef __NBL_ASSET_C_SCALED_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#define __NBL_ASSET_C_SCALED_IMAGE_FILTER_KERNEL_H_INCLUDED__
 
 #include "irr/core/core.h"
 
@@ -24,10 +24,10 @@ class CScaledImageFilterKernelBase
 {
 	public:
 		// we preserve all basic properties of the original kernel
-		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels;
+		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels;
 		using value_type = typename Kernel::value_type;
 
-		_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = Kernel::is_separable;
+		_NBL_STATIC_INLINE_CONSTEXPR bool is_separable = Kernel::is_separable;
 
 		// constructor
 		CScaledImageFilterKernelBase(const core::vectorSIMDf& _rscale, Kernel&& k) : kernel(std::move(k)), rscale(_rscale.x,_rscale.y,_rscale.z,1.f), userData(_rscale.x*_rscale.y*_rscale.z) {}
@@ -52,7 +52,7 @@ class CScaledImageFilterKernel : //order of bases is important! do not change
 		using StaticPolymorphicBase = CImageFilterKernel<CScaledImageFilterKernel<Kernel>,typename Base::value_type>;
 
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels;
+		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels;
 
 		// the scale is how much we want to stretch the support, so if we have a box function kernel with support -0.5,0.5 then scaling it with `_scale=4.0`
 		// would give us a kernel with support -2.0,2.0 which still has the same area under the curve (integral)
@@ -77,7 +77,7 @@ class CScaledImageFilterKernel : //order of bases is important! do not change
 		}
 
 		// need this to resolve to correct base
-		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(StaticPolymorphicBase)
+		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(StaticPolymorphicBase)
 
 		// this is the only bit that differs
 		template<class PreFilter, class PostFilter>

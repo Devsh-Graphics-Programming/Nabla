@@ -1,5 +1,9 @@
-#ifndef __IRR_ASSET_TRAITS_H_INCLUDED__
-#define __IRR_ASSET_TRAITS_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_VIDEO_ASSET_TRAITS_H_INCLUDED__
+#define __NBL_VIDEO_ASSET_TRAITS_H_INCLUDED__
 
 #include "irr/asset/ICPUMesh.h"
 #include "irr/video/IGPUMesh.h"
@@ -91,4 +95,4 @@ using created_gpu_object_array = core::smart_refctd_dynamic_array<core::smart_re
 }
 }
 
-#endif //__IRR_ASSET_TRAITS_H_INCLUDED__
+#endif

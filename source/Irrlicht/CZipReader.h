@@ -1,13 +1,14 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __C_ZIP_READER_H_INCLUDED__
-#define __C_ZIP_READER_H_INCLUDED__
+#ifndef __NBL_C_ZIP_READER_H_INCLUDED__
+#define __NBL_C_ZIP_READER_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/asset/compile_config.h"
 
-#ifdef __IRR_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
+#ifdef __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
 
 #include "irr/core/Types.h"
 #include "IReadFile.h"
@@ -218,6 +219,6 @@ namespace io
 } // end namespace io
 } // end namespace irr
 
-#endif // __IRR_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
-#endif // __C_ZIP_READER_H_INCLUDED__
+#endif // __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
+#endif
 

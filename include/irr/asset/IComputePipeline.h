@@ -1,5 +1,9 @@
-#ifndef __IRR_I_COMPUTE_PIPELINE_H_INCLUDED__
-#define __IRR_I_COMPUTE_PIPELINE_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_ASSET_I_COMPUTE_PIPELINE_H_INCLUDED__
+#define __NBL_ASSET_I_COMPUTE_PIPELINE_H_INCLUDED__
 
 #include <utility>
 #include "irr/asset/IPipeline.h"
@@ -14,7 +18,7 @@ template<typename SpecShaderType, typename LayoutType>
 class IComputePipeline : public IPipeline<LayoutType>
 {
     public:
-		_IRR_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 1u;
+		_NBL_STATIC_INLINE_CONSTEXPR size_t SHADER_STAGE_COUNT = 1u;
 
         const SpecShaderType* getShader() const { return m_shader.get(); }
         inline const LayoutType* getLayout() const { return IPipeline<LayoutType>::m_layout.get(); }

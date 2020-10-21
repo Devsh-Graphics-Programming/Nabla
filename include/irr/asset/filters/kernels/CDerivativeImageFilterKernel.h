@@ -1,9 +1,9 @@
-// Copyright (C) 2020- Mateusz 'DevSH' Kielan
-// This file is part of the "IrrlichtBAW" engine.
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_C_DERIVATIVE_IMAGE_FILTER_KERNEL_H_INCLUDED__
-#define __IRR_C_DERIVATIVE_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#ifndef __NBL_ASSET_C_DERIVATIVE_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#define __NBL_ASSET_C_DERIVATIVE_IMAGE_FILTER_KERNEL_H_INCLUDED__
 
 #include "irr/core/core.h"
 
@@ -40,9 +40,9 @@ class CDerivativeImageFilterKernel : public CFloatingPointSeparableImageFilterKe
 			return kernel.d_weight(x,channel);
 		}
 
-		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
+		_NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
 
-		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
+		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
 };
 
 

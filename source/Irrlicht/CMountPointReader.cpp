@@ -1,10 +1,11 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
 #include "CMountPointReader.h"
 
-#ifdef __IRR_COMPILE_WITH_MOUNT_ARCHIVE_LOADER_
+#ifdef __NBL_COMPILE_WITH_MOUNT_ARCHIVE_LOADER_
 
 #include "CReadFile.h"
 #include "os.h"
@@ -18,7 +19,7 @@ namespace io
 CArchiveLoaderMount::CArchiveLoaderMount( io::IFileSystem* fs)
 : FileSystem(fs)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CArchiveLoaderMount");
 	#endif
 }
@@ -163,4 +164,4 @@ IReadFile* CMountPointReader::createAndOpenFile(const io::path& filename)
 } // io
 } // irr
 
-#endif // __IRR_COMPILE_WITH_MOUNT_ARCHIVE_LOADER_
+#endif // __NBL_COMPILE_WITH_MOUNT_ARCHIVE_LOADER_

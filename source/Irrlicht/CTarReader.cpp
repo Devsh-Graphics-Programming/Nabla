@@ -1,10 +1,11 @@
-// Copyright (C) 2009-2012 Gaz Davidson
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
 #include "CTarReader.h"
 
-#ifdef __IRR_COMPILE_WITH_TAR_ARCHIVE_LOADER_
+#ifdef __NBL_COMPILE_WITH_TAR_ARCHIVE_LOADER_
 
 #include "CFileList.h"
 #include "CLimitReadFile.h"
@@ -20,7 +21,7 @@ namespace io
 CArchiveLoaderTAR::CArchiveLoaderTAR(io::IFileSystem* fs)
 : FileSystem(fs)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CArchiveLoaderTAR");
 	#endif
 }
@@ -125,7 +126,7 @@ bool CArchiveLoaderTAR::isALoadableFileFormat(io::IReadFile* file) const
 */
 CTarReader::CTarReader(IReadFile* file) : CFileList(file ? file->getFileName() : io::path("")), File(file)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CTarReader");
 	#endif
 
@@ -237,4 +238,4 @@ IReadFile* CTarReader::createAndOpenFile(const io::path& filename)
 } // end namespace io
 } // end namespace irr
 
-#endif // __IRR_COMPILE_WITH_TAR_ARCHIVE_LOADER_
+#endif // __NBL_COMPILE_WITH_TAR_ARCHIVE_LOADER_

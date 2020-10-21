@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #include "irr/asset/CQuantNormalCache.h"
 
 #include "os.h"
@@ -48,7 +52,7 @@ core::vectorSIMDf CQuantNormalCache::findBestFit(const uint32_t& bits, const cor
 	//max component of 3d normal cannot be less than sqrt(1/3)
 	if (maxNormalComp <= 0.577f) //max component of 3d normal cannot be less than sqrt(1/3)
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		return core::vectorSIMDf(0.f);
 	}
 

@@ -1,5 +1,9 @@
-#ifndef __IRR_C_OPENGL_SPECIALIZED_SHADER_H_INCLUDED__
-#define __IRR_C_OPENGL_SPECIALIZED_SHADER_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_VIDEO_C_OPENGL_SPECIALIZED_SHADER_H_INCLUDED__
+#define __NBL_VIDEO_C_OPENGL_SPECIALIZED_SHADER_H_INCLUDED__
 
 #include "spirv_cross/spirv_glsl.hpp"
 #include "irr/asset/ICPUSpecializedShader.h"
@@ -12,7 +16,7 @@
 #include "irr/video/COpenGLPipelineLayout.h"
 #include <algorithm>
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 
 namespace irr
 {
@@ -126,4 +130,4 @@ class COpenGLSpecializedShader : public core::impl::ResolveAlignment<IGPUSpecial
 }
 #endif
 
-#endif//__IRR_C_OPENGL_SPECIALIZED_SHADER_H_INCLUDED__
+#endif

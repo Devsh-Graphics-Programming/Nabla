@@ -1,11 +1,13 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
 #include "irr/core/core.h"
+#include "irr/asset/compile_config.h"
 #include "CImageWriterPNG.h"
 
-#ifdef _IRR_COMPILE_WITH_PNG_WRITER_
+#ifdef _NBL_COMPILE_WITH_PNG_WRITER_
 
 #include "CImageLoaderPNG.h"
 
@@ -15,16 +17,16 @@
 
 #include "irr/asset/IImageAssetHandlerBase.h"
 
-#ifdef _IRR_COMPILE_WITH_LIBPNG_
+#ifdef _NBL_COMPILE_WITH_LIBPNG_
 	#include "libpng/png.h"
-#endif // _IRR_COMPILE_WITH_LIBPNG_
+#endif // _NBL_COMPILE_WITH_LIBPNG_
 
 namespace irr
 {
 namespace asset
 {
 
-#ifdef _IRR_COMPILE_WITH_LIBPNG_
+#ifdef _NBL_COMPILE_WITH_LIBPNG_
 // PNG function for error handling
 static void png_cpexcept_error(png_structp png_ptr, png_const_charp msg)
 {
@@ -49,11 +51,11 @@ void PNGAPI user_write_data_fcn(png_structp png_ptr, png_bytep data, png_size_t 
 	if (check != length)
 		png_error(png_ptr, "Write Error");
 }
-#endif // _IRR_COMPILE_WITH_LIBPNG_
+#endif // _NBL_COMPILE_WITH_LIBPNG_
 
 CImageWriterPNG::CImageWriterPNG()
 {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	setDebugName("CImageWriterPNG");
 #endif
 }
@@ -63,7 +65,7 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
     if (!_override)
         getDefaultOverride(_override);
 
-#if defined(_IRR_COMPILE_WITH_LIBPNG_)
+#if defined(_NBL_COMPILE_WITH_LIBPNG_)
 
 	SAssetWriteContext ctx{ _params, _file };
 
@@ -199,9 +201,9 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	png_destroy_write_struct(&png_ptr, &info_ptr);
 	return true;
 #else
-	_IRR_DEBUG_BREAK_IF(true);
+	_NBL_DEBUG_BREAK_IF(true);
 	return false;
-#endif//defined(_IRR_COMPILE_WITH_LIBPNG_)
+#endif//defined(_NBL_COMPILE_WITH_LIBPNG_)
 }
 
 } // namespace video

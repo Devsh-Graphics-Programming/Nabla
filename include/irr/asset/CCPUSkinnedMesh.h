@@ -1,5 +1,9 @@
-#ifndef __IRR_C_CPU_SKINNED_MESH_INCLUDED__
-#define __IRR_C_CPU_SKINNED_MESH_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_ASSET_C_CPU_SKINNED_MESH_INCLUDED__
+#define __NBL_ASSET_C_CPU_SKINNED_MESH_INCLUDED__
 
 #include "irr/asset/ICPUSkinnedMesh.h"
 #include "irr/asset/ICPUSkinnedMeshBuffer.h"
@@ -23,7 +27,7 @@ class CCPUSkinnedMesh : public ICPUSkinnedMesh
 		//! constructor
 		CCPUSkinnedMesh() : HasAnimation(false)
 		{
-			#ifdef _IRR_DEBUG
+			#ifdef _NBL_DEBUG
 				setDebugName("CCPUSkinnedMesh");
 			#endif
 		}
@@ -125,4 +129,4 @@ class CCPUSkinnedMesh : public ICPUSkinnedMesh
 
 }}
 
-#endif //__IRR_C_CPU_SKINNED_MESH_INCLUDED__
+#endif

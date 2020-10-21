@@ -1,8 +1,12 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #include "CCUDAHandler.h"
 
 #include "CMemoryFile.h"
 
-#ifdef _IRR_COMPILE_WITH_CUDA_
+#ifdef _NBL_COMPILE_WITH_CUDA_
 #include "jitify/jitify.hpp"
 
 
@@ -41,9 +45,9 @@ CUresult CCUDAHandler::init()
 
 
 	cuda = CUDA(
-		#if defined(_IRR_WINDOWS_API_)
+		#if defined(_NBL_WINDOWS_API_)
 			"nvcuda"
-		#elif defined(_IRR_POSIX_API_)
+		#elif defined(_NBL_POSIX_API_)
 			"cuda"
 		#endif
 	);
@@ -107,7 +111,7 @@ CUresult CCUDAHandler::init()
 			
 	#undef SAFE_CUDA_CALL
 
-	#if defined(_IRR_WINDOWS_API_)
+	#if defined(_NBL_WINDOWS_API_)
 	const char* nvrtc64_versions[] = {"nvrtc64_102","nvrtc64_101","nvrtc64_100","nvrtc64_92","nvrtc64_91","nvrtc64_90","nvrtc64_80","nvrtc64_75","nvrtc64_70",nullptr};
 	const char* nvrtc64_suffices[] = {"","_","_0","_1","_2",nullptr};
 	for (auto verpath=nvrtc64_versions; *verpath; verpath++)
@@ -123,7 +127,7 @@ CUresult CCUDAHandler::init()
 		if (nvrtc.pnvrtcVersion)
 			break;
 	}
-	#elif defined(_IRR_POSIX_API_)
+	#elif defined(_NBL_POSIX_API_)
 	nvrtc = NVRTC("nvrtc");
 	//nvrtc_builtins = NVRTC("nvrtc-builtins");
 	#endif
@@ -230,7 +234,7 @@ CUresult CCUDAHandler::acquireAndGetPointers(GraphicsAPIObjLink<video::IGPUBuffe
 {
 	if (linksBegin+MaxAquireOps<linksEnd)
 		return CUDA_ERROR_OUT_OF_MEMORY;
-	alignas(_IRR_SIMD_ALIGNMENT) uint8_t stackScratch[MaxAquireOps*sizeof(void*)];
+	alignas(_NBL_SIMD_ALIGNMENT) uint8_t stackScratch[MaxAquireOps*sizeof(void*)];
 
 	CUresult result = acquireResourcesFromGraphics(stackScratch,linksBegin,linksEnd,stream);
 	if (result != CUDA_SUCCESS)
@@ -253,7 +257,7 @@ CUresult CCUDAHandler::acquireAndGetMipmappedArray(GraphicsAPIObjLink<video::IGP
 {
 	if (linksBegin+MaxAquireOps<linksEnd)
 		return CUDA_ERROR_OUT_OF_MEMORY;
-	alignas(_IRR_SIMD_ALIGNMENT) uint8_t stackScratch[MaxAquireOps*sizeof(void*)];
+	alignas(_NBL_SIMD_ALIGNMENT) uint8_t stackScratch[MaxAquireOps*sizeof(void*)];
 
 	CUresult result = acquireResourcesFromGraphics(stackScratch,linksBegin,linksEnd,stream);
 	if (result != CUDA_SUCCESS)
@@ -274,7 +278,7 @@ CUresult CCUDAHandler::acquireAndGetArray(GraphicsAPIObjLink<video::IGPUImage>* 
 {
 	if (linksBegin+MaxAquireOps<linksEnd)
 		return CUDA_ERROR_OUT_OF_MEMORY;
-	alignas(_IRR_SIMD_ALIGNMENT) uint8_t stackScratch[MaxAquireOps*sizeof(void*)];
+	alignas(_NBL_SIMD_ALIGNMENT) uint8_t stackScratch[MaxAquireOps*sizeof(void*)];
 
 	CUresult result = acquireResourcesFromGraphics(stackScratch,linksBegin,linksEnd,stream);
 	if (result != CUDA_SUCCESS)
@@ -657,7 +661,7 @@ bool CCUDAHandler::defaultHandleResult(CUresult result)
 			printf("CCUDAHandler: Unknown CUDA Error!\n");
 			break;
 	}
-	_IRR_DEBUG_BREAK_IF(true);
+	_NBL_DEBUG_BREAK_IF(true);
 	return false;
 }
 
@@ -692,4 +696,4 @@ nvrtcResult CCUDAHandler::getPTX(nvrtcProgram prog, std::string& ptx)
 }
 }
 
-#endif // _IRR_COMPILE_WITH_CUDA_
+#endif // _NBL_COMPILE_WITH_CUDA_

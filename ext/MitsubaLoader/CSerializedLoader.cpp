@@ -1,4 +1,8 @@
-#include "IrrCompileConfig.h"
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#include "irr/asset/compile_config.h"
 
 #include "irr/core/core.h"
 #include "IReadFile.h"
@@ -7,7 +11,7 @@
 #include "../../ext/MitsubaLoader/CSerializedLoader.h"
 #include "CMitsubaSerializedPipelineMetadata.h"
 
-#ifndef _IRR_COMPILE_WITH_ZLIB_
+#ifndef _NBL_COMPILE_WITH_ZLIB_
 #error "Need zlib for this loader"
 #endif
 #include "zlib/zlib.h"
@@ -106,7 +110,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 	core::vector<core::smart_refctd_ptr<asset::CCPUMesh> > meshes;
 	meshes.reserve(ctx.meshCount);
 
-	uint8_t* data = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(maxSize,alignof(double)));
+	uint8_t* data = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(maxSize,alignof(double)));
 	constexpr size_t CHUNK = 256ull*1024ull;
 	core::vector<Page_t> decompressed(CHUNK/sizeof(Page_t));
 	for (uint32_t i=0; i<ctx.meshCount; i++)
@@ -393,7 +397,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 
 		meshes.push_back(std::move(mesh));
 	}
-	_IRR_ALIGNED_FREE(data);
+	_NBL_ALIGNED_FREE(data);
 
 	return meshes;
 }

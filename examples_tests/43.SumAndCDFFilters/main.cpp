@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #include <irrlicht.h>
 
 #include "../../../include/irr/asset/filters/CSummedAreaTableImageFilter.h"
@@ -187,7 +191,7 @@ int main()
 			state.layerCount = newSumImage->getCreationParameters().arrayLayers;
 			
 			state.scratchMemoryByteSize = state.getRequiredScratchByteSize(state.inImage, state.extent);
-			state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
+			state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
 			#ifdef IMAGE_VIEW
 			state.inMipLevel = MIPMAP_IMAGE_VIEW;
 			state.outMipLevel = MIPMAP_IMAGE_VIEW;
@@ -200,7 +204,7 @@ int main()
 			if (!sumFilter.execute(&state))
 				os::Printer::log("Something went wrong while performing sum operation!", ELL_WARNING);
 
-			_IRR_ALIGNED_FREE(state.scratchMemory);
+			_NBL_ALIGNED_FREE(state.scratchMemory);
 		}
 		return newSumImage;
 	};
@@ -293,15 +297,15 @@ int main()
 
 		state.swizzle = {};
 
-		state.ditherState = _IRR_NEW(std::remove_pointer<decltype(state.ditherState)>::type);
+		state.ditherState = _NBL_NEW(std::remove_pointer<decltype(state.ditherState)>::type);
 		state.scratchMemoryByteSize = blitImageFilter.getRequiredScratchByteSize(&state);
-		state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
+		state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, 32));
 
 		if (!blitImageFilter.execute(&state))
 			os::Printer::log("Something went wrong while performing discrete convolution operation!", ELL_WARNING);
 
-		_IRR_DELETE(state.ditherState);
-		_IRR_ALIGNED_FREE(state.scratchMemory);
+		_NBL_DELETE(state.ditherState);
+		_NBL_ALIGNED_FREE(state.scratchMemory);
 
 		return outImage;
 	};

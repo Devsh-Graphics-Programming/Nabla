@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef __IRR_C_MITSUBA_SERIALIZED_PIPELINE_METADATA_H_INCLUDED__
 #define __IRR_C_MITSUBA_SERIALIZED_PIPELINE_METADATA_H_INCLUDED__
 
@@ -21,7 +25,7 @@ namespace irr
 
                 core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const override { return { m_shaderInputs->begin(), m_shaderInputs->end() }; }
 
-                _IRR_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CSerializedLoader";
+                _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CSerializedLoader";
                 const char* getLoaderName() const override { return LoaderName; }
 
             private:

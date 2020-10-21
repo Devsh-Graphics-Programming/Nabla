@@ -1,15 +1,21 @@
-#ifndef _BRDF_SPECULAR_NDF_GGX_INCLUDED_
-#define _BRDF_SPECULAR_NDF_GGX_INCLUDED_
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#include <irr/builtin/glsl/bxdf/common.glsl>
+#ifndef _IRR_BUILTIN_GLSL_BXDF_GGX_INCLUDED_
+#define _IRR_BUILTIN_GLSL_BXDF_GGX_INCLUDED_
+
+#include <irr/builtin/glsl/math/constants.glsl>
+#include <irr/builtin/glsl/bxdf/ndf/common.glsl>
 
 float irr_glsl_ggx_trowbridge_reitz(in float a2, in float NdotH2)
 {
     float denom = NdotH2 * (a2 - 1.0) + 1.0;
-    return a2 / (irr_glsl_PI * denom*denom);
+    return a2* irr_glsl_RECIPROCAL_PI / (denom*denom);
 }
 
-float irr_glsl_ggx_burley_aniso(float anisotropy, float a2, float TdotH, float BdotH, float NdotH) {
+float irr_glsl_ggx_burley_aniso(float anisotropy, float a2, float TdotH, float BdotH, float NdotH)
+{
 	float antiAniso = 1.0-anisotropy;
 	float atab = a2*antiAniso;
 	float anisoTdotH = antiAniso*TdotH;

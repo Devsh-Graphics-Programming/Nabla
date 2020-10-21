@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 #include "../../ext/MitsubaLoader/CElementFactory.h"
 
@@ -37,7 +41,7 @@ CElementFactory::return_type CElementFactory::createElement<CElementEmitter>(con
 	if (found==StringToType.end())
 	{
 		ParserLog::invalidXMLFileStructure("unknown type");
-		_IRR_DEBUG_BREAK_IF(false);
+		_NBL_DEBUG_BREAK_IF(false);
 		return CElementFactory::return_type(nullptr, "");
 	}
 
@@ -198,7 +202,7 @@ bool CElementEmitter::addProperty(SNamedPropertyElement&& _property)
 		core::matrix3x4SIMD tmp;
 		core::matrix3x4SIMD::buildCameraLookAtMatrixRH(core::vectorSIMDf(),-_property.vvalue,up).getInverse(tmp);
 		transform.matrix = core::matrix4SIMD(tmp);
-		_IRR_DEBUG_BREAK_IF(true); // no idea if matrix is correct
+		_NBL_DEBUG_BREAK_IF(true); // no idea if matrix is correct
 	};
 	auto setPower = SET_SPECTRUM(power, Collimated);
 	auto setFilename = [&]() -> void
@@ -239,7 +243,7 @@ bool CElementEmitter::addProperty(SNamedPropertyElement&& _property)
 	auto found = SetPropertyMap.find(_property.name);
 	if (found==SetPropertyMap.end())
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		ParserLog::invalidXMLFileStructure("No Emitter can have such property set with name: " + _property.name);
 		return false;
 	}
@@ -255,7 +259,7 @@ bool CElementEmitter::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _overr
 	{
 		case Type::INVALID:
 			ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
-			_IRR_DEBUG_BREAK_IF(true);
+			_NBL_DEBUG_BREAK_IF(true);
 			return true;
 			break;
 		case Type::SPOT:

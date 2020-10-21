@@ -1,35 +1,37 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __C_IRR_DEVICE_LINUX_H_INCLUDED__
-#define __C_IRR_DEVICE_LINUX_H_INCLUDED__
+#ifndef __NBL_C_NBL_DEVICE_LINUX_H_INCLUDED__
+#define __NBL_C_NBL_DEVICE_LINUX_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
+#include "irr/system/compile_config.h"
 
-#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 
 #include "CIrrDeviceStub.h"
 #include "IrrlichtDevice.h"
 #include "ICursorControl.h"
 #include "os.h"
 
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 
 #include "COpenGLStateManager.h"
 
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/cursorfont.h>
-#ifdef _IRR_LINUX_X11_VIDMODE_
+#ifdef _NBL_LINUX_X11_VIDMODE_
     #include <X11/extensions/xf86vmode.h>
 #endif
-#ifdef _IRR_LINUX_X11_RANDR_
+#ifdef _NBL_LINUX_X11_RANDR_
     #include <X11/extensions/Xrandr.h>
 #endif
 #include <X11/keysym.h>
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
     #include "GL/glx.h"
     #include "../src/3rdparty/GL/glxext.h"
 #endif
@@ -127,7 +129,7 @@ namespace irr
 
             bool switchToFullscreen(bool reset=false);
 
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
             bool createInputContext();
             void destroyInputContext();
             EKEY_CODE getKeyCode(const uint32_t& xEventKey);
@@ -148,7 +150,7 @@ namespace irr
                     if (visible==IsVisible)
                         return;
                     IsVisible = visible;
-    #ifdef _IRR_COMPILE_WITH_X11_
+    #ifdef _NBL_COMPILE_WITH_X11_
                     if (!Null)
                     {
                         if ( !IsVisible )
@@ -186,7 +188,7 @@ namespace irr
                 //! Sets the new position of the cursor.
                 virtual void setPosition(int32_t x, int32_t y)
                 {
-    #ifdef _IRR_COMPILE_WITH_X11_
+    #ifdef _NBL_COMPILE_WITH_X11_
 
                     if (!Null)
                     {
@@ -275,7 +277,7 @@ namespace irr
                 //! Return a system-specific size which is supported for cursors. Larger icons will fail, smaller icons might work.
                 virtual core::dimension2di getSupportedIconSize() const;
 
-    #ifdef _IRR_COMPILE_WITH_X11_
+    #ifdef _NBL_COMPILE_WITH_X11_
                 //! Set platform specific behavior flags.
                 virtual void setPlatformBehavior(gui::ECURSOR_PLATFORM_BEHAVIOR behavior) {PlatformBehavior = behavior; }
 
@@ -289,7 +291,7 @@ namespace irr
 
                 void updateCursorPos()
                 {
-    #ifdef _IRR_COMPILE_WITH_X11_
+    #ifdef _NBL_COMPILE_WITH_X11_
                     if (Null)
                         return;
 
@@ -323,7 +325,7 @@ namespace irr
                 CIrrDeviceLinux* Device;
                 core::position2d<int32_t> CursorPos;
                 core::rect<int32_t> ReferenceRect;
-    #ifdef _IRR_COMPILE_WITH_X11_
+    #ifdef _NBL_COMPILE_WITH_X11_
                 gui::ECURSOR_PLATFORM_BEHAVIOR PlatformBehavior;
                 std::chrono::milliseconds lastQuery;
                 Cursor invisCursor;
@@ -360,7 +362,7 @@ namespace irr
 
             friend class CCursorControl;
 
-    #ifdef _IRR_COMPILE_WITH_X11_
+    #ifdef _NBL_COMPILE_WITH_X11_
             friend class COpenGLDriver;
 
             Display *display;
@@ -372,14 +374,14 @@ namespace irr
             XIM XInputMethod;
             XIC XInputContext;
             mutable core::stringc Clipboard;
-            #ifdef _IRR_LINUX_X11_VIDMODE_
+            #ifdef _NBL_LINUX_X11_VIDMODE_
             XF86VidModeModeInfo oldVideoMode;
             #endif
-            #ifdef _IRR_LINUX_X11_RANDR_
+            #ifdef _NBL_LINUX_X11_RANDR_
             SizeID oldRandrMode;
             Rotation oldRandrRotation;
             #endif
-            #ifdef _IRR_COMPILE_WITH_OPENGL_
+            #ifdef _NBL_COMPILE_WITH_OPENGL_
             GLXWindow glxWin;
             GLXContext Context;
             void* AuxContexts;
@@ -395,7 +397,7 @@ namespace irr
 
             core::unordered_map<KeySym,int32_t> KeyMap;
 
-    #if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
+    #if defined(_NBL_COMPILE_WITH_JOYSTICK_EVENTS_)
             struct JoystickInfo
             {
                 int	fd;
@@ -413,6 +415,6 @@ namespace irr
 
 } // end namespace irr
 
-#endif // _IRR_COMPILE_WITH_X11_DEVICE_
-#endif // __C_IRR_DEVICE_LINUX_H_INCLUDED__
+#endif // _NBL_COMPILE_WITH_X11_DEVICE_
+#endif
 

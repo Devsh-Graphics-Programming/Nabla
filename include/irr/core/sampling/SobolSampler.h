@@ -1,5 +1,9 @@
-#ifndef _IRR_SOBOL_SAMPLER_H_
-#define _IRR_SOBOL_SAMPLER_H_
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_CORE_SOBOL_SAMPLER_H_
+#define __NBL_CORE_SOBOL_SAMPLER_H_
 
 #include "irr/core/Types.h"
 
@@ -62,16 +66,16 @@ namespace core
 class SobolSampler
 {
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t SOBOL_BITS = sizeof(uint32_t)*8u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t SOBOL_BITS = sizeof(uint32_t)*8u;
 
 		SobolSampler(uint32_t _dimensions) : dimensions(_dimensions)
 		{
-			directions = _IRR_ALIGNED_MALLOC(dimensions*SOBOL_BITS*sizeof(uint32_t), 64u);
+			directions = _NBL_ALIGNED_MALLOC(dimensions*SOBOL_BITS*sizeof(uint32_t), 64u);
 			generate_direction_vectors();
 		}
 		~SobolSampler()
 		{
-			_IRR_ALIGNED_FREE(directions);
+			_NBL_ALIGNED_FREE(directions);
 		}
 		
 		// Idea for optimization, do PoT samples per pass, then can precompute most of the `retval`
@@ -8290,7 +8294,7 @@ class SobolSampler
 		};
 
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t SOBOL_MAX_DIMENSIONS = sizeof(SOBOL_NUMBERS)/sizeof(SobolDirectionNumbers)+1u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t SOBOL_MAX_DIMENSIONS = sizeof(SOBOL_NUMBERS)/sizeof(SobolDirectionNumbers)+1u;
 
 	protected:
 		uint32_t dimensions;
@@ -8336,7 +8340,7 @@ class SobolSampler
 							v[i] ^= (((a >> (s-1u-k)) & 1u) * v[i-k]);
 					}
 				}
-				#ifdef _IRR_DEBUG
+				#ifdef _NBL_DEBUG
 					for (uint32_t i=0u; i<L; i++)
 						assert((v[i]&(0x7fffffffu>>i)) == 0u);
 				#endif
@@ -8348,4 +8352,4 @@ class SobolSampler
 }
 }
 
-#endif // _IRR_CORE_SOBOL_SAMPLER_H_
+#endif

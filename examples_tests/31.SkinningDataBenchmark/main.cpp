@@ -1,4 +1,8 @@
-#define _IRR_STATIC_LIB_
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#define _NBL_STATIC_LIB_
 #include <iostream>
 #include <irrlicht.h>
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
@@ -87,7 +91,7 @@ int main()
     params.Bits = 24; //may have to set to 32bit for some platforms
     params.ZBufferBits = 24; //we'd like 32bit here
     params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     params.WindowSize = dimension2d<uint32_t>(1280, 720);
 #else
     params.WindowSize = dimension2d<uint32_t>(64, 64);
@@ -107,12 +111,12 @@ int main()
     auto* am = device->getAssetManager();
     video::IVideoDriver* driver = device->getVideoDriver();
 
-#ifndef _IRR_DEBUG
+#ifndef _NBL_DEBUG
     auto* depthFBO = createDepthOnlyFrameBuffer(driver);
 #endif
 
     IAssetLoader::SAssetLoadParams lp;
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     auto vertexShaderBundle_1 = am->getAsset("../test_1.vert", lp);
     auto vertexShaderBundle_2 = am->getAsset("../test_2.vert", lp);
     auto vertexShaderBundle_3 = am->getAsset("../test_3.vert", lp);
@@ -170,7 +174,7 @@ int main()
         meshBuffer->setPipeline(std::move(pipeline));
     };
     const auto MaxBufferSize = driver->getMaxSSBOSize();
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     const core::vector4du32_SIMD diskBlockDim(5u, 5u, 5u);
 #else
     const uint32_t multiplier = core::min<uint32_t>(MAX_OBJ_CNT*(MaxBufferSize>>20u)/(0x1u<<10u),MAX_OBJ_CNT);
@@ -183,7 +187,7 @@ int main()
 
     std::vector<uint16_t> tesselation(diskCount);
     
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     constexpr uint32_t maxTesselation = 32u;
 #else
     constexpr uint32_t maxTesselation = 16000u;
@@ -207,7 +211,7 @@ int main()
     core::vector<core::smart_refctd_ptr<ICPUMeshBuffer>> disks(diskCount);
     std::generate(disks.begin(), disks.end(), []() { return core::make_smart_refctd_ptr<ICPUMeshBuffer>(); });
 
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     for (uint32_t i = 0u, bonesCreated = 0u; i < diskCount; i++)
     {
         auto disk = am->getGeometryCreator()->createDiskMesh(0.5f, tesselation[i]);
@@ -247,7 +251,7 @@ int main()
     MeshPackerBase::PackedMeshBufferData mb;
     {
         auto allocParams = MeshPackerBase::AllocationParams();
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
         allocParams.MDIDataBuffSupportedCnt = 1024;
         allocParams.MDIDataBuffMinAllocSize = 512;
         allocParams.indexBuffSupportedCnt = 8192 * 2;
@@ -267,7 +271,7 @@ int main()
 
         auto resParams = packer.alloc(disks.begin(), disks.end());
 
-        _IRR_DEBUG_BREAK_IF(resParams.isValid() == false);
+        _NBL_DEBUG_BREAK_IF(resParams.isValid() == false);
 
         packer.instantiateDataStorage();
 
@@ -275,8 +279,8 @@ int main()
 
         packedMeshBuffer = packer.getPackedMeshBuffer();
 
-        _IRR_DEBUG_BREAK_IF(mb.isValid() == false);
-        _IRR_DEBUG_BREAK_IF(packedMeshBuffer.isValid() == false);
+        _NBL_DEBUG_BREAK_IF(mb.isValid() == false);
+        _NBL_DEBUG_BREAK_IF(packedMeshBuffer.isValid() == false);
     }
 
     disks.clear();
@@ -302,7 +306,7 @@ int main()
     {
         mdi.indexBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(packedMeshBuffer.indexBuffer.buffer->getSize(), packedMeshBuffer.indexBuffer.buffer->getPointer());
 
-        _IRR_DEBUG_BREAK_IF(mb.mdiParameterCount == 0u);
+        _NBL_DEBUG_BREAK_IF(mb.mdiParameterCount == 0u);
         mdi.indirectDrawBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(DrawElementsIndirectCommand_t)* mb.mdiParameterCount, packedMeshBuffer.MDIDataBuffer->getPointer());
 
         auto& cpuVtxBuff = packedMeshBuffer.vertexBufferBindings[4].buffer;
@@ -427,18 +431,18 @@ int main()
 
             asset::SRasterizationParams rasterParams;
             rasterParams.faceCullingMode = asset::EFCM_NONE;
-#ifndef _IRR_DEBUG
+#ifndef _NBL_DEBUG
             rasterParams.faceCullingMode = asset::EFCM_BACK_BIT;
             rasterParams.depthTestEnable = true;
             rasterParams.depthWriteEnable = false;
 #endif
 
             SBlendParams blendParams;
-#ifndef _IRR_DEBUG
+#ifndef _NBL_DEBUG
             blendParams.blendParams[0].colorWriteMask = 0u;
 #endif
 
-#ifndef _IRR_DEBUG
+#ifndef _NBL_DEBUG
             constexpr uint32_t shaderCnt = 1u;
 #else
             constexpr uint32_t shaderCnt = 2u;
@@ -581,7 +585,7 @@ int main()
     };
 
     std::function<bool()> exitCondition;
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
     exitCondition = [&]() { return device->run() && receiver.keepOpen(); };
 #else
     exitCondition = []() { return true; };
@@ -599,7 +603,7 @@ int main()
         driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline[caseID]->getLayout(), 0u, 1u, &descriptorSet[caseID].get(), nullptr);
         updatePushConstants(caseID);
 
-#ifndef _IRR_DEBUG
+#ifndef _NBL_DEBUG
         driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
         driver->setRenderTarget(depthFBO);
         driver->clearZBuffer(1.0f);
@@ -614,7 +618,7 @@ int main()
             driver->beginQuery(query);
             for (uint32_t i = 0u; i < iterationCnt && exitCondition(); i++)
             {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
                 driver->beginScene(true, true, video::SColor(0, 0, 0, 255));
                 timeMS = std::chrono::duration_cast<std::chrono::milliseconds>(device->getTimer()->getTime()).count();
 
@@ -626,7 +630,7 @@ int main()
                 updateSSBO(caseID);
 #endif
                 driver->drawIndexedIndirect(mdi.vtxBindings, mdi.mode, mdi.indexType, mdi.indexBuff.get(), mdi.indirectDrawBuff.get(), mdi.offset, mdi.maxCount, mdi.stride);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
                 driver->endScene();
 #endif
             }
@@ -646,7 +650,7 @@ int main()
         }
 
     }
-#ifndef _IRR_DEBUG
+#ifndef _NBL_DEBUG
     os::Printer::print(std::string("Type Something to Exit:"));
     std::cin.get();
 #endif

@@ -1,8 +1,9 @@
-// This file is part of the "IrrlichtBAW" engine.
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_C_PRECOMPUTED_DITHER_H_INCLUDED__
-#define __IRR_C_PRECOMPUTED_DITHER_H_INCLUDED__
+#ifndef __NBL_ASSET_C_PRECOMPUTED_DITHER_H_INCLUDED__
+#define __NBL_ASSET_C_PRECOMPUTED_DITHER_H_INCLUDED__
 
 #include "../include/irr/asset/filters/dithering/CDither.h"
 #include "../include/irr/asset/filters/CFlattenRegionsImageFilter.h"
@@ -139,4 +140,4 @@ namespace irr
 	}
 }
 
-#endif // __IRR_C_PRECOMPUTED_DITHER_H_INCLUDED__
+#endif

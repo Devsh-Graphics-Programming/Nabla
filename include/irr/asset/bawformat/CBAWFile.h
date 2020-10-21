@@ -1,10 +1,9 @@
-// Copyright (C) 2018 Krzysztof "Criss" Szenk
-// This file is part of the "Irrlicht Engine" and "Build A World".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
-// and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_BAW_FILE_H_INCLUDED__
-#define __IRR_BAW_FILE_H_INCLUDED__
+#ifndef __NBL_ASSET_BAW_FILE_H_INCLUDED__
+#define __NBL_ASSET_BAW_FILE_H_INCLUDED__
 
 
 #include "aabbox3d.h"
@@ -77,7 +76,7 @@ namespace asset
 	//! Cast pointer to (first byte of) file buffer to BAWFile*. 256bit header must be first member (start of file).
     //! If something changes in basic format structure, this should go to asset::legacyv0 namespace
     template<uint64_t Version>
-	struct IRR_FORCE_EBO BAWFileVn {
+	struct NBL_FORCE_EBO BAWFileVn {
         static constexpr const char* HEADER_STRING = "IrrlichtBaW BinaryFile";
         static constexpr uint64_t version = Version;
 

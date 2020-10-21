@@ -1,9 +1,10 @@
-// Copyright (C) 2009-2012 Gaz Davidson
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __C_PLY_MESH_FILE_LOADER_H_INCLUDED__
-#define __C_PLY_MESH_FILE_LOADER_H_INCLUDED__
+#ifndef __NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED__
+#define __NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 
 #include "irr/asset/IAssetLoader.h"
 #include "irr/asset/ICPUMeshBuffer.h"
@@ -141,7 +142,7 @@ private:
 		{ 
 			if (Buffer)
 			{
-				_IRR_DELETE_ARRAY(Buffer, PLY_INPUT_BUFFER_SIZE);
+				_NBL_DELETE_ARRAY(Buffer, PLY_INPUT_BUFFER_SIZE);
 				Buffer = nullptr;
 			}
 			ElementList.clear();

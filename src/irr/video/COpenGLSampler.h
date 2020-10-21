@@ -1,11 +1,15 @@
-#ifndef __IRR_C_OPENGL_SAMPLER_H_INCLUDED__
-#define __IRR_C_OPENGL_SAMPLER_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_VIDEO_C_OPENGL_SAMPLER_H_INCLUDED__
+#define __NBL_VIDEO_C_OPENGL_SAMPLER_H_INCLUDED__
 
 #include "irr/video/IGPUSampler.h"
 #include "COpenGLExtensionHandler.h"
 #include <algorithm>
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 namespace irr
 {
 namespace video
@@ -33,13 +37,13 @@ class COpenGLSampler : public IGPUSampler
 				mode = GL_MIRRORED_REPEAT;
 				break;
 			case ETC_MIRROR_CLAMP_TO_EDGE:
-				if (COpenGLExtensionHandler::Version >= 440 || COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_mirror_clamp] || COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_ATI_texture_mirror_once])
+				if (COpenGLExtensionHandler::Version >= 440 || COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_mirror_clamp] || COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_ATI_texture_mirror_once])
 					mode = GL_MIRROR_CLAMP_TO_EDGE;
 				else
 					mode = GL_CLAMP;
 				break;
 			case ETC_MIRROR_CLAMP_TO_BORDER:
-				if (COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::IRR_EXT_texture_mirror_clamp])
+				if (COpenGLExtensionHandler::FeatureAvailable[COpenGLExtensionHandler::NBL_EXT_texture_mirror_clamp])
 					mode = GL_MIRROR_CLAMP_TO_BORDER_EXT;
 				else
 					mode = GL_CLAMP;

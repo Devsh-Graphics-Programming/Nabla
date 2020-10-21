@@ -1,9 +1,9 @@
-// Copyright (C) 2020- Mateusz 'DevSH' Kielan
-// This file is part of the "IrrlichtBAW" engine.
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_C_TRIANGLE_IMAGE_FILTER_KERNEL_H_INCLUDED__
-#define __IRR_C_TRIANGLE_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#ifndef __NBL_ASSET_C_TRIANGLE_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#define __NBL_ASSET_C_TRIANGLE_IMAGE_FILTER_KERNEL_H_INCLUDED__
 
 
 #include "irr/asset/filters/kernels/CommonImageFilterKernels.h"
@@ -27,7 +27,7 @@ class CTriangleImageFilterKernel : public CFloatingPointIsotropicSeparableImageF
 			return 0.f;
 		}
 
-		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
+		_NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
 		/* Derivative at 0 not defined so we cannot use
 		inline float d_weight(float x) const
 		{

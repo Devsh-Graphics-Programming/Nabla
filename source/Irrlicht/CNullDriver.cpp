@@ -1,6 +1,7 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
 #include "CNullDriver.h"
 #include "os.h"
@@ -31,9 +32,9 @@ int32_t CNullDriver::incrementAndFetchReallocCounter()
 
 //! constructor
 CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const SIrrlichtCreationParameters& _params)
-			: IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), Params(_params), PrimitivesDrawn(0), DerivativeMapCreator()
+			: IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), Params(_params), PrimitivesDrawn(0)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CNullDriver");
 	#endif
 
@@ -108,8 +109,6 @@ bool CNullDriver::genericDriverInit(asset::IAssetManager* assMgr)
 		reqs.vulkanReqs.alignment = 64u * 1024u; // if you need larger alignments then you're not right in the head
 		defaultUploadBuffer = core::make_smart_refctd_ptr < video::StreamingTransientDataBufferMT<> >(this, reqs);
 	}
-
-	DerivativeMapCreator = core::make_smart_refctd_ptr<CDerivativeMapCreator>(this);
 
 	return true;
 }

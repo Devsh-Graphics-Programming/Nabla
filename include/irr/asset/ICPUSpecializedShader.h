@@ -1,5 +1,9 @@
-#ifndef __IRR_I_CPU_SPECIALIZED_SHADER_H_INCLUDED__
-#define __IRR_I_CPU_SPECIALIZED_SHADER_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_ASSET_I_CPU_SPECIALIZED_SHADER_H_INCLUDED__
+#define __NBL_ASSET_I_CPU_SPECIALIZED_SHADER_H_INCLUDED__
 
 #include "irr/asset/ICPUShader.h"
 #include "irr/asset/ISpecializedShader.h"
@@ -20,7 +24,7 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 		{
 		}
 
-		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = IAsset::ET_SPECIALIZED_SHADER;
+		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = IAsset::ET_SPECIALIZED_SHADER;
 		IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
 		size_t conservativeSizeEstimate() const override
@@ -82,4 +86,4 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 
 }}
 
-#endif//__IRR_I_CPU_SPECIALIZED_SHADER_H_INCLUDED__
+#endif

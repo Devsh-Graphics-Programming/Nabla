@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef _IRR_FRAG_INPUTS_DEFINED_
 #define _IRR_FRAG_INPUTS_DEFINED_
 layout (location = 0) in vec3 LocalPos;
@@ -79,7 +83,7 @@ vec4 irr_sample_bump(in vec2 uv, in mat2 dUV) { return texture(map_bump, uv); }
 
 //! This is the function that evaluates the BSDF for specific view and observer direction
 // params can be either BSDFIsotropicParams or BSDFAnisotropicParams 
-Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
+Spectrum irr_bsdf_cos_eval(in irr_glsl_LightSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
 {
     vec3 Kd;
 #ifndef _NO_UV
@@ -109,8 +113,10 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_I
     vec3 Ni = vec3(PC.params.Ni);
 
 
-    vec3 diff = irr_glsl_lambertian_cos_eval(params,inter) * Kd * (1.0-irr_glsl_fresnel_dielectric(Ni,params.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(Ni,inter.NdotV));
+    vec3 diff = irr_glsl_lambertian_cos_eval(_sample) * Kd * (1.0-irr_glsl_fresnel_dielectric(Ni,_sample.NdotL)) * (1.0-irr_glsl_fresnel_dielectric(Ni,inter.NdotV));
     diff *= irr_glsl_diffuseFresnelCorrectionFactor(Ni, Ni*Ni);
+
+    irr_glsl_IsotropicMicrofacetCache _cache = irr_glsl_calcIsotropicMicrofacetCache(inter,_sample);
     switch (PC.params.extra&ILLUM_MODEL_MASK)
     {
     case 0:
@@ -124,7 +130,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_I
     case 5://basically same as 3
     case 8://basically same as 5
     {
-        vec3 spec = Ks*irr_glsl_blinn_phong_cos_eval(params, inter, Ns, mat2x3(Ni,vec3(0.0)));
+        vec3 spec = Ks*irr_glsl_blinn_phong_cos_eval(_sample, inter, _cache, Ns, mat2x3(Ni,vec3(0.0)));
         color = (diff + spec);
     }
         break;
@@ -133,7 +139,7 @@ Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_I
     case 7:
     case 9://basically same as 4
     {
-        vec3 spec = Ks*irr_glsl_blinn_phong_cos_eval(params, inter, Ns, mat2x3(Ni,vec3(0.0)));
+        vec3 spec = Ks*irr_glsl_blinn_phong_cos_eval(_sample, inter, _cache, Ns, mat2x3(Ni,vec3(0.0)));
         color = spec;
     }
         break;
@@ -166,7 +172,10 @@ vec3 irr_computeLighting(out irr_glsl_IsotropicViewSurfaceInteraction out_intera
         interaction.N = irr_glsl_perturbNormal_heightMap(interaction.N, interaction.V.dPosdScreen, dHdScreen);
     }
 #endif
-    irr_glsl_BSDFIsotropicParams params = irr_glsl_calcBSDFIsotropicParams(interaction, -ViewPos);
+    const vec3 L = -ViewPos;
+    const float lenL2 = dot(L,L);
+    const float invLenL = inversesqrt(lenL2);
+    irr_glsl_LightSample _sample = irr_glsl_createLightSample(L*invLenL, interaction);
 
     vec3 Ka;
     switch ((PC.params.extra&ILLUM_MODEL_MASK))
@@ -197,8 +206,8 @@ vec3 irr_computeLighting(out irr_glsl_IsotropicViewSurfaceInteraction out_intera
     }
 
     out_interaction = interaction;
-#define Intensity 1000.0
-    return Intensity*params.invlenL2*irr_bsdf_cos_eval(params,interaction, dUV) + Ka;
+#define Intensity 1000000.0
+    return (Intensity/lenL2)*irr_bsdf_cos_eval(_sample,interaction, dUV) + Ka;
 #undef Intensity
 }
 #endif //_IRR_COMPUTE_LIGHTING_DEFINED_

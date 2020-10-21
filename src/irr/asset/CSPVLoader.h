@@ -1,9 +1,9 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _C_SPIR_V_LOADER_H_INCLUDED__
-#define _C_SPIR_V_LOADER_H_INCLUDED__
+#ifndef __NBL_ASSET_C_SPIR_V_LOADER_H_INCLUDED__
+#define __NBL_ASSET_C_SPIR_V_LOADER_H_INCLUDED__
 
 #include "irr/asset/IAssetLoader.h"
 
@@ -14,7 +14,7 @@ namespace asset
 
 class CSPVLoader final : public asset::IAssetLoader
 {
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t SPV_MAGIC_NUMBER = 0x07230203u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t SPV_MAGIC_NUMBER = 0x07230203u;
 	public:
 		bool isALoadableFileFormat(io::IReadFile* _file) const override
 		{

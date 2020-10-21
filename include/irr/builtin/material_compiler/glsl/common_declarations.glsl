@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef _IRR_BUILTIN_MATERIAL_COMPILER_GLSL_COMMON_DECLARATIONS_INCLUDED_
 #define _IRR_BUILTIN_MATERIAL_COMPILER_GLSL_COMMON_DECLARATIONS_INCLUDED_
 
@@ -7,6 +11,7 @@
 #define reg_t uint
 #define params_t mat4x3
 #define bxdf_eval_t vec3
+#define eval_and_pdf_t vec4
 
 struct bsdf_data_t
 {

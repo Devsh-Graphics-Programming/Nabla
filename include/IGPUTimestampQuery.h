@@ -1,5 +1,9 @@
-#ifndef __I_GPU_TIMESTAMP_QUERY_H_INCLUDED__
-#define __I_GPU_TIMESTAMP_QUERY_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_I_GPU_TIMESTAMP_QUERY_H_INCLUDED__
+#define __NBL_I_GPU_TIMESTAMP_QUERY_H_INCLUDED__
 
 #include "irr/core/IReferenceCounted.h"
 #include "stdint.h"
@@ -12,7 +16,7 @@ namespace video
 
 class IGPUTimestampQuery : public core::IReferenceCounted
 {
-	    _IRR_INTERFACE_CHILD(IGPUTimestampQuery) {}
+	    _NBL_INTERFACE_CHILD(IGPUTimestampQuery) {}
     public:
 		virtual bool isQueryReady() = 0;
 
@@ -22,6 +26,6 @@ class IGPUTimestampQuery : public core::IReferenceCounted
 }
 }
 
-#endif // __I_GPU_TIMESTAMP_QUERY_H_INCLUDED__
+#endif
 
 

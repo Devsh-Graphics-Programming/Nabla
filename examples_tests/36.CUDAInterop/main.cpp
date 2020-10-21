@@ -1,4 +1,8 @@
-#define _IRR_STATIC_LIB_
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#define _NBL_STATIC_LIB_
 #include <irrlicht.h>
 
 
@@ -29,9 +33,9 @@ int main()
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
 	params.AuxGLContexts = 16;
-	IrrlichtDevice* device = createDeviceEx(params);
+	auto device = createDeviceEx(params);
 
-	if (device == 0)
+	if (!device)
 		return 1; // could not create selected driver.
 
 	constexpr uint32_t MaxSLI = 4u;
@@ -148,9 +152,9 @@ int main()
 	{
 		constexpr auto resourceCount = 3u;
 		cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> resources[resourceCount];
-		auto& A = resources[0] = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createFilledDeviceLocalGPUBufferOnDedMem(_size,cpubuffers[0]->getPointer()),core::dont_grab);
-		auto& B = resources[1] = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createFilledDeviceLocalGPUBufferOnDedMem(_size,cpubuffers[1]->getPointer()),core::dont_grab);
-		auto& C = resources[2] = core::smart_refctd_ptr<video::IGPUBuffer>(driver->createDeviceLocalGPUBufferOnDedMem(_size),core::dont_grab);
+		auto& A = resources[0] = driver->createFilledDeviceLocalGPUBufferOnDedMem(_size,cpubuffers[0]->getPointer());
+		auto& B = resources[1] = driver->createFilledDeviceLocalGPUBufferOnDedMem(_size,cpubuffers[1]->getPointer());
+		auto& C = resources[2] = driver->createDeviceLocalGPUBufferOnDedMem(_size);
 		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&A,CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
 			return 11;
 		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&B,CU_GRAPHICS_REGISTER_FLAGS_READ_ONLY)))
@@ -198,8 +202,6 @@ int main()
 		if (ownContext[i])
 			cuda::CCUDAHandler::cuda.pcuCtxDestroy_v2(context[i]);
 	}
-
-	device->drop();
 
 	return 0;
 }

@@ -1,9 +1,9 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __I_FRAMEBUFFER_H_INCLUDED__
-#define __I_FRAMEBUFFER_H_INCLUDED__
+#ifndef __NBL_I_FRAMEBUFFER_H_INCLUDED__
+#define __NBL_I_FRAMEBUFFER_H_INCLUDED__
 
 #include "irr/core/IReferenceCounted.h"
 #include "irr/core/parallel/IThreadBound.h"
@@ -61,7 +61,7 @@ class IFrameBuffer : public virtual core::IReferenceCounted, public core::IThrea
 		virtual const core::dimension2du& getSize() const = 0;
 
     protected:
-        _IRR_INTERFACE_CHILD(IFrameBuffer) {}
+        _NBL_INTERFACE_CHILD(IFrameBuffer) {}
 };
 
 

@@ -1,9 +1,9 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __I_GPU_IMAGE_H_INCLUDED__
-#define __I_GPU_IMAGE_H_INCLUDED__
+#ifndef __NBL_VIDEO_GPU_IMAGE_H_INCLUDED__
+#define __NBL_VIDEO_GPU_IMAGE_H_INCLUDED__
 
 #include "dimension2d.h"
 #include "IDriverMemoryBacked.h"
@@ -20,7 +20,7 @@ namespace video
 class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset::IImage>
 {
     public:
-        _IRR_RESOLVE_NEW_DELETE_AMBIGUITY(IDriverMemoryBacked,asset::IImage)
+        _NBL_RESOLVE_NEW_DELETE_AMBIGUITY(IDriverMemoryBacked,asset::IImage)
 			
 		//!
 		virtual bool validateCopies(const SBufferCopy* pRegionsBegin, const SBufferCopy* pRegionsEnd, const IGPUBuffer* src)
@@ -28,7 +28,7 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
 			if (!validateCopies_template(pRegionsBegin, pRegionsEnd, src))
 				return false;
 			
-			#ifdef _IRR_DEBUG // TODO: When Vulkan comes
+			#ifdef _NBL_DEBUG // TODO: When Vulkan comes
 			#endif
 			return true;
 		}
@@ -38,7 +38,7 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
 			if (!validateCopies_template(pRegionsBegin, pRegionsEnd, src))
 				return false;
 
-			#ifdef _IRR_DEBUG // TODO: When Vulkan comes
+			#ifdef _NBL_DEBUG // TODO: When Vulkan comes
 				// image offset and extent must respect granularity requirements
 				// buffer has memory bound (with sparse exceptions)
 				// check buffer has transfer usage flag
@@ -50,7 +50,7 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
 		}
 
     protected:
-        _IRR_INTERFACE_CHILD(IGPUImage) {}
+        _NBL_INTERFACE_CHILD(IGPUImage) {}
 
         //! constructor
 		IGPUImage(SCreationParams&& _params)

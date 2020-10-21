@@ -1,11 +1,11 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
 //New skinned mesh
 
-#ifndef __C_GPU_SKINNED_MESH_H_INCLUDED__
-#define __C_GPU_SKINNED_MESH_H_INCLUDED__
+#ifndef __NBL_VIDEO_C_GPU_SKINNED_MESH_H_INCLUDED__
+#define __NBL_VIDEO_C_GPU_SKINNED_MESH_H_INCLUDED__
 
 #include "irr/video/IGPUSkinnedMesh.h"
 #include "CFinalBoneHierarchy.h"
@@ -35,7 +35,7 @@ namespace video
         public:
             CGPUSkinnedMesh(core::smart_refctd_ptr<const asset::CFinalBoneHierarchy>&& boneHierarchy) : IGPUSkinnedMesh(std::move(boneHierarchy))
             {
-                #ifdef _IRR_DEBUG
+                #ifdef _NBL_DEBUG
                 setDebugName("CGPUSkinnedMesh");
                 #endif
             }

@@ -1,10 +1,14 @@
-#ifndef __IRR_I_OPENGL_PIPELINE_H_INCLUDED__
-#define __IRR_I_OPENGL_PIPELINE_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_VIDEO_I_OPENGL_PIPELINE_H_INCLUDED__
+#define __NBL_VIDEO_I_OPENGL_PIPELINE_H_INCLUDED__
 
 #include "irr/video/COpenGLSpecializedShader.h"
 #include "irr/video/IGPUMeshBuffer.h"//for IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 namespace irr
 { 
 namespace video
@@ -31,7 +35,7 @@ class IOpenGLPipeline
                 }
 
             const size_t uVals_sz = _STAGE_COUNT*_ctxCount*IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE;
-            m_uniformValues = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(uVals_sz, 128));
+            m_uniformValues = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(uVals_sz, 128));
         }
         ~IOpenGLPipeline()
         {
@@ -39,7 +43,7 @@ class IOpenGLPipeline
             for (const auto& p : (*m_GLprograms))
                 if (p.GLname != 0u)
                     COpenGLExtensionHandler::extGlDeleteProgram(p.GLname);
-            _IRR_ALIGNED_FREE(m_uniformValues);
+            _NBL_ALIGNED_FREE(m_uniformValues);
         }
 
         uint8_t* getPushConstantsStateForStage(uint32_t _stageIx, uint32_t _ctxID) const { return const_cast<uint8_t*>(m_uniformValues + ((_STAGE_COUNT*_ctxID + _stageIx)*IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE)); }
@@ -52,7 +56,7 @@ class IOpenGLPipeline
             GLuint GLname = getShaderGLnameForCtx(_stageIx, _ctxID);
             uint8_t* state = getPushConstantsStateForStage(_stageIx, _ctxID);
 
-            IRR_ASSUME_ALIGNED(_pcData, 128);
+            NBL_ASSUME_ALIGNED(_pcData, 128);
 
             using gl = COpenGLExtensionHandler;
 	        uint32_t loc_i = 0u;
@@ -80,12 +84,12 @@ class IOpenGLPipeline
                     arrayStride = (m.count <= 1u) ? arrayStride1 : m.arrayStride;
                 }
 		        assert(m.mtxStride==0u || arrayStride%m.mtxStride==0u);
-		        IRR_ASSUME_ALIGNED(valueptr, sizeof(float));
-		        //IRR_ASSUME_ALIGNED(valueptr, arrayStride); // should get the std140/std430 alignment of the type instead
+		        NBL_ASSUME_ALIGNED(valueptr, sizeof(float));
+		        //NBL_ASSUME_ALIGNED(valueptr, arrayStride); // should get the std140/std430 alignment of the type instead
 		
 		        auto* baseOffset = _pcData+m.offset;
-		        IRR_ASSUME_ALIGNED(baseOffset, sizeof(float));
-		        //IRR_ASSUME_ALIGNED(baseOffset, arrayStride); // should get the std140/std430 alignment of the type instead
+		        NBL_ASSUME_ALIGNED(baseOffset, sizeof(float));
+		        //NBL_ASSUME_ALIGNED(baseOffset, arrayStride); // should get the std140/std430 alignment of the type instead
 
 		        constexpr uint32_t MAX_DWORD_SIZE = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE/sizeof(uint32_t);
 		        alignas(128u) std::array<uint32_t,MAX_DWORD_SIZE> packed_data;

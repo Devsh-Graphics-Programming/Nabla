@@ -1,9 +1,10 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __C_VIDEO_NULL_H_INCLUDED__
-#define __C_VIDEO_NULL_H_INCLUDED__
+#ifndef __NBL_C_VIDEO_NULL_H_INCLUDED__
+#define __NBL_C_VIDEO_NULL_H_INCLUDED__
 
 #include "irrlicht.h"
 
@@ -75,7 +76,7 @@ class CNullDriver : public IVideoDriver
             updateRange.offset = _offset;
             updateRange.size = _size;
 
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
             //TODO validation:
             /*
             For each byte in the range specified by offset and size and for each shader stage in stageFlags,
@@ -90,7 +91,7 @@ class CNullDriver : public IVideoDriver
                 if (updateRange.overlap(rng) && ((_stages & rng.stageFlags) != rng.stageFlags))
                     return false;
             }
-#endif//_IRR_DEBUG
+#endif//_NBL_DEBUG
 
             return true;
         }
@@ -174,9 +175,6 @@ class CNullDriver : public IVideoDriver
 		//! Returns the maximum texture size supported.
 		virtual const uint32_t* getMaxTextureSize(IGPUImageView::E_TYPE type) const override;
 
-		//!
-		const CDerivativeMapCreator* getDerivativeMapCreator() const override { return DerivativeMapCreator.get(); };
-
 	protected:
         void bindDescriptorSets_generic(const IGPUPipelineLayout* _newLayout, uint32_t _first, uint32_t _count,
 										const IGPUDescriptorSet* const* _descSets, const IGPUPipelineLayout** _destPplnLayouts);
@@ -192,8 +190,6 @@ class CNullDriver : public IVideoDriver
 		CFPSCounter FPSCounter;
 
 		uint32_t PrimitivesDrawn;
-
-		core::smart_refctd_ptr<CDerivativeMapCreator> DerivativeMapCreator;
 
 		SExposedVideoData ExposedData;
 

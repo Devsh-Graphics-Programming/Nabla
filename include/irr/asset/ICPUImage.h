@@ -1,9 +1,9 @@
-// Copyright (C) 2017- Mateusz 'DevSH' Kielan
-// This file is part of the "IrrlichtBAW" engine.
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __I_CPU_IMAGE_H_INCLUDED__
-#define __I_CPU_IMAGE_H_INCLUDED__
+#ifndef __NBL_ASSET_I_CPU_IMAGE_H_INCLUDED__
+#define __NBL_ASSET_I_CPU_IMAGE_H_INCLUDED__
 
 #include "irr/core/core.h"
 
@@ -52,7 +52,7 @@ class ICPUImage final : public IImage, public IAsset
             regions = nullptr;
         }
 
-		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_IMAGE;
+		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_IMAGE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
         virtual size_t conservativeSizeEstimate() const override

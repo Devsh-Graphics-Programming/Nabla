@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #include "common.glsl"
 
 layout(std430, set = 0, binding = 0, row_major) restrict readonly buffer BoneMatrices

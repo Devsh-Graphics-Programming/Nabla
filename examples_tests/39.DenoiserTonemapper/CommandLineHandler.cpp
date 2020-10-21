@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #include "CommandLineHandler.hpp"
 
 #include <algorithm>
@@ -209,11 +213,11 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 	elapsedTimeEntireLoading = endEntireTime - startEntireTime;
 	status = true;
 
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): Elapsed time of loading entire data: " + std::to_string(elapsedTimeEntireLoading.count()) + " nanoseconds", ELL_INFORMATION);
 	os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): Elapsed time of loading without mitsuba xml files: " + std::to_string(elapsedTimeEntireLoading.count() - elapsedTimeXmls.count()) + " nanoseconds", ELL_INFORMATION);
 	os::Printer::log("INFO (" + std::to_string(__LINE__) + " line): Elapsed time of loading mitsuba xml files: " + std::to_string(elapsedTimeXmls.count()) + " nanoseconds", ELL_INFORMATION);
-	#endif // _IRR_DEBUG
+	#endif // _NBL_DEBUG
 }
 
 bool CommandLineHandler::validateMandatoryParameters(const variablesType& rawVariablesPerFile, const size_t idOfInput)
@@ -370,8 +374,8 @@ irr::core::matrix3x4SIMD CommandLineHandler::getCameraTransform(uint64_t id)
 		return cameraTransform;
 	};
 
-	_IRR_STATIC_INLINE_CONSTEXPR uint8_t PATH_TO_MITSUBA_SCENE = 1;
-	_IRR_STATIC_INLINE_CONSTEXPR uint8_t CAMERA_MATRIX_VALUES = 9;
+	_NBL_STATIC_INLINE_CONSTEXPR uint8_t PATH_TO_MITSUBA_SCENE = 1;
+	_NBL_STATIC_INLINE_CONSTEXPR uint8_t CAMERA_MATRIX_VALUES = 9;
 
 	switch (rawVariables[id][DTEA_CAMERA_TRANSFORM].value().size())
 	{

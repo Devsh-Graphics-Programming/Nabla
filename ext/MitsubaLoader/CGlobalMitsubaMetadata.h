@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef __C_GLOBAL_MITSUBA_METADATA_H_INCLUDED__
 #define __C_GLOBAL_MITSUBA_METADATA_H_INCLUDED__
 
@@ -38,7 +42,7 @@ class IMitsubaMetadata : public asset::IAssetMetadata
 	public:
 		IMitsubaMetadata(core::smart_refctd_ptr<CGlobalMitsubaMetadata>&& _gmeta, std::string&& _id="") : globalMetadata(_gmeta), id(_id) {}
 
-		_IRR_STATIC_INLINE_CONSTEXPR const char* LoaderName = "Mistuba XML";
+		_NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "Mistuba XML";
 		const char* getLoaderName() const override {return LoaderName;}
 
 

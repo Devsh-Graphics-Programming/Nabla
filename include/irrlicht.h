@@ -1,4 +1,4 @@
-/* irrlicht.h -- interface of the 'IrrlichtBAW Engine'
+/* irrlicht.h -- interface of the 'Nabla Engine'
 
   Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
 
@@ -14,8 +14,8 @@
   See README.md for all mentions of 3rd party software used.
 */
 
-#ifndef __IRRLICHT_H_INCLUDED__
-#define __IRRLICHT_H_INCLUDED__
+#ifndef __NABLA_H_INCLUDED__
+#define __NABLA_H_INCLUDED__
 
 // core lib
 #include "irr/core/core.h"
@@ -36,7 +36,6 @@
 #include "irr/scene/scene.h"
 
 
-#include "IrrCompileConfig.h"
 #include "aabbox3d.h"
 #include "vector2d.h"
 #include "vector3d.h"

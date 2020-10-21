@@ -1,9 +1,11 @@
-// Copyright (C) 2017- Mateusz Kielan
-// This file is part of the "IrrlichtBAW".
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 ///#include "COpenGLStateManager.h"
 
-#ifndef __C_OPENGL_STATE_MANAGER_IMPLEMENTATION_H_INCLUDED__
-#define __C_OPENGL_STATE_MANAGER_IMPLEMENTATION_H_INCLUDED__
+#ifndef __NBL_C_OPENGL_STATE_MANAGER_IMPLEMENTATION_H_INCLUDED__
+#define __NBL_C_OPENGL_STATE_MANAGER_IMPLEMENTATION_H_INCLUDED__
 
 
 

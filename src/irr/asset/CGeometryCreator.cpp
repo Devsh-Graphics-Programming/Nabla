@@ -1,6 +1,6 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "os.h"
 
@@ -21,7 +21,7 @@ CGeometryCreator::CGeometryCreator(IMeshManipulator* const _defaultMeshManipulat
 {
 	if (defaultMeshManipulator == nullptr)
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		assert(false);
 	}
 }

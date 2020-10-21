@@ -1,11 +1,9 @@
-// Copyright (C) 2018 Mateusz 'DevSH' Kielan
-// This file is part of the "IrrlichtBAW Engine"
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_ALIGNED_ALLOCATOR_ADAPTOR_H_INCLUDED__
-#define __IRR_ALIGNED_ALLOCATOR_ADAPTOR_H_INCLUDED__
-
-#include "IrrCompileConfig.h"
+#ifndef __NBL_CORE_ALIGNED_ALLOCATOR_ADAPTOR_H_INCLUDED__
+#define __NBL_CORE_ALIGNED_ALLOCATOR_ADAPTOR_H_INCLUDED__
 
 #include <memory>
 
@@ -16,8 +14,8 @@ namespace irr
 namespace core
 {
 
-template <class Alloc, size_t overAlign=_IRR_DEFAULT_ALIGNMENT(typename std::allocator_traits<Alloc>::value_type)>
-class IRR_FORCE_EBO aligned_allocator_adaptor : public Alloc
+template <class Alloc, size_t overAlign=_NBL_DEFAULT_ALIGNMENT(typename std::allocator_traits<Alloc>::value_type)>
+class NBL_FORCE_EBO aligned_allocator_adaptor : public Alloc
 {
     public:
         typedef std::allocator_traits<Alloc>                    traits;

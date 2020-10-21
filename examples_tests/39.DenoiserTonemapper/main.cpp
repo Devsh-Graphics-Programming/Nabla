@@ -1,4 +1,8 @@
-#define _IRR_STATIC_LIB_
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
 #include <irrlicht.h>
@@ -1036,7 +1040,7 @@ void main()
 					imageViewInfo.subresourceRange.levelCount = ditheringImage->getCreationParameters().mipLevels;
 
 					auto ditheringImageView = ICPUImageView::create(std::move(imageViewInfo));
-					state.ditherState = _IRR_NEW(std::remove_pointer<decltype(state.ditherState)>::type, ditheringImageView.get());
+					state.ditherState = _NBL_NEW(std::remove_pointer<decltype(state.ditherState)>::type, ditheringImageView.get());
 
 					state.inImage = image.get();
 					state.outImage = newConvertedImage.get();
@@ -1055,7 +1059,7 @@ void main()
 					if (!convertFilter.execute(&state))
 						os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Something went wrong while converting the image!", ELL_WARNING);
 
-					_IRR_DELETE(state.ditherState);
+					_NBL_DELETE(state.ditherState);
 				}
 
 				// create image view

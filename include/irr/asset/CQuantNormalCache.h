@@ -1,5 +1,9 @@
-#ifndef C_QUANT_NORMAL_CACHE_H_INCLUDED
-#define C_QUANT_NORMAL_CACHE_H_INCLUDED
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_ASSET_C_QUANT_NORMAL_CACHE_H_INCLUDED
+#define __NBL_ASSET_C_QUANT_NORMAL_CACHE_H_INCLUDED
 
 
 #include "irr/core/core.h"

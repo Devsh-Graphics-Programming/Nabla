@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef __C_ELEMENT_INTEGRATOR_H_INCLUDED__
 #define __C_ELEMENT_INTEGRATOR_H_INCLUDED__
 
@@ -164,7 +168,7 @@ class CElementIntegrator : public IElement
 		};
 	struct MetaIntegrator
 	{
-		_IRR_STATIC_INLINE_CONSTEXPR size_t maxChildCount = 3u*(FieldExtraction::Type::PRIMITIVE_INDEX+Type::FIELD_EXTRACT);
+		_NBL_STATIC_INLINE_CONSTEXPR size_t maxChildCount = 3u*(FieldExtraction::Type::PRIMITIVE_INDEX+Type::FIELD_EXTRACT);
 		size_t childCount = 0u;
 		CElementIntegrator* children[maxChildCount] = { nullptr };
 	};
@@ -276,7 +280,7 @@ class CElementIntegrator : public IElement
 			switch (type)
 			{
 				case Type::IRR_CACHE:
-					_IRR_FALLTHROUGH;
+					[[fallthrough]];
 				case Type::MULTI_CHANNEL:
 					if (_child->getType() != IElement::Type::INTEGRATOR)
 						return false;

@@ -1,5 +1,11 @@
-#ifndef __IRR_VIDEO_H_INCLUDED__
-#define __IRR_VIDEO_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_VIDEO_H_INCLUDED__
+#define __NBL_VIDEO_H_INCLUDED__
+
+#include "irr/video/compile_config.h"
 
 // dependencies
 #include "irr/asset/asset.h"

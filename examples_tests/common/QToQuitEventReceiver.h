@@ -1,5 +1,9 @@
-#ifndef __Q_TO_QUIT_EVENT_RECEIVER_H__INCLUDED__
-#define __Q_TO_QUIT_EVENT_RECEIVER_H__INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_Q_TO_QUIT_EVENT_RECEIVER_H__INCLUDED__
+#define __NBL_Q_TO_QUIT_EVENT_RECEIVER_H__INCLUDED__
 
 #include "irrlicht.h"
 

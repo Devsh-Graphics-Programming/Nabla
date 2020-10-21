@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef __C_ELEMENT_SENSOR_H_INCLUDED__
 #define __C_ELEMENT_SENSOR_H_INCLUDED__
 
@@ -57,7 +61,7 @@ class CElementSensor : public IElement
 
 			void setFoVFromFocalLength(float focalLength)
 			{
-				_IRR_DEBUG_BREAK_IF(true); // TODO
+				_NBL_DEBUG_BREAK_IF(true); // TODO
 			}
 
 			float fov = 53.2f;

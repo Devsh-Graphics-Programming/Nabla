@@ -1,11 +1,9 @@
-// Copyright (C) 2018 Mateusz 'DevSH' Kielan
-// This file is part of the "IrrlichtBAW Engine"
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_ADDRESS_ALLOCATOR_CONCURRENCY_ADAPTORS_H_INCLUDED__
-#define __IRR_ADDRESS_ALLOCATOR_CONCURRENCY_ADAPTORS_H_INCLUDED__
-
-#include "IrrCompileConfig.h"
+#ifndef __NBL_CORE_ADDRESS_ALLOCATOR_CONCURRENCY_ADAPTORS_H_INCLUDED__
+#define __NBL_CORE_ADDRESS_ALLOCATOR_CONCURRENCY_ADAPTORS_H_INCLUDED__
 
 #include "irr/core/alloc/address_allocator_traits.h"
 
@@ -24,7 +22,7 @@ class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
 
         AddressAllocator& getBaseRef() {return reinterpret_cast<AddressAllocator&>(*this);}
     public:
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(typename AddressAllocator::size_type);
+        _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(typename AddressAllocator::size_type);
 
         typedef address_allocator_traits<AddressAllocator>              traits;
         static_assert(address_allocator_traits<AddressAllocator>::supportsArbitraryOrderFrees,"AddressAllocator does not support arbitrary order frees!");
@@ -116,4 +114,4 @@ class AddressAllocatorBasicConcurrencyAdaptor : private AddressAllocator
 }
 }
 
-#endif // __IRR_ADDRESS_ALLOCATOR_CONCURRENCY_ADAPTORS_H_INCLUDED__
+#endif

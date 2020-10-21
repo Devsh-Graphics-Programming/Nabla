@@ -1,7 +1,10 @@
-#ifndef __IRR_MATRIX4SIMD_H_INCLUDED__
-#define __IRR_MATRIX4SIMD_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "IrrCompileConfig.h"
+#ifndef __NBL_MATRIX4SIMD_H_INCLUDED__
+#define __NBL_MATRIX4SIMD_H_INCLUDED__
+
 #include "matrix3x4SIMD.h"
 
 namespace irr
@@ -13,10 +16,10 @@ template<typename T>
 class aabbox3d;
 
 
-class matrix4SIMD// : public AlignedBase<_IRR_SIMD_ALIGNMENT> don't inherit from AlignedBase (which is empty) because member `rows[4]` inherits from it as well
+class matrix4SIMD// : public AlignedBase<_NBL_SIMD_ALIGNMENT> don't inherit from AlignedBase (which is empty) because member `rows[4]` inherits from it as well
 {
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t VectorCount = 4u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t VectorCount = 4u;
 		vectorSIMDf rows[VectorCount];
 
 		inline explicit matrix4SIMD(const vectorSIMDf& _r0 = vectorSIMDf(1.f, 0.f, 0.f, 0.f),
@@ -203,4 +206,4 @@ inline matrix4SIMD concatenateBFollowedByAPrecisely(const matrix4SIMD& _a, const
 
 }} // irr::core
 
-#endif // __IRR_MATRIX4SIMD_H_INCLUDED__
+#endif

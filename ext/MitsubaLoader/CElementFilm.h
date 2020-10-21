@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef __C_ELEMENT_FILM_H_INCLUDED__
 #define __C_ELEMENT_FILM_H_INCLUDED__
 
@@ -81,7 +85,7 @@ class CElementFilm : public IElement
 				variable[4] = 0;
 			}
 			int32_t digits;
-			_IRR_STATIC_INLINE_CONSTEXPR size_t MaxVarNameLen = 63; // matlab
+			_NBL_STATIC_INLINE_CONSTEXPR size_t MaxVarNameLen = 63; // matlab
 			char variable[MaxVarNameLen+1];
 		};
 

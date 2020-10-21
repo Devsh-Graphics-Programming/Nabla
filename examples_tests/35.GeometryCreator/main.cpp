@@ -1,4 +1,8 @@
-#define _IRR_STATIC_LIB_
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
 #include <irrlicht.h>
@@ -43,7 +47,8 @@ const char* vertexSource = R"===(
 layout(location = 0) in vec4 vPos;
 layout(location = 3) in vec3 vNormal;
 
-#include <irr/builtin/glsl/utils/vertex.glsl>
+#include <irr/builtin/glsl/utils/common.glsl>
+#include <irr/builtin/glsl/utils/transform.glsl>
 #include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
 
 layout( push_constant, row_major ) uniform Block {

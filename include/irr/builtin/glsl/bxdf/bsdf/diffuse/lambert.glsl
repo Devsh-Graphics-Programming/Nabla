@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef _IRR_BXDF_BSDF_DIFFUSE_LAMBERT_INCLUDED_
 #define _IRR_BXDF_BSDF_DIFFUSE_LAMBERT_INCLUDED_
 
@@ -8,37 +12,53 @@ float irr_glsl_lambertian_transmitter()
     return irr_glsl_RECIPROCAL_PI*0.5;
 }
 
-float irr_glsl_lambertian_transmitter_cos_eval_rec_2pi_factored_out(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter)
+float irr_glsl_lambertian_transmitter_cos_eval_rec_2pi_factored_out_wo_clamps(in float absNdotL)
 {
-   return abs(params.NdotL);
+   return absNdotL;
+}
+float irr_glsl_lambertian_transmitter_cos_eval_rec_2pi_factored_out(in float NdotL)
+{
+   return irr_glsl_lambertian_transmitter_cos_eval_rec_2pi_factored_out_wo_clamps(abs(NdotL));
 }
 
-float irr_glsl_lambertian_transmitter_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter)
+float irr_glsl_lambertian_transmitter_cos_eval_wo_clamps(in float absNdotL)
 {
-   return irr_glsl_lambertian_transmitter_cos_eval_rec_2pi_factored_out(params,inter)*irr_glsl_lambertian_transmitter();
+   return irr_glsl_lambertian_transmitter_cos_eval_rec_2pi_factored_out_wo_clamps(absNdotL)*irr_glsl_lambertian_transmitter();
+}
+float irr_glsl_lambertian_transmitter_cos_eval(in irr_glsl_LightSample _sample)
+{
+   return irr_glsl_lambertian_transmitter_cos_eval_rec_2pi_factored_out(_sample.NdotL)*irr_glsl_lambertian_transmitter();
 }
 
-irr_glsl_BSDFSample irr_glsl_lambertian_transmitter_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u)
+irr_glsl_LightSample irr_glsl_lambertian_transmitter_cos_generate_wo_clamps(in vec3 tangentSpaceV, in mat3 m, in vec3 u)
 {
     vec3 L = irr_glsl_projected_sphere_generate(u);
-
-    irr_glsl_BSDFSample s;
-    s.L = irr_glsl_getTangentFrame(interaction) * L;
-    s.TdotL = L.x;
-    s.BdotL = L.y;
-    s.NdotL = L.z;
-    /* Undefined
-    s.TdotH = H.x;
-    s.BdotH = H.y;
-    s.NdotH = H.z;
-    s.VdotH = VdotH;*/
-
-    return s;
+    
+    return irr_glsl_createLightSampleTangentSpace(tangentSpaceV,L,m);
+}
+irr_glsl_LightSample irr_glsl_lambertian_transmitter_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u)
+{
+    return irr_glsl_lambertian_transmitter_cos_generate_wo_clamps(irr_glsl_getTangentSpaceV(interaction),irr_glsl_getTangentFrame(interaction),u);
 }
 
-float irr_glsl_lambertian_transmitter_cos_remainder_and_pdf(out float pdf, in irr_glsl_BSDFSample s, in irr_glsl_IsotropicViewSurfaceInteraction interaction)
+
+
+float irr_glsl_lambertian_transmitter_pdf_wo_clamps(in float absNdotL)
 {
-    return irr_glsl_projected_sphere_remainder_and_pdf(pdf,abs(s.NdotL));
+    float pdf;
+    irr_glsl_projected_sphere_remainder_and_pdf(pdf, absNdotL);
+    return pdf;
+}
+
+
+
+float irr_glsl_lambertian_transmitter_cos_remainder_and_pdf_wo_clamps(out float pdf, in float absNdotL)
+{
+    return irr_glsl_projected_sphere_remainder_and_pdf(pdf,absNdotL);
+}
+float irr_glsl_lambertian_transmitter_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample s)
+{
+    return irr_glsl_lambertian_transmitter_cos_remainder_and_pdf_wo_clamps(pdf,abs(s.NdotL));
 }
 
 #endif

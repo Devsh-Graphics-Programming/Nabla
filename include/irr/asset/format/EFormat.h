@@ -1,9 +1,13 @@
-#ifndef __IRR_ASSET_E_FORMAT_H_INCLUDED__
-#define __IRR_ASSET_E_FORMAT_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_ASSET_E_FORMAT_H_INCLUDED__
+#define __NBL_ASSET_E_FORMAT_H_INCLUDED__
 
 #include <cstdint>
 #include <type_traits>
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 #include "vectorSIMD.h"
 #include "irr/core/math/rational.h"
 
@@ -243,9 +247,9 @@ namespace asset
     {
         switch (_fclass)
         {
-        case EFC_8_BIT: _IRR_FALLTHROUGH;
-        case EFC_16_BIT: _IRR_FALLTHROUGH;
-        case EFC_24_BIT: _IRR_FALLTHROUGH;
+        case EFC_8_BIT: [[fallthrough]];
+        case EFC_16_BIT: [[fallthrough]];
+        case EFC_24_BIT: [[fallthrough]];
         case EFC_32_BIT:
             return _fclass+1u;
         case EFC_48_BIT:
@@ -261,7 +265,7 @@ namespace asset
         case EFC_256_BIT:
             return 32u;
         default:
-            _IRR_DEBUG_BREAK_IF(1);
+            _NBL_DEBUG_BREAK_IF(1);
             return 0u;
         }
     }
@@ -271,9 +275,9 @@ namespace asset
     {
         switch (_fclass)
         {
-        case EFC_8_BIT: _IRR_FALLTHROUGH;
-        case EFC_16_BIT: _IRR_FALLTHROUGH;
-        case EFC_24_BIT: _IRR_FALLTHROUGH;
+        case EFC_8_BIT: [[fallthrough]];
+        case EFC_16_BIT: [[fallthrough]];
+        case EFC_24_BIT: [[fallthrough]];
         case EFC_32_BIT:
             return _fclass + 1u;
         case EFC_48_BIT:
@@ -289,7 +293,7 @@ namespace asset
         case EFC_256_BIT:
             return 32u;
         default:
-            _IRR_DEBUG_BREAK_IF(1);
+            _NBL_DEBUG_BREAK_IF(1);
             return 0u;
         }
     }
@@ -298,19 +302,19 @@ namespace asset
     {
         switch (_fclass)
         {
-        case EFC_8_BIT: _IRR_FALLTHROUGH;
-        case EFC_16_BIT: _IRR_FALLTHROUGH;
-        case EFC_24_BIT: _IRR_FALLTHROUGH;
-        case EFC_32_BIT: _IRR_FALLTHROUGH;
-        case EFC_48_BIT: _IRR_FALLTHROUGH;
-        case EFC_64_BIT: _IRR_FALLTHROUGH;
-        case EFC_96_BIT: _IRR_FALLTHROUGH;
-        case EFC_128_BIT: _IRR_FALLTHROUGH;
-        case EFC_192_BIT: _IRR_FALLTHROUGH;
+        case EFC_8_BIT: [[fallthrough]];
+        case EFC_16_BIT: [[fallthrough]];
+        case EFC_24_BIT: [[fallthrough]];
+        case EFC_32_BIT: [[fallthrough]];
+        case EFC_48_BIT: [[fallthrough]];
+        case EFC_64_BIT: [[fallthrough]];
+        case EFC_96_BIT: [[fallthrough]];
+        case EFC_128_BIT: [[fallthrough]];
+        case EFC_192_BIT: [[fallthrough]];
         case EFC_256_BIT:
             return core::vector3du32_SIMD(1u,1u,1u);
         default:
-            _IRR_DEBUG_BREAK_IF(1);
+            _NBL_DEBUG_BREAK_IF(1);
             return core::vector3du32_SIMD(0u);
         }
     }
@@ -320,19 +324,19 @@ namespace asset
     {
         switch (_fclass)
         {
-        case EFC_8_BIT: _IRR_FALLTHROUGH;
-        case EFC_16_BIT: _IRR_FALLTHROUGH;
-        case EFC_24_BIT: _IRR_FALLTHROUGH;
-        case EFC_32_BIT: _IRR_FALLTHROUGH;
-        case EFC_48_BIT: _IRR_FALLTHROUGH;
-        case EFC_64_BIT: _IRR_FALLTHROUGH;
-        case EFC_96_BIT: _IRR_FALLTHROUGH;
-        case EFC_128_BIT: _IRR_FALLTHROUGH;
-        case EFC_192_BIT: _IRR_FALLTHROUGH;
+        case EFC_8_BIT: [[fallthrough]];
+        case EFC_16_BIT: [[fallthrough]];
+        case EFC_24_BIT: [[fallthrough]];
+        case EFC_32_BIT: [[fallthrough]];
+        case EFC_48_BIT: [[fallthrough]];
+        case EFC_64_BIT: [[fallthrough]];
+        case EFC_96_BIT: [[fallthrough]];
+        case EFC_128_BIT: [[fallthrough]];
+        case EFC_192_BIT: [[fallthrough]];
         case EFC_256_BIT:
             return core::vector3du32_SIMD(1u, 1u, 1u);
         default:
-            _IRR_DEBUG_BREAK_IF(1);
+            _NBL_DEBUG_BREAK_IF(1);
             return core::vector3du32_SIMD(0u);
         }
     }
@@ -341,141 +345,141 @@ namespace asset
     {
         switch (_fmt)
         {
-            case EF_R4G4_UNORM_PACK8: _IRR_FALLTHROUGH;
-            case EF_R8_UNORM: _IRR_FALLTHROUGH;
-            case EF_R8_SNORM: _IRR_FALLTHROUGH;
-            case EF_R8_USCALED: _IRR_FALLTHROUGH;
-            case EF_R8_SSCALED: _IRR_FALLTHROUGH;
-            case EF_R8_UINT: _IRR_FALLTHROUGH;
-            case EF_R8_SINT: _IRR_FALLTHROUGH;
+            case EF_R4G4_UNORM_PACK8: [[fallthrough]];
+            case EF_R8_UNORM: [[fallthrough]];
+            case EF_R8_SNORM: [[fallthrough]];
+            case EF_R8_USCALED: [[fallthrough]];
+            case EF_R8_SSCALED: [[fallthrough]];
+            case EF_R8_UINT: [[fallthrough]];
+            case EF_R8_SINT: [[fallthrough]];
             case EF_R8_SRGB:
                 return EFC_8_BIT;
-            case EF_R4G4B4A4_UNORM_PACK16: _IRR_FALLTHROUGH;
-            case EF_B4G4R4A4_UNORM_PACK16: _IRR_FALLTHROUGH;
-            case EF_R5G6B5_UNORM_PACK16: _IRR_FALLTHROUGH;
-            case EF_B5G6R5_UNORM_PACK16: _IRR_FALLTHROUGH;
-            case EF_R5G5B5A1_UNORM_PACK16: _IRR_FALLTHROUGH;
-            case EF_B5G5R5A1_UNORM_PACK16: _IRR_FALLTHROUGH;
-            case EF_A1R5G5B5_UNORM_PACK16: _IRR_FALLTHROUGH;
-            case EF_R8G8_UNORM: _IRR_FALLTHROUGH;
-            case EF_R8G8_SNORM: _IRR_FALLTHROUGH;
-            case EF_R8G8_USCALED: _IRR_FALLTHROUGH;
-            case EF_R8G8_SSCALED: _IRR_FALLTHROUGH;
-            case EF_R8G8_UINT: _IRR_FALLTHROUGH;
-            case EF_R8G8_SINT: _IRR_FALLTHROUGH;
-            case EF_R8G8_SRGB: _IRR_FALLTHROUGH;
-            case EF_R16_UNORM: _IRR_FALLTHROUGH;
-            case EF_R16_SNORM: _IRR_FALLTHROUGH;
-            case EF_R16_USCALED: _IRR_FALLTHROUGH;
-            case EF_R16_SSCALED: _IRR_FALLTHROUGH;
-            case EF_R16_UINT: _IRR_FALLTHROUGH;
-            case EF_R16_SINT: _IRR_FALLTHROUGH;
+            case EF_R4G4B4A4_UNORM_PACK16: [[fallthrough]];
+            case EF_B4G4R4A4_UNORM_PACK16: [[fallthrough]];
+            case EF_R5G6B5_UNORM_PACK16: [[fallthrough]];
+            case EF_B5G6R5_UNORM_PACK16: [[fallthrough]];
+            case EF_R5G5B5A1_UNORM_PACK16: [[fallthrough]];
+            case EF_B5G5R5A1_UNORM_PACK16: [[fallthrough]];
+            case EF_A1R5G5B5_UNORM_PACK16: [[fallthrough]];
+            case EF_R8G8_UNORM: [[fallthrough]];
+            case EF_R8G8_SNORM: [[fallthrough]];
+            case EF_R8G8_USCALED: [[fallthrough]];
+            case EF_R8G8_SSCALED: [[fallthrough]];
+            case EF_R8G8_UINT: [[fallthrough]];
+            case EF_R8G8_SINT: [[fallthrough]];
+            case EF_R8G8_SRGB: [[fallthrough]];
+            case EF_R16_UNORM: [[fallthrough]];
+            case EF_R16_SNORM: [[fallthrough]];
+            case EF_R16_USCALED: [[fallthrough]];
+            case EF_R16_SSCALED: [[fallthrough]];
+            case EF_R16_UINT: [[fallthrough]];
+            case EF_R16_SINT: [[fallthrough]];
             case EF_R16_SFLOAT:
                 return EFC_16_BIT;
-            case EF_R8G8B8_UNORM: _IRR_FALLTHROUGH;
-            case EF_R8G8B8_SNORM: _IRR_FALLTHROUGH;
-            case EF_R8G8B8_USCALED: _IRR_FALLTHROUGH;
-            case EF_R8G8B8_SSCALED: _IRR_FALLTHROUGH;
-            case EF_R8G8B8_UINT: _IRR_FALLTHROUGH;
-            case EF_R8G8B8_SINT: _IRR_FALLTHROUGH;
-            case EF_R8G8B8_SRGB: _IRR_FALLTHROUGH;
-            case EF_B8G8R8_UNORM: _IRR_FALLTHROUGH;
-            case EF_B8G8R8_SNORM: _IRR_FALLTHROUGH;
-            case EF_B8G8R8_USCALED: _IRR_FALLTHROUGH;
-            case EF_B8G8R8_SSCALED: _IRR_FALLTHROUGH;
-            case EF_B8G8R8_UINT: _IRR_FALLTHROUGH;
-            case EF_B8G8R8_SINT: _IRR_FALLTHROUGH;
+            case EF_R8G8B8_UNORM: [[fallthrough]];
+            case EF_R8G8B8_SNORM: [[fallthrough]];
+            case EF_R8G8B8_USCALED: [[fallthrough]];
+            case EF_R8G8B8_SSCALED: [[fallthrough]];
+            case EF_R8G8B8_UINT: [[fallthrough]];
+            case EF_R8G8B8_SINT: [[fallthrough]];
+            case EF_R8G8B8_SRGB: [[fallthrough]];
+            case EF_B8G8R8_UNORM: [[fallthrough]];
+            case EF_B8G8R8_SNORM: [[fallthrough]];
+            case EF_B8G8R8_USCALED: [[fallthrough]];
+            case EF_B8G8R8_SSCALED: [[fallthrough]];
+            case EF_B8G8R8_UINT: [[fallthrough]];
+            case EF_B8G8R8_SINT: [[fallthrough]];
             case EF_B8G8R8_SRGB:
                 return EFC_24_BIT;
-            case EF_R8G8B8A8_UNORM: _IRR_FALLTHROUGH;
-            case EF_R8G8B8A8_SNORM: _IRR_FALLTHROUGH;
-            case EF_R8G8B8A8_USCALED: _IRR_FALLTHROUGH;
-            case EF_R8G8B8A8_SSCALED: _IRR_FALLTHROUGH;
-            case EF_R8G8B8A8_UINT: _IRR_FALLTHROUGH;
-            case EF_R8G8B8A8_SINT: _IRR_FALLTHROUGH;
-            case EF_R8G8B8A8_SRGB: _IRR_FALLTHROUGH;
-            case EF_B8G8R8A8_UNORM: _IRR_FALLTHROUGH;
-            case EF_B8G8R8A8_SNORM: _IRR_FALLTHROUGH;
-            case EF_B8G8R8A8_USCALED: _IRR_FALLTHROUGH;
-            case EF_B8G8R8A8_SSCALED: _IRR_FALLTHROUGH;
-            case EF_B8G8R8A8_UINT: _IRR_FALLTHROUGH;
-            case EF_B8G8R8A8_SINT: _IRR_FALLTHROUGH;
-            case EF_B8G8R8A8_SRGB: _IRR_FALLTHROUGH;
-            case EF_A8B8G8R8_UNORM_PACK32: _IRR_FALLTHROUGH;
-            case EF_A8B8G8R8_SNORM_PACK32: _IRR_FALLTHROUGH;
-            case EF_A8B8G8R8_USCALED_PACK32: _IRR_FALLTHROUGH;
-            case EF_A8B8G8R8_SSCALED_PACK32: _IRR_FALLTHROUGH;
-            case EF_A8B8G8R8_UINT_PACK32: _IRR_FALLTHROUGH;
-            case EF_A8B8G8R8_SINT_PACK32: _IRR_FALLTHROUGH;
-            case EF_A8B8G8R8_SRGB_PACK32: _IRR_FALLTHROUGH;
-            case EF_A2R10G10B10_UNORM_PACK32: _IRR_FALLTHROUGH;
-            case EF_A2R10G10B10_SNORM_PACK32: _IRR_FALLTHROUGH;
-            case EF_A2R10G10B10_USCALED_PACK32: _IRR_FALLTHROUGH;
-            case EF_A2R10G10B10_SSCALED_PACK32: _IRR_FALLTHROUGH;
-            case EF_A2R10G10B10_UINT_PACK32: _IRR_FALLTHROUGH;
-            case EF_A2R10G10B10_SINT_PACK32: _IRR_FALLTHROUGH;
-            case EF_A2B10G10R10_UNORM_PACK32: _IRR_FALLTHROUGH;
-            case EF_A2B10G10R10_SNORM_PACK32: _IRR_FALLTHROUGH;
-            case EF_A2B10G10R10_USCALED_PACK32: _IRR_FALLTHROUGH;
-            case EF_A2B10G10R10_SSCALED_PACK32: _IRR_FALLTHROUGH;
-            case EF_A2B10G10R10_UINT_PACK32: _IRR_FALLTHROUGH;
-            case EF_A2B10G10R10_SINT_PACK32: _IRR_FALLTHROUGH;
-            case EF_R16G16_UNORM: _IRR_FALLTHROUGH;
-            case EF_R16G16_SNORM: _IRR_FALLTHROUGH;
-            case EF_R16G16_USCALED: _IRR_FALLTHROUGH;
-            case EF_R16G16_SSCALED: _IRR_FALLTHROUGH;
-            case EF_R16G16_UINT: _IRR_FALLTHROUGH;
-            case EF_R16G16_SINT: _IRR_FALLTHROUGH;
-            case EF_R16G16_SFLOAT: _IRR_FALLTHROUGH;
-            case EF_R32_UINT: _IRR_FALLTHROUGH;
-            case EF_R32_SINT: _IRR_FALLTHROUGH;
-            case EF_R32_SFLOAT: _IRR_FALLTHROUGH;
-            case EF_B10G11R11_UFLOAT_PACK32: _IRR_FALLTHROUGH;
+            case EF_R8G8B8A8_UNORM: [[fallthrough]];
+            case EF_R8G8B8A8_SNORM: [[fallthrough]];
+            case EF_R8G8B8A8_USCALED: [[fallthrough]];
+            case EF_R8G8B8A8_SSCALED: [[fallthrough]];
+            case EF_R8G8B8A8_UINT: [[fallthrough]];
+            case EF_R8G8B8A8_SINT: [[fallthrough]];
+            case EF_R8G8B8A8_SRGB: [[fallthrough]];
+            case EF_B8G8R8A8_UNORM: [[fallthrough]];
+            case EF_B8G8R8A8_SNORM: [[fallthrough]];
+            case EF_B8G8R8A8_USCALED: [[fallthrough]];
+            case EF_B8G8R8A8_SSCALED: [[fallthrough]];
+            case EF_B8G8R8A8_UINT: [[fallthrough]];
+            case EF_B8G8R8A8_SINT: [[fallthrough]];
+            case EF_B8G8R8A8_SRGB: [[fallthrough]];
+            case EF_A8B8G8R8_UNORM_PACK32: [[fallthrough]];
+            case EF_A8B8G8R8_SNORM_PACK32: [[fallthrough]];
+            case EF_A8B8G8R8_USCALED_PACK32: [[fallthrough]];
+            case EF_A8B8G8R8_SSCALED_PACK32: [[fallthrough]];
+            case EF_A8B8G8R8_UINT_PACK32: [[fallthrough]];
+            case EF_A8B8G8R8_SINT_PACK32: [[fallthrough]];
+            case EF_A8B8G8R8_SRGB_PACK32: [[fallthrough]];
+            case EF_A2R10G10B10_UNORM_PACK32: [[fallthrough]];
+            case EF_A2R10G10B10_SNORM_PACK32: [[fallthrough]];
+            case EF_A2R10G10B10_USCALED_PACK32: [[fallthrough]];
+            case EF_A2R10G10B10_SSCALED_PACK32: [[fallthrough]];
+            case EF_A2R10G10B10_UINT_PACK32: [[fallthrough]];
+            case EF_A2R10G10B10_SINT_PACK32: [[fallthrough]];
+            case EF_A2B10G10R10_UNORM_PACK32: [[fallthrough]];
+            case EF_A2B10G10R10_SNORM_PACK32: [[fallthrough]];
+            case EF_A2B10G10R10_USCALED_PACK32: [[fallthrough]];
+            case EF_A2B10G10R10_SSCALED_PACK32: [[fallthrough]];
+            case EF_A2B10G10R10_UINT_PACK32: [[fallthrough]];
+            case EF_A2B10G10R10_SINT_PACK32: [[fallthrough]];
+            case EF_R16G16_UNORM: [[fallthrough]];
+            case EF_R16G16_SNORM: [[fallthrough]];
+            case EF_R16G16_USCALED: [[fallthrough]];
+            case EF_R16G16_SSCALED: [[fallthrough]];
+            case EF_R16G16_UINT: [[fallthrough]];
+            case EF_R16G16_SINT: [[fallthrough]];
+            case EF_R16G16_SFLOAT: [[fallthrough]];
+            case EF_R32_UINT: [[fallthrough]];
+            case EF_R32_SINT: [[fallthrough]];
+            case EF_R32_SFLOAT: [[fallthrough]];
+            case EF_B10G11R11_UFLOAT_PACK32: [[fallthrough]];
             case EF_E5B9G9R9_UFLOAT_PACK32:
                 return EFC_32_BIT;
-            case EF_R16G16B16_UNORM: _IRR_FALLTHROUGH;
-            case EF_R16G16B16_SNORM: _IRR_FALLTHROUGH;
-            case EF_R16G16B16_USCALED: _IRR_FALLTHROUGH;
-            case EF_R16G16B16_SSCALED: _IRR_FALLTHROUGH;
-            case EF_R16G16B16_UINT: _IRR_FALLTHROUGH;
-            case EF_R16G16B16_SINT: _IRR_FALLTHROUGH;
+            case EF_R16G16B16_UNORM: [[fallthrough]];
+            case EF_R16G16B16_SNORM: [[fallthrough]];
+            case EF_R16G16B16_USCALED: [[fallthrough]];
+            case EF_R16G16B16_SSCALED: [[fallthrough]];
+            case EF_R16G16B16_UINT: [[fallthrough]];
+            case EF_R16G16B16_SINT: [[fallthrough]];
             case EF_R16G16B16_SFLOAT:
                 return EFC_48_BIT;
-            case EF_R16G16B16A16_UNORM: _IRR_FALLTHROUGH;
-            case EF_R16G16B16A16_SNORM: _IRR_FALLTHROUGH;
-            case EF_R16G16B16A16_USCALED: _IRR_FALLTHROUGH;
-            case EF_R16G16B16A16_SSCALED: _IRR_FALLTHROUGH;
-            case EF_R16G16B16A16_UINT: _IRR_FALLTHROUGH;
-            case EF_R16G16B16A16_SINT: _IRR_FALLTHROUGH;
-            case EF_R16G16B16A16_SFLOAT: _IRR_FALLTHROUGH;
-            case EF_R32G32_UINT: _IRR_FALLTHROUGH;
-            case EF_R32G32_SINT: _IRR_FALLTHROUGH;
-            case EF_R32G32_SFLOAT: _IRR_FALLTHROUGH;
-            case EF_R64_UINT: _IRR_FALLTHROUGH;
-            case EF_R64_SINT: _IRR_FALLTHROUGH;
+            case EF_R16G16B16A16_UNORM: [[fallthrough]];
+            case EF_R16G16B16A16_SNORM: [[fallthrough]];
+            case EF_R16G16B16A16_USCALED: [[fallthrough]];
+            case EF_R16G16B16A16_SSCALED: [[fallthrough]];
+            case EF_R16G16B16A16_UINT: [[fallthrough]];
+            case EF_R16G16B16A16_SINT: [[fallthrough]];
+            case EF_R16G16B16A16_SFLOAT: [[fallthrough]];
+            case EF_R32G32_UINT: [[fallthrough]];
+            case EF_R32G32_SINT: [[fallthrough]];
+            case EF_R32G32_SFLOAT: [[fallthrough]];
+            case EF_R64_UINT: [[fallthrough]];
+            case EF_R64_SINT: [[fallthrough]];
             case EF_R64_SFLOAT:
                 return EFC_64_BIT;
-            case EF_R32G32B32_UINT: _IRR_FALLTHROUGH;
-            case EF_R32G32B32_SINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32_UINT: [[fallthrough]];
+            case EF_R32G32B32_SINT: [[fallthrough]];
             case EF_R32G32B32_SFLOAT:
                 return EFC_96_BIT;
-            case EF_R32G32B32A32_UINT: _IRR_FALLTHROUGH;
-            case EF_R32G32B32A32_SINT: _IRR_FALLTHROUGH;
-            case EF_R32G32B32A32_SFLOAT: _IRR_FALLTHROUGH;
-            case EF_R64G64_UINT: _IRR_FALLTHROUGH;
-            case EF_R64G64_SINT: _IRR_FALLTHROUGH;
+            case EF_R32G32B32A32_UINT: [[fallthrough]];
+            case EF_R32G32B32A32_SINT: [[fallthrough]];
+            case EF_R32G32B32A32_SFLOAT: [[fallthrough]];
+            case EF_R64G64_UINT: [[fallthrough]];
+            case EF_R64G64_SINT: [[fallthrough]];
             case EF_R64G64_SFLOAT:
                 return EFC_128_BIT;
-            case EF_R64G64B64_UINT: _IRR_FALLTHROUGH;
-            case EF_R64G64B64_SINT: _IRR_FALLTHROUGH;
+            case EF_R64G64B64_UINT: [[fallthrough]];
+            case EF_R64G64B64_SINT: [[fallthrough]];
             case EF_R64G64B64_SFLOAT:
                 return EFC_192_BIT;
-            case EF_R64G64B64A64_UINT: _IRR_FALLTHROUGH;
-            case EF_R64G64B64A64_SINT: _IRR_FALLTHROUGH;
+            case EF_R64G64B64A64_UINT: [[fallthrough]];
+            case EF_R64G64B64A64_SINT: [[fallthrough]];
             case EF_R64G64B64A64_SFLOAT:
                 return EFC_256_BIT;
             default:
-                _IRR_DEBUG_BREAK_IF(1);
+                _NBL_DEBUG_BREAK_IF(1);
                 return static_cast<E_FORMAT_CLASS>(EFC_256_BIT+1);
         }
     }
@@ -485,141 +489,141 @@ namespace asset
     {
         switch (_fmt)
         {
-        case EF_R4G4_UNORM_PACK8: _IRR_FALLTHROUGH;
-        case EF_R8_UNORM: _IRR_FALLTHROUGH;
-        case EF_R8_SNORM: _IRR_FALLTHROUGH;
-        case EF_R8_USCALED: _IRR_FALLTHROUGH;
-        case EF_R8_SSCALED: _IRR_FALLTHROUGH;
-        case EF_R8_UINT: _IRR_FALLTHROUGH;
-        case EF_R8_SINT: _IRR_FALLTHROUGH;
+        case EF_R4G4_UNORM_PACK8: [[fallthrough]];
+        case EF_R8_UNORM: [[fallthrough]];
+        case EF_R8_SNORM: [[fallthrough]];
+        case EF_R8_USCALED: [[fallthrough]];
+        case EF_R8_SSCALED: [[fallthrough]];
+        case EF_R8_UINT: [[fallthrough]];
+        case EF_R8_SINT: [[fallthrough]];
         case EF_R8_SRGB:
             return EFC_8_BIT;
-        case EF_R4G4B4A4_UNORM_PACK16: _IRR_FALLTHROUGH;
-        case EF_B4G4R4A4_UNORM_PACK16: _IRR_FALLTHROUGH;
-        case EF_R5G6B5_UNORM_PACK16: _IRR_FALLTHROUGH;
-        case EF_B5G6R5_UNORM_PACK16: _IRR_FALLTHROUGH;
-        case EF_R5G5B5A1_UNORM_PACK16: _IRR_FALLTHROUGH;
-        case EF_B5G5R5A1_UNORM_PACK16: _IRR_FALLTHROUGH;
-        case EF_A1R5G5B5_UNORM_PACK16: _IRR_FALLTHROUGH;
-        case EF_R8G8_UNORM: _IRR_FALLTHROUGH;
-        case EF_R8G8_SNORM: _IRR_FALLTHROUGH;
-        case EF_R8G8_USCALED: _IRR_FALLTHROUGH;
-        case EF_R8G8_SSCALED: _IRR_FALLTHROUGH;
-        case EF_R8G8_UINT: _IRR_FALLTHROUGH;
-        case EF_R8G8_SINT: _IRR_FALLTHROUGH;
-        case EF_R8G8_SRGB: _IRR_FALLTHROUGH;
-        case EF_R16_UNORM: _IRR_FALLTHROUGH;
-        case EF_R16_SNORM: _IRR_FALLTHROUGH;
-        case EF_R16_USCALED: _IRR_FALLTHROUGH;
-        case EF_R16_SSCALED: _IRR_FALLTHROUGH;
-        case EF_R16_UINT: _IRR_FALLTHROUGH;
-        case EF_R16_SINT: _IRR_FALLTHROUGH;
+        case EF_R4G4B4A4_UNORM_PACK16: [[fallthrough]];
+        case EF_B4G4R4A4_UNORM_PACK16: [[fallthrough]];
+        case EF_R5G6B5_UNORM_PACK16: [[fallthrough]];
+        case EF_B5G6R5_UNORM_PACK16: [[fallthrough]];
+        case EF_R5G5B5A1_UNORM_PACK16: [[fallthrough]];
+        case EF_B5G5R5A1_UNORM_PACK16: [[fallthrough]];
+        case EF_A1R5G5B5_UNORM_PACK16: [[fallthrough]];
+        case EF_R8G8_UNORM: [[fallthrough]];
+        case EF_R8G8_SNORM: [[fallthrough]];
+        case EF_R8G8_USCALED: [[fallthrough]];
+        case EF_R8G8_SSCALED: [[fallthrough]];
+        case EF_R8G8_UINT: [[fallthrough]];
+        case EF_R8G8_SINT: [[fallthrough]];
+        case EF_R8G8_SRGB: [[fallthrough]];
+        case EF_R16_UNORM: [[fallthrough]];
+        case EF_R16_SNORM: [[fallthrough]];
+        case EF_R16_USCALED: [[fallthrough]];
+        case EF_R16_SSCALED: [[fallthrough]];
+        case EF_R16_UINT: [[fallthrough]];
+        case EF_R16_SINT: [[fallthrough]];
         case EF_R16_SFLOAT:
             return EFC_16_BIT;
-        case EF_R8G8B8_UNORM: _IRR_FALLTHROUGH;
-        case EF_R8G8B8_SNORM: _IRR_FALLTHROUGH;
-        case EF_R8G8B8_USCALED: _IRR_FALLTHROUGH;
-        case EF_R8G8B8_SSCALED: _IRR_FALLTHROUGH;
-        case EF_R8G8B8_UINT: _IRR_FALLTHROUGH;
-        case EF_R8G8B8_SINT: _IRR_FALLTHROUGH;
-        case EF_R8G8B8_SRGB: _IRR_FALLTHROUGH;
-        case EF_B8G8R8_UNORM: _IRR_FALLTHROUGH;
-        case EF_B8G8R8_SNORM: _IRR_FALLTHROUGH;
-        case EF_B8G8R8_USCALED: _IRR_FALLTHROUGH;
-        case EF_B8G8R8_SSCALED: _IRR_FALLTHROUGH;
-        case EF_B8G8R8_UINT: _IRR_FALLTHROUGH;
-        case EF_B8G8R8_SINT: _IRR_FALLTHROUGH;
+        case EF_R8G8B8_UNORM: [[fallthrough]];
+        case EF_R8G8B8_SNORM: [[fallthrough]];
+        case EF_R8G8B8_USCALED: [[fallthrough]];
+        case EF_R8G8B8_SSCALED: [[fallthrough]];
+        case EF_R8G8B8_UINT: [[fallthrough]];
+        case EF_R8G8B8_SINT: [[fallthrough]];
+        case EF_R8G8B8_SRGB: [[fallthrough]];
+        case EF_B8G8R8_UNORM: [[fallthrough]];
+        case EF_B8G8R8_SNORM: [[fallthrough]];
+        case EF_B8G8R8_USCALED: [[fallthrough]];
+        case EF_B8G8R8_SSCALED: [[fallthrough]];
+        case EF_B8G8R8_UINT: [[fallthrough]];
+        case EF_B8G8R8_SINT: [[fallthrough]];
         case EF_B8G8R8_SRGB:
             return EFC_24_BIT;
-        case EF_R8G8B8A8_UNORM: _IRR_FALLTHROUGH;
-        case EF_R8G8B8A8_SNORM: _IRR_FALLTHROUGH;
-        case EF_R8G8B8A8_USCALED: _IRR_FALLTHROUGH;
-        case EF_R8G8B8A8_SSCALED: _IRR_FALLTHROUGH;
-        case EF_R8G8B8A8_UINT: _IRR_FALLTHROUGH;
-        case EF_R8G8B8A8_SINT: _IRR_FALLTHROUGH;
-        case EF_R8G8B8A8_SRGB: _IRR_FALLTHROUGH;
-        case EF_B8G8R8A8_UNORM: _IRR_FALLTHROUGH;
-        case EF_B8G8R8A8_SNORM: _IRR_FALLTHROUGH;
-        case EF_B8G8R8A8_USCALED: _IRR_FALLTHROUGH;
-        case EF_B8G8R8A8_SSCALED: _IRR_FALLTHROUGH;
-        case EF_B8G8R8A8_UINT: _IRR_FALLTHROUGH;
-        case EF_B8G8R8A8_SINT: _IRR_FALLTHROUGH;
-        case EF_B8G8R8A8_SRGB: _IRR_FALLTHROUGH;
-        case EF_A8B8G8R8_UNORM_PACK32: _IRR_FALLTHROUGH;
-        case EF_A8B8G8R8_SNORM_PACK32: _IRR_FALLTHROUGH;
-        case EF_A8B8G8R8_USCALED_PACK32: _IRR_FALLTHROUGH;
-        case EF_A8B8G8R8_SSCALED_PACK32: _IRR_FALLTHROUGH;
-        case EF_A8B8G8R8_UINT_PACK32: _IRR_FALLTHROUGH;
-        case EF_A8B8G8R8_SINT_PACK32: _IRR_FALLTHROUGH;
-        case EF_A8B8G8R8_SRGB_PACK32: _IRR_FALLTHROUGH;
-        case EF_A2R10G10B10_UNORM_PACK32: _IRR_FALLTHROUGH;
-        case EF_A2R10G10B10_SNORM_PACK32: _IRR_FALLTHROUGH;
-        case EF_A2R10G10B10_USCALED_PACK32: _IRR_FALLTHROUGH;
-        case EF_A2R10G10B10_SSCALED_PACK32: _IRR_FALLTHROUGH;
-        case EF_A2R10G10B10_UINT_PACK32: _IRR_FALLTHROUGH;
-        case EF_A2R10G10B10_SINT_PACK32: _IRR_FALLTHROUGH;
-        case EF_A2B10G10R10_UNORM_PACK32: _IRR_FALLTHROUGH;
-        case EF_A2B10G10R10_SNORM_PACK32: _IRR_FALLTHROUGH;
-        case EF_A2B10G10R10_USCALED_PACK32: _IRR_FALLTHROUGH;
-        case EF_A2B10G10R10_SSCALED_PACK32: _IRR_FALLTHROUGH;
-        case EF_A2B10G10R10_UINT_PACK32: _IRR_FALLTHROUGH;
-        case EF_A2B10G10R10_SINT_PACK32: _IRR_FALLTHROUGH;
-        case EF_R16G16_UNORM: _IRR_FALLTHROUGH;
-        case EF_R16G16_SNORM: _IRR_FALLTHROUGH;
-        case EF_R16G16_USCALED: _IRR_FALLTHROUGH;
-        case EF_R16G16_SSCALED: _IRR_FALLTHROUGH;
-        case EF_R16G16_UINT: _IRR_FALLTHROUGH;
-        case EF_R16G16_SINT: _IRR_FALLTHROUGH;
-        case EF_R16G16_SFLOAT: _IRR_FALLTHROUGH;
-        case EF_R32_UINT: _IRR_FALLTHROUGH;
-        case EF_R32_SINT: _IRR_FALLTHROUGH;
-        case EF_R32_SFLOAT: _IRR_FALLTHROUGH;
-        case EF_B10G11R11_UFLOAT_PACK32: _IRR_FALLTHROUGH;
+        case EF_R8G8B8A8_UNORM: [[fallthrough]];
+        case EF_R8G8B8A8_SNORM: [[fallthrough]];
+        case EF_R8G8B8A8_USCALED: [[fallthrough]];
+        case EF_R8G8B8A8_SSCALED: [[fallthrough]];
+        case EF_R8G8B8A8_UINT: [[fallthrough]];
+        case EF_R8G8B8A8_SINT: [[fallthrough]];
+        case EF_R8G8B8A8_SRGB: [[fallthrough]];
+        case EF_B8G8R8A8_UNORM: [[fallthrough]];
+        case EF_B8G8R8A8_SNORM: [[fallthrough]];
+        case EF_B8G8R8A8_USCALED: [[fallthrough]];
+        case EF_B8G8R8A8_SSCALED: [[fallthrough]];
+        case EF_B8G8R8A8_UINT: [[fallthrough]];
+        case EF_B8G8R8A8_SINT: [[fallthrough]];
+        case EF_B8G8R8A8_SRGB: [[fallthrough]];
+        case EF_A8B8G8R8_UNORM_PACK32: [[fallthrough]];
+        case EF_A8B8G8R8_SNORM_PACK32: [[fallthrough]];
+        case EF_A8B8G8R8_USCALED_PACK32: [[fallthrough]];
+        case EF_A8B8G8R8_SSCALED_PACK32: [[fallthrough]];
+        case EF_A8B8G8R8_UINT_PACK32: [[fallthrough]];
+        case EF_A8B8G8R8_SINT_PACK32: [[fallthrough]];
+        case EF_A8B8G8R8_SRGB_PACK32: [[fallthrough]];
+        case EF_A2R10G10B10_UNORM_PACK32: [[fallthrough]];
+        case EF_A2R10G10B10_SNORM_PACK32: [[fallthrough]];
+        case EF_A2R10G10B10_USCALED_PACK32: [[fallthrough]];
+        case EF_A2R10G10B10_SSCALED_PACK32: [[fallthrough]];
+        case EF_A2R10G10B10_UINT_PACK32: [[fallthrough]];
+        case EF_A2R10G10B10_SINT_PACK32: [[fallthrough]];
+        case EF_A2B10G10R10_UNORM_PACK32: [[fallthrough]];
+        case EF_A2B10G10R10_SNORM_PACK32: [[fallthrough]];
+        case EF_A2B10G10R10_USCALED_PACK32: [[fallthrough]];
+        case EF_A2B10G10R10_SSCALED_PACK32: [[fallthrough]];
+        case EF_A2B10G10R10_UINT_PACK32: [[fallthrough]];
+        case EF_A2B10G10R10_SINT_PACK32: [[fallthrough]];
+        case EF_R16G16_UNORM: [[fallthrough]];
+        case EF_R16G16_SNORM: [[fallthrough]];
+        case EF_R16G16_USCALED: [[fallthrough]];
+        case EF_R16G16_SSCALED: [[fallthrough]];
+        case EF_R16G16_UINT: [[fallthrough]];
+        case EF_R16G16_SINT: [[fallthrough]];
+        case EF_R16G16_SFLOAT: [[fallthrough]];
+        case EF_R32_UINT: [[fallthrough]];
+        case EF_R32_SINT: [[fallthrough]];
+        case EF_R32_SFLOAT: [[fallthrough]];
+        case EF_B10G11R11_UFLOAT_PACK32: [[fallthrough]];
         case EF_E5B9G9R9_UFLOAT_PACK32:
             return EFC_32_BIT;
-        case EF_R16G16B16_UNORM: _IRR_FALLTHROUGH;
-        case EF_R16G16B16_SNORM: _IRR_FALLTHROUGH;
-        case EF_R16G16B16_USCALED: _IRR_FALLTHROUGH;
-        case EF_R16G16B16_SSCALED: _IRR_FALLTHROUGH;
-        case EF_R16G16B16_UINT: _IRR_FALLTHROUGH;
-        case EF_R16G16B16_SINT: _IRR_FALLTHROUGH;
+        case EF_R16G16B16_UNORM: [[fallthrough]];
+        case EF_R16G16B16_SNORM: [[fallthrough]];
+        case EF_R16G16B16_USCALED: [[fallthrough]];
+        case EF_R16G16B16_SSCALED: [[fallthrough]];
+        case EF_R16G16B16_UINT: [[fallthrough]];
+        case EF_R16G16B16_SINT: [[fallthrough]];
         case EF_R16G16B16_SFLOAT:
             return EFC_48_BIT;
-        case EF_R16G16B16A16_UNORM: _IRR_FALLTHROUGH;
-        case EF_R16G16B16A16_SNORM: _IRR_FALLTHROUGH;
-        case EF_R16G16B16A16_USCALED: _IRR_FALLTHROUGH;
-        case EF_R16G16B16A16_SSCALED: _IRR_FALLTHROUGH;
-        case EF_R16G16B16A16_UINT: _IRR_FALLTHROUGH;
-        case EF_R16G16B16A16_SINT: _IRR_FALLTHROUGH;
-        case EF_R16G16B16A16_SFLOAT: _IRR_FALLTHROUGH;
-        case EF_R32G32_UINT: _IRR_FALLTHROUGH;
-        case EF_R32G32_SINT: _IRR_FALLTHROUGH;
-        case EF_R32G32_SFLOAT: _IRR_FALLTHROUGH;
-        case EF_R64_UINT: _IRR_FALLTHROUGH;
-        case EF_R64_SINT: _IRR_FALLTHROUGH;
+        case EF_R16G16B16A16_UNORM: [[fallthrough]];
+        case EF_R16G16B16A16_SNORM: [[fallthrough]];
+        case EF_R16G16B16A16_USCALED: [[fallthrough]];
+        case EF_R16G16B16A16_SSCALED: [[fallthrough]];
+        case EF_R16G16B16A16_UINT: [[fallthrough]];
+        case EF_R16G16B16A16_SINT: [[fallthrough]];
+        case EF_R16G16B16A16_SFLOAT: [[fallthrough]];
+        case EF_R32G32_UINT: [[fallthrough]];
+        case EF_R32G32_SINT: [[fallthrough]];
+        case EF_R32G32_SFLOAT: [[fallthrough]];
+        case EF_R64_UINT: [[fallthrough]];
+        case EF_R64_SINT: [[fallthrough]];
         case EF_R64_SFLOAT:
             return EFC_64_BIT;
-        case EF_R32G32B32_UINT: _IRR_FALLTHROUGH;
-        case EF_R32G32B32_SINT: _IRR_FALLTHROUGH;
+        case EF_R32G32B32_UINT: [[fallthrough]];
+        case EF_R32G32B32_SINT: [[fallthrough]];
         case EF_R32G32B32_SFLOAT:
             return EFC_96_BIT;
-        case EF_R32G32B32A32_UINT: _IRR_FALLTHROUGH;
-        case EF_R32G32B32A32_SINT: _IRR_FALLTHROUGH;
-        case EF_R32G32B32A32_SFLOAT: _IRR_FALLTHROUGH;
-        case EF_R64G64_UINT: _IRR_FALLTHROUGH;
-        case EF_R64G64_SINT: _IRR_FALLTHROUGH;
+        case EF_R32G32B32A32_UINT: [[fallthrough]];
+        case EF_R32G32B32A32_SINT: [[fallthrough]];
+        case EF_R32G32B32A32_SFLOAT: [[fallthrough]];
+        case EF_R64G64_UINT: [[fallthrough]];
+        case EF_R64G64_SINT: [[fallthrough]];
         case EF_R64G64_SFLOAT:
             return EFC_128_BIT;
-        case EF_R64G64B64_UINT: _IRR_FALLTHROUGH;
-        case EF_R64G64B64_SINT: _IRR_FALLTHROUGH;
+        case EF_R64G64B64_UINT: [[fallthrough]];
+        case EF_R64G64B64_SINT: [[fallthrough]];
         case EF_R64G64B64_SFLOAT:
             return EFC_192_BIT;
-        case EF_R64G64B64A64_UINT: _IRR_FALLTHROUGH;
-        case EF_R64G64B64A64_SINT: _IRR_FALLTHROUGH;
+        case EF_R64G64B64A64_UINT: [[fallthrough]];
+        case EF_R64G64B64A64_SINT: [[fallthrough]];
         case EF_R64G64B64A64_SFLOAT:
             return EFC_256_BIT;
         default:
-            _IRR_DEBUG_BREAK_IF(1);
+            _NBL_DEBUG_BREAK_IF(1);
             return static_cast<E_FORMAT_CLASS>(EFC_256_BIT + 1);
         }
     }
@@ -2793,7 +2797,7 @@ namespace asset
     template <typename value_type>
     inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_type value)
     {
-        _IRR_DEBUG_BREAK_IF(isBlockCompressionFormat(format)); //????
+        _NBL_DEBUG_BREAK_IF(isBlockCompressionFormat(format)); //????
 
         if (isIntegerFormat(format))
             return 1;
@@ -2808,9 +2812,9 @@ namespace asset
         {
             switch (format)
             {
-            case EF_A2R10G10B10_UNORM_PACK32: _IRR_FALLTHROUGH;
-            case EF_A2R10G10B10_SNORM_PACK32: _IRR_FALLTHROUGH;
-            case EF_A2B10G10R10_UNORM_PACK32: _IRR_FALLTHROUGH;
+            case EF_A2R10G10B10_UNORM_PACK32: [[fallthrough]];
+            case EF_A2R10G10B10_SNORM_PACK32: [[fallthrough]];
+            case EF_A2B10G10R10_UNORM_PACK32: [[fallthrough]];
             case EF_A2B10G10R10_SNORM_PACK32:
                 return (channel==3u) ? 1.0/3.0 : 1.0/1023.0;
             case EF_R4G4_UNORM_PACK8:
@@ -2819,11 +2823,11 @@ namespace asset
                 return 1.0/15.0;
             case EF_B4G4R4A4_UNORM_PACK16:
                 return 1.0/15.0;
-            case EF_R5G6B5_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_R5G6B5_UNORM_PACK16: [[fallthrough]];
             case EF_B5G6R5_UNORM_PACK16:
                 return (channel==1u) ? (1.0/63.0) : (1.0/31.0);
-            case EF_R5G5B5A1_UNORM_PACK16: _IRR_FALLTHROUGH;
-            case EF_B5G5R5A1_UNORM_PACK16: _IRR_FALLTHROUGH;
+            case EF_R5G5B5A1_UNORM_PACK16: [[fallthrough]];
+            case EF_B5G5R5A1_UNORM_PACK16: [[fallthrough]];
             case EF_A1R5G5B5_UNORM_PACK16:
                 return (channel==3u) ? 1.0 : (1.0/31.0);
             default: break;
@@ -2887,4 +2891,4 @@ namespace std
     };
 }
 
-#endif //__IRR_E_COLOR_H_INCLUDED__
+#endif

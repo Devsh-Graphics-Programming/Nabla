@@ -1,9 +1,9 @@
-// Copyright (C) 2020- Mateusz 'DevSH' Kielan
-// This file is part of the "IrrlichtBAW" engine.
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_KERNELS_H_INCLUDED__
-#define __IRR_KERNELS_H_INCLUDED__
+#ifndef __NBL_ASSET_KERNELS_H_INCLUDED__
+#define __NBL_ASSET_KERNELS_H_INCLUDED__
 
 
 #include "irr/asset/filters/kernels/IImageFilterKernel.h"
@@ -29,7 +29,7 @@ template<class Kernel>
 class CMultiphaseKernel : public CImageFilterKernel<CMultiphaseKernel<Kernel> >, private Kernel
 {
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR bool is_separable = Kernel;
+		_NBL_STATIC_INLINE_CONSTEXPR bool is_separable = Kernel;
 
 		CMultiphaseKernel(Kernel&& k) : Kernel(std::move(k)
 		{

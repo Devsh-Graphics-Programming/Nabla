@@ -1,15 +1,14 @@
-// Copyright (C) 2016 Mateusz "DeVsh" Kielan
-// This file is part of the "Irrlicht Engine" and "Build A World".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
-// and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __C_OPENGL_DRIVER_FENCE_H_INCLUDED__
-#define __C_OPENGL_DRIVER_FENCE_H_INCLUDED__
+#ifndef __NBL_C_OPENGL_DRIVER_FENCE_H_INCLUDED__
+#define __NBL_C_OPENGL_DRIVER_FENCE_H_INCLUDED__
 
 #include "IDriverFence.h"
 #include "COpenGLExtensionHandler.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 namespace irr
 {
 namespace video
@@ -75,6 +74,6 @@ class COpenGLDriverFence : public IDriverFence
 
 } // end namespace scene
 } // end namespace irr
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
 
 #endif

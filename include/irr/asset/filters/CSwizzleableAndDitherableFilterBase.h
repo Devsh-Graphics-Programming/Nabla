@@ -1,9 +1,9 @@
-// Copyright (C) 2020 AnastaZIuk
-// This file is part of the "IrrlichtBAW" engine.
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_C_SWIZZLEABLE_AND_DITHERABLE_FILTER_BASE_H_INCLUDED__
-#define __IRR_C_SWIZZLEABLE_AND_DITHERABLE_FILTER_BASE_H_INCLUDED__
+#ifndef __NBL_ASSET_C_SWIZZLEABLE_AND_DITHERABLE_FILTER_BASE_H_INCLUDED__
+#define __NBL_ASSET_C_SWIZZLEABLE_AND_DITHERABLE_FILTER_BASE_H_INCLUDED__
 
 #include "irr/core/core.h"
 #include "irr/asset/format/convertColor.h"
@@ -100,10 +100,10 @@ namespace irr
 						template<typename Tenc>
 						void normalize(const E_FORMAT& format, Tenc* encodeBuffer, const uint8_t& channels)
 						{
-							#ifdef _IRR_DEBUG
+							#ifdef _NBL_DEBUG
 							bool status = !isScaledFormat(format);
 							assert(status);
-							#endif // _IRR_DEBUG
+							#endif // _NBL_DEBUG
 
 							if (isSignedFormat(format))
 								for (uint8_t channel = 0; channel < channels; ++channel)
@@ -567,4 +567,4 @@ namespace irr
 	} // end namespace asset
 } // end namespace irr
 
-#endif // __IRR_C_SWIZZLEABLE_AND_DITHERABLE_FILTER_BASE_H_INCLUDED__
+#endif

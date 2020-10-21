@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef __C_ELEMENT_TEXTURE_H_INCLUDED__
 #define __C_ELEMENT_TEXTURE_H_INCLUDED__
 
@@ -50,7 +54,7 @@ class CElementTexture : public IElement
 						value = std::move(_other);
 						break;
 					default:
-						_IRR_DEBUG_BREAK_IF(true);
+						_NBL_DEBUG_BREAK_IF(true);
 						break;
 				}
 				return *this;
@@ -88,7 +92,7 @@ class CElementTexture : public IElement
 						value = std::move(_other);
 						break;
 					default:
-						_IRR_DEBUG_BREAK_IF(true);
+						_NBL_DEBUG_BREAK_IF(true);
 						break;
 				}
 				return *this;

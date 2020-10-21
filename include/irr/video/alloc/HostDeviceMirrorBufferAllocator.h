@@ -1,5 +1,9 @@
-#ifndef __IRR_HOST_DEVICE_MIRROR_BUFFER_ALLOCATOR_H__
-#define __IRR_HOST_DEVICE_MIRROR_BUFFER_ALLOCATOR_H__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_VIDEO_HOST_DEVICE_MIRROR_BUFFER_ALLOCATOR_H__
+#define __NBL_VIDEO_HOST_DEVICE_MIRROR_BUFFER_ALLOCATOR_H__
 
 
 #include "irr/video/alloc/SimpleGPUBufferAllocator.h"
@@ -87,4 +91,4 @@ HostDeviceMirrorBufferAllocator<HostAllocator>::HostDeviceMirrorBufferAllocator(
 }
 }
 
-#endif // __IRR_HOST_DEVICE_MIRROR_BUFFER_ALLOCATOR_H__
+#endif

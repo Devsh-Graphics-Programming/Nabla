@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef __IRR_C_MITSUBA_PIPELINE_METADATA_H_INCLUDED__
 #define __IRR_C_MITSUBA_PIPELINE_METADATA_H_INCLUDED__
 
@@ -29,7 +33,7 @@ public:
 
     asset::ICPUDescriptorSet* getDescriptorSet() const { return m_ds0.get(); }
 
-    _IRR_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CMitsubaLoader";
+    _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CMitsubaLoader";
     const char* getLoaderName() const override { return LoaderName; }
 
 private:

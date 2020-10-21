@@ -1,14 +1,15 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
 #include "CImageLoaderPNG.h"
 
-#ifdef _IRR_COMPILE_WITH_PNG_LOADER_
+#ifdef _NBL_COMPILE_WITH_PNG_LOADER_
 
-#ifdef _IRR_COMPILE_WITH_LIBPNG_
+#ifdef _NBL_COMPILE_WITH_LIBPNG_
 #   include "libpng/png.h"
-#endif // _IRR_COMPILE_WITH_LIBPNG_
+#endif // _NBL_COMPILE_WITH_LIBPNG_
 
 #include "irr/asset/ICPUImageView.h"
 
@@ -22,7 +23,7 @@ namespace irr
 namespace asset
 {
 
-#ifdef _IRR_COMPILE_WITH_LIBPNG_
+#ifdef _NBL_COMPILE_WITH_LIBPNG_
 // PNG function for error handling
 static void png_cpexcept_error(png_structp png_ptr, png_const_charp msg)
 {
@@ -49,13 +50,13 @@ void PNGAPI user_read_data_fcn(png_structp png_ptr, png_bytep data, png_size_t l
 	if (check != length)
 		png_error(png_ptr, "Read Error");
 }
-#endif // _IRR_COMPILE_WITH_LIBPNG_
+#endif // _NBL_COMPILE_WITH_LIBPNG_
 
 
 //! returns true if the file maybe is able to be loaded by this class
 bool CImageLoaderPng::isALoadableFileFormat(io::IReadFile* _file) const
 {
-#ifdef _IRR_COMPILE_WITH_LIBPNG_
+#ifdef _NBL_COMPILE_WITH_LIBPNG_
 	if (!_file)
 		return false;
 
@@ -74,14 +75,14 @@ bool CImageLoaderPng::isALoadableFileFormat(io::IReadFile* _file) const
 	return !png_sig_cmp(buffer, 0, 8);
 #else
 	return false;
-#endif // _IRR_COMPILE_WITH_LIBPNG_
+#endif // _NBL_COMPILE_WITH_LIBPNG_
 }
 
 
 // load in the image data
 asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-#ifdef _IRR_COMPILE_WITH_LIBPNG_
+#ifdef _NBL_COMPILE_WITH_LIBPNG_
 	if (!_file)
         return {};
 
@@ -129,7 +130,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	{
 		png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
 		if (RowPointers)
-			_IRR_DELETE_ARRAY(RowPointers, Height);
+			_NBL_DELETE_ARRAY(RowPointers, Height);
         return {};
 	}
 
@@ -238,7 +239,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	}
 
 	// Create array of pointers to rows in image data
-    RowPointers = _IRR_NEW_ARRAY(png_bytep, Height);
+    RowPointers = _NBL_NEW_ARRAY(png_bytep, Height);
 	if (!RowPointers)
 	{
 		os::Printer::log("LOAD PNG: Internal PNG create row pointers failure\n", _file->getFileName().c_str(), ELL_ERROR);
@@ -278,7 +279,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	if (setjmp(png_jmpbuf(png_ptr)))
 	{
 		png_destroy_read_struct(&png_ptr, &info_ptr, nullptr);
-        _IRR_DELETE_ARRAY(RowPointers, Height);
+        _NBL_DELETE_ARRAY(RowPointers, Height);
         return {};
 	}
 
@@ -300,11 +301,11 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 			out |= (in&0xffu) << 8u;
 		}
 	}
-    _IRR_DELETE_ARRAY(RowPointers, Height);
+    _NBL_DELETE_ARRAY(RowPointers, Height);
 	png_destroy_read_struct(&png_ptr,&info_ptr, 0); // Clean up memory
 #else
     return {};
-#endif // _IRR_COMPILE_WITH_LIBPNG_
+#endif // _NBL_COMPILE_WITH_LIBPNG_
 
 	image = ICPUImage::create(std::move(imgInfo));
 

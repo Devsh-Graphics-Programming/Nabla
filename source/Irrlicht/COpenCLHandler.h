@@ -1,17 +1,21 @@
-#ifndef __C_OPENCL_HANDLER_H__
-#define __C_OPENCL_HANDLER_H__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_C_OPENCL_HANDLER_H__
+#define __NBL_C_OPENCL_HANDLER_H__
 
 #include "irr/core/core.h"
 #include "irr/system/system.h"
 
 #include <string>
 
-#ifdef _IRR_COMPILE_WITH_OPENCL_
+#ifdef _NBL_COMPILE_WITH_OPENCL_
 
 #include "CL/opencl.h"
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
     #include "COpenGLExtensionHandler.h"
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
 
 #include "os.h"
 
@@ -36,9 +40,9 @@ class COpenCLHandler
             public:
                 enum EOpenCLFeatures
                 {
-                    IRR_KHR_GL_SHARING=0,
-					IRR_KHR_GL_EVENT,
-                    IRR_OpenCL_Feature_Count
+                    NBL_KHR_GL_SHARING=0,
+					NBL_KHR_GL_EVENT,
+                    NBL_OpenCL_Feature_Count
                 };
                 class SOpenCLDeviceInfo : public core::AllocationOverrideDefault
                 {
@@ -56,7 +60,7 @@ class COpenCLHandler
                 std::string Name;
                 uint32_t Version;
                 std::string ReportedExtensions;
-                bool FeatureAvailable[IRR_OpenCL_Feature_Count] = { false };
+                bool FeatureAvailable[NBL_OpenCL_Feature_Count] = { false };
 
                 core::vector<cl_device_id> devices;
                 core::vector<SOpenCLDeviceInfo> deviceInformation;
@@ -160,7 +164,7 @@ class COpenCLHandler
                     for (std::string extension; iss>>extension; )
                     {
                         // TODO: turn into find_if
-                        for (size_t m=0; m<SOpenCLPlatformInfo::IRR_OpenCL_Feature_Count; m++)
+                        for (size_t m=0; m<SOpenCLPlatformInfo::NBL_OpenCL_Feature_Count; m++)
                         {
                             if (extension==OpenCLFeatureStrings[m])
                             {
@@ -216,9 +220,9 @@ class COpenCLHandler
 
         static const SOpenCLPlatformInfo& getPlatformInfo(const size_t& ix) {return platformInformation[ix];}
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
         static bool getCLDeviceFromGLContext(cl_device_id& outDevice, cl_context_properties properties[7],
-#if defined(_IRR_WINDOWS_API_)
+#if defined(_NBL_WINDOWS_API_)
                                              const HGLRC& context, const HDC& hDC)
 #else
                                              const GLXContext& context, const Display* display)
@@ -232,7 +236,7 @@ class COpenCLHandler
 
             properties[0] = CL_GL_CONTEXT_KHR;
 			properties[1] = (cl_context_properties)context;
-#if defined(_IRR_WINDOWS_API_)
+#if defined(_NBL_WINDOWS_API_)
 			properties[2] = CL_WGL_HDC_KHR;
 			properties[3] = (cl_context_properties)hDC;
 #else
@@ -273,7 +277,7 @@ class COpenCLHandler
         // function pointers
 		using LibLoader = system::DefaultFuncPtrLoader;
 
-		IRR_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(OpenCL, LibLoader
+		NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(OpenCL, LibLoader
             ,clGetExtensionFunctionAddress
             ,clGetPlatformIDs
             ,clGetPlatformInfo
@@ -313,7 +317,7 @@ class COpenCLHandler
 			        return pClGetExtensionFunctionAddress(funcname);
 		        }
         };
-        IRR_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(OpenCLExtensions, OpenCLExtensionLoader
+        NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(OpenCLExtensions, OpenCLExtensionLoader
             ,clGetGLContextInfoKHR
         );
         static OpenCLExtensions ocl_ext;
@@ -322,6 +326,6 @@ class COpenCLHandler
 }
 }
 
-#endif // _IRR_COMPILE_WITH_OPENCL_
+#endif // _NBL_COMPILE_WITH_OPENCL_
 
 #endif

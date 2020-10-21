@@ -1,7 +1,8 @@
-// Copyright (C) 2018 Krzysztof "Criss" Szenk
-// This file is part of the "Irrlicht Engine" and "Build A World".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
-// and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#include "irr/asset/compile_config.h"
 
 #include "irr/asset/bawformat/CBAWFile.h"
 
@@ -11,7 +12,7 @@
 #include "irr/asset/bawformat/legacy/CBAWLegacy.h"
 #include "CFinalBoneHierarchy.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENSSL_
+#ifdef _NBL_COMPILE_WITH_OPENSSL_
 #include "openssl/evp.h"
 #endif
 
@@ -28,7 +29,7 @@ size_t SizedBlob<VariableSizeBlob, RawBufferBlobV0, ICPUBuffer>::calcBlobSizeFor
 	return _obj->getSize();
 }
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 template<>
 size_t SizedBlob<VariableSizeBlob, TexturePathBlobV0, ICPUTexture>::calcBlobSizeForObj(const ICPUTexture* _obj)
 {
@@ -69,10 +70,10 @@ size_t SizedBlob<VariableSizeBlob, SkinnedMeshBlobV3, asset::ICPUSkinnedMesh>::c
 
 MeshBufferBlobV3::MeshBufferBlobV3(const asset::ICPUMeshBuffer* _mb)
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	memcpy(&mat, &_mb->getMaterial(), sizeof(video::SCPUMaterial));
 	_mb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
-	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+	for (size_t i = 0; i < _NBL_MATERIAL_MAX_TEXTURES_; ++i)
 		_mb->getMaterial().TextureLayer[i].SamplingParams.serializeBitfields(mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
 
 	memcpy(&box, &_mb->getBoundingBox(), sizeof(core::aabbox3df));
@@ -97,10 +98,10 @@ size_t SizedBlob<FixedSizeBlob, MeshBufferBlobV3, asset::ICPUMeshBuffer>::calcBl
 
 SkinnedMeshBufferBlobV3::SkinnedMeshBufferBlobV3(const asset::ICPUSkinnedMeshBuffer* _smb)
 {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	memcpy(&mat, &_smb->getMaterial(), sizeof(video::SCPUMaterial));
 	_smb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
-	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+	for (size_t i = 0; i < _NBL_MATERIAL_MAX_TEXTURES_; ++i)
 		_smb->getMaterial().TextureLayer[i].SamplingParams.serializeBitfields(mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
 
 	memcpy(&box, &_smb->getBoundingBox(), sizeof(core::aabbox3df));
@@ -261,7 +262,7 @@ size_t FinalBoneHierarchyBlobV3::calcNonInterpolatedAnimsByteSize() const
 
 
 // .baw VERSION 1
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::IMeshDataFormatDesc<asset::ICPUBuffer>* _desc) : attrDivisor{0u}
 {
     static_assert(VERTEX_ATTRIB_CNT == EVAI_COUNT, "VERTEX_ATTRIB_CNT != EVAI_COUNT");
@@ -305,7 +306,7 @@ MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::legacyv0::MeshDa
 
 bool encAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag)
 {
-#ifdef _IRR_COMPILE_WITH_OPENSSL_
+#ifdef _NBL_COMPILE_WITH_OPENSSL_
 	EVP_CIPHER_CTX *ctx;
 	int outlen;
 
@@ -328,7 +329,7 @@ bool encAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _out
 }
 bool decAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag)
 {
-#ifdef _IRR_COMPILE_WITH_OPENSSL_
+#ifdef _NBL_COMPILE_WITH_OPENSSL_
 	EVP_CIPHER_CTX *ctx;
 	int outlen;
 

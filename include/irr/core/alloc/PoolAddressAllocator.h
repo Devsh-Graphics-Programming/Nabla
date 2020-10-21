@@ -1,11 +1,11 @@
-// Copyright (C) 2018 Mateusz 'DevSH' Kielan
-// This file is part of the "IrrlichtBAW Engine"
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_POOL_ADDRESS_ALLOCATOR_H_INCLUDED__
-#define __IRR_POOL_ADDRESS_ALLOCATOR_H_INCLUDED__
+#ifndef __NBL_CORE_POOL_ADDRESS_ALLOCATOR_H_INCLUDED__
+#define __NBL_CORE_POOL_ADDRESS_ALLOCATOR_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 
 #include "irr/core/alloc/AddressAllocatorBase.h"
 
@@ -27,9 +27,9 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
             if (blockCount>other.blockCount)
                 freeStackCtr = blockCount-other.blockCount;
 
-            #ifdef _IRR_DEBUG
+            #ifdef _NBL_DEBUG
                 assert(Base::checkResize(newBuffSz,Base::alignOffset));
-            #endif // _IRR_DEBUG
+            #endif // _NBL_DEBUG
 
             for (size_type i=0u; i<freeStackCtr; i++)
                 freeStack[i] = (blockCount-1u-i)*blockSize+Base::combinedOffset;
@@ -43,7 +43,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
             }
         }
     public:
-        _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+        _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
         static constexpr bool supportsNullBuffer = true;
 
@@ -102,9 +102,9 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 
         inline void             free_addr(size_type addr, size_type bytes) noexcept
         {
-            #ifdef _IRR_DEBUG
+            #ifdef _NBL_DEBUG
                 assert(addr>=Base::combinedOffset && (addr-Base::combinedOffset)%blockSize==0 && freeStackCtr<blockCount);
-            #endif // _IRR_DEBUG
+            #endif // _NBL_DEBUG
 			freeStack[freeStackCtr++] = addr;
         }
 
@@ -231,5 +231,5 @@ using PoolAddressAllocatorMT = AddressAllocatorBasicConcurrencyAdaptor<PoolAddre
 }
 }
 
-#endif // __IRR_POOL_ADDRESS_ALLOCATOR_H_INCLUDED__
+#endif
 

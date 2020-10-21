@@ -1,9 +1,10 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __C_SCENE_MANAGER_H_INCLUDED__
-#define __C_SCENE_MANAGER_H_INCLUDED__
+#ifndef __NBL_C_SCENE_MANAGER_H_INCLUDED__
+#define __NBL_C_SCENE_MANAGER_H_INCLUDED__
 
 #include "ISceneManager.h"
 #include "ISceneNode.h"
@@ -215,7 +216,7 @@ namespace scene
 					Node(n), renderPriority(0x80000000u)
 				{
 					renderPriority = n->getRenderPriorityScore();
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 					if (n->getMaterialCount())
 						Material = n->getMaterial(0).MaterialType;
 #endif
@@ -223,7 +224,7 @@ namespace scene
 
 				bool operator < (const DefaultNodeEntry& other) const
 				{
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 					return (renderPriority < other.renderPriority)||(renderPriority==other.renderPriority && Material<other.Material);
 #else
 					return renderPriority < other.renderPriority;
@@ -233,7 +234,7 @@ namespace scene
 				ISceneNode* Node;
 			private:
 				uint32_t renderPriority;
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 				video::E_MATERIAL_TYPE Material;
 #endif
 		};
@@ -317,9 +318,9 @@ namespace scene
 
 		//! constants for reading and writing XML.
 		//! Not made static due to portability problems.
-		const core::stringw IRR_XML_FORMAT_SCENE;
-		const core::stringw IRR_XML_FORMAT_NODE;
-		const core::stringw IRR_XML_FORMAT_NODE_ATTR_TYPE;
+		const core::stringw NBL_XML_FORMAT_SCENE;
+		const core::stringw NBL_XML_FORMAT_NODE;
+		const core::stringw NBL_XML_FORMAT_NODE_ATTR_TYPE;
 	};
 
 } // end namespace video

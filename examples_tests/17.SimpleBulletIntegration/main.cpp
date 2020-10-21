@@ -1,4 +1,8 @@
-#define _IRR_STATIC_LIB_
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#define _NBL_STATIC_LIB_
 #include <irrlicht.h>
 
 #include "../../ext/ScreenShot/ScreenShot.h"
@@ -261,7 +265,7 @@ int main()
     // ! - INITIALIZE BULLET WORLD + FLAT PLANE FOR TESTING
 //------------------------------------------------------------------
 
-    ext::Bullet3::CPhysicsWorld *world = _IRR_NEW(irr::ext::Bullet3::CPhysicsWorld);
+    ext::Bullet3::CPhysicsWorld *world = _NBL_NEW(irr::ext::Bullet3::CPhysicsWorld);
     world->getWorld()->setGravity(btVector3(0, -5, 0));
 
 
@@ -344,7 +348,7 @@ int main()
 
     
 
-    btRigidBody **bodies = _IRR_NEW_ARRAY(btRigidBody*, towerHeight * towerWidth);
+    btRigidBody **bodies = _NBL_NEW_ARRAY(btRigidBody*, towerHeight * towerWidth);
 
 
 
@@ -448,7 +452,7 @@ int main()
         world->deleteRigidBody(bodies[i]);
     }
 
-    _IRR_DELETE_ARRAY(bodies, towerHeight * towerWidth);
+    _NBL_DELETE_ARRAY(bodies, towerHeight * towerWidth);
     world->deletebtObject(data3.shape);
 
    

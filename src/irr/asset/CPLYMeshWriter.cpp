@@ -1,10 +1,11 @@
-// Copyright (C) 2008-2012 Christian Stehno
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
 #include "irr/core/core.h"
 
-#ifdef _IRR_COMPILE_WITH_PLY_WRITER_
+#ifdef _NBL_COMPILE_WITH_PLY_WRITER_
 
 #include "CPLYMeshWriter.h"
 #include "os.h"
@@ -53,7 +54,7 @@ static asset::E_FORMAT getCorrespondingIntegerFormat(asset::E_FORMAT _fmt)
 
 CPLYMeshWriter::CPLYMeshWriter()
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CPLYMeshWriter");
 	#endif
 }
@@ -83,7 +84,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     std::string header = "ply\n";
     header += (flags & asset::EWF_BINARY) ? "format binary_little_endian 1.0" : "format ascii 1.0";
 	header += "\ncomment IrrlichtBAW ";
-	header +=  IRRLICHTBAW_SDK_VERSION;
+	header +=  NABLA_SDK_VERSION;
 
 	// get vertex and triangle counts
 	size_t vtxCount = mesh->getMeshBuffer(0)->calcVertexCount();
@@ -165,7 +166,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
             }
             needToFreeIndices = true;
             faceCount = buf->getSize() / (idxtype == asset::EIT_16BIT ? 2u : 4u) / 3u;
-            indices = _IRR_ALIGNED_MALLOC(buf->getSize(),_IRR_SIMD_ALIGNMENT);
+            indices = _NBL_ALIGNED_MALLOC(buf->getSize(),_NBL_SIMD_ALIGNMENT);
             memcpy(indices, buf->getPointer(), buf->getSize());
         }
     }
@@ -211,7 +212,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
         writeText(file, meshBuffer, vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite, _params);
 
     if (needToFreeIndices)
-        _IRR_ALIGNED_FREE(indices);
+        _NBL_ALIGNED_FREE(indices);
 
 	return true;
 }
@@ -249,7 +250,7 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
     void* indices = _indices;
     if (_forceFaces)
     {
-        indices = _IRR_ALIGNED_MALLOC((_idxType == asset::EIT_32BIT ? 4 : 2) * listSize * _fcCount,_IRR_SIMD_ALIGNMENT);
+        indices = _NBL_ALIGNED_MALLOC((_idxType == asset::EIT_32BIT ? 4 : 2) * listSize * _fcCount,_NBL_SIMD_ALIGNMENT);
         if (_idxType == asset::EIT_16BIT)
         {
             for (uint16_t i = 0u; i < _fcCount; ++i)
@@ -283,7 +284,7 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
     }
 
     if (_forceFaces)
-        _IRR_ALIGNED_FREE(indices);
+        _NBL_ALIGNED_FREE(indices);
 }
 
 void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], const SAssetWriteParams& _params) const
@@ -350,7 +351,7 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mb
     void* indices = _indices;
     if (_forceFaces)
     {
-        indices = _IRR_ALIGNED_MALLOC((_idxType == asset::EIT_32BIT ? 4 : 2) * 3 * _fcCount,_IRR_SIMD_ALIGNMENT);
+        indices = _NBL_ALIGNED_MALLOC((_idxType == asset::EIT_32BIT ? 4 : 2) * 3 * _fcCount,_NBL_SIMD_ALIGNMENT);
         if (_idxType == asset::EIT_16BIT)
         {
             for (uint16_t i = 0u; i < _fcCount; ++i)
@@ -386,7 +387,7 @@ void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mb
     }
 
     if (_forceFaces)
-        _IRR_ALIGNED_FREE(indices);
+        _NBL_ALIGNED_FREE(indices);
 }
 
 void CPLYMeshWriter::writeAttribBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, uint32_t _vaid, size_t _ix, size_t _cpa, bool flipAttribute) const
@@ -540,5 +541,5 @@ std::string CPLYMeshWriter::getTypeString(asset::E_FORMAT _t)
 } // end namespace
 } // end namespace
 
-#endif // _IRR_COMPILE_WITH_PLY_WRITER_
+#endif // _NBL_COMPILE_WITH_PLY_WRITER_
 

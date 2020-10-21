@@ -1,4 +1,8 @@
-#define _IRR_STATIC_LIB_
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#define _NBL_STATIC_LIB_
 #include <irrlicht.h>
 #include <iostream>
 #include <cstdio>
@@ -39,7 +43,7 @@ int main()
 	IAssetManager* am = device->getAssetManager();
 
 	IAssetLoader::SAssetLoadParams lp;
-	auto imageBundle = am->getAsset("../../media/OpenEXR/56_render_0_2_256.exr", lp);
+	auto imageBundle = am->getAsset("../../media/noises/spp_benchmark_4k_512.exr", lp);
 
 	E_FORMAT inFormat;
 	constexpr auto outFormat = EF_R8G8B8A8_SRGB;

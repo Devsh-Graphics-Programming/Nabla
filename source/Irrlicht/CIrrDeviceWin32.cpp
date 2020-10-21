@@ -1,10 +1,11 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#include "IrrCompileConfig.h"
+#include "irr/core/compile_config.h"
 
-#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 
 #include "CNullDriver.h"
 
@@ -18,8 +19,8 @@
 #include "dimension2d.h"
 #include <winuser.h>
 #include "irr/core/Types.h"
-#if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
-#ifdef _IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
+#if defined(_NBL_COMPILE_WITH_JOYSTICK_EVENTS_)
+#ifdef _NBL_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
 #define DIRECTINPUT_VERSION 0x0800
 #include <dinput.h>
 #ifdef _MSC_VER
@@ -37,7 +38,7 @@ namespace irr
 {
 	namespace video
 	{
-		#ifdef _IRR_COMPILE_WITH_OPENGL_
+		#ifdef _NBL_COMPILE_WITH_OPENGL_
 		IVideoDriver* createOpenGLDriver(const irr::SIrrlichtCreationParameters& params,
 			io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp);
 		#endif
@@ -50,14 +51,14 @@ struct SJoystickWin32Control
 {
 	CIrrDeviceWin32* Device;
 
-#if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_) && defined(_IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_)
+#if defined(_NBL_COMPILE_WITH_JOYSTICK_EVENTS_) && defined(_NBL_COMPILE_WITH_DIRECTINPUT_JOYSTICK_)
 	IDirectInput8* DirectInputDevice;
 #endif
-#if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
+#if defined(_NBL_COMPILE_WITH_JOYSTICK_EVENTS_)
 	struct JoystickInfo
 	{
 		uint32_t Index;
-#ifdef _IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
+#ifdef _NBL_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
 		core::stringc Name;
 		GUID guid;
 		LPDIRECTINPUTDEVICE8 lpdijoy;
@@ -72,7 +73,7 @@ struct SJoystickWin32Control
 
 	SJoystickWin32Control(CIrrDeviceWin32* dev) : Device(dev)
 	{
-#if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_) && defined(_IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_)
+#if defined(_NBL_COMPILE_WITH_JOYSTICK_EVENTS_) && defined(_NBL_COMPILE_WITH_DIRECTINPUT_JOYSTICK_)
 		DirectInputDevice=0;
 		if (DI_OK != (DirectInput8Create(GetModuleHandle(NULL), DIRECTINPUT_VERSION, IID_IDirectInput8, (void**)&DirectInputDevice, NULL)))
 		{
@@ -83,7 +84,7 @@ struct SJoystickWin32Control
 	}
 	~SJoystickWin32Control()
 	{
-#if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_) && defined(_IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_)
+#if defined(_NBL_COMPILE_WITH_JOYSTICK_EVENTS_) && defined(_NBL_COMPILE_WITH_DIRECTINPUT_JOYSTICK_)
 		for(uint32_t joystick = 0; joystick < ActiveJoysticks.size(); ++joystick)
 		{
 			LPDIRECTINPUTDEVICE8 dev = ActiveJoysticks[joystick].lpdijoy;
@@ -99,7 +100,7 @@ struct SJoystickWin32Control
 #endif
 	}
 
-#if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_) && defined(_IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_)
+#if defined(_NBL_COMPILE_WITH_JOYSTICK_EVENTS_) && defined(_NBL_COMPILE_WITH_DIRECTINPUT_JOYSTICK_)
 	static BOOL CALLBACK EnumJoysticks(LPCDIDEVICEINSTANCE lpddi, LPVOID cp)
 	{
 		SJoystickWin32Control* p=(SJoystickWin32Control*)cp;
@@ -180,8 +181,8 @@ struct SJoystickWin32Control
 
 void pollJoysticks()
 {
-#if defined _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
-#ifdef _IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
+#if defined _NBL_COMPILE_WITH_JOYSTICK_EVENTS_
+#ifdef _NBL_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
 	if(0 == ActiveJoysticks.size())
 		return;
 
@@ -347,13 +348,13 @@ void pollJoysticks()
 		}
 	}
 #endif
-#endif // _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
+#endif // _NBL_COMPILE_WITH_JOYSTICK_EVENTS_
 }
 
 bool activateJoysticks(core::vector<SJoystickInfo> & joystickInfo)
 {
-#if defined _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
-#ifdef _IRR_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
+#if defined _NBL_COMPILE_WITH_JOYSTICK_EVENTS_
+#ifdef _NBL_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
 	if (!DirectInputDevice || (DirectInputDevice->EnumDevices(DI8DEVCLASS_GAMECTRL, SJoystickWin32Control::EnumJoysticks, this, DIEDFL_ATTACHEDONLY )))
 	{
 		os::Printer::log("Could not enum DirectInput8 controllers", ELL_WARNING);
@@ -423,7 +424,7 @@ bool activateJoysticks(core::vector<SJoystickInfo> & joystickInfo)
 #endif
 #else
 	return false;
-#endif // _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
+#endif // _NBL_COMPILE_WITH_JOYSTICK_EVENTS_
 }
 };
 } // end namespace irr
@@ -904,7 +905,7 @@ CIrrDeviceWin32::CIrrDeviceWin32(const SIrrlichtCreationParameters& params)
 : CIrrDeviceStub(params), HWnd(0), ChangedToFullScreen(false), Resized(false),
 	ExternalWindow(false), Win32CursorControl(0), JoyControl(0)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CIrrDeviceWin32");
 	#endif
 
@@ -1019,12 +1020,12 @@ CIrrDeviceWin32::CIrrDeviceWin32(const SIrrlichtCreationParameters& params)
 	// initialize doubleclicks with system values
 	MouseMultiClicks.DoubleClickTime = GetDoubleClickTime();
 
-#ifdef _IRR_COMPILE_WITH_CUDA_
+#ifdef _NBL_COMPILE_WITH_CUDA_
 	cuda::CCUDAHandler::init();
-#endif // _IRR_COMPILE_WITH_CUDA_
-#ifdef _IRR_COMPILE_WITH_OPENCL_
+#endif // _NBL_COMPILE_WITH_CUDA_
+#ifdef _NBL_COMPILE_WITH_OPENCL_
     ocl::COpenCLHandler::enumeratePlatformsAndDevices();
-#endif // _IRR_COMPILE_WITH_OPENCL_
+#endif // _NBL_COMPILE_WITH_OPENCL_
 
 	// create driver
 	createDriver();
@@ -1095,7 +1096,7 @@ void CIrrDeviceWin32::createDriver()
 	{
 	case video::EDT_OPENGL:
 
-		#ifdef _IRR_COMPILE_WITH_OPENGL_
+		#ifdef _NBL_COMPILE_WITH_OPENGL_
 		switchToFullScreen();
 
 		VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem.get(), this, getAssetManager()->getGLSLCompiler());
@@ -1825,4 +1826,4 @@ core::dimension2di CIrrDeviceWin32::CCursorControl::getSupportedIconSize() const
 
 } // end namespace
 
-#endif // _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+#endif // _NBL_COMPILE_WITH_WINDOWS_DEVICE_

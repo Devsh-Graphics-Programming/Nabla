@@ -1,6 +1,7 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
 #include "CSceneNodeAnimatorFlyStraight.h"
 
@@ -18,7 +19,7 @@ CSceneNodeAnimatorFlyStraight::CSceneNodeAnimatorFlyStraight(const core::vectorS
 	Start(startPoint), End(endPoint), TimeFactor(0.0f), StartTime(now),
 	TimeForWay(timeForWay), Loop(loop), PingPong(pingpong)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CSceneNodeAnimatorFlyStraight");
 	#endif
 

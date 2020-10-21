@@ -1,7 +1,6 @@
-// Copyright (C) 2018 Krzysztof "Criss" Szenk
-// This file is part of the "Irrlicht Engine" and "Build A World".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
-// and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "irr/asset/bawformat/CBAWFile.h"
 
@@ -62,7 +61,7 @@ void TypedBlob<RawBufferBlobV3, asset::ICPUBuffer>::releaseObj(const void* _obj)
 		reinterpret_cast<const asset::ICPUBuffer*>(_obj)->drop();
 }
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 template<>
 core::unordered_set<uint64_t> TypedBlob<TexturePathBlobV3, asset::ICPUTexture>::getNeededDeps(const void* _blob)
 {
@@ -214,8 +213,8 @@ core::unordered_set<uint64_t> TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>
 	auto* blob = (MeshBufferBlobV3*)_blob;
 	core::unordered_set<uint64_t> deps;
 	deps.insert(blob->descPtr);
-#ifndef NEW_SHADERS
-	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+#ifdef OLD_SHADERS
+	for (uint32_t i = 0; i < _NBL_MATERIAL_MAX_TEXTURES_; ++i)
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(blob->mat.getTexture(i));
 		if (tex)
@@ -233,10 +232,10 @@ void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::instantiateEmpty(const
 
 	const auto* blob = (const MeshBufferBlobV3*)_blob;
 	asset::ICPUMeshBuffer* buf = new asset::ICPUMeshBuffer();
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SCPUMaterial));
 	buf->getMaterial().setBitfields(*(blob)->mat.bitfieldsPtr());
-	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+	for (size_t i = 0; i < _NBL_MATERIAL_MAX_TEXTURES_; ++i)
 	{
 		memset(&buf->getMaterial().TextureLayer[i].Texture,0,sizeof(const void*));
 		buf->getMaterial().TextureLayer[i].SamplingParams.setBitfields(*(blob)->mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
@@ -265,9 +264,9 @@ void* TypedBlob<MeshBufferBlobV3, asset::ICPUMeshBuffer>::finalize(void* _obj, c
 
 	const auto* blob = (const MeshBufferBlobV3*)_blob;
 	asset::ICPUMeshBuffer* buf = reinterpret_cast<asset::ICPUMeshBuffer*>(_obj);
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	buf->setMeshDataAndFormat(impl::castPtrAndRefcount<asset::IMeshDataFormatDesc<asset::ICPUBuffer> >(_deps[blob->descPtr]));
-	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+	for (uint32_t i = 0; i < _NBL_MATERIAL_MAX_TEXTURES_; ++i)
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(blob->mat.getTexture(i));
 		if (tex)
@@ -299,10 +298,10 @@ void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::instanti
 
 	const auto* blob = (const SkinnedMeshBufferBlobV3*)_blob;
 	asset::ICPUSkinnedMeshBuffer* buf = new asset::ICPUSkinnedMeshBuffer();
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	memcpy(&buf->getMaterial(), &blob->mat, sizeof(video::SCPUMaterial));
 	buf->getMaterial().setBitfields(*(blob)->mat.bitfieldsPtr());
-	for (size_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+	for (size_t i = 0; i < _NBL_MATERIAL_MAX_TEXTURES_; ++i)
 	{
 		memset(&buf->getMaterial().TextureLayer[i].Texture, 0, sizeof(const void*));
 		buf->getMaterial().TextureLayer[i].SamplingParams.setBitfields(*(blob)->mat.TextureLayer[i].SamplingParams.bitfieldsPtr());
@@ -333,9 +332,9 @@ void* TypedBlob<SkinnedMeshBufferBlobV3, asset::ICPUSkinnedMeshBuffer>::finalize
 
 	const auto* blob = (const SkinnedMeshBufferBlobV3*)_blob;
 	asset::ICPUSkinnedMeshBuffer* buf = reinterpret_cast<asset::ICPUSkinnedMeshBuffer*>(_obj);
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 	buf->setMeshDataAndFormat(impl::castPtrAndRefcount<asset::IMeshDataFormatDesc<asset::ICPUBuffer> >(_deps[blob->descPtr]));
-	for (uint32_t i = 0; i < _IRR_MATERIAL_MAX_TEXTURES_; ++i)
+	for (uint32_t i = 0; i < _NBL_MATERIAL_MAX_TEXTURES_; ++i)
 	{
 		uint64_t tex = reinterpret_cast<uint64_t>(blob->mat.getTexture(i));
 		if (tex)
@@ -394,7 +393,7 @@ void* TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>::instantiateEmpty
 	for (size_t i = 0; i < blob->boneCount; ++i)
 	{
 		size_t len = strlen(strPtr) + 1;
-		_IRR_DEBUG_BREAK_IF(strPtr + len > blobEnd)
+		_NBL_DEBUG_BREAK_IF(strPtr + len > blobEnd)
 		if ((uint8_t*)boneNames == stack)
 			new (boneNames + i) core::stringc(strPtr);
 		else
@@ -434,7 +433,7 @@ void TypedBlob<FinalBoneHierarchyBlobV3, CFinalBoneHierarchy>::releaseObj(const 
 }
 
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 
 template<>
 core::unordered_set<uint64_t> TypedBlob<MeshDataFormatDescBlobV3, asset::IMeshDataFormatDesc<asset::ICPUBuffer> >::getNeededDeps(const void* _blob)
@@ -487,5 +486,5 @@ void TypedBlob<MeshDataFormatDescBlobV3, asset::IMeshDataFormatDesc<asset::ICPUB
 		reinterpret_cast<const asset::IMeshDataFormatDesc<asset::ICPUBuffer>*>(_obj)->drop();
 }
 
-#endif//ifndef NEW_SHADERS
+#endif
 }} // irr:core

@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 #include "../../ext/MitsubaLoader/CElementFactory.h"
 
@@ -51,7 +55,7 @@ CElementFactory::return_type CElementFactory::createElement<CElementBSDF>(const 
 	if (found==StringToType.end())
 	{
 		ParserLog::invalidXMLFileStructure("unknown type");
-		_IRR_DEBUG_BREAK_IF(false);
+		_NBL_DEBUG_BREAK_IF(false);
 		return CElementFactory::return_type(nullptr, "");
 	}
 
@@ -64,29 +68,29 @@ CElementFactory::return_type CElementFactory::createElement<CElementBSDF>(const 
 	switch (obj->type)
 	{
 		case CElementBSDF::Type::DIFFUSE:
-			_IRR_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementBSDF::Type::ROUGHDIFFUSE:
 			obj->diffuse = CElementBSDF::AllDiffuse();
 			break;
 		case CElementBSDF::Type::DIELECTRIC:
-			_IRR_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementBSDF::Type::THINDIELECTRIC:
-			_IRR_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementBSDF::Type::ROUGHDIELECTRIC:
 			obj->dielectric = CElementBSDF::AllDielectric();
 			break;
 		case CElementBSDF::Type::CONDUCTOR:
-			_IRR_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementBSDF::Type::ROUGHCONDUCTOR:
 			obj->conductor = CElementBSDF::AllConductor();
 			break;
 		case CElementBSDF::Type::PLASTIC:
-			_IRR_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementBSDF::Type::ROUGHPLASTIC:
 			obj->plastic = CElementBSDF::AllPlastic();
 			break;
 		case CElementBSDF::Type::COATING:
-			_IRR_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementBSDF::Type::ROUGHCOATING:
 			obj->coating = CElementBSDF::AllCoating();
 			break;
@@ -234,7 +238,7 @@ CElementBSDF::AllConductor::AllConductor(const std::string& material) : RoughSpe
 	auto found = NamedConductors.find(material);
 	if (found == NamedConductors.end())
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		ParserLog::invalidXMLFileStructure("IoR Table lookup not implemented for material preset: " + material);
 		found = NamedConductors.find("none");
 		assert(found != NamedConductors.end());
@@ -253,29 +257,29 @@ bool CElementBSDF::addProperty(SNamedPropertyElement&& _property)
 		switch (type)
 		{
 			case CElementBSDF::Type::DIFFUSE:
-				_IRR_FALLTHROUGH;
+				[[fallthrough]];
 			case CElementBSDF::Type::ROUGHDIFFUSE:
 				func(diffuse);
 				break;
 			case CElementBSDF::Type::DIELECTRIC:
-				_IRR_FALLTHROUGH;
+				[[fallthrough]];
 			case CElementBSDF::Type::THINDIELECTRIC:
-				_IRR_FALLTHROUGH;
+				[[fallthrough]];
 			case CElementBSDF::Type::ROUGHDIELECTRIC:
 				func(dielectric);
 				break;
 			case CElementBSDF::Type::CONDUCTOR:
-				_IRR_FALLTHROUGH;
+				[[fallthrough]];
 			case CElementBSDF::Type::ROUGHCONDUCTOR:
 				func(conductor);
 				break;
 			case CElementBSDF::Type::PLASTIC:
-				_IRR_FALLTHROUGH;
+				[[fallthrough]];
 			case CElementBSDF::Type::ROUGHPLASTIC:
 				func(plastic);
 				break;
 			case CElementBSDF::Type::COATING:
-				_IRR_FALLTHROUGH;
+				[[fallthrough]];
 			case CElementBSDF::Type::ROUGHCOATING:
 				func(coating);
 				break;
@@ -611,29 +615,29 @@ bool CElementBSDF::processChildData(IElement* _child, const std::string& name)
 					switch (type)
 					{
 						case CElementBSDF::Type::DIFFUSE:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case CElementBSDF::Type::ROUGHDIFFUSE:
 							func(diffuse);
 							break;
 						case CElementBSDF::Type::DIELECTRIC:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case CElementBSDF::Type::THINDIELECTRIC:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case CElementBSDF::Type::ROUGHDIELECTRIC:
 							func(dielectric);
 							break;
 						case CElementBSDF::Type::CONDUCTOR:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case CElementBSDF::Type::ROUGHCONDUCTOR:
 							func(conductor);
 							break;
 						case CElementBSDF::Type::PLASTIC:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case CElementBSDF::Type::ROUGHPLASTIC:
 							func(plastic);
 							break;
 						case CElementBSDF::Type::COATING:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case CElementBSDF::Type::ROUGHCOATING:
 							func(coating);
 							break;
@@ -728,7 +732,7 @@ bool CElementBSDF::processChildData(IElement* _child, const std::string& name)
 							bumpmap.texture = _texture;
 							break;
 						default:
-							_IRR_DEBUG_BREAK_IF(true);
+							_NBL_DEBUG_BREAK_IF(true);
 							ParserLog::invalidXMLFileStructure("No BSDF can have such property set with name: " + name);
 							return false;
 							break;
@@ -747,7 +751,7 @@ bool CElementBSDF::processChildData(IElement* _child, const std::string& name)
 				switch (type)
 				{
 					case Type::COATING:
-						_IRR_FALLTHROUGH;
+						[[fallthrough]];
 					case Type::ROUGHCOATING:
 						if (coating.childCount < AllCoating::MaxChildCount)
 							coating.bsdf[coating.childCount++] = _bsdf;
@@ -802,7 +806,7 @@ bool CElementBSDF::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override
 	if (type == Type::INVALID)
 	{
 		ParserLog::invalidXMLFileStructure(getLogName() + ": type not specified");
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		return true;
 	}
 	

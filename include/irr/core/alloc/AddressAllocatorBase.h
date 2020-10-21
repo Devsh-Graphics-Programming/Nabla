@@ -1,9 +1,9 @@
-// Copyright (C) 2018 Mateusz 'DevSH' Kielan
-// This file is part of the "IrrlichtBAW Engine"
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_ADDRESS_ALLOCATOR_BASE_H_INCLUDED__
-#define __IRR_ADDRESS_ALLOCATOR_BASE_H_INCLUDED__
+#ifndef __NBL_CORE_ADDRESS_ALLOCATOR_BASE_H_INCLUDED__
+#define __NBL_CORE_ADDRESS_ALLOCATOR_BASE_H_INCLUDED__
 
 #include "irr/core/memory/memory.h"
 #include "irr/core/alloc/address_allocator_traits.h"
@@ -13,7 +13,7 @@ namespace irr
 namespace core
 {
 
-    #define _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(SIZE_TYPE) \
+    #define _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(SIZE_TYPE) \
             typedef SIZE_TYPE                                   size_type;\
             typedef typename std::make_signed<size_type>::type  difference_type;\
             typedef uint8_t*                                    ubyte_pointer;\
@@ -23,7 +23,7 @@ namespace core
     class AddressAllocatorBase
     {
         public:
-            _IRR_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
+            _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
             #define DUMMY_DEFAULT_CONSTRUCTOR AddressAllocatorBase() :\
                 reservedSpace(nullptr), addressOffset(invalid_address), alignOffset(invalid_address),\
@@ -66,12 +66,12 @@ namespace core
                     reservedSpace(reservedSpc), addressOffset(addressOffsetToApply), alignOffset(alignOffsetNeeded),
                     maxRequestableAlignment(maxAllocatableAlignment), combinedOffset(addressOffset+alignOffset)
             {
-                #ifdef _IRR_DEBUG
+                #ifdef _NBL_DEBUG
                      // pointer to reserved memory has to be aligned to SIMD types!
-                    assert((reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u))==0ull);
+                    assert((reinterpret_cast<size_t>(reservedSpace)&(_NBL_SIMD_ALIGNMENT-1u))==0ull);
                     assert(maxAllocatableAlignment);
                     assert(core::isPoT(maxRequestableAlignment)); // this is not a proper alignment value
-                #endif // _IRR_DEBUG
+                #endif // _NBL_DEBUG
             }
             AddressAllocatorBase(CRTP&& other, void* newReservedSpc) :
                     reservedSpace(nullptr), addressOffset(invalid_address), alignOffset(invalid_address),
@@ -79,10 +79,10 @@ namespace core
             {
                 operator=(std::move(other));
                 reservedSpace = newReservedSpc;
-                #ifdef _IRR_DEBUG
+                #ifdef _NBL_DEBUG
                     // reserved space has to be aligned at least to SIMD
-                    assert((reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u))==0ull);
-                #endif // _IRR_DEBUG
+                    assert((reinterpret_cast<size_t>(reservedSpace)&(_NBL_SIMD_ALIGNMENT-1u))==0ull);
+                #endif // _NBL_DEBUG
             }
             AddressAllocatorBase(CRTP&& other, void* newReservedSpc, _size_type newAddressOffset, _size_type newAlignOffset) :
                     AddressAllocatorBase(std::move(other),newReservedSpc)
@@ -95,10 +95,10 @@ namespace core
                 reservedSpace(newReservedSpc), addressOffset(other.addressOffset), alignOffset(other.alignOffset),
                 maxRequestableAlignment(other.maxRequestableAlignment), combinedOffset(other.combinedOffset)
             {
-                #ifdef _IRR_DEBUG
+                #ifdef _NBL_DEBUG
                     // reserved space has to be aligned at least to SIMD
-                    assert((reinterpret_cast<size_t>(reservedSpace)&(_IRR_SIMD_ALIGNMENT-1u))==0ull);
-                #endif // _IRR_DEBUG
+                    assert((reinterpret_cast<size_t>(reservedSpace)&(_NBL_SIMD_ALIGNMENT-1u))==0ull);
+                #endif // _NBL_DEBUG
             }
             AddressAllocatorBase(const CRTP& other, void* newReservedSpc, _size_type newAddressOffset, _size_type newAlignOffset) :
                 AddressAllocatorBase(other, newReservedSpc)
@@ -148,5 +148,5 @@ namespace core
 }
 }
 
-#endif // __IRR_ADDRESS_ALLOCATOR_BASE_H_INCLUDED__
+#endif
 

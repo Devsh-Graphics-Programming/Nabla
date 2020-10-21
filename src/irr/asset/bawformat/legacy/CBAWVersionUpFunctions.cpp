@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #include "CBAWVersionUpFunctions.h"
 
 namespace irr
@@ -7,7 +11,7 @@ namespace irr
 		template<>
 		io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<3>(SContext & _ctx, io::IReadFile * _baw2file, asset::IAssetLoader::IAssetLoaderOverride * _override, const CommonDataTuple<2> & _common)
 		{
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 			uint32_t blobCnt{};
 			BlobHeaderVn<2> * headers = nullptr;
 			uint32_t* offsets = nullptr;
@@ -145,7 +149,7 @@ namespace irr
 				offsetDiff += static_cast<int32_t>(hdr.blobSizeDecompr) - prevBlobSz;
 
 				if (blob!=stackmem)
-					_IRR_ALIGNED_FREE(blob);
+					_NBL_ALIGNED_FREE(blob);
 			}
 			uint64_t fileHeader[4]{ 0u, 0u, 0u, 3u/*baw v3*/ };
 			memcpy(fileHeader, BAWFileV3::HEADER_STRING, strlen(BAWFileV3::HEADER_STRING));
@@ -178,7 +182,7 @@ namespace irr
 						if (sz <= sizeof(stackmem))
 							blob = stackmem;
 						else
-							blob = _IRR_ALIGNED_MALLOC(sz, _IRR_SIMD_ALIGNMENT);
+							blob = _NBL_ALIGNED_MALLOC(sz, _NBL_SIMD_ALIGNMENT);
 
 						_baw2file->read(blob, sz);
 						break;
@@ -189,13 +193,13 @@ namespace irr
 				baw3mem->write(blob, sz);
 
 				if (blob && blob != stackmem)
-					_IRR_ALIGNED_FREE(blob);
+					_NBL_ALIGNED_FREE(blob);
 
 				newFileSz = baseOffsetv3 + newoffsets[i] + sz;
 			}
 
-			_IRR_ALIGNED_FREE(offsets);
-			_IRR_ALIGNED_FREE(headers);
+			_NBL_ALIGNED_FREE(offsets);
+			_NBL_ALIGNED_FREE(headers);
 
 			auto ret = new io::CMemoryReadFile(baw3mem->getPointer(), baw3mem->getSize(), _baw2file->getFileName());
 			baw3mem->drop();
@@ -208,7 +212,7 @@ namespace irr
         template<>
         io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<2>(SContext& _ctx, io::IReadFile* _baw1file, asset::IAssetLoader::IAssetLoaderOverride* _override, const CommonDataTuple<1>& _common)
         {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
             uint32_t blobCnt{};
 			BlobHeaderVn<1>* headers = nullptr;
             uint32_t* offsets = nullptr;
@@ -288,7 +292,7 @@ namespace irr
                     hdr.blobSize = hdr.blobSizeDecompr;
 
                     if (blob!=stackmem)
-                        _IRR_ALIGNED_FREE(blob);
+                        _NBL_ALIGNED_FREE(blob);
                 }
             }
             uint64_t fileHeader[4]{ 0u, 0u, 0u, 2u/*baw v2*/ };
@@ -316,7 +320,7 @@ namespace irr
                     if (sz <= sizeof(stackmem))
                         blob = stackmem;
                     else
-                        blob = _IRR_ALIGNED_MALLOC(sz, _IRR_SIMD_ALIGNMENT);
+                        blob = _NBL_ALIGNED_MALLOC(sz, _NBL_SIMD_ALIGNMENT);
 
                     _baw1file->read(blob, sz);
                 }
@@ -325,13 +329,13 @@ namespace irr
                 baw2mem->write(blob, sz);
 
                 if (headers[i].blobType != asset::Blob::EBT_DATA_FORMAT_DESC && blob != stackmem)
-                    _IRR_ALIGNED_FREE(blob);
+                    _NBL_ALIGNED_FREE(blob);
 
                 newFileSz = baseOffsetv2 + newoffsets[i] + sz;
             }
 
-            _IRR_ALIGNED_FREE(offsets);
-            _IRR_ALIGNED_FREE(headers);
+            _NBL_ALIGNED_FREE(offsets);
+            _NBL_ALIGNED_FREE(headers);
 
             auto ret = new io::CMemoryReadFile(baw2mem->getPointer(), baw2mem->getSize(), _baw1file->getFileName());
             baw2mem->drop();
@@ -344,7 +348,7 @@ namespace irr
         template<>
         io::IReadFile* CBAWMeshFileLoader::createConvertIntoVer_spec<1>(SContext& _ctx, io::IReadFile* _baw0file, asset::IAssetLoader::IAssetLoaderOverride* _override, const CommonDataTuple<0>& _common)
         {
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
             uint32_t blobCnt{};
             BlobHeaderVn<0>* headers = nullptr;
             uint32_t* offsets = nullptr;
@@ -429,7 +433,7 @@ namespace irr
                     if (sz <= sizeof(stackmem))
                         blob = stackmem;
                     else
-                        blob = _IRR_ALIGNED_MALLOC(sz, _IRR_SIMD_ALIGNMENT);
+                        blob = _NBL_ALIGNED_MALLOC(sz, _NBL_SIMD_ALIGNMENT);
 
                     _baw0file->read(blob, sz);
                 }
@@ -438,13 +442,13 @@ namespace irr
                 baw1mem->write(blob, sz);
 
                 if (headers[i].blobType != asset::Blob::EBT_DATA_FORMAT_DESC && blob != stackmem)
-                    _IRR_ALIGNED_FREE(blob);
+                    _NBL_ALIGNED_FREE(blob);
 
                 newFileSz = baseOffsetv1 + newoffsets[i] + sz;
             }
 
-            _IRR_ALIGNED_FREE(offsets);
-            _IRR_ALIGNED_FREE(headers);
+            _NBL_ALIGNED_FREE(offsets);
+            _NBL_ALIGNED_FREE(headers);
 
             auto ret = new io::CMemoryReadFile(baw1mem->getPointer(), baw1mem->getSize(), _baw0file->getFileName());
             baw1mem->drop();

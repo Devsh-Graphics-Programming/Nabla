@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef _RENDERER_INCLUDED_
 #define _RENDERER_INCLUDED_
 
@@ -97,7 +101,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				switch (type)
 				{
 					case ET_ELLIPSOID:
-						_IRR_FALLTHROUGH;
+						[[fallthrough]];
 					case ET_TRIANGLE:
 						lightFlux *= triangulizationArea;
 						break;
@@ -175,7 +179,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		uint64_t getTotalSamplesComputed() const { return static_cast<uint64_t>(m_samplesComputed)*static_cast<uint64_t>(m_rayCount); }
 
 
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 4u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 4u;
     protected:
         ~Renderer();
 

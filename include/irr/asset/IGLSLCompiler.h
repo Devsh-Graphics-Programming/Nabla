@@ -1,5 +1,9 @@
-#ifndef __IRR_I_GLSL_COMPILER_H_INCLUDED__
-#define __IRR_I_GLSL_COMPILER_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_ASSET_I_GLSL_COMPILER_H_INCLUDED__
+#define __NBL_ASSET_I_GLSL_COMPILER_H_INCLUDED__
 
 #include "irr/core/core.h"
 #include "irr/system/system.h"
@@ -84,4 +88,4 @@ class IGLSLCompiler final : public core::IReferenceCounted
 }
 }
 
-#endif//__IRR_I_GLSL_COMPILER_H_INCLUDED__
+#endif

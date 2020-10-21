@@ -1,5 +1,9 @@
-#ifndef __IRR_C_OPENGL_DESCRIPTOR_SET_H_INCLUDED__
-#define __IRR_C_OPENGL_DESCRIPTOR_SET_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_VIDEO_C_OPENGL_DESCRIPTOR_SET_H_INCLUDED__
+#define __NBL_VIDEO_C_OPENGL_DESCRIPTOR_SET_H_INCLUDED__
 
 #include "irr/video/IGPUDescriptorSet.h"
 #include "irr/macros.h"
@@ -10,7 +14,7 @@
 #include "COpenGLImageView.h"
 #include "irr/video/COpenGLSampler.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 namespace irr
 {
 namespace video
@@ -58,25 +62,25 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				switch (m_bindingInfo->operator[](i).descriptorType)
 				{
 					case asset::EDT_UNIFORM_BUFFER_DYNAMIC:
-						_IRR_FALLTHROUGH;
+						[[fallthrough]];
 					case asset::EDT_UNIFORM_BUFFER:
 						m_flatOffsets->operator[](i) = uboCount;
 						uboCount += count;
 						break;
 					case asset::EDT_STORAGE_BUFFER_DYNAMIC:
-						_IRR_FALLTHROUGH;
+						[[fallthrough]];
 					case asset::EDT_STORAGE_BUFFER:
 						m_flatOffsets->operator[](i) = ssboCount;
 						ssboCount += count;
 						break;
 					case asset::EDT_UNIFORM_TEXEL_BUFFER: //GL_TEXTURE_BUFFER
-						_IRR_FALLTHROUGH;
+						[[fallthrough]];
 					case asset::EDT_COMBINED_IMAGE_SAMPLER:
 						m_flatOffsets->operator[](i) = textureCount;
 						textureCount += count;
 						break;
 					case asset::EDT_STORAGE_IMAGE:
-						_IRR_FALLTHROUGH;
+						[[fallthrough]];
 					case asset::EDT_STORAGE_TEXEL_BUFFER:
 						m_flatOffsets->operator[](i) = imageCount;
 						imageCount += count;
@@ -167,7 +171,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			assert(getDescriptorCountAtIndex(_write.binding)>0u);
 			assert(_write.count>0);
 			const auto type = _write.descriptorType;
-			#ifdef _IRR_DEBUG
+			#ifdef _NBL_DEBUG
 				auto info = m_bindingInfo->operator[](_write.binding);
 				assert(type==info.descriptorType);
 				auto layoutBinding = getLayoutBinding(_write.binding);
@@ -178,7 +182,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			auto* output = getDescriptors(_write.binding)+_write.arrayElement;
 			for (uint32_t i=0u; i<_write.count; i++,output++)
 			{
-				#ifdef _IRR_DEBUG
+				#ifdef _NBL_DEBUG
 					auto found = getBindingInfo(output-m_descriptors->begin());
 					assert(found->descriptorType == type);
 					layoutBinding = getLayoutBinding(found-m_bindingInfo->begin());
@@ -212,7 +216,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 				assert(input+_copy.count<=output||output+_copy.count<=input);
 			for (uint32_t i=0u; i<_copy.count; i++,input++,output++)
 			{
-				#ifdef _IRR_DEBUG
+				#ifdef _NBL_DEBUG
 					auto foundIn = getBindingInfo(input-srcGLSet->m_descriptors->begin());
 					auto foundOut = getBindingInfo(output-m_descriptors->begin());
 					assert(foundOut->descriptorType==foundOut->descriptorType);

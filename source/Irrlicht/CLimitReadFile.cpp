@@ -1,6 +1,8 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
+
 #include "irr/core/math/glslFunctions.tcc"
 
 #include "CLimitReadFile.h"
@@ -17,7 +19,7 @@ CLimitReadFile::CLimitReadFile(IReadFile* alreadyOpenedFile, const size_t& pos,
 	: Filename(name), AreaStart(0), AreaEnd(0), Pos(0),
 	File(alreadyOpenedFile)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CLimitReadFile");
 	#endif
 

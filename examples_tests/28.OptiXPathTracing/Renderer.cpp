@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #include <numeric>
 
 #if 0
@@ -680,17 +684,17 @@ void Renderer::init(const SAssetBundle& meshes,
 							light.analytical.transformCofactors = -light.analytical.transformCofactors;
 							break;
 						case ext::MitsubaLoader::CElementShape::Type::CYLINDER:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case ext::MitsubaLoader::CElementShape::Type::DISK:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case ext::MitsubaLoader::CElementShape::Type::RECTANGLE:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case ext::MitsubaLoader::CElementShape::Type::CUBE:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case ext::MitsubaLoader::CElementShape::Type::OBJ:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case ext::MitsubaLoader::CElementShape::Type::PLY:
-							_IRR_FALLTHROUGH;
+							[[fallthrough]];
 						case ext::MitsubaLoader::CElementShape::Type::SERIALIZED:
 							light.type = SLight::ET_TRIANGLE;
 							if (!totalTriangleCount)

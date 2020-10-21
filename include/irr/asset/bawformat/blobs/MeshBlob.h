@@ -1,10 +1,10 @@
-// Copyright (C) 2018 Krzysztof "Criss" Szenk
-// This file is part of the "Irrlicht Engine" and "Build A World".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
-// and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_MESH_BLOB_H_INCLUDED__
-#define __IRR_MESH_BLOB_H_INCLUDED__
+
+#ifndef __NBL_ASSET_MESH_BLOB_H_INCLUDED__
+#define __NBL_ASSET_MESH_BLOB_H_INCLUDED__
 
 #include "irr/asset/bawformat/Blob.h"
 
@@ -17,7 +17,7 @@ class ICPUMesh;
 
 #include "irr/irrpack.h"
 //! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-struct IRR_FORCE_EBO MeshBlobV3 : VariableSizeBlob<MeshBlobV3,asset::ICPUMesh>, TypedBlob<MeshBlobV3, asset::ICPUMesh>
+struct NBL_FORCE_EBO MeshBlobV3 : VariableSizeBlob<MeshBlobV3,asset::ICPUMesh>, TypedBlob<MeshBlobV3, asset::ICPUMesh>
 {
 public:
 	enum E_BLOB_MESH_FLAG : uint32_t

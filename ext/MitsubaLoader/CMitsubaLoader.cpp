@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #include "os.h"
 
 #include <cwchar>
@@ -15,7 +19,7 @@ namespace ext
 namespace MitsubaLoader
 {
 
-_IRR_STATIC_INLINE_CONSTEXPR const char* DUMMY_VERTEX_SHADER =
+_NBL_STATIC_INLINE_CONSTEXPR const char* DUMMY_VERTEX_SHADER =
 R"(#version 430 core
 
 layout (location = 0) in vec3 vPosition;
@@ -76,10 +80,10 @@ void main()
 
 )";
 
-_IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_PROLOGUE =
+_NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_PROLOGUE =
 R"(#version 430 core
 )";
-_IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_DEFINITIONS =
+_NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_DEFINITIONS =
 R"(
 layout (location = 0) in vec3 WorldPos;
 layout (location = 1) flat in uint InstanceIndex;
@@ -180,7 +184,7 @@ bsdf_data_t irr_glsl_MC_fetchBSDFData(in uint ix)
 }
 #define _IRR_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 )";
-_IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
+_NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
 #include <irr/builtin/glsl/format/decode.glsl>
 
 instr_stream_t getEvalStream()
@@ -190,6 +194,11 @@ instr_stream_t getEvalStream()
 	stream.count = InstData.data[InstanceIndex].bsdf_instrCount;
 
 	return stream;
+}
+//rem'n'pdf and eval use the same instruction stream
+instr_stream_t getRemAndPdfStream()
+{
+	return getEvalStream();
 }
 instr_stream_t getGenChoiceStream()
 {
@@ -267,16 +276,16 @@ void main()
 }
 )";
 
-_IRR_STATIC_INLINE_CONSTEXPR const char* PIPELINE_LAYOUT_CACHE_KEY = "irr/builtin/pipeline_layout/loaders/mitsuba_xml/default";
-_IRR_STATIC_INLINE_CONSTEXPR const char* VERTEX_SHADER_CACHE_KEY = "irr/builtin/specialized_shader/loaders/mitsuba_xml/default";
+_NBL_STATIC_INLINE_CONSTEXPR const char* PIPELINE_LAYOUT_CACHE_KEY = "irr/builtin/pipeline_layout/loaders/mitsuba_xml/default";
+_NBL_STATIC_INLINE_CONSTEXPR const char* VERTEX_SHADER_CACHE_KEY = "irr/builtin/specialized_shader/loaders/mitsuba_xml/default";
 
-_IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_TAB_TEX_BINDING = 0u;
-_IRR_STATIC_INLINE_CONSTEXPR uint32_t PHYS_PAGE_VIEWS_BINDING = 1u;
-_IRR_STATIC_INLINE_CONSTEXPR uint32_t PRECOMPUTED_VT_DATA_BINDING = 2u;
-_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BUF_BINDING = 3u;
-_IRR_STATIC_INLINE_CONSTEXPR uint32_t BSDF_BUF_BINDING = 4u;
-_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTANCE_DATA_BINDING = 5u;
-_IRR_STATIC_INLINE_CONSTEXPR uint32_t DS0_BINDING_COUNT_WO_VT = 4u;
+_NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_TAB_TEX_BINDING = 0u;
+_NBL_STATIC_INLINE_CONSTEXPR uint32_t PHYS_PAGE_VIEWS_BINDING = 1u;
+_NBL_STATIC_INLINE_CONSTEXPR uint32_t PRECOMPUTED_VT_DATA_BINDING = 2u;
+_NBL_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BUF_BINDING = 3u;
+_NBL_STATIC_INLINE_CONSTEXPR uint32_t BSDF_BUF_BINDING = 4u;
+_NBL_STATIC_INLINE_CONSTEXPR uint32_t INSTANCE_DATA_BINDING = 5u;
+_NBL_STATIC_INLINE_CONSTEXPR uint32_t DS0_BINDING_COUNT_WO_VT = 4u;
 
 template <typename AssetT>
 static void insertAssetIntoCache(core::smart_refctd_ptr<AssetT>& asset, const char* path, IAssetManager* _assetMgr)
@@ -399,7 +408,7 @@ static core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline> createPi
 
 CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager) : asset::IAssetLoader(), m_manager(_manager)
 {
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	setDebugName("CMitsubaLoader");
 #endif
 }
@@ -791,7 +800,7 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 			// collapse parameter gets ignored
 			break;
 		case CElementShape::Type::PLY:
-			_IRR_DEBUG_BREAK_IF(true); // this code has never been tested
+			_NBL_DEBUG_BREAK_IF(true); // this code has never been tested
 			mesh = loadModel(shape->ply.filename);
 			mesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(~0u));//clone everything
 			flipNormals = flipNormals!=shape->ply.flipNormals;
@@ -838,12 +847,12 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 			maxSmoothAngle = shape->serialized.maxSmoothAngle;
 			break;
 		case CElementShape::Type::SHAPEGROUP:
-			_IRR_FALLTHROUGH;
+			[[fallthrough]];
 		case CElementShape::Type::INSTANCE:
 			assert(false);
 			break;
 		default:
-			_IRR_DEBUG_BREAK_IF(true);
+			_NBL_DEBUG_BREAK_IF(true);
 			break;
 	}
 	//
@@ -963,7 +972,7 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 							case CElementTexture::Bitmap::CHANNEL::Y:
 							case CElementTexture::Bitmap::CHANNEL::Z:*/
 							case CElementTexture::Bitmap::CHANNEL::INVALID:
-								_IRR_FALLTHROUGH;
+								[[fallthrough]];
 							default:
 								break;
 						}
@@ -971,21 +980,21 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 						viewParams.format = texture->getCreationParameters().format;
 						viewParams.image = std::move(texture);
 						//! TODO: this stuff (custom shader sampling code?)
-						_IRR_DEBUG_BREAK_IF(tex->bitmap.uoffset != 0.f);
-						_IRR_DEBUG_BREAK_IF(tex->bitmap.voffset != 0.f);
-						_IRR_DEBUG_BREAK_IF(tex->bitmap.uscale != 1.f);
-						_IRR_DEBUG_BREAK_IF(tex->bitmap.vscale != 1.f);
+						_NBL_DEBUG_BREAK_IF(tex->bitmap.uoffset != 0.f);
+						_NBL_DEBUG_BREAK_IF(tex->bitmap.voffset != 0.f);
+						_NBL_DEBUG_BREAK_IF(tex->bitmap.uscale != 1.f);
+						_NBL_DEBUG_BREAK_IF(tex->bitmap.vscale != 1.f);
 					}
 				}
 				// adjust gamma on pixels (painful and long process)
 				if (!std::isnan(tex->bitmap.gamma))
 				{
-					_IRR_DEBUG_BREAK_IF(true); // TODO
+					_NBL_DEBUG_BREAK_IF(true); // TODO
 				}
 				switch (tex->bitmap.filterType)
 				{
 					case CElementTexture::Bitmap::FILTER_TYPE::EWA:
-						_IRR_FALLTHROUGH; // we dont support this fancy stuff
+						[[fallthrough]]; // we dont support this fancy stuff
 					case CElementTexture::Bitmap::FILTER_TYPE::TRILINEAR:
 						samplerParams.MinFilter = ISampler::ETF_LINEAR;
 						samplerParams.MaxFilter = ISampler::ETF_LINEAR;
@@ -1008,10 +1017,10 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 							return ISampler::ETC_MIRROR;
 							break;
 						case CElementTexture::Bitmap::WRAP_MODE::ONE:
-							_IRR_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
+							_NBL_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
 							break;
 						case CElementTexture::Bitmap::WRAP_MODE::ZERO:
-							_IRR_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
+							_NBL_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
 							break;
 						default:
 							return ISampler::ETC_REPEAT;
@@ -1073,7 +1082,7 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 
 					viewParams.components = asset::ICPUImageView::SComponentMapping{};
 					if (!convert_filter_t::execute(&conv))
-						_IRR_DEBUG_BREAK_IF(true);
+						_NBL_DEBUG_BREAK_IF(true);
 					viewParams.format = outImg->getCreationParameters().format;
 					viewParams.image = std::move(outImg);
 				}
@@ -1097,7 +1106,7 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 		}
 			break;
 		default:
-			_IRR_DEBUG_BREAK_IF(true);
+			_NBL_DEBUG_BREAK_IF(true);
 			return SContext::tex_ass_type{nullptr,nullptr,0.f};
 			break;
 	}
@@ -1253,7 +1262,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 
 			auto bsdf = inst.bsdf;
 			auto streams_it = _compResult.streams.find(bsdf);
-			_IRR_DEBUG_BREAK_IF(streams_it==_compResult.streams.end());
+			_NBL_DEBUG_BREAK_IF(streams_it==_compResult.streams.end());
 			const auto& streams = streams_it->second;
 
 			os::Printer::log("Debug print BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);

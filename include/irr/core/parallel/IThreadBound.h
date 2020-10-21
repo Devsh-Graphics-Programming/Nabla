@@ -1,9 +1,9 @@
-// Copyright (C) 2018
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __I_THREAD_BOUND_H_INCLUDED__
-#define __I_THREAD_BOUND_H_INCLUDED__
+#ifndef __NBL_CORE_I_THREAD_BOUND_H_INCLUDED__
+#define __NBL_CORE_I_THREAD_BOUND_H_INCLUDED__
 
 #include <thread>
 
@@ -12,15 +12,15 @@ namespace irr
 namespace core
 {
 
-#ifdef _IRR_DEBUG
-    #define _IRR_CHECK_OWNING_THREAD(_obj, EXTRA_BODY_TO_EXEC) \
+#ifdef _NBL_DEBUG
+    #define _NBL_CHECK_OWNING_THREAD(_obj, EXTRA_BODY_TO_EXEC) \
         if (!_obj->belongsToCurrentThread()) \
         { \
             os::Printer::log("Attemped to use an IThreadBound object from a thread that did not create it!", ELL_ERROR);\
             EXTRA_BODY_TO_EXEC \
         }
 #else
-    #define _IRR_CHECK_OWNING_THREAD(_obj, EXTRA_BODY_TO_EXEC) \
+    #define _NBL_CHECK_OWNING_THREAD(_obj, EXTRA_BODY_TO_EXEC) \
         if (!_obj->belongsToCurrentThread()) \
         { \
             EXTRA_BODY_TO_EXEC \
@@ -28,7 +28,7 @@ namespace core
 #endif
 
 //! Base class for things that cannot be shared between threads
-class IRR_FORCE_EBO IThreadBound
+class NBL_FORCE_EBO IThreadBound
 {
         std::thread::id tid;
     protected:

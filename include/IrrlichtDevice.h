@@ -1,11 +1,11 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __I_IRRLICHT_DEVICE_H_INCLUDED__
-#define __I_IRRLICHT_DEVICE_H_INCLUDED__
+#ifndef __NBL_I_NABLA_DEVICE_H_INCLUDED__
+#define __NBL_I_NABLA_DEVICE_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
 #include "dimension2d.h"
 #include "IVideoDriver.h"
 #include "EDriverTypes.h"
@@ -202,7 +202,7 @@ namespace irr
 		as this would consume joystick info that 3rd party libraries might rely on. Call this method to
 		activate joystick support in Irrlicht and to receive irr::SJoystickEvent events.
 		\param joystickInfo On return, this will contain an array of each joystick that was found and activated.
-		\return true if joysticks are supported on this device and _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
+		\return true if joysticks are supported on this device and _NBL_COMPILE_WITH_JOYSTICK_EVENTS_
 				is defined, false if joysticks are not supported or support is compiled out.
 		*/
 		virtual bool activateJoysticks(core::vector<SJoystickInfo>& joystickInfo) =0;
@@ -234,7 +234,7 @@ namespace irr
 				case video::EDT_NULL:
 					return true;
 				case video::EDT_OPENGL:
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 					return true;
 #else
 					return false;

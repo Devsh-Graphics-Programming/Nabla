@@ -31,7 +31,7 @@ else:
   
     # writing binary  data of all files in a loop
     for x in resourcePaths:
-        outp.write('\n\t\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>()' % x)
+        outp.write('\n\t\ttemplate<> const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>()' % x)
         outp.write('\n\t\t{')
         outp.write('\n\t\t\tstatic const uint8_t data[] = {\n\t\t\t')
         try:
@@ -54,7 +54,7 @@ else:
         outp.write('\n\t\t\t};')
         outp.write('\n\t\t\treturn { data, sizeof(data) };')
         outp.write('\n\t\t}')
-        outp.write('\n\t\ttemplate const std::pair<const uint8_t*, size_t> get_resource<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();\n\n\n'%x)
+        outp.write('\n\t\ttemplate const std::pair<const uint8_t*, size_t> get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("%s")>();\n\n\n'%x)
 
 
     outp.write("\t\tstd::pair<const uint8_t*, size_t> get_resource_runtime(const std::string& filename) {\n")
@@ -69,7 +69,7 @@ else:
     outp.write("\t\t\tswitch (resource->second) \n\t\t\t{\n")
     counter = 1
     for x in resourcePaths:
-        outp.write("\t\t\t\tcase %d:\n\t\t\t\t\treturn get_resource<IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(\"%s\")>();\n" % (counter,x))
+        outp.write("\t\t\t\tcase %d:\n\t\t\t\t\treturn get_resource<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(\"%s\")>();\n" % (counter,x))
         counter+= 1
   
     outp.write("\t\t\t\tdefault:\n")

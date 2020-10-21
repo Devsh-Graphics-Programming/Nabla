@@ -1,5 +1,9 @@
-#ifndef  __IRR_MATRIX_UTIL_H_INCLUDED__
-#define __IRR_MATRIX_UTIL_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_MATRIX_UTIL_H_INCLUDED__
+#define __NBL_MATRIX_UTIL_H_INCLUDED__
 
 #include "matrix4SIMD.h"
 #include "matrix3x4SIMD.h"
@@ -34,4 +38,4 @@ inline matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& other_a, const mat
 }
 }
 
-#endif // __IRR_MATRIX_UTIL_H_INCLUDED__
+#endif

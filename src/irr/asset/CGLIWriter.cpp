@@ -22,12 +22,12 @@ SOFTWARE.
 
 #include "os.h"
 
-#ifdef _IRR_COMPILE_WITH_GLI_WRITER_
+#ifdef _NBL_COMPILE_WITH_GLI_WRITER_
 
 #include "irr/asset/filters/CBasicImageFilterCommon.h"
 #include "irr/asset/filters/CSwizzleAndConvertImageFilter.h"
 
-#ifdef _IRR_COMPILE_WITH_GLI_
+#ifdef _NBL_COMPILE_WITH_GLI_
 #include "gli/gli.hpp"
 #else
 #error "It requires GLI library"
@@ -448,4 +448,4 @@ inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> get
 }
 }
 
-#endif // _IRR_COMPILE_WITH_GLI_WRITER_
+#endif // _NBL_COMPILE_WITH_GLI_WRITER_

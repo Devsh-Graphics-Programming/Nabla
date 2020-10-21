@@ -1,10 +1,13 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
+
+#include "irr/asset/compile_config.h"
 
 #include "CImageLoaderJPG.h"
 
-#ifdef _IRR_COMPILE_WITH_JPG_LOADER_
+#ifdef _NBL_COMPILE_WITH_JPG_LOADER_
 
 #include "IReadFile.h"
 #include "os.h"
@@ -16,12 +19,12 @@
 #include <string>
 
 #include <stdio.h> // required for jpeglib.h
-#ifdef _IRR_COMPILE_WITH_LIBJPEG_
+#ifdef _NBL_COMPILE_WITH_LIBJPEG_
 extern "C" {
 #include "libjpeg/jpeglib.h" // use irrlicht jpeglib
 #include <setjmp.h>
 }
-#endif // _IRR_COMPILE_WITH_LIBJPEG_
+#endif // _NBL_COMPILE_WITH_LIBJPEG_
 
 namespace irr
 {
@@ -31,7 +34,7 @@ namespace asset
 //! constructor
 CImageLoaderJPG::CImageLoaderJPG()
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CImageLoaderJPG");
 	#endif
 }
@@ -44,7 +47,7 @@ CImageLoaderJPG::~CImageLoaderJPG()
 }
 
 
-#ifdef _IRR_COMPILE_WITH_LIBJPEG_
+#ifdef _NBL_COMPILE_WITH_LIBJPEG_
 namespace jpeg
 {
 	// struct for handling jpeg errors
@@ -141,12 +144,12 @@ namespace jpeg
 	}
 
 }
-#endif // _IRR_COMPILE_WITH_LIBJPEG_
+#endif // _NBL_COMPILE_WITH_LIBJPEG_
 
 //! returns true if the file maybe is able to be loaded by this class
 bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* _file) const
 {
-#ifndef _IRR_COMPILE_WITH_LIBJPEG_
+#ifndef _NBL_COMPILE_WITH_LIBJPEG_
 	return false;
 #else
 	if (!_file)
@@ -165,8 +168,8 @@ bool CImageLoaderJPG::isALoadableFileFormat(io::IReadFile* _file) const
 //! creates a surface from the file
 asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-#ifndef _IRR_COMPILE_WITH_LIBJPEG_
-	os::Printer::log("Can't load as not compiled with _IRR_COMPILE_WITH_LIBJPEG_:", _file->getFileName().c_str(), ELL_DEBUG);
+#ifndef _NBL_COMPILE_WITH_LIBJPEG_
+	os::Printer::log("Can't load as not compiled with _NBL_COMPILE_WITH_LIBJPEG_:", _file->getFileName().c_str(), ELL_DEBUG);
 	return nullptr
 #else
 	if (!_file || _file->getSize()>0xffffffffull)

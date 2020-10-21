@@ -1,9 +1,9 @@
-// Copyright (C) 2020- Mateusz 'DevSH' Kielan
-// This file is part of the "IrrlichtBAW" engine.
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_C_CHANNEL_INDEPENDENT_IMAGE_FILTER_KERNEL_H_INCLUDED__
-#define __IRR_C_CHANNEL_INDEPENDENT_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#ifndef __NBL_ASSET_C_CHANNEL_INDEPENDENT_IMAGE_FILTER_KERNEL_H_INCLUDED__
+#define __NBL_ASSET_C_CHANNEL_INDEPENDENT_IMAGE_FILTER_KERNEL_H_INCLUDED__
 
 #include "irr/core/core.h"
 
@@ -73,7 +73,7 @@ class CChannelIndependentImageFilterKernel :
 	public:
 		using value_type = typename base_t::value_type;
 
-		_IRR_STATIC_INLINE_CONSTEXPR size_t MaxChannels = sizeof...(Kernels);
+		_NBL_STATIC_INLINE_CONSTEXPR size_t MaxChannels = sizeof...(Kernels);
 
 	private:
 		enum E_CHANNEL
@@ -84,9 +84,9 @@ class CChannelIndependentImageFilterKernel :
 			E_A = 3
 		};
 		template <E_CHANNEL ch>
-		_IRR_STATIC_INLINE_CONSTEXPR bool has_kernel_v = ch < MaxChannels;
+		_NBL_STATIC_INLINE_CONSTEXPR bool has_kernel_v = ch < MaxChannels;
 
-		struct dummy_kernel_t { _IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = false; };
+		struct dummy_kernel_t { _NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = false; };
 		template <E_CHANNEL ch>
 		using kernel_t = std::conditional_t<has_kernel_v<ch>,
 			std::tuple_element_t<std::min(static_cast<size_t>(ch),MaxChannels-1ull), typename channel_indep_base_t::kernels_t>,
@@ -186,7 +186,7 @@ class CChannelIndependentImageFilterKernel :
 			return 0.f;
 		}
 
-		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(base_t)
+		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(base_t)
 };
 
 } // end namespace asset

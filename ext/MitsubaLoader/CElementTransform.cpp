@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 #include "../../ext/MitsubaLoader/CElementFactory.h"
 
@@ -25,20 +29,20 @@ bool CElementTransform::addProperty(SNamedPropertyElement&& _property)
 	switch (_property.type)
 	{
 		case SNamedPropertyElement::Type::MATRIX:
-			_IRR_FALLTHROUGH;
+			[[fallthrough]];
 		case SNamedPropertyElement::Type::TRANSLATE:
-			_IRR_FALLTHROUGH;
+			[[fallthrough]];
 		case SNamedPropertyElement::Type::ROTATE:
-			_IRR_FALLTHROUGH;
+			[[fallthrough]];
 		case SNamedPropertyElement::Type::SCALE:
-			_IRR_FALLTHROUGH;
+			[[fallthrough]];
 		case SNamedPropertyElement::Type::LOOKAT:
 			matrix = core::concatenateBFollowedByA(_property.mvalue, matrix);
 			break;
 		default:
 			{
 				ParserLog::invalidXMLFileStructure("The transform element does not take child property: "+_property.type);
-				_IRR_DEBUG_BREAK_IF(true);
+				_NBL_DEBUG_BREAK_IF(true);
 				return false;
 			}
 			break;

@@ -1,5 +1,9 @@
-#ifndef __IRR_I_CPU_SKINNED_MESH_INCLUDED__
-#define __IRR_I_CPU_SKINNED_MESH_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_ASSET_I_CPU_SKINNED_MESH_INCLUDED__
+#define __NBL_ASSET_I_CPU_SKINNED_MESH_INCLUDED__
 
 #include "quaternion.h"
 
@@ -146,4 +150,4 @@ class ICPUSkinnedMesh : public ICPUMesh
 
 }}//irr::asset
 
-#endif //__IRR_I_CPU_SKINNED_MESH_INCLUDED__
+#endif

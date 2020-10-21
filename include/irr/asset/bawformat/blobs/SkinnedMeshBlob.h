@@ -1,10 +1,9 @@
-// Copyright (C) 2018 Krzysztof "Criss" Szenk
-// This file is part of the "Irrlicht Engine" and "Build A World".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
-// and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_SKINNED_MESH_BLOB_H_INCLUDED__
-#define __IRR_SKINNED_MESH_BLOB_H_INCLUDED__
+#ifndef __NBL_ASSET_SKINNED_MESH_BLOB_H_INCLUDED__
+#define __NBL_ASSET_SKINNED_MESH_BLOB_H_INCLUDED__
 
 namespace irr
 {
@@ -15,7 +14,7 @@ class ICPUSkinnedMesh;
 
 #include "irr/irrpack.h"
 //! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
-struct IRR_FORCE_EBO SkinnedMeshBlobV3 : VariableSizeBlob<SkinnedMeshBlobV3,ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV3, ICPUSkinnedMesh>
+struct NBL_FORCE_EBO SkinnedMeshBlobV3 : VariableSizeBlob<SkinnedMeshBlobV3,ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV3, ICPUSkinnedMesh>
 {
 public:
 	enum E_BLOB_MESH_FLAG : uint32_t

@@ -1,8 +1,8 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#include "IrrCompileConfig.h"
 #include <list>
 #include "CFileSystem.h"
 #include "CReadFile.h"
@@ -18,14 +18,14 @@
 #include "CLimitReadFile.h"
 
 
-#if defined (_IRR_WINDOWS_API_)
+#if defined (_NBL_WINDOWS_API_)
 	#if !defined ( _WIN32_WCE )
 		#include <direct.h> // for _chdir
 		#include <io.h> // for _access
 		#include <tchar.h>
 	#endif
 #else
-	#if (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
+	#if (defined(_NBL_POSIX_API_) || defined(_NBL_OSX_PLATFORM_))
 		#include <stdio.h>
 		#include <stdlib.h>
 		#include <string.h>
@@ -45,7 +45,7 @@ namespace io
 //! constructor
 CFileSystem::CFileSystem(std::string&& _builtinResourceDirectory) : IFileSystem(std::move(_builtinResourceDirectory))
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CFileSystem");
 	#endif
 
@@ -53,19 +53,19 @@ CFileSystem::CFileSystem(std::string&& _builtinResourceDirectory) : IFileSystem(
 	//! reset current working directory
 	getWorkingDirectory();
 
-#ifdef __IRR_COMPILE_WITH_PAK_ARCHIVE_LOADER_
+#ifdef __NBL_COMPILE_WITH_PAK_ARCHIVE_LOADER_
 	ArchiveLoader.push_back(new CArchiveLoaderPAK(this));
 #endif
 
-#ifdef __IRR_COMPILE_WITH_TAR_ARCHIVE_LOADER_
+#ifdef __NBL_COMPILE_WITH_TAR_ARCHIVE_LOADER_
 	ArchiveLoader.push_back(new CArchiveLoaderTAR(this));
 #endif
 
-#ifdef __IRR_COMPILE_WITH_MOUNT_ARCHIVE_LOADER_
+#ifdef __NBL_COMPILE_WITH_MOUNT_ARCHIVE_LOADER_
 	ArchiveLoader.push_back(new CArchiveLoaderMount(this));
 #endif
 
-#ifdef __IRR_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
+#ifdef __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
 	ArchiveLoader.push_back(new CArchiveLoaderZIP(this));
 #endif
 
@@ -313,7 +313,7 @@ bool CFileSystem::changeArchivePassword(const path& filename,
 		// We need to check for directory names with trailing slash and without
 		const path absPath = getAbsolutePath(filename);
 		const path arcPath = FileArchives[idx]->getFileList()->getPath();
-		if ((absPath == arcPath) || ((absPath+_IRR_TEXT("/")) == arcPath))
+		if ((absPath == arcPath) || ((absPath+_NBL_TEXT("/")) == arcPath))
 		{
 			if (password.size())
 				FileArchives[idx]->Password=password;
@@ -488,9 +488,9 @@ const io::path& CFileSystem::getWorkingDirectory()
 	}
 	else
 	{
-		#if defined(_IRR_WINDOWS_API_)
+		#if defined(_NBL_WINDOWS_API_)
 			char tmp[_MAX_PATH];
-			#if defined(_IRR_WCHAR_FILESYSTEM )
+			#if defined(_NBL_WCHAR_FILESYSTEM )
 				_wgetcwd(tmp, _MAX_PATH);
 				WorkingDirectory[FILESYSTEM_NATIVE] = tmp;
 			#else
@@ -500,13 +500,13 @@ const io::path& CFileSystem::getWorkingDirectory()
             handleBackslashes(&WorkingDirectory[FILESYSTEM_NATIVE]);
 		#endif
 
-		#if (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
+		#if (defined(_NBL_POSIX_API_) || defined(_NBL_OSX_PLATFORM_))
 
 			// getting the CWD is rather complex as we do not know the size
 			// so try it until the call was successful
 			// Note that neither the first nor the second parameter may be 0 according to POSIX
 
-			#if defined(_IRR_WCHAR_FILESYSTEM )
+			#if defined(_NBL_WCHAR_FILESYSTEM )
 				uint32_t pathSize=256;
 				wchar_t *tmpPath = new wchar_t[pathSize];
 				while ((pathSize < (1<<16)) && !(wgetcwd(tmpPath,pathSize)))
@@ -553,7 +553,7 @@ bool CFileSystem::changeWorkingDirectoryTo(const io::path& newDirectory)
 	{
 		WorkingDirectory[FILESYSTEM_VIRTUAL] = newDirectory;
 		// is this empty string constant really intended?
-		WorkingDirectory[FILESYSTEM_VIRTUAL] = flattenFilename(WorkingDirectory[FILESYSTEM_VIRTUAL], _IRR_TEXT(""));
+		WorkingDirectory[FILESYSTEM_VIRTUAL] = flattenFilename(WorkingDirectory[FILESYSTEM_VIRTUAL], _NBL_TEXT(""));
 		success = true;
 	}
 	else
@@ -561,13 +561,13 @@ bool CFileSystem::changeWorkingDirectoryTo(const io::path& newDirectory)
 		WorkingDirectory[FILESYSTEM_NATIVE] = newDirectory;
 
 #if defined(_MSC_VER)
-	#if defined(_IRR_WCHAR_FILESYSTEM)
+	#if defined(_NBL_WCHAR_FILESYSTEM)
 		success = (_wchdir(newDirectory.c_str()) == 0);
 	#else
 		success = (_chdir(newDirectory.c_str()) == 0);
 	#endif
 #else
-    #if defined(_IRR_WCHAR_FILESYSTEM)
+    #if defined(_NBL_WCHAR_FILESYSTEM)
 		success = (_wchdir(newDirectory.c_str()) == 0);
     #else
         success = (chdir(newDirectory.c_str()) == 0);
@@ -581,10 +581,10 @@ bool CFileSystem::changeWorkingDirectoryTo(const io::path& newDirectory)
 
 io::path CFileSystem::getAbsolutePath(const io::path& filename) const
 {
-#if defined(_IRR_WINDOWS_API_)
+#if defined(_NBL_WINDOWS_API_)
 	char *p=0;
 	char fpath[_MAX_PATH];
-	#if defined(_IRR_WCHAR_FILESYSTEM )
+	#if defined(_NBL_WCHAR_FILESYSTEM )
 		p = _wfullpath(fpath, filename.c_str(), _MAX_PATH);
 		core::stringw tmp(p);
 	#else
@@ -593,7 +593,7 @@ io::path CFileSystem::getAbsolutePath(const io::path& filename) const
 	#endif
 	handleBackslashes(&tmp);
 	return tmp;
-#elif (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
+#elif (defined(_NBL_POSIX_API_) || defined(_NBL_OSX_PLATFORM_))
 	char* p=0;
 	char fpath[4096];
 	fpath[0]=0;
@@ -607,7 +607,7 @@ io::path CFileSystem::getAbsolutePath(const io::path& filename) const
 			return io::path(fpath);
 	}
 	if (filename[filename.size()-1]=='/')
-		return io::path(p)+_IRR_TEXT("/");
+		return io::path(p)+_NBL_TEXT("/");
 	else
 		return io::path(p);
 #else
@@ -660,23 +660,23 @@ path CFileSystem::getRelativeFilename(const path& filename, const path& director
 	core::splitFilename(getAbsolutePath(filename), &path1, &file, &ext);
 	io::path path2(getAbsolutePath(directory));
 	core::list<io::path> list1, list2;
-	path1.split(list1, _IRR_TEXT("/\\"), 2);
-	path2.split(list2, _IRR_TEXT("/\\"), 2);
+	path1.split(list1, _NBL_TEXT("/\\"), 2);
+	path2.split(list2, _NBL_TEXT("/\\"), 2);
 	uint32_t i=0;
 	core::list<io::path>::const_iterator it1,it2;
 	it1=list1.begin();
 	it2=list2.begin();
 
-	#if defined (_IRR_WINDOWS_API_)
+	#if defined (_NBL_WINDOWS_API_)
 	char partition1 = 0, partition2 = 0;
 	io::path prefix1, prefix2;
 	if ( it1 != list1.end() )
 		prefix1 = *it1;
 	if ( it2 != list2.end() )
 		prefix2 = *it2;
-	if ( prefix1.size() > 1 && prefix1[1] == _IRR_TEXT(':') )
+	if ( prefix1.size() > 1 && prefix1[1] == _NBL_TEXT(':') )
 		partition1 = core::locale_lower(prefix1[0]);
-	if ( prefix2.size() > 1 && prefix2[1] == _IRR_TEXT(':') )
+	if ( prefix2.size() > 1 && prefix2[1] == _NBL_TEXT(':') )
 		partition2 = core::locale_lower(prefix2[0]);
 
 	// must have the same prefix or we can't resolve it to a relative filename
@@ -688,7 +688,7 @@ path CFileSystem::getRelativeFilename(const path& filename, const path& director
 
 
 	for (; i<list1.size() && i<list2.size()
-#if defined (_IRR_WINDOWS_API_)
+#if defined (_NBL_WINDOWS_API_)
 		&& (io::path(*it1).make_lower()==io::path(*it2).make_lower())
 #else
 		&& (*it1==*it2)
@@ -698,18 +698,18 @@ path CFileSystem::getRelativeFilename(const path& filename, const path& director
 		++it1;
 		++it2;
 	}
-	path1=_IRR_TEXT("");
+	path1=_NBL_TEXT("");
 	for (; i<list2.size(); ++i)
-		path1 += _IRR_TEXT("../");
+		path1 += _NBL_TEXT("../");
 	while (it1 != list1.end())
 	{
 		path1.append(*it1++);
-		path1.append(_IRR_TEXT('/'));
+		path1.append(_NBL_TEXT('/'));
 	}
 	path1 += file;
 	if (ext.size())
 	{
-		path1.append(_IRR_TEXT('.'));
+		path1.append(_NBL_TEXT('.'));
 		path1 += ext;
 	}
 	return path1;
@@ -739,7 +739,7 @@ IFileList* CFileSystem::createFileList()
 	{
 		// --------------------------------------------
 		//! Windows version
-		#ifdef _IRR_WINDOWS_API_
+		#ifdef _NBL_WINDOWS_API_
 		#if !defined ( _WIN32_WCE )
 
 		r = new CFileList(Path);
@@ -772,12 +772,12 @@ IFileList* CFileSystem::createFileList()
 
 		// --------------------------------------------
 		//! Linux version
-		#if (defined(_IRR_POSIX_API_) || defined(_IRR_OSX_PLATFORM_))
+		#if (defined(_NBL_POSIX_API_) || defined(_NBL_OSX_PLATFORM_))
 
 
 		r = new CFileList(Path);
 
-		r->addItem(Path + _IRR_TEXT(".."), 0, 0, true, 0);
+		r->addItem(Path + _NBL_TEXT(".."), 0, 0, true, 0);
 
 		//! We use the POSIX compliant methods instead of scandir
 		DIR* dirHandle=opendir(Path.c_str());
@@ -800,7 +800,7 @@ IFileList* CFileSystem::createFileList()
 					size = buf.st_size;
 					isDirectory = S_ISDIR(buf.st_mode);
 				}
-				#if !defined(_IRR_SOLARIS_PLATFORM_) && !defined(__CYGWIN__) && !defined(__LSB_VERSION__)
+				#if !defined(_NBL_SOLARIS_PLATFORM_) && !defined(__CYGWIN__) && !defined(__LSB_VERSION__)
 				// only available on some systems
 				else
 				{
@@ -824,10 +824,10 @@ IFileList* CFileSystem::createFileList()
 		SFileListEntry e3;
 
 		//! PWD
-		r->addItem(Path + _IRR_TEXT("."), 0, 0, true, 0);
+		r->addItem(Path + _NBL_TEXT("."), 0, 0, true, 0);
 
 		//! parent
-		r->addItem(Path + _IRR_TEXT(".."), 0, 0, true, 0);
+		r->addItem(Path + _NBL_TEXT(".."), 0, 0, true, 0);
 
 		//! merge archives
 		for (uint32_t i=0; i < FileArchives.size(); ++i)
@@ -865,13 +865,13 @@ bool CFileSystem::existFile(const io::path& filename) const
 	}
 
 #if defined(_MSC_VER)
-    #if defined(_IRR_WCHAR_FILESYSTEM)
+    #if defined(_NBL_WCHAR_FILESYSTEM)
         return (_waccess(filename.c_str(), 0) != -1);
     #else
         return (_access(filename.c_str(), 0) != -1);
     #endif
 #elif defined(F_OK)
-    #if defined(_IRR_WCHAR_FILESYSTEM)
+    #if defined(_NBL_WCHAR_FILESYSTEM)
         return (_waccess(filename.c_str(), F_OK) != -1);
     #else
         return (access(filename.c_str(), F_OK) != -1);

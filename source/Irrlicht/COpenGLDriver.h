@@ -1,11 +1,13 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in Irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __C_VIDEO_OPEN_GL_H_INCLUDED__
-#define __C_VIDEO_OPEN_GL_H_INCLUDED__
+#ifndef __NBL_C_VIDEO_OPEN_GL_H_INCLUDED__
+#define __NBL_C_VIDEO_OPEN_GL_H_INCLUDED__
 
 #include "irr/core/core.h"
+#include "irr/system/compile_config.h"
 
 #include "SIrrCreationParameters.h"
 
@@ -17,7 +19,7 @@ namespace irr
 	class CIrrDeviceMacOSX;
 }
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 
 #include "IDriverMemoryAllocation.h"
 #include "irr/video/COpenGLSpecializedShader.h"
@@ -217,21 +219,21 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 	public:
         struct SAuxContext;
 
-		#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+		#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp);
 		//! inits the windows specific parts of the open gl driver
 		bool initDriver(CIrrDeviceWin32* device);
 		bool changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceWin32* device);
 		#endif
 
-		#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+		#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp);
 		//! inits the GLX specific parts of the open gl driver
 		bool initDriver(CIrrDeviceLinux* device, SAuxContext* auxCtxts);
 		bool changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceLinux* device);
 		#endif
 
-		#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+		#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceSDL* device, const asset::IGLSLCompiler* glslcomp);
 		#endif
 
@@ -241,38 +243,38 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             using namespace asset;
             switch (_fmt)
             {
-				case EF_R8_UNORM: _IRR_FALLTHROUGH;
-				case EF_R16_UNORM: _IRR_FALLTHROUGH;
-				case EF_R16_SFLOAT: _IRR_FALLTHROUGH;
-				case EF_R32_SFLOAT: _IRR_FALLTHROUGH;
-				case EF_R8_SINT: _IRR_FALLTHROUGH;
-				case EF_R16_SINT: _IRR_FALLTHROUGH;
-				case EF_R32_SINT: _IRR_FALLTHROUGH;
-				case EF_R8_UINT: _IRR_FALLTHROUGH;
-				case EF_R16_UINT: _IRR_FALLTHROUGH;
-				case EF_R32_UINT: _IRR_FALLTHROUGH;
-				case EF_R8G8_UNORM: _IRR_FALLTHROUGH;
-				case EF_R16G16_UNORM: _IRR_FALLTHROUGH;
-				case EF_R16G16_SFLOAT: _IRR_FALLTHROUGH;
-				case EF_R32G32_SFLOAT: _IRR_FALLTHROUGH;
-				case EF_R8G8_SINT: _IRR_FALLTHROUGH;
-				case EF_R16G16_SINT: _IRR_FALLTHROUGH;
-				case EF_R32G32_SINT: _IRR_FALLTHROUGH;
-				case EF_R8G8_UINT: _IRR_FALLTHROUGH;
-				case EF_R16G16_UINT: _IRR_FALLTHROUGH;
-				case EF_R32G32_UINT: _IRR_FALLTHROUGH;
-				case EF_R32G32B32_SFLOAT: _IRR_FALLTHROUGH;
-				case EF_R32G32B32_SINT: _IRR_FALLTHROUGH;
-				case EF_R32G32B32_UINT: _IRR_FALLTHROUGH;
-				case EF_R8G8B8A8_UNORM: _IRR_FALLTHROUGH;
-				case EF_R16G16B16A16_UNORM: _IRR_FALLTHROUGH;
-				case EF_R16G16B16A16_SFLOAT: _IRR_FALLTHROUGH;
-				case EF_R32G32B32A32_SFLOAT: _IRR_FALLTHROUGH;
-				case EF_R8G8B8A8_SINT: _IRR_FALLTHROUGH;
-				case EF_R16G16B16A16_SINT: _IRR_FALLTHROUGH;
-				case EF_R32G32B32A32_SINT: _IRR_FALLTHROUGH;
-				case EF_R8G8B8A8_UINT: _IRR_FALLTHROUGH;
-				case EF_R16G16B16A16_UINT: _IRR_FALLTHROUGH;
+				case EF_R8_UNORM: [[fallthrough]];
+				case EF_R16_UNORM: [[fallthrough]];
+				case EF_R16_SFLOAT: [[fallthrough]];
+				case EF_R32_SFLOAT: [[fallthrough]];
+				case EF_R8_SINT: [[fallthrough]];
+				case EF_R16_SINT: [[fallthrough]];
+				case EF_R32_SINT: [[fallthrough]];
+				case EF_R8_UINT: [[fallthrough]];
+				case EF_R16_UINT: [[fallthrough]];
+				case EF_R32_UINT: [[fallthrough]];
+				case EF_R8G8_UNORM: [[fallthrough]];
+				case EF_R16G16_UNORM: [[fallthrough]];
+				case EF_R16G16_SFLOAT: [[fallthrough]];
+				case EF_R32G32_SFLOAT: [[fallthrough]];
+				case EF_R8G8_SINT: [[fallthrough]];
+				case EF_R16G16_SINT: [[fallthrough]];
+				case EF_R32G32_SINT: [[fallthrough]];
+				case EF_R8G8_UINT: [[fallthrough]];
+				case EF_R16G16_UINT: [[fallthrough]];
+				case EF_R32G32_UINT: [[fallthrough]];
+				case EF_R32G32B32_SFLOAT: [[fallthrough]];
+				case EF_R32G32B32_SINT: [[fallthrough]];
+				case EF_R32G32B32_UINT: [[fallthrough]];
+				case EF_R8G8B8A8_UNORM: [[fallthrough]];
+				case EF_R16G16B16A16_UNORM: [[fallthrough]];
+				case EF_R16G16B16A16_SFLOAT: [[fallthrough]];
+				case EF_R32G32B32A32_SFLOAT: [[fallthrough]];
+				case EF_R8G8B8A8_SINT: [[fallthrough]];
+				case EF_R16G16B16A16_SINT: [[fallthrough]];
+				case EF_R32G32B32A32_SINT: [[fallthrough]];
+				case EF_R8G8B8A8_UINT: [[fallthrough]];
+				case EF_R16G16B16A16_UINT: [[fallthrough]];
 				case EF_R32G32B32A32_UINT:
 					return true;
 					break;
@@ -619,7 +621,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 				case EF_ASTC_10x10_SRGB_BLOCK:
 				case EF_ASTC_12x10_SRGB_BLOCK:
 				case EF_ASTC_12x12_SRGB_BLOCK:
-					return queryOpenGLFeature(IRR_KHR_texture_compression_astc_ldr);
+					return queryOpenGLFeature(NBL_KHR_texture_compression_astc_ldr);
 
 				default: return false;
             }
@@ -827,13 +829,13 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 		//!
 		const size_t& getMaxShaderInvocationsPerALU() const {return maxALUShaderInvocations;}
 
-#ifdef _IRR_COMPILE_WITH_OPENCL_
+#ifdef _NBL_COMPILE_WITH_OPENCL_
         const cl_device_id& getOpenCLAssociatedDevice() const {return clDevice;}
 		const cl_context_properties* getOpenCLAssociatedContextProperties() const { return clProperties; }
 
         size_t getOpenCLAssociatedDeviceID() const {return clDeviceIx;}
         size_t getOpenCLAssociatedPlatformID() const {return clPlatformIx;}
-#endif // _IRR_COMPILE_WITH_OPENCL_
+#endif // _NBL_COMPILE_WITH_OPENCL_
 
         struct SAuxContext
         {
@@ -845,8 +847,8 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
                 uint64_t lastUsed;
             };
 
-            _IRR_STATIC_INLINE_CONSTEXPR size_t maxVAOCacheSize = 0x1u<<10; //make this cache configurable
-            _IRR_STATIC_INLINE_CONSTEXPR size_t maxPipelineCacheSize = 0x1u<<13;//8k
+            _NBL_STATIC_INLINE_CONSTEXPR size_t maxVAOCacheSize = 0x1u<<10; //make this cache configurable
+            _NBL_STATIC_INLINE_CONSTEXPR size_t maxPipelineCacheSize = 0x1u<<13;//8k
 
             SAuxContext() : threadId(std::thread::id()), ctx(NULL),
                             CurrentFBO(0), CurrentRendertargetSize(0,0)
@@ -881,14 +883,14 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         //private:
             std::thread::id threadId;
             uint8_t ID; //index in array of contexts, just to be easier in use
-            #ifdef _IRR_WINDOWS_API_
+            #ifdef _NBL_WINDOWS_API_
                 HGLRC ctx;
             #endif
-            #ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+            #ifdef _NBL_COMPILE_WITH_X11_DEVICE_
                 GLXContext ctx;
                 GLXPbuffer pbuff;
             #endif
-            #ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
+            #ifdef _NBL_COMPILE_WITH_OSX_DEVICE_
                 AppleMakesAUselessOSWhichHoldsBackTheGamingIndustryAndSabotagesOpenStandards ctx;
             #endif
 
@@ -926,7 +928,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
 				if (pushConstantsState<PBP>()->layout && !pushConstantsState<PBP>()->layout->isCompatibleForPushConstants(_layout))
 				{
-				//#ifdef _IRR_DEBUG
+				//#ifdef _NBL_DEBUG
 					constexpr size_t toFill = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE / sizeof(uint64_t);
 					constexpr size_t bytesLeft = IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE - (toFill * sizeof(uint64_t));
 					constexpr uint64_t pattern = 0xdeadbeefDEADBEEFull;
@@ -1050,33 +1052,33 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
         mutable core::smart_refctd_dynamic_array<std::string> m_supportedGLSLExtsNames;
 
-		#ifdef _IRR_WINDOWS_API_
+		#ifdef _NBL_WINDOWS_API_
 			HDC HDc; // Private GDI Device Context
 			HWND Window;
-		#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
+		#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 			CIrrDeviceWin32 *Win32Device;
 		#endif
 		#endif
-		#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+		#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 			GLXDrawable Drawable;
 			Display* X11Display;
 			CIrrDeviceLinux *X11Device;
 		#endif
-		#ifdef _IRR_COMPILE_WITH_OSX_DEVICE_
+		#ifdef _NBL_COMPILE_WITH_OSX_DEVICE_
 			CIrrDeviceMacOSX *OSXDevice;
 		#endif
-		#ifdef _IRR_COMPILE_WITH_SDL_DEVICE_
+		#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
 			CIrrDeviceSDL *SDLDevice;
 		#endif
 
         size_t maxALUShaderInvocations;
         size_t maxConcurrentShaderInvocations;
         uint32_t maxShaderComputeUnits;
-#ifdef _IRR_COMPILE_WITH_OPENCL_
+#ifdef _NBL_COMPILE_WITH_OPENCL_
         cl_device_id clDevice;
 		cl_context_properties clProperties[7];
         size_t clPlatformIx, clDeviceIx;
-#endif // _IRR_COMPILE_WITH_OPENCL_
+#endif // _NBL_COMPILE_WITH_OPENCL_
 
         std::mutex glContextMutex;
 		SAuxContext* AuxContexts;
@@ -1089,6 +1091,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 } // end namespace irr
 
 
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
 #endif
 

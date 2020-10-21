@@ -1,7 +1,9 @@
-// For conditions of distribution and use, see LICENSE.md
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_SRAIIBASEDEXITER_H_INCLUDED__
-#define __IRR_SRAIIBASEDEXITER_H_INCLUDED__
+#ifndef __NBL_CORE_SRAIIBASEDEXITER_H_INCLUDED__
+#define __NBL_CORE_SRAIIBASEDEXITER_H_INCLUDED__
 
 #include "stddef.h"
 #include "irr/core/Types.h"

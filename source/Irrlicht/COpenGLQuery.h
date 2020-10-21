@@ -1,9 +1,13 @@
-#ifndef __C_OPENGL_QUERY_H_INCLUDED__
-#define __C_OPENGL_QUERY_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_C_OPENGL_QUERY_H_INCLUDED__
+#define __NBL_C_OPENGL_QUERY_H_INCLUDED__
 
 #include "IQueryObject.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 #include "COpenGLExtensionHandler.h"
 
 namespace irr
@@ -54,7 +58,7 @@ class COpenGLQuery : public IQueryObject
 
 }
 }
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
 
-#endif // __C_OPENGL_QUERY_H_INCLUDED__
+#endif
 

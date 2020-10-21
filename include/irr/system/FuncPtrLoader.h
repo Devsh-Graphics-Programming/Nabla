@@ -1,5 +1,9 @@
-#ifndef __IRR_FUNC_PTR_LOADER_H_INCLUDED__
-#define __IRR_FUNC_PTR_LOADER_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_SYSTEM_FUNC_PTR_LOADER_H_INCLUDED__
+#define __NBL_SYSTEM_FUNC_PTR_LOADER_H_INCLUDED__
 
 
 #include "irr/core/core.h"
@@ -32,7 +36,7 @@ class FuncPtrLoader : public core::Uncopyable
 		{
 			using FuncPtrT = decltype(&FuncT);
 			constexpr char FunctionName[] = std::reflection::name<FuncPtrT>::value;
-			return DynamicLibraryFunctionPointer<FuncPtrT,IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FunctionName)>(this->loadFuncPtr(FunctionName));
+			return DynamicLibraryFunctionPointer<FuncPtrT,NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FunctionName)>(this->loadFuncPtr(FunctionName));
 		}
 		*/
 };

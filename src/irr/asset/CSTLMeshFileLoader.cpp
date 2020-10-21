@@ -1,10 +1,11 @@
-// Copyright (C) 2007-2012 Christian Stehno
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#include "IrrCompileConfig.h"
+#include "BuildConfigOptions.h"
 
-#ifdef _IRR_COMPILE_WITH_STL_LOADER_
+#ifdef _NBL_COMPILE_WITH_STL_LOADER_
 
 #include "irr/asset/asset.h"
 #include "irr/asset/CQuantNormalCache.h"
@@ -42,7 +43,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 {
 	if (_params.meshManipulatorOverride == nullptr)
 	{
-		_IRR_DEBUG_BREAK_IF(true);
+		_NBL_DEBUG_BREAK_IF(true);
 		assert(false);
 	}
 
@@ -377,4 +378,4 @@ void CSTLMeshFileLoader::goNextLine(io::IReadFile* file) const
 }
 
 
-#endif // _IRR_COMPILE_WITH_STL_LOADER_
+#endif // _NBL_COMPILE_WITH_STL_LOADER_

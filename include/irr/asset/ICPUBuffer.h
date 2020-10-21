@@ -1,10 +1,9 @@
-// Copyright (C) 2016 Mateusz "DeVsh" Kielan
-// This file is part of the "Irrlicht Engine" and "Build A World".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
-// and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __I_CPU_BUFFER_H_INCLUDED__
-#define __I_CPU_BUFFER_H_INCLUDED__
+#ifndef __NBL_ASSET_I_CPU_BUFFER_H_INCLUDED__
+#define __NBL_ASSET_I_CPU_BUFFER_H_INCLUDED__
 
 #include <type_traits>
 
@@ -44,7 +43,7 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 		*/
         ICPUBuffer(size_t sizeInBytes) : size(0)
         {
-			data = _IRR_ALIGNED_MALLOC(sizeInBytes,_IRR_SIMD_ALIGNMENT);
+			data = _NBL_ALIGNED_MALLOC(sizeInBytes,_NBL_SIMD_ALIGNMENT);
             if (!data)
                 return;
 
@@ -67,13 +66,13 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
             if (data)
-                _IRR_ALIGNED_FREE(data);
+                _NBL_ALIGNED_FREE(data);
             data = nullptr;
             size = 0ull;
             isDummyObjectForCacheAliasing = true;
         }
 
-        _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER;
+        _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
         virtual size_t conservativeSizeEstimate() const override { return getSize(); }
@@ -96,7 +95,7 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 };
 
 template<
-    typename Allocator = _IRR_DEFAULT_ALLOCATOR_METATYPE<uint8_t>,
+    typename Allocator = _NBL_DEFAULT_ALLOCATOR_METATYPE<uint8_t>,
     bool = std::is_same<Allocator, core::null_allocator<typename Allocator::value_type> >::value
 >
 class CCustomAllocatorCPUBuffer;

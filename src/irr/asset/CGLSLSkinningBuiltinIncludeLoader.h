@@ -1,7 +1,10 @@
-#ifndef __IRR_C_GLSL_VERTEX_SHADER_BUILTIN_LOADER_H_INCLUDED__
-#define __IRR_C_GLSL_VERTEX_SHADER_BUILTIN_LOADER_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "IrrCompileConfig.h"
+#ifndef __NBL_ASSET_C_GLSL_VERTEX_SHADER_BUILTIN_LOADER_H_INCLUDED__
+#define __NBL_ASSET_C_GLSL_VERTEX_SHADER_BUILTIN_LOADER_H_INCLUDED__
+
 #include "IVideoCapabilityReporter.h"
 #include "irr/asset/IBuiltinIncludeLoader.h"
 
@@ -26,4 +29,4 @@ private:
 
 }} // irr::asset
 
-#endif // __IRR_C_GLSL_VERTEX_SHADER_BUILTIN_LOADER_H_INCLUDED__
+#endif

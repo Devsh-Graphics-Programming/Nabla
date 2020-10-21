@@ -1,20 +1,20 @@
-// Copyright (C) 2014 Mateusz 'DevSH' Kielan
-// This file is part of the "Irrlicht Engine".
-// Contributed from "Build a World"
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __IRR_VECTOR_SIMD_H_INCLUDED__
-#define __IRR_VECTOR_SIMD_H_INCLUDED__
+#ifndef __NBL_VECTOR_SIMD_H_INCLUDED__
+#define __NBL_VECTOR_SIMD_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
+#include "irr/core/compile_config.h"
 
-#ifdef __IRR_COMPILE_WITH_X86_SIMD_
+#ifdef __NBL_COMPILE_WITH_X86_SIMD_
 
-#ifdef __IRR_COMPILE_WITH_X86_SIMD_
+#ifdef __NBL_COMPILE_WITH_X86_SIMD_
     #include <nmmintrin.h>
 #else
     #error "Check your compiler or project settings for the -m*sse* flag, or upgrade your CPU"
-#endif // __IRR_COMPILE_WITH_X86_SIMD_
+#endif // __NBL_COMPILE_WITH_X86_SIMD_
 
 #include <type_traits>
 #include <stdint.h>
@@ -25,7 +25,7 @@
 #include "vector3d.h"
 
 
-#define _IRR_VECTOR_ALIGNMENT _IRR_SIMD_ALIGNMENT // if this gets changed to non-16 it can and will break external code
+#define _NBL_VECTOR_ALIGNMENT _NBL_SIMD_ALIGNMENT // if this gets changed to non-16 it can and will break external code
 
 
 namespace irr
@@ -45,7 +45,7 @@ namespace core
 	class vectorSIMD_16;
 	class vectorSIMDf;
 
-	class IRR_FORCE_EBO vectorSIMDIntBase  : public AlignedBase<_IRR_VECTOR_ALIGNMENT>
+	class NBL_FORCE_EBO vectorSIMDIntBase  : public AlignedBase<_NBL_VECTOR_ALIGNMENT>
 	{
 	    public:
             inline vectorSIMDIntBase() : vectorSIMDIntBase(_mm_setzero_si128()) {}
@@ -69,7 +69,7 @@ namespace core
 	namespace impl
 	{
 	    template<class CRTP>
-        class IRR_FORCE_EBO vectorSIMDIntBase  : public core::vectorSIMDIntBase
+        class NBL_FORCE_EBO vectorSIMDIntBase  : public core::vectorSIMDIntBase
         {
                 typedef core::vectorSIMDIntBase Base;
             public:
@@ -106,11 +106,11 @@ namespace core
 
 	namespace impl
 	{
-		struct IRR_FORCE_EBO empty_base {};
+		struct NBL_FORCE_EBO empty_base {};
 	}
 
     //a class for bitwise shizz
-	template <int components> class IRR_FORCE_EBO vectorSIMDBool : 
+	template <int components> class NBL_FORCE_EBO vectorSIMDBool : 
 		public impl::vectorSIMDIntBase<vectorSIMDBool<components> >, 
 		public std::conditional_t<components==4, SIMD_32bitSwizzleAble<vectorSIMDBool<components>, __m128i>, impl::empty_base>
     {
@@ -273,7 +273,7 @@ namespace core
 #endif
 
     template <class T>
-    class IRR_FORCE_EBO vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, public impl::vectorSIMDIntBase<vectorSIMD_32<T> >
+    class NBL_FORCE_EBO vectorSIMD_32 : public SIMD_32bitSwizzleAble<vectorSIMD_32<T>,__m128i>, public impl::vectorSIMDIntBase<vectorSIMD_32<T> >
 	{
         typedef impl::vectorSIMDIntBase<vectorSIMD_32<T> > Base;
 
@@ -508,15 +508,15 @@ namespace core
 	typedef vectorSIMDu32 vector3du32_SIMD;
 	typedef vectorSIMDu32 vector2du32_SIMD;
 
-	static_assert(sizeof(vector4du32_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4du32_SIMD not same size as uvec4");
-	static_assert(alignof(vector4du32_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4du32_SIMD not same alignment as uvec4");
+	static_assert(sizeof(vector4du32_SIMD) == _NBL_VECTOR_ALIGNMENT, "vector4du32_SIMD not same size as uvec4");
+	static_assert(alignof(vector4du32_SIMD) == _NBL_VECTOR_ALIGNMENT, "vector4du32_SIMD not same alignment as uvec4");
 
 	typedef vectorSIMDi32 vector4di32_SIMD;
 	typedef vectorSIMDi32 vector3di32_SIMD;
 	typedef vectorSIMDi32 vector2di32_SIMD;
 
-	static_assert(sizeof(vector4di32_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4di32_SIMD not same size as ivec4");
-	static_assert(alignof(vector4di32_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4di32_SIMD not same alignment as ivec4");
+	static_assert(sizeof(vector4di32_SIMD) == _NBL_VECTOR_ALIGNMENT, "vector4di32_SIMD not same size as ivec4");
+	static_assert(alignof(vector4di32_SIMD) == _NBL_VECTOR_ALIGNMENT, "vector4di32_SIMD not same alignment as ivec4");
 
 /*
 	typedef vectorSIMDu16 vector8du16_SIMD;
@@ -539,7 +539,7 @@ namespace core
 	*/
 
 
-    class IRR_FORCE_EBO vectorSIMDf : public SIMD_32bitSwizzleAble<vectorSIMDf,__m128>, public AlignedBase<_IRR_VECTOR_ALIGNMENT>
+    class NBL_FORCE_EBO vectorSIMDf : public SIMD_32bitSwizzleAble<vectorSIMDf,__m128>, public AlignedBase<_NBL_VECTOR_ALIGNMENT>
 	{
 	public:
 		//! Default constructor (null vector).
@@ -607,7 +607,7 @@ namespace core
 
 		inline vectorSIMDf operator*(const vectorSIMDf& other) const { return _mm_mul_ps(getAsRegister(),other.getAsRegister()); }
 		inline vectorSIMDf& operator*=(const vectorSIMDf& other) { _mm_store_ps(pointer,_mm_mul_ps(getAsRegister(),other.getAsRegister())); return *this; }
-#ifdef __IRR_FAST_MATH
+#ifdef __NBL_FAST_MATH
 		inline vectorSIMDf operator/(const vectorSIMDf& other) const { return _mm_mul_ps(getAsRegister(),_mm_rcp_ps(other.getAsRegister())); }
 		inline vectorSIMDf& operator/=(const vectorSIMDf& other) { _mm_store_ps(pointer,_mm_mul_ps(getAsRegister(),_mm_rcp_ps(other.getAsRegister()))); return *this; }
 #else
@@ -627,7 +627,7 @@ namespace core
 		inline vectorSIMDf  operator*(float val) const { return (*this)*vectorSIMDf(val); }
 		inline vectorSIMDf& operator*=(float val) { return ( (*this) *= vectorSIMDf(val) ); }
 
-#ifdef __IRR_FAST_MATH
+#ifdef __NBL_FAST_MATH
 		inline vectorSIMDf operator/(float v) const { return vectorSIMDf(_mm_mul_ps(_mm_rcp_ps(_mm_load_ps1(&v)),getAsRegister())); }
 		inline vectorSIMDf& operator/=(float v) { _mm_store_ps(pointer,_mm_mul_ps(_mm_rcp_ps(_mm_load_ps1(&v)),getAsRegister())); return *this; }
 #else
@@ -811,8 +811,8 @@ namespace core
 	typedef vectorSIMDf vector3df_SIMD;
 	typedef vectorSIMDf vector2df_SIMD;
 
-	static_assert(sizeof(vector4df_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4df_SIMD not same size as vec4");
-	static_assert(alignof(vector4df_SIMD) == _IRR_VECTOR_ALIGNMENT, "vector4df_SIMD not same alignment as vec4");
+	static_assert(sizeof(vector4df_SIMD) == _NBL_VECTOR_ALIGNMENT, "vector4df_SIMD not same size as vec4");
+	static_assert(alignof(vector4df_SIMD) == _NBL_VECTOR_ALIGNMENT, "vector4df_SIMD not same alignment as vec4");
 
 
     inline vectorSIMDIntBase vectorSIMDIntBase::operator&(const vectorSIMDf &other) const { return _mm_and_si128(getAsRegister(),_mm_castps_si128(other.getAsRegister())); }
@@ -866,7 +866,7 @@ namespace core
 
 
 	template <class T, class X>
-	class IRR_FORCE_EBO SIMD_8bitSwizzleAble
+	class NBL_FORCE_EBO SIMD_8bitSwizzleAble
 	{
 		template<size_t A, size_t B, size_t C, size_t D, size_t E, size_t F, size_t G, size_t H, size_t I, size_t J, size_t K, size_t L, size_t M, size_t N, size_t O, size_t P>
 		inline T swizzle() const
@@ -877,7 +877,7 @@ namespace core
 	};
 
 	template <class T, class X>
-	class IRR_FORCE_EBO SIMD_16bitSwizzleAble
+	class NBL_FORCE_EBO SIMD_16bitSwizzleAble
 	{
 		template<size_t A, size_t B, size_t C, size_t D, size_t E, size_t F, size_t G, size_t H>
 		inline T swizzle() const

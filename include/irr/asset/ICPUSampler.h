@@ -1,5 +1,9 @@
-#ifndef __IRR_I_CPU_SAMPLER_H_INCLUDED__
-#define __IRR_I_CPU_SAMPLER_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_ASSET_I_CPU_SAMPLER_H_INCLUDED__
+#define __NBL_ASSET_I_CPU_SAMPLER_H_INCLUDED__
 
 #include "irr/asset/IAsset.h"
 #include "irr/asset/ISampler.h"
@@ -71,7 +75,7 @@ class ICPUSampler : public ISampler, public IAsset
             convertToDummyObject_common(referenceLevelsBelowToConvert);
         }
 
-		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SAMPLER;
+		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SAMPLER;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 };
 

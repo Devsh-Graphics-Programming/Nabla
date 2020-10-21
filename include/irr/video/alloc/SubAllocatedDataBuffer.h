@@ -1,10 +1,12 @@
-#ifndef __IRR_SUB_ALLOCATED_DATA_BUFFER_H__
-#define __IRR_SUB_ALLOCATED_DATA_BUFFER_H__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_VIDEO_SUB_ALLOCATED_DATA_BUFFER_H__
+#define __NBL_VIDEO_SUB_ALLOCATED_DATA_BUFFER_H__
 
 #include <type_traits>
 #include <mutex>
-
-#include "irr/void_t.h"
 
 #include "irr/core/IReferenceCounted.h"
 #include "irr/core/alloc/GeneralpurposeAddressAllocator.h"
@@ -29,14 +31,14 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         static constexpr size_type invalid_address                                          = HeterogenousMemoryAddressAllocator::invalid_address;
 
     private:
-        #ifdef _IRR_DEBUG
+        #ifdef _NBL_DEBUG
         std::recursive_mutex stAccessVerfier;
-        #endif // _IRR_DEBUG
+        #endif // _NBL_DEBUG
         typedef SubAllocatedDataBuffer<HeterogenousMemoryAddressAllocator,CustomDeferredFreeFunctor> ThisType;
 
         template<class U> using std_get_0 = decltype(std::get<0u>(std::declval<U&>()));
         template<class,class=void> struct is_std_get_0_defined                                   : std::false_type {};
-        template<class U> struct is_std_get_0_defined<U,void_t<std_get_0<U> > > : std::true_type {};
+        template<class U> struct is_std_get_0_defined<U,std::void_t<std_get_0<U> > > : std::true_type {};
     protected:
         HeterogenousMemoryAddressAllocator mAllocator;
 
@@ -126,9 +128,9 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
 
                 inline void operator()()
                 {
-                    #ifdef _IRR_DEBUG
+                    #ifdef _NBL_DEBUG
                     assert(sadbRef && rangeData);
-                    #endif // _IRR_DEBUG
+                    #endif // _NBL_DEBUG
                     HeterogenousMemoryAddressAllocator& alloctr = sadbRef->getAllocator();
                     alloctr.multi_free_addr(numAllocs,rangeData,rangeData+numAllocs);
                 }
@@ -146,10 +148,10 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         template<typename... Args>
         SubAllocatedDataBuffer(Args&&... args) : mAllocator(std::forward<Args>(args)...)
         {
-            #ifdef _IRR_DEBUG
+            #ifdef _NBL_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
-            #endif // _IRR_DEBUG
+            #endif // _NBL_DEBUG
         }
 
         //!
@@ -180,10 +182,10 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         //! Returns max possible currently allocatable single allocation size, without having to wait for GPU more
         inline size_type    max_size() noexcept
         {
-            #ifdef _IRR_DEBUG
+            #ifdef _NBL_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
-            #endif // _IRR_DEBUG
+            #endif // _NBL_DEBUG
             size_type valueToStopAt = mAllocator.getAddressAllocator().min_size()*3u; // padding, allocation, more padding = 3u
             // we don't actually want or need to poll all possible blocks to free, only first few
             deferredFrees.pollForReadyEvents(valueToStopAt);
@@ -203,10 +205,10 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         template<typename... Args>
         inline size_type    multi_alloc(const std::chrono::nanoseconds& maxWait, const Args&... args) noexcept
         {
-            #ifdef _IRR_DEBUG
+            #ifdef _NBL_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
-            #endif // _IRR_DEBUG
+            #endif // _NBL_DEBUG
 
             // try allocate once
             size_type unallocatedSize = try_multi_alloc(args...);
@@ -229,18 +231,18 @@ class SubAllocatedDataBuffer : public virtual core::IReferenceCounted, protected
         //!
         inline void         multi_free(core::smart_refctd_ptr<IDriverFence>&& fence, DeferredFreeFunctor&& functor) noexcept
         {
-            #ifdef _IRR_DEBUG
+            #ifdef _NBL_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
-            #endif // _IRR_DEBUG
+            #endif // _NBL_DEBUG
             deferredFrees.addEvent(GPUEventWrapper(std::move(fence)),std::forward<DeferredFreeFunctor>(functor));
         }
         inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes) noexcept
         {
-            #ifdef _IRR_DEBUG
+            #ifdef _NBL_DEBUG
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
-            #endif // _IRR_DEBUG
+            #endif // _NBL_DEBUG
             mAllocator.multi_free_addr(count,addr,bytes);
         }
         template<typename Q=DeferredFreeFunctor>
@@ -262,7 +264,7 @@ using SubAllocatedDataBufferST = SubAllocatedDataBuffer<core::HeterogenousMemory
 }
 }
 
-#endif // __IRR_SUB_ALLOCATED_DATA_BUFFER_H__
+#endif
 
 
 

@@ -1,5 +1,9 @@
-#ifndef __IRR_RESIZABLE_BUFFERING_ALLOCATOR_H__
-#define __IRR_RESIZABLE_BUFFERING_ALLOCATOR_H__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_VIDEO_RESIZABLE_BUFFERING_ALLOCATOR_H__
+#define __NBL_VIDEO_RESIZABLE_BUFFERING_ALLOCATOR_H__
 
 
 #include "irr/core/alloc/MultiBufferingAllocatorBase.h"
@@ -85,7 +89,7 @@ class ResizableBufferingAllocatorST : public core::MultiBufferingAllocatorBase<B
 }
 }
 
-#endif // __IRR_RESIZABLE_BUFFERING_ALLOCATOR_H__
+#endif
 
 
 

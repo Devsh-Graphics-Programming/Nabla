@@ -1,5 +1,9 @@
-#ifndef __IRR_ASSET_I_GLSL_EMBEDDED_INCLUDE_LOADER_H_INCLUDED__
-#define __IRR_ASSET_I_GLSL_EMBEDDED_INCLUDE_LOADER_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_ASSET_ASSET_I_GLSL_EMBEDDED_INCLUDE_LOADER_H_INCLUDED__
+#define __NBL_ASSET_ASSET_I_GLSL_EMBEDDED_INCLUDE_LOADER_H_INCLUDED__
 
 #include "irr/system/system.h"
 #include "IFileSystem.h"
@@ -49,4 +53,4 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 }
 }
 
-#endif//__IRR_I_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
+#endif

@@ -1,9 +1,9 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __I_MESH_MANIPULATOR_H_INCLUDED__
-#define __I_MESH_MANIPULATOR_H_INCLUDED__
+#ifndef __NBL_ASSET_I_MESH_MANIPULATOR_H_INCLUDED__
+#define __NBL_ASSET_I_MESH_MANIPULATOR_H_INCLUDED__
 
 #include <array>
 #include <functional>
@@ -295,8 +295,8 @@ namespace asset
 				break;
 			}
 
-			_IRR_DEBUG_BREAK_IF(!errorFunc)
-				_IRR_DEBUG_BREAK_IF(!cmpFunc)
+			_NBL_DEBUG_BREAK_IF(!errorFunc)
+				_NBL_DEBUG_BREAK_IF(!cmpFunc)
 				if (!errorFunc || !cmpFunc)
 					return false;
 

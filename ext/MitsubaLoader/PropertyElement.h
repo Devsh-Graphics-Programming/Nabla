@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef __PROPERTY_ELEMENT_H_INCLUDED__
 #define __PROPERTY_ELEMENT_H_INCLUDED__
 
@@ -35,7 +39,7 @@ struct SPropertyElementData
 	};
 
 	static const core::unordered_map<std::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxAttributes = 4u;
+	_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxAttributes = 4u;
 	static const char* attributeStrings[Type::INVALID][MaxAttributes];
 
 	inline SPropertyElementData() : type(Type::INVALID)
@@ -79,7 +83,7 @@ struct SPropertyElementData
 	~SPropertyElementData()
 	{
 		if (type == Type::STRING)
-			_IRR_ALIGNED_FREE((void*)svalue);
+			_NBL_ALIGNED_FREE((void*)svalue);
 	}
 
 	inline SPropertyElementData& operator=(const SPropertyElementData& other)
@@ -99,7 +103,7 @@ struct SPropertyElementData
 			case Type::STRING:
 			{
 				auto len = strlen(other.svalue);
-				auto* tmp = (char*)_IRR_ALIGNED_MALLOC(len+1u,64u);
+				auto* tmp = (char*)_NBL_ALIGNED_MALLOC(len+1u,64u);
 				memcpy(tmp,other.svalue,len);
 				tmp[len] = 0;
 				svalue = tmp;

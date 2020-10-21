@@ -1,5 +1,9 @@
-#ifndef __C_CONCURRENT_OBJECT_CACHE_H_INCLUDED__
-#define __C_CONCURRENT_OBJECT_CACHE_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_C_CONCURRENT_OBJECT_CACHE_H_INCLUDED__
+#define __NBL_C_CONCURRENT_OBJECT_CACHE_H_INCLUDED__
 
 #include "CObjectCache.h"
 #include "FW_Mutex.h"
@@ -9,7 +13,7 @@ namespace irr { namespace core
 
 namespace impl
 {
-    struct IRR_FORCE_EBO CConcurrentObjectCacheBase
+    struct NBL_FORCE_EBO CConcurrentObjectCacheBase
     {
         CConcurrentObjectCacheBase() = default;
         // explicitely making concurrent caches non-copy-and-move-constructible and non-copy-and-move-assignable

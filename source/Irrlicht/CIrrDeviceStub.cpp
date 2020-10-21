@@ -1,13 +1,13 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
 #include "CIrrDeviceStub.h"
 #include "CSceneManager.h"
 #include "IEventReceiver.h"
 #include "IFileSystem.h"
 #include "os.h"
-#include "IrrCompileConfig.h"
 #include "CLogger.h"
 #include "irr/asset/CIncludeHandler.h"
 
@@ -97,7 +97,7 @@ ITimer* CIrrDeviceStub::getTimer()
 //! Returns the version of the engine.
 const char* CIrrDeviceStub::getVersion() const
 {
-	return IRRLICHTBAW_SDK_VERSION;
+	return NABLA_SDK_VERSION;
 }
 
 //! \return Returns a pointer to the mouse cursor control interface.

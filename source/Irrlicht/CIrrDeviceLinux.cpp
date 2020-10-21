@@ -1,12 +1,13 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
 #include "CIrrDeviceLinux.h"
 
 #include "CNullDriver.h"
 
-#ifdef _IRR_COMPILE_WITH_X11_DEVICE_
+#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 
 #include <locale.h>
 #include <stdio.h>
@@ -23,11 +24,11 @@
 #include <X11/XKBlib.h>
 #include <X11/Xatom.h>
 
-#ifdef _IRR_LINUX_XCURSOR_
+#ifdef _NBL_LINUX_XCURSOR_
 #include <X11/Xcursor/Xcursor.h>
 #endif
 
-#if defined _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
+#if defined _NBL_COMPILE_WITH_JOYSTICK_EVENTS_
 #include <fcntl.h>
 #include <unistd.h>
 
@@ -45,13 +46,13 @@
 #undef _INPUT_H
 #endif
 
-#endif // _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
+#endif // _NBL_COMPILE_WITH_JOYSTICK_EVENTS_
 
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
     #include "COpenGLDriver.h"
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
 
 namespace irr
 {
@@ -59,13 +60,13 @@ namespace irr
 	{
 		IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
 				io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
                 ,COpenGLDriver::SAuxContext* auxCtxts
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
         );
 	}
 } // end namespace irr
-#endif // _IRR_COMPILE_WITH_X11_
+#endif // _NBL_COMPILE_WITH_X11_
 
 namespace
 {
@@ -83,10 +84,10 @@ const char* wmDeleteWindow = "WM_DELETE_WINDOW";
 //! constructor
 CIrrDeviceLinux::CIrrDeviceLinux(const SIrrlichtCreationParameters& param)
 	: CIrrDeviceStub(param),
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	display(0), visual(0), screennr(0), window(0), StdHints(0),
 	XInputMethod(0), XInputContext(0),
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 	glxWin(0),	Context(0), AuxContexts(0),
 #endif
 #endif
@@ -95,7 +96,7 @@ CIrrDeviceLinux::CIrrDeviceLinux(const SIrrlichtCreationParameters& param)
 	UseXVidMode(false), UseXRandR(false),
 	ExternalWindow(false), AutorepeatSupport(0)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CIrrDeviceLinux");
 	#endif
 
@@ -130,12 +131,12 @@ CIrrDeviceLinux::CIrrDeviceLinux(const SIrrlichtCreationParameters& param)
 	// create cursor control
 	CursorControl = new CCursorControl(this, CreationParams.DriverType == video::EDT_NULL);
 
-#ifdef _IRR_COMPILE_WITH_CUDA_
+#ifdef _NBL_COMPILE_WITH_CUDA_
 	cuda::CCUDAHandler::init();
-#endif // _IRR_COMPILE_WITH_CUDA_
-#ifdef _IRR_COMPILE_WITH_OPENCL_
+#endif // _NBL_COMPILE_WITH_CUDA_
+#ifdef _NBL_COMPILE_WITH_OPENCL_
     ocl::COpenCLHandler::enumeratePlatformsAndDevices();
-#endif // _IRR_COMPILE_WITH_OPENCL_
+#endif // _NBL_COMPILE_WITH_OPENCL_
 
 	// create driver
 	createDriver();
@@ -143,9 +144,9 @@ CIrrDeviceLinux::CIrrDeviceLinux(const SIrrlichtCreationParameters& param)
 	if (!VideoDriver)
 		return;
 
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
     createInputContext();
-#endif // _IRR_COMPILE_WITH_X11_
+#endif // _NBL_COMPILE_WITH_X11_
 
 	createGUIAndScene();
 }
@@ -154,7 +155,7 @@ CIrrDeviceLinux::CIrrDeviceLinux(const SIrrlichtCreationParameters& param)
 //! destructor
 CIrrDeviceLinux::~CIrrDeviceLinux()
 {
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	if (StdHints)
 		XFree(StdHints);
 	// Disable cursor (it is drop'ed in stub)
@@ -185,7 +186,7 @@ CIrrDeviceLinux::~CIrrDeviceLinux()
 
 	if (display)
 	{
-		#ifdef _IRR_COMPILE_WITH_OPENGL_
+		#ifdef _NBL_COMPILE_WITH_OPENGL_
 		if (Context)
 		{
 			if (glxWin)
@@ -203,7 +204,7 @@ CIrrDeviceLinux::~CIrrDeviceLinux()
 			if (glxWin)
 				glXDestroyWindow(display, glxWin);
 		}
-		#endif // #ifdef _IRR_COMPILE_WITH_OPENGL_
+		#endif // #ifdef _NBL_COMPILE_WITH_OPENGL_
 
 		// Reset fullscreen resolution change
 		switchToFullscreen(true);
@@ -217,9 +218,9 @@ CIrrDeviceLinux::~CIrrDeviceLinux()
 	if (visual)
 		XFree(visual);
 
-#endif // #ifdef _IRR_COMPILE_WITH_X11_
+#endif // #ifdef _NBL_COMPILE_WITH_X11_
 
-#if defined(_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
+#if defined(_NBL_COMPILE_WITH_JOYSTICK_EVENTS_)
 	for (uint32_t joystick = 0; joystick < ActiveJoysticks.size(); ++joystick)
 	{
 		if (ActiveJoysticks[joystick].fd >= 0)
@@ -230,7 +231,7 @@ CIrrDeviceLinux::~CIrrDeviceLinux()
 #endif
 }
 
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 bool CIrrDeviceLinux::createInputContext()
 {
 	// One one side it would be nicer to let users do that - on the other hand
@@ -330,21 +331,21 @@ EKEY_CODE CIrrDeviceLinux::getKeyCode(const uint32_t& xEventKey)
 		if ( !x11Key )
 		{
 			keyCode = (EKEY_CODE)(xEventKey+KEY_KEY_CODES_COUNT+1);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 			os::Printer::log("No such X11Key, using event keycode", std::to_string(xEventKey), ELL_INFORMATION);
 		}
 		else if (it == KeyMap.end())
 		{
 			keyCode = (EKEY_CODE)(x11Key+KEY_KEY_CODES_COUNT+1);
 			os::Printer::log("EKEY_CODE not found, using orig. X11 keycode", std::to_string(x11Key), ELL_INFORMATION);
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 		}
 		else
 		{
 			keyCode = (EKEY_CODE)(x11Key+KEY_KEY_CODES_COUNT+1);
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 			os::Printer::log("EKEY_CODE is 0, using orig. X11 keycode", std::to_string(x11Key), ELL_INFORMATION);
-#endif // _IRR_DEBUG
+#endif // _NBL_DEBUG
 		}
  	}
 	return keyCode;
@@ -352,7 +353,7 @@ EKEY_CODE CIrrDeviceLinux::getKeyCode(const uint32_t& xEventKey)
 #endif
 
 
-#if defined(_IRR_COMPILE_WITH_X11_)
+#if defined(_NBL_COMPILE_WITH_X11_)
 int IrrPrintXError(Display *display, XErrorEvent *event)
 {
 	char msg[256];
@@ -373,14 +374,14 @@ bool CIrrDeviceLinux::switchToFullscreen(bool reset)
 		return true;
 	if (reset)
 	{
-#ifdef _IRR_LINUX_X11_VIDMODE_
+#ifdef _NBL_LINUX_X11_VIDMODE_
 		if (UseXVidMode && CreationParams.Fullscreen)
 		{
 			XF86VidModeSwitchToMode(display, screennr, &oldVideoMode);
 			XF86VidModeSetViewPort(display, screennr, 0, 0);
 		}
 		#endif
-		#ifdef _IRR_LINUX_X11_RANDR_
+		#ifdef _NBL_LINUX_X11_RANDR_
 		if (UseXRandR && CreationParams.Fullscreen)
 		{
 			XRRScreenConfiguration *config=XRRGetScreenInfo(display,DefaultRootWindow(display));
@@ -391,12 +392,12 @@ bool CIrrDeviceLinux::switchToFullscreen(bool reset)
 		return true;
 	}
 
-	#if defined(_IRR_LINUX_X11_VIDMODE_) || defined(_IRR_LINUX_X11_RANDR_)
+	#if defined(_NBL_LINUX_X11_VIDMODE_) || defined(_NBL_LINUX_X11_RANDR_)
 	int32_t eventbase, errorbase;
 	int32_t bestMode = -1;
 	#endif
 
-	#ifdef _IRR_LINUX_X11_VIDMODE_
+	#ifdef _NBL_LINUX_X11_VIDMODE_
 	if (XF86VidModeQueryExtension(display, &eventbase, &errorbase))
 	{
 		// enumerate video modes
@@ -446,7 +447,7 @@ bool CIrrDeviceLinux::switchToFullscreen(bool reset)
 	}
 	else
 	#endif
-	#ifdef _IRR_LINUX_X11_RANDR_
+	#ifdef _NBL_LINUX_X11_RANDR_
 	if (XRRQueryExtension(display, &eventbase, &errorbase))
 	{
 		int32_t modeCount;
@@ -493,7 +494,7 @@ bool CIrrDeviceLinux::switchToFullscreen(bool reset)
 }
 
 
-#if defined(_IRR_COMPILE_WITH_X11_)
+#if defined(_NBL_COMPILE_WITH_X11_)
 void IrrPrintXGrabError(int grabResult, const char * grabCommand )
 {
 	if ( grabResult == GrabSuccess )
@@ -526,7 +527,7 @@ void IrrPrintXGrabError(int grabResult, const char * grabCommand )
 
 bool CIrrDeviceLinux::createWindow()
 {
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
     if (CreationParams.AuxGLContexts)
         XInitThreads();
 
@@ -548,7 +549,7 @@ bool CIrrDeviceLinux::createWindow()
 
 	switchToFullscreen();
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
     // attribute array for the draw buffer
     int visualAttrBuffer[] =
     {
@@ -570,7 +571,7 @@ bool CIrrDeviceLinux::createWindow()
         None
     };
 
-    #define IRR_OGL_LOAD_EXTENSION(X) glXGetProcAddress(reinterpret_cast<const GLubyte*>(X))
+    #define NBL_OGL_LOAD_EXTENSION(X) glXGetProcAddress(reinterpret_cast<const GLubyte*>(X))
 
     int major,minor;
 	bool isAvailableGLX=false;
@@ -759,7 +760,7 @@ bool CIrrDeviceLinux::createWindow()
 	// don't use the XVisual with OpenGL, because it ignores all requested
 	// properties of the CreationParams
 	else if (!visual)
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
 
 	// create visual with standard X methods
 	{
@@ -785,7 +786,7 @@ bool CIrrDeviceLinux::createWindow()
 		display=0;
 		return false;
 	}
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 	else
 		os::Printer::log("Visual chosen: ", std::to_string(static_cast<uint32_t>(visual->visualid)), ELL_DEBUG);
 #endif
@@ -857,7 +858,7 @@ bool CIrrDeviceLinux::createWindow()
 	// Currently broken in X, see Bug ID 2795321
 	// XkbSetDetectableAutoRepeat(display, True, &AutorepeatSupport);
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 
 	// connect glx context to window
 	Context=0;
@@ -866,7 +867,7 @@ bool CIrrDeviceLinux::createWindow()
 		GLXContext tmpCtx = glXCreateContext(display, visual, NULL, True);
 		glXMakeCurrent(display, window, tmpCtx);
         //if (glXMakeCurrent(display, window, Context))
-            PFNGLXCREATECONTEXTATTRIBSARBPROC pGlxCreateContextAttribsARB = (PFNGLXCREATECONTEXTATTRIBSARBPROC)IRR_OGL_LOAD_EXTENSION("glXCreateContextAttribsARB");
+            PFNGLXCREATECONTEXTATTRIBSARBPROC pGlxCreateContextAttribsARB = (PFNGLXCREATECONTEXTATTRIBSARBPROC)NBL_OGL_LOAD_EXTENSION("glXCreateContextAttribsARB");
 
 		if (tmpCtx)
         {
@@ -900,7 +901,7 @@ bool CIrrDeviceLinux::createWindow()
 
                 if (Context)
                 {
-                    AuxContexts = _IRR_NEW_ARRAY(video::COpenGLDriver::SAuxContext,CreationParams.AuxGLContexts+1);
+                    AuxContexts = _NBL_NEW_ARRAY(video::COpenGLDriver::SAuxContext,CreationParams.AuxGLContexts+1);
                     {
                         reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].threadId = std::this_thread::get_id();
                         reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].ctx = Context;
@@ -932,7 +933,7 @@ bool CIrrDeviceLinux::createWindow()
                             glXDestroyContext(display,reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[i].ctx);
                         }
 
-                        _IRR_DELETE_ARRAY(reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts),CreationParams.AuxGLContexts+1);
+                        _NBL_DELETE_ARRAY(reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts),CreationParams.AuxGLContexts+1);
 
                         glXDestroyContext(display, Context);
                         glXMakeCurrent(display, None, NULL);
@@ -960,7 +961,7 @@ bool CIrrDeviceLinux::createWindow()
             os::Printer::log("Could not get pointer to glxCreateContextAttribsARB.", ELL_WARNING);
         }
 	}
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
 
 	Window tmp;
 	uint32_t borderWidth;
@@ -978,7 +979,7 @@ bool CIrrDeviceLinux::createWindow()
 
 
 	initXAtoms();
-#endif // #ifdef _IRR_COMPILE_WITH_X11_
+#endif // #ifdef _NBL_COMPILE_WITH_X11_
 	return true;
 }
 
@@ -988,9 +989,9 @@ void CIrrDeviceLinux::createDriver()
 {
 	switch(CreationParams.DriverType)
 	{
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	case video::EDT_OPENGL:
-		#ifdef _IRR_COMPILE_WITH_OPENGL_
+		#ifdef _NBL_COMPILE_WITH_OPENGL_
 		if (Context)
 			VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem, this, getAssetManager()->getGLSLCompiler(), reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts));
 		#else
@@ -1022,7 +1023,7 @@ bool CIrrDeviceLinux::run()
 {
 	Timer->tick();
 
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 
 	if ( CursorControl )
 		static_cast<CCursorControl*>(CursorControl)->update();
@@ -1313,7 +1314,7 @@ bool CIrrDeviceLinux::run()
 
 		} // end while
 	}
-#endif //_IRR_COMPILE_WITH_X11_
+#endif //_NBL_COMPILE_WITH_X11_
 
 	if (!Close)
 		pollJoysticks();
@@ -1352,7 +1353,7 @@ void CIrrDeviceLinux::sleep(uint32_t timeMs, bool pauseTimer=false)
 //! sets the caption of the window
 void CIrrDeviceLinux::setWindowCaption(const std::wstring& text)
 {
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	if (CreationParams.DriverType == video::EDT_NULL)
 		return;
 
@@ -1401,7 +1402,7 @@ bool CIrrDeviceLinux::isWindowMinimized() const
 //! returns color format of the window.
 asset::E_FORMAT CIrrDeviceLinux::getColorFormat() const
 {
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	if (visual && (visual->depth != 16))
 		return asset::EF_R8G8B8_UNORM;
 	else
@@ -1413,7 +1414,7 @@ asset::E_FORMAT CIrrDeviceLinux::getColorFormat() const
 //! Sets if the window should be resizable in windowed mode.
 void CIrrDeviceLinux::setResizable(bool resize)
 {
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	if (CreationParams.DriverType == video::EDT_NULL || CreationParams.Fullscreen )
 		return;
 
@@ -1434,13 +1435,13 @@ void CIrrDeviceLinux::setResizable(bool resize)
 	}
 	XMapWindow(display, window);
 	XFlush(display);
-#endif // #ifdef _IRR_COMPILE_WITH_X11_
+#endif // #ifdef _NBL_COMPILE_WITH_X11_
 }
 
 //! Minimize window
 void CIrrDeviceLinux::minimizeWindow()
 {
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	XIconifyWindow(display, window, screennr);
 #endif
 }
@@ -1449,7 +1450,7 @@ void CIrrDeviceLinux::minimizeWindow()
 //! Maximize window
 void CIrrDeviceLinux::maximizeWindow()
 {
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	XMapWindow(display, window);
 #endif
 }
@@ -1458,7 +1459,7 @@ void CIrrDeviceLinux::maximizeWindow()
 //! Restore original window size
 void CIrrDeviceLinux::restoreWindow()
 {
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	XMapWindow(display, window);
 #endif
 }
@@ -1471,7 +1472,7 @@ void CIrrDeviceLinux::createKeyMap()
 	// I find a better version.
 	// Search for missing numbers in keysymdef.h
 
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	KeyMap.reserve(256);
 	KeyMap[XK_BackSpace] = KEY_BACK;
 	KeyMap[XK_Tab] = KEY_TAB;
@@ -1669,7 +1670,7 @@ void CIrrDeviceLinux::createKeyMap()
 
 bool CIrrDeviceLinux::activateJoysticks(core::vector<SJoystickInfo> & joystickInfo)
 {
-#if defined (_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
+#if defined (_NBL_COMPILE_WITH_JOYSTICK_EVENTS_)
 
 	joystickInfo.clear();
 
@@ -1748,13 +1749,13 @@ bool CIrrDeviceLinux::activateJoysticks(core::vector<SJoystickInfo> & joystickIn
 	return true;
 #else
 	return false;
-#endif // _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
+#endif // _NBL_COMPILE_WITH_JOYSTICK_EVENTS_
 }
 
 
 void CIrrDeviceLinux::pollJoysticks()
 {
-#if defined (_IRR_COMPILE_WITH_JOYSTICK_EVENTS_)
+#if defined (_NBL_COMPILE_WITH_JOYSTICK_EVENTS_)
 	if (0 == ActiveJoysticks.size())
 		return;
 
@@ -1796,7 +1797,7 @@ void CIrrDeviceLinux::pollJoysticks()
 		// Send an irrlicht joystick event once per ::run() even if no new data were received.
 		(void)postEventFromUser(info.persistentData);
 	}
-#endif // _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
+#endif // _NBL_COMPILE_WITH_JOYSTICK_EVENTS_
 }
 
 
@@ -1804,7 +1805,7 @@ void CIrrDeviceLinux::pollJoysticks()
 //! \return Returns 0 if no string is in there.
 const char* CIrrDeviceLinux::getTextFromClipboard() const
 {
-#if defined(_IRR_COMPILE_WITH_X11_)
+#if defined(_NBL_COMPILE_WITH_X11_)
 	Window ownerWindow = XGetSelectionOwner (display, X_ATOM_CLIPBOARD);
 	if ( ownerWindow ==  window )
 	{
@@ -1855,7 +1856,7 @@ const char* CIrrDeviceLinux::getTextFromClipboard() const
 //! copies text to the clipboard
 void CIrrDeviceLinux::copyToClipboard(const char* text) const
 {
-#if defined(_IRR_COMPILE_WITH_X11_)
+#if defined(_NBL_COMPILE_WITH_X11_)
 	// Actually there is no clipboard on X but applications just say they own the clipboard and return text when asked.
 	// Which btw. also means that on X you lose clipboard content when closing applications.
 	Clipboard = text;
@@ -1864,7 +1865,7 @@ void CIrrDeviceLinux::copyToClipboard(const char* text) const
 #endif
 }
 
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 // return true if the passed event has the type passed in parameter arg
 Bool PredicateIsEventType(Display *display, XEvent *event, XPointer arg)
 {
@@ -1875,12 +1876,12 @@ Bool PredicateIsEventType(Display *display, XEvent *event, XPointer arg)
 	}
 	return False;
 }
-#endif //_IRR_COMPILE_WITH_X11_
+#endif //_NBL_COMPILE_WITH_X11_
 
 //! Remove all messages pending in the system message loop
 void CIrrDeviceLinux::clearSystemMessages()
 {
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	if (CreationParams.DriverType != video::EDT_NULL)
 	{
 		XEvent event;
@@ -1895,12 +1896,12 @@ void CIrrDeviceLinux::clearSystemMessages()
 		usrArg = KeyPress;
 		while ( XCheckIfEvent(display, &event, PredicateIsEventType, XPointer(&usrArg)) == True ) {}
 	}
-#endif //_IRR_COMPILE_WITH_X11_
+#endif //_NBL_COMPILE_WITH_X11_
 }
 
 void CIrrDeviceLinux::initXAtoms()
 {
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	X_ATOM_CLIPBOARD = XInternAtom(display, "CLIPBOARD", False);
 	X_ATOM_TARGETS = XInternAtom(display, "TARGETS", False);
 	X_ATOM_UTF8_STRING = XInternAtom (display, "UTF8_STRING", False);
@@ -1911,13 +1912,13 @@ void CIrrDeviceLinux::initXAtoms()
 
 CIrrDeviceLinux::CCursorControl::CCursorControl(CIrrDeviceLinux* dev, bool null)
 	: Device(dev)
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	, PlatformBehavior(gui::ECPB_NONE), lastQuery(0)
 #endif
 	, IsVisible(true), Null(null), UseReferenceRect(false)
 	, ActiveIcon(gui::ECI_NORMAL), ActiveIconStartTime(0)
 {
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	if (!Null)
 	{
 		XGCValues values;
@@ -1957,7 +1958,7 @@ CIrrDeviceLinux::CCursorControl::~CCursorControl()
 	// TODO (cutealien): droping cursorcontrol earlier might work, not sure about reason why that's done in stub currently.
 }
 
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 void CIrrDeviceLinux::CCursorControl::clearCursors()
 {
 	if (!Null)
@@ -2003,7 +2004,7 @@ void CIrrDeviceLinux::CCursorControl::update()
 //! Sets the active cursor icon
 void CIrrDeviceLinux::CCursorControl::setActiveIcon(gui::ECURSOR_ICON iconId)
 {
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	if ( iconId >= (int32_t)Cursors.size() )
 		return;
 
@@ -2019,7 +2020,7 @@ void CIrrDeviceLinux::CCursorControl::setActiveIcon(gui::ECURSOR_ICON iconId)
 //! Add a custom sprite as cursor icon.
 gui::ECURSOR_ICON CIrrDeviceLinux::CCursorControl::addIcon(const gui::SCursorSprite& icon)
 {/**
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	if ( icon.SpriteId >= 0 )
 	{
 		CursorX11 cX11;
@@ -2044,7 +2045,7 @@ gui::ECURSOR_ICON CIrrDeviceLinux::CCursorControl::addIcon(const gui::SCursorSpr
 //! replace the given cursor icon.
 void CIrrDeviceLinux::CCursorControl::changeIcon(gui::ECURSOR_ICON iconId, const gui::SCursorSprite& icon)
 {/**
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	if ( iconId >= (int32_t)Cursors.size() )
 		return;
 
@@ -2074,7 +2075,7 @@ irr::core::dimension2di CIrrDeviceLinux::CCursorControl::getSupportedIconSize() 
 {
 	// this returns the closest match that is smaller or same size, so we just pass a value which should be large enough for cursors
 	unsigned int width=0, height=0;
-#ifdef _IRR_COMPILE_WITH_X11_
+#ifdef _NBL_COMPILE_WITH_X11_
 	XQueryBestCursor(Device->display, Device->window, 64, 64, &width, &height);
 #endif
 	return core::dimension2di(width, height);
@@ -2082,5 +2083,5 @@ irr::core::dimension2di CIrrDeviceLinux::CCursorControl::getSupportedIconSize() 
 
 } // end namespace
 
-#endif // _IRR_COMPILE_WITH_X11_DEVICE_
+#endif // _NBL_COMPILE_WITH_X11_DEVICE_
 

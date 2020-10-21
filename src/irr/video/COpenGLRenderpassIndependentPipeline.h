@@ -1,5 +1,9 @@
-#ifndef __IRR_C_OPENGL_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
-#define __IRR_C_OPENGL_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_ASSET_C_OPENGL_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
+#define __NBL_ASSET_C_OPENGL_RENDERPASS_INDEPENDENT_PIPELINE_H_INCLUDED__
 
 #include "irr/video/IGPURenderpassIndependentPipeline.h"
 
@@ -8,7 +12,7 @@
 
 #include "irr/video/IOpenGLPipeline.h"
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 namespace irr
 {
 namespace video

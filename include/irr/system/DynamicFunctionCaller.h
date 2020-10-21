@@ -1,5 +1,9 @@
-#ifndef __IRR_DYNAMIC_FUNCTION_CALLER_H_INCLUDED__
-#define __IRR_DYNAMIC_FUNCTION_CALLER_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_SYSTEM_DYNAMIC_FUNCTION_CALLER_H_INCLUDED__
+#define __NBL_SYSTEM_DYNAMIC_FUNCTION_CALLER_H_INCLUDED__
 
 
 #include "irr/core/core.h"
@@ -39,10 +43,10 @@ class DynamicFunctionCallerBase : public core::Unmovable
 }
 
 
-#define IRR_SYSTEM_IMPL_INIT_DYNLIB_FUNCPTR(FUNC_NAME) ,p ## FUNC_NAME ## (Base::loader.loadFuncPtr( #FUNC_NAME ))
-#define IRR_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR(FUNC_NAME) std::swap(p ## FUNC_NAME,other.p ## FUNC_NAME);
+#define NBL_SYSTEM_IMPL_INIT_DYNLIB_FUNCPTR(FUNC_NAME) ,p ## FUNC_NAME ## (Base::loader.loadFuncPtr( #FUNC_NAME ))
+#define NBL_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR(FUNC_NAME) std::swap(p ## FUNC_NAME,other.p ## FUNC_NAME);
 
-#define IRR_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS( CLASS_NAME, FUNC_PTR_LOADER_TYPE, ... ) \
+#define NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS( CLASS_NAME, FUNC_PTR_LOADER_TYPE, ... ) \
 class CLASS_NAME : public irr::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER_TYPE>\
 {\
 	public:\
@@ -53,7 +57,7 @@ class CLASS_NAME : public irr::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER
 		}\
 		template<typename... T>\
 		CLASS_NAME(T&& ... args) : Base(std::forward<T>(args)...)\
-			IRR_FOREACH(IRR_SYSTEM_IMPL_INIT_DYNLIB_FUNCPTR,__VA_ARGS__)\
+			NBL_FOREACH(NBL_SYSTEM_IMPL_INIT_DYNLIB_FUNCPTR,__VA_ARGS__)\
 		{\
 		}\
 		CLASS_NAME(CLASS_NAME&& other) : CLASS_NAME()\
@@ -65,11 +69,11 @@ class CLASS_NAME : public irr::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER
 		CLASS_NAME& operator=(CLASS_NAME&& other)\
 		{\
 			Base::operator=(std::move(other));\
-			IRR_FOREACH(IRR_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR,__VA_ARGS__);\
+			NBL_FOREACH(NBL_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR,__VA_ARGS__);\
 			return *this;\
 		}\
 \
-		IRR_FOREACH(IRR_SYSTEM_DECLARE_DYNLIB_FUNCPTR,__VA_ARGS__);\
+		NBL_FOREACH(NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR,__VA_ARGS__);\
 \
 }
 

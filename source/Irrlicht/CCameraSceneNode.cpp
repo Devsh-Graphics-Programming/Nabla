@@ -1,6 +1,7 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
 #include "irr/core/core.h"
 
@@ -22,7 +23,7 @@ CCameraSceneNode::CCameraSceneNode(IDummyTransformationSceneNode* parent, IScene
 	Target(lookat), UpVector(0.0f, 1.0f, 0.0f),
 	InputReceiverEnabled(true), TargetAndRotationAreBound(false)
 {
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 	setDebugName("CCameraSceneNode");
 	#endif
 
@@ -187,7 +188,7 @@ void CCameraSceneNode::render()
 		viewMatrix = core::matrix3x4SIMD::buildCameraLookAtMatrixRH(pos, Target, up);
 	concatMatrix = core::matrix4SIMD::concatenateBFollowedByAPrecisely(projMatrix, core::matrix4SIMD(viewMatrix));
 	recalculateViewArea();
-#ifndef  NEW_SHADERS
+#ifdef OLD_SHADERS
 	video::IVideoDriver* driver = SceneManager->getVideoDriver();
 	if ( driver)
 	{

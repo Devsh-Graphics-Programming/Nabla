@@ -1,9 +1,10 @@
-// Copyright (C) 2009-2012 Gaz Davidson
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#include "IrrCompileConfig.h"
-#ifdef _IRR_COMPILE_WITH_PLY_LOADER_
+#include "BuildConfigOptions.h"
+#ifdef _NBL_COMPILE_WITH_PLY_LOADER_
 
 #include <numeric>
 
@@ -425,7 +426,7 @@ bool CPLYMeshFileLoader::readFace(SContext& _ctx, const SPLYElement& Element, co
 			Element.Properties[i].Name == "vertex_index") && Element.Properties[i].Type == EPLYPT_LIST)
 		{
 			int32_t count = getInt(_ctx, Element.Properties[i].Data.List.CountType);
-			//_IRR_DEBUG_BREAK_IF(count != 3)
+			//_NBL_DEBUG_BREAK_IF(count != 3)
 
 			uint32_t a = getInt(_ctx, Element.Properties[i].Data.List.ItemType),
 				b = getInt(_ctx, Element.Properties[i].Data.List.ItemType),
@@ -496,7 +497,7 @@ bool CPLYMeshFileLoader::allocateBuffer(SContext& _ctx)
 	_ctx.ElementList.clear();
 
 	if (!_ctx.Buffer)
-        _ctx.Buffer = _IRR_NEW_ARRAY(char, PLY_INPUT_BUFFER_SIZE);
+        _ctx.Buffer = _NBL_NEW_ARRAY(char, PLY_INPUT_BUFFER_SIZE);
 
 	// not enough memory?
 	if (!_ctx.Buffer)
@@ -1014,4 +1015,4 @@ uint32_t CPLYMeshFileLoader::getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 } // end namespace scene
 } // end namespace irr
 
-#endif // _IRR_COMPILE_WITH_PLY_LOADER_
+#endif // _NBL_COMPILE_WITH_PLY_LOADER_

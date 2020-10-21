@@ -1,10 +1,9 @@
-// Copyright (C) 2018 Krzysztof "Criss" Szenk
-// This file is part of the "Irrlicht Engine" and "Build A World".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
-// and on http://irrlicht.sourceforge.net/forum/viewtopic.php?f=2&t=49672
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_MESH_DATA_FORMAT_DESC_BLOB_H_INCLUDED__
-#define __IRR_MESH_DATA_FORMAT_DESC_BLOB_H_INCLUDED__
+#ifndef __NBL_ASSET_MESH_DATA_FORMAT_DESC_BLOB_H_INCLUDED__
+#define __NBL_ASSET_MESH_DATA_FORMAT_DESC_BLOB_H_INCLUDED__
 
 #include "irr/asset/ICPUBuffer.h"
 
@@ -20,9 +19,9 @@ namespace legacyv0
 	struct MeshDataFormatDescBlobV0;
 }
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 #include "irr/irrpack.h"
-struct IRR_FORCE_EBO MeshDataFormatDescBlobV1 : TypedBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >
+struct NBL_FORCE_EBO MeshDataFormatDescBlobV1 : TypedBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >
 {
 private:
     enum { VERTEX_ATTRIB_CNT = 16 };

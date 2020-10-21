@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #include "os.h"
 
 #include "../../ext/MitsubaLoader/ParserUtil.h"
@@ -21,7 +25,7 @@ void ParserLog::invalidXMLFileStructure(const std::string& errorMessage)
 		+ errorMessage + '\'';
 
 	os::Printer::log(message.c_str(), ELL_ERROR);
-	_IRR_DEBUG_BREAK_IF(true);
+	_NBL_DEBUG_BREAK_IF(true);
 }
 
 void ParserManager::elementHandlerStart(void* _data, const char* _el, const char** _atts)
@@ -56,13 +60,13 @@ bool ParserManager::parse(io::IReadFile* _file)
 	XML_SetUserData(parser, &ctx);
 
 
-	char* buff = (char*)_IRR_ALIGNED_MALLOC(_file->getSize(), 4096u);
+	char* buff = (char*)_NBL_ALIGNED_MALLOC(_file->getSize(), 4096u);
 
 	_file->seek(0u);
 	_file->read((void*)buff, _file->getSize());
 
 	XML_Status parseStatus = XML_Parse(parser, buff, _file->getSize(), 0);
-	_IRR_ALIGNED_FREE(buff);
+	_NBL_ALIGNED_FREE(buff);
 	XML_ParserFree(parser);
 	switch (parseStatus)
 	{
@@ -73,7 +77,7 @@ bool ParserManager::parse(io::IReadFile* _file)
 			}
 			break;
 		case XML_STATUS_OK:
-			#ifdef _IRR_DEBUG
+			#ifdef _NBL_DEBUG
 				os::Printer::log("Parse status: XML_STATUS_OK", ELL_INFORMATION);
 			#endif
 			break;

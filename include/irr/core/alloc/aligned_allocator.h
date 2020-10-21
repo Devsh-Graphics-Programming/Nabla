@@ -1,11 +1,10 @@
-// Copyright (C) 2018 Mateusz 'DevSH' Kielan
-// This file is part of the "IrrlichtBAW Engine"
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_ALIGNED_ALLOCATOR_H_INCLUDED__
-#define __IRR_ALIGNED_ALLOCATOR_H_INCLUDED__
+#ifndef __NBL_CORE_ALIGNED_ALLOCATOR_H_INCLUDED__
+#define __NBL_CORE_ALIGNED_ALLOCATOR_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
 #include "irr/core/memory/memory.h"
 #include "irr/core/alloc/AllocatorTrivialBases.h"
 
@@ -14,8 +13,8 @@ namespace irr
 namespace core
 {
 
-template <class T, size_t overAlign=_IRR_DEFAULT_ALIGNMENT(T)>
-class IRR_FORCE_EBO alignas(alignof(void*)) aligned_allocator : public irr::core::AllocatorTrivialBase<T>
+template <class T, size_t overAlign=_NBL_DEFAULT_ALIGNMENT(T)>
+class NBL_FORCE_EBO alignas(alignof(void*)) aligned_allocator : public irr::core::AllocatorTrivialBase<T>
 {
     public:
         typedef size_t	size_type;
@@ -38,7 +37,7 @@ class IRR_FORCE_EBO alignas(alignof(void*)) aligned_allocator : public irr::core
             if (n==0)
                 return nullptr;
 
-            void* retval = _IRR_ALIGNED_MALLOC(n*sizeof(T),alignment);
+            void* retval = _NBL_ALIGNED_MALLOC(n*sizeof(T),alignment);
             //printf("Alloc'ed %p with %d\n",retval,n*sizeof(T));
             return reinterpret_cast<typename aligned_allocator::pointer>(retval);
         }
@@ -50,8 +49,8 @@ class IRR_FORCE_EBO alignas(alignof(void*)) aligned_allocator : public irr::core
 		inline void                                 deallocate(	typename aligned_allocator::pointer p) noexcept
 		{
 			//printf("Freed %p\n",p);
-			_IRR_ALIGNED_FREE(const_cast<typename std::remove_const<T>::type*>(p));
-			//_IRR_ALIGNED_FREE(p);
+			_NBL_ALIGNED_FREE(const_cast<typename std::remove_const<T>::type*>(p));
+			//_NBL_ALIGNED_FREE(p);
 		}
 		inline void                                 deallocate(	typename aligned_allocator::pointer p, size_type n) noexcept
 		{

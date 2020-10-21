@@ -1,10 +1,14 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #include "COpenGLSpecializedShader.h"
 #include "COpenGLDriver.h"
 #include "irr/asset/spvUtils.h"
 #include <algorithm>
 #include "spirv_cross/spirv_parser.hpp"
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 
 namespace irr
 {

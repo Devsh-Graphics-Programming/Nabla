@@ -1,24 +1,24 @@
 include(../../cmake/common.cmake)
 
 
-set(IRR_EXT_RADEON_RAYS_H
+set(NBL_EXT_RADEON_RAYS_H
 	RadeonRays.h
 )
 
-set(IRR_EXT_RADEON_RAYS_SRC
+set(NBL_EXT_RADEON_RAYS_SRC
 	RadeonRays.cpp
 )
 
-set(IRR_EXT_RADEON_RAYS_EXTERNAL_INCLUDE
-	"${IRR_ROOT_PATH}/3rdparty"
-	"${IRR_ROOT_PATH}/3rdparty/radeonrays/RadeonRays/include"
+set(NBL_EXT_RADEON_RAYS_EXTERNAL_INCLUDE
+	"${NBL_ROOT_PATH}/3rdparty"
+	"${NBL_ROOT_PATH}/3rdparty/radeonrays/RadeonRays/include"
 )
 
 irr_create_ext_library_project(
 	RADEON_RAYS
-	"${IRR_EXT_RADEON_RAYS_H}"
-	"${IRR_EXT_RADEON_RAYS_SRC}"
-	"${IRR_EXT_RADEON_RAYS_EXTERNAL_INCLUDE}"
+	"${NBL_EXT_RADEON_RAYS_H}"
+	"${NBL_EXT_RADEON_RAYS_SRC}"
+	"${NBL_EXT_RADEON_RAYS_EXTERNAL_INCLUDE}"
 	""
 )
 

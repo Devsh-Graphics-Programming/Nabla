@@ -1,15 +1,14 @@
-// Copyright (C) 2018 Mateusz 'DevSH' Kielan
-// This file is part of the "IrrlichtBAW Engine"
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __IRR_ADDRESS_ALLOCATOR_TYPE_TRAITS_H_INCLUDED__
-#define __IRR_ADDRESS_ALLOCATOR_TYPE_TRAITS_H_INCLUDED__
+#ifndef __NBL_CORE_ADDRESS_ALLOCATOR_TYPE_TRAITS_H_INCLUDED__
+#define __NBL_CORE_ADDRESS_ALLOCATOR_TYPE_TRAITS_H_INCLUDED__
 
 #include <algorithm>
 #include "stdint.h"
 #include "irr/macros.h"
 #include "irr/type_traits.h"
-#include "irr/void_t.h"
 
 namespace irr
 {
@@ -23,14 +22,14 @@ namespace core
     struct address_type_traits<uint32_t>
     {
         address_type_traits() = delete;
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t   invalid_address = 0xdeadbeefu;
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t   invalid_address = 0xdeadbeefu;
     };
 
     template<>
     struct address_type_traits<uint64_t>
     {
         address_type_traits() = delete;
-        _IRR_STATIC_INLINE_CONSTEXPR uint64_t   invalid_address = 0xdeadbeefBADC0FFEull;
+        _NBL_STATIC_INLINE_CONSTEXPR uint64_t   invalid_address = 0xdeadbeefBADC0FFEull;
     };
 
 
@@ -145,23 +144,23 @@ namespace core
             template<class,class=void> struct has_func_get_real_addr                     : std::false_type {};
 
 
-            template<class U> struct resolve_supportsArbitraryOrderFrees<U,void_t<cstexpr_supportsArbitraryOrderFrees<U> > >
+            template<class U> struct resolve_supportsArbitraryOrderFrees<U,std::void_t<cstexpr_supportsArbitraryOrderFrees<U> > >
                                                                             :  std::conditional<std::true_type/*std::is_same<cstexpr_supportsArbitraryOrderFrees<U>,bool>*/::value,irr::bool_constant<U::supportsArbitraryOrderFrees>,resolve_supportsArbitraryOrderFrees<void,void> >::type {};
-            template<class U> struct resolve_maxMultiOps<U,void_t<cstexpr_maxMultiOps<U> > >
+            template<class U> struct resolve_maxMultiOps<U,std::void_t<cstexpr_maxMultiOps<U> > >
                                                                             : std::conditional<std::true_type/*std::is_integral<cstexpr_maxMultiOps<U> >*/::value,std::integral_constant<uint32_t,U::maxMultiOps>, resolve_maxMultiOps<void, void> >::type {};
-            template<class U> struct resolve_supportsNullBuffer<U,void_t<cstexpr_supportsNullBuffer<U> > >
+            template<class U> struct resolve_supportsNullBuffer<U,std::void_t<cstexpr_supportsNullBuffer<U> > >
                                                                             : std::conditional<std::true_type/*std::is_same<cstexpr_supportsNullBuffer<U>,bool>*/::value,irr::bool_constant<U::supportsNullBuffer>,resolve_supportsNullBuffer<void,void> >::type {};
 
-            template<class U> struct has_func_multi_alloc_addr<U,void_t<func_multi_alloc_addr<U> > >
+            template<class U> struct has_func_multi_alloc_addr<U,std::void_t<func_multi_alloc_addr<U> > >
                                                                             : std::is_same<func_multi_alloc_addr<U>,void> {};
-            template<class U> struct has_func_multi_free_addr<U,void_t<func_multi_free_addr<U> > >
+            template<class U> struct has_func_multi_free_addr<U,std::void_t<func_multi_free_addr<U> > >
                                                                             : std::is_same<func_multi_free_addr<U>,void> {};
 
-            template<class U> struct has_func_get_real_addr<U,void_t<func_get_real_addr<U> > >  : std::is_same<func_get_real_addr<U>,size_type> {};
+            template<class U> struct has_func_get_real_addr<U,std::void_t<func_get_real_addr<U> > >  : std::is_same<func_get_real_addr<U>,size_type> {};
 
-            _IRR_STATIC_INLINE_CONSTEXPR bool         supportsArbitraryOrderFrees = resolve_supportsArbitraryOrderFrees<AddressAlloc>::value;
-            _IRR_STATIC_INLINE_CONSTEXPR uint32_t     maxMultiOps                 = resolve_maxMultiOps<AddressAlloc>::value;
-            _IRR_STATIC_INLINE_CONSTEXPR bool         supportsNullBuffer          = resolve_supportsNullBuffer<AddressAlloc>::value;
+            _NBL_STATIC_INLINE_CONSTEXPR bool         supportsArbitraryOrderFrees = resolve_supportsArbitraryOrderFrees<AddressAlloc>::value;
+            _NBL_STATIC_INLINE_CONSTEXPR uint32_t     maxMultiOps                 = resolve_maxMultiOps<AddressAlloc>::value;
+            _NBL_STATIC_INLINE_CONSTEXPR bool         supportsNullBuffer          = resolve_supportsNullBuffer<AddressAlloc>::value;
 
             static inline void          printDebugInfo()
             {
@@ -253,4 +252,4 @@ namespace core
 }
 }
 
-#endif // __IRR_ADDRESS_ALLOCATOR_TYPE_TRAITS_H_INCLUDED__
+#endif

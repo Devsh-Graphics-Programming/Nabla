@@ -1,5 +1,9 @@
-#ifndef __IRR_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
-#define __IRR_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_CORE_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
+#define __NBL_CORE_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
 
 
 #include "irr/core/alloc/HeterogenousMemoryAddressAllocatorAdaptor.h"
@@ -112,7 +116,7 @@ class ResizableHeterogenousMemoryAllocator : public impl::ResizableHeterogenousM
             const void* oldReserved = alloc_traits::getReservedSpacePtr(mAddrAlloc);
 
             Base::mReservedSize = alloc_traits::reserved_size(mAddrAlloc,newSize);
-            void* newReserved = Base::mReservedAlloc.allocate(Base::mReservedSize,_IRR_SIMD_ALIGNMENT);
+            void* newReserved = Base::mReservedAlloc.allocate(Base::mReservedSize,_NBL_SIMD_ALIGNMENT);
 
 
             Base::mDataSize = newSize;
@@ -148,7 +152,7 @@ class ResizableHeterogenousMemoryAllocator : public impl::ResizableHeterogenousM
             const void* oldReserved = alloc_traits::getReservedSpacePtr(mAddrAlloc);
 
             Base::mReservedSize = alloc_traits::reserved_size(mAddrAlloc,newSize);
-            void* newReserved = Base::mReservedAlloc.allocate(Base::mReservedSize,_IRR_SIMD_ALIGNMENT);
+            void* newReserved = Base::mReservedAlloc.allocate(Base::mReservedSize,_NBL_SIMD_ALIGNMENT);
 
 
             Base::mDataSize = newSize;
@@ -201,7 +205,7 @@ class ResizableHeterogenousMemoryAllocator : public impl::ResizableHeterogenousM
 }
 }
 
-#endif // __IRR_RESIZABLE_HETEROGENOUS_MEMORY_ALLOCATOR_H___
+#endif
 
 
 

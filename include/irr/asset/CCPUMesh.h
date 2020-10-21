@@ -1,6 +1,11 @@
-#ifndef __IRR_C_CPU_MESH_H_INCLUDED__
-#define __IRR_C_CPU_MESH_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
+#ifndef __NBL_ASSET_C_CPU_MESH_H_INCLUDED__
+#define __NBL_ASSET_C_CPU_MESH_H_INCLUDED__
+
+#include "BuildConfigOptions.h"
 #include "irr/asset/ICPUMesh.h"
 
 namespace irr
@@ -26,7 +31,7 @@ class CCPUMesh final : public ICPUMesh
 			if (leakDebugger)
 				leakDebugger->registerObj(this);
 
-	#ifdef _IRR_DEBUG
+	#ifdef _NBL_DEBUG
 			setDebugName("SCPUMesh");
 	#endif
 		}

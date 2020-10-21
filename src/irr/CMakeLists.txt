@@ -1,3 +1,6 @@
+# Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+# This file is part of the "Nabla Engine".
+# For conditions of distribution and use, see copyright notice in nabla.h
 
 find_package(OpenGL REQUIRED)
 if(UNIX)
@@ -29,243 +32,240 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 		message(FATAL_ERROR "Unsupported compiler!")
 	endif()
 	
-	set(CMAKE_INSTALL_PREFIX "${IRR_ROOT_PATH}/install/${PLATFORM}" CACHE PATH "Install path" FORCE)
+	set(CMAKE_INSTALL_PREFIX "${NBL_ROOT_PATH}/install/${PLATFORM}" CACHE PATH "Install path" FORCE)
 endif()
 
 # include utility macros/functions
 include(common)
 
 #[[ Loaders and writers compile options available to edit by user
-	All revelant _IRR_COMPILE_WITH will be there]]
-option(_IRR_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" ON)
-option(_IRR_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" ON)
-#option(_IRR_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
-option(_IRR_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" ON)
-option(_IRR_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" ON)
-option(_IRR_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" ON)
-option(_IRR_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" ON)
-option(_IRR_COMPILE_WITH_BAW_LOADER_ "Compile with BAW Loader" ON)
-option(_IRR_COMPILE_WITH_BAW_WRITER_ "Compile with BAW Writer" ON)
-option(_IRR_COMPILE_WITH_JPG_LOADER_ "Compile with JPG Loader" ON)
-option(_IRR_COMPILE_WITH_JPG_WRITER_ "Compile with JPG Writer" ON)
-option(_IRR_COMPILE_WITH_PNG_LOADER_ "Compile with PNG Loader" ON)
-option(_IRR_COMPILE_WITH_PNG_WRITER_ "Compile with PNG Writer" ON)
-option(_IRR_COMPILE_WITH_TGA_LOADER_ "Compile with TGA Loader" ON)
-option(_IRR_COMPILE_WITH_TGA_WRITER_ "Compile with TGA Writer" ON)
-option(_IRR_COMPILE_WITH_OPENEXR_LOADER_ "Compile with OpenEXR Loader" ON)
-option(_IRR_COMPILE_WITH_OPENEXR_WRITER_ "Compile with OpenEXR Writer" ON)
-option(_IRR_COMPILE_WITH_GLI_LOADER_ "Compile with GLI Loader" ON)
-option(_IRR_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
+	All revelant _NBL_COMPILE_WITH will be there]]
+option(_NBL_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" ON)
+option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" ON)
+#option(_NBL_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
+option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" ON)
+option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" ON)
+option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" ON)
+option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" ON)
+option(_NBL_COMPILE_WITH_BAW_LOADER_ "Compile with BAW Loader" ON)
+option(_NBL_COMPILE_WITH_BAW_WRITER_ "Compile with BAW Writer" ON)
+option(_NBL_COMPILE_WITH_JPG_LOADER_ "Compile with JPG Loader" ON)
+option(_NBL_COMPILE_WITH_JPG_WRITER_ "Compile with JPG Writer" ON)
+option(_NBL_COMPILE_WITH_PNG_LOADER_ "Compile with PNG Loader" ON)
+option(_NBL_COMPILE_WITH_PNG_WRITER_ "Compile with PNG Writer" ON)
+option(_NBL_COMPILE_WITH_TGA_LOADER_ "Compile with TGA Loader" ON)
+option(_NBL_COMPILE_WITH_TGA_WRITER_ "Compile with TGA Writer" ON)
+option(_NBL_COMPILE_WITH_OPENEXR_LOADER_ "Compile with OpenEXR Loader" ON)
+option(_NBL_COMPILE_WITH_OPENEXR_WRITER_ "Compile with OpenEXR Writer" ON)
+option(_NBL_COMPILE_WITH_GLI_LOADER_ "Compile with GLI Loader" ON)
+option(_NBL_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
 
-irr_get_conf_dir(IRRLICHT_CONF_DIR_DEBUG Debug)
-irr_get_conf_dir(IRRLICHT_CONF_DIR_RELEASE Release)
-if(IRR_EMBED_BUILTIN_RESOURCES)	
+irr_get_conf_dir(NABLA_CONF_DIR_DEBUG Debug)
+irr_get_conf_dir(NABLA_CONF_DIR_RELEASE Release)
+if(NBL_EMBED_BUILTIN_RESOURCES)	
 	add_subdirectory(builtin)
 	irr_add_builtin_resources("${irr_resources_to_embed}")
 endif()
-irr_get_conf_dir(IRRLICHT_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
+irr_get_conf_dir(NABLA_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
 
-set(_IRR_COMPILE_WITH_OPENGL_ ${IRR_COMPILE_WITH_OPENGL})
-if (IRR_COMPILE_WITH_OPENCL)
+set(_NBL_COMPILE_WITH_OPENGL_ ${NBL_COMPILE_WITH_OPENGL})
+if (NBL_COMPILE_WITH_OPENCL)
 	message(STATUS "Building with OpenCL interop")
 		
-	set(_IRR_COMPILE_WITH_OPENCL_ ${IRR_COMPILE_WITH_OPENCL})
+	set(_NBL_COMPILE_WITH_OPENCL_ ${NBL_COMPILE_WITH_OPENCL})
 endif()
-if (IRR_COMPILE_WITH_CUDA)
+if (NBL_COMPILE_WITH_CUDA)
 	message(STATUS "Building with CUDA interop")
-	set(_IRR_COMPILE_WITH_CUDA_ ${IRR_COMPILE_WITH_CUDA})
-	if (IRR_BUILD_OPTIX)
-		set(_IRR_BUILD_OPTIX_ ${IRR_BUILD_OPTIX})
+	set(_NBL_COMPILE_WITH_CUDA_ ${NBL_COMPILE_WITH_CUDA})
+	if (NBL_BUILD_OPTIX)
+		set(_NBL_BUILD_OPTIX_ ${NBL_BUILD_OPTIX})
 	endif()
 endif()
 
-set(_IRR_EMBED_BUILTIN_RESOURCES_ ${IRR_EMBED_BUILTIN_RESOURCES})
+set(_NBL_EMBED_BUILTIN_RESOURCES_ ${NBL_EMBED_BUILTIN_RESOURCES})
 
-#set(_IRR_TARGET_ARCH_ARM_ ${IRR_TARGET_ARCH_ARM}) #uncomment in the future
-set(__IRR_FAST_MATH ${IRR_FAST_MATH})
-set(_IRR_DEBUG 0)
-configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_RELEASE}/BuildConfigOptions.h")
-configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h")
-set(_IRR_DEBUG 1)
-configure_file("${IRR_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${IRRLICHT_CONF_DIR_DEBUG}/BuildConfigOptions.h")
+#set(_NBL_TARGET_ARCH_ARM_ ${NBL_TARGET_ARCH_ARM}) #uncomment in the future
+set(__NBL_FAST_MATH ${NBL_FAST_MATH})
+set(_NBL_DEBUG 0)
+configure_file("${NBL_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_RELEASE}/BuildConfigOptions.h")
+configure_file("${NBL_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h")
+set(_NBL_DEBUG 1)
+configure_file("${NBL_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
-set(IRRLICHT_HEADERS_PUBLIC
-	"${IRR_ROOT_PATH}/source/Irrlicht/FW_Mutex.h"
-	"${IRR_ROOT_PATH}/source/Irrlicht/os.h"
-	"${IRR_ROOT_PATH}/source/Irrlicht/CLogger.h" 
+set(NABLA_HEADERS_PUBLIC
+	"${NBL_ROOT_PATH}/source/Irrlicht/FW_Mutex.h"
+	"${NBL_ROOT_PATH}/source/Irrlicht/os.h"
+	"${NBL_ROOT_PATH}/source/Irrlicht/CLogger.h" 
 )
-file(GLOB_RECURSE TEMP_GLOB_RES "${IRR_ROOT_PATH}/include/*.h")
-set(IRRLICHT_HEADERS_PUBLIC ${IRRLICHT_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
-file(GLOB_RECURSE TEMP_GLOB_RES "${IRR_ROOT_PATH}/include/*.tcc")
-set(IRRLICHT_HEADERS_PUBLIC ${IRRLICHT_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
+file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.h")
+set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
+file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.tcc")
+set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
 
-file(GLOB_RECURSE IRRLICHT_HEADERS_PRIV1 "*.h")
-file(GLOB_RECURSE IRRLICHT_HEADERS_PRIV2 "${IRR_ROOT_PATH}/src/irr/*.h")
+file(GLOB_RECURSE NABLA_HEADERS_PRIV1 "*.h")
+file(GLOB_RECURSE NABLA_HEADERS_PRIV2 "${NBL_ROOT_PATH}/src/irr/*.h")
 # just gather all the header files and later put them into project so it's easy to search for things using IDE
-set(IRRLICHT_HEADERS ${IRRLICHT_HEADERS_PUBLIC} ${IRRLICHT_HEADERS_PIRV1} ${IRRLICHT_HEADERS_PRIV2})
+set(NABLA_HEADERS ${NABLA_HEADERS_PUBLIC} ${NABLA_HEADERS_PIRV1} ${NABLA_HEADERS_PRIV2})
 
 
-set(IRR_CORE_SOURCES
-	${IRR_ROOT_PATH}/src/irr/core/IReferenceCounted.cpp
+set(NBL_CORE_SOURCES
+	${NBL_ROOT_PATH}/src/irr/core/IReferenceCounted.cpp
 # Core Memory
-	${IRR_ROOT_PATH}/src/irr/core/memory/CLeakDebugger.cpp
+	${NBL_ROOT_PATH}/src/irr/core/memory/CLeakDebugger.cpp
 )
-set(IRR_SYSTEM_SOURCES
+set(NBL_SYSTEM_SOURCES
 # Junk to refactor
-	${IRR_ROOT_PATH}/source/Irrlicht/CFileList.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CFileSystem.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CLimitReadFile.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CMemoryFile.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CReadFile.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CWriteFile.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CMountPointReader.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CPakReader.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CTarReader.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CZipReader.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CLogger.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/COSOperator.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/os.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CFileList.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CFileSystem.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CLimitReadFile.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CMemoryFile.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CReadFile.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CWriteFile.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CMountPointReader.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CPakReader.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CTarReader.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CZipReader.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CLogger.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/COSOperator.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/os.cpp
 )
-set(IRR_ASSET_SOURCES	
+set(NBL_ASSET_SOURCES	
 # Assets
-	${IRR_ROOT_PATH}/src/irr/asset/IAsset.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/IAssetManager.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/IAssetWriter.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/IAssetLoader.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/IAsset.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/IAssetManager.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/IAssetWriter.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/IAssetLoader.cpp
 	
 # Builtin include loaders
-	${IRR_ROOT_PATH}/src/irr/asset/CGLSLScanBuiltinIncludeLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CGLSLSkinningBuiltinIncludeLoader.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CGLSLScanBuiltinIncludeLoader.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CGLSLSkinningBuiltinIncludeLoader.cpp
 	
 # Shaders
-	${IRR_ROOT_PATH}/src/irr/asset/IGLSLCompiler.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CShaderIntrospector.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CGLSLLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CSPVLoader.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/IGLSLCompiler.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CShaderIntrospector.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CGLSLLoader.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CSPVLoader.cpp
 	
 # Pipeline loaders
-	${IRR_ROOT_PATH}/src/irr/asset/CGraphicsPipelineLoaderMTL.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CGraphicsPipelineLoaderMTL.cpp
 
 # Meshes
-	${IRR_ROOT_PATH}/src/irr/asset/CForsythVertexCacheOptimizer.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CQuantNormalCache.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CGeometryCreator.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CMeshManipulator.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/COverdrawMeshOptimizer.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CForsythVertexCacheOptimizer.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CQuantNormalCache.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CGeometryCreator.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CMeshManipulator.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/COverdrawMeshOptimizer.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CSmoothNormalGenerator.cpp
 
 # Mesh loaders
-	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshFileLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/COBJMeshFileLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshFileLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshFileLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CBufferLoaderBIN.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CBAWMeshFileLoader.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/COBJMeshFileLoader.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CPLYMeshFileLoader.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CSTLMeshFileLoader.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CBufferLoaderBIN.cpp
 
 # Mesh writers
-	${IRR_ROOT_PATH}/src/irr/asset/CBAWMeshWriter.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CPLYMeshWriter.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CSTLMeshWriter.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CBAWMeshWriter.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CPLYMeshWriter.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CSTLMeshWriter.cpp
 
 # BaW Format
-	${IRR_ROOT_PATH}/src/irr/asset/bawformat/TypedBlob.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/bawformat/CBAWFile.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/bawformat/legacy/CBAWLegacy.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/bawformat/legacy/CBAWVersionUpFunctions.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/bawformat/CBlobsLoadingManager.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/bawformat/TypedBlob.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/bawformat/CBAWFile.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/bawformat/legacy/CBAWLegacy.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/bawformat/legacy/CBAWVersionUpFunctions.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/bawformat/CBlobsLoadingManager.cpp
 
 # Images
-	${IRR_ROOT_PATH}/src/irr/asset/IImageAssetHandlerBase.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/filters/CBasicImageFilterCommon.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/IImageAssetHandlerBase.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/filters/CBasicImageFilterCommon.cpp
 
 # Image loaders
-	${IRR_ROOT_PATH}/src/irr/asset/IImageLoader.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderJPG.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderPNG.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderTGA.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageLoaderOpenEXR.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CGLILoader.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/IImageLoader.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CImageLoaderJPG.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CImageLoaderPNG.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CImageLoaderTGA.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CImageLoaderOpenEXR.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CGLILoader.cpp
 
 # Image writers
-	${IRR_ROOT_PATH}/src/irr/asset/IImageWriter.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterJPG.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterPNG.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterTGA.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CImageWriterOpenEXR.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/CGLIWriter.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/IImageWriter.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CImageWriterJPG.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CImageWriterPNG.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CImageWriterTGA.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CImageWriterOpenEXR.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/CGLIWriter.cpp
 	
 # Material compiler
-	${IRR_ROOT_PATH}/src/irr/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/material_compiler/CMaterialCompilerGLSLRasterBackend.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.cpp
+	${NBL_ROOT_PATH}/src/irr/asset/material_compiler/CMaterialCompilerGLSLRasterBackend.cpp
 )
-set(IRR_VIDEO_SOURCES
+set(NBL_VIDEO_SOURCES
 # Allocators
-	${IRR_ROOT_PATH}/src/irr/video/alloc/GPUMemoryAllocatorBase.cpp
-	${IRR_ROOT_PATH}/src/irr/video/alloc/SimpleGPUBufferAllocator.cpp
+	${NBL_ROOT_PATH}/src/irr/video/alloc/GPUMemoryAllocatorBase.cpp
+	${NBL_ROOT_PATH}/src/irr/video/alloc/SimpleGPUBufferAllocator.cpp
 
 # Junk to refactor
-${IRR_ROOT_PATH}/source/Irrlicht/IDriver.cpp
-${IRR_ROOT_PATH}/source/Irrlicht/CNullDriver.cpp
-	${IRR_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/FW_Mutex.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CFPSCounter.cpp
+${NBL_ROOT_PATH}/source/Irrlicht/IDriver.cpp
+${NBL_ROOT_PATH}/source/Irrlicht/CNullDriver.cpp
+	${NBL_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/FW_Mutex.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CFPSCounter.cpp
 )
-set(IRR_SCENE_SOURCES
+set(NBL_SCENE_SOURCES
 # Junk to refactor
-${IRR_ROOT_PATH}/source/Irrlicht/CSkinnedMeshSceneNode.cpp
-${IRR_ROOT_PATH}/source/Irrlicht/CCameraSceneNode.cpp
-${IRR_ROOT_PATH}/source/Irrlicht/CSceneManager.cpp
+${NBL_ROOT_PATH}/source/Irrlicht/CSkinnedMeshSceneNode.cpp
+${NBL_ROOT_PATH}/source/Irrlicht/CCameraSceneNode.cpp
+${NBL_ROOT_PATH}/source/Irrlicht/CSceneManager.cpp
 
 # Animators
-${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraFPS.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraMaya.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraModifiedMaya.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorDelete.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFlyCircle.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFlyStraight.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFollowSpline.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorRotation.cpp
+${NBL_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraFPS.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraMaya.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraModifiedMaya.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorDelete.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFlyCircle.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFlyStraight.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFollowSpline.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorRotation.cpp
 )
-set(IRRLICHT_SRCS_COMMON
-	${IRR_CORE_SOURCES}
-	${IRR_SYSTEM_SOURCES}
-	${IRR_ASSET_SOURCES}
-	${IRR_VIDEO_SOURCES}
-	${IRR_SCENE_SOURCES}
+set(NABLA_SRCS_COMMON
+	${NBL_CORE_SOURCES}
+	${NBL_SYSTEM_SOURCES}
+	${NBL_ASSET_SOURCES}
+	${NBL_VIDEO_SOURCES}
+	${NBL_SCENE_SOURCES}
 
 # Junk to refactor
-	${IRR_ROOT_PATH}/source/Irrlicht/IrrlichtDevice.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CIrrDeviceLinux.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CIrrDeviceConsole.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CIrrDeviceStub.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/CIrrDeviceWin32.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/Irrlicht.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/IrrlichtDevice.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CIrrDeviceLinux.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CIrrDeviceConsole.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CIrrDeviceStub.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/CIrrDeviceWin32.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/Irrlicht.cpp
 )
 
-if (IRR_EMBED_BUILTIN_RESOURCES)
-	list(APPEND IRRLICHT_SRCS_COMMON "${CMAKE_BINARY_DIR}/src/irr/builtin/builtinResourceData.cpp")
+if (NBL_EMBED_BUILTIN_RESOURCES)
+	list(APPEND NABLA_SRCS_COMMON "${CMAKE_BINARY_DIR}/src/irr/builtin/builtinResourceData.cpp")
 endif()
 
 
-set(IRRLICHT_SRCS_NORMAL
+set(NABLA_SRCS_NORMAL
 	# Vulkan
 
 	#opengl
-	${IRR_ROOT_PATH}/source/Irrlicht/COpenCLHandler.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/COpenGLDriver.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/COpenGLExtensionHandler.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/COpenGLFrameBuffer.cpp
-	${IRR_ROOT_PATH}/source/Irrlicht/COpenGLQuery.cpp
-	${IRR_ROOT_PATH}/src/irr/video/COpenGLPipelineCache.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/COpenCLHandler.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/COpenGLDriver.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/COpenGLExtensionHandler.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/COpenGLFrameBuffer.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/COpenGLQuery.cpp
+	${NBL_ROOT_PATH}/src/irr/video/COpenGLPipelineCache.cpp
 	
 	# CUDA
-	${IRR_ROOT_PATH}/src/irr/video/CCUDAHandler.cpp
+	${NBL_ROOT_PATH}/src/irr/video/CCUDAHandler.cpp
 
 	# OpenCL
-	${IRR_ROOT_PATH}/source/Irrlicht/COpenCLHandler.cpp
-
-	# abstract (move this out eventually)
-	${IRR_ROOT_PATH}/src/irr/video/CDerivativeMapCreator.cpp
+	${NBL_ROOT_PATH}/source/Irrlicht/COpenCLHandler.cpp
 )
 
 set(COMMON_INCLUDE_DIRS
@@ -356,9 +356,9 @@ macro(irr_target_link_gli _trgt)
 endmacro()
 
 add_library(Irrlicht STATIC
-	${IRRLICHT_SRCS_COMMON}
-	${IRRLICHT_SRCS_NORMAL}
-	${IRRLICHT_HEADERS}
+	${NABLA_SRCS_COMMON}
+	${NABLA_SRCS_NORMAL}
+	${NABLA_HEADERS}
 	$<TARGET_OBJECTS:aesGladman>
 	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:convert_utf>
@@ -377,7 +377,7 @@ irr_target_link_shaderc(Irrlicht)
 irr_target_link_libjpeg(Irrlicht)
 irr_target_link_libpng(Irrlicht)
 irr_target_link_openexr(Irrlicht)
-if(_IRR_COMPILE_WITH_GLI_)
+if(_NBL_COMPILE_WITH_GLI_)
 	irr_target_link_gli(Irrlicht)
 endif()
 irr_target_include_parallel_hashmap(Irrlicht)
@@ -395,15 +395,15 @@ if (UNIX)
 endif()
 
 target_include_directories(Irrlicht PUBLIC 
-	${IRR_ROOT_PATH}/include
+	${NBL_ROOT_PATH}/include
 	${COMMON_INCLUDE_DIRS}
 	${THIRD_PARTY_SOURCE_DIR}
 	#those also goes as PUBLIC because of examples
-	"$<$<CONFIG:DEBUG>:${IRRLICHT_CONF_DIR_DEBUG}>"
-	"$<$<CONFIG:RELEASE>:${IRRLICHT_CONF_DIR_RELEASE}>"
-	"$<$<CONFIG:RELWITHDEBINFO>:${IRRLICHT_CONF_DIR_RELWITHDEBINFO}>"
+	"$<$<CONFIG:DEBUG>:${NABLA_CONF_DIR_DEBUG}>"
+	"$<$<CONFIG:RELEASE>:${NABLA_CONF_DIR_RELEASE}>"
+	"$<$<CONFIG:RELWITHDEBINFO>:${NABLA_CONF_DIR_RELWITHDEBINFO}>"
 )
-target_include_directories(Irrlicht PUBLIC ${IRR_ROOT_PATH}/src ${IRR_ROOT_PATH}/source/Irrlicht ${IRR_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
+target_include_directories(Irrlicht PUBLIC ${NBL_ROOT_PATH}/src ${NBL_ROOT_PATH}/source/Irrlicht ${NBL_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 target_include_directories(Irrlicht PRIVATE ${CMAKE_BINARY_DIR}/include)
 if (UNIX)
 	target_include_directories(Irrlicht PUBLIC 
@@ -413,12 +413,12 @@ if (UNIX)
 endif()
 
 
-if (IRR_COMPILE_WITH_CUDA)
+if (NBL_COMPILE_WITH_CUDA)
 	target_include_directories(Irrlicht PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 endif()
 
 target_compile_definitions(Irrlicht 
-	PRIVATE	_IRR_STATIC_LIB_ SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
+	PRIVATE	_NBL_STATIC_LIB_ SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
 	PUBLIC	UNW_LOCAL_ONLY
 )
 
@@ -427,26 +427,26 @@ if (MSVC) #on MSVC it won't compile without this option!
 endif()
 
 #precompiled headers
-if(IRR_PCH)
+if(NBL_PCH)
 	target_precompile_headers(Irrlicht PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
 endif()
 	
 
-if(IRR_EMBED_BUILTIN_RESOURCES)
+if(NBL_EMBED_BUILTIN_RESOURCES)
 	add_custom_target(builtin_resources
 	   DEPENDS ${CMAKE_BINARY_DIR}/include/irr/builtin/builtinResources.h ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
 	  add_dependencies(Irrlicht builtin_resources)
 elseif()
 	foreach(X IN LISTS irr_resources_to_embed)
-		list(APPEND IRRLICHT_HEADERS_PUBLIC  ${IRR_ROOT_PATH}/include/${X})
+		list(APPEND NABLA_HEADERS_PUBLIC  ${NBL_ROOT_PATH}/include/${X})
 	endforeach()
 endif()
 
 
-set(IRRLICHT_HEADERS_TO_INSTALL 
-	${IRRLICHT_HEADERS_PUBLIC}
+set(NABLA_HEADERS_TO_INSTALL 
+	${NABLA_HEADERS_PUBLIC}
 )
-irr_install_headers("${IRRLICHT_HEADERS_TO_INSTALL}" "${IRR_ROOT_PATH}/include")
+irr_install_headers("${NABLA_HEADERS_TO_INSTALL}" "${NBL_ROOT_PATH}/include")
 irr_install_config_header(BuildConfigOptions.h)
 
 

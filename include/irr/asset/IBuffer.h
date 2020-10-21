@@ -1,5 +1,9 @@
-#ifndef __IRR_ASSET_I_BUFFER_H_INCLUDED__
-#define __IRR_ASSET_I_BUFFER_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_ASSET_I_BUFFER_H_INCLUDED__
+#define __NBL_ASSET_I_BUFFER_H_INCLUDED__
 
 #include "irr/core/IBuffer.h"
 #include "irr/asset/IDescriptor.h"
@@ -45,4 +49,4 @@ struct SBufferRange
 }
 }
 
-#endif//__IRR_ASSET_I_BUFFER_H_INCLUDED__
+#endif

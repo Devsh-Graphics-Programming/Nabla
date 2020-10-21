@@ -1,5 +1,9 @@
-#ifndef __IRR_I_IMAGE_WRITER_H_INCLUDED__
-#define __IRR_I_IMAGE_WRITER_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_ASSET_I_IMAGE_WRITER_H_INCLUDED__
+#define __NBL_ASSET_I_IMAGE_WRITER_H_INCLUDED__
 
 #include "IImage.h"
 #include "irr/core/core.h"
@@ -30,4 +34,4 @@ class IImageWriter : public IAssetWriter, public IImageAssetHandlerBase
 }
 }
 
-#endif // __IRR_I_IMAGE_WRITER_H_INCLUDED__
+#endif

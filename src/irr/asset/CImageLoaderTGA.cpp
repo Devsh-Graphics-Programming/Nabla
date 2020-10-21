@@ -1,10 +1,11 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
 #include "CImageLoaderTGA.h"
 
-#ifdef _IRR_COMPILE_WITH_TGA_LOADER_
+#ifdef _NBL_COMPILE_WITH_TGA_LOADER_
 
 #include "IReadFile.h"
 #include "os.h"
@@ -289,8 +290,8 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 			os::Printer::log("The given TGA doesn't have image data", _file->getFileName().c_str(), ELL_ERROR);
 			return {};
 		}
-		case STIT_UNCOMPRESSED_RGB_IMAGE: _IRR_FALLTHROUGH;
-		case STIT_UNCOMPRESSED_GRAYSCALE_IMAGE: _IRR_FALLTHROUGH;
+		case STIT_UNCOMPRESSED_RGB_IMAGE: [[fallthrough]];
+		case STIT_UNCOMPRESSED_GRAYSCALE_IMAGE: [[fallthrough]];
 		{
 			region.bufferRowLength = calcPitchInBlocks(region.imageExtent.width, getTexelOrBlockBytesize(EF_R8G8B8_SRGB));
 			const int32_t imageSize = endBufferSize = region.imageExtent.height * region.bufferRowLength * bytesPerTexel;
