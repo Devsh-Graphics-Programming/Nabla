@@ -287,6 +287,11 @@ namespace irr
 							idReferenceBindingBuffers[bufferBindingId] = cpuBuffers[bufferBindingId];
 							bufferBinding.buffer = idReferenceBindingBuffers[bufferBindingId];
 
+							auto isDataInterleaved = [&]()
+							{
+								return glTFbufferView.byteStride.has_value();
+							};
+
 							switch (target)
 							{
 								case SGLTFBufferView::SGLTFT_ARRAY_BUFFER:
@@ -294,8 +299,12 @@ namespace irr
 									cpuMeshBuffer->setVertexBufferBinding(std::move(bufferBinding), bufferBindingId);
 
 									vertexInputParams.enabledBindingFlags |= core::createBitmask({ bufferBindingId });
-									vertexInputParams.bindings[bufferBindingId].inputRate = EVIR_PER_INSTANCE;
-									vertexInputParams.bindings[bufferBindingId].stride = 16; // TODO: check it
+									vertexInputParams.bindings[bufferBindingId].inputRate = EVIR_PER_VERTEX;
+
+									if (isDataInterleaved())
+										vertexInputParams.bindings[bufferBindingId].stride = glTFbufferView.byteStride.value();
+									else
+										vertexInputParams.bindings[bufferBindingId].stride = getTexelOrBlockBytesize(format) * glTFAccessor.count.value(); // TODO: check it out
 
 									const auto attributeId = queryAttributeId.value();
 									vertexInputParams.enabledAttribFlags |= core::createBitmask({ attributeId });
