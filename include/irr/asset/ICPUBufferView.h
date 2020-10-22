@@ -59,6 +59,8 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 
 		ICPUBuffer* getUnderlyingBuffer() 
 		{
+			if (isImmutable_debug())
+				return nullptr;
 			return m_buffer.get(); 
 		}
 		const ICPUBuffer* getUnderlyingBuffer() const { return m_buffer.get(); }

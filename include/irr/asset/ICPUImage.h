@@ -81,6 +81,9 @@ class ICPUImage final : public IImage, public IAsset
 
 		inline ICPUBuffer* getBuffer() 
 		{
+			if (isImmutable_debug())
+				return nullptr;
+
 			return buffer.get(); 
 		}
 		inline const auto* getBuffer() const { return buffer.get(); }

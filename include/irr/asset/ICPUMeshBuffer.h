@@ -185,9 +185,9 @@ public:
 
     virtual E_MESH_BUFFER_TYPE getMeshBufferType() const { return EMBT_NOT_ANIMATED; }
 
-	inline const SBufferBinding<ICPUBuffer>& getAttribBoundBuffer(uint32_t attrId) const
+	inline const SBufferBinding<ICPUBuffer>* getAttribBoundBuffer(uint32_t attrId) const
 	{
-		return base_t::getAttribBoundBuffer(attrId);
+		return &base_t::getAttribBoundBuffer(attrId);
 	}
     inline SBufferBinding<ICPUBuffer>* getAttribBoundBuffer(uint32_t attrId)
     {
@@ -209,9 +209,9 @@ public:
 
 		m_indexBufferBinding = std::move(bufferBinding);
 	}
-	inline const SBufferBinding<ICPUBuffer>& getIndexBufferBinding() const
+	inline const SBufferBinding<ICPUBuffer>* getIndexBufferBinding() const
 	{
-		return m_indexBufferBinding;
+		return &m_indexBufferBinding;
 	}
     inline SBufferBinding<ICPUBuffer>* getIndexBufferBinding()
     {
@@ -280,6 +280,8 @@ public:
 	}
 	inline ICPURenderpassIndependentPipeline* getPipeline()
 	{
+        if (isImmutable_debug())
+            return nullptr;
 		return m_pipeline.get();
 	}
     inline const ICPURenderpassIndependentPipeline* getPipeline() const
@@ -698,7 +700,7 @@ public:
             return retval;
 
 		auto posAttrId = mb->getPositionAttributeIx();
-        const ICPUBuffer* mappedAttrBuf = mb->getAttribBoundBuffer(posAttrId).buffer.get();
+        const ICPUBuffer* mappedAttrBuf = mb->getAttribBoundBuffer(posAttrId)->buffer.get();
         if (posAttrId >= MAX_VERTEX_ATTRIB_COUNT || !mappedAttrBuf)
             return retval;
 

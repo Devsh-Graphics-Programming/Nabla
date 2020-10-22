@@ -134,6 +134,8 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 
 		inline ICPUDescriptorSetLayout* getLayout() 
 		{
+			if (isImmutable_debug())
+				return nullptr;
 			return m_layout.get();
 		}
 		inline const ICPUDescriptorSetLayout* getLayout() const { return m_layout.get(); }
@@ -155,9 +157,8 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 		//! Can modify the array of descriptors bound to a particular bindings
 		inline core::SRange<SDescriptorInfo> getDescriptors(uint32_t index) 
 		{ 
-			//this must be commented-out, otherwise cpu2gpu doesnt have access to descriptors
-			//if (isImmutable_debug())
-			//	return core::SRange<SDescriptorInfo>{nullptr, nullptr};
+			if (isImmutable_debug())
+				return core::SRange<SDescriptorInfo>{nullptr, nullptr};
 
 			if (m_bindingInfo && index<m_bindingInfo->size())
 			{

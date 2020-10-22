@@ -17,6 +17,8 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 
 		ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) 
         {
+            if (isImmutable_debug())
+                return nullptr;
             return m_descSetLayouts[_set].get(); 
         }
 		const ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) const { return m_descSetLayouts[_set].get(); }
@@ -72,9 +74,9 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 
             for (uint32_t i = 0u; i < DESCRIPTOR_SET_COUNT; ++i)
             {
-                if ((!m_descSetLayouts[i] || !other->m_descSetLayouts[i]) && m_descSetLayouts[i] != other->m_descSetLayouts[i])
+                if ((!m_descSetLayouts[i]) != (!other->m_descSetLayouts[i]))
                     return false;
-                if (m_descSetLayouts[i]->canBeRestoredFrom_recurseDAG(other->m_descSetLayouts[i].get()))
+                if (m_descSetLayouts[i] && m_descSetLayouts[i]->canBeRestoredFrom_recurseDAG(other->m_descSetLayouts[i].get()))
                     return false;
             }
             return true;

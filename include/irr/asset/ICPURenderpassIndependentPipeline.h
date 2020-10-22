@@ -91,16 +91,22 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 
 		inline ICPUPipelineLayout* getLayout() 
 		{
+			if (isImmutable_debug())
+				return nullptr;
 			return m_layout.get(); 
 		}
 		const inline ICPUPipelineLayout* getLayout() const { return m_layout.get(); }
 
 		inline ICPUSpecializedShader* getShaderAtStage(ISpecializedShader::E_SHADER_STAGE _stage) 
 		{ 
+			if (isImmutable_debug())
+				return nullptr;
 			return m_shaders[core::findLSB<uint32_t>(_stage)].get(); 
 		}
 		inline ICPUSpecializedShader* getShaderAtIndex(uint32_t _ix) 
 		{
+			if (isImmutable_debug())
+				return nullptr;
 			return m_shaders[_ix].get();
 		}
 		inline const ICPUSpecializedShader* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }

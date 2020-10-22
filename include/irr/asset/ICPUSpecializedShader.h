@@ -93,6 +93,8 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 
 		inline ICPUShader* getUnspecialized() 
 		{
+			if (isImmutable_debug())
+				return nullptr;
 			return m_unspecialized.get();
 		}
 		inline const ICPUShader* getUnspecialized() const { return m_unspecialized.get(); }

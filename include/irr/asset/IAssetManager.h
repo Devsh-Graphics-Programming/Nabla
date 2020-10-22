@@ -468,7 +468,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             size_t storageSz = 1u;
             m_cpuGpuCache[ix]->findAndStoreRange(_asset, storageSz, storage);
             if (storageSz > 0u)
-                return std::move(storage[0]);
+                return storage[0];
             return nullptr;
         }
 

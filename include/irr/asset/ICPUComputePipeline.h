@@ -58,12 +58,16 @@ public:
 
     ICPUPipelineLayout* getLayout() 
     {
+        if (isImmutable_debug())
+            return nullptr;
         return m_layout.get(); 
     }
     const ICPUPipelineLayout* getLayout() const { return m_layout.get(); }
 
     ICPUSpecializedShader* getShader()
     {
+        if (isImmutable_debug())
+            return nullptr;
         return m_shader.get();
     }
     const ICPUSpecializedShader* getShader() const { return m_shader.get(); }
