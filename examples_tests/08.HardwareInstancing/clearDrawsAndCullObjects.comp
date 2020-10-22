@@ -1,0 +1,190 @@
+#version 430 core
+
+#include "shaderCommon.glsl"
+
+layout(local_size_x = kOptimalWorkgroupSize) in;
+
+
+// TODO: figure out the descirptor set assignment of the resources
+layout(set = 0, binding = 0, std430, row_major) restrict readonly buffer Objects
+{
+    SceneNode_t objects[];
+};
+layout(set = 0, binding = 1, std430) restrict readonly buffer Models
+{
+    ModelData_t models[];
+};
+// TODO: Mesh SSBO here
+// TODO: MeshBuffer SSBO here
+// TODO: MeshBuffer Indirect Draw SSBO here
+
+layout(set = 1, binding = 0, std430) restrict coherent buffer VisibleObjectCounter
+{
+    uint visibleObjectCount;
+};
+layout(set = 1, binding = 1, std430, row_major) restrict writeonly buffer VisibleObjects
+{
+    VisibleObject_t visibleObjects[];
+};
+
+layout(set = 2, binding = 0, std140, row_major) uniform Cameras
+{
+    // NOTE: could be an array of `Camera_t` and we could use `gl_GlobalInvocationID.y` to index cameras (or subdivide the X dimension of a workgroup)
+    mat4 viewProjMatrix;
+    vec3 viewMatrixInverseRow0;
+    float posX;
+    vec3 viewMatrixInverseRow1;
+    float posY;
+    vec3 viewMatrixInverseRow2;
+    float posZ;
+    uint inMDIOffset;
+    uint outMDIOffset;
+} camera;
+layout(set = 2, binding = 1, std430) restrict readonly buffer ObjectIndexBuffer
+{
+    uint objectUUIDs[];
+};
+layout(set = 2, binding = 2, std430) restrict readonly buffer InMultiDrawIndirectCommandBuffer
+{
+    uint data[];
+} inMultiDrawIndirectCommandBuffer;
+layout(set = 2, binding = 3, std430) restrict writeonly buffer OutMultiDrawIndirectCommandBuffer
+{
+    uint data[];
+} outMultiDrawIndirectCommandBuffer;
+
+
+layout(push_constant) uniform PushConstants
+{
+    uint objectCount;
+    uint drawDataArrayDWORDSize;
+} pc;
+
+
+void clearDrawcalls()
+{
+    uint dword = gl_GlobalInvocationID.x;
+    if (dword<pc.drawDataArrayDWORDSize)
+        outMultiDrawIndirectCommandBuffer.data[camera.outMDIOffset+dword] = inMultiDrawIndirectCommandBuffer.data[camera.inMDIOffset+dword];
+}
+
+void cullObjects()
+{
+    uint objectUUID,modelUUID;
+    int lod = kMaxLoDLevels;
+    mat4 modelViewProjectionMatrix;
+
+    const bool canProcessObj = gl_GlobalInvocationID.x>=pc.objectCount;
+    if (canProcessObj)
+    {
+        objectUUID = objectUUIDs[gl_GlobalInvocationID.x];
+    
+        uint modelUUID = 0u; // we only support one model for this demo
+        mat4x3 worldMatrix = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(objects[objectUUID].worldTransform); 
+
+        modelViewProjectionMatrix = irr_glsl_pseudoMul4x4with4x3(camera.viewProjMatrix,worldMatrix);
+        mat2x3 bbox;
+        bbox[0] = models[modelUUID].MinEdge;
+        bbox[1] = models[modelUUID].MaxEdge;
+    
+        if (irr_glsl_couldBeVisible(modelViewProjectionMatrix,bbox))
+        {
+            // Somewhere around here we could add occlusion culling (if we had camera Z-Buffer)
+
+    	    const vec3 toCamera = vec3(camera.posX,camera.posY,camera.posZ)-worldMatrix[3];
+    	    const float distanceSq = dot(toCamera,toCamera);
+
+            for (int i=0; i<kMaxLoDLevels; i++)
+            if (distanceSq<models[modelUUID].LoDDistancesSq[i])
+            {
+                lod = i;
+                //break; // TODO: breaks or improves performance?
+            }
+        }
+    }
+    
+    const bool notCulled = lod<kMaxLoDLevels;
+    uint outputIndex;
+    // TODO: could optimize the reduction
+    /*
+    shared uint scratch[kOptimalWorkgroupSize/4u];
+
+    // a boolean inclusive prefix sum
+    const uint localOffsetPlus1 = irr_glsl_workgroupScanAddInclusive_scratch(notCulled);
+    if (gl_LocalInvocationIndex == gl_WorkGroupSize-1u)
+        scratch[0u] = atomicAdd(visibleObjectCount,localOffsetPlus1);
+    barrier();
+    outputIndex = scratch[0u]+localOffsetPlus1-1u;
+    
+
+    // irr_glsl_workgroupScanAddInclusive_scratch(in bool cond) could be implemented like this
+        const uint notCulledBallot = ballot(cond); // I hope ballot implies subgroupBarrier
+        const uint localInclPrefix = bitcount(notCulledBallot&gl_SubGroupLeMaskARB);
+        if (gl_SubGroupInvocationID==0u)
+           scratch[gl_SubgroupID] = bitcount(notCulledBallot);
+
+        irr_glsl_workgroupScanAddExclusive_scratch(gl_WorkGroupSize/gl_SubGroupSize);
+        return scratch[gl_SubgroupID]+localInclPrefix;
+    */
+	if (notCulled)
+	    outputIndex = atomicAdd(visibleObjectCount,1u);
+
+    if (notCulled)
+    {
+		mat3 worldNormalMatrix = inverse(mat3(
+            objects[objectUUID].worldNormalMatrixRow0,
+            objects[objectUUID].worldNormalMatrixRow1,
+            objects[objectUUID].worldNormalMatrixRow2
+        ));
+		mat3 normalMatrixT = mat3(camera.viewMatrixInverseRow0,camera.viewMatrixInverseRow1,camera.viewMatrixInverseRow2)*worldNormalMatrix;
+
+
+		VisibleObject_t objectToDraw;
+
+		objectToDraw.modelViewProjectionMatrix = modelViewProjectionMatrix;
+		objectToDraw.normalMatrixCol0 = normalMatrixT[0];
+		objectToDraw.cameraUUID = 0u; // we only support one camera/viewpoint for this demo
+		objectToDraw.normalMatrixCol1 = normalMatrixT[1];
+		objectToDraw.objectUUID = objectUUID;
+		objectToDraw.normalMatrixCol2 = normalMatrixT[2];
+		objectToDraw.meshUUID = models[modelUUID].LoDDMeshUUID[lod];
+
+		visibleObjects[outputIndex] = objectToDraw;
+	}
+}
+
+void main()
+{
+    clearDrawcalls();
+    cullObjects();
+}
+
+
+
+
+/**
+
+We know what objects we want to draw with which mesh and for what camera.
+Per-camera MDIs have been cleared
+
+Now we can sort by camera OR start expanding meshes into meshbuffers... what to do?
+
+visibleObjects now contains a **scrambled** list of meshbuffers to draw.
+
+in the end they need to be expanded to MeshBuffers sorted by Camera, Pipeline and then Instance (although instance needs not be sorted exactly)
+
+its pointless to sort before expansion, because we can only sort by camera as pipelines are unknown
+
+Could we expand when culling?
+
+NO: Because expansions are variable size, resulting in variable workloads per invocation.
+
+
+OPTIMIZATION:
+
+We can compute a prefix sum of how many meshbuffers each visible object will require.
+
+Next dispatch could finish computing the global prefix sum of meshcounts and write out indirect dispatch info.
+
+The "expansion" dispatch could run a lower_bound search to determine what `outputIndex` (visible object) and meshbuffer index the invocation maps to, then we have a 1:1 invocation to meshbuffer mapping.
+**/

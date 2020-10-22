@@ -129,23 +129,6 @@ struct alignas(uint32_t) MaterialProps
 	uint8_t something[128];
 };
 
-struct ViewDependentObjectInvariantProps
-{
-	core::matrix4SIMD mvp;
-	union
-	{
-		struct
-		{
-			float normalMatrixRow0[3];
-			uint32_t objectUUID;
-			float normalMatrixRow1[3];
-			int32_t meshUUID;
-			float normalMatrixRow2[3];
-		};
-		core::matrix3x4SIMD normalMatrix;
-	};
-};
-
 /*
 EXPAND SHADER
 
@@ -318,7 +301,7 @@ int main()
 			for (size_t y=0; y<kNumHardwareInstancesY; y++)
 			for (size_t x=0; x<kNumHardwareInstancesX; x++)
 			{
-				propAIt->world.setTranslation(core::vectorSIMDf(x,y,z)*2.f);
+				propAIt->worldTransform.setTranslation(core::vectorSIMDf(x,y,z)*2.f);
 				/*
 				for (auto i=0; i<3; i++)
 				{
@@ -353,9 +336,9 @@ int main()
 	}
 
 
-	auto perViewInstanceData = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(ViewDependentObjectInvariantProps)*kHardwareInstancesTOTAL);
+	auto perViewInstanceData = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(VisibleObject_t)*kHardwareInstancesTOTAL);
 	
-
+	uint32_t drawCallCount;
 	auto drawCallParameters = [&]()
 	{
 		core::vector<DrawElementsIndirectCommand_t> indirectCmds;
@@ -385,7 +368,8 @@ int main()
 			indirectCmds.push_back(draw);
 		}
 		assert(instanceLoDs.size()<kHardMeshbufferLimit);
-		return driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(DrawElementsIndirectCommand_t)*indirectCmds.size(),indirectCmds.data());
+		drawCallCount = indirectCmds.size();
+		return driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(DrawElementsIndirectCommand_t)*drawCallCount,indirectCmds.data());
 	}();
 
 
@@ -397,15 +381,14 @@ int main()
 		IAssetLoader::SAssetLoadParams lp;
 		auto shaderBundle = assMgr->getAsset(shaderPath,lp);
 
-		auto cpuCullPipeline = introspector.createApproximateComputePipelineFromIntrospection(
+		auto cpuPipeline = introspector.createApproximateComputePipelineFromIntrospection(
 			IAsset::castDown<ICPUSpecializedShader>(shaderBundle.getContents().begin()->get()),
 			extensions->begin(),extensions->end()
 		);
-		return driver->getGPUObjectsFromAssets(&cpuCullPipeline.get(),&cpuCullPipeline.get()+1)->operator[](0);
+		return driver->getGPUObjectsFromAssets(&cpuPipeline.get(),&cpuPipeline.get()+1)->operator[](0);
 	};
 
-	auto cullObjectsPipeline = createComputePipelineFromFile("../cullObjects.comp");
-	auto clearCameraDrawcallsPipeline = createComputePipelineFromFile("../clearCameraDrawcalls.comp");
+	auto clearDrawsAndCullObjectsPipeline = createComputePipelineFromFile("../clearDrawsAndCullObjects.comp");
 	auto expandObjectsIntoDrawcallsPipeline = createComputePipelineFromFile("../expandObjectsIntoDrawcalls.comp");
 	auto setupRedirectsPipeline = createComputePipelineFromFile("../setupRedirects.comp");
 
@@ -441,15 +424,10 @@ int main()
 				return (workItems+kOptimalWorkgroupSize-1)/kOptimalWorkgroupSize;
 			};
 
-            driver->bindComputePipeline(cullObjectsPipeline.get());
-            //driver->bindDescriptorSets(video::EPBP_COMPUTE, gpuCullPipeline->getLayout(), 1u, 1u, &cullDescriptorSet.get(), nullptr);
-            //driver->pushConstants(cullObjectsPipeline->getLayout(), asset::ICPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(CullShaderData_t), &pc);
-            driver->dispatch(workgroupCount(instanceIDs.size()),1u,1u);
-            video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-			//
-			driver->bindComputePipeline(clearCameraDrawcallsPipeline.get());
-            //driver->dispatch(workgroupCount(instanceIDs.size()),1u,1u);
+            driver->bindComputePipeline(clearDrawsAndCullObjectsPipeline.get());
+            //driver->bindDescriptorSets(video::EPBP_COMPUTE, clearDrawsAndCullObjectsPipeline->getLayout(), 1u, 1u, &cullDescriptorSet.get(), nullptr);
+            //driver->pushConstants(clearDrawsAndCullObjectsPipeline->getLayout(), asset::ICPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(CullShaderData_t), &pc);
+            driver->dispatch(workgroupCount(core::max<uint32_t>(instanceIDs.size(),drawCallCount)),1u,1u);
             video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             
 			//

@@ -3,6 +3,10 @@
 #ifdef __cplusplus
 
 #define uint	uint32_t
+struct alignas(16) vec3
+{
+	float x, y, z;
+};
 
 #define mat4x3	core::matrix3x4SIMD
 #define mat4	core::matrix4SIMD
@@ -19,26 +23,10 @@
 #define kMaxLoDLevels 2
 struct ModelData_t
 {
-#ifdef __cplusplus
-	union
-	{
-		struct
-		{
-			float MinEdge[3];
-			uint uselessPadding0;
-		};
-		core::vectorSIMDf MinEdge4;
-	};
-	union
-	{
-		struct
-		{
-			float MaxEdge[3];
-			uint uselessPadding1;
-		};
-		core::vectorSIMDf MaxEdge4;
-	};
-#endif
+	vec3	MinEdge;
+	float	uselessPadding0;
+	vec3	MaxEdge;
+	float	uselessPadding1;
 	float	LoDDistancesSq[kMaxLoDLevels];
 	uint	LoDDMeshUUID[kMaxLoDLevels];
 };
@@ -47,10 +35,28 @@ struct SceneNode_t
 {
 	mat4x3	worldTransform;
 #ifdef __cplusplus
-	core::matrix3x4SIMD worldNormalMatrix;
-#else
-	vec3	worldNormalMatrixRow0;
-	vec3	worldNormalMatrixRow1;
-	vec3	worldNormalMatrixRow2;
+	union
+	{
+		core::matrix3x4SIMD worldNormalMatrix;
+		struct
+		{
 #endif
+			vec3	worldNormalMatrixRow0;
+			vec3	worldNormalMatrixRow1;
+			vec3	worldNormalMatrixRow2;
+#ifdef __cplusplus
+		};
+	};
+#endif
+};
+
+struct VisibleObject_t
+{
+	mat4	modelViewProjectionMatrix;
+	vec3	normalMatrixCol0;
+	uint	cameraUUID;
+	vec3	normalMatrixCol1;
+	uint	objectUUID;
+	vec3	normalMatrixCol2;
+	uint	meshUUID;
 };

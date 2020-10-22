@@ -14,42 +14,27 @@ layout(set = 0, binding = 1, std430, row_major) restrict readonly buffer Objects
     SceneNode_t objects[];
 };
 
-layout(set = 1, binding = 0, std430) restrict coherent buffer VisibleObjectCounter
+layout(set = 1, binding = 0, std430) restrict readonly buffer VisibleObjectCounter
 {
     uint visibleObjectCount;
 };
-layout(set = 1, binding = 1, std430, row_major) restrict writeonly buffer VisibleObjects
+layout(set = 1, binding = 1, std430, row_major) restrict readonly buffer VisibleObjects
 {
     VisibleObject_t visibleObjects[];
 };
 
-layout(set = 2, binding = 0, std430, row_major) uniform Cameras
-{
-    // NOTE: could be an array of `Camera_t` and we could use `gl_GlobalInvocationID.y` to index cameras (or subdivide the X dimension of a workgroup)
-    mat4 viewProjMatrix;
-    mat4 viewProjMatrixInverse;
-    vec3 cameraPosition;
-} camera;
-
-layout(set = 2, binding = 1, std430) restrict writeonly buffer InstanceRedirectKeys
-{
-    uint instanceRedirectKeys[];
-};
-layout(set = 2, binding = 2, std430) restrict writeonly buffer InstanceRedirect
-{
-    uint objectUUIDRedirects[];
-};
-
-
-layout(push_constant) uniform PushConstants
-{
-    uint objectCount;
-} pc;
-
 
 void main()
 {
-// this is all fucked
+    const bool canProcessObj = gl_GlobalInvocationID.x>=visibleObjectCount;
+    if (canProcessObj)
+    {
+        VisibleObject_t visObj = visibleObjects[gl_GlobalInvocationID.x];
+
+        for (uint i=0u; i<mesh.meshBufferCount; i++)
+        {
+        }
+    }
 
     // increment instance counter for the correct drawID
         const uint baseInstance = .draws[meshBufferUUID].baseInstance;
