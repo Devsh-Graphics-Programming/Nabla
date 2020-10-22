@@ -7,38 +7,23 @@ using namespace irr;
 using namespace core;
 
 #define ALLOCATOR_TEST
-//#define ALLOCATOR_TEST_OLD
 //#define ADDRESS_ALLOCATOR_TRAITS_TEST
 //#define ALLOC_PREF_TEST
 
 #ifdef ALLOCATOR_TEST
 
-struct AllocationCreationParameters
-{	
-	size_t multiAllocCnt;              //! Specifies amount of adress to be allocated with certain choosen allocator
-	size_t adressesToDeallocateCnt;    //! Specifies amount of adress to be deallocated with certain choosen allocator. Must be less than all allocated and must pick number less than `traits::max_multi_free`, but we don't have `max_multi_free`
-};
-
-constexpr size_t minAllocs = 10000u;
-constexpr size_t maxAllocs = 20000u;
-constexpr size_t maxSizeForSquaring = 1024u;
+constexpr size_t minTestsCnt = 10000u;
+constexpr size_t maxTestsCnt = 20000u;
 constexpr size_t maxAlignmentExp = 12u;                         // 4096
 constexpr size_t minVirtualMemoryBufferSize = 2048;             // 2kB
 constexpr size_t maxVirtualMemoryBufferSize = 2147483648;       // 2GB
-constexpr size_t maxOffset = 512;
-constexpr size_t maxAlignOffset = 64;
-constexpr size_t maxBlockSize = 600;
 
 class RandomNumberGenerator
 {
 public:
 	inline uint32_t getRndAllocCnt()    { return  allocsPerFrameRange(mt);  }
-	inline uint32_t getRndSize()        { return  sizePerFrameRange(mt); }
-	inline uint32_t getRndMaxAlign()    { return  (1u << maxAlignmentExpPerFrameRange(mt)); } //128 is max
+	inline uint32_t getRndMaxAlign()    { return  (1u << maxAlignmentExpPerFrameRange(mt)); } //4096 is max
 	inline uint32_t getRndBuffSize()    { return  buffSzRange(mt); }
-	inline uint32_t getRndOffset()      { return  offsetPerFrameRange(mt); }
-	inline uint32_t getRndAlignOffset() { return  alignOffsetPerFrameRange(mt); }
-	inline uint32_t getRndBlockSize()   { return  allocsPerFrameRange(mt); }
 
 	inline uint32_t getRandomNumber(uint32_t rangeBegin, uint32_t rangeEnd)   
 	{
@@ -48,30 +33,21 @@ public:
 
 private:
 	std::mt19937 mt;
-	const std::uniform_int_distribution<uint32_t> allocsPerFrameRange = std::uniform_int_distribution<uint32_t>(minAllocs, maxAllocs);
-	const std::uniform_int_distribution<uint32_t> sizePerFrameRange = std::uniform_int_distribution<uint32_t>(1u, maxSizeForSquaring);
+	const std::uniform_int_distribution<uint32_t> allocsPerFrameRange = std::uniform_int_distribution<uint32_t>(minTestsCnt, maxTestsCnt);
 	const std::uniform_int_distribution<uint32_t> maxAlignmentExpPerFrameRange = std::uniform_int_distribution<uint32_t>(1, maxAlignmentExp);
-
 	const std::uniform_int_distribution<uint32_t> buffSzRange = std::uniform_int_distribution<uint32_t>(minVirtualMemoryBufferSize, maxVirtualMemoryBufferSize);
-	const std::uniform_int_distribution<uint32_t> offsetPerFrameRange = std::uniform_int_distribution<uint32_t>(0u, maxOffset);
-	const std::uniform_int_distribution<uint32_t> alignOffsetPerFrameRange = std::uniform_int_distribution<uint32_t>(0u, maxAlignOffset);
-	const std::uniform_int_distribution<uint32_t> blockSizePerFrameRange = std::uniform_int_distribution<uint32_t>(1, maxBlockSize);
 };
 
 template<typename AlctrType>
 class AllocatorHandler
 {
 	using Traits = core::address_allocator_traits<AlctrType>;
+
 public:
-	
-	AllocatorHandler(AllocationCreationParameters& allocationCreationParameters)
-		: creationParameters(allocationCreationParameters) 
-	{
-	}
-	
 	void executeAllocatorTest()
 	{
-		for (size_t i = 0; i < creationParameters.multiAllocCnt; ++i)
+		const uint32_t testsCnt = rng.getRndAllocCnt();
+		for (size_t i = 0; i < testsCnt; ++i)
 			executeForFrame();
 	}
 
@@ -194,7 +170,8 @@ private:
 		for (uint32_t i = 0u; i < multiFreeCnt; i++)
 		{
 			// randomly how many addresses we should deallocate (but obvs less than all allocated) NOTE: must pick number less than `traits::max_multi_free`
-			const uint32_t addressesToFreeCnt = rng.getRandomNumber(0u, results.size()); //that should be restrained somehow, I think... so it it less likely to free all of allocated addresses
+			const uint32_t addressesToFreeUpperBound = min(core::address_allocator_traits<AlctrType>::maxMultiOps, results.size());
+			const uint32_t addressesToFreeCnt = rng.getRandomNumber(0u, addressesToFreeUpperBound);
 
 			for (uint32_t i = 0u; i < addressesToFreeCnt; i++)
 			{
@@ -225,7 +202,6 @@ private:
 
 private:
 	RandomNumberGenerator rng;
-	AllocationCreationParameters creationParameters;
 	core::vector<AllocationData> results;
 
 	//these hold inputs for `multi_alloc_addr` and `multi_free_addr`
@@ -249,29 +225,25 @@ void AllocatorHandler<core::StackAddressAllocator<uint32_t>>::randFreeAllocatedA
 
 int main()
 {
-	AllocationCreationParameters creationParams;
-	creationParams.multiAllocCnt = 1000;				// TODO
-	creationParams.adressesToDeallocateCnt = 1000;		// TODO
-
 	//TODO:
 	/*{
-		AllocatorHandler<core::StackAddressAllocator<uint32_t>> stackAlctrHandler(creationParams);
+		AllocatorHandler<core::StackAddressAllocator<uint32_t>> stackAlctrHandler;
 		stackAlctrHandler.executeAllocatorTest();
 	}*/
 	
 	{
-		AllocatorHandler<core::PoolAddressAllocator<uint32_t>> poolAlctrHandler(creationParams);
+		AllocatorHandler<core::PoolAddressAllocator<uint32_t>> poolAlctrHandler;
 		poolAlctrHandler.executeAllocatorTest();
 	}
 
 	{
-		AllocatorHandler<core::LinearAddressAllocator<uint32_t>> linearAlctrHandler(creationParams);
+		AllocatorHandler<core::LinearAddressAllocator<uint32_t>> linearAlctrHandler;
 		linearAlctrHandler.executeAllocatorTest();
 	}
 	
 	//crashes..
 	{
-		AllocatorHandler<core::GeneralpurposeAddressAllocator<uint32_t>> generalpurposeAlctrHandler(creationParams);
+		AllocatorHandler<core::GeneralpurposeAddressAllocator<uint32_t>> generalpurposeAlctrHandler;
 		generalpurposeAlctrHandler.executeAllocatorTest();
 	}
 }
