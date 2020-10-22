@@ -6,6 +6,7 @@
 
 #include "irr/asset/ICPUImageView.h"
 #include "irr/asset/IAssetLoader.h"
+#include "irr/asset/CGLTFPipelineMetadata.h"
 
 namespace irr
 {
@@ -294,6 +295,7 @@ namespace irr
 				};
 
 				void loadAndGetGLTF(SGLTF& glTF, io::IReadFile* _file);
+				core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromGLTF(const bool isDS3Available);
 
 				asset::IAssetManager* const assetManager;
 		};

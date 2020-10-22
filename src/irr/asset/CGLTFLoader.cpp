@@ -300,12 +300,8 @@ namespace irr
 
 									vertexInputParams.enabledBindingFlags |= core::createBitmask({ bufferBindingId });
 									vertexInputParams.bindings[bufferBindingId].inputRate = EVIR_PER_VERTEX;
-
-									if (isDataInterleaved())
-										vertexInputParams.bindings[bufferBindingId].stride = glTFbufferView.byteStride.value();
-									else
-										vertexInputParams.bindings[bufferBindingId].stride = getTexelOrBlockBytesize(format) * glTFAccessor.count.value(); // TODO: check it out
-
+									vertexInputParams.bindings[bufferBindingId].stride = isDataInterleaved() ? glTFbufferView.byteStride.value() : getTexelOrBlockBytesize(format); // TODO: change it when handling matrices as well
+					
 									const auto attributeId = queryAttributeId.value();
 									vertexInputParams.enabledAttribFlags |= core::createBitmask({ attributeId });
 									vertexInputParams.attributes[attributeId].binding = bufferBindingId;
@@ -442,8 +438,41 @@ namespace irr
 							return std::make_pair(loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY), loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY));
 					};
 
+					auto cpuPipelineLayout = makePipelineLayoutFromGLTF(hasUV);
 					auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor);
-					size_t ds0_samplerBinding = 0, ds1_uboBinding = 0;
+
+					constexpr size_t DS1_METADATA_ENTRY_COUNT = 3ull;
+					core::smart_refctd_dynamic_array<IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_COUNT);
+					{
+						ICPUDescriptorSetLayout* ds1_layout = cpuPipelineLayout->getDescriptorSetLayout(1u);
+
+						constexpr IPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_COUNT]{ IPipelineMetadata::ECSI_WORLD_VIEW_PROJ, IPipelineMetadata::ECSI_WORLD_VIEW, IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE };
+						constexpr uint32_t sizes[DS1_METADATA_ENTRY_COUNT]{ sizeof(SBasicViewParameters::MVP), sizeof(SBasicViewParameters::MV), sizeof(SBasicViewParameters::NormalMat) };
+						constexpr uint32_t relativeOffsets[DS1_METADATA_ENTRY_COUNT]{ offsetof(SBasicViewParameters,MVP), offsetof(SBasicViewParameters,MV), offsetof(SBasicViewParameters,NormalMat) };
+						
+						for (uint32_t i = 0u; i < DS1_METADATA_ENTRY_COUNT; ++i)
+						{
+							auto& semantic = (shaderInputsMetadata->end() - i - 1u)[0];
+							semantic.type = types[i];
+							semantic.descriptorSection.type = IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
+							semantic.descriptorSection.uniformBufferObject.binding = ds1_layout->getBindings().begin()[0].binding;
+							semantic.descriptorSection.uniformBufferObject.set = 1u;
+							semantic.descriptorSection.uniformBufferObject.relByteoffset = relativeOffsets[i];
+							semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
+							semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_VERTEX;
+						}
+					}
+
+					auto cpuPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(cpuPipelineLayout), nullptr, nullptr, vertexInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
+					cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, cpuVertexShader.get());
+					cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, cpuFragmentShader.get());
+					assetManager->setAssetMetadata(cpuPipeline.get(), core::make_smart_refctd_ptr<CGLTFPipelineMetadata>(std::string("TODO"), core::smart_refctd_ptr(shaderInputsMetadata)));
+					
+					// and what now? I need to cache it somehow and fetch while before-mesh rendering process
+
+					/*
+
+					size_t ds0_samplerBinding = 0, ds0_uboBinding = 0;
 
 					asset::ICPUDescriptorSetLayout::SBinding cpuSamplerBinding;
 
@@ -455,10 +484,11 @@ namespace irr
 
 					ICPUDescriptorSetLayout::SBinding cpuUboBinding;
 					cpuUboBinding.count = 1u;
-					cpuUboBinding.binding = ds1_uboBinding;
+					cpuUboBinding.binding = ds0_uboBinding;
 					cpuUboBinding.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
 					cpuUboBinding.type = asset::EDT_UNIFORM_BUFFER;
 
+					*/
 					// TODO
 				}
 			}
@@ -1226,6 +1256,11 @@ namespace irr
 					}
 				}
 			}
+		}
+
+		core::smart_refctd_ptr<ICPUPipelineLayout> CGLTFLoader::makePipelineLayoutFromGLTF(const bool isDS3Available)
+		{
+
 		}
 	}
 }
