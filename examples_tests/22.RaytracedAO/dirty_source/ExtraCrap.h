@@ -3,12 +3,12 @@
 
 #include "irrlicht.h"
 
-#include "../../ext/RadeonRays/RadeonRays.h"
+#include "irr/ext/RadeonRays/RadeonRays.h"
 // pesky leaking defines
 #undef PI
 
 #ifdef _NBL_BUILD_OPTIX_
-#include "../../ext/OptiX/Manager.h"
+#include "irr/ext/OptiX/Manager.h"
 #endif
 
 

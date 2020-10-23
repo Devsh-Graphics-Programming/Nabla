@@ -5,11 +5,11 @@
 add_subdirectory(01.HelloWorld EXCLUDE_FROM_ALL)
 add_subdirectory(02.ComputeShader EXCLUDE_FROM_ALL)
 add_subdirectory(03.GPU_Mesh EXCLUDE_FROM_ALL)
-# free space
+# free space 04
 add_subdirectory(05.IrrlichtBaWTutorialExample EXCLUDE_FROM_ALL)
 add_subdirectory(06.MeshLoaders EXCLUDE_FROM_ALL)
 #add_subdirectory(07.HardwareSkinning EXCLUDE_FROM_ALL)
-#add_subdirectory(08.HardwareInstancing EXCLUDE_FROM_ALL)
+add_subdirectory(08.HardwareInstancing EXCLUDE_FROM_ALL)
 add_subdirectory(09.ColorSpaceTest EXCLUDE_FROM_ALL)
 #add_subdirectory(10.AllocPerfTest EXCLUDE_FROM_ALL)
 #add_subdirectory(11.RayCastCollision EXCLUDE_FROM_ALL)
@@ -44,16 +44,16 @@ add_subdirectory(29.SpecializationConstants EXCLUDE_FROM_ALL)
 add_subdirectory(31.SkinningDataBenchmark EXCLUDE_FROM_ALL)
 add_subdirectory(32.MultiThreadedRefCounting EXCLUDE_FROM_ALL) # TODO: @Anastazluk make this into example 04
 add_subdirectory(33.Draw3DLine EXCLUDE_FROM_ALL)
-add_subdirectory(34.AddressAllocatorTraitsTest EXCLUDE_FROM_ALL)
+add_subdirectory(34.LRUCacheUnitTest EXCLUDE_FROM_ALL)
 add_subdirectory(35.GeometryCreator EXCLUDE_FROM_ALL)
 add_subdirectory(36.CUDAInterop EXCLUDE_FROM_ALL)
-#add_subdirectory(37.OptiXTriangle EXCLUDE_FROM_ALL)
+add_subdirectory(37.OptiXTriangle EXCLUDE_FROM_ALL)
 add_subdirectory(38.EXRSplit EXCLUDE_FROM_ALL)
 if (NBL_BUILD_MITSUBA_LOADER AND NBL_BUILD_OPTIX)
 	add_subdirectory(39.DenoiserTonemapper EXCLUDE_FROM_ALL)
 endif()
 add_subdirectory(40.GLITest EXCLUDE_FROM_ALL)
-#add_subdirectory(41.VisibilityBuffer EXCLUDE_FROM_ALL)
+#add_subdirectory(41.VisibilityBuffer EXCLUDE_FROM_ALL) #TODO: waits for SPIRV-Cross issue about barycentrics
 add_subdirectory(42.FragmentShaderPathTracer EXCLUDE_FROM_ALL)
 add_subdirectory(43.SumAndCDFFilters EXCLUDE_FROM_ALL)
 add_subdirectory(43.AllocatorTest EXCLUDE_FROM_ALL) #TODO: @Anastazluk merge example 43,34 into ex 10

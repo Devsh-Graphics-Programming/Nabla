@@ -6,7 +6,7 @@
 #include <iostream>
 #include <cstdio>
 #include <irrlicht.h>
-#include "../../ext/ScreenShot/ScreenShot.h"
+#include "irr/ext/ScreenShot/ScreenShot.h"
 
 using namespace irr;
 using namespace core;

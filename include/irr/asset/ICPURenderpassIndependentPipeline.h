@@ -15,6 +15,11 @@ namespace irr
 namespace asset
 {
 
+//! CPU Version of Renderpass Independent Pipeline
+/*
+	@see IRenderpassIndependentPipeline
+*/
+
 class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<ICPUSpecializedShader, ICPUPipelineLayout>, public IAsset
 {
 		using base_t = IRenderpassIndependentPipeline<ICPUSpecializedShader, ICPUPipelineLayout>;

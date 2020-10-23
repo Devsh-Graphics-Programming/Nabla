@@ -19,6 +19,7 @@ endfunction()
 set(irr_resources_to_embed
   "irr/builtin/glsl/math/functions.glsl"
   "irr/builtin/glsl/math/constants.glsl"
+  "irr/builtin/glsl/math/quaternions.glsl"
   "irr/builtin/glsl/limits/numeric.glsl"
   "irr/builtin/shaders/loaders/mtl/vertex_impl.glsl"
   "irr/builtin/shaders/loaders/mtl/vertex_no_uv.vert"
@@ -54,11 +55,19 @@ set(irr_resources_to_embed
   "irr/builtin/material_compiler/glsl/common.glsl"
   "irr/builtin/material_compiler/glsl/common_declarations.glsl"
   "irr/builtin/material_compiler/glsl/rasterization/impl.glsl"
+  #shapes
+  "irr/builtin/glsl/shapes/triangle.glsl"
+  #sampling
+  "irr/builtin/glsl/sampling/bilinear.glsl"
+  "irr/builtin/glsl/sampling/concentric_mapping.glsl"
+  "irr/builtin/glsl/sampling/cos_weighted.glsl"
+  "irr/builtin/glsl/sampling/linear.glsl"
+  "irr/builtin/glsl/sampling/projected_spherical_triangle.glsl"
+  "irr/builtin/glsl/sampling/spherical_triangle.glsl"
   #bxdf
   "irr/builtin/glsl/bxdf/common.glsl"
   "irr/builtin/glsl/bxdf/common_samples.glsl"
   "irr/builtin/glsl/bxdf/fresnel.glsl"
-  "irr/builtin/glsl/bxdf/cos_weighted_sample.glsl"
   "irr/builtin/glsl/bxdf/ndf/common.glsl"
   "irr/builtin/glsl/bxdf/ndf/blinn_phong.glsl"
   "irr/builtin/glsl/bxdf/ndf/beckmann.glsl"
