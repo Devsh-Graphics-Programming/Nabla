@@ -18,7 +18,7 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 
 
-![](https://github.com/buildaworldnet/IrrlichtBAW/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%202.gif?raw=true)
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%202.gif?raw=true)
 
 
 
