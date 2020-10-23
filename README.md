@@ -6,7 +6,23 @@
 
 ## Contracting
 
-The members of **Devsh Graphics Programming Sp. z O.O.** (Company Registration (KRS) #: 0000764661) are available (individually or collectively) for contracts on projects of various scopes and timescales, especially on foreign frameworks, codebases and third-party 3D frameworks. We provide expertise in *OpenGL, OpenGL ES, WebGL, Vulkan, OpenCL, CUDA, D3D12 and D3D11, computer vision, Audio programming, DSP, video encoding and decoding as well as more generalized High Performance Computing*. Our language of choice is C++17 with C++11 and C11 coming in close second, however we're also amenable to Java, Python and related languages.
+The members of **Devsh Graphics Programming Sp. z O.O.** (Company Registration (KRS) #: 0000764661) are available (individually or collectively) for contracts on projects of various scopes and timescales, especially on foreign frameworks, codebases and third-party 3D frameworks. 
+
+**We provide expertise in:**
+ - OpenGL
+ - OpenGL ES 
+ - WebGL
+ - Vulkan 
+ - OpenCL 
+ - CUDA 
+ - D3D12 and D3D11 
+ - computer vision
+ - Audio programming
+ - DSP
+ - video encoding and decoding
+ - High Performance Computing. 
+
+Our language of choice is C++17 with C++11 and C11 coming in close second, however we're also amenable to Java, Python and related languages.
 
 Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** (e-mail available in the GitHub profile) with inquires into contracting.
 
