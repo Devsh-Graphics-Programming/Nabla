@@ -24,8 +24,7 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 		//! recalculates the bounding box
 		virtual void recalculateBoundingBox(const bool recomputeSubBoxes = false)
 		{
-			if (isImmutable_debug())
-				return;
+			assert(!isImmutable_debug());
 
 			core::aabbox3df bbox(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
 
@@ -50,8 +49,7 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 
 		void setBoundingBox(const core::aabbox3df& box) override 
 		{ 
-			if (isImmutable_debug())
-				return;
+			assert(!isImmutable_debug());
 
 			IMesh<ICPUMeshBuffer>::setBoundingBox(box); 
 		}
@@ -95,7 +93,6 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 
 		virtual size_t conservativeSizeEstimate() const override { return getMeshBufferCount()*sizeof(void*); }
 
-private:
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUMesh*>(_other);
@@ -104,7 +101,7 @@ private:
 			{
 				--_levelsBelow;
 				for (uint32_t i = 0u; i < getMeshBufferCount(); i++)
-					getMeshBuffer(i)->restoreFromDummy(other->getMeshBuffer(i), _levelsBelow);
+					getMeshBuffer(i)->restoreFromDummy_impl(other->getMeshBuffer(i), _levelsBelow);
 			}
 		}
 };

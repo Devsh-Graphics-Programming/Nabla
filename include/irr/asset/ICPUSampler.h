@@ -79,7 +79,6 @@ class ICPUSampler : public ISampler, public IAsset
 		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SAMPLER;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
-	private:
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			

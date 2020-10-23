@@ -91,72 +91,65 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 
 		inline ICPUPipelineLayout* getLayout() 
 		{
-			if (isImmutable_debug())
-				return nullptr;
+			assert(!isImmutable_debug());
 			return m_layout.get(); 
 		}
 		const inline ICPUPipelineLayout* getLayout() const { return m_layout.get(); }
 
 		inline ICPUSpecializedShader* getShaderAtStage(ISpecializedShader::E_SHADER_STAGE _stage) 
 		{ 
-			if (isImmutable_debug())
-				return nullptr;
+			assert(!isImmutable_debug());
 			return m_shaders[core::findLSB<uint32_t>(_stage)].get(); 
 		}
 		inline ICPUSpecializedShader* getShaderAtIndex(uint32_t _ix) 
 		{
-			if (isImmutable_debug())
-				return nullptr;
+			assert(!isImmutable_debug());
 			return m_shaders[_ix].get();
 		}
 		inline const ICPUSpecializedShader* getShaderAtIndex(uint32_t _ix) const { return m_shaders[_ix].get(); }
 
 		inline SBlendParams& getBlendParams() 
 		{
-			isImmutable_debug();
+			assert(!isImmutable_debug());
 			return m_blendParams;
 		}
 		inline const SBlendParams& getBlendParams() const { return m_blendParams; }
 		inline SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() 
 		{
-			isImmutable_debug();
+			assert(!isImmutable_debug());
 			return m_primAsmParams;
 		}
 		inline const SPrimitiveAssemblyParams& getPrimitiveAssemblyParams() const { return m_primAsmParams; }
 		inline SRasterizationParams& getRasterizationParams() 
 		{
-			isImmutable_debug();
+			assert(!isImmutable_debug());
 			return m_rasterParams;
 		}
 		inline const SRasterizationParams& getRasterizationParams() const { return m_rasterParams; }
 		inline SVertexInputParams& getVertexInputParams() 
 		{
-			isImmutable_debug();
+			assert(!isImmutable_debug());
 			return m_vertexInputParams; 
 		}
 		inline const SVertexInputParams& getVertexInputParams() const { return m_vertexInputParams; }
 
 		inline void setShaderAtStage(ISpecializedShader::E_SHADER_STAGE _stage, ICPUSpecializedShader* _shdr) 
 		{
-			if (isImmutable_debug())
-				return;
+			assert(!isImmutable_debug());
 			m_shaders[core::findLSB<uint32_t>(_stage)] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr); 
 		}
 		inline void setShaderAtIndex(uint32_t _ix, ICPUSpecializedShader* _shdr) 
 		{
-			if (isImmutable_debug())
-				return;
+			assert(!isImmutable_debug());
 			m_shaders[_ix] = core::smart_refctd_ptr<ICPUSpecializedShader>(_shdr);
 		}
 
 		inline void setLayout(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout) 
 		{
-			if (isImmutable_debug())
-				return;
+			assert(!isImmutable_debug());
 			m_layout = std::move(_layout);
 		}
 
-	private:
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPURenderpassIndependentPipeline*>(_other);
@@ -165,10 +158,10 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			{
 				--_levelsBelow;
 
-				m_layout->restoreFromDummy(other->m_layout.get(), _levelsBelow);
+				m_layout->restoreFromDummy_impl(other->m_layout.get(), _levelsBelow);
 				for (uint32_t i = 0u; i < SHADER_STAGE_COUNT; ++i)
 					if (m_shaders[i])
-						m_shaders[i]->restoreFromDummy(other->m_shaders[i].get(), _levelsBelow);
+						m_shaders[i]->restoreFromDummy_impl(other->m_shaders[i].get(), _levelsBelow);
 			}
 		}
 

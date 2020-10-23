@@ -81,8 +81,7 @@ class ICPUImage final : public IImage, public IAsset
 
 		inline ICPUBuffer* getBuffer() 
 		{
-			if (isImmutable_debug())
-				return nullptr;
+			assert(!isImmutable_debug());
 
 			return buffer.get(); 
 		}
@@ -142,8 +141,7 @@ class ICPUImage final : public IImage, public IAsset
 		//
 		inline void* getTexelBlockData(const IImage::SBufferCopy* region, const core::vectorSIMDu32& inRegionCoord, core::vectorSIMDu32& outBlockCoord)
 		{
-			if (isImmutable_debug())
-				return nullptr;
+			assert(!isImmutable_debug());
 
 			auto localXYZLayerOffset = inRegionCoord/info.getDimension();
 			outBlockCoord = inRegionCoord-localXYZLayerOffset*info.getDimension();
@@ -156,8 +154,7 @@ class ICPUImage final : public IImage, public IAsset
 
 		inline void* getTexelBlockData(uint32_t mipLevel, const core::vectorSIMDu32& boundedTexelCoord, core::vectorSIMDu32& outBlockCoord)
 		{
-			if (isImmutable_debug())
-				return nullptr;
+			assert(!isImmutable_debug());
 
 			// get region for coord
 			const auto* region = getRegion(mipLevel,boundedTexelCoord);
@@ -177,8 +174,8 @@ class ICPUImage final : public IImage, public IAsset
 		//! regions will be copied and sorted
 		inline bool setBufferAndRegions(core::smart_refctd_ptr<ICPUBuffer>&& _buffer, const core::smart_refctd_dynamic_array<IImage::SBufferCopy>& _regions)
 		{
-			if (isImmutable_debug())
-				return false;
+			assert(!isImmutable_debug());
+
 			if (!IImage::validateCopies(_regions->begin(),_regions->end(),_buffer.get()))
 				return false;
 		
@@ -186,6 +183,19 @@ class ICPUImage final : public IImage, public IAsset
 			regions = _regions;
 			std::sort(regions->begin(),regions->end(),mip_order_t());
 			return true;
+		}
+
+		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		{
+			auto* other = static_cast<ICPUImage*>(_other);
+
+			const bool restorable = canBeRestoredFrom(_other);
+
+			if (restorable)
+				std::swap(regions, other->regions);
+
+			if (_levelsBelow)
+				buffer->restoreFromDummy_impl(other->buffer.get(), _levelsBelow - 1u);
 		}
 
     protected:
@@ -207,17 +217,6 @@ class ICPUImage final : public IImage, public IAsset
 				return _a.imageSubresource.mipLevel < _b.imageSubresource.mipLevel;
 			}
 		};
-private:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			auto* other = static_cast<ICPUImage*>(_other);
-
-			const bool restorable = canBeRestoredFrom(_other);
-
-			if (restorable)
-				std::swap(regions, other->regions);
-		}
-
 };
 
 } // end namespace video

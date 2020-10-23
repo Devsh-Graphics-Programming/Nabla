@@ -206,8 +206,8 @@ class IAsset : virtual public core::IReferenceCounted
 		inline bool isMutable() const { return getMutability() == EM_MUTABLE; }
 		inline bool canBeConvertedToDummy() const { return !isADummyObjectForCache() && (getMutability()&EM_CPU_PERSISTENT) != EM_CPU_PERSISTENT; }
 
-    protected:
 		virtual void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) = 0;
+    protected:
 
         inline void clone_common(IAsset* _clone) const
         {

@@ -58,27 +58,23 @@ public:
 
     ICPUPipelineLayout* getLayout() 
     {
-        if (isImmutable_debug())
-            return nullptr;
+        assert(!isImmutable_debug());
         return m_layout.get(); 
     }
     const ICPUPipelineLayout* getLayout() const { return m_layout.get(); }
 
     ICPUSpecializedShader* getShader()
     {
-        if (isImmutable_debug())
-            return nullptr;
+        assert(!isImmutable_debug());
         return m_shader.get();
     }
     const ICPUSpecializedShader* getShader() const { return m_shader.get(); }
     void setShader(ICPUSpecializedShader* _cs) 
     {
-        if (isImmutable_debug())
-            return;
+        assert(!isImmutable_debug());
         m_shader = core::smart_refctd_ptr<ICPUSpecializedShader>(_cs); 
     }
 
-private:
     void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
     {
         auto* other = static_cast<ICPUComputePipeline*>(_other);
@@ -86,8 +82,8 @@ private:
         if (_levelsBelow)
         {
             --_levelsBelow;
-            m_shader->restoreFromDummy(other->m_shader.get(), _levelsBelow);
-            m_layout->restoreFromDummy(other->m_layout.get(), _levelsBelow);
+            m_shader->restoreFromDummy_impl(other->m_shader.get(), _levelsBelow);
+            m_layout->restoreFromDummy_impl(other->m_layout.get(), _levelsBelow);
         }
     }
 

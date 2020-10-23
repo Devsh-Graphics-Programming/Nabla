@@ -204,8 +204,7 @@ public:
     }
 	inline void setIndexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding)
 	{
-        if (isImmutable_debug())
-            return;
+        assert(!isImmutable_debug());
 
 		m_indexBufferBinding = std::move(bufferBinding);
 	}
@@ -232,8 +231,7 @@ public:
 	}*/
 	inline bool setVertexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding, uint32_t bindingIndex)
 	{
-        if (isImmutable_debug())
-            return false;
+        assert(!isImmutable_debug());
 		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT)
 			return false;
 
@@ -259,8 +257,7 @@ public:
 
 	inline void setAttachedDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSet>&& descriptorSet)
 	{
-        if (isImmutable_debug())
-            return;
+        assert(!isImmutable_debug());
 		m_descriptorSet = std::move(descriptorSet);
 	}
 	inline ICPUDescriptorSet* getAttachedDescriptorSet()
@@ -274,14 +271,12 @@ public:
 
 	inline void setPipeline(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>&& pipeline)
 	{
-        if (isImmutable_debug())
-            return;
+        assert(!isImmutable_debug());
 		m_pipeline = std::move(pipeline);
 	}
 	inline ICPURenderpassIndependentPipeline* getPipeline()
 	{
-        if (isImmutable_debug())
-            return nullptr;
+        assert(!isImmutable_debug());
 		return m_pipeline.get();
 	}
     inline const ICPURenderpassIndependentPipeline* getPipeline() const
@@ -359,8 +354,7 @@ public:
     //! Sets id of position atrribute.
     inline void setPositionAttributeIx(const uint32_t attrId)
     {
-        if (isImmutable_debug())
-            return;
+        assert(!isImmutable_debug());
 
         if (attrId >= MAX_VERTEX_ATTRIB_COUNT)
         {
@@ -379,8 +373,7 @@ public:
     //! Sets id of position atrribute.
     inline void setNormalnAttributeIx(const uint32_t& attrId)
     {
-        if (isImmutable_debug())
-            return;
+        assert(!isImmutable_debug());
 
         if (attrId >= MAX_VERTEX_ATTRIB_COUNT)
         {
@@ -397,8 +390,7 @@ public:
     /** \return Pointer to indices array. */
     inline void* getIndices()
     {
-        if (isImmutable_debug())
-            return nullptr;
+        assert(!isImmutable_debug());
 
         if (!m_indexBufferBinding.buffer)
             return nullptr;
@@ -444,8 +436,7 @@ public:
     */
     virtual uint8_t* getAttribPointer(uint32_t attrId)
     {
-        if (isImmutable_debug())
-            return nullptr;
+        assert(!isImmutable_debug());
 
         if (!m_pipeline)
             return nullptr;
@@ -623,8 +614,7 @@ public:
     */
     virtual bool setAttribute(core::vectorSIMDf input, uint32_t attrId, size_t ix)
     {
-        if (isImmutable_debug())
-            return false;
+        assert(!isImmutable_debug());
         if (!m_pipeline)
             return false;
         if (!isAttributeEnabled(attrId))
@@ -666,8 +656,7 @@ public:
     //! @copydoc setAttribute(core::vectorSIMDf, const E_VERTEX_ATTRIBUTE_ID&, size_t)
     virtual bool setAttribute(const uint32_t* _input, uint32_t attrId, size_t ix)
     {
-        if (isImmutable_debug())
-            return false;
+        assert(!isImmutable_debug());
         if (!m_pipeline)
             return false;
         if (!isAttributeEnabled(attrId))
@@ -686,8 +675,7 @@ public:
     //! Recalculates the bounding box. Should be called if the mesh changed.
     virtual void recalculateBoundingBox()
     {
-        if (isImmutable_debug())
-            return;
+        assert(!isImmutable_debug());
 		setBoundingBox(calculateBoundingBox(this));
     }
 
@@ -734,7 +722,6 @@ public:
 		return retval;
     }
 
-private:
     void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
     {
         auto* other = static_cast<ICPUMeshBuffer*>(_other);
@@ -744,15 +731,15 @@ private:
             --_levelsBelow;
 
             if (m_pipeline)
-                m_pipeline->restoreFromDummy(other->m_pipeline.get(), _levelsBelow);
+                m_pipeline->restoreFromDummy_impl(other->m_pipeline.get(), _levelsBelow);
             if (m_descriptorSet)
-                m_descriptorSet->restoreFromDummy(other->m_descriptorSet.get(), _levelsBelow);
+                m_descriptorSet->restoreFromDummy_impl(other->m_descriptorSet.get(), _levelsBelow);
 
             for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
                 if (m_vertexBufferBindings[i].buffer)
-                    m_vertexBufferBindings[i].buffer->restoreFromDummy(other->m_vertexBufferBindings[i].buffer.get(), _levelsBelow);
+                    m_vertexBufferBindings[i].buffer->restoreFromDummy_impl(other->m_vertexBufferBindings[i].buffer.get(), _levelsBelow);
             if (m_indexBufferBinding.buffer)
-                m_indexBufferBinding.buffer->restoreFromDummy(other->m_indexBufferBinding.buffer.get(), _levelsBelow);
+                m_indexBufferBinding.buffer->restoreFromDummy_impl(other->m_indexBufferBinding.buffer.get(), _levelsBelow);
         }
     }
 };

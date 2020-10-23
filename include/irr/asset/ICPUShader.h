@@ -69,7 +69,6 @@ class ICPUShader : public IAsset, public IShader
 		const ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
 		bool containsGLSL() const { return m_containsGLSL; }
 
-	private:
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUShader*>(_other);
@@ -78,7 +77,7 @@ class ICPUShader : public IAsset, public IShader
 			{
 				--_levelsBelow;
 
-				m_code->restoreFromDummy(other->m_code.get(), _levelsBelow);
+				m_code->restoreFromDummy_impl(other->m_code.get(), _levelsBelow);
 			}
 		}
 

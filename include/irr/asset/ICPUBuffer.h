@@ -99,14 +99,9 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 		*/
         virtual void* getPointer() 
         { 
-            if (isImmutable_debug())
-                return nullptr;
+            assert(!isImmutable_debug());
             return data; 
         }
-
-    protected:
-        uint64_t size;
-        void* data;
 
         void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
         {
@@ -115,6 +110,10 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             if (canBeRestoredFrom(_other))
                 std::swap(data, other->data);
         }
+
+    protected:
+        uint64_t size;
+        void* data;
 };
 
 template<

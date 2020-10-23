@@ -59,35 +59,31 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 
 		ICPUBuffer* getUnderlyingBuffer() 
 		{
-			if (isImmutable_debug())
-				return nullptr;
+			assert(!isImmutable_debug());
 			return m_buffer.get(); 
 		}
 		const ICPUBuffer* getUnderlyingBuffer() const { return m_buffer.get(); }
 
 		inline void setOffsetInBuffer(size_t _offset) 
 		{
-			if (isImmutable_debug())
-				return;
+			assert(!isImmutable_debug());
 			m_offset = _offset;
 		}
 		inline void setSize(size_t _size) 
 		{
-			if (isImmutable_debug())
-				return;
+			assert(!isImmutable_debug());
 			m_size = _size;
 		}
 
-private:
-	void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-	{
-		auto* other = static_cast<ICPUBufferView*>(_other);
-
-		if (_levelsBelow)
+		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
-			m_buffer->restoreFromDummy(other->m_buffer.get(), _levelsBelow-1u);
+			auto* other = static_cast<ICPUBufferView*>(_other);
+
+			if (_levelsBelow)
+			{
+				m_buffer->restoreFromDummy_impl(other->m_buffer.get(), _levelsBelow-1u);
+			}
 		}
-	}
 
 	protected:
 		virtual ~ICPUBufferView() = default;

@@ -78,20 +78,19 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 		const SComponentMapping& getComponents() const { return params.components; }
 		SComponentMapping&	getComponents() 
 		{ 
-			isImmutable_debug();
+			assert(!isImmutable_debug());
 			return params.components;
 		}
 
-private:
-	void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-	{
-		auto* other = static_cast<ICPUImageView*>(_other);
-
-		if (_levelsBelow)
+		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
-			params.image->restoreFromDummy(other->params.image.get(), _levelsBelow-1u);
+			auto* other = static_cast<ICPUImageView*>(_other);
+
+			if (_levelsBelow)
+			{
+				params.image->restoreFromDummy_impl(other->params.image.get(), _levelsBelow - 1u);
+			}
 		}
-	}
 
 	protected:
 		virtual ~ICPUImageView() = default;

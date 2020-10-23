@@ -17,16 +17,14 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 
 		ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) 
         {
-            if (isImmutable_debug())
-                return nullptr;
+            assert(!isImmutable_debug());
             return m_descSetLayouts[_set].get(); 
         }
 		const ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) const { return m_descSetLayouts[_set].get(); }
 
         void setDescriptorSetLayout(uint32_t _set, core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _dslayout) 
         { 
-            if (isImmutable_debug())
-                return;
+            assert(!isImmutable_debug());
             m_descSetLayouts[_set] = std::move(_dslayout); 
         }
 
@@ -85,22 +83,21 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
         _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
-private:
-    void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-    {
-        auto* other = static_cast<ICPUPipelineLayout*>(_other);
-
-        const bool restorable = canBeRestoredFrom(_other);
-
-        if (restorable)
-            std::swap(m_pushConstantRanges, other->m_pushConstantRanges);
-        if (_levelsBelow)
+        void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
         {
-            --_levelsBelow;
-            for (uint32_t i = 0u; i < m_descSetLayouts.size(); ++i)
-                m_descSetLayouts[i]->restoreFromDummy(other->m_descSetLayouts[i].get(), _levelsBelow);
+            auto* other = static_cast<ICPUPipelineLayout*>(_other);
+
+            const bool restorable = canBeRestoredFrom(_other);
+
+            if (restorable)
+                std::swap(m_pushConstantRanges, other->m_pushConstantRanges);
+            if (_levelsBelow)
+            {
+                --_levelsBelow;
+                for (uint32_t i = 0u; i < m_descSetLayouts.size(); ++i)
+                    m_descSetLayouts[i]->restoreFromDummy_impl(other->m_descSetLayouts[i].get(), _levelsBelow);
+            }
         }
-    }
 
 	protected:
 		virtual ~ICPUPipelineLayout() = default;

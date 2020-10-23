@@ -133,7 +133,6 @@ public:
 		return core::make_smart_refctd_ptr<ICPUPipelineCache>(std::move(cache_cp));
 	}
 
-private:
 	void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 	{
 		auto* other = static_cast<ICPUPipelineCache*>(_other);
@@ -142,6 +141,7 @@ private:
 			std::swap(m_cache, other->m_cache);
 	}
 
+private:
 	entries_map_t m_cache;
 };
 

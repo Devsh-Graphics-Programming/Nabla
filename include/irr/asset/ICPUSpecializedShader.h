@@ -70,8 +70,8 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 			auto* other = static_cast<const ICPUSpecializedShader*>(_other);
 			if (m_specInfo.entryPoint != other->m_specInfo.entryPoint)
 				return false;
-			if (m_specInfo.m_filePathHint != other->m_specInfo.m_filePathHint)
-				return false;
+			//if (m_specInfo.m_filePathHint != other->m_specInfo.m_filePathHint)
+			//	return false;
 			if (m_specInfo.shaderStage != other->m_specInfo.shaderStage)
 				return false;
 			if (!m_unspecialized->canBeRestoredFrom_recurseDAG(other->m_unspecialized.get()))
@@ -84,22 +84,19 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 
 		inline void setSpecializationInfo(SInfo&& specInfo) 
 		{
-			if (isImmutable_debug())
-				return;
-			m_specInfo = std::move(specInfo); 
+			assert(!isImmutable_debug());
+			m_specInfo = std::move(specInfo);
 		}
 		inline const SInfo& getSpecializationInfo() const { return m_specInfo; }
 
 
 		inline ICPUShader* getUnspecialized() 
 		{
-			if (isImmutable_debug())
-				return nullptr;
+			assert(!isImmutable_debug());
 			return m_unspecialized.get();
 		}
 		inline const ICPUShader* getUnspecialized() const { return m_unspecialized.get(); }
 
-	private:
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUSpecializedShader*>(_other);
@@ -110,7 +107,7 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 				std::swap(m_specInfo.m_entries, other->m_specInfo.m_entries);
 			if (_levelsBelow--)
 			{
-				m_unspecialized->restoreFromDummy(other->m_unspecialized.get(), _levelsBelow);
+				m_unspecialized->restoreFromDummy_impl(other->m_unspecialized.get(), _levelsBelow);
 			}
 		}
 
