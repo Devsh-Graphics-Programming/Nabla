@@ -20,7 +20,7 @@ The members of **Devsh Graphics Programming Sp. z O.O.** (Company Registration (
  - Audio programming
  - DSP
  - video encoding and decoding
- - High Performance Computing. 
+ - High Performance Computing
 
 Our language of choice is C++17 with C++11 and C11 coming in close second, however we're also amenable to Java, Python and related languages.
 
