@@ -1,4 +1,5 @@
 #define kOptimalWorkgroupSize 256u
+#define _IRR_GLSL_WORKGROUP_ARITHMETIC_WORKGROUP_SIZE_ kOptimalWorkgroupSize
 
 #ifdef __cplusplus
 
@@ -20,15 +21,12 @@ struct alignas(16) vec3
 #include <irr/builtin/glsl/utils/culling.glsl>
 #endif
 
-#define kMaxLoDLevels 2
-struct ModelData_t
+struct Mesh_t
 {
-	vec3	MinEdge;
-	float	uselessPadding0;
-	vec3	MaxEdge;
-	float	uselessPadding1;
-	float	LoDDistancesSq[kMaxLoDLevels];
-	uint	LoDDMeshUUID[kMaxLoDLevels];
+	vec3	MinAABBEdge;
+	uint	meshBuffersOffset;
+	vec3	MaxAABBEdge;
+	uint	meshBuffersCount;
 };
 
 struct SceneNode_t
@@ -48,6 +46,17 @@ struct SceneNode_t
 		};
 	};
 #endif
+};
+
+#define kMaxLoDLevels 2
+struct ModelData_t
+{
+	vec3	MinAABBEdge;
+	float	uselessPadding0;
+	vec3	MaxAABBEdge;
+	float	uselessPadding1;
+	float	LoDDistancesSq[kMaxLoDLevels];
+	uint	LoDDMeshUUID[kMaxLoDLevels];
 };
 
 struct VisibleObject_t

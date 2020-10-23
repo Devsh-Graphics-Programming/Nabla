@@ -77,9 +77,9 @@ void cullObjects()
     const bool canProcessObj = gl_GlobalInvocationID.x>=pc.objectCount;
     if (canProcessObj)
     {
-        objectUUID = objectUUIDs[gl_GlobalInvocationID.x];
+        objectUUID = objectUUIDs[gl_GlobalInvocationID.x]; 
     
-        uint modelUUID = 0u; // we only support one model for this demo
+        modelUUID = 0u; // we only support one model for this demo
         mat4x3 worldMatrix = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(objects[objectUUID].worldTransform); 
 
         modelViewProjectionMatrix = irr_glsl_pseudoMul4x4with4x3(camera.viewProjMatrix,worldMatrix);
