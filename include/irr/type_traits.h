@@ -5,6 +5,7 @@
 #define __IRR_TYPE_TRAITS_H_INCLUDED__
 
 #include <type_traits>
+#include <array>
 
 namespace irr
 {
@@ -16,6 +17,10 @@ using bool_constant = std::bool_constant<B>;
 template<bool B>
 using bool_constant = std::integral_constant<bool, B>;
 #endif // C
+
+
+template <bool... Vals>
+using bool_sequence = std::integer_sequence<bool, Vals...>;
 
 
 template<typename T, typename U, typename... Us>
@@ -34,28 +39,28 @@ struct is_any_of<T, U> : std::is_same<T, U>::type { };
 
 
 template<typename T, bool is_const_pointer = std::is_const_v<T>>
-struct ptr_to_const;
+struct pointer_to_const;
 
 template<typename T>
-struct ptr_to_const<T, false>
+struct pointer_to_const<T, false>
 {
 	static_assert(std::is_pointer_v<T>);
 
 	using type = std::add_pointer_t<
-		std::add_const_t<
-			std::remove_pointer_t<T>
-		>
-	>;
+			std::add_const_t<
+				std::remove_pointer_t<T>
+			>
+		>;
 };
 
 template<typename T>
-struct ptr_to_const<T, true>
+struct pointer_to_const<T, true>
 {
-	using type = std::add_const_t<typename ptr_to_const<T, false>::type>;
+	using type = std::add_const_t<typename pointer_to_const<T, false>::type>;
 };
 
 template<typename T>
-using ptr_to_const_t = typename ptr_to_const<T>::type;
+using pointer_to_const_t = typename pointer_to_const<T>::type;
 
 
 template<typename T, bool is_pointer = std::is_pointer_v<T>>
@@ -100,39 +105,121 @@ using remove_all_pointer_levels_t = typename remove_all_pointer_levels<T>::type;
 
 
 template<typename T>
-struct is_pointer_to_const_object : 
+struct is_pointer_to_const_object :
 	std::bool_constant<
 		std::is_const_v<
 			remove_all_pointer_levels_t<
 				T
 			>
 		>
-	> 
+	>
 {};
 
 template<typename T>
 inline constexpr bool is_pointer_to_const_object_v = is_pointer_to_const_object<T>::value;
 
 
-template<typename T, int levels>
-struct add_pointers
+namespace impl
 {
-	using type = typename add_pointers<T, levels - 1>::type*;
+
+	template <typename... Ts>
+	struct type_sequence {};
+
+	template<typename T, bool is_ptr = std::is_pointer_v<T>, typename... Ts>
+	struct pointer_level_constness_help;
+	template<typename T, typename... Ts>
+	struct pointer_level_constness_help<T, false, Ts...>
+	{
+		using levels_t = type_sequence<Ts...>;
+	};
+	template<typename T, typename... Ts>
+	struct pointer_level_constness_help<T, true, Ts...> : pointer_level_constness_help<std::remove_pointer_t<T>, std::is_pointer_v<std::remove_pointer_t<T>>, Ts..., T> {};
+
+
+	template<typename T>
+	class pointer_level_constness_seq
+	{
+		template<typename... Levels>
+		static constexpr auto get_constness(type_sequence<Levels...>) -> bool_sequence<std::is_const_v<Levels>...>;
+
+	public:
+		using constness_seq = decltype(get_constness(typename pointer_level_constness_help<T>::levels_t{}));
+	};
+
+	template<typename T, T... Seq>
+	struct integer_array
+	{
+		using type = std::array<T, sizeof...(Seq)>;
+
+		constexpr static type get_array() { return type{ {Seq...} }; }
+	};
+
+} // namespace impl
+
+template<typename T>
+class pointer_levels_constness
+{
+	template<bool... Vals>
+	constexpr static auto func(bool_sequence<Vals...>) { return impl::integer_array<bool, Vals...>::get_array(); }
+
+public:
+	inline static constexpr auto value = func(typename impl::pointer_level_constness_seq<T>::constness_seq{});
 };
 
 template<typename T>
-struct add_pointers<T, 0>
+inline constexpr auto pointer_levels_constness_v = pointer_levels_constness<T>::value;
+
+namespace impl
 {
-	using type = T;
+	template<typename T, int levels, bool is_const_level, bool... is_const_rest>
+	struct add_pointers
+	{
+	private:
+		using tmp_type_ = typename add_pointers<
+			T,
+			levels - 1,
+			is_const_rest...
+		>::type;
+
+	public:
+		using type = std::conditional_t<is_const_level, tmp_type_* const, tmp_type_*>;
+	};
+
+	template<typename T, bool is_const_level>
+	struct add_pointers<T, 1, is_const_level>
+	{
+		using type = std::conditional_t<is_const_level, T* const, T*>;
+	};
+
+	template<typename T, int levels, bool... is_const_levels>
+	using add_pointers_t = typename add_pointers<T, levels, is_const_levels...>::type;
+
+	template<typename T, int levels, bool... constness>
+	constexpr auto add_pointers_with_constness_f(bool_sequence<constness...>) -> add_pointers_t<T, levels, constness...>;
+} // namespace impl
+
+template<typename T, int levels, bool... constness>
+struct add_pointers
+{
+	using type = impl::add_pointers_t<T, levels, constness...>;
 };
 
-template<typename T, int levels>
-using add_pointers_t = typename add_pointers<T, levels>::type;
+template<typename T, int levels, bool... constness>
+using add_pointers_t = typename add_pointers<T, levels, constness...>::type;
 
+namespace impl
+{
+	template<typename T, int levels, typename U>
+	struct add_pointers_restore_constness
+	{
+		using type = decltype(impl::add_pointers_with_constness_f<T, levels>(typename impl::pointer_level_constness_seq<U>::constness_seq{}));
+	};
+	template<typename T, int levels, typename U>
+	using add_pointers_restore_constness_t = typename add_pointers_restore_constness<T, levels, U>::type;
+}
 
-// TODO preserve each const-ness of each pointer level
 //! type is `const T` in case when T is not a pointer type
-//!		or `const T***` in case of `T***`, etc. (preserves pointer depth)
+//!		or `const T**const*` in case of `T**const*`, etc. (preserves pointer depth and constness of each level)
 template<typename T>
 struct pointer_to_const_object
 {
@@ -141,13 +228,14 @@ private:
 	inline constexpr static int levels = pointer_level_count_v<T>;
 
 public:
-	using type = add_pointers_t<const object_t, levels>;
+	using type = impl::add_pointers_restore_constness_t<const object_t, levels, T>;
 };
 
 template<typename T>
 using pointer_to_const_object_t = typename pointer_to_const_object<T>::type;
 
 
+//! Analogous to pointer_to_const_object
 template<typename T>
 struct pointer_to_nonconst_object
 {
@@ -156,7 +244,7 @@ private:
 	inline constexpr static int levels = pointer_level_count_v<T>;
 
 public:
-	using type = add_pointers_t<std::remove_const_t<object_t>, levels>;
+	using type = impl::add_pointers_restore_constness_t<std::remove_const_t<object_t>, levels, T>;
 };
 
 template<typename T>
