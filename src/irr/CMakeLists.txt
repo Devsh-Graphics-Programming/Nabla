@@ -205,7 +205,6 @@ set(IRR_ASSET_SOURCES
 	
 # Cache unique key creators
 	${IRR_ROOT_PATH}/src/irr/asset/builtin/cache/ICacheKeyCreator.cpp
-	${IRR_ROOT_PATH}/src/irr/asset/builtin/cache/CPipelineCacheKeyCreator.cpp
 )
 set(IRR_VIDEO_SOURCES
 # Allocators

@@ -38,6 +38,11 @@ namespace irr
 
 				asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
+				_IRR_STATIC_INLINE std::string getPipelineCacheKey(const E_PRIMITIVE_TOPOLOGY& primitiveType, const SVertexInputParams& vertexInputParams)
+				{
+					return "irr/builtin/pipelines/loaders/glTF/" + std::to_string(primitiveType) + vertexInputParams.to_string();
+				}
+
 			private:
 
 				struct CGLTFHeader

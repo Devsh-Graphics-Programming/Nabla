@@ -466,6 +466,11 @@ namespace irr
 					auto cpuPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(cpuPipelineLayout), nullptr, nullptr, vertexInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
 					cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, cpuVertexShader.get());
 					cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, cpuFragmentShader.get());
+
+					SAssetBundle pipelineBundle = { cpuPipeline };
+					SAssetLoadContext loadContext = {_params, _file };
+
+					_override->insertAssetIntoCache(pipelineBundle, getPipelineCacheKey(primitiveTopology, vertexInputParams), loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
 					assetManager->setAssetMetadata(cpuPipeline.get(), core::make_smart_refctd_ptr<CGLTFPipelineMetadata>(std::string("TODO"), core::smart_refctd_ptr(shaderInputsMetadata)));
 					
 					// and what now? I need to cache it somehow and fetch while before-mesh rendering process
@@ -1260,7 +1265,8 @@ namespace irr
 
 		core::smart_refctd_ptr<ICPUPipelineLayout> CGLTFLoader::makePipelineLayoutFromGLTF(const bool isDS3Available)
 		{
-
+			// TODO
+			return {};
 		}
 	}
 }

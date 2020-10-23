@@ -12,6 +12,7 @@
 #include "irr/asset/ISpecializedShader.h"
 #include "irr/asset/IPipeline.h"
 #include "irr/asset/IImage.h"
+#include "irr/asset/builtin/cache/ICacheKeyCreator.h"
 
 
 namespace irr
@@ -50,12 +51,24 @@ struct SVertexInputAttribParams
     uint32_t binding : 4;
     uint32_t format : 8;//asset::E_FORMAT
     uint32_t relativeOffset : 13;//assuming max=2048
+
+    std::string to_string() const
+    {
+        return ICacheKeyCreator::getHexString(binding) + ICacheKeyCreator::getHexString(format) + ICacheKeyCreator::getHexString(relativeOffset);
+    }
+
 } PACK_STRUCT;
 static_assert(sizeof(SVertexInputAttribParams)==(4u), "Unexpected size!");
 struct SVertexInputBindingParams
 {
     uint32_t stride = 0u;
     E_VERTEX_INPUT_RATE inputRate = EVIR_PER_VERTEX;
+
+    std::string to_string() const
+    {
+        return ICacheKeyCreator::getHexString(stride) + ICacheKeyCreator::getHexString(inputRate);
+    }
+
 } PACK_STRUCT;
 static_assert(sizeof(SVertexInputBindingParams)==5u, "Unexpected size!");
 struct SVertexInputParams
@@ -69,6 +82,18 @@ struct SVertexInputParams
 	SVertexInputAttribParams attributes[MAX_VERTEX_ATTRIB_COUNT] = {};
     //! index in array denotes binding number
 	SVertexInputBindingParams bindings[MAX_ATTR_BUF_BINDING_COUNT] = {};
+
+    std::string to_string() const
+    {
+        std::string cacheKey;
+
+        cacheKey += ICacheKeyCreator::getHexString(enabledAttribFlags) + ICacheKeyCreator::getHexString(enabledBindingFlags);
+        for (uint32_t i = 0; i < MAX_VERTEX_ATTRIB_COUNT; ++i)
+            cacheKey += attributes[i].to_string();
+        for (uint32_t i = 0; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
+            cacheKey += bindings[i].to_string();
+        return cacheKey;
+    }
 
     static_assert(sizeof(enabledAttribFlags)*8 >= MAX_VERTEX_ATTRIB_COUNT, "Insufficient flag bits for number of supported attributes");
     static_assert(sizeof(enabledBindingFlags)*8 >= MAX_ATTR_BUF_BINDING_COUNT, "Insufficient flag bits for number of supported bindings");
