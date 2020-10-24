@@ -90,12 +90,19 @@ How to avoid bank conflicts:
 read:	00,01,02,03,    08,09,10,11,	16,17,18,19,    24,25,26,27,    04,05,06,07,    12,13,14,15,    20,21,22,23,    28,29,30,31
 write:	30,31,00,01,    06,07,08,09,    14,15,16,17,    22,23,24,25,    02,03,04,05,    10,11,12,13,    18,19,20,21,    26,27,28,29
 
-This design should also work for workgroups that are not divisible by subgroup size, which is neat as ****
+This design should also work for workgroups that are not divisible by subgroup size, but only if we could clear the [0,SubgroupSize/2) range of _IRR_GLSL_SCRATCH_SHARED_DEFINED_ to the IDENTITY ELEMENT reliably.
+
+So if you're planning to use the emulated `irr_glsl_subgroup` with workgroup sizes not divisible by subgroup size, you should clear the _IRR_GLSL_SCRATCH_SHARED_DEFINED_ to the identity value yourself.
 */
-#define IRR_GLSL_SUBGROUP_ARITHMETIC_IMPL(OP,IDENTITY,VALUE) const uint scratchOffset = IRR_GLSL_SUBGROUP_ARITHMETIC_GET_SHARED_OFFSET(gl_LocalInvocationIndex,irr_glsl_SubgroupSize);
+#define IRR_GLSL_SUBGROUP_ARITHMETIC_IMPL(OP,IDENTITY,VALUE) const uint loMask = irr_glsl_SubgroupSize-1u; \
+	const uint pseudoSubgroupInvocation = gl_LocalInvocationIndex&loMask; \
+	const uint hiMask = ~loMask; \
+	const uint pseudoSubgroupID = gl_LocalInvocationIndex&hiMask; \
+	const uint scratchOffset = (pseudoSubgroupID<<1u)|pseudoSubgroupInvocation; \
 	const uint primaryOffset = scratchOffset+irr_glsl_HalfSubgroupSize; \
 	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset] = VALUE; \
-	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[scratchOffset] = IDENTITY; \
+	if (pseudoSubgroupInvocation<irr_glsl_HalfSubgroupSize) \
+		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[scratchOffset] = IDENTITY; \
 	SUBGROUP_BARRIERS \
 	uint self = _IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset]; \
 	uint other = _IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset-1u]; \
@@ -113,14 +120,11 @@ This design should also work for workgroups that are not divisible by subgroup s
 	}
 
 
-
 #define IRR_GLSL_SUBGROUP_REDUCE(CONV,OP,IDENTITY,VALUE) IRR_GLSL_SUBGROUP_ARITHMETIC_IMPL(OP,IDENTITY,VALUE) \
 	SUBGROUP_BARRIERS \
-	const uint loMask = irr_glsl_SubgroupSize-1u; \
-	const uint hiMask = ~loMask; \
-	const uint maxPseudoSubgroup = (_IRR_GLSL_WORKGROUP_SIZE_-1u)&hiMask; \
-	const uint pseudoSubgroup = gl_LocalInvocationIndex&hiMask; \
-	return CONV(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset|((pseudoSubgroup!=maxPseudoSubgroup ? (_IRR_GLSL_WORKGROUP_SIZE_-1u):0xffffu)&loMask)])
+	const uint maxPseudoSubgroupInvocation = (_IRR_GLSL_WORKGROUP_SIZE_-1u)&loMask; \
+	const uint maxPseudoSubgroupID = (_IRR_GLSL_WORKGROUP_SIZE_-1u)&hiMask; \
+	return CONV(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[((maxPseudoSubgroupID<<1u)|maxPseudoSubgroupInvocation)+irr_glsl_HalfSubgroupSize])
 
 
 

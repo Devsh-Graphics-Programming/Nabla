@@ -34,6 +34,32 @@
 
 uint irr_glsl_workgroupAdd(in uint val)
 {
+	uint loMask = 0u;
+	uint sub = irr_glsl_subgroupInclusiveAdd(val);
+	uint outIx = gl_LocalInvocationIndex;
+	for (uint reduction=_IRR_GLSL_WORKGROUP_SIZE_/irr_glsl_SubgroupSize; reduction>1u; reduction/=irr_glsl_SubgroupSize)
+	{
+		CONDITIONAL_BARRIER
+		loMask = (loMask*irr_glsl_SubgroupSize)|(irr_glsl_SubgroupSize-1u);
+		if ((gl_LocalInvocationIndex&loMask)==loMask)
+		{
+			outIx /= irr_glsl_SubgroupSize;
+			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[outIx] = sub;
+		}
+		barrier();
+		memoryBarrierShared();
+		if (gl_LocalInvocationIndex<reduction)
+			sub = irr_glsl_subgroupInclusiveAdd(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex]);
+	}
+	CONDITIONAL_BARRIER
+	loMask = (loMask*irr_glsl_SubgroupSize)|(irr_glsl_SubgroupSize-1u);
+	return irr_glsl_workgroupBroadcast(sub,loMask);
+}
+
+
+
+uint irr_glsl_workgroupInclusiveAdd(in uint val)
+{
 	uint loMask = irr_glsl_SubgroupSize-1u;
 	uint sub = irr_glsl_subgroupInclusiveAdd(val);
 	uint outIx = gl_LocalInvocationIndex;
@@ -54,16 +80,31 @@ uint irr_glsl_workgroupAdd(in uint val)
 		outIx /= irr_glsl_SubgroupSize;
 		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[outIx] = sub;
 	}
+	barrier();
+	memoryBarrierShared();
+	sub = irr_glsl_subgroupInclusiveAdd(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex]);
+	CONDITIONAL_BARRIER
+	loMask = loMask*irr_glsl_SubgroupSize+loMask;
+	if ((gl_LocalInvocationIndex&loMask)==loMask)
+	{
+		outIx /= irr_glsl_SubgroupSize;
+		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[outIx] = sub;
+	}
+	barrier();
+	memoryBarrierShared();
+	sub = irr_glsl_subgroupInclusiveAdd(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex]);
+	CONDITIONAL_BARRIER
+	loMask = loMask*irr_glsl_SubgroupSize+loMask;
+	if ((gl_LocalInvocationIndex&loMask)==loMask)
+	{
+		outIx /= irr_glsl_SubgroupSize;
+		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[outIx] = sub;
+	}
+	barrier();
+	memoryBarrierShared();
+	sub = irr_glsl_subgroupInclusiveAdd(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex]);
 
-	return stuff;
-}
-
-
-
-uint irr_glsl_workgroupInclusiveAdd(in uint val)
-{
-	uint subIncl = irr_glsl_subgroupInclusiveAdd(val);
-	return _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationID];
+	return sub;
 }
 int irr_glsl_workgroupInclusiveAdd(in int val)
 {
