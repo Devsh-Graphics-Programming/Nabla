@@ -23,13 +23,26 @@
 #ifdef GL_KHR_subgroup_arithmetic
 
 #define CONDITIONAL_BARRIER
-#define SUBGROUP_SCRATCH_CLEAR
+// just do nothing here
+#define SUBGROUP_SCRATCH_CLEAR(IDENTITY) ;
 
 #else
 */
 
 #define CONDITIONAL_BARRIER barrier();
-#define SUBGROUP_SCRATCH_CLEAR
+#define SUBGROUP_SCRATCH_CLEAR(IDENTITY) const uint loMask = irr_glsl_SubgroupSize-1u; \
+	{ \
+		const uint hiMask = ~loMask; \
+		const uint maxItemsToClear = ((_IRR_GLSL_WORKGROUP_SIZE_+loMask)&hiMask)>>1u; \
+		if (gl_LocalInvocationIndex<maxItemsToClear) \
+		{ \
+			const uint halfMask = loMask>>1u; \
+			const uint clearIndex = (gl_LocalInvocationIndex&(~halfMask))*3u+(gl_LocalInvocationIndex&halfMask); \
+			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[clearIndex] = IDENTITY; \
+		} \
+		barrier(); \
+		memoryBarrierShared(); \
+	}
 
 //#endif
 
@@ -39,45 +52,50 @@ If `GL_KHR_subgroup_arithmetic` is not available then these functions require em
 */
 
 // TODO: unroll the while 5-times
-#define IRR_GLSL_WORKGROUP_REDUCE(CONV,OP,VALUE,IDENTITY) DUMB
+#define IRR_GLSL_WORKGROUP_REDUCE(CONV,SUBGROUP_OP,VALUE,IDENTITY,INVCONV) SUBGROUP_SCRATCH_CLEAR(INVCONV(IDENTITY)) \
+	const bool propagateReduction = (gl_LocalInvocationIndex&loMask)==loMask; \
+	const uint outTempIx = gl_LocalInvocationIndex/irr_glsl_SubgroupSize; \
+	uint sub = INVCONV(SUBGROUP_OP(false,VALUE)); \
+	uint lastInvocation = _IRR_GLSL_WORKGROUP_SIZE_-1u; \
+	while (lastInvocation>=irr_glsl_SubgroupSize) \
+	{
+		CONDITIONAL_BARRIER \
+		if (propagateReduction&&gl_LocalInvocationIndex<lastInvocation || gl_LocalInvocationIndex==lastInvocation) \
+			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[outTempIx] = sub; \
+		barrier(); \
+		memoryBarrierShared(); \
+		lastInvocation /= irr_glsl_SubgroupSize; \
+		if (gl_LocalInvocationIndex<=lastInvocation) \
+			sub = INVCONV(SUBGROUP_OP(false,CONV(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex]))); \
+	} \
+	CONDITIONAL_BARRIER \
+	return CONV(irr_glsl_workgroupBroadcast(sub,lastInvocation))
+
+
 uint irr_glsl_workgroupAdd(in uint val)
 {
-	const uint loMask = irr_glsl_SubgroupSize-1u;
-	{
-		const uint hiMask = ~loMask;
-		const uint maxItemsToClear = ((_IRR_GLSL_WORKGROUP_SIZE_+loMask)&hiMask)>>1u;
-		if (gl_LocalInvocationIndex<maxItemsToClear)
-		{
-			const uint halfMask = loMask>>1u;
-			const uint clearIndex = (gl_LocalInvocationIndex&(~halfMask))*3u+(gl_LocalInvocationIndex&halfMask);
-			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[clearIndex] = IDENTITY;
-		}
-		barrier();
-		memoryBarrierShared();
-	}
-	const bool propagateReduction = (gl_LocalInvocationIndex&loMask)==loMask;
-	const uint outTempIx = gl_LocalInvocationIndex/irr_glsl_SubgroupSize;
-	uint sub = irr_glsl_subgroupInclusiveAdd_impl(false,val);
-	uint lastInvocation = _IRR_GLSL_WORKGROUP_SIZE_-1u;
-	while (lastInvocation>=irr_glsl_SubgroupSize)
-	{
-		CONDITIONAL_BARRIER
-		if (propagateReduction&&gl_LocalInvocationIndex<lastInvocation || gl_LocalInvocationIndex==lastInvocation)
-			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[outTempIx] = sub;
-		barrier();
-		memoryBarrierShared();
-		lastInvocation /= irr_glsl_SubgroupSize;
-		if (gl_LocalInvocationIndex<=lastInvocation)
-			sub = irr_glsl_subgroupInclusiveAdd_impl(false,_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex]);
-	}
-	CONDITIONAL_BARRIER
-	return irr_glsl_workgroupBroadcast(sub,lastInvocation);
+	IRR_GLSL_WORKGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_subgroupInclusiveAdd_impl,val,0u,irr_glsl_identityFunction);
+}
+int irr_glsl_workgroupAdd(in int val)
+{
+	return int(irr_glsl_workgroupAdd(uint(val)));
+}
+float irr_glsl_workgroupAdd(in float val)
+{
+	IRR_GLSL_WORKGROUP_REDUCE(uintBitsToFloat,irr_glsl_subgroupInclusiveAdd_impl,val,0.0,floatBitsToUint);
 }
 
 
 
+// best we could do would be O(log2(N))
 uint irr_glsl_workgroupInclusiveAdd(in uint val)
 {
+	// step 1 scan subgroup, every [KS,(K+1)S-1] contains prefix sum from KS (N)
+	// step 2 scan subgroup sums EXCLUSIVELY (N/S)
+	// step 3 add step 2 back to whole block (N), every [KS^2,(K+1)S^2-1] contains prefix sum from KS^2
+	// step 4 scan subgroup sums EXCLUSIVELY (N/S^2)
+	// step 5 add step 4 back to whole block (N), every [KS^3,(K+1)S^3-1] contains prefix sum from KS^3
+	// O(logb(N)N) 
 }
 int irr_glsl_workgroupInclusiveAdd(in int val)
 {
@@ -85,6 +103,16 @@ int irr_glsl_workgroupInclusiveAdd(in int val)
 }
 uint irr_glsl_workgroupExclusiveAdd(in uint val)
 {
+	// run like a reduction
+	// step 1 for K>0, KS-1 contains sum [(K-1)S,KS-1]
+	// step 2 for K>0, KS^2-1 contains sum [(K-1)S^2,KS^2-1]
+	// step N for K>0, KS^N-1 contains sum [(K-1)S^N,KS^N-1]
+	// ^ verify
+	// put zero at last place
+	// do downsweep (BANK CONFLICTS)
+	// at step 1 take stride SIZE>>1
+	// add prev_lo to prev_hi storing in hi, then move prev_hi to lo
+	// etc.
 }
 int irr_glsl_workgroupExclusiveAdd(in int val)
 {
@@ -105,9 +133,6 @@ int irr_glsl_workgroupXor(in int val);
 float irr_glsl_workgroupOr(in float val);
 uint irr_glsl_workgroupOr(in uint val);
 int irr_glsl_workgroupOr(in int val);
-
-float irr_glsl_workgroupAdd(in float val);
-int irr_glsl_workgroupAdd(in int val);
 
 float irr_glsl_workgroupMul(in float val);
 uint irr_glsl_workgroupMul(in uint val);
