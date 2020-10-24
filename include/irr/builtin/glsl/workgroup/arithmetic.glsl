@@ -31,11 +31,16 @@
 
 //#endif
 
-
+/*
+If `GL_KHR_subgroup_arithmetic` is not available then these functions require emulated subgroup operations, which in turn means that if you're using the `irr_glsl_workgroupOp`s then either:
+- workgroup size must be divisible by subgroup size?
+*/
+#define IRR_GLSL_SUBGROUP_REDUCE(CONV,OP,VALUE,IDENTITY) DUMB
 uint irr_glsl_workgroupAdd(in uint val)
 {
+	// TODO: clear the scratch to IDENTITIY
 	uint loMask = 0u;
-	uint sub = irr_glsl_subgroupInclusiveAdd(val);
+	uint sub = irr_glsl_subgroupInclusiveAdd_impl(false,val);
 	uint outIx = gl_LocalInvocationIndex;
 	for (uint reduction=_IRR_GLSL_WORKGROUP_SIZE_/irr_glsl_SubgroupSize; reduction>1u; reduction/=irr_glsl_SubgroupSize)
 	{
@@ -49,7 +54,7 @@ uint irr_glsl_workgroupAdd(in uint val)
 		barrier();
 		memoryBarrierShared();
 		if (gl_LocalInvocationIndex<reduction)
-			sub = irr_glsl_subgroupInclusiveAdd(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex]);
+			sub = irr_glsl_subgroupInclusiveAdd_impl(false,_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex]);
 	}
 	CONDITIONAL_BARRIER
 	loMask = (loMask*irr_glsl_SubgroupSize)|(irr_glsl_SubgroupSize-1u);
@@ -60,51 +65,6 @@ uint irr_glsl_workgroupAdd(in uint val)
 
 uint irr_glsl_workgroupInclusiveAdd(in uint val)
 {
-	uint loMask = irr_glsl_SubgroupSize-1u;
-	uint sub = irr_glsl_subgroupInclusiveAdd(val);
-	uint outIx = gl_LocalInvocationIndex;
-
-	CONDITIONAL_BARRIER
-	if ((gl_LocalInvocationIndex&loMask)==loMask)
-	{
-		outIx /= irr_glsl_SubgroupSize;
-		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[outIx] = sub;
-	}
-	barrier();
-	memoryBarrierShared();
-	sub = irr_glsl_subgroupInclusiveAdd(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex]);
-	CONDITIONAL_BARRIER
-	loMask = loMask*irr_glsl_SubgroupSize+loMask;
-	if ((gl_LocalInvocationIndex&loMask)==loMask)
-	{
-		outIx /= irr_glsl_SubgroupSize;
-		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[outIx] = sub;
-	}
-	barrier();
-	memoryBarrierShared();
-	sub = irr_glsl_subgroupInclusiveAdd(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex]);
-	CONDITIONAL_BARRIER
-	loMask = loMask*irr_glsl_SubgroupSize+loMask;
-	if ((gl_LocalInvocationIndex&loMask)==loMask)
-	{
-		outIx /= irr_glsl_SubgroupSize;
-		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[outIx] = sub;
-	}
-	barrier();
-	memoryBarrierShared();
-	sub = irr_glsl_subgroupInclusiveAdd(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex]);
-	CONDITIONAL_BARRIER
-	loMask = loMask*irr_glsl_SubgroupSize+loMask;
-	if ((gl_LocalInvocationIndex&loMask)==loMask)
-	{
-		outIx /= irr_glsl_SubgroupSize;
-		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[outIx] = sub;
-	}
-	barrier();
-	memoryBarrierShared();
-	sub = irr_glsl_subgroupInclusiveAdd(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex]);
-
-	return sub;
 }
 int irr_glsl_workgroupInclusiveAdd(in int val)
 {
@@ -112,8 +72,6 @@ int irr_glsl_workgroupInclusiveAdd(in int val)
 }
 uint irr_glsl_workgroupExclusiveAdd(in uint val)
 {
-	uint subIncl = irr_glsl_subgroupExclusiveAdd(val);
-	return _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationID];
 }
 int irr_glsl_workgroupExclusiveAdd(in int val)
 {
