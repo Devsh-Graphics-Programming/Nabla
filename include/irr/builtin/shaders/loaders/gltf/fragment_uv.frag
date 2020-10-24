@@ -4,4 +4,4 @@
 
 #include "irr/builtin/shaders/loaders/gltf/fragment_impl.glsl"
 
-#undef #define _DISABLE_COLOR_ATTRIBUTES
+#undef _DISABLE_COLOR_ATTRIBUTES

@@ -2,14 +2,13 @@
 
 #ifndef _IRR_FRAG_INPUTS_DEFINED_
 #define _IRR_FRAG_INPUTS_DEFINED_
-layout (location = 0) in vec3 LocalPos;
-layout(location = 1) in vec3 Normal;
-layout (location = 2) in vec3 ViewPos;
+layout (location = _IRR_F_IN_LOCAL_POSITION_ATTRIBUTE_ID) in vec3 LocalPos;
+layout (location = _IRR_F_IN_VIEW_POS_ATTRIBUTE_ID) in vec3 ViewPos;
 #ifndef _DISABLE_UV_ATTRIBUTES
-layout (location = _IRR_UV_ATTRIBUTE_BEGINING_ID) in vec2 UV_0;
+layout (location = _IRR_F_IN_UV_ATTRIBUTE_ID) in vec2 UV_0;
 #endif
 #ifndef _DISABLE_COLOR_ATTRIBUTES
-layout (location = _IRR_COLOR_ATTRIBUTE_BEGINING_ID) in vec4 Color_0;
+layout (location = _IRR_F_IN_COLOR_ATTRIBUTE_ID) in vec4 Color_0;
 #endif // _DISABLE_COLOR_ATTRIBUTES
 #endif //_IRR_FRAG_INPUTS_DEFINED_
 

@@ -22,6 +22,22 @@ namespace irr
 {
 	namespace asset
 	{
+		template<typename AssetType, IAsset::E_TYPE assetType>
+		static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
+		{
+			size_t storageSz = 1ull;
+			asset::SAssetBundle bundle;
+			const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
+
+			_assetMgr->findAssets(storageSz, &bundle, _key, types);
+			if (bundle.isEmpty())
+				return nullptr;
+			auto assets = bundle.getContents();
+			//assert(assets.first != assets.second);
+
+			return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
+		}
+
 		namespace SAttributes
 		{
 			_IRR_STATIC_INLINE_CONSTEXPR uint8_t POSITION_ATTRIBUTE_ID = 0;
@@ -97,6 +113,7 @@ namespace irr
 		{
 			SGLTF glTF;
 			loadAndGetGLTF(glTF, _file);
+			SAssetLoadContext loadContext = { _params, _file };
 
 			// TODO: having validated and loaded glTF data we can use it to create pipelines and data
 
@@ -113,7 +130,7 @@ namespace irr
 			core::vector<core::smart_refctd_ptr<CCPUMesh>> cpuMeshes;
 			for (auto& glTFnode : glTF.nodes) 
 			{
-				auto cpuMesh = cpuMeshes.emplace_back();
+				auto cpuMesh = cpuMeshes.emplace_back() = core::make_smart_refctd_ptr<CCPUMesh>();
 
 				for (auto& glTFprimitive : glTFnode.glTFMesh.primitives) 
 				{
@@ -273,7 +290,8 @@ namespace irr
 						const E_FORMAT format = getFormat(glTFAccessor.componentType.value(), glTFAccessor.type.value());
 
 						auto& glTFbufferView = glTF.bufferViews[glTFAccessor.bufferView.value()];
-						const uint32_t& bufferBindingId = glTFbufferView.buffer.value();
+						const uint32_t& bufferBindingId = glTFAccessor.bufferView.value();
+						const uint32_t& bufferDataId = glTFbufferView.buffer.value();
 						const auto& globalOffsetInBufferBindingResource = glTFbufferView.byteOffset.value();
 						const auto& relativeOffsetInBufferViewAttribute = glTFAccessor.byteOffset.value();
 
@@ -284,8 +302,8 @@ namespace irr
 							asset::SBufferBinding<ICPUBuffer> bufferBinding;
 							bufferBinding.offset = globalOffsetInBufferBindingResource;
 
-							idReferenceBindingBuffers[bufferBindingId] = cpuBuffers[bufferBindingId];
-							bufferBinding.buffer = idReferenceBindingBuffers[bufferBindingId];
+							idReferenceBindingBuffers[bufferDataId] = cpuBuffers[bufferDataId];
+							bufferBinding.buffer = idReferenceBindingBuffers[bufferDataId];
 
 							auto isDataInterleaved = [&]()
 							{
@@ -352,7 +370,8 @@ namespace irr
 						auto& glTFPositionAccessor = glTFprimitive.accessors["POSITION"];
 						handleAccessor(glTFPositionAccessor, SAttributes::POSITION_ATTRIBUTE_ID);
 
-						cpuMeshBuffer->setIndexCount(glTFPositionAccessor.count.value());
+						if(!glTFprimitive.indices.has_value())
+							cpuMeshBuffer->setIndexCount(glTFPositionAccessor.count.value());
 					}
 					else
 						return {};
@@ -430,71 +449,66 @@ namespace irr
 							return core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assets.begin()[0]);
 						};
 
+						#if 0 // TODO
 						if (hasUV) // if both UV and Color defined - we use the UV
 							return std::make_pair(loadShader(VERT_SHADER_UV_CACHE_KEY), loadShader(FRAG_SHADER_UV_CACHE_KEY));
 						else if (hasColor)
 							return std::make_pair(loadShader(VERT_SHADER_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_COLOR_CACHE_KEY));
 						else
-							return std::make_pair(loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY), loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY));
+						#endif
+
+							return std::make_pair(loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY));
 					};
 
-					auto cpuPipelineLayout = makePipelineLayoutFromGLTF(hasUV);
-					auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor);
-
-					constexpr size_t DS1_METADATA_ENTRY_COUNT = 3ull;
-					core::smart_refctd_dynamic_array<IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_COUNT);
+					core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> cpuPipeline;
+					const std::string& pipelineCacheKey = getPipelineCacheKey(primitiveTopology, vertexInputParams);
 					{
-						ICPUDescriptorSetLayout* ds1_layout = cpuPipelineLayout->getDescriptorSetLayout(1u);
-
-						constexpr IPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_COUNT]{ IPipelineMetadata::ECSI_WORLD_VIEW_PROJ, IPipelineMetadata::ECSI_WORLD_VIEW, IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE };
-						constexpr uint32_t sizes[DS1_METADATA_ENTRY_COUNT]{ sizeof(SBasicViewParameters::MVP), sizeof(SBasicViewParameters::MV), sizeof(SBasicViewParameters::NormalMat) };
-						constexpr uint32_t relativeOffsets[DS1_METADATA_ENTRY_COUNT]{ offsetof(SBasicViewParameters,MVP), offsetof(SBasicViewParameters,MV), offsetof(SBasicViewParameters,NormalMat) };
-						
-						for (uint32_t i = 0u; i < DS1_METADATA_ENTRY_COUNT; ++i)
+						const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
+						auto pipeline_bundle = _override->findCachedAsset(pipelineCacheKey, types, loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
+						if (!pipeline_bundle.isEmpty())
+							cpuPipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(pipeline_bundle.getContents().begin()[0]);
+						else
 						{
-							auto& semantic = (shaderInputsMetadata->end() - i - 1u)[0];
-							semantic.type = types[i];
-							semantic.descriptorSection.type = IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
-							semantic.descriptorSection.uniformBufferObject.binding = ds1_layout->getBindings().begin()[0].binding;
-							semantic.descriptorSection.uniformBufferObject.set = 1u;
-							semantic.descriptorSection.uniformBufferObject.relByteoffset = relativeOffsets[i];
-							semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
-							semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_VERTEX;
+							auto cpuPipelineLayout = makePipelineLayoutFromGLTF(hasUV);
+							auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor);
+
+							constexpr size_t DS1_METADATA_ENTRY_COUNT = 3ull;
+							core::smart_refctd_dynamic_array<IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_COUNT);
+							{
+								ICPUDescriptorSetLayout* ds1_layout = cpuPipelineLayout->getDescriptorSetLayout(1u);
+
+								constexpr IPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_COUNT]{ IPipelineMetadata::ECSI_WORLD_VIEW_PROJ, IPipelineMetadata::ECSI_WORLD_VIEW, IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE };
+								constexpr uint32_t sizes[DS1_METADATA_ENTRY_COUNT]{ sizeof(SBasicViewParameters::MVP), sizeof(SBasicViewParameters::MV), sizeof(SBasicViewParameters::NormalMat) };
+								constexpr uint32_t relativeOffsets[DS1_METADATA_ENTRY_COUNT]{ offsetof(SBasicViewParameters,MVP), offsetof(SBasicViewParameters,MV), offsetof(SBasicViewParameters,NormalMat) };
+
+								for (uint32_t i = 0u; i < DS1_METADATA_ENTRY_COUNT; ++i)
+								{
+									auto& semantic = (shaderInputsMetadata->end() - i - 1u)[0];
+									semantic.type = types[i];
+									semantic.descriptorSection.type = IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
+									semantic.descriptorSection.uniformBufferObject.binding = ds1_layout->getBindings().begin()[0].binding;
+									semantic.descriptorSection.uniformBufferObject.set = 1u;
+									semantic.descriptorSection.uniformBufferObject.relByteoffset = relativeOffsets[i];
+									semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
+									semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_VERTEX;
+								}
+							}
+
+							cpuPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(cpuPipelineLayout), nullptr, nullptr, vertexInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
+							cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, cpuVertexShader.get());
+							cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, cpuFragmentShader.get());
+
+							SAssetBundle pipelineBundle = { cpuPipeline };
+
+							_override->insertAssetIntoCache(pipelineBundle, pipelineCacheKey, loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
+							assetManager->setAssetMetadata(cpuPipeline.get(), core::make_smart_refctd_ptr<CGLTFPipelineMetadata>(std::string("TODO_material"), core::smart_refctd_ptr(shaderInputsMetadata)));
+
+							cpuMeshBuffer->setPipeline(std::move(cpuPipeline));
+							cpuMesh->addMeshBuffer(std::move(cpuMeshBuffer));
 						}
 					}
 
-					auto cpuPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(cpuPipelineLayout), nullptr, nullptr, vertexInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
-					cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, cpuVertexShader.get());
-					cpuPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, cpuFragmentShader.get());
-
-					SAssetBundle pipelineBundle = { cpuPipeline };
-					SAssetLoadContext loadContext = {_params, _file };
-
-					_override->insertAssetIntoCache(pipelineBundle, getPipelineCacheKey(primitiveTopology, vertexInputParams), loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
-					assetManager->setAssetMetadata(cpuPipeline.get(), core::make_smart_refctd_ptr<CGLTFPipelineMetadata>(std::string("TODO"), core::smart_refctd_ptr(shaderInputsMetadata)));
-					
-					// and what now? I need to cache it somehow and fetch while before-mesh rendering process
-
-					/*
-
-					size_t ds0_samplerBinding = 0, ds0_uboBinding = 0;
-
-					asset::ICPUDescriptorSetLayout::SBinding cpuSamplerBinding;
-
-					cpuSamplerBinding.binding = ds0_samplerBinding;
-					cpuSamplerBinding.type = EDT_COMBINED_IMAGE_SAMPLER;
-					cpuSamplerBinding.count = 1u;
-					cpuSamplerBinding.stageFlags = static_cast<ICPUSpecializedShader::E_SHADER_STAGE>(ICPUSpecializedShader::ESS_FRAGMENT);
-					cpuSamplerBinding.samplers = nullptr;
-
-					ICPUDescriptorSetLayout::SBinding cpuUboBinding;
-					cpuUboBinding.count = 1u;
-					cpuUboBinding.binding = ds0_uboBinding;
-					cpuUboBinding.stageFlags = static_cast<asset::ICPUSpecializedShader::E_SHADER_STAGE>(asset::ICPUSpecializedShader::ESS_VERTEX | asset::ICPUSpecializedShader::ESS_FRAGMENT);
-					cpuUboBinding.type = asset::EDT_UNIFORM_BUFFER;
-
-					*/
-					// TODO
+					/////
 				}
 			}
 
@@ -914,7 +928,7 @@ namespace irr
 
 			*/
 
-			return {};
+			return cpuMeshes;
 		}
 
 		void CGLTFLoader::loadAndGetGLTF(SGLTF& glTF, io::IReadFile* _file)
@@ -1265,8 +1279,46 @@ namespace irr
 
 		core::smart_refctd_ptr<ICPUPipelineLayout> CGLTFLoader::makePipelineLayoutFromGLTF(const bool isDS3Available)
 		{
-			// TODO
-			return {};
+			auto getCpuDs3Layout = [&]() -> core::smart_refctd_ptr<ICPUDescriptorSetLayout>
+			{
+				if (isDS3Available)
+				{
+					/*
+						Assumes all supported textures are always present
+						since vulkan doesnt support bindings with no/null descriptor,
+						absent textures WILL (TODO) be filled with dummy 2D texture (while creating descriptor set)
+					*/
+
+					_IRR_STATIC_INLINE_CONSTEXPR size_t samplerBindingsAmount = 1; // TODO
+					auto cpuSamplerBindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(samplerBindingsAmount); // TODO
+
+					ICPUDescriptorSetLayout::SBinding cpuSamplerBinding;
+					cpuSamplerBinding.count = 1u;
+					cpuSamplerBinding.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+					cpuSamplerBinding.type = EDT_COMBINED_IMAGE_SAMPLER;
+					cpuSamplerBinding.binding = 0u;
+					std::fill(cpuSamplerBindings->begin(), cpuSamplerBindings->end(), cpuSamplerBinding);
+
+					core::smart_refctd_ptr<ICPUSampler> samplers[samplerBindingsAmount]; // TODO
+					samplers[0] = getDefaultAsset<ICPUSampler, IAsset::ET_SAMPLER>("irr/builtin/samplers/default", assetManager);
+
+					for (uint32_t i = 0u; i < samplerBindingsAmount; ++i)
+					{
+						(*cpuSamplerBindings)[i].binding = i;
+						(*cpuSamplerBindings)[i].samplers = samplers;
+					}
+
+					return core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(cpuSamplerBindings->begin(), cpuSamplerBindings->end());
+				}
+				else
+					return nullptr;
+			};
+
+			auto cpuDs1Layout = getDefaultAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("irr/builtin/descriptor_set_layout/basic_view_parameters", assetManager);
+			auto cpuDs3Layout = getCpuDs3Layout();
+
+			auto cpuPipelineLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(cpuDs1Layout), nullptr, nullptr); // TODODODODO
+			return cpuPipelineLayout;
 		}
 	}
 }
