@@ -152,13 +152,13 @@ namespace irr
 
 								struct SType
 								{
-									static constexpr std::string_view SCALAR = "SCALAR";
-									static constexpr std::string_view VEC2 = "VEC2";
-									static constexpr std::string_view VEC3 = "VEC3";
-									static constexpr std::string_view VEC4 = "VEC4";
-									static constexpr std::string_view MAT2 = "MAT2";
-									static constexpr std::string_view MAT3 = "MAT3";
-									static constexpr std::string_view MAT4 = "MAT4";
+									_IRR_STATIC_INLINE_CONSTEXPR std::string_view SCALAR = "SCALAR";
+									_IRR_STATIC_INLINE_CONSTEXPR std::string_view VEC2 = "VEC2";
+									_IRR_STATIC_INLINE_CONSTEXPR std::string_view VEC3 = "VEC3";
+									_IRR_STATIC_INLINE_CONSTEXPR std::string_view VEC4 = "VEC4";
+									_IRR_STATIC_INLINE_CONSTEXPR std::string_view MAT2 = "MAT2";
+									_IRR_STATIC_INLINE_CONSTEXPR std::string_view MAT3 = "MAT3";
+									_IRR_STATIC_INLINE_CONSTEXPR std::string_view MAT4 = "MAT4";
 								};
 
 								bool validate()
@@ -254,7 +254,7 @@ namespace irr
 
 						bool validate()
 						{
-							if (!uri.has_value()) // it is valid to NOT pass the uri in the json, but we will not pass it
+							if (!uri.has_value())
 								return false;
 
 							if (!byteLength.has_value())
@@ -266,8 +266,6 @@ namespace irr
 							return true;
 						}
 					};
-
-					std::vector<SGLTFBuffer> buffers;	// the same reason like buffer view (accossiated with bufferView)
 
 					struct SGLTFBufferView
 					{
@@ -296,7 +294,102 @@ namespace irr
 						}
 					};
 
-					std::vector<SGLTFBufferView> bufferViews; // various resources referenced by accessors, etc may be the same, not unique, we have to hold it here
+					struct SGLTFImage
+					{
+						std::optional<std::string> uri;
+						std::optional<std::string> mimeType;
+						std::optional<uint32_t> bufferView;
+						std::optional<std::string> name;
+
+						struct SMIMEType
+						{
+							_IRR_STATIC_INLINE_CONSTEXPR std::string_view JPEG = "image/jpeg";
+							_IRR_STATIC_INLINE_CONSTEXPR std::string_view PNG = "image/png";
+						};
+
+						bool validate()
+						{
+							if (!uri.has_value() || (mimeType.has_value() && !bufferView.has_value()))
+								return false;
+
+							return true;
+						}
+					};
+
+					struct SGLTFSampler
+					{
+						std::optional<uint32_t> magFilter;
+						std::optional<uint32_t> minFilter;
+						std::optional<uint32_t> wrapS;
+						std::optional<uint32_t> wrapT;
+						std::optional<std::string> name;
+
+						enum STextureParameter
+						{
+							STP_NEAREST = 9728,
+							STP_LINEAR = 9729,
+							STP_NEAREST_MIPMAP_NEAREST = 9984,
+							STP_LINEAR_MIPMAP_NEAREST = 9985,
+							STP_NEAREST_MIPMAP_LINEAR = 9986,
+							STP_LINEAR_MIPMAP_LINEAR = 9987,
+							STP_CLAMP_TO_EDGE = 33071,
+							STP_MIRRORED_REPEAT = 33648,
+							STP_REPEAT = 33648
+						};
+					};
+
+					struct SGLTFMaterial
+					{
+						std::optional<uint32_t> wrapT;
+
+						struct SPBRMetalicRoughness
+						{
+							// TODO
+						};
+
+						struct SNormalTexture
+						{
+							// TODO
+						};
+
+						struct SOcclusionTexture
+						{
+							// TODO
+						};
+
+						struct SEmissiveTexture
+						{
+
+						};
+
+						struct SAlphaMode
+						{
+							_IRR_STATIC_INLINE_CONSTEXPR std::string_view OPAQUE_MODE = "OPAQUE";
+							_IRR_STATIC_INLINE_CONSTEXPR std::string_view MASK_MODE = "MASK";
+							_IRR_STATIC_INLINE_CONSTEXPR std::string_view BLEND_MODE = "BLEND";
+						};
+
+						std::optional<std::string> name;
+						std::optional<SPBRMetalicRoughness> pbrMetallicRoughness;
+						std::optional<SNormalTexture> normalTexture;
+						std::optional<SOcclusionTexture> occlusionTexture;
+						std::optional<SEmissiveTexture> emissiveTexture;
+						std::optional<std::array<double, 3>> emissiveFactor;
+						std::optional<std::string> alphaMode;
+						std::optional<double> alphaCutoff;
+						std::optional<bool> doubleSided;
+					};
+
+					/*
+						Various resources referenced by accessors, etc and may be the same,
+						not unique, so holding it bellow is necessary
+					*/
+					
+					std::vector<SGLTFBufferView> bufferViews; 
+					std::vector<SGLTFBuffer> buffers;
+					std::vector<SGLTFImage> images;
+					std::vector<SGLTFSampler> samplers;
+					std::vector<SGLTFMaterial> materials;
 				};
 
 				void loadAndGetGLTF(SGLTF& glTF, io::IReadFile* _file);

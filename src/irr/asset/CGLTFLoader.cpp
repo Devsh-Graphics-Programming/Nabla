@@ -1024,6 +1024,66 @@ namespace irr
 				}
 			}
 
+			if (images.error() != simdjson::error_code::NO_SUCH_FIELD)
+			{
+				auto& imagesData = images.get_array();
+				for (auto& image : imagesData)
+				{
+					auto& glTFImage = glTF.images.emplace_back();
+
+					auto& uri = image.at_key("uri");
+					auto& mimeType = image.at_key("mimeType");
+					auto& bufferViewId = image.at_key("bufferView");
+					auto& name = image.at_key("name");
+					auto& extensions = image.at_key("extensions");
+					auto& extras = image.at_key("extras");
+
+					if (uri.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFImage.uri = uri.get_string().value();
+
+					if (mimeType.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFImage.mimeType = uri.get_string().value();
+
+					if (bufferViewId.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFImage.bufferView = uri.get_uint64().value();
+
+					if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFImage.name = name.get_string().value();
+				}
+			}
+
+			if (samplers.error() != simdjson::error_code::NO_SUCH_FIELD)
+			{
+				auto& samplersData = samplers.get_array();
+				for (auto& sampler : samplersData)
+				{
+					auto& glTFSampler = glTF.samplers.emplace_back();
+
+					auto& magFilter = sampler.at_key("magFilter");
+					auto& minFilter = sampler.at_key("minFilter");
+					auto& wrapS = sampler.at_key("wrapS");
+					auto& wrapT = sampler.at_key("wrapT");
+					auto& name = sampler.at_key("name");
+					auto& extensions = sampler.at_key("extensions");
+					auto& extras = sampler.at_key("extras");
+
+					if (magFilter.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFSampler.magFilter = magFilter.get_uint64().value();
+
+					if (minFilter.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFSampler.minFilter = minFilter.get_uint64().value();
+
+					if (wrapS.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFSampler.wrapS = wrapS.get_uint64().value();
+
+					if (wrapT.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFSampler.wrapT = wrapT.get_uint64().value();
+
+					if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFSampler.name = name.get_string().value();
+				}
+			}
+
 			if (nodes.error() != simdjson::error_code::NO_SUCH_FIELD)
 			{
 				auto& nData = nodes.get_array();
