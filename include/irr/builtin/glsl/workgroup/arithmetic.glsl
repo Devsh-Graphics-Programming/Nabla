@@ -3,22 +3,8 @@
 
 
 #include <irr/builtin/glsl/subgroup/arithmetic_portability.glsl>
-#define _IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_  ((_IRR_GLSL_WORKGROUP_SIZE_+irr_glsl_MinSubgroupSize-1)/irr_glsl_MinSubgroupSize)
 
-#ifdef _IRR_GLSL_SCRATCH_SHARED_DEFINED_
-/* can't get this to work either
-	#if _IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_<_IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_
-		#error "Not enough shared memory declared"
-	#endif
-*/
-#else
-	#if _IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_>0
-		#define _IRR_GLSL_SCRATCH_SHARED_DEFINED_ irr_glsl_workgroupArithmeticScratchShared
-		shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_];
-	#endif
-#endif
 
-// if using native subgroup operations we don't need to worry about stepping on our own shared memory
 /*
 #ifdef GL_KHR_subgroup_arithmetic
 
@@ -28,6 +14,10 @@
 
 #else
 */
+
+// if using native subgroup operations we don't need to worry about stepping on our own shared memory
+// TODO: figure this out
+#define _IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_  ((_IRR_GLSL_WORKGROUP_SIZE_+irr_glsl_MinSubgroupSize-1)/irr_glsl_MinSubgroupSize)
 
 #define CONDITIONAL_BARRIER barrier();
 #define SUBGROUP_SCRATCH_CLEAR(IDENTITY) const uint loMask = irr_glsl_SubgroupSize-1u; \
@@ -45,6 +35,21 @@
 	}
 
 //#endif
+
+
+#ifdef _IRR_GLSL_SCRATCH_SHARED_DEFINED_
+/* can't get this to work either
+	#if _IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_<_IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_
+		#error "Not enough shared memory declared"
+	#endif
+*/
+#else
+	#if _IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_>0
+		#define _IRR_GLSL_SCRATCH_SHARED_DEFINED_ irr_glsl_workgroupArithmeticScratchShared
+		shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_];
+	#endif
+#endif
+
 
 /*
 If `GL_KHR_subgroup_arithmetic` is not available then these functions require emulated subgroup operations, which in turn means that if you're using the
@@ -87,15 +92,19 @@ float irr_glsl_workgroupAdd(in float val)
 
 
 
-// best we could do would be O(log2(N))
 uint irr_glsl_workgroupInclusiveAdd(in uint val)
 {
-	// step 1 scan subgroup, every [KS,(K+1)S-1] contains prefix sum from KS (N)
-	// step 2 scan subgroup sums EXCLUSIVELY (N/S)
-	// step 3 add step 2 back to whole block (N), every [KS^2,(K+1)S^2-1] contains prefix sum from KS^2
-	// step 4 scan subgroup sums EXCLUSIVELY (N/S^2)
-	// step 5 add step 4 back to whole block (N), every [KS^3,(K+1)S^3-1] contains prefix sum from KS^3
-	// O(logb(N)N) 
+	// step 1 scan subgroup INCLUSIVELY O(N), every [KS,(K+1)S-1] contains prefix sum from KS (N)
+	// step 2 scan subgroup sums EXCLUSIVELY O(N/S) and remember them
+	// step 3 scan subgroup sums EXCLUSIVELY O(N/S^2) and remember them
+	// step 4 scan subgroup sums EXCLUSIVELY O(N/S^3) and remember them
+	// step 5 scan subgroup sums EXCLUSIVELY O(N/S^4) and remember them
+	// step 6 add the step 5 scans to step 4 scans O(N/S^3)
+	// step 7 add the step 4 scans to step 3 scans O(N/S^2)
+	// step 8 add the step 3 scans to step 2 scans O(N/S)
+	// step 8 add the step 2 scans to step 1 scans O(N)
+	// Runtime between a little bit over O(6N) and a little bit over O(8N) due to rounding to subgroup size
+	// Memory is O(2N), more or less, assuming a few things
 }
 int irr_glsl_workgroupInclusiveAdd(in int val)
 {
@@ -103,16 +112,7 @@ int irr_glsl_workgroupInclusiveAdd(in int val)
 }
 uint irr_glsl_workgroupExclusiveAdd(in uint val)
 {
-	// run like a reduction
-	// step 1 for K>0, KS-1 contains sum [(K-1)S,KS-1]
-	// step 2 for K>0, KS^2-1 contains sum [(K-1)S^2,KS^2-1]
-	// step N for K>0, KS^N-1 contains sum [(K-1)S^N,KS^N-1]
-	// ^ verify
-	// put zero at last place
-	// do downsweep (BANK CONFLICTS)
-	// at step 1 take stride SIZE>>1
-	// add prev_lo to prev_hi storing in hi, then move prev_hi to lo
-	// etc.
+	// same as inclusive but first scan is exclusive.
 }
 int irr_glsl_workgroupExclusiveAdd(in int val)
 {
