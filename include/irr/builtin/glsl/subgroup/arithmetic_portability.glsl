@@ -107,12 +107,7 @@
 
 
 
-#define IRR_GLSL_SUBGROUP_ARITHMETIC_GET_SHARED_OFFSET(IX,SUBGROUP_SIZE) ((((IX)&(~((SUBGROUP_SIZE)-1u)))<<1u)|((IX)&((SUBGROUP_SIZE)-1u)))
-#if IRR_GLSL_SUBGROUP_SIZE_IS_CONSTEXPR
-	#define _IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_  (IRR_GLSL_SUBGROUP_ARITHMETIC_GET_SHARED_OFFSET(_IRR_GLSL_WORKGROUP_SIZE_-1u,irr_glsl_SubgroupSize)+irr_glsl_HalfSubgroupSize+1u)
-#else
-	#define _IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_  (IRR_GLSL_SUBGROUP_ARITHMETIC_GET_SHARED_OFFSET(_IRR_GLSL_WORKGROUP_SIZE_-1u,irr_glsl_MinSubgroupSize)+(irr_glsl_MaxSubgroupSize>>1u)+1u)
-#endif
+#define _IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_  (_IRR_GLSL_WORKGROUP_SIZE_<<1u)
 
 #ifdef _IRR_GLSL_SCRATCH_SHARED_DEFINED_
 /* can't get this to work either
@@ -133,6 +128,8 @@ read:	00,01,02,03,    08,09,10,11,	16,17,18,19,    24,25,26,27,    04,05,06,07, 
 write:	30,31,00,01,    06,07,08,09,    14,15,16,17,    22,23,24,25,    02,03,04,05,    10,11,12,13,    18,19,20,21,    26,27,28,29
 
 This design should also work for workgroups that are not divisible by subgroup size, but only if we could clear the [0,SubgroupSize/2) range of _IRR_GLSL_SCRATCH_SHARED_DEFINED_ to the IDENTITY ELEMENT reliably.
+
+TODO: Keep the pseudo subgroup and offset code DRY, move to a function.
 */
 #define IRR_GLSL_SUBGROUP_ARITHMETIC_IMPL(OP,VALUE,CLEAR,IDENTITY) const uint loMask = irr_glsl_SubgroupSize-1u; \
 	const uint pseudoSubgroupInvocation = gl_LocalInvocationIndex&loMask; \
@@ -444,10 +441,6 @@ float irr_glsl_subgroupExclusiveMax_impl(in bool clearScratchToIdentity, in floa
 {
 	IRR_GLSL_SUBGROUP_SCAN_EXCLUSIVE(uintBitsToFloat,irr_glsl_maxAsFloat,floatBitsToUint(value),clearScratchToIdentity,floatBitsToUint(-FLT_INF));
 }
-
-
-
-#undef IRR_GLSL_SUBGROUP_ARITHMETIC_GET_SHARED_OFFSET
 
 
 
