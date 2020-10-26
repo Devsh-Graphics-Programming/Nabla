@@ -52,19 +52,6 @@ class ICPUImage final : public IImage, public IAsset
 				regions = nullptr;
         }
 
-		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
-		{
-			auto* other = static_cast<const ICPUImage*>(_other);
-			if (info != other->info)
-				return false;
-			if (params != other->params)
-				return false;
-			if (!buffer->canBeRestoredFrom_recurseDAG(other->buffer.get()))
-				return false;
-
-			return true;
-		}
-
 		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_IMAGE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
@@ -185,6 +172,20 @@ class ICPUImage final : public IImage, public IAsset
 			return true;
 		}
 
+    protected:
+		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+		{
+			auto* other = static_cast<const ICPUImage*>(_other);
+			if (info != other->info)
+				return false;
+			if (params != other->params)
+				return false;
+			if (!canBeRestoredFrom_recurseDAG_call(buffer.get(), other->buffer.get()))
+				return false;
+
+			return true;
+		}
+
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUImage*>(_other);
@@ -195,10 +196,9 @@ class ICPUImage final : public IImage, public IAsset
 				std::swap(regions, other->regions);
 
 			if (_levelsBelow)
-				buffer->restoreFromDummy_impl(other->buffer.get(), _levelsBelow - 1u);
+				restoreFromDummy_impl_call(buffer.get(), other->buffer.get(), _levelsBelow - 1u);
 		}
 
-    protected:
 		ICPUImage(SCreationParams&& _params) : IImage(std::move(_params))
 		{
 		}

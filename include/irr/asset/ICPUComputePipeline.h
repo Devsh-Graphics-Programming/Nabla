@@ -32,16 +32,6 @@ public:
 		}
 	}
 
-    bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
-    {
-        auto* other = static_cast<const ICPUComputePipeline*>(_other);
-        if (!m_shader->canBeRestoredFrom_recurseDAG(other->m_shader.get()))
-            return false;
-        if (!m_layout->canBeRestoredFrom_recurseDAG(other->m_layout.get()))
-            return false;
-        return true;
-    }
-
     core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
     {
         core::smart_refctd_ptr<ICPUPipelineLayout> layout = (_depth > 0u && m_layout) ? core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(m_layout->clone(_depth-1u)) : m_layout;
@@ -75,6 +65,17 @@ public:
         m_shader = core::smart_refctd_ptr<ICPUSpecializedShader>(_cs); 
     }
 
+protected:
+    bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+    {
+        auto* other = static_cast<const ICPUComputePipeline*>(_other);
+        if (!canBeRestoredFrom_recurseDAG_call(m_shader.get(), other->m_shader.get()))
+            return false;
+        if (!canBeRestoredFrom_recurseDAG_call(m_layout.get(), other->m_layout.get()))
+            return false;
+        return true;
+    }
+
     void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
     {
         auto* other = static_cast<ICPUComputePipeline*>(_other);
@@ -82,12 +83,11 @@ public:
         if (_levelsBelow)
         {
             --_levelsBelow;
-            m_shader->restoreFromDummy_impl(other->m_shader.get(), _levelsBelow);
-            m_layout->restoreFromDummy_impl(other->m_layout.get(), _levelsBelow);
+            restoreFromDummy_impl_call(m_shader.get(), other->m_shader.get(), _levelsBelow);
+            restoreFromDummy_impl_call(m_layout.get(), other->m_layout.get(), _levelsBelow);
         }
     }
 
-protected:
     virtual ~ICPUComputePipeline() = default;
 };
 

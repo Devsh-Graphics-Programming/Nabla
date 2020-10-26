@@ -55,19 +55,20 @@ class ICPUShader : public IAsset, public IShader
 				m_code->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}
 
+		const ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
+		bool containsGLSL() const { return m_containsGLSL; }
+
+	protected:
 		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUShader*>(_other);
 			if (m_containsGLSL != other->m_containsGLSL)
 				return false;
-			if (!m_code->canBeRestoredFrom_recurseDAG(other->m_code.get()))
+			if (!canBeRestoredFrom_recurseDAG_call(m_code.get(), other->m_code.get()))
 				return false;
 
 			return true;
 		}
-
-		const ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
-		bool containsGLSL() const { return m_containsGLSL; }
 
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
@@ -77,11 +78,10 @@ class ICPUShader : public IAsset, public IShader
 			{
 				--_levelsBelow;
 
-				m_code->restoreFromDummy_impl(other->m_code.get(), _levelsBelow);
+				restoreFromDummy_impl_call(m_code.get(), other->m_code.get(), _levelsBelow);
 			}
 		}
 
-	protected:
 		//! Might be GLSL null-terminated string or SPIR-V bytecode (denoted by m_containsGLSL)
 		core::smart_refctd_ptr<ICPUBuffer>	m_code;
 		const bool							m_containsGLSL;

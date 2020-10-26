@@ -65,21 +65,6 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 				m_specInfo.setEntries(nullptr,core::smart_refctd_ptr<ICPUBuffer>(m_specInfo.getBackingBuffer()));
 		}
 
-		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
-		{
-			auto* other = static_cast<const ICPUSpecializedShader*>(_other);
-			if (m_specInfo.entryPoint != other->m_specInfo.entryPoint)
-				return false;
-			//if (m_specInfo.m_filePathHint != other->m_specInfo.m_filePathHint)
-			//	return false;
-			if (m_specInfo.shaderStage != other->m_specInfo.shaderStage)
-				return false;
-			if (!m_unspecialized->canBeRestoredFrom_recurseDAG(other->m_unspecialized.get()))
-				return false;
-
-			return true;
-		}
-
 		inline E_SHADER_STAGE getStage() const { return m_specInfo.shaderStage; }
 
 		inline void setSpecializationInfo(SInfo&& specInfo) 
@@ -97,6 +82,22 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 		}
 		inline const ICPUShader* getUnspecialized() const { return m_unspecialized.get(); }
 
+	protected:
+		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+		{
+			auto* other = static_cast<const ICPUSpecializedShader*>(_other);
+			if (m_specInfo.entryPoint != other->m_specInfo.entryPoint)
+				return false;
+			//if (m_specInfo.m_filePathHint != other->m_specInfo.m_filePathHint)
+			//	return false;
+			if (m_specInfo.shaderStage != other->m_specInfo.shaderStage)
+				return false;
+			if (!canBeRestoredFrom_recurseDAG_call(m_unspecialized.get(), other->m_unspecialized.get()))
+				return false;
+
+			return true;
+		}
+
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUSpecializedShader*>(_other);
@@ -107,7 +108,7 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 				std::swap(m_specInfo.m_entries, other->m_specInfo.m_entries);
 			if (_levelsBelow--)
 			{
-				m_unspecialized->restoreFromDummy_impl(other->m_unspecialized.get(), _levelsBelow);
+				restoreFromDummy_impl_call(m_unspecialized.get(), other->m_unspecialized.get(), _levelsBelow);
 			}
 		}
 

@@ -39,21 +39,6 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 				m_buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 		}
 
-		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
-		{
-			auto* other = static_cast<const ICPUBufferView*>(_other);
-			if (m_size != other->m_size)
-				return false;
-			if (m_offset != other->m_offset)
-				return false;
-			if (m_format != other->m_format)
-				return false;
-			if (!m_buffer->canBeRestoredFrom_recurseDAG(other->m_buffer.get()))
-				return false;
-
-			return true;
-		}
-
 		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER_VIEW;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
@@ -75,17 +60,32 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 			m_size = _size;
 		}
 
+	protected:
+		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+		{
+			auto* other = static_cast<const ICPUBufferView*>(_other);
+			if (m_size != other->m_size)
+				return false;
+			if (m_offset != other->m_offset)
+				return false;
+			if (m_format != other->m_format)
+				return false;
+			if (!canBeRestoredFrom_recurseDAG_call(m_buffer.get(), other->m_buffer.get()))
+				return false;
+
+			return true;
+		}
+
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUBufferView*>(_other);
 
 			if (_levelsBelow)
 			{
-				m_buffer->restoreFromDummy_impl(other->m_buffer.get(), _levelsBelow-1u);
+				restoreFromDummy_impl_call(m_buffer.get(), other->m_buffer.get(), _levelsBelow-1u);
 			}
 		}
 
-	protected:
 		virtual ~ICPUBufferView() = default;
 };
 

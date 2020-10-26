@@ -200,14 +200,23 @@ class IAsset : virtual public core::IReferenceCounted
 			return true;
 		}
 
-		virtual bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const = 0;
 
 		inline E_MUTABILITY getMutability() const { return m_mutability; }
 		inline bool isMutable() const { return getMutability() == EM_MUTABLE; }
 		inline bool canBeConvertedToDummy() const { return !isADummyObjectForCache() && (getMutability()&EM_CPU_PERSISTENT) != EM_CPU_PERSISTENT; }
 
-		virtual void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) = 0;
     protected:
+		inline static bool canBeRestoredFrom_recurseDAG_call(const IAsset* _this_child, const IAsset* _other_child)
+		{
+			return _this_child->canBeRestoredFrom_recurseDAG(_other_child);
+		}
+		inline static void restoreFromDummy_impl_call(IAsset* _this_child, IAsset* _other_child, uint32_t _levelsBelow)
+		{
+			_this_child->restoreFromDummy_impl(_other_child, _levelsBelow);
+		}
+
+		virtual bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const = 0;
+		virtual void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) = 0;
 
         inline void clone_common(IAsset* _clone) const
         {

@@ -123,12 +123,6 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 			//m_bindingInfo = nullptr;
 		}
 
-		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
-		{
-			auto* other = static_cast<const ICPUDescriptorSet*>(_other);
-			return m_layout->canBeRestoredFrom_recurseDAG(other->m_layout.get());
-		}
-
 		_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
@@ -190,6 +184,13 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 			return m_descriptors->size();
 		}
 
+	protected:
+		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+		{
+			auto* other = static_cast<const ICPUDescriptorSet*>(_other);
+			return canBeRestoredFrom_recurseDAG_call(m_layout.get(), other->m_layout.get());
+		}
+
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUDescriptorSet*>(_other);
@@ -197,7 +198,7 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 			if (_levelsBelow)
 			{
 				--_levelsBelow;
-				m_layout->restoreFromDummy_impl(other->getLayout(), _levelsBelow);
+				restoreFromDummy_impl_call(m_layout.get(), other->getLayout(), _levelsBelow);
 				for (auto it = m_descriptors->begin(); it != m_descriptors->end(); it++)
 				{
 					auto descriptor = it->desc.get();
@@ -209,22 +210,21 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 					switch (descriptor->getTypeCategory())
 					{
 					case IDescriptor::EC_BUFFER:
-						static_cast<asset::ICPUBuffer*>(descriptor)->restoreFromDummy_impl(static_cast<ICPUBuffer*>(d_other), _levelsBelow);
+						restoreFromDummy_impl_call(static_cast<ICPUBuffer*>(descriptor), static_cast<ICPUBuffer*>(d_other), _levelsBelow);
 						break;
 					case IDescriptor::EC_IMAGE:
-						static_cast<asset::ICPUImageView*>(descriptor)->restoreFromDummy_impl(static_cast<ICPUImageView*>(d_other), _levelsBelow);
+						restoreFromDummy_impl_call(static_cast<ICPUImageView*>(descriptor), static_cast<ICPUImageView*>(d_other), _levelsBelow);
 						if (descriptor->getTypeCategory() == IDescriptor::EC_IMAGE && it->image.sampler)
-							it->image.sampler->restoreFromDummy_impl(other->m_descriptors->begin()[i].image.sampler.get(), _levelsBelow);
+							restoreFromDummy_impl_call(it->image.sampler.get(), other->m_descriptors->begin()[i].image.sampler.get(), _levelsBelow);
 						break;
 					case IDescriptor::EC_BUFFER_VIEW:
-						static_cast<asset::ICPUBufferView*>(descriptor)->restoreFromDummy_impl(static_cast<ICPUBufferView*>(d_other), _levelsBelow);
+						restoreFromDummy_impl_call(static_cast<ICPUBufferView*>(descriptor), static_cast<ICPUBufferView*>(d_other), _levelsBelow);
 						break;
 					}
 				}
 			}
 		}
 
-	protected:
 		virtual ~ICPUDescriptorSet() = default;
 };
 

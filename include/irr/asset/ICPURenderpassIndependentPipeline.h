@@ -38,33 +38,6 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			}
 		}
 
-		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
-		{
-			auto* other = static_cast<const ICPURenderpassIndependentPipeline*>(_other);
-#define MEMCMP_MEMBER(m) \
-			if (memcmp(&m, &other->m, sizeof(m)) != 0) \
-				return false
-			MEMCMP_MEMBER(m_vertexInputParams);
-			MEMCMP_MEMBER(m_blendParams);
-			MEMCMP_MEMBER(m_primAsmParams);
-			MEMCMP_MEMBER(m_rasterParams);
-#undef MECMP_MEMBER
-			if (m_disableOptimizations != other->m_disableOptimizations)
-				return false;
-
-			for (uint32_t i = 0u; i < SHADER_STAGE_COUNT; ++i)
-			{
-				if ((!m_shaders[i]) != (!other->m_shaders[i]))
-					return false;
-				if (m_shaders[i] && !m_shaders[i]->canBeRestoredFrom_recurseDAG(other->m_shaders[i].get()))
-					return false;
-			}
-			if (!m_layout->canBeRestoredFrom_recurseDAG(other->m_layout.get()))
-				return false;
-
-			return true;
-		}
-
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
             core::smart_refctd_ptr<ICPUPipelineLayout> layout = (_depth > 0u && m_layout) ? core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(m_layout->clone(_depth-1u)) : m_layout;
@@ -150,6 +123,34 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			m_layout = std::move(_layout);
 		}
 
+	protected:
+		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+		{
+			auto* other = static_cast<const ICPURenderpassIndependentPipeline*>(_other);
+#define MEMCMP_MEMBER(m) \
+			if (memcmp(&m, &other->m, sizeof(m)) != 0) \
+				return false
+			MEMCMP_MEMBER(m_vertexInputParams);
+			MEMCMP_MEMBER(m_blendParams);
+			MEMCMP_MEMBER(m_primAsmParams);
+			MEMCMP_MEMBER(m_rasterParams);
+#undef MECMP_MEMBER
+			if (m_disableOptimizations != other->m_disableOptimizations)
+				return false;
+
+			for (uint32_t i = 0u; i < SHADER_STAGE_COUNT; ++i)
+			{
+				if ((!m_shaders[i]) != (!other->m_shaders[i]))
+					return false;
+				if (m_shaders[i] && !canBeRestoredFrom_recurseDAG_call(m_shaders[i].get(), other->m_shaders[i].get()))
+					return false;
+			}
+			if (!canBeRestoredFrom_recurseDAG_call(m_layout.get(), other->m_layout.get()))
+				return false;
+
+			return true;
+		}
+
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPURenderpassIndependentPipeline*>(_other);
@@ -158,14 +159,13 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			{
 				--_levelsBelow;
 
-				m_layout->restoreFromDummy_impl(other->m_layout.get(), _levelsBelow);
+				restoreFromDummy_impl_call(m_layout.get(), other->m_layout.get(), _levelsBelow);
 				for (uint32_t i = 0u; i < SHADER_STAGE_COUNT; ++i)
 					if (m_shaders[i])
-						m_shaders[i]->restoreFromDummy_impl(other->m_shaders[i].get(), _levelsBelow);
+						restoreFromDummy_impl_call(m_shaders[i].get(), other->m_shaders[i].get(), _levelsBelow);
 			}
 		}
 
-	protected:
 		virtual ~ICPURenderpassIndependentPipeline() = default;
 };
 

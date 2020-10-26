@@ -40,27 +40,6 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
             return cp;
         }
 
-		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
-		{
-			auto* other = static_cast<const ICPUImageView*>(_other);
-			const auto& rhs = other->params;
-
-			if (params.flags != rhs.flags)
-				return false;
-			if (params.format != rhs.format)
-				return false;
-			if (params.components != rhs.components)
-				return false;
-			if (params.viewType != rhs.viewType)
-				return false;
-			if (memcmp(&params.subresourceRange, &rhs.subresourceRange, sizeof(params.subresourceRange)))
-				return false;
-			if (!params.image->canBeRestoredFrom_recurseDAG(rhs.image.get()))
-				return false;
-
-			return true;
-		}
-
 		//!
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
@@ -82,17 +61,38 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 			return params.components;
 		}
 
+	protected:
+		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+		{
+			auto* other = static_cast<const ICPUImageView*>(_other);
+			const auto& rhs = other->params;
+
+			if (params.flags != rhs.flags)
+				return false;
+			if (params.format != rhs.format)
+				return false;
+			if (params.components != rhs.components)
+				return false;
+			if (params.viewType != rhs.viewType)
+				return false;
+			if (memcmp(&params.subresourceRange, &rhs.subresourceRange, sizeof(params.subresourceRange)))
+				return false;
+			if (!canBeRestoredFrom_recurseDAG_call(params.image.get(), rhs.image.get()))
+				return false;
+
+			return true;
+		}
+
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUImageView*>(_other);
 
 			if (_levelsBelow)
 			{
-				params.image->restoreFromDummy_impl(other->params.image.get(), _levelsBelow - 1u);
+				restoreFromDummy_impl_call(params.image.get(), other->params.image.get(), _levelsBelow - 1u);
 			}
 		}
 
-	protected:
 		virtual ~ICPUImageView() = default;
 };
 

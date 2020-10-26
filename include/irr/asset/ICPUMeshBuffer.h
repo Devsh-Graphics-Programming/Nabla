@@ -129,55 +129,6 @@ public:
 		}
 	}
 
-    bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
-    {
-        auto* other = static_cast<const ICPUMeshBuffer*>(_other);
-        if (memcmp(m_pushConstantsData, other->m_pushConstantsData, sizeof(m_pushConstantsData)) != 0)
-            return false;
-        if (baseVertex != other->baseVertex)
-            return false;
-        if (indexCount != other->indexCount)
-            return false;
-        if (instanceCount != other->instanceCount)
-            return false;
-        if (baseInstance != other->baseInstance)
-            return false;
-        if (posAttrId != other->posAttrId)
-            return false;
-        if (normalAttrId != other->normalAttrId)
-            return false;
-        if (m_indexBufferBinding.offset != other->m_indexBufferBinding.offset)
-            return false;
-        if ((!m_indexBufferBinding.buffer) != (!other->m_indexBufferBinding.buffer))
-            return false;
-        if (m_indexBufferBinding.buffer && !m_indexBufferBinding.buffer->canBeRestoredFrom_recurseDAG(other->m_indexBufferBinding.buffer.get()))
-            return false;
-        for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
-        {
-            if (m_vertexBufferBindings[i].offset != other->m_vertexBufferBindings[i].offset)
-                return false;
-            if ((!m_vertexBufferBindings[i].buffer) != (!other->m_vertexBufferBindings[i].buffer))
-                return false;
-            if (m_vertexBufferBindings[i].buffer && !m_vertexBufferBindings[i].buffer->canBeRestoredFrom_recurseDAG(other->m_vertexBufferBindings[i].buffer.get()))
-                return false;
-        }
-
-        if ((!m_descriptorSet) != (!other->m_descriptorSet))
-            return false;
-        if (m_descriptorSet && !m_descriptorSet->canBeRestoredFrom_recurseDAG(other->m_descriptorSet.get()))
-            return false;
-
-        /*
-        if ((!m_pipeline || !other->m_pipeline) && m_pipeline != other->m_pipeline)
-            return false;
-        */
-        // pipeline is not optional
-        if (!m_pipeline->canBeRestoredFrom_recurseDAG(other->m_pipeline.get()))
-            return false;
-
-        return true;
-    }
-
     _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SUB_MESH;
     inline E_TYPE getAssetType() const override { return AssetType; }
 
@@ -722,6 +673,56 @@ public:
 		return retval;
     }
 
+protected:
+    bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+    {
+        auto* other = static_cast<const ICPUMeshBuffer*>(_other);
+        if (memcmp(m_pushConstantsData, other->m_pushConstantsData, sizeof(m_pushConstantsData)) != 0)
+            return false;
+        if (baseVertex != other->baseVertex)
+            return false;
+        if (indexCount != other->indexCount)
+            return false;
+        if (instanceCount != other->instanceCount)
+            return false;
+        if (baseInstance != other->baseInstance)
+            return false;
+        if (posAttrId != other->posAttrId)
+            return false;
+        if (normalAttrId != other->normalAttrId)
+            return false;
+        if (m_indexBufferBinding.offset != other->m_indexBufferBinding.offset)
+            return false;
+        if ((!m_indexBufferBinding.buffer) != (!other->m_indexBufferBinding.buffer))
+            return false;
+        if (m_indexBufferBinding.buffer && !canBeRestoredFrom_recurseDAG_call(m_indexBufferBinding.buffer.get(), other->m_indexBufferBinding.buffer.get()))
+            return false;
+        for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
+        {
+            if (m_vertexBufferBindings[i].offset != other->m_vertexBufferBindings[i].offset)
+                return false;
+            if ((!m_vertexBufferBindings[i].buffer) != (!other->m_vertexBufferBindings[i].buffer))
+                return false;
+            if (m_vertexBufferBindings[i].buffer && !canBeRestoredFrom_recurseDAG_call(m_vertexBufferBindings[i].buffer.get(), other->m_vertexBufferBindings[i].buffer.get()))
+                return false;
+        }
+
+        if ((!m_descriptorSet) != (!other->m_descriptorSet))
+            return false;
+        if (m_descriptorSet && !canBeRestoredFrom_recurseDAG_call(m_descriptorSet.get(), other->m_descriptorSet.get()))
+            return false;
+
+        /*
+        if ((!m_pipeline || !other->m_pipeline) && m_pipeline != other->m_pipeline)
+            return false;
+        */
+        // pipeline is not optional
+        if (!canBeRestoredFrom_recurseDAG_call(m_pipeline.get(), other->m_pipeline.get()))
+            return false;
+
+        return true;
+    }
+
     void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
     {
         auto* other = static_cast<ICPUMeshBuffer*>(_other);
@@ -731,15 +732,15 @@ public:
             --_levelsBelow;
 
             if (m_pipeline)
-                m_pipeline->restoreFromDummy_impl(other->m_pipeline.get(), _levelsBelow);
+                restoreFromDummy_impl_call(m_pipeline.get(), other->m_pipeline.get(), _levelsBelow);
             if (m_descriptorSet)
-                m_descriptorSet->restoreFromDummy_impl(other->m_descriptorSet.get(), _levelsBelow);
+                restoreFromDummy_impl_call(m_descriptorSet.get(), other->m_descriptorSet.get(), _levelsBelow);
 
             for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
                 if (m_vertexBufferBindings[i].buffer)
-                    m_vertexBufferBindings[i].buffer->restoreFromDummy_impl(other->m_vertexBufferBindings[i].buffer.get(), _levelsBelow);
+                    restoreFromDummy_impl_call(m_vertexBufferBindings[i].buffer.get(), other->m_vertexBufferBindings[i].buffer.get(), _levelsBelow);
             if (m_indexBufferBinding.buffer)
-                m_indexBufferBinding.buffer->restoreFromDummy_impl(other->m_indexBufferBinding.buffer.get(), _levelsBelow);
+                restoreFromDummy_impl_call(m_indexBufferBinding.buffer.get(), other->m_indexBufferBinding.buffer.get(), _levelsBelow);
         }
     }
 };

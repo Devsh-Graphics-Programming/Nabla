@@ -114,15 +114,6 @@ public:
 			m_cache.clear();
 	}
 
-	bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
-	{
-		auto* other = static_cast<const ICPUPipelineCache*>(_other);
-		if (m_cache.size() != other->m_cache.size())
-			return false;
-
-		return true;
-	}
-
 	_IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_CACHE;
 	inline E_TYPE getAssetType() const override { return AssetType; }
 
@@ -131,6 +122,16 @@ public:
 		auto cache_cp = m_cache;
 		
 		return core::make_smart_refctd_ptr<ICPUPipelineCache>(std::move(cache_cp));
+	}
+
+protected:
+	bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+	{
+		auto* other = static_cast<const ICPUPipelineCache*>(_other);
+		if (m_cache.size() != other->m_cache.size())
+			return false;
+
+		return true;
 	}
 
 	void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override

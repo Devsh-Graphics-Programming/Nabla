@@ -60,15 +60,6 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             return cp;
         }
 
-        bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
-        {
-            auto* other = static_cast<const ICPUBuffer*>(_other);
-            if (size != other->size)
-                return false;
-
-            return true;
-        }
-
         virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
         {
             if (!canBeConvertedToDummy())
@@ -103,6 +94,15 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
             return data; 
         }
 
+    protected:
+        bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+        {
+            auto* other = static_cast<const ICPUBuffer*>(_other);
+            if (size != other->size)
+                return false;
+
+            return true;
+        }
         void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
         {
             auto* other = static_cast<ICPUBuffer*>(_other);
@@ -111,7 +111,6 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
                 std::swap(data, other->data);
         }
 
-    protected:
         uint64_t size;
         void* data;
 };

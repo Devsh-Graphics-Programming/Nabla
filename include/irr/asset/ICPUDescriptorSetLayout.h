@@ -60,6 +60,10 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 			}
 		}
 
+        _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
+        inline E_TYPE getAssetType() const override { return AssetType; }
+
+	protected:
         bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
         {
             auto* other = static_cast<const ICPUDescriptorSetLayout*>(_other);
@@ -70,15 +74,12 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
             if (m_samplers && m_samplers->size() != other->m_samplers->size())
                 return false;
             if (m_samplers)
-            for (uint32_t i = 0u; i < m_samplers->size(); ++i)
-                if (!(*m_samplers)[i]->canBeRestoredFrom_recurseDAG((*other->m_samplers)[i].get()))
-                    return false;
+                for (uint32_t i = 0u; i < m_samplers->size(); ++i)
+                    if (!canBeRestoredFrom_recurseDAG_call((*m_samplers)[i].get(), (*other->m_samplers)[i].get()))
+                        return false;
 
             return true;
         }
-
-        _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
-        inline E_TYPE getAssetType() const override { return AssetType; }
 
         void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
         {
@@ -90,10 +91,9 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
             --_levelsBelow;
             if (m_samplers)
             for (uint32_t i = 0u; i < m_samplers->size(); ++i)
-                (*m_samplers)[i]->restoreFromDummy_impl((*other->m_samplers)[i].get(), _levelsBelow);
+                restoreFromDummy_impl_call((*m_samplers)[i].get(), (*other->m_samplers)[i].get(), _levelsBelow);
         }
 
-	protected:
 		virtual ~ICPUDescriptorSetLayout() = default;
 };
 
