@@ -1084,6 +1084,103 @@ namespace irr
 				}
 			}
 
+			if (materials.error() != simdjson::error_code::NO_SUCH_FIELD)
+			{
+				auto& materialsData = materials.get_array();
+				for (auto& material : materialsData)
+				{
+					auto& glTFMaterial = glTF.materials.emplace_back();
+
+					auto& name = material.at_key("name");
+					auto& pbrMetallicRoughness = material.at_key("pbrMetallicRoughness");
+					auto& normalTexture = material.at_key("normalTexture");
+					auto& occlusionTexture = material.at_key("occlusionTexture");
+					auto& emissiveTexture = material.at_key("emissiveTexture");
+					auto& emissiveFactor = material.at_key("emissiveFactor");
+					auto& emissiveFactor = material.at_key("emissiveFactor");
+					auto& alphaMode = material.at_key("alphaMode");
+					auto& alphaCutoff = material.at_key("alphaCutoff");
+					auto& doubleSided = material.at_key("doubleSided");
+
+					if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFMaterial.name = name.get_string().value();
+
+					if (pbrMetallicRoughness.error() != simdjson::error_code::NO_SUCH_FIELD)
+					{
+						auto& glTFMetalicRoughness = glTFMaterial.pbrMetallicRoughness.emplace();
+						auto& pbrMRData = pbrMetallicRoughness.get_object();
+
+						auto& baseColorFactor = pbrMRData.at_key("baseColorFactor");
+						auto& baseColorTexture = pbrMRData.at_key("baseColorTexture");
+						auto& metallicFactor = pbrMRData.at_key("metallicFactor");
+						auto& roughnessFactor = pbrMRData.at_key("roughnessFactor");
+						auto& metallicRoughnessTexture = pbrMRData.at_key("metallicRoughnessTexture");
+
+						if (baseColorFactor.error() != simdjson::error_code::NO_SUCH_FIELD)
+						{
+							// TODO baseColorFactor
+						}
+
+						if (baseColorTexture.error() != simdjson::error_code::NO_SUCH_FIELD)
+						{
+							auto& glTFBaseColorTexture = glTFMetalicRoughness.baseColorTexture.emplace();
+							auto& bctData = baseColorTexture.get_object();
+
+							auto& index = bctData.at_key("index");
+							auto& texCoord = bctData.at_key("texCoord");
+
+							if (index.error() != simdjson::error_code::NO_SUCH_FIELD)
+								glTFBaseColorTexture.index = index.get_uint64().value();
+
+							if (texCoord.error() != simdjson::error_code::NO_SUCH_FIELD)
+								glTFBaseColorTexture.texCoord = texCoord.get_uint64().value();
+						}
+
+						if (metallicFactor.error() != simdjson::error_code::NO_SUCH_FIELD)
+							glTFMetalicRoughness.metallicFactor = metallicFactor.get_double().value();
+
+						if (roughnessFactor.error() != simdjson::error_code::NO_SUCH_FIELD)
+							glTFMetalicRoughness.roughnessFactor = roughnessFactor.get_double().value();
+
+						if (metallicRoughnessTexture.error() != simdjson::error_code::NO_SUCH_FIELD)
+						{
+							auto& mrtData = metallicRoughnessTexture.get_object();
+
+							// TODO
+						}
+					}
+
+					if (normalTexture.error() != simdjson::error_code::NO_SUCH_FIELD)
+					{
+						// TODO
+					}
+
+					if (occlusionTexture.error() != simdjson::error_code::NO_SUCH_FIELD)
+					{
+						// TODO
+					}
+
+					if (emissiveTexture.error() != simdjson::error_code::NO_SUCH_FIELD)
+					{
+						// TODO
+					}
+
+					if (emissiveFactor.error() != simdjson::error_code::NO_SUCH_FIELD)
+					{
+						// TODO glTFMaterial.emissiveFactor
+					}
+						
+					if (alphaMode.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFMaterial.alphaMode = alphaMode.get_string().value().data();
+
+					if (alphaCutoff.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFMaterial.alphaCutoff = alphaCutoff.get_double().value();
+
+					if (doubleSided.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFMaterial.doubleSided = doubleSided.get_bool().value();
+				}
+			}
+
 			if (nodes.error() != simdjson::error_code::NO_SUCH_FIELD)
 			{
 				auto& nData = nodes.get_array();

@@ -340,11 +340,78 @@ namespace irr
 
 					struct SGLTFMaterial
 					{
-						std::optional<uint32_t> wrapT;
+						/*
+							Basic reference to a texture.
+						*/
+
+						struct STextureInfo
+						{
+							std::optional<uint32_t> index; //!< The index of the texture.
+
+							/*
+								This integer value is used to construct a string in the format TEXCOORD_<set index> which is a reference to a key in mesh.primitives.attributes (e.g. A value of 0 corresponds to TEXCOORD_0).
+								Mesh must have corresponding texture coordinate attributes for the material to be applicable to it.
+							*/
+
+							std::optional<uint32_t> texCoord;
+						};
+
+						/*
+							A set of parameter values that are used to define the metallic-roughness material model from Physically-Based Rendering (PBR) methodology. 
+							When not specified, all the default values of pbrMetallicRoughness apply.
+						*/
 
 						struct SPBRMetalicRoughness
 						{
-							// TODO
+							using SBaseColorTexture = STextureInfo;
+							using SMetallicRoughnessTexture = STextureInfo;
+
+							struct SMetallic
+							{
+								_IRR_STATIC_INLINE_CONSTEXPR double METAL = 1.0;
+								_IRR_STATIC_INLINE_CONSTEXPR double DIELECTRIC = 0.0;
+							};
+
+							struct SRoughness
+							{
+								_IRR_STATIC_INLINE_CONSTEXPR double ROUGH = 1.0;
+								_IRR_STATIC_INLINE_CONSTEXPR double SMOOTH = 0.0;
+							};
+
+							/*
+								The RGBA components of the base color of the material. The fourth component (A) is the alpha coverage of the material. 
+								The alphaMode property specifies how alpha is interpreted. These values are linear. If a baseColorTexture is specified, this value is multiplied with the texel values.
+							*/
+
+							std::optional<std::array<double, 4>> baseColorFactor;
+
+							/*
+								The base color texture. The first three components (RGB) are encoded with the sRGB transfer function. They specify the base color of the material. If the fourth component (A) is present, it represents the linear alpha coverage of the material.
+								Otherwise, an alpha of 1.0 is assumed. The alphaMode property specifies how alpha is interpreted. The stored texels must not be premultiplied.
+							*/
+
+							std::optional<SBaseColorTexture> baseColorTexture;
+
+							/*
+								The metalness of the material. A value of 1.0 means the material is a metal. A value of 0.0 means the material is a dielectric. Values in between are for blending between metals and dielectrics such as dirty metallic surfaces.
+								This value is linear. If a metallicRoughnessTexture is specified, this value is multiplied with the metallic texel values.
+							*/
+
+							std::optional<double> metallicFactor;
+
+							/*
+								The roughness of the material. A value of 1.0 means the material is completely rough. A value of 0.0 means the material is completely smooth. 
+								This value is linear. If a metallicRoughnessTexture is specified, this value is multiplied with the roughness texel values.
+							*/
+
+							std::optional<double> roughnessFactor;
+
+							/*
+								The metallic-roughness texture. The metalness values are sampled from the B channel. The roughness values are sampled from the G channel. 
+								These values are linear. If other channels are present (R or A), they are ignored for metallic-roughness calculations.
+							*/
+
+							std::optional<SMetallicRoughnessTexture> metallicRoughnessTexture;
 						};
 
 						struct SNormalTexture
@@ -359,7 +426,7 @@ namespace irr
 
 						struct SEmissiveTexture
 						{
-
+							// TODO
 						};
 
 						struct SAlphaMode
