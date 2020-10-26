@@ -57,7 +57,7 @@ struct AssetBundleIterator
 };
 
 //! Maybe we can reduce code duplication here some day
-/*template<typename AssetType>
+template<typename AssetType>
 created_gpu_object_array<AssetType> IDriver::getGPUObjectsFromAssets(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>& _range, IGPUObjectFromAssetConverter* _converter)
 {
     IGPUObjectFromAssetConverter def(m_device->getAssetManager(), this);
@@ -65,7 +65,7 @@ created_gpu_object_array<AssetType> IDriver::getGPUObjectsFromAssets(const core:
         _converter = &def;
     AssetBundleIterator<AssetType> begin(_range.begin());
     AssetBundleIterator<AssetType> end(_range.end());
-    return _converter->getGPUObjectsFromAssets<AssetType,AssetBundleIterator<AssetType>>(begin,end);
+    return _converter->getGPUObjectsFromAssets<AssetType,const AssetBundleIterator<AssetType>>(begin,end);
 }
 
 template created_gpu_object_array<asset::ICPUBuffer> IDriver::getGPUObjectsFromAssets<asset::ICPUBuffer>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
@@ -81,7 +81,6 @@ template created_gpu_object_array<asset::ICPUComputePipeline> IDriver::getGPUObj
 template created_gpu_object_array<asset::ICPUDescriptorSetLayout> IDriver::getGPUObjectsFromAssets<asset::ICPUDescriptorSetLayout>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
 template created_gpu_object_array<asset::ICPUSampler> IDriver::getGPUObjectsFromAssets<asset::ICPUSampler>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
 template created_gpu_object_array<asset::ICPUDescriptorSet> IDriver::getGPUObjectsFromAssets<asset::ICPUDescriptorSet>(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>&, IGPUObjectFromAssetConverter* _converter);
-*/
 
 
 template<typename AssetType>

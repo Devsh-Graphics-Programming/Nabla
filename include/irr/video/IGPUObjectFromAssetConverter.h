@@ -19,6 +19,17 @@ namespace irr
 namespace video
 {
 
+namespace impl
+{
+    // non-pointer iterator type is AssetBundleIterator<> (see IDriver.cpp)
+    template<typename iterator_type>
+    inline constexpr bool is_const_iterator_v =
+        (std::is_pointer_v<iterator_type> && is_pointer_to_const_object_v<iterator_type>) ||
+        (!std::is_pointer_v<iterator_type> && std::is_const_v<iterator_type>);
+}
+
+
+
 class IGPUObjectFromAssetConverter
 {
     public:
@@ -85,7 +96,7 @@ class IGPUObjectFromAssetConverter
 
         //! iterator_type is always either `[const] core::smart_refctd_ptr<AssetType>*[const]*` or `[const] AssetType*[const]*`
 		template<typename AssetType, typename iterator_type>
-        std::enable_if_t<!is_pointer_to_const_object_v<iterator_type>, created_gpu_object_array<AssetType>>
+        std::enable_if_t<!impl::is_const_iterator_v<iterator_type>, created_gpu_object_array<AssetType>>
         getGPUObjectsFromAssets(iterator_type _begin, iterator_type _end, const SParams& _params = {})
 		{
 			const auto assetCount = _end-_begin;
@@ -129,15 +140,27 @@ class IGPUObjectFromAssetConverter
 			return res;
 		}
         template<typename AssetType, typename const_iterator_type>
-        std::enable_if_t<is_pointer_to_const_object_v<const_iterator_type>, created_gpu_object_array<AssetType>>
+        std::enable_if_t<impl::is_const_iterator_v<const_iterator_type>, created_gpu_object_array<AssetType>>
             getGPUObjectsFromAssets(const_iterator_type _begin, const_iterator_type _end, const SParams& _params = {})
         {
-            using iterator_type = pointer_to_nonconst_object_t<const_iterator_type>;
+            if constexpr (std::is_pointer_v<const_iterator_type>)
+            {
+                using iterator_type = pointer_to_nonconst_object_t<const_iterator_type>;
 
-            auto begin = const_cast<iterator_type>(_begin);
-            auto end = const_cast<iterator_type>(_end);
+                auto begin = const_cast<iterator_type>(_begin);
+                auto end = const_cast<iterator_type>(_end);
 
-            return getGPUObjectsFromAssets<AssetType, iterator_type>(begin, end, _params);
+                return getGPUObjectsFromAssets<AssetType, iterator_type>(begin, end, _params);
+            }
+            else
+            {
+                using iterator_type = std::remove_const_t<const_iterator_type>;
+
+                iterator_type& begin = const_cast<iterator_type&>(_begin);
+                iterator_type& end = const_cast<iterator_type&>(_end);
+
+                return getGPUObjectsFromAssets<AssetType, iterator_type>(begin, end, _params);
+            }
         }
 
 	protected:

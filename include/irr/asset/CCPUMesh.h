@@ -66,8 +66,7 @@ class CCPUMesh final : public ICPUMesh
 		//! returns pointer to a mesh buffer
 		virtual ICPUMeshBuffer* getMeshBuffer(uint32_t nr) override
 		{
-			if (isImmutable_debug())
-				return nullptr;
+			assert(isImmutable_debug());
 
 			return const_cast<ICPUMeshBuffer*>(const_cast<const CCPUMesh*>(this)->getMeshBuffer(nr));
 		}
