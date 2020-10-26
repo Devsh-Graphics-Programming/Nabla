@@ -26,7 +26,7 @@ void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout ir
 	handleTwosided(ts_flag, instr, s, _uf);
 #endif
 
-	const float cosFactor = is_bsdf ? abs(s.NdotL):max(s.NdotL,0.0);
+	const float cosFactor = irr_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
 
 	uvec3 regs = instr_decodeRegisters(instr);
 

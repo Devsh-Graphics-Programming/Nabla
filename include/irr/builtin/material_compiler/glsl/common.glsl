@@ -897,7 +897,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, inout irr_glsl_LightSample s, 
 	handleTwosided(ts_flag, instr, s, _uf);
 #endif
 
-	float cosFactor = is_bsdf ? abs(s.NdotL):max(s.NdotL,0.0);
+	float cosFactor = irr_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
 
 	irr_glsl_AnisotropicMicrofacetCache uf;
 	//here actually using stronger check for BSDF because it's probably worth it
