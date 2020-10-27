@@ -18,7 +18,6 @@ struct GraphicsData
 		{
 			const IGPUMeshBuffer* gpuMeshBuffer;
 			const IGPURenderpassIndependentPipeline* gpuPipeline;
-			const IGPUDescriptorSet* gpuDs3Sampler;
 		};
 
 		core::vector<Resources> resources;
@@ -91,7 +90,7 @@ int main()
 	}
 
 	/*
-		TODO: DS3's in graphicsResources, use metadata to fetch translations, track it and set up in the graphicsData struct
+		TODO: MORE DS3s, use metadata to fetch translations, track it and set up in the graphicsData struct
 	*/
 
 	GraphicsData graphicsData;
@@ -107,19 +106,15 @@ int main()
 			auto& graphicsResources = graphicsDataMesh.resources.emplace_back();
 			graphicsResources.gpuMeshBuffer = gpuMesh->getMeshBuffer(i);
 			graphicsResources.gpuPipeline = graphicsResources.gpuMeshBuffer->getPipeline();
-			
-			// TODO
-			//graphicsResources.gpuDs3Sampler =
-			//graphicsResources.gpuPipeline->getLayout()->getDescriptorSetLayout(3);
 		}
 	}
 
 	scene::ICameraSceneNode* camera = sceneManager->addCameraSceneNodeFPS(0,100.0f,0.01f);
 
-	camera->setPosition(core::vector3df(0,0,0));
+	camera->setPosition(core::vector3df(-10,0,0));
 	camera->setTarget(core::vector3df(0,0,0));
-	camera->setNearValue(1.f);
-	camera->setFarValue(1000.0f);
+	camera->setNearValue(0.1f);
+	camera->setFarValue(10000.0f);
 
     sceneManager->setActiveCamera(camera);
 
@@ -156,7 +151,10 @@ int main()
 			{
 				driver->bindGraphicsPipeline(graphicsResource.gpuPipeline);
 				driver->bindDescriptorSets(video::EPBP_GRAPHICS, graphicsResource.gpuPipeline->getLayout(), 1u, 1u, &gpuDescriptorSet1.get(), nullptr);
-				// TODO: driver->bindDescriptorSets(video::EPBP_GRAPHICS, graphicsResource.gpuPipeline->getLayout(), 3u, 1u, &graphicsResource.gpuDs3Sampler, nullptr);
+
+				auto* gpuDescriptorSet3 = graphicsResource.gpuMeshBuffer->getAttachedDescriptorSet();
+				if(gpuDescriptorSet3)
+					driver->bindDescriptorSets(video::EPBP_GRAPHICS, graphicsResource.gpuPipeline->getLayout(), 3u, 1u, &gpuDescriptorSet3, nullptr);
 
 				driver->drawMeshBuffer(graphicsResource.gpuMeshBuffer);
 			}

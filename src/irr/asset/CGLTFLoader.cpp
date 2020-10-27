@@ -113,24 +113,227 @@ namespace irr
 		{
 			SGLTF glTF;
 			loadAndGetGLTF(glTF, _file);
-			SAssetLoadContext loadContext = { _params, _file };
+			std::string relativeDir = (assetManager->getFileSystem()->getFileDir(_file->getFileName()).c_str() + std::string("/"));
+			SContext context(SAssetLoadParams(0, nullptr, ECF_CACHE_EVERYTHING, relativeDir.c_str()), _file, _override, _hierarchyLevel);
 
 			// TODO: having validated and loaded glTF data we can use it to create pipelines and data
 
 			core::vector<core::smart_refctd_ptr<ICPUBuffer>> cpuBuffers;
 			for (auto& glTFBuffer : glTF.buffers)
 			{
-				std::string relativeDirectory = std::string(assetManager->getFileSystem()->getFileDir(_file->getFileName()).c_str()) + "/";
-				const asset::IAssetLoader::SAssetLoadParams params(0, nullptr, ECF_CACHE_EVERYTHING, relativeDirectory.c_str());
-				auto buffer_bundle = assetManager->getAsset(glTFBuffer.uri.value(), params); // todo
+				auto buffer_bundle = assetManager->getAsset(glTFBuffer.uri.value(), context.loadContext.params);
 				auto cpuBuffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(buffer_bundle.getContents().begin()[0]);
 				cpuBuffers.emplace_back() = core::smart_refctd_ptr<ICPUBuffer>(cpuBuffer);
+			}
+
+			core::vector<core::smart_refctd_ptr<ICPUImageView>> cpuImageViews;
+			{
+				for (auto& glTFImage : glTF.images)
+				{
+					auto& cpuImageView = cpuImageViews.emplace_back();
+
+					if (glTFImage.uri.has_value())
+					{
+						auto image_bundle = assetManager->getAsset(glTFImage.uri.value(), context.loadContext.params);
+						if (image_bundle.isEmpty())
+							return {};
+
+						auto cpuAsset = image_bundle.getContents().begin()[0];
+
+						switch (cpuAsset->getAssetType())
+						{
+							case IAsset::ET_IMAGE:
+							{
+								ICPUImageView::SCreationParams viewParams;
+								viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+								viewParams.image = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(cpuAsset);
+								viewParams.format = viewParams.image->getCreationParameters().format;
+								viewParams.viewType = IImageView<ICPUImage>::ET_2D;
+								viewParams.subresourceRange.baseArrayLayer = 0u;
+								viewParams.subresourceRange.layerCount = 1u;
+								viewParams.subresourceRange.baseMipLevel = 0u;
+								viewParams.subresourceRange.levelCount = 1u;
+
+								cpuImageView = ICPUImageView::create(std::move(viewParams));
+							} break;
+
+							case IAsset::ET_IMAGE_VIEW:
+							{
+								cpuImageView = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(cpuAsset);
+							} break;
+
+							default:
+							{
+								os::Printer::log("EXPECTED IMAGE ASSET TYPE!", ELL_ERROR);
+								return {};
+							}
+						}
+					}
+					else
+					{
+						if (!glTFImage.mimeType.has_value() || !glTFImage.bufferView.has_value())
+							return {};
+						
+						return {}; // TODO FUTURE: load image where it's data is embeded in memory
+					}
+				}
+			}
+
+			core::vector<SSamplerCacheKey> cpuSamplers;
+			{
+				for (auto& glTFSampler : glTF.samplers)
+				{
+					typedef std::remove_reference<decltype(glTFSampler)>::type SGLTFSampler;
+
+					ICPUSampler::SParams samplerParams;
+
+					if (glTFSampler.magFilter.has_value())
+					{
+						switch (glTFSampler.magFilter.value())
+						{
+							case SGLTFSampler::STP_NEAREST:
+							{
+								samplerParams.MaxFilter = ISampler::ETF_NEAREST;
+							} break;
+
+							case SGLTFSampler::STP_LINEAR:
+							{
+								samplerParams.MaxFilter = ISampler::ETF_LINEAR;
+							} break;
+						}
+					}
+
+					if (glTFSampler.minFilter.has_value())
+					{
+						switch (glTFSampler.minFilter.value())
+						{
+							case SGLTFSampler::STP_NEAREST:
+							{
+								samplerParams.MinFilter = ISampler::ETF_NEAREST;
+							} break;
+
+							case SGLTFSampler::STP_LINEAR:
+							{
+								samplerParams.MinFilter = ISampler::ETF_LINEAR;
+							} break;
+
+							case SGLTFSampler::STP_NEAREST_MIPMAP_NEAREST:
+							{
+								samplerParams.MinFilter = ISampler::ETF_NEAREST;
+								samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
+							} break;
+
+							case SGLTFSampler::STP_LINEAR_MIPMAP_NEAREST:
+							{
+								samplerParams.MinFilter = ISampler::ETF_LINEAR;
+								samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
+							} break;
+
+							case SGLTFSampler::STP_NEAREST_MIPMAP_LINEAR:
+							{
+								samplerParams.MinFilter = ISampler::ETF_NEAREST;
+								samplerParams.MipmapMode = ISampler::ESMM_LINEAR;
+							} break;
+
+							case SGLTFSampler::STP_LINEAR_MIPMAP_LINEAR:
+							{
+								samplerParams.MinFilter = ISampler::ETF_LINEAR;
+								samplerParams.MipmapMode = ISampler::ESMM_LINEAR;
+							} break;
+						}
+					}
+					
+					if (glTFSampler.wrapS.has_value())
+					{
+						switch (glTFSampler.wrapS.value())
+						{
+							case SGLTFSampler::STP_CLAMP_TO_EDGE:
+							{
+								samplerParams.TextureWrapU = ISampler::ETC_CLAMP_TO_EDGE;
+							} break;
+
+							case SGLTFSampler::STP_MIRRORED_REPEAT:
+							{
+								samplerParams.TextureWrapU = ISampler::ETC_MIRROR;
+							} break;
+
+							case SGLTFSampler::STP_REPEAT:
+							{
+								samplerParams.TextureWrapU = ISampler::ETC_REPEAT;
+							} break;
+						}
+					}
+					else
+						samplerParams.TextureWrapU = ISampler::ETC_REPEAT;
+
+					if (glTFSampler.wrapT.has_value())
+					{
+						switch (glTFSampler.wrapT.value())
+						{
+							case SGLTFSampler::STP_CLAMP_TO_EDGE:
+							{
+								samplerParams.TextureWrapV = ISampler::ETC_CLAMP_TO_EDGE;
+							} break;
+
+							case SGLTFSampler::STP_MIRRORED_REPEAT:
+							{
+								samplerParams.TextureWrapV = ISampler::ETC_MIRROR;
+							} break;
+
+							case SGLTFSampler::STP_REPEAT:
+							{
+								samplerParams.TextureWrapV = ISampler::ETC_REPEAT;
+							} break;
+						}
+					}
+					else
+						samplerParams.TextureWrapV = ISampler::ETC_REPEAT;
+
+					const std::string cacheKey = getSamplerCacheKey(samplerParams);
+					cpuSamplers.push_back(cacheKey);
+
+					const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_SAMPLER, (asset::IAsset::E_TYPE)0u };
+					auto sampler_bundle = _override->findCachedAsset(cacheKey, types, context.loadContext, _hierarchyLevel /*TODO + what here?*/);
+					if (sampler_bundle.isEmpty())
+					{
+						SAssetBundle samplerBundle = { core::make_smart_refctd_ptr<ICPUSampler>(std::move(samplerParams)) };
+						_override->insertAssetIntoCache(samplerBundle, cacheKey, context.loadContext, _hierarchyLevel /*TODO + what here?*/);
+					}
+				}
+			}
+
+			STextures cpuTextures;
+			{
+				for (auto& glTFTexture : glTF.textures)
+				{
+					auto& [cpuImageView, samplerCacheKey] = cpuTextures.emplace_back();
+
+					if (glTFTexture.sampler.has_value())
+						samplerCacheKey = cpuSamplers[glTFTexture.sampler.value()];
+					else
+						samplerCacheKey = "irr/builtin/samplers/default";
+
+					if (glTFTexture.source.has_value())
+						cpuImageView = core::smart_refctd_ptr<ICPUImageView>(cpuImageViews[glTFTexture.source.value()]);
+					else
+					{
+						auto default_imageview_bundle = assetManager->getAsset("irr/builtin/image_views/dummy2d", context.loadContext.params);
+						const bool status = !default_imageview_bundle.isEmpty();
+						if (status)
+						{
+							auto cpuDummyImageView = core::smart_refctd_ptr_static_cast<ICPUImageView>(default_imageview_bundle.getContents().begin()[0]);
+							cpuImageView = core::smart_refctd_ptr<ICPUImageView>(cpuDummyImageView);
+						}
+						else
+							assert(status);
+					}
+				}
 			}
 		
 			core::vector<core::smart_refctd_ptr<CCPUMesh>> cpuMeshes;
 			for (auto& glTFnode : glTF.nodes) 
 			{
-				auto cpuMesh = cpuMeshes.emplace_back() = core::make_smart_refctd_ptr<CCPUMesh>();
+				auto& cpuMesh = cpuMeshes.emplace_back() = core::make_smart_refctd_ptr<CCPUMesh>();
 
 				for (auto& glTFprimitive : glTFnode.glTFMesh.primitives) 
 				{
@@ -449,14 +652,11 @@ namespace irr
 							return core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assets.begin()[0]);
 						};
 
-						#if 0 // TODO
 						if (hasUV) // if both UV and Color defined - we use the UV
 							return std::make_pair(loadShader(VERT_SHADER_UV_CACHE_KEY), loadShader(FRAG_SHADER_UV_CACHE_KEY));
 						else if (hasColor)
 							return std::make_pair(loadShader(VERT_SHADER_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_COLOR_CACHE_KEY));
 						else
-						#endif
-
 							return std::make_pair(loadShader(VERT_SHADER_NO_UV_COLOR_CACHE_KEY), loadShader(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY));
 					};
 
@@ -464,12 +664,22 @@ namespace irr
 					const std::string& pipelineCacheKey = getPipelineCacheKey(primitiveTopology, vertexInputParams);
 					{
 						const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
-						auto pipeline_bundle = _override->findCachedAsset(pipelineCacheKey, types, loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
+						auto pipeline_bundle = _override->findCachedAsset(pipelineCacheKey, types, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
 						if (!pipeline_bundle.isEmpty())
 							cpuPipeline = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(pipeline_bundle.getContents().begin()[0]);
 						else
 						{
-							auto cpuPipelineLayout = makePipelineLayoutFromGLTF(hasUV);
+							SMaterialDependencyData materialDependencyData;
+							const bool ds3lAvailableFlag = glTFprimitive.material.has_value();
+
+							if (ds3lAvailableFlag)
+							{
+								materialDependencyData.cpuMeshBuffer = cpuMeshBuffer.get();
+								materialDependencyData.glTFMaterial = &glTF.materials[glTFprimitive.material.value()];
+								materialDependencyData.cpuTextures = &cpuTextures;
+							}
+
+							auto cpuPipelineLayout = ds3lAvailableFlag ? makePipelineLayoutFromGLTF(context, materialDependencyData, true) : makePipelineLayoutFromGLTF(context, materialDependencyData);
 							auto [cpuVertexShader, cpuFragmentShader] = getShaders(hasUV, hasColor);
 
 							constexpr size_t DS1_METADATA_ENTRY_COUNT = 3ull;
@@ -500,7 +710,7 @@ namespace irr
 
 							SAssetBundle pipelineBundle = { cpuPipeline };
 
-							_override->insertAssetIntoCache(pipelineBundle, pipelineCacheKey, loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
+							_override->insertAssetIntoCache(pipelineBundle, pipelineCacheKey, context.loadContext, _hierarchyLevel + ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
 							assetManager->setAssetMetadata(cpuPipeline.get(), core::make_smart_refctd_ptr<CGLTFPipelineMetadata>(std::string("TODO_material"), core::smart_refctd_ptr(shaderInputsMetadata)));
 
 							cpuMeshBuffer->setPipeline(std::move(cpuPipeline));
@@ -1084,6 +1294,28 @@ namespace irr
 				}
 			}
 
+			if (textures.error() != simdjson::error_code::NO_SUCH_FIELD)
+			{
+				auto& texturesData = textures.get_array();
+				for (auto& texture : texturesData)
+				{
+					auto& glTFTexture = glTF.textures.emplace_back();
+
+					auto& sampler = texture.at_key("sampler");
+					auto& source = texture.at_key("source");
+					auto& name = texture.at_key("name");
+
+					if (sampler.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFTexture.sampler = sampler.get_uint64().value();
+
+					if (source.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFTexture.source = source.get_uint64().value();
+
+					if (name.error() != simdjson::error_code::NO_SUCH_FIELD)
+						glTFTexture.name = name.get_string().value();
+				}
+			}
+
 			if (materials.error() != simdjson::error_code::NO_SUCH_FIELD)
 			{
 				auto& materialsData = materials.get_array();
@@ -1096,7 +1328,6 @@ namespace irr
 					auto& normalTexture = material.at_key("normalTexture");
 					auto& occlusionTexture = material.at_key("occlusionTexture");
 					auto& emissiveTexture = material.at_key("emissiveTexture");
-					auto& emissiveFactor = material.at_key("emissiveFactor");
 					auto& emissiveFactor = material.at_key("emissiveFactor");
 					auto& alphaMode = material.at_key("alphaMode");
 					auto& alphaCutoff = material.at_key("alphaCutoff");
@@ -1118,7 +1349,11 @@ namespace irr
 
 						if (baseColorFactor.error() != simdjson::error_code::NO_SUCH_FIELD)
 						{
-							// TODO baseColorFactor
+							auto& glTFBaseColorFactor = glTFMetalicRoughness.baseColorFactor.emplace();
+							auto& bcfData = baseColorFactor.get_array();
+
+							for (uint32_t i = 0; i < bcfData.size(); ++i)
+								glTFBaseColorFactor[i] = bcfData.at(i).get_double();
 						}
 
 						if (baseColorTexture.error() != simdjson::error_code::NO_SUCH_FIELD)
@@ -1144,9 +1379,17 @@ namespace irr
 
 						if (metallicRoughnessTexture.error() != simdjson::error_code::NO_SUCH_FIELD)
 						{
+							auto& glTFMetallicRoughnessTexture = glTFMetalicRoughness.metallicRoughnessTexture.emplace();
 							auto& mrtData = metallicRoughnessTexture.get_object();
 
-							// TODO
+							auto& index = mrtData.at_key("index");
+							auto& texCoord = mrtData.at_key("texCoord");
+
+							if (index.error() != simdjson::error_code::NO_SUCH_FIELD)
+								glTFMetallicRoughnessTexture.index = index.get_uint64().value();
+
+							if (texCoord.error() != simdjson::error_code::NO_SUCH_FIELD)
+								glTFMetallicRoughnessTexture.texCoord = texCoord.get_uint64().value();
 						}
 					}
 
@@ -1167,7 +1410,11 @@ namespace irr
 
 					if (emissiveFactor.error() != simdjson::error_code::NO_SUCH_FIELD)
 					{
-						// TODO glTFMaterial.emissiveFactor
+						auto& glTFEmissiveFactor = glTFMaterial.emissiveFactor.emplace();
+						auto& efData = emissiveFactor.get_array();
+
+						for (uint32_t i = 0; i < efData.size(); ++i)
+							glTFEmissiveFactor[i] = efData.at(i).value();
 					}
 						
 					if (alphaMode.error() != simdjson::error_code::NO_SUCH_FIELD)
@@ -1434,12 +1681,15 @@ namespace irr
 			}
 		}
 
-		core::smart_refctd_ptr<ICPUPipelineLayout> CGLTFLoader::makePipelineLayoutFromGLTF(const bool isDS3Available)
+		core::smart_refctd_ptr<ICPUPipelineLayout> CGLTFLoader::makePipelineLayoutFromGLTF(SContext& context, SMaterialDependencyData& materialData, bool isDS3L)
 		{
+			core::smart_refctd_ptr<ICPUImageView> TMP_IMAGE_VIEW; // TODO, for testing purposes
 			auto getCpuDs3Layout = [&]() -> core::smart_refctd_ptr<ICPUDescriptorSetLayout>
 			{
-				if (isDS3Available)
+				if (isDS3L)
 				{
+					auto& material = materialData;
+
 					/*
 						Assumes all supported textures are always present
 						since vulkan doesnt support bindings with no/null descriptor,
@@ -1456,8 +1706,40 @@ namespace irr
 					cpuSamplerBinding.binding = 0u;
 					std::fill(cpuSamplerBindings->begin(), cpuSamplerBindings->end(), cpuSamplerBinding);
 
-					core::smart_refctd_ptr<ICPUSampler> samplers[samplerBindingsAmount]; // TODO
-					samplers[0] = getDefaultAsset<ICPUSampler, IAsset::ET_SAMPLER>("irr/builtin/samplers/default", assetManager);
+					/*
+						TODO: MORE SAMPLERS AND TEXTURES SUPPORT
+					*/
+
+					core::smart_refctd_ptr<ICPUSampler> samplers[samplerBindingsAmount]; 
+
+					if (material.glTFMaterial->pbrMetallicRoughness.has_value())
+					{
+						auto& pbrMetallicRoughness = material.glTFMaterial->pbrMetallicRoughness.value();
+
+						if (pbrMetallicRoughness.baseColorTexture.has_value())
+						{
+							auto& baseColorTexture = pbrMetallicRoughness.baseColorTexture.value();
+
+							if (baseColorTexture.index.has_value())
+							{
+								auto& [cpuImageView, cpuSamplerCacheKey] = (*material.cpuTextures)[baseColorTexture.index.value()];
+
+								TMP_IMAGE_VIEW = cpuImageView;
+
+								const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_SAMPLER, (asset::IAsset::E_TYPE)0u };
+								auto sampler_bundle = context.loaderOverride->findCachedAsset(cpuSamplerCacheKey, types, context.loadContext, context.hierarchyLevel /*TODO + what here?*/);
+								if (sampler_bundle.isEmpty())
+									samplers[0] = getDefaultAsset<ICPUSampler, IAsset::ET_SAMPLER>("irr/builtin/samplers/default", assetManager);
+								else
+									samplers[0] = core::smart_refctd_ptr_static_cast<ICPUSampler>(sampler_bundle.getContents().begin()[0]);
+							}
+
+							if (baseColorTexture.texCoord.has_value())
+							{
+								;// TODO: the default is 0, but in no-0 value is present it is a relation between UV attribute with unique ID which is texCoord ID, so UV_<texCoord>
+							}
+						}
+					}
 
 					for (uint32_t i = 0u; i < samplerBindingsAmount; ++i)
 					{
@@ -1474,8 +1756,28 @@ namespace irr
 			auto cpuDs1Layout = getDefaultAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("irr/builtin/descriptor_set_layout/basic_view_parameters", assetManager);
 			auto cpuDs3Layout = getCpuDs3Layout();
 
-			auto cpuPipelineLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(cpuDs1Layout), nullptr, nullptr); // TODODODODO
+			if (isDS3L)
+			{
+				auto cpuDescriptorSet3 = makeAndGetDS3set(TMP_IMAGE_VIEW, cpuDs3Layout);
+				materialData.cpuMeshBuffer->setAttachedDescriptorSet(std::move(cpuDescriptorSet3));
+			}
+
+			auto cpuPipelineLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(cpuDs1Layout), nullptr, isDS3L ? std::move(cpuDs3Layout) : nullptr);
 			return cpuPipelineLayout;
+		}
+
+		// TODO - it has to be an image bundle of image views
+		core::smart_refctd_ptr<ICPUDescriptorSet> CGLTFLoader::makeAndGetDS3set(core::smart_refctd_ptr<ICPUImageView> cpuImageView, core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpuDescriptorSet3Layout)
+		{
+			auto cpuDescriptorSet3 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<ICPUDescriptorSetLayout>(cpuDescriptorSet3Layout));
+
+			auto cpuDescriptor = cpuDescriptorSet3->getDescriptors(0).begin(); // TODO
+
+			cpuDescriptor->desc = cpuImageView;
+			cpuDescriptor->image.imageLayout = EIL_UNDEFINED;
+			cpuDescriptor->image.sampler = nullptr; // not needed, immutable (in DS layout) samplers are used
+
+			return cpuDescriptorSet3;
 		}
 	}
 }

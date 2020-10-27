@@ -43,7 +43,17 @@ namespace irr
 					return "irr/builtin/pipelines/loaders/glTF/" + std::to_string(primitiveType) + vertexInputParams.to_string();
 				}
 
+				_IRR_STATIC_INLINE std::string getSamplerCacheKey(const asset::ICPUSampler::SParams& params)
+				{
+					const std::size_t hash = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(&params), sizeof(params)));
+					return "irr/builtin/samplers/loaders/glTF/" + std::to_string(hash);
+				}
+
 			private:
+
+				using SSamplerCacheKey = std::string;
+				using SShaderDefinesCode = std::string;
+				using STextures = core::vector<std::pair<core::smart_refctd_ptr<ICPUImageView>, SSamplerCacheKey>>;
 
 				struct CGLTFHeader
 				{
@@ -334,8 +344,26 @@ namespace irr
 							STP_LINEAR_MIPMAP_LINEAR = 9987,
 							STP_CLAMP_TO_EDGE = 33071,
 							STP_MIRRORED_REPEAT = 33648,
-							STP_REPEAT = 33648
+							STP_REPEAT = 10497
 						};
+					};
+
+					struct SGLTFTexture
+					{
+						/*
+							The index of the sampler used by this texture. When undefined, 
+							a sampler with repeat wrapping and auto filtering should be used.
+						*/
+
+						std::optional<uint32_t> sampler;
+
+						/*
+							The index of the image used by this texture. When undefined, it is expected that an extension or 
+							other mechanism will supply an alternate texture source, otherwise behavior is undefined.
+						*/
+
+						std::optional<uint32_t> source;
+						std::optional<std::string> name;
 					};
 
 					struct SGLTFMaterial
@@ -456,11 +484,34 @@ namespace irr
 					std::vector<SGLTFBuffer> buffers;
 					std::vector<SGLTFImage> images;
 					std::vector<SGLTFSampler> samplers;
+					std::vector<SGLTFTexture> textures;
 					std::vector<SGLTFMaterial> materials;
 				};
 
+				struct SContext
+				{
+					SContext(const SAssetLoadParams& _params, io::IReadFile* _mainFile, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel) : loadContext(_params, _mainFile), loaderOverride(_override), hierarchyLevel(_hierarchyLevel) {}
+					~SContext() {}
+
+					SAssetLoadContext loadContext;
+					asset::IAssetLoader::IAssetLoaderOverride* loaderOverride;
+					uint32_t hierarchyLevel;
+				};
+
+				struct SMaterialDependencyData
+				{
+					SMaterialDependencyData() {}
+					~SMaterialDependencyData() {}
+
+					ICPUMeshBuffer* cpuMeshBuffer = nullptr;
+					SGLTF::SGLTFMaterial* glTFMaterial = nullptr;
+					STextures* cpuTextures = nullptr;
+					SShaderDefinesCode extraShaderDefinesCode; // TODO IN FUTURE
+				};
+
 				void loadAndGetGLTF(SGLTF& glTF, io::IReadFile* _file);
-				core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromGLTF(const bool isDS3Available);
+				core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromGLTF(SContext& context, SMaterialDependencyData& materialData, bool isDS3L = false);
+				core::smart_refctd_ptr<ICPUDescriptorSet> makeAndGetDS3set(core::smart_refctd_ptr<ICPUImageView> cpuImageView, core::smart_refctd_ptr<ICPUDescriptorSetLayout> cpuDescriptorSet3Layout);
 
 				asset::IAssetManager* const assetManager;
 		};
