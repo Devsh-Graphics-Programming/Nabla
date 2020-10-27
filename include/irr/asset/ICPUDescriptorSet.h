@@ -13,6 +13,15 @@ namespace irr
 namespace asset
 {
 
+//! CPU Version of Descriptor Set
+/*
+	DescriptorSet itself is a collection of resources conforming to
+	the template given by DescriptorSetLayout and it has to have the
+	exact same number and type of resources as specified by the Layout.
+	Descriptor Sets do not provide the vertex shader inputs, or fragment
+	shader outputs (or subpass inputs).
+	@see IDescriptorSet
+*/
 
 class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, public IAsset, public impl::IEmulatedDescriptorSet<ICPUDescriptorSetLayout>
 {

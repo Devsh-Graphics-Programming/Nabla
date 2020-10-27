@@ -251,8 +251,6 @@ if(IRR_BUILD_TOOLS)
 	add_subdirectory(tools) # convert2BAW
 endif()
 
-add_subdirectory(ext)
-
 if(IRR_BUILD_EXAMPLES)
 	add_subdirectory(examples_tests)
 endif()

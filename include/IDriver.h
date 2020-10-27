@@ -17,6 +17,7 @@ namespace video
 {
 	class IGPUMeshDataFormatDesc;
 	class IGPUObjectFromAssetConverter;
+	class CPropertyPoolHandler;
 }
 }
 
@@ -339,7 +340,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
                 uint32_t alignment = 64u; // smallest mapping alignment capability
                 uint32_t subSize = static_cast<uint32_t>(core::min<uint32_t>(core::alignDown(defaultUploadBuffer.get()->max_size(),alignment),size-uploadedSize));
 
-                defaultUploadBuffer.get()->multi_place(std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&localOffset,&subSize,&alignment);
+                defaultUploadBuffer.get()->multi_place(std::chrono::high_resolution_clock::now()+std::chrono::microseconds(500u),1u,(const void* const*)&dataPtr,&localOffset,&subSize,&alignment);
                 // keep trying again
                 if (localOffset==video::StreamingTransientDataBufferMT<>::invalid_address)
                     continue;
@@ -361,6 +362,9 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 		//! Fill out the descriptor sets with descriptors
 		virtual void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) {}
 
+
+		//!
+		virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const = 0;
 
 	//====================== THIS STUFF NEEDS A REWRITE =====================
         //! Creates a framebuffer object with no attachments

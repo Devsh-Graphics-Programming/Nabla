@@ -11,6 +11,11 @@ namespace irr
 namespace asset
 {
 
+//! CPU Version of Compute Pipeline
+/*
+    @see IComputePipeline
+*/
+
 class ICPUComputePipeline : public IComputePipeline<ICPUSpecializedShader, ICPUPipelineLayout>, public IAsset
 {
     using base_t = IComputePipeline<ICPUSpecializedShader, ICPUPipelineLayout>;

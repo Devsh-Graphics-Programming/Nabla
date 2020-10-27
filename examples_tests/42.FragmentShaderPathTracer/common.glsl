@@ -1,6 +1,6 @@
 // basic settings
 #define MAX_DEPTH 8
-#define SAMPLES 256
+#define SAMPLES 32
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS

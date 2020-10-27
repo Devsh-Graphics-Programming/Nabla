@@ -7,10 +7,10 @@
 #include "../common/QToQuitEventReceiver.h"
 #include <irr/video/IGPUVirtualTexture.h>
 #include <irr/asset/CMTLPipelineMetadata.h>
-#include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
+#include "irr/ext/FullScreenTriangle/FullScreenTriangle.h"
 #include <irr/asset/filters/CMipMapGenerationImageFilter.h>
 
-//#include "../../ext/ScreenShot/ScreenShot.h"
+//#include "irr/ext/ScreenShot/ScreenShot.h"
 using namespace irr;
 using namespace core;
 

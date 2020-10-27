@@ -1,4 +1,3 @@
-
 find_package(OpenGL REQUIRED)
 if(UNIX)
 	find_package(X11 REQUIRED)
@@ -206,11 +205,16 @@ set(IRR_VIDEO_SOURCES
 # Allocators
 	${IRR_ROOT_PATH}/src/irr/video/alloc/GPUMemoryAllocatorBase.cpp
 	${IRR_ROOT_PATH}/src/irr/video/alloc/SimpleGPUBufferAllocator.cpp
+	
+# Shaders
+	${IRR_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
+
+# Property Pools
+	${IRR_ROOT_PATH}/src/irr/video/CPropertyPoolHandler.cpp
 
 # Junk to refactor
 ${IRR_ROOT_PATH}/source/Irrlicht/IDriver.cpp
 ${IRR_ROOT_PATH}/source/Irrlicht/CNullDriver.cpp
-	${IRR_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
 	${IRR_ROOT_PATH}/source/Irrlicht/FW_Mutex.cpp
 	${IRR_ROOT_PATH}/source/Irrlicht/CFPSCounter.cpp
 )
@@ -286,6 +290,7 @@ set(COMMON_INCLUDE_DIRS
 irr_adjust_flags() # macro defined in root CMakeLists
 irr_adjust_definitions() # macro defined in root CMakeLists
 
+# TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
 macro(irr_target_link_zlib _trgt)
 	add_dependencies(${_trgt} zlibstatic)
 
@@ -445,6 +450,12 @@ elseif()
 		list(APPEND IRRLICHT_HEADERS_PUBLIC  ${IRR_ROOT_PATH}/include/${X})
 	endforeach()
 endif()
+
+
+# extensions
+start_tracking_variables_for_propagation_to_parent()
+add_subdirectory(ext)
+propagate_changed_variables_to_parent_scope()
 
 
 set(IRRLICHT_HEADERS_TO_INSTALL 

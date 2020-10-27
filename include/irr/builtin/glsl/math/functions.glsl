@@ -240,4 +240,20 @@ uint irr_glsl_rotl(in uint x, in uint k)
 	return (x<<k) | (x>>(32u-k));
 }
 
+
+// trig
+
+// returns `acos(acos(A)+acos(B)+acos(C))-PI` but requires `sinA,sinB,sinC` are all positive
+float irr_glsl_getArccosSumofABC_minus_PI(in float cosA, in float cosB, in float cosC, in float sinA, in float sinB, in float sinC)
+{
+    // sorry about the naming of `something` I just can't seem to be able to give good name to the variables that is consistent with semantics
+	const bool something0 = cosA<(-cosB);
+    const float cosSumAB = cosA*cosB-sinA*sinB;
+	const bool something1 = cosSumAB<(-cosC);
+	const bool something2 = cosSumAB<cosC;
+	// apply triple angle formula
+	const float absArccosSumABC = acos(cosSumAB*cosC-(cosA*sinB+sinA*cosB)*sinC);
+	return ((something0 ? something2:something1) ? (-absArccosSumABC):absArccosSumABC)+(something0||something1 ? irr_glsl_PI:(-irr_glsl_PI));
+}
+
 #endif

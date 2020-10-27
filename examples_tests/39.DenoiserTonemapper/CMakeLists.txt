@@ -17,11 +17,9 @@ set(DENOISER_TONEMAPPER_EXAMPLE_INCLUDE_DIRS
 
 set(EXTRA_SOURCES
 	CommandLineHandler.cpp
-	../../ext/LumaMeter/CLumaMeter.cpp
-	../../ext/ToneMapper/CToneMapper.cpp
+	../../src/irr/ext/LumaMeter/CLumaMeter.cpp
+	../../src/irr/ext/ToneMapper/CToneMapper.cpp
 )
-
-#add_subdirectory("${IRR_ROOT_PATH}/ext/MitsubaLoader" "${IRR_ROOT_PATH}/ext/MitsubaLoader" EXCLUDE_FROM_ALL)
 
 irr_create_executable_project(
 	"${EXTRA_SOURCES}"

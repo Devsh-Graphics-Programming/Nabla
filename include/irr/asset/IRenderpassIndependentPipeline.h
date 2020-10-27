@@ -345,6 +345,21 @@ enum E_VERTEX_ATTRIBUTE_ID
 };
 */
 
+//! Base class for Renderpass Independent Pipeline - Graphics Pipeline
+/*
+    IRenderpassIndependentPipeline has been introduced by us because we
+    disliked how Vulkan forced the user to know about the types and formats
+    of Framebuffer Attachments (Render Targets in DirectX parlance) that will
+    be used when creating the pipeline. This would have made it impossible to
+    load models in a "screen agnostic way".
+
+    Graphics pipelines consist of multiple shader stages,
+    multiple fixed-function pipeline stages, 
+    and a pipeline layout.
+
+    @see IPipeline
+*/
+
 template<typename SpecShaderType, typename LayoutType>
 class IRenderpassIndependentPipeline : public IPipeline<LayoutType>
 {

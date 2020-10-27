@@ -22,7 +22,7 @@ function(update_git_submodule _PATH)
 endfunction()
 
 
-# REDO THIS WHOLE THING AS FUNCTIONS
+# TODO: REDO THIS WHOLE THING AS FUNCTIONS
 # https://github.com/buildaworldnet/IrrlichtBAW/issues/311 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
 
 # Macro creating project for an executable
@@ -251,6 +251,7 @@ macro(irr_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	)
 endmacro()
 
+# End of TODO, rest are all functions
 
 function(irr_get_conf_dir _OUTVAR _CONFIG)
 	string(TOLOWER ${_CONFIG} CONFIG)
@@ -281,3 +282,47 @@ function(irr_install_config_header _CONF_HDR_NAME)
 	install(FILES ${file_deb} DESTINATION debug/include CONFIGURATIONS Debug)
 	install(FILES ${file_relWithDebInfo} DESTINATION relwithdebinfo/include CONFIGURATIONS RelWithDebInfo)
 endfunction()
+
+
+# TODO: check the license for this https://gist.github.com/oliora/4961727299ed67337aba#gistcomment-3494802
+
+# Start to track variables for change or adding.
+# Note that variables starting with underscore are ignored.
+macro(start_tracking_variables_for_propagation_to_parent)
+    get_cmake_property(_fnvtps_cache_vars CACHE_VARIABLES)
+    get_cmake_property(_fnvtps_old_vars VARIABLES)
+    
+    foreach(_i ${_fnvtps_old_vars})
+        if (NOT "x${_i}" MATCHES "^x_.*$")
+            list(FIND _fnvtps_cache_vars ${_i} _fnvtps_is_in_cache)
+            if(${_fnvtps_is_in_cache} EQUAL -1)
+                set("_fnvtps_old${_i}" ${${_i}})
+                #message(STATUS "_fnvtps_old${_i} = ${_fnvtps_old${_i}}")
+            endif()
+        endif()
+    endforeach()
+endmacro()
+
+# forward_changed_variables_to_parent_scope([exclusions])
+# Forwards variables that was added/changed since last call to start_track_variables() to the parent scope.
+# Note that variables starting with underscore are ignored.
+macro(propagate_changed_variables_to_parent_scope)
+    get_cmake_property(_fnvtps_cache_vars CACHE_VARIABLES)
+    get_cmake_property(_fnvtps_vars VARIABLES)
+    set(_fnvtps_cache_vars ${_fnvtps_cache_vars} ${ARGN})
+    
+    foreach(_i ${_fnvtps_vars})
+        if (NOT "x${_i}" MATCHES "^x_.*$")
+            list(FIND _fnvtps_cache_vars ${_i} _fnvtps_is_in_cache)
+            
+            if (${_fnvtps_is_in_cache} EQUAL -1)
+                list(FIND _fnvtps_old_vars ${_i} _fnvtps_is_old)
+                
+                if(${_fnvtps_is_old} EQUAL -1 OR NOT "${${_i}}" STREQUAL "${_fnvtps_old${_i}}")
+                    set(${_i} ${${_i}} PARENT_SCOPE)
+                    #message(STATUS "forwarded var ${_i}")
+                endif()
+            endif()
+        endif()
+    endforeach()
+endmacro()

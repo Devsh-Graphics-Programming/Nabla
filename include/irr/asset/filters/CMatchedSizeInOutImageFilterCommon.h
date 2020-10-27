@@ -14,9 +14,25 @@ namespace irr
 namespace asset
 {
 
+//! Base class for common matched size in-out images
+/*
+	Common base class for filters for images where input
+	and desired output image data is known - the input range is
+	the same size as output. The filters derived from it can execute
+	various converting actions on input image  to get an output image
+	that will be a converted and ready to use one.
+	@see IImageFilter
+*/
+
 class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 {
 	public:
+
+		//! Derived state of CMatchedSizeInOutImageFilterCommon
+		/*
+			@see IImageFilter::IState
+		*/
+
 		class CState : public IImageFilter::IState
 		{
 			public:
@@ -28,6 +44,36 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 				}
 				virtual ~CState() {}
 
+				/*
+					Wrapped extent and layer count to an union.
+					You can fill image extent and layer count
+					separately or fill it at once by \bextentLayerCount\b,
+					where in it \bx, y, z\b is treated as extent, and a \bw\b
+					is treated as layerCount. You can use it interchangeably.
+
+					Pay attention output image must be prepared to conversion
+					process. It means it's a user resposibility to take care
+					of attached regions and texel buffer with new adjusted size
+					for executing the process for output image. So you will
+					have to deliver adjusted new buffer and fill regions manually,
+					unless \bclip_region_functor_t\b is delivered which takes care
+					of the extents and offsets to fit individually each new
+					region by taking a reference region. The only restriction
+					is that the offsets and extents cannot specify an area outside
+					of the whole image itself.
+
+					Also note that layers are processed by filters with following range:
+
+					[inBaseLayer, inBaseLayer + layerCount)
+					[outBaseLayer, outBaseLayer + layerCount)
+
+					So remember that layerCount field is shared by \bin/out\b and
+					extent is shared as well. It's because to provide capabilty
+					of "moving" a region/layer, so you are able to put the same
+					\bW x H x D x L\b window to another bottom-left-down-layer corner
+					for instance.
+				*/
+
 				union
 				{
 					core::vectorSIMDu32 extentLayerCount;
@@ -37,6 +83,15 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 						uint32_t		layerCount;
 					};
 				};
+
+				/*
+					Wrapped inOffset and inBaseLayer to an union.
+					You can fill in offset and in base layer
+					separately or fill it at once by \binOffsetBaseLayer\b,
+					where in it \bx, y, z\b is treated as inOffset, and a \bw\b
+					is treated as inBaseLayer. You can use it interchangeably.
+				*/
+
 				union
 				{
 					core::vectorSIMDu32 inOffsetBaseLayer;
@@ -46,6 +101,15 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 						uint32_t		inBaseLayer;
 					};
 				};
+
+				/*
+					Wrapped outOffset and outBaseLayer to an union.
+					You can fill out offset and out base layer
+					separately or fill it at once by \boutOffsetBaseLayer\b,
+					where in it \bx, y, z\b is treated as outOffset, and a \bw\b
+					is treated as outBaseLayer. You can use it interchangeably.
+				*/
+
 				union
 				{
 					core::vectorSIMDu32 outOffsetBaseLayer;
@@ -55,10 +119,11 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 						uint32_t		outBaseLayer;
 					};
 				};
-				uint32_t				inMipLevel = 0u;
-				uint32_t				outMipLevel = 0u;
-				const ICPUImage*		inImage = nullptr;
-				ICPUImage*				outImage = nullptr;
+
+				uint32_t				inMipLevel = 0u;		//!< Current handled mipmap level in reference to \binput\b image
+				uint32_t				outMipLevel = 0u;		//!< Current handled mipmap level in reference to \boutput\b image
+				const ICPUImage* inImage = nullptr;				//!< \bInput\b image being a reference for state management, needed to operate on output image's texel buffer
+				ICPUImage* outImage = nullptr;					//!< \bOutput\b image, it's attached empty texel buffer will be filled with converted values according to state's input data after execute call
 		};
 		using state_type = CState;
 		

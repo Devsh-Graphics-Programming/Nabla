@@ -1,7 +1,7 @@
 #include "ApplicationHandler.hpp"
 
-#include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
-#include "../../ext/ScreenShot/ScreenShot.h"
+#include "irr/ext/FullScreenTriangle/FullScreenTriangle.h"
+#include "irr/ext/ScreenShot/ScreenShot.h"
 
 #include <irr/asset/filters/kernels/CGaussianImageFilterKernel.h>
 #include <irr/asset/filters/kernels/CDerivativeImageFilterKernel.h>

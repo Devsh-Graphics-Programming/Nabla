@@ -10,6 +10,17 @@ namespace irr
 namespace asset
 {
 
+//! Interface class for compute pipelines
+/*
+	This pipeline takes in Vulkan commands through 
+	command buffers and processes them for computational work.
+
+	A compute pipeline consists of a single compute shader 
+	stage and the pipeline layout. The compute shader stage is capable
+	of doing massive parallel arbitrary computations. The pipeline layout 
+	connects the compute pipeline to the descriptor using the layout bindings.
+*/
+
 template<typename SpecShaderType, typename LayoutType>
 class IComputePipeline : public IPipeline<LayoutType>
 {

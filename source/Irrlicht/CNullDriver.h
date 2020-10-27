@@ -112,6 +112,9 @@ class CNullDriver : public IVideoDriver
         //! GPU fence, is signalled when preceeding GPU work is completed
         virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread=false) override {return nullptr;}
 
+		//!
+		virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const override { return m_propertyPoolHandler.get(); }
+
 		//! gets the area of the current viewport
 		virtual const core::rect<int32_t>& getViewPort() const override;
 
@@ -193,6 +196,7 @@ class CNullDriver : public IVideoDriver
 
 		uint32_t PrimitivesDrawn;
 
+		core::smart_refctd_ptr<CPropertyPoolHandler> m_propertyPoolHandler;
 		core::smart_refctd_ptr<CDerivativeMapCreator> DerivativeMapCreator;
 
 		SExposedVideoData ExposedData;

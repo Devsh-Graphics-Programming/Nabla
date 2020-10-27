@@ -127,32 +127,6 @@ mat2x4 irr_glsl_applyScreenSpaceChainRule4D3(in mat3x4 dFdG, in mat2x3 dGdScreen
    return dFdG*dGdScreen;
 }
 
-//TODO move to different glsl header @Crisspl
-vec2 irr_glsl_concentricMapping(in vec2 _u)
-{
-    //map [0;1]^2 to [-1;1]^2
-    vec2 u = 2.0*_u - 1.0;
-    
-    vec2 p;
-    if (u==vec2(0.0))
-        p = vec2(0.0);
-    else
-    {
-        float r;
-        float theta;
-        if (abs(u.x)>abs(u.y)) {
-            r = u.x;
-            theta = 0.25*irr_glsl_PI * (u.y/u.x);
-        } else {
-            r = u.y;
-            theta = 0.5*irr_glsl_PI - 0.25*irr_glsl_PI*(u.x/u.y);
-        }
-        p = r*vec2(cos(theta),sin(theta));
-    }
-
-    return p;
-}
-
 // only in the fragment shader we have access to implicit derivatives
 irr_glsl_IsotropicViewSurfaceInteraction irr_glsl_calcFragmentShaderSurfaceInteraction(in vec3 _CamPos, in vec3 _SurfacePos, in vec3 _Normal)
 {

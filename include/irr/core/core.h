@@ -26,6 +26,11 @@
 #include "irr/core/alloc/ResizableHeterogenousMemoryAllocator.h"
 #include "irr/core/alloc/StackAddressAllocator.h"
 #include "irr/core/alloc/SimpleBlockBasedAllocator.h"
+// containers
+#include "irr/core/containers/dynamic_array.h"
+#include "irr/core/containers/refctd_dynamic_array.h"
+#include "irr/core/containers/FixedCapacityDoublyLinkedList.h"
+#include "irr/core/containers/LRUCache.h"
 // math
 #include "irr/core/math/intutil.h"
 #include "irr/core/math/floatutil.tcc"
@@ -36,8 +41,6 @@
 // memory
 #include "irr/core/memory/memory.h"
 #include "irr/core/memory/new_delete.h"
-#include "irr/core/memory/dynamic_array.h"
-#include "irr/core/memory/refctd_dynamic_array.h"
 #include "irr/core/memory/CLeakDebugger.h"
 // samplers
 #include "irr/core/sampling/RandomSampler.h"
