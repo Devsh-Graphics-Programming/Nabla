@@ -373,7 +373,7 @@ public:
             ESM_TRANSMIT
         };
 
-        CMicrofacetSpecularBSDFNode(E_TYPE t = ET_MICROFACET_SPECULAR) : CBSDFNode(t) {}
+        CMicrofacetSpecularBSDFNode() : CBSDFNode(ET_MICROFACET_SPECULAR) {}
 
         void setSmooth(E_NDF _ndf = ENDF_GGX)
         {
@@ -388,6 +388,9 @@ public:
         E_SCATTER_MODE scatteringMode;
         SParameter<float> alpha_u;
         SParameter<float> alpha_v;
+
+    protected:
+        CMicrofacetSpecularBSDFNode(E_TYPE t) : CBSDFNode(t) {}
     };
     struct CMicrofacetDiffuseBSDFNode : CBSDFNode
     {

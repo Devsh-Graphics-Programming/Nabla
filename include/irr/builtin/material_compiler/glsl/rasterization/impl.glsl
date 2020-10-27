@@ -154,7 +154,7 @@ void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout ir
 #endif
 #ifdef OP_COATING
 	CASE_BEGIN(op, OP_COATING) {
-		result = instr_execute_cos_eval_COATING(instr, srcs, params, bsdf_data);
+		result = instr_execute_cos_eval_COATING(instr, srcs, params, s, uf, bxdf_eval_scalar_part, bsdf_data);
 	} CASE_END
 #endif
 #ifdef OP_DIFFTRANS

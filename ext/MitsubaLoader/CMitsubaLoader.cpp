@@ -1280,6 +1280,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			reinterpret_cast<uint32_t*>(mb->getPushConstantsDataPtr())[0] = instDataOffset;
 		}
 	}
+	ofile.close();
 	d = ds0->getDescriptors(INSTANCE_DATA_BINDING).begin();
 	{
 		auto instDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(instanceData.size()*sizeof(SInstanceData));

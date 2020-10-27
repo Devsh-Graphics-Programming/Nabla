@@ -745,9 +745,21 @@ std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(
 		case IR::CBSDFNode::ET_MICROFACET_SPECULAR:
 			instr = OP_CONDUCTOR; break;
 		case IR::CBSDFNode::ET_COATING:
+		{
 			out_next = node->children;
 			assert(node->children.count==1u);
 			instr = OP_COATING;
+
+			// coated BxDF must be diffuse or difftrans
+			auto* coated = node->children[0];
+			assert(coated->symbol == IR::INode::ES_BSDF);
+			if (coated->symbol != IR::INode::ES_BSDF)
+				instr = OP_INVALID;
+			const IR::CBSDFNode::E_TYPE bxdf = static_cast<const IR::CBSDFNode*>(coated)->type;
+			assert(bxdf == IR::CBSDFNode::ET_MICROFACET_DIFFUSE || bxdf == IR::CBSDFNode::ET_DIFFTRANS);
+			if (bxdf != IR::CBSDFNode::ET_MICROFACET_DIFFUSE && bxdf != IR::CBSDFNode::ET_DIFFTRANS)
+				instr = OP_INVALID;
+		}
 			break;
 		}
 	}

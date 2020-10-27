@@ -470,12 +470,26 @@ eval_and_pdf_t instr_execute_cos_eval_pdf_PLASTIC(in instr_t instr, in irr_glsl_
 	return eval_and_pdf_t(eval, pdf);
 }
 
-bxdf_eval_t instr_execute_cos_eval_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in bsdf_data_t data)
+bxdf_eval_t instr_execute_cos_eval_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in float DG, in bsdf_data_t data)
 {
-	//vec2 thickness_eta = unpackHalf2x16(data.data[3].x);
+	vec2 thickness_eta = unpackHalf2x16(data.data[3].x);
+	vec3 eta = vec3(thickness_eta.y);
 	//vec3 sigmaA = params_getSigmaA(params);
-	//float a = params_getAlpha(params);
-	return bxdf_eval_t(1.0,0.0,0.0);
+	
+	vec3 fr = irr_glsl_fresnel_dielectric_frontface_only(eta, uf.isotropic.VdotH);
+
+	bxdf_eval_t coated = srcs[0].xyz;
+
+	return fr*DG + coated;
+}
+
+eval_and_pdf_t instr_execute_cos_eval_pdf_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in float DG, in bsdf_data_t data, in float coat_pdf)
+{
+	bxdf_eval_t bxdf = instr_execute_cos_eval_COATING(instr, srcs, params, s, uf, DG, data);
+	float coated_pdf = srcs[0].w;
+	float pdf = 0.5*coated_pdf + 0.5*coat_pdf;
+
+	return eval_and_pdf_t(bxdf, pdf);
 }
 
 void instr_execute_BUMPMAP(in instr_t instr, in mat2x4 srcs)
@@ -1042,8 +1056,8 @@ void instr_eval_and_pdf_execute(in instr_t instr, inout irr_glsl_LightSample s, 
 #endif
 #ifdef OP_COATING
 	CASE_BEGIN(op, OP_COATING) {
-		result.xyz = instr_execute_cos_eval_COATING(instr, srcs, params, bsdf_data);
-		result.w = pdf;
+		//(in instr_t instr, in mat2x4 srcs, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in float DG, in params_t params, in bsdf_data_t data, in float coat_pdf)
+		result = instr_execute_cos_eval_pdf_COATING(instr, srcs, params, s, uf, bxdf_eval_scalar_part, bsdf_data, pdf);
 	} CASE_END
 #endif
 #ifdef OP_DIELECTRIC
@@ -1146,7 +1160,11 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 	vec3 u = rand;
 
 	instr_execute_SET_GEOM_NORMAL();
-	while (!op_isBXDF(op))
+	while (!op_isBXDF(op) 
+#ifdef OP_COATING
+		&& op!=OP_COATING
+#endif
+	)
 	{
 #ifdef OP_BLEND
 		if (op==OP_BLEND) {
@@ -1162,6 +1180,15 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 		}
 		else 
 #endif //OP_BLEND
+#ifdef OP_COATING
+		if (op==OP_COATING) {
+			float dummy;
+			bool choseCoat = irr_glsl_partitionRandVariable(0.5, u.z, dummy);
+			if (choseCoat)
+				break;
+			ix = ix+1u;
+		} else
+#endif //OP_COATING
 		{
 #ifdef OP_SET_GEOM_NORMAL
 			if (op==OP_SET_GEOM_NORMAL)
@@ -1200,7 +1227,9 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 	handleTwosided_interactionOnly(ts_flag, instr);
 #endif //NO_TWOSIDED
 
+#ifdef OP_PLASTIC
 	const bool is_plastic = op==OP_PLASTIC;
+#endif
 
 #ifdef OP_DIFFUSE
 
@@ -1375,6 +1404,7 @@ vec3 runGenerateAndRemainderStream(in instr_stream_t gcs, in instr_stream_t rnps
 	float pdf = generator_pdf + restPdf;
 
 	out_smpl = s;
+	out_pdf = pdf;
 
 	vec3 rem = generator_rem/(1.0 + restPdf/generator_pdf) + acc/pdf;
 

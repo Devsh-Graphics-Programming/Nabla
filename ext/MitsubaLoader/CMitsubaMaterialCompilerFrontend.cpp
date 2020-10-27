@@ -417,38 +417,34 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
         case CElementBSDF::PLASTIC:
         case CElementBSDF::ROUGHPLASTIC:
         {
-            nextSym = ir->allocNode<IR::CBSDFCombinerNode>(IR::CBSDFCombinerNode::ET_DIFFUSE_AND_SPECULAR);
-            nextSym->children.count = 2u;
+            nextSym = ir->allocNode<IR::CCoatingBSDFNode>();
+            auto* coat = static_cast<IR::CCoatingBSDFNode*>(nextSym);
+            coat->children.count = 1u;
+
+            auto& coated = nextSym->children[0];
+            coated = ir->allocNode<IR::CMicrofacetDiffuseBSDFNode>();
 
             const float eta = current->plastic.intIOR/current->plastic.extIOR;
 
-            auto& diffuse = nextSym->children[0];
-            diffuse = ir->allocNode<IR::CMicrofacetDiffuseBSDFNode>();
-            auto& specular = nextSym->children[1];
-            specular = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>();
-
-            auto* node_specular = static_cast<IR::CMicrofacetSpecularBSDFNode*>(specular);
-            node_specular->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
-            node_specular->eta = IR::INode::color_t(eta);
-            node_specular->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_REFLECT;
+            coat->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
+            coat->eta = IR::INode::color_t(eta);
+            coat->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_REFLECT;
             if (currType == CElementBSDF::ROUGHPLASTIC)
             {
-                node_specular->ndf = ndfMap[current->plastic.distribution];
-                getFloatOrTexture(current->plastic.alphaU, node_specular->alpha_u);
-                if (node_specular->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
-                    getFloatOrTexture(current->plastic.alphaV, node_specular->alpha_v);
+                coat->ndf = ndfMap[current->plastic.distribution];
+                getFloatOrTexture(current->plastic.alphaU, coat->alpha_u);
+                if (coat->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
+                    getFloatOrTexture(current->plastic.alphaV, coat->alpha_v);
                 else
-                    node_specular->alpha_v = node_specular->alpha_u;
+                    coat->alpha_v = coat->alpha_u;
             }
-            else
-            {
-                node_specular->setSmooth();
-            }
-            auto* node_diffuse = static_cast<IR::CMicrofacetDiffuseBSDFNode*>(diffuse);
+            else coat->setSmooth();
+
+            auto* node_diffuse = static_cast<IR::CMicrofacetDiffuseBSDFNode*>(coated);
             getSpectrumOrTexture(current->plastic.diffuseReflectance, node_diffuse->reflectance);
-            node_diffuse->alpha_u = node_specular->alpha_u;
-            node_diffuse->alpha_v = node_specular->alpha_v;
-            node_diffuse->eta = node_specular->eta;
+            node_diffuse->alpha_u = coat->alpha_u;
+            node_diffuse->alpha_v = coat->alpha_v;
+            node_diffuse->eta = coat->eta;
         }
         break;
         case CElementBSDF::DIELECTRIC:
