@@ -495,8 +495,8 @@ namespace irr
 						auto& glTFbufferView = glTF.bufferViews[glTFAccessor.bufferView.value()];
 						const uint32_t& bufferBindingId = glTFAccessor.bufferView.value();
 						const uint32_t& bufferDataId = glTFbufferView.buffer.value();
-						const auto& globalOffsetInBufferBindingResource = glTFbufferView.byteOffset.value();
-						const auto& relativeOffsetInBufferViewAttribute = glTFAccessor.byteOffset.value();
+						const auto& globalOffsetInBufferBindingResource = glTFbufferView.byteOffset.has_value() ? glTFbufferView.byteOffset.value() : 0u;
+						const auto& relativeOffsetInBufferViewAttribute = glTFAccessor.byteOffset.has_value() ? glTFAccessor.byteOffset.value() : 0u;
 
 						typedef std::remove_reference<decltype(glTFbufferView)>::type SGLTFBufferView;
 
@@ -540,7 +540,8 @@ namespace irr
 							}
 						};
 
-						setBufferBinding(glTFbufferView.target.value());
+
+						setBufferBinding(queryAttributeId.has_value() ? SGLTF::SGLTFBufferView::SGLTFT_ARRAY_BUFFER : SGLTF::SGLTFBufferView::SGLTFT_ELEMENT_ARRAY_BUFFER);
 					};
 
 					const E_PRIMITIVE_TOPOLOGY primitiveTopology = getMode(glTFprimitive.mode.value());

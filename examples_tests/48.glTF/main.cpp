@@ -56,7 +56,7 @@ int main()
 
     asset::IAssetLoader::SAssetLoadParams loadingParams;
 
-    auto meshes_bundle = assetManager->getAsset("../../../3rdparty/glTFSampleModels/2.0/BoxTextured/glTF/BoxTextured.gltf", loadingParams);
+    auto meshes_bundle = assetManager->getAsset("../../../3rdparty/glTFSampleModels/2.0/Avocado/glTF/Avocado.gltf", loadingParams);
     assert(!meshes_bundle.isEmpty());
     auto mesh = meshes_bundle.getContents().begin()[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
@@ -109,11 +109,11 @@ int main()
 		}
 	}
 
-	scene::ICameraSceneNode* camera = sceneManager->addCameraSceneNodeFPS(0,100.0f,0.01f);
+	scene::ICameraSceneNode* camera = sceneManager->addCameraSceneNodeFPS(0,100.0f,0.001f);
 
-	camera->setPosition(core::vector3df(-10,0,0));
+	camera->setPosition(core::vector3df(-0.5,0,0));
 	camera->setTarget(core::vector3df(0,0,0));
-	camera->setNearValue(0.1f);
+	camera->setNearValue(0.01f);
 	camera->setFarValue(10000.0f);
 
     sceneManager->setActiveCamera(camera);
