@@ -22,12 +22,6 @@ namespace irr
 namespace asset
 {
 
-static void insertPipelineIntoCache(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>&& asset, const char* path, IAssetManager* _assetMgr)
-{
-    asset::SAssetBundle bundle({ std::move(asset) });
-    _assetMgr->changeAssetKey(bundle, path);
-    _assetMgr->insertAssetIntoCache(bundle);
-}
 template<typename AssetType, IAsset::E_TYPE assetType>
 static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
 {

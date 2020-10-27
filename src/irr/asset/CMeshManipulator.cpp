@@ -834,10 +834,11 @@ void CMeshManipulator::copyMeshBufferMemberVars<ICPUMeshBuffer>(ICPUMeshBuffer* 
 	);
 	for (uint32_t i = 0u; i < ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; i++)
 		_dst->setVertexBufferBinding(
-			SBufferBinding(_src->getVertexBufferBindings()[i]), i
+			SBufferBinding<ICPUBuffer>(_src->getVertexBufferBindings()[i]), i
 		);
+    auto ixBinding = _src->getIndexBufferBinding()[0];
 	_dst->setIndexBufferBinding(
-		SBufferBinding(_src->getIndexBufferBinding())
+		std::move(ixBinding)
 	);/*
 	_dst->setAttachedDescriptorSet(
 		core::smart_refctd_ptr<ICPUDescriptorSet>(_src->getAttachedDescriptorSet())

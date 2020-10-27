@@ -55,13 +55,20 @@ class CCPUMesh final : public ICPUMesh
 			return static_cast<uint32_t>(MeshBuffers.size());
 		}
 
-		//! returns pointer to a mesh buffer
-		virtual ICPUMeshBuffer* getMeshBuffer(uint32_t nr) const override
+		virtual const ICPUMeshBuffer* getMeshBuffer(uint32_t nr) const override
 		{
-			if (MeshBuffers.size())
+			if (nr < MeshBuffers.size())
 				return MeshBuffers[nr].get();
 			else
 				return nullptr;
+		}
+
+		//! returns pointer to a mesh buffer
+		virtual ICPUMeshBuffer* getMeshBuffer(uint32_t nr) override
+		{
+			assert(isImmutable_debug());
+
+			return const_cast<ICPUMeshBuffer*>(const_cast<const CCPUMesh*>(this)->getMeshBuffer(nr));
 		}
 
 		//! Adds a MeshBuffer
