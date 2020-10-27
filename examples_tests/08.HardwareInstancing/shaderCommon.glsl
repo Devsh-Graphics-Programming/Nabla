@@ -16,10 +16,7 @@ bool irr_glsl_workgroupElect()
 }
 
 // TODO: maybe improve the macro so the if statement performs better
-#define IRR_GLSL_WORKGROUP_REDUCE_IN_SHARED(SIZE,OP) { \
-		barrier(); \
-		memoryBarrierShared(); \
-		uint partition = 0x1u<<findMSB(SIZE-1u); \
+#define IRR_GLSL_WORKGROUP_REDUCE_IN_SHARED(SIZE,OP) { uint partition = 0x1u<<findMSB(SIZE-1u); \
 		if (gl_LocalInvocationIndex<partition && (IRR_GLSL_IS_POT(SIZE) || gl_LocalInvocationIndex+partition<SIZE)) \
 		{ \
 			uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] OP _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+partition]; \
@@ -59,7 +56,8 @@ bool irr_glsl_workgroupAll(in bool value)
 {
 	// TODO: Optimization using subgroupAll in an ifdef IRR_GL_something (need to do feature mapping first), probably only first 2 lines need to change
 	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = value ? 1u:0u;
-
+	barrier();
+	memoryBarrierShared();
 	IRR_GLSL_WORKGROUP_REDUCE_IN_SHARED(kOptimalWorkgroupSize,&=)
 
 	return _IRR_GLSL_SCRATCH_SHARED_DEFINED_[0u]!=0u;
@@ -69,7 +67,8 @@ bool irr_glsl_workgroupAny(in bool value)
 {
 	// TODO: Optimization using subgroupAny in an ifdef IRR_GL_something (need to do feature mapping first), probably only first 2 lines need to change
 	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = value ? 1u:0u;
-
+	barrier();
+	memoryBarrierShared();
 	IRR_GLSL_WORKGROUP_REDUCE_IN_SHARED(kOptimalWorkgroupSize,|=)
 
 	return _IRR_GLSL_SCRATCH_SHARED_DEFINED_[0u]!=0u;
@@ -133,7 +132,8 @@ uint irr_glsl_workgroupBallotBitCount()
 {
 	if (gl_LocalInvocationIndex<irr_glsl_workgroupBallot_impl_BitfieldDWORDs)
 		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = bitcount(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex]);
-
+	barrier();
+	memoryBarrierShared();
 	// TODO: optimize with `subgroupAdd`
 	IRR_GLSL_WORKGROUP_REDUCE_IN_SHARED(irr_glsl_workgroupBallot_impl_BitfieldDWORDs,+=)
 
@@ -150,6 +150,18 @@ uint irr_glsl_workgroupBallotExclusiveBitCount()
 	return irr_glsl_workgroupBallotScanBitCount_impl(true);
 }
 
+
+uint irr_glsl_workgroupBroadcast(in uint val, in uint id)
+{
+	if (gl_LocalInvocationIndex==id)
+		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[0u] = val;
+	barrier();
+	memoryBarrierShared();
+	return _IRR_GLSL_SCRATCH_SHARED_DEFINED_[0u];
+}
+
+uint irr_glsl_workgroupBroadcastFirst(in uint val) { return irr_glsl_workgroupBroadcast(val,0u); }
+
 /** TODO @Hazardu, @Przemog or @Anastazluk
 // these could use optimization from `bitcount` on shared memory, then a part-sized arithmetic scan
 uint irr_glsl_workgroupBallotFindLSB();
@@ -157,12 +169,10 @@ uint irr_glsl_workgroupBallotFindMSB();
 
 bool irr_glsl_workgroupBroadcast(in bool val, in uint id);
 float irr_glsl_workgroupBroadcast(in float val, in uint id);
-uint irr_glsl_workgroupBroadcast(in uint val, in uint id);
 int irr_glsl_workgroupBroadcast(in int val, in uint id);
 
 bool irr_glsl_workgroupBroadcastFirst(in bool val) {return irr_glsl_workgroupBroadcast(val,0u);}
 float irr_glsl_workgroupBroadcastFirst(in float val) {return irr_glsl_workgroupBroadcast(val,0u);}
-uint irr_glsl_workgroupBroadcastFirst(in uint val) {return irr_glsl_workgroupBroadcast(val,0u);}
 int irr_glsl_workgroupBroadcastFirst(in int val) {return irr_glsl_workgroupBroadcast(val,0u);}
 **/
 uint irr_glsl_workgroupBallotScanBitCount_impl(in bool exclusive)

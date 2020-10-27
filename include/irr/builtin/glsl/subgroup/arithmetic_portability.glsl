@@ -8,19 +8,23 @@
 
 /* TODO: @Hazardu or someone finish the definitions as soon as Nabla can report Vulkan GLSL equivalent caps
 #ifdef GL_KHR_subgroup_basic
+
 	#define SUBGROUP_BARRIERS subgroupBarrier(); \
 	subgroupBarrierShared();
+
 #else
 */
-#define SUBGROUP_BARRIERS
-//#endif
 
-//#ifndef GL_KHR_subgroup_arithmetic
+#define SUBGROUP_BARRIERS
+
 //#endif
 
 
 /*
 #ifdef GL_KHR_subgroup_arithmetic
+
+
+#define _IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_ 0u
 
 
 #define irr_glsl_subgroupAdd subgroupAnd

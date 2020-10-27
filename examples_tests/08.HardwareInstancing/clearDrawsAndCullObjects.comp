@@ -1,8 +1,12 @@
 #version 430 core
 
-#include "shaderCommon.glsl"
-
+#include "common.glsl"
 layout(local_size_x = kOptimalWorkgroupSize) in;
+
+shared uint scratch[kOptimalWorkgroupSize];
+#define _IRR_GLSL_SCRATCH_SHARED_DEFINED_ scratch
+#define _IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ kOptimalWorkgroupSize
+#include "shaderCommon.glsl"
 
 
 // TODO: figure out the descirptor set assignment of the resources
@@ -10,11 +14,10 @@ layout(set = 0, binding = 0, std430, row_major) restrict readonly buffer Objects
 {
     SceneNode_t objects[];
 };
-layout(set = 0, binding = 1, std430) restrict readonly buffer Models
+layout(set = 0, binding = 1, std430) restrict readonly buffer Meshes
 {
-    ModelData_t models[];
+    Mesh_t meshes[];
 };
-// TODO: Mesh SSBO here
 // TODO: MeshBuffer SSBO here
 // TODO: MeshBuffer Indirect Draw SSBO here
 
@@ -29,17 +32,13 @@ layout(set = 1, binding = 1, std430, row_major) restrict writeonly buffer Visibl
 
 layout(set = 2, binding = 0, std140, row_major) uniform Cameras
 {
-    // NOTE: could be an array of `Camera_t` and we could use `gl_GlobalInvocationID.y` to index cameras (or subdivide the X dimension of a workgroup)
-    mat4 viewProjMatrix;
-    vec3 viewMatrixInverseRow0;
-    float posX;
-    vec3 viewMatrixInverseRow1;
-    float posY;
-    vec3 viewMatrixInverseRow2;
-    float posZ;
-    uint inMDIOffset;
-    uint outMDIOffset;
-} camera;
+    // NOTE: could be an unsized array and we could use `gl_GlobalInvocationID.y` to index cameras (or subdivide the X dimension of a workgroup)
+    Camera_t camera;
+};
+layout(set = 2, binding = 3, std430) restrict writeonly buffer OutMultiDrawIndirectCommandBuffer
+{
+    uint data[];
+} outMultiDrawIndirectCommandBuffer;
 layout(set = 2, binding = 1, std430) restrict readonly buffer ObjectIndexBuffer
 {
     uint objectUUIDs[];
@@ -48,10 +47,10 @@ layout(set = 2, binding = 2, std430) restrict readonly buffer InMultiDrawIndirec
 {
     uint data[];
 } inMultiDrawIndirectCommandBuffer;
-layout(set = 2, binding = 3, std430) restrict writeonly buffer OutMultiDrawIndirectCommandBuffer
+layout(set = 2, binding = 4, std430) restrict readonly buffer LoDDistancesSquared
 {
-    uint data[];
-} outMultiDrawIndirectCommandBuffer;
+    float meshLoDDistancesSq[];
+};
 
 
 layout(push_constant) uniform PushConstants
@@ -59,6 +58,8 @@ layout(push_constant) uniform PushConstants
     uint objectCount;
     uint drawDataArrayDWORDSize;
 } pc;
+
+
 
 
 void clearDrawcalls()
@@ -70,64 +71,54 @@ void clearDrawcalls()
 
 void cullObjects()
 {
-    uint objectUUID,modelUUID;
-    int lod = kMaxLoDLevels;
     mat4 modelViewProjectionMatrix;
+    uint objectUUID,meshUUID;
 
-    const bool canProcessObj = gl_GlobalInvocationID.x>=pc.objectCount;
-    if (canProcessObj)
+    bool notCulled = false;
+    if (gl_GlobalInvocationID.x>=pc.objectCount)
     {
         objectUUID = objectUUIDs[gl_GlobalInvocationID.x]; 
     
-        modelUUID = 0u; // we only support one model for this demo
-        mat4x3 worldMatrix = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(objects[objectUUID].worldTransform); 
-
-        modelViewProjectionMatrix = irr_glsl_pseudoMul4x4with4x3(camera.viewProjMatrix,worldMatrix);
-        mat2x3 bbox;
-        bbox[0] = models[modelUUID].MinEdge;
-        bbox[1] = models[modelUUID].MaxEdge;
-    
-        if (irr_glsl_couldBeVisible(modelViewProjectionMatrix,bbox))
+        mat4x3 worldMatrix = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(objects[objectUUID].worldTransform);
+        
+        int lod = objects[objectUUID].LoDLevelCount;
         {
-            // Somewhere around here we could add occlusion culling (if we had camera Z-Buffer)
-
-    	    const vec3 toCamera = vec3(camera.posX,camera.posY,camera.posZ)-worldMatrix[3];
+   	        const vec3 toCamera = vec3(camera.posX,camera.posY,camera.posZ)-worldMatrix[3];
     	    const float distanceSq = dot(toCamera,toCamera);
-
-            for (int i=0; i<kMaxLoDLevels; i++)
-            if (distanceSq<models[modelUUID].LoDDistancesSq[i])
-            {
+            
+            const uint levelsLoD = lod;
+            const uint distancesOffset = objects[objectUUID].LoDDistancesSqOffset;
+            for (uint i=0; i<lod; i++)
+            if (distanceSq<meshLoDDistancesSq[distancesOffset+i])
                 lod = i;
-                //break; // TODO: breaks or improves performance?
+
+            notCulled = lod<levelsLoD;
+        }
+
+        if (notCulled)
+        {
+            meshUUID = objects[objectUUID].LoDMeshesOffset+lod;
+
+            modelViewProjectionMatrix = irr_glsl_pseudoMul4x4with4x3(camera.viewProjMatrix,worldMatrix);
+
+            mat2x3 bbox;
+            {
+                bbox[0] = meshes[meshUUID].MinEdge;
+                bbox[1] = meshes[meshUUID].MaxEdge;
             }
+            notCulled = irr_glsl_couldBeVisible(modelViewProjectionMatrix,bbox);
+            // Somewhere around here we could add occlusion culling (if we had camera Z-Buffer)
         }
     }
-    
-    const bool notCulled = lod<kMaxLoDLevels;
-    uint outputIndex;
-    // TODO: could optimize the reduction
-    /*
-    shared uint scratch[kOptimalWorkgroupSize/4u];
 
     // a boolean inclusive prefix sum
-    const uint localOffsetPlus1 = irr_glsl_workgroupScanAddInclusive_scratch(notCulled);
-    if (gl_LocalInvocationIndex == gl_WorkGroupSize-1u)
+    irr_glsl_workgroupBallot(notCulled);
+    const uint localOffsetPlus1 = irr_glsl_workgroupBallotInclusiveBitCount();
+    if (gl_LocalInvocationIndex==kOptimalWorkgroupSize-1u)
         scratch[0u] = atomicAdd(visibleObjectCount,localOffsetPlus1);
     barrier();
-    outputIndex = scratch[0u]+localOffsetPlus1-1u;
-    
-
-    // irr_glsl_workgroupScanAddInclusive_scratch(in bool cond) could be implemented like this
-        const uint notCulledBallot = ballot(cond); // I hope ballot implies subgroupBarrier
-        const uint localInclPrefix = bitcount(notCulledBallot&gl_SubGroupLeMaskARB);
-        if (gl_SubGroupInvocationID==0u)
-           scratch[gl_SubgroupID] = bitcount(notCulledBallot);
-
-        irr_glsl_workgroupScanAddExclusive_scratch(gl_WorkGroupSize/gl_SubGroupSize);
-        return scratch[gl_SubgroupID]+localInclPrefix;
-    */
-	if (notCulled)
-	    outputIndex = atomicAdd(visibleObjectCount,1u);
+    memoryBarrierShared();
+    const uint outputIndex = scratch[0u]+localOffsetPlus1-1u;
 
     if (notCulled)
     {
@@ -138,18 +129,13 @@ void cullObjects()
         ));
 		mat3 normalMatrixT = mat3(camera.viewMatrixInverseRow0,camera.viewMatrixInverseRow1,camera.viewMatrixInverseRow2)*worldNormalMatrix;
 
-
-		VisibleObject_t objectToDraw;
-
-		objectToDraw.modelViewProjectionMatrix = modelViewProjectionMatrix;
-		objectToDraw.normalMatrixCol0 = normalMatrixT[0];
-		objectToDraw.cameraUUID = 0u; // we only support one camera/viewpoint for this demo
-		objectToDraw.normalMatrixCol1 = normalMatrixT[1];
-		objectToDraw.objectUUID = objectUUID;
-		objectToDraw.normalMatrixCol2 = normalMatrixT[2];
-		objectToDraw.meshUUID = models[modelUUID].LoDDMeshUUID[lod];
-
-		visibleObjects[outputIndex] = objectToDraw;
+		visibleObjects[outputIndex].modelViewProjectionMatrix = modelViewProjectionMatrix;
+		visibleObjects[outputIndex].normalMatrixCol0 = normalMatrixT[0];
+		visibleObjects[outputIndex].cameraUUID = 0u; // we only support one camera/viewpoint for this demo
+		visibleObjects[outputIndex].normalMatrixCol1 = normalMatrixT[1];
+		visibleObjects[outputIndex].objectUUID = objectUUID;
+		visibleObjects[outputIndex].normalMatrixCol2 = normalMatrixT[2];
+		visibleObjects[outputIndex].meshUUID = meshUUID;
 	}
 }
 
@@ -171,7 +157,7 @@ Now we can sort by camera OR start expanding meshes into meshbuffers... what to 
 
 visibleObjects now contains a **scrambled** list of meshbuffers to draw.
 
-in the end they need to be expanded to MeshBuffers sorted by Camera, Pipeline and then Instance (although instance needs not be sorted exactly)
+in the end they need to be expanded to MeshBuffers sorted by Camera, Pipeline and then Instance (although instance needs not be sorted)
 
 its pointless to sort before expansion, because we can only sort by camera as pipelines are unknown
 
