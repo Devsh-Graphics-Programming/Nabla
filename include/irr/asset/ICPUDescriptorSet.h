@@ -184,13 +184,13 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 			return m_descriptors->size();
 		}
 
-	protected:
-		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUDescriptorSet*>(_other);
-			return canBeRestoredFrom_recurseDAG_call(m_layout.get(), other->m_layout.get());
+			return m_layout->canBeRestoredFrom(other->m_layout.get());
 		}
 
+	protected:
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUDescriptorSet*>(_other);

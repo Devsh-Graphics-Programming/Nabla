@@ -172,25 +172,25 @@ class ICPUImage final : public IImage, public IAsset
 			return true;
 		}
 
-    protected:
-		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUImage*>(_other);
 			if (info != other->info)
 				return false;
 			if (params != other->params)
 				return false;
-			if (!canBeRestoredFrom_recurseDAG_call(buffer.get(), other->buffer.get()))
+			if (!buffer->canBeRestoredFrom(other->buffer.get()))
 				return false;
 
 			return true;
 		}
 
+    protected:
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUImage*>(_other);
 
-			const bool restorable = canBeRestoredFrom(_other);
+			const bool restorable = willBeRestoredFrom(_other);
 
 			if (restorable)
 				std::swap(regions, other->regions);

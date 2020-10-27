@@ -60,8 +60,7 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 			m_size = _size;
 		}
 
-	protected:
-		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUBufferView*>(_other);
 			if (m_size != other->m_size)
@@ -70,12 +69,13 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 				return false;
 			if (m_format != other->m_format)
 				return false;
-			if (!canBeRestoredFrom_recurseDAG_call(m_buffer.get(), other->m_buffer.get()))
+			if (!m_buffer->canBeRestoredFrom(other->m_buffer.get()))
 				return false;
 
 			return true;
 		}
 
+	protected:
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUBufferView*>(_other);

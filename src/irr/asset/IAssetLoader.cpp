@@ -56,6 +56,7 @@ void IAssetLoader::interm_setAssetMutability(const IAssetManager* _mgr, IAsset* 
     _mgr->setAssetMutability(_asset, _val);
 }
 
+/*
 void IAssetLoader::interm_restoreDummyAsset(IAssetManager* _mgr, SAssetBundle& _bundle)
 {
     _mgr->restoreDummyAsset(_bundle);
@@ -66,6 +67,7 @@ void IAssetLoader::interm_restoreDummyAsset(IAssetManager* _mgr, IAsset* _asset,
     SAssetBundle bundle({core::smart_refctd_ptr<IAsset>(_asset)}, _path);
     interm_restoreDummyAsset(_mgr, bundle);
 }
+*/
 
 bool IAssetLoader::insertBuiltinAssetIntoCache(IAssetManager* _mgr, SAssetBundle& _asset, const std::string _path)
 {

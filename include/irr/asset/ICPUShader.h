@@ -58,18 +58,18 @@ class ICPUShader : public IAsset, public IShader
 		const ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
 		bool containsGLSL() const { return m_containsGLSL; }
 
-	protected:
-		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
 			auto* other = static_cast<const ICPUShader*>(_other);
 			if (m_containsGLSL != other->m_containsGLSL)
 				return false;
-			if (!canBeRestoredFrom_recurseDAG_call(m_code.get(), other->m_code.get()))
+			if (!m_code->canBeRestoredFrom(other->m_code.get()))
 				return false;
 
 			return true;
 		}
 
+	protected:
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUShader*>(_other);

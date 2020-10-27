@@ -124,8 +124,7 @@ public:
 		return core::make_smart_refctd_ptr<ICPUPipelineCache>(std::move(cache_cp));
 	}
 
-protected:
-	bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+	bool canBeRestoredFrom(const IAsset* _other) const override
 	{
 		auto* other = static_cast<const ICPUPipelineCache*>(_other);
 		if (m_cache.size() != other->m_cache.size())
@@ -134,10 +133,11 @@ protected:
 		return true;
 	}
 
+protected:
 	void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 	{
 		auto* other = static_cast<ICPUPipelineCache*>(_other);
-		const bool restorable = canBeRestoredFrom(_other);
+		const bool restorable = willBeRestoredFrom(_other);
 		if (restorable)
 			std::swap(m_cache, other->m_cache);
 	}

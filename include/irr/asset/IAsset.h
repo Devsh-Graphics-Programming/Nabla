@@ -173,18 +173,18 @@ class IAsset : virtual public core::IReferenceCounted
 
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
 
-		bool restoreFromDummy(IAsset* _other, uint32_t _levelsBelow)
+		bool restoreFromDummy(IAsset* _other, uint32_t _levelsBelow = (~0u))
 		{
 			assert(getAssetType() == _other->getAssetType());
 
-			if (!canBeRestoredFrom_recurseDAG(_other))
+			if (!canBeRestoredFrom(_other))
 				return false;
 
 			restoreFromDummy_impl(_other, _levelsBelow);
 			return true;
 		}
 
-		bool canBeRestoredFrom(const IAsset* _other) const
+		bool willBeRestoredFrom(const IAsset* _other) const
 		{
 			assert(getAssetType() == _other->getAssetType());
 
@@ -203,19 +203,16 @@ class IAsset : virtual public core::IReferenceCounted
 
 		inline E_MUTABILITY getMutability() const { return m_mutability; }
 		inline bool isMutable() const { return getMutability() == EM_MUTABLE; }
-		inline bool canBeConvertedToDummy() const { return !isADummyObjectForCache() && (getMutability()&EM_CPU_PERSISTENT) != EM_CPU_PERSISTENT; }
+		inline bool canBeConvertedToDummy() const { return !isADummyObjectForCache() && getMutability() < EM_CPU_PERSISTENT; }
+
+		virtual bool canBeRestoredFrom(const IAsset* _other) const = 0;
 
     protected:
-		inline static bool canBeRestoredFrom_recurseDAG_call(const IAsset* _this_child, const IAsset* _other_child)
-		{
-			return _this_child->canBeRestoredFrom_recurseDAG(_other_child);
-		}
 		inline static void restoreFromDummy_impl_call(IAsset* _this_child, IAsset* _other_child, uint32_t _levelsBelow)
 		{
 			_this_child->restoreFromDummy_impl(_other_child, _levelsBelow);
 		}
 
-		virtual bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const = 0;
 		virtual void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) = 0;
 
         inline void clone_common(IAsset* _clone) const
@@ -239,6 +236,7 @@ class IAsset : virtual public core::IReferenceCounted
 		void setMetadata(core::smart_refctd_ptr<IAssetMetadata>&& _metadata) 
 		{
 			//we have to talk about it (TODO)
+			//TODO: https://github.com/Devsh-Graphics-Programming/Nabla/issues/14
 			//if (isImmutable_debug())
 			//	return;
 			m_metadata = std::move(_metadata);

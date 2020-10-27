@@ -673,8 +673,7 @@ public:
 		return retval;
     }
 
-protected:
-    bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+    bool canBeRestoredFrom(const IAsset* _other) const override
     {
         auto* other = static_cast<const ICPUMeshBuffer*>(_other);
         if (memcmp(m_pushConstantsData, other->m_pushConstantsData, sizeof(m_pushConstantsData)) != 0)
@@ -695,7 +694,7 @@ protected:
             return false;
         if ((!m_indexBufferBinding.buffer) != (!other->m_indexBufferBinding.buffer))
             return false;
-        if (m_indexBufferBinding.buffer && !canBeRestoredFrom_recurseDAG_call(m_indexBufferBinding.buffer.get(), other->m_indexBufferBinding.buffer.get()))
+        if (m_indexBufferBinding.buffer && !m_indexBufferBinding.buffer->canBeRestoredFrom(other->m_indexBufferBinding.buffer.get()))
             return false;
         for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
         {
@@ -703,13 +702,13 @@ protected:
                 return false;
             if ((!m_vertexBufferBindings[i].buffer) != (!other->m_vertexBufferBindings[i].buffer))
                 return false;
-            if (m_vertexBufferBindings[i].buffer && !canBeRestoredFrom_recurseDAG_call(m_vertexBufferBindings[i].buffer.get(), other->m_vertexBufferBindings[i].buffer.get()))
+            if (m_vertexBufferBindings[i].buffer && !m_vertexBufferBindings[i].buffer->canBeRestoredFrom(other->m_vertexBufferBindings[i].buffer.get()))
                 return false;
         }
 
         if ((!m_descriptorSet) != (!other->m_descriptorSet))
             return false;
-        if (m_descriptorSet && !canBeRestoredFrom_recurseDAG_call(m_descriptorSet.get(), other->m_descriptorSet.get()))
+        if (m_descriptorSet && !m_descriptorSet->canBeRestoredFrom(other->m_descriptorSet.get()))
             return false;
 
         /*
@@ -717,12 +716,13 @@ protected:
             return false;
         */
         // pipeline is not optional
-        if (!canBeRestoredFrom_recurseDAG_call(m_pipeline.get(), other->m_pipeline.get()))
+        if (!m_pipeline->canBeRestoredFrom(other->m_pipeline.get()))
             return false;
 
         return true;
     }
 
+protected:
     void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
     {
         auto* other = static_cast<ICPUMeshBuffer*>(_other);

@@ -420,9 +420,12 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
         retrieve them from the cache and not load cpu objects again, which have been loaded before.
         \return boolean if was added into cache (no duplicate under same key found) and grab() was called on the asset. */
         //TODO change name
-        bool insertAssetIntoCache(SAssetBundle& _asset)
+        bool insertAssetIntoCache(SAssetBundle& _asset, IAsset::E_MUTABILITY _mutability = IAsset::EM_CPU_PERSISTENT)
         {
-            return insertAssetIntoCache(_asset, IAsset::EM_CPU_PERSISTENT);
+            const uint32_t ix = IAsset::typeFlagToIndex(_asset.getAssetType());
+            for (auto ass : _asset.getContents())
+                setAssetMutability(ass.get(), _mutability);
+            return m_assetCache[ix]->insert(_asset.getCacheKey(), _asset);
         }
 
         //! Remove an asset from cache (calls the private methods of IAsset behind the scenes)
@@ -666,6 +669,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
                 _outs << "\tKey: " << wtr.first << ", Value: " << static_cast<void*>(wtr.second) << '\n';
         }
 
+        /*
         void restoreDummyAsset(SAssetBundle& _bundle, uint32_t _levelsBelow = 0u)
         {
             bool anyIsDummy = false;
@@ -692,15 +696,8 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
                 asset->restoreFromDummy(newContent[i].get(), _levelsBelow);
             }
         }
-
+        */
     protected:
-        bool insertAssetIntoCache(SAssetBundle& _asset, IAsset::E_MUTABILITY _mutability)
-        {
-            const uint32_t ix = IAsset::typeFlagToIndex(_asset.getAssetType());
-            for (auto ass : _asset.getContents())
-                setAssetMutability(ass.get(), _mutability);
-            return m_assetCache[ix]->insert(_asset.getCacheKey(), _asset);
-        }
         bool insertBuiltinAssetIntoCache(SAssetBundle& _asset)
         {
             return insertAssetIntoCache(_asset, IAsset::EM_IMMUTABLE);

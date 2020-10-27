@@ -65,17 +65,17 @@ public:
         m_shader = core::smart_refctd_ptr<ICPUSpecializedShader>(_cs); 
     }
 
-protected:
-    bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+    bool canBeRestoredFrom(const IAsset* _other) const override
     {
         auto* other = static_cast<const ICPUComputePipeline*>(_other);
-        if (!canBeRestoredFrom_recurseDAG_call(m_shader.get(), other->m_shader.get()))
+        if (!m_shader->canBeRestoredFrom(m_shader.get()))
             return false;
-        if (!canBeRestoredFrom_recurseDAG_call(m_layout.get(), other->m_layout.get()))
+        if (!m_layout->canBeRestoredFrom(other->m_layout.get()))
             return false;
         return true;
     }
 
+protected:
     void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
     {
         auto* other = static_cast<ICPUComputePipeline*>(_other);

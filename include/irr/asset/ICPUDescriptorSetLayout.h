@@ -63,8 +63,7 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
         _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
-	protected:
-        bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+        bool canBeRestoredFrom(const IAsset* _other) const override
         {
             auto* other = static_cast<const ICPUDescriptorSetLayout*>(_other);
             if (m_bindings->size() != other->m_bindings->size())
@@ -75,12 +74,13 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
                 return false;
             if (m_samplers)
                 for (uint32_t i = 0u; i < m_samplers->size(); ++i)
-                    if (!canBeRestoredFrom_recurseDAG_call((*m_samplers)[i].get(), (*other->m_samplers)[i].get()))
+                    if (!(*m_samplers)[i]->canBeRestoredFrom((*other->m_samplers)[i].get()))
                         return false;
 
             return true;
         }
 
+	protected:
         void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
         {
             auto* other = static_cast<ICPUDescriptorSetLayout*>(_other);

@@ -61,8 +61,7 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
         _IRR_STATIC_INLINE_CONSTEXPR auto AssetType = ET_PIPELINE_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
-protected:
-        bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+        bool canBeRestoredFrom(const IAsset* _other) const override
         {
             auto* other = static_cast<const ICPUPipelineLayout*>(_other);
 
@@ -78,17 +77,18 @@ protected:
             {
                 if ((!m_descSetLayouts[i]) != (!other->m_descSetLayouts[i]))
                     return false;
-                if (!canBeRestoredFrom_recurseDAG_call(m_descSetLayouts[i].get(), other->m_descSetLayouts[i].get()))
+                if (!m_descSetLayouts[i]->canBeRestoredFrom(other->m_descSetLayouts[i].get()))
                     return false;
             }
             return true;
         }
 
+protected:
         void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
         {
             auto* other = static_cast<ICPUPipelineLayout*>(_other);
 
-            const bool restorable = canBeRestoredFrom(_other);
+            const bool restorable = willBeRestoredFrom(_other);
 
             if (restorable)
                 std::swap(m_pushConstantRanges, other->m_pushConstantRanges);

@@ -81,19 +81,19 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 
 		virtual size_t conservativeSizeEstimate() const override { return getMeshBufferCount()*sizeof(void*); }
 
-	protected:
-		bool canBeRestoredFrom_recurseDAG(const IAsset* _other) const override
+		bool canBeRestoredFrom(const IAsset* _other) const override
 		{
 			auto other = static_cast<const ICPUMesh*>(_other);
 			if (getMeshBufferCount() == other->getMeshBufferCount())
 				return false;
 			for (uint32_t i = 0u; i < getMeshBufferCount(); ++i)
-				if (!canBeRestoredFrom_recurseDAG_call(getMeshBuffer(i), other->getMeshBuffer(i)))
+				if (!getMeshBuffer(i)->canBeRestoredFrom(other->getMeshBuffer(i)))
 					return false;
 
 			return true;
 		}
 
+	protected:
 		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
 		{
 			auto* other = static_cast<ICPUMesh*>(_other);
