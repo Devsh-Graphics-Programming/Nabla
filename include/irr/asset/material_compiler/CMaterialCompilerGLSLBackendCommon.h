@@ -22,12 +22,13 @@ namespace instr_stream
 		//brdf
 		OP_DIFFUSE,
 		OP_CONDUCTOR,
-		OP_PLASTIC,
 		OP_COATING,
+		OP_MAX_BRDF = OP_COATING,
 		//bsdf
 		OP_DIFFTRANS,
 		OP_DIELECTRIC,
 		OP_THINDIELECTRIC,
+		OP_MAX_BSDF = OP_THINDIELECTRIC,
 		//blend
 		OP_BLEND,
 		//specials
@@ -127,7 +128,6 @@ namespace instr_stream
 		{
 		case OP_DIELECTRIC:
 		case OP_CONDUCTOR:
-		case OP_PLASTIC:
 		case OP_COATING:
 			return true;
 		default: return false;
@@ -142,6 +142,16 @@ namespace instr_stream
 	inline E_OPCODE getOpcode(const instr_t& i)
 	{
 		return static_cast<E_OPCODE>(core::bitfieldExtract(i, INSTR_OPCODE_SHIFT, INSTR_OPCODE_WIDTH));
+	}
+
+	inline bool opIsBRDF(E_OPCODE op)
+	{
+		return op <= OP_MAX_BRDF;
+	}
+
+	inline bool opIsBSDF(E_OPCODE op)
+	{
+		return op <= OP_MAX_BSDF && !opIsBRDF(op);
 	}
 
 	inline E_NDF getNDF(const instr_t& i)
@@ -181,7 +191,6 @@ namespace instr_stream
 		switch (op)
 		{
 		case OP_DIFFUSE: [[fallthrough]];
-		case OP_PLASTIC: [[fallthrough]];
 		case OP_COATING:
 			return 4u;
 		case OP_CONDUCTOR: [[fallthrough]];
@@ -389,7 +398,6 @@ protected:
 	_IRR_STATIC_INLINE_CONSTEXPR const char* OPCODE_NAMES[instr_stream::OPCODE_COUNT]{
 		"OP_DIFFUSE",
 		"OP_CONDUCTOR",
-		"OP_PLASTIC",
 		"OP_COATING",
 		"OP_DIFFTRANS",
 		"OP_DIELECTRIC",
@@ -484,6 +492,7 @@ public:
 		bool noNormPrecompStream;
 		bool allIsotropic;
 		bool noTwosided;
+		bool noBSDF;
 		uint32_t usedRegisterCount;
 		uint32_t globalPrefetchFlags;
 		uint32_t globalPrefetchRegCountFlags;

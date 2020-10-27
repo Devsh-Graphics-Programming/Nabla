@@ -3,7 +3,7 @@
 
 #include <irr/builtin/material_compiler/glsl/common.glsl>
 
-void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache _uf, inout bool ts_flag)
+void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache _uf)
 {
 	uint op = instr_getOpcode(instr);
 
@@ -23,34 +23,30 @@ void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout ir
 	const bool is_bsdf = !op_isBRDF(op); //note it actually tells if op is BSDF or BUMPMAP or SET_GEOM_NORMAL (divergence reasons)
 
 #ifndef NO_TWOSIDED
-	handleTwosided(ts_flag, instr, s, _uf);
+	handleTwosided(instr, s, _uf);
 #endif
 
 	const float cosFactor = irr_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
 
 	uvec3 regs = instr_decodeRegisters(instr);
 
-	if (cosFactor<=FLT_MIN && op_isBXDF(op))
-	{
-		writeReg(REG_DST(regs), bxdf_eval_t(0.0));
-		return; //early exit
-	}
-
 	irr_glsl_AnisotropicMicrofacetCache uf;
+	bool is_valid = true;
+#ifndef NO_BSDF
 	//here actually using stronger check for BSDF because it's probably worth it
 	if (op_isBSDF(op) && irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV, s.NdotL))
 	{
 		float orientedEta, rcpOrientedEta;
 		irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, currInteraction.isotropic.NdotV, ior[0].x);
-		const bool valid = irr_glsl_calcAnisotropicMicrofacetCache(uf, true, currInteraction.isotropic.V.dir, s.L, currInteraction.T, currInteraction.B, currInteraction.isotropic.N, s.NdotL, s.VdotL, orientedEta, rcpOrientedEta);
-		//assert(valid);
+		is_valid = irr_glsl_calcAnisotropicMicrofacetCache(uf, true, currInteraction.isotropic.V.dir, s.L, currInteraction.T, currInteraction.B, currInteraction.isotropic.N, s.NdotL, s.VdotL, orientedEta, rcpOrientedEta);
 	}
 	else
+#endif
 	{
 		uf = _uf;
 	}
 
-	if (cosFactor>FLT_MIN && op_hasSpecular(op))
+	if (is_valid && cosFactor>FLT_MIN && op_hasSpecular(op))
 	{
 		BEGIN_CASES(ndf)
 #ifdef NDF_GGX
@@ -132,64 +128,71 @@ void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout ir
 		END_CASES
 	}
 
-	mat2x4 srcs = instr_fetchSrcRegs(instr, regs);
 	bxdf_eval_t result;
+	if ((cosFactor <= FLT_MIN && op_isBXDF(op)) || !is_valid)
+	{
+		result = bxdf_eval_t(0.0);
+	}
+	else
+	{
+		mat2x4 srcs = instr_fetchSrcRegs(instr, regs);
 
-	BEGIN_CASES(op)
+		BEGIN_CASES(op)
 #ifdef OP_DIFFUSE
-	CASE_BEGIN(op, OP_DIFFUSE) {
-		result = instr_execute_cos_eval_DIFFUSE(instr, s, params, bsdf_data);
-	} CASE_END
+		CASE_BEGIN(op, OP_DIFFUSE) {
+			result = instr_execute_cos_eval_DIFFUSE(instr, s, params, bsdf_data);
+		} CASE_END
 #endif
 #ifdef OP_CONDUCTOR
-	CASE_BEGIN(op, OP_CONDUCTOR) {
-		result = instr_execute_cos_eval_CONDUCTOR(instr, s, uf, bxdf_eval_scalar_part, params, bsdf_data);
-	} CASE_END
+		CASE_BEGIN(op, OP_CONDUCTOR) {
+			result = instr_execute_cos_eval_CONDUCTOR(instr, s, uf, bxdf_eval_scalar_part, params, bsdf_data);
+		} CASE_END
 #endif
 #ifdef OP_PLASTIC
-	CASE_BEGIN(op, OP_PLASTIC) {
-		vec2 dummy;
-		result = instr_execute_cos_eval_PLASTIC(instr, s, uf, bxdf_eval_scalar_part, params, bsdf_data, dummy);
-	} CASE_END
+		CASE_BEGIN(op, OP_PLASTIC) {
+			vec2 dummy;
+			result = instr_execute_cos_eval_PLASTIC(instr, s, uf, bxdf_eval_scalar_part, params, bsdf_data, dummy);
+		} CASE_END
 #endif
 #ifdef OP_COATING
-	CASE_BEGIN(op, OP_COATING) {
-		result = instr_execute_cos_eval_COATING(instr, srcs, params, s, uf, bxdf_eval_scalar_part, bsdf_data);
-	} CASE_END
+		CASE_BEGIN(op, OP_COATING) {
+			result = instr_execute_cos_eval_COATING(instr, srcs, params, s, uf, bxdf_eval_scalar_part, bsdf_data);
+		} CASE_END
 #endif
 #ifdef OP_DIFFTRANS
-	CASE_BEGIN(op, OP_DIFFTRANS) {
-		result = instr_execute_cos_eval_DIFFTRANS(instr, s, params, bsdf_data);
-	} CASE_END
+		CASE_BEGIN(op, OP_DIFFTRANS) {
+			result = instr_execute_cos_eval_DIFFTRANS(instr, s, params, bsdf_data);
+		} CASE_END
 #endif
 #ifdef OP_DIELECTRIC
-	CASE_BEGIN(op, OP_DIELECTRIC) {
-		result = instr_execute_cos_eval_DIELECTRIC(instr, s, bxdf_eval_scalar_part);
-	} CASE_END
+		CASE_BEGIN(op, OP_DIELECTRIC) {
+			result = instr_execute_cos_eval_DIELECTRIC(instr, s, bxdf_eval_scalar_part);
+		} CASE_END
 #endif
 #ifdef OP_THINDIELECTRIC
-	CASE_BEGIN(op, OP_THINDIELECTRIC) {
-		result = instr_execute_cos_eval_THINDIELECTRIC(instr, s, params, bsdf_data);
-	} CASE_END
+		CASE_BEGIN(op, OP_THINDIELECTRIC) {
+			result = instr_execute_cos_eval_THINDIELECTRIC(instr, s, params, bsdf_data);
+		} CASE_END
 #endif
 #ifdef OP_BLEND
-	CASE_BEGIN(op, OP_BLEND) {
-		result = instr_execute_cos_eval_BLEND(instr, srcs, params, bsdf_data);
-	} CASE_END
+		CASE_BEGIN(op, OP_BLEND) {
+			result = instr_execute_cos_eval_BLEND(instr, srcs, params, bsdf_data);
+		} CASE_END
 #endif
 #ifdef OP_BUMPMAP
-	CASE_BEGIN(op, OP_BUMPMAP) {
-		instr_execute_BUMPMAP(instr, srcs);
-	} CASE_END
+		CASE_BEGIN(op, OP_BUMPMAP) {
+			instr_execute_BUMPMAP(instr, srcs);
+		} CASE_END
 #endif
 #ifdef OP_SET_GEOM_NORMAL
-	CASE_BEGIN(op, OP_SET_GEOM_NORMAL) {
-		instr_execute_SET_GEOM_NORMAL();
-	} CASE_END
+		CASE_BEGIN(op, OP_SET_GEOM_NORMAL) {
+			instr_execute_SET_GEOM_NORMAL(instr);
+		} CASE_END
 #endif
-	CASE_OTHERWISE
-	{} //else "empty braces"
-	END_CASES
+		CASE_OTHERWISE
+		{} //else "empty braces"
+		END_CASES
+	}
 
 	if (op_isBXDForBlend(op))
 		writeReg(REG_DST(regs), result);
@@ -197,7 +200,6 @@ void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout ir
 
 bxdf_eval_t runEvalStream(in instr_stream_t stream, in vec3 L)
 {
-	bool ts = false;
 	instr_execute_SET_GEOM_NORMAL();
 	irr_glsl_LightSample s = irr_glsl_createLightSample(L, currInteraction);
 	irr_glsl_AnisotropicMicrofacetCache uf = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
@@ -206,7 +208,7 @@ bxdf_eval_t runEvalStream(in instr_stream_t stream, in vec3 L)
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
 		uint op = instr_getOpcode(instr);
 
-		instr_eval_execute(instr, s, uf, ts);
+		instr_eval_execute(instr, s, uf);
 
 #if defined(OP_SET_GEOM_NORMAL)||defined(OP_BUMPMAP)
 		if (

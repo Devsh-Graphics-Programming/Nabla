@@ -347,6 +347,16 @@ void setCurrInteraction(in vec3 N)
 	irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, N);
 	currInteraction = irr_glsl_calcAnisotropicInteraction(interaction);
 }
+void setCurrInteraction(in vec3 N, in bool ts)
+{
+#ifdef NO_TWOSIDED
+	setCurrInteraction(N);
+#else
+	vec3 campos = irr_glsl_MC_getCamPos();
+	vec3 view = campos - WorldPos;
+	setCurrInteraction((ts && dot(N,view)<0.0) ? -N : N);
+#endif
+}
 
 //clamping alpha to min MIN_ALPHA because we're using microfacet BxDFs for deltas as well (and NDFs often end up NaN when given alpha=0) because of less deivergence
 //probably temporary solution
@@ -485,9 +495,21 @@ bxdf_eval_t instr_execute_cos_eval_COATING(in instr_t instr, in mat2x4 srcs, in 
 
 eval_and_pdf_t instr_execute_cos_eval_pdf_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in float DG, in bsdf_data_t data, in float coat_pdf)
 {
+	vec2 thickness_eta = unpackHalf2x16(data.data[3].x);
+	vec3 eta = vec3(thickness_eta.y);
+	vec3 eta2 = eta * eta;
+
 	bxdf_eval_t bxdf = instr_execute_cos_eval_COATING(instr, srcs, params, s, uf, DG, data);
 	float coated_pdf = srcs[0].w;
-	float pdf = 0.5*coated_pdf + 0.5*coat_pdf;
+
+	const vec3 fr = (bxdf - srcs[0].xyz) / DG;
+	float ws = dot(CIE_XYZ_Luma_Y_coeffs, fr);
+	const vec3 diffuse_weight = irr_glsl_diffuseFresnelCorrectionFactor(eta, eta2) * (vec3(1.0) - irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0) - irr_glsl_fresnel_dielectric(eta, s.NdotL));
+	float wd = dot(CIE_XYZ_Luma_Y_coeffs, diffuse_weight);
+	float wswd = ws + wd;
+	ws /= wswd;
+	wd /= wswd;
+	float pdf = wd*coated_pdf + ws*coat_pdf;
 
 	return eval_and_pdf_t(bxdf, pdf);
 }
@@ -495,9 +517,16 @@ eval_and_pdf_t instr_execute_cos_eval_pdf_COATING(in instr_t instr, in mat2x4 sr
 void instr_execute_BUMPMAP(in instr_t instr, in mat2x4 srcs)
 {
 	vec3 N = srcs[0].xyz;
-	setCurrInteraction(N);
+	bool ts = instr_getTwosided(instr);
+	setCurrInteraction(N, ts);
 }
 
+void instr_execute_SET_GEOM_NORMAL(in instr_t instr)
+{
+	vec3 N = normalize(Normal);
+	bool ts = instr_getTwosided(instr);
+	setCurrInteraction(N, ts);
+}
 void instr_execute_SET_GEOM_NORMAL()
 {
 	setCurrInteraction(normalize(Normal));
@@ -714,44 +743,30 @@ void flipCurrInteraction()
 	currInteraction.BdotV = -currInteraction.BdotV;
 }
 //call before executing an instruction/evaluating bsdf
-void handleTwosided_interactionOnly(inout bool ts_flag, in instr_t instr)
+void handleTwosided_interactionOnly(in instr_t instr)
 {
 #ifndef NO_TWOSIDED
-	if (!ts_flag && instr_getTwosided(instr))
+	if (instr_getTwosided(instr) && currInteraction.isotropic.NdotV<0.0)
 	{
-		ts_flag = true;
-		if (currInteraction.isotropic.NdotV<0.0)
-		{
-			flipCurrInteraction();
-		}
+		flipCurrInteraction();
 	}
-#ifdef OP_BUMPMAP
-	ts_flag = instr_getOpcode(instr)==OP_BUMPMAP ? false:ts_flag;
-#endif
 #endif	
 }
 //call before executing an instruction/evaluating bsdf
-void handleTwosided(inout bool ts_flag, in instr_t instr, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache uf)
+void handleTwosided(in instr_t instr, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache uf)
 {
 #ifndef NO_TWOSIDED
-	if (!ts_flag && instr_getTwosided(instr))
+	if (instr_getTwosided(instr) && currInteraction.isotropic.NdotV<0.0)
 	{
-		ts_flag = true;
-		if (currInteraction.isotropic.NdotV<0.0)
-		{
-			flipCurrInteraction();
+		flipCurrInteraction();
 
-			s.NdotL = -s.NdotL;
-			s.TdotL = -s.TdotL;
-			s.BdotL = -s.BdotL;
-			uf.isotropic.NdotH = -uf.isotropic.NdotH;
-			uf.TdotH = -uf.TdotH;
-			uf.BdotH = -uf.BdotH;
-		}
+		s.NdotL = -s.NdotL;
+		s.TdotL = -s.TdotL;
+		s.BdotL = -s.BdotL;
+		uf.isotropic.NdotH = -uf.isotropic.NdotH;
+		uf.TdotH = -uf.TdotH;
+		uf.BdotH = -uf.BdotH;
 	}
-#ifdef OP_BUMPMAP
-	ts_flag = instr_getOpcode(instr)==OP_BUMPMAP ? false:ts_flag;
-#endif
 #endif
 }
 
@@ -885,7 +900,7 @@ float irr_glsl_blinn_phong_cos_eval_DG(in irr_glsl_LightSample s, in irr_glsl_An
 }
 
 #ifdef GEN_CHOICE_STREAM
-void instr_eval_and_pdf_execute(in instr_t instr, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache _uf, inout bool ts_flag)
+void instr_eval_and_pdf_execute(in instr_t instr, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache _uf)
 {
 	uint op = instr_getOpcode(instr);
 
@@ -908,26 +923,28 @@ void instr_eval_and_pdf_execute(in instr_t instr, inout irr_glsl_LightSample s, 
 	const bool is_bsdf = !op_isBRDF(op); //note it actually tells if op is BSDF or BUMPMAP or SET_GEOM_NORMAL (divergence reasons)
 
 #ifndef NO_TWOSIDED
-	handleTwosided(ts_flag, instr, s, _uf);
+	handleTwosided(instr, s, _uf);
 #endif
 
 	float cosFactor = irr_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
 
 	irr_glsl_AnisotropicMicrofacetCache uf;
+	bool is_valid = true;
+#ifndef NO_BSDF
 	//here actually using stronger check for BSDF because it's probably worth it
 	if (op_isBSDF(op) && irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV, s.NdotL))
 	{
 		float orientedEta, rcpOrientedEta;
 		irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, currInteraction.isotropic.NdotV, ior[0].x);
-		const bool valid = irr_glsl_calcAnisotropicMicrofacetCache(uf, true, currInteraction.isotropic.V.dir, s.L, currInteraction.T, currInteraction.B, currInteraction.isotropic.N, s.NdotL, s.VdotL, orientedEta, rcpOrientedEta);
-		//assert(valid);
+		is_valid = irr_glsl_calcAnisotropicMicrofacetCache(uf, true, currInteraction.isotropic.V.dir, s.L, currInteraction.T, currInteraction.B, currInteraction.isotropic.N, s.NdotL, s.VdotL, orientedEta, rcpOrientedEta);
 	}
 	else
+#endif
 	{
 		uf = _uf;
 	}
 
-	if (cosFactor>FLT_MIN && op_hasSpecular(op))//does cos>0 check even has any point here? L comes from a sample..
+	if (is_valid && cosFactor>FLT_MIN)//does cos>0 check even has any point here? L comes from a sample..
 	{
 #ifdef OP_DIFFUSE
 		if (op==OP_DIFFUSE) {
@@ -1022,73 +1039,74 @@ void instr_eval_and_pdf_execute(in instr_t instr, inout irr_glsl_LightSample s, 
 
 	uvec3 regs = instr_decodeRegisters(instr);
 
-	if (cosFactor<=FLT_MIN && op_isBXDF(op))
-	{
-		writeReg(REG_DST(regs), eval_and_pdf_t(bxdf_eval_t(0.0), pdf));
-		return; //early exit
-	}
-
-	mat2x4 srcs = instr_fetchSrcRegs(instr, regs);
 	eval_and_pdf_t result;
-	BEGIN_CASES(op)
+	if ((cosFactor<=FLT_MIN && op_isBXDF(op)) || !is_valid)
+	{
+		result = eval_and_pdf_t(bxdf_eval_t(0.0), pdf);
+	}
+	else
+	{
+		mat2x4 srcs = instr_fetchSrcRegs(instr, regs);
+		BEGIN_CASES(op)
 #ifdef OP_DIFFUSE
-	CASE_BEGIN(op, OP_DIFFUSE) {
-		result.xyz = instr_execute_cos_eval_DIFFUSE(instr, s, params, bsdf_data);
-		result.w = pdf;
-	} CASE_END
+		CASE_BEGIN(op, OP_DIFFUSE) {
+			result.xyz = instr_execute_cos_eval_DIFFUSE(instr, s, params, bsdf_data);
+			result.w = pdf;
+		} CASE_END
 #endif
 #ifdef OP_DIFFTRANS
-	CASE_BEGIN(op, OP_DIFFTRANS) {
-		result.xyz = instr_execute_cos_eval_DIFFTRANS(instr, s, params, bsdf_data);
-		result.w = pdf;
-	} CASE_END
+		CASE_BEGIN(op, OP_DIFFTRANS) {
+			result.xyz = instr_execute_cos_eval_DIFFTRANS(instr, s, params, bsdf_data);
+			result.w = pdf;
+		} CASE_END
 #endif
 #ifdef OP_CONDUCTOR
-	CASE_BEGIN(op, OP_CONDUCTOR) {
-		result.xyz = instr_execute_cos_eval_CONDUCTOR(instr, s, uf, bxdf_eval_scalar_part, params, bsdf_data);
-		result.w = pdf;
-	} CASE_END
+		CASE_BEGIN(op, OP_CONDUCTOR) {
+			result.xyz = instr_execute_cos_eval_CONDUCTOR(instr, s, uf, bxdf_eval_scalar_part, params, bsdf_data);
+			result.w = pdf;
+		} CASE_END
 #endif
 #ifdef OP_PLASTIC
-	CASE_BEGIN(op, OP_PLASTIC) {
-		result = instr_execute_cos_eval_pdf_PLASTIC(instr, s, uf, regs, bxdf_eval_scalar_part, params, bsdf_data, pdf);
-	} CASE_END
+		CASE_BEGIN(op, OP_PLASTIC) {
+			result = instr_execute_cos_eval_pdf_PLASTIC(instr, s, uf, regs, bxdf_eval_scalar_part, params, bsdf_data, pdf);
+		} CASE_END
 #endif
 #ifdef OP_COATING
-	CASE_BEGIN(op, OP_COATING) {
-		//(in instr_t instr, in mat2x4 srcs, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in float DG, in params_t params, in bsdf_data_t data, in float coat_pdf)
-		result = instr_execute_cos_eval_pdf_COATING(instr, srcs, params, s, uf, bxdf_eval_scalar_part, bsdf_data, pdf);
-	} CASE_END
+		CASE_BEGIN(op, OP_COATING) {
+			//(in instr_t instr, in mat2x4 srcs, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache uf, in float DG, in params_t params, in bsdf_data_t data, in float coat_pdf)
+			result = instr_execute_cos_eval_pdf_COATING(instr, srcs, params, s, uf, bxdf_eval_scalar_part, bsdf_data, pdf);
+		} CASE_END
 #endif
 #ifdef OP_DIELECTRIC
-	CASE_BEGIN(op, OP_DIELECTRIC) {
-		result.xyz = instr_execute_cos_eval_DIELECTRIC(instr, s, bxdf_eval_scalar_part);
-		result.w = pdf;
-	} CASE_END
+		CASE_BEGIN(op, OP_DIELECTRIC) {
+			result.xyz = instr_execute_cos_eval_DIELECTRIC(instr, s, bxdf_eval_scalar_part);
+			result.w = pdf;
+		} CASE_END
 #endif
 #ifdef OP_THINDIELECTRIC
-	CASE_BEGIN(op, OP_THINDIELECTRIC) {
-		result = instr_execute_cos_eval_pdf_THINDIELECTRIC(instr, s, regs, params, bsdf_data);
-	} CASE_END
+		CASE_BEGIN(op, OP_THINDIELECTRIC) {
+			result = instr_execute_cos_eval_pdf_THINDIELECTRIC(instr, s, regs, params, bsdf_data);
+		} CASE_END
 #endif
 #ifdef OP_BLEND
-	CASE_BEGIN(op, OP_BLEND) {
-		result = instr_execute_cos_eval_pdf_BLEND(instr, srcs, params, bsdf_data);
-	} CASE_END
+		CASE_BEGIN(op, OP_BLEND) {
+			result = instr_execute_cos_eval_pdf_BLEND(instr, srcs, params, bsdf_data);
+		} CASE_END
 #endif
 #ifdef OP_BUMPMAP
-	CASE_BEGIN(op, OP_BUMPMAP) {
-		instr_execute_BUMPMAP(instr, srcs);
-	} CASE_END
+		CASE_BEGIN(op, OP_BUMPMAP) {
+			instr_execute_BUMPMAP(instr, srcs);
+		} CASE_END
 #endif
 #ifdef OP_SET_GEOM_NORMAL
-	CASE_BEGIN(op, OP_SET_GEOM_NORMAL) {
-		instr_execute_SET_GEOM_NORMAL();
-	} CASE_END
+		CASE_BEGIN(op, OP_SET_GEOM_NORMAL) {
+			instr_execute_SET_GEOM_NORMAL(instr);
+		} CASE_END
 #endif
-	CASE_OTHERWISE
-	{} //else "empty braces"
-	END_CASES
+		CASE_OTHERWISE
+		{} //else "empty braces"
+		END_CASES
+	}
 
 	if (op_isBXDForBlend(op))
 		writeReg(REG_DST(regs), result);
@@ -1096,7 +1114,6 @@ void instr_eval_and_pdf_execute(in instr_t instr, inout irr_glsl_LightSample s, 
 
 eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, inout irr_glsl_LightSample s, in instr_t generator, inout irr_glsl_AnisotropicMicrofacetCache uf)
 {
-	bool ts = false;
 	const bool is_generator_bsdf = op_isBRDF(instr_getOpcode(generator));
 	instr_execute_SET_GEOM_NORMAL();
 	for (uint i = 0u; i < stream.count; ++i)
@@ -1106,7 +1123,7 @@ eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, inout irr_glsl_Li
 
 		if (INSTR_1ST_DWORD(instr) != INSTR_1ST_DWORD(generator))
 		{
-			instr_eval_and_pdf_execute(instr, s, uf, ts);
+			instr_eval_and_pdf_execute(instr, s, uf);
 		}
 		else
 		{
@@ -1166,6 +1183,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 #endif
 	)
 	{
+		handleTwosided_interactionOnly(instr);
 #ifdef OP_BLEND
 		if (op==OP_BLEND) {
 			bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
@@ -1182,18 +1200,24 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 #endif //OP_BLEND
 #ifdef OP_COATING
 		if (op==OP_COATING) {
+			// ehh this whole thing of managing COATING is bad af
+			bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
+			vec3 eta = vec3(unpackHalf2x16(bsdf_data.data[3].x).y);
 			float dummy;
-			bool choseCoat = irr_glsl_partitionRandVariable(0.5, u.z, dummy);
+			vec3 fresnel = irr_glsl_fresnel_dielectric_frontface_only(eta, currInteraction.isotropic.NdotV);
+			float w = dot(fresnel, CIE_XYZ_Luma_Y_coeffs);
+			bool choseCoat = irr_glsl_partitionRandVariable(w, u.z, dummy);
 			if (choseCoat)
 				break;
-			ix = ix+1u;
+			else
+				ix = ix+1u;
 		} else
 #endif //OP_COATING
 		{
 #ifdef OP_SET_GEOM_NORMAL
 			if (op==OP_SET_GEOM_NORMAL)
 			{
-				instr_execute_SET_GEOM_NORMAL();
+				instr_execute_SET_GEOM_NORMAL(instr);
 			} else 
 #endif //OP_SET_GEOM_NORMAL
 #ifdef OP_BUMPMAP
@@ -1223,8 +1247,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 	const vec3 refl = params_getReflectance(params);
 
 #ifndef NO_TWOSIDED
-	bool ts_flag = false;
-	handleTwosided_interactionOnly(ts_flag, instr);
+	handleTwosided_interactionOnly(instr);
 #endif //NO_TWOSIDED
 
 #ifdef OP_PLASTIC

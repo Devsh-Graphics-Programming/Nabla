@@ -139,35 +139,6 @@ namespace instr_stream
 				_dst.conductor.eta[1] = core::rgb32f_to_rgb19e7(node->etaK.pointer);
 			}
 			break;
-			case OP_PLASTIC:
-			{
-				auto* node = static_cast<const IR::CBSDFCombinerNode*>(_node);
-				assert(node->type == IR::CBSDFCombinerNode::ET_DIFFUSE_AND_SPECULAR);
-
-				auto* d = static_cast<const IR::CBSDFNode*>(node->children[0]);
-				auto* s = static_cast<const IR::CBSDFNode*>(node->children[1]);
-				if (d->type == IR::CBSDFNode::ET_MICROFACET_SPECULAR)
-					std::swap(d, s);
-
-				auto* diffuse = static_cast<const IR::CMicrofacetDiffuseBSDFNode*>(d);
-				auto* specular = static_cast<const IR::CMicrofacetSpecularBSDFNode*>(s);
-
-				if (diffuse->reflectance.source == IR::INode::EPS_TEXTURE)
-					_dst.plastic.reflectance.setTexture(packTexture(diffuse->reflectance.value.texture), diffuse->reflectance.value.texture.scale);
-				else
-					_dst.plastic.reflectance.setConst(diffuse->reflectance.value.constant.pointer);
-				if (specular->alpha_u.source == IR::INode::EPS_TEXTURE)
-					_dst.plastic.alpha_u.setTexture(packTexture(specular->alpha_u.value.texture), specular->alpha_u.value.texture.scale);
-				else
-					_dst.plastic.alpha_u.setConst(specular->alpha_u.value.constant);
-				if (specular->alpha_v.source == IR::INode::EPS_TEXTURE)
-					_dst.plastic.alpha_v.setTexture(packTexture(specular->alpha_v.value.texture), specular->alpha_v.value.texture.scale);
-				else
-					_dst.plastic.alpha_v.setConst(specular->alpha_v.value.constant);
-
-				_dst.plastic.eta = specular->eta.x;
-			}
-			break;
 			case OP_COATING:
 			{
 				auto* coat = static_cast<const IR::CCoatingBSDFNode*>(_node);
@@ -315,7 +286,6 @@ namespace instr_stream
 			case OP_DIELECTRIC: _IRR_FALLTHROUGH;
 			case OP_THINDIELECTRIC: _IRR_FALLTHROUGH;
 			case OP_CONDUCTOR: _IRR_FALLTHROUGH;
-			case OP_PLASTIC: _IRR_FALLTHROUGH;
 			case OP_COATING: _IRR_FALLTHROUGH;
 			case OP_BLEND: _IRR_FALLTHROUGH;
 			case OP_NOOP:
@@ -383,21 +353,6 @@ namespace instr_stream
 			{
 				auto* node = static_cast<const IR::CMicrofacetSpecularBSDFNode*>(_node);
 				_instr = handleSpecularBitfields(_instr, node);
-			}
-			break;
-			case OP_PLASTIC:
-			{
-				auto* node = static_cast<const IR::CBSDFCombinerNode*>(_node);
-				assert(node->type == IR::CBSDFCombinerNode::ET_DIFFUSE_AND_SPECULAR);
-
-				auto* diffuse = static_cast<const IR::CBSDFNode*>(node->children[0]);
-				auto* specular = static_cast<const IR::CBSDFNode*>(node->children[1]);
-				if (diffuse->type == IR::CBSDFNode::ET_MICROFACET_SPECULAR)
-					std::swap(diffuse, specular);
-
-				_instr = handleSpecularBitfields(_instr, static_cast<const IR::CMicrofacetSpecularBSDFNode*>(specular));
-				if (static_cast<const IR::CMicrofacetDiffuseBSDFNode*>(diffuse)->reflectance.source == IR::INode::EPS_TEXTURE)
-					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, BITFIELDS_SHIFT_REFL_TEX, 1);
 			}
 			break;
 			case OP_COATING:
@@ -701,17 +656,6 @@ std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(
 			out_next = node->children;
 			instr = OP_BLEND;
 			break;
-		case IR::CBSDFCombinerNode::ET_DIFFUSE_AND_SPECULAR:
-		{
-			assert(node->children.count==2u);
-			assert(node->children[0]->symbol==IR::INode::ES_BSDF && node->children[1]->symbol==IR::INode::ES_BSDF);
-			auto type = static_cast<const IR::CBSDFNode*>(node->children[0])->type;
-			assert(type==IR::CBSDFNode::ET_MICROFACET_DIFFUSE || type==IR::CBSDFNode::ET_MICROFACET_SPECULAR);
-			type = static_cast<const IR::CBSDFNode*>(node->children[1])->type;
-			assert(type==IR::CBSDFNode::ET_MICROFACET_DIFFUSE || type==IR::CBSDFNode::ET_MICROFACET_SPECULAR);
-			instr = OP_PLASTIC;
-		}
-		break;
 		case IR::CBSDFCombinerNode::ET_FRESNEL_BLEND:
 		{
 			assert(node->children.count==2u);
@@ -1085,9 +1029,6 @@ instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const travers
 
 		switch (op)
 		{
-		case OP_PLASTIC:
-			write_fetch_bitfields(i, bsdf_data.plastic.alpha_v.tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_ALPHA_V_TEX, BITFIELDS_REG_1_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, 1u);
-			_IRR_FALLTHROUGH;
 		case OP_DIFFUSE:
 			write_fetch_bitfields(i, bsdf_data.param[0].tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);//alpha_u
 			write_fetch_bitfields(i, bsdf_data.param[3].tex, BITFIELDS_FETCH_TEX_3_SHIFT, BITFIELDS_SHIFT_REFL_TEX, BITFIELDS_REG_3_SHIFT, BITFIELDS_FETCH_TEX_3_REG_CNT_SHIFT, 3u);//reflectance
@@ -1138,8 +1079,8 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 
 	for (E_OPCODE op : _res.opcodes)
 		defs += "\n#define "s + OPCODE_NAMES[op] + " " + std::to_string(op);
-	defs += "\n#define OP_MAX_BRDF " + std::to_string(OP_COATING);
-	defs += "\n#define OP_MAX_BSDF " + std::to_string(OP_THINDIELECTRIC);
+	defs += "\n#define OP_MAX_BRDF " + std::to_string(OP_MAX_BRDF);
+	defs += "\n#define OP_MAX_BSDF " + std::to_string(OP_MAX_BSDF);
 
 	for (E_NDF ndf : _res.NDFs)
 		defs += "\n#define "s + NDF_NAMES[ndf] + " " + std::to_string(ndf);
@@ -1158,6 +1099,8 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 		defs += "\n#define ALL_ISOTROPIC_BXDFS";
 	if (_res.noTwosided)
 		defs += "\n#define NO_TWOSIDED";
+	if (_res.noBSDF)
+		defs += "\n#define NO_BSDF";
 
 	//instruction bitfields
 	defs += "\n#define INSTR_OPCODE_MASK " + std::to_string(INSTR_OPCODE_MASK);
@@ -1433,6 +1376,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 
 	res.allIsotropic = true;
 	res.noTwosided = true;
+	res.noBSDF = true;
 	for (const auto& e : res.streams)
 	{
 		const result_t::instr_streams_t& streams = e.second;
@@ -1468,6 +1412,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 
 			const bool ts = core::bitfieldExtract(instr, BITFIELDS_SHIFT_TWOSIDED, 1);
 			res.noTwosided = res.noTwosided && !ts;
+			res.noBSDF = res.noBSDF && !instr_stream::opIsBSDF(op);
 
 			res.opcodes.insert(op);
 			if (instr_stream::opHasSpecular(op))
@@ -1655,18 +1600,6 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 
 		_out << "Eta:  { " << eta.x << ", " << eta.y << ", " << eta.z << " }\n";
 		_out << "EtaK: { " << etak.x << ", " << etak.y << ", " << etak.z << " }\n";
-	}
-		break;
-	case OP_PLASTIC:
-	{
-		ndfAndAnisoAlphaTexPrint(instr, data);
-		bool refl = core::bitfieldExtract(instr, BITFIELDS_SHIFT_REFL_TEX, 1);
-		_out << "Refl tex " << refl << "\n";
-		_out << "Refl val/reg " << paramVal3OrRegStr(data.diffuse.reflectance, refl) << "\n";
-
-		const auto& data = _res.bsdfData[bsdf_ix];
-		const float eta = data.plastic.eta;
-		_out << "Eta: " << eta << "\n";
 	}
 	break;
 	case OP_COATING:
