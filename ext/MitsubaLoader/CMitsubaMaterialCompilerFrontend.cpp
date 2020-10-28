@@ -132,17 +132,9 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
 		    switch (bytesPerChannel)
 		    {
 		    case 1u:
-    #ifndef DERIV_MAP_FLOAT32
-			    return asset::EF_R8G8_UNORM;
-    #else
-			    _IRR_FALLTHROUGH;
-    #endif
+			    return asset::EF_R8G8_SNORM;
 		    case 2u:
-    #ifndef DERIV_MAP_FLOAT32
-			    return asset::EF_R16G16_SFLOAT;
-    #else
-			    _IRR_FALLTHROUGH;
-    #endif
+			    return asset::EF_R16G16_SNORM;
 		    case 4u:
 			    return asset::EF_R32G32_SFLOAT;
 		    case 8u:
@@ -283,7 +275,7 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
         if (src.value.type == SPropertyElementData::INVALID)
         {
             dst.source = IR::INode::EPS_TEXTURE;
-            //making sure smart_refctd_ptr assignment ptr wont try to drop() -- .value is union
+            //making sure smart_refctd_ptr assignment wont try to drop() -- .value is union
             dst.value.constant = 0.f;
             std::tie(dst.value.texture.image, dst.value.texture.sampler, dst.value.texture.scale) = getTexture(src.texture);
             if (!dst.value.texture.image) {
@@ -304,10 +296,10 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
         if (src.value.type == SPropertyElementData::INVALID)
         {
             dst.source = IR::INode::EPS_TEXTURE;
-            //make sure smart_refctd_ptr assignment ptr wont try to drop() -- .value is union
+            //making sure smart_refctd_ptr assignment wont try to drop() -- .value is union
             dst.value.constant = IR::INode::color_t(0.f);
             std::tie(dst.value.texture.image, dst.value.texture.sampler, dst.value.texture.scale) = getTexture(src.texture);
-            if (!dst.value.texture.image) { //TODO should be using loader override here
+            if (!dst.value.texture.image) {
                 assert(!dst.value.texture.sampler);
                 dst.source = IR::INode::EPS_CONSTANT;
                 dst.value.constant = IR::INode::color_t(1.f, 0.f, 0.f);//red in case when didnt find texture
@@ -373,7 +365,7 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
             if (currType==CElementBSDF::ROUGHDIFFUSE)
             {
                 getFloatOrTexture(current->diffuse.alpha, static_cast<IR::CMicrofacetDiffuseBSDFNode*>(nextSym)->alpha_u);
-                getFloatOrTexture(current->diffuse.alpha, static_cast<IR::CMicrofacetDiffuseBSDFNode*>(nextSym)->alpha_v);
+                static_cast<IR::CMicrofacetDiffuseBSDFNode*>(nextSym)->alpha_v = static_cast<IR::CMicrofacetDiffuseBSDFNode*>(nextSym)->alpha_u;
             }
             else
             {
@@ -499,7 +491,8 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
             nextSym->children.count = 1u;
 
             auto* node = static_cast<IR::CGeomModifierNode*>(nextSym);
-            node->source = IR::CGeomModifierNode::ESRC_TEXTURE;
+            //no other source supported for now (uncomment in the future) [far future TODO]
+            //node->source = IR::CGeomModifierNode::ESRC_TEXTURE;
             auto bm = getTexture(current->bumpmap.texture);
 
             auto& img = std::get<0>(bm)->getCreationParameters().image;

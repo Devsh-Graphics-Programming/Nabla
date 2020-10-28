@@ -6,6 +6,8 @@
 #include "../../ext/MitsubaLoader/CMitsubaLoader.h"
 #include "../../ext/MitsubaLoader/ParserUtil.h"
 
+#define DEBUG_MITSUBA_LOADER
+
 namespace irr
 {
 using namespace asset;
@@ -41,20 +43,8 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO {
 } CamData;
 #endif //_IRR_VERT_SET1_BINDINGS_DEFINED_
 
-struct InstanceData
-{
-	mat4x3 tform;
-	vec3 normalMatrixRow0;
-	uint instr_offset;
-	vec3 normalMatrixRow1;
-	uint rem_pdf_count;
-	vec3 normalMatrixRow2;
-	uint _padding;//not needed
-	uvec2 emissive;
-	uint prefetch_count;
-	uint nprecomp_count;
-	uint genchoice_count;
-};
+#include <irr/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl>
+
 layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
 	InstanceData data[];
 } InstData;
@@ -92,7 +82,7 @@ layout (location = 0) out vec4 OutColor;
 #define _IRR_VT_PAGE_TABLE_BINDING 0
 
 #define _IRR_VT_FLOAT_VIEWS_BINDING 1 
-#define _IRR_VT_FLOAT_VIEWS_COUNT 5
+#define _IRR_VT_FLOAT_VIEWS_COUNT 6
 #define _IRR_VT_FLOAT_VIEWS
 
 #define _IRR_VT_INT_VIEWS_BINDING 2
@@ -147,20 +137,8 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO {
     irr_glsl_SBasicViewParameters params;
 } CamData;
 
-struct InstanceData
-{
-	mat4x3 tform;
-	vec3 normalMatrixRow0;
-	uint instr_offset;
-	vec3 normalMatrixRow1;
-	uint rem_pdf_count;
-	vec3 normalMatrixRow2;
-	uint _padding;//not needed
-	uvec2 emissive;
-	uint prefetch_count;
-	uint nprecomp_count;
-	uint genchoice_count;
-};
+#include <irr/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl>
+
 layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
 	InstanceData data[];
 } InstData;
@@ -1241,7 +1219,9 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		d->desc = std::move(bsdfbuf);
 	}
 
+#ifdef DEBUG_MITSUBA_LOADER
 	std::ofstream ofile("log.txt");
+#endif
 	core::vector<SInstanceData> instanceData;
 	for (auto it = meshBegin; it != meshEnd; ++it)
 	{
@@ -1258,9 +1238,11 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			_IRR_DEBUG_BREAK_IF(streams_it==_compResult.streams.end());
 			const auto& streams = streams_it->second;
 
+#ifdef DEBUG_MITSUBA_LOADER
 			os::Printer::log("Debug print BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
 			ofile << "Debug print BSDF with id = " << inst.bsdf_id << std::endl;
 			_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
+#endif
 
 			SInstanceData instData;
 			instData.tform = inst.tform;
@@ -1280,7 +1262,9 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			reinterpret_cast<uint32_t*>(mb->getPushConstantsDataPtr())[0] = instDataOffset;
 		}
 	}
+#ifdef DEBUG_MITSUBA_LOADER
 	ofile.close();
+#endif
 	d = ds0->getDescriptors(INSTANCE_DATA_BINDING).begin();
 	{
 		auto instDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(instanceData.size()*sizeof(SInstanceData));
@@ -1330,13 +1314,8 @@ SContext::SContext(
 	ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this)
 {
 	//TODO (maybe) dynamically decide which of those are needed OR just wait until IVirtualTexture does it on itself (dynamically creates resident storages)
-	constexpr asset::E_FORMAT formats[]{ asset::EF_R8_UNORM, asset::EF_R8G8_UNORM, asset::EF_R8G8B8_SRGB, asset::EF_R8G8B8A8_SRGB
-#ifdef DERIV_MAP_FLOAT32
-		, asset::EF_R32G32_SFLOAT
-#endif
-	};
-	constexpr size_t formatCount = sizeof(formats)/sizeof(*formats);
-	std::array<asset::ICPUVirtualTexture::ICPUVTResidentStorage::SCreationParams, formatCount> storage;
+	constexpr asset::E_FORMAT formats[]{ asset::EF_R8_UNORM, asset::EF_R8G8_UNORM, asset::EF_R8G8_SNORM, asset::EF_R8G8B8_SRGB, asset::EF_R8G8B8A8_SRGB, asset::EF_R16G16_SNORM };
+	std::array<asset::ICPUVirtualTexture::ICPUVTResidentStorage::SCreationParams, 4> storage;
 	storage[0].formatClass = asset::EFC_8_BIT;
 	storage[0].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
 	storage[0].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
@@ -1346,28 +1325,20 @@ SContext::SContext(
 	storage[1].formatClass = asset::EFC_16_BIT;
 	storage[1].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
 	storage[1].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
-	storage[1].formatCount = 1u;
+	storage[1].formatCount = 2u;
 	storage[1].formats = formats+1;
 
 	storage[2].formatClass = asset::EFC_24_BIT;
 	storage[2].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
 	storage[2].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
 	storage[2].formatCount = 1u;
-	storage[2].formats = formats+2;
+	storage[2].formats = formats+3;
 
 	storage[3].formatClass = asset::EFC_32_BIT;
 	storage[3].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
 	storage[3].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
-	storage[3].formatCount = 1u;
-	storage[3].formats = formats+3;
-
-#ifdef DERIV_MAP_FLOAT32
-	storage[4].formatClass = asset::EFC_64_BIT;
-	storage[4].layerCount = 2u;
-	storage[4].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
-	storage[4].formatCount = 1u;
-	storage[4].formats = formats+4;
-#endif
+	storage[3].formatCount = 2u;
+	storage[3].formats = formats+4;
 
 	backend_ctx.vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(storage.data(), storage.size(), VT_PAGE_SZ_LOG2, VT_PAGE_TABLE_LAYERS, VT_PAGE_PADDING, VT_MAX_ALLOCATABLE_TEX_SZ_LOG2);
 

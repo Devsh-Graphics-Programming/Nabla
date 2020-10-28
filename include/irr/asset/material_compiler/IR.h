@@ -22,7 +22,8 @@ class IR : public core::IReferenceCounted
 
         uint8_t* mem;
         size_t currSz;
-        core::LinearAddressAllocator<uint32_t> addrAlctr;
+        using addr_alctr_t = core::LinearAddressAllocator<uint32_t>;
+        addr_alctr_t addrAlctr;
 
     public:
         SBackingMemManager() : currSz(INITIAL_MEM_SIZE), addrAlctr(nullptr, 0u, 0u, ALIGNMENT, MAX_MEM_SIZE) {
@@ -35,6 +36,7 @@ class IR : public core::IReferenceCounted
         uint8_t* alloc(size_t bytes)
         {
             auto addr = addrAlctr.alloc_addr(bytes, ALIGNMENT);
+            assert(addr != addr_alctr_t::invalid_address);
             //TODO reallocation will invalidate all pointers to nodes, so...
             //1) never reallocate (just have reasonably big buffer for nodes)
             //2) make some node_handle class that will work as pointer but is based on offset instead of actual address
@@ -122,11 +124,6 @@ public:
             ES_BSDF,
             ES_BSDF_COMBINER
         };
-        enum E_PARAM_SOURCE
-        {
-            EPS_CONSTANT,
-            EPS_TEXTURE
-        };
 
         struct STextureSource {
             core::smart_refctd_ptr<ICPUImageView> image;
@@ -135,18 +132,27 @@ public:
 
             bool operator==(const STextureSource& rhs) const { return image==rhs.image && sampler==rhs.sampler && scale==rhs.scale; }
         };
-        //destructor of actually used variant member has to be called by hand!
-        template <typename type_of_const>
-        union UTextureOrConstant {
-            UTextureOrConstant() : texture{nullptr,nullptr,0.f} {}
-            ~UTextureOrConstant() {}
 
-            type_of_const constant;
-            STextureSource texture;
+        enum E_PARAM_SOURCE
+        {
+            EPS_CONSTANT,
+            EPS_TEXTURE
         };
+
         template <typename type_of_const>
         struct SParameter
         {
+            //destructor of actually used variant member has to be called by hand!
+            template <typename type_of_const>
+            union UTextureOrConstant {
+                UTextureOrConstant() : texture{ nullptr,nullptr,0.f } {}
+                ~UTextureOrConstant() {}
+
+                type_of_const constant;
+                STextureSource texture;
+            };
+            using TextureOrConstant = UTextureOrConstant<type_of_const>;
+
             ~SParameter() {
                 if (source==EPS_TEXTURE)
                     value.texture.~STextureSource();
@@ -189,7 +195,7 @@ public:
             }
 
             E_PARAM_SOURCE source;
-            UTextureOrConstant<type_of_const> value;
+            TextureOrConstant value;
         };
 
         _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_CHILDREN = 16ull;
@@ -284,7 +290,8 @@ public:
         CGeomModifierNode(E_TYPE t) : INode(ES_GEOM_MODIFIER), type(t) {}
 
         E_TYPE type;
-        E_SOURCE source;
+        //no other (than texture) source supported for now (uncomment in the future) [far future TODO]
+        //E_SOURCE source;
         //TODO some union member for when source==ESRC_UV_FUNCTION, no idea what type
         //in fact when we want to translate MDL function of (u,v) into this IR we could just create an image being a 2D plot of this function with some reasonable quantization (pixel dimensions)
         //union {
@@ -296,7 +303,8 @@ public:
     {
         CEmissionNode() : INode(ES_EMISSION) {}
 
-        float intensity;
+        color_t color = color_t(1.f);
+        float intensity = 1.f;
     };
 
     struct CBSDFCombinerNode : INode
@@ -310,8 +318,7 @@ public:
             //blend of 2 BSDFs weighted by fresnel
             ET_FRESNEL_BLEND,
             //blend of 2 BSDFs weighted by custom direction-based curve
-            ET_CUSTOM_CURVE_BLEND,
-            ET_DIFFUSE_AND_SPECULAR
+            ET_CUSTOM_CURVE_BLEND
         };
 
         E_TYPE type;
@@ -339,7 +346,7 @@ public:
             ET_SPECULAR_DELTA,
             ET_MICROFACET_DIFFUSE,
             ET_MICROFACET_SPECULAR,
-            ET_SHEEN,
+            //ET_SHEEN,
             ET_COATING
         };
 

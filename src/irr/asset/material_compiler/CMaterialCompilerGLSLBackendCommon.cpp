@@ -120,7 +120,7 @@ namespace instr_stream
 					_dst.dielectric.alpha_v.setTexture(packTexture(refl->alpha_v.value.texture), refl->alpha_v.value.texture.scale);
 				else
 					_dst.dielectric.alpha_v.setConst(refl->alpha_v.value.constant);
-				_dst.dielectric.eta = refl->eta.x;
+				_dst.dielectric.eta = core::rgb32f_to_rgb19e7(refl->eta.pointer);
 			}
 			break;
 			case OP_CONDUCTOR:
@@ -156,10 +156,8 @@ namespace instr_stream
 				else
 					_dst.coating.sigmaA.setConst(coat->sigmaA.value.constant.pointer);
 
-				uint32_t thickness_eta;
-				thickness_eta = core::Float16Compressor::compress(coat->thickness);
-				thickness_eta |= static_cast<uint32_t>(core::Float16Compressor::compress(coat->eta.x))<<16;
-				_dst.coating.thickness_eta = thickness_eta;
+				_dst.coating.thickness = coat->thickness;
+				_dst.coating.eta = core::rgb32f_to_rgb19e7(coat->eta.pointer);
 			}
 			break;
 			case OP_BLEND:
@@ -1584,17 +1582,15 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	{
 		ndfAndAnisoAlphaTexPrint(instr, data);
 
-		const auto& data = _res.bsdfData[bsdf_ix];
-		const float eta = data.dielectric.eta;
+		const auto eta = core::rgb19e7_to_rgb32f(data.dielectric.eta);
 
-		_out << "Eta: " << eta << "\n";
+		_out << "Eta:  { " << eta.x << ", " << eta.y << ", " << eta.z << " }\n";
 	}
 		break;
 	case OP_CONDUCTOR:
 	{
 		ndfAndAnisoAlphaTexPrint(instr, data);
 
-		const auto& data = _res.bsdfData[bsdf_ix];
 		const auto eta = core::rgb19e7_to_rgb32f(data.conductor.eta[0]);
 		const auto etak = core::rgb19e7_to_rgb32f(data.conductor.eta[1]);
 
@@ -1609,12 +1605,9 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 		_out << "SigmaA tex " << sigma << "\n";
 		_out << "SigmaA val/reg " << paramVal3OrRegStr(data.coating.sigmaA, sigma) << "\n";
 
-		const auto& data = _res.bsdfData[bsdf_ix];
-		const uint32_t thickness_eta = data.coating.thickness_eta;
-		const float thickness = core::Float16Compressor::decompress(thickness_eta&0xffffu);
-		const float eta = core::Float16Compressor::decompress(thickness_eta>>16);
-		_out << "Eta: " << eta << "\n";
-		_out << "Thickness: " << thickness << "\n";
+		const auto eta = core::rgb19e7_to_rgb32f(data.coating.eta);
+		_out << "Eta:  { " << eta.x << ", " << eta.y << ", " << eta.z << " }\n";
+		_out << "Thickness: " << data.coating.thickness << "\n";
 	}
 	break;
 	case OP_BLEND:

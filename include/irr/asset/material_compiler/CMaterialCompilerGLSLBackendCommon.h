@@ -265,13 +265,14 @@ namespace instr_stream
 		STextureOrConstant alpha_v;
 		STextureOrConstant opacity;
 		STextureOrConstant dummy;
-		float eta;
+		uint64_t eta;
 	} PACK_STRUCT;
 	struct SAllConductor
 	{
 		STextureOrConstant alpha_u;
 		STextureOrConstant alpha_v;
 		STextureOrConstant opacity;
+		STextureOrConstant dummy;
 		//3d complex IoR, rgb19e7 format, [0]=real, [1]=imaginary
 		uint64_t eta[2];
 	} PACK_STRUCT;
@@ -281,7 +282,7 @@ namespace instr_stream
 		STextureOrConstant alpha_v;
 		STextureOrConstant opacity;
 		STextureOrConstant reflectance;
-		float eta;
+		uint64_t eta;
 	} PACK_STRUCT;
 	struct SAllCoating
 	{
@@ -289,8 +290,8 @@ namespace instr_stream
 		STextureOrConstant alpha_v;
 		STextureOrConstant opacity;
 		STextureOrConstant sigmaA;
-		//thickness and eta encoded as 2x float16, thickness on bits 0:15, eta on bits 16:31
-		uint32_t thickness_eta;
+		uint64_t eta;
+		float thickness;
 	} PACK_STRUCT;
 	struct SBumpMap
 	{
