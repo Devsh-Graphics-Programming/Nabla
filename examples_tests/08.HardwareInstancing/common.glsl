@@ -1,5 +1,7 @@
 #define _IRR_GLSL_WORKGROUP_SIZE_ 256u
 
+#define _IRR_GLSL_MAX_INDIRECT_DRAW_COUNT_ _IRR_GLSL_WORKGROUP_SIZE_
+
 #ifdef __cplusplus
 
 

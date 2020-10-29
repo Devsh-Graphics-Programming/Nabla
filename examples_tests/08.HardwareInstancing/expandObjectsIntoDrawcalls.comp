@@ -42,10 +42,10 @@ uint searchMeshBufferLevel3(uint meshBufferIndex, out uint level2Block)
         level2Histogram = visibleMeshBuffersHistogramLevel2[lowIndex];
 
     const uint level3Histogram = irr_glsl_workgroupExclusiveAdd(level2Histogram);
-    memoryBarrier();
+    barrier();
     memoryBarrierShared();
     scratch[gl_LocalInvocationIndex] = level3Histogram;
-    memoryBarrier();
+    barrier();
     memoryBarrierShared();
 
     level2Block = upper_bound<scratch>(0u,_IRR_GLSL_WORKGROUP_SIZE_,meshBufferIndex);
@@ -96,7 +96,7 @@ void main()
 
     //
     const bool visibleInstance = cameraDrawUUID<maxDraws && camera[cameraUUID].meshBufferUUIDToDrawUUID[cameraDrawUUID]==meshBufferUUID;
-    memoryBarrier();
+    barrier();
     memoryBarrierShared();
     irr_glsl_workgroupBallot(visibleInstance);
     const uint localOffsetPlus1 = irr_glsl_workgroupBallotInclusiveBitCount();
