@@ -49,6 +49,8 @@ private:
 	const std::uniform_int_distribution<uint32_t> buffSzRange = std::uniform_int_distribution<uint32_t>(minVirtualMemoryBufferSize, maxVirtualMemoryBufferSize);
 };
 
+RandomNumberGenerator rng;
+
 template<typename AlctrType>
 class AllocatorHandler
 {
@@ -101,38 +103,16 @@ private:
 		const uint32_t multiAllocCnt = rng.getRandomNumber(1u, 500u);
 		for (uint32_t i = 0u; i < multiAllocCnt; i++)
 		{
-			outAddresses.clear();
-			sizes.clear();
-			alignments.clear();
-
+			uint32_t addressesToAllcate = allocDataSoA.randomizeAllocData(alctr, randAllocParams);
 			// randomly decide how many allocs in a `multi_alloc` NOTE: must pick number less than `traits::max_multi_alloc`
-			constexpr uint32_t upperBound = Traits::maxMultiOps;
-			uint32_t allocCntInMultiAlloc = rng.getRandomNumber(1u, upperBound);
 
-			for (uint32_t j = 0u; j < allocCntInMultiAlloc; j++)
-			{
-				// randomly decide sizes (but always less than `address_allocator_traits::max_size`)
-				outAddresses.emplace_back(AlctrType::invalid_address);
-
-				if constexpr (std::is_same<AlctrType, core::PoolAddressAllocator<uint32_t>>::value)
-				{
-					sizes.emplace_back(randAllocParams.blockSz);
-					alignments.emplace_back(randAllocParams.blockSz);
-				}
-				else
-				{
-					sizes.emplace_back(rng.getRandomNumber(1u, std::max(Traits::max_size(alctr), 1u)));
-					alignments.emplace_back(rng.getRandomNumber(1u, randAllocParams.maxAlign));
-				}
-			}
-
-			Traits::multi_alloc_addr(alctr, allocCntInMultiAlloc, outAddresses.data(), sizes.data(), alignments.data());
+			Traits::multi_alloc_addr(alctr, addressesToAllcate, allocDataSoA.outAddresses.data(), allocDataSoA.sizes.data(), allocDataSoA.alignments.data());
 
 			// record all successful alloc addresses to the `core::vector`
-			for (uint32_t j = 0u; j < outAddresses.size(); j++)
+			for (uint32_t j = 0u; j < allocDataSoA.size; j++)
 			{
-				if (outAddresses[j] != AlctrType::invalid_address)
-					results.push_back({ outAddresses[j], sizes[j], alignments[j] });
+				if (allocDataSoA.outAddresses[j] != AlctrType::invalid_address)
+					results.push_back({ allocDataSoA.outAddresses[j], allocDataSoA.sizes[j], allocDataSoA.alignments[j] });
 			}
 
 			// run random dealloc function
@@ -178,9 +158,7 @@ private:
 
 		for (uint32_t i = 0u; (i < multiFreeCnt) && results.size(); i++)
 		{
-			outAddresses.clear();
-			sizes.clear();
-			alignments.clear();
+			allocDataSoA.reset();
 
 			// randomly how many addresses we should deallocate (but obvs less than all allocated) NOTE: must pick number less than `traits::max_multi_free`
 			const uint32_t addressesToFreeUpperBound = min(Traits::maxMultiOps, results.size());
@@ -190,11 +168,10 @@ private:
 			for (uint32_t j = 0u; j < addressesToFreeCnt; j++)
 			{
 				it--;
-				outAddresses.push_back(it->outAddr);
-				sizes.push_back(it->size);
+				allocDataSoA.addElement(*it);
 			}
 
-			Traits::multi_free_addr(alctr, addressesToFreeCnt, outAddresses.data(), sizes.data());
+			Traits::multi_free_addr(alctr, addressesToFreeCnt, allocDataSoA.outAddresses.data(), allocDataSoA.sizes.data());
 			results.erase(results.end() - addressesToFreeCnt, results.end());
 		}
 	}
@@ -216,13 +193,62 @@ private:
 	}
 
 private:
-	RandomNumberGenerator rng;
 	core::vector<AllocationData> results;
 
 	//these hold inputs for `multi_alloc_addr` and `multi_free_addr`
-	core::vector<uint32_t> outAddresses;
-	core::vector<uint32_t> sizes;
-	core::vector<uint32_t> alignments;
+
+	struct AllocationDataSoA
+	{
+		uint32_t randomizeAllocData(AlctrType& alctr, RandParams& randAllocParams)
+		{
+			constexpr uint32_t upperBound = Traits::maxMultiOps - 1u;
+			uint32_t allocCntInMultiAlloc = rng.getRandomNumber(1u, upperBound);
+
+			std::fill(outAddresses.begin(), outAddresses.begin() + allocCntInMultiAlloc, AlctrType::invalid_address);
+
+			for (uint32_t j = 0u; j < allocCntInMultiAlloc; j++)
+			{
+				// randomly decide sizes (but always less than `address_allocator_traits::max_size`)
+
+				if constexpr (std::is_same<AlctrType, core::PoolAddressAllocator<uint32_t>>::value)
+				{
+					sizes[j] = randAllocParams.blockSz;
+					alignments[j] = randAllocParams.blockSz;
+				}
+				else
+				{
+					sizes[j] = rng.getRandomNumber(1u, std::max(Traits::max_size(alctr), 1u));
+					alignments[j] = rng.getRandomNumber (1u, randAllocParams.maxAlign);
+				}
+			}
+
+			size = allocCntInMultiAlloc;
+
+			return allocCntInMultiAlloc;
+		}
+
+		void addElement(const AllocationData& allocData)
+		{
+			outAddresses[end] = allocData.outAddr;
+			sizes[end] = allocData.size;
+			end++;
+			_NBL_DEBUG_BREAK_IF(end > Traits::maxMultiOps);
+		}
+
+		inline void reset() { end = 0u; }
+
+		union
+		{
+			uint32_t end = 0u;
+			uint32_t size;
+		};
+
+		core::vector<uint32_t> outAddresses = core::vector<uint32_t>(Traits::maxMultiOps, AlctrType::invalid_address);
+		core::vector<uint32_t> sizes = core::vector<uint32_t>(Traits::maxMultiOps, 0u);
+		core::vector<uint32_t> alignments = core::vector<uint32_t>(Traits::maxMultiOps, 0u);
+	};
+
+	AllocationDataSoA allocDataSoA;
 };
 
 template<>
