@@ -5,6 +5,7 @@
 #include <irr/builtin/glsl/colorspace/encodeCIEXYZ.glsl>
 
 #define instr_t uvec2
+#define prefetch_instr_t uvec4
 #define reg_t uint
 #define params_t mat4x3
 #define bxdf_eval_t vec3

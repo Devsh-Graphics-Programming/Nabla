@@ -82,7 +82,7 @@ namespace instr_stream
 			return CInterpreter::processSubtree(m_ir, tree, thin, next);
 		}
 
-		void setBSDFData(SBSDFUnion& _dst, E_OPCODE _op, const IR::INode* _node, const IR::INode::SParameter<IR::INode::color_t>& _opacity)
+		void setBSDFData(intermediate::SBSDFUnion& _dst, E_OPCODE _op, const IR::INode* _node, const IR::INode::SParameter<IR::INode::color_t>& _opacity)
 		{
 			switch (_op)
 			{
@@ -205,9 +205,9 @@ namespace instr_stream
 			if (_op!=OP_BUMPMAP && _op!=OP_BLEND)
 			{
 				if (_opacity.source == IR::INode::EPS_TEXTURE)
-					_dst.param[2].setTexture(packTexture(_opacity.value.texture), _opacity.value.texture.scale);
+					_dst.common.param[2].setTexture(packTexture(_opacity.value.texture), _opacity.value.texture.scale);
 				else
-					_dst.param[2].setConst(_opacity.value.constant.pointer);
+					_dst.common.param[2].setConst(_opacity.value.constant.pointer);
 			}
 		}
 
@@ -225,11 +225,11 @@ namespace instr_stream
 			if (found != m_ctx->bsdfDataIndexMap.end())
 				return found->second;
 
-			SBSDFUnion data;
+			intermediate::SBSDFUnion data;
 			setBSDFData(data, _op, _node, _opacity);
-			size_t ix = m_ctx->pBsdfData->size();
+			size_t ix = m_ctx->bsdfData.size();
 			m_ctx->bsdfDataIndexMap.insert({_node,ix});
-			m_ctx->pBsdfData->push_back(data);
+			m_ctx->bsdfData.push_back(data);
 
 			return ix;
 		}
@@ -533,7 +533,7 @@ namespace gen_choice
 }
 namespace tex_prefetch
 {
-	static traversal_t genTraversal(const traversal_t& _t, const core::vector<instr_stream::SBSDFUnion>& _bsdfData, core::unordered_map<STextureData, uint32_t, STextureData::hash>& _tex2reg, uint32_t _firstFreeReg, uint32_t& _out_usedRegs, uint32_t& _out_regCntFlags, uint32_t& _out_prefetchFlags);
+	static prefetch_stream_t genTraversal(const traversal_t& _t, const core::vector<instr_stream::intermediate::SBSDFUnion>& _bsdfData, core::unordered_map<STextureData, uint32_t, STextureData::hash>& _tex2reg, uint32_t _firstFreeReg, uint32_t& _out_usedRegs, uint32_t& _out_regCntFlags);
 }
 }
 
@@ -975,97 +975,53 @@ instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTrav
 	return traversal;
 }
 
-instr_stream::traversal_t instr_stream::tex_prefetch::genTraversal(const traversal_t& _t, const core::vector<instr_stream::SBSDFUnion>& _bsdfData, core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _out_tex2reg, uint32_t _firstFreeReg, uint32_t& _out_usedRegs, uint32_t& _out_regCntFlags, uint32_t& _out_prefetchFlags)
+instr_stream::tex_prefetch::prefetch_stream_t instr_stream::tex_prefetch::genTraversal(const traversal_t& _t, const core::vector<instr_stream::intermediate::SBSDFUnion>& _bsdfData, core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _out_tex2reg, uint32_t _firstFreeReg, uint32_t& _out_usedRegs, uint32_t& _out_regCntFlags)
 {
 	core::unordered_set<STextureData, STextureData::hash> processed;
 	uint32_t regNum = _firstFreeReg;
-	auto write_fetch_bitfields = [&processed,&regNum,&_out_regCntFlags,&_out_prefetchFlags,&_out_tex2reg](instr_t& i, const STextureData& tex, int32_t dstbit, int32_t srcbit, int32_t reg_bitfield_shift, int32_t reg_count_bitfield_shift, uint32_t reg_count) -> bool {
-		auto bit = core::bitfieldExtract(i, srcbit, 1);
-		uint32_t reg = 0u;
-		if (bit)
-		{
-			if (processed.find(tex)==processed.end()) {
-				processed.insert(tex);
-				reg = regNum;
-				regNum += reg_count;
-			}
-			else
-				bit = 0;
-		}
-		i = core::bitfieldInsert(i, bit, dstbit, 1);
-		assert(reg<(1u<<BITFIELDS_REG_WIDTH));
-		i = core::bitfieldInsert<instr_t>(i, reg, reg_bitfield_shift, BITFIELDS_REG_WIDTH);
-		i = core::bitfieldInsert<instr_t>(i, reg_count, reg_count_bitfield_shift, BITFIELDS_FETCH_TEX_REG_CNT_WIDTH);
 
-		if (bit) {
-			_out_tex2reg.insert({tex,reg});
-			_out_regCntFlags |= (1u << reg_count);
-			_out_prefetchFlags |= (1u << dstbit);
-		}
-
-		return bit;
-	};
-
-
-	traversal_t traversal;
+	prefetch_stream_t prefetch_stream;
 		
-	for (instr_t i : _t)
+	for (instr_t instr : _t)
 	{
-		const E_OPCODE op = getOpcode(i);
+		const E_OPCODE op = getOpcode(instr);
 
 		if (op==OP_NOOP || op==OP_INVALID || op==OP_SET_GEOM_NORMAL)
 			continue;
 
-		//zero-out fetch flags
-		i = core::bitfieldInsert<instr_t>(i, 0, BITFIELDS_FETCH_TEX_0_SHIFT, 1);
-		i = core::bitfieldInsert<instr_t>(i, 0, BITFIELDS_FETCH_TEX_1_SHIFT, 1);
-		i = core::bitfieldInsert<instr_t>(i, 0, BITFIELDS_FETCH_TEX_2_SHIFT, 1);
-		i = core::bitfieldInsert<instr_t>(i, 0, BITFIELDS_FETCH_TEX_3_SHIFT, 1);
-			
-		const uint32_t bsdf_ix = core::bitfieldExtract(i, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
-		const SBSDFUnion& bsdf_data = _bsdfData[bsdf_ix];
+		const uint32_t bsdf_ix = core::bitfieldExtract(instr, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
+		const intermediate::SBSDFUnion& bsdf_data = _bsdfData[bsdf_ix];
 
-		switch (op)
+		const uint32_t param_count = getParamCount(op);
+		for (uint32_t param_i = 0u; param_i < param_count; ++param_i)
 		{
-		case OP_DIFFUSE:
-			write_fetch_bitfields(i, bsdf_data.param[0].tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);//alpha_u
-			write_fetch_bitfields(i, bsdf_data.param[3].tex, BITFIELDS_FETCH_TEX_3_SHIFT, BITFIELDS_SHIFT_REFL_TEX, BITFIELDS_REG_3_SHIFT, BITFIELDS_FETCH_TEX_3_REG_CNT_SHIFT, 3u);//reflectance
-			break;
-		case OP_DIFFTRANS:
-			write_fetch_bitfields(i, bsdf_data.difftrans.transmittance.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_TRANS_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 3u);
-			break;
-		case OP_DIELECTRIC: _IRR_FALLTHROUGH;
-		case OP_THINDIELECTRIC: _IRR_FALLTHROUGH;
-		case OP_CONDUCTOR:
-			write_fetch_bitfields(i, bsdf_data.param[0].tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);//alpha_u
-			write_fetch_bitfields(i, bsdf_data.param[1].tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_ALPHA_V_TEX, BITFIELDS_REG_1_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, 1u);//alpha_v
-			break;
-		case OP_COATING:
-			write_fetch_bitfields(i, bsdf_data.coating.alpha_u.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_ALPHA_U_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);
-			write_fetch_bitfields(i, bsdf_data.coating.alpha_v.tex, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_SHIFT_ALPHA_V_TEX, BITFIELDS_REG_1_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, 1u);
-			write_fetch_bitfields(i, bsdf_data.coating.sigmaA.tex, BITFIELDS_FETCH_TEX_3_SHIFT, BITFIELDS_SHIFT_SIGMA_A_TEX, BITFIELDS_REG_3_SHIFT, BITFIELDS_FETCH_TEX_3_REG_CNT_SHIFT, 3u);
-			break;
-		case OP_BUMPMAP:
-			i = core::bitfieldInsert<instr_t>(i, 1u, BITFIELDS_FETCH_TEX_0_SHIFT, 1);
-			write_fetch_bitfields(i, bsdf_data.bumpmap.derivmap, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 2u);
-			break;
-		case OP_BLEND:
-			write_fetch_bitfields(i, bsdf_data.blend.weight.tex, BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_SHIFT_WEIGHT_TEX, BITFIELDS_REG_0_SHIFT, BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, 1u);
-			break;
+			const uint32_t param_tex_shift = BITFIELDS_SHIFT_PARAM_TEX[param_i];
+			if (core::bitfieldExtract(instr, param_tex_shift, 1) == 0ull)
+				continue;
+
+			prefetch_instr_t prefetch_instr;
+			prefetch_instr.tex_data = bsdf_data.common.param[param_i].tex;
+			if (processed.find(prefetch_instr.tex_data) != processed.end())
+				continue;
+			processed.insert(prefetch_instr.tex_data);
+
+			const uint32_t dst_reg = regNum;
+			const uint32_t reg_cnt = getRegisterCountForParameter(op, param_i);
+			prefetch_instr.setRegCnt(reg_cnt);
+			prefetch_instr.setDstReg(dst_reg);
+			regNum += reg_cnt;
+
+			prefetch_stream.push_back(prefetch_instr);
+
+			_out_tex2reg.insert({ prefetch_instr.tex_data, dst_reg });
+
+			_out_regCntFlags |= (1u << reg_cnt);
 		}
-		//opacity is common for all
-		write_fetch_bitfields(i, bsdf_data.param[2].tex, BITFIELDS_FETCH_TEX_2_SHIFT, BITFIELDS_SHIFT_OPACITY_TEX, BITFIELDS_REG_2_SHIFT, BITFIELDS_FETCH_TEX_2_REG_CNT_SHIFT, 3u);
-
-		//do not add instruction to stream if it doesnt need any texture or all needed textures are already being fetched by previous instructions
-		if (getTexFetchFlags(i) == 0u)
-			continue;
-
-		traversal.push_back(i);
 	}
 
 	_out_usedRegs = regNum-_firstFreeReg;
 
-	return traversal;
+	return prefetch_stream;
 }
 
 std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const result_t& _res, bool _genChoiceStream)
@@ -1141,22 +1097,10 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	{
 		using namespace tex_prefetch;
 
-		defs += "\n#define INSTR_FETCH_FLAG_TEX_0_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_0_SHIFT);
-		defs += "\n#define INSTR_FETCH_FLAG_TEX_1_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_1_SHIFT);
-		defs += "\n#define INSTR_FETCH_FLAG_TEX_2_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_2_SHIFT);
-		defs += "\n#define INSTR_FETCH_FLAG_TEX_3_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_3_SHIFT);
-
-		defs += "\n#define INSTR_FETCH_TEX_0_REG_CNT_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT);
-		defs += "\n#define INSTR_FETCH_TEX_1_REG_CNT_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT);
-		defs += "\n#define INSTR_FETCH_TEX_2_REG_CNT_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_2_REG_CNT_SHIFT);
-		defs += "\n#define INSTR_FETCH_TEX_3_REG_CNT_SHIFT " + std::to_string(BITFIELDS_FETCH_TEX_3_REG_CNT_SHIFT);
-		defs += "\n#define INSTR_FETCH_TEX_REG_CNT_MASK " + std::to_string(BITFIELDS_FETCH_TEX_REG_CNT_MASK);
-
-		defs += "\n#define INSTR_PREFETCH_REG_MASK " + std::to_string((1u<<BITFIELDS_REG_WIDTH) - 1u);
-		defs += "\n#define INSTR_PREFETCH_REG_0_SHIFT " + std::to_string(BITFIELDS_REG_0_SHIFT);
-		defs += "\n#define INSTR_PREFETCH_REG_1_SHIFT " + std::to_string(BITFIELDS_REG_1_SHIFT);
-		defs += "\n#define INSTR_PREFETCH_REG_2_SHIFT " + std::to_string(BITFIELDS_REG_2_SHIFT);
-		defs += "\n#define INSTR_PREFETCH_REG_3_SHIFT " + std::to_string(BITFIELDS_REG_3_SHIFT);
+		defs += "\n#define PREFETCH_INSTR_REG_CNT_SHIFT " + std::to_string(prefetch_instr_t::DWORD4_REG_CNT_SHIFT);
+		defs += "\n#define PREFETCH_INSTR_REG_CNT_WIDTH " + std::to_string(prefetch_instr_t::DWORD4_REG_CNT_WIDTH);
+		defs += "\n#define PREFETCH_INSTR_DST_REG_SHIFT " + std::to_string(prefetch_instr_t::DWORD4_DST_REG_SHIFT);
+		defs += "\n#define PREFETCH_INSTR_DST_REG_WIDTH " + std::to_string(prefetch_instr_t::DWORD4_DST_REG_WIDTH);
 
 		if (_res.globalPrefetchRegCountFlags & (1u << 1))
 			defs += "\n#define PREFETCH_REG_COUNT_1";
@@ -1164,14 +1108,6 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 			defs += "\n#define PREFETCH_REG_COUNT_2";
 		if (_res.globalPrefetchRegCountFlags & (1u << 3))
 			defs += "\n#define PREFETCH_REG_COUNT_3";
-		if (core::bitfieldExtract(_res.globalPrefetchFlags, BITFIELDS_FETCH_TEX_0_SHIFT, 1))
-			defs += "\n#define PREFETCH_TEX_0";
-		if (core::bitfieldExtract(_res.globalPrefetchFlags, BITFIELDS_FETCH_TEX_1_SHIFT, 1))
-			defs += "\n#define PREFETCH_TEX_1";
-		if (core::bitfieldExtract(_res.globalPrefetchFlags, BITFIELDS_FETCH_TEX_2_SHIFT, 1))
-			defs += "\n#define PREFETCH_TEX_2";
-		if (core::bitfieldExtract(_res.globalPrefetchFlags, BITFIELDS_FETCH_TEX_3_SHIFT, 1))
-			defs += "\n#define PREFETCH_TEX_3";
 	}
 
 	//parameter numbers
@@ -1208,57 +1144,19 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	return defs;
 }
 
-core::unordered_map<uint32_t, uint32_t> CMaterialCompilerGLSLBackendCommon::createBsdfDataIndexMapForPrefetchedTextures(SContext* _ctx, const instr_stream::traversal_t& _tex_prefetch_stream, const core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _tex2reg) const
-{
-	core::unordered_map<uint32_t, uint32_t> ix2ix;
-
-	for (instr_t instr : _tex_prefetch_stream)
-	{
-		const auto bsdf_ix = core::bitfieldExtract(instr, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
-		{
-			auto found = ix2ix.find(bsdf_ix);
-			if (found != ix2ix.end())
-				continue;
-		}
-
-		const SBSDFUnion& bsdf_data = (*_ctx->pBsdfData)[bsdf_ix];
-		auto new_bsdf_data = bsdf_data;
-		constexpr uint32_t tex_fetch_flag_shift[tex_prefetch::BITFIELDS_FETCH_TEX_COUNT]{
-			tex_prefetch::BITFIELDS_FETCH_TEX_0_SHIFT,
-			tex_prefetch::BITFIELDS_FETCH_TEX_1_SHIFT,
-			tex_prefetch::BITFIELDS_FETCH_TEX_2_SHIFT,
-			tex_prefetch::BITFIELDS_FETCH_TEX_3_SHIFT
-		};
-		for (uint32_t i = 0u; i < SBSDFUnion::MAX_TEXTURES; ++i)
-			if (core::bitfieldExtract(instr, tex_fetch_flag_shift[i], 1))
-			{
-				auto found = _tex2reg.find(bsdf_data.param[i].tex);
-				if (found == _tex2reg.end())
-					continue;
-
-				new_bsdf_data.param[i].tex.prefetch_reg = found->second;
-			}
-
-		ix2ix.insert({ bsdf_ix, _ctx->pBsdfData->size() });
-		_ctx->pBsdfData->push_back(new_bsdf_data);
-	}
-
-	return ix2ix;
-}
-
 auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _computeGenChoiceStream) -> result_t
 {
 	result_t res;
-	_ctx->pBsdfData = &res.bsdfData;
 	res.noNormPrecompStream = true;
 	res.noPrefetchStream = true;
 	res.usedRegisterCount = 0u;
-	res.globalPrefetchFlags = 0u;
 	res.globalPrefetchRegCountFlags = 0u;
 
 	for (const IR::INode* root : _ir->roots)
 	{
 		uint32_t registerPool = instr_stream::MAX_REGISTER_COUNT;
+
+		const size_t interm_bsdf_data_begin_ix = _ctx->bsdfData.size();
 
 		uint32_t usedRegs{};
 		traversal_t rem_pdf_stream;
@@ -1282,34 +1180,29 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 			assert(usedRegs <= registerPool);
 			registerPool -= usedRegs;
 		}
-		core::unordered_map<uint32_t, uint32_t> ix2ix;
-		traversal_t tex_prefetch_stream;
+
+		tex_prefetch::prefetch_stream_t tex_prefetch_stream;
+		core::unordered_map<STextureData, uint32_t, STextureData::hash> tex2reg;
 		{
-			core::unordered_map<STextureData, uint32_t, STextureData::hash> tex2reg;
-			tex_prefetch_stream = tex_prefetch::genTraversal(rem_pdf_stream, res.bsdfData, tex2reg, MAX_REGISTER_COUNT-registerPool, usedRegs, res.globalPrefetchRegCountFlags, res.globalPrefetchFlags);
+			tex_prefetch_stream = tex_prefetch::genTraversal(rem_pdf_stream, _ctx->bsdfData, tex2reg, MAX_REGISTER_COUNT-registerPool, usedRegs, res.globalPrefetchRegCountFlags);
 			assert(usedRegs <= registerPool);
 			registerPool -= usedRegs;
-
-			ix2ix = createBsdfDataIndexMapForPrefetchedTextures(_ctx, tex_prefetch_stream, tex2reg);
 		}
 
 		const uint32_t regNum = MAX_REGISTER_COUNT-registerPool;
-
-		adjustBSDFDataIndices(rem_pdf_stream, ix2ix);
-		adjustBSDFDataIndices(gen_choice_stream, ix2ix);
 
 		traversal_t normal_precomp_stream;
 		{
 			normal_precomp_stream.reserve(std::count_if(rem_pdf_stream.begin(), rem_pdf_stream.end(), [](instr_t i) {return getOpcode(i)==OP_BUMPMAP;}));
 			assert(regNum+3u*normal_precomp_stream.capacity() <= MAX_REGISTER_COUNT);
-			for (instr_t i : rem_pdf_stream)
+			for (instr_t instr : rem_pdf_stream)
 			{
-				if (getOpcode(i)==OP_BUMPMAP)
+				if (getOpcode(instr)==OP_BUMPMAP)
 				{
 					//we can be sure that n_id is always in range [0,count of bumpmap instrs)
-					const uint32_t n_id = getNormalId(i);
-					i = core::bitfieldInsert<instr_t>(i, regNum+3u*n_id, normal_precomp::BITFIELDS_REG_DST_SHIFT, normal_precomp::BITFIELDS_REG_WIDTH);
-					normal_precomp_stream.push_back(i);
+					const uint32_t n_id = getNormalId(instr);
+					instr = core::bitfieldInsert<instr_t>(instr, regNum+3u*n_id, normal_precomp::BITFIELDS_REG_DST_SHIFT, normal_precomp::BITFIELDS_REG_WIDTH);
+					normal_precomp_stream.push_back(instr);
 				}
 			}
 			registerPool = MAX_REGISTER_COUNT - regNum - 3u*normal_precomp_stream.size();
@@ -1318,6 +1211,25 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 		//src1 reg for OP_BUMPMAPs is set to dst reg of corresponding instruction in normal precomp stream
 		setSourceRegForBumpmaps(rem_pdf_stream, regNum);
 		setSourceRegForBumpmaps(gen_choice_stream, regNum);
+
+		for (auto it = _ctx->bsdfData.begin()+interm_bsdf_data_begin_ix; it != _ctx->bsdfData.end(); ++it)
+		{
+			const auto& interm_bsdf_data = *it;
+
+			SBSDFUnion bsdf_data;
+			for (uint32_t i = 0u; i < SBSDFUnion::MAX_TEXTURES; ++i)
+			{
+				auto found = tex2reg.find(interm_bsdf_data.common.param[i].tex);
+				if (found != tex2reg.end())
+					bsdf_data.common.param[i].setPrefetchReg(found->second);
+				else
+					bsdf_data.common.param[i].setConst(interm_bsdf_data.common.param[i].getConst());
+			}
+			bsdf_data.common.extras[0] = interm_bsdf_data.common.extras[0];
+			bsdf_data.common.extras[1] = interm_bsdf_data.common.extras[1];
+
+			res.bsdfData.push_back(bsdf_data);
+		}
 
 		result_t::instr_streams_t streams;
 		{
@@ -1329,11 +1241,12 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 			streams.gen_choice_count = gen_choice_stream.size();
 			res.instructions.insert(res.instructions.end(), gen_choice_stream.begin(), gen_choice_stream.end());
 
-			streams.tex_prefetch_count = tex_prefetch_stream.size();
-			res.instructions.insert(res.instructions.end(), tex_prefetch_stream.begin(), tex_prefetch_stream.end());
-
 			streams.norm_precomp_count = normal_precomp_stream.size();
 			res.instructions.insert(res.instructions.end(), normal_precomp_stream.begin(), normal_precomp_stream.end());
+
+			streams.prefetch_offset = res.prefetch_stream.size();
+			streams.tex_prefetch_count = tex_prefetch_stream.size();
+			res.prefetch_stream.insert(res.prefetch_stream.end(), tex_prefetch_stream.begin(), tex_prefetch_stream.end());
 		}
 
 		res.streams.insert({root,streams});
@@ -1357,13 +1270,13 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 
 		const uint32_t ix = getBSDFDataIx(_i);
 		
-		const auto& au = res.bsdfData[ix].param[0];
-		const auto& av = res.bsdfData[ix].param[1];
+		const auto& au = res.bsdfData[ix].common.param[0];
+		const auto& av = res.bsdfData[ix].common.param[1];
 
 		if (au_tex)
-			return au.tex.prefetch_reg != av.tex.prefetch_reg;
+			return au.prefetch != av.prefetch;
 		else
-			return au.constant[0] != av.constant[0];
+			return au.constant != av.constant;
 	};
 
 	for (auto& p : res.paramConstants)
@@ -1396,7 +1309,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 				if (res.paramTexPresence[i][1] == 0u)
 				{
 					const auto& data = res.bsdfData[ix];
-					const auto& param = data.param[i];
+					const auto& param = data.common.param[i];
 					const auto constant = param.getConst();
 					if (!core::isnan(res.paramConstants[i].second.x))
 						res.paramConstants[i].first = res.paramConstants[i].first && (res.paramConstants[i].second == constant).all();
@@ -1471,29 +1384,23 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		_out << "Right jump " << rjump << "\n";
 	}
 	_out << "####### tex_prefetch stream\n";
-	auto tex_prefetch = _streams.get_gen_choice();
+	auto tex_prefetch = _streams.get_tex_prefetch();
 	for (uint32_t i = 0u; i < tex_prefetch.count; ++i)
 	{
 		using namespace tex_prefetch;
 
-		const uint32_t flag_shift[BITFIELDS_FETCH_TEX_COUNT]{ BITFIELDS_FETCH_TEX_0_SHIFT, BITFIELDS_FETCH_TEX_1_SHIFT, BITFIELDS_FETCH_TEX_2_SHIFT, BITFIELDS_FETCH_TEX_3_SHIFT };
-		const uint32_t regcnt_shift[BITFIELDS_FETCH_TEX_COUNT]{ BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT, BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT, BITFIELDS_FETCH_TEX_2_REG_CNT_SHIFT, BITFIELDS_FETCH_TEX_3_REG_CNT_SHIFT };
-		const uint32_t reg_shift[BITFIELDS_FETCH_TEX_COUNT]{ BITFIELDS_REG_0_SHIFT, BITFIELDS_REG_1_SHIFT, BITFIELDS_REG_2_SHIFT, BITFIELDS_REG_3_SHIFT };
-
-		const instr_t instr = _res.instructions[tex_prefetch.first + i];
+		const prefetch_instr_t& instr = _res.prefetch_stream[tex_prefetch.first + i];
+		const auto& vtid = instr.tex_data.vtid;
 
 		_out << "### instr " << i << "\n";
-		for (uint32_t t = 0u; t < BITFIELDS_FETCH_TEX_COUNT; ++t)
-		{
-			_out << "tex " << t << ": ";
-			if (core::bitfieldExtract(instr, flag_shift[t], 1))
-			{
-				uint32_t regcnt = core::bitfieldExtract(instr, regcnt_shift[t], BITFIELDS_FETCH_TEX_REG_CNT_WIDTH);
-				uint32_t reg = core::bitfieldExtract(instr, reg_shift[t], BITFIELDS_REG_WIDTH);
-				_out << "reg=" << reg << ", reg_count=" << regcnt;
-			}
-			_out << "\n";
-		}
+		const uint32_t reg_cnt = instr.getRegCnt();
+		const uint32_t reg = instr.getDstReg();
+		uint32_t scale = instr.tex_data.scale;
+		_out << "reg = " << reg << "\n";
+		_out << "reg_count = " << reg_cnt << "\n";
+		_out << "scale = " << core::uintBitsToFloat(scale) << "\n";
+		_out << "pgtab coords = [ " << vtid.pgTab_x << ", " << vtid.pgTab_y << ", " << vtid.pgTab_layer << " ]\n";
+		_out << "orig extent = { " << vtid.origsize_x << ", " << vtid.origsize_y << " }\n";
 	}
 	_out << "####### normal_precomp stream\n";
 	auto norm_precomp = _streams.get_norm_precomp();
@@ -1507,7 +1414,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		const SBSDFUnion& data = _res.bsdfData[bsdf_ix];
 
 		_out << "### instr " << i << "\n";
-		_out << reg << " <- perturbNormal( reg " << data.bumpmap.derivmap.prefetch_reg << " )\n";
+		_out << reg << " <- perturbNormal( reg " << data.bumpmap.derivmap_prefetch_reg << " )\n";
 	}
 }
 
@@ -1518,18 +1425,18 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	};
 	auto paramVal3OrRegStr = [](const STextureOrConstant& tc, bool tex) {
 		if (tex)
-			return std::to_string(tc.tex.prefetch_reg);
+			return std::to_string(tc.prefetch);
 		else {
-			const float* val = reinterpret_cast<const float*>(tc.constant);
-			return "{ " + std::to_string(val[0]) + ", " + std::to_string(val[1]) + ", " + std::to_string(val[2]) + " }";
+			auto val = core::rgb19e7_to_rgb32f(tc.constant);
+			return "{ " + std::to_string(val.x) + ", " + std::to_string(val.y) + ", " + std::to_string(val.z) + " }";
 		}
 	};
 	auto paramVal1OrRegStr = [](const STextureOrConstant& tc, bool tex) {
 		if (tex)
-			return std::to_string(tc.tex.prefetch_reg);
+			return std::to_string(tc.prefetch);
 		else {
-			const float* val = reinterpret_cast<const float*>(tc.constant);
-			return std::to_string(val[0]);
+			auto val = core::rgb19e7_to_rgb32f(tc.constant);
+			return std::to_string(val.x);
 		}
 	};
 
@@ -1548,11 +1455,11 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 
 		bool au = core::bitfieldExtract(instr, BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 		_out << "Alpha_u tex " << au << "\n";
-		_out << "Alpha_u val/reg " << paramVal1OrRegStr(data.param[0], au) << "\n";
+		_out << "Alpha_u val/reg " << paramVal1OrRegStr(data.common.param[0], au) << "\n";
 
 		bool av = core::bitfieldExtract(instr, BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
 		_out << "Alpha_v tex " << av << "\n";
-		_out << "Alpha_v val/reg " << paramVal1OrRegStr(data.param[1], av) << "\n";
+		_out << "Alpha_v val/reg " << paramVal1OrRegStr(data.common.param[1], av) << "\n";
 	};
 
 	const uint32_t bsdf_ix = core::bitfieldExtract(instr, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);

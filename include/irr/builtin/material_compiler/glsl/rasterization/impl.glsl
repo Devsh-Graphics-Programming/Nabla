@@ -9,7 +9,7 @@ void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout ir
 
 	//speculative execution
 	bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
-	const mat2x3 ior = bsdf_data_decodeIoR(bsdf_data,op);
+	const mat2x3 ior = bsdf_data_decodeIoR(bsdf_data, op);
 	params_t params = instr_getParameters(instr, bsdf_data);
 	float bxdf_eval_scalar_part;
 	uint ndf = instr_getNDF(instr);

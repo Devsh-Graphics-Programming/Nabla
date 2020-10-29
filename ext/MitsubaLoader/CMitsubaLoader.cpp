@@ -100,12 +100,16 @@ layout (set = 0, binding = 2, std430) restrict readonly buffer PrecomputedStuffS
     float vtex_sz_rcp;
     float phys_pg_tex_sz_rcp[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
     uint layer_to_sampler_ix[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
-} precomputed;
+} VT_precomputed;
 
 layout (set = 0, binding = 3, std430) restrict readonly buffer INSTR_BUF
 {
 	instr_t data[];
 } instr_buf;
+layout (set = 0, binding = 6, std430) restrict readonly buffer PREFETCH_INSTR_BUF
+{
+	prefetch_instr_t data[];
+} prefetch_instr_buf;
 layout (set = 0, binding = 4, std430) restrict readonly buffer BSDF_BUF
 {
 	bsdf_data_t data[];
@@ -113,19 +117,19 @@ layout (set = 0, binding = 4, std430) restrict readonly buffer BSDF_BUF
 
 uint irr_glsl_VT_layer2pid(in uint layer)
 {
-    return precomputed.layer_to_sampler_ix[layer];
+    return VT_precomputed.layer_to_sampler_ix[layer];
 }
 uint irr_glsl_VT_getPgTabSzLog2()
 {
-    return precomputed.pgtab_sz_log2;
+    return VT_precomputed.pgtab_sz_log2;
 }
 float irr_glsl_VT_getPhysPgTexSzRcp(in uint layer)
 {
-    return precomputed.phys_pg_tex_sz_rcp[layer];
+    return VT_precomputed.phys_pg_tex_sz_rcp[layer];
 }
 float irr_glsl_VT_getVTexSzRcp()
 {
-    return precomputed.vtex_sz_rcp;
+    return VT_precomputed.vtex_sz_rcp;
 }
 #define _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
 
@@ -151,6 +155,10 @@ vec3 irr_glsl_MC_getCamPos()
 instr_t irr_glsl_MC_fetchInstr(in uint ix)
 {
 	return instr_buf.data[ix];
+}
+prefetch_instr_t irr_glsl_MC_fetchPrefetchInstr(in uint ix)
+{
+	return prefetch_instr_buf.data[ix];
 }
 bsdf_data_t irr_glsl_MC_fetchBSDFData(in uint ix)
 {
@@ -185,7 +193,7 @@ instr_stream_t getGenChoiceStream()
 instr_stream_t getTexPrefetchStream()
 {
 	instr_stream_t stream;
-	stream.offset = InstData.data[InstanceIndex].instr_offset + InstData.data[InstanceIndex].rem_pdf_count + InstData.data[InstanceIndex].genchoice_count;
+	stream.offset = InstData.data[InstanceIndex].prefetch_offset;
 	stream.count = InstData.data[InstanceIndex].prefetch_count;
 
 	return stream;
@@ -193,7 +201,7 @@ instr_stream_t getTexPrefetchStream()
 instr_stream_t getNormalPrecompStream()
 {
 	instr_stream_t stream;
-	stream.offset = InstData.data[InstanceIndex].instr_offset + InstData.data[InstanceIndex].rem_pdf_count + InstData.data[InstanceIndex].genchoice_count + InstData.data[InstanceIndex].prefetch_count;
+	stream.offset = InstData.data[InstanceIndex].instr_offset + InstData.data[InstanceIndex].rem_pdf_count + InstData.data[InstanceIndex].genchoice_count;
 	stream.count = InstData.data[InstanceIndex].nprecomp_count;
 
 	return stream;
@@ -256,7 +264,8 @@ _IRR_STATIC_INLINE_CONSTEXPR uint32_t PRECOMPUTED_VT_DATA_BINDING = 2u;
 _IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BUF_BINDING = 3u;
 _IRR_STATIC_INLINE_CONSTEXPR uint32_t BSDF_BUF_BINDING = 4u;
 _IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTANCE_DATA_BINDING = 5u;
-_IRR_STATIC_INLINE_CONSTEXPR uint32_t DS0_BINDING_COUNT_WO_VT = 4u;
+_IRR_STATIC_INLINE_CONSTEXPR uint32_t PREFETCH_INSTR_BUF_BINDING = 6u;
+_IRR_STATIC_INLINE_CONSTEXPR uint32_t DS0_BINDING_COUNT_WO_VT = 5u;
 
 template <typename AssetT>
 static void insertAssetIntoCache(core::smart_refctd_ptr<AssetT>& asset, const char* path, IAssetManager* _assetMgr)
@@ -319,6 +328,12 @@ static core::smart_refctd_ptr<asset::ICPUPipelineLayout> createAndCachePipelineL
 		b[3].samplers = nullptr;
 		b[3].stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
 		b[3].type = asset::EDT_STORAGE_BUFFER;
+
+		b[4].binding = PREFETCH_INSTR_BUF_BINDING;
+		b[4].count = 1u;
+		b[4].samplers = nullptr;
+		b[4].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		b[4].type = asset::EDT_STORAGE_BUFFER;
 
 		ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings->data(), bindings->data()+bindings->size());
 	}
@@ -1217,6 +1232,18 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		d->buffer.offset = 0u;
 		d->buffer.size = bsdfbuf->getSize();
 		d->desc = std::move(bsdfbuf);
+	}
+	d = ds0->getDescriptors(PREFETCH_INSTR_BUF_BINDING).begin();
+	{
+		const size_t sz = _compResult.prefetch_stream.size()*sizeof(decltype(_compResult.prefetch_stream)::value_type);
+		
+		constexpr size_t MIN_SSBO_SZ = 128ull; //prefetch stream won't be generated if no textures are used, so make sure we're not creating 0-size buffer
+		auto prefetch_instr_buf = core::make_smart_refctd_ptr<ICPUBuffer>(std::min(MIN_SSBO_SZ, sz));
+		memcpy(prefetch_instr_buf->getPointer(), _compResult.prefetch_stream.data(), sz);
+
+		d->buffer.offset = 0u;
+		d->buffer.size = prefetch_instr_buf->getSize();
+		d->desc = std::move(prefetch_instr_buf);
 	}
 
 #ifdef DEBUG_MITSUBA_LOADER

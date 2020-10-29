@@ -205,9 +205,51 @@ namespace instr_stream
 		}
 	}
 
+	inline uint32_t getRegisterCountForParameter(E_OPCODE op, uint32_t n)
+	{
+#define SWITCH_REG_CNT_FOR_PARAM_NUM(rc0, rc1, rc2, rc3) \
+switch (n)\
+{\
+case 0u: return rc0;\
+case 1u: return rc1;\
+case 2u: return rc2;\
+case 3u: return rc3;\
+}
+
+		switch (op)
+		{
+		case OP_DIFFUSE:
+			SWITCH_REG_CNT_FOR_PARAM_NUM(1, 0, 3, 3)
+			break;
+		case OP_DIFFTRANS:
+			SWITCH_REG_CNT_FOR_PARAM_NUM(3, 0, 3, 0)
+			break;
+		case OP_DIELECTRIC: [[fallthrough]];
+		case OP_THINDIELECTRIC: [[fallthrough]];
+		case OP_CONDUCTOR:
+			SWITCH_REG_CNT_FOR_PARAM_NUM(1, 1, 3, 0)
+			break;
+		case OP_COATING:
+			SWITCH_REG_CNT_FOR_PARAM_NUM(1, 1, 3, 3)
+			break;
+		case OP_BUMPMAP:
+			SWITCH_REG_CNT_FOR_PARAM_NUM(2, 0, 0, 0)
+			break;
+		case OP_BLEND:
+			SWITCH_REG_CNT_FOR_PARAM_NUM(1, 0, 0, 0)
+			break;
+		default:
+			return 0u;
+		}
+		return 0u;
+#undef SWITCH_REG_CNT_FOR_PARAM_NUM
+	}
+
 	using VTID = asset::ICPUVirtualTexture::SMasterTextureData;
 #include "irr/irrpack.h"
 	struct STextureData {
+		STextureData() = default;
+
 		VTID vtid = VTID::invalid();
 		union {
 			uint32_t prefetch_reg;//uint32
@@ -221,26 +263,122 @@ namespace instr_stream
 		};
 	} PACK_STRUCT;
 
+	constexpr size_t sizeof_uvec4 = 16ull;
+
+	namespace intermediate
+	{
+		struct STextureOrConstant
+		{
+			void setConst(float f) { std::fill(constant, constant + 3, reinterpret_cast<uint32_t&>(f)); }
+			void setConst(const float* fv) { memcpy(constant, fv, sizeof(constant)); }
+			void setTexture(const VTID& _vtid, float _scale)
+			{
+				tex.vtid = _vtid;
+				core::uintBitsToFloat(tex.scale) = _scale;
+			}
+			core::vector3df_SIMD getConst() const
+			{
+				auto ret = core::vector3df_SIMD(reinterpret_cast<const float*>(constant));
+				ret.w = 0.f;
+				return ret;
+			}
+
+			union
+			{
+				STextureData tex;
+				uint32_t constant[3];//3x float
+			};
+		} PACK_STRUCT;
+#include "irr/irrunpack.h"
+
+#include "irr/irrpack.h"
+		struct SAllDiffuse
+		{
+			STextureOrConstant alpha;
+			STextureOrConstant dummy;
+			STextureOrConstant opacity;
+			STextureOrConstant reflectance;
+		} PACK_STRUCT;
+		struct SDiffuseTransmitter
+		{
+			STextureOrConstant transmittance;
+			STextureOrConstant dummy;
+			STextureOrConstant opacity;
+		} PACK_STRUCT;
+		struct SAllDielectric
+		{
+			STextureOrConstant alpha_u;
+			STextureOrConstant alpha_v;
+			STextureOrConstant opacity;
+			STextureOrConstant dummy;
+			uint64_t eta;
+		} PACK_STRUCT;
+		struct SAllConductor
+		{
+			STextureOrConstant alpha_u;
+			STextureOrConstant alpha_v;
+			STextureOrConstant opacity;
+			STextureOrConstant dummy;
+			//3d complex IoR, rgb19e7 format, [0]=real, [1]=imaginary
+			uint64_t eta[2];
+		} PACK_STRUCT;
+		struct SAllCoating
+		{
+			STextureOrConstant alpha_u;
+			STextureOrConstant alpha_v;
+			STextureOrConstant opacity;
+			STextureOrConstant sigmaA;
+			uint64_t eta;
+			float thickness;
+		} PACK_STRUCT;
+		struct SBumpMap
+		{
+			//texture data for VT
+			STextureData derivmap;
+		} PACK_STRUCT;
+		struct SBlend
+		{
+			STextureOrConstant weight;
+		} PACK_STRUCT;
+
+		union alignas(sizeof_uvec4) SBSDFUnion
+		{
+			_IRR_STATIC_INLINE_CONSTEXPR size_t MAX_TEXTURES = INSTR_MAX_PARAMETER_COUNT;
+
+			SBSDFUnion() : bumpmap{} {}
+
+			SAllDiffuse diffuse;
+			SDiffuseTransmitter difftrans;
+			SAllDielectric dielectric;
+			SAllConductor conductor;
+			SAllCoating coating;
+			SBumpMap bumpmap;
+			SBlend blend;
+			struct {
+				STextureOrConstant param[MAX_TEXTURES];
+				uint64_t extras[2];
+			} PACK_STRUCT common;
+		};
+#include "irr/irrunpack.h"
+	}
+
+#include "irr/irrpack.h"
 	struct STextureOrConstant
 	{
-		void setConst(float f) { std::fill(constant, constant+3, reinterpret_cast<uint32_t&>(f)); }
-		void setConst(const float* fv) { memcpy(constant, fv, sizeof(constant)); }
-		void setTexture(const VTID& _vtid, float _scale)
-		{
-			tex.vtid = _vtid;
-			core::uintBitsToFloat(tex.scale) = _scale;
-		}
-		core::vector3df_SIMD getConst() const
-		{
-			auto ret = core::vector3df_SIMD(reinterpret_cast<const float*>(constant));
-			ret.w = 0.f;
-			return ret;
+		inline void setConst(core::vector3df_SIMD c) { constant = core::rgb32f_to_rgb19e7(c.pointer); }
+		inline void setPrefetchReg(uint32_t r) { prefetch = r; }
+
+		inline core::vector3df_SIMD getConst() const 
+		{ 
+			auto c = core::rgb19e7_to_rgb32f(constant);
+			return core::vector3df_SIMD(c.x, c.y, c.z);
 		}
 
 		union
 		{
-			STextureData tex;
-			uint32_t constant[3];//3x float
+			//rgb19e7
+			uint64_t constant;
+			uint32_t prefetch;
 		};
 	} PACK_STRUCT;
 #include "irr/irrunpack.h"
@@ -276,14 +414,6 @@ namespace instr_stream
 		//3d complex IoR, rgb19e7 format, [0]=real, [1]=imaginary
 		uint64_t eta[2];
 	} PACK_STRUCT;
-	struct SAllPlastic
-	{
-		STextureOrConstant alpha_u;
-		STextureOrConstant alpha_v;
-		STextureOrConstant opacity;
-		STextureOrConstant reflectance;
-		uint64_t eta;
-	} PACK_STRUCT;
 	struct SAllCoating
 	{
 		STextureOrConstant alpha_u;
@@ -295,28 +425,13 @@ namespace instr_stream
 	} PACK_STRUCT;
 	struct SBumpMap
 	{
-		//texture data for VT
-		STextureData derivmap;
+		uint32_t derivmap_prefetch_reg;
 	} PACK_STRUCT;
 	struct SBlend
 	{
 		STextureOrConstant weight;
 	} PACK_STRUCT;
-#include "irr/irrunpack.h"
 
-#define _TEXTURE_INDEX(s,m) offsetof(s,m)/sizeof(STextureOrConstant)
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t ALPHA_U_TEX_IX = _TEXTURE_INDEX(SAllDielectric,alpha_u);
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t ALPHA_V_TEX_IX = _TEXTURE_INDEX(SAllDielectric, alpha_v);
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t REFLECTANCE_TEX_IX = _TEXTURE_INDEX(SAllDiffuse, reflectance);
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t TRANSMITTANCE_TEX_IX = _TEXTURE_INDEX(SDiffuseTransmitter, transmittance);
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t SIGMA_A_TEX_IX = _TEXTURE_INDEX(SAllCoating, sigmaA);
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t WEIGHT_TEX_IX = _TEXTURE_INDEX(SBlend, weight);
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t OPACITY_TEX_IX = _TEXTURE_INDEX(SAllDiffuse, opacity);
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t DERIV_MAP_TEX_IX = _TEXTURE_INDEX(SBumpMap, derivmap);
-
-#undef _TEXTURE_INDEX
-
-	constexpr size_t sizeof_uvec4 = 16ull;
 	union alignas(sizeof_uvec4) SBSDFUnion
 	{
 		_IRR_STATIC_INLINE_CONSTEXPR size_t MAX_TEXTURES = INSTR_MAX_PARAMETER_COUNT;
@@ -327,12 +442,27 @@ namespace instr_stream
 		SDiffuseTransmitter difftrans;
 		SAllDielectric dielectric;
 		SAllConductor conductor;
-		SAllPlastic plastic;
 		SAllCoating coating;
 		SBumpMap bumpmap;
 		SBlend blend;
-		STextureOrConstant param[MAX_TEXTURES];
+		struct {
+			STextureOrConstant param[MAX_TEXTURES];
+			uint64_t extras[2];
+		} PACK_STRUCT common;
 	};
+#include "irr/irrunpack.h"
+
+#define _TEXTURE_INDEX(s,m) offsetof(s,m)/sizeof(STextureOrConstant)
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t ALPHA_U_TEX_IX = _TEXTURE_INDEX(SAllDielectric, alpha_u);
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t ALPHA_V_TEX_IX = _TEXTURE_INDEX(SAllDielectric, alpha_v);
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t REFLECTANCE_TEX_IX = _TEXTURE_INDEX(SAllDiffuse, reflectance);
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t TRANSMITTANCE_TEX_IX = _TEXTURE_INDEX(SDiffuseTransmitter, transmittance);
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t SIGMA_A_TEX_IX = _TEXTURE_INDEX(SAllCoating, sigmaA);
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t WEIGHT_TEX_IX = _TEXTURE_INDEX(SBlend, weight);
+	_IRR_STATIC_INLINE_CONSTEXPR uint32_t OPACITY_TEX_IX = _TEXTURE_INDEX(SAllDiffuse, opacity);
+	//_IRR_STATIC_INLINE_CONSTEXPR uint32_t DERIV_MAP_TEX_IX = _TEXTURE_INDEX(SBumpMap, derivmap);
+
+#undef _TEXTURE_INDEX
 
 	using traversal_t = core::vector<instr_t>;
 
@@ -352,35 +482,35 @@ namespace gen_choice
 }
 namespace tex_prefetch
 {
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_0_SHIFT = BITFIELDS_SHIFT_NDF;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_1_SHIFT = BITFIELDS_SHIFT_NDF+1u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_2_SHIFT = BITFIELDS_SHIFT_TWOSIDED;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_3_SHIFT = BITFIELDS_SHIFT_MASKFLAG;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_COUNT = 4u;
-
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_REG_WIDTH = 6u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_REG_0_SHIFT = 32u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_REG_1_SHIFT = BITFIELDS_REG_0_SHIFT + BITFIELDS_REG_WIDTH;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_REG_2_SHIFT = BITFIELDS_REG_1_SHIFT + BITFIELDS_REG_WIDTH;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_REG_3_SHIFT = BITFIELDS_REG_2_SHIFT + BITFIELDS_REG_WIDTH;
-
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_REG_CNT_WIDTH = 2u;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_REG_CNT_MASK = 0b11;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT = BITFIELDS_REG_3_SHIFT + BITFIELDS_REG_WIDTH;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT = BITFIELDS_FETCH_TEX_0_REG_CNT_SHIFT + BITFIELDS_FETCH_TEX_REG_CNT_WIDTH;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_2_REG_CNT_SHIFT = BITFIELDS_FETCH_TEX_1_REG_CNT_SHIFT + BITFIELDS_FETCH_TEX_REG_CNT_WIDTH;
-	_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_FETCH_TEX_3_REG_CNT_SHIFT = BITFIELDS_FETCH_TEX_2_REG_CNT_SHIFT + BITFIELDS_FETCH_TEX_REG_CNT_WIDTH;
-	static_assert(BITFIELDS_FETCH_TEX_3_REG_CNT_SHIFT+BITFIELDS_FETCH_TEX_REG_CNT_WIDTH <= 8u*sizeof(instr_t));
-
-	inline uint32_t getTexFetchFlags(instr_t i)
+#include "irr/irrpack.h"
+	struct prefetch_instr_t
 	{
-		auto flags = core::bitfieldExtract(i, BITFIELDS_FETCH_TEX_0_SHIFT, 1);
-		flags |= core::bitfieldExtract(i, BITFIELDS_FETCH_TEX_1_SHIFT, 1)<<1;
-		flags |= core::bitfieldExtract(i, BITFIELDS_FETCH_TEX_2_SHIFT, 1)<<2;
-		flags |= core::bitfieldExtract(i, BITFIELDS_FETCH_TEX_3_SHIFT, 1)<<3;
+		prefetch_instr_t() : qword{ 0ull, 0ull } {}
 
-		return static_cast<uint32_t>(flags);
-	}
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_DST_REG_SHIFT = 0u;
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_DST_REG_WIDTH = 8u;
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_REG_CNT_SHIFT = DWORD4_DST_REG_SHIFT + DWORD4_DST_REG_WIDTH;
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_REG_CNT_WIDTH = 2u;
+
+		inline void setDstReg(uint32_t r) { dword4 = core::bitfieldInsert(dword4, r, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
+		inline void setRegCnt(uint32_t c) { dword4 = core::bitfieldInsert(dword4, c, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
+
+		inline uint32_t getDstReg() const { return core::bitfieldExtract(dword4, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
+		inline uint32_t getRegCnt() const { return core::bitfieldExtract(dword4, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
+
+		union {
+			uint64_t qword[2];
+			uint32_t dword[4];
+			struct {
+				STextureData tex_data;
+				uint32_t dword4;
+			} PACK_STRUCT;
+		};
+	} PACK_STRUCT;
+#include "irr/irrunpack.h"
+	static_assert(sizeof(prefetch_instr_t) == sizeof_uvec4);
+
+	using prefetch_stream_t = core::vector<prefetch_instr_t>;
 }
 namespace normal_precomp
 {
@@ -418,15 +548,6 @@ protected:
 
 	core::unordered_map<uint32_t, uint32_t> createBsdfDataIndexMapForPrefetchedTextures(SContext* _ctx, const instr_stream::traversal_t& _tex_prefetch_stream, const core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _tex2reg) const;
 
-	void adjustBSDFDataIndices(instr_stream::traversal_t& _stream, const core::unordered_map<uint32_t, uint32_t>& _ix2ix) const
-	{
-		using namespace instr_stream;
-		for (instr_t& i : _stream) {
-			auto found = _ix2ix.find(getBSDFDataIx(i));
-			if (found != _ix2ix.end())
-				setBSDFDataIx(i, found->second);
-		}
-	}
 	void setSourceRegForBumpmaps(instr_stream::traversal_t& _stream, uint32_t _regNumOffset)
 	{
 		using namespace instr_stream;
@@ -446,7 +567,7 @@ public:
 	struct SContext
 	{
 		//users should not touch this
-		core::vector<instr_stream::SBSDFUnion>* pBsdfData;
+		core::vector<instr_stream::intermediate::SBSDFUnion> bsdfData;
 		core::unordered_map<const IR::INode*, size_t> bsdfDataIndexMap;
 
 		using VTallocKey = std::pair<const asset::ICPUImageView*, const asset::ICPUSampler*>;
@@ -475,17 +596,21 @@ public:
 
 			stream_t get_rem_and_pdf() const { return { offset, rem_and_pdf_count }; }
 			stream_t get_gen_choice() const { return {offset + rem_and_pdf_count, gen_choice_count}; }
-			stream_t get_tex_prefetch() const { return { offset + rem_and_pdf_count + gen_choice_count, tex_prefetch_count }; }
-			stream_t get_norm_precomp() const { return { offset + rem_and_pdf_count + gen_choice_count + tex_prefetch_count, norm_precomp_count }; }
+			stream_t get_norm_precomp() const { return { offset + rem_and_pdf_count + gen_choice_count, norm_precomp_count }; }
 
 			uint32_t offset;
 			uint32_t rem_and_pdf_count;
 			uint32_t gen_choice_count;
-			uint32_t tex_prefetch_count;
 			uint32_t norm_precomp_count;
+
+			stream_t get_tex_prefetch() const { return { prefetch_offset, tex_prefetch_count }; }
+
+			uint32_t prefetch_offset;
+			uint32_t tex_prefetch_count;
 		};
 
 		instr_stream::traversal_t instructions;
+		instr_stream::tex_prefetch::prefetch_stream_t prefetch_stream;
 		core::vector<instr_stream::SBSDFUnion> bsdfData;
 
 		//TODO flags like alpha tex always present etc..
@@ -495,7 +620,6 @@ public:
 		bool noTwosided;
 		bool noBSDF;
 		uint32_t usedRegisterCount;
-		uint32_t globalPrefetchFlags;
 		uint32_t globalPrefetchRegCountFlags;
 		uint32_t paramTexPresence[instr_stream::SBSDFUnion::MAX_TEXTURES][2];
 		// always same value and the value

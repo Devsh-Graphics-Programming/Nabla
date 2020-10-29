@@ -44,7 +44,8 @@ class CMitsubaLoader : public asset::IAssetLoader
 			uint32_t prefetch_count;
 			uint32_t nprecomp_count;
 			uint32_t genchoice_count;
-			uint32_t _padding[3];
+			uint32_t prefetch_offset;
+			uint32_t _padding[2];
 		} PACK_STRUCT;
 #include "irr/irrunpack.h"
 
