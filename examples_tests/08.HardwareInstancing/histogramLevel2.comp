@@ -27,14 +27,22 @@ layout(set = 1, binding = 3, std430) restrict writeonly buffer VisibleMeshBuffer
 
 void main()
 {
-    const bool _active = gl_GlobalInvocationID.x<(visibleMeshesCount+_IRR_GLSL_WORKGROUP_SIZE_-1u)/_IRR_GLSL_WORKGROUP_SIZE_;
+    const uint roundedUpLevel2Groups = (visibleMeshesCount-1u)/_IRR_GLSL_WORKGROUP_SIZE_+1u;
+    const bool needsLevel2Scan = gl_GlobalInvocationID.x<roundedUpLevel2Groups;
 
     const uint lowIndex = min((gl_GlobalInvocationID.x+1u)*_IRR_GLSL_WORKGROUP_SIZE_,visibleMeshesCount)-1u;
     uint level1Histogram = 0u;
-    if (_active)
+    if (needsLevel2Scan)
         level1Histogram = visibleMeshBuffersHistogramLevel1[lowIndex];
 
-    const uint level2Histogram= irr_glsl_workgroupExclusiveAdd(level1Histogram);
-    if (_active)
+    const uint level2Histogram = irr_glsl_workgroupInclusiveAdd(level1Histogram);
+    if (needsLevel2Scan)
         visibleMeshBuffersHistogramLevel2[gl_GlobalInvocationID.x] = level2Histogram;
+
+    // set up indirect mesh into meshbuffer expand shader        
+    if (gl_LocalInvocationIndex==_IRR_GLSL_WORKGROUP_SIZE_-1u)
+    {
+        const uint meshBufferCountInLevel2Block = level2Histogram+level1Histogram;
+        atomicAdd(expandDispatch.num_groups_x,meshBufferCountInLevel2Block);
+    }
 }

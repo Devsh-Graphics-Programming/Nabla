@@ -119,6 +119,9 @@ void cullObjects()
     }
 
     const uint partialMeshBufferHistogram = irr_glsl_workgroupInclusiveAdd(mesh.meshBuffersCount);
+    barrier();
+    memoryBarrierShared();
+
     // a boolean inclusive prefix sum to figure out where to store visible object
     irr_glsl_workgroupBallot(mesh.meshBuffersCount!=0u);
     const uint localOffsetPlus1 = irr_glsl_workgroupBallotInclusiveBitCount();
@@ -150,9 +153,10 @@ void cullObjects()
         visibleMeshBuffersHistogram[outputIndex] = partialMeshBufferHistogram;
 	}
     // set up indirect dispatches
-    if (gl_LocalInvocationIndex==0u)
+    if (gl_LocalInvocationIndex==_IRR_GLSL_WORKGROUP_SIZE_-1u)
     {
-        //
+        const uint roundedUpLevel2Groups = outputIndex/_IRR_GLSL_WORKGROUP_SIZE_+1u;
+        atomicMax(histogramDispatch.num_groups_x,roundedUpLevel2Groups);
     }
 }
 
