@@ -45,11 +45,9 @@ If `GL_KHR_subgroup_arithmetic` is not available then these functions require em
 
 
 #ifdef _IRR_GLSL_SCRATCH_SHARED_DEFINED_
-/* can't get this to work either
-	#if _IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_<_IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_
-		#error "Not enough shared memory declared"
+	#if IRR_GLSL_EVAL(_IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_)<IRR_GLSL_EVAL(_IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_)
+		#error "Not enough shared memory declared for workgroup ballot!"
 	#endif
-*/
 #else
 	#if _IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_>0
 		#define _IRR_GLSL_SCRATCH_SHARED_DEFINED_ irr_glsl_workgroupBallotScratchShared

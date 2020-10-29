@@ -1,6 +1,7 @@
 #ifndef _IRR_GLSL_EXT_LUMA_METER_COMMON_INCLUDED_
 #define _IRR_GLSL_EXT_LUMA_METER_COMMON_INCLUDED_
 
+#include <irr/builtin/glsl/macros.glsl>
 
 #ifndef _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_DEFINED_
 #define _IRR_GLSL_EXT_LUMA_METER_UNIFORMS_DEFINED_
@@ -36,7 +37,7 @@ struct irr_glsl_ext_LumaMeter_Uniforms_t
         #define _IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_ (_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT*2)
     #endif
 
-/* can't get this to work
+/* still can't get this to work
     #if ((_IRR_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_-_IRR_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_)&(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT-1u))!=0
 	    #error "The number of bins must evenly divide the histogram range!"
     #endif
@@ -117,11 +118,9 @@ layout(set=_IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLSL_
 #endif
 
 #ifdef _IRR_GLSL_SCRATCH_SHARED_DEFINED_
-/* can't get this to work either
-    #if _IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_<_IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_
+    #if IRR_GLSL_EVAL(_IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_)<IRR_GLSL_EVAL(_IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_)
         #error "Not enough shared memory declared"
     #endif
-*/
 #else
     #if _IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_>0
         #define _IRR_GLSL_SCRATCH_SHARED_DEFINED_ histogram
