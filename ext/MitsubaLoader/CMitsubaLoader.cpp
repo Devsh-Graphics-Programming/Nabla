@@ -1280,6 +1280,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			instData.prefetch_count = streams.tex_prefetch_count;
 			instData.nprecomp_count = streams.norm_precomp_count;
 			instData.genchoice_count = streams.gen_choice_count;
+			instData.prefetch_offset = streams.prefetch_offset;
 
 			instanceData.push_back(instData);
 		}
