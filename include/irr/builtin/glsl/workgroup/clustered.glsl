@@ -1,9 +1,7 @@
 #ifndef _IRR_BUILTIN_GLSL_WORKGROUP_CLUSTERED_INCLUDED_
 #define _IRR_BUILTIN_GLSL_WORKGROUP_CLUSTERED_INCLUDED_
 
-
-#include <irr/builtin/glsl/macros.glsl>
-#include <irr/builtin/glsl/subgroup/arithmetic_portability.glsl>
+#include <irr/builtin/glsl/workgroup/ballot.glsl>
 
 /*
 #ifdef GL_KHR_subgroup_arithmetic
@@ -11,7 +9,6 @@
 // TODO: Specialize for the constexpr case
 #define _IRR_GLSL_WORKGROUP_CLUSTERED_SHARED_SIZE_NEEDED_  ((_IRR_GLSL_WORKGROUP_SIZE_+irr_glsl_MinSubgroupSize-1)/irr_glsl_MinSubgroupSize)
 
-#define CONDITIONAL_BARRIER
 // just do nothing here
 #define SUBGROUP_SCRATCH_CLEAR(IDENTITY) ;
 
@@ -21,12 +18,11 @@
 // TODO: is this correct for small workgroups?
 #define _IRR_GLSL_WORKGROUP_CLUSTERED_SHARED_SIZE_NEEDED_  (_IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_)
 
-#ifdef _IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_>_IRR_GLSL_WORKGROUP_CLUSTERED_SHARED_SIZE_NEEDED_
+#if _IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_>_IRR_GLSL_WORKGROUP_CLUSTERED_SHARED_SIZE_NEEDED_
 	#error "This shouldn't ever happen, something is wrong with "builtin/glsl/subgroup/arithmetic_portability"!"
 #endif
 
 
-#define CONDITIONAL_BARRIER barrier();
 #define SUBGROUP_SCRATCH_CLEAR(IDENTITY) const uint loMask = irr_glsl_SubgroupSize-1u; \
 	{ \
 		const uint hiMask = ~loMask; \

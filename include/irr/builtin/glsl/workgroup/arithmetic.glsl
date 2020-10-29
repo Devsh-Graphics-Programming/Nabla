@@ -34,34 +34,9 @@
 #endif
 
 
-/*
-If `GL_KHR_subgroup_arithmetic` is not available then these functions require emulated subgroup operations, which in turn means that if you're using the
-`irr_glsl_workgroupOp`s then the workgroup size must not be smaller than half a subgroup but having workgroups smaller than a subgroup is extremely bad practice.
-*/
-
-// TODO: unroll the while 5-times ?
-#define IRR_GLSL_WORKGROUP_COMMON_IMPL_HEAD(CONV,FIRST_SUBGROUP_OP,SECOND_SUBGROUP_OP,VALUE,IDENTITY,INVCONV) const uint lastInvocation = _IRR_GLSL_WORKGROUP_SIZE_-1u; \
-	SUBGROUP_SCRATCH_CLEAR(INVCONV(IDENTITY)) \
-	const uint subgroupSizeLog2 = findLSB(irr_glsl_SubgroupSize); \
-	const bool propagateReduction = (gl_LocalInvocationIndex&loMask)==loMask; \
-	uint firstLevelScan = INVCONV(FIRST_SUBGROUP_OP(false,VALUE)); \
-	uint lastInvocationInLevel = lastInvocation; \
-	uint lowerIndex = gl_LocalInvocationIndex>>subgroupSizeLog2; \
-	const uint higherIndexDiff = gl_LocalInvocationIndex-lowerIndex; \
-	uint scan = firstLevelScan; \
-	while (lastInvocationInLevel>=irr_glsl_SubgroupSize) \
-	{ \
-		CONDITIONAL_BARRIER \
-		if (propagateReduction&&gl_LocalInvocationIndex<lastInvocationInLevel || gl_LocalInvocationIndex==lastInvocationInLevel) \
-			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[lowerIndex] = scan; \
-		barrier(); \
-		memoryBarrierShared(); \
-		lastInvocationInLevel >>= subgroupSizeLog2; \
-		if (gl_LocalInvocationIndex<=lastInvocationInLevel) \
-			scan = INVCONV(SECOND_SUBGROUP_OP(false,CONV(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[lowerIndex+higherIndexDiff])));
-
 // reduction
-#define IRR_GLSL_WORKGROUP_REDUCE(CONV,SUBGROUP_OP,VALUE,IDENTITY,INVCONV) IRR_GLSL_WORKGROUP_COMMON_IMPL_HEAD(CONV,SUBGROUP_OP,SUBGROUP_OP,VALUE,IDENTITY,INVCONV) \
+#define IRR_GLSL_WORKGROUP_REDUCE(CONV,SUBGROUP_OP,VALUE,IDENTITY,INVCONV) SUBGROUP_SCRATCH_CLEAR(INVCONV(IDENTITY)) \
+	IRR_GLSL_WORKGROUP_COMMON_IMPL_HEAD(CONV,SUBGROUP_OP,SUBGROUP_OP,VALUE,IDENTITY,INVCONV,_IRR_GLSL_WORKGROUP_SIZE_) \
 	} \
 	CONDITIONAL_BARRIER \
 	return CONV(irr_glsl_workgroupBroadcast(scan,lastInvocationInLevel))
@@ -82,35 +57,15 @@ float irr_glsl_workgroupAdd(in float val)
 
 
 // scan
-#define IRR_GLSL_WORKGROUP_SCAN(CONV,FIRST_SUBGROUP_OP,SECOND_SUBGROUP_OP,VALUE,IDENTITY,INVCONV) IRR_GLSL_WORKGROUP_COMMON_IMPL_HEAD(CONV,FIRST_SUBGROUP_OP,SECOND_SUBGROUP_OP,VALUE,IDENTITY,INVCONV) \
-		lowerIndex += lastInvocationInLevel+1u; \
-	} \
-	CONDITIONAL_BARRIER \
-	if (lastInvocation>=irr_glsl_SubgroupSize) \
-	{ \
-		lowerIndex -= lastInvocationInLevel+1u; \
-		if (gl_LocalInvocationIndex<=lastInvocationInLevel) \
-			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[lowerIndex+higherIndexDiff] = scan; \
-		barrier(); \
-		memoryBarrierShared(); \
-		for (uint logShift=(findMSB(lastInvocation)/subgroupSizeLog2-1u)*subgroupSizeLog2; lastInvocationInLevel!=lastInvocation; logShift-=subgroupSizeLog2) \
-		{ \
-			lastInvocationInLevel = lastInvocation>>logShift; \
-			uint higherIndex = lowerIndex-(lastInvocationInLevel+1u); \
-			if (gl_LocalInvocationIndex<=lastInvocationInLevel) \
-				_IRR_GLSL_SCRATCH_SHARED_DEFINED_[higherIndex+higherIndexDiff] += _IRR_GLSL_SCRATCH_SHARED_DEFINED_[lowerIndex]; \
-			barrier(); \
-			memoryBarrierShared(); \
-			lowerIndex = higherIndex; \
-		} \
-		firstLevelScan += _IRR_GLSL_SCRATCH_SHARED_DEFINED_[lowerIndex]; \
-	} \
-	return firstLevelScan;
+#define IRR_GLSL_WORKGROUP_SCAN(CONV,OP,FIRST_SUBGROUP_OP,SECOND_SUBGROUP_OP,VALUE,IDENTITY,INVCONV) SUBGROUP_SCRATCH_CLEAR(INVCONV(IDENTITY)) \
+	IRR_GLSL_WORKGROUP_COMMON_IMPL_HEAD(CONV,FIRST_SUBGROUP_OP,SECOND_SUBGROUP_OP,VALUE,IDENTITY,INVCONV,_IRR_GLSL_WORKGROUP_SIZE_) \
+	IRR_GLSL_WORKGROUP_SCAN_IMPL_TAIL(CONV,OP,INVCONV) \
+	return CONV(firstLevelScan);
 
 
 uint irr_glsl_workgroupInclusiveAdd(in uint val)
 {
-	IRR_GLSL_WORKGROUP_SCAN(irr_glsl_identityFunction,irr_glsl_subgroupInclusiveAdd_impl,irr_glsl_subgroupExclusiveAdd_impl,val,0u,irr_glsl_identityFunction);
+	IRR_GLSL_WORKGROUP_SCAN(irr_glsl_identityFunction,irr_glsl_add,irr_glsl_subgroupInclusiveAdd_impl,irr_glsl_subgroupExclusiveAdd_impl,val,0u,irr_glsl_identityFunction);
 }
 int irr_glsl_workgroupInclusiveAdd(in int val)
 {
@@ -118,7 +73,7 @@ int irr_glsl_workgroupInclusiveAdd(in int val)
 }
 uint irr_glsl_workgroupExclusiveAdd(in uint val)
 {
-	IRR_GLSL_WORKGROUP_SCAN(irr_glsl_identityFunction,irr_glsl_subgroupExclusiveAdd_impl,irr_glsl_subgroupExclusiveAdd_impl,val,0u,irr_glsl_identityFunction);
+	IRR_GLSL_WORKGROUP_SCAN(irr_glsl_identityFunction,irr_glsl_add,irr_glsl_subgroupExclusiveAdd_impl,irr_glsl_subgroupExclusiveAdd_impl,val,0u,irr_glsl_identityFunction);
 }
 int irr_glsl_workgroupExclusiveAdd(in int val)
 {
