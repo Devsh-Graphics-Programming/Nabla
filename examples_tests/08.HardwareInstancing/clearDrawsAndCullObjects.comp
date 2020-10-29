@@ -1,11 +1,11 @@
 #version 430 core
 
 #include "common.glsl"
-layout(local_size_x = kOptimalWorkgroupSize) in;
+layout(local_size_x = _IRR_GLSL_WORKGROUP_SIZE_) in;
 
-shared uint scratch[kOptimalWorkgroupSize];
+shared uint scratch[_IRR_GLSL_WORKGROUP_SIZE_];
 #define _IRR_GLSL_SCRATCH_SHARED_DEFINED_ scratch
-#define _IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ kOptimalWorkgroupSize
+#define _IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ _IRR_GLSL_WORKGROUP_SIZE_
 #include "shaderCommon.glsl"
 
 
@@ -18,39 +18,47 @@ layout(set = 0, binding = 1, std430) restrict readonly buffer Meshes
 {
     Mesh_t meshes[];
 };
-// TODO: MeshBuffer SSBO here
-// TODO: MeshBuffer Indirect Draw SSBO here
-
-layout(set = 1, binding = 0, std430) restrict coherent buffer VisibleObjectCounter
+layout(set = 0, binding = 2, std430) restrict readonly buffer MeshBuffers
 {
-    uint visibleObjectCount;
+    MeshBuffer_t meshes[];
 };
-layout(set = 1, binding = 1, std430, row_major) restrict writeonly buffer VisibleObjects
+
+layout(set = 1, binding = 0, std430) restrict coherent buffer IndirectDispatches
 {
-    VisibleObject_t visibleObjects[];
+    irr_glsl_DispatchIndirectCommand_t histogramDispatch;
+    irr_glsl_DispatchIndirectCommand_t expandDispatch;
+    uint visibleMeshesCount;
+};
+layout(set = 1, binding = 1, std430, row_major) restrict writeonly buffer VisibleMeshes
+{
+    VisibleMesh_t visibleMeshes[];
+};
+layout(set = 1, binding = 2, std430) restrict writeonly buffer VisibleMeshBuffersHistogram
+{
+    uint visibleMeshBuffersHistogram[];
 };
 
 layout(set = 2, binding = 0, std140, row_major) uniform Cameras
 {
-    // NOTE: could be an unsized array and we could use `gl_GlobalInvocationID.y` to index cameras (or subdivide the X dimension of a workgroup)
+    // NOTE: could be an unsized array and we could use `gl_GlobalInvocationID.y` to index cameras (or subdivide the X dimension of a workgroup), but then should probably allow separate object indices per camera
     Camera_t camera;
 };
-layout(set = 2, binding = 3, std430) restrict writeonly buffer OutMultiDrawIndirectCommandBuffer
-{
-    uint data[];
-} outMultiDrawIndirectCommandBuffer;
 layout(set = 2, binding = 1, std430) restrict readonly buffer ObjectIndexBuffer
 {
     uint objectUUIDs[];
 };
-layout(set = 2, binding = 2, std430) restrict readonly buffer InMultiDrawIndirectCommandBuffer
+layout(set = 2, binding = 2, std430) restrict readonly buffer LoDData
+{
+    uint meshLoDData[];
+};
+layout(set = 2, binding = 3, std430) restrict readonly buffer InIndirectCommandBuffer
 {
     uint data[];
-} inMultiDrawIndirectCommandBuffer;
-layout(set = 2, binding = 4, std430) restrict readonly buffer LoDDistancesSquared
+} inIndirectCommandBuffer;
+layout(set = 2, binding = 4, std430) restrict writeonly buffer OutIndirectCommandBuffer
 {
-    float meshLoDDistancesSq[];
-};
+    uint data[];
+} outIndirectCommandBuffer;
 
 
 layout(push_constant) uniform PushConstants
@@ -66,16 +74,16 @@ void clearDrawcalls()
 {
     uint dword = gl_GlobalInvocationID.x;
     if (dword<pc.drawDataArrayDWORDSize)
-        outMultiDrawIndirectCommandBuffer.data[camera.outMDIOffset+dword] = inMultiDrawIndirectCommandBuffer.data[camera.inMDIOffset+dword];
+        outIndirectCommandBuffer.data[camera.nextFrameMDIDWORDOffset+dword] = inIndirectCommandBuffer.data[camera.sourceMDIDWORDOffset+dword];
 }
 
 void cullObjects()
 {
+    Mesh_t mesh; mesh.meshBuffersCount = 0u;
     mat4 modelViewProjectionMatrix;
-    uint objectUUID,meshUUID;
+    uint objectUUID;
 
-    bool notCulled = false;
-    if (gl_GlobalInvocationID.x>=pc.objectCount)
+    if (gl_GlobalInvocationID.x<pc.objectCount)
     {
         objectUUID = objectUUIDs[gl_GlobalInvocationID.x]; 
     
@@ -89,38 +97,40 @@ void cullObjects()
             const uint levelsLoD = lod;
             const uint distancesOffset = objects[objectUUID].LoDDistancesSqOffset;
             for (uint i=0; i<lod; i++)
-            if (distanceSq<meshLoDDistancesSq[distancesOffset+i])
+            if (distanceSq<uintBitsToFloat(meshLoDData[distancesOffset+i]))
                 lod = i;
-
-            notCulled = lod<levelsLoD;
         }
 
-        if (notCulled)
+        if (lod<levelsLoD)
         {
-            meshUUID = objects[objectUUID].LoDMeshesOffset+lod;
+            mesh = meshes[meshLoDData[objects[objectUUID].LoDMeshesOffset+lod]];
 
             modelViewProjectionMatrix = irr_glsl_pseudoMul4x4with4x3(camera.viewProjMatrix,worldMatrix);
 
             mat2x3 bbox;
             {
-                bbox[0] = meshes[meshUUID].MinEdge;
-                bbox[1] = meshes[meshUUID].MaxEdge;
+                bbox[0] = mesh.MinEdge;
+                bbox[1] = mesh.MaxEdge;
             }
-            notCulled = irr_glsl_couldBeVisible(modelViewProjectionMatrix,bbox);
             // Somewhere around here we could add occlusion culling (if we had camera Z-Buffer)
+            if (!irr_glsl_couldBeVisible(modelViewProjectionMatrix,bbox))
+                mesh.meshBuffersCount = 0u;
         }
     }
 
-    // a boolean inclusive prefix sum
-    irr_glsl_workgroupBallot(notCulled);
+    const uint partialMeshBufferHistogram = irr_glsl_workgroupInclusiveAdd(mesh.meshBuffersCount);
+    // a boolean inclusive prefix sum to figure out where to store visible object
+    irr_glsl_workgroupBallot(mesh.meshBuffersCount!=0u);
     const uint localOffsetPlus1 = irr_glsl_workgroupBallotInclusiveBitCount();
-    if (gl_LocalInvocationIndex==kOptimalWorkgroupSize-1u)
-        scratch[0u] = atomicAdd(visibleObjectCount,localOffsetPlus1);
-    barrier();
-    memoryBarrierShared();
+    {
+        if (gl_LocalInvocationIndex==_IRR_GLSL_WORKGROUP_SIZE_-1u)
+            scratch[0u] = atomicAdd(visibleMeshesCount,localOffsetPlus1);
+        barrier();
+        memoryBarrierShared();
+    }
     const uint outputIndex = scratch[0u]+localOffsetPlus1-1u;
 
-    if (notCulled)
+    if (mesh.meshBuffersCount!=0u)
     {
 		mat3 worldNormalMatrix = inverse(mat3(
             objects[objectUUID].worldNormalMatrixRow0,
@@ -129,14 +139,21 @@ void cullObjects()
         ));
 		mat3 normalMatrixT = mat3(camera.viewMatrixInverseRow0,camera.viewMatrixInverseRow1,camera.viewMatrixInverseRow2)*worldNormalMatrix;
 
-		visibleObjects[outputIndex].modelViewProjectionMatrix = modelViewProjectionMatrix;
-		visibleObjects[outputIndex].normalMatrixCol0 = normalMatrixT[0];
-		visibleObjects[outputIndex].cameraUUID = 0u; // we only support one camera/viewpoint for this demo
-		visibleObjects[outputIndex].normalMatrixCol1 = normalMatrixT[1];
-		visibleObjects[outputIndex].objectUUID = objectUUID;
-		visibleObjects[outputIndex].normalMatrixCol2 = normalMatrixT[2];
-		visibleObjects[outputIndex].meshUUID = meshUUID;
+		visibleMeshes[outputIndex].modelViewProjectionMatrix = modelViewProjectionMatrix;
+		visibleMeshes[outputIndex].normalMatrixCol0 = normalMatrixT[0];
+		visibleMeshes[outputIndex].cameraUUID = 0u; // we only support one camera/viewpoint for this demo
+		visibleMeshes[outputIndex].normalMatrixCol1 = normalMatrixT[1];
+		visibleMeshes[outputIndex].objectUUID = objectUUID;
+		visibleMeshes[outputIndex].normalMatrixCol2 = normalMatrixT[2];
+		visibleMeshes[outputIndex].meshBuffersOffset = mesh.meshBuffersOffset;
+
+        visibleMeshBuffersHistogram[outputIndex] = partialMeshBufferHistogram;
 	}
+    // set up indirect dispatches
+    if (gl_LocalInvocationIndex==0u)
+    {
+        //
+    }
 }
 
 void main()
@@ -146,31 +163,13 @@ void main()
 }
 
 
-
-
 /**
-
 We know what objects we want to draw with which mesh and for what camera.
-Per-camera MDIs have been cleared
+Per-camera MDIs have been cleared, and a partial histogram of meshbuffers (in _IRR_GLSL_WORKGROUP_SIZE_ chunks) has been built
 
-Now we can sort by camera OR start expanding meshes into meshbuffers... what to do?
+visibleMeshes now contains an implicit **scrambled** list of meshbuffer to draw.
 
-visibleObjects now contains a **scrambled** list of meshbuffers to draw.
 
 in the end they need to be expanded to MeshBuffers sorted by Camera, Pipeline and then Instance (although instance needs not be sorted)
-
 its pointless to sort before expansion, because we can only sort by camera as pipelines are unknown
-
-Could we expand when culling?
-
-NO: Because expansions are variable size, resulting in variable workloads per invocation.
-
-
-OPTIMIZATION:
-
-We can compute a prefix sum of how many meshbuffers each visible object will require.
-
-Next dispatch could finish computing the global prefix sum of meshcounts and write out indirect dispatch info.
-
-The "expansion" dispatch could run a lower_bound search to determine what `outputIndex` (visible object) and meshbuffer index the invocation maps to, then we have a 1:1 invocation to meshbuffer mapping.
 **/

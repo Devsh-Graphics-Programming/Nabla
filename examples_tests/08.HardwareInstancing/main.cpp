@@ -421,7 +421,7 @@ int main()
 		{
 			auto workgroupCount = [](uint32_t workItems) -> uint32_t
 			{
-				return (workItems+kOptimalWorkgroupSize-1)/kOptimalWorkgroupSize;
+				return (workItems+_IRR_GLSL_WORKGROUP_SIZE_-1)/_IRR_GLSL_WORKGROUP_SIZE_;
 			};
 
             driver->bindComputePipeline(clearDrawsAndCullObjectsPipeline.get());

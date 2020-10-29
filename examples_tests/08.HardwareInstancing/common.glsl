@@ -1,7 +1,7 @@
-#define kOptimalWorkgroupSize 256u
-#define _IRR_GLSL_WORKGROUP_SIZE_ kOptimalWorkgroupSize
+#define _IRR_GLSL_WORKGROUP_SIZE_ 256u
 
 #ifdef __cplusplus
+
 
 #define uint	uint32_t
 struct alignas(16) vec3
@@ -12,18 +12,25 @@ struct alignas(16) vec3
 #define mat4x3	core::matrix3x4SIMD
 #define mat4	core::matrix4SIMD
 
+
 #else
+
+
 #include <irr/builtin/glsl/utils/common.glsl>
 #include <irr/builtin/glsl/utils/transform.glsl>
 
 #include <irr/builtin/glsl/utils/indirect_commands.glsl>
 
 #include <irr/builtin/glsl/utils/culling.glsl>
+
+
 #endif
 
 struct MeshBuffer_t
 {
-	//
+	uint primitiveCount;
+	uint firstIndex;
+	uint baseVertex;
 };
 
 struct Mesh_t
@@ -65,11 +72,12 @@ struct Camera_t
 	float posY;
 	vec3 viewMatrixInverseRow2;
 	float posZ;
-	uint inMDIOffset;
-	uint outMDIOffset;
+	uint sourceMDIDWORDOffset;
+	uint nextFrameMDIOffset;
 };
 
-struct VisibleObject_t
+/*
+struct VisibleMeshBuffer_t
 {
 	mat4	modelViewProjectionMatrix;
 	vec3	normalMatrixCol0;
@@ -79,3 +87,46 @@ struct VisibleObject_t
 	vec3	normalMatrixCol2;
 	uint	meshUUID;
 };
+*/
+
+struct VisibleMesh_t
+{
+	mat4	modelViewProjectionMatrix;
+	vec3	normalMatrixCol0;
+	uint	cameraUUID;
+	vec3	normalMatrixCol1;
+	uint	objectUUID;
+	vec3	normalMatrixCol2;
+	uint	meshBuffersOffset;
+};
+
+/**
+indirect dispatch = visibleObjects/256
+
+load every 256th histogram entry, perform scan
+
+save level 2 histogram
+
+**/
+
+/**
+load every 256th level 2 histogram entry
+perform scan
+
+load own level 2
+
+// visibleMeshesBufferCount should be an inclusive prefix sum
+foundIx = upper_bound(visibleMeshesBufferCount,gl_GlobalInvocationID.x);
+
+meshUUID = visibleMeshes[foundIx].meshUUID;
+
+meshBufferUUID = mesh[meshUUID].meshBuffersOffset+gl_GlobalInvocationID.x;
+if (foundIx!=0u)
+	meshBufferUUID -= visibleMeshesBufferCount[foundIx-1u];
+
+foundIx = lower_bound(meshBufferUUIDToDrawUUID+cameraOffset,meshBufferUUID);
+cameraDrawUUID = meshBufferUUIDToDrawUUID[cameraUUID][meshbufferUUID]; // should be a binary_search or something
+
+drawIndirect[cameraDrawUUID].instanceCount++;
+
+**/
