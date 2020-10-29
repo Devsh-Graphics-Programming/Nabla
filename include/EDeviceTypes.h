@@ -26,11 +26,6 @@ namespace irr
 		/** This device uses Apple's Cocoa API and works in Mac OSX 10.2 and above. */
 		EIDT_OSX,
 
-		//! A device which uses Simple DirectMedia Layer
-		/** The SDL device works under all platforms supported by SDL but first must be compiled
-		in by defining the IRR_USE_SDL_DEVICE macro in IrrCompileConfig.h */
-		EIDT_SDL,
-
 		//! A device for raw framebuffer access
 		/** Best used with embedded devices and mobile systems.
 		Does not need X11 or other graphical subsystems.

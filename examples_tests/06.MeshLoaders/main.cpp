@@ -9,9 +9,9 @@
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
-#include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
+#include "irr/ext/FullScreenTriangle/FullScreenTriangle.h"
 
-//#include "../../ext/ScreenShot/ScreenShot.h"
+//#include "irr/ext/ScreenShot/ScreenShot.h"
 
 
 using namespace irr;

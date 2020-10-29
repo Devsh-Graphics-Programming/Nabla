@@ -13,6 +13,12 @@ namespace irr
 namespace asset
 {
 
+//! CPU Version of Specialized Shader
+/*
+	@see ISpecializedShader
+	@see IAsset
+*/
+
 class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 {
 	protected:
@@ -67,7 +73,8 @@ class ICPUSpecializedShader : public IAsset, public ISpecializedShader
 					//m_specInfo.getBackingBuffer()->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 				m_unspecialized->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 			}
-			m_specInfo.setEntries(nullptr,core::smart_refctd_ptr<ICPUBuffer>(m_specInfo.getBackingBuffer()));
+			if (m_mutable)
+				m_specInfo.setEntries(nullptr,core::smart_refctd_ptr<ICPUBuffer>(m_specInfo.getBackingBuffer()));
 		}
 
 		inline E_SHADER_STAGE getStage() const { return m_specInfo.shaderStage; }

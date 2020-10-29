@@ -10,7 +10,7 @@
 #include <chrono>
 #include "irrlicht.h"
 #include "irr/core/core.h"
-#include "../../ext/MitsubaLoader/CMitsubaLoader.h"
+#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
 
 #define PROPER_CMD_ARGUMENTS_AMOUNT 14
 #define MANDATORY_CMD_ARGUMENTS_AMOUNT 8

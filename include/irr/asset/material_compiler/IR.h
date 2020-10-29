@@ -6,7 +6,7 @@
 #define __NBL_ASSET_MATERIAL_COMPILER_IR_H_INCLUDED__
 
 #include <irr/core/IReferenceCounted.h>
-#include <irr/core/memory/refctd_dynamic_array.h>
+#include <irr/core/containers/refctd_dynamic_array.h>
 #include <irr/asset/ICPUImageView.h>
 #include <irr/asset/ICPUSampler.h>
 #include <irr/core/alloc/LinearAddressAllocator.h>

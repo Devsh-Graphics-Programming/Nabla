@@ -14,6 +14,11 @@ namespace irr
 namespace video
 {
 
+//! GPU Version of Renderpass Independent Pipeline
+/*
+	@see IRenderpassIndependentPipeline
+*/
+
 class IGPURenderpassIndependentPipeline : public asset::IRenderpassIndependentPipeline<IGPUSpecializedShader, IGPUPipelineLayout>
 {
 		using base_t = asset::IRenderpassIndependentPipeline<IGPUSpecializedShader, IGPUPipelineLayout>;

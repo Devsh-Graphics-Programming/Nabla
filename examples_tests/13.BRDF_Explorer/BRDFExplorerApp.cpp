@@ -26,7 +26,7 @@ SOFTWARE.
 */
 
 #include "BRDFExplorerApp.h"
-#include "../../ext/CEGUI/ExtCEGUI.h"
+#include "irr/ext/CEGUI/ExtCEGUI.h"
 #include <CEGUI/RendererModules/OpenGL/Texture.h>
 #include <IShaderConstantSetCallBack.h>
 

@@ -5,7 +5,7 @@
 #define _NBL_STATIC_LIB_
 #include <irrlicht.h>
 
-#include "../../ext/ScreenShot/ScreenShot.h"
+#include "irr/ext/ScreenShot/ScreenShot.h"
 
 #include "../common/QToQuitEventReceiver.h"
 

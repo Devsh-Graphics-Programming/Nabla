@@ -20,6 +20,10 @@
 #include "irr/video/alloc/StreamingTransientDataBuffer.h"
 #include "irr/video/alloc/SubAllocatedDataBuffer.h"
 
+// properties
+#include "irr/video/CPropertyPool.h"
+#include "irr/video/CPropertyPoolHandler.h"
+
 // think about foler name for those
 #include "irr/video/asset_traits.h"
 #include "irr/video/IGPUShader.h"

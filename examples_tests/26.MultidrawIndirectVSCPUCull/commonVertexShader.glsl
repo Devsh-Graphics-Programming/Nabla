@@ -20,5 +20,5 @@ void impl(uint _objectUUID)
 
     gl_Position = mvp[0]*vPos.x+mvp[1]*vPos.y+mvp[2]*vPos.z+mvp[3];
     Color = vec4(0.4,0.4,1.0,1.0);
-    Normal = normalize(drawData[_objectUUID].normalMatrix*vNormal); //have to normalize twice because of normal quantization
+    Normal = normalize(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(drawData[_objectUUID].normalMatrix)*vNormal); //have to normalize twice because of normal quantization
 }

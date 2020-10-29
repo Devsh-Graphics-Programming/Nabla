@@ -14,6 +14,12 @@ namespace irr
 namespace asset
 {
 
+//! CPU Version of Descriptor Set Layout
+/*
+    @see IDescriptorSetLayout
+    @see IAsset
+*/
+
 class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public IAsset
 {
 	public:
@@ -57,7 +63,9 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
                 return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
-			m_bindings = nullptr;
+            if (m_mutable)
+			    m_bindings = nullptr;
+
 			if (referenceLevelsBelowToConvert)
 			{
                 --referenceLevelsBelowToConvert;
@@ -65,7 +73,9 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 				for (auto it=m_samplers->begin(); it!=m_samplers->end(); it++)
 					it->get()->convertToDummyObject(referenceLevelsBelowToConvert);
 			}
-			m_samplers = nullptr;
+
+            if (m_mutable)
+			    m_samplers = nullptr;
 		}
 
         _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;

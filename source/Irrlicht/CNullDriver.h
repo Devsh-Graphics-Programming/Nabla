@@ -86,7 +86,7 @@ class CNullDriver : public IVideoDriver
             {
                 /*
                 For each byte in the range specified by offset and size and for each push constant range that overlaps that byte,
-                stageFlags must include all stages in that push constant range’s VkPushConstantRange::stageFlags
+                stageFlags must include all stages in that push constant rangeï¿½s VkPushConstantRange::stageFlags
                 */
                 if (updateRange.overlap(rng) && ((_stages & rng.stageFlags) != rng.stageFlags))
                     return false;
@@ -112,6 +112,9 @@ class CNullDriver : public IVideoDriver
 
         //! GPU fence, is signalled when preceeding GPU work is completed
         virtual core::smart_refctd_ptr<IDriverFence> placeFence(const bool& implicitFlushWaitSameThread=false) override {return nullptr;}
+
+		//!
+		virtual CPropertyPoolHandler* getDefaultPropertyPoolHandler() const override { return m_propertyPoolHandler.get(); }
 
 		//! gets the area of the current viewport
 		virtual const core::rect<int32_t>& getViewPort() const override;
@@ -190,6 +193,8 @@ class CNullDriver : public IVideoDriver
 		CFPSCounter FPSCounter;
 
 		uint32_t PrimitivesDrawn;
+
+		core::smart_refctd_ptr<CPropertyPoolHandler> m_propertyPoolHandler;
 
 		SExposedVideoData ExposedData;
 

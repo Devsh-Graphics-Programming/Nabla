@@ -2,6 +2,8 @@
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h
 
+add_subdirectory(ext)
+
 find_package(OpenGL REQUIRED)
 if(UNIX)
 	find_package(X11 REQUIRED)
@@ -205,11 +207,16 @@ set(NBL_VIDEO_SOURCES
 # Allocators
 	${NBL_ROOT_PATH}/src/irr/video/alloc/GPUMemoryAllocatorBase.cpp
 	${NBL_ROOT_PATH}/src/irr/video/alloc/SimpleGPUBufferAllocator.cpp
+	
+# Shaders
+	${NBL_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
+
+# Property Pools
+	${NBL_ROOT_PATH}/src/irr/video/CPropertyPoolHandler.cpp
 
 # Junk to refactor
 ${NBL_ROOT_PATH}/source/Irrlicht/IDriver.cpp
 ${NBL_ROOT_PATH}/source/Irrlicht/CNullDriver.cpp
-	${NBL_ROOT_PATH}/src/irr/video/COpenGLSpecializedShader.cpp
 	${NBL_ROOT_PATH}/source/Irrlicht/FW_Mutex.cpp
 	${NBL_ROOT_PATH}/source/Irrlicht/CFPSCounter.cpp
 )
