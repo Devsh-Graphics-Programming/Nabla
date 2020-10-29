@@ -168,15 +168,8 @@ private:
 		if(results.size() == 0u)
 			return;
 
-		outAddresses.clear();
-		sizes.clear();
-		alignments.clear();
-
 		// randomly decide how many calls to `multi_free`
 		const uint32_t multiFreeCnt = rng.getRandomNumber(1u, results.size());
-
-		//TODO:
-		//shuffle results
 
 		if (std::is_same<AlctrType, core::GeneralpurposeAddressAllocator<uint32_t>>::value)
 		{
@@ -185,6 +178,10 @@ private:
 
 		for (uint32_t i = 0u; (i < multiFreeCnt) && results.size(); i++)
 		{
+			outAddresses.clear();
+			sizes.clear();
+			alignments.clear();
+
 			// randomly how many addresses we should deallocate (but obvs less than all allocated) NOTE: must pick number less than `traits::max_multi_free`
 			const uint32_t addressesToFreeUpperBound = min(Traits::maxMultiOps, results.size());
 			const uint32_t addressesToFreeCnt = rng.getRandomNumber(0u, addressesToFreeUpperBound);
