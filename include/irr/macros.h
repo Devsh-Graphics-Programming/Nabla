@@ -59,7 +59,9 @@
 #endif
 
 // kind like a debug only assert
-#if defined(_IRR_DEBUG)
+#if defined(_IRR_DEBUG) || defined(_IRR_RELWITHDEBINFO)
+// TODO even though it is defined in RWDI build, _DEBUG #define is not defined in msvc (in rwdi) so debug break is not triggered anyway
+// idk what about other compilers
 #define _IRR_DEBUG_BREAK_IF( _CONDITION_ ) _IRR_BREAK_IF(_CONDITION_)
 #else
 #define _IRR_DEBUG_BREAK_IF( _CONDITION_ )

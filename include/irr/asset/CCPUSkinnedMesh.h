@@ -70,6 +70,8 @@ class CCPUSkinnedMesh : public ICPUSkinnedMesh
 		virtual uint32_t getMeshBufferCount() const override;
 
 		//! returns pointer to a mesh buffer
+		virtual ICPUMeshBuffer* getMeshBuffer(uint32_t nr) override;
+
 		virtual ICPUMeshBuffer* getMeshBuffer(uint32_t nr) const override;
 
 		//! Does the mesh have no animation
