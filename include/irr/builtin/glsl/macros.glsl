@@ -1,6 +1,7 @@
 #ifndef _IRR_BUILTIN_GLSL_MACROS_INCLUDED_
 #define _IRR_BUILTIN_GLSL_MACROS_INCLUDED_
 
+#define IRR_GLSL_EVAL(X) X
 
 #define IRR_GLSL_IS_POT(v) (v&(v-1u))
 #define IRR_GLSL_ROUND_UP_POT(v) (1u + \
