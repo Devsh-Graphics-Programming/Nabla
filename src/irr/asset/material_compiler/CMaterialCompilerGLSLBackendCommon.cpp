@@ -415,7 +415,21 @@ namespace remainder_and_pdf
 	{
 	public:
 		using traversal_t = core::vector<instr_t>;
-		using substream_t = std::pair<traversal_t::iterator, traversal_t::iterator>;
+		using substream_base_t = std::pair<size_t, size_t>;
+		struct substream_t : private substream_base_t
+		{
+			substream_t(traversal_t::iterator _beg, traversal_t::iterator _end, traversal_t* _cont) : 
+				substream_base_t(_beg-_cont->begin(), _end-_cont->begin()), my_cont(_cont)
+			{}
+
+			inline traversal_t::iterator begin() const { return my_cont->begin() + first; }
+			inline traversal_t::iterator end()	 const { return my_cont->begin() + second; }
+
+			inline size_t length() const { return second - first; }
+
+		private:
+			traversal_t* my_cont;
+		};
 
 	private:
 		_IRR_STATIC_INLINE_CONSTEXPR instr_t SPECIAL_VAL = ~static_cast<instr_t>(0);
@@ -464,7 +478,7 @@ namespace remainder_and_pdf
 		void reorderBumpMapStreams()
 		{
 			traversal_t result;
-			reorderBumpMapStreams_impl(m_input, result, { m_input.begin(),m_input.end() });
+			reorderBumpMapStreams_impl(m_input, result, substream_t{ m_input.begin(), m_input.end(), &m_input });
 
 			m_input = std::move(result);
 		}
@@ -713,27 +727,28 @@ std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(
 
 void instr_stream::remainder_and_pdf::CTraversalManipulator::reorderBumpMapStreams_impl(traversal_t& _input, traversal_t& _output, const substream_t& _stream)
 {
-	const uint32_t n_id = getNormalId(*(_stream.second - 1));
+	const uint32_t n_id = getNormalId(*(_stream.end() - 1));
 
-	const size_t len = _stream.second - _stream.first;
+	const size_t len = _stream.length();
 	size_t subsLenAcc = 0ull;
 
 	core::stack<substream_t> substreams;
-	auto subBegin = std::find_if(_stream.first, _stream.second, has_different_normal_id{ n_id });
-	while (subBegin != _stream.second)
+	auto subBegin = std::find_if(_stream.begin(), _stream.end(), has_different_normal_id{ n_id });
+	while (subBegin != _stream.end())
 	{
 		const uint32_t sub_n_id = getNormalId(*subBegin);
 		decltype(subBegin) subEnd;
-		for (subEnd = _stream.second - 1; subEnd != subBegin; --subEnd)
+		for (subEnd = _stream.end() - 1; subEnd != subBegin; --subEnd)
 			if (getNormalId(*subEnd) == sub_n_id)
 				break;
 		++subEnd;
 
+		auto sub = substream_t{ subBegin, subEnd, &_input };
 		//one place will be used for SPECIAL_VAL (hence -1)
-		subsLenAcc += subEnd - subBegin - 1;
-		substreams.push({ subBegin,subEnd });
+		subsLenAcc += sub.length() - 1ull;
+		substreams.push(sub);
 
-		subBegin = std::find_if(subEnd, _stream.second, has_different_normal_id{ n_id });
+		subBegin = std::find_if(subEnd, _stream.end(), has_different_normal_id{ n_id });
 	}
 
 	while (!substreams.empty())
@@ -744,22 +759,22 @@ void instr_stream::remainder_and_pdf::CTraversalManipulator::reorderBumpMapStrea
 
 	const uint32_t newlen = len - subsLenAcc;
 
-	substream_t woSubs{ _stream.first,_stream.first + newlen };
+	substream_t woSubs{ _stream.begin(),_stream.begin() + newlen, &_input };
 	//move bumpmap instruction to the beginning of the stream
-	auto lastInstr = *(_stream.first + newlen - 1);
+	auto lastInstr = *(_stream.begin() + newlen - 1);
 	if (getOpcode(lastInstr) == OP_BUMPMAP)
 	{
-		_input.erase(_stream.first + newlen - 1);
-		_input.insert(_stream.first, lastInstr);
+		_input.erase(_stream.begin() + newlen - 1);
+		_input.insert(_stream.begin(), lastInstr);
 	}
 
 	//important for next stage of processing
 	m_streamLengths.push(newlen);
 
-	_output.insert(_output.end(), woSubs.first, woSubs.second);
-	*woSubs.first = SPECIAL_VAL;
+	_output.insert(_output.end(), woSubs.begin(), woSubs.end());
+	*woSubs.begin() = SPECIAL_VAL;
 	//do not erase SPECIAL_VAL (hence +1)
-	_input.erase(woSubs.first + 1, woSubs.second);
+	_input.erase(woSubs.begin() + 1, woSubs.end());
 }
 
 void instr_stream::remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regCount, uint32_t& _out_maxUsedReg)
@@ -996,7 +1011,7 @@ instr_stream::tex_prefetch::prefetch_stream_t instr_stream::tex_prefetch::genTra
 		for (uint32_t param_i = 0u; param_i < param_count; ++param_i)
 		{
 			const uint32_t param_tex_shift = BITFIELDS_SHIFT_PARAM_TEX[param_i];
-			if (core::bitfieldExtract(instr, param_tex_shift, 1) == 0ull)
+			if (op != OP_BUMPMAP && core::bitfieldExtract(instr, param_tex_shift, 1) == 0ull)
 				continue;
 
 			prefetch_instr_t prefetch_instr;

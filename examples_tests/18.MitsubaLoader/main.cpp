@@ -481,12 +481,13 @@ int main()
 
 		auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t) * MaxSamples*Channels);
 
-		core::OwenSampler sampler(1u, 0xdeadbeefu);
+		core::OwenSampler sampler(Channels, 0xdeadbeefu);
 
 		auto out = reinterpret_cast<uint32_t*>(sampleSequence->getPointer());
-		for (uint32_t i = 0; i < MaxSamples*Channels; i++)
+		for (uint32_t c = 0; c < Channels; ++c)
+		for (uint32_t i = 0; i < MaxSamples; i++)
 		{
-			out[i] = sampler.sample(i%Channels, i/Channels);
+			out[Channels*i + c] = sampler.sample(c, i);
 		}
 		auto gpuSequenceBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(), sampleSequence->getPointer());
 		gpuSequenceBufferView = driver->createGPUBufferView(gpuSequenceBuffer.get(), asset::EF_R32G32B32_UINT);
