@@ -175,7 +175,7 @@ uint irr_glsl_subgroupAnd_impl(in bool clearScratchToIdentity, in uint value)
 }
 int irr_glsl_subgroupAnd_impl(in bool clearScratchToIdentity, in int value)
 {
-	return int(irr_glsl_subgroupAnd_impl(clearScratchToIdentity,int(value)));
+	return int(irr_glsl_subgroupAnd_impl(clearScratchToIdentity,uint(value)));
 }
 float irr_glsl_subgroupAnd_impl(in bool clearScratchToIdentity, in float value)
 {
@@ -188,7 +188,7 @@ uint irr_glsl_subgroupXor_impl(in bool clearScratchToIdentity, in uint value)
 }
 int irr_glsl_subgroupXor_impl(in bool clearScratchToIdentity, in int value)
 {
-	return int(irr_glsl_subgroupXor_impl(clearScratchToIdentity,int(value)));
+	return int(irr_glsl_subgroupXor_impl(clearScratchToIdentity,uint(value)));
 }
 float irr_glsl_subgroupXor_impl(in bool clearScratchToIdentity, in float value)
 {
@@ -201,7 +201,7 @@ uint irr_glsl_subgroupOr_impl(in bool clearScratchToIdentity, in uint value)
 }
 int irr_glsl_subgroupOr_impl(in bool clearScratchToIdentity, in int value)
 {
-	return int(irr_glsl_subgroupOr_impl(clearScratchToIdentity,int(value)));
+	return int(irr_glsl_subgroupOr_impl(clearScratchToIdentity,uint(value)));
 }
 float irr_glsl_subgroupOr_impl(in bool clearScratchToIdentity, in float value)
 {
@@ -215,7 +215,7 @@ uint irr_glsl_subgroupAdd_impl(in bool clearScratchToIdentity, in uint value)
 }
 int irr_glsl_subgroupAdd_impl(in bool clearScratchToIdentity, in int value)
 {
-	return int(irr_glsl_subgroupAdd_impl(clearScratchToIdentity,int(value)));
+	return int(irr_glsl_subgroupAdd_impl(clearScratchToIdentity,uint(value)));
 }
 float irr_glsl_subgroupAdd_impl(in bool clearScratchToIdentity, in float value)
 {
@@ -228,7 +228,7 @@ uint irr_glsl_subgroupMul_impl(in bool clearScratchToIdentity, in uint value)
 }
 int irr_glsl_subgroupMul_impl(in bool clearScratchToIdentity, in int value)
 {
-	return int(irr_glsl_subgroupMul_impl(clearScratchToIdentity,int(value)));
+	return int(irr_glsl_subgroupMul_impl(clearScratchToIdentity,uint(value)));
 }
 float irr_glsl_subgroupMul_impl(in bool clearScratchToIdentity, in float value)
 {
@@ -276,7 +276,7 @@ uint irr_glsl_subgroupInclusiveAnd_impl(in bool clearScratchToIdentity, in uint 
 }
 int irr_glsl_subgroupInclusiveAnd_impl(in bool clearScratchToIdentity, in int value)
 {
-	return int(irr_glsl_subgroupInclusiveAnd_impl(clearScratchToIdentity,int(value)));
+	return int(irr_glsl_subgroupInclusiveAnd_impl(clearScratchToIdentity,uint(value)));
 }
 float irr_glsl_subgroupInclusiveAnd_impl(in bool clearScratchToIdentity, in float value)
 {
@@ -288,7 +288,7 @@ uint irr_glsl_subgroupExclusiveAnd_impl(in bool clearScratchToIdentity, in uint 
 }
 int irr_glsl_subgroupExclusiveAnd_impl(in bool clearScratchToIdentity, in int value)
 {
-	return int(irr_glsl_subgroupExclusiveAnd_impl(clearScratchToIdentity,int(value)));
+	return int(irr_glsl_subgroupExclusiveAnd_impl(clearScratchToIdentity,uint(value)));
 }
 float irr_glsl_subgroupExclusiveAnd_impl(in bool clearScratchToIdentity, in float value)
 {
@@ -301,7 +301,7 @@ uint irr_glsl_subgroupInclusiveXor_impl(in bool clearScratchToIdentity, in uint 
 }
 int irr_glsl_subgroupInclusiveXor_impl(in bool clearScratchToIdentity, in int value)
 {
-	return int(irr_glsl_subgroupInclusiveXor_impl(clearScratchToIdentity,int(value)));
+	return int(irr_glsl_subgroupInclusiveXor_impl(clearScratchToIdentity,uint(value)));
 }
 float irr_glsl_subgroupInclusiveXor_impl(in bool clearScratchToIdentity, in float value)
 {
@@ -313,7 +313,7 @@ uint irr_glsl_subgroupExclusiveXor_impl(in bool clearScratchToIdentity, in uint 
 }
 int irr_glsl_subgroupExclusiveXor_impl(in bool clearScratchToIdentity, in int value)
 {
-	return int(irr_glsl_subgroupExclusiveXor_impl(clearScratchToIdentity,int(value)));
+	return int(irr_glsl_subgroupExclusiveXor_impl(clearScratchToIdentity,uint(value)));
 }
 float irr_glsl_subgroupExclusiveXor_impl(in bool clearScratchToIdentity, in float value)
 {
@@ -326,7 +326,7 @@ uint irr_glsl_subgroupInclusiveOr_impl(in bool clearScratchToIdentity, in uint v
 }
 int irr_glsl_subgroupInclusiveOr_impl(in bool clearScratchToIdentity, in int value)
 {
-	return int(irr_glsl_subgroupInclusiveOr_impl(clearScratchToIdentity,int(value)));
+	return int(irr_glsl_subgroupInclusiveOr_impl(clearScratchToIdentity,uint(value)));
 }
 float irr_glsl_subgroupInclusiveOr_impl(in bool clearScratchToIdentity, in float value)
 {
@@ -338,7 +338,7 @@ uint irr_glsl_subgroupExclusiveOr_impl(in bool clearScratchToIdentity, in uint v
 }
 int irr_glsl_subgroupExclusiveOr_impl(in bool clearScratchToIdentity, in int value)
 {
-	return int(irr_glsl_subgroupExclusiveOr_impl(clearScratchToIdentity,int(value)));
+	return int(irr_glsl_subgroupExclusiveOr_impl(clearScratchToIdentity,uint(value)));
 }
 float irr_glsl_subgroupExclusiveOr_impl(in bool clearScratchToIdentity, in float value)
 {
@@ -352,7 +352,7 @@ uint irr_glsl_subgroupInclusiveAdd_impl(in bool clearScratchToIdentity, in uint 
 }
 int irr_glsl_subgroupInclusiveAdd_impl(in bool clearScratchToIdentity, in int value)
 {
-	return int(irr_glsl_subgroupInclusiveAdd_impl(clearScratchToIdentity,int(value)));
+	return int(irr_glsl_subgroupInclusiveAdd_impl(clearScratchToIdentity,uint(value)));
 }
 float irr_glsl_subgroupInclusiveAdd_impl(in bool clearScratchToIdentity, in float value)
 {
@@ -364,7 +364,7 @@ uint irr_glsl_subgroupExclusiveAdd_impl(in bool clearScratchToIdentity, in uint 
 }
 int irr_glsl_subgroupExclusiveAdd_impl(in bool clearScratchToIdentity, in int value)
 {
-	return int(irr_glsl_subgroupExclusiveAdd_impl(clearScratchToIdentity,int(value)));
+	return int(irr_glsl_subgroupExclusiveAdd_impl(clearScratchToIdentity,uint(value)));
 }
 float irr_glsl_subgroupExclusiveAdd_impl(in bool clearScratchToIdentity, in float value)
 {
@@ -377,7 +377,7 @@ uint irr_glsl_subgroupInclusiveMul_impl(in bool clearScratchToIdentity, in uint 
 }
 int irr_glsl_subgroupInclusiveMul_impl(in bool clearScratchToIdentity, in int value)
 {
-	return int(irr_glsl_subgroupInclusiveMul_impl(clearScratchToIdentity,int(value)));
+	return int(irr_glsl_subgroupInclusiveMul_impl(clearScratchToIdentity,uint(value)));
 }
 float irr_glsl_subgroupInclusiveMul_impl(in bool clearScratchToIdentity, in float value)
 {
@@ -389,7 +389,7 @@ uint irr_glsl_subgroupExclusiveMul_impl(in bool clearScratchToIdentity, in uint 
 }
 int irr_glsl_subgroupExclusiveMul_impl(in bool clearScratchToIdentity, in int value)
 {
-	return int(irr_glsl_subgroupExclusiveMul_impl(clearScratchToIdentity,int(value)));
+	return int(irr_glsl_subgroupExclusiveMul_impl(clearScratchToIdentity,uint(value)));
 }
 float irr_glsl_subgroupExclusiveMul_impl(in bool clearScratchToIdentity, in float value)
 {

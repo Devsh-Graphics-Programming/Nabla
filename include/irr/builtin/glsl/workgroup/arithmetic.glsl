@@ -12,12 +12,17 @@
 // TODO: specialize for constexpr case (also remove the ugly `+4` its just the "number of passes" for the scan hierarchy
 #define _IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_  (_IRR_GLSL_WORKGROUP_SIZE_/(irr_glsl_MinSubgroupSize-1u)+4u+irr_glsl_MaxSubgroupSize)
 
+#define CONDITIONAL_BARRIER
+
 
 #else
 */
 
 // this is always greater than the case with native subgroup stuff, TODO: is it correct for small workgroups?
 #define _IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_  (_IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_)
+
+#define CONDITIONAL_BARRIER barrier();
+
 
 //#endif
 
@@ -33,7 +38,9 @@
 
 
 // reduction
-#define IRR_GLSL_WORKGROUP_REDUCE(CONV,SUBGROUP_OP,VALUE,IDENTITY,INVCONV) SUBGROUP_SCRATCH_CLEAR(INVCONV(IDENTITY)) \
+#define IRR_GLSL_WORKGROUP_REDUCE(CONV,SUBGROUP_OP,VALUE,IDENTITY,INVCONV) { \
+		SUBGROUP_SCRATCH_CLEAR(INVCONV(IDENTITY)) \
+	} \
 	IRR_GLSL_WORKGROUP_COMMON_IMPL_HEAD(CONV,SUBGROUP_OP,SUBGROUP_OP,VALUE,IDENTITY,INVCONV,_IRR_GLSL_WORKGROUP_SIZE_) \
 	} \
 	CONDITIONAL_BARRIER \
@@ -55,7 +62,9 @@ float irr_glsl_workgroupAdd(in float val)
 
 
 // scan
-#define IRR_GLSL_WORKGROUP_SCAN(CONV,OP,FIRST_SUBGROUP_OP,SECOND_SUBGROUP_OP,VALUE,IDENTITY,INVCONV) SUBGROUP_SCRATCH_CLEAR(INVCONV(IDENTITY)) \
+#define IRR_GLSL_WORKGROUP_SCAN(CONV,OP,FIRST_SUBGROUP_OP,SECOND_SUBGROUP_OP,VALUE,IDENTITY,INVCONV) { \
+		SUBGROUP_SCRATCH_CLEAR(INVCONV(IDENTITY)) \
+	} \
 	IRR_GLSL_WORKGROUP_COMMON_IMPL_HEAD(CONV,FIRST_SUBGROUP_OP,SECOND_SUBGROUP_OP,VALUE,IDENTITY,INVCONV,_IRR_GLSL_WORKGROUP_SIZE_) \
 	IRR_GLSL_WORKGROUP_SCAN_IMPL_TAIL(CONV,OP,INVCONV) \
 	return CONV(firstLevelScan);
@@ -159,5 +168,7 @@ float irr_glsl_workgroupExclusiveMax(in float val);
 uint irr_glsl_workgroupExclusiveMax(in uint val);
 int irr_glsl_workgroupExclusiveMax(in int val);
 **/
+
+#undef CONDITIONAL_BARRIER
 
 #endif
