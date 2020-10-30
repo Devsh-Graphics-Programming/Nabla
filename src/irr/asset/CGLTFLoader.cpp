@@ -540,7 +540,6 @@ namespace irr
 							}
 						};
 
-
 						setBufferBinding(queryAttributeId.has_value() ? SGLTF::SGLTFBufferView::SGLTFT_ARRAY_BUFFER : SGLTF::SGLTFBufferView::SGLTFT_ELEMENT_ARRAY_BUFFER);
 					};
 
