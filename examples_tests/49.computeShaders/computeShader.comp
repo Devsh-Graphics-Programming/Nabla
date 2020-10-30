@@ -36,19 +36,38 @@ bool isInsideSphere( vec3 p, vec4 s )
 	return ( r < s.w );
 }
 
+float getNewAxieColor(float colorAxie)
+{
+	const float colorDelta = 0.001; 
+
+	if(colorAxie >= 1.)
+		colorAxie = 0;
+	else
+		colorAxie += colorDelta;
+
+	return colorAxie;
+}
+
+vec3 getNewColor(vec3 color)
+{
+	return vec3(getNewAxieColor(color.x), getNewAxieColor(color.y), getNewAxieColor(color.z));
+}
+
 void main()
 {
 	const vec3 gravity = vec3(0., -9.8, 0.);
-	const float deltaTime = 0.1;
+	const float deltaTime = 0.006;
 	const vec4 sphere = vec4(-100., -800., 0., 600.);
 
 	uint globalInvocationID = gl_GlobalInvocationID.x; // the .y and .z are both 1 in this case
 
 	vec3 position = positions[globalInvocationID].xyz;
 	vec3 velocity = velocities[globalInvocationID].xyz;
+	vec3 color = colors[globalInvocationID].xyz;
 
 	vec3 newComputedPosition = position + velocity * deltaTime + 0.5 * gravity * deltaTime * deltaTime;
 	vec3 newComputedVelocity = position + gravity * deltaTime;
+	vec3 newComputedColor = getNewColor(color);
 
 	if(isInsideSphere(newComputedPosition, sphere))
 	{
@@ -58,4 +77,5 @@ void main()
 
 	positions[globalInvocationID].xyz = newComputedPosition;
 	velocities[globalInvocationID].xyz = newComputedVelocity;
+	colors[globalInvocationID].xyz = newComputedColor;
 }
