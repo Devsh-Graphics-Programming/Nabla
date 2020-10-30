@@ -1238,7 +1238,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		const size_t sz = _compResult.prefetch_stream.size()*sizeof(decltype(_compResult.prefetch_stream)::value_type);
 		
 		constexpr size_t MIN_SSBO_SZ = 128ull; //prefetch stream won't be generated if no textures are used, so make sure we're not creating 0-size buffer
-		auto prefetch_instr_buf = core::make_smart_refctd_ptr<ICPUBuffer>(std::min(MIN_SSBO_SZ, sz));
+		auto prefetch_instr_buf = core::make_smart_refctd_ptr<ICPUBuffer>(std::max(MIN_SSBO_SZ, sz));
 		memcpy(prefetch_instr_buf->getPointer(), _compResult.prefetch_stream.data(), sz);
 
 		d->buffer.offset = 0u;
