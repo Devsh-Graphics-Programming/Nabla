@@ -19,7 +19,7 @@ uint irr_glsl_mulAsFloat(in uint x, in uint y) {return floatBitsToUint(uintBitsT
 uint irr_glsl_minAsInt(in uint x, in uint y) {return min(int(x),int(y));}
 uint irr_glsl_minAsFloat(in uint x, in uint y) {return floatBitsToUint(min(uintBitsToFloat(x),uintBitsToFloat(y)));}
 
-uint irr_glsl_minAsInt(in uint x, in uint y) {return max(int(x),int(y));}
-uint irr_glsl_minAsFloat(in uint x, in uint y) {return floatBitsToUint(max(uintBitsToFloat(x),uintBitsToFloat(y)));}
+uint irr_glsl_maxAsInt(in uint x, in uint y) {return max(int(x),int(y));}
+uint irr_glsl_maxAsFloat(in uint x, in uint y) {return floatBitsToUint(max(uintBitsToFloat(x),uintBitsToFloat(y)));}
 
 #endif
