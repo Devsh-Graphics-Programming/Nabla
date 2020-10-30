@@ -32,6 +32,7 @@ set(irr_resources_to_embed
   "irr/builtin/materials/debug/vertex_uv/specializedshader.frag"
   # generic GLSL headers after this line
   "irr/builtin/glsl/macros.glsl"
+  "irr/builtin/glsl/algorithm.glsl"
   # bump mapping
   "irr/builtin/glsl/broken_driver_workarounds/amd.glsl"
   "irr/builtin/glsl/bump_mapping/utils.glsl"
