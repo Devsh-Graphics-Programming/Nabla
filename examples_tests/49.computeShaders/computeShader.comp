@@ -1,0 +1,61 @@
+#version 450 core
+#extension GL_EXT_shader_16bit_storage : require
+
+layout(binding = 0, std430) buffer Position
+{
+	vec4 positions[];
+};
+
+layout(binding = 1, std430) buffer Velocity
+{
+	vec4 velocities[];
+};
+
+layout(binding = 2, std430) buffer Color
+{
+	vec4 colors[];
+};
+
+layout(local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
+
+vec3 bounce( vec3 vin, vec3 n )
+{
+	vec3 vout = reflect( vin, n );
+	return vout;
+}
+
+vec3 bounceSphere( vec3 p, vec3 v, vec4 s )
+{
+	vec3 n = normalize( p - s.xyz );
+	return bounce( v, n );
+}
+
+bool isInsideSphere( vec3 p, vec4 s )
+{
+	float r = length( p - s.xyz );
+	return ( r < s.w );
+}
+
+void main()
+{
+	const vec3 gravity = vec3(0., -9.8, 0.);
+	const float deltaTime = 0.1;
+	const vec4 sphere = vec4(-100., -800., 0., 600.);
+
+	uint globalInvocationID = gl_GlobalInvocationID.x; // the .y and .z are both 1 in this case
+
+	vec3 position = positions[globalInvocationID].xyz;
+	vec3 velocity = velocities[globalInvocationID].xyz;
+
+	vec3 newComputedPosition = position + velocity * deltaTime + 0.5 * gravity * deltaTime * deltaTime;
+	vec3 newComputedVelocity = position + gravity * deltaTime;
+
+	if(isInsideSphere(newComputedPosition, sphere))
+	{
+		newComputedVelocity = bounceSphere(position, velocity, sphere);
+		newComputedPosition = position + newComputedVelocity * deltaTime + 0.5 * gravity * deltaTime * deltaTime;
+	}
+
+	positions[globalInvocationID].xyz = newComputedPosition;
+	velocities[globalInvocationID].xyz = newComputedVelocity;
+}
