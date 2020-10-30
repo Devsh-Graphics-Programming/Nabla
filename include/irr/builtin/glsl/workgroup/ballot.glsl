@@ -6,15 +6,15 @@
 #include <irr/builtin/glsl/workgroup/basic.glsl>
 
 
-#define irr_glsl_workgroupBallot_impl_getDWORD(IX) (IX>>5u)
-#define irr_glsl_workgroupBallot_impl_BitfieldDWORDs irr_glsl_workgroupBallot_impl_getDWORD(_IRR_GLSL_WORKGROUP_SIZE_+31u))
+#define irr_glsl_workgroupBallot_impl_getDWORD(IX) (IX>>5)
+#define irr_glsl_workgroupBallot_impl_BitfieldDWORDs irr_glsl_workgroupBallot_impl_getDWORD(_IRR_GLSL_WORKGROUP_SIZE_+31)
 
 
 /*
 #ifdef GL_KHR_subgroup_arithmetic
 
 
-#define _IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_  irr_glsl_workgroupBallot_impl_BitfieldDWORDs
+#define _IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_IMPL_  irr_glsl_workgroupBallot_impl_BitfieldDWORDs
 
 #define CONDITIONAL_BARRIER
 
@@ -22,16 +22,11 @@
 */
 
 #ifdef IRR_GLSL_SUBGROUP_SIZE_IS_CONSTEXPR
-	#define irr_glsl_workgroupBallot_impl_BitDWORDs_rounded ((irr_glsl_workgroupBallot_impl_BitfieldDWORDs+irr_glsl_SubgroupSize-1u)&(-irr_glsl_SubgroupSize))
+	#define irr_glsl_workgroupBallot_impl_BitDWORDs_rounded IRR_GLSL_AND(irr_glsl_workgroupBallot_impl_BitfieldDWORDs+irr_glsl_SubgroupSize-1,-irr_glsl_SubgroupSize)
 #else
-	#define irr_glsl_workgroupBallot_impl_BitDWORDs_rounded ((irr_glsl_workgroupBallot_impl_BitfieldDWORDs+irr_glsl_MaxSubgroupSize-1u)&(-irr_glsl_MaxSubgroupSize))
+	#define irr_glsl_workgroupBallot_impl_BitDWORDs_rounded IRR_GLSL_AND(irr_glsl_workgroupBallot_impl_BitfieldDWORDs+irr_glsl_MaxSubgroupSize-1,-irr_glsl_MaxSubgroupSize)
 #endif
-#define _IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_  (irr_glsl_workgroupBallot_impl_BitDWORDs_rounded+(irr_glsl_workgroupBallot_impl_BitDWORDs_rounded>>1u))
-
-#if _IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_>_IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_
-	#error "This shouldn't ever happen, something is wrong with "builtin/glsl/subgroup/arithmetic_portability"!"
-#endif
-
+#define _IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_IMPL_  IRR_GLSL_EVAL(irr_glsl_workgroupBallot_impl_BitDWORDs_rounded+(irr_glsl_workgroupBallot_impl_BitDWORDs_rounded>>1))
 
 #define CONDITIONAL_BARRIER barrier();
 
@@ -40,16 +35,22 @@ If `GL_KHR_subgroup_arithmetic` is not available then these functions require em
 `irr_glsl_workgroupOp`s then the workgroup size must not be smaller than half a subgroup but having workgroups smaller than a subgroup is extremely bad practice.
 */
 
+#if IRR_GLSL_GREATER(_IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_,_IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_IMPL_)
+	#define _IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_ _IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_
+#else
+	#define _IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_ _IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_IMPL_
+#endif
+
 //#endif
 
 
 
 #ifdef _IRR_GLSL_SCRATCH_SHARED_DEFINED_
-	#if IRR_GLSL_EVAL(_IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_)<IRR_GLSL_EVAL(_IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_)
+	#if IRR_GLSL_LESS(_IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_,_IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_)
 		#error "Not enough shared memory declared for workgroup ballot!"
 	#endif
 #else
-	#if _IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_>0
+	#if IRR_GLSL_GREATER(_IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_,0)
 		#define _IRR_GLSL_SCRATCH_SHARED_DEFINED_ irr_glsl_workgroupBallotScratchShared
 		shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_];
 	#endif
@@ -85,7 +86,11 @@ uint irr_glsl_workgroupBallotBitCount()
 	barrier();
 	memoryBarrierShared();
 	if (gl_LocalInvocationIndex<irr_glsl_workgroupBallot_impl_BitfieldDWORDs)
-		atomicAdd(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_BitfieldDWORDs],bitcount(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex]));
+	{
+		const uint localBallot = _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex];
+		const uint localBallotBitCount = bitCount(localBallot);
+		atomicAdd(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_BitfieldDWORDs],localBallotBitCount);
+	}
 	barrier();
 
 	return _IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_BitfieldDWORDs];
@@ -212,7 +217,9 @@ uint irr_glsl_workgroupBallotScanBitCount_impl(in bool exclusive)
 	memoryBarrierShared();
 
 	const uint mask = 0xffffffffu>>((exclusive ? 32u:31u)-(gl_LocalInvocationIndex&31u));
-	return globalCount+bitcount(localBitfieldBackup&mask);
+	return globalCount+bitCount(localBitfieldBackup&mask);
 }
+
+#undef CONDITIONAL_BARRIER
 
 #endif

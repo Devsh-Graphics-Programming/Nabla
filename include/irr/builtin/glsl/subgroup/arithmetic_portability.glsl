@@ -25,7 +25,7 @@
 #ifdef GL_KHR_subgroup_arithmetic
 
 
-#define _IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_ 0u
+#define _IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_ 0
 
 
 #define irr_glsl_subgroupAdd subgroupAnd
