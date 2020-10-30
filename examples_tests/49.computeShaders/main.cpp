@@ -135,8 +135,12 @@ int main()
 		driver->beginScene(true, true, video::SColor(255, 255, 255, 255));
 
 		driver->bindComputePipeline(gpuComputePipeline.get());
-		driver->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 1, 1, &gpuDescriptorSetCompute.get(), nullptr);
-		driver->dispatch(NUMBER_OF_PARTICLES / WORK_GROUP_SIZE, 1, 1);
+		driver->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 0, 1, &gpuDescriptorSetCompute.get(), nullptr);
+
+		static_assert(NUMBER_OF_PARTICLES % WORK_GROUP_SIZE == 0, "Inccorect amount!");
+		_NBL_STATIC_INLINE_CONSTEXPR size_t groupCountX = NUMBER_OF_PARTICLES / WORK_GROUP_SIZE;
+
+		driver->dispatch(groupCountX, 1, 1);
 		COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
 		COpenGLExtensionHandler::extGlMemoryBarrier(GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT | GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 	
