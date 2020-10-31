@@ -149,22 +149,6 @@ layout(set=_IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLSL_
         #endif
     #endif
 
-    // TODO: turn `upper_bound__minus_onePoT` into a macro `irr_glsl_parallel_upper_bound__minus_onePoT` and introduce lower_bound, and non-minus one variants
-    #if IRR_GLSL_IS_NOT_POT(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT)
-        #error "Parallel Upper Bound requires the Histogram Bin Count to be PoT"
-    #endif
-    int upper_bound_minus_onePoT(in uint val, int arrayLenPoT)
-    {
-        arrayLenPoT >>= 1;
-        int ret = (val<_IRR_GLSL_SCRATCH_SHARED_DEFINED_[arrayLenPoT]) ? 0:arrayLenPoT;
-        for (; arrayLenPoT>0; arrayLenPoT>>=1)
-        {
-            int right = ret+arrayLenPoT;
-            ret = (val<_IRR_GLSL_SCRATCH_SHARED_DEFINED_[right]) ? ret:right;
-        }
-        return ret;
-    }
-
     struct irr_glsl_ext_LumaMeter_PassInfo_t
     {
         uvec2 percentileRange; // (lowerPercentile,upperPercentile)
@@ -292,9 +276,11 @@ float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_
 #if IRR_GLSL_EQUAL(_IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_,_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN)
     #include <irr/builtin/glsl/workgroup/ballot.glsl>
     #include <irr/builtin/glsl/workgroup/arithmetic.glsl>
+    #include <irr/builtin/glsl/workgroup/shuffle.glsl>
 // TODO: figure out why the irr_glsl_workgroupExclusiveAdd function doesn't work
 uint irr_glsl_workgroupExclusiveAdd2(uint val)
 {
+#if 0
     uint pingpong = uint(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT);
     //! Bad INEFFICIENT Kogge-Stone adder, don't implement this way!
     for (int pass = 1; pass < _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT; pass <<= 1)
@@ -311,21 +297,40 @@ uint irr_glsl_workgroupExclusiveAdd2(uint val)
     barrier();
     memoryBarrierShared();
     return val;
+#elif 1
+    barrier();
+    memoryBarrierShared();
+    _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = 0u;
+    _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT + gl_LocalInvocationIndex] = 0u;
+    barrier();
+    memoryBarrierShared();
+    const uint K = irr_glsl_SubgroupSize;
+    const uint outIx = gl_LocalInvocationIndex/K;
+    uint subScan = irr_glsl_subgroupInclusiveAdd(val);
+    barrier();
+    memoryBarrierShared();
+    if ((gl_LocalInvocationIndex&(K-1u))==(K-1u))
+       _IRR_GLSL_SCRATCH_SHARED_DEFINED_[outIx] = subScan;
+    barrier();
+    memoryBarrierShared();
+    for (uint i=0u; i<outIx; i++)
+    {
+        subScan += _IRR_GLSL_SCRATCH_SHARED_DEFINED_[i];
+    }
+    subScan = irr_glsl_workgroupShuffle(subScan,gl_LocalInvocationIndex!=0u ? (gl_LocalInvocationIndex-1u):0u);
+    return gl_LocalInvocationIndex!=0u ? subScan:0u;
+#else
+    _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = 0u;
+    _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT+gl_LocalInvocationIndex] = 0u;
+    return irr_glsl_workgroupExclusiveAdd(val);
+#endif
 }
 #endif
 
 float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t firstPassOutput, in irr_glsl_ext_LumaMeter_PassInfo_t info)
 {
     #if IRR_GLSL_EQUAL(_IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_,_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN)
-        uint histogramPrefix;
-        // do the prefix sum stuff
-        {
-            histogramPrefix = irr_glsl_workgroupExclusiveAdd2(firstPassOutput);
-            // TODO: right now workgroup size must equal _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT, but it would be good if it didn't (we could carry out many prefix sums in serial)
-            _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = histogramPrefix;
-        }
-        barrier();
-        memoryBarrierShared();
+        uint histogramPrefix = irr_glsl_workgroupExclusiveAdd2(firstPassOutput);
 
         // TODO: We can do it better, and without how right now workgroup size must equal _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT, but it would be good if it didn't (we could carry out many prefix sums in serial).
         // Assign whole subgroup to do a subgroup_uniform_upper_bound on lower percentile, then do the subgroup_uniform_upper_bound again but in the [previousFound,end) range.
