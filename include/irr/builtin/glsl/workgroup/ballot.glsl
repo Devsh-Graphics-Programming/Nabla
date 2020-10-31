@@ -59,7 +59,7 @@ If `GL_KHR_subgroup_arithmetic` is not available then these functions require em
 
 
 // puts the result into shared memory at offsets [0,_IRR_GLSL_WORKGROUP_SIZE_/32)
-void irr_glsl_workgroupBallot(in bool value)
+void irr_glsl_workgroupBallot_noBarriers(in bool value)
 {
 	// TODO: Optimization using subgroupBallot in an ifdef IRR_GL_something (need to do feature mapping first)
 	if (gl_LocalInvocationIndex<irr_glsl_workgroupBallot_impl_BitfieldDWORDs)
@@ -68,6 +68,12 @@ void irr_glsl_workgroupBallot(in bool value)
 	memoryBarrierShared();
 	if (value)
 		atomicOr(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_getDWORD(gl_LocalInvocationIndex)],1u<<(gl_LocalInvocationIndex&31u));
+}
+void irr_glsl_workgroupBallot(in bool value)
+{
+	barrier();
+	memoryBarrierShared();
+	irr_glsl_workgroupBallot_noBarriers(value);
 	barrier();
 }
 
@@ -118,7 +124,7 @@ uint irr_glsl_workgroupBallotBitCount()
 }
 
 
-uint irr_glsl_workgroupBroadcast_noEndBarriers(in uint val, in uint id)
+uint irr_glsl_workgroupBroadcast_noBarriers(in uint val, in uint id)
 {
 	if (gl_LocalInvocationIndex==id)
 		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_BitfieldDWORDs] = val;
@@ -128,13 +134,15 @@ uint irr_glsl_workgroupBroadcast_noEndBarriers(in uint val, in uint id)
 }
 uint irr_glsl_workgroupBroadcast(in uint val, in uint id)
 {
-	const uint retval = irr_glsl_workgroupBroadcast_noEndBarriers(val,id);
+	barrier();
+	memoryBarrierShared();
+	const uint retval = irr_glsl_workgroupBroadcast_noBarriers(val,id);
 	barrier();
 	memoryBarrierShared();
 	return retval;
 }
 
-uint irr_glsl_workgroupBroadcastFirst_noEndBarriers(in uint val)
+uint irr_glsl_workgroupBroadcastFirst_noBarriers(in uint val)
 {
 	if (irr_glsl_workgroupElect())
 		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_BitfieldDWORDs] = val;
@@ -144,7 +152,9 @@ uint irr_glsl_workgroupBroadcastFirst_noEndBarriers(in uint val)
 }
 uint irr_glsl_workgroupBroadcastFirst(in uint val)
 {
-	const uint retval = irr_glsl_workgroupBroadcastFirst_noEndBarriers(val);
+	barrier();
+	memoryBarrierShared();
+	const uint retval = irr_glsl_workgroupBroadcastFirst_noBarriers(val);
 	barrier();
 	memoryBarrierShared();
 	return retval;

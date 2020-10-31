@@ -280,30 +280,9 @@ float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_
 // TODO: figure out why the irr_glsl_workgroupExclusiveAdd function doesn't work
 uint irr_glsl_workgroupExclusiveAdd2(uint val)
 {
-#if 0
-    uint pingpong = uint(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT);
-    //! Bad INEFFICIENT Kogge-Stone adder, don't implement this way!
-    for (int pass = 1; pass < _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT; pass <<= 1)
-    {
-        uint index = gl_LocalInvocationIndex + pingpong;
-        pingpong ^= _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT;
-
-        _IRR_GLSL_SCRATCH_SHARED_DEFINED_[index] = val;
-        barrier();
-        memoryBarrierShared();
-        if (gl_LocalInvocationIndex >= pass)
-            val += _IRR_GLSL_SCRATCH_SHARED_DEFINED_[index - pass];
-    }
     barrier();
     memoryBarrierShared();
-    return val;
-#elif 1
-    barrier();
-    memoryBarrierShared();
-    _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = 0u;
-    _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT + gl_LocalInvocationIndex] = 0u;
-    barrier();
-    memoryBarrierShared();
+#if 1
     const uint K = irr_glsl_SubgroupSize;
     const uint outIx = gl_LocalInvocationIndex/K;
     uint subScan = irr_glsl_subgroupInclusiveAdd(val);
@@ -322,6 +301,8 @@ uint irr_glsl_workgroupExclusiveAdd2(uint val)
 #else
     _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = 0u;
     _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT+gl_LocalInvocationIndex] = 0u;
+    barrier();
+    memoryBarrierShared();
     return irr_glsl_workgroupExclusiveAdd(val);
 #endif
 }
