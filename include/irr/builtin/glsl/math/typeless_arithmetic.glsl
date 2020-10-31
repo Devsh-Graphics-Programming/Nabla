@@ -11,9 +11,11 @@ uint irr_glsl_or(in uint x, in uint y) {return x|y;}
 
 
 uint irr_glsl_add(in uint x, in uint y) {return x+y;}
+float irr_glsl_add(in float x, in float y) {return x+y;}
 uint irr_glsl_addAsFloat(in uint x, in uint y) {return floatBitsToUint(uintBitsToFloat(x)+uintBitsToFloat(y));}
 
 uint irr_glsl_mul(in uint x, in uint y) {return x*y;}
+float irr_glsl_mul(in float x, in float y) {return x*y;}
 uint irr_glsl_mulAsFloat(in uint x, in uint y) {return floatBitsToUint(uintBitsToFloat(x)*uintBitsToFloat(y));}
 
 uint irr_glsl_minAsInt(in uint x, in uint y) {return min(int(x),int(y));}

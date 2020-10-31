@@ -135,33 +135,30 @@ This design should also work for workgroups that are not divisible by subgroup s
 
 TODO: Keep the pseudo subgroup and offset code DRY, move to a function.
 */
-#define IRR_GLSL_SUBGROUP_ARITHMETIC_IMPL(OP,VALUE,CLEAR,IDENTITY) const uint loMask = irr_glsl_SubgroupSize-1u; \
+#define IRR_GLSL_SUBGROUP_ARITHMETIC_IMPL(CONV,OP,VALUE,CLEAR,IDENTITY,INVCONV) const uint loMask = irr_glsl_SubgroupSize-1u; \
 	const uint pseudoSubgroupInvocation = gl_LocalInvocationIndex&loMask; \
 	const uint hiMask = ~loMask; \
 	const uint pseudoSubgroupID = gl_LocalInvocationIndex&hiMask; \
 	const uint scratchOffset = (pseudoSubgroupID<<1u)|pseudoSubgroupInvocation; \
 	const uint primaryOffset = scratchOffset+irr_glsl_HalfSubgroupSize; \
-	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset] = VALUE; \
+	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset] = INVCONV (VALUE); \
 	if (CLEAR && pseudoSubgroupInvocation<irr_glsl_HalfSubgroupSize) \
-		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[scratchOffset] = IDENTITY; \
+		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[scratchOffset] = INVCONV (IDENTITY); \
 	SUBGROUP_BARRIERS; \
-	uint self = _IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset]; \
-	uint other = _IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset-1u]; \
-	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset] = OP (self,other); \
+	VALUE = OP (VALUE,CONV (_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset-1u])); \
+	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset] = INVCONV (VALUE); \
 	SUBGROUP_BARRIERS; \
-	self = _IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset]; \
-	other = _IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset-2u]; \
-	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset] = OP (self,other); \
+	VALUE = OP (VALUE,CONV (_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset-2u])); \
 	for (uint stp=irr_glsl_MinSubgroupSize; stp<irr_glsl_SubgroupSize; stp<<=1u) \
 	{ \
+		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset] = INVCONV (VALUE); \
 		SUBGROUP_BARRIERS; \
-		self = _IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset]; \
-		other = _IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset-stp]; \
-		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset] = OP (self,other); \
+		VALUE = OP (VALUE,CONV (_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset-stp])); \
 	}
 
 
-#define IRR_GLSL_SUBGROUP_REDUCE(CONV,OP,VALUE,CLEAR,IDENTITY) IRR_GLSL_SUBGROUP_ARITHMETIC_IMPL(OP,VALUE,CLEAR,IDENTITY) \
+#define IRR_GLSL_SUBGROUP_REDUCE(CONV,OP,VALUE,CLEAR,IDENTITY,INVCONV) IRR_GLSL_SUBGROUP_ARITHMETIC_IMPL(CONV,OP,VALUE,CLEAR,IDENTITY,INVCONV) \
+	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset] = INVCONV (VALUE); \
 	SUBGROUP_BARRIERS; \
 	const uint maxPseudoSubgroupInvocation = (_IRR_GLSL_WORKGROUP_SIZE_-1u)&loMask; \
 	const uint maxPseudoSubgroupID = (_IRR_GLSL_WORKGROUP_SIZE_-1u)&hiMask; \
@@ -169,283 +166,300 @@ TODO: Keep the pseudo subgroup and offset code DRY, move to a function.
 
 
 
-uint irr_glsl_subgroupAnd_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupAnd_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_and,value,clearScratchToIdentity,0xffFFffFFu);
+	IRR_GLSL_SUBGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_and,value,clearScratchToIdentity,0xffFFffFFu,irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupAnd_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupAnd_impl(in bool clearScratchToIdentity, int value)
 {
 	return int(irr_glsl_subgroupAnd_impl(clearScratchToIdentity,uint(value)));
 }
-float irr_glsl_subgroupAnd_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupAnd_impl(in bool clearScratchToIdentity, float value)
 {
 	return uintBitsToFloat(irr_glsl_subgroupAnd_impl(clearScratchToIdentity,floatBitsToUint(value)));
 }
 
-uint irr_glsl_subgroupXor_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupXor_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_xor,value,clearScratchToIdentity,0u);
+	IRR_GLSL_SUBGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_xor,value,clearScratchToIdentity,0u,irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupXor_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupXor_impl(in bool clearScratchToIdentity, int value)
 {
 	return int(irr_glsl_subgroupXor_impl(clearScratchToIdentity,uint(value)));
 }
-float irr_glsl_subgroupXor_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupXor_impl(in bool clearScratchToIdentity, float value)
 {
 	return uintBitsToFloat(irr_glsl_subgroupXor_impl(clearScratchToIdentity,floatBitsToUint(value)));
 }
 
-uint irr_glsl_subgroupOr_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupOr_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_or,value,clearScratchToIdentity,0u);
+	IRR_GLSL_SUBGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_or,value,clearScratchToIdentity,0u,irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupOr_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupOr_impl(in bool clearScratchToIdentity, int value)
 {
 	return int(irr_glsl_subgroupOr_impl(clearScratchToIdentity,uint(value)));
 }
-float irr_glsl_subgroupOr_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupOr_impl(in bool clearScratchToIdentity, float value)
 {
 	return uintBitsToFloat(irr_glsl_subgroupOr_impl(clearScratchToIdentity,floatBitsToUint(value)));
 }
 
 
-uint irr_glsl_subgroupAdd_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupAdd_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_add,value,clearScratchToIdentity,0u);
+	IRR_GLSL_SUBGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_add,value,clearScratchToIdentity,0u,irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupAdd_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupAdd_impl(in bool clearScratchToIdentity, int value)
 {
 	return int(irr_glsl_subgroupAdd_impl(clearScratchToIdentity,uint(value)));
 }
-float irr_glsl_subgroupAdd_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupAdd_impl(in bool clearScratchToIdentity, float value)
 {
-	IRR_GLSL_SUBGROUP_REDUCE(uintBitsToFloat,irr_glsl_addAsFloat,floatBitsToUint(value),clearScratchToIdentity,floatBitsToUint(0.0));
+	IRR_GLSL_SUBGROUP_REDUCE(uintBitsToFloat,irr_glsl_add,value,clearScratchToIdentity,0.0,floatBitsToUint);
 }
 
-uint irr_glsl_subgroupMul_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupMul_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_mul,value,clearScratchToIdentity,1u);
+	IRR_GLSL_SUBGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_mul,value,clearScratchToIdentity,1u,irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupMul_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupMul_impl(in bool clearScratchToIdentity, int value)
 {
 	return int(irr_glsl_subgroupMul_impl(clearScratchToIdentity,uint(value)));
 }
-float irr_glsl_subgroupMul_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupMul_impl(in bool clearScratchToIdentity, float value)
 {
-	IRR_GLSL_SUBGROUP_REDUCE(uintBitsToFloat,irr_glsl_mulAsFloat,floatBitsToUint(value),clearScratchToIdentity,floatBitsToUint(1.0)); 
+	IRR_GLSL_SUBGROUP_REDUCE(uintBitsToFloat,irr_glsl_mul,value,clearScratchToIdentity,1.0,floatBitsToUint); 
 }
 
-uint irr_glsl_subgroupMin_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupMin_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_REDUCE(irr_glsl_identityFunction,min,value,clearScratchToIdentity,UINT_MAX);
+	IRR_GLSL_SUBGROUP_REDUCE(irr_glsl_identityFunction,min,value,clearScratchToIdentity,UINT_MAX,irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupMin_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupMin_impl(in bool clearScratchToIdentity, int value)
 {
-	IRR_GLSL_SUBGROUP_REDUCE(int,irr_glsl_minAsInt,uint(value),clearScratchToIdentity,uint(INT_MAX));
+	IRR_GLSL_SUBGROUP_REDUCE(int,min,value,clearScratchToIdentity,INT_MAX,uint);
 }
-float irr_glsl_subgroupMin_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupMin_impl(in bool clearScratchToIdentity, float value)
 {
-	IRR_GLSL_SUBGROUP_REDUCE(uintBitsToFloat,irr_glsl_minAsFloat,floatBitsToUint(value),clearScratchToIdentity,floatBitsToUint(FLT_INF)); 
-}
-
-uint irr_glsl_subgroupMax_impl(in bool clearScratchToIdentity, in uint value)
-{
-	IRR_GLSL_SUBGROUP_REDUCE(irr_glsl_identityFunction,max,value,clearScratchToIdentity,UINT_MIN);
-}
-int irr_glsl_subgroupMax_impl(in bool clearScratchToIdentity, in int value)
-{
-	IRR_GLSL_SUBGROUP_REDUCE(int,irr_glsl_maxAsInt,uint(value),clearScratchToIdentity,uint(INT_MIN));
-}
-float irr_glsl_subgroupMax_impl(in bool clearScratchToIdentity, in float value)
-{
-	IRR_GLSL_SUBGROUP_REDUCE(uintBitsToFloat,irr_glsl_maxAsFloat,floatBitsToUint(value),clearScratchToIdentity,floatBitsToUint(-FLT_INF)); 
+	IRR_GLSL_SUBGROUP_REDUCE(uintBitsToFloat,min,value,clearScratchToIdentity,FLT_INF,floatBitsToUint); 
 }
 
+uint irr_glsl_subgroupMax_impl(in bool clearScratchToIdentity, uint value)
+{
+	IRR_GLSL_SUBGROUP_REDUCE(irr_glsl_identityFunction,max,value,clearScratchToIdentity,UINT_MIN,irr_glsl_identityFunction);
+}
+int irr_glsl_subgroupMax_impl(in bool clearScratchToIdentity, int value)
+{
+	IRR_GLSL_SUBGROUP_REDUCE(int,max,value,clearScratchToIdentity,INT_MIN,uint);
+}
+float irr_glsl_subgroupMax_impl(in bool clearScratchToIdentity, float value)
+{
+	IRR_GLSL_SUBGROUP_REDUCE(uintBitsToFloat,max,value,clearScratchToIdentity,-FLT_INF,floatBitsToUint); 
+}
+
+#undef IRR_GLSL_SUBGROUP_REDUCE
 
 
-#define IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(CONV,OP,VALUE,CLEAR,IDENTITY) IRR_GLSL_SUBGROUP_ARITHMETIC_IMPL(OP,VALUE,CLEAR,IDENTITY) \
-	return CONV (_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset])
+#define IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(CONV,OP,VALUE,CLEAR,IDENTITY,INVCONV) IRR_GLSL_SUBGROUP_ARITHMETIC_IMPL(CONV,OP,VALUE,CLEAR,IDENTITY,INVCONV) \
+	return VALUE
 
-#define IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(CONV,OP,VALUE,CLEAR,IDENTITY) IRR_GLSL_SUBGROUP_ARITHMETIC_IMPL(OP,VALUE,CLEAR,IDENTITY) \
+#define IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(CONV,OP,VALUE,CLEAR,IDENTITY,INVCONV) IRR_GLSL_SUBGROUP_ARITHMETIC_IMPL(CONV,OP,VALUE,CLEAR,IDENTITY,INVCONV) \
+	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset] = INVCONV (VALUE); \
+	SUBGROUP_BARRIERS; \
 	return CONV (_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset-1u])
 
 
-uint irr_glsl_subgroupInclusiveAnd_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupInclusiveAnd_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_and,value,clearScratchToIdentity,0xffFFffFFu);
+	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_and,value,clearScratchToIdentity,0xffFFffFFu,irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupInclusiveAnd_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupInclusiveAnd_impl(in bool clearScratchToIdentity, int value)
 {
 	return int(irr_glsl_subgroupInclusiveAnd_impl(clearScratchToIdentity,uint(value)));
 }
-float irr_glsl_subgroupInclusiveAnd_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupInclusiveAnd_impl(in bool clearScratchToIdentity, float value)
 {
 	return uintBitsToFloat(irr_glsl_subgroupInclusiveAnd_impl(clearScratchToIdentity,floatBitsToUint(value)));
 }
-uint irr_glsl_subgroupExclusiveAnd_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupExclusiveAnd_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_and,value,clearScratchToIdentity,0xffFFffFFu);
+	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_and,value,clearScratchToIdentity,0xffFFffFFu,irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupExclusiveAnd_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupExclusiveAnd_impl(in bool clearScratchToIdentity, int value)
 {
 	return int(irr_glsl_subgroupExclusiveAnd_impl(clearScratchToIdentity,uint(value)));
 }
-float irr_glsl_subgroupExclusiveAnd_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupExclusiveAnd_impl(in bool clearScratchToIdentity, float value)
 {
 	return uintBitsToFloat(irr_glsl_subgroupExclusiveAnd_impl(clearScratchToIdentity,floatBitsToUint(value)));
 }
 
-uint irr_glsl_subgroupInclusiveXor_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupInclusiveXor_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_xor,value,clearScratchToIdentity,0u);
+	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_xor,value,clearScratchToIdentity,0u,irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupInclusiveXor_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupInclusiveXor_impl(in bool clearScratchToIdentity, int value)
 {
 	return int(irr_glsl_subgroupInclusiveXor_impl(clearScratchToIdentity,uint(value)));
 }
-float irr_glsl_subgroupInclusiveXor_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupInclusiveXor_impl(in bool clearScratchToIdentity, float value)
 {
 	return uintBitsToFloat(irr_glsl_subgroupInclusiveXor_impl(clearScratchToIdentity,floatBitsToUint(value)));
 }
-uint irr_glsl_subgroupExclusiveXor_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupExclusiveXor_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_xor,value,clearScratchToIdentity,0u);
+	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_xor,value,clearScratchToIdentity,0u,irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupExclusiveXor_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupExclusiveXor_impl(in bool clearScratchToIdentity, int value)
 {
 	return int(irr_glsl_subgroupExclusiveXor_impl(clearScratchToIdentity,uint(value)));
 }
-float irr_glsl_subgroupExclusiveXor_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupExclusiveXor_impl(in bool clearScratchToIdentity, float value)
 {
 	return uintBitsToFloat(irr_glsl_subgroupExclusiveXor_impl(clearScratchToIdentity,floatBitsToUint(value)));
 }
 
-uint irr_glsl_subgroupInclusiveOr_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupInclusiveOr_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_or,value,clearScratchToIdentity,0u);
+	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_or,value,clearScratchToIdentity,0u,irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupInclusiveOr_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupInclusiveOr_impl(in bool clearScratchToIdentity, int value)
 {
 	return int(irr_glsl_subgroupInclusiveOr_impl(clearScratchToIdentity,uint(value)));
 }
-float irr_glsl_subgroupInclusiveOr_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupInclusiveOr_impl(in bool clearScratchToIdentity, float value)
 {
 	return uintBitsToFloat(irr_glsl_subgroupInclusiveOr_impl(clearScratchToIdentity,floatBitsToUint(value)));
 }
-uint irr_glsl_subgroupExclusiveOr_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupExclusiveOr_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_or,value,clearScratchToIdentity,0u);
+	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_or,value,clearScratchToIdentity,0u, irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupExclusiveOr_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupExclusiveOr_impl(in bool clearScratchToIdentity, int value)
 {
 	return int(irr_glsl_subgroupExclusiveOr_impl(clearScratchToIdentity,uint(value)));
 }
-float irr_glsl_subgroupExclusiveOr_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupExclusiveOr_impl(in bool clearScratchToIdentity, float value)
 {
 	return uintBitsToFloat(irr_glsl_subgroupExclusiveOr_impl(clearScratchToIdentity,floatBitsToUint(value)));
 }
 
 
-uint irr_glsl_subgroupInclusiveAdd_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupInclusiveAdd_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_add,value,clearScratchToIdentity,0u);
+	const uint loMask = 3u;
+    uint pseudoSubgroupInvocation = gl_LocalInvocationIndex & loMask;
+	uint pseudoSubgroupID = gl_LocalInvocationIndex & (~loMask);
+	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = value;
+	barrier();
+	memoryBarrierShared();
+	for (uint i=pseudoSubgroupID; i<gl_LocalInvocationIndex; i++)
+		value += _IRR_GLSL_SCRATCH_SHARED_DEFINED_[i];
+	return value;
+	//IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_add,value,clearScratchToIdentity,0u,irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupInclusiveAdd_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupInclusiveAdd_impl(in bool clearScratchToIdentity, int value)
 {
 	return int(irr_glsl_subgroupInclusiveAdd_impl(clearScratchToIdentity,uint(value)));
 }
-float irr_glsl_subgroupInclusiveAdd_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupInclusiveAdd_impl(in bool clearScratchToIdentity, float value)
 {
-	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(uintBitsToFloat,irr_glsl_addAsFloat,floatBitsToUint(value),clearScratchToIdentity,floatBitsToUint(0.0));
+	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(uintBitsToFloat,irr_glsl_add,value,clearScratchToIdentity,0.0,floatBitsToUint);
 }
-uint irr_glsl_subgroupExclusiveAdd_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupExclusiveAdd_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_add,value,clearScratchToIdentity,0u);
+	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_add,value,clearScratchToIdentity,0u,irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupExclusiveAdd_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupExclusiveAdd_impl(in bool clearScratchToIdentity, int value)
 {
 	return int(irr_glsl_subgroupExclusiveAdd_impl(clearScratchToIdentity,uint(value)));
 }
-float irr_glsl_subgroupExclusiveAdd_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupExclusiveAdd_impl(in bool clearScratchToIdentity, float value)
 {
-	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(uintBitsToFloat,irr_glsl_addAsFloat,floatBitsToUint(value),clearScratchToIdentity,floatBitsToUint(0.0));
+	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(uintBitsToFloat,irr_glsl_add,value,clearScratchToIdentity,0.0,floatBitsToUint);
 }
 
-uint irr_glsl_subgroupInclusiveMul_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupInclusiveMul_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_mul,value,clearScratchToIdentity,1u);
+	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_mul,value,clearScratchToIdentity,1u,irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupInclusiveMul_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupInclusiveMul_impl(in bool clearScratchToIdentity, int value)
 {
 	return int(irr_glsl_subgroupInclusiveMul_impl(clearScratchToIdentity,uint(value)));
 }
-float irr_glsl_subgroupInclusiveMul_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupInclusiveMul_impl(in bool clearScratchToIdentity, float value)
 {
-	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(uintBitsToFloat,irr_glsl_mulAsFloat,floatBitsToUint(value),clearScratchToIdentity,floatBitsToUint(1.0));
+	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(uintBitsToFloat,irr_glsl_mul,value,clearScratchToIdentity,1.0,floatBitsToUint);
 }
-uint irr_glsl_subgroupExclusiveMul_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupExclusiveMul_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_mul,value,clearScratchToIdentity,1u);
+	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(irr_glsl_identityFunction,irr_glsl_mul,value,clearScratchToIdentity,1u,irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupExclusiveMul_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupExclusiveMul_impl(in bool clearScratchToIdentity, int value)
 {
 	return int(irr_glsl_subgroupExclusiveMul_impl(clearScratchToIdentity,uint(value)));
 }
-float irr_glsl_subgroupExclusiveMul_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupExclusiveMul_impl(in bool clearScratchToIdentity, float value)
 {
-	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(uintBitsToFloat,irr_glsl_mulAsFloat,floatBitsToUint(value),clearScratchToIdentity,floatBitsToUint(1.0));
+	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(uintBitsToFloat,irr_glsl_mul,value,clearScratchToIdentity,1.0,floatBitsToUint);
 }
 
-uint irr_glsl_subgroupInclusiveMin_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupInclusiveMin_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(irr_glsl_identityFunction,min,value,clearScratchToIdentity,UINT_MAX);
+	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(irr_glsl_identityFunction,min,value,clearScratchToIdentity,UINT_MAX,irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupInclusiveMin_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupInclusiveMin_impl(in bool clearScratchToIdentity, int value)
 {
-	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(int,irr_glsl_minAsInt,uint(value),clearScratchToIdentity,uint(INT_MAX));
+	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(int,min,value,clearScratchToIdentity,INT_MAX,uint);
 }
-float irr_glsl_subgroupInclusiveMin_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupInclusiveMin_impl(in bool clearScratchToIdentity, float value)
 {
-	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(uintBitsToFloat,irr_glsl_minAsFloat,floatBitsToUint(value),clearScratchToIdentity,floatBitsToUint(FLT_INF));
+	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(uintBitsToFloat,min,value,clearScratchToIdentity,FLT_INF,floatBitsToUint);
 }
-uint irr_glsl_subgroupExclusiveMin_impl(in bool clearScratchToIdentity, in uint value)
+uint irr_glsl_subgroupExclusiveMin_impl(in bool clearScratchToIdentity, uint value)
 {
-	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(irr_glsl_identityFunction,min,value,clearScratchToIdentity,UINT_MAX);
+	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(irr_glsl_identityFunction,min,value,clearScratchToIdentity,UINT_MAX,irr_glsl_identityFunction);
 }
-int irr_glsl_subgroupExclusiveMin_impl(in bool clearScratchToIdentity, in int value)
+int irr_glsl_subgroupExclusiveMin_impl(in bool clearScratchToIdentity, int value)
 {
-	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(int,irr_glsl_minAsInt,uint(value),clearScratchToIdentity,uint(INT_MAX));
+	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(int,min,value,clearScratchToIdentity,INT_MAX,uint);
 }
-float irr_glsl_subgroupExclusiveMin_impl(in bool clearScratchToIdentity, in float value)
+float irr_glsl_subgroupExclusiveMin_impl(in bool clearScratchToIdentity, float value)
 {
-	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(uintBitsToFloat,irr_glsl_minAsFloat,floatBitsToUint(value),clearScratchToIdentity,floatBitsToUint(FLT_INF));
-}
-
-uint irr_glsl_subgroupInclusiveMax_impl(in bool clearScratchToIdentity, in uint value)
-{
-	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(irr_glsl_identityFunction,max,value,clearScratchToIdentity,UINT_MIN);
-}
-int irr_glsl_subgroupInclusiveMax_impl(in bool clearScratchToIdentity, in int value)
-{
-	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(int,irr_glsl_maxAsInt,uint(value),clearScratchToIdentity,uint(INT_MIN));
-}
-float irr_glsl_subgroupInclusiveMax_impl(in bool clearScratchToIdentity, in float value)
-{
-	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(uintBitsToFloat,irr_glsl_maxAsFloat,floatBitsToUint(value),clearScratchToIdentity,floatBitsToUint(-FLT_INF));
-}
-uint irr_glsl_subgroupExclusiveMax_impl(in bool clearScratchToIdentity, in uint value)
-{
-	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(irr_glsl_identityFunction,max,value,clearScratchToIdentity,UINT_MIN);
-}
-int irr_glsl_subgroupExclusiveMax_impl(in bool clearScratchToIdentity, in int value)
-{
-	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(int,irr_glsl_maxAsInt,uint(value),clearScratchToIdentity,uint(INT_MIN));
-}
-float irr_glsl_subgroupExclusiveMax_impl(in bool clearScratchToIdentity, in float value)
-{
-	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(uintBitsToFloat,irr_glsl_maxAsFloat,floatBitsToUint(value),clearScratchToIdentity,floatBitsToUint(-FLT_INF));
+	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(uintBitsToFloat,min,value,clearScratchToIdentity,FLT_INF,floatBitsToUint);
 }
 
+uint irr_glsl_subgroupInclusiveMax_impl(in bool clearScratchToIdentity, uint value)
+{
+	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(irr_glsl_identityFunction,max,value,clearScratchToIdentity,UINT_MIN,irr_glsl_identityFunction);
+}
+int irr_glsl_subgroupInclusiveMax_impl(in bool clearScratchToIdentity, int value)
+{
+	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(int,max,value,clearScratchToIdentity,INT_MIN,uint);
+}
+float irr_glsl_subgroupInclusiveMax_impl(in bool clearScratchToIdentity, float value)
+{
+	IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN(uintBitsToFloat,max,value,clearScratchToIdentity,-FLT_INF,floatBitsToUint);
+}
+uint irr_glsl_subgroupExclusiveMax_impl(in bool clearScratchToIdentity, uint value)
+{
+	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(irr_glsl_identityFunction,max,value,clearScratchToIdentity,UINT_MIN,irr_glsl_identityFunction);
+}
+int irr_glsl_subgroupExclusiveMax_impl(in bool clearScratchToIdentity, int value)
+{
+	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(int,max,value,clearScratchToIdentity,INT_MIN,uint);
+}
+float irr_glsl_subgroupExclusiveMax_impl(in bool clearScratchToIdentity, float value)
+{
+	IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(uintBitsToFloat,max,value,clearScratchToIdentity,-FLT_INF,floatBitsToUint);
+}
+
+#undef IRR_GLSL_SUBGROUP_INCLUSIVE_SCAN
+#undef IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN
+
+
+#undef IRR_GLSL_SUBGROUP_ARITHMETIC_IMPL
 
 
 //#endif //GL_KHR_subgroup_arithmetic
