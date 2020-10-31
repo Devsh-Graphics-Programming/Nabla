@@ -394,7 +394,7 @@ core::smart_refctd_ptr<IGPUDescriptorSet> CPropertyPoolHandler::DescriptorSetCac
 			const uint32_t poolPropertyBlockSize = pool->getCapacity()*propertySize;
 
 			auto& inDescInfo = info[i+1];
-			auto& outDescInfo = info[2*i+1];
+			auto& outDescInfo = info[propertyCount+i+1];
 			if (download)
 			{
 				inDescInfo.desc = core::smart_refctd_ptr<asset::IDescriptor>(poolMemBlock.buffer);

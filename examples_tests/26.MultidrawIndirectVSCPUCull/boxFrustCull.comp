@@ -30,7 +30,7 @@ void main()
     if (drawID>=pc.data.maxDrawCount)
         return;
 
-    mat4x3 worldMatrix = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(modelData[drawID].worldMatrix);
+    mat4x3 worldMatrix = modelData[drawID].worldMatrix;
     mat4 MVP = irr_glsl_pseudoMul4x4with4x3(pc.data.viewProjMatrix,worldMatrix);
 
     bool notCulled = true;
@@ -46,6 +46,6 @@ void main()
     if (notCulled)
     {
         drawData[drawID].modelViewProjMatrix = MVP;
-        drawData[drawID].normalMatrix = pc.data.viewInverseTransposeMatrix*irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(modelData[drawID].normalMatrix);
+        drawData[drawID].normalMatrix = pc.data.viewInverseTransposeMatrix*modelData[drawID].normalMatrix;
     }
 }

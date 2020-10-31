@@ -1280,69 +1280,6 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
 
         if (!spvCode)
             return nullptr;
-        GLfloat a;
-
-#define FIX_AMD_DRIVER_BUG // TODO: fix to work even when user dont wrap matrix fetch with irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier
-#ifdef FIX_AMD_DRIVER_BUG
-        AMDbugfixCompiler comp(reinterpret_cast<const uint32_t*>(spvCode->getPointer()), spvCode->getSize()/4u);
-        comp.set_entry_point(EP, asset::ESS2spvExecModel(stage));
-        auto amd_fix_data = comp.getFixCandidates();
-        if (amd_fix_data.first.size())
-        {
-            core::vector<uint32_t> spv(spvCode->getSize() / 4u);
-            memcpy(spv.data(), spvCode->getPointer(), spv.size() * 4ull);
-            spv[3] += amd_fix_data.first.size();//adjust instr IDs bound
-
-            uint32_t i = 0u;
-            uint32_t extraOffset = 0u;
-            for (const auto& ld : amd_fix_data.first)
-            {
-                struct OpFunctionCall
-                {
-                    uint32_t op;
-                    uint32_t restype;
-                    uint32_t id;
-                    uint32_t f_id;
-                    uint32_t arg;
-                };
-                uint32_t fcall_[sizeof(OpFunctionCall) / 4u]{};
-                OpFunctionCall* fcall = reinterpret_cast<OpFunctionCall*>(fcall_);
-                fcall->op = spv::OpFunctionCall;
-                fcall->op |= static_cast<uint32_t>(sizeof(OpFunctionCall)/4u)<<16;
-                fcall->arg = ld.id;
-                fcall->restype = ld.restype;
-                uint32_t fcallId = comp.get_current_id_bound() + (i++);
-                fcall->id = fcallId;
-                fcall->f_id = ~0u;
-                for (const auto& f : amd_fix_data.second)
-                {
-                    if (f.restype==ld.restype)
-                    {
-                        fcall->f_id = f.id;
-                        break;
-                    }
-                }
-                if (fcall->f_id == (~0u))
-                {
-                    os::Printer::log(_specInfo.m_filePathHint,
-                        "Some of your UBO/SSBO matrix fetches are not wrapped with irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier!",
-                        ELL_ERROR);
-                    assert(false);
-                }
-
-                uint32_t* store = spv.data()+ld.offset+ld.len+extraOffset;
-                store[2] = fcallId;//store result of new OpFunctionCall instead of result of OpStore
-
-                const uint32_t offset = ld.offset+ld.len+extraOffset;
-                spv.insert(spv.begin()+offset, fcall_, fcall_+sizeof(fcall_)/sizeof(*fcall_));
-                extraOffset += sizeof(fcall_)/sizeof(*fcall_);
-            }
-            spvCode = core::make_smart_refctd_ptr<asset::ICPUBuffer>(spv.size()*4ull);
-            memcpy(spvCode->getPointer(), spv.data(), spv.size()*4ull);
-        }
-#endif //FIX_AMD_DRIVER_BUG
-        if (!spvCode)
-            return nullptr;
 
         spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spvCode));
     }

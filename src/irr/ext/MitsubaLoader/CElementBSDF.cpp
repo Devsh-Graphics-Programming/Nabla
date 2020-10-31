@@ -1,7 +1,7 @@
 #include "irr/ext/MitsubaLoader/ParserUtil.h"
 #include "irr/ext/MitsubaLoader/CElementFactory.h"
 
-#include "irr/src/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
+#include "irr/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
 
 #include <functional>
 

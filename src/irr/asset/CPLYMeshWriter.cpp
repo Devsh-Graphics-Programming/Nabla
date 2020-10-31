@@ -145,7 +145,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     void* indices = nullptr;
     bool needToFreeIndices = false;
 
-    void* ind = meshBuffer->getIndices();
+    const void* ind = meshBuffer->getIndices();
     const auto idxCnt = meshBuffer->getIndexCount(); 
     const auto idxtype = meshBuffer->getIndexType();
     const auto primitiveT = mbPipeline->getPrimitiveAssemblyParams().primitiveType;
@@ -169,8 +169,10 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
             memcpy(indices, buf->getPointer(), buf->getSize());
         }
     }
-    else
-        indices = meshBuffer->getIndices();
+    else {
+        indices = _IRR_ALIGNED_MALLOC(idxCnt * (idxtype == asset::EIT_16BIT ? 2u : 4u), _IRR_SIMD_ALIGNMENT);
+        memcpy(indices, meshBuffer->getIndices(), idxCnt * (idxtype == asset::EIT_16BIT ? 2u : 4u));
+    }
 
     asset::E_INDEX_TYPE idxT = asset::EIT_UNKNOWN;
     bool forceFaces = false;
@@ -211,12 +213,12 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
         writeText(file, meshBuffer, vtxCount, faceCount, idxT, indices, forceFaces, vaidToWrite, _params);
 
     if (needToFreeIndices)
-        _IRR_ALIGNED_FREE(indices);
+        _IRR_ALIGNED_FREE(const_cast<void*>(indices));
 
 	return true;
 }
 
-void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], const SAssetWriteParams& _params) const
+void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], const SAssetWriteParams& _params) const
 {
     const size_t colCpa = asset::getFormatChannelCount(_mbuf->getAttribFormat(1));
 
@@ -286,7 +288,7 @@ void CPLYMeshWriter::writeBinary(io::IWriteFile* _file, asset::ICPUMeshBuffer* _
         _IRR_ALIGNED_FREE(indices);
 }
 
-void CPLYMeshWriter::writeText(io::IWriteFile* _file, asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], const SAssetWriteParams& _params) const
+void CPLYMeshWriter::writeText(io::IWriteFile* _file, const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], const SAssetWriteParams& _params) const
 {
     auto mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
 
@@ -439,7 +441,7 @@ core::smart_refctd_ptr<asset::ICPUMeshBuffer> CPLYMeshWriter::createCopyMBuffNor
         auto vaid = i;
         asset::E_FORMAT t = _mbuf->getAttribFormat(vaid);
     
-        if (_mbuf->getAttribBoundBuffer(vaid).buffer)
+        if (_mbuf->getAttribBoundBuffer(vaid)->buffer)
             mbCopy->getPipeline()->getVertexInputParams().attributes[vaid].format = asset::isNormalizedFormat(t) ? impl::getCorrespondingIntegerFormat(t) : t;
     }
 

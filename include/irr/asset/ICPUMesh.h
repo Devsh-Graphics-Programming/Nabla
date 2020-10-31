@@ -24,6 +24,8 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 		//! recalculates the bounding box
 		virtual void recalculateBoundingBox(const bool recomputeSubBoxes = false)
 		{
+			assert(!isImmutable_debug());
+
 			core::aabbox3df bbox(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
 
 			const auto count = getMeshBufferCount();
@@ -45,6 +47,13 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 			setBoundingBox(std::move(bbox));
 		}
 
+		void setBoundingBox(const core::aabbox3df& box) override 
+		{ 
+			assert(!isImmutable_debug());
+
+			IMesh<ICPUMeshBuffer>::setBoundingBox(box); 
+		}
+
 		//
 		virtual E_MESH_TYPE getMeshType() const override { return EMT_NOT_ANIMATED; }
 
@@ -60,8 +69,6 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 
 		virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-            if (isDummyObjectForCacheAliasing)
-                return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
 			if (referenceLevelsBelowToConvert)
@@ -73,6 +80,31 @@ class ICPUMesh : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public I
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
 		virtual size_t conservativeSizeEstimate() const override { return getMeshBufferCount()*sizeof(void*); }
+
+		bool canBeRestoredFrom(const IAsset* _other) const override
+		{
+			auto other = static_cast<const ICPUMesh*>(_other);
+			if (getMeshBufferCount() == other->getMeshBufferCount())
+				return false;
+			for (uint32_t i = 0u; i < getMeshBufferCount(); ++i)
+				if (!getMeshBuffer(i)->canBeRestoredFrom(other->getMeshBuffer(i)))
+					return false;
+
+			return true;
+		}
+
+	protected:
+		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		{
+			auto* other = static_cast<ICPUMesh*>(_other);
+
+			if (_levelsBelow)
+			{
+				--_levelsBelow;
+				for (uint32_t i = 0u; i < getMeshBufferCount(); i++)
+					restoreFromDummy_impl_call(getMeshBuffer(i), other->getMeshBuffer(i), _levelsBelow);
+			}
+		}
 };
 
 }
