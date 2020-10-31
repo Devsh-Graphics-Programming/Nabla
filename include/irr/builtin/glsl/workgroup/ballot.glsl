@@ -106,7 +106,14 @@ uint irr_glsl_workgroupBroadcast(in uint val, in uint id)
 	return _IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_BitfieldDWORDs];
 }
 
-uint irr_glsl_workgroupBroadcastFirst(in uint val) { return irr_glsl_workgroupBroadcast(val,0u); }
+uint irr_glsl_workgroupBroadcastFirst(in uint val)
+{
+	if (irr_glsl_workgroupElect())
+		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_BitfieldDWORDs] = val;
+	barrier();
+	memoryBarrierShared();
+	return _IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_BitfieldDWORDs];
+}
 
 /** TODO @Hazardu, @Przemog or @Anastazluk
 bool irr_glsl_workgroupBroadcast(in bool val, in uint id);

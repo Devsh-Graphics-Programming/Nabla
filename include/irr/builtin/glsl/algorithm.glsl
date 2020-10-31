@@ -56,6 +56,7 @@ TODOs:
 Higher Priority:
 - https://moderngpu.github.io/sortedsearch.html
 We need to make a `irr_glsl_workgroupSort()` function as a utility to facilitate it.
+- https://moderngpu.github.io/loadbalance.html
 
 Low Priority:
 - https://moderngpu.github.io/bulkinsert.html
