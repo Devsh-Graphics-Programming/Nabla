@@ -66,21 +66,35 @@ void irr_glsl_workgroupBallot(in bool value)
 		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = 0u;
 	barrier();
 	memoryBarrierShared();
-	atomicOr(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_getDWORD(gl_LocalInvocationIndex)],1u<<(gl_LocalInvocationIndex&31u));
+	if (value)
+		atomicOr(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_getDWORD(gl_LocalInvocationIndex)],1u<<(gl_LocalInvocationIndex&31u));
 	barrier();
 }
 
 // the ballot is expected to be in _IRR_GLSL_SCRATCH_SHARED_DEFINED_ at offsets [0,_IRR_GLSL_WORKGROUP_SIZE_/32)
-bool irr_glsl_workgroupBallotBitExtract(in uint index)
+bool irr_glsl_workgroupBallotBitExtract_noEndBarriers(in uint index)
 {
 	return (_IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_getDWORD(index)]&(1u<<(index&31u)))!=0u;
+}
+bool irr_glsl_workgroupBallotBitExtract(in uint index)
+{
+	const bool retval = irr_glsl_workgroupBallotBitExtract_noEndBarriers(index);
+	barrier();
+	memoryBarrierShared();
+	return retval;
+}
+
+bool irr_glsl_workgroupInverseBallot_noEndBarriers()
+{
+	return irr_glsl_workgroupBallotBitExtract_noEndBarriers(gl_LocalInvocationIndex);
 }
 bool irr_glsl_workgroupInverseBallot()
 {
 	return irr_glsl_workgroupBallotBitExtract(gl_LocalInvocationIndex);
 }
 
-uint irr_glsl_workgroupBallotBitCount()
+
+uint irr_glsl_workgroupBallotBitCount_noEndBarriers()
 {
 	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_BitfieldDWORDs] = 0u;
 	barrier();
@@ -95,9 +109,16 @@ uint irr_glsl_workgroupBallotBitCount()
 
 	return _IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_BitfieldDWORDs];
 }
+uint irr_glsl_workgroupBallotBitCount()
+{
+	const uint retval = irr_glsl_workgroupBallotBitCount_noEndBarriers();
+	barrier();
+	memoryBarrierShared();
+	return retval;
+}
 
 
-uint irr_glsl_workgroupBroadcast(in uint val, in uint id)
+uint irr_glsl_workgroupBroadcast_noEndBarriers(in uint val, in uint id)
 {
 	if (gl_LocalInvocationIndex==id)
 		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_BitfieldDWORDs] = val;
@@ -105,14 +126,28 @@ uint irr_glsl_workgroupBroadcast(in uint val, in uint id)
 	memoryBarrierShared();
 	return _IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_BitfieldDWORDs];
 }
+uint irr_glsl_workgroupBroadcast(in uint val, in uint id)
+{
+	const uint retval = irr_glsl_workgroupBroadcast_noEndBarriers(val,id);
+	barrier();
+	memoryBarrierShared();
+	return retval;
+}
 
-uint irr_glsl_workgroupBroadcastFirst(in uint val)
+uint irr_glsl_workgroupBroadcastFirst_noEndBarriers(in uint val)
 {
 	if (irr_glsl_workgroupElect())
 		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_BitfieldDWORDs] = val;
 	barrier();
 	memoryBarrierShared();
 	return _IRR_GLSL_SCRATCH_SHARED_DEFINED_[irr_glsl_workgroupBallot_impl_BitfieldDWORDs];
+}
+uint irr_glsl_workgroupBroadcastFirst(in uint val)
+{
+	const uint retval = irr_glsl_workgroupBroadcastFirst_noEndBarriers(val);
+	barrier();
+	memoryBarrierShared();
+	return retval;
 }
 
 /** TODO @Hazardu, @Przemog or @Anastazluk

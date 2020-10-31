@@ -290,6 +290,7 @@ float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_
 #define _IRR_GLSL_EXT_LUMA_METER_IMPL_GET_MEASURED_LUMA_FUNC_DEFINED_
 
 #if IRR_GLSL_EQUAL(_IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_,_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN)
+    #include <irr/builtin/glsl/workgroup/ballot.glsl>
     #include <irr/builtin/glsl/workgroup/arithmetic.glsl>
 // TODO: figure out why the irr_glsl_workgroupExclusiveAdd function doesn't work
 uint irr_glsl_workgroupExclusiveAdd2(uint val)
@@ -316,33 +317,24 @@ uint irr_glsl_workgroupExclusiveAdd2(uint val)
 float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t firstPassOutput, in irr_glsl_ext_LumaMeter_PassInfo_t info)
 {
     #if IRR_GLSL_EQUAL(_IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_,_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN)
-        uint histogramVal = firstPassOutput;
-
+        uint histogramPrefix;
         // do the prefix sum stuff
         {
-            uint localPrefix = irr_glsl_workgroupExclusiveAdd2(histogramVal);
+            histogramPrefix = irr_glsl_workgroupExclusiveAdd2(firstPassOutput);
             // TODO: right now workgroup size must equal _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT, but it would be good if it didn't (we could carry out many prefix sums in serial)
-            _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = localPrefix;
+            _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = histogramPrefix;
         }
         barrier();
         memoryBarrierShared();
 
-        // TODO: We can do it better, and without requiring the workgroup size equal the bin count.
+        // TODO: We can do it better, and without how right now workgroup size must equal _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT, but it would be good if it didn't (we could carry out many prefix sums in serial).
         // Assign whole subgroup to do a subgroup_uniform_upper_bound on lower percentile, then do the subgroup_uniform_upper_bound again but in the [previousFound,end) range.
         // a subgroup_uniform bound can be carried out by each subgroup invocation doing an upper_bound on 1/gl_SubgroupSize of the range, then find the first subgroup invocation where the found index is not 1-past-the-end
-        float foundPercentiles[2];
-        bool lower2Threads = gl_LocalInvocationIndex<2u;
-        if (lower2Threads)
-        {
-            int found = upper_bound_minus_onePoT(info.percentileRange[gl_LocalInvocationIndex],_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT);
-
-            float foundValue = float(found)/float(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT-1u);
-            _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = floatBitsToUint(foundValue);
-        }
-        barrier();
-        memoryBarrierShared();
-
-        return (uintBitsToFloat(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[0])+uintBitsToFloat(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[1]))*0.5;
+        irr_glsl_workgroupBallot(histogramPrefix<info.percentileRange[0u]);
+        uint foundLow = irr_glsl_workgroupBallotBitCount();
+        irr_glsl_workgroupBallot(histogramPrefix<info.percentileRange[1u]);
+        uint foundHigh = irr_glsl_workgroupBallotBitCount();
+        return (float(foundLow)+float(foundHigh))*0.5/float(_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT-1u);
     #else
         return float(firstPassOutput)*info.rcpFirstPassWGCount/float(_IRR_GLSL_EXT_LUMA_METER_GEOM_MEAN_MAX_WG_INCREMENT);
     #endif
