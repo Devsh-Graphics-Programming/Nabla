@@ -150,7 +150,8 @@ void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout ir
 #endif
 #ifdef OP_COATING
 		CASE_BEGIN(op, OP_COATING) {
-			result = instr_execute_cos_eval_COATING(instr, srcs, params, ior[0], s, microfacet, bxdf_eval_scalar_part, bsdf_data);
+			vec3 dummy;
+			result = instr_execute_cos_eval_COATING(instr, srcs, params, ior[0], ior[0]*ior[0], s, microfacet, bxdf_eval_scalar_part, bsdf_data, dummy);
 		} CASE_END
 #endif
 #ifdef OP_DIFFTRANS

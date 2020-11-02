@@ -422,28 +422,31 @@ bxdf_eval_t instr_execute_cos_eval_CONDUCTOR(in instr_t instr, in mat2x3 eta, in
 	return DG*fr;
 }
 
-bxdf_eval_t instr_execute_cos_eval_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in vec3 eta, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache microfacet, in float DG, in bsdf_data_t data)
+bxdf_eval_t instr_execute_cos_eval_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in vec3 eta, in vec3 eta2, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache microfacet, in float DG, in bsdf_data_t data, out vec3 out_diffuse_weight)
 {
 	float thickness = uintBitsToFloat(data.data[2].z);
 	//vec3 sigmaA = params_getSigmaA(params);
 	
 	vec3 fr = irr_glsl_fresnel_dielectric_frontface_only(eta, microfacet.isotropic.VdotH);
 
+	vec3 wd = irr_glsl_diffuseFresnelCorrectionFactor(eta, eta2) * (vec3(1.0) - irr_glsl_fresnel_dielectric_frontface_only(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0) - irr_glsl_fresnel_dielectric_frontface_only(eta, s.NdotL));
 	bxdf_eval_t coated = srcs[0].xyz;
 
-	return fr*DG + coated;
+	out_diffuse_weight = wd;
+
+	return fr*DG + coated*wd;
 }
 
 eval_and_pdf_t instr_execute_cos_eval_pdf_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in vec3 eta, in vec3 eta2, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache microfacet, in float DG, in bsdf_data_t data, in float coat_pdf)
 {
 	float thickness = uintBitsToFloat(data.data[2].z);
 
-	bxdf_eval_t bxdf = instr_execute_cos_eval_COATING(instr, srcs, params, eta, s, microfacet, DG, data);
+	vec3 diffuse_weight;
+	bxdf_eval_t bxdf = instr_execute_cos_eval_COATING(instr, srcs, params, eta, eta2, s, microfacet, DG, data, diffuse_weight);
 	float coated_pdf = srcs[0].w;
 
-	const vec3 fr = (bxdf - srcs[0].xyz) / DG;
+	const vec3 fr = (bxdf - srcs[0].xyz*diffuse_weight) / DG;
 	float ws = dot(CIE_XYZ_Luma_Y_coeffs, fr);
-	const vec3 diffuse_weight = irr_glsl_diffuseFresnelCorrectionFactor(eta, eta2) * (vec3(1.0) - irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0) - irr_glsl_fresnel_dielectric(eta, s.NdotL));
 	float wd = dot(CIE_XYZ_Luma_Y_coeffs, diffuse_weight);
 	float wswd = ws + wd;
 	ws /= wswd;
@@ -528,23 +531,15 @@ void runTexPrefetchStream(in instr_stream_t stream, in mat2 dUV)
 
 		vec3 val = fetchTex(instr.xyz, UV, dUV);
 
-		//TODO switch/case
-#ifdef PREFETCH_REG_COUNT_1
-		if (regcnt==1u)
-			writeReg(reg, val.x);
-		else
+		writeReg(reg, val.x);
+#if defined(PREFETCH_REG_COUNT_2) || defined(PREFETCH_REG_COUNT_3)
+		if (regcnt>=2u)
+			writeReg(reg+1u, val.y);
 #endif
-#ifdef PREFETCH_REG_COUNT_2
-		if (regcnt==2u)
-			writeReg(reg, val.xy);
-		else
-#endif
-#ifdef PREFETCH_REG_COUNT_3
+#if defined(PREFETCH_REG_COUNT_3)
 		if (regcnt==3u)
-			writeReg(reg, val);
-		else
+			writeReg(reg+2u, val.z);
 #endif
-		{} //else "empty braces"
 	}
 }
 

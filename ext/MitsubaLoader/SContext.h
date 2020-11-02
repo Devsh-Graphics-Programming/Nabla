@@ -20,14 +20,14 @@ namespace MitsubaLoader
 		SContext(
 			const asset::IGeometryCreator* _geomCreator,
 			const asset::IMeshManipulator* _manipulator,
-			const asset::IAssetLoader::SAssetLoadParams& _params,
+			const asset::IAssetLoader::SAssetLoadContext& _params,
 			asset::IAssetLoader::IAssetLoaderOverride* _override,
 			CGlobalMitsubaMetadata* _metadata
 		);
 
 		const asset::IGeometryCreator* creator;
 		const asset::IMeshManipulator* manipulator;
-		const asset::IAssetLoader::SAssetLoadParams params;
+		const asset::IAssetLoader::SAssetLoadContext inner;
 		asset::IAssetLoader::IAssetLoaderOverride* override_;
 		CGlobalMitsubaMetadata* globalMeta;
 
@@ -44,9 +44,79 @@ namespace MitsubaLoader
 		//
 		using shape_ass_type = core::smart_refctd_ptr<asset::ICPUMesh>;
 		core::map<const CElementShape*, shape_ass_type> shapeCache;
-		//image, sampler, scale
-		using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>, core::smart_refctd_ptr<asset::ICPUSampler>, float>;
-		core::unordered_map<const CElementTexture*, tex_ass_type> textureCache;
+		//image, sampler
+		using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>, core::smart_refctd_ptr<asset::ICPUSampler>>;
+
+		static std::string imageViewCacheKey(const std::string& imageCacheKey)
+		{
+			return imageCacheKey + "?view";
+		}
+
+		static std::string derivMapCacheKey(const CElementTexture* bitmap)
+		{
+			using namespace std::string_literals;
+			static const char* wrap[5]
+			{
+				"?repeat",
+				"?mirror",
+				"?clamp",
+				"?zero",
+				"?one"
+			};
+
+			std::string key = bitmap->bitmap.filename.svalue + "?deriv"s;
+			key += wrap[bitmap->bitmap.wrapModeU];
+			key += wrap[bitmap->bitmap.wrapModeV];
+
+			return key;
+		}
+
+		static std::string derivMapViewCacheKey(const CElementTexture* bitmap)
+		{
+			return imageViewCacheKey(derivMapCacheKey(bitmap));
+		}
+
+		static std::string samplerCacheKey(const std::string& base, const CElementTexture* tex)
+		{
+			std::string samplerCacheKey = base;
+
+			switch (tex->bitmap.filterType)
+			{
+			case CElementTexture::Bitmap::FILTER_TYPE::EWA:
+				[[fallthrough]]; //not supported
+			case CElementTexture::Bitmap::FILTER_TYPE::TRILINEAR:
+				samplerCacheKey += "?trilinear";
+				break;
+			default:
+				samplerCacheKey += "?nearest";
+				break;
+			}
+
+			auto perWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode)
+			{
+				switch (mode)
+				{
+				case CElementTexture::Bitmap::WRAP_MODE::CLAMP:
+					return "?clamp";
+				case CElementTexture::Bitmap::WRAP_MODE::MIRROR:
+					return "?clamp";
+				case CElementTexture::Bitmap::WRAP_MODE::ONE:
+					return "?one";
+				case CElementTexture::Bitmap::WRAP_MODE::ZERO:
+					return "?zero";
+				default:
+					return "?repeat";
+				}
+			};
+			samplerCacheKey += perWrapMode(tex->bitmap.wrapModeU);
+			samplerCacheKey += perWrapMode(tex->bitmap.wrapModeV);
+
+			return samplerCacheKey;
+		}
+		std::string samplerCacheKey(const CElementTexture* tex) const
+		{
+			return samplerCacheKey(samplerCacheKeyBase, tex);
+		}
 
 		//index of root node in IR
 		using bsdf_type = const asset::material_compiler::IR::INode*;
@@ -95,6 +165,8 @@ namespace MitsubaLoader
 		CMitsubaMaterialCompilerFrontend frontend;
 		asset::material_compiler::CMaterialCompilerGLSLRasterBackend::SContext backend_ctx;
 		asset::material_compiler::CMaterialCompilerGLSLRasterBackend backend;
+
+		const std::string samplerCacheKeyBase;
 	};
 
 }}}

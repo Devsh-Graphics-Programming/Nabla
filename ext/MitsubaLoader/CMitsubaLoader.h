@@ -57,7 +57,7 @@ class CMitsubaLoader : public asset::IAssetLoader
 		core::vector<SContext::shape_ass_type>	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix3x4SIMD& relTform);
 		SContext::shape_ass_type				loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const core::matrix3x4SIMD& relTform);
 		
-		SContext::tex_ass_type					getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture);
+		SContext::tex_ass_type					cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture);
 
 		SContext::bsdf_type getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 		SContext::bsdf_type genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);

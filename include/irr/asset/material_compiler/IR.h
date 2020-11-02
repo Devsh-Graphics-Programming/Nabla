@@ -303,8 +303,7 @@ public:
     {
         CEmissionNode() : INode(ES_EMISSION) {}
 
-        color_t color = color_t(1.f);
-        float intensity = 1.f;
+        color_t intensity = color_t(1.f);
     };
 
     struct CBSDFCombinerNode : INode
