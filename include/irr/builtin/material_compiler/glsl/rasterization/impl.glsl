@@ -3,7 +3,7 @@
 
 #include <irr/builtin/material_compiler/glsl/common.glsl>
 
-void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache _microfacet)
+void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache _microfacet)
 {
 	uint op = instr_getOpcode(instr);
 
@@ -176,12 +176,12 @@ void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout ir
 #endif
 #ifdef OP_BUMPMAP
 		CASE_BEGIN(op, OP_BUMPMAP) {
-			instr_execute_BUMPMAP(instr, srcs);
+			instr_execute_BUMPMAP(instr, srcs, precomp);
 		} CASE_END
 #endif
 #ifdef OP_SET_GEOM_NORMAL
 		CASE_BEGIN(op, OP_SET_GEOM_NORMAL) {
-			instr_execute_SET_GEOM_NORMAL(instr);
+			instr_execute_SET_GEOM_NORMAL(instr, precomp);
 		} CASE_END
 #endif
 		CASE_OTHERWISE
@@ -193,9 +193,9 @@ void instr_eval_execute(in instr_t instr, inout irr_glsl_LightSample s, inout ir
 		writeReg(REG_DST(regs), result);
 }
 
-bxdf_eval_t runEvalStream(in instr_stream_t stream, in vec3 L)
+bxdf_eval_t runEvalStream(in MC_precomputed_t precomp, in instr_stream_t stream, in vec3 L)
 {
-	instr_execute_SET_GEOM_NORMAL();
+	setCurrInteraction(precomp);
 	irr_glsl_LightSample s = irr_glsl_createLightSample(L, currInteraction);
 	irr_glsl_AnisotropicMicrofacetCache microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
 	for (uint i = 0u; i < stream.count; ++i)
@@ -203,7 +203,7 @@ bxdf_eval_t runEvalStream(in instr_stream_t stream, in vec3 L)
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
 		uint op = instr_getOpcode(instr);
 
-		instr_eval_execute(instr, s, microfacet);
+		instr_eval_execute(instr, precomp, s, microfacet);
 
 #if defined(OP_SET_GEOM_NORMAL)||defined(OP_BUMPMAP)
 		if (

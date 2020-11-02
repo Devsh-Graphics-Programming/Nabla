@@ -56,6 +56,8 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 
 	vec3 emissive = irr_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
+	MC_precomputed_t precomp = precomputeData(Normal, WorldPos);
+
 	vec3 color = vec3(0.0);
 
 #ifdef USE_ENVMAP
@@ -70,7 +72,7 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 		vec3 rand = rand3d(i,scramble_state);
 		float pdf;
 		irr_glsl_LightSample s;
-		vec3 rem = runGenerateAndRemainderStream(gcs, rnps, rand, pdf, s);
+		vec3 rem = runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
 
 		vec2 uv = SampleSphericalMap(s.L);
 		color += rem*textureLod(envMap, uv, 0.0).xyz;
@@ -84,7 +86,7 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 		vec3 L = l.position-WorldPos;
 		//params.L = L;
 		const float intensityScale = LIGHT_INTENSITY_SCALE;//ehh might want to render to hdr fbo and do tonemapping
-		color += irr_bsdf_cos_eval(normalize(L), out_interaction, dUV)*l.intensity*intensityScale / dot(L,L);
+		color += irr_bsdf_cos_eval(precomp, normalize(L), out_interaction, dUV)*l.intensity*intensityScale / dot(L,L);
 	}
 
 	return color+emissive;

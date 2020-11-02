@@ -25,6 +25,13 @@ struct instr_stream_t
 	uint count;
 };
 
+struct MC_precomputed_t
+{
+	vec3 N;
+	vec3 V;
+	float NdotV;
+};
+
 #define CIE_XYZ_Luma_Y_coeffs transpose(irr_glsl_sRGBtoXYZ)[1]
 
 //#define MATERIAL_COMPILER_USE_SWTICH

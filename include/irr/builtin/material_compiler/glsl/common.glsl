@@ -10,6 +10,16 @@
 #include <irr/builtin/glsl/math/functions.glsl>
 #include <irr/builtin/glsl/format/decode.glsl>
 
+MC_precomputed_t precomputeData(in vec3 N, in vec3 pos)
+{
+	MC_precomputed_t p;
+	p.N = normalize(N);
+	p.V = normalize(irr_glsl_MC_getCamPos() - pos);
+	p.NdotV = dot(p.N, p.V);
+
+	return p;
+}
+
 uint instr_getNormalId(in instr_t instr)
 {
 	return (instr.y>>(INSTR_NORMAL_ID_SHIFT-32u)) & INSTR_NORMAL_ID_MASK;
@@ -330,14 +340,17 @@ void setCurrInteraction(in vec3 N)
 	irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, N);
 	currInteraction = irr_glsl_calcAnisotropicInteraction(interaction);
 }
-void setCurrInteraction(in vec3 N, in bool ts)
+void setCurrInteraction(in MC_precomputed_t precomp)
+{
+	setCurrInteraction(precomp.N);
+}
+void updateCurrInteraction(in MC_precomputed_t precomp, in vec3 N, in bool ts)
 {
 #ifdef NO_TWOSIDED
-	setCurrInteraction(N);
+	setCurrInteraction(precomp);
 #else
 	vec3 campos = irr_glsl_MC_getCamPos();
-	vec3 view = campos - WorldPos;
-	setCurrInteraction((ts && dot(N,view)<0.0) ? -N : N);
+	setCurrInteraction((ts && precomp.NdotV<0.0) ? -N : N);
 #endif
 }
 
@@ -456,22 +469,17 @@ eval_and_pdf_t instr_execute_cos_eval_pdf_COATING(in instr_t instr, in mat2x4 sr
 	return eval_and_pdf_t(bxdf, pdf);
 }
 
-void instr_execute_BUMPMAP(in instr_t instr, in mat2x4 srcs)
+void instr_execute_BUMPMAP(in instr_t instr, in mat2x4 srcs, in MC_precomputed_t precomp)
 {
 	vec3 N = srcs[0].xyz;
 	bool ts = instr_getTwosided(instr);
-	setCurrInteraction(N, ts);
+	updateCurrInteraction(precomp, N, ts);
 }
 
-void instr_execute_SET_GEOM_NORMAL(in instr_t instr)
+void instr_execute_SET_GEOM_NORMAL(in instr_t instr, in MC_precomputed_t precomp)
 {
-	vec3 N = normalize(Normal);
 	bool ts = instr_getTwosided(instr);
-	setCurrInteraction(N, ts);
-}
-void instr_execute_SET_GEOM_NORMAL()
-{
-	setCurrInteraction(normalize(Normal));
+	updateCurrInteraction(precomp, precomp.N, ts);
 }
 
 bxdf_eval_t instr_execute_cos_eval_BLEND(in instr_t instr, in mat2x4 srcs, in params_t params, in bsdf_data_t data)
@@ -545,7 +553,7 @@ void runTexPrefetchStream(in instr_stream_t stream, in mat2 dUV)
 
 void runNormalPrecompStream(in instr_stream_t stream, in mat2 dUV)
 {
-	instr_execute_SET_GEOM_NORMAL();
+	setCurrInteraction(normalize(Normal)); //either add MC_precomputed_t param and move runNormalPrecompStream() call to irr_computeLighting or leave this normalize() here
 	for (uint i = 0u; i < stream.count; ++i)
 	{
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
@@ -730,7 +738,7 @@ float irr_glsl_blinn_phong_cos_eval_DG(in irr_glsl_LightSample s, in irr_glsl_An
 }
 
 #ifdef GEN_CHOICE_STREAM
-void instr_eval_and_pdf_execute(in instr_t instr, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache _microfacet)
+void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache _microfacet)
 {
 	uint op = instr_getOpcode(instr);
 
@@ -921,12 +929,12 @@ void instr_eval_and_pdf_execute(in instr_t instr, inout irr_glsl_LightSample s, 
 #endif
 #ifdef OP_BUMPMAP
 		CASE_BEGIN(op, OP_BUMPMAP) {
-			instr_execute_BUMPMAP(instr, srcs);
+			instr_execute_BUMPMAP(instr, srcs, precomp);
 		} CASE_END
 #endif
 #ifdef OP_SET_GEOM_NORMAL
 		CASE_BEGIN(op, OP_SET_GEOM_NORMAL) {
-			instr_execute_SET_GEOM_NORMAL(instr);
+			instr_execute_SET_GEOM_NORMAL(instr, precomp);
 		} CASE_END
 #endif
 		CASE_OTHERWISE
@@ -938,9 +946,9 @@ void instr_eval_and_pdf_execute(in instr_t instr, inout irr_glsl_LightSample s, 
 		writeReg(REG_DST(regs), result);
 }
 
-eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, inout irr_glsl_LightSample s, in instr_t generator, inout irr_glsl_AnisotropicMicrofacetCache microfacet)
+eval_and_pdf_t irr_bsdf_eval_and_pdf(in MC_precomputed_t precomp, in instr_stream_t stream, inout irr_glsl_LightSample s, in instr_t generator, inout irr_glsl_AnisotropicMicrofacetCache microfacet)
 {
-	instr_execute_SET_GEOM_NORMAL();
+	setCurrInteraction(precomp);
 	for (uint i = 0u; i < stream.count; ++i)
 	{
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
@@ -948,7 +956,7 @@ eval_and_pdf_t irr_bsdf_eval_and_pdf(in instr_stream_t stream, inout irr_glsl_Li
 
 		if (INSTR_1ST_DWORD(instr) != INSTR_1ST_DWORD(generator))
 		{
-			instr_eval_and_pdf_execute(instr, s, microfacet);
+			instr_eval_and_pdf_execute(instr, precomp, s, microfacet);
 		}
 		else
 		{
@@ -993,7 +1001,7 @@ irr_glsl_AnisotropicMicrofacetCache getSmoothMicrofacetCache(in float NdotV, in 
 	return microfacet;
 }
 
-irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 rand, out vec3 out_remainder, out float out_pdf, out instr_t out_generatorInstr, out irr_glsl_AnisotropicMicrofacetCache out_uf)
+irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr_stream_t stream, in vec3 rand, out vec3 out_remainder, out float out_pdf, out instr_t out_generatorInstr, out irr_glsl_AnisotropicMicrofacetCache out_uf)
 {
 	uint ix = 0u;
 	instr_t instr = irr_glsl_MC_fetchInstr(stream.offset);
@@ -1001,7 +1009,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 	float weight = 1.0;
 	vec3 u = rand;
 
-	instr_execute_SET_GEOM_NORMAL();
+	setCurrInteraction(precomp);
 	while (!op_isBXDF(op) 
 #ifdef OP_COATING
 		&& op!=OP_COATING
@@ -1043,14 +1051,14 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 #ifdef OP_SET_GEOM_NORMAL
 			if (op==OP_SET_GEOM_NORMAL)
 			{
-				instr_execute_SET_GEOM_NORMAL(instr);
+				instr_execute_SET_GEOM_NORMAL(instr, precomp);
 			} else 
 #endif //OP_SET_GEOM_NORMAL
 #ifdef OP_BUMPMAP
 			if (op==OP_BUMPMAP)
 			{
 				mat2x4 srcs = instr_fetchSrcRegs(instr);
-				instr_execute_BUMPMAP(instr, srcs);
+				instr_execute_BUMPMAP(instr, srcs, precomp);
 			} else
 #endif //OP_BUMPMAP
 			{}
@@ -1174,14 +1182,14 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in instr_stream_t stream, in vec3 ran
 	return s;
 }
 
-vec3 runGenerateAndRemainderStream(in instr_stream_t gcs, in instr_stream_t rnps, in vec3 rand, out float out_pdf, out irr_glsl_LightSample out_smpl)
+vec3 runGenerateAndRemainderStream(in MC_precomputed_t precomp, in instr_stream_t gcs, in instr_stream_t rnps, in vec3 rand, out float out_pdf, out irr_glsl_LightSample out_smpl)
 {
 	instr_t generator;
 	vec3 generator_rem;
 	float generator_pdf;
 	irr_glsl_AnisotropicMicrofacetCache microfacet;
-	irr_glsl_LightSample s = irr_bsdf_cos_generate(gcs, rand, generator_rem, generator_pdf, generator, microfacet);
-	eval_and_pdf_t eval_pdf = irr_bsdf_eval_and_pdf(rnps, s, generator, microfacet);
+	irr_glsl_LightSample s = irr_bsdf_cos_generate(precomp, gcs, rand, generator_rem, generator_pdf, generator, microfacet);
+	eval_and_pdf_t eval_pdf = irr_bsdf_eval_and_pdf(precomp, rnps, s, generator, microfacet);
 	bxdf_eval_t acc = eval_pdf.rgb;
 	float restPdf = eval_pdf.a;
 	float pdf = generator_pdf + restPdf;
