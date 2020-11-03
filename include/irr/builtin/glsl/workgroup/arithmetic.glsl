@@ -79,18 +79,26 @@ DECLARE_OVERLOAD_WITH_BARRIERS(float,workgroupAdd)
 
 
 // scan
-#define IRR_GLSL_WORKGROUP_SCAN(CONV,OP,INCLUSIVE_SUBGROUP_OP,VALUE,IDENTITY,INVCONV) { \
+#define IRR_GLSL_WORKGROUP_SCAN(EXCLUSIVE,CONV,OP,INCLUSIVE_SUBGROUP_OP,VALUE,IDENTITY,INVCONV) { \
 		SUBGROUP_SCRATCH_CLEAR(_IRR_GLSL_WORKGROUP_SIZE_,INVCONV(IDENTITY)) \
 	} \
 	IRR_GLSL_WORKGROUP_COMMON_IMPL_HEAD(CONV,INCLUSIVE_SUBGROUP_OP,VALUE,IDENTITY,INVCONV,_IRR_GLSL_WORKGROUP_SIZE_) \
 	IRR_GLSL_WORKGROUP_SCAN_IMPL_TAIL(CONV,OP,INVCONV) \
-	return CONV(firstLevelScan);
+	if (EXCLUSIVE) \
+	{ \
+		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[lastInvocationInLevel+1u+gl_LocalInvocationIndex] = firstLevelScan; \
+		barrier(); \
+		memoryBarrierShared(); \
+		return CONV(gl_LocalInvocationIndex!=0u ? _IRR_GLSL_SCRATCH_SHARED_DEFINED_[lastInvocationInLevel+gl_LocalInvocationIndex]:0u); \
+	} \
+	else \
+		return CONV(firstLevelScan);
 
 
 
 uint irr_glsl_workgroupInclusiveAdd_noBarriers(in uint val)
 {
-	IRR_GLSL_WORKGROUP_SCAN(irr_glsl_identityFunction,irr_glsl_add,irr_glsl_subgroupInclusiveAdd_impl,val,0u,irr_glsl_identityFunction);
+	IRR_GLSL_WORKGROUP_SCAN(false,irr_glsl_identityFunction,irr_glsl_add,irr_glsl_subgroupInclusiveAdd_impl,val,0u,irr_glsl_identityFunction);
 }
 int irr_glsl_workgroupInclusiveAdd_noBarriers(in int val)
 {
@@ -103,7 +111,7 @@ DECLARE_OVERLOAD_WITH_BARRIERS(int,workgroupInclusiveAdd)
 
 uint irr_glsl_workgroupExclusiveAdd_noBarriers(in uint val)
 {
-	IRR_GLSL_WORKGROUP_SCAN(irr_glsl_identityFunction,irr_glsl_add,irr_glsl_subgroupInclusiveAdd_impl,val,0u,irr_glsl_identityFunction);
+	IRR_GLSL_WORKGROUP_SCAN(true,irr_glsl_identityFunction,irr_glsl_add,irr_glsl_subgroupInclusiveAdd_impl,val,0u,irr_glsl_identityFunction);
 }
 int irr_glsl_workgroupExclusiveAdd_noBarriers(in int val)
 {

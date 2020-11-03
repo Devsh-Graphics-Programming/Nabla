@@ -10,23 +10,16 @@
 #define irr_glsl_workgroupBallot_impl_BitfieldDWORDs irr_glsl_workgroupBallot_impl_getDWORD(_IRR_GLSL_WORKGROUP_SIZE_+31)
 
 
+#define _IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_IMPL_  (irr_glsl_workgroupBallot_impl_BitfieldDWORDs+_IRR_GLSL_WORKGROUP_SIZE_)
+
+
 /*
 #ifdef GL_KHR_subgroup_arithmetic
-
-
-#define _IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_IMPL_  irr_glsl_workgroupBallot_impl_BitfieldDWORDs
 
 #define CONDITIONAL_BARRIER
 
 #else
 */
-
-#ifdef IRR_GLSL_SUBGROUP_SIZE_IS_CONSTEXPR
-	#define irr_glsl_workgroupBallot_impl_BitDWORDs_rounded IRR_GLSL_AND(irr_glsl_workgroupBallot_impl_BitfieldDWORDs+irr_glsl_SubgroupSize-1,-irr_glsl_SubgroupSize)
-#else
-	#define irr_glsl_workgroupBallot_impl_BitDWORDs_rounded IRR_GLSL_AND(irr_glsl_workgroupBallot_impl_BitfieldDWORDs+irr_glsl_MaxSubgroupSize-1,-irr_glsl_MaxSubgroupSize)
-#endif
-#define _IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_IMPL_  IRR_GLSL_EVAL(irr_glsl_workgroupBallot_impl_BitDWORDs_rounded+(irr_glsl_workgroupBallot_impl_BitDWORDs_rounded>>1))
 
 #define CONDITIONAL_BARRIER barrier(); \
 	memoryBarrierShared();
@@ -184,7 +177,7 @@ uint irr_glsl_workgroupBallotFindMSB();
 	uint firstLevelScan = INVCONV(INCLUSIVE_SUBGROUP_OP(false,VALUE)); \
 	uint lastInvocationInLevel = lastInvocation; \
 	uint lowerIndex = gl_LocalInvocationIndex>>subgroupSizeLog2; \
-	const uint higherIndexDiff = gl_LocalInvocationIndex-lowerIndex; \
+	const uint lo2HiIndex = gl_LocalInvocationIndex-lowerIndex; \
 	uint scan = firstLevelScan; \
 	CONDITIONAL_BARRIER \
 	while (lastInvocationInLevel>=irr_glsl_SubgroupSize) \
@@ -196,34 +189,36 @@ uint irr_glsl_workgroupBallotFindMSB();
 		memoryBarrierShared(); \
 		lastInvocationInLevel >>= subgroupSizeLog2; \
 		if (gl_LocalInvocationIndex<=lastInvocationInLevel) \
-			scan = INVCONV(INCLUSIVE_SUBGROUP_OP(false,CONV(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[lowerIndex+higherIndexDiff]))); \
+			scan = INVCONV(INCLUSIVE_SUBGROUP_OP(false,CONV(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[lowerIndex+lo2HiIndex]))); \
 		lowerIndex += lastInvocationInLevel+1u; \
 	} 
 #define IRR_GLSL_WORKGROUP_SCAN_IMPL_TAIL(CONV,OP,INVCONV) CONDITIONAL_BARRIER \
 	if (lastInvocation>=irr_glsl_SubgroupSize) \
 	{ \
-		lowerIndex -= lastInvocationInLevel+1u; \
+		lowerIndex -= lastInvocationInLevel; \
 		if (gl_LocalInvocationIndex<lastInvocationInLevel) \
-			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[lowerIndex+higherIndexDiff] = scan; \
+			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[lowerIndex+lo2HiIndex] = scan; \
+		lowerIndex--; \
 		barrier(); \
 		memoryBarrierShared(); \
+		const uint shiftedInvocationIndex = gl_LocalInvocationIndex+irr_glsl_SubgroupSize; \
+		const uint lo2HiIndexDownsweep = lo2HiIndex+irr_glsl_SubgroupSize; \
 		for (uint logShift=(findMSB(lastInvocation)/subgroupSizeLog2-1u)*subgroupSizeLog2; logShift>0u; logShift-=subgroupSizeLog2) \
 		{ \
 			lastInvocationInLevel = lastInvocation>>logShift; \
 			const uint higherIndex = lowerIndex-(lastInvocationInLevel+1u); \
-			if (gl_LocalInvocationIndex<lastInvocationInLevel) \
+			if (shiftedInvocationIndex<=lastInvocationInLevel) \
 			{ \
-				const uint outIx = higherIndex+higherIndexDiff+1u; \
+				const uint outIx = higherIndex+lo2HiIndexDownsweep; \
 				_IRR_GLSL_SCRATCH_SHARED_DEFINED_[outIx] = INVCONV(OP (CONV(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[outIx]),CONV(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[lowerIndex]))); \
 			} \
 			barrier(); \
 			memoryBarrierShared(); \
 			lowerIndex = higherIndex; \
 		} \
-		if (gl_LocalInvocationIndex!=0u) \
+		if (shiftedInvocationIndex<=lastInvocation) \
 			firstLevelScan = INVCONV(OP (CONV(firstLevelScan),CONV(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[lowerIndex-1u]))); \
 	}
-
 
 uint irr_glsl_workgroupBallotScanBitCount_impl(in bool exclusive);
 
@@ -252,9 +247,10 @@ uint irr_glsl_workgroupBallotScanBitCount_impl(in bool exclusive)
 	{
 		IRR_GLSL_WORKGROUP_COMMON_IMPL_HEAD(irr_glsl_identityFunction,irr_glsl_subgroupInclusiveAdd_impl,localBitfieldBackup,0u,irr_glsl_identityFunction,irr_glsl_workgroupBallot_impl_BitfieldDWORDs)
 		IRR_GLSL_WORKGROUP_SCAN_IMPL_TAIL(irr_glsl_identityFunction,irr_glsl_add,irr_glsl_identityFunction)
+		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[lastInvocationInLevel+1u+gl_LocalInvocationIndex] = firstLevelScan;
 		barrier();
 		memoryBarrierShared();
-		globalCount = firstLevelScan; // TODO: this is broken, needs a shuffle to be a an exclusive scan
+		globalCount = gl_LocalInvocationIndex!=0u ? _IRR_GLSL_SCRATCH_SHARED_DEFINED_[lastInvocationInLevel+gl_LocalInvocationIndex]:0u;
 	}
 	
 	// restore

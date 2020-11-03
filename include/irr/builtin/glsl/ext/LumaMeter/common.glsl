@@ -279,7 +279,7 @@ float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_
 // TODO: figure out why the irr_glsl_workgroupExclusiveAdd function doesn't work
 uint irr_glsl_workgroupExclusiveAdd2(uint val)
 {
-#if 0
+#if 1
     barrier();
     memoryBarrierShared();
     SUBGROUP_SCRATCH_CLEAR(_IRR_GLSL_WORKGROUP_SIZE_,0u)
@@ -301,11 +301,11 @@ uint irr_glsl_workgroupExclusiveAdd2(uint val)
     {
         firstLevelScan += _IRR_GLSL_SCRATCH_SHARED_DEFINED_[i];
     }
-#else
-    uint firstLevelScan = irr_glsl_workgroupExclusiveAdd(val);
-#endif
     firstLevelScan = irr_glsl_workgroupShuffle(firstLevelScan, gl_LocalInvocationIndex != 0u ? (gl_LocalInvocationIndex - 1u) : 0u);
     return gl_LocalInvocationIndex != 0u ? firstLevelScan : 0u;
+#else
+    return irr_glsl_workgroupExclusiveAdd(val);
+#endif
 }
 #endif
 
