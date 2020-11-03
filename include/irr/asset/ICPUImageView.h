@@ -43,8 +43,6 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 		//!
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-            if (isDummyObjectForCacheAliasing)
-                return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
 			if (referenceLevelsBelowToConvert)
@@ -57,9 +55,44 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 
 		//!
 		const SComponentMapping& getComponents() const { return params.components; }
-		SComponentMapping&	getComponents() { return params.components; }
+		SComponentMapping&	getComponents() 
+		{ 
+			assert(!isImmutable_debug());
+			return params.components;
+		}
+
+		bool canBeRestoredFrom(const IAsset* _other) const override
+		{
+			auto* other = static_cast<const ICPUImageView*>(_other);
+			const auto& rhs = other->params;
+
+			if (params.flags != rhs.flags)
+				return false;
+			if (params.format != rhs.format)
+				return false;
+			if (params.components != rhs.components)
+				return false;
+			if (params.viewType != rhs.viewType)
+				return false;
+			if (memcmp(&params.subresourceRange, &rhs.subresourceRange, sizeof(params.subresourceRange)))
+				return false;
+			if (!params.image->canBeRestoredFrom(rhs.image.get()))
+				return false;
+
+			return true;
+		}
 
 	protected:
+		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		{
+			auto* other = static_cast<ICPUImageView*>(_other);
+
+			if (_levelsBelow)
+			{
+				restoreFromDummy_impl_call(params.image.get(), other->params.image.get(), _levelsBelow - 1u);
+			}
+		}
+
 		virtual ~ICPUImageView() = default;
 };
 

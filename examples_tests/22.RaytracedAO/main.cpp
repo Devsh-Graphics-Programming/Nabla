@@ -7,7 +7,7 @@
 
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
 #ifndef NEW_SHADERS
-#include "../../ext/MitsubaLoader/CMitsubaLoader.h"
+#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
 #endif
 
 #include "./dirty_source/ExtraCrap.h"

@@ -14,6 +14,12 @@ namespace irr
 namespace asset
 {
 
+//! CPU Version of Unspecialized Shader
+/*
+	@see IShader
+	@see IAsset
+*/
+
 class ICPUShader : public IAsset, public IShader
 {
 	protected:
@@ -49,8 +55,6 @@ class ICPUShader : public IAsset, public IShader
 
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-            if (isDummyObjectForCacheAliasing)
-                return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
 			if (referenceLevelsBelowToConvert)
@@ -60,7 +64,30 @@ class ICPUShader : public IAsset, public IShader
 		const ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
 		bool containsGLSL() const { return m_containsGLSL; }
 
+		bool canBeRestoredFrom(const IAsset* _other) const override
+		{
+			auto* other = static_cast<const ICPUShader*>(_other);
+			if (m_containsGLSL != other->m_containsGLSL)
+				return false;
+			if (!m_code->canBeRestoredFrom(other->m_code.get()))
+				return false;
+
+			return true;
+		}
+
 	protected:
+		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		{
+			auto* other = static_cast<ICPUShader*>(_other);
+
+			if (_levelsBelow)
+			{
+				--_levelsBelow;
+
+				restoreFromDummy_impl_call(m_code.get(), other->m_code.get(), _levelsBelow);
+			}
+		}
+
 		//! Might be GLSL null-terminated string or SPIR-V bytecode (denoted by m_containsGLSL)
 		core::smart_refctd_ptr<ICPUBuffer>	m_code;
 		const bool							m_containsGLSL;

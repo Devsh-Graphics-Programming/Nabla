@@ -10,16 +10,16 @@ namespace video
 {
 
     
-template<template<class> class allocator=core::allocator, typename... Properties>
-class CPropertyPool : public IPropertyPool
+template<template<class...> class allocator=core::allocator, typename... Properties>
+class CPropertyPool final : public IPropertyPool
 {
-        using ThisType = CPropertyPool<allocator,Properties...>;
+        using this_t = CPropertyPool<allocator,Properties...>;
 
         static auto propertyCombinedSize()
         {
             return (sizeof(Properties) + ...);
         }
-        static size_t calcApproximateCapacity(size_t bufferSize)
+        static uint32_t calcApproximateCapacity(size_t bufferSize)
         {
             return bufferSize/propertyCombinedSize();
         }
@@ -27,16 +27,30 @@ class CPropertyPool : public IPropertyPool
         _IRR_STATIC_INLINE_CONSTEXPR auto PropertyCount = sizeof...(Properties);
 
 	public:
-        static inline core::smart_refctd_ptr<ThisType> create(IVideoDriver* _driver, asset::SBufferRange<IGPUBuffer>&& _memoryBlock, allocator<uint8_t>&& alloc=allocator<uint8_t>())
-        {
-            if (!_memoryBlock.isValid())
-                return nullptr;
+		static inline core::smart_refctd_ptr<this_t> create(asset::SBufferRange<IGPUBuffer>&& _memoryBlock, allocator<uint8_t>&& alloc = allocator<uint8_t>())
+		{
+			const auto reservedSize = getReservedSize(calcApproximateCapacity(_memoryBlock.size));
+			auto reserved = std::allocator_traits<allocator<uint8_t>>::allocate(alloc,reservedSize);
+			if (!reserved)
+				return nullptr;
 
-            const auto approximateCapacity = calcApproximateCapacity(_memoryBlock.size);
+			auto retval = create(std::move(_memoryBlock),reserved,std::move(alloc));
+			if (!retval)
+				std::allocator_traits<allocator<uint8_t>>::deallocate(alloc,reserved,reservedSize);
+
+			return retval;
+		}
+		// if this method fails to create the pool, the callee must free the reserved memory themselves, also the reserved pointer must be compatible with the allocator so it can free it
+        static inline core::smart_refctd_ptr<this_t> create(asset::SBufferRange<IGPUBuffer>&& _memoryBlock, void* reserved, allocator<uint8_t>&& alloc=allocator<uint8_t>())
+        {
+			assert(_memoryBlock.isValid());
+			assert(reserved);
+
+            const size_t approximateCapacity = calcApproximateCapacity(_memoryBlock.size);
             auto capacity = approximateCapacity;
             while (capacity)
             {
-                size_t wouldBeSize = PropertySizes[0]*capacity;
+                auto wouldBeSize = PropertySizes[0]*capacity;
                 // now compute with padding and alignments
                 for (auto i=1; i<PropertyCount; i++)
                 {
@@ -54,88 +68,35 @@ class CPropertyPool : public IPropertyPool
             if (!capacity)
                 return nullptr;
 
-            //
-            auto reserved = std::allocator_traits<allocator<uint8_t>>::allocate(alloc,getReservedSize(capacity));
-            if (!reserved)
-                return nullptr;
-
-            return core::make_smart_refctd_ptr<CPropertyPool>(_driver,std::move(_memoryBlock),std::move(alloc),capacity,reserved);
+			auto* pool = new CPropertyPool(std::move(_memoryBlock),static_cast<uint32_t>(capacity),reserved,std::move(alloc));
+            return core::smart_refctd_ptr<CPropertyPool>(pool,core::dont_grab);
         }
 
-
-        //
-        inline uint32_t getPipelineCount() const override
-        {
-            return core::roundUp(PropertyCount,maxPipelinesPerPass);
-        }
-
-        //
-        inline void getPipelines(core::smart_refctd_ptr<IGPUComputePipeline>* outIt, bool forDownload, bool canCompileNew, IGPUPipelineCache* pipelineCache=nullptr) const override
-        {
-            PipelineKey key = {forDownload,{}};
-            for (uint32_t i=0u; i<getPipelineCount(); i++)
-            {
-                auto propertiesThisPass = getPropertiesPerPass(i);
-                // need a redirect/shuffle cause need sorted elements
-                for (uint32_t j=0u; j<propertiesThisPass; j++)
-                    key.propertySizes[j] = getShuffledGlobalIndex(i,j);
-                // no uninit vars
-                for (uint32_t j=propertiesThisPass; j<key.propertySizes.size(); j++)
-                    key.propertySizes[j] = 0u;
-                //
-                *(outIt++) = IPropertyPool::getCopyPipeline(driver,key,canCompileNew,pipelineCache);
-            }
-        }
+		//
+		uint32_t getPropertyCount() const override {return PropertyCount;}
+		size_t getPropertyOffset(uint32_t ix) const override { return propertyOffsets[ix]; }
+		uint32_t getPropertySize(uint32_t ix) const override {return static_cast<uint32_t>(PropertySizes[ix]);}
 
 	protected:
-        inline uint32_t getPropertiesPerPass(uint32_t passID)
+        CPropertyPool(asset::SBufferRange<IGPUBuffer>&& _memoryBlock, uint32_t capacity, void* _reserved, allocator<uint8_t>&& _alloc)
+            : IPropertyPool(std::move(_memoryBlock),capacity,_reserved), alloc(std::move(_alloc)), reserved(_reserved)
         {
-            if (passID!=(getPipelineCount()-1u))
-                return maxPipelinesPerPass;
-
-            return PropertyCount-passID*maxPipelinesPerPass;
-        }
-        inline uint32_t getUnshuffledGlobalIndex(uint32_t passID, uint32_t localID)
-        {
-            return passID*maxPipelinesPerPass+localID;
-        }
-        inline auto& getShuffledGlobalIndex(uint32_t passID, uint32_t localID)
-        {
-            return copyPipelinePropertyRedirect[getUnshuffledGlobalIndex(i,j)];
-        }
-
-        CPropertyPool(IVideoDriver* _driver, core::SBufferRange<IGPUBuffer>&& _memoryBlock, allocator<uint8_t>&& _alloc, uint32_t capacity, void* reserved)
-            : IPropertyPool(_driver,std::move(_memoryBlock),capacity,reserved), maxPipelinesPerPass((16/*driver->getMaxSSBOBindings(ESS_COMPUTE)*/-1)/2u), alloc(std::move(_alloc))
-        {
-            // fill out redirects
-            std::pair<uint32_t,uint32_t> tmp[maxPipelinesPerPass];
-            for (uint32_t i=0u; i<getPipelineCount(); i++)
-            {
-                auto propertiesThisPass = getPropertiesPerPass(i);
-                //
-                for (uint32_t j=0u; j<propertiesThisPass; j++)
-                    tmp[j] = {PropertySizes[getUnshuffledGlobalIndex(i,j)],getUnshuffledGlobalIndex(i,j)};
-                std::sort(tmp,tmp+propertiesThisPass);
-                // need a redirect/shuffle cause need sorted elements
-                for (uint32_t j=0u; j<propertiesThisPass; j++)
-                    getShuffledGlobalIndex(i,j) = tmp[j].second;
-            }
+			propertyOffsets[0] = memoryBlock.offset;
+			for (uint32_t i=1u; i<PropertyCount; i++)
+				propertyOffsets[i] = core::roundUp(propertyOffsets[i-1u]+PropertySizes[i-1u]*size_t(capacity),PropertySizes[i]);
         }
 
         ~CPropertyPool()
         {
-            void* reserved = const_cast<void*>(indexAllocator.getReservedSpacePtr());
-            std::allocator_traits<allocator<uint8_t>>::deallocate(alloc,reserved,getReservedSize(getCapacity()));
+            std::allocator_traits<allocator<uint8_t>>::deallocate(alloc,reinterpret_cast<uint8_t*>(reserved),getReservedSize(getCapacity()));
         }
 
         
-        uint32_t maxPipelinesPerPass;
-        // the size is just an upper bound
-        std::array<uint32_t,PropertyCount> copyPipelinePropertyRedirect = {};
-        //
         allocator<uint8_t> alloc;
+		void* reserved;
+		size_t propertyOffsets[PropertyCount];
 
-        _IRR_STATIC_INLINE_CONSTEXPR std::array<uint32_t,PropertyCount+1u> PropertySizes = {sizeof(Properties)... , 0u};
+        _IRR_STATIC_INLINE_CONSTEXPR std::array<size_t,PropertyCount> PropertySizes = {sizeof(Properties)...};
 };
 
 

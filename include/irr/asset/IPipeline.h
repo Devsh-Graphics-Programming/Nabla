@@ -3,7 +3,6 @@
 
 #include <utility>
 
-
 #include "irr/core/IReferenceCounted.h"
 
 namespace irr
@@ -34,6 +33,21 @@ struct DispatchIndirectCommand_t
 	uint32_t  num_groups_y;
 	uint32_t  num_groups_z;
 };
+
+//! Interface class for for concreting graphics and compute pipelines
+/*
+	A pipeline refers to a succession of fixed stages 
+	through which a data input flows; each stage processes 
+	the incoming data and hands it over to the next stage. 
+	The final product will be either a 2D raster drawing image 
+	(the graphics pipeline) or updated resources (buffers or images) 
+	with computational logic and calculations (the compute pipeline).
+
+	Vulkan supports two types of pipeline:
+	
+	- graphics pipeline
+	- compute pipeline
+*/
 
 template<typename LayoutType>
 class IPipeline : public virtual core::IReferenceCounted

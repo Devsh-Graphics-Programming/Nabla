@@ -49,13 +49,18 @@ namespace video
                 return MeshBuffers.size();
             }
 
-            //! returns pointer to a mesh buffer
-            virtual video::IGPUMeshBuffer* getMeshBuffer(uint32_t nr) const override
+            virtual const video::IGPUMeshBuffer* getMeshBuffer(uint32_t nr) const override
             {
-                if (MeshBuffers.size())
+                if (nr < MeshBuffers.size())
                     return MeshBuffers[nr].get();
                 else
                     return nullptr;
+            }
+
+            //! returns pointer to a mesh buffer
+            virtual video::IGPUMeshBuffer* getMeshBuffer(uint32_t nr) override
+            {
+                return const_cast<video::IGPUMeshBuffer*>(const_cast<const CGPUMesh*>(this)->getMeshBuffer(nr));
             }
 
             //! adds a MeshBuffer

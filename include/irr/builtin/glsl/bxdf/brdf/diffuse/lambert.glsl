@@ -1,7 +1,8 @@
 #ifndef _IRR_BXDF_BRDF_DIFFUSE_LAMBERT_INCLUDED_
 #define _IRR_BXDF_BRDF_DIFFUSE_LAMBERT_INCLUDED_
 
-#include <irr/builtin/glsl/bxdf/cos_weighted_sample.glsl>
+#include <irr/builtin/glsl/bxdf/common.glsl>
+#include <irr/builtin/glsl/sampling/cos_weighted.glsl>
 
 float irr_glsl_lambertian()
 {

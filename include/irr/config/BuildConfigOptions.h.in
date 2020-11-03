@@ -2,6 +2,7 @@
 #define __IRR_BUILD_CONFIG_OPTIONS_H_INCLUDED__
 
 #cmakedefine _IRR_DEBUG
+#cmakedefine _IRR_RELWITHDEBINFO
 
 // architecture
 #cmakedefine __IRR_COMPILE_WITH_ARM_SIMD_

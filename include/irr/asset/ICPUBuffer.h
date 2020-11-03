@@ -62,7 +62,7 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 
         virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
         {
-            if (isDummyObjectForCacheAliasing)
+            if (!canBeConvertedToDummy())
                 return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
@@ -88,9 +88,30 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 		//! Returns pointer to data.
 		/** WARNING: RESIZE will invalidate pointer.
 		*/
-        virtual void* getPointer() {return data;}
+        virtual void* getPointer() 
+        { 
+            assert(!isImmutable_debug());
+            return data; 
+        }
+
+        bool canBeRestoredFrom(const IAsset* _other) const override
+        {
+            auto* other = static_cast<const ICPUBuffer*>(_other);
+            if (size != other->size)
+                return false;
+
+            return true;
+        }
 
     protected:
+        void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+        {
+            auto* other = static_cast<ICPUBuffer*>(_other);
+
+            if (willBeRestoredFrom(_other))
+                std::swap(data, other->data);
+        }
+
         uint64_t size;
         void* data;
 };
@@ -100,6 +121,18 @@ template<
     bool = std::is_same<Allocator, core::null_allocator<typename Allocator::value_type> >::value
 >
 class CCustomAllocatorCPUBuffer;
+
+//! Specialization of ICPUBuffer capable of taking custom allocators
+/*
+    Take a look that with this usage you have to specify custom alloctor
+    passing an object type for allocation and a pointer to allocated
+    data for it's storage by ICPUBuffer.
+
+    So the need for the class existance is for common following tricks - among others creating an 
+    \bICPUBuffer\b over an already existing \bvoid*\b array without any \imemcpy\i or \itaking over the memory ownership\i.
+    You can use it with a \bnull_allocator\b that adopts memory (it is a bit counter intuitive because \badopt = take\b ownership, 
+    but a \inull allocator\i doesn't do anything, even free the memory, so you're all good).
+*/
 
 template<typename Allocator>
 class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
@@ -123,6 +156,8 @@ class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
             if (isDummyObjectForCacheAliasing)
                 return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
+            if (!canBeConvertedToDummy())
+                return;
 
 			if (ICPUBuffer::data)
 				m_allocator.deallocate(reinterpret_cast<typename Allocator::pointer>(ICPUBuffer::data), ICPUBuffer::size);

@@ -9,6 +9,11 @@ namespace irr {
 namespace video
 {
 
+//! GPU Version of Pipeline Layout
+/*
+    @see IPipelineLayout
+*/
+
 class IGPUPipelineLayout : public core::IReferenceCounted, public asset::IPipelineLayout<IGPUDescriptorSetLayout>
 {
 public:

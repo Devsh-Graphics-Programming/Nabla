@@ -9,6 +9,11 @@ namespace irr
 namespace video
 {
 
+//! GPU Version of Unspecialized Shader
+/*
+	@see IReferenceCounted
+*/
+
 class IGPUShader : public asset::IShader
 {
     protected:
