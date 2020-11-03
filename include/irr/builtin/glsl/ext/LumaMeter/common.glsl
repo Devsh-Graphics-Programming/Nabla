@@ -277,66 +277,9 @@ float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_
     #include <irr/builtin/glsl/workgroup/arithmetic.glsl>
     #include <irr/builtin/glsl/workgroup/shuffle.glsl>
 // TODO: figure out why the irr_glsl_workgroupExclusiveAdd function doesn't work
-/*
-uint irr_glsl_workgroupExclusiveAdd(uint val)
-{
-    uint firstLevelScan = irr_glsl_subgroupExclusiveAdd_impl(false, val);
-    const uint subgroupSizeLog2 = uint(findLSB(4));
-    bool propagateReduction = (gl_LocalInvocationIndex & 3u) == 3u;
-    uint lowerIndex = gl_LocalInvocationIndex >> subgroupSizeLog2;
-
-    uint lastInvocationInLevel = 255u;
-    uint higherIndexDiff = gl_LocalInvocationIndex - lowerIndex;
-    uint scan = firstLevelScan;
-    barrier();
-    while (lastInvocationInLevel >= 4u)
-    {
-        if (propagateReduction && gl_LocalInvocationIndex<lastInvocationInLevel || gl_LocalInvocationIndex==lastInvocationInLevel)
-            histogram[lowerIndex] = scan;
-        barrier();
-        memoryBarrierShared();
-        lastInvocationInLevel = lastInvocationInLevel >> subgroupSizeLog2;
-        if (gl_LocalInvocationIndex <= lastInvocationInLevel)
-            scan = irr_glsl_subgroupExclusiveAdd_impl(false,histogram[lowerIndex + higherIndexDiff]);
-        lowerIndex += (lastInvocationInLevel + 1u);
-    }
-    barrier();
-    if (true)
-    {
-        lowerIndex -= (lastInvocationInLevel + 1u);
-        if (gl_LocalInvocationIndex <= lastInvocationInLevel)
-        {
-            histogram[lowerIndex + higherIndexDiff] = scan;
-        }
-        barrier();
-        memoryBarrierShared();
-        uint _485 = ((uint(findMSB(255u)) / subgroupSizeLog2) - 1u) * subgroupSizeLog2;
-        for (uint logShift = _485; lastInvocationInLevel != 255u; logShift -= subgroupSizeLog2)
-        {
-            lastInvocationInLevel = 255u >> logShift;
-            uint higherIndex = lowerIndex - (lastInvocationInLevel + 1u);
-            if (gl_LocalInvocationIndex <= lastInvocationInLevel)
-            {
-                uint outIx = higherIndex + higherIndexDiff;
-                uint param_8 = histogram[outIx];
-                uint param_9 = histogram[lowerIndex];
-                uint param_10 = irr_glsl_identityFunction(param_8);
-                uint param_11 = irr_glsl_identityFunction(param_9);
-                uint param_12 = irr_glsl_add(param_10, param_11);
-                histogram[outIx] = irr_glsl_identityFunction(param_12);
-            }
-            barrier();
-            memoryBarrierShared();
-            lowerIndex = higherIndex;
-        }
-        firstLevelScan += histogram[lowerIndex];
-    }
-    return firstLevelScan;
-}
-*/
 uint irr_glsl_workgroupExclusiveAdd2(uint val)
 {
-#if 1
+#if 0
     barrier();
     memoryBarrierShared();
     SUBGROUP_SCRATCH_CLEAR(_IRR_GLSL_WORKGROUP_SIZE_,0u)
@@ -358,11 +301,11 @@ uint irr_glsl_workgroupExclusiveAdd2(uint val)
     {
         firstLevelScan += _IRR_GLSL_SCRATCH_SHARED_DEFINED_[i];
     }
-    firstLevelScan = irr_glsl_workgroupShuffle(firstLevelScan,gl_LocalInvocationIndex!=0u ? (gl_LocalInvocationIndex-1u):0u);
-    return gl_LocalInvocationIndex!=0u ? firstLevelScan:0u;
 #else
-    return irr_glsl_workgroupExclusiveAdd(val);
+    uint firstLevelScan = irr_glsl_workgroupExclusiveAdd(val);
 #endif
+    firstLevelScan = irr_glsl_workgroupShuffle(firstLevelScan, gl_LocalInvocationIndex != 0u ? (gl_LocalInvocationIndex - 1u) : 0u);
+    return gl_LocalInvocationIndex != 0u ? firstLevelScan : 0u;
 }
 #endif
 
