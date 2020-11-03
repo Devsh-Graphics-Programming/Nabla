@@ -157,20 +157,25 @@ vec2 irr_glsl_concentricMapping(in vec2 _u)
 }
 
 // only in the fragment shader we have access to implicit derivatives
+irr_glsl_IsotropicViewSurfaceInteraction irr_glsl_calcFragmentShaderSurfaceInteractionFromViewVector(in vec3 _View, in vec3 _SurfacePos, in vec3 _Normal)
+{
+    irr_glsl_IsotropicViewSurfaceInteraction interaction;
+    interaction.V.dir = _View;
+    interaction.V.dPosdScreen[0] = dFdx(_SurfacePos);
+    interaction.V.dPosdScreen[1] = dFdy(_SurfacePos);
+    interaction.N = _Normal;
+    float invlenV2 = inversesqrt(dot(interaction.V.dir, interaction.V.dir));
+    float invlenN2 = inversesqrt(dot(interaction.N, interaction.N));
+    interaction.V.dir *= invlenV2;
+    interaction.N *= invlenN2;
+    interaction.NdotV = dot(interaction.N, interaction.V.dir);
+    interaction.NdotV_squared = interaction.NdotV * interaction.NdotV;
+    return interaction;
+}
 irr_glsl_IsotropicViewSurfaceInteraction irr_glsl_calcFragmentShaderSurfaceInteraction(in vec3 _CamPos, in vec3 _SurfacePos, in vec3 _Normal)
 {
-   irr_glsl_IsotropicViewSurfaceInteraction interaction;
-   interaction.V.dir = _CamPos-_SurfacePos;
-   interaction.V.dPosdScreen[0] = dFdx(_SurfacePos);
-   interaction.V.dPosdScreen[1] = dFdy(_SurfacePos);
-   interaction.N = _Normal;
-   float invlenV2 = inversesqrt(dot(interaction.V.dir,interaction.V.dir));
-   float invlenN2 = inversesqrt(dot(interaction.N,interaction.N));
-   interaction.V.dir *= invlenV2;
-   interaction.N *= invlenN2;
-   interaction.NdotV = dot(interaction.N,interaction.V.dir);
-   interaction.NdotV_squared = interaction.NdotV*interaction.NdotV;
-   return interaction;
+    vec3 V = _CamPos = _SurfacePos;
+    return irr_glsl_calcFragmentShaderSurfaceInteractionFromViewVector(V, _SurfacePos, _Normal);
 }
 irr_glsl_AnisotropicViewSurfaceInteraction irr_glsl_calcAnisotropicInteraction(in irr_glsl_IsotropicViewSurfaceInteraction isotropic, in vec3 T, in vec3 B)
 {

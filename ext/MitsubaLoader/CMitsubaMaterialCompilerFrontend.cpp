@@ -244,44 +244,30 @@ namespace MitsubaLoader
         case CElementBSDF::THINDIELECTRIC:
         case CElementBSDF::ROUGHDIELECTRIC:
         {
-            nextSym = ir->allocNode<IR::CBSDFCombinerNode>(IR::CBSDFCombinerNode::ET_FRESNEL_BLEND);
-            nextSym->children.count = 2u;
+            auto* dielectric = ir->allocNode<IR::CDielectricBSDFNode>();
+            nextSym = dielectric;
 
             const float eta = current->dielectric.intIOR/current->dielectric.extIOR;
             _IRR_DEBUG_BREAK_IF(eta==1.f);
             if (eta==1.f)
                 os::Printer::log("WARNING: Dielectric with IoR=1.0!", current->id, ELL_ERROR);
 
-            auto& refl = nextSym->children[0];
-            refl = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>();
-            auto& trans = nextSym->children[1];
-            trans = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>();
-
-            auto* node_refl = static_cast<IR::CMicrofacetSpecularBSDFNode*>(refl);
-            auto* node_trans = static_cast<IR::CMicrofacetSpecularBSDFNode*>(trans);
-
-            node_refl->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_REFLECT;
-            node_refl->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
-            node_refl->eta = IR::INode::color_t(eta);
+            dielectric->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_REFLECT;
+            dielectric->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
+            dielectric->eta = IR::INode::color_t(eta);
             if (currType == CElementBSDF::ROUGHDIELECTRIC)
             {
-                node_refl->ndf = ndfMap[current->dielectric.distribution];
-                getFloatOrTexture(current->dielectric.alphaU, node_refl->alpha_u);
-                if (node_refl->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
-                    getFloatOrTexture(current->dielectric.alphaV, node_refl->alpha_v);
+                dielectric->ndf = ndfMap[current->dielectric.distribution];
+                getFloatOrTexture(current->dielectric.alphaU, dielectric->alpha_u);
+                if (dielectric->ndf == IR::CMicrofacetSpecularBSDFNode::ENDF_ASHIKHMIN_SHIRLEY)
+                    getFloatOrTexture(current->dielectric.alphaV, dielectric->alpha_v);
                 else
-                    node_refl->alpha_v = node_refl->alpha_u;
+                    dielectric->alpha_v = dielectric->alpha_u;
             }
             else
             {
-                node_refl->setSmooth();
+                dielectric->setSmooth();
             }
-            node_trans->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_TRANSMIT;
-            node_trans->ndf = node_refl->ndf;
-            node_trans->shadowing = node_refl->shadowing;
-            node_trans->alpha_u = node_refl->alpha_u;
-            node_trans->alpha_v = node_refl->alpha_v;
-            node_trans->eta = node_refl->eta;
 
             thin = (currType == CElementBSDF::THINDIELECTRIC);
         }

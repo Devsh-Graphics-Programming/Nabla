@@ -346,14 +346,15 @@ public:
             ET_MICROFACET_DIFFUSE,
             ET_MICROFACET_SPECULAR,
             //ET_SHEEN,
-            ET_COATING
+            ET_COATING,
+            ET_DIELECTRIC
         };
 
         CBSDFNode(E_TYPE t) :
             INode(ES_BSDF),
             type(t),
-            eta(1.f,1.f,1.f),
-            etaK(0.f,0.f,0.f)
+            eta(1.33f),
+            etaK(0.f)
         {}
 
         E_TYPE type;
@@ -425,6 +426,10 @@ public:
 
         SParameter<color_t> sigmaA;
         float thickness;
+    };
+    struct CDielectricBSDFNode : CMicrofacetSpecularBSDFNode
+    {
+        CDielectricBSDFNode() : CMicrofacetSpecularBSDFNode(ET_DIELECTRIC) {}
     };
 
     SBackingMemManager memMgr;

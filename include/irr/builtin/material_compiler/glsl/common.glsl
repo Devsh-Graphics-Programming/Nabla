@@ -4,18 +4,19 @@
 #include <irr/builtin/material_compiler/glsl/common_declarations.glsl>
 
 #ifndef _IRR_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
-	#error "You need to define 'vec3 irr_glsl_MC_getCamPos()', 'instr_t irr_glsl_MC_fetchInstr(in uint)', 'prefetch_instr_t irr_glsl_MC_fetchPrefetchInstr(in uint)', 'bsdf_data_t irr_glsl_MC_fetchBSDFData(in uint)' functions above"
+	#error "You need to define 'vec3 irr_glsl_MC_getNormalizedWorldSpaceV()', 'vec3 irr_glsl_MC_getNormalizedWorldSpaceN()' , 'irr_glsl_MC_getWorldSpacePosition()', 'instr_t irr_glsl_MC_fetchInstr(in uint)', 'prefetch_instr_t irr_glsl_MC_fetchPrefetchInstr(in uint)', 'bsdf_data_t irr_glsl_MC_fetchBSDFData(in uint)' functions above"
 #endif
 
 #include <irr/builtin/glsl/math/functions.glsl>
 #include <irr/builtin/glsl/format/decode.glsl>
 
-MC_precomputed_t precomputeData(in vec3 N, in vec3 pos)
+MC_precomputed_t precomputeData()
 {
 	MC_precomputed_t p;
-	p.N = normalize(N);
-	p.V = normalize(irr_glsl_MC_getCamPos() - pos);
+	p.N = irr_glsl_MC_getNormalizedWorldSpaceN();
+	p.V = irr_glsl_MC_getNormalizedWorldSpaceV();
 	p.NdotV = dot(p.N, p.V);
+	p.pos = irr_glsl_MC_getWorldSpacePosition();
 
 	return p;
 }
@@ -334,23 +335,21 @@ mat2x4 instr_fetchSrcRegs(in instr_t i)
 	return instr_fetchSrcRegs(i, r);
 }
 
-void setCurrInteraction(in vec3 N)
+void setCurrInteraction(in vec3 N, in vec3 V, in vec3 pos)
 {
-	vec3 campos = irr_glsl_MC_getCamPos();
-	irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, N);
+	irr_glsl_IsotropicViewSurfaceInteraction interaction = irr_glsl_calcFragmentShaderSurfaceInteractionFromViewVector(V, pos, N);
 	currInteraction = irr_glsl_calcAnisotropicInteraction(interaction);
 }
 void setCurrInteraction(in MC_precomputed_t precomp)
 {
-	setCurrInteraction(precomp.N);
+	setCurrInteraction(precomp.N, precomp.V, precomp.pos);
 }
 void updateCurrInteraction(in MC_precomputed_t precomp, in vec3 N, in bool ts)
 {
 #ifdef NO_TWOSIDED
 	setCurrInteraction(precomp);
 #else
-	vec3 campos = irr_glsl_MC_getCamPos();
-	setCurrInteraction((ts && precomp.NdotV<0.0) ? -N : N);
+	setCurrInteraction((ts && precomp.NdotV<0.0) ? -N : N, precomp.V, precomp.pos);
 #endif
 }
 
@@ -528,7 +527,7 @@ vec3 fetchTex(in uvec3 texid, in vec2 uv, in mat2 dUV)
 	return irr_glsl_vTextureGrad(texid.xy, uv, dUV).rgb*scale;
 }
 
-void runTexPrefetchStream(in instr_stream_t stream, in mat2 dUV)
+void runTexPrefetchStream(in instr_stream_t stream, in vec2 uv, in mat2 dUV)
 {
 	for (uint i = 0u; i < stream.count; ++i)
 	{
@@ -537,7 +536,7 @@ void runTexPrefetchStream(in instr_stream_t stream, in mat2 dUV)
 		uint regcnt = prefetch_instr_getRegCount(instr);
 		uint reg = prefetch_instr_getDstReg(instr);
 
-		vec3 val = fetchTex(instr.xyz, UV, dUV);
+		vec3 val = fetchTex(instr.xyz, uv, dUV);
 
 		writeReg(reg, val.x);
 #if defined(PREFETCH_REG_COUNT_2) || defined(PREFETCH_REG_COUNT_3)
@@ -553,7 +552,9 @@ void runTexPrefetchStream(in instr_stream_t stream, in mat2 dUV)
 
 void runNormalPrecompStream(in instr_stream_t stream, in mat2 dUV)
 {
-	setCurrInteraction(normalize(Normal)); //either add MC_precomputed_t param and move runNormalPrecompStream() call to irr_computeLighting or leave this normalize() here
+	//either add MC_precomputed_t param and move runNormalPrecompStream() call to irr_computeLighting or leave it here
+	vec3 pos = irr_glsl_MC_getWorldSpacePosition();
+	setCurrInteraction(irr_glsl_MC_getNormalizedWorldSpaceN(), irr_glsl_MC_getNormalizedWorldSpaceV(), pos);
 	for (uint i = 0u; i < stream.count; ++i)
 	{
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);

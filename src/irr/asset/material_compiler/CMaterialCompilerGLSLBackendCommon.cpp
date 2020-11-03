@@ -9,9 +9,10 @@ namespace asset
 {
 namespace material_compiler
 {
+	using instr_stream = CMaterialCompilerGLSLBackendCommon::instr_stream;
+	using instr_t = instr_stream::instr_t;
+	using traversal_t = instr_stream::traversal_t;
 
-namespace instr_stream
-{
 	class CInterpreter
 	{
 	public:
@@ -45,27 +46,25 @@ namespace instr_stream
 
 		virtual void writeInheritableBitfields(instr_t& dst, instr_t parent) const
 		{
-			dst = core::bitfieldInsert(dst, parent>>BITFIELDS_SHIFT_TWOSIDED, BITFIELDS_SHIFT_TWOSIDED, 1);
-			dst = core::bitfieldInsert(dst, parent>>BITFIELDS_SHIFT_MASKFLAG, BITFIELDS_SHIFT_MASKFLAG, 1);
+			dst = core::bitfieldInsert(dst, parent>>instr_stream::BITFIELDS_SHIFT_TWOSIDED, instr_stream::BITFIELDS_SHIFT_TWOSIDED, 1);
+			dst = core::bitfieldInsert(dst, parent>>instr_stream::BITFIELDS_SHIFT_MASKFLAG, instr_stream::BITFIELDS_SHIFT_MASKFLAG, 1);
 		}
 
 		// Extra operations performed on instruction just before it is pushed on stack
 		virtual void onBeforeStackPush(instr_t& instr) const
 		{
-			if (getOpcode(instr) == OP_DIELECTRIC && isTwosided(instr))
-				setOpcode(instr, OP_THINDIELECTRIC);
 		}
 
 		void writeBumpmapBitfields(instr_t& dst)
 		{
 			++m_firstFreeNormalID;
-			dst = core::bitfieldInsert<instr_t>(dst, m_firstFreeNormalID, INSTR_NORMAL_ID_SHIFT, INSTR_NORMAL_ID_WIDTH);
+			dst = core::bitfieldInsert<instr_t>(dst, m_firstFreeNormalID, instr_stream::INSTR_NORMAL_ID_SHIFT, instr_stream::INSTR_NORMAL_ID_WIDTH);
 		}
 
 		void filterNOOPs(traversal_t& _traversal)
 		{
 			_traversal.erase(
-				std::remove_if(_traversal.begin(), _traversal.end(), [](instr_t i) { return getOpcode(i) == OP_NOOP; }),
+				std::remove_if(_traversal.begin(), _traversal.end(), [](instr_t i) { return instr_stream::getOpcode(i) == instr_stream::OP_NOOP; }),
 				_traversal.end()
 			);
 		}
@@ -82,11 +81,11 @@ namespace instr_stream
 			return CInterpreter::processSubtree(m_ir, tree, thin, next);
 		}
 
-		void setBSDFData(intermediate::SBSDFUnion& _dst, E_OPCODE _op, const IR::INode* _node, const IR::INode::SParameter<IR::INode::color_t>& _opacity)
+		void setBSDFData(instr_stream::intermediate::SBSDFUnion& _dst, instr_stream::E_OPCODE _op, const IR::INode* _node, const IR::INode::SParameter<IR::INode::color_t>& _opacity)
 		{
 			switch (_op)
 			{
-			case OP_DIFFUSE:
+			case instr_stream::OP_DIFFUSE:
 			{
 				auto* node = static_cast<const IR::CMicrofacetDiffuseBSDFNode*>(_node);
 				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
@@ -99,31 +98,23 @@ namespace instr_stream
 					_dst.diffuse.reflectance.setConst(node->reflectance.value.constant.pointer);
 			}
 			break;
-			case OP_DIELECTRIC: _IRR_FALLTHROUGH;
-			case OP_THINDIELECTRIC:
+			case instr_stream::OP_DIELECTRIC: [[fallthrough]];
+			case instr_stream::OP_THINDIELECTRIC:
 			{
-				auto* blend = static_cast<const IR::CBSDFCombinerNode*>(_node);
-				auto* refl = static_cast<const IR::CMicrofacetSpecularBSDFNode*>(blend->children[0]);
-				auto* trans = static_cast<const IR::CMicrofacetSpecularBSDFNode*>(blend->children[1]);
-				if (refl->scatteringMode == IR::CMicrofacetSpecularBSDFNode::ESM_TRANSMIT)
-					std::swap(refl, trans);
-				assert(refl->ndf == trans->ndf);
-				assert(refl->alpha_u == trans->alpha_u);
-				assert(refl->alpha_v == trans->alpha_v);
-				assert((refl->eta == trans->eta).xyzz().all());
+				auto* node = static_cast<const IR::CDielectricBSDFNode*>(_node);
 
-				if (refl->alpha_u.source == IR::INode::EPS_TEXTURE)
-					_dst.dielectric.alpha_u.setTexture(packTexture(refl->alpha_u.value.texture), refl->alpha_u.value.texture.scale);
+				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
+					_dst.dielectric.alpha_u.setTexture(packTexture(node->alpha_u.value.texture), node->alpha_u.value.texture.scale);
 				else
-					_dst.dielectric.alpha_u.setConst(refl->alpha_u.value.constant);
-				if (refl->alpha_v.source == IR::INode::EPS_TEXTURE)
-					_dst.dielectric.alpha_v.setTexture(packTexture(refl->alpha_v.value.texture), refl->alpha_v.value.texture.scale);
+					_dst.dielectric.alpha_u.setConst(node->alpha_u.value.constant);
+				if (node->alpha_v.source == IR::INode::EPS_TEXTURE)
+					_dst.dielectric.alpha_v.setTexture(packTexture(node->alpha_v.value.texture), node->alpha_v.value.texture.scale);
 				else
-					_dst.dielectric.alpha_v.setConst(refl->alpha_v.value.constant);
-				_dst.dielectric.eta = core::rgb32f_to_rgb19e7(refl->eta.pointer);
+					_dst.dielectric.alpha_v.setConst(node->alpha_v.value.constant);
+				_dst.dielectric.eta = core::rgb32f_to_rgb19e7(node->eta.pointer);
 			}
 			break;
-			case OP_CONDUCTOR:
+			case instr_stream::OP_CONDUCTOR:
 			{
 				auto* node = static_cast<const IR::CMicrofacetSpecularBSDFNode*>(_node);
 				
@@ -139,7 +130,7 @@ namespace instr_stream
 				_dst.conductor.eta[1] = core::rgb32f_to_rgb19e7(node->etaK.pointer);
 			}
 			break;
-			case OP_COATING:
+			case instr_stream::OP_COATING:
 			{
 				auto* coat = static_cast<const IR::CCoatingBSDFNode*>(_node);
 
@@ -160,7 +151,7 @@ namespace instr_stream
 				_dst.coating.eta = core::rgb32f_to_rgb19e7(coat->eta.pointer);
 			}
 			break;
-			case OP_BLEND:
+			case instr_stream::OP_BLEND:
 			{
 				auto* b = static_cast<const IR::CBSDFCombinerNode*>(_node);
 				assert(b->type == IR::CBSDFCombinerNode::ET_WEIGHT_BLEND);
@@ -172,7 +163,7 @@ namespace instr_stream
 					_dst.blend.weight.setConst(blend->weight.value.constant);
 			}
 			break;
-			case OP_DIFFTRANS:
+			case instr_stream::OP_DIFFTRANS:
 			{
 				auto* difftrans = static_cast<const IR::CDifftransBSDFNode*>(_node);
 
@@ -182,7 +173,7 @@ namespace instr_stream
 					_dst.difftrans.transmittance.setConst(difftrans->transmittance.value.constant.pointer);
 			}
 			break;
-			case OP_BUMPMAP:
+			case instr_stream::OP_BUMPMAP:
 			{
 				const IR::CGeomModifierNode* bm = nullptr;
 				if (_node->symbol == IR::INode::ES_MATERIAL)
@@ -196,13 +187,13 @@ namespace instr_stream
 
 				assert(bm->type == IR::CGeomModifierNode::ET_DERIVATIVE);
 
-				_dst.bumpmap.derivmap.vtid = bm ? packTexture(bm->texture) : VTID::invalid();
+				_dst.bumpmap.derivmap.vtid = bm ? packTexture(bm->texture) : instr_stream::VTID::invalid();
 				core::uintBitsToFloat(_dst.bumpmap.derivmap.scale) = bm ? bm->texture.scale : 0.f;
 			}
 			break;
 			}
 
-			if (_op!=OP_BUMPMAP && _op!=OP_BLEND)
+			if (_op!=instr_stream::OP_BUMPMAP && _op!=instr_stream::OP_BLEND)
 			{
 				if (_opacity.source == IR::INode::EPS_TEXTURE)
 					_dst.common.param[2].setTexture(packTexture(_opacity.value.texture), _opacity.value.texture.scale);
@@ -211,12 +202,12 @@ namespace instr_stream
 			}
 		}
 
-		size_t getBSDFDataIndex(E_OPCODE _op, const IR::INode* _node, const IR::INode::SParameter<IR::INode::color_t>& _opacity)
+		size_t getBSDFDataIndex(instr_stream::E_OPCODE _op, const IR::INode* _node, const IR::INode::SParameter<IR::INode::color_t>& _opacity)
 		{
 			switch (_op)
 			{
-			case OP_INVALID: _IRR_FALLTHROUGH;
-			case OP_NOOP:
+			case instr_stream::OP_INVALID: [[fallthrough]];
+			case instr_stream::OP_NOOP:
 				return 0ull;
 			default: break;
 			}
@@ -225,7 +216,7 @@ namespace instr_stream
 			if (found != m_ctx->bsdfDataIndexMap.end())
 				return found->second;
 
-			intermediate::SBSDFUnion data;
+			instr_stream::intermediate::SBSDFUnion data;
 			setBSDFData(data, _op, _node, _opacity);
 			size_t ix = m_ctx->bsdfData.size();
 			m_ctx->bsdfDataIndexMap.insert({_node,ix});
@@ -234,7 +225,7 @@ namespace instr_stream
 			return ix;
 		}
 
-		VTID packTexture(const IR::INode::STextureSource& tex)
+		instr_stream::VTID packTexture(const IR::INode::STextureSource& tex)
 		{
 			auto found = m_ctx->VTallocMap.find({tex.image.get(),tex.sampler.get()});
 			if (found != m_ctx->VTallocMap.end())
@@ -262,7 +253,7 @@ namespace instr_stream
 			auto addr = m_ctx->vt->alloc(img->getCreationParameters().format, imgAndOrigSz.second, subres, uwrap, vwrap);
 			m_ctx->vt->commit(addr, imgAndOrigSz.first.get(), subres, uwrap, vwrap, border);
 
-			std::pair<SContext::VTallocKey, VTID> item{{tex.image.get(),tex.sampler.get()}, addr};
+			std::pair<SContext::VTallocKey, instr_stream::VTID> item{{tex.image.get(),tex.sampler.get()}, addr};
 			m_ctx->VTallocMap.insert(item);
 
 			return addr;
@@ -274,19 +265,19 @@ namespace instr_stream
 			bool pushIt = false;
 			instr_t instr = _instr;
 			writeInheritableBitfields(instr, _parent);
-			switch (getOpcode(instr))
+			switch (instr_stream::getOpcode(instr))
 			{
-			case OP_BUMPMAP:
+			case instr_stream::OP_BUMPMAP:
 				writeBumpmapBitfields(instr);
-				_IRR_FALLTHROUGH;
-			case OP_DIFFUSE: _IRR_FALLTHROUGH;
-			case OP_DIFFTRANS: _IRR_FALLTHROUGH;
-			case OP_DIELECTRIC: _IRR_FALLTHROUGH;
-			case OP_THINDIELECTRIC: _IRR_FALLTHROUGH;
-			case OP_CONDUCTOR: _IRR_FALLTHROUGH;
-			case OP_COATING: _IRR_FALLTHROUGH;
-			case OP_BLEND: _IRR_FALLTHROUGH;
-			case OP_NOOP:
+				[[fallthrough]];
+			case instr_stream::OP_DIFFUSE: [[fallthrough]];
+			case instr_stream::OP_DIFFTRANS: [[fallthrough]];
+			case instr_stream::OP_DIELECTRIC: [[fallthrough]];
+			case instr_stream::OP_THINDIELECTRIC: [[fallthrough]];
+			case instr_stream::OP_CONDUCTOR: [[fallthrough]];
+			case instr_stream::OP_COATING: [[fallthrough]];
+			case instr_stream::OP_BLEND: [[fallthrough]];
+			case instr_stream::OP_NOOP:
 				pushIt = true;
 				break;
 			}
@@ -301,86 +292,73 @@ namespace instr_stream
 		}
 		instr_t finalizeInstr(instr_t _instr, const IR::INode* _node, uint32_t _bsdfBufOffset)
 		{
-			constexpr E_NDF ndfMap[4]
+			constexpr instr_stream::E_NDF ndfMap[4]
 			{
-				NDF_BECKMANN,
-				NDF_GGX,
-				NDF_PHONG,
-				NDF_PHONG
+				instr_stream::NDF_BECKMANN,
+				instr_stream::NDF_GGX,
+				instr_stream::NDF_PHONG,
+				instr_stream::NDF_PHONG
 			};
 
 			auto handleSpecularBitfields = [&ndfMap](instr_t dst, const IR::CMicrofacetSpecularBSDFNode* node) -> instr_t
 			{
-				dst = core::bitfieldInsert<instr_t>(dst, ndfMap[node->ndf], BITFIELDS_SHIFT_NDF, BITFIELDS_WIDTH_NDF);
+				dst = core::bitfieldInsert<instr_t>(dst, ndfMap[node->ndf], instr_stream::BITFIELDS_SHIFT_NDF, instr_stream::BITFIELDS_WIDTH_NDF);
 				if (node->alpha_v.source == IR::INode::EPS_TEXTURE)
-					dst = core::bitfieldInsert<instr_t>(dst, 1u, BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
+					dst = core::bitfieldInsert<instr_t>(dst, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
 				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
-					dst = core::bitfieldInsert<instr_t>(dst, 1u, BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
+					dst = core::bitfieldInsert<instr_t>(dst, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 
 				return dst;
 			};
 
-			const E_OPCODE op = getOpcode(_instr);
+			const instr_stream::E_OPCODE op = instr_stream::getOpcode(_instr);
 			switch (op)
 			{
-			case OP_DIFFUSE:
+			case instr_stream::OP_DIFFUSE:
 			{
 				auto* node = static_cast<const IR::CMicrofacetDiffuseBSDFNode*>(_node);
 				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
-					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
+					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 				if (node->reflectance.source == IR::INode::EPS_TEXTURE)
-					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, BITFIELDS_SHIFT_REFL_TEX, 1);
+					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_REFL_TEX, 1);
 			}
 			break;
-			case OP_DIELECTRIC: _IRR_FALLTHROUGH;
-			case OP_THINDIELECTRIC:
-			{
-				auto* blend = static_cast<const IR::CBSDFCombinerNode*>(_node);
-				auto* refl = static_cast<const IR::CMicrofacetSpecularBSDFNode*>(blend->children[0]);
-				auto* trans = static_cast<const IR::CMicrofacetSpecularBSDFNode*>(blend->children[1]);
-				if (refl->scatteringMode == IR::CMicrofacetSpecularBSDFNode::ESM_TRANSMIT)
-					std::swap(refl, trans);
-				assert(refl->ndf == trans->ndf);
-				assert(refl->alpha_u == trans->alpha_u);
-				assert(refl->alpha_v == trans->alpha_v);
-
-				_instr = handleSpecularBitfields(_instr, refl);
-			}
-			break;
-			case OP_CONDUCTOR:
+			case instr_stream::OP_DIELECTRIC: [[fallthrough]];
+			case instr_stream::OP_THINDIELECTRIC: [[fallthrough]];
+			case instr_stream::OP_CONDUCTOR:
 			{
 				auto* node = static_cast<const IR::CMicrofacetSpecularBSDFNode*>(_node);
 				_instr = handleSpecularBitfields(_instr, node);
 			}
 			break;
-			case OP_COATING:
+			case instr_stream::OP_COATING:
 			{
 				auto* coat = static_cast<const IR::CCoatingBSDFNode*>(_node);
 
 				_instr = handleSpecularBitfields(_instr, coat);
 				if (coat->sigmaA.source == IR::INode::EPS_TEXTURE)
-					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, BITFIELDS_SHIFT_SIGMA_A_TEX, 1);
+					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_SIGMA_A_TEX, 1);
 			}
 			break;
-			case OP_BLEND:
+			case instr_stream::OP_BLEND:
 			{
 				auto* blend = static_cast<const IR::CBSDFCombinerNode*>(_node);
 				assert(blend->type == IR::CBSDFCombinerNode::ET_WEIGHT_BLEND);
 
 				if (static_cast<const IR::CBSDFBlendNode*>(_node)->weight.source == IR::INode::EPS_TEXTURE)
-					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, BITFIELDS_SHIFT_WEIGHT_TEX, 1);
+					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_WEIGHT_TEX, 1);
 			}
-			case OP_DIFFTRANS:
+			case instr_stream::OP_DIFFTRANS:
 			{
 				auto* difftrans = static_cast<const IR::CDifftransBSDFNode*>(_node);
 
 				if (difftrans->transmittance.source == IR::INode::EPS_TEXTURE)
-					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, BITFIELDS_SHIFT_TRANS_TEX, 1);
+					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_TRANS_TEX, 1);
 			}
 			break;
 			}
 
-			_instr = core::bitfieldInsert<instr_t>(_instr, _bsdfBufOffset, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
+			_instr = core::bitfieldInsert<instr_t>(_instr, _bsdfBufOffset, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_SHIFT, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
 
 			return _instr;
 		}
@@ -393,11 +371,11 @@ namespace instr_stream
 
 namespace remainder_and_pdf
 {
-	inline uint32_t getNumberOfSrcRegsForOpcode(E_OPCODE _op)
+	inline uint32_t getNumberOfSrcRegsForOpcode(instr_stream::E_OPCODE _op)
 	{
-		if (_op == OP_BLEND)
+		if (_op == instr_stream::OP_BLEND)
 			return 2u;
-		else if (_op == OP_BUMPMAP || _op == OP_COATING)
+		else if (_op == instr_stream::OP_BUMPMAP || _op == instr_stream::OP_COATING)
 			return 1u;
 		return 0u;
 	}
@@ -405,16 +383,15 @@ namespace remainder_and_pdf
 	inline core::vector3du32_SIMD getRegisters(const instr_t& i)
 	{
 		return core::vector3du32_SIMD(
-			(i>>INSTR_REG_DST_SHIFT),
-			(i>>INSTR_REG_SRC1_SHIFT),
-			(i>>INSTR_REG_SRC2_SHIFT)
-		) & core::vector3du32_SIMD(INSTR_REG_MASK);
+			(i>>instr_stream::remainder_and_pdf::INSTR_REG_DST_SHIFT),
+			(i>>instr_stream::remainder_and_pdf::INSTR_REG_SRC1_SHIFT),
+			(i>>instr_stream::remainder_and_pdf::INSTR_REG_SRC2_SHIFT)
+		) & core::vector3du32_SIMD(instr_stream::remainder_and_pdf::INSTR_REG_MASK);
 	}
 
 	class CTraversalManipulator
 	{
 	public:
-		using traversal_t = core::vector<instr_t>;
 		using substream_base_t = std::pair<size_t, size_t>;
 		struct substream_t : private substream_base_t
 		{
@@ -440,16 +417,16 @@ namespace remainder_and_pdf
 
 			constexpr uint32_t _2ND_DWORD_SHIFT = 32u;
 
-			regDword = core::bitfieldInsert(regDword, rdst, INSTR_REG_DST_SHIFT-_2ND_DWORD_SHIFT, INSTR_REG_WIDTH);
-			regDword = core::bitfieldInsert(regDword, rsrc1, INSTR_REG_SRC1_SHIFT-_2ND_DWORD_SHIFT, INSTR_REG_WIDTH);
-			regDword = core::bitfieldInsert(regDword, rsrc2, INSTR_REG_SRC2_SHIFT-_2ND_DWORD_SHIFT, INSTR_REG_WIDTH);
+			regDword = core::bitfieldInsert(regDword, rdst, instr_stream::remainder_and_pdf::INSTR_REG_DST_SHIFT-_2ND_DWORD_SHIFT, instr_stream::remainder_and_pdf::INSTR_REG_WIDTH);
+			regDword = core::bitfieldInsert(regDword, rsrc1, instr_stream::remainder_and_pdf::INSTR_REG_SRC1_SHIFT-_2ND_DWORD_SHIFT, instr_stream::remainder_and_pdf::INSTR_REG_WIDTH);
+			regDword = core::bitfieldInsert(regDword, rsrc2, instr_stream::remainder_and_pdf::INSTR_REG_SRC2_SHIFT-_2ND_DWORD_SHIFT, instr_stream::remainder_and_pdf::INSTR_REG_WIDTH);
 		}
 
 		struct has_different_normal_id
 		{
 			uint32_t n_id;
 
-			bool operator()(const instr_t& i) const { return getNormalId(i) != n_id; };
+			bool operator()(const instr_t& i) const { return instr_stream::getNormalId(i) != n_id; };
 		};
 
 		traversal_t m_input;
@@ -513,7 +490,7 @@ namespace remainder_and_pdf
 		{
 			base_t::writeInheritableBitfields(dst, parent);
 			
-			dst = core::bitfieldInsert(dst, parent>>INSTR_NORMAL_ID_SHIFT, INSTR_NORMAL_ID_SHIFT, INSTR_NORMAL_ID_WIDTH);
+			dst = core::bitfieldInsert(dst, parent>>instr_stream::INSTR_NORMAL_ID_SHIFT, instr_stream::INSTR_NORMAL_ID_SHIFT, instr_stream::INSTR_NORMAL_ID_WIDTH);
 		}
 
 		traversal_t genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs) override;
@@ -547,14 +524,10 @@ namespace gen_choice
 }
 namespace tex_prefetch
 {
-	static prefetch_stream_t genTraversal(const traversal_t& _t, const core::vector<instr_stream::intermediate::SBSDFUnion>& _bsdfData, core::unordered_map<STextureData, uint32_t, STextureData::hash>& _tex2reg, uint32_t _firstFreeReg, uint32_t& _out_usedRegs, uint32_t& _out_regCntFlags);
+	static instr_stream::tex_prefetch::prefetch_stream_t genTraversal(const traversal_t& _t, const core::vector<instr_stream::intermediate::SBSDFUnion>& _bsdfData, core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _tex2reg, uint32_t _firstFreeReg, uint32_t& _out_usedRegs, uint32_t& _out_regCntFlags);
 }
-}
 
-
-using namespace instr_stream;
-
-const IR::INode* instr_stream::CInterpreter::translateMixIntoBlends(IR* ir, const IR::INode* _mix)
+const IR::INode* CInterpreter::translateMixIntoBlends(IR* ir, const IR::INode* _mix)
 {
 	auto* mix = static_cast<const IR::CBSDFMixNode*>(_mix);
 	assert(mix->symbol == IR::INode::ES_BSDF_COMBINER);
@@ -588,7 +561,7 @@ const IR::INode* instr_stream::CInterpreter::translateMixIntoBlends(IR* ir, cons
 	return q.front().node;
 }
 
-std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(IR* ir, const IR::INode* tree, bool thin, IR::INode::children_array_t& out_next)
+std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const IR::INode* tree, bool thin, IR::INode::children_array_t& out_next)
 {
 	auto isTwosided = [](const IR::INode* _node, size_t _frontSurfIx, IR::INode::children_array_t& _frontSurfChildren) -> bool
 	{
@@ -605,7 +578,7 @@ std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(
 		return ts;
 	};
 
-	instr_t instr = OP_INVALID;
+	instr_t instr = instr_stream::OP_INVALID;
 	switch (tree->symbol)
 	{
 	case IR::INode::ES_MATERIAL:
@@ -616,7 +589,7 @@ std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(
 		auto* node = static_cast<const IR::CMaterialNode*>(tree);
 		masked = (node->opacity.source==IR::INode::EPS_TEXTURE || (node->opacity.source==IR::INode::EPS_TEXTURE && (node->opacity.value.constant!=IR::INode::color_t(1.f)).xyzz().all()));
 
-		instr_t retval = OP_INVALID;
+		instr_t retval = instr_stream::OP_INVALID;
 
 		size_t ix = 0u;
 		if (node->children.find(IR::INode::ES_GEOM_MODIFIER, &ix))
@@ -625,17 +598,17 @@ std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(
 			out_next = geom_node->children;
 			if (geom_node->children.find(IR::INode::ES_FRONT_SURFACE, &ix))
 				twosided = isTwosided(geom_node, ix, out_next);
-			retval = (geom_node->type != IR::CGeomModifierNode::ET_DERIVATIVE) ? OP_INVALID : OP_BUMPMAP;
+			retval = (geom_node->type != IR::CGeomModifierNode::ET_DERIVATIVE) ? instr_stream::OP_INVALID : instr_stream::OP_BUMPMAP;
 		}
 		else if (node->children.find(IR::INode::ES_FRONT_SURFACE, &ix))
 		{
 			twosided = isTwosided(node, ix, out_next);
-			retval = OP_NOOP; //returning OP_NOOP causes not adding this instruction to resulting stream, but doesnt stop processing (effectively is used to forward flags only)
+			retval = instr_stream::OP_NOOP; //returning OP_NOOP causes not adding this instruction to resulting stream, but doesnt stop processing (effectively is used to forward flags only)
 		}
 		if (twosided)
-			retval = core::bitfieldInsert<instr_t>(retval, 1u, BITFIELDS_SHIFT_TWOSIDED, 1);
+			retval = core::bitfieldInsert<instr_t>(retval, 1u, instr_stream::BITFIELDS_SHIFT_TWOSIDED, 1);
 		if (masked)
-			retval = core::bitfieldInsert<instr_t>(retval, 1u, BITFIELDS_SHIFT_MASKFLAG, 1);
+			retval = core::bitfieldInsert<instr_t>(retval, 1u, instr_stream::BITFIELDS_SHIFT_MASKFLAG, 1);
 		instr = retval;
 	}
 	break;
@@ -649,12 +622,12 @@ std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(
 
 		instr_t retval;
 		if (node->type == IR::CGeomModifierNode::ET_HEIGHT)
-			retval = OP_BUMPMAP;
+			retval = instr_stream::OP_BUMPMAP;
 		else
-			retval = OP_INVALID;
+			retval = instr_stream::OP_INVALID;
 
 		if (twosided)
-			retval = core::bitfieldInsert<instr_t>(retval, 1u, BITFIELDS_SHIFT_TWOSIDED, 1);
+			retval = core::bitfieldInsert<instr_t>(retval, 1u, instr_stream::BITFIELDS_SHIFT_TWOSIDED, 1);
 
 		instr = retval;
 	}
@@ -666,23 +639,12 @@ std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(
 		{
 		case IR::CBSDFCombinerNode::ET_WEIGHT_BLEND:
 			out_next = node->children;
-			instr = OP_BLEND;
+			instr = instr_stream::OP_BLEND;
 			break;
-		case IR::CBSDFCombinerNode::ET_FRESNEL_BLEND:
-		{
-			assert(node->children.count==2u);
-			assert(node->children[0]->symbol==IR::INode::ES_BSDF && node->children[1]->symbol==IR::INode::ES_BSDF);
-			auto type = static_cast<const IR::CBSDFNode*>(node->children[0])->type;
-			assert(type == IR::CBSDFNode::ET_MICROFACET_SPECULAR);
-			type = static_cast<const IR::CBSDFNode*>(node->children[1])->type;
-			assert(type == IR::CBSDFNode::ET_MICROFACET_SPECULAR);
-			instr = thin ? OP_THINDIELECTRIC : OP_DIELECTRIC;
-		}
-		break;
 		case IR::CBSDFCombinerNode::ET_MIX:
 		{
 			tree = translateMixIntoBlends(ir, node);
-			instr = OP_BLEND;
+			instr = instr_stream::OP_BLEND;
 			out_next = tree->children;
 		}
 		break;
@@ -695,28 +657,33 @@ std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(
 		switch (node->type)
 		{
 		case IR::CBSDFNode::ET_DIFFTRANS:
-			instr = OP_DIFFTRANS; break;
+			instr = instr_stream::OP_DIFFTRANS; break;
 		case IR::CBSDFNode::ET_MICROFACET_DIFFUSE:
-			instr = OP_DIFFUSE; break;
+			instr = instr_stream::OP_DIFFUSE; break;
 		case IR::CBSDFNode::ET_MICROFACET_SPECULAR:
-			instr = OP_CONDUCTOR; break;
+			instr = instr_stream::OP_CONDUCTOR; break;
 		case IR::CBSDFNode::ET_COATING:
 		{
 			out_next = node->children;
 			assert(node->children.count==1u);
-			instr = OP_COATING;
+			instr = instr_stream::OP_COATING;
 
 			// coated BxDF must be diffuse or difftrans
 			auto* coated = node->children[0];
 			assert(coated->symbol == IR::INode::ES_BSDF);
 			if (coated->symbol != IR::INode::ES_BSDF)
-				instr = OP_INVALID;
+				instr = instr_stream::OP_INVALID;
 			const IR::CBSDFNode::E_TYPE bxdf = static_cast<const IR::CBSDFNode*>(coated)->type;
 			assert(bxdf == IR::CBSDFNode::ET_MICROFACET_DIFFUSE || bxdf == IR::CBSDFNode::ET_DIFFTRANS);
 			if (bxdf != IR::CBSDFNode::ET_MICROFACET_DIFFUSE && bxdf != IR::CBSDFNode::ET_DIFFTRANS)
-				instr = OP_INVALID;
+				instr = instr_stream::OP_INVALID;
 		}
 			break;
+		case IR::CBSDFNode::ET_DIELECTRIC:
+		{
+			instr = thin ? instr_stream::OP_THINDIELECTRIC : instr_stream::OP_DIELECTRIC;
+		}
+		break;
 		}
 	}
 	break;
@@ -725,9 +692,9 @@ std::pair<instr_t, const IR::INode*> instr_stream::CInterpreter::processSubtree(
 	return {instr,tree};
 }
 
-void instr_stream::remainder_and_pdf::CTraversalManipulator::reorderBumpMapStreams_impl(traversal_t& _input, traversal_t& _output, const substream_t& _stream)
+void remainder_and_pdf::CTraversalManipulator::reorderBumpMapStreams_impl(traversal_t& _input, traversal_t& _output, const substream_t& _stream)
 {
-	const uint32_t n_id = getNormalId(*(_stream.end() - 1));
+	const uint32_t n_id = instr_stream::getNormalId(*(_stream.end() - 1));
 
 	const size_t len = _stream.length();
 	size_t subsLenAcc = 0ull;
@@ -736,10 +703,10 @@ void instr_stream::remainder_and_pdf::CTraversalManipulator::reorderBumpMapStrea
 	auto subBegin = std::find_if(_stream.begin(), _stream.end(), has_different_normal_id{ n_id });
 	while (subBegin != _stream.end())
 	{
-		const uint32_t sub_n_id = getNormalId(*subBegin);
+		const uint32_t sub_n_id = instr_stream::getNormalId(*subBegin);
 		decltype(subBegin) subEnd;
 		for (subEnd = _stream.end() - 1; subEnd != subBegin; --subEnd)
-			if (getNormalId(*subEnd) == sub_n_id)
+			if (instr_stream::getNormalId(*subEnd) == sub_n_id)
 				break;
 		++subEnd;
 
@@ -762,7 +729,7 @@ void instr_stream::remainder_and_pdf::CTraversalManipulator::reorderBumpMapStrea
 	substream_t woSubs{ _stream.begin(),_stream.begin() + newlen, &_input };
 	//move bumpmap instruction to the beginning of the stream
 	auto lastInstr = *(_stream.begin() + newlen - 1);
-	if (getOpcode(lastInstr) == OP_BUMPMAP)
+	if (instr_stream::getOpcode(lastInstr) == instr_stream::OP_BUMPMAP)
 	{
 		_input.erase(_stream.begin() + newlen - 1);
 		_input.insert(_stream.begin(), lastInstr);
@@ -777,7 +744,7 @@ void instr_stream::remainder_and_pdf::CTraversalManipulator::reorderBumpMapStrea
 	_input.erase(woSubs.begin() + 1, woSubs.end());
 }
 
-void instr_stream::remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regCount, uint32_t& _out_maxUsedReg)
+void remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regCount, uint32_t& _out_maxUsedReg)
 {
 	core::stack<uint32_t> freeRegs;
 	{
@@ -808,10 +775,10 @@ void instr_stream::remainder_and_pdf::CTraversalManipulator::specifyRegisters(ui
 
 			continue;// do not increment j
 		}
-		const E_OPCODE op = getOpcode(i);
+		const instr_stream::E_OPCODE op = instr_stream::getOpcode(i);
 
 		--bmStreamEndCounter;
-		if (op == OP_BUMPMAP)
+		if (op == instr_stream::OP_BUMPMAP)
 		{
 			bmStreamEndCounter = m_streamLengths.front() - 1u;
 			m_streamLengths.pop();
@@ -825,7 +792,7 @@ void instr_stream::remainder_and_pdf::CTraversalManipulator::specifyRegisters(ui
 		else if (bmStreamEndCounter==-1 && j!=0u)
 		{
 			//just opcode, no registers nor other bitfields in this instruction
-			m_input.insert(m_input.begin() + j, instr_t(OP_SET_GEOM_NORMAL));
+			m_input.insert(m_input.begin() + j, instr_t(instr_stream::OP_SET_GEOM_NORMAL));
 
 			++j;
 			continue;
@@ -882,7 +849,7 @@ void instr_stream::remainder_and_pdf::CTraversalManipulator::specifyRegisters(ui
 	}
 }
 
-instr_stream::traversal_t instr_stream::remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs)
+traversal_t remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs)
 {
 	traversal_t traversal;
 
@@ -900,12 +867,12 @@ instr_stream::traversal_t instr_stream::remainder_and_pdf::CTraversalGenerator::
 	while (!m_stack.empty())
 	{
 		auto& top = m_stack.top();
-		const E_OPCODE op = getOpcode(top.instr);
+		const instr_stream::E_OPCODE op = instr_stream::getOpcode(top.instr);
 		//const uint32_t srcRegCount = getNumberOfSrcRegsForOpcode(op);
 		_IRR_DEBUG_BREAK_IF(op == OP_INVALID);
 		if (top.children.count==0u || top.visited)
 		{
-			const uint32_t bsdfBufIx = getBSDFDataIndex(getOpcode(top.instr), top.node, opacity);
+			const uint32_t bsdfBufIx = getBSDFDataIndex(instr_stream::getOpcode(top.instr), top.node, opacity);
 			instr_t instr = finalizeInstr(top.instr, top.node, bsdfBufIx);
 			traversal.push_back(instr);
 			m_stack.pop();
@@ -935,7 +902,7 @@ instr_stream::traversal_t instr_stream::remainder_and_pdf::CTraversalGenerator::
 	return traversal;
 }
 
-instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs)
+traversal_t gen_choice::CTraversalGenerator::genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs)
 {
 	constexpr uint32_t INVALID_INDEX = 0xdeadbeefu;
 
@@ -956,7 +923,7 @@ instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTrav
 	{
 		auto top = m_stack.top();
 		m_stack.pop();
-		const E_OPCODE op = getOpcode(top.instr);
+		const instr_stream::E_OPCODE op = instr_stream::getOpcode(top.instr);
 
 		const uint32_t bsdfBufIx = getBSDFDataIndex(op, top.node, opacity);
 		const uint32_t currIx = traversal.size();
@@ -965,7 +932,7 @@ instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTrav
 		if (top.parentIx != INVALID_INDEX)
 		{
 			instr_t& parent = traversal[top.parentIx];
-			parent = core::bitfieldInsert<instr_t>(parent, currIx, INSTR_RIGHT_JUMP_SHIFT, INSTR_RIGHT_JUMP_WIDTH);
+			parent = core::bitfieldInsert<instr_t>(parent, currIx, instr_stream::gen_choice::INSTR_RIGHT_JUMP_SHIFT, instr_stream::gen_choice::INSTR_RIGHT_JUMP_WIDTH);
 		}
 
 		{
@@ -990,38 +957,38 @@ instr_stream::traversal_t instr_stream::gen_choice::CTraversalGenerator::genTrav
 	return traversal;
 }
 
-instr_stream::tex_prefetch::prefetch_stream_t instr_stream::tex_prefetch::genTraversal(const traversal_t& _t, const core::vector<instr_stream::intermediate::SBSDFUnion>& _bsdfData, core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _out_tex2reg, uint32_t _firstFreeReg, uint32_t& _out_usedRegs, uint32_t& _out_regCntFlags)
+instr_stream::tex_prefetch::prefetch_stream_t tex_prefetch::genTraversal(const traversal_t& _t, const core::vector<instr_stream::intermediate::SBSDFUnion>& _bsdfData, core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash>& _out_tex2reg, uint32_t _firstFreeReg, uint32_t& _out_usedRegs, uint32_t& _out_regCntFlags)
 {
-	core::unordered_set<STextureData, STextureData::hash> processed;
+	core::unordered_set<instr_stream::STextureData, instr_stream::STextureData::hash> processed;
 	uint32_t regNum = _firstFreeReg;
 
-	prefetch_stream_t prefetch_stream;
+	instr_stream::tex_prefetch::prefetch_stream_t prefetch_stream;
 		
 	for (instr_t instr : _t)
 	{
-		const E_OPCODE op = getOpcode(instr);
+		const instr_stream::E_OPCODE op = instr_stream::getOpcode(instr);
 
-		if (op==OP_NOOP || op==OP_INVALID || op==OP_SET_GEOM_NORMAL)
+		if (op==instr_stream::OP_NOOP || op==instr_stream::OP_INVALID || op==instr_stream::OP_SET_GEOM_NORMAL)
 			continue;
 
-		const uint32_t bsdf_ix = core::bitfieldExtract(instr, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
-		const intermediate::SBSDFUnion& bsdf_data = _bsdfData[bsdf_ix];
+		const uint32_t bsdf_ix = core::bitfieldExtract(instr, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_SHIFT, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
+		const instr_stream::intermediate::SBSDFUnion& bsdf_data = _bsdfData[bsdf_ix];
 
-		const uint32_t param_count = getParamCount(op);
+		const uint32_t param_count = instr_stream::getParamCount(op);
 		for (uint32_t param_i = 0u; param_i < param_count; ++param_i)
 		{
-			const uint32_t param_tex_shift = BITFIELDS_SHIFT_PARAM_TEX[param_i];
-			if (op != OP_BUMPMAP && core::bitfieldExtract(instr, param_tex_shift, 1) == 0ull)
+			const uint32_t param_tex_shift = instr_stream::BITFIELDS_SHIFT_PARAM_TEX[param_i];
+			if (op != instr_stream::OP_BUMPMAP && core::bitfieldExtract(instr, param_tex_shift, 1) == 0ull)
 				continue;
 
-			prefetch_instr_t prefetch_instr;
+			instr_stream::tex_prefetch::prefetch_instr_t prefetch_instr;
 			prefetch_instr.tex_data = bsdf_data.common.param[param_i].tex;
 			if (processed.find(prefetch_instr.tex_data) != processed.end())
 				continue;
 			processed.insert(prefetch_instr.tex_data);
 
 			const uint32_t dst_reg = regNum;
-			const uint32_t reg_cnt = getRegisterCountForParameter(op, param_i);
+			const uint32_t reg_cnt = instr_stream::getRegisterCountForParameter(op, param_i);
 			prefetch_instr.setRegCnt(reg_cnt);
 			prefetch_instr.setDstReg(dst_reg);
 			regNum += reg_cnt;
@@ -1046,17 +1013,17 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	std::string defs;
 	defs += "\n#define REG_COUNT " + std::to_string(_res.usedRegisterCount);
 
-	for (E_OPCODE op : _res.opcodes)
+	for (instr_stream::E_OPCODE op : _res.opcodes)
 		defs += "\n#define "s + OPCODE_NAMES[op] + " " + std::to_string(op);
-	defs += "\n#define OP_MAX_BRDF " + std::to_string(OP_MAX_BRDF);
-	defs += "\n#define OP_MAX_BSDF " + std::to_string(OP_MAX_BSDF);
+	defs += "\n#define OP_MAX_BRDF " + std::to_string(instr_stream::OP_MAX_BRDF);
+	defs += "\n#define OP_MAX_BSDF " + std::to_string(instr_stream::OP_MAX_BSDF);
 
-	for (E_NDF ndf : _res.NDFs)
+	for (instr_stream::E_NDF ndf : _res.NDFs)
 		defs += "\n#define "s + NDF_NAMES[ndf] + " " + std::to_string(ndf);
 	if (_res.NDFs.size()==1ull)
 		defs += "\n#define ONLY_ONE_NDF";
 
-	defs += "\n#define sizeof_bsdf_data " + std::to_string((sizeof(SBSDFUnion)+instr_stream::sizeof_uvec4-1u)/instr_stream::sizeof_uvec4);
+	defs += "\n#define sizeof_bsdf_data " + std::to_string((sizeof(instr_stream::SBSDFUnion)+instr_stream::sizeof_uvec4-1u)/instr_stream::sizeof_uvec4);
 
 	if (_genChoiceStream)
 		defs += "\n#define GEN_CHOICE_STREAM";
@@ -1072,50 +1039,44 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 		defs += "\n#define NO_BSDF";
 
 	//instruction bitfields
-	defs += "\n#define INSTR_OPCODE_MASK " + std::to_string(INSTR_OPCODE_MASK);
-	defs += "\n#define INSTR_BSDF_BUF_OFFSET_SHIFT " + std::to_string(BITFIELDS_BSDF_BUF_OFFSET_SHIFT);
-	defs += "\n#define INSTR_BSDF_BUF_OFFSET_MASK " + std::to_string(BITFIELDS_BSDF_BUF_OFFSET_MASK);
-	defs += "\n#define INSTR_NDF_SHIFT " + std::to_string(BITFIELDS_SHIFT_NDF);
-	defs += "\n#define INSTR_NDF_MASK " + std::to_string(BITFIELDS_MASK_NDF);
-	defs += "\n#define INSTR_ALPHA_U_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_ALPHA_U_TEX);
-	defs += "\n#define INSTR_ALPHA_V_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_ALPHA_V_TEX);
-	defs += "\n#define INSTR_REFL_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_REFL_TEX);
-	defs += "\n#define INSTR_TRANS_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_TRANS_TEX);
-	defs += "\n#define INSTR_SIGMA_A_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_SIGMA_A_TEX);
-	defs += "\n#define INSTR_WEIGHT_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_WEIGHT_TEX);
-	defs += "\n#define INSTR_OPACITY_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_OPACITY_TEX);
-	defs += "\n#define INSTR_TWOSIDED_SHIFT " + std::to_string(BITFIELDS_SHIFT_TWOSIDED);
-	defs += "\n#define INSTR_MASKFLAG_SHIFT " + std::to_string(BITFIELDS_SHIFT_MASKFLAG);
-	defs += "\n#define INSTR_1ST_PARAM_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_1ST_PARAM_TEX);
-	defs += "\n#define INSTR_2ND_PARAM_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_2ND_PARAM_TEX);
-	defs += "\n#define INSTR_3RD_PARAM_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_3RD_PARAM_TEX);
-	defs += "\n#define INSTR_4TH_PARAM_TEX_SHIFT " + std::to_string(BITFIELDS_SHIFT_4TH_PARAM_TEX);
-	defs += "\n#define INSTR_NORMAL_ID_SHIFT " + std::to_string(INSTR_NORMAL_ID_SHIFT);
-	defs += "\n#define INSTR_NORMAL_ID_MASK " + std::to_string(INSTR_NORMAL_ID_MASK);
+	defs += "\n#define INSTR_OPCODE_MASK " + std::to_string(instr_stream::INSTR_OPCODE_MASK);
+	defs += "\n#define INSTR_BSDF_BUF_OFFSET_SHIFT " + std::to_string(instr_stream::BITFIELDS_BSDF_BUF_OFFSET_SHIFT);
+	defs += "\n#define INSTR_BSDF_BUF_OFFSET_MASK " + std::to_string(instr_stream::BITFIELDS_BSDF_BUF_OFFSET_MASK);
+	defs += "\n#define INSTR_NDF_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_NDF);
+	defs += "\n#define INSTR_NDF_MASK " + std::to_string(instr_stream::BITFIELDS_MASK_NDF);
+	defs += "\n#define INSTR_ALPHA_U_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX);
+	defs += "\n#define INSTR_ALPHA_V_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_ALPHA_V_TEX);
+	defs += "\n#define INSTR_REFL_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_REFL_TEX);
+	defs += "\n#define INSTR_TRANS_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_TRANS_TEX);
+	defs += "\n#define INSTR_SIGMA_A_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_SIGMA_A_TEX);
+	defs += "\n#define INSTR_WEIGHT_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_WEIGHT_TEX);
+	defs += "\n#define INSTR_OPACITY_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_OPACITY_TEX);
+	defs += "\n#define INSTR_TWOSIDED_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_TWOSIDED);
+	defs += "\n#define INSTR_MASKFLAG_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_MASKFLAG);
+	defs += "\n#define INSTR_1ST_PARAM_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_1ST_PARAM_TEX);
+	defs += "\n#define INSTR_2ND_PARAM_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_2ND_PARAM_TEX);
+	defs += "\n#define INSTR_3RD_PARAM_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_3RD_PARAM_TEX);
+	defs += "\n#define INSTR_4TH_PARAM_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_4TH_PARAM_TEX);
+	defs += "\n#define INSTR_NORMAL_ID_SHIFT " + std::to_string(instr_stream::INSTR_NORMAL_ID_SHIFT);
+	defs += "\n#define INSTR_NORMAL_ID_MASK " + std::to_string(instr_stream::INSTR_NORMAL_ID_MASK);
 	//remainder_and_pdf
 	{
-		using namespace remainder_and_pdf;
-
-		defs += "\n#define INSTR_REG_MASK " + std::to_string(INSTR_REG_MASK);
-		defs += "\n#define INSTR_REG_DST_SHIFT " + std::to_string(INSTR_REG_DST_SHIFT);
-		defs += "\n#define INSTR_REG_SRC1_SHIFT " + std::to_string(INSTR_REG_SRC1_SHIFT);
-		defs += "\n#define INSTR_REG_SRC2_SHIFT " + std::to_string(INSTR_REG_SRC2_SHIFT);
+		defs += "\n#define INSTR_REG_MASK " + std::to_string(instr_stream::remainder_and_pdf::INSTR_REG_MASK);
+		defs += "\n#define INSTR_REG_DST_SHIFT " + std::to_string(instr_stream::remainder_and_pdf::INSTR_REG_DST_SHIFT);
+		defs += "\n#define INSTR_REG_SRC1_SHIFT " + std::to_string(instr_stream::remainder_and_pdf::INSTR_REG_SRC1_SHIFT);
+		defs += "\n#define INSTR_REG_SRC2_SHIFT " + std::to_string(instr_stream::remainder_and_pdf::INSTR_REG_SRC2_SHIFT);
 	}
 	//gen_choice
 	{
-		using namespace gen_choice;
-
-		defs += "\n#define INSTR_RIGHT_JUMP_SHIFT " + std::to_string(INSTR_RIGHT_JUMP_SHIFT);
-		defs += "\n#define INSTR_RIGHT_JUMP_WIDTH " + std::to_string(INSTR_RIGHT_JUMP_WIDTH);
+		defs += "\n#define INSTR_RIGHT_JUMP_SHIFT " + std::to_string(instr_stream::gen_choice::INSTR_RIGHT_JUMP_SHIFT);
+		defs += "\n#define INSTR_RIGHT_JUMP_WIDTH " + std::to_string(instr_stream::gen_choice::INSTR_RIGHT_JUMP_WIDTH);
 	}
 	//tex_prefetch
 	{
-		using namespace tex_prefetch;
-
-		defs += "\n#define PREFETCH_INSTR_REG_CNT_SHIFT " + std::to_string(prefetch_instr_t::DWORD4_REG_CNT_SHIFT);
-		defs += "\n#define PREFETCH_INSTR_REG_CNT_WIDTH " + std::to_string(prefetch_instr_t::DWORD4_REG_CNT_WIDTH);
-		defs += "\n#define PREFETCH_INSTR_DST_REG_SHIFT " + std::to_string(prefetch_instr_t::DWORD4_DST_REG_SHIFT);
-		defs += "\n#define PREFETCH_INSTR_DST_REG_WIDTH " + std::to_string(prefetch_instr_t::DWORD4_DST_REG_WIDTH);
+		defs += "\n#define PREFETCH_INSTR_REG_CNT_SHIFT " + std::to_string(instr_stream::tex_prefetch::prefetch_instr_t::DWORD4_REG_CNT_SHIFT);
+		defs += "\n#define PREFETCH_INSTR_REG_CNT_WIDTH " + std::to_string(instr_stream::tex_prefetch::prefetch_instr_t::DWORD4_REG_CNT_WIDTH);
+		defs += "\n#define PREFETCH_INSTR_DST_REG_SHIFT " + std::to_string(instr_stream::tex_prefetch::prefetch_instr_t::DWORD4_DST_REG_SHIFT);
+		defs += "\n#define PREFETCH_INSTR_DST_REG_WIDTH " + std::to_string(instr_stream::tex_prefetch::prefetch_instr_t::DWORD4_DST_REG_WIDTH);
 
 		if (_res.globalPrefetchRegCountFlags & (1u << 1))
 			defs += "\n#define PREFETCH_REG_COUNT_1";
@@ -1127,16 +1088,16 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 
 	//parameter numbers
 	{
-		defs += "\n#define PARAMS_ALPHA_U_IX " + std::to_string(ALPHA_U_TEX_IX);
-		defs += "\n#define PARAMS_ALPHA_V_IX " + std::to_string(ALPHA_V_TEX_IX);
-		defs += "\n#define PARAMS_REFLECTANCE_IX " + std::to_string(REFLECTANCE_TEX_IX);
-		defs += "\n#define PARAMS_TRANSMITTANCE_IX " + std::to_string(TRANSMITTANCE_TEX_IX);
-		defs += "\n#define PARAMS_SIGMA_A_IX " + std::to_string(SIGMA_A_TEX_IX);
-		defs += "\n#define PARAMS_WEIGHT_IX " + std::to_string(WEIGHT_TEX_IX);
-		defs += "\n#define PARAMS_OPACITY_IX " + std::to_string(OPACITY_TEX_IX);
+		defs += "\n#define PARAMS_ALPHA_U_IX " + std::to_string(instr_stream::ALPHA_U_TEX_IX);
+		defs += "\n#define PARAMS_ALPHA_V_IX " + std::to_string(instr_stream::ALPHA_V_TEX_IX);
+		defs += "\n#define PARAMS_REFLECTANCE_IX " + std::to_string(instr_stream::REFLECTANCE_TEX_IX);
+		defs += "\n#define PARAMS_TRANSMITTANCE_IX " + std::to_string(instr_stream::TRANSMITTANCE_TEX_IX);
+		defs += "\n#define PARAMS_SIGMA_A_IX " + std::to_string(instr_stream::SIGMA_A_TEX_IX);
+		defs += "\n#define PARAMS_WEIGHT_IX " + std::to_string(instr_stream::WEIGHT_TEX_IX);
+		defs += "\n#define PARAMS_OPACITY_IX " + std::to_string(instr_stream::OPACITY_TEX_IX);
 	}
 
-	for (uint32_t i = 0u; i < INSTR_MAX_PARAMETER_COUNT; ++i)
+	for (uint32_t i = 0u; i < instr_stream::INSTR_MAX_PARAMETER_COUNT; ++i)
 	{
 		using namespace std::string_literals;
 		if (_res.paramTexPresence[0][1] == 0u)
@@ -1196,31 +1157,31 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 			registerPool -= usedRegs;
 		}
 
-		tex_prefetch::prefetch_stream_t tex_prefetch_stream;
-		core::unordered_map<STextureData, uint32_t, STextureData::hash> tex2reg;
+		instr_stream::tex_prefetch::prefetch_stream_t tex_prefetch_stream;
+		core::unordered_map<instr_stream::STextureData, uint32_t, instr_stream::STextureData::hash> tex2reg;
 		{
-			tex_prefetch_stream = tex_prefetch::genTraversal(rem_pdf_stream, _ctx->bsdfData, tex2reg, MAX_REGISTER_COUNT-registerPool, usedRegs, res.globalPrefetchRegCountFlags);
+			tex_prefetch_stream = tex_prefetch::genTraversal(rem_pdf_stream, _ctx->bsdfData, tex2reg, instr_stream::MAX_REGISTER_COUNT-registerPool, usedRegs, res.globalPrefetchRegCountFlags);
 			assert(usedRegs <= registerPool);
 			registerPool -= usedRegs;
 		}
 
-		const uint32_t regNum = MAX_REGISTER_COUNT-registerPool;
+		const uint32_t regNum = instr_stream::MAX_REGISTER_COUNT-registerPool;
 
 		traversal_t normal_precomp_stream;
 		{
-			normal_precomp_stream.reserve(std::count_if(rem_pdf_stream.begin(), rem_pdf_stream.end(), [](instr_t i) {return getOpcode(i)==OP_BUMPMAP;}));
+			normal_precomp_stream.reserve(std::count_if(rem_pdf_stream.begin(), rem_pdf_stream.end(), [](instr_t i) {return instr_stream::getOpcode(i)==instr_stream::OP_BUMPMAP;}));
 			assert(regNum+3u*normal_precomp_stream.capacity() <= MAX_REGISTER_COUNT);
 			for (instr_t instr : rem_pdf_stream)
 			{
-				if (getOpcode(instr)==OP_BUMPMAP)
+				if (instr_stream::getOpcode(instr)==instr_stream::OP_BUMPMAP)
 				{
 					//we can be sure that n_id is always in range [0,count of bumpmap instrs)
-					const uint32_t n_id = getNormalId(instr);
-					instr = core::bitfieldInsert<instr_t>(instr, regNum+3u*n_id, normal_precomp::BITFIELDS_REG_DST_SHIFT, normal_precomp::BITFIELDS_REG_WIDTH);
+					const uint32_t n_id = instr_stream::getNormalId(instr);
+					instr = core::bitfieldInsert<instr_t>(instr, regNum+3u*n_id, instr_stream::normal_precomp::BITFIELDS_REG_DST_SHIFT, instr_stream::normal_precomp::BITFIELDS_REG_WIDTH);
 					normal_precomp_stream.push_back(instr);
 				}
 			}
-			registerPool = MAX_REGISTER_COUNT - regNum - 3u*normal_precomp_stream.size();
+			registerPool = instr_stream::MAX_REGISTER_COUNT - regNum - 3u*normal_precomp_stream.size();
 		}
 
 		//src1 reg for OP_BUMPMAPs is set to dst reg of corresponding instruction in normal precomp stream
@@ -1231,8 +1192,8 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 		{
 			const auto& interm_bsdf_data = *it;
 
-			SBSDFUnion bsdf_data;
-			for (uint32_t i = 0u; i < SBSDFUnion::MAX_TEXTURES; ++i)
+			instr_stream::SBSDFUnion bsdf_data;
+			for (uint32_t i = 0u; i < instr_stream::SBSDFUnion::MAX_TEXTURES; ++i)
 			{
 				auto found = tex2reg.find(interm_bsdf_data.common.param[i].tex);
 				if (found != tex2reg.end())
@@ -1273,17 +1234,17 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 
 	_ir->deinitTmpNodes();
 
-	auto isAniso = [&res](instr_stream::instr_t _i) -> bool {
-		const E_OPCODE op = getOpcode(_i);
+	auto isAniso = [&res](instr_t _i) -> bool {
+		const instr_stream::E_OPCODE op = instr_stream::getOpcode(_i);
 		if (!instr_stream::opHasSpecular(op))
 			return false;
 
-		const bool au_tex = core::bitfieldExtract(_i, BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
-		const bool av_tex = core::bitfieldExtract(_i, BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
+		const bool au_tex = core::bitfieldExtract(_i, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
+		const bool av_tex = core::bitfieldExtract(_i, instr_stream::BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
 		if (au_tex != av_tex)
 			return false;
 
-		const uint32_t ix = getBSDFDataIx(_i);
+		const uint32_t ix = instr_stream::getBSDFDataIx(_i);
 		
 		const auto& au = res.bsdfData[ix].common.param[0];
 		const auto& av = res.bsdfData[ix].common.param[1];
@@ -1310,14 +1271,14 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 		for (uint32_t i = 0u; i < rem_and_pdf.count; ++i) {
 			const uint32_t first = rem_and_pdf.first;
 			const instr_t instr = res.instructions[first+i];
-			const E_OPCODE op = instr_stream::getOpcode(instr);
-			const E_NDF ndf = instr_stream::getNDF(instr);
+			const instr_stream::E_OPCODE op = instr_stream::getOpcode(instr);
+			const instr_stream::E_NDF ndf = instr_stream::getNDF(instr);
 
-			const uint32_t paramCount = getParamCount(op);
-			const uint32_t ix = getBSDFDataIx(instr);
+			const uint32_t paramCount = instr_stream::getParamCount(op);
+			const uint32_t ix = instr_stream::getBSDFDataIx(instr);
 			for (uint32_t i = 0u; i < paramCount; ++i)
 			{
-				const uint32_t shift = BITFIELDS_SHIFT_PARAM_TEX[i];
+				const uint32_t shift = instr_stream::BITFIELDS_SHIFT_PARAM_TEX[i];
 				const auto presence = core::bitfieldExtract(instr, shift, 1);
 				res.paramTexPresence[i][presence]++;
 
@@ -1336,7 +1297,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 				}
 			}
 
-			const bool ts = core::bitfieldExtract(instr, BITFIELDS_SHIFT_TWOSIDED, 1);
+			const bool ts = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_TWOSIDED, 1);
 			res.noTwosided = res.noTwosided && !ts;
 			res.noBSDF = res.noBSDF && !instr_stream::opIsBSDF(op);
 
@@ -1362,8 +1323,6 @@ R"(
 }
 void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostream& _out, const result_t::instr_streams_t& _streams, const result_t& _res, const SContext* _ctx) const
 {
-	using namespace instr_stream;
-
 	_out << "####### remainder_and_pdf stream\n";
 	auto rem_and_pdf = _streams.get_rem_and_pdf();
 	for (uint32_t i = 0u; i < rem_and_pdf.count; ++i)
@@ -1371,14 +1330,14 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		using namespace remainder_and_pdf;
 
 		const instr_t instr = _res.instructions[rem_and_pdf.first+i];
-		const E_OPCODE op = getOpcode(instr);
+		const instr_stream::E_OPCODE op = instr_stream::getOpcode(instr);
 		debugPrintInstr(_out, instr, _res, _ctx);
 		auto regs = getRegisters(instr);
 		auto rcnt = getNumberOfSrcRegsForOpcode(op);
 		_out << "Registers:\n";
-		if (op!=OP_BUMPMAP && op!=OP_SET_GEOM_NORMAL)
+		if (op!=instr_stream::OP_BUMPMAP && op!=instr_stream::OP_SET_GEOM_NORMAL)
 			_out << "DST  = " << regs.x << "\n";
-		if (rcnt>0u || op==OP_BUMPMAP)
+		if (rcnt>0u || op==instr_stream::OP_BUMPMAP)
 			_out << "SRC1 = " << regs.y << "\n";
 		if (rcnt>1u)
 			_out << "SRC2 = " << regs.z << "\n";
@@ -1391,11 +1350,11 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 
 		const instr_t instr = _res.instructions[gen_choice.first + i];
 		debugPrintInstr(_out, instr, _res, _ctx);
-		if (getOpcode(instr) == OP_BUMPMAP)
+		if (instr_stream::getOpcode(instr) == instr_stream::OP_BUMPMAP)
 		{
 			_out << "SRC1 = " << remainder_and_pdf::getRegisters(instr).y << "\n";
 		}
-		uint32_t rjump = core::bitfieldExtract(instr, gen_choice::INSTR_RIGHT_JUMP_SHIFT, gen_choice::INSTR_RIGHT_JUMP_WIDTH);
+		uint32_t rjump = core::bitfieldExtract(instr, instr_stream::gen_choice::INSTR_RIGHT_JUMP_SHIFT, instr_stream::gen_choice::INSTR_RIGHT_JUMP_WIDTH);
 		_out << "Right jump " << rjump << "\n";
 	}
 	_out << "####### tex_prefetch stream\n";
@@ -1404,7 +1363,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 	{
 		using namespace tex_prefetch;
 
-		const prefetch_instr_t& instr = _res.prefetch_stream[tex_prefetch.first + i];
+		const instr_stream::tex_prefetch::prefetch_instr_t& instr = _res.prefetch_stream[tex_prefetch.first + i];
 		const auto& vtid = instr.tex_data.vtid;
 
 		_out << "### instr " << i << "\n";
@@ -1421,24 +1380,22 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 	auto norm_precomp = _streams.get_norm_precomp();
 	for (uint32_t i = 0u; i < norm_precomp.count; ++i)
 	{
-		using namespace normal_precomp;
-
 		const instr_t instr = _res.instructions[norm_precomp.first + i];
-		const uint32_t reg = core::bitfieldExtract(instr, BITFIELDS_REG_DST_SHIFT, BITFIELDS_REG_WIDTH);
-		const uint32_t bsdf_ix = core::bitfieldExtract(instr, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
-		const SBSDFUnion& data = _res.bsdfData[bsdf_ix];
+		const uint32_t reg = core::bitfieldExtract(instr, instr_stream::normal_precomp::BITFIELDS_REG_DST_SHIFT, instr_stream::normal_precomp::BITFIELDS_REG_WIDTH);
+		const uint32_t bsdf_ix = core::bitfieldExtract(instr, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_SHIFT, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
+		const instr_stream::SBSDFUnion& data = _res.bsdfData[bsdf_ix];
 
 		_out << "### instr " << i << "\n";
 		_out << reg << " <- perturbNormal( reg " << data.bumpmap.derivmap_prefetch_reg << " )\n";
 	}
 }
 
-void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std::ostream& _out, instr_stream::instr_t instr, const result_t& _res, const SContext* _ctx) const
+void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std::ostream& _out, instr_t instr, const result_t& _res, const SContext* _ctx) const
 {
-	auto texDataStr = [](const STextureData& td) {
+	auto texDataStr = [](const instr_stream::STextureData& td) {
 		return "{ " + std::to_string(reinterpret_cast<const uint64_t&>(td.vtid)) + ", " + std::to_string(reinterpret_cast<const float&>(td.scale)) + " }";
 	};
-	auto paramVal3OrRegStr = [](const STextureOrConstant& tc, bool tex) {
+	auto paramVal3OrRegStr = [](const instr_stream::STextureOrConstant& tc, bool tex) {
 		if (tex)
 			return std::to_string(tc.prefetch);
 		else {
@@ -1446,7 +1403,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 			return "{ " + std::to_string(val.x) + ", " + std::to_string(val.y) + ", " + std::to_string(val.z) + " }";
 		}
 	};
-	auto paramVal1OrRegStr = [](const STextureOrConstant& tc, bool tex) {
+	auto paramVal1OrRegStr = [](const instr_stream::STextureOrConstant& tc, bool tex) {
 		if (tex)
 			return std::to_string(tc.prefetch);
 		else {
@@ -1462,45 +1419,45 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 		"AS"
 	};
 
-	const auto op = getOpcode(instr);
+	const auto op = instr_stream::getOpcode(instr);
 
-	auto ndfAndAnisoAlphaTexPrint = [&_out,&paramVal1OrRegStr,&ndf_names](instr_t instr, const SBSDFUnion& data) {
-		const E_NDF ndf = static_cast<E_NDF>(core::bitfieldExtract(instr, BITFIELDS_SHIFT_NDF, BITFIELDS_WIDTH_NDF));
+	auto ndfAndAnisoAlphaTexPrint = [&_out,&paramVal1OrRegStr,&ndf_names](instr_t instr, const instr_stream::SBSDFUnion& data) {
+		const instr_stream::E_NDF ndf = static_cast<instr_stream::E_NDF>(core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_NDF, instr_stream::BITFIELDS_WIDTH_NDF));
 		_out << "NDF = " << ndf_names[ndf] << "\n";
 
-		bool au = core::bitfieldExtract(instr, BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
+		bool au = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 		_out << "Alpha_u tex " << au << "\n";
 		_out << "Alpha_u val/reg " << paramVal1OrRegStr(data.common.param[0], au) << "\n";
 
-		bool av = core::bitfieldExtract(instr, BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
+		bool av = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
 		_out << "Alpha_v tex " << av << "\n";
 		_out << "Alpha_v val/reg " << paramVal1OrRegStr(data.common.param[1], av) << "\n";
 	};
 
-	const uint32_t bsdf_ix = core::bitfieldExtract(instr, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
-	SBSDFUnion data;
+	const uint32_t bsdf_ix = core::bitfieldExtract(instr, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_SHIFT, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
+	instr_stream::SBSDFUnion data;
 	if (bsdf_ix < _res.bsdfData.size())
 		data = _res.bsdfData[bsdf_ix];
 
-	const bool masked = core::bitfieldExtract(instr, BITFIELDS_SHIFT_MASKFLAG, 1);
-	const bool twosided = core::bitfieldExtract(instr, BITFIELDS_SHIFT_TWOSIDED, 1);
+	const bool masked = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_MASKFLAG, 1);
+	const bool twosided = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_TWOSIDED, 1);
 
 	_out << "### " << OPCODE_NAMES[op] << " " << (masked ? "M " : "") << (twosided ? "TS " : "") << (reinterpret_cast<uint32_t*>(&instr)[0]) << "\n";
 	_out << "BSDF data index = " << bsdf_ix << "\n";
 	switch (op)
 	{
-	case OP_DIFFUSE:
+	case instr_stream::OP_DIFFUSE:
 	{
-		bool alpha = core::bitfieldExtract(instr, BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
+		bool alpha = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 		_out << "Alpha tex " << alpha << "\n";
 		_out << "Alpha val/reg " << paramVal1OrRegStr(data.diffuse.alpha, alpha) << "\n";
-		bool refl = core::bitfieldExtract(instr, BITFIELDS_SHIFT_REFL_TEX, 1);
+		bool refl = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_REFL_TEX, 1);
 		_out << "Refl tex " << refl << "\n";
 		_out << "Refl val/reg " << paramVal3OrRegStr(data.diffuse.reflectance, refl) << "\n";
 	}
 	break;
-	case OP_DIELECTRIC: _IRR_FALLTHROUGH;
-	case OP_THINDIELECTRIC:
+	case instr_stream::OP_DIELECTRIC: [[fallthrough]];
+	case instr_stream::OP_THINDIELECTRIC:
 	{
 		ndfAndAnisoAlphaTexPrint(instr, data);
 
@@ -1509,7 +1466,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 		_out << "Eta:  { " << eta.x << ", " << eta.y << ", " << eta.z << " }\n";
 	}
 		break;
-	case OP_CONDUCTOR:
+	case instr_stream::OP_CONDUCTOR:
 	{
 		ndfAndAnisoAlphaTexPrint(instr, data);
 
@@ -1520,10 +1477,10 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 		_out << "EtaK: { " << etak.x << ", " << etak.y << ", " << etak.z << " }\n";
 	}
 	break;
-	case OP_COATING:
+	case instr_stream::OP_COATING:
 	{
 		ndfAndAnisoAlphaTexPrint(instr, data);
-		bool sigma = core::bitfieldExtract(instr, BITFIELDS_SHIFT_SIGMA_A_TEX, 1);
+		bool sigma = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_SIGMA_A_TEX, 1);
 		_out << "SigmaA tex " << sigma << "\n";
 		_out << "SigmaA val/reg " << paramVal3OrRegStr(data.coating.sigmaA, sigma) << "\n";
 
@@ -1532,21 +1489,21 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 		_out << "Thickness: " << data.coating.thickness << "\n";
 	}
 	break;
-	case OP_BLEND:
+	case instr_stream::OP_BLEND:
 	{
-		bool weight = core::bitfieldExtract(instr, BITFIELDS_SHIFT_WEIGHT_TEX, 1);
+		bool weight = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_WEIGHT_TEX, 1);
 		_out << "Weight tex " << weight << "\n";
 		_out << "Weight val/reg " << paramVal1OrRegStr(data.blend.weight, weight) << "\n";
 	}
 	break;
-	case OP_DIFFTRANS:
+	case instr_stream::OP_DIFFTRANS:
 	{
-		bool trans = core::bitfieldExtract(instr, BITFIELDS_SHIFT_TRANS_TEX, 1);
+		bool trans = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_TRANS_TEX, 1);
 		_out << "Trans tex " << trans << "\n";
 		_out << "Trans val/reg " << paramVal3OrRegStr(data.difftrans.transmittance, trans) << "\n";
 	}
 	break;
-	case OP_BUMPMAP:
+	case instr_stream::OP_BUMPMAP:
 		//_out << "Bump reg " << data.bumpmap.bumpmap.prefetch_reg << "\n";
 	break;
 	default: break;

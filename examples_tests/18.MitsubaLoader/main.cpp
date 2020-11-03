@@ -56,7 +56,7 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 
 	vec3 emissive = irr_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
-	MC_precomputed_t precomp = precomputeData(Normal, WorldPos);
+	MC_precomputed_t precomp = precomputeData();
 
 	vec3 color = vec3(0.0);
 

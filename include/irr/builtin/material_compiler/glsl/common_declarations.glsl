@@ -29,6 +29,7 @@ struct MC_precomputed_t
 {
 	vec3 N;
 	vec3 V;
+	vec3 pos;
 	float NdotV;
 };
 

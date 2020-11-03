@@ -147,10 +147,18 @@ layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDa
 	InstanceData data[];
 } InstData;
 
-vec3 irr_glsl_MC_getCamPos()
+vec3 irr_glsl_MC_getNormalizedWorldSpaceV()
 {
 	vec3 campos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
-	return campos;
+	return normalize(campos - WorldPos);
+}
+vec3 irr_glsl_MC_getNormalizedWorldSpaceN()
+{
+	return normalize(Normal);
+}
+vec3 irr_glsl_MC_getWorldSpacePosition()
+{
+	return WorldPos;
 }
 instr_t irr_glsl_MC_fetchInstr(in uint ix)
 {
@@ -228,7 +236,7 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 	vec3 emissive = irr_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
 	vec3 campos = irr_glsl_MC_getCamPos();
-	MC_precomputed_t precomp = precomputeData(Normal, WorldPos);
+	MC_precomputed_t precomp = precomputeData();
 	//irr_glsl_BSDFIsotropicParams params;
 	//params.L = campos-WorldPos;
 	out_interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, normalize(Normal));
@@ -242,7 +250,7 @@ void main()
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
 #ifdef TEX_PREFETCH_STREAM
-	runTexPrefetchStream(getTexPrefetchStream(), dUV);
+	runTexPrefetchStream(getTexPrefetchStream(), UV, dUV);
 #endif
 #ifdef NORM_PRECOMP_STREAM
 	runNormalPrecompStream(getNormalPrecompStream(), dUV);
