@@ -346,7 +346,7 @@ int main()
 		meshmetas.push_back(static_cast<const ext::MitsubaLoader::IMeshMetadata*>(cpumesh->getMetadata()));
 		const auto& instances = meshmetas.back()->getInstances();
 
-		auto computeAreaAndAvgPos = [](asset::ICPUMeshBuffer* mb, const core::matrix3x4SIMD& tform, core::vectorSIMDf& _outAvgPos) {
+		auto computeAreaAndAvgPos = [](const asset::ICPUMeshBuffer* mb, const core::matrix3x4SIMD& tform, core::vectorSIMDf& _outAvgPos) {
 			uint32_t triCount = 0u;
 			asset::IMeshManipulator::getPolyCount(triCount, mb);
 			assert(triCount>0u);

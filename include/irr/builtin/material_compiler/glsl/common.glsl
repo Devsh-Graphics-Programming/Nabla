@@ -193,7 +193,6 @@ bool op_hasSpecular(in uint op)
 #include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/bsdf/specular/ggx.glsl>
 #include <irr/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl>
-#include <irr/builtin/glsl/bxdf/cos_weighted_sample.glsl>
 #include <irr/builtin/glsl/bxdf/bsdf/diffuse/lambert.glsl>
 #include <irr/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
 #include <irr/builtin/glsl/bump_mapping/utils.glsl>

@@ -6,8 +6,6 @@
 #include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
 #include "irr/ext/MitsubaLoader/ParserUtil.h"
 
-#define DEBUG_MITSUBA_LOADER
-
 namespace irr
 {
 using namespace asset;
@@ -52,7 +50,7 @@ layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDa
 void main()
 {
 	uint instIx = PC.instDataOffset+gl_InstanceIndex;
-	mat4x3 tform = InstData.data[instIx].tform;
+	mat4x3 tform = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(InstData.data[instIx].tform);
 	mat4 mvp = irr_glsl_pseudoMul4x4with4x3(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(CamData.params.MVP), tform);
 	gl_Position = irr_glsl_pseudoMul4x4with3x1(mvp, vPosition);
 	WorldPos = irr_glsl_pseudoMul3x4with3x1(tform, vPosition);
@@ -775,8 +773,11 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 			getBuiltinAsset<asset::ICPUSpecializedShader, asset::IAsset::ET_SPECIALIZED_SHADER>(VERTEX_SHADER_CACHE_KEY, m_manager),
 			std::move(fragShader)
 		);
-		for (auto& mesh : meshes)
+		for (const SContext::shape_ass_type& mesh_ : meshes)
 		{
+			// need const_cast because core::set has only const iterators (or maybe we should reconsider if const smart_refctd_ptr::operator-> should return const ptr)
+			asset::ICPUMesh* const mesh = const_cast<asset::ICPUMesh*>(mesh_.get());
+
 			for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 			{
 				asset::ICPUMeshBuffer* mb = mesh->getMeshBuffer(i);
@@ -1552,7 +1553,8 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 	core::vector<SInstanceData> instanceData;
 	for (auto it = meshBegin; it != meshEnd; ++it)
 	{
-		auto& mesh = *it;
+		auto& mesh_smart_ptr = *it;
+		asset::ICPUMesh* mesh = const_cast<asset::ICPUMesh*>(mesh_smart_ptr.get());
 		auto* meta = static_cast<const IMeshMetadata*>(mesh->getMetadata());
 		
 		core::vectorSIMDf emissive;

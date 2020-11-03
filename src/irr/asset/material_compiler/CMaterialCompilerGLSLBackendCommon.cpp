@@ -869,7 +869,7 @@ traversal_t remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode
 		auto& top = m_stack.top();
 		const instr_stream::E_OPCODE op = instr_stream::getOpcode(top.instr);
 		//const uint32_t srcRegCount = getNumberOfSrcRegsForOpcode(op);
-		_IRR_DEBUG_BREAK_IF(op == OP_INVALID);
+		_IRR_DEBUG_BREAK_IF(op == instr_stream::OP_INVALID);
 		if (top.children.count==0u || top.visited)
 		{
 			const uint32_t bsdfBufIx = getBSDFDataIndex(instr_stream::getOpcode(top.instr), top.node, opacity);
@@ -928,7 +928,7 @@ traversal_t gen_choice::CTraversalGenerator::genTraversal(const IR::INode* _root
 		const uint32_t bsdfBufIx = getBSDFDataIndex(op, top.node, opacity);
 		const uint32_t currIx = traversal.size();
 		traversal.push_back(finalizeInstr(top.instr, top.node, bsdfBufIx));
-		_IRR_DEBUG_BREAK_IF(op == OP_INVALID);
+		_IRR_DEBUG_BREAK_IF(op == instr_stream::OP_INVALID);
 		if (top.parentIx != INVALID_INDEX)
 		{
 			instr_t& parent = traversal[top.parentIx];
