@@ -28,7 +28,8 @@
 #endif
 #define _IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_IMPL_  IRR_GLSL_EVAL(irr_glsl_workgroupBallot_impl_BitDWORDs_rounded+(irr_glsl_workgroupBallot_impl_BitDWORDs_rounded>>1))
 
-#define CONDITIONAL_BARRIER barrier();
+#define CONDITIONAL_BARRIER barrier(); \
+	memoryBarrierShared();
 
 /*
 If `GL_KHR_subgroup_arithmetic` is not available then these functions require emulated subgroup operations, which in turn means that if you're using the
@@ -185,19 +186,20 @@ uint irr_glsl_workgroupBallotFindMSB();
 	uint lowerIndex = gl_LocalInvocationIndex>>subgroupSizeLog2; \
 	const uint higherIndexDiff = gl_LocalInvocationIndex-lowerIndex; \
 	uint scan = firstLevelScan; \
+	CONDITIONAL_BARRIER \
 	while (lastInvocationInLevel>=irr_glsl_SubgroupSize) \
 	{ \
-		CONDITIONAL_BARRIER \
-		if (propagateReduction&&gl_LocalInvocationIndex<lastInvocationInLevel || gl_LocalInvocationIndex==lastInvocationInLevel) \
+		const bool prop = propagateReduction&&gl_LocalInvocationIndex<lastInvocationInLevel || gl_LocalInvocationIndex==lastInvocationInLevel; \
+		if (prop) \
 			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[lowerIndex] = scan; \
 		barrier(); \
 		memoryBarrierShared(); \
 		lastInvocationInLevel >>= subgroupSizeLog2; \
 		if (gl_LocalInvocationIndex<=lastInvocationInLevel) \
-			scan = INVCONV(SECOND_SUBGROUP_OP(false,CONV(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[lowerIndex+higherIndexDiff])));
-#define IRR_GLSL_WORKGROUP_SCAN_IMPL_TAIL(CONV,OP,INVCONV) lowerIndex += lastInvocationInLevel+1u; \
-	} \
-	CONDITIONAL_BARRIER \
+			scan = INVCONV(SECOND_SUBGROUP_OP(false,CONV(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[lowerIndex+higherIndexDiff]))); \
+		lowerIndex += lastInvocationInLevel+1u; \
+	} 
+#define IRR_GLSL_WORKGROUP_SCAN_IMPL_TAIL(CONV,OP,INVCONV) CONDITIONAL_BARRIER \
 	if (lastInvocation>=irr_glsl_SubgroupSize) \
 	{ \
 		lowerIndex -= lastInvocationInLevel+1u; \
