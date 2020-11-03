@@ -135,6 +135,21 @@ This design should also work for workgroups that are not divisible by subgroup s
 
 TODO: Keep the pseudo subgroup and offset code DRY, move to a function.
 */
+#define SUBGROUP_SCRATCH_CLEAR(ACTIVE_INVOCATION_INDEX_UPPER_BOUND,IDENTITY) const uint loMask = irr_glsl_SubgroupSize-1u; \
+	{ \
+		const uint hiMask = ~loMask; \
+		const uint maxItemsToClear = ((ACTIVE_INVOCATION_INDEX_UPPER_BOUND+loMask)&hiMask)>>1u; \
+		if (gl_LocalInvocationIndex<maxItemsToClear) \
+		{ \
+			const uint halfMask = loMask>>1u; \
+			const uint clearIndex = ((gl_LocalInvocationIndex&(~halfMask))<<2u)|(gl_LocalInvocationIndex&halfMask); \
+			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[clearIndex] = IDENTITY; \
+		} \
+		barrier(); \
+		memoryBarrierShared(); \
+	}
+
+
 #define IRR_GLSL_SUBGROUP_ARITHMETIC_IMPL(CONV,OP,VALUE,CLEAR,IDENTITY,INVCONV) const uint loMask = irr_glsl_SubgroupSize-1u; \
 	const uint pseudoSubgroupInvocation = gl_LocalInvocationIndex&loMask; \
 	const uint hiMask = ~loMask; \

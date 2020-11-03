@@ -239,20 +239,10 @@ uint irr_glsl_workgroupBallotScanBitCount_impl(in bool exclusive)
 	if (gl_LocalInvocationIndex<irr_glsl_workgroupBallot_impl_BitfieldDWORDs)
 		localBitfieldBackup = _IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex];
 	//#ifndef GL_KHR_subgroup_arithmetic
-	{
-		const uint loMask = irr_glsl_SubgroupSize-1u;
-		const uint hiMask = ~loMask;
-		const uint maxItemsToClear = ((irr_glsl_workgroupBallot_impl_BitfieldDWORDs+loMask)&hiMask)>>1u;
-		if (gl_LocalInvocationIndex<maxItemsToClear)
-		{
-			const uint halfMask = loMask>>1u;
-			const uint clearIndex = (gl_LocalInvocationIndex&(~halfMask))*3u+(gl_LocalInvocationIndex&halfMask);
-			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[clearIndex] = 0u;
-		}
-	}
-	//#endif
 	barrier();
 	memoryBarrierShared();
+	SUBGROUP_SCRATCH_CLEAR(irr_glsl_workgroupBallot_impl_BitfieldDWORDs,0u)
+	//#endif
 
 	// scan hierarchically
 	uint globalCount;

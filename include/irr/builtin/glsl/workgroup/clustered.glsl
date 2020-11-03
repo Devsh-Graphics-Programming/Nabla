@@ -23,21 +23,6 @@
 #endif
 
 
-#define SUBGROUP_SCRATCH_CLEAR(IDENTITY) const uint loMask = irr_glsl_SubgroupSize-1u; \
-	{ \
-		const uint hiMask = ~loMask; \
-		const uint maxItemsToClear = ((_IRR_GLSL_WORKGROUP_SIZE_+loMask)&hiMask)>>1u; \
-		if (gl_LocalInvocationIndex<maxItemsToClear) \
-		{ \
-			const uint halfMask = loMask>>1u; \
-			const uint clearIndex = (gl_LocalInvocationIndex&(~halfMask))*3u+(gl_LocalInvocationIndex&halfMask); \
-			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[clearIndex] = IDENTITY; \
-		} \
-		barrier(); \
-		memoryBarrierShared(); \
-	}
-
-
 //#endif
 
 
