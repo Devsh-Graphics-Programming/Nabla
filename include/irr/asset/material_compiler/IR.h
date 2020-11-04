@@ -26,7 +26,7 @@ class IR : public core::IReferenceCounted
         addr_alctr_t addrAlctr;
 
     public:
-        SBackingMemManager() : currSz(INITIAL_MEM_SIZE), addrAlctr(nullptr, 0u, 0u, ALIGNMENT, MAX_MEM_SIZE) {
+        SBackingMemManager() : mem(nullptr), currSz(INITIAL_MEM_SIZE), addrAlctr(nullptr, 0u, 0u, ALIGNMENT, MAX_MEM_SIZE) {
             mem = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(currSz, ALIGNMENT));
         }
         ~SBackingMemManager() {
@@ -56,6 +56,18 @@ class IR : public core::IReferenceCounted
 
             return mem+addr;
         }
+
+        uint32_t getAllocatedSize() const
+        {
+            return addrAlctr.get_allocated_size();
+        }
+
+        void freeLastAllocatedBytes(uint32_t _bytes)
+        {
+            assert(addrAlctr.get_allocated_size() >= _bytes);
+            const uint32_t newCursor = addrAlctr.get_allocated_size() - _bytes;
+            addrAlctr.reset(newCursor);
+        }
     };
 
 protected:
@@ -81,6 +93,13 @@ protected:
         }
     }
 
+    template <typename NodeType, typename ...Args>
+    NodeType* allocNode_impl(Args&& ...args)
+    {
+        uint8_t* ptr = memMgr.alloc(sizeof(NodeType));
+        return new (ptr) NodeType(std::forward<Args>(args)...);
+    }
+
 public:
     IR() : memMgr() {}
 
@@ -89,13 +108,15 @@ public:
         for (INode* n : tmp)
             n->~INode();
         tmp.clear();
+        memMgr.freeLastAllocatedBytes(tmpSize);
+        tmpSize = 0u;
     }
 
     template <typename NodeType, typename ...Args>
     NodeType* allocNode(Args&& ...args)
     {
-        uint8_t* ptr = memMgr.alloc(sizeof(NodeType));
-        return new (ptr) NodeType(std::forward<Args>(args)...);
+        tmpSize = 0u;
+        return allocNode_impl<NodeType>(std::forward<Args>(args)...);
     }
     template <typename NodeType, typename ...Args>
     NodeType* allocRootNode(Args&& ...args)
@@ -107,8 +128,10 @@ public:
     template <typename NodeType, typename ...Args>
     NodeType* allocTmpNode(Args&& ...args)
     {
-        auto* node = allocNode<NodeType>(std::forward<Args>(args)...);
+        const uint32_t cursor = memMgr.getAllocatedSize();
+        auto* node = allocNode_impl<NodeType>(std::forward<Args>(args)...);
         tmp.push_back(node);
+        tmpSize += (memMgr.getAllocatedSize() - cursor);
         return node;
     }
 
@@ -436,6 +459,7 @@ public:
     core::vector<INode*> roots;
 
     core::vector<INode*> tmp;
+    uint32_t tmpSize = 0u;
 };
 
 }}}

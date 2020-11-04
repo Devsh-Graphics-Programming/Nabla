@@ -82,9 +82,9 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
         }
 
         // free all allocations
-        inline void         reset()
+        inline void         reset(size_type c = 0)
         {
-            cursor = 0u;
+            cursor = c;
         }
 
         //! Conservative estimate, max_size() gives largest size we are sure to be able to allocate
