@@ -19,8 +19,48 @@ enum TestOperation {
 	TO_MAX
 };
 
-#define BUFFER_SIZE 128u*1024u*1024u
+constexpr uint32_t BUFFER_SIZE = 128u * 1024u * 1024u;
+//returns true if result matches
+template<typename Func>
+bool ValidateResults(video::IVideoDriver* driver, video::IGPUBuffer* bufferToDownload, Func CPUfunctionCounterpart)
+{
+	constexpr uint64_t timeoutInNanoSeconds = 15000000000u;
+	const uint32_t alignment = sizeof(float);
+	auto downloadStagingArea = driver->getDefaultDownStreamingBuffer();
+	auto downBuffer = downloadStagingArea->getBuffer();
 
+	
+	
+		uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address;
+		auto unallocatedSize = downloadStagingArea->multi_alloc(1u, &address, &BUFFER_SIZE, &alignment);
+		if (unallocatedSize)
+		{
+			os::Printer::log("Could not download the buffer from the GPU!", ELL_ERROR);
+			return nullptr;
+		}
+		driver->copyBuffer(bufferToDownload, downBuffer, 0, address, BUFFER_SIZE);
+		auto downloadFence = driver->placeFence(true);
+		auto result = downloadFence->waitCPU(timeoutInNanoSeconds, true);
+		if (result == video::E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED || result == video::E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
+		{
+			os::Printer::log("Could not download the buffer from the GPU, fence not signalled!", ELL_ERROR);
+			downloadStagingArea->multi_free(1u, &address, &BUFFER_SIZE, nullptr);
+			return nullptr;
+		}
+		if (downloadStagingArea->needsManualFlushOrInvalidate())
+			driver->invalidateMappedMemoryRanges({ {downloadStagingArea->getBuffer()->getBoundMemory(),address,BUFFER_SIZE} });
+		
+		auto dataFromBuffer = reinterpret_cast<float*>(downloadStagingArea->getBufferPointer()) + address;
+		//now check if the data is obtained
+		float* end = dataFromBuffer + BUFFER_SIZE / sizeof(float);
+		for (float* i = dataFromBuffer; i < end; i++)
+		{
+			auto val = CPUfunctionCounterpart();
+		}
+
+		downloadStagingArea->multi_free(1u, &address, &BUFFER_SIZE, nullptr);
+
+}
 int main()
 {
 	// create device with full flexibility over creation parameters
@@ -34,24 +74,36 @@ int main()
 	params.Vsync = true; //! If supported by target platform
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
+	params.StreamingDownloadBufferSize = BUFFER_SIZE;
 	auto device = createDeviceEx(params);
 
 	if (!device)
 		return 1; // could not create selected driver.
 
 	video::IVideoDriver* driver = device->getVideoDriver();
-
 	io::IFileSystem* filesystem = device->getFileSystem();
 	asset::IAssetManager* am = device->getAssetManager();
 
+	uint32_t* inputData = new uint32_t[BUFFER_SIZE/sizeof(uint32_t)];
 
-
-	//TODO: create 8 128 *1024*1024 big buffers.
-	auto inputDataBuffer...
-	
-	//TODO: fill the first buffer with random numbers
-	//TODO: Create array with cpu stored numbers
-
+	auto inputDataBuffer = make_smart_refctd_ptr<ICPUBuffer>(BUFFER_SIZE);
+	{
+		uint32_t* ptr = static_cast<uint32_t*>(inputDataBuffer->getPointer());
+		for (size_t i = 0; i < BUFFER_SIZE/sizeof(float); i++)
+		{
+			auto memAddr = ptr + i;
+			uint32_t randomValue = std::rand();
+			*memAddr = randomValue;
+			inputData[i] = static_cast<float>(randomValue);
+		}
+	}
+	core::smart_refctd_ptr<IGPUBuffer> gpuinputDataBuffer =core::smart_refctd_ptr<IGPUBuffer>( driver->getGPUObjectsFromAssets(&inputDataBuffer, &inputDataBuffer + 1)->front()->getBuffer());
+	//create 7 buffers.
+	core::smart_refctd_ptr<IGPUBuffer> buffers[7];
+	for (size_t i = 0; i < 7; i++)
+	{
+		buffers[i] = driver->createDeviceLocalGPUBufferOnDedMem(BUFFER_SIZE); 
+	}
 
 	IGPUDescriptorSetLayout::SBinding binding[15] = {
 		{0u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},	//input with randomized numbers
@@ -70,24 +122,19 @@ int main()
 
 	auto descriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuDSLayout));
 	{
-		//TODO bind the buffers
 		IGPUDescriptorSet::SDescriptorInfo infos[8];
-		infos[0].desc = core::smart_refctd_ptr<IGPUBuffer>(inputDataBuffer.getObject());
+		infos[0].desc = gpuinputDataBuffer;
 		infos[0].buffer = { 0u, BUFFER_SIZE };
 		for (size_t i = 1; i <= 7; i++)
 		{
-			infos[i].desc = core::smart_refctd_ptr<IGPUBuffer>(buffer[i].getObject());
+			infos[i].desc = buffers[i];
 			infos[i].buffer = { 0u,BUFFER_SIZE };
 
 		}
-		infos[2].desc = histogramBuffer;
-		infos[2].buffer = { 0u,HistogramBufferSize };
-		infos[3].desc = core::smart_refctd_ptr<IGPUBuffer>(intensityBuffer.getObject());
-		infos[3].buffer = { 0u,intensityBuffer.getObject()->getMemoryReqs().vulkanReqs.size };
-		IGPUDescriptorSet::SWriteDescriptorSet writes[SharedDescriptorSetDescCount];
-		for (uint32_t i = 0u; i < SharedDescriptorSetDescCount; i++)
+		IGPUDescriptorSet::SWriteDescriptorSet writes[8];
+		for (uint32_t i = 0u; i < 8; i++)
 			writes[i] = { descriptorSet.get(),i,0u,1u,EDT_STORAGE_BUFFER,infos + i };
-		driver->updateDescriptorSets(SharedDescriptorSetDescCount, writes, 0u, nullptr);
+		driver->updateDescriptorSets(8, writes, 0u, nullptr);
 	}
 	auto getGPUShader = [&](irr::io::path& filePath)
 	{
@@ -106,26 +153,27 @@ int main()
 	auto exclusicePipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout),	std::move(getGPUShader(io::path("../testExclusive.comp"))));
 
 
-
+	core::smart_refctd_ptr<IGPUComputePipeline> pipelines[3] = { reducePipeline ,inclusivePipeline ,exclusicePipeline };
 
 	
 
-	while (device->run())
+	if (device->run())
 	{
 		driver->beginScene(true);
+		for (size_t i = 0; i < 3; i++)
+		{
+			driver->bindComputePipeline(pipelines[i].get());
+			const video::IGPUDescriptorSet* ds = descriptorSet.get();
+			driver->bindDescriptorSets(video::EPBP_COMPUTE, pipelines[i]->getLayout(), 0u, 1u, &ds, nullptr);
+			driver->dispatch(BUFFER_SIZE/(sizeof(float)),1,1);
+			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
+			//check results 
 
-		//reduce test
-		driver->bindComputePipeline(reducePipeline.get());
-		const video::IGPUDescriptorSet* descriptorSet = ds0_gpu.get();
-		driver->bindDescriptorSets(video::EPBP_COMPUTE, reducePipeline->getLayout(), 0u, 1u, &descriptorSet, nullptr);
-		driver->pushConstants(compPipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0u, sizeof(imgSize), imgSize);
-		driver->dispatch((imgSize[0] + 15u) / 16u, (imgSize[1] + 15u) / 16u, 1u);
+		}
 
-		video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_FRAMEBUFFER_BARRIER_BIT | GL_TEXTURE_FETCH_BARRIER_BIT);
-		driver->blitRenderTargets(blitFBO, nullptr, false, false);
+
 
 		driver->endScene();
-		break;
 	}
 
 	return 0;

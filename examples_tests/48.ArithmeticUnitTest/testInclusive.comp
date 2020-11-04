@@ -1,20 +1,7 @@
 #version 450
-
-layout (local_size_x = 16, local_size_y = 16) in;
-
-layout(push_constant) uniform pushConstants {
-    layout (offset = 0) uvec2 imgSize;
-} u_pushConstants;
-
-layout (set = 0, binding = 0, rgba8) uniform readonly image2D inImage;
-layout (set = 0, binding = 1, rgba8) uniform image2D outImage;
+#include "common.glsl"
 
 void main()
 {
-	if (all(lessThan(gl_GlobalInvocationID.xy, u_pushConstants.imgSize)))
-	{
-		vec3 rgb = imageLoad(inImage, ivec2(gl_GlobalInvocationID.xy)).rgb;
-		
-		imageStore(outImage, ivec2(gl_GlobalInvocationID.xy), vec4(vec3(1.0)-rgb, 1.0));
-	}
+
 }
