@@ -125,9 +125,19 @@ namespace MitsubaLoader
 
 		struct SInstanceData
 		{
+			SInstanceData(core::matrix3x4SIMD _tform, SContext::bsdf_type _bsdf, const std::string& _id, const CElementEmitter& _emitter) : 
+				tform(_tform), bsdf(_bsdf),
+#if defined(_IRR_DEBUG) || defined(_IRR_RELWITHDEBINFO)
+				bsdf_id(_id),
+#endif
+				emitter(_emitter)
+			{}
+
 			core::matrix3x4SIMD tform;
 			SContext::bsdf_type bsdf;
+#if defined(_IRR_DEBUG) || defined(_IRR_RELWITHDEBINFO)
 			std::string bsdf_id;
+#endif
 			CElementEmitter emitter; // type is invalid if not used
 		};
 		core::unordered_multimap<const shape_ass_type::pointee*, SInstanceData> mapMesh2instanceData;

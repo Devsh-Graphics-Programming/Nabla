@@ -6,6 +6,10 @@
 #include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
 #include "irr/ext/MitsubaLoader/ParserUtil.h"
 
+#if defined(_IRR_DEBUG) || defined(_IRR_RELWITHDEBINFO)
+#	define DEBUG_MITSUBA_LOADER
+#endif
+
 namespace irr
 {
 using namespace asset;
@@ -756,10 +760,8 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 			assert(instances_rng.first!=instances_rng.second);
 			for (auto it = instances_rng.first; it!=instances_rng.second; ++it) {
 				const auto& inst = it->second;
-				meshmeta->instances.push_back({inst.tform, inst.bsdf, inst.bsdf_id, inst.emitter});
+				meshmeta->instances.push_back(inst);
 			}
-			if (meshmeta->instances.size() > 1ull)
-				printf("");
 
 			for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 				mesh->getMeshBuffer(i)->setInstanceCount(meshmeta->instances.size());
@@ -897,7 +899,7 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 		assert(shape->bsdf);
 		auto bsdf = getBSDFtreeTraversal(ctx, shape->bsdf);
 		core::matrix3x4SIMD tform = core::concatenateBFollowedByA(relTform, shape->getAbsoluteTransform());
-		SContext::SInstanceData instance{ tform, bsdf, shape->bsdf->id, shape->obtainEmitter() };
+		SContext::SInstanceData instance(tform, bsdf, shape->bsdf->id, shape->obtainEmitter());
 		ctx.mapMesh2instanceData.insert({ mesh.get(), instance });
 	};
 

@@ -56,13 +56,7 @@ class IMeshMetadata : public IMitsubaMetadata
 
 		inline auto getShapeType() const {return type;}
 
-		struct Instance
-		{
-			core::matrix3x4SIMD tform;
-			SContext::bsdf_type bsdf;
-			std::string bsdf_id;
-			CElementEmitter emitter; // type is invalid if not used
-		};
+		using Instance = SContext::SInstanceData;
 
 		inline const auto& getInstances() const { return instances; }
 
