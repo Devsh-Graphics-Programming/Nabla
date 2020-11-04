@@ -136,8 +136,7 @@ set(IRR_ASSET_SOURCES
 	${IRR_ROOT_PATH}/src/irr/asset/IAssetWriter.cpp
 	${IRR_ROOT_PATH}/src/irr/asset/IAssetLoader.cpp
 	
-# Builtin include loaders
-	${IRR_ROOT_PATH}/src/irr/asset/CGLSLScanBuiltinIncludeLoader.cpp
+# Builtin include loaders (TO REMOVE)
 	${IRR_ROOT_PATH}/src/irr/asset/CGLSLSkinningBuiltinIncludeLoader.cpp
 	
 # Shaders

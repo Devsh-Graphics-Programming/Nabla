@@ -34,7 +34,6 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/macros.glsl"
   "irr/builtin/glsl/algorithm.glsl"
   # bump mapping
-  "irr/builtin/glsl/broken_driver_workarounds/amd.glsl"
   "irr/builtin/glsl/bump_mapping/utils.glsl"
   # bxdf
   "irr/builtin/glsl/bxdf/common.glsl"

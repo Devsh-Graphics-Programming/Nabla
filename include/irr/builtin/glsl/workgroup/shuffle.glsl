@@ -19,11 +19,28 @@
 #endif
 
 
+uint irr_glsl_workgroupShuffle_noBarriers(in uint val, in uint id)
+{
+	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = val;
+	barrier();
+	memoryBarrierShared();
+	return _IRR_GLSL_SCRATCH_SHARED_DEFINED_[id];
+}
+uint irr_glsl_workgroupShuffle(in uint val, in uint id)
+{
+	barrier();
+	memoryBarrierShared();
+	const uint retval = irr_glsl_workgroupShuffle_noBarriers(val,id);
+	barrier();
+	memoryBarrierShared();
+	return retval;
+}
+
+
 /** TODO @Hazardu or @Przemog you can express all of them in terms of the uint variants to safe yourself the trouble of repeated code, this could also be a recruitment task.
 
 bool irr_glsl_workgroupShuffle(in bool val, in uint id);
 float irr_glsl_workgroupShuffle(in float val, in uint id);
-uint irr_glsl_workgroupShuffle(in uint val, in uint id);
 int irr_glsl_workgroupShuffle(in int val, in uint id);
 
 bool irr_glsl_workgroupShuffleXor(in bool val, in uint mask);

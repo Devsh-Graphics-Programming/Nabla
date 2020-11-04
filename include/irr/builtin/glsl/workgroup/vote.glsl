@@ -20,7 +20,7 @@
 #endif
 
 
-bool irr_glsl_workgroupAll(in bool value)
+bool irr_glsl_workgroupAll_noBarriers(in bool value)
 {
 	// TODO: Optimization using subgroupAll in an ifdef IRR_GL_something (need to do feature mapping first), probably only first 2 lines need to change
 	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[0u] = 1u;
@@ -31,8 +31,16 @@ bool irr_glsl_workgroupAll(in bool value)
 
 	return _IRR_GLSL_SCRATCH_SHARED_DEFINED_[0u]!=0u;
 }
+bool irr_glsl_workgroupAll(in bool value)
+{
+	barrier();
+	memoryBarrierShared();
+	const bool retval = irr_glsl_workgroupAll_noBarriers(value);
+	barrier();
+	return retval;
+}
 
-bool irr_glsl_workgroupAny(in bool value)
+bool irr_glsl_workgroupAny_noBarriers(in bool value)
 {
 	// TODO: Optimization using subgroupAny in an ifdef IRR_GL_something (need to do feature mapping first), probably only first 2 lines need to change
 	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[0u] = 0u;
@@ -42,6 +50,14 @@ bool irr_glsl_workgroupAny(in bool value)
 	barrier();
 
 	return _IRR_GLSL_SCRATCH_SHARED_DEFINED_[0u]!=0u;
+}
+bool irr_glsl_workgroupAny(in bool value)
+{
+	barrier();
+	memoryBarrierShared();
+	const bool retval = irr_glsl_workgroupAny_noBarriers(value);
+	barrier();
+	return retval;
 }
 
 /** TODO @Cyprian or @Anastazluk

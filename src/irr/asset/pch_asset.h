@@ -28,9 +28,9 @@
 	#include "irr/asset/CIncludeHandler.h"
 	#include "irr/asset/CBuiltinIncluder.h"
 	#include "irr/asset/CFilesystemIncluder.h"
+
 		// builtins/headers
-		#include "irr/asset/CGLSLScanBuiltinIncludeLoader.h"
-		#include "irr/asset/CGLSLSkinningBuiltinIncludeLoader.h"
+		#include "irr/asset/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
 
 	
 	// mesh

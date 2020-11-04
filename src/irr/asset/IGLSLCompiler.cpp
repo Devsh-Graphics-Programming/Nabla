@@ -7,8 +7,6 @@
 #include "irr/asset/CIncludeHandler.h"
 
 // TODO: rework this legacy stuff
-#include "irr/asset/CGLSLScanBuiltinIncludeLoader.h"
-
 #include "irr/asset/CGLSLSkinningBuiltinIncludeLoader.h"
 
 #include "irr/asset/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
@@ -25,9 +23,6 @@ static constexpr shaderc_spirv_version TARGET_SPIRV_VERSION = shaderc_spirv_vers
 
 IGLSLCompiler::IGLSLCompiler(io::IFileSystem* _fs) : m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_fs)), m_fs(_fs)
 {
-    //m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLScanBuiltinIncludeLoader>());
-    //m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLSkinningBuiltinIncludeLoader>());
-
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeLoader>(_fs));
 }
 

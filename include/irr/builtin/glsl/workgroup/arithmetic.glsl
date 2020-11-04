@@ -27,6 +27,18 @@
 //#endif
 
 
+#define DECLARE_OVERLOAD_WITH_BARRIERS(TYPE,FUNC_NAME) TYPE irr_glsl_##FUNC_NAME (in TYPE val) \
+{ \
+	barrier(); \
+	memoryBarrierShared(); \
+	const TYPE retval = irr_glsl_##FUNC_NAME##_noBarriers (val); \
+	barrier(); \
+	memoryBarrierShared(); \
+	return retval; \
+}
+
+
+
 #ifdef _IRR_GLSL_SCRATCH_SHARED_DEFINED_
 	#if IRR_GLSL_EVAL(_IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_)<IRR_GLSL_EVAL(_IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_)
 		#error "Not enough shared memory declared for workgroup arithmetic!"
@@ -37,55 +49,77 @@
 #endif
 
 
+
 // reduction
-#define IRR_GLSL_WORKGROUP_REDUCE(CONV,SUBGROUP_OP,VALUE,IDENTITY,INVCONV) { \
-		SUBGROUP_SCRATCH_CLEAR(INVCONV(IDENTITY)) \
+#define IRR_GLSL_WORKGROUP_REDUCE(CONV,INCLUSIVE_SUBGROUP_OP,VALUE,IDENTITY,INVCONV) { \
+		SUBGROUP_SCRATCH_CLEAR(_IRR_GLSL_WORKGROUP_SIZE_,INVCONV(IDENTITY)) \
 	} \
-	IRR_GLSL_WORKGROUP_COMMON_IMPL_HEAD(CONV,SUBGROUP_OP,SUBGROUP_OP,VALUE,IDENTITY,INVCONV,_IRR_GLSL_WORKGROUP_SIZE_) \
-	} \
+	IRR_GLSL_WORKGROUP_COMMON_IMPL_HEAD(CONV,INCLUSIVE_SUBGROUP_OP,VALUE,IDENTITY,INVCONV,_IRR_GLSL_WORKGROUP_SIZE_) \
 	CONDITIONAL_BARRIER \
-	return CONV(irr_glsl_workgroupBroadcast(scan,lastInvocationInLevel))
+	return CONV(irr_glsl_workgroupBroadcast_noBarriers(scan,lastInvocationInLevel))
 
 
-uint irr_glsl_workgroupAdd(in uint val)
+uint irr_glsl_workgroupAdd_noBarriers(in uint val)
 {
 	IRR_GLSL_WORKGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_subgroupInclusiveAdd_impl,val,0u,irr_glsl_identityFunction);
 }
-int irr_glsl_workgroupAdd(in int val)
+int irr_glsl_workgroupAdd_noBarriers(in int val)
 {
-	return int(irr_glsl_workgroupAdd(uint(val)));
+	return int(irr_glsl_workgroupAdd_noBarriers(uint(val)));
 }
-float irr_glsl_workgroupAdd(in float val)
+float irr_glsl_workgroupAdd_noBarriers(in float val)
 {
 	IRR_GLSL_WORKGROUP_REDUCE(uintBitsToFloat,irr_glsl_subgroupInclusiveAdd_impl,val,0.0,floatBitsToUint);
 }
 
+DECLARE_OVERLOAD_WITH_BARRIERS(uint,workgroupAdd)
+DECLARE_OVERLOAD_WITH_BARRIERS(int,workgroupAdd)
+DECLARE_OVERLOAD_WITH_BARRIERS(float,workgroupAdd)
+
+
 
 // scan
-#define IRR_GLSL_WORKGROUP_SCAN(CONV,OP,FIRST_SUBGROUP_OP,SECOND_SUBGROUP_OP,VALUE,IDENTITY,INVCONV) { \
-		SUBGROUP_SCRATCH_CLEAR(INVCONV(IDENTITY)) \
+#define IRR_GLSL_WORKGROUP_SCAN(EXCLUSIVE,CONV,OP,INCLUSIVE_SUBGROUP_OP,VALUE,IDENTITY,INVCONV) { \
+		SUBGROUP_SCRATCH_CLEAR(_IRR_GLSL_WORKGROUP_SIZE_,INVCONV(IDENTITY)) \
 	} \
-	IRR_GLSL_WORKGROUP_COMMON_IMPL_HEAD(CONV,FIRST_SUBGROUP_OP,SECOND_SUBGROUP_OP,VALUE,IDENTITY,INVCONV,_IRR_GLSL_WORKGROUP_SIZE_) \
+	IRR_GLSL_WORKGROUP_COMMON_IMPL_HEAD(CONV,INCLUSIVE_SUBGROUP_OP,VALUE,IDENTITY,INVCONV,_IRR_GLSL_WORKGROUP_SIZE_) \
 	IRR_GLSL_WORKGROUP_SCAN_IMPL_TAIL(CONV,OP,INVCONV) \
-	return CONV(firstLevelScan);
+	if (EXCLUSIVE) \
+	{ \
+		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[lastInvocationInLevel+1u+gl_LocalInvocationIndex] = firstLevelScan; \
+		barrier(); \
+		memoryBarrierShared(); \
+		return CONV(gl_LocalInvocationIndex!=0u ? _IRR_GLSL_SCRATCH_SHARED_DEFINED_[lastInvocationInLevel+gl_LocalInvocationIndex]:0u); \
+	} \
+	else \
+		return CONV(firstLevelScan);
 
 
-uint irr_glsl_workgroupInclusiveAdd(in uint val)
+
+uint irr_glsl_workgroupInclusiveAdd_noBarriers(in uint val)
 {
-	IRR_GLSL_WORKGROUP_SCAN(irr_glsl_identityFunction,irr_glsl_add,irr_glsl_subgroupInclusiveAdd_impl,irr_glsl_subgroupExclusiveAdd_impl,val,0u,irr_glsl_identityFunction);
+	IRR_GLSL_WORKGROUP_SCAN(false,irr_glsl_identityFunction,irr_glsl_add,irr_glsl_subgroupInclusiveAdd_impl,val,0u,irr_glsl_identityFunction);
 }
-int irr_glsl_workgroupInclusiveAdd(in int val)
+int irr_glsl_workgroupInclusiveAdd_noBarriers(in int val)
 {
-	return int(irr_glsl_workgroupInclusiveAdd(uint(val)));
+	return int(irr_glsl_workgroupInclusiveAdd_noBarriers(uint(val)));
 }
-uint irr_glsl_workgroupExclusiveAdd(in uint val)
+
+DECLARE_OVERLOAD_WITH_BARRIERS(uint,workgroupInclusiveAdd)
+DECLARE_OVERLOAD_WITH_BARRIERS(int,workgroupInclusiveAdd)
+
+
+uint irr_glsl_workgroupExclusiveAdd_noBarriers(in uint val)
 {
-	IRR_GLSL_WORKGROUP_SCAN(irr_glsl_identityFunction,irr_glsl_add,irr_glsl_subgroupExclusiveAdd_impl,irr_glsl_subgroupExclusiveAdd_impl,val,0u,irr_glsl_identityFunction);
+	IRR_GLSL_WORKGROUP_SCAN(true,irr_glsl_identityFunction,irr_glsl_add,irr_glsl_subgroupInclusiveAdd_impl,val,0u,irr_glsl_identityFunction);
 }
-int irr_glsl_workgroupExclusiveAdd(in int val)
+int irr_glsl_workgroupExclusiveAdd_noBarriers(in int val)
 {
-	return int(irr_glsl_workgroupExclusiveAdd(uint(val)));
+	return int(irr_glsl_workgroupExclusiveAdd_noBarriers(uint(val)));
 }
+
+DECLARE_OVERLOAD_WITH_BARRIERS(uint,workgroupExclusiveAdd)
+DECLARE_OVERLOAD_WITH_BARRIERS(int,workgroupExclusiveAdd)
 
 
 
@@ -168,6 +202,8 @@ float irr_glsl_workgroupExclusiveMax(in float val);
 uint irr_glsl_workgroupExclusiveMax(in uint val);
 int irr_glsl_workgroupExclusiveMax(in int val);
 **/
+
+#undef DECLARE_OVERLOAD_WITH_BARRIERS
 
 #undef CONDITIONAL_BARRIER
 
