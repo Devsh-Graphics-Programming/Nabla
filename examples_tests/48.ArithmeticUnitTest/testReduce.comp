@@ -1,7 +1,15 @@
 #version 450
+#define _IRR_GLSL_WORKGROUP_SIZE_ ???? 
+
 #include "common.glsl"
 
 void main()
 {
-
+	andOutput [gl_LocalInvocationIndex] = irr_glsl_subgroupAnd(inputValue[gl_LocalInvocationIndex]);
+	xorOutput [gl_LocalInvocationIndex] = irr_glsl_subgroupXor(inputValue[gl_LocalInvocationIndex]);
+	orOutput  [gl_LocalInvocationIndex] = irr_glsl_subgroupOr (inputValue[gl_LocalInvocationIndex]);
+	addOutput [gl_LocalInvocationIndex] = irr_glsl_subgroupAdd(inputValue[gl_LocalInvocationIndex]);
+	multOutput[gl_LocalInvocationIndex] = irr_glsl_subgroupMul(inputValue[gl_LocalInvocationIndex]);
+	minOutput [gl_LocalInvocationIndex] = irr_glsl_subgroupMin(inputValue[gl_LocalInvocationIndex]);
+	maxOutput [gl_LocalInvocationIndex] = irr_glsl_subgroupMax(inputValue[gl_LocalInvocationIndex]);
 }
