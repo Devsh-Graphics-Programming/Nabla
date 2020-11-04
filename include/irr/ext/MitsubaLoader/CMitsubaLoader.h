@@ -39,7 +39,19 @@ class CMitsubaLoader : public asset::IAssetLoader
 		{
 			core::matrix3x4SIMD tform;//mat4x3
 			//element (0,3) is offset for instruction streams, element (1,3) is length of rem_and_pdf stream
-			core::matrix3x4SIMD normalMatrix;
+			union SNormalMatrix {
+				SNormalMatrix() : normalMatrix() {}
+				~SNormalMatrix() {}
+				SNormalMatrix(const SNormalMatrix& other) : normalMatrix(other.normalMatrix) {}
+
+				core::matrix3x4SIMD normalMatrix;
+				struct {
+					uint32_t _pad0[3];
+					uint32_t instr_offset;
+					uint32_t _pad1[3];
+					uint32_t rem_pdf_count;
+				};
+			} normalMat;
 			uint64_t emissive;//uvec2, rgb19e7
 			uint32_t prefetch_count;
 			uint32_t nprecomp_count;

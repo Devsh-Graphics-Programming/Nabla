@@ -96,7 +96,7 @@ layout (location = 0) out vec4 OutColor;
 #define _IRR_VT_UINT_VIEWS
 #include <irr/builtin/glsl/virtual_texturing/descriptors.glsl>
 
-layout (set = 0, binding = 2, std430) restrict readonly buffer PrecomputedStuffSSBO
+layout (set = 0, binding = 2, std430) restrict readonly buffer VT_PrecomputedStuffSSBO
 {
     uint pgtab_sz_log2;
     float vtex_sz_rcp;
@@ -1577,10 +1577,10 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 
 			SInstanceData instData;
 			instData.tform = inst.tform;
-			instData.tform.getSub3x3InverseTranspose(instData.normalMatrix);
+			instData.tform.getSub3x3InverseTranspose(instData.normalMat.normalMatrix);
 			instData.emissive = core::rgb32f_to_rgb19e7(emissive.pointer);
-			core::floatBitsToUint(instData.normalMatrix(0u, 3u)) = streams.offset;
-			core::floatBitsToUint(instData.normalMatrix(1u, 3u)) = streams.rem_and_pdf_count;
+			instData.normalMat.instr_offset = streams.offset;
+			instData.normalMat.rem_pdf_count = streams.rem_and_pdf_count;
 			instData.prefetch_count = streams.tex_prefetch_count;
 			instData.nprecomp_count = streams.norm_precomp_count;
 			instData.genchoice_count = streams.gen_choice_count;

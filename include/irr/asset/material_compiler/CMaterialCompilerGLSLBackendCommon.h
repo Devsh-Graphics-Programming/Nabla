@@ -13,6 +13,9 @@ namespace asset
 namespace material_compiler
 {
 
+template <typename stack_el_t>
+class ITraversalGenerator;
+
 class CMaterialCompilerGLSLBackendCommon
 {
 public:
@@ -562,8 +565,13 @@ protected:
 	void debugPrintInstr(std::ostream& _out, instr_stream::instr_t instr, const result_t& _res, const SContext* _ctx) const;
 
 public:
-	struct SContext
+	class SContext
 	{
+		template <typename stack_el_t>
+		friend class ITraversalGenerator;
+
+		friend class CMaterialCompilerGLSLBackendCommon;
+
 		//users should not touch this
 		core::vector<instr_stream::intermediate::SBSDFUnion> bsdfData;
 		core::unordered_map<const IR::INode*, size_t> bsdfDataIndexMap;
@@ -578,6 +586,7 @@ public:
 		};
 		core::unordered_map<VTallocKey, instr_stream::VTID, VTallocKeyHash> VTallocMap;
 
+	public:
 		//must be initialized by user
 		core::smart_refctd_ptr<asset::ICPUVirtualTexture> vt;
 	};
