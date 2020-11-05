@@ -21,6 +21,32 @@ namespace material_compiler
 		static std::pair<instr_t, const IR::INode*> processSubtree(IR* ir, const IR::INode* tree, bool thin, IR::INode::children_array_t& next);
 	};
 
+	class CIdGenerator
+	{
+	public:
+		using id_t = instr_stream::instr_id_t;
+
+		id_t get_id(const IR::INode* _node)
+		{
+			if (auto found = m_cache.find(_node); found != m_cache.end())
+				return found->second;
+
+			id_t id = gen_id();
+			m_cache.insert({ _node, id });
+
+			return id;
+		}
+
+	private:
+		id_t gen_id()
+		{
+			return gen++;
+		}
+
+		id_t gen = 0u;
+		core::unordered_map<const IR::INode*, id_t> m_cache;
+	};
+
 	template <typename stack_el_t>
 	class ITraversalGenerator
 	{
@@ -29,6 +55,7 @@ namespace material_compiler
 
 		SContext* m_ctx;
 		IR* m_ir;
+		CIdGenerator* m_id_gen;
 
 		core::stack<stack_el_t> m_stack;
 
@@ -51,8 +78,10 @@ namespace material_compiler
 		}
 
 		// Extra operations performed on instruction just before it is pushed on stack
-		virtual void onBeforeStackPush(instr_t& instr) const
+		virtual void onBeforeStackPush(instr_t& instr, const IR::INode* node) const
 		{
+			instr_stream::instr_id_t id = m_id_gen->get_id(node);
+			instr_stream::setInstrId(instr, id);
 		}
 
 		void writeBumpmapBitfields(instr_t& dst)
@@ -284,7 +313,7 @@ namespace material_compiler
 
 			if (pushIt) 
 			{
-				onBeforeStackPush(instr);
+				onBeforeStackPush(instr, _node);
 				m_stack.push(stack_el_t(instr, _node, _children, std::forward<Params>(args)...));
 			}
 
@@ -364,7 +393,8 @@ namespace material_compiler
 		}
 
 	public:
-		ITraversalGenerator(SContext* _ctx, IR* _ir, uint32_t _regCount) : m_ctx(_ctx), m_ir(_ir), m_registerPool(_regCount) {}
+		ITraversalGenerator(SContext* _ctx, IR* _ir, CIdGenerator* _id_gen, uint32_t _regCount) : 
+			m_ctx(_ctx), m_ir(_ir), m_id_gen(_id_gen), m_registerPool(_regCount) {}
 
 		virtual traversal_t genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs) = 0;
 	};
@@ -408,6 +438,8 @@ namespace remainder_and_pdf
 			traversal_t* my_cont;
 		};
 
+		using id2pos_map_t = core::unordered_map<instr_stream::instr_id_t, uint32_t>;
+
 	private:
 		_IRR_STATIC_INLINE_CONSTEXPR instr_t SPECIAL_VAL = ~static_cast<instr_t>(0);
 
@@ -438,10 +470,10 @@ namespace remainder_and_pdf
 	public:
 		CTraversalManipulator(traversal_t&& _traversal, uint32_t _regsPerResult) : m_input(std::move(_traversal)), m_regsPerResult(_regsPerResult) {}
 
-		traversal_t&& process(uint32_t regCount, uint32_t& _out_usedRegs)&&
+		traversal_t&& process(uint32_t regCount, uint32_t& _out_usedRegs, id2pos_map_t& _out_id2pos)&&
 		{
 			reorderBumpMapStreams();
-			specifyRegisters(regCount, _out_usedRegs);
+			_out_id2pos = specifyRegisters(regCount, _out_usedRegs);
 			_out_usedRegs += m_regsPerResult;
 
 			return std::move(m_input);
@@ -460,7 +492,7 @@ namespace remainder_and_pdf
 			m_input = std::move(result);
 		}
 
-		void specifyRegisters(uint32_t regCount, uint32_t& _out_maxUsedReg);
+		id2pos_map_t specifyRegisters(uint32_t regCount, uint32_t& _out_maxUsedReg);
 	};
 
 
@@ -480,11 +512,14 @@ namespace remainder_and_pdf
 		using base_t = ITraversalGenerator<stack_el>;
 
 		uint32_t m_regsPerRes;
+		CTraversalManipulator::id2pos_map_t m_id2pos;
 
 	public:
-		CTraversalGenerator(SContext* _ctx, IR* _ir, uint32_t _regCount, uint32_t _regsPerResult) :
-			base_t(_ctx,_ir,_regCount), m_regsPerRes(_regsPerResult)
+		CTraversalGenerator(SContext* _ctx, IR* _ir, CIdGenerator* _id_gen, uint32_t _regCount, uint32_t _regsPerResult) :
+			base_t(_ctx, _ir, _id_gen, _regCount), m_regsPerRes(_regsPerResult)
 		{}
+
+		const auto& getId2PosMapping() const { return m_id2pos; }
 
 		void writeInheritableBitfields(instr_t& dst, instr_t parent) const override
 		{
@@ -744,7 +779,7 @@ void remainder_and_pdf::CTraversalManipulator::reorderBumpMapStreams_impl(traver
 	_input.erase(woSubs.begin() + 1, woSubs.end());
 }
 
-void remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regCount, uint32_t& _out_maxUsedReg)
+auto remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regCount, uint32_t& _out_maxUsedReg) -> id2pos_map_t
 {
 	core::stack<uint32_t> freeRegs;
 	{
@@ -756,6 +791,8 @@ void remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regCoun
 	core::stack<uint32_t> bmRegs;
 	//registers waiting to be used as source
 	core::stack<uint32_t> srcRegs;
+
+	id2pos_map_t id2pos;
 
 	int32_t bmStreamEndCounter = 0;
 	auto pushResultRegister = [&bmStreamEndCounter, &bmRegs, &srcRegs](uint32_t _resultReg)
@@ -776,6 +813,8 @@ void remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regCoun
 			continue;// do not increment j
 		}
 		const instr_stream::E_OPCODE op = instr_stream::getOpcode(i);
+		const instr_stream::instr_id_t id = instr_stream::getInstrId(i);
+		id2pos.insert({ id, j });
 
 		--bmStreamEndCounter;
 		if (op == instr_stream::OP_BUMPMAP)
@@ -847,6 +886,8 @@ void remainder_and_pdf::CTraversalManipulator::specifyRegisters(uint32_t regCoun
 
 		++j;
 	}
+
+	return id2pos;
 }
 
 traversal_t remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs)
@@ -897,7 +938,7 @@ traversal_t remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode
 	//remove NOOPs
 	filterNOOPs(traversal);
 
-	traversal = std::move(CTraversalManipulator(std::move(traversal), m_regsPerRes).process(m_registerPool, _out_usedRegs));
+	traversal = std::move(CTraversalManipulator(std::move(traversal), m_regsPerRes).process(m_registerPool, _out_usedRegs, m_id2pos));
 
 	return traversal;
 }
@@ -1070,6 +1111,9 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	{
 		defs += "\n#define INSTR_RIGHT_JUMP_SHIFT " + std::to_string(instr_stream::gen_choice::INSTR_RIGHT_JUMP_SHIFT);
 		defs += "\n#define INSTR_RIGHT_JUMP_WIDTH " + std::to_string(instr_stream::gen_choice::INSTR_RIGHT_JUMP_WIDTH);
+
+		defs += "\n#define INSTR_OFFSET_INTO_REMANDPDF_STREAM_SHIFT " + std::to_string(instr_stream::gen_choice::INSTR_OFFSET_INTO_REMANDPDF_STREAM_SHIFT);
+		defs += "\n#define INSTR_OFFSET_INTO_REMANDPDF_STREAM_WIDTH " + std::to_string(instr_stream::gen_choice::INSTR_OFFSET_INTO_REMANDPDF_STREAM_WIDTH);
 	}
 	//tex_prefetch
 	{
@@ -1134,6 +1178,10 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 
 		const size_t interm_bsdf_data_begin_ix = _ctx->bsdfData.size();
 
+		CIdGenerator id_gen;
+
+		remainder_and_pdf::CTraversalManipulator::id2pos_map_t id2pos;
+
 		uint32_t usedRegs{};
 		traversal_t rem_pdf_stream;
 		{
@@ -1143,18 +1191,28 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 			//In raytracing backend _computeGenChoiceStream is always true
 			const uint32_t regsPerRes = _computeGenChoiceStream ? 4u : 3u;
 
-			remainder_and_pdf::CTraversalGenerator gen(_ctx, _ir, registerPool, regsPerRes);
+			remainder_and_pdf::CTraversalGenerator gen(_ctx, _ir, &id_gen, registerPool, regsPerRes);
 			rem_pdf_stream = gen.genTraversal(root, usedRegs);
 			assert(usedRegs <= registerPool);
 			registerPool -= usedRegs;
+			id2pos = gen.getId2PosMapping();
 		}
 		traversal_t gen_choice_stream;
 		if (_computeGenChoiceStream)
 		{
-			gen_choice::CTraversalGenerator gen(_ctx, _ir, registerPool);
+			gen_choice::CTraversalGenerator gen(_ctx, _ir, &id_gen, registerPool);
 			gen_choice_stream = gen.genTraversal(root, usedRegs);
 			assert(usedRegs <= registerPool);
 			registerPool -= usedRegs;
+
+			for (auto& instr : gen_choice_stream)
+			{
+				const instr_stream::instr_id_t id = instr_stream::getInstrId(instr);
+				uint32_t rnp_pos = static_cast<uint32_t>(-1);
+				if (auto found = id2pos.find(id); found != id2pos.end())
+					rnp_pos = found->second;
+				instr_stream::gen_choice::setOffsetIntoRemAndPdfStream(instr, rnp_pos);
+			}
 		}
 
 		instr_stream::tex_prefetch::prefetch_stream_t tex_prefetch_stream;
@@ -1356,6 +1414,8 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		}
 		uint32_t rjump = core::bitfieldExtract(instr, instr_stream::gen_choice::INSTR_RIGHT_JUMP_SHIFT, instr_stream::gen_choice::INSTR_RIGHT_JUMP_WIDTH);
 		_out << "Right jump " << rjump << "\n";
+		uint32_t rnp_offset = instr_stream::gen_choice::getOffsetIntoRemAndPdfStream(instr);
+		_out << "rem_and_pdf offset " << rnp_offset << "\n";
 	}
 	_out << "####### tex_prefetch stream\n";
 	auto tex_prefetch = _streams.get_tex_prefetch();

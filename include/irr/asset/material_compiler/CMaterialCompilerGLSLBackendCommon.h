@@ -23,6 +23,8 @@ public:
 	{
 		using instr_t = uint64_t;
 
+		using instr_id_t = uint32_t;
+
 		enum E_OPCODE : uint8_t
 		{
 			//brdf
@@ -117,6 +119,10 @@ public:
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BUMPMAP_SRC_REG_MASK = 0xffu;
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BUMPMAP_SRC_REG_SHIFT = 40u;
 
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_ID_WIDTH = 24u;
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_ID_MASK	 = 0xffffffu;
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_ID_SHIFT = 32u;
+
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MAX_REGISTER_COUNT = 72u;
 
 		enum E_NDF
@@ -189,6 +195,16 @@ public:
 		inline static void setBSDFDataIx(instr_t& i, uint32_t ix)
 		{
 			i = core::bitfieldInsert<instr_t>(i, ix, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
+		}
+
+		inline static instr_id_t getInstrId(const instr_t& i)
+		{
+			return core::bitfieldExtract(i, INSTR_ID_SHIFT, INSTR_ID_WIDTH);
+		}
+
+		inline static void setInstrId(instr_t& i, instr_id_t id)
+		{
+			i = core::bitfieldInsert<instr_t>(i, id, INSTR_ID_SHIFT, INSTR_ID_WIDTH);
 		}
 
 		// more like max param number plus one (includes dummies)
@@ -480,49 +496,62 @@ public:
 			_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_SRC1_SHIFT = BITFIELDS_BSDF_BUF_OFFSET_SHIFT + BITFIELDS_BSDF_BUF_OFFSET_WIDTH + INSTR_REG_WIDTH * 1u;
 			_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_REG_SRC2_SHIFT = BITFIELDS_BSDF_BUF_OFFSET_SHIFT + BITFIELDS_BSDF_BUF_OFFSET_WIDTH + INSTR_REG_WIDTH * 2u;
 		};
-	struct gen_choice
-	{
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_RIGHT_JUMP_WIDTH = 8u;
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_RIGHT_JUMP_MASK = 0xffu;
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_RIGHT_JUMP_SHIFT = BITFIELDS_BSDF_BUF_OFFSET_SHIFT + BITFIELDS_BSDF_BUF_OFFSET_WIDTH;
-	};
-	struct tex_prefetch
-	{
-	#include "irr/irrpack.h"
-		struct prefetch_instr_t
+		struct gen_choice
 		{
-			prefetch_instr_t() : qword{ 0ull, 0ull } {}
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_RIGHT_JUMP_WIDTH = INSTR_NORMAL_ID_WIDTH;
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_RIGHT_JUMP_MASK = INSTR_NORMAL_ID_MASK;
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_RIGHT_JUMP_SHIFT = INSTR_NORMAL_ID_SHIFT;
 
-			_IRR_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_DST_REG_SHIFT = 0u;
-			_IRR_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_DST_REG_WIDTH = 8u;
-			_IRR_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_REG_CNT_SHIFT = DWORD4_DST_REG_SHIFT + DWORD4_DST_REG_WIDTH;
-			_IRR_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_REG_CNT_WIDTH = 2u;
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_OFFSET_INTO_REMANDPDF_STREAM_WIDTH = INSTR_ID_WIDTH;
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_OFFSET_INTO_REMANDPDF_STREAM_MASK  = INSTR_ID_MASK;
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_OFFSET_INTO_REMANDPDF_STREAM_SHIFT = INSTR_ID_SHIFT;
 
-			inline void setDstReg(uint32_t r) { dword4 = core::bitfieldInsert(dword4, r, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
-			inline void setRegCnt(uint32_t c) { dword4 = core::bitfieldInsert(dword4, c, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
+			inline static uint32_t getOffsetIntoRemAndPdfStream(const instr_t& i)
+			{
+				return getInstrId(i);
+			}
+			inline static void setOffsetIntoRemAndPdfStream(instr_t& i, uint32_t offset)
+			{
+				setInstrId(i, offset);
+			}
+		};
+		struct tex_prefetch
+		{
+		#include "irr/irrpack.h"
+			struct prefetch_instr_t
+			{
+				prefetch_instr_t() : qword{ 0ull, 0ull } {}
 
-			inline uint32_t getDstReg() const { return core::bitfieldExtract(dword4, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
-			inline uint32_t getRegCnt() const { return core::bitfieldExtract(dword4, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
+				_IRR_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_DST_REG_SHIFT = 0u;
+				_IRR_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_DST_REG_WIDTH = 8u;
+				_IRR_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_REG_CNT_SHIFT = DWORD4_DST_REG_SHIFT + DWORD4_DST_REG_WIDTH;
+				_IRR_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_REG_CNT_WIDTH = 2u;
 
-			union {
-				uint64_t qword[2];
-				uint32_t dword[4];
-				struct {
-					STextureData tex_data;
-					uint32_t dword4;
-				} PACK_STRUCT;
-			};
-		} PACK_STRUCT;
-	#include "irr/irrunpack.h"
-		static_assert(sizeof(prefetch_instr_t) == sizeof_uvec4);
+				inline void setDstReg(uint32_t r) { dword4 = core::bitfieldInsert(dword4, r, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
+				inline void setRegCnt(uint32_t c) { dword4 = core::bitfieldInsert(dword4, c, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
 
-		using prefetch_stream_t = core::vector<prefetch_instr_t>;
-	};
-	struct normal_precomp
-	{
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_REG_DST_SHIFT = remainder_and_pdf::INSTR_REG_DST_SHIFT;
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_REG_WIDTH = remainder_and_pdf::INSTR_REG_WIDTH;
-	};
+				inline uint32_t getDstReg() const { return core::bitfieldExtract(dword4, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
+				inline uint32_t getRegCnt() const { return core::bitfieldExtract(dword4, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
+
+				union {
+					uint64_t qword[2];
+					uint32_t dword[4];
+					struct {
+						STextureData tex_data;
+						uint32_t dword4;
+					} PACK_STRUCT;
+				};
+			} PACK_STRUCT;
+		#include "irr/irrunpack.h"
+			static_assert(sizeof(prefetch_instr_t) == sizeof_uvec4);
+
+			using prefetch_stream_t = core::vector<prefetch_instr_t>;
+		};
+		struct normal_precomp
+		{
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_REG_DST_SHIFT = remainder_and_pdf::INSTR_REG_DST_SHIFT;
+			_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_REG_WIDTH = remainder_and_pdf::INSTR_REG_WIDTH;
+		};
 	};
 	struct result_t;
 	struct SContext;

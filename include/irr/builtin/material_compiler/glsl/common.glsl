@@ -21,9 +21,9 @@ MC_precomputed_t precomputeData()
 	return p;
 }
 
-uint instr_getNormalId(in instr_t instr)
+uint instr_getOffsetIntoRnPStream(in instr_t instr)
 {
-	return (instr.y>>(INSTR_NORMAL_ID_SHIFT-32u)) & INSTR_NORMAL_ID_MASK;
+	return bitfieldExtract(instr.y, int(INSTR_OFFSET_INTO_REMANDPDF_STREAM_SHIFT-32u), int(INSTR_OFFSET_INTO_REMANDPDF_STREAM_WIDTH));
 }
 uint instr_getOpcode(in instr_t instr)
 {
@@ -965,7 +965,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 		writeReg(REG_DST(regs), result);
 }
 
-eval_and_pdf_t irr_bsdf_eval_and_pdf(in MC_precomputed_t precomp, in instr_stream_t stream, inout irr_glsl_LightSample s, in instr_t generator, inout irr_glsl_AnisotropicMicrofacetCache microfacet)
+eval_and_pdf_t irr_bsdf_eval_and_pdf(in MC_precomputed_t precomp, in instr_stream_t stream, inout irr_glsl_LightSample s, in uint generator_offset, inout irr_glsl_AnisotropicMicrofacetCache microfacet)
 {
 	setCurrInteraction(precomp);
 	for (uint i = 0u; i < stream.count; ++i)
@@ -973,7 +973,7 @@ eval_and_pdf_t irr_bsdf_eval_and_pdf(in MC_precomputed_t precomp, in instr_strea
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
 		uint op = instr_getOpcode(instr);
 
-		if (INSTR_1ST_DWORD(instr) != INSTR_1ST_DWORD(generator))
+		if (i != generator_offset)
 		{
 			instr_eval_and_pdf_execute(instr, precomp, s, microfacet);
 		}
@@ -1020,7 +1020,7 @@ irr_glsl_AnisotropicMicrofacetCache getSmoothMicrofacetCache(in float NdotV, in 
 	return microfacet;
 }
 
-irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr_stream_t stream, in vec3 rand, out vec3 out_remainder, out float out_pdf, out instr_t out_generatorInstr, out irr_glsl_AnisotropicMicrofacetCache out_microfacet)
+irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr_stream_t stream, in vec3 rand, out vec3 out_remainder, out float out_pdf, out irr_glsl_AnisotropicMicrofacetCache out_microfacet, out uint out_gen_rnpOffset)
 {
 	uint ix = 0u;
 	instr_t instr = irr_glsl_MC_fetchInstr(stream.offset);
@@ -1087,6 +1087,8 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		instr = irr_glsl_MC_fetchInstr(stream.offset+ix);
 		op = instr_getOpcode(instr);
 	}
+
+	out_gen_rnpOffset = instr_getOffsetIntoRnPStream(instr);
 
 	bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
 	params_t params = instr_getParameters(instr, bsdf_data);
@@ -1194,7 +1196,6 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 
 	out_remainder = weight*rem;
 	out_pdf = weight*pdf;
-	out_generatorInstr = instr;
 
 	return s;
 }
@@ -1205,8 +1206,9 @@ vec3 runGenerateAndRemainderStream(in MC_precomputed_t precomp, in instr_stream_
 	vec3 generator_rem;
 	float generator_pdf;
 	irr_glsl_AnisotropicMicrofacetCache microfacet;
-	irr_glsl_LightSample s = irr_bsdf_cos_generate(precomp, gcs, rand, generator_rem, generator_pdf, generator, microfacet);
-	eval_and_pdf_t eval_pdf = irr_bsdf_eval_and_pdf(precomp, rnps, s, generator, microfacet);
+	uint generator_rnpOffset;
+	irr_glsl_LightSample s = irr_bsdf_cos_generate(precomp, gcs, rand, generator_rem, generator_pdf, microfacet, generator_rnpOffset);
+	eval_and_pdf_t eval_pdf = irr_bsdf_eval_and_pdf(precomp, rnps, s, generator_rnpOffset, microfacet);
 	bxdf_eval_t acc = eval_pdf.rgb;
 	float restPdf = eval_pdf.a;
 	float pdf = generator_pdf + restPdf;
