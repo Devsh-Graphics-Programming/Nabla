@@ -182,6 +182,21 @@ public:
             }
 
             SParameter() = default;
+            SParameter(const type_of_const& c)
+            {
+                source = EPS_CONSTANT;
+                value.constant = c;
+            }
+            SParameter(const STextureSource& t)
+            {
+                source = EPS_TEXTURE;
+                value.texture = t;
+            }
+            SParameter(STextureSource&& t)
+            {
+                source = EPS_TEXTURE;
+                value.texture = std::move(t);
+            }
             SParameter(const SParameter<type_of_const>& other)
             {
                 *this = other;
@@ -413,11 +428,11 @@ public:
             alpha_v = alpha_u;
         }
 
-        E_NDF ndf;
-        E_SHADOWING_TERM shadowing;
-        E_SCATTER_MODE scatteringMode;
-        SParameter<float> alpha_u;
-        SParameter<float> alpha_v;
+        E_NDF ndf = ENDF_GGX;
+        E_SHADOWING_TERM shadowing = EST_SMITH;
+        E_SCATTER_MODE scatteringMode = ESM_REFLECT;
+        SParameter<float> alpha_u = 0.f;
+        SParameter<float> alpha_v = 0.f;
 
     protected:
         CMicrofacetSpecularBSDFNode(E_TYPE t) : CBSDFNode(t) {}
@@ -433,22 +448,22 @@ public:
             alpha_v = alpha_u;
         }
 
-        SParameter<color_t> reflectance;
-        SParameter<float> alpha_u;
-        SParameter<float> alpha_v;
+        SParameter<color_t> reflectance = color_t(1.f);
+        SParameter<float> alpha_u = 0.f;
+        SParameter<float> alpha_v = 0.f;
     };
     struct CDifftransBSDFNode : CBSDFNode
     {
         CDifftransBSDFNode() : CBSDFNode(ET_DIFFTRANS) {}
 
-        SParameter<color_t> transmittance;
+        SParameter<color_t> transmittance = color_t(0.5f);
     };
     struct CCoatingBSDFNode : CMicrofacetSpecularBSDFNode
     {
         CCoatingBSDFNode() : CMicrofacetSpecularBSDFNode(ET_COATING) {}
 
-        SParameter<color_t> sigmaA;
-        float thickness;
+        SParameter<color_t> sigmaA = color_t(0.f);
+        float thickness = 1.f;
     };
     struct CDielectricBSDFNode : CMicrofacetSpecularBSDFNode
     {

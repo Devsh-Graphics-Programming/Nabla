@@ -68,6 +68,12 @@ irr_glsl_LightSample irr_glsl_createLightSampleTangentSpace(in vec3 tangentSpace
     return s;
 }
 
+irr_glsl_LightSample irr_glsl_createLightSampleTangentSpace(in vec3 tangentSpaceV, in vec3 tangentSpaceH, in float VdotH, in mat3 tangentFrame)
+{
+    vec3 tangentSpaceL = irr_glsl_reflect(tangentSpaceV, tangentSpaceH, VdotH);
+    return irr_glsl_createLightSampleTangentSpace(tangentSpaceV, tangentSpaceL, tangentFrame);
+}
+
 //
 irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in float VdotL, in vec3 N)
 {

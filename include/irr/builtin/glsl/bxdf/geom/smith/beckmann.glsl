@@ -21,6 +21,10 @@ float irr_glsl_smith_beckmann_Lambda(in float NdotX2, in float a2)
 {
     return irr_glsl_smith_beckmann_Lambda(irr_glsl_smith_beckmann_C2(NdotX2, a2));
 }
+float irr_glsl_smith_beckmann_Lambda(in float TdotX2, in float BdotX2, in float NdotX2, in float ax2, in float ay2)
+{
+    return irr_glsl_smith_beckmann_Lambda(irr_glsl_smith_beckmann_C2(TdotX2, BdotX2, NdotX2, ax2, ay2));
+}
 
 float irr_glsl_beckmann_smith_correlated(in float NdotV2, in float NdotL2, in float a2)
 {

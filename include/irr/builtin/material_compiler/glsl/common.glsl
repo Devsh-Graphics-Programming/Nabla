@@ -1056,14 +1056,22 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 			// ehh this whole thing of managing COATING is bad af
 			bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
 			vec3 eta = bsdf_data_decodeIoR(bsdf_data, OP_COATING)[0];
-			float dummy;
 			vec3 fresnel = irr_glsl_fresnel_dielectric_frontface_only(eta, currInteraction.isotropic.NdotV);
 			float w = dot(fresnel, CIE_XYZ_Luma_Y_coeffs);
-			bool choseCoat = irr_glsl_partitionRandVariable(w, u.z, dummy);
+			float rcpProb;
+			bool choseCoat = irr_glsl_partitionRandVariable(w, u.z, rcpProb);
+			//TODO those weight multiplications are probably wrong, not needed or should concern remainder only
 			if (choseCoat)
+			{
+				weight *= (1.0-w);
 				break;
+			}
 			else
+			{
+				weight *= w;
+				//weight *= diffuse fresnel correction
 				ix = ix+1u;
+			}
 		} else
 #endif //OP_COATING
 		{
@@ -1106,96 +1114,136 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	handleTwosided_interactionOnly(instr);
 #endif //NO_TWOSIDED
 
-	float pdf;
-	vec3 rem;
+	float pdf = 1.0;
+	vec3 rem = vec3(1.0);
 	uint ndf = instr_getNDF(instr);
 	irr_glsl_LightSample s;
 
-	BEGIN_CASES(op)
-#ifdef OP_DIFFUSE
-	CASE_BEGIN(op, OP_DIFFUSE) {
-		s = irr_glsl_oren_nayar_cos_generate(currInteraction, u.xy, ax2);
-		out_microfacet = getSmoothMicrofacetCache(currInteraction.isotropic.NdotV, s.NdotL);
-		rem = refl*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ax2);
-	} CASE_END
-#endif //OP_DIFFUSE
-
-#ifdef OP_DIFFTRANS
-	CASE_BEGIN(op, OP_DIFFTRANS) {
-		s = irr_glsl_lambertian_transmitter_cos_generate(currInteraction, u);
-		out_microfacet = getSmoothMicrofacetCache(currInteraction.isotropic.NdotV, s.NdotL);//TODO?
-		rem = refl*irr_glsl_lambertian_transmitter_cos_remainder_and_pdf(pdf, s);
-	} CASE_END
-#endif //OP_DIFFTRANS
+	const vec3 localV = irr_glsl_getTangentSpaceV(currInteraction);
+	const mat3 tangentFrame = irr_glsl_getTangentFrame(currInteraction);
 
 #ifdef OP_THINDIELECTRIC
-	CASE_BEGIN(op, OP_THINDIELECTRIC) {
+	if (op == OP_THINDIELECTRIC)
+	{
 		const vec3 luminosityContributionHint = CIE_XYZ_Luma_Y_coeffs;
 		s = irr_glsl_thin_smooth_dielectric_cos_generate(currInteraction, u, ior2[0], luminosityContributionHint);
 		out_microfacet = getSmoothMicrofacetCache(currInteraction.isotropic.NdotV, s.NdotL);
 		rem = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ior2[0], luminosityContributionHint);
 		pdf = 1.0;
-	} CASE_END
+	} else
 #endif
-	CASE_OTHERWISE
+#if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
+	if (op_isDiffuse(op))
 	{
-		BEGIN_CASES(ndf)
-	//TODO need to distinguish BSDFs and BRDFs (later, for now DIELECTRIC and THINDIELECTRIC are treated separately)
-#ifdef NDF_GGX
-		CASE_BEGIN(ndf, NDF_GGX) {
-#if defined(OP_THINDIELECTRIC) || defined(OP_DIELECTRIC)
-			if (is_bsdf) {
-				s = irr_glsl_ggx_dielectric_cos_generate(currInteraction, u, ax, ay, ior[0].x, out_microfacet);
-				rem = vec3( irr_glsl_ggx_aniso_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction, out_microfacet, ior[0].x, ax, ay) );
-			}
-			else 
+		vec3 localL = irr_glsl_projected_hemisphere_generate(u.xy);
+		pdf = irr_glsl_RECIPROCAL_PI;
+		pdf *= is_bsdf ? 0.5 : 1.0;
+		if (is_bsdf)
+		{
+			float dummy;
+			bool flip = irr_glsl_partitionRandVariable(0.5, u.z, dummy);
+			localL = flip ? -localL : localL;
+		}
+		s = irr_glsl_createLightSample(localV, localL, tangentFrame);
+		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
+	} else
 #endif
-			{
-				s = irr_glsl_ggx_cos_generate(currInteraction, u.xy, ax, ay, out_microfacet);
-				rem = irr_glsl_ggx_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, out_microfacet, ior, ax, ay);
-			}
+#if defined(OP_CONDUCTOR) || defined(OP_COATING) || defined(OP_DIELECTRIC)
+	if (op_hasSpecular(op))
+	{
+		const float TdotV2 = currInteraction.TdotV * currInteraction.TdotV;
+		const float BdotV2 = currInteraction.BdotV * currInteraction.BdotV;
+		const float NdotV2 = currInteraction.isotropic.NdotV_squared;
+
+		float G2_over_G1 = 0.0;
+		float G1 = 0.0;
+		float ndf_val = 0.0;
+		vec3 localH = vec3(0.0);
+
+		BEGIN_CASES(ndf)
+#ifdef NDF_GGX
+		CASE_BEGIN(ndf, NDF_GGX) 
+		{
+			localH = vec3(0.0); //TODO
 		} CASE_END
 #endif //NDF_GGX
 
 #ifdef NDF_BECKMANN
-		CASE_BEGIN(ndf, NDF_BECKMANN) {
-#if defined(OP_THINDIELECTRIC) || defined(OP_DIELECTRIC)
-			if (is_bsdf) {
-				s = irr_glsl_beckmann_dielectric_cos_generate(currInteraction, u, ax, ay, ior[0].x, out_microfacet);
-				rem = vec3(irr_glsl_beckmann_aniso_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction, out_microfacet, ior[0].x, ax, ay) );
-			}
-			else
-#endif
-			{
-				s = irr_glsl_beckmann_cos_generate(currInteraction, u.xy, ax, ay, out_microfacet);
-				rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, out_microfacet, ior, ax, ay);
-			}
+		CASE_BEGIN(ndf, NDF_BECKMANN) 
+		{
+			localH = irr_glsl_beckmann_cos_generate_wo_clamps(localV, u.xy, ax, ay);
 		} CASE_END
 #endif //NDF_BECKMANN
 
 #ifdef NDF_PHONG
-		CASE_BEGIN(ndf, NDF_PHONG) {
-#if defined(OP_THINDIELECTRIC) || defined(OP_DIELECTRIC)
-			if (is_bsdf) {
-				s = irr_glsl_beckmann_dielectric_cos_generate(currInteraction, u, ax, ay, ior[0].x, out_microfacet);
-				rem = vec3( irr_glsl_beckmann_aniso_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction, out_microfacet, ior[0].x, ax, ay) );
-			}
-			else
-#endif
-			{
-				s = irr_glsl_beckmann_cos_generate(currInteraction, u.xy, ax, ay, out_microfacet);
-				rem = irr_glsl_beckmann_aniso_cos_remainder_and_pdf(pdf, s, currInteraction, out_microfacet, ior, ax, ay);
-			}
+		CASE_BEGIN(ndf, NDF_PHONG) 
+		{
+			localH = vec3(0.0); //TODO
 		} CASE_END
 #endif //NDF_PHONG
 		CASE_OTHERWISE
 		{}
 		END_CASES
-	}
-	END_CASES
 
+		float VdotH = dot(localH, localV);
+		float clamped_VdotH = irr_glsl_conditionalAbsOrMax(is_bsdf, VdotH, 0.0);
+		vec3 fr;
+#ifdef OP_CONDUCTOR
+		if (op == OP_CONDUCTOR)
+			fr = irr_glsl_fresnel_conductor(ior[0], ior[1], clamped_VdotH);
+		else
+#endif
+			fr = irr_glsl_fresnel_dielectric(ior[0], clamped_VdotH); // TODO: clamped_VdotH is here abs(VdotH), not sure it's right
+		const float refractionProb = dot(CIE_XYZ_Luma_Y_coeffs, fr);
+		float rcpChoiceProb;
+		const bool refraction = is_bsdf ? irr_glsl_partitionRandVariable(refractionProb, u.z, rcpChoiceProb) : false;
+		rcpChoiceProb = is_bsdf ? rcpChoiceProb : 1.0;
+		rem *= rcpChoiceProb;
+		rem *= refraction ? (vec3(1.0) - fr) : fr;
+		pdf /= rcpChoiceProb;
+		s = irr_glsl_createLightSampleTangentSpace(localV, localH, VdotH, tangentFrame);
+		float eta = dot(CIE_XYZ_Luma_Y_coeffs, ior[0]);
+		irr_glsl_calcAnisotropicMicrofacetCache(out_microfacet, currInteraction, s, eta);
+
+		BEGIN_CASES(ndf)
+#ifdef NDF_GGX
+		CASE_BEGIN(ndf, NDF_GGX)
+		{
+			//TODO G1, G2_over_G1, ndf_val
+		} CASE_END
+#endif //NDF_GGX
+
+#ifdef NDF_BECKMANN
+		CASE_BEGIN(ndf, NDF_BECKMANN)
+		{
+			float lambdaV = irr_glsl_smith_beckmann_Lambda(TdotV2, BdotV2, NdotV2, ax2, ay2);
+			G1 = irr_glsl_smith_G1(lambdaV);
+			G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL * s.TdotL, s.BdotL * s.BdotL, s.NdotL * s.NdotL, ax2, ay2);
+
+			const float TdotH2 = out_microfacet.TdotH * out_microfacet.TdotH;
+			const float BdotH2 = out_microfacet.BdotH * out_microfacet.BdotH;
+			const float NdotH2 = out_microfacet.isotropic.NdotH2;
+			ndf_val = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, NdotH2);
+		} CASE_END
+#endif //NDF_BECKMANN
+
+#ifdef NDF_PHONG
+		CASE_BEGIN(ndf, NDF_PHONG)
+		{
+			//TODO G1, G2_over_G1, ndf_val
+		} CASE_END
+#endif //NDF_PHONG
+		CASE_OTHERWISE
+		{}
+		END_CASES
+	} else
+#endif
+	{} //empty braces for `else`
+
+	rem *= G2_over_G1;
+	pdf *= (G1 * ndf_val);
 	out_remainder = weight*rem;
-	out_pdf = weight*pdf;
+	out_pdf = weight*pdf; // TODO not multiplu pdf by weight??
 
 	return s;
 }
