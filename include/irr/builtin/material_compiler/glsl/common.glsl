@@ -460,20 +460,18 @@ bxdf_eval_t instr_execute_cos_eval_COATING(in instr_t instr, in mat2x4 srcs, in 
 {
 	//vec3 thickness_sigma = params_getSigmaA(params);
 	
-	vec3 ws_ = irr_glsl_fresnel_dielectric_frontface_only(eta, microfacet.isotropic.VdotH);
+	vec3 ws = irr_glsl_fresnel_dielectric_frontface_only(eta, microfacet.isotropic.VdotH);
 	// TODO include thickness_sigma in diffuse weight computation: exp(sigma_thickness * freePath)
 	// freePath = ( sqrt(refract_compute_NdotT2(NdotL2, rcpOrientedEta2)) + sqrt(refract_compute_NdotT2(NdotV2, rcpOrientedEta2)) )
-	vec3 wd_ = irr_glsl_diffuseFresnelCorrectionFactor(eta, eta2) * (vec3(1.0) - irr_glsl_fresnel_dielectric_frontface_only(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0) - irr_glsl_fresnel_dielectric_frontface_only(eta, s.NdotL));
-	float ws = dot(CIE_XYZ_Luma_Y_coeffs, ws_);
-	float wd = dot(CIE_XYZ_Luma_Y_coeffs, wd_);
-	float w = ws / (ws + wd);
+	vec3 fresnelNdotV = irr_glsl_fresnel_dielectric_frontface_only(eta, currInteraction.isotropic.NdotV);
+	vec3 wd = irr_glsl_diffuseFresnelCorrectionFactor(eta, eta2) * (vec3(1.0) - fresnelNdotV) * (vec3(1.0) - irr_glsl_fresnel_dielectric_frontface_only(eta, s.NdotL));
 
 	bxdf_eval_t coat = srcs[0].xyz;
 	bxdf_eval_t coated = srcs[1].xyz;
 
-	out_weight = w;
+	out_weight = dot(fresnelNdotV, CIE_XYZ_Luma_Y_coeffs);
 
-	return coat*ws_ + coated*wd_;
+	return coat*ws + coated*wd;
 }
 
 eval_and_pdf_t instr_execute_cos_eval_pdf_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in vec3 eta, in vec3 eta2, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache microfacet, in float DG, in bsdf_data_t data)
@@ -485,7 +483,7 @@ eval_and_pdf_t instr_execute_cos_eval_pdf_COATING(in instr_t instr, in mat2x4 sr
 	float coat_pdf = srcs[0].w;
 	float coated_pdf = srcs[1].w;
 
-	float pdf = mix(coat_pdf, coated_pdf, weight);
+	float pdf = mix(coated_pdf, coat_pdf, weight);
 
 	return eval_and_pdf_t(bxdf, pdf);
 }
@@ -1055,10 +1053,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 			bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
 			vec3 eta = bsdf_data_decodeIoR(bsdf_data, OP_COATING)[0];
 			vec3 fresnel = irr_glsl_fresnel_dielectric_frontface_only(eta, currInteraction.isotropic.NdotV);
-			// TODO include thickness_sigma in weight computation
-			vec3 weight = irr_glsl_diffuseFresnelCorrectionFactor(eta, eta*eta) * (vec3(1.0) - fresnel);
-			float w = dot(weight, CIE_XYZ_Luma_Y_coeffs);
-			w = 1.0 - w;
+			float w = dot(fresnel, CIE_XYZ_Luma_Y_coeffs);
 			float rcpChoiceProb;
 			bool choseCoated = irr_glsl_partitionRandVariable(w, u.z, rcpChoiceProb);
 
@@ -1130,8 +1125,6 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	if (op_isDiffuse(op))
 	{
 		vec3 localL = irr_glsl_projected_hemisphere_generate(u.xy);
-		pdf = irr_glsl_RECIPROCAL_PI;
-		pdf *= is_bsdf ? 0.5 : 1.0;
 		if (is_bsdf)
 		{
 			float dummy;
@@ -1140,6 +1133,11 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		}
 		s = irr_glsl_createLightSampleTangentSpace(localV, localL, tangentFrame);
 		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
+
+		const float alpha = is_bsdf ? 0.0 : ax2;
+		const vec3 reflectance = is_bsdf ? vec3(1.0) : refl;
+		rem *= reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, alpha);
+		pdf *= is_bsdf ? 0.5 : 1.0;
 	} else
 #endif
 #if defined(OP_CONDUCTOR) || defined(OP_COATING) || defined(OP_DIELECTRIC)
