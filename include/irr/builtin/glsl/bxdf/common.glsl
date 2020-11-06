@@ -154,7 +154,7 @@ irr_glsl_IsotropicViewSurfaceInteraction irr_glsl_calcFragmentShaderSurfaceInter
 }
 irr_glsl_IsotropicViewSurfaceInteraction irr_glsl_calcFragmentShaderSurfaceInteraction(in vec3 _CamPos, in vec3 _SurfacePos, in vec3 _Normal)
 {
-    vec3 V = _CamPos = _SurfacePos;
+    vec3 V = _CamPos - _SurfacePos;
     return irr_glsl_calcFragmentShaderSurfaceInteractionFromViewVector(V, _SurfacePos, _Normal);
 }
 irr_glsl_AnisotropicViewSurfaceInteraction irr_glsl_calcAnisotropicInteraction(in irr_glsl_IsotropicViewSurfaceInteraction isotropic, in vec3 T, in vec3 B)

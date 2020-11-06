@@ -150,7 +150,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 #endif
 #ifdef OP_COATING
 		CASE_BEGIN(op, OP_COATING) {
-			vec3 dummy;
+			float dummy;
 			result = instr_execute_cos_eval_COATING(instr, srcs, params, ior[0], ior[0]*ior[0], s, microfacet, bxdf_eval_scalar_part, bsdf_data, dummy);
 		} CASE_END
 #endif
@@ -189,7 +189,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 		END_CASES
 	}
 
-	if (op_isBXDForBlend(op))
+	if (op_isBXDForCoatOrBlend(op))
 		writeReg(REG_DST(regs), result);
 }
 

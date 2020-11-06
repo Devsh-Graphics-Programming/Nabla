@@ -162,10 +162,12 @@ bool op_isBXDF(in uint op)
 {
 	return op<=OP_MAX_BSDF;
 }
-bool op_isBXDForBlend(in uint op)
+bool op_isBXDForCoatOrBlend(in uint op)
 {
 #ifdef OP_BLEND
 	return op<=OP_BLEND;
+#elif defined(OP_COATING)
+	return op<=OP_COATING;
 #else
 	return op_isBXDF(op);
 #endif
@@ -454,36 +456,36 @@ bxdf_eval_t instr_execute_cos_eval_CONDUCTOR(in instr_t instr, in mat2x3 eta, in
 	return DG*fr;
 }
 
-bxdf_eval_t instr_execute_cos_eval_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in vec3 eta, in vec3 eta2, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache microfacet, in float DG, in bsdf_data_t data, out vec3 out_diffuse_weight)
+bxdf_eval_t instr_execute_cos_eval_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in vec3 eta, in vec3 eta2, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache microfacet, in float DG, in bsdf_data_t data, out float out_weight)
 {
-	float thickness = uintBitsToFloat(data.data[2].z);
-	//vec3 sigmaA = params_getSigmaA(params);
+	//vec3 thickness_sigma = params_getSigmaA(params);
 	
-	vec3 fr = irr_glsl_fresnel_dielectric_frontface_only(eta, microfacet.isotropic.VdotH);
+	vec3 ws_ = irr_glsl_fresnel_dielectric_frontface_only(eta, microfacet.isotropic.VdotH);
+	// TODO include thickness_sigma in diffuse weight computation: exp(sigma_thickness * freePath)
+	// freePath = ( sqrt(refract_compute_NdotT2(NdotL2, rcpOrientedEta2)) + sqrt(refract_compute_NdotT2(NdotV2, rcpOrientedEta2)) )
+	vec3 wd_ = irr_glsl_diffuseFresnelCorrectionFactor(eta, eta2) * (vec3(1.0) - irr_glsl_fresnel_dielectric_frontface_only(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0) - irr_glsl_fresnel_dielectric_frontface_only(eta, s.NdotL));
+	float ws = dot(CIE_XYZ_Luma_Y_coeffs, ws_);
+	float wd = dot(CIE_XYZ_Luma_Y_coeffs, wd_);
+	float w = ws / (ws + wd);
 
-	vec3 wd = irr_glsl_diffuseFresnelCorrectionFactor(eta, eta2) * (vec3(1.0) - irr_glsl_fresnel_dielectric_frontface_only(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0) - irr_glsl_fresnel_dielectric_frontface_only(eta, s.NdotL));
-	bxdf_eval_t coated = srcs[0].xyz;
+	bxdf_eval_t coat = srcs[0].xyz;
+	bxdf_eval_t coated = srcs[1].xyz;
 
-	out_diffuse_weight = wd;
+	out_weight = w;
 
-	return fr*DG + coated*wd;
+	return coat*ws_ + coated*wd_;
 }
 
-eval_and_pdf_t instr_execute_cos_eval_pdf_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in vec3 eta, in vec3 eta2, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache microfacet, in float DG, in bsdf_data_t data, in float coat_pdf)
+eval_and_pdf_t instr_execute_cos_eval_pdf_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in vec3 eta, in vec3 eta2, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache microfacet, in float DG, in bsdf_data_t data)
 {
-	float thickness = uintBitsToFloat(data.data[2].z);
+	//float thickness = uintBitsToFloat(data.data[2].z);
 
-	vec3 diffuse_weight;
-	bxdf_eval_t bxdf = instr_execute_cos_eval_COATING(instr, srcs, params, eta, eta2, s, microfacet, DG, data, diffuse_weight);
-	float coated_pdf = srcs[0].w;
+	float weight;
+	bxdf_eval_t bxdf = instr_execute_cos_eval_COATING(instr, srcs, params, eta, eta2, s, microfacet, DG, data, weight);
+	float coat_pdf = srcs[0].w;
+	float coated_pdf = srcs[1].w;
 
-	const vec3 fr = (bxdf - srcs[0].xyz*diffuse_weight) / DG;
-	float ws = dot(CIE_XYZ_Luma_Y_coeffs, fr);
-	float wd = dot(CIE_XYZ_Luma_Y_coeffs, diffuse_weight);
-	float wswd = ws + wd;
-	ws /= wswd;
-	wd /= wswd;
-	float pdf = wd*coated_pdf + ws*coat_pdf;
+	float pdf = mix(coat_pdf, coated_pdf, weight);
 
 	return eval_and_pdf_t(bxdf, pdf);
 }
@@ -759,6 +761,7 @@ float irr_glsl_blinn_phong_cos_eval_DG(in irr_glsl_LightSample s, in irr_glsl_An
 }
 
 #ifdef GEN_CHOICE_STREAM
+// sample and microfacet are inout because of handleTwosided() only
 void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache _microfacet)
 {
 	uint op = instr_getOpcode(instr);
@@ -927,7 +930,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 #ifdef OP_COATING
 		CASE_BEGIN(op, OP_COATING) {
 			//(in instr_t instr, in mat2x4 srcs, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache microfacet, in float DG, in params_t params, in bsdf_data_t data, in float coat_pdf)
-			result = instr_execute_cos_eval_pdf_COATING(instr, srcs, params, ior[0], ior2[0], s, microfacet, bxdf_eval_scalar_part, bsdf_data, pdf);
+			result = instr_execute_cos_eval_pdf_COATING(instr, srcs, params, ior[0], ior2[0], s, microfacet, bxdf_eval_scalar_part, bsdf_data);
 		} CASE_END
 #endif
 #ifdef OP_DIELECTRIC
@@ -961,7 +964,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 		END_CASES
 	}
 
-	if (op_isBXDForBlend(op))
+	if (op_isBXDForCoatOrBlend(op))
 		writeReg(REG_DST(regs), result);
 }
 
@@ -1029,11 +1032,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	vec3 u = rand;
 
 	setCurrInteraction(precomp);
-	while (!op_isBXDF(op) 
-#ifdef OP_COATING
-		&& op!=OP_COATING
-#endif
-	)
+	while (!op_isBXDF(op))
 	{
 		handleTwosided_interactionOnly(instr);
 
@@ -1047,31 +1046,25 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 
 			uint right = instr_getRightJump(instr);
 			ix = choseRight ? right:(ix+1u);
-			weight *= choseRight ? (1.0-w):w;
+			weight /= rcpChoiceProb;
 		}
 		else 
 #endif //OP_BLEND
 #ifdef OP_COATING
 		if (op==OP_COATING) {
-			// ehh this whole thing of managing COATING is bad af
 			bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
 			vec3 eta = bsdf_data_decodeIoR(bsdf_data, OP_COATING)[0];
 			vec3 fresnel = irr_glsl_fresnel_dielectric_frontface_only(eta, currInteraction.isotropic.NdotV);
-			float w = dot(fresnel, CIE_XYZ_Luma_Y_coeffs);
-			float rcpProb;
-			bool choseCoat = irr_glsl_partitionRandVariable(w, u.z, rcpProb);
-			//TODO those weight multiplications are probably wrong, not needed or should concern remainder only
-			if (choseCoat)
-			{
-				weight *= (1.0-w);
-				break;
-			}
-			else
-			{
-				weight *= w;
-				//weight *= diffuse fresnel correction
-				ix = ix+1u;
-			}
+			// TODO include thickness_sigma in weight computation
+			vec3 weight = irr_glsl_diffuseFresnelCorrectionFactor(eta, eta*eta) * (vec3(1.0) - fresnel);
+			float w = dot(weight, CIE_XYZ_Luma_Y_coeffs);
+			w = 1.0 - w;
+			float rcpChoiceProb;
+			bool choseCoated = irr_glsl_partitionRandVariable(w, u.z, rcpChoiceProb);
+
+			uint coated_ix = instr_getRightJump(instr);
+			ix = choseCoated ? coated_ix:(ix+1u);
+			weight /= rcpChoiceProb;
 		} else
 #endif //OP_COATING
 		{
@@ -1127,6 +1120,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	{
 		const vec3 luminosityContributionHint = CIE_XYZ_Luma_Y_coeffs;
 		s = irr_glsl_thin_smooth_dielectric_cos_generate(currInteraction, u, ior2[0], luminosityContributionHint);
+		// TODO !
 		out_microfacet = getSmoothMicrofacetCache(currInteraction.isotropic.NdotV, s.NdotL);
 		rem = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ior2[0], luminosityContributionHint);
 		pdf = 1.0;
@@ -1144,7 +1138,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 			bool flip = irr_glsl_partitionRandVariable(0.5, u.z, dummy);
 			localL = flip ? -localL : localL;
 		}
-		s = irr_glsl_createLightSample(localV, localL, tangentFrame);
+		s = irr_glsl_createLightSampleTangentSpace(localV, localL, tangentFrame);
 		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
 	} else
 #endif
@@ -1164,7 +1158,8 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 #ifdef NDF_GGX
 		CASE_BEGIN(ndf, NDF_GGX) 
 		{
-			localH = vec3(0.0); //TODO
+			// why is it called without "wo_clamps" and beckmann sampling is?
+			localH = irr_glsl_ggx_cos_generate(localV, u.xy, ax, ay);
 		} CASE_END
 #endif //NDF_GGX
 
@@ -1178,7 +1173,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 #ifdef NDF_PHONG
 		CASE_BEGIN(ndf, NDF_PHONG) 
 		{
-			localH = vec3(0.0); //TODO
+			localH = irr_glsl_beckmann_cos_generate_wo_clamps(localV, u.xy, ax, ay);
 		} CASE_END
 #endif //NDF_PHONG
 		CASE_OTHERWISE
@@ -1203,13 +1198,18 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		pdf /= rcpChoiceProb;
 		s = irr_glsl_createLightSampleTangentSpace(localV, localH, VdotH, tangentFrame);
 		float eta = dot(CIE_XYZ_Luma_Y_coeffs, ior[0]);
-		irr_glsl_calcAnisotropicMicrofacetCache(out_microfacet, currInteraction, s, eta);
+		const bool valid = irr_glsl_calcAnisotropicMicrofacetCache(out_microfacet, currInteraction, s, eta);
+		const float TdotH2 = out_microfacet.TdotH * out_microfacet.TdotH;
+		const float BdotH2 = out_microfacet.BdotH * out_microfacet.BdotH;
+		const float NdotH2 = out_microfacet.isotropic.NdotH2;
 
 		BEGIN_CASES(ndf)
 #ifdef NDF_GGX
 		CASE_BEGIN(ndf, NDF_GGX)
 		{
-			//TODO G1, G2_over_G1, ndf_val
+			G2_over_G1 = irr_glsl_ggx_smith_G2_over_G1(s.NdotL, s.TdotL*s.TdotL, s.BdotL*s.BdotL, s.NdotL*s.NdotL, currInteraction.isotropic.NdotV, TdotV2, BdotV2, NdotV2, ax2, ay2);
+			G1 = irr_glsl_GGXSmith_G1_wo_numerator(currInteraction.isotropic.NdotV, TdotV2, BdotV2, NdotV2, ax2, ay2) * 2.0*currInteraction.isotropic.NdotV*s.NdotL;
+			ndf_val = irr_glsl_ggx_aniso(TdotH2, BdotH2, NdotH2, ax, ay, ax2, ay2);
 		} CASE_END
 #endif //NDF_GGX
 
@@ -1218,11 +1218,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		{
 			float lambdaV = irr_glsl_smith_beckmann_Lambda(TdotV2, BdotV2, NdotV2, ax2, ay2);
 			G1 = irr_glsl_smith_G1(lambdaV);
-			G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL * s.TdotL, s.BdotL * s.BdotL, s.NdotL * s.NdotL, ax2, ay2);
-
-			const float TdotH2 = out_microfacet.TdotH * out_microfacet.TdotH;
-			const float BdotH2 = out_microfacet.BdotH * out_microfacet.BdotH;
-			const float NdotH2 = out_microfacet.isotropic.NdotH2;
+			G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL*s.TdotL, s.BdotL*s.BdotL, s.NdotL*s.NdotL, ax2, ay2);
 			ndf_val = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, NdotH2);
 		} CASE_END
 #endif //NDF_BECKMANN
@@ -1230,20 +1226,24 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 #ifdef NDF_PHONG
 		CASE_BEGIN(ndf, NDF_PHONG)
 		{
-			//TODO G1, G2_over_G1, ndf_val
+			float lambdaV = irr_glsl_smith_beckmann_Lambda(TdotV2, BdotV2, NdotV2, ax2, ay2);
+			G1 = irr_glsl_smith_G1(lambdaV);
+			G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL * s.TdotL, s.BdotL * s.BdotL, s.NdotL * s.NdotL, ax2, ay2);
+			ndf_val = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, NdotH2);
 		} CASE_END
 #endif //NDF_PHONG
 		CASE_OTHERWISE
 		{}
 		END_CASES
+
+		rem *= G2_over_G1;
+		pdf *= (G1 * ndf_val);
 	} else
 #endif
 	{} //empty braces for `else`
 
-	rem *= G2_over_G1;
-	pdf *= (G1 * ndf_val);
-	out_remainder = weight*rem;
-	out_pdf = weight*pdf; // TODO not multiplu pdf by weight??
+	out_remainder = rem; // TODO not multiply rem by weight??
+	out_pdf = weight*pdf; 
 
 	return s;
 }
