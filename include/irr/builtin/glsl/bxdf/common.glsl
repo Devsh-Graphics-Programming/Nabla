@@ -296,25 +296,19 @@ bool irr_glsl_calcAnisotropicMicrofacetCache(out irr_glsl_AnisotropicMicrofacetC
 
     return valid;
 }
-bool irr_glsl_calcAnisotropicMicrofacetCache(out irr_glsl_AnisotropicMicrofacetCache _cache, in bool transmitted, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_LightSample _sample, in float eta)
-{
-    const float NdotV = interaction.isotropic.NdotV;
-
-    float orientedEta, rcpOrientedEta;
-    const bool backside = irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, NdotV, eta);
-
-    const vec3 V = interaction.isotropic.V.dir;
-    const vec3 L = _sample.L;
-    const float VdotL = dot(V, L);
-    return irr_glsl_calcAnisotropicMicrofacetCache(_cache, transmitted, V, L, interaction.T, interaction.B, interaction.isotropic.N, NdotL, VdotL, orientedEta, rcpOrientedEta);
-}
 bool irr_glsl_calcAnisotropicMicrofacetCache(out irr_glsl_AnisotropicMicrofacetCache _cache, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_LightSample _sample, in float eta)
 {
     const float NdotV = interaction.isotropic.NdotV;
     const float NdotL = _sample.NdotL;
     const bool transmitted = irr_glsl_isTransmissionPath(NdotV,NdotL);
     
-    return irr_glsl_calcAnisotropicMicrofacetCache(_cache, transmitted, interaction, _sample, eta);
+    float orientedEta, rcpOrientedEta;
+    const bool backside = irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, NdotV, eta);
+    
+    const vec3 V = interaction.isotropic.V.dir;
+    const vec3 L = _sample.L;
+    const float VdotL = dot(V,L);
+    return irr_glsl_calcAnisotropicMicrofacetCache(_cache,transmitted,V,L,interaction.T,interaction.B,interaction.isotropic.N,NdotL,VdotL,orientedEta,rcpOrientedEta);
 }
 // always valid because its for the reflective case
 irr_glsl_AnisotropicMicrofacetCache irr_glsl_calcAnisotropicMicrofacetCache(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_LightSample _sample)

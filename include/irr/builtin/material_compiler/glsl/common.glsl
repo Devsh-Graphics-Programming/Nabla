@@ -1020,7 +1020,7 @@ irr_glsl_AnisotropicMicrofacetCache getSmoothMicrofacetCache(in float NdotV, in 
 	return microfacet;
 }
 
-irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr_stream_t stream, in vec3 rand, out vec3 out_remainder, out float out_pdf, out irr_glsl_AnisotropicMicrofacetCache out_microfacet, out uint out_gen_rnpOffset, out bool out_valid_sample)
+irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr_stream_t stream, in vec3 rand, out vec3 out_remainder, out float out_pdf, out irr_glsl_AnisotropicMicrofacetCache out_microfacet, out uint out_gen_rnpOffset)
 {
 	uint ix = 0u;
 	instr_t instr = irr_glsl_MC_fetchInstr(stream.offset);
@@ -1118,7 +1118,6 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	vec3 rem = vec3(1.0);
 	uint ndf = instr_getNDF(instr);
 	irr_glsl_LightSample s;
-	out_valid_sample = true;
 
 	const vec3 localV = irr_glsl_getTangentSpaceV(currInteraction);
 	const mat3 tangentFrame = irr_glsl_getTangentFrame(currInteraction);
@@ -1204,82 +1203,68 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		pdf /= rcpChoiceProb;
 		s = irr_glsl_createLightSampleTangentSpace(localV, localH, VdotH, tangentFrame);
 		float eta = dot(CIE_XYZ_Luma_Y_coeffs, ior[0]);
-		out_valid_sample = irr_glsl_calcAnisotropicMicrofacetCache(out_microfacet, refraction, currInteraction, s, eta);
+		irr_glsl_calcAnisotropicMicrofacetCache(out_microfacet, currInteraction, s, eta);
 
-		if (out_valid_sample)
-		{
-			BEGIN_CASES(ndf)
+		BEGIN_CASES(ndf)
 #ifdef NDF_GGX
-			CASE_BEGIN(ndf, NDF_GGX)
-			{
-				//TODO G1, G2_over_G1, ndf_val
-			} CASE_END
+		CASE_BEGIN(ndf, NDF_GGX)
+		{
+			//TODO G1, G2_over_G1, ndf_val
+		} CASE_END
 #endif //NDF_GGX
 
 #ifdef NDF_BECKMANN
-			CASE_BEGIN(ndf, NDF_BECKMANN)
-			{
-				float lambdaV = irr_glsl_smith_beckmann_Lambda(TdotV2, BdotV2, NdotV2, ax2, ay2);
-				G1 = irr_glsl_smith_G1(lambdaV);
-				G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL * s.TdotL, s.BdotL * s.BdotL, s.NdotL * s.NdotL, ax2, ay2);
+		CASE_BEGIN(ndf, NDF_BECKMANN)
+		{
+			float lambdaV = irr_glsl_smith_beckmann_Lambda(TdotV2, BdotV2, NdotV2, ax2, ay2);
+			G1 = irr_glsl_smith_G1(lambdaV);
+			G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL * s.TdotL, s.BdotL * s.BdotL, s.NdotL * s.NdotL, ax2, ay2);
 
-				const float TdotH2 = out_microfacet.TdotH * out_microfacet.TdotH;
-				const float BdotH2 = out_microfacet.BdotH * out_microfacet.BdotH;
-				const float NdotH2 = out_microfacet.isotropic.NdotH2;
-				ndf_val = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, NdotH2);
-			} CASE_END
+			const float TdotH2 = out_microfacet.TdotH * out_microfacet.TdotH;
+			const float BdotH2 = out_microfacet.BdotH * out_microfacet.BdotH;
+			const float NdotH2 = out_microfacet.isotropic.NdotH2;
+			ndf_val = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, NdotH2);
+		} CASE_END
 #endif //NDF_BECKMANN
 
 #ifdef NDF_PHONG
-			CASE_BEGIN(ndf, NDF_PHONG)
-			{
-				//TODO G1, G2_over_G1, ndf_val
-			} CASE_END
+		CASE_BEGIN(ndf, NDF_PHONG)
+		{
+			//TODO G1, G2_over_G1, ndf_val
+		} CASE_END
 #endif //NDF_PHONG
-			CASE_OTHERWISE
-			{}
-			END_CASES
-		}
+		CASE_OTHERWISE
+		{}
+		END_CASES
 	} else
 #endif
 	{} //empty braces for `else`
 
-	if (out_valid_sample)
-	{
-		rem *= G2_over_G1;
-		pdf *= (G1 * ndf_val);
-		out_remainder = weight * rem;
-		out_pdf = weight * pdf; // TODO not multiplu pdf by weight??
-	}
+	rem *= G2_over_G1;
+	pdf *= (G1 * ndf_val);
+	out_remainder = weight*rem;
+	out_pdf = weight*pdf; // TODO not multiplu pdf by weight??
 
 	return s;
 }
 
 vec3 runGenerateAndRemainderStream(in MC_precomputed_t precomp, in instr_stream_t gcs, in instr_stream_t rnps, in vec3 rand, out float out_pdf, out irr_glsl_LightSample out_smpl)
 {
-	out_pdf = 0.0;
-
 	instr_t generator;
 	vec3 generator_rem;
 	float generator_pdf;
 	irr_glsl_AnisotropicMicrofacetCache microfacet;
 	uint generator_rnpOffset;
-	bool valid_sample;
-	irr_glsl_LightSample s = irr_bsdf_cos_generate(precomp, gcs, rand, generator_rem, generator_pdf, microfacet, generator_rnpOffset, valid_sample);
+	irr_glsl_LightSample s = irr_bsdf_cos_generate(precomp, gcs, rand, generator_rem, generator_pdf, microfacet, generator_rnpOffset);
+	eval_and_pdf_t eval_pdf = irr_bsdf_eval_and_pdf(precomp, rnps, s, generator_rnpOffset, microfacet);
+	bxdf_eval_t acc = eval_pdf.rgb;
+	float restPdf = eval_pdf.a;
+	float pdf = generator_pdf + restPdf;
+
 	out_smpl = s;
+	out_pdf = pdf;
 
-	vec3 rem = vec3(0.0);
-	if (valid_sample)
-	{
-		eval_and_pdf_t eval_and_pdf = irr_bsdf_eval_and_pdf(precomp, rnps, s, generator_rnpOffset, microfacet);
-		bxdf_eval_t acc = eval_and_pdf.rgb;
-		float restPdf = eval_and_pdf.a;
-
-		out_pdf = generator_pdf + restPdf;
-		out_smpl = s;
-
-		rem = generator_rem/(1.0 + restPdf/generator_pdf) + acc/out_pdf;
-	}
+	vec3 rem = generator_rem/(1.0 + restPdf/generator_pdf) + acc/pdf;
 
 	return rem;
 }
