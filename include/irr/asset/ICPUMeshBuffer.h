@@ -392,7 +392,7 @@ public:
         if (!m_pipeline)
             return nullptr;
 
-        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
+        const auto& vtxInputParams = const_cast<const ICPURenderpassIndependentPipeline*>(m_pipeline.get())->getVertexInputParams();
         if (!isAttributeEnabled(attrId))
             return nullptr;
 

@@ -462,8 +462,7 @@ public:
     {
         CCoatingBSDFNode() : CMicrofacetSpecularBSDFNode(ET_COATING) {}
 
-        SParameter<color_t> sigmaA = color_t(0.f);
-        float thickness = 1.f;
+        SParameter<color_t> thicknessSigmaA;
     };
     struct CDielectricBSDFNode : CMicrofacetSpecularBSDFNode
     {

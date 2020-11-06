@@ -30,14 +30,14 @@ public:
 			//brdf
 			OP_DIFFUSE,
 			OP_CONDUCTOR,
-			OP_COATING,
-			OP_MAX_BRDF = OP_COATING,
+			OP_MAX_BRDF = OP_CONDUCTOR,
 			//bsdf
 			OP_DIFFTRANS,
 			OP_DIELECTRIC,
 			OP_THINDIELECTRIC,
 			OP_MAX_BSDF = OP_THINDIELECTRIC,
 			//blend
+			OP_COATING,
 			OP_BLEND,
 			//specials
 			OP_BUMPMAP,
@@ -346,12 +346,11 @@ public:
 			} PACK_STRUCT;
 			struct SAllCoating
 			{
-				STextureOrConstant alpha_u;
-				STextureOrConstant alpha_v;
+				STextureOrConstant dummy1;
+				STextureOrConstant dummy2;
 				STextureOrConstant opacity;
 				STextureOrConstant sigmaA;
 				uint64_t eta;
-				float thickness;
 			} PACK_STRUCT;
 			struct SBumpMap
 			{
@@ -438,12 +437,11 @@ public:
 		} PACK_STRUCT;
 		struct SAllCoating
 		{
-			STextureOrConstant alpha_u;
-			STextureOrConstant alpha_v;
+			STextureOrConstant dummy1;
+			STextureOrConstant dummy2;
 			STextureOrConstant opacity;
 			STextureOrConstant sigmaA;
 			uint64_t eta;
-			float thickness;
 		} PACK_STRUCT;
 		struct SBumpMap
 		{
@@ -560,10 +558,10 @@ protected:
 	_IRR_STATIC_INLINE_CONSTEXPR const char* OPCODE_NAMES[instr_stream::OPCODE_COUNT]{
 		"OP_DIFFUSE",
 		"OP_CONDUCTOR",
-		"OP_COATING",
 		"OP_DIFFTRANS",
 		"OP_DIELECTRIC",
 		"OP_THINDIELECTRIC",
+		"OP_COATING",
 		"OP_BLEND",
 		"OP_BUMPMAP",
 		"OP_SET_GEOM_NORMAL",

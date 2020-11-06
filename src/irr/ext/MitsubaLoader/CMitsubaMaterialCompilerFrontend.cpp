@@ -294,8 +294,14 @@ namespace MitsubaLoader
             const float eta = current->dielectric.intIOR/current->dielectric.extIOR;
 
             auto* node = static_cast<IR::CCoatingBSDFNode*>(nextSym);
-            node->thickness = current->coating.thickness;
-            getSpectrumOrTexture(current->coating.sigmaA, node->sigmaA);
+
+            const float thickness = current->coating.thickness;
+            getSpectrumOrTexture(current->coating.sigmaA, node->thicknessSigmaA);
+            if (node->thicknessSigmaA.source == IR::INode::EPS_CONSTANT)
+                node->thicknessSigmaA.value.constant *= thickness;
+            else
+                node->thicknessSigmaA.value.texture.scale *= thickness;
+
             node->eta = IR::INode::color_t(eta);
             node->shadowing = IR::CCoatingBSDFNode::EST_SMITH;
             if (currType == CElementBSDF::ROUGHCOATING)
