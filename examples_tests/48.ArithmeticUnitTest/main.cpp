@@ -9,6 +9,7 @@ using namespace core;
 using namespace video;
 using namespace asset;
 
+
 enum TestOperation {
 	TO_AND = 1,
 	TO_XOR,
@@ -19,25 +20,71 @@ enum TestOperation {
 	TO_MAX
 };
 
-template<typename T, typename OP, uint32_t subgroupSize>
-T emulatedSubgroupReduction(const T* data, const uint32_t globalInvocationIndex)
+template<typename T> T and(T left, T right) { return left & right; }
+template<typename T> T xor(T left, T right) { return left ^ right; }
+template<typename T> T or(T left, T right) { return left | right; }
+template<typename T> T add(T left, T right) { return left + right; }
+template<typename T> T mul(T left, T right) { return left * right; }
+template<typename T> T min(T left, T right) { return std::min(left, right); }
+template<typename T> T max(T left, T right) { return std::max(left, right); }
+
+typedef uint32_t(*arithmeticFuncPtr)(uint32_t, uint32_t);
+arithmeticFuncPtr arrayofFunctions[] = {
+ and<uint32_t>,
+ xor<uint32_t>,
+ or <uint32_t>,
+ add<uint32_t>,
+ mul<uint32_t>,
+ min<uint32_t>,
+ max<uint32_t> 
+};
+
+//subgroup method emulations on the CPU, to verify the results of the GPU methods
+template<typename T>
+T emulatedSubgroupReduction(const T* data, const uint32_t globalInvocationIndex, uint32_t subgroupSize, arithmeticFuncPtr pFunc)
 {
 	auto subgroupID = globalInvocationIndex / subgroupSize;
-	//auto subgroupOffset = data + subgroupID * subgroupSize;
 	T retval = data[0];
 	for (auto i = 1u; i < subgroupSize; i++)
-		retval = OP(retval, data[i]);
+		retval = pFunc(retval, data[i]);
 	return retval;
 }
-uint32_t add(uint32_t a, uint32_t b)
+template<typename T>
+T emulatedScanExclusive(const T* data, const uint32_t globalInvocationIndex, uint32_t subgroupSize, arithmeticFuncPtr pFunc)
 {
-	return a + b;
+	auto subgroupID = globalInvocationIndex / subgroupSize;
+	auto subgroupInvocationID = globalInvocationIndex % subgroupSize;
+	T retval = data[0];
+	for (auto i = 1u; i < subgroupSize; i++)
+	{
+		if (subgroupInvocationID == i) 
+			break;
+		retval = pFunc(retval, data[i]);
+	}
+	return retval;
 }
+template<typename T>
+T emulatedScanInclusive(const T* data, const uint32_t globalInvocationIndex, uint32_t subgroupSize, arithmeticFuncPtr pFunc)
+{
+	auto subgroupID = globalInvocationIndex / subgroupSize;
+	auto subgroupInvocationID = globalInvocationIndex % subgroupSize;
+	T retval = data[0];
+	for (auto i = 1u; i < subgroupSize; i++)
+	{
+		if (subgroupInvocationID + 1 == i) 
+			break;
+		retval = pFunc(retval, data[i]);
+	}
+	return retval;
+}
+
+
+
 
 constexpr uint32_t BUFFER_SIZE = 128u * 1024u * 1024u;
 //returns true if result matches
-template<typename Func>
-bool validateResults(video::IVideoDriver* driver, const uint32_t* inputData, video::IGPUBuffer* bufferToDownload)
+template<typename EmulatedFunc,typename arithmeticFunc>
+bool validateResults(video::IVideoDriver* driver, const uint32_t* inputData, video::IGPUBuffer* bufferToDownload, EmulatedFunc emulatedFunc,  arithmeticFunc pFunc)
 {
 	constexpr uint64_t timeoutInNanoSeconds = 15000000000u;
 	const uint32_t alignment = sizeof(uint32_t);
@@ -66,30 +113,29 @@ bool validateResults(video::IVideoDriver* driver, const uint32_t* inputData, vid
 		driver->invalidateMappedMemoryRanges({ {downloadStagingArea->getBuffer()->getBoundMemory(),address,BUFFER_SIZE} });
 
 	auto dataFromBuffer = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer()) + address);
+
 	//now check if the data obtained has valid values
 	uint32_t* end = dataFromBuffer + BUFFER_SIZE / sizeof(uint32_t);
 	uint32_t invocationIndex = 0;
 	for (uint32_t* i = dataFromBuffer; i < end; i++)
 	{
-		uint32_t val = *(inputData + invocationIndex);	//TODO instead the template function and compare result
-		/*if (val != *i)
-			goto validationEndFalse;*/
+		uint32_t val = emulatedFunc(inputData + invocationIndex, invocationIndex, 4, pFunc);
+		if (val != *i) {
+			_IRR_DEBUG_BREAK_IF(true);
+			downloadStagingArea->multi_free(1u, &address, &BUFFER_SIZE, nullptr);
+			return false;
+		}
 		invocationIndex++;
 	}
 	downloadStagingArea->multi_free(1u, &address, &BUFFER_SIZE, nullptr);
 	return true;
 
-validationEndFalse:
-	downloadStagingArea->multi_free(1u, &address, &BUFFER_SIZE, nullptr);
-	return false;
-
 }
+
 int main()
 {
-	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
 	irr::SIrrlichtCreationParameters params;
-	params.Bits = 24; //may have to set to 32bit for some platforms
+	params.Bits = 24;
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
 	params.WindowSize = dimension2d<uint32_t>(1280, 720);
@@ -97,7 +143,7 @@ int main()
 	params.Vsync = true; //! If supported by target platform
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
-	params.StreamingDownloadBufferSize = BUFFER_SIZE * 2;
+	params.StreamingDownloadBufferSize = BUFFER_SIZE;
 	auto device = createDeviceEx(params);
 
 	if (!device)
@@ -108,19 +154,15 @@ int main()
 	asset::IAssetManager* am = device->getAssetManager();
 
 	uint32_t* inputData = new uint32_t[BUFFER_SIZE / sizeof(uint32_t)];
-
-	auto inputDataBuffer = make_smart_refctd_ptr<ICPUBuffer>(BUFFER_SIZE);
 	{
-		uint32_t* ptr = static_cast<uint32_t*>(inputDataBuffer->getPointer());
+		std::mt19937 randGenerator(std::time(0));
 		for (size_t i = 0; i < BUFFER_SIZE / sizeof(uint32_t); i++)
 		{
-			auto memAddr = ptr + i;
-			uint32_t randomValue = std::rand();
-			*memAddr = randomValue;
-			inputData[i] = randomValue;
+			inputData[i] = randGenerator();
 		}
 	}
-	core::smart_refctd_ptr<IGPUBuffer> gpuinputDataBuffer = core::smart_refctd_ptr<IGPUBuffer>(driver->getGPUObjectsFromAssets(&inputDataBuffer, &inputDataBuffer + 1)->front()->getBuffer());
+	auto gpuinputDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(BUFFER_SIZE, inputData);
+	
 	//create 7 buffers.
 	core::smart_refctd_ptr<IGPUBuffer> buffers[7];
 	for (size_t i = 0; i < 7; i++)
@@ -139,7 +181,7 @@ int main()
 		{TO_MAX,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
 	};
 	auto gpuDSLayout = driver->createGPUDescriptorSetLayout(binding, binding + 8);
-	constexpr uint32_t pushconstantSize = 1;
+	constexpr uint32_t pushconstantSize = 64u;
 	SPushConstantRange pcRange[1] = { IGPUSpecializedShader::ESS_COMPUTE,0u,pushconstantSize };
 	auto pipelineLayout = driver->createGPUPipelineLayout(pcRange, pcRange + pushconstantSize, core::smart_refctd_ptr(gpuDSLayout));
 
@@ -181,20 +223,25 @@ int main()
 	};
 
 
-auto getGPUShader = [&](GLSLCodeWithWorkgroup glsl, uint32_t wg_count)
-{
-	auto alteredGLSL = glsl.glsl.replace(glsl.workgroup_definition_position, 4, std::to_string(wg_count));
-	auto shaderUnspecialized = core::make_smart_refctd_ptr<asset::ICPUShader>(alteredGLSL.data());
-	asset::ISpecializedShader::SInfo specinfo(nullptr, nullptr, "main", IGPUSpecializedShader::ESS_COMPUTE,"../file.comp");
-	auto cs = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(shaderUnspecialized), std::move(specinfo));
-	auto cs_rawptr = cs.get();
-	core::smart_refctd_ptr<IGPUSpecializedShader> shader = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
-	return shader;
-};
+	auto getGPUShader = [&](GLSLCodeWithWorkgroup glsl, uint32_t wg_count)
+	{
+		auto alteredGLSL = glsl.glsl.replace(glsl.workgroup_definition_position, 4, std::to_string(wg_count));
+		auto shaderUnspecialized = core::make_smart_refctd_ptr<asset::ICPUShader>(alteredGLSL.data());
+		asset::ISpecializedShader::SInfo specinfo(nullptr, nullptr, "main", IGPUSpecializedShader::ESS_COMPUTE,"../file.comp");
+		auto cs = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(shaderUnspecialized), std::move(specinfo));
+		auto cs_rawptr = cs.get();
+		core::smart_refctd_ptr<IGPUSpecializedShader> shader = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
+		return shader;
+	};
+	
+	int totalFailCount = 0;
+	constexpr int totalTestCount = 1022 * 3 * 7;
+
+	//As of now, subgroup size is hardcoded to 4
+	//workgroup size is required to be greater or equal to subgroup_size/2
+	//max workgroup size is hardcoded to 256
 	for (size_t current_Workgroup = 2; current_Workgroup < 1024; current_Workgroup++)
 	{
-
-
 		auto reducePipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), std::move(getGPUShader(shaderGLSL[0], current_Workgroup)));
 		auto inclusivePipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), std::move(getGPUShader(shaderGLSL[0], current_Workgroup)));
 		auto exclusicePipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), std::move(getGPUShader(shaderGLSL[0], current_Workgroup)));
@@ -206,17 +253,44 @@ auto getGPUShader = [&](GLSLCodeWithWorkgroup glsl, uint32_t wg_count)
 		if (device->run())
 		{
 			driver->beginScene(true);
-			for (size_t i = 0; i < 3; i++)	//1 because skipping reduce! UNDO THIS
+			for (size_t i = 0; i < 3; i++)
 			{
 				driver->bindComputePipeline(pipelines[i].get());
 				const video::IGPUDescriptorSet* ds = descriptorSet.get();
 				driver->bindDescriptorSets(video::EPBP_COMPUTE, pipelines[i]->getLayout(), 0u, 1u, &ds, nullptr);
-				driver->dispatch(BUFFER_SIZE / (sizeof(uint32_t)), 1, 1);
-				video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_ALL_BARRIER_BITS);
+				uint32_t invocationCount = BUFFER_SIZE / (sizeof(uint32_t) * current_Workgroup);
+				if(invocationCount* current_Workgroup != BUFFER_SIZE / (sizeof(uint32_t)))
+					invocationCount++;
+
+				driver->dispatch(invocationCount, 1, 1);
+				video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 				//check results 
-				for (size_t i = TO_AND; i <= TO_MAX; i++)
+				bool passedAllOperations = true;
+				for (size_t op_index = 0; op_index < 7; op_index++)
 				{
-					validateResults<	uint32_t/*replace with method*/		>(driver, inputData, buffers[i - 1].get());
+					bool passed = false;
+					switch (i)
+					{
+					case 0:
+						passed = validateResults(driver, inputData, buffers[i].get(), emulatedSubgroupReduction<uint32_t>, arrayofFunctions[op_index]);
+						break;
+					case 1:
+						passed = validateResults(driver, inputData, buffers[i].get(), emulatedScanExclusive<uint32_t>, arrayofFunctions[op_index]);
+						break;
+					case 2:
+						passed = validateResults(driver, inputData, buffers[i].get(), emulatedScanInclusive<uint32_t>, arrayofFunctions[op_index]);
+						break;
+					}
+					if (!passed)
+					{
+						os::Printer::log("Failed test #"+ std::to_string( current_Workgroup)+ " (scan type "+std::to_string(i)+")  ("+std::to_string(op_index)+"/7)", ELL_ERROR);
+						totalFailCount++;
+						passedAllOperations = false;
+					}
+				}
+				if (passedAllOperations)
+				{
+					os::Printer::log("Passed test #" + std::to_string(current_Workgroup), ELL_INFORMATION);
 				}
 			}
 
@@ -226,5 +300,10 @@ auto getGPUShader = [&](GLSLCodeWithWorkgroup glsl, uint32_t wg_count)
 		}
 
 	}
+	os::Printer::log("Result:", ELL_INFORMATION);
+	os::Printer::log("Failed:" + totalFailCount, ELL_INFORMATION);
+	os::Printer::log("Total tests:" + totalTestCount, ELL_INFORMATION);
+
+	delete inputData;
 	return 0;
 }

@@ -5,11 +5,14 @@
 
 void main()
 {
-	andOutput [gl_LocalInvocationIndex] = irr_glsl_subgroupAnd(inputValue[gl_LocalInvocationIndex]);
-	xorOutput [gl_LocalInvocationIndex] = irr_glsl_subgroupXor(inputValue[gl_LocalInvocationIndex]);
-	orOutput  [gl_LocalInvocationIndex] = irr_glsl_subgroupOr (inputValue[gl_LocalInvocationIndex]);
-	addOutput [gl_LocalInvocationIndex] = irr_glsl_subgroupAdd(inputValue[gl_LocalInvocationIndex]);
-	multOutput[gl_LocalInvocationIndex] = irr_glsl_subgroupMul(inputValue[gl_LocalInvocationIndex]);
-	minOutput [gl_LocalInvocationIndex] = irr_glsl_subgroupMin(inputValue[gl_LocalInvocationIndex]);
-	maxOutput [gl_LocalInvocationIndex] = irr_glsl_subgroupMax(inputValue[gl_LocalInvocationIndex]);
+	if(gl_GlobalInvocationID.x < MAX_BUFFER_INDEX)
+	{
+		andOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupAnd(inputValue[gl_GlobalInvocationID.x]);
+		xorOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupXor(inputValue[gl_GlobalInvocationID.x]);
+		orOutput  [gl_GlobalInvocationID.x] = irr_glsl_subgroupOr (inputValue[gl_GlobalInvocationID.x]);
+		addOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupAdd(inputValue[gl_GlobalInvocationID.x]);
+		multOutput[gl_GlobalInvocationID.x] = irr_glsl_subgroupMul(inputValue[gl_GlobalInvocationID.x]);
+		minOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupMin(inputValue[gl_GlobalInvocationID.x]);
+		maxOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupMax(inputValue[gl_GlobalInvocationID.x]);
+	}
 }

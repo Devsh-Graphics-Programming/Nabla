@@ -1,6 +1,6 @@
-
+#define MAX_BUFFER_INDEX 1024u*1024u*32u
 #include "irr/builtin/glsl/subgroup/arithmetic_portability.glsl"
-
+layout(local_size_x = _IRR_GLSL_WORKGROUP_SIZE_) in;
 layout(set = 0, binding = 0, std430) readonly buffer inputBuff
     {
         uint inputValue[];
