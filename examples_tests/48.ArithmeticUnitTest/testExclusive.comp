@@ -1,18 +1,15 @@
 #version 450
 #define _IRR_GLSL_WORKGROUP_SIZE_ ???? 
 
-#include "common.glsl"
+#include "shaderCommon.glsl"
 
 void main()
 {
-	if(gl_GlobalInvocationID.x < MAX_BUFFER_INDEX)
-	{
-		andOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupExclusiveAnd(inputValue[gl_GlobalInvocationID.x]);
-		xorOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupExclusiveXor(inputValue[gl_GlobalInvocationID.x]);
-		orOutput  [gl_GlobalInvocationID.x] = irr_glsl_subgroupExclusiveOr (inputValue[gl_GlobalInvocationID.x]);
-		addOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupExclusiveAdd(inputValue[gl_GlobalInvocationID.x]);
-		multOutput[gl_GlobalInvocationID.x] = irr_glsl_subgroupExclusiveMul(inputValue[gl_GlobalInvocationID.x]);
-		minOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupExclusiveMin(inputValue[gl_GlobalInvocationID.x]);
-		maxOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupExclusiveMax(inputValue[gl_GlobalInvocationID.x]);
-	}
+	andOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupExclusiveAnd(inputValue[gl_GlobalInvocationID.x]);
+	xorOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupExclusiveXor(inputValue[gl_GlobalInvocationID.x]);
+	orOutput  [gl_GlobalInvocationID.x] = irr_glsl_subgroupExclusiveOr (inputValue[gl_GlobalInvocationID.x]);
+	addOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupExclusiveAdd(inputValue[gl_GlobalInvocationID.x]);
+	multOutput[gl_GlobalInvocationID.x] = irr_glsl_subgroupExclusiveMul(inputValue[gl_GlobalInvocationID.x]);
+	minOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupExclusiveMin(inputValue[gl_GlobalInvocationID.x]);
+	maxOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupExclusiveMax(inputValue[gl_GlobalInvocationID.x]);
 }

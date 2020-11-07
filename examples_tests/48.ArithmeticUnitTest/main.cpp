@@ -41,50 +41,42 @@ arithmeticFuncPtr arrayofFunctions[] = {
 
 //subgroup method emulations on the CPU, to verify the results of the GPU methods
 template<typename T>
-T emulatedSubgroupReduction(const T* data, const uint32_t globalInvocationIndex, uint32_t subgroupSize, arithmeticFuncPtr pFunc)
+T emulatedSubgroupReduction(const T* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, arithmeticFuncPtr pFunc)
 {
-	auto subgroupID = globalInvocationIndex / subgroupSize;
-	T retval = data[0];
-	for (auto i = 1u; i < subgroupSize; i++)
-		retval = pFunc(retval, data[i]);
+	auto subgroupData = workgroupData+(localInvocationIndex&(-subgroupSize));
+	T retval = subgroupData[0];
+	for (auto i=1u; i<subgroupSize; i++)
+		retval = pFunc(retval,subgroupData[i]);
 	return retval;
 }
 template<typename T>
-T emulatedScanExclusive(const T* data, const uint32_t globalInvocationIndex, uint32_t subgroupSize, arithmeticFuncPtr pFunc)
+T emulatedScanExclusive(const T* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, arithmeticFuncPtr pFunc)
 {
-	auto subgroupID = globalInvocationIndex / subgroupSize;
-	auto subgroupInvocationID = globalInvocationIndex % subgroupSize;
-	T retval = data[0];
-	for (auto i = 1u; i < subgroupSize; i++)
-	{
-		if (subgroupInvocationID == i) 
-			break;
-		retval = pFunc(retval, data[i]);
-	}
+	auto subgroupData = workgroupData+(localInvocationIndex&(-subgroupSize));
+	auto subgroupInvocationID = localInvocationIndex&(subgroupSize-1u);
+	T retval = 0u;
+	for (auto i=0u; i<subgroupInvocationID; i++)
+		retval = pFunc(retval, subgroupData[i]);
 	return retval;
 }
 template<typename T>
-T emulatedScanInclusive(const T* data, const uint32_t globalInvocationIndex, uint32_t subgroupSize, arithmeticFuncPtr pFunc)
+T emulatedScanInclusive(const T* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, arithmeticFuncPtr pFunc)
 {
-	auto subgroupID = globalInvocationIndex / subgroupSize;
-	auto subgroupInvocationID = globalInvocationIndex % subgroupSize;
-	T retval = data[0];
-	for (auto i = 1u; i < subgroupSize; i++)
-	{
-		if (subgroupInvocationID + 1 == i) 
-			break;
-		retval = pFunc(retval, data[i]);
-	}
+	auto subgroupData = workgroupData+(localInvocationIndex&(-subgroupSize));
+	auto subgroupInvocationID = localInvocationIndex&(subgroupSize-1u);
+	T retval = 0u;
+	for (auto i=0u; i<=subgroupInvocationID; i++)
+		retval = pFunc(retval, subgroupData[i]);
 	return retval;
 }
 
 
+#include "common.glsl"
+constexpr uint32_t kBufferSize = BUFFER_DWORD_COUNT*sizeof(uint32_t);
 
-
-constexpr uint32_t BUFFER_SIZE = 128u * 1024u * 1024u;
 //returns true if result matches
 template<typename EmulatedFunc,typename arithmeticFunc>
-bool validateResults(video::IVideoDriver* driver, const uint32_t* inputData, video::IGPUBuffer* bufferToDownload, EmulatedFunc emulatedFunc,  arithmeticFunc pFunc)
+bool validateResults(video::IVideoDriver* driver, const uint32_t* inputData, const uint32_t workgroupSize, const uint32_t workgroupCount, video::IGPUBuffer* bufferToDownload, EmulatedFunc emulatedFunc,  arithmeticFunc pFunc)
 {
 	constexpr uint64_t timeoutInNanoSeconds = 15000000000u;
 	const uint32_t alignment = sizeof(uint32_t);
@@ -92,43 +84,50 @@ bool validateResults(video::IVideoDriver* driver, const uint32_t* inputData, vid
 	auto downBuffer = downloadStagingArea->getBuffer();
 
 
+	bool success = false;
+
 
 	uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address;
-	auto unallocatedSize = downloadStagingArea->multi_alloc(1u, &address, &BUFFER_SIZE, &alignment);
+	auto unallocatedSize = downloadStagingArea->multi_alloc(1u, &address, &kBufferSize, &alignment);
 	if (unallocatedSize)
 	{
 		os::Printer::log("Could not download the buffer from the GPU!", ELL_ERROR);
 		return false;
 	}
-	driver->copyBuffer(bufferToDownload, downBuffer, 0, address, BUFFER_SIZE);
+	driver->copyBuffer(bufferToDownload, downBuffer, 0, address, kBufferSize);
+
 	auto downloadFence = driver->placeFence(true);
 	auto result = downloadFence->waitCPU(timeoutInNanoSeconds, true);
-	if (result == video::E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED || result == video::E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
+	if (result != video::E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED && result != video::E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
 	{
-		os::Printer::log("Could not download the buffer from the GPU, fence not signalled!", ELL_ERROR);
-		downloadStagingArea->multi_free(1u, &address, &BUFFER_SIZE, nullptr);
-		return false;
-	}
-	if (downloadStagingArea->needsManualFlushOrInvalidate())
-		driver->invalidateMappedMemoryRanges({ {downloadStagingArea->getBuffer()->getBoundMemory(),address,BUFFER_SIZE} });
+		success = true;
 
-	auto dataFromBuffer = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer()) + address);
+		if (downloadStagingArea->needsManualFlushOrInvalidate())
+			driver->invalidateMappedMemoryRanges({ {downloadStagingArea->getBuffer()->getBoundMemory(),address,kBufferSize} });
 
-	//now check if the data obtained has valid values
-	uint32_t* end = dataFromBuffer + BUFFER_SIZE / sizeof(uint32_t);
-	uint32_t invocationIndex = 0;
-	for (uint32_t* i = dataFromBuffer; i < end; i++)
-	{
-		uint32_t val = emulatedFunc(inputData + invocationIndex, invocationIndex, 4, pFunc);
-		if (val != *i) {
-			_IRR_DEBUG_BREAK_IF(true);
-			downloadStagingArea->multi_free(1u, &address, &BUFFER_SIZE, nullptr);
-			return false;
+		auto dataFromBuffer = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer())+address);
+
+		// now check if the data obtained has valid values
+		for (uint32_t workgroupID=0u; workgroupID<workgroupCount; workgroupID++)
+		for (uint32_t localInvocationIndex=0u; localInvocationIndex<workgroupSize; localInvocationIndex++)
+		{
+			constexpr uint32_t subgroupSize = 4u;
+
+			const auto workgroupOffset = workgroupID*workgroupSize;
+			uint32_t val = emulatedFunc(inputData+workgroupOffset, localInvocationIndex, subgroupSize, pFunc);
+			const auto invocationOffset = workgroupOffset+localInvocationIndex;
+			if (val!=dataFromBuffer[invocationOffset])
+			{
+				success = false;
+				break;
+			}
 		}
-		invocationIndex++;
 	}
-	downloadStagingArea->multi_free(1u, &address, &BUFFER_SIZE, nullptr);
-	return true;
+	else
+		os::Printer::log("Could not download the buffer from the GPU, fence not signalled!", ELL_ERROR);
+
+	downloadStagingArea->multi_free(1u, &address, &kBufferSize, nullptr);
+	return success;
 
 }
 
@@ -143,7 +142,7 @@ int main()
 	params.Vsync = true; //! If supported by target platform
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
-	params.StreamingDownloadBufferSize = BUFFER_SIZE;
+	params.StreamingDownloadBufferSize = kBufferSize;
 	auto device = createDeviceEx(params);
 
 	if (!device)
@@ -153,21 +152,21 @@ int main()
 	io::IFileSystem* filesystem = device->getFileSystem();
 	asset::IAssetManager* am = device->getAssetManager();
 
-	uint32_t* inputData = new uint32_t[BUFFER_SIZE / sizeof(uint32_t)];
+	uint32_t* inputData = new uint32_t[BUFFER_DWORD_COUNT];
 	{
 		std::mt19937 randGenerator(std::time(0));
-		for (size_t i = 0; i < BUFFER_SIZE / sizeof(uint32_t); i++)
+		for (uint32_t i=0u; i<BUFFER_DWORD_COUNT; i++)
 		{
 			inputData[i] = randGenerator();
 		}
 	}
-	auto gpuinputDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(BUFFER_SIZE, inputData);
+	auto gpuinputDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(kBufferSize, inputData);
 	
 	//create 7 buffers.
 	core::smart_refctd_ptr<IGPUBuffer> buffers[7];
 	for (size_t i = 0; i < 7; i++)
 	{
-		buffers[i] = driver->createDeviceLocalGPUBufferOnDedMem(BUFFER_SIZE);
+		buffers[i] = driver->createDeviceLocalGPUBufferOnDedMem(kBufferSize);
 	}
 
 	IGPUDescriptorSetLayout::SBinding binding[8] = {
@@ -189,15 +188,15 @@ int main()
 	{
 		IGPUDescriptorSet::SDescriptorInfo infos[8];
 		infos[0].desc = gpuinputDataBuffer;
-		infos[0].buffer = { 0u, BUFFER_SIZE };
-		for (size_t i = 1; i <= 7; i++)
+		infos[0].buffer = { 0u,kBufferSize };
+		for (uint32_t i=1u; i<=7u; i++)
 		{
 			infos[i].desc = buffers[i - 1];
-			infos[i].buffer = { 0u,BUFFER_SIZE };
+			infos[i].buffer = { 0u,kBufferSize };
 
 		}
 		IGPUDescriptorSet::SWriteDescriptorSet writes[8];
-		for (uint32_t i = 0u; i < 8; i++)
+		for (uint32_t i=0u; i<8u; i++)
 			writes[i] = { descriptorSet.get(),i,0u,1u,EDT_STORAGE_BUFFER,infos + i };
 		driver->updateDescriptorSets(8, writes, 0u, nullptr);
 	}
@@ -234,76 +233,63 @@ int main()
 		return shader;
 	};
 	
-	int totalFailCount = 0;
-	constexpr int totalTestCount = 1022 * 3 * 7;
+	uint32_t totalFailCount = 0;
+	constexpr uint32_t totalTestCount = 1022 * 3 * 7;
 
 	//As of now, subgroup size is hardcoded to 4
 	//workgroup size is required to be greater or equal to subgroup_size/2
 	//max workgroup size is hardcoded to 256
-	for (size_t current_Workgroup = 2; current_Workgroup < 1024; current_Workgroup++)
+	for (uint32_t workgroupSize=2u; workgroupSize<1024u; workgroupSize++)
 	{
-		auto reducePipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), std::move(getGPUShader(shaderGLSL[0], current_Workgroup)));
-		auto inclusivePipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), std::move(getGPUShader(shaderGLSL[0], current_Workgroup)));
-		auto exclusicePipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), std::move(getGPUShader(shaderGLSL[0], current_Workgroup)));
+		core::smart_refctd_ptr<IGPUComputePipeline> pipelines[3];
+		for (uint32_t i=0u; i<3u; i++)
+			pipelines[i] = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), std::move(getGPUShader(shaderGLSL[i], workgroupSize)));
 
 
-		core::smart_refctd_ptr<IGPUComputePipeline> pipelines[3] = { reducePipeline ,inclusivePipeline ,exclusicePipeline };
-
-
-		if (device->run())
+		driver->beginScene(true);
+		for (size_t i = 0; i < 3; i++)
 		{
-			driver->beginScene(true);
-			for (size_t i = 0; i < 3; i++)
+			driver->bindComputePipeline(pipelines[i].get());
+			const video::IGPUDescriptorSet* ds = descriptorSet.get();
+			driver->bindDescriptorSets(video::EPBP_COMPUTE, pipelines[i]->getLayout(), 0u, 1u, &ds, nullptr);
+			uint32_t workgroupCount = BUFFER_DWORD_COUNT/workgroupSize;
+			driver->dispatch(workgroupCount, 1, 1);
+			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+			//check results 
+			bool passedAllOperations = true;
+			for (size_t op_index = 0; op_index < 7; op_index++)
 			{
-				driver->bindComputePipeline(pipelines[i].get());
-				const video::IGPUDescriptorSet* ds = descriptorSet.get();
-				driver->bindDescriptorSets(video::EPBP_COMPUTE, pipelines[i]->getLayout(), 0u, 1u, &ds, nullptr);
-				uint32_t invocationCount = BUFFER_SIZE / (sizeof(uint32_t) * current_Workgroup);
-				if(invocationCount* current_Workgroup != BUFFER_SIZE / (sizeof(uint32_t)))
-					invocationCount++;
-
-				driver->dispatch(invocationCount, 1, 1);
-				video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
-				//check results 
-				bool passedAllOperations = true;
-				for (size_t op_index = 0; op_index < 7; op_index++)
+				bool passed = false;
+				switch (i)
 				{
-					bool passed = false;
-					switch (i)
-					{
-					case 0:
-						passed = validateResults(driver, inputData, buffers[i].get(), emulatedSubgroupReduction<uint32_t>, arrayofFunctions[op_index]);
-						break;
-					case 1:
-						passed = validateResults(driver, inputData, buffers[i].get(), emulatedScanExclusive<uint32_t>, arrayofFunctions[op_index]);
-						break;
-					case 2:
-						passed = validateResults(driver, inputData, buffers[i].get(), emulatedScanInclusive<uint32_t>, arrayofFunctions[op_index]);
-						break;
-					}
-					if (!passed)
-					{
-						os::Printer::log("Failed test #"+ std::to_string( current_Workgroup)+ " (scan type "+std::to_string(i)+")  ("+std::to_string(op_index)+"/7)", ELL_ERROR);
-						totalFailCount++;
-						passedAllOperations = false;
-					}
+				case 0:
+					passed = validateResults(driver, inputData, workgroupSize, workgroupCount, buffers[i].get(), emulatedSubgroupReduction<uint32_t>, arrayofFunctions[op_index]);
+					break;
+				case 1:
+					passed = validateResults(driver, inputData, workgroupSize, workgroupCount, buffers[i].get(), emulatedScanExclusive<uint32_t>, arrayofFunctions[op_index]);
+					break;
+				case 2:
+					passed = validateResults(driver, inputData, workgroupSize, workgroupCount, buffers[i].get(), emulatedScanInclusive<uint32_t>, arrayofFunctions[op_index]);
+					break;
 				}
-				if (passedAllOperations)
+				if (!passed)
 				{
-					os::Printer::log("Passed test #" + std::to_string(current_Workgroup), ELL_INFORMATION);
+					os::Printer::log("Failed test #"+ std::to_string( workgroupSize)+ " (scan type "+std::to_string(i)+")  ("+std::to_string(op_index)+"/7)", ELL_ERROR);
+					totalFailCount++;
+					passedAllOperations = false;
 				}
 			}
-
-
-
-			driver->endScene();
+			if (passedAllOperations)
+			{
+				os::Printer::log("Passed test #" + std::to_string(workgroupSize), ELL_INFORMATION);
+			}
 		}
-
+		driver->endScene();
 	}
 	os::Printer::log("Result:", ELL_INFORMATION);
 	os::Printer::log("Failed:" + totalFailCount, ELL_INFORMATION);
 	os::Printer::log("Total tests:" + totalTestCount, ELL_INFORMATION);
 
-	delete inputData;
+	delete [] inputData;
 	return 0;
 }
