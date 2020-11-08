@@ -10,73 +10,138 @@ using namespace video;
 using namespace asset;
 
 
-enum TestOperation {
-	TO_AND = 1,
-	TO_XOR,
-	TO_OR,
-	TO_ADD,
-	TO_MUL,
-	TO_MIN,
-	TO_MAX
+
+template<typename T>
+struct and
+{
+	using type_t = T;
+	_IRR_STATIC_INLINE_CONSTEXPR T IdentityElement = ~0ull; // this should be a reinterpret cast
+
+	inline T operator()(T left, T right) { return left & right; }
+
+	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "and";
+};
+template<typename T>
+struct xor
+{
+	using type_t = T;
+	_IRR_STATIC_INLINE_CONSTEXPR T IdentityElement = 0ull; // this should be a reinterpret cast
+
+	inline T operator()(T left, T right) { return left ^ right; }
+
+	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "xor";
+};
+template<typename T>
+struct or
+{
+	using type_t = T;
+	_IRR_STATIC_INLINE_CONSTEXPR T IdentityElement = 0ull; // this should be a reinterpret cast
+
+	inline T operator()(T left, T right) { return left | right; }
+
+	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "or";
+};
+template<typename T>
+struct add
+{
+	using type_t = T;
+	_IRR_STATIC_INLINE_CONSTEXPR T IdentityElement = T(0);
+
+	inline T operator()(T left, T right) { return left + right; }
+
+	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "add";
+};
+template<typename T>
+struct mul
+{
+	using type_t = T;
+	_IRR_STATIC_INLINE_CONSTEXPR T IdentityElement = T(1);
+
+	inline T operator()(T left, T right) { return left * right; }
+
+	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "mul";
+};
+template<typename T>
+struct min
+{
+	using type_t = T;
+	_IRR_STATIC_INLINE_CONSTEXPR T IdentityElement = std::numeric_limits<T>::max();
+
+	inline T operator()(T left, T right) { return std::min<T>(left, right); }
+
+	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "min";
+};
+template<typename T>
+struct max
+{
+	using type_t = T;
+	_IRR_STATIC_INLINE_CONSTEXPR T IdentityElement = std::numeric_limits<T>::lowest();
+
+	inline T operator()(T left, T right) { return std::max<T>(left, right); }
+
+	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "max";
 };
 
-template<typename T> T and(T left, T right) { return left & right; }
-template<typename T> T xor(T left, T right) { return left ^ right; }
-template<typename T> T or(T left, T right) { return left | right; }
-template<typename T> T add(T left, T right) { return left + right; }
-template<typename T> T mul(T left, T right) { return left * right; }
-template<typename T> T min(T left, T right) { return std::min(left, right); }
-template<typename T> T max(T left, T right) { return std::max(left, right); }
-
-typedef uint32_t(*arithmeticFuncPtr)(uint32_t, uint32_t);
-arithmeticFuncPtr arrayofFunctions[] = {
- and<uint32_t>,
- xor<uint32_t>,
- or <uint32_t>,
- add<uint32_t>,
- mul<uint32_t>,
- min<uint32_t>,
- max<uint32_t> 
-};
 
 //subgroup method emulations on the CPU, to verify the results of the GPU methods
-template<typename T>
-T emulatedSubgroupReduction(const T* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, arithmeticFuncPtr pFunc)
+template<class OP>
+struct emulatedSubgroupReduction
 {
-	auto subgroupData = workgroupData+(localInvocationIndex&(-subgroupSize));
-	T retval = subgroupData[0];
-	for (auto i=1u; i<subgroupSize; i++)
-		retval = pFunc(retval,subgroupData[i]);
-	return retval;
-}
-template<typename T>
-T emulatedScanExclusive(const T* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, arithmeticFuncPtr pFunc)
+	using type_t = typename OP::type_t;
+
+	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize)
+	{
+		auto subgroupData = workgroupData+(localInvocationIndex&(-subgroupSize));
+		type_t retval = subgroupData[0];
+		for (auto i=1u; i<subgroupSize; i++)
+			retval = OP()(retval,subgroupData[i]);
+		return retval;
+	}
+
+	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "subgroup reduction";
+};
+template<class OP>
+struct emulatedSubgroupScanExclusive
 {
-	auto subgroupData = workgroupData+(localInvocationIndex&(-subgroupSize));
-	auto subgroupInvocationID = localInvocationIndex&(subgroupSize-1u);
-	T retval = 0u;
-	for (auto i=0u; i<subgroupInvocationID; i++)
-		retval = pFunc(retval, subgroupData[i]);
-	return retval;
-}
-template<typename T>
-T emulatedScanInclusive(const T* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, arithmeticFuncPtr pFunc)
+	using type_t = typename OP::type_t;
+
+	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize)
+	{
+		auto subgroupData = workgroupData+(localInvocationIndex&(-subgroupSize));
+		auto subgroupInvocationID = localInvocationIndex&(subgroupSize-1u);
+		type_t retval = OP::IdentityElement;
+		for (auto i=0u; i<subgroupInvocationID; i++)
+			retval = OP()(retval, subgroupData[i]);
+		return retval;
+	}
+
+	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "subgroup exclusive scan";
+};
+template<class OP>
+struct emulatedSubgroupScanInclusive
 {
-	auto subgroupData = workgroupData+(localInvocationIndex&(-subgroupSize));
-	auto subgroupInvocationID = localInvocationIndex&(subgroupSize-1u);
-	T retval = 0u;
-	for (auto i=0u; i<=subgroupInvocationID; i++)
-		retval = pFunc(retval, subgroupData[i]);
-	return retval;
-}
+	using type_t = typename OP::type_t;
+
+	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize)
+	{
+		auto subgroupData = workgroupData+(localInvocationIndex&(-subgroupSize));
+		auto subgroupInvocationID = localInvocationIndex&(subgroupSize-1u);
+		type_t retval = OP::IdentityElement;
+		for (auto i=0u; i<=subgroupInvocationID; i++)
+			retval = OP()(retval, subgroupData[i]);
+		return retval;
+	}
+
+	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "subgroup inclusive scan";
+};
 
 
 #include "common.glsl"
 constexpr uint32_t kBufferSize = BUFFER_DWORD_COUNT*sizeof(uint32_t);
 
 //returns true if result matches
-template<typename EmulatedFunc,typename arithmeticFunc>
-bool validateResults(video::IVideoDriver* driver, const uint32_t* inputData, const uint32_t workgroupSize, const uint32_t workgroupCount, video::IGPUBuffer* bufferToDownload, EmulatedFunc emulatedFunc,  arithmeticFunc pFunc)
+template<template<class> class Arithmetic, template<class> class OP>
+bool validateResults_impl(video::IVideoDriver* driver, const uint32_t* inputData, const uint32_t workgroupSize, const uint32_t workgroupCount, video::IGPUBuffer* bufferToDownload)
 {
 	constexpr uint64_t timeoutInNanoSeconds = 15000000000u;
 	const uint32_t alignment = sizeof(uint32_t);
@@ -108,16 +173,17 @@ bool validateResults(video::IVideoDriver* driver, const uint32_t* inputData, con
 		auto dataFromBuffer = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer())+address);
 
 		// now check if the data obtained has valid values
-		for (uint32_t workgroupID=0u; workgroupID<workgroupCount; workgroupID++)
+		for (uint32_t workgroupID=0u; success&&workgroupID<workgroupCount; workgroupID++)
 		for (uint32_t localInvocationIndex=0u; localInvocationIndex<workgroupSize; localInvocationIndex++)
 		{
 			constexpr uint32_t subgroupSize = 4u;
 
 			const auto workgroupOffset = workgroupID*workgroupSize;
-			uint32_t val = emulatedFunc(inputData+workgroupOffset, localInvocationIndex, subgroupSize, pFunc);
+			uint32_t val = Arithmetic<OP<uint32_t>>()(inputData+workgroupOffset, localInvocationIndex, subgroupSize);
 			const auto invocationOffset = workgroupOffset+localInvocationIndex;
 			if (val!=dataFromBuffer[invocationOffset])
 			{
+				os::Printer::log("Failed test #" + std::to_string(workgroupSize) + " (" + Arithmetic<OP<uint32_t>>::name + ")  (" + OP<uint32_t>::name + ")", ELL_ERROR);
 				success = false;
 				break;
 			}
@@ -129,6 +195,18 @@ bool validateResults(video::IVideoDriver* driver, const uint32_t* inputData, con
 	downloadStagingArea->multi_free(1u, &address, &kBufferSize, nullptr);
 	return success;
 
+}
+template<template<class> class Arithmetic>
+bool validateResults(video::IVideoDriver* driver, const uint32_t* inputData, const uint32_t workgroupSize, const uint32_t workgroupCount, core::smart_refctd_ptr<IGPUBuffer>* const buffers)
+{
+	bool passed = validateResults_impl<Arithmetic,and>(driver, inputData, workgroupSize, workgroupCount, buffers[0].get());
+	passed = validateResults_impl<Arithmetic,xor>(driver, inputData, workgroupSize, workgroupCount, buffers[1].get())&&passed;
+	passed = validateResults_impl<Arithmetic,or>(driver, inputData, workgroupSize, workgroupCount, buffers[2].get())&&passed;
+	passed = validateResults_impl<Arithmetic,add>(driver, inputData, workgroupSize, workgroupCount, buffers[3].get())&&passed;
+	passed = validateResults_impl<Arithmetic,mul>(driver, inputData, workgroupSize, workgroupCount, buffers[4].get())&&passed;
+	passed = validateResults_impl<Arithmetic,::min>(driver, inputData, workgroupSize, workgroupCount, buffers[5].get())&&passed;
+	passed = validateResults_impl<Arithmetic,::max>(driver, inputData, workgroupSize, workgroupCount, buffers[6].get())&&passed;
+	return passed;
 }
 
 int main()
@@ -157,7 +235,8 @@ int main()
 		std::mt19937 randGenerator(std::time(0));
 		for (uint32_t i=0u; i<BUFFER_DWORD_COUNT; i++)
 		{
-			inputData[i] = randGenerator();
+			// TODO: use random numbers, but right now I need to see whats going on in order to debug
+			inputData[i] = i;// randGenerator();
 		}
 	}
 	auto gpuinputDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(kBufferSize, inputData);
@@ -171,13 +250,13 @@ int main()
 
 	IGPUDescriptorSetLayout::SBinding binding[8] = {
 		{0u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},	//input with randomized numbers
-		{TO_AND,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-		{TO_XOR,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-		{TO_OR,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-		{TO_ADD,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-		{TO_MUL,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-		{TO_MIN,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-		{TO_MAX,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+		{1u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+		{2u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+		{3u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+		{4u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+		{5u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+		{6u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
+		{7u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
 	};
 	auto gpuDSLayout = driver->createGPUDescriptorSetLayout(binding, binding + 8);
 	constexpr uint32_t pushconstantSize = 64u;
@@ -233,8 +312,8 @@ int main()
 		return shader;
 	};
 	
-	uint32_t totalFailCount = 0;
-	constexpr uint32_t totalTestCount = 1022 * 3 * 7;
+	///uint32_t totalFailCount = 0;
+	///constexpr uint32_t totalTestCount = 1022 * 3 * 7;
 
 	//As of now, subgroup size is hardcoded to 4
 	//workgroup size is required to be greater or equal to subgroup_size/2
@@ -256,39 +335,29 @@ int main()
 			driver->dispatch(workgroupCount, 1, 1);
 			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 			//check results 
-			bool passedAllOperations = true;
-			for (size_t op_index = 0; op_index < 7; op_index++)
+			bool passed = false;
+			switch (i)
 			{
-				bool passed = false;
-				switch (i)
-				{
 				case 0:
-					passed = validateResults(driver, inputData, workgroupSize, workgroupCount, buffers[i].get(), emulatedSubgroupReduction<uint32_t>, arrayofFunctions[op_index]);
+					passed = validateResults<emulatedSubgroupReduction>(driver, inputData, workgroupSize, workgroupCount, buffers);
 					break;
 				case 1:
-					passed = validateResults(driver, inputData, workgroupSize, workgroupCount, buffers[i].get(), emulatedScanExclusive<uint32_t>, arrayofFunctions[op_index]);
+					passed = validateResults<emulatedSubgroupScanExclusive>(driver, inputData, workgroupSize, workgroupCount, buffers);
 					break;
 				case 2:
-					passed = validateResults(driver, inputData, workgroupSize, workgroupCount, buffers[i].get(), emulatedScanInclusive<uint32_t>, arrayofFunctions[op_index]);
+					passed = validateResults<emulatedSubgroupScanInclusive>(driver, inputData, workgroupSize, workgroupCount, buffers);
 					break;
-				}
-				if (!passed)
-				{
-					os::Printer::log("Failed test #"+ std::to_string( workgroupSize)+ " (scan type "+std::to_string(i)+")  ("+std::to_string(op_index)+"/7)", ELL_ERROR);
-					totalFailCount++;
-					passedAllOperations = false;
-				}
 			}
-			if (passedAllOperations)
-			{
+			if (passed)
 				os::Printer::log("Passed test #" + std::to_string(workgroupSize), ELL_INFORMATION);
-			}
+			else
+				os::Printer::log("Failed test #" + std::to_string(workgroupSize), ELL_INFORMATION);
 		}
 		driver->endScene();
 	}
 	os::Printer::log("Result:", ELL_INFORMATION);
-	os::Printer::log("Failed:" + totalFailCount, ELL_INFORMATION);
-	os::Printer::log("Total tests:" + totalTestCount, ELL_INFORMATION);
+	//os::Printer::log("Failed:" + totalFailCount, ELL_INFORMATION);
+	//os::Printer::log("Total tests:" + totalTestCount, ELL_INFORMATION);
 
 	delete [] inputData;
 	return 0;
