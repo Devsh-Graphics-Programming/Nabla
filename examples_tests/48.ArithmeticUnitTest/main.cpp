@@ -89,11 +89,11 @@ struct emulatedSubgroupReduction
 {
 	using type_t = typename OP::type_t;
 
-	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize)
+	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, uint32_t workgroupSize)
 	{
 		auto subgroupData = workgroupData+(localInvocationIndex&(-subgroupSize));
 		type_t retval = subgroupData[0];
-		for (auto i=1u; i<subgroupSize; i++)
+		for (auto i=1u; i<core::min<uint32_t>(subgroupSize,workgroupSize); i++)
 			retval = OP()(retval,subgroupData[i]);
 		return retval;
 	}
@@ -105,7 +105,7 @@ struct emulatedSubgroupScanExclusive
 {
 	using type_t = typename OP::type_t;
 
-	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize)
+	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, uint32_t workgroupSize)
 	{
 		auto subgroupData = workgroupData+(localInvocationIndex&(-subgroupSize));
 		auto subgroupInvocationID = localInvocationIndex&(subgroupSize-1u);
@@ -122,7 +122,7 @@ struct emulatedSubgroupScanInclusive
 {
 	using type_t = typename OP::type_t;
 
-	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize)
+	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, uint32_t workgroupSize)
 	{
 		auto subgroupData = workgroupData+(localInvocationIndex&(-subgroupSize));
 		auto subgroupInvocationID = localInvocationIndex&(subgroupSize-1u);
@@ -179,7 +179,7 @@ bool validateResults_impl(video::IVideoDriver* driver, const uint32_t* inputData
 			constexpr uint32_t subgroupSize = 4u;
 
 			const auto workgroupOffset = workgroupID*workgroupSize;
-			uint32_t val = Arithmetic<OP<uint32_t>>()(inputData+workgroupOffset, localInvocationIndex, subgroupSize);
+			uint32_t val = Arithmetic<OP<uint32_t>>()(inputData+workgroupOffset, localInvocationIndex, subgroupSize, workgroupSize);
 			const auto invocationOffset = workgroupOffset+localInvocationIndex;
 			if (val!=dataFromBuffer[invocationOffset])
 			{
@@ -296,8 +296,8 @@ int main()
 	GLSLCodeWithWorkgroup shaderGLSL[3] =
 	{
 		getShaderGLSL("../testReduce.comp"),
-		getShaderGLSL("../testInclusive.comp"),
 		getShaderGLSL("../testExclusive.comp"),
+		getShaderGLSL("../testInclusive.comp")
 	};
 
 
@@ -326,6 +326,7 @@ int main()
 
 
 		driver->beginScene(true);
+		bool passed = false;
 		for (size_t i = 0; i < 3; i++)
 		{
 			driver->bindComputePipeline(pipelines[i].get());
@@ -335,7 +336,6 @@ int main()
 			driver->dispatch(workgroupCount, 1, 1);
 			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 			//check results 
-			bool passed = false;
 			switch (i)
 			{
 				case 0:
@@ -348,11 +348,11 @@ int main()
 					passed = validateResults<emulatedSubgroupScanInclusive>(driver, inputData, workgroupSize, workgroupCount, buffers);
 					break;
 			}
-			if (passed)
-				os::Printer::log("Passed test #" + std::to_string(workgroupSize), ELL_INFORMATION);
-			else
-				os::Printer::log("Failed test #" + std::to_string(workgroupSize), ELL_INFORMATION);
 		}
+		if (passed)
+			os::Printer::log("Passed test #" + std::to_string(workgroupSize), ELL_INFORMATION);
+		else
+			os::Printer::log("Failed test #" + std::to_string(workgroupSize), ELL_INFORMATION);
 		driver->endScene();
 	}
 	os::Printer::log("Result:", ELL_INFORMATION);
