@@ -26,6 +26,15 @@ namespace MitsubaLoader
         return getTexture(key, _element, scale);
     }
 
+    auto CMitsubaMaterialCompilerFrontend::getBlendWeightTex(const CElementTexture* _element) const -> tex_ass_type
+    {
+        std::string key = m_loaderContext->blendWeightImageCacheKey(_element);
+        float scale = 1.f;
+        std::tie(_element, scale) = getTexture_common(_element);
+
+        return getTexture(key, _element, scale);
+    }
+
     std::pair<const CElementTexture*, float> CMitsubaMaterialCompilerFrontend::getTexture_common(const CElementTexture* _element) const
     {
         float scale = 1.f;
@@ -326,7 +335,17 @@ namespace MitsubaLoader
             nextSym->children.count = 2u;
 
             auto* node = static_cast<IR::CBSDFBlendNode*>(nextSym);
-            getFloatOrTexture(current->blendbsdf.weight, node->weight);
+            if (current->blendbsdf.weight.value.type == SPropertyElementData::INVALID)
+            {
+                std::tie(node->weight.value.texture.image, node->weight.value.texture.sampler, node->weight.value.texture.scale) =
+                    getBlendWeightTex(current->blendbsdf.weight.texture);
+                node->weight.source = IR::INode::EPS_TEXTURE;
+            }
+            else
+            {
+                node->weight.value.constant = IR::INode::color_t(current->blendbsdf.weight.value.fvalue);
+                node->weight.source = IR::INode::EPS_CONSTANT;
+            }
 
             bsdfQ.push(current->blendbsdf.bsdf[1]);
             bsdfQ.push(current->blendbsdf.bsdf[0]);

@@ -47,6 +47,12 @@ namespace MitsubaLoader
 		//image, sampler
 		using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>, core::smart_refctd_ptr<asset::ICPUSampler>>;
 
+		static std::string blendWeightImageCacheKey(const CElementTexture* bitmap)
+		{
+			using namespace std::string_literals;
+			return bitmap->bitmap.filename.svalue + "?blend"s;
+		}
+
 		static std::string imageViewCacheKey(const std::string& imageCacheKey)
 		{
 			return imageCacheKey + "?view";
@@ -74,6 +80,11 @@ namespace MitsubaLoader
 		static std::string derivMapViewCacheKey(const CElementTexture* bitmap)
 		{
 			return imageViewCacheKey(derivMapCacheKey(bitmap));
+		}
+
+		static std::string blendWeightViewCacheKey(const CElementTexture* bitmap)
+		{
+			return imageViewCacheKey(blendWeightImageCacheKey(bitmap));
 		}
 
 		static std::string samplerCacheKey(const std::string& base, const CElementTexture* tex)

@@ -211,7 +211,7 @@ namespace material_compiler
 				if (blend->weight.source == IR::INode::EPS_TEXTURE)
 					_dst.blend.weight.setTexture(packTexture(blend->weight.value.texture), blend->weight.value.texture.scale);
 				else
-					_dst.blend.weight.setConst(blend->weight.value.constant);
+					_dst.blend.weight.setConst(blend->weight.value.constant.pointer);
 			}
 			break;
 			case instr_stream::OP_DIFFTRANS:
@@ -592,11 +592,11 @@ const IR::INode* CInterpreter::translateMixIntoBlends(IR* ir, const IR::INode* _
 	struct q_el
 	{
 		const IR::INode* node;
-		float weightsSum;
+		IR::INode::color_t weightsSum;
 	};
 	core::queue<q_el> q;
 	for (uint32_t i = 0u; i < mix->children.count; ++i)
-		q.push({mix->children[i],mix->weights[i]});
+		q.push({ mix->children[i], IR::INode::color_t(mix->weights[i]) });
 
 	while (q.size()>1ull)
 	{
@@ -1357,7 +1357,8 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 	{
 		const result_t::instr_streams_t& streams = e.second;
 		auto rem_and_pdf = streams.get_rem_and_pdf();
-		for (uint32_t i = 0u; i < rem_and_pdf.count; ++i) {
+		for (uint32_t i = 0u; i < rem_and_pdf.count; ++i) 
+		{
 			const uint32_t first = rem_and_pdf.first;
 			const instr_t instr = res.instructions[first+i];
 			const instr_stream::E_OPCODE op = instr_stream::getOpcode(instr);

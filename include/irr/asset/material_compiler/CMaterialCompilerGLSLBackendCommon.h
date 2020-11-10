@@ -140,7 +140,6 @@ public:
 			{
 			case OP_DIELECTRIC:
 			case OP_CONDUCTOR:
-			case OP_COATING:
 				return true;
 			default: return false;
 			}

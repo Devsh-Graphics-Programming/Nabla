@@ -366,7 +366,7 @@ public:
     {
         CBSDFBlendNode() : CBSDFCombinerNode(ET_WEIGHT_BLEND) {}
 
-        SParameter<float> weight;
+        SParameter<color_t> weight;
     };
     struct CBSDFMixNode : CBSDFCombinerNode
     {

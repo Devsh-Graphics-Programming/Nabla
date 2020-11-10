@@ -630,6 +630,69 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(asset::ICPUImage*
 			static_cast<asset::ICPUSampler::E_TEXTURE_BORDER_COLOR>(sp.BorderColor)
 	);
 }
+static core::smart_refctd_ptr<asset::ICPUImage> createBlendWeightImage(const asset::ICPUImage* _img)
+{
+	auto outParams = _img->getCreationParameters();
+	assert(asset::getFormatChannelCount(outParams.format) == 1u);
+
+	auto get3ChannelFormat = [](uint32_t bytesPerChannel) -> asset::E_FORMAT {
+		switch (bytesPerChannel)
+		{
+		case 1u:
+			return asset::EF_R8G8B8_UNORM;
+		case 2u:
+			return asset::EF_R16G16B16_SFLOAT;
+		case 4u:
+			return asset::EF_R32G32B32_SFLOAT;
+		case 8u:
+			return asset::EF_R64G64B64_SFLOAT;
+		default:
+			return asset::EF_UNKNOWN;
+		}
+	};
+
+	asset::ICPUImage::SBufferCopy region;
+	const uint32_t bytesPerChannel = (getBytesPerPixel(outParams.format) * core::rational(1, getFormatChannelCount(outParams.format))).getIntegerApprox();
+	outParams.format = get3ChannelFormat(outParams.format);
+	const size_t texelBytesz = asset::getTexelOrBlockBytesize(outParams.format);
+	region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, texelBytesz);
+	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(texelBytesz * region.bufferRowLength * outParams.extent.height);
+	region.imageOffset = { 0,0,0 };
+	region.imageExtent = outParams.extent;
+	region.imageSubresource.baseArrayLayer = 0u;
+	region.imageSubresource.layerCount = 1u;
+	region.imageSubresource.mipLevel = 0u;
+	region.bufferImageHeight = 0u;
+	region.bufferOffset = 0u;
+	auto outImg = asset::ICPUImage::create(std::move(outParams));
+	outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
+
+	asset::ICPUImageView::SComponentMapping swizzle;
+	constexpr auto RED = asset::ICPUImageView::SComponentMapping::ES_R;
+	swizzle = { RED, RED, RED, RED };
+
+	using convert_filter_t = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN>;
+	convert_filter_t::state_type conv;
+	conv.swizzle = swizzle;
+	conv.extent = outParams.extent;
+	conv.layerCount = 1u;
+	conv.inMipLevel = 0u;
+	conv.outMipLevel = 0u;
+	conv.inBaseLayer = 0u;
+	conv.outBaseLayer = 0u;
+	conv.inOffset = { 0u,0u,0u };
+	conv.outOffset = { 0u,0u,0u };
+	conv.inImage = _img;
+	conv.outImage = outImg.get();
+
+	if (!convert_filter_t::execute(&conv))
+	{
+		os::Printer::log("Mitsuba XML Loader: blend weight texture creation failed!", ELL_ERROR);
+		_IRR_DEBUG_BREAK_IF(true);
+	}
+
+	return outImg;
+}
 
 CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager) : asset::IAssetLoader(), m_manager(_manager)
 {
@@ -1246,8 +1309,7 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 						//in case of <channel>, extract one channel
 						if (viewParams.components.g != asset::ICPUImageView::SComponentMapping::ES_G)
 						{
-							auto get1ChannelFormat = [](asset::E_FORMAT f) -> asset::E_FORMAT {
-								const uint32_t bytesPerChannel = (getBytesPerPixel(f) * core::rational(1, getFormatChannelCount(f))).getIntegerApprox();
+							auto get1ChannelFormat = [](uint32_t bytesPerChannel) -> asset::E_FORMAT {
 								switch (bytesPerChannel)
 								{
 								case 1u:
@@ -1265,6 +1327,7 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 
 							auto outParams = viewParams.image->getCreationParameters();
 							asset::ICPUImage::SBufferCopy region;
+							const uint32_t bytesPerChannel = (getBytesPerPixel(outParams.format) * core::rational(1, getFormatChannelCount(outParams.format))).getIntegerApprox();
 							outParams.format = get1ChannelFormat(outParams.format);
 							const size_t texelBytesz = asset::getTexelOrBlockBytesize(outParams.format);
 							region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, texelBytesz);
@@ -1399,9 +1462,12 @@ auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bsdf) -> SContext::bsdf_type
 {
 	{
-		auto cachePropertyTexture = [&](const auto& const_or_tex) {
+		auto cachePropertyTexture = [&](const auto& const_or_tex, SContext::tex_ass_type& out_img) {
+			bool is_tex = (const_or_tex.value.type == SPropertyElementData::INVALID);
 			if (const_or_tex.value.type == SPropertyElementData::INVALID)
-				cacheTexture(ctx, 0u, const_or_tex.texture);
+				out_img = cacheTexture(ctx, 0u, const_or_tex.texture);
+
+			return is_tex;
 		};
 
 		core::stack<const CElementBSDF*> stack;
@@ -1425,34 +1491,35 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 			default: break;
 			}
 
+			SContext::tex_ass_type tex;
 			switch (bsdf->type)
 			{
 			case CElementBSDF::DIFFUSE:
 			case CElementBSDF::ROUGHDIFFUSE:
-				cachePropertyTexture(bsdf->diffuse.reflectance);
-				cachePropertyTexture(bsdf->diffuse.alpha);
+				cachePropertyTexture(bsdf->diffuse.reflectance, tex);
+				cachePropertyTexture(bsdf->diffuse.alpha, tex);
 				break;
 			case CElementBSDF::DIFFUSE_TRANSMITTER:
-				cachePropertyTexture(bsdf->difftrans.transmittance);
+				cachePropertyTexture(bsdf->difftrans.transmittance, tex);
 				break;
 			case CElementBSDF::DIELECTRIC:
 			case CElementBSDF::THINDIELECTRIC:
 			case CElementBSDF::ROUGHDIELECTRIC:
-				cachePropertyTexture(bsdf->dielectric.alphaU);
+				cachePropertyTexture(bsdf->dielectric.alphaU, tex);
 				if (bsdf->dielectric.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-					cachePropertyTexture(bsdf->dielectric.alphaV);
+					cachePropertyTexture(bsdf->dielectric.alphaV, tex);
 				break;
 			case CElementBSDF::CONDUCTOR:
-				cachePropertyTexture(bsdf->conductor.alphaU);
+				cachePropertyTexture(bsdf->conductor.alphaU, tex);
 				if (bsdf->conductor.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-					cachePropertyTexture(bsdf->conductor.alphaV);
+					cachePropertyTexture(bsdf->conductor.alphaV, tex);
 				break;
 			case CElementBSDF::PLASTIC:
 			case CElementBSDF::ROUGHPLASTIC:
-				cachePropertyTexture(bsdf->plastic.diffuseReflectance);
-				cachePropertyTexture(bsdf->plastic.alphaU);
+				cachePropertyTexture(bsdf->plastic.diffuseReflectance, tex);
+				cachePropertyTexture(bsdf->plastic.alphaU, tex);
 				if (bsdf->plastic.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-					cachePropertyTexture(bsdf->plastic.alphaV);
+					cachePropertyTexture(bsdf->plastic.alphaV, tex);
 				break;
 			case CElementBSDF::BUMPMAP:
 			{
@@ -1473,10 +1540,21 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 			}
 				break;
 			case CElementBSDF::BLEND_BSDF:
-				cachePropertyTexture(bsdf->blendbsdf.weight);
+				if (cachePropertyTexture(bsdf->blendbsdf.weight, tex))
+				{
+					auto img = std::get<0>(tex)->getCreationParameters().image;
+
+					auto blendweight = createBlendWeightImage(img.get());
+					const std::string key = ctx.blendWeightImageCacheKey(bsdf->blendbsdf.weight.texture);
+					asset::SAssetBundle imgBundle{ blendweight };
+					ctx.override_->insertAssetIntoCache(imgBundle, key, ctx.inner, 0u);
+					auto blendweight_view = createImageView(std::move(blendweight));
+					asset::SAssetBundle viewBundle{ blendweight_view };
+					ctx.override_->insertAssetIntoCache(viewBundle, ctx.imageViewCacheKey(key), ctx.inner, 0u);
+				}
 				break;
 			case CElementBSDF::MASK:
-				cachePropertyTexture(bsdf->mask.opacity);
+				cachePropertyTexture(bsdf->mask.opacity, tex);
 				break;
 			default: break;
 			}

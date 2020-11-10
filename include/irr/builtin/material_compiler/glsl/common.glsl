@@ -1030,6 +1030,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	vec3 u = rand;
 
 	setCurrInteraction(precomp);
+	bool is_plastic = false;
 	while (!op_isBXDF(op))
 	{
 		handleTwosided_interactionOnly(instr);
@@ -1060,6 +1061,8 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 			uint coated_ix = instr_getRightJump(instr);
 			ix = choseCoated ? coated_ix:(ix+1u);
 			weight /= rcpChoiceProb;
+
+			is_plastic = true;
 		} else
 #endif //OP_COATING
 		{
@@ -1095,7 +1098,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	const float ay2 = ay*ay;
 	const mat2x3 ior = bsdf_data_decodeIoR(bsdf_data,op);
 	const mat2x3 ior2 = matrixCompMult(ior,ior);
-	const bool is_bsdf = !op_isBRDF(op);
+	const bool is_bsdf = !op_isBRDF(op) && !is_plastic;
 	const vec3 refl = params_getReflectance(params);
 
 #ifndef NO_TWOSIDED
@@ -1134,9 +1137,9 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		s = irr_glsl_createLightSampleTangentSpace(localV, localL, tangentFrame);
 		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
 
-		const float alpha = is_bsdf ? 0.0 : ax2;
+		const float alpha2 = is_bsdf ? 0.0 : ax2;
 		const vec3 reflectance = is_bsdf ? vec3(1.0) : refl;
-		rem *= reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, alpha);
+		rem *= reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, alpha2);
 		pdf *= is_bsdf ? 0.5 : 1.0;
 	} else
 #endif
@@ -1147,8 +1150,10 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		const float BdotV2 = currInteraction.BdotV * currInteraction.BdotV;
 		const float NdotV2 = currInteraction.isotropic.NdotV_squared;
 
+		const vec3 upperHemisphereLocalV = currInteraction.isotropic.NdotV < 0.0 ? -localV : localV;
+
 		float G2_over_G1 = 0.0;
-		float G1 = 0.0;
+		float G1_over_2NdotV = 0.0;
 		float ndf_val = 0.0;
 		vec3 localH = vec3(0.0);
 
@@ -1157,36 +1162,37 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		CASE_BEGIN(ndf, NDF_GGX) 
 		{
 			// why is it called without "wo_clamps" and beckmann sampling is?
-			localH = irr_glsl_ggx_cos_generate(localV, u.xy, ax, ay);
+			localH = irr_glsl_ggx_cos_generate(upperHemisphereLocalV, u.xy, ax, ay);
 		} CASE_END
 #endif //NDF_GGX
 
 #ifdef NDF_BECKMANN
 		CASE_BEGIN(ndf, NDF_BECKMANN) 
 		{
-			localH = irr_glsl_beckmann_cos_generate_wo_clamps(localV, u.xy, ax, ay);
+			localH = irr_glsl_beckmann_cos_generate_wo_clamps(upperHemisphereLocalV, u.xy, ax, ay);
 		} CASE_END
 #endif //NDF_BECKMANN
 
 #ifdef NDF_PHONG
 		CASE_BEGIN(ndf, NDF_PHONG) 
 		{
-			localH = irr_glsl_beckmann_cos_generate_wo_clamps(localV, u.xy, ax, ay);
+			localH = irr_glsl_beckmann_cos_generate_wo_clamps(upperHemisphereLocalV, u.xy, ax, ay);
 		} CASE_END
 #endif //NDF_PHONG
 		CASE_OTHERWISE
 		{}
 		END_CASES
 
+		vec3 localL;
 		float VdotH = dot(localH, localV);
-		float clamped_VdotH = irr_glsl_conditionalAbsOrMax(is_bsdf, VdotH, 0.0);
+		float VdotH_clamp = irr_glsl_conditionalAbsOrMax(is_bsdf, VdotH, 0.0);
 		vec3 fr;
 #ifdef OP_CONDUCTOR
 		if (op == OP_CONDUCTOR)
-			fr = irr_glsl_fresnel_conductor(ior[0], ior[1], clamped_VdotH);
+			fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH_clamp);
 		else
 #endif
-			fr = irr_glsl_fresnel_dielectric(ior[0], clamped_VdotH); // TODO: clamped_VdotH is here abs(VdotH), not sure it's right
+			fr = irr_glsl_fresnel_dielectric_common(ior[0]*ior[0], VdotH_clamp);
 		const float refractionProb = dot(CIE_XYZ_Luma_Y_coeffs, fr);
 		float rcpChoiceProb;
 		const bool refraction = is_bsdf ? irr_glsl_partitionRandVariable(refractionProb, u.z, rcpChoiceProb) : false;
@@ -1194,19 +1200,25 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		rem *= rcpChoiceProb;
 		rem *= refraction ? (vec3(1.0) - fr) : fr;
 		pdf /= rcpChoiceProb;
-		s = irr_glsl_createLightSampleTangentSpace(localV, localH, VdotH, tangentFrame);
 		float eta = dot(CIE_XYZ_Luma_Y_coeffs, ior[0]);
-		const bool valid = irr_glsl_calcAnisotropicMicrofacetCache(out_microfacet, currInteraction, s, eta);
+		float orientedEta, rcpOrientedEta;
+		irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, currInteraction.isotropic.NdotV, eta);
+
+		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(refraction, localV, localH, localL, rcpOrientedEta, rcpOrientedEta*rcpOrientedEta);
+		s = irr_glsl_createLightSampleTangentSpace(localV, localL, tangentFrame);
+
 		const float TdotH2 = out_microfacet.TdotH * out_microfacet.TdotH;
 		const float BdotH2 = out_microfacet.BdotH * out_microfacet.BdotH;
 		const float NdotH2 = out_microfacet.isotropic.NdotH2;
+		const float NdotL = irr_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
+		const float NdotV = irr_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.isotropic.NdotV, 0.0);
 
 		BEGIN_CASES(ndf)
 #ifdef NDF_GGX
 		CASE_BEGIN(ndf, NDF_GGX)
 		{
-			G2_over_G1 = irr_glsl_ggx_smith_G2_over_G1(s.NdotL, s.TdotL*s.TdotL, s.BdotL*s.BdotL, s.NdotL*s.NdotL, currInteraction.isotropic.NdotV, TdotV2, BdotV2, NdotV2, ax2, ay2);
-			G1 = irr_glsl_GGXSmith_G1_wo_numerator(currInteraction.isotropic.NdotV, TdotV2, BdotV2, NdotV2, ax2, ay2) * 2.0*currInteraction.isotropic.NdotV*s.NdotL;
+			G2_over_G1 = irr_glsl_ggx_smith_G2_over_G1(NdotL, s.TdotL*s.TdotL, s.BdotL*s.BdotL, s.NdotL*s.NdotL, NdotV, TdotV2, BdotV2, NdotV2, ax2, ay2);
+			G1_over_2NdotV = irr_glsl_GGXSmith_G1_wo_numerator(NdotV, TdotV2, BdotV2, NdotV2, ax2, ay2);
 			ndf_val = irr_glsl_ggx_aniso(TdotH2, BdotH2, NdotH2, ax, ay, ax2, ay2);
 		} CASE_END
 #endif //NDF_GGX
@@ -1215,7 +1227,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		CASE_BEGIN(ndf, NDF_BECKMANN)
 		{
 			float lambdaV = irr_glsl_smith_beckmann_Lambda(TdotV2, BdotV2, NdotV2, ax2, ay2);
-			G1 = irr_glsl_smith_G1(lambdaV);
+			G1_over_2NdotV = irr_glsl_smith_G1(lambdaV) / (2.0 * NdotV);
 			G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL*s.TdotL, s.BdotL*s.BdotL, s.NdotL*s.NdotL, ax2, ay2);
 			ndf_val = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, NdotH2);
 		} CASE_END
@@ -1225,7 +1237,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		CASE_BEGIN(ndf, NDF_PHONG)
 		{
 			float lambdaV = irr_glsl_smith_beckmann_Lambda(TdotV2, BdotV2, NdotV2, ax2, ay2);
-			G1 = irr_glsl_smith_G1(lambdaV);
+			G1_over_2NdotV = irr_glsl_smith_G1(lambdaV) / (2.0 * NdotV);
 			G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL * s.TdotL, s.BdotL * s.BdotL, s.NdotL * s.NdotL, ax2, ay2);
 			ndf_val = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, NdotH2);
 		} CASE_END
@@ -1235,7 +1247,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		END_CASES
 
 		rem *= G2_over_G1;
-		pdf *= (G1 * ndf_val);
+		pdf *= irr_glsl_smith_VNDF_pdf_wo_clamps(ndf_val, G1_over_2NdotV);
 	} else
 #endif
 	{} //empty braces for `else`
@@ -1262,7 +1274,7 @@ vec3 runGenerateAndRemainderStream(in MC_precomputed_t precomp, in instr_stream_
 	out_smpl = s;
 	out_pdf = pdf;
 
-	vec3 rem = generator_rem/(1.0 + restPdf/generator_pdf) + acc/pdf;
+	vec3 rem = (generator_rem + acc/generator_pdf) / (1.0 + restPdf/generator_pdf);
 
 	return rem;
 }

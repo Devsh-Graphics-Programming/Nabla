@@ -19,6 +19,7 @@ class CMitsubaMaterialCompilerFrontend
     const SContext* m_loaderContext;
 
     tex_ass_type getDerivMap(const CElementTexture* _element) const;
+    tex_ass_type getBlendWeightTex(const CElementTexture* _element) const;
 
     std::pair<const CElementTexture*, float> getTexture_common(const CElementTexture* _element) const;
 
