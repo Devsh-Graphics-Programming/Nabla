@@ -39,20 +39,19 @@ namespace irr
             } PACK_STRUCT;
             #include "irr/irrunpack.h"
             //VS Intellisense shows error here because it think vectorSIMDf is 32 bytes, but it just Intellisense - it'll build anyway
-            static_assert(sizeof(SGLTFMaterialParameters) == (sizeof(SGLTFMaterialParameters::SPBRMetallicRoughness::baseColorFactor) + sizeof(SGLTFMaterialParameters::SPBRMetallicRoughness::metallicFactor) + sizeof(SGLTFMaterialParameters::SPBRMetallicRoughness::roughnessFactor) + sizeof(SGLTFMaterialParameters::emissiveFactor) + sizeof(SGLTFMaterialParameters::alphaMode) + sizeof(SGLTFMaterialParameters::alphaCutoff)), "Something went wrong");
+            //static_assert(sizeof(SGLTFMaterialParameters) == (sizeof(SGLTFMaterialParameters::SPBRMetallicRoughness::baseColorFactor) + sizeof(SGLTFMaterialParameters::SPBRMetallicRoughness::metallicFactor) + sizeof(SGLTFMaterialParameters::SPBRMetallicRoughness::roughnessFactor) + sizeof(SGLTFMaterialParameters::emissiveFactor) + sizeof(SGLTFMaterialParameters::alphaMode) + sizeof(SGLTFMaterialParameters::alphaCutoff)), "Something went wrong");
 
-            CGLTFPipelineMetadata(std::string&& _name, core::smart_refctd_dynamic_array<ShaderInputSemantic>&& _inputs) 
-                : m_name(std::move(_name)), m_shaderInputs(std::move(_inputs)) {}
+            CGLTFPipelineMetadata(const SGLTFMaterialParameters& materialParams, core::smart_refctd_dynamic_array<ShaderInputSemantic>&& _inputs)
+                : m_materialParams(materialParams), m_shaderInputs(std::move(_inputs)) {}
 
-            const std::string getMaterialName() const { return m_name; }
-
+            const SGLTFMaterialParameters& getMaterialParameters() const { return m_materialParams; }
             core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const override { return { m_shaderInputs->begin(), m_shaderInputs->end() }; }
 
             _IRR_STATIC_INLINE_CONSTEXPR const char* loaderName = "CGLTFLoader";
             const char* getLoaderName() const override { return loaderName; }
 
         private:
-            std::string m_name;
+            SGLTFMaterialParameters m_materialParams;
             core::smart_refctd_dynamic_array<ShaderInputSemantic> m_shaderInputs;
         };
     }
