@@ -13,11 +13,11 @@ namespace material_compiler
 	using instr_t = instr_stream::instr_t;
 	using traversal_t = instr_stream::traversal_t;
 
-	using coat_translation_cache_t = core::unordered_map<const IR::INode*, IR::INode*>;
+	using tmp_bxdf_translation_cache_t = core::unordered_map<const IR::INode*, IR::INode*>;
 
 	class CInterpreter
 	{
-		static inline IR::INode* getCoatNode(IR* ir, coat_translation_cache_t* cache, const IR::CCoatingBSDFNode* coat_blend)
+		static inline IR::INode* getCoatNode(IR* ir, tmp_bxdf_translation_cache_t* cache, const IR::CCoatingBSDFNode* coat_blend)
 		{
 			if (auto found = cache->find(coat_blend); found != cache->end())
 				return found->second;
@@ -34,10 +34,21 @@ namespace material_compiler
 
 			return coat;
 		}
+		static inline IR::INode* getDeltaTransmissionNode(IR* ir, tmp_bxdf_translation_cache_t* cache, const IR::COpacityNode* coat_blend)
+		{
+			if (auto found = cache->find(coat_blend); found != cache->end())
+				return found->second;
+
+			auto* coat = ir->allocTmpNode<IR::CBSDFNode>(IR::CBSDFNode::ET_DELTA_TRANSMISSION);
+			cache->insert({ coat_blend, coat });
+
+			return coat;
+		}
+
 	public:
 		static const IR::INode* translateMixIntoBlends(IR* ir, const IR::INode* _mix);
 
-		static std::pair<instr_t, const IR::INode*> processSubtree(IR* ir, const IR::INode* tree, bool thin, IR::INode::children_array_t& next, coat_translation_cache_t* coatTranslationCache);
+		static std::pair<instr_t, const IR::INode*> processSubtree(IR* ir, const IR::INode* tree, bool thin, IR::INode::children_array_t& next, tmp_bxdf_translation_cache_t* coatTranslationCache);
 	};
 
 	class CIdGenerator
@@ -75,7 +86,7 @@ namespace material_compiler
 		SContext* m_ctx;
 		IR* m_ir;
 		CIdGenerator* m_id_gen;
-		coat_translation_cache_t* m_coatTranslationCache;
+		tmp_bxdf_translation_cache_t* m_translationCache;
 
 		core::stack<stack_el_t> m_stack;
 
@@ -118,19 +129,13 @@ namespace material_compiler
 			);
 		}
 
-		static IR::INode::SParameter<IR::INode::color_t> extractOpacity(const IR::INode* _root)
-		{
-			assert(_root->symbol==IR::INode::ES_MATERIAL);
-			return static_cast<const IR::CMaterialNode*>(_root)->opacity;
-		}
-
-		std::pair<instr_t, const IR::INode*> processSubtree(const IR::INode* tree, bool thin, IR::INode::children_array_t& next, coat_translation_cache_t* coatTranslationCache)
+		std::pair<instr_t, const IR::INode*> processSubtree(const IR::INode* tree, bool thin, IR::INode::children_array_t& next, tmp_bxdf_translation_cache_t* coatTranslationCache)
 		{
 			//TODO deduplication
 			return CInterpreter::processSubtree(m_ir, tree, thin, next, coatTranslationCache);
 		}
 
-		void setBSDFData(instr_stream::intermediate::SBSDFUnion& _dst, instr_stream::E_OPCODE _op, const IR::INode* _node, const IR::INode::SParameter<IR::INode::color_t>& _opacity)
+		void setBSDFData(instr_stream::intermediate::SBSDFUnion& _dst, instr_stream::E_OPCODE _op, const IR::INode* _node)
 		{
 			switch (_op)
 			{
@@ -243,17 +248,9 @@ namespace material_compiler
 			}
 			break;
 			}
-
-			if (_op!=instr_stream::OP_BUMPMAP && _op!=instr_stream::OP_BLEND)
-			{
-				if (_opacity.source == IR::INode::EPS_TEXTURE)
-					_dst.common.param[2].setTexture(packTexture(_opacity.value.texture), _opacity.value.texture.scale);
-				else
-					_dst.common.param[2].setConst(_opacity.value.constant.pointer);
-			}
 		}
 
-		size_t getBSDFDataIndex(instr_stream::E_OPCODE _op, const IR::INode* _node, const IR::INode::SParameter<IR::INode::color_t>& _opacity)
+		size_t getBSDFDataIndex(instr_stream::E_OPCODE _op, const IR::INode* _node)
 		{
 			switch (_op)
 			{
@@ -268,7 +265,7 @@ namespace material_compiler
 				return found->second;
 
 			instr_stream::intermediate::SBSDFUnion data;
-			setBSDFData(data, _op, _node, _opacity);
+			setBSDFData(data, _op, _node);
 			size_t ix = m_ctx->bsdfData.size();
 			m_ctx->bsdfDataIndexMap.insert({_node,ix});
 			m_ctx->bsdfData.push_back(data);
@@ -328,7 +325,8 @@ namespace material_compiler
 			case instr_stream::OP_CONDUCTOR: [[fallthrough]];
 			case instr_stream::OP_COATING: [[fallthrough]];
 			case instr_stream::OP_BLEND: [[fallthrough]];
-			case instr_stream::OP_NOOP:
+			case instr_stream::OP_NOOP: [[fallthrough]];
+			case instr_stream::OP_DELTRATRANS:
 				pushIt = true;
 				break;
 			}
@@ -415,8 +413,8 @@ namespace material_compiler
 		}
 
 	public:
-		ITraversalGenerator(SContext* _ctx, IR* _ir, CIdGenerator* _id_gen, coat_translation_cache_t* _coatCache, uint32_t _regCount) : 
-			m_ctx(_ctx), m_ir(_ir), m_id_gen(_id_gen), m_coatTranslationCache(_coatCache), m_registerPool(_regCount) {}
+		ITraversalGenerator(SContext* _ctx, IR* _ir, CIdGenerator* _id_gen, tmp_bxdf_translation_cache_t* _cache, uint32_t _regCount) : 
+			m_ctx(_ctx), m_ir(_ir), m_id_gen(_id_gen), m_translationCache(_cache), m_registerPool(_regCount) {}
 
 		virtual traversal_t genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs) = 0;
 	};
@@ -537,8 +535,8 @@ namespace remainder_and_pdf
 		CTraversalManipulator::id2pos_map_t m_id2pos;
 
 	public:
-		CTraversalGenerator(SContext* _ctx, IR* _ir, CIdGenerator* _id_gen, coat_translation_cache_t* _coatCache, uint32_t _regCount, uint32_t _regsPerResult) :
-			base_t(_ctx, _ir, _id_gen, _coatCache, _regCount), m_regsPerRes(_regsPerResult)
+		CTraversalGenerator(SContext* _ctx, IR* _ir, CIdGenerator* _id_gen, tmp_bxdf_translation_cache_t* _cache, uint32_t _regCount, uint32_t _regsPerResult) :
+			base_t(_ctx, _ir, _id_gen, _cache, _regCount), m_regsPerRes(_regsPerResult)
 		{}
 
 		const auto& getId2PosMapping() const { return m_id2pos; }
@@ -618,7 +616,7 @@ const IR::INode* CInterpreter::translateMixIntoBlends(IR* ir, const IR::INode* _
 	return q.front().node;
 }
 
-std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const IR::INode* tree, bool thin, IR::INode::children_array_t& out_next, coat_translation_cache_t* coatTranslationCache)
+std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const IR::INode* tree, bool thin, IR::INode::children_array_t& out_next, tmp_bxdf_translation_cache_t* cache)
 {
 	auto isTwosided = [](const IR::INode* _node, size_t _frontSurfIx, IR::INode::children_array_t& _frontSurfChildren) -> bool
 	{
@@ -641,10 +639,8 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 	case IR::INode::ES_MATERIAL:
 	{
 		bool twosided = false;
-		bool masked = false;
 
 		auto* node = static_cast<const IR::CMaterialNode*>(tree);
-		masked = (node->opacity.source==IR::INode::EPS_TEXTURE || (node->opacity.source==IR::INode::EPS_TEXTURE && (node->opacity.value.constant!=IR::INode::color_t(1.f)).xyzz().all()));
 
 		instr_t retval = instr_stream::OP_INVALID;
 
@@ -664,8 +660,6 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 		}
 		if (twosided)
 			retval = core::bitfieldInsert<instr_t>(retval, 1u, instr_stream::BITFIELDS_SHIFT_TWOSIDED, 1);
-		if (masked)
-			retval = core::bitfieldInsert<instr_t>(retval, 1u, instr_stream::BITFIELDS_SHIFT_MASKFLAG, 1);
 		instr = retval;
 	}
 	break;
@@ -708,6 +702,21 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 		}
 	}
 	break;
+	case IR::INode::ES_OPACITY:
+	{
+		auto* opacity = static_cast<const IR::COpacityNode*>(tree);
+		auto* blend = ir->allocTmpNode<IR::CBSDFBlendNode>();
+		blend->weight = opacity->opacity;
+		auto* deltatrans = getDeltaTransmissionNode(ir, cache, opacity);
+		assert(opacity->children.count == 1u);
+		auto* bxdf = const_cast<IR::INode*>(opacity->children[0]);
+		blend->children = IR::INode::createChildrenArray(bxdf, deltatrans);
+		out_next = blend->children;
+
+		tree = blend;
+		instr = instr_stream::OP_BLEND;
+	}
+	break;
 	case IR::INode::ES_BSDF:
 	{
 		auto* node = static_cast<const IR::CBSDFNode*>(tree);
@@ -719,10 +728,12 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 			instr = instr_stream::OP_DIFFUSE; break;
 		case IR::CBSDFNode::ET_MICROFACET_SPECULAR:
 			instr = instr_stream::OP_CONDUCTOR; break;
+		case IR::CBSDFNode::ET_DELTA_TRANSMISSION:
+			instr = instr_stream::OP_DELTRATRANS; break;
 		case IR::CBSDFNode::ET_COATING:
 		{
 			auto* coat_blend = static_cast<const IR::CCoatingBSDFNode*>(node);
-			auto* coat = getCoatNode(ir, coatTranslationCache, coat_blend);
+			auto* coat = getCoatNode(ir, cache, coat_blend);
 
 			assert(node->children.count == 1u);
 			auto* coated = const_cast<IR::INode*>(node->children[0]);
@@ -923,12 +934,11 @@ traversal_t remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode
 	assert(_root->symbol == IR::INode::ES_MATERIAL);
 	const bool thin = static_cast<const IR::CMaterialNode*>(_root)->thin;
 
-	auto opacity = extractOpacity(_root);
 	{
 		IR::INode::children_array_t next;
 		const IR::INode* node;
 		instr_t instr;
-		std::tie(instr, node) = processSubtree(_root, thin, next, m_coatTranslationCache);
+		std::tie(instr, node) = processSubtree(_root, thin, next, m_translationCache);
 		push(instr, node, next, instr, false);
 	}
 	while (!m_stack.empty())
@@ -939,7 +949,7 @@ traversal_t remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode
 		_IRR_DEBUG_BREAK_IF(op == instr_stream::OP_INVALID);
 		if (top.children.count==0u || top.visited)
 		{
-			const uint32_t bsdfBufIx = getBSDFDataIndex(instr_stream::getOpcode(top.instr), top.node, opacity);
+			const uint32_t bsdfBufIx = getBSDFDataIndex(instr_stream::getOpcode(top.instr), top.node);
 			instr_t instr = finalizeInstr(top.instr, top.node, bsdfBufIx);
 			traversal.push_back(instr);
 			m_stack.pop();
@@ -954,7 +964,7 @@ traversal_t remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode
 				const IR::INode* node = nullptr;
 				IR::INode::children_array_t next2;
 				instr_t instr2;
-				std::tie(instr2, node) = processSubtree(*it, thin, next2, m_coatTranslationCache);
+				std::tie(instr2, node) = processSubtree(*it, thin, next2, m_translationCache);
 				pushedCount += push(instr2, node, next2, top.instr, false);
 			}
 			_IRR_DEBUG_BREAK_IF(pushedCount > 2ull);
@@ -978,12 +988,11 @@ traversal_t gen_choice::CTraversalGenerator::genTraversal(const IR::INode* _root
 
 	traversal_t traversal;
 
-	auto opacity = extractOpacity(_root);
 	{
 		IR::INode::children_array_t next;
 		const IR::INode* node;
 		instr_t instr;
-		std::tie(instr, node) = processSubtree(_root, thin, next, m_coatTranslationCache);
+		std::tie(instr, node) = processSubtree(_root, thin, next, m_translationCache);
 		push(instr, node, next, instr, INVALID_INDEX);
 	}
 	while (!m_stack.empty())
@@ -992,7 +1001,7 @@ traversal_t gen_choice::CTraversalGenerator::genTraversal(const IR::INode* _root
 		m_stack.pop();
 		const instr_stream::E_OPCODE op = instr_stream::getOpcode(top.instr);
 
-		const uint32_t bsdfBufIx = getBSDFDataIndex(op, top.node, opacity);
+		const uint32_t bsdfBufIx = getBSDFDataIndex(op, top.node);
 		const uint32_t currIx = traversal.size();
 		traversal.push_back(finalizeInstr(top.instr, top.node, bsdfBufIx));
 		_IRR_DEBUG_BREAK_IF(op == instr_stream::OP_INVALID);
@@ -1012,7 +1021,7 @@ traversal_t gen_choice::CTraversalGenerator::genTraversal(const IR::INode* _root
 				const IR::INode* node = nullptr;
 				IR::INode::children_array_t next2;
 				instr_t instr2;
-				std::tie(instr2, node) = processSubtree(*it, thin, next2, m_coatTranslationCache);
+				std::tie(instr2, node) = processSubtree(*it, thin, next2, m_translationCache);
 				pushedCount += push(instr2, node, next2, top.instr, it == top.children.begin()+1 ? currIx : INVALID_INDEX);
 			}
 			_IRR_DEBUG_BREAK_IF(pushedCount>2ull);
@@ -1210,7 +1219,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 		CIdGenerator id_gen;
 
 		remainder_and_pdf::CTraversalManipulator::id2pos_map_t id2pos;
-		coat_translation_cache_t coatTranslationCache;
+		tmp_bxdf_translation_cache_t translationCache;
 
 		uint32_t usedRegs{};
 		traversal_t rem_pdf_stream;
@@ -1221,7 +1230,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 			//In raytracing backend _computeGenChoiceStream is always true
 			const uint32_t regsPerRes = _computeGenChoiceStream ? 4u : 3u;
 
-			remainder_and_pdf::CTraversalGenerator gen(_ctx, _ir, &id_gen, &coatTranslationCache, registerPool, regsPerRes);
+			remainder_and_pdf::CTraversalGenerator gen(_ctx, _ir, &id_gen, &translationCache, registerPool, regsPerRes);
 			rem_pdf_stream = gen.genTraversal(root, usedRegs);
 			assert(usedRegs <= registerPool);
 			registerPool -= usedRegs;
@@ -1230,7 +1239,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 		traversal_t gen_choice_stream;
 		if (_computeGenChoiceStream)
 		{
-			gen_choice::CTraversalGenerator gen(_ctx, _ir, &id_gen, &coatTranslationCache, registerPool);
+			gen_choice::CTraversalGenerator gen(_ctx, _ir, &id_gen, &translationCache, registerPool);
 			gen_choice_stream = gen.genTraversal(root, usedRegs);
 			assert(usedRegs <= registerPool);
 			registerPool -= usedRegs;

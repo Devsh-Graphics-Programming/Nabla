@@ -144,6 +144,7 @@ public:
             ES_FRONT_SURFACE,
             ES_BACK_SURFACE,
             ES_EMISSION,
+            ES_OPACITY,
             ES_BSDF,
             ES_BSDF_COMBINER
         };
@@ -302,11 +303,9 @@ public:
     {
         CMaterialNode() : INode(ES_MATERIAL), thin(false)
         {
-            opacity.source = EPS_CONSTANT;
-            opacity.value.constant = color_t(1.f);
+
         }
 
-        SParameter<color_t> opacity;
         bool thin;
     };
 
@@ -342,6 +341,13 @@ public:
         CEmissionNode() : INode(ES_EMISSION) {}
 
         color_t intensity = color_t(1.f);
+    };
+
+    struct COpacityNode : INode
+    {
+        COpacityNode() : INode(ES_OPACITY) {}
+
+        SParameter<color_t> opacity;
     };
 
     struct CBSDFCombinerNode : INode
@@ -385,7 +391,8 @@ public:
             ET_MICROFACET_SPECULAR,
             //ET_SHEEN,
             ET_COATING,
-            ET_DIELECTRIC
+            ET_DIELECTRIC,
+            ET_DELTA_TRANSMISSION
         };
 
         CBSDFNode(E_TYPE t) :

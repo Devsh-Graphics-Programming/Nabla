@@ -133,11 +133,6 @@ namespace MitsubaLoader
     root->children.count = 1u;
 
     bool twosided = false;
-    IR::INode::SParameter<IR::INode::color_t> opacity;
-    {
-        opacity.source = IR::INode::EPS_CONSTANT;
-        opacity.value.constant = IR::INode::color_t(1.f);
-    }
     bool thin = false;
 
     const CElementBSDF* current = _bsdf;
@@ -164,9 +159,10 @@ namespace MitsubaLoader
             continue;
             break;
         case CElementBSDF::MASK:
-            getSpectrumOrTexture(current->mask.opacity, opacity);
+            nextSym = ir->allocNode<IR::COpacityNode>();
+            nextSym->children.count = 1u;
+            getSpectrumOrTexture(current->mask.opacity, static_cast<IR::COpacityNode*>(nextSym)->opacity);
             bsdfQ.push(current->mask.bsdf[0]);
-            continue;
             break;
         case CElementBSDF::DIFFUSE:
         case CElementBSDF::ROUGHDIFFUSE:
@@ -383,7 +379,6 @@ namespace MitsubaLoader
         }
     }
 
-    static_cast<IR::CMaterialNode*>(root)->opacity = opacity;
     static_cast<IR::CMaterialNode*>(root)->thin = thin;
 
     IR::INode* surfParent = root;

@@ -405,9 +405,9 @@ vec3 params_getSigmaA(in params_t p)
 {
 	return p[PARAMS_SIGMA_A_IX];
 }
-float params_getBlendWeight(in params_t p)
+vec3 params_getBlendWeight(in params_t p)
 {
-	return p[PARAMS_WEIGHT_IX].x;
+	return p[PARAMS_WEIGHT_IX];
 }
 vec3 params_getTransmittance(in params_t p)
 {
@@ -461,7 +461,7 @@ void instr_execute_SET_GEOM_NORMAL(in instr_t instr, in MC_precomputed_t precomp
 
 bxdf_eval_t instr_execute_cos_eval_BLEND(in instr_t instr, in mat2x4 srcs, in params_t params, in bsdf_data_t data)
 {
-	float w = params_getBlendWeight(params);
+	vec3 w = params_getBlendWeight(params);
 	bxdf_eval_t bxdf1 = srcs[0].xyz;
 	bxdf_eval_t bxdf2 = srcs[1].xyz;
 
@@ -470,9 +470,12 @@ bxdf_eval_t instr_execute_cos_eval_BLEND(in instr_t instr, in mat2x4 srcs, in pa
 }
 eval_and_pdf_t instr_execute_cos_eval_pdf_BLEND(in instr_t instr, in mat2x4 srcs, in params_t params, in bsdf_data_t data)
 {
-	float w = params_getBlendWeight(params);
-	eval_and_pdf_t bxdf1 = srcs[0];
-	eval_and_pdf_t bxdf2 = srcs[1];
+	vec3 w = params_getBlendWeight(params);
+	bxdf_eval_t bxdf1 = srcs[0].xyz;
+	bxdf_eval_t bxdf2 = srcs[1].xyz;
+	float w_pdf = (w.x + w.y + w.z) * 0.3333333;
+	float pdf1 = srcs[0].w;
+	float pdf2 = srcs[1].w;
 
 	//instead of doing this here, remainder and pdf returned from generator stream is weighted
 	//so it correctly adds up at the end
@@ -495,7 +498,10 @@ eval_and_pdf_t instr_execute_cos_eval_pdf_BLEND(in instr_t instr, in mat2x4 srcs
 	}
 	*/
 	
-	return mix(bxdf1, bxdf2, w);
+	bxdf_eval_t eval = mix(bxdf1, bxdf2, w);
+	float pdf = mix(pdf1, pdf2, w_pdf);
+
+	return eval_and_pdf_t(eval, pdf);
 }
 
 vec3 fetchTex(in uvec3 texid, in vec2 uv, in mat2 dUV)
@@ -764,8 +770,15 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 		microfacet = _microfacet;
 	}
 
+#if defined(OP_THINDIELECTRIC) || defined(OP_DELTATRANS)
+	bool thinOrDelta = false;
 #if defined(OP_THINDIELECTRIC)
-	if (op == OP_THINDIELECTRIC)
+	thinOrDelta = op == OP_THINDIELECTRIC;
+#endif
+#if defined(OP_DELTATRANS)
+	thinOrDelta = thinOrDelta || (op == OP_DELTATRANS);
+#endif
+	if (thinOrDelta)
 	{
 		bxdf_eval = vec3(0.0);
 		pdf = 1.0;
@@ -983,7 +996,8 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		if (op==OP_BLEND) {
 			bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
 			params_t params = instr_getParameters(instr, bsdf_data);
-			float w = params_getBlendWeight(params);
+			vec3 w_ = params_getBlendWeight(params);
+			float w = (w_.x + w_.y + w_.z) * 0.333333;
 			float rcpChoiceProb;
 			bool choseRight = irr_glsl_partitionRandVariable(w, u.z, rcpChoiceProb);
 
@@ -1057,6 +1071,15 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	const vec3 localV = irr_glsl_getTangentSpaceV(currInteraction);
 	const mat3 tangentFrame = irr_glsl_getTangentFrame(currInteraction);
 
+#ifdef OP_DELTRATRANS
+	if (op == OP_DELTATRANS)
+	{
+		s = irr_glsl_createLightSample(-precomp.V, -1.0, currInteraction.T, currInteraction.B, currInteraction.isotropic.N);
+		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
+		rem = vec3(1.0);
+		pdf = 1.0;
+	} else
+#endif
 #ifdef OP_THINDIELECTRIC
 	if (op == OP_THINDIELECTRIC)
 	{
