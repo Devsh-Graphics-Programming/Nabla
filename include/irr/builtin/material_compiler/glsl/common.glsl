@@ -414,55 +414,6 @@ vec3 params_getTransmittance(in params_t p)
 	return p[PARAMS_TRANSMITTANCE_IX];
 }
 
-
-bxdf_eval_t instr_execute_cos_eval_DIFFUSE(in instr_t instr, in irr_glsl_LightSample s, in params_t params, in bsdf_data_t data)
-{
-	vec3 refl = params_getReflectance(params);
-	float a = params_getAlpha(params);
-	vec3 diffuse = irr_glsl_oren_nayar_cos_eval(s,currInteraction.isotropic,a*a) * refl;
-	return diffuse;
-}
-
-bxdf_eval_t instr_execute_cos_eval_DIFFTRANS(in instr_t instr, in irr_glsl_LightSample s, in params_t params, in bsdf_data_t data)
-{
-	vec3 tr = params_getTransmittance(params);
-	//transmittance*cos/2pi
-	vec3 c = abs(s.NdotL)*irr_glsl_RECIPROCAL_PI*0.5*tr;
-	return c;
-}
-
-bxdf_eval_t instr_execute_cos_eval_DIELECTRIC(in instr_t instr, in irr_glsl_LightSample s, in float eval)
-{
-	return bxdf_eval_t(eval);
-}
-
-bxdf_eval_t instr_execute_cos_eval_THINDIELECTRIC(in instr_t instr, in irr_glsl_LightSample s, in params_t params, in bsdf_data_t data)
-{
-	/*if (currBSDFParams.isotropic.NdotL>FLT_MIN)
-	{
-		//float au = params_getAlpha(params);
-		//float av = params_getAlphaV(params);
-		vec3 eta = vec3(1.5);
-		vec3 diffuse = irr_glsl_lambertian_cos_eval(currBSDFParams.isotropic,currInteraction.isotropic) * vec3(0.89);
-		diffuse *= irr_glsl_diffuseFresnelCorrectionFactor(eta,eta*eta) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currInteraction.isotropic.NdotV)) * (vec3(1.0)-irr_glsl_fresnel_dielectric(eta, currBSDFParams.isotropic.NdotL));
-		writeReg(REG_DST(regs), diffuse);
-	}
-	else*/ 
-	return bxdf_eval_t(0.0);
-}
-eval_and_pdf_t instr_execute_cos_eval_pdf_THINDIELECTRIC(in instr_t instr, in irr_glsl_LightSample s, in uvec3 regs, in params_t params, in bsdf_data_t data)
-{
-	bxdf_eval_t eval = instr_execute_cos_eval_THINDIELECTRIC(instr, s, params, data);
-	//WARNING 1.0 instead of INF
-	return eval_and_pdf_t(eval, 1.0);
-}
-
-bxdf_eval_t instr_execute_cos_eval_CONDUCTOR(in instr_t instr, in mat2x3 eta, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache microfacet, in float DG, in params_t params, in bsdf_data_t data)
-{
-	vec3 fr = irr_glsl_fresnel_conductor(eta[0],eta[1],microfacet.isotropic.VdotH);
-	return DG*fr;
-}
-
 bxdf_eval_t instr_execute_cos_eval_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in vec3 eta, in vec3 eta2, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache microfacet, in bsdf_data_t data, out float out_weight)
 {
 	//vec3 thickness_sigma = params_getSigmaA(params);
