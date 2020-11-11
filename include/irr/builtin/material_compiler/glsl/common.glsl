@@ -1071,7 +1071,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	const vec3 localV = irr_glsl_getTangentSpaceV(currInteraction);
 	const mat3 tangentFrame = irr_glsl_getTangentFrame(currInteraction);
 
-#ifdef OP_DELTRATRANS
+#ifdef OP_DELTATRANS
 	if (op == OP_DELTATRANS)
 	{
 		s = irr_glsl_createLightSample(-precomp.V, -1.0, currInteraction.T, currInteraction.B, currInteraction.isotropic.N);
