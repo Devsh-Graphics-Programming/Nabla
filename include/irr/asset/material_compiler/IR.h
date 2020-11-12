@@ -139,15 +139,14 @@ public:
     {
         enum E_SYMBOL
         {
-            ES_MATERIAL,
+            ES_MATERIAL, // TODO delete
             ES_GEOM_MODIFIER,
             ES_FRONT_SURFACE, // TODO delete
             ES_BACK_SURFACE, // TODO delete
             ES_EMISSION,
             ES_OPACITY,
             ES_BSDF,
-            ES_BSDF_COMBINER,
-            ES_TWOSIDED
+            ES_BSDF_COMBINER
         };
 
         struct STextureSource {
@@ -184,20 +183,36 @@ public:
             }
 
             SParameter() = default;
-            SParameter(const type_of_const& c)
+            SParameter<type_of_const>& operator=(const type_of_const& c)
             {
                 source = EPS_CONSTANT;
                 value.constant = c;
             }
-            SParameter(const STextureSource& t)
+            SParameter(const type_of_const& c)
+            {
+                *this = c;
+            }
+            SParameter<type_of_const>& operator=(const STextureSource& t)
             {
                 source = EPS_TEXTURE;
+                //making sure smart_refctd_ptr assignment wont try to drop() -- .value is union
+                value.constant = type_of_const(0);
                 value.texture = t;
+            }
+            SParameter(const STextureSource& t)
+            {
+                *this = t;
+            }
+            SParameter<type_of_const>& operator=(STextureSource&& t)
+            {
+                source = EPS_TEXTURE;
+                //making sure smart_refctd_ptr assignment wont try to drop() -- .value is union
+                value.constant = type_of_const(0);
+                value.texture = std::move(t);
             }
             SParameter(STextureSource&& t)
             {
-                source = EPS_TEXTURE;
-                value.texture = std::move(t);
+                *this = std::move(t);
             }
             SParameter(const SParameter<type_of_const>& other)
             {
@@ -300,6 +315,117 @@ public:
         bool deinited = false;
     };
 
+    INode* copyNode(const INode* _rhs)
+    {
+        INode* node = nullptr;
+        switch (_rhs->symbol)
+        {
+        case INode::ES_GEOM_MODIFIER:
+        {
+            auto* rhs = static_cast<const CGeomModifierNode*>(_rhs);
+            node = allocNode<CGeomModifierNode>(rhs->type);
+            *static_cast<CGeomModifierNode*>(node) = *rhs;
+        }
+            break;
+        case INode::ES_EMISSION:
+        {
+            auto* rhs = static_cast<const CEmissionNode*>(_rhs);
+            node = allocNode<CEmissionNode>();
+            *static_cast<CEmissionNode*>(node) = *rhs;
+        }
+            break;
+        case INode::ES_OPACITY:
+        {
+            auto* rhs = static_cast<const COpacityNode*>(_rhs);
+            node = allocNode<COpacityNode>();
+            *static_cast<COpacityNode*>(node) = *rhs;
+        }
+            break;
+        case INode::ES_BSDF:
+        {
+            auto* rhs_bsdf = static_cast<const CBSDFNode*>(_rhs);
+
+            switch (rhs_bsdf->type)
+            {
+            case CBSDFNode::ET_DIFFTRANS:
+            {
+                auto* rhs = static_cast<const CDifftransBSDFNode*>(_rhs);
+                node = allocNode<CDifftransBSDFNode>();
+                *static_cast<CDifftransBSDFNode*>(node) = *rhs;
+            }
+            break;
+            case CBSDFNode::ET_MICROFACET_DIFFUSE:
+            {
+                auto* rhs = static_cast<const CMicrofacetDiffuseBSDFNode*>(_rhs);
+                node = allocNode<CMicrofacetDiffuseBSDFNode>();
+                *static_cast<CMicrofacetDiffuseBSDFNode*>(node) = *rhs;
+            }
+            break;
+            case CBSDFNode::ET_MICROFACET_SPECULAR:
+            {
+                auto* rhs = static_cast<const CMicrofacetSpecularBSDFNode*>(_rhs);
+                node = allocNode<CMicrofacetSpecularBSDFNode>();
+                *static_cast<CMicrofacetSpecularBSDFNode*>(node) = *rhs;
+            }
+            break;
+            case CBSDFNode::ET_COATING:
+            {
+                auto* rhs = static_cast<const CCoatingBSDFNode*>(_rhs);
+                node = allocNode<CCoatingBSDFNode>();
+                *static_cast<CCoatingBSDFNode*>(node) = *rhs;
+            }
+            break;
+            case CBSDFNode::ET_DIELECTRIC:
+            {
+                auto* rhs = static_cast<const CDielectricBSDFNode*>(_rhs);
+                node = allocNode<CDielectricBSDFNode>();
+                *static_cast<CDielectricBSDFNode*>(node) = *rhs;
+            }
+            break;
+            default:
+            {
+                node = allocNode<CBSDFNode>(rhs_bsdf->type);
+                *static_cast<CBSDFNode*>(node) = *rhs_bsdf;
+            }
+            }
+        }
+            break;
+        case INode::ES_BSDF_COMBINER:
+        {
+            auto* rhs_combiner = static_cast<const CBSDFCombinerNode*>(_rhs);
+            switch (rhs_combiner->type)
+            {
+            case CBSDFCombinerNode::ET_WEIGHT_BLEND:
+            {
+                auto* rhs = static_cast<const CBSDFBlendNode*>(_rhs);
+                node = allocNode<CBSDFBlendNode>();
+                *static_cast<CBSDFBlendNode*>(node) = *rhs;
+            }
+            break;
+            case CBSDFCombinerNode::ET_MIX:
+            {
+                auto* rhs = static_cast<const CBSDFMixNode*>(_rhs);
+                node = allocNode<CBSDFMixNode>();
+                *static_cast<CBSDFMixNode*>(node) = *rhs;
+            }
+            break;
+            default:
+            {
+                node = allocNode<CBSDFCombinerNode>(rhs_combiner->type);
+                *static_cast<CBSDFCombinerNode*>(node) = *rhs_combiner;
+            }
+            break;
+            }
+        }
+            break;
+        default:
+            assert(false);
+            return nullptr;
+        }
+
+        return node;
+    }
+
     struct CMaterialNode : public INode
     {
         CMaterialNode() : INode(ES_MATERIAL), thin(false)
@@ -342,19 +468,6 @@ public:
         CEmissionNode() : INode(ES_EMISSION) {}
 
         color_t intensity = color_t(1.f);
-    };
-
-    struct CTwosidedNode : INode
-    {
-        CTwosidedNode() : INode(ES_TWOSIDED) {}
-
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t FRONT_BRDF_IX = 0u;
-        _IRR_STATIC_INLINE_CONSTEXPR uint32_t BACK_BRDF_IX = 1u;
-
-        INode* getFront() { return children[FRONT_BRDF_IX]; }
-        const INode* getFront() const { return children[FRONT_BRDF_IX]; }
-        INode* getBack() { return children[BACK_BRDF_IX]; }
-        const INode* getBack() const { return children[BACK_BRDF_IX]; }
     };
 
     struct COpacityNode : INode
@@ -488,6 +601,7 @@ public:
     struct CDielectricBSDFNode : CMicrofacetSpecularBSDFNode
     {
         CDielectricBSDFNode() : CMicrofacetSpecularBSDFNode(ET_DIELECTRIC) {}
+        bool thin = false;
     };
 
     SBackingMemManager memMgr;

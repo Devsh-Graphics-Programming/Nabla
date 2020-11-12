@@ -14,6 +14,7 @@ namespace MitsubaLoader
 
 class CMitsubaMaterialCompilerFrontend
 {
+    using IRNode = asset::material_compiler::IR::INode;
     using tex_ass_type = std::tuple<core::smart_refctd_ptr<asset::ICPUImageView>, core::smart_refctd_ptr<asset::ICPUSampler>, float>;
 
     const SContext* m_loaderContext;
@@ -26,10 +27,18 @@ class CMitsubaMaterialCompilerFrontend
     tex_ass_type getTexture(const CElementTexture* _element) const;
     tex_ass_type getTexture(const std::string& _key, const CElementTexture* _element, float _scale) const;
 
+    IRNode* createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
+
 public:
+    struct front_and_back_t
+    {
+        IRNode* front;
+        IRNode* back;
+    };
+
     CMitsubaMaterialCompilerFrontend(const SContext* _ctx) : m_loaderContext(_ctx) {}
 
-    asset::material_compiler::IR::INode* compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
+    front_and_back_t compileToIRTree(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf);
 };
 
 }}}
