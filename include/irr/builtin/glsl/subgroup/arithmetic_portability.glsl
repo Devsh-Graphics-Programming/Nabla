@@ -145,14 +145,15 @@ TODO: Keep the pseudo subgroup and offset code DRY, move to a function.
 	{ \
 		const uint hiMask = ~loMask; \
 		const uint maxItemsToClear = ((ACTIVE_INVOCATION_INDEX_UPPER_BOUND+loMask)&hiMask)>>1u; \
-		if (gl_LocalInvocationIndex<maxItemsToClear) \
+		const uint halfMask = loMask>>1u; \
+		uint clearIndex = ((gl_LocalInvocationIndex&(~halfMask))<<2u)|(gl_LocalInvocationIndex&halfMask); \
+		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[clearIndex] = IDENTITY; \
+		if (_IRR_GLSL_WORKGROUP_SIZE_<maxItemsToClear) \
+		[[unroll]] for (uint ix=gl_LocalInvocationIndex+_IRR_GLSL_WORKGROUP_SIZE_; ix<maxItemsToClear; ix+=_IRR_GLSL_WORKGROUP_SIZE_) \
 		{ \
-			const uint halfMask = loMask>>1u; \
-			const uint clearIndex = ((gl_LocalInvocationIndex&(~halfMask))<<2u)|(gl_LocalInvocationIndex&halfMask); \
+			clearIndex = ((ix&(~halfMask))<<2u)|(ix&halfMask); \
 			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[clearIndex] = IDENTITY; \
 		} \
-		barrier(); \
-		memoryBarrierShared(); \
 	}
 
 

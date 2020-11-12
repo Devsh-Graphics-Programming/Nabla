@@ -327,10 +327,8 @@ int main()
 	///uint32_t totalFailCount = 0;
 	///constexpr uint32_t totalTestCount = 1022 * 3 * 7;
 
-	//As of now, subgroup size is hardcoded to 4
-	//workgroup size is required to be greater or equal to subgroup_size/2
-	//max workgroup size is hardcoded to 256
-	for (uint32_t workgroupSize=5u; workgroupSize<=1024u; workgroupSize++)
+	//max workgroup size is hardcoded to 1024
+	for (uint32_t workgroupSize=1u; workgroupSize<=1024u; workgroupSize++)
 	{
 		core::smart_refctd_ptr<IGPUComputePipeline> pipelines[3];
 		for (uint32_t i=0u; i<3u; i++)

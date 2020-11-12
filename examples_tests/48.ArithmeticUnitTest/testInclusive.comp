@@ -5,11 +5,16 @@
 
 void main()
 {
+	CONDITIONAL_CLEAR_AND
 	andOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupInclusiveAnd(inputValue[gl_GlobalInvocationID.x]);
+	CONDITIONAL_CLEAR_OR_XOR_ADD
 	xorOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupInclusiveXor(inputValue[gl_GlobalInvocationID.x]);
 	orOutput  [gl_GlobalInvocationID.x] = irr_glsl_subgroupInclusiveOr (inputValue[gl_GlobalInvocationID.x]);
 	addOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupInclusiveAdd(inputValue[gl_GlobalInvocationID.x]);
+	CONDITIONAL_CLEAR_MUL
 	multOutput[gl_GlobalInvocationID.x] = irr_glsl_subgroupInclusiveMul(inputValue[gl_GlobalInvocationID.x]);
+	CONDITIONAL_CLEAR_MIN
 	minOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupInclusiveMin(inputValue[gl_GlobalInvocationID.x]);
+	CONDITIONAL_CLEAR_MAX
 	maxOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupInclusiveMax(inputValue[gl_GlobalInvocationID.x]);
 }
