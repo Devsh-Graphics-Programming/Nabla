@@ -84,16 +84,28 @@ struct max
 
 
 //subgroup method emulations on the CPU, to verify the results of the GPU methods
+template<typename T>
+struct emulatedSubgroupCommon
+{
+	inline const T* getSubgroupData(uint32_t& subgroupInvocationID, uint32_t& pseudoSubgroupID, const T* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, uint32_t workgroupSize)
+	{
+		pseudoSubgroupID = localInvocationIndex&(-subgroupSize);
+		auto subgroupData = workgroupData+pseudoSubgroupID;
+		subgroupInvocationID = localInvocationIndex-pseudoSubgroupID;
+		return workgroupData+pseudoSubgroupID;
+	}
+};
 template<class OP>
-struct emulatedSubgroupReduction
+struct emulatedSubgroupReduction : emulatedSubgroupCommon<typename OP::type_t>
 {
 	using type_t = typename OP::type_t;
 
 	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, uint32_t workgroupSize)
 	{
-		auto subgroupData = workgroupData+(localInvocationIndex&(-subgroupSize));
+		uint32_t subgroupInvocationID,pseudoSubgroupID;
+		const type_t* subgroupData = getSubgroupData(subgroupInvocationID,pseudoSubgroupID,workgroupData,localInvocationIndex,subgroupSize,workgroupSize);
 		type_t retval = subgroupData[0];
-		for (auto i=1u; i<core::min<uint32_t>(subgroupSize,workgroupSize); i++)
+		for (auto i=1u; i<core::min<uint32_t>(subgroupSize,workgroupSize-pseudoSubgroupID); i++)
 			retval = OP()(retval,subgroupData[i]);
 		return retval;
 	}
@@ -101,14 +113,14 @@ struct emulatedSubgroupReduction
 	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "subgroup reduction";
 };
 template<class OP>
-struct emulatedSubgroupScanExclusive
+struct emulatedSubgroupScanExclusive : emulatedSubgroupCommon<typename OP::type_t>
 {
 	using type_t = typename OP::type_t;
 
 	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, uint32_t workgroupSize)
 	{
-		auto subgroupData = workgroupData+(localInvocationIndex&(-subgroupSize));
-		auto subgroupInvocationID = localInvocationIndex&(subgroupSize-1u);
+		uint32_t subgroupInvocationID,dummy;
+		const type_t* subgroupData = getSubgroupData(subgroupInvocationID,dummy,workgroupData,localInvocationIndex,subgroupSize,workgroupSize);
 		type_t retval = OP::IdentityElement;
 		for (auto i=0u; i<subgroupInvocationID; i++)
 			retval = OP()(retval, subgroupData[i]);
@@ -118,14 +130,14 @@ struct emulatedSubgroupScanExclusive
 	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "subgroup exclusive scan";
 };
 template<class OP>
-struct emulatedSubgroupScanInclusive
+struct emulatedSubgroupScanInclusive : emulatedSubgroupCommon<typename OP::type_t>
 {
 	using type_t = typename OP::type_t;
 
 	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, uint32_t workgroupSize)
 	{
-		auto subgroupData = workgroupData+(localInvocationIndex&(-subgroupSize));
-		auto subgroupInvocationID = localInvocationIndex&(subgroupSize-1u);
+		uint32_t subgroupInvocationID,dummy;
+		const type_t* subgroupData = getSubgroupData(subgroupInvocationID,dummy,workgroupData,localInvocationIndex,subgroupSize,workgroupSize);
 		type_t retval = OP::IdentityElement;
 		for (auto i=0u; i<=subgroupInvocationID; i++)
 			retval = OP()(retval, subgroupData[i]);
@@ -318,7 +330,7 @@ int main()
 	//As of now, subgroup size is hardcoded to 4
 	//workgroup size is required to be greater or equal to subgroup_size/2
 	//max workgroup size is hardcoded to 256
-	for (uint32_t workgroupSize=2u; workgroupSize<1024u; workgroupSize++)
+	for (uint32_t workgroupSize=5u; workgroupSize<=1024u; workgroupSize++)
 	{
 		core::smart_refctd_ptr<IGPUComputePipeline> pipelines[3];
 		for (uint32_t i=0u; i<3u; i++)
