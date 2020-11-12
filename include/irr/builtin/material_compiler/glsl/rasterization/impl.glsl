@@ -20,6 +20,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 	float ay = params_getAlphaV(params);
 	float ay2 = ay*ay;
 	const vec3 refl = params_getReflectance(params);
+	const vec3 trans = params_getTransmittance(params);
 
 	const bool is_bsdf = !op_isBRDF(op); //note it actually tells if op is BSDF or BUMPMAP or SET_GEOM_NORMAL (divergence reasons)
 
@@ -55,7 +56,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
 		if (op_isDiffuse(op))
 		{
-			vec3 reflectance = is_bsdf ? vec3(1.0) : refl;
+			vec3 reflectance = is_bsdf ? trans : refl;
 			float alpha2 = is_bsdf ? 0.0 : a2;
 			bxdf_eval = reflectance * irr_glsl_oren_nayar_cos_eval(s, currInteraction.isotropic, alpha2);
 		} else

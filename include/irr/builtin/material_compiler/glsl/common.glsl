@@ -62,26 +62,6 @@ bool instr_get2ndParamTexPresence(in instr_t instr)
 	return (instr.x&(1u<<INSTR_2ND_PARAM_TEX_SHIFT)) != 0u;
 #endif
 }
-bool instr_get3rdParamTexPresence(in instr_t instr)
-{
-#if defined(PARAM3_NEVER_TEX)
-	return false;
-#elif defined(PARAM3_ALWAYS_TEX)
-	return true;
-#else
-	return (instr.x&(1u<<INSTR_3RD_PARAM_TEX_SHIFT)) != 0u;
-#endif
-}
-bool instr_get4thParamTexPresence(in instr_t instr)
-{
-#if defined(PARAM4_NEVER_TEX)
-	return false;
-#elif defined(PARAM4_ALWAYS_TEX)
-	return true;
-#else
-	return (instr.x&(1u<<INSTR_4TH_PARAM_TEX_SHIFT)) != 0u;
-#endif
-}
 
 bool instr_params_getAlphaUTexPresence(in instr_t instr)
 {
@@ -93,11 +73,11 @@ bool instr_params_getAlphaVTexPresence(in instr_t instr)
 }
 bool instr_params_getReflectanceTexPresence(in instr_t instr)
 {
-	return instr_get4thParamTexPresence(instr);
+	return instr_get2ndParamTexPresence(instr);
 }
 bool instr_getSigmaATexPresence(in instr_t instr)
 {
-	return instr_get4thParamTexPresence(instr);
+	return instr_get1stParamTexPresence(instr);
 }
 bool instr_getTransmittanceTexPresence(in instr_t instr)
 {
@@ -106,10 +86,6 @@ bool instr_getTransmittanceTexPresence(in instr_t instr)
 bool instr_getWeightTexPresence(in instr_t instr)
 {
 	return instr_get1stParamTexPresence(instr);
-}
-bool instr_getOpacityTexPresence(in instr_t instr)
-{
-	return instr_get3rdParamTexPresence(instr);
 }
 
 bool instr_getTwosided(in instr_t instr)
@@ -257,41 +233,21 @@ vec3 bsdf_data_getParam2(in bsdf_data_t data, in bool texPresence)
 	return textureOrRGBconst(data.data[0].zw, texPresence);
 #endif
 }
-vec3 bsdf_data_getParam3(in bsdf_data_t data, in bool texPresence)
-{
-#ifdef PARAM3_ALWAYS_SAME_VALUE
-	return PARAM3_VALUE;
-#else
-	return textureOrRGBconst(data.data[1].xy, texPresence);
-#endif
-}
-vec3 bsdf_data_getParam4(in bsdf_data_t data, in bool texPresence)
-{
-#ifdef PARAM4_ALWAYS_SAME_VALUE
-	return PARAM4_VALUE;
-#else
-	return textureOrRGBconst(data.data[1].zw, texPresence);
-#endif
-}
 
-bvec4 instr_getTexPresence(in instr_t i)
+bvec2 instr_getTexPresence(in instr_t i)
 {
-	return bvec4(
+	return bvec2(
 		instr_get1stParamTexPresence(i),
-		instr_get2ndParamTexPresence(i),
-		instr_get3rdParamTexPresence(i),
-		instr_get4thParamTexPresence(i)
+		instr_get2ndParamTexPresence(i)
 	);
 }
 params_t instr_getParameters(in instr_t i, in bsdf_data_t data)
 {
 	params_t p;
-	bvec4 presence = instr_getTexPresence(i);
+	bvec2 presence = instr_getTexPresence(i);
 	//speculatively always read RGB
 	p[0] = bsdf_data_getParam1(data, presence.x);
 	p[1] = bsdf_data_getParam2(data, presence.y);
-	p[2] = bsdf_data_getParam3(data, presence.z);
-	p[3] = bsdf_data_getParam4(data, presence.w);
 
 	return p;
 }
@@ -300,9 +256,9 @@ params_t instr_getParameters(in instr_t i, in bsdf_data_t data)
 mat2x3 bsdf_data_decodeIoR(in bsdf_data_t data, in uint op)
 {
 	mat2x3 ior = mat2x3(0.0);
-	ior[0] = irr_glsl_decodeRGB19E7(data.data[2].xy);
+	ior[0] = irr_glsl_decodeRGB19E7(data.data[1].xy);
 #ifdef OP_CONDUCTOR
-	ior[1] = (op == OP_CONDUCTOR) ? irr_glsl_decodeRGB19E7(data.data[2].zw) : vec3(0.0);
+	ior[1] = (op == OP_CONDUCTOR) ? irr_glsl_decodeRGB19E7(data.data[1].zw) : vec3(0.0);
 #endif
 
 	return ior;
@@ -392,10 +348,6 @@ float params_getAlpha(in params_t p)
 vec3 params_getReflectance(in params_t p)
 {
 	return p[PARAMS_REFLECTANCE_IX];
-}
-vec3 params_getOpacity(in params_t p)
-{
-	return p[PARAMS_OPACITY_IX];
 }
 float params_getAlphaV(in params_t p)
 {
@@ -746,6 +698,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 	const float ior_scalar = dot(CIE_XYZ_Luma_Y_coeffs, ior[0]);
 	const bool is_bsdf = !op_isBRDF(op); //note it actually tells if op is BSDF or BUMPMAP or SET_GEOM_NORMAL (divergence reasons)
 	const vec3 refl = params_getReflectance(params);
+	const vec3 trans = params_getTransmittance(params);
 
 #ifndef NO_TWOSIDED
 	handleTwosided(instr, s, _microfacet);
@@ -787,7 +740,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
 	if (op_isDiffuse(op))
 	{
-		vec3 reflectance = is_bsdf ? vec3(1.0) : refl;
+		vec3 reflectance = is_bsdf ? trans : refl;
 		float alpha2 = is_bsdf ? 0.0 : a2;
 		bxdf_eval = reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, alpha2);
 		pdf *= is_bsdf ? 0.5 : 1.0;
@@ -1058,6 +1011,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	const mat2x3 ior2 = matrixCompMult(ior,ior);
 	const bool is_bsdf = !op_isBRDF(op) && !is_plastic;
 	const vec3 refl = params_getReflectance(params);
+	const vec3 trans = params_getTransmittance(params);
 
 #ifndef NO_TWOSIDED
 	handleTwosided_interactionOnly(instr);
@@ -1104,7 +1058,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
 
 		const float alpha2 = is_bsdf ? 0.0 : ax2;
-		const vec3 reflectance = is_bsdf ? vec3(1.0) : refl;
+		const vec3 reflectance = is_bsdf ? trans : refl;
 		rem *= reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, alpha2);
 		pdf *= is_bsdf ? 0.5 : 1.0;
 	} else

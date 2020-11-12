@@ -141,12 +141,13 @@ public:
         {
             ES_MATERIAL,
             ES_GEOM_MODIFIER,
-            ES_FRONT_SURFACE,
-            ES_BACK_SURFACE,
+            ES_FRONT_SURFACE, // TODO delete
+            ES_BACK_SURFACE, // TODO delete
             ES_EMISSION,
             ES_OPACITY,
             ES_BSDF,
-            ES_BSDF_COMBINER
+            ES_BSDF_COMBINER,
+            ES_TWOSIDED
         };
 
         struct STextureSource {
@@ -343,6 +344,19 @@ public:
         color_t intensity = color_t(1.f);
     };
 
+    struct CTwosidedNode : INode
+    {
+        CTwosidedNode() : INode(ES_TWOSIDED) {}
+
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t FRONT_BRDF_IX = 0u;
+        _IRR_STATIC_INLINE_CONSTEXPR uint32_t BACK_BRDF_IX = 1u;
+
+        INode* getFront() { return children[FRONT_BRDF_IX]; }
+        const INode* getFront() const { return children[FRONT_BRDF_IX]; }
+        INode* getBack() { return children[BACK_BRDF_IX]; }
+        const INode* getBack() const { return children[BACK_BRDF_IX]; }
+    };
+
     struct COpacityNode : INode
     {
         COpacityNode() : INode(ES_OPACITY) {}
@@ -389,10 +403,10 @@ public:
             ET_SPECULAR_DELTA,
             ET_MICROFACET_DIFFUSE,
             ET_MICROFACET_SPECULAR,
-            //ET_SHEEN,
             ET_COATING,
             ET_DIELECTRIC,
             ET_DELTA_TRANSMISSION
+            //ET_SHEEN,
         };
 
         CBSDFNode(E_TYPE t) :

@@ -59,21 +59,14 @@ public:
 
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_1ST_PARAM_TEX = INSTR_OPCODE_WIDTH + 0u;
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_2ND_PARAM_TEX = INSTR_OPCODE_WIDTH + 3u;
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_3RD_PARAM_TEX = INSTR_OPCODE_WIDTH + 8u;
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_4TH_PARAM_TEX = INSTR_OPCODE_WIDTH + 4u;
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_MAX_PARAMETER_COUNT = 4u;
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_MAX_PARAMETER_COUNT = 2u;
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_PARAM_TEX[INSTR_MAX_PARAMETER_COUNT] = {
 			BITFIELDS_SHIFT_1ST_PARAM_TEX,
-			BITFIELDS_SHIFT_2ND_PARAM_TEX,
-			BITFIELDS_SHIFT_3RD_PARAM_TEX,
-			BITFIELDS_SHIFT_4TH_PARAM_TEX
+			BITFIELDS_SHIFT_2ND_PARAM_TEX
 		};
 
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_OPACITY_TEX = 0x1u;
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_OPACITY_TEX = BITFIELDS_SHIFT_3RD_PARAM_TEX;
-
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_REFL_TEX = 0x1u;
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_REFL_TEX = BITFIELDS_SHIFT_4TH_PARAM_TEX;
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_REFL_TEX = BITFIELDS_SHIFT_2ND_PARAM_TEX;
 
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_ALPHA_U_TEX = 0x1u;
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_ALPHA_U_TEX = BITFIELDS_SHIFT_1ST_PARAM_TEX;
@@ -97,7 +90,7 @@ public:
 		//_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_NONLINEAR = INSTR_OPCODE_WIDTH + 4u;
 
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_SIGMA_A_TEX = 0x1u;
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_SIGMA_A_TEX = BITFIELDS_SHIFT_4TH_PARAM_TEX;
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_SIGMA_A_TEX = BITFIELDS_SHIFT_1ST_PARAM_TEX;
 
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_WEIGHT_TEX = 0x1u;
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_WEIGHT_TEX = BITFIELDS_SHIFT_1ST_PARAM_TEX;
@@ -213,52 +206,49 @@ public:
 			switch (op)
 			{
 			case OP_DIFFUSE: [[fallthrough]];
-			case OP_COATING:
-				return 4u;
 			case OP_CONDUCTOR: [[fallthrough]];
-			case OP_DIFFTRANS: [[fallthrough]];
 			case OP_DIELECTRIC: [[fallthrough]];
-			case OP_THINDIELECTRIC:
-				return 3u;
+				return 2u;
+			case OP_COATING: [[fallthrough]];
 			case OP_BLEND: [[fallthrough]];
+			case OP_DIFFTRANS: [[fallthrough]];
 			case OP_BUMPMAP:
 				return 1u;
-			default: 0u;
+			case OP_THINDIELECTRIC: [[fallthrough]];
+			default: return 0u;
 			}
 		}
 
 		inline static uint32_t getRegisterCountForParameter(E_OPCODE op, uint32_t n)
 		{
-	#define SWITCH_REG_CNT_FOR_PARAM_NUM(rc0, rc1, rc2, rc3) \
+	#define SWITCH_REG_CNT_FOR_PARAM_NUM(rc0, rc1) \
 	switch (n)\
 	{\
 	case 0u: return rc0;\
 	case 1u: return rc1;\
-	case 2u: return rc2;\
-	case 3u: return rc3;\
 	}
 
 			switch (op)
 			{
 			case OP_DIFFUSE:
-				SWITCH_REG_CNT_FOR_PARAM_NUM(1, 0, 3, 3)
+				SWITCH_REG_CNT_FOR_PARAM_NUM(1, 3)
 				break;
 			case OP_DIFFTRANS:
-				SWITCH_REG_CNT_FOR_PARAM_NUM(3, 0, 3, 0)
+				SWITCH_REG_CNT_FOR_PARAM_NUM(3, 0)
 				break;
 			case OP_DIELECTRIC: [[fallthrough]];
 			case OP_THINDIELECTRIC: [[fallthrough]];
 			case OP_CONDUCTOR:
-				SWITCH_REG_CNT_FOR_PARAM_NUM(1, 1, 3, 0)
+				SWITCH_REG_CNT_FOR_PARAM_NUM(1, 1)
 				break;
 			case OP_COATING:
-				SWITCH_REG_CNT_FOR_PARAM_NUM(1, 1, 3, 3)
+				SWITCH_REG_CNT_FOR_PARAM_NUM(3, 0)
 				break;
 			case OP_BUMPMAP:
-				SWITCH_REG_CNT_FOR_PARAM_NUM(2, 0, 0, 0)
+				SWITCH_REG_CNT_FOR_PARAM_NUM(2, 0)
 				break;
 			case OP_BLEND:
-				SWITCH_REG_CNT_FOR_PARAM_NUM(1, 0, 0, 0)
+				SWITCH_REG_CNT_FOR_PARAM_NUM(3, 0)
 				break;
 			default:
 				return 0u;
@@ -317,39 +307,29 @@ public:
 			struct SAllDiffuse
 			{
 				STextureOrConstant alpha;
-				STextureOrConstant dummy;
-				STextureOrConstant opacity;
 				STextureOrConstant reflectance;
 			} PACK_STRUCT;
 			struct SDiffuseTransmitter
 			{
 				STextureOrConstant transmittance;
-				STextureOrConstant dummy;
-				STextureOrConstant opacity;
 			} PACK_STRUCT;
 			struct SAllDielectric
 			{
 				STextureOrConstant alpha_u;
 				STextureOrConstant alpha_v;
-				STextureOrConstant opacity;
-				STextureOrConstant dummy;
 				uint64_t eta;
 			} PACK_STRUCT;
 			struct SAllConductor
 			{
 				STextureOrConstant alpha_u;
 				STextureOrConstant alpha_v;
-				STextureOrConstant opacity;
-				STextureOrConstant dummy;
 				//3d complex IoR, rgb19e7 format, [0]=real, [1]=imaginary
 				uint64_t eta[2];
 			} PACK_STRUCT;
 			struct SAllCoating
 			{
-				STextureOrConstant dummy1;
-				STextureOrConstant dummy2;
-				STextureOrConstant opacity;
 				STextureOrConstant sigmaA;
+				STextureOrConstant dummy;
 				uint64_t eta;
 			} PACK_STRUCT;
 			struct SBumpMap
@@ -408,39 +388,29 @@ public:
 		struct SAllDiffuse
 		{
 			STextureOrConstant alpha;
-			STextureOrConstant dummy;
-			STextureOrConstant opacity;
 			STextureOrConstant reflectance;
 		} PACK_STRUCT;
 		struct SDiffuseTransmitter
 		{
 			STextureOrConstant transmittance;
-			STextureOrConstant dummy;
-			STextureOrConstant opacity;
 		} PACK_STRUCT;
 		struct SAllDielectric
 		{
 			STextureOrConstant alpha_u;
 			STextureOrConstant alpha_v;
-			STextureOrConstant opacity;
-			STextureOrConstant dummy;
 			uint64_t eta;
 		} PACK_STRUCT;
 		struct SAllConductor
 		{
 			STextureOrConstant alpha_u;
 			STextureOrConstant alpha_v;
-			STextureOrConstant opacity;
-			STextureOrConstant dummy;
 			//3d complex IoR, rgb19e7 format, [0]=real, [1]=imaginary
 			uint64_t eta[2];
 		} PACK_STRUCT;
 		struct SAllCoating
 		{
-			STextureOrConstant dummy1;
-			STextureOrConstant dummy2;
-			STextureOrConstant opacity;
 			STextureOrConstant sigmaA;
+			STextureOrConstant dummy;
 			uint64_t eta;
 		} PACK_STRUCT;
 		struct SBumpMap
@@ -479,7 +449,6 @@ public:
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t TRANSMITTANCE_TEX_IX = _TEXTURE_INDEX(SDiffuseTransmitter, transmittance);
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t SIGMA_A_TEX_IX = _TEXTURE_INDEX(SAllCoating, sigmaA);
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t WEIGHT_TEX_IX = _TEXTURE_INDEX(SBlend, weight);
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t OPACITY_TEX_IX = _TEXTURE_INDEX(SAllDiffuse, opacity);
 		//_IRR_STATIC_INLINE_CONSTEXPR uint32_t DERIV_MAP_TEX_IX = _TEXTURE_INDEX(SBumpMap, derivmap);
 
 	#undef _TEXTURE_INDEX

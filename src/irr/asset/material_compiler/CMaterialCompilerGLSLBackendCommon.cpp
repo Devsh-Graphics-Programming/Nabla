@@ -1129,13 +1129,10 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	defs += "\n#define INSTR_TRANS_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_TRANS_TEX);
 	defs += "\n#define INSTR_SIGMA_A_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_SIGMA_A_TEX);
 	defs += "\n#define INSTR_WEIGHT_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_WEIGHT_TEX);
-	defs += "\n#define INSTR_OPACITY_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_OPACITY_TEX);
 	defs += "\n#define INSTR_TWOSIDED_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_TWOSIDED);
 	defs += "\n#define INSTR_MASKFLAG_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_MASKFLAG);
 	defs += "\n#define INSTR_1ST_PARAM_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_1ST_PARAM_TEX);
 	defs += "\n#define INSTR_2ND_PARAM_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_2ND_PARAM_TEX);
-	defs += "\n#define INSTR_3RD_PARAM_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_3RD_PARAM_TEX);
-	defs += "\n#define INSTR_4TH_PARAM_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_4TH_PARAM_TEX);
 	defs += "\n#define INSTR_NORMAL_ID_SHIFT " + std::to_string(instr_stream::INSTR_NORMAL_ID_SHIFT);
 	defs += "\n#define INSTR_NORMAL_ID_MASK " + std::to_string(instr_stream::INSTR_NORMAL_ID_MASK);
 	//remainder_and_pdf
@@ -1176,7 +1173,6 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 		defs += "\n#define PARAMS_TRANSMITTANCE_IX " + std::to_string(instr_stream::TRANSMITTANCE_TEX_IX);
 		defs += "\n#define PARAMS_SIGMA_A_IX " + std::to_string(instr_stream::SIGMA_A_TEX_IX);
 		defs += "\n#define PARAMS_WEIGHT_IX " + std::to_string(instr_stream::WEIGHT_TEX_IX);
-		defs += "\n#define PARAMS_OPACITY_IX " + std::to_string(instr_stream::OPACITY_TEX_IX);
 	}
 
 	for (uint32_t i = 0u; i < instr_stream::INSTR_MAX_PARAMETER_COUNT; ++i)
