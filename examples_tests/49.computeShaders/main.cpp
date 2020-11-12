@@ -13,6 +13,45 @@ using namespace asset;
 using namespace core;
 using namespace video;
 
+class CEventReceiver : public irr::IEventReceiver
+{
+public:
+	CEventReceiver() : running(true), particlesVectorChangeFlag(false) {}
+
+	bool OnEvent(const irr::SEvent& event)
+	{
+		if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+		{
+			switch (event.KeyInput.Key)
+			{
+				case irr::KEY_KEY_Q:
+				{
+					running = false;
+					return true;
+				} break;
+
+				case irr::KEY_KEY_X:
+				{
+					particlesVectorChangeFlag = true;
+					return true;
+				} break;
+				
+				default:
+					break;
+			}
+		}
+
+		return false;
+	}
+
+	inline bool keepOpen() const { return running; }
+	inline bool shouldItChangeParticlesVelocitySignVector() const { return particlesVectorChangeFlag; }
+
+private:
+	bool running;
+	bool particlesVectorChangeFlag;
+};
+
 _NBL_STATIC_INLINE_CONSTEXPR size_t NUMBER_OF_PARTICLES = 1024 * 1024;		// total number of particles to move
 _NBL_STATIC_INLINE_CONSTEXPR size_t WORK_GROUP_SIZE = 128;					// work-items per work-group
 
@@ -21,6 +60,7 @@ enum E_ENTRIES
 	EE_POSITIONS,
 	EE_VELOCITIES, 
 	EE_COLORS,
+	EE_COLORS_RISING_FLAG,
 	EE_COUNT
 };
 
@@ -30,10 +70,18 @@ struct alignas(16) SShaderStorageBufferObject
 	core::vector4df_SIMD positions[NUMBER_OF_PARTICLES];
 	core::vector4df_SIMD velocities[NUMBER_OF_PARTICLES];
 	core::vector4df_SIMD colors[NUMBER_OF_PARTICLES];
+	bool isColorIntensityRising[NUMBER_OF_PARTICLES][4];
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
 
-static_assert(sizeof(SShaderStorageBufferObject) == sizeof(SShaderStorageBufferObject::positions) + sizeof(SShaderStorageBufferObject::velocities) + sizeof(SShaderStorageBufferObject::colors), "There will be inproper alignment!");
+static_assert(sizeof(SShaderStorageBufferObject) == sizeof(SShaderStorageBufferObject::positions) + sizeof(SShaderStorageBufferObject::velocities) + sizeof(SShaderStorageBufferObject::colors) + sizeof(SShaderStorageBufferObject::isColorIntensityRising), "There will be inproper alignment!");
+
+#include "irr/irrpack.h"
+struct alignas(32) SPushConstants
+{
+	uint32_t hasXBeenPressed = false;
+} PACK_STRUCT;
+#include "irr/irrunpack.h"
 
 void triggerRandomSetup(SShaderStorageBufferObject* ssbo)
 {
@@ -58,6 +106,9 @@ void triggerRandomSetup(SShaderStorageBufferObject* ssbo)
 		ssbo->positions[i] = core::vector4df_SIMD(get_random(POSITION_EACH_AXIE_MIN, POSITION_EACH_AXIE_MAX), get_random(POSITION_EACH_AXIE_MIN, POSITION_EACH_AXIE_MAX), get_random(POSITION_EACH_AXIE_MIN, POSITION_EACH_AXIE_MAX), get_random(POSITION_EACH_AXIE_MIN, POSITION_EACH_AXIE_MAX));
 		ssbo->velocities[i] = core::vector4df_SIMD(get_random(VELOCITY_EACH_AXIE_MIN, VELOCITY_EACH_AXIE_MAX), get_random(VELOCITY_EACH_AXIE_MIN, VELOCITY_EACH_AXIE_MAX), get_random(VELOCITY_EACH_AXIE_MIN, VELOCITY_EACH_AXIE_MAX), get_random(VELOCITY_EACH_AXIE_MIN, VELOCITY_EACH_AXIE_MAX));
 		ssbo->colors[i] = core::vector4df_SIMD(get_random(COLOR_EACH_AXIE_MIN, COLOR_EACH_AXIE_MAX), get_random(COLOR_EACH_AXIE_MIN, COLOR_EACH_AXIE_MAX), get_random(COLOR_EACH_AXIE_MIN, COLOR_EACH_AXIE_MAX), get_random(COLOR_EACH_AXIE_MIN, COLOR_EACH_AXIE_MAX));
+
+		for (uint8_t b = 0; b < 4; ++b)
+			ssbo->isColorIntensityRising[i][b] = true;
 	}	
 }
 
@@ -77,7 +128,7 @@ int main()
 	if (!device)
 		return 1;
 
-	QToQuitEventReceiver receiver;
+	CEventReceiver receiver;
 	device->setEventReceiver(&receiver);
 
 	auto* driver = device->getVideoDriver();
@@ -114,7 +165,8 @@ int main()
 	{
 		{EE_POSITIONS, EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr},
 		{EE_VELOCITIES, EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr},
-		{EE_COLORS, EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr}
+		{EE_COLORS, EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr},
+		{EE_COLORS_RISING_FLAG, EDT_STORAGE_BUFFER, 1u, IGPUSpecializedShader::ESS_COMPUTE, nullptr}
 	};
 	
 	auto gpuCDescriptorSetLayout = driver->createGPUDescriptorSetLayout(gpuBindingsLayout, gpuBindingsLayout + EE_COUNT);
@@ -134,6 +186,10 @@ int main()
 		gpuDescriptorSetInfos[EE_COLORS].buffer.size = sizeof(SShaderStorageBufferObject::colors);
 		gpuDescriptorSetInfos[EE_COLORS].buffer.offset = gpuDescriptorSetInfos[EE_VELOCITIES].buffer.offset + sizeof(SShaderStorageBufferObject::velocities);
 
+		gpuDescriptorSetInfos[EE_COLORS_RISING_FLAG].desc = gpuSSBOBuffer;
+		gpuDescriptorSetInfos[EE_COLORS_RISING_FLAG].buffer.size = sizeof(SShaderStorageBufferObject::isColorIntensityRising);
+		gpuDescriptorSetInfos[EE_COLORS_RISING_FLAG].buffer.offset = gpuDescriptorSetInfos[EE_COLORS].buffer.offset + sizeof(SShaderStorageBufferObject::colors);
+
 		IGPUDescriptorSet::SWriteDescriptorSet gpuWrites[EE_COUNT];
 		{
 			for (uint32_t binding = 0u; binding < EE_COUNT; binding++)
@@ -142,7 +198,14 @@ int main()
 		}
 	}
 
-	auto gpuCPipelineLayout = driver->createGPUPipelineLayout(nullptr, nullptr, std::move(gpuCDescriptorSetLayout), nullptr, nullptr, nullptr);
+	asset::SPushConstantRange pushConstantRange;
+	{
+		pushConstantRange.stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+		pushConstantRange.offset = 0;
+		pushConstantRange.size = sizeof(SPushConstants);
+	}
+
+	auto gpuCPipelineLayout = driver->createGPUPipelineLayout(&pushConstantRange, &pushConstantRange + 1, std::move(gpuCDescriptorSetLayout), nullptr, nullptr, nullptr);
 	auto gpuComputePipeline = driver->createGPUComputePipeline(nullptr, std::move(gpuCPipelineLayout), std::move(gpuComputeShader));
 
 	/*
@@ -150,16 +213,16 @@ int main()
 	*/
 
 	asset::SVertexInputParams inputVertexParams;
-	inputVertexParams.enabledAttribFlags = core::createBitmask({EE_POSITIONS, EE_VELOCITIES, EE_COLORS});
-	inputVertexParams.enabledBindingFlags = core::createBitmask({ EE_POSITIONS, EE_VELOCITIES, EE_COLORS });
+	inputVertexParams.enabledAttribFlags = core::createBitmask({EE_POSITIONS, EE_VELOCITIES, EE_COLORS, EE_COLORS_RISING_FLAG});
+	inputVertexParams.enabledBindingFlags = core::createBitmask({ EE_POSITIONS, EE_VELOCITIES, EE_COLORS, EE_COLORS_RISING_FLAG });
 
 	for (uint8_t i = 0; i < EE_COUNT; ++i)
 	{
-		inputVertexParams.bindings[i].stride = getTexelOrBlockBytesize(EF_R32G32B32A32_SFLOAT);
+		inputVertexParams.bindings[i].stride = (i == EE_COLORS_RISING_FLAG ? getTexelOrBlockBytesize(EF_R8G8B8A8_UINT) : getTexelOrBlockBytesize(EF_R32G32B32A32_SFLOAT));
 		inputVertexParams.bindings[i].inputRate = asset::EVIR_PER_VERTEX;
 
 		inputVertexParams.attributes[i].binding = i;
-		inputVertexParams.attributes[i].format = asset::EF_R32G32B32A32_SFLOAT;
+		inputVertexParams.attributes[i].format = (i == EE_COLORS_RISING_FLAG ? EF_R8G8B8A8_UINT : asset::EF_R32G32B32A32_SFLOAT);
 		inputVertexParams.attributes[i].relativeOffset = 0;
 	}
 
@@ -224,11 +287,16 @@ int main()
 	gpuGbindings[EE_COLORS].buffer = gpuSSBOBuffer;
 	gpuGbindings[EE_COLORS].offset = gpuGbindings[EE_VELOCITIES].offset + sizeof(SShaderStorageBufferObject::velocities);
 
+	gpuGbindings[EE_COLORS_RISING_FLAG].buffer = gpuSSBOBuffer;
+	gpuGbindings[EE_COLORS_RISING_FLAG].offset = gpuGbindings[EE_COLORS].offset + sizeof(SShaderStorageBufferObject::colors);
+
 	auto gpuMeshBuffer = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(std::move(gpuGraphicsPipeline), nullptr, gpuGbindings, asset::SBufferBinding<video::IGPUBuffer>());
 	{
 		gpuMeshBuffer->setIndexType(asset::EIT_UNKNOWN);
 		gpuMeshBuffer->setIndexCount(NUMBER_OF_PARTICLES);
 	}
+
+	SPushConstants pushConstants;
 
 	uint64_t lastFPSTime = 0;
 	while (device->run() && receiver.keepOpen())
@@ -240,6 +308,8 @@ int main()
 		*/
 
 		driver->bindComputePipeline(gpuComputePipeline.get());
+		pushConstants.hasXBeenPressed = receiver.shouldItChangeParticlesVelocitySignVector();
+		driver->pushConstants(gpuComputePipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0, sizeof(SPushConstants), &pushConstants);
 		driver->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 0, 1, &gpuCDescriptorSet.get(), nullptr);
 
 		static_assert(NUMBER_OF_PARTICLES % WORK_GROUP_SIZE == 0, "Inccorect amount!");

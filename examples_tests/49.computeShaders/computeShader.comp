@@ -16,66 +16,73 @@ layout(set = 0, binding = 2, std430) buffer Color
 	vec4 colors[];
 };
 
+layout(set = 0, binding = 3, std430) buffer ColorRisingFlag
+{
+	bvec4 colorsRisingFlag[];
+};
+
+layout( push_constant ) uniform Block {
+	bool hasXBeenPressed;
+} pushConstants;
+
 layout(local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
 
-vec3 bounce( vec3 vin, vec3 n )
+void manageColorAxieState(float colorAxie, inout bool colorIntensityRisingAxieFlag)
 {
-	vec3 vout = reflect( vin, n );
-	return vout;
+	if(colorAxie <= 0)
+		colorIntensityRisingAxieFlag = true;
+	else if(colorAxie >= 1)
+		colorIntensityRisingAxieFlag = false;
 }
 
-vec3 bounceSphere( vec3 p, vec3 v, vec4 s )
+void manageColorState(vec3 color)
 {
-	vec3 n = normalize( p - s.xyz );
-	return bounce( v, n );
+	uint globalInvocationID = gl_GlobalInvocationID.x; // the .y and .z are both 1 in this case
+	bvec4 isColorIntensityRising = colorsRisingFlag[globalInvocationID];
+
+	manageColorAxieState(color.x, isColorIntensityRising.x);
+	manageColorAxieState(color.y, isColorIntensityRising.y);
+	manageColorAxieState(color.z, isColorIntensityRising.z);
+
+	colorsRisingFlag[globalInvocationID] = isColorIntensityRising;
 }
 
-bool isInsideSphere( vec3 p, vec4 s )
+float getNewAxieColor(float colorAxie, bool colorIntensityRisingAxieFlag)
 {
-	float r = length( p - s.xyz );
-	return ( r < s.w );
-}
+	const float colorDelta = 0.04; 
 
-float getNewAxieColor(float colorAxie)
-{
-	const float colorDelta = 0.001; 
-
-	if(colorAxie >= 1.)
-		colorAxie = 0;
-	else
+	if(colorIntensityRisingAxieFlag)
 		colorAxie += colorDelta;
+	else
+		colorAxie -= colorDelta;
 
 	return colorAxie;
 }
 
 vec3 getNewColor(vec3 color)
 {
-	return vec3(getNewAxieColor(color.x), getNewAxieColor(color.y), getNewAxieColor(color.z));
+	uint globalInvocationID = gl_GlobalInvocationID.x; // the .y and .z are both 1 in this case
+	bvec4 isColorIntensityRising = colorsRisingFlag[globalInvocationID];
+
+	return vec3(getNewAxieColor(color.x, isColorIntensityRising.x), getNewAxieColor(color.y, isColorIntensityRising.y), getNewAxieColor(color.z, isColorIntensityRising.z));
 }
 
 void main()
 {
-	const vec3 gravity = vec3(0., -9.8, 0.);
-	const float deltaTime = 0.006;
-	const vec4 sphere = vec4(-100., -800., 0., 600.);
-
+	const float deltaTime = 0.004;
+	
 	uint globalInvocationID = gl_GlobalInvocationID.x; // the .y and .z are both 1 in this case
 
 	vec3 position = positions[globalInvocationID].xyz;
 	vec3 velocity = velocities[globalInvocationID].xyz;
 	vec3 color = colors[globalInvocationID].xyz;
 
-	vec3 newComputedPosition = position + velocity * deltaTime + 0.5 * gravity * deltaTime * deltaTime;
-	vec3 newComputedVelocity = position + gravity * deltaTime;
+	if(!pushConstants.hasXBeenPressed)
+		position += velocity * deltaTime;
+
 	vec3 newComputedColor = getNewColor(color);
+	manageColorState(newComputedColor);
 
-	if(isInsideSphere(newComputedPosition, sphere))
-	{
-		newComputedVelocity = bounceSphere(position, velocity, sphere);
-		newComputedPosition = position + newComputedVelocity * deltaTime + 0.5 * gravity * deltaTime * deltaTime;
-	}
-
-	positions[globalInvocationID].xyz = newComputedPosition;
-	velocities[globalInvocationID].xyz = newComputedVelocity;
+	positions[globalInvocationID].xyz = position;
 	colors[globalInvocationID].xyz = newComputedColor;
 }
