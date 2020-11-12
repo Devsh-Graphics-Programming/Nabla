@@ -149,7 +149,7 @@ TODO: Keep the pseudo subgroup and offset code DRY, move to a function.
 		uint clearIndex = ((gl_LocalInvocationIndex&(~halfMask))<<2u)|(gl_LocalInvocationIndex&halfMask); \
 		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[clearIndex] = IDENTITY; \
 		if (_IRR_GLSL_WORKGROUP_SIZE_<maxItemsToClear) \
-		[[unroll]] for (uint ix=gl_LocalInvocationIndex+_IRR_GLSL_WORKGROUP_SIZE_; ix<maxItemsToClear; ix+=_IRR_GLSL_WORKGROUP_SIZE_) \
+		for (uint ix=gl_LocalInvocationIndex+_IRR_GLSL_WORKGROUP_SIZE_; ix<maxItemsToClear; ix+=_IRR_GLSL_WORKGROUP_SIZE_) \
 		{ \
 			clearIndex = ((ix&(~halfMask))<<2u)|(ix&halfMask); \
 			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[clearIndex] = IDENTITY; \
