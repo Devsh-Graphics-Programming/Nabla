@@ -50,24 +50,20 @@ vec2 SampleSphericalMap(in vec3 v)
     return uv;
 }
 
-vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
+vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in MC_precomputed_t precomp)
 {
 	irr_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,gl_FragCoord.xy/VIEWPORT_SZ,0).rg;
 
 	vec3 emissive = irr_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
-	MC_precomputed_t precomp = precomputeData();
-
 	vec3 color = vec3(0.0);
 
 #ifdef USE_ENVMAP
-	instr_stream_t gcs = getGenChoiceStream();
+	instr_stream_t gcs = getGenChoiceStream(precomp);
+	instr_stream_t rnps = getRemAndPdfStream(precomp);
 	for (int i = 0; i < SAMPLE_COUNT; ++i)
 	{
 		irr_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
-
-		instr_stream_t gcs = getGenChoiceStream();
-		instr_stream_t rnps = getRemAndPdfStream();
 
 		vec3 rand = rand3d(i,scramble_state);
 		float pdf;

@@ -39,9 +39,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 	//here actually using stronger check for BSDF because it's probably worth it
 	if (op_isBSDF(op) && irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV, s.NdotL))
 	{
-		float orientedEta, rcpOrientedEta;
-		irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, currInteraction.isotropic.NdotV, ior[0].x);
-		is_valid = irr_glsl_calcAnisotropicMicrofacetCache(microfacet, true, currInteraction.isotropic.V.dir, s.L, currInteraction.T, currInteraction.B, currInteraction.isotropic.N, s.NdotL, s.VdotL, orientedEta, rcpOrientedEta);
+		is_valid = irr_glsl_calcAnisotropicMicrofacetCache(microfacet, true, currInteraction.isotropic.V.dir, s.L, currInteraction.T, currInteraction.B, currInteraction.isotropic.N, s.NdotL, s.VdotL, ior_scalar, 1.0/ior_scalar);
 		refraction = true;
 	}
 	else
@@ -104,17 +102,15 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 			if (is_bsdf)
 			{
 				float eta = ior_scalar;
-				float orientedEta, rcpOrientedEta;
-				irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, currInteraction.isotropic.NdotV, eta);
 
 				float LdotH = microfacet.isotropic.LdotH;
 				float VdotHLdotH = VdotH * LdotH;
 #ifdef NDF_GGX
 				if (ndf == NDF_GGX)
-					bxdf_eval_scalar_part = irr_glsl_ggx_microfacet_to_light_measure_transform(bxdf_eval_scalar_part, NdotL, refraction, VdotH, LdotH, VdotHLdotH, orientedEta);
+					bxdf_eval_scalar_part = irr_glsl_ggx_microfacet_to_light_measure_transform(bxdf_eval_scalar_part, NdotL, refraction, VdotH, LdotH, VdotHLdotH, eta);
 				else
 #endif
-					bxdf_eval_scalar_part = irr_glsl_microfacet_to_light_measure_transform(bxdf_eval_scalar_part, NdotV, refraction, VdotH, LdotH, VdotHLdotH, orientedEta);
+					bxdf_eval_scalar_part = irr_glsl_microfacet_to_light_measure_transform(bxdf_eval_scalar_part, NdotV, refraction, VdotH, LdotH, VdotHLdotH, eta);
 			}
 
 			bxdf_eval = (refraction ? (vec3(1.0)-fr):fr) * bxdf_eval_scalar_part;

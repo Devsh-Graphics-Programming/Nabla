@@ -5,16 +5,22 @@ struct InstanceData
 {
 	mat4x3 tform;
 	vec3 normalMatrixRow0;
-	uint instr_offset;
+	uint front_instr_offset;
 	vec3 normalMatrixRow1;
-	uint rem_pdf_count;
+	uint front_rem_pdf_count;
 	vec3 normalMatrixRow2;
 	uint _padding;//not needed
 	uvec2 emissive;
-	uint prefetch_count;
-	uint nprecomp_count;
-	uint genchoice_count;
-	uint prefetch_offset;
+	uint front_prefetch_count;
+	uint front_nprecomp_count;
+	uint front_genchoice_count;
+	uint front_prefetch_offset;
+	uint back_instr_offset;
+	uint back_rem_pdf_count;
+	uint back_prefetch_count;
+	uint back_nprecomp_count;
+	uint back_genchoice_count;
+	uint back_prefetch_offset;
 };
 
 #endif

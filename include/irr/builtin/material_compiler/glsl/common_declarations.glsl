@@ -25,6 +25,9 @@ struct instr_stream_t
 	uint count;
 };
 
+// all vectors (and dot products) have untouched orientation relatively to shader inputs
+// therefore MC_precomputed_t::NdotV can be used to determine if we are inside a material
+// (in case of precomp.NdotV<0.0, currInteraction will be set with -precomp.N)
 struct MC_precomputed_t
 {
 	vec3 N;

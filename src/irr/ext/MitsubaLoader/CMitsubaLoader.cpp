@@ -179,42 +179,58 @@ bsdf_data_t irr_glsl_MC_fetchBSDFData(in uint ix)
 _IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
 #include <irr/builtin/glsl/format/decode.glsl>
 
-instr_stream_t getEvalStream()
+instr_stream_t getEvalStream(in MC_precomputed_t precomp)
 {
-	instr_stream_t stream;
-	stream.offset = InstData.data[InstanceIndex].instr_offset;
-	stream.count = InstData.data[InstanceIndex].rem_pdf_count;
+	instr_stream_t front;
+	front.offset = InstData.data[InstanceIndex].front_instr_offset;
+	front.count = InstData.data[InstanceIndex].front_rem_pdf_count;
 
-	return stream;
+	instr_stream_t back;
+	back.offset = InstData.data[InstanceIndex].back_instr_offset;
+	back.count = InstData.data[InstanceIndex].back_rem_pdf_count;
+
+	return precomp.NdotV > 0.0 ? front : back;
 }
 //rem'n'pdf and eval use the same instruction stream
-instr_stream_t getRemAndPdfStream()
+instr_stream_t getRemAndPdfStream(in MC_precomputed_t precomp)
 {
-	return getEvalStream();
+	return getEvalStream(precomp);
 }
-instr_stream_t getGenChoiceStream()
+instr_stream_t getGenChoiceStream(in MC_precomputed_t precomp)
 {
-	instr_stream_t stream;
-	stream.offset = InstData.data[InstanceIndex].instr_offset + InstData.data[InstanceIndex].rem_pdf_count;
-	stream.count =  InstData.data[InstanceIndex].genchoice_count;
+	instr_stream_t front;
+	front.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count;
+	front.count =  InstData.data[InstanceIndex].front_genchoice_count;
 
-	return stream;
+	instr_stream_t back;
+	back.offset = InstData.data[InstanceIndex].back_instr_offset + InstData.data[InstanceIndex].back_rem_pdf_count;
+	back.count = InstData.data[InstanceIndex].back_genchoice_count;
+
+	return precomp.NdotV > 0.0 ? front : back;
 }
-instr_stream_t getTexPrefetchStream()
+instr_stream_t getTexPrefetchStream(in MC_precomputed_t precomp)
 {
-	instr_stream_t stream;
-	stream.offset = InstData.data[InstanceIndex].prefetch_offset;
-	stream.count = InstData.data[InstanceIndex].prefetch_count;
+	instr_stream_t front;
+	front.offset = InstData.data[InstanceIndex].front_prefetch_offset;
+	front.count = InstData.data[InstanceIndex].front_prefetch_count;
 
-	return stream;
+	instr_stream_t back;
+	back.offset = InstData.data[InstanceIndex].back_prefetch_offset;
+	back.count = InstData.data[InstanceIndex].back_prefetch_count;
+
+	return precomp.NdotV > 0.0 ? front : back;
 }
-instr_stream_t getNormalPrecompStream()
+instr_stream_t getNormalPrecompStream(in MC_precomputed_t precomp)
 {
-	instr_stream_t stream;
-	stream.offset = InstData.data[InstanceIndex].instr_offset + InstData.data[InstanceIndex].rem_pdf_count + InstData.data[InstanceIndex].genchoice_count;
-	stream.count = InstData.data[InstanceIndex].nprecomp_count;
+	instr_stream_t front;
+	front.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count + InstData.data[InstanceIndex].front_genchoice_count;
+	front.count = InstData.data[InstanceIndex].front_nprecomp_count;
 
-	return stream;
+	instr_stream_t back;
+	back.offset = InstData.data[InstanceIndex].back_instr_offset + InstData.data[InstanceIndex].back_rem_pdf_count + InstData.data[InstanceIndex].back_genchoice_count;
+	back.count = InstData.data[InstanceIndex].back_nprecomp_count;
+
+	return precomp.NdotV > 0.0 ? front : back;
 }
 
 #ifndef _IRR_BSDF_COS_EVAL_DEFINED_
@@ -225,7 +241,7 @@ instr_stream_t getNormalPrecompStream()
 // params can be either BSDFIsotropicParams or BSDFAnisotropicParams
 Spectrum irr_bsdf_cos_eval(in MC_precomputed_t precomp, in vec3 L, in irr_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
 {
-	instr_stream_t eval_instrStream = getEvalStream();
+	instr_stream_t eval_instrStream = getEvalStream(precomp);
 
 	return runEvalStream(precomp, eval_instrStream, L);
 }
@@ -233,17 +249,17 @@ Spectrum irr_bsdf_cos_eval(in MC_precomputed_t precomp, in vec3 L, in irr_glsl_I
 
 #ifndef _IRR_COMPUTE_LIGHTING_DEFINED_
 #define _IRR_COMPUTE_LIGHTING_DEFINED_
-vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
+vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in MC_precomputed_t precomp)
 {
 	vec3 emissive = irr_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
 	vec3 campos = irr_glsl_MC_getCamPos();
-	MC_precomputed_t precomp = precomputeData();
+	
 	//irr_glsl_BSDFIsotropicParams params;
 	//params.L = campos-WorldPos;
 	out_interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, normalize(Normal));
 
-	return irr_bsdf_cos_eval(precomp, precomp.V, out_interaction, dUV)*1000.0/dot(params.L,params.L) + emissive;
+	return irr_bsdf_cos_eval(precomp, precomp.V, out_interaction, dUV)/dot(params.L,params.L) + emissive;
 }
 #endif
 
@@ -251,15 +267,17 @@ void main()
 {
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
+	MC_precomputed_t precomp = precomputeData();
 #ifdef TEX_PREFETCH_STREAM
-	runTexPrefetchStream(getTexPrefetchStream(), UV, dUV);
+	runTexPrefetchStream(getTexPrefetchStream(precomp), UV, dUV);
 #endif
 #ifdef NORM_PRECOMP_STREAM
-	runNormalPrecompStream(getNormalPrecompStream(), dUV);
+	runNormalPrecompStream(getNormalPrecompStream(precomp), dUV, precomp);
 #endif
 
+
 	irr_glsl_IsotropicViewSurfaceInteraction inter;
-	vec3 color = irr_computeLighting(inter, dUV);
+	vec3 color = irr_computeLighting(inter, dUV, precomp);
 
 	OutColor = vec4(color, 1.0);
 }
@@ -1642,27 +1660,49 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		for (const auto& inst : meta->getInstances()) {
 			emissive = inst.emitter.type==CElementEmitter::AREA ? inst.emitter.area.radiance : core::vectorSIMDf(0.f);
 
-			auto bsdf = inst.bsdf;
-			auto streams_it = _compResult.streams.find(bsdf);
-			_IRR_DEBUG_BREAK_IF(streams_it==_compResult.streams.end());
-			const auto& streams = streams_it->second;
-
-#ifdef DEBUG_MITSUBA_LOADER
-			os::Printer::log("Debug print BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
-			ofile << "Debug print BSDF with id = " << inst.bsdf_id << std::endl;
-			_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
-#endif
-
 			SInstanceData instData;
+
 			instData.tform = inst.tform;
 			instData.tform.getSub3x3InverseTranspose(instData.normalMat.normalMatrix);
 			instData.emissive = core::rgb32f_to_rgb19e7(emissive.pointer);
-			instData.normalMat.instr_offset = streams.offset;
-			instData.normalMat.rem_pdf_count = streams.rem_and_pdf_count;
-			instData.prefetch_count = streams.tex_prefetch_count;
-			instData.nprecomp_count = streams.norm_precomp_count;
-			instData.genchoice_count = streams.gen_choice_count;
-			instData.prefetch_offset = streams.prefetch_offset;
+
+			auto bsdf = inst.bsdf;
+			auto bsdf_front = bsdf.front;
+			auto bsdf_back  = bsdf.back;
+			auto streams_it = _compResult.streams.find(bsdf_front);
+			{
+				_IRR_DEBUG_BREAK_IF(streams_it == _compResult.streams.end());
+				const auto& streams = streams_it->second;
+
+#ifdef DEBUG_MITSUBA_LOADER
+				os::Printer::log("Debug print front BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
+				ofile << "Debug print front BSDF with id = " << inst.bsdf_id << std::endl;
+				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
+#endif
+				instData.normalMat.front_instr_offset = streams.offset;
+				instData.normalMat.front_rem_pdf_count = streams.rem_and_pdf_count;
+				instData.front_prefetch_count = streams.tex_prefetch_count;
+				instData.front_nprecomp_count = streams.norm_precomp_count;
+				instData.front_genchoice_count = streams.gen_choice_count;
+				instData.front_prefetch_offset = streams.prefetch_offset;
+			}
+			streams_it = _compResult.streams.find(bsdf_back);
+			{
+				_IRR_DEBUG_BREAK_IF(streams_it == _compResult.streams.end());
+				const auto& streams = streams_it->second;
+
+#ifdef DEBUG_MITSUBA_LOADER
+				os::Printer::log("Debug print back BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
+				ofile << "Debug print back BSDF with id = " << inst.bsdf_id << std::endl;
+				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
+#endif
+				instData.back_instr_offset = streams.offset;
+				instData.back_rem_pdf_count = streams.rem_and_pdf_count;
+				instData.back_prefetch_count = streams.tex_prefetch_count;
+				instData.back_nprecomp_count = streams.norm_precomp_count;
+				instData.back_genchoice_count = streams.gen_choice_count;
+				instData.back_prefetch_offset = streams.prefetch_offset;
+			}
 
 			instanceData.push_back(instData);
 		}

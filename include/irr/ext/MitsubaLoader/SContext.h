@@ -130,7 +130,7 @@ namespace MitsubaLoader
 		}
 
 		//index of root node in IR
-		using bsdf_type = const asset::material_compiler::IR::INode*;
+		using bsdf_type = const CMitsubaMaterialCompilerFrontend::front_and_back_t;
 		//caches instr buffer instr-wise offset (.first) and instruction count (.second) for each bsdf node
 		core::unordered_map<const CElementBSDF*, bsdf_type> instrStreamCache;
 

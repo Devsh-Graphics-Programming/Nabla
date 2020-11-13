@@ -103,6 +103,8 @@ protected:
 public:
     IR() : memMgr() {}
 
+    struct INode;
+
     void deinitTmpNodes()
     {
         for (INode* n : tmp)
@@ -110,6 +112,11 @@ public:
         tmp.clear();
         memMgr.freeLastAllocatedBytes(tmpSize);
         tmpSize = 0u;
+    }
+
+    void addRootNode(INode* node)
+    {
+        roots.push_back(node);
     }
 
     template <typename NodeType, typename ...Args>
@@ -122,7 +129,7 @@ public:
     NodeType* allocRootNode(Args&& ...args)
     {
         auto* root = allocNode<NodeType>(std::forward<Args>(args)...);
-        roots.push_back(root);
+        addRootNode(root);
         return root;
     }
     template <typename NodeType, typename ...Args>
@@ -139,10 +146,7 @@ public:
     {
         enum E_SYMBOL
         {
-            ES_MATERIAL, // TODO delete
             ES_GEOM_MODIFIER,
-            ES_FRONT_SURFACE, // TODO delete
-            ES_BACK_SURFACE, // TODO delete
             ES_EMISSION,
             ES_OPACITY,
             ES_BSDF,
@@ -187,6 +191,8 @@ public:
             {
                 source = EPS_CONSTANT;
                 value.constant = c;
+
+                return *this;
             }
             SParameter(const type_of_const& c)
             {
@@ -198,6 +204,8 @@ public:
                 //making sure smart_refctd_ptr assignment wont try to drop() -- .value is union
                 value.constant = type_of_const(0);
                 value.texture = t;
+
+                return *this;
             }
             SParameter(const STextureSource& t)
             {
@@ -207,8 +215,10 @@ public:
             {
                 source = EPS_TEXTURE;
                 //making sure smart_refctd_ptr assignment wont try to drop() -- .value is union
-                value.constant = type_of_const(0);
+                value.constant = type_of_const{};
                 value.texture = std::move(t);
+
+                return *this;
             }
             SParameter(STextureSource&& t)
             {
@@ -425,16 +435,6 @@ public:
 
         return node;
     }
-
-    struct CMaterialNode : public INode
-    {
-        CMaterialNode() : INode(ES_MATERIAL), thin(false)
-        {
-
-        }
-
-        bool thin;
-    };
 
     struct CGeomModifierNode : public INode
     {

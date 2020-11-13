@@ -327,15 +327,11 @@ void setCurrInteraction(in vec3 N, in vec3 V, in vec3 pos)
 }
 void setCurrInteraction(in MC_precomputed_t precomp)
 {
-	setCurrInteraction(precomp.N, precomp.V, precomp.pos);
+	setCurrInteraction(precomp.NdotV > 0.0 ? precomp.N : -precomp.N, precomp.V, precomp.pos);
 }
-void updateCurrInteraction(in MC_precomputed_t precomp, in vec3 N, in bool ts)
+void updateCurrInteraction(in MC_precomputed_t precomp, in vec3 N)
 {
-#ifdef NO_TWOSIDED
-	setCurrInteraction(precomp);
-#else
-	setCurrInteraction((ts && precomp.NdotV<0.0) ? -N : N, precomp.V, precomp.pos);
-#endif
+	setCurrInteraction(precomp.NdotV > 0.0 ? N : -N, precomp.V, precomp.pos);
 }
 
 //clamping alpha to min MIN_ALPHA because we're using microfacet BxDFs for deltas as well (and NDFs often end up NaN when given alpha=0) because of less deivergence
@@ -401,14 +397,12 @@ eval_and_pdf_t instr_execute_cos_eval_pdf_COATING(in instr_t instr, in mat2x4 sr
 void instr_execute_BUMPMAP(in instr_t instr, in mat2x4 srcs, in MC_precomputed_t precomp)
 {
 	vec3 N = srcs[0].xyz;
-	bool ts = instr_getTwosided(instr);
-	updateCurrInteraction(precomp, N, ts);
+	updateCurrInteraction(precomp, N);
 }
 
 void instr_execute_SET_GEOM_NORMAL(in instr_t instr, in MC_precomputed_t precomp)
 {
-	bool ts = instr_getTwosided(instr);
-	updateCurrInteraction(precomp, precomp.N, ts);
+	setCurrInteraction(precomp);
 }
 
 bxdf_eval_t instr_execute_cos_eval_BLEND(in instr_t instr, in mat2x4 srcs, in params_t params, in bsdf_data_t data)
@@ -486,11 +480,9 @@ void runTexPrefetchStream(in instr_stream_t stream, in vec2 uv, in mat2 dUV)
 	}
 }
 
-void runNormalPrecompStream(in instr_stream_t stream, in mat2 dUV)
+void runNormalPrecompStream(in instr_stream_t stream, in mat2 dUV, in MC_precomputed_t precomp)
 {
-	//either add MC_precomputed_t param and move runNormalPrecompStream() call to irr_computeLighting or leave it here
-	vec3 pos = irr_glsl_MC_getWorldSpacePosition();
-	setCurrInteraction(irr_glsl_MC_getNormalizedWorldSpaceN(), irr_glsl_MC_getNormalizedWorldSpaceV(), pos);
+	setCurrInteraction(precomp);
 	for (uint i = 0u; i < stream.count; ++i)
 	{
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
@@ -712,9 +704,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 	//here actually using stronger check for BSDF because it's probably worth it
 	if (op_isBSDF(op) && irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV, s.NdotL))
 	{
-		float orientedEta, rcpOrientedEta;
-		irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, currInteraction.isotropic.NdotV, ior_scalar);
-		is_valid = irr_glsl_calcAnisotropicMicrofacetCache(microfacet, true, currInteraction.isotropic.V.dir, s.L, currInteraction.T, currInteraction.B, currInteraction.isotropic.N, s.NdotL, s.VdotL, orientedEta, rcpOrientedEta);
+		is_valid = irr_glsl_calcAnisotropicMicrofacetCache(microfacet, true, currInteraction.isotropic.V.dir, s.L, currInteraction.T, currInteraction.B, currInteraction.isotropic.N, s.NdotL, s.VdotL, ior_scalar, 1.0/ior_scalar);
 		refraction = true;
 	}
 	else
@@ -810,17 +800,15 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 		if (is_bsdf && is_valid)
 		{
 			float eta = ior_scalar;
-			float orientedEta, rcpOrientedEta;
-			irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, currInteraction.isotropic.NdotV, eta);
 
 			float LdotH = microfacet.isotropic.LdotH;
 			float VdotHLdotH = VdotH * LdotH;
 #ifdef NDF_GGX
 			if (ndf == NDF_GGX)
-				bxdf_eval_scalar_part = irr_glsl_ggx_microfacet_to_light_measure_transform(bxdf_eval_scalar_part, NdotL, refraction, VdotH, LdotH, VdotHLdotH, orientedEta);
+				bxdf_eval_scalar_part = irr_glsl_ggx_microfacet_to_light_measure_transform(bxdf_eval_scalar_part, NdotL, refraction, VdotH, LdotH, VdotHLdotH, eta);
 			else
 #endif
-				bxdf_eval_scalar_part = irr_glsl_microfacet_to_light_measure_transform(bxdf_eval_scalar_part, NdotV, refraction, VdotH, LdotH, VdotHLdotH, orientedEta);
+				bxdf_eval_scalar_part = irr_glsl_microfacet_to_light_measure_transform(bxdf_eval_scalar_part, NdotV, refraction, VdotH, LdotH, VdotHLdotH, eta);
 		}
 			
 		bxdf_eval = is_valid ? vec3(bxdf_eval_scalar_part) : vec3(0.0);
@@ -915,20 +903,6 @@ eval_and_pdf_t irr_bsdf_eval_and_pdf(in MC_precomputed_t precomp, in instr_strea
 
 	eval_and_pdf_t eval_and_pdf = readReg4(0u);
 	return eval_and_pdf;
-}
-
-irr_glsl_AnisotropicMicrofacetCache getSmoothMicrofacetCache(in float NdotV, in float NdotL)
-{
-	irr_glsl_AnisotropicMicrofacetCache microfacet;
-	const float d = 1e-4;//some delta to avoid zeroes... not a perfect solution but for now..
-	microfacet.isotropic.VdotH = NdotV-d;
-	microfacet.isotropic.LdotH = NdotL-d;
-	microfacet.isotropic.NdotH = d;
-	microfacet.isotropic.NdotH2 = d*d;
-	microfacet.TdotH = 1.0-d;
-	microfacet.BdotH = 1.0-d;
-
-	return microfacet;
 }
 
 irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr_stream_t stream, in vec3 rand, out vec3 out_remainder, out float out_pdf, out irr_glsl_AnisotropicMicrofacetCache out_microfacet, out uint out_gen_rnpOffset, out bool out_invalid_microfacet)
@@ -1063,7 +1037,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		pdf *= is_bsdf ? 0.5 : 1.0;
 	} else
 #endif
-#if defined(OP_CONDUCTOR) || defined(OP_COATING) || defined(OP_DIELECTRIC)
+#if defined(OP_CONDUCTOR) || defined(OP_DIELECTRIC)
 	if (op_hasSpecular(op))
 	{
 		const float TdotV2 = currInteraction.TdotV * currInteraction.TdotV;
@@ -1121,10 +1095,9 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		rem *= refraction ? (vec3(1.0) - fr) : fr;
 		pdf /= rcpChoiceProb;
 		float eta = dot(CIE_XYZ_Luma_Y_coeffs, ior[0]);
-		float orientedEta, rcpOrientedEta;
-		irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, currInteraction.isotropic.NdotV, eta);
+		float rcpEta = 1.0/eta;
 
-		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(refraction, localV, localH, localL, rcpOrientedEta, rcpOrientedEta*rcpOrientedEta);
+		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(refraction, localV, localH, localL, rcpEta, rcpEta*rcpEta);
 		s = irr_glsl_createLightSampleTangentSpace(localV, localL, tangentFrame);
 
 		const float TdotH2 = out_microfacet.TdotH * out_microfacet.TdotH;

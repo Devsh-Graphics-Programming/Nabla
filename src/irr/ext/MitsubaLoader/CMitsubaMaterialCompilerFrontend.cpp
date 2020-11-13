@@ -362,8 +362,9 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
         bool front = true;
 
         CElementBSDF::Type type() const { return bsdf->type; }
-        SNode* parent(core::vector<SNode>& traversal) const { return &traversal[parent_ix]; }
     };
+    auto node_parent = [](const SNode& node, core::vector<SNode>& traversal) { return &traversal[node.parent_ix]; };
+
     core::vector<SNode> bfs;
     {
         core::queue<SNode> q;
@@ -404,9 +405,27 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
     {
         switch (front->symbol)
         {
-        case IR::INode::ES_BSDF_COMBINER: [[fallthrough]];
-        case IR::INode::ES_OPACITY:
+        case IRNode::ES_BSDF_COMBINER: [[fallthrough]];
+        case IRNode::ES_OPACITY: [[fallthrough]];
+        case IRNode::ES_GEOM_MODIFIER: [[fallthrough]];
+        case IRNode::ES_EMISSION:
             return ir->copyNode(front);
+        case IRNode::ES_BSDF:
+        {
+            auto* bsdf = static_cast<const IR::CBSDFNode*>(front);
+            if (bsdf->type == IR::CBSDFNode::ET_DIELECTRIC)
+            {
+                auto* dielectric = static_cast<const IR::CDielectricBSDFNode*>(bsdf);
+                if (!dielectric->thin) // do not copy thin dielectrics
+                {
+                    auto* copy = static_cast<IR::CDielectricBSDFNode*>(ir->copyNode(front));
+                    copy->eta = IRNode::color_t(1.f) / copy->eta;
+
+                    return copy;
+                }
+            }
+        }
+        [[fallthrough]]; // intentional
         default:
         {
             // black diffuse otherwise
@@ -430,7 +449,7 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
         if (node.parent_ix >= bfs.size())
             dst = &frontroot;
         else
-            dst = const_cast<IRNode**>(&node.parent(bfs)->ir_node->children[node.child_num]);
+            dst = const_cast<IRNode**>(&node_parent(node, bfs)->ir_node->children[node.child_num]);
 
         node.ir_node = *dst = createIRNode(ir, node.bsdf);
     }
@@ -459,10 +478,13 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
         if (node.parent_ix >= bfs.size())
             dst = &backroot;
         else
-            dst = const_cast<IRNode**>(&node.parent(bfs)->ir_node->children[node.child_num]);
+            dst = const_cast<IRNode**>(&node_parent(node, bfs)->ir_node->children[node.child_num]);
 
         *dst = ir_node;
     }
+
+    ir->addRootNode(frontroot);
+    ir->addRootNode(backroot);
 
     return { frontroot, backroot };
 }

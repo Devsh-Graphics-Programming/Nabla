@@ -48,7 +48,7 @@ namespace material_compiler
 	public:
 		static const IR::INode* translateMixIntoBlends(IR* ir, const IR::INode* _mix);
 
-		static std::pair<instr_t, const IR::INode*> processSubtree(IR* ir, const IR::INode* tree, bool thin, IR::INode::children_array_t& next, tmp_bxdf_translation_cache_t* coatTranslationCache);
+		static std::pair<instr_t, const IR::INode*> processSubtree(IR* ir, const IR::INode* tree, IR::INode::children_array_t& next, tmp_bxdf_translation_cache_t* coatTranslationCache);
 	};
 
 	class CIdGenerator
@@ -129,10 +129,10 @@ namespace material_compiler
 			);
 		}
 
-		std::pair<instr_t, const IR::INode*> processSubtree(const IR::INode* tree, bool thin, IR::INode::children_array_t& next, tmp_bxdf_translation_cache_t* coatTranslationCache)
+		std::pair<instr_t, const IR::INode*> processSubtree(const IR::INode* tree, IR::INode::children_array_t& next, tmp_bxdf_translation_cache_t* coatTranslationCache)
 		{
 			//TODO deduplication
-			return CInterpreter::processSubtree(m_ir, tree, thin, next, coatTranslationCache);
+			return CInterpreter::processSubtree(m_ir, tree, next, coatTranslationCache);
 		}
 
 		void setBSDFData(instr_stream::intermediate::SBSDFUnion& _dst, instr_stream::E_OPCODE _op, const IR::INode* _node)
@@ -231,15 +231,7 @@ namespace material_compiler
 			break;
 			case instr_stream::OP_BUMPMAP:
 			{
-				const IR::CGeomModifierNode* bm = nullptr;
-				if (_node->symbol == IR::INode::ES_MATERIAL)
-				{
-					size_t ix = 0u;
-					if (_node->children.find(IR::INode::ES_GEOM_MODIFIER, &ix))
-						bm = static_cast<const IR::CGeomModifierNode*>(_node->children[ix]);
-				}
-				else if (_node->symbol == IR::INode::ES_GEOM_MODIFIER)
-					bm = static_cast<const IR::CGeomModifierNode*>(_node);
+				const IR::CGeomModifierNode* bm = static_cast<const IR::CGeomModifierNode*>(_node);
 
 				assert(bm->type == IR::CGeomModifierNode::ET_DERIVATIVE);
 
@@ -616,69 +608,20 @@ const IR::INode* CInterpreter::translateMixIntoBlends(IR* ir, const IR::INode* _
 	return q.front().node;
 }
 
-std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const IR::INode* tree, bool thin, IR::INode::children_array_t& out_next, tmp_bxdf_translation_cache_t* cache)
+std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const IR::INode* tree, IR::INode::children_array_t& out_next, tmp_bxdf_translation_cache_t* cache)
 {
-	auto isTwosided = [](const IR::INode* _node, size_t _frontSurfIx, IR::INode::children_array_t& _frontSurfChildren) -> bool
-	{
-		bool ts = false;
-		auto* front = _node->children[_frontSurfIx];
-		if (_node->children.find(IR::INode::ES_BACK_SURFACE, &_frontSurfIx))
-		{
-			auto* back = _node->children[_frontSurfIx];
-			assert(front->children == back->children);//TODO handle this in some other way
-			ts = true;
-		}
-		_frontSurfChildren = front->children;
-
-		return ts;
-	};
-
 	instr_t instr = instr_stream::OP_INVALID;
 	switch (tree->symbol)
 	{
-	case IR::INode::ES_MATERIAL:
-	{
-		bool twosided = false;
-
-		auto* node = static_cast<const IR::CMaterialNode*>(tree);
-
-		instr_t retval = instr_stream::OP_INVALID;
-
-		size_t ix = 0u;
-		if (node->children.find(IR::INode::ES_GEOM_MODIFIER, &ix))
-		{
-			auto* geom_node = static_cast<const IR::CGeomModifierNode*>(node->children[ix]);
-			out_next = geom_node->children;
-			if (geom_node->children.find(IR::INode::ES_FRONT_SURFACE, &ix))
-				twosided = isTwosided(geom_node, ix, out_next);
-			retval = (geom_node->type != IR::CGeomModifierNode::ET_DERIVATIVE) ? instr_stream::OP_INVALID : instr_stream::OP_BUMPMAP;
-		}
-		else if (node->children.find(IR::INode::ES_FRONT_SURFACE, &ix))
-		{
-			twosided = isTwosided(node, ix, out_next);
-			retval = instr_stream::OP_NOOP; //returning OP_NOOP causes not adding this instruction to resulting stream, but doesnt stop processing (effectively is used to forward flags only)
-		}
-		if (twosided)
-			retval = core::bitfieldInsert<instr_t>(retval, 1u, instr_stream::BITFIELDS_SHIFT_TWOSIDED, 1);
-		instr = retval;
-	}
-	break;
 	case IR::INode::ES_GEOM_MODIFIER:
 	{
-		bool twosided = false;
 		auto* node = static_cast<const IR::CGeomModifierNode*>(tree);
-		size_t ix;
-		if (node->children.find(IR::INode::ES_FRONT_SURFACE, &ix))
-			twosided = isTwosided(node, ix, out_next);
 
 		instr_t retval;
 		if (node->type == IR::CGeomModifierNode::ET_HEIGHT)
 			retval = instr_stream::OP_BUMPMAP;
 		else
 			retval = instr_stream::OP_INVALID;
-
-		if (twosided)
-			retval = core::bitfieldInsert<instr_t>(retval, 1u, instr_stream::BITFIELDS_SHIFT_TWOSIDED, 1);
 
 		instr = retval;
 	}
@@ -753,13 +696,17 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 			break;
 		case IR::CBSDFNode::ET_DIELECTRIC:
 		{
-			instr = thin ? instr_stream::OP_THINDIELECTRIC : instr_stream::OP_DIELECTRIC;
+			auto* dielectric = static_cast<const IR::CDielectricBSDFNode*>(node);
+			instr = dielectric->thin ? instr_stream::OP_THINDIELECTRIC : instr_stream::OP_DIELECTRIC;
 		}
 		break;
 		}
 	}
 	break;
 	}
+
+	// TODO remove this
+	instr = core::bitfieldInsert<instr_t>(instr, 1u, instr_stream::BITFIELDS_SHIFT_TWOSIDED, 1);
 
 	return {instr,tree};
 }
@@ -931,14 +878,11 @@ traversal_t remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode
 {
 	traversal_t traversal;
 
-	assert(_root->symbol == IR::INode::ES_MATERIAL);
-	const bool thin = static_cast<const IR::CMaterialNode*>(_root)->thin;
-
 	{
 		IR::INode::children_array_t next;
 		const IR::INode* node;
 		instr_t instr;
-		std::tie(instr, node) = processSubtree(_root, thin, next, m_translationCache);
+		std::tie(instr, node) = processSubtree(_root, next, m_translationCache);
 		push(instr, node, next, instr, false);
 	}
 	while (!m_stack.empty())
@@ -964,7 +908,7 @@ traversal_t remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode
 				const IR::INode* node = nullptr;
 				IR::INode::children_array_t next2;
 				instr_t instr2;
-				std::tie(instr2, node) = processSubtree(*it, thin, next2, m_translationCache);
+				std::tie(instr2, node) = processSubtree(*it, next2, m_translationCache);
 				pushedCount += push(instr2, node, next2, top.instr, false);
 			}
 			_IRR_DEBUG_BREAK_IF(pushedCount > 2ull);
@@ -983,16 +927,13 @@ traversal_t gen_choice::CTraversalGenerator::genTraversal(const IR::INode* _root
 {
 	constexpr uint32_t INVALID_INDEX = 0xdeadbeefu;
 
-	assert(_root->symbol == IR::INode::ES_MATERIAL);
-	const bool thin = static_cast<const IR::CMaterialNode*>(_root)->thin;
-
 	traversal_t traversal;
 
 	{
 		IR::INode::children_array_t next;
 		const IR::INode* node;
 		instr_t instr;
-		std::tie(instr, node) = processSubtree(_root, thin, next, m_translationCache);
+		std::tie(instr, node) = processSubtree(_root, next, m_translationCache);
 		push(instr, node, next, instr, INVALID_INDEX);
 	}
 	while (!m_stack.empty())
@@ -1021,7 +962,7 @@ traversal_t gen_choice::CTraversalGenerator::genTraversal(const IR::INode* _root
 				const IR::INode* node = nullptr;
 				IR::INode::children_array_t next2;
 				instr_t instr2;
-				std::tie(instr2, node) = processSubtree(*it, thin, next2, m_translationCache);
+				std::tie(instr2, node) = processSubtree(*it, next2, m_translationCache);
 				pushedCount += push(instr2, node, next2, top.instr, it == top.children.begin()+1 ? currIx : INVALID_INDEX);
 			}
 			_IRR_DEBUG_BREAK_IF(pushedCount>2ull);
