@@ -1,0 +1,15 @@
+#version 450
+#define _IRR_GLSL_WORKGROUP_SIZE_ ???? 
+
+#include "workgroupCommon.glsl"
+
+void main()
+{
+	andOutput [gl_GlobalInvocationID.x] = irr_glsl_workgroupInclusiveAnd(inputValue[gl_GlobalInvocationID.x]);
+	xorOutput [gl_GlobalInvocationID.x] = irr_glsl_workgroupInclusiveXor(inputValue[gl_GlobalInvocationID.x]);
+	orOutput  [gl_GlobalInvocationID.x] = irr_glsl_workgroupInclusiveOr (inputValue[gl_GlobalInvocationID.x]);
+	addOutput [gl_GlobalInvocationID.x] = irr_glsl_workgroupInclusiveAdd(inputValue[gl_GlobalInvocationID.x]);
+	multOutput[gl_GlobalInvocationID.x] = irr_glsl_workgroupInclusiveMul(inputValue[gl_GlobalInvocationID.x]);
+	minOutput [gl_GlobalInvocationID.x] = irr_glsl_workgroupInclusiveMin(inputValue[gl_GlobalInvocationID.x]);
+	maxOutput [gl_GlobalInvocationID.x] = irr_glsl_workgroupInclusiveMax(inputValue[gl_GlobalInvocationID.x]);
+}

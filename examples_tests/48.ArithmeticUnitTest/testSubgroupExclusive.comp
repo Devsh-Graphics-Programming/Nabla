@@ -1,7 +1,7 @@
 #version 450
 #define _IRR_GLSL_WORKGROUP_SIZE_ ???? 
 
-#include "shaderCommon.glsl"
+#include "subgroupCommon.glsl"
 
 void main()
 {

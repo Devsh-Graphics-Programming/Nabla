@@ -147,13 +147,30 @@ struct emulatedSubgroupScanInclusive : emulatedSubgroupCommon<typename OP::type_
 	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "subgroup inclusive scan";
 };
 
+//workgroup methods
+template<class OP>
+struct emulatedWorkgroupReduction
+{
+	using type_t = typename OP::type_t;
+
+	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, uint32_t workgroupSize)
+	{
+		type_t retval = workgroupData[0];
+		for (auto i=1u; i<workgroupSize; i++)
+			retval = OP()(retval,workgroupData[i]);
+		return retval;
+	}
+
+	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "workgroup reduction";
+};
+
 
 #include "common.glsl"
 constexpr uint32_t kBufferSize = BUFFER_DWORD_COUNT*sizeof(uint32_t);
 
 //returns true if result matches
 template<template<class> class Arithmetic, template<class> class OP>
-bool validateResults_impl(video::IVideoDriver* driver, const uint32_t* inputData, const uint32_t workgroupSize, const uint32_t workgroupCount, video::IGPUBuffer* bufferToDownload)
+bool validateResults(video::IVideoDriver* driver, const uint32_t* inputData, const uint32_t workgroupSize, const uint32_t workgroupCount, video::IGPUBuffer* bufferToDownload)
 {
 	constexpr uint64_t timeoutInNanoSeconds = 15000000000u;
 	const uint32_t alignment = sizeof(uint32_t);
@@ -209,15 +226,21 @@ bool validateResults_impl(video::IVideoDriver* driver, const uint32_t* inputData
 
 }
 template<template<class> class Arithmetic>
-bool validateResults(video::IVideoDriver* driver, const uint32_t* inputData, const uint32_t workgroupSize, const uint32_t workgroupCount, core::smart_refctd_ptr<IGPUBuffer>* const buffers)
+bool runTest(video::IVideoDriver* driver, video::IGPUComputePipeline* pipeline, const video::IGPUDescriptorSet* ds, const uint32_t* inputData, const uint32_t workgroupSize, core::smart_refctd_ptr<IGPUBuffer>* const buffers)
 {
-	bool passed = validateResults_impl<Arithmetic,and>(driver, inputData, workgroupSize, workgroupCount, buffers[0].get());
-	passed = validateResults_impl<Arithmetic,xor>(driver, inputData, workgroupSize, workgroupCount, buffers[1].get())&&passed;
-	passed = validateResults_impl<Arithmetic,or>(driver, inputData, workgroupSize, workgroupCount, buffers[2].get())&&passed;
-	passed = validateResults_impl<Arithmetic,add>(driver, inputData, workgroupSize, workgroupCount, buffers[3].get())&&passed;
-	passed = validateResults_impl<Arithmetic,mul>(driver, inputData, workgroupSize, workgroupCount, buffers[4].get())&&passed;
-	passed = validateResults_impl<Arithmetic,::min>(driver, inputData, workgroupSize, workgroupCount, buffers[5].get())&&passed;
-	passed = validateResults_impl<Arithmetic,::max>(driver, inputData, workgroupSize, workgroupCount, buffers[6].get())&&passed;
+	driver->bindComputePipeline(pipeline);
+	driver->bindDescriptorSets(video::EPBP_COMPUTE,pipeline->getLayout(),0u,1u,&ds,nullptr);
+	const uint32_t workgroupCount = BUFFER_DWORD_COUNT/workgroupSize;
+	driver->dispatch(workgroupCount, 1, 1);
+	video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT);
+	//check results 
+	bool passed = validateResults<Arithmetic,and>(driver, inputData, workgroupSize, workgroupCount, buffers[0].get());
+	passed = validateResults<Arithmetic,xor>(driver, inputData, workgroupSize, workgroupCount, buffers[1].get())&&passed;
+	passed = validateResults<Arithmetic,or>(driver, inputData, workgroupSize, workgroupCount, buffers[2].get())&&passed;
+	passed = validateResults<Arithmetic,add>(driver, inputData, workgroupSize, workgroupCount, buffers[3].get())&&passed;
+	passed = validateResults<Arithmetic,mul>(driver, inputData, workgroupSize, workgroupCount, buffers[4].get())&&passed;
+	passed = validateResults<Arithmetic,::min>(driver, inputData, workgroupSize, workgroupCount, buffers[5].get())&&passed;
+	passed = validateResults<Arithmetic,::max>(driver, inputData, workgroupSize, workgroupCount, buffers[6].get())&&passed;
 	return passed;
 }
 
@@ -305,12 +328,16 @@ int main()
 		GLSLCodeWithWorkgroup ret = { wgPos,shaderCode };
 		return ret;
 	};
-	GLSLCodeWithWorkgroup shaderGLSL[3] =
+	GLSLCodeWithWorkgroup shaderGLSL[] =
 	{
-		getShaderGLSL("../testReduce.comp"),
-		getShaderGLSL("../testExclusive.comp"),
-		getShaderGLSL("../testInclusive.comp")
+		getShaderGLSL("../testSubgroupReduce.comp"),
+		getShaderGLSL("../testSubgroupExclusive.comp"),
+		getShaderGLSL("../testSubgroupInclusive.comp"),
+		getShaderGLSL("../testWorkgroupReduce.comp"),
+		//getShaderGLSL("../testWorkgroupExclusive.comp"),
+		//getShaderGLSL("../testWorkgroupInclusive.comp")
 	};
+	constexpr auto kTestTypeCount = sizeof(shaderGLSL)/sizeof(GLSLCodeWithWorkgroup);
 
 
 	auto getGPUShader = [&](GLSLCodeWithWorkgroup glsl, uint32_t wg_count)
@@ -325,40 +352,27 @@ int main()
 	};
 	
 	///uint32_t totalFailCount = 0;
-	///constexpr uint32_t totalTestCount = 1022 * 3 * 7;
+	///constexpr uint32_t totalTestCount = 1024 * kTestTypeCount * 7;
 
 	//max workgroup size is hardcoded to 1024
+	const auto ds = descriptorSet.get();
 	for (uint32_t workgroupSize=1u; workgroupSize<=1024u; workgroupSize++)
 	{
-		core::smart_refctd_ptr<IGPUComputePipeline> pipelines[3];
-		for (uint32_t i=0u; i<3u; i++)
+		core::smart_refctd_ptr<IGPUComputePipeline> pipelines[kTestTypeCount];
+		for (uint32_t i=0u; i<kTestTypeCount; i++)
 			pipelines[i] = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(pipelineLayout), std::move(getGPUShader(shaderGLSL[i], workgroupSize)));
 
+		bool passed = true;
 
 		driver->beginScene(true);
-		bool passed = false;
-		for (size_t i = 0; i < 3; i++)
-		{
-			driver->bindComputePipeline(pipelines[i].get());
-			const video::IGPUDescriptorSet* ds = descriptorSet.get();
-			driver->bindDescriptorSets(video::EPBP_COMPUTE, pipelines[i]->getLayout(), 0u, 1u, &ds, nullptr);
-			uint32_t workgroupCount = BUFFER_DWORD_COUNT/workgroupSize;
-			driver->dispatch(workgroupCount, 1, 1);
-			video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_BUFFER_UPDATE_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
-			//check results 
-			switch (i)
-			{
-				case 0:
-					passed = validateResults<emulatedSubgroupReduction>(driver, inputData, workgroupSize, workgroupCount, buffers);
-					break;
-				case 1:
-					passed = validateResults<emulatedSubgroupScanExclusive>(driver, inputData, workgroupSize, workgroupCount, buffers);
-					break;
-				case 2:
-					passed = validateResults<emulatedSubgroupScanInclusive>(driver, inputData, workgroupSize, workgroupCount, buffers);
-					break;
-			}
-		}
+		const video::IGPUDescriptorSet* ds = descriptorSet.get();
+		passed = runTest<emulatedSubgroupReduction>(driver,pipelines[0u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
+		passed = runTest<emulatedSubgroupScanExclusive>(driver,pipelines[1u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
+		passed = runTest<emulatedSubgroupScanInclusive>(driver,pipelines[2u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
+		passed = runTest<emulatedWorkgroupReduction>(driver,pipelines[3u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
+		//passed = runTest<emulatedSubgroupScanInclusive>(driver,pipelines[4u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
+		//passed = runTest<emulatedSubgroupScanInclusive>(driver,pipelines[5u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
+
 		if (passed)
 			os::Printer::log("Passed test #" + std::to_string(workgroupSize), ELL_INFORMATION);
 		else

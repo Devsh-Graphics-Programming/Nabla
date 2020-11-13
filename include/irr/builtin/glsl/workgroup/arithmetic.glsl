@@ -59,6 +59,60 @@
 	return CONV(irr_glsl_workgroupBroadcast_noBarriers(scan,lastInvocationInLevel))
 
 
+uint irr_glsl_workgroupAnd_noBarriers(in uint val)
+{
+	IRR_GLSL_WORKGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_subgroupInclusiveAnd_impl,val,~0u,irr_glsl_identityFunction);
+}
+int irr_glsl_workgroupAnd_noBarriers(in int val)
+{
+	return int(irr_glsl_workgroupAnd_noBarriers(uint(val)));
+}
+float irr_glsl_workgroupAnd_noBarriers(in float val)
+{
+	IRR_GLSL_WORKGROUP_REDUCE(uintBitsToFloat,irr_glsl_subgroupInclusiveAnd_impl,val,uintBitsToFloat(~0u),floatBitsToUint);
+}
+
+DECLARE_OVERLOAD_WITH_BARRIERS(uint,workgroupAnd)
+DECLARE_OVERLOAD_WITH_BARRIERS(int,workgroupAnd)
+DECLARE_OVERLOAD_WITH_BARRIERS(float,workgroupAnd)
+
+
+uint irr_glsl_workgroupOr_noBarriers(in uint val)
+{
+	IRR_GLSL_WORKGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_subgroupInclusiveOr_impl,val,0u,irr_glsl_identityFunction);
+}
+int irr_glsl_workgroupOr_noBarriers(in int val)
+{
+	return int(irr_glsl_workgroupOr_noBarriers(uint(val)));
+}
+float irr_glsl_workgroupOr_noBarriers(in float val)
+{
+	IRR_GLSL_WORKGROUP_REDUCE(uintBitsToFloat,irr_glsl_subgroupInclusiveOr_impl,val,0.0,floatBitsToUint);
+}
+
+DECLARE_OVERLOAD_WITH_BARRIERS(uint,workgroupOr)
+DECLARE_OVERLOAD_WITH_BARRIERS(int,workgroupOr)
+DECLARE_OVERLOAD_WITH_BARRIERS(float,workgroupOr)
+
+
+uint irr_glsl_workgroupXor_noBarriers(in uint val)
+{
+	IRR_GLSL_WORKGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_subgroupInclusiveXor_impl,val,0u,irr_glsl_identityFunction);
+}
+int irr_glsl_workgroupXor_noBarriers(in int val)
+{
+	return int(irr_glsl_workgroupXor_noBarriers(uint(val)));
+}
+float irr_glsl_workgroupXor_noBarriers(in float val)
+{
+	IRR_GLSL_WORKGROUP_REDUCE(uintBitsToFloat,irr_glsl_subgroupInclusiveXor_impl,val,0.0,floatBitsToUint);
+}
+
+DECLARE_OVERLOAD_WITH_BARRIERS(uint,workgroupXor)
+DECLARE_OVERLOAD_WITH_BARRIERS(int,workgroupXor)
+DECLARE_OVERLOAD_WITH_BARRIERS(float,workgroupXor)
+
+
 uint irr_glsl_workgroupAdd_noBarriers(in uint val)
 {
 	IRR_GLSL_WORKGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_subgroupInclusiveAdd_impl,val,0u,irr_glsl_identityFunction);
@@ -75,6 +129,60 @@ float irr_glsl_workgroupAdd_noBarriers(in float val)
 DECLARE_OVERLOAD_WITH_BARRIERS(uint,workgroupAdd)
 DECLARE_OVERLOAD_WITH_BARRIERS(int,workgroupAdd)
 DECLARE_OVERLOAD_WITH_BARRIERS(float,workgroupAdd)
+
+
+uint irr_glsl_workgroupMul_noBarriers(in uint val)
+{
+	IRR_GLSL_WORKGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_subgroupInclusiveMul_impl,val,1u,irr_glsl_identityFunction);
+}
+int irr_glsl_workgroupMul_noBarriers(in int val)
+{
+	return int(irr_glsl_workgroupMul_noBarriers(uint(val)));
+}
+float irr_glsl_workgroupMul_noBarriers(in float val)
+{
+	IRR_GLSL_WORKGROUP_REDUCE(uintBitsToFloat,irr_glsl_subgroupInclusiveMul_impl,val,1.0,floatBitsToUint);
+}
+
+DECLARE_OVERLOAD_WITH_BARRIERS(uint,workgroupMul)
+DECLARE_OVERLOAD_WITH_BARRIERS(int,workgroupMul)
+DECLARE_OVERLOAD_WITH_BARRIERS(float,workgroupMul)
+
+
+uint irr_glsl_workgroupMin_noBarriers(in uint val)
+{
+	IRR_GLSL_WORKGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_subgroupInclusiveMin_impl,val,UINT_MAX,irr_glsl_identityFunction);
+}
+int irr_glsl_workgroupMin_noBarriers(in int val)
+{
+	return int(irr_glsl_workgroupMin_noBarriers(uint(val)));
+}
+float irr_glsl_workgroupMin_noBarriers(in float val)
+{
+	IRR_GLSL_WORKGROUP_REDUCE(uintBitsToFloat,irr_glsl_subgroupInclusiveMin_impl,val,FLT_INF,floatBitsToUint);
+}
+
+DECLARE_OVERLOAD_WITH_BARRIERS(uint,workgroupMin)
+DECLARE_OVERLOAD_WITH_BARRIERS(int,workgroupMin)
+DECLARE_OVERLOAD_WITH_BARRIERS(float,workgroupMin)
+
+
+uint irr_glsl_workgroupMax_noBarriers(in uint val)
+{
+	IRR_GLSL_WORKGROUP_REDUCE(irr_glsl_identityFunction,irr_glsl_subgroupInclusiveMax_impl,val,UINT_MIN,irr_glsl_identityFunction);
+}
+int irr_glsl_workgroupMax_noBarriers(in int val)
+{
+	return int(irr_glsl_workgroupMax_noBarriers(uint(val)));
+}
+float irr_glsl_workgroupMax_noBarriers(in float val)
+{
+	IRR_GLSL_WORKGROUP_REDUCE(uintBitsToFloat,irr_glsl_subgroupInclusiveMax_impl,val,-FLT_INF,floatBitsToUint);
+}
+
+DECLARE_OVERLOAD_WITH_BARRIERS(uint,workgroupMax)
+DECLARE_OVERLOAD_WITH_BARRIERS(int,workgroupMax)
+DECLARE_OVERLOAD_WITH_BARRIERS(float,workgroupMax)
 
 
 
@@ -124,31 +232,6 @@ DECLARE_OVERLOAD_WITH_BARRIERS(int,workgroupExclusiveAdd)
 
 
 /** TODO @Hazardu or @Przemog or recruitment task
-float irr_glsl_workgroupAnd(in float val);
-uint irr_glsl_workgroupAnd(in uint val);
-int irr_glsl_workgroupAnd(in int val);
-
-float irr_glsl_workgroupXor(in float val);
-uint irr_glsl_workgroupXor(in uint val);
-int irr_glsl_workgroupXor(in int val);
-
-float irr_glsl_workgroupOr(in float val);
-uint irr_glsl_workgroupOr(in uint val);
-int irr_glsl_workgroupOr(in int val);
-
-float irr_glsl_workgroupMul(in float val);
-uint irr_glsl_workgroupMul(in uint val);
-int irr_glsl_workgroupMul(in int val);
-
-float irr_glsl_workgroupMin(in float val);
-uint irr_glsl_workgroupMin(in uint val);
-int irr_glsl_workgroupMin(in int val);
-
-float irr_glsl_workgroupMax(in float val);
-uint irr_glsl_workgroupMax(in uint val);
-int irr_glsl_workgroupMax(in int val);
-
-
 bool irr_glsl_workgroupInclusiveAnd(in bool val);
 float irr_glsl_workgroupInclusiveAnd(in float val);
 uint irr_glsl_workgroupInclusiveAnd(in uint val);
