@@ -139,63 +139,64 @@ write:	30,31,00,01,    06,07,08,09,    14,15,16,17,    22,23,24,25,    02,03,04,
 
 This design should also work for workgroups that are not divisible by subgroup size, but only if we could initialize the _IRR_GLSL_SCRATCH_SHARED_DEFINED_ reliably.
 
+TODO: add [[unroll]] to all loops
 */
 #define SUBGROUP_CALC_SUBGROUP_ELECTED_INVOCATION_ID(INVOCATION) ((INVOCATION)&(-irr_glsl_SubgroupSize))
 
 #define SUBGROUP_SCRATCH_OFFSETS_AND_MASKS const uint pseudoSubgroupElectedInvocation = SUBGROUP_CALC_SUBGROUP_ELECTED_INVOCATION_ID(gl_LocalInvocationIndex); \
-	const uint subgroupOffset = (pseudoSubgroupElectedInvocation<<1u)+irr_glsl_HalfSubgroupSize; \
+	const uint subgroupMemoryOffset = (pseudoSubgroupElectedInvocation<<1u); \
 	const uint loMask = irr_glsl_SubgroupSize-1u; \
 	const uint pseudoSubgroupInvocation = gl_LocalInvocationIndex&loMask; \
-	const uint primaryOffset = subgroupOffset+pseudoSubgroupInvocation
-
-#define SUBGROUP_SCRATCH_FILL(VALUE,INVCONV) SUBGROUP_BARRIERS; \
-	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset] = INVCONV (VALUE)
+	const uint lastLoadOffset = (subgroupMemoryOffset|pseudoSubgroupInvocation); \
+	const uint storeOffset = lastLoadOffset+irr_glsl_HalfSubgroupSize
 
 
 #define SUBGROUP_SCRATCH_INITIALIZE_IMPL_CLEAR_INDEX(PSEUDO_INVOCATION) ((((PSEUDO_INVOCATION)&(~halfMask))<<2u)|((PSEUDO_INVOCATION)&halfMask))
 
-#define SUBGROUP_SCRATCH_INITIALIZE(VALUE,ACTIVE_INVOCATION_INDEX_UPPER_BOUND,IDENTITY) SUBGROUP_SCRATCH_OFFSETS_AND_MASKS; \
+#define SUBGROUP_SCRATCH_INITIALIZE(VALUE,ACTIVE_INVOCATION_INDEX_UPPER_BOUND,IDENTITY,INVCONV) SUBGROUP_SCRATCH_OFFSETS_AND_MASKS; \
 	{ \
-		SUBGROUP_SCRATCH_FILL(VALUE,INVCONV); \
+		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[storeOffset] = INVCONV (VALUE); \
 		const uint maxItemsToClear = SUBGROUP_CALC_SUBGROUP_ELECTED_INVOCATION_ID(ACTIVE_INVOCATION_INDEX_UPPER_BOUND+loMask)>>1u; \
 		const uint halfMask = loMask>>1u; \
-		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[SUBGROUP_SCRATCH_INITIALIZE_IMPL_CLEAR_INDEX(gl_LocalInvocationIndex)] = IDENTITY; \
+		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[SUBGROUP_SCRATCH_INITIALIZE_IMPL_CLEAR_INDEX(gl_LocalInvocationIndex)] = INVCONV (IDENTITY); \
 		if (_IRR_GLSL_WORKGROUP_SIZE_<maxItemsToClear) \
 		for (uint ix=gl_LocalInvocationIndex+_IRR_GLSL_WORKGROUP_SIZE_; ix<maxItemsToClear; ix+=_IRR_GLSL_WORKGROUP_SIZE_) \
-			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[SUBGROUP_SCRATCH_INITIALIZE_IMPL_CLEAR_INDEX(ix)] = IDENTITY; \
+			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[SUBGROUP_SCRATCH_INITIALIZE_IMPL_CLEAR_INDEX(ix)] = INVCONV (IDENTITY); \
+		barrier(); \
 	}
 
 
 #define IRR_GLSL_SUBGROUP_ARITHMETIC_IMPL(CONV,OP,VALUE,INITIALIZE,IDENTITY,INVCONV) SUBGROUP_SCRATCH_OFFSETS_AND_MASKS; \
 	if (INITIALIZE) \
 	{ \
-		SUBGROUP_SCRATCH_FILL(VALUE,INVCONV); \
+		SUBGROUP_BARRIERS; \
+		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[storeOffset] = INVCONV (VALUE); \
 		if (pseudoSubgroupInvocation<irr_glsl_HalfSubgroupSize) \
-			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset-irr_glsl_HalfSubgroupSize] = INVCONV (IDENTITY); \
+			_IRR_GLSL_SCRATCH_SHARED_DEFINED_[lastLoadOffset] = INVCONV (IDENTITY); \
 	} \
 	SUBGROUP_BARRIERS; \
-	VALUE = OP (VALUE,CONV (_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset-1u])); \
-	SUBGROUP_BARRIERS; \
-	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset] = INVCONV (VALUE); \
-	SUBGROUP_BARRIERS; \
-	VALUE = OP (VALUE,CONV (_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset-2u])); \
-	for (uint stp=irr_glsl_MinSubgroupSize; stp<irr_glsl_SubgroupSize; stp<<=1u) \
+	VALUE = OP (VALUE,CONV (_IRR_GLSL_SCRATCH_SHARED_DEFINED_[storeOffset-1u])); \
+	for (uint stp=irr_glsl_MinSubgroupSize; stp<irr_glsl_HalfSubgroupSize; stp<<=1u) \
 	{ \
 		SUBGROUP_BARRIERS; \
-		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset] = INVCONV (VALUE); \
+		_IRR_GLSL_SCRATCH_SHARED_DEFINED_[storeOffset] = INVCONV (VALUE); \
 		SUBGROUP_BARRIERS; \
-		VALUE = OP (VALUE,CONV (_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset-stp])); \
+		VALUE = OP (VALUE,CONV (_IRR_GLSL_SCRATCH_SHARED_DEFINED_[storeOffset-stp])); \
 	} \
+	SUBGROUP_BARRIERS; \
+	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[storeOffset] = INVCONV (VALUE); \
+	SUBGROUP_BARRIERS; \
+	VALUE = OP (VALUE,CONV (_IRR_GLSL_SCRATCH_SHARED_DEFINED_[lastLoadOffset])); \
 	SUBGROUP_BARRIERS;
 
 
 #define IRR_GLSL_SUBGROUP_REDUCE(CONV,OP,VALUE,INITIALIZE,IDENTITY,INVCONV) IRR_GLSL_SUBGROUP_ARITHMETIC_IMPL(CONV,OP,VALUE,INITIALIZE,IDENTITY,INVCONV) \
-	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset] = INVCONV (VALUE); \
+	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[storeOffset] = INVCONV (VALUE); \
 	SUBGROUP_BARRIERS; \
 	uint lastSubgroupInvocation = loMask; \
 	if (pseudoSubgroupElectedInvocation==SUBGROUP_CALC_SUBGROUP_ELECTED_INVOCATION_ID(_IRR_GLSL_WORKGROUP_SIZE_-1u)) \
 		lastSubgroupInvocation &= _IRR_GLSL_WORKGROUP_SIZE_-1u;\
-	const uint lastItem = _IRR_GLSL_SCRATCH_SHARED_DEFINED_[subgroupOffset+lastSubgroupInvocation]; \
+	const uint lastItem = _IRR_GLSL_SCRATCH_SHARED_DEFINED_[(subgroupMemoryOffset|lastSubgroupInvocation)+irr_glsl_HalfSubgroupSize]; \
 	SUBGROUP_BARRIERS; \
 	return CONV (lastItem);
 
@@ -300,9 +301,9 @@ float irr_glsl_subgroupMax_impl(in bool clearScratchToIdentity, float value)
 	return VALUE
 
 #define IRR_GLSL_SUBGROUP_EXCLUSIVE_SCAN(CONV,OP,VALUE,INITIALIZE,IDENTITY,INVCONV) IRR_GLSL_SUBGROUP_ARITHMETIC_IMPL(CONV,OP,VALUE,INITIALIZE,IDENTITY,INVCONV) \
-	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset] = INVCONV (VALUE); \
+	_IRR_GLSL_SCRATCH_SHARED_DEFINED_[storeOffset] = INVCONV (VALUE); \
 	SUBGROUP_BARRIERS; \
-	const uint prevItem = _IRR_GLSL_SCRATCH_SHARED_DEFINED_[primaryOffset-1u]; \
+	const uint prevItem = _IRR_GLSL_SCRATCH_SHARED_DEFINED_[storeOffset-1u]; \
 	SUBGROUP_BARRIERS; \
 	return CONV (prevItem);
 

@@ -5,11 +5,12 @@
 
 void main()
 {
-	andOutput [gl_GlobalInvocationID.x] = irr_glsl_workgroupAnd(inputValue[gl_GlobalInvocationID.x]);
-	xorOutput [gl_GlobalInvocationID.x] = irr_glsl_workgroupXor(inputValue[gl_GlobalInvocationID.x]);
-	orOutput  [gl_GlobalInvocationID.x] = irr_glsl_workgroupOr (inputValue[gl_GlobalInvocationID.x]);
-	addOutput [gl_GlobalInvocationID.x] = irr_glsl_workgroupAdd(inputValue[gl_GlobalInvocationID.x]);
-	multOutput[gl_GlobalInvocationID.x] = irr_glsl_workgroupMul(inputValue[gl_GlobalInvocationID.x]);
-	minOutput [gl_GlobalInvocationID.x] = irr_glsl_workgroupMin(inputValue[gl_GlobalInvocationID.x]);
-	maxOutput [gl_GlobalInvocationID.x] = irr_glsl_workgroupMax(inputValue[gl_GlobalInvocationID.x]);
+	const uint sourceVal = inputValue[gl_GlobalInvocationID.x];
+	andOutput [gl_GlobalInvocationID.x] = irr_glsl_workgroupAnd(sourceVal);
+	xorOutput [gl_GlobalInvocationID.x] = irr_glsl_workgroupXor(sourceVal);
+	orOutput  [gl_GlobalInvocationID.x] = irr_glsl_workgroupOr (sourceVal);
+	addOutput [gl_GlobalInvocationID.x] = irr_glsl_workgroupAdd(sourceVal);
+	multOutput[gl_GlobalInvocationID.x] = irr_glsl_workgroupMul(sourceVal);
+	minOutput [gl_GlobalInvocationID.x] = irr_glsl_workgroupMin(sourceVal);
+	maxOutput [gl_GlobalInvocationID.x] = irr_glsl_workgroupMax(sourceVal);
 }

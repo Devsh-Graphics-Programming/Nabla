@@ -10,7 +10,7 @@
 #define _IRR_GLSL_WORKGROUP_CLUSTERED_SHARED_SIZE_NEEDED_  ((_IRR_GLSL_WORKGROUP_SIZE_+irr_glsl_MinSubgroupSize-1)/irr_glsl_MinSubgroupSize)
 
 // just do nothing here
-#define SUBGROUP_SCRATCH_CLEAR(IDENTITY) ;
+#define SUBGROUP_SCRATCH_INITIALIZE(IDENTITY) ;
 
 #else
 */

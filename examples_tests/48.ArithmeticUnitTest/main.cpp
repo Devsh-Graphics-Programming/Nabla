@@ -356,7 +356,7 @@ int main()
 
 	//max workgroup size is hardcoded to 1024
 	const auto ds = descriptorSet.get();
-	for (uint32_t workgroupSize=5u; workgroupSize<=1024u; workgroupSize++)
+	for (uint32_t workgroupSize=1u; workgroupSize<=1024u; workgroupSize++)
 	{
 		core::smart_refctd_ptr<IGPUComputePipeline> pipelines[kTestTypeCount];
 		for (uint32_t i=0u; i<kTestTypeCount; i++)

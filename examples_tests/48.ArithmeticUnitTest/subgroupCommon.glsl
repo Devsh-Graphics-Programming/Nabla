@@ -2,11 +2,14 @@
 
 #include "irr/builtin/glsl/subgroup/arithmetic_portability.glsl"
 
-#define CONDITIONAL_CLEAR_IMPL(IDENTITY_VALUE) if (((_IRR_GLSL_WORKGROUP_SIZE_)&(irr_glsl_SubgroupSize-1u))!=0u) \
+#define CONDITIONAL_CLEAR_HEAD const bool automaticInitialize = ((_IRR_GLSL_WORKGROUP_SIZE_)&(irr_glsl_SubgroupSize-1u))==0u; \
+	const uint sourceVal = inputValue[gl_GlobalInvocationID.x];
+
+#define CONDITIONAL_CLEAR_IMPL(IDENTITY_VALUE) if (!automaticInitialize) \
     { \
 		barrier(); \
 		memoryBarrierShared(); \
-        SUBGROUP_SCRATCH_CLEAR(_IRR_GLSL_WORKGROUP_SIZE_,IDENTITY_VALUE) \
+        SUBGROUP_SCRATCH_INITIALIZE(sourceVal,_IRR_GLSL_WORKGROUP_SIZE_,IDENTITY_VALUE,irr_glsl_identityFunction) \
 		barrier(); \
 		memoryBarrierShared(); \
     }

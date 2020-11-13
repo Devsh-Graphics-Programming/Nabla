@@ -282,7 +282,7 @@ uint irr_glsl_workgroupExclusiveAdd2(uint val)
 #if 1
     barrier();
     memoryBarrierShared();
-    SUBGROUP_SCRATCH_CLEAR(_IRR_GLSL_WORKGROUP_SIZE_,0u)
+    SUBGROUP_SCRATCH_INITIALIZE(val,_IRR_GLSL_WORKGROUP_SIZE_,0u,irr_glsl_identityFunction)
     uint firstLevelScan = irr_glsl_subgroupInclusiveAdd_impl(false,val);
     barrier();
     memoryBarrierShared();
