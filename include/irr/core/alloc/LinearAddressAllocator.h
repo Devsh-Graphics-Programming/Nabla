@@ -81,7 +81,7 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
             return;
         }
 
-        // free all allocations
+        // reset cursor to `c` allocation units
         inline void         reset(size_type c = 0)
         {
             cursor = c;
