@@ -350,11 +350,9 @@ int main()
 		core::smart_refctd_ptr<IGPUSpecializedShader> shader = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
 		return shader;
 	};
-	
-	///uint32_t totalFailCount = 0;
-	///constexpr uint32_t totalTestCount = 1024 * kTestTypeCount * 7;
 
 	//max workgroup size is hardcoded to 1024
+	uint32_t totalFailCount = 0;
 	const auto ds = descriptorSet.get();
 	for (uint32_t workgroupSize=1u; workgroupSize<=1024u; workgroupSize++)
 	{
@@ -366,9 +364,9 @@ int main()
 
 		driver->beginScene(true);
 		const video::IGPUDescriptorSet* ds = descriptorSet.get();
-		//passed = runTest<emulatedSubgroupReduction>(driver,pipelines[0u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
-		//passed = runTest<emulatedSubgroupScanExclusive>(driver,pipelines[1u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
-		//passed = runTest<emulatedSubgroupScanInclusive>(driver,pipelines[2u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
+		passed = runTest<emulatedSubgroupReduction>(driver,pipelines[0u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
+		passed = runTest<emulatedSubgroupScanExclusive>(driver,pipelines[1u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
+		passed = runTest<emulatedSubgroupScanInclusive>(driver,pipelines[2u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
 		passed = runTest<emulatedWorkgroupReduction>(driver,pipelines[3u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
 		//passed = runTest<emulatedSubgroupScanInclusive>(driver,pipelines[4u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
 		//passed = runTest<emulatedSubgroupScanInclusive>(driver,pipelines[5u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
@@ -376,12 +374,14 @@ int main()
 		if (passed)
 			os::Printer::log("Passed test #" + std::to_string(workgroupSize), ELL_INFORMATION);
 		else
+		{
+			totalFailCount++;
 			os::Printer::log("Failed test #" + std::to_string(workgroupSize), ELL_INFORMATION);
+		}
 		driver->endScene();
 	}
-	os::Printer::log("Result:", ELL_INFORMATION);
-	//os::Printer::log("Failed:" + totalFailCount, ELL_INFORMATION);
-	//os::Printer::log("Total tests:" + totalTestCount, ELL_INFORMATION);
+	os::Printer::log("==========Result==========", ELL_INFORMATION);
+	os::Printer::log("Failed:" + totalFailCount, ELL_INFORMATION);
 
 	delete [] inputData;
 	return 0;
