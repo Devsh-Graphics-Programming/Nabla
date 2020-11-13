@@ -500,43 +500,6 @@ void runNormalPrecompStream(in instr_stream_t stream, in mat2 dUV, in MC_precomp
 	}
 }
 
-void flipCurrInteraction()
-{
-	currInteraction.isotropic.N = -currInteraction.isotropic.N;
-	currInteraction.isotropic.NdotV = -currInteraction.isotropic.NdotV;
-	//currInteraction.T = -currInteraction.T;
-	currInteraction.B = -currInteraction.B;
-	//currInteraction.TdotV = -currInteraction.TdotV;
-	currInteraction.BdotV = -currInteraction.BdotV;
-}
-//call before executing an instruction/evaluating bsdf
-void handleTwosided_interactionOnly(in instr_t instr)
-{
-#ifndef NO_TWOSIDED
-	if (instr_getTwosided(instr) && currInteraction.isotropic.NdotV<0.0)
-	{
-		flipCurrInteraction();
-	}
-#endif	
-}
-//call before executing an instruction/evaluating bsdf
-void handleTwosided(in instr_t instr, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache microfacet)
-{
-#ifndef NO_TWOSIDED
-	if (instr_getTwosided(instr) && currInteraction.isotropic.NdotV<0.0)
-	{
-		flipCurrInteraction();
-
-		s.NdotL = -s.NdotL;
-		//s.TdotL = -s.TdotL;
-		s.BdotL = -s.BdotL;
-		microfacet.isotropic.NdotH = -microfacet.isotropic.NdotH;
-		//microfacet.TdotH = -microfacet.TdotH;
-		microfacet.BdotH = -microfacet.BdotH;
-	}
-#endif
-}
-
 //TODO move or rename those
 //ggx
 float irr_glsl_ggx_height_correlated_cos_eval_DG(in float NdotH, in float NdotL, in float NdotV, in float a2)
@@ -668,7 +631,7 @@ float irr_glsl_blinn_phong_cos_eval_DG(in irr_glsl_LightSample s, in irr_glsl_An
 
 #ifdef GEN_CHOICE_STREAM
 // sample and microfacet are inout because of handleTwosided() only
-void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache _microfacet)
+void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache _microfacet)
 {
 	uint op = instr_getOpcode(instr);
 
@@ -691,11 +654,6 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 	const bool is_bsdf = !op_isBRDF(op); //note it actually tells if op is BSDF or BUMPMAP or SET_GEOM_NORMAL (divergence reasons)
 	const vec3 refl = params_getReflectance(params);
 	const vec3 trans = params_getTransmittance(params);
-
-#ifndef NO_TWOSIDED
-	handleTwosided(instr, s, _microfacet);
-#endif
-
 
 	irr_glsl_AnisotropicMicrofacetCache microfacet;
 	bool is_valid = true;
@@ -864,7 +822,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 		writeReg(REG_DST(regs), result);
 }
 
-eval_and_pdf_t irr_bsdf_eval_and_pdf(in MC_precomputed_t precomp, in instr_stream_t stream, inout irr_glsl_LightSample s, in uint generator_offset, inout irr_glsl_AnisotropicMicrofacetCache microfacet)
+eval_and_pdf_t irr_bsdf_eval_and_pdf(in MC_precomputed_t precomp, in instr_stream_t stream, in uint generator_offset, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache microfacet)
 {
 	setCurrInteraction(precomp);
 	for (uint i = 0u; i < stream.count; ++i)
@@ -917,8 +875,6 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	bool is_plastic = false;
 	while (!op_isBXDF(op))
 	{
-		handleTwosided_interactionOnly(instr);
-
 #ifdef OP_BLEND
 		if (op==OP_BLEND) {
 			bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
@@ -986,10 +942,6 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	const bool is_bsdf = !op_isBRDF(op) && !is_plastic;
 	const vec3 refl = params_getReflectance(params);
 	const vec3 trans = params_getTransmittance(params);
-
-#ifndef NO_TWOSIDED
-	handleTwosided_interactionOnly(instr);
-#endif //NO_TWOSIDED
 
 	float pdf = 1.0;
 	vec3 rem = vec3(1.0);
@@ -1160,7 +1112,7 @@ vec3 runGenerateAndRemainderStream(in MC_precomputed_t precomp, in instr_stream_
 	uint generator_rnpOffset;
 	bool invalid_microfacet;
 	irr_glsl_LightSample s = irr_bsdf_cos_generate(precomp, gcs, rand, generator_rem, generator_pdf, microfacet, generator_rnpOffset, invalid_microfacet);
-	eval_and_pdf_t eval_pdf = irr_bsdf_eval_and_pdf(precomp, rnps, s, generator_rnpOffset, microfacet);
+	eval_and_pdf_t eval_pdf = irr_bsdf_eval_and_pdf(precomp, rnps, generator_rnpOffset, s, microfacet);
 	bxdf_eval_t acc = eval_pdf.rgb;
 	float restPdf = eval_pdf.a;
 	float pdf = generator_pdf + restPdf;

@@ -24,10 +24,6 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 
 	const bool is_bsdf = !op_isBRDF(op); //note it actually tells if op is BSDF or BUMPMAP or SET_GEOM_NORMAL (divergence reasons)
 
-#ifndef NO_TWOSIDED
-	handleTwosided(instr, s, _microfacet);
-#endif
-
 	const float cosFactor = irr_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
 
 	uvec3 regs = instr_decodeRegisters(instr);
