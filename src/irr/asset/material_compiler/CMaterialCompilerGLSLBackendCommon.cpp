@@ -129,10 +129,10 @@ namespace material_compiler
 			);
 		}
 
-		std::pair<instr_t, const IR::INode*> processSubtree(const IR::INode* tree, IR::INode::children_array_t& next, tmp_bxdf_translation_cache_t* coatTranslationCache)
+		std::pair<instr_t, const IR::INode*> processSubtree(const IR::INode* tree, IR::INode::children_array_t& next)
 		{
 			//TODO deduplication
-			return CInterpreter::processSubtree(m_ir, tree, next, coatTranslationCache);
+			return CInterpreter::processSubtree(m_ir, tree, next, m_translationCache);
 		}
 
 		void setBSDFData(instr_stream::intermediate::SBSDFUnion& _dst, instr_stream::E_OPCODE _op, const IR::INode* _node)
@@ -617,13 +617,12 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 	{
 		auto* node = static_cast<const IR::CGeomModifierNode*>(tree);
 
-		instr_t retval;
-		if (node->type == IR::CGeomModifierNode::ET_HEIGHT)
-			retval = instr_stream::OP_BUMPMAP;
+		if (node->type == IR::CGeomModifierNode::ET_DERIVATIVE)
+			instr = instr_stream::OP_BUMPMAP;
 		else
-			retval = instr_stream::OP_INVALID;
+			instr = instr_stream::OP_INVALID;
 
-		instr = retval;
+		out_next = node->children;
 	}
 	break;
 	case IR::INode::ES_BSDF_COMBINER:
@@ -634,7 +633,7 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 		case IR::CBSDFCombinerNode::ET_WEIGHT_BLEND:
 			out_next = node->children;
 			instr = instr_stream::OP_BLEND;
-			break;
+		break;
 		case IR::CBSDFCombinerNode::ET_MIX:
 		{
 			tree = translateMixIntoBlends(ir, node);
@@ -882,7 +881,7 @@ traversal_t remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode
 		IR::INode::children_array_t next;
 		const IR::INode* node;
 		instr_t instr;
-		std::tie(instr, node) = processSubtree(_root, next, m_translationCache);
+		std::tie(instr, node) = processSubtree(_root, next);
 		push(instr, node, next, instr, false);
 	}
 	while (!m_stack.empty())
@@ -908,15 +907,18 @@ traversal_t remainder_and_pdf::CTraversalGenerator::genTraversal(const IR::INode
 				const IR::INode* node = nullptr;
 				IR::INode::children_array_t next2;
 				instr_t instr2;
-				std::tie(instr2, node) = processSubtree(*it, next2, m_translationCache);
+				std::tie(instr2, node) = processSubtree(*it, next2);
 				pushedCount += push(instr2, node, next2, top.instr, false);
 			}
 			_IRR_DEBUG_BREAK_IF(pushedCount > 2ull);
+			_IRR_DEBUG_BREAK_IF(pushedCount < top.children.count);
 		}
 	}
 
 	//remove NOOPs
 	filterNOOPs(traversal);
+	if (!traversal.size())
+		printf("");
 
 	traversal = std::move(CTraversalManipulator(std::move(traversal), m_regsPerRes).process(m_registerPool, _out_usedRegs, m_id2pos));
 
@@ -933,7 +935,7 @@ traversal_t gen_choice::CTraversalGenerator::genTraversal(const IR::INode* _root
 		IR::INode::children_array_t next;
 		const IR::INode* node;
 		instr_t instr;
-		std::tie(instr, node) = processSubtree(_root, next, m_translationCache);
+		std::tie(instr, node) = processSubtree(_root, next);
 		push(instr, node, next, instr, INVALID_INDEX);
 	}
 	while (!m_stack.empty())
@@ -962,10 +964,11 @@ traversal_t gen_choice::CTraversalGenerator::genTraversal(const IR::INode* _root
 				const IR::INode* node = nullptr;
 				IR::INode::children_array_t next2;
 				instr_t instr2;
-				std::tie(instr2, node) = processSubtree(*it, next2, m_translationCache);
+				std::tie(instr2, node) = processSubtree(*it, next2);
 				pushedCount += push(instr2, node, next2, top.instr, it == top.children.begin()+1 ? currIx : INVALID_INDEX);
 			}
-			_IRR_DEBUG_BREAK_IF(pushedCount>2ull);
+			_IRR_DEBUG_BREAK_IF(pushedCount > 2ull);
+			_IRR_DEBUG_BREAK_IF(pushedCount < top.children.count);
 		}
 	}
 
