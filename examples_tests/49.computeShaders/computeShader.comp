@@ -22,7 +22,9 @@ layout(set = 0, binding = 3, std430) buffer ColorRisingFlag
 };
 
 layout( push_constant ) uniform Block {
-	bool hasXBeenPressed;
+	bool isXPressed;
+	bool isZPressed;
+	vec3 currentUserAbsolutePostion;
 } pushConstants;
 
 layout(local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
@@ -77,12 +79,21 @@ void main()
 	vec3 velocity = velocities[globalInvocationID].xyz;
 	vec3 color = colors[globalInvocationID].xyz;
 
-	if(!pushConstants.hasXBeenPressed)
+	if(!pushConstants.isXPressed)
+	{
+		/*
+		if(pushConstants.isZPressed)
+		{
+			// TODO gravity to force a particle's velocity towards the user
+		}
+		*/
 		position += velocity * deltaTime;
-
+	}
+		
 	vec3 newComputedColor = getNewColor(color);
 	manageColorState(newComputedColor);
 
 	positions[globalInvocationID].xyz = position;
+	velocities[globalInvocationID].xyz = velocity;
 	colors[globalInvocationID].xyz = newComputedColor;
 }

@@ -16,40 +16,48 @@ using namespace video;
 class CEventReceiver : public irr::IEventReceiver
 {
 public:
-	CEventReceiver() : running(true), particlesVectorChangeFlag(false) {}
+	CEventReceiver() : handledEvent(false), running(true), particlesVectorChangeFlag(false), forceChangeVelocityFlag(false) {}
 
 	bool OnEvent(const irr::SEvent& event)
 	{
-		if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+		handledEvent = false;
+
+		auto handleAnEvent = [&](auto executeStateChanging)
 		{
-			switch (event.KeyInput.Key)
-			{
-				case irr::KEY_KEY_Q:
-				{
-					running = false;
-					return true;
-				} break;
+			executeStateChanging();
+			handledEvent = true;
+		};
 
-				case irr::KEY_KEY_X:
-				{
-					particlesVectorChangeFlag = true;
-					return true;
-				} break;
-				
-				default:
-					break;
-			}
+		if (event.EventType == irr::EET_KEY_INPUT_EVENT)
+		{
+			if (event.KeyInput.Key == irr::KEY_KEY_Q)
+				handleAnEvent([&]{ running = false; });
+
+			if (event.KeyInput.Key == irr::KEY_KEY_X)
+				if(event.KeyInput.PressedDown)
+					handleAnEvent([&] { particlesVectorChangeFlag = true; });
+				else 
+					particlesVectorChangeFlag = false;
+
+			if (event.KeyInput.Key == irr::KEY_KEY_Z)
+				if (event.KeyInput.PressedDown)
+					handleAnEvent([&] { forceChangeVelocityFlag = true; });
+				else
+					forceChangeVelocityFlag = false;
 		}
-
-		return false;
+		
+		return handledEvent;
 	}
 
 	inline bool keepOpen() const { return running; }
-	inline bool shouldItChangeParticlesVelocitySignVector() const { return particlesVectorChangeFlag; }
+	inline bool isXPressed() const { return particlesVectorChangeFlag; }
+	inline bool isZPressed() const{ return forceChangeVelocityFlag; }
 
 private:
+	bool handledEvent;
 	bool running;
 	bool particlesVectorChangeFlag;
+	bool forceChangeVelocityFlag;
 };
 
 _NBL_STATIC_INLINE_CONSTEXPR size_t NUMBER_OF_PARTICLES = 1024 * 1024;		// total number of particles to move
@@ -79,7 +87,9 @@ static_assert(sizeof(SShaderStorageBufferObject) == sizeof(SShaderStorageBufferO
 #include "irr/irrpack.h"
 struct alignas(32) SPushConstants
 {
-	uint32_t hasXBeenPressed = false;
+	uint32_t isXPressed = false;
+	uint32_t isZPressed = false;
+	core::vector3df currentUserAbsolutePosition;
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
 
@@ -307,8 +317,11 @@ int main()
 			Calculation of particle postitions takes place here
 		*/
 
+		pushConstants.isXPressed = receiver.isXPressed();
+		pushConstants.isZPressed = receiver.isZPressed();
+		pushConstants.currentUserAbsolutePosition = camera->getAbsolutePosition();
+
 		driver->bindComputePipeline(gpuComputePipeline.get());
-		pushConstants.hasXBeenPressed = receiver.shouldItChangeParticlesVelocitySignVector();
 		driver->pushConstants(gpuComputePipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0, sizeof(SPushConstants), &pushConstants);
 		driver->bindDescriptorSets(EPBP_COMPUTE, gpuComputePipeline->getLayout(), 0, 1, &gpuCDescriptorSet.get(), nullptr);
 
