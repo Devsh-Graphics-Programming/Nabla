@@ -163,6 +163,36 @@ struct emulatedWorkgroupReduction
 
 	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "workgroup reduction";
 };
+template<class OP>
+struct emulatedWorkgroupScanExclusive
+{
+	using type_t = typename OP::type_t;
+
+	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, uint32_t workgroupSize)
+	{
+		type_t retval = OP::IdentityElement;
+		for (auto i=0u; i<localInvocationIndex; i++)
+			retval = OP()(retval,workgroupData[i]);
+		return retval;
+	}
+
+	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "workgroup exclusive scan";
+};
+template<class OP>
+struct emulatedWorkgroupScanInclusive
+{
+	using type_t = typename OP::type_t;
+
+	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, uint32_t workgroupSize)
+	{
+		type_t retval = OP::IdentityElement;
+		for (auto i=0u; i<=localInvocationIndex; i++)
+			retval = OP()(retval,workgroupData[i]);
+		return retval;
+	}
+
+	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "workgroup inclusive scan";
+};
 
 
 #include "common.glsl"
@@ -334,8 +364,8 @@ int main()
 		getShaderGLSL("../testSubgroupExclusive.comp"),
 		getShaderGLSL("../testSubgroupInclusive.comp"),
 		getShaderGLSL("../testWorkgroupReduce.comp"),
-		//getShaderGLSL("../testWorkgroupExclusive.comp"),
-		//getShaderGLSL("../testWorkgroupInclusive.comp")
+		getShaderGLSL("../testWorkgroupExclusive.comp"),
+		getShaderGLSL("../testWorkgroupInclusive.comp")
 	};
 	constexpr auto kTestTypeCount = sizeof(shaderGLSL)/sizeof(GLSLCodeWithWorkgroup);
 
@@ -354,7 +384,7 @@ int main()
 	//max workgroup size is hardcoded to 1024
 	uint32_t totalFailCount = 0;
 	const auto ds = descriptorSet.get();
-	for (uint32_t workgroupSize=1u; workgroupSize<=1024u; workgroupSize++)
+	for (uint32_t workgroupSize=8u; workgroupSize<=1024u; workgroupSize++)
 	{
 		core::smart_refctd_ptr<IGPUComputePipeline> pipelines[kTestTypeCount];
 		for (uint32_t i=0u; i<kTestTypeCount; i++)
@@ -364,12 +394,12 @@ int main()
 
 		driver->beginScene(true);
 		const video::IGPUDescriptorSet* ds = descriptorSet.get();
-		//passed = runTest<emulatedSubgroupReduction>(driver,pipelines[0u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
-		//passed = runTest<emulatedSubgroupScanExclusive>(driver,pipelines[1u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
-		//passed = runTest<emulatedSubgroupScanInclusive>(driver,pipelines[2u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
+		passed = runTest<emulatedSubgroupReduction>(driver,pipelines[0u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
+		passed = runTest<emulatedSubgroupScanExclusive>(driver,pipelines[1u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
+		passed = runTest<emulatedSubgroupScanInclusive>(driver,pipelines[2u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
 		passed = runTest<emulatedWorkgroupReduction>(driver,pipelines[3u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
-		//passed = runTest<emulatedSubgroupScanInclusive>(driver,pipelines[4u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
-		//passed = runTest<emulatedSubgroupScanInclusive>(driver,pipelines[5u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
+		//passed = runTest<emulatedWorkgroupScanExclusive>(driver,pipelines[4u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
+		//passed = runTest<emulatedWorkgroupScanInclusive>(driver,pipelines[5u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
 
 		if (passed)
 			os::Printer::log("Passed test #" + std::to_string(workgroupSize), ELL_INFORMATION);
@@ -381,7 +411,7 @@ int main()
 		driver->endScene();
 	}
 	os::Printer::log("==========Result==========", ELL_INFORMATION);
-	os::Printer::log("Failed:" + totalFailCount, ELL_INFORMATION);
+	os::Printer::log("Fail Count: " + std::to_string(totalFailCount), ELL_INFORMATION);
 
 	delete [] inputData;
 	return 0;
