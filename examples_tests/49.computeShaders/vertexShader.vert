@@ -13,10 +13,12 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO
     irr_glsl_SBasicViewParameters params;
 } cameraData;
 
-layout(location = 0) out vec4 outColor;
+layout(location = 0) flat out vec4 outGOrFFullyProjectedVelocity;
+layout(location = 1) flat out vec4 outGorFColor;
 
 void main()
 {
     gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(cameraData.params.MVP) * vPosition;
-    outColor = vColor;
+    outGOrFFullyProjectedVelocity = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(cameraData.params.MVP) * vVelocity * 0.0001;
+    outGorFColor = vColor;
 }

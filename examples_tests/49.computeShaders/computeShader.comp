@@ -1,6 +1,8 @@
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
 
+#include "shaderCommon.glsl"
+
 layout(set = 0, binding = 0, std430) buffer Position
 {
 	vec4 positions[];
@@ -20,12 +22,6 @@ layout(set = 0, binding = 3, std430) buffer ColorRisingFlag
 {
 	bvec4 colorsRisingFlag[];
 };
-
-layout( push_constant ) uniform Block {
-	bool isXPressed;
-	bool isZPressed;
-	vec3 currentUserAbsolutePostion;
-} pushConstants;
 
 layout(local_size_x = 128, local_size_y = 1, local_size_z = 1) in;
 

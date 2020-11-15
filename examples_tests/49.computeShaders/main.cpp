@@ -16,7 +16,7 @@ using namespace video;
 class CEventReceiver : public irr::IEventReceiver
 {
 public:
-	CEventReceiver() : handledEvent(false), running(true), particlesVectorChangeFlag(false), forceChangeVelocityFlag(false) {}
+	CEventReceiver() : handledEvent(false), running(true), particlesVectorChangeFlag(false), forceChangeVelocityFlag(false), visualizeVelocityVectorsFlag(false) {}
 
 	bool OnEvent(const irr::SEvent& event)
 	{
@@ -44,6 +44,16 @@ public:
 					handleAnEvent([&] { forceChangeVelocityFlag = true; });
 				else
 					forceChangeVelocityFlag = false;
+
+			if (event.KeyInput.Key == irr::KEY_KEY_C)
+			{
+				if (event.KeyInput.PressedDown)
+					handleAnEvent([&] { visualizeVelocityVectorsFlag = true; });
+			}
+			else if(event.KeyInput.Key == irr::KEY_KEY_V)
+				if (event.KeyInput.PressedDown)
+					handleAnEvent([&] { visualizeVelocityVectorsFlag = false; });
+				
 		}
 		
 		return handledEvent;
@@ -52,12 +62,14 @@ public:
 	inline bool keepOpen() const { return running; }
 	inline bool isXPressed() const { return particlesVectorChangeFlag; }
 	inline bool isZPressed() const{ return forceChangeVelocityFlag; }
+	inline bool isCPressed() const { return visualizeVelocityVectorsFlag; }
 
 private:
 	bool handledEvent;
 	bool running;
 	bool particlesVectorChangeFlag;
 	bool forceChangeVelocityFlag;
+	bool visualizeVelocityVectorsFlag;
 };
 
 _NBL_STATIC_INLINE_CONSTEXPR size_t NUMBER_OF_PARTICLES = 1024 * 1024;		// total number of particles to move
@@ -89,6 +101,7 @@ struct alignas(32) SPushConstants
 {
 	uint32_t isXPressed = false;
 	uint32_t isZPressed = false;
+	uint32_t isCPressed = false;
 	core::vector3df currentUserAbsolutePosition;
 } PACK_STRUCT;
 #include "irr/irrunpack.h"
@@ -210,7 +223,7 @@ int main()
 
 	asset::SPushConstantRange pushConstantRange;
 	{
-		pushConstantRange.stageFlags = asset::ISpecializedShader::ESS_COMPUTE;
+		pushConstantRange.stageFlags = (asset::ISpecializedShader::E_SHADER_STAGE)(asset::ISpecializedShader::ESS_COMPUTE | asset::ISpecializedShader::ESS_GEOMETRY);
 		pushConstantRange.offset = 0;
 		pushConstantRange.size = sizeof(SPushConstants);
 	}
@@ -280,11 +293,18 @@ int main()
 	auto cpuFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(fragmentShaderBundle.getContents().begin()[0]);
 	auto gpuFragmentShader = driver->getGPUObjectsFromAssets(&cpuFragmentShader, &cpuFragmentShader + 1)->front();
 
-	core::smart_refctd_ptr<video::IGPUSpecializedShader> gpuGShaders[] = { gpuVertexShader, gpuFragmentShader };
+	auto geometryShaderBundle = assetManager->getAsset("../geometryShader.geom", {});
+	assert(!geometryShaderBundle.isEmpty());
+
+	auto cpuGeometryShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(geometryShaderBundle.getContents().begin()[0]);
+	auto gpuGeometryShader = driver->getGPUObjectsFromAssets(&cpuGeometryShader, &cpuGeometryShader + 1)->front();
+
+	core::smart_refctd_ptr<video::IGPUSpecializedShader> gpuGShaders[] = { gpuVertexShader, gpuFragmentShader, gpuGeometryShader };
 	auto gpuGShadersPointer = reinterpret_cast<video::IGPUSpecializedShader**>(gpuGShaders);
 
-	auto gpuGPipelineLayout = driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, std::move(gpuGDs1Layout), nullptr, nullptr);
-	auto gpuGraphicsPipeline = driver->createGPURenderpassIndependentPipeline(nullptr, std::move(gpuGPipelineLayout), gpuGShadersPointer, gpuGShadersPointer + sizeof(gpuGShaders) / sizeof(core::smart_refctd_ptr<video::IGPUSpecializedShader>), inputVertexParams, blendParams, primitiveAssemblyParams, rasterizationParams);
+	auto gpuGPipelineLayout = driver->createGPUPipelineLayout(&pushConstantRange, &pushConstantRange + 1, nullptr, std::move(gpuGDs1Layout), nullptr, nullptr);
+	auto gpuGraphicsPipeline = driver->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(gpuGPipelineLayout), gpuGShadersPointer, gpuGShadersPointer + 2 /* discard geometry shader*/, inputVertexParams, blendParams, primitiveAssemblyParams, rasterizationParams);
+	auto gpuGraphicsPipeline2 = driver->createGPURenderpassIndependentPipeline(nullptr, core::smart_refctd_ptr(gpuGPipelineLayout), gpuGShadersPointer, gpuGShadersPointer + 3, inputVertexParams, blendParams, primitiveAssemblyParams, rasterizationParams);
 
 	asset::SBufferBinding<video::IGPUBuffer> gpuGbindings[video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
 
@@ -306,6 +326,12 @@ int main()
 		gpuMeshBuffer->setIndexCount(NUMBER_OF_PARTICLES);
 	}
 
+	auto gpuMeshBuffer2 = core::make_smart_refctd_ptr<video::IGPUMeshBuffer>(std::move(gpuGraphicsPipeline2), nullptr, gpuGbindings, asset::SBufferBinding<video::IGPUBuffer>());
+	{
+		gpuMeshBuffer2->setIndexType(asset::EIT_UNKNOWN);
+		gpuMeshBuffer2->setIndexCount(NUMBER_OF_PARTICLES);
+	}
+
 	SPushConstants pushConstants;
 
 	uint64_t lastFPSTime = 0;
@@ -313,13 +339,14 @@ int main()
 	{
 		driver->beginScene(true, true, video::SColor(0, 0, 0, 0));
 
+		pushConstants.isXPressed = receiver.isXPressed();
+		pushConstants.isZPressed = receiver.isZPressed();
+		pushConstants.isCPressed = receiver.isCPressed();
+		pushConstants.currentUserAbsolutePosition = camera->getAbsolutePosition();
+
 		/*
 			Calculation of particle postitions takes place here
 		*/
-
-		pushConstants.isXPressed = receiver.isXPressed();
-		pushConstants.isZPressed = receiver.isZPressed();
-		pushConstants.currentUserAbsolutePosition = camera->getAbsolutePosition();
 
 		driver->bindComputePipeline(gpuComputePipeline.get());
 		driver->pushConstants(gpuComputePipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0, sizeof(SPushConstants), &pushConstants);
@@ -355,9 +382,22 @@ int main()
 		memcpy(uboData.NormalMat, normalMat.pointer(), sizeof(normalMat));
 		driver->updateBufferRangeViaStagingBuffer(gpuUBO.get(), 0ull, sizeof(uboData), &uboData);
 
+		/*
+			Draw particles
+		*/
+
 		driver->bindGraphicsPipeline(gpuMeshBuffer->getPipeline());
 		driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuMeshBuffer->getPipeline()->getLayout(), 1u, 1u, &gpuGDescriptorSet1.get(), nullptr);
 		driver->drawMeshBuffer(gpuMeshBuffer.get());
+
+		/*
+			Draw extras with geometry usage under key c and v conditions
+		*/
+
+		driver->bindGraphicsPipeline(gpuMeshBuffer2->getPipeline());
+		driver->pushConstants(gpuMeshBuffer2->getPipeline()->getLayout(), asset::ISpecializedShader::ESS_GEOMETRY, 0, sizeof(SPushConstants), &pushConstants);
+		driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuMeshBuffer2->getPipeline()->getLayout(), 1u, 1u, &gpuGDescriptorSet1.get(), nullptr);
+		driver->drawMeshBuffer(gpuMeshBuffer2.get());
 
 		driver->endScene();
 
