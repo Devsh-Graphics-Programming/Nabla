@@ -84,64 +84,60 @@ struct max
 
 
 //subgroup method emulations on the CPU, to verify the results of the GPU methods
-template<typename T>
+template<class CRTP, typename T>
 struct emulatedSubgroupCommon
 {
-	inline const T* getSubgroupData(uint32_t& subgroupInvocationID, uint32_t& pseudoSubgroupID, const T* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, uint32_t workgroupSize)
+	using type_t = T;
+
+	inline void operator()(type_t* outputData, const type_t* workgroupData, uint32_t workgroupSize, uint32_t subgroupSize)
 	{
-		pseudoSubgroupID = localInvocationIndex&(-subgroupSize);
-		auto subgroupData = workgroupData+pseudoSubgroupID;
-		subgroupInvocationID = localInvocationIndex-pseudoSubgroupID;
-		return workgroupData+pseudoSubgroupID;
+		for (uint32_t pseudoSubgroupID=0u; pseudoSubgroupID<workgroupSize; pseudoSubgroupID+=subgroupSize)
+		{
+			type_t* outSubgroupData = outputData+pseudoSubgroupID;
+			const type_t* subgroupData = workgroupData+pseudoSubgroupID;
+			CRTP::impl(outSubgroupData,subgroupData,core::min<uint32_t>(subgroupSize,workgroupSize-pseudoSubgroupID));
+		}
 	}
 };
 template<class OP>
-struct emulatedSubgroupReduction : emulatedSubgroupCommon<typename OP::type_t>
+struct emulatedSubgroupReduction : emulatedSubgroupCommon<emulatedSubgroupReduction<OP>,typename OP::type_t>
 {
 	using type_t = typename OP::type_t;
 
-	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, uint32_t workgroupSize)
+	static inline void impl(type_t* outSubgroupData, const type_t* subgroupData, const uint32_t clampedSubgroupSize)
 	{
-		uint32_t subgroupInvocationID,pseudoSubgroupID;
-		const type_t* subgroupData = getSubgroupData(subgroupInvocationID,pseudoSubgroupID,workgroupData,localInvocationIndex,subgroupSize,workgroupSize);
-		type_t retval = subgroupData[0];
-		for (auto i=1u; i<core::min<uint32_t>(subgroupSize,workgroupSize-pseudoSubgroupID); i++)
-			retval = OP()(retval,subgroupData[i]);
-		return retval;
+		type_t red = subgroupData[0];
+		for (auto i=1u; i<clampedSubgroupSize; i++)
+			red = OP()(red,subgroupData[i]);
+		std::fill(outSubgroupData,outSubgroupData+clampedSubgroupSize,red);
 	}
 
 	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "subgroup reduction";
 };
 template<class OP>
-struct emulatedSubgroupScanExclusive : emulatedSubgroupCommon<typename OP::type_t>
+struct emulatedSubgroupScanExclusive : emulatedSubgroupCommon<emulatedSubgroupScanExclusive<OP>,typename OP::type_t>
 {
 	using type_t = typename OP::type_t;
 
-	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, uint32_t workgroupSize)
+	static inline void impl(type_t* outSubgroupData, const type_t* subgroupData, const uint32_t clampedSubgroupSize)
 	{
-		uint32_t subgroupInvocationID,dummy;
-		const type_t* subgroupData = getSubgroupData(subgroupInvocationID,dummy,workgroupData,localInvocationIndex,subgroupSize,workgroupSize);
-		type_t retval = OP::IdentityElement;
-		for (auto i=0u; i<subgroupInvocationID; i++)
-			retval = OP()(retval, subgroupData[i]);
-		return retval;
+		outSubgroupData[0u] = OP::IdentityElement;
+		for (auto i=1u; i<clampedSubgroupSize; i++)
+			outSubgroupData[i] = OP()(outSubgroupData[i-1u],subgroupData[i-1u]);
 	}
 
 	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "subgroup exclusive scan";
 };
 template<class OP>
-struct emulatedSubgroupScanInclusive : emulatedSubgroupCommon<typename OP::type_t>
+struct emulatedSubgroupScanInclusive : emulatedSubgroupCommon<emulatedSubgroupScanInclusive<OP>,typename OP::type_t>
 {
 	using type_t = typename OP::type_t;
 
-	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, uint32_t workgroupSize)
+	static inline void impl(type_t* outSubgroupData, const type_t* subgroupData, const uint32_t clampedSubgroupSize)
 	{
-		uint32_t subgroupInvocationID,dummy;
-		const type_t* subgroupData = getSubgroupData(subgroupInvocationID,dummy,workgroupData,localInvocationIndex,subgroupSize,workgroupSize);
-		type_t retval = OP::IdentityElement;
-		for (auto i=0u; i<=subgroupInvocationID; i++)
-			retval = OP()(retval, subgroupData[i]);
-		return retval;
+		outSubgroupData[0u] = subgroupData[0u];
+		for (auto i=1u; i<clampedSubgroupSize; i++)
+			outSubgroupData[i] = OP()(outSubgroupData[i-1u],subgroupData[i]);
 	}
 
 	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "subgroup inclusive scan";
@@ -153,12 +149,12 @@ struct emulatedWorkgroupReduction
 {
 	using type_t = typename OP::type_t;
 
-	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, uint32_t workgroupSize)
+	inline void operator()(type_t* outputData, const type_t* workgroupData, uint32_t workgroupSize, uint32_t subgroupSize)
 	{
-		type_t retval = workgroupData[0];
+		type_t red = workgroupData[0];
 		for (auto i=1u; i<workgroupSize; i++)
-			retval = OP()(retval,workgroupData[i]);
-		return retval;
+			red = OP()(red,workgroupData[i]);
+		std::fill(outputData,outputData+workgroupSize,red);
 	}
 
 	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "workgroup reduction";
@@ -168,12 +164,11 @@ struct emulatedWorkgroupScanExclusive
 {
 	using type_t = typename OP::type_t;
 
-	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, uint32_t workgroupSize)
+	inline void operator()(type_t* outputData, const type_t* workgroupData, uint32_t workgroupSize, uint32_t subgroupSize)
 	{
-		type_t retval = OP::IdentityElement;
-		for (auto i=0u; i<localInvocationIndex; i++)
-			retval = OP()(retval,workgroupData[i]);
-		return retval;
+		outputData[0u] = OP::IdentityElement;
+		for (auto i=1u; i<workgroupSize; i++)
+			outputData[i] = OP()(outputData[i-1u],workgroupData[i-1u]);
 	}
 
 	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "workgroup exclusive scan";
@@ -183,12 +178,11 @@ struct emulatedWorkgroupScanInclusive
 {
 	using type_t = typename OP::type_t;
 
-	inline type_t operator()(const type_t* workgroupData, const uint32_t localInvocationIndex, uint32_t subgroupSize, uint32_t workgroupSize)
+	inline void operator()(type_t* outputData, const type_t* workgroupData, uint32_t workgroupSize, uint32_t subgroupSize)
 	{
-		type_t retval = OP::IdentityElement;
-		for (auto i=0u; i<=localInvocationIndex; i++)
-			retval = OP()(retval,workgroupData[i]);
-		return retval;
+		outputData[0u] = workgroupData[0u];
+		for (auto i=1u; i<workgroupSize; i++)
+			outputData[i] = OP()(outputData[i-1u],workgroupData[i]);
 	}
 
 	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "workgroup inclusive scan";
@@ -232,21 +226,21 @@ bool validateResults(video::IVideoDriver* driver, const uint32_t* inputData, con
 		auto dataFromBuffer = reinterpret_cast<uint32_t*>(reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer())+address);
 
 		// now check if the data obtained has valid values
+		constexpr uint32_t subgroupSize = 4u;
+		uint32_t* tmp = new uint32_t[workgroupSize];
 		for (uint32_t workgroupID=0u; success&&workgroupID<workgroupCount; workgroupID++)
-		for (uint32_t localInvocationIndex=0u; localInvocationIndex<workgroupSize; localInvocationIndex++)
 		{
-			constexpr uint32_t subgroupSize = 4u;
-
 			const auto workgroupOffset = workgroupID*workgroupSize;
-			uint32_t val = Arithmetic<OP<uint32_t>>()(inputData+workgroupOffset, localInvocationIndex, subgroupSize, workgroupSize);
-			const auto invocationOffset = workgroupOffset+localInvocationIndex;
-			if (val!=dataFromBuffer[invocationOffset])
+			Arithmetic<OP<uint32_t>>()(tmp,inputData+workgroupOffset,workgroupSize,subgroupSize);
+			for (uint32_t localInvocationIndex=0u; localInvocationIndex<workgroupSize; localInvocationIndex++)
+			if (tmp[localInvocationIndex]!=dataFromBuffer[workgroupOffset+localInvocationIndex])
 			{
 				os::Printer::log("Failed test #" + std::to_string(workgroupSize) + " (" + Arithmetic<OP<uint32_t>>::name + ")  (" + OP<uint32_t>::name + ")", ELL_ERROR);
 				success = false;
 				break;
 			}
 		}
+		delete[] tmp;
 	}
 	else
 		os::Printer::log("Could not download the buffer from the GPU, fence not signalled!", ELL_ERROR);
@@ -384,7 +378,7 @@ int main()
 	//max workgroup size is hardcoded to 1024
 	uint32_t totalFailCount = 0;
 	const auto ds = descriptorSet.get();
-	for (uint32_t workgroupSize=8u; workgroupSize<=1024u; workgroupSize++)
+	for (uint32_t workgroupSize=1u; workgroupSize<=1024u; workgroupSize++)
 	{
 		core::smart_refctd_ptr<IGPUComputePipeline> pipelines[kTestTypeCount];
 		for (uint32_t i=0u; i<kTestTypeCount; i++)
@@ -398,8 +392,8 @@ int main()
 		passed = runTest<emulatedSubgroupScanExclusive>(driver,pipelines[1u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
 		passed = runTest<emulatedSubgroupScanInclusive>(driver,pipelines[2u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
 		passed = runTest<emulatedWorkgroupReduction>(driver,pipelines[3u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
-		//passed = runTest<emulatedWorkgroupScanExclusive>(driver,pipelines[4u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
-		//passed = runTest<emulatedWorkgroupScanInclusive>(driver,pipelines[5u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
+		passed = runTest<emulatedWorkgroupScanExclusive>(driver,pipelines[4u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
+		passed = runTest<emulatedWorkgroupScanInclusive>(driver,pipelines[5u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
 
 		if (passed)
 			os::Printer::log("Passed test #" + std::to_string(workgroupSize), ELL_INFORMATION);
