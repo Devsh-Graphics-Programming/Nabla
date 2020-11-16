@@ -74,6 +74,22 @@ namespace asset
 		};
 		typedef std::function<bool(const IMeshManipulator::SSNGVertexData&, const IMeshManipulator::SSNGVertexData&, ICPUMeshBuffer*)> VxCmpFunction;
 
+		union OBB
+		{
+			OBB() : asMat3x4() {};
+			OBB(const OBB& other) : asMat3x4(other.asMat3x4) {};
+			OBB(OBB&& other) : asMat3x4(std::move(other.asMat3x4)) {};
+			~OBB() {};
+
+			struct
+			{
+				float scaleRotationRow0[3]; float centerX;
+				float scaleRotationRow1[3]; float centerY;
+				float scaleRotationRow2[3]; float centerZ;
+			};
+			core::matrix3x4SIMD asMat3x4;
+		};
+
 	public:
 		//! Flips the direction of surfaces.
 		/** Changes backfacing triangles to frontfacing
@@ -368,6 +384,8 @@ namespace asset
 
 			return retval;
 		}
+
+		static OBB calcOBB_DiTO26(ICPUMeshBuffer* mb);
 
 		virtual CQuantNormalCache* getQuantNormalCache() = 0;
 
