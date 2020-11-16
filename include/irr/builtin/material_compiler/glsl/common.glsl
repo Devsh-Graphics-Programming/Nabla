@@ -674,20 +674,6 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 		microfacet = _microfacet;
 	}
 
-#if defined(OP_THINDIELECTRIC) || defined(OP_DELTATRANS)
-	bool thinOrDelta = false;
-#if defined(OP_THINDIELECTRIC)
-	thinOrDelta = op == OP_THINDIELECTRIC;
-#endif
-#if defined(OP_DELTATRANS)
-	thinOrDelta = thinOrDelta || (op == OP_DELTATRANS);
-#endif
-	if (thinOrDelta)
-	{
-		bxdf_eval = vec3(0.0);
-		pdf = 1.0;
-	} else
-#endif
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
 	if (op_isDiffuse(op))
 	{
@@ -856,15 +842,24 @@ eval_and_pdf_t irr_bsdf_eval_and_pdf(in MC_precomputed_t precomp, in instr_strea
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
 		uint op = instr_getOpcode(instr);
 
-		if (i != generator_offset)
-		{
-			instr_eval_and_pdf_execute(instr, precomp, s, microfacet);
-		}
-		else
+		bool skip = (i == generator_offset);
+		// skip deltas
+#ifdef OP_THINDIELECTRIC
+		skip = skip || (op == OP_THINDIELECTRIC);
+#endif
+#ifdef OP_DELTATRANS
+		skip = skip || (op == OP_DELTATRANS);
+#endif
+
+		if (skip)
 		{
 			//assert(isBXDF(instr));
 			uvec3 regs = instr_decodeRegisters(instr);
 			writeReg(REG_DST(regs), eval_and_pdf_t(0.0));
+		}
+		else
+		{
+			instr_eval_and_pdf_execute(instr, precomp, s, microfacet);
 		}
 
 #if defined(OP_SET_GEOM_NORMAL)||defined(OP_BUMPMAP)
@@ -983,7 +978,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		s = irr_glsl_createLightSample(-precomp.V, -1.0, currInteraction.T, currInteraction.B, currInteraction.isotropic.N);
 		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
 		rem = vec3(1.0);
-		pdf = 1.0;
+		pdf = irr_glsl_FLT_INF;
 	} else
 #endif
 #ifdef OP_THINDIELECTRIC
@@ -993,7 +988,6 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		s = irr_glsl_thin_smooth_dielectric_cos_generate(currInteraction, u, ior2[0], luminosityContributionHint);
 		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
 		rem = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ior2[0], luminosityContributionHint);
-		pdf = 1.0;
 	} else
 #endif
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
@@ -1066,7 +1060,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 			fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH_clamp);
 		else
 #endif
-			fr = irr_glsl_fresnel_dielectric_common(ior[0]*ior[0], VdotH_clamp);
+			fr = irr_glsl_fresnel_dielectric_common(ior2[0], VdotH_clamp);
 		const float refractionProb = dot(CIE_XYZ_Luma_Y_coeffs, fr);
 		float rcpChoiceProb;
 		const bool refraction = is_bsdf ? irr_glsl_partitionRandVariable(refractionProb, u.z, rcpChoiceProb) : false;
