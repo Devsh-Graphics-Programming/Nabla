@@ -6,11 +6,41 @@
 using namespace irr;
 using namespace core;
 
-#define ALLOCATOR_TEST
-//#define ADDRESS_ALLOCATOR_TRAITS_TEST
-//#define ALLOC_PREF_TEST
+#define kNumHardwareInstancesX 10
+#define kNumHardwareInstancesY 20
+#define kNumHardwareInstancesZ 30
 
-#ifdef ALLOCATOR_TEST
+#define kHardwareInstancesTOTAL (kNumHardwareInstancesX*kNumHardwareInstancesY*kNumHardwareInstancesZ)
+
+
+//!Same As Last Example
+class MyEventReceiver : public IEventReceiver
+{
+public:
+
+	MyEventReceiver()
+	{
+	}
+
+	bool OnEvent(const SEvent& event)
+	{
+		if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+		{
+			switch (event.KeyInput.Key)
+			{
+			case irr::KEY_KEY_Q: // switch wire frame mode
+				exit(0);
+				return true;
+			default:
+				break;
+			}
+		}
+
+		return false;
+	}
+
+private:
+};
 
 constexpr size_t minTestsCnt = 10000u;
 constexpr size_t maxTestsCnt = 20000u;
@@ -261,178 +291,130 @@ void AllocatorHandler<core::LinearAddressAllocator<uint32_t>>::randFreeAllocated
 int main()
 {
 	
-	
+	// Allocator test
 	{
-		AllocatorHandler<core::PoolAddressAllocator<uint32_t>> poolAlctrHandler;
-		poolAlctrHandler.executeAllocatorTest();
-	}
-
-	{
-		AllocatorHandler<core::LinearAddressAllocator<uint32_t>> linearAlctrHandler;
-		linearAlctrHandler.executeAllocatorTest();
-	}
-
-	//crashes..
-	{
-		AllocatorHandler<core::StackAddressAllocator<uint32_t>> stackAlctrHandler;
-		stackAlctrHandler.executeAllocatorTest();
-	}
-	
-	//crashes..
-	{
-		AllocatorHandler<core::GeneralpurposeAddressAllocator<uint32_t>> generalpurposeAlctrHandler;
-		generalpurposeAlctrHandler.executeAllocatorTest();
-	}
-}
-
-#endif
-
-#ifdef ADDRESS_ALLOCATOR_TRAITS_TEST
-
-int main()
-{
-	printf("SINGLE THREADED======================================================\n");
-	printf("Linear \n");
-	irr::core::address_allocator_traits<core::LinearAddressAllocatorST<uint32_t> >::printDebugInfo();
-	printf("Stack \n");
-	irr::core::address_allocator_traits<core::StackAddressAllocatorST<uint32_t> >::printDebugInfo();
-	printf("Pool \n");
-	irr::core::address_allocator_traits<core::PoolAddressAllocatorST<uint32_t> >::printDebugInfo();
-	printf("General \n");
-	irr::core::address_allocator_traits<core::GeneralpurposeAddressAllocatorST<uint32_t> >::printDebugInfo();
-
-	printf("MULTI THREADED=======================================================\n");
-	printf("Linear \n");
-	irr::core::address_allocator_traits<core::LinearAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
-	printf("Pool \n");
-	irr::core::address_allocator_traits<core::PoolAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
-	printf("General \n");
-	irr::core::address_allocator_traits<core::GeneralpurposeAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
-
-	return 0;
-}
-#endif
-
-#ifdef ALLOC_PREF_TEST
-
-#define kNumHardwareInstancesX 10
-#define kNumHardwareInstancesY 20
-#define kNumHardwareInstancesZ 30
-
-#define kHardwareInstancesTOTAL (kNumHardwareInstancesX*kNumHardwareInstancesY*kNumHardwareInstancesZ)
-
-
-//!Same As Last Example
-class MyEventReceiver : public IEventReceiver
-{
-public:
-
-	MyEventReceiver()
-	{
-	}
-
-	bool OnEvent(const SEvent& event)
-	{
-		if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
 		{
-			switch (event.KeyInput.Key)
+			AllocatorHandler<core::PoolAddressAllocator<uint32_t>> poolAlctrHandler;
+			poolAlctrHandler.executeAllocatorTest();
+		}
+
+		{
+			AllocatorHandler<core::LinearAddressAllocator<uint32_t>> linearAlctrHandler;
+			linearAlctrHandler.executeAllocatorTest();
+		}
+
+		{
+			AllocatorHandler<core::StackAddressAllocator<uint32_t>> stackAlctrHandler;
+			stackAlctrHandler.executeAllocatorTest();
+		}
+
+		{
+			AllocatorHandler<core::GeneralpurposeAddressAllocator<uint32_t>> generalpurposeAlctrHandler;
+			generalpurposeAlctrHandler.executeAllocatorTest();
+		}
+	}
+	
+
+	// Address allocator traits test
+	{
+		printf("SINGLE THREADED======================================================\n");
+		printf("Linear \n");
+		irr::core::address_allocator_traits<core::LinearAddressAllocatorST<uint32_t> >::printDebugInfo();
+		printf("Stack \n");
+		irr::core::address_allocator_traits<core::StackAddressAllocatorST<uint32_t> >::printDebugInfo();
+		printf("Pool \n");
+		irr::core::address_allocator_traits<core::PoolAddressAllocatorST<uint32_t> >::printDebugInfo();
+		printf("General \n");
+		irr::core::address_allocator_traits<core::GeneralpurposeAddressAllocatorST<uint32_t> >::printDebugInfo();
+
+		printf("MULTI THREADED=======================================================\n");
+		printf("Linear \n");
+		irr::core::address_allocator_traits<core::LinearAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
+		printf("Pool \n");
+		irr::core::address_allocator_traits<core::PoolAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
+		printf("General \n");
+		irr::core::address_allocator_traits<core::GeneralpurposeAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
+	}
+
+	// Alloc pref test
+	{
+		// create device with full flexibility over creation parameters
+		// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
+		irr::SIrrlichtCreationParameters params;
+		params.Bits = 24; //may have to set to 32bit for some platforms
+		params.ZBufferBits = 24; //we'd like 32bit here
+		params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
+		params.WindowSize = dimension2d<uint32_t>(1280, 720);
+		params.Fullscreen = false;
+		params.Vsync = false;
+		params.Doublebuffer = true;
+		params.Stencilbuffer = false; //! This will not even be a choice soon
+		auto device = createDeviceEx(params);
+
+		if (!device)
+			return 1; // could not create selected driver.
+
+
+		video::IVideoDriver* driver = device->getVideoDriver();
+
+		size_t allocSize = 128;
+
+		constexpr size_t kMinAllocs = 10000u;
+		constexpr size_t kMaxAllocs = 20000u;
+
+
+		scene::ISceneManager* smgr = device->getSceneManager();
+		MyEventReceiver receiver;
+		device->setEventReceiver(&receiver);
+
+
+		video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
+		reqs.vulkanReqs.size = 0x1000000u;
+		reqs.vulkanReqs.alignment = 4;
+		reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
+		reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
+		reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE | video::IDriverMemoryAllocation::EMCF_COHERENT;
+		reqs.prefersDedicatedAllocation = true;
+		reqs.requiresDedicatedAllocation = true;
+		auto buffer = core::make_smart_refctd_ptr<video::StreamingTransientDataBufferST<> >(driver, reqs);
+
+		std::mt19937 mt(0xdeadu);
+		std::uniform_int_distribution<uint32_t> allocsPerFrame(kMinAllocs, kMaxAllocs);
+		std::uniform_int_distribution<uint32_t> size(1, 1024 * 1024);
+		std::uniform_int_distribution<uint32_t> alignment(1, 128);
+
+		uint64_t lastFPSTime = 0;
+		while (device->run())
+			//if (device->isWindowActive())
+		{
+			driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
+
+			auto allocsThisFrame = allocsPerFrame(mt);
+			uint32_t outAddr[kMaxAllocs];
+			uint32_t sizes[kMaxAllocs];
+			uint32_t alignments[kMaxAllocs];
+			for (size_t i = 0; i < allocsThisFrame; i++)
 			{
-			case irr::KEY_KEY_Q: // switch wire frame mode
-				exit(0);
-				return true;
-			default:
-				break;
+				outAddr[i] = video::StreamingTransientDataBufferST<>::invalid_address;
+				sizes[i] = size(mt);
+				alignments[i] = alignment(mt);
+			}
+
+			buffer->multi_alloc(allocsThisFrame, (uint32_t*)outAddr, (const uint32_t*)sizes, (const uint32_t*)alignments);
+			buffer->multi_free(allocsThisFrame, (const uint32_t*)outAddr, (const uint32_t*)sizes, driver->placeFence());
+
+			driver->endScene();
+
+			// display frames per second in window title
+			uint64_t time = device->getTimer()->getRealTime();
+			if (time - lastFPSTime > 1000)
+			{
+				std::wostringstream sstr;
+				sstr << L"Alloc Perf Test- Irrlicht Engine [" << driver->getName() << "] K-Allocs/second:" << driver->getFPS() * allocsThisFrame;
+
+				device->setWindowCaption(sstr.str().c_str());
+				lastFPSTime = time;
 			}
 		}
-
-		return false;
 	}
-
-private:
-};
-
-
-int main()
-{
-	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
-	params.Bits = 24; //may have to set to 32bit for some platforms
-	params.ZBufferBits = 24; //we'd like 32bit here
-	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
-	params.WindowSize = dimension2d<uint32_t>(1280, 720);
-	params.Fullscreen = false;
-	params.Vsync = false;
-	params.Doublebuffer = true;
-	params.Stencilbuffer = false; //! This will not even be a choice soon
-	auto device = createDeviceEx(params);
-
-	if (!device)
-		return 1; // could not create selected driver.
-
-
-	video::IVideoDriver* driver = device->getVideoDriver();
-
-	size_t allocSize = 128;
-
-	constexpr size_t kMinAllocs = 10000u;
-	constexpr size_t kMaxAllocs = 20000u;
-
-
-	scene::ISceneManager* smgr = device->getSceneManager();
-	MyEventReceiver receiver;
-	device->setEventReceiver(&receiver);
-
-
-	video::IDriverMemoryBacked::SDriverMemoryRequirements reqs;
-	reqs.vulkanReqs.size = 0x1000000u;
-	reqs.vulkanReqs.alignment = 4;
-	reqs.vulkanReqs.memoryTypeBits = 0xffffffffu;
-	reqs.memoryHeapLocation = video::IDriverMemoryAllocation::ESMT_DEVICE_LOCAL;
-	reqs.mappingCapability = video::IDriverMemoryAllocation::EMCF_CAN_MAP_FOR_WRITE | video::IDriverMemoryAllocation::EMCF_COHERENT;
-	reqs.prefersDedicatedAllocation = true;
-	reqs.requiresDedicatedAllocation = true;
-	auto buffer = core::make_smart_refctd_ptr<video::StreamingTransientDataBufferST<> >(driver, reqs);
-
-	std::mt19937 mt(0xdeadu);
-	std::uniform_int_distribution<uint32_t> allocsPerFrame(kMinAllocs, kMaxAllocs);
-	std::uniform_int_distribution<uint32_t> size(1, 1024 * 1024);
-	std::uniform_int_distribution<uint32_t> alignment(1, 128);
-
-	uint64_t lastFPSTime = 0;
-	while (device->run())
-		//if (device->isWindowActive())
-	{
-		driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
-
-		auto allocsThisFrame = allocsPerFrame(mt);
-		uint32_t outAddr[kMaxAllocs];
-		uint32_t sizes[kMaxAllocs];
-		uint32_t alignments[kMaxAllocs];
-		for (size_t i = 0; i < allocsThisFrame; i++)
-		{
-			outAddr[i] = video::StreamingTransientDataBufferST<>::invalid_address;
-			sizes[i] = size(mt);
-			alignments[i] = alignment(mt);
-		}
-
-		buffer->multi_alloc(allocsThisFrame, (uint32_t*)outAddr, (const uint32_t*)sizes, (const uint32_t*)alignments);
-		buffer->multi_free(allocsThisFrame, (const uint32_t*)outAddr, (const uint32_t*)sizes, driver->placeFence());
-
-		driver->endScene();
-
-		// display frames per second in window title
-		uint64_t time = device->getTimer()->getRealTime();
-		if (time - lastFPSTime > 1000)
-		{
-			std::wostringstream sstr;
-			sstr << L"Alloc Perf Test- Irrlicht Engine [" << driver->getName() << "] K-Allocs/second:" << driver->getFPS() * allocsThisFrame;
-
-			device->setWindowCaption(sstr.str().c_str());
-			lastFPSTime = time;
-		}
-	}
-
-	return 0;
 }
-#endif
