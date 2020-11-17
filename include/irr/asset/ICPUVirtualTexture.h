@@ -21,12 +21,36 @@ public:
         using base_t = base_t::IVTResidentStorage;
 
     public:
-        ICPUVTResidentStorage(E_FORMAT _format, uint32_t _extent, uint32_t _layers, uint32_t _tilesPerDim) :
-            base_t(_layers, _tilesPerDim)
+        ICPUVTResidentStorage(E_FORMAT _format, uint32_t _tilesPerDim) :
+            base_t(_format, _tilesPerDim)
         {
+
+        }
+        ICPUVTResidentStorage(E_FORMAT _format, uint32_t _tileExtent, uint32_t _layers, uint32_t _tilesPerDim) :
+            base_t(_format, _layers, _tilesPerDim)
+        {
+            deferredInitialization(_tileExtent, _layers);
+        }
+
+        void deferredInitialization(uint32_t tileExtent, uint32_t _layers) override
+        {
+            base_t::deferredInitialization(tileExtent, _layers);
+
+            if (image)
+                return;
+
+            const uint32_t tilesPerDim = getTilesPerDim();
+            const uint32_t extent = tileExtent * tilesPerDim;
+
+            // deduce layer count from the need of physical space
+            if (_layers == 0u)
+            {
+                _layers = (m_tileCounter + tilesPerDim - 1u) / tilesPerDim;
+            }
+
             ICPUImage::SCreationParams params;
-            params.extent = {_extent,_extent,1u};
-            params.format = _format;
+            params.extent = { extent,extent,1u };
+            params.format = imageFormat;
             params.arrayLayers = _layers;
             params.mipLevels = 1u;
             params.type = IImage::ET_2D;
@@ -41,11 +65,11 @@ public:
                 region.imageSubresource.baseArrayLayer = 0u;
                 region.imageSubresource.layerCount = _layers;
                 region.bufferOffset = 0u;
-                region.bufferRowLength = _extent;
+                region.bufferRowLength = extent;
                 region.bufferImageHeight = 0u; //tightly packed
-                region.imageOffset = {0u,0u,0u};
+                region.imageOffset = { 0u,0u,0u };
                 region.imageExtent = params.extent;
-                auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(getTexelOrBlockBytesize(_format) * params.extent.width*params.extent.height*params.arrayLayers);
+                auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(getTexelOrBlockBytesize(imageFormat) * params.extent.width * params.extent.height * params.arrayLayers);
                 image->setBufferAndRegions(std::move(buffer), regions);
             }
         }
@@ -152,6 +176,16 @@ public:
     ) {
         m_pageTable = createPageTable(m_pgtabSzxy_log2, _pgTabLayers, _pgSzxy_log2, _maxAllocatableTexSz_log2);
         initResidentStorage(_residentStorageParams, _residentStorageCount);
+    }
+
+    ICPUVirtualTexture(
+        uint32_t _pgSzxy_log2 = 7u,
+        uint32_t _tilePadding = 9u,
+        uint32_t _maxAllocatableTexSz_log2 = 14u
+    ) : IVirtualTexture(
+        _maxAllocatableTexSz_log2-_pgSzxy_log2, MAX_PAGE_TABLE_LAYERS, _pgSzxy_log2, _tilePadding
+    ) {
+
     }
 
     bool commit(const SMasterTextureData& _addr, const ICPUImage* _img, const IImage::SSubresourceRange& _subres, ISampler::E_TEXTURE_CLAMP _uwrap, ISampler::E_TEXTURE_CLAMP _vwrap, ISampler::E_TEXTURE_BORDER_COLOR _borderColor) override
@@ -393,9 +427,13 @@ protected:
     {
         return ICPUImageView::create(createPageTableViewCreationParams());
     }
-    core::smart_refctd_ptr<IVTResidentStorage> createVTResidentStorage(E_FORMAT _format, uint32_t _extent, uint32_t _layers, uint32_t _tilesPerDim) override
+    core::smart_refctd_ptr<IVTResidentStorage> createVTResidentStorage(E_FORMAT _format, uint32_t _tileExtent, uint32_t _layers, uint32_t _tilesPerDim) override
     {
-        return core::make_smart_refctd_ptr<ICPUVTResidentStorage>(_format, _extent, _layers, _tilesPerDim);
+        return core::make_smart_refctd_ptr<ICPUVTResidentStorage>(_format, _tileExtent, _layers, _tilesPerDim);
+    }
+    core::smart_refctd_ptr<IVTResidentStorage> createVTResidentStorage(E_FORMAT _format, uint32_t _tilesPerDim) override
+    {
+        return core::make_smart_refctd_ptr<ICPUVTResidentStorage>(_format, _tilesPerDim);
     }
     core::smart_refctd_ptr<ICPUImage> createPageTableImage(ICPUImage::SCreationParams&& _params) const override
     {
