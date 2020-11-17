@@ -267,8 +267,8 @@ namespace material_compiler
 
 		instr_stream::VTID packTexture(const IR::INode::STextureSource& tex)
 		{
-			auto found = m_ctx->VTallocMap.find({tex.image.get(),tex.sampler.get()});
-			if (found != m_ctx->VTallocMap.end())
+			if (auto found = m_ctx->VTallocMap.find({ tex.image.get(),tex.sampler.get() }); 
+				found != m_ctx->VTallocMap.end())
 				return found->second;
 
 			auto* img = tex.image->getCreationParameters().image.get();
@@ -290,8 +290,13 @@ namespace material_compiler
 			auto lsb = core::findLSB(round);
 			subres.levelCount = lsb + 1;
 
-			auto addr = m_ctx->vt->alloc(img->getCreationParameters().format, imgAndOrigSz.second, subres, uwrap, vwrap);
-			m_ctx->vt->commit(addr, imgAndOrigSz.first.get(), subres, uwrap, vwrap, border);
+			SContext::VT::alloc_t alloc;
+			alloc.format = img->getCreationParameters().format;
+			alloc.extent = imgAndOrigSz.second;
+			alloc.subresource = subres;
+			alloc.uwrap = uwrap;
+			alloc.vwrap = vwrap;
+			auto addr = m_ctx->vt.alloc(alloc, std::move(imgAndOrigSz.first), border);
 
 			std::pair<SContext::VTallocKey, instr_stream::VTID> item{{tex.image.get(),tex.sampler.get()}, addr};
 			m_ctx->VTallocMap.insert(item);

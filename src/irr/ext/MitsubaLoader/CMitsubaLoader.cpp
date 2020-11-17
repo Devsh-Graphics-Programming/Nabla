@@ -84,7 +84,7 @@ layout (location = 0) out vec4 OutColor;
 #define _IRR_VT_PAGE_TABLE_BINDING 0
 
 #define _IRR_VT_FLOAT_VIEWS_BINDING 1 
-#define _IRR_VT_FLOAT_VIEWS_COUNT 6
+#define _IRR_VT_FLOAT_VIEWS_COUNT _VT_STORAGE_VIEW_COUNT
 #define _IRR_VT_FLOAT_VIEWS
 
 #define _IRR_VT_INT_VIEWS_BINDING 2
@@ -283,7 +283,6 @@ void main()
 }
 )";
 
-_IRR_STATIC_INLINE_CONSTEXPR const char* PIPELINE_LAYOUT_CACHE_KEY = "irr/builtin/pipeline_layout/loaders/mitsuba_xml/default";
 _IRR_STATIC_INLINE_CONSTEXPR const char* VERTEX_SHADER_CACHE_KEY = "irr/builtin/specialized_shader/loaders/mitsuba_xml/default";
 
 _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_TAB_TEX_BINDING = 0u;
@@ -318,60 +317,6 @@ static core::smart_refctd_ptr<AssetType> getBuiltinAsset(const char* _key, IAsse
 	return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
 }
 
-static core::smart_refctd_ptr<asset::ICPUPipelineLayout> createAndCachePipelineLayout(asset::IAssetManager* _manager, asset::ICPUVirtualTexture* _vt)
-{
-	SPushConstantRange pcrng;
-	pcrng.offset = 0u;
-	pcrng.size = sizeof(uint32_t);//instance data offset
-	pcrng.stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
-
-	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout;
-	{
-		auto sizes = _vt->getDSlayoutBindings(nullptr, nullptr);
-		auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSetLayout::SBinding>>(sizes.first+DS0_BINDING_COUNT_WO_VT);
-		auto samplers = core::make_refctd_dynamic_array< core::smart_refctd_dynamic_array<core::smart_refctd_ptr<asset::ICPUSampler>>>(sizes.second);
-
-		_vt->getDSlayoutBindings(bindings->data(), samplers->data(), PAGE_TAB_TEX_BINDING, PHYS_PAGE_VIEWS_BINDING);
-		auto* b = bindings->data()+(bindings->size()-DS0_BINDING_COUNT_WO_VT);
-		b[0].binding = PRECOMPUTED_VT_DATA_BINDING;
-		b[0].count = 1u;
-		b[0].samplers = nullptr;
-		b[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-		b[0].type = asset::EDT_STORAGE_BUFFER;
-
-		b[1].binding = INSTR_BUF_BINDING;
-		b[1].count = 1u;
-		b[1].samplers = nullptr;
-		b[1].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-		b[1].type = asset::EDT_STORAGE_BUFFER;
-
-		b[2].binding = BSDF_BUF_BINDING;
-		b[2].count = 1u;
-		b[2].samplers = nullptr;
-		b[2].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-		b[2].type = asset::EDT_STORAGE_BUFFER;
-
-		b[3].binding = INSTANCE_DATA_BINDING;
-		b[3].count = 1u;
-		b[3].samplers = nullptr;
-		b[3].stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
-		b[3].type = asset::EDT_STORAGE_BUFFER;
-
-		b[4].binding = PREFETCH_INSTR_BUF_BINDING;
-		b[4].count = 1u;
-		b[4].samplers = nullptr;
-		b[4].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-		b[4].type = asset::EDT_STORAGE_BUFFER;
-
-		ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings->data(), bindings->data()+bindings->size());
-	}
-	auto ds1layout = getBuiltinAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("irr/builtin/descriptor_set_layout/basic_view_parameters", _manager);
-
-	auto layout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pcrng, &pcrng+1, std::move(ds0layout), std::move(ds1layout), nullptr, nullptr);
-	insertAssetIntoCache(layout, PIPELINE_LAYOUT_CACHE_KEY, _manager);
-
-	return layout;
-}
 static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createSpecShader(const char* _glsl, asset::ISpecializedShader::E_SHADER_STAGE _stage)
 {
 	auto shader = core::make_smart_refctd_ptr<asset::ICPUShader>(_glsl);
@@ -388,11 +333,14 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createAndCacheVertex
 
 	return vs;
 }
-static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createFragmentShader(const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _mcRes)
+static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createFragmentShader(const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _mcRes, size_t _VTstorageViewCount)
 {
+	const std::string storageViewCount = "#define _VT_STORAGE_VIEW_COUNT " + std::to_string(_VTstorageViewCount);
+
 	std::string source = 
 		FRAGMENT_SHADER_PROLOGUE +
 		_mcRes.fragmentShaderSource_declarations +
+		"\n" + storageViewCount + "\n" +
 		FRAGMENT_SHADER_DEFINITIONS +
 		_mcRes.fragmentShaderSource +
 		FRAGMENT_SHADER_IMPL;
@@ -712,6 +660,58 @@ static core::smart_refctd_ptr<asset::ICPUImage> createBlendWeightImage(const ass
 	return outImg;
 }
 
+core::smart_refctd_ptr<asset::ICPUPipelineLayout> CMitsubaLoader::createPipelineLayout(asset::IAssetManager* _manager, asset::ICPUVirtualTexture* _vt)
+{
+	SPushConstantRange pcrng;
+	pcrng.offset = 0u;
+	pcrng.size = sizeof(uint32_t);//instance data offset
+	pcrng.stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
+
+	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout;
+	{
+		auto sizes = _vt->getDSlayoutBindings(nullptr, nullptr);
+		auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSetLayout::SBinding>>(sizes.first + DS0_BINDING_COUNT_WO_VT);
+		auto samplers = core::make_refctd_dynamic_array< core::smart_refctd_dynamic_array<core::smart_refctd_ptr<asset::ICPUSampler>>>(sizes.second);
+
+		_vt->getDSlayoutBindings(bindings->data(), samplers->data(), PAGE_TAB_TEX_BINDING, PHYS_PAGE_VIEWS_BINDING);
+		auto* b = bindings->data() + (bindings->size() - DS0_BINDING_COUNT_WO_VT);
+		b[0].binding = PRECOMPUTED_VT_DATA_BINDING;
+		b[0].count = 1u;
+		b[0].samplers = nullptr;
+		b[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		b[0].type = asset::EDT_STORAGE_BUFFER;
+
+		b[1].binding = INSTR_BUF_BINDING;
+		b[1].count = 1u;
+		b[1].samplers = nullptr;
+		b[1].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		b[1].type = asset::EDT_STORAGE_BUFFER;
+
+		b[2].binding = BSDF_BUF_BINDING;
+		b[2].count = 1u;
+		b[2].samplers = nullptr;
+		b[2].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		b[2].type = asset::EDT_STORAGE_BUFFER;
+
+		b[3].binding = INSTANCE_DATA_BINDING;
+		b[3].count = 1u;
+		b[3].samplers = nullptr;
+		b[3].stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
+		b[3].type = asset::EDT_STORAGE_BUFFER;
+
+		b[4].binding = PREFETCH_INSTR_BUF_BINDING;
+		b[4].count = 1u;
+		b[4].samplers = nullptr;
+		b[4].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		b[4].type = asset::EDT_STORAGE_BUFFER;
+
+		ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings->data(), bindings->data() + bindings->size());
+	}
+	auto ds1layout = getBuiltinAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("irr/builtin/descriptor_set_layout/basic_view_parameters", _manager);
+
+	return core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pcrng, &pcrng+1, std::move(ds0layout), std::move(ds1layout), nullptr, nullptr);
+}
+
 CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager) : asset::IAssetLoader(), m_manager(_manager)
 {
 #ifdef _IRR_DEBUG
@@ -798,9 +798,8 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 			_override,
 			parserManager.m_globalMetadata.get()
 		);
-		if (!getBuiltinAsset<asset::ICPUPipelineLayout, asset::IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager))
+		if (!getBuiltinAsset<asset::ICPUPipelineLayout, asset::IAsset::ET_SPECIALIZED_SHADER>(VERTEX_SHADER_CACHE_KEY, m_manager))
 		{
-			createAndCachePipelineLayout(m_manager, ctx.backend_ctx.vt.get());
 			createAndCacheVertexShader(m_manager, DUMMY_VERTEX_SHADER);
 		}
 
@@ -849,10 +848,12 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		}
 
 		auto compResult = ctx.backend.compile(&ctx.backend_ctx, ctx.ir.get());
-		auto pipeline_metadata = createPipelineMetadata(createDS0(ctx, compResult, meshes.begin(), meshes.end()), getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager).get());
-		auto fragShader = createFragmentShader(compResult);
+		ctx.backend_ctx.vt.commitAll();
+		auto pipelineLayout = createPipelineLayout(m_manager, ctx.backend_ctx.vt.vt.get());
+		auto pipeline_metadata = createPipelineMetadata(createDS0(ctx, pipelineLayout.get(), compResult, meshes.begin(), meshes.end()), pipelineLayout.get());
+		auto fragShader = createFragmentShader(compResult, ctx.backend_ctx.vt.vt->getFloatViews().size());
 		auto basePipeline = createPipeline(
-			getBuiltinAsset<asset::ICPUPipelineLayout, asset::IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager),
+			std::move(pipelineLayout),
 			getBuiltinAsset<asset::ICPUSpecializedShader, asset::IAsset::ET_SPECIALIZED_SHADER>(VERTEX_SHADER_CACHE_KEY, m_manager),
 			std::move(fragShader)
 		);
@@ -1584,19 +1585,18 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 
 // Also sets instance data buffer offset into meshbuffers' push constants
 template<typename Iter>
-inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd)
+inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx, asset::ICPUPipelineLayout* _layout, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd)
 {
-	auto pplnLayout = getBuiltinAsset<ICPUPipelineLayout,IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager);
-	auto* ds0layout = pplnLayout->getDescriptorSetLayout(0u);
+	auto* ds0layout = _layout->getDescriptorSetLayout(0u);
 
 	auto ds0 = core::make_smart_refctd_ptr<ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(ds0layout));
 	{
-		auto count = _ctx.backend_ctx.vt->getDescriptorSetWrites(nullptr, nullptr, nullptr);
+		auto count = _ctx.backend_ctx.vt.vt->getDescriptorSetWrites(nullptr, nullptr, nullptr);
 
 		auto writes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSet::SWriteDescriptorSet>>(count.first);
 		auto info = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSet::SDescriptorInfo>>(count.second);
 
-		_ctx.backend_ctx.vt->getDescriptorSetWrites(writes->data(), info->data(), ds0.get());
+		_ctx.backend_ctx.vt.vt->getDescriptorSetWrites(writes->data(), info->data(), ds0.get());
 
 		for (const auto& w : (*writes))
 		{
@@ -1608,7 +1608,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 	auto d = ds0->getDescriptors(PRECOMPUTED_VT_DATA_BINDING).begin();
 	{
 		auto precompDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(asset::ICPUVirtualTexture::SPrecomputedData));
-		memcpy(precompDataBuf->getPointer(), &_ctx.backend_ctx.vt->getPrecomputedData(), precompDataBuf->getSize());
+		memcpy(precompDataBuf->getPointer(), &_ctx.backend_ctx.vt.vt->getPrecomputedData(), precompDataBuf->getSize());
 
 		d->buffer.offset = 0u;
 		d->buffer.size = precompDataBuf->getSize();
@@ -1766,36 +1766,8 @@ SContext::SContext(
 	ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this),
 	samplerCacheKeyBase(inner.mainFile->getFileName().c_str() + "?sampler"s)
 {
-	//TODO (maybe) dynamically decide which of those are needed OR just wait until IVirtualTexture does it on itself (dynamically creates resident storages)
-	constexpr asset::E_FORMAT formats[]{ asset::EF_R8_UNORM, asset::EF_R8G8_UNORM, asset::EF_R8G8_SNORM, asset::EF_R8G8B8_SRGB, asset::EF_R8G8B8A8_SRGB, asset::EF_R16G16_SNORM };
-	std::array<asset::ICPUVirtualTexture::ICPUVTResidentStorage::SCreationParams, 4> storage;
-	storage[0].formatClass = asset::EFC_8_BIT;
-	storage[0].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
-	storage[0].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
-	storage[0].formatCount = 1u;
-	storage[0].formats = formats;
-
-	storage[1].formatClass = asset::EFC_16_BIT;
-	storage[1].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
-	storage[1].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
-	storage[1].formatCount = 2u;
-	storage[1].formats = formats+1;
-
-	storage[2].formatClass = asset::EFC_24_BIT;
-	storage[2].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
-	storage[2].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
-	storage[2].formatCount = 1u;
-	storage[2].formats = formats+3;
-
-	storage[3].formatClass = asset::EFC_32_BIT;
-	storage[3].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
-	storage[3].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
-	storage[3].formatCount = 2u;
-	storage[3].formats = formats+4;
-
-	backend_ctx.vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(storage.data(), storage.size(), VT_PAGE_SZ_LOG2, VT_PAGE_TABLE_LAYERS, VT_PAGE_PADDING, VT_MAX_ALLOCATABLE_TEX_SZ_LOG2);
-
-	globalMeta->VT = backend_ctx.vt;
+	backend_ctx.vt.vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(VT_PAGE_SZ_LOG2, VT_PAGE_PADDING, VT_MAX_ALLOCATABLE_TEX_SZ_LOG2);
+	globalMeta->VT = backend_ctx.vt.vt;
 }
 
 }

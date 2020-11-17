@@ -69,6 +69,8 @@ class CMitsubaLoader : public asset::IAssetLoader
 		//! Destructor
 		virtual ~CMitsubaLoader() = default;
 
+		static core::smart_refctd_ptr<asset::ICPUPipelineLayout> createPipelineLayout(asset::IAssetManager* _manager, asset::ICPUVirtualTexture* _vt);
+
 		//
 		core::vector<SContext::shape_ass_type>	getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
 		core::vector<SContext::shape_ass_type>	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix3x4SIMD& relTform);
@@ -80,7 +82,7 @@ class CMitsubaLoader : public asset::IAssetLoader
 		SContext::bsdf_type genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 
 		template <typename Iter>
-		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd);
+		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx, asset::ICPUPipelineLayout* _layout, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd);
 
 		core::smart_refctd_ptr<CMitsubaPipelineMetadata> createPipelineMetadata(core::smart_refctd_ptr<asset::ICPUDescriptorSet>&& _ds0, const asset::ICPUPipelineLayout* _layout);
 

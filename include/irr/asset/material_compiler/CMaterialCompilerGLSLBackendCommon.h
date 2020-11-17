@@ -584,8 +584,56 @@ public:
 		core::unordered_map<VTallocKey, instr_stream::VTID, VTallocKeyHash> VTallocMap;
 
 	public:
-		//must be initialized by user
-		core::smart_refctd_ptr<asset::ICPUVirtualTexture> vt;
+		struct VT
+		{
+			using addr_t = asset::ICPUVirtualTexture::SMasterTextureData;
+			struct alloc_t
+			{
+				asset::E_FORMAT format;
+				asset::VkExtent3D extent;
+				asset::ICPUImage::SSubresourceRange subresource;
+				asset::ICPUSampler::E_TEXTURE_CLAMP uwrap;
+				asset::ICPUSampler::E_TEXTURE_CLAMP vwrap;
+			};
+			struct commit_t
+			{
+				addr_t addr;
+				core::smart_refctd_ptr<asset::ICPUImage> texture;
+				asset::ICPUImage::SSubresourceRange subresource;
+				asset::ICPUSampler::E_TEXTURE_CLAMP uwrap;
+				asset::ICPUSampler::E_TEXTURE_CLAMP vwrap;
+				asset::ICPUSampler::E_TEXTURE_BORDER_COLOR border;
+			};
+
+			addr_t alloc(const alloc_t a, core::smart_refctd_ptr<asset::ICPUImage>&& texture, asset::ICPUSampler::E_TEXTURE_BORDER_COLOR border)
+			{
+				addr_t addr = vt->alloc(a.format, a.extent, a.subresource, a.uwrap, a.vwrap);
+
+				commit_t cm{ addr, std::move(texture), a.subresource, a.uwrap, a.vwrap, border };
+				pendingCommits.push_back(std::move(cm));
+
+				return addr;
+			}
+
+			bool commit(const commit_t& cm)
+			{
+				return vt->commit(cm.addr, cm.texture.get(), cm.subresource, cm.uwrap, cm.vwrap, cm.border);
+			}
+			//! @returns if all commits succeeded
+			bool commitAll()
+			{
+				vt->shrink();
+
+				bool success = true;
+				for (commit_t& cm : pendingCommits)
+					success &= commit(cm);
+				pendingCommits.clear();
+				return success;
+			}
+
+			core::vector<commit_t> pendingCommits;
+			core::smart_refctd_ptr<asset::ICPUVirtualTexture> vt;
+		} vt;
 	};
 
 	struct result_t
