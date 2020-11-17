@@ -34,19 +34,20 @@ public:
 
         void deferredInitialization(uint32_t tileExtent, uint32_t _layers) override
         {
-            base_t::deferredInitialization(tileExtent, _layers);
-
-            if (image)
-                return;
-
             const uint32_t tilesPerDim = getTilesPerDim();
             const uint32_t extent = tileExtent * tilesPerDim;
 
             // deduce layer count from the need of physical space
             if (_layers == 0u)
             {
-                _layers = (m_tileCounter + tilesPerDim - 1u) / tilesPerDim;
+                const uint32_t tilesPerLayer = tilesPerDim * tilesPerDim;
+                _layers = (m_tileCounter + tilesPerLayer - 1u) / tilesPerLayer;
             }
+
+            base_t::deferredInitialization(tileExtent, _layers);
+
+            if (image)
+                return;
 
             ICPUImage::SCreationParams params;
             params.extent = { extent,extent,1u };
@@ -197,7 +198,10 @@ public:
 
         ICPUVTResidentStorage* storage = nullptr;
         {
-            auto found = m_storage.find(getFormatClass(getFormatInLayer(pgtOffset.z)));
+            uint32_t layer = pgtOffset.z;
+            E_FORMAT format = getFormatInLayer(pgtOffset.z);
+            E_FORMAT_CLASS fc = getFormatClass(format);
+            auto found = m_storage.find(fc);
             if (found==m_storage.end())
                 return false;
             storage = static_cast<ICPUVTResidentStorage*>(found->second.get());

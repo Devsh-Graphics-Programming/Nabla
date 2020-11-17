@@ -301,7 +301,7 @@ protected:
         const uint32_t baseMaxDim = core::roundUpToPoT(core::max<uint32_t>(_extent.width, _extent.height))>>_baseLevel;
         const int32_t lastFullMip = core::findMSB(baseMaxDim-1u)+1 - static_cast<int32_t>(m_pgSzxy_log2);
 
-        assert(lastFullMip<static_cast<int32_t>(m_pageTable->getCreationParameters().mipLevels));
+        //assert(lastFullMip<static_cast<int32_t>(m_pageTable->getCreationParameters().mipLevels));
 
         return core::max<int32_t>(lastFullMip+1, 0);
     }
@@ -477,11 +477,15 @@ protected:
 
         virtual void deferredInitialization(uint32_t tileExtent, uint32_t _layers = 0u)
         {
-            const uint32_t tilesPerDim = getTilesPerDim();
-            if (tileAlctr.get_total_size() == phys_pg_addr_alctr_t::invalid_address)
+            assert(_layers != 0u);
+
+            const bool uninitialized = (tileAlctr.get_align_offset() == phys_pg_addr_alctr_t::invalid_address);
+            if (uninitialized)
             {
+                const uint32_t tilesPerDim = getTilesPerDim();
                 m_alctrReservedSpace = allocReservedSpaceForAllocator(tilesPerDim, _layers);
-                tileAlctr = phys_pg_addr_alctr_t(m_alctrReservedSpace, 0u, 0u, 1u, _layers*tilesPerDim*tilesPerDim, 1u);
+                phys_pg_addr_alctr_t alctr(m_alctrReservedSpace, 0u, 0u, 1u, _layers*tilesPerDim*tilesPerDim, 1u);
+                tileAlctr = std::move(alctr);
             }
         }
 
@@ -762,7 +766,7 @@ public:
             for (uint32_t i = 0u; i < MAX_PAGE_TABLE_LAYERS; ++i)
             {
                 uint32_t layer = MAX_PAGE_TABLE_LAYERS - 1u - i;
-                if (m_precomputed.layer_to_sampler_ix[layer] == INVALID_SAMPLER_INDEX)
+                if (m_precomputed.layer_to_sampler_ix[layer] != INVALID_SAMPLER_INDEX)
                 {
                     pgtLayers = layer + 1u;
                     break;
