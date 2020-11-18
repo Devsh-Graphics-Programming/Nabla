@@ -1766,7 +1766,12 @@ SContext::SContext(
 	ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this),
 	samplerCacheKeyBase(inner.mainFile->getFileName().c_str() + "?sampler"s)
 {
-	backend_ctx.vt.vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(VT_PAGE_SZ_LOG2, VT_PAGE_PADDING, VT_MAX_ALLOCATABLE_TEX_SZ_LOG2);
+	backend_ctx.vt.vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(
+		[](asset::E_FORMAT_CLASS) -> uint32_t { return 4u; }, // 16x16 tiles per layer for all dynamically created storages
+		VT_PAGE_SZ_LOG2, 
+		VT_PAGE_PADDING, 
+		VT_MAX_ALLOCATABLE_TEX_SZ_LOG2
+	);
 	globalMeta->VT = backend_ctx.vt.vt;
 }
 

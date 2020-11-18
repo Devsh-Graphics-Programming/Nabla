@@ -1,6 +1,7 @@
 #ifndef __IRR_I_VIRTUAL_TEXTURE_H_INCLUDED__
 #define __IRR_I_VIRTUAL_TEXTURE_H_INCLUDED__
 
+#include <functional>
 #include "irr/asset/format/EFormat.h"
 #include "irr/core/alloc/GeneralpurposeAddressAllocator.h"
 #include "irr/core/alloc/PoolAddressAllocator.h"
@@ -29,6 +30,8 @@ public:
         uint32_t layer_to_sampler_ix[MAX_PAGE_TABLE_LAYERS];
     } PACK_STRUCT;
 #include "irr/irrunpack.h"
+
+    using physical_tiles_per_dim_log2_callback_t = std::function<uint32_t(E_FORMAT_CLASS)>;
 };
 
 template <typename image_view_t, typename sampler_t>
@@ -365,6 +368,7 @@ protected:
         m_precomputedWasUpdatedSinceLastQuery = true;
     }
 
+    physical_tiles_per_dim_log2_callback_t m_physicalStorageExtentLog2CB;
     const uint32_t m_pgSzxy;
     const uint32_t m_pgSzxy_log2;
     const uint32_t m_pgtabSzxy_log2;
@@ -595,6 +599,12 @@ protected:
             _IRR_ALIGNED_FREE(m_pgTabAddrAlctr_reservedSpc);
     }
 
+    uint32_t getTilesPerDimForFormatClass(E_FORMAT_CLASS _fc) const
+    {
+        const uint32_t tpd_log2 = m_physicalStorageExtentLog2CB(_fc);
+        return 1u << tpd_log2;
+    }
+
     IVTResidentStorage* getStorageForFormatClass(E_FORMAT_CLASS _fc) const
     {
         auto found = m_storage.find(_fc);
@@ -609,7 +619,7 @@ protected:
         if (IVTResidentStorage* storage = getStorageForFormatClass(fc))
             return storage;
 
-        const uint32_t tilesPerDim = 16u; // TODO callback
+        const uint32_t tilesPerDim = getTilesPerDimForFormatClass(fc);
         auto storage = createVTResidentStorage(_fmt, tilesPerDim);
         m_storage[fc] = storage;
 
@@ -722,12 +732,13 @@ protected:
 
 public:
     IVirtualTexture(
+        physical_tiles_per_dim_log2_callback_t&& _callback,
         uint32_t _pgTabSzxy_log2 = 7u,
         uint32_t _pgTabLayers = 32u,
         uint32_t _pgSzxy_log2 = 7u,
         uint32_t _tilePadding = 9u,
         bool _initSharedResources = true
-    ) :
+    ) : m_physicalStorageExtentLog2CB(std::move(_callback)),
         m_pgSzxy(1u<<_pgSzxy_log2), m_pgSzxy_log2(_pgSzxy_log2), m_pgtabSzxy_log2(_pgTabSzxy_log2), m_tilePadding(_tilePadding)
     {
         {
@@ -756,6 +767,11 @@ public:
         std::fill(m_addrsArray->begin(), m_addrsArray->end(), IVTResidentStorage::phys_pg_addr_alctr_t::invalid_address);
         m_sizesArray = core::make_refctd_dynamic_array<decltype(m_sizesArray)>(1u<<(2u*_pgTabSzxy_log2 + 1u));
         std::fill(m_sizesArray->begin(), m_sizesArray->end(), 1u);
+    }
+
+    physical_tiles_per_dim_log2_callback_t getPhysicalStorageExtentCallback() const
+    {
+        return m_physicalStorageExtentLog2CB;
     }
 
     void shrink()

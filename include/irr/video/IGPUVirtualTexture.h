@@ -101,6 +101,7 @@ protected:
 public:
     IGPUVirtualTexture(
         IVideoDriver* _driver,
+        physical_tiles_per_dim_log2_callback_t&& _callback,
         const base_t::IVTResidentStorage::SCreationParams* _residentStorageParams,
         uint32_t _residentStorageCount,
         uint32_t _pgSzxy_log2 = 7u,
@@ -109,6 +110,7 @@ public:
         uint32_t _maxAllocatableTexSz_log2 = 14u
     ) :
         base_t(
+            std::move(_callback),
             _maxAllocatableTexSz_log2-_pgSzxy_log2,
             _pgTabLayers,
             _pgSzxy_log2,
@@ -121,10 +123,12 @@ public:
     }
     IGPUVirtualTexture(
         IVideoDriver* _driver,
+        physical_tiles_per_dim_log2_callback_t&& _callback,
         uint32_t _pgSzxy_log2 = 7u,
         uint32_t _tilePadding = 9u,
         uint32_t _maxAllocatableTexSz_log2 = 14u
     ) : base_t(
+            std::move(_callback),
             _maxAllocatableTexSz_log2-_pgSzxy_log2,
             MAX_PAGE_TABLE_LAYERS,
             _pgSzxy_log2,
@@ -136,6 +140,7 @@ public:
     }
     IGPUVirtualTexture(IVideoDriver* _driver, asset::ICPUVirtualTexture* _cpuvt) :
         base_t(
+            _cpuvt->getPhysicalStorageExtentCallback(),
             _cpuvt->getPageTableExtent_log2(),
             _cpuvt->getPageTable()->getCreationParameters().arrayLayers,
             _cpuvt->getPageExtent_log2(),
