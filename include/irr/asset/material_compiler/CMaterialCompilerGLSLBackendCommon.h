@@ -598,7 +598,7 @@ public:
 			struct commit_t
 			{
 				addr_t addr;
-				core::smart_refctd_ptr<asset::ICPUImage> texture;
+				core::smart_refctd_ptr<asset::ICPUImage> image;
 				asset::ICPUImage::SSubresourceRange subresource;
 				asset::ICPUSampler::E_TEXTURE_CLAMP uwrap;
 				asset::ICPUSampler::E_TEXTURE_CLAMP vwrap;
@@ -617,7 +617,8 @@ public:
 
 			bool commit(const commit_t& cm)
 			{
-				return vt->commit(cm.addr, cm.texture.get(), cm.subresource, cm.uwrap, cm.vwrap, cm.border);
+				auto texture = asset::ICPUVirtualTexture::createPoTPaddedSquareImageWithMipLevels(cm.image.get(), cm.uwrap, cm.vwrap, cm.border).first;
+				return vt->commit(cm.addr, texture.get(), cm.subresource, cm.uwrap, cm.vwrap, cm.border);
 			}
 			//! @returns if all commits succeeded
 			bool commitAll()
