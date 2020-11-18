@@ -302,8 +302,9 @@ static void insertAssetIntoCache(core::smart_refctd_ptr<AssetT>& asset, const ch
 	_assetMgr->changeAssetKey(bundle, path);
 	_assetMgr->insertAssetIntoCache(bundle);
 }
+//@AnastaZluk, lets have something similar in the common loader base
 template<typename AssetType, IAsset::E_TYPE assetType>
-static core::smart_refctd_ptr<AssetType> getBuiltinAsset(const char* _key, IAssetManager* _assetMgr)
+static auto getBuiltinAsset(const char* _key, IAssetManager* _assetMgr) -> std::enable_if_t<std::is_base_of_v<asset::IAsset, AssetType>, core::smart_refctd_ptr<AssetType>>
 {
 	size_t storageSz = 1ull;
 	asset::SAssetBundle bundle;
@@ -1547,28 +1548,35 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 				// TODO check and restore if dummy (image and sampler)
 				auto bumpmap = std::get<0>(bm)->getCreationParameters().image;
 				auto sampler = std::get<1>(bm);
-
-				auto derivmap = createDerivMap(bumpmap.get(), sampler.get());
 				const std::string key = ctx.derivMapCacheKey(bsdf->bumpmap.texture);
-				asset::SAssetBundle imgBundle{ derivmap };
-				ctx.override_->insertAssetIntoCache(imgBundle, key, ctx.inner, 0u);
-				auto derivmap_view = createImageView(std::move(derivmap));
-				asset::SAssetBundle viewBundle{ derivmap_view };
-				ctx.override_->insertAssetIntoCache(viewBundle, ctx.imageViewCacheKey(key), ctx.inner, 0u);
+
+				if (!getBuiltinAsset<asset::ICPUImage, asset::IAsset::ET_IMAGE>(key.c_str(), m_manager))
+				{
+					auto derivmap = createDerivMap(bumpmap.get(), sampler.get());
+					asset::SAssetBundle imgBundle{ derivmap };
+					ctx.override_->insertAssetIntoCache(imgBundle, key, ctx.inner, 0u);
+					auto derivmap_view = createImageView(std::move(derivmap));
+					asset::SAssetBundle viewBundle{ derivmap_view };
+					ctx.override_->insertAssetIntoCache(viewBundle, ctx.imageViewCacheKey(key), ctx.inner, 0u);
+				}
 			}
 				break;
 			case CElementBSDF::BLEND_BSDF:
 				if (cachePropertyTexture(bsdf->blendbsdf.weight, tex))
 				{
-					auto img = std::get<0>(tex)->getCreationParameters().image;
-
-					auto blendweight = createBlendWeightImage(img.get());
 					const std::string key = ctx.blendWeightImageCacheKey(bsdf->blendbsdf.weight.texture);
-					asset::SAssetBundle imgBundle{ blendweight };
-					ctx.override_->insertAssetIntoCache(imgBundle, key, ctx.inner, 0u);
-					auto blendweight_view = createImageView(std::move(blendweight));
-					asset::SAssetBundle viewBundle{ blendweight_view };
-					ctx.override_->insertAssetIntoCache(viewBundle, ctx.imageViewCacheKey(key), ctx.inner, 0u);
+
+					if (!getBuiltinAsset<asset::ICPUImage, asset::IAsset::ET_IMAGE>(key.c_str(), m_manager))
+					{
+						auto img = std::get<0>(tex)->getCreationParameters().image;
+
+						auto blendweight = createBlendWeightImage(img.get());
+						asset::SAssetBundle imgBundle{ blendweight };
+						ctx.override_->insertAssetIntoCache(imgBundle, key, ctx.inner, 0u);
+						auto blendweight_view = createImageView(std::move(blendweight));
+						asset::SAssetBundle viewBundle{ blendweight_view };
+						ctx.override_->insertAssetIntoCache(viewBundle, ctx.imageViewCacheKey(key), ctx.inner, 0u);
+					}
 				}
 				break;
 			case CElementBSDF::MASK:
