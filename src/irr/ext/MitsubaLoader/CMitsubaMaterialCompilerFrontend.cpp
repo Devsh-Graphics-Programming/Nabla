@@ -166,8 +166,9 @@ namespace MitsubaLoader
         break;
         case CElementBSDF::DIFFUSE_TRANSMITTER:
         {
-            ir_node = ir->allocNode<IR::CDifftransBSDFNode>();
-            auto* node = static_cast<IR::CDifftransBSDFNode*>(ir_node);
+            ir_node = ir->allocNode<IR::CMicrofacetDifftransBSDFNode>();
+            auto* node = static_cast<IR::CMicrofacetDifftransBSDFNode*>(ir_node);
+            node->setSmooth();
 
             getSpectrumOrTexture(_bsdf->difftrans.transmittance, node->transmittance);
         }

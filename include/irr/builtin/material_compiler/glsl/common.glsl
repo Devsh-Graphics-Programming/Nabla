@@ -655,8 +655,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 	const mat2x3 ior2 = matrixCompMult(ior, ior);
 	const float ior_scalar = dot(CIE_XYZ_Luma_Y_coeffs, ior[0]);
 	const bool is_bsdf = !op_isBRDF(op); //note it actually tells if op is BSDF or BUMPMAP or SET_GEOM_NORMAL (divergence reasons)
-	const vec3 refl = params_getReflectance(params);
-	const vec3 trans = params_getTransmittance(params);
+	const vec3 albedo = params_getReflectance(params);
 
 	irr_glsl_AnisotropicMicrofacetCache microfacet;
 	bool is_valid = true;
@@ -677,9 +676,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
 	if (op_isDiffuse(op))
 	{
-		vec3 reflectance = is_bsdf ? trans : refl;
-		float alpha2 = is_bsdf ? 0.0 : a2;
-		bxdf_eval = reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, alpha2);
+		bxdf_eval = albedo*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, a2);
 		pdf *= is_bsdf ? 0.5 : 1.0;
 		bxdf_eval *= pdf;
 	} else
@@ -755,15 +752,14 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 		bxdf_eval_scalar_part = 0.5 * G2_over_G1 * G1_over_2NdotV * ndf_val; //cos*D*G2/(4*cos*cos)
 		pdf = irr_glsl_smith_VNDF_pdf_wo_clamps(ndf_val, G1_over_2NdotV);
 
-		float VdotH = microfacet.isotropic.VdotH;
-		float VdotH_clamp = irr_glsl_conditionalAbsOrMax(is_bsdf, VdotH, 0.0);
+		float VdotH = irr_glsl_conditionalAbsOrMax(is_bsdf, microfacet.isotropic.VdotH, 0.0);
 		vec3 fr;
 #ifdef OP_CONDUCTOR
 		if (op == OP_CONDUCTOR)
-			fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH_clamp);
+			fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
 		else
 #endif
-			fr = irr_glsl_fresnel_dielectric_common(ior2[0], VdotH_clamp);
+			fr = irr_glsl_fresnel_dielectric_common(ior2[0], VdotH);
 
 #ifndef NO_BSDF
 		if (is_bsdf && is_valid)
@@ -771,7 +767,8 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 			float eta = ior_scalar;
 
 			float LdotH = microfacet.isotropic.LdotH;
-			float VdotHLdotH = VdotH * LdotH;
+			float VdotHLdotH = microfacet.isotropic.VdotH * LdotH;
+			LdotH = abs(LdotH);
 #ifdef NDF_GGX
 			if (ndf == NDF_GGX)
 				bxdf_eval_scalar_part = irr_glsl_ggx_microfacet_to_light_measure_transform(bxdf_eval_scalar_part, NdotL, refraction, VdotH, LdotH, VdotHLdotH, eta);
@@ -961,8 +958,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	const mat2x3 ior = bsdf_data_decodeIoR(bsdf_data,op);
 	const mat2x3 ior2 = matrixCompMult(ior,ior);
 	const bool is_bsdf = !op_isBRDF(op) && !is_plastic;
-	const vec3 refl = params_getReflectance(params);
-	const vec3 trans = params_getTransmittance(params);
+	const vec3 albedo = params_getReflectance(params);
 
 	float pdf = 1.0;
 	vec3 rem = vec3(1.0);
@@ -1005,9 +1001,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		s = irr_glsl_createLightSampleTangentSpace(localV, localL, tangentFrame);
 		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
 
-		const float alpha2 = is_bsdf ? 0.0 : ax2;
-		const vec3 reflectance = is_bsdf ? trans : refl;
-		rem *= reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, alpha2);
+		rem *= albedo*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ax2);
 		pdf *= is_bsdf ? 0.5 : 1.0;
 	} else
 #endif
@@ -1065,8 +1059,10 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		float rcpChoiceProb;
 		const bool refraction = is_bsdf ? irr_glsl_partitionRandVariable(refractionProb, u.z, rcpChoiceProb) : false;
 		rcpChoiceProb = is_bsdf ? rcpChoiceProb : 1.0;
-		rem *= rcpChoiceProb;
-		rem *= refraction ? (vec3(1.0) - fr) : fr;
+#ifdef OP_CONDUCTOR
+		if (op == OP_CONDUCTOR)
+			rem *= fr;
+#endif
 		pdf /= rcpChoiceProb;
 		float eta = dot(CIE_XYZ_Luma_Y_coeffs, ior[0]);
 		float rcpEta = 1.0/eta;
@@ -1142,7 +1138,8 @@ vec3 runGenerateAndRemainderStream(in MC_precomputed_t precomp, in instr_stream_
 	out_smpl = s;
 	out_pdf = pdf;
 
-	vec3 rem = (generator_rem + acc/generator_pdf) / (1.0 + restPdf/generator_pdf);
+	float rcp_generator_pdf = 1.0 / generator_pdf;
+	vec3 rem = (generator_rem + acc*rcp_generator_pdf) / (1.0 + restPdf*rcp_generator_pdf);
 
 	return rem;
 }

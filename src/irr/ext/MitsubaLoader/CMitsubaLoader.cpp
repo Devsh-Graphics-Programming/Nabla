@@ -181,15 +181,19 @@ _IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
 
 instr_stream_t getEvalStream(in MC_precomputed_t precomp)
 {
-	instr_stream_t front;
-	front.offset = InstData.data[InstanceIndex].front_instr_offset;
-	front.count = InstData.data[InstanceIndex].front_rem_pdf_count;
+	instr_stream_t stream;
+	if (precomp.NdotV > 0.0)
+	{
+		stream.offset = InstData.data[InstanceIndex].front_instr_offset;
+		stream.count = InstData.data[InstanceIndex].front_rem_pdf_count;
+	}
+	else
+	{
+		stream.offset = InstData.data[InstanceIndex].back_instr_offset;
+		stream.count = InstData.data[InstanceIndex].back_rem_pdf_count;
+	}
 
-	instr_stream_t back;
-	back.offset = InstData.data[InstanceIndex].back_instr_offset;
-	back.count = InstData.data[InstanceIndex].back_rem_pdf_count;
-
-	return precomp.NdotV > 0.0 ? front : back;
+	return stream;
 }
 //rem'n'pdf and eval use the same instruction stream
 instr_stream_t getRemAndPdfStream(in MC_precomputed_t precomp)
@@ -198,39 +202,51 @@ instr_stream_t getRemAndPdfStream(in MC_precomputed_t precomp)
 }
 instr_stream_t getGenChoiceStream(in MC_precomputed_t precomp)
 {
-	instr_stream_t front;
-	front.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count;
-	front.count =  InstData.data[InstanceIndex].front_genchoice_count;
+	instr_stream_t stream;
+	if (precomp.NdotV > 0.0)
+	{
+		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count;
+		stream.count =  InstData.data[InstanceIndex].front_genchoice_count;
+	}
+	else
+	{
+		stream.offset = InstData.data[InstanceIndex].back_instr_offset + InstData.data[InstanceIndex].back_rem_pdf_count;
+		stream.count = InstData.data[InstanceIndex].back_genchoice_count;
+	}
 
-	instr_stream_t back;
-	back.offset = InstData.data[InstanceIndex].back_instr_offset + InstData.data[InstanceIndex].back_rem_pdf_count;
-	back.count = InstData.data[InstanceIndex].back_genchoice_count;
-
-	return precomp.NdotV > 0.0 ? front : back;
+	return stream;
 }
 instr_stream_t getTexPrefetchStream(in MC_precomputed_t precomp)
 {
-	instr_stream_t front;
-	front.offset = InstData.data[InstanceIndex].front_prefetch_offset;
-	front.count = InstData.data[InstanceIndex].front_prefetch_count;
+	instr_stream_t stream;
+	if (precomp.NdotV > 0.0)
+	{
+		stream.offset = InstData.data[InstanceIndex].front_prefetch_offset;
+		stream.count = InstData.data[InstanceIndex].front_prefetch_count;
+	}
+	else
+	{
+		stream.offset = InstData.data[InstanceIndex].back_prefetch_offset;
+		stream.count = InstData.data[InstanceIndex].back_prefetch_count;
+	}
 
-	instr_stream_t back;
-	back.offset = InstData.data[InstanceIndex].back_prefetch_offset;
-	back.count = InstData.data[InstanceIndex].back_prefetch_count;
-
-	return precomp.NdotV > 0.0 ? front : back;
+	return stream;
 }
 instr_stream_t getNormalPrecompStream(in MC_precomputed_t precomp)
 {
-	instr_stream_t front;
-	front.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count + InstData.data[InstanceIndex].front_genchoice_count;
-	front.count = InstData.data[InstanceIndex].front_nprecomp_count;
+	instr_stream_t stream;
+	if (precomp.NdotV > 0.0)
+	{
+		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count + InstData.data[InstanceIndex].front_genchoice_count;
+		stream.count = InstData.data[InstanceIndex].front_nprecomp_count;
+	}
+	else
+	{
+		stream.offset = InstData.data[InstanceIndex].back_instr_offset + InstData.data[InstanceIndex].back_rem_pdf_count + InstData.data[InstanceIndex].back_genchoice_count;
+		stream.count = InstData.data[InstanceIndex].back_nprecomp_count;
+	}
 
-	instr_stream_t back;
-	back.offset = InstData.data[InstanceIndex].back_instr_offset + InstData.data[InstanceIndex].back_rem_pdf_count + InstData.data[InstanceIndex].back_genchoice_count;
-	back.count = InstData.data[InstanceIndex].back_nprecomp_count;
-
-	return precomp.NdotV > 0.0 ? front : back;
+	return stream;
 }
 
 #ifndef _IRR_BSDF_COS_EVAL_DEFINED_

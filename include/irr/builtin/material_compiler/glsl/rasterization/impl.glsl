@@ -32,8 +32,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 		float a2 = a*a;
 		float ay = params_getAlphaV(params);
 		float ay2 = ay*ay;
-		const vec3 refl = params_getReflectance(params);
-		const vec3 trans = params_getTransmittance(params);
+		const vec3 albedo = params_getReflectance(params);
 
 		bool is_valid = op_isBXDF(op);
 		bool refraction = false;
@@ -55,9 +54,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
 			if (op_isDiffuse(op))
 			{
-				vec3 reflectance = is_bsdf ? trans : refl;
-				float alpha2 = is_bsdf ? 0.0 : a2;
-				bxdf_eval = reflectance * irr_glsl_oren_nayar_cos_eval(s, currInteraction.isotropic, alpha2);
+				bxdf_eval = albedo * irr_glsl_oren_nayar_cos_eval(s, currInteraction.isotropic, a2);
 			} else
 #endif
 #if defined(OP_CONDUCTOR) || defined(OP_DIELECTRIC)
@@ -128,7 +125,11 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 				}
 #endif
 
-				bxdf_eval = (refraction ? (vec3(1.0)-fr):fr) * bxdf_eval_scalar_part;
+				bxdf_eval = bxdf_eval_t(bxdf_eval_scalar_part);
+#ifdef OP_CONDUCTOR
+				if (op == OP_CONDUCTOR)
+					bxdf_eval *= fr;
+#endif
 			} else
 #endif
 			{}

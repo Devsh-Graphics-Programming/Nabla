@@ -12,19 +12,19 @@ vec3 irr_glsl_projected_hemisphere_generate(in vec2 _sample)
     return vec3(p.x,p.y,z);
 }
 
+float irr_glsl_projected_hemisphere_pdf(in float L_z)
+{
+    return L_z * irr_glsl_RECIPROCAL_PI;
+}
+
 float irr_glsl_projected_hemisphere_remainder_and_pdf(out float pdf, in float L_z)
 {
-	pdf = L_z*irr_glsl_RECIPROCAL_PI;
+	pdf = irr_glsl_projected_hemisphere_pdf(L_z);
 	return 1.0;
 }
 float irr_glsl_projected_hemisphere_remainder_and_pdf(out float pdf, in vec3 L)
 {
 	return irr_glsl_projected_hemisphere_remainder_and_pdf(pdf,L.z);
-}
-
-float irr_glsl_projected_hemisphere_pdf(in float L_z)
-{
-    return L_z*irr_glsl_RECIPROCAL_PI;
 }
 
 vec3 irr_glsl_projected_sphere_generate(in vec3 _sample)

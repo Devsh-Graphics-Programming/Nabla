@@ -75,7 +75,7 @@ public:
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_ALPHA_V_TEX = BITFIELDS_SHIFT_2ND_PARAM_TEX;
 
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_SPEC_TRANS_TEX = 0x1u;
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_TRANS_TEX = BITFIELDS_SHIFT_1ST_PARAM_TEX;
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_TRANS_TEX = BITFIELDS_SHIFT_2ND_PARAM_TEX;
 
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_NDF = 0x3u;
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_WIDTH_NDF = 2u;
@@ -208,10 +208,10 @@ public:
 			case OP_DIFFUSE: [[fallthrough]];
 			case OP_CONDUCTOR: [[fallthrough]];
 			case OP_DIELECTRIC: [[fallthrough]];
+			case OP_DIFFTRANS: [[fallthrough]];
 				return 2u;
 			case OP_COATING: [[fallthrough]];
 			case OP_BLEND: [[fallthrough]];
-			case OP_DIFFTRANS: [[fallthrough]];
 			case OP_BUMPMAP:
 				return 1u;
 			case OP_THINDIELECTRIC: [[fallthrough]];
@@ -230,11 +230,9 @@ public:
 
 			switch (op)
 			{
-			case OP_DIFFUSE:
-				SWITCH_REG_CNT_FOR_PARAM_NUM(1, 3)
-				break;
+			case OP_DIFFUSE: [[fallthrough]];
 			case OP_DIFFTRANS:
-				SWITCH_REG_CNT_FOR_PARAM_NUM(3, 0)
+				SWITCH_REG_CNT_FOR_PARAM_NUM(1, 3)
 				break;
 			case OP_DIELECTRIC: [[fallthrough]];
 			case OP_THINDIELECTRIC: [[fallthrough]];
@@ -311,6 +309,7 @@ public:
 			} PACK_STRUCT;
 			struct SDiffuseTransmitter
 			{
+				STextureOrConstant alpha;
 				STextureOrConstant transmittance;
 			} PACK_STRUCT;
 			struct SAllDielectric
@@ -392,6 +391,7 @@ public:
 		} PACK_STRUCT;
 		struct SDiffuseTransmitter
 		{
+			STextureOrConstant alpha;
 			STextureOrConstant transmittance;
 		} PACK_STRUCT;
 		struct SAllDielectric

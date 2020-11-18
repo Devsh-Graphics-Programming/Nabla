@@ -357,11 +357,11 @@ public:
 
             switch (rhs_bsdf->type)
             {
-            case CBSDFNode::ET_DIFFTRANS:
+            case CBSDFNode::ET_MICROFACET_DIFFTRANS:
             {
-                auto* rhs = static_cast<const CDifftransBSDFNode*>(_rhs);
-                node = allocNode<CDifftransBSDFNode>();
-                *static_cast<CDifftransBSDFNode*>(node) = *rhs;
+                auto* rhs = static_cast<const CMicrofacetDifftransBSDFNode*>(_rhs);
+                node = allocNode<CMicrofacetDifftransBSDFNode>();
+                *static_cast<CMicrofacetDifftransBSDFNode*>(node) = *rhs;
             }
             break;
             case CBSDFNode::ET_MICROFACET_DIFFUSE:
@@ -512,7 +512,7 @@ public:
     {
         enum E_TYPE
         {
-            ET_DIFFTRANS,
+            ET_MICROFACET_DIFFTRANS,
             ET_SPECULAR_DELTA,
             ET_MICROFACET_DIFFUSE,
             ET_MICROFACET_SPECULAR,
@@ -571,9 +571,9 @@ public:
     protected:
         CMicrofacetSpecularBSDFNode(E_TYPE t) : CBSDFNode(t) {}
     };
-    struct CMicrofacetDiffuseBSDFNode : CBSDFNode
+    struct CMicrofacetDiffuseBxDFBase : CBSDFNode
     {
-        CMicrofacetDiffuseBSDFNode() : CBSDFNode(ET_MICROFACET_DIFFUSE) {}
+        CMicrofacetDiffuseBxDFBase(E_TYPE t) : CBSDFNode(t) {}
 
         void setSmooth()
         {
@@ -582,13 +582,18 @@ public:
             alpha_v = alpha_u;
         }
 
-        SParameter<color_t> reflectance = color_t(1.f);
         SParameter<float> alpha_u = 0.f;
         SParameter<float> alpha_v = 0.f;
     };
-    struct CDifftransBSDFNode : CBSDFNode
+    struct CMicrofacetDiffuseBSDFNode : CMicrofacetDiffuseBxDFBase
     {
-        CDifftransBSDFNode() : CBSDFNode(ET_DIFFTRANS) {}
+        CMicrofacetDiffuseBSDFNode() : CMicrofacetDiffuseBxDFBase(ET_MICROFACET_DIFFUSE) {}
+
+        SParameter<color_t> reflectance = color_t(1.f);
+    };
+    struct CMicrofacetDifftransBSDFNode : CMicrofacetDiffuseBxDFBase
+    {
+        CMicrofacetDifftransBSDFNode() : CMicrofacetDiffuseBxDFBase(ET_MICROFACET_DIFFTRANS) {}
 
         SParameter<color_t> transmittance = color_t(0.5f);
     };

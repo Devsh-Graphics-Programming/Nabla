@@ -221,8 +221,12 @@ namespace material_compiler
 			break;
 			case instr_stream::OP_DIFFTRANS:
 			{
-				auto* difftrans = static_cast<const IR::CDifftransBSDFNode*>(_node);
+				auto* difftrans = static_cast<const IR::CMicrofacetDifftransBSDFNode*>(_node);
 
+				if (difftrans->alpha_u.source == IR::INode::EPS_TEXTURE)
+					_dst.difftrans.alpha.setTexture(packTexture(difftrans->alpha_u.value.texture), difftrans->alpha_u.value.texture.scale);
+				else
+					_dst.difftrans.alpha.setConst(difftrans->alpha_u.value.constant);
 				if (difftrans->transmittance.source == IR::INode::EPS_TEXTURE)
 					_dst.difftrans.transmittance.setTexture(packTexture(difftrans->transmittance.value.texture), difftrans->transmittance.value.texture.scale);
 				else
@@ -391,8 +395,10 @@ namespace material_compiler
 			}
 			case instr_stream::OP_DIFFTRANS:
 			{
-				auto* difftrans = static_cast<const IR::CDifftransBSDFNode*>(_node);
+				auto* difftrans = static_cast<const IR::CMicrofacetDifftransBSDFNode*>(_node);
 
+				if (difftrans->alpha_u.source == IR::INode::EPS_TEXTURE)
+					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 				if (difftrans->transmittance.source == IR::INode::EPS_TEXTURE)
 					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_TRANS_TEX, 1);
 			}
@@ -664,7 +670,7 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 		auto* node = static_cast<const IR::CBSDFNode*>(tree);
 		switch (node->type)
 		{
-		case IR::CBSDFNode::ET_DIFFTRANS:
+		case IR::CBSDFNode::ET_MICROFACET_DIFFTRANS:
 			instr = instr_stream::OP_DIFFTRANS; break;
 		case IR::CBSDFNode::ET_MICROFACET_DIFFUSE:
 			instr = instr_stream::OP_DIFFUSE; break;
@@ -687,7 +693,7 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 			if (coated->symbol != IR::INode::ES_BSDF)
 				instr = instr_stream::OP_INVALID;
 			const IR::CBSDFNode::E_TYPE coated_bxdf = static_cast<const IR::CBSDFNode*>(coated)->type;
-			const bool is_coated_diffuse = (coated_bxdf == IR::CBSDFNode::ET_MICROFACET_DIFFUSE || coated_bxdf == IR::CBSDFNode::ET_DIFFTRANS);
+			const bool is_coated_diffuse = (coated_bxdf == IR::CBSDFNode::ET_MICROFACET_DIFFUSE || coated_bxdf == IR::CBSDFNode::ET_MICROFACET_DIFFTRANS);
 			assert(is_coated_diffuse);
 			if (!is_coated_diffuse)
 				instr = instr_stream::OP_INVALID;
