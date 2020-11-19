@@ -916,7 +916,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 			bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
 			params_t params = instr_getParameters(instr, bsdf_data);
 			vec3 w_ = params_getBlendWeight(params);
-			float w = (w_.x + w_.y + w_.z) * 0.333333;
+			float w = colorToScalar(w_);
 			float rcpChoiceProb;
 			bool choseRight = irr_glsl_partitionRandVariable(w, u.z, rcpChoiceProb);
 
