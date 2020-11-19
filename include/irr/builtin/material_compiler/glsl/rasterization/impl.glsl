@@ -6,8 +6,10 @@
 void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache _microfacet)
 {
 	const uint op = instr_getOpcode(instr);
+	const bool is_bxdf = op_isBXDF(op);
 	const bool is_bsdf = !op_isBRDF(op); //note it actually tells if op is BSDF or BUMPMAP or SET_GEOM_NORMAL (divergence reasons)
 	const float cosFactor = irr_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
+	const bool positiveCosFactor = cosFactor > FLT_MIN;
 
 	uvec3 regs = instr_decodeRegisters(instr);
 	mat2x3 ior;
@@ -16,16 +18,20 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 	irr_glsl_AnisotropicMicrofacetCache microfacet;
 	bsdf_data_t bsdf_data;
 
-	bxdf_eval_t bxdf_eval = bxdf_eval_t(0.0);
-
-	if (cosFactor > FLT_MIN)
+	if (!is_bxdf || positiveCosFactor)
 	{
-		//speculative execution
 		bsdf_data = fetchBSDFDataForInstr(instr);
 		ior = bsdf_data_decodeIoR(bsdf_data, op);
 		ior2 = matrixCompMult(ior, ior);
 		params = instr_getParameters(instr, bsdf_data);
-		const float ior_scalar = dot(CIE_XYZ_Luma_Y_coeffs, ior[0]);
+		microfacet = _microfacet;
+	}
+
+	bxdf_eval_t bxdf_eval = bxdf_eval_t(0.0);
+
+	if (is_bxdf && positiveCosFactor)
+	{
+		const float ior_scalar = colorToScalar(ior[0]);
 		float bxdf_eval_scalar_part;
 		uint ndf = instr_getNDF(instr);
 		float a = params_getAlpha(params);
@@ -34,7 +40,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 		float ay2 = ay*ay;
 		const vec3 albedo = params_getReflectance(params);
 
-		bool is_valid = op_isBXDF(op);
+		bool is_valid = true;
 		bool refraction = false;
 #ifndef NO_BSDF
 		//here actually using stronger check for BSDF because it's probably worth it
@@ -43,11 +49,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 			is_valid = irr_glsl_calcAnisotropicMicrofacetCache(microfacet, true, currInteraction.isotropic.V.dir, s.L, currInteraction.T, currInteraction.B, currInteraction.isotropic.N, s.NdotL, s.VdotL, ior_scalar, 1.0/ior_scalar);
 			refraction = true;
 		}
-		else
 #endif
-		{
-			microfacet = _microfacet;
-		}
 
 		if (is_valid)
 		{
@@ -137,7 +139,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 	}
 
 	bxdf_eval_t result = bxdf_eval;
-	if (!op_isBXDF(op))
+	if (!is_bxdf)
 	{
 		mat2x4 srcs = instr_fetchSrcRegs(instr, regs);
 

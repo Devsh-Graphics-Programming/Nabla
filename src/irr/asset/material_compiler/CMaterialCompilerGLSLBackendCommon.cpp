@@ -104,8 +104,7 @@ namespace material_compiler
 
 		virtual void writeInheritableBitfields(instr_t& dst, instr_t parent) const
 		{
-			dst = core::bitfieldInsert(dst, parent>>instr_stream::BITFIELDS_SHIFT_TWOSIDED, instr_stream::BITFIELDS_SHIFT_TWOSIDED, 1);
-			dst = core::bitfieldInsert(dst, parent>>instr_stream::BITFIELDS_SHIFT_MASKFLAG, instr_stream::BITFIELDS_SHIFT_MASKFLAG, 1);
+
 		}
 
 		// Extra operations performed on instruction just before it is pushed on stack
@@ -710,9 +709,6 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 	break;
 	}
 
-	// TODO remove this
-	instr = core::bitfieldInsert<instr_t>(instr, 1u, instr_stream::BITFIELDS_SHIFT_TWOSIDED, 1);
-
 	return {instr,tree};
 }
 
@@ -1062,8 +1058,6 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 		defs += "\n#define NORM_PRECOMP_STREAM";
 	if (_res.allIsotropic)
 		defs += "\n#define ALL_ISOTROPIC_BXDFS";
-	if (_res.noTwosided)
-		defs += "\n#define NO_TWOSIDED";
 	if (_res.noBSDF)
 		defs += "\n#define NO_BSDF";
 
@@ -1079,8 +1073,6 @@ std::string CMaterialCompilerGLSLBackendCommon::genPreprocDefinitions(const resu
 	defs += "\n#define INSTR_TRANS_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_TRANS_TEX);
 	defs += "\n#define INSTR_SIGMA_A_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_SIGMA_A_TEX);
 	defs += "\n#define INSTR_WEIGHT_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_WEIGHT_TEX);
-	defs += "\n#define INSTR_TWOSIDED_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_TWOSIDED);
-	defs += "\n#define INSTR_MASKFLAG_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_MASKFLAG);
 	defs += "\n#define INSTR_1ST_PARAM_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_1ST_PARAM_TEX);
 	defs += "\n#define INSTR_2ND_PARAM_TEX_SHIFT " + std::to_string(instr_stream::BITFIELDS_SHIFT_2ND_PARAM_TEX);
 	defs += "\n#define INSTR_NORMAL_ID_SHIFT " + std::to_string(instr_stream::INSTR_NORMAL_ID_SHIFT);
@@ -1306,7 +1298,6 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 	}
 
 	res.allIsotropic = true;
-	res.noTwosided = true;
 	res.noBSDF = true;
 	for (const auto& e : res.streams)
 	{
@@ -1342,8 +1333,6 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 				}
 			}
 
-			const bool ts = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_TWOSIDED, 1);
-			res.noTwosided = res.noTwosided && !ts;
 			res.noBSDF = res.noBSDF && !instr_stream::opIsBSDF(op);
 
 			res.opcodes.insert(op);
@@ -1486,10 +1475,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	if (bsdf_ix < _res.bsdfData.size())
 		data = _res.bsdfData[bsdf_ix];
 
-	const bool masked = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_MASKFLAG, 1);
-	const bool twosided = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_TWOSIDED, 1);
-
-	_out << "### " << OPCODE_NAMES[op] << " " << (masked ? "M " : "") << (twosided ? "TS " : "") << (reinterpret_cast<uint32_t*>(&instr)[0]) << "\n";
+	_out << "### " << OPCODE_NAMES[op] << "\n";
 	_out << "BSDF data index = " << bsdf_ix << "\n";
 	switch (op)
 	{

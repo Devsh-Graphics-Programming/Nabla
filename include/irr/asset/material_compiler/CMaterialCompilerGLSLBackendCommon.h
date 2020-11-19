@@ -95,12 +95,6 @@ public:
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_WEIGHT_TEX = 0x1u;
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_WEIGHT_TEX = BITFIELDS_SHIFT_1ST_PARAM_TEX;
 
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_TWOSIDED = 0x1u;
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_TWOSIDED = INSTR_OPCODE_WIDTH + 6u;
-
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_MASK_MASKFLAG = 0x1u;
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_SHIFT_MASKFLAG = INSTR_OPCODE_WIDTH + 7u;
-
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_BSDF_BUF_OFFSET_SHIFT = INSTR_OPCODE_WIDTH + INSTR_BITFIELDS_WIDTH;
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_BSDF_BUF_OFFSET_WIDTH = 32u-BITFIELDS_BSDF_BUF_OFFSET_SHIFT;
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t BITFIELDS_BSDF_BUF_OFFSET_MASK = (1u<<BITFIELDS_BSDF_BUF_OFFSET_WIDTH) - 1u;
@@ -162,15 +156,6 @@ public:
 		inline static E_NDF getNDF(const instr_t& i)
 		{
 			return static_cast<E_NDF>(core::bitfieldExtract(i, BITFIELDS_SHIFT_NDF, BITFIELDS_WIDTH_NDF));
-		}
-
-		inline static bool isTwosided(const instr_t& i)
-		{
-			return static_cast<bool>( core::bitfieldExtract(i, BITFIELDS_SHIFT_TWOSIDED, 1) );
-		}
-		inline static bool isMasked(const instr_t& i)
-		{
-			return static_cast<bool>( core::bitfieldExtract(i, BITFIELDS_SHIFT_MASKFLAG, 1) );
 		}
 
 		inline static uint32_t getNormalId(const instr_t& i)
@@ -621,7 +606,6 @@ public:
 		bool noPrefetchStream;
 		bool noNormPrecompStream;
 		bool allIsotropic;
-		bool noTwosided;
 		bool noBSDF;
 		uint32_t usedRegisterCount;
 		uint32_t globalPrefetchRegCountFlags;
