@@ -11,12 +11,12 @@
 #include <irr/builtin/glsl/math/functions.glsl>
 #include <irr/builtin/glsl/format/decode.glsl>
 
-MC_precomputed_t precomputeData()
+MC_precomputed_t precomputeData(in bool frontface)
 {
 	MC_precomputed_t p;
 	p.N = irr_glsl_MC_getNormalizedWorldSpaceN();
 	p.V = irr_glsl_MC_getNormalizedWorldSpaceV();
-	p.NdotV = dot(p.N, p.V);
+	p.frontface = frontface;
 	p.pos = irr_glsl_MC_getWorldSpacePosition();
 
 	return p;
@@ -92,7 +92,7 @@ bool instr_getSigmaATexPresence(in instr_t instr)
 }
 bool instr_getTransmittanceTexPresence(in instr_t instr)
 {
-	return instr_get1stParamTexPresence(instr);
+	return instr_get2ndParamTexPresence(instr);
 }
 bool instr_getWeightTexPresence(in instr_t instr)
 {
@@ -329,11 +329,12 @@ void setCurrInteraction(in vec3 N, in vec3 V, in vec3 pos)
 }
 void setCurrInteraction(in MC_precomputed_t precomp)
 {
-	setCurrInteraction(precomp.NdotV > 0.0 ? precomp.N : -precomp.N, precomp.V, precomp.pos);
+	setCurrInteraction(precomp.frontface ? precomp.N : -precomp.N, precomp.V, precomp.pos);
 }
 void updateCurrInteraction(in MC_precomputed_t precomp, in vec3 N)
 {
-	setCurrInteraction(precomp.NdotV > 0.0 ? N : -N, precomp.V, precomp.pos);
+	// precomputed normals already have correct orientation
+	setCurrInteraction(N, precomp.V, precomp.pos);
 }
 
 //clamping alpha to min MIN_ALPHA because we're using microfacet BxDFs for deltas as well (and NDFs often end up NaN when given alpha=0) because of less deivergence
@@ -364,11 +365,10 @@ vec3 params_getTransmittance(in params_t p)
 	return p[PARAMS_TRANSMITTANCE_IX];
 }
 
-bxdf_eval_t instr_execute_cos_eval_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in vec3 eta, in vec3 eta2, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache microfacet, in bsdf_data_t data, out float out_weight)
+bxdf_eval_t instr_execute_cos_eval_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in vec3 eta, in vec3 eta2, in irr_glsl_LightSample s, in bsdf_data_t data, out float out_weight)
 {
 	//vec3 thickness_sigma = params_getSigmaA(params);
-	
-	vec3 ws = irr_glsl_fresnel_dielectric_frontface_only(eta, microfacet.isotropic.VdotH);
+
 	// TODO include thickness_sigma in diffuse weight computation: exp(sigma_thickness * freePath)
 	// freePath = ( sqrt(refract_compute_NdotT2(NdotL2, rcpOrientedEta2)) + sqrt(refract_compute_NdotT2(NdotV2, rcpOrientedEta2)) )
 	vec3 fresnelNdotV = irr_glsl_fresnel_dielectric_frontface_only(eta, currInteraction.isotropic.NdotV);
@@ -379,15 +379,15 @@ bxdf_eval_t instr_execute_cos_eval_COATING(in instr_t instr, in mat2x4 srcs, in 
 
 	out_weight = dot(fresnelNdotV, CIE_XYZ_Luma_Y_coeffs);
 
-	return coat*ws + coated*wd;
+	return coat + coated*wd;
 }
 
-eval_and_pdf_t instr_execute_cos_eval_pdf_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in vec3 eta, in vec3 eta2, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache microfacet, in bsdf_data_t data)
+eval_and_pdf_t instr_execute_cos_eval_pdf_COATING(in instr_t instr, in mat2x4 srcs, in params_t params, in vec3 eta, in vec3 eta2, in irr_glsl_LightSample s, in bsdf_data_t data)
 {
 	//float thickness = uintBitsToFloat(data.data[2].z);
 
 	float weight;
-	bxdf_eval_t bxdf = instr_execute_cos_eval_COATING(instr, srcs, params, eta, eta2, s, microfacet, data, weight);
+	bxdf_eval_t bxdf = instr_execute_cos_eval_COATING(instr, srcs, params, eta, eta2, s, data, weight);
 	float coat_pdf = srcs[0].w;
 	float coated_pdf = srcs[1].w;
 
@@ -822,7 +822,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 		BEGIN_CASES(op)
 #ifdef OP_COATING
 		CASE_BEGIN(op, OP_COATING) {
-			result = instr_execute_cos_eval_pdf_COATING(instr, srcs, params, ior[0], ior2[0], s, microfacet, bsdf_data);
+			result = instr_execute_cos_eval_pdf_COATING(instr, srcs, params, ior[0], ior2[0], s, bsdf_data);
 		} CASE_END
 #endif
 #ifdef OP_BLEND
@@ -904,11 +904,12 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	uint ix = 0u;
 	instr_t instr = irr_glsl_MC_fetchInstr(stream.offset);
 	uint op = instr_getOpcode(instr);
-	float weight = 1.0;
 	vec3 u = rand;
 
+	out_pdf = 1.0;
+
 	setCurrInteraction(precomp);
-	bool is_plastic = false;
+	bool is_coat = false;
 	while (!op_isBXDF(op))
 	{
 #ifdef OP_BLEND
@@ -922,7 +923,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 
 			uint right = instr_getRightJump(instr);
 			ix = choseRight ? right:(ix+1u);
-			weight /= rcpChoiceProb;
+			out_pdf /= rcpChoiceProb;
 		}
 		else 
 #endif //OP_BLEND
@@ -937,9 +938,9 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 
 			uint coated_ix = instr_getRightJump(instr);
 			ix = choseCoated ? coated_ix:(ix+1u);
-			weight /= rcpChoiceProb;
+			out_pdf /= rcpChoiceProb;
 
-			is_plastic = true;
+			is_coat = !choseCoated;
 		} else
 #endif //OP_COATING
 		{
@@ -975,7 +976,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	const float ay2 = ay*ay;
 	const mat2x3 ior = bsdf_data_decodeIoR(bsdf_data,op);
 	const mat2x3 ior2 = matrixCompMult(ior,ior);
-	const bool is_bsdf = !op_isBRDF(op) && !is_plastic;
+	const bool is_bsdf = !op_isBRDF(op) && !is_coat;
 	const vec3 albedo = params_getReflectance(params);
 
 	float pdf = 1.0;
@@ -1067,21 +1068,23 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		float VdotH = dot(localH, localV);
 		float VdotH_clamp = irr_glsl_conditionalAbsOrMax(is_bsdf, VdotH, 0.0);
 		vec3 fr;
+		bool refraction = false;
 #ifdef OP_CONDUCTOR
 		if (op == OP_CONDUCTOR)
+		{
 			fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH_clamp);
+			rem *= fr;
+		}
 		else
 #endif
+		{
 			fr = irr_glsl_fresnel_dielectric_common(ior2[0], VdotH_clamp);
-		const float refractionProb = colorToScalar(fr);
-		float rcpChoiceProb;
-		const bool refraction = is_bsdf ? irr_glsl_partitionRandVariable(refractionProb, u.z, rcpChoiceProb) : false;
-		rcpChoiceProb = is_bsdf ? rcpChoiceProb : 1.0;
-#ifdef OP_CONDUCTOR
-		if (op == OP_CONDUCTOR)
-			rem *= fr;
-#endif
-		pdf /= rcpChoiceProb;
+
+			const float refractionProb = colorToScalar(fr);
+			float rcpChoiceProb;
+			refraction = irr_glsl_partitionRandVariable(refractionProb, u.z, rcpChoiceProb);
+			pdf /= rcpChoiceProb;
+		}
 		float eta = colorToScalar(ior[0]);
 		float rcpEta = 1.0/eta;
 
@@ -1134,7 +1137,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	{} //empty braces for `else`
 
 	out_remainder = rem;
-	out_pdf = weight*pdf; 
+	out_pdf *= pdf; 
 
 	return s;
 }

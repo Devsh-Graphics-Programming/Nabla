@@ -237,6 +237,11 @@ struct irr_glsl_AnisotropicMicrofacetCache
     float BdotH;
 };
 
+bool irr_glsl_isValidVNDFMicrofacet(in irr_glsl_IsotropicMicrofacetCache microfacet, in bool is_bsdf, in bool transmission, in float VdotL, in float eta, in float rcp_eta)
+{
+    return microfacet.NdotH >= 0.0 && !(is_bsdf && transmission && (VdotL > -min(eta, rcp_eta)));
+}
+
 // returns if the configuration of V and L can be achieved 
 bool irr_glsl_calcIsotropicMicrofacetCache(out irr_glsl_IsotropicMicrofacetCache _cache, in bool transmitted, in vec3 V, in vec3 L, in vec3 N, in float NdotL, in float VdotL, in float orientedEta, in float rcpOrientedEta, out vec3 H)
 {

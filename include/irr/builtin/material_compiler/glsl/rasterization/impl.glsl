@@ -31,28 +31,63 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 
 	if (is_bxdf && positiveCosFactor)
 	{
-		const float ior_scalar = colorToScalar(ior[0]);
-		float bxdf_eval_scalar_part;
-		uint ndf = instr_getNDF(instr);
-		float a = params_getAlpha(params);
-		float a2 = a*a;
-		float ay = params_getAlphaV(params);
-		float ay2 = ay*ay;
-		const vec3 albedo = params_getReflectance(params);
+		float eta;
+		float rcp_eta;
 
-		bool is_valid = true;
+		const float NdotV = irr_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.isotropic.NdotV, 0.0);
+
+		bool is_valid = (NdotV > FLT_MIN);
 		bool refraction = false;
 #ifndef NO_BSDF
 		//here actually using stronger check for BSDF because it's probably worth it
-		if (op_isBSDF(op) && irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV, s.NdotL))
+		if (is_bsdf)
 		{
-			is_valid = irr_glsl_calcAnisotropicMicrofacetCache(microfacet, true, currInteraction.isotropic.V.dir, s.L, currInteraction.T, currInteraction.B, currInteraction.isotropic.N, s.NdotL, s.VdotL, ior_scalar, 1.0/ior_scalar);
-			refraction = true;
-		}
+			eta = colorToScalar(ior[0]);
+			rcp_eta = 1.0 / eta;
+			if (irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV, s.NdotL))
+			{
+				is_valid = irr_glsl_calcAnisotropicMicrofacetCache(microfacet, true, currInteraction.isotropic.V.dir, s.L, currInteraction.T, currInteraction.B, currInteraction.isotropic.N, s.NdotL, s.VdotL, eta, rcp_eta);
+				refraction = true;
+			}
+		} 
+		else
 #endif
+		{
+			microfacet = _microfacet;
+		}
 
 		if (is_valid)
 		{
+			float bxdf_eval_scalar_part;
+			const uint ndf = instr_getNDF(instr);
+			const float a = params_getAlpha(params);
+			const float a2 = a*a;
+#ifndef ALL_ISOTROPIC_BXDFS
+			const float ay = params_getAlphaV(params);
+			const float ay2 = ay*ay;
+#endif
+			const vec3 albedo = params_getReflectance(params);
+
+			const float NdotL = cosFactor;
+			const float NdotL2 = s.NdotL2;
+#ifndef ALL_ISOTROPIC_BXDFS
+			const float TdotL2 = s.TdotL * s.TdotL;
+			const float BdotL2 = s.BdotL * s.BdotL;
+#endif
+
+			const float NdotV2 = currInteraction.isotropic.NdotV_squared;
+#ifndef ALL_ISOTROPIC_BXDFS
+			const float TdotV2 = currInteraction.TdotV * currInteraction.TdotV;
+			const float BdotV2 = currInteraction.BdotV * currInteraction.BdotV;
+#endif
+
+			const float NdotH = irr_glsl_conditionalAbsOrMax(is_bsdf, microfacet.isotropic.NdotH, 0.0);
+			const float NdotH2 = microfacet.isotropic.NdotH2;
+#ifndef ALL_ISOTROPIC_BXDFS
+			const float TdotH2 = microfacet.TdotH * microfacet.TdotH;
+			const float BdotH2 = microfacet.BdotH * microfacet.BdotH;
+#endif
+
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
 			if (op_isDiffuse(op))
 			{
@@ -66,9 +101,9 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 #ifdef NDF_GGX
 				CASE_BEGIN(ndf, NDF_GGX) {
 #ifdef ALL_ISOTROPIC_BXDFS
-					bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG(s, microfacet.isotropic, currInteraction.isotropic, a2);
+					bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG_wo_clamps(NdotH2, NdotL, NdotL2, NdotV, NdotV2, a2);
 #else
-					bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_aniso_cos_eval_DG(s, microfacet, currInteraction, a, a2, ay, ay2);
+					bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_aniso_cos_eval_DG_wo_clamps(NdotH2, TdotH2, BdotH2, NdotL, NdotL2, TdotL2, BdotL2, NdotV, NdotV2, TdotV2, BdotV2, ax, ax2, ay, ay2);
 #endif
 				} CASE_END
 #endif
@@ -76,9 +111,9 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 #ifdef NDF_BECKMANN
 				CASE_BEGIN(ndf, NDF_BECKMANN) {
 #ifdef ALL_ISOTROPIC_BXDFS
-					bxdf_eval_scalar_part = irr_glsl_beckmann_height_correlated_cos_eval_DG(s, microfacet.isotropic, currInteraction.isotropic, a2);
+					bxdf_eval_scalar_part = irr_glsl_beckmann_height_correlated_cos_eval_DG_wo_clamps(NdotH2, NdotL2, NdotV2, a2);
 #else
-					bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG(s, microfacet, currInteraction, a, a2, ay, ay2);
+					bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG_wo_clamps(NdotH2, TdotH2, BdotH2, NdotL2, TdotL2, BdotL2, NdotV2, TdotV2, BdotV2, ax, ax2, ay, ay2);
 #endif
 				} CASE_END
 #endif
@@ -87,10 +122,10 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 				CASE_BEGIN(ndf, NDF_PHONG) {
 					float n = irr_glsl_alpha2_to_phong_exp(a2);
 #ifdef ALL_ISOTROPIC_BXDFS
-					bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(s, microfacet.isotropic, currInteraction.isotropic, n, a2);
+					bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, NdotV2, NdotL2, n, a2);
 #else
 					float ny = irr_glsl_alpha2_to_phong_exp(ay2);
-					bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG(s, microfacet, currInteraction, n, ny, a2, ay2);
+					bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, NdotH2, TdotH2, BdotH2, TdotL2, BdotL2, TdotV2, BdotV2, NdotV2, NdotL2, nx, ny, ax2, ay2);
 #endif
 				} CASE_END
 #endif
@@ -109,13 +144,9 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 #endif
 					fr = irr_glsl_fresnel_dielectric_common(ior2[0], VdotH_clamp);
 
-				const float NdotL = cosFactor;
-				const float NdotV = irr_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.isotropic.NdotV, 0.0);
 #ifndef NO_BSDF
 				if (is_bsdf)
 				{
-					float eta = ior_scalar;
-
 					float LdotH = microfacet.isotropic.LdotH;
 					float VdotHLdotH = VdotH * LdotH;
 #ifdef NDF_GGX
@@ -126,12 +157,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 						bxdf_eval_scalar_part = irr_glsl_microfacet_to_light_measure_transform(bxdf_eval_scalar_part, NdotV, refraction, VdotH, LdotH, VdotHLdotH, eta);
 				}
 #endif
-
-				bxdf_eval = bxdf_eval_t(bxdf_eval_scalar_part);
-#ifdef OP_CONDUCTOR
-				if (op == OP_CONDUCTOR)
-					bxdf_eval *= fr;
-#endif
+				bxdf_eval = fr * bxdf_eval_scalar_part;
 			} else
 #endif
 			{}
@@ -147,7 +173,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 #ifdef OP_COATING
 		CASE_BEGIN(op, OP_COATING) {
 			float dummy;
-			result = instr_execute_cos_eval_COATING(instr, srcs, params, ior[0], ior2[0], s, microfacet, bsdf_data, dummy);
+			result = instr_execute_cos_eval_COATING(instr, srcs, params, ior[0], ior2[0], s, bsdf_data, dummy);
 		} CASE_END
 #endif
 #ifdef OP_BLEND

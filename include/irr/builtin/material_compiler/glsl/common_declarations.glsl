@@ -33,7 +33,7 @@ struct MC_precomputed_t
 	vec3 N;
 	vec3 V;
 	vec3 pos;
-	float NdotV;
+	bool frontface;
 };
 
 #define CIE_XYZ_Luma_Y_coeffs transpose(irr_glsl_sRGBtoXYZ)[1]

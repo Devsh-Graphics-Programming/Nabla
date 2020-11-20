@@ -182,7 +182,7 @@ _IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
 instr_stream_t getEvalStream(in MC_precomputed_t precomp)
 {
 	instr_stream_t stream;
-	if (precomp.NdotV > 0.0)
+	if (precomp.frontface)
 	{
 		stream.offset = InstData.data[InstanceIndex].front_instr_offset;
 		stream.count = InstData.data[InstanceIndex].front_rem_pdf_count;
@@ -203,7 +203,7 @@ instr_stream_t getRemAndPdfStream(in MC_precomputed_t precomp)
 instr_stream_t getGenChoiceStream(in MC_precomputed_t precomp)
 {
 	instr_stream_t stream;
-	if (precomp.NdotV > 0.0)
+	if (precomp.frontface)
 	{
 		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count;
 		stream.count =  InstData.data[InstanceIndex].front_genchoice_count;
@@ -219,7 +219,7 @@ instr_stream_t getGenChoiceStream(in MC_precomputed_t precomp)
 instr_stream_t getTexPrefetchStream(in MC_precomputed_t precomp)
 {
 	instr_stream_t stream;
-	if (precomp.NdotV > 0.0)
+	if (precomp.frontface)
 	{
 		stream.offset = InstData.data[InstanceIndex].front_prefetch_offset;
 		stream.count = InstData.data[InstanceIndex].front_prefetch_count;
@@ -235,7 +235,7 @@ instr_stream_t getTexPrefetchStream(in MC_precomputed_t precomp)
 instr_stream_t getNormalPrecompStream(in MC_precomputed_t precomp)
 {
 	instr_stream_t stream;
-	if (precomp.NdotV > 0.0)
+	if (precomp.frontface)
 	{
 		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count + InstData.data[InstanceIndex].front_genchoice_count;
 		stream.count = InstData.data[InstanceIndex].front_nprecomp_count;
@@ -283,7 +283,9 @@ void main()
 {
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
-	MC_precomputed_t precomp = precomputeData();
+	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
+	const bool front = !gl_FrontFacing;
+	MC_precomputed_t precomp = precomputeData(front);
 #ifdef TEX_PREFETCH_STREAM
 	runTexPrefetchStream(getTexPrefetchStream(precomp), UV, dUV);
 #endif
