@@ -12,8 +12,6 @@ using namespace core;
 
 #define kHardwareInstancesTOTAL (kNumHardwareInstancesX*kNumHardwareInstancesY*kNumHardwareInstancesZ)
 
-
-//!Same As Last Example
 class MyEventReceiver : public IEventReceiver
 {
 public:
@@ -42,8 +40,8 @@ public:
 private:
 };
 
-constexpr size_t minTestsCnt = 10000u;
-constexpr size_t maxTestsCnt = 20000u;
+constexpr size_t minTestsCnt = 100u;
+constexpr size_t maxTestsCnt = 200u;
 constexpr size_t maxAlignmentExp = 12u;                         // 4096
 constexpr size_t minVirtualMemoryBufferSize = 2048;             // 2kB
 constexpr size_t maxVirtualMemoryBufferSize = 2147483648;       // 2GB
@@ -89,9 +87,32 @@ class AllocatorHandler
 public:
 	void executeAllocatorTest()
 	{
-		const uint32_t testsCnt = rng.getRndAllocCnt();
-		for (size_t i = 0; i < testsCnt; ++i)
-			executeForFrame();
+		uint32_t testsCnt = rng.getRndAllocCnt();
+
+		for (size_t i = 0; i < testsCnt; i++)
+		{
+			AlctrType alctr;
+			RandParams randAllocParams = getRandParams();
+			void* reservedSpace = nullptr;
+
+			if constexpr (std::is_same<AlctrType, core::LinearAddressAllocator<uint32_t>>::value)
+			{
+				alctr = AlctrType(nullptr, randAllocParams.offset, randAllocParams.alignOffset, randAllocParams.maxAlign, randAllocParams.addressSpaceSize);
+			}
+			else
+			{
+				const auto reservedSize = AlctrType::reserved_size(randAllocParams.maxAlign, randAllocParams.addressSpaceSize, randAllocParams.blockSz);
+				reservedSpace = _NBL_ALIGNED_MALLOC(reservedSize, _NBL_SIMD_ALIGNMENT);
+				alctr = AlctrType(reservedSpace, randAllocParams.offset, randAllocParams.alignOffset, randAllocParams.maxAlign, randAllocParams.addressSpaceSize, randAllocParams.blockSz);
+			}
+
+			testsCnt = rng.getRndAllocCnt();
+			for (size_t i = 0; i < testsCnt; i++)
+				executeForFrame(alctr, randAllocParams);
+
+			if constexpr (!std::is_same<AlctrType, core::LinearAddressAllocator<uint32_t>>::value)
+				_NBL_ALIGNED_FREE(reservedSpace);
+		}
 	}
 
 private:
@@ -112,23 +133,8 @@ private:
 	};
 
 private:
-	void executeForFrame()
+	void executeForFrame(AlctrType& alctr, RandParams& randAllocParams)
 	{
-		RandParams randAllocParams = getRandParams();
-		void* reservedSpace = nullptr;
-		AlctrType alctr;
-
-		if constexpr (std::is_same<AlctrType, core::LinearAddressAllocator<uint32_t>>::value)
-		{
-			alctr = AlctrType(nullptr, randAllocParams.offset, randAllocParams.alignOffset, randAllocParams.maxAlign, randAllocParams.addressSpaceSize);
-		}
-		else
-		{
-			const auto reservedSize = AlctrType::reserved_size(randAllocParams.maxAlign, randAllocParams.addressSpaceSize, randAllocParams.blockSz);
-			reservedSpace = _NBL_ALIGNED_MALLOC(reservedSize, _NBL_SIMD_ALIGNMENT);
-			alctr = AlctrType(reservedSpace, randAllocParams.offset, randAllocParams.alignOffset, randAllocParams.maxAlign, randAllocParams.addressSpaceSize, randAllocParams.blockSz);
-		}
-
 		// randomly decide how many `multi_allocs` to do
 		const uint32_t multiAllocCnt = rng.getRandomNumber(1u, 500u);
 		for (uint32_t i = 0u; i < multiAllocCnt; i++)
@@ -166,10 +172,11 @@ private:
 					randFreeAllocatedAddresses(alctr);
 			}
 		}
-		 
-		if constexpr (!std::is_same<AlctrType, core::LinearAddressAllocator<uint32_t>>::value)
-			_NBL_ALIGNED_FREE(reservedSpace);
-
+		else
+		{
+			alctr.reset();
+			results.clear();
+		}
 	}
 
 	// random dealloc function
@@ -284,13 +291,18 @@ private:
 template<>
 void AllocatorHandler<core::LinearAddressAllocator<uint32_t>>::randFreeAllocatedAddresses(core::LinearAddressAllocator<uint32_t>& alctr)
 {
-	alctr.reset();
-	results.clear();
+	const bool performReset = rng.getRandomNumber(1, 10) == 1 ? true : false;
+
+	if (performReset)
+	{
+		alctr.reset();
+		results.clear();
+	}
 }
 
 int main()
 {
-	
+
 	// Allocator test
 	{
 		{
