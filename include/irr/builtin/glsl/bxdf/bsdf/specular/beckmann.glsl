@@ -163,11 +163,16 @@ float irr_glsl_beckmann_smith_height_correlated_dielectric_cos_eval_and_pdf(out 
     const float NdotL2 = _sample.NdotL2;
     const float NdotV2 = interaction.NdotV_squared;
 
-    //(in bool transmitted, in float reflectance, in float ndf, in float absNdotV, in float NdotV2, in float VdotH, in float LdotH, in float VdotHLdotH, in float a2, in float orientedEta, out float onePlusLambda_V
-    pdf = irr_glsl_beckmann_dielectric_pdf_wo_clamps(transmitted, reflectance, ndf, absNdotV, NdotV2, _cache.VdotH, _cache.LdotH, VdotHLdotH, a2, orientedEta, dummy);
-    return irr_glsl_beckmann_smith_height_correlated_dielectric_cos_eval_wo_clamps(NdotH2, NdotL2, absNdotV, NdotV2, transmitted, _cache.VdotH, _cache.LdotH, VdotHLdotH, orientedEta, orientedEta2, a2);
-}
+    float remainder = irr_glsl_beckmann_dielectric_cos_remainder_and_pdf_wo_clamps(
+        pdf,
+        ndf, transmitted, NdotL2, absNdotV,
+        NdotV2, VdotH, LdotH, VdotHLdotH,
+        reflectance, orientedEta,
+        a2
+    );
 
+    return remainder*pdf;
+}
 
 float irr_glsl_beckmann_aniso_smith_height_correlated_dielectric_cos_eval_wo_clamps(
     in float NdotH2, in float TdotH2, in float BdotH2,
@@ -242,16 +247,17 @@ float irr_glsl_beckmann_aniso_smith_height_correlated_dielectric_cos_eval_and_pd
     const float VdotHLdotH = VdotH*_cache.isotropic.LdotH;
     const bool transmitted = VdotHLdotH<0.0;
 
-    pdf = irr_glsl_beckmann_dielectric_pdf_wo_clamps(
-        transmitted, reflectance, ndf, absNdotV, TdotV2, BdotV2, NdotV2, VdotH, LdotH,
-        VdotHLdotH, ax2, ay2, orientedEta, dummy
+    float remainder = irr_glsl_beckmann_aniso_dielectric_cos_remainder_and_pdf_wo_clamps(
+        pdf,
+        ndf, transmitted, 
+        _sample.NdotL2, TdotL2, BdotL2,
+        absNdotV, TdotV2, BdotV2, NdotV2,
+        VdotH, LdotH, VdotHLdotH,
+        reflectance, orientedEta,
+        ax2, ay2
     );
 
-    return irr_glsl_beckmann_aniso_smith_height_correlated_dielectric_cos_eval_wo_clamps(
-        _cache.isotropic.NdotH2, TdotH2, BdotH2, _sample.NdotL2, TdotL2, BdotL2, absNdotV,
-        NdotV2, TdotV2, BdotV2, transmitted, VdotH, LdotH,
-        VdotHLdotH, orientedEta, orientedEta2, ax, ax2, ay, ay2
-    );
+    return remainder * pdf;
 }
 
 #endif

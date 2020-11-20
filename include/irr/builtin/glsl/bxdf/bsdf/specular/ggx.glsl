@@ -136,6 +136,15 @@ float irr_glsl_ggx_dielectric_pdf_wo_clamps(in bool transmitted, in float reflec
     return irr_glsl_ggx_dielectric_pdf_wo_clamps(transmitted,reflectance, ndf,devsh_v, absNdotV, VdotH,LdotH,VdotHLdotH, orientedEta);
 }
 
+float irr_glsl_ggx_dielectric_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in bool transmitted, in float absNdotL, in float NdotL2, in float absNdotV, in float NdotV2, in float VdotH, in float LdotH, in float VdotHLdotH, in float reflectance, in float orientedEta, in float a2)
+{
+    const float one_minus_a2 = 1.0 - a2;
+    const float devsh_v = irr_glsl_smith_ggx_devsh_part(NdotV2, a2, one_minus_a2);
+    pdf = irr_glsl_ggx_dielectric_pdf_wo_clamps(transmitted, reflectance, ndf, devsh_v, absNdotV, VdotH, LdotH, VdotHLdotH, orientedEta);
+
+    return irr_glsl_ggx_smith_G2_over_G1_devsh(absNdotL, NdotL2, absNdotV, devsh_v, a2, one_minus_a2);
+}
+
 // before calling you must ensure that `irr_glsl_AnisotropicMicrofacetCache` is valid (if a given V vector can "see" the L vector)
 float irr_glsl_ggx_height_correlated_dielectric_cos_eval_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_IsotropicMicrofacetCache _cache, in float eta, in float a2)
 {
@@ -149,24 +158,25 @@ float irr_glsl_ggx_height_correlated_dielectric_cos_eval_and_pdf(out float pdf, 
     const float absNdotV = abs(interaction.NdotV);
     const float NdotV2 = interaction.NdotV_squared;
 
+    const float absNdotL = abs(_sample.NdotL);
+    const float NdotL2 = _sample.NdotL2;
+
     const float reflectance = irr_glsl_fresnel_dielectric_common(orientedEta2, abs(_cache.VdotH));
 
-    pdf = irr_glsl_ggx_dielectric_pdf_wo_clamps(transmitted, reflectance, _cache.NdotH2, absNdotV, NdotV2, _cache.VdotH, _cache.LdotH, a2, orientedEta);
+    const float ndf = irr_glsl_ggx_trowbridge_reitz(a2, _cache.NdotH2);
 
-    return irr_glsl_ggx_height_correlated_dielectric_cos_eval_wo_clamps(
-        _cache.NdotH2, abs(_sample.NdotL), _sample.NdotL2,
-        abs(interaction.NdotV), interaction.NdotV_squared,
-        transmitted, _cache.VdotH, _cache.LdotH, VdotHLdotH, orientedEta, orientedEta2, a2
+    float remainder = irr_glsl_ggx_dielectric_cos_remainder_and_pdf_wo_clamps(
+        pdf,
+        ndf, transmitted, 
+        absNdotL, NdotL2,
+        absNdotV, NdotV2,
+        _cache.VdotH, _cache.LdotH,
+        VdotHLdotH, reflectance,
+        orientedEta,
+        a2
     );
-}
 
-float irr_glsl_ggx_dielectric_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in bool transmitted, in float absNdotL, in float NdotL2, in float absNdotV, in float NdotV2, in float VdotH, in float LdotH, in float VdotHLdotH, in float reflectance, in float orientedEta, in float a2)
-{
-    const float one_minus_a2 = 1.0 - a2;
-    const float devsh_v = irr_glsl_smith_ggx_devsh_part(NdotV2, a2, one_minus_a2);
-    pdf = irr_glsl_ggx_dielectric_pdf_wo_clamps(transmitted,reflectance, ndf,devsh_v, absNdotV, VdotH,LdotH,VdotHLdotH, orientedEta);
-
-    return irr_glsl_ggx_smith_G2_over_G1_devsh(absNdotL, NdotL2, absNdotV, devsh_v, a2, one_minus_a2);
+    return remainder * pdf;
 }
 
 float irr_glsl_ggx_dielectric_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_IsotropicMicrofacetCache _cache, in float eta, in float a2)
@@ -226,6 +236,45 @@ float irr_glsl_ggx_aniso_dielectric_cos_remainder_and_pdf(out float pdf, in irr_
 
     const float absNdotV = abs(interaction.isotropic.NdotV);
 	return irr_glsl_ggx_aniso_dielectric_cos_remainder_and_pdf_wo_clamps(pdf,ndf,transmitted, abs(_sample.NdotL),_sample.NdotL2,TdotL2,BdotL2, absNdotV,TdotV2,BdotV2,interaction.isotropic.NdotV_squared, VdotH,_cache.isotropic.LdotH,VdotHLdotH, reflectance,orientedEta, ax2,ay2);
+}
+
+float irr_glsl_ggx_aniso_height_correlated_dielectric_cos_eval_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_AnisotropicMicrofacetCache _cache, in float eta, in float ax, in float ay)
+{
+    float orientedEta, dummy;
+    const bool backside = irr_glsl_getOrientedEtas(orientedEta, dummy, _cache.isotropic.VdotH, eta);
+    const float orientedEta2 = orientedEta * orientedEta;
+
+    const float VdotHLdotH = _cache.isotropic.VdotH * _cache.isotropic.LdotH;
+    const bool transmitted = VdotHLdotH < 0.0;
+
+    const float absNdotV = abs(interaction.isotropic.NdotV);
+    const float NdotV2 = interaction.isotropic.NdotV_squared;
+    const float TdotV2 = interaction.TdotV * interaction.TdotV;
+    const float BdotV2 = interaction.BdotV * interaction.BdotV;
+
+    const float absNdotL = abs(_sample.NdotL);
+    const float NdotL2 = _sample.NdotL2;
+    const float TdotL2 = _sample.TdotL * _sample.TdotL;
+    const float BdotL2 = _sample.BdotL * _sample.BdotL;
+
+    const float reflectance = irr_glsl_fresnel_dielectric_common(orientedEta2, abs(_cache.isotropic.VdotH));
+
+    const float ax2 = ax * ax;
+    const float ay2 = ay * ay;
+
+    const float ndf = irr_glsl_ggx_aniso(_cache.TdotH2, _cache.BdotH2, _cache.isotropic.NdotH2, ax, ay, ax2, ay2);
+
+    float remainder = irr_glsl_ggx_aniso_dielectric_cos_remainder_and_pdf_wo_clamps(
+        pdf,
+        ndf, transmitted,
+        absNdotL, NdotL2, TdotL2, BdotL2,
+        absNdotV, TdotV2, BdotV2, NdotV2,
+        _cache.isotropic.VdotH, _cache.isotropic.LdotH,
+        VdotHLdotH, reflectance, orientedEta,
+        ax2, ay2
+    );
+
+    return remainder * pdf;
 }
 
 #endif
