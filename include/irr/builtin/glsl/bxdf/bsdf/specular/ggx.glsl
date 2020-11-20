@@ -262,7 +262,7 @@ float irr_glsl_ggx_aniso_height_correlated_dielectric_cos_eval_and_pdf(out float
     const float ax2 = ax * ax;
     const float ay2 = ay * ay;
 
-    const float ndf = irr_glsl_ggx_aniso(_cache.TdotH2, _cache.BdotH2, _cache.isotropic.NdotH2, ax, ay, ax2, ay2);
+    const float ndf = irr_glsl_ggx_aniso(_cache.TdotH*_cache.TdotH, _cache.BdotH*_cache.BdotH, _cache.isotropic.NdotH2, ax, ay, ax2, ay2);
 
     float remainder = irr_glsl_ggx_aniso_dielectric_cos_remainder_and_pdf_wo_clamps(
         pdf,

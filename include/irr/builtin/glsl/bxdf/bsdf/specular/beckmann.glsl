@@ -166,7 +166,7 @@ float irr_glsl_beckmann_smith_height_correlated_dielectric_cos_eval_and_pdf(out 
     float remainder = irr_glsl_beckmann_dielectric_cos_remainder_and_pdf_wo_clamps(
         pdf,
         ndf, transmitted, NdotL2, absNdotV,
-        NdotV2, VdotH, LdotH, VdotHLdotH,
+        NdotV2, _cache.VdotH, _cache.LdotH, VdotHLdotH,
         reflectance, orientedEta,
         a2
     );

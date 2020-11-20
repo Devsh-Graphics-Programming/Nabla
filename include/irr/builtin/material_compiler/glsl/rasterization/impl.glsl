@@ -3,7 +3,7 @@
 
 #include <irr/builtin/material_compiler/glsl/common.glsl>
 
-void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache _microfacet)
+void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache _microfacet, in bool skip)
 {
 	const uint op = instr_getOpcode(instr);
 	const bool is_bxdf = op_isBXDF(op);
@@ -19,7 +19,9 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 	irr_glsl_AnisotropicMicrofacetCache microfacet;
 	bsdf_data_t bsdf_data;
 
-	if (is_bxdf_or_combiner)
+	const bool run = !skip;
+
+	if (run && is_bxdf_or_combiner)
 	{
 		bsdf_data = fetchBSDFDataForInstr(instr);
 		ior = bsdf_data_decodeIoR(bsdf_data, op);
@@ -29,7 +31,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 
 	bxdf_eval_t bxdf_eval = bxdf_eval_t(0.0);
 
-	if (is_bxdf && positiveCosFactor)
+	if (run && is_bxdf && positiveCosFactor)
 	{
 		const float eta = colorToScalar(ior[0]);
 		const float rcp_eta = 1.0 / eta;
@@ -53,6 +55,9 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 #if defined(OP_DIELECTRIC) || defined(OP_CONDUCTOR)
 		is_valid = irr_glsl_isValidVNDFMicrofacet(microfacet.isotropic, is_bsdf, refraction, s.VdotL, eta, rcp_eta);
 #endif
+		const vec3 albedo = params_getReflectance(params);
+		const float a = params_getAlpha(params);
+		const float a2 = a * a;
 
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
 		if (op_isDiffuse(op))
@@ -66,14 +71,11 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 		{
 			float bxdf_eval_scalar_part;
 			const uint ndf = instr_getNDF(instr);
-			const float a = params_getAlpha(params);
-			const float a2 = a*a;
+
 #ifndef ALL_ISOTROPIC_BXDFS
 			const float ay = params_getAlphaV(params);
 			const float ay2 = ay*ay;
 #endif
-			const vec3 albedo = params_getReflectance(params);
-
 			const float NdotL = cosFactor;
 			const float NdotL2 = s.NdotL2;
 #ifndef ALL_ISOTROPIC_BXDFS
@@ -206,7 +208,15 @@ bxdf_eval_t runEvalStream(in MC_precomputed_t precomp, in instr_stream_t stream,
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
 		uint op = instr_getOpcode(instr);
 
-		instr_eval_execute(instr, precomp, s, microfacet);
+		bool skip = false;
+#ifdef OP_THINDIELECTRIC
+		skip = skip || (op == OP_THINDIELECTRIC);
+#endif
+#ifdef OP_DELTATRANS
+		skip = skip || (op == OP_DELTATRANS);
+#endif
+
+		instr_eval_execute(instr, precomp, s, microfacet, skip);
 
 #if defined(OP_SET_GEOM_NORMAL)||defined(OP_BUMPMAP)
 		if (
