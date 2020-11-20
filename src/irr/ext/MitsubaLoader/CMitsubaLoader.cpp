@@ -1793,7 +1793,7 @@ SContext::SContext(
 	samplerCacheKeyBase(inner.mainFile->getFileName().c_str() + "?sampler"s)
 {
 	backend_ctx.vt.vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(
-		[](asset::E_FORMAT_CLASS) -> uint32_t { return 4u; }, // 16x16 tiles per layer for all dynamically created storages
+		[](asset::E_FORMAT_CLASS) -> uint32_t { return VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2; }, // 16x16 tiles per layer for all dynamically created storages
 		VT_PAGE_SZ_LOG2, 
 		VT_PAGE_PADDING, 
 		VT_MAX_ALLOCATABLE_TEX_SZ_LOG2
