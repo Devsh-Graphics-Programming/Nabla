@@ -152,12 +152,11 @@ private:
 			}
 
 			// run random dealloc function
-			// linear address allocator is always reseted here
 			randFreeAllocatedAddresses(alctr);
 		}
 
 		// randomly choose between reset and freeing all `core::vector` elements
-		if constexpr (!std::is_same<AlctrType, core::LinearAddressAllocator<uint32_t>>::value) //linear address allocator is always reseted in the `randFreeAllocatedAddresses()`
+		if constexpr (!std::is_same<AlctrType, core::LinearAddressAllocator<uint32_t>>::value)
 		{
 			bool reset = static_cast<bool>(rng.getRandomNumber(0u, 1u));
 			if (reset)
