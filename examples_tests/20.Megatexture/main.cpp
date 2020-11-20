@@ -23,7 +23,7 @@ R"(
     #define _IRR_VT_PAGE_TABLE_BINDING 0
 
     #define _IRR_VT_FLOAT_VIEWS_BINDING 1 
-    #define _IRR_VT_FLOAT_VIEWS_COUNT 3
+    #define _IRR_VT_FLOAT_VIEWS_COUNT %u
     #define _IRR_VT_FLOAT_VIEWS
 
     #define _IRR_VT_INT_VIEWS_BINDING 2
@@ -110,10 +110,8 @@ layout (push_constant) uniform Block {
 
 using STextureData = asset::ICPUVirtualTexture::SMasterTextureData;
 
-constexpr uint32_t PGTAB_LAYERS = 64u;
 constexpr uint32_t PAGE_SZ_LOG2 = 7u;
 constexpr uint32_t TILES_PER_DIM_LOG2 = 4u;
-constexpr uint32_t PHYS_ADDR_TEX_LAYERS = 20u;
 constexpr uint32_t PAGE_PADDING = 8u;
 constexpr uint32_t MAX_ALLOCATABLE_TEX_SZ_LOG2 = 12u; //4096
 
@@ -121,7 +119,16 @@ constexpr uint32_t VT_SET = 0u;
 constexpr uint32_t PGTAB_BINDING = 0u;
 constexpr uint32_t PHYSICAL_STORAGE_VIEWS_BINDING = 1u;
 
-STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualTexture* _vt, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
+struct commit_t
+{
+    STextureData addr;
+    core::smart_refctd_ptr<asset::ICPUImage> texture;
+    asset::ICPUImage::SSubresourceRange subresource;
+    asset::ICPUSampler::E_TEXTURE_CLAMP uwrap;
+    asset::ICPUSampler::E_TEXTURE_CLAMP vwrap;
+    asset::ICPUSampler::E_TEXTURE_BORDER_COLOR border;
+};
+STextureData getTextureData(core::vector<commit_t>& _out_commits, const asset::ICPUImage* _img, asset::ICPUVirtualTexture* _vt, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
 {
     const auto& extent = _img->getCreationParameters().extent;
 
@@ -134,7 +141,10 @@ STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualText
     subres.layerCount = 1u;
 
     auto addr = _vt->alloc(_img->getCreationParameters().format, imgAndOrigSz.second, subres, _uwrap, _vwrap);
-    _vt->commit(addr, imgAndOrigSz.first.get(), subres, _uwrap, _vwrap, _borderColor);
+    commit_t cm{ addr, std::move(imgAndOrigSz.first), subres, _uwrap, _vwrap, _borderColor };
+
+    _out_commits.push_back(cm);
+
     return addr;
 }
 
@@ -181,7 +191,7 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
     std::string glsl(begin,end);
 
     std::string prelude(strlen(SHADER_OVERRIDES)+500u,'\0');
-    sprintf(prelude.data(), SHADER_OVERRIDES, _vt->getGLSLFunctionsIncludePath().c_str());
+    sprintf(prelude.data(), SHADER_OVERRIDES, _vt->getFloatViews().size(), _vt->getGLSLFunctionsIncludePath().c_str());
     prelude.resize(strlen(prelude.c_str()));
 
     size_t firstNewlineAfterVersion = glsl.find("\n",glsl.find("#version "));
@@ -267,66 +277,10 @@ int main()
     auto* smgr = device->getSceneManager();
     auto* am = device->getAssetManager();
 
-    constexpr uint32_t VT_COUNT = 3u;
-
-    core::smart_refctd_ptr<asset::ICPUVirtualTexture> vt;
-    {
-        std::array<asset::ICPUVirtualTexture::ICPUVTResidentStorage::SCreationParams,VT_COUNT> storage;
-        storage[0].formatClass = asset::EFC_8_BIT;
-        storage[0].layerCount = PHYS_ADDR_TEX_LAYERS;
-        storage[0].tilesPerDim_log2 = TILES_PER_DIM_LOG2;
-        storage[0].formatCount = 1u;
-        asset::E_FORMAT fmt1[1]{ asset::EF_R8_UNORM };
-        storage[0].formats = fmt1;
-        storage[1].formatClass = asset::EFC_24_BIT;
-        storage[1].layerCount = PHYS_ADDR_TEX_LAYERS;
-        storage[1].tilesPerDim_log2 = TILES_PER_DIM_LOG2;
-        storage[1].formatCount = 1u;
-        asset::E_FORMAT fmt2[1]{ asset::EF_R8G8B8_SRGB };
-        storage[1].formats = fmt2;
-        storage[2].formatClass = asset::EFC_32_BIT;
-        storage[2].layerCount = PHYS_ADDR_TEX_LAYERS;
-        storage[2].tilesPerDim_log2 = TILES_PER_DIM_LOG2;
-        storage[2].formatCount = 1u;
-        asset::E_FORMAT fmt3[1]{ asset::EF_R8G8B8A8_SRGB };
-        storage[2].formats = fmt3;
-
-        vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(storage.data(), storage.size(), PAGE_SZ_LOG2, PGTAB_LAYERS, PAGE_PADDING, MAX_ALLOCATABLE_TEX_SZ_LOG2);
-    }
+    core::smart_refctd_ptr<asset::ICPUVirtualTexture> vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>([](asset::E_FORMAT_CLASS) -> uint32_t { return TILES_PER_DIM_LOG2; }, PAGE_SZ_LOG2, PAGE_PADDING, MAX_ALLOCATABLE_TEX_SZ_LOG2);
 
     core::unordered_map<core::smart_refctd_ptr<asset::ICPUImage>, STextureData> VTtexDataMap;
     core::unordered_map<core::smart_refctd_ptr<asset::ICPUSpecializedShader>, core::smart_refctd_ptr<asset::ICPUSpecializedShader>> modifiedShaders;
-
-    core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds0layout;
-    {
-        auto sizes = vt->getDSlayoutBindings(nullptr, nullptr);
-        auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSetLayout::SBinding>>(sizes.first);
-        auto samplers = core::make_refctd_dynamic_array< core::smart_refctd_dynamic_array<core::smart_refctd_ptr<asset::ICPUSampler>>>(sizes.second);
-
-        vt->getDSlayoutBindings(bindings->data(), samplers->data(), PGTAB_BINDING, PHYSICAL_STORAGE_VIEWS_BINDING);
-
-        ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings->data(), bindings->data()+bindings->size());
-    }
-    core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds2layout;
-    {
-        std::array<asset::ICPUDescriptorSetLayout::SBinding,1> bnd;
-        bnd[0].binding = 0u;
-        bnd[0].count = 1u;
-        bnd[0].samplers = nullptr;
-        bnd[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-        bnd[0].type = asset::EDT_STORAGE_BUFFER;
-        ds2layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bnd.data(),bnd.data()+bnd.size());
-    }
-
-    core::smart_refctd_ptr<asset::ICPUPipelineLayout> pipelineLayout;
-    {
-        asset::SPushConstantRange pcrng;
-        pcrng.offset = 0;
-        pcrng.size = 128;
-        pcrng.stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-
-        pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pcrng, &pcrng+1, core::smart_refctd_ptr(ds0layout), nullptr, core::smart_refctd_ptr(ds2layout), nullptr);
-    }
 
     device->getFileSystem()->addFileArchive("../../media/sponza.zip");
 
@@ -335,6 +289,8 @@ int main()
     assert(!meshes_bundle.isEmpty());
     auto mesh = meshes_bundle.getContents().begin()[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
+
+    core::vector<commit_t> vt_commits;
     //modifying push constants and default fragment shader for VT
     for (uint32_t i = 0u; i < mesh_raw->getMeshBufferCount(); ++i)
     {
@@ -365,33 +321,17 @@ int main()
                 texData = found->second;
             else {
                 const asset::E_FORMAT fmt = img->getCreationParameters().format;
-                texData = getTextureData(img.get(), vt.get(), uwrap, vwrap, borderColor);
+                texData = getTextureData(vt_commits, img.get(), vt.get(), uwrap, vwrap, borderColor);
                 VTtexDataMap.insert({img,texData});
             }
 
             static_assert(sizeof(texData)==sizeof(pushConsts.map_data[0]), "wrong reinterpret_cast");
             pushConsts.map_data[k] = reinterpret_cast<uint64_t*>(&texData)[0];
         }
+
         auto* pipeline = mb->getPipeline();
-        auto newPipeline = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(pipeline->clone(0u));//shallow copy
-        //leave original ds1 layout since it's for UBO with matrices
-        if (!pipelineLayout->getDescriptorSetLayout(1u))
-            pipelineLayout->setDescriptorSetLayout(1u, core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(pipeline->getLayout()->getDescriptorSetLayout(1u)));
-        newPipeline->setLayout(core::smart_refctd_ptr(pipelineLayout));
-        {
-            auto* fs = pipeline->getShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX);
-            auto found = modifiedShaders.find(core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs));
-            core::smart_refctd_ptr<asset::ICPUSpecializedShader> newfs;
-            if (found != modifiedShaders.end())
-                newfs = found->second;
-            else {
-                newfs = createModifiedFragShader(fs,vt.get());
-                modifiedShaders.insert({core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs),newfs});
-            }
-            newPipeline->setShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, newfs.get());
-        }
         auto* metadata = static_cast<asset::CMTLPipelineMetadata*>( pipeline->getMetadata() );
-        am->setAssetMetadata(newPipeline.get(), core::smart_refctd_ptr<asset::IAssetMetadata>(metadata));
+
         //copy texture presence flags
         pushConsts.extra = metadata->getMaterialParams().extra;
         pushConsts.ambient = metadata->getMaterialParams().ambient;
@@ -406,10 +346,72 @@ int main()
         //we dont want this DS to be converted into GPU DS, so set to nullptr
         //dont worry about deletion of textures (invalidation of pointers), they're grabbed in VTtexDataMap
         mb->setAttachedDescriptorSet(nullptr);
+    }
+
+    core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds0layout;
+    {
+        auto sizes = vt->getDSlayoutBindings(nullptr, nullptr);
+        auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSetLayout::SBinding>>(sizes.first);
+        auto samplers = core::make_refctd_dynamic_array< core::smart_refctd_dynamic_array<core::smart_refctd_ptr<asset::ICPUSampler>>>(sizes.second);
+
+        vt->getDSlayoutBindings(bindings->data(), samplers->data(), PGTAB_BINDING, PHYSICAL_STORAGE_VIEWS_BINDING);
+
+        ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings->data(), bindings->data() + bindings->size());
+    }
+    core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds2layout;
+    {
+        std::array<asset::ICPUDescriptorSetLayout::SBinding, 1> bnd;
+        bnd[0].binding = 0u;
+        bnd[0].count = 1u;
+        bnd[0].samplers = nullptr;
+        bnd[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+        bnd[0].type = asset::EDT_STORAGE_BUFFER;
+        ds2layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bnd.data(), bnd.data() + bnd.size());
+    }
+
+    core::smart_refctd_ptr<asset::ICPUPipelineLayout> pipelineLayout;
+    {
+        asset::SPushConstantRange pcrng;
+        pcrng.offset = 0;
+        pcrng.size = 128;
+        pcrng.stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+
+        pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pcrng, &pcrng + 1, core::smart_refctd_ptr(ds0layout), nullptr, core::smart_refctd_ptr(ds2layout), nullptr);
+    }
+
+    for (uint32_t i = 0u; i < mesh_raw->getMeshBufferCount(); ++i)
+    {
+        auto* mb = mesh_raw->getMeshBuffer(i);
+
+        auto* pipeline = mb->getPipeline();
+        auto newPipeline = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(pipeline->clone(0u));//shallow copy
+        //leave original ds1 layout since it's for UBO with matrices
+        if (!pipelineLayout->getDescriptorSetLayout(1u))
+            pipelineLayout->setDescriptorSetLayout(1u, core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(pipeline->getLayout()->getDescriptorSetLayout(1u)));
+        newPipeline->setLayout(core::smart_refctd_ptr(pipelineLayout));
+        {
+            auto* fs = pipeline->getShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX);
+            auto found = modifiedShaders.find(core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs));
+            core::smart_refctd_ptr<asset::ICPUSpecializedShader> newfs;
+            if (found != modifiedShaders.end())
+                newfs = found->second;
+            else {
+                newfs = createModifiedFragShader(fs, vt.get());
+                modifiedShaders.insert({ core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs),newfs });
+            }
+            newPipeline->setShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, newfs.get());
+        }
+        auto* metadata = static_cast<asset::CMTLPipelineMetadata*>(pipeline->getMetadata());
+        am->setAssetMetadata(newPipeline.get(), core::smart_refctd_ptr<asset::IAssetMetadata>(metadata));
 
         //set new pipeline (with overriden FS and layout)
         mb->setPipeline(std::move(newPipeline));
-        //optionally adjust push constant ranges, but at worst it'll just be specified too much because MTL uses all 128 bytes
+    }
+
+    vt->shrink();
+    for (const auto& cm : vt_commits)
+    {
+        vt->commit(cm.addr, cm.texture.get(), cm.subresource, cm.uwrap, cm.vwrap, cm.border);
     }
 
     auto gpuvt = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(driver, vt.get());
