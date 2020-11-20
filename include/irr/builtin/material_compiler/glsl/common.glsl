@@ -498,7 +498,7 @@ void runNormalPrecompStream(in instr_stream_t stream, in mat2 dUV, in MC_precomp
 }
 
 #ifdef GEN_CHOICE_STREAM
-void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache _microfacet)
+void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, in irr_glsl_LightSample s, in irr_glsl_AnisotropicMicrofacetCache _microfacet, in bool skip)
 {
 	const uint op = instr_getOpcode(instr);
 	const bool is_bxdf = op_isBXDF(op);
@@ -515,7 +515,9 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 	mat2x3 ior2;
 	irr_glsl_AnisotropicMicrofacetCache microfacet;
 
-	if (is_bxdf_or_combiner)
+	const bool run = !skip;
+
+	if (is_bxdf_or_combiner && run)
 	{
 		bsdf_data = fetchBSDFDataForInstr(instr);
 		ior = bsdf_data_decodeIoR(bsdf_data, op);
@@ -526,7 +528,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 	vec3 eval = vec3(0.0);
 	float pdf = 0.0;
 
-	if (is_bxdf)
+	if (is_bxdf && run)
 	{
 		//speculative execution
 		uint ndf = instr_getNDF(instr);
@@ -571,7 +573,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 		else
 #endif
 #if defined(OP_CONDUCTOR) || defined(OP_DIELECTRIC)
-		if (is_valid)
+		if (is_valid && a > ALPHA_EPSILON)
 		{
 			const float TdotV2 = currInteraction.TdotV * currInteraction.TdotV;
 			const float BdotV2 = currInteraction.BdotV * currInteraction.BdotV;
@@ -733,16 +735,7 @@ eval_and_pdf_t irr_bsdf_eval_and_pdf(in MC_precomputed_t precomp, in instr_strea
 		skip = skip || (op == OP_DELTATRANS);
 #endif
 
-		if (skip)
-		{
-			//assert(isBXDF(instr));
-			uvec3 regs = instr_decodeRegisters(instr);
-			writeReg(REG_DST(regs), eval_and_pdf_t(0.0));
-		}
-		else
-		{
-			instr_eval_and_pdf_execute(instr, precomp, s, microfacet);
-		}
+		instr_eval_and_pdf_execute(instr, precomp, s, microfacet, skip);
 
 #if defined(OP_SET_GEOM_NORMAL)||defined(OP_BUMPMAP)
 		if (

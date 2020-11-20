@@ -67,7 +67,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 		else
 #endif
 #if defined(OP_CONDUCTOR) || defined(OP_DIELECTRIC)
-		if (is_valid)
+		if (is_valid && a > ALPHA_EPSILON)
 		{
 			float bxdf_eval_scalar_part;
 			const uint ndf = instr_getNDF(instr);

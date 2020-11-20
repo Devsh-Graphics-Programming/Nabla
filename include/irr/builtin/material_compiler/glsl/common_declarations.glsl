@@ -36,6 +36,8 @@ struct MC_precomputed_t
 	bool frontface;
 };
 
+#define ALPHA_EPSILON 1.0e-08
+
 #define CIE_XYZ_Luma_Y_coeffs transpose(irr_glsl_sRGBtoXYZ)[1]
 
 //#define MATERIAL_COMPILER_USE_SWTICH
