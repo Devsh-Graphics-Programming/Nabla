@@ -42,6 +42,7 @@
 #define IRR_GLSL_ADD(X,Y) (IRR_GLSL_EVAL(X)+IRR_GLSL_EVAL(Y))
 #define IRR_GLSL_SUB(X,Y) (IRR_GLSL_EVAL(X)-IRR_GLSL_EVAL(Y))
 
+// https://github.com/google/shaderc/issues/1155
 //#define IRR_GLSL_MAX(X,Y) (((IRR_GLSL_EVAL(X))>(IRR_GLSL_EVAL(Y))) ? (IRR_GLSL_EVAL(X)):(IRR_GLSL_EVAL(Y)))
 //#define IRR_GLSL_MIN(X,Y) (((IRR_GLSL_EVAL(X))<(IRR_GLSL_EVAL(Y))) ? (IRR_GLSL_EVAL(X)):(IRR_GLSL_EVAL(Y)))
 

@@ -2,11 +2,10 @@
 #define _IRR_BUILTIN_GLSL_WORKGROUP_VOTE_INCLUDED_
 
 
-#include <irr/builtin/glsl/workgroup/basic.glsl>
+
+#include <irr/builtin/glsl/workgroup/shared_vote.glsl>
 
 
-// TODO: depending on subgroup extensions available this will vary in size (usually divided by the subgroup size lower bound)
-#define _IRR_GLSL_WORKGROUP_VOTE_SHARED_SIZE_NEEDED_  1
 
 #ifdef _IRR_GLSL_SCRATCH_SHARED_DEFINED_
 	#if IRR_GLSL_EVAL(_IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_)<IRR_GLSL_EVAL(_IRR_GLSL_WORKGROUP_VOTE_SHARED_SIZE_NEEDED_)
@@ -15,6 +14,7 @@
 #else
 	#if _IRR_GLSL_WORKGROUP_VOTE_SHARED_SIZE_NEEDED_>0
 		#define _IRR_GLSL_SCRATCH_SHARED_DEFINED_ irr_glsl_workgroupVoteScratchShared
+		#define _IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ _IRR_GLSL_WORKGROUP_VOTE_SHARED_SIZE_NEEDED_
 		shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_WORKGROUP_VOTE_SHARED_SIZE_NEEDED_];
 	#endif
 #endif

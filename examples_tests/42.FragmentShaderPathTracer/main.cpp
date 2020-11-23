@@ -146,6 +146,13 @@ struct ShaderParameters
 	const uint32_t MaxSamplesLog2 = 10; //18
 } kShaderParameters;
 
+enum E_LIGHT_GEOMETRY
+{
+	ELG_SPHERE,
+	ELG_TRIANGLE,
+	ELG_RECTANGLE
+};
+
 int main()
 {
 	irr::SIrrlichtCreationParameters params;
@@ -250,8 +257,9 @@ int main()
 		return { gpuPipeline, gpuMeshBuffer };
 	};
 
-	constexpr bool litByTriangle = false;
-	auto gpuEnvmapResources = createGpuResources(litByTriangle ? "../litByTriangle.frag":"../litBySphere.frag");
+	E_LIGHT_GEOMETRY lightGeom = ELG_RECTANGLE;
+	constexpr const char* shaderPaths[] = {"../litBySphere.frag","../litByTriangle.frag","../litByRectangle.frag"};
+	auto gpuEnvmapResources = createGpuResources(shaderPaths[lightGeom]);
 	auto gpuEnvmapPipeline = gpuEnvmapResources.first;
 	auto gpuEnvmapMeshBuffer = gpuEnvmapResources.second;
 
