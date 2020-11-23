@@ -688,18 +688,25 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 			}
 #endif
 
-			eval = vec3(eval_scalar_part);
-#ifdef OP_CONDUCTOR
-			if (op == OP_CONDUCTOR)
-				eval *= fr;
-			else
-#endif
+#ifndef NO_BSDF
+			if (is_bsdf)
 			{
+				float LdotH = microfacet.isotropic.LdotH;
+				float VdotHLdotH = microfacet.isotropic.VdotH * LdotH;
+				LdotH = abs(LdotH);
+#ifdef NDF_GGX
+				if (ndf == NDF_GGX)
+					eval_scalar_part = irr_glsl_ggx_microfacet_to_light_measure_transform(eval_scalar_part, NdotL, refraction, VdotH, LdotH, VdotHLdotH, eta);
+				else
+#endif
+					eval_scalar_part = irr_glsl_microfacet_to_light_measure_transform(eval_scalar_part, NdotV, refraction, VdotH, LdotH, VdotHLdotH, eta);
+
 				float reflectance = colorToScalar(fr);
 				reflectance = refraction ? (1.0 - reflectance) : reflectance;
 				pdf *= reflectance;
-				eval *= reflectance;
 			}
+#endif 
+			eval = fr * eval_scalar_part;
 		} else
 #endif
 		{}
