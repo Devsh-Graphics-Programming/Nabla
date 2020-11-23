@@ -17,12 +17,12 @@ namespace material_compiler
 
 	class CInterpreter
 	{
-		static inline IR::INode* getCoatNode(IR* ir, tmp_bxdf_translation_cache_t* cache, const IR::CCoatingBSDFNode* coat_blend)
+		static inline IR::INode* getCoatNode(IR* ir, tmp_bxdf_translation_cache_t* cache, const IR::CMicrofacetCoatingBSDFNode* coat_blend)
 		{
 			if (auto found = cache->find(coat_blend); found != cache->end())
 				return found->second;
 
-			auto* coat = ir->allocTmpNode<IR::CDielectricBSDFNode>();
+			auto* coat = ir->allocTmpNode<IR::CMicrofacetDielectricBSDFNode>();
 			{
 				coat->alpha_u = coat_blend->alpha_u;
 				coat->alpha_v = coat_blend->alpha_v;
@@ -154,7 +154,7 @@ namespace material_compiler
 			case instr_stream::OP_DIELECTRIC: [[fallthrough]];
 			case instr_stream::OP_THINDIELECTRIC:
 			{
-				auto* node = static_cast<const IR::CDielectricBSDFNode*>(_node);
+				auto* node = static_cast<const IR::CMicrofacetDielectricBSDFNode*>(_node);
 
 				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
 					_dst.dielectric.alpha_u.setTexture(packTexture(node->alpha_u.value.texture), node->alpha_u.value.texture.scale);
@@ -185,7 +185,7 @@ namespace material_compiler
 			break;
 			case instr_stream::OP_COATING:
 			{
-				auto* coat = static_cast<const IR::CCoatingBSDFNode*>(_node);
+				auto* coat = static_cast<const IR::CMicrofacetCoatingBSDFNode*>(_node);
 
 				/*
 				if (coat->alpha_u.source == IR::INode::EPS_TEXTURE)
@@ -379,7 +379,7 @@ namespace material_compiler
 			break;
 			case instr_stream::OP_COATING:
 			{
-				auto* coat = static_cast<const IR::CCoatingBSDFNode*>(_node);
+				auto* coat = static_cast<const IR::CMicrofacetCoatingBSDFNode*>(_node);
 
 				//_instr = handleSpecularBitfields(_instr, coat);
 				if (coat->thicknessSigmaA.source == IR::INode::EPS_TEXTURE)
@@ -679,9 +679,9 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 			instr = instr_stream::OP_CONDUCTOR; break;
 		case IR::CBSDFNode::ET_DELTA_TRANSMISSION:
 			instr = instr_stream::OP_DELTRATRANS; break;
-		case IR::CBSDFNode::ET_COATING:
+		case IR::CBSDFNode::ET_MICROFACET_COATING:
 		{
-			auto* coat_blend = static_cast<const IR::CCoatingBSDFNode*>(node);
+			auto* coat_blend = static_cast<const IR::CMicrofacetCoatingBSDFNode*>(node);
 			auto* coat = getCoatNode(ir, cache, coat_blend);
 
 			assert(node->children.count == 1u);
@@ -700,9 +700,9 @@ std::pair<instr_t, const IR::INode*> CInterpreter::processSubtree(IR* ir, const 
 				instr = instr_stream::OP_INVALID;
 		}
 			break;
-		case IR::CBSDFNode::ET_DIELECTRIC:
+		case IR::CBSDFNode::ET_MICROFACET_DIELECTRIC:
 		{
-			auto* dielectric = static_cast<const IR::CDielectricBSDFNode*>(node);
+			auto* dielectric = static_cast<const IR::CMicrofacetDielectricBSDFNode*>(node);
 			instr = dielectric->thin ? instr_stream::OP_THINDIELECTRIC : instr_stream::OP_DIELECTRIC;
 		}
 		break;

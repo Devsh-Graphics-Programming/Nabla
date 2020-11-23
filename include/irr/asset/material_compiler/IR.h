@@ -384,18 +384,18 @@ public:
                 *static_cast<CMicrofacetSpecularBSDFNode*>(node) = *rhs;
             }
             break;
-            case CBSDFNode::ET_COATING:
+            case CBSDFNode::ET_MICROFACET_COATING:
             {
-                auto* rhs = static_cast<const CCoatingBSDFNode*>(_rhs);
-                node = allocNode<CCoatingBSDFNode>();
-                *static_cast<CCoatingBSDFNode*>(node) = *rhs;
+                auto* rhs = static_cast<const CMicrofacetCoatingBSDFNode*>(_rhs);
+                node = allocNode<CMicrofacetCoatingBSDFNode>();
+                *static_cast<CMicrofacetCoatingBSDFNode*>(node) = *rhs;
             }
             break;
-            case CBSDFNode::ET_DIELECTRIC:
+            case CBSDFNode::ET_MICROFACET_DIELECTRIC:
             {
-                auto* rhs = static_cast<const CDielectricBSDFNode*>(_rhs);
-                node = allocNode<CDielectricBSDFNode>();
-                *static_cast<CDielectricBSDFNode*>(node) = *rhs;
+                auto* rhs = static_cast<const CMicrofacetDielectricBSDFNode*>(_rhs);
+                node = allocNode<CMicrofacetDielectricBSDFNode>();
+                *static_cast<CMicrofacetDielectricBSDFNode*>(node) = *rhs;
             }
             break;
             default:
@@ -519,11 +519,10 @@ public:
         enum E_TYPE
         {
             ET_MICROFACET_DIFFTRANS,
-            ET_SPECULAR_DELTA,
             ET_MICROFACET_DIFFUSE,
             ET_MICROFACET_SPECULAR,
-            ET_COATING,
-            ET_DIELECTRIC,
+            ET_MICROFACET_COATING,
+            ET_MICROFACET_DIELECTRIC,
             ET_DELTA_TRANSMISSION
             //ET_SHEEN,
         };
@@ -597,15 +596,15 @@ public:
 
         SParameter<color_t> transmittance = color_t(0.5f);
     };
-    struct CCoatingBSDFNode : CMicrofacetSpecularBSDFNode
+    struct CMicrofacetCoatingBSDFNode : CMicrofacetSpecularBSDFNode
     {
-        CCoatingBSDFNode() : CMicrofacetSpecularBSDFNode(ET_COATING) {}
+        CMicrofacetCoatingBSDFNode() : CMicrofacetSpecularBSDFNode(ET_MICROFACET_COATING) {}
 
         SParameter<color_t> thicknessSigmaA;
     };
-    struct CDielectricBSDFNode : CMicrofacetSpecularBSDFNode
+    struct CMicrofacetDielectricBSDFNode : CMicrofacetSpecularBSDFNode
     {
-        CDielectricBSDFNode() : CMicrofacetSpecularBSDFNode(ET_DIELECTRIC) {}
+        CMicrofacetDielectricBSDFNode() : CMicrofacetSpecularBSDFNode(ET_MICROFACET_DIELECTRIC) {}
         bool thin = false;
     };
 

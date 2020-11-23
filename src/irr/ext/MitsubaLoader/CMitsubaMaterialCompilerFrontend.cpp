@@ -175,8 +175,8 @@ namespace MitsubaLoader
         case CElementBSDF::PLASTIC:
         case CElementBSDF::ROUGHPLASTIC:
         {
-            ir_node = ir->allocNode<IR::CCoatingBSDFNode>();
-            auto* coat = static_cast<IR::CCoatingBSDFNode*>(ir_node);
+            ir_node = ir->allocNode<IR::CMicrofacetCoatingBSDFNode>();
+            auto* coat = static_cast<IR::CMicrofacetCoatingBSDFNode*>(ir_node);
             coat->children.count = 1u;
 
             auto& coated = ir_node->children[0];
@@ -208,7 +208,7 @@ namespace MitsubaLoader
         case CElementBSDF::THINDIELECTRIC:
         case CElementBSDF::ROUGHDIELECTRIC:
         {
-            auto* dielectric = ir->allocNode<IR::CDielectricBSDFNode>();
+            auto* dielectric = ir->allocNode<IR::CMicrofacetDielectricBSDFNode>();
             ir_node = dielectric;
 
             const float eta = _bsdf->dielectric.intIOR/_bsdf->dielectric.extIOR;
@@ -250,12 +250,12 @@ namespace MitsubaLoader
         case CElementBSDF::COATING:
         case CElementBSDF::ROUGHCOATING:
         {
-            ir_node = ir->allocNode<IR::CCoatingBSDFNode>();
+            ir_node = ir->allocNode<IR::CMicrofacetCoatingBSDFNode>();
             ir_node->children.count = 1u;
 
             const float eta = _bsdf->dielectric.intIOR/_bsdf->dielectric.extIOR;
 
-            auto* node = static_cast<IR::CCoatingBSDFNode*>(ir_node);
+            auto* node = static_cast<IR::CMicrofacetCoatingBSDFNode*>(ir_node);
 
             const float thickness = _bsdf->coating.thickness;
             getSpectrumOrTexture(_bsdf->coating.sigmaA, node->thicknessSigmaA);
@@ -265,7 +265,7 @@ namespace MitsubaLoader
                 node->thicknessSigmaA.value.texture.scale *= thickness;
 
             node->eta = IR::INode::color_t(eta);
-            node->shadowing = IR::CCoatingBSDFNode::EST_SMITH;
+            node->shadowing = IR::CMicrofacetCoatingBSDFNode::EST_SMITH;
             if (type == CElementBSDF::ROUGHCOATING)
             {
                 node->ndf = ndfMap[_bsdf->coating.distribution];
@@ -411,12 +411,12 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
         case IRNode::ES_BSDF:
         {
             auto* bsdf = static_cast<const IR::CBSDFNode*>(front);
-            if (bsdf->type == IR::CBSDFNode::ET_DIELECTRIC)
+            if (bsdf->type == IR::CBSDFNode::ET_MICROFACET_DIELECTRIC)
             {
-                auto* dielectric = static_cast<const IR::CDielectricBSDFNode*>(bsdf);
+                auto* dielectric = static_cast<const IR::CMicrofacetDielectricBSDFNode*>(bsdf);
                 if (!dielectric->thin) // do not copy thin dielectrics
                 {
-                    auto* copy = static_cast<IR::CDielectricBSDFNode*>(ir->copyNode(front));
+                    auto* copy = static_cast<IR::CMicrofacetDielectricBSDFNode*>(ir->copyNode(front));
                     copy->eta = IRNode::color_t(1.f) / copy->eta;
 
                     return copy;
