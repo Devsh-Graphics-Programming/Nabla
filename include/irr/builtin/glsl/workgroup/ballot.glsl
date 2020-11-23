@@ -228,10 +228,7 @@ uint irr_glsl_workgroupBallotFindMSB();
 			if (gl_LocalInvocationIndex<lastInvocation) \
 				_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex+1u] = firstLevelScan; \
 			barrier(); \
-			if (gl_LocalInvocationIndex<lastInvocation) \
-				return gl_LocalInvocationIndex!=0u ? CONV(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex]):IDENTITY; \
-			else \
-				return IDENTITY; \
+			return any(bvec2(gl_LocalInvocationIndex!=0u,gl_LocalInvocationIndex<=lastInvocation)) ? CONV(_IRR_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex]):IDENTITY; \
 	} \
 	else \
 		return CONV(firstLevelScan);

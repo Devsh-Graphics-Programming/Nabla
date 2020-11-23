@@ -295,7 +295,7 @@ int main()
 		for (uint32_t i=0u; i<BUFFER_DWORD_COUNT; i++)
 		{
 			// TODO: use random numbers, but right now I need to see whats going on in order to debug
-			inputData[i] = i;// randGenerator();
+			inputData[i] = randGenerator();
 		}
 	}
 	auto gpuinputDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(kBufferSize, inputData);
