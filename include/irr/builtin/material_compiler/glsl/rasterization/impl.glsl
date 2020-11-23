@@ -52,9 +52,6 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 			microfacet = _microfacet;
 		}
 
-#if defined(OP_DIELECTRIC) || defined(OP_CONDUCTOR)
-		is_valid = irr_glsl_isValidVNDFMicrofacet(microfacet.isotropic, is_bsdf, refraction, s.VdotL, eta, rcp_eta);
-#endif
 		const vec3 albedo = params_getReflectance(params);
 		const float a = params_getAlpha(params);
 		const float a2 = a * a;

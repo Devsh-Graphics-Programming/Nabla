@@ -491,8 +491,8 @@ public:
             ET_MIX,
             //blend of 2 BSDFs weighted by constant or texture
             ET_WEIGHT_BLEND,
-            //blend of 2 BSDFs weighted by fresnel
-            ET_FRESNEL_BLEND,
+            //for support of nvidia MDL's df::fresnel_layer
+            ET_LOL_MDL_SUX_BROKEN_FRESNEL_BLEND,
             //blend of 2 BSDFs weighted by custom direction-based curve
             ET_CUSTOM_CURVE_BLEND
         };

@@ -136,6 +136,11 @@ public:
 
     virtual E_MESH_BUFFER_TYPE getMeshBufferType() const { return EMBT_NOT_ANIMATED; }
 
+    inline uint32_t getAttribCombinedOffset(uint32_t attrId) const
+    {
+        const auto& buf = base_t::getAttribBoundBuffer(attrId);
+        return buf.offset + getPipeline()->getVertexInputParams().attributes[attrId].relativeOffset;
+    }
 	inline const SBufferBinding<ICPUBuffer>* getAttribBoundBuffer(uint32_t attrId) const
 	{
 		return &base_t::getAttribBoundBuffer(attrId);

@@ -1194,29 +1194,38 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 	for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
 		ctx.manipulator->flipSurfaces(mesh->getMeshBuffer(i));
 
-	if (faceNormals || !std::isnan(maxSmoothAngle))
+#define OPTIMIZE_MESHES
+
+	auto newMesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
+	for (auto i = 0u; i < mesh->getMeshBufferCount(); ++i)
 	{
-		auto newMesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
-		float smoothAngleCos = cos(core::radians(maxSmoothAngle));
-		for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
+		asset::IMeshManipulator::SErrorMetric metrics[asset::ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
+		metrics[3].method = asset::IMeshManipulator::EEM_ANGLES;
+#ifdef OPTIMIZE_MESHES
+		auto newMeshBuffer = ctx.manipulator->createOptimizedMeshBuffer(mesh->getMeshBuffer(i), metrics);
+#else
+		auto newMeshBuffer = core::smart_refctd_ptr<asset::ICPUMeshBuffer>(mesh->getMeshBuffer(i));
+#endif
+		if (faceNormals || !std::isnan(maxSmoothAngle))
 		{
-			//ctx.manipulator->filterInvalidTriangles(mesh->getMeshBuffer(i));
-			auto newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(mesh->getMeshBuffer(i));
+			const float smoothAngleCos = cos(core::radians(maxSmoothAngle));
+
+			ctx.manipulator->filterInvalidTriangles(mesh->getMeshBuffer(i));
+			newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(mesh->getMeshBuffer(i));
 			ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, newMeshBuffer->getNormalAttributeIx(),
 				[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
 				{
 					if (faceNormals)
-						return a.indexOffset==b.indexOffset;
+						return a.indexOffset == b.indexOffset;
 					else
 						return core::dot(a.parentTriangleFaceNormal, b.parentTriangleFaceNormal).x >= smoothAngleCos;
 				});
-
-			newMesh->addMeshBuffer(std::move(newMeshBuffer));
 		}
-		newMesh->recalculateBoundingBox();
-		m_manager->setAssetMetadata(newMesh.get(), core::smart_refctd_ptr<asset::IAssetMetadata>(mesh->getMetadata()));
-		mesh = std::move(newMesh);
+		newMesh->addMeshBuffer(std::move(newMeshBuffer));
 	}
+	newMesh->recalculateBoundingBox();
+	m_manager->setAssetMetadata(newMesh.get(), core::smart_refctd_ptr<asset::IAssetMetadata>(mesh->getMetadata()));
+	mesh = std::move(newMesh);
 
 	addInstance(mesh);
 	// cache and return
