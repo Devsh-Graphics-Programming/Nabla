@@ -161,8 +161,7 @@ uint irr_glsl_workgroupBallotFindMSB();
 	uint firstLevelScan = INVCONV(INCLUSIVE_SUBGROUP_OP(false,VALUE)); \
 	uint scan = firstLevelScan; \
 	const bool possibleProp = pseudoSubgroupInvocation==loMask; \
-	const uint subgroupSizeLog2 = findLSB(irr_glsl_SubgroupSize); \
-	const uint pseudoSubgroupID = (gl_LocalInvocationIndex>>subgroupSizeLog2); \
+	const uint pseudoSubgroupID = gl_LocalInvocationIndex>>irr_glsl_SubgroupSizeLog2; \
 	const uint nextStoreIndex = irr_glsl_subgroup_getSubgroupEmulationMemoryStoreOffset(loMask,pseudoSubgroupID); \
 	uint scanStoreIndex = irr_glsl_subgroup_getSubgroupEmulationMemoryStoreOffset(loMask,lastInvocation)+gl_LocalInvocationIndex+1u; \
 	bool participate = gl_LocalInvocationIndex<=lastInvocationInLevel; \
@@ -175,7 +174,7 @@ uint irr_glsl_workgroupBallotFindMSB();
 				_IRR_GLSL_SCRATCH_SHARED_DEFINED_[nextStoreIndex] = scan; \
 		} \
 		barrier(); \
-		participate = gl_LocalInvocationIndex<=(lastInvocationInLevel>>=subgroupSizeLog2); \
+		participate = gl_LocalInvocationIndex<=(lastInvocationInLevel>>=irr_glsl_SubgroupSizeLog2); \
 		if (participate) \
 		{ \
 			const uint prevLevelScan = _IRR_GLSL_SCRATCH_SHARED_DEFINED_[subgroupScanStoreOffset]; \
@@ -193,7 +192,7 @@ uint irr_glsl_workgroupBallotFindMSB();
 				_IRR_GLSL_SCRATCH_SHARED_DEFINED_[nextStoreIndex] = scan; \
 		} \
 		barrier(); \
-		participate = gl_LocalInvocationIndex<=(lastInvocationInLevel>>=subgroupSizeLog2); \
+		participate = gl_LocalInvocationIndex<=(lastInvocationInLevel>>=irr_glsl_SubgroupSizeLog2); \
 		if (participate) \
 		{ \
 			const uint prevLevelScan = _IRR_GLSL_SCRATCH_SHARED_DEFINED_[subgroupScanStoreOffset]; \
@@ -208,7 +207,7 @@ uint irr_glsl_workgroupBallotFindMSB();
 		uint scanLoadIndex = scanStoreIndex+irr_glsl_SubgroupSize; \
 		const uint shiftedInvocationIndex = gl_LocalInvocationIndex+irr_glsl_SubgroupSize; \
 		const uint currentToHighLevel = pseudoSubgroupID-shiftedInvocationIndex; \
-		for (uint logShift=(findMSB(lastInvocation)/subgroupSizeLog2-1u)*subgroupSizeLog2; logShift>0u; logShift-=subgroupSizeLog2) \
+		for (uint logShift=(findMSB(lastInvocation)/irr_glsl_SubgroupSizeLog2-1u)*irr_glsl_SubgroupSizeLog2; logShift>0u; logShift-=irr_glsl_SubgroupSizeLog2) \
 		{ \
 			lastInvocationInLevel = lastInvocation>>logShift; \
 			barrier(); \

@@ -287,10 +287,9 @@ uint irr_glsl_workgroupExclusiveAdd2(uint val)
     barrier();
     memoryBarrierShared();
 	const bool propagateReduction = (gl_LocalInvocationIndex&loMask)==loMask;
-    const uint subgroupSizeLog2 = uint(findLSB(irr_glsl_SubgroupSize));
 	//uint firstLevelScan = INVCONV(FIRST_SUBGROUP_OP(false,VALUE));
 	//uint lastInvocationInLevel = lastInvocation;
-    const uint lowerIndex = gl_LocalInvocationIndex>>subgroupSizeLog2;
+    const uint lowerIndex = gl_LocalInvocationIndex>>irr_glsl_SubgroupSizeLog2;
 
     if (propagateReduction)
        _IRR_GLSL_SCRATCH_SHARED_DEFINED_[lowerIndex] = firstLevelScan;

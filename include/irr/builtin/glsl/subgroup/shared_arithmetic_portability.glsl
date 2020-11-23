@@ -18,7 +18,7 @@
 */
 
 #if defined(IRR_GLSL_SUBGROUP_SIZE_IS_CONSTEXPR)
-	#define IRR_GLSL_SUBGROUP_EMULATION_SCRATCH_BOUND(LAST_ITEM)  ((((IRR_GLSL_EVAL(LAST_ITEM)&(-irr_glsl_SubgroupSize))<<1)|(IRR_GLSL_EVAL(LAST_ITEM)&irr_glsl_SubgroupSize))+(irr_glsl_SubgroupSize>>1)+1)
+	#define IRR_GLSL_SUBGROUP_EMULATION_SCRATCH_BOUND(LAST_ITEM)  ((((IRR_GLSL_EVAL(LAST_ITEM)&(-irr_glsl_SubgroupSize))<<1)|(IRR_GLSL_EVAL(LAST_ITEM)&irr_glsl_SubgroupSize))+irr_glsl_HalfSubgroupSize+1)
 #else
 	#define IRR_GLSL_SUBGROUP_EMULATION_SCRATCH_BOUND(LAST_ITEM)  ((IRR_GLSL_EVAL(LAST_ITEM)<<1)+(irr_glsl_MaxSubgroupSize>>1)+1)
 #endif
