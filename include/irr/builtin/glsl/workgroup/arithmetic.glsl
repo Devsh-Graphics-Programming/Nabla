@@ -2,29 +2,37 @@
 #define _IRR_BUILTIN_GLSL_WORKGROUP_ARITHMETIC_INCLUDED_
 
 
+#include <irr/builtin/glsl/workgroup/shared_arithmetic.glsl>
+
+
+
+#ifdef _IRR_GLSL_SCRATCH_SHARED_DEFINED_
+	#if IRR_GLSL_EVAL(_IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_)<IRR_GLSL_EVAL(_IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_)
+		#error "Not enough shared memory declared"
+	#endif
+#else
+	#define _IRR_GLSL_SCRATCH_SHARED_DEFINED_ irr_glsl_workgroupArithmeticScratchShared
+	#define _IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ _IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_
+	shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_];
+#endif
+
+
+
 #include <irr/builtin/glsl/workgroup/clustered.glsl>
+
 
 
 /*
 #ifdef GL_KHR_subgroup_arithmetic
 
-
-// TODO: specialize for constexpr case (also remove the ugly `+4` its just the "number of passes" for the scan hierarchy
-#define _IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_  (_IRR_GLSL_WORKGROUP_SIZE_/(irr_glsl_MinSubgroupSize-1u)+4u+irr_glsl_MaxSubgroupSize)
-
 #define CONDITIONAL_BARRIER
-
 
 #else
 */
-
-// this is always greater than the case with native subgroup stuff, TODO: is it correct for small workgroups?
-#define _IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_  (_IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_)
-
 #define CONDITIONAL_BARRIER barrier();
 
-
 //#endif
+
 
 
 #define DECLARE_OVERLOAD_WITH_BARRIERS(TYPE,FUNC_NAME) TYPE irr_glsl_##FUNC_NAME (in TYPE val) \
@@ -34,18 +42,6 @@
 	barrier(); \
 	return retval; \
 }
-
-
- 
-#ifdef _IRR_GLSL_SCRATCH_SHARED_DEFINED_
-	#if IRR_GLSL_EVAL(_IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_)<IRR_GLSL_EVAL(_IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_)
-		#error "Not enough shared memory declared for workgroup arithmetic!"
-	#endif
-#else
-	#define _IRR_GLSL_SCRATCH_SHARED_DEFINED_ irr_glsl_workgroupArithmeticScratchShared
-	shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_];
-#endif
-
 
 
 // reduction

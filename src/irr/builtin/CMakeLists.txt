@@ -87,10 +87,13 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/sampling/cos_weighted.glsl"
   "irr/builtin/glsl/sampling/linear.glsl"
   "irr/builtin/glsl/sampling/projected_spherical_triangle.glsl"
+  #"irr/builtin/glsl/sampling/spherical_rectangle.glsl"
   "irr/builtin/glsl/sampling/spherical_triangle.glsl"
   # shapes
+  #"irr/builtin/glsl/shapes/rectangle.glsl"
   "irr/builtin/glsl/shapes/triangle.glsl"
   # subgroup emulation
+  "irr/builtin/glsl/subgroup/shared_arithmetic_portability.glsl"
   "irr/builtin/glsl/subgroup/basic_portability.glsl"
   "irr/builtin/glsl/subgroup/arithmetic_portability.glsl"
   # utilities
@@ -103,6 +106,13 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/virtual_texturing/extensions.glsl"
   "irr/builtin/glsl/virtual_texturing/impl_functions.glsl"
   # workgroup "intrinsics"
+  "irr/builtin/glsl/workgroup/shared_arithmetic.glsl"
+  "irr/builtin/glsl/workgroup/shared_ballot.glsl"
+  "irr/builtin/glsl/workgroup/shared_basic.glsl"
+  "irr/builtin/glsl/workgroup/shared_clustered.glsl"
+  "irr/builtin/glsl/workgroup/shared_shuffle.glsl"
+  "irr/builtin/glsl/workgroup/shared_shuffle_relative.glsl"
+  "irr/builtin/glsl/workgroup/shared_vote.glsl"
   "irr/builtin/glsl/workgroup/arithmetic.glsl"
   "irr/builtin/glsl/workgroup/ballot.glsl"
   "irr/builtin/glsl/workgroup/basic.glsl"

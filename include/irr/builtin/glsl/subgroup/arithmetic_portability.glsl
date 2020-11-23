@@ -2,9 +2,7 @@
 #define _IRR_BUILTIN_GLSL_SUBGROUP_ARITHMETIC_PORTABILITY_INCLUDED_
 
 
-#include <irr/builtin/glsl/limits/numeric.glsl>
-#include <irr/builtin/glsl/math/typeless_arithmetic.glsl>
-#include <irr/builtin/glsl/subgroup/basic_portability.glsl>
+#include <irr/builtin/glsl/subgroup/shared_arithmetic_portability.glsl>
 
 
 /* TODO: @Hazardu or someone finish the definitions as soon as Nabla can report Vulkan GLSL equivalent caps
@@ -24,8 +22,6 @@
 /*
 #ifdef GL_KHR_subgroup_arithmetic
 
-
-#define _IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_ 0
 
 
 #define irr_glsl_subgroupAdd subgroupAnd
@@ -112,14 +108,6 @@
 
 
 
-#if defined(IRR_GLSL_SUBGROUP_SIZE_IS_CONSTEXPR)
-	#define _IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_ROUNDED_WG_IMPL  (IRR_GLSL_EVAL((_IRR_GLSL_WORKGROUP_SIZE_+irr_glsl_SubgroupSize-1)&(-irr_glsl_SubgroupSize)))
-#else
-	#define _IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_ROUNDED_WG_IMPL  (IRR_GLSL_EVAL((_IRR_GLSL_WORKGROUP_SIZE_+irr_glsl_MaxSubgroupSize-1)&(-irr_glsl_MaxSubgroupSize)))
-#endif
-#define _IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_	(IRR_GLSL_EVAL(_IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_ROUNDED_WG_IMPL<<1))
-
-
 #ifdef _IRR_GLSL_SCRATCH_SHARED_DEFINED_
 	#if IRR_GLSL_LESS(_IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_,_IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_)
 		#error "Not enough shared memory declared"
@@ -127,6 +115,7 @@
 #else
 	#if IRR_GLSL_GREATER(_IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_,0)
 		#define _IRR_GLSL_SCRATCH_SHARED_DEFINED_ irr_glsl_subgroupArithmeticEmulationScratchShared
+		#define _IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ _IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_
 		shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_SUBGROUP_ARITHMETIC_EMULATION_SHARED_SIZE_NEEDED_];
 	#endif
 #endif
@@ -160,8 +149,17 @@ uint irr_glsl_subgroup_impl_getSubgroupEmulationMemoryStoreOffset(in uint subgro
 }
 uint irr_glsl_subgroup_impl_getSubgroupEmulationMemoryStoreOffset(in uint subgroupMemoryStart, in uint pseudoSubgroupInvocation)
 {
-	uint dummy = 0xdeadbeefu; // just so GLSL compilers shut the fuck up
+	uint dummy;
 	return irr_glsl_subgroup_impl_getSubgroupEmulationMemoryStoreOffset(subgroupMemoryStart,pseudoSubgroupInvocation,dummy);
+}
+uint irr_glsl_subgroup_getSubgroupEmulationMemoryStoreOffset(in uint loMask, in uint invocationIndex)
+{
+	return irr_glsl_subgroup_impl_getSubgroupEmulationMemoryStoreOffset(
+		irr_glsl_subgroup_impl_getSubgroupEmulationMemoryStart(
+			irr_glsl_subgroup_impl_pseudoSubgroupElectedInvocation(loMask,invocationIndex)
+		),
+		irr_glsl_subgroup_impl_pseudoSubgroupInvocation(loMask,invocationIndex)
+	);
 }
 
 #define SUBGROUP_SCRATCH_OFFSETS_AND_MASKS const uint loMask = irr_glsl_SubgroupSize-1u; \
