@@ -1194,7 +1194,8 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 	for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
 		ctx.manipulator->flipSurfaces(mesh->getMeshBuffer(i));
 
-#define OPTIMIZE_MESHES
+	//turned off by default, it's too slow (works though)
+//#define OPTIMIZE_MESHES
 
 	auto newMesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
 	for (auto i = 0u; i < mesh->getMeshBufferCount(); ++i)

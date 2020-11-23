@@ -9,7 +9,9 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 	const bool is_bxdf = op_isBXDF(op);
 	const bool is_bsdf = !op_isBRDF(op); //note it actually tells if op is BSDF or BUMPMAP or SET_GEOM_NORMAL (divergence reasons)
 	const float cosFactor = irr_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
-	const bool positiveCosFactor = cosFactor > FLT_MIN;
+	const float NdotV = irr_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.isotropic.NdotV, 0.0);
+	bool is_valid = (NdotV > FLT_MIN);
+	const bool positiveCosFactor = cosFactor > FLT_MIN && is_valid;
 	const bool is_bxdf_or_combiner = op_isBXDForCoatOrBlend(op);
 
 	uvec3 regs = instr_decodeRegisters(instr);
@@ -19,7 +21,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 	irr_glsl_AnisotropicMicrofacetCache microfacet;
 	bsdf_data_t bsdf_data;
 
-	const bool run = !skip;
+	const bool run = !skip && positiveCosFactor;
 
 	if (run && is_bxdf_or_combiner)
 	{
@@ -29,16 +31,13 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 		params = instr_getParameters(instr, bsdf_data);
 	}
 
-	bxdf_eval_t bxdf_eval = bxdf_eval_t(0.0);
+	bxdf_eval_t result = bxdf_eval_t(0.0);
 
-	if (run && is_bxdf && positiveCosFactor)
+	if (run && is_bxdf)
 	{
 		const float eta = colorToScalar(ior[0]);
 		const float rcp_eta = 1.0 / eta;
 
-		const float NdotV = irr_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.isotropic.NdotV, 0.0);
-
-		bool is_valid = (NdotV > FLT_MIN);
 		bool refraction = false;
 #ifdef OP_DIELECTRIC
 		if (op == OP_DIELECTRIC && irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV, s.NdotL))
@@ -59,7 +58,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
 		if (op_isDiffuse(op))
 		{
-			bxdf_eval = albedo * irr_glsl_oren_nayar_cos_eval(s, currInteraction.isotropic, a2);
+			result = albedo * irr_glsl_oren_nayar_cos_eval(s, currInteraction.isotropic, a2);
 		}
 		else
 #endif
@@ -131,14 +130,13 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 			END_CASES
 
 				float VdotH = microfacet.isotropic.VdotH;
-				float VdotH_clamp = irr_glsl_conditionalAbsOrMax(is_bsdf, VdotH, 0.0);
 				vec3 fr;
 #ifdef OP_CONDUCTOR
 				if (op == OP_CONDUCTOR)
-					fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH_clamp);
+					fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
 				else
 #endif
-					fr = irr_glsl_fresnel_dielectric_common(ior2[0], VdotH_clamp);
+					fr = irr_glsl_fresnel_dielectric_common(ior2[0], VdotH);
 
 #ifdef OP_DIELECTRIC
 				if (is_bsdf)
@@ -153,13 +151,12 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 						bxdf_eval_scalar_part = irr_glsl_microfacet_to_light_measure_transform(bxdf_eval_scalar_part, NdotV, refraction, VdotH, LdotH, VdotHLdotH, eta);
 				}
 #endif
-				bxdf_eval = fr * bxdf_eval_scalar_part;
+				result = fr * bxdf_eval_scalar_part;
 		} else
 #endif
 		{}
 	}
 
-	bxdf_eval_t result = bxdf_eval;
 	if (!is_bxdf)
 	{
 		mat2x4 srcs = instr_fetchSrcRegs(instr, regs);

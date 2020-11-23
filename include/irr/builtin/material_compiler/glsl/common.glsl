@@ -947,19 +947,18 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 
 		vec3 localL;
 		float VdotH = dot(localH, localV);
-		float VdotH_clamp = irr_glsl_conditionalAbsOrMax(is_bsdf, VdotH, 0.0);
 		vec3 fr;
 		bool refraction = false;
 #ifdef OP_CONDUCTOR
 		if (op == OP_CONDUCTOR)
 		{
-			fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH_clamp);
+			fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
 			rem *= fr;
 		}
 		else
 #endif
 		{
-			fr = irr_glsl_fresnel_dielectric_common(ior2[0], VdotH_clamp);
+			fr = irr_glsl_fresnel_dielectric_common(ior2[0], VdotH);
 
 			const float refractionProb = colorToScalar(fr);
 			float rcpChoiceProb;
