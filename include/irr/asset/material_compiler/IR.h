@@ -264,6 +264,12 @@ public:
         };
 
         _IRR_STATIC_INLINE_CONSTEXPR size_t MAX_CHILDREN = 16ull;
+        /*
+        * Possible TODO:
+        * we could implement the children array in the future as N nodes allocated just after this one (one would only need the child count)... 
+            but this would only be possible if the nodes were uniform bytesize.
+        That way there would be no artificial limit on max children in our IR (backends will still have limits)
+        */
         struct children_array_t {
             INode* array[MAX_CHILDREN] {};
             size_t count = 0ull;

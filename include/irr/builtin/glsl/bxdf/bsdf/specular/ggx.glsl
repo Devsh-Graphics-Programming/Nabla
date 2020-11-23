@@ -145,40 +145,6 @@ float irr_glsl_ggx_dielectric_cos_remainder_and_pdf_wo_clamps(out float pdf, in 
     return irr_glsl_ggx_smith_G2_over_G1_devsh(absNdotL, NdotL2, absNdotV, devsh_v, a2, one_minus_a2);
 }
 
-// before calling you must ensure that `irr_glsl_AnisotropicMicrofacetCache` is valid (if a given V vector can "see" the L vector)
-float irr_glsl_ggx_height_correlated_dielectric_cos_eval_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_IsotropicMicrofacetCache _cache, in float eta, in float a2)
-{
-    float orientedEta, dummy;
-    const bool backside = irr_glsl_getOrientedEtas(orientedEta, dummy, _cache.VdotH, eta);
-    const float orientedEta2 = orientedEta * orientedEta;
-
-    const float VdotHLdotH = _cache.VdotH * _cache.LdotH;
-    const bool transmitted = VdotHLdotH < 0.0;
-
-    const float absNdotV = abs(interaction.NdotV);
-    const float NdotV2 = interaction.NdotV_squared;
-
-    const float absNdotL = abs(_sample.NdotL);
-    const float NdotL2 = _sample.NdotL2;
-
-    const float reflectance = irr_glsl_fresnel_dielectric_common(orientedEta2, abs(_cache.VdotH));
-
-    const float ndf = irr_glsl_ggx_trowbridge_reitz(a2, _cache.NdotH2);
-
-    float remainder = irr_glsl_ggx_dielectric_cos_remainder_and_pdf_wo_clamps(
-        pdf,
-        ndf, transmitted, 
-        absNdotL, NdotL2,
-        absNdotV, NdotV2,
-        _cache.VdotH, _cache.LdotH,
-        VdotHLdotH, reflectance,
-        orientedEta,
-        a2
-    );
-
-    return remainder * pdf;
-}
-
 float irr_glsl_ggx_dielectric_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_IsotropicMicrofacetCache _cache, in float eta, in float a2)
 {    
     const float ndf = irr_glsl_ggx_trowbridge_reitz(a2, _cache.NdotH2);
@@ -236,45 +202,6 @@ float irr_glsl_ggx_aniso_dielectric_cos_remainder_and_pdf(out float pdf, in irr_
 
     const float absNdotV = abs(interaction.isotropic.NdotV);
 	return irr_glsl_ggx_aniso_dielectric_cos_remainder_and_pdf_wo_clamps(pdf,ndf,transmitted, abs(_sample.NdotL),_sample.NdotL2,TdotL2,BdotL2, absNdotV,TdotV2,BdotV2,interaction.isotropic.NdotV_squared, VdotH,_cache.isotropic.LdotH,VdotHLdotH, reflectance,orientedEta, ax2,ay2);
-}
-
-float irr_glsl_ggx_aniso_height_correlated_dielectric_cos_eval_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_AnisotropicMicrofacetCache _cache, in float eta, in float ax, in float ay)
-{
-    float orientedEta, dummy;
-    const bool backside = irr_glsl_getOrientedEtas(orientedEta, dummy, _cache.isotropic.VdotH, eta);
-    const float orientedEta2 = orientedEta * orientedEta;
-
-    const float VdotHLdotH = _cache.isotropic.VdotH * _cache.isotropic.LdotH;
-    const bool transmitted = VdotHLdotH < 0.0;
-
-    const float absNdotV = abs(interaction.isotropic.NdotV);
-    const float NdotV2 = interaction.isotropic.NdotV_squared;
-    const float TdotV2 = interaction.TdotV * interaction.TdotV;
-    const float BdotV2 = interaction.BdotV * interaction.BdotV;
-
-    const float absNdotL = abs(_sample.NdotL);
-    const float NdotL2 = _sample.NdotL2;
-    const float TdotL2 = _sample.TdotL * _sample.TdotL;
-    const float BdotL2 = _sample.BdotL * _sample.BdotL;
-
-    const float reflectance = irr_glsl_fresnel_dielectric_common(orientedEta2, abs(_cache.isotropic.VdotH));
-
-    const float ax2 = ax * ax;
-    const float ay2 = ay * ay;
-
-    const float ndf = irr_glsl_ggx_aniso(_cache.TdotH*_cache.TdotH, _cache.BdotH*_cache.BdotH, _cache.isotropic.NdotH2, ax, ay, ax2, ay2);
-
-    float remainder = irr_glsl_ggx_aniso_dielectric_cos_remainder_and_pdf_wo_clamps(
-        pdf,
-        ndf, transmitted,
-        absNdotL, NdotL2, TdotL2, BdotL2,
-        absNdotV, TdotV2, BdotV2, NdotV2,
-        _cache.isotropic.VdotH, _cache.isotropic.LdotH,
-        VdotHLdotH, reflectance, orientedEta,
-        ax2, ay2
-    );
-
-    return remainder * pdf;
 }
 
 #endif

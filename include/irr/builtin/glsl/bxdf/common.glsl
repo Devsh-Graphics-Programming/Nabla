@@ -361,4 +361,13 @@ irr_glsl_AnisotropicMicrofacetCache irr_glsl_calcAnisotropicMicrofacetCache(in b
     return _cache;
 }
 
+float irr_glsl_bxdf_remainder_to_eval(in float remainder, in float pdf)
+{
+    return remainder * pdf;
+}
+vec3 irr_glsl_bxdf_remainder_to_eval(in vec3 remainder, in float pdf)
+{
+    return remainder * pdf;
+}
+
 #endif

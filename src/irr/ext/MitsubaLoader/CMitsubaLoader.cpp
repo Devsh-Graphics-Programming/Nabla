@@ -1194,7 +1194,7 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 	for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
 		ctx.manipulator->flipSurfaces(mesh->getMeshBuffer(i));
 	// flip normals if necessary
-//#define CRISS_FIX_THIS
+#define CRISS_FIX_THIS
 #ifdef CRISS_FIX_THIS
 	if (faceNormals || !std::isnan(maxSmoothAngle))
 	{
@@ -1213,9 +1213,9 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 						return core::dot(a.parentTriangleFaceNormal, b.parentTriangleFaceNormal).x >= smoothAngleCos;
 				});
 
-			asset::IMeshManipulator::SErrorMetric metrics[16];
-			metrics[3].method = asset::IMeshManipulator::EEM_ANGLES;
-			newMeshBuffer = ctx.manipulator->createOptimizedMeshBuffer(newMeshBuffer.get(),metrics);
+			//asset::IMeshManipulator::SErrorMetric metrics[16];
+			//metrics[3].method = asset::IMeshManipulator::EEM_ANGLES;
+			//newMeshBuffer = ctx.manipulator->createOptimizedMeshBuffer(newMeshBuffer.get(),metrics);
 
 			newMesh->addMeshBuffer(std::move(newMeshBuffer));
 		}

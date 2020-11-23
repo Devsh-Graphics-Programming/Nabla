@@ -89,7 +89,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 			const float BdotV2 = currInteraction.BdotV * currInteraction.BdotV;
 #endif
 
-			const float NdotH = irr_glsl_conditionalAbsOrMax(is_bsdf, microfacet.isotropic.NdotH, 0.0);
+			const float NdotH = microfacet.isotropic.NdotH;
 			const float NdotH2 = microfacet.isotropic.NdotH2;
 #ifndef ALL_ISOTROPIC_BXDFS
 			const float TdotH2 = microfacet.TdotH * microfacet.TdotH;

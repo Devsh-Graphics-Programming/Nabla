@@ -145,35 +145,6 @@ float irr_glsl_beckmann_smith_height_correlated_dielectric_cos_eval_wo_cache_val
         orientedEta,orientedEta2,a2);
 }
 
-float irr_glsl_beckmann_smith_height_correlated_dielectric_cos_eval_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_IsotropicViewSurfaceInteraction interaction, in irr_glsl_IsotropicMicrofacetCache _cache, in float eta, in float a2)
-{
-    const float ndf = irr_glsl_beckmann(a2, _cache.NdotH2);
-
-    float orientedEta, dummy;
-    const bool backside = irr_glsl_getOrientedEtas(orientedEta, dummy, _cache.VdotH, eta);
-    float orientedEta2 = orientedEta*orientedEta;
-
-    const float VdotHLdotH = _cache.VdotH*_cache.LdotH;
-    const bool transmitted = VdotHLdotH<0.0;
-
-    const float reflectance = irr_glsl_fresnel_dielectric_common(orientedEta2, abs(_cache.VdotH));
-
-    const float absNdotV = abs(interaction.NdotV);
-    const float NdotH2 = _cache.NdotH2;
-    const float NdotL2 = _sample.NdotL2;
-    const float NdotV2 = interaction.NdotV_squared;
-
-    float remainder = irr_glsl_beckmann_dielectric_cos_remainder_and_pdf_wo_clamps(
-        pdf,
-        ndf, transmitted, NdotL2, absNdotV,
-        NdotV2, _cache.VdotH, _cache.LdotH, VdotHLdotH,
-        reflectance, orientedEta,
-        a2
-    );
-
-    return remainder*pdf;
-}
-
 float irr_glsl_beckmann_aniso_smith_height_correlated_dielectric_cos_eval_wo_clamps(
     in float NdotH2, in float TdotH2, in float BdotH2,
     in float NdotL2, in float TdotL2, in float BdotL2,
@@ -216,48 +187,6 @@ float irr_glsl_beckmann_aniso_smith_height_correlated_cos_eval_wo_cache_validati
         abs(interaction.isotropic.NdotV),interaction.isotropic.NdotV_squared,TdotV2,BdotV2,
         transmitted,VdotH,_cache.isotropic.LdotH,VdotHLdotH,
         orientedEta,orientedEta2,ax,ax*ax,ay,ay*ay);
-}
-
-float irr_glsl_beckmann_aniso_smith_height_correlated_dielectric_cos_eval_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_AnisotropicMicrofacetCache _cache, in float eta, in float ax, in float ay)
-{
-    const float TdotH2 = _cache.TdotH*_cache.TdotH;
-    const float BdotH2 = _cache.BdotH*_cache.BdotH;
-
-    const float ax2 = ax*ax;
-    const float ay2 = ay*ay;
-    const float ndf = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, _cache.isotropic.NdotH2);
-
-    const float TdotL2 = _sample.TdotL*_sample.TdotL;
-    const float BdotL2 = _sample.BdotL*_sample.BdotL;
-
-    const float absNdotV = abs(interaction.isotropic.NdotV);
-    const float TdotV2 = interaction.TdotV*interaction.TdotV;
-    const float BdotV2 = interaction.BdotV*interaction.BdotV;
-    const float NdotV2 = interaction.isotropic.NdotV_squared;
-
-    const float VdotH = _cache.isotropic.VdotH;
-    const float LdotH = _cache.isotropic.LdotH;
-
-    float orientedEta, dummy;
-    const bool backside = irr_glsl_getOrientedEtas(orientedEta, dummy, VdotH, eta);
-    const float orientedEta2 = orientedEta*orientedEta;
-
-    const float reflectance = irr_glsl_fresnel_dielectric_common(orientedEta2, abs(VdotH));
-    
-    const float VdotHLdotH = VdotH*_cache.isotropic.LdotH;
-    const bool transmitted = VdotHLdotH<0.0;
-
-    float remainder = irr_glsl_beckmann_aniso_dielectric_cos_remainder_and_pdf_wo_clamps(
-        pdf,
-        ndf, transmitted, 
-        _sample.NdotL2, TdotL2, BdotL2,
-        absNdotV, TdotV2, BdotV2, NdotV2,
-        VdotH, LdotH, VdotHLdotH,
-        reflectance, orientedEta,
-        ax2, ay2
-    );
-
-    return remainder * pdf;
 }
 
 #endif
