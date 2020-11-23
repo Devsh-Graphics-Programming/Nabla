@@ -39,11 +39,13 @@ struct irr_glsl_ext_LumaMeter_Uniforms_t
     #else
         #define _IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_IMPL_ (_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT*2)
     #endif
+
+    #include <irr/builtin/glsl/workgroup/shared_arithmetic.glsl>
     // correct for subgroup emulation stuff
-    #if IRR_GLSL_GREATER(_IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_IMPL_,(_IRR_GLSL_WORKGROUP_SIZE_<<1))
+    #if IRR_GLSL_GREATER(_IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_IMPL_,_IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_)
         #define _IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_ _IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_IMPL_
     #else
-        #define _IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_ (_IRR_GLSL_WORKGROUP_SIZE_<<1)
+        #define _IRR_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_ _IRR_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_
     #endif
 
     #if IRR_GLSL_NOT_EQUAL(IRR_GLSL_AND(IRR_GLSL_SUB(_IRR_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_,_IRR_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_),_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT-1),0)
@@ -276,42 +278,12 @@ float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_
 #if IRR_GLSL_EQUAL(_IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_,_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN)
     #include <irr/builtin/glsl/workgroup/arithmetic.glsl>
     #include <irr/builtin/glsl/workgroup/shuffle.glsl>
-// TODO: figure out why the irr_glsl_workgroupExclusiveAdd function doesn't work
-uint irr_glsl_workgroupExclusiveAdd2(uint val)
-{
-#if 1
-    barrier();
-    memoryBarrierShared();
-    SUBGROUP_SCRATCH_INITIALIZE(val,_IRR_GLSL_WORKGROUP_SIZE_,0u,irr_glsl_identityFunction)
-    uint firstLevelScan = irr_glsl_subgroupInclusiveAdd_impl(false,val);
-    barrier();
-    memoryBarrierShared();
-	const bool propagateReduction = (gl_LocalInvocationIndex&loMask)==loMask;
-	//uint firstLevelScan = INVCONV(FIRST_SUBGROUP_OP(false,VALUE));
-	//uint lastInvocationInLevel = lastInvocation;
-    const uint lowerIndex = gl_LocalInvocationIndex>>irr_glsl_SubgroupSizeLog2;
-
-    if (propagateReduction)
-       _IRR_GLSL_SCRATCH_SHARED_DEFINED_[lowerIndex] = firstLevelScan;
-    
-    barrier();
-    memoryBarrierShared();
-    for (uint i=0u; i<lowerIndex; i++)
-    {
-        firstLevelScan += _IRR_GLSL_SCRATCH_SHARED_DEFINED_[i];
-    }
-    firstLevelScan = irr_glsl_workgroupShuffle(firstLevelScan, gl_LocalInvocationIndex != 0u ? (gl_LocalInvocationIndex - 1u) : 0u);
-    return gl_LocalInvocationIndex != 0u ? firstLevelScan : 0u;
-#else
-    return irr_glsl_workgroupExclusiveAdd(val);
-#endif
-}
 #endif
 
 float irr_glsl_ext_LumaMeter_impl_getMeasuredLumaLog2(in irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t firstPassOutput, in irr_glsl_ext_LumaMeter_PassInfo_t info)
 {
     #if IRR_GLSL_EQUAL(_IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_,_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN)
-        uint histogramPrefix = irr_glsl_workgroupExclusiveAdd2(firstPassOutput);
+        uint histogramPrefix = irr_glsl_workgroupExclusiveAdd(firstPassOutput);
 
         // TODO: We can do it better, and without how right now workgroup size must equal _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT, but it would be good if it didn't (we could carry out many prefix sums in serial).
         // Assign whole subgroup to do a subgroup_uniform_upper_bound on lower percentile, then do the subgroup_uniform_upper_bound again but in the [previousFound,end) range.
