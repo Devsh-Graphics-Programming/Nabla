@@ -552,11 +552,6 @@ public:
             EST_SMITH,
             EST_VCAVITIES
         };
-        enum E_SCATTER_MODE
-        {
-            ESM_REFLECT,
-            ESM_TRANSMIT
-        };
 
         CMicrofacetSpecularBSDFNode() : CBSDFNode(ET_MICROFACET_SPECULAR) {}
 
@@ -570,7 +565,6 @@ public:
 
         E_NDF ndf = ENDF_GGX;
         E_SHADOWING_TERM shadowing = EST_SMITH;
-        E_SCATTER_MODE scatteringMode = ESM_REFLECT;
         SParameter<float> alpha_u = 0.f;
         SParameter<float> alpha_v = 0.f;
 

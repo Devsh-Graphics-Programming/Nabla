@@ -944,7 +944,7 @@ public:
         uint8_t* reservedSpc = reinterpret_cast<uint8_t*>( _IRR_ALIGNED_MALLOC(resSpcPerAlctr*_count, _IRR_SIMD_ALIGNMENT) );
 
         for (uint32_t i = 0u; i < _count; ++i)
-            _dstArray[i] = pg_tab_addr_alctr_t(bufSz, m_pageTableLayerAllocators[i], reservedSpc+resSpcPerAlctr);
+            _dstArray[i] = pg_tab_addr_alctr_t(bufSz, m_pageTableLayerAllocators[i], reservedSpc + i*resSpcPerAlctr);
 
         return reservedSpc;
     }

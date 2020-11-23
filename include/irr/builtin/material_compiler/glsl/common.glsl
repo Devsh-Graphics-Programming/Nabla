@@ -204,6 +204,27 @@ bool op_isDiffuse(in uint op)
 irr_glsl_AnisotropicViewSurfaceInteraction currInteraction;
 reg_t registers[REG_COUNT];
 
+void updateLightSampleAfterNormalChange(inout irr_glsl_LightSample out_s)
+{
+	out_s.TdotL = dot(currInteraction.T, out_s.L);
+	out_s.BdotL = dot(currInteraction.B, out_s.L);
+	out_s.NdotL = dot(currInteraction.isotropic.N, out_s.L);
+	out_s.NdotL2 = out_s.NdotL*out_s.NdotL;
+}
+void updateMicrofacetCacheAfterNormalChange(in irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache out_microfacet)
+{
+	const float NdotL = s.NdotL;
+	const float NdotV = currInteraction.isotropic.NdotV;
+
+	const float LplusV_rcplen = inversesqrt(2.0 + 2.0 * s.VdotL);
+
+	out_microfacet.isotropic.NdotH = (NdotL + NdotV) * LplusV_rcplen;
+	out_microfacet.isotropic.NdotH2 = out_microfacet.isotropic.NdotH * out_microfacet.isotropic.NdotH;
+
+	out_microfacet.TdotH = (currInteraction.TdotV + s.TdotL) * LplusV_rcplen;
+	out_microfacet.BdotH = (currInteraction.BdotV + s.BdotL) * LplusV_rcplen;
+}
+
 vec3 textureOrRGBconst(in uvec2 data, in bool texPresenceFlag)
 {
 	return 
@@ -749,8 +770,8 @@ eval_and_pdf_t irr_bsdf_eval_and_pdf(in MC_precomputed_t precomp, in instr_strea
 			op == OP_BUMPMAP
 #endif
 			) {
-			s = irr_glsl_createLightSample(s.L, currInteraction);
-			microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
+			updateLightSampleAfterNormalChange(s);
+			updateMicrofacetCacheAfterNormalChange(s, microfacet);
 		}
 #endif
 	}

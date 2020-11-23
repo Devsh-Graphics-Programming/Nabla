@@ -243,56 +243,68 @@ core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOp
 //! Creates a copy of the mesh, which will only consist of unique primitives
 core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniquePrimitives(ICPUMeshBuffer* inbuffer, bool _makeIndexBuf)
 {
-#ifndef NEW_SHADERS
 	if (!inbuffer)
-		return 0;
-    IMeshDataFormatDesc<ICPUBuffer>* oldDesc = inbuffer->getMeshDataAndFormat();
-    if (!oldDesc)
-        return 0;
+		return nullptr;
+    ICPURenderpassIndependentPipeline* oldPipeline = inbuffer->getPipeline();
+    if (!oldPipeline)
+        return nullptr;
 
     if (!inbuffer->getIndices())
         return core::smart_refctd_ptr<ICPUMeshBuffer>(inbuffer); // yes we want an extra grab
     
+    const auto& oldVtxParams = oldPipeline->getVertexInputParams();
+
     const uint32_t idxCnt = inbuffer->getIndexCount();
     auto clone = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
     clone->setBoundingBox(inbuffer->getBoundingBox());
     clone->setIndexCount(idxCnt);
-    const E_PRIMITIVE_TYPE ept = inbuffer->getPrimitiveType();
-    clone->setPrimitiveType(ept);
-    clone->getMaterial() = inbuffer->getMaterial();
 
+    constexpr uint32_t NEW_VTX_BUF_BINDING = 0u;
+
+    auto pipeline = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(oldPipeline->clone(0u));
+    asset::SVertexInputParams vtxParams;
+    vtxParams.enabledBindingFlags = (1u<<NEW_VTX_BUF_BINDING);
+    vtxParams.enabledAttribFlags = oldVtxParams.enabledAttribFlags;
+
+    constexpr size_t MAX_ATTRIBS = asset::ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT;
 	{
-		auto desc = core::make_smart_refctd_ptr<ICPUMeshDataFormatDesc>();
-
 		size_t stride = 0;
-		int32_t offset[EVAI_COUNT];
-		size_t newAttribSizes[EVAI_COUNT];
-		uint8_t* sourceBuffers[EVAI_COUNT] = {NULL};
-		size_t sourceBufferStrides[EVAI_COUNT];
-		for (size_t i=0; i< EVAI_COUNT; i++)
+		int32_t offset[MAX_ATTRIBS];
+		size_t newAttribSizes[MAX_ATTRIBS];
+		uint8_t* sourceBuffers[MAX_ATTRIBS] = {NULL};
+		size_t sourceBufferStrides[MAX_ATTRIBS];
+		for (size_t i=0; i< MAX_ATTRIBS; i++)
 		{
-			const ICPUBuffer* vbuf = oldDesc->getMappedBuffer((E_VERTEX_ATTRIBUTE_ID)i);
-			if (vbuf)
+			const auto* vbuf = inbuffer->getAttribBoundBuffer(i);
+			if (inbuffer->isAttributeEnabled(i) && vbuf->buffer)
 			{
 				offset[i] = stride;
-				newAttribSizes[i] = getTexelOrBlockBytesize(oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i));
+				newAttribSizes[i] = getTexelOrBlockBytesize(inbuffer->getAttribFormat(i));
 				stride += newAttribSizes[i];
 				if (stride>=0xdeadbeefu)
 					return nullptr;
 
-				sourceBuffers[i] = (uint8_t*)vbuf->getPointer();
-				sourceBuffers[i] += oldDesc->getMappedBufferOffset((E_VERTEX_ATTRIBUTE_ID)i);
-				sourceBufferStrides[i] = oldDesc->getMappedBufferStride((E_VERTEX_ATTRIBUTE_ID)i);
+				sourceBuffers[i] = (uint8_t*)vbuf->buffer->getPointer();
+				sourceBuffers[i] += (vbuf->offset + oldVtxParams.attributes[i].relativeOffset);
+				sourceBufferStrides[i] = inbuffer->getAttribStride(i);
 			}
 			else
 				offset[i] = -1;
 		}
 
+        vtxParams.bindings[NEW_VTX_BUF_BINDING].inputRate = EVIR_PER_VERTEX;
+        vtxParams.bindings[NEW_VTX_BUF_BINDING].stride = stride;
+
 		auto vertexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(stride*idxCnt);
-		for (size_t i=0; i<EVAI_COUNT; i++)
+        clone->setVertexBufferBinding({0u, vertexBuffer}, 0u);
+		for (size_t i=0; i<MAX_ATTRIBS; i++)
 		{
-			if (offset[i]>=0)
-				desc->setVertexAttrBuffer(core::smart_refctd_ptr(vertexBuffer),(E_VERTEX_ATTRIBUTE_ID)i,oldDesc->getAttribFormat((E_VERTEX_ATTRIBUTE_ID)i),stride,offset[i]);
+            if (offset[i] >= 0)
+            {
+                vtxParams.attributes[i].binding = NEW_VTX_BUF_BINDING;
+                vtxParams.attributes[i].format = inbuffer->getAttribFormat(i);
+                vtxParams.attributes[i].relativeOffset = offset[i];
+            }
 		}
 
 		uint8_t* destPointer = (uint8_t*)vertexBuffer->getPointer();
@@ -300,7 +312,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniqueP
 		{
 			uint16_t* idx = reinterpret_cast<uint16_t*>(inbuffer->getIndices());
 			for (uint64_t i=0; i<idxCnt; i++,idx++)
-			for (size_t j=0; j<EVAI_COUNT; j++)
+			for (size_t j=0; j<MAX_ATTRIBS; j++)
 			{
 				if (offset[j]<0)
 					continue;
@@ -313,7 +325,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniqueP
 		{
 			uint32_t* idx = reinterpret_cast<uint32_t*>(inbuffer->getIndices());
 			for (uint64_t i=0; i<idxCnt; i++,idx++)
-			for (size_t j=0; j<EVAI_COUNT; j++)
+			for (size_t j=0; j<MAX_ATTRIBS; j++)
 			{
 				if (offset[j]<0)
 					continue;
@@ -322,7 +334,10 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniqueP
 				destPointer += newAttribSizes[j];
 			}
 		}
-        
+
+        pipeline->getVertexInputParams() = vtxParams;
+        clone->setPipeline(std::move(pipeline));
+
         if (_makeIndexBuf)
         {
             auto idxbuf = core::make_smart_refctd_ptr<ICPUBuffer>(idxCnt*(idxCnt<0x10000 ? 2u : 4u));
@@ -331,25 +346,22 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniqueP
                 for (uint32_t i = 0u; i < idxCnt; ++i)
                     reinterpret_cast<uint16_t*>(idxbuf->getPointer())[i] = i;
                 clone->setIndexType(EIT_16BIT);
-                clone->setIndexBufferOffset(0);
             }
             else
             {
                 for (uint32_t i = 0u; i < idxCnt; ++i)
                     reinterpret_cast<uint32_t*>(idxbuf->getPointer())[i] = i;
                 clone->setIndexType(EIT_32BIT);
-                clone->setIndexBufferOffset(0);
             }
-            desc->setIndexBuffer(std::move(idxbuf));
+            clone->setIndexBufferBinding({ 0u, std::move(idxbuf) });
         }
-
-		clone->setMeshDataAndFormat(std::move(desc));
+        else
+        {
+            clone->setIndexType(EIT_UNKNOWN);
+        }
 	}
 
 	return clone;
-#else
-    return nullptr;
-#endif
 }
 
 //

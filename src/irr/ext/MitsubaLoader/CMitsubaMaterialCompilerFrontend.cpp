@@ -144,7 +144,6 @@ namespace MitsubaLoader
             ir_node = ir->allocNode<IR::CMicrofacetSpecularBSDFNode>();
             auto* node = static_cast<IR::CMicrofacetSpecularBSDFNode*>(ir_node);
             node->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
-            node->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_REFLECT;
             const float extEta = _bsdf->conductor.extEta;
             node->eta = _bsdf->conductor.eta.vvalue/extEta;
             node->etaK = _bsdf->conductor.k.vvalue/extEta;
@@ -187,7 +186,6 @@ namespace MitsubaLoader
 
             coat->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
             coat->eta = IR::INode::color_t(eta);
-            coat->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_REFLECT;
             if (type == CElementBSDF::ROUGHPLASTIC)
             {
                 coat->ndf = ndfMap[_bsdf->plastic.distribution];
@@ -218,7 +216,6 @@ namespace MitsubaLoader
             if (eta==1.f)
                 os::Printer::log("WARNING: Dielectric with IoR=1.0!", _bsdf->id, ELL_ERROR);
 
-            dielectric->scatteringMode = IR::CMicrofacetSpecularBSDFNode::ESM_REFLECT;
             dielectric->shadowing = IR::CMicrofacetSpecularBSDFNode::EST_SMITH;
             dielectric->eta = IR::INode::color_t(eta);
             if (type == CElementBSDF::ROUGHDIELECTRIC)

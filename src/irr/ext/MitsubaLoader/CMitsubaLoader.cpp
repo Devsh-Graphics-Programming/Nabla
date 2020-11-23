@@ -1193,16 +1193,14 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 	if (flipNormals)
 	for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
 		ctx.manipulator->flipSurfaces(mesh->getMeshBuffer(i));
-	// flip normals if necessary
-#define CRISS_FIX_THIS
-#ifdef CRISS_FIX_THIS
+
 	if (faceNormals || !std::isnan(maxSmoothAngle))
 	{
 		auto newMesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
 		float smoothAngleCos = cos(core::radians(maxSmoothAngle));
 		for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
 		{
-			ctx.manipulator->filterInvalidTriangles(mesh->getMeshBuffer(i));
+			//ctx.manipulator->filterInvalidTriangles(mesh->getMeshBuffer(i));
 			auto newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(mesh->getMeshBuffer(i));
 			ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, newMeshBuffer->getNormalAttributeIx(),
 				[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
@@ -1213,17 +1211,12 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 						return core::dot(a.parentTriangleFaceNormal, b.parentTriangleFaceNormal).x >= smoothAngleCos;
 				});
 
-			//asset::IMeshManipulator::SErrorMetric metrics[16];
-			//metrics[3].method = asset::IMeshManipulator::EEM_ANGLES;
-			//newMeshBuffer = ctx.manipulator->createOptimizedMeshBuffer(newMeshBuffer.get(),metrics);
-
 			newMesh->addMeshBuffer(std::move(newMeshBuffer));
 		}
 		newMesh->recalculateBoundingBox();
 		m_manager->setAssetMetadata(newMesh.get(), core::smart_refctd_ptr<asset::IAssetMetadata>(mesh->getMetadata()));
 		mesh = std::move(newMesh);
 	}
-#endif
 
 	addInstance(mesh);
 	// cache and return

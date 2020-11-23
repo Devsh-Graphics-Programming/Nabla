@@ -230,8 +230,8 @@ bxdf_eval_t runEvalStream(in MC_precomputed_t precomp, in instr_stream_t stream,
 			op==OP_BUMPMAP
 #endif
 		) {
-			s = irr_glsl_createLightSample(L, currInteraction);
-			microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
+			updateLightSampleAfterNormalChange(s);
+			updateMicrofacetCacheAfterNormalChange(s, microfacet);
 		}
 #endif
 	}
