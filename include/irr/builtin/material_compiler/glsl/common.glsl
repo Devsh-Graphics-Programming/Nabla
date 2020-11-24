@@ -867,7 +867,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	const bool is_bsdf = !op_isBRDF(op) && !is_coat;
 	const vec3 albedo = params_getReflectance(params);
 
-	float pdf = 1.0;
+	float localPdf = 1.0;
 	vec3 rem = vec3(1.0);
 	uint ndf = instr_getNDF(instr);
 	irr_glsl_LightSample s;
@@ -881,7 +881,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		s = irr_glsl_createLightSample(-precomp.V, -1.0, currInteraction.T, currInteraction.B, currInteraction.isotropic.N);
 		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
 		rem = vec3(1.0);
-		pdf = irr_glsl_FLT_INF;
+		localPdf = irr_glsl_FLT_INF;
 	} else
 #endif
 #ifdef OP_THINDIELECTRIC
@@ -890,7 +890,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		const vec3 luminosityContributionHint = CIE_XYZ_Luma_Y_coeffs;
 		s = irr_glsl_thin_smooth_dielectric_cos_generate(currInteraction, u, ior2[0], luminosityContributionHint);
 		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
-		rem = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ior2[0], luminosityContributionHint);
+		rem = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(localPdf, s, currInteraction.isotropic, ior2[0], luminosityContributionHint);
 	} else
 #endif
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
@@ -908,8 +908,8 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		s = irr_glsl_createLightSampleTangentSpace(localV, localL, tangentFrame);
 		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
 
-		rem *= albedo*irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, ax2);
-		pdf *= is_bsdf ? 0.5 : 1.0;
+		rem *= albedo*irr_glsl_oren_nayar_cos_remainder_and_pdf(localPdf, s, currInteraction.isotropic, ax2);
+		localPdf *= is_bsdf ? 0.5 : 1.0;
 	} else
 #endif
 #if defined(OP_CONDUCTOR) || defined(OP_DIELECTRIC)
@@ -953,7 +953,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		END_CASES
 
 		vec3 localL;
-		float VdotH = dot(localH, localV);
+		const float VdotH = dot(localH, localV);
 		vec3 fr;
 		bool refraction = false;
 #ifdef OP_CONDUCTOR
@@ -970,7 +970,7 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 			const float refractionProb = colorToScalar(fr);
 			float rcpChoiceProb;
 			refraction = irr_glsl_partitionRandVariable(refractionProb, u.z, rcpChoiceProb);
-			pdf /= rcpChoiceProb;
+			localPdf /= rcpChoiceProb;
 		}
 		float eta = colorToScalar(ior[0]);
 		float rcpEta = 1.0/eta;
@@ -1017,14 +1017,18 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		{}
 		END_CASES
 
+		const float LdotH = out_microfacet.isotropic.LdotH;
+		const float VdotHLdotH = VdotH * LdotH;
+		// a trick, pdf was already multiplied by transmission/reflection choice probability above
+		const float reflectance = refraction ? 0.0 : 1.0;
 		rem *= G2_over_G1;
-		pdf *= irr_glsl_smith_VNDF_pdf_wo_clamps(ndf_val, G1_over_2NdotV);
+		localPdf *= irr_glsl_smith_VNDF_pdf_wo_clamps(ndf_val, G1_over_2NdotV, NdotV, refraction, VdotH, LdotH, VdotHLdotH, eta, reflectance);
 	} else
 #endif
 	{} //empty braces for `else`
 
 	out_remainder = rem;
-	out_pdf *= pdf; 
+	out_pdf *= localPdf; 
 
 	return s;
 }
