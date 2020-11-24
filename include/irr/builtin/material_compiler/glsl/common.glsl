@@ -387,7 +387,7 @@ bxdf_eval_t instr_execute_cos_eval_COATING(in instr_t instr, in mat2x4 srcs, in 
 
 	// TODO include thickness_sigma in diffuse weight computation: exp(sigma_thickness * freePath)
 	// freePath = ( sqrt(refract_compute_NdotT2(NdotL2, rcpOrientedEta2)) + sqrt(refract_compute_NdotT2(NdotV2, rcpOrientedEta2)) )
-	vec3 fresnelNdotV = irr_glsl_fresnel_dielectric_frontface_only(eta, currInteraction.isotropic.NdotV);
+	vec3 fresnelNdotV = irr_glsl_fresnel_dielectric_frontface_only(eta, max(currInteraction.isotropic.NdotV, 0.0));
 	vec3 wd = irr_glsl_diffuseFresnelCorrectionFactor(eta, eta2) * (vec3(1.0) - fresnelNdotV) * (vec3(1.0) - irr_glsl_fresnel_dielectric_frontface_only(eta, s.NdotL));
 
 	bxdf_eval_t coat = srcs[0].xyz;
@@ -527,7 +527,6 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 	// (is_bxdf && is_bsdf) -> BSDF
 	// (is_bxdf && !is_bsdf) -> BRDF
 	const bool is_bxdf_or_combiner = op_isBXDForCoatOrBlend(op);
-	const float cosFactor = irr_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
 
 	uvec3 regs = instr_decodeRegisters(instr);
 	params_t params;
@@ -546,10 +545,12 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 		params = instr_getParameters(instr, bsdf_data);
 	}
 
+	const float NdotV = irr_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.isotropic.NdotV, 0.0);
+
 	vec3 eval = vec3(0.0);
 	float pdf = 0.0;
 
-	if (is_bxdf && run)
+	if (is_bxdf && run && (NdotV > FLT_MIN))
 	{
 		//speculative execution
 		uint ndf = instr_getNDF(instr);
@@ -562,154 +563,141 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 		float ay2 = ay*ay;
 #endif
 
-		const float eta = colorToScalar(ior[0]);
-		const float rcp_eta = 1.0 / eta;
 		const vec3 albedo = params_getReflectance(params);
 
-		const float NdotV = irr_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.isotropic.NdotV, 0.0);
-
-		bool is_valid = (NdotV > FLT_MIN);
-		bool refraction = false;
-#ifdef OP_DIELECTRIC
-		if (op == OP_DIELECTRIC && irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV, s.NdotL))
-		{
-			irr_glsl_calcAnisotropicMicrofacetCache(microfacet, true, currInteraction.isotropic.V.dir, s.L, currInteraction.T, currInteraction.B, currInteraction.isotropic.N, s.NdotL, s.VdotL, eta, rcp_eta);
-			refraction = true;
-		}
-		else
-#endif
-			microfacet = _microfacet;
-
-#if defined(OP_DIELECTRIC) || defined(OP_CONDUCTOR)
-		is_valid = irr_glsl_isValidVNDFMicrofacet(microfacet.isotropic, is_bsdf, refraction, s.VdotL, eta, rcp_eta);
-#endif
+		const float NdotL = irr_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
 
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
 		if (op_isDiffuse(op))
 		{
-			eval = albedo * irr_glsl_oren_nayar_cos_remainder_and_pdf(pdf, s, currInteraction.isotropic, a2);
+			eval = albedo * irr_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf, a2, s.VdotL, NdotL, NdotV);
 			pdf *= is_bsdf ? 0.5 : 1.0;
 			eval *= pdf;
 		}
 		else
 #endif
 #if defined(OP_CONDUCTOR) || defined(OP_DIELECTRIC)
-		if (is_valid && a > ALPHA_EPSILON)
 		{
-			const float TdotV2 = currInteraction.TdotV * currInteraction.TdotV;
-			const float BdotV2 = currInteraction.BdotV * currInteraction.BdotV;
-			const float NdotV2 = currInteraction.isotropic.NdotV_squared;
-			const float NdotL2 = s.NdotL2;
+			const float eta = colorToScalar(ior[0]);
+			const float rcp_eta = 1.0 / eta;
 
-			const float TdotH2 = microfacet.TdotH * microfacet.TdotH;
-			const float BdotH2 = microfacet.BdotH * microfacet.BdotH;
-			const float NdotH2 = microfacet.isotropic.NdotH2;
-			const float NdotL = irr_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
-
-			float G1_over_2NdotV = 0.0;
-			float G2_over_G1 = 0.0;
-			float ndf_val = 0.0;
-
-			BEGIN_CASES(ndf)
-#ifdef NDF_GGX
-			CASE_BEGIN(ndf, NDF_GGX) {
-#ifdef ALL_ISOTROPIC_BXDFS
-				G1_over_2NdotV = irr_glsl_GGXSmith_G1_wo_numerator(NdotV, NdotV2, a2, one_minus_a2);
-				G2_over_G1 = irr_glsl_ggx_smith_G2_over_G1(NdotL, NdotL2, NdotV, NdotV2, a2, one_minus_a2);
-				ndf_val = irr_glsl_ggx_trowbridge_reitz(a2, NdotH2);
-#else
-				G1_over_2NdotV = irr_glsl_GGXSmith_G1_wo_numerator(NdotV, TdotV2, BdotV2, NdotV2, a2, ay2);
-				G2_over_G1 = irr_glsl_ggx_smith_G2_over_G1(NdotL, s.TdotL*s.TdotL, s.BdotL*s.BdotL, NdotL2, NdotV, TdotV2, BdotV2, NdotV2, a2, ay2);
-				ndf_val = irr_glsl_ggx_aniso(TdotH2, BdotH2, NdotH2, a, ay, a2, ay2);
+			bool is_valid = true;
+			bool refraction = false;
+#ifdef OP_DIELECTRIC
+			if (op == OP_DIELECTRIC && irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV, s.NdotL))
+			{
+				irr_glsl_calcAnisotropicMicrofacetCache(microfacet, true, currInteraction.isotropic.V.dir, s.L, currInteraction.T, currInteraction.B, currInteraction.isotropic.N, s.NdotL, s.VdotL, eta, rcp_eta);
+				refraction = true;
+			}
+			else
 #endif
-			} CASE_END
+				microfacet = _microfacet;
+
+#if defined(OP_DIELECTRIC) || defined(OP_CONDUCTOR)
+			is_valid = irr_glsl_isValidVNDFMicrofacet(microfacet.isotropic, is_bsdf, refraction, s.VdotL, eta, rcp_eta);
+#endif
+
+			if (is_valid && a > ALPHA_EPSILON)
+			{
+				const float TdotV2 = currInteraction.TdotV * currInteraction.TdotV;
+				const float BdotV2 = currInteraction.BdotV * currInteraction.BdotV;
+				const float NdotV2 = currInteraction.isotropic.NdotV_squared;
+				const float NdotL2 = s.NdotL2;
+
+				const float TdotH2 = microfacet.TdotH * microfacet.TdotH;
+				const float BdotH2 = microfacet.BdotH * microfacet.BdotH;
+				const float NdotH2 = microfacet.isotropic.NdotH2;
+
+				float G1_over_2NdotV = 0.0;
+				float G2_over_G1 = 0.0;
+				float ndf_val = 0.0;
+
+				BEGIN_CASES(ndf)
+#ifdef NDF_GGX
+				CASE_BEGIN(ndf, NDF_GGX) {
+#ifdef ALL_ISOTROPIC_BXDFS
+					G1_over_2NdotV = irr_glsl_GGXSmith_G1_wo_numerator(NdotV, NdotV2, a2, one_minus_a2);
+					G2_over_G1 = irr_glsl_ggx_smith_G2_over_G1(NdotL, NdotL2, NdotV, NdotV2, a2, one_minus_a2);
+					ndf_val = irr_glsl_ggx_trowbridge_reitz(a2, NdotH2);
+#else
+					G1_over_2NdotV = irr_glsl_GGXSmith_G1_wo_numerator(NdotV, TdotV2, BdotV2, NdotV2, a2, ay2);
+					G2_over_G1 = irr_glsl_ggx_smith_G2_over_G1(NdotL, s.TdotL*s.TdotL, s.BdotL*s.BdotL, NdotL2, NdotV, TdotV2, BdotV2, NdotV2, a2, ay2);
+					ndf_val = irr_glsl_ggx_aniso(TdotH2, BdotH2, NdotH2, a, ay, a2, ay2);
+#endif
+				} CASE_END
 #endif
 
 #ifdef NDF_BECKMANN
-			CASE_BEGIN(ndf, NDF_BECKMANN) {
+				CASE_BEGIN(ndf, NDF_BECKMANN) {
 #ifdef ALL_ISOTROPIC_BXDFS
-				float lambdaV = irr_glsl_smith_beckmann_Lambda(NdotV2, a2);
-				G1_over_2NdotV = irr_glsl_smith_G1(lambdaV) / (2.0 * NdotV);
-				G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, NdotL2, a2);
-				ndf_val = irr_glsl_beckmann(a2, NdotH2);
+					float lambdaV = irr_glsl_smith_beckmann_Lambda(NdotV2, a2);
+					G1_over_2NdotV = irr_glsl_smith_G1(lambdaV) / (2.0 * NdotV);
+					G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, NdotL2, a2);
+					ndf_val = irr_glsl_beckmann(a2, NdotH2);
 #else
-				float lambdaV = irr_glsl_smith_beckmann_Lambda(TdotV2, BdotV2, NdotV2, a2, ay2);
-				G1_over_2NdotV = irr_glsl_smith_G1(lambdaV) / (2.0 * NdotV);
-				G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL*s.TdotL, s.BdotL*s.BdotL, NdotL2, a2, ay2);
-				ndf_val = irr_glsl_beckmann(ax, ay, a2, ay2, TdotH2, BdotH2, NdotH2);
+					float lambdaV = irr_glsl_smith_beckmann_Lambda(TdotV2, BdotV2, NdotV2, a2, ay2);
+					G1_over_2NdotV = irr_glsl_smith_G1(lambdaV) / (2.0 * NdotV);
+					G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL*s.TdotL, s.BdotL*s.BdotL, NdotL2, a2, ay2);
+					ndf_val = irr_glsl_beckmann(ax, ay, a2, ay2, TdotH2, BdotH2, NdotH2);
 #endif
-			} CASE_END
+				} CASE_END
 #endif
 
 #ifdef NDF_PHONG
-			CASE_BEGIN(ndf, NDF_PHONG) {
+				CASE_BEGIN(ndf, NDF_PHONG) {
 #ifdef ALL_ISOTROPIC_BXDFS
-				float lambdaV = irr_glsl_smith_beckmann_Lambda(NdotV2, a2);
-				G1_over_2NdotV = irr_glsl_smith_G1(lambdaV) / (2.0 * NdotV);
-				G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, NdotL2, a2);
-				ndf_val = irr_glsl_beckmann(a2, NdotH2);
+					float lambdaV = irr_glsl_smith_beckmann_Lambda(NdotV2, a2);
+					G1_over_2NdotV = irr_glsl_smith_G1(lambdaV) / (2.0 * NdotV);
+					G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, NdotL2, a2);
+					ndf_val = irr_glsl_beckmann(a2, NdotH2);
 #else
-				float lambdaV = irr_glsl_smith_beckmann_Lambda(TdotV2, BdotV2, NdotV2, a2, ay2);
-				G1_over_2NdotV = irr_glsl_smith_G1(lambdaV) / (2.0 * NdotV);
-				G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL*s.TdotL, s.BdotL*s.BdotL, NdotL2, a2, ay2);
-				ndf_val = irr_glsl_beckmann(ax, ay, a2, ay2, TdotH2, BdotH2, NdotH2);
+					float lambdaV = irr_glsl_smith_beckmann_Lambda(TdotV2, BdotV2, NdotV2, a2, ay2);
+					G1_over_2NdotV = irr_glsl_smith_G1(lambdaV) / (2.0 * NdotV);
+					G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL*s.TdotL, s.BdotL*s.BdotL, NdotL2, a2, ay2);
+					ndf_val = irr_glsl_beckmann(ax, ay, a2, ay2, TdotH2, BdotH2, NdotH2);
 #endif
-			} CASE_END
+				} CASE_END
 #endif
-			CASE_OTHERWISE
-			{} //else "empty braces"
-			END_CASES
+				CASE_OTHERWISE
+				{} //else "empty braces"
+				END_CASES
 
-			pdf = irr_glsl_smith_VNDF_pdf_wo_clamps(ndf_val, G1_over_2NdotV);
-			float remainder_scalar_part = G2_over_G1;
+				pdf = irr_glsl_smith_VNDF_pdf_wo_clamps(ndf_val, G1_over_2NdotV);
+				float remainder_scalar_part = G2_over_G1;
 
-			float VdotH = irr_glsl_conditionalAbsOrMax(is_bsdf, microfacet.isotropic.VdotH, 0.0);
-			vec3 fr;
+				const float VdotH = is_bsdf ? microfacet.isotropic.VdotH : max(microfacet.isotropic.VdotH, 0.0);
+				vec3 fr;
 #ifdef OP_CONDUCTOR
-			if (op == OP_CONDUCTOR)
-				fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
-			else
-#endif
-				fr = irr_glsl_fresnel_dielectric_common(ior2[0], VdotH);
-
-			float eval_scalar_part = remainder_scalar_part * pdf;
-#ifndef NO_BSDF
-			if (is_bsdf)
-			{
-				float LdotH = microfacet.isotropic.LdotH;
-				float VdotHLdotH = microfacet.isotropic.VdotH * LdotH;
-				LdotH = abs(LdotH);
-#ifdef NDF_GGX
-				if (ndf == NDF_GGX)
-					eval_scalar_part = irr_glsl_ggx_microfacet_to_light_measure_transform(eval_scalar_part, NdotL, refraction, VdotH, LdotH, VdotHLdotH, eta);
+				if (op == OP_CONDUCTOR)
+					fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
 				else
 #endif
-					eval_scalar_part = irr_glsl_microfacet_to_light_measure_transform(eval_scalar_part, NdotV, refraction, VdotH, LdotH, VdotHLdotH, eta);
-			}
-#endif
+					fr = irr_glsl_fresnel_dielectric_common(ior2[0], VdotH);
+
+				float eval_scalar_part = remainder_scalar_part * pdf;
 
 #ifndef NO_BSDF
-			if (is_bsdf)
-			{
-				float LdotH = microfacet.isotropic.LdotH;
-				float VdotHLdotH = microfacet.isotropic.VdotH * LdotH;
-				LdotH = abs(LdotH);
+				if (is_bsdf)
+				{
+					float LdotH = microfacet.isotropic.LdotH;
+					float VdotHLdotH = microfacet.isotropic.VdotH * LdotH;
+					LdotH = abs(LdotH);
 #ifdef NDF_GGX
-				if (ndf == NDF_GGX)
-					eval_scalar_part = irr_glsl_ggx_microfacet_to_light_measure_transform(eval_scalar_part, NdotL, refraction, VdotH, LdotH, VdotHLdotH, eta);
-				else
+					if (ndf == NDF_GGX)
+						eval_scalar_part = irr_glsl_ggx_microfacet_to_light_measure_transform(eval_scalar_part, NdotL, refraction, VdotH, LdotH, VdotHLdotH, eta);
+					else
 #endif
-					eval_scalar_part = irr_glsl_microfacet_to_light_measure_transform(eval_scalar_part, NdotV, refraction, VdotH, LdotH, VdotHLdotH, eta);
+						eval_scalar_part = irr_glsl_microfacet_to_light_measure_transform(eval_scalar_part, NdotV, refraction, VdotH, LdotH, VdotHLdotH, eta);
 
-				float reflectance = colorToScalar(fr);
-				reflectance = refraction ? (1.0 - reflectance) : reflectance;
-				pdf *= reflectance;
-			}
+					float reflectance = colorToScalar(fr);
+					reflectance = refraction ? (1.0 - reflectance) : reflectance;
+					pdf *= reflectance;
+				}
 #endif 
-			eval = fr * eval_scalar_part;
-		} else
+				eval = fr * eval_scalar_part;
+			} 
+		}
 #endif
-		{}
 	}
 
 	eval_and_pdf_t result = eval_and_pdf_t(eval, pdf);
@@ -787,7 +775,7 @@ eval_and_pdf_t irr_bsdf_eval_and_pdf(in MC_precomputed_t precomp, in instr_strea
 	return eval_and_pdf;
 }
 
-irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr_stream_t stream, in vec3 rand, out vec3 out_remainder, out float out_pdf, out irr_glsl_AnisotropicMicrofacetCache out_microfacet, out uint out_gen_rnpOffset, out bool out_invalid_microfacet)
+irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr_stream_t stream, in vec3 rand, out vec3 out_remainder, out float out_pdf, out irr_glsl_AnisotropicMicrofacetCache out_microfacet, out uint out_gen_rnpOffset)
 {
 	uint ix = 0u;
 	instr_t instr = irr_glsl_MC_fetchInstr(stream.offset);
@@ -797,40 +785,39 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	out_pdf = 1.0;
 
 	setCurrInteraction(precomp);
+
 	bool is_coat = false;
 	while (!op_isBXDF(op))
 	{
-#ifdef OP_BLEND
-		if (op==OP_BLEND) {
+#if defined(OP_COATING) || defined(OP_BLEND)
+		if (op_isBXDForCoatOrBlend(op)) {
 			bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
-			params_t params = instr_getParameters(instr, bsdf_data);
-			vec3 w_ = params_getBlendWeight(params);
+			vec3 w_;
+#if defined(OP_BLEND)
+			if (op == OP_BLEND)
+			{
+				params_t params = instr_getParameters(instr, bsdf_data);
+				w_ = params_getBlendWeight(params);
+			}
+			else
+#endif
+			{
+				vec3 eta = bsdf_data_decodeIoR(bsdf_data, OP_COATING)[0];
+				w_ = irr_glsl_fresnel_dielectric_frontface_only(eta, max(currInteraction.isotropic.NdotV, 0.0));
+			}
+
 			float w = colorToScalar(w_);
 			float rcpChoiceProb;
+			// right is **coated** material in case of coating
 			bool choseRight = irr_glsl_partitionRandVariable(w, u.z, rcpChoiceProb);
 
-			uint right = instr_getRightJump(instr);
-			ix = choseRight ? right:(ix+1u);
-			out_pdf /= rcpChoiceProb;
-		}
-		else 
-#endif //OP_BLEND
-#ifdef OP_COATING
-		if (op==OP_COATING) {
-			bsdf_data_t bsdf_data = fetchBSDFDataForInstr(instr);
-			vec3 eta = bsdf_data_decodeIoR(bsdf_data, OP_COATING)[0];
-			vec3 fresnel = irr_glsl_fresnel_dielectric_frontface_only(eta, currInteraction.isotropic.NdotV);
-			float w = colorToScalar(fresnel);
-			float rcpChoiceProb;
-			bool choseCoated = irr_glsl_partitionRandVariable(w, u.z, rcpChoiceProb);
-
-			uint coated_ix = instr_getRightJump(instr);
-			ix = choseCoated ? coated_ix:(ix+1u);
+			uint right_ix = instr_getRightJump(instr);
+			ix = choseRight ? right_ix : (ix + 1u);
 			out_pdf /= rcpChoiceProb;
 
-			is_coat = !choseCoated;
+			is_coat = (op==OP_COATING && !choseRight);
 		} else
-#endif //OP_COATING
+#endif //OP_COATING or OP_BLEND
 		{
 #ifdef OP_SET_GEOM_NORMAL
 			if (op==OP_SET_GEOM_NORMAL)
@@ -867,19 +854,23 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	const bool is_bsdf = !op_isBRDF(op) && !is_coat;
 	const vec3 albedo = params_getReflectance(params);
 
-	float localPdf = 1.0;
-	vec3 rem = vec3(1.0);
+	const float NdotV = irr_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.isotropic.NdotV, 0.0);
+	const bool positiveNdotV = (NdotV > FLT_MIN);
+
+	float localPdf = positiveNdotV ? 1.0 : 0.0;
+	vec3 rem = positiveNdotV ? vec3(1.0) : vec3(0.0);
 	uint ndf = instr_getNDF(instr);
 	irr_glsl_LightSample s;
 
 	const vec3 localV = irr_glsl_getTangentSpaceV(currInteraction);
 	const mat3 tangentFrame = irr_glsl_getTangentFrame(currInteraction);
 
+
 #ifdef OP_DELTATRANS
 	if (op == OP_DELTATRANS)
 	{
 		s = irr_glsl_createLightSample(-precomp.V, -1.0, currInteraction.T, currInteraction.B, currInteraction.isotropic.N);
-		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
+		// not computing microfacet cache since it's always transmission and it will be recomputed anyway
 		rem = vec3(1.0);
 		localPdf = irr_glsl_FLT_INF;
 	} else
@@ -888,144 +879,151 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	if (op == OP_THINDIELECTRIC)
 	{
 		const vec3 luminosityContributionHint = CIE_XYZ_Luma_Y_coeffs;
-		s = irr_glsl_thin_smooth_dielectric_cos_generate(currInteraction, u, ior2[0], luminosityContributionHint);
+		vec3 remMetadata;
+		s = irr_glsl_thin_smooth_dielectric_cos_generate_wo_clamps(
+			currInteraction.isotropic.V.dir, currInteraction.T, currInteraction.B, currInteraction.isotropic.N, 
+			currInteraction.isotropic.NdotV, NdotV, u, ior2[0], luminosityContributionHint, remMetadata
+		);
 		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
-		rem = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf(localPdf, s, currInteraction.isotropic, ior2[0], luminosityContributionHint);
+		rem = irr_glsl_thin_smooth_dielectric_cos_remainder_and_pdf_wo_clamps(localPdf, remMetadata);
 	} else
 #endif
-#if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
-	if (op_isDiffuse(op))
+	if (positiveNdotV)
 	{
-		vec3 localL = irr_glsl_projected_hemisphere_generate(u.xy);
-#ifndef NO_BSDF
-		if (is_bsdf)
+#if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
+		if (op_isDiffuse(op))
 		{
-			float dummy;
-			bool flip = irr_glsl_partitionRandVariable(0.5, u.z, dummy);
-			localL = flip ? -localL : localL;
-		}
+			vec3 localL = irr_glsl_projected_hemisphere_generate(u.xy);
+#ifndef NO_BSDF
+			if (is_bsdf)
+			{
+				float dummy;
+				bool flip = irr_glsl_partitionRandVariable(0.5, u.z, dummy);
+				localL = flip ? -localL : localL;
+			}
 #endif
-		s = irr_glsl_createLightSampleTangentSpace(localV, localL, tangentFrame);
-		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
+			s = irr_glsl_createLightSampleTangentSpace(localV, localL, tangentFrame);
+			out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
 
-		rem *= albedo*irr_glsl_oren_nayar_cos_remainder_and_pdf(localPdf, s, currInteraction.isotropic, ax2);
-		localPdf *= is_bsdf ? 0.5 : 1.0;
-	} else
+			rem *= albedo*irr_glsl_oren_nayar_cos_remainder_and_pdf(localPdf, s, currInteraction.isotropic, ax2);
+			localPdf *= is_bsdf ? 0.5 : 1.0;
+		} else
 #endif
 #if defined(OP_CONDUCTOR) || defined(OP_DIELECTRIC)
-	if (op_hasSpecular(op))
-	{
-		const float TdotV2 = currInteraction.TdotV * currInteraction.TdotV;
-		const float BdotV2 = currInteraction.BdotV * currInteraction.BdotV;
-		const float NdotV2 = currInteraction.isotropic.NdotV_squared;
-
-		const vec3 upperHemisphereLocalV = currInteraction.isotropic.NdotV < 0.0 ? -localV : localV;
-
-		float G2_over_G1 = 0.0;
-		float G1_over_2NdotV = 0.0;
-		float ndf_val = 0.0;
-		vec3 localH = vec3(0.0);
-
-		BEGIN_CASES(ndf)
-#ifdef NDF_GGX
-		CASE_BEGIN(ndf, NDF_GGX) 
+		if (op_hasSpecular(op))
 		{
-			// why is it called without "wo_clamps" and beckmann sampling is?
-			localH = irr_glsl_ggx_cos_generate(upperHemisphereLocalV, u.xy, ax, ay);
-		} CASE_END
+			const float TdotV2 = currInteraction.TdotV * currInteraction.TdotV;
+			const float BdotV2 = currInteraction.BdotV * currInteraction.BdotV;
+			const float NdotV2 = currInteraction.isotropic.NdotV_squared;
+
+			const vec3 upperHemisphereLocalV = currInteraction.isotropic.NdotV < 0.0 ? -localV : localV;
+
+			float G2_over_G1 = 0.0;
+			float G1_over_2NdotV = 0.0;
+			float ndf_val = 0.0;
+			vec3 localH = vec3(0.0);
+
+			BEGIN_CASES(ndf)
+#ifdef NDF_GGX
+			CASE_BEGIN(ndf, NDF_GGX) 
+			{
+				// why is it called without "wo_clamps" and beckmann sampling is?
+				localH = irr_glsl_ggx_cos_generate(upperHemisphereLocalV, u.xy, ax, ay);
+			} CASE_END
 #endif //NDF_GGX
 
 #ifdef NDF_BECKMANN
-		CASE_BEGIN(ndf, NDF_BECKMANN) 
-		{
-			localH = irr_glsl_beckmann_cos_generate_wo_clamps(upperHemisphereLocalV, u.xy, ax, ay);
-		} CASE_END
+			CASE_BEGIN(ndf, NDF_BECKMANN) 
+			{
+				localH = irr_glsl_beckmann_cos_generate_wo_clamps(upperHemisphereLocalV, u.xy, ax, ay);
+			} CASE_END
 #endif //NDF_BECKMANN
 
 #ifdef NDF_PHONG
-		CASE_BEGIN(ndf, NDF_PHONG) 
-		{
-			localH = irr_glsl_beckmann_cos_generate_wo_clamps(upperHemisphereLocalV, u.xy, ax, ay);
-		} CASE_END
+			CASE_BEGIN(ndf, NDF_PHONG) 
+			{
+				localH = irr_glsl_beckmann_cos_generate_wo_clamps(upperHemisphereLocalV, u.xy, ax, ay);
+			} CASE_END
 #endif //NDF_PHONG
-		CASE_OTHERWISE
-		{}
-		END_CASES
+			CASE_OTHERWISE
+			{}
+			END_CASES
 
-		vec3 localL;
-		const float VdotH = dot(localH, localV);
-		vec3 fr;
-		bool refraction = false;
+			vec3 localL;
+			const float VdotH = dot(localH, localV);
+			const float VdotH_clamp = is_bsdf ? VdotH : max(VdotH, 0.0);
+			vec3 fr;
+			bool refraction = false;
 #ifdef OP_CONDUCTOR
-		if (op == OP_CONDUCTOR)
-		{
-			fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
-			rem *= fr;
-		}
-		else
+			if (op == OP_CONDUCTOR)
+			{
+				fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH_clamp);
+				rem *= fr;
+			}
+			else
 #endif
-		{
-			fr = irr_glsl_fresnel_dielectric_common(ior2[0], VdotH);
+			{
+				fr = irr_glsl_fresnel_dielectric_common(ior2[0], VdotH_clamp);
 
-			const float refractionProb = colorToScalar(fr);
-			float rcpChoiceProb;
-			refraction = irr_glsl_partitionRandVariable(refractionProb, u.z, rcpChoiceProb);
-			localPdf /= rcpChoiceProb;
-		}
-		float eta = colorToScalar(ior[0]);
-		float rcpEta = 1.0/eta;
+				const float refractionProb = colorToScalar(fr);
+				float rcpChoiceProb;
+				refraction = irr_glsl_partitionRandVariable(refractionProb, u.z, rcpChoiceProb);
+				localPdf /= rcpChoiceProb;
+			}
+			float eta = colorToScalar(ior[0]);
+			float rcpEta = 1.0/eta;
 
-		out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(refraction, localV, localH, localL, rcpEta, rcpEta*rcpEta);
-		s = irr_glsl_createLightSampleTangentSpace(localV, localL, tangentFrame);
+			out_microfacet = irr_glsl_calcAnisotropicMicrofacetCache(refraction, localV, localH, localL, rcpEta, rcpEta*rcpEta);
+			s = irr_glsl_createLightSampleTangentSpace(localV, localL, tangentFrame);
 
-		const float TdotH2 = out_microfacet.TdotH * out_microfacet.TdotH;
-		const float BdotH2 = out_microfacet.BdotH * out_microfacet.BdotH;
-		const float NdotH2 = out_microfacet.isotropic.NdotH2;
-		const float NdotL = irr_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
-		const float NdotV = irr_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.isotropic.NdotV, 0.0);
+			const float TdotH2 = out_microfacet.TdotH * out_microfacet.TdotH;
+			const float BdotH2 = out_microfacet.BdotH * out_microfacet.BdotH;
+			const float NdotH2 = out_microfacet.isotropic.NdotH2;
+			const float NdotL = irr_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
 
-		BEGIN_CASES(ndf)
+			BEGIN_CASES(ndf)
 #ifdef NDF_GGX
-		CASE_BEGIN(ndf, NDF_GGX)
-		{
-			G2_over_G1 = irr_glsl_ggx_smith_G2_over_G1(NdotL, s.TdotL*s.TdotL, s.BdotL*s.BdotL, s.NdotL*s.NdotL, NdotV, TdotV2, BdotV2, NdotV2, ax2, ay2);
-			G1_over_2NdotV = irr_glsl_GGXSmith_G1_wo_numerator(NdotV, TdotV2, BdotV2, NdotV2, ax2, ay2);
-			ndf_val = irr_glsl_ggx_aniso(TdotH2, BdotH2, NdotH2, ax, ay, ax2, ay2);
-		} CASE_END
+			CASE_BEGIN(ndf, NDF_GGX)
+			{
+				G2_over_G1 = irr_glsl_ggx_smith_G2_over_G1(NdotL, s.TdotL*s.TdotL, s.BdotL*s.BdotL, s.NdotL*s.NdotL, NdotV, TdotV2, BdotV2, NdotV2, ax2, ay2);
+				G1_over_2NdotV = irr_glsl_GGXSmith_G1_wo_numerator(NdotV, TdotV2, BdotV2, NdotV2, ax2, ay2);
+				ndf_val = irr_glsl_ggx_aniso(TdotH2, BdotH2, NdotH2, ax, ay, ax2, ay2);
+			} CASE_END
 #endif //NDF_GGX
 
 #ifdef NDF_BECKMANN
-		CASE_BEGIN(ndf, NDF_BECKMANN)
-		{
-			float lambdaV = irr_glsl_smith_beckmann_Lambda(TdotV2, BdotV2, NdotV2, ax2, ay2);
-			G1_over_2NdotV = irr_glsl_smith_G1(lambdaV) / (2.0 * NdotV);
-			G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL*s.TdotL, s.BdotL*s.BdotL, s.NdotL*s.NdotL, ax2, ay2);
-			ndf_val = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, NdotH2);
-		} CASE_END
+			CASE_BEGIN(ndf, NDF_BECKMANN)
+			{
+				float lambdaV = irr_glsl_smith_beckmann_Lambda(TdotV2, BdotV2, NdotV2, ax2, ay2);
+				G1_over_2NdotV = irr_glsl_smith_G1(lambdaV) / (2.0 * NdotV);
+				G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL*s.TdotL, s.BdotL*s.BdotL, s.NdotL*s.NdotL, ax2, ay2);
+				ndf_val = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, NdotH2);
+			} CASE_END
 #endif //NDF_BECKMANN
 
 #ifdef NDF_PHONG
-		CASE_BEGIN(ndf, NDF_PHONG)
-		{
-			float lambdaV = irr_glsl_smith_beckmann_Lambda(TdotV2, BdotV2, NdotV2, ax2, ay2);
-			G1_over_2NdotV = irr_glsl_smith_G1(lambdaV) / (2.0 * NdotV);
-			G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL * s.TdotL, s.BdotL * s.BdotL, s.NdotL * s.NdotL, ax2, ay2);
-			ndf_val = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, NdotH2);
-		} CASE_END
+			CASE_BEGIN(ndf, NDF_PHONG)
+			{
+				float lambdaV = irr_glsl_smith_beckmann_Lambda(TdotV2, BdotV2, NdotV2, ax2, ay2);
+				G1_over_2NdotV = irr_glsl_smith_G1(lambdaV) / (2.0 * NdotV);
+				G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL * s.TdotL, s.BdotL * s.BdotL, s.NdotL * s.NdotL, ax2, ay2);
+				ndf_val = irr_glsl_beckmann(ax, ay, ax2, ay2, TdotH2, BdotH2, NdotH2);
+			} CASE_END
 #endif //NDF_PHONG
-		CASE_OTHERWISE
-		{}
-		END_CASES
+			CASE_OTHERWISE
+			{}
+			END_CASES
 
-		const float LdotH = out_microfacet.isotropic.LdotH;
-		const float VdotHLdotH = VdotH * LdotH;
-		// a trick, pdf was already multiplied by transmission/reflection choice probability above
-		const float reflectance = refraction ? 0.0 : 1.0;
-		rem *= G2_over_G1;
-		localPdf *= irr_glsl_smith_VNDF_pdf_wo_clamps(ndf_val, G1_over_2NdotV, NdotV, refraction, VdotH, LdotH, VdotHLdotH, eta, reflectance);
-	} else
+			const float LdotH = out_microfacet.isotropic.LdotH;
+			const float VdotHLdotH = VdotH * LdotH;
+			// a trick, pdf was already multiplied by transmission/reflection choice probability above
+			const float reflectance = refraction ? 0.0 : 1.0;
+			rem *= G2_over_G1;
+			localPdf *= irr_glsl_smith_VNDF_pdf_wo_clamps(ndf_val, G1_over_2NdotV, NdotV, refraction, VdotH, LdotH, VdotHLdotH, eta, reflectance);
+		} else
 #endif
-	{} //empty braces for `else`
+		{} //empty braces for `else`
+	}
 
 	out_remainder = rem;
 	out_pdf *= localPdf; 
@@ -1035,13 +1033,11 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 
 vec3 runGenerateAndRemainderStream(in MC_precomputed_t precomp, in instr_stream_t gcs, in instr_stream_t rnps, in vec3 rand, out float out_pdf, out irr_glsl_LightSample out_smpl)
 {
-	instr_t generator;
 	vec3 generator_rem;
 	float generator_pdf;
 	irr_glsl_AnisotropicMicrofacetCache microfacet;
 	uint generator_rnpOffset;
-	bool invalid_microfacet;
-	irr_glsl_LightSample s = irr_bsdf_cos_generate(precomp, gcs, rand, generator_rem, generator_pdf, microfacet, generator_rnpOffset, invalid_microfacet);
+	irr_glsl_LightSample s = irr_bsdf_cos_generate(precomp, gcs, rand, generator_rem, generator_pdf, microfacet, generator_rnpOffset);
 	eval_and_pdf_t eval_pdf = irr_bsdf_eval_and_pdf(precomp, rnps, generator_rnpOffset, s, microfacet);
 	bxdf_eval_t acc = eval_pdf.rgb;
 	float restPdf = eval_pdf.a;
