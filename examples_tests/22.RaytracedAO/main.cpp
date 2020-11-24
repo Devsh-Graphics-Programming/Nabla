@@ -6,9 +6,7 @@
 #include "../common/QToQuitEventReceiver.h"
 
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
-#ifndef NEW_SHADERS
 #include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
-#endif
 
 #include "./dirty_source/ExtraCrap.h"
 
@@ -33,7 +31,6 @@ int main()
 	if (!device)
 		return 1; // could not create selected driver.
 
-#ifndef NEW_SHADERS
 	//
 	asset::SAssetBundle meshes;
 	core::smart_refctd_ptr<ext::MitsubaLoader::CGlobalMitsubaMetadata> globalMeta;
@@ -87,36 +84,20 @@ int main()
 			}
 		}
 
-		//! read cache results -- speeds up mesh generation
-		{
-			io::IReadFile* cacheFile = device->getFileSystem()->createAndOpenFile("../../tmp/normalCache101010.sse");
-			if (cacheFile)
-			{
-				asset::normalCacheFor2_10_10_10Quant.resize(cacheFile->getSize() / sizeof(asset::QuantizationCacheEntry2_10_10_10));
-				cacheFile->read(asset::normalCacheFor2_10_10_10Quant.data(), cacheFile->getSize());
-				cacheFile->drop();
+		asset::CQuantNormalCache* qnc = am->getMeshManipulator()->getQuantNormalCache();
 
-				//make sure its still ok
-				std::sort(asset::normalCacheFor2_10_10_10Quant.begin(), asset::normalCacheFor2_10_10_10Quant.end());
-			}
-		}
+		//! read cache results -- speeds up mesh generation
+		//qnc->loadNormalQuantCacheFromFile<asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
 		//! load the mitsuba scene
 		meshes = am->getAsset(filePath, {});
 		//! cache results -- speeds up mesh generation on second run
-		{
-			io::IWriteFile* cacheFile = device->getFileSystem()->createAndWriteFile("../../tmp/normalCache101010.sse");
-			if (cacheFile)
-			{
-				cacheFile->write(asset::normalCacheFor2_10_10_10Quant.data(), asset::normalCacheFor2_10_10_10Quant.size() * sizeof(asset::QuantizationCacheEntry2_10_10_10));
-				cacheFile->drop();
-			}
-		}
+		qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
 		
 		auto contents = meshes.getContents();
-		if (contents.first>=contents.second)
+		if (!contents.size())
 			return 2;
 
-		auto firstmesh = *contents.first;
+		auto firstmesh = *contents.begin();
 		if (!firstmesh)
 			return 3;
 
@@ -156,7 +137,7 @@ int main()
 
 			camera->setTarget(target.getAsVector3df());
 			if (core::dot(core::normalize(core::cross(camera->getUpVector(),view)),core::cross(up,view)).x<0.99f)
-				camera->setUpVector(up.getAsVector3df());
+				camera->setUpVector(up);
 		}
 
 		const ext::MitsubaLoader::CElementSensor::PerspectivePinhole* persp = nullptr;
@@ -229,7 +210,6 @@ int main()
 
 
 	auto driver = device->getVideoDriver();
-	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
 
 	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver, device->getAssetManager(), smgr);
 	constexpr uint32_t MaxSamples = 1024u*1024u;
@@ -280,7 +260,7 @@ int main()
 		camera = smgr->addCameraSceneNodeFPS(nullptr, 100.f, core::min(extent.X, extent.Y, extent.Z) * 0.0002f);
 		camera->setPosition(ptu[0].getAsVector3df());
 		camera->setTarget(ptu[1].getAsVector3df());
-		camera->setUpVector(ptu[2].getAsVector3df());
+		camera->setUpVector(ptu[2]);
 		camera->setProjectionMatrix(proj);
 
 		device->getCursorControl()->setVisible(false);
@@ -321,7 +301,6 @@ int main()
 	}
 	renderer->deinit();
 	renderer = nullptr;
-#endif
 
 	return 0;
 }

@@ -40,7 +40,7 @@ add_subdirectory(19.SIMDmatrixMultiplication EXCLUDE_FROM_ALL)
 add_subdirectory(20.Megatexture EXCLUDE_FROM_ALL)
 add_subdirectory(21.DynamicTextureIndexing EXCLUDE_FROM_ALL) # TODO: revive
 if (IRR_BUILD_MITSUBA_LOADER AND IRR_BUILD_RADEON_RAYS)
-	#add_subdirectory(22.RaytracedAO EXCLUDE_FROM_ALL)
+	add_subdirectory(22.RaytracedAO EXCLUDE_FROM_ALL)
 endif()
 add_subdirectory(23.Autoexposure EXCLUDE_FROM_ALL)
 #add_subdirectory(24.BufferSubDataAlignTest EXCLUDE_FROM_ALL) # TODO: @Anastazluk or @Hazardu

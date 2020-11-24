@@ -499,7 +499,6 @@ void main()
 
 )======";
 
-#ifndef NEW_SHADERS
 inline GLuint createComputeShader(const std::string& source)
 {
     GLuint program = COpenGLExtensionHandler::extGlCreateProgram();
@@ -540,108 +539,15 @@ inline GLuint createComputeShader(const std::string& source)
 	return program;
 }
 
-
-
-class SimpleCallBack : public video::IShaderConstantSetCallBack
-{
-		Renderer* renderer;
-		video::E_MATERIAL_TYPE currentMat;
-
-		int32_t mvpUniformLocation[video::EMT_COUNT+2];
-		int32_t nUniformLocation[video::EMT_COUNT+2];
-		int32_t flipFacesUniformLocation[video::EMT_COUNT+2];
-		int32_t colorUniformLocation[video::EMT_COUNT+2];
-		int32_t nastyUniformLocation[video::EMT_COUNT+2];
-		int32_t lightIDUniformLocation[video::EMT_COUNT+2];
-		video::E_SHADER_CONSTANT_TYPE mvpUniformType[video::EMT_COUNT+2];
-		video::E_SHADER_CONSTANT_TYPE nUniformType[video::EMT_COUNT+2];
-		video::E_SHADER_CONSTANT_TYPE flipFacesUniformType[video::EMT_COUNT+2];
-		video::E_SHADER_CONSTANT_TYPE colorUniformType[video::EMT_COUNT+2];
-		video::E_SHADER_CONSTANT_TYPE nastyUniformType[video::EMT_COUNT+2];
-		video::E_SHADER_CONSTANT_TYPE lightIDUniformType[video::EMT_COUNT+2];
-	public:
-		SimpleCallBack(Renderer* _renderer) : renderer(_renderer), currentMat(video::EMT_SOLID)
-		{
-			std::fill(mvpUniformLocation, reinterpret_cast<int32_t*>(mvpUniformType), -1);
-		}
-
-		virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
-		{
-			for (size_t i=0; i<constants.size(); i++)
-			{
-				if (constants[i].name == "MVP")
-				{
-					mvpUniformLocation[materialType] = constants[i].location;
-					mvpUniformType[materialType] = constants[i].type;
-				}
-				else if (constants[i].name == "NormalMatrix")
-				{
-					nUniformLocation[materialType] = constants[i].location;
-					nUniformType[materialType] = constants[i].type;
-				}
-				else if (constants[i].name == "flipFaces")
-				{
-					flipFacesUniformLocation[materialType] = constants[i].location;
-					flipFacesUniformType[materialType] = constants[i].type;
-				}
-				else if (constants[i].name == "color")
-				{
-					colorUniformLocation[materialType] = constants[i].location;
-					colorUniformType[materialType] = constants[i].type;
-				}
-				else if (constants[i].name == "nasty")
-				{
-					nastyUniformLocation[materialType] = constants[i].location;
-					nastyUniformType[materialType] = constants[i].type;
-				}
-				else if (constants[i].name == "lightID")
-				{
-					lightIDUniformLocation[materialType] = constants[i].location;
-					lightIDUniformType[materialType] = constants[i].type;
-				}
-			}
-		}
-
-		virtual void OnSetMaterial(video::IMaterialRendererServices* services, const video::SGPUMaterial& material, const video::SGPUMaterial& lastMaterial)
-		{
-			currentMat = material.MaterialType;
-			services->setShaderConstant(&material.AmbientColor, colorUniformLocation[currentMat], colorUniformType[currentMat], 1);
-			services->setShaderConstant(&material.MaterialTypeParam, nastyUniformLocation[currentMat], nastyUniformType[currentMat], 1);
-			services->setShaderConstant(&material.userData, lightIDUniformLocation[currentMat], lightIDUniformType[currentMat], 1);
-		}
-
-		virtual void OnSetConstants(video::IMaterialRendererServices* services, int32_t userData)
-		{
-			auto world = services->getVideoDriver()->getTransform(video::E4X3TS_WORLD);
-			if (flipFacesUniformLocation[currentMat]>=0)
-			{
-				auto tmp = world.getPseudoDeterminant();
-				if (renderer->isRightHanded())
-					tmp = -tmp;
-				services->setShaderConstant(tmp.pointer, flipFacesUniformLocation[currentMat], flipFacesUniformType[currentMat], 1);
-			}
-			if (nUniformLocation[currentMat]>=0)
-			{
-				float tmp[9];
-				world.getSub3x3InverseTransposePacked(tmp);
-				services->setShaderConstant(tmp, nUniformLocation[currentMat], nUniformType[currentMat], 1);
-			}
-			if (mvpUniformLocation[currentMat]>=0)
-				services->setShaderConstant(services->getVideoDriver()->getTransform(video::EPTS_PROJ_VIEW_WORLD).pointer(), mvpUniformLocation[currentMat], mvpUniformType[currentMat], 1);
-		}
-
-		virtual void OnUnsetMaterial() {}
-};
-
 constexpr uint32_t UNFLEXIBLE_MAX_SAMPLES_TODO_REMOVE = 1024u*1024u;
 
 
 constexpr uint32_t kOptiXPixelSize = sizeof(uint16_t)*3u;
 
 
-Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneManager* _smgr, bool useDenoiser) :
+Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, bool useDenoiser) :
 		m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager),
-		nonInstanced(static_cast<E_MATERIAL_TYPE>(-1)), m_raygenProgram(0u), m_compostProgram(0u),
+		m_raygenProgram(0u), m_compostProgram(0u),
 		m_rrManager(ext::RadeonRays::Manager::create(m_driver)), m_rightHanded(false),
 		m_depth(), m_albedo(), m_normals(), m_lightIndex(), m_accumulation(), m_tonemapOutput(),
 		m_colorBuffer(nullptr), m_gbuffer(nullptr), tmpTonemapBuffer(nullptr),
@@ -655,15 +561,6 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneMa
 		,m_cudaStream(nullptr)
 	#endif
 {
-	SimpleCallBack* cb = new SimpleCallBack(this);
-	nonInstanced = (E_MATERIAL_TYPE)m_driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
-		"", "", "", //! No Geometry or Tessellation Shaders
-		"../mesh.frag",
-		3, EMT_SOLID, //! 3 vertices per primitive (this is tessellation shader relevant only
-		cb, //! Our Shader Callback
-		0); //! No custom user data
-	cb->drop();
-
 	#ifdef _IRR_BUILD_OPTIX_
 		while (useDenoiser)
 		{
@@ -721,6 +618,35 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, ISceneMa
 	}
 }
 
+core::smart_refctd_ptr<video::IGPUImageView> Renderer::createGPUTexture(const uint32_t* extent, uint32_t mips, E_FORMAT format)
+{
+	IGPUImage::SCreationParams imgparams;
+	imgparams.extent = { extent[0], extent[1], 1u };
+	imgparams.arrayLayers = 1u;
+	imgparams.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
+	imgparams.format = format;
+	imgparams.mipLevels = mips;
+	imgparams.samples = IImage::ESCF_1_BIT;
+	imgparams.type = IImage::ET_2D;
+
+	auto memreqs = m_driver->getDeviceLocalGPUMemoryReqs();
+
+	auto img = m_driver->createGPUImageOnDedMem(std::move(imgparams), memreqs);
+
+	IGPUImageView::SCreationParams viewparams;
+	viewparams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0);
+	viewparams.format = format;
+	viewparams.image = std::move(img);
+	viewparams.viewType = IGPUImageView::ET_2D;
+	viewparams.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+	viewparams.subresourceRange.baseArrayLayer = 0u;
+	viewparams.subresourceRange.layerCount = 1u;
+	viewparams.subresourceRange.baseMipLevel = 0u;
+	viewparams.subresourceRange.levelCount = 1u;
+
+	return m_driver->createGPUImageView(std::move(viewparams));
+}
+
 Renderer::~Renderer()
 {
 	deinit();
@@ -749,9 +675,9 @@ void Renderer::init(const SAssetBundle& meshes,
 	const ext::MitsubaLoader::CGlobalMitsubaMetadata* globalMeta = nullptr;
 	{
 		auto contents = meshes.getContents();
-		for (auto cpuit = contents.first; cpuit!=contents.second; cpuit++)
+		for (auto& cpumesh_ : contents)
 		{
-			auto cpumesh = static_cast<asset::ICPUMesh*>(cpuit->get());
+			auto cpumesh = static_cast<asset::ICPUMesh*>(cpumesh_.get());
 
 			auto* meta = cpumesh->getMetadata();
 
@@ -762,6 +688,10 @@ void Renderer::init(const SAssetBundle& meshes,
 			//! TODO: fix
 			const auto shapeType = meshmeta->getShapeType()==ext::MitsubaLoader::CElementShape::Type::INSTANCE ? ext::MitsubaLoader::CElementShape::Type::SERIALIZED:meshmeta->getShapeType();
 
+			// WARNING!!!
+			// all this instance-related things is a rework candidate since mitsuba loader supports instances
+			// (all this metadata should still be attached to meshes, but meshbuffers has instanceCount correctly set
+			// and DS with per-instance data (transform, normal matrix, instructions offsets, etc)
 			const auto& instances = meshmeta->getInstances();
 
 			auto meshBufferCount = cpumesh->getMeshBufferCount();
@@ -1028,9 +958,9 @@ void Renderer::init(const SAssetBundle& meshes,
 		lightCDF.back() = 0xdeadbeefu;
 
 		m_lightCount = lights.size();
-		m_lightCDFBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createFilledDeviceLocalGPUBufferOnDedMem(lightCDF.size()*sizeof(uint32_t),lightCDF.data()),core::dont_grab);
-		m_lightBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createFilledDeviceLocalGPUBufferOnDedMem(lights.size()*sizeof(SLight),lights.data()),core::dont_grab);
-		m_lightRadianceBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createFilledDeviceLocalGPUBufferOnDedMem(lightRadiances.size()*sizeof(core::vectorSIMDf),lightRadiances.data()),core::dont_grab);
+		m_lightCDFBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(lightCDF.size()*sizeof(uint32_t),lightCDF.data());
+		m_lightBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(lights.size()*sizeof(SLight),lights.data());
+		m_lightRadianceBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(lightRadiances.size()*sizeof(core::vectorSIMDf),lightRadiances.data());
 	}
 
 	auto renderPixelCount = renderSize[0]*renderSize[1]*renderSize[2];
@@ -1041,11 +971,10 @@ void Renderer::init(const SAssetBundle& meshes,
 
 		// upload sequence to GPU
 		auto gpubuf = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(), sampleSequence->getPointer());
-		m_sampleSequence = core::smart_refctd_ptr<ITextureBufferObject>(m_driver->addTextureBufferObject(gpubuf, ITextureBufferObject::ETBOF_RG32UI), core::dont_grab);
-		gpubuf->drop();
+		m_sampleSequence = m_driver->createGPUBufferView(gpubuf.get(), asset::EF_R32G32_UINT);
 
 		// create scramble texture
-		m_scrambleTexture = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize[0], 1u, EF_R32_UINT);
+		m_scrambleTexture = createGPUTexture(&renderSize[0], 1u, EF_R32_UINT);
 		{
 			core::vector<uint32_t> random(renderPixelCount);
 			// generate
@@ -1060,21 +989,21 @@ void Renderer::init(const SAssetBundle& meshes,
 		}
 	}
 
-	m_depth = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize[0], 1, EF_D32_SFLOAT);
-	m_albedo = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize[0], 1, EF_R8G8B8_SRGB);
-	m_normals = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize[0], 1, EF_R16G16_SNORM);
-	m_lightIndex = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize[0], 1, EF_R32_UINT);
+	m_depth = createGPUTexture(&renderSize[0], 1, EF_D32_SFLOAT);
+	m_albedo = createGPUTexture(&renderSize[0], 1, EF_R8G8B8_SRGB);
+	m_normals = createGPUTexture(&renderSize[0], 1, EF_R16G16_SNORM);
+	m_lightIndex = createGPUTexture(&renderSize[0], 1, EF_R32_UINT);
 
-	m_accumulation = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize[0], 1, EF_R32G32B32A32_SFLOAT);
+	m_accumulation = createGPUTexture(&renderSize[0], 1, EF_R32G32B32A32_SFLOAT);
 
 	tmpTonemapBuffer = m_driver->addFrameBuffer();
-	tmpTonemapBuffer->attach(EFAP_COLOR_ATTACHMENT0, m_accumulation.get());
+	tmpTonemapBuffer->attach(EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(m_accumulation));
 
 	m_gbuffer = m_driver->addFrameBuffer();
-	m_gbuffer->attach(EFAP_DEPTH_ATTACHMENT, m_depth.get());
-	m_gbuffer->attach(EFAP_COLOR_ATTACHMENT0, m_albedo.get());
-	m_gbuffer->attach(EFAP_COLOR_ATTACHMENT1, m_normals.get());
-	m_gbuffer->attach(EFAP_COLOR_ATTACHMENT2, m_lightIndex.get());
+	m_gbuffer->attach(EFAP_DEPTH_ATTACHMENT, core::smart_refctd_ptr(m_depth));
+	m_gbuffer->attach(EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(m_albedo));
+	m_gbuffer->attach(EFAP_COLOR_ATTACHMENT1, core::smart_refctd_ptr(m_normals));
+	m_gbuffer->attach(EFAP_COLOR_ATTACHMENT2, core::smart_refctd_ptr(m_lightIndex));
 
 	//
 	constexpr auto RAYGEN_WORK_GROUP_DIM = 16u;
@@ -1093,13 +1022,13 @@ void Renderer::init(const SAssetBundle& meshes,
 	printf("Using %d samples\n", m_samplesPerDispatch);
 
 	raygenBufferSize *= m_samplesPerDispatch;
-	m_rayBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(raygenBufferSize), core::dont_grab);
+	m_rayBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(raygenBufferSize);
 
 	shadowBufferSize *= m_samplesPerDispatch;
-	m_intersectionBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(shadowBufferSize),core::dont_grab);
+	m_intersectionBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(shadowBufferSize);
 
 	m_rayCount = m_samplesPerDispatch*renderPixelCount;
-	m_rayCountBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t),&m_rayCount), core::dont_grab);
+	m_rayCountBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t),&m_rayCount);
 
 	m_rayBufferAsRR = m_rrManager->linkBuffer(m_rayBuffer.get(), CL_MEM_READ_WRITE);
 	// TODO: clear hit buffer to -1 before usage
@@ -1155,12 +1084,12 @@ void Renderer::init(const SAssetBundle& meshes,
 
 		break;
 	}
-	m_tonemapOutput = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize[0], 1, m_denoiserScratchBuffer.getObject() ? EF_A2B10G10R10_UNORM_PACK32:EF_R8G8B8_SRGB);
+	m_tonemapOutput = createGPUTexture(&renderSize[0], 1, m_denoiserScratchBuffer.getObject() ? EF_A2B10G10R10_UNORM_PACK32:EF_R8G8B8_SRGB);
 #else
-	m_tonemapOutput = m_driver->createGPUTexture(ITexture::ETT_2D, &renderSize[0], 1, EF_R8G8B8_SRGB);
+	m_tonemapOutput = createGPUTexture(&renderSize[0], 1, EF_R8G8B8_SRGB);
 #endif
 	m_colorBuffer = m_driver->addFrameBuffer();
-	m_colorBuffer->attach(EFAP_COLOR_ATTACHMENT0, m_tonemapOutput.get());
+	m_colorBuffer->attach(EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(m_tonemapOutput));
 }
 
 
@@ -1283,8 +1212,8 @@ void Renderer::render()
 		m_framesDone = 0u;
 	}
 
-	auto rSize = m_depth->getSize();
-	uint32_t uImageWidth_ImageArea_TotalImageSamples_Samples[4] = {rSize[0],rSize[0]*rSize[1],rSize[0]*rSize[1]*m_samplesPerDispatch,m_samplesPerDispatch};
+	auto rSize = m_depth->getCreationParameters().image->getCreationParameters().extent;
+	uint32_t uImageWidth_ImageArea_TotalImageSamples_Samples[4] = {rSize.width,rSize.width*rSize.height,rSize.width*rSize.height*m_samplesPerDispatch,m_samplesPerDispatch};
 
 	// generate rays
 	{
@@ -1512,5 +1441,3 @@ void Renderer::render()
 		m_driver->setViewPort(oldVP);
 	}
 }
-
-#endif

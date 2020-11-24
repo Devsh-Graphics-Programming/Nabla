@@ -7,6 +7,10 @@
 // pesky leaking defines
 #undef PI
 
+#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
+
+#include <ISceneManager.h>
+
 #ifdef _IRR_BUILD_OPTIX_
 #include "irr/ext/OptiX/Manager.h"
 #endif
@@ -159,7 +163,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 			};
 			*/
 		};
-#ifndef NEW_SHADERS
+
 		static_assert(sizeof(SLight)==112u,"Can't keep alignment straight!");
 
 		// No 8k yet, too many rays to store
@@ -185,6 +189,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		uint64_t getTotalSamplesComputed() const { return static_cast<uint64_t>(m_samplesComputed)*static_cast<uint64_t>(m_rayCount)/m_samplesPerDispatch; }
 
+		core::smart_refctd_ptr<video::IGPUImageView> createGPUTexture(const uint32_t* extent, uint32_t mips, E_FORMAT format);
 
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 4u;
     protected:
@@ -202,12 +207,11 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		bool m_rightHanded;
 
-		irr::core::smart_refctd_ptr<irr::video::ITextureBufferObject> m_sampleSequence;
-		irr::core::smart_refctd_ptr<irr::video::ITexture> m_scrambleTexture;
+		irr::core::smart_refctd_ptr<irr::video::IGPUBufferView> m_sampleSequence;
+		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_scrambleTexture;
 
-		irr::video::E_MATERIAL_TYPE nonInstanced;
 		uint32_t m_raygenProgram, m_compostProgram;
-		irr::core::smart_refctd_ptr<irr::video::ITexture> m_depth,m_albedo,m_normals,m_lightIndex,m_accumulation,m_tonemapOutput;
+		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_depth,m_albedo,m_normals,m_lightIndex,m_accumulation,m_tonemapOutput;
 		irr::video::IFrameBuffer* m_colorBuffer,* m_gbuffer,* tmpTonemapBuffer;
 
 		uint32_t m_maxSamples;
@@ -234,7 +238,6 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightCDFBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightRadianceBuffer;
-#endif
 
 	#ifdef _IRR_BUILD_OPTIX_
 		irr::core::smart_refctd_ptr<irr::ext::OptiX::Manager> m_optixManager;
