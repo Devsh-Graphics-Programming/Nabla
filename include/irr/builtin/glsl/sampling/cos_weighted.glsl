@@ -47,7 +47,7 @@ float irr_glsl_projected_sphere_remainder_and_pdf(out float pdf, in vec3 L)
 
 float irr_glsl_projected_sphere_pdf(in float L_z)
 {
-    return 0.5*L_z*irr_glsl_RECIPROCAL_PI;
+    return 0.5*irr_glsl_projected_hemisphere_pdf(L_z);
 }
 
 #endif
