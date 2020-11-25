@@ -438,18 +438,8 @@ int main()
 		}
 	}
 
-	auto gpuVT = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(driver, globalMeta->VT.get());
+	//auto gpuVT = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(driver, globalMeta->VT.get());
 	auto gpuds0 = driver->getGPUObjectsFromAssets(&cpuds0.get(), &cpuds0.get()+1)->front();
-	{
-		auto count = gpuVT->getDescriptorSetWrites(nullptr, nullptr, nullptr);
-
-		auto writes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<video::IGPUDescriptorSet::SWriteDescriptorSet>>(count.first);
-		auto info = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<video::IGPUDescriptorSet::SDescriptorInfo>>(count.second);
-
-		gpuVT->getDescriptorSetWrites(writes->data(), info->data(), gpuds0.get());
-
-		driver->updateDescriptorSets(writes->size(), writes->data(), 0u, nullptr);
-	}
 
     auto gpuds1layout = driver->getGPUObjectsFromAssets(&ds1layout, &ds1layout+1)->front();
 

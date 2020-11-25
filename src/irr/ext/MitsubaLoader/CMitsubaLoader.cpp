@@ -876,6 +876,9 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 			getBuiltinAsset<asset::ICPUSpecializedShader, asset::IAsset::ET_SPECIALIZED_SHADER>(VERTEX_SHADER_CACHE_KEY, m_manager),
 			std::move(fragShader)
 		);
+		ctx.globalMeta->materialCompilerGLSL_declarations = compResult.fragmentShaderSource_declarations;
+		ctx.globalMeta->materialCompilerGLSL_source = compResult.fragmentShaderSource;
+
 		for (const SContext::shape_ass_type& mesh_ : meshes)
 		{
 			// need const_cast because core::set has only const iterators (or maybe we should reconsider if const smart_refctd_ptr::operator-> should return const ptr)

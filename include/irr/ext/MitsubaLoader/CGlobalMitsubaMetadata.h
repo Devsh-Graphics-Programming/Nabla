@@ -26,6 +26,11 @@ class CGlobalMitsubaMetadata : public core::IReferenceCounted
 		core::vector<CElementSensor> sensors;
 		core::vector<CElementEmitter> emitters;
 		core::smart_refctd_ptr<asset::ICPUVirtualTexture> VT;
+
+		//has to go after #version and before required user-provided descriptors and functions
+		std::string materialCompilerGLSL_declarations;
+		//has to go after required user-provided descriptors and functions and before the rest of shader (especially entry point function)
+		std::string materialCompilerGLSL_source;
 };
 
 
