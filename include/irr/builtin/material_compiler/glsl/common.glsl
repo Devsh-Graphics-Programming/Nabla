@@ -668,14 +668,14 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 				pdf = irr_glsl_smith_VNDF_pdf_wo_clamps(ndf_val, G1_over_2NdotV);
 				float remainder_scalar_part = G2_over_G1;
 
-				const float VdotH = is_bsdf ? microfacet.inner.isotropic.VdotH : max(microfacet.inner.isotropic.VdotH, 0.0);
+				const float VdotH = abs(microfacet.inner.isotropic.VdotH);
 				vec3 fr;
 #ifdef OP_CONDUCTOR
 				if (op == OP_CONDUCTOR)
 					fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH);
 				else
 #endif
-					fr = irr_glsl_fresnel_dielectric_common(ior2[0], VdotH);
+					fr = vec3(irr_glsl_fresnel_dielectric_common(eta*eta, VdotH));
 
 				float eval_scalar_part = remainder_scalar_part * pdf;
 
@@ -860,8 +860,8 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 	const float NdotV = irr_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.inner.isotropic.NdotV, 0.0);
 	const bool positiveNdotV = (NdotV > FLT_MIN);
 
-	float localPdf = positiveNdotV ? 1.0 : 0.0;
-	vec3 rem = positiveNdotV ? vec3(1.0) : vec3(0.0);
+	float localPdf = 0.0;
+	vec3 rem = vec3(0.0);
 	uint ndf = instr_getNDF(instr);
 	irr_glsl_LightSample s;
 
@@ -910,13 +910,15 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 			out_microfacet.inner = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction.inner, s);
 			finalizeMicrofacet(out_microfacet);
 
-			rem *= albedo*irr_glsl_oren_nayar_cos_remainder_and_pdf(localPdf, s, currInteraction.inner.isotropic, ax2);
+			rem = albedo*irr_glsl_oren_nayar_cos_remainder_and_pdf(localPdf, s, currInteraction.inner.isotropic, ax2);
 			localPdf *= is_bsdf ? 0.5 : 1.0;
 		} else
 #endif
 #if defined(OP_CONDUCTOR) || defined(OP_DIELECTRIC)
 		if (op_hasSpecular(op))
 		{
+			localPdf = 1.0;
+
 			const float TdotV2 = currInteraction.inner.TdotV * currInteraction.inner.TdotV;
 			const float BdotV2 = currInteraction.inner.BdotV * currInteraction.inner.BdotV;
 			const float NdotV2 = currInteraction.inner.isotropic.NdotV_squared;
@@ -959,24 +961,25 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 			const float VdotH_clamp = is_bsdf ? VdotH : max(VdotH, 0.0);
 			vec3 fr;
 			bool refraction = false;
+			float eta = colorToScalar(ior[0]);
+			float rcpEta = 1.0 / eta;
 #ifdef OP_CONDUCTOR
 			if (op == OP_CONDUCTOR)
 			{
 				fr = irr_glsl_fresnel_conductor(ior[0], ior[1], VdotH_clamp);
-				rem *= fr;
+				rem = fr;
 			}
 			else
 #endif
 			{
-				fr = irr_glsl_fresnel_dielectric_common(ior2[0], VdotH_clamp);
+				fr = vec3(irr_glsl_fresnel_dielectric_common(eta*eta, VdotH_clamp));
 
 				const float refractionProb = colorToScalar(fr);
 				float rcpChoiceProb;
 				refraction = irr_glsl_partitionRandVariable(refractionProb, u.z, rcpChoiceProb);
 				localPdf /= rcpChoiceProb;
+				rem = vec3(1.0);
 			}
-			float eta = colorToScalar(ior[0]);
-			float rcpEta = 1.0/eta;
 
 			out_microfacet.inner = irr_glsl_calcAnisotropicMicrofacetCache(refraction, localV, localH, localL, rcpEta, rcpEta*rcpEta);
 			s = irr_glsl_createLightSampleTangentSpace(localV, localL, tangentFrame);
@@ -1022,10 +1025,9 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 
 			const float LdotH = out_microfacet.inner.isotropic.LdotH;
 			const float VdotHLdotH = VdotH * LdotH;
-			// a trick, pdf was already multiplied by transmission/reflection choice probability above
-			const float reflectance = refraction ? 0.0 : 1.0;
 			rem *= G2_over_G1;
-			localPdf *= irr_glsl_smith_VNDF_pdf_wo_clamps(ndf_val, G1_over_2NdotV, NdotV, refraction, VdotH, LdotH, VdotHLdotH, eta, reflectance);
+			// note: at this point localPdf is already multiplied by transmission/reflection choice probability
+			localPdf *= irr_glsl_smith_FVNDF_pdf_wo_clamps(ndf_val, G1_over_2NdotV, NdotV, refraction, VdotH, LdotH, VdotHLdotH, eta);
 		} else
 #endif
 		{} //empty braces for `else`
