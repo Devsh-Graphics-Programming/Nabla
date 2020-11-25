@@ -3,13 +3,13 @@
 
 #include <irr/builtin/material_compiler/glsl/common.glsl>
 
-void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr_glsl_LightSample s, inout irr_glsl_AnisotropicMicrofacetCache _microfacet, in bool skip)
+void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr_glsl_LightSample s, inout MC_microfacet_t _microfacet, in bool skip)
 {
 	const uint op = instr_getOpcode(instr);
 	const bool is_bxdf = op_isBXDF(op);
 	const bool is_bsdf = !op_isBRDF(op); //note it actually tells if op is BSDF or BUMPMAP or SET_GEOM_NORMAL (divergence reasons)
 	const float cosFactor = irr_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
-	const float NdotV = irr_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.isotropic.NdotV, 0.0);
+	const float NdotV = irr_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.inner.isotropic.NdotV, 0.0);
 	bool is_valid = (NdotV > FLT_MIN);
 	const bool positiveCosFactor = cosFactor > FLT_MIN && is_valid;
 	const bool is_bxdf_or_combiner = op_isBXDForCoatOrBlend(op);
@@ -18,7 +18,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 	mat2x3 ior;
 	mat2x3 ior2;
 	params_t params;
-	irr_glsl_AnisotropicMicrofacetCache microfacet;
+	MC_microfacet_t microfacet;
 	bsdf_data_t bsdf_data;
 
 	const bool run = !skip && positiveCosFactor;
@@ -40,9 +40,10 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 
 		bool refraction = false;
 #ifdef OP_DIELECTRIC
-		if (op == OP_DIELECTRIC && irr_glsl_isTransmissionPath(currInteraction.isotropic.NdotV, s.NdotL))
+		if (op == OP_DIELECTRIC && irr_glsl_isTransmissionPath(currInteraction.inner.isotropic.NdotV, s.NdotL))
 		{
-			is_valid = irr_glsl_calcAnisotropicMicrofacetCache(microfacet, true, currInteraction.isotropic.V.dir, s.L, currInteraction.T, currInteraction.B, currInteraction.isotropic.N, s.NdotL, s.VdotL, eta, rcp_eta);
+			is_valid = irr_glsl_calcAnisotropicMicrofacetCache(microfacet.inner, true, currInteraction.inner.isotropic.V.dir, s.L, currInteraction.inner.T, currInteraction.inner.B, currInteraction.inner.isotropic.N, s.NdotL, s.VdotL, eta, rcp_eta);
+			finalizeMicrofacet(microfacet);
 			refraction = true;
 		}
 		else
@@ -58,7 +59,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
 		if (op_isDiffuse(op))
 		{
-			result = albedo * irr_glsl_oren_nayar_cos_eval(s, currInteraction.isotropic, a2);
+			result = albedo * irr_glsl_oren_nayar_cos_eval(s, currInteraction.inner.isotropic, a2);
 		}
 		else
 #endif
@@ -79,17 +80,17 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 			const float BdotL2 = s.BdotL * s.BdotL;
 #endif
 
-			const float NdotV2 = currInteraction.isotropic.NdotV_squared;
+			const float NdotV2 = currInteraction.inner.isotropic.NdotV_squared;
 #ifndef ALL_ISOTROPIC_BXDFS
-			const float TdotV2 = currInteraction.TdotV * currInteraction.TdotV;
-			const float BdotV2 = currInteraction.BdotV * currInteraction.BdotV;
+			const float TdotV2 = currInteraction.TdotV2;
+			const float BdotV2 = currInteraction.BdotV2;
 #endif
 
-			const float NdotH = microfacet.isotropic.NdotH;
-			const float NdotH2 = microfacet.isotropic.NdotH2;
+			const float NdotH = microfacet.inner.isotropic.NdotH;
+			const float NdotH2 = microfacet.inner.isotropic.NdotH2;
 #ifndef ALL_ISOTROPIC_BXDFS
-			const float TdotH2 = microfacet.TdotH * microfacet.TdotH;
-			const float BdotH2 = microfacet.BdotH * microfacet.BdotH;
+			const float TdotH2 = microfacet.TdotH2;
+			const float BdotH2 = microfacet.BdotH2;
 #endif
 
 			BEGIN_CASES(ndf)
@@ -129,7 +130,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 				{} //else "empty braces"
 			END_CASES
 
-				float VdotH = microfacet.isotropic.VdotH;
+				float VdotH = microfacet.inner.isotropic.VdotH;
 				vec3 fr;
 #ifdef OP_CONDUCTOR
 				if (op == OP_CONDUCTOR)
@@ -141,7 +142,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 #ifdef OP_DIELECTRIC
 				if (is_bsdf)
 				{
-					float LdotH = microfacet.isotropic.LdotH;
+					float LdotH = microfacet.inner.isotropic.LdotH;
 					float VdotHLdotH = VdotH * LdotH;
 #ifdef NDF_GGX
 					if (ndf == NDF_GGX)
@@ -195,12 +196,13 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 bxdf_eval_t runEvalStream(in MC_precomputed_t precomp, in instr_stream_t stream, in vec3 L)
 {
 	setCurrInteraction(precomp);
-	irr_glsl_LightSample s = irr_glsl_createLightSample(L, currInteraction);
-	irr_glsl_AnisotropicMicrofacetCache microfacet = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction, s);
+	irr_glsl_LightSample s = irr_glsl_createLightSample(L, currInteraction.inner);
+	MC_microfacet_t microfacet;
+	microfacet.inner = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction.inner, s);
 	for (uint i = 0u; i < stream.count; ++i)
 	{
 		instr_t instr = irr_glsl_MC_fetchInstr(stream.offset+i);
-		uint op = instr_getOpcode(instr);
+		const uint op = instr_getOpcode(instr);
 
 		bool skip = false;
 #ifdef OP_THINDIELECTRIC

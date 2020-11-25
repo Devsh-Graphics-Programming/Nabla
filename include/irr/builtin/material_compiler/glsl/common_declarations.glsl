@@ -3,6 +3,7 @@
 
 #include <irr/builtin/glsl/virtual_texturing/extensions.glsl>
 #include <irr/builtin/glsl/colorspace/encodeCIEXYZ.glsl>
+#include <irr/builtin/glsl/bxdf/common.glsl>
 
 #define instr_t uvec2
 #define prefetch_instr_t uvec4
@@ -35,6 +36,30 @@ struct MC_precomputed_t
 	vec3 pos;
 	bool frontface;
 };
+
+struct MC_microfacet_t
+{
+	irr_glsl_AnisotropicMicrofacetCache inner;
+	float TdotH2;
+	float BdotH2;
+};
+void finalizeMicrofacet(inout MC_microfacet_t mf)
+{
+	mf.TdotH2 = mf.inner.TdotH * mf.inner.TdotH;
+	mf.BdotH2 = mf.inner.BdotH * mf.inner.BdotH;
+}
+
+struct MC_interaction_t
+{
+	irr_glsl_AnisotropicViewSurfaceInteraction inner;
+	float TdotV2;
+	float BdotV2;
+};
+void finalizeInteraction(inout MC_interaction_t i)
+{
+	i.TdotV2 = i.inner.TdotV * i.inner.TdotV;
+	i.BdotV2 = i.inner.BdotV * i.inner.BdotV;
+}
 
 #define ALPHA_EPSILON 1.0e-08
 
