@@ -99,8 +99,10 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_COMPUTE_PIPELINE = 1ull<<15,                     //!< asset::ICPUComputePipeline
 			ET_PIPELINE_CACHE = 1ull<<16,						//!< asset::ICPUPipelineCache
 			ET_SCENE = 1ull<<17,								//!< reserved, to implement later
-			ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u     //!< lights, etc.
+			ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u,    //!< lights, etc.
 			//! Reserved special value used for things like terminating lists of this enum
+
+			ET_TERMINATING_ZERO = 0
 		};
 		constexpr static size_t ET_STANDARD_TYPES_COUNT = 17u;
 

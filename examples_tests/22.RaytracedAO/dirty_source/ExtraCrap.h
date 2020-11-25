@@ -7,6 +7,10 @@
 // pesky leaking defines
 #undef PI
 
+#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
+
+#include <ISceneManager.h>
+
 #ifdef _IRR_BUILD_OPTIX_
 #include "irr/ext/OptiX/Manager.h"
 #endif
@@ -159,14 +163,14 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 			};
 			*/
 		};
-#ifndef NEW_SHADERS
+
 		static_assert(sizeof(SLight)==112u,"Can't keep alignment straight!");
 
 		// No 8k yet, too many rays to store
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxResolution[2] = {7680/2,4320/2};
 
 
-		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, bool useDenoiser = true);
+		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& ds0, bool useDenoiser = true);
 
 		void init(	const irr::asset::SAssetBundle& meshes,
 					bool isCameraRightHanded,
@@ -190,6 +194,21 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
     protected:
         ~Renderer();
 
+		core::smart_refctd_ptr<video::IGPUImageView> createGPUTexture(const uint32_t* extent, uint32_t mips, asset::E_FORMAT format);
+
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDS2layoutCompost(bool useDenoiser, core::smart_refctd_ptr<video::IGPUSampler>& nearstSampler);
+		core::smart_refctd_ptr<video::IGPUDescriptorSet> createDS2Compost(bool useDenoiser,
+			core::smart_refctd_ptr<video::IGPUSampler>& nearestSampler
+		);
+		core::smart_refctd_ptr<video::IGPUPipelineLayout> createLayoutCompost();
+
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDS2layoutRaygen(core::smart_refctd_ptr<video::IGPUSampler>& nearstSampler);
+		core::smart_refctd_ptr<video::IGPUDescriptorSet> createDS2Raygen(core::smart_refctd_ptr<video::IGPUSampler>& nearstSampler);
+		core::smart_refctd_ptr<video::IGPUPipelineLayout> createLayoutRaygen();
+
+		const bool m_useDenoiser;
+
+		irr::core::smart_refctd_ptr<video::IGPUDescriptorSet> m_ds0;
 
         irr::video::IVideoDriver* m_driver;
 
@@ -202,13 +221,17 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		bool m_rightHanded;
 
-		irr::core::smart_refctd_ptr<irr::video::ITextureBufferObject> m_sampleSequence;
-		irr::core::smart_refctd_ptr<irr::video::ITexture> m_scrambleTexture;
+		irr::core::smart_refctd_ptr<irr::video::IGPUBufferView> m_sampleSequence;
+		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_scrambleTexture;
 
-		irr::video::E_MATERIAL_TYPE nonInstanced;
-		uint32_t m_raygenProgram, m_compostProgram;
-		irr::core::smart_refctd_ptr<irr::video::ITexture> m_depth,m_albedo,m_normals,m_lightIndex,m_accumulation,m_tonemapOutput;
+		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_depth;
+		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_albedo;// TODO not needed any more, right?
+		irr::core::smart_refctd_ptr<irr::video::IGPUImageView>	m_normals,m_lightIndex,m_accumulation,m_tonemapOutput;
 		irr::video::IFrameBuffer* m_colorBuffer,* m_gbuffer,* tmpTonemapBuffer;
+
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_compostDS2;
+		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_compostLayout;
+		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_compostPipeline;
 
 		uint32_t m_maxSamples;
 		uint32_t m_raygenWorkGroups[2];
@@ -224,6 +247,10 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		std::pair<::RadeonRays::Buffer*,cl_mem> m_intersectionBufferAsRR;
 		std::pair<::RadeonRays::Buffer*,cl_mem> m_rayCountBufferAsRR;
 
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_raygenDS2;
+		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_raygenLayout;
+		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_raygenPipeline;
+
 		irr::core::vector<irr::core::smart_refctd_ptr<irr::scene::IMeshSceneNode> > nodes;
 		irr::core::aabbox3df sceneBound;
 		irr::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
@@ -234,7 +261,6 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightCDFBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightRadianceBuffer;
-#endif
 
 	#ifdef _IRR_BUILD_OPTIX_
 		irr::core::smart_refctd_ptr<irr::ext::OptiX::Manager> m_optixManager;

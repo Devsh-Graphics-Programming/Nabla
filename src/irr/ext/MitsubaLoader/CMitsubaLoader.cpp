@@ -6,6 +6,10 @@
 #include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
 #include "irr/ext/MitsubaLoader/ParserUtil.h"
 
+#if defined(_IRR_DEBUG) || defined(_IRR_RELWITHDEBINFO)
+#	define DEBUG_MITSUBA_LOADER
+#endif
+
 namespace irr
 {
 using namespace asset;
@@ -41,20 +45,8 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO {
 } CamData;
 #endif //_IRR_VERT_SET1_BINDINGS_DEFINED_
 
-struct InstanceData
-{
-	mat4x3 tform;
-	vec3 normalMatrixRow0;
-	uint bsdf_instrOffset;
-	vec3 normalMatrixRow1;
-	uint bsdf_instrCount;
-	vec3 normalMatrixRow2;
-	uint _padding;//not needed
-	uvec2 prefetch_instrStream;
-	uvec2 nprecomp_instrStream;
-	uvec2 genchoice_instrStream;
-	uvec2 emissive;
-};
+#include <irr/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl>
+
 layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
 	InstanceData data[];
 } InstData;
@@ -62,7 +54,7 @@ layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDa
 void main()
 {
 	uint instIx = PC.instDataOffset+gl_InstanceIndex;
-	mat4x3 tform = InstData.data[instIx].tform;
+	mat4x3 tform = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(InstData.data[instIx].tform);
 	mat4 mvp = irr_glsl_pseudoMul4x4with4x3(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(CamData.params.MVP), tform);
 	gl_Position = irr_glsl_pseudoMul4x4with3x1(mvp, vPosition);
 	WorldPos = irr_glsl_pseudoMul3x4with3x1(tform, vPosition);
@@ -92,7 +84,7 @@ layout (location = 0) out vec4 OutColor;
 #define _IRR_VT_PAGE_TABLE_BINDING 0
 
 #define _IRR_VT_FLOAT_VIEWS_BINDING 1 
-#define _IRR_VT_FLOAT_VIEWS_COUNT 5
+#define _IRR_VT_FLOAT_VIEWS_COUNT _VT_STORAGE_VIEW_COUNT
 #define _IRR_VT_FLOAT_VIEWS
 
 #define _IRR_VT_INT_VIEWS_BINDING 2
@@ -104,18 +96,22 @@ layout (location = 0) out vec4 OutColor;
 #define _IRR_VT_UINT_VIEWS
 #include <irr/builtin/glsl/virtual_texturing/descriptors.glsl>
 
-layout (set = 0, binding = 2, std430) restrict readonly buffer PrecomputedStuffSSBO
+layout (set = 0, binding = 2, std430) restrict readonly buffer VT_PrecomputedStuffSSBO
 {
     uint pgtab_sz_log2;
     float vtex_sz_rcp;
     float phys_pg_tex_sz_rcp[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
     uint layer_to_sampler_ix[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
-} precomputed;
+} VT_precomputed;
 
 layout (set = 0, binding = 3, std430) restrict readonly buffer INSTR_BUF
 {
 	instr_t data[];
 } instr_buf;
+layout (set = 0, binding = 6, std430) restrict readonly buffer PREFETCH_INSTR_BUF
+{
+	prefetch_instr_t data[];
+} prefetch_instr_buf;
 layout (set = 0, binding = 4, std430) restrict readonly buffer BSDF_BUF
 {
 	bsdf_data_t data[];
@@ -123,19 +119,19 @@ layout (set = 0, binding = 4, std430) restrict readonly buffer BSDF_BUF
 
 uint irr_glsl_VT_layer2pid(in uint layer)
 {
-    return precomputed.layer_to_sampler_ix[layer];
+    return VT_precomputed.layer_to_sampler_ix[layer];
 }
 uint irr_glsl_VT_getPgTabSzLog2()
 {
-    return precomputed.pgtab_sz_log2;
+    return VT_precomputed.pgtab_sz_log2;
 }
 float irr_glsl_VT_getPhysPgTexSzRcp(in uint layer)
 {
-    return precomputed.phys_pg_tex_sz_rcp[layer];
+    return VT_precomputed.phys_pg_tex_sz_rcp[layer];
 }
 float irr_glsl_VT_getVTexSzRcp()
 {
-    return precomputed.vtex_sz_rcp;
+    return VT_precomputed.vtex_sz_rcp;
 }
 #define _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
 
@@ -147,32 +143,32 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO {
     irr_glsl_SBasicViewParameters params;
 } CamData;
 
-struct InstanceData
-{
-	mat4x3 tform;
-	vec3 normalMatrixRow0;
-	uint bsdf_instrOffset;
-	vec3 normalMatrixRow1;
-	uint bsdf_instrCount;
-	vec3 normalMatrixRow2;
-	uint _padding;//not needed
-	uvec2 prefetch_instrStream;
-	uvec2 nprecomp_instrStream;
-	uvec2 genchoice_instrStream;
-	uvec2 emissive;
-};
+#include <irr/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl>
+
 layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
 	InstanceData data[];
 } InstData;
 
-vec3 irr_glsl_MC_getCamPos()
+vec3 irr_glsl_MC_getNormalizedWorldSpaceV()
 {
 	vec3 campos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
-	return campos;
+	return normalize(campos - WorldPos);
+}
+vec3 irr_glsl_MC_getNormalizedWorldSpaceN()
+{
+	return normalize(Normal);
+}
+vec3 irr_glsl_MC_getWorldSpacePosition()
+{
+	return WorldPos;
 }
 instr_t irr_glsl_MC_fetchInstr(in uint ix)
 {
 	return instr_buf.data[ix];
+}
+prefetch_instr_t irr_glsl_MC_fetchPrefetchInstr(in uint ix)
+{
+	return prefetch_instr_buf.data[ix];
 }
 bsdf_data_t irr_glsl_MC_fetchBSDFData(in uint ix)
 {
@@ -183,43 +179,72 @@ bsdf_data_t irr_glsl_MC_fetchBSDFData(in uint ix)
 _IRR_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
 #include <irr/builtin/glsl/format/decode.glsl>
 
-instr_stream_t getEvalStream()
+instr_stream_t getEvalStream(in MC_precomputed_t precomp)
 {
 	instr_stream_t stream;
-	stream.offset = InstData.data[InstanceIndex].bsdf_instrOffset;
-	stream.count = InstData.data[InstanceIndex].bsdf_instrCount;
+	if (precomp.frontface)
+	{
+		stream.offset = InstData.data[InstanceIndex].front_instr_offset;
+		stream.count = InstData.data[InstanceIndex].front_rem_pdf_count;
+	}
+	else
+	{
+		stream.offset = InstData.data[InstanceIndex].back_instr_offset;
+		stream.count = InstData.data[InstanceIndex].back_rem_pdf_count;
+	}
 
 	return stream;
 }
 //rem'n'pdf and eval use the same instruction stream
-instr_stream_t getRemAndPdfStream()
+instr_stream_t getRemAndPdfStream(in MC_precomputed_t precomp)
 {
-	return getEvalStream();
+	return getEvalStream(precomp);
 }
-instr_stream_t getGenChoiceStream()
+instr_stream_t getGenChoiceStream(in MC_precomputed_t precomp)
 {
 	instr_stream_t stream;
-	uvec2 s = InstData.data[InstanceIndex].genchoice_instrStream;
-	stream.offset = s.x;
-	stream.count =  s.y;
+	if (precomp.frontface)
+	{
+		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count;
+		stream.count =  InstData.data[InstanceIndex].front_genchoice_count;
+	}
+	else
+	{
+		stream.offset = InstData.data[InstanceIndex].back_instr_offset + InstData.data[InstanceIndex].back_rem_pdf_count;
+		stream.count = InstData.data[InstanceIndex].back_genchoice_count;
+	}
 
 	return stream;
 }
-instr_stream_t getTexPrefetchStream()
+instr_stream_t getTexPrefetchStream(in MC_precomputed_t precomp)
 {
-	uvec2 s = InstData.data[InstanceIndex].prefetch_instrStream;
 	instr_stream_t stream;
-	stream.offset = s.x;
-	stream.count = s.y;
+	if (precomp.frontface)
+	{
+		stream.offset = InstData.data[InstanceIndex].front_prefetch_offset;
+		stream.count = InstData.data[InstanceIndex].front_prefetch_count;
+	}
+	else
+	{
+		stream.offset = InstData.data[InstanceIndex].back_prefetch_offset;
+		stream.count = InstData.data[InstanceIndex].back_prefetch_count;
+	}
 
 	return stream;
 }
-instr_stream_t getNormalPrecompStream()
+instr_stream_t getNormalPrecompStream(in MC_precomputed_t precomp)
 {
-	uvec2 s = InstData.data[InstanceIndex].nprecomp_instrStream;
 	instr_stream_t stream;
-	stream.offset = s.x;
-	stream.count = s.y;
+	if (precomp.frontface)
+	{
+		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count + InstData.data[InstanceIndex].front_genchoice_count;
+		stream.count = InstData.data[InstanceIndex].front_nprecomp_count;
+	}
+	else
+	{
+		stream.offset = InstData.data[InstanceIndex].back_instr_offset + InstData.data[InstanceIndex].back_rem_pdf_count + InstData.data[InstanceIndex].back_genchoice_count;
+		stream.count = InstData.data[InstanceIndex].back_nprecomp_count;
+	}
 
 	return stream;
 }
@@ -230,26 +255,27 @@ instr_stream_t getNormalPrecompStream()
 #define Spectrum vec3
 //! This is the function that evaluates the BSDF for specific view and observer direction
 // params can be either BSDFIsotropicParams or BSDFAnisotropicParams
-Spectrum irr_bsdf_cos_eval(in irr_glsl_BSDFIsotropicParams params, in irr_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
+Spectrum irr_bsdf_cos_eval(in MC_precomputed_t precomp, in vec3 L, in irr_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
 {
-	instr_stream_t eval_instrStream = getEvalStream();
-	
-	return runEvalStream(eval_instrStream, params.L);
+	instr_stream_t eval_instrStream = getEvalStream(precomp);
+
+	return runEvalStream(precomp, eval_instrStream, L);
 }
 #endif
 
 #ifndef _IRR_COMPUTE_LIGHTING_DEFINED_
 #define _IRR_COMPUTE_LIGHTING_DEFINED_
-vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
+vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in MC_precomputed_t precomp)
 {
 	vec3 emissive = irr_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
 	vec3 campos = irr_glsl_MC_getCamPos();
-	irr_glsl_BSDFIsotropicParams params;
-	params.L = campos-WorldPos;
+	
+	//irr_glsl_BSDFIsotropicParams params;
+	//params.L = campos-WorldPos;
 	out_interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, normalize(Normal));
 
-	return irr_bsdf_cos_eval(params, out_interaction, dUV)*1000.0/dot(params.L,params.L) + emissive;
+	return irr_bsdf_cos_eval(precomp, precomp.V, out_interaction, dUV)/dot(params.L,params.L) + emissive;
 }
 #endif
 
@@ -257,22 +283,24 @@ void main()
 {
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
-	InstanceData instData = InstData.data[InstanceIndex];
+	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
+	const bool front = !gl_FrontFacing;
+	MC_precomputed_t precomp = precomputeData(front);
 #ifdef TEX_PREFETCH_STREAM
-	runTexPrefetchStream(getTexPrefetchStream(), dUV);
+	runTexPrefetchStream(getTexPrefetchStream(precomp), UV, dUV);
 #endif
 #ifdef NORM_PRECOMP_STREAM
-	runNormalPrecompStream(getNormalPrecompStream(), dUV);
+	runNormalPrecompStream(getNormalPrecompStream(precomp), dUV, precomp);
 #endif
 
+
 	irr_glsl_IsotropicViewSurfaceInteraction inter;
-	vec3 color = irr_computeLighting(inter, dUV);
+	vec3 color = irr_computeLighting(inter, dUV, precomp);
 
 	OutColor = vec4(color, 1.0);
 }
 )";
 
-_IRR_STATIC_INLINE_CONSTEXPR const char* PIPELINE_LAYOUT_CACHE_KEY = "irr/builtin/pipeline_layout/loaders/mitsuba_xml/default";
 _IRR_STATIC_INLINE_CONSTEXPR const char* VERTEX_SHADER_CACHE_KEY = "irr/builtin/specialized_shader/loaders/mitsuba_xml/default";
 
 _IRR_STATIC_INLINE_CONSTEXPR uint32_t PAGE_TAB_TEX_BINDING = 0u;
@@ -281,7 +309,8 @@ _IRR_STATIC_INLINE_CONSTEXPR uint32_t PRECOMPUTED_VT_DATA_BINDING = 2u;
 _IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTR_BUF_BINDING = 3u;
 _IRR_STATIC_INLINE_CONSTEXPR uint32_t BSDF_BUF_BINDING = 4u;
 _IRR_STATIC_INLINE_CONSTEXPR uint32_t INSTANCE_DATA_BINDING = 5u;
-_IRR_STATIC_INLINE_CONSTEXPR uint32_t DS0_BINDING_COUNT_WO_VT = 4u;
+_IRR_STATIC_INLINE_CONSTEXPR uint32_t PREFETCH_INSTR_BUF_BINDING = 6u;
+_IRR_STATIC_INLINE_CONSTEXPR uint32_t DS0_BINDING_COUNT_WO_VT = 5u;
 
 template <typename AssetT>
 static void insertAssetIntoCache(core::smart_refctd_ptr<AssetT>& asset, const char* path, IAssetManager* _assetMgr)
@@ -290,8 +319,9 @@ static void insertAssetIntoCache(core::smart_refctd_ptr<AssetT>& asset, const ch
 	_assetMgr->changeAssetKey(bundle, path);
 	_assetMgr->insertAssetIntoCache(bundle);
 }
+//@AnastaZluk, lets have something similar in the common loader base
 template<typename AssetType, IAsset::E_TYPE assetType>
-static core::smart_refctd_ptr<AssetType> getBuiltinAsset(const char* _key, IAssetManager* _assetMgr)
+static auto getBuiltinAsset(const char* _key, IAssetManager* _assetMgr) -> std::enable_if_t<std::is_base_of_v<asset::IAsset, AssetType>, core::smart_refctd_ptr<AssetType>>
 {
 	size_t storageSz = 1ull;
 	asset::SAssetBundle bundle;
@@ -306,54 +336,6 @@ static core::smart_refctd_ptr<AssetType> getBuiltinAsset(const char* _key, IAsse
 	return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
 }
 
-static core::smart_refctd_ptr<asset::ICPUPipelineLayout> createAndCachePipelineLayout(asset::IAssetManager* _manager, asset::ICPUVirtualTexture* _vt)
-{
-	SPushConstantRange pcrng;
-	pcrng.offset = 0u;
-	pcrng.size = sizeof(uint32_t);//instance data offset
-	pcrng.stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
-
-	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout;
-	{
-		auto sizes = _vt->getDSlayoutBindings(nullptr, nullptr);
-		auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSetLayout::SBinding>>(sizes.first+DS0_BINDING_COUNT_WO_VT);
-		auto samplers = core::make_refctd_dynamic_array< core::smart_refctd_dynamic_array<core::smart_refctd_ptr<asset::ICPUSampler>>>(sizes.second);
-
-		_vt->getDSlayoutBindings(bindings->data(), samplers->data(), PAGE_TAB_TEX_BINDING, PHYS_PAGE_VIEWS_BINDING);
-		auto* b = bindings->data()+(bindings->size()-DS0_BINDING_COUNT_WO_VT);
-		b[0].binding = PRECOMPUTED_VT_DATA_BINDING;
-		b[0].count = 1u;
-		b[0].samplers = nullptr;
-		b[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-		b[0].type = asset::EDT_STORAGE_BUFFER;
-
-		b[1].binding = INSTR_BUF_BINDING;
-		b[1].count = 1u;
-		b[1].samplers = nullptr;
-		b[1].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-		b[1].type = asset::EDT_STORAGE_BUFFER;
-
-		b[2].binding = BSDF_BUF_BINDING;
-		b[2].count = 1u;
-		b[2].samplers = nullptr;
-		b[2].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
-		b[2].type = asset::EDT_STORAGE_BUFFER;
-
-		b[3].binding = INSTANCE_DATA_BINDING;
-		b[3].count = 1u;
-		b[3].samplers = nullptr;
-		b[3].stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
-		b[3].type = asset::EDT_STORAGE_BUFFER;
-
-		ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings->data(), bindings->data()+bindings->size());
-	}
-	auto ds1layout = getBuiltinAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("irr/builtin/descriptor_set_layout/basic_view_parameters", _manager);
-
-	auto layout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pcrng, &pcrng+1, std::move(ds0layout), std::move(ds1layout), nullptr, nullptr);
-	insertAssetIntoCache(layout, PIPELINE_LAYOUT_CACHE_KEY, _manager);
-
-	return layout;
-}
 static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createSpecShader(const char* _glsl, asset::ISpecializedShader::E_SHADER_STAGE _stage)
 {
 	auto shader = core::make_smart_refctd_ptr<asset::ICPUShader>(_glsl);
@@ -370,11 +352,14 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createAndCacheVertex
 
 	return vs;
 }
-static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createFragmentShader(const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _mcRes)
+static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createFragmentShader(const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _mcRes, size_t _VTstorageViewCount)
 {
+	const std::string storageViewCount = "#define _VT_STORAGE_VIEW_COUNT " + std::to_string(_VTstorageViewCount);
+
 	std::string source = 
 		FRAGMENT_SHADER_PROLOGUE +
 		_mcRes.fragmentShaderSource_declarations +
+		"\n" + storageViewCount + "\n" +
 		FRAGMENT_SHADER_DEFINITIONS +
 		_mcRes.fragmentShaderSource +
 		FRAGMENT_SHADER_IMPL;
@@ -400,6 +385,350 @@ static core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline> createPi
 	);
 
 	return pipeline;
+}
+
+
+//TODO move all derivative-related code to different file (maybe even to engine)
+namespace
+{
+template<class Kernel>
+class MyKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>
+{
+		using Base = asset::CFloatingPointSeparableImageFilterKernelBase<MyKernel<Kernel>>;
+
+		Kernel kernel;
+		float multiplier;
+
+	public:
+		using value_type = typename Base::value_type;
+
+		MyKernel(Kernel&& k, float _imgExtent) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)), multiplier(_imgExtent) {}
+
+		// no special user data by default
+		inline const asset::IImageFilterKernel::UserData* getUserData() const { return nullptr; }
+
+		inline float weight(float x, int32_t channel) const
+		{
+			return kernel.weight(x, channel) * multiplier;
+		}
+		
+		// we need to ensure to override the default behaviour of `CFloatingPointSeparableImageFilterKernelBase` which applies the weight along every axis
+		template<class PreFilter, class PostFilter>
+		struct sample_functor_t
+		{
+				sample_functor_t(const MyKernel* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
+					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
+
+				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const asset::IImageFilterKernel::UserData* userData)
+				{
+					preFilter(windowSample, relativePos, globalTexelCoord, userData);
+					auto* scale = asset::IImageFilterKernel::ScaleFactorUserData::cast(userData);
+					for (int32_t i=0; i<MaxChannels; i++)
+					{
+						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
+						windowSample[i] *= _this->weight(relativePos.x, i);
+						if (scale)
+							windowSample[i] *= scale->factor[i];
+					}
+					postFilter(windowSample, relativePos, globalTexelCoord, userData);
+				}
+
+			private:
+				const MyKernel* _this;
+				PreFilter& preFilter;
+				PostFilter& postFilter;
+		};
+
+		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
+
+		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
+};
+	
+template<class Kernel>
+class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<SeparateOutXAxisKernel<Kernel>>
+{
+		using Base = asset::CFloatingPointSeparableImageFilterKernelBase<SeparateOutXAxisKernel<Kernel>>;
+
+		Kernel kernel;
+
+	public:
+		// passthrough everything
+		using value_type = typename Kernel::value_type;
+
+		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels; // derivative map only needs 2 channels
+
+		SeparateOutXAxisKernel(Kernel&& k) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)) {}
+
+		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
+					
+		// we need to ensure to override the default behaviour of `CFloatingPointSeparableImageFilterKernelBase` which applies the weight along every axis
+		template<class PreFilter, class PostFilter>
+		struct sample_functor_t
+		{
+				sample_functor_t(const SeparateOutXAxisKernel<Kernel>* _this, PreFilter& _preFilter, PostFilter& _postFilter) :
+					_this(_this), preFilter(_preFilter), postFilter(_postFilter) {}
+
+				inline void operator()(value_type* windowSample, core::vectorSIMDf& relativePos, const core::vectorSIMDi32& globalTexelCoord, const asset::IImageFilterKernel::UserData* userData)
+				{
+					preFilter(windowSample, relativePos, globalTexelCoord, userData);
+					auto* scale = asset::IImageFilterKernel::ScaleFactorUserData::cast(userData);
+					for (int32_t i=0; i<MaxChannels; i++)
+					{
+						// this differs from the `CFloatingPointSeparableImageFilterKernelBase`
+						windowSample[i] *= _this->kernel.weight(relativePos.x, i);
+						if (scale)
+							windowSample[i] *= scale->factor[i];
+					}
+					postFilter(windowSample, relativePos, globalTexelCoord, userData);
+				}
+
+			private:
+				const SeparateOutXAxisKernel<Kernel>* _this;
+				PreFilter& preFilter;
+				PostFilter& postFilter;
+		};
+
+		// the method all kernels must define and overload
+		template<class PreFilter, class PostFilter>
+		inline auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const
+		{
+			return sample_functor_t(this,preFilter,postFilter);
+		}
+};
+
+}
+
+static core::smart_refctd_ptr<asset::ICPUImage> createDerivMapFromHeightMap(asset::ICPUImage* _inImg, asset::ISampler::E_TEXTURE_CLAMP _uwrap, asset::ISampler::E_TEXTURE_CLAMP _vwrap, asset::ISampler::E_TEXTURE_BORDER_COLOR _borderColor)
+{
+	using namespace asset;
+
+	auto getRGformat = [](asset::E_FORMAT f) -> asset::E_FORMAT {
+		const uint32_t bytesPerChannel = (getBytesPerPixel(f) * core::rational(1, getFormatChannelCount(f))).getIntegerApprox();
+		switch (bytesPerChannel)
+		{
+		case 1u:
+			return asset::EF_R8G8_SNORM;
+		case 2u:
+			return asset::EF_R16G16_SNORM;
+		case 4u:
+			return asset::EF_R32G32_SFLOAT;
+		case 8u:
+			return asset::EF_R64G64_SFLOAT;
+		default:
+			return asset::EF_UNKNOWN;
+		}
+	};
+
+	using ReconstructionKernel = CGaussianImageFilterKernel<>; // or Mitchell
+	using DerivKernel_ = CDerivativeImageFilterKernel<ReconstructionKernel>;
+	using DerivKernel = MyKernel<DerivKernel_>;
+	using XDerivKernel_ = CChannelIndependentImageFilterKernel<DerivKernel, CBoxImageFilterKernel>;
+	using YDerivKernel_ = CChannelIndependentImageFilterKernel<CBoxImageFilterKernel, DerivKernel>;
+	using XDerivKernel = SeparateOutXAxisKernel<XDerivKernel_>;
+	using YDerivKernel = SeparateOutXAxisKernel<YDerivKernel_>;
+	constexpr bool NORMALIZE = false;
+	using DerivativeMapFilter = CBlitImageFilter
+		<
+		NORMALIZE, false, DefaultSwizzle, IdentityDither, // (Criss, look at impl::CSwizzleAndConvertImageFilterBase)
+		XDerivKernel,
+		YDerivKernel,
+		CBoxImageFilterKernel
+		>;
+
+	const auto extent = _inImg->getCreationParameters().extent;
+	const float mlt = 1.f;// static_cast<float>(std::max(extent.width, extent.height));
+	XDerivKernel xderiv(XDerivKernel_(DerivKernel(DerivKernel_(ReconstructionKernel()), mlt), CBoxImageFilterKernel()));
+	YDerivKernel yderiv(YDerivKernel_(CBoxImageFilterKernel(), DerivKernel(DerivKernel_(ReconstructionKernel()), mlt)));
+
+	using swizzle_t = asset::ICPUImageView::SComponentMapping;
+	DerivativeMapFilter::state_type state(std::move(xderiv), std::move(yderiv), CBoxImageFilterKernel());
+
+	state.swizzle = { swizzle_t::ES_R, swizzle_t::ES_R, swizzle_t::ES_R, swizzle_t::ES_R };
+
+	const auto& inParams = _inImg->getCreationParameters();
+	auto outParams = inParams;
+	outParams.format = getRGformat(outParams.format);
+	const uint32_t pitch = IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, asset::getTexelOrBlockBytesize(outParams.format));
+	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(outParams.format) * pitch * outParams.extent.height);
+	asset::ICPUImage::SBufferCopy region;
+	region.imageOffset = { 0,0,0 };
+	region.imageExtent = outParams.extent;
+	region.imageSubresource.baseArrayLayer = 0u;
+	region.imageSubresource.layerCount = 1u;
+	region.imageSubresource.mipLevel = 0u;
+	region.bufferRowLength = pitch;
+	region.bufferImageHeight = 0u;
+	region.bufferOffset = 0u;
+	auto outImg = asset::ICPUImage::create(std::move(outParams));
+	outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
+
+	state.inOffset = { 0,0,0 };
+	state.inBaseLayer = 0u;
+	state.outOffset = { 0,0,0 };
+	state.outBaseLayer = 0u;
+	state.inExtent = inParams.extent;
+	state.outExtent = state.inExtent;
+	state.inLayerCount = 1u;
+	state.outLayerCount = 1u;
+	state.inMipLevel = 0u;
+	state.outMipLevel = 0u;
+	state.inImage = _inImg;
+	state.outImage = outImg.get();
+	state.axisWraps[0] = _uwrap;
+	state.axisWraps[1] = _vwrap;
+	state.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
+	state.borderColor = _borderColor;
+	state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
+	state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, _IRR_SIMD_ALIGNMENT));
+
+	DerivativeMapFilter::execute(&state);
+
+	_IRR_ALIGNED_FREE(state.scratchMemory);
+
+	return outImg;
+}
+static core::smart_refctd_ptr<asset::ICPUImageView> createImageView(core::smart_refctd_ptr<asset::ICPUImage>&& _img)
+{
+	const auto& iparams = _img->getCreationParameters();
+
+	asset::ICPUImageView::SCreationParams params;
+	params.format = iparams.format;
+	params.subresourceRange.baseArrayLayer = 0u;
+	params.subresourceRange.layerCount = iparams.arrayLayers;
+	assert(params.subresourceRange.layerCount == 1u);
+	params.subresourceRange.baseMipLevel = 0u;
+	params.subresourceRange.levelCount = iparams.mipLevels;
+	params.viewType = asset::IImageView<asset::ICPUImage>::ET_2D;
+	params.flags = static_cast<asset::IImageView<asset::ICPUImage>::E_CREATE_FLAGS>(0);
+	params.image = std::move(_img);
+
+	return asset::ICPUImageView::create(std::move(params));
+}
+static core::smart_refctd_ptr<asset::ICPUImage> createDerivMap(asset::ICPUImage* _heightMap, asset::ICPUSampler* _smplr)
+{
+	const auto& sp = _smplr->getParams();
+
+	return createDerivMapFromHeightMap(
+			_heightMap,
+			static_cast<asset::ICPUSampler::E_TEXTURE_CLAMP>(sp.TextureWrapU),
+			static_cast<asset::ICPUSampler::E_TEXTURE_CLAMP>(sp.TextureWrapV),
+			static_cast<asset::ICPUSampler::E_TEXTURE_BORDER_COLOR>(sp.BorderColor)
+	);
+}
+static core::smart_refctd_ptr<asset::ICPUImage> createBlendWeightImage(const asset::ICPUImage* _img)
+{
+	auto outParams = _img->getCreationParameters();
+	assert(asset::getFormatChannelCount(outParams.format) == 1u);
+
+	auto get3ChannelFormat = [](uint32_t bytesPerChannel) -> asset::E_FORMAT {
+		switch (bytesPerChannel)
+		{
+		case 1u:
+			return asset::EF_R8G8B8_UNORM;
+		case 2u:
+			return asset::EF_R16G16B16_SFLOAT;
+		case 4u:
+			return asset::EF_R32G32B32_SFLOAT;
+		case 8u:
+			return asset::EF_R64G64B64_SFLOAT;
+		default:
+			return asset::EF_UNKNOWN;
+		}
+	};
+
+	asset::ICPUImage::SBufferCopy region;
+	const uint32_t bytesPerChannel = (getBytesPerPixel(outParams.format) * core::rational(1, getFormatChannelCount(outParams.format))).getIntegerApprox();
+	outParams.format = get3ChannelFormat(outParams.format);
+	const size_t texelBytesz = asset::getTexelOrBlockBytesize(outParams.format);
+	region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, texelBytesz);
+	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(texelBytesz * region.bufferRowLength * outParams.extent.height);
+	region.imageOffset = { 0,0,0 };
+	region.imageExtent = outParams.extent;
+	region.imageSubresource.baseArrayLayer = 0u;
+	region.imageSubresource.layerCount = 1u;
+	region.imageSubresource.mipLevel = 0u;
+	region.bufferImageHeight = 0u;
+	region.bufferOffset = 0u;
+	auto outImg = asset::ICPUImage::create(std::move(outParams));
+	outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
+
+	asset::ICPUImageView::SComponentMapping swizzle;
+	constexpr auto RED = asset::ICPUImageView::SComponentMapping::ES_R;
+	swizzle = { RED, RED, RED, RED };
+
+	using convert_filter_t = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN>;
+	convert_filter_t::state_type conv;
+	conv.swizzle = swizzle;
+	conv.extent = outParams.extent;
+	conv.layerCount = 1u;
+	conv.inMipLevel = 0u;
+	conv.outMipLevel = 0u;
+	conv.inBaseLayer = 0u;
+	conv.outBaseLayer = 0u;
+	conv.inOffset = { 0u,0u,0u };
+	conv.outOffset = { 0u,0u,0u };
+	conv.inImage = _img;
+	conv.outImage = outImg.get();
+
+	if (!convert_filter_t::execute(&conv))
+	{
+		os::Printer::log("Mitsuba XML Loader: blend weight texture creation failed!", ELL_ERROR);
+		_IRR_DEBUG_BREAK_IF(true);
+	}
+
+	return outImg;
+}
+
+core::smart_refctd_ptr<asset::ICPUPipelineLayout> CMitsubaLoader::createPipelineLayout(asset::IAssetManager* _manager, asset::ICPUVirtualTexture* _vt)
+{
+	SPushConstantRange pcrng;
+	pcrng.offset = 0u;
+	pcrng.size = sizeof(uint32_t);//instance data offset
+	pcrng.stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
+
+	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout;
+	{
+		auto sizes = _vt->getDSlayoutBindings(nullptr, nullptr);
+		auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSetLayout::SBinding>>(sizes.first + DS0_BINDING_COUNT_WO_VT);
+		auto samplers = core::make_refctd_dynamic_array< core::smart_refctd_dynamic_array<core::smart_refctd_ptr<asset::ICPUSampler>>>(sizes.second);
+
+		_vt->getDSlayoutBindings(bindings->data(), samplers->data(), PAGE_TAB_TEX_BINDING, PHYS_PAGE_VIEWS_BINDING);
+		auto* b = bindings->data() + (bindings->size() - DS0_BINDING_COUNT_WO_VT);
+		b[0].binding = PRECOMPUTED_VT_DATA_BINDING;
+		b[0].count = 1u;
+		b[0].samplers = nullptr;
+		b[0].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		b[0].type = asset::EDT_STORAGE_BUFFER;
+
+		b[1].binding = INSTR_BUF_BINDING;
+		b[1].count = 1u;
+		b[1].samplers = nullptr;
+		b[1].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		b[1].type = asset::EDT_STORAGE_BUFFER;
+
+		b[2].binding = BSDF_BUF_BINDING;
+		b[2].count = 1u;
+		b[2].samplers = nullptr;
+		b[2].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		b[2].type = asset::EDT_STORAGE_BUFFER;
+
+		b[3].binding = INSTANCE_DATA_BINDING;
+		b[3].count = 1u;
+		b[3].samplers = nullptr;
+		b[3].stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
+		b[3].type = asset::EDT_STORAGE_BUFFER;
+
+		b[4].binding = PREFETCH_INSTR_BUF_BINDING;
+		b[4].count = 1u;
+		b[4].samplers = nullptr;
+		b[4].stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
+		b[4].type = asset::EDT_STORAGE_BUFFER;
+
+		ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings->data(), bindings->data() + bindings->size());
+	}
+	auto ds1layout = getBuiltinAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("irr/builtin/descriptor_set_layout/basic_view_parameters", _manager);
+
+	return core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pcrng, &pcrng+1, std::move(ds0layout), std::move(ds1layout), nullptr, nullptr);
 }
 
 CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager) : asset::IAssetLoader(), m_manager(_manager)
@@ -481,13 +810,15 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 		SContext ctx(
 			m_manager->getGeometryCreator(),
 			m_manager->getMeshManipulator(),
-			asset::IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen, _params.decryptionKey, _params.cacheFlags, currentDir.c_str()),
+			asset::IAssetLoader::SAssetLoadContext{ 
+				asset::IAssetLoader::SAssetLoadParams(_params.decryptionKeyLen, _params.decryptionKey, _params.cacheFlags, currentDir.c_str()),
+				_file
+			},
 			_override,
 			parserManager.m_globalMetadata.get()
 		);
-		if (!getBuiltinAsset<asset::ICPUPipelineLayout, asset::IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager))
+		if (!getBuiltinAsset<asset::ICPUPipelineLayout, asset::IAsset::ET_SPECIALIZED_SHADER>(VERTEX_SHADER_CACHE_KEY, m_manager))
 		{
-			createAndCachePipelineLayout(m_manager, ctx.backend_ctx.vt.get());
 			createAndCacheVertexShader(m_manager, DUMMY_VERTEX_SHADER);
 		}
 
@@ -528,25 +859,31 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 			assert(instances_rng.first!=instances_rng.second);
 			for (auto it = instances_rng.first; it!=instances_rng.second; ++it) {
 				const auto& inst = it->second;
-				meshmeta->instances.push_back({inst.tform, inst.bsdf, inst.bsdf_id, inst.emitter});
+				meshmeta->instances.push_back(inst);
 			}
-			if (meshmeta->instances.size() > 1ull)
-				printf("");
 
 			for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 				mesh->getMeshBuffer(i)->setInstanceCount(meshmeta->instances.size());
 		}
 
 		auto compResult = ctx.backend.compile(&ctx.backend_ctx, ctx.ir.get());
-		auto pipeline_metadata = createPipelineMetadata(createDS0(ctx, compResult, meshes.begin(), meshes.end()), getBuiltinAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager).get());
-		auto fragShader = createFragmentShader(compResult);
+		ctx.backend_ctx.vt.commitAll();
+		auto pipelineLayout = createPipelineLayout(m_manager, ctx.backend_ctx.vt.vt.get());
+		auto pipeline_metadata = createPipelineMetadata(createDS0(ctx, pipelineLayout.get(), compResult, meshes.begin(), meshes.end()), pipelineLayout.get());
+		auto fragShader = createFragmentShader(compResult, ctx.backend_ctx.vt.vt->getFloatViews().size());
 		auto basePipeline = createPipeline(
-			getBuiltinAsset<asset::ICPUPipelineLayout, asset::IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager),
+			std::move(pipelineLayout),
 			getBuiltinAsset<asset::ICPUSpecializedShader, asset::IAsset::ET_SPECIALIZED_SHADER>(VERTEX_SHADER_CACHE_KEY, m_manager),
 			std::move(fragShader)
 		);
-		for (auto& mesh : meshes)
+		ctx.globalMeta->materialCompilerGLSL_declarations = compResult.fragmentShaderSource_declarations;
+		ctx.globalMeta->materialCompilerGLSL_source = compResult.fragmentShaderSource;
+
+		for (const SContext::shape_ass_type& mesh_ : meshes)
 		{
+			// need const_cast because core::set has only const iterators (or maybe we should reconsider if const smart_refctd_ptr::operator-> should return const ptr)
+			asset::ICPUMesh* const mesh = const_cast<asset::ICPUMesh*>(mesh_.get());
+
 			for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 			{
 				asset::ICPUMeshBuffer* mb = mesh->getMeshBuffer(i);
@@ -666,7 +1003,7 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 		assert(shape->bsdf);
 		auto bsdf = getBSDFtreeTraversal(ctx, shape->bsdf);
 		core::matrix3x4SIMD tform = core::concatenateBFollowedByA(relTform, shape->getAbsoluteTransform());
-		SContext::SInstanceData instance{ tform, bsdf, shape->bsdf->id, shape->obtainEmitter() };
+		SContext::SInstanceData instance(tform, bsdf, shape->bsdf->id, shape->obtainEmitter());
 		ctx.mapMesh2instanceData.insert({ mesh.get(), instance });
 	};
 
@@ -680,9 +1017,9 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 	auto loadModel = [&](const ext::MitsubaLoader::SPropertyElementData& filename, int64_t index=-1) -> core::smart_refctd_ptr<asset::ICPUMesh>
 	{
 		assert(filename.type==ext::MitsubaLoader::SPropertyElementData::Type::STRING);
-		auto loadParams = ctx.params;
+		auto loadParams = ctx.inner.params;
 		loadParams.loaderFlags = static_cast<IAssetLoader::E_LOADER_PARAMETER_FLAGS>(loadParams.loaderFlags | IAssetLoader::ELPF_RIGHT_HANDED_MESHES);
-		auto retval = interm_getAssetInHierarchy(m_manager, filename.svalue, loadParams, hierarchyLevel/*+ICPUSCene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override);
+		auto retval = interm_getAssetInHierarchy(m_manager, filename.svalue, loadParams, hierarchyLevel/*+ICPUSCene::MESH_HIERARCHY_LEVELS_BELOW*/, ctx.override_);
 		auto contentRange = retval.getContents();
 		//
 		uint32_t actualIndex = 0;
@@ -859,37 +1196,40 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 	if (flipNormals)
 	for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
 		ctx.manipulator->flipSurfaces(mesh->getMeshBuffer(i));
-	// flip normals if necessary
-//#define CRISS_FIX_THIS
-#ifdef CRISS_FIX_THIS
-	if (faceNormals || !std::isnan(maxSmoothAngle))
+
+	//turned off by default, it's too slow (works though)
+//#define OPTIMIZE_MESHES
+
+	auto newMesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
+	for (auto i = 0u; i < mesh->getMeshBufferCount(); ++i)
 	{
-		auto newMesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
-		float smoothAngleCos = cos(core::radians(maxSmoothAngle));
-		for (auto i=0u; i<mesh->getMeshBufferCount(); i++)
+		asset::IMeshManipulator::SErrorMetric metrics[asset::ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
+		metrics[3].method = asset::IMeshManipulator::EEM_ANGLES;
+#ifdef OPTIMIZE_MESHES
+		auto newMeshBuffer = ctx.manipulator->createOptimizedMeshBuffer(mesh->getMeshBuffer(i), metrics);
+#else
+		auto newMeshBuffer = core::smart_refctd_ptr<asset::ICPUMeshBuffer>(mesh->getMeshBuffer(i));
+#endif
+		if (faceNormals || !std::isnan(maxSmoothAngle))
 		{
+			const float smoothAngleCos = cos(core::radians(maxSmoothAngle));
+
 			ctx.manipulator->filterInvalidTriangles(mesh->getMeshBuffer(i));
-			auto newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(mesh->getMeshBuffer(i));
+			newMeshBuffer = ctx.manipulator->createMeshBufferUniquePrimitives(mesh->getMeshBuffer(i));
 			ctx.manipulator->calculateSmoothNormals(newMeshBuffer.get(), false, 0.f, newMeshBuffer->getNormalAttributeIx(),
 				[&](const asset::IMeshManipulator::SSNGVertexData& a, const asset::IMeshManipulator::SSNGVertexData& b, asset::ICPUMeshBuffer* buffer)
 				{
 					if (faceNormals)
-						return a.indexOffset==b.indexOffset;
+						return a.indexOffset == b.indexOffset;
 					else
 						return core::dot(a.parentTriangleFaceNormal, b.parentTriangleFaceNormal).x >= smoothAngleCos;
 				});
-
-			asset::IMeshManipulator::SErrorMetric metrics[16];
-			metrics[3].method = asset::IMeshManipulator::EEM_ANGLES;
-			newMeshBuffer = ctx.manipulator->createOptimizedMeshBuffer(newMeshBuffer.get(),metrics);
-
-			newMesh->addMeshBuffer(std::move(newMeshBuffer));
 		}
-		newMesh->recalculateBoundingBox();
-		m_manager->setAssetMetadata(newMesh.get(), core::smart_refctd_ptr<asset::IAssetMetadata>(mesh->getMetadata()));
-		mesh = std::move(newMesh);
+		newMesh->addMeshBuffer(std::move(newMeshBuffer));
 	}
-#endif
+	newMesh->recalculateBoundingBox();
+	m_manager->setAssetMetadata(newMesh.get(), core::smart_refctd_ptr<asset::IAssetMetadata>(mesh->getMetadata()));
+	mesh = std::move(newMesh);
 
 	addInstance(mesh);
 	// cache and return
@@ -897,14 +1237,10 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 	return mesh;
 }
 
-SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* tex)
+SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* tex)
 {
 	if (!tex)
 		return {};
-
-	auto found = ctx.textureCache.find(tex);
-	if (found != ctx.textureCache.end())
-		return found->second;
 
 	ICPUImageView::SCreationParams viewParams;
 	viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0);
@@ -927,66 +1263,163 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 	{
 		case CElementTexture::Type::BITMAP:
 		{
-				auto retval = interm_getAssetInHierarchy(m_manager,tex->bitmap.filename.svalue,ctx.params,hierarchyLevel,ctx.override);
-				auto contentRange = retval.getContents();
-				if (contentRange.begin() < contentRange.end())
+				std::string cacheKey = ctx.imageViewCacheKey(tex->bitmap.filename.svalue);
+				switch (tex->bitmap.channel)
 				{
-					auto asset = contentRange.begin()[0];
-					if (asset && asset->getAssetType() == asset::IAsset::ET_IMAGE)
-					{
-						auto texture = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
+				case CElementTexture::Bitmap::CHANNEL::R:
+					cacheKey += "?r";
+					break;
+				case CElementTexture::Bitmap::CHANNEL::G:
+					cacheKey += "?g";
+					break;
+				case CElementTexture::Bitmap::CHANNEL::B:
+					cacheKey += "?b";
+					break;
+				case CElementTexture::Bitmap::CHANNEL::A:
+					cacheKey += "?a";
+					break;
+				default:
+					break;
+				}
 
-						switch (tex->bitmap.channel)
+				core::smart_refctd_ptr<asset::ICPUImageView> view;
+				{
+					asset::SAssetBundle viewBundle;
+					const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_IMAGE_VIEW, static_cast<asset::IAsset::E_TYPE>(0) };
+					viewBundle = ctx.override_->findCachedAsset(cacheKey, types, ctx.inner, 0u);
+
+					if (!viewBundle.isEmpty())
+						view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>( viewBundle.getContents().begin()[0] );
+				}
+
+				core::smart_refctd_ptr<asset::ICPUImage> img;
+				if (!view)
+				{
+					asset::SAssetBundle imgBundle = interm_getAssetInHierarchy(m_manager,tex->bitmap.filename.svalue,ctx.inner.params,hierarchyLevel,ctx.override_);
+					auto contentRange = imgBundle.getContents();
+					if (contentRange.begin() < contentRange.end())
+					{
+						auto asset = contentRange.begin()[0];
+						if (asset && asset->getAssetType() == asset::IAsset::ET_IMAGE)
 						{
-							// no GL_R8_SRGB support yet
-							case CElementTexture::Bitmap::CHANNEL::R:
-								{
-								constexpr auto RED = ICPUImageView::SComponentMapping::ES_R;
-								viewParams.components = {RED,RED,RED,RED};
-								}
-								break;
-							case CElementTexture::Bitmap::CHANNEL::G:
-								{
-								constexpr auto GREEN = ICPUImageView::SComponentMapping::ES_G;
-								viewParams.components = {GREEN,GREEN,GREEN,GREEN};
-								}
-								break;
-							case CElementTexture::Bitmap::CHANNEL::B:
-								{
-								constexpr auto BLUE = ICPUImageView::SComponentMapping::ES_B;
-								viewParams.components = {BLUE,BLUE,BLUE,BLUE};
-								}
-								break;
-							case CElementTexture::Bitmap::CHANNEL::A:
-								{
-								constexpr auto ALPHA = ICPUImageView::SComponentMapping::ES_A;
-								viewParams.components = {ALPHA,ALPHA,ALPHA,ALPHA};
-								}
-								break;
-							/* special conversions needed to CIE space
-							case CElementTexture::Bitmap::CHANNEL::X:
-							case CElementTexture::Bitmap::CHANNEL::Y:
-							case CElementTexture::Bitmap::CHANNEL::Z:*/
-							case CElementTexture::Bitmap::CHANNEL::INVALID:
-								_IRR_FALLTHROUGH;
-							default:
-								break;
+							img = core::smart_refctd_ptr_static_cast<asset::ICPUImage>(asset);
+
+							switch (tex->bitmap.channel)
+							{
+								// no GL_R8_SRGB support yet
+								case CElementTexture::Bitmap::CHANNEL::R:
+									{
+									constexpr auto RED = ICPUImageView::SComponentMapping::ES_R;
+									viewParams.components = {RED,RED,RED,RED};
+									}
+									break;
+								case CElementTexture::Bitmap::CHANNEL::G:
+									{
+									constexpr auto GREEN = ICPUImageView::SComponentMapping::ES_G;
+									viewParams.components = {GREEN,GREEN,GREEN,GREEN};
+									}
+									break;
+								case CElementTexture::Bitmap::CHANNEL::B:
+									{
+									constexpr auto BLUE = ICPUImageView::SComponentMapping::ES_B;
+									viewParams.components = {BLUE,BLUE,BLUE,BLUE};
+									}
+									break;
+								case CElementTexture::Bitmap::CHANNEL::A:
+									{
+									constexpr auto ALPHA = ICPUImageView::SComponentMapping::ES_A;
+									viewParams.components = {ALPHA,ALPHA,ALPHA,ALPHA};
+									}
+									break;
+								/* special conversions needed to CIE space
+								case CElementTexture::Bitmap::CHANNEL::X:
+								case CElementTexture::Bitmap::CHANNEL::Y:
+								case CElementTexture::Bitmap::CHANNEL::Z:*/
+								case CElementTexture::Bitmap::CHANNEL::INVALID:
+									_IRR_FALLTHROUGH;
+								default:
+									break;
+							}
+							viewParams.subresourceRange.levelCount = img->getCreationParameters().mipLevels;
+							viewParams.format = img->getCreationParameters().format;
+							viewParams.image = std::move(img);
+							//! TODO: this stuff (custom shader sampling code?)
+							_IRR_DEBUG_BREAK_IF(tex->bitmap.uoffset != 0.f);
+							_IRR_DEBUG_BREAK_IF(tex->bitmap.voffset != 0.f);
+							_IRR_DEBUG_BREAK_IF(tex->bitmap.uscale != 1.f);
+							_IRR_DEBUG_BREAK_IF(tex->bitmap.vscale != 1.f);
 						}
-						viewParams.subresourceRange.levelCount = texture->getCreationParameters().mipLevels;
-						viewParams.format = texture->getCreationParameters().format;
-						viewParams.image = std::move(texture);
-						//! TODO: this stuff (custom shader sampling code?)
-						_IRR_DEBUG_BREAK_IF(tex->bitmap.uoffset != 0.f);
-						_IRR_DEBUG_BREAK_IF(tex->bitmap.voffset != 0.f);
-						_IRR_DEBUG_BREAK_IF(tex->bitmap.uscale != 1.f);
-						_IRR_DEBUG_BREAK_IF(tex->bitmap.vscale != 1.f);
+
+						//in case of <channel>, extract one channel
+						if (viewParams.components.g != asset::ICPUImageView::SComponentMapping::ES_G)
+						{
+							auto get1ChannelFormat = [](uint32_t bytesPerChannel) -> asset::E_FORMAT {
+								switch (bytesPerChannel)
+								{
+								case 1u:
+									return asset::EF_R8_UNORM;
+								case 2u:
+									return asset::EF_R16_SFLOAT;
+								case 4u:
+									return asset::EF_R32_SFLOAT;
+								case 8u:
+									return asset::EF_R64_SFLOAT;
+								default:
+									return asset::EF_UNKNOWN;
+								}
+							};
+
+							auto outParams = viewParams.image->getCreationParameters();
+							asset::ICPUImage::SBufferCopy region;
+							const uint32_t bytesPerChannel = (getBytesPerPixel(outParams.format) * core::rational(1, getFormatChannelCount(outParams.format))).getIntegerApprox();
+							outParams.format = get1ChannelFormat(outParams.format);
+							const size_t texelBytesz = asset::getTexelOrBlockBytesize(outParams.format);
+							region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, texelBytesz);
+							auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(texelBytesz * region.bufferRowLength * outParams.extent.height);
+							region.imageOffset = { 0,0,0 };
+							region.imageExtent = outParams.extent;
+							region.imageSubresource.baseArrayLayer = 0u;
+							region.imageSubresource.layerCount = 1u;
+							region.imageSubresource.mipLevel = 0u;
+							region.bufferImageHeight = 0u;
+							region.bufferOffset = 0u;
+							auto outImg = asset::ICPUImage::create(std::move(outParams));
+							outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
+
+							using convert_filter_t = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN>;
+							convert_filter_t::state_type conv;
+							conv.swizzle = viewParams.components;
+							conv.extent = viewParams.image->getCreationParameters().extent;
+							conv.layerCount = 1u;
+							conv.inMipLevel = 0u;
+							conv.outMipLevel = 0u;
+							conv.inBaseLayer = 0u;
+							conv.outBaseLayer = 0u;
+							conv.inOffset = { 0u,0u,0u };
+							conv.outOffset = { 0u,0u,0u };
+							conv.inImage = viewParams.image.get();
+							conv.outImage = outImg.get();
+
+							viewParams.components = asset::ICPUImageView::SComponentMapping{};
+							if (!convert_filter_t::execute(&conv))
+								_IRR_DEBUG_BREAK_IF(true);
+							viewParams.format = outImg->getCreationParameters().format;
+							viewParams.image = std::move(outImg);
+						}
+
+						view = ICPUImageView::create(std::move(viewParams));
+						asset::SAssetBundle viewBundle{ view };
+						ctx.override_->insertAssetIntoCache(viewBundle, cacheKey, ctx.inner, hierarchyLevel);
+					}
+
+					// adjust gamma on pixels (painful and long process)
+					if (!std::isnan(tex->bitmap.gamma))
+					{
+						_IRR_DEBUG_BREAK_IF(true); // TODO
 					}
 				}
-				// adjust gamma on pixels (painful and long process)
-				if (!std::isnan(tex->bitmap.gamma))
-				{
-					_IRR_DEBUG_BREAK_IF(true); // TODO
-				}
+
+				const std::string samplerCacheKey = ctx.samplerCacheKey(tex);
 				switch (tex->bitmap.filterType)
 				{
 					case CElementTexture::Bitmap::FILTER_TYPE::EWA:
@@ -1002,7 +1435,7 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 						samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
 						break;
 				}
-				auto getWrapMode = [](CElementTexture::Bitmap::WRAP_MODE mode)
+				auto getWrapMode = [&samplerCacheKey](CElementTexture::Bitmap::WRAP_MODE mode)
 				{
 					switch (mode)
 					{
@@ -1026,84 +1459,36 @@ SContext::tex_ass_type CMitsubaLoader::getTexture(SContext& ctx, uint32_t hierar
 				samplerParams.TextureWrapU = getWrapMode(tex->bitmap.wrapModeU);
 				samplerParams.TextureWrapV = getWrapMode(tex->bitmap.wrapModeV);
 
-				//in case of <channel>, extract one channel
-				if (viewParams.components.g!=asset::ICPUImageView::SComponentMapping::ES_G)
+				core::smart_refctd_ptr<ICPUSampler> sampler;
 				{
-					auto get1ChannelFormat = [](asset::E_FORMAT f) -> asset::E_FORMAT {
-						const uint32_t bytesPerChannel = (getBytesPerPixel(f) * core::rational(1, getFormatChannelCount(f))).getIntegerApprox();
-						switch (bytesPerChannel) 
-						{
-						case 1u:
-							return asset::EF_R8_UNORM;
-						case 2u:
-							return asset::EF_R16_SFLOAT;
-						case 4u:
-							return asset::EF_R32_SFLOAT;
-						case 8u:
-							return asset::EF_R64_SFLOAT;
-						default:
-							return asset::EF_UNKNOWN;
-						}
-					};
-
-					auto outParams = viewParams.image->getCreationParameters();
-					asset::ICPUImage::SBufferCopy region;
-					outParams.format = get1ChannelFormat(outParams.format);
-					const size_t texelBytesz = asset::getTexelOrBlockBytesize(outParams.format);
-					region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, texelBytesz);
-					auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(texelBytesz*region.bufferRowLength*outParams.extent.height);
-					region.imageOffset = {0,0,0};
-					region.imageExtent = outParams.extent;
-					region.imageSubresource.baseArrayLayer = 0u;
-					region.imageSubresource.layerCount = 1u;
-					region.imageSubresource.mipLevel = 0u;
-					region.bufferImageHeight = 0u;
-					region.bufferOffset = 0u;
-					auto outImg = asset::ICPUImage::create(std::move(outParams));
-					outImg->setBufferAndRegions(std::move(buffer), core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1ull, region));
-
-					using convert_filter_t = asset::CSwizzleAndConvertImageFilter<asset::EF_UNKNOWN, asset::EF_UNKNOWN>;
-					convert_filter_t::state_type conv;
-					conv.swizzle = viewParams.components;
-					conv.extent = viewParams.image->getCreationParameters().extent;
-					conv.layerCount = 1u;
-					conv.inMipLevel = 0u;
-					conv.outMipLevel = 0u;
-					conv.inBaseLayer = 0u;
-					conv.outBaseLayer = 0u;
-					conv.inOffset = {0u,0u,0u};
-					conv.outOffset = {0u,0u,0u};
-					conv.inImage = viewParams.image.get();
-					conv.outImage = outImg.get();
-
-					viewParams.components = asset::ICPUImageView::SComponentMapping{};
-					if (!convert_filter_t::execute(&conv))
-						_IRR_DEBUG_BREAK_IF(true);
-					viewParams.format = outImg->getCreationParameters().format;
-					viewParams.image = std::move(outImg);
+					const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_SAMPLER, static_cast<asset::IAsset::E_TYPE>(0) };
+					auto samplerBundle = ctx.override_->findCachedAsset(samplerCacheKey, types, ctx.inner, 0u);
+					if (!samplerBundle.isEmpty())
+						sampler = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(samplerBundle.getContents().begin()[0]);
 				}
 
-				auto view = ICPUImageView::create(std::move(viewParams));
-				core::smart_refctd_ptr<ICPUSampler> sampler = view ? core::make_smart_refctd_ptr<ICPUSampler>(samplerParams) : nullptr;
+				if (!view)
+					sampler = nullptr;
+				else if (!sampler)
+				{
+					sampler = core::make_smart_refctd_ptr<ICPUSampler>(samplerParams);
+					SAssetBundle samplerBundle{ sampler };
+					ctx.override_->insertAssetIntoCache(samplerBundle, samplerCacheKey, ctx.inner, hierarchyLevel);
+				}
 
-				SContext::tex_ass_type tex_ass(std::move(view), std::move(sampler), 1.f);
-				ctx.textureCache.insert({ tex,tex_ass });
+				SContext::tex_ass_type tex_ass(std::move(view), std::move(sampler));
 
 				return tex_ass;
 		}
 			break;
 		case CElementTexture::Type::SCALE:
 		{
-			auto retval = getTexture(ctx,hierarchyLevel,tex->scale.texture);
-			std::get<float>(retval) *= tex->scale.scale;
-			ctx.textureCache[tex] = retval;
-
-			return retval;
+			return cacheTexture(ctx,hierarchyLevel,tex->scale.texture);
 		}
 			break;
 		default:
 			_IRR_DEBUG_BREAK_IF(true);
-			return SContext::tex_ass_type{nullptr,nullptr,0.f};
+			return SContext::tex_ass_type{nullptr,nullptr};
 			break;
 	}
 }
@@ -1121,9 +1506,12 @@ auto CMitsubaLoader::getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsd
 auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bsdf) -> SContext::bsdf_type
 {
 	{
-		auto cacheTexture = [&](const auto& const_or_tex) {
+		auto cachePropertyTexture = [&](const auto& const_or_tex, SContext::tex_ass_type& out_img) {
+			bool is_tex = (const_or_tex.value.type == SPropertyElementData::INVALID);
 			if (const_or_tex.value.type == SPropertyElementData::INVALID)
-				getTexture(ctx, 0u, const_or_tex.texture);
+				out_img = cacheTexture(ctx, 0u, const_or_tex.texture);
+
+			return is_tex;
 		};
 
 		core::stack<const CElementBSDF*> stack;
@@ -1147,43 +1535,77 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 			default: break;
 			}
 
+			SContext::tex_ass_type tex;
 			switch (bsdf->type)
 			{
 			case CElementBSDF::DIFFUSE:
 			case CElementBSDF::ROUGHDIFFUSE:
-				cacheTexture(bsdf->diffuse.reflectance);
-				cacheTexture(bsdf->diffuse.alpha);
+				cachePropertyTexture(bsdf->diffuse.reflectance, tex);
+				cachePropertyTexture(bsdf->diffuse.alpha, tex);
 				break;
 			case CElementBSDF::DIFFUSE_TRANSMITTER:
-				cacheTexture(bsdf->difftrans.transmittance);
+				cachePropertyTexture(bsdf->difftrans.transmittance, tex);
 				break;
 			case CElementBSDF::DIELECTRIC:
 			case CElementBSDF::THINDIELECTRIC:
 			case CElementBSDF::ROUGHDIELECTRIC:
-				cacheTexture(bsdf->dielectric.alphaU);
+				cachePropertyTexture(bsdf->dielectric.alphaU, tex);
 				if (bsdf->dielectric.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-					cacheTexture(bsdf->dielectric.alphaV);
+					cachePropertyTexture(bsdf->dielectric.alphaV, tex);
 				break;
 			case CElementBSDF::CONDUCTOR:
-				cacheTexture(bsdf->conductor.alphaU);
+				cachePropertyTexture(bsdf->conductor.alphaU, tex);
 				if (bsdf->conductor.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-					cacheTexture(bsdf->conductor.alphaV);
+					cachePropertyTexture(bsdf->conductor.alphaV, tex);
 				break;
 			case CElementBSDF::PLASTIC:
 			case CElementBSDF::ROUGHPLASTIC:
-				cacheTexture(bsdf->plastic.diffuseReflectance);
-				cacheTexture(bsdf->plastic.alphaU);
+				cachePropertyTexture(bsdf->plastic.diffuseReflectance, tex);
+				cachePropertyTexture(bsdf->plastic.alphaU, tex);
 				if (bsdf->plastic.distribution == CElementBSDF::RoughSpecularBase::ASHIKHMIN_SHIRLEY)
-					cacheTexture(bsdf->plastic.alphaV);
+					cachePropertyTexture(bsdf->plastic.alphaV, tex);
 				break;
 			case CElementBSDF::BUMPMAP:
-				getTexture(ctx, 0u, bsdf->bumpmap.texture);
+			{
+				using namespace std::string_literals;
+
+				auto bm = cacheTexture(ctx, 0u, bsdf->bumpmap.texture);
+				// TODO check and restore if dummy (image and sampler)
+				auto bumpmap = std::get<0>(bm)->getCreationParameters().image;
+				auto sampler = std::get<1>(bm);
+				const std::string key = ctx.derivMapCacheKey(bsdf->bumpmap.texture);
+
+				if (!getBuiltinAsset<asset::ICPUImage, asset::IAsset::ET_IMAGE>(key.c_str(), m_manager))
+				{
+					auto derivmap = createDerivMap(bumpmap.get(), sampler.get());
+					asset::SAssetBundle imgBundle{ derivmap };
+					ctx.override_->insertAssetIntoCache(imgBundle, key, ctx.inner, 0u);
+					auto derivmap_view = createImageView(std::move(derivmap));
+					asset::SAssetBundle viewBundle{ derivmap_view };
+					ctx.override_->insertAssetIntoCache(viewBundle, ctx.imageViewCacheKey(key), ctx.inner, 0u);
+				}
+			}
 				break;
 			case CElementBSDF::BLEND_BSDF:
-				cacheTexture(bsdf->blendbsdf.weight);
+				if (cachePropertyTexture(bsdf->blendbsdf.weight, tex))
+				{
+					const std::string key = ctx.blendWeightImageCacheKey(bsdf->blendbsdf.weight.texture);
+
+					if (!getBuiltinAsset<asset::ICPUImage, asset::IAsset::ET_IMAGE>(key.c_str(), m_manager))
+					{
+						auto img = std::get<0>(tex)->getCreationParameters().image;
+
+						auto blendweight = createBlendWeightImage(img.get());
+						asset::SAssetBundle imgBundle{ blendweight };
+						ctx.override_->insertAssetIntoCache(imgBundle, key, ctx.inner, 0u);
+						auto blendweight_view = createImageView(std::move(blendweight));
+						asset::SAssetBundle viewBundle{ blendweight_view };
+						ctx.override_->insertAssetIntoCache(viewBundle, ctx.imageViewCacheKey(key), ctx.inner, 0u);
+					}
+				}
 				break;
 			case CElementBSDF::MASK:
-				cacheTexture(bsdf->mask.opacity);
+				cachePropertyTexture(bsdf->mask.opacity, tex);
 				break;
 			default: break;
 			}
@@ -1195,19 +1617,18 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 
 // Also sets instance data buffer offset into meshbuffers' push constants
 template<typename Iter>
-inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd)
+inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx, asset::ICPUPipelineLayout* _layout, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd)
 {
-	auto pplnLayout = getBuiltinAsset<ICPUPipelineLayout,IAsset::ET_PIPELINE_LAYOUT>(PIPELINE_LAYOUT_CACHE_KEY, m_manager);
-	auto* ds0layout = pplnLayout->getDescriptorSetLayout(0u);
+	auto* ds0layout = _layout->getDescriptorSetLayout(0u);
 
 	auto ds0 = core::make_smart_refctd_ptr<ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(ds0layout));
 	{
-		auto count = _ctx.backend_ctx.vt->getDescriptorSetWrites(nullptr, nullptr, nullptr);
+		auto count = _ctx.backend_ctx.vt.vt->getDescriptorSetWrites(nullptr, nullptr, nullptr);
 
 		auto writes = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSet::SWriteDescriptorSet>>(count.first);
 		auto info = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSet::SDescriptorInfo>>(count.second);
 
-		_ctx.backend_ctx.vt->getDescriptorSetWrites(writes->data(), info->data(), ds0.get());
+		_ctx.backend_ctx.vt.vt->getDescriptorSetWrites(writes->data(), info->data(), ds0.get());
 
 		for (const auto& w : (*writes))
 		{
@@ -1219,7 +1640,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 	auto d = ds0->getDescriptors(PRECOMPUTED_VT_DATA_BINDING).begin();
 	{
 		auto precompDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(asset::ICPUVirtualTexture::SPrecomputedData));
-		memcpy(precompDataBuf->getPointer(), &_ctx.backend_ctx.vt->getPrecomputedData(), precompDataBuf->getSize());
+		memcpy(precompDataBuf->getPointer(), &_ctx.backend_ctx.vt.vt->getPrecomputedData(), precompDataBuf->getSize());
 
 		d->buffer.offset = 0u;
 		d->buffer.size = precompDataBuf->getSize();
@@ -1243,12 +1664,27 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		d->buffer.size = bsdfbuf->getSize();
 		d->desc = std::move(bsdfbuf);
 	}
+	d = ds0->getDescriptors(PREFETCH_INSTR_BUF_BINDING).begin();
+	{
+		const size_t sz = _compResult.prefetch_stream.size()*sizeof(decltype(_compResult.prefetch_stream)::value_type);
+		
+		constexpr size_t MIN_SSBO_SZ = 128ull; //prefetch stream won't be generated if no textures are used, so make sure we're not creating 0-size buffer
+		auto prefetch_instr_buf = core::make_smart_refctd_ptr<ICPUBuffer>(std::max(MIN_SSBO_SZ, sz));
+		memcpy(prefetch_instr_buf->getPointer(), _compResult.prefetch_stream.data(), sz);
 
+		d->buffer.offset = 0u;
+		d->buffer.size = prefetch_instr_buf->getSize();
+		d->desc = std::move(prefetch_instr_buf);
+	}
+
+#ifdef DEBUG_MITSUBA_LOADER
 	std::ofstream ofile("log.txt");
+#endif
 	core::vector<SInstanceData> instanceData;
 	for (auto it = meshBegin; it != meshEnd; ++it)
 	{
-		auto& mesh = *it;
+		auto& mesh_smart_ptr = *it;
+		asset::ICPUMesh* mesh = const_cast<asset::ICPUMesh*>(mesh_smart_ptr.get());
 		auto* meta = static_cast<const IMeshMetadata*>(mesh->getMetadata());
 		
 		core::vectorSIMDf emissive;
@@ -1256,24 +1692,49 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		for (const auto& inst : meta->getInstances()) {
 			emissive = inst.emitter.type==CElementEmitter::AREA ? inst.emitter.area.radiance : core::vectorSIMDf(0.f);
 
-			auto bsdf = inst.bsdf;
-			auto streams_it = _compResult.streams.find(bsdf);
-			_IRR_DEBUG_BREAK_IF(streams_it==_compResult.streams.end());
-			const auto& streams = streams_it->second;
-
-			os::Printer::log("Debug print BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
-			ofile << "Debug print BSDF with id = " << inst.bsdf_id << std::endl;
-			_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
-
 			SInstanceData instData;
+
 			instData.tform = inst.tform;
-			instData.tform.getSub3x3InverseTranspose(instData.normalMatrix);
+			instData.tform.getSub3x3InverseTranspose(instData.normalMat.normalMatrix);
 			instData.emissive = core::rgb32f_to_rgb19e7(emissive.pointer);
-			core::floatBitsToUint(instData.normalMatrix(0u, 3u)) = streams.rem_and_pdf.first;
-			core::floatBitsToUint(instData.normalMatrix(1u, 3u)) = streams.rem_and_pdf.count;
-			instData.prefetch_instrStream = {streams.tex_prefetch.first, streams.tex_prefetch.count};
-			instData.nprecomp_instrStream = {streams.norm_precomp.first, streams.norm_precomp.count};
-			instData.genchoice_instrStream = {streams.gen_choice.first, streams.gen_choice.count};
+
+			auto bsdf = inst.bsdf;
+			auto bsdf_front = bsdf.front;
+			auto bsdf_back  = bsdf.back;
+			auto streams_it = _compResult.streams.find(bsdf_front);
+			{
+				_IRR_DEBUG_BREAK_IF(streams_it == _compResult.streams.end());
+				const auto& streams = streams_it->second;
+
+#ifdef DEBUG_MITSUBA_LOADER
+				os::Printer::log("Debug print front BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
+				ofile << "Debug print front BSDF with id = " << inst.bsdf_id << std::endl;
+				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
+#endif
+				instData.normalMat.front_instr_offset = streams.offset;
+				instData.normalMat.front_rem_pdf_count = streams.rem_and_pdf_count;
+				instData.front_prefetch_count = streams.tex_prefetch_count;
+				instData.front_nprecomp_count = streams.norm_precomp_count;
+				instData.front_genchoice_count = streams.gen_choice_count;
+				instData.front_prefetch_offset = streams.prefetch_offset;
+			}
+			streams_it = _compResult.streams.find(bsdf_back);
+			{
+				_IRR_DEBUG_BREAK_IF(streams_it == _compResult.streams.end());
+				const auto& streams = streams_it->second;
+
+#ifdef DEBUG_MITSUBA_LOADER
+				os::Printer::log("Debug print back BSDF with id = ", inst.bsdf_id, ELL_INFORMATION);
+				ofile << "Debug print back BSDF with id = " << inst.bsdf_id << std::endl;
+				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
+#endif
+				instData.back_instr_offset = streams.offset;
+				instData.back_rem_pdf_count = streams.rem_and_pdf_count;
+				instData.back_prefetch_count = streams.tex_prefetch_count;
+				instData.back_nprecomp_count = streams.norm_precomp_count;
+				instData.back_genchoice_count = streams.gen_choice_count;
+				instData.back_prefetch_offset = streams.prefetch_offset;
+			}
 
 			instanceData.push_back(instData);
 		}
@@ -1283,6 +1744,9 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			reinterpret_cast<uint32_t*>(mb->getPushConstantsDataPtr())[0] = instDataOffset;
 		}
 	}
+#ifdef DEBUG_MITSUBA_LOADER
+	ofile.close();
+#endif
 	d = ds0->getDescriptors(INSTANCE_DATA_BINDING).begin();
 	{
 		auto instDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(instanceData.size()*sizeof(SInstanceData));
@@ -1322,58 +1786,25 @@ core::smart_refctd_ptr<CMitsubaPipelineMetadata> CMitsubaLoader::createPipelineM
 	return core::make_smart_refctd_ptr<CMitsubaPipelineMetadata>(std::move(_ds0), std::move(inputs));
 }
 
+using namespace std::string_literals;
+
 SContext::SContext(
 	const asset::IGeometryCreator* _geomCreator,
 	const asset::IMeshManipulator* _manipulator,
-	const asset::IAssetLoader::SAssetLoadParams& _params,
+	const asset::IAssetLoader::SAssetLoadContext& _ctx,
 	asset::IAssetLoader::IAssetLoaderOverride* _override,
 	CGlobalMitsubaMetadata* _metadata
-) : creator(_geomCreator), manipulator(_manipulator), params(_params), override(_override), globalMeta(_metadata),
-	ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this)
+) : creator(_geomCreator), manipulator(_manipulator), inner(_ctx), override_(_override), globalMeta(_metadata),
+	ir(core::make_smart_refctd_ptr<asset::material_compiler::IR>()), frontend(this),
+	samplerCacheKeyBase(inner.mainFile->getFileName().c_str() + "?sampler"s)
 {
-	//TODO (maybe) dynamically decide which of those are needed OR just wait until IVirtualTexture does it on itself (dynamically creates resident storages)
-	constexpr asset::E_FORMAT formats[]{ asset::EF_R8_UNORM, asset::EF_R8G8_UNORM, asset::EF_R8G8B8_SRGB, asset::EF_R8G8B8A8_SRGB
-#ifdef DERIV_MAP_FLOAT32
-		, asset::EF_R32G32_SFLOAT
-#endif
-	};
-	constexpr size_t formatCount = sizeof(formats)/sizeof(*formats);
-	std::array<asset::ICPUVirtualTexture::ICPUVTResidentStorage::SCreationParams, formatCount> storage;
-	storage[0].formatClass = asset::EFC_8_BIT;
-	storage[0].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
-	storage[0].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
-	storage[0].formatCount = 1u;
-	storage[0].formats = formats;
-
-	storage[1].formatClass = asset::EFC_16_BIT;
-	storage[1].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
-	storage[1].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
-	storage[1].formatCount = 1u;
-	storage[1].formats = formats+1;
-
-	storage[2].formatClass = asset::EFC_24_BIT;
-	storage[2].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
-	storage[2].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
-	storage[2].formatCount = 1u;
-	storage[2].formats = formats+2;
-
-	storage[3].formatClass = asset::EFC_32_BIT;
-	storage[3].layerCount = VT_PHYSICAL_PAGE_TEX_LAYERS;
-	storage[3].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
-	storage[3].formatCount = 1u;
-	storage[3].formats = formats+3;
-
-#ifdef DERIV_MAP_FLOAT32
-	storage[4].formatClass = asset::EFC_64_BIT;
-	storage[4].layerCount = 2u;
-	storage[4].tilesPerDim_log2 = VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2;
-	storage[4].formatCount = 1u;
-	storage[4].formats = formats+4;
-#endif
-
-	backend_ctx.vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(storage.data(), storage.size(), VT_PAGE_SZ_LOG2, VT_PAGE_TABLE_LAYERS, VT_PAGE_PADDING, VT_MAX_ALLOCATABLE_TEX_SZ_LOG2);
-
-	globalMeta->VT = backend_ctx.vt;
+	backend_ctx.vt.vt = core::make_smart_refctd_ptr<asset::ICPUVirtualTexture>(
+		[](asset::E_FORMAT_CLASS) -> uint32_t { return VT_PHYSICAL_PAGE_TEX_TILES_PER_DIM_LOG2; }, // 16x16 tiles per layer for all dynamically created storages
+		VT_PAGE_SZ_LOG2, 
+		VT_PAGE_PADDING, 
+		VT_MAX_ALLOCATABLE_TEX_SZ_LOG2
+	);
+	globalMeta->VT = backend_ctx.vt.vt;
 }
 
 }

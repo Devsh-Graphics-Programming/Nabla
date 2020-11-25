@@ -18,19 +18,12 @@ namespace irr
 
 					CMitsubaMetadata(core::smart_refctd_ptr<CGlobalMitsubaMetadata> _mitsubaMetadata) : mitsubaMetadata(std::move(_mitsubaMetadata)) {}
 
-					std::string getName() const
-					{
-						return name;
-					}
-
 					auto getMitsubaMetadata() const { return mitsubaMetadata; }
 
 					_IRR_STATIC_INLINE_CONSTEXPR const char* loaderName = "CMitsubaLoader";
 					const char* getLoaderName() const override { return loaderName; }
 
 				private:
-
-					std::string name;
 					core::smart_refctd_ptr<CGlobalMitsubaMetadata> mitsubaMetadata;
 			};
 		}

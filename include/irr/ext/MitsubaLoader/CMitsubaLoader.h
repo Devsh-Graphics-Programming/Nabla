@@ -38,30 +38,51 @@ class CMitsubaLoader : public asset::IAssetLoader
 		struct SInstanceData
 		{
 			core::matrix3x4SIMD tform;//mat4x3
-			//elements (0,3) and (1,3) are (first,count) for bsdf_instrStream (remainder and pdf stream in case of RT backend)
-			core::matrix3x4SIMD normalMatrix;//mat4x3
-			std::pair<uint32_t,uint32_t> prefetch_instrStream;
-			std::pair<uint32_t, uint32_t> nprecomp_instrStream;
-			std::pair<uint32_t, uint32_t> genchoice_instrStream;
+			//element (0,3) is offset for frontface instruction streams, element (1,3) is length of frontface rem_and_pdf stream
+			union SNormalMatrix {
+				SNormalMatrix() : normalMatrix() {}
+				~SNormalMatrix() {}
+				SNormalMatrix(const SNormalMatrix& other) : normalMatrix(other.normalMatrix) {}
+
+				core::matrix3x4SIMD normalMatrix;
+				struct {
+					uint32_t _pad0[3];
+					uint32_t front_instr_offset;
+					uint32_t _pad1[3];
+					uint32_t front_rem_pdf_count;
+				};
+			} normalMat;
 			uint64_t emissive;//uvec2, rgb19e7
+			uint32_t front_prefetch_count;
+			uint32_t front_nprecomp_count;
+			uint32_t front_genchoice_count;
+			uint32_t front_prefetch_offset;
+			uint32_t back_instr_offset;
+			uint32_t back_rem_pdf_count;
+			uint32_t back_prefetch_count;
+			uint32_t back_nprecomp_count;
+			uint32_t back_genchoice_count;
+			uint32_t back_prefetch_offset;
 		} PACK_STRUCT;
 #include "irr/irrunpack.h"
 
 		//! Destructor
 		virtual ~CMitsubaLoader() = default;
 
+		static core::smart_refctd_ptr<asset::ICPUPipelineLayout> createPipelineLayout(asset::IAssetManager* _manager, asset::ICPUVirtualTexture* _vt);
+
 		//
 		core::vector<SContext::shape_ass_type>	getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
 		core::vector<SContext::shape_ass_type>	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix3x4SIMD& relTform);
 		SContext::shape_ass_type				loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const core::matrix3x4SIMD& relTform);
 		
-		SContext::tex_ass_type					getTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture);
+		SContext::tex_ass_type					cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture);
 
 		SContext::bsdf_type getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 		SContext::bsdf_type genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
 
 		template <typename Iter>
-		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd);
+		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx, asset::ICPUPipelineLayout* _layout, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd);
 
 		core::smart_refctd_ptr<CMitsubaPipelineMetadata> createPipelineMetadata(core::smart_refctd_ptr<asset::ICPUDescriptorSet>&& _ds0, const asset::ICPUPipelineLayout* _layout);
 

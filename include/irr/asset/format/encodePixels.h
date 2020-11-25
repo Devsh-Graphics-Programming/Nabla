@@ -2244,57 +2244,43 @@ namespace asset
     template<>
     inline void encodePixels<asset::EF_R8G8B8_SRGB, double>(void* _pix, const double* _input)
     {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
+        uint8_t* pix = reinterpret_cast<uint8_t*>(_pix);
         {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
             double inp = core::lin2srgb(_input[0]);
             inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 0);
+            pix[0] = static_cast<uint8_t>(inp);
         }
         {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
             double inp = core::lin2srgb(_input[1]);
             inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 8);
+            pix[1] = static_cast<uint8_t>(inp);
         }
         {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
             double inp = core::lin2srgb(_input[2]);
             inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 16);
+            pix[2] = static_cast<uint8_t>(inp);
         }
-
     }
 
     template<>
     inline void encodePixels<asset::EF_B8G8R8_SRGB, double>(void* _pix, const double* _input)
     {
-        uint32_t& pix = reinterpret_cast<uint32_t*>(_pix)[0];
+        uint8_t* pix = reinterpret_cast<uint8_t*>(_pix);
         {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 0));
             double inp = core::lin2srgb(_input[2]);
             inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 0);
+            pix[0] = static_cast<uint8_t>(inp);
         }
         {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 8));
             double inp = core::lin2srgb(_input[1]);
             inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 8);
+            pix[1] = static_cast<uint8_t>(inp);
         }
         {
-            const uint32_t mask = 0xffULL;
-            pix &= (~(mask << 16));
             double inp = core::lin2srgb(_input[0]);
             inp *= 255.;
-            pix |= ((uint64_t(inp) & mask) << 16);
+            pix[2] = static_cast<uint8_t>(inp);
         }
-
     }
 
     template<>

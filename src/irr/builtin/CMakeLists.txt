@@ -23,6 +23,7 @@ set(irr_resources_to_embed
   "irr/builtin/shaders/loaders/mtl/fragment_impl.glsl"
   "irr/builtin/shaders/loaders/mtl/fragment_no_uv.frag"
   "irr/builtin/shaders/loaders/mtl/fragment_uv.frag"
+  "irr/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl"
   "irr/builtin/specializedshaders/fullscreentriangle.vert"
   "irr/builtin/materials/lambertian/singletexture/specializedshader.vert"
   "irr/builtin/materials/lambertian/singletexture/specializedshader.frag"
