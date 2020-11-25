@@ -4,12 +4,13 @@ layout(location = 3) uniform vec3 color;
 layout(location = 4) uniform uint nasty;
 layout(location = 5) uniform uint lightID;
 
+//TODO not needed any more, right?
 layout(binding = 0) uniform sampler2D reflectance;
 
 in vec2 uv;
 in vec3 Normal;
 
-layout(location = 0) out vec3 pixelColor;
+layout(location = 0) out vec3 pixelColor; //TODO i think this one we will skip in gbuffer fill pass?
 layout(location = 1) out vec2 encodedNormal;
 layout(location = 2) out uint lightIndex;
 

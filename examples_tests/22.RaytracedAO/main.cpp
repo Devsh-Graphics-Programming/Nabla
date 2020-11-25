@@ -211,7 +211,13 @@ int main()
 
 	auto driver = device->getVideoDriver();
 
-	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver, device->getAssetManager(), smgr);
+	auto& _1stmesh = meshes.getContents().begin()[0];
+	auto* meta_ = static_cast<asset::ICPUMesh*>(_1stmesh.get())->getMeshBuffer(0)->getPipeline()->getMetadata();
+	auto* meta = static_cast<ext::MitsubaLoader::CMitsubaPipelineMetadata*>(meta_);
+	auto cpuds0 = meta->getDescriptorSet();
+	auto gpuds0 = driver->getGPUObjectsFromAssets(&cpuds0, &cpuds0 + 1)->front();
+
+	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver, device->getAssetManager(), smgr, std::move(gpuds0));
 	constexpr uint32_t MaxSamples = 1024u*1024u;
 	auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*MaxSamples*Renderer::MaxDimensions);
 	{
@@ -248,6 +254,8 @@ int main()
 		}
 	}
 	renderer->init(meshes, rightHandedCamera, std::move(sampleSequence));
+
+
 	meshes = {}; // free memory
 	auto extent = renderer->getSceneBound().getExtent();
 
