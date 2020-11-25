@@ -390,7 +390,7 @@ int main()
 		}
 	}
 
-	constexpr uint32_t ENVMAP_SAMPLE_COUNT = 64u;
+	constexpr uint32_t ENVMAP_SAMPLE_COUNT = 16u;
 	constexpr float LIGHT_INTENSITY_SCALE = 0.01f;
 
 	core::unordered_set<const asset::ICPURenderpassIndependentPipeline*> modifiedPipelines;

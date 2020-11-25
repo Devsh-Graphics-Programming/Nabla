@@ -54,8 +54,8 @@ layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDa
 void main()
 {
 	uint instIx = PC.instDataOffset+gl_InstanceIndex;
-	mat4x3 tform = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(InstData.data[instIx].tform);
-	mat4 mvp = irr_glsl_pseudoMul4x4with4x3(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(CamData.params.MVP), tform);
+	mat4x3 tform = InstData.data[instIx].tform;
+	mat4 mvp = irr_glsl_pseudoMul4x4with4x3(CamData.params.MVP, tform);
 	gl_Position = irr_glsl_pseudoMul4x4with3x1(mvp, vPosition);
 	WorldPos = irr_glsl_pseudoMul3x4with3x1(tform, vPosition);
 	//InstrOffsetCount = uvec2(InstData.data[instIx].instrOffset,InstData.data[instIx].instrCount);
