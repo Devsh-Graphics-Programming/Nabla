@@ -7,11 +7,10 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 {
 	const uint op = instr_getOpcode(instr);
 	const bool is_bxdf = op_isBXDF(op);
-	const bool is_bsdf = !op_isBRDF(op); //note it actually tells if op is BSDF or BUMPMAP or SET_GEOM_NORMAL (divergence reasons)
+	const bool is_bsdf = !op_isBRDF(op); //note: true for everything besides BRDF ops (combiners, SET_GEOM_NORMAL and BUMPMAP too)
 	const float cosFactor = irr_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
 	const float NdotV = irr_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.inner.isotropic.NdotV, 0.0);
-	bool is_valid = (NdotV > FLT_MIN);
-	const bool positiveCosFactor = cosFactor > FLT_MIN && is_valid;
+	const bool positiveCosFactors = (cosFactor > FLT_MIN) && (NdotV > FLT_MIN);
 	const bool is_bxdf_or_combiner = op_isBXDForCoatOrBlend(op);
 
 	uvec3 regs = instr_decodeRegisters(instr);
@@ -21,7 +20,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 	MC_microfacet_t microfacet;
 	bsdf_data_t bsdf_data;
 
-	const bool run = !skip && positiveCosFactor;
+	const bool run = !skip && positiveCosFactors;
 
 	if (run && is_bxdf_or_combiner)
 	{
@@ -39,6 +38,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 		const float rcp_eta = 1.0 / eta;
 
 		bool refraction = false;
+		bool is_valid = true;
 #ifdef OP_DIELECTRIC
 		if (op == OP_DIELECTRIC && irr_glsl_isTransmissionPath(currInteraction.inner.isotropic.NdotV, s.NdotL))
 		{
@@ -54,12 +54,12 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 
 		const vec3 albedo = params_getReflectance(params);
 		const float a = params_getAlpha(params);
-		const float a2 = a * a;
+		const float a2 = a*a;
 
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
 		if (op_isDiffuse(op))
 		{
-			result = albedo * irr_glsl_oren_nayar_cos_eval(s, currInteraction.inner.isotropic, a2);
+			result = albedo * (is_bsdf ? 0.5 : 1.0) * irr_glsl_oren_nayar_cos_eval_wo_clamps(a2, s.VdotL, cosFactor, NdotV);
 		}
 		else
 #endif

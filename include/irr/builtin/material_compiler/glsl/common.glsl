@@ -572,9 +572,12 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
 		if (op_isDiffuse(op))
 		{
-			eval = albedo * irr_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf, a2, s.VdotL, NdotL, NdotV);
-			pdf *= is_bsdf ? 0.5 : 1.0;
-			eval *= pdf;
+			if (NdotL > FLT_MIN)
+			{
+				eval = albedo * irr_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf, a2, s.VdotL, NdotL, NdotV);
+				pdf *= is_bsdf ? 0.5 : 1.0;
+				eval *= pdf;
+			}
 		}
 		else
 #endif
