@@ -222,21 +222,21 @@ struct IGPUObjectFromAssetConverter::Hash<asset::ICPURenderpassIndependentPipeli
     inline std::size_t operator()(asset::ICPURenderpassIndependentPipeline* _ppln) const
     {
         constexpr size_t bytesToHash = 
-            sizeof(asset::SVertexInputParams)+
-            sizeof(asset::SBlendParams)+
-            sizeof(asset::SRasterizationParams)+
-            sizeof(asset::SPrimitiveAssemblyParams)+
+            asset::SVertexInputParams::serializedSize()+
+            asset::SBlendParams::serializedSize()+
+            asset::SRasterizationParams::serializedSize()+
+            asset::SPrimitiveAssemblyParams::serializedSize()+
             sizeof(void*)*asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT+//shaders
             sizeof(void*);//layout
         uint8_t mem[bytesToHash]{};
         uint32_t offset = 0u;
-        memcpy(mem+offset,&_ppln->getVertexInputParams(),sizeof(asset::SVertexInputParams));
-        offset += sizeof(asset::SVertexInputParams);
-        memcpy(mem+offset,&_ppln->getBlendParams(),sizeof(asset::SBlendParams));
-        offset += sizeof(asset::SBlendParams);
-        memcpy(mem+offset,&_ppln->getRasterizationParams(),sizeof(asset::SRasterizationParams));
+        _ppln->getVertexInputParams().serialize(mem+offset);
+        offset += asset::SVertexInputParams::serializedSize();
+        _ppln->getBlendParams().serialize(mem+offset);
+        offset += asset::SBlendParams::serializedSize();
+        _ppln->getRasterizationParams().serialize(mem+offset);
         offset += sizeof(asset::SRasterizationParams);
-        memcpy(mem+offset,&_ppln->getPrimitiveAssemblyParams(),sizeof(asset::SPrimitiveAssemblyParams));
+        _ppln->getPrimitiveAssemblyParams().serialize(mem+offset);
         offset += sizeof(asset::SPrimitiveAssemblyParams);
         const asset::ICPUSpecializedShader** shaders = reinterpret_cast<const asset::ICPUSpecializedShader**>(mem+offset);
         for (uint32_t i = 0u; i < asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
