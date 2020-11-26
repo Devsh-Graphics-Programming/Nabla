@@ -52,10 +52,10 @@ class Manager final : public core::IReferenceCounted
 
 
 				auto posAttrID = mb->getPositionAttributeIx();
-				auto format = mb->getMeshDataAndFormat()->getAttribFormat(posAttrID);
+				auto format = mb->getAttribFormat(posAttrID);
 				assert(format==asset::EF_R32G32B32A32_SFLOAT||format==asset::EF_R32G32B32_SFLOAT);
 
-				auto pType = mb->getPrimitiveType();
+				auto pType = mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
 				switch (pType)
 				{
 					case asset::EPT_TRIANGLE_STRIP:
@@ -64,7 +64,7 @@ class Manager final : public core::IReferenceCounted
 					case asset::EPT_TRIANGLE_FAN:
 						maxIndexCount = core::max(((mb->getIndexCount()-1u)/2u)*3u, maxIndexCount);
 						break;
-					case asset::EPT_TRIANGLES:
+					case asset::EPT_TRIANGLE_LIST:
 						maxIndexCount = core::max(mb->getIndexCount(), maxIndexCount);
 						break;
 					default:

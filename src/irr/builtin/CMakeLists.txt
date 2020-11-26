@@ -101,6 +101,8 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/utils/indirect_commands.glsl"
   "irr/builtin/glsl/utils/common.glsl"
   "irr/builtin/glsl/utils/culling.glsl"
+  "irr/builtin/glsl/utils/normal_decode.glsl"
+  "irr/builtin/glsl/utils/normal_encode.glsl"
   "irr/builtin/glsl/utils/transform.glsl"
   # virtual texturing
   "irr/builtin/glsl/virtual_texturing/descriptors.glsl"
