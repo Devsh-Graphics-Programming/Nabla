@@ -108,14 +108,18 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 			}
 #endif
 			//! type is second member due to alignment issues
-			union
+			union OBB_t
 			{
+				OBB_t() : data() {}
+				~OBB_t() {}
+				OBB_t(const OBB_t& rhs) : data(rhs.data) {}
+
 				irr::core::matrix3x4SIMD data;
 				struct
 				{
-					float e1_x,e2_x,e3_x,offset_x;
-					float e1_y,e2_y,e3_y,offset_y;
-					float e1_z,e2_z,e3_z,offset_z;
+					float e1_x, e2_x, e3_x, offset_x;
+					float e1_y, e2_y, e3_y, offset_y;
+					float e1_z, e2_z, e3_z, offset_z;
 				};
 			} OBB;
 			//! different lights use different measures of their strength (this already has the reciprocal of the light PDF factored in)
