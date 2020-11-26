@@ -6,7 +6,7 @@
 struct InstanceDataPerCamera
 {
     mat4 MVP;
-    mat4x3 NormalMatrix;
+    mat4x3 NormalMatAndFlags;
 };
 
 #endif

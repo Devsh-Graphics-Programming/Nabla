@@ -18,10 +18,10 @@ layout(location = 2) out vec2 UV;
 
 void main()
 {
-    ObjectID = gl_InstanceIndex;
+    ObjectID = gl_InstanceIndex|(floatBitsToUint(NormalMatAndFlags[0].w)&0x80000000u); // use MSB to denote if face orientation should be flipped
     InstanceDataPerCamera self = instanceDataPerCamera.data[ObjectID];
 
     gl_Position = irr_glsl_pseudoMul4x4with3x1(self.MVP,vPosition);
-    Normal = mat3(self.NormalMatAndEyePos)*normalize(vNormal); //have to normalize twice because of normal quantization
+    Normal = mat3(self.NormalMatAndFlags)*normalize(vNormal); //have to normalize twice because of normal quantization
 	UV = vUV;
 }

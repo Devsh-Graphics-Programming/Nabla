@@ -19,113 +19,7 @@
 class Renderer : public irr::core::IReferenceCounted, public irr::core::InterfaceUnmovable
 {
     public:
-		struct alignas(16) SLight
-		{
-			SLight() {}
-			SLight(const SLight& other)
-			{
-				std::copy(other.strengthFactor,other.strengthFactor+3u,strengthFactor);
-				OBB.data = other.OBB.data;
-			}
-			~SLight() {}
-
-			inline SLight& operator=(SLight&& other)
-			{
-				std::swap_ranges(strengthFactor,strengthFactor+3u,other.strengthFactor);
-				std::swap(OBB.data, other.OBB.data);
-
-				return *this;
-			}
-
-			void setFactor(const irr::core::vectorSIMDf& _strengthFactor)
-			{
-				for (auto i=0u; i<3u; i++)
-					strengthFactor[i] = _strengthFactor[i];
-			}
-#if TODO
-			//! This is according to Rec.709 colorspace
-			inline float getFactorLuminosity() const
-			{
-				float rec709LumaCoeffs[] = {0.2126f, 0.7152, 0.0722};
-
-				//! TODO: More color spaces!
-				float* colorSpaceLumaCoeffs = rec709LumaCoeffs;
-
-				float luma = strengthFactor[0] * colorSpaceLumaCoeffs[0];
-				luma += strengthFactor[1] * colorSpaceLumaCoeffs[1];
-				luma += strengthFactor[2] * colorSpaceLumaCoeffs[2];
-				return luma;
-			}
-
-			inline float computeAreaUnderTransform(irr::core::vectorSIMDf differentialElementCrossProduct) const
-			{
-				analytical.transformCofactors.mulSub3x3WithNx1(differentialElementCrossProduct);
-				return irr::core::length(differentialElementCrossProduct).x;
-			}
-
-			inline float computeFlux(float triangulizationArea) const // also known as lumens
-			{
-				const auto unitHemisphereArea = 2.f*irr::core::PI<float>();
-				const auto unitSphereArea = 2.f*unitHemisphereArea;
-
-				float lightFlux = unitHemisphereArea*getFactorLuminosity();
-				switch (type)
-				{
-					case ET_ELLIPSOID:
-						_IRR_FALLTHROUGH;
-					case ET_TRIANGLE:
-						lightFlux *= triangulizationArea;
-						break;
-					default:
-						assert(false);
-						break;
-				}
-				return lightFlux;
-			}
-
-			static inline SLight createFromTriangle(const irr::core::vectorSIMDf& _strengthFactor, const CachedTransform& precompTform, const irr::core::vectorSIMDf* v, float* outArea=nullptr)
-			{
-				SLight triLight;
-				triLight.type = ET_TRIANGLE;
-				triLight.setFactor(_strengthFactor);
-				triLight.analytical = precompTform;
-
-				float triangleArea = 0.5f*triLight.computeAreaUnderTransform(irr::core::cross(v[1]-v[0],v[2]-v[0]));
-				if (outArea)
-					*outArea = triangleArea;
-
-				for (auto k=0u; k<3u; k++)
-					precompTform.transform.transformVect(triLight.triangle.vertices[k], v[k]);
-				triLight.triangle.vertices[1] -= triLight.triangle.vertices[0];
-				triLight.triangle.vertices[2] -= triLight.triangle.vertices[0];
-				// always flip the handedness so normal points inwards (need negative normal for differential area optimization)
-				if (precompTform.transform.getPseudoDeterminant().x>0.f)
-					std::swap(triLight.triangle.vertices[2], triLight.triangle.vertices[1]);
-
-				// don't do any flux magic yet
-
-				return triLight;
-			}
-#endif
-			//! type is second member due to alignment issues
-			union OBB_t
-			{
-				OBB_t() : data() {}
-				~OBB_t() {}
-				OBB_t(const OBB_t& rhs) : data(rhs.data) {}
-
-				irr::core::matrix3x4SIMD data;
-				struct
-				{
-					float e1_x, e2_x, e3_x, offset_x;
-					float e1_y, e2_y, e3_y, offset_y;
-					float e1_z, e2_z, e3_z, offset_z;
-				};
-			} OBB;
-			//! different lights use different measures of their strength (this already has the reciprocal of the light PDF factored in)
-			alignas(16) float strengthFactor[3];
-		};
-		static_assert(sizeof(SLight)==64u,"Can't keep alignment straight!");
+		#include "../common.glsl"
 
 		// No 8k yet, too many rays to store
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxResolution[2] = {7680/2,4320/2};
@@ -155,6 +49,36 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
     protected:
         ~Renderer();
 
+		struct InitializationData
+		{
+			InitializationData() : lights(),lightRadiances(),lightCDF(),globalMeta(nullptr) {}
+			InitializationData(InitializationData&& other) : InitializationData()
+			{
+				operator=(std::move(other));
+			}
+			~InitializationData() {lightCDF.~vector(); }
+
+			inline InitializationData& operator=(InitializationData&& other)
+			{
+				lights = std::move(other.lights);
+				lightRadiances = std::move(other.lightRadiances);
+				lightCDF = std::move(other.lightCDF);
+				globalMeta = other.globalMeta;
+				return *this;
+			}
+
+			irr::core::vector<SLight> lights;
+			irr::core::vector<irr::core::vectorSIMDf> lightRadiances;
+			union
+			{
+				irr::core::vector<uint32_t> lightPDF;
+				irr::core::vector<uint32_t> lightCDF;
+			};
+			const irr::ext::MitsubaLoader::CGlobalMitsubaMetadata* globalMeta = nullptr;
+		};
+		InitializationData initSceneObjects(const irr::asset::SAssetBundle& meshes);
+		void initSceneNonAreaLights(InitializationData& initData);
+		void finalizeSceneLights(InitializationData& initData);
 
 		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> createScreenSizedTexture(irr::asset::E_FORMAT format);
 
@@ -180,6 +104,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::core::smart_refctd_ptr<irr::ext::RadeonRays::Manager> m_rrManager;
 
 
+		irr::core::vectorSIMDf baseEnvColor;
 		irr::core::aabbox3df m_sceneBound;
 		uint32_t m_renderSize[2u];
 		bool m_rightHanded;
@@ -207,8 +132,6 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		irr::core::vector<irr::core::smart_refctd_ptr<irr::scene::IMeshSceneNode> > nodes;
 		irr::ext::RadeonRays::Manager::MeshNodeRRInstanceCache rrInstances;
-
-		irr::core::vectorSIMDf constantClearColor;
 #endif
 		uint32_t m_lightCount;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightCDFBuffer;

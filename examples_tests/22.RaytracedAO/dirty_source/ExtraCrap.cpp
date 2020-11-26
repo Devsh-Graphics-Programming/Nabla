@@ -3,8 +3,6 @@
 #include "ExtraCrap.h"
 
 #include "irr/ext/ScreenShot/ScreenShot.h"
-#include "../common.glsl"
-//#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
 
 
 #ifndef _IRR_BUILD_OPTIX_
@@ -17,180 +15,12 @@ using namespace irr::video;
 using namespace irr::scene;
 
 
-const std::string lightStruct = R"======(
-#define SLight_ET_ELLIPSOID	0u
-#define SLight_ET_TRIANGLE	1u
-#define SLight_ET_COUNT		2u
-struct SLight
-{
-	vec3 factor;
-	uint data0;
-	mat4x3 transform; // needs row_major qualifier
-	mat3 transformCofactors;
-};
-uint SLight_extractType(in SLight light)
-{
-	return bitfieldExtract(light.data0,0,findMSB(SLight_ET_COUNT)+1);
-}
-)======";
-
-
-const std::string compostShader = R"======(
-#define WORK_GROUP_DIM 32u
-layout(local_size_x = WORK_GROUP_DIM, local_size_y = WORK_GROUP_DIM) in;
-#define WORK_GROUP_SIZE (WORK_GROUP_DIM*WORK_GROUP_DIM)
-
-// TODO translate into push contants
-// uniforms
-layout(location = 0) uniform uvec2 uImageSize;
-layout(location = 1) uniform uvec4 uImageWidth_ImageArea_TotalImageSamples_Samples;
-layout(location = 2) uniform float uRcpFramesDone;
-layout(location = 3) uniform mat3 uNormalMatrix;
-
-// image views
-layout(set = 2, binding = 0) uniform usampler2D lightIndex;
-layout(set = 2, binding = 1) uniform sampler2D albedobuf;
-layout(set = 2, binding = 2) uniform sampler2D normalbuf;
-layout(set = 2, binding = 3, rgba32f) restrict uniform image2D framebuffer;
-
-// SSBOs
-layout(set = 2, binding = 4, std430) restrict readonly buffer Rays
-{
-	RadeonRays_ray rays[];
-};
-layout(set = 2, binding = 5, std430) restrict buffer Queries
-{
-	int hit[];
-};
-
-layout(set = 2, binding = 6, std430, row_major) restrict readonly buffer LightRadiances
-{
-	vec3 lightRadiance[]; // Watts / steriadian / steradian
-};
-
-#ifdef USE_OPTIX_DENOISER
-layout(set = 2, binding = 7, std430) restrict writeonly buffer DenoiserColorInput
-{
-	float16_t colorOutput[];
-};
-layout(set = 2, binding = 8, std430) restrict writeonly buffer DenoiserAlbedoInput
-{
-	float16_t albedoOutput[];
-};
-layout(set = 2, binding = 9, std430) restrict writeonly buffer DenoiserNormalInput
-{
-	float16_t normalOutput[];
-};
-#endif
-
-
-
-
-
-#define RAYS_IN_CACHE 1u
-#define KERNEL_HALF_SIZE 0u
-#define CACHE_DIM (WORK_GROUP_DIM+2u*KERNEL_HALF_SIZE)
-#define CACHE_SIZE (CACHE_DIM*CACHE_DIM*RAYS_IN_CACHE)
-shared uint rayScratch0[CACHE_SIZE];
-shared uint rayScratch1[CACHE_SIZE];
-shared float rayScratch2[CACHE_SIZE];
-shared float rayScratch3[CACHE_SIZE];
-shared float rayScratch4[CACHE_SIZE];
-
-void main()
-{
-	ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
-	uint baseID = gl_GlobalInvocationID.x+uImageWidth_ImageArea_TotalImageSamples_Samples.x*gl_GlobalInvocationID.y;
-	bool alive = all(lessThan(gl_GlobalInvocationID.xy,uImageSize));
-
-	vec3 normal;
-	if (alive)
-		normal = irr_glsl_NormalDecode_signedSpherical(texelFetch(normalbuf,pixelCoord,0).rg);
-
-	vec4 acc = vec4(0.0);
-	if (uRcpFramesDone<1.0 && alive)
-		acc = imageLoad(framebuffer,pixelCoord);
-
-	vec3 color = vec3(0.0);
-	uvec2 groupLocation = gl_WorkGroupID.xy*WORK_GROUP_DIM;
-	for (uint i=0u; i<uImageWidth_ImageArea_TotalImageSamples_Samples.w; i+=RAYS_IN_CACHE)
-	{
-		for (uint lid=gl_LocalInvocationIndex; lid<CACHE_SIZE; lid+=WORK_GROUP_SIZE)
-		{
-			ivec3 coord;
-			coord.z = int(lid/(CACHE_DIM*CACHE_DIM));
-			coord.y = int(lid/CACHE_DIM)-int(coord.z*CACHE_DIM+KERNEL_HALF_SIZE);
-			coord.x = int(lid)-int(coord.y*CACHE_DIM+KERNEL_HALF_SIZE);
-			coord.z += int(i);
-			coord.y += int(groupLocation.y);
-			coord.x += int(groupLocation.x);
-			bool invalidRay = any(lessThan(coord.xy,ivec2(0,0))) || any(greaterThan(coord,ivec3(uImageSize,uImageWidth_ImageArea_TotalImageSamples_Samples.w)));
-			int rayID = coord.x+coord.y*int(uImageWidth_ImageArea_TotalImageSamples_Samples.x)+coord.z*int(uImageWidth_ImageArea_TotalImageSamples_Samples.y);
-			invalidRay = invalidRay ? false:(hit[rayID]>=0);
-			rayScratch0[lid] = invalidRay ? 0u:rays[rayID].useless_padding;
-			rayScratch1[lid] = invalidRay ? 0u:rays[rayID].backfaceCulling;
-			rayScratch2[lid] = invalidRay ? 0.0:rays[rayID].direction[0];
-			rayScratch3[lid] = invalidRay ? 0.0:rays[rayID].direction[1];
-			rayScratch4[lid] = invalidRay ? 0.0:rays[rayID].direction[2];
-		}
-		barrier();
-		memoryBarrierShared();
-
-		uint localID = (gl_LocalInvocationID.x+KERNEL_HALF_SIZE)+(gl_LocalInvocationID.y+KERNEL_HALF_SIZE)*CACHE_DIM;
-		for (uint j=localID; j<CACHE_SIZE; j+=CACHE_DIM*CACHE_DIM)
-		{
-			vec3 raydiance = vec4(unpackHalf2x16(rayScratch0[j]),unpackHalf2x16(rayScratch1[j])).gra;
-			// TODO: sophisticated BSDF eval
-			raydiance *= max(dot(vec3(rayScratch2[j],rayScratch3[j],rayScratch4[j]),normal),0.0)/kPI;
-			color += raydiance;
-		}
-
-		// hit buffer needs clearing
-		for (uint j=i; j<min(uImageWidth_ImageArea_TotalImageSamples_Samples.w,i+RAYS_IN_CACHE); j++)
-		{
-			uint rayID = baseID+j*uImageWidth_ImageArea_TotalImageSamples_Samples.y;
-			hit[rayID] = -1;
-		}
-	}
-
-	if (alive)
-	{
-		// TODO: sophisticated BSDF eval
-		vec3 albedo = texelFetch(albedobuf,pixelCoord,0).rgb;
-		color *= albedo;
-
-		// TODO: move  ray gen, for fractional sampling
-		color *= 1.0/float(uImageWidth_ImageArea_TotalImageSamples_Samples.w);
-
-		uint lightID = texelFetch(lightIndex,pixelCoord,0)[0];
-		if (lightID!=0xdeadbeefu)
-			color += lightRadiance[lightID];
-
-		// TODO: optimize the color storage (RGB9E5/RGB19E7 anyone?)
-		acc.rgb += (color-acc.rgb)*uRcpFramesDone;
-		imageStore(framebuffer,pixelCoord,acc);
-#ifdef USE_OPTIX_DENOISER
-		for (uint i=0u; i<3u; i++)
-			colorOutput[baseID*3+i] = float16_t(acc[i]);
-			//colorOutput[baseID*3+i] = float16_t(clamp(acc[i],0.0001,10000.0));
-		for (uint i=0u; i<3u; i++)
-			albedoOutput[baseID*3+i] = float16_t(albedo[i]);
-		normal = uNormalMatrix*normal;
-		for (uint i=0u; i<3u; i++)
-			normalOutput[baseID*3+i] = float16_t(normal[i]);
-#endif
-	}
-}
-
-)======";
-
-
 constexpr uint32_t kOptiXPixelSize = sizeof(uint16_t)*3u;
 
 
 Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& globalBackendDataDS, bool useDenoiser) :
 		m_useDenoiser(useDenoiser),	m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager), m_rrManager(ext::RadeonRays::Manager::create(m_driver)),
-		m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), /*m_renderSize{0u,0u}, */m_rightHanded(false),
+		m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), baseEnvColor(), /*m_renderSize{0u,0u}, */m_rightHanded(false),
 		m_globalBackendDataDS(std::move(globalBackendDataDS)), rrShapeCache(),
 #if TODO
 		m_raygenProgram(0u), m_compostProgram(0u),
@@ -230,31 +60,6 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, irr::sce
 	#endif
 }
 
-
-core::smart_refctd_ptr<video::IGPUImageView> Renderer::createScreenSizedTexture(E_FORMAT format)
-{
-	IGPUImage::SCreationParams imgparams;
-	imgparams.extent = { m_renderSize[0], m_renderSize[1], 1u };
-	imgparams.arrayLayers = 1u;
-	imgparams.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
-	imgparams.format = format;
-	imgparams.mipLevels = 1u;
-	imgparams.samples = IImage::ESCF_1_BIT;
-	imgparams.type = IImage::ET_2D;
-
-	IGPUImageView::SCreationParams viewparams;
-	viewparams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0);
-	viewparams.format = format;
-	viewparams.image = m_driver->createDeviceLocalGPUImageOnDedMem(std::move(imgparams));
-	viewparams.viewType = IGPUImageView::ET_2D;
-	viewparams.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
-	viewparams.subresourceRange.baseArrayLayer = 0u;
-	viewparams.subresourceRange.layerCount = 1u;
-	viewparams.subresourceRange.baseMipLevel = 0u;
-	viewparams.subresourceRange.levelCount = 1u;
-
-	return m_driver->createGPUImageView(std::move(viewparams));
-}
 
 #if TODO
 core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> Renderer::createDS2layoutCompost(bool useDenoiser, core::smart_refctd_ptr<IGPUSampler>& nearestSampler)
@@ -485,6 +290,166 @@ Renderer::~Renderer()
 	deinit();
 }
 
+Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& meshes)
+{
+	InitializationData retval;
+
+	auto contents = meshes.getContents();
+	for (auto& cpumesh_ : contents)
+	{
+		auto cpumesh = static_cast<asset::ICPUMesh*>(cpumesh_.get());
+
+		auto* meta = cpumesh->getMetadata();
+		assert(meta && core::strcmpi(meta->getLoaderName(), ext::MitsubaLoader::IMitsubaMetadata::LoaderName) == 0);
+		const auto* meshmeta = static_cast<const ext::MitsubaLoader::IMeshMetadata*>(meta);
+		retval.globalMeta = meshmeta->globalMetadata.get();
+
+		// WARNING !!!
+		// all this instance-related things is a rework candidate since mitsuba loader supports instances
+		// (all this metadata should be global, but meshbuffers has instanceCount correctly set
+		// and globalDS with per-instance data (transform, normal matrix, instructions offsets, etc)
+		const auto& instances = meshmeta->getInstances();
+
+		auto meshBufferCount = cpumesh->getMeshBufferCount();
+		for (auto i=0u; i<meshBufferCount; i++)
+		{
+			// TODO: get rid of `getMeshBuffer` and `getMeshBufferCount`, just return a range as `getMeshBuffers`
+			auto cpumb = cpumesh->getMeshBuffer(i);
+			m_rrManager->makeRRShapes(rrShapeCache, &cpumb, (&cpumb)+1);
+		}
+
+		// set up lights
+		for (auto instance : instances)
+		if (instance.emitter.type!=ext::MitsubaLoader::CElementEmitter::Type::INVALID)
+		{
+			assert(instance.emitter.type==ext::MitsubaLoader::CElementEmitter::Type::AREA);
+
+			SLight newLight(cpumesh->getBoundingBox(),instance.tform);
+
+			const float weight = newLight.computeFluxBound(instance.emitter.area.radiance)*instance.emitter.area.samplingWeight;
+			if (weight<=FLT_MIN)
+				continue;
+
+			retval.lights.emplace_back(std::move(newLight));
+			retval.lightRadiances.push_back(instance.emitter.area.radiance);
+			retval.lightPDF.push_back(weight);
+		}
+	}
+	return retval;
+}
+
+void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
+{
+	baseEnvColor.set(0.f,0.f,0.f,1.f);
+	for (auto emitter : initData.globalMeta->emitters)
+	{
+		float weight = 0.f;
+		switch (emitter.type)
+		{
+			case ext::MitsubaLoader::CElementEmitter::Type::CONSTANT:
+				baseEnvColor += emitter.constant.radiance;
+				break;
+			case ext::MitsubaLoader::CElementEmitter::Type::INVALID:
+				break;
+			default:
+			#ifdef _DEBUG
+				assert(false);
+			#endif
+				// let's implement a new emitter type!
+				//weight = emitter.unionType.samplingWeight;
+				break;
+		}
+		if (weight==0.f)
+			continue;
+			
+		//weight *= light.computeFlux(NAN);
+		if (weight <= FLT_MIN)
+			continue;
+
+		//initData.lightPDF.push_back(weight);
+		//initData.lights.push_back(light);
+	}
+}
+
+void Renderer::finalizeSceneLights(Renderer::InitializationData& initData)
+{
+	if (initData.lights.empty())
+		return;
+	m_lightCount = initData.lights.size();
+
+	const double weightSum = std::accumulate(initData.lightPDF.begin(),initData.lightPDF.end(),0.0);
+	assert(weightSum>FLT_MIN);
+
+	constexpr double UINT_MAX_DOUBLE = double(0x1ull<<32ull);
+	const double weightSumRcp = UINT_MAX_DOUBLE/weightSum;
+
+	auto outCDF = initData.lightCDF.begin();
+
+	auto inPDF = initData.lightPDF.begin();
+	double partialSum = *inPDF;
+
+	auto radianceIn = initData.lightRadiances.begin();
+	core::vector<uint64_t> compressedRadiance(m_lightCount,0ull);
+	auto radianceOut = compressedRadiance.begin();
+	auto divideRadianceByPDF = [UINT_MAX_DOUBLE,weightSumRcp,&partialSum,&outCDF,&radianceIn,&radianceOut](uint32_t prevCDF) -> void
+	{
+		double inv_prob = NAN;
+		const double exactCDF = weightSumRcp*partialSum+double(FLT_MIN);
+		if (exactCDF<UINT_MAX_DOUBLE)
+		{
+			uint32_t thisCDF = *outCDF = static_cast<uint32_t>(exactCDF);
+			inv_prob = UINT_MAX_DOUBLE/double(thisCDF-prevCDF);
+		}
+		else
+		{
+			assert(exactCDF<UINT_MAX_DOUBLE+1.0);
+			*outCDF = 0xdeadbeefu;
+			inv_prob = 1.0/(1.0-double(prevCDF)/UINT_MAX_DOUBLE);
+		}
+		auto tmp = (radianceIn++)->operator*(inv_prob);
+		*(radianceOut++) = core::rgb32f_to_rgb19e7(tmp.pointer);
+	};
+
+	divideRadianceByPDF(0u);
+	while (outCDF!=initData.lightCDF.end())
+	{
+		uint32_t prevCDF = *(outCDF++);
+
+		partialSum += double(*(++inPDF));
+
+		divideRadianceByPDF(prevCDF);
+	}
+	*(++outCDF) = 0xdeadbeefu;
+
+	m_lightCDFBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(initData.lightCDF.size()*sizeof(uint32_t),initData.lightCDF.data());
+	m_lightBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(initData.lights.size()*sizeof(SLight),initData.lights.data());
+	m_lightRadianceBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(initData.lightRadiances.size()*sizeof(uint64_t),initData.lightRadiances.data());
+}
+
+core::smart_refctd_ptr<video::IGPUImageView> Renderer::createScreenSizedTexture(E_FORMAT format)
+{
+	IGPUImage::SCreationParams imgparams;
+	imgparams.extent = { m_renderSize[0], m_renderSize[1], 1u };
+	imgparams.arrayLayers = 1u;
+	imgparams.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
+	imgparams.format = format;
+	imgparams.mipLevels = 1u;
+	imgparams.samples = IImage::ESCF_1_BIT;
+	imgparams.type = IImage::ET_2D;
+
+	IGPUImageView::SCreationParams viewparams;
+	viewparams.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0);
+	viewparams.format = format;
+	viewparams.image = m_driver->createDeviceLocalGPUImageOnDedMem(std::move(imgparams));
+	viewparams.viewType = IGPUImageView::ET_2D;
+	viewparams.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
+	viewparams.subresourceRange.baseArrayLayer = 0u;
+	viewparams.subresourceRange.layerCount = 1u;
+	viewparams.subresourceRange.baseMipLevel = 0u;
+	viewparams.subresourceRange.levelCount = 1u;
+
+	return m_driver->createGPUImageView(std::move(viewparams));
+}
 
 void Renderer::init(const SAssetBundle& meshes,
 					bool isCameraRightHanded,
@@ -505,208 +470,56 @@ void Renderer::init(const SAssetBundle& meshes,
 		m_sampleSequence = m_driver->createGPUBufferView(gpubuf.get(), asset::EF_R32G32B32_UINT);
 	}
 
-#if TODO
-	core::vector<SLight> lights;
-	core::vector<uint32_t> lightCDF;
-	core::vector<core::vectorSIMDf> lightRadiances;
-	auto& lightPDF = reinterpret_cast<core::vector<float>&>(lightCDF); // save on memory
-#endif
-	const ext::MitsubaLoader::CGlobalMitsubaMetadata* globalMeta = nullptr;
+	// initialize scene
 	{
-		auto contents = meshes.getContents();
-		for (auto& cpumesh_ : contents)
+		auto initData = initSceneObjects(meshes);
+		assert(globalMeta);
+
+		initSceneNonAreaLights(initData);
+		finalizeSceneLights(initData);
 		{
-			auto cpumesh = static_cast<asset::ICPUMesh*>(cpumesh_.get());
-
-			auto* meta = cpumesh->getMetadata();
-			assert(meta && core::strcmpi(meta->getLoaderName(), ext::MitsubaLoader::IMitsubaMetadata::LoaderName) == 0);
-			const auto* meshmeta = static_cast<const ext::MitsubaLoader::IMeshMetadata*>(meta);
-			globalMeta = meshmeta->globalMetadata.get();
-
-			// WARNING!!!
-			// all this instance-related things is a rework candidate since mitsuba loader supports instances
-			// (all this metadata should be global, but meshbuffers has instanceCount correctly set
-			// and globalDS with per-instance data (transform, normal matrix, instructions offsets, etc)
-			const auto& instances = meshmeta->getInstances();
-
-			auto meshBufferCount = cpumesh->getMeshBufferCount();
-			for (auto i=0u; i<meshBufferCount; i++)
+	#if TODO
+			auto gpumeshes = m_driver->getGPUObjectsFromAssets<ICPUMesh>(contents.first, contents.second);
+			auto cpuit = contents.first;
+			for (auto gpuit = gpumeshes->begin(); gpuit!=gpumeshes->end(); gpuit++,cpuit++)
 			{
-				// TODO: get rid of `getMeshBuffer` and `getMeshBufferCount`, just return a range as `getMeshBuffers`
-				auto cpumb = cpumesh->getMeshBuffer(i);
-				m_rrManager->makeRRShapes(rrShapeCache, &cpumb, (&cpumb)+1);
-			}
+				auto* meta = cpuit->get()->getMetadata();
 
-			// set up lights
-			for (auto instance : instances)
-			if (instance.emitter.type!=ext::MitsubaLoader::CElementEmitter::Type::INVALID)
-			{
-				assert(instance.emitter.type==ext::MitsubaLoader::CElementEmitter::Type::AREA);
-#ifdef TODO
-				SLight light;
-				light.setFactor(instance.emitter.area.radiance);
-				light.analytical = SLight::CachedTransform(instance.tform);
+				assert(meta && core::strcmpi(meta->getLoaderName(),ext::MitsubaLoader::IMitsubaMetadata::LoaderName) == 0);
+				const auto* meshmeta = static_cast<const ext::MitsubaLoader::IMeshMetadata*>(meta);
 
-				// TODO: OBB stuffs
-				auto addLight = [&instance,&cpumesh,&lightPDF,&lights,&lightRadiances](auto& newLight,float approxArea) -> void
+				const auto& instances = meshmeta->getInstances();
+
+				const auto& gpumesh = *gpuit;
+				for (auto i=0u; i<gpumesh->getMeshBufferCount(); i++)
+					gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = nonInstanced;
+
+				for (auto instance : instances)
 				{
-					float weight = newLight.computeFlux(approxArea) * instance.emitter.area.samplingWeight;
-					if (weight <= FLT_MIN)
-						return;
+					auto node = core::smart_refctd_ptr<IMeshSceneNode>(m_smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh)));
+					node->setRelativeTransformationMatrix(instance.tform.getAsRetardedIrrlichtMatrix());
+					node->updateAbsolutePosition();
+					m_sceneBound.addInternalBox(node->getTransformedBoundingBox());
 
-					lightPDF.push_back(weight);
-					lights.push_back(newLight);
-					lightRadiances.push_back(newLight.strengthFactor);
-				};
-				auto areaFromTriangulationAndMakeMeshLight = [&]() -> float
-				{
-					double totalSurfaceArea = 0.0;
-
-					uint32_t runningTriangleCount = 0u;
-					for (auto i=0u; i<meshBufferCount; i++)
-					{
-						auto cpumb = cpumesh->getMeshBuffer(i);
-						reinterpret_cast<uint32_t&>(cpumb->getMaterial().userData) = lights.size();
-
-						uint32_t triangleCount = 0u;
-						asset::IMeshManipulator::getPolyCount(triangleCount,cpumb);
-						for (auto triID=0u; triID<triangleCount; triID++)
-						{
-							auto triangle = asset::IMeshManipulator::getTriangleIndices(cpumb,triID);
-
-							core::vectorSIMDf v[3];
-							for (auto k=0u; k<3u; k++)
-								v[k] = cpumb->getPosition(triangle[k]);
-
-							float triangleArea = NAN;
-							auto triLight = SLight::createFromTriangle(instance.emitter.area.radiance, light.analytical, v, &triangleArea);
-							if (light.type==SLight::ET_TRIANGLE)
-								addLight(triLight,triangleArea);
-							else
-								totalSurfaceArea += triangleArea;
-						}
-					}
-					return totalSurfaceArea;
-				};
-
-				auto totalArea = areaFromTriangulationAndMakeMeshLight();
-				if (light.type!=SLight::ET_TRIANGLE)
-					addLight(light,totalArea);
-#endif
-			}
-		}
-
-#if TODO
-		auto gpumeshes = m_driver->getGPUObjectsFromAssets<ICPUMesh>(contents.first, contents.second);
-		auto cpuit = contents.first;
-		for (auto gpuit = gpumeshes->begin(); gpuit!=gpumeshes->end(); gpuit++,cpuit++)
-		{
-			auto* meta = cpuit->get()->getMetadata();
-
-			assert(meta && core::strcmpi(meta->getLoaderName(),ext::MitsubaLoader::IMitsubaMetadata::LoaderName) == 0);
-			const auto* meshmeta = static_cast<const ext::MitsubaLoader::IMeshMetadata*>(meta);
-
-			const auto& instances = meshmeta->getInstances();
-
-			const auto& gpumesh = *gpuit;
-			for (auto i=0u; i<gpumesh->getMeshBufferCount(); i++)
-				gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = nonInstanced;
-
-			for (auto instance : instances)
-			{
-				auto node = core::smart_refctd_ptr<IMeshSceneNode>(m_smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh)));
-				node->setRelativeTransformationMatrix(instance.tform.getAsRetardedIrrlichtMatrix());
-				node->updateAbsolutePosition();
-				m_sceneBound.addInternalBox(node->getTransformedBoundingBox());
-
-				nodes.push_back(std::move(node));
-			}
-		}
-		core::vector<int32_t> ids(nodes.size());
-		std::iota(ids.begin(), ids.end(), 0);
-		auto nodesBegin = &nodes.data()->get();
-		m_rrManager->makeRRInstances(rrInstances, rrShapeCache, m_assetManager, nodesBegin, nodesBegin+nodes.size(), ids.data());
-		m_rrManager->attachInstances(rrInstances.begin(), rrInstances.end());
-#endif
-	}
-	m_renderSize[0] = m_driver->getScreenSize().Width;
-	m_renderSize[1] = m_driver->getScreenSize().Height;
-	if (globalMeta)
-	{
-#ifdef TODO
-		constantClearColor.set(0.f, 0.f, 0.f, 1.f);
-		float constantCombinedWeight = 0.f;
-		for (auto emitter : globalMeta->emitters)
-		{
-			SLight light;
-
-			float weight = 0.f;
-			switch (emitter.type)
-			{
-				case ext::MitsubaLoader::CElementEmitter::Type::CONSTANT:
-					constantClearColor += emitter.constant.radiance;
-					constantCombinedWeight += emitter.constant.samplingWeight;
-					break;
-				case ext::MitsubaLoader::CElementEmitter::Type::INVALID:
-					break;
-				default:
-				#ifdef _DEBUG
-					assert(false);
-				#endif
-					//weight = emitter..samplingWeight;
-					//light.type = SLight::ET_;
-					//light.setFactor(emitter..radiance);
-					break;
-			}
-			if (weight==0.f)
-				continue;
-			
-			weight *= light.computeFlux(NAN);
-			if (weight <= FLT_MIN)
-				continue;
-
-			lightPDF.push_back(weight);
-			lights.push_back(light);
-		}
-		// add constant light
-		if (constantCombinedWeight>FLT_MIN)
-		{
-			core::matrix3x4SIMD tform;
-			tform.setScale(core::vectorSIMDf().set(m_sceneBound.getExtent())*core::sqrt(3.f/4.f));
-			tform.setTranslation(core::vectorSIMDf().set(m_sceneBound.getCenter()));
-			SLight::CachedTransform cachedT(tform);
-
-			const float areaOfSphere = 4.f * core::PI<float>();
-
-			auto startIx = lights.size();
-			float triangulationArea = 0.f;
-			for (const auto& tri : m_precomputedGeodesic)
-			{
-				// make light, correct radiance parameter for domain of integration
-				float area = NAN;
-				auto triLight = SLight::createFromTriangle(constantClearColor,cachedT,&tri[0],&area);
-				// compute flux, abuse of notation on area parameter, we've got the wrong units on strength factor so need to cancel
-				float flux = triLight.computeFlux(1.f);
-				// add to light list
-				float weight = constantCombinedWeight*flux;
-				if (weight>FLT_MIN)
-				{
-					// needs to be weighted be contribution to sphere area
-					lightPDF.push_back(weight*area);
-					lights.push_back(triLight);
-					lightRadiances.push_back(constantClearColor);
+					nodes.push_back(std::move(node));
 				}
-				triangulationArea += area;
 			}
-
-			for (auto i=startIx; i<lights.size(); i++)
-				lightPDF[i] *= areaOfSphere/triangulationArea;
+			core::vector<int32_t> ids(nodes.size());
+			std::iota(ids.begin(), ids.end(), 0);
+			auto nodesBegin = &nodes.data()->get();
+			m_rrManager->makeRRInstances(rrInstances, rrShapeCache, m_assetManager, nodesBegin, nodesBegin+nodes.size(), ids.data());
+			m_rrManager->attachInstances(rrInstances.begin(), rrInstances.end());
+	#endif
 		}
-#endif
-		if (globalMeta->sensors.size())
+
+		// figure out the renderable size
+		m_renderSize[0] = m_driver->getScreenSize().Width;
+		m_renderSize[1] = m_driver->getScreenSize().Height;
+		const auto& sensors = initData.globalMeta->sensors;
+		if (sensors.size())
 		{
 			// just grab the first sensor
-			const auto& sensor = globalMeta->sensors.front();
+			const auto& sensor = sensors.front();
 			const auto& film = sensor.film;
 			assert(film.cropOffsetX == 0);
 			assert(film.cropOffsetY == 0);
@@ -714,50 +527,6 @@ void Renderer::init(const SAssetBundle& meshes,
 			m_renderSize[1] = film.cropHeight;
 		}
 	}
-
-#ifdef TODO
-	//! TODO: move out into a function `finalizeLights`
-	if (lights.size())
-	{
-		double weightSum = 0.0;
-		for (auto i=0u; i<lightPDF.size(); i++)
-			weightSum += lightPDF[i];
-		assert(weightSum>FLT_MIN);
-
-		constexpr double UINT_MAX_DOUBLE = double(0x1ull<<32ull);
-
-		double weightSumRcp = UINT_MAX_DOUBLE/weightSum;
-		double partialSum = 0.0;
-		for (auto i=0u; i<lightCDF.size(); i++)
-		{
-			uint32_t prevCDF = i ? lightCDF[i-1u]:0u;
-
-			double pdf = lightPDF[i];
-			partialSum += pdf;
-
-			double inv_prob = NAN;
-			double exactCDF = partialSum*weightSumRcp+double(FLT_MIN);
-			if (exactCDF<UINT_MAX_DOUBLE)
-			{
-				lightCDF[i] = static_cast<uint32_t>(exactCDF);
-				inv_prob = UINT_MAX_DOUBLE/(lightCDF[i]-prevCDF);
-			}
-			else
-			{
-				assert(exactCDF<UINT_MAX_DOUBLE+1.0);
-				lightCDF[i] = 0xdeadbeefu;
-				inv_prob = 1.0/(1.0-double(prevCDF)/UINT_MAX_DOUBLE);
-			}
-			lights[i].setFactor(core::vectorSIMDf(lights[i].strengthFactor)*inv_prob);
-		}
-		lightCDF.back() = 0xdeadbeefu;
-
-		m_lightCount = lights.size();
-		m_lightCDFBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(lightCDF.size()*sizeof(uint32_t),lightCDF.data());
-		m_lightBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(lights.size()*sizeof(SLight),lights.data());
-		m_lightRadianceBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(lightRadiances.size()*sizeof(core::vectorSIMDf),lightRadiances.data());
-	}
-#endif
 	const auto renderPixelCount = m_renderSize[0]*m_renderSize[1];
 
 	const auto raygenBufferSize = static_cast<size_t>(renderPixelCount)*sizeof(::RadeonRays::ray);
@@ -978,7 +747,6 @@ void Renderer::deinit()
 	m_rrManager->deleteInstances(rrInstances.begin(),rrInstances.end());
 	rrInstances.clear();
 
-	constantClearColor.set(0.f,0.f,0.f,1.f);
 	m_lightCDFBuffer = m_lightBuffer = m_lightRadianceBuffer = nullptr;
 #endif
 
@@ -1016,9 +784,10 @@ void Renderer::deinit()
 	rrShapeCache.clear();
 
 	m_globalBackendDataDS = nullptr;
-	m_renderSize[0u] = m_renderSize[1u] = 0u;
 	m_rightHanded = false;
+	m_renderSize[0u] = m_renderSize[1u] = 0u;
 	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
+	baseEnvColor.set(0.f,0.f,0.f,1.f);
 
 #ifdef _IRR_BUILD_OPTIX_
 	if (m_cudaStream)
@@ -1132,20 +901,20 @@ void Renderer::render(irr::ITimer* timer)
 		m_rrManager->getRadeonRaysAPI()->QueryOcclusion(m_rayBufferAsRR.first,m_rayCountBufferAsRR.first,m_rayCountPerDispatch,m_intersectionBufferAsRR.first,nullptr,nullptr);
 		cl_event raycastDone = nullptr;
 		clEnqueueMarker(commandQueue,&raycastDone);
-#endif
 
 		if (m_rrManager->hasImplicitCL2GLSync())
 		{
-			//clEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, nullptr);
+			clEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, nullptr);
 			clFlush(commandQueue);
 		}
 		else
 		{
 			cl_event released;
-			//clEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, &released);
+			clEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, &released);
 			clFlush(commandQueue);
 			clWaitForEvents(1u, &released);
 		}
+#endif
 	}
 
 	// use raycast results

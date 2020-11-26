@@ -12,10 +12,8 @@ layout(location = 1) out vec2 encodedNormal;
 layout(location = 2) out vec2 uv;
 
 void main()
-{
-	const bool realFrontFace = gl_FrontFacing != flipFaces<0.f;
-		
-	objectTriangleFrontFacing = uvec2(ObjectID,(realFrontFace ? 0x80000000u:0x0u)|gl_PrimitiveID);
+{		
+	objectTriangleFrontFacing = uvec2(ObjectID^(gl_FrontFacing ? 0x0u:0x80000000u),gl_PrimitiveID);
 	encodedNormal = irr_glsl_NormalEncode_signedSpherical(normalize(Normal));
 	uv = UV;
 }
