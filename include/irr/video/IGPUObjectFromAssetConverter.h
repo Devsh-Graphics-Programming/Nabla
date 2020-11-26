@@ -217,9 +217,9 @@ class CAssetPreservingGPUObjectFromAssetConverter : public IGPUObjectFromAssetCo
 
 // need to specialize outside because of GCC
 template<>
-struct IGPUObjectFromAssetConverter::Hash<asset::ICPURenderpassIndependentPipeline>
+struct IGPUObjectFromAssetConverter::Hash<const asset::ICPURenderpassIndependentPipeline>
 {
-    inline std::size_t operator()(asset::ICPURenderpassIndependentPipeline* _ppln) const
+    inline std::size_t operator()(const asset::ICPURenderpassIndependentPipeline* _ppln) const
     {
         constexpr size_t bytesToHash = 
             asset::SVertexInputParams::serializedSize()+
@@ -250,9 +250,9 @@ struct IGPUObjectFromAssetConverter::Hash<asset::ICPURenderpassIndependentPipeli
     }
 };
 template<>
-struct IGPUObjectFromAssetConverter::Hash<asset::ICPUComputePipeline>
+struct IGPUObjectFromAssetConverter::Hash<const asset::ICPUComputePipeline>
 {
-    inline std::size_t operator()(asset::ICPUComputePipeline* _ppln) const
+    inline std::size_t operator()(const asset::ICPUComputePipeline* _ppln) const
     {
         constexpr size_t bytesToHash = 
             sizeof(void*)+//shader
@@ -269,16 +269,16 @@ struct IGPUObjectFromAssetConverter::Hash<asset::ICPUComputePipeline>
 };
 
 template<>
-struct IGPUObjectFromAssetConverter::KeyEqual<asset::ICPURenderpassIndependentPipeline>
+struct IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPURenderpassIndependentPipeline>
 {
     //equality depends on hash only
-    bool operator()(asset::ICPURenderpassIndependentPipeline* lhs, asset::ICPURenderpassIndependentPipeline* rhs) const { return true; }
+    bool operator()(const asset::ICPURenderpassIndependentPipeline* lhs, const asset::ICPURenderpassIndependentPipeline* rhs) const { return true; }
 };
 template<>
-struct IGPUObjectFromAssetConverter::KeyEqual<asset::ICPUComputePipeline>
+struct IGPUObjectFromAssetConverter::KeyEqual<const asset::ICPUComputePipeline>
 {
     //equality depends on hash only
-    bool operator()(asset::ICPUComputePipeline* lhs, asset::ICPUComputePipeline* rhs) const { return true; }
+    bool operator()(const asset::ICPUComputePipeline* lhs, const asset::ICPUComputePipeline* rhs) const { return true; }
 };
 
 
