@@ -503,7 +503,7 @@ constexpr uint32_t kOptiXPixelSize = sizeof(uint16_t)*3u;
 
 Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& globalBackendDataDS, bool useDenoiser) :
 		m_useDenoiser(useDenoiser),	m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager),
-		m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), m_renderSize{0u,0u}, m_rightHanded(false), m_globalBackendDataDS(std::move(globalBackendDataDS)),
+		m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), /*m_renderSize{0u,0u}, */m_rightHanded(false), m_globalBackendDataDS(std::move(globalBackendDataDS)),
 #if TODO
 		m_raygenProgram(0u), m_compostProgram(0u),
 		m_rrManager(ext::RadeonRays::Manager::create(m_driver)),
@@ -1580,7 +1580,7 @@ void Renderer::render()
 #endif
 	{
 		auto oldVP = m_driver->getViewPort();
-		m_driver->setViewPort({{0u,0u},{m_renderSize[0u],m_renderSize[1u]}});
+		m_driver->setViewPort(core::recti(0u,0u,m_renderSize[0u],m_renderSize[1u]));
 		m_driver->blitRenderTargets(tmpTonemapBuffer, m_colorBuffer, false, false, {}, {}, true);
 		m_driver->setViewPort(oldVP);
 	}

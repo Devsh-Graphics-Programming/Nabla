@@ -127,7 +127,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxResolution[2] = {7680/2,4320/2};
 
 
-		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& globalBackendDataDS, bool useDenoiser = true);
+		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet>&& globalBackendDataDS, bool useDenoiser = true);
 
 		void init(	const irr::asset::SAssetBundle& meshes,
 					bool isCameraRightHanded,
@@ -152,7 +152,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
         ~Renderer();
 
 
-		core::smart_refctd_ptr<video::IGPUImageView> createScreenSizedTexture(asset::E_FORMAT format);
+		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> createScreenSizedTexture(irr::asset::E_FORMAT format);
 
 #if TODO
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDS2layoutCompost(bool useDenoiser, core::smart_refctd_ptr<video::IGPUSampler>& nearstSampler);
@@ -178,7 +178,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		uint32_t m_renderSize[2u];
 		bool m_rightHanded;
 
-		irr::core::smart_refctd_ptr<video::IGPUDescriptorSet> m_globalBackendDataDS;
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_globalBackendDataDS;
 		
 #if TODO
 		irr::core::smart_refctd_ptr<irr::ext::RadeonRays::Manager> m_rrManager;
