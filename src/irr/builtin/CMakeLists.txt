@@ -126,5 +126,7 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/ext/LumaMeter/common.glsl"
   "irr/builtin/glsl/ext/LumaMeter/impl.glsl"
   "irr/builtin/glsl/ext/ToneMapper/operators.glsl"
+  "irr/builtin/glsl/ext/RadeonRays/intersection.glsl"
+  "irr/builtin/glsl/ext/RadeonRays/ray.glsl"
 PARENT_SCOPE)
 

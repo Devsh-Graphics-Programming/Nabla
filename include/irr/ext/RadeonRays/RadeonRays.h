@@ -9,7 +9,7 @@
 #undef USE_OPENCL
 #undef RR_STATIC_LIBRARY
 
-#include "../../../irr/ext/RadeonRays/RadeonRaysIncludeLoader.h"
+#include "irr/ext/RadeonRays/RadeonRaysIncludeLoader.h"
 
 namespace irr
 {
