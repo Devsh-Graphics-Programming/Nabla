@@ -317,7 +317,7 @@ protected:
 
         const uint32_t pgTabSzxy = 1u<<_pgTabSzxy_log2;
         typename image_t::SCreationParams params;
-        params.arrayLayers = _pgTabLayers;
+        params.arrayLayers = std::max(_pgTabLayers, 1u); // page table must always be present
         params.extent = {pgTabSzxy,pgTabSzxy,1u};
         params.format = EF_R16G16_UINT;
         params.mipLevels = std::max<int32_t>(static_cast<int32_t>(_maxAllocatableTexSz_log2-_pgSzxy_log2+1u), 1);

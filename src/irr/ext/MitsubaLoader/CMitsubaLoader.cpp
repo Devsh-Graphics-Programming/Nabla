@@ -374,6 +374,7 @@ static core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline> createPi
 
 	SRasterizationParams rasterParams;
 	rasterParams.faceCullingMode = asset::EFCM_NONE;
+	rasterParams.frontFaceIsCCW = 1;
 	auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
 		std::move(_layout),
 		shaders, shaders+2,
@@ -1372,7 +1373,7 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 							auto outParams = viewParams.image->getCreationParameters();
 							asset::ICPUImage::SBufferCopy region;
 							const uint32_t bytesPerChannel = (getBytesPerPixel(outParams.format) * core::rational(1, getFormatChannelCount(outParams.format))).getIntegerApprox();
-							outParams.format = get1ChannelFormat(outParams.format);
+							outParams.format = get1ChannelFormat(bytesPerChannel);
 							const size_t texelBytesz = asset::getTexelOrBlockBytesize(outParams.format);
 							region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, texelBytesz);
 							auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(texelBytesz * region.bufferRowLength * outParams.extent.height);
@@ -1513,6 +1514,12 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 
 			return is_tex;
 		};
+		auto unrollScales = [](CElementTexture* tex)
+		{
+			while (tex->type == CElementTexture::SCALE)
+				tex = tex->scale.texture;
+			return tex;
+		};
 
 		core::stack<const CElementBSDF*> stack;
 		stack.push(_bsdf);
@@ -1569,11 +1576,12 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 			{
 				using namespace std::string_literals;
 
-				auto bm = cacheTexture(ctx, 0u, bsdf->bumpmap.texture);
+				auto* bumpmap_element = unrollScales(bsdf->bumpmap.texture);
+				auto bm = cacheTexture(ctx, 0u, bumpmap_element);
 				// TODO check and restore if dummy (image and sampler)
 				auto bumpmap = std::get<0>(bm)->getCreationParameters().image;
 				auto sampler = std::get<1>(bm);
-				const std::string key = ctx.derivMapCacheKey(bsdf->bumpmap.texture);
+				const std::string key = ctx.derivMapCacheKey(bumpmap_element);
 
 				if (!getBuiltinAsset<asset::ICPUImage, asset::IAsset::ET_IMAGE>(key.c_str(), m_manager))
 				{
@@ -1589,7 +1597,8 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 			case CElementBSDF::BLEND_BSDF:
 				if (cachePropertyTexture(bsdf->blendbsdf.weight, tex))
 				{
-					const std::string key = ctx.blendWeightImageCacheKey(bsdf->blendbsdf.weight.texture);
+					auto* weight_element = unrollScales(bsdf->blendbsdf.weight.texture);
+					const std::string key = ctx.blendWeightImageCacheKey(weight_element);
 
 					if (!getBuiltinAsset<asset::ICPUImage, asset::IAsset::ET_IMAGE>(key.c_str(), m_manager))
 					{

@@ -99,7 +99,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 #ifdef ALL_ISOTROPIC_BXDFS
 					bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_cos_eval_DG_wo_clamps(NdotH2, NdotL, NdotL2, NdotV, NdotV2, a2);
 #else
-					bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_aniso_cos_eval_DG_wo_clamps(NdotH2, TdotH2, BdotH2, NdotL, NdotL2, TdotL2, BdotL2, NdotV, NdotV2, TdotV2, BdotV2, ax, ax2, ay, ay2);
+					bxdf_eval_scalar_part = irr_glsl_ggx_height_correlated_aniso_cos_eval_DG_wo_clamps(NdotH2, TdotH2, BdotH2, NdotL, NdotL2, TdotL2, BdotL2, NdotV, NdotV2, TdotV2, BdotV2, a, a2, ay, ay2);
 #endif
 				} CASE_END
 #endif
@@ -109,7 +109,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 #ifdef ALL_ISOTROPIC_BXDFS
 					bxdf_eval_scalar_part = irr_glsl_beckmann_height_correlated_cos_eval_DG_wo_clamps(NdotH2, NdotL2, NdotV2, a2);
 #else
-					bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG_wo_clamps(NdotH2, TdotH2, BdotH2, NdotL2, TdotL2, BdotL2, NdotV2, TdotV2, BdotV2, ax, ax2, ay, ay2);
+					bxdf_eval_scalar_part = irr_glsl_beckmann_aniso_height_correlated_cos_eval_DG_wo_clamps(NdotH2, TdotH2, BdotH2, NdotL2, TdotL2, BdotL2, NdotV2, TdotV2, BdotV2, a, a2, ay, ay2);
 #endif
 				} CASE_END
 #endif
@@ -121,7 +121,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout irr
 					bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, NdotV2, NdotL2, n, a2);
 #else
 					float ny = irr_glsl_alpha2_to_phong_exp(ay2);
-					bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, NdotH2, TdotH2, BdotH2, TdotL2, BdotL2, TdotV2, BdotV2, NdotV2, NdotL2, nx, ny, ax2, ay2);
+					bxdf_eval_scalar_part = irr_glsl_blinn_phong_cos_eval_DG_wo_clamps(NdotH, NdotH2, TdotH2, BdotH2, TdotL2, BdotL2, TdotV2, BdotV2, NdotV2, NdotL2, n, ny, a2, ay2);
 #endif
 				} CASE_END
 #endif

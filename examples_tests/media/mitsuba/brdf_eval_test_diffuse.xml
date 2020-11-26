@@ -32,33 +32,43 @@
 
 <bsdf type="roughdiffuse" id="_01">
   <float name="alpha" value="0.1" />
+  <rgb name="reflectance" value="1,1,1"/>
 </bsdf>
 <bsdf type="roughdiffuse" id="_02">
   <float name="alpha" value="0.2" />
+  <rgb name="reflectance" value="1,1,1"/>
 </bsdf>
 <bsdf type="roughdiffuse" id="_03">
   <float name="alpha" value="0.3" />
+  <rgb name="reflectance" value="1,1,1"/>
 </bsdf>
 <bsdf type="roughdiffuse" id="_04">
   <float name="alpha" value="0.4" />
+  <rgb name="reflectance" value="1,1,1"/>
 </bsdf>
 <bsdf type="roughdiffuse" id="_05">
   <float name="alpha" value="0.5" />
+  <rgb name="reflectance" value="1,1,1"/>
 </bsdf>
 <bsdf type="roughdiffuse" id="_06">
   <float name="alpha" value="0.6" />
+  <rgb name="reflectance" value="1,1,1"/>
 </bsdf>
 <bsdf type="roughdiffuse" id="_07">
   <float name="alpha" value="0.7" />
+  <rgb name="reflectance" value="1,1,1"/>
 </bsdf>
 <bsdf type="roughdiffuse" id="_08">
   <float name="alpha" value="0.8" />
+  <rgb name="reflectance" value="1,1,1"/>
 </bsdf>
 <bsdf type="roughdiffuse" id="_09">
   <float name="alpha" value="0.9" />
+  <rgb name="reflectance" value="1,1,1"/>
 </bsdf>
 <bsdf type="roughdiffuse" id="_10">
   <float name="alpha" value="1.0" />
+  <rgb name="reflectance" value="1,1,1"/>
 </bsdf>
 
 <shape type="sphere">

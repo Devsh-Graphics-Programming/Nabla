@@ -158,7 +158,7 @@ bool op_hasSpecular(in uint op)
 #endif
 
 #if !defined(OP_CONDUCTOR) && !defined(OP_DIELECTRIC)
-		return false;
+		false
 #endif
 	;
 }
@@ -474,7 +474,11 @@ vec3 fetchTex(in uvec3 texid, in vec2 uv, in mat2 dUV)
 {
 	float scale = uintBitsToFloat(texid.z);
 
+#if _IRR_VT_FLOAT_VIEWS_COUNT
 	return irr_glsl_vTextureGrad(texid.xy, uv, dUV).rgb*scale;
+#else
+	return vec3(0.0);
+#endif
 }
 
 void runTexPrefetchStream(in instr_stream_t stream, in vec2 uv, in mat2 dUV)
@@ -644,7 +648,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 					float lambdaV = irr_glsl_smith_beckmann_Lambda(TdotV2, BdotV2, NdotV2, a2, ay2);
 					G1_over_2NdotV = irr_glsl_smith_G1(lambdaV) / (2.0 * NdotV);
 					G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL*s.TdotL, s.BdotL*s.BdotL, NdotL2, a2, ay2);
-					ndf_val = irr_glsl_beckmann(ax, ay, a2, ay2, TdotH2, BdotH2, NdotH2);
+					ndf_val = irr_glsl_beckmann(a, ay, a2, ay2, TdotH2, BdotH2, NdotH2);
 #endif
 				} CASE_END
 #endif
@@ -660,7 +664,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 					float lambdaV = irr_glsl_smith_beckmann_Lambda(TdotV2, BdotV2, NdotV2, a2, ay2);
 					G1_over_2NdotV = irr_glsl_smith_G1(lambdaV) / (2.0 * NdotV);
 					G2_over_G1 = irr_glsl_beckmann_smith_G2_over_G1(lambdaV + 1.0, s.TdotL*s.TdotL, s.BdotL*s.BdotL, NdotL2, a2, ay2);
-					ndf_val = irr_glsl_beckmann(ax, ay, a2, ay2, TdotH2, BdotH2, NdotH2);
+					ndf_val = irr_glsl_beckmann(a, ay, a2, ay2, TdotH2, BdotH2, NdotH2);
 #endif
 				} CASE_END
 #endif
@@ -704,6 +708,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 			} 
 		}
 #endif
+		{} // empty else for when there are diffuse ops but arent any specular ones
 	}
 
 	eval_and_pdf_t result = eval_and_pdf_t(eval, pdf);

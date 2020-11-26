@@ -12,9 +12,9 @@ namespace MitsubaLoader
 
     auto CMitsubaMaterialCompilerFrontend::getDerivMap(const CElementTexture* _element) const -> tex_ass_type
     {
-        std::string key = m_loaderContext->derivMapCacheKey(_element);
         float scale = 1.f;
         std::tie(_element, scale) = getTexture_common(_element);
+        std::string key = m_loaderContext->derivMapCacheKey(_element);
         if (_element->type != CElementTexture::BITMAP)
             return { nullptr, nullptr, 0.f };
 
@@ -60,14 +60,17 @@ namespace MitsubaLoader
 
         asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
         auto viewBundle = m_loaderContext->override_->findCachedAsset(viewKey, types, m_loaderContext->inner, 0u);
-        assert(!viewBundle.isEmpty());
-        auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
-        types[0] = asset::IAsset::ET_SAMPLER;
-        auto samplerBundle = m_loaderContext->override_->findCachedAsset(samplerKey, types, m_loaderContext->inner, 0u);
-        assert(!samplerBundle.isEmpty());
-        auto sampler = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(samplerBundle.getContents().begin()[0]);
+        if (!viewBundle.isEmpty())
+        {
+            auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
+            types[0] = asset::IAsset::ET_SAMPLER;
+            auto samplerBundle = m_loaderContext->override_->findCachedAsset(samplerKey, types, m_loaderContext->inner, 0u);
+            assert(!samplerBundle.isEmpty());
+            auto sampler = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(samplerBundle.getContents().begin()[0]);
 
-        return {view, sampler, _scale};
+            return {view, sampler, _scale};
+        }
+        return { nullptr, nullptr, _scale };
     }
 
     auto CMitsubaMaterialCompilerFrontend::createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf) -> IRNode*
