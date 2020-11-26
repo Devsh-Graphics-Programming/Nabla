@@ -1,17 +1,27 @@
 #version 430 core
-layout(location = 0) uniform mat4 MVP;
-layout(location = 1) uniform mat3 NormalMatrix;
 
-layout(location = 0) in vec3 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
+#include "InstanceDataPerCamera.glsl"
+layout(set=3, binding=0, row_major) readonly restrict buffer SSBO
+{
+    InstanceDataPerCamera data[];
+} instanceDataPerCamera;
+
+layout(location = 0) in vec3 vPosition;
 layout(location = 2) in vec2 vUV;
 layout(location = 3) in vec3 vNormal;
 
-out vec2 uv;
-out vec3 Normal;
+layout(location = 0) flat out uint ObjectID;
+layout(location = 1) out vec3 Normal;
+layout(location = 2) out vec2 UV;
+
+#include "irr/builtin/glsl/utils/transform.glsl"
 
 void main()
 {
-    gl_Position = MVP*vec4(vPos.xyz,1.0);
-	uv = vUV;
-    Normal = NormalMatrix*normalize(vNormal); //have to normalize twice because of normal quantization
+    ObjectID = gl_InstanceIndex;
+    InstanceDataPerCamera self = instanceDataPerCamera.data[ObjectID];
+
+    gl_Position = irr_glsl_pseudoMul4x4with3x1(self.MVP,vPosition);
+    Normal = mat3(self.NormalMatAndEyePos)*normalize(vNormal); //have to normalize twice because of normal quantization
+	UV = vUV;
 }

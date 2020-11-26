@@ -140,7 +140,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		void deinit();
 
-		void render();
+		void render(irr::ITimer* timer);
 
 		bool isRightHanded() { return m_rightHanded; }
 
@@ -177,23 +177,23 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::asset::IAssetManager* m_assetManager;
 		irr::scene::ISceneManager* m_smgr;
 
+		irr::core::smart_refctd_ptr<irr::ext::RadeonRays::Manager> m_rrManager;
+
 
 		irr::core::aabbox3df m_sceneBound;
 		uint32_t m_renderSize[2u];
 		bool m_rightHanded;
 
 		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_globalBackendDataDS;
-		
-#if TODO
-		irr::core::smart_refctd_ptr<irr::ext::RadeonRays::Manager> m_rrManager;
 
+		irr::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
+#if TODO
 		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_compostDS2;
 		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_compostLayout;
 		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_compostPipeline;
 
 		uint32_t m_raygenWorkGroups[2];
 		uint32_t m_resolveWorkGroups[2];
-		uint32_t m_framesDone;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_rayBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_intersectionBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_rayCountBuffer;
@@ -206,7 +206,6 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_raygenPipeline;
 
 		irr::core::vector<irr::core::smart_refctd_ptr<irr::scene::IMeshSceneNode> > nodes;
-		irr::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
 		irr::ext::RadeonRays::Manager::MeshNodeRRInstanceCache rrInstances;
 
 		irr::core::vectorSIMDf constantClearColor;
@@ -227,7 +226,8 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		};
 		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_visibilityBufferAttachments[EVBA_COUNT];
 
-		uint32_t m_maxSamples, m_samplesPerPixelPerDispatch, m_rayCountPerDispatch, m_samplesComputedPerPixel;
+		uint32_t m_maxSamples, m_samplesPerPixelPerDispatch, m_rayCountPerDispatch;
+		uint32_t m_framesDone, m_samplesComputedPerPixel;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBufferView> m_sampleSequence;
 		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_scrambleTexture;
 

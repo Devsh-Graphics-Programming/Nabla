@@ -292,7 +292,7 @@ int main()
 	{
 		driver->beginScene(false, false);
 
-		renderer->render();
+		renderer->render(device->getTimer());
 
 		auto oldVP = driver->getViewPort();
 		driver->blitRenderTargets(renderer->getColorBuffer(),nullptr,false,false,{},{},true);

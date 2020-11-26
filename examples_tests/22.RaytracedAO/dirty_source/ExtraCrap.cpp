@@ -16,10 +16,6 @@ using namespace irr::video;
 using namespace irr::scene;
 
 
-const std::string raygenShaderExtensions = R"======(
-#version 430 core
-)======";
-
 const std::string lightStruct = R"======(
 #define SLight_ET_ELLIPSOID	0u
 #define SLight_ET_TRIANGLE	1u
@@ -35,307 +31,6 @@ uint SLight_extractType(in SLight light)
 {
 	return bitfieldExtract(light.data0,0,findMSB(SLight_ET_COUNT)+1);
 }
-)======";
-
-const std::string raygenShader = R"======(
-#define WORK_GROUP_DIM 16u
-layout(local_size_x = WORK_GROUP_DIM, local_size_y = WORK_GROUP_DIM) in;
-#define WORK_GROUP_SIZE (WORK_GROUP_DIM*WORK_GROUP_DIM)
-
-// TODO transform into push constants
-// uniforms
-layout(location = 0) uniform vec3 uCameraPos;
-layout(location = 1) uniform float uDepthLinearizationConstant;
-layout(location = 2) uniform mat4 uFrustumCorners;
-layout(location = 3) uniform uvec2 uImageSize;
-layout(location = 4) uniform uvec4 uImageWidth_ImageArea_TotalImageSamples_Samples;
-layout(location = 5) uniform uint uSamplesComputed;
-layout(location = 6) uniform vec4 uImageSize2Rcp;
-
-// image views
-layout(set = 2, binding = 0) uniform sampler2D depthbuf;
-layout(set = 2, binding = 1) uniform usamplerBuffer sampleSequence;
-layout(set = 2, binding = 2) uniform usampler2D scramblebuf;
-
-// SSBOs
-layout(set = 2, binding = 3, std430) restrict writeonly buffer Rays
-{
-	RadeonRays_ray rays[];
-};
-
-layout(set = 2, binding = 4, std430) restrict readonly buffer CumulativeLightPDF
-{
-	uint lightCDF[];
-};
-
-layout(set = 2, binding = 5, std430, row_major) restrict readonly buffer Lights
-{
-	SLight light[];
-};
-
-
-#define kPI 3.14159265358979323846
-
-
-#define FLT_MIN -1.17549449e-38
-#define FLT_MAX 3.402823466e+38
-
-float linearizeZBufferVal(in float nonLinearZBufferVal)
-{
-	// 1-(Ax+B)/(Cx) = y
-	// (Ax+B)/(Cx) = 1-y
-	// x = B/(C(1-y)-A)
-	// x = B/(C-A-Cy)
-	// get back original Z: `row[2][3]/(row[3][2]-row[2][2]-y*row[3][2]) = x`
-	// max Z: `B/(C-A)`
-	// positive [0,1] Z: `B/(C-A-Cy)/(B/(C-A))`
-	// positive [0,1] Z: `(C-A)/(C-A-Cy)`
-	// positive [0,1] Z: `D/(D-Cy)`
-    return 1.0/(uDepthLinearizationConstant*nonLinearZBufferVal+1.0);
-}
-
-float maxAbs1(in float val)
-{
-	return abs(val);
-}
-float maxAbs2(in vec2 val)
-{
-	vec2 v = abs(val);
-	return max(v.x,v.y);
-}
-float maxAbs3(in vec3 val)
-{
-	vec3 v = abs(val);
-	return max(max(v.x,v.y),v.z);
-}
-
-float GET_MAGNITUDE(in float val)
-{
-	float x = abs(val);
-	return uintBitsToFloat(floatBitsToUint(x)&2139095040u);
-}
-
-float ULP1(in float val, in uint accuracy)
-{
-	float x = abs(val);
-	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
-}
-float ULP2(in vec2 val, in uint accuracy)
-{
-	float x = maxAbs2(val);
-	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
-}
-float ULP3(in vec3 val, in uint accuracy)
-{
-	float x = maxAbs3(val);
-	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
-}
-
-
-
-uint ugen_uniform_sample1(in uint dimension, in uint sampleIx, in uint scramble);
-uvec2 ugen_uniform_sample2(in uint dimension, in uint sampleIx, in uint scramble);
-
-vec2 gen_uniform_sample2(in uint dimension, in uint sampleIx, in uint scramble);
-
-
-uint ugen_uniform_sample1(in uint dimension, in uint sampleIx, in uint scramble)
-{
-	return ugen_uniform_sample2(dimension,sampleIx,scramble).x;
-}
-uvec2 ugen_uniform_sample2(in uint dimension, in uint sampleIx, in uint scramble)
-{
-	uint address = (dimension>>1u)*MAX_SAMPLES+(sampleIx&(MAX_SAMPLES-1u));
-	return texelFetch(sampleSequence,int(address)).xy^uvec2(scramble);
-}
-
-vec2 gen_uniform_sample2(in uint dimension, in uint sampleIx, in uint scramble)
-{
-	return vec2(ugen_uniform_sample2(dimension,sampleIx,scramble))/vec2(~0u);
-}
-
-
-
-// https://orbit.dtu.dk/files/126824972/onb_frisvad_jgt2012_v2.pdf
-mat2x3 frisvad(in vec3 n)
-{
-	const float a = 1.0/(1.0 + n.z);
-	const float b = -n.x*n.y*a;
-	return (n.z<-0.9999999) ? mat2x3(vec3(0.0,-1.0,0.0),vec3(-1.0,0.0,0.0)):mat2x3(vec3(1.0-n.x*n.x*a, b, -n.x),vec3(b, 1.0-n.y*n.y*a, -n.y));
-}
-
-
-uint lower_bound(in uint key, uint size)
-{
-    uint low = 0u;
-
-#define ITERATION \
-	{\
-        uint _half = size >> 1u; \
-        uint other_half = size - _half; \
-        uint probe = low + _half; \
-        uint other_low = low + other_half; \
-        uint v = lightCDF[probe]; \
-        size = _half; \
-        low = v<key ? other_low:low; \
-	}
-
-    while (size >= 8u)
-	{
-		ITERATION
-		ITERATION
-		ITERATION
-    }
-
-    while (size > 0u)
-		ITERATION
-
-#undef ITERATION
-
-	return low;
-}
-
-uint upper_bound(in uint key, uint size)
-{
-    uint low = 0u;
-
-#define ITERATION \
-	{\
-        uint _half = size >> 1u; \
-        uint other_half = size - _half; \
-        uint probe = low + _half; \
-        uint other_low = low + other_half; \
-        uint v = lightCDF[probe]; \
-        size = _half; \
-        low = v<=key ? other_low:low; \
-	}
-
-    while (size >= 8u)
-	{
-		ITERATION
-		ITERATION
-		ITERATION
-    }
-
-    while (size > 0u)
-		ITERATION
-
-#undef ITERATION
-
-	return low;
-}
-
-
-vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout float maxT, inout bool alive, in vec3 position)
-{
-	uint lightIDSample = ugen_uniform_sample1(0u,sampleIx,scramble);
-	vec2 lightSurfaceSample = gen_uniform_sample2(2u,sampleIx,scramble);
-
-	uint lightID = upper_bound(lightIDSample,uint(lightCDF.length()-1));
-
-	SLight light = light[lightID];
-
-#define SHADOW_RAY_LEN 0.93
-	float factor; // 1.0/light_probability already baked into the light factor
-	switch (SLight_extractType(light))
-	{
-		case SLight_ET_ELLIPSOID:
-			lightSurfaceSample.x = lightSurfaceSample.x*2.0-1.0;
-			{
-				mat4x3 tform = light.transform;
-				float equator = lightSurfaceSample.y*2.0*kPI;
-				vec3 pointOnSurface = vec3(vec2(cos(equator),sin(equator))*sqrt(1.0-lightSurfaceSample.x*lightSurfaceSample.x),lightSurfaceSample.x);
-	
-				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
-				float incomingInvLen = inversesqrt(dot(incoming,incoming));
-				incoming *= incomingInvLen;
-
-				maxT = SHADOW_RAY_LEN/incomingInvLen;
-
-				factor = 4.0*kPI; // compensate for the domain of integration
-				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
-				vec3 negLightNormal = light.transformCofactors*pointOnSurface;
-
-				factor *= max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
-			}
-			break;
-		default: // SLight_ET_TRIANGLE:
-			{
-				vec3 pointOnSurface = transpose(light.transformCofactors)[0];
-				vec3 shortEdge = transpose(light.transformCofactors)[1];
-				vec3 longEdge = transpose(light.transformCofactors)[2];
-
-				lightSurfaceSample.x = sqrt(lightSurfaceSample.x);
-
-				pointOnSurface += (shortEdge*(1.0-lightSurfaceSample.y)+longEdge*lightSurfaceSample.y)*lightSurfaceSample.x;
-
-				vec3 negLightNormal = cross(shortEdge,longEdge);
-
-				incoming = pointOnSurface-position;
-				float incomingInvLen = inversesqrt(dot(incoming,incoming));
-				incoming *= incomingInvLen;
-
-				maxT = SHADOW_RAY_LEN/incomingInvLen;
-
-				factor = 0.5*max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
-			}
-			break;
-	}
-
-	if (factor<0.0) // TODO: FLT_MIN
-		alive = false;
-
-	return light.factor*factor;
-}
-
-void main()
-{
-	uvec2 outputLocation = gl_GlobalInvocationID.xy;
-	bool alive = all(lessThan(outputLocation,uImageSize));
-	if (alive)
-	{
-		// TODO: accelerate texture fetching
-		ivec2 uv = ivec2(outputLocation);
-		float revdepth = texelFetch(depthbuf,uv,0).r;
-
-		uint outputID = outputLocation.x+uImageWidth_ImageArea_TotalImageSamples_Samples.x*outputLocation.y;
-
-		// unproject
-		vec3 viewDir;
-		vec3 position;
-		{
-			vec2 NDC = vec2(outputLocation)*uImageSize2Rcp.xy+uImageSize2Rcp.zw;
-			viewDir = mix(uFrustumCorners[0]*NDC.x+uFrustumCorners[1],uFrustumCorners[2]*NDC.x+uFrustumCorners[3],NDC.yyyy).xyz;
-			position = viewDir*linearizeZBufferVal(revdepth)+uCameraPos;
-		}
-
-		alive = revdepth>0.0;
-
-		uint scramble = texelFetch(scramblebuf,uv,0).r;
-
-		RadeonRays_ray newray;
-		newray.time = 0.0;
-		newray.mask = alive ? -1:0;
-		for (uint i=0u; i<uImageWidth_ImageArea_TotalImageSamples_Samples.w; i++)
-		{
-			vec4 throughput = vec4(0.0,0.0,0.0,-1.0);
-			float error = GET_MAGNITUDE(1.0-revdepth)*0.1;
-
-			newray.maxT = FLT_MAX;
-			if (alive)
-				throughput.rgb = light_sample(newray.direction,uSamplesComputed+i,scramble,newray.maxT,alive,position);
-
-			newray.origin = position+newray.direction*error/maxAbs3(newray.direction);
-			newray._active = alive ? 1:0;
-			newray.backfaceCulling = int(packHalf2x16(throughput.ab));
-			newray.useless_padding = int(packHalf2x16(throughput.gr));
-
-			// TODO: repack rays for coalescing
-			rays[outputID+i*uImageWidth_ImageArea_TotalImageSamples_Samples.y] = newray;
-		}
-	}
-}
-
 )======";
 
 
@@ -388,13 +83,6 @@ layout(set = 2, binding = 9, std430) restrict writeonly buffer DenoiserNormalInp
 #endif
 
 
-#define kPI 3.14159265358979323846
-
-vec3 decode(in vec2 enc)
-{
-	float ang = enc.x*kPI;
-    return vec3(vec2(cos(ang),sin(ang))*sqrt(1.0-enc.y*enc.y), enc.y);
-}
 
 
 
@@ -416,7 +104,7 @@ void main()
 
 	vec3 normal;
 	if (alive)
-		normal = decode(texelFetch(normalbuf,pixelCoord,0).rg);
+		normal = irr_glsl_NormalDecode_signedSpherical(texelFetch(normalbuf,pixelCoord,0).rg);
 
 	vec4 acc = vec4(0.0);
 	if (uRcpFramesDone<1.0 && alive)
@@ -495,26 +183,24 @@ void main()
 
 )======";
 
-constexpr uint32_t UNFLEXIBLE_MAX_SAMPLES_TODO_REMOVE = 1024u*1024u;
-
 
 constexpr uint32_t kOptiXPixelSize = sizeof(uint16_t)*3u;
 
 
 Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& globalBackendDataDS, bool useDenoiser) :
-		m_useDenoiser(useDenoiser),	m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager),
-		m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), /*m_renderSize{0u,0u}, */m_rightHanded(false), m_globalBackendDataDS(std::move(globalBackendDataDS)),
+		m_useDenoiser(useDenoiser),	m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager), m_rrManager(ext::RadeonRays::Manager::create(m_driver)),
+		m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), /*m_renderSize{0u,0u}, */m_rightHanded(false),
+		m_globalBackendDataDS(std::move(globalBackendDataDS)), rrShapeCache(),
 #if TODO
 		m_raygenProgram(0u), m_compostProgram(0u),
-		m_rrManager(ext::RadeonRays::Manager::create(m_driver)),
-		m_raygenWorkGroups{0u,0u}, m_resolveWorkGroups{0u,0u}, m_framesDone(0u),
+		m_raygenWorkGroups{0u,0u}, m_resolveWorkGroups{0u,0u},
 		m_rayBuffer(), m_intersectionBuffer(), m_rayCountBuffer(),
 		m_rayBufferAsRR(nullptr,nullptr), m_intersectionBufferAsRR(nullptr,nullptr), m_rayCountBufferAsRR(nullptr,nullptr),
 		nodes(), rrInstances(),
 #endif
 		m_lightCount(0u),
-		m_visibilityBufferAttachments{nullptr}, m_maxSamples(0u), m_samplesPerPixelPerDispatch(0u), m_rayCountPerDispatch(0u), m_samplesComputedPerPixel(0u), m_sampleSequence(), m_scrambleTexture(),
-		m_accumulation(), m_tonemapOutput(), m_visibilityBuffer(nullptr), tmpTonemapBuffer(nullptr), m_colorBuffer(nullptr)
+		m_visibilityBufferAttachments{nullptr}, m_maxSamples(0u), m_samplesPerPixelPerDispatch(0u), m_rayCountPerDispatch(0u), m_framesDone(0u), m_samplesComputedPerPixel(0u),
+		m_sampleSequence(), m_scrambleTexture(), m_accumulation(), m_tonemapOutput(), m_visibilityBuffer(nullptr), tmpTonemapBuffer(nullptr), m_colorBuffer(nullptr)
 	#ifdef _IRR_BUILD_OPTIX_
 		,m_cudaStream(nullptr)
 	#endif
@@ -811,7 +497,7 @@ void Renderer::init(const SAssetBundle& meshes,
 	//! set up GPU sampler 
 	{
 		m_maxSamples = sampleSequence->getSize()/(sizeof(uint32_t)*MaxDimensions);
-		assert(m_maxSamples==UNFLEXIBLE_MAX_SAMPLES_TODO_REMOVE);
+		assert(m_maxSamples==MAX_ACCUMULATED_SAMPLES);
 
 		// upload sequence to GPU
 		auto gpubuf = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(), sampleSequence->getPointer());
@@ -823,7 +509,7 @@ void Renderer::init(const SAssetBundle& meshes,
 	core::vector<uint32_t> lightCDF;
 	core::vector<core::vectorSIMDf> lightRadiances;
 	auto& lightPDF = reinterpret_cast<core::vector<float>&>(lightCDF); // save on memory
-
+#endif
 	const ext::MitsubaLoader::CGlobalMitsubaMetadata* globalMeta = nullptr;
 	{
 		auto contents = meshes.getContents();
@@ -832,18 +518,14 @@ void Renderer::init(const SAssetBundle& meshes,
 			auto cpumesh = static_cast<asset::ICPUMesh*>(cpumesh_.get());
 
 			auto* meta = cpumesh->getMetadata();
-
 			assert(meta && core::strcmpi(meta->getLoaderName(), ext::MitsubaLoader::IMitsubaMetadata::LoaderName) == 0);
 			const auto* meshmeta = static_cast<const ext::MitsubaLoader::IMeshMetadata*>(meta);
 			globalMeta = meshmeta->globalMetadata.get();
 
-			//! TODO: fix
-			const auto shapeType = meshmeta->getShapeType()==ext::MitsubaLoader::CElementShape::Type::INSTANCE ? ext::MitsubaLoader::CElementShape::Type::SERIALIZED:meshmeta->getShapeType();
-
 			// WARNING!!!
 			// all this instance-related things is a rework candidate since mitsuba loader supports instances
-			// (all this metadata should still be attached to meshes, but meshbuffers has instanceCount correctly set
-			// and DS with per-instance data (transform, normal matrix, instructions offsets, etc)
+			// (all this metadata should be global, but meshbuffers has instanceCount correctly set
+			// and globalDS with per-instance data (transform, normal matrix, instructions offsets, etc)
 			const auto& instances = meshmeta->getInstances();
 
 			auto meshBufferCount = cpumesh->getMeshBufferCount();
@@ -853,111 +535,67 @@ void Renderer::init(const SAssetBundle& meshes,
 				auto cpumb = cpumesh->getMeshBuffer(i);
 				m_rrManager->makeRRShapes(rrShapeCache, &cpumb, (&cpumb)+1);
 			}
-			
+
+			// set up lights
 			for (auto instance : instances)
+			if (instance.emitter.type!=ext::MitsubaLoader::CElementEmitter::Type::INVALID)
 			{
-				auto cpumesh = static_cast<ICPUMesh*>(cpuit->get());
-				if (instance.emitter.type != ext::MitsubaLoader::CElementEmitter::Type::INVALID)
+				assert(instance.emitter.type==ext::MitsubaLoader::CElementEmitter::Type::AREA);
+#ifdef TODO
+				SLight light;
+				light.setFactor(instance.emitter.area.radiance);
+				light.analytical = SLight::CachedTransform(instance.tform);
+
+				// TODO: OBB stuffs
+				auto addLight = [&instance,&cpumesh,&lightPDF,&lights,&lightRadiances](auto& newLight,float approxArea) -> void
 				{
-					assert(instance.emitter.type==ext::MitsubaLoader::CElementEmitter::Type::AREA);
+					float weight = newLight.computeFlux(approxArea) * instance.emitter.area.samplingWeight;
+					if (weight <= FLT_MIN)
+						return;
 
-					uint32_t totalTriangleCount = 0u;
-					asset::IMeshManipulator::getPolyCount(totalTriangleCount, cpumesh);
-
-					SLight light;
-					light.setFactor(instance.emitter.area.radiance);
-					light.analytical = SLight::CachedTransform(instance.tform);
-
-					bool bail = false;
-					switch (shapeType)
-					{
-						case ext::MitsubaLoader::CElementShape::Type::SPHERE:
-							light.type = SLight::ET_ELLIPSOID;
-							light.analytical.transformCofactors = -light.analytical.transformCofactors;
-							break;
-						case ext::MitsubaLoader::CElementShape::Type::CYLINDER:
-							_IRR_FALLTHROUGH;
-						case ext::MitsubaLoader::CElementShape::Type::DISK:
-							_IRR_FALLTHROUGH;
-						case ext::MitsubaLoader::CElementShape::Type::RECTANGLE:
-							_IRR_FALLTHROUGH;
-						case ext::MitsubaLoader::CElementShape::Type::CUBE:
-							_IRR_FALLTHROUGH;
-						case ext::MitsubaLoader::CElementShape::Type::OBJ:
-							_IRR_FALLTHROUGH;
-						case ext::MitsubaLoader::CElementShape::Type::PLY:
-							_IRR_FALLTHROUGH;
-						case ext::MitsubaLoader::CElementShape::Type::SERIALIZED:
-							light.type = SLight::ET_TRIANGLE;
-							if (!totalTriangleCount)
-								bail = true;
-							break;
-						default:
-						#ifdef _DEBUG
-							assert(false);
-						#endif
-							bail = true;
-							break;
-					}
-					if (bail)
-						continue;
-
-					auto addLight = [&instance,&cpumesh,&lightPDF,&lights,&lightRadiances](auto& newLight,float approxArea) -> void
-					{
-						float weight = newLight.computeFlux(approxArea) * instance.emitter.area.samplingWeight;
-						if (weight <= FLT_MIN)
-							return;
-
-						lightPDF.push_back(weight);
-						lights.push_back(newLight);
-						lightRadiances.push_back(newLight.strengthFactor);
-					};
-					auto areaFromTriangulationAndMakeMeshLight = [&]() -> float
-					{
-						double totalSurfaceArea = 0.0;
-
-						uint32_t runningTriangleCount = 0u;
-						for (auto i=0u; i<meshBufferCount; i++)
-						{
-							auto cpumb = cpumesh->getMeshBuffer(i);
-							reinterpret_cast<uint32_t&>(cpumb->getMaterial().userData) = lights.size();
-
-							uint32_t triangleCount = 0u;
-							asset::IMeshManipulator::getPolyCount(triangleCount,cpumb);
-							for (auto triID=0u; triID<triangleCount; triID++)
-							{
-								auto triangle = asset::IMeshManipulator::getTriangleIndices(cpumb,triID);
-
-								core::vectorSIMDf v[3];
-								for (auto k=0u; k<3u; k++)
-									v[k] = cpumb->getPosition(triangle[k]);
-
-								float triangleArea = NAN;
-								auto triLight = SLight::createFromTriangle(instance.emitter.area.radiance, light.analytical, v, &triangleArea);
-								if (light.type==SLight::ET_TRIANGLE)
-									addLight(triLight,triangleArea);
-								else
-									totalSurfaceArea += triangleArea;
-							}
-						}
-						return totalSurfaceArea;
-					};
-
-					auto totalArea = areaFromTriangulationAndMakeMeshLight();
-					if (light.type!=SLight::ET_TRIANGLE)
-						addLight(light,totalArea);
-				}
-				else // no emissive
+					lightPDF.push_back(weight);
+					lights.push_back(newLight);
+					lightRadiances.push_back(newLight.strengthFactor);
+				};
+				auto areaFromTriangulationAndMakeMeshLight = [&]() -> float
 				{
+					double totalSurfaceArea = 0.0;
+
+					uint32_t runningTriangleCount = 0u;
 					for (auto i=0u; i<meshBufferCount; i++)
 					{
 						auto cpumb = cpumesh->getMeshBuffer(i);
-						reinterpret_cast<uint32_t&>(cpumb->getMaterial().userData) = 0xdeadbeefu;
+						reinterpret_cast<uint32_t&>(cpumb->getMaterial().userData) = lights.size();
+
+						uint32_t triangleCount = 0u;
+						asset::IMeshManipulator::getPolyCount(triangleCount,cpumb);
+						for (auto triID=0u; triID<triangleCount; triID++)
+						{
+							auto triangle = asset::IMeshManipulator::getTriangleIndices(cpumb,triID);
+
+							core::vectorSIMDf v[3];
+							for (auto k=0u; k<3u; k++)
+								v[k] = cpumb->getPosition(triangle[k]);
+
+							float triangleArea = NAN;
+							auto triLight = SLight::createFromTriangle(instance.emitter.area.radiance, light.analytical, v, &triangleArea);
+							if (light.type==SLight::ET_TRIANGLE)
+								addLight(triLight,triangleArea);
+							else
+								totalSurfaceArea += triangleArea;
+						}
 					}
-				}
+					return totalSurfaceArea;
+				};
+
+				auto totalArea = areaFromTriangulationAndMakeMeshLight();
+				if (light.type!=SLight::ET_TRIANGLE)
+					addLight(light,totalArea);
+#endif
 			}
 		}
 
+#if TODO
 		auto gpumeshes = m_driver->getGPUObjectsFromAssets<ICPUMesh>(contents.first, contents.second);
 		auto cpuit = contents.first;
 		for (auto gpuit = gpumeshes->begin(); gpuit!=gpumeshes->end(); gpuit++,cpuit++)
@@ -988,12 +626,13 @@ void Renderer::init(const SAssetBundle& meshes,
 		auto nodesBegin = &nodes.data()->get();
 		m_rrManager->makeRRInstances(rrInstances, rrShapeCache, m_assetManager, nodesBegin, nodesBegin+nodes.size(), ids.data());
 		m_rrManager->attachInstances(rrInstances.begin(), rrInstances.end());
+#endif
 	}
-
 	m_renderSize[0] = m_driver->getScreenSize().Width;
 	m_renderSize[1] = m_driver->getScreenSize().Height;
 	if (globalMeta)
 	{
+#ifdef TODO
 		constantClearColor.set(0.f, 0.f, 0.f, 1.f);
 		float constantCombinedWeight = 0.f;
 		for (auto emitter : globalMeta->emitters)
@@ -1062,9 +701,10 @@ void Renderer::init(const SAssetBundle& meshes,
 			for (auto i=startIx; i<lights.size(); i++)
 				lightPDF[i] *= areaOfSphere/triangulationArea;
 		}
-
+#endif
 		if (globalMeta->sensors.size())
 		{
+			// just grab the first sensor
 			const auto& sensor = globalMeta->sensors.front();
 			const auto& film = sensor.film;
 			assert(film.cropOffsetX == 0);
@@ -1074,6 +714,7 @@ void Renderer::init(const SAssetBundle& meshes,
 		}
 	}
 
+#ifdef TODO
 	//! TODO: move out into a function `finalizeLights`
 	if (lights.size())
 	{
@@ -1146,21 +787,25 @@ void Renderer::init(const SAssetBundle& meshes,
 		m_driver->copyBufferToImage(gpuBuff.get(), m_scrambleTexture->getCreationParameters().image.get(), 1u, &region);
 	}
 
+
+	core::smart_refctd_ptr<video::IGPUSampler> smplr_nearest;
+	{
+		video::IGPUSampler::SParams params;
+		params.AnisotropicFilter = 0;
+		params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
+		params.CompareEnable = 0;
+		params.CompareFunc = ISampler::ECO_ALWAYS;
+		params.LodBias = 0;
+		params.MaxFilter = ISampler::ETF_NEAREST;
+		params.MinFilter = ISampler::ETF_NEAREST;
+		params.MaxLod = 10000;
+		params.MinLod = 0;
+		params.MipmapMode = ISampler::ESMM_NEAREST;
+		smplr_nearest = m_driver->createGPUSampler(params);
+	}
+
+
 #ifdef TODO
-	video::IGPUSampler::SParams sp;
-	sp.AnisotropicFilter = 0;
-	sp.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
-	sp.CompareEnable = 0;
-	sp.CompareFunc = ISampler::ECO_ALWAYS;
-	sp.LodBias = 0;
-	sp.MaxFilter = ISampler::ETF_NEAREST;
-	sp.MinFilter = ISampler::ETF_NEAREST;
-	sp.MaxLod = 10000;
-	sp.MinLod = 0;
-	sp.MipmapMode = ISampler::ESMM_NEAREST;
-	auto smplr_nearest = m_driver->createGPUSampler(sp);
-
-
 	m_raygenDS2 = createDS2Raygen(smplr_nearest);
 	m_compostDS2 = createDS2Compost(m_useDenoiser, smplr_nearest);
 	m_raygenLayout = createLayoutRaygen();
@@ -1168,14 +813,10 @@ void Renderer::init(const SAssetBundle& meshes,
 
 	auto rr_includes = m_rrManager->getRadeonRaysGLSLIncludes();
 	{
-		std::string glsl = raygenShaderExtensions + "#define MAX_SAMPLES " + std::to_string(UNFLEXIBLE_MAX_SAMPLES_TODO_REMOVE) + "\n" +
-			//"irr/builtin/glsl/ext/RadeonRays/"
-			rr_includes->getBuiltinInclude("ray.glsl") +
-			lightStruct +
+		std::string glsl = "raygen.comp" +
 			globalMeta->materialCompilerGLSL_declarations +
 			// TODO ds0 descriptors and user-defined functions required by material compiler
-			globalMeta->materialCompilerGLSL_source +
-			raygenShader;
+			globalMeta->materialCompilerGLSL_source;
 		
 		auto shader = m_driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(glsl.c_str()));
 		asset::ISpecializedShader::SInfo info(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE);
@@ -1184,8 +825,7 @@ void Renderer::init(const SAssetBundle& meshes,
 	}
 	{
 		auto glsl = 
-			// TODO dont use GL extensions
-			std::string(m_useDenoiser ? "#version 430 core\n#extension GL_NV_gpu_shader5 : require\n#define USE_OPTIX_DENOISER\n" : "#version 430 core\n") +
+			std::string(m_useDenoiser ? "#version 430 core\n#define USE_OPTIX_DENOISER\n" : "#version 430 core\n") +
 			//"irr/builtin/glsl/ext/RadeonRays/"
 			rr_includes->getBuiltinInclude("ray.glsl") +
 			lightStruct +
@@ -1271,7 +911,7 @@ void Renderer::init(const SAssetBundle& meshes,
 #endif
 	
 	m_visibilityBufferAttachments[EVBA_DEPTH] = createScreenSizedTexture(EF_D32_SFLOAT);
-	m_visibilityBufferAttachments[EVBA_OBJECTID_AND_TRIANGLEID_AND_FRONTFACING] = createScreenSizedTexture(EF_R32_UINT);
+	m_visibilityBufferAttachments[EVBA_OBJECTID_AND_TRIANGLEID_AND_FRONTFACING] = createScreenSizedTexture(EF_R32G32_UINT);
 	m_visibilityBufferAttachments[EVBA_NORMALS] = createScreenSizedTexture(EF_R16G16_SNORM);
 	m_visibilityBufferAttachments[EVBA_UV_COORDINATES] = createScreenSizedTexture(EF_R16G16_SFLOAT);
 	m_visibilityBuffer = m_driver->addFrameBuffer();
@@ -1294,12 +934,12 @@ void Renderer::init(const SAssetBundle& meshes,
 
 void Renderer::deinit()
 {
-#if TODO
 	auto commandQueue = m_rrManager->getCLCommandQueue();
 	clFinish(commandQueue);
 
 	glFinish();
 
+#if TODO
 	// create a screenshot (TODO: create OpenEXR @Anastazluk)
 	if (m_tonemapOutput)
 		ext::ScreenShot::dirtyCPUStallingScreenshot(m_driver, m_assetManager, "screenshot.png", m_tonemapOutput.get(),0u,true,asset::EF_R8G8B8_SRGB);
@@ -1327,15 +967,12 @@ void Renderer::deinit()
 		m_rayCountBufferAsRR = {nullptr,nullptr};
 	}
 	m_rayBuffer = m_intersectionBuffer = m_rayCountBuffer = nullptr;
-	m_framesDone = 0u;
 	m_raygenWorkGroups[0] = m_raygenWorkGroups[1] = 0u;
 	m_resolveWorkGroups[0] = m_resolveWorkGroups[1] = 0u;
 
 	for (auto& node : nodes)
 		node->remove();
 	nodes.clear();
-	m_rrManager->deleteShapes(rrShapeCache.begin(),rrShapeCache.end());
-	rrShapeCache.clear();
 	m_rrManager->detachInstances(rrInstances.begin(),rrInstances.end());
 	m_rrManager->deleteInstances(rrInstances.begin(),rrInstances.end());
 	rrInstances.clear();
@@ -1362,7 +999,8 @@ void Renderer::deinit()
 	}
 	m_accumulation = m_tonemapOutput = nullptr;
 
-	m_maxSamples = m_samplesPerPixelPerDispatch = m_rayCountPerDispatch = m_samplesComputedPerPixel = 0u;
+	m_maxSamples = m_samplesPerPixelPerDispatch = m_rayCountPerDispatch = 0u;
+	m_framesDone = m_samplesComputedPerPixel = 0u;
 	m_sampleSequence = nullptr;
 	m_scrambleTexture = nullptr;
 
@@ -1372,6 +1010,9 @@ void Renderer::deinit()
 
 	m_lightCount = 0u;
 
+
+	m_rrManager->deleteShapes(rrShapeCache.begin(), rrShapeCache.end());
+	rrShapeCache.clear();
 
 	m_globalBackendDataDS = nullptr;
 	m_renderSize[0u] = m_renderSize[1u] = 0u;
@@ -1393,7 +1034,7 @@ void Renderer::deinit()
 }
 
 
-void Renderer::render()
+void Renderer::render(irr::ITimer* timer)
 {
 	m_driver->setRenderTarget(m_visibilityBuffer);
 	{ // clear
@@ -1405,26 +1046,26 @@ void Renderer::render()
 		m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT2, zero);
 	}
 
+
 	auto camera = m_smgr->getActiveCamera();
 	auto prevViewProj = camera->getConcatenatedMatrix();
 
-#if TODO
-	// TODO i think scene ns wont be used at all?
+	camera->OnAnimate(std::chrono::duration_cast<std::chrono::milliseconds>(timer->getTime()).count());
+	camera->render();
 
-	//! This animates (moves) the camera and sets the transforms
-	//! Also draws the meshbuffer
-	m_smgr->drawAll();
+	// TODO: fill visibility buffer
+	{
+	}
 
 	auto currentViewProj = camera->getConcatenatedMatrix();
 	if (!core::equals(prevViewProj,currentViewProj,core::ROUNDING_ERROR<core::matrix4SIMD>()*1000.0))
-	{
 		m_framesDone = 0u;
-	}
 
 	uint32_t uImageWidth_ImageArea_TotalImageSamples_Samples[4] = { m_renderSize[0],m_renderSize[0]*m_renderSize[1],m_renderSize[0]*m_renderSize[1]*m_samplesPerPixelPerDispatch,m_samplesPerPixelPerDispatch};
 
 	// generate rays
 	{
+#if TODO
 		// TODO set push constants (i've commented out uniforms setting below)
 		/*{
 			auto camPos = core::vectorSIMDf().set(camera->getAbsolutePosition());
@@ -1463,13 +1104,15 @@ void Renderer::render()
 		m_driver->bindDescriptorSets(video::EPBP_COMPUTE, m_raygenLayout.get(), 2, 1, &m_raygenDS2.get(), nullptr);
 		m_driver->bindComputePipeline(m_raygenPipeline.get());
 		m_driver->dispatch(m_raygenWorkGroups[0], m_raygenWorkGroups[1], 1);
-		
+#endif		
 		// probably wise to flush all caches
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}
 
 	// do radeon rays
+#if TODO
 	m_rrManager->update(rrInstances);
+#endif
 	if (m_rrManager->hasImplicitCL2GLSync())
 		glFlush();
 	else
@@ -1477,6 +1120,7 @@ void Renderer::render()
 
 	auto commandQueue = m_rrManager->getCLCommandQueue();
 	{
+#if TODO
 		const cl_mem clObjects[] = {m_rayBufferAsRR.second,m_intersectionBufferAsRR.second};
 		auto objCount = sizeof(clObjects)/sizeof(cl_mem);
 
@@ -1487,21 +1131,21 @@ void Renderer::render()
 		m_rrManager->getRadeonRaysAPI()->QueryOcclusion(m_rayBufferAsRR.first,m_rayCountBufferAsRR.first,m_rayCountPerDispatch,m_intersectionBufferAsRR.first,nullptr,nullptr);
 		cl_event raycastDone = nullptr;
 		clEnqueueMarker(commandQueue,&raycastDone);
+#endif
 
 		if (m_rrManager->hasImplicitCL2GLSync())
 		{
-			clEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, nullptr);
+			//clEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, nullptr);
 			clFlush(commandQueue);
 		}
 		else
 		{
 			cl_event released;
-			clEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, &released);
+			//clEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, &released);
 			clFlush(commandQueue);
 			clWaitForEvents(1u, &released);
 		}
 	}
-#endif
 
 	// use raycast results
 	{

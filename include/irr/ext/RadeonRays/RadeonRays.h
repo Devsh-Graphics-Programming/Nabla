@@ -41,7 +41,6 @@ class Manager final : public core::IReferenceCounted
 		{
 			shapeCache.reserve(std::distance(_begin,_end));
 
-#ifdef TODO
 			uint32_t maxIndexCount = 0u;
 			for (auto it=_begin; it!=_end; it++)
 			{
@@ -80,7 +79,6 @@ class Manager final : public core::IReferenceCounted
 			for (auto it=_begin; it!=_end; it++)
 				makeShape(shapeCache,static_cast<irr::asset::ICPUMeshBuffer*>(*it),indices);
 			delete[] indices;
-#endif
 		}
 
 		template<typename Iterator>
@@ -191,8 +189,8 @@ class Manager final : public core::IReferenceCounted
 		Manager(video::IVideoDriver* _driver, cl_context context, bool automaticOpenCLSync);
 		~Manager();
 
-#ifdef TODO
 		void makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMeshBuffer* mb, int32_t* indices);
+#ifdef TODO
 		void makeInstance(	MeshNodeRRInstanceCache& instanceCache,
 							const core::unordered_map<const video::IGPUMeshBuffer*,MeshBufferRRShapeCache::value_type>& GPU2CPUTable,
 							scene::IMeshSceneNode* node, const int32_t* id_it);
