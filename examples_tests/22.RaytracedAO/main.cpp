@@ -41,7 +41,8 @@ int main()
 		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CSerializedLoader>(am));
 		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(am));
 
-		std::string filePath = "../../media/mitsuba/daily_pt.xml";
+		//std::string filePath = "../../media/mitsuba/daily_pt.xml";
+		std::string filePath = "../../media/mitsuba/staircase2.zip";
 	//#define MITSUBA_LOADER_TESTS
 	#ifndef MITSUBA_LOADER_TESTS
 		pfd::message("Choose file to load", "Choose mitsuba XML file to load or ZIP containing an XML. \nIf you cancel or choosen file fails to load, simple scene will be loaded.", pfd::choice::ok);
@@ -211,11 +212,15 @@ int main()
 
 	auto driver = device->getVideoDriver();
 
-	auto& _1stmesh = meshes.getContents().begin()[0];
-	auto* meta_ = static_cast<asset::ICPUMesh*>(_1stmesh.get())->getMeshBuffer(0)->getPipeline()->getMetadata();
-	auto* meta = static_cast<ext::MitsubaLoader::CMitsubaPipelineMetadata*>(meta_);
-	auto cpuds0 = meta->getDescriptorSet();
-	auto gpuds0 = driver->getGPUObjectsFromAssets(&cpuds0, &cpuds0 + 1)->front();
+	asset::ICPUDescriptorSet* glslMaterialBackendGlobalDS = nullptr;
+	{
+		// a bit roundabout but oh well what can we do
+		auto& _1stmesh = meshes.getContents().begin()[0];
+		auto* meta_ = static_cast<asset::ICPUMesh*>(_1stmesh.get())->getMeshBuffer(0)->getPipeline()->getMetadata();
+		auto* pipelinemeta = static_cast<ext::MitsubaLoader::CMitsubaPipelineMetadata*>(meta_);
+		glslMaterialBackendGlobalDS = pipelinemeta->getDescriptorSet();
+	}
+	auto gpuds0 = driver->getGPUObjectsFromAssets(&glslMaterialBackendGlobalDS,&glslMaterialBackendGlobalDS+1)->front();
 
 	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver, device->getAssetManager(), smgr, std::move(gpuds0));
 	constexpr uint32_t MaxSamples = 1024u*1024u;
@@ -236,14 +241,15 @@ int main()
 
 		if (generateNewSamples)
 		{
+			constexpr uint32_t Channels = 3u;
+			static_assert(Renderer::MaxDimensions%Channels==0u,"We cannot have this!");
 			core::OwenSampler sampler(Renderer::MaxDimensions,0xdeadbeefu);
 
-			uint32_t (&out)[][2] = *reinterpret_cast<uint32_t(*)[][2]>(sampleSequence->getPointer());
-			for (auto dim=0u; dim<Renderer::MaxDimensions; dim++)
+			uint32_t (&out)[][Channels] = *reinterpret_cast<uint32_t(*)[][Channels]>(sampleSequence->getPointer());
+			for (auto realdim=0u; realdim<Renderer::MaxDimensions/Channels; realdim++)
+			for (auto c=0u; c<Channels; c++)
 			for (uint32_t i=0; i<MaxSamples; i++)
-			{
-				out[(dim>>1u)*MaxSamples+i][dim&0x1u] = sampler.sample(dim,i);
-			}
+				out[realdim*MaxSamples+i][c] = sampler.sample(realdim*Channels+c,i);
 
 			io::IWriteFile* cacheFile = device->getFileSystem()->createAndWriteFile("../../tmp/rtSamples.bin");
 			if (cacheFile)
@@ -253,12 +259,12 @@ int main()
 			}
 		}
 	}
+
 	renderer->init(meshes, rightHandedCamera, std::move(sampleSequence));
-
-
 	meshes = {}; // free memory
-	auto extent = renderer->getSceneBound().getExtent();
+	
 
+	auto extent = renderer->getSceneBound().getExtent();
 	// want dynamic camera or not?
 	if (true)
 	{

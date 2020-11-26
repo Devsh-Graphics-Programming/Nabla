@@ -21,53 +21,18 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
     public:
 		struct alignas(16) SLight
 		{
-			enum E_TYPE : uint32_t
-			{
-				ET_ELLIPSOID,
-				ET_TRIANGLE,
-				ET_COUNT
-			};
-			struct CachedTransform
-			{
-				CachedTransform(const irr::core::matrix3x4SIMD& tform) : transform(tform)
-				{
-					auto tmp4 = irr::core::matrix4SIMD(transform.getSub3x3TransposeCofactors());
-					transformCofactors = irr::core::transpose(tmp4).extractSub3x4();
-				}
-
-				irr::core::matrix3x4SIMD transform;
-				irr::core::matrix3x4SIMD transformCofactors;
-			};
-
-
-			SLight() : type(ET_COUNT) {}
-			SLight(const SLight& other) : type(other.type)
+			SLight() {}
+			SLight(const SLight& other)
 			{
 				std::copy(other.strengthFactor,other.strengthFactor+3u,strengthFactor);
-				if (type == ET_TRIANGLE)
-					std::copy(other.triangle.vertices, other.triangle.vertices+3u, triangle.vertices);
-				else
-				{
-					analytical.transform = other.analytical.transform;
-					analytical.transformCofactors = other.analytical.transformCofactors;
-				}
+				OBB.data = other.OBB.data;
 			}
 			~SLight() {}
 
 			inline SLight& operator=(SLight&& other)
 			{
 				std::swap_ranges(strengthFactor,strengthFactor+3u,other.strengthFactor);
-				auto a = other.analytical;
-				auto t = other.triangle;
-				if (type!=ET_TRIANGLE)
-					other.analytical = analytical;
-				else
-					other.triangle = triangle;
-				if (other.type)
-					analytical = a;
-				else
-					triangle = t;
-				std::swap(type, other.type);
+				std::swap(OBB.data, other.OBB.data);
 
 				return *this;
 			}
@@ -77,7 +42,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				for (auto i=0u; i<3u; i++)
 					strengthFactor[i] = _strengthFactor[i];
 			}
-
+#if TODO
 			//! This is according to Rec.709 colorspace
 			inline float getFactorLuminosity() const
 			{
@@ -141,41 +106,33 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 				return triLight;
 			}
-
+#endif
+			//! type is second member due to alignment issues
+			union
+			{
+				irr::core::matrix3x4SIMD data;
+				struct
+				{
+					float e1_x,e2_x,e3_x,offset_x;
+					float e1_y,e2_y,e3_y,offset_y;
+					float e1_z,e2_z,e3_z,offset_z;
+				};
+			} OBB;
 			//! different lights use different measures of their strength (this already has the reciprocal of the light PDF factored in)
 			alignas(16) float strengthFactor[3];
-			//! type is second member due to alignment issues
-			E_TYPE type;
-			//! useful for analytical shapes
-			union
-			{
-				CachedTransform analytical;
-				struct Triangle
-				{
-					irr::core::vectorSIMDf padding[3];
-					irr::core::vectorSIMDf vertices[3];
-				} triangle;
-			};
-			/*
-			union
-			{
-				AreaSphere sphere;
-			};
-			*/
 		};
-
-		static_assert(sizeof(SLight)==112u,"Can't keep alignment straight!");
+		static_assert(sizeof(SLight)==64u,"Can't keep alignment straight!");
 
 		// No 8k yet, too many rays to store
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxResolution[2] = {7680/2,4320/2};
 
 
-		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& ds0, bool useDenoiser = true);
+		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& globalBackendDataDS, bool useDenoiser = true);
 
 		void init(	const irr::asset::SAssetBundle& meshes,
 					bool isCameraRightHanded,
 					irr::core::smart_refctd_ptr<irr::asset::ICPUBuffer>&& sampleSequence,
-					uint32_t rayBufferSize=(sizeof(::RadeonRays::ray)*2u+sizeof(uint32_t)*2u)*MaxResolution[0]*MaxResolution[1]); // 2 samples for MIS
+					uint32_t rayBufferSize=(sizeof(::RadeonRays::ray)*2u+sizeof(uint32_t)*2u)*MaxResolution[0]*MaxResolution[1]); // 2 samples for MIS, TODO: compute default buffer size
 
 		void deinit();
 
@@ -185,17 +142,19 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		auto* getColorBuffer() { return m_colorBuffer; }
 
-		const auto& getSceneBound() const { return sceneBound; }
+		const auto& getSceneBound() const { return m_sceneBound; }
 
-		uint64_t getTotalSamplesComputed() const { return static_cast<uint64_t>(m_samplesComputed)*static_cast<uint64_t>(m_rayCount)/m_samplesPerDispatch; }
+		uint64_t getTotalSamplesComputed() const { return static_cast<uint64_t>(m_samplesComputedPerPixel)*static_cast<uint64_t>(m_rayCountPerDispatch)/m_samplesPerPixelPerDispatch; }
 
 
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 4u;
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 6u;
     protected:
         ~Renderer();
 
-		core::smart_refctd_ptr<video::IGPUImageView> createGPUTexture(const uint32_t* extent, uint32_t mips, asset::E_FORMAT format);
 
+		core::smart_refctd_ptr<video::IGPUImageView> createScreenSizedTexture(asset::E_FORMAT format);
+
+#if TODO
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDS2layoutCompost(bool useDenoiser, core::smart_refctd_ptr<video::IGPUSampler>& nearstSampler);
 		core::smart_refctd_ptr<video::IGPUDescriptorSet> createDS2Compost(bool useDenoiser,
 			core::smart_refctd_ptr<video::IGPUSampler>& nearestSampler
@@ -205,40 +164,31 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDS2layoutRaygen(core::smart_refctd_ptr<video::IGPUSampler>& nearstSampler);
 		core::smart_refctd_ptr<video::IGPUDescriptorSet> createDS2Raygen(core::smart_refctd_ptr<video::IGPUSampler>& nearstSampler);
 		core::smart_refctd_ptr<video::IGPUPipelineLayout> createLayoutRaygen();
+#endif
 
 		const bool m_useDenoiser;
-
-		irr::core::smart_refctd_ptr<video::IGPUDescriptorSet> m_ds0;
 
         irr::video::IVideoDriver* m_driver;
 
 		irr::asset::IAssetManager* m_assetManager;
 		irr::scene::ISceneManager* m_smgr;
 
-		irr::core::vector<std::array<irr::core::vector3df_SIMD,3> > m_precomputedGeodesic;
 
-		irr::core::smart_refctd_ptr<irr::ext::RadeonRays::Manager> m_rrManager;
-
+		irr::core::aabbox3df m_sceneBound;
+		uint32_t m_renderSize[2u];
 		bool m_rightHanded;
 
-		irr::core::smart_refctd_ptr<irr::video::IGPUBufferView> m_sampleSequence;
-		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_scrambleTexture;
-
-		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_depth;
-		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_albedo;// TODO not needed any more, right?
-		irr::core::smart_refctd_ptr<irr::video::IGPUImageView>	m_normals,m_lightIndex,m_accumulation,m_tonemapOutput;
-		irr::video::IFrameBuffer* m_colorBuffer,* m_gbuffer,* tmpTonemapBuffer;
+		irr::core::smart_refctd_ptr<video::IGPUDescriptorSet> m_globalBackendDataDS;
+		
+#if TODO
+		irr::core::smart_refctd_ptr<irr::ext::RadeonRays::Manager> m_rrManager;
 
 		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_compostDS2;
 		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_compostLayout;
 		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_compostPipeline;
 
-		uint32_t m_maxSamples;
 		uint32_t m_raygenWorkGroups[2];
 		uint32_t m_resolveWorkGroups[2];
-		uint32_t m_samplesPerDispatch;
-		uint32_t m_samplesComputed;
-		uint32_t m_rayCount;
 		uint32_t m_framesDone;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_rayBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_intersectionBuffer;
@@ -252,15 +202,33 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_raygenPipeline;
 
 		irr::core::vector<irr::core::smart_refctd_ptr<irr::scene::IMeshSceneNode> > nodes;
-		irr::core::aabbox3df sceneBound;
 		irr::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
 		irr::ext::RadeonRays::Manager::MeshNodeRRInstanceCache rrInstances;
 
 		irr::core::vectorSIMDf constantClearColor;
+#endif
 		uint32_t m_lightCount;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightCDFBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightRadianceBuffer;
+
+		enum E_VISIBILITY_BUFFER_ATTACHMENT
+		{
+			EVBA_DEPTH,
+			EVBA_OBJECTID_AND_TRIANGLEID_AND_FRONTFACING,
+			// TODO: Once we get geometry packer V2 (virtual geometry) no need for these buffers actually (might want/need a barycentric buffer)
+			EVBA_NORMALS,
+			EVBA_UV_COORDINATES,
+			EVBA_COUNT
+		};
+		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_visibilityBufferAttachments[EVBA_COUNT];
+
+		uint32_t m_maxSamples, m_samplesPerPixelPerDispatch, m_rayCountPerDispatch, m_samplesComputedPerPixel;
+		irr::core::smart_refctd_ptr<irr::video::IGPUBufferView> m_sampleSequence;
+		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_scrambleTexture;
+
+		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_accumulation, m_tonemapOutput;
+		irr::video::IFrameBuffer* m_visibilityBuffer,* m_colorBuffer,* tmpTonemapBuffer;
 
 	#ifdef _IRR_BUILD_OPTIX_
 		irr::core::smart_refctd_ptr<irr::ext::OptiX::Manager> m_optixManager;
