@@ -3,6 +3,7 @@
 #include "ExtraCrap.h"
 
 #include "irr/ext/ScreenShot/ScreenShot.h"
+#include "../common.glsl"
 //#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
 
 
