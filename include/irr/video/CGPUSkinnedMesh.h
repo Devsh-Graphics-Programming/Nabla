@@ -43,13 +43,18 @@ namespace video
             //! Get the amount of mesh buffers.
             virtual uint32_t getMeshBufferCount() const override {return meshbuffers.size();}
 
-            //! Returns the IMesh interface for a frame.
-            virtual IGPUMeshBuffer* getMeshBuffer(uint32_t nr) const override
+            virtual const IGPUMeshBuffer* getMeshBuffer(uint32_t nr) const override
             {
-                if (nr>=meshbuffers.size())
+                if (nr < meshbuffers.size())
+                    return meshbuffers[nr].mb.get();
+                else
                     return nullptr;
+            }
 
-                return meshbuffers[nr].mb.get();
+            //! Returns the IMesh interface for a frame.
+            virtual IGPUMeshBuffer* getMeshBuffer(uint32_t nr) override
+            {
+                return const_cast<IGPUMeshBuffer*>( const_cast<const CGPUSkinnedMesh*>(this)->getMeshBuffer(nr) );
             }
 
             //! adds a Mesh

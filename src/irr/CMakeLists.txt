@@ -86,12 +86,16 @@ endif()
 
 set(_NBL_EMBED_BUILTIN_RESOURCES_ ${NBL_EMBED_BUILTIN_RESOURCES})
 
-#set(_NBL_TARGET_ARCH_ARM_ ${NBL_TARGET_ARCH_ARM}) #uncomment in the future
-set(__NBL_FAST_MATH ${NBL_FAST_MATH})
+#set(_NBL_TARGET_ARCH_ARM_ ${IRR_TARGET_ARCH_ARM}) #uncomment in the future
+set(__NBL_FAST_MATH ${IRR_FAST_MATH})
 set(_NBL_DEBUG 0)
+set(_NBL_RELWITHDEBINFO 0)
 configure_file("${NBL_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_RELEASE}/BuildConfigOptions.h")
+set(_NBL_DEBUG 0)
+set(_NBL_RELWITHDEBINFO 1)
 configure_file("${NBL_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h")
 set(_NBL_DEBUG 1)
+set(_NBL_RELWITHDEBINFO 0)
 configure_file("${NBL_ROOT_PATH}/include/irr/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
 set(NABLA_HEADERS_PUBLIC
@@ -138,8 +142,7 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/irr/asset/IAssetWriter.cpp
 	${NBL_ROOT_PATH}/src/irr/asset/IAssetLoader.cpp
 	
-# Builtin include loaders
-	${NBL_ROOT_PATH}/src/irr/asset/CGLSLScanBuiltinIncludeLoader.cpp
+# Builtin include loaders (TO REMOVE)
 	${NBL_ROOT_PATH}/src/irr/asset/CGLSLSkinningBuiltinIncludeLoader.cpp
 	
 # Shaders
@@ -289,6 +292,7 @@ set(COMMON_INCLUDE_DIRS
 irr_adjust_flags() # macro defined in root CMakeLists
 irr_adjust_definitions() # macro defined in root CMakeLists
 
+# TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
 macro(irr_target_link_zlib _trgt)
 	add_dependencies(${_trgt} zlibstatic)
 
@@ -448,6 +452,12 @@ elseif()
 		list(APPEND NABLA_HEADERS_PUBLIC  ${NBL_ROOT_PATH}/include/${X})
 	endforeach()
 endif()
+
+
+# extensions
+start_tracking_variables_for_propagation_to_parent()
+add_subdirectory(ext)
+propagate_changed_variables_to_parent_scope()
 
 
 set(NABLA_HEADERS_TO_INSTALL 

@@ -61,6 +61,15 @@ class IImageView : public IDescriptor
 			E_SWIZZLE g = ES_G;
 			E_SWIZZLE b = ES_B;
 			E_SWIZZLE a = ES_A;
+
+			bool operator==(const SComponentMapping& rhs) const
+			{
+				return r == rhs.r && g == rhs.g && b == rhs.b && a == rhs.a;
+			}
+			bool operator!=(const SComponentMapping& rhs) const
+			{
+				return !operator==(rhs);
+			}
 		};
 		struct SCreationParams
 		{

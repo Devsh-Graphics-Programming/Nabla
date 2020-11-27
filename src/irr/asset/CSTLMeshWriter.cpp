@@ -69,7 +69,7 @@ bool CSTLMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 namespace
 {
 template <class I>
-inline void writeFacesBinary(asset::ICPUMeshBuffer* buffer, const bool& noIndices, io::IWriteFile* file, uint32_t _colorVaid, asset::IAssetWriter::SAssetWriteParams _params)
+inline void writeFacesBinary(const asset::ICPUMeshBuffer* buffer, const bool& noIndices, io::IWriteFile* file, uint32_t _colorVaid, asset::IAssetWriter::SAssetWriteParams _params)
 {
 	auto& inputParams = buffer->getPipeline()->getVertexInputParams();
 	bool hasColor = inputParams.enabledAttribFlags & core::createBitmask({ COLOR_ATTRIBUTE });
@@ -170,7 +170,7 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh
 
 	for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
 	{
-		asset::ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
+		const asset::ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
 		if (buffer)
 		{
             asset::E_INDEX_TYPE type = buffer->getIndexType();
@@ -209,7 +209,7 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
 
 	for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
 	{
-		asset::ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
+		const asset::ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
 		if (buffer)
 		{
             asset::E_INDEX_TYPE type = buffer->getIndexType();

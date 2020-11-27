@@ -49,7 +49,6 @@ layout(location = 3) in vec3 vNormal;
 
 #include <irr/builtin/glsl/utils/common.glsl>
 #include <irr/builtin/glsl/utils/transform.glsl>
-#include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
 
 layout( push_constant, row_major ) uniform Block {
 	mat4 modelViewProj;
@@ -59,7 +58,7 @@ layout(location = 0) out vec3 Color; //per vertex output color, will be interpol
 
 void main()
 {
-    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(PushConstants.modelViewProj)*vPos;
+    gl_Position = PushConstants.modelViewProj*vPos;
     Color = vNormal*0.5+vec3(0.5);
 }
 )===";

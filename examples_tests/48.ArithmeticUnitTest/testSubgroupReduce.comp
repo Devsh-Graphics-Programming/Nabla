@@ -1,0 +1,23 @@
+#version 450
+#define _IRR_GLSL_WORKGROUP_SIZE_ ???? 
+
+#include "subgroupCommon.glsl"
+
+void main()
+{
+	CONDITIONAL_CLEAR_HEAD
+	CONDITIONAL_CLEAR_AND
+	andOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupAnd_impl(automaticInitialize,sourceVal);
+	CONDITIONAL_CLEAR_OR_XOR_ADD
+	xorOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupXor_impl(automaticInitialize,sourceVal);
+	CONDITIONAL_CLEAR_OR_XOR_ADD
+	orOutput  [gl_GlobalInvocationID.x] = irr_glsl_subgroupOr_impl(automaticInitialize,sourceVal);
+	CONDITIONAL_CLEAR_OR_XOR_ADD
+	addOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupAdd_impl(automaticInitialize,sourceVal);
+	CONDITIONAL_CLEAR_MUL
+	multOutput[gl_GlobalInvocationID.x] = irr_glsl_subgroupMul_impl(automaticInitialize,sourceVal);
+	CONDITIONAL_CLEAR_MIN
+	minOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupMin_impl(automaticInitialize,sourceVal);
+	CONDITIONAL_CLEAR_MAX
+	maxOutput [gl_GlobalInvocationID.x] = irr_glsl_subgroupMax_impl(automaticInitialize,sourceVal);
+}

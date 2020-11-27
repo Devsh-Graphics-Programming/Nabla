@@ -263,7 +263,7 @@ class COpenGLDescriptorSet : public IGPUDescriptorSet, protected asset::impl::IE
 			if (index+1u!=m_bindingInfo->size())
 				return m_bindingInfo->operator[](index+1u).offset-info.offset;
 			else
-				return m_descriptors->size()+1u-info.offset;
+				return m_descriptors->size()+1u-info.offset; // TODO: this +1 doesn't look right
 		}
 
 		inline const SBindingInfo* getBindingInfo(uint32_t offset) const

@@ -37,10 +37,10 @@ namespace irr
 						CState(const asset::ICPUImageView* const ditheringImageView) 
 						{
 							const bool isBC = asset::isBlockCompressionFormat(ditheringImageView->getCreationParameters().format);
-							assert(!isBC, "Precomputed dither image musn't be a BC format!");
+							assert(!isBC); // TODO: log "Precomputed dither image musn't be a BC format!"
 
 							const bool isCorrectChannelCount = asset::getFormatChannelCount(ditheringImageView->getCreationParameters().format) == 4;
-							assert(isCorrectChannelCount, "Precomputed dither image must contain all the rgba channels!");
+							assert(isCorrectChannelCount); // TODO: log "Precomputed dither image must contain all the rgba channels!"
 
 							using FLATTEN_FILTER = CFlattenRegionsImageFilter;
 							FLATTEN_FILTER flattenFilter;

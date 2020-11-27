@@ -11,8 +11,6 @@
 #include "irr/asset/CIncludeHandler.h"
 
 // TODO: rework this legacy stuff
-#include "irr/asset/CGLSLScanBuiltinIncludeLoader.h"
-
 #include "irr/asset/CGLSLSkinningBuiltinIncludeLoader.h"
 
 #include "irr/asset/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
@@ -29,9 +27,6 @@ static constexpr shaderc_spirv_version TARGET_SPIRV_VERSION = shaderc_spirv_vers
 
 IGLSLCompiler::IGLSLCompiler(io::IFileSystem* _fs) : m_inclHandler(core::make_smart_refctd_ptr<CIncludeHandler>(_fs)), m_fs(_fs)
 {
-    //m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLScanBuiltinIncludeLoader>());
-    //m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLSkinningBuiltinIncludeLoader>());
-
     m_inclHandler->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<asset::CGLSLVirtualTexturingBuiltinIncludeLoader>(_fs));
 }
 
@@ -89,21 +84,30 @@ core::smart_refctd_ptr<ICPUShader> IGLSLCompiler::createSPIRVFromGLSL(io::IReadF
 namespace impl
 {
     //string to be replaced with all "#" except those in "#include"
-    static constexpr const char* PREPROC_DIRECTIVE_DISABLER = "_this_is_hash_";
+    static constexpr const char* PREPROC_DIRECTIVE_DISABLER = "_this_is_a_hash_";
+    static constexpr const char* PREPROC_DIRECTIVE_ENABLER = PREPROC_DIRECTIVE_DISABLER;
     static constexpr const char* PREPROC_GL__DISABLER = "_this_is_a_GL__prefix_";
+    static constexpr const char* PREPROC_GL__ENABLER = PREPROC_GL__DISABLER;
+    static constexpr const char* PREPROC_LINE_CONTINUATION_DISABLER = "_this_is_a_line_continuation_\n";
+    static constexpr const char* PREPROC_LINE_CONTINUATION_ENABLER = "_this_is_a_line_continuation_";
     static void disableAllDirectivesExceptIncludes(std::string& _glslCode)
     {
+        // TODO: replace this with a proper-ish proprocessor and includer one day
         std::regex directive("#(?!(include|version|pragma shader_stage|line))");//all # not followed by "include" nor "version" nor "pragma shader_stage"
         //`#pragma shader_stage(...)` is needed for determining shader stage when `_stage` param of IGLSLCompiler functions is set to ESS_UNKNOWN
         auto result = std::regex_replace(_glslCode,directive,PREPROC_DIRECTIVE_DISABLER);
         std::regex glMacro("[ \t\r\n\v\f]GL_");
-        _glslCode = std::regex_replace(result, glMacro, PREPROC_GL__DISABLER);
+        result = std::regex_replace(result, glMacro, PREPROC_GL__DISABLER);
+        std::regex lineContinuation("\\\\[ \t\r\n\v\f]*\n");
+        _glslCode = std::regex_replace(result, lineContinuation, PREPROC_LINE_CONTINUATION_DISABLER);
     }
     static void reenableDirectives(std::string& _glslCode)
     {
-        std::regex glMacro(PREPROC_GL__DISABLER);
-        auto result = std::regex_replace(_glslCode,glMacro," GL_");
-        std::regex directive(PREPROC_DIRECTIVE_DISABLER);
+        std::regex lineContinuation(PREPROC_LINE_CONTINUATION_ENABLER);
+        auto result = std::regex_replace(_glslCode, lineContinuation, " \\");
+        std::regex glMacro(PREPROC_GL__ENABLER);
+        result = std::regex_replace(result,glMacro," GL_");
+        std::regex directive(PREPROC_DIRECTIVE_ENABLER);
         _glslCode = std::regex_replace(result, directive, "#");
     }
     static std::string encloseWithinExtraInclGuards(std::string&& _glslCode, uint32_t _maxInclusions, const char* _identifier)

@@ -30,7 +30,7 @@ add_subdirectory(19.SIMDmatrixMultiplication EXCLUDE_FROM_ALL)
 add_subdirectory(20.Megatexture EXCLUDE_FROM_ALL)
 add_subdirectory(21.DynamicTextureIndexing EXCLUDE_FROM_ALL) # TODO: revive
 if (NBL_BUILD_MITSUBA_LOADER AND NBL_BUILD_RADEON_RAYS)
-	#add_subdirectory(22.RaytracedAO EXCLUDE_FROM_ALL)
+	add_subdirectory(22.RaytracedAO EXCLUDE_FROM_ALL)
 endif()
 add_subdirectory(23.Autoexposure EXCLUDE_FROM_ALL)
 #add_subdirectory(24.BufferSubDataAlignTest EXCLUDE_FROM_ALL) # TODO: @Anastazluk or @Hazardu
@@ -61,3 +61,4 @@ add_subdirectory(44.LevelCurveExtraction EXCLUDE_FROM_ALL)
 add_subdirectory(45.BRDFEvalTest EXCLUDE_FROM_ALL)
 add_subdirectory(46.SamplingValidation EXCLUDE_FROM_ALL)
 add_subdirectory(47.DerivMapTest EXCLUDE_FROM_ALL)
+add_subdirectory(48.ArithmeticUnitTest EXCLUDE_FROM_ALL)

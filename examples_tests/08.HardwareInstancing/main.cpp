@@ -128,82 +128,12 @@ struct CullUniformBuffer
 	uint32_t LoDDistancesSq[6969];
 };
 
-struct ViewInvariantProps
-{
-	core::matrix3x4SIMD tform;
-};
 struct alignas(uint32_t) MaterialProps
 {
 	uint8_t something[128];
 };
 
-struct ViewDependentObjectInvariantProps
-{
-	core::matrix4SIMD mvp;
-	union
-	{
-		struct
-		{
-			float normalMatrixRow0[3];
-			uint32_t objectUUID;
-			float normalMatrixRow1[3];
-			int32_t meshUUID;
-			float normalMatrixRow2[3];
-		};
-		core::matrix3x4SIMD normalMatrix;
-	};
-};
-
 /*
-CULL SHADER (could process numerous cameras)
-
-mat4 viewProj = pc.viewProj;
-
-uint objectUUID = objectIDs[gl_GlobalInvocationIndex];
-ViewInvariantProps objProps = props[objectUUID];
-mat4x3 world = objProps.tform;
-mat4 mvp = viewProj*mat4(vec4(world[0],0.0),vec4(world[1],0.0),vec4(world[2],0.0),vec4(world[3],1.0));
-
-vec3 MinEdge = pc.LoDInvariantAABBMinEdge;
-vec3 MaxEdge = pc.LoDInvariantAABBMaxEdge;
-
-if (!culled(mvp,MinEdge,MaxEdge))
-{
-	vec3 toCamera = pc.camPos-world[3];
-	float distanceSq = dot(toCamera,toCamera);
-
-	int lod = specConstantMaxLoDLevels;
-	for (int i<0; i<specConstantMaxLoDLevels; i++)
-	if (distanceSq<pc.LoDDistancesSq[i])
-	{
-		lod = i;
-		break;
-	}
-
-	if (lod<specConstantMaxLoDLevels)
-	{
-		mat3 normalMatrixT = inverse(mat3(pc.view)*mat3(world));
-
-		ViewDependentObjectInvariantProps objectToDraw;
-		objectToDraw.mvp = mvp;
-		objectToDraw.normalMatrixRow0 = normalMatrixT[0];
-		objectToDraw.objectUUID = objectUUID;
-		objectToDraw.normalMatrixRow1 = normalMatrixT[1];
-		objectToDraw.meshUUID = pc.LoDMeshes[lod];
-		objectToDraw.normalMatrixRow2 = normalMatrixT[2];
-		// TODO: could optimize the reduction
-		outView.objects[atomicAdd(outView.objCount,1u)] = objectToDraw;
-	}
-}
-
-
-
-SORT AND SETUP VIEW
-
-if (gl_GlobalInvocationIndex<TOTAL_MESHBUFFERS)
-	outView.draws[gl_GlobalInvocationIndex] = constWorld.meshbuffers[gl_GlobalInvocationIndex].draw;
-
-
 EXPAND SHADER
 
 uint culledMeshID = someFunc(gl_GlobalInvocationIndex);
@@ -356,9 +286,9 @@ int main()
 	auto instanceData = [&]()
 	{
 		SBufferRange<video::IGPUBuffer> memoryBlock;
-		memoryBlock.buffer = driver->createDeviceLocalGPUBufferOnDedMem((sizeof(ViewInvariantProps)+sizeof(MaterialProps))*kHardwareInstancesTOTAL);
+		memoryBlock.buffer = driver->createDeviceLocalGPUBufferOnDedMem((sizeof(SceneNode_t)+sizeof(MaterialProps))*kHardwareInstancesTOTAL);
 		memoryBlock.size = memoryBlock.buffer->getSize();
-		return video::CPropertyPool<core::allocator,ViewInvariantProps,MaterialProps>::create(std::move(memoryBlock));
+		return video::CPropertyPool<core::allocator,SceneNode_t,MaterialProps>::create(std::move(memoryBlock));
 	}();
 
 	// use the pool
@@ -366,7 +296,7 @@ int main()
 	{
 		// create the instances
 		{
-			core::vector<ViewInvariantProps> propsA(kHardwareInstancesTOTAL);
+			core::vector<SceneNode_t> propsA(kHardwareInstancesTOTAL);
 			core::vector<MaterialProps> propsB(kHardwareInstancesTOTAL);
 		
 			auto propAIt = propsA.begin();
@@ -375,7 +305,7 @@ int main()
 			for (size_t y=0; y<kNumHardwareInstancesY; y++)
 			for (size_t x=0; x<kNumHardwareInstancesX; x++)
 			{
-				propAIt->tform.setTranslation(core::vectorSIMDf(x,y,z)*2.f);
+				propAIt->worldTransform.setTranslation(core::vectorSIMDf(x,y,z)*2.f);
 				/*
 				for (auto i=0; i<3; i++)
 				{
@@ -410,9 +340,9 @@ int main()
 	}
 
 
-	auto perViewInstanceData = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(ViewDependentObjectInvariantProps)*kHardwareInstancesTOTAL);
+	auto perViewInstanceData = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(VisibleObject_t)*kHardwareInstancesTOTAL);
 	
-
+	uint32_t drawCallCount;
 	auto drawCallParameters = [&]()
 	{
 		core::vector<DrawElementsIndirectCommand_t> indirectCmds;
@@ -442,7 +372,8 @@ int main()
 			indirectCmds.push_back(draw);
 		}
 		assert(instanceLoDs.size()<kHardMeshbufferLimit);
-		return driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(DrawElementsIndirectCommand_t)*indirectCmds.size(),indirectCmds.data());
+		drawCallCount = indirectCmds.size();
+		return driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(DrawElementsIndirectCommand_t)*drawCallCount,indirectCmds.data());
 	}();
 
 
@@ -454,15 +385,14 @@ int main()
 		IAssetLoader::SAssetLoadParams lp;
 		auto shaderBundle = assMgr->getAsset(shaderPath,lp);
 
-		auto cpuCullPipeline = introspector.createApproximateComputePipelineFromIntrospection(
+		auto cpuPipeline = introspector.createApproximateComputePipelineFromIntrospection(
 			IAsset::castDown<ICPUSpecializedShader>(shaderBundle.getContents().begin()->get()),
 			extensions->begin(),extensions->end()
 		);
-		return driver->getGPUObjectsFromAssets(&cpuCullPipeline.get(),&cpuCullPipeline.get()+1)->operator[](0);
+		return driver->getGPUObjectsFromAssets(&cpuPipeline.get(),&cpuPipeline.get()+1)->operator[](0);
 	};
 
-	auto cullObjectsPipeline = createComputePipelineFromFile("../cullObjects.comp");
-	auto clearCameraDrawcallsPipeline = createComputePipelineFromFile("../clearCameraDrawcalls.comp");
+	auto clearDrawsAndCullObjectsPipeline = createComputePipelineFromFile("../clearDrawsAndCullObjects.comp");
 	auto expandObjectsIntoDrawcallsPipeline = createComputePipelineFromFile("../expandObjectsIntoDrawcalls.comp");
 	auto setupRedirectsPipeline = createComputePipelineFromFile("../setupRedirects.comp");
 
@@ -495,18 +425,13 @@ int main()
 		{
 			auto workgroupCount = [](uint32_t workItems) -> uint32_t
 			{
-				return (workItems+kOptimalWorkgroupSize-1)/kOptimalWorkgroupSize;
+				return (workItems+_IRR_GLSL_WORKGROUP_SIZE_-1)/_IRR_GLSL_WORKGROUP_SIZE_;
 			};
 
-            driver->bindComputePipeline(cullObjectsPipeline.get());
-            //driver->bindDescriptorSets(video::EPBP_COMPUTE, gpuCullPipeline->getLayout(), 1u, 1u, &cullDescriptorSet.get(), nullptr);
-            //driver->pushConstants(cullObjectsPipeline->getLayout(), asset::ICPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(CullShaderData_t), &pc);
-            driver->dispatch(workgroupCount(instanceIDs.size()),1u,1u);
-            video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
-
-			//
-			driver->bindComputePipeline(clearCameraDrawcallsPipeline.get());
-            //driver->dispatch(workgroupCount(instanceIDs.size()),1u,1u);
+            driver->bindComputePipeline(clearDrawsAndCullObjectsPipeline.get());
+            //driver->bindDescriptorSets(video::EPBP_COMPUTE, clearDrawsAndCullObjectsPipeline->getLayout(), 1u, 1u, &cullDescriptorSet.get(), nullptr);
+            //driver->pushConstants(clearDrawsAndCullObjectsPipeline->getLayout(), asset::ICPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(CullShaderData_t), &pc);
+            driver->dispatch(workgroupCount(core::max<uint32_t>(instanceIDs.size(),drawCallCount)),1u,1u);
             video::COpenGLExtensionHandler::extGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
             
 			//

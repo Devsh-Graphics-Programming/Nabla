@@ -369,6 +369,23 @@ class CElementBSDF : public IElement
 
 		bool processChildData(IElement* _child, const std::string& name) override;
 
+		bool isMeta() const
+		{
+			switch (type)
+			{
+			case COATING: [[fallthrough]];
+			case ROUGHCOATING: [[fallthrough]];
+			case TWO_SIDED: [[fallthrough]];
+			case MASK: [[fallthrough]];
+			case BLEND_BSDF: [[fallthrough]];
+			case MIXTURE_BSDF: [[fallthrough]];
+			case BUMPMAP:
+				return true;
+			default:
+				return false;
+			}
+		}
+
 		//
 		Type type;
 		union

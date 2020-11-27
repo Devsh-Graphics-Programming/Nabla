@@ -21,8 +21,6 @@ set(EXTRA_SOURCES
 	../../src/irr/ext/ToneMapper/CToneMapper.cpp
 )
 
-#add_subdirectory("${IRR_ROOT_PATH}/ext/MitsubaLoader" "${IRR_ROOT_PATH}/ext/MitsubaLoader" EXCLUDE_FROM_ALL)
-
 irr_create_executable_project(
 	"${EXTRA_SOURCES}"
 	""

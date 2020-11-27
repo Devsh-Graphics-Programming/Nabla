@@ -1,0 +1,237 @@
+#version 430 core
+#define WORK_GROUP_DIM 16u
+layout(local_size_x = WORK_GROUP_DIM, local_size_y = WORK_GROUP_DIM) in;
+#define WORK_GROUP_SIZE (WORK_GROUP_DIM*WORK_GROUP_DIM)
+
+
+#include "irr/builtin/glsl/utils/NormalDecode.glsl"
+
+
+#include "common.glsl"
+
+
+// TODO transform into push constants
+// uniforms
+layout(location = 0) uniform vec3 uCameraPos;
+layout(location = 1) uniform float uDepthLinearizationConstant;
+layout(location = 2) uniform mat4 uFrustumCorners;
+layout(location = 3) uniform uvec2 uImageSize;
+layout(location = 4) uniform uvec4 uImageWidth_ImageArea_TotalImageSamples_Samples;
+layout(location = 5) uniform uint uSamplesComputed;
+layout(location = 6) uniform vec4 uImageSize2Rcp;
+
+// image views
+layout(set = 2, binding = 0) uniform usamplerBuffer sampleSequence;
+layout(set = 2, binding = 1) uniform usampler2D scramblebuf;
+layout(set = 2, binding = 2) uniform sampler2D depthbuf;
+layout(set = 2, binding = 3) uniform usampler2D objectTriangleFrontFacing;
+layout(set = 2, binding = 4) uniform sampler2D encodedNormal;
+layout(set = 2, binding = 5) uniform sampler2D uv;
+
+// SSBOs
+#include "irr/builtin/glsl/ext/RadeonRays/ray.glsl"
+layout(set = 2, binding = 6, std430) restrict writeonly buffer Rays
+{
+	RadeonRays_ray rays[];
+};
+
+layout(set = 1, binding = 0, std430) restrict readonly buffer CumulativeLightPDF
+{
+	uint lightCDF[];
+};
+
+layout(set = 1, binding = 1, std430, row_major) restrict readonly buffer Lights
+{
+	SLight light[];
+};
+
+
+
+float linearizeZBufferVal(in float nonLinearZBufferVal)
+{
+	// 1-(Ax+B)/(Cx) = y
+	// (Ax+B)/(Cx) = 1-y
+	// x = B/(C(1-y)-A)
+	// x = B/(C-A-Cy)
+	// get back original Z: `row[2][3]/(row[3][2]-row[2][2]-y*row[3][2]) = x`
+	// max Z: `B/(C-A)`
+	// positive [0,1] Z: `B/(C-A-Cy)/(B/(C-A))`
+	// positive [0,1] Z: `(C-A)/(C-A-Cy)`
+	// positive [0,1] Z: `D/(D-Cy)`
+    return 1.0/(uDepthLinearizationConstant*nonLinearZBufferVal+1.0);
+}
+
+float maxAbs1(in float val)
+{
+	return abs(val);
+}
+float maxAbs2(in vec2 val)
+{
+	vec2 v = abs(val);
+	return max(v.x,v.y);
+}
+float maxAbs3(in vec3 val)
+{
+	vec3 v = abs(val);
+	return max(max(v.x,v.y),v.z);
+}
+
+float GET_MAGNITUDE(in float val)
+{
+	float x = abs(val);
+	return uintBitsToFloat(floatBitsToUint(x)&2139095040u);
+}
+
+float ULP1(in float val, in uint accuracy)
+{
+	float x = abs(val);
+	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
+}
+float ULP2(in vec2 val, in uint accuracy)
+{
+	float x = maxAbs2(val);
+	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
+}
+float ULP3(in vec3 val, in uint accuracy)
+{
+	float x = maxAbs3(val);
+	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
+}
+
+
+
+uint ugen_uniform_sample1(in uint dimension, in uint sampleIx, in uint scramble);
+uvec2 ugen_uniform_sample2(in uint dimension, in uint sampleIx, in uint scramble);
+
+vec2 gen_uniform_sample2(in uint dimension, in uint sampleIx, in uint scramble);
+
+
+uint ugen_uniform_sample1(in uint dimension, in uint sampleIx, in uint scramble)
+{
+	return ugen_uniform_sample2(dimension,sampleIx,scramble).x;
+}
+uvec2 ugen_uniform_sample2(in uint dimension, in uint sampleIx, in uint scramble)
+{
+	uint address = (dimension>>1u)*MAX_ACCUMULATED_SAMPLES+(sampleIx&(MAX_ACCUMULATED_SAMPLES-1u));
+	return texelFetch(sampleSequence,int(address)).xy^uvec2(scramble);
+}
+
+vec2 gen_uniform_sample2(in uint dimension, in uint sampleIx, in uint scramble)
+{
+	return vec2(ugen_uniform_sample2(dimension,sampleIx,scramble))/vec2(~0u);
+}
+
+#ifdef TODO
+// TODO: define lower and upper bound over `lightCDF`
+vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout float maxT, inout bool alive, in vec3 position)
+{
+	uint lightIDSample = ugen_uniform_sample1(0u,sampleIx,scramble);
+	vec2 lightSurfaceSample = gen_uniform_sample2(2u,sampleIx,scramble);
+
+	uint lightID = upper_bound(lightIDSample,uint(lightCDF.length()-1));
+
+	SLight light = light[lightID];
+
+#define SHADOW_RAY_LEN 0.93
+	float factor; // 1.0/light_probability already baked into the light factor
+	switch (SLight_extractType(light))
+	{
+		case SLight_ET_ELLIPSOID:
+			lightSurfaceSample.x = lightSurfaceSample.x*2.0-1.0;
+			{
+				mat4x3 tform = light.transform;
+				float equator = lightSurfaceSample.y*2.0*kPI;
+				vec3 pointOnSurface = vec3(vec2(cos(equator),sin(equator))*sqrt(1.0-lightSurfaceSample.x*lightSurfaceSample.x),lightSurfaceSample.x);
+	
+				incoming = mat3(tform)*pointOnSurface+(tform[3]-position);
+				float incomingInvLen = inversesqrt(dot(incoming,incoming));
+				incoming *= incomingInvLen;
+
+				maxT = SHADOW_RAY_LEN/incomingInvLen;
+
+				factor = 4.0*kPI; // compensate for the domain of integration
+				// don't normalize, length of the normal times determinant is very handy for differential area after a 3x3 matrix transform
+				vec3 negLightNormal = light.transformCofactors*pointOnSurface;
+
+				factor *= max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
+			}
+			break;
+		default: // SLight_ET_TRIANGLE:
+			{
+				vec3 pointOnSurface = transpose(light.transformCofactors)[0];
+				vec3 shortEdge = transpose(light.transformCofactors)[1];
+				vec3 longEdge = transpose(light.transformCofactors)[2];
+
+				lightSurfaceSample.x = sqrt(lightSurfaceSample.x);
+
+				pointOnSurface += (shortEdge*(1.0-lightSurfaceSample.y)+longEdge*lightSurfaceSample.y)*lightSurfaceSample.x;
+
+				vec3 negLightNormal = cross(shortEdge,longEdge);
+
+				incoming = pointOnSurface-position;
+				float incomingInvLen = inversesqrt(dot(incoming,incoming));
+				incoming *= incomingInvLen;
+
+				maxT = SHADOW_RAY_LEN/incomingInvLen;
+
+				factor = 0.5*max(dot(negLightNormal,incoming),0.0)*incomingInvLen*incomingInvLen;
+			}
+			break;
+	}
+
+	if (factor<FLT_MIN)
+		alive = false;
+
+	return light.factor*factor;
+}
+#endif
+
+void main()
+{
+	uvec2 outputLocation = gl_GlobalInvocationID.xy;
+	bool alive = all(lessThan(outputLocation,uImageSize));
+	if (alive)
+	{
+		// TODO: accelerate texture fetching
+		ivec2 uv = ivec2(outputLocation);
+		float revdepth = texelFetch(depthbuf,uv,0).r;
+
+		uint outputID = outputLocation.x+uImageWidth_ImageArea_TotalImageSamples_Samples.x*outputLocation.y;
+
+		// unproject
+		vec3 viewDir;
+		vec3 position;
+		{
+			vec2 NDC = vec2(outputLocation)*uImageSize2Rcp.xy+uImageSize2Rcp.zw;
+			viewDir = mix(uFrustumCorners[0]*NDC.x+uFrustumCorners[1],uFrustumCorners[2]*NDC.x+uFrustumCorners[3],NDC.yyyy).xyz;
+			position = viewDir*linearizeZBufferVal(revdepth)+uCameraPos;
+		}
+
+		alive = revdepth>0.0;
+
+		uint scramble = texelFetch(scramblebuf,uv,0).r;
+
+		RadeonRays_ray newray;
+		newray.time = 0.0;
+		newray.mask = alive ? -1:0;
+#ifdef TODO
+		for (uint i=0u; i<uImageWidth_ImageArea_TotalImageSamples_Samples.w; i++)
+		{
+			vec4 throughput = vec4(0.0,0.0,0.0,-1.0);
+			float error = GET_MAGNITUDE(1.0-revdepth)*0.1;
+
+			newray.maxT = FLT_MAX;
+			if (alive)
+				throughput.rgb = light_sample(newray.direction,uSamplesComputed+i,scramble,newray.maxT,alive,position);
+
+			newray.origin = position+newray.direction*error/maxAbs3(newray.direction);
+			newray._active = alive ? 1:0;
+			newray.backfaceCulling = int(packHalf2x16(throughput.ab));
+			newray.useless_padding = int(packHalf2x16(throughput.gr));
+
+			// TODO: repack rays for coalescing
+			rays[outputID+i*uImageWidth_ImageArea_TotalImageSamples_Samples.y] = newray;
+		}
+#endif
+	}
+}
