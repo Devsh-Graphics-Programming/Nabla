@@ -1,7 +1,7 @@
 #version 430 core
 
 #include "InstanceDataPerCamera.glsl"
-layout(set=3, binding=0, row_major) readonly restrict buffer SSBO
+layout(set=2, binding=0, row_major) readonly restrict buffer SSBO
 {
     InstanceDataPerCamera data[];
 } instanceDataPerCamera;

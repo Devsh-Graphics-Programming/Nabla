@@ -48,10 +48,4 @@ struct SLight
 };
 
 
-#ifdef __cplusplus
-	#undef mat4
-	#undef mat4x3
-#endif
-
-
 #endif

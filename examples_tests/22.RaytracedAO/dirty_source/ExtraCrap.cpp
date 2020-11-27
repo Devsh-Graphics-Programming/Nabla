@@ -20,14 +20,14 @@ constexpr uint32_t kOptiXPixelSize = sizeof(uint16_t)*3u;
 
 Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& globalBackendDataDS, bool useDenoiser) :
 		m_useDenoiser(useDenoiser),	m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager), m_rrManager(ext::RadeonRays::Manager::create(m_driver)),
-		m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), baseEnvColor(), /*m_renderSize{0u,0u}, */m_rightHanded(false),
-		m_globalBackendDataDS(std::move(globalBackendDataDS)), rrShapeCache(),
+		m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), /*m_renderSize{0u,0u}, */m_rightHanded(false),
+		m_globalBackendDataDS(std::move(globalBackendDataDS)), // TODO: review this member
+		rrShapeCache(),
 #if TODO
-		m_raygenProgram(0u), m_compostProgram(0u),
 		m_raygenWorkGroups{0u,0u}, m_resolveWorkGroups{0u,0u},
 		m_rayBuffer(), m_intersectionBuffer(), m_rayCountBuffer(),
 		m_rayBufferAsRR(nullptr,nullptr), m_intersectionBufferAsRR(nullptr,nullptr), m_rayCountBufferAsRR(nullptr,nullptr),
-		nodes(), rrInstances(),
+		rrInstances(),
 #endif
 		m_lightCount(0u),
 		m_visibilityBufferAttachments{nullptr}, m_maxSamples(0u), m_samplesPerPixelPerDispatch(0u), m_rayCountPerDispatch(0u), m_framesDone(0u), m_samplesComputedPerPixel(0u),
@@ -36,6 +36,17 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, irr::sce
 		,m_cudaStream(nullptr)
 	#endif
 {
+	{
+		video::IGPUDescriptorSetLayout::SBinding binding;
+		binding.binding = 0u;
+		binding.type = asset::EDT_STORAGE_BUFFER;
+		binding.count = 1u;
+		binding.stageFlags = ISpecializedShader::ESS_VERTEX;
+		binding.samplers = nullptr;
+		m_perCameraRasterDSLayout = m_driver->createGPUDescriptorSetLayout(&binding,&binding+1u);
+		m_visibilityBufferFillPipelineLayout = m_driver->createGPUPipelineLayout(nullptr,nullptr,nullptr,nullptr,core::smart_refctd_ptr(m_perCameraRasterDSLayout),nullptr);
+	}
+
 	#ifdef _IRR_BUILD_OPTIX_
 		while (useDenoiser)
 		{
@@ -295,6 +306,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 	InitializationData retval;
 
 	auto contents = meshes.getContents();
+	uint32_t instanceCount = 0u;
 	for (auto& cpumesh_ : contents)
 	{
 		auto cpumesh = static_cast<asset::ICPUMesh*>(cpumesh_.get());
@@ -315,6 +327,35 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 		{
 			// TODO: get rid of `getMeshBuffer` and `getMeshBufferCount`, just return a range as `getMeshBuffers`
 			auto cpumb = cpumesh->getMeshBuffer(i);
+
+			// set up Visibility Buffer pipelines
+			{
+				auto oldPipeline = cpumb->getPipeline();
+				auto vertexInputParams = oldPipeline->getVertexInputParams();
+				const bool frontFaceIsCCW = oldPipeline->getRasterizationParams().frontFaceIsCCW;
+				auto found = retval.m_visibilityBufferFillPipelines.find(InitializationData::VisibilityBufferPipelineKey{vertexInputParams,frontFaceIsCCW});
+
+				core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> newPipeline;
+				if (found!=retval.m_visibilityBufferFillPipelines.end())
+					newPipeline = core::smart_refctd_ptr(found->second);
+				else
+				{
+					video::IGPUSpecializedShader* shaders[] = {m_visibilityBufferFillShaders[0].get(),m_visibilityBufferFillShaders[1].get()};
+					vertexInputParams.enabledAttribFlags &= 0b1101u;
+					asset::SRasterizationParams rasterParams;
+					rasterParams.frontFaceIsCCW = frontFaceIsCCW;
+					newPipeline = m_driver->createGPURenderpassIndependentPipeline(
+						nullptr,core::smart_refctd_ptr(m_visibilityBufferFillPipelineLayout),shaders,shaders+2u,
+						vertexInputParams,asset::SBlendParams{},asset::SPrimitiveAssemblyParams{},rasterParams
+					);
+					retval.m_visibilityBufferFillPipelines.emplace(InitializationData::VisibilityBufferPipelineKey{vertexInputParams,frontFaceIsCCW},std::move(newPipeline));
+				}
+				//cpumb->setPipeline(std::move(newPipeline));
+			}
+			cpumb->setBaseInstance(instanceCount);
+			instanceCount += 1u;
+
+			// set up BVH
 			m_rrManager->makeRRShapes(rrShapeCache, &cpumb, (&cpumb)+1);
 		}
 
@@ -335,6 +376,23 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 			retval.lightPDF.push_back(weight);
 		}
 	}
+
+	m_perCameraRasterDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_perCameraRasterDSLayout));
+	{
+		IGPUDescriptorSet::SDescriptorInfo info;
+		info.buffer.size = instanceCount*sizeof(InstanceDataPerCamera);
+		info.buffer.offset = 0u;
+		info.desc = m_driver->createDeviceLocalGPUBufferOnDedMem(info.buffer.size);
+		IGPUDescriptorSet::SWriteDescriptorSet write;
+		write.dstSet = m_perCameraRasterDS.get();
+		write.binding = 0u;
+		write.arrayElement = 0u;
+		write.count = 1u;
+		write.descriptorType = EDT_STORAGE_BUFFER;
+		write.info = &info;
+		m_driver->updateDescriptorSets(1u,&write,0u,nullptr);
+	}
+
 	return retval;
 }
 
@@ -371,7 +429,7 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 	}
 }
 
-void Renderer::finalizeSceneLights(Renderer::InitializationData& initData)
+void Renderer::finalizeScene(Renderer::InitializationData& initData)
 {
 	if (initData.lights.empty())
 		return;
@@ -476,7 +534,7 @@ void Renderer::init(const SAssetBundle& meshes,
 		assert(globalMeta);
 
 		initSceneNonAreaLights(initData);
-		finalizeSceneLights(initData);
+		finalizeScene(initData);
 		{
 	#if TODO
 			auto gpumeshes = m_driver->getGPUObjectsFromAssets<ICPUMesh>(contents.first, contents.second);
@@ -581,7 +639,6 @@ void Renderer::init(const SAssetBundle& meshes,
 	m_raygenLayout = createLayoutRaygen();
 	m_compostLayout = createLayoutCompost();
 
-	auto rr_includes = m_rrManager->getRadeonRaysGLSLIncludes();
 	{
 		std::string glsl = "raygen.comp" +
 			globalMeta->materialCompilerGLSL_declarations +
@@ -740,9 +797,6 @@ void Renderer::deinit()
 	m_raygenWorkGroups[0] = m_raygenWorkGroups[1] = 0u;
 	m_resolveWorkGroups[0] = m_resolveWorkGroups[1] = 0u;
 
-	for (auto& node : nodes)
-		node->remove();
-	nodes.clear();
 	m_rrManager->detachInstances(rrInstances.begin(),rrInstances.end());
 	m_rrManager->deleteInstances(rrInstances.begin(),rrInstances.end());
 	rrInstances.clear();
@@ -782,6 +836,8 @@ void Renderer::deinit()
 
 	m_rrManager->deleteShapes(rrShapeCache.begin(), rrShapeCache.end());
 	rrShapeCache.clear();
+
+	m_perCameraRasterDS = nullptr;
 
 	m_globalBackendDataDS = nullptr;
 	m_rightHanded = false;

@@ -19,7 +19,11 @@
 class Renderer : public irr::core::IReferenceCounted, public irr::core::InterfaceUnmovable
 {
     public:
-		#include "../common.glsl"
+		#include "../InstanceDataPerCamera.glsl"
+		#ifdef __cplusplus
+			#undef mat4
+			#undef mat4x3
+		#endif
 
 		// No 8k yet, too many rays to store
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxResolution[2] = {7680/2,4320/2};
@@ -66,6 +70,27 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				globalMeta = other.globalMeta;
 				return *this;
 			}
+			
+
+			struct VisibilityBufferPipelineKey
+			{
+				inline bool operator==(const VisibilityBufferPipelineKey& other) const
+				{
+					return vertexParams==other.vertexParams&&frontFaceIsCCW==other.frontFaceIsCCW;
+				}
+
+				irr::asset::SVertexInputParams vertexParams;
+				uint8_t frontFaceIsCCW;
+			};
+			struct VisibilityBufferPipelineKeyHash
+			{
+				inline std::size_t operator()(const VisibilityBufferPipelineKey& key) const
+				{
+					std::basic_string_view view(reinterpret_cast<const char*>(&key),sizeof(key));
+					return std::hash<decltype(view)>()(view);
+				}
+			};
+			irr::core::unordered_map<VisibilityBufferPipelineKey,irr::core::smart_refctd_ptr<irr::video::IGPURenderpassIndependentPipeline>,VisibilityBufferPipelineKeyHash> m_visibilityBufferFillPipelines;
 
 			irr::core::vector<SLight> lights;
 			irr::core::vector<irr::core::vectorSIMDf> lightRadiances;
@@ -78,7 +103,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		};
 		InitializationData initSceneObjects(const irr::asset::SAssetBundle& meshes);
 		void initSceneNonAreaLights(InitializationData& initData);
-		void finalizeSceneLights(InitializationData& initData);
+		void finalizeScene(InitializationData& initData);
 
 		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> createScreenSizedTexture(irr::asset::E_FORMAT format);
 
@@ -103,13 +128,25 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		irr::core::smart_refctd_ptr<irr::ext::RadeonRays::Manager> m_rrManager;
 
+		irr::core::smart_refctd_ptr<irr::video::IGPUSpecializedShader> m_visibilityBufferFillShaders[2];
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSetLayout> m_perCameraRasterDSLayout;
+		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_visibilityBufferFillPipelineLayout;
+		
+		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_raygenPipeline,m_resolvePipeline;
+
 
 		irr::core::vectorSIMDf baseEnvColor;
 		irr::core::aabbox3df m_sceneBound;
 		uint32_t m_renderSize[2u];
 		bool m_rightHanded;
 
-		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_globalBackendDataDS;
+		uint32_t m_lightCount;
+		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightCDFBuffer;
+		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightBuffer;
+		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightRadianceBuffer;
+
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_globalBackendDataDS,m_perCameraRasterDS; // TODO: do we need to keep track of this?
+
 
 		irr::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
 #if TODO
@@ -119,24 +156,19 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		uint32_t m_raygenWorkGroups[2];
 		uint32_t m_resolveWorkGroups[2];
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_rayBuffer;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_intersectionBuffer;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_rayCountBuffer;
-		std::pair<::RadeonRays::Buffer*,cl_mem> m_rayBufferAsRR;
-		std::pair<::RadeonRays::Buffer*,cl_mem> m_intersectionBufferAsRR;
-		std::pair<::RadeonRays::Buffer*,cl_mem> m_rayCountBufferAsRR;
 
 		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_raygenDS2;
 		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_raygenLayout;
-		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_raygenPipeline;
 
-		irr::core::vector<irr::core::smart_refctd_ptr<irr::scene::IMeshSceneNode> > nodes;
 		irr::ext::RadeonRays::Manager::MeshNodeRRInstanceCache rrInstances;
 #endif
-		uint32_t m_lightCount;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightCDFBuffer;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightBuffer;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightRadianceBuffer;
+		struct InteropBuffer
+		{
+			irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> buffer;
+			std::pair<::RadeonRays::Buffer*,cl_mem> asRRBuffer;
+		};
+		InteropBuffer m_rayCountBuffer,m_rayBuffer,m_intersectionBuffer;
+
 
 		enum E_VISIBILITY_BUFFER_ATTACHMENT
 		{
