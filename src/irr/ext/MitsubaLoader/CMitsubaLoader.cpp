@@ -284,7 +284,7 @@ void main()
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
 	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
-	const bool front = !gl_FrontFacing;
+	const bool front = (!gl_FrontFacing) != (InstData.data[InstanceIndex].determinant < 0.0);
 	MC_precomputed_t precomp = precomputeData(front);
 #ifdef TEX_PREFETCH_STREAM
 	runTexPrefetchStream(getTexPrefetchStream(precomp), UV, dUV);
@@ -1704,6 +1704,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			SInstanceData instData;
 
 			instData.tform = inst.tform;
+			instData.determinant = instData.tform.getPseudoDeterminant().x;
 			instData.tform.getSub3x3InverseTranspose(instData.normalMat.normalMatrix);
 			instData.emissive = core::rgb32f_to_rgb19e7(emissive.pointer);
 

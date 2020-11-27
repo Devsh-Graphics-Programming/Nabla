@@ -11,6 +11,7 @@ struct InstanceData
 	vec3 normalMatrixRow2;
 	uint _padding;//not needed
 	uvec2 emissive;
+	float determinant;
 	uint front_prefetch_count;
 	uint front_nprecomp_count;
 	uint front_genchoice_count;

@@ -29,6 +29,7 @@ namespace material_compiler
 				coat->eta = coat_blend->eta;
 				coat->ndf = coat_blend->ndf;
 				coat->shadowing = coat_blend->shadowing;
+				coat->thin = false;
 			}
 			cache->insert({ coat_blend, coat });
 

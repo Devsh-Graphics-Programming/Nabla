@@ -53,6 +53,7 @@ class CMitsubaLoader : public asset::IAssetLoader
 				};
 			} normalMat;
 			uint64_t emissive;//uvec2, rgb19e7
+			float determinant;
 			uint32_t front_prefetch_count;
 			uint32_t front_nprecomp_count;
 			uint32_t front_genchoice_count;

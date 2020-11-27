@@ -417,14 +417,14 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
             if (bsdf->type == IR::CBSDFNode::ET_MICROFACET_DIELECTRIC)
             {
                 auto* dielectric = static_cast<const IR::CMicrofacetDielectricBSDFNode*>(bsdf);
-                if (!dielectric->thin) // do not copy thin dielectrics
-                {
-                    auto* copy = static_cast<IR::CMicrofacetDielectricBSDFNode*>(ir->copyNode(front));
+                auto* copy = static_cast<IR::CMicrofacetDielectricBSDFNode*>(ir->copyNode(front));
+                if (!copy->thin) //we're always outside in case of thin dielectric
                     copy->eta = IRNode::color_t(1.f) / copy->eta;
 
-                    return copy;
-                }
+                return copy;
             }
+            else if (bsdf->type == IR::CBSDFNode::ET_MICROFACET_DIFFTRANS)
+                return ir->copyNode(front);
         }
         [[fallthrough]]; // intentional
         default:

@@ -5,7 +5,7 @@
 
 vec3 irr_glsl_projected_hemisphere_generate(in vec2 _sample)
 {
-    vec2 p = irr_glsl_concentricMapping(_sample);
+    vec2 p = irr_glsl_concentricMapping(_sample*0.99999+0.000005);
     
     float z = sqrt(max(0.0, 1.0 - p.x*p.x - p.y*p.y));
     

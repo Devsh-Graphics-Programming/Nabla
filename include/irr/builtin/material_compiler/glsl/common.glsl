@@ -918,7 +918,8 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 			out_microfacet.inner = irr_glsl_calcAnisotropicMicrofacetCache(currInteraction.inner, s);
 			finalizeMicrofacet(out_microfacet);
 
-			rem = albedo*irr_glsl_oren_nayar_cos_remainder_and_pdf(localPdf, s, currInteraction.inner.isotropic, ax2);
+			const float NdotL = irr_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
+			rem = albedo*irr_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(localPdf, ax2, dot(currInteraction.inner.isotropic.V.dir, s.L), NdotL, NdotV);
 			localPdf *= is_bsdf ? 0.5 : 1.0;
 		} else
 #endif
@@ -927,8 +928,8 @@ irr_glsl_LightSample irr_bsdf_cos_generate(in MC_precomputed_t precomp, in instr
 		{
 			localPdf = 1.0;
 
-			const float TdotV2 = currInteraction.inner.TdotV * currInteraction.inner.TdotV;
-			const float BdotV2 = currInteraction.inner.BdotV * currInteraction.inner.BdotV;
+			const float TdotV2 = currInteraction.TdotV2;
+			const float BdotV2 = currInteraction.BdotV2;
 			const float NdotV2 = currInteraction.inner.isotropic.NdotV_squared;
 
 			const vec3 upperHemisphereLocalV = currInteraction.inner.isotropic.NdotV < 0.0 ? -localV : localV;
