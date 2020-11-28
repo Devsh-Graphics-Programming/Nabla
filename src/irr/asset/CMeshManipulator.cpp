@@ -737,7 +737,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 
 			const size_t vertexSize = pipeline->getVertexInputParams().bindings[0].stride;
 			uint8_t* const v = (uint8_t*)(outbuffer->getAttribBoundBuffer(posId)->buffer->getPointer()); // after prefetch optim. we have guarantee of single vertex buffer so we can do like this
-			uint8_t* const vCopy = (uint8_t*)_NBL_ALIGNED_MALLOC(bufsz,_IRR_SIMD_ALIGNMENT);
+			uint8_t* const vCopy = (uint8_t*)_NBL_ALIGNED_MALLOC(bufsz, _NBL_SIMD_ALIGNMENT);
 			memcpy(vCopy, v, bufsz);
 
 			size_t baseVtx = outbuffer->getBaseVertex();

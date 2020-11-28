@@ -231,7 +231,7 @@ class IAsset : virtual public core::IReferenceCounted
 		inline bool isImmutable_debug()
 		{
 			const bool imm = getMutability() == EM_IMMUTABLE;
-			//_IRR_DEBUG_BREAK_IF(imm);
+			//_NBL_DEBUG_BREAK_IF(imm);
 			return imm;
 		}
 
