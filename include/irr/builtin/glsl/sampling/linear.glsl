@@ -2,7 +2,7 @@
 #define _NBL_BUILTIN_GLSL_SAMPLING_LINEAR_INCLUDED_
 
 
-float irr_glsl_sampling_generateLinearSample(in vec2 linearCoeffs, in float u)
+float nbl_glsl_sampling_generateLinearSample(in vec2 linearCoeffs, in float u)
 {
     const float rcpDiff = 1.0/(linearCoeffs[0]-linearCoeffs[1]);
     const vec2 squaredCoeffs = linearCoeffs*linearCoeffs;

@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_LIMITS_NUMERIC_INCLUDED_
-#define _IRR_LIMITS_NUMERIC_INCLUDED_
+#ifndef _NBL_LIMITS_NUMERIC_INCLUDED_
+#define _NBL_LIMITS_NUMERIC_INCLUDED_
 
 #ifndef INT_MIN
 #define INT_MIN -2147483648

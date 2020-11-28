@@ -2,10 +2,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_BSDF_BRDF_DIFFUSE_FRESNEL_CORRECTION_INCLUDED_
-#define _IRR_BSDF_BRDF_DIFFUSE_FRESNEL_CORRECTION_INCLUDED_
+#ifndef _NBL_BSDF_BRDF_DIFFUSE_FRESNEL_CORRECTION_INCLUDED_
+#define _NBL_BSDF_BRDF_DIFFUSE_FRESNEL_CORRECTION_INCLUDED_
 
-vec3 irr_glsl_diffuseFresnelCorrectionFactor(in vec3 n, in vec3 n2)
+vec3 nbl_glsl_diffuseFresnelCorrectionFactor(in vec3 n, in vec3 n2)
 {
     //assert(n*n==n2);
     bvec3 TIR = lessThan(n,vec3(1.0));

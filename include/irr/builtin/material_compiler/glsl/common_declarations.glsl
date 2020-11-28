@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_BUILTIN_MATERIAL_COMPILER_GLSL_COMMON_DECLARATIONS_INCLUDED_
-#define _IRR_BUILTIN_MATERIAL_COMPILER_GLSL_COMMON_DECLARATIONS_INCLUDED_
+#ifndef _NBL_BUILTIN_MATERIAL_COMPILER_GLSL_COMMON_DECLARATIONS_INCLUDED_
+#define _NBL_BUILTIN_MATERIAL_COMPILER_GLSL_COMMON_DECLARATIONS_INCLUDED_
 
 #include <irr/builtin/glsl/virtual_texturing/extensions.glsl>
 #include <irr/builtin/glsl/colorspace/encodeCIEXYZ.glsl>
@@ -43,7 +43,7 @@ struct MC_precomputed_t
 
 struct MC_microfacet_t
 {
-	irr_glsl_AnisotropicMicrofacetCache inner;
+	nbl_glsl_AnisotropicMicrofacetCache inner;
 	float TdotH2;
 	float BdotH2;
 };
@@ -55,7 +55,7 @@ void finalizeMicrofacet(inout MC_microfacet_t mf)
 
 struct MC_interaction_t
 {
-	irr_glsl_AnisotropicViewSurfaceInteraction inner;
+	nbl_glsl_AnisotropicViewSurfaceInteraction inner;
 	float TdotV2;
 	float BdotV2;
 };
@@ -67,7 +67,7 @@ void finalizeInteraction(inout MC_interaction_t i)
 
 #define ALPHA_EPSILON 1.0e-08
 
-#define CIE_XYZ_Luma_Y_coeffs transpose(irr_glsl_sRGBtoXYZ)[1]
+#define CIE_XYZ_Luma_Y_coeffs transpose(nbl_glsl_sRGBtoXYZ)[1]
 
 //#define MATERIAL_COMPILER_USE_SWTICH
 #ifdef MATERIAL_COMPILER_USE_SWTICH

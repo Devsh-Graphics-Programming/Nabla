@@ -2,12 +2,12 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_MATH_FUNCTIONS_INCLUDED_
-#define _IRR_MATH_FUNCTIONS_INCLUDED_
+#ifndef _NBL_MATH_FUNCTIONS_INCLUDED_
+#define _NBL_MATH_FUNCTIONS_INCLUDED_
 
 #include <irr/builtin/glsl/math/constants.glsl>
 
-float irr_glsl_erf(in float _x)
+float nbl_glsl_erf(in float _x)
 {
     const float a1 = 0.254829592;
     const float a2 = -0.284496736;
@@ -25,7 +25,7 @@ float irr_glsl_erf(in float _x)
     return sign*y;
 }
 
-float irr_glsl_erfInv(in float _x)
+float nbl_glsl_erfInv(in float _x)
 {
     float x = clamp(_x, -0.99999, 0.99999);
     float w = -log((1.0-x) * (1.0+x));
@@ -59,55 +59,55 @@ float irr_glsl_erfInv(in float _x)
     return p*x;
 }
 
-float irr_glsl_lengthManhattan(float v)
+float nbl_glsl_lengthManhattan(float v)
 {
     return abs(v);
 }
-float irr_glsl_lengthManhattan(vec2 v)
+float nbl_glsl_lengthManhattan(vec2 v)
 {
     v = abs(v);
     return v.x + v.y;
 }
-float irr_glsl_lengthManhattan(vec3 v)
+float nbl_glsl_lengthManhattan(vec3 v)
 {
     v = abs(v);
     return v.x + v.y + v.z;
 }
-float irr_glsl_lengthManhattan(vec4 v)
+float nbl_glsl_lengthManhattan(vec4 v)
 {
     v = abs(v);
     return v.x + v.y + v.z + v.w;
 }
 
-float irr_glsl_lengthSq(in float v)
+float nbl_glsl_lengthSq(in float v)
 {
     return v * v;
 }
-float irr_glsl_lengthSq(in vec2 v)
+float nbl_glsl_lengthSq(in vec2 v)
 {
     return dot(v, v);
 }
-float irr_glsl_lengthSq(in vec3 v)
+float nbl_glsl_lengthSq(in vec3 v)
 {
     return dot(v, v);
 }
-float irr_glsl_lengthSq(in vec4 v)
+float nbl_glsl_lengthSq(in vec4 v)
 {
     return dot(v, v);
 }
 
-vec3 irr_glsl_reflect(in vec3 I, in vec3 N, in float NdotI)
+vec3 nbl_glsl_reflect(in vec3 I, in vec3 N, in float NdotI)
 {
     return N*2.0*NdotI - I;
 }
-vec3 irr_glsl_reflect(in vec3 I, in vec3 N)
+vec3 nbl_glsl_reflect(in vec3 I, in vec3 N)
 {
     float NdotI = dot(N,I);
-    return irr_glsl_reflect(I, N, NdotI);
+    return nbl_glsl_reflect(I, N, NdotI);
 }
 
 // for refraction the orientation of the normal matters, because a different IoR will be used
-bool irr_glsl_getOrientedEtas(out float orientedEta, out float rcpOrientedEta, in float NdotI, in float eta)
+bool nbl_glsl_getOrientedEtas(out float orientedEta, out float rcpOrientedEta, in float NdotI, in float eta)
 {
     const bool backside = NdotI<0.0;
     const float rcpEta = 1.0/eta;
@@ -115,7 +115,7 @@ bool irr_glsl_getOrientedEtas(out float orientedEta, out float rcpOrientedEta, i
     rcpOrientedEta = backside ? eta:rcpEta;
     return backside;
 }
-bool irr_glsl_getOrientedEtas(out vec3 orientedEta, out vec3 rcpOrientedEta, in float NdotI, in vec3 eta)
+bool nbl_glsl_getOrientedEtas(out vec3 orientedEta, out vec3 rcpOrientedEta, in float NdotI, in vec3 eta)
 {
     const bool backside = NdotI<0.0;
     const vec3 rcpEta = vec3(1.0) / eta;
@@ -124,77 +124,77 @@ bool irr_glsl_getOrientedEtas(out vec3 orientedEta, out vec3 rcpOrientedEta, in 
     return backside;
 }
 
-float irr_glsl_refract_compute_NdotT2(in float NdotI2, in float rcpOrientedEta2)
+float nbl_glsl_refract_compute_NdotT2(in float NdotI2, in float rcpOrientedEta2)
 {
     return rcpOrientedEta2*NdotI2 + 1.0 - rcpOrientedEta2;
 }
-float irr_glsl_refract_compute_NdotT(in bool backside, in float NdotI2, in float rcpOrientedEta2)
+float nbl_glsl_refract_compute_NdotT(in bool backside, in float NdotI2, in float rcpOrientedEta2)
 {
-    const float abs_NdotT = sqrt(irr_glsl_refract_compute_NdotT2(NdotI2,rcpOrientedEta2));
+    const float abs_NdotT = sqrt(nbl_glsl_refract_compute_NdotT2(NdotI2,rcpOrientedEta2));
     return backside ? abs_NdotT:(-abs_NdotT);
 }
-vec3 irr_glsl_refract(in vec3 I, in vec3 N, in bool backside, in float NdotI, in float NdotI2, in float rcpOrientedEta, in float rcpOrientedEta2)
+vec3 nbl_glsl_refract(in vec3 I, in vec3 N, in bool backside, in float NdotI, in float NdotI2, in float rcpOrientedEta, in float rcpOrientedEta2)
 {
-    return N*(NdotI*rcpOrientedEta + irr_glsl_refract_compute_NdotT(backside,NdotI2,rcpOrientedEta2)) - rcpOrientedEta*I;
+    return N*(NdotI*rcpOrientedEta + nbl_glsl_refract_compute_NdotT(backside,NdotI2,rcpOrientedEta2)) - rcpOrientedEta*I;
 }
-vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float NdotI, in float eta)
+vec3 nbl_glsl_refract(in vec3 I, in vec3 N, in float NdotI, in float eta)
 {
     float orientedEta, rcpOrientedEta;
-    const bool backside = irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, NdotI, eta);
-    return irr_glsl_refract(I, N, backside, NdotI, NdotI*NdotI, rcpOrientedEta, rcpOrientedEta*rcpOrientedEta);
+    const bool backside = nbl_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, NdotI, eta);
+    return nbl_glsl_refract(I, N, backside, NdotI, NdotI*NdotI, rcpOrientedEta, rcpOrientedEta*rcpOrientedEta);
 }
-vec3 irr_glsl_refract(in vec3 I, in vec3 N, in float eta)
+vec3 nbl_glsl_refract(in vec3 I, in vec3 N, in float eta)
 {
     const float NdotI = dot(N, I);
-    return irr_glsl_refract(I, N, NdotI, eta);
+    return nbl_glsl_refract(I, N, NdotI, eta);
 }
 
-vec3 irr_glsl_reflect_refract_impl(in bool _refract, in vec3 I, in vec3 N, in float NdotI, in float NdotTorR, in float rcpOrientedEta)
+vec3 nbl_glsl_reflect_refract_impl(in bool _refract, in vec3 I, in vec3 N, in float NdotI, in float NdotTorR, in float rcpOrientedEta)
 {    
     return N*(NdotI*(_refract ? rcpOrientedEta:1.0)+NdotTorR) - I*(_refract ? rcpOrientedEta:1.0);
 }
-vec3 irr_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in bool backside, in float NdotI, in float NdotI2, in float rcpOrientedEta, in float rcpOrientedEta2)
+vec3 nbl_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in bool backside, in float NdotI, in float NdotI2, in float rcpOrientedEta, in float rcpOrientedEta2)
 {
-    const float NdotTorR = _refract ? irr_glsl_refract_compute_NdotT(backside,NdotI2,rcpOrientedEta2):NdotI;
-    return irr_glsl_reflect_refract_impl(_refract,I,N,NdotI,NdotTorR,rcpOrientedEta);
+    const float NdotTorR = _refract ? nbl_glsl_refract_compute_NdotT(backside,NdotI2,rcpOrientedEta2):NdotI;
+    return nbl_glsl_reflect_refract_impl(_refract,I,N,NdotI,NdotTorR,rcpOrientedEta);
 }
-vec3 irr_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in float NdotI, in float NdotI2, in float eta)
+vec3 nbl_glsl_reflect_refract(in bool _refract, in vec3 I, in vec3 N, in float NdotI, in float NdotI2, in float eta)
 {
     float orientedEta, rcpOrientedEta;
-    const bool backside = irr_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, NdotI, eta);
-    return irr_glsl_reflect_refract(_refract, I, N, backside, NdotI, NdotI2, rcpOrientedEta, rcpOrientedEta*rcpOrientedEta);
+    const bool backside = nbl_glsl_getOrientedEtas(orientedEta, rcpOrientedEta, NdotI, eta);
+    return nbl_glsl_reflect_refract(_refract, I, N, backside, NdotI, NdotI2, rcpOrientedEta, rcpOrientedEta*rcpOrientedEta);
 }
 
 // returns unnormalized vector
-vec3 irr_glsl_computeUnnormalizedMicrofacetNormal(in bool _refract, in vec3 V, in vec3 L, in float orientedEta)
+vec3 nbl_glsl_computeUnnormalizedMicrofacetNormal(in bool _refract, in vec3 V, in vec3 L, in float orientedEta)
 {
     const float etaFactor = (_refract ? orientedEta:1.0);
     const vec3 tmpH = V+L*etaFactor;
     return _refract ? (-tmpH):tmpH;
 }
 // returns normalized vector, but NaN when 
-vec3 irr_glsl_computeMicrofacetNormal(in bool _refract, in vec3 V, in vec3 L, in float orientedEta)
+vec3 nbl_glsl_computeMicrofacetNormal(in bool _refract, in vec3 V, in vec3 L, in float orientedEta)
 {
-    const vec3 H = irr_glsl_computeUnnormalizedMicrofacetNormal(_refract,V,L,orientedEta);
+    const vec3 H = nbl_glsl_computeUnnormalizedMicrofacetNormal(_refract,V,L,orientedEta);
     const float unnormRcpLen = inversesqrt(dot(H,H));
     return H*unnormRcpLen;
 }
 
 // if V and L are on different sides of the surface normal, then their dot product sign bits will differ, hence XOR will yield 1 at last bit
-bool irr_glsl_isTransmissionPath(in float NdotV, in float NdotL)
+bool nbl_glsl_isTransmissionPath(in float NdotV, in float NdotL)
 {
     return ((floatBitsToUint(NdotV)^floatBitsToUint(NdotL)) & 0x80000000u) != 0u;
 }
 
 // valid only for `theta` in [-PI,PI]
-void irr_glsl_sincos(in float theta, out float s, out float c)
+void nbl_glsl_sincos(in float theta, out float s, out float c)
 {
     c = cos(theta);
     s = sqrt(1.0-c*c);
     s = theta<0.0 ? -s:s; // TODO: do with XOR
 }
 
-mat2x3 irr_glsl_frisvad(in vec3 n)
+mat2x3 nbl_glsl_frisvad(in vec3 n)
 {
 	const float a = 1.0/(1.0 + n.z);
 	const float b = -n.x*n.y*a;
@@ -202,7 +202,7 @@ mat2x3 irr_glsl_frisvad(in vec3 n)
 }
 
 // @return if picked right choice
-bool irr_glsl_partitionRandVariable(in float leftProb, inout float xi, out float rcpChoiceProb)
+bool nbl_glsl_partitionRandVariable(in float leftProb, inout float xi, out float rcpChoiceProb)
 {
     const float NEXT_ULP_AFTER_UNITY = uintBitsToFloat(0x3f800001u);
     const bool pickRight = xi>=leftProb*NEXT_ULP_AFTER_UNITY;
@@ -217,29 +217,29 @@ bool irr_glsl_partitionRandVariable(in float leftProb, inout float xi, out float
 }
 
 // @ return abs(x) if cond==true, max(x,0.0) otherwise
-float irr_glsl_conditionalAbsOrMax(in bool cond, in float x, in float limit)
+float nbl_glsl_conditionalAbsOrMax(in bool cond, in float x, in float limit)
 {
     const float condAbs = uintBitsToFloat(floatBitsToUint(x) & uint(cond ? 0x7fFFffFFu:0xffFFffFFu));
     return max(condAbs,limit);
 }
-vec2 irr_glsl_conditionalAbsOrMax(in bool cond, in vec2 x, in vec2 limit)
+vec2 nbl_glsl_conditionalAbsOrMax(in bool cond, in vec2 x, in vec2 limit)
 {
     const vec2 condAbs = uintBitsToFloat(floatBitsToUint(x) & uvec2(cond ? 0x7fFFffFFu:0xffFFffFFu));
     return max(condAbs,limit);
 }
-vec3 irr_glsl_conditionalAbsOrMax(in bool cond, in vec3 x, in vec3 limit)
+vec3 nbl_glsl_conditionalAbsOrMax(in bool cond, in vec3 x, in vec3 limit)
 {
     const vec3 condAbs = uintBitsToFloat(floatBitsToUint(x) & uvec3(cond ? 0x7fFFffFFu:0xffFFffFFu));
     return max(condAbs,limit);
 }
-vec4 irr_glsl_conditionalAbsOrMax(in bool cond, in vec4 x, in vec4 limit)
+vec4 nbl_glsl_conditionalAbsOrMax(in bool cond, in vec4 x, in vec4 limit)
 {
     const vec4 condAbs = uintBitsToFloat(floatBitsToUint(x) & uvec4(cond ? 0x7fFFffFFu:0xffFFffFFu));
     return max(condAbs,limit);
 }
 
 //
-uint irr_glsl_rotl(in uint x, in uint k)
+uint nbl_glsl_rotl(in uint x, in uint k)
 {
 	return (x<<k) | (x>>(32u-k));
 }
@@ -248,7 +248,7 @@ uint irr_glsl_rotl(in uint x, in uint k)
 // trig
 
 // returns `acos(acos(A)+acos(B)+acos(C))-PI` but requires `sinA,sinB,sinC` are all positive
-float irr_glsl_getArccosSumofABC_minus_PI(in float cosA, in float cosB, in float cosC, in float sinA, in float sinB, in float sinC)
+float nbl_glsl_getArccosSumofABC_minus_PI(in float cosA, in float cosB, in float cosC, in float sinA, in float sinB, in float sinC)
 {
     // sorry about the naming of `something` I just can't seem to be able to give good name to the variables that is consistent with semantics
 	const bool something0 = cosA<(-cosB);
@@ -257,7 +257,7 @@ float irr_glsl_getArccosSumofABC_minus_PI(in float cosA, in float cosB, in float
 	const bool something2 = cosSumAB<cosC;
 	// apply triple angle formula
 	const float absArccosSumABC = acos(cosSumAB*cosC-(cosA*sinB+sinA*cosB)*sinC);
-	return ((something0 ? something2:something1) ? (-absArccosSumABC):absArccosSumABC)+(something0||something1 ? irr_glsl_PI:(-irr_glsl_PI));
+	return ((something0 ? something2:something1) ? (-absArccosSumABC):absArccosSumABC)+(something0||something1 ? nbl_glsl_PI:(-nbl_glsl_PI));
 }
 
 #endif

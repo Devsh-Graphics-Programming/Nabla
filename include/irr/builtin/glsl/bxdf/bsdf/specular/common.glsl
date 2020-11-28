@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_BUILTIN_GLSL_BXDF_BSDF_SPECULAR_COMMON_INCLUDED_
-#define _IRR_BUILTIN_GLSL_BXDF_BSDF_SPECULAR_COMMON_INCLUDED_
+#ifndef _NBL_BUILTIN_GLSL_BXDF_BSDF_SPECULAR_COMMON_INCLUDED_
+#define _NBL_BUILTIN_GLSL_BXDF_BSDF_SPECULAR_COMMON_INCLUDED_
 
 #include <irr/builtin/glsl/math/functions.glsl>
 

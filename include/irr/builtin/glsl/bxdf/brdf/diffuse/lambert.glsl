@@ -2,66 +2,66 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_BXDF_BRDF_DIFFUSE_LAMBERT_INCLUDED_
-#define _IRR_BXDF_BRDF_DIFFUSE_LAMBERT_INCLUDED_
+#ifndef _NBL_BXDF_BRDF_DIFFUSE_LAMBERT_INCLUDED_
+#define _NBL_BXDF_BRDF_DIFFUSE_LAMBERT_INCLUDED_
 
 #include <irr/builtin/glsl/bxdf/common.glsl>
 #include <irr/builtin/glsl/sampling/cos_weighted.glsl>
 
-float irr_glsl_lambertian()
+float nbl_glsl_lambertian()
 {
-    return irr_glsl_RECIPROCAL_PI;
+    return nbl_glsl_RECIPROCAL_PI;
 }
 
-float irr_glsl_lambertian_cos_eval_rec_pi_factored_out_wo_clamps(in float maxNdotL)
+float nbl_glsl_lambertian_cos_eval_rec_pi_factored_out_wo_clamps(in float maxNdotL)
 {
    return maxNdotL;
 }
-float irr_glsl_lambertian_cos_eval_rec_pi_factored_out(in float NdotL)
+float nbl_glsl_lambertian_cos_eval_rec_pi_factored_out(in float NdotL)
 {
-   return irr_glsl_lambertian_cos_eval_rec_pi_factored_out_wo_clamps(max(NdotL,0.0));
+   return nbl_glsl_lambertian_cos_eval_rec_pi_factored_out_wo_clamps(max(NdotL,0.0));
 }
 
-float irr_glsl_lambertian_cos_eval_wo_clamps(in float maxNdotL)
+float nbl_glsl_lambertian_cos_eval_wo_clamps(in float maxNdotL)
 {
-   return irr_glsl_lambertian_cos_eval_rec_pi_factored_out_wo_clamps(maxNdotL)*irr_glsl_lambertian();
+   return nbl_glsl_lambertian_cos_eval_rec_pi_factored_out_wo_clamps(maxNdotL)*nbl_glsl_lambertian();
 }
-float irr_glsl_lambertian_cos_eval(in irr_glsl_LightSample _sample)
+float nbl_glsl_lambertian_cos_eval(in nbl_glsl_LightSample _sample)
 {
-    return irr_glsl_lambertian_cos_eval_rec_pi_factored_out(_sample.NdotL)*irr_glsl_lambertian();
-}
-
-irr_glsl_LightSample irr_glsl_lambertian_cos_generate_wo_clamps(in vec3 tangentSpaceV, in mat3 m, in vec2 u)
-{
-    vec3 L = irr_glsl_projected_hemisphere_generate(u);
-
-    return irr_glsl_createLightSampleTangentSpace(tangentSpaceV,L,m);
-}
-irr_glsl_LightSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u)
-{
-    return irr_glsl_lambertian_cos_generate_wo_clamps(irr_glsl_getTangentSpaceV(interaction),irr_glsl_getTangentFrame(interaction),u);
+    return nbl_glsl_lambertian_cos_eval_rec_pi_factored_out(_sample.NdotL)*nbl_glsl_lambertian();
 }
 
-
-
-float irr_glsl_lambertian_pdf_wo_clamps(in float maxNdotL)
+nbl_glsl_LightSample nbl_glsl_lambertian_cos_generate_wo_clamps(in vec3 tangentSpaceV, in mat3 m, in vec2 u)
 {
-    return irr_glsl_projected_hemisphere_pdf(maxNdotL);
+    vec3 L = nbl_glsl_projected_hemisphere_generate(u);
+
+    return nbl_glsl_createLightSampleTangentSpace(tangentSpaceV,L,m);
 }
-
-float irr_glsl_lambertian_pdf(in irr_glsl_LightSample s, in irr_glsl_IsotropicViewSurfaceInteraction i)
+nbl_glsl_LightSample nbl_glsl_lambertian_cos_generate(in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec2 u)
 {
-    return irr_glsl_lambertian_pdf_wo_clamps(max(s.NdotL,0.0));
+    return nbl_glsl_lambertian_cos_generate_wo_clamps(nbl_glsl_getTangentSpaceV(interaction),nbl_glsl_getTangentFrame(interaction),u);
 }
 
 
-float irr_glsl_lambertian_cos_remainder_and_pdf_wo_clamps(out float pdf, in float maxNdotL)
+
+float nbl_glsl_lambertian_pdf_wo_clamps(in float maxNdotL)
 {
-    return irr_glsl_projected_hemisphere_remainder_and_pdf(pdf,maxNdotL);
+    return nbl_glsl_projected_hemisphere_pdf(maxNdotL);
 }
-float irr_glsl_lambertian_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample s)
+
+float nbl_glsl_lambertian_pdf(in nbl_glsl_LightSample s, in nbl_glsl_IsotropicViewSurfaceInteraction i)
 {
-    return irr_glsl_projected_hemisphere_remainder_and_pdf(pdf,max(s.NdotL,0.0));
+    return nbl_glsl_lambertian_pdf_wo_clamps(max(s.NdotL,0.0));
+}
+
+
+float nbl_glsl_lambertian_cos_remainder_and_pdf_wo_clamps(out float pdf, in float maxNdotL)
+{
+    return nbl_glsl_projected_hemisphere_remainder_and_pdf(pdf,maxNdotL);
+}
+float nbl_glsl_lambertian_cos_remainder_and_pdf(out float pdf, in nbl_glsl_LightSample s)
+{
+    return nbl_glsl_projected_hemisphere_remainder_and_pdf(pdf,max(s.NdotL,0.0));
 }
 
 #endif

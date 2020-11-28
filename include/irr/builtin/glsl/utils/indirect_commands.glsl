@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-struct irr_glsl_DrawArraysIndirectCommand_t
+struct nbl_glsl_DrawArraysIndirectCommand_t
 {
     uint  count;
     uint  instanceCount;
@@ -10,7 +10,7 @@ struct irr_glsl_DrawArraysIndirectCommand_t
     uint  baseInstance;
 };
 
-struct irr_glsl_DrawElementsIndirectCommand_t
+struct nbl_glsl_DrawElementsIndirectCommand_t
 {
     uint count;
     uint instanceCount;
@@ -19,7 +19,7 @@ struct irr_glsl_DrawElementsIndirectCommand_t
     uint baseInstance;
 };
 
-struct irr_glsl_DispatchIndirectCommand_t
+struct nbl_glsl_DispatchIndirectCommand_t
 {
     uint  num_groups_x;
     uint  num_groups_y;

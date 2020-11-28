@@ -2,10 +2,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_BUILTIN_GLSL_UTILS_CULLING_INCLUDED_
-#define _IRR_BUILTIN_GLSL_UTILS_CULLING_INCLUDED_
+#ifndef _NBL_BUILTIN_GLSL_UTILS_CULLING_INCLUDED_
+#define _NBL_BUILTIN_GLSL_UTILS_CULLING_INCLUDED_
 
-bool irr_glsl_couldBeVisible(in mat4 proj, in mat2x3 bbox)
+bool nbl_glsl_couldBeVisible(in mat4 proj, in mat2x3 bbox)
 {
     mat4 pTpose = transpose(proj);
     mat4 xyPlanes = mat4(pTpose[3] + pTpose[0], pTpose[3] + pTpose[1], pTpose[3] - pTpose[0], pTpose[3] - pTpose[1]);

@@ -3,7 +3,7 @@
 
 #include <irr/builtin/glsl/math/functions.glsl>
 
-vec2 irr_glsl_concentricMapping(in vec2 _u)
+vec2 nbl_glsl_concentricMapping(in vec2 _u)
 {
     //map [0;1]^2 to [-1;1]^2
     vec2 u = 2.0*_u - 1.0;
@@ -17,12 +17,12 @@ vec2 irr_glsl_concentricMapping(in vec2 _u)
         float theta;
         if (abs(u.x)>abs(u.y)) {
             r = u.x;
-            theta = 0.25*irr_glsl_PI * (u.y/u.x);
+            theta = 0.25*nbl_glsl_PI * (u.y/u.x);
         } else {
             r = u.y;
-            theta = 0.5*irr_glsl_PI - 0.25*irr_glsl_PI*(u.x/u.y);
+            theta = 0.5*nbl_glsl_PI - 0.25*nbl_glsl_PI*(u.x/u.y);
         }
-		// TODO: use irr_glsl_sincos, but check that theta is in [-PI,PI]
+		// TODO: use nbl_glsl_sincos, but check that theta is in [-PI,PI]
         p = r*vec2(cos(theta),sin(theta));
     }
 

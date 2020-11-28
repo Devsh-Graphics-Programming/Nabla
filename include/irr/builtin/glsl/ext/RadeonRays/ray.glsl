@@ -1,7 +1,7 @@
-#ifndef __IRR_EXT_RADEON_RAYS_RAY_INCLUDED__
-#define __IRR_EXT_RADEON_RAYS_RAY_INCLUDED__
+#ifndef __NBL_EXT_RADEON_RAYS_RAY_INCLUDED__
+#define __NBL_EXT_RADEON_RAYS_RAY_INCLUDED__
 
-struct irr_glsl_ext_RadeonRays_ray
+struct nbl_glsl_ext_RadeonRays_ray
 {
 	vec3 origin;
 	float maxT; // FLT_MAX
@@ -13,7 +13,7 @@ struct irr_glsl_ext_RadeonRays_ray
 	int useless_padding; // can be used to forward data
 };
 
-irr_glsl_ext_RadeonRays_ray irr_glsl_ext_RadeonRays_constructDefaultRay(in vec3 origin, in vec3 direction, in float maxLen, in int userData)
+nbl_glsl_ext_RadeonRays_ray nbl_glsl_ext_RadeonRays_constructDefaultRay(in vec3 origin, in vec3 direction, in float maxLen, in int userData)
 {
 	RadeonRays_ray retval;
 	retval.origin = origin;

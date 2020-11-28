@@ -7,18 +7,18 @@
 
 // WARNING: can and will return NAN if one or three of the triangle edges are near zero length
 // this function could use some more optimizing
-vec3 irr_glsl_sampling_generateSphericalTriangleSample(out float rcpPdf, in mat3 sphericalVertices, in vec2 u)
+vec3 nbl_glsl_sampling_generateSphericalTriangleSample(out float rcpPdf, in mat3 sphericalVertices, in vec2 u)
 {
     // for angles between view-to-vertex vectors
     float cos_a,cos_c,csc_b,csc_c;
     // Both vertices and angles at the vertices are denoted by the same upper case letters A, B, and C. The angles A, B, C of the triangle are equal to the angles between the planes that intersect the surface of the sphere or, equivalently, the angles between the tangent vectors of the great circle arcs where they meet at the vertices. Angles are in radians. The angles of proper spherical triangles are (by convention) less than PI
     vec3 cos_vertices,sin_vertices;
     // get solid angle, which is also the reciprocal of the probability
-    rcpPdf = irr_glsl_shapes_SolidAngleOfTriangle(sphericalVertices,cos_vertices,sin_vertices,cos_a,cos_c,csc_b,csc_c);
+    rcpPdf = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices,cos_vertices,sin_vertices,cos_a,cos_c,csc_b,csc_c);
 
     // this part literally cannot be optimized further
     float negSinSubSolidAngle,negCosSubSolidAngle;
-    irr_glsl_sincos(rcpPdf*u.x-irr_glsl_PI,negSinSubSolidAngle,negCosSubSolidAngle);
+    nbl_glsl_sincos(rcpPdf*u.x-nbl_glsl_PI,negSinSubSolidAngle,negCosSubSolidAngle);
 
 	const float p = negCosSubSolidAngle*sin_vertices[0]-negSinSubSolidAngle*cos_vertices[0];
 	const float q = -negSinSubSolidAngle*sin_vertices[0]-negCosSubSolidAngle*cos_vertices[0];
@@ -30,28 +30,28 @@ vec3 irr_glsl_sampling_generateSphericalTriangleSample(out float rcpPdf, in mat3
 	const float cosAngleAlongAC = clamp(((v_*q - u_*p)*cos_vertices[0] - v_) / ((v_*p + u_*q)*sin_vertices[0]), -1.0, 1.0); // TODO: get rid of this clamp (by improving the precision here)
 
     // the slerps could probably be optimized by sidestepping `normalize` calls and accumulating scaling factors
-	vec3 C_s = irr_glsl_slerp_impl_impl(sphericalVertices[0], sphericalVertices[2]*csc_b, cosAngleAlongAC);
+	vec3 C_s = nbl_glsl_slerp_impl_impl(sphericalVertices[0], sphericalVertices[2]*csc_b, cosAngleAlongAC);
 
     const float cosBC_s = dot(C_s,sphericalVertices[1]);
 	const float cosAngleAlongBC_s = 1.0+cosBC_s*u.y-u.y;
 
-	return irr_glsl_slerp_impl_impl(sphericalVertices[1], C_s*inversesqrt(1.0-cosBC_s*cosBC_s), cosAngleAlongBC_s);
+	return nbl_glsl_slerp_impl_impl(sphericalVertices[1], C_s*inversesqrt(1.0-cosBC_s*cosBC_s), cosAngleAlongBC_s);
 }
-vec3 irr_glsl_sampling_generateSphericalTriangleSample(out float rcpPdf, in mat3 vertices, in vec3 origin, in vec2 u)
+vec3 nbl_glsl_sampling_generateSphericalTriangleSample(out float rcpPdf, in mat3 vertices, in vec3 origin, in vec2 u)
 {
-    return irr_glsl_sampling_generateSphericalTriangleSample(rcpPdf,irr_glsl_shapes_getSphericalTriangle(vertices,origin),u);
+    return nbl_glsl_sampling_generateSphericalTriangleSample(rcpPdf,nbl_glsl_shapes_getSphericalTriangle(vertices,origin),u);
 }
 
 
 //
-vec2 irr_glsl_sampling_generateSphericalTriangleSampleInverse(out float pdf, in mat3 sphericalVertices, in vec3 L)
+vec2 nbl_glsl_sampling_generateSphericalTriangleSampleInverse(out float pdf, in mat3 sphericalVertices, in vec3 L)
 {
     // for angles between view-to-vertex vectors
     float cos_a,cos_c,csc_b,csc_c;
     // Both vertices and angles at the vertices are denoted by the same upper case letters A, B, and C. The angles A, B, C of the triangle are equal to the angles between the planes that intersect the surface of the sphere or, equivalently, the angles between the tangent vectors of the great circle arcs where they meet at the vertices. Angles are in radians. The angles of proper spherical triangles are (by convention) less than PI
     vec3 cos_vertices,sin_vertices;
     // get solid angle, which is also the reciprocal of the probability
-    pdf = 1.0/irr_glsl_shapes_SolidAngleOfTriangle(sphericalVertices,cos_vertices,sin_vertices,cos_a,cos_c,csc_b,csc_c);
+    pdf = 1.0/nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices,cos_vertices,sin_vertices,cos_a,cos_c,csc_b,csc_c);
 
     // get the modified B angle of the first subtriangle by getting it from the triangle formed by vertices A,B and the light sample L
     const float cosAngleAlongBC_s = dot(L,sphericalVertices[1]);
@@ -65,7 +65,7 @@ vec2 irr_glsl_sampling_generateSphericalTriangleSampleInverse(out float pdf, in 
     const float cosC_ = sin_vertices[0]*sinB_*cos_c-cos_vertices[0]*cosB_; // if cosB_ is NaN then cosC_ doesn't matter because the subtriangle has zero Solid Angle (we could pretend its `-cos_vertices[0]`)
     const float sinC_ = sqrt(1.0-cosC_*cosC_);
 
-    const float subTriSolidAngleRatio = irr_glsl_getArccosSumofABC_minus_PI(cos_vertices[0],cosB_,cosC_,sin_vertices[0],sinB_,sinC_)*pdf; // will only be NaN if either the original triangle has zero solid angle or the subtriangle has zero solid angle (all can be satisfied with u=0) 
+    const float subTriSolidAngleRatio = nbl_glsl_getArccosSumofABC_minus_PI(cos_vertices[0],cosB_,cosC_,sin_vertices[0],sinB_,sinC_)*pdf; // will only be NaN if either the original triangle has zero solid angle or the subtriangle has zero solid angle (all can be satisfied with u=0) 
     const float u = subTriSolidAngleRatio>FLT_MIN ? subTriSolidAngleRatio:0.0; // tiny overruns of u>1.0 will not affect the PDF much because a bilinear warp is used and the gradient has a bound (won't be true if LTC will get used)
 
     // INF if any angle is 0 degrees, which implies L lays along BA arc, if the angle at A is PI minus the angle at either B_ or C_ while the other of C_ or B_ has a zero angle, we get a NaN (which is also a zero solid angle subtriangle, implying L along AB arc)

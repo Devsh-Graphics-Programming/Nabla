@@ -2,19 +2,19 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_MATH_CONSTANTS_INCLUDED_
-#define _IRR_MATH_CONSTANTS_INCLUDED_
+#ifndef _NBL_MATH_CONSTANTS_INCLUDED_
+#define _NBL_MATH_CONSTANTS_INCLUDED_
 
 #include <irr/builtin/glsl/limits/numeric.glsl>
 
-#define irr_glsl_PI 3.14159265359
-#define irr_glsl_RECIPROCAL_PI 0.318309886183
-#define irr_glsl_SQRT_RECIPROCAL_PI 0.56418958354
+#define nbl_glsl_PI 3.14159265359
+#define nbl_glsl_RECIPROCAL_PI 0.318309886183
+#define nbl_glsl_SQRT_RECIPROCAL_PI 0.56418958354
 
-#define irr_glsl_FLT_INF float(1.0/0.0)
+#define nbl_glsl_FLT_INF float(1.0/0.0)
 
-#ifndef irr_glsl_FLT_NAN
-#define irr_glsl_FLT_NAN uintBitsToFloat(0xFFffFFffu)
+#ifndef nbl_glsl_FLT_NAN
+#define nbl_glsl_FLT_NAN uintBitsToFloat(0xFFffFFffu)
 #endif
 
 #endif

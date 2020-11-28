@@ -3,7 +3,7 @@
 
 #include <irr/builtin/glsl/math/functions.glsl>
 
-vec3 irr_glsl_slerp_impl_impl(in vec3 start, in vec3 preScaledWaypoint, float cosAngleFromStart)
+vec3 nbl_glsl_slerp_impl_impl(in vec3 start, in vec3 preScaledWaypoint, float cosAngleFromStart)
 {
     vec3 planeNormal = cross(start,preScaledWaypoint);
     

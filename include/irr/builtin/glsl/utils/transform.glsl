@@ -2,18 +2,18 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _IRR_BUILTIN_GLSL_UTILS_TRANSFORM_INCLUDED_
-#define _IRR_BUILTIN_GLSL_UTILS_TRANSFORM_INCLUDED_
+#ifndef _NBL_BUILTIN_GLSL_UTILS_TRANSFORM_INCLUDED_
+#define _NBL_BUILTIN_GLSL_UTILS_TRANSFORM_INCLUDED_
 
-vec4 irr_glsl_pseudoMul4x4with3x1(in mat4 m, in vec3 v)
+vec4 nbl_glsl_pseudoMul4x4with3x1(in mat4 m, in vec3 v)
 {
     return m[0] * v.x + m[1] * v.y + m[2] * v.z + m[3];
 }
-vec3 irr_glsl_pseudoMul3x4with3x1(in mat4x3 m, in vec3 v)
+vec3 nbl_glsl_pseudoMul3x4with3x1(in mat4x3 m, in vec3 v)
 {
     return m[0] * v.x + m[1] * v.y + m[2] * v.z + m[3];
 }
-mat4x3 irr_glsl_pseudoMul4x3with4x3(in mat4x3 lhs, in mat4x3 rhs)
+mat4x3 nbl_glsl_pseudoMul4x3with4x3(in mat4x3 lhs, in mat4x3 rhs)
 {
     mat4x3 result;
     for (int i = 0; i < 4; i++)
@@ -21,7 +21,7 @@ mat4x3 irr_glsl_pseudoMul4x3with4x3(in mat4x3 lhs, in mat4x3 rhs)
     result[3] += lhs[3];
     return result;
 }
-mat4 irr_glsl_pseudoMul4x4with4x3(in mat4 proj, in mat4x3 tform)
+mat4 nbl_glsl_pseudoMul4x4with4x3(in mat4 proj, in mat4x3 tform)
 {
     mat4 result;
     for (int i = 0; i < 4; i++)

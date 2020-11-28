@@ -4,7 +4,7 @@
 #include <irr/builtin/glsl/math/functions.glsl>
 
 //
-mat3 irr_glsl_shapes_getSphericalTriangle(in mat3 vertices, in vec3 origin)
+mat3 nbl_glsl_shapes_getSphericalTriangle(in mat3 vertices, in vec3 origin)
 {
     // the `normalize` cannot be optimized out
     return mat3(normalize(vertices[0]-origin),normalize(vertices[1]-origin),normalize(vertices[2]-origin));
@@ -13,7 +13,7 @@ mat3 irr_glsl_shapes_getSphericalTriangle(in mat3 vertices, in vec3 origin)
 // returns solid angle of a spherical triangle
 // WARNING: can and will return NAN if one or three of the triangle edges are near zero length
 // this function is beyond optimized.
-float irr_glsl_shapes_SolidAngleOfTriangle(in mat3 sphericalVertices, out vec3 cos_vertices, out vec3 sin_vertices, out float cos_a, out float cos_c, out float csc_b, out float csc_c)
+float nbl_glsl_shapes_SolidAngleOfTriangle(in mat3 sphericalVertices, out vec3 cos_vertices, out vec3 sin_vertices, out float cos_a, out float cos_c, out float csc_b, out float csc_c)
 {    
     // The sides are denoted by lower-case letters a, b, and c. On the unit sphere their lengths are numerically equal to the radian measure of the angles that the great circle arcs subtend at the centre. The sides of proper spherical triangles are (by convention) less than PI
     const vec3 cos_sides = vec3(dot(sphericalVertices[1],sphericalVertices[2]),dot(sphericalVertices[2],sphericalVertices[0]),dot(sphericalVertices[0],sphericalVertices[1]));
@@ -30,18 +30,18 @@ float irr_glsl_shapes_SolidAngleOfTriangle(in mat3 sphericalVertices, out vec3 c
     sin_vertices = sqrt(vec3(1.0)-cos_vertices*cos_vertices);
     
     // the solid angle of a triangle is the sum of its planar vertices' angles minus PI
-    return irr_glsl_getArccosSumofABC_minus_PI(cos_vertices[0],cos_vertices[1],cos_vertices[2],sin_vertices[0],sin_vertices[1],sin_vertices[2]);
+    return nbl_glsl_getArccosSumofABC_minus_PI(cos_vertices[0],cos_vertices[1],cos_vertices[2],sin_vertices[0],sin_vertices[1],sin_vertices[2]);
 }
-float irr_glsl_shapes_SolidAngleOfTriangle(in mat3 sphericalVertices)
+float nbl_glsl_shapes_SolidAngleOfTriangle(in mat3 sphericalVertices)
 {
     vec3 dummy0,dummy1;
     float dummy2,dummy3,dummy4,dummy5;
-    return irr_glsl_shapes_SolidAngleOfTriangle(sphericalVertices,dummy0,dummy1,dummy2,dummy3,dummy4,dummy5);
+    return nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices,dummy0,dummy1,dummy2,dummy3,dummy4,dummy5);
 }
 // returns solid angle of a triangle given by its world-space vertices and world-space viewing position
-float irr_glsl_shapes_SolidAngleOfTriangle(in mat3 vertices, in vec3 origin)
+float nbl_glsl_shapes_SolidAngleOfTriangle(in mat3 vertices, in vec3 origin)
 {
-    return irr_glsl_shapes_SolidAngleOfTriangle(irr_glsl_shapes_getSphericalTriangle(vertices,origin));
+    return nbl_glsl_shapes_SolidAngleOfTriangle(nbl_glsl_shapes_getSphericalTriangle(vertices,origin));
 }
 
 #endif
