@@ -111,7 +111,7 @@ class CPropertyPoolHandler final : public core::IReferenceCounted, public core::
 				{
 					#ifdef _NBL_DEBUG
 					assert(unusedSets && set.get());
-					#endif // _IRR_DEBUG
+					#endif // _NBL_DEBUG
 					unusedSets->push_back(std::move(set));
 				}
 		};

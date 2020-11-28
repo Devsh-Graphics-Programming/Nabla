@@ -434,7 +434,7 @@ protected:
         static uint8_t* allocReservedSpaceForAllocator(uint32_t tilesPerDim, uint32_t layers)
         {
             const size_t tiles = tilesPerDim*tilesPerDim*layers;
-            void* mem = _IRR_ALIGNED_MALLOC(phys_pg_addr_alctr_t::reserved_size(1u, tiles, 1u), _IRR_SIMD_ALIGNMENT);
+            void* mem = _NBL_ALIGNED_MALLOC(phys_pg_addr_alctr_t::reserved_size(1u, tiles, 1u), _NBL_SIMD_ALIGNMENT);
             return reinterpret_cast<uint8_t*>(mem);
         }
 
@@ -726,7 +726,7 @@ protected:
         uint32_t pgtabSzSqr = (1u << szxy_log2);
         pgtabSzSqr *= pgtabSzSqr;
         const size_t spacePerAllocator = pg_tab_addr_alctr_t::reserved_size(pgtabSzSqr, pgtabSzSqr, 1u);
-        m_pgTabAddrAlctr_reservedSpc = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(spacePerAllocator * _layers, _IRR_SIMD_ALIGNMENT));
+        m_pgTabAddrAlctr_reservedSpc = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(spacePerAllocator * _layers, _NBL_SIMD_ALIGNMENT));
         for (uint32_t i = 0u; i < _layers; ++i)
         {
             auto& alctr = m_pageTableLayerAllocators[i];

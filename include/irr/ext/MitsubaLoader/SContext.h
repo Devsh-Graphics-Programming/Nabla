@@ -140,7 +140,7 @@ namespace MitsubaLoader
 		{
 			SInstanceData(core::matrix3x4SIMD _tform, SContext::bsdf_type _bsdf, const std::string& _id, const CElementEmitter& _emitter) : 
 				tform(_tform), bsdf(_bsdf),
-#if defined(_IRR_DEBUG) || defined(_IRR_RELWITHDEBINFO)
+#if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
 				bsdf_id(_id),
 #endif
 				emitter(_emitter)

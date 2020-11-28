@@ -1,5 +1,5 @@
-#ifndef __IRR_MATERIAL_COMPILER_I_FRONTEND_H_INCLUDED__
-#define __IRR_MATERIAL_COMPILER_I_FRONTEND_H_INCLUDED__
+#ifndef __NBL_MATERIAL_COMPILER_I_FRONTEND_H_INCLUDED__
+#define __NBL_MATERIAL_COMPILER_I_FRONTEND_H_INCLUDED__
 
 #include <irr/core/IReferenceCounted.h>
 #include <irr/asset/material_compiler/IR.h>

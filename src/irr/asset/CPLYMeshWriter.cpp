@@ -171,7 +171,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
         }
     }
     else {
-        indices = _IRR_ALIGNED_MALLOC(idxCnt * (idxtype == asset::EIT_16BIT ? 2u : 4u), _IRR_SIMD_ALIGNMENT);
+        indices = _NBL_ALIGNED_MALLOC(idxCnt * (idxtype == asset::EIT_16BIT ? 2u : 4u), _NBL_SIMD_ALIGNMENT);
         memcpy(indices, meshBuffer->getIndices(), idxCnt * (idxtype == asset::EIT_16BIT ? 2u : 4u));
     }
 

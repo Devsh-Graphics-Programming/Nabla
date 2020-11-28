@@ -158,7 +158,7 @@ public:
     class IAssetLoaderOverride
     {
     protected:
-		_IRR_STATIC_INLINE_CONSTEXPR IAsset::E_MUTABILITY ASSET_MUTABILITY_ON_CACHE_INSERT = IAsset::EM_MUTABLE;
+		_NBL_STATIC_INLINE_CONSTEXPR IAsset::E_MUTABILITY ASSET_MUTABILITY_ON_CACHE_INSERT = IAsset::EM_MUTABLE;
 
         IAssetManager* m_manager;
 		io::IFileSystem* m_filesystem;
