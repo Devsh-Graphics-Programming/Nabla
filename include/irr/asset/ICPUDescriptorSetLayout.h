@@ -59,12 +59,7 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 		size_t conservativeSizeEstimate() const override { return m_bindings->size()*sizeof(SBinding)+m_samplers->size()*sizeof(void*); }
 		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-            if (isDummyObjectForCacheAliasing)
-                return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-            if (m_mutable)
-			    m_bindings = nullptr;
 
 			if (referenceLevelsBelowToConvert)
 			{
@@ -73,15 +68,42 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 				for (auto it=m_samplers->begin(); it!=m_samplers->end(); it++)
 					it->get()->convertToDummyObject(referenceLevelsBelowToConvert);
 			}
-
-            if (m_mutable)
-			    m_samplers = nullptr;
 		}
 
         _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
+        bool canBeRestoredFrom(const IAsset* _other) const override
+        {
+            auto* other = static_cast<const ICPUDescriptorSetLayout*>(_other);
+            if (m_bindings->size() != other->m_bindings->size())
+                return false;
+            if ((!m_samplers) != (!other->m_samplers))
+                return false;
+            if (m_samplers && m_samplers->size() != other->m_samplers->size())
+                return false;
+            if (m_samplers)
+                for (uint32_t i = 0u; i < m_samplers->size(); ++i)
+                    if (!(*m_samplers)[i]->canBeRestoredFrom((*other->m_samplers)[i].get()))
+                        return false;
+
+            return true;
+        }
+
 	protected:
+        void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+        {
+            auto* other = static_cast<ICPUDescriptorSetLayout*>(_other);
+
+            if (!_levelsBelow)
+                return;
+
+            --_levelsBelow;
+            if (m_samplers)
+            for (uint32_t i = 0u; i < m_samplers->size(); ++i)
+                restoreFromDummy_impl_call((*m_samplers)[i].get(), (*other->m_samplers)[i].get(), _levelsBelow);
+        }
+
 		virtual ~ICPUDescriptorSetLayout() = default;
 };
 

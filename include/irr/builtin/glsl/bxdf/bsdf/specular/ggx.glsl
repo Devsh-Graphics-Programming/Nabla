@@ -87,8 +87,6 @@ float irr_glsl_ggx_height_correlated_dielectric_cos_eval(in irr_glsl_LightSample
     );
 }
 
-
-
 // TODO: unifty the two following functions into `irr_glsl_microfacet_BSDF_cos_generate_wo_clamps(vec3 H,...)` and `irr_glsl_microfacet_BSDF_cos_generate` or at least a auto declaration macro in lieu of a template
 irr_glsl_LightSample irr_glsl_ggx_dielectric_cos_generate_wo_clamps(in vec3 localV, in bool backside, in vec3 upperHemisphereLocalV, in mat3 m, in vec3 u, in float _ax, in float _ay, in float rcpOrientedEta, in float orientedEta2, in float rcpOrientedEta2, out irr_glsl_AnisotropicMicrofacetCache _cache)
 {
@@ -142,13 +140,11 @@ float irr_glsl_ggx_dielectric_pdf_wo_clamps(in bool transmitted, in float reflec
     return irr_glsl_ggx_dielectric_pdf_wo_clamps(transmitted,reflectance, ndf,devsh_v, absNdotV, VdotH,LdotH,VdotHLdotH, orientedEta);
 }
 
-
-
 float irr_glsl_ggx_dielectric_cos_remainder_and_pdf_wo_clamps(out float pdf, in float ndf, in bool transmitted, in float absNdotL, in float NdotL2, in float absNdotV, in float NdotV2, in float VdotH, in float LdotH, in float VdotHLdotH, in float reflectance, in float orientedEta, in float a2)
 {
     const float one_minus_a2 = 1.0 - a2;
     const float devsh_v = irr_glsl_smith_ggx_devsh_part(NdotV2, a2, one_minus_a2);
-    pdf = irr_glsl_ggx_dielectric_pdf_wo_clamps(transmitted,reflectance, ndf,devsh_v, absNdotV, VdotH,LdotH,VdotHLdotH, orientedEta);
+    pdf = irr_glsl_ggx_dielectric_pdf_wo_clamps(transmitted, reflectance, ndf, devsh_v, absNdotV, VdotH, LdotH, VdotHLdotH, orientedEta);
 
     return irr_glsl_ggx_smith_G2_over_G1_devsh(absNdotL, NdotL2, absNdotV, devsh_v, a2, one_minus_a2);
 }

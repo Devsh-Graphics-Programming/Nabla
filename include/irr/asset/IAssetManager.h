@@ -420,9 +420,11 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
         retrieve them from the cache and not load cpu objects again, which have been loaded before.
         \return boolean if was added into cache (no duplicate under same key found) and grab() was called on the asset. */
         //TODO change name
-        bool insertAssetIntoCache(SAssetBundle& _asset)
+        bool insertAssetIntoCache(SAssetBundle& _asset, IAsset::E_MUTABILITY _mutability = IAsset::EM_CPU_PERSISTENT)
         {
             const uint32_t ix = IAsset::typeFlagToIndex(_asset.getAssetType());
+            for (auto ass : _asset.getContents())
+                setAssetMutability(ass.get(), _mutability);
             return m_assetCache[ix]->insert(_asset.getCacheKey(), _asset);
         }
 
@@ -469,7 +471,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             size_t storageSz = 1u;
             m_cpuGpuCache[ix]->findAndStoreRange(_asset, storageSz, storage);
             if (storageSz > 0u)
-                return std::move(storage[0]);
+                return storage[0];
             return nullptr;
         }
 
@@ -667,7 +669,40 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
                 _outs << "\tKey: " << wtr.first << ", Value: " << static_cast<void*>(wtr.second) << '\n';
         }
 
-    private:
+        /*
+        void restoreDummyAsset(SAssetBundle& _bundle, uint32_t _levelsBelow = 0u)
+        {
+            bool anyIsDummy = false;
+            for (auto ass : _bundle.getContents())
+                anyIsDummy = anyIsDummy || ass->isADummyObjectForCache();
+            if (!anyIsDummy)
+                return;
+
+            const std::string key = _bundle.getCacheKey();
+            IAssetLoader::SAssetLoadParams lp;
+            lp.cacheFlags = IAssetLoader::ECF_DUPLICATE_TOP_LEVEL;
+            auto bundle = getAssetInHierarchy(key, lp, 0u);
+
+            assert(_bundle.getContents().size() == bundle.getContents().size());
+
+            auto* oldContent = _bundle.getContents().begin();
+            auto* newContent = bundle.getContents().begin();
+            for (uint32_t i = 0u; i < _bundle.getContents().size(); ++i)
+            {
+                IAsset* asset = oldContent[i].get();
+                if (!asset->isADummyObjectForCache())
+                    continue;
+
+                asset->restoreFromDummy(newContent[i].get(), _levelsBelow);
+            }
+        }
+        */
+    protected:
+        bool insertBuiltinAssetIntoCache(SAssetBundle& _asset)
+        {
+            return insertAssetIntoCache(_asset, IAsset::EM_IMMUTABLE);
+        }
+
         static inline std::string getFileExt(const io::path& _filename)
         {
             int32_t dot = _filename.findLast('.');
@@ -681,7 +716,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
         //TODO change name
         inline void setAssetCached(SAssetBundle& _asset, bool _val) const { _asset.setCached(_val); }
 
-        inline void setAssetMutable(IAsset* _asset, bool _val) const { _asset->m_mutable = _val; }
+        inline void setAssetMutability(IAsset* _asset, IAsset::E_MUTABILITY _val) const { _asset->m_mutability = _val; }
 
 		//
 		void addLoadersAndWriters();

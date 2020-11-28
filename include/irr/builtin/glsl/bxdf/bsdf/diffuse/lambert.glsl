@@ -43,16 +43,6 @@ irr_glsl_LightSample irr_glsl_lambertian_transmitter_cos_generate(in irr_glsl_An
 }
 
 
-
-float irr_glsl_lambertian_transmitter_pdf_wo_clamps(in float absNdotL)
-{
-    float pdf;
-    irr_glsl_projected_sphere_remainder_and_pdf(pdf, absNdotL);
-    return pdf;
-}
-
-
-
 float irr_glsl_lambertian_transmitter_cos_remainder_and_pdf_wo_clamps(out float pdf, in float absNdotL)
 {
     return irr_glsl_projected_sphere_remainder_and_pdf(pdf,absNdotL);
@@ -60,6 +50,11 @@ float irr_glsl_lambertian_transmitter_cos_remainder_and_pdf_wo_clamps(out float 
 float irr_glsl_lambertian_transmitter_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample s)
 {
     return irr_glsl_lambertian_transmitter_cos_remainder_and_pdf_wo_clamps(pdf,abs(s.NdotL));
+}
+
+float irr_glsl_lambertian_transmitter_pdf_wo_clamps(in float absNdotL)
+{
+    return irr_glsl_projected_sphere_pdf(absNdotL);
 }
 
 #endif

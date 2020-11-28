@@ -51,6 +51,11 @@ struct SVertexInputAttribParams
 	SVertexInputAttribParams(uint32_t _binding, uint32_t _format, uint32_t _relativeOffset) :
 						binding(_binding), format(_format), relativeOffset(_relativeOffset) {}
 
+    inline bool operator==(const SVertexInputAttribParams& rhs) const
+    {
+        return binding==rhs.binding&&format==rhs.format&&relativeOffset==rhs.relativeOffset;
+    }
+
     uint32_t binding : 4;
     uint32_t format : 8;//asset::E_FORMAT
     uint32_t relativeOffset : 13;//assuming max=2048
@@ -58,7 +63,13 @@ struct SVertexInputAttribParams
 static_assert(sizeof(SVertexInputAttribParams)==(4u), "Unexpected size!");
 struct SVertexInputBindingParams
 {
-    uint32_t stride = 0u;
+
+    inline bool operator==(const SVertexInputBindingParams& rhs) const
+    {
+        return stride==rhs.stride&&inputRate==rhs.inputRate;
+    }
+
+    uint32_t stride = 0u; // could have packed the stride and input rate together since there are limits on those
     E_VERTEX_INPUT_RATE inputRate = EVIR_PER_VERTEX;
 } PACK_STRUCT;
 static_assert(sizeof(SVertexInputBindingParams)==5u, "Unexpected size!");
@@ -66,6 +77,15 @@ struct SVertexInputParams
 {
     _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_VERTEX_ATTRIB_COUNT = 16u;
     _NBL_STATIC_INLINE_CONSTEXPR size_t MAX_ATTR_BUF_BINDING_COUNT = 16u;
+
+    inline bool operator==(const SVertexInputParams& rhs) const
+    {
+        if (enabledAttribFlags!=rhs.enabledAttribFlags||enabledBindingFlags!=rhs.enabledBindingFlags)
+            return false;
+
+        return std::equal(attributes,attributes+MAX_VERTEX_ATTRIB_COUNT,rhs.attributes)&&std::equal(bindings,bindings+MAX_ATTR_BUF_BINDING_COUNT,rhs.bindings);
+    }
+
 
     uint16_t enabledAttribFlags = 0u;
     uint16_t enabledBindingFlags = 0u;

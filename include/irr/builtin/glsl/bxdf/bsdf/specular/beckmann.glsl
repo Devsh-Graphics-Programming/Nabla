@@ -92,7 +92,7 @@ float irr_glsl_beckmann_aniso_dielectric_cos_remainder_and_pdf_wo_clamps(out flo
 
     return irr_glsl_beckmann_smith_G2_over_G1(onePlusLambda_V, TdotL2, BdotL2, NdotL2, ax2, ay2);
 }
-float irr_glsl_beckmann_aniso_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_AnisotropicMicrofacetCache _cache, in float eta, in float ax, in float ay)
+float irr_glsl_beckmann_aniso_dielectric_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in irr_glsl_AnisotropicMicrofacetCache _cache, in float eta, in float ax, in float ay)
 {    
     const float ax2 = ax*ax;
     const float ay2 = ay*ay;
@@ -148,7 +148,6 @@ float irr_glsl_beckmann_smith_height_correlated_dielectric_cos_eval_wo_cache_val
         transmitted,_cache.VdotH,_cache.LdotH,VdotHLdotH,
         orientedEta,orientedEta2,a2);
 }
-
 
 float irr_glsl_beckmann_aniso_smith_height_correlated_dielectric_cos_eval_wo_clamps(
     in float NdotH2, in float TdotH2, in float BdotH2,

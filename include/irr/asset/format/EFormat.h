@@ -1768,6 +1768,19 @@ namespace asset
                 blockByteSize(getTexelOrBlockBytesize(format))
             {}
             
+            inline bool operator==(const TexelBlockInfo& rhs) const
+            {
+                return
+                    (dimension == rhs.dimension).xyzz().all() &&
+                    (maxCoord == rhs.maxCoord).xyzz().all() &&
+                    blockByteSize == rhs.blockByteSize;
+            }
+
+            inline bool operator!=(const TexelBlockInfo& rhs) const
+            {
+                return !this->operator==(rhs);
+            }
+
             //! It converts input texels strides to blocks while rounding up at the same time
             /*
                 The true extent is a dimension of stride in texels or in blocks, depending

@@ -32,7 +32,7 @@ void IAssetLoader::IAssetLoaderOverride::insertAssetIntoCache(SAssetBundle& asse
 
     auto levelFlag = ctx.params.cacheFlags >> (uint64_t(hierarchyLevel) * 2ull);
     if (!(levelFlag&ECF_DONT_CACHE_TOP_LEVEL))
-        m_manager->insertAssetIntoCache(asset);
+        m_manager->insertAssetIntoCache(asset, ASSET_MUTABILITY_ON_CACHE_INSERT);
 }
 
 SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager* _mgr, io::IReadFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
@@ -55,7 +55,38 @@ SAssetBundle IAssetLoader::interm_getAssetInHierarchy(IAssetManager* _mgr, const
     return _mgr->getAssetInHierarchy(_filename, _params, _hierarchyLevel);
 }
 
-void IAssetLoader::interm_setAssetMutable(const IAssetManager* _mgr, IAsset* _asset, bool _val)
+void IAssetLoader::interm_setAssetMutability(const IAssetManager* _mgr, IAsset* _asset, IAsset::E_MUTABILITY _val)
 {
-    _mgr->setAssetMutable(_asset, _val);
+    _mgr->setAssetMutability(_asset, _val);
+}
+
+/*
+void IAssetLoader::interm_restoreDummyAsset(IAssetManager* _mgr, SAssetBundle& _bundle)
+{
+    _mgr->restoreDummyAsset(_bundle);
+}
+
+void IAssetLoader::interm_restoreDummyAsset(IAssetManager* _mgr, IAsset* _asset, const std::string _path)
+{
+    SAssetBundle bundle({core::smart_refctd_ptr<IAsset>(_asset)}, _path);
+    interm_restoreDummyAsset(_mgr, bundle);
+}
+*/
+
+bool IAssetLoader::insertBuiltinAssetIntoCache(IAssetManager* _mgr, SAssetBundle& _asset, const std::string _path)
+{
+    _mgr->changeAssetKey(_asset, _path);
+    return _mgr->insertBuiltinAssetIntoCache(_asset);
+}
+
+bool IAssetLoader::insertBuiltinAssetIntoCache(IAssetManager* _mgr, core::smart_refctd_ptr<IAsset>& _asset, const std::string _path)
+{
+    asset::SAssetBundle bundle({ _asset });
+    return insertBuiltinAssetIntoCache(_mgr, bundle, _path);
+}
+
+bool IAssetLoader::insertBuiltinAssetIntoCache(IAssetManager* _mgr, core::smart_refctd_ptr<IAsset>&& _asset, const std::string _path)
+{
+    asset::SAssetBundle bundle({ std::move(_asset) });
+    return insertBuiltinAssetIntoCache(_mgr, bundle, _path);
 }

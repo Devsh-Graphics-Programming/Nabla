@@ -116,8 +116,6 @@ public:
 
     virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 	{
-        if (isDummyObjectForCacheAliasing)
-            return;
         convertToDummyObject_common(referenceLevelsBelowToConvert);
 
 		if (referenceLevelsBelowToConvert)
@@ -142,9 +140,14 @@ public:
 
     virtual E_MESH_BUFFER_TYPE getMeshBufferType() const { return EMBT_NOT_ANIMATED; }
 
-	inline const SBufferBinding<ICPUBuffer>& getAttribBoundBuffer(uint32_t attrId) const
+    inline uint32_t getAttribCombinedOffset(uint32_t attrId) const
+    {
+        const auto& buf = base_t::getAttribBoundBuffer(attrId);
+        return buf.offset + getPipeline()->getVertexInputParams().attributes[attrId].relativeOffset;
+    }
+	inline const SBufferBinding<ICPUBuffer>* getAttribBoundBuffer(uint32_t attrId) const
 	{
-		return base_t::getAttribBoundBuffer(attrId);
+		return &base_t::getAttribBoundBuffer(attrId);
 	}
     inline SBufferBinding<ICPUBuffer>* getAttribBoundBuffer(uint32_t attrId)
     {
@@ -161,11 +164,13 @@ public:
     }
 	inline void setIndexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding)
 	{
+        assert(!isImmutable_debug());
+
 		m_indexBufferBinding = std::move(bufferBinding);
 	}
-	inline const SBufferBinding<ICPUBuffer>& getIndexBufferBinding() const
+	inline const SBufferBinding<ICPUBuffer>* getIndexBufferBinding() const
 	{
-		return m_indexBufferBinding;
+		return &m_indexBufferBinding;
 	}
     inline SBufferBinding<ICPUBuffer>* getIndexBufferBinding()
     {
@@ -186,6 +191,7 @@ public:
 	}*/
 	inline bool setVertexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding, uint32_t bindingIndex)
 	{
+        assert(!isImmutable_debug());
 		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT)
 			return false;
 
@@ -211,6 +217,7 @@ public:
 
 	inline void setAttachedDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSet>&& descriptorSet)
 	{
+        assert(!isImmutable_debug());
 		m_descriptorSet = std::move(descriptorSet);
 	}
 	inline ICPUDescriptorSet* getAttachedDescriptorSet()
@@ -224,10 +231,12 @@ public:
 
 	inline void setPipeline(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>&& pipeline)
 	{
+        assert(!isImmutable_debug());
 		m_pipeline = std::move(pipeline);
 	}
 	inline ICPURenderpassIndependentPipeline* getPipeline()
 	{
+        assert(!isImmutable_debug());
 		return m_pipeline.get();
 	}
     inline const ICPURenderpassIndependentPipeline* getPipeline() const
@@ -305,6 +314,8 @@ public:
     //! Sets id of position atrribute.
     inline void setPositionAttributeIx(const uint32_t attrId)
     {
+        assert(!isImmutable_debug());
+
         if (attrId >= MAX_VERTEX_ATTRIB_COUNT)
         {
 #ifdef _NBL_DEBUG
@@ -322,6 +333,8 @@ public:
     //! Sets id of position atrribute.
     inline void setNormalnAttributeIx(const uint32_t& attrId)
     {
+        assert(!isImmutable_debug());
+
         if (attrId >= MAX_VERTEX_ATTRIB_COUNT)
         {
 #ifdef _NBL_DEBUG
@@ -337,6 +350,8 @@ public:
     /** \return Pointer to indices array. */
     inline void* getIndices()
     {
+        assert(!isImmutable_debug());
+
         if (!m_indexBufferBinding.buffer)
             return nullptr;
 
@@ -381,10 +396,12 @@ public:
     */
     virtual uint8_t* getAttribPointer(uint32_t attrId)
     {
+        assert(!isImmutable_debug());
+
         if (!m_pipeline)
             return nullptr;
 
-        const auto& vtxInputParams = m_pipeline->getVertexInputParams();
+        const auto& vtxInputParams = const_cast<const ICPURenderpassIndependentPipeline*>(m_pipeline.get())->getVertexInputParams();
         if (!isAttributeEnabled(attrId))
             return nullptr;
 
@@ -557,6 +574,7 @@ public:
     */
     virtual bool setAttribute(core::vectorSIMDf input, uint32_t attrId, size_t ix)
     {
+        assert(!isImmutable_debug());
         if (!m_pipeline)
             return false;
         if (!isAttributeEnabled(attrId))
@@ -598,6 +616,7 @@ public:
     //! @copydoc setAttribute(core::vectorSIMDf, const E_VERTEX_ATTRIBUTE_ID&, size_t)
     virtual bool setAttribute(const uint32_t* _input, uint32_t attrId, size_t ix)
     {
+        assert(!isImmutable_debug());
         if (!m_pipeline)
             return false;
         if (!isAttributeEnabled(attrId))
@@ -616,6 +635,7 @@ public:
     //! Recalculates the bounding box. Should be called if the mesh changed.
     virtual void recalculateBoundingBox()
     {
+        assert(!isImmutable_debug());
 		setBoundingBox(calculateBoundingBox(this));
     }
 
@@ -628,7 +648,7 @@ public:
             return retval;
 
 		auto posAttrId = mb->getPositionAttributeIx();
-        const ICPUBuffer* mappedAttrBuf = mb->getAttribBoundBuffer(posAttrId).buffer.get();
+        const ICPUBuffer* mappedAttrBuf = mb->getAttribBoundBuffer(posAttrId)->buffer.get();
         if (posAttrId >= MAX_VERTEX_ATTRIB_COUNT || !mappedAttrBuf)
             return retval;
 
@@ -660,6 +680,77 @@ public:
 				retval.reset(mb->getPosition(ix).getAsVector3df());
         }
 		return retval;
+    }
+
+    bool canBeRestoredFrom(const IAsset* _other) const override
+    {
+        auto* other = static_cast<const ICPUMeshBuffer*>(_other);
+        if (memcmp(m_pushConstantsData, other->m_pushConstantsData, sizeof(m_pushConstantsData)) != 0)
+            return false;
+        if (baseVertex != other->baseVertex)
+            return false;
+        if (indexCount != other->indexCount)
+            return false;
+        if (instanceCount != other->instanceCount)
+            return false;
+        if (baseInstance != other->baseInstance)
+            return false;
+        if (posAttrId != other->posAttrId)
+            return false;
+        if (normalAttrId != other->normalAttrId)
+            return false;
+        if (m_indexBufferBinding.offset != other->m_indexBufferBinding.offset)
+            return false;
+        if ((!m_indexBufferBinding.buffer) != (!other->m_indexBufferBinding.buffer))
+            return false;
+        if (m_indexBufferBinding.buffer && !m_indexBufferBinding.buffer->canBeRestoredFrom(other->m_indexBufferBinding.buffer.get()))
+            return false;
+        for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
+        {
+            if (m_vertexBufferBindings[i].offset != other->m_vertexBufferBindings[i].offset)
+                return false;
+            if ((!m_vertexBufferBindings[i].buffer) != (!other->m_vertexBufferBindings[i].buffer))
+                return false;
+            if (m_vertexBufferBindings[i].buffer && !m_vertexBufferBindings[i].buffer->canBeRestoredFrom(other->m_vertexBufferBindings[i].buffer.get()))
+                return false;
+        }
+
+        if ((!m_descriptorSet) != (!other->m_descriptorSet))
+            return false;
+        if (m_descriptorSet && !m_descriptorSet->canBeRestoredFrom(other->m_descriptorSet.get()))
+            return false;
+
+        /*
+        if ((!m_pipeline || !other->m_pipeline) && m_pipeline != other->m_pipeline)
+            return false;
+        */
+        // pipeline is not optional
+        if (!m_pipeline->canBeRestoredFrom(other->m_pipeline.get()))
+            return false;
+
+        return true;
+    }
+
+protected:
+    void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+    {
+        auto* other = static_cast<ICPUMeshBuffer*>(_other);
+
+        if (_levelsBelow)
+        {
+            --_levelsBelow;
+
+            if (m_pipeline)
+                restoreFromDummy_impl_call(m_pipeline.get(), other->m_pipeline.get(), _levelsBelow);
+            if (m_descriptorSet)
+                restoreFromDummy_impl_call(m_descriptorSet.get(), other->m_descriptorSet.get(), _levelsBelow);
+
+            for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
+                if (m_vertexBufferBindings[i].buffer)
+                    restoreFromDummy_impl_call(m_vertexBufferBindings[i].buffer.get(), other->m_vertexBufferBindings[i].buffer.get(), _levelsBelow);
+            if (m_indexBufferBinding.buffer)
+                restoreFromDummy_impl_call(m_indexBufferBinding.buffer.get(), other->m_indexBufferBinding.buffer.get(), _levelsBelow);
+        }
     }
 };
 

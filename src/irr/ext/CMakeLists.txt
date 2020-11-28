@@ -2,6 +2,10 @@
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h
 
+
+start_tracking_variables_for_propagation_to_parent()
+
+
 if (NBL_BUILD_CEGUI)
     set(_OLD_CMAKE_PREFIX_PATH ${CMAKE_PREFIX_PATH})
     set(CMAKE_PREFIX_PATH ${CEGUI_DEPS_INSTALL_PATH})
@@ -65,3 +69,6 @@ if (NBL_BUILD_OPTIX)
         PARENT_SCOPE
     )
 endif()
+
+
+propagate_changed_variables_to_parent_scope()

@@ -43,6 +43,12 @@ class IAssetManager;
 class IAsset : virtual public core::IReferenceCounted
 {
 	public:
+		enum E_MUTABILITY : uint32_t
+		{
+			EM_MUTABLE = 0u,
+			EM_CPU_PERSISTENT = 0b01u,
+			EM_IMMUTABLE = 0b11u,
+		};
 
 		/**
 			Values of E_TYPE represents an Asset type.
@@ -97,8 +103,10 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_COMPUTE_PIPELINE = 1ull<<15,                     //!< asset::ICPUComputePipeline
 			ET_PIPELINE_CACHE = 1ull<<16,						//!< asset::ICPUPipelineCache
 			ET_SCENE = 1ull<<17,								//!< reserved, to implement later
-			ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u     //!< lights, etc.
+			ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u,    //!< lights, etc.
 			//! Reserved special value used for things like terminating lists of this enum
+
+			ET_TERMINATING_ZERO = 0
 		};
 		constexpr static size_t ET_STANDARD_TYPES_COUNT = 17u;
 
@@ -150,7 +158,7 @@ class IAsset : virtual public core::IReferenceCounted
 		}
 
 		//!
-		IAsset() : m_metadata{nullptr}, isDummyObjectForCacheAliasing{false} {}
+		IAsset() : m_metadata{nullptr}, isDummyObjectForCacheAliasing{false}, m_mutability{EM_MUTABLE} {}
 
 		//! Returns correct size reserved associated with an Asset and its data
 		/**
@@ -171,25 +179,79 @@ class IAsset : virtual public core::IReferenceCounted
 
         virtual core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const = 0;
 
+		bool restoreFromDummy(IAsset* _other, uint32_t _levelsBelow = (~0u))
+		{
+			assert(getAssetType() == _other->getAssetType());
+
+			if (!canBeRestoredFrom(_other))
+				return false;
+
+			restoreFromDummy_impl(_other, _levelsBelow);
+			return true;
+		}
+
+		bool willBeRestoredFrom(const IAsset* _other) const
+		{
+			assert(getAssetType() == _other->getAssetType());
+
+			if (getMutability() != EM_MUTABLE)
+				return false;
+			if (_other->getMutability() != EM_MUTABLE)
+				return false;
+			if (!isADummyObjectForCache())
+				return false;
+			if (_other->isADummyObjectForCache())
+				return false;
+
+			return true;
+		}
+
+
+		inline E_MUTABILITY getMutability() const { return m_mutability; }
+		inline bool isMutable() const { return getMutability() == EM_MUTABLE; }
+		inline bool canBeConvertedToDummy() const { return !isADummyObjectForCache() && getMutability() < EM_CPU_PERSISTENT; }
+
+		virtual bool canBeRestoredFrom(const IAsset* _other) const = 0;
+
     protected:
-        void clone_common(IAsset* _clone) const
+		inline static void restoreFromDummy_impl_call(IAsset* _this_child, IAsset* _other_child, uint32_t _levelsBelow)
+		{
+			_this_child->restoreFromDummy_impl(_other_child, _levelsBelow);
+		}
+
+		virtual void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) = 0;
+
+        inline void clone_common(IAsset* _clone) const
         {
             _clone->m_metadata = m_metadata;
             assert(!isDummyObjectForCacheAliasing);
             _clone->isDummyObjectForCacheAliasing = false;
-            _clone->m_mutable = true;
+            _clone->m_mutability = EM_MUTABLE;
         }
+		inline bool isImmutable_debug()
+		{
+			const bool imm = getMutability() == EM_IMMUTABLE;
+			//_IRR_DEBUG_BREAK_IF(imm);
+			return imm;
+		}
 
 	private:
 		friend IAssetManager;
 		core::smart_refctd_ptr<IAssetMetadata> m_metadata;
 
-		void setMetadata(core::smart_refctd_ptr<IAssetMetadata>&& _metadata) { m_metadata = std::move(_metadata); }
+		void setMetadata(core::smart_refctd_ptr<IAssetMetadata>&& _metadata) 
+		{
+			//we have to talk about it (TODO)
+			//TODO: https://github.com/Devsh-Graphics-Programming/Nabla/issues/14
+			//if (isImmutable_debug())
+			//	return;
+			m_metadata = std::move(_metadata);
+		}
 
 	protected:
 		bool isDummyObjectForCacheAliasing; //!< A bool for setting whether Asset is in dummy state. @see convertToDummyObject(uint32_t referenceLevelsBelowToConvert)
 
-        bool m_mutable = true;
+		E_MUTABILITY m_mutability;
 
 		//! To be implemented by base classes, dummies must retain references to other assets
 		//! but cleans up all other resources which are not assets.
@@ -212,7 +274,7 @@ class IAsset : virtual public core::IReferenceCounted
 
         void convertToDummyObject_common(uint32_t referenceLevelsBelowToConvert)
         {
-			if (m_mutable)
+			if (canBeConvertedToDummy())
 				isDummyObjectForCacheAliasing = true;
         }
 
@@ -248,18 +310,21 @@ class SAssetBundle
 	public:
 		using contents_container_t = core::refctd_dynamic_array<core::smart_refctd_ptr<IAsset> >;
     
-		SAssetBundle() : m_contents(contents_container_t::create_dynamic_array(0u), core::dont_grab) {}
-		SAssetBundle(std::initializer_list<core::smart_refctd_ptr<IAsset> > _contents) : m_contents(contents_container_t::create_dynamic_array(_contents),core::dont_grab)
+		SAssetBundle(const std::string& _initKey = {}) : m_cacheKey(_initKey), m_contents(contents_container_t::create_dynamic_array(0u), core::dont_grab) {}
+		SAssetBundle(std::initializer_list<core::smart_refctd_ptr<IAsset> > _contents, const std::string& _initKey = {}) : 
+			m_cacheKey(_initKey), m_contents(contents_container_t::create_dynamic_array(_contents),core::dont_grab)
 		{
 			assert(allSameTypeAndNotNull());
 		}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
-		SAssetBundle(const container_t& _contents) : m_contents(contents_container_t::create_dynamic_array(_contents), core::dont_grab)
+		SAssetBundle(const container_t& _contents, const std::string& _initKey = {}) :
+			m_cacheKey(_initKey), m_contents(contents_container_t::create_dynamic_array(_contents), core::dont_grab)
 		{
 			assert(allSameTypeAndNotNull());
 		}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
-		SAssetBundle(container_t&& _contents) : m_contents(contents_container_t::create_dynamic_array(std::move(_contents)), core::dont_grab)
+		SAssetBundle(container_t&& _contents, const std::string& _initKey = {}) : 
+			m_cacheKey(_initKey), m_contents(contents_container_t::create_dynamic_array(std::move(_contents)), core::dont_grab)
 		{
 			assert(allSameTypeAndNotNull());
 		}

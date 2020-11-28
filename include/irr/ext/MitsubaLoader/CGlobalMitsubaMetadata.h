@@ -30,6 +30,11 @@ class CGlobalMitsubaMetadata : public core::IReferenceCounted
 		core::vector<CElementSensor> sensors;
 		core::vector<CElementEmitter> emitters;
 		core::smart_refctd_ptr<asset::ICPUVirtualTexture> VT;
+
+		//has to go after #version and before required user-provided descriptors and functions
+		std::string materialCompilerGLSL_declarations;
+		//has to go after required user-provided descriptors and functions and before the rest of shader (especially entry point function)
+		std::string materialCompilerGLSL_source;
 };
 
 
@@ -60,13 +65,7 @@ class IMeshMetadata : public IMitsubaMetadata
 
 		inline auto getShapeType() const {return type;}
 
-		struct Instance
-		{
-			core::matrix3x4SIMD tform;
-			SContext::bsdf_type bsdf;
-			std::string bsdf_id;
-			CElementEmitter emitter; // type is invalid if not used
-		};
+		using Instance = SContext::SInstanceData;
 
 		inline const auto& getInstances() const { return instances; }
 

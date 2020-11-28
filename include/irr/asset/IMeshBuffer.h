@@ -79,7 +79,7 @@ public:
         if (!m_pipeline)
             return false;
 
-        auto ppln = m_pipeline.get();
+        const auto* ppln = m_pipeline.get();
         const auto& vtxInputParams = ppln->getVertexInputParams();
         if (!(vtxInputParams.enabledAttribFlags & (1u<<attrId)))
             return false;
@@ -92,7 +92,7 @@ public:
         if (!m_pipeline)
             return false;
 
-        auto ppln = m_pipeline.get();
+        const auto* ppln = m_pipeline.get();
         const auto& vtxInputParams = ppln->getVertexInputParams();
         if (!(vtxInputParams.enabledBindingFlags & (1u<<bndId)))
             return false;
@@ -101,26 +101,26 @@ public:
     //! WARNING: does not check whether attribute and binding are enabled!
     inline uint32_t getBindingNumForAttribute(uint32_t attrId) const
     {
-        auto ppln = m_pipeline.get();
+        const auto* ppln = m_pipeline.get();
         const auto& vtxInputParams = ppln->getVertexInputParams();
         return vtxInputParams.attributes[attrId].binding;
     }
     inline E_FORMAT getAttribFormat(uint32_t attrId) const
     {
-        auto ppln = m_pipeline.get();
+        const auto* ppln = m_pipeline.get();
         const auto& vtxInputParams = ppln->getVertexInputParams();
         return static_cast<E_FORMAT>(vtxInputParams.attributes[attrId].format);
     }
     inline uint32_t getAttribStride(uint32_t attrId) const
     {
-        auto ppln = m_pipeline.get();
+        const auto* ppln = m_pipeline.get();
         const auto& vtxInputParams = ppln->getVertexInputParams();
         const uint32_t bnd = getBindingNumForAttribute(attrId);
         return vtxInputParams.bindings[bnd].stride;
     }
     inline uint32_t getAttribOffset(uint32_t attrId) const
     {
-        auto ppln = m_pipeline.get();
+        const auto* ppln = m_pipeline.get();
         const auto& vtxInputParams = ppln->getVertexInputParams();
         return vtxInputParams.attributes[attrId].relativeOffset;
     }

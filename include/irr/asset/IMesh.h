@@ -42,6 +42,7 @@ namespace asset
 			core::aabbox3d<float> cachedBoundingBox;
 
 			virtual ~IMesh() {}
+
 		public:
 
 			//! Get the amount of mesh buffers.
@@ -53,7 +54,9 @@ namespace asset
 			getMeshBufferCount() - 1;
 			\return Pointer to the mesh buffer or 0 if there is no such
 			mesh buffer. */
-			virtual T* getMeshBuffer(uint32_t nr) const = 0;
+			virtual T* getMeshBuffer(uint32_t nr) = 0;
+
+			virtual const T* getMeshBuffer(uint32_t nr) const = 0;
 
 			//! Get an axis aligned bounding box of the mesh.
 			/** \return Bounding box of this mesh. */

@@ -42,15 +42,13 @@ class ICPUImage final : public IImage, public IAsset
 
         inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
         {
-            if (isDummyObjectForCacheAliasing)
-                return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
 			if (referenceLevelsBelowToConvert)
 			if (buffer)
 				buffer->convertToDummyObject(referenceLevelsBelowToConvert-1u);
 
-			if (m_mutable)
+			if (canBeConvertedToDummy())
 				regions = nullptr;
         }
 
@@ -63,12 +61,17 @@ class ICPUImage final : public IImage, public IAsset
 			return sizeof(SCreationParams)+sizeof(void*)+sizeof(SBufferCopy)*regions->size();
 		}
 
-		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const ICPUImage* src)
+		virtual bool validateCopies(const SImageCopy* pRegionsBegin, const SImageCopy* pRegionsEnd, const ICPUImage* src) const
 		{
 			return validateCopies_template(pRegionsBegin, pRegionsEnd, src);
 		}
 
-		inline auto* getBuffer() { return buffer.get(); }
+		inline ICPUBuffer* getBuffer() 
+		{
+			assert(!isImmutable_debug());
+
+			return buffer.get(); 
+		}
 		inline const auto* getBuffer() const { return buffer.get(); }
 
 		inline core::SRange<const IImage::SBufferCopy> getRegions() const
@@ -125,6 +128,8 @@ class ICPUImage final : public IImage, public IAsset
 		//
 		inline void* getTexelBlockData(const IImage::SBufferCopy* region, const core::vectorSIMDu32& inRegionCoord, core::vectorSIMDu32& outBlockCoord)
 		{
+			assert(!isImmutable_debug());
+
 			auto localXYZLayerOffset = inRegionCoord/info.getDimension();
 			outBlockCoord = inRegionCoord-localXYZLayerOffset*info.getDimension();
 			return reinterpret_cast<uint8_t*>(buffer->getPointer())+region->getByteOffset(localXYZLayerOffset,region->getByteStrides(info));
@@ -136,6 +141,8 @@ class ICPUImage final : public IImage, public IAsset
 
 		inline void* getTexelBlockData(uint32_t mipLevel, const core::vectorSIMDu32& boundedTexelCoord, core::vectorSIMDu32& outBlockCoord)
 		{
+			assert(!isImmutable_debug());
+
 			// get region for coord
 			const auto* region = getRegion(mipLevel,boundedTexelCoord);
 			if (!region)
@@ -154,6 +161,8 @@ class ICPUImage final : public IImage, public IAsset
 		//! regions will be copied and sorted
 		inline bool setBufferAndRegions(core::smart_refctd_ptr<ICPUBuffer>&& _buffer, const core::smart_refctd_dynamic_array<IImage::SBufferCopy>& _regions)
 		{
+			assert(!isImmutable_debug());
+
 			if (!IImage::validateCopies(_regions->begin(),_regions->end(),_buffer.get()))
 				return false;
 		
@@ -163,7 +172,33 @@ class ICPUImage final : public IImage, public IAsset
 			return true;
 		}
 
+		bool canBeRestoredFrom(const IAsset* _other) const override
+		{
+			auto* other = static_cast<const ICPUImage*>(_other);
+			if (info != other->info)
+				return false;
+			if (params != other->params)
+				return false;
+			if (!buffer->canBeRestoredFrom(other->buffer.get()))
+				return false;
+
+			return true;
+		}
+
     protected:
+		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		{
+			auto* other = static_cast<ICPUImage*>(_other);
+
+			const bool restorable = willBeRestoredFrom(_other);
+
+			if (restorable)
+				std::swap(regions, other->regions);
+
+			if (_levelsBelow)
+				restoreFromDummy_impl_call(buffer.get(), other->buffer.get(), _levelsBelow - 1u);
+		}
+
 		ICPUImage(SCreationParams&& _params) : IImage(std::move(_params))
 		{
 		}

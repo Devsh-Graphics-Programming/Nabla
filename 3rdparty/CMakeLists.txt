@@ -24,6 +24,7 @@ update_git_submodule(./openssl)
 update_git_submodule(./libjpeg-turbo)
 update_git_submodule(./libjpeg) # soon to be killed
 update_git_submodule(./parallel-hashmap)
+update_git_submodule(./gli)
 # exceptions that get automatically cloned
 update_git_submodule(./glm)
 update_git_submodule(./freetype2)
@@ -444,6 +445,9 @@ if (NBL_COMPILE_WITH_CUDA)
 endif()
 
 set(NBL_3RDPARTY_TARGETS
+				RadeonRays
+				CLW
+				Calc
 				lzma
 				lz4
 				aesGladman

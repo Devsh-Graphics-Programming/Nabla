@@ -61,11 +61,9 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 
         virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
         {
-            if (isDummyObjectForCacheAliasing)
+            if (!canBeConvertedToDummy())
                 return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
-            if (!m_mutable)
-                return;
 
             if (data)
                 _NBL_ALIGNED_FREE(data);
@@ -89,9 +87,30 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 		//! Returns pointer to data.
 		/** WARNING: RESIZE will invalidate pointer.
 		*/
-        virtual void* getPointer() {return data;}
+        virtual void* getPointer() 
+        { 
+            assert(!isImmutable_debug());
+            return data; 
+        }
+
+        bool canBeRestoredFrom(const IAsset* _other) const override
+        {
+            auto* other = static_cast<const ICPUBuffer*>(_other);
+            if (size != other->size)
+                return false;
+
+            return true;
+        }
 
     protected:
+        void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+        {
+            auto* other = static_cast<ICPUBuffer*>(_other);
+
+            if (willBeRestoredFrom(_other))
+                std::swap(data, other->data);
+        }
+
         uint64_t size;
         void* data;
 };
@@ -136,7 +155,7 @@ class CCustomAllocatorCPUBuffer<Allocator, true> : public ICPUBuffer
             if (isDummyObjectForCacheAliasing)
                 return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
-            if (!m_mutable)
+            if (!canBeConvertedToDummy())
                 return;
 
 			if (ICPUBuffer::data)

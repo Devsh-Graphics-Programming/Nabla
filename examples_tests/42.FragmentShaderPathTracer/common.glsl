@@ -4,7 +4,7 @@
 
 // basic settings
 #define MAX_DEPTH 8
-#define SAMPLES 256
+#define SAMPLES 32
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -85,6 +85,8 @@ float Sphere_getSolidAngle(in Sphere sphere, in vec3 origin)
     return Sphere_getSolidAngle_impl(cosThetaMax);
 }
 
+
+
 struct Triangle
 {
     vec3 vertex0;
@@ -134,6 +136,54 @@ vec3 Triangle_getNormalTimesArea(in Triangle tri)
 {
     return Triangle_getNormalTimesArea_impl(mat2x3(tri.vertex1-tri.vertex0,tri.vertex2-tri.vertex0));
 }
+
+
+
+struct Rectangle
+{
+    vec3 offset;
+    uint bsdfLightIDs;
+    vec3 edge0;
+    uint padding0;
+    vec3 edge1;
+    uint padding1;
+};
+
+Rectangle Rectangle_Rectangle(in vec3 offset, in vec3 edge0, in vec3 edge1, in uint bsdfID, in uint lightID)
+{
+    Rectangle rect;
+    rect.offset = offset;
+    rect.edge0 = edge0;
+    rect.edge1 = edge1;
+    //
+    rect.bsdfLightIDs = bitfieldInsert(bsdfID, lightID, 16, 16);
+    return rect;
+}
+
+// return intersection distance if found, FLT_NAN otherwise
+float Rectangle_intersect(in Rectangle rect, in vec3 origin, in vec3 direction)
+{
+    const vec3 h = cross(direction,rect.edge1);
+    const float a = dot(rect.edge0,h);
+
+    const vec3 relOrigin = origin-rect.offset;
+
+    const float u = dot(relOrigin,h)/a;
+
+    const vec3 q = cross(relOrigin,rect.edge0);
+    const float v = dot(direction,q)/a;
+
+    const float t = dot(rect.edge1,q)/a;
+
+    const bool intersection = t>0.f&&u>=0.f&&v>=0.f&&u<=1.f&&v<=1.f;
+    return intersection ? t:irr_glsl_FLT_NAN;
+}
+
+vec3 Rectangle_getNormalTimesArea(in Rectangle rect)
+{
+    return cross(rect.edge0,rect.edge1);
+}
+
 
 
 #define DIFFUSE_OP 0u
@@ -244,7 +294,7 @@ struct ImmutableRay_t
     float maxT;
     vec3 direction;
     int typeDepthSampleIx;
-#ifdef TRIANGLE_METHOD
+#if defined(TRIANGLE_METHOD)||defined(RECTANGLE_METHOD)
     vec3 normalAtOrigin;
     bool wasBSDFAtOrigin;
 #endif
@@ -441,7 +491,7 @@ void main()
     const vec2 pixOffsetParam = vec2(1.0)/vec2(textureSize(scramblebuf,0));
 
 
-    const mat4 invMVP = inverse(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(cameraData.params.MVP));
+    const mat4 invMVP = inverse(cameraData.params.MVP);
     
     vec4 NDC = vec4(TexCoord*vec2(2.0,-2.0)+vec2(-1.0,1.0),0.0,1.0);
     vec3 camPos;
@@ -477,7 +527,7 @@ void main()
             
             rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(i,1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
 
-            #ifdef TRIANGLE_METHOD
+            #if defined(TRIANGLE_METHOD)||defined(RECTANGLE_METHOD)
                 rayStack[stackPtr]._immutable.normalAtOrigin = vec3(0.0,0.0,0.0);
                 rayStack[stackPtr]._immutable.wasBSDFAtOrigin = false;
             #endif
@@ -544,9 +594,6 @@ When proper scheduling is available:
 - Russian Roulette
 - Divergence Optimization
 - Adaptive Sampling
-
-Offline firefly removal:
-- Density Based Outlier Rejection (requires fast k-nearest neighbours on the GPU, at which point we've pretty much got photonmapping ready)
 
 When finally texturing:
 - Covariance Rendering

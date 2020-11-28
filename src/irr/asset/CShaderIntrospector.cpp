@@ -439,7 +439,7 @@ static E_GLSL_VAR_TYPE spvcrossType2E_TYPE(spirv_cross::SPIRType::BaseType _base
 }
 static IImageView<ICPUImage>::E_TYPE spvcrossImageType2ImageView(const spirv_cross::SPIRType::ImageType& _type)
 {
-    IImageView<ICPUImage>::E_TYPE viewType[8]{
+    static constexpr std::array<IImageView<ICPUImage>::E_TYPE, 8> viewType = { {
         IImageView<ICPUImage>::ET_1D,
         IImageView<ICPUImage>::ET_1D_ARRAY,
         IImageView<ICPUImage>::ET_2D,
@@ -448,7 +448,7 @@ static IImageView<ICPUImage>::E_TYPE spvcrossImageType2ImageView(const spirv_cro
         IImageView<ICPUImage>::ET_3D,
         IImageView<ICPUImage>::ET_CUBE_MAP,
         IImageView<ICPUImage>::ET_CUBE_MAP_ARRAY
-    };
+    } };
 
     return viewType[_type.dim*2u + _type.arrayed];
 }
@@ -583,17 +583,19 @@ core::smart_refctd_ptr<CIntrospectionData> CShaderIntrospector::doIntrospection(
     }
     for (const spirv_cross::Resource& r : resources.sampled_images)
     {
-        SShaderResourceVariant& res = addResource_common(r, ESRT_COMBINED_IMAGE_SAMPLER, mapId2SpecConst);
 		const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
-        res.get<ESRT_COMBINED_IMAGE_SAMPLER>().viewType = spvcrossImageType2ImageView(type.image);
-        res.get<ESRT_COMBINED_IMAGE_SAMPLER>().shadow = type.image.depth;
-        res.get<ESRT_COMBINED_IMAGE_SAMPLER>().multisample = type.image.ms;
+        const bool buffer = type.image.dim == spv::DimBuffer;
+        SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_UNIFORM_TEXEL_BUFFER : ESRT_COMBINED_IMAGE_SAMPLER, mapId2SpecConst);
+        if (!buffer)
+        {
+            res.get<ESRT_COMBINED_IMAGE_SAMPLER>().viewType = spvcrossImageType2ImageView(type.image);
+            res.get<ESRT_COMBINED_IMAGE_SAMPLER>().shadow = type.image.depth;
+            res.get<ESRT_COMBINED_IMAGE_SAMPLER>().multisample = type.image.ms;
+        }
     }
     for (const spirv_cross::Resource& r : resources.separate_images)
     {
-		const spirv_cross::SPIRType& type = _comp.get_type(r.type_id);
-        const bool buffer = type.image.dim == spv::DimBuffer;
-        SShaderResourceVariant& res = addResource_common(r, buffer ? ESRT_UNIFORM_TEXEL_BUFFER : ESRT_SAMPLED_IMAGE, mapId2SpecConst);
+        SShaderResourceVariant& res = addResource_common(r, ESRT_SAMPLED_IMAGE, mapId2SpecConst);
     }
     for (const spirv_cross::Resource& r : resources.separate_samplers)
     {

@@ -229,6 +229,9 @@ class CElementShape : public IElement
 		inline core::matrix3x4SIMD getAbsoluteTransform() const
 		{
 			auto local = transform.matrix.extractSub3x4();
+			// TODO restore at some point (and make it actually work??)
+			// note: INSTANCE can only contain SHAPEGROUP and the latter doesnt have its own transform
+
 			//if (type==CElementShape::INSTANCE && instance.parent)
 			//	return core::concatenateBFollowedByA(local,instance.parent->getAbsoluteTransform());
 			return local;

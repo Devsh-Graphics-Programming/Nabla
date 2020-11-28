@@ -104,8 +104,6 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 
 		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
 		{
-            if (isDummyObjectForCacheAliasing)
-                return;
             convertToDummyObject_common(referenceLevelsBelowToConvert);
 
 			if (referenceLevelsBelowToConvert)
@@ -141,7 +139,11 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
-		inline ICPUDescriptorSetLayout* getLayout() { return m_layout.get(); }
+		inline ICPUDescriptorSetLayout* getLayout() 
+		{
+			assert(!isImmutable_debug());
+			return m_layout.get();
+		}
 		inline const ICPUDescriptorSetLayout* getLayout() const { return m_layout.get(); }
 
 		//!
@@ -161,6 +163,8 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 		//! Can modify the array of descriptors bound to a particular bindings
 		inline core::SRange<SDescriptorInfo> getDescriptors(uint32_t index) 
 		{ 
+			assert(!isImmutable_debug());
+
 			if (m_bindingInfo && index<m_bindingInfo->size())
 			{
 				const auto& info = m_bindingInfo->operator[](index);
@@ -193,7 +197,47 @@ class ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSetLayout>, 
 			return m_descriptors->size();
 		}
 
+		bool canBeRestoredFrom(const IAsset* _other) const override
+		{
+			auto* other = static_cast<const ICPUDescriptorSet*>(_other);
+			return m_layout->canBeRestoredFrom(other->m_layout.get());
+		}
+
 	protected:
+		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
+		{
+			auto* other = static_cast<ICPUDescriptorSet*>(_other);
+
+			if (_levelsBelow)
+			{
+				--_levelsBelow;
+				restoreFromDummy_impl_call(m_layout.get(), other->getLayout(), _levelsBelow);
+				for (auto it = m_descriptors->begin(); it != m_descriptors->end(); it++)
+				{
+					auto descriptor = it->desc.get();
+					if (!descriptor)
+						continue;
+					const auto i = it - m_descriptors->begin();
+					auto* d_other = other->m_descriptors->begin()[i].desc.get();
+
+					switch (descriptor->getTypeCategory())
+					{
+					case IDescriptor::EC_BUFFER:
+						restoreFromDummy_impl_call(static_cast<ICPUBuffer*>(descriptor), static_cast<ICPUBuffer*>(d_other), _levelsBelow);
+						break;
+					case IDescriptor::EC_IMAGE:
+						restoreFromDummy_impl_call(static_cast<ICPUImageView*>(descriptor), static_cast<ICPUImageView*>(d_other), _levelsBelow);
+						if (descriptor->getTypeCategory() == IDescriptor::EC_IMAGE && it->image.sampler)
+							restoreFromDummy_impl_call(it->image.sampler.get(), other->m_descriptors->begin()[i].image.sampler.get(), _levelsBelow);
+						break;
+					case IDescriptor::EC_BUFFER_VIEW:
+						restoreFromDummy_impl_call(static_cast<ICPUBufferView*>(descriptor), static_cast<ICPUBufferView*>(d_other), _levelsBelow);
+						break;
+					}
+				}
+			}
+		}
+
 		virtual ~ICPUDescriptorSet() = default;
 };
 

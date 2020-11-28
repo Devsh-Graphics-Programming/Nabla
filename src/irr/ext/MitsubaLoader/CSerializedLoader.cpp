@@ -9,7 +9,7 @@
 #include "os.h"
 
 #include "irr/ext/MitsubaLoader/CSerializedLoader.h"
-#include "CMitsubaSerializedPipelineMetadata.h"
+#include "irr/ext/MitsubaLoader/CMitsubaSerializedPipelineMetadata.h"
 
 #ifndef _NBL_COMPILE_WITH_ZLIB_
 #error "Need zlib for this loader"
