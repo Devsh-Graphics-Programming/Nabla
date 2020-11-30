@@ -9,7 +9,7 @@
 #include "irr/builtin/glsl/utils/indirect_commands.glsl"
 layout(set = 0, binding = 0) coherent buffer LineCount
 {
-    irr_glsl_DrawArraysIndirectCommand_t lineDraw[2];
+    nbl_glsl_DrawArraysIndirectCommand_t lineDraw[2];
 };
 layout(set = 0, binding = 1) writeonly buffer Lines
 {
