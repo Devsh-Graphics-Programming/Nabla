@@ -84,8 +84,8 @@ endif()
 
 set(_NBL_EMBED_BUILTIN_RESOURCES_ ${NBL_EMBED_BUILTIN_RESOURCES})
 
-#set(_NBL_TARGET_ARCH_ARM_ ${IRR_TARGET_ARCH_ARM}) #uncomment in the future
-set(__NBL_FAST_MATH ${IRR_FAST_MATH})
+#set(_NBL_TARGET_ARCH_ARM_ ${NBL_TARGET_ARCH_ARM}) #uncomment in the future
+set(__NBL_FAST_MATH ${NBL_FAST_MATH})
 set(_NBL_DEBUG 0)
 set(_NBL_RELWITHDEBINFO 0)
 configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_RELEASE}/BuildConfigOptions.h")
@@ -364,7 +364,7 @@ macro(nbl_target_link_gli _trgt)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
 endmacro()
 
-add_library(Irrlicht STATIC
+add_library(Nabla STATIC
 	${NABLA_SRCS_COMMON}
 	${NABLA_SRCS_NORMAL}
 	${NABLA_HEADERS}
@@ -377,23 +377,23 @@ add_library(Irrlicht STATIC
 )
 
 #TODO maybe make a macro to do this (note: it's also used in common.cmake)
-set_property(TARGET Irrlicht PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
-add_dependencies(Irrlicht openssl_build)
-nbl_target_link_zlib(Irrlicht)
-nbl_target_link_openssl(Irrlicht)
-nbl_target_link_shaderc(Irrlicht)
-nbl_target_link_libjpeg(Irrlicht)
-nbl_target_link_libpng(Irrlicht)
-nbl_target_link_openexr(Irrlicht)
+add_dependencies(Nabla openssl_build)
+nbl_target_link_zlib(Nabla)
+nbl_target_link_openssl(Nabla)
+nbl_target_link_shaderc(Nabla)
+nbl_target_link_libjpeg(Nabla)
+nbl_target_link_libpng(Nabla)
+nbl_target_link_openexr(Nabla)
 if(_NBL_COMPILE_WITH_GLI_)
-	nbl_target_link_gli(Irrlicht)
+	nbl_target_link_gli(Nabla)
 endif()
-nbl_target_include_parallel_hashmap(Irrlicht)
+nbl_target_include_parallel_hashmap(Nabla)
 
-target_link_libraries(Irrlicht INTERFACE ${OPENGL_gl_LIBRARY})
+target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
-	target_link_libraries(Irrlicht INTERFACE 
+	target_link_libraries(Nabla INTERFACE 
 		${X11_LIBRARIES} 
 		${X11_Xrandr_LIB} 
 		${X11_Xxf86vm_LIB} 
@@ -403,7 +403,7 @@ if (UNIX)
 	)
 endif()
 
-target_include_directories(Irrlicht PUBLIC 
+target_include_directories(Nabla PUBLIC 
 	${NBL_ROOT_PATH}/include
 	${COMMON_INCLUDE_DIRS}
 	${THIRD_PARTY_SOURCE_DIR}
@@ -412,10 +412,10 @@ target_include_directories(Irrlicht PUBLIC
 	"$<$<CONFIG:RELEASE>:${NABLA_CONF_DIR_RELEASE}>"
 	"$<$<CONFIG:RELWITHDEBINFO>:${NABLA_CONF_DIR_RELWITHDEBINFO}>"
 )
-target_include_directories(Irrlicht PUBLIC ${NBL_ROOT_PATH}/src ${NBL_ROOT_PATH}/source/Nabla ${NBL_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
-target_include_directories(Irrlicht PRIVATE ${CMAKE_BINARY_DIR}/include)
+target_include_directories(Nabla PUBLIC ${NBL_ROOT_PATH}/src ${NBL_ROOT_PATH}/source/Nabla ${NBL_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
+target_include_directories(Nabla PRIVATE ${CMAKE_BINARY_DIR}/include)
 if (UNIX)
-	target_include_directories(Irrlicht PUBLIC 
+	target_include_directories(Nabla PUBLIC 
 		${X11_INCLUDE_DIR} 
 		${X11_Xrandr_INCLUDE_PATH} 
 		${X11_xf86vmode_INCLUDE_PATH})
@@ -423,28 +423,28 @@ endif()
 
 
 if (NBL_COMPILE_WITH_CUDA)
-	target_include_directories(Irrlicht PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+	target_include_directories(Nabla PUBLIC ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 endif()
 
-target_compile_definitions(Irrlicht 
+target_compile_definitions(Nabla 
 	PRIVATE	_NBL_STATIC_LIB_ SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
 	PUBLIC	UNW_LOCAL_ONLY
 )
 
 if (MSVC) #on MSVC it won't compile without this option!
-	target_compile_options(Irrlicht PUBLIC /bigobj)
+	target_compile_options(Nabla PUBLIC /bigobj)
 endif()
 
 #precompiled headers
 if(NBL_PCH)
-	target_precompile_headers(Irrlicht PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
+	target_precompile_headers(Nabla PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
 endif()
 	
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	add_custom_target(builtin_resources
 	   DEPENDS ${CMAKE_BINARY_DIR}/include/nbl/builtin/builtinResources.h ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
-	  add_dependencies(Irrlicht builtin_resources)
+	  add_dependencies(Nabla builtin_resources)
 elseif()
 	foreach(X IN LISTS nbl_resources_to_embed)
 		list(APPEND NABLA_HEADERS_PUBLIC  ${NBL_ROOT_PATH}/include/${X})
@@ -471,9 +471,9 @@ macro(nbl_install_lib _TRGT)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION relwithdebinfo/lib CONFIGURATIONS RelWithDebInfo)
 endmacro()
 # Install main lib
-set_target_properties(Irrlicht PROPERTIES DEBUG_POSTFIX _debug)
-set_target_properties(Irrlicht PROPERTIES RELWITHDEBDINFO_POSTFIX _relwithdebinfo)
-nbl_install_lib(Irrlicht)
+set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
+set_target_properties(Nabla PROPERTIES RELWITHDEBDINFO_POSTFIX _relwithdebinfo)
+nbl_install_lib(Nabla)
 
 #install dependencies
 nbl_install_lib(glslang)

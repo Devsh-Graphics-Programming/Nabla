@@ -41,14 +41,14 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
              MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 	
 	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
-	add_dependencies(${EXECUTABLE_NAME} Irrlicht)
+	add_dependencies(${EXECUTABLE_NAME} Nabla)
 
 	target_include_directories(${EXECUTABLE_NAME}
 		PUBLIC ../../include
 		PRIVATE ${_EXTRA_INCLUDES}
 	)
-	target_link_libraries(${EXECUTABLE_NAME} Irrlicht ${_EXTRA_LIBS}) # see, this is how you should code to resolve github issue 311
-	if (IRR_COMPILE_WITH_OPENGL)
+	target_link_libraries(${EXECUTABLE_NAME} Nabla ${_EXTRA_LIBS}) # see, this is how you should code to resolve github issue 311
+	if (NBL_COMPILE_WITH_OPENGL)
 		find_package(OpenGL REQUIRED)
 		target_link_libraries(${EXECUTABLE_NAME} ${OPENGL_LIBRARIES})
 	endif()
@@ -63,10 +63,10 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		set(COMMON_LINKER_OPTIONS "-msse4.2 -mfpmath=sse -fuse-ld=gold")
 		set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${COMMON_LINKER_OPTIONS}")
 		set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${COMMON_LINKER_OPTIONS} -fstack-protector-strong")
-		if (IRR_GCC_SANITIZE_ADDRESS)
+		if (NBL_GCC_SANITIZE_ADDRESS)
 			set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fsanitize=address")
 		endif()
-		if (IRR_GCC_SANITIZE_THREAD)
+		if (NBL_GCC_SANITIZE_THREAD)
 			set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fsanitize=thread")
 		endif()
 		if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.1)
@@ -160,7 +160,7 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 
 	add_library(${LIB_NAME} ${LIB_SOURCES})
 	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
-	add_dependencies(${LIB_NAME} Irrlicht)
+	add_dependencies(${LIB_NAME} Nabla)
 
 	target_include_directories(${LIB_NAME}
 		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/debug
@@ -168,11 +168,11 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/relwithdebinfo
 		PUBLIC ${CMAKE_SOURCE_DIR}/include
 		PUBLIC ${CMAKE_SOURCE_DIR}/src
-		PUBLIC ${CMAKE_SOURCE_DIR}/source/Irrlicht
+		PUBLIC ${CMAKE_SOURCE_DIR}/source/Nabla
 		PRIVATE ${LIB_INCLUDES}
 	)
-	add_dependencies(${LIB_NAME} Irrlicht)
-	target_link_libraries(${LIB_NAME} PUBLIC Irrlicht)
+	add_dependencies(${LIB_NAME} Nabla)
+	target_link_libraries(${LIB_NAME} PUBLIC Nabla)
 	target_compile_options(${LIB_NAME} PUBLIC ${LIB_OPTIONS})
 	set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
@@ -240,7 +240,7 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	set("NBL_EXT_${EXT_NAME}_INCLUDE_DIRS"
 		"${NBL_ROOT_PATH}/include/"
 		"${NBL_ROOT_PATH}/src"
-		"${NBL_ROOT_PATH}/source/Irrlicht"
+		"${NBL_ROOT_PATH}/source/Nabla"
 		"${NBL_ROOT_PATH}/ext/${EXT_NAME}"
 		"${LIB_INCLUDES}"
 		PARENT_SCOPE
