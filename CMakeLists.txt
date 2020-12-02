@@ -232,7 +232,7 @@ add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 OPTION(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 
 
-add_subdirectory(src/nbl) # Irrlicht code	|	Moved cmakelists.txt from source/Irrlicht to src/irr
+add_subdirectory(src/nbl) # Irrlicht code	|	Moved cmakelists.txt from source/Nabla to src/nbl
 
 
 

@@ -97,9 +97,9 @@ set(_NBL_RELWITHDEBINFO 0)
 configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NABLA_CONF_DIR_DEBUG}/BuildConfigOptions.h")
 
 set(NABLA_HEADERS_PUBLIC
-	"${NBL_ROOT_PATH}/source/Irrlicht/FW_Mutex.h"
-	"${NBL_ROOT_PATH}/source/Irrlicht/os.h"
-	"${NBL_ROOT_PATH}/source/Irrlicht/CLogger.h" 
+	"${NBL_ROOT_PATH}/source/Nabla/FW_Mutex.h"
+	"${NBL_ROOT_PATH}/source/Nabla/os.h"
+	"${NBL_ROOT_PATH}/source/Nabla/CLogger.h" 
 )
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.h")
 set(NABLA_HEADERS_PUBLIC ${NABLA_HEADERS_PUBLIC} ${TEMP_GLOB_RES})
@@ -119,19 +119,19 @@ set(NBL_CORE_SOURCES
 )
 set(NBL_SYSTEM_SOURCES
 # Junk to refactor
-	${NBL_ROOT_PATH}/source/Irrlicht/CFileList.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CFileSystem.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CLimitReadFile.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CMemoryFile.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CReadFile.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CWriteFile.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CMountPointReader.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CPakReader.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CTarReader.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CZipReader.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CLogger.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/COSOperator.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/os.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CFileList.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CFileSystem.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CLimitReadFile.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CMemoryFile.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CReadFile.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CWriteFile.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CMountPointReader.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CPakReader.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CTarReader.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CZipReader.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CLogger.cpp
+	${NBL_ROOT_PATH}/source/Nabla/COSOperator.cpp
+	${NBL_ROOT_PATH}/source/Nabla/os.cpp
 )
 set(NBL_ASSET_SOURCES	
 # Assets
@@ -216,26 +216,26 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/CPropertyPoolHandler.cpp
 
 # Junk to refactor
-${NBL_ROOT_PATH}/source/Irrlicht/IDriver.cpp
-${NBL_ROOT_PATH}/source/Irrlicht/CNullDriver.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/FW_Mutex.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CFPSCounter.cpp
+${NBL_ROOT_PATH}/source/Nabla/IDriver.cpp
+${NBL_ROOT_PATH}/source/Nabla/CNullDriver.cpp
+	${NBL_ROOT_PATH}/source/Nabla/FW_Mutex.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CFPSCounter.cpp
 )
 set(NBL_SCENE_SOURCES
 # Junk to refactor
-${NBL_ROOT_PATH}/source/Irrlicht/CSkinnedMeshSceneNode.cpp
-${NBL_ROOT_PATH}/source/Irrlicht/CCameraSceneNode.cpp
-${NBL_ROOT_PATH}/source/Irrlicht/CSceneManager.cpp
+${NBL_ROOT_PATH}/source/Nabla/CSkinnedMeshSceneNode.cpp
+${NBL_ROOT_PATH}/source/Nabla/CCameraSceneNode.cpp
+${NBL_ROOT_PATH}/source/Nabla/CSceneManager.cpp
 
 # Animators
-${NBL_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraFPS.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraMaya.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorCameraModifiedMaya.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorDelete.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFlyCircle.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFlyStraight.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorFollowSpline.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CSceneNodeAnimatorRotation.cpp
+${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraFPS.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraMaya.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorCameraModifiedMaya.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorDelete.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFlyCircle.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFlyStraight.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorFollowSpline.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CSceneNodeAnimatorRotation.cpp
 )
 set(NABLA_SRCS_COMMON
 	${NBL_CORE_SOURCES}
@@ -245,12 +245,12 @@ set(NABLA_SRCS_COMMON
 	${NBL_SCENE_SOURCES}
 
 # Junk to refactor
-	${NBL_ROOT_PATH}/source/Irrlicht/IrrlichtDevice.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CIrrDeviceLinux.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CIrrDeviceConsole.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CIrrDeviceStub.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/CIrrDeviceWin32.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/Irrlicht.cpp
+	${NBL_ROOT_PATH}/source/Nabla/IrrlichtDevice.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceLinux.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceConsole.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceStub.cpp
+	${NBL_ROOT_PATH}/source/Nabla/CIrrDeviceWin32.cpp
+	${NBL_ROOT_PATH}/source/Nabla/Irrlicht.cpp
 )
 
 if (NBL_EMBED_BUILTIN_RESOURCES)
@@ -262,18 +262,18 @@ set(NABLA_SRCS_NORMAL
 	# Vulkan
 
 	#opengl
-	${NBL_ROOT_PATH}/source/Irrlicht/COpenCLHandler.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/COpenGLDriver.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/COpenGLExtensionHandler.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/COpenGLFrameBuffer.cpp
-	${NBL_ROOT_PATH}/source/Irrlicht/COpenGLQuery.cpp
+	${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
+	${NBL_ROOT_PATH}/source/Nabla/COpenGLDriver.cpp
+	${NBL_ROOT_PATH}/source/Nabla/COpenGLExtensionHandler.cpp
+	${NBL_ROOT_PATH}/source/Nabla/COpenGLFrameBuffer.cpp
+	${NBL_ROOT_PATH}/source/Nabla/COpenGLQuery.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/COpenGLPipelineCache.cpp
 	
 	# CUDA
 	${NBL_ROOT_PATH}/src/nbl/video/CCUDAHandler.cpp
 
 	# OpenCL
-	${NBL_ROOT_PATH}/source/Irrlicht/COpenCLHandler.cpp
+	${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp
 )
 
 set(COMMON_INCLUDE_DIRS
@@ -412,7 +412,7 @@ target_include_directories(Irrlicht PUBLIC
 	"$<$<CONFIG:RELEASE>:${NABLA_CONF_DIR_RELEASE}>"
 	"$<$<CONFIG:RELWITHDEBINFO>:${NABLA_CONF_DIR_RELWITHDEBINFO}>"
 )
-target_include_directories(Irrlicht PUBLIC ${NBL_ROOT_PATH}/src ${NBL_ROOT_PATH}/source/Irrlicht ${NBL_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
+target_include_directories(Irrlicht PUBLIC ${NBL_ROOT_PATH}/src ${NBL_ROOT_PATH}/source/Nabla ${NBL_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 target_include_directories(Irrlicht PRIVATE ${CMAKE_BINARY_DIR}/include)
 if (UNIX)
 	target_include_directories(Irrlicht PUBLIC 
