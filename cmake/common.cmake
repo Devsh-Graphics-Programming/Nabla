@@ -237,15 +237,15 @@ macro(irr_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		CONFIGURATIONS RelWithDebInfo
 	)
 
-	set("IRR_EXT_${EXT_NAME}_INCLUDE_DIRS"
-		"${IRR_ROOT_PATH}/include/"
-		"${IRR_ROOT_PATH}/src"
-		"${IRR_ROOT_PATH}/source/Irrlicht"
-		"${IRR_ROOT_PATH}/ext/${EXT_NAME}"
+	set("NBL_EXT_${EXT_NAME}_INCLUDE_DIRS"
+		"${NBL_ROOT_PATH}/include/"
+		"${NBL_ROOT_PATH}/src"
+		"${NBL_ROOT_PATH}/source/Irrlicht"
+		"${NBL_ROOT_PATH}/ext/${EXT_NAME}"
 		"${LIB_INCLUDES}"
 		PARENT_SCOPE
 	)
-	set("IRR_EXT_${EXT_NAME}_LIB"
+	set("NBL_EXT_${EXT_NAME}_LIB"
 		"${LIB_NAME}"
 		PARENT_SCOPE
 	)

@@ -7,6 +7,6 @@ endif()
 irr_create_executable_project(
 	../../src/nbl/ext/DebugDraw/CDraw3DLine.cpp
 	"" 
-	"${IRR_EXT_BULLET_INCLUDE_DIRS}" 
-	"${IRR_EXT_BULLET_LIB}"
+	"${NBL_EXT_BULLET_INCLUDE_DIRS}" 
+	"${NBL_EXT_BULLET_LIB}"
 )
