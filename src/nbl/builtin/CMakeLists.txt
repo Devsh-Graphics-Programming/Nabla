@@ -1,4 +1,4 @@
-function(irr_add_builtin_resources)
+function(nbl_add_builtin_resources)
   # generate files
   foreach(X IN LISTS ARGV0)
     list(APPEND builtin_dependencies_list  ${CMAKE_SOURCE_DIR}/include/${X})
@@ -16,7 +16,7 @@ function(irr_add_builtin_resources)
   )
 endfunction()
 
-set(irr_resources_to_embed
+set(nbl_resources_to_embed
   "nbl/builtin/shaders/loaders/mtl/vertex_impl.glsl"
   "nbl/builtin/shaders/loaders/mtl/vertex_no_uv.vert"
   "nbl/builtin/shaders/loaders/mtl/vertex_uv.vert"

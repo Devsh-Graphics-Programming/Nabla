@@ -49,7 +49,7 @@ set(NBL_EXT_MITSUBA_LOADER_EXTERNAL_INCLUDE
 	"${NBL_ROOT_PATH}/3rdparty/libexpat"
 )
 
-irr_create_ext_library_project(
+nbl_create_ext_library_project(
 	MITSUBA_LOADER
 	"${NBL_EXT_MITSUBA_LOADER_H}"
 	"${NBL_EXT_MITSUBA_LOADER_SRC}"

@@ -21,7 +21,7 @@ set(EXAMPLE_SOURCES
 	getTextureGLname.cpp
 )
 
-irr_create_executable_project(
+nbl_create_executable_project(
 	"${EXAMPLE_SOURCES}"
 	""
 	"${NBL_EXT_CEGUI_INCLUDE_DIRS}"

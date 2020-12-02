@@ -34,7 +34,7 @@ set(EXTRA_SOURCES
 	./dirty_source/ExtraCrap.cpp
 )
 
-irr_create_executable_project(
+nbl_create_executable_project(
 	"${EXTRA_SOURCES}"
 	""
 	"${RAY_TRACED_AO_EXAMPLE_INCLUDE_DIRS}"

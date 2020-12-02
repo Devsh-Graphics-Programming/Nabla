@@ -185,7 +185,7 @@ if(_NBL_COMPILE_WITH_GLI_)
 	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 endif()
 
-irr_adjust_flags()
+nbl_adjust_flags()
 
 add_library(lzma OBJECT
 	lzma/C/Alloc.c

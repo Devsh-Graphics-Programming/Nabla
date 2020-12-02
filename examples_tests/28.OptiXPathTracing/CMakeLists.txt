@@ -20,7 +20,7 @@ set(EXTRA_SOURCES
 	./Renderer.cpp
 )
 
-irr_create_executable_project(
+nbl_create_executable_project(
 	"${EXTRA_SOURCES}"
 	""
 	"${OPTIX_PATH_TRACER_EXAMPLE_INCLUDE_DIRS}"

@@ -78,7 +78,7 @@ else()
 	set(NBL_PARALLEL_BUILD_JOBS 8)
 endif()
 
-macro(irr_adjust_flags)
+macro(nbl_adjust_flags)
 	option(NBL_GCC_SANITIZE_ADDRESS OFF)
 	option(NBL_GCC_SANITIZE_THREAD OFF)
 
@@ -159,7 +159,7 @@ macro(irr_adjust_flags)
 	endif()
 endmacro()
 
-macro(irr_adjust_definitions)
+macro(nbl_adjust_definitions)
 	add_definitions(
 		-DPNG_THREAD_UNSAFE_OK
 		-DPNG_NO_MMX_CODE

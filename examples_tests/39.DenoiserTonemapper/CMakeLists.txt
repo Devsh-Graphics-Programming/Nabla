@@ -21,7 +21,7 @@ set(EXTRA_SOURCES
 	../../src/nbl/ext/ToneMapper/CToneMapper.cpp
 )
 
-irr_create_executable_project(
+nbl_create_executable_project(
 	"${EXTRA_SOURCES}"
 	""
 	"${DENOISER_TONEMAPPER_EXAMPLE_INCLUDE_DIRS}"

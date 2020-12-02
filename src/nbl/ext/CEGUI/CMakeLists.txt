@@ -26,7 +26,7 @@ set(NBL_EXT_CEGUI_EXTERNAL_INCLUDE
 
 add_compile_definitions(CEGUI_STATIC CEGUI_BUILD_STATIC_FACTORY_MODULE)
 
-irr_create_ext_library_project(
+nbl_create_ext_library_project(
   CEGUI
   "${NBL_EXT_CEGUI_H}"
   "${NBL_EXT_CEGUI_SRC}"

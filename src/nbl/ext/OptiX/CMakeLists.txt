@@ -20,7 +20,7 @@ set(NBL_EXT_OPTIX_EXTERNAL_INCLUDE
 	"${OPTIX_INCLUDE_DIR}"
 )
 
-irr_create_ext_library_project(
+nbl_create_ext_library_project(
 	OPTIX
 	"${NBL_EXT_OPTIX_H}"
 	"${NBL_EXT_OPTIX_SRC}"

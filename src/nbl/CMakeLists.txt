@@ -60,13 +60,13 @@ option(_NBL_COMPILE_WITH_OPENEXR_WRITER_ "Compile with OpenEXR Writer" ON)
 option(_NBL_COMPILE_WITH_GLI_LOADER_ "Compile with GLI Loader" ON)
 option(_NBL_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
 
-irr_get_conf_dir(NABLA_CONF_DIR_DEBUG Debug)
-irr_get_conf_dir(NABLA_CONF_DIR_RELEASE Release)
+nbl_get_conf_dir(NABLA_CONF_DIR_DEBUG Debug)
+nbl_get_conf_dir(NABLA_CONF_DIR_RELEASE Release)
 if(NBL_EMBED_BUILTIN_RESOURCES)	
 	add_subdirectory(builtin)
-	irr_add_builtin_resources("${irr_resources_to_embed}")
+	nbl_add_builtin_resources("${nbl_resources_to_embed}")
 endif()
-irr_get_conf_dir(NABLA_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
+nbl_get_conf_dir(NABLA_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
 
 set(_NBL_COMPILE_WITH_OPENGL_ ${NBL_COMPILE_WITH_OPENGL})
 if (NBL_COMPILE_WITH_OPENCL)
@@ -287,11 +287,11 @@ set(COMMON_INCLUDE_DIRS
 	$<TARGET_PROPERTY:jpeg,BINARY_DIR> #for dynamically generated jconfig.h
 )
 
-irr_adjust_flags() # macro defined in root CMakeLists
-irr_adjust_definitions() # macro defined in root CMakeLists
+nbl_adjust_flags() # macro defined in root CMakeLists
+nbl_adjust_definitions() # macro defined in root CMakeLists
 
 # TODO: Change all MACROS into FUNCTIONS (if possible, need to clarify variable scoping rules)
-macro(irr_target_link_zlib _trgt)
+macro(nbl_target_link_zlib _trgt)
 	add_dependencies(${_trgt} zlibstatic)
 
 	target_link_libraries(${_trgt} INTERFACE
@@ -303,11 +303,11 @@ macro(irr_target_link_zlib _trgt)
 endmacro()
 
 #Parallel hashmap
-macro(irr_target_include_parallel_hashmap _trgt)
+macro(nbl_target_include_parallel_hashmap _trgt)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/parallel-hashmap/parallel_hashmap)
 endmacro()
 
-macro(irr_target_link_openssl _trgt)
+macro(nbl_target_link_openssl _trgt)
 	if(WIN32)
 		target_link_libraries(${_trgt} INTERFACE
 			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libeay32.lib"
@@ -322,28 +322,28 @@ macro(irr_target_link_openssl _trgt)
 
 	target_include_directories(${_trgt} PUBLIC "$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/include")
 endmacro()
-macro(irr_target_link_shaderc _trgt)
+macro(nbl_target_link_shaderc _trgt)
 	add_dependencies(${_trgt} shaderc)
 	target_link_libraries(${_trgt} INTERFACE
 		shaderc
 	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/include)
 endmacro()
-macro(irr_target_link_libjpeg _trgt)
+macro(nbl_target_link_libjpeg _trgt)
 	add_dependencies(${_trgt} jpeg)
 	target_link_libraries(${_trgt} INTERFACE
 		jpeg
 	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libjpeg)
 endmacro()
-macro(irr_target_link_libpng _trgt)
+macro(nbl_target_link_libpng _trgt)
 	add_dependencies(${_trgt} png_static)
 	target_link_libraries(${_trgt} INTERFACE
 		png_static
 	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libpng)
 endmacro()
-macro(irr_target_link_openexr _trgt)
+macro(nbl_target_link_openexr _trgt)
 	add_dependencies(${_trgt} OpenEXR::IlmImf)
 	target_link_libraries(${_trgt} INTERFACE 
 		OpenEXR::IlmImf
@@ -356,7 +356,7 @@ macro(irr_target_link_openexr _trgt)
 							   ${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/openexr/IlmBase/IlmThread						   
 	)
 endmacro()
-macro(irr_target_link_gli _trgt)
+macro(nbl_target_link_gli _trgt)
 	add_dependencies(${_trgt} gli)
 	target_link_libraries(${_trgt} INTERFACE
 		gli
@@ -380,16 +380,16 @@ add_library(Irrlicht STATIC
 set_property(TARGET Irrlicht PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
 add_dependencies(Irrlicht openssl_build)
-irr_target_link_zlib(Irrlicht)
-irr_target_link_openssl(Irrlicht)
-irr_target_link_shaderc(Irrlicht)
-irr_target_link_libjpeg(Irrlicht)
-irr_target_link_libpng(Irrlicht)
-irr_target_link_openexr(Irrlicht)
+nbl_target_link_zlib(Irrlicht)
+nbl_target_link_openssl(Irrlicht)
+nbl_target_link_shaderc(Irrlicht)
+nbl_target_link_libjpeg(Irrlicht)
+nbl_target_link_libpng(Irrlicht)
+nbl_target_link_openexr(Irrlicht)
 if(_NBL_COMPILE_WITH_GLI_)
-	irr_target_link_gli(Irrlicht)
+	nbl_target_link_gli(Irrlicht)
 endif()
-irr_target_include_parallel_hashmap(Irrlicht)
+nbl_target_include_parallel_hashmap(Irrlicht)
 
 target_link_libraries(Irrlicht INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
@@ -446,7 +446,7 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	   DEPENDS ${CMAKE_BINARY_DIR}/include/nbl/builtin/builtinResources.h ${CMAKE_CURRENT_BINARY_DIR}/builtin/builtinResourceData.cpp)
 	  add_dependencies(Irrlicht builtin_resources)
 elseif()
-	foreach(X IN LISTS irr_resources_to_embed)
+	foreach(X IN LISTS nbl_resources_to_embed)
 		list(APPEND NABLA_HEADERS_PUBLIC  ${NBL_ROOT_PATH}/include/${X})
 	endforeach()
 endif()
@@ -461,11 +461,11 @@ propagate_changed_variables_to_parent_scope()
 set(NABLA_HEADERS_TO_INSTALL 
 	${NABLA_HEADERS_PUBLIC}
 )
-irr_install_headers("${NABLA_HEADERS_TO_INSTALL}" "${NBL_ROOT_PATH}/include")
-irr_install_config_header(BuildConfigOptions.h)
+nbl_install_headers("${NABLA_HEADERS_TO_INSTALL}" "${NBL_ROOT_PATH}/include")
+nbl_install_config_header(BuildConfigOptions.h)
 
 
-macro(irr_install_lib _TRGT)
+macro(nbl_install_lib _TRGT)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION lib CONFIGURATIONS Release)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION debug/lib CONFIGURATIONS Debug)
 	install(TARGETS ${_TRGT} ARCHIVE DESTINATION relwithdebinfo/lib CONFIGURATIONS RelWithDebInfo)
@@ -473,19 +473,19 @@ endmacro()
 # Install main lib
 set_target_properties(Irrlicht PROPERTIES DEBUG_POSTFIX _debug)
 set_target_properties(Irrlicht PROPERTIES RELWITHDEBDINFO_POSTFIX _relwithdebinfo)
-irr_install_lib(Irrlicht)
+nbl_install_lib(Irrlicht)
 
 #install dependencies
-irr_install_lib(glslang)
-irr_install_lib(jpeg)
-irr_install_lib(Half)
-irr_install_lib(HLSL)
-irr_install_lib(Iex)
-irr_install_lib(IexMath)
-irr_install_lib(IlmImf)
-irr_install_lib(IlmThread)
-irr_install_lib(Imath)
-irr_install_lib(png_static)
+nbl_install_lib(glslang)
+nbl_install_lib(jpeg)
+nbl_install_lib(Half)
+nbl_install_lib(HLSL)
+nbl_install_lib(Iex)
+nbl_install_lib(IexMath)
+nbl_install_lib(IlmImf)
+nbl_install_lib(IlmThread)
+nbl_install_lib(Imath)
+nbl_install_lib(png_static)
 if(WIN32)
 	install(FILES
 			"$<TARGET_PROPERTY:openssl_build,BINARY_DIR>/build/lib/libeay32.lib"
@@ -499,11 +499,11 @@ else()
 		DESTINATION lib
 	)
 endif()
-irr_install_lib(shaderc)
-irr_install_lib(shaderc_util)
-irr_install_lib(SPIRV)
-irr_install_lib(SPIRV-Tools)
-irr_install_lib(SPIRV-Tools-opt)
-irr_install_lib(OGLCompiler)
-irr_install_lib(OSDependent)
-irr_install_lib(zlibstatic)
+nbl_install_lib(shaderc)
+nbl_install_lib(shaderc_util)
+nbl_install_lib(SPIRV)
+nbl_install_lib(SPIRV-Tools)
+nbl_install_lib(SPIRV-Tools-opt)
+nbl_install_lib(OGLCompiler)
+nbl_install_lib(OSDependent)
+nbl_install_lib(zlibstatic)

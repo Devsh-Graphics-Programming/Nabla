@@ -34,7 +34,7 @@ set(NBL_EXT_BULLET_EXTERNAL_INCLUDE
   "${BULLET_INCLUDE_PATH}"
 )
 
-irr_create_ext_library_project(
+nbl_create_ext_library_project(
   BULLET
   "${NBL_EXT_BULLET_H}"
   "${NBL_EXT_BULLET_SRC}"

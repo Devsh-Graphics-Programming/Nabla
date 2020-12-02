@@ -9,7 +9,7 @@ set(MITSUBA_EXAMPLE_LIBS
 	${MITSUBA_LOADER_DEPENDENT_LIBS}
 )
 
-irr_create_executable_project(
+nbl_create_executable_project(
 	""
 	""
 	"${NBL_EXT_MITSUBA_LOADER_INCLUDE_DIRS}"

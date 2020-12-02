@@ -9,4 +9,4 @@ set(EXAMPLE_SOURCES
 	../../src/nbl/ext/ToneMapper/CToneMapper.cpp
 )
 
-irr_create_executable_project("${EXAMPLE_SOURCES}" "" "" "")
+nbl_create_executable_project("${EXAMPLE_SOURCES}" "" "" "")

@@ -14,7 +14,7 @@ set(OPTIX_TRIANGLE_EXAMPLE_INCLUDE_DIRS
 	${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
 )
 
-irr_create_executable_project(
+nbl_create_executable_project(
 	""
 	""
 	"${OPTIX_TRIANGLE_EXAMPLE_INCLUDE_DIRS}"
