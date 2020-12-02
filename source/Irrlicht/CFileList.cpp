@@ -4,7 +4,7 @@
 // See the original file in irrlicht source for authors
 
 #include "CFileList.h"
-#include "irr/core/core.h"
+#include "nbl/core/core.h"
 
 #include <algorithm>
 

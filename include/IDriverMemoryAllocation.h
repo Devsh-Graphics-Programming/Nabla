@@ -5,7 +5,7 @@
 #ifndef __NBL_I_DRIVER_MEMORY_ALLOCATION_H_INCLUDED__
 #define __NBL_I_DRIVER_MEMORY_ALLOCATION_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
+#include "nbl/core/IReferenceCounted.h"
 
 namespace irr
 {

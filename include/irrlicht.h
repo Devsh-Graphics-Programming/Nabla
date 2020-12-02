@@ -18,22 +18,22 @@
 #define __NABLA_H_INCLUDED__
 
 // core lib
-#include "irr/core/core.h"
+#include "nbl/core/core.h"
 
 // system lib (fibers, mutexes, file I/O operations) [DEPENDS: core]
-#include "irr/system/system.h"
+#include "nbl/system/system.h"
 // should we move "core/parallel" to "system/parallel"
 
 // asset lib (importing and exporting meshes, textures and shaders) [DEPENDS: system]
-#include "irr/asset/asset.h"
+#include "nbl/asset/asset.h"
 // ui lib (window set up, software blit, joysticks, multi-touch, keyboard, etc.) [DEPENDS: system]
-#include "irr/ui/ui.h"
+#include "nbl/ui/ui.h"
 
 // video lib (access to Graphics API, remote rendering, etc) [DEPENDS: asset, (optional) ui]
-#include "irr/video/video.h"
+#include "nbl/video/video.h"
 
 // scene lib (basic rendering, culling, scene graph etc.) [DEPENDS: video, ui]
-#include "irr/scene/scene.h"
+#include "nbl/scene/scene.h"
 
 
 #include "aabbox3d.h"

@@ -6,11 +6,11 @@
 #ifndef __NBL_C_PAK_READER_H_INCLUDED__
 #define __NBL_C_PAK_READER_H_INCLUDED__
 
-#include "irr/asset/compile_config.h"
+#include "nbl/asset/compile_config.h"
 
 #ifdef __NBL_COMPILE_WITH_PAK_ARCHIVE_LOADER_
 
-#include "irr/core/IReferenceCounted.h"
+#include "nbl/core/IReferenceCounted.h"
 #include "IReadFile.h"
 #include "IFileSystem.h"
 #include "CFileList.h"

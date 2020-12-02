@@ -9,7 +9,7 @@
 #include <stdio.h>
 #include "IReadFile.h"
 
-#include "irr/core/core.h"
+#include "nbl/core/core.h"
 
 namespace irr
 {

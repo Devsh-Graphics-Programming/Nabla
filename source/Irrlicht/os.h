@@ -6,8 +6,8 @@
 #ifndef __NBL_OS_H_INCLUDED__
 #define __NBL_OS_H_INCLUDED__
 
-#include "irr/core/core.h"
-#include "irr/core/math/floatutil.h"
+#include "nbl/core/core.h"
+#include "nbl/core/math/floatutil.h"
 
 #include "irrString.h"
 #include "path.h"

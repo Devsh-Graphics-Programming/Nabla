@@ -5,11 +5,11 @@
 #ifndef __NBL_I_FRAMEBUFFER_H_INCLUDED__
 #define __NBL_I_FRAMEBUFFER_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
-#include "irr/core/parallel/IThreadBound.h"
+#include "nbl/core/IReferenceCounted.h"
+#include "nbl/core/parallel/IThreadBound.h"
 #include "dimension2d.h"
 
-#include "irr/video/IGPUImageView.h"
+#include "nbl/video/IGPUImageView.h"
 
 namespace irr
 {

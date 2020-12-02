@@ -6,7 +6,7 @@
 #ifndef __NBL_S_VIEW_FRUSTUM_H_INCLUDED__
 #define __NBL_S_VIEW_FRUSTUM_H_INCLUDED__
 
-#include "irr/core/core.h"
+#include "nbl/core/core.h"
 #include "IVideoDriver.h"
 
 namespace irr

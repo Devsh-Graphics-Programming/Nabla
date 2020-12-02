@@ -6,11 +6,11 @@
 #ifndef __NBL_C_TAR_READER_H_INCLUDED__
 #define __NBL_C_TAR_READER_H_INCLUDED__
 
-#include "irr/asset/compile_config.h"
+#include "nbl/asset/compile_config.h"
 
 #ifdef __NBL_COMPILE_WITH_TAR_ARCHIVE_LOADER_
 
-#include "irr/core/IReferenceCounted.h"
+#include "nbl/core/IReferenceCounted.h"
 #include "IReadFile.h"
 #include "IFileSystem.h"
 #include "CFileList.h"
@@ -34,7 +34,7 @@ namespace io
 	};
 
 // byte-align structures
-#include "irr/irrpack.h"
+#include "nbl/irrpack.h"
 
 	struct STarHeader
 	{
@@ -57,7 +57,7 @@ namespace io
 	} PACK_STRUCT;
 
 // Default alignment
-#include "irr/irrunpack.h"
+#include "nbl/irrunpack.h"
 
 	//! Archiveloader capable of loading ZIP Archives
 	class CArchiveLoaderTAR : public IArchiveLoader

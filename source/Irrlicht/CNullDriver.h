@@ -10,8 +10,8 @@
 
 #include "IVideoDriver.h"
 #include "IFileSystem.h"
-#include "irr/asset/IMesh.h"
-#include "irr/video/IGPUMeshBuffer.h"
+#include "nbl/asset/IMesh.h"
+#include "nbl/video/IGPUMeshBuffer.h"
 #include "CFPSCounter.h"
 #include "SExposedVideoData.h"
 #include "FW_Mutex.h"

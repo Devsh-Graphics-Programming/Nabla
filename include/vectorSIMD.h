@@ -6,7 +6,7 @@
 #ifndef __NBL_VECTOR_SIMD_H_INCLUDED__
 #define __NBL_VECTOR_SIMD_H_INCLUDED__
 
-#include "irr/core/compile_config.h"
+#include "nbl/core/compile_config.h"
 
 #ifdef __NBL_COMPILE_WITH_X86_SIMD_
 
@@ -20,7 +20,7 @@
 #include <stdint.h>
 #include <math.h>
 
-#include "irr/core/alloc/AlignedBase.h"
+#include "nbl/core/alloc/AlignedBase.h"
 #include "vector2d.h"
 #include "vector3d.h"
 

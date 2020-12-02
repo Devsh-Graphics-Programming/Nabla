@@ -6,8 +6,8 @@
 #ifndef __NBL_C_FPSCOUNTER_H_INCLUDED__
 #define __NBL_C_FPSCOUNTER_H_INCLUDED__
 
-#include "irr/core/Types.h"
-#include "irr/core/alloc/AlignedBase.h"
+#include "nbl/core/Types.h"
+#include "nbl/core/alloc/AlignedBase.h"
 
 namespace irr
 {

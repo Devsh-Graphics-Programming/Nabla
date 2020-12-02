@@ -4,27 +4,27 @@
 // See the original file in irrlicht source for authors
 
 #include "COpenGLDriver.h"
-#include "irr/video/CGPUSkinnedMesh.h"
+#include "nbl/video/CGPUSkinnedMesh.h"
 
 #include "vectorSIMD.h"
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 
-#include "irr/video/COpenGLImageView.h"
-#include "irr/video/COpenGLBufferView.h"
+#include "nbl/video/COpenGLImageView.h"
+#include "nbl/video/COpenGLBufferView.h"
 
-#include "irr/video/COpenGLPipelineCache.h"
-#include "irr/video/COpenGLShader.h"
-#include "irr/video/COpenGLSpecializedShader.h"
-#include "irr/asset/IGLSLCompiler.h"
-#include "irr/asset/CShaderIntrospector.h"
+#include "nbl/video/COpenGLPipelineCache.h"
+#include "nbl/video/COpenGLShader.h"
+#include "nbl/video/COpenGLSpecializedShader.h"
+#include "nbl/asset/IGLSLCompiler.h"
+#include "nbl/asset/CShaderIntrospector.h"
 
 #include "COpenGLBuffer.h"
 #include "COpenGLFrameBuffer.h"
 #include "COpenGLQuery.h" 
 #include "COpenGLTimestampQuery.h"
 #include "os.h"
-#include "irr/asset/spvUtils.h"
+#include "nbl/asset/spvUtils.h"
 
 #ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
 #include "CIrrDeviceSDL.h"

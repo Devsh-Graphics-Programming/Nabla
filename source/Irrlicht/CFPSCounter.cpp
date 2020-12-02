@@ -4,7 +4,7 @@
 // See the original file in irrlicht source for authors
 
 #include "CFPSCounter.h"
-#include "irr/core/math/glslFunctions.tcc"
+#include "nbl/core/math/glslFunctions.tcc"
 
 namespace irr
 {

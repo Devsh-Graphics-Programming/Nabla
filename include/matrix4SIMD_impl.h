@@ -6,7 +6,7 @@
 #define __NBL_MATRIX4SIMD_IMPL_H_INCLUDED__
 
 #include "matrix4SIMD.h"
-#include "irr/core/math/glslFunctions.tcc"
+#include "nbl/core/math/glslFunctions.tcc"
 
 namespace irr
 {

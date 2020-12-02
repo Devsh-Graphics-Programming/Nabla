@@ -4,8 +4,8 @@
 // See the original file in irrlicht source for authors
 
 #include "CSkinnedMeshSceneNode.h"
-#include "irr/video/CGPUSkinnedMesh.h"
-#include "irr/asset/IMesh.h"
+#include "nbl/video/CGPUSkinnedMesh.h"
+#include "nbl/asset/IMesh.h"
 #include "ISceneManager.h"
 
 namespace irr

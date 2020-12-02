@@ -8,7 +8,7 @@
 
 #include "IReadFile.h"
 #include "IWriteFile.h"
-#include "irr/core/core.h"
+#include "nbl/core/core.h"
 
 namespace irr
 {

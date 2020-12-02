@@ -6,7 +6,7 @@
 #ifndef __NBL_POINT_3D_H_INCLUDED__
 #define __NBL_POINT_3D_H_INCLUDED__
 
-#include "irr/core/math/glslFunctions.h"
+#include "nbl/core/math/glslFunctions.h"
 
 namespace irr
 {

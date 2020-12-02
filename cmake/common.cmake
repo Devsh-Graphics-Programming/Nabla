@@ -163,9 +163,9 @@ macro(irr_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	add_dependencies(${LIB_NAME} Irrlicht)
 
 	target_include_directories(${LIB_NAME}
-		PUBLIC ${CMAKE_BINARY_DIR}/include/irr/config/debug
-		PUBLIC ${CMAKE_BINARY_DIR}/include/irr/config/release
-		PUBLIC ${CMAKE_BINARY_DIR}/include/irr/config/relwithdebinfo
+		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/debug
+		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/release
+		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/relwithdebinfo
 		PUBLIC ${CMAKE_SOURCE_DIR}/include
 		PUBLIC ${CMAKE_SOURCE_DIR}/src
 		PUBLIC ${CMAKE_SOURCE_DIR}/source/Irrlicht
@@ -208,32 +208,32 @@ macro(irr_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 
 	install(
 		FILES ${LIB_HEADERS}
-		DESTINATION ./include/irr/ext/${EXT_NAME}
+		DESTINATION ./include/nbl/ext/${EXT_NAME}
 		CONFIGURATIONS Release
 	)
 	install(
 		FILES ${LIB_HEADERS}
-		DESTINATION ./debug/include/irr/ext/${EXT_NAME}
+		DESTINATION ./debug/include/nbl/ext/${EXT_NAME}
 		CONFIGURATIONS Debug
 	)
 	install(
 		FILES ${LIB_HEADERS}
-		DESTINATION ./relwithdebinfo/include/irr/ext/${EXT_NAME}
+		DESTINATION ./relwithdebinfo/include/nbl/ext/${EXT_NAME}
 		CONFIGURATIONS RelWithDebInfo
 	)
 	install(
 		TARGETS ${LIB_NAME}
-		DESTINATION ./lib/irr/ext/${EXT_NAME}
+		DESTINATION ./lib/nbl/ext/${EXT_NAME}
 		CONFIGURATIONS Release
 	)
 	install(
 		TARGETS ${LIB_NAME}
-		DESTINATION ./debug/lib/irr/ext/${EXT_NAME}
+		DESTINATION ./debug/lib/nbl/ext/${EXT_NAME}
 		CONFIGURATIONS Debug
 	)
 	install(
 		TARGETS ${LIB_NAME}
-		DESTINATION ./relwithdebinfo/lib/irr/ext/${EXT_NAME}
+		DESTINATION ./relwithdebinfo/lib/nbl/ext/${EXT_NAME}
 		CONFIGURATIONS RelWithDebInfo
 	)
 
@@ -255,7 +255,7 @@ endmacro()
 
 function(irr_get_conf_dir _OUTVAR _CONFIG)
 	string(TOLOWER ${_CONFIG} CONFIG)
-	set(${_OUTVAR} "${CMAKE_BINARY_DIR}/include/irr/config/${CONFIG}" PARENT_SCOPE)
+	set(${_OUTVAR} "${CMAKE_BINARY_DIR}/include/nbl/config/${CONFIG}" PARENT_SCOPE)
 endfunction()
 
 

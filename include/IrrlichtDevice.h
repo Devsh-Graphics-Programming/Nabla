@@ -16,7 +16,7 @@
 #include "IOSOperator.h"
 
 #include "IFileSystem.h"
-#include "irr/asset/IAssetManager.h"
+#include "nbl/asset/IAssetManager.h"
 #include "ISceneManager.h"
 
 namespace irr

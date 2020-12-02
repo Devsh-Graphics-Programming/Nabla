@@ -8,10 +8,10 @@
 #include "assert.h"
 #include <algorithm>
 #include <functional>
-#include "irr/core/core.h"
-#include "irr/asset/ICPUSkinnedMesh.h"
-#include "irr/asset/bawformat/BlobSerializable.h"
-#include "irr/asset/bawformat/blobs/FinalBoneHierarchyBlob.h"
+#include "nbl/core/core.h"
+#include "nbl/asset/ICPUSkinnedMesh.h"
+#include "nbl/asset/bawformat/BlobSerializable.h"
+#include "nbl/asset/bawformat/blobs/FinalBoneHierarchyBlob.h"
 
 namespace irr
 {
@@ -21,7 +21,7 @@ namespace asset
     class CFinalBoneHierarchy : public core::IReferenceCounted, public asset::BlobSerializable
     {
         public:
-            #include "irr/irrpack.h"
+            #include "nbl/irrpack.h"
             struct BoneReferenceData
             {
                 core::matrix3x4SIMD PoseBindMatrix;
@@ -37,7 +37,7 @@ namespace asset
                 float Scale[3];
                 float Padding[2];
             } PACK_STRUCT;
-            #include "irr/irrunpack.h"
+            #include "nbl/irrunpack.h"
 
 
             CFinalBoneHierarchy(const core::vector<asset::ICPUSkinnedMesh::SJoint*>& inLevelFixedJoints, const core::vector<size_t>& inJointsLevelEnd)

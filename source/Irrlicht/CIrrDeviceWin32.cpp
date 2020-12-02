@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "irr/core/compile_config.h"
+#include "nbl/core/compile_config.h"
 
 #ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 
@@ -14,11 +14,11 @@
 #include "IEventReceiver.h"
 #include <list>
 #include "os.h"
-#include "irr/asset/IAssetManager.h"
+#include "nbl/asset/IAssetManager.h"
 #include "COSOperator.h"
 #include "dimension2d.h"
 #include <winuser.h>
-#include "irr/core/Types.h"
+#include "nbl/core/Types.h"
 #if defined(_NBL_COMPILE_WITH_JOYSTICK_EVENTS_)
 #ifdef _NBL_COMPILE_WITH_DIRECTINPUT_JOYSTICK_
 #define DIRECTINPUT_VERSION 0x0800

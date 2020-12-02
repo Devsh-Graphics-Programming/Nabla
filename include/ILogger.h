@@ -6,7 +6,7 @@
 #ifndef __NBL_I_LOGGER_H_INCLUDED__
 #define __NBL_I_LOGGER_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
+#include "nbl/core/IReferenceCounted.h"
 #include <string>
 
 namespace irr

@@ -6,7 +6,7 @@
 #define __NBL_MATRIX3X4SIMD_IMPL_H_INCLUDED__
 
 #include "matrix3x4SIMD.h"
-#include "irr/core/math/glslFunctions.tcc"
+#include "nbl/core/math/glslFunctions.tcc"
 
 #include "matrix4x3.h"
 

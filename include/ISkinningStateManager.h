@@ -7,8 +7,8 @@
 
 #include "CFinalBoneHierarchy.h"
 #include "IDummyTransformationSceneNode.h"
-#include "irr/core/alloc/PoolAddressAllocator.h"
-#include "irr/video/alloc/ResizableBufferingAllocator.h"
+#include "nbl/core/alloc/PoolAddressAllocator.h"
+#include "nbl/video/alloc/ResizableBufferingAllocator.h"
 
 #include "IVideoDriver.h"
 
@@ -377,7 +377,7 @@ namespace scene
             uint32_t instanceDataSize;
 
             uint32_t instanceFinalBoneDataSize;
-            #include "irr/irrpack.h"
+            #include "nbl/irrpack.h"
             struct FinalBoneData
             {
                 core::matrix4x3 SkinningTransform;
@@ -386,7 +386,7 @@ namespace scene
                 float MaxBBoxEdge[3];
                 float lastAnimatedFrame; //to pad to 128bit align, maybe parentOffsetRelative?
             } PACK_STRUCT;
-            #include "irr/irrunpack.h"
+            #include "nbl/irrunpack.h"
             video::ResizableBufferingAllocatorST<InstanceDataAddressAllocator,core::allocator<uint8_t>,true>* instanceBoneDataAllocator;
 
             inline uint32_t getDataInstanceCapacity() const

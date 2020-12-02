@@ -17,8 +17,8 @@ set(DENOISER_TONEMAPPER_EXAMPLE_INCLUDE_DIRS
 
 set(EXTRA_SOURCES
 	CommandLineHandler.cpp
-	../../src/irr/ext/LumaMeter/CLumaMeter.cpp
-	../../src/irr/ext/ToneMapper/CToneMapper.cpp
+	../../src/nbl/ext/LumaMeter/CLumaMeter.cpp
+	../../src/nbl/ext/ToneMapper/CToneMapper.cpp
 )
 
 irr_create_executable_project(

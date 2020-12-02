@@ -9,7 +9,7 @@
 #include "IFileSystem.h"
 #include "os.h"
 #include "CLogger.h"
-#include "irr/asset/CIncludeHandler.h"
+#include "nbl/asset/CIncludeHandler.h"
 
 #include "CFileSystem.h"
 

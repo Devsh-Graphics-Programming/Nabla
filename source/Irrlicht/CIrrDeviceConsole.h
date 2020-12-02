@@ -6,7 +6,7 @@
 #ifndef __NBL_C_NBL_DEVICE_CONSOLE_H_INCLUDED__
 #define __NBL_C_NBL_DEVICE_CONSOLE_H_INCLUDED__
 
-#include "irr/core/compile_config.h"
+#include "nbl/core/compile_config.h"
 
 #include "SIrrCreationParameters.h"
 #include "CIrrDeviceStub.h"

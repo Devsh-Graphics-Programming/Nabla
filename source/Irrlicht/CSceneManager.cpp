@@ -16,7 +16,7 @@
 // We need this include for the case of skinned mesh support without
 // any such loader
 #include "CSkinnedMeshSceneNode.h"
-#include "irr/video/CGPUSkinnedMesh.h"
+#include "nbl/video/CGPUSkinnedMesh.h"
 
 #include "CCameraSceneNode.h"
 

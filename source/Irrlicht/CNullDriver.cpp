@@ -7,8 +7,8 @@
 #include "os.h"
 #include "IAnimatedMeshSceneNode.h"
 
-#include "irr/asset/CMeshManipulator.h"
-#include "irr/asset/asset_utils.h"
+#include "nbl/asset/CMeshManipulator.h"
+#include "nbl/asset/asset_utils.h"
 
 #include <new>
 #include "IrrlichtDevice.h"

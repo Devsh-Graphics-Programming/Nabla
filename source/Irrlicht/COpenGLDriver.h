@@ -6,8 +6,8 @@
 #ifndef __NBL_C_VIDEO_OPEN_GL_H_INCLUDED__
 #define __NBL_C_VIDEO_OPEN_GL_H_INCLUDED__
 
-#include "irr/core/core.h"
-#include "irr/system/compile_config.h"
+#include "nbl/core/core.h"
+#include "nbl/system/compile_config.h"
 
 #include "SIrrCreationParameters.h"
 
@@ -22,17 +22,17 @@ namespace irr
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 
 #include "IDriverMemoryAllocation.h"
-#include "irr/video/COpenGLSpecializedShader.h"
-#include "irr/video/COpenGLRenderpassIndependentPipeline.h"
-#include "irr/video/COpenGLDescriptorSet.h"
-#include "irr/video/COpenGLPipelineLayout.h"
-#include "irr/video/COpenGLComputePipeline.h"
+#include "nbl/video/COpenGLSpecializedShader.h"
+#include "nbl/video/COpenGLRenderpassIndependentPipeline.h"
+#include "nbl/video/COpenGLDescriptorSet.h"
+#include "nbl/video/COpenGLPipelineLayout.h"
+#include "nbl/video/COpenGLComputePipeline.h"
 
 #include "CNullDriver.h"
 // also includes the OpenGL stuff
 #include "COpenGLFrameBuffer.h"
 #include "COpenGLDriverFence.h"
-#include "irr/video/CCUDAHandler.h"
+#include "nbl/video/CCUDAHandler.h"
 #include "COpenCLHandler.h"
 
 #include <map>

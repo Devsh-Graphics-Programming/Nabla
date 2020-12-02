@@ -5,7 +5,7 @@
 
 #include "IrrlichtDevice.h"
 
-#include "irr/asset/IAssetManager.h"
+#include "nbl/asset/IAssetManager.h"
 
 namespace irr
 {

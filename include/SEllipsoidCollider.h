@@ -6,7 +6,7 @@
 #define __NBL_S_ELLIPSOID_COLLIDER_H_INCLUDED__
 
 #include "vectorSIMD.h"
-#include "irr/core/math/glslFunctions.tcc"
+#include "nbl/core/math/glslFunctions.tcc"
 
 namespace irr
 {

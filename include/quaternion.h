@@ -9,7 +9,7 @@
 
 #include "vectorSIMD.h"
 
-#include "irr/core/math/glslFunctions.h"
+#include "nbl/core/math/glslFunctions.h"
 
 
 namespace irr

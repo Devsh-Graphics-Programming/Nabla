@@ -5,7 +5,7 @@
 #ifndef __NBL_C_OPEN_GL_BUFFER_H_INCLUDED__
 #define __NBL_C_OPEN_GL_BUFFER_H_INCLUDED__
 
-#include "irr/core/core.h"
+#include "nbl/core/core.h"
 #include "IGPUBuffer.h"
 
 #include "FW_Mutex.h"

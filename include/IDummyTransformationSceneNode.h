@@ -6,7 +6,7 @@
 #ifndef __NBL_I_DUMMY_TRANSFORMATION_SCENE_NODE_H_INCLUDED__
 #define __NBL_I_DUMMY_TRANSFORMATION_SCENE_NODE_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
+#include "nbl/core/IReferenceCounted.h"
 #include "ISceneNodeAnimator.h"
 #include <algorithm>
 #include "matrix4x3.h"

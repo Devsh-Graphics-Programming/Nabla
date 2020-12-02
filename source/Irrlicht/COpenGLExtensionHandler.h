@@ -6,8 +6,8 @@
 #ifndef __NBL_C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
 #define __NBL_C_OPEN_GL_FEATURE_MAP_H_INCLUDED__
 
-#include "irr/core/core.h"
-#include "irr/system/compile_config.h"
+#include "nbl/core/core.h"
+#include "nbl/system/compile_config.h"
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 
@@ -22,7 +22,7 @@
 #endif
 
 #include "os.h"
-#include "irr/video/IGPUImageView.h"
+#include "nbl/video/IGPUImageView.h"
 
 
 namespace irr

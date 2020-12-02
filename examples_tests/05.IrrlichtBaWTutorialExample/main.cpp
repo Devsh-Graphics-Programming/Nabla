@@ -8,7 +8,7 @@
 #include <irrlicht.h>
 
 #include "../common/QToQuitEventReceiver.h"
-#include "irr/asset/CGeometryCreator.h"
+#include "nbl/asset/CGeometryCreator.h"
 
 /*
 	General namespaces. Entire engine consists of those bellow.
@@ -110,8 +110,8 @@ int main()
 
 	const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
 
-	auto cpuVertexShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assetManager->findAssets("irr/builtin/materials/lambertian/singletexture/specializedshader.vert", types)->front().getContents().begin()[0]);
-	auto cpuFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assetManager->findAssets("irr/builtin/materials/lambertian/singletexture/specializedshader.frag", types)->front().getContents().begin()[0]);
+	auto cpuVertexShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assetManager->findAssets("nbl/builtin/materials/lambertian/singletexture/specializedshader.vert", types)->front().getContents().begin()[0]);
+	auto cpuFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(assetManager->findAssets("nbl/builtin/materials/lambertian/singletexture/specializedshader.frag", types)->front().getContents().begin()[0]);
 
 	auto gpuVertexShader = driver->getGPUObjectsFromAssets(&cpuVertexShader.get(), &cpuVertexShader.get() + 1)->front();
 	auto gpuFragmentShader = driver->getGPUObjectsFromAssets(&cpuFragmentShader.get(), &cpuFragmentShader.get() + 1)->front();

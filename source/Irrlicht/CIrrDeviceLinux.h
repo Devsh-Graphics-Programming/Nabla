@@ -7,7 +7,7 @@
 #define __NBL_C_NBL_DEVICE_LINUX_H_INCLUDED__
 
 #include "BuildConfigOptions.h"
-#include "irr/system/compile_config.h"
+#include "nbl/system/compile_config.h"
 
 #ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 

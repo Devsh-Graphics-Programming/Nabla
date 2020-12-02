@@ -8,7 +8,7 @@
 #include "BuildConfigOptions.h"
 #include "IFrameBuffer.h"
 
-#include "irr/video/COpenGLImageView.h"
+#include "nbl/video/COpenGLImageView.h"
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 

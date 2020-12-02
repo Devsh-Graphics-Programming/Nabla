@@ -6,7 +6,7 @@
 #ifndef __NBL_E_SCENE_NODE_TYPES_H_INCLUDED__
 #define __NBL_E_SCENE_NODE_TYPES_H_INCLUDED__
 
-#include "irr/core/Types.h"
+#include "nbl/core/Types.h"
 
 namespace irr
 {

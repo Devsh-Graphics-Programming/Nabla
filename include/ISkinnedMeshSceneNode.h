@@ -7,7 +7,7 @@
 #define __NBL_I_SKINNED_MESH_SCENE_NODE_H_INCLUDED__
 
 #include "ISceneNode.h"
-#include "irr/video/IGPUSkinnedMesh.h"
+#include "nbl/video/IGPUSkinnedMesh.h"
 #include "ISkinningStateManager.h"
 #include "IAnimatedMeshSceneNode.h"
 

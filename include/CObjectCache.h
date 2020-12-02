@@ -12,8 +12,8 @@
 #include <functional>
 #include <string>
 
-#include "irr/macros.h"
-#include "irr/core/Types.h"
+#include "nbl/macros.h"
+#include "nbl/core/Types.h"
 
 namespace irr { namespace core
 {

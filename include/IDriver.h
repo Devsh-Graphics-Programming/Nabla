@@ -6,9 +6,9 @@
 #ifndef __NBL_I_DRIVER_H_INCLUDED__
 #define __NBL_I_DRIVER_H_INCLUDED__
 
-#include "irr/asset/asset.h"
-#include "irr/video/asset_traits.h"
-#include "irr/video/alloc/StreamingTransientDataBuffer.h"
+#include "nbl/asset/asset.h"
+#include "nbl/video/asset_traits.h"
+#include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
 namespace irr
 {
@@ -22,8 +22,8 @@ namespace video
 }
 }
 
-#include "irr/video/IGPUPipelineCache.h"
-#include "irr/video/IGPUImageView.h"
+#include "nbl/video/IGPUPipelineCache.h"
+#include "nbl/video/IGPUImageView.h"
 #include "IFrameBuffer.h"
 #include "IVideoCapabilityReporter.h"
 #include "IQueryObject.h"

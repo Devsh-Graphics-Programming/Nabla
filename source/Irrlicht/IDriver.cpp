@@ -5,8 +5,8 @@
 #include "IDriver.h"
 
 #include "IrrlichtDevice.h"
-#include "irr/asset/IAssetManager.h"
-#include "irr/video/IGPUObjectFromAssetConverter.h"
+#include "nbl/asset/IAssetManager.h"
+#include "nbl/video/IGPUObjectFromAssetConverter.h"
 
 namespace irr
 {

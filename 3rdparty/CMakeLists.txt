@@ -340,22 +340,22 @@ if (NBL_BUILD_CEGUI)
 	#[[ unsure if needed for now
 		install(
 			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include/
-			DESTINATION ./include/irr/ext/CEGUI/3rdparty
+			DESTINATION ./include/nbl/ext/CEGUI/3rdparty
 			CONFIGURATIONS Release
 		)
 		install(
 			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/include/
-			DESTINATION ./debug/include/irr/ext/CEGUI/3rdparty
+			DESTINATION ./debug/include/nbl/ext/CEGUI/3rdparty
 			CONFIGURATIONS Debug
 		)
 		install(
 			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/lib/
-			DESTINATION ./lib/irr/ext/CEGUI
+			DESTINATION ./lib/nbl/ext/CEGUI
 			CONFIGURATIONS Release
 		)
 		install(
 			DIRECTORY ${CEGUI_DEPS_INSTALL_PATH}/lib/
-			DESTINATION ./debug/lib/irr/ext/CEGUI
+			DESTINATION ./debug/lib/nbl/ext/CEGUI
 			CONFIGURATIONS Debug
 		)
 	]]#
@@ -363,49 +363,49 @@ if (NBL_BUILD_CEGUI)
 	# CEGUI headers
 	install(
 		DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include/CEGUI
-		DESTINATION ./include/irr/ext/CEGUI
+		DESTINATION ./include/nbl/ext/CEGUI
 		CONFIGURATIONS Release
 	)
 	install(
 		DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include/CEGUI
-		DESTINATION ./debug/include/irr/ext/CEGUI
+		DESTINATION ./debug/include/nbl/ext/CEGUI
 		CONFIGURATIONS Debug
 	)
 	install(
 		DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/CEGUI/cegui/cegui/include/CEGUI
-		DESTINATION ./relwithdebinfo/include/irr/ext/CEGUI
+		DESTINATION ./relwithdebinfo/include/nbl/ext/CEGUI
 		CONFIGURATIONS RelWithDebInfo
 	)
 	# CEGUI generated headers
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/cegui/include/CEGUI
-		DESTINATION ./include/irr/ext/CEGUI
+		DESTINATION ./include/nbl/ext/CEGUI
 		CONFIGURATIONS Release
 	)
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/cegui/include/CEGUI
-		DESTINATION ./debug/include/irr/ext/CEGUI
+		DESTINATION ./debug/include/nbl/ext/CEGUI
 		CONFIGURATIONS Debug
 	)
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/cegui/include/CEGUI
-		DESTINATION ./relwithdebinfo/include/irr/ext/CEGUI
+		DESTINATION ./relwithdebinfo/include/nbl/ext/CEGUI
 		CONFIGURATIONS RelWithDebInfo
 	)
 	# CEGUI libs
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/
-		DESTINATION ./lib/irr/ext/CEGUI
+		DESTINATION ./lib/nbl/ext/CEGUI
 		CONFIGURATIONS Release
 	)
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/
-		DESTINATION ./debug/lib/irr/ext/CEGUI
+		DESTINATION ./debug/lib/nbl/ext/CEGUI
 		CONFIGURATIONS Debug
 	)
 	install(
 		DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/CEGUI/cegui/lib/
-		DESTINATION ./relwithdebinfo/lib/irr/ext/CEGUI
+		DESTINATION ./relwithdebinfo/lib/nbl/ext/CEGUI
 		CONFIGURATIONS RelWithDebInfo
 	)
 endif()

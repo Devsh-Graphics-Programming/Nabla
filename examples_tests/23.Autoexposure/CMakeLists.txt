@@ -5,8 +5,8 @@ if(NOT RES)
 endif()
 
 set(EXAMPLE_SOURCES
-	../../src/irr/ext/LumaMeter/CLumaMeter.cpp
-	../../src/irr/ext/ToneMapper/CToneMapper.cpp
+	../../src/nbl/ext/LumaMeter/CLumaMeter.cpp
+	../../src/nbl/ext/ToneMapper/CToneMapper.cpp
 )
 
 irr_create_executable_project("${EXAMPLE_SOURCES}" "" "" "")

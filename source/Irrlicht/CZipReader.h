@@ -6,11 +6,11 @@
 #ifndef __NBL_C_ZIP_READER_H_INCLUDED__
 #define __NBL_C_ZIP_READER_H_INCLUDED__
 
-#include "irr/asset/compile_config.h"
+#include "nbl/asset/compile_config.h"
 
 #ifdef __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
 
-#include "irr/core/Types.h"
+#include "nbl/core/Types.h"
 #include "IReadFile.h"
 #include "IFileSystem.h"
 #include "CFileList.h"
@@ -26,7 +26,7 @@ namespace io
 	const int16_t ZIP_INFO_IN_DATA_DESCRIPTOR =	0x0008;
 
 // byte-align structures
-#include "irr/irrpack.h"
+#include "nbl/irrpack.h"
 
 	struct SZIPFileDataDescriptor
 	{
@@ -123,7 +123,7 @@ namespace io
 	} PACK_STRUCT;
 
 // Default alignment
-#include "irr/irrunpack.h"
+#include "nbl/irrunpack.h"
 
 	//! Contains extended info about zip files in the archive
 	struct SZipFileEntry

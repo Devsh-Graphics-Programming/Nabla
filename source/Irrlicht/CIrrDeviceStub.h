@@ -8,9 +8,9 @@
 
 #include "IrrlichtDevice.h"
 #include "SIrrCreationParameters.h"
-#include "irr/video/CCUDAHandler.h"
+#include "nbl/video/CCUDAHandler.h"
 #include "COpenCLHandler.h"
-#include "irr/asset/IIncludeHandler.h"
+#include "nbl/asset/IIncludeHandler.h"
 
 namespace irr
 {

@@ -5,7 +5,7 @@
 
 #include "os.h"
 
-//#include "irr/core/math/irrMath.h"
+//#include "nbl/core/math/irrMath.h"
 
 
 #if defined(_NBL_WINDOWS_API_)

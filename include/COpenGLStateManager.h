@@ -8,7 +8,7 @@
 #include <limits>       // std::numeric_limits
 #include <utility>
 
-#include "irr/core/compile_config.h"
+#include "nbl/core/compile_config.h"
 
 #ifdef _NBL_WINDOWS_API_
     #define WIN32_LEAN_AND_MEAN

@@ -5,8 +5,8 @@
 #ifndef __NBL_C_OPENCL_HANDLER_H__
 #define __NBL_C_OPENCL_HANDLER_H__
 
-#include "irr/core/core.h"
-#include "irr/system/system.h"
+#include "nbl/core/core.h"
+#include "nbl/system/system.h"
 
 #include <string>
 
