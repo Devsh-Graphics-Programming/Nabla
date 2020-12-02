@@ -2,9 +2,9 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "irr/ext/MitsubaLoader/CShapeCreator.h"
-#include "irr/ext/MitsubaLoader/PropertyElement.h"
-#include "irr/ext/MitsubaLoader/ParserUtil.h"
+#include "nbl/ext/MitsubaLoader/CShapeCreator.h"
+#include "nbl/ext/MitsubaLoader/PropertyElement.h"
+#include "nbl/ext/MitsubaLoader/ParserUtil.h"
 
 namespace irr { namespace ext { namespace MitsubaLoader {
 

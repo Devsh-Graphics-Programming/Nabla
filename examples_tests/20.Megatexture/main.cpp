@@ -9,19 +9,19 @@
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
-#include <irr/video/IGPUVirtualTexture.h>
-#include <irr/asset/CMTLPipelineMetadata.h>
-#include "irr/ext/FullScreenTriangle/FullScreenTriangle.h"
-#include <irr/asset/filters/CMipMapGenerationImageFilter.h>
+#include <nbl/video/IGPUVirtualTexture.h>
+#include <nbl/asset/CMTLPipelineMetadata.h>
+#include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
+#include <nbl/asset/filters/CMipMapGenerationImageFilter.h>
 
-//#include "irr/ext/ScreenShot/ScreenShot.h"
+//#include "nbl/ext/ScreenShot/ScreenShot.h"
 using namespace irr;
 using namespace core;
 
 constexpr const char* SHADER_OVERRIDES = //also turns off set3 bindings (textures) because they're not needed anymore as we're using VT
 R"(
 #ifndef _NO_UV
-    #include <irr/builtin/glsl/virtual_texturing/extensions.glsl>
+    #include <nbl/builtin/glsl/virtual_texturing/extensions.glsl>
 
     #define _IRR_VT_DESCRIPTOR_SET 0
     #define _IRR_VT_PAGE_TABLE_BINDING 0
@@ -37,7 +37,7 @@ R"(
     #define _IRR_VT_UINT_VIEWS_BINDING 3
     #define _IRR_VT_UINT_VIEWS_COUNT 0
     #define _IRR_VT_UINT_VIEWS
-    #include <irr/builtin/glsl/virtual_texturing/descriptors.glsl>
+    #include <nbl/builtin/glsl/virtual_texturing/descriptors.glsl>
 
     layout (set = 2, binding = 0, std430) restrict readonly buffer PrecomputedStuffSSBO
     {
@@ -153,7 +153,7 @@ STextureData getTextureData(core::vector<commit_t>& _out_commits, const asset::I
 }
 
 constexpr uint32_t TEX_OF_INTEREST_CNT = 6u;
-#include "irr/irrpack.h"
+#include "nbl/irrpack.h"
 struct SPushConstants
 {
     //Ka
@@ -173,7 +173,7 @@ struct SPushConstants
     float IoR = 1.6f;
     uint32_t extra;
 } PACK_STRUCT;
-#include "irr/irrunpack.h"
+#include "nbl/irrunpack.h"
 static_assert(sizeof(SPushConstants)<=asset::ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "doesnt fit in push constants");
 
 constexpr uint32_t texturesOfInterest[TEX_OF_INTEREST_CNT]{

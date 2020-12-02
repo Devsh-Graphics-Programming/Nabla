@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-﻿#include "irr/ext/LumaMeter/CLumaMeter.h"
+﻿#include "nbl/ext/LumaMeter/CLumaMeter.h"
 #include "../../../../source/Irrlicht/COpenGLExtensionHandler.h"
 
 #include <cstdio>
@@ -120,15 +120,15 @@ R"===(#version 430 core
 #define _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_ %d
 #endif
 
-#include "irr/builtin/glsl/colorspace/EOTF.glsl"
-#include "irr/builtin/glsl/colorspace/encodeCIEXYZ.glsl"
-#include "irr/builtin/glsl/colorspace/decodeCIEXYZ.glsl"
-#include "irr/builtin/glsl/colorspace/OETF.glsl"
+#include "nbl/builtin/glsl/colorspace/EOTF.glsl"
+#include "nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl"
+#include "nbl/builtin/glsl/colorspace/decodeCIEXYZ.glsl"
+#include "nbl/builtin/glsl/colorspace/OETF.glsl"
 
 #define _IRR_GLSL_EXT_LUMA_METER_EOTF_DEFINED_ %s
 #define _IRR_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_ %s
 #define _IRR_GLSL_EXT_LUMA_METER_GET_COLOR_DEFINED_
-#include "irr/builtin/glsl/ext/LumaMeter/impl.glsl"
+#include "nbl/builtin/glsl/ext/LumaMeter/impl.glsl"
 
 
 layout(local_size_x=_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_, local_size_y=_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_) in;

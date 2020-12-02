@@ -6,8 +6,8 @@
 #include <iostream>
 #include <cstdio>
 #include <irrlicht.h>
-#include "irr/ext/ScreenShot/ScreenShot.h"
-#include "irr/ext/FullScreenTriangle/FullScreenTriangle.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
+#include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
 
 using namespace irr;
 using namespace core;

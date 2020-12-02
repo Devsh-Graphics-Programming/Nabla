@@ -1,6 +1,6 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
-#include "irr/core/containers/LRUcache.h"
+#include "nbl/core/containers/LRUcache.h"
 
 using namespace irr;
 using namespace irr::core;

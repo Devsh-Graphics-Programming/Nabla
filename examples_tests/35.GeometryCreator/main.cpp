@@ -9,12 +9,12 @@
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
-#include "irr/asset/CGeometryCreator.h"
+#include "nbl/asset/CGeometryCreator.h"
 
 using namespace irr;
 using namespace core;
 
-#include "irr/irrpack.h"
+#include "nbl/irrpack.h"
 struct GPUObject
 {
 	core::smart_refctd_ptr<video::IGPUMeshBuffer> meshbuffer;
@@ -40,15 +40,15 @@ struct Objects
 
 	const std::vector<std::pair<asset::IGeometryCreator::return_type, GPUObject>> objects;
 } PACK_STRUCT;
-#include "irr/irrunpack.h"
+#include "nbl/irrunpack.h"
 
 const char* vertexSource = R"===(
 #version 430 core
 layout(location = 0) in vec4 vPos;
 layout(location = 3) in vec3 vNormal;
 
-#include <irr/builtin/glsl/utils/common.glsl>
-#include <irr/builtin/glsl/utils/transform.glsl>
+#include <nbl/builtin/glsl/utils/common.glsl>
+#include <nbl/builtin/glsl/utils/transform.glsl>
 
 layout( push_constant, row_major ) uniform Block {
 	mat4 modelViewProj;

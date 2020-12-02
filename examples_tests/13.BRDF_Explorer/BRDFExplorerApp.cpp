@@ -26,12 +26,12 @@ SOFTWARE.
 */
 
 #include "BRDFExplorerApp.h"
-#include "irr/ext/CEGUI/ExtCEGUI.h"
+#include "nbl/ext/CEGUI/ExtCEGUI.h"
 #include <CEGUI/RendererModules/OpenGL/Texture.h>
 #include <IShaderConstantSetCallBack.h>
 
 #include "workaroundFunctions.h"
-#include "irr/video/CDerivativeMapCreator.h"
+#include "nbl/video/CDerivativeMapCreator.h"
 
 
 using namespace irr;

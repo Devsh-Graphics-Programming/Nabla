@@ -25,8 +25,8 @@ SOFTWARE.
 
 */
 
-#include "irr/ext/CEGUI/ExtCEGUI.h"
-#include "irr/ext/CEGUI/CEGUIOpenGLClip.h"
+#include "nbl/ext/CEGUI/ExtCEGUI.h"
+#include "nbl/ext/CEGUI/CEGUIOpenGLClip.h"
 
 using namespace CEGUI;
 

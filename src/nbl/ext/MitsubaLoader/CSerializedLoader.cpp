@@ -2,14 +2,14 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "irr/asset/compile_config.h"
+#include "nbl/asset/compile_config.h"
 
-#include "irr/core/core.h"
+#include "nbl/core/core.h"
 #include "IReadFile.h"
 #include "os.h"
 
-#include "irr/ext/MitsubaLoader/CSerializedLoader.h"
-#include "irr/ext/MitsubaLoader/CMitsubaSerializedPipelineMetadata.h"
+#include "nbl/ext/MitsubaLoader/CSerializedLoader.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaSerializedPipelineMetadata.h"
 
 #ifndef _NBL_COMPILE_WITH_ZLIB_
 #error "Need zlib for this loader"

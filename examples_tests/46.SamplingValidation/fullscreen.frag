@@ -6,12 +6,12 @@
 
 #extension GL_ARB_derivative_control : enable
 
-#include <irr/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
-#include <irr/builtin/glsl/bxdf/bsdf/diffuse/lambert.glsl>
-//#include <irr/builtin/glsl/bxdf/bsdf/specular/ggx.glsl>
-//#include <irr/builtin/glsl/bxdf/bsdf/specular/beckmann.glsl>
+#include <nbl/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl>
+#include <nbl/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
+#include <nbl/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
+#include <nbl/builtin/glsl/bxdf/bsdf/diffuse/lambert.glsl>
+//#include <nbl/builtin/glsl/bxdf/bsdf/specular/ggx.glsl>
+//#include <nbl/builtin/glsl/bxdf/bsdf/specular/beckmann.glsl>
 
 layout (location = 0) out vec4 Color;
 

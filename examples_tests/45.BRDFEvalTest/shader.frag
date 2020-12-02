@@ -14,11 +14,11 @@ layout (push_constant) uniform PC {
     layout (offset = 64) vec3 campos;
 } pc;
 
-#include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl>
+#include <nbl/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
+#include <nbl/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
+#include <nbl/builtin/glsl/bxdf/brdf/specular/blinn_phong.glsl>
+#include <nbl/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
+#include <nbl/builtin/glsl/bxdf/brdf/diffuse/lambert.glsl>
 
 void main()
 {

@@ -4,8 +4,8 @@
 
 #include "os.h"
 
-#include "irr/ext/MitsubaLoader/ParserUtil.h"
-#include "irr/ext/MitsubaLoader/CElementFactory.h"
+#include "nbl/ext/MitsubaLoader/ParserUtil.h"
+#include "nbl/ext/MitsubaLoader/CElementFactory.h"
 
 #include "expat/lib/expat.h"
 

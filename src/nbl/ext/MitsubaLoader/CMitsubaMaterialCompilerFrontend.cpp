@@ -2,10 +2,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "irr/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
-#include "irr/ext/MitsubaLoader/SContext.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
+#include "nbl/ext/MitsubaLoader/SContext.h"
 
-#include <irr/core/Types.h>
+#include <nbl/core/Types.h>
 
 namespace irr
 {

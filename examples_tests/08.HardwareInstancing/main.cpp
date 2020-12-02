@@ -5,7 +5,7 @@
 #define _IRR_STATIC_LIB_
 #include <irrlicht.h>
 
-#include "irr/ext/ScreenShot/ScreenShot.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 #include "../common/QToQuitEventReceiver.h"
 
 using namespace irr;

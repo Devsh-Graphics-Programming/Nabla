@@ -7,8 +7,8 @@
 #include <iostream>
 #include <cstdio>
 
-#include "irr/ext/FullScreenTriangle/FullScreenTriangle.h"
-#include "irr/ext/ScreenShot/ScreenShot.h"
+#include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
 #include "../common/QToQuitEventReceiver.h"
 

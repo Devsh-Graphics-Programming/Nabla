@@ -5,7 +5,7 @@
 #define _NBL_STATIC_LIB_
 #include <irrlicht.h>
 
-#include "irr/ext/DebugDraw/CDraw3DLine.h"
+#include "nbl/ext/DebugDraw/CDraw3DLine.h"
 
 #include "../common/QToQuitEventReceiver.h"
 

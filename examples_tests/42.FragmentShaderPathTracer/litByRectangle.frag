@@ -64,7 +64,7 @@ bool traceRay(in ImmutableRay_t _immutable)
 }
 
 
-/// #include <irr/builtin/glsl/sampling/projected_spherical_rectangle.glsl>
+/// #include <nbl/builtin/glsl/sampling/projected_spherical_rectangle.glsl>
 
 
 // the interaction here is the interaction at the illuminator-end of the ray, not the receiver

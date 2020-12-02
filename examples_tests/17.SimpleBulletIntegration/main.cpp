@@ -5,16 +5,16 @@
 #define _NBL_STATIC_LIB_
 #include <irrlicht.h>
 
-#include "irr/ext/ScreenShot/ScreenShot.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
 #include <btBulletDynamicsCommon.h>
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 
-#include "irr/ext/Bullet/BulletUtility.h"
-#include "irr/ext/Bullet/CPhysicsWorld.h"
+#include "nbl/ext/Bullet/BulletUtility.h"
+#include "nbl/ext/Bullet/CPhysicsWorld.h"
 
-#include "irr/ext/Bullet/CInstancedMotionState.h"
-#include "irr/ext/Bullet/CDebugRender.h"
+#include "nbl/ext/Bullet/CInstancedMotionState.h"
+#include "nbl/ext/Bullet/CDebugRender.h"
 
 
 #include "../common/QToQuitEventReceiver.h"

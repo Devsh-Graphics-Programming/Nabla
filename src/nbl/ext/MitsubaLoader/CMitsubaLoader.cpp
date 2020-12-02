@@ -5,10 +5,10 @@
 #include "os.h"
 
 #include <cwchar>
-#include <irr/asset/filters/CSwizzleAndConvertImageFilter.h>
+#include <nbl/asset/filters/CSwizzleAndConvertImageFilter.h>
 
-#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
-#include "irr/ext/MitsubaLoader/ParserUtil.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
+#include "nbl/ext/MitsubaLoader/ParserUtil.h"
 
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
 #	define DEBUG_MITSUBA_LOADER
@@ -35,8 +35,8 @@ layout (location = 1) flat out uint InstanceIndex;
 layout (location = 2) out vec3 Normal;
 layout (location = 3) out vec2 UV;
 
-#include <irr/builtin/glsl/utils/common.glsl>
-#include <irr/builtin/glsl/utils/transform.glsl>
+#include <nbl/builtin/glsl/utils/common.glsl>
+#include <nbl/builtin/glsl/utils/transform.glsl>
 
 layout (push_constant) uniform Block {
     uint instDataOffset;
@@ -49,7 +49,7 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO {
 } CamData;
 #endif //_IRR_VERT_SET1_BINDINGS_DEFINED_
 
-#include <irr/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl>
+#include <nbl/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl>
 
 layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
 	InstanceData data[];
@@ -98,7 +98,7 @@ layout (location = 0) out vec4 OutColor;
 #define _IRR_VT_UINT_VIEWS_BINDING 3
 #define _IRR_VT_UINT_VIEWS_COUNT 0
 #define _IRR_VT_UINT_VIEWS
-#include <irr/builtin/glsl/virtual_texturing/descriptors.glsl>
+#include <nbl/builtin/glsl/virtual_texturing/descriptors.glsl>
 
 layout (set = 0, binding = 2, std430) restrict readonly buffer VT_PrecomputedStuffSSBO
 {
@@ -139,15 +139,15 @@ float irr_glsl_VT_getVTexSzRcp()
 }
 #define _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
 
-#include <irr/builtin/glsl/virtual_texturing/functions.glsl/7/8>
+#include <nbl/builtin/glsl/virtual_texturing/functions.glsl/7/8>
 
-#include <irr/builtin/glsl/utils/common.glsl>
+#include <nbl/builtin/glsl/utils/common.glsl>
 
 layout (set = 1, binding = 0, row_major, std140) uniform UBO {
     irr_glsl_SBasicViewParameters params;
 } CamData;
 
-#include <irr/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl>
+#include <nbl/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl>
 
 layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
 	InstanceData data[];
@@ -181,7 +181,7 @@ bsdf_data_t irr_glsl_MC_fetchBSDFData(in uint ix)
 #define _IRR_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 )";
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
-#include <irr/builtin/glsl/format/decode.glsl>
+#include <nbl/builtin/glsl/format/decode.glsl>
 
 instr_stream_t getEvalStream(in MC_precomputed_t precomp)
 {

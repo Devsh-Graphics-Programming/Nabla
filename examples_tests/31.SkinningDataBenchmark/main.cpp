@@ -21,7 +21,7 @@ using namespace core;
 using namespace asset;
 using namespace video;
 
-#include "irr/irrpack.h"
+#include "nbl/irrpack.h"
 struct Vertex
 {
     uint32_t boneID;
@@ -30,9 +30,9 @@ struct Vertex
     uint8_t uv[2];
     float normal[3];
 } PACK_STRUCT;
-#include "irr/irrunpack.h"
+#include "nbl/irrunpack.h"
 
-#include <irr/asset/CCPUMeshPacker.h>
+#include <nbl/asset/CCPUMeshPacker.h>
 #include "common.glsl"
 
 template<typename T>

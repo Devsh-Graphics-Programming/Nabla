@@ -7,9 +7,9 @@
 #if 0
 #include "Renderer.h"
 
-#include "irr/ext/ScreenShot/ScreenShot.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
-#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 
 #define __C_CUDA_HANDLER_H__ // don't want CUDA declarations and defines to pollute here
 #include "../source/Irrlicht/COpenGLBuffer.h"

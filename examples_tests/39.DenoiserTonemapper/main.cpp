@@ -8,10 +8,10 @@
 #include <irrlicht.h>
 
 #include "CommandLineHandler.hpp"
-#include "irr/asset/filters/dithering/CPrecomputedDither.h"
+#include "nbl/asset/filters/dithering/CPrecomputedDither.h"
 
-#include "irr/ext/ToneMapper/CToneMapper.h"
-#include "irr/ext/OptiX/Manager.h"
+#include "nbl/ext/ToneMapper/CToneMapper.h"
+#include "nbl/ext/OptiX/Manager.h"
 
 #include "CommonPushConstants.h"
 
@@ -296,7 +296,7 @@ void main()
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
 #include "../ShaderCommon.glsl"
-#include "irr/builtin/glsl/ext/ToneMapper/operators.glsl"
+#include "nbl/builtin/glsl/ext/ToneMapper/operators.glsl"
 layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 {
 	float16_t inBuffer[];

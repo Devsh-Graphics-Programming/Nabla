@@ -10,7 +10,7 @@
 #include "../common/QToQuitEventReceiver.h"
 
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
-#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 
 //#include "Renderer.h"
 

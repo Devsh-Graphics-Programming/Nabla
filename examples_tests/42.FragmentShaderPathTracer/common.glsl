@@ -19,11 +19,11 @@ layout(location = 0) in vec2 TexCoord;
 layout(location = 0) out vec4 pixelColor;
 
 
-#include <irr/builtin/glsl/limits/numeric.glsl>
-#include <irr/builtin/glsl/math/constants.glsl>
-#include <irr/builtin/glsl/utils/common.glsl>
+#include <nbl/builtin/glsl/limits/numeric.glsl>
+#include <nbl/builtin/glsl/math/constants.glsl>
+#include <nbl/builtin/glsl/utils/common.glsl>
 
-//! @Crisspl move this to `irr/builtin/glsl/sampling.glsl` (along with the circle transform)
+//! @Crisspl move this to `nbl/builtin/glsl/sampling.glsl` (along with the circle transform)
 vec2 nbl_glsl_BoxMullerTransform(in vec2 xi, in float stddev)
 {
     float sinPhi, cosPhi;
@@ -224,7 +224,7 @@ mat2x3 BSDFNode_getEta(in BSDFNode node)
 {
     return mat2x3(BSDFNode_getRealEta(node),BSDFNode_getImaginaryEta(node));
 }
-#include <irr/builtin/glsl/bxdf/fresnel.glsl>
+#include <nbl/builtin/glsl/bxdf/fresnel.glsl>
 vec3 BSDFNode_getReflectance(in BSDFNode node, in float VdotH)
 {
     const vec3 albedoOrRealIoR = uintBitsToFloat(node.data[0].rgb);
@@ -242,8 +242,8 @@ float BSDFNode_getMISWeight(in BSDFNode bsdf)
     return notDiffuse ? mix(1.0,DIFFUSE_MIS_WEIGHT,alpha):DIFFUSE_MIS_WEIGHT; // TODO: test alpha*alpha
 }
 
-#include <irr/builtin/glsl/colorspace/EOTF.glsl>
-#include <irr/builtin/glsl/colorspace/encodeCIEXYZ.glsl>
+#include <nbl/builtin/glsl/colorspace/EOTF.glsl>
+#include <nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl>
 float getLuma(in vec3 col)
 {
     return dot(transpose(nbl_glsl_scRGBtoXYZ)[1],col);
@@ -381,13 +381,13 @@ void missProgram()
     rayStack[stackPtr]._payload.accumulation += finalContribution;
 }
 
-#include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
-#include <irr/builtin/glsl/bxdf/bsdf/diffuse/lambert.glsl>
-#include <irr/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
-#include <irr/builtin/glsl/bxdf/bsdf/specular/beckmann.glsl>
-#include <irr/builtin/glsl/bxdf/bsdf/specular/ggx.glsl>
+#include <nbl/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
+#include <nbl/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
+#include <nbl/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
+#include <nbl/builtin/glsl/bxdf/bsdf/diffuse/lambert.glsl>
+#include <nbl/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
+#include <nbl/builtin/glsl/bxdf/bsdf/specular/beckmann.glsl>
+#include <nbl/builtin/glsl/bxdf/bsdf/specular/ggx.glsl>
 nbl_glsl_LightSample nbl_glsl_bsdf_cos_generate(in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf, in float monochromeEta, out nbl_glsl_AnisotropicMicrofacetCache _cache)
 {
     const float a = BSDFNode_getRoughness(bsdf);
@@ -466,7 +466,7 @@ layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
 layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
 
 
-#include <irr/builtin/glsl/random/xoroshiro.glsl>
+#include <nbl/builtin/glsl/random/xoroshiro.glsl>
 
 vec3 rand3d(in uint protoDimension, in uint _sample, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
 {

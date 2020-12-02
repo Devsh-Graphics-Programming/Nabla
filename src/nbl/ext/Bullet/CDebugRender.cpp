@@ -2,9 +2,9 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "irr/ext/Bullet/CDebugRender.h"
-#include "irr/ext/Bullet/BulletUtility.h"
-#include "irr/ext/DebugDraw/Draw3DLineShaders.h"
+#include "nbl/ext/Bullet/CDebugRender.h"
+#include "nbl/ext/Bullet/BulletUtility.h"
+#include "nbl/ext/DebugDraw/Draw3DLineShaders.h"
 
 
 #include <iostream>

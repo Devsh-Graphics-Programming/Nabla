@@ -6,9 +6,9 @@
 #include <irrlicht.h>
 
 #include "../common/QToQuitEventReceiver.h"
-#include <irr/video/IGPUVirtualTexture.h>
-#include <irr/asset/CMTLPipelineMetadata.h>
-#include <irr/asset/filters/CMipMapGenerationImageFilter.h>
+#include <nbl/video/IGPUVirtualTexture.h>
+#include <nbl/asset/CMTLPipelineMetadata.h>
+#include <nbl/asset/filters/CMipMapGenerationImageFilter.h>
 
 #include <iostream>
 #include <cstdio>
@@ -75,7 +75,7 @@ layout(location = 0) in vec3 vPos;
 #define _IRR_VERT_SET2_BINDINGS_DEFINED_
 #define _IRR_VERT_SET3_BINDINGS_DEFINED_
 
-#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
+#include <nbl/builtin/glsl/vertex_utils/vertex_utils.glsl>
 
 void main()
 {
@@ -213,7 +213,7 @@ STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualText
 }
 
 constexpr uint32_t TEX_OF_INTEREST_CNT = 6u;
-#include "irr/irrpack.h"
+#include "nbl/irrpack.h"
 struct SInstanceData
 {
     core::matrix4SIMD modelViewProjection;
@@ -234,7 +234,7 @@ struct SInstanceData
     float IoR = 1.6f;
     uint32_t extra;
 } PACK_STRUCT;
-#include "irr/irrunpack.h"
+#include "nbl/irrunpack.h"
 static_assert((sizeof(SInstanceData)&0xfull)==0ull, "sizeof(SInstanceData) is not aligned to 16!");
 
 struct SDrawElementsIndirectCommand {

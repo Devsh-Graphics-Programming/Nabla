@@ -5,10 +5,10 @@
 #include "quaternion.h"
 #include "matrix3x4SIMD.h"
 #include "matrix4SIMD.h"
-#include "irr/asset/format/decodePixels.h"
+#include "nbl/asset/format/decodePixels.h"
 
-#include "irr/ext/MitsubaLoader/PropertyElement.h"
-#include "irr/ext/MitsubaLoader/ParserUtil.h"
+#include "nbl/ext/MitsubaLoader/PropertyElement.h"
+#include "nbl/ext/MitsubaLoader/ParserUtil.h"
 
 namespace irr
 {

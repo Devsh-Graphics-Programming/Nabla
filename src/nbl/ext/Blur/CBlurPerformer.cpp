@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "irr/ext/Blur/CBlurPerformer.h"
+#include "nbl/ext/Blur/CBlurPerformer.h"
 
 #include "../../../../source/Irrlicht/COpenGLBuffer.h"
 #include "../../../../source/Irrlicht/COpenGLDriver.h"

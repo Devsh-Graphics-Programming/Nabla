@@ -5,8 +5,8 @@
 #define LINE_VERTEX_LIMIT 11184810u
 
 #ifndef __cplusplus
-#include "irr/builtin/glsl/limits/numeric.glsl"
-#include "irr/builtin/glsl/utils/indirect_commands.glsl"
+#include "nbl/builtin/glsl/limits/numeric.glsl"
+#include "nbl/builtin/glsl/utils/indirect_commands.glsl"
 layout(set = 0, binding = 0) coherent buffer LineCount
 {
     nbl_glsl_DrawArraysIndirectCommand_t lineDraw[2];

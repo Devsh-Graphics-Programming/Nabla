@@ -4,14 +4,14 @@
 
 #include "ApplicationHandler.hpp"
 
-#include "irr/ext/FullScreenTriangle/FullScreenTriangle.h"
-#include "irr/ext/ScreenShot/ScreenShot.h"
+#include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
-#include <irr/asset/filters/kernels/CGaussianImageFilterKernel.h>
-#include <irr/asset/filters/kernels/CDerivativeImageFilterKernel.h>
-#include <irr/asset/filters/kernels/CBoxImageFilterKernel.h>
-#include <irr/asset/filters/kernels/CChannelIndependentImageFilterKernel.h>
-#include <irr/asset/filters/CMipMapGenerationImageFilter.h>
+#include <nbl/asset/filters/kernels/CGaussianImageFilterKernel.h>
+#include <nbl/asset/filters/kernels/CDerivativeImageFilterKernel.h>
+#include <nbl/asset/filters/kernels/CBoxImageFilterKernel.h>
+#include <nbl/asset/filters/kernels/CChannelIndependentImageFilterKernel.h>
+#include <nbl/asset/filters/CMipMapGenerationImageFilter.h>
 
 using namespace irr;
 using namespace core;

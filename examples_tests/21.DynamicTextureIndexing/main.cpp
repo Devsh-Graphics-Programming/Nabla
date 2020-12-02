@@ -7,8 +7,8 @@
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
-#include <irr/asset/CCPUMeshPacker.h>
-//#include "irr/ext/ScreenShot/ScreenShot.h"
+#include <nbl/asset/CCPUMeshPacker.h>
+//#include "nbl/ext/ScreenShot/ScreenShot.h"
 
 using namespace irr;
 using namespace core;

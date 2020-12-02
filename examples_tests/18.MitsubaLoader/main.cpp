@@ -5,13 +5,13 @@
 #define _NBL_STATIC_LIB_
 #include <irrlicht.h>
 
-#include "irr/ext/ScreenShot/ScreenShot.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
 #include "../common/QToQuitEventReceiver.h"
 
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
-#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
-#include <irr/video/IGPUVirtualTexture.h>
+#include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
+#include <nbl/video/IGPUVirtualTexture.h>
 
 #define USE_ENVMAP
 
@@ -22,8 +22,8 @@ constexpr const char* GLSL_COMPUTE_LIGHTING =
 R"(
 #define _IRR_COMPUTE_LIGHTING_DEFINED_
 
-#include <irr/builtin/glsl/format/decode.glsl>
-#include <irr/builtin/glsl/random/xoroshiro.glsl>
+#include <nbl/builtin/glsl/format/decode.glsl>
+#include <nbl/builtin/glsl/random/xoroshiro.glsl>
 
 struct SLight
 {
@@ -147,14 +147,14 @@ static auto createGPUImageView(const std::string& path, asset::IAssetManager* am
 	return gpuImageView;
 };
 
-#include "irr/irrpack.h"
+#include "nbl/irrpack.h"
 //std430-compatible
 struct SLight
 {
 	core::vectorSIMDf position;
 	core::vectorSIMDf intensity;
 } PACK_STRUCT;
-#include "irr/irrunpack.h"
+#include "nbl/irrunpack.h"
 
 int main()
 {

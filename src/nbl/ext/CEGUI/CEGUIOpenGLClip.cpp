@@ -25,7 +25,7 @@ SOFTWARE.
 
 */
 
-#include "irr/ext/CEGUI/CEGUIOpenGLClip.h"
+#include "nbl/ext/CEGUI/CEGUIOpenGLClip.h"
 #include "irrlicht.h"
 #include "COpenGLExtensionHandler.h"
 

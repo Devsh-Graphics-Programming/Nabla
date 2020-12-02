@@ -5,9 +5,9 @@
 #define _NBL_STATIC_LIB_
 #include <irrlicht.h>
 #include "../common/QToQuitEventReceiver.h"
-#include "irr/ext/ScreenShot/ScreenShot.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
-#include "irr/ext/Blur/CBlurPerformer.h"
+#include "nbl/ext/Blur/CBlurPerformer.h"
 
 using namespace irr;
 using namespace core;

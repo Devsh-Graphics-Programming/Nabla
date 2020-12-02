@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "irr/ext/Bullet/CPhysicsWorld.h"
-#include "irr/ext/Bullet/BulletUtility.h"
+#include "nbl/ext/Bullet/CPhysicsWorld.h"
+#include "nbl/ext/Bullet/BulletUtility.h"
 
 using namespace irr;
 using namespace ext;

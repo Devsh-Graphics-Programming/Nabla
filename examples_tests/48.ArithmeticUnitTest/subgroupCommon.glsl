@@ -1,6 +1,6 @@
 #include "shaderCommon.glsl"
 
-#include "irr/builtin/glsl/subgroup/arithmetic_portability.glsl"
+#include "nbl/builtin/glsl/subgroup/arithmetic_portability.glsl"
 
 #define CONDITIONAL_CLEAR_HEAD const bool automaticInitialize = ((_NBL_GLSL_WORKGROUP_SIZE_)&(nbl_glsl_SubgroupSize-1u))==0u; \
 	const uint sourceVal = inputValue[gl_GlobalInvocationID.x];

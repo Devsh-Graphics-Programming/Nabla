@@ -2,10 +2,10 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "irr/ext/MitsubaLoader/ParserUtil.h"
-#include "irr/ext/MitsubaLoader/CElementFactory.h"
+#include "nbl/ext/MitsubaLoader/ParserUtil.h"
+#include "nbl/ext/MitsubaLoader/CElementFactory.h"
 
-#include "irr/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
+#include "nbl/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
 
 #include <functional>
 

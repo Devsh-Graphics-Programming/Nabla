@@ -2,9 +2,9 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "irr/ext/Bullet/CInstancedMotionState.h"
+#include "nbl/ext/Bullet/CInstancedMotionState.h"
 
-#include "irr/ext/DebugDraw/CDraw3DLine.h"
+#include "nbl/ext/DebugDraw/CDraw3DLine.h"
 using namespace irr;
 using namespace ext;
 using namespace Bullet3;

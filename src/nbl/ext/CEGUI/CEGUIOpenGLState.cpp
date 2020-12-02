@@ -25,7 +25,7 @@ SOFTWARE.
 
 */
 
-#include "irr/ext/CEGUI/CEGUIOpenGLState.h"
+#include "nbl/ext/CEGUI/CEGUIOpenGLState.h"
 #include "irrlicht.h"
 #include "COpenGLStateManager.h"
 

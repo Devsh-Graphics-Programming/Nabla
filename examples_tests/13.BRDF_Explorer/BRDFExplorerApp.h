@@ -31,7 +31,7 @@ SOFTWARE.
 #include <map>
 #include <string>
 #include <vector>
-#include <irr/video/IGPUMesh.h>
+#include <nbl/video/IGPUMesh.h>
 #include <SMaterial.h>
 #include <ICameraSceneNode.h>
 
