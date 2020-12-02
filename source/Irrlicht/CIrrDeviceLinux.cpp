@@ -58,7 +58,8 @@ namespace irr
 	namespace video
 	{
 		IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
-				io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp
+				io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp,
+				const asset::ISPIRVOptimizer* spvopt
 #ifdef _IRR_COMPILE_WITH_OPENGL_
                 ,COpenGLDriver::SAuxContext* auxCtxts
 #endif // _IRR_COMPILE_WITH_OPENGL_

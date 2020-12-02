@@ -181,11 +181,11 @@ namespace video
 #ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 //! Windows constructor and init code
 COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp)
+		io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp, const asset::ISPIRVOptimizer* spvoptimizer)
 : CNullDriver(device, io, params), COpenGLExtensionHandler(),
 	runningInRenderDoc(false),  ColorFormat(asset::EF_R8G8B8_UNORM),
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
-	AuxContexts(0), GLSLCompiler(glslcomp), DeviceType(EIDT_WIN32)
+	AuxContexts(0), GLSLCompiler(glslcomp), SPIRVOptimizer(spvoptimizer), DeviceType(EIDT_WIN32)
 {
 	#ifdef _IRR_DEBUG
 	setDebugName("COpenGLDriver");
@@ -1258,7 +1258,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     const std::string& EP = _specInfo.entryPoint;
     const asset::ISpecializedShader::E_SHADER_STAGE stage = _specInfo.shaderStage;
 
-    core::smart_refctd_ptr<asset::ICPUShader> spvCPUShader = nullptr;
+    core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
     if (glUnspec->containsGLSL())
     {
         auto begin = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
@@ -1271,21 +1271,29 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
         //    fwrite(reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()), 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
         //    fclose(fl);
         //}
-        core::smart_refctd_ptr<asset::ICPUBuffer> spvCode = GLSLCompiler->compileSPIRVFromGLSL(
+        spirv = GLSLCompiler->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,
                 EP.c_str(),
                _specInfo.m_filePathHint.c_str()
             );
 
-        if (!spvCode)
+        if (!spirv)
             return nullptr;
-
-        spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spvCode));
     }
     else
-        spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr<asset::ICPUBuffer>(glUnspec->m_code));
+    {
+        spirv = glUnspec->m_code;
+    }
+#ifndef _IRR_DEBUG
+    if (SPIRVOptimizer)
+        spirv = SPIRVOptimizer->optimize(spirv.get());
+#endif
+    if (!spirv)
+        return nullptr;
 
+    core::smart_refctd_ptr<asset::ICPUShader> spvCPUShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(spirv));
+    
     asset::CShaderIntrospector::SIntrospectionParams introspectionParams{ _specInfo.shaderStage, _specInfo.entryPoint, getSupportedGLSLExtensions(), _specInfo.m_filePathHint};
     asset::CShaderIntrospector introspector(GLSLCompiler.get()); // TODO: shouldn't the introspection be cached for all calls to `createGPUSpecializedShader` (or somehow embedded into the OpenGL pipeline cache?)
     const asset::CIntrospectionData* introspection = introspector.introspect(spvCPUShader.get(), introspectionParams);
@@ -3203,10 +3211,10 @@ namespace video
 // -----------------------------------
 #ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
 IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
-	io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp)
+	io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp, const asset::ISPIRVOptimizer* spvoptimizer)
 {
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device, glslcomp);
+	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device, glslcomp, spvoptimizer);
 	if (!ogl->initDriver(device))
 	{
 		ogl->drop();
@@ -3224,14 +3232,15 @@ IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
 // -----------------------------------
 #ifdef _IRR_COMPILE_WITH_X11_DEVICE_
 IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp
+		io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp,
+        const asset::ISPIRVOptimizer* spvopt
 #ifdef _IRR_COMPILE_WITH_OPENGL_
 		, COpenGLDriver::SAuxContext* auxCtxts
 #endif // _IRR_COMPILE_WITH_OPENGL_
         )
 {
 #ifdef _IRR_COMPILE_WITH_OPENGL_
-	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device, glslcomp);
+	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device, glslcomp, spvopt);
 	if (!ogl->initDriver(device,auxCtxts))
 	{
 		ogl->drop();

@@ -218,7 +218,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         struct SAuxContext;
 
 		#ifdef _IRR_COMPILE_WITH_WINDOWS_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp);
+		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp, const asset::ISPIRVOptimizer* spvoptimizer);
 		//! inits the windows specific parts of the open gl driver
 		bool initDriver(CIrrDeviceWin32* device);
 		bool changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceWin32* device);
@@ -1081,6 +1081,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         std::mutex glContextMutex;
 		SAuxContext* AuxContexts;
         core::smart_refctd_ptr<const asset::IGLSLCompiler> GLSLCompiler;
+		core::smart_refctd_ptr<const asset::ISPIRVOptimizer> SPIRVOptimizer;
 
 		E_DEVICE_TYPE DeviceType;
 	};
