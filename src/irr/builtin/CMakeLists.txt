@@ -108,7 +108,6 @@ set(irr_resources_to_embed
   # workgroup "intrinsics"
   "irr/builtin/glsl/workgroup/shared_arithmetic.glsl"
   "irr/builtin/glsl/workgroup/shared_ballot.glsl"
-  "irr/builtin/glsl/workgroup/shared_basic.glsl"
   "irr/builtin/glsl/workgroup/shared_clustered.glsl"
   "irr/builtin/glsl/workgroup/shared_shuffle.glsl"
   "irr/builtin/glsl/workgroup/shared_shuffle_relative.glsl"
