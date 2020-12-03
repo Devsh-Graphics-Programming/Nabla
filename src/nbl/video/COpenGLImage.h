@@ -14,7 +14,7 @@
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -92,7 +92,7 @@ class COpenGLImage final : public IGPUImage, public IDriverMemoryAllocation
 
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 #endif // _NBL_COMPILE_WITH_OPENGL_
 

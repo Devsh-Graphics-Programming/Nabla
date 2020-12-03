@@ -58,7 +58,7 @@
 	}
 */
 
-namespace irr 
+namespace nbl 
 { 
 namespace asset
 {

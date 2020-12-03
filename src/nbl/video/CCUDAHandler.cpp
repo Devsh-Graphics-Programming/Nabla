@@ -10,7 +10,7 @@
 #include "jitify/jitify.hpp"
 
 
-namespace irr
+namespace nbl
 {
 namespace cuda
 {

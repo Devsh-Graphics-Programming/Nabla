@@ -14,7 +14,7 @@
 #include "irrString.h" // file&class to kill
 #include "path.h" // file&class to kill
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

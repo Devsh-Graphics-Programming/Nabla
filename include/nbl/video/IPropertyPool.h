@@ -11,7 +11,7 @@
 #include "IGPUBuffer.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

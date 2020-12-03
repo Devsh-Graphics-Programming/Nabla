@@ -9,7 +9,7 @@
 #include "nbl/core/core.h"
 #include "nbl/system/DynamicLibraryFunctionPointer.h"
 
-namespace irr
+namespace nbl
 {
 namespace system
 {

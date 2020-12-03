@@ -9,7 +9,7 @@
 
 #include "nbl/ext/MitsubaLoader/CElementRFilter.h"
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

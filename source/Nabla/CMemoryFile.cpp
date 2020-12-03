@@ -5,7 +5,7 @@
 
 #include "CMemoryFile.h"
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -50,5 +50,5 @@ int32_t CMemoryWriteFile::write(const void* buffer, uint32_t sizeToWrite)
 
 
 } // end namespace io
-} // end namespace irr
+} // end namespace nbl
 

@@ -11,7 +11,7 @@
 #include "nbl/asset/filters/kernels/CKaiserImageFilterKernel.h"
 #include "nbl/asset/filters/kernels/CMitchellImageFilterKernel.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -112,6 +112,6 @@ class CConvolutionImageFilterKernel : public impl::CConvolutionImageFilterKernel
 #endif
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

@@ -9,7 +9,7 @@
 
 #include "nbl/core/memory/memory.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -93,7 +93,7 @@ class NBL_FORCE_EBO aligned_allocator_adaptor : public Alloc
 };
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

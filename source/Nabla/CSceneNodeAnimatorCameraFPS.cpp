@@ -10,7 +10,7 @@
 #include "ICursorControl.h"
 #include "ICameraSceneNode.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -37,11 +37,11 @@ CSceneNodeAnimatorCameraFPS::CSceneNodeAnimatorCameraFPS(gui::ICursorControl* cu
 	if (!keyMapArray || !keyMapSize)
 	{
 		// create default key map
-		KeyMap.push_back(SKeyMap(EKA_MOVE_FORWARD, irr::KEY_UP));
-		KeyMap.push_back(SKeyMap(EKA_MOVE_BACKWARD, irr::KEY_DOWN));
-		KeyMap.push_back(SKeyMap(EKA_STRAFE_LEFT, irr::KEY_LEFT));
-		KeyMap.push_back(SKeyMap(EKA_STRAFE_RIGHT, irr::KEY_RIGHT));
-		KeyMap.push_back(SKeyMap(EKA_JUMP_UP, irr::KEY_KEY_J));
+		KeyMap.push_back(SKeyMap(EKA_MOVE_FORWARD, nbl::KEY_UP));
+		KeyMap.push_back(SKeyMap(EKA_MOVE_BACKWARD, nbl::KEY_DOWN));
+		KeyMap.push_back(SKeyMap(EKA_STRAFE_LEFT, nbl::KEY_LEFT));
+		KeyMap.push_back(SKeyMap(EKA_STRAFE_RIGHT, nbl::KEY_RIGHT));
+		KeyMap.push_back(SKeyMap(EKA_JUMP_UP, nbl::KEY_KEY_J));
 	}
 	else
 	{
@@ -346,5 +346,5 @@ ISceneNodeAnimator* CSceneNodeAnimatorCameraFPS::createClone(IDummyTransformatio
 
 
 } // namespace scene
-} // namespace irr
+} // namespace nbl
 

@@ -15,7 +15,7 @@
 #include "COpenGLExtensionHandler.h"
 #include <assert.h>
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -206,7 +206,7 @@ class COpenGLBuffer final : public IGPUBuffer, public IDriverMemoryAllocation
 };
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 #endif

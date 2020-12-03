@@ -9,7 +9,7 @@
 #include "matrix4SIMD.h"
 #include <string>
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

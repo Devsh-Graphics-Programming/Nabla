@@ -16,7 +16,7 @@
 #include "nbl/asset/CForsythVertexCacheOptimizer.h"
 #include "nbl/asset/COverdrawMeshOptimizer.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -1554,5 +1554,5 @@ core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTrianglesFanTo
 }
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 

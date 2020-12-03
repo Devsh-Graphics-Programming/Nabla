@@ -12,7 +12,7 @@
 #include "nbl/asset/ICPUDescriptorSetLayout.h"
 #include "nbl/asset/IDescriptorSet.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

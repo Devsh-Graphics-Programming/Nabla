@@ -6,7 +6,7 @@
 #include "CSceneNodeAnimatorDelete.h"
 #include "ISceneManager.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -44,5 +44,5 @@ ISceneNodeAnimator* CSceneNodeAnimatorDelete::createClone(IDummyTransformationSc
 
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 

@@ -14,7 +14,7 @@
 #include <cmath>
 #include <numeric>
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -497,7 +497,7 @@ NBL_FORCE_INLINE T d_cyl_bessel_i(const T& v, const T& x)
 
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

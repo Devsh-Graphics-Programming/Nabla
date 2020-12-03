@@ -11,7 +11,7 @@
 #include "IAsset.h"
 #include "IReadFile.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

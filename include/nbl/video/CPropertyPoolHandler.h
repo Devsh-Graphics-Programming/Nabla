@@ -12,7 +12,7 @@
 #include "nbl/video/IGPUComputePipeline.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

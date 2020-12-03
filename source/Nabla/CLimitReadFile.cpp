@@ -8,7 +8,7 @@
 #include "CLimitReadFile.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -120,5 +120,5 @@ const io::path& CLimitReadFile::getFileName() const
 
 
 } // end namespace io
-} // end namespace irr
+} // end namespace nbl
 

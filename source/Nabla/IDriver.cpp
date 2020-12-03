@@ -8,7 +8,7 @@
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/video/IGPUObjectFromAssetConverter.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

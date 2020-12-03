@@ -10,7 +10,7 @@
 
 #include <ratio>
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -52,6 +52,6 @@ class CKaiserImageFilterKernel : public CFloatingPointIsotropicSeparableImageFil
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

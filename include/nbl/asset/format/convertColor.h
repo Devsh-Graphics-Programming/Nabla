@@ -17,7 +17,7 @@
     #pragma GCC diagnostic ignored "-Wuninitialized"
 #endif
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

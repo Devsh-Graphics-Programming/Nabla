@@ -9,7 +9,7 @@
 #include "nbl/asset/ICPUImage.h"
 #include "nbl/asset/IImageView.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

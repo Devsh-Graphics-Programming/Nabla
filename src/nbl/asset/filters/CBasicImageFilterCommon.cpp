@@ -4,7 +4,7 @@
 
 #include "nbl/asset/filters/CBasicImageFilterCommon.h"
 
-using namespace irr::asset;
+using namespace nbl::asset;
 
 CBasicImageFilterCommon::~CBasicImageFilterCommon()
 {

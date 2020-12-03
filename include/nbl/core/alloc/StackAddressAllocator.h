@@ -10,7 +10,7 @@
 #include "nbl/core/alloc/LinearAddressAllocator.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

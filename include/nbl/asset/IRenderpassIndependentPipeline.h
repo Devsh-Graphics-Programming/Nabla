@@ -18,7 +18,7 @@
 #include "nbl/asset/IImage.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

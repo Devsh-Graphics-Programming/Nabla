@@ -13,7 +13,7 @@
 #include "nbl/asset/format/decodePixels.h"
 #include "nbl/asset/format/encodePixels.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

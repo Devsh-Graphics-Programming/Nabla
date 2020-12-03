@@ -1,7 +1,7 @@
 #include "nbl/video/CPropertyPoolHandler.h"
 #include "nbl/video/CPropertyPool.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace video;
 
 //

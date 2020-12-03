@@ -6,7 +6,7 @@
 
 #include "IVideoDriver.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace video;
 
 

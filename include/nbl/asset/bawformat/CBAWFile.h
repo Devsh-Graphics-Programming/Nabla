@@ -18,7 +18,7 @@
 #include "nbl/asset/bawformat/blobs/MeshBlob.h"
 #include "nbl/asset/bawformat/blobs/SkinnedMeshBlob.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -110,6 +110,6 @@ namespace asset
 	bool encAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag);
 	bool decAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _outSize, const unsigned char* _key, const unsigned char* _iv, void* _tag);
 
-}} // irr::asset
+}} // nbl::asset
 
 #endif

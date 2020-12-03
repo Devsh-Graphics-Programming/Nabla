@@ -12,7 +12,7 @@
 #include "nbl/core/math/glslFunctions.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -456,7 +456,7 @@ inline quaternion& quaternion::set(const float& roll, const float& pitch, const 
 }
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

@@ -9,7 +9,7 @@
 
 #include "nbl/core/Types.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

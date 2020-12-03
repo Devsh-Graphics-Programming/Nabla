@@ -10,7 +10,7 @@
 #include "spirv_cross/spirv_parser.hpp"
 #include "spirv_cross/spirv_cross.hpp"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -833,4 +833,4 @@ CIntrospectionData::~CIntrospectionData()
 }
 
 }//asset
-}//irr
+}//nbl

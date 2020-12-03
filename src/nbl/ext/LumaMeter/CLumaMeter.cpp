@@ -7,9 +7,9 @@
 
 #include <cstdio>
 
-using namespace irr;
-using namespace irr::asset;
-using namespace irr::video;
+using namespace nbl;
+using namespace nbl::asset;
+using namespace nbl::video;
 using namespace ext::LumaMeter;
 
 

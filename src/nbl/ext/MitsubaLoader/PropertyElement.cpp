@@ -10,7 +10,7 @@
 #include "nbl/ext/MitsubaLoader/PropertyElement.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

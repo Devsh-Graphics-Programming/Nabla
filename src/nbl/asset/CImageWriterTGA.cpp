@@ -16,7 +16,7 @@
 
 #include "os.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -164,6 +164,6 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 }
 
 } // namespace video
-} // namespace irr
+} // namespace nbl
 
 #endif

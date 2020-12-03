@@ -7,7 +7,7 @@
 
 #include "nbl/core/containers/FixedCapacityDoublyLinkedList.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -203,5 +203,5 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 
 
 }	//namespace core
-}		//namespace irr
+}		//namespace nbl
 #endif 

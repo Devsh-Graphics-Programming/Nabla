@@ -9,7 +9,7 @@
 
 #include "nbl/core/alloc/AddressAllocatorBase.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -216,7 +216,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 
 #include "nbl/core/alloc/AddressAllocatorConcurrencyAdaptors.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

@@ -28,7 +28,7 @@
 #define _NBL_VECTOR_ALIGNMENT _NBL_SIMD_ALIGNMENT // if this gets changed to non-16 it can and will break external code
 
 
-namespace irr
+namespace nbl
 {
 
 namespace video
@@ -888,7 +888,7 @@ namespace core
 	};
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 #endif

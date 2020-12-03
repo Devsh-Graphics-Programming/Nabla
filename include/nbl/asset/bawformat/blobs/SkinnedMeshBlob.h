@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_SKINNED_MESH_BLOB_H_INCLUDED__
 #define __NBL_ASSET_SKINNED_MESH_BLOB_H_INCLUDED__
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -43,6 +43,6 @@ template<>
 struct CorrespondingBlobTypeFor<ICPUSkinnedMesh> { typedef SkinnedMeshBlobV3 type; };
 
 }
-} // irr::asset
+} // nbl::asset
 
 #endif

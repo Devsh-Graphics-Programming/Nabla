@@ -10,7 +10,7 @@
 #include "nbl/asset/ICPUMesh.h"
 #include "nbl/asset/bawformat/blobs/SkinnedMeshBlob.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -148,6 +148,6 @@ class ICPUSkinnedMesh : public ICPUMesh
 		virtual bool isStatic() const = 0;
 };
 
-}}//irr::asset
+}}//nbl::asset
 
 #endif

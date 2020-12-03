@@ -8,7 +8,7 @@
 
 #include "nbl/core/core.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -102,6 +102,6 @@ template<>
 struct CorrespondingBlobTypeFor<CFinalBoneHierarchy> { typedef FinalBoneHierarchyBlobV3 type; };
 
 }
-} // irr::asset
+} // nbl::asset
 
 #endif

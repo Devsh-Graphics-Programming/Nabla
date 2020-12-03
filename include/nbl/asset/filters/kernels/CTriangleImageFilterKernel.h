@@ -8,7 +8,7 @@
 
 #include "nbl/asset/filters/kernels/CommonImageFilterKernels.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -38,6 +38,6 @@ class CTriangleImageFilterKernel : public CFloatingPointIsotropicSeparableImageF
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

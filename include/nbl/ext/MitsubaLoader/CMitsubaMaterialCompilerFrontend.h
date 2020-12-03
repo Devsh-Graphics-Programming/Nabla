@@ -8,7 +8,7 @@
 #include "nbl/ext/MitsubaLoader/CElementBSDF.h"
 #include <nbl/asset/material_compiler/IR.h>
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

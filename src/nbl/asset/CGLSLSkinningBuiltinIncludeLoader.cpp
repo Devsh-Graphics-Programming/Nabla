@@ -9,7 +9,7 @@
 
 #include "COpenGLExtensionHandler.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 
 auto CGLSLSkinningBuiltinIncludeLoader::getBuiltinNamesToFunctionMapping() const -> core::vector<std::pair<std::regex, HandleFunc_t>>

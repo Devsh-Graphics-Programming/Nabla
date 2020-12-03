@@ -29,7 +29,7 @@
 #include <cstring>
 #include "nbl/core/Types.h"
 
-namespace irr { namespace asset
+namespace nbl { namespace asset
 {
 
 class NBL_FORCE_EBO CForsythVertexCacheOptimizer

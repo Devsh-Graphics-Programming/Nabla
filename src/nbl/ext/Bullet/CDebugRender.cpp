@@ -9,13 +9,13 @@
 
 #include <iostream>
 
-using namespace irr;
+using namespace nbl;
 using namespace ext;
 using namespace Bullet3;
 
 
 
-CDebugRender::CDebugRender(irr::video::IVideoDriver *driver) 
+CDebugRender::CDebugRender(nbl::video::IVideoDriver *driver) 
 :   m_driver(driver),
     m_drawMode(btIDebugDraw::DBG_DrawWireframe)
 {

@@ -12,7 +12,7 @@
 
 #include "nbl/asset/IAssetWriter.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

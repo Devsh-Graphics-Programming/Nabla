@@ -9,7 +9,7 @@
 #include "nbl/asset/bawformat/Blob.h"
 #include "nbl/asset/ICPUMesh.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -267,6 +267,6 @@ using SkinnedMeshBufferBlobV2 = legacyv1::SkinnedMeshBufferBlobV1;
 }
 
 }
-} //irr::asset
+} //nbl::asset
 
 #endif

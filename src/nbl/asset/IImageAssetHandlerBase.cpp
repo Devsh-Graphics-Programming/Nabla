@@ -4,7 +4,7 @@
 
 #include "nbl/asset/IImageAssetHandlerBase.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 
 IImageAssetHandlerBase::~IImageAssetHandlerBase()

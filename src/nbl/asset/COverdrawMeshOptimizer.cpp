@@ -12,7 +12,7 @@
 #include "CMeshManipulator.h"
 #include "os.h"
 
-namespace irr { namespace asset
+namespace nbl { namespace asset
 {
 
 core::smart_refctd_ptr<asset::ICPUMeshBuffer> COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _inbuffer, bool _createNew, float _threshold)
@@ -268,4 +268,4 @@ size_t COverdrawMeshOptimizer::updateCache(uint32_t _a, uint32_t _b, uint32_t _c
 	return cacheMisses;
 }
 
-}} // irr::scene
+}} // nbl::scene

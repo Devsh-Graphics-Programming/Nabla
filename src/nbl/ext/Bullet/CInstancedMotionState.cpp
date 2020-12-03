@@ -5,7 +5,7 @@
 #include "nbl/ext/Bullet/CInstancedMotionState.h"
 
 #include "nbl/ext/DebugDraw/CDraw3DLine.h"
-using namespace irr;
+using namespace nbl;
 using namespace ext;
 using namespace Bullet3;
 

@@ -10,7 +10,7 @@
 #include "nbl/asset/ICPUSpecializedShader.h"
 #include "nbl/asset/IPipelineMetadata.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

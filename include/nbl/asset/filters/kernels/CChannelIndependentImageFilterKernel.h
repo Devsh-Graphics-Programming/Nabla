@@ -12,7 +12,7 @@
 #include <type_traits>
 #include <tuple>
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -190,6 +190,6 @@ class CChannelIndependentImageFilterKernel :
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

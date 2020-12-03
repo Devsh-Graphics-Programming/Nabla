@@ -10,7 +10,7 @@
 #include "SViewFrustum.h"
 #include "matrix4x3.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {

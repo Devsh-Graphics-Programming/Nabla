@@ -6,7 +6,7 @@
 #ifndef __NBL_E_DEVICE_TYPES_H_INCLUDED__
 #define __NBL_E_DEVICE_TYPES_H_INCLUDED__
 
-namespace irr
+namespace nbl
 {
 
 	//! An enum for the different device types supported by the Irrlicht Engine.
@@ -45,7 +45,7 @@ namespace irr
 		EIDT_BEST
 	};
 
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

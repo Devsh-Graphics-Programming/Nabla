@@ -11,7 +11,7 @@
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/core/math/glslFunctions.tcc"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -695,7 +695,7 @@ class IImage : public IDescriptor
 static_assert(sizeof(IImage)-sizeof(IDescriptor)!=3u*sizeof(uint32_t)+sizeof(VkExtent3D)+sizeof(uint32_t)*3u,"BaW File Format won't work");
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

@@ -14,7 +14,7 @@
 #include <map>
 #include <string>
 
-namespace irr
+namespace nbl
 {
 	class ITimer;
 namespace io
@@ -38,7 +38,7 @@ namespace scene
 	public:
 		//! constructor
 		CSceneManager(	IrrlichtDevice* device, video::IVideoDriver* driver,
-						irr::ITimer* timer, io::IFileSystem* fs, gui::ICursorControl* cursorControl);
+						nbl::ITimer* timer, io::IFileSystem* fs, gui::ICursorControl* cursorControl);
 
 		//! returns the video driver
 		virtual video::IVideoDriver* getVideoDriver();
@@ -288,7 +288,7 @@ namespace scene
 		video::IVideoDriver* Driver;
 
 		//! timer
-		irr::ITimer* Timer;
+		nbl::ITimer* Timer;
 
 		//! file system
 		io::IFileSystem* FileSystem;

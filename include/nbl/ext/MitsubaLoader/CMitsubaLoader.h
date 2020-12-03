@@ -17,7 +17,7 @@
 #include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
 #include "nbl/ext/MitsubaLoader/SContext.h"
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

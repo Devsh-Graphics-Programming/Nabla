@@ -9,7 +9,7 @@
 
 #include "optix.h"
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

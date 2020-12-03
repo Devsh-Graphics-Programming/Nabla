@@ -7,7 +7,7 @@
 
 #include "nbl/core/core.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

@@ -4,16 +4,16 @@
 
 #include <numeric>
 
-#include "irr/ext/RadeonRays/RadeonRays.h"
+#include "nbl/ext/RadeonRays/RadeonRays.h"
 
 #define __C_CUDA_HANDLER_H__ // don't want CUDA declarations and defines to pollute here
 #include "../source/Irrlicht/COpenGLDriver.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 using namespace video;
 
-using namespace irr::ext::RadeonRays;
+using namespace nbl::ext::RadeonRays;
 
 
 

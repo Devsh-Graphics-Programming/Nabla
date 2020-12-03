@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "irr/asset/CBAWMeshFileLoader.h"
+#include "nbl/asset/CBAWMeshFileLoader.h"
 
 #include <stack>
 
@@ -13,7 +13,7 @@
 #include "lzma/LzmaDec.h"
 #include "lz4/lz4.h"
 
-namespace irr { namespace scene
+namespace nbl { namespace scene
 {
 CBAWMeshFileLoader::~CBAWMeshFileLoader()
 {
@@ -321,4 +321,4 @@ bool CBAWMeshFileLoader::decompressLz4(void * _dst, size_t _dstSize, const void 
 	return res >= 0;
 }
 
-}} // irr::scene
+}} // nbl::scene

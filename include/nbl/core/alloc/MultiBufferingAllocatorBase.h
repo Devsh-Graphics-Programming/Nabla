@@ -5,7 +5,7 @@
 #ifndef __NBL_CORE_C_DOUBLE_BUFFERING_ALLOCATOR_H__
 #define __NBL_CORE_C_DOUBLE_BUFFERING_ALLOCATOR_H__
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

@@ -9,7 +9,7 @@
 
 #include "nbl/asset/filters/CBlitImageFilter.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -120,6 +120,6 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

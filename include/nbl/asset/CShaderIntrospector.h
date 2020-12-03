@@ -21,7 +21,7 @@ namespace spirv_cross
     class Compiler;
     struct SPIRType;
 }
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -202,6 +202,6 @@ class CShaderIntrospector : public core::Uncopyable
 };
 
 }//asset
-}//irr
+}//nbl
 
 #endif

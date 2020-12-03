@@ -9,7 +9,7 @@
 #include "nbl/asset/bawformat/blobs/SkinnedMeshBufferBlob.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -64,7 +64,7 @@ class ICPUSkinnedMeshBuffer final : public ICPUMeshBuffer
 
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

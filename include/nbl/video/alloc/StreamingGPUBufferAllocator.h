@@ -7,7 +7,7 @@
 
 #include "nbl/video/alloc/SimpleGPUBufferAllocator.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

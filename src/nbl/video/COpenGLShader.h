@@ -8,7 +8,7 @@
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/video/IGPUShader.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

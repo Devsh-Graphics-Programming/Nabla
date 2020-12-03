@@ -22,7 +22,7 @@
 #define GET_Y_LPARAM(lp) ((int)(short)HIWORD(lp))
 #endif
 
-namespace irr
+namespace nbl
 {
 	struct SJoystickWin32Control;
 
@@ -397,7 +397,7 @@ namespace irr
             SJoystickWin32Control* JoyControl;
 	};
 
-} // end namespace irr
+} // end namespace nbl
 
 #endif // _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 #endif

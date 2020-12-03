@@ -8,7 +8,7 @@
 #include "nbl/asset/IAssetMetadata.h"
 #include "nbl/asset/EColorSpace.h"
 
-namespace irr
+namespace nbl
 {
 	namespace asset
 	{

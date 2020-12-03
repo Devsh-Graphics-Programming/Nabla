@@ -31,7 +31,7 @@
 
 #include <mutex>
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

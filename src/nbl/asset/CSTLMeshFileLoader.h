@@ -9,7 +9,7 @@
 #include "nbl/asset/IAssetLoader.h"
 #include "nbl/asset/CSTLPipelineMetadata.h"
 
-namespace irr
+namespace nbl
 {
 	namespace asset
 	{
@@ -52,7 +52,7 @@ namespace irr
 				asset::IAssetManager* m_assetMgr;
 		};
 	}	// end namespace scene
-}	// end namespace irr
+}	// end namespace nbl
 
 #endif
 

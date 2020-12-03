@@ -8,7 +8,7 @@
 #include "nbl/core/memory/memory.h"
 #include "nbl/core/alloc/address_allocator_traits.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -17,7 +17,7 @@ namespace core
             typedef SIZE_TYPE                                   size_type;\
             typedef typename std::make_signed<size_type>::type  difference_type;\
             typedef uint8_t*                                    ubyte_pointer;\
-            static constexpr size_type                          invalid_address = irr::core::address_type_traits<size_type>::invalid_address
+            static constexpr size_type                          invalid_address = nbl::core::address_type_traits<size_type>::invalid_address
 
     template<typename CRTP, typename _size_type>
     class AddressAllocatorBase

@@ -11,7 +11,7 @@
 
 #include <type_traits>
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -115,6 +115,6 @@ class CScaledImageFilterKernel : //order of bases is important! do not change
 
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

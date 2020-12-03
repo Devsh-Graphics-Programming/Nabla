@@ -9,7 +9,7 @@
 #include "nbl/core/IReferenceCounted.h"
 #include "path.h"
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -82,7 +82,7 @@ public:
 	virtual const io::path& getPath() const = 0;
 };
 
-} // end namespace irr
+} // end namespace nbl
 } // end namespace io
 
 

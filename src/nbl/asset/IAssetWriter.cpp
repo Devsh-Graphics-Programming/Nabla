@@ -4,4 +4,4 @@
 
 #include "nbl/asset/IAssetWriter.h"
 
-irr::asset::IAssetWriter::IAssetWriterOverride irr::asset::IAssetWriter::s_defaultOverride;
+nbl::asset::IAssetWriter::IAssetWriterOverride nbl::asset::IAssetWriter::s_defaultOverride;

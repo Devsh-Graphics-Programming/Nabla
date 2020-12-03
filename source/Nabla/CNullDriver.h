@@ -21,7 +21,7 @@
 #pragma warning( disable: 4996)
 #endif
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -204,7 +204,7 @@ class CNullDriver : public IVideoDriver
 	IVideoDriver* createNullDriver(IrrlichtDevice* device, io::IFileSystem* io, const SIrrlichtCreationParameters& screenSize);
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

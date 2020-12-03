@@ -14,7 +14,7 @@
 #include "nbl/asset/ICPUMesh.h"
 #include "nbl/asset/IAssetLoader.h"
 
-namespace irr
+namespace nbl
 {
 
 namespace asset
@@ -47,7 +47,7 @@ namespace asset
 	If you wish to extend .baw format by your own blob types, here's what you need to do:
 		- Add a corresponding to your blob value to Blob::E_BLOB_TYPE enum
 		- Make a class (or struct, a matter of keyword) representing your blob
-		- Your class must inherit from irr::core::TypedBlob<BlobType, Type> and define specialization of its member functions (see blobsLoading.cpp for existing code as an example):
+		- Your class must inherit from nbl::core::TypedBlob<BlobType, Type> and define specialization of its member functions (see blobsLoading.cpp for existing code as an example):
 			-# `core::unordered_set<uint64_t> getNeededDeps(const void* _blob);` - returns vector of handles to dependency blobs
 			-# `void* instantiateEmpty(const void* _blob, size_t _blobSize, BlobLoadingParams& _params);` - instantiates (i.e. dynamically by `new` allocates) an object without creating any possible dependent objects that have to be loaded from file as another blob
 			-# `void* finalize(void* _obj, const void* _blob, size_t _blobSize, core::unordered_map<uint64_t, void*>& _deps, BlobLoadingParams& _params);` - finalizes the object assigning any dependent object to appropriate field of the object being finalized
@@ -67,6 +67,6 @@ namespace asset
 		//static void printMemberPackingDebug();
 	};
 
-}} // irr::asset
+}} // nbl::asset
 
 #endif

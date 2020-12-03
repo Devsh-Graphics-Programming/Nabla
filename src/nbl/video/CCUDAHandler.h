@@ -33,7 +33,7 @@
 
 #include "os.h"
 
-namespace irr
+namespace nbl
 {
 namespace cuda
 {
@@ -377,7 +377,7 @@ class CCUDAHandler
 		}
 
 		template<typename HeaderFileIt>
-		static nvrtcResult createProgram(	nvrtcProgram* prog, irr::io::IReadFile* main,
+		static nvrtcResult createProgram(	nvrtcProgram* prog, nbl::io::IReadFile* main,
 											const HeaderFileIt includesBegin, const HeaderFileIt includesEnd)
 		{
 			int numHeaders = std::distance(includesBegin,includesEnd);
@@ -455,7 +455,7 @@ class CCUDAHandler
 		}
 
 		template<typename OptionsT = const std::initializer_list<const char*>&>
-		static nvrtcResult compileDirectlyToPTX(std::string& ptx, irr::io::IReadFile* main,
+		static nvrtcResult compileDirectlyToPTX(std::string& ptx, nbl::io::IReadFile* main,
 			const char* const* headersBegin = nullptr, const char* const* headersEnd = nullptr,
 			const char* const* includeNamesBegin = nullptr, const char* const* includeNamesEnd = nullptr,
 			OptionsT options = { _NBL_DEFAULT_NVRTC_OPTIONS },
@@ -471,7 +471,7 @@ class CCUDAHandler
 		}
 
 		template<typename CompileArgsT, typename OptionsT=const std::initializer_list<const char*>&>
-		static nvrtcResult compileDirectlyToPTX(std::string& ptx, irr::io::IReadFile* main,
+		static nvrtcResult compileDirectlyToPTX(std::string& ptx, nbl::io::IReadFile* main,
 												CompileArgsT includesBegin, CompileArgsT includesEnd,
 												OptionsT options={_NBL_DEFAULT_NVRTC_OPTIONS},
 												std::string* log=nullptr)

@@ -9,7 +9,7 @@
 
 #include "nbl/core/IReferenceCounted.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

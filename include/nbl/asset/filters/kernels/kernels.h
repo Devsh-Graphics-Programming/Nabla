@@ -18,7 +18,7 @@
 #include "nbl/asset/filters/kernels/CDerivativeImageFilterKernel.h"
 #include "nbl/asset/filters/kernels/CConvolutionImageFilterKernel.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -94,7 +94,7 @@ inline void CFloatingPointSeparableImageFilterKernelBase<CRTP>::sample_functor_t
 }
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

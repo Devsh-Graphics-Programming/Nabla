@@ -14,7 +14,7 @@
 
 #include "nbl/asset/ISpecializedShader.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

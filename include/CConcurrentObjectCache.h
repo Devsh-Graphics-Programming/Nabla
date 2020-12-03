@@ -8,7 +8,7 @@
 #include "CObjectCache.h"
 #include "FW_Mutex.h"
 
-namespace irr { namespace core
+namespace nbl { namespace core
 {
 
 namespace impl

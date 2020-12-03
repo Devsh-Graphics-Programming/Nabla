@@ -7,7 +7,7 @@
 
 #include "nbl/ext/MitsubaLoader/IElement.h"
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

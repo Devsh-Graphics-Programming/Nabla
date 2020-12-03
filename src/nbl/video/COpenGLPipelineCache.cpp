@@ -4,7 +4,7 @@
 
 #include "nbl/video/COpenGLPipelineCache.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace video;
 
 static int compare_desc_layouts(const IGPUDescriptorSetLayout* A, const IGPUDescriptorSetLayout* B)

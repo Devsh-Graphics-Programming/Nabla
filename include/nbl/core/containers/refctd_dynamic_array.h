@@ -9,7 +9,7 @@
 #include "nbl/core/alloc/AlignedBase.h"
 #include "nbl/core/containers/dynamic_array.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

@@ -9,7 +9,7 @@
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 #include "COpenGLExtensionHandler.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

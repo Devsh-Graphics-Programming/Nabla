@@ -9,7 +9,7 @@
 #include "nbl/video/alloc/GPUMemoryAllocatorBase.h"
 #include "IGPUBuffer.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

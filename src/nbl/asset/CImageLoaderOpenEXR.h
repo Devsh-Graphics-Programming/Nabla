@@ -11,7 +11,7 @@
 
 #include "nbl/asset/IImageLoader.h"
 
-namespace irr
+namespace nbl
 {
 	namespace asset
 	{	

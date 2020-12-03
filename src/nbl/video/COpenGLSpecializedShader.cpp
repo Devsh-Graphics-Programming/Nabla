@@ -10,7 +10,7 @@
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -133,10 +133,10 @@ static GLenum ESS2GLenum(asset::ISpecializedShader::E_SHADER_STAGE _stage)
 }//namesapce impl
 
 }
-}//irr::video
+}//nbl::video
 
-using namespace irr;
-using namespace irr::video;
+using namespace nbl;
+using namespace nbl::video;
 
 COpenGLSpecializedShader::COpenGLSpecializedShader(uint32_t _GLSLversion, const asset::ICPUBuffer* _spirv, const asset::ISpecializedShader::SInfo& _specInfo, core::vector<SUniform>&& uniformList) :
 	core::impl::ResolveAlignment<IGPUSpecializedShader, core::AllocationOverrideBase<128>>(_specInfo.shaderStage),

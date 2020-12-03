@@ -18,7 +18,7 @@ namespace spirv_cross
     struct SPIRType;
 }
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

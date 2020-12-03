@@ -4,7 +4,7 @@
 
 #include "nbl/asset/IAsset.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 
 IAsset::~IAsset()

@@ -9,7 +9,7 @@
 #include "nbl/asset/IPipeline.h"
 #include "nbl/asset/ISpecializedShader.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

@@ -14,7 +14,7 @@
 #include "ILogger.h"
 #include "ITimer.h"
 
-namespace irr
+namespace nbl
 {
 
 namespace os
@@ -71,7 +71,7 @@ namespace os
 
 
 } // end namespace os
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

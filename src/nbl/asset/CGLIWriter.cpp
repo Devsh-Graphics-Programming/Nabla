@@ -33,13 +33,13 @@ SOFTWARE.
 #error "It requires GLI library"
 #endif
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
 static inline std::pair<gli::texture::format_type, std::array<gli::gl::swizzle, 4>> getTranslatedIRRFormat(const IImageView<ICPUImage>::SCreationParams& params);
 
-static inline bool performSavingAsIWriteFile(gli::texture& texture, irr::io::IWriteFile* file);
+static inline bool performSavingAsIWriteFile(gli::texture& texture, nbl::io::IWriteFile* file);
 
 bool CGLIWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
@@ -210,7 +210,7 @@ bool CGLIWriter::writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* 
 	return performSavingAsIWriteFile(texture, file);
 }
 
-bool performSavingAsIWriteFile(gli::texture& texture, irr::io::IWriteFile* file)
+bool performSavingAsIWriteFile(gli::texture& texture, nbl::io::IWriteFile* file)
 {
 	if (texture.empty())
 		return false;

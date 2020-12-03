@@ -8,7 +8,7 @@
 #include "nbl/video/IGPUComputePipeline.h"
 #include "nbl/video/IOpenGLPipeline.h"
 
-namespace irr
+namespace nbl
 { 
 namespace video
 {

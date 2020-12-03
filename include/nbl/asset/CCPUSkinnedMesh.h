@@ -9,7 +9,7 @@
 #include "nbl/asset/ICPUSkinnedMeshBuffer.h"
 #include "CFinalBoneHierarchy.h"
 
-namespace irr 
+namespace nbl 
 {
 namespace asset
 {

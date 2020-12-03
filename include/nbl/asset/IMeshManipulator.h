@@ -16,7 +16,7 @@
 #include "nbl/asset/CCPUSkinnedMesh.h"
 #include "nbl/asset/CQuantNormalCache.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -375,7 +375,7 @@ namespace asset
 };
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

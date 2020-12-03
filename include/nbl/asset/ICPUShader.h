@@ -13,7 +13,7 @@
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/asset/IShader.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

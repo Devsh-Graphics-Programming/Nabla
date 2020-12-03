@@ -8,7 +8,7 @@
 #include "vectorSIMD.h"
 #include "nbl/core/math/glslFunctions.tcc"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

@@ -9,7 +9,7 @@
 #include "nbl/core/IReferenceCounted.h"
 #include <string>
 
-namespace irr
+namespace nbl
 {
 
 //! Possible log levels.

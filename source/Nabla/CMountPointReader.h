@@ -13,7 +13,7 @@
 #include "IFileSystem.h"
 #include "CFileList.h"
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -80,7 +80,7 @@ namespace io
 		void buildDirectory();
 	};
 } // io
-} // irr
+} // nbl
 
 #endif // __NBL_COMPILE_WITH_MOUNT_ARCHIVE_LOADER_
 #endif

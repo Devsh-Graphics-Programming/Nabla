@@ -13,7 +13,7 @@
 
 #include "nbl/asset/asset_utils.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

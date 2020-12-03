@@ -8,7 +8,7 @@
 #include "nbl/asset/ISpecializedShader.h"
 #include "spirv_cross/spirv_cross.hpp"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

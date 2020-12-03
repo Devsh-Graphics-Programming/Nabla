@@ -7,7 +7,7 @@
 
 #include "nbl/asset/ISampler.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

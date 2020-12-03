@@ -10,12 +10,12 @@
 #include "nbl/core/memory/new_delete.h"
 #include "nbl/core/memory/memory.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
 
-//Maybe: Create a irr::AllocatedByDynamicAllocation class with a static function new[] like operator that takes an DynamicAllocator* parameter
+//Maybe: Create a nbl::AllocatedByDynamicAllocation class with a static function new[] like operator that takes an DynamicAllocator* parameter
 // but would need to keep a pointer to allocator and allocated object size (+16 bytes!)
 
 
@@ -194,14 +194,14 @@ static_assert(sizeof(AllocationOverrideDefault)==_NBL_SIMD_ALIGNMENT,"This compi
 
 //! Put in class if the compiler is complaining about ambiguous references to new and delete operators. Needs to be placed in the public section of methods
 #define _NBL_RESOLVE_NEW_DELETE_AMBIGUITY(...) \
-            static inline void* operator new(size_t size)                noexcept {return (irr::core::impl::ResolveAlignment<__VA_ARGS__>::operator new(size));} \
-            static inline void* operator new[](size_t size)              noexcept {return irr::core::impl::ResolveAlignment<__VA_ARGS__>::operator new[](size);} \
-            static inline void* operator new(size_t size, void* where)   noexcept {return (irr::core::impl::ResolveAlignment<__VA_ARGS__>::operator new(size,where));} \
-            static inline void* operator new[](size_t size, void* where) noexcept {return irr::core::impl::ResolveAlignment<__VA_ARGS__>::operator new[](size,where);} \
-            static inline void operator delete(void* ptr)                noexcept {irr::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete(ptr);} \
-            static inline void operator delete[](void* ptr)              noexcept {irr::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete[](ptr);} \
-            static inline void operator delete(void* ptr, size_t size)   noexcept {irr::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete(ptr,size);} \
-            static inline void operator delete[](void* ptr, size_t size) noexcept {irr::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete[](ptr,size);}
+            static inline void* operator new(size_t size)                noexcept {return (nbl::core::impl::ResolveAlignment<__VA_ARGS__>::operator new(size));} \
+            static inline void* operator new[](size_t size)              noexcept {return nbl::core::impl::ResolveAlignment<__VA_ARGS__>::operator new[](size);} \
+            static inline void* operator new(size_t size, void* where)   noexcept {return (nbl::core::impl::ResolveAlignment<__VA_ARGS__>::operator new(size,where));} \
+            static inline void* operator new[](size_t size, void* where) noexcept {return nbl::core::impl::ResolveAlignment<__VA_ARGS__>::operator new[](size,where);} \
+            static inline void operator delete(void* ptr)                noexcept {nbl::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete(ptr);} \
+            static inline void operator delete[](void* ptr)              noexcept {nbl::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete[](ptr);} \
+            static inline void operator delete(void* ptr, size_t size)   noexcept {nbl::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete(ptr,size);} \
+            static inline void operator delete[](void* ptr, size_t size) noexcept {nbl::core::impl::ResolveAlignment<__VA_ARGS__>::operator delete[](ptr,size);}
 #else
 struct NBL_FORCE_EBO AllocationOverrideDefault {};
 

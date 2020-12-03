@@ -14,7 +14,7 @@
 	\brief File containing SRange utility struct for C++11 range loops
 */
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -55,6 +55,6 @@ inline SRange<U> SRange_static_cast(const SRange<T>& smart_ptr)
 */
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif

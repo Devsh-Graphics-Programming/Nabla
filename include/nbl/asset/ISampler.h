@@ -7,7 +7,7 @@
 
 #include "nbl/asset/IDescriptor.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

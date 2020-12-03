@@ -8,7 +8,7 @@
 #include "nbl/core/Types.h"
 #include "nbl/core/IReferenceCounted.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -30,7 +30,7 @@ class IBuffer : public virtual IReferenceCounted
 };
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

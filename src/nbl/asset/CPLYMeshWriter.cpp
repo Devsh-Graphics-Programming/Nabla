@@ -14,7 +14,7 @@
 #include "CMeshManipulator.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

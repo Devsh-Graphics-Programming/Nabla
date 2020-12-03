@@ -7,7 +7,7 @@
 
 #include "../include/nbl/asset/filters/dithering/CDither.h"
 
-namespace irr
+namespace nbl
 {
 	namespace asset
 	{

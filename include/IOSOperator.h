@@ -9,7 +9,7 @@
 #include "nbl/core/core.h"
 #include "nbl/system/compile_config.h"
 
-namespace irr
+namespace nbl
 {
 
 //! The Operating system operator provides operation system specific methods and informations.

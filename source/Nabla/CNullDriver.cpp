@@ -13,7 +13,7 @@
 #include <new>
 #include "IrrlichtDevice.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

@@ -11,7 +11,7 @@
 #include "dimension2d.h"
 #include "position2d.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -275,7 +275,7 @@ namespace core
 	typedef rect<int32_t> recti;
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

@@ -8,7 +8,7 @@
 #include "nbl/asset/ICPUBuffer.h"
 #include <algorithm>
 
-namespace irr {
+namespace nbl {
 namespace asset
 {
 

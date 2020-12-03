@@ -11,7 +11,7 @@
 
 #include "nbl/asset/ICPUImage.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

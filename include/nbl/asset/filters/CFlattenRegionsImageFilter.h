@@ -12,7 +12,7 @@
 #include "nbl/asset/filters/CFillImageFilter.h"
 #include "nbl/asset/filters/CCopyImageFilter.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -164,6 +164,6 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

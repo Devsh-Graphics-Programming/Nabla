@@ -35,7 +35,7 @@
 #define GL_SRG8_EXT 0x8FBE
 #endif
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -1681,6 +1681,6 @@ P.S. Maybe Ghost == Pending
 
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 #endif

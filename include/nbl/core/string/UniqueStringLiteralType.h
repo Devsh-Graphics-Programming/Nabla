@@ -8,7 +8,7 @@
 #include "nbl/macros.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -166,7 +166,7 @@ NBL_CORE_GET_CHAR(s,127)
 
 
 //
-#define NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(s)  irr::core::CharParameterPackToStringLiteral<NBL_CORE_STRING_TO_CHAR_PARAMETER_PACK(s)>
+#define NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(s)  nbl::core::CharParameterPackToStringLiteral<NBL_CORE_STRING_TO_CHAR_PARAMETER_PACK(s)>
 
 
 #endif

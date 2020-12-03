@@ -12,7 +12,7 @@
 #include "nbl/asset/format/EFormat.h"
 #include "nbl/core/math/colorutil.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

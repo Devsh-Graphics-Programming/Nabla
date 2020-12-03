@@ -9,9 +9,9 @@
 
 #include "../../../../source/Irrlicht/COpenGLBuffer.h"
 #include "../../../../source/Irrlicht/COpenGLExtensionHandler.h"
-#include "../../../irr/asset/IImageAssetHandlerBase.h"
+#include "../../../nbl/asset/IImageAssetHandlerBase.h"
 
-namespace irr
+namespace nbl
 {
 	namespace ext
 	{
@@ -32,7 +32,7 @@ namespace irr
 				- depth buffer is placed under video::EFAP_DEPTH_ATTACHMENT attachment
 			*/
 
-			irr::video::IFrameBuffer* createDefaultFBOForScreenshoting(core::smart_refctd_ptr<IrrlichtDevice> device)
+			nbl::video::IFrameBuffer* createDefaultFBOForScreenshoting(core::smart_refctd_ptr<IrrlichtDevice> device)
 			{
 				auto driver = device->getVideoDriver();
 
@@ -189,6 +189,6 @@ namespace irr
 			}
 		} // namespace ScreenShot
 	} // namespace ext
-} // namespace irr
+} // namespace nbl
 
 #endif

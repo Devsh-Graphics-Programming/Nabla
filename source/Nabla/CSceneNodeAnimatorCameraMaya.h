@@ -10,7 +10,7 @@
 #include "ICameraSceneNode.h"
 #include "vector2d.h"
 
-namespace irr
+namespace nbl
 {
 
 namespace gui
@@ -112,7 +112,7 @@ namespace scene
 	};
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

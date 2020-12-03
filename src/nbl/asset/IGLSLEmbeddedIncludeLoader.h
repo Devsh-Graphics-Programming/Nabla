@@ -10,7 +10,7 @@
 
 #include "nbl/asset/IBuiltinIncludeLoader.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

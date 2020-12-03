@@ -7,7 +7,7 @@
 
 #include <cstring>
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

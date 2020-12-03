@@ -6,7 +6,7 @@
 #include "nbl/ext/MitsubaLoader/PropertyElement.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 
-namespace irr { namespace ext { namespace MitsubaLoader {
+namespace nbl { namespace ext { namespace MitsubaLoader {
 
 core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createSphere(asset::IAssetManager* _assetManager, const core::vector<SPropertyElementData>& properties, core::matrix4SIMD& transform)
 {

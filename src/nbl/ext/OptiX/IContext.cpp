@@ -2,16 +2,16 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "irr/ext/OptiX/IContext.h"
+#include "nbl/ext/OptiX/IContext.h"
 
-#include "irr/ext/OptiX/Manager.h"
+#include "nbl/ext/OptiX/Manager.h"
 
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 using namespace video;
 
-using namespace irr::ext::OptiX;
+using namespace nbl::ext::OptiX;
 
 
 const OptixModuleCompileOptions ext::OptiX::IContext::defaultOptixModuleCompileOptions = []() -> OptixModuleCompileOptions

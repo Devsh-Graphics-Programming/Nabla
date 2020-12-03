@@ -5,10 +5,10 @@
 #ifndef __NBL_ASSET_C_PRECOMPUTED_DITHER_H_INCLUDED__
 #define __NBL_ASSET_C_PRECOMPUTED_DITHER_H_INCLUDED__
 
-#include "../include/irr/asset/filters/dithering/CDither.h"
-#include "../include/irr/asset/filters/CFlattenRegionsImageFilter.h"
+#include "../include/nbl/asset/filters/dithering/CDither.h"
+#include "../include/nbl/asset/filters/CFlattenRegionsImageFilter.h"
 
-namespace irr
+namespace nbl
 {
 	namespace asset
 	{

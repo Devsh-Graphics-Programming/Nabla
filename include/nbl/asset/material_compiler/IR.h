@@ -11,7 +11,7 @@
 #include <nbl/asset/ICPUSampler.h>
 #include <nbl/core/alloc/LinearAddressAllocator.h>
 
-namespace irr {
+namespace nbl {
 namespace asset {
 namespace material_compiler
 {

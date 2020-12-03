@@ -8,7 +8,7 @@
 #include "nbl/asset/IAssetLoader.h"
 #include "nbl/asset/ICPUMeshBuffer.h"
 
-namespace irr
+namespace nbl
 {
 	namespace asset
 	{

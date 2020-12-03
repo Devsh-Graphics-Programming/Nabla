@@ -13,7 +13,7 @@
 #define _NBL_INTERFACE_CHILD_DEFAULT(TYPE) \
             _NBL_NO_PUBLIC_DELETE_DEFAULT(TYPE)
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

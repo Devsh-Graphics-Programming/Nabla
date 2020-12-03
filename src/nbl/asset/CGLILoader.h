@@ -12,7 +12,7 @@
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/IAssetLoader.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

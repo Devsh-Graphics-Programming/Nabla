@@ -16,7 +16,7 @@
 #include <windows.h>
 #include <time.h>
 
-namespace irr
+namespace nbl
 {
 namespace os
 {
@@ -41,7 +41,7 @@ namespace os
 #include <time.h>
 #include <sys/time.h>
 
-namespace irr
+namespace nbl
 {
 namespace os
 {
@@ -80,6 +80,6 @@ namespace os
 	}
 
 } // end namespace os
-} // end namespace irr
+} // end namespace nbl
 
 

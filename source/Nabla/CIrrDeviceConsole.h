@@ -29,7 +29,7 @@
 #define _NBL_VT100_CONSOLE_
 #endif
 
-namespace irr
+namespace nbl
 {
 
 	class CIrrDeviceConsole : public CIrrDeviceStub
@@ -230,7 +230,7 @@ namespace irr
 	};
 
 
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

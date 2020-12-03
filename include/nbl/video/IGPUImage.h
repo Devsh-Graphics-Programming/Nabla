@@ -12,7 +12,7 @@
 
 #include "IGPUBuffer.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -61,7 +61,7 @@ class IGPUImage : public core::impl::ResolveAlignment<IDriverMemoryBacked,asset:
 
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

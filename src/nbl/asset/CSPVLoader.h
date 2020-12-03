@@ -7,7 +7,7 @@
 
 #include "nbl/asset/IAssetLoader.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -40,7 +40,7 @@ class CSPVLoader final : public asset::IAssetLoader
 };
 
 } // namespace asset
-} // namespace irr
+} // namespace nbl
 
 #endif
 

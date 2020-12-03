@@ -11,7 +11,7 @@
 #include "nbl/asset/filters/dithering/CDither.h"
 #include <type_traits>
 
-namespace irr
+namespace nbl
 {
 	namespace asset
 	{
@@ -565,6 +565,6 @@ namespace irr
 				out[i] = OutT(getComponent((&swizzle.r)[i], i));
 		}
 	} // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

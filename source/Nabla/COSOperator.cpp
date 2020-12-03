@@ -21,7 +21,7 @@
 #include <fstream>
 #endif
 
-namespace irr
+namespace nbl
 {
 
 #if defined(_NBL_COMPILE_WITH_X11_DEVICE_)

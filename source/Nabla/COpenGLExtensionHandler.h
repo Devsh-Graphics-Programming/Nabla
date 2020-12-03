@@ -25,7 +25,7 @@
 #include "nbl/video/IGPUImageView.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

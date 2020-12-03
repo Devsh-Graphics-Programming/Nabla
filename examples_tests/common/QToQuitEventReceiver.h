@@ -8,20 +8,20 @@
 #include "irrlicht.h"
 
 //! Simple event receiver for most examples that closes the engine when Q is pressed
-class QToQuitEventReceiver : public irr::IEventReceiver
+class QToQuitEventReceiver : public nbl::IEventReceiver
 {
 	public:
 		QToQuitEventReceiver() : running(true)
 		{
 		}
 
-		bool OnEvent(const irr::SEvent& event)
+		bool OnEvent(const nbl::SEvent& event)
 		{
-			if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+			if (event.EventType == nbl::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
 			{
 				switch (event.KeyInput.Key)
 				{
-					case irr::KEY_KEY_Q: // switch wire frame mode
+					case nbl::KEY_KEY_Q: // switch wire frame mode
 						running = false;
 						return true;
 					default:

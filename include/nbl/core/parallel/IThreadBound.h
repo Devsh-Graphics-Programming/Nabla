@@ -7,7 +7,7 @@
 
 #include <thread>
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -55,7 +55,7 @@ class NBL_FORCE_EBO IThreadBound
 };
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

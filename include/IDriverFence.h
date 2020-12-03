@@ -9,7 +9,7 @@
 #include "nbl/core/BaseClasses.h"
 #include "nbl/core/EventDeferredHandler.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -193,7 +193,7 @@ template<class Functor>
 using GPUDeferredEventHandlerST = core::DeferredEventHandlerST<core::DeferredEvent<GPUEventWrapper,Functor> >;
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

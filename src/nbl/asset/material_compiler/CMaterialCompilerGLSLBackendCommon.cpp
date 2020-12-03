@@ -7,7 +7,7 @@
 #include <iostream>
 #include <nbl/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.h>
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

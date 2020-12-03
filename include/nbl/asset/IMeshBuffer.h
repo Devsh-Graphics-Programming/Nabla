@@ -8,7 +8,7 @@
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
 #include <algorithm>
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

@@ -11,7 +11,7 @@
 
 #include "nbl/asset/filters/CBasicImageFilterCommon.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -58,6 +58,6 @@ class CFillImageFilter : public CImageFilter<CFillImageFilter>
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

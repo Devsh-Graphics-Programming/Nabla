@@ -37,7 +37,7 @@
 	#endif
 #endif
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -882,6 +882,6 @@ bool CFileSystem::existFile(const io::path& filename) const
 }
 
 
-} // end namespace irr
+} // end namespace nbl
 } // end namespace io
 

@@ -11,7 +11,7 @@
 #include "nbl/asset/IAssetLoader.h"
 #include "nbl/asset/CMTLPipelineMetadata.h"
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -144,6 +144,6 @@ private:
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

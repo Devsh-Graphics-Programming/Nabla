@@ -5,7 +5,7 @@
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 #include "nbl/ext/MitsubaLoader/CElementFactory.h"
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

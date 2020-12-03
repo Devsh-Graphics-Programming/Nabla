@@ -5,9 +5,9 @@
 #include "nbl/asset/asset.h"
 #include "CGLSLLoader.h"
 
-using namespace irr;
-using namespace irr::io;
-using namespace irr::asset;
+using namespace nbl;
+using namespace nbl::io;
+using namespace nbl::asset;
 
 // load in the image data
 SAssetBundle CGLSLLoader::loadAsset(IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)

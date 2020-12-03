@@ -38,7 +38,7 @@ SOFTWARE.
 
 #include "CEGUIOpenGLState.h"
 
-namespace irr
+namespace nbl
 {
 
 class IrrlichtDevice;
@@ -116,6 +116,6 @@ class GUIManager: public core::IReferenceCounted, public IEventReceiver
 
 } // namespace cegui
 } // namespace ext
-} // namespace irr
+} // namespace nbl
 
 #endif

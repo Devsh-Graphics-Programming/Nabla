@@ -4,7 +4,7 @@
 #include <nbl/core/IReferenceCounted.h>
 #include <nbl/asset/material_compiler/IR.h>
 
-namespace irr {
+namespace nbl {
 namespace asset {
 namespace material_compiler
 {

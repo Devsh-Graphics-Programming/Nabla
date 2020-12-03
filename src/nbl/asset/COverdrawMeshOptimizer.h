@@ -9,7 +9,7 @@
 
 // Based on zeux's meshoptimizer (https://github.com/zeux/meshoptimizer) available under MIT license
 
-namespace irr { namespace asset
+namespace nbl { namespace asset
 {
 
 class COverdrawMeshOptimizer

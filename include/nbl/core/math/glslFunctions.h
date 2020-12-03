@@ -11,7 +11,7 @@
 #include "nbl/type_traits.h"
 #include "nbl/core/math/floatutil.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -84,7 +84,7 @@ template<typename T, typename U>
 NBL_FORCE_INLINE T mix(const T & a, const T & b, const U & t)
 {
 	T retval;
-	if constexpr(irr::is_any_of<U,vectorSIMDBool<2>,vectorSIMDBool<4>,vectorSIMDBool<8>,vectorSIMDBool<16> >::value)
+	if constexpr(nbl::is_any_of<U,vectorSIMDBool<2>,vectorSIMDBool<4>,vectorSIMDBool<8>,vectorSIMDBool<16> >::value)
 	{
 		if constexpr(std::is_same<T,vectorSIMDf>::value)
 		{
@@ -104,11 +104,11 @@ NBL_FORCE_INLINE T mix(const T & a, const T & b, const U & t)
 		}
 		else
 		{
-			if constexpr(irr::is_any_of<T,matrix4SIMD,matrix3x4SIMD>::value)
+			if constexpr(nbl::is_any_of<T,matrix4SIMD,matrix3x4SIMD>::value)
 			{
 				for (uint32_t i=0u; i<T::VectorCount; i++)
 				{
-					if constexpr(irr::is_any_of<U, matrix4SIMD, matrix3x4SIMD>::value)
+					if constexpr(nbl::is_any_of<U, matrix4SIMD, matrix3x4SIMD>::value)
 					{
 						retval[i] = core::mix<vectorSIMDf, vectorSIMDf>(a.rows[i], b.rows[i], t.rows[i]);
 					}
@@ -518,7 +518,7 @@ NBL_FORCE_INLINE T d_KaiserWindow(const T& x, const T& alpha, const T& width)
 
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

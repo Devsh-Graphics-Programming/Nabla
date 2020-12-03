@@ -9,7 +9,7 @@
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/IGPUPipelineLayout.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

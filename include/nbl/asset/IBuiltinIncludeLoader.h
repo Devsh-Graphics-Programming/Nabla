@@ -11,7 +11,7 @@
 
 #include "nbl/core/IReferenceCounted.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -26,7 +26,7 @@ class IBuiltinIncludeLoader : public core::IReferenceCounted
 	public:
 		virtual ~IBuiltinIncludeLoader() = default;
 
-		//! @param _name must be path relative to /irr/builtin/
+		//! @param _name must be path relative to /nbl/builtin/
 		virtual std::string getBuiltinInclude(const std::string& _name) const
 		{
 			core::vector<std::pair<std::regex, HandleFunc_t>> builtinNames = getBuiltinNamesToFunctionMapping();
@@ -38,7 +38,7 @@ class IBuiltinIncludeLoader : public core::IReferenceCounted
 			return {};
 		}
 
-		//! @returns Path relative to /irr/builtin/
+		//! @returns Path relative to /nbl/builtin/
 		virtual const char* getVirtualDirectoryName() const = 0;
 };
 

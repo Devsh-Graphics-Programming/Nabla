@@ -14,7 +14,7 @@
 #	define DEBUG_MITSUBA_LOADER
 #endif
 
-namespace irr
+namespace nbl
 {
 using namespace asset;
 
@@ -305,7 +305,7 @@ void main()
 }
 )";
 
-_NBL_STATIC_INLINE_CONSTEXPR const char* VERTEX_SHADER_CACHE_KEY = "irr/builtin/specialized_shader/loaders/mitsuba_xml/default";
+_NBL_STATIC_INLINE_CONSTEXPR const char* VERTEX_SHADER_CACHE_KEY = "nbl/builtin/specialized_shader/loaders/mitsuba_xml/default";
 
 _NBL_STATIC_INLINE_CONSTEXPR uint32_t PAGE_TAB_TEX_BINDING = 0u;
 _NBL_STATIC_INLINE_CONSTEXPR uint32_t PHYS_PAGE_VIEWS_BINDING = 1u;
@@ -730,7 +730,7 @@ core::smart_refctd_ptr<asset::ICPUPipelineLayout> CMitsubaLoader::createPipeline
 
 		ds0layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bindings->data(), bindings->data() + bindings->size());
 	}
-	auto ds1layout = getBuiltinAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("irr/builtin/descriptor_set_layout/basic_view_parameters", _manager);
+	auto ds1layout = getBuiltinAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("nbl/builtin/descriptor_set_layout/basic_view_parameters", _manager);
 
 	return core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pcrng, &pcrng+1, std::move(ds0layout), std::move(ds1layout), nullptr, nullptr);
 }

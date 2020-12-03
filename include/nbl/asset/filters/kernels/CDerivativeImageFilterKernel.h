@@ -11,7 +11,7 @@
 
 #include <type_traits>
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -47,6 +47,6 @@ class CDerivativeImageFilterKernel : public CFloatingPointSeparableImageFilterKe
 
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

@@ -7,14 +7,14 @@
 
 #include "irrlicht.h"
 
-#include "../../../irr/ext/OptiX/SbtRecord.h"
-#include "../../../irr/ext/OptiX/IContext.h"
-#include "../../../irr/ext/OptiX/IDenoiser.h"
+#include "../../../nbl/ext/OptiX/SbtRecord.h"
+#include "../../../nbl/ext/OptiX/IContext.h"
+#include "../../../nbl/ext/OptiX/IDenoiser.h"
 
 #include "optix.h"
 #include "optix_stubs.h"
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

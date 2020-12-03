@@ -7,7 +7,7 @@
 
 #include "CSceneNodeAnimatorFlyCircle.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -71,5 +71,5 @@ ISceneNodeAnimator* CSceneNodeAnimatorFlyCircle::createClone(IDummyTransformatio
 
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 

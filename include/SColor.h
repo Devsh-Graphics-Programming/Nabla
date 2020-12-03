@@ -11,7 +11,7 @@
 
 #include "nbl/asset/format/decodePixels.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -277,6 +277,6 @@ namespace video
 
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 #endif

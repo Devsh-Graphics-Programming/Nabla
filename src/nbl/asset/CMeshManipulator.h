@@ -8,7 +8,7 @@
 #include "nbl/asset/IMeshManipulator.h"
 #include "nbl/asset/CQuantNormalCache.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -44,7 +44,7 @@ class CMeshManipulator : public IMeshManipulator
 
 	private:
 		friend class IMeshManipulator;
-		//! Copies only member variables not being pointers to another dynamically allocated irr::IReferenceCounted derivatives.
+		//! Copies only member variables not being pointers to another dynamically allocated nbl::IReferenceCounted derivatives.
 		//! Purely helper function. Not really meant to be used outside createMeshBufferDuplicate().
 		template<typename T>
 		static void copyMeshBufferMemberVars(T* _dst, const T* _src);
@@ -128,7 +128,7 @@ class CMeshManipulator : public IMeshManipulator
 };
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

@@ -9,7 +9,7 @@
 #include "IReadFile.h"
 #include "IFileList.h"
 
-namespace irr
+namespace nbl
 {
 
 namespace io
@@ -115,7 +115,7 @@ public:
 
 
 } // end namespace io
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

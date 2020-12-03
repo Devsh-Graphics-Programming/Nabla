@@ -9,7 +9,7 @@
 
 #include <cstring>
 
-namespace irr
+namespace nbl
 {
 namespace builtin
 {
@@ -29,7 +29,7 @@ std::pair<const uint8_t*,size_t> get_resource_runtime(const std::string&);
 #if defined(_NBL_STATIC_LIB_) || !defined(NABLA_EXPORTS)
 
 #define _NBL_BUILTIN_PATH_AVAILABLE
-namespace irr
+namespace nbl
 {
 namespace builtin
 {

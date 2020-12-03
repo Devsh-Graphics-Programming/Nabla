@@ -8,7 +8,7 @@
 
 #include <functional>
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

@@ -13,7 +13,7 @@
 
 #include "CFileSystem.h"
 
-namespace irr
+namespace nbl
 {
 //! constructor
 CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
@@ -253,5 +253,5 @@ void CIrrDeviceStub::clearSystemMessages()
 
 
 
-} // end namespace irr
+} // end namespace nbl
 

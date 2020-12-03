@@ -18,7 +18,7 @@
 
 #include "os.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -176,7 +176,7 @@ namespace impl
             const bool reqBuiltin = asset::IIncludeHandler::isBuiltinPath(_requested_source);
             if (!reqFromBuiltin && !reqBuiltin)
             {
-                //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/irr/builtin").
+                //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/nbl/builtin").
                 //  This rule applies also while a builtin is #includ`ing another builtin.
                 //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
                 //  or path relative to executable's working directory (""-type).

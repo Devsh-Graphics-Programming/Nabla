@@ -9,7 +9,7 @@
 #include "SViewFrustum.h"
 #include "ISceneManager.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {

@@ -8,7 +8,7 @@
 #include "BuildConfigOptions.h"
 #include "nbl/asset/ICPUMesh.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

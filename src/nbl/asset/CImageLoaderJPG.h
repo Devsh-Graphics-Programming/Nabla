@@ -14,7 +14,7 @@
 
 
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -46,7 +46,7 @@ public:
 
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

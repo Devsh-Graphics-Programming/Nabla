@@ -10,7 +10,7 @@
 
 #include "nbl/asset/IGLSLEmbeddedIncludeLoader.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

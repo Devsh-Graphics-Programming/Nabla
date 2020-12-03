@@ -18,7 +18,7 @@
 #include "ISkinnedMeshSceneNode.h"
 #include "nbl/asset/ICPUMesh.h"
 
-namespace irr
+namespace nbl
 {
 	struct SKeyMap;
 	struct SEvent;
@@ -459,7 +459,7 @@ namespace scene
 
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

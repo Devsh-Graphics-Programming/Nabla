@@ -12,7 +12,7 @@
 #include "nbl/system/system.h"
 #include "IFileSystem.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

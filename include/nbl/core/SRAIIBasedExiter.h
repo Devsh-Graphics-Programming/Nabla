@@ -12,7 +12,7 @@
 	\brief File containing SRAIIBasedExiter utility struct for invoking functions upon leaving a scope.
 */
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

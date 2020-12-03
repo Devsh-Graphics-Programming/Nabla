@@ -10,7 +10,7 @@
 
 #include "os.h"
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -88,6 +88,6 @@ IFileList::ListCIterator CFileList::findFile(IFileList::ListCIterator _begin, IF
 }
 
 
-} // end namespace irr
+} // end namespace nbl
 } // end namespace io
 

@@ -5,7 +5,7 @@
 #ifndef __NBL_CORE_UNLOCK_GUARD_H_INCLUDED__
 #define __NBL_CORE_UNLOCK_GUARD_H_INCLUDED__
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

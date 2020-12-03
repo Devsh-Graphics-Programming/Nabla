@@ -39,7 +39,7 @@ SOFTWARE.
 #include <CEGUI/InputEvent.h>
 #include "Keycodes.h"
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {
@@ -88,10 +88,10 @@ template <typename... Args>
 }
 
 std::string readWindowLayout(const std::string& layoutName);
-::CEGUI::Key::Scan toCEGUIKey(const irr::EKEY_CODE& code);
+::CEGUI::Key::Scan toCEGUIKey(const nbl::EKEY_CODE& code);
 
 } // namespace cegui
 } // namespace ext
-} // namespace irr
+} // namespace nbl
 
 #endif

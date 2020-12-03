@@ -7,7 +7,7 @@
 
 #include "nbl/asset/ICPUBuffer.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -60,6 +60,6 @@ inline size_t SizedBlob<FixedSizeBlob, MeshDataFormatDescBlobV3, IMeshDataFormat
 #endif
 
 }
-} // irr::asset
+} // nbl::asset
 
 #endif

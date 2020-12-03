@@ -12,7 +12,7 @@
 #include "nbl/asset/IImage.h"
 #include "nbl/asset/ICPUSampler.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -220,7 +220,7 @@ class ICPUImage final : public IImage, public IAsset
 };
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

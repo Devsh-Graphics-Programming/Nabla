@@ -12,7 +12,7 @@
 #include "matrix4x3.h"
 #include "ESceneNodeTypes.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -478,7 +478,7 @@ class IDummyTransformationSceneNode : public virtual core::IReferenceCounted
 };
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

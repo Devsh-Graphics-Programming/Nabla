@@ -8,7 +8,7 @@
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/asset/ISpecializedShader.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

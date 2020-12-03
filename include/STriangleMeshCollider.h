@@ -8,7 +8,7 @@
 #include "SAABoxCollider.h"
 #include "nbl/core/IReferenceCounted.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

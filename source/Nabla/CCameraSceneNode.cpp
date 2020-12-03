@@ -10,7 +10,7 @@
 #include "IVideoDriver.h"
 #include "os.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {

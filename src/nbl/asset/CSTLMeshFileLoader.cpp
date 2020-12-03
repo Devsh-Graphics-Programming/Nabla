@@ -15,9 +15,9 @@
 #include "IReadFile.h"
 #include "os.h"
 
-using namespace irr;
-using namespace irr::asset;
-using namespace irr::io;
+using namespace nbl;
+using namespace nbl::asset;
+using namespace nbl::io;
 
 constexpr auto POSITION_ATTRIBUTE = 0;
 constexpr auto COLOR_ATTRIBUTE = 1;

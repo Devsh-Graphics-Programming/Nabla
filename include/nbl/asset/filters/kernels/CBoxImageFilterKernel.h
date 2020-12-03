@@ -10,7 +10,7 @@
 
 #include <ratio>
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -31,6 +31,6 @@ class CBoxImageFilterKernel : public CFloatingPointIsotropicSeparableImageFilter
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

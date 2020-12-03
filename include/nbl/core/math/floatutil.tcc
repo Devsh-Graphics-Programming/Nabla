@@ -9,7 +9,7 @@
 #include "nbl/core/math/floatutil.h"
 #include "matrix4SIMD.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

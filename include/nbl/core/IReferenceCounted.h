@@ -12,7 +12,7 @@
 
 #include <atomic>
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -378,14 +378,14 @@ namespace core
 	}
 
 }
-} // end namespace irr
+} // end namespace nbl
 
 namespace std {
 
     template <typename T>
-    struct hash<irr::core::smart_refctd_ptr<T>>
+    struct hash<nbl::core::smart_refctd_ptr<T>>
     {
-        std::size_t operator()(const irr::core::smart_refctd_ptr<T>& k) const
+        std::size_t operator()(const nbl::core::smart_refctd_ptr<T>& k) const
         {
             return reinterpret_cast<std::size_t>(k.get());
         }

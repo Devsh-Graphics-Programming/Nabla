@@ -18,7 +18,7 @@
 #include <stack>
 
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

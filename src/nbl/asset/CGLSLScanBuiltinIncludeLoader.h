@@ -13,7 +13,7 @@
 #include <cstdint>
 #include <cassert>
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

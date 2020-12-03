@@ -27,7 +27,7 @@
 
 #define USE_MAPS_FOR_PATH_BASED_CACHE //benchmark and choose, paths can be full system paths
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

@@ -10,7 +10,7 @@
 #include "nbl/asset/ICPUMeshBuffer.h"
 #include "nbl/asset/CPLYPipelineMetadata.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -180,6 +180,6 @@ private:
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

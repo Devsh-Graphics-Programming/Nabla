@@ -11,7 +11,7 @@
 #include "nbl/core/core.h"
 #include "nbl/asset/format/EFormat.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {	
@@ -46,7 +46,7 @@ namespace asset
 		constexpr float epsilon = 0.4f;
 		constexpr float epsilonToAddToMin = (min < 0 ? -epsilon : epsilon);
 
-		if (irr::asset::isNormalizedFormat(format))                                             
+		if (nbl::asset::isNormalizedFormat(format))                                             
 			variableToAssignClampingTo = static_cast<T>(core::clamp(variableToClamp * static_cast<double>(max), min + epsilonToAddToMin, max + epsilon));
 		else
 			variableToAssignClampingTo = static_cast<T>(core::clamp(variableToClamp, min + epsilonToAddToMin, max + epsilon));

@@ -4,7 +4,7 @@
 
 #include "CSceneNodeAnimatorFollowSpline.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -98,5 +98,5 @@ ISceneNodeAnimator* CSceneNodeAnimatorFollowSpline::createClone(IDummyTransforma
 
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 

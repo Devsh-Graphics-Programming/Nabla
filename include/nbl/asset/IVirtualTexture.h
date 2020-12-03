@@ -16,7 +16,7 @@
 #include "nbl/asset/filters/CFillImageFilter.h"
 #include "nbl/asset/ISampler.h"
 
-namespace irr {
+namespace nbl {
 namespace asset
 {
 

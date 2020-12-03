@@ -13,7 +13,7 @@
 #include "errno.h"
 #endif // _MSC_VER
 
-using namespace irr;
+using namespace nbl;
 
 // ---------------------------------------------------------------------------
 //		* FW_Mutex

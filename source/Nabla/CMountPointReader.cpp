@@ -10,7 +10,7 @@
 #include "CReadFile.h"
 #include "os.h"
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -162,6 +162,6 @@ IReadFile* CMountPointReader::createAndOpenFile(const io::path& filename)
 
 
 } // io
-} // irr
+} // nbl
 
 #endif // __NBL_COMPILE_WITH_MOUNT_ARCHIVE_LOADER_

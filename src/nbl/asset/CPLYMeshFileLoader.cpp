@@ -15,7 +15,7 @@
 #include "IReadFile.h"
 #include "os.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -1013,6 +1013,6 @@ uint32_t CPLYMeshFileLoader::getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t)
 
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif // _NBL_COMPILE_WITH_PLY_LOADER_

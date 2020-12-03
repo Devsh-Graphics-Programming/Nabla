@@ -6,7 +6,7 @@
 #include "nbl/core/core.h"
 #include "CLogger.h"
 
-namespace irr
+namespace nbl
 {
 
 	CLogger::CLogger(IEventReceiver* r)
@@ -101,5 +101,5 @@ namespace irr
 	}
 
 
-} // end namespace irr
+} // end namespace nbl
 

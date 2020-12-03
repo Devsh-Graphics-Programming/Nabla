@@ -9,7 +9,7 @@
 #include "nbl/ext/MitsubaLoader/PropertyElement.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

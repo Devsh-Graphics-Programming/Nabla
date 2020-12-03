@@ -11,7 +11,7 @@
 
 #include "nbl/asset/filters/CSwizzleAndConvertImageFilter.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -43,6 +43,6 @@ class CConvertFormatImageFilter : public CSwizzleAndConvertImageFilter<inFormat,
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

@@ -7,7 +7,7 @@
 
 #include "irrlicht.h"
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {
@@ -75,6 +75,6 @@ class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmova
 
 } // namespace DebugDraw
 } // namespace ext
-} // namespace irr
+} // namespace nbl
 
 #endif

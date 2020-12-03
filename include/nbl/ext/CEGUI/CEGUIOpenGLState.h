@@ -28,7 +28,7 @@ SOFTWARE.
 #ifndef _NBL_EXT_CEGUI_OPENGL_STATE_INCLUDED_
 #define _NBL_EXT_CEGUI_OPENGL_STATE_INCLUDED_
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -55,6 +55,6 @@ class CEGUIOpenGLState final
 
 } // namespace cegui
 } // namespace ext
-} // namespace irr
+} // namespace nbl
 
 #endif

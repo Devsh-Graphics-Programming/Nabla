@@ -10,7 +10,7 @@
 #include "nbl/core/IReferenceCounted.h"
 #include <irrlicht.h>
 
-namespace irr {
+namespace nbl {
     namespace video {
         class IVideoDriver;
         class IGPUBuffer;
@@ -18,7 +18,7 @@ namespace irr {
     }
 }
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {
@@ -53,7 +53,7 @@ public:
 
     static inline size_t getRequiredUBOSize(video::IVideoDriver* _driver)
     {
-        return irr::core::alignUp(sizeof(BlurPassUBO), 16u);
+        return nbl::core::alignUp(sizeof(BlurPassUBO), 16u);
     }
 
     //! Instantiates blur performer.

@@ -10,7 +10,7 @@
 #include "CFilesystemIncluder.h"
 #include "CBuiltinIncluder.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

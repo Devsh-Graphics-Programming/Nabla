@@ -17,7 +17,7 @@
 #endif
 
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -352,4 +352,4 @@ bool decAes128gcm(const void* _input, size_t _inSize, void* _output, size_t _out
 #endif
 }
 
-}} // irr::core
+}} // nbl::core

@@ -9,7 +9,7 @@
 #include "nbl/video/IGPUMeshBuffer.h"//for IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
-namespace irr
+namespace nbl
 { 
 namespace video
 {

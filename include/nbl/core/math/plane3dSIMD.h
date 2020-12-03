@@ -8,7 +8,7 @@
 
 #include "matrix3x4SIMD.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -169,7 +169,7 @@ class plane3dSIMDf : private vectorSIMDf
 };
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

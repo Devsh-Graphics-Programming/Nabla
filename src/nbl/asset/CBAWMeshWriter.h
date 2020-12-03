@@ -10,7 +10,7 @@
 #include "nbl/asset/ICPUMesh.h"
 #include "nbl/asset/bawformat/CBAWFile.h"
 
-namespace irr
+namespace nbl
 {
 
 namespace io
@@ -135,6 +135,6 @@ namespace asset
 	};
 
 }
-} // end of ns irr:scene
+} // end of ns nbl:scene
 
 #endif

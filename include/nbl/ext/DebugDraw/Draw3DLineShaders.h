@@ -5,7 +5,7 @@
 #ifndef _NBL_EXT_DRAW_3D_LINE_SHADERS_INCLUDED_
 #define _NBL_EXT_DRAW_3D_LINE_SHADERS_INCLUDED_
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {
@@ -45,6 +45,6 @@ void main()
 
 } // namespace DebugDraw
 } // namespace ext
-} // namespace irr
+} // namespace nbl
 
 #endif

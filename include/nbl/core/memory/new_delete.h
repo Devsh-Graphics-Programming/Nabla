@@ -13,9 +13,9 @@
 
 
 //! Allocator MUST provide a function with signature `pointer allocate(size_type n, size_type alignment, const_void_pointer hint=nullptr) noexcept`
-#define _NBL_DEFAULT_ALLOCATOR_METATYPE                                 irr::core::aligned_allocator
+#define _NBL_DEFAULT_ALLOCATOR_METATYPE                                 nbl::core::aligned_allocator
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -99,33 +99,33 @@ struct AlignedWithAllocator
 }
 
 //use these by default instead of new and delete, single object (non-array) new takes constructor parameters as va_args
-#define _NBL_NEW(_obj_type, ... )                               irr::core::impl::AlignedWithAllocator<_obj_type,_NBL_DEFAULT_ALLOCATOR_METATYPE<_obj_type> >::VA_ARGS_comma_workaround(_NBL_DEFAULT_ALIGNMENT(_obj_type)).new_(__VA_ARGS__)
-#define _NBL_DELETE(_obj)                                       irr::core::impl::AlignedWithAllocator<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,_NBL_DEFAULT_ALLOCATOR_METATYPE<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type> >::delete_(_obj)
+#define _NBL_NEW(_obj_type, ... )                               nbl::core::impl::AlignedWithAllocator<_obj_type,_NBL_DEFAULT_ALLOCATOR_METATYPE<_obj_type> >::VA_ARGS_comma_workaround(_NBL_DEFAULT_ALIGNMENT(_obj_type)).new_(__VA_ARGS__)
+#define _NBL_DELETE(_obj)                                       nbl::core::impl::AlignedWithAllocator<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,_NBL_DEFAULT_ALLOCATOR_METATYPE<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type> >::delete_(_obj)
 
-#define _NBL_NEW_ARRAY(_obj_type,count)                         irr::core::impl::AlignedWithAllocator<_obj_type,_NBL_DEFAULT_ALLOCATOR_METATYPE<_obj_type> >::new_array(count,_NBL_DEFAULT_ALIGNMENT(_obj_type))
-#define _NBL_DELETE_ARRAY(_obj,count)                           irr::core::impl::AlignedWithAllocator<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,_NBL_DEFAULT_ALLOCATOR_METATYPE<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type> >::delete_array(_obj,count)
+#define _NBL_NEW_ARRAY(_obj_type,count)                         nbl::core::impl::AlignedWithAllocator<_obj_type,_NBL_DEFAULT_ALLOCATOR_METATYPE<_obj_type> >::new_array(count,_NBL_DEFAULT_ALIGNMENT(_obj_type))
+#define _NBL_DELETE_ARRAY(_obj,count)                           nbl::core::impl::AlignedWithAllocator<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,_NBL_DEFAULT_ALLOCATOR_METATYPE<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type> >::delete_array(_obj,count)
 
 //! Extra Utility Macros for when you don't want to always have to deduce the alignment but want to use a specific allocator
 //#define _NBL_ASSERT_ALLOCATOR_VALUE_TYPE(_obj_type,_allocator_type)     static_assert(std::is_same<_obj_type,_allocator_type::value_type>::value,"Wrong allocator value_type!")
 #define _NBL_ASSERT_ALLOCATOR_VALUE_TYPE(_obj_type,_allocator_type)     static_assert(std::is_same<_obj_type,std::allocator_traits<_allocator_type >::value_type>::value,"Wrong allocator value_type!")
 
-#define _NBL_NEW_W_ALLOCATOR(_obj_type,_allocator, ... )        irr::core::impl::AlignedWithAllocator<_obj_type,_NBL_DEFAULT_ALLOCATOR_METATYPE<_obj_type> >::VA_ARGS_comma_workaround(_NBL_DEFAULT_ALIGNMENT(_obj_type),_allocator).new_(__VA_ARGS__); \
+#define _NBL_NEW_W_ALLOCATOR(_obj_type,_allocator, ... )        nbl::core::impl::AlignedWithAllocator<_obj_type,_NBL_DEFAULT_ALLOCATOR_METATYPE<_obj_type> >::VA_ARGS_comma_workaround(_NBL_DEFAULT_ALIGNMENT(_obj_type),_allocator).new_(__VA_ARGS__); \
                                                                     _NBL_ASSERT_ALLOCATOR_VALUE_TYPE(_obj_type,decltype(_allocator))
-#define _NBL_DELETE_W_ALLOCATOR(_obj,_allocator)                irr::core::impl::AlignedWithAllocator<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,_NBL_DEFAULT_ALLOCATOR_METATYPE<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type> >::delete_(_obj,_allocator); \
+#define _NBL_DELETE_W_ALLOCATOR(_obj,_allocator)                nbl::core::impl::AlignedWithAllocator<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,_NBL_DEFAULT_ALLOCATOR_METATYPE<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type> >::delete_(_obj,_allocator); \
                                                                     _NBL_ASSERT_ALLOCATOR_VALUE_TYPE(std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,decltype(_allocator))
 
-#define _NBL_NEW_ARRAY_W_ALLOCATOR(_obj_type,count,_allocator)  irr::core::impl::AlignedWithAllocator<_obj_type,_NBL_DEFAULT_ALLOCATOR_METATYPE<_obj_type> >::new_array(count,_NBL_DEFAULT_ALIGNMENT(_obj_type),_allocator); \
+#define _NBL_NEW_ARRAY_W_ALLOCATOR(_obj_type,count,_allocator)  nbl::core::impl::AlignedWithAllocator<_obj_type,_NBL_DEFAULT_ALLOCATOR_METATYPE<_obj_type> >::new_array(count,_NBL_DEFAULT_ALIGNMENT(_obj_type),_allocator); \
                                                                     _NBL_ASSERT_ALLOCATOR_VALUE_TYPE(_obj_type,decltype(_allocator))
-#define _NBL_DELETE_ARRAY_W_ALLOCATOR(_obj,count,_allocator)    irr::core::impl::AlignedWithAllocator<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,_NBL_DEFAULT_ALLOCATOR_METATYPE<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type> >::delete_array(_obj,count,_allocator); \
+#define _NBL_DELETE_ARRAY_W_ALLOCATOR(_obj,count,_allocator)    nbl::core::impl::AlignedWithAllocator<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,_NBL_DEFAULT_ALLOCATOR_METATYPE<typename std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type> >::delete_array(_obj,count,_allocator); \
                                                                     _NBL_ASSERT_ALLOCATOR_VALUE_TYPE(std::remove_reference<typename std::remove_pointer<decltype(_obj)>::type>::type,decltype(_allocator))
 
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
 /**
-//Maybe: Create a irr::AllocatedByDynamicAllocation class with a static function new[] like operator that takes an DynamicAllocator* parameter
+//Maybe: Create a nbl::AllocatedByDynamicAllocation class with a static function new[] like operator that takes an DynamicAllocator* parameter
 
 template<class CRTP, class Alloc=aligned_allocator<CRTP> >
 class NBL_FORCE_EBO AllocatedWithStatelessAllocator

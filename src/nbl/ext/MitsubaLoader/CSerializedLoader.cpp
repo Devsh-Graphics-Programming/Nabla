@@ -16,7 +16,7 @@
 #endif
 #include "zlib/zlib.h"
 
-namespace irr
+namespace nbl
 {
 	using namespace asset;
 namespace ext
@@ -248,9 +248,9 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 		{
 			constexpr std::array<std::pair<uint8_t, std::string_view>, 3> avaiableOptionsForShaders
 			{
-				std::make_pair(COLOR_ATTRIBUTE, "irr/builtin/materials/debug/vertex_color/specializedshader"),
-				std::make_pair(UV_ATTRIBUTE, "irr/builtin/materials/debug/vertex_uv/specializedshader"),
-				std::make_pair(NORMAL_ATTRIBUTE, "irr/builtin/materials/debug/vertex_normal/specializedshader")
+				std::make_pair(COLOR_ATTRIBUTE, "nbl/builtin/materials/debug/vertex_color/specializedshader"),
+				std::make_pair(UV_ATTRIBUTE, "nbl/builtin/materials/debug/vertex_uv/specializedshader"),
+				std::make_pair(NORMAL_ATTRIBUTE, "nbl/builtin/materials/debug/vertex_normal/specializedshader")
 			};
 
 			for (auto& it : avaiableOptionsForShaders)
@@ -274,7 +274,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 			bundle = manager->findAssets(basepath+".frag", types);
 			mbFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().begin()[0]);
 		}
-		auto mbPipelineLayout = getDefaultAsset<ICPUPipelineLayout, asset::IAsset::ET_PIPELINE_LAYOUT>("irr/builtin/materials/lambertian/no_texture/pipelinelayout", manager);
+		auto mbPipelineLayout = getDefaultAsset<ICPUPipelineLayout, asset::IAsset::ET_PIPELINE_LAYOUT>("nbl/builtin/materials/lambertian/no_texture/pipelinelayout", manager);
 
 		constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
 		core::smart_refctd_dynamic_array<asset::IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
@@ -386,7 +386,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 		if (!readIndices())
 			continue;
 
-		manager->setAssetMetadata(mbPipeline.get(), core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaSerializedPipelineMetadata>(std::move(shaderInputsMetadata)));
+		manager->setAssetMetadata(mbPipeline.get(), core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaSerializedPipelineMetadata>(std::move(shaderInputsMetadata)));
 		meshBuffer->recalculateBoundingBox();
 		meshBuffer->setPipeline(std::move(mbPipeline));
 

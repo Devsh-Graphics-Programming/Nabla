@@ -7,7 +7,7 @@
 
 #include "../include/nbl/asset/IDither.h"
 
-namespace irr
+namespace nbl
 {
 	namespace asset
 	{

@@ -17,7 +17,7 @@
 #include "nbl/macros.h"
 #include "nbl/core/math/glslFunctions.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -91,7 +91,7 @@ NBL_FORCE_INLINE constexpr uint64_t createBitmask(std::initializer_list<BITMASK_
 }
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

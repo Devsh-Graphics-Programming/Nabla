@@ -8,7 +8,7 @@
 
 #include "IFileSystem.h"
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -131,7 +131,7 @@ class CFileSystem : public IFileSystem
 };
 
 
-} // end namespace irr
+} // end namespace nbl
 } // end namespace io
 
 #endif

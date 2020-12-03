@@ -8,7 +8,7 @@
 #include "nbl/core/IReferenceCounted.h"
 #include "stdint.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

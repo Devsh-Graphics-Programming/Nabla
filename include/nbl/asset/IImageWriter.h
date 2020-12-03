@@ -14,7 +14,7 @@
 
 #include "nbl/asset/filters/CFlattenRegionsImageFilter.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

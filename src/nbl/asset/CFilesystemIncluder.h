@@ -8,7 +8,7 @@
 #include "nbl/asset/IIncluder.h"
 #include "IFileSystem.h"
 
-namespace irr { namespace asset
+namespace nbl { namespace asset
 {
 
 class CFilesystemIncluder : public IIncluder

@@ -5,7 +5,7 @@
 
 #include "CSceneNodeAnimatorFlyStraight.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -86,5 +86,5 @@ ISceneNodeAnimator* CSceneNodeAnimatorFlyStraight::createClone(IDummyTransformat
 
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 

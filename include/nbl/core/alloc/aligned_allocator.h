@@ -8,13 +8,13 @@
 #include "nbl/core/memory/memory.h"
 #include "nbl/core/alloc/AllocatorTrivialBases.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
 
 template <class T, size_t overAlign=_NBL_DEFAULT_ALIGNMENT(T)>
-class NBL_FORCE_EBO alignas(alignof(void*)) aligned_allocator : public irr::core::AllocatorTrivialBase<T>
+class NBL_FORCE_EBO alignas(alignof(void*)) aligned_allocator : public nbl::core::AllocatorTrivialBase<T>
 {
     public:
         typedef size_t	size_type;
@@ -70,7 +70,7 @@ class NBL_FORCE_EBO alignas(alignof(void*)) aligned_allocator : public irr::core
 };
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

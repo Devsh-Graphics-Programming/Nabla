@@ -9,7 +9,7 @@
 
 #include "nbl/asset/filters/CBasicImageFilterCommon.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -215,6 +215,6 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

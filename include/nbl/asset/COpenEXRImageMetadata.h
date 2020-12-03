@@ -7,7 +7,7 @@
 
 #include "nbl/asset/IImageMetadata.h"
 
-namespace irr 
+namespace nbl 
 {
 namespace asset
 {

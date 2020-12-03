@@ -12,7 +12,7 @@
 #include "../../ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
 #include "../../ext/MitsubaLoader/CElementShape.h"
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

@@ -12,7 +12,7 @@
 #include "nbl/ext/MitsubaLoader/CElementSampler.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

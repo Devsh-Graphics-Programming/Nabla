@@ -8,7 +8,7 @@
 
 #include "nbl/core/math/glslFunctions.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -277,7 +277,7 @@ namespace core
 
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

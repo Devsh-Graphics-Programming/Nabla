@@ -21,7 +21,7 @@
 	#include "libpng/png.h"
 #endif // _NBL_COMPILE_WITH_LIBPNG_
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -207,6 +207,6 @@ bool CImageWriterPNG::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 }
 
 } // namespace video
-} // namespace irr
+} // namespace nbl
 
 #endif

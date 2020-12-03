@@ -11,7 +11,7 @@
 #include "rect.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -390,7 +390,7 @@ namespace core
 	}
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

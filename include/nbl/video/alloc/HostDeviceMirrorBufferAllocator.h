@@ -8,7 +8,7 @@
 
 #include "nbl/video/alloc/SimpleGPUBufferAllocator.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -80,7 +80,7 @@ class HostDeviceMirrorBufferAllocator : protected SimpleGPUBufferAllocator
 
 #include "IDriver.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

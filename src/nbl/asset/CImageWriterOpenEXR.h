@@ -11,7 +11,7 @@
 
 #include "nbl/asset/IImageWriter.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

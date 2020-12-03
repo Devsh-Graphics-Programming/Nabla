@@ -9,7 +9,7 @@
 #include "nbl/ext/MitsubaLoader/CElementIntegrator.h"
 #include "nbl/ext/MitsubaLoader/CElementShape.h"
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

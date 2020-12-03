@@ -19,7 +19,7 @@
 #undef Bool
 #include "lzma/C/LzmaDec.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -381,4 +381,4 @@ bool CBAWMeshFileLoader::decompressLz4(void * _dst, size_t _dstSize, const void 
 	return res >= 0;
 }
 
-}} // irr::scene
+}} // nbl::scene

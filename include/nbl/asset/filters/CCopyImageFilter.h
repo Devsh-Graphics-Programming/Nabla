@@ -11,7 +11,7 @@
 
 #include "nbl/asset/filters/CMatchedSizeInOutImageFilterCommon.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -76,6 +76,6 @@ class CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedS
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

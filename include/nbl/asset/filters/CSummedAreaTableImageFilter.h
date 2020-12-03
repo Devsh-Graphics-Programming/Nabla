@@ -13,7 +13,7 @@
 #include "nbl/asset/filters/CMatchedSizeInOutImageFilterCommon.h"
 #include "CConvertFormatImageFilter.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -399,6 +399,6 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

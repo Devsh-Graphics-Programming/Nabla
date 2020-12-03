@@ -10,7 +10,7 @@
 #include "nbl/asset/format/EFormat.h"
 #include "nbl/asset/IDescriptor.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

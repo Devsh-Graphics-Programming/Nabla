@@ -18,7 +18,7 @@
 #include "COBJMeshFileLoader.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -697,6 +697,6 @@ std::string COBJMeshFileLoader::genKeyForMeshBuf(const SContext& _ctx, const std
 
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif // _NBL_COMPILE_WITH_OBJ_LOADER_

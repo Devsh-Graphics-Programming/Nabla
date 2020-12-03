@@ -10,7 +10,7 @@
 #include <algorithm>
 #include <array>
 
-namespace irr
+namespace nbl
 {
 	namespace asset
 	{
@@ -50,7 +50,7 @@ namespace irr
 				acosf((b - c + a) / (2.f * bsqrt * asqrt)));
 		}
 
-		core::smart_refctd_ptr<asset::ICPUMeshBuffer> irr::asset::CSmoothNormalGenerator::calculateNormals(asset::ICPUMeshBuffer * buffer, float epsilon, uint32_t normalAttrID, IMeshManipulator::VxCmpFunction vxcmp)
+		core::smart_refctd_ptr<asset::ICPUMeshBuffer> nbl::asset::CSmoothNormalGenerator::calculateNormals(asset::ICPUMeshBuffer * buffer, float epsilon, uint32_t normalAttrID, IMeshManipulator::VxCmpFunction vxcmp)
 		{
 			VertexHashMap vertexArray = setupData(buffer, epsilon);
 			processConnectedVertices(buffer, vertexArray, epsilon, normalAttrID, vxcmp);

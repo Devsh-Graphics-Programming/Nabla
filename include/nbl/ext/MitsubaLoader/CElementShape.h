@@ -11,7 +11,7 @@
 #include "nbl/ext/MitsubaLoader/CElementEmitter.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

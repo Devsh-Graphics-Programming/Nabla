@@ -15,7 +15,7 @@
 #include "nbl/asset/IDescriptorSetLayout.h" //for E_DESCRIPTOR_TYPE
 #include "nbl/core/SRange.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

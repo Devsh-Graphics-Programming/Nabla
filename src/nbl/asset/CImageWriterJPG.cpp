@@ -28,7 +28,7 @@ extern "C"
 // The writer uses a 4k buffer and flushes to disk each time it's filled
 #define OUTPUT_BUF_SIZE 4096
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 
 namespace 

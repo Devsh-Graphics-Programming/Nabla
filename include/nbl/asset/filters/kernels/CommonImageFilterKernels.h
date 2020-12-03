@@ -10,7 +10,7 @@
 
 #include <ratio>
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -123,6 +123,6 @@ class CFloatingPointIsotropicSeparableImageFilterKernelBase :	public CFloatingPo
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

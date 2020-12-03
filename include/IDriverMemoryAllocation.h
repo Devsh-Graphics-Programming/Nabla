@@ -7,7 +7,7 @@
 
 #include "nbl/core/IReferenceCounted.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -154,7 +154,7 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
 };
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

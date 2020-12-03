@@ -9,7 +9,7 @@
 
 //#include "nbl/core/math/irrMath.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -70,7 +70,7 @@ template<typename NumeratorType = int32_t, typename DenominatorType = typename s
 rational<NumeratorType,DenominatorType> operator*(const NumeratorType& val, rational<NumeratorType, DenominatorType> const& _this) { return _this * val; }
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

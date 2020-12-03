@@ -8,7 +8,7 @@
 #include "nbl/macros.h"
 #include "nbl/core/Types.h"//for core::allocator
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

@@ -12,7 +12,7 @@
 
 #include "nbl/core/alloc/AddressAllocatorBase.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -692,7 +692,7 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
 
 #include "nbl/core/alloc/AddressAllocatorConcurrencyAdaptors.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

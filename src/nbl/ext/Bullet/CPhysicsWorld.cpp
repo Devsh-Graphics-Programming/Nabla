@@ -5,7 +5,7 @@
 #include "nbl/ext/Bullet/CPhysicsWorld.h"
 #include "nbl/ext/Bullet/BulletUtility.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace ext;
 using namespace Bullet3;
 

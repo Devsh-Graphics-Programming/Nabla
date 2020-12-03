@@ -10,7 +10,7 @@
 #include "nbl/core/Types.h"
 #include "nbl/asset/ICPUBuffer.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

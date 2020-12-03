@@ -23,7 +23,7 @@
 #define FLT_MIN 1.17549435e-38F
 #endif
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

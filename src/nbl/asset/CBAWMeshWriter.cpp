@@ -16,7 +16,7 @@
 #undef Bool
 #include "lzma/C/LzmaEnc.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -492,4 +492,4 @@ struct LzmaMemMngmnt
 		return data;
 	}
 
-}} // end ns irr::scene
+}} // end ns nbl::scene

@@ -5,7 +5,7 @@
 #include "COpenCLHandler.h"
 
 #ifdef _NBL_COMPILE_WITH_OPENCL_
-namespace irr
+namespace nbl
 {
 namespace ocl
 {

@@ -12,7 +12,7 @@
 #include "ISceneManager.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -170,7 +170,7 @@ class CMeshSceneNodeInstanced : public IMeshSceneNodeInstanced
 
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

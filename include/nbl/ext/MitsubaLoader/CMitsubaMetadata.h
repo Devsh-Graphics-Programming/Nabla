@@ -8,7 +8,7 @@
 #include "nbl/asset/IAssetMetadata.h"
 #include "nbl/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
 
-namespace irr
+namespace nbl
 {
 	namespace ext
 	{

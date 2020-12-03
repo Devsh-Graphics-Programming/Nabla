@@ -12,7 +12,7 @@
 #include "os.h"
 #include "errno.h"
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -236,6 +236,6 @@ IReadFile* CTarReader::createAndOpenFile(const io::path& filename)
 	return 0;
 }
 } // end namespace io
-} // end namespace irr
+} // end namespace nbl
 
 #endif // __NBL_COMPILE_WITH_TAR_ARCHIVE_LOADER_

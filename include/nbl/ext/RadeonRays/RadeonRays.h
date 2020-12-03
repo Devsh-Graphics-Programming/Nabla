@@ -14,7 +14,7 @@
 #undef RR_STATIC_LIBRARY
 
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {
@@ -48,7 +48,7 @@ class Manager final : public core::IReferenceCounted
 			uint32_t maxIndexCount = 0u;
 			for (auto it=_begin; it!=_end; it++)
 			{
-				auto* mb = static_cast<irr::asset::ICPUMeshBuffer*>(*it);
+				auto* mb = static_cast<nbl::asset::ICPUMeshBuffer*>(*it);
 				auto found = shapeCache.find(mb);
 				if (found!=shapeCache.end())
 					continue;
@@ -81,7 +81,7 @@ class Manager final : public core::IReferenceCounted
 
 			auto* indices = new int32_t[maxIndexCount];
 			for (auto it=_begin; it!=_end; it++)
-				makeShape(shapeCache,static_cast<irr::asset::ICPUMeshBuffer*>(*it),indices);
+				makeShape(shapeCache,static_cast<nbl::asset::ICPUMeshBuffer*>(*it),indices);
 			delete[] indices;
 		}
 
@@ -111,7 +111,7 @@ class Manager final : public core::IReferenceCounted
 			auto* id_it = _id_begin;
 			for (auto it=_begin; it!=_end; it++,id_it++)
 			{
-				irr::scene::IMeshSceneNode* node = *it;
+				nbl::scene::IMeshSceneNode* node = *it;
 				makeInstance(instanceCache,GPU2CPUTable,node,_id_begin ? id_it:nullptr);
 			}
 		}

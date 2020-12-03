@@ -29,7 +29,7 @@ static const char* const copyright = "Irrlicht Engine (c) 2002-2011 Nikolaus Geb
 
 #include "CIrrDeviceConsole.h"
 
-namespace irr
+namespace nbl
 {
 	//! stub for calling createDeviceEx
 	core::smart_refctd_ptr<IrrlichtDevice> createDevice(video::E_DRIVER_TYPE driverType,
@@ -78,7 +78,7 @@ namespace irr
 		return dev;
 	}
 
-} // end namespace irr
+} // end namespace nbl
 
 
 #if defined(_NBL_WINDOWS_API_)

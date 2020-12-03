@@ -12,7 +12,7 @@
 #include "ILogger.h"
 #include "nbl/builtin/common.h"
 
-namespace irr
+namespace nbl
 {
 	class IEventReceiver;
 
@@ -246,7 +246,7 @@ namespace irr
 	};
 
 
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

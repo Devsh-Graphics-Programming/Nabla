@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_SKINNED_MESH_BUFFER_BLOB_H_INCLUDED__
 #define __NBL_ASSET_SKINNED_MESH_BUFFER_BLOB_H_INCLUDED__
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -55,6 +55,6 @@ struct CorrespondingBlobTypeFor<ICPUSkinnedMeshBuffer> { typedef SkinnedMeshBuff
 
 
 }
-} // irr::asset
+} // nbl::asset
 
 #endif

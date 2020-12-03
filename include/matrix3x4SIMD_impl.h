@@ -10,7 +10,7 @@
 
 #include "matrix4x3.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -520,6 +520,6 @@ inline __m128d matrix3x4SIMD::doJob_d(const __m128d& _a0, const __m128d& _a1, co
 #endif
 
 }
-} // irr::core
+} // nbl::core
 
 #endif

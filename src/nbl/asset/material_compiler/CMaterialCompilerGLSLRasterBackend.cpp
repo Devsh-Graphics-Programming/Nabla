@@ -4,7 +4,7 @@
 
 #include <nbl/asset/material_compiler/CMaterialCompilerGLSLRasterBackend.h>
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

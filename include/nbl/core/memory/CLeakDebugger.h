@@ -12,7 +12,7 @@
 #include <sstream>
 #include "stddef.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -108,6 +108,6 @@ class NBL_FORCE_EBO CLeakDebugger : public AllocationOverrideDefault, public Unc
 };
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif

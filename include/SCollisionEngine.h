@@ -9,7 +9,7 @@
 #include "SCompoundCollider.h"
 #include "SViewFrustum.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

@@ -39,7 +39,7 @@
     #define _NBL_ALIGNED_FREE(addr)                 ::_aligned_free(addr)
 #else
 
-namespace irr
+namespace nbl
 {
 namespace impl
 {
@@ -52,12 +52,12 @@ namespace impl
     }
 }
 }
-    #define _NBL_ALIGNED_MALLOC(size,alignment)     irr::impl::aligned_malloc(size,alignment)
+    #define _NBL_ALIGNED_MALLOC(size,alignment)     nbl::impl::aligned_malloc(size,alignment)
     #define _NBL_ALIGNED_FREE(addr)                 ::free(addr)
 #endif
 
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

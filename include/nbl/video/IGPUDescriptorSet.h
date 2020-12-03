@@ -13,7 +13,7 @@
 #include "nbl/video/IGPUSampler.h"
 #include "nbl/video/IGPUDescriptorSetLayout.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

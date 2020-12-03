@@ -12,7 +12,7 @@
 #include <vector>
 
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

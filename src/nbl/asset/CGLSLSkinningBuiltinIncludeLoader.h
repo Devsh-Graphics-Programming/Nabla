@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <cassert>
 
-namespace irr { namespace asset
+namespace nbl { namespace asset
 {
 
 class CGLSLSkinningBuiltinIncludeLoader : public asset::IBuiltinIncludeLoader
@@ -27,6 +27,6 @@ private:
     static std::string getLinearSkinningFunction(uint32_t maxBoneInfluences);
 };
 
-}} // irr::asset
+}} // nbl::asset
 
 #endif

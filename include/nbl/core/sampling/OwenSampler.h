@@ -8,7 +8,7 @@
 #include "nbl/core/sampling/RandomSampler.h"
 #include "nbl/core/sampling/SobolSampler.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

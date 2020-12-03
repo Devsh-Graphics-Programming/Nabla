@@ -7,7 +7,7 @@
 
 #include "nbl/core/Types.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -118,6 +118,6 @@ namespace asset
 	}
 
 }
-} // irr::asset
+} // nbl::asset
 
 #endif

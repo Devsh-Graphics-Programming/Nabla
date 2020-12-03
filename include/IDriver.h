@@ -10,7 +10,7 @@
 #include "nbl/video/asset_traits.h"
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
-namespace irr
+namespace nbl
 {
 	class IrrlichtDevice;
 
@@ -30,7 +30,7 @@ namespace video
 #include "IGPUTimestampQuery.h"
 #include "IDriverFence.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -429,7 +429,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 };
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

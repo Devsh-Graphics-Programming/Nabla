@@ -13,7 +13,7 @@
 #include "nbl/asset/bawformat/BlobSerializable.h"
 #include "nbl/asset/bawformat/blobs/FinalBoneHierarchyBlob.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -707,7 +707,7 @@ namespace asset
     };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

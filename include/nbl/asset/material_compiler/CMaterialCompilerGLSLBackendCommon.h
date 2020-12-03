@@ -10,7 +10,7 @@
 
 #include <ostream>
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

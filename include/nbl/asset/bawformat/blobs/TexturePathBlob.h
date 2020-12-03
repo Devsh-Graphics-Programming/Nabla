@@ -10,7 +10,7 @@
 #ifdef OLD_SHADERS
 #include "nbl/asset/ICPUTexture.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -32,7 +32,7 @@ template<>
 struct CorrespondingBlobTypeFor<video::IVirtualTexture> { typedef TexturePathBlobV3 type; };
 
 }
-} // irr::asset
+} // nbl::asset
 #endif
 
 #endif

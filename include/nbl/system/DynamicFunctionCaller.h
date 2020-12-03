@@ -9,7 +9,7 @@
 #include "nbl/core/core.h"
 #include "nbl/system/DynamicLibraryFunctionPointer.h"
 
-namespace irr
+namespace nbl
 {
 namespace system
 {
@@ -47,10 +47,10 @@ class DynamicFunctionCallerBase : public core::Unmovable
 #define NBL_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR(FUNC_NAME) std::swap(p ## FUNC_NAME,other.p ## FUNC_NAME);
 
 #define NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS( CLASS_NAME, FUNC_PTR_LOADER_TYPE, ... ) \
-class CLASS_NAME : public irr::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER_TYPE>\
+class CLASS_NAME : public nbl::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER_TYPE>\
 {\
 	public:\
-		using Base = irr::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER_TYPE>;\
+		using Base = nbl::system::DynamicFunctionCallerBase<FUNC_PTR_LOADER_TYPE>;\
 \
 		CLASS_NAME() : Base()\
 		{\

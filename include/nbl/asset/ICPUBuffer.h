@@ -14,7 +14,7 @@
 #include "nbl/asset/IDescriptor.h"
 #include "nbl/asset/bawformat/blobs/RawBufferBlob.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -181,6 +181,6 @@ class CCustomAllocatorCPUBuffer<Allocator, false> : public CCustomAllocatorCPUBu
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

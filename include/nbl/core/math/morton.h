@@ -8,7 +8,7 @@
 #include <cstdint>
 #include "nbl/macros.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

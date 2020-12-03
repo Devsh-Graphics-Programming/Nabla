@@ -7,7 +7,7 @@
 
 #include "nbl/asset/asset.h"
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

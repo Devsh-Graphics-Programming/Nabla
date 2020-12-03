@@ -7,7 +7,7 @@
 
 #include "nbl/core/alloc/AddressAllocatorBase.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -137,7 +137,7 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
 }
 
 #include "nbl/core/alloc/AddressAllocatorConcurrencyAdaptors.h"
-namespace irr
+namespace nbl
 {
 namespace core
 {

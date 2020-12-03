@@ -18,7 +18,7 @@
 #include "nbl/core/alloc/LinearAddressAllocator.h"
 #include "nbl/video/IGPUPipelineCache.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -1040,6 +1040,6 @@ inline created_gpu_object_array<asset::ICPUComputePipeline> IGPUObjectFromAssetC
     return res;
 }
 
-}}//irr::video
+}}//nbl::video
 
 #endif

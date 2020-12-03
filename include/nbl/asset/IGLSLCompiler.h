@@ -14,7 +14,7 @@
 #include "nbl/asset/ICPUSpecializedShader.h"
 #include "nbl/asset/IIncludeHandler.h"
 
-namespace irr
+namespace nbl
 {
 
 namespace video

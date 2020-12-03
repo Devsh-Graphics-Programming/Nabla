@@ -10,7 +10,7 @@
 #include "nbl/asset/IMeshManipulator.h"
 #include "SColor.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -116,7 +116,7 @@ class IGeometryCreator : public core::IReferenceCounted
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

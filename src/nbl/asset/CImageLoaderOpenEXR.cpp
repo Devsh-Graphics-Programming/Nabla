@@ -47,7 +47,7 @@ SOFTWARE.
 namespace IMF = Imf;
 namespace IMATH = Imath;
 
-namespace irr
+namespace nbl
 {
 	namespace asset
 	{

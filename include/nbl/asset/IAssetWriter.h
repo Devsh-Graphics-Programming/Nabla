@@ -8,7 +8,7 @@
 #include "IWriteFile.h"
 #include "IAsset.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -188,6 +188,6 @@ protected:
     static void getDefaultOverride(IAssetWriterOverride*& _out) { _out = &s_defaultOverride; }
 };
 
-}} //irr::asset
+}} //nbl::asset
 
 #endif

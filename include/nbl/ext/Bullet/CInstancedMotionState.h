@@ -13,7 +13,7 @@
 #include "BulletUtility.h"
 #include "IMotionStateBase.h"
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

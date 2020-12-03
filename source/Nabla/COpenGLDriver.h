@@ -11,7 +11,7 @@
 
 #include "SIrrCreationParameters.h"
 
-namespace irr
+namespace nbl
 {
 	class CIrrDeviceWin32;
 	class CIrrDeviceLinux;
@@ -41,7 +41,7 @@ namespace irr
 #include <mutex>
 //#include <condition_variable>
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -1088,7 +1088,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 	};
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif // _NBL_COMPILE_WITH_OPENGL_

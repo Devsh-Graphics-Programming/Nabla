@@ -72,10 +72,10 @@ public:
     };
     using workaround_functions_t = std::array<SFunction, WORKAROUND_FUNCTION_COUNT>;
 
-    std::pair<irr::core::vector<SLoad>, workaround_functions_t> getFixCandidates()
+    std::pair<nbl::core::vector<SLoad>, workaround_functions_t> getFixCandidates()
     {
-        irr::core::vector<uint32_t> vars;//IDs of UBO or SSBO vars (instances)
-        irr::core::vector<SLoad> loads;//OpLoad's that are potentially going to need the fix
+        nbl::core::vector<uint32_t> vars;//IDs of UBO or SSBO vars (instances)
+        nbl::core::vector<SLoad> loads;//OpLoad's that are potentially going to need the fix
         
         workaround_functions_t fixFuncs;
         memset(fixFuncs.data(), 0xff, fixFuncs.size()*sizeof(SFunction));
@@ -111,7 +111,7 @@ public:
         );
 
         bool getThisOpLoad = false;
-        irr::core::stack<std::reference_wrapper<const spirv_cross::SPIRFunction>> callstack;
+        nbl::core::stack<std::reference_wrapper<const spirv_cross::SPIRFunction>> callstack;
         callstack.push(std::cref(get<spirv_cross::SPIRFunction>(ir.default_entry_point)));
         while (!callstack.empty())
         {
@@ -171,7 +171,7 @@ public:
 };
 }
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -181,7 +181,7 @@ namespace video
 // -----------------------------------------------------------------------
 #ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 //! Windows constructor and init code
-COpenGLDriver::COpenGLDriver(const irr::SIrrlichtCreationParameters& params,
+COpenGLDriver::COpenGLDriver(const nbl::SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp)
 : CNullDriver(device, io, params), COpenGLExtensionHandler(),
 	runningInRenderDoc(false),  ColorFormat(asset::EF_R8G8B8_UNORM),
@@ -3193,7 +3193,7 @@ void COpenGLDriver::enableClipPlane(uint32_t index, bool enable)
 
 #endif // _NBL_COMPILE_WITH_OPENGL_
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

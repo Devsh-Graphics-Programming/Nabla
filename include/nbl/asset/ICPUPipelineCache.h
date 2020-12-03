@@ -10,7 +10,7 @@
 #include "nbl/asset/ISpecializedShader.h"
 #include "nbl/core/Types.h"
 
-namespace irr { namespace asset
+namespace nbl { namespace asset
 {
 
 class ICPUPipelineCache final : public IAsset

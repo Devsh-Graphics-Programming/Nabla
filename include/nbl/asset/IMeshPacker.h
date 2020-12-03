@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_I_MESH_PACKER_H_INCLUDED__
 #define __NBL_ASSET_I_MESH_PACKER_H_INCLUDED__
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

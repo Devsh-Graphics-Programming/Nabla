@@ -8,7 +8,7 @@
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/ISampler.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

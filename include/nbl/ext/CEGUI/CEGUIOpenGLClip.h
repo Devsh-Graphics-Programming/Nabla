@@ -28,7 +28,7 @@ SOFTWARE.
 #ifndef _NBL_EXT_CEGUI_OPENGL_CLIP_INCLUDED_
 #define _NBL_EXT_CEGUI_OPENGL_CLIP_INCLUDED_
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -45,6 +45,6 @@ void resetOpenGLClip();
 
 } // namespace cegui
 } // namespace ext
-} // namespace irr
+} // namespace nbl
 
 #endif

@@ -14,7 +14,7 @@
 #include "IFileSystem.h"
 #include "ISceneManager.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

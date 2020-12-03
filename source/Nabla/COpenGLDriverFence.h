@@ -9,7 +9,7 @@
 #include "COpenGLExtensionHandler.h"
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -73,7 +73,7 @@ class COpenGLDriverFence : public IDriverFence
 };
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 #endif // _NBL_COMPILE_WITH_OPENGL_
 
 #endif

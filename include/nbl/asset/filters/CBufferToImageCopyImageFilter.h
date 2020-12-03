@@ -7,7 +7,7 @@
 
 #include "nbl/asset/filters/CFlattenRegionsImageFilter.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -15,6 +15,6 @@ namespace asset
 using CBufferToImageCopyImageFilter = CFlattenRegionsImageFilter;
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

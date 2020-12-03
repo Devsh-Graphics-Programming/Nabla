@@ -11,7 +11,7 @@
 #include "ISkinningStateManager.h"
 #include "IAnimatedMeshSceneNode.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -136,7 +136,7 @@ namespace scene
 	};
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

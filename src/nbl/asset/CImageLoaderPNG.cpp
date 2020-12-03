@@ -18,7 +18,7 @@
 #include "CReadFile.h"
 #include "os.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -325,7 +325,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 }
 
 
-}// end namespace irr
+}// end namespace nbl
 }//end namespace video
 
 #endif

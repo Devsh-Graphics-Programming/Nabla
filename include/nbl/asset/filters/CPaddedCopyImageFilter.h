@@ -13,7 +13,7 @@
 #include "nbl/asset/filters/CCopyImageFilter.h"
 #include "nbl/asset/format/encodePixels.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -276,6 +276,6 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

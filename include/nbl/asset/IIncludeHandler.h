@@ -8,7 +8,7 @@
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/asset/IBuiltinIncludeLoader.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

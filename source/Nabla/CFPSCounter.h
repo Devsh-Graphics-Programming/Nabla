@@ -9,7 +9,7 @@
 #include "nbl/core/Types.h"
 #include "nbl/core/alloc/AlignedBase.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -49,7 +49,7 @@ private:
 
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

@@ -6,7 +6,7 @@
 #include "CFPSCounter.h"
 #include "nbl/core/math/glslFunctions.tcc"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -73,5 +73,5 @@ void CFPSCounter::registerFrame(const std::chrono::high_resolution_clock::time_p
 
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 

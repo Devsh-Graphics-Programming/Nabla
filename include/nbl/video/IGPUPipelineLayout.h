@@ -9,7 +9,7 @@
 #include "nbl/asset/IPipelineLayout.h"
 #include "nbl/video/IGPUDescriptorSetLayout.h"
 
-namespace irr {
+namespace nbl {
 namespace video
 {
 

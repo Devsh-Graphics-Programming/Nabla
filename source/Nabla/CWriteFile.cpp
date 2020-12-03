@@ -6,7 +6,7 @@
 #include "CWriteFile.h"
 #include <stdio.h>
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -120,5 +120,5 @@ IWriteFile* createWriteFile(const io::path& fileName, bool append)
 
 
 } // end namespace io
-} // end namespace irr
+} // end namespace nbl
 

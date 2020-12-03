@@ -11,7 +11,7 @@
 #include "nbl/asset/IMeshManipulator.h"
 #include "nbl/core/math/glslFunctions.h"
 
-namespace irr 
+namespace nbl 
 {	
 namespace asset 
 {

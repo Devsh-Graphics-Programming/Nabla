@@ -8,7 +8,7 @@
 
 #include "nbl/asset/bawformat/Blob.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -46,6 +46,6 @@ template<>
 struct CorrespondingBlobTypeFor<ICPUMesh> { typedef MeshBlobV3 type; };
 
 }
-} // irr::asset
+} // nbl::asset
 
 #endif

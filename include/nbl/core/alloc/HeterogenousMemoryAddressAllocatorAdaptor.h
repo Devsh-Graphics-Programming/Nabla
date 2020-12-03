@@ -9,7 +9,7 @@
 #include "nbl/core/alloc/address_allocator_traits.h"
 #include "nbl/core/alloc/AddressAllocatorBase.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

@@ -15,7 +15,7 @@
 #include "nbl/asset/IImageAssetHandlerBase.h"
 #include "nbl/asset/filters/CConvertFormatImageFilter.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -361,6 +361,6 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 }
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 #endif

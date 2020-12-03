@@ -11,7 +11,7 @@
 #include "CFinalBoneHierarchy.h"
 #include "nbl/asset/ICPUSkinnedMeshBuffer.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -80,7 +80,7 @@ namespace video
     };
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

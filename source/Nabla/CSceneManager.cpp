@@ -29,13 +29,13 @@
 #include "CSceneNodeAnimatorCameraMaya.h"
 #include "CSceneNodeAnimatorCameraModifiedMaya.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
 
 //! constructor
-CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver, irr::ITimer* timer, io::IFileSystem* fs,
+CSceneManager::CSceneManager(IrrlichtDevice* device, video::IVideoDriver* driver, nbl::ITimer* timer, io::IFileSystem* fs,
 		gui::ICursorControl* cursorControl)
 : ISceneNode(0, 0), Driver(driver), Timer(timer), FileSystem(fs), Device(device),
 	CursorControl(cursorControl),
@@ -807,5 +807,5 @@ ISceneManager* CSceneManager::createNewSceneManager(bool cloneContent)
 
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 

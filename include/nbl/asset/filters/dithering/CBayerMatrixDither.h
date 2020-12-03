@@ -7,9 +7,9 @@
 #ifndef __NBL_ASSET_C_BAYER_MATRIX_DITHER_H_INCLUDED__
 #define __NBL_ASSET_C_BAYER_MATRIX_DITHER_H_INCLUDED__
 
-#include "../include/irr/asset/filters/dithering/CDither.h"
+#include "../include/nbl/asset/filters/dithering/CDither.h"
 
-namespace irr
+namespace nbl
 {
 	namespace asset
 	{

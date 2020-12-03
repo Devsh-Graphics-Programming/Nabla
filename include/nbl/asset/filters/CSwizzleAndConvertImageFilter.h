@@ -15,7 +15,7 @@
 #include "nbl/asset/format/convertColor.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -322,6 +322,6 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Normalize,Clamp,
 
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

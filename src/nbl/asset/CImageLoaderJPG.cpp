@@ -26,7 +26,7 @@ extern "C" {
 }
 #endif // _NBL_COMPILE_WITH_LIBJPEG_
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -340,6 +340,6 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 }
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 #endif

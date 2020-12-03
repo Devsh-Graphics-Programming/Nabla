@@ -9,7 +9,7 @@
 #include "IDriverMemoryBacked.h"
 #include "nbl/asset/IDescriptor.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -50,7 +50,7 @@ class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked
 };
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

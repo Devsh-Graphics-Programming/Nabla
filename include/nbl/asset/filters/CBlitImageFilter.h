@@ -18,7 +18,7 @@
 
 #include "nbl/asset/format/decodePixels.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -539,6 +539,6 @@ class CBlitImageFilter : public CImageFilter<CBlitImageFilter<Normalize,Clamp,Sw
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

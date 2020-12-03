@@ -5,7 +5,7 @@
 
 #include "CSceneNodeAnimatorRotation.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -55,5 +55,5 @@ ISceneNodeAnimator* CSceneNodeAnimatorRotation::createClone(IDummyTransformation
 
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 

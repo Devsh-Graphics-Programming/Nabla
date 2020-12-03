@@ -32,7 +32,7 @@ SOFTWARE.
 #error "It requires GLI library"
 #endif
 
-namespace irr
+namespace nbl
 {
 	namespace asset
 	{

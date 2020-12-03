@@ -23,7 +23,7 @@
 #include <limits>
 
 
-namespace irr 
+namespace nbl 
 {
 namespace asset 
 {

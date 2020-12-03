@@ -9,7 +9,7 @@
 #include "nbl/core/IReferenceCounted.h"
 #include "path.h"
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -45,7 +45,7 @@ namespace io
 	IWriteFile* createWriteFile(const io::path& fileName, bool append);
 
 } // end namespace io
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

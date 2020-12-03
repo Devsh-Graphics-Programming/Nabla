@@ -7,7 +7,7 @@
 
 #include "nbl/asset/IAssetManager.h"
 
-namespace irr
+namespace nbl
 {
 
 IrrlichtDevice::IrrlichtDevice() : m_assetMgr()

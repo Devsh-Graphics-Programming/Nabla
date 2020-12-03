@@ -8,7 +8,7 @@
 #include <string>
 #include "nbl/asset/IAssetMetadata.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -26,7 +26,7 @@ class IAssetManager;
 	@see ICPUBuffer
 
 	Actually an Asset is a class deriving from it that can be anything like cpu-side meshes scenes, texture data and material pipelines, 
-	but must be serializable into/from .baw file format, unless it comes from an extension (irr::ext), 
+	but must be serializable into/from .baw file format, unless it comes from an extension (nbl::ext), 
 	so forth cached. There are different asset types you can find at IAsset::E_TYPE. 
 	IAsset doesn't provide direct instantiation (virtual destructor), much like IReferenceCounted.
 

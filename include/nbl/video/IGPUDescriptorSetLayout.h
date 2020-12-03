@@ -9,7 +9,7 @@
 
 #include "nbl/video/IGPUSampler.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

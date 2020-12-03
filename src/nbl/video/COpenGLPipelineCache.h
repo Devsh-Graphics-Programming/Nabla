@@ -13,7 +13,7 @@
 #include "spirv_cross/spirv_parser.hpp"
 #include <array>
 
-namespace irr { namespace video
+namespace nbl { namespace video
 {
 
 class COpenGLPipelineCache final : public IGPUPipelineCache

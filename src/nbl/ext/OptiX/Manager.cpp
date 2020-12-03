@@ -6,15 +6,15 @@
 
 #include "../../source/Irrlicht/CMemoryFile.h"
 
-#include "irr/ext/OptiX/Manager.h"
+#include "nbl/ext/OptiX/Manager.h"
 
 #include "optix_function_table_definition.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 using namespace video;
 
-using namespace irr::ext::OptiX;
+using namespace nbl::ext::OptiX;
 
 
 core::smart_refctd_ptr<Manager> Manager::create(video::IVideoDriver* _driver, io::IFileSystem* _filesystem)
@@ -80,7 +80,7 @@ Manager::Manager(video::IVideoDriver* _driver, io::IFileSystem* _filesystem, uin
 		}
 	}
 
-	// TODO: This cannot stay like that, we need a resource compiler to "build-in" the optix CUDA/device headers into irr::ext::OptiX so that we can retrieve them.
+	// TODO: This cannot stay like that, we need a resource compiler to "build-in" the optix CUDA/device headers into nbl::ext::OptiX so that we can retrieve them.
 	auto sdkDir = io::path(OPTIX_INCLUDE_DIR)+"/";
 	auto addHeader = [&](const char* subpath) -> void
 	{
@@ -140,6 +140,6 @@ Manager::~Manager()
 void Manager::defaultCallback(unsigned int level, const char* tag, const char* message, void* cbdata)
 {
 	uint32_t contextID = reinterpret_cast<const uint32_t&>(cbdata);
-	printf("irr::ext::OptiX Context:%d [%s]: %s\n", contextID, tag, message);
+	printf("nbl::ext::OptiX Context:%d [%s]: %s\n", contextID, tag, message);
 }
 

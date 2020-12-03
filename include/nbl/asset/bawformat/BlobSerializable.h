@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_BLOB_SERIALIZABLE_H_INCLUDED__
 #define __NBL_ASSET_BLOB_SERIALIZABLE_H_INCLUDED__
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -19,6 +19,6 @@ class NBL_FORCE_EBO BlobSerializable
 };
 
 }
-} // irr::asset
+} // nbl::asset
 
 #endif

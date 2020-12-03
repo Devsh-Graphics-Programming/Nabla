@@ -8,7 +8,7 @@
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/asset/ICPUPipelineCache.h"
 
-namespace irr { namespace video
+namespace nbl { namespace video
 {
 
 class IGPUPipelineCache : public core::IReferenceCounted

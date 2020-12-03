@@ -7,7 +7,7 @@
 
 #include <cstdlib>
 
-namespace irr { namespace core
+namespace nbl { namespace core
 {
 
 inline double lin2srgb(double _lin)

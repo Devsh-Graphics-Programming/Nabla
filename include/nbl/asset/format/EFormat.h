@@ -11,7 +11,7 @@
 #include "vectorSIMD.h"
 #include "nbl/core/math/rational.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -2928,9 +2928,9 @@ namespace asset
 namespace std
 {
     template <>
-    struct hash<irr::asset::E_FORMAT>
+    struct hash<nbl::asset::E_FORMAT>
     {
-        std::size_t operator()(const irr::asset::E_FORMAT& k) const noexcept { return k; }
+        std::size_t operator()(const nbl::asset::E_FORMAT& k) const noexcept { return k; }
     };
 }
 

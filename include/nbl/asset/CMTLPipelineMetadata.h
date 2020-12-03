@@ -9,7 +9,7 @@
 #include "nbl/asset/ICPUDescriptorSet.h"
 #include "nbl/asset/ICPUPipelineLayout.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

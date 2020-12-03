@@ -10,7 +10,7 @@
 #include "os.h"
 #include "IEventReceiver.h"
 
-namespace irr
+namespace nbl
 {
 
 //! Class for logging messages, warnings and errors to stdout

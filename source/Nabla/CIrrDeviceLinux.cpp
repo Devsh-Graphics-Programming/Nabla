@@ -37,7 +37,7 @@
 #else
 
 // linux/joystick.h includes linux/input.h, which #defines values for various KEY_FOO keys.
-// These override the irr::KEY_FOO equivalents, which stops key handling from working.
+// These override the nbl::KEY_FOO equivalents, which stops key handling from working.
 // As a workaround, defining _INPUT_H stops linux/input.h from being included; it
 // doesn't actually seem to be necessary except to pull in sys/ioctl.h.
 #define _INPUT_H
@@ -54,7 +54,7 @@
     #include "COpenGLDriver.h"
 #endif // _NBL_COMPILE_WITH_OPENGL_
 
-namespace irr
+namespace nbl
 {
 	namespace video
 	{
@@ -65,7 +65,7 @@ namespace irr
 #endif // _NBL_COMPILE_WITH_OPENGL_
         );
 	}
-} // end namespace irr
+} // end namespace nbl
 #endif // _NBL_COMPILE_WITH_X11_
 
 namespace
@@ -76,7 +76,7 @@ namespace
 	Atom X_ATOM_TEXT;
 };
 
-namespace irr
+namespace nbl
 {
 
 const char* wmDeleteWindow = "WM_DELETE_WINDOW";
@@ -1070,17 +1070,17 @@ bool CIrrDeviceLinux::run()
 				break;
 
 			case MotionNotify:
-				irrevent.EventType = irr::EET_MOUSE_INPUT_EVENT;
-				irrevent.MouseInput.Event = irr::EMIE_MOUSE_MOVED;
+				irrevent.EventType = nbl::EET_MOUSE_INPUT_EVENT;
+				irrevent.MouseInput.Event = nbl::EMIE_MOUSE_MOVED;
 				irrevent.MouseInput.X = event.xmotion.x;
 				irrevent.MouseInput.Y = event.xmotion.y;
 				irrevent.MouseInput.Control = (event.xmotion.state & ControlMask) != 0;
 				irrevent.MouseInput.Shift = (event.xmotion.state & ShiftMask) != 0;
 
 				// mouse button states
-				irrevent.MouseInput.ButtonStates = (event.xmotion.state & Button1Mask) ? irr::EMBSM_LEFT : 0;
-				irrevent.MouseInput.ButtonStates |= (event.xmotion.state & Button3Mask) ? irr::EMBSM_RIGHT : 0;
-				irrevent.MouseInput.ButtonStates |= (event.xmotion.state & Button2Mask) ? irr::EMBSM_MIDDLE : 0;
+				irrevent.MouseInput.ButtonStates = (event.xmotion.state & Button1Mask) ? nbl::EMBSM_LEFT : 0;
+				irrevent.MouseInput.ButtonStates |= (event.xmotion.state & Button3Mask) ? nbl::EMBSM_RIGHT : 0;
+				irrevent.MouseInput.ButtonStates |= (event.xmotion.state & Button2Mask) ? nbl::EMBSM_MIDDLE : 0;
 
 				postEventFromUser(irrevent);
 				break;
@@ -1088,7 +1088,7 @@ bool CIrrDeviceLinux::run()
 			case ButtonPress:
 			case ButtonRelease:
 
-				irrevent.EventType = irr::EET_MOUSE_INPUT_EVENT;
+				irrevent.EventType = nbl::EET_MOUSE_INPUT_EVENT;
 				irrevent.MouseInput.X = event.xbutton.x;
 				irrevent.MouseInput.Y = event.xbutton.y;
 				irrevent.MouseInput.Control = (event.xbutton.state & ControlMask) != 0;
@@ -1098,30 +1098,30 @@ bool CIrrDeviceLinux::run()
 				// This sets the state which the buttons had _prior_ to the event.
 				// So unlike on Windows the button which just got changed has still the old state here.
 				// We handle that below by flipping the corresponding bit later.
-				irrevent.MouseInput.ButtonStates = (event.xbutton.state & Button1Mask) ? irr::EMBSM_LEFT : 0;
-				irrevent.MouseInput.ButtonStates |= (event.xbutton.state & Button3Mask) ? irr::EMBSM_RIGHT : 0;
-				irrevent.MouseInput.ButtonStates |= (event.xbutton.state & Button2Mask) ? irr::EMBSM_MIDDLE : 0;
+				irrevent.MouseInput.ButtonStates = (event.xbutton.state & Button1Mask) ? nbl::EMBSM_LEFT : 0;
+				irrevent.MouseInput.ButtonStates |= (event.xbutton.state & Button3Mask) ? nbl::EMBSM_RIGHT : 0;
+				irrevent.MouseInput.ButtonStates |= (event.xbutton.state & Button2Mask) ? nbl::EMBSM_MIDDLE : 0;
 
-				irrevent.MouseInput.Event = irr::EMIE_COUNT;
+				irrevent.MouseInput.Event = nbl::EMIE_COUNT;
 
 				switch(event.xbutton.button)
 				{
 				case  Button1:
 					irrevent.MouseInput.Event =
-						(event.type == ButtonPress) ? irr::EMIE_LMOUSE_PRESSED_DOWN : irr::EMIE_LMOUSE_LEFT_UP;
-					irrevent.MouseInput.ButtonStates ^= irr::EMBSM_LEFT;
+						(event.type == ButtonPress) ? nbl::EMIE_LMOUSE_PRESSED_DOWN : nbl::EMIE_LMOUSE_LEFT_UP;
+					irrevent.MouseInput.ButtonStates ^= nbl::EMBSM_LEFT;
 					break;
 
 				case  Button3:
 					irrevent.MouseInput.Event =
-						(event.type == ButtonPress) ? irr::EMIE_RMOUSE_PRESSED_DOWN : irr::EMIE_RMOUSE_LEFT_UP;
-					irrevent.MouseInput.ButtonStates ^= irr::EMBSM_RIGHT;
+						(event.type == ButtonPress) ? nbl::EMIE_RMOUSE_PRESSED_DOWN : nbl::EMIE_RMOUSE_LEFT_UP;
+					irrevent.MouseInput.ButtonStates ^= nbl::EMBSM_RIGHT;
 					break;
 
 				case  Button2:
 					irrevent.MouseInput.Event =
-						(event.type == ButtonPress) ? irr::EMIE_MMOUSE_PRESSED_DOWN : irr::EMIE_MMOUSE_LEFT_UP;
-					irrevent.MouseInput.ButtonStates ^= irr::EMBSM_MIDDLE;
+						(event.type == ButtonPress) ? nbl::EMIE_MMOUSE_PRESSED_DOWN : nbl::EMIE_MMOUSE_LEFT_UP;
+					irrevent.MouseInput.ButtonStates ^= nbl::EMBSM_MIDDLE;
 					break;
 
 				case  Button4:
@@ -1141,7 +1141,7 @@ bool CIrrDeviceLinux::run()
 					break;
 				}
 
-				if (irrevent.MouseInput.Event != irr::EMIE_COUNT)
+				if (irrevent.MouseInput.Event != nbl::EMIE_COUNT)
 				{
 					postEventFromUser(irrevent);
 
@@ -1183,7 +1183,7 @@ bool CIrrDeviceLinux::run()
 					}
 				}
 
-                irrevent.EventType = irr::EET_KEY_INPUT_EVENT;
+                irrevent.EventType = nbl::EET_KEY_INPUT_EVENT;
                 irrevent.KeyInput.PressedDown = false;
                 irrevent.KeyInput.Char = 0;	// on release that's undefined
                 irrevent.KeyInput.Control = (event.xkey.state & ControlMask) != 0;
@@ -1234,7 +1234,7 @@ bool CIrrDeviceLinux::run()
 						irrevent.KeyInput.Char = ((wchar_t*)(buf))[0];
 					}
 
-					irrevent.EventType = irr::EET_KEY_INPUT_EVENT;
+					irrevent.EventType = nbl::EET_KEY_INPUT_EVENT;
 					irrevent.KeyInput.PressedDown = true;
 					irrevent.KeyInput.Control = (event.xkey.state & ControlMask) != 0;
 					irrevent.KeyInput.Shift = (event.xkey.state & ShiftMask) != 0;
@@ -1255,7 +1255,7 @@ bool CIrrDeviceLinux::run()
 					else
 					{
 						// we assume it's a user message
-						irrevent.EventType = irr::EET_USER_EVENT;
+						irrevent.EventType = nbl::EET_USER_EVENT;
 						irrevent.UserEvent.UserData1 = (int32_t)event.xclient.data.l[0];
 						irrevent.UserEvent.UserData2 = (int32_t)event.xclient.data.l[1];
 						postEventFromUser(irrevent);
@@ -1714,7 +1714,7 @@ bool CIrrDeviceLinux::activateJoysticks(core::vector<SJoystickInfo> & joystickIn
 #endif
 
 		(void)memset(&info.persistentData, 0, sizeof(info.persistentData));
-		info.persistentData.EventType = irr::EET_JOYSTICK_INPUT_EVENT;
+		info.persistentData.EventType = nbl::EET_JOYSTICK_INPUT_EVENT;
 		info.persistentData.JoystickEvent.Joystick = ActiveJoysticks.size();
 
 		// There's no obvious way to determine which (if any) axes represent a POV
@@ -2029,7 +2029,7 @@ gui::ECURSOR_ICON CIrrDeviceLinux::CCursorControl::addIcon(const gui::SCursorSpr
 		{
 			uint32_t texId = icon.SpriteBank->getSprites()[icon.SpriteId].Frames[i].textureNumber;
 			uint32_t rectId = icon.SpriteBank->getSprites()[icon.SpriteId].Frames[i].rectNumber;
-			irr::core::rect<int32_t> rectIcon = icon.SpriteBank->getPositions()[rectId];
+			nbl::core::rect<int32_t> rectIcon = icon.SpriteBank->getPositions()[rectId];
 			Cursor cursor = Device->TextureToCursor(icon.SpriteBank->getTexture(texId), rectIcon, icon.HotSpot);
 			cX11.Frames.push_back( CursorFrameX11(cursor) );
 		}
@@ -2060,7 +2060,7 @@ void CIrrDeviceLinux::CCursorControl::changeIcon(gui::ECURSOR_ICON iconId, const
 		{
 			uint32_t texId = icon.SpriteBank->getSprites()[icon.SpriteId].Frames[i].textureNumber;
 			uint32_t rectId = icon.SpriteBank->getSprites()[icon.SpriteId].Frames[i].rectNumber;
-			irr::core::rect<int32_t> rectIcon = icon.SpriteBank->getPositions()[rectId];
+			nbl::core::rect<int32_t> rectIcon = icon.SpriteBank->getPositions()[rectId];
 			Cursor cursor = Device->TextureToCursor(icon.SpriteBank->getTexture(texId), rectIcon, icon.HotSpot);
 			cX11.Frames.push_back( CursorFrameX11(cursor) );
 		}
@@ -2071,7 +2071,7 @@ void CIrrDeviceLinux::CCursorControl::changeIcon(gui::ECURSOR_ICON iconId, const
 }
 
 
-irr::core::dimension2di CIrrDeviceLinux::CCursorControl::getSupportedIconSize() const
+nbl::core::dimension2di CIrrDeviceLinux::CCursorControl::getSupportedIconSize() const
 {
 	// this returns the closest match that is smaller or same size, so we just pass a value which should be large enough for cursors
 	unsigned int width=0, height=0;

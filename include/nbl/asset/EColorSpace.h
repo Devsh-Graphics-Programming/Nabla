@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_E_COLOR_SPACE_H_INCLUDED__
 #define __NBL_ASSET_E_COLOR_SPACE_H_INCLUDED__
 
-namespace irr
+namespace nbl
 {
 	namespace asset
 	{

@@ -8,7 +8,7 @@
 
 #include "parallel-hashmap/parallel_hashmap/phmap_dump.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

@@ -8,7 +8,7 @@
 #include "nbl/asset/IMesh.h"
 #include "ISceneManager.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -280,5 +280,5 @@ void CSkinnedMeshSceneNode::setAnimationEndCallback(IAnimationEndCallBack<ISkinn
 
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 

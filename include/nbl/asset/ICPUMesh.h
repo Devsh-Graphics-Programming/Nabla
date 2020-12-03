@@ -10,7 +10,7 @@
 #include "nbl/asset/ICPUMeshBuffer.h"
 #include "nbl/asset/bawformat/blobs/MeshBlob.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

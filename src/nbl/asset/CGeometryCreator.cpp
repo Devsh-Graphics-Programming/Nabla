@@ -11,7 +11,7 @@
 #include "nbl/asset/CQuantNormalCache.h"
 #include "nbl/asset/CCPUMesh.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -1698,5 +1698,5 @@ CGeometryCreator::return_type CGeometryCreator::createIcoSphere(float radius, ui
 
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 

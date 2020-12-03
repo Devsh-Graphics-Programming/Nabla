@@ -9,7 +9,7 @@
 #include "BuildCOnfigOptions.h"
 #include "nbl/asset/IImageLoader.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -116,6 +116,6 @@ private:
 #endif // compiled with loader
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 #endif

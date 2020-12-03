@@ -14,7 +14,7 @@
 #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
 #include "nbl/builtin/common.h"
 #endif
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -249,7 +249,7 @@ class IFileSystem : public virtual core::IReferenceCounted
 		inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData(const std::string& builtinPath)
 		{
 			#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
-				std::pair<const uint8_t*, size_t> found = irr::builtin::get_resource_runtime(builtinPath);
+				std::pair<const uint8_t*, size_t> found = nbl::builtin::get_resource_runtime(builtinPath);
 				if (found.first && found.second)
 				{
 					auto returnValue = core::make_smart_refctd_ptr<asset::ICPUBuffer>(found.second);
@@ -282,7 +282,7 @@ class IFileSystem : public virtual core::IReferenceCounted
 		inline core::smart_refctd_ptr<asset::ICPUBuffer> loadBuiltinData()
 		{
 			#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
-				std::pair<const uint8_t*, size_t> found = irr::builtin::get_resource<StringUniqueType>();
+				std::pair<const uint8_t*, size_t> found = nbl::builtin::get_resource<StringUniqueType>();
 				if (found.first && found.second)
 				{
 					auto returnValue = core::make_smart_refctd_ptr<asset::ICPUBuffer>(found.second);
@@ -407,7 +407,7 @@ class IFileSystem : public virtual core::IReferenceCounted
 
 
 } // end namespace io
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

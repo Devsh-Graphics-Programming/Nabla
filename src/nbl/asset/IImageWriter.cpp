@@ -4,7 +4,7 @@
 
 #include "nbl/asset/IImageWriter.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 
 IImageWriter::~IImageWriter()

@@ -10,7 +10,7 @@
 
 #include "nbl/core/alloc/PoolAddressAllocator.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

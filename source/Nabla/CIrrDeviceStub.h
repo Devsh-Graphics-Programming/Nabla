@@ -12,7 +12,7 @@
 #include "COpenCLHandler.h"
 #include "nbl/asset/IIncludeHandler.h"
 
-namespace irr
+namespace nbl
 {
 	// lots of prototypes:
 	class ILogger;
@@ -110,7 +110,7 @@ namespace irr
 
             video::IVideoDriver* VideoDriver;
             scene::ISceneManager* SceneManager;
-            irr::ITimer* Timer;
+            nbl::ITimer* Timer;
             gui::ICursorControl* CursorControl;
             IEventReceiver* UserReceiver;
             CLogger* Logger;
@@ -135,7 +135,7 @@ namespace irr
             bool Close;
 	};
 
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

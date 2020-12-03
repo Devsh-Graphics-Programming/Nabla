@@ -8,7 +8,7 @@
 #include "nbl/asset/IMesh.h"
 #include "nbl/video/IGPUMeshBuffer.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

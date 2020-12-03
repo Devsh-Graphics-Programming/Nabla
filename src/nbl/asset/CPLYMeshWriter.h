@@ -10,7 +10,7 @@
 #include "nbl/asset/ICPUMeshBuffer.h"
 #include <iomanip>
 
-namespace irr
+namespace nbl
 {
 
 namespace asset

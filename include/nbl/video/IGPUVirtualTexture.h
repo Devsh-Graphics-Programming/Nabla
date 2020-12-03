@@ -11,7 +11,7 @@
 #include <nbl/asset/IAssetManager.h>
 #include <nbl/video/IGPUDescriptorSet.h>
 
-namespace irr {
+namespace nbl {
 namespace video
 {
 

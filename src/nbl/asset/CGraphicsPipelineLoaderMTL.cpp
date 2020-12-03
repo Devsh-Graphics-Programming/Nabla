@@ -118,7 +118,7 @@ void main()
 }
 
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 
 template<typename AssetType, IAsset::E_TYPE assetType>

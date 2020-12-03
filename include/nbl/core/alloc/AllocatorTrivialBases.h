@@ -6,7 +6,7 @@
 #define __NBL_CORE_ALLOCATOR_TRIVIAL_BASES_H_INCLUDED__
 
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

@@ -11,7 +11,7 @@
 
 #include "nbl/video/IGPUImageView.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -66,7 +66,7 @@ class IFrameBuffer : public virtual core::IReferenceCounted, public core::IThrea
 
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

@@ -10,7 +10,7 @@
 #include "IFileList.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -58,7 +58,7 @@ class CFileList : public IFileList
 };
 
 
-} // end namespace irr
+} // end namespace nbl
 } // end namespace io
 
 

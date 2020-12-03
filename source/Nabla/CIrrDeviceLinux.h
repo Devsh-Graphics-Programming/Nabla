@@ -40,7 +40,7 @@
 #define KeySym int32_t
 #endif
 
-namespace irr
+namespace nbl
 {
 
 	class CIrrDeviceLinux : public CIrrDeviceStub
@@ -413,7 +413,7 @@ namespace irr
 	};
 
 
-} // end namespace irr
+} // end namespace nbl
 
 #endif // _NBL_COMPILE_WITH_X11_DEVICE_
 #endif

@@ -15,7 +15,7 @@
 #endif
 
 
-namespace irr
+namespace nbl
 {
 namespace system
 {

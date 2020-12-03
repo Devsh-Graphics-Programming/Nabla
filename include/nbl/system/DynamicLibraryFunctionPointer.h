@@ -12,7 +12,7 @@
 #include "nbl/core/core.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace system
 {
@@ -85,6 +85,6 @@ class DynamicLibraryFunctionPointer
 }
 }
 
-#define NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR(FUNC_NAME) irr::system::DynamicLibraryFunctionPointer<decltype(FUNC_NAME),NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(#FUNC_NAME)> p ## FUNC_NAME;
+#define NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR(FUNC_NAME) nbl::system::DynamicLibraryFunctionPointer<decltype(FUNC_NAME),NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(#FUNC_NAME)> p ## FUNC_NAME;
 
 #endif

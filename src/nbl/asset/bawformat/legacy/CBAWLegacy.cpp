@@ -4,7 +4,7 @@
 
 #include "CBAWLegacy.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 using namespace legacyv0;
 
@@ -45,7 +45,7 @@ namespace
     };
 }
 
-namespace irr 
+namespace nbl 
 { 
 	namespace asset		
 	{ 

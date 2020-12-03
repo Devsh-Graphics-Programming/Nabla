@@ -13,7 +13,7 @@
 #include "nbl/asset/filters/CCopyImageFilter.h"
 #include "nbl/asset/filters/CSwizzleAndConvertImageFilter.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

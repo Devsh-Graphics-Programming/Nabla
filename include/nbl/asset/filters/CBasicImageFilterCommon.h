@@ -9,7 +9,7 @@
 
 #include "nbl/asset/IImageFilter.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -255,6 +255,6 @@ class CBasicInOutImageFilterCommon : public CBasicImageFilterCommon
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif

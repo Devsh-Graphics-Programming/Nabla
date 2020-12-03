@@ -9,7 +9,7 @@
 #include "../../../../source/Irrlicht/COpenGLExtensionHandler.h"
 #include "../../../../source/Irrlicht/COpenGL2DTexture.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace ext;
 using namespace Blur;
 
@@ -418,7 +418,7 @@ void CBlurPerformer::blurTexture(video::ITexture* _inputTex, video::ITexture* _o
 #ifdef PROFILE_BLUR_PERFORMER
     m_driver->endQuery(timeQuery);
     timeQuery->getQueryResult(&timeTaken);
-    os::Printer::log("irr::ext::BlurPerformer GPU time taken:", std::to_string(timeTaken).c_str(), ELL_ERROR);
+    os::Printer::log("nbl::ext::BlurPerformer GPU time taken:", std::to_string(timeTaken).c_str(), ELL_ERROR);
     timeQuery->drop();
 #endif // PROFILE_BLUR_PERFORMER
 }
@@ -499,7 +499,7 @@ static std::string genDownsampling(char* _buf, const core::vector2d<uint32_t>& _
         res += _buf;
     }
 
-    sprintf(_buf, CS_DOWNSAMPLING, (_dsf.X == 1u && _dsf.Y == 1u) ? "" : "+", res.c_str(), (uint32_t)irr::core::alignUp(_dsf.X/2u, 2u) + (uint32_t)irr::core::alignUp(_dsf.Y/2u, 2u) + 1u);
+    sprintf(_buf, CS_DOWNSAMPLING, (_dsf.X == 1u && _dsf.Y == 1u) ? "" : "+", res.c_str(), (uint32_t)nbl::core::alignUp(_dsf.X/2u, 2u) + (uint32_t)nbl::core::alignUp(_dsf.Y/2u, 2u) + 1u);
     return _buf;
 }
 static std::string genMainBlurLoop(char* _buf, uint32_t _passes, uint32_t _simThrNum)
@@ -537,9 +537,9 @@ static std::string genMainBlurLoop(char* _buf, uint32_t _passes, uint32_t _simTh
 bool CBlurPerformer::genBlurPassCs(char* _out, video::IVideoDriver* _driver, const asset::IIncludeHandler* _inclhandler, size_t _bufSize, uint32_t _axisSize, const core::vector2d<uint32_t>& _outTexSize, uint32_t _passes, const core::vector2d<uint32_t>& _dsf, asset::E_FORMAT _colorFmt, int _finalPass)
 {
     std::string scan_warp =
-        _inclhandler->getIncludeStandard("irr/builtin/glsl/scan/reduce_and_scan_enables.glsl") +
-        _inclhandler->getIncludeStandard("irr/builtin/glsl/scan/warp_padding.glsl") +
-        _inclhandler->getIncludeStandard("irr/builtin/glsl/scan/warp_inclusive_scan.glsl/add/vec3/blur/loadShared/storeShared");
+        _inclhandler->getIncludeStandard("nbl/builtin/glsl/scan/reduce_and_scan_enables.glsl") +
+        _inclhandler->getIncludeStandard("nbl/builtin/glsl/scan/warp_padding.glsl") +
+        _inclhandler->getIncludeStandard("nbl/builtin/glsl/scan/warp_inclusive_scan.glsl/add/vec3/blur/loadShared/storeShared");
 
     const uint32_t SIM_THREADS_NUM = (_axisSize + s_MAX_WORK_GROUP_SIZE-1u) / s_MAX_WORK_GROUP_SIZE;
 
@@ -642,7 +642,7 @@ auto CBlurPerformer::getCurrentImageBinding(uint32_t _imgUnit) -> ImageBindingDa
     return data;
 }
 
-void irr::ext::Blur::CBlurPerformer::bindImage(uint32_t _imgUnit, const ImageBindingData& _data)
+void nbl::ext::Blur::CBlurPerformer::bindImage(uint32_t _imgUnit, const ImageBindingData& _data)
 {
     video::COpenGLExtensionHandler::extGlBindImageTexture(_imgUnit, _data.name, _data.level, _data.layered, _data.layer, _data.access, _data.format);
 }

@@ -28,7 +28,7 @@
 
 #define maxSIZE_VERTEX_CACHE 16
 
-namespace irr { namespace asset
+namespace nbl { namespace asset
 {
 	template<typename IdxT>
 	void CForsythVertexCacheOptimizer::optimizeTriangleOrdering(const size_t _numVerts, const size_t _numIndices, const IdxT* _indices, IdxT* _outIndices) const
@@ -401,4 +401,4 @@ namespace irr { namespace asset
 	}
 #undef maxSIZE_VERTEX_CACHE
 
-}} // irr::scene
+}} // nbl::scene

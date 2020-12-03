@@ -12,9 +12,9 @@
 namespace std
 {
     template <>
-    struct hash<irr::core::CLeakDebugger::StackTrace>
+    struct hash<nbl::core::CLeakDebugger::StackTrace>
     {
-        std::size_t operator()(const irr::core::CLeakDebugger::StackTrace& k) const noexcept
+        std::size_t operator()(const nbl::core::CLeakDebugger::StackTrace& k) const noexcept
         {
             using std::size_t;
             using std::hash;
@@ -25,7 +25,7 @@ namespace std
             // and bit shifting:
             size_t retval = 0;
 
-            for (irr::core::vector<string>::const_iterator it=k.getTrace().begin(); it!=k.getTrace().end(); it++)
+            for (nbl::core::vector<string>::const_iterator it=k.getTrace().begin(); it!=k.getTrace().end(); it++)
                 retval ^= std::hash<string>()(*it) + 0x9e3779b9 + (retval << 6) + (retval >> 2);
 
             return retval;
@@ -47,7 +47,7 @@ namespace std
 #endif // _NBL_COMPILE_WITH_X11_DEVICE_
 #endif // _NBL_DEBUG
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

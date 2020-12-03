@@ -4,7 +4,7 @@
 
 #include "CBufferLoaderBIN.h"
 
-namespace irr
+namespace nbl
 {
 	namespace asset
 	{

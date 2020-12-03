@@ -2,14 +2,14 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "irr/ext/ToneMapper/CToneMapper.h"
+#include "nbl/ext/ToneMapper/CToneMapper.h"
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 
 #include <cstdio>
 
-using namespace irr;
-using namespace irr::asset;
-using namespace irr::video;
+using namespace nbl;
+using namespace nbl::asset;
+using namespace nbl::video;
 using namespace ext::ToneMapper;
 
 
@@ -209,7 +209,7 @@ R"===(#version 430 core
 
 #define _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_ %d
 
-#include "irr/builtin/glsl/ext/ToneMapper/operators.glsl"
+#include "nbl/builtin/glsl/ext/ToneMapper/operators.glsl"
 
 #ifndef irr_glsl_ext_ToneMapper_Params_t
 	#if _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_IRR_GLSL_EXT_TONE_MAPPER_REINHARD_OPERATOR
@@ -257,7 +257,7 @@ R"===(#version 430 core
 
 	#define _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_ %d
 
-	#include "irr/builtin/glsl/ext/LumaMeter/common.glsl"
+	#include "nbl/builtin/glsl/ext/LumaMeter/common.glsl"
 
 
 	#ifndef _IRR_GLSL_EXT_TONE_MAPPER_UNIFORMS_DEFINED_
@@ -291,10 +291,10 @@ R"===(#version 430 core
 layout(local_size_x=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_, local_size_y=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_) in;
 
 
-#include "irr/builtin/glsl/colorspace/EOTF.glsl"
-#include "irr/builtin/glsl/colorspace/encodeCIEXYZ.glsl"
-#include "irr/builtin/glsl/colorspace/decodeCIEXYZ.glsl"
-#include "irr/builtin/glsl/colorspace/OETF.glsl"
+#include "nbl/builtin/glsl/colorspace/EOTF.glsl"
+#include "nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl"
+#include "nbl/builtin/glsl/colorspace/decodeCIEXYZ.glsl"
+#include "nbl/builtin/glsl/colorspace/OETF.glsl"
 
 
 %s // _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_

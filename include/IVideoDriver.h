@@ -17,7 +17,7 @@
 #include "nbl/video/IGPUBufferView.h"
 #include "nbl/video/IGPURenderpassIndependentPipeline.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -226,7 +226,7 @@ namespace video
 	};
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

@@ -5,7 +5,7 @@
 #include "nbl/ext/DebugDraw/CDraw3DLine.h"
 #include "nbl/ext/DebugDraw/Draw3DLineShaders.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace video;
 using namespace scene;
 using namespace asset;

@@ -15,7 +15,7 @@ extern "C" void bz_internal_error(int errorCode)
 {
     std::ostringstream tmp;
     tmp << errorCode;
-	irr::os::Printer::log("Error in bzip2 handling", tmp.str().c_str(), irr::ELL_ERROR);
+	nbl::os::Printer::log("Error in bzip2 handling", tmp.str().c_str(), nbl::ELL_ERROR);
 }
 
 #ifdef __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_
@@ -37,7 +37,7 @@ extern "C" void bz_internal_error(int errorCode)
 	#endif
 #endif
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -772,6 +772,6 @@ namespace
 #endif
 
 } // end namespace io
-} // end namespace irr
+} // end namespace nbl
 
 #endif // __NBL_COMPILE_WITH_ZIP_ARCHIVE_LOADER_

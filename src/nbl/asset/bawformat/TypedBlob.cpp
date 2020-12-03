@@ -10,7 +10,7 @@
 // The file consists of functions required by
 // the latest blob version. 
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -487,4 +487,4 @@ void TypedBlob<MeshDataFormatDescBlobV3, asset::IMeshDataFormatDesc<asset::ICPUB
 }
 
 #endif
-}} // irr:core
+}} // nbl:core

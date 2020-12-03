@@ -10,7 +10,7 @@
 #include "nbl/core/alloc/ResizableHeterogenousMemoryAllocator.h"
 #include "nbl/video/alloc/HostDeviceMirrorBufferAllocator.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

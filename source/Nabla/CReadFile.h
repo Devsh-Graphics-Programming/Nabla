@@ -11,7 +11,7 @@
 
 #include "nbl/core/core.h"
 
-namespace irr
+namespace nbl
 {
 
 namespace io
@@ -60,7 +60,7 @@ namespace io
 	};
 
 } // end namespace io
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

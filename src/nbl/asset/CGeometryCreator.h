@@ -7,7 +7,7 @@
 
 #include "nbl/asset/IGeometryCreator.h"
 
-namespace irr
+namespace nbl
 {
 
 namespace asset
@@ -128,7 +128,7 @@ class CGeometryCreator : public IGeometryCreator
 };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

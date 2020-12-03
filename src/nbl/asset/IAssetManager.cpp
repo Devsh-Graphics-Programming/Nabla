@@ -84,10 +84,10 @@
 #include "nbl/asset/CSPVLoader.h"
 
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 
-std::function<void(SAssetBundle&)> irr::asset::makeAssetGreetFunc(const IAssetManager* const _mgr)
+std::function<void(SAssetBundle&)> nbl::asset::makeAssetGreetFunc(const IAssetManager* const _mgr)
 {
 	return [_mgr](SAssetBundle& _asset) {
 		_mgr->setAssetCached(_asset, true);
@@ -98,7 +98,7 @@ std::function<void(SAssetBundle&)> irr::asset::makeAssetGreetFunc(const IAssetMa
 		//	_mgr->setAssetMutability(ass.get(), IAsset::EM_IMMUTABLE);
 	};
 }
-std::function<void(SAssetBundle&)> irr::asset::makeAssetDisposeFunc(const IAssetManager* const _mgr)
+std::function<void(SAssetBundle&)> nbl::asset::makeAssetDisposeFunc(const IAssetManager* const _mgr)
 {
 	return [_mgr](SAssetBundle& _asset) {
 		_mgr->setAssetCached(_asset, false);
@@ -374,7 +374,7 @@ void IAssetManager::insertBuiltinAssets()
         auto ds1 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(defaultDs1Layout.get()));
         {
             auto desc = ds1->getDescriptors(0u).begin();
-            //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in irr/asset/asset_utils.h
+            //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
             constexpr size_t UBO_SZ = sizeof(asset::SBasicViewParameters);
             auto ubo = core::make_smart_refctd_ptr<asset::ICPUBuffer>(UBO_SZ);
             asset::fillBufferWithDeadBeef(ubo.get());

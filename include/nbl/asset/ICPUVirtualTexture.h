@@ -11,7 +11,7 @@
 
 #include "nbl/asset/filters/CMipMapGenerationImageFilter.h"
 
-namespace irr {
+namespace nbl {
 namespace asset
 {
 

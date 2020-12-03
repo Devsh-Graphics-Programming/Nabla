@@ -6,7 +6,7 @@
 
 #include <iostream>
 
-namespace irr
+namespace nbl
 {
 namespace ext 
 {

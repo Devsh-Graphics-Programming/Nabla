@@ -11,7 +11,7 @@
 #include <chrono>
 #include <ctime>
 
-namespace irr
+namespace nbl
 {
 
 //! Interface for getting and manipulating the virtual time
@@ -183,6 +183,6 @@ class ITimer final : public core::IReferenceCounted
 		clock_type::duration LastVirtualTime;
 };
 
-} // end namespace irr
+} // end namespace nbl
 
 #endif

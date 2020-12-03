@@ -11,7 +11,7 @@
 #include "nbl/ext/MitsubaLoader/SContext.h"
 #include <nbl/asset/ICPUVirtualTexture.h>
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

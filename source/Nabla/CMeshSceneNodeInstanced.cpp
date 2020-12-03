@@ -9,11 +9,11 @@
 #include "ICameraSceneNode.h"
 #include "IMaterialRenderer.h"
 #include "os.h"
-#include "irr/video/CGPUMesh.h"
+#include "nbl/video/CGPUMesh.h"
 
-#include "irr/static_if.h"
+#include "nbl/static_if.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -574,6 +574,6 @@ void CMeshSceneNodeInstanced::render()
 
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 

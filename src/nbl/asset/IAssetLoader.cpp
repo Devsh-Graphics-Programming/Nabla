@@ -6,7 +6,7 @@
 
 #include "nbl/asset/IAssetManager.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 
 // todo NEED DOCS

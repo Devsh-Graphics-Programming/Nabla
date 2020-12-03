@@ -10,7 +10,7 @@
 #include "vectorSIMD.h"
 #include "nbl/ext/MitsubaLoader/CElementTexture.h"
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

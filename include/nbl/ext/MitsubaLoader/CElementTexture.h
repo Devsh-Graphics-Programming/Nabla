@@ -8,7 +8,7 @@
 #include "nbl/ext/MitsubaLoader/PropertyElement.h"
 #include "nbl/ext/MitsubaLoader/IElement.h"
 
-namespace irr
+namespace nbl
 {
 namespace ext
 {

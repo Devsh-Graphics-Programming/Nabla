@@ -4,7 +4,7 @@
 
 #include "nbl/core/IReferenceCounted.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 IReferenceCounted::~IReferenceCounted()

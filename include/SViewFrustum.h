@@ -9,7 +9,7 @@
 #include "nbl/core/core.h"
 #include "IVideoDriver.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -268,7 +268,7 @@ namespace scene
 	}
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

@@ -4,7 +4,7 @@
 
 #include "nbl/asset/CBAWMeshFileLoader.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {

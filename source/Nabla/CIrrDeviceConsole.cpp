@@ -12,7 +12,7 @@
 #include "os.h"
 
 // to close the device on terminate signal
-irr::CIrrDeviceConsole *DeviceToClose;
+nbl::CIrrDeviceConsole *DeviceToClose;
 
 #ifdef _NBL_WINDOWS_NT_CONSOLE_
 // Callback for Windows
@@ -21,19 +21,19 @@ BOOL WINAPI ConsoleHandler(DWORD CEvent)
     switch(CEvent)
     {
     case CTRL_C_EVENT:
-		irr::os::Printer::log("Closing console device", "CTRL+C");
+		nbl::os::Printer::log("Closing console device", "CTRL+C");
 		break;
 	case CTRL_BREAK_EVENT:
-		irr::os::Printer::log("Closing console device", "CTRL+Break");
+		nbl::os::Printer::log("Closing console device", "CTRL+Break");
 		break;
     case CTRL_CLOSE_EVENT:
-		irr::os::Printer::log("Closing console device", "User closed console");
+		nbl::os::Printer::log("Closing console device", "User closed console");
 		break;
     case CTRL_LOGOFF_EVENT:
-		irr::os::Printer::log("Closing console device", "User is logging off");
+		nbl::os::Printer::log("Closing console device", "User is logging off");
 		break;
     case CTRL_SHUTDOWN_EVENT:
-		irr::os::Printer::log("Closing console device", "Computer shutting down");
+		nbl::os::Printer::log("Closing console device", "Computer shutting down");
 		break;
     }
 	DeviceToClose->closeDevice();
@@ -48,13 +48,13 @@ void sighandler(int sig)
     std::ostringstream code("Signal ");
     code.seekp(0,std::ios_base::end);
 	code << sig << " received";
-	irr::os::Printer::log("Closing console device", code.str().c_str());
+	nbl::os::Printer::log("Closing console device", code.str().c_str());
 
 	DeviceToClose->closeDevice();
 }
 #endif
 
-namespace irr
+namespace nbl
 {
 
 const int8_t ASCIIArtChars[] = " .,'~:;!+>=icopjtJY56SB8XDQKHNWM"; //MWNHKQDX8BS65YJtjpoci=+>!;:~',. ";
@@ -405,4 +405,4 @@ void CIrrDeviceConsole::addPostPresentText(int16_t X, int16_t Y, const wchar_t *
 	Text.push_back(p);
 }
 
-} // end namespace irr
+} // end namespace nbl
