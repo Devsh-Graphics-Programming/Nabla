@@ -109,10 +109,9 @@ bool validateResults(video::IVideoDriver* driver, const uint32_t workgroupSize, 
 			for (uint32_t localInvocationIndex=0u; localInvocationIndex<workgroupSize; localInvocationIndex++)
 			if (tmp[localInvocationIndex]!=dataFromBuffer[workgroupOffset+localInvocationIndex])
 			{
-				auto correctRes = dataFromBuffer[workgroupOffset + localInvocationIndex];
 				os::Printer::log("Failed test #" + std::to_string(workgroupSize) + " (" + Arithmetic::name + ")", ELL_ERROR);
 				success = false;
-				//break;
+				break;
 			}
 		}
 		delete[] tmp;
@@ -127,7 +126,7 @@ bool validateResults(video::IVideoDriver* driver, const uint32_t workgroupSize, 
 template<class Arithmetic>
 bool runTest(video::IVideoDriver* driver, video::IGPUComputePipeline* pipeline, const video::IGPUDescriptorSet* ds, const uint32_t workgroupSize, core::smart_refctd_ptr<IGPUBuffer> buffer)
 {
-	if (pipeline == nullptr) assert(false);	//com
+	if (pipeline == nullptr) return false;	//code could not be compiled
 	driver->bindComputePipeline(pipeline);
 	driver->bindDescriptorSets(video::EPBP_COMPUTE,pipeline->getLayout(),0u,1u,&ds,nullptr);
 	const uint32_t workgroupCount = BUFFER_DWORD_COUNT/workgroupSize;
@@ -201,12 +200,11 @@ int main()
 	};
 	constexpr auto kTestTypeCount = sizeof(shaderGLSL)/sizeof(GLSLCodeWithWorkgroup);
 
-
 	auto getGPUShader = [&](GLSLCodeWithWorkgroup glsl, uint32_t wg_count)
 	{
 		auto alteredGLSL = glsl.glsl.replace(glsl.workgroup_definition_position, 4, std::to_string(wg_count));
 		auto shaderUnspecialized = core::make_smart_refctd_ptr<asset::ICPUShader>(alteredGLSL.data());
-		asset::ISpecializedShader::SInfo specinfo(nullptr, nullptr, "main", IGPUSpecializedShader::ESS_COMPUTE,"../file.comp");
+		asset::ISpecializedShader::SInfo specinfo(nullptr, nullptr, "main", IGPUSpecializedShader::ESS_COMPUTE, "../file.comp");
 		auto cs = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(shaderUnspecialized), std::move(specinfo));
 		auto cs_rawptr = cs.get();
 		core::smart_refctd_ptr<IGPUSpecializedShader> shader = driver->getGPUObjectsFromAssets(&cs_rawptr, &cs_rawptr + 1)->front();
