@@ -24,9 +24,9 @@ else:
     outp = open(outputFilename,"w+")
   
     outp.write("#include \"nbl/builtin/builtinResources.h\"\n\n")
-    outp.write("using namespace irr;\n")
-    outp.write("using namespace irr::builtin;\n\n")
-    outp.write("namespace irr {\n")
+    outp.write("using namespace nbl;\n")
+    outp.write("using namespace nbl::builtin;\n\n")
+    outp.write("namespace nbl {\n")
     outp.write("\tnamespace builtin {\n\n")
   
     # writing binary  data of all files in a loop
