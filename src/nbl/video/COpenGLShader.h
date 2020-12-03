@@ -22,6 +22,79 @@ class COpenGLShader : public IGPUShader
 		const asset::ICPUBuffer* getSPVorGLSL() const { return m_code.get(); };
 		bool containsGLSL() const { return m_containsGLSL; }
 
+		static inline void insertGLtoVKextensionsMapping(std::string& _glsl, const core::refctd_dynamic_array<std::string>* _exts)
+		{
+			if (!_exts)
+				return;
+
+			const std::string insertion = genGLSLExtensionDefines(_exts) +
+R"(
+#ifdef NBL_GL_AMD_gpu_shader_half_float
+#define NBL_GL_EXT_shader_explicit_arithmetic_types_float16
+#endif
+
+#ifdef NBL_GL_NV_gpu_shader5
+#define NBL_GL_EXT_shader_explicit_arithmetic_types_float16
+#define NBL_GL_EXT_nonuniform_qualifier
+#define NBL_GL_KHR_shader_subgroup_vote_subgroup_any_all_equal_bool
+#endif
+
+#ifdef NBL_GL_AMD_gpu_shader_int16
+#define NBL_GL_EXT_shader_explicit_arithmetic_types_int16
+#endif
+
+#ifdef NBL_GL_NV_shader_thread_group
+#define NBL_GL_KHR_shader_subgroup_ballot_subgroup_mask
+#define NBL_GL_KHR_shader_subgroup_basic_subgroup_size
+#define NBL_GL_KHR_shader_subgroup_basic_subgroup_invocation_id
+#define NBL_GL_KHR_shader_subgroup_ballot_subgroup_ballot
+#define NBL_GL_KHR_shader_subgroup_ballot_inverse_ballot_bit_count
+#endif
+
+#if defined(NBL_GL_ARB_shader_ballot) && defined(NBL_GL_ARB_shader_int64)
+#define NBL_GL_KHR_shader_subgroup_ballot_subgroup_mask
+#define NBL_GL_KHR_shader_subgroup_basic_subgroup_size
+#define NBL_GL_KHR_shader_subgroup_basic_subgroup_invocation_id
+#define NBL_GL_KHR_shader_subgroup_ballot_subgroup_broadcast_first
+#define NBL_GL_KHR_shader_subgroup_ballot_subgroup_ballot
+#define NBL_GL_KHR_shader_subgroup_ballot_inverse_ballot_bit_count
+#endif
+
+#if defined(NBL_GL_AMD_gcn_shader) && (defined(NBL_GL_AMD_gpu_shader_int64) || defined(GL_NV_gpu_shader5))
+#define NBL_GL_KHR_shader_subgroup_basic_subgroup_size
+#define NBL_GL_KHR_shader_subgroup_vote_subgroup_any_all_equal_bool
+#endif
+
+#ifdef NBL_GL_NV_shader_thread_shuffle
+#define NBL_GL_KHR_shader_subgroup_ballot_subgroup_broadcast_first
+#endif
+
+#ifdef NBL_GL_ARB_shader_group_vote
+#define NBL_GL_KHR_shader_subgroup_vote_subgroup_any_all_equal_bool
+#endif
+
+#if defined(NBL_GL_KHR_shader_subgroup_ballot_subgroup_broadcast_first) && defined(NBL_GL_KHR_shader_subgroup_vote_subgroup_any_all_equal_bool)
+#define NBL_GL_KHR_shader_subgroup_vote_subgroup_all_equal_T
+#endif
+
+#if defined(NBL_GL_KHR_shader_subgroup_ballot_subgroup_ballot) && defined(NBL_GL_KHR_shader_subgroup_basic_subgroup_invocation_id)
+#define NBL_GL_KHR_shader_subgroup_basic_subgroup_elect
+#endif
+
+#ifdef NBL_GL_KHR_shader_subgroup_ballot_subgroup_mask
+#define NBL_GL_KHR_shader_subgroup_ballot_inverse_ballot
+#define NBL_GL_KHR_shader_subgroup_ballot_inclusive_bit_count
+#define NBL_GL_KHR_shader_subgroup_ballot_exclusive_bit_count
+#endif
+
+#ifdef NBL_GL_KHR_shader_subgroup_ballot_subgroup_ballot
+#define NBL_GL_KHR_shader_subgroup_ballot_bit_count
+#endif
+)";
+
+			insertAfterVersionAndPragmaShaderStage(_glsl, insertion);
+		}
+
 	private:
 		friend class COpenGLDriver;
 		//! Might be GLSL null-terminated string or SPIR-V bytecode (denoted by m_containsGLSL)

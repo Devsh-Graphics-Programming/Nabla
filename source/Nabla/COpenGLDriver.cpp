@@ -1265,7 +1265,7 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
         auto begin = reinterpret_cast<const char*>(glUnspec->getSPVorGLSL()->getPointer());
         auto end = begin+glUnspec->getSPVorGLSL()->getSize();
         std::string glsl(begin,end);
-        asset::ICPUShader::insertGLSLExtensionsDefines(glsl, getSupportedGLSLExtensions().get());
+        COpenGLShader::insertGLtoVKextensionsMapping(glsl, getSupportedGLSLExtensions().get());
         auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.c_str());
         //{
         //    auto fl = fopen("shader.glsl", "w");
