@@ -15,7 +15,7 @@
 
 #include "CommonPushConstants.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 using namespace video;
 
@@ -56,7 +56,7 @@ bool check_error(bool cond, const char* message)
 
 int main(int argc, char* argv[])
 {
-	irr::SIrrlichtCreationParameters params;
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24;
 	params.ZBufferBits = 24;
 	params.DriverType = video::EDT_OPENGL;

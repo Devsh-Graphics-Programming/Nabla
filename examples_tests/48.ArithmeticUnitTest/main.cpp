@@ -4,7 +4,7 @@
 #include "../../source/Irrlicht/COpenGLDriver.h"
 
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 using namespace video;
 using namespace asset;
@@ -270,7 +270,7 @@ bool runTest(video::IVideoDriver* driver, video::IGPUComputePipeline* pipeline, 
 
 int main()
 {
-	irr::SIrrlichtCreationParameters params;
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24;
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing

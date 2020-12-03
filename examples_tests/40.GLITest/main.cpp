@@ -7,7 +7,7 @@
 #include <cstdio>
 #include <irrlicht.h>
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 using namespace core;
 
@@ -37,10 +37,10 @@ constexpr std::initializer_list<std::string_view> gliTestingPaths =
 	"../../media/GLI/cube_rgba8_unorm.dds",		
 	"../../media/GLI/kueken7_a8_unorm.dds",			// it is almost written by your side, but doesn't create by GLI API side - not sure if you write to GLI texture correctly, maybe final size is wrong                >	imagemanipulatortest_d.exe!heap_alloc_dbg_internal(const unsigned __int64 size, const int block_use, const char * const file_name, const int line_number) Line 359	C++
 	"../../media/GLI/kueken7_rgba_dxt1_srgb.dds",		// curious - it has some mipmaps, but passed through your writing and didn't save by GLI API side, maybe you write to GLI texture layout incorrectly				>	imagemanipulatortest_d.exe!heap_alloc_dbg_internal(const unsigned __int64 size, const int block_use, const char * const file_name, const int line_number) Line 359	C++
-	"../../media/GLI/kueken7_rgba_dxt3_unorm.dds",		// but that one with diferrent BC fails on copy, maybe because of your block offsets																				>	imagemanipulatortest_d.exe!irr::asset::CGLIWriter::writeGLIFile::__l2::<lambda>(unsigned int ptrOffset, const irr::core::vectorSIMD_32<unsigned int> & texelCoord) Line 170	C++
+	"../../media/GLI/kueken7_rgba_dxt3_unorm.dds",		// but that one with diferrent BC fails on copy, maybe because of your block offsets																				>	imagemanipulatortest_d.exe!nbl::asset::CGLIWriter::writeGLIFile::__l2::<lambda>(unsigned int ptrOffset, const nbl::core::vectorSIMD_32<unsigned int> & texelCoord) Line 170	C++
 	"../../media/GLI/kueken7_rgba_dxt5_srgb.dds",		// it also passed, but could't be created by GLI API side																											>	imagemanipulatortest_d.exe!heap_alloc_dbg_internal(const unsigned __int64 size, const int block_use, const char * const file_name, const int line_number) Line 359	C++
-	"../../media/GLI/earth-cubemap.dds",				// fails immediately on texels copy																																	> 	imagemanipulatortest_d.exe!irr::asset::CGLIWriter::writeGLIFile::__l2::<lambda>(unsigned int ptrOffset, const irr::core::vectorSIMD_32<unsigned int> & texelCoord) Line 170	C++
-	"../../media/GLI/earth-cubemap2.dds"				// fails immediately on texels copy																																	>  	imagemanipulatortest_d.exe!irr::asset::CGLIWriter::writeGLIFile::__l2::<lambda>(unsigned int ptrOffset, const irr::core::vectorSIMD_32<unsigned int> & texelCoord) Line 170	C++
+	"../../media/GLI/earth-cubemap.dds",				// fails immediately on texels copy																																	> 	imagemanipulatortest_d.exe!nbl::asset::CGLIWriter::writeGLIFile::__l2::<lambda>(unsigned int ptrOffset, const nbl::core::vectorSIMD_32<unsigned int> & texelCoord) Line 170	C++
+	"../../media/GLI/earth-cubemap2.dds"				// fails immediately on texels copy																																	>  	imagemanipulatortest_d.exe!nbl::asset::CGLIWriter::writeGLIFile::__l2::<lambda>(unsigned int ptrOffset, const nbl::core::vectorSIMD_32<unsigned int> & texelCoord) Line 170	C++
 
 	/*
 		.ktx files
@@ -54,7 +54,7 @@ constexpr std::initializer_list<std::string_view> gliTestingPaths =
 
 int main()
 {
-	irr::SIrrlichtCreationParameters params;
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; 
 	params.ZBufferBits = 24; 
 	params.DriverType = video::EDT_OPENGL; 

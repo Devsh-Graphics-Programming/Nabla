@@ -14,7 +14,7 @@
 	General namespaces. Entire engine consists of those bellow.
 */
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 using namespace video;
 using namespace core;
@@ -28,7 +28,7 @@ int main()
 		 Used to create a device.
 	*/
 
-	irr::SIrrlichtCreationParameters params;
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; 
 	params.ZBufferBits = 24;
 	params.DriverType = video::EDT_OPENGL;
@@ -77,7 +77,7 @@ int main()
 	*/
 
 	auto geometryCreator = device->getAssetManager()->getGeometryCreator();
-	auto rectangleGeometry = geometryCreator->createRectangleMesh(irr::core::vector2df_SIMD(1.5, 3));
+	auto rectangleGeometry = geometryCreator->createRectangleMesh(nbl::core::vector2df_SIMD(1.5, 3));
 
 	/*
 		Loading an asset bundle. You can specify some flags 
@@ -293,7 +293,7 @@ int main()
 
 		const auto viewProjection = camera->getConcatenatedMatrix();
 		core::matrix3x4SIMD modelMatrix;
-		modelMatrix.setRotation(irr::core::quaternion(0, 1, 0));
+		modelMatrix.setRotation(nbl::core::quaternion(0, 1, 0));
 
 		auto mv = core::concatenateBFollowedByA(camera->getViewMatrix(), modelMatrix);
 		auto mvp = core::concatenateBFollowedByA(viewProjection, modelMatrix);

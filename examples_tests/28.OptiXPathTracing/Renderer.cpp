@@ -16,10 +16,10 @@
 #include "../source/Irrlicht/COpenGLTexture.h"
 #include "../source/Irrlicht/COpenGLDriver.h"
 
-using namespace irr;
-using namespace irr::asset;
-using namespace irr::video;
-using namespace irr::scene;
+using namespace nbl;
+using namespace nbl::asset;
+using namespace nbl::video;
+using namespace nbl::scene;
 
 
 const std::string raygenShaderExtensions = R"======(

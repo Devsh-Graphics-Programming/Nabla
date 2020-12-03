@@ -34,7 +34,7 @@ SOFTWARE.
 #include "nbl/video/CDerivativeMapCreator.h"
 
 
-using namespace irr;
+using namespace nbl;
 
 namespace
 {
@@ -45,8 +45,8 @@ class CShaderConstantSetCallback : public video::IShaderConstantSetCallBack
         video::E_SHADER_CONSTANT_TYPE type;
     };
 
-    const irr::BRDFExplorerApp::SGUIState& GUIState;
-    const irr::BRDFExplorerApp::SLightAnimData& LightAnimData;
+    const nbl::BRDFExplorerApp::SGUIState& GUIState;
+    const nbl::BRDFExplorerApp::SLightAnimData& LightAnimData;
     scene::ICameraSceneNode* Camera;
 
     static constexpr SShaderConstant uVP {20, video::ESCT_FLOAT_MAT4};
@@ -64,7 +64,7 @@ class CShaderConstantSetCallback : public video::IShaderConstantSetCallBack
     static constexpr SShaderConstant uImagIoR {11, video::ESCT_FLOAT_VEC3};
 
 public:
-    CShaderConstantSetCallback(scene::ICameraSceneNode* _camera, const irr::BRDFExplorerApp::SGUIState& _guiState, const irr::BRDFExplorerApp::SLightAnimData& _lightAnim) : Camera{ _camera }, GUIState{_guiState}, LightAnimData{_lightAnim} {}
+    CShaderConstantSetCallback(scene::ICameraSceneNode* _camera, const nbl::BRDFExplorerApp::SGUIState& _guiState, const nbl::BRDFExplorerApp::SLightAnimData& _lightAnim) : Camera{ _camera }, GUIState{_guiState}, LightAnimData{_lightAnim} {}
 
     virtual void PostLink(video::IMaterialRendererServices* services, const video::E_MATERIAL_TYPE& materialType, const core::vector<video::SConstantLocationNamePair>& constants)
     {
@@ -78,20 +78,20 @@ public:
 
         // fragment shader
         services->setShaderConstant(&GUIState.Emissive.Color.X, uEmissive.location, uEmissive.type, 1u);
-        if (GUIState.Albedo.SourceDropdown == irr::BRDFExplorerApp::EDS_CONSTANT)
+        if (GUIState.Albedo.SourceDropdown == nbl::BRDFExplorerApp::EDS_CONSTANT)
             services->setShaderConstant(&GUIState.Albedo.ConstantColor.X, uAlbedo.location, uAlbedo.type, 1u);
-        if (GUIState.Roughness.SourceDropdown == irr::BRDFExplorerApp::EDS_CONSTANT)
+        if (GUIState.Roughness.SourceDropdown == nbl::BRDFExplorerApp::EDS_CONSTANT)
             services->setShaderConstant(&GUIState.Roughness.ConstValue1, uRoughness.location, uRoughness.type, 1u);
-        if (GUIState.Roughness.SourceDropdown==irr::BRDFExplorerApp::EDS_CONSTANT && !GUIState.Roughness.IsIsotropic)
+        if (GUIState.Roughness.SourceDropdown==nbl::BRDFExplorerApp::EDS_CONSTANT && !GUIState.Roughness.IsIsotropic)
             services->setShaderConstant(&GUIState.Roughness.ConstValue2, uAnisotropy.location, uAnisotropy.type, 1u);
         else {
             const float aniso = 0.f;
             services->setShaderConstant(&aniso, uAnisotropy.location, uAnisotropy.type, 1u);
         }
-        if (GUIState.RefractionIndex.SourceDropdown == irr::BRDFExplorerApp::EDS_CONSTANT)
+        if (GUIState.RefractionIndex.SourceDropdown == nbl::BRDFExplorerApp::EDS_CONSTANT)
             services->setShaderConstant(&GUIState.RefractionIndex.ConstantReal.X, uRealIoR.location, uRealIoR.type, 1u);
         services->setShaderConstant(&GUIState.RefractionIndex.ConstantImag.X, uImagIoR.location, uImagIoR.type, 1u);
-        if (GUIState.Metallic.SourceDropdown == irr::BRDFExplorerApp::EDS_CONSTANT)
+        if (GUIState.Metallic.SourceDropdown == nbl::BRDFExplorerApp::EDS_CONSTANT)
             services->setShaderConstant(&GUIState.Metallic.ConstValue, uMetallic.location, uMetallic.type, 1u);
         services->setShaderConstant(&GUIState.BumpMapping.Height, uHeightScaleFactor.location, uHeightScaleFactor.type, 1u);
         if (!GUIState.Light.Animated)
@@ -133,8 +133,8 @@ private:
     core::unordered_map<Key_t, video::E_MATERIAL_TYPE> Shaders;
     video::IGPUProgrammingServices* Services = nullptr;
     asset::IIncludeHandler* IncludeHandler = nullptr;
-    const irr::BRDFExplorerApp::SGUIState& GUIState;
-    const irr::BRDFExplorerApp::SLightAnimData& LightAnimData;
+    const nbl::BRDFExplorerApp::SGUIState& GUIState;
+    const nbl::BRDFExplorerApp::SLightAnimData& LightAnimData;
     scene::ICameraSceneNode* Camera = nullptr;
 
     enum E_SHADER_FLAGS : Key_t
@@ -522,8 +522,8 @@ public:
     CShaderManager(
         video::IGPUProgrammingServices* _services,
         asset::IIncludeHandler* _inclHandler,
-        const irr::BRDFExplorerApp::SGUIState& _guiState,
-        const irr::BRDFExplorerApp::SLightAnimData& _lightAnimDat,
+        const nbl::BRDFExplorerApp::SGUIState& _guiState,
+        const nbl::BRDFExplorerApp::SLightAnimData& _lightAnimDat,
         scene::ICameraSceneNode* _camera) :
         Services{_services},
         IncludeHandler{_inclHandler},
@@ -545,10 +545,10 @@ public:
 
 class CDerivativeMapManager
 {
-    using Key_t = std::pair<irr::video::IVirtualTexture*, float>;
+    using Key_t = std::pair<nbl::video::IVirtualTexture*, float>;
 
     core::map<Key_t, video::IVirtualTexture*> DerivMaps;
-    const irr::video::CDerivativeMapCreator* DerivMapCreator;
+    const nbl::video::CDerivativeMapCreator* DerivMapCreator;
 
 public:
     CDerivativeMapManager(IrrlichtDevice* _device) : DerivMapCreator(_device->getVideoDriver()->getDerivativeMapCreator()) {}
@@ -566,10 +566,10 @@ public:
     }
 };
 
-namespace irr
+namespace nbl
 {
 
-BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraSceneNode* _camera)
+BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, nbl::scene::ICameraSceneNode* _camera)
     :   Camera(_camera),
         Driver(device->getVideoDriver()),
         AssetManager(device->getAssetManager()),
@@ -627,7 +627,7 @@ BRDFExplorerApp::BRDFExplorerApp(IrrlichtDevice* device, irr::scene::ICameraScen
 
     // Fill all the available texture slots using the default (no texture) image
     //const auto image_default = ext::cegui::loadImage("../../media/brdf_explorer/DefaultEmpty.png");
-    irr::asset::ICPUTexture* cputexture_default = loadCPUTexture("../../media/brdf_explorer/DefaultEmpty.png");
+    nbl::asset::ICPUTexture* cputexture_default = loadCPUTexture("../../media/brdf_explorer/DefaultEmpty.png");
     DefaultTexture = Driver->getGPUObjectsFromAssets(&cputexture_default, (&cputexture_default)+1).front();
 
     loadTextureSlot(ETEXTURE_SLOT::TEXTURE_AO, DefaultTexture, cputexture_default->getCacheKey());
@@ -1114,7 +1114,7 @@ void BRDFExplorerApp::resetGUIAfterConstantIoR()
     root->getChild("MaterialParamsWindow/MetallicDropDownList")->setDisabled(false);
 }
 
-void BRDFExplorerApp::setLightPosition(const irr::core::vector3df& _lightPos)
+void BRDFExplorerApp::setLightPosition(const nbl::core::vector3df& _lightPos)
 {
     using namespace std::literals::string_literals;
 
@@ -1155,7 +1155,7 @@ void BRDFExplorerApp::renderMesh()
 
     Material.MaterialType = ShaderManager->getShader(params);
 
-    irr::video::IGPUMeshBuffer* meshbuffer = Mesh->getMeshBuffer(MESHBUFFER_NUM);
+    nbl::video::IGPUMeshBuffer* meshbuffer = Mesh->getMeshBuffer(MESHBUFFER_NUM);
     Driver->setMaterial(Material);
     Driver->drawMeshBuffer(meshbuffer);
 }
@@ -1165,7 +1165,7 @@ void BRDFExplorerApp::update()
     updateMaterial();
 }
 
-void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, irr::video::IVirtualTexture* _texture, const std::string& _texName)
+void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, nbl::video::IVirtualTexture* _texture, const std::string& _texName)
 {
     auto tupl = TextureSlotMap[slot];
     auto root = GUI->getRootWindow();
@@ -1205,7 +1205,7 @@ void BRDFExplorerApp::loadTextureSlot(ETEXTURE_SLOT slot, irr::video::IVirtualTe
     }
 }
 
-void BRDFExplorerApp::loadTextureSlot_CPUTex(ETEXTURE_SLOT slot, irr::asset::ICPUTexture* _cputexture)
+void BRDFExplorerApp::loadTextureSlot_CPUTex(ETEXTURE_SLOT slot, nbl::asset::ICPUTexture* _cputexture)
 {
     if (!_cputexture)
         return;
@@ -1213,21 +1213,21 @@ void BRDFExplorerApp::loadTextureSlot_CPUTex(ETEXTURE_SLOT slot, irr::asset::ICP
     loadTextureSlot(slot, gputexture, _cputexture->getCacheKey());
 }
 
-irr::asset::ICPUTexture* BRDFExplorerApp::loadCPUTexture(const std::string& _path)
+nbl::asset::ICPUTexture* BRDFExplorerApp::loadCPUTexture(const std::string& _path)
 {
-    irr::asset::IAssetLoader::SAssetLoadParams lparams;
-    return static_cast<irr::asset::ICPUTexture*>(AssetManager.getAsset(_path, lparams));
+    nbl::asset::IAssetLoader::SAssetLoadParams lparams;
+    return static_cast<nbl::asset::ICPUTexture*>(AssetManager.getAsset(_path, lparams));
 }
 
 auto BRDFExplorerApp::loadMesh(const std::string& _path) -> SCPUGPUMesh
 {
-    irr::asset::IAssetLoader::SAssetLoadParams lparams;
-    irr::asset::ICPUMesh* cpumesh = static_cast<irr::asset::ICPUMesh*>(AssetManager.getAsset(_path, lparams));
+    nbl::asset::IAssetLoader::SAssetLoadParams lparams;
+    nbl::asset::ICPUMesh* cpumesh = static_cast<nbl::asset::ICPUMesh*>(AssetManager.getAsset(_path, lparams));
     if (!cpumesh)
         return {nullptr, nullptr};
     cpumesh->getMeshBuffer(MESHBUFFER_NUM)->recalculateBoundingBox();
 
-    irr::video::IGPUMesh* gpumesh = Driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
+    nbl::video::IGPUMesh* gpumesh = Driver->getGPUObjectsFromAssets(&cpumesh, (&cpumesh)+1).front();
 
     return {cpumesh, gpumesh};
 }
@@ -1240,17 +1240,17 @@ void BRDFExplorerApp::loadMeshAndReplaceTextures(const std::string& _path)
 
     Mesh = loadedMesh.gpu;
 
-    irr::video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(MESHBUFFER_NUM);
+    nbl::video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(MESHBUFFER_NUM);
 
     setUpLight();
 
-    const irr::video::SGPUMaterial& itsMaterial = mb->getMaterial();
+    const nbl::video::SGPUMaterial& itsMaterial = mb->getMaterial();
 
     for (uint32_t t = 0u; t < 4u; ++t)
     {
         if (Textures.TextureViewer[t]==DefaultTexture && itsMaterial.getTexture(t))
         {
-            irr::video::IVirtualTexture* newtex = itsMaterial.getTexture(t);
+            nbl::video::IVirtualTexture* newtex = itsMaterial.getTexture(t);
             std::string texname = loadedMesh.cpu->getMeshBuffer(MESHBUFFER_NUM)->getMaterial().getTexture(t)->getCacheKey();
             loadTextureSlot(static_cast<ETEXTURE_SLOT>(TEXTURE_SLOT_1 + t), newtex, texname);
         }
@@ -1259,16 +1259,16 @@ void BRDFExplorerApp::loadMeshAndReplaceTextures(const std::string& _path)
 
 void BRDFExplorerApp::setUpLight(float radiusMlt)
 {
-    irr::video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(MESHBUFFER_NUM);
-    const irr::core::aabbox3df& aabb = mb->getBoundingBox();
-    const irr::core::vector3df aabb_sz = aabb.getExtent();
+    nbl::video::IGPUMeshBuffer* mb = Mesh->getMeshBuffer(MESHBUFFER_NUM);
+    const nbl::core::aabbox3df& aabb = mb->getBoundingBox();
+    const nbl::core::vector3df aabb_sz = aabb.getExtent();
     LightAnimData.Radius = std::max(aabb_sz.X, aabb_sz.Z) / 2.f;
     LightAnimData.Radius *= radiusMlt;
-    irr::core::vector3df aabb_verts[8];
+    nbl::core::vector3df aabb_verts[8];
     aabb.getEdges(aabb_verts);
-    auto lowest_highest = std::minmax_element(aabb_verts, aabb_verts+8, [](const irr::core::vector3df& a, const irr::core::vector3df& b) { return a.Y < b.Y; });
+    auto lowest_highest = std::minmax_element(aabb_verts, aabb_verts+8, [](const nbl::core::vector3df& a, const nbl::core::vector3df& b) { return a.Y < b.Y; });
     LightAnimData.Position.Y = (lowest_highest.first->Y + lowest_highest.second->Y) / 2.f;
-    irr::core::vector2df center;
+    nbl::core::vector2df center;
     for (uint32_t i = 0u; i < 8u; ++i)
     {
         center.X += aabb_verts[i].X;
@@ -1276,7 +1276,7 @@ void BRDFExplorerApp::setUpLight(float radiusMlt)
     }
     LightAnimData.Center = center / 8.f;
 
-    setLightPosition(aabb_sz*irr::core::vector3df{0.5f, -1.f, 0.5f});
+    setLightPosition(aabb_sz*nbl::core::vector3df{0.5f, -1.f, 0.5f});
 }
 
 void BRDFExplorerApp::updateTooltip(const char* name, const char* text)
@@ -1399,7 +1399,7 @@ void BRDFExplorerApp::eventAOTextureBrowse_EditBox(const ::CEGUI::EventArgs&)
 
         /*updateTooltip(
             "MaterialParamsWindow/AOWindow/ImageButton",
-            irr::ext::cegui::ssprintf("%s (%ux%u)\nLeft-click to select a new texture.",
+            nbl::ext::cegui::ssprintf("%s (%ux%u)\nLeft-click to select a new texture.",
                 box->getText().c_str(), cputexture->getSize()[0], cputexture->getSize()[1])
                 .c_str());*/
     } else {
@@ -1502,4 +1502,4 @@ BRDFExplorerApp::~BRDFExplorerApp()
     delete ShaderManager;
 }
 
-} // namespace irr
+} // namespace nbl

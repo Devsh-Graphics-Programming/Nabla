@@ -12,15 +12,15 @@
 
 #include "../common/QToQuitEventReceiver.h"
 
-using namespace irr;
-using namespace irr::core;
-using namespace irr::asset;
-using namespace irr::video;
+using namespace nbl;
+using namespace nbl::core;
+using namespace nbl::asset;
+using namespace nbl::video;
 
 
 int main()
 {
-	irr::SIrrlichtCreationParameters deviceParams;
+	nbl::SIrrlichtCreationParameters deviceParams;
 	deviceParams.Bits = 24; //may have to set to 32bit for some platforms
 	deviceParams.ZBufferBits = 24; //we'd like 32bit here
 	deviceParams.DriverType = EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
@@ -39,7 +39,7 @@ int main()
 
 	IVideoDriver* driver = device->getVideoDriver();
 	
-	irr::io::IFileSystem* filesystem = device->getFileSystem();
+	nbl::io::IFileSystem* filesystem = device->getFileSystem();
 	IAssetManager* am = device->getAssetManager();
 
 	IAssetLoader::SAssetLoadParams lp;

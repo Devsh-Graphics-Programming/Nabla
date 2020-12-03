@@ -7,13 +7,13 @@
 #include <cstdio>
 #include <irrlicht.h>
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 using namespace asset;
 
 int main(int argc, char * argv[])
 {
-	irr::SIrrlichtCreationParameters params;
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; 
 	params.ZBufferBits = 24; 
 	params.DriverType = video::EDT_NULL; 

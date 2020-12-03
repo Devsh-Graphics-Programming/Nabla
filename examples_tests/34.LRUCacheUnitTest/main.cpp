@@ -2,8 +2,8 @@
 #include <irrlicht.h>
 #include "nbl/core/containers/LRUcache.h"
 
-using namespace irr;
-using namespace irr::core;
+using namespace nbl;
+using namespace nbl::core;
 
 int main()
 {

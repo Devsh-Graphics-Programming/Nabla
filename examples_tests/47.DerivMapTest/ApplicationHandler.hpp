@@ -25,25 +25,25 @@ class ApplicationHandler
 
 	private:
 
-		using gpuPipeline = irr::core::smart_refctd_ptr<irr::video::IGPURenderpassIndependentPipeline>;
+		using gpuPipeline = nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>;
 
 		bool initializeApplication();
 		void fetchTestingImagePaths();
 		void performImageTest(std::string path);
-		void presentImageOnTheScreen(irr::core::smart_refctd_ptr<irr::video::IGPUImageView> gpuImageView, std::string currentHandledImageFileName, std::string currentHandledImageExtension);
+		void presentImageOnTheScreen(nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> gpuImageView, std::string currentHandledImageFileName, std::string currentHandledImageExtension);
 
 		bool status;
 
-		irr::core::smart_refctd_ptr<irr::IrrlichtDevice> device;
-		irr::video::IVideoDriver* driver;
+		nbl::core::smart_refctd_ptr<nbl::IrrlichtDevice> device;
+		nbl::video::IVideoDriver* driver;
 
-		irr::core::smart_refctd_ptr<irr::video::IGPUMeshBuffer> currentGpuMeshBuffer;
-		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSetLayout> gpuDescriptorSetLayout3;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUMeshBuffer> currentGpuMeshBuffer;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> gpuDescriptorSetLayout3;
 
 		gpuPipeline currentGpuPipelineFor2D;
 
-		irr::video::IFrameBuffer* screenShotFrameBuffer;
-		irr::core::vector<std::string> imagePaths;
+		nbl::video::IFrameBuffer* screenShotFrameBuffer;
+		nbl::core::vector<std::string> imagePaths;
 };
 
 #endif // _APPLICATION_HANDLER_

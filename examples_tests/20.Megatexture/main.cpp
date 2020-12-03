@@ -15,7 +15,7 @@
 #include <nbl/asset/filters/CMipMapGenerationImageFilter.h>
 
 //#include "nbl/ext/ScreenShot/ScreenShot.h"
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 constexpr const char* SHADER_OVERRIDES = //also turns off set3 bindings (textures) because they're not needed anymore as we're using VT
@@ -212,17 +212,17 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
     return fsNew;
 }
 
-class EventReceiver : public irr::IEventReceiver
+class EventReceiver : public nbl::IEventReceiver
 {
     _NBL_STATIC_INLINE_CONSTEXPR int32_t MAX_LOD = 8;
 	public:
-		bool OnEvent(const irr::SEvent& event)
+		bool OnEvent(const nbl::SEvent& event)
 		{
-			if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+			if (event.EventType == nbl::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
 			{
 				switch (event.KeyInput.Key)
 				{
-					case irr::KEY_KEY_Q: // switch wire frame mode
+					case nbl::KEY_KEY_Q: // switch wire frame mode
 						running = false;
 						return true;
                     case KEY_KEY_Z:
@@ -252,8 +252,8 @@ class EventReceiver : public irr::IEventReceiver
 int main()
 {
 	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing

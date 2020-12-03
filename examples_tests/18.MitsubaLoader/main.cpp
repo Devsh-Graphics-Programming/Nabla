@@ -15,7 +15,7 @@
 
 #define USE_ENVMAP
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 constexpr const char* GLSL_COMPUTE_LIGHTING =
@@ -159,8 +159,8 @@ struct SLight
 int main()
 {
 	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_NULL;
@@ -180,8 +180,8 @@ int main()
 		asset::IAssetManager* am = device->getAssetManager();
 		asset::CQuantNormalCache* qnc = am->getMeshManipulator()->getQuantNormalCache();
 
-		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CSerializedLoader>(am));
-		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(am));
+		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CSerializedLoader>(am));
+		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am));
 
 		std::string filePath = "../../media/mitsuba/staircase2.zip";
 	//#define MITSUBA_LOADER_TESTS
@@ -365,7 +365,7 @@ int main()
 			core::vectorSIMDf differentialElementCrossProdcut = core::cross(v[1]-v[0], v[2]-v[0]);
 			core::matrix3x4SIMD tformCofactors;
 			{
-				auto tmp4 = irr::core::matrix4SIMD(tform.getSub3x3TransposeCofactors());
+				auto tmp4 = nbl::core::matrix4SIMD(tform.getSub3x3TransposeCofactors());
 				tformCofactors = core::transpose(tmp4).extractSub3x4();
 			}
 			tformCofactors.mulSub3x3WithNx1(differentialElementCrossProdcut);

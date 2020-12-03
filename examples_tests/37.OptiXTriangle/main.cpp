@@ -16,7 +16,7 @@
 This example just shows a screen which clears to red,
 nothing fancy, just to show that Irrlicht links fine
 **/
-using namespace irr;
+using namespace nbl;
 
 /*
 The start of the main function starts like in most other example. We ask the
@@ -25,8 +25,8 @@ user for the desired renderer and start it up.
 int main()
 {
 	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
@@ -43,7 +43,7 @@ int main()
 
 	auto filesystem = device->getFileSystem();
 	video::IVideoDriver* driver = device->getVideoDriver();
-	auto optixmgr = irr::ext::OptiX::Manager::create(driver,filesystem);
+	auto optixmgr = nbl::ext::OptiX::Manager::create(driver,filesystem);
 	if (!optixmgr)
 		return 2;
 

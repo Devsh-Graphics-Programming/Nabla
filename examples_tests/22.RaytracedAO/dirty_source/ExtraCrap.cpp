@@ -2,23 +2,23 @@
 
 #include "ExtraCrap.h"
 
-#include "irr/ext/ScreenShot/ScreenShot.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
 
 #ifndef _NBL_BUILD_OPTIX_
 	#define __C_CUDA_HANDLER_H__ // don't want CUDA declarations and defines to pollute here
 #endif
 
-using namespace irr;
-using namespace irr::asset;
-using namespace irr::video;
-using namespace irr::scene;
+using namespace nbl;
+using namespace nbl::asset;
+using namespace nbl::video;
+using namespace nbl::scene;
 
 
 constexpr uint32_t kOptiXPixelSize = sizeof(uint16_t)*3u;
 
 
-Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& globalBackendDataDS, bool useDenoiser) :
+Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, nbl::scene::ISceneManager* _smgr, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& globalBackendDataDS, bool useDenoiser) :
 		m_useDenoiser(useDenoiser),	m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager), m_rrManager(ext::RadeonRays::Manager::create(m_driver)),
 		m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), /*m_renderSize{0u,0u}, */m_rightHanded(false),
 		m_globalBackendDataDS(std::move(globalBackendDataDS)), // TODO: review this member
@@ -860,7 +860,7 @@ void Renderer::deinit()
 }
 
 
-void Renderer::render(irr::ITimer* timer)
+void Renderer::render(nbl::ITimer* timer)
 {
 	m_driver->setRenderTarget(m_visibilityBuffer);
 	{ // clear
