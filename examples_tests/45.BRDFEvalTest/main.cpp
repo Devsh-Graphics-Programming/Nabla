@@ -1,10 +1,14 @@
-#define _IRR_STATIC_LIB_
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
-#include <irrlicht.h>
-#include "irr/ext/ScreenShot/ScreenShot.h"
+#include <nabla.h>
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 enum E_TEST_CASE
@@ -16,38 +20,38 @@ enum E_TEST_CASE
     ETC_OREN_NAYAR,
     ETC_LAMBERT
 };
-class EventReceiver : public irr::IEventReceiver
+class EventReceiver : public nbl::IEventReceiver
 {
 public:
-	bool OnEvent(const irr::SEvent& event)
+	bool OnEvent(const nbl::SEvent& event)
 	{
-		if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+		if (event.EventType == nbl::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
 		{
 			switch (event.KeyInput.Key)
 			{
-				case irr::KEY_KEY_Q:
+				case nbl::KEY_KEY_Q:
 					running = false;
 					return true;
-                case irr::KEY_KEY_1:
+                case nbl::KEY_KEY_1:
                     test = ETC_GGX;
                     return true;
-                case irr::KEY_KEY_2:
+                case nbl::KEY_KEY_2:
                     test = ETC_BECKMANN;
                     return true;
-                case irr::KEY_KEY_3:
+                case nbl::KEY_KEY_3:
                     test = ETC_PHONG;
                     return true;
-                case irr::KEY_KEY_4:
+                case nbl::KEY_KEY_4:
                     test = ETC_AS;
                     return true;
-                case irr::KEY_KEY_5:
+                case nbl::KEY_KEY_5:
                     test = ETC_OREN_NAYAR;
                     return true;
-                case irr::KEY_KEY_6:
+                case nbl::KEY_KEY_6:
                     test = ETC_LAMBERT;
                     return true;
 
-                case irr::KEY_KEY_S:
+                case nbl::KEY_KEY_S:
                     ss = true;
                     break;
 				default:
@@ -94,8 +98,8 @@ core::smart_refctd_ptr<video::IGPURenderpassIndependentPipeline> createGraphicsP
 int main()
 {
     // create device with full flexibility over creation parameters
-    // you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-    irr::SIrrlichtCreationParameters params;
+    // you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+    nbl::SIrrlichtCreationParameters params;
     params.Bits = 24; //may have to set to 32bit for some platforms
     params.ZBufferBits = 24; //we'd like 32bit here
     params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing

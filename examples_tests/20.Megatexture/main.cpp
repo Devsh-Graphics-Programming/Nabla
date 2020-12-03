@@ -1,49 +1,53 @@
-#define _IRR_STATIC_LIB_
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
-#include <irrlicht.h>
+#include <nabla.h>
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
-#include <irr/video/IGPUVirtualTexture.h>
-#include <irr/asset/CMTLPipelineMetadata.h>
-#include "irr/ext/FullScreenTriangle/FullScreenTriangle.h"
-#include <irr/asset/filters/CMipMapGenerationImageFilter.h>
+#include <nbl/video/IGPUVirtualTexture.h>
+#include <nbl/asset/CMTLPipelineMetadata.h>
+#include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
+#include <nbl/asset/filters/CMipMapGenerationImageFilter.h>
 
-//#include "irr/ext/ScreenShot/ScreenShot.h"
-using namespace irr;
+//#include "nbl/ext/ScreenShot/ScreenShot.h"
+using namespace nbl;
 using namespace core;
 
 constexpr const char* SHADER_OVERRIDES = //also turns off set3 bindings (textures) because they're not needed anymore as we're using VT
 R"(
 #ifndef _NO_UV
-    #include <irr/builtin/glsl/virtual_texturing/extensions.glsl>
+    #include <nbl/builtin/glsl/virtual_texturing/extensions.glsl>
 
-    #define _IRR_VT_DESCRIPTOR_SET 0
-    #define _IRR_VT_PAGE_TABLE_BINDING 0
+    #define _NBL_VT_DESCRIPTOR_SET 0
+    #define _NBL_VT_PAGE_TABLE_BINDING 0
 
-    #define _IRR_VT_FLOAT_VIEWS_BINDING 1 
-    #define _IRR_VT_FLOAT_VIEWS_COUNT %u
-    #define _IRR_VT_FLOAT_VIEWS
+    #define _NBL_VT_FLOAT_VIEWS_BINDING 1 
+    #define _NBL_VT_FLOAT_VIEWS_COUNT %u
+    #define _NBL_VT_FLOAT_VIEWS
 
-    #define _IRR_VT_INT_VIEWS_BINDING 2
-    #define _IRR_VT_INT_VIEWS_COUNT 0
-    #define _IRR_VT_INT_VIEWS
+    #define _NBL_VT_INT_VIEWS_BINDING 2
+    #define _NBL_VT_INT_VIEWS_COUNT 0
+    #define _NBL_VT_INT_VIEWS
 
-    #define _IRR_VT_UINT_VIEWS_BINDING 3
-    #define _IRR_VT_UINT_VIEWS_COUNT 0
-    #define _IRR_VT_UINT_VIEWS
-    #include <irr/builtin/glsl/virtual_texturing/descriptors.glsl>
+    #define _NBL_VT_UINT_VIEWS_BINDING 3
+    #define _NBL_VT_UINT_VIEWS_COUNT 0
+    #define _NBL_VT_UINT_VIEWS
+    #include <nbl/builtin/glsl/virtual_texturing/descriptors.glsl>
 
     layout (set = 2, binding = 0, std430) restrict readonly buffer PrecomputedStuffSSBO
     {
         uint pgtab_sz_log2;
         float vtex_sz_rcp;
-        float phys_pg_tex_sz_rcp[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
-        uint layer_to_sampler_ix[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
+        float phys_pg_tex_sz_rcp[_NBL_VT_MAX_PAGE_TABLE_LAYERS];
+        uint layer_to_sampler_ix[_NBL_VT_MAX_PAGE_TABLE_LAYERS];
     } precomputed;
 #endif
-#define _IRR_FRAG_SET3_BINDINGS_DEFINED_
+#define _NBL_FRAG_SET3_BINDINGS_DEFINED_
 
 struct PCstruct
 {
@@ -65,47 +69,47 @@ struct PCstruct
 layout (push_constant) uniform Block {
     PCstruct params;
 } PC;
-#define _IRR_FRAG_PUSH_CONSTANTS_DEFINED_
+#define _NBL_FRAG_PUSH_CONSTANTS_DEFINED_
 
 
 #ifndef _NO_UV
-    uint irr_glsl_VT_layer2pid(in uint layer)
+    uint nbl_glsl_VT_layer2pid(in uint layer)
     {
         return precomputed.layer_to_sampler_ix[layer];
     }
-    uint irr_glsl_VT_getPgTabSzLog2()
+    uint nbl_glsl_VT_getPgTabSzLog2()
     {
         return precomputed.pgtab_sz_log2;
     }
-    float irr_glsl_VT_getPhysPgTexSzRcp(in uint layer)
+    float nbl_glsl_VT_getPhysPgTexSzRcp(in uint layer)
     {
         return precomputed.phys_pg_tex_sz_rcp[layer];
     }
-    float irr_glsl_VT_getVTexSzRcp()
+    float nbl_glsl_VT_getVTexSzRcp()
     {
         return precomputed.vtex_sz_rcp;
     }
-    #define _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
+    #define _NBL_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
 
-    //irr/builtin/glsl/virtual_texturing/functions.glsl/...
+    //nbl/builtin/glsl/virtual_texturing/functions.glsl/...
     #include <%s>
 #endif
 
 
 #ifndef _NO_UV
-    vec4 irr_sample_Ka(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_Ka_data, uv, dUV); }
+    vec4 nbl_sample_Ka(in vec2 uv, in mat2 dUV) { return nbl_glsl_vTextureGrad(PC.params.map_Ka_data, uv, dUV); }
 
-    vec4 irr_sample_Kd(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_Kd_data, uv, dUV); }
+    vec4 nbl_sample_Kd(in vec2 uv, in mat2 dUV) { return nbl_glsl_vTextureGrad(PC.params.map_Kd_data, uv, dUV); }
 
-    vec4 irr_sample_Ks(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_Ks_data, uv, dUV); }
+    vec4 nbl_sample_Ks(in vec2 uv, in mat2 dUV) { return nbl_glsl_vTextureGrad(PC.params.map_Ks_data, uv, dUV); }
 
-    vec4 irr_sample_Ns(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_Ns_data, uv, dUV); }
+    vec4 nbl_sample_Ns(in vec2 uv, in mat2 dUV) { return nbl_glsl_vTextureGrad(PC.params.map_Ns_data, uv, dUV); }
 
-    vec4 irr_sample_d(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_d_data, uv, dUV); }
+    vec4 nbl_sample_d(in vec2 uv, in mat2 dUV) { return nbl_glsl_vTextureGrad(PC.params.map_d_data, uv, dUV); }
 
-    vec4 irr_sample_bump(in vec2 uv, in mat2 dUV) { return irr_glsl_vTextureGrad(PC.params.map_bump_data, uv, dUV); }
+    vec4 nbl_sample_bump(in vec2 uv, in mat2 dUV) { return nbl_glsl_vTextureGrad(PC.params.map_bump_data, uv, dUV); }
 #endif
-#define _IRR_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_
+#define _NBL_TEXTURE_SAMPLE_FUNCTIONS_DEFINED_
 )";
 
 using STextureData = asset::ICPUVirtualTexture::SMasterTextureData;
@@ -149,7 +153,7 @@ STextureData getTextureData(core::vector<commit_t>& _out_commits, const asset::I
 }
 
 constexpr uint32_t TEX_OF_INTEREST_CNT = 6u;
-#include "irr/irrpack.h"
+#include "nbl/nblpack.h"
 struct SPushConstants
 {
     //Ka
@@ -169,7 +173,7 @@ struct SPushConstants
     float IoR = 1.6f;
     uint32_t extra;
 } PACK_STRUCT;
-#include "irr/irrunpack.h"
+#include "nbl/nblunpack.h"
 static_assert(sizeof(SPushConstants)<=asset::ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "doesnt fit in push constants");
 
 constexpr uint32_t texturesOfInterest[TEX_OF_INTEREST_CNT]{
@@ -208,17 +212,17 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(co
     return fsNew;
 }
 
-class EventReceiver : public irr::IEventReceiver
+class EventReceiver : public nbl::IEventReceiver
 {
-    _IRR_STATIC_INLINE_CONSTEXPR int32_t MAX_LOD = 8;
+    _NBL_STATIC_INLINE_CONSTEXPR int32_t MAX_LOD = 8;
 	public:
-		bool OnEvent(const irr::SEvent& event)
+		bool OnEvent(const nbl::SEvent& event)
 		{
-			if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+			if (event.EventType == nbl::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
 			{
 				switch (event.KeyInput.Key)
 				{
-					case irr::KEY_KEY_Q: // switch wire frame mode
+					case nbl::KEY_KEY_Q: // switch wire frame mode
 						running = false;
 						return true;
                     case KEY_KEY_Z:
@@ -248,8 +252,8 @@ class EventReceiver : public irr::IEventReceiver
 int main()
 {
 	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
@@ -566,7 +570,7 @@ int main()
 		if (time-lastFPSTime > 1000)
 		{
 			std::wostringstream str;
-			str << L"Meshloaders Demo - IrrlichtBAW Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
+			str << L"Meshloaders Demo - Nabla Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
 
 			device->setWindowCaption(str.str().c_str());
 			lastFPSTime = time;

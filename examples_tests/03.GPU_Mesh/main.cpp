@@ -1,19 +1,23 @@
-#define _IRR_STATIC_LIB_
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
-#include <irrlicht.h>
+#include <nabla.h>
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
 
-//#include "irr/ext/ScreenShot/ScreenShot.h"
+//#include "nbl/ext/ScreenShot/ScreenShot.h"
 
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 
-#include "irr/irrpack.h"
+#include "nbl/nblpack.h"
 struct VertexStruct
 {
     /// every member needs to be at location aligned to its type size for GLSL
@@ -21,7 +25,7 @@ struct VertexStruct
     uint8_t Col[2]; /// same logic needs 1 byte alignment
     uint8_t uselessPadding[2]; /// so if there is a member with 4 byte alignment then whole struct needs 4 byte align, so pad it
 } PACK_STRUCT;
-#include "irr/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 const char* vertexSource = R"===(
 #version 430 core
@@ -58,8 +62,8 @@ void main()
 int main()
 {
 	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing

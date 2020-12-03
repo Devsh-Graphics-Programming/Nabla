@@ -1,11 +1,12 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __I_SCENE_MANAGER_H_INCLUDED__
-#define __I_SCENE_MANAGER_H_INCLUDED__
+#ifndef __NBL_I_SCENE_MANAGER_H_INCLUDED__
+#define __NBL_I_SCENE_MANAGER_H_INCLUDED__
 
-#include "irr/core/core.h"
+#include "nbl/core/core.h"
 
 #include "path.h"
 #include "vector3d.h"
@@ -13,11 +14,11 @@
 #include "SColor.h"
 #include "ESceneNodeTypes.h"
 #include "ESceneNodeAnimatorTypes.h"
-#include "irr/video/IGPUSkinnedMesh.h"
+#include "nbl/video/IGPUSkinnedMesh.h"
 #include "ISkinnedMeshSceneNode.h"
-#include "irr/asset/ICPUMesh.h"
+#include "nbl/asset/ICPUMesh.h"
 
-namespace irr
+namespace nbl
 {
 	struct SKeyMap;
 	struct SEvent;
@@ -458,7 +459,7 @@ namespace scene
 
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

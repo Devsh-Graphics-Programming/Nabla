@@ -1,10 +1,14 @@
-#ifndef __S_TRIANGLE_MESH_COLLIDER_H_INCLUDED__
-#define __S_TRIANGLE_MESH_COLLIDER_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_S_TRIANGLE_MESH_COLLIDER_H_INCLUDED__
+#define __NBL_S_TRIANGLE_MESH_COLLIDER_H_INCLUDED__
 
 #include "SAABoxCollider.h"
-#include "irr/core/IReferenceCounted.h"
+#include "nbl/core/IReferenceCounted.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -72,7 +76,7 @@ class STriangleCollider// : public AllocationOverrideDefault EBO inheritance pro
 
 class STriangleMeshCollider : public IReferenceCounted
 {
-	    _IRR_INTERFACE_CHILD(STriangleMeshCollider) {}
+	    _NBL_INTERFACE_CHILD(STriangleMeshCollider) {}
 
         SAABoxCollider BBox;
         ///matrix4x3 cachedTransformInverse;

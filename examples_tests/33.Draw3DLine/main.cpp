@@ -1,17 +1,21 @@
-#define _IRR_STATIC_LIB_
-#include <irrlicht.h>
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "irr/ext/DebugDraw/CDraw3DLine.h"
+#define _NBL_STATIC_LIB_
+#include <nabla.h>
+
+#include "nbl/ext/DebugDraw/CDraw3DLine.h"
 
 #include "../common/QToQuitEventReceiver.h"
 
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 int main()
 {
-    irr::SIrrlichtCreationParameters params;
+    nbl::SIrrlichtCreationParameters params;
     params.Bits = 24;
     params.ZBufferBits = 24;
     params.DriverType = video::EDT_OPENGL;

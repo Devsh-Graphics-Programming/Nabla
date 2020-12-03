@@ -1,43 +1,47 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef _INPUT_EVENT_RECEIVER_H_
 #define _INPUT_EVENT_RECEIVER_H_
 #include <iostream>
 #include <cstdio>
-#include <irrlicht.h>
+#include <nabla.h>
 
-class ChgSpacingEventReciever : public irr::IEventReceiver
+class ChgSpacingEventReciever : public nbl::IEventReceiver
 {
 	public:
 		ChgSpacingEventReciever() : spacing(10), running(true), speed(1), resetCam(false) {
 		}
 
-		bool OnEvent(const irr::SEvent& event)
+		bool OnEvent(const nbl::SEvent& event)
 		{
-			if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+			if (event.EventType == nbl::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
 			{
 				switch (event.KeyInput.Key)
 				{
-				case irr::KEY_PRIOR: 
+				case nbl::KEY_PRIOR: 
 					spacing =std::min(spacing+2,100);
 					std::cout << spacing << std::endl;
 					return true;
-				case irr::KEY_NEXT:
+				case nbl::KEY_NEXT:
 					spacing = std::max(spacing - 2, 2);
 					std::cout << spacing << std::endl;
 					return true;
-				case irr::KEY_KEY_Q:
+				case nbl::KEY_KEY_Q:
 					running = false;
 					return true;
-				case irr::KEY_KEY_S:
+				case nbl::KEY_KEY_S:
 					saveBuffer = true;
 					return true;
-				case irr::KEY_KEY_R:
+				case nbl::KEY_KEY_R:
 					resetCam = true;
 					return true;
-				case irr::KEY_MINUS:
+				case nbl::KEY_MINUS:
 					speed = std::clamp<float>(speed - 0.1f, 0.2f, 5.0f);
 					std::cout << "Camera speed:  " << speed << std::endl;
 					return true;
-				case irr::KEY_PLUS:
+				case nbl::KEY_PLUS:
 					speed = std::clamp<float>(speed + 0.1f, 0.2f, 5.0f);
 					std::cout << "Camera speed:  " << speed << std::endl;
 					return true;
@@ -45,7 +49,7 @@ class ChgSpacingEventReciever : public irr::IEventReceiver
 					break;
 				}
 			}
-			else if (event.EventType == irr::EET_MOUSE_INPUT_EVENT && event.MouseInput.Wheel != 0.0f)
+			else if (event.EventType == nbl::EET_MOUSE_INPUT_EVENT && event.MouseInput.Wheel != 0.0f)
 			{
 				speed = std::clamp<float>(speed + event.MouseInput.Wheel / 10.0f, 0.2f, 5.0f);
 				std::cout << "Camera speed:  " << speed << std::endl;

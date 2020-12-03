@@ -1,13 +1,17 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #include <iostream>
 #include <cstdio>
 
-#define _IRR_STATIC_LIB_
-#include <irrlicht.h>
+#define _NBL_STATIC_LIB_
+#include <nabla.h>
 
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 #include "../source/Irrlicht/COpenGLDriver.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 
@@ -105,7 +109,7 @@ void APIENTRY openGLCBFunc(GLenum source, GLenum type, GLuint id, GLenum severit
 
 int main()
 {
-	irr::SIrrlichtCreationParameters params;
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
@@ -116,7 +120,7 @@ int main()
 
 
 	video::IVideoDriver* driver = device->getVideoDriver();
-    if (video::COpenGLExtensionHandler::FeatureAvailable[video::COpenGLExtensionHandler::IRR_KHR_debug])
+    if (video::COpenGLExtensionHandler::FeatureAvailable[video::COpenGLExtensionHandler::NBL_KHR_debug])
     {
         //glEnable(GL_DEBUG_OUTPUT);
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);

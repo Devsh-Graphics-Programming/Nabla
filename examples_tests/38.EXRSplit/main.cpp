@@ -1,15 +1,19 @@
-#define _IRR_STATIC_LIB_
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
-#include <irrlicht.h>
+#include <nabla.h>
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 using namespace asset;
 
 int main(int argc, char * argv[])
 {
-	irr::SIrrlichtCreationParameters params;
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; 
 	params.ZBufferBits = 24; 
 	params.DriverType = video::EDT_NULL; 

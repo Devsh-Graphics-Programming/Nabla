@@ -1,12 +1,16 @@
-#define _IRR_STATIC_LIB_
-#include <irrlicht.h>
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "irr/ext/DebugDraw/CDraw3DLine.h"
+#define _NBL_STATIC_LIB_
+#include <nabla.h>
+
+#include "nbl/ext/DebugDraw/CDraw3DLine.h"
 
 #include "../common/QToQuitEventReceiver.h"
 
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 using namespace asset;
 using namespace video;
@@ -80,7 +84,7 @@ public:
 
 	bool OnEvent(const SEvent& event)
 	{
-        if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+        if (event.EventType == nbl::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
         {
 			auto useNewSpline = [&](auto replacementCreateFunc) -> bool
 			{
@@ -125,16 +129,16 @@ public:
 			auto createBSpline = []()
 			{
 				auto prep = preprocessBSplineControlPoints(controlPts.cbegin(), controlPts.cend());
-				return new irr::core::CQuadraticBSpline(prep.data(), prep.size());
+				return new nbl::core::CQuadraticBSpline(prep.data(), prep.size());
 			};
 			auto createBSplineLoop = []()
 			{
 				auto prep = preprocessBSplineControlPoints(controlPts.cbegin(), controlPts.cend(), true);
-				return new irr::core::CQuadraticBSpline(prep.data(), prep.size(), true); //make it a loop
+				return new nbl::core::CQuadraticBSpline(prep.data(), prep.size(), true); //make it a loop
 			};
             switch (event.KeyInput.Key)
             {
-                case irr::KEY_KEY_Q: // switch wire frame mode
+                case nbl::KEY_KEY_Q: // switch wire frame mode
 					return QToQuitEventReceiver::OnEvent(event);
                     break;
                 case KEY_KEY_T:
@@ -192,8 +196,8 @@ private:
 int main()
 {
 	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing

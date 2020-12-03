@@ -1,13 +1,14 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __I_SCENE_NODE_ANIMATOR_CAMERA_MODIFIED_MAYA_H_INCLUDED__
-#define __I_SCENE_NODE_ANIMATOR_CAMERA_MODIFIED_MAYA_H_INCLUDED__
+#ifndef __NBL_I_SCENE_NODE_ANIMATOR_CAMERA_MODIFIED_MAYA_H_INCLUDED__
+#define __NBL_I_SCENE_NODE_ANIMATOR_CAMERA_MODIFIED_MAYA_H_INCLUDED__
 
 #include "ISceneNodeAnimator.h"
 
-namespace irr
+namespace nbl
 {
 
 namespace scene
@@ -61,7 +62,7 @@ namespace scene
 	};
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

@@ -1,6 +1,8 @@
-#include "common.glsl"
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
+#include "common.glsl"
 
 struct BoneNormalMatPair
 {
@@ -28,11 +30,11 @@ void main()
     const vec3 normal = vec3(1.0, 2.0, 3.0);
 #endif
 #ifndef BENCHMARK
-    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(matrices[boneID].boneMatrix) * vec4(pos, 1.0);
-    vNormal = mat3(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(matrices[boneID].normalMatrix)) * normalize(normal);
+    gl_Position = matrices[boneID].boneMatrix * vec4(pos, 1.0);
+    vNormal = mat3(matrices[boneID].normalMatrix) * normalize(normal);
 #else
-    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(matrices[boneID].boneMatrix) * vec4(pos, 1.0);
-    gl_Position.xyz += mat3(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(matrices[boneID].normalMatrix)) * normal;
+    gl_Position = matrices[boneID].boneMatrix * vec4(pos, 1.0);
+    gl_Position.xyz += mat3(matrices[boneID].normalMatrix) * normal;
 #endif
 
 }

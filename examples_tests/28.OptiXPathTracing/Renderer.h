@@ -1,12 +1,16 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifndef _RENDERER_INCLUDED_
 #define _RENDERER_INCLUDED_
 
-#include "irrlicht.h"
+#include "nabla.h"
 
-#include "irr/ext/OptiX/OptiXManager.h"
+#include "nbl/ext/OptiX/OptiXManager.h"
 
 
-class Renderer : public irr::core::IReferenceCounted, public irr::core::InterfaceUnmovable
+class Renderer : public nbl::core::IReferenceCounted, public nbl::core::InterfaceUnmovable
 {
     public:
 		struct alignas(16) SLight
@@ -19,14 +23,14 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 			};
 			struct CachedTransform
 			{
-				CachedTransform(const irr::core::matrix3x4SIMD& tform) : transform(tform)
+				CachedTransform(const nbl::core::matrix3x4SIMD& tform) : transform(tform)
 				{
-					auto tmp4 = irr::core::matrix4SIMD(transform.getSub3x3TransposeCofactors());
-					transformCofactors = irr::core::transpose(tmp4).extractSub3x4();
+					auto tmp4 = nbl::core::matrix4SIMD(transform.getSub3x3TransposeCofactors());
+					transformCofactors = nbl::core::transpose(tmp4).extractSub3x4();
 				}
 
-				irr::core::matrix3x4SIMD transform;
-				irr::core::matrix3x4SIMD transformCofactors;
+				nbl::core::matrix3x4SIMD transform;
+				nbl::core::matrix3x4SIMD transformCofactors;
 			};
 
 
@@ -62,7 +66,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				return *this;
 			}
 
-			void setFactor(const irr::core::vectorSIMDf& _strengthFactor)
+			void setFactor(const nbl::core::vectorSIMDf& _strengthFactor)
 			{
 				for (auto i=0u; i<3u; i++)
 					strengthFactor[i] = _strengthFactor[i];
@@ -82,22 +86,22 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				return luma;
 			}
 
-			inline float computeAreaUnderTransform(irr::core::vectorSIMDf differentialElementCrossProduct) const
+			inline float computeAreaUnderTransform(nbl::core::vectorSIMDf differentialElementCrossProduct) const
 			{
 				analytical.transformCofactors.mulSub3x3WithNx1(differentialElementCrossProduct);
-				return irr::core::length(differentialElementCrossProduct).x;
+				return nbl::core::length(differentialElementCrossProduct).x;
 			}
 
 			inline float computeFlux(float triangulizationArea) const // also known as lumens
 			{
-				const auto unitHemisphereArea = 2.f*irr::core::PI<float>();
+				const auto unitHemisphereArea = 2.f*nbl::core::PI<float>();
 				const auto unitSphereArea = 2.f*unitHemisphereArea;
 
 				float lightFlux = unitHemisphereArea*getFactorLuminosity();
 				switch (type)
 				{
 					case ET_ELLIPSOID:
-						_IRR_FALLTHROUGH;
+						[[fallthrough]];
 					case ET_TRIANGLE:
 						lightFlux *= triangulizationArea;
 						break;
@@ -108,14 +112,14 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				return lightFlux;
 			}
 
-			static inline SLight createFromTriangle(const irr::core::vectorSIMDf& _strengthFactor, const CachedTransform& precompTform, const irr::core::vectorSIMDf* v, float* outArea=nullptr)
+			static inline SLight createFromTriangle(const nbl::core::vectorSIMDf& _strengthFactor, const CachedTransform& precompTform, const nbl::core::vectorSIMDf* v, float* outArea=nullptr)
 			{
 				SLight triLight;
 				triLight.type = ET_TRIANGLE;
 				triLight.setFactor(_strengthFactor);
 				triLight.analytical = precompTform;
 
-				float triangleArea = 0.5f*triLight.computeAreaUnderTransform(irr::core::cross(v[1]-v[0],v[2]-v[0]));
+				float triangleArea = 0.5f*triLight.computeAreaUnderTransform(nbl::core::cross(v[1]-v[0],v[2]-v[0]));
 				if (outArea)
 					*outArea = triangleArea;
 
@@ -142,8 +146,8 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				CachedTransform analytical;
 				struct Triangle
 				{
-					irr::core::vectorSIMDf padding[3];
-					irr::core::vectorSIMDf vertices[3];
+					nbl::core::vectorSIMDf padding[3];
+					nbl::core::vectorSIMDf vertices[3];
 				} triangle;
 			};
 			/*
@@ -155,11 +159,11 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		};
 		static_assert(sizeof(SLight)==112u,"Can't keep alignment straight!");
 
-		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr);
+		Renderer(nbl::video::IVideoDriver* _driver, nbl::asset::IAssetManager* _assetManager, nbl::scene::ISceneManager* _smgr);
 
-		void init(	const irr::asset::SAssetBundle& meshes,
+		void init(	const nbl::asset::SAssetBundle& meshes,
 					bool isCameraRightHanded,
-					irr::core::smart_refctd_ptr<irr::asset::ICPUBuffer>&& sampleSequence,
+					nbl::core::smart_refctd_ptr<nbl::asset::ICPUBuffer>&& sampleSequence,
 					uint32_t rayBufferSize=1024u*1024u*1024u);
 
 		void deinit();
@@ -175,29 +179,29 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		uint64_t getTotalSamplesComputed() const { return static_cast<uint64_t>(m_samplesComputed)*static_cast<uint64_t>(m_rayCount); }
 
 
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 4u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 4u;
     protected:
         ~Renderer();
 
 
-        irr::video::IVideoDriver* m_driver;
+        nbl::video::IVideoDriver* m_driver;
 
-		irr::asset::IAssetManager* m_assetManager;
-		irr::scene::ISceneManager* m_smgr;
+		nbl::asset::IAssetManager* m_assetManager;
+		nbl::scene::ISceneManager* m_smgr;
 
-		irr::core::vector<std::array<irr::core::vector3df_SIMD,3> > m_precomputedGeodesic;
+		nbl::core::vector<std::array<nbl::core::vector3df_SIMD,3> > m_precomputedGeodesic;
 
-		irr::core::smart_refctd_ptr<irr::ext::RadeonRays::Manager> m_rrManager;
+		nbl::core::smart_refctd_ptr<nbl::ext::RadeonRays::Manager> m_rrManager;
 
 		bool m_rightHanded;
 
-		irr::core::smart_refctd_ptr<irr::video::ITextureBufferObject> m_sampleSequence;
-		irr::core::smart_refctd_ptr<irr::video::ITexture> m_scrambleTexture;
+		nbl::core::smart_refctd_ptr<nbl::video::ITextureBufferObject> m_sampleSequence;
+		nbl::core::smart_refctd_ptr<nbl::video::ITexture> m_scrambleTexture;
 
-		irr::video::E_MATERIAL_TYPE nonInstanced;
+		nbl::video::E_MATERIAL_TYPE nonInstanced;
 		uint32_t m_raygenProgram, m_compostProgram;
-		irr::core::smart_refctd_ptr<irr::video::ITexture> m_depth,m_albedo,m_normals,m_lightIndex,m_accumulation,m_tonemapOutput;
-		irr::video::IFrameBuffer* m_colorBuffer,* m_gbuffer,* tmpTonemapBuffer;
+		nbl::core::smart_refctd_ptr<nbl::video::ITexture> m_depth,m_albedo,m_normals,m_lightIndex,m_accumulation,m_tonemapOutput;
+		nbl::video::IFrameBuffer* m_colorBuffer,* m_gbuffer,* tmpTonemapBuffer;
 
 		uint32_t m_maxSamples;
 		uint32_t m_workGroupCount[2];
@@ -205,23 +209,23 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		uint32_t m_samplesComputed;
 		uint32_t m_rayCount;
 		uint32_t m_framesDone;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_rayBuffer;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_intersectionBuffer;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_rayCountBuffer;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_rayBuffer;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_intersectionBuffer;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_rayCountBuffer;
 		std::pair<::RadeonRays::Buffer*,cl_mem> m_rayBufferAsRR;
 		std::pair<::RadeonRays::Buffer*,cl_mem> m_intersectionBufferAsRR;
 		std::pair<::RadeonRays::Buffer*,cl_mem> m_rayCountBufferAsRR;
 
-		irr::core::vector<irr::core::smart_refctd_ptr<irr::scene::IMeshSceneNode> > nodes;
-		irr::core::aabbox3df sceneBound;
-		irr::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
-		irr::ext::RadeonRays::Manager::MeshNodeRRInstanceCache rrInstances;
+		nbl::core::vector<nbl::core::smart_refctd_ptr<nbl::scene::IMeshSceneNode> > nodes;
+		nbl::core::aabbox3df sceneBound;
+		nbl::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
+		nbl::ext::RadeonRays::Manager::MeshNodeRRInstanceCache rrInstances;
 
-		irr::core::vectorSIMDf constantClearColor;
+		nbl::core::vectorSIMDf constantClearColor;
 		uint32_t m_lightCount;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightCDFBuffer;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightBuffer;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightRadianceBuffer;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_lightCDFBuffer;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_lightBuffer;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_lightRadianceBuffer;
 };
 
 #endif

@@ -1,13 +1,16 @@
-// Copyright (C) 2017- Mateusz Kielan
-// This file is part of the "IrrlichtBAW".
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __C_OPENGL_STATE_MANAGER_H_INCLUDED__
-#define __C_OPENGL_STATE_MANAGER_H_INCLUDED__
+#ifndef __NBL_C_OPENGL_STATE_MANAGER_H_INCLUDED__
+#define __NBL_C_OPENGL_STATE_MANAGER_H_INCLUDED__
 
 #include <limits>       // std::numeric_limits
 #include <utility>
 
-#ifdef _IRR_WINDOWS_API_
+#include "nbl/core/compile_config.h"
+
+#ifdef _NBL_WINDOWS_API_
     #define WIN32_LEAN_AND_MEAN
     #ifndef NOMINMAX
         #define NOMINMAX
@@ -15,7 +18,7 @@
     #include <Windows.h>
     #include <wingdi.h>
 #endif
-#if defined(_IRR_COMPILE_WITH_SDL_DEVICE_) && !(defined(_IRR_COMPILE_WITH_X11_DEVICE_)||defined(_IRR_WINDOWS_API_))
+#if defined(_NBL_COMPILE_WITH_SDL_DEVICE_) && !(defined(_NBL_COMPILE_WITH_X11_DEVICE_)||defined(_NBL_WINDOWS_API_))
 	#include <SDL/SDL_video.h>
     #define GL_GLEXT_LEGACY 1
 	#include <SDL/SDL_opengl.h>
@@ -32,7 +35,7 @@
 #define GL_SRG8_EXT 0x8FBE
 #endif
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -1678,6 +1681,6 @@ P.S. Maybe Ghost == Pending
 
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 #endif

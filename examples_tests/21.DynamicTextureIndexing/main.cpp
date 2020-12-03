@@ -1,12 +1,16 @@
-#define _IRR_STATIC_LIB_
-#include <irrlicht.h>
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#define _NBL_STATIC_LIB_
+#include <nabla.h>
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
-#include <irr/asset/CCPUMeshPacker.h>
-//#include "irr/ext/ScreenShot/ScreenShot.h"
+#include <nbl/asset/CCPUMeshPacker.h>
+//#include "nbl/ext/ScreenShot/ScreenShot.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 using namespace asset;
 using namespace video;
@@ -14,8 +18,8 @@ using namespace video;
 int main()
 {
     // create device with full flexibility over creation parameters
-    // you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-    irr::SIrrlichtCreationParameters params;
+    // you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+    nbl::SIrrlichtCreationParameters params;
     params.Bits = 24; //may have to set to 32bit for some platforms
     params.ZBufferBits = 24; //we'd like 32bit here
     params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing

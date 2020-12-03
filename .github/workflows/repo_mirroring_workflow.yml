@@ -1,0 +1,28 @@
+name: repo_mirroring
+
+on:
+  schedule:
+  - cron:  "*/60 * * * *"
+  workflow_dispatch:
+
+jobs:
+  repo-sync:
+    runs-on: self-hosted
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        persist-credentials: false
+    - name: repo-sync-master
+      uses: repo-sync/github-sync@v2
+      with:
+        source_repo: "buildaworldnet/IrrlichtBAW"
+        source_branch: "master"
+        destination_branch: "master_irrlichtbaw"
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+    - name: repo-sync-shader-pipeline
+      uses: repo-sync/github-sync@v2
+      with:
+        source_repo: "buildaworldnet/IrrlichtBAW"
+        source_branch: "shader_pipeline"
+        destination_branch: "shader_pipeline_irrlichtbaw"
+        github_token: ${{ secrets.GITHUB_TOKEN }}

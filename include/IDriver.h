@@ -1,15 +1,16 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __IRR_I_DRIVER_H_INCLUDED__
-#define __IRR_I_DRIVER_H_INCLUDED__
+#ifndef __NBL_I_DRIVER_H_INCLUDED__
+#define __NBL_I_DRIVER_H_INCLUDED__
 
-#include "irr/asset/asset.h"
-#include "irr/video/asset_traits.h"
-#include "irr/video/alloc/StreamingTransientDataBuffer.h"
+#include "nbl/asset/asset.h"
+#include "nbl/video/asset_traits.h"
+#include "nbl/video/alloc/StreamingTransientDataBuffer.h"
 
-namespace irr
+namespace nbl
 {
 	class IrrlichtDevice;
 
@@ -21,15 +22,15 @@ namespace video
 }
 }
 
-#include "irr/video/IGPUPipelineCache.h"
-#include "irr/video/IGPUImageView.h"
+#include "nbl/video/IGPUPipelineCache.h"
+#include "nbl/video/IGPUImageView.h"
 #include "IFrameBuffer.h"
 #include "IVideoCapabilityReporter.h"
 #include "IQueryObject.h"
 #include "IGPUTimestampQuery.h"
 #include "IDriverFence.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -428,7 +429,7 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
 };
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

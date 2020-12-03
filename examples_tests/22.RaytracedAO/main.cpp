@@ -1,24 +1,28 @@
-#define _IRR_STATIC_LIB_
-#include <irrlicht.h>
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#define _NBL_STATIC_LIB_
+#include <nabla.h>
 
 #include <chrono>
 
 #include "../common/QToQuitEventReceiver.h"
 
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
-#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 
 #include "./dirty_source/ExtraCrap.h"
 
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 int main()
 {
 	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24;
 	params.DriverType = video::EDT_OPENGL;
@@ -38,8 +42,8 @@ int main()
 		io::IFileSystem* fs = device->getFileSystem();
 		asset::IAssetManager* am = device->getAssetManager();
 
-		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CSerializedLoader>(am));
-		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(am));
+		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CSerializedLoader>(am));
+		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am));
 
 		//std::string filePath = "../../media/mitsuba/daily_pt.xml";
 		std::string filePath = "../../media/mitsuba/staircase2.zip";
@@ -88,7 +92,7 @@ int main()
 		asset::CQuantNormalCache* qnc = am->getMeshManipulator()->getQuantNormalCache();
 
 		//! read cache results -- speeds up mesh generation
-		//qnc->loadNormalQuantCacheFromFile<asset::E_QUANT_NORM_CACHE_TYPE::Q_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
+		qnc->loadNormalQuantCacheFromFile<asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
 		//! load the mitsuba scene
 		meshes = am->getAsset(filePath, {});
 		//! cache results -- speeds up mesh generation on second run
@@ -292,7 +296,7 @@ int main()
 	{
 		driver->beginScene(false, false);
 
-		renderer->render();
+		renderer->render(device->getTimer());
 
 		auto oldVP = driver->getViewPort();
 		driver->blitRenderTargets(renderer->getColorBuffer(),nullptr,false,false,{},{},true);
@@ -306,7 +310,7 @@ int main()
 		{
 			std::wostringstream str;
 			auto samples = renderer->getTotalSamplesComputed();
-			str << L"Raytraced Shadows Demo - IrrlichtBAW Engine   MegaSamples: " << samples/1000000ull << "   MRay/s: "
+			str << L"Raytraced Shadows Demo - Nabla Engine   MegaSamples: " << samples/1000000ull << "   MRay/s: "
 				<< double(samples)/double(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count());
 
 			device->setWindowCaption(str.str());

@@ -1,16 +1,20 @@
-#define _IRR_STATIC_LIB_
-#include <irrlicht.h>
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#define _NBL_STATIC_LIB_
+#include <nabla.h>
 
 #include "../common/QToQuitEventReceiver.h"
-#include <irr/video/IGPUVirtualTexture.h>
-#include <irr/asset/CMTLPipelineMetadata.h>
-#include <irr/asset/filters/CMipMapGenerationImageFilter.h>
+#include <nbl/video/IGPUVirtualTexture.h>
+#include <nbl/asset/CMTLPipelineMetadata.h>
+#include <nbl/asset/filters/CMipMapGenerationImageFilter.h>
 
 #include <iostream>
 #include <cstdio>
 
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 
@@ -71,7 +75,7 @@ layout(location = 0) in vec3 vPos;
 #define _IRR_VERT_SET2_BINDINGS_DEFINED_
 #define _IRR_VERT_SET3_BINDINGS_DEFINED_
 
-#include <irr/builtin/glsl/vertex_utils/vertex_utils.glsl>
+#include <nbl/builtin/glsl/vertex_utils/vertex_utils.glsl>
 
 void main()
 {
@@ -209,7 +213,7 @@ STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualText
 }
 
 constexpr uint32_t TEX_OF_INTEREST_CNT = 6u;
-#include "irr/irrpack.h"
+#include "nbl/nblpack.h"
 struct SInstanceData
 {
     core::matrix4SIMD modelViewProjection;
@@ -230,7 +234,7 @@ struct SInstanceData
     float IoR = 1.6f;
     uint32_t extra;
 } PACK_STRUCT;
-#include "irr/irrunpack.h"
+#include "nbl/nblunpack.h"
 static_assert((sizeof(SInstanceData)&0xfull)==0ull, "sizeof(SInstanceData) is not aligned to 16!");
 
 struct SDrawElementsIndirectCommand {
@@ -315,9 +319,9 @@ core::smart_refctd_ptr<asset::ICPUImage> createPoTPaddedSquareImageWithMipLevels
         genmips.endMipLevel = paddedImg->getCreationParameters().mipLevels;
         genmips.inOutImage = paddedImg.get();
         genmips.scratchMemoryByteSize = mip_gen_filter_t::getRequiredScratchByteSize(&genmips);
-        genmips.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(genmips.scratchMemoryByteSize,_IRR_SIMD_ALIGNMENT));
+        genmips.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(genmips.scratchMemoryByteSize,_NBL_SIMD_ALIGNMENT));
         mip_gen_filter_t::execute(&genmips);
-        _IRR_ALIGNED_FREE(genmips.scratchMemory);
+        _NBL_ALIGNED_FREE(genmips.scratchMemory);
     }
 
     //bring back original extent
@@ -345,8 +349,8 @@ core::smart_refctd_ptr<asset::ICPUImage> createPoTPaddedSquareImageWithMipLevels
 int main()
 {
 	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
@@ -444,7 +448,7 @@ int main()
 
         auto* mb = mesh_raw->getMeshBuffer(i);
         auto* ds = mb->getAttachedDescriptorSet();
-        _IRR_DEBUG_BREAK_IF(!ds);
+        _NBL_DEBUG_BREAK_IF(!ds);
         for (uint32_t k = 0u; k < TEX_OF_INTEREST_CNT; ++k)
         {
             uint32_t j = texturesOfInterest[k];

@@ -1,25 +1,29 @@
-#define _IRR_STATIC_LIB_
-#include <irrlicht.h>
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "irr/ext/ScreenShot/ScreenShot.h"
+#define _NBL_STATIC_LIB_
+#include <nabla.h>
+
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
 #include "../common/QToQuitEventReceiver.h"
 
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
-#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
-#include <irr/video/IGPUVirtualTexture.h>
+#include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
+#include <nbl/video/IGPUVirtualTexture.h>
 
 #define USE_ENVMAP
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 constexpr const char* GLSL_COMPUTE_LIGHTING =
 R"(
-#define _IRR_COMPUTE_LIGHTING_DEFINED_
+#define _NBL_COMPUTE_LIGHTING_DEFINED_
 
-#include <irr/builtin/glsl/format/decode.glsl>
-#include <irr/builtin/glsl/random/xoroshiro.glsl>
+#include <nbl/builtin/glsl/format/decode.glsl>
+#include <nbl/builtin/glsl/random/xoroshiro.glsl>
 
 struct SLight
 {
@@ -35,26 +39,26 @@ layout(set = 2, binding = 1) uniform sampler2D envMap;
 layout(set = 2, binding = 2) uniform usamplerBuffer sampleSequence;
 layout(set = 2, binding = 3) uniform usampler2D scramblebuf;
 
-vec3 rand3d(in uint _sample, inout irr_glsl_xoroshiro64star_state_t scramble_state)
+vec3 rand3d(in uint _sample, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
 {
 	uvec3 seqVal = texelFetch(sampleSequence,int(_sample)).xyz;
-	seqVal ^= uvec3(irr_glsl_xoroshiro64star(scramble_state),irr_glsl_xoroshiro64star(scramble_state),irr_glsl_xoroshiro64star(scramble_state));
+	seqVal ^= uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
     return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
 }
 
 vec2 SampleSphericalMap(in vec3 v)
 {
     vec2 uv = vec2(atan(v.z, v.x), asin(v.y));
-    uv *= irr_glsl_RECIPROCAL_PI*0.5;
+    uv *= nbl_glsl_RECIPROCAL_PI*0.5;
     uv += 0.5; 
     return uv;
 }
 
-vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in MC_precomputed_t precomp)
+vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in MC_precomputed_t precomp)
 {
-	irr_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,gl_FragCoord.xy/VIEWPORT_SZ,0).rg;
+	nbl_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,gl_FragCoord.xy/VIEWPORT_SZ,0).rg;
 
-	vec3 emissive = irr_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
+	vec3 emissive = nbl_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
 	vec3 color = vec3(0.0);
 
@@ -63,11 +67,11 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 	instr_stream_t rnps = getRemAndPdfStream(precomp);
 	for (int i = 0; i < SAMPLE_COUNT; ++i)
 	{
-		irr_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
+		nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
 
 		vec3 rand = rand3d(i,scramble_state);
 		float pdf;
-		irr_glsl_LightSample s;
+		nbl_glsl_LightSample s;
 		vec3 rem = runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
 
 		vec2 uv = SampleSphericalMap(s.L);
@@ -82,7 +86,7 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 		vec3 L = l.position-WorldPos;
 		//params.L = L;
 		const float intensityScale = LIGHT_INTENSITY_SCALE;//ehh might want to render to hdr fbo and do tonemapping
-		color += irr_bsdf_cos_eval(precomp, normalize(L), out_interaction, dUV)*l.intensity*intensityScale / dot(L,L);
+		color += nbl_bsdf_cos_eval(precomp, normalize(L), out_interaction, dUV)*l.intensity*intensityScale / dot(L,L);
 	}
 
 	return color+emissive;
@@ -103,7 +107,7 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragSh
 #endif
 		GLSL_COMPUTE_LIGHTING;
 
-    glsl.insert(glsl.find("#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_"), extra);
+    glsl.insert(glsl.find("#ifndef _NBL_COMPUTE_LIGHTING_DEFINED_"), extra);
 
     //auto* f = fopen("fs.glsl","w");
     //fwrite(glsl.c_str(), 1, glsl.size(), f);
@@ -143,20 +147,20 @@ static auto createGPUImageView(const std::string& path, asset::IAssetManager* am
 	return gpuImageView;
 };
 
-#include "irr/irrpack.h"
+#include "nbl/nblpack.h"
 //std430-compatible
 struct SLight
 {
 	core::vectorSIMDf position;
 	core::vectorSIMDf intensity;
 } PACK_STRUCT;
-#include "irr/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 int main()
 {
 	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_NULL;
@@ -176,8 +180,8 @@ int main()
 		asset::IAssetManager* am = device->getAssetManager();
 		asset::CQuantNormalCache* qnc = am->getMeshManipulator()->getQuantNormalCache();
 
-		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CSerializedLoader>(am));
-		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(am));
+		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CSerializedLoader>(am));
+		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am));
 
 		std::string filePath = "../../media/mitsuba/staircase2.zip";
 	//#define MITSUBA_LOADER_TESTS
@@ -379,7 +383,7 @@ int main()
 			core::vectorSIMDf differentialElementCrossProdcut = core::cross(v[1]-v[0], v[2]-v[0]);
 			core::matrix3x4SIMD tformCofactors;
 			{
-				auto tmp4 = irr::core::matrix4SIMD(tform.getSub3x3TransposeCofactors());
+				auto tmp4 = nbl::core::matrix4SIMD(tform.getSub3x3TransposeCofactors());
 				tformCofactors = core::transpose(tmp4).extractSub3x4();
 			}
 			tformCofactors.mulSub3x3WithNx1(differentialElementCrossProdcut);
@@ -730,7 +734,7 @@ int main()
 		if (time - lastFPSTime > 1000)
 		{
 			std::wostringstream str;
-			str << L"Mitsuba Loader Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
+			str << L"Mitsuba Loader Demo - Nabla Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
 
 			device->setWindowCaption(str.str());
 			lastFPSTime = time;

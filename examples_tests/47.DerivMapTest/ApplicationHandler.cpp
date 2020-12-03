@@ -1,15 +1,19 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #include "ApplicationHandler.hpp"
 
-#include "irr/ext/FullScreenTriangle/FullScreenTriangle.h"
-#include "irr/ext/ScreenShot/ScreenShot.h"
+#include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
-#include <irr/asset/filters/kernels/CGaussianImageFilterKernel.h>
-#include <irr/asset/filters/kernels/CDerivativeImageFilterKernel.h>
-#include <irr/asset/filters/kernels/CBoxImageFilterKernel.h>
-#include <irr/asset/filters/kernels/CChannelIndependentImageFilterKernel.h>
-#include <irr/asset/filters/CMipMapGenerationImageFilter.h>
+#include <nbl/asset/filters/kernels/CGaussianImageFilterKernel.h>
+#include <nbl/asset/filters/kernels/CDerivativeImageFilterKernel.h>
+#include <nbl/asset/filters/kernels/CBoxImageFilterKernel.h>
+#include <nbl/asset/filters/kernels/CChannelIndependentImageFilterKernel.h>
+#include <nbl/asset/filters/CMipMapGenerationImageFilter.h>
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 using namespace asset;
 using namespace video;
@@ -40,7 +44,7 @@ void ApplicationHandler::fetchTestingImagePaths()
 	}
 }
 
-void ApplicationHandler::presentImageOnTheScreen(irr::core::smart_refctd_ptr<irr::video::IGPUImageView> gpuImageView, std::string currentHandledImageFileName, std::string currentHandledImageExtension)
+void ApplicationHandler::presentImageOnTheScreen(nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> gpuImageView, std::string currentHandledImageFileName, std::string currentHandledImageExtension)
 {
 	auto samplerDescriptorSet3 = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuDescriptorSetLayout3));
 
@@ -137,9 +141,9 @@ class MyKernel : public asset::CFloatingPointSeparableImageFilterKernelBase<MyKe
 				PostFilter& postFilter;
 		};
 
-		_IRR_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
+		_NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = false;
 
-		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
+		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
 };
 	
 template<class Kernel>
@@ -153,11 +157,11 @@ class SeparateOutXAxisKernel : public asset::CFloatingPointSeparableImageFilterK
 		// passthrough everything
 		using value_type = typename Kernel::value_type;
 
-		_IRR_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels; // derivative map only needs 2 channels
+		_NBL_STATIC_INLINE_CONSTEXPR auto MaxChannels = Kernel::MaxChannels; // derivative map only needs 2 channels
 
 		SeparateOutXAxisKernel(Kernel&& k) : Base(k.negative_support.x, k.positive_support.x), kernel(std::move(k)) {}
 
-		IRR_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
+		NBL_DECLARE_DEFINE_CIMAGEFILTER_KERNEL_PASS_THROUGHS(Base)
 					
 		// we need to ensure to override the default behaviour of `CFloatingPointSeparableImageFilterKernelBase` which applies the weight along every axis
 		template<class PreFilter, class PostFilter>
@@ -208,13 +212,13 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMapFromHeightMap(asse
 #ifndef DERIV_MAP_FLOAT32
 			return asset::EF_R8G8_UNORM;
 #else
-			_IRR_FALLTHROUGH;
+			[[fallthrough]];
 #endif
 		case 2u:
 #ifndef DERIV_MAP_FLOAT32
 			return asset::EF_R16G16_SFLOAT;
 #else
-			_IRR_FALLTHROUGH;
+			[[fallthrough]];
 #endif
 		case 4u:
 			return asset::EF_R32G32_SFLOAT;
@@ -284,11 +288,11 @@ static core::smart_refctd_ptr<asset::ICPUImage> createDerivMapFromHeightMap(asse
 	state.axisWraps[2] = asset::ISampler::ETC_CLAMP_TO_EDGE;
 	state.borderColor = _borderColor;
 	state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
-	state.scratchMemory = reinterpret_cast<uint8_t*>(_IRR_ALIGNED_MALLOC(state.scratchMemoryByteSize, _IRR_SIMD_ALIGNMENT));
+	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
 
 	DerivativeMapFilter::execute(&state);
 
-	_IRR_ALIGNED_FREE(state.scratchMemory);
+	_NBL_ALIGNED_FREE(state.scratchMemory);
 
 	return outImg;
 }
@@ -350,7 +354,7 @@ void ApplicationHandler::performImageTest(std::string path)
 
 	if(!tryToWrite(copyImageView->getCreationParameters().image.get()))
 		if(!tryToWrite(copyImageView.get()))
-			os::Printer::log("An unexcepted error occoured while trying to write the asset!", irr::ELL_WARNING);
+			os::Printer::log("An unexcepted error occoured while trying to write the asset!", nbl::ELL_WARNING);
 
 	assetManager->removeCachedGPUObject(cpuImageView.get(), gpuImageView);
 	assetManager->removeAssetFromCache(cpuTexture);
@@ -359,7 +363,7 @@ void ApplicationHandler::performImageTest(std::string path)
 
 bool ApplicationHandler::initializeApplication()
 {
-	irr::SIrrlichtCreationParameters params;
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24;
 	params.ZBufferBits = 24; 
 	params.DriverType = video::EDT_OPENGL; 

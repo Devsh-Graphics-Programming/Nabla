@@ -1,14 +1,15 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt/ Thomas Alten
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __I_FILE_ARCHIVE_H_INCLUDED__
-#define __I_FILE_ARCHIVE_H_INCLUDED__
+#ifndef __NBL_I_FILE_ARCHIVE_H_INCLUDED__
+#define __NBL_I_FILE_ARCHIVE_H_INCLUDED__
 
 #include "IReadFile.h"
 #include "IFileList.h"
 
-namespace irr
+namespace nbl
 {
 
 namespace io
@@ -25,22 +26,22 @@ enum EFileSystemType
 enum E_FILE_ARCHIVE_TYPE
 {
 	//! A PKZIP archive
-	EFAT_ZIP     = MAKE_IRR_ID('Z','I','P', 0),
+	EFAT_ZIP     = MAKE_NBL_ID('Z','I','P', 0),
 
 	//! A gzip archive
-	EFAT_GZIP    = MAKE_IRR_ID('g','z','i','p'),
+	EFAT_GZIP    = MAKE_NBL_ID('g','z','i','p'),
 
 	//! A virtual directory
-	EFAT_FOLDER  = MAKE_IRR_ID('f','l','d','r'),
+	EFAT_FOLDER  = MAKE_NBL_ID('f','l','d','r'),
 
 	//! An ID Software PAK archive
-	EFAT_PAK     = MAKE_IRR_ID('P','A','K', 0),
+	EFAT_PAK     = MAKE_NBL_ID('P','A','K', 0),
 
 	//! A Tape ARchive
-	EFAT_TAR     = MAKE_IRR_ID('T','A','R', 0),
+	EFAT_TAR     = MAKE_NBL_ID('T','A','R', 0),
 
 	//! The type of this archive is unknown
-	EFAT_UNKNOWN = MAKE_IRR_ID('u','n','k','n')
+	EFAT_UNKNOWN = MAKE_NBL_ID('u','n','k','n')
 };
 
 //! The FileArchive manages archives and provides access to files inside them.
@@ -114,7 +115,7 @@ public:
 
 
 } // end namespace io
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

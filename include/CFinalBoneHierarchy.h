@@ -1,15 +1,19 @@
-#ifndef __C_FINAL_BONE_HIERARCHY_H_INCLUDED__
-#define __C_FINAL_BONE_HIERARCHY_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_C_FINAL_BONE_HIERARCHY_H_INCLUDED__
+#define __NBL_C_FINAL_BONE_HIERARCHY_H_INCLUDED__
 
 #include "assert.h"
 #include <algorithm>
 #include <functional>
-#include "irr/core/core.h"
-#include "irr/asset/ICPUSkinnedMesh.h"
-#include "irr/asset/bawformat/BlobSerializable.h"
-#include "irr/asset/bawformat/blobs/FinalBoneHierarchyBlob.h"
+#include "nbl/core/core.h"
+#include "nbl/asset/ICPUSkinnedMesh.h"
+#include "nbl/asset/bawformat/BlobSerializable.h"
+#include "nbl/asset/bawformat/blobs/FinalBoneHierarchyBlob.h"
 
-namespace irr
+namespace nbl
 {
 namespace asset
 {
@@ -17,7 +21,7 @@ namespace asset
     class CFinalBoneHierarchy : public core::IReferenceCounted, public asset::BlobSerializable
     {
         public:
-            #include "irr/irrpack.h"
+            #include "nbl/nblpack.h"
             struct BoneReferenceData
             {
                 core::matrix3x4SIMD PoseBindMatrix;
@@ -33,7 +37,7 @@ namespace asset
                 float Scale[3];
                 float Padding[2];
             } PACK_STRUCT;
-            #include "irr/irrunpack.h"
+            #include "nbl/nblunpack.h"
 
 
             CFinalBoneHierarchy(const core::vector<asset::ICPUSkinnedMesh::SJoint*>& inLevelFixedJoints, const core::vector<size_t>& inJointsLevelEnd)
@@ -41,7 +45,7 @@ namespace asset
                     keyframeCount(0), keyframes(NULL), interpolatedAnimations(NULL), nonInterpolatedAnimations(NULL), flipXonOutput(false)
             {
                 boneFlatArray = (BoneReferenceData*)malloc(sizeof(BoneReferenceData)*boneCount);
-                boneNames = _IRR_NEW_ARRAY(core::stringc,boneCount);
+                boneNames = _NBL_NEW_ARRAY(core::stringc,boneCount);
                 for (size_t i=0; i<boneCount; i++)
                 {
                     asset::ICPUSkinnedMesh::SJoint* joint = inLevelFixedJoints[i];
@@ -85,18 +89,18 @@ namespace asset
 				const void* _nonInterpAnimsBegin, const void* _nonInterpAnimsEnd, bool _flipXonOutput)
 			: boneCount((BoneReferenceData*)_bonesEnd - (BoneReferenceData*)_bonesBegin), NumLevelsInHierarchy(_levelsEnd - _levelsBegin), keyframeCount(_keyframesEnd - _keyframesBegin), flipXonOutput(_flipXonOutput)
 			{
-				_IRR_DEBUG_BREAK_IF(_bonesBegin > _bonesEnd ||
+				_NBL_DEBUG_BREAK_IF(_bonesBegin > _bonesEnd ||
 					_boneNamesBegin > _boneNamesEnd ||
 					_levelsBegin > _levelsEnd ||
 					_keyframesBegin > _keyframesEnd ||
 					_interpAnimsBegin > _interpAnimsEnd ||
 					_nonInterpAnimsBegin > _nonInterpAnimsEnd
 				)
-				_IRR_DEBUG_BREAK_IF(_boneNamesEnd - _boneNamesBegin != static_cast<std::make_signed<decltype(boneCount)>::type>(boneCount))
-				_IRR_DEBUG_BREAK_IF((AnimationKeyData*)_interpAnimsEnd - (AnimationKeyData*)_interpAnimsBegin != static_cast<std::make_signed<decltype(boneCount)>::type>(getAnimationCount()))
-				_IRR_DEBUG_BREAK_IF((AnimationKeyData*)_nonInterpAnimsEnd - (AnimationKeyData*)_nonInterpAnimsBegin != static_cast<std::make_signed<decltype(boneCount)>::type>(getAnimationCount()))
+				_NBL_DEBUG_BREAK_IF(_boneNamesEnd - _boneNamesBegin != static_cast<std::make_signed<decltype(boneCount)>::type>(boneCount))
+				_NBL_DEBUG_BREAK_IF((AnimationKeyData*)_interpAnimsEnd - (AnimationKeyData*)_interpAnimsBegin != static_cast<std::make_signed<decltype(boneCount)>::type>(getAnimationCount()))
+				_NBL_DEBUG_BREAK_IF((AnimationKeyData*)_nonInterpAnimsEnd - (AnimationKeyData*)_nonInterpAnimsBegin != static_cast<std::make_signed<decltype(boneCount)>::type>(getAnimationCount()))
 
-				boneNames = _IRR_NEW_ARRAY(core::stringc,boneCount);
+				boneNames = _NBL_NEW_ARRAY(core::stringc,boneCount);
 				boneFlatArray = (BoneReferenceData*)malloc(sizeof(BoneReferenceData)*boneCount);
 				boneTreeLevelEnd = (size_t*)malloc(sizeof(size_t)*NumLevelsInHierarchy);
 				keyframes = (float*)malloc(sizeof(float)*keyframeCount);
@@ -451,7 +455,7 @@ namespace asset
 			virtual ~CFinalBoneHierarchy()
 			{
 				if (boneNames)
-					_IRR_DELETE_ARRAY(boneNames, boneCount);
+					_NBL_DELETE_ARRAY(boneNames, boneCount);
 				if (boneFlatArray)
 					free(boneFlatArray);
 				if (boneTreeLevelEnd)
@@ -703,7 +707,7 @@ namespace asset
     };
 
 } // end namespace asset
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 
