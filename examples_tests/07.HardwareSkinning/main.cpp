@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #define _IRR_STATIC_LIB_
-#include <irrlicht.h>
+#include <nabla.h>
 
 #include "nbl/ext/ScreenShot/ScreenShot.h"
 

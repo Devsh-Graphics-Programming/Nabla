@@ -21,7 +21,7 @@ namespace asset
     class CFinalBoneHierarchy : public core::IReferenceCounted, public asset::BlobSerializable
     {
         public:
-            #include "nbl/irrpack.h"
+            #include "nbl/nblpack.h"
             struct BoneReferenceData
             {
                 core::matrix3x4SIMD PoseBindMatrix;
@@ -37,7 +37,7 @@ namespace asset
                 float Scale[3];
                 float Padding[2];
             } PACK_STRUCT;
-            #include "nbl/irrunpack.h"
+            #include "nbl/nblunpack.h"
 
 
             CFinalBoneHierarchy(const core::vector<asset::ICPUSkinnedMesh::SJoint*>& inLevelFixedJoints, const core::vector<size_t>& inJointsLevelEnd)

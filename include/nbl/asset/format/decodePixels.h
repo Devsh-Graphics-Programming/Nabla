@@ -1142,12 +1142,12 @@ namespace asset
         template<typename T>
         inline void decodeBC1(const void* _pix, T* _output, uint32_t _x, uint32_t _y, bool _alpha)
         {
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
             struct {
                 uint16_t c0, c1;
                 uint32_t lut;
             } PACK_STRUCT col;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
             memcpy(&col, _pix, 8u);
 
             struct {

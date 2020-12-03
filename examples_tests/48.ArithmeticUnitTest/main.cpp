@@ -1,5 +1,5 @@
 #define _IRR_STATIC_LIB_
-#include <irrlicht.h>
+#include <nabla.h>
 
 #include "../../source/Irrlicht/COpenGLDriver.h"
 

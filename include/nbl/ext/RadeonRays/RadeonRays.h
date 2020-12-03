@@ -5,7 +5,7 @@
 #ifndef __NBL_EXT_RADEON_RAYS_H_INCLUDED__
 #define __NBL_EXT_RADEON_RAYS_H_INCLUDED__
 
-#include "irrlicht.h"
+#include "nabla.h"
 
 #define RR_STATIC_LIBRARY
 #define USE_OPENCL

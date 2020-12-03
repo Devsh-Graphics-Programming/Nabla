@@ -12,7 +12,7 @@ namespace asset
 
 class ICPUSkinnedMesh;
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 //! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
 struct NBL_FORCE_EBO SkinnedMeshBlobV3 : VariableSizeBlob<SkinnedMeshBlobV3,ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV3, ICPUSkinnedMesh>
 {
@@ -37,7 +37,7 @@ static_assert(
     sizeof(SkinnedMeshBlobV3::boneHierarchyPtr) + sizeof(SkinnedMeshBlobV3::meshFlags) + sizeof(SkinnedMeshBlobV3::box) + sizeof(SkinnedMeshBlobV3::meshBufCnt) + sizeof(SkinnedMeshBlobV3::meshBufPtrs),
     "SkinnedMeshBlobV0: Size of blob is not sum of its contents!"
 );
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 template<>
 struct CorrespondingBlobTypeFor<ICPUSkinnedMesh> { typedef SkinnedMeshBlobV3 type; };

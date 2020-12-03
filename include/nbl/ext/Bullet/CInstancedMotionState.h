@@ -6,7 +6,7 @@
 #define _NBL_EXT_BULLET_C_INSTANCED_MOTION_STATE_INCLUDED_
 
 #include <cstdint>
-#include "irrlicht.h"
+#include "nabla.h"
 #include "nbl/core/IReferenceCounted.h"
 #include "btBulletDynamicsCommon.h"
 

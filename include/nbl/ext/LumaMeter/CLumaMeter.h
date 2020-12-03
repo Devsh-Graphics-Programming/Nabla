@@ -5,7 +5,7 @@
 #ifndef _NBL_EXT_LUMA_METER_C_LUMA_METER_INCLUDED_
 #define _NBL_EXT_LUMA_METER_C_LUMA_METER_INCLUDED_
 
-#include "irrlicht.h"
+#include "nabla.h"
 
 namespace nbl
 {

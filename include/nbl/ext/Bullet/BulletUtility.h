@@ -5,7 +5,7 @@
 #ifndef _NBL_EXT_BULLET_UTILITY_INCLUDED_
 #define _NBL_EXT_BULLET_UTILITY_INCLUDED_
 
-#include "irrlicht.h"
+#include "nabla.h"
 #include <cstdint>
 #include <type_traits>
 #include <typeinfo>

@@ -44,7 +44,7 @@ enum E_VERTEX_INPUT_RATE : uint8_t
     EVIR_PER_INSTANCE = 1
 };
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 struct SVertexInputAttribParams
 {
 	SVertexInputAttribParams() : binding(0u), format(EF_UNKNOWN), relativeOffset(0u) {}
@@ -299,7 +299,7 @@ enum E_BLEND_OP : uint8_t
     EBO_BLUE_EXT
 };
 
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 struct SColorAttachmentBlendParams
 {

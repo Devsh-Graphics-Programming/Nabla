@@ -5,7 +5,7 @@
 #define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
-#include <irrlicht.h>
+#include <nabla.h>
 
 #include "CommandLineHandler.hpp"
 #include "nbl/asset/filters/dithering/CPrecomputedDither.h"

@@ -5,7 +5,7 @@
 #ifndef __NBL_Q_TO_QUIT_EVENT_RECEIVER_H__INCLUDED__
 #define __NBL_Q_TO_QUIT_EVENT_RECEIVER_H__INCLUDED__
 
-#include "irrlicht.h"
+#include "nabla.h"
 
 //! Simple event receiver for most examples that closes the engine when Q is pressed
 class QToQuitEventReceiver : public nbl::IEventReceiver

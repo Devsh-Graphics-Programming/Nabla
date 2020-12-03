@@ -5,7 +5,7 @@
 #ifndef _APPLICATION_HANDLER_
 #define _APPLICATION_HANDLER_
 
-#include <irrlicht.h>
+#include <nabla.h>
 #include <iostream>
 #include <cstdio>
 #include <fstream>

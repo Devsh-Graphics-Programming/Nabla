@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include <irrlicht.h>
+#include <nabla.h>
 
 #include "../../../include/irr/asset/filters/CSummedAreaTableImageFilter.h"
 #include "nbl/ext/ScreenShot/ScreenShot.h"

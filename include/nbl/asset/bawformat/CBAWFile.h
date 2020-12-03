@@ -23,7 +23,7 @@ namespace nbl
 namespace asset
 {
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 	//! Cast pointer to block of blob-headers to BlobHeader* and easily iterate and/or access members
     template<uint64_t Version>
 	struct BlobHeaderVn
@@ -95,7 +95,7 @@ namespace asset
 		size_t calcHeadersOffset() const { return calcOffsetsOffset() + numOfInternalBlobs*sizeof(blobOffsets[0]); }
 		size_t calcBlobsOffset() const { return calcHeadersOffset() + numOfInternalBlobs*sizeof(BlobHeaderVn<Version>); }
 	} PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 
 	// ===============

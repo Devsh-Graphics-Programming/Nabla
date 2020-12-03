@@ -6,7 +6,7 @@
 #define __NBL_EXT_OPTIX_CONTEXT_H_INCLUDED__
 
 
-#include "irrlicht.h"
+#include "nabla.h"
 
 
 #include "nbl/ext/OptiX/IModule.h"

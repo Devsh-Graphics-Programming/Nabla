@@ -14,10 +14,10 @@ namespace asset
 
 class ICPUBuffer;
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 struct NBL_FORCE_EBO RawBufferBlobV0 : TypedBlob<RawBufferBlobV0, ICPUBuffer>, VariableSizeBlob<RawBufferBlobV0, ICPUBuffer>
 {};
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 using RawBufferBlobV1 = RawBufferBlobV0;
 using RawBufferBlobV2 = RawBufferBlobV1;

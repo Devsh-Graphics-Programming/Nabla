@@ -15,7 +15,7 @@ namespace asset
 
 class ICPUMeshBuffer;
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 //! Simple struct of essential data of ICPUMeshBuffer that has to be exported
 struct NBL_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV3, ICPUMeshBuffer>
 {
@@ -37,7 +37,7 @@ struct NBL_FORCE_EBO MeshBufferBlobV3 : TypedBlob<MeshBufferBlobV3, ICPUMeshBuff
 	uint32_t posAttrId;
 	uint32_t normalAttrId;
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 //TODO bring it back
 //static_assert(sizeof(MeshBufferBlobV0::mat)==197, "sizeof(MeshBufferBlobV0::mat) must be 197");
 

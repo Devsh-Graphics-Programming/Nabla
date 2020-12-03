@@ -7,7 +7,7 @@
 
 #include <cstdint>
 #include <type_traits>
-#include "irrlicht.h"
+#include "nabla.h"
 #include "nbl/core/IReferenceCounted.h"
 #include "btBulletDynamicsCommon.h"
 

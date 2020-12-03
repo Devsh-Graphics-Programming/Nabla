@@ -4,12 +4,12 @@
 
 #define _NBL_STATIC_LIB_
 #include <iostream>
-#include <irrlicht.h>
+#include <nabla.h>
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
 #include "../source/Irrlicht/COpenGLBuffer.h"
 #include "../source/Irrlicht/COpenGLDriver.h"
 
-#include <irrlicht.h>
+#include <nabla.h>
 
 #include "../common/QToQuitEventReceiver.h"
 #include "../source/Irrlicht/COpenGLExtensionHandler.h"
@@ -21,7 +21,7 @@ using namespace core;
 using namespace asset;
 using namespace video;
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 struct Vertex
 {
     uint32_t boneID;
@@ -30,7 +30,7 @@ struct Vertex
     uint8_t uv[2];
     float normal[3];
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 #include <nbl/asset/CCPUMeshPacker.h>
 #include "common.glsl"

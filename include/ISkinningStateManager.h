@@ -377,7 +377,7 @@ namespace scene
             uint32_t instanceDataSize;
 
             uint32_t instanceFinalBoneDataSize;
-            #include "nbl/irrpack.h"
+            #include "nbl/nblpack.h"
             struct FinalBoneData
             {
                 core::matrix4x3 SkinningTransform;
@@ -386,7 +386,7 @@ namespace scene
                 float MaxBBoxEdge[3];
                 float lastAnimatedFrame; //to pad to 128bit align, maybe parentOffsetRelative?
             } PACK_STRUCT;
-            #include "nbl/irrunpack.h"
+            #include "nbl/nblunpack.h"
             video::ResizableBufferingAllocatorST<InstanceDataAddressAllocator,core::allocator<uint8_t>,true>* instanceBoneDataAllocator;
 
             inline uint32_t getDataInstanceCapacity() const

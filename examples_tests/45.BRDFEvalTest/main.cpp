@@ -5,7 +5,7 @@
 #define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
-#include <irrlicht.h>
+#include <nabla.h>
 #include "nbl/ext/ScreenShot/ScreenShot.h"
 
 using namespace nbl;

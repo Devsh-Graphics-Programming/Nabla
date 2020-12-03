@@ -58,7 +58,7 @@ private:
 	{
 		core::stringc Name;
 		E_PLY_PROPERTY_TYPE Type;
-		#include "nbl/irrpack.h"
+		#include "nbl/nblpack.h"
 		union
 		{
 			uint8_t  Int8;
@@ -73,7 +73,7 @@ private:
 			} List PACK_STRUCT;
 
 		} Data PACK_STRUCT;
-		#include "nbl/irrunpack.h"
+		#include "nbl/nblunpack.h"
 
 		inline uint32_t size() const
 		{

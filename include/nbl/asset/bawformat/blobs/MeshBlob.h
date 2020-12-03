@@ -15,7 +15,7 @@ namespace asset
 
 class ICPUMesh;
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 //! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
 struct NBL_FORCE_EBO MeshBlobV3 : VariableSizeBlob<MeshBlobV3,asset::ICPUMesh>, TypedBlob<MeshBlobV3, asset::ICPUMesh>
 {
@@ -40,7 +40,7 @@ static_assert(
     sizeof(MeshBlobV3::box) + sizeof(MeshBlobV3::meshBufCnt) + sizeof(MeshBlobV3::meshFlags) + sizeof(MeshBlobV3::meshBufPtrs),
     "MeshBlobV0: Size of blob is not sum of its contents!"
 );
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 template<>
 struct CorrespondingBlobTypeFor<ICPUMesh> { typedef MeshBlobV3 type; };

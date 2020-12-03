@@ -34,7 +34,7 @@ namespace io
 	};
 
 // byte-align structures
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 
 	struct STarHeader
 	{
@@ -57,7 +57,7 @@ namespace io
 	} PACK_STRUCT;
 
 // Default alignment
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 	//! Archiveloader capable of loading ZIP Archives
 	class CArchiveLoaderTAR : public IArchiveLoader

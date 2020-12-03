@@ -28,7 +28,7 @@ SOFTWARE.
 #ifndef _NBL_EXT_CEGUI_INCLUDED_
 #define _NBL_EXT_CEGUI_INCLUDED_
 
-#include "irrlicht.h"
+#include "nabla.h"
 #include "Helpers.h"
 #include <CEGUI/widgets/Slider.h>
 #include <CEGUI/RendererModules/OpenGL/GL3Renderer.h>

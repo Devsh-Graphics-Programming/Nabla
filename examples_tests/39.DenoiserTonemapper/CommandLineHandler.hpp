@@ -8,7 +8,7 @@
 #include <iostream>
 #include <cstdio>
 #include <chrono>
-#include "irrlicht.h"
+#include "nabla.h"
 #include "nbl/core/core.h"
 #include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 

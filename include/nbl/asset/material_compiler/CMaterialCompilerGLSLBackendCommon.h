@@ -245,7 +245,7 @@ public:
 		}
 
 		using VTID = asset::ICPUVirtualTexture::SMasterTextureData;
-	#include "nbl/irrpack.h"
+	#include "nbl/nblpack.h"
 		struct STextureData {
 			STextureData() = default;
 
@@ -288,9 +288,9 @@ public:
 					uint32_t constant[3];//3x float
 				};
 			} PACK_STRUCT;
-	#include "nbl/irrunpack.h"
+	#include "nbl/nblunpack.h"
 
-	#include "nbl/irrpack.h"
+	#include "nbl/nblpack.h"
 			struct SAllDiffuse
 			{
 				STextureOrConstant alpha;
@@ -348,10 +348,10 @@ public:
 					uint64_t extras[2];
 				} PACK_STRUCT common;
 			};
-	#include "nbl/irrunpack.h"
+	#include "nbl/nblunpack.h"
 		};
 
-	#include "nbl/irrpack.h"
+	#include "nbl/nblpack.h"
 		struct STextureOrConstant
 		{
 			inline void setConst(core::vector3df_SIMD c) { constant = core::rgb32f_to_rgb19e7(c.pointer); }
@@ -370,9 +370,9 @@ public:
 				uint32_t prefetch;
 			};
 		} PACK_STRUCT;
-	#include "nbl/irrunpack.h"
+	#include "nbl/nblunpack.h"
 
-	#include "nbl/irrpack.h"
+	#include "nbl/nblpack.h"
 		struct SAllDiffuse
 		{
 			STextureOrConstant alpha;
@@ -429,7 +429,7 @@ public:
 				uint64_t extras[2];
 			} PACK_STRUCT common;
 		};
-	#include "nbl/irrunpack.h"
+	#include "nbl/nblunpack.h"
 
 	#define _TEXTURE_INDEX(s,m) offsetof(s,m)/sizeof(STextureOrConstant)
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t ALPHA_U_TEX_IX = _TEXTURE_INDEX(SAllDielectric, alpha_u);
@@ -473,7 +473,7 @@ public:
 		};
 		struct tex_prefetch
 		{
-		#include "nbl/irrpack.h"
+		#include "nbl/nblpack.h"
 			struct prefetch_instr_t
 			{
 				prefetch_instr_t() : qword{ 0ull, 0ull } {}
@@ -498,7 +498,7 @@ public:
 					} PACK_STRUCT;
 				};
 			} PACK_STRUCT;
-		#include "nbl/irrunpack.h"
+		#include "nbl/nblunpack.h"
 			static_assert(sizeof(prefetch_instr_t) == sizeof_uvec4);
 
 			using prefetch_stream_t = core::vector<prefetch_instr_t>;

@@ -5,7 +5,7 @@
 #define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
-#include <irrlicht.h>
+#include <nabla.h>
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
@@ -153,7 +153,7 @@ STextureData getTextureData(core::vector<commit_t>& _out_commits, const asset::I
 }
 
 constexpr uint32_t TEX_OF_INTEREST_CNT = 6u;
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 struct SPushConstants
 {
     //Ka
@@ -173,7 +173,7 @@ struct SPushConstants
     float IoR = 1.6f;
     uint32_t extra;
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 static_assert(sizeof(SPushConstants)<=asset::ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "doesnt fit in push constants");
 
 constexpr uint32_t texturesOfInterest[TEX_OF_INTEREST_CNT]{

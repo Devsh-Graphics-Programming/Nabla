@@ -17,7 +17,7 @@ namespace asset
 class CGeometryCreator : public IGeometryCreator
 {
 	public:
-	#include "nbl/irrpack.h"
+	#include "nbl/nblpack.h"
 		struct CubeVertex
 		{
 			float pos[3];
@@ -88,7 +88,7 @@ class CGeometryCreator : public IGeometryCreator
 			float normals[3];
 			float uv[2];
 		} PACK_STRUCT;
-	#include "nbl/irrunpack.h"
+	#include "nbl/nblunpack.h"
 
 
 		using SphereVertex = CylinderVertex;

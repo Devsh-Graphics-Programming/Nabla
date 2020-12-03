@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include <irrlicht.h>
+#include <nabla.h>
 #include <omp.h>
 #include <cassert>
 #include <random>

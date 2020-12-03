@@ -5,7 +5,7 @@
 #ifndef _NBL_EXT_C_DRAW_3D_LINE_INCLUDED_
 #define _NBL_EXT_C_DRAW_3D_LINE_INCLUDED_
 
-#include "irrlicht.h"
+#include "nabla.h"
 
 namespace nbl
 {
@@ -15,13 +15,13 @@ namespace DebugDraw
 {
 
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 struct S3DLineVertex
 {
     float Position[3];
     float Color[4];
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 class CDraw3DLine : public core::IReferenceCounted, public core::InterfaceUnmovable
 {

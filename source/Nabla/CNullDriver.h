@@ -6,7 +6,7 @@
 #ifndef __NBL_C_VIDEO_NULL_H_INCLUDED__
 #define __NBL_C_VIDEO_NULL_H_INCLUDED__
 
-#include "irrlicht.h"
+#include "nabla.h"
 
 #include "IVideoDriver.h"
 #include "IFileSystem.h"

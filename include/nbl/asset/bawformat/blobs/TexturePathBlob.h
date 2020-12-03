@@ -19,10 +19,10 @@ namespace video
 namespace asset
 {
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 struct NBL_FORCE_EBO TexturePathBlobV0 : TypedBlob<TexturePathBlobV0, ICPUTexture>, VariableSizeBlob<TexturePathBlobV0, ICPUTexture>
 {};
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 using TexturePathBlobV1 = TexturePathBlobV0;
 using TexturePathBlobV2 = TexturePathBlobV1;

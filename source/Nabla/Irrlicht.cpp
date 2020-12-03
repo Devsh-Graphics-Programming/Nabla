@@ -14,7 +14,7 @@ static const char* const copyright = "Irrlicht Engine (c) 2002-2011 Nikolaus Geb
 	#endif // _NBL_DEBUG
 #endif
 
-#include "irrlicht.h"
+#include "nabla.h"
 #ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 #include "CIrrDeviceWin32.h"
 #endif

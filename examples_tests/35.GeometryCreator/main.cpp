@@ -5,7 +5,7 @@
 #define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
-#include <irrlicht.h>
+#include <nabla.h>
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
@@ -14,7 +14,7 @@
 using namespace nbl;
 using namespace core;
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 struct GPUObject
 {
 	core::smart_refctd_ptr<video::IGPUMeshBuffer> meshbuffer;
@@ -40,7 +40,7 @@ struct Objects
 
 	const std::vector<std::pair<asset::IGeometryCreator::return_type, GPUObject>> objects;
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 const char* vertexSource = R"===(
 #version 430 core

@@ -8,7 +8,7 @@
 #include <cstdint>
 #include <tuple>
 #include "nbl/core/IReferenceCounted.h"
-#include <irrlicht.h>
+#include <nabla.h>
 
 namespace nbl {
     namespace video {

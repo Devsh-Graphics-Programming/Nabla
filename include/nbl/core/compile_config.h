@@ -46,7 +46,7 @@
 #ifdef _NBL_WINDOWS_API_
 
 // To build Irrlicht as a static library, you must define _NBL_STATIC_LIB_ in both the
-// Irrlicht build, *and* in the user application, before #including <irrlicht.h>
+// Irrlicht build, *and* in the user application, before #including <nabla.h>
 #ifndef _NBL_STATIC_LIB_
 #ifdef NABLA_EXPORTS
 #define NABLA_API __declspec(dllexport)

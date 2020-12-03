@@ -5,7 +5,7 @@
 #ifndef _RENDERER_INCLUDED_
 #define _RENDERER_INCLUDED_
 
-#include "irrlicht.h"
+#include "nabla.h"
 
 #include "nbl/ext/OptiX/OptiXManager.h"
 

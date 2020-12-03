@@ -5,7 +5,7 @@
 #define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
-#include <irrlicht.h>
+#include <nabla.h>
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
@@ -17,7 +17,7 @@ using namespace nbl;
 using namespace core;
 
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 struct VertexStruct
 {
     /// every member needs to be at location aligned to its type size for GLSL
@@ -25,7 +25,7 @@ struct VertexStruct
     uint8_t Col[2]; /// same logic needs 1 byte alignment
     uint8_t uselessPadding[2]; /// so if there is a member with 4 byte alignment then whole struct needs 4 byte align, so pad it
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 const char* vertexSource = R"===(
 #version 430 core

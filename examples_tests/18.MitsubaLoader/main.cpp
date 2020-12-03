@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #define _NBL_STATIC_LIB_
-#include <irrlicht.h>
+#include <nabla.h>
 
 #include "nbl/ext/ScreenShot/ScreenShot.h"
 
@@ -147,14 +147,14 @@ static auto createGPUImageView(const std::string& path, asset::IAssetManager* am
 	return gpuImageView;
 };
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 //std430-compatible
 struct SLight
 {
 	core::vectorSIMDf position;
 	core::vectorSIMDf intensity;
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 int main()
 {

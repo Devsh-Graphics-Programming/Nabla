@@ -37,7 +37,7 @@ class CMitsubaLoader : public asset::IAssetLoader
 	protected:
 		asset::IAssetManager* m_manager;
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 		//compatible with std430 and std140
 		struct SInstanceData
 		{
@@ -68,7 +68,7 @@ class CMitsubaLoader : public asset::IAssetLoader
 			uint32_t back_genchoice_count;
 			uint32_t back_prefetch_offset;
 		} PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 		//! Destructor
 		virtual ~CMitsubaLoader() = default;

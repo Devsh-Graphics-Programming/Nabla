@@ -13,7 +13,7 @@ namespace asset
 {
 	struct BlobLoadingParams;
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 	struct NBL_FORCE_EBO Blob
 	{
 		//! Coding method of blob's data enumeration
@@ -106,7 +106,7 @@ namespace asset
 
 		//static core::string printMemberPackingDebug();
 	};
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 	template<typename>
 	struct CorrespondingBlobTypeFor;

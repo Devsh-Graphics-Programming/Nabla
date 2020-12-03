@@ -70,7 +70,7 @@ class ISampler : public virtual core::IReferenceCounted
 			ECO_ALWAYS
 		};
 
-	#include "nbl/irrpack.h"
+	#include "nbl/nblpack.h"
 		struct SParams
 		{
 			struct {
@@ -118,7 +118,7 @@ class ISampler : public virtual core::IReferenceCounted
 			}
 			inline bool operator!=(const SParams& rhs) const { return !((*this)==rhs); }
 		} PACK_STRUCT;
-	#include "nbl/irrunpack.h"
+	#include "nbl/nblunpack.h"
 
 	protected:
 		ISampler(const SParams& _params) : m_params(_params) {}

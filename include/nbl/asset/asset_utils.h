@@ -27,7 +27,7 @@ inline void fillBufferWithDeadBeef(ICPUBuffer* _buf)
     fillBufferWithDWORD(_buf, 0xdeadbeefu);
 }
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 //! Designed for use with interface blocks declared with `layout (row_major, std140)`
 // TODO: change members to core::matrix3x4SIMD and core::matrix4SIMD
 struct SBasicViewParameters
@@ -40,7 +40,7 @@ struct SBasicViewParameters
     //! This vec3 is accessible in GLSL by accessing 4th column with [] operator
     float NormalMat[3*3+3];
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 }}
 

@@ -1,7 +1,7 @@
 #ifndef _EXTRA_CRAP_INCLUDED_
 #define _EXTRA_CRAP_INCLUDED_
 
-#include "irrlicht.h"
+#include "nabla.h"
 
 #include "nbl/ext/RadeonRays/RadeonRays.h"
 // pesky leaking defines

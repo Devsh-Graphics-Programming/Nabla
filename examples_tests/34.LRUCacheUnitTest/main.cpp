@@ -1,5 +1,5 @@
 #define _IRR_STATIC_LIB_
-#include <irrlicht.h>
+#include <nabla.h>
 #include "nbl/core/containers/LRUcache.h"
 
 using namespace nbl;

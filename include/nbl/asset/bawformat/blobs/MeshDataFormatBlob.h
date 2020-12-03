@@ -20,7 +20,7 @@ namespace legacyv0
 }
 
 #ifdef OLD_SHADERS
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 struct NBL_FORCE_EBO MeshDataFormatDescBlobV1 : TypedBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >, FixedSizeBlob<MeshDataFormatDescBlobV1, IMeshDataFormatDesc<ICPUBuffer> >
 {
 private:
@@ -39,7 +39,7 @@ public:
     uint64_t attrBufPtrs[VERTEX_ATTRIB_CNT];
     uint64_t idxBufPtr;
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 static_assert(
     sizeof(MeshDataFormatDescBlobV1) ==
     sizeof(MeshDataFormatDescBlobV1::attrFormat) + sizeof(MeshDataFormatDescBlobV1::attrStride) + sizeof(MeshDataFormatDescBlobV1::attrOffset) + sizeof(MeshDataFormatDescBlobV1::attrDivisor) + sizeof(MeshDataFormatDescBlobV1::padding) + sizeof(MeshDataFormatDescBlobV1::attrBufPtrs) + sizeof(MeshDataFormatDescBlobV1::idxBufPtr),

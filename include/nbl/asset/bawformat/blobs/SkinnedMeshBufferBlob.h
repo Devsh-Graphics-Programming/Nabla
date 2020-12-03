@@ -12,7 +12,7 @@ namespace asset
 
 class ICPUSkinnedMeshBuffer;
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 struct NBL_FORCE_EBO SkinnedMeshBufferBlobV3 : TypedBlob<SkinnedMeshBufferBlobV3, ICPUSkinnedMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV3, ICPUSkinnedMeshBuffer>
 {
 	//! Constructor filling all members
@@ -48,7 +48,7 @@ static_assert(
     "SkinnedMeshBufferBlobV0: Size of blob is not sum of its contents!"
 );
 #endif
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 template<>
 struct CorrespondingBlobTypeFor<ICPUSkinnedMeshBuffer> { typedef SkinnedMeshBufferBlobV3 type; };

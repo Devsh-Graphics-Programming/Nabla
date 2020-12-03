@@ -40,7 +40,7 @@ public:
 		}
 	};
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 	//needed to create entries of COpenGLPipelineCache
 	struct SGLKeyMeta
 	{
@@ -80,7 +80,7 @@ public:
 			return sizeof(SSpecInfo)-sizeof(SSpecInfo::SEntry) + _scCnt*sizeof(SSpecInfo::SEntry) + sizeof(spirvHash) + sizeof(bindingsPerSet) + _bndCnt*sizeof(SBinding);
 		}
 	} PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 	struct SCacheKey
 	{
 		GPUID gpuid;

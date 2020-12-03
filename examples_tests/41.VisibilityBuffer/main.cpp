@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #define _NBL_STATIC_LIB_
-#include <irrlicht.h>
+#include <nabla.h>
 
 #include "../common/QToQuitEventReceiver.h"
 #include <nbl/video/IGPUVirtualTexture.h>
@@ -213,7 +213,7 @@ STextureData getTextureData(const asset::ICPUImage* _img, asset::ICPUVirtualText
 }
 
 constexpr uint32_t TEX_OF_INTEREST_CNT = 6u;
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 struct SInstanceData
 {
     core::matrix4SIMD modelViewProjection;
@@ -234,7 +234,7 @@ struct SInstanceData
     float IoR = 1.6f;
     uint32_t extra;
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 static_assert((sizeof(SInstanceData)&0xfull)==0ull, "sizeof(SInstanceData) is not aligned to 16!");
 
 struct SDrawElementsIndirectCommand {

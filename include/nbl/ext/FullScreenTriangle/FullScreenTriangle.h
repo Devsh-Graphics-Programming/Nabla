@@ -5,7 +5,7 @@
 #ifndef _NBL_EXT_FULL_SCREEN_TRIANGLE_FULL_SCREEN_TRIANGLE_INCLUDED_
 #define _NBL_EXT_FULL_SCREEN_TRIANGLE_FULL_SCREEN_TRIANGLE_INCLUDED_
 
-#include "irrlicht.h"
+#include "nabla.h"
 
 namespace nbl
 {

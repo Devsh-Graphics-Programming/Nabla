@@ -5,7 +5,7 @@
 #ifndef __NBL_S_COLLISION_ENGINE_H_INCLUDED__
 #define __NBL_S_COLLISION_ENGINE_H_INCLUDED__
 
-#include "irrlicht.h"
+#include "nabla.h"
 #include "SCompoundCollider.h"
 #include "SViewFrustum.h"
 

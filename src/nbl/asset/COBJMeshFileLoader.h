@@ -21,7 +21,7 @@ namespace io
 namespace asset
 {
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 class SObjVertex
 {
 public:
@@ -57,7 +57,7 @@ public:
     float uv[2];
     uint32_t normal32bit;
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 //! Meshloader capable of loading obj meshes.
 class COBJMeshFileLoader : public asset::IAssetLoader

@@ -72,7 +72,7 @@ enum E_COMPONENT_TYPE
 };
 
 #ifdef OLD_SHADERS
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 //! Simple struct of essential data of ICPUMeshDataFormatDesc that has to be exported
 //! Irrelevant in version 1.
 //! @see @ref MeshDataFormatDescBlobV1
@@ -91,7 +91,7 @@ public:
     uint64_t attrBufPtrs[VERTEX_ATTRIB_CNT];
     uint64_t idxBufPtr;
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 static_assert(
     sizeof(MeshDataFormatDescBlobV0) == 
     sizeof(MeshDataFormatDescBlobV0::cpa) + sizeof(MeshDataFormatDescBlobV0::attrType) + sizeof(MeshDataFormatDescBlobV0::attrStride) + sizeof(MeshDataFormatDescBlobV0::attrOffset) + sizeof(MeshDataFormatDescBlobV0::attrDivisor) + sizeof(MeshDataFormatDescBlobV0::attrBufPtrs) + sizeof(MeshDataFormatDescBlobV0::idxBufPtr),
@@ -102,7 +102,7 @@ static_assert(
 asset::E_FORMAT mapECT_plus_ECPA_onto_E_FORMAT(E_COMPONENT_TYPE _ct, E_COMPONENTS_PER_ATTRIBUTE _cpa);
 
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 struct NBL_FORCE_EBO FinalBoneHierarchyBlobV0 : VariableSizeBlob<FinalBoneHierarchyBlobV0,CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV0, CFinalBoneHierarchy>
 {
 public:
@@ -115,7 +115,7 @@ public:
     size_t numLevelsInHierarchy;
     size_t keyframeCount;
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 static_assert(
     sizeof(FinalBoneHierarchyBlobV0) ==
     sizeof(FinalBoneHierarchyBlobV0::boneCount) + sizeof(FinalBoneHierarchyBlobV0::numLevelsInHierarchy) + sizeof(FinalBoneHierarchyBlobV0::keyframeCount),
@@ -124,7 +124,7 @@ static_assert(
 
 class ICPUMesh;
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 //! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
 struct NBL_FORCE_EBO MeshBlobV0 : VariableSizeBlob<MeshBlobV0, asset::ICPUMesh>, TypedBlob<MeshBlobV0, asset::ICPUMesh>
 {
@@ -133,7 +133,7 @@ public:
 	uint32_t meshBufCnt;
 	uint64_t meshBufPtrs[1];
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 static_assert(sizeof(core::aabbox3df) == 24, "sizeof(core::aabbox3df) must be 24");
 static_assert(sizeof(MeshBlobV0::meshBufPtrs) == 8, "sizeof(MeshBlobV0::meshBufPtrs) must be 8");
 static_assert(
@@ -144,7 +144,7 @@ static_assert(
 
 class ICPUSkinnedMesh;
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 //! Utility struct. Cast blob pointer to MeshBlob* to make life easier.
 struct NBL_FORCE_EBO SkinnedMeshBlobV0 : VariableSizeBlob<SkinnedMeshBlobV0, ICPUSkinnedMesh>, TypedBlob<SkinnedMeshBlobV0, ICPUSkinnedMesh>
 {
@@ -154,7 +154,7 @@ public:
 	uint32_t meshBufCnt;
 	uint64_t meshBufPtrs[1];
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 static_assert(sizeof(SkinnedMeshBlobV0::meshBufPtrs) == 8, "sizeof(SkinnedMeshBlobV0::meshBufPtrs) must be 8");
 static_assert(
 	sizeof(SkinnedMeshBlobV0) ==
@@ -162,7 +162,7 @@ static_assert(
 	"SkinnedMeshBlobV0: Size of blob is not sum of its contents!"
 	);
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 //! Simple struct of essential data of ICPUMeshBuffer that has to be exported
 struct NBL_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuffer>, FixedSizeBlob<MeshBufferBlobV0, ICPUMeshBuffer>
 {
@@ -180,7 +180,7 @@ struct NBL_FORCE_EBO MeshBufferBlobV0 : TypedBlob<MeshBufferBlobV0, ICPUMeshBuff
 	uint32_t primitiveType;
 	uint32_t posAttrId;
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 #ifdef OLD_SHADERS
 static_assert(sizeof(MeshBufferBlobV0::mat) == 197, "sizeof(MeshBufferBlobV0::mat) must be 197");
 static_assert(
@@ -194,7 +194,7 @@ static_assert(
 
 class ICPUSkinnedMeshBuffer;
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 struct NBL_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>, FixedSizeBlob<SkinnedMeshBufferBlobV0, ICPUSkinnedMeshBuffer>
 {
 #ifdef OLD_SHADERS
@@ -214,7 +214,7 @@ struct NBL_FORCE_EBO SkinnedMeshBufferBlobV0 : TypedBlob<SkinnedMeshBufferBlobV0
 	uint32_t indexValMax;
 	uint32_t maxVertexBoneInfluences;
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 #ifdef OLD_SHADERS
 static_assert(sizeof(SkinnedMeshBufferBlobV0::mat) == 197, "sizeof(MeshBufferBlobV0::mat) must be 197");
 static_assert(
@@ -242,7 +242,7 @@ using SkinnedMeshBufferBlobV1 = legacyv0::SkinnedMeshBufferBlobV0;
 namespace legacyv2
 {
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 struct NBL_FORCE_EBO FinalBoneHierarchyBlobV2 : VariableSizeBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>, TypedBlob<FinalBoneHierarchyBlobV2, CFinalBoneHierarchy>
 {
 public:
@@ -251,7 +251,7 @@ public:
 	size_t numLevelsInHierarchy;
 	size_t keyframeCount;
 } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 static_assert(
 	sizeof(FinalBoneHierarchyBlobV2) ==
 	sizeof(FinalBoneHierarchyBlobV2::boneCount) + sizeof(FinalBoneHierarchyBlobV2::numLevelsInHierarchy) + sizeof(FinalBoneHierarchyBlobV2::keyframeCount),

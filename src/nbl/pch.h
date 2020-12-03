@@ -5,7 +5,7 @@
 #ifndef __NBL_PCH_H_INCLUDED__
 #define __NBL_PCH_H_INCLUDED__
 
-#include "irrlicht.h"
+#include "nabla.h"
 
 #include "nbl/core/pch_core.h"
 #include "nbl/asset/pch_asset.h"

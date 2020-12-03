@@ -17,7 +17,7 @@ namespace asset
 class CMTLPipelineMetadata final : public IPipelineMetadata
 {
 public:
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
     //! This struct is compliant with GLSL's std140 and std430 layouts
     struct alignas(16) SMTLMaterialParameters
     {
@@ -59,7 +59,7 @@ public:
         //map presence: bits [4;16], order in accordance with E_MAP_TYPE
         uint32_t extra = 0u;
     } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
     //VS Intellisense shows error here because it think vectorSIMDf is 32 bytes, but it just Intellisense - it'll build anyway
     static_assert(sizeof(SMTLMaterialParameters) == 128ull, "Something went wrong");
 

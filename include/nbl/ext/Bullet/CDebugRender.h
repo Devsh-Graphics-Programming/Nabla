@@ -5,7 +5,7 @@
 #ifndef _NBL_EXT_BULLET_C_DEBUG_RENDER_INCLUDED_
 #define _NBL_EXT_BULLET_C_DEBUG_RENDER_INCLUDED_
 
-#include "irrlicht.h"
+#include "nabla.h"
 #include "nbl/core/IReferenceCounted.h"
 #include "btBulletDynamicsCommon.h"
 

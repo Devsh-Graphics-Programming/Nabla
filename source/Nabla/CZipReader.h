@@ -26,7 +26,7 @@ namespace io
 	const int16_t ZIP_INFO_IN_DATA_DESCRIPTOR =	0x0008;
 
 // byte-align structures
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 
 	struct SZIPFileDataDescriptor
 	{
@@ -123,7 +123,7 @@ namespace io
 	} PACK_STRUCT;
 
 // Default alignment
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 	//! Contains extended info about zip files in the archive
 	struct SZipFileEntry

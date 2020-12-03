@@ -6,7 +6,7 @@
 #define _INPUT_EVENT_RECEIVER_H_
 #include <iostream>
 #include <cstdio>
-#include <irrlicht.h>
+#include <nabla.h>
 
 class ChgSpacingEventReciever : public nbl::IEventReceiver
 {

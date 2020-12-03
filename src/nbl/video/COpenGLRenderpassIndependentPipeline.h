@@ -221,7 +221,7 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
             }
 
             union {
-    #include "nbl/irrpack.h"
+    #include "nbl/nblpack.h"
                 struct {
                     uint64_t relOffsets[3];//16*12 bits
                     uint64_t strides[3];//16*12 bits
@@ -230,7 +230,7 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
                     //E_FORMAT values
                     uint8_t attribFormatAndComponentCount[asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT];//attribute X is enabled if attribFormatAndComponentCount[X]!=EF_UNKNOWN
                 } PACK_STRUCT;
-    #include "nbl/irrunpack.h"
+    #include "nbl/nblunpack.h"
                 uint32_t hashVal[19]{};
             };
 

@@ -24,7 +24,7 @@ class IVirtualTextureBase
 {
 public:
     _NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_PAGE_TABLE_LAYERS = 256u;
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
     //! std430-compatible layout
     struct SPrecomputedData
     {
@@ -33,7 +33,7 @@ public:
         float layer_to_phys_pg_tex_sz_rcp[MAX_PAGE_TABLE_LAYERS];
         uint32_t layer_to_sampler_ix[MAX_PAGE_TABLE_LAYERS];
     } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
     using physical_tiles_per_dim_log2_callback_t = std::function<uint32_t(E_FORMAT_CLASS)>;
 };
@@ -88,7 +88,7 @@ public:
         static inline bool computeMiptailOffsets(rect* res, int log2SIZE, int padding);
     };
 
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
     //must be 64bit
     template <typename CRTP>
     struct NBL_FORCE_EBO STextureData
@@ -159,7 +159,7 @@ public:
     protected:
         STextureData() = default;
     } PACK_STRUCT;
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
     struct NBL_FORCE_EBO SMasterTextureData : STextureData<SMasterTextureData> 
     {

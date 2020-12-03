@@ -17,7 +17,7 @@ namespace asset
 #if defined(_NBL_COMPILE_WITH_TGA_LOADER_) || defined(_NBL_COMPILE_WITH_TGA_WRITER_)
 
 // byte-align structures
-#include "nbl/irrpack.h"
+#include "nbl/nblpack.h"
 
 	// these structs are also used in the TGA writer
 	struct STGAHeader{
@@ -83,7 +83,7 @@ namespace asset
 	};
 	
 // Default alignment
-#include "nbl/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 #endif // compiled with loader or reader
 

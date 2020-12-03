@@ -4,7 +4,7 @@
 
 #define _NBL_STATIC_LIB_
 
-#include <irrlicht.h>
+#include <nabla.h>
 #include "BRDFExplorerApp.h"
 #include "CBRDFBuiltinIncludeLoader.h"
 
