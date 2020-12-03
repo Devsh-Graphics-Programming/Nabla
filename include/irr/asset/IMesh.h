@@ -42,6 +42,7 @@ namespace asset
 			core::aabbox3d<float> cachedBoundingBox;
 
 			virtual ~IMesh() {}
+
 		public:
 
 			//! Get the amount of mesh buffers.

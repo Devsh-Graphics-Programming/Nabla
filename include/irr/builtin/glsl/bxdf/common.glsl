@@ -1,8 +1,6 @@
 #ifndef _IRR_BSDF_COMMON_INCLUDED_
 #define _IRR_BSDF_COMMON_INCLUDED_
 
-#include <irr/builtin/glsl/math/constants.glsl>
-#include <irr/builtin/glsl/math/functions.glsl>
 #include <irr/builtin/glsl/limits/numeric.glsl>
 
 #include <irr/builtin/glsl/math/functions.glsl>
@@ -108,6 +106,11 @@ irr_glsl_LightSample irr_glsl_createLightSample(in vec3 L, in irr_glsl_Anisotrop
     return irr_glsl_createLightSample(L,dot(interaction.isotropic.V.dir,L),interaction.T,interaction.B,interaction.isotropic.N);
 }
 
+vec3 irr_glsl_getTangentSpaceL(in irr_glsl_LightSample s)
+{
+    return vec3(s.TdotL, s.BdotL, s.NdotL);
+}
+
 //TODO move to different glsl header @Crisspl (The code is not DRY, you have something similar in material compiler!)
 // chain rule on various functions (usually vertex attributes and barycentrics)
 vec2 irr_glsl_applyScreenSpaceChainRule1D3(in vec3 dFdG, in mat2x3 dGdScreen)
@@ -128,20 +131,25 @@ mat2x4 irr_glsl_applyScreenSpaceChainRule4D3(in mat3x4 dFdG, in mat2x3 dGdScreen
 }
 
 // only in the fragment shader we have access to implicit derivatives
+irr_glsl_IsotropicViewSurfaceInteraction irr_glsl_calcFragmentShaderSurfaceInteractionFromViewVector(in vec3 _View, in vec3 _SurfacePos, in vec3 _Normal)
+{
+    irr_glsl_IsotropicViewSurfaceInteraction interaction;
+    interaction.V.dir = _View;
+    interaction.V.dPosdScreen[0] = dFdx(_SurfacePos);
+    interaction.V.dPosdScreen[1] = dFdy(_SurfacePos);
+    interaction.N = _Normal;
+    float invlenV2 = inversesqrt(dot(interaction.V.dir, interaction.V.dir));
+    float invlenN2 = inversesqrt(dot(interaction.N, interaction.N));
+    interaction.V.dir *= invlenV2;
+    interaction.N *= invlenN2;
+    interaction.NdotV = dot(interaction.N, interaction.V.dir);
+    interaction.NdotV_squared = interaction.NdotV * interaction.NdotV;
+    return interaction;
+}
 irr_glsl_IsotropicViewSurfaceInteraction irr_glsl_calcFragmentShaderSurfaceInteraction(in vec3 _CamPos, in vec3 _SurfacePos, in vec3 _Normal)
 {
-   irr_glsl_IsotropicViewSurfaceInteraction interaction;
-   interaction.V.dir = _CamPos-_SurfacePos;
-   interaction.V.dPosdScreen[0] = dFdx(_SurfacePos);
-   interaction.V.dPosdScreen[1] = dFdy(_SurfacePos);
-   interaction.N = _Normal;
-   float invlenV2 = inversesqrt(dot(interaction.V.dir,interaction.V.dir));
-   float invlenN2 = inversesqrt(dot(interaction.N,interaction.N));
-   interaction.V.dir *= invlenV2;
-   interaction.N *= invlenN2;
-   interaction.NdotV = dot(interaction.N,interaction.V.dir);
-   interaction.NdotV_squared = interaction.NdotV*interaction.NdotV;
-   return interaction;
+    vec3 V = _CamPos - _SurfacePos;
+    return irr_glsl_calcFragmentShaderSurfaceInteractionFromViewVector(V, _SurfacePos, _Normal);
 }
 irr_glsl_AnisotropicViewSurfaceInteraction irr_glsl_calcAnisotropicInteraction(in irr_glsl_IsotropicViewSurfaceInteraction isotropic, in vec3 T, in vec3 B)
 {
@@ -222,6 +230,11 @@ struct irr_glsl_AnisotropicMicrofacetCache
     float TdotH;
     float BdotH;
 };
+
+bool irr_glsl_isValidVNDFMicrofacet(in irr_glsl_IsotropicMicrofacetCache microfacet, in bool is_bsdf, in bool transmission, in float VdotL, in float eta, in float rcp_eta)
+{
+    return microfacet.NdotH >= 0.0 && !(is_bsdf && transmission && (VdotL > -min(eta, rcp_eta)));
+}
 
 // returns if the configuration of V and L can be achieved 
 bool irr_glsl_calcIsotropicMicrofacetCache(out irr_glsl_IsotropicMicrofacetCache _cache, in bool transmitted, in vec3 V, in vec3 L, in vec3 N, in float NdotL, in float VdotL, in float orientedEta, in float rcpOrientedEta, out vec3 H)
@@ -340,6 +353,15 @@ irr_glsl_AnisotropicMicrofacetCache irr_glsl_calcAnisotropicMicrofacetCache(in b
     tangentSpaceL = irr_glsl_reflect_refract_impl(transmitted, tangentSpaceV,tangentSpaceH, VdotH,_cache.isotropic.LdotH, rcpOrientedEta);
 
     return _cache;
+}
+
+float irr_glsl_bxdf_remainder_to_eval(in float remainder, in float pdf)
+{
+    return remainder * pdf;
+}
+vec3 irr_glsl_bxdf_remainder_to_eval(in vec3 remainder, in float pdf)
+{
+    return remainder * pdf;
 }
 
 #endif

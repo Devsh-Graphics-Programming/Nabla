@@ -30,17 +30,24 @@ float irr_glsl_smith_VNDF_pdf_wo_clamps(in float ndf, in float G1_over_2NdotV)
     return ndf*0.5*G1_over_2NdotV;
 }
 
-float irr_glsl_smith_VNDF_pdf_wo_clamps(in float ndf, in float G1_over_2NdotV, in float absNdotV, in bool transmitted, in float VdotH, in float LdotH, in float VdotHLdotH, in float orientedEta, in float reflectance)
+float irr_glsl_smith_FVNDF_pdf_wo_clamps(in float fresnel_ndf, in float G1_over_2NdotV, in float absNdotV, in bool transmitted, in float VdotH, in float LdotH, in float VdotHLdotH, in float orientedEta)
 {
-    float FNG = (transmitted ? (1.0-reflectance):reflectance)*ndf*G1_over_2NdotV;
+    float FNG = fresnel_ndf * G1_over_2NdotV;
     float factor = 0.5;
     if (transmitted)
     {
-        const float VdotH_etaLdotH = (VdotH+orientedEta*LdotH);
+        const float VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
         // VdotHLdotH is negative under transmission, so this factor is negative
-        factor *= -2.0*VdotHLdotH/(VdotH_etaLdotH*VdotH_etaLdotH);
+        factor *= -2.0 * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH);
     }
-    return FNG*factor;
+    return FNG * factor;
+}
+
+float irr_glsl_smith_VNDF_pdf_wo_clamps(in float ndf, in float G1_over_2NdotV, in float absNdotV, in bool transmitted, in float VdotH, in float LdotH, in float VdotHLdotH, in float orientedEta, in float reflectance)
+{
+    float FN = (transmitted ? (1.0 - reflectance) : reflectance) * ndf;
+    
+    return irr_glsl_smith_FVNDF_pdf_wo_clamps(FN, G1_over_2NdotV, absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
 }
 
 #endif

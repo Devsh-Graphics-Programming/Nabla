@@ -7,6 +7,10 @@
 // pesky leaking defines
 #undef PI
 
+#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
+
+#include <ISceneManager.h>
+
 #ifdef _IRR_BUILD_OPTIX_
 #include "irr/ext/OptiX/Manager.h"
 #endif
@@ -15,226 +19,175 @@
 class Renderer : public irr::core::IReferenceCounted, public irr::core::InterfaceUnmovable
 {
     public:
-		struct alignas(16) SLight
-		{
-			enum E_TYPE : uint32_t
-			{
-				ET_ELLIPSOID,
-				ET_TRIANGLE,
-				ET_COUNT
-			};
-			struct CachedTransform
-			{
-				CachedTransform(const irr::core::matrix3x4SIMD& tform) : transform(tform)
-				{
-					auto tmp4 = irr::core::matrix4SIMD(transform.getSub3x3TransposeCofactors());
-					transformCofactors = irr::core::transpose(tmp4).extractSub3x4();
-				}
-
-				irr::core::matrix3x4SIMD transform;
-				irr::core::matrix3x4SIMD transformCofactors;
-			};
-
-
-			SLight() : type(ET_COUNT) {}
-			SLight(const SLight& other) : type(other.type)
-			{
-				std::copy(other.strengthFactor,other.strengthFactor+3u,strengthFactor);
-				if (type == ET_TRIANGLE)
-					std::copy(other.triangle.vertices, other.triangle.vertices+3u, triangle.vertices);
-				else
-				{
-					analytical.transform = other.analytical.transform;
-					analytical.transformCofactors = other.analytical.transformCofactors;
-				}
-			}
-			~SLight() {}
-
-			inline SLight& operator=(SLight&& other)
-			{
-				std::swap_ranges(strengthFactor,strengthFactor+3u,other.strengthFactor);
-				auto a = other.analytical;
-				auto t = other.triangle;
-				if (type!=ET_TRIANGLE)
-					other.analytical = analytical;
-				else
-					other.triangle = triangle;
-				if (other.type)
-					analytical = a;
-				else
-					triangle = t;
-				std::swap(type, other.type);
-
-				return *this;
-			}
-
-			void setFactor(const irr::core::vectorSIMDf& _strengthFactor)
-			{
-				for (auto i=0u; i<3u; i++)
-					strengthFactor[i] = _strengthFactor[i];
-			}
-
-			//! This is according to Rec.709 colorspace
-			inline float getFactorLuminosity() const
-			{
-				float rec709LumaCoeffs[] = {0.2126f, 0.7152, 0.0722};
-
-				//! TODO: More color spaces!
-				float* colorSpaceLumaCoeffs = rec709LumaCoeffs;
-
-				float luma = strengthFactor[0] * colorSpaceLumaCoeffs[0];
-				luma += strengthFactor[1] * colorSpaceLumaCoeffs[1];
-				luma += strengthFactor[2] * colorSpaceLumaCoeffs[2];
-				return luma;
-			}
-
-			inline float computeAreaUnderTransform(irr::core::vectorSIMDf differentialElementCrossProduct) const
-			{
-				analytical.transformCofactors.mulSub3x3WithNx1(differentialElementCrossProduct);
-				return irr::core::length(differentialElementCrossProduct).x;
-			}
-
-			inline float computeFlux(float triangulizationArea) const // also known as lumens
-			{
-				const auto unitHemisphereArea = 2.f*irr::core::PI<float>();
-				const auto unitSphereArea = 2.f*unitHemisphereArea;
-
-				float lightFlux = unitHemisphereArea*getFactorLuminosity();
-				switch (type)
-				{
-					case ET_ELLIPSOID:
-						_IRR_FALLTHROUGH;
-					case ET_TRIANGLE:
-						lightFlux *= triangulizationArea;
-						break;
-					default:
-						assert(false);
-						break;
-				}
-				return lightFlux;
-			}
-
-			static inline SLight createFromTriangle(const irr::core::vectorSIMDf& _strengthFactor, const CachedTransform& precompTform, const irr::core::vectorSIMDf* v, float* outArea=nullptr)
-			{
-				SLight triLight;
-				triLight.type = ET_TRIANGLE;
-				triLight.setFactor(_strengthFactor);
-				triLight.analytical = precompTform;
-
-				float triangleArea = 0.5f*triLight.computeAreaUnderTransform(irr::core::cross(v[1]-v[0],v[2]-v[0]));
-				if (outArea)
-					*outArea = triangleArea;
-
-				for (auto k=0u; k<3u; k++)
-					precompTform.transform.transformVect(triLight.triangle.vertices[k], v[k]);
-				triLight.triangle.vertices[1] -= triLight.triangle.vertices[0];
-				triLight.triangle.vertices[2] -= triLight.triangle.vertices[0];
-				// always flip the handedness so normal points inwards (need negative normal for differential area optimization)
-				if (precompTform.transform.getPseudoDeterminant().x>0.f)
-					std::swap(triLight.triangle.vertices[2], triLight.triangle.vertices[1]);
-
-				// don't do any flux magic yet
-
-				return triLight;
-			}
-
-			//! different lights use different measures of their strength (this already has the reciprocal of the light PDF factored in)
-			alignas(16) float strengthFactor[3];
-			//! type is second member due to alignment issues
-			E_TYPE type;
-			//! useful for analytical shapes
-			union
-			{
-				CachedTransform analytical;
-				struct Triangle
-				{
-					irr::core::vectorSIMDf padding[3];
-					irr::core::vectorSIMDf vertices[3];
-				} triangle;
-			};
-			/*
-			union
-			{
-				AreaSphere sphere;
-			};
-			*/
-		};
-#ifndef NEW_SHADERS
-		static_assert(sizeof(SLight)==112u,"Can't keep alignment straight!");
+		#include "../InstanceDataPerCamera.glsl"
+		#ifdef __cplusplus
+			#undef mat4
+			#undef mat4x3
+		#endif
 
 		// No 8k yet, too many rays to store
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxResolution[2] = {7680/2,4320/2};
 
 
-		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, bool useDenoiser = true);
+		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet>&& globalBackendDataDS, bool useDenoiser = true);
 
 		void init(	const irr::asset::SAssetBundle& meshes,
 					bool isCameraRightHanded,
 					irr::core::smart_refctd_ptr<irr::asset::ICPUBuffer>&& sampleSequence,
-					uint32_t rayBufferSize=(sizeof(::RadeonRays::ray)*2u+sizeof(uint32_t)*2u)*MaxResolution[0]*MaxResolution[1]); // 2 samples for MIS
+					uint32_t rayBufferSize=(sizeof(::RadeonRays::ray)*2u+sizeof(uint32_t)*2u)*MaxResolution[0]*MaxResolution[1]); // 2 samples for MIS, TODO: compute default buffer size
 
 		void deinit();
 
-		void render();
+		void render(irr::ITimer* timer);
 
 		bool isRightHanded() { return m_rightHanded; }
 
 		auto* getColorBuffer() { return m_colorBuffer; }
 
-		const auto& getSceneBound() const { return sceneBound; }
+		const auto& getSceneBound() const { return m_sceneBound; }
 
-		uint64_t getTotalSamplesComputed() const { return static_cast<uint64_t>(m_samplesComputed)*static_cast<uint64_t>(m_rayCount)/m_samplesPerDispatch; }
+		uint64_t getTotalSamplesComputed() const { return static_cast<uint64_t>(m_samplesComputedPerPixel)*static_cast<uint64_t>(m_rayCountPerDispatch)/m_samplesPerPixelPerDispatch; }
 
 
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 4u;
+		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 6u;
     protected:
         ~Renderer();
 
+		struct InitializationData
+		{
+			InitializationData() : lights(),lightRadiances(),lightCDF(),globalMeta(nullptr) {}
+			InitializationData(InitializationData&& other) : InitializationData()
+			{
+				operator=(std::move(other));
+			}
+			~InitializationData() {lightCDF.~vector(); }
+
+			inline InitializationData& operator=(InitializationData&& other)
+			{
+				lights = std::move(other.lights);
+				lightRadiances = std::move(other.lightRadiances);
+				lightCDF = std::move(other.lightCDF);
+				globalMeta = other.globalMeta;
+				return *this;
+			}
+			
+
+			struct VisibilityBufferPipelineKey
+			{
+				inline bool operator==(const VisibilityBufferPipelineKey& other) const
+				{
+					return vertexParams==other.vertexParams&&frontFaceIsCCW==other.frontFaceIsCCW;
+				}
+
+				irr::asset::SVertexInputParams vertexParams;
+				uint8_t frontFaceIsCCW;
+			};
+			struct VisibilityBufferPipelineKeyHash
+			{
+				inline std::size_t operator()(const VisibilityBufferPipelineKey& key) const
+				{
+					std::basic_string_view view(reinterpret_cast<const char*>(&key),sizeof(key));
+					return std::hash<decltype(view)>()(view);
+				}
+			};
+			irr::core::unordered_map<VisibilityBufferPipelineKey,irr::core::smart_refctd_ptr<irr::video::IGPURenderpassIndependentPipeline>,VisibilityBufferPipelineKeyHash> m_visibilityBufferFillPipelines;
+
+			irr::core::vector<SLight> lights;
+			irr::core::vector<irr::core::vectorSIMDf> lightRadiances;
+			union
+			{
+				irr::core::vector<uint32_t> lightPDF;
+				irr::core::vector<uint32_t> lightCDF;
+			};
+			const irr::ext::MitsubaLoader::CGlobalMitsubaMetadata* globalMeta = nullptr;
+		};
+		InitializationData initSceneObjects(const irr::asset::SAssetBundle& meshes);
+		void initSceneNonAreaLights(InitializationData& initData);
+		void finalizeScene(InitializationData& initData);
+
+		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> createScreenSizedTexture(irr::asset::E_FORMAT format);
+
+#if TODO
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDS2layoutCompost(bool useDenoiser, core::smart_refctd_ptr<video::IGPUSampler>& nearstSampler);
+		core::smart_refctd_ptr<video::IGPUDescriptorSet> createDS2Compost(bool useDenoiser,
+			core::smart_refctd_ptr<video::IGPUSampler>& nearestSampler
+		);
+		core::smart_refctd_ptr<video::IGPUPipelineLayout> createLayoutCompost();
+
+		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDS2layoutRaygen(core::smart_refctd_ptr<video::IGPUSampler>& nearstSampler);
+		core::smart_refctd_ptr<video::IGPUDescriptorSet> createDS2Raygen(core::smart_refctd_ptr<video::IGPUSampler>& nearstSampler);
+		core::smart_refctd_ptr<video::IGPUPipelineLayout> createLayoutRaygen();
+#endif
+
+		const bool m_useDenoiser;
 
         irr::video::IVideoDriver* m_driver;
 
 		irr::asset::IAssetManager* m_assetManager;
 		irr::scene::ISceneManager* m_smgr;
 
-		irr::core::vector<std::array<irr::core::vector3df_SIMD,3> > m_precomputedGeodesic;
-
 		irr::core::smart_refctd_ptr<irr::ext::RadeonRays::Manager> m_rrManager;
 
+		irr::core::smart_refctd_ptr<irr::video::IGPUSpecializedShader> m_visibilityBufferFillShaders[2];
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSetLayout> m_perCameraRasterDSLayout;
+		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_visibilityBufferFillPipelineLayout;
+		
+		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_raygenPipeline,m_resolvePipeline;
+
+
+		irr::core::vectorSIMDf baseEnvColor;
+		irr::core::aabbox3df m_sceneBound;
+		uint32_t m_renderSize[2u];
 		bool m_rightHanded;
 
-		irr::core::smart_refctd_ptr<irr::video::ITextureBufferObject> m_sampleSequence;
-		irr::core::smart_refctd_ptr<irr::video::ITexture> m_scrambleTexture;
-
-		irr::video::E_MATERIAL_TYPE nonInstanced;
-		uint32_t m_raygenProgram, m_compostProgram;
-		irr::core::smart_refctd_ptr<irr::video::ITexture> m_depth,m_albedo,m_normals,m_lightIndex,m_accumulation,m_tonemapOutput;
-		irr::video::IFrameBuffer* m_colorBuffer,* m_gbuffer,* tmpTonemapBuffer;
-
-		uint32_t m_maxSamples;
-		uint32_t m_raygenWorkGroups[2];
-		uint32_t m_resolveWorkGroups[2];
-		uint32_t m_samplesPerDispatch;
-		uint32_t m_samplesComputed;
-		uint32_t m_rayCount;
-		uint32_t m_framesDone;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_rayBuffer;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_intersectionBuffer;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_rayCountBuffer;
-		std::pair<::RadeonRays::Buffer*,cl_mem> m_rayBufferAsRR;
-		std::pair<::RadeonRays::Buffer*,cl_mem> m_intersectionBufferAsRR;
-		std::pair<::RadeonRays::Buffer*,cl_mem> m_rayCountBufferAsRR;
-
-		irr::core::vector<irr::core::smart_refctd_ptr<irr::scene::IMeshSceneNode> > nodes;
-		irr::core::aabbox3df sceneBound;
-		irr::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
-		irr::ext::RadeonRays::Manager::MeshNodeRRInstanceCache rrInstances;
-
-		irr::core::vectorSIMDf constantClearColor;
 		uint32_t m_lightCount;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightCDFBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightRadianceBuffer;
+
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_globalBackendDataDS,m_perCameraRasterDS; // TODO: do we need to keep track of this?
+
+
+		irr::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
+#if TODO
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_compostDS2;
+		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_compostLayout;
+		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_compostPipeline;
+
+		uint32_t m_raygenWorkGroups[2];
+		uint32_t m_resolveWorkGroups[2];
+
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_raygenDS2;
+		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_raygenLayout;
+
+		irr::ext::RadeonRays::Manager::MeshNodeRRInstanceCache rrInstances;
 #endif
+		struct InteropBuffer
+		{
+			irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> buffer;
+			std::pair<::RadeonRays::Buffer*,cl_mem> asRRBuffer;
+		};
+		InteropBuffer m_rayCountBuffer,m_rayBuffer,m_intersectionBuffer;
+
+
+		enum E_VISIBILITY_BUFFER_ATTACHMENT
+		{
+			EVBA_DEPTH,
+			EVBA_OBJECTID_AND_TRIANGLEID_AND_FRONTFACING,
+			// TODO: Once we get geometry packer V2 (virtual geometry) no need for these buffers actually (might want/need a barycentric buffer)
+			EVBA_NORMALS,
+			EVBA_UV_COORDINATES,
+			EVBA_COUNT
+		};
+		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_visibilityBufferAttachments[EVBA_COUNT];
+
+		uint32_t m_maxSamples, m_samplesPerPixelPerDispatch, m_rayCountPerDispatch;
+		uint32_t m_framesDone, m_samplesComputedPerPixel;
+		irr::core::smart_refctd_ptr<irr::video::IGPUBufferView> m_sampleSequence;
+		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_scrambleTexture;
+
+		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_accumulation, m_tonemapOutput;
+		irr::video::IFrameBuffer* m_visibilityBuffer,* m_colorBuffer,* tmpTonemapBuffer;
 
 	#ifdef _IRR_BUILD_OPTIX_
 		irr::core::smart_refctd_ptr<irr::ext::OptiX::Manager> m_optixManager;

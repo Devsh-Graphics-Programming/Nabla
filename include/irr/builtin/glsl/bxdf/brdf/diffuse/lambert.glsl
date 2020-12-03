@@ -42,11 +42,13 @@ irr_glsl_LightSample irr_glsl_lambertian_cos_generate(in irr_glsl_AnisotropicVie
 
 float irr_glsl_lambertian_pdf_wo_clamps(in float maxNdotL)
 {
-    float pdf;
-    irr_glsl_projected_hemisphere_remainder_and_pdf(pdf,maxNdotL);
-    return pdf;
+    return irr_glsl_projected_hemisphere_pdf(maxNdotL);
 }
 
+float irr_glsl_lambertian_pdf(in irr_glsl_LightSample s, in irr_glsl_IsotropicViewSurfaceInteraction i)
+{
+    return irr_glsl_lambertian_pdf_wo_clamps(max(s.NdotL,0.0));
+}
 
 
 float irr_glsl_lambertian_cos_remainder_and_pdf_wo_clamps(out float pdf, in float maxNdotL)

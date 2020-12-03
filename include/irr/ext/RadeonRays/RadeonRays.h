@@ -9,7 +9,6 @@
 #undef USE_OPENCL
 #undef RR_STATIC_LIBRARY
 
-#include "../../../irr/ext/RadeonRays/RadeonRaysIncludeLoader.h"
 
 namespace irr
 {
@@ -33,8 +32,9 @@ class Manager final : public core::IReferenceCounted
 
 
 		using MeshBufferRRShapeCache = core::unordered_map<const asset::ICPUMeshBuffer*,::RadeonRays::Shape*>;
+#ifdef TODO
 		using MeshNodeRRInstanceCache = core::unordered_map<scene::IMeshSceneNode*, core::smart_refctd_dynamic_array<::RadeonRays::Shape*> >;
-
+#endif
 
 		template<typename Iterator>
 		inline void makeRRShapes(MeshBufferRRShapeCache& shapeCache, Iterator _begin, Iterator _end)
@@ -52,10 +52,10 @@ class Manager final : public core::IReferenceCounted
 
 
 				auto posAttrID = mb->getPositionAttributeIx();
-				auto format = mb->getMeshDataAndFormat()->getAttribFormat(posAttrID);
+				auto format = mb->getAttribFormat(posAttrID);
 				assert(format==asset::EF_R32G32B32A32_SFLOAT||format==asset::EF_R32G32B32_SFLOAT);
 
-				auto pType = mb->getPrimitiveType();
+				auto pType = mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
 				switch (pType)
 				{
 					case asset::EPT_TRIANGLE_STRIP:
@@ -64,7 +64,7 @@ class Manager final : public core::IReferenceCounted
 					case asset::EPT_TRIANGLE_FAN:
 						maxIndexCount = core::max(((mb->getIndexCount()-1u)/2u)*3u, maxIndexCount);
 						break;
-					case asset::EPT_TRIANGLES:
+					case asset::EPT_TRIANGLE_LIST:
 						maxIndexCount = core::max(mb->getIndexCount(), maxIndexCount);
 						break;
 					default:
@@ -88,6 +88,7 @@ class Manager final : public core::IReferenceCounted
 				rr->DeleteShape(std::get<::RadeonRays::Shape*>(*it));
 		}
 
+#ifdef TODO
 		template<typename Iterator>
 		inline void makeRRInstances(MeshNodeRRInstanceCache& instanceCache, const MeshBufferRRShapeCache& shapeCache,
 									asset::IAssetManager* _assetManager, Iterator _begin, Iterator _end, const int32_t* _id_begin=nullptr)
@@ -175,13 +176,9 @@ class Manager final : public core::IReferenceCounted
 			if (needToCommit)
 				rr->Commit();
 		}
+#endif
 
-		inline RadeonRaysIncludeLoader* getRadeonRaysGLSLIncludes()
-		{
-			return radeonRaysIncludes.get();
-		}
-
-		inline bool hasImplicitCL2GLSync() const { return automaticOpenCLSync; }
+		inline bool hasImplicitCL2GLSync() const { return m_automaticOpenCLSync; }
 
 
 		inline auto* getRadeonRaysAPI() {return rr;}
@@ -189,22 +186,21 @@ class Manager final : public core::IReferenceCounted
 		inline cl_command_queue getCLCommandQueue() { return commandQueue; }
 
 	protected:
-		Manager(video::IVideoDriver* _driver);
+		Manager(video::IVideoDriver* _driver, cl_context context, bool automaticOpenCLSync);
 		~Manager();
 
 		void makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMeshBuffer* mb, int32_t* indices);
+#ifdef TODO
 		void makeInstance(	MeshNodeRRInstanceCache& instanceCache,
 							const core::unordered_map<const video::IGPUMeshBuffer*,MeshBufferRRShapeCache::value_type>& GPU2CPUTable,
 							scene::IMeshSceneNode* node, const int32_t* id_it);
-
-		
-		static core::smart_refctd_ptr<RadeonRaysIncludeLoader> radeonRaysIncludes;
-		static cl_context context;
-		static bool automaticOpenCLSync;
+#endif
 
 		video::IVideoDriver* driver;
-		cl_command_queue commandQueue;
 		::RadeonRays::IntersectionApi* rr;
+		cl_context m_context;
+		cl_command_queue commandQueue;
+		bool m_automaticOpenCLSync;
 };
 
 }

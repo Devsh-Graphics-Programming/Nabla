@@ -23,6 +23,7 @@ set(irr_resources_to_embed
   "irr/builtin/shaders/loaders/mtl/fragment_impl.glsl"
   "irr/builtin/shaders/loaders/mtl/fragment_no_uv.frag"
   "irr/builtin/shaders/loaders/mtl/fragment_uv.frag"
+  "irr/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl"
   "irr/builtin/specializedshaders/fullscreentriangle.vert"
   "irr/builtin/materials/lambertian/singletexture/specializedshader.vert"
   "irr/builtin/materials/lambertian/singletexture/specializedshader.frag"
@@ -100,6 +101,8 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/utils/indirect_commands.glsl"
   "irr/builtin/glsl/utils/common.glsl"
   "irr/builtin/glsl/utils/culling.glsl"
+  "irr/builtin/glsl/utils/normal_decode.glsl"
+  "irr/builtin/glsl/utils/normal_encode.glsl"
   "irr/builtin/glsl/utils/transform.glsl"
   # virtual texturing
   "irr/builtin/glsl/virtual_texturing/descriptors.glsl"
@@ -124,5 +127,7 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/ext/LumaMeter/common.glsl"
   "irr/builtin/glsl/ext/LumaMeter/impl.glsl"
   "irr/builtin/glsl/ext/ToneMapper/operators.glsl"
+  "irr/builtin/glsl/ext/RadeonRays/intersection.glsl"
+  "irr/builtin/glsl/ext/RadeonRays/ray.glsl"
 PARENT_SCOPE)
 
