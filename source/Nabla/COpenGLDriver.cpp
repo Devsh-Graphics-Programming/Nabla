@@ -96,7 +96,7 @@ public:
             [&](uint32_t, const spirv_cross::SPIRFunction& func) {
                     uint32_t fid = func.self;
                     const std::string& nm = get_name(fid);
-                    const char expected[] = "irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier";
+                    const char expected[] = "nbl_builtin_glsl_workaround_AMD_broken_row_major_qualifier";
                     if (strncmp(nm.c_str(), expected, sizeof(expected)-1u) == 0)
                     {
                         auto& param_type = get_type(func.arguments[0].type);
@@ -705,7 +705,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceLinux* device, SAuxContext* auxCtxts)
 	genericDriverInit(device->getAssetManager());
 
 	// set vsync
-	//if (queryOpenGLFeature(IRR_))
+	//if (queryOpenGLFeature(NBL_))
         extGlSwapInterval(Params.Vsync ? -1 : 0);
 	return true;
 }

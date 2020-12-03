@@ -6,7 +6,7 @@
 #include <nabla.h>
 
 #include "../common/QToQuitEventReceiver.h"
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "../source/Nabla/COpenGLExtensionHandler.h"
 
 #include <random>
 

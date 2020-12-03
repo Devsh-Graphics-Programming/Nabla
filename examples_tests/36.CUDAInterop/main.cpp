@@ -6,7 +6,7 @@
 #include <nabla.h>
 
 
-#include "../src/irr/video/CCUDAHandler.h"
+#include "../src/nbl/video/CCUDAHandler.h"
 
 /**
 This example just shows a screen which clears to red,

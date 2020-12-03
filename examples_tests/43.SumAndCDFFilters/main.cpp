@@ -4,7 +4,7 @@
 
 #include <nabla.h>
 
-#include "../../../include/irr/asset/filters/CSummedAreaTableImageFilter.h"
+#include "../../../include/nbl/asset/filters/CSummedAreaTableImageFilter.h"
 #include "nbl/ext/ScreenShot/ScreenShot.h"
 
 using namespace nbl;

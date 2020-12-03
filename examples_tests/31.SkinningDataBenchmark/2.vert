@@ -4,7 +4,6 @@
 
 #include "common.glsl"
 
-#include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
 
 layout(std430, set = 0, binding = 0, row_major) restrict readonly buffer BoneMatrices
 {
@@ -28,10 +27,10 @@ void main()
 #endif
 
 #ifndef BENCHMARK    
-    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(boneMatrix[boneID]) * vec4(pos, 1.0);
-    vNormal = mat3(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(normalMatrix[boneID])) * normalize(normal);
+    gl_Position = boneMatrix[boneID] * vec4(pos, 1.0);
+    vNormal = mat3(normalMatrix[boneID]) * normalize(normal);
 #else
-    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(boneMatrix[boneID]) * vec4(pos, 1.0);
-    gl_Position.xyz += mat3(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(normalMatrix[boneID])) * normal;
+    gl_Position = boneMatrix[boneID] * vec4(pos, 1.0);
+    gl_Position.xyz += mat3(normalMatrix[boneID]) * normal;
 #endif
 }

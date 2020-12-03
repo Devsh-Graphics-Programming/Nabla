@@ -5,14 +5,14 @@
 #define _NBL_STATIC_LIB_
 #include <iostream>
 #include <nabla.h>
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
-#include "../source/Irrlicht/COpenGLBuffer.h"
-#include "../source/Irrlicht/COpenGLDriver.h"
+#include "../source/Nabla/COpenGLExtensionHandler.h"
+#include "../source/Nabla/COpenGLBuffer.h"
+#include "../source/Nabla/COpenGLDriver.h"
 
 #include <nabla.h>
 
 #include "../common/QToQuitEventReceiver.h"
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "../source/Nabla/COpenGLExtensionHandler.h"
 
 #include <random>
 

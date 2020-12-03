@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#define _IRR_STATIC_LIB_
+#define _NBL_STATIC_LIB_
 #include <nabla.h>
 
 #include "nbl/ext/ScreenShot/ScreenShot.h"
@@ -425,7 +425,7 @@ int main()
 		{
 			auto workgroupCount = [](uint32_t workItems) -> uint32_t
 			{
-				return (workItems+_IRR_GLSL_WORKGROUP_SIZE_-1)/_IRR_GLSL_WORKGROUP_SIZE_;
+				return (workItems+_NBL_GLSL_WORKGROUP_SIZE_-1)/_NBL_GLSL_WORKGROUP_SIZE_;
 			};
 
             driver->bindComputePipeline(clearDrawsAndCullObjectsPipeline.get());

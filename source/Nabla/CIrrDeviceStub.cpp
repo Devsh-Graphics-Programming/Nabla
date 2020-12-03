@@ -41,7 +41,7 @@ CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
 
 	FileSystem = core::make_smart_refctd_ptr<io::CFileSystem>(std::string(CreationParams.builtinResourceDirectoryPath));
 
-	core::stringc s = "Irrlicht Engine version ";
+	core::stringc s = "Nabla Engine version ";
 	s.append(getVersion());
 	os::Printer::log(s.c_str(), ELL_INFORMATION);
 

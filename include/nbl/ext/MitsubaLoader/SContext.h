@@ -148,7 +148,7 @@ namespace MitsubaLoader
 
 			core::matrix3x4SIMD tform;
 			SContext::bsdf_type bsdf;
-#if defined(_IRR_DEBUG) || defined(_IRR_RELWITHDEBINFO)
+#if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
 			std::string bsdf_id;
 #endif
 			CElementEmitter emitter; // type is invalid if not used

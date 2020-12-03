@@ -42,12 +42,12 @@ layout (push_constant) uniform Block {
     uint instDataOffset;
 } PC;
 
-#ifndef _IRR_VERT_SET1_BINDINGS_DEFINED_
-#define _IRR_VERT_SET1_BINDINGS_DEFINED_
+#ifndef _NBL_VERT_SET1_BINDINGS_DEFINED_
+#define _NBL_VERT_SET1_BINDINGS_DEFINED_
 layout (set = 1, binding = 0, row_major, std140) uniform UBO {
-    irr_glsl_SBasicViewParameters params;
+    nbl_glsl_SBasicViewParameters params;
 } CamData;
-#endif //_IRR_VERT_SET1_BINDINGS_DEFINED_
+#endif //_NBL_VERT_SET1_BINDINGS_DEFINED_
 
 #include <nbl/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl>
 
@@ -59,9 +59,9 @@ void main()
 {
 	uint instIx = PC.instDataOffset+gl_InstanceIndex;
 	mat4x3 tform = InstData.data[instIx].tform;
-	mat4 mvp = irr_glsl_pseudoMul4x4with4x3(CamData.params.MVP, tform);
-	gl_Position = irr_glsl_pseudoMul4x4with3x1(mvp, vPosition);
-	WorldPos = irr_glsl_pseudoMul3x4with3x1(tform, vPosition);
+	mat4 mvp = nbl_glsl_pseudoMul4x4with4x3(CamData.params.MVP, tform);
+	gl_Position = nbl_glsl_pseudoMul4x4with3x1(mvp, vPosition);
+	WorldPos = nbl_glsl_pseudoMul3x4with3x1(tform, vPosition);
 	//InstrOffsetCount = uvec2(InstData.data[instIx].instrOffset,InstData.data[instIx].instrCount);
 	mat3 normalMat = mat3(InstData.data[instIx].normalMatrixRow0,InstData.data[instIx].normalMatrixRow1,InstData.data[instIx].normalMatrixRow2);
 	Normal = transpose(normalMat)*normalize(vNormal);
@@ -84,28 +84,28 @@ layout (location = 3) in vec2 UV;
 
 layout (location = 0) out vec4 OutColor;
 
-#define _IRR_VT_DESCRIPTOR_SET 0
-#define _IRR_VT_PAGE_TABLE_BINDING 0
+#define _NBL_VT_DESCRIPTOR_SET 0
+#define _NBL_VT_PAGE_TABLE_BINDING 0
 
-#define _IRR_VT_FLOAT_VIEWS_BINDING 1 
-#define _IRR_VT_FLOAT_VIEWS_COUNT _VT_STORAGE_VIEW_COUNT
-#define _IRR_VT_FLOAT_VIEWS
+#define _NBL_VT_FLOAT_VIEWS_BINDING 1 
+#define _NBL_VT_FLOAT_VIEWS_COUNT _VT_STORAGE_VIEW_COUNT
+#define _NBL_VT_FLOAT_VIEWS
 
-#define _IRR_VT_INT_VIEWS_BINDING 2
-#define _IRR_VT_INT_VIEWS_COUNT 0
-#define _IRR_VT_INT_VIEWS
+#define _NBL_VT_INT_VIEWS_BINDING 2
+#define _NBL_VT_INT_VIEWS_COUNT 0
+#define _NBL_VT_INT_VIEWS
 
-#define _IRR_VT_UINT_VIEWS_BINDING 3
-#define _IRR_VT_UINT_VIEWS_COUNT 0
-#define _IRR_VT_UINT_VIEWS
+#define _NBL_VT_UINT_VIEWS_BINDING 3
+#define _NBL_VT_UINT_VIEWS_COUNT 0
+#define _NBL_VT_UINT_VIEWS
 #include <nbl/builtin/glsl/virtual_texturing/descriptors.glsl>
 
 layout (set = 0, binding = 2, std430) restrict readonly buffer VT_PrecomputedStuffSSBO
 {
     uint pgtab_sz_log2;
     float vtex_sz_rcp;
-    float phys_pg_tex_sz_rcp[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
-    uint layer_to_sampler_ix[_IRR_VT_MAX_PAGE_TABLE_LAYERS];
+    float phys_pg_tex_sz_rcp[_NBL_VT_MAX_PAGE_TABLE_LAYERS];
+    uint layer_to_sampler_ix[_NBL_VT_MAX_PAGE_TABLE_LAYERS];
 } VT_precomputed;
 
 layout (set = 0, binding = 3, std430) restrict readonly buffer INSTR_BUF
@@ -121,30 +121,30 @@ layout (set = 0, binding = 4, std430) restrict readonly buffer BSDF_BUF
 	bsdf_data_t data[];
 } bsdf_buf;
 
-uint irr_glsl_VT_layer2pid(in uint layer)
+uint nbl_glsl_VT_layer2pid(in uint layer)
 {
     return VT_precomputed.layer_to_sampler_ix[layer];
 }
-uint irr_glsl_VT_getPgTabSzLog2()
+uint nbl_glsl_VT_getPgTabSzLog2()
 {
     return VT_precomputed.pgtab_sz_log2;
 }
-float irr_glsl_VT_getPhysPgTexSzRcp(in uint layer)
+float nbl_glsl_VT_getPhysPgTexSzRcp(in uint layer)
 {
     return VT_precomputed.phys_pg_tex_sz_rcp[layer];
 }
-float irr_glsl_VT_getVTexSzRcp()
+float nbl_glsl_VT_getVTexSzRcp()
 {
     return VT_precomputed.vtex_sz_rcp;
 }
-#define _IRR_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
+#define _NBL_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
 
 #include <nbl/builtin/glsl/virtual_texturing/functions.glsl/7/8>
 
 #include <nbl/builtin/glsl/utils/common.glsl>
 
 layout (set = 1, binding = 0, row_major, std140) uniform UBO {
-    irr_glsl_SBasicViewParameters params;
+    nbl_glsl_SBasicViewParameters params;
 } CamData;
 
 #include <nbl/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl>
@@ -153,32 +153,32 @@ layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDa
 	InstanceData data[];
 } InstData;
 
-vec3 irr_glsl_MC_getNormalizedWorldSpaceV()
+vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()
 {
-	vec3 campos = irr_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
+	vec3 campos = nbl_glsl_SBasicViewParameters_GetEyePos(CamData.params.NormalMatAndEyePos);
 	return normalize(campos - WorldPos);
 }
-vec3 irr_glsl_MC_getNormalizedWorldSpaceN()
+vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 {
 	return normalize(Normal);
 }
-vec3 irr_glsl_MC_getWorldSpacePosition()
+vec3 nbl_glsl_MC_getWorldSpacePosition()
 {
 	return WorldPos;
 }
-instr_t irr_glsl_MC_fetchInstr(in uint ix)
+instr_t nbl_glsl_MC_fetchInstr(in uint ix)
 {
 	return instr_buf.data[ix];
 }
-prefetch_instr_t irr_glsl_MC_fetchPrefetchInstr(in uint ix)
+prefetch_instr_t nbl_glsl_MC_fetchPrefetchInstr(in uint ix)
 {
 	return prefetch_instr_buf.data[ix];
 }
-bsdf_data_t irr_glsl_MC_fetchBSDFData(in uint ix)
+bsdf_data_t nbl_glsl_MC_fetchBSDFData(in uint ix)
 {
 	return bsdf_buf.data[ix];
 }
-#define _IRR_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
+#define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 )";
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
 #include <nbl/builtin/glsl/format/decode.glsl>
@@ -253,13 +253,13 @@ instr_stream_t getNormalPrecompStream(in MC_precomputed_t precomp)
 	return stream;
 }
 
-#ifndef _IRR_BSDF_COS_EVAL_DEFINED_
-#define _IRR_BSDF_COS_EVAL_DEFINED_
+#ifndef _NBL_BSDF_COS_EVAL_DEFINED_
+#define _NBL_BSDF_COS_EVAL_DEFINED_
 // Spectrum can be exchanged to a float for monochrome
 #define Spectrum vec3
 //! This is the function that evaluates the BSDF for specific view and observer direction
 // params can be either BSDFIsotropicParams or BSDFAnisotropicParams
-Spectrum irr_bsdf_cos_eval(in MC_precomputed_t precomp, in vec3 L, in irr_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
+Spectrum nbl_bsdf_cos_eval(in MC_precomputed_t precomp, in vec3 L, in nbl_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
 {
 	instr_stream_t eval_instrStream = getEvalStream(precomp);
 
@@ -267,19 +267,19 @@ Spectrum irr_bsdf_cos_eval(in MC_precomputed_t precomp, in vec3 L, in irr_glsl_I
 }
 #endif
 
-#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_
-#define _IRR_COMPUTE_LIGHTING_DEFINED_
-vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in MC_precomputed_t precomp)
+#ifndef _NBL_COMPUTE_LIGHTING_DEFINED_
+#define _NBL_COMPUTE_LIGHTING_DEFINED_
+vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in MC_precomputed_t precomp)
 {
-	vec3 emissive = irr_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
+	vec3 emissive = nbl_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
-	vec3 campos = irr_glsl_MC_getCamPos();
+	vec3 campos = nbl_glsl_MC_getCamPos();
 	
-	//irr_glsl_BSDFIsotropicParams params;
+	//nbl_glsl_BSDFIsotropicParams params;
 	//params.L = campos-WorldPos;
-	out_interaction = irr_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, normalize(Normal));
+	out_interaction = nbl_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, normalize(Normal));
 
-	return irr_bsdf_cos_eval(precomp, precomp.V, out_interaction, dUV)/dot(params.L,params.L) + emissive;
+	return nbl_bsdf_cos_eval(precomp, precomp.V, out_interaction, dUV)/dot(params.L,params.L) + emissive;
 }
 #endif
 
@@ -298,8 +298,8 @@ void main()
 #endif
 
 
-	irr_glsl_IsotropicViewSurfaceInteraction inter;
-	vec3 color = irr_computeLighting(inter, dUV, precomp);
+	nbl_glsl_IsotropicViewSurfaceInteraction inter;
+	vec3 color = nbl_computeLighting(inter, dUV, precomp);
 
 	OutColor = vec4(color, 1.0);
 }
@@ -1340,7 +1340,7 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 								case CElementTexture::Bitmap::CHANNEL::Y:
 								case CElementTexture::Bitmap::CHANNEL::Z:*/
 								case CElementTexture::Bitmap::CHANNEL::INVALID:
-									_NBL_FALLTHROUGH;
+									[[fallthrough]];
 								default:
 									break;
 							}

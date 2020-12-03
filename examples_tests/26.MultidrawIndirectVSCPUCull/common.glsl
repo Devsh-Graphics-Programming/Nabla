@@ -27,10 +27,10 @@ struct DrawData_t
 };
 
 #ifndef __cplusplus
-#include <irr/builtin/glsl/utils/common.glsl>
-#include <irr/builtin/glsl/utils/transform.glsl>
+#include <nbl/builtin/glsl/utils/common.glsl>
+#include <nbl/builtin/glsl/utils/transform.glsl>
 
-#include <irr/builtin/glsl/utils/indirect_commands.glsl>
+#include <nbl/builtin/glsl/utils/indirect_commands.glsl>
 
-#include <irr/builtin/glsl/utils/culling.glsl>
+#include <nbl/builtin/glsl/utils/culling.glsl>
 #endif

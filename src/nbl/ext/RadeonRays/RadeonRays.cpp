@@ -7,7 +7,7 @@
 #include "nbl/ext/RadeonRays/RadeonRays.h"
 
 #define __C_CUDA_HANDLER_H__ // don't want CUDA declarations and defines to pollute here
-#include "../source/Irrlicht/COpenGLDriver.h"
+#include "../source/Nabla/COpenGLDriver.h"
 
 using namespace nbl;
 using namespace asset;
@@ -28,7 +28,7 @@ core::smart_refctd_ptr<Manager> Manager::create(video::IVideoDriver* _driver)
 	if (!context)
 		return nullptr;
 
-	auto manager = new Manager(_driver,context,ocl::COpenCLHandler::getPlatformInfo(glDriver->getOpenCLAssociatedPlatformID()).FeatureAvailable[ocl::COpenCLHandler::SOpenCLPlatformInfo::IRR_KHR_GL_EVENT]);
+	auto manager = new Manager(_driver,context,ocl::COpenCLHandler::getPlatformInfo(glDriver->getOpenCLAssociatedPlatformID()).FeatureAvailable[ocl::COpenCLHandler::SOpenCLPlatformInfo::NBL_KHR_GL_EVENT]);
 	return core::smart_refctd_ptr<Manager>(manager,core::dont_grab);
 }
 

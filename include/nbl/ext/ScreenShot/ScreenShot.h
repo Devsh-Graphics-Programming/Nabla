@@ -5,10 +5,10 @@
 #ifndef _NBL_EXT_SCREEN_SHOT_INCLUDED_
 #define _NBL_EXT_SCREEN_SHOT_INCLUDED_
 
-#include "irrlicht.h"
+#include "nabla.h"
 
-#include "../../../../source/Irrlicht/COpenGLBuffer.h"
-#include "../../../../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "../../../../source/Nabla/COpenGLBuffer.h"
+#include "../../../../source/Nabla/COpenGLExtensionHandler.h"
 #include "../../../nbl/asset/IImageAssetHandlerBase.h"
 
 namespace nbl

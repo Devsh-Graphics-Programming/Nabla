@@ -5,7 +5,7 @@
 #ifndef _NBL_EXT_TONE_MAPPER_C_TONE_MAPPER_INCLUDED_
 #define _NBL_EXT_TONE_MAPPER_C_TONE_MAPPER_INCLUDED_
 
-#include "irrlicht.h"
+#include "nabla.h"
 #include "../../../nbl/ext/LumaMeter/CLumaMeter.h"
 
 namespace nbl

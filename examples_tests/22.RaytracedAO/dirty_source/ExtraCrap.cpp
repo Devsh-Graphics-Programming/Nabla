@@ -32,7 +32,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, nbl::sce
 		m_lightCount(0u),
 		m_visibilityBufferAttachments{nullptr}, m_maxSamples(0u), m_samplesPerPixelPerDispatch(0u), m_rayCountPerDispatch(0u), m_framesDone(0u), m_samplesComputedPerPixel(0u),
 		m_sampleSequence(), m_scrambleTexture(), m_accumulation(), m_tonemapOutput(), m_visibilityBuffer(nullptr), tmpTonemapBuffer(nullptr), m_colorBuffer(nullptr)
-	#ifdef _IRR_BUILD_OPTIX_
+	#ifdef _NBL_BUILD_OPTIX_
 		,m_cudaStream(nullptr)
 	#endif
 {
@@ -47,7 +47,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, nbl::sce
 		m_visibilityBufferFillPipelineLayout = m_driver->createGPUPipelineLayout(nullptr,nullptr,nullptr,nullptr,core::smart_refctd_ptr(m_perCameraRasterDSLayout),nullptr);
 	}
 
-	#ifdef _IRR_BUILD_OPTIX_
+	#ifdef _NBL_BUILD_OPTIX_
 		while (useDenoiser)
 		{
 			useDenoiser = false;
@@ -119,7 +119,7 @@ core::smart_refctd_ptr<video::IGPUDescriptorSet> Renderer::createDS2Compost(bool
 
 	auto layout = createDS2layoutCompost(useDenoiser, nearestSampler);
 
-#ifdef _IRR_BUILD_OPTIX
+#ifdef _NBL_BUILD_OPTIX
 	auto resolveBuffer = core::smart_refctd_ptr<IDescriptor>(m_denoiserInputBuffer.getObject());
 	uint32_t denoiserOffsets[DENOISER_COUNT]{ m_denoiserInputs[EDI_COLOR].data,m_denoiserInputs[EDI_ALBEDO].data,m_denoiserInputs[EDI_NORMAL].data };
 	uint32_t denoiserSizes[DENOISER_COUNT]{ getDenoiserBufferSize(m_denoiserInputs[EDI_COLOR])
@@ -134,7 +134,7 @@ core::smart_refctd_ptr<video::IGPUDescriptorSet> Renderer::createDS2Compost(bool
 		m_accumulation,
 		m_rayBuffer,
 		m_intersectionBuffer
-#ifdef _IRR_BUILD_OPTIX
+#ifdef _NBL_BUILD_OPTIX
 		,
 		resolveBuffer,
 		resolveBuffer,
@@ -167,12 +167,12 @@ core::smart_refctd_ptr<video::IGPUDescriptorSet> Renderer::createDS2Compost(bool
 		if (w.descriptorType == EDT_STORAGE_BUFFER)
 		{
 			auto* buf = static_cast<IGPUBuffer*>(info[i].desc.get());
-#ifdef _IRR_BUILD_OPTIX
+#ifdef _NBL_BUILD_OPTIX
 			info[i].buffer.offset = (i >= COUNT_WO_DENOISER) ? denoiserOffsets[i-COUNT_WO_DENOISER] : 0u;
 #else
 			info[i].buffer.offset = 0u;
 #endif
-#ifdef _IRR_BUILD_OPTIX
+#ifdef _NBL_BUILD_OPTIX
 			info[i].buffer.size = (i >= COUNT_WO_DENOISER) ? denoiserSizes[i-COUNT_WO_DENOISER] : buf->getSize();
 #else
 			info[i].buffer.size = buf->getSize();

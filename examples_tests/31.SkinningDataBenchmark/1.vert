@@ -4,8 +4,6 @@
 
 #include "common.glsl"
 
-#include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
-
 struct BoneNormalMatPair
 {
     mat4 boneMatrix;
@@ -32,11 +30,11 @@ void main()
     const vec3 normal = vec3(1.0, 2.0, 3.0);
 #endif
 #ifndef BENCHMARK
-    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(matrices[boneID].boneMatrix) * vec4(pos, 1.0);
-    vNormal = mat3(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(matrices[boneID].normalMatrix)) * normalize(normal);
+    gl_Position = matrices[boneID].boneMatrix * vec4(pos, 1.0);
+    vNormal = mat3(matrices[boneID].normalMatrix) * normalize(normal);
 #else
-    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(matrices[boneID].boneMatrix) * vec4(pos, 1.0);
-    gl_Position.xyz += mat3(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(matrices[boneID].normalMatrix)) * normal;
+    gl_Position = matrices[boneID].boneMatrix * vec4(pos, 1.0);
+    gl_Position.xyz += mat3(matrices[boneID].normalMatrix) * normal;
 #endif
 
 }

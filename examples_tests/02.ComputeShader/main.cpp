@@ -1,7 +1,7 @@
 #define _NBL_STATIC_LIB_
 #include <nabla.h>
 
-#include "../../source/Irrlicht/COpenGLDriver.h"
+#include "../../source/Nabla/COpenGLDriver.h"
 
 
 using namespace nbl;

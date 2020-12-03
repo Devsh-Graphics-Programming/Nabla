@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/ext/ToneMapper/CToneMapper.h"
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "../source/Nabla/COpenGLExtensionHandler.h"
 
 #include <cstdio>
 
@@ -78,52 +78,52 @@ core::smart_refctd_ptr<ICPUSpecializedShader> CToneMapper::createShader(
 {
 	constexpr char* eotfs[EOTF_UNKNOWN+1] =
 	{
-		"irr_glsl_eotf_identity",
-		"irr_glsl_eotf_sRGB",
-		"irr_glsl_eotf_DCI_P3_XYZ",
-		"irr_glsl_eotf_SMPTE_170M",
-		"irr_glsl_eotf_SMPTE_ST2084",
-		"irr_glsl_eotf_HDR10_HLG",
-		"irr_glsl_eotf_Gamma_2_2",
-		"irr_glsl_eotf_ACEScc",
-		"irr_glsl_eotf_ACEScct",
+		"nbl_glsl_eotf_identity",
+		"nbl_glsl_eotf_sRGB",
+		"nbl_glsl_eotf_DCI_P3_XYZ",
+		"nbl_glsl_eotf_SMPTE_170M",
+		"nbl_glsl_eotf_SMPTE_ST2084",
+		"nbl_glsl_eotf_HDR10_HLG",
+		"nbl_glsl_eotf_Gamma_2_2",
+		"nbl_glsl_eotf_ACEScc",
+		"nbl_glsl_eotf_ACEScct",
 		"#error \"UNDEFINED EOTF!\""
 	};
 	constexpr char* inXYZMatrices[ECP_COUNT+1] =
 	{
-		"irr_glsl_sRGBtoXYZ",
-		"irr_glsl_Display_P3toXYZ",
-		"irr_glsl_DCI_P3toXYZ",
-		"irr_glsl_BT2020toXYZ",
-		"irr_glsl_AdobeRGBtoXYZ",
-		"irr_glsl_ACES2065_1toXYZ",
-		"irr_glsl_ACEScctoXYZ",
+		"nbl_glsl_sRGBtoXYZ",
+		"nbl_glsl_Display_P3toXYZ",
+		"nbl_glsl_DCI_P3toXYZ",
+		"nbl_glsl_BT2020toXYZ",
+		"nbl_glsl_AdobeRGBtoXYZ",
+		"nbl_glsl_ACES2065_1toXYZ",
+		"nbl_glsl_ACEScctoXYZ",
 		"#error \"Passthrough Color Space not supported!\"",
 		"#error \"UNDEFINED_COLOR_PRIMARIES\""
 	};
 	constexpr char* outXYZMatrices[ECP_COUNT+1] =
 	{
-		"irr_glsl_XYZtosRGB",
-		"irr_glsl_XYZtoDisplay_P3",
-		"irr_glsl_XYZtoDCI_P3",
-		"irr_glsl_XYZtoBT2020",
-		"irr_glsl_XYZtoAdobeRGB",
-		"irr_glsl_XYZtoACES2065_1",
-		"irr_glsl_XYZtoACEScc",
+		"nbl_glsl_XYZtosRGB",
+		"nbl_glsl_XYZtoDisplay_P3",
+		"nbl_glsl_XYZtoDCI_P3",
+		"nbl_glsl_XYZtoBT2020",
+		"nbl_glsl_XYZtoAdobeRGB",
+		"nbl_glsl_XYZtoACES2065_1",
+		"nbl_glsl_XYZtoACEScc",
 		"#error \"Passthrough Color Space not supported!\"",
 		"#error \"UNDEFINED_COLOR_PRIMARIES\""
 	};
 	constexpr char* oetfs[EOTF_UNKNOWN+1] =
 	{
-		"irr_glsl_oetf_identity",
-		"irr_glsl_oetf_sRGB",
-		"irr_glsl_oetf_DCI_P3_XYZ",
-		"irr_glsl_oetf_SMPTE_170M",
-		"irr_glsl_oetf_SMPTE_ST2084",
-		"irr_glsl_oetf_HDR10_HLG",
-		"irr_glsl_oetf_Gamma_2_2",
-		"irr_glsl_oetf_ACEScc",
-		"irr_glsl_oetf_ACEScct",
+		"nbl_glsl_oetf_identity",
+		"nbl_glsl_oetf_sRGB",
+		"nbl_glsl_oetf_DCI_P3_XYZ",
+		"nbl_glsl_oetf_SMPTE_170M",
+		"nbl_glsl_oetf_SMPTE_ST2084",
+		"nbl_glsl_oetf_HDR10_HLG",
+		"nbl_glsl_oetf_Gamma_2_2",
+		"nbl_glsl_oetf_ACEScc",
+		"nbl_glsl_oetf_ACEScct",
 		"#error \"UNDEFINED OETF!\""
 	};
 
@@ -189,106 +189,106 @@ core::smart_refctd_ptr<ICPUSpecializedShader> CToneMapper::createShader(
 			break;
 	}
 
-	const char* usingLumaMeterDefine = usingLumaMeter ? "#define _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_":"";
+	const char* usingLumaMeterDefine = usingLumaMeter ? "#define _NBL_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_":"";
 
-	const char* usingTemporalAdaptationDefine = usingTemporalAdaptation ? "#define _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_":"";
+	const char* usingTemporalAdaptationDefine = usingTemporalAdaptation ? "#define _NBL_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_":"";
 
 	constexpr char* sourceFmt =
 R"===(#version 430 core
 
 
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_ %d
+#ifndef _NBL_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_
+#define _NBL_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_ %d
 #endif
 
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_ %d
+#ifndef _NBL_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_
+#define _NBL_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_ %d
 #endif
 
 
 
-#define _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_ %d
+#define _NBL_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_ %d
 
 #include "nbl/builtin/glsl/ext/ToneMapper/operators.glsl"
 
-#ifndef irr_glsl_ext_ToneMapper_Params_t
-	#if _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_IRR_GLSL_EXT_TONE_MAPPER_REINHARD_OPERATOR
-		#define irr_glsl_ext_ToneMapper_Params_t irr_glsl_ext_ToneMapper_ReinhardParams_t
-	#elif _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_IRR_GLSL_EXT_TONE_MAPPER_ACES_OPERATOR
-		#define irr_glsl_ext_ToneMapper_Params_t irr_glsl_ext_ToneMapper_ACESParams_t
+#ifndef nbl_glsl_ext_ToneMapper_Params_t
+	#if _NBL_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_NBL_GLSL_EXT_TONE_MAPPER_REINHARD_OPERATOR
+		#define nbl_glsl_ext_ToneMapper_Params_t nbl_glsl_ext_ToneMapper_ReinhardParams_t
+	#elif _NBL_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_NBL_GLSL_EXT_TONE_MAPPER_ACES_OPERATOR
+		#define nbl_glsl_ext_ToneMapper_Params_t nbl_glsl_ext_ToneMapper_ACESParams_t
 	#else
 		#error "Unsupported Tonemapping Operator"
 	#endif
 #endif
 
 
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_ 0
+#ifndef _NBL_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_
+#define _NBL_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_ 0
 #endif
 
 
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_SET_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_SET_DEFINED_ 0
+#ifndef _NBL_GLSL_EXT_TONE_MAPPER_PARAMETERS_SET_DEFINED_
+#define _NBL_GLSL_EXT_TONE_MAPPER_PARAMETERS_SET_DEFINED_ 0
 #endif
 
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_BINDING_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_BINDING_DEFINED_ 1
+#ifndef _NBL_GLSL_EXT_TONE_MAPPER_PARAMETERS_BINDING_DEFINED_
+#define _NBL_GLSL_EXT_TONE_MAPPER_PARAMETERS_BINDING_DEFINED_ 1
 #endif
 
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_SET_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_SET_DEFINED_ 0
+#ifndef _NBL_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_SET_DEFINED_
+#define _NBL_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_SET_DEFINED_ 0
 #endif
 
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_BINDING_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_BINDING_DEFINED_ 2
+#ifndef _NBL_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_BINDING_DEFINED_
+#define _NBL_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_BINDING_DEFINED_ 2
 #endif
 
 
-%s // _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
+%s // _NBL_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
 
-#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
-	#define _IRR_GLSL_WORKGROUP_SIZE_ (_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_*_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_)
+#ifdef _NBL_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
+	#define _NBL_GLSL_WORKGROUP_SIZE_ (_NBL_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_*_NBL_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_)
 
-	#define _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT %d
-	#define _IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION %d
+	#define _NBL_GLSL_EXT_LUMA_METER_BIN_COUNT %d
+	#define _NBL_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION %d
 
-	#define _IRR_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_ %d
-	#define _IRR_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_ %d
+	#define _NBL_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_ %d
+	#define _NBL_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_ %d
 
-	#define _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_ %d
+	#define _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_ %d
 
 	#include "nbl/builtin/glsl/ext/LumaMeter/common.glsl"
 
 
-	#ifndef _IRR_GLSL_EXT_TONE_MAPPER_UNIFORMS_DEFINED_
-	#define _IRR_GLSL_EXT_TONE_MAPPER_UNIFORMS_DEFINED_
-	layout(set=_IRR_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_UNIFORMS_BINDING_DEFINED_) uniform LumaPassInfo
+	#ifndef _NBL_GLSL_EXT_TONE_MAPPER_UNIFORMS_DEFINED_
+	#define _NBL_GLSL_EXT_TONE_MAPPER_UNIFORMS_DEFINED_
+	layout(set=_NBL_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_, binding=_NBL_GLSL_EXT_LUMA_METER_UNIFORMS_BINDING_DEFINED_) uniform LumaPassInfo
 	{
-		irr_glsl_ext_LumaMeter_Uniforms_t padding0;
-		irr_glsl_ext_LumaMeter_PassInfo_t lumaPassInfo;
+		nbl_glsl_ext_LumaMeter_Uniforms_t padding0;
+		nbl_glsl_ext_LumaMeter_PassInfo_t lumaPassInfo;
 	};
 	#endif
 
 
-	#if _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_SET_DEFINED_!=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_ || _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_BINDING_DEFINED_!=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_
+	#if _NBL_GLSL_EXT_TONE_MAPPER_PARAMETERS_SET_DEFINED_!=_NBL_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_ || _NBL_GLSL_EXT_TONE_MAPPER_PARAMETERS_BINDING_DEFINED_!=_NBL_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_
 		#error "Luma/Tonemapper SSBO Set or Binding don't match!"
 	#endif
 
-	#if _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_SET_DEFINED_!=_IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_ || _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_BINDING_DEFINED_!=_IRR_GLSL_EXT_LUMA_METER_INPUT_IMAGE_BINDING_DEFINED_
+	#if _NBL_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_SET_DEFINED_!=_NBL_GLSL_EXT_LUMA_METER_INPUT_IMAGE_SET_DEFINED_ || _NBL_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_BINDING_DEFINED_!=_NBL_GLSL_EXT_LUMA_METER_INPUT_IMAGE_BINDING_DEFINED_
 		#error "Input Image Set or Binding don't match!"
 	#endif
 
 
-	#ifndef _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_BINDING_DEFINED_
-	#define _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_BINDING_DEFINED_ 3
+	#ifndef _NBL_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_BINDING_DEFINED_
+	#define _NBL_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_BINDING_DEFINED_ 3
 	#endif
 #else
-	#ifndef _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_BINDING_DEFINED_
-	#define _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_BINDING_DEFINED_ 0
+	#ifndef _NBL_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_BINDING_DEFINED_
+	#define _NBL_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_BINDING_DEFINED_ 0
 	#endif
 #endif
 
-layout(local_size_x=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_, local_size_y=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_) in;
+layout(local_size_x=_NBL_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_, local_size_y=_NBL_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_Y_DEFINED_) in;
 
 
 #include "nbl/builtin/glsl/colorspace/EOTF.glsl"
@@ -297,12 +297,12 @@ layout(local_size_x=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_, local_si
 #include "nbl/builtin/glsl/colorspace/OETF.glsl"
 
 
-%s // _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
+%s // _NBL_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
 
 
-#if defined(_IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_)||defined(_IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_)
-	#ifndef _IRR_GLSL_EXT_TONE_MAPPER_PUSH_CONSTANTS_DEFINED_
-	#define _IRR_GLSL_EXT_TONE_MAPPER_PUSH_CONSTANTS_DEFINED_
+#if defined(_NBL_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_)||defined(_NBL_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_)
+	#ifndef _NBL_GLSL_EXT_TONE_MAPPER_PUSH_CONSTANTS_DEFINED_
+	#define _NBL_GLSL_EXT_TONE_MAPPER_PUSH_CONSTANTS_DEFINED_
 	layout(push_constant) uniform PushConstants
 	{
 		int currentFirstPassOutput;
@@ -311,90 +311,90 @@ layout(local_size_x=_IRR_GLSL_EXT_TONE_MAPPER_DISPATCH_SIZE_X_DEFINED_, local_si
 #endif
 
 
-#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
-	irr_glsl_ext_LumaMeter_PassInfo_t irr_glsl_ext_ToneMapper_getLumaMeterInfo()
+#ifdef _NBL_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
+	nbl_glsl_ext_LumaMeter_PassInfo_t nbl_glsl_ext_ToneMapper_getLumaMeterInfo()
 	{
 		return lumaPassInfo;
 	}
 #endif
 
 
-#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
-	#define _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_QUALIFIERS restrict
+#ifdef _NBL_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
+	#define _NBL_GLSL_EXT_TONE_MAPPER_PARAMETERS_QUALIFIERS restrict
 #else
-	#define _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_QUALIFIERS restrict readonly
+	#define _NBL_GLSL_EXT_TONE_MAPPER_PARAMETERS_QUALIFIERS restrict readonly
 #endif
 
-struct irr_glsl_ext_ToneMapper_input_t
+struct nbl_glsl_ext_ToneMapper_input_t
 {
 	uint lastFrameExtraEV; // packed stuff
 	uint packedExposureAdaptationFactors; // first is up, then down
-	irr_glsl_ext_ToneMapper_Params_t inParams;
+	nbl_glsl_ext_ToneMapper_Params_t inParams;
 };
 
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_SSBO_DESCRIPTOR_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_SSBO_DESCRIPTOR_DEFINED_
-layout(set=_IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_SET_DEFINED_, binding=_IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_BINDING_DEFINED_) _IRR_GLSL_EXT_TONE_MAPPER_PARAMETERS_QUALIFIERS buffer ParameterBuffer
+#ifndef _NBL_GLSL_EXT_TONE_MAPPER_SSBO_DESCRIPTOR_DEFINED_
+#define _NBL_GLSL_EXT_TONE_MAPPER_SSBO_DESCRIPTOR_DEFINED_
+layout(set=_NBL_GLSL_EXT_TONE_MAPPER_PARAMETERS_SET_DEFINED_, binding=_NBL_GLSL_EXT_TONE_MAPPER_PARAMETERS_BINDING_DEFINED_) _NBL_GLSL_EXT_TONE_MAPPER_PARAMETERS_QUALIFIERS buffer ParameterBuffer
 {
-	irr_glsl_ext_ToneMapper_input_t toneMapperParams;
+	nbl_glsl_ext_ToneMapper_input_t toneMapperParams;
 	uvec4 padding1[15];
-	#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
-		irr_glsl_ext_LumaMeter_output_t lumaParams[];
+	#ifdef _NBL_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
+		nbl_glsl_ext_LumaMeter_output_t lumaParams[];
 	#endif
 };
 #endif
 
 
-irr_glsl_ext_ToneMapper_Params_t irr_glsl_ext_ToneMapper_getToneMapperParams()
+nbl_glsl_ext_ToneMapper_Params_t nbl_glsl_ext_ToneMapper_getToneMapperParams()
 {
 	return toneMapperParams.inParams;
 }
 
 
-#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
-	float irr_glsl_ext_ToneMapper_getLastFrameLuma()
+#ifdef _NBL_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
+	float nbl_glsl_ext_ToneMapper_getLastFrameLuma()
 	{
 		return unpackHalf2x16(toneMapperParams.lastFrameExtraEV)[pc.currentFirstPassOutput];
 	}
-	void irr_glsl_ext_ToneMapper_setLastFrameLuma(in float thisLuma)
+	void nbl_glsl_ext_ToneMapper_setLastFrameLuma(in float thisLuma)
 	{
 		if (all(equal(uvec3(0,0,0),gl_WorkGroupID)))
 		{
 			vec2 wholeVal = vec2(thisLuma,thisLuma);
-			wholeVal[pc.currentFirstPassOutput] = irr_glsl_ext_ToneMapper_getLastFrameLuma();
+			wholeVal[pc.currentFirstPassOutput] = nbl_glsl_ext_ToneMapper_getLastFrameLuma();
 			toneMapperParams.lastFrameExtraEV = packHalf2x16(wholeVal);
 		}
 	}
 
-	float irr_glsl_ext_ToneMapper_getExposureAdaptationFactor(in float toLastLumaDiff)
+	float nbl_glsl_ext_ToneMapper_getExposureAdaptationFactor(in float toLastLumaDiff)
 	{
 		return unpackHalf2x16(toneMapperParams.packedExposureAdaptationFactors)[toLastLumaDiff<0.f ? 0:1];
 	}
 #endif
 
 
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
-layout(set=_IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_BINDING_DEFINED_) uniform sampler2DArray inputImage;
+#ifndef _NBL_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
+#define _NBL_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_DESCRIPTOR_DEFINED_
+layout(set=_NBL_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_SET_DEFINED_, binding=_NBL_GLSL_EXT_TONE_MAPPER_INPUT_IMAGE_BINDING_DEFINED_) uniform sampler2DArray inputImage;
 #endif
 
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_DESCRIPTOR_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_DESCRIPTOR_DEFINED_
-layout(set=_IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_BINDING_DEFINED_, %s) uniform uimage2DArray outputImage;
+#ifndef _NBL_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_DESCRIPTOR_DEFINED_
+#define _NBL_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_DESCRIPTOR_DEFINED_
+layout(set=_NBL_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_, binding=_NBL_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_BINDING_DEFINED_, %s) uniform uimage2DArray outputImage;
 #endif
 
 
-#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
-	irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t irr_glsl_ext_ToneMapper_getLumaMeterOutput()
+#ifdef _NBL_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
+	nbl_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t nbl_glsl_ext_ToneMapper_getLumaMeterOutput()
 	{
-		irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t retval;
+		nbl_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t retval;
 		#define FETCH_STRUCT lumaParams[(pc.currentFirstPassOutput!=0 ? textureSize(inputImage,0).z:0)+int(gl_WorkGroupID.z)]
 
-		#if _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_MEDIAN
+		#if _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_NBL_GLSL_EXT_LUMA_METER_MODE_MEDIAN
 			retval = FETCH_STRUCT.packedHistogram[gl_LocalInvocationIndex];
-			for (int i=1; i<_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION; i++)
-				retval += FETCH_STRUCT.packedHistogram[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT];
-		#elif _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_IRR_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
+			for (int i=1; i<_NBL_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION; i++)
+				retval += FETCH_STRUCT.packedHistogram[gl_LocalInvocationIndex+i*_NBL_GLSL_EXT_LUMA_METER_BIN_COUNT];
+		#elif _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_==_NBL_GLSL_EXT_LUMA_METER_MODE_GEOM_MEAN
 			retval = FETCH_STRUCT.unormAverage;
 		#endif
 
@@ -404,7 +404,7 @@ layout(set=_IRR_GLSL_EXT_TONE_MAPPER_OUTPUT_IMAGE_SET_DEFINED_, binding=_IRR_GLS
 #endif
 
 
-vec4 irr_glsl_ext_ToneMapper_readColor()
+vec4 nbl_glsl_ext_ToneMapper_readColor()
 {
 	ivec3 uv = ivec3(gl_GlobalInvocationID);
 	vec4 color = texelFetch(inputImage,uv,0);
@@ -416,7 +416,7 @@ vec4 irr_glsl_ext_ToneMapper_readColor()
 	return color;
 }
 
-void irr_glsl_ext_ToneMapper_writeColor(in vec4 colorCIEXYZ, in vec3 ditherVal)
+void nbl_glsl_ext_ToneMapper_writeColor(in vec4 colorCIEXYZ, in vec3 ditherVal)
 {
 	const mat3 xyzMatrix = %s;
 	const vec3 color = %s(xyzMatrix*colorCIEXYZ.rgb);
@@ -429,48 +429,48 @@ void irr_glsl_ext_ToneMapper_writeColor(in vec4 colorCIEXYZ, in vec3 ditherVal)
 }
 
 
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_IMPL_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_IMPL_DEFINED_
-void irr_glsl_ext_ToneMapper() // bool wgExecutionMask, then do if(any(wgExecutionMask))
+#ifndef _NBL_GLSL_EXT_TONE_MAPPER_IMPL_DEFINED_
+#define _NBL_GLSL_EXT_TONE_MAPPER_IMPL_DEFINED_
+void nbl_glsl_ext_ToneMapper() // bool wgExecutionMask, then do if(any(wgExecutionMask))
 {
 	ivec3 uv = ivec3(gl_GlobalInvocationID);
 	bool alive = any(lessThan(uv,textureSize(inputImage,0)));
 
 	vec4 colorCIEXYZ;
 	if (alive)
-		colorCIEXYZ = irr_glsl_ext_ToneMapper_readColor();
+		colorCIEXYZ = nbl_glsl_ext_ToneMapper_readColor();
 
-	irr_glsl_ext_ToneMapper_Params_t params = irr_glsl_ext_ToneMapper_getToneMapperParams();
+	nbl_glsl_ext_ToneMapper_Params_t params = nbl_glsl_ext_ToneMapper_getToneMapperParams();
 
 	float extraNegEV = 0.0;
-#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
-	extraNegEV = irr_glsl_ext_LumaMeter_getMeasuredLumaLog2(irr_glsl_ext_ToneMapper_getLumaMeterOutput(),irr_glsl_ext_ToneMapper_getLumaMeterInfo());
+#ifdef _NBL_GLSL_EXT_TONE_MAPPER_USING_LUMA_METER_DEFINED_
+	extraNegEV = nbl_glsl_ext_LumaMeter_getMeasuredLumaLog2(nbl_glsl_ext_ToneMapper_getLumaMeterOutput(),nbl_glsl_ext_ToneMapper_getLumaMeterInfo());
 #endif
-#ifdef _IRR_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
-	float toLastLumaDiff = irr_glsl_ext_ToneMapper_getLastFrameLuma()-extraNegEV;
-	extraNegEV += toLastLumaDiff*irr_glsl_ext_ToneMapper_getExposureAdaptationFactor(toLastLumaDiff);
-	irr_glsl_ext_ToneMapper_setLastFrameLuma(extraNegEV);
-	#if _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_IRR_GLSL_EXT_TONE_MAPPER_REINHARD_OPERATOR
+#ifdef _NBL_GLSL_EXT_TONE_MAPPER_USING_TEMPORAL_ADAPTATION_DEFINED_
+	float toLastLumaDiff = nbl_glsl_ext_ToneMapper_getLastFrameLuma()-extraNegEV;
+	extraNegEV += toLastLumaDiff*nbl_glsl_ext_ToneMapper_getExposureAdaptationFactor(toLastLumaDiff);
+	nbl_glsl_ext_ToneMapper_setLastFrameLuma(extraNegEV);
+	#if _NBL_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_NBL_GLSL_EXT_TONE_MAPPER_REINHARD_OPERATOR
 		params.keyAndManualLinearExposure *= exp2(-extraNegEV);
-		colorCIEXYZ.rgb = irr_glsl_ext_ToneMapper_Reinhard(params,colorCIEXYZ.rgb);
-	#elif _IRR_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_IRR_GLSL_EXT_TONE_MAPPER_ACES_OPERATOR
+		colorCIEXYZ.rgb = nbl_glsl_ext_ToneMapper_Reinhard(params,colorCIEXYZ.rgb);
+	#elif _NBL_GLSL_EXT_TONE_MAPPER_OPERATOR_DEFINED_==_NBL_GLSL_EXT_TONE_MAPPER_ACES_OPERATOR
 		params.exposure -= extraNegEV;
-		colorCIEXYZ.rgb = irr_glsl_ext_ToneMapper_ACES(params,colorCIEXYZ.rgb);
+		colorCIEXYZ.rgb = nbl_glsl_ext_ToneMapper_ACES(params,colorCIEXYZ.rgb);
 	#endif
 #endif
 
 	// TODO: Add dithering
 	vec3 rand = vec3(0.5);
 	if (alive)
-		irr_glsl_ext_ToneMapper_writeColor(colorCIEXYZ,rand);
+		nbl_glsl_ext_ToneMapper_writeColor(colorCIEXYZ,rand);
 }
 #endif
 
-#ifndef _IRR_GLSL_EXT_TONE_MAPPER_MAIN_DEFINED_
-#define _IRR_GLSL_EXT_TONE_MAPPER_MAIN_DEFINED_
+#ifndef _NBL_GLSL_EXT_TONE_MAPPER_MAIN_DEFINED_
+#define _NBL_GLSL_EXT_TONE_MAPPER_MAIN_DEFINED_
 void main()
 {
-	irr_glsl_ext_ToneMapper();
+	nbl_glsl_ext_ToneMapper();
 }
 #endif
 )===";

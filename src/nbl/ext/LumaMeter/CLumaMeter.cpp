@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-﻿#include "nbl/ext/LumaMeter/CLumaMeter.h"
-#include "../../../../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "nbl/ext/LumaMeter/CLumaMeter.h"
+#include "../../../../source/Nabla/COpenGLExtensionHandler.h"
 
 #include <cstdio>
 
@@ -99,25 +99,25 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> CLumaMeter::createShader(
 R"===(#version 430 core
 
 
-#ifndef _IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_ 16
+#ifndef _NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_
+#define _NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_ 16
 #endif
 
-#ifndef _IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_ 16
+#ifndef _NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_
+#define _NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_ 16
 #endif
 
-#define _IRR_GLSL_WORKGROUP_SIZE_ (_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_*_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_)
+#define _NBL_GLSL_WORKGROUP_SIZE_ (_NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_*_NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_)
 
-#define _IRR_GLSL_EXT_LUMA_METER_BIN_COUNT %d
-#define _IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION %d
+#define _NBL_GLSL_EXT_LUMA_METER_BIN_COUNT %d
+#define _NBL_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION %d
 
 
-#define _IRR_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_ %d
-#define _IRR_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_ %d
+#define _NBL_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_ %d
+#define _NBL_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_ %d
 
-#ifndef _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_
-#define _IRR_GLSL_EXT_LUMA_METER_MODE_DEFINED_ %d
+#ifndef _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_
+#define _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_ %d
 #endif
 
 #include "nbl/builtin/glsl/colorspace/EOTF.glsl"
@@ -125,23 +125,23 @@ R"===(#version 430 core
 #include "nbl/builtin/glsl/colorspace/decodeCIEXYZ.glsl"
 #include "nbl/builtin/glsl/colorspace/OETF.glsl"
 
-#define _IRR_GLSL_EXT_LUMA_METER_EOTF_DEFINED_ %s
-#define _IRR_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_ %s
-#define _IRR_GLSL_EXT_LUMA_METER_GET_COLOR_DEFINED_
+#define _NBL_GLSL_EXT_LUMA_METER_EOTF_DEFINED_ %s
+#define _NBL_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_ %s
+#define _NBL_GLSL_EXT_LUMA_METER_GET_COLOR_DEFINED_
 #include "nbl/builtin/glsl/ext/LumaMeter/impl.glsl"
 
 
-layout(local_size_x=_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_, local_size_y=_IRR_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_) in;
+layout(local_size_x=_NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_, local_size_y=_NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_) in;
 
 
 
-layout(set=_IRR_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_UNIFORMS_BINDING_DEFINED_) uniform Uniforms
+layout(set=_NBL_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_, binding=_NBL_GLSL_EXT_LUMA_METER_UNIFORMS_BINDING_DEFINED_) uniform Uniforms
 {
-	irr_glsl_ext_LumaMeter_Uniforms_t inParams;
+	nbl_glsl_ext_LumaMeter_Uniforms_t inParams;
 };
 
 
-vec3 irr_glsl_ext_LumaMeter_getColor(bool wgExecutionMask)
+vec3 nbl_glsl_ext_LumaMeter_getColor(bool wgExecutionMask)
 {
 	vec3 retval;
 	if (wgExecutionMask)
@@ -155,20 +155,20 @@ vec3 irr_glsl_ext_LumaMeter_getColor(bool wgExecutionMask)
 
 void main()
 {
-	irr_glsl_ext_LumaMeter(true);
+	nbl_glsl_ext_LumaMeter(true);
 }
 )===";
 
-	constexpr char* eotf = "irr_glsl_eotf_identity";
+	constexpr char* eotf = "nbl_glsl_eotf_identity";
 	constexpr char* xyzMatrices[ECP_COUNT] = 
 	{
-		"irr_glsl_sRGBtoXYZ",
-		"irr_glsl_Display_P3toXYZ",
-		"irr_glsl_DCI_P3toXYZ",
-		"irr_glsl_BT2020toXYZ",
-		"irr_glsl_AdobeRGBtoXYZ",
-		"irr_glsl_ACES2065_1toXYZ",
-		"irr_glsl_ACEScctoXYZ",
+		"nbl_glsl_sRGBtoXYZ",
+		"nbl_glsl_Display_P3toXYZ",
+		"nbl_glsl_DCI_P3toXYZ",
+		"nbl_glsl_BT2020toXYZ",
+		"nbl_glsl_AdobeRGBtoXYZ",
+		"nbl_glsl_ACES2065_1toXYZ",
+		"nbl_glsl_ACEScctoXYZ",
 		"#error \"UNDEFINED_COLOR_PRIMARIES\""
 	};
 	const char* xyzMatrix = xyzMatrices[colorPrimaries];

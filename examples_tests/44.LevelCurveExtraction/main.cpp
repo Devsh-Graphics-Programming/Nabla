@@ -5,7 +5,7 @@
 #define _NBL_STATIC_LIB_
 
 #include "InputEventReciever.h"
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "../source/Nabla/COpenGLExtensionHandler.h"
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
 
 #include "common.glsl"

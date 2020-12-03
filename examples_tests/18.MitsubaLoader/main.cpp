@@ -20,7 +20,7 @@ using namespace core;
 
 constexpr const char* GLSL_COMPUTE_LIGHTING =
 R"(
-#define _IRR_COMPUTE_LIGHTING_DEFINED_
+#define _NBL_COMPUTE_LIGHTING_DEFINED_
 
 #include <nbl/builtin/glsl/format/decode.glsl>
 #include <nbl/builtin/glsl/random/xoroshiro.glsl>
@@ -39,26 +39,26 @@ layout(set = 2, binding = 1) uniform sampler2D envMap;
 layout(set = 2, binding = 2) uniform usamplerBuffer sampleSequence;
 layout(set = 2, binding = 3) uniform usampler2D scramblebuf;
 
-vec3 rand3d(in uint _sample, inout irr_glsl_xoroshiro64star_state_t scramble_state)
+vec3 rand3d(in uint _sample, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
 {
 	uvec3 seqVal = texelFetch(sampleSequence,int(_sample)).xyz;
-	seqVal ^= uvec3(irr_glsl_xoroshiro64star(scramble_state),irr_glsl_xoroshiro64star(scramble_state),irr_glsl_xoroshiro64star(scramble_state));
+	seqVal ^= uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
     return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
 }
 
 vec2 SampleSphericalMap(in vec3 v)
 {
     vec2 uv = vec2(atan(v.z, v.x), asin(v.y));
-    uv *= irr_glsl_RECIPROCAL_PI*0.5;
+    uv *= nbl_glsl_RECIPROCAL_PI*0.5;
     uv += 0.5; 
     return uv;
 }
 
-vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in MC_precomputed_t precomp)
+vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in MC_precomputed_t precomp)
 {
-	irr_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,gl_FragCoord.xy/VIEWPORT_SZ,0).rg;
+	nbl_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,gl_FragCoord.xy/VIEWPORT_SZ,0).rg;
 
-	vec3 emissive = irr_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
+	vec3 emissive = nbl_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
 	vec3 color = vec3(0.0);
 
@@ -67,11 +67,11 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 	instr_stream_t rnps = getRemAndPdfStream(precomp);
 	for (int i = 0; i < SAMPLE_COUNT; ++i)
 	{
-		irr_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
+		nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
 
 		vec3 rand = rand3d(i,scramble_state);
 		float pdf;
-		irr_glsl_LightSample s;
+		nbl_glsl_LightSample s;
 		vec3 rem = runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
 
 		vec2 uv = SampleSphericalMap(s.L);
@@ -86,7 +86,7 @@ vec3 irr_computeLighting(inout irr_glsl_IsotropicViewSurfaceInteraction out_inte
 		vec3 L = l.position-WorldPos;
 		//params.L = L;
 		const float intensityScale = LIGHT_INTENSITY_SCALE;//ehh might want to render to hdr fbo and do tonemapping
-		color += irr_bsdf_cos_eval(precomp, normalize(L), out_interaction, dUV)*l.intensity*intensityScale / dot(L,L);
+		color += nbl_bsdf_cos_eval(precomp, normalize(L), out_interaction, dUV)*l.intensity*intensityScale / dot(L,L);
 	}
 
 	return color+emissive;
@@ -107,7 +107,7 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragSh
 #endif
 		GLSL_COMPUTE_LIGHTING;
 
-    glsl.insert(glsl.find("#ifndef _IRR_COMPUTE_LIGHTING_DEFINED_"), extra);
+    glsl.insert(glsl.find("#ifndef _NBL_COMPUTE_LIGHTING_DEFINED_"), extra);
 
     //auto* f = fopen("fs.glsl","w");
     //fwrite(glsl.c_str(), 1, glsl.size(), f);
@@ -722,7 +722,7 @@ int main()
 		if (time - lastFPSTime > 1000)
 		{
 			std::wostringstream str;
-			str << L"Mitsuba Loader Demo - Irrlicht Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
+			str << L"Mitsuba Loader Demo - Nabla Engine [" << driver->getName() << "] FPS:" << driver->getFPS() << " PrimitvesDrawn:" << driver->getPrimitiveCountDrawn();
 
 			device->setWindowCaption(str.str());
 			lastFPSTime = time;
