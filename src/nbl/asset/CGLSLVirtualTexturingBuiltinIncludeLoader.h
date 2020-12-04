@@ -62,8 +62,8 @@ class CGLSLVirtualTexturingBuiltinIncludeLoader : public IGLSLEmbeddedIncludeLoa
 
 			using namespace std::string_literals;
 			std::string s = R"(
-#ifndef _IRR_BUILTIN_GLSL_VIRTUAL_TEXTURING_FUNCTIONS_INCLUDED_
-#define _IRR_BUILTIN_GLSL_VIRTUAL_TEXTURING_FUNCTIONS_INCLUDED_
+#ifndef _NBL_BUILTIN_GLSL_VIRTUAL_TEXTURING_FUNCTIONS_INCLUDED_
+#define _NBL_BUILTIN_GLSL_VIRTUAL_TEXTURING_FUNCTIONS_INCLUDED_
 )";
 			s += "\n\n#define PAGE_SZ " + std::to_string(1u<<pg_sz_log2) + "u" +
 				"\n#define PAGE_SZ_LOG2 " + args[ix_pg_sz_log2] + "u" +

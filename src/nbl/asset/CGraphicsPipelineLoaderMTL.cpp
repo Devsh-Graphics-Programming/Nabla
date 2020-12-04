@@ -90,7 +90,7 @@ void main()
         float at = sqrt(PC.params.roughness);
         float ab = at*(1.0 - PC.params.anisotropy);
 
-        float fr = irr_glsl_fresnel_dielectric(PC.params.ior, NdotV);
+        float fr = nbl_glsl_fresnel_dielectric(PC.params.ior, NdotV);
         float one_minus_fr = 1.0-fr;
         float diffuseFactor = 1.0 - one_minus_fr*one_minus_fr;
         float diffuse = 0.0;

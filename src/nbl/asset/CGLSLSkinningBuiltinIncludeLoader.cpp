@@ -107,8 +107,8 @@ R"(    skinnedPos = vxPos;
     skinnedNormal = vxNormal;
 )";
 
-    const char* incl_guard_begin = "\n#ifndef _IRR_GENERATED_SKINNING_FUNC_INCLUDED_\n#define _IRR_GENERATED_SKINNING_FUNC_INCLUDED_\n";
-    const char* incl_guard_end =   "\n#endif//_IRR_GENERATED_SKINNING_FUNC_INCLUDED_";
+    const char* incl_guard_begin = "\n#ifndef _NBL_GENERATED_SKINNING_FUNC_INCLUDED_\n#define _NBL_GENERATED_SKINNING_FUNC_INCLUDED_\n";
+    const char* incl_guard_end =   "\n#endif//_NBL_GENERATED_SKINNING_FUNC_INCLUDED_";
 
     std::string sourceStr = incl_guard_begin;
     sourceStr += src_begin;

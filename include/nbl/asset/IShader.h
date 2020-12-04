@@ -74,7 +74,7 @@ class IShader : public virtual core::IReferenceCounted
 			for (const std::string& ext : (*_exts))
 			{
 				std::string str = "#ifndef " + ext + "\n";
-				str += "\t#define IRR_" + ext + "\n";
+				str += "\t#define NBL_" + ext + "\n";
 				str += "#endif //" + ext + "\n";
 
 				insertion += str;

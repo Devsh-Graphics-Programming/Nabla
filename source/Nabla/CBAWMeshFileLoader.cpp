@@ -66,7 +66,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 		if (data.header->blobType == core::Blob::EBT_MESH || data.header->blobType == core::Blob::EBT_SKINNED_MESH)
 			meshBlobDataIter = it;
 	}
-	_IRR_ALIGNED_FREE(offsets);
+	_NBL_ALIGNED_FREE(offsets);
 
 	const core::BlobLoadingParams params{ m_sceneMgr, m_fileSystem, ctx.filePath };
 	core::stack<SBlobData*> toLoad, toFinalize;
@@ -84,7 +84,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 		if (!blob)
 		{
 			ctx.releaseLoadedObjects();
-			_IRR_ALIGNED_FREE(headers);
+			_NBL_ALIGNED_FREE(headers);
 			return NULL;
 		}
 
@@ -98,14 +98,14 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 		if (fail)
 		{
 			ctx.releaseLoadedObjects();
-			_IRR_ALIGNED_FREE(headers);
+			_NBL_ALIGNED_FREE(headers);
 			return NULL;
 		}
 
 		if (!deps.size())
 		{
 			ctx.loadingMgr.finalize(blobType, ctx.createdObjs[handle], blob, size, ctx.createdObjs, params);
-			_IRR_ALIGNED_FREE(data->heapBlob);
+			_NBL_ALIGNED_FREE(data->heapBlob);
 			blob = data->heapBlob = NULL;
 		}
 		else
@@ -127,7 +127,7 @@ ICPUMesh* CBAWMeshFileLoader::createMesh(io::IReadFile * _file, unsigned char _p
 	}
 
 	ctx.releaseAllButThisOne(meshBlobDataIter); // call drop on all loaded objects except mesh
-	_IRR_ALIGNED_FREE(headers);
+	_NBL_ALIGNED_FREE(headers);
 
 #ifdef _DEBUG
 	std::ostringstream tmpString("Time to load ");
@@ -167,8 +167,8 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
 		return false;
 	if (!safeRead(_ctx.file, _ctx.iv, 16))
 		return false;
-	uint32_t* const offsets = *_offsets = (uint32_t*)_IRR_ALIGNED_MALLOC(*_blobCnt * sizeof(uint32_t),_IRR_SIMD_ALIGNMENT);
-	*_headers = _IRR_ALIGNED_MALLOC(*_blobCnt * sizeof(core::BlobHeaderV0),_IRR_SIMD_ALIGNMENT);
+	uint32_t* const offsets = *_offsets = (uint32_t*)_NBL_ALIGNED_MALLOC(*_blobCnt * sizeof(uint32_t),_NBL_SIMD_ALIGNMENT);
+	*_headers = _NBL_ALIGNED_MALLOC(*_blobCnt * sizeof(core::BlobHeaderV0),_NBL_SIMD_ALIGNMENT);
 	core::BlobHeaderV0* const headers = (core::BlobHeaderV0*)*_headers;
 
 	bool nope = false;
@@ -195,8 +195,8 @@ bool CBAWMeshFileLoader::validateHeaders(uint32_t* _blobCnt, uint32_t** _offsets
 
 	if (nope)
 	{
-		_IRR_ALIGNED_FREE(offsets);
-		_IRR_ALIGNED_FREE(*_headers);
+		_NBL_ALIGNED_FREE(offsets);
+		_NBL_ALIGNED_FREE(*_headers);
 		return false;
 	}
 	return true;
@@ -216,14 +216,14 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 	if (_stackPtr && _data.header->blobSizeDecompr <= _stackSize && _data.header->effectiveSize() <= _stackSize)
 		dst = _stackPtr;
 	else
-		dst = _IRR_ALIGNED_MALLOC(core::BlobHeaderV0::calcEncSize(_data.header->blobSizeDecompr),_IRR_SIMD_ALIGNMENT);
+		dst = _NBL_ALIGNED_MALLOC(core::BlobHeaderV0::calcEncSize(_data.header->blobSizeDecompr),_NBL_SIMD_ALIGNMENT);
 
 	const bool encrypted = (_data.header->compressionType & core::Blob::EBCT_AES128_GCM);
 	const bool compressed = (_data.header->compressionType & core::Blob::EBCT_LZ4) || (_data.header->compressionType & core::Blob::EBCT_LZMA);
 
 	void* dstCompressed = dst; // ptr to mem to load possibly compressed data
 	if (compressed)
-		dstCompressed = _IRR_ALIGNED_MALLOC(_data.header->effectiveSize(),_IRR_SIMD_ALIGNMENT);
+		dstCompressed = _NBL_ALIGNED_MALLOC(_data.header->effectiveSize(),_NBL_SIMD_ALIGNMENT);
 
 	_ctx.file->seek(_data.absOffset);
 	_ctx.file->read(dstCompressed, _data.header->effectiveSize());
@@ -235,28 +235,28 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 #endif
 		if (compressed)
 		{
-			_IRR_ALIGNED_FREE(dstCompressed);
+			_NBL_ALIGNED_FREE(dstCompressed);
 			if (dst != _stackPtr)
-				_IRR_ALIGNED_FREE(dst);
+				_NBL_ALIGNED_FREE(dst);
 		}
 		else if (dst != _stackPtr)
-			_IRR_ALIGNED_FREE(dstCompressed);
+			_NBL_ALIGNED_FREE(dstCompressed);
 		return NULL;
 	}
 
 	if (encrypted)
 	{
-#ifdef _IRR_COMPILE_WITH_OPENSSL_
+#ifdef _NBL_COMPILE_WITH_OPENSSL_
 		const size_t size = _data.header->effectiveSize();
-		void* out = _IRR_ALIGNED_MALLOC(size,_IRR_SIMD_ALIGNMENT);
+		void* out = _NBL_ALIGNED_MALLOC(size,_NBL_SIMD_ALIGNMENT);
 		const bool ok = core::decAes128gcm(dstCompressed, size, out, size, _pwd, _ctx.iv, _data.header->gcmTag);
 		if (dstCompressed != _stackPtr)
-			_IRR_ALIGNED_FREE(dstCompressed);
+			_NBL_ALIGNED_FREE(dstCompressed);
 		if (!ok)
 		{
 			if (dst != _stackPtr && dstCompressed != dst)
-				_IRR_ALIGNED_FREE(dst);
-			_IRR_ALIGNED_FREE(out);
+				_NBL_ALIGNED_FREE(dst);
+			_NBL_ALIGNED_FREE(out);
 #ifdef _DEBUG
 			os::Printer::log("Blob decryption failed!", ELL_ERROR);
 #endif
@@ -268,12 +268,12 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 #else
 		if (compressed)
 		{
-			_IRR_ALIGNED_FREE(dstCompressed);
+			_NBL_ALIGNED_FREE(dstCompressed);
 			if (dst != _stackPtr)
-				_IRR_ALIGNED_FREE(dst);
+				_NBL_ALIGNED_FREE(dst);
 		}
 		else if (dst != _stackPtr)
-			_IRR_ALIGNED_FREE(dstCompressed);
+			_NBL_ALIGNED_FREE(dstCompressed);
 		return NULL;
 #endif
 	}
@@ -288,11 +288,11 @@ void* CBAWMeshFileLoader::tryReadBlobOnStack(const SBlobData & _data, SContext &
 		else if (comprType & core::Blob::EBCT_LZMA)
 			res = decompressLzma(dst, _data.header->blobSizeDecompr, dstCompressed, _data.header->blobSize);
 
-		_IRR_ALIGNED_FREE(dstCompressed);
+		_NBL_ALIGNED_FREE(dstCompressed);
 		if (!res)
 		{
 			if (dst != _stackPtr && dst != dstCompressed)
-				_IRR_ALIGNED_FREE(dst);
+				_NBL_ALIGNED_FREE(dst);
 #ifdef _DEBUG
 			os::Printer::log("Blob decompression failed!", ELL_ERROR);
 #endif
