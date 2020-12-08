@@ -35,16 +35,14 @@ If `GL_KHR_subgroup_arithmetic` is not available then these functions require em
 		#error "Not enough shared memory declared for workgroup ballot!"
 	#endif
 #else
-	#if IRR_GLSL_GREATER(_IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_,0)
-		#define _IRR_GLSL_SCRATCH_SHARED_DEFINED_ irr_glsl_workgroupBallotScratchShared
-		#define _IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ _IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_
-		shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_];
-	#endif
+	#define _IRR_GLSL_SCRATCH_SHARED_DEFINED_ irr_glsl_workgroupBallotScratchShared
+	#define _IRR_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ _IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_
+	shared uint _IRR_GLSL_SCRATCH_SHARED_DEFINED_[_IRR_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_];
 #endif
 
 
 
-#include <irr/builtin/glsl/subgroup/arithmetic_portability.glsl>
+#include <irr/builtin/glsl/subgroup/arithmetic_portability_impl.glsl>
 
 
 

@@ -97,6 +97,7 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/subgroup/shared_arithmetic_portability.glsl"
   "irr/builtin/glsl/subgroup/basic_portability.glsl"
   "irr/builtin/glsl/subgroup/arithmetic_portability.glsl"
+  "irr/builtin/glsl/subgroup/arithmetic_portability_impl.glsl"
   # utilities
   "irr/builtin/glsl/utils/indirect_commands.glsl"
   "irr/builtin/glsl/utils/common.glsl"
