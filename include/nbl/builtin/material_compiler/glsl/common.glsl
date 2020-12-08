@@ -592,15 +592,13 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 
 			bool is_valid = true;
 			bool refraction = false;
-#ifdef OP_DIELECTRIC
-			if (op == OP_DIELECTRIC && nbl_glsl_isTransmissionPath(currInteraction.inner.isotropic.NdotV, s.NdotL))
+			if (nbl_glsl_isTransmissionPath(currInteraction.inner.isotropic.NdotV, s.NdotL))
 			{
 				nbl_glsl_calcAnisotropicMicrofacetCache(microfacet.inner, true, currInteraction.inner.isotropic.V.dir, s.L, currInteraction.inner.T, currInteraction.inner.B, currInteraction.inner.isotropic.N, s.NdotL, s.VdotL, eta, rcp_eta);
 				finalizeMicrofacet(microfacet);
 				refraction = true;
 			}
 			else
-#endif
 				microfacet = _microfacet;
 
 #if defined(OP_DIELECTRIC) || defined(OP_CONDUCTOR)

@@ -203,6 +203,7 @@ bxdf_eval_t runEvalStream(in MC_precomputed_t precomp, in instr_stream_t stream,
 	nbl_glsl_LightSample s = nbl_glsl_createLightSample(L, currInteraction.inner);
 	MC_microfacet_t microfacet;
 	microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(currInteraction.inner, s);
+	finalizeMicrofacet(microfacet);
 	for (uint i = 0u; i < stream.count; ++i)
 	{
 		instr_t instr = nbl_glsl_MC_fetchInstr(stream.offset+i);
