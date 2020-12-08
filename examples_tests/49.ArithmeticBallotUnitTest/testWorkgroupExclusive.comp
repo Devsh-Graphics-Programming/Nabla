@@ -1,0 +1,9 @@
+#version 450
+#define _IRR_GLSL_WORKGROUP_SIZE_ ???? 
+
+#include "workgroupCommon.glsl"
+
+void main()
+{
+	bitcountOutput[gl_GlobalInvocationID.x] = irr_glsl_workgroupBallotExclusiveBitCount();
+}
