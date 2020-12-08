@@ -593,7 +593,7 @@ void instr_eval_and_pdf_execute(in instr_t instr, in MC_precomputed_t precomp, i
 			bool is_valid = true;
 			bool refraction = false;
 #ifdef OP_DIELECTRIC
-			if (op == OP_DIELECTRIC && irr_glsl_isTransmissionPath(currInteraction.inner.isotropic.NdotV, s.NdotL))
+			if (irr_glsl_isTransmissionPath(currInteraction.inner.isotropic.NdotV, s.NdotL))
 			{
 				irr_glsl_calcAnisotropicMicrofacetCache(microfacet.inner, true, currInteraction.inner.isotropic.V.dir, s.L, currInteraction.inner.T, currInteraction.inner.B, currInteraction.inner.isotropic.N, s.NdotL, s.VdotL, eta, rcp_eta);
 				finalizeMicrofacet(microfacet);

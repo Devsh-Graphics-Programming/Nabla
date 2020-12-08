@@ -103,7 +103,7 @@ namespace MitsubaLoader
                 if (tex.image)
                     dst = std::move(tex);
                 else
-                    dst = IR::INode::color_t(1.f, 0.f, 0.f); // red in case of no texture
+                    dst = IR::INode::color_t(0.5f, 0.5f, 0.5f); // red in case of no texture
             }
             else dst = src.value.vvalue;
         };
@@ -474,6 +474,7 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
             else
                 ir_node = createIRNode(ir, node.bsdf);
         }
+        node.ir_node = ir_node;
 
         IRNode** dst = nullptr;
         if (node.parent_ix >= bfs.size())
