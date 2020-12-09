@@ -19,7 +19,7 @@
 class Renderer : public irr::core::IReferenceCounted, public irr::core::InterfaceUnmovable
 {
     public:
-		#include "../InstanceDataPerCamera.glsl"
+		#include "../drawCommon.glsl"
 		#ifdef __cplusplus
 			#undef mat4
 			#undef mat4x3
@@ -70,27 +70,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 				globalMeta = other.globalMeta;
 				return *this;
 			}
-			
 
-			struct VisibilityBufferPipelineKey
-			{
-				inline bool operator==(const VisibilityBufferPipelineKey& other) const
-				{
-					return vertexParams==other.vertexParams&&frontFaceIsCCW==other.frontFaceIsCCW;
-				}
-
-				irr::asset::SVertexInputParams vertexParams;
-				uint8_t frontFaceIsCCW;
-			};
-			struct VisibilityBufferPipelineKeyHash
-			{
-				inline std::size_t operator()(const VisibilityBufferPipelineKey& key) const
-				{
-					std::basic_string_view view(reinterpret_cast<const char*>(&key),sizeof(key));
-					return std::hash<decltype(view)>()(view);
-				}
-			};
-			irr::core::unordered_map<VisibilityBufferPipelineKey,irr::core::smart_refctd_ptr<irr::video::IGPURenderpassIndependentPipeline>,VisibilityBufferPipelineKeyHash> m_visibilityBufferFillPipelines;
 
 			irr::core::vector<SLight> lights;
 			irr::core::vector<irr::core::vectorSIMDf> lightRadiances;
@@ -128,9 +108,14 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		irr::core::smart_refctd_ptr<irr::ext::RadeonRays::Manager> m_rrManager;
 
-		irr::core::smart_refctd_ptr<irr::video::IGPUSpecializedShader> m_visibilityBufferFillShaders[2];
-		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSetLayout> m_perCameraRasterDSLayout;
-		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_visibilityBufferFillPipelineLayout;
+		irr::core::smart_refctd_ptr<irr::asset::ICPUSpecializedShader> m_visibilityBufferFillShaders[2];
+		irr::core::smart_refctd_ptr<irr::asset::ICPUPipelineLayout> m_visibilityBufferFillPipelineLayoutCPU;
+		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_visibilityBufferFillPipelineLayoutGPU;
+		irr::core::smart_refctd_ptr<const irr::video::IGPUDescriptorSetLayout> m_perCameraRasterDSLayout;
+
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSetLayout> m_cullDSLayout;
+		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_cullPipelineLayout;
+		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_cullPipeline;
 		
 		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_raygenPipeline,m_resolvePipeline;
 
@@ -140,12 +125,23 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		uint32_t m_renderSize[2u];
 		bool m_rightHanded;
 
+		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_indirectDrawBuffers[2];
+		struct MDICall
+		{
+			irr::asset::SBufferBinding<irr::video::IGPUBuffer> vertexBindings[irr::video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
+			irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> indexBuffer;
+			irr::core::smart_refctd_ptr<irr::video::IGPURenderpassIndependentPipeline> pipeline;
+			uint32_t mdiOffset,mdiCount;
+		};
+		irr::core::vector<MDICall> m_mdiDrawCalls;
+		CullShaderData_t m_cullPushConstants;
+
 		uint32_t m_lightCount;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightCDFBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightBuffer;
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightRadianceBuffer;
 
-		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_globalBackendDataDS,m_perCameraRasterDS; // TODO: do we need to keep track of this?
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_globalBackendDataDS,m_cullDS,m_perCameraRasterDS; // TODO: do we need to keep track of this?
 
 
 		irr::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;

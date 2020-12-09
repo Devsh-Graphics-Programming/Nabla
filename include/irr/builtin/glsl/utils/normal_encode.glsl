@@ -5,7 +5,7 @@
 
 vec2 irr_glsl_NormalEncode_signedSpherical(in vec3 n)
 {
-    return vec2(atan(n.y,n.x)/kPI, n.z);
+    return vec2(atan(n.y,n.x)/irr_glsl_PI, n.z);
 }
 
 #endif
