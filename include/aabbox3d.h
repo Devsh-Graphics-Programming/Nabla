@@ -8,7 +8,7 @@
 
 #include "line3d.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -276,7 +276,7 @@ typedef aabbox3d<float> aabbox3df;
 typedef aabbox3d<int32_t> aabbox3di;
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

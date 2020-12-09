@@ -11,7 +11,7 @@
 
 #include "SKeyMap.h"
 
-namespace irr
+namespace nbl
 {
 
 namespace scene
@@ -41,7 +41,7 @@ namespace scene
 		virtual void setRotateSpeed(float rotateSpeed) = 0;
 
 		//! Sets the keyboard mapping for this animator (old style)
-		/** \param map Array of keyboard mappings, see irr::SKeyMap
+		/** \param map Array of keyboard mappings, see nbl::SKeyMap
 		\param count Size of the keyboard map array. */
 		virtual void setKeyMap(SKeyMap *map, uint32_t count) = 0;
 
@@ -64,7 +64,7 @@ namespace scene
 		virtual void setInvertMouse(bool invert) = 0;
 	};
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

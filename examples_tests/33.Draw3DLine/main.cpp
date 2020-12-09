@@ -3,19 +3,19 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #define _NBL_STATIC_LIB_
-#include <irrlicht.h>
+#include <nabla.h>
 
-#include "irr/ext/DebugDraw/CDraw3DLine.h"
+#include "nbl/ext/DebugDraw/CDraw3DLine.h"
 
 #include "../common/QToQuitEventReceiver.h"
 
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 int main()
 {
-    irr::SIrrlichtCreationParameters params;
+    nbl::SIrrlichtCreationParameters params;
     params.Bits = 24;
     params.ZBufferBits = 24;
     params.DriverType = video::EDT_OPENGL;

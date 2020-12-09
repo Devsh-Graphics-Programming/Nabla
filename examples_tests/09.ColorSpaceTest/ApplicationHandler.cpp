@@ -4,10 +4,10 @@
 
 #include "ApplicationHandler.hpp"
 
-#include "irr/ext/FullScreenTriangle/FullScreenTriangle.h"
-#include "irr/ext/ScreenShot/ScreenShot.h"
+#include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 using namespace asset;
 using namespace video;
@@ -38,7 +38,7 @@ void ApplicationHandler::fetchTestingImagePaths()
 	}
 }
 
-void ApplicationHandler::presentImageOnTheScreen(irr::core::smart_refctd_ptr<irr::video::IGPUImageView> gpuImageView, std::string currentHandledImageFileName, std::string currentHandledImageExtension)
+void ApplicationHandler::presentImageOnTheScreen(nbl::core::smart_refctd_ptr<nbl::video::IGPUImageView> gpuImageView, std::string currentHandledImageFileName, std::string currentHandledImageExtension)
 {
 	auto samplerDescriptorSet3 = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuDescriptorSetLayout3));
 
@@ -188,7 +188,7 @@ void ApplicationHandler::performImageTest(std::string path)
 
 	if(!tryToWrite(copyImageView->getCreationParameters().image.get()))
 		if(!tryToWrite(copyImageView.get()))
-			os::Printer::log("An unexcepted error occoured while trying to write the asset!", irr::ELL_WARNING);
+			os::Printer::log("An unexcepted error occoured while trying to write the asset!", nbl::ELL_WARNING);
 
 	assetManager->removeCachedGPUObject(asset.get(), gpuImageView);
 	assetManager->removeAssetFromCache(cpuTexture);
@@ -197,7 +197,7 @@ void ApplicationHandler::performImageTest(std::string path)
 
 bool ApplicationHandler::initializeApplication()
 {
-	irr::SIrrlichtCreationParameters params;
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24;
 	params.ZBufferBits = 24; 
 	params.DriverType = video::EDT_OPENGL; 

@@ -5,7 +5,7 @@
 #ifdef __cplusplus
 	#define int int32_t
 	#define uint uint32_t
-	#define mat3 irr::core::matrix3x4SIMD
+	#define mat3 nbl::core::matrix3x4SIMD
 #endif
 struct CommonPushConstants
 {

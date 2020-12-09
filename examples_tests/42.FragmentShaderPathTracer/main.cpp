@@ -2,19 +2,19 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include <irrlicht.h>
+#include <nabla.h>
 
 #include "../common/QToQuitEventReceiver.h"
 
-#include "irr/ext/FullScreenTriangle/FullScreenTriangle.h"
-#include "irr/ext/ScreenShot/ScreenShot.h"
+#include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 using namespace asset;
 using namespace video;
 
-irr::video::IFrameBuffer* createHDRFramebuffer(core::smart_refctd_ptr<IrrlichtDevice> device, asset::E_FORMAT colorFormat)
+nbl::video::IFrameBuffer* createHDRFramebuffer(core::smart_refctd_ptr<IrrlichtDevice> device, asset::E_FORMAT colorFormat)
 {
 	auto driver = device->getVideoDriver();
 
@@ -159,7 +159,7 @@ enum E_LIGHT_GEOMETRY
 
 int main()
 {
-	irr::SIrrlichtCreationParameters params;
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 32;
 	params.ZBufferBits = 24;
 	params.DriverType = video::EDT_OPENGL;

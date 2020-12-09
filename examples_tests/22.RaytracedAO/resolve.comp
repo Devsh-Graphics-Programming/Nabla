@@ -72,7 +72,7 @@ void main()
 
 	vec3 normal;
 	if (alive)
-		normal = irr_glsl_NormalDecode_signedSpherical(texelFetch(normalbuf,pixelCoord,0).rg);
+		normal = nbl_glsl_NormalDecode_signedSpherical(texelFetch(normalbuf,pixelCoord,0).rg);
 
 	vec4 acc = vec4(0.0);
 	if (uRcpFramesDone<1.0 && alive)

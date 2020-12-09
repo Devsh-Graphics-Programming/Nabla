@@ -8,7 +8,7 @@
 
 #include "dimension2d.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -157,7 +157,7 @@ public:
 	bool dimension2d<T>::operator==(const vector2d<T>& other) const { return Width == other.X && Height == other.Y; }
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

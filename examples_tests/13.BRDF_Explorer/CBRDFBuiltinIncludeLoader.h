@@ -5,9 +5,9 @@
 #ifndef C_BRDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED
 #define C_BRDF_BUILTIN_INCLUDE_LOADER_H_INCLUDED
 
-#include "irr/asset/IBuiltinIncludeLoader.h"
+#include "nbl/asset/IBuiltinIncludeLoader.h"
 
-class CBRDFBuiltinIncludeLoader : public irr::asset::IBuiltinIncludeLoader
+class CBRDFBuiltinIncludeLoader : public nbl::asset::IBuiltinIncludeLoader
 {
 public:
     const char* getVirtualDirectoryName() const override { return "glsl/brdf/"; }
@@ -172,7 +172,7 @@ float Fresnel_dielectric(in float Eta, in float CosTheta)
     }
 
 protected:
-    irr::core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
+    nbl::core::vector<std::pair<std::regex, HandleFunc_t>> getBuiltinNamesToFunctionMapping() const override
     {
         return {
             { std::regex{"diffuse/oren_nayar\\.glsl"}, &getOrenNayar },

@@ -1,9 +1,9 @@
 #define _IRR_STATIC_LIB_
-#include <irrlicht.h>
+#include <nabla.h>
 #include <random>
 #include <cmath>
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 #define kNumHardwareInstancesX 10
@@ -22,11 +22,11 @@ public:
 
 	bool OnEvent(const SEvent& event)
 	{
-		if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+		if (event.EventType == nbl::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
 		{
 			switch (event.KeyInput.Key)
 			{
-			case irr::KEY_KEY_Q: // switch wire frame mode
+			case nbl::KEY_KEY_Q: // switch wire frame mode
 				exit(0);
 				return true;
 			default:
@@ -330,28 +330,28 @@ int main()
 	{
 		printf("SINGLE THREADED======================================================\n");
 		printf("Linear \n");
-		irr::core::address_allocator_traits<core::LinearAddressAllocatorST<uint32_t> >::printDebugInfo();
+		nbl::core::address_allocator_traits<core::LinearAddressAllocatorST<uint32_t> >::printDebugInfo();
 		printf("Stack \n");
-		irr::core::address_allocator_traits<core::StackAddressAllocatorST<uint32_t> >::printDebugInfo();
+		nbl::core::address_allocator_traits<core::StackAddressAllocatorST<uint32_t> >::printDebugInfo();
 		printf("Pool \n");
-		irr::core::address_allocator_traits<core::PoolAddressAllocatorST<uint32_t> >::printDebugInfo();
+		nbl::core::address_allocator_traits<core::PoolAddressAllocatorST<uint32_t> >::printDebugInfo();
 		printf("General \n");
-		irr::core::address_allocator_traits<core::GeneralpurposeAddressAllocatorST<uint32_t> >::printDebugInfo();
+		nbl::core::address_allocator_traits<core::GeneralpurposeAddressAllocatorST<uint32_t> >::printDebugInfo();
 
 		printf("MULTI THREADED=======================================================\n");
 		printf("Linear \n");
-		irr::core::address_allocator_traits<core::LinearAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
+		nbl::core::address_allocator_traits<core::LinearAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
 		printf("Pool \n");
-		irr::core::address_allocator_traits<core::PoolAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
+		nbl::core::address_allocator_traits<core::PoolAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
 		printf("General \n");
-		irr::core::address_allocator_traits<core::GeneralpurposeAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
+		nbl::core::address_allocator_traits<core::GeneralpurposeAddressAllocatorMT<uint32_t, std::recursive_mutex> >::printDebugInfo();
 	}
 
 	// Alloc pref test
 	{
 		// create device with full flexibility over creation parameters
-		// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-		irr::SIrrlichtCreationParameters params;
+		// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+		nbl::SIrrlichtCreationParameters params;
 		params.Bits = 24; //may have to set to 32bit for some platforms
 		params.ZBufferBits = 24; //we'd like 32bit here
 		params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing

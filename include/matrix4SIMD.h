@@ -7,7 +7,7 @@
 
 #include "matrix3x4SIMD.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -204,6 +204,6 @@ inline matrix4SIMD concatenateBFollowedByAPrecisely(const matrix4SIMD& _a, const
 */
 
 
-}} // irr::core
+}} // nbl::core
 
 #endif

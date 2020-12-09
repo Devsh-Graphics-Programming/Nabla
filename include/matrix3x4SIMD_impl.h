@@ -6,11 +6,11 @@
 #define __NBL_MATRIX3X4SIMD_IMPL_H_INCLUDED__
 
 #include "matrix3x4SIMD.h"
-#include "irr/core/math/glslFunctions.tcc"
+#include "nbl/core/math/glslFunctions.tcc"
 
 #include "matrix4x3.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -520,6 +520,6 @@ inline __m128d matrix3x4SIMD::doJob_d(const __m128d& _a0, const __m128d& _a1, co
 #endif
 
 }
-} // irr::core
+} // nbl::core
 
 #endif

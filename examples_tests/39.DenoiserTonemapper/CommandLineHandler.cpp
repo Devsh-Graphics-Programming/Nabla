@@ -6,7 +6,7 @@
 
 #include <algorithm>
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 using namespace core;
 
@@ -25,7 +25,7 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 		return;
 	}
 
-	assetManager->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(assetManager));
+	assetManager->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(assetManager));
 	core::vector<std::array<std::string, PROPER_CMD_ARGUMENTS_AMOUNT>> argvMappedList;
 
 	auto pushArgvList = [&](auto argvStream, auto variableCount)
@@ -136,7 +136,7 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 				const auto beginningOfVariables = rawFetchedCmdArgument.find_last_of("=") + 1;
 				auto variablesStream = rawFetchedCmdArgument.substr(beginningOfVariables);
 
-				auto forceOutsideAssignment = [&](DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS argument, irr::core::vector<std::string>& variablesHandle)
+				auto forceOutsideAssignment = [&](DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS argument, nbl::core::vector<std::string>& variablesHandle)
 				{
 					auto& reference = rawVariablesHandle[argument];
 					return reference.emplace(variablesHandle);
@@ -222,7 +222,7 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 
 bool CommandLineHandler::validateMandatoryParameters(const variablesType& rawVariablesPerFile, const size_t idOfInput)
 {
-	static const irr::core::vector<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS> mandatoryArgumentsOrdinary = { DTEA_COLOR_FILE, DTEA_CAMERA_TRANSFORM, DTEA_DENOISER_EXPOSURE_BIAS, DTEA_DENOISER_BLEND_FACTOR, DTEA_BLOOM_FOV, DTEA_OUTPUT };
+	static const nbl::core::vector<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS> mandatoryArgumentsOrdinary = { DTEA_COLOR_FILE, DTEA_CAMERA_TRANSFORM, DTEA_DENOISER_EXPOSURE_BIAS, DTEA_DENOISER_BLEND_FACTOR, DTEA_BLOOM_FOV, DTEA_OUTPUT };
 
 	auto log = [&](bool status, const std::string message)
 	{
@@ -288,9 +288,9 @@ bool CommandLineHandler::validateMandatoryParameters(const variablesType& rawVar
 	return validateTonemapper();
 }
 /*
-std::pair<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS,irr::core::vector<float>> CommandLineHandler::getTonemapper(uint64_t id)
+std::pair<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS,nbl::core::vector<float>> CommandLineHandler::getTonemapper(uint64_t id)
 {
-	irr::core::vector<float> values;
+	nbl::core::vector<float> values;
 	uint32_t j = DTEA_TONEMAPPER_REINHARD;
 	DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS num;
 	for (; j<=DTEA_TONEMAPPER_NONE; j++)
@@ -328,7 +328,7 @@ std::optional<std::string> CommandLineHandler::getNormalFileName(uint64_t id)
 	return rawVariables[id][DTEA_NORMAL_FILE].value()[0];
 }
 
-irr::core::matrix3x4SIMD CommandLineHandler::getCameraTransform(uint64_t id)
+nbl::core::matrix3x4SIMD CommandLineHandler::getCameraTransform(uint64_t id)
 {
 	static const IAssetLoader::SAssetLoadParams mitsubaLoaderParams = { 0, nullptr, IAssetLoader::ECF_CACHE_EVERYTHING, nullptr, IAssetLoader::ELPF_LOAD_METADATA_ONLY };
 
@@ -362,7 +362,7 @@ irr::core::matrix3x4SIMD CommandLineHandler::getCameraTransform(uint64_t id)
 
 	auto getMatrixFromSerializedValues = [&]()
 	{
-		irr::core::matrix3x4SIMD cameraTransform;
+		nbl::core::matrix3x4SIMD cameraTransform;
 		const auto send = rawVariables[id][DTEA_CAMERA_TRANSFORM].value().end();
 		auto sit = rawVariables[id][DTEA_CAMERA_TRANSFORM].value().begin();
 		for (auto i = 0; i < 3u && sit != send; i++)

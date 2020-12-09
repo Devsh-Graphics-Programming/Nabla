@@ -5,9 +5,9 @@
 #ifndef __NBL_I_DRIVER_MEMORY_ALLOCATION_H_INCLUDED__
 #define __NBL_I_DRIVER_MEMORY_ALLOCATION_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
+#include "nbl/core/IReferenceCounted.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -154,7 +154,7 @@ class IDriverMemoryAllocation : public virtual core::IReferenceCounted
 };
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

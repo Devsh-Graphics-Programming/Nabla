@@ -10,10 +10,10 @@
 #include <string>
 #include <stdlib.h>
 
-#include "irr/core/alloc/aligned_allocator.h"
-#include "irr/core/alloc/AlignedBase.h"
+#include "nbl/core/alloc/aligned_allocator.h"
+#include "nbl/core/alloc/AlignedBase.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -1140,7 +1140,7 @@ typedef string<wchar_t> stringw;
 
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

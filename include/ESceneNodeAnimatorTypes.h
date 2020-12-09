@@ -6,7 +6,7 @@
 #ifndef __NBL_E_SCENE_NODE_ANIMATOR_TYPES_H_INCLUDED__
 #define __NBL_E_SCENE_NODE_ANIMATOR_TYPES_H_INCLUDED__
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -52,7 +52,7 @@ namespace scene
 	};
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

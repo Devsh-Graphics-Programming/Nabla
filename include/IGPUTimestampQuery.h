@@ -5,10 +5,10 @@
 #ifndef __NBL_I_GPU_TIMESTAMP_QUERY_H_INCLUDED__
 #define __NBL_I_GPU_TIMESTAMP_QUERY_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
+#include "nbl/core/IReferenceCounted.h"
 #include "stdint.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

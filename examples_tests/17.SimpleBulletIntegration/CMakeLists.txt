@@ -4,9 +4,9 @@ if(NOT RES)
 	message(FATAL_ERROR "common.cmake not found. Should be in {repo_root}/cmake directory")
 endif()
 
-irr_create_executable_project(
-	../../src/irr/ext/DebugDraw/CDraw3DLine.cpp
+nbl_create_executable_project(
+	../../src/nbl/ext/DebugDraw/CDraw3DLine.cpp
 	"" 
-	"${IRR_EXT_BULLET_INCLUDE_DIRS}" 
-	"${IRR_EXT_BULLET_LIB}"
+	"${NBL_EXT_BULLET_INCLUDE_DIRS}" 
+	"${NBL_EXT_BULLET_LIB}"
 )

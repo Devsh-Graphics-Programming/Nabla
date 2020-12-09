@@ -72,7 +72,7 @@ bool traceRay(in ImmutableRay_t _immutable)
 
 
 // the interaction here is the interaction at the illuminator-end of the ray, not the receiver
-vec3 irr_glsl_light_deferred_eval_and_prob(
+vec3 nbl_glsl_light_deferred_eval_and_prob(
     out float pdf, in Light light, in vec3 L
 #if TRIANGLE_METHOD==0
     ,in float intersectionT
@@ -91,14 +91,14 @@ vec3 irr_glsl_light_deferred_eval_and_prob(
 #if TRIANGLE_METHOD==0
     pdf *= intersectionT*intersectionT/abs(dot(Triangle_getNormalTimesArea(tri),L));
 #else
-    const mat3 sphericalVertices = irr_glsl_shapes_getSphericalTriangle(mat3(tri.vertex0,tri.vertex1,tri.vertex2),origin);
+    const mat3 sphericalVertices = nbl_glsl_shapes_getSphericalTriangle(mat3(tri.vertex0,tri.vertex1,tri.vertex2),origin);
     Triangle tmpTri = Triangle_Triangle(mat3(tri.vertex0,tri.vertex1,tri.vertex2),0u,0u);
     #if TRIANGLE_METHOD==1
-        float rcpProb = irr_glsl_shapes_SolidAngleOfTriangle(sphericalVertices);
+        float rcpProb = nbl_glsl_shapes_SolidAngleOfTriangle(sphericalVertices);
         // if `rcpProb` is NAN then the triangle's solid angle was close to 0.0 
         pdf = rcpProb>FLT_MIN ? (pdf/rcpProb):FLT_MAX;
     #elif TRIANGLE_METHOD==2
-        pdf *= irr_glsl_sampling_probProjectedSphericalTriangleSample(sphericalVertices,normalAtOrigin,wasBSDFAtOrigin,L);
+        pdf *= nbl_glsl_sampling_probProjectedSphericalTriangleSample(sphericalVertices,normalAtOrigin,wasBSDFAtOrigin,L);
         // if `pdf` is NAN then the triangle's projected solid angle was close to 0.0, if its close to INF then the triangle was very small
         pdf = pdf<FLT_MAX ? pdf:0.0;
     #endif
@@ -107,7 +107,7 @@ vec3 irr_glsl_light_deferred_eval_and_prob(
 }
 
 
-irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in bool isBSDF, in vec3 u, in int depth)
+nbl_glsl_LightSample nbl_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in bool isBSDF, in vec3 u, in int depth)
 {
     // normally we'd pick from set of lights, using `u.z`
     const Light light = lights[0];
@@ -131,11 +131,11 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
 #else 
     float rcpPdf;
 
-    const mat3 sphericalVertices = irr_glsl_shapes_getSphericalTriangle(mat3(tri.vertex0,tri.vertex1,tri.vertex2),origin);
+    const mat3 sphericalVertices = nbl_glsl_shapes_getSphericalTriangle(mat3(tri.vertex0,tri.vertex1,tri.vertex2),origin);
 #if TRIANGLE_METHOD==1
-    const vec3 L = irr_glsl_sampling_generateSphericalTriangleSample(rcpPdf,sphericalVertices,u.xy);
+    const vec3 L = nbl_glsl_sampling_generateSphericalTriangleSample(rcpPdf,sphericalVertices,u.xy);
 #elif TRIANGLE_METHOD==2
-    const vec3 L = irr_glsl_sampling_generateProjectedSphericalTriangleSample(rcpPdf,sphericalVertices,interaction.isotropic.N,isBSDF,u.xy);
+    const vec3 L = nbl_glsl_sampling_generateProjectedSphericalTriangleSample(rcpPdf,sphericalVertices,interaction.isotropic.N,isBSDF,u.xy);
 #endif
     // if `rcpProb` is NAN or negative then the triangle's solidAngle or projectedSolidAngle was close to 0.0 
     rcpPdf = rcpPdf>FLT_MIN ? rcpPdf:0.0;
@@ -149,10 +149,10 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
 
     newRayMaxT = getEndTolerance(depth)*dist;
     
-    return irr_glsl_createLightSample(L,interaction);
+    return nbl_glsl_createLightSample(L,interaction);
 }
 
-void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64star_state_t scramble_state)
+void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
 {
     const MutableRay_t mutable = rayStack[stackPtr]._mutable;
 
@@ -160,9 +160,9 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
     const uint objectID = mutable.objectID;
     
     uint bsdfLightIDs;
-    irr_glsl_AnisotropicViewSurfaceInteraction interaction;
+    nbl_glsl_AnisotropicViewSurfaceInteraction interaction;
     {
-        irr_glsl_IsotropicViewSurfaceInteraction isotropic;
+        nbl_glsl_IsotropicViewSurfaceInteraction isotropic;
 
         isotropic.V.dir = -_immutable.direction;
         //isotropic.V.dPosdScreen = screw that
@@ -181,7 +181,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
         isotropic.NdotV = dot(isotropic.V.dir,isotropic.N);
         isotropic.NdotV_squared = isotropic.NdotV*isotropic.NdotV;
 
-        interaction = irr_glsl_calcAnisotropicInteraction(isotropic);
+        interaction = nbl_glsl_calcAnisotropicInteraction(isotropic);
     }
 
     const uint lightID = bitfieldExtract(bsdfLightIDs,16,16);
@@ -191,7 +191,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
     if (lightID!=INVALID_ID_16BIT) // has emissive
     {
         float lightPdf;
-        vec3 lightVal = irr_glsl_light_deferred_eval_and_prob(
+        vec3 lightVal = nbl_glsl_light_deferred_eval_and_prob(
             lightPdf,lights[lightID],_immutable.direction
         #if TRIANGLE_METHOD==0
             ,mutable.intersectionT
@@ -231,19 +231,19 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
         vec3 epsilon = rand3d(depth,sampleIx,scramble_state);
     
         float rcpChoiceProb;
-        const bool doNEE = irr_glsl_partitionRandVariable(bsdfGeneratorProbability,epsilon.z,rcpChoiceProb);
+        const bool doNEE = nbl_glsl_partitionRandVariable(bsdfGeneratorProbability,epsilon.z,rcpChoiceProb);
     
 
         float maxT;
         // the probability of generating a sample w.r.t. the light generator only possible and used when it was generated with it!
         float lightPdf;
-        irr_glsl_LightSample _sample;
-        irr_glsl_AnisotropicMicrofacetCache _cache;
+        nbl_glsl_LightSample _sample;
+        nbl_glsl_AnisotropicMicrofacetCache _cache;
         const bool isBSDF = BSDFNode_isBSDF(bsdf);
         if (doNEE)
         {
             vec3 lightRemainder;
-            _sample = irr_glsl_light_generate_and_remainder_and_pdf(
+            _sample = nbl_glsl_light_generate_and_remainder_and_pdf(
                 lightRemainder,lightPdf,maxT,
                 intersection,interaction,
                 isBSDF,epsilon,depth
@@ -252,31 +252,31 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
         }
 
         bool validPath = true;
-        const vec3 throughputCIE_Y = transpose(irr_glsl_sRGBtoXYZ)[1]*throughput;
+        const vec3 throughputCIE_Y = transpose(nbl_glsl_sRGBtoXYZ)[1]*throughput;
         const float monochromeEta = dot(throughputCIE_Y,BSDFNode_getEta(bsdf)[0])/(throughputCIE_Y.r+throughputCIE_Y.g+throughputCIE_Y.b);
         if (doNEE)
         {
             // if we allowed non-watertight transmitters (single water surface), it would make sense just to apply this line.
-            validPath = irr_glsl_calcAnisotropicMicrofacetCache(_cache,interaction,_sample,monochromeEta);
+            validPath = nbl_glsl_calcAnisotropicMicrofacetCache(_cache,interaction,_sample,monochromeEta);
             // but we don't allow non watertight transmitters in this renderer
             validPath = validPath && _sample.NdotL>0.0;
         }
         else
         {
             maxT = FLT_MAX;
-            _sample = irr_glsl_bsdf_cos_generate(interaction,epsilon,bsdf,monochromeEta,_cache);
+            _sample = nbl_glsl_bsdf_cos_generate(interaction,epsilon,bsdf,monochromeEta,_cache);
         }
             
         // do a cool trick and always compute the bsdf parts this way! (no divergence)
         float bsdfPdf;
         // the value of the bsdf divided by the probability of the sample being generated
         if (validPath)
-			throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf,monochromeEta,_cache);
+			throughput *= nbl_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf,monochromeEta,_cache);
         else
             throughput = vec3(0.0);
 
         // OETF smallest perceptible value
-        const float bsdfPdfThreshold = getLuma(irr_glsl_eotf_sRGB(vec3(1.0)/255.0));
+        const float bsdfPdfThreshold = getLuma(nbl_glsl_eotf_sRGB(vec3(1.0)/255.0));
         const float lumaThroughputThreshold = bsdfPdfThreshold;
         if (bsdfPdf>bsdfPdfThreshold && getLuma(throughput)>lumaThroughputThreshold)
         {

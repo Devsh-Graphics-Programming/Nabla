@@ -8,9 +8,9 @@
 
 #include "irrString.h"
 
-#include "irr/core/compile_config.h"
+#include "nbl/core/compile_config.h"
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -145,6 +145,6 @@ private:
 };
 
 } // io
-} // irr
+} // nbl
 
 #endif

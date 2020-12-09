@@ -9,7 +9,7 @@
 #include "IReadFile.h"
 #include "IFileList.h"
 
-namespace irr
+namespace nbl
 {
 
 namespace io
@@ -26,22 +26,22 @@ enum EFileSystemType
 enum E_FILE_ARCHIVE_TYPE
 {
 	//! A PKZIP archive
-	EFAT_ZIP     = MAKE_NBL_ID('Z','I','P', 0),
+	EFAT_ZIP,
 
 	//! A gzip archive
-	EFAT_GZIP    = MAKE_NBL_ID('g','z','i','p'),
+	EFAT_GZIP,
 
 	//! A virtual directory
-	EFAT_FOLDER  = MAKE_NBL_ID('f','l','d','r'),
+	EFAT_FOLDER,
 
 	//! An ID Software PAK archive
-	EFAT_PAK     = MAKE_NBL_ID('P','A','K', 0),
+	EFAT_PAK,
 
 	//! A Tape ARchive
-	EFAT_TAR     = MAKE_NBL_ID('T','A','R', 0),
+	EFAT_TAR,
 
 	//! The type of this archive is unknown
-	EFAT_UNKNOWN = MAKE_NBL_ID('u','n','k','n')
+	EFAT_UNKNOWN
 };
 
 //! The FileArchive manages archives and provides access to files inside them.
@@ -115,7 +115,7 @@ public:
 
 
 } // end namespace io
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

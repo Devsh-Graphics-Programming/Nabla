@@ -8,7 +8,7 @@
 
 #include "vectorSIMD.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -138,7 +138,7 @@ class line3d// : public AllocationOverrideDefault
 	typedef line3d<int32_t> line3di;
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

@@ -10,9 +10,9 @@
 #include "EDeviceTypes.h"
 #include "dimension2d.h"
 #include "ILogger.h"
-#include "irr/builtin/common.h"
+#include "nbl/builtin/common.h"
 
-namespace irr
+namespace nbl
 {
 	class IEventReceiver;
 
@@ -228,7 +228,7 @@ namespace irr
 		//!
 		uint8_t AuxGLContexts;
 
-		//! This variable tells us where the directory holding "irr/builtin/" is if the resources are not embedded
+		//! This variable tells us where the directory holding "nbl/builtin/" is if the resources are not embedded
 		/** For shipping products to end-users we recommend embedding the built-in resources to avoid a plethora of
 		"works on my machine" problems, as this method is not 100% cross platform, i.e. if the engine's headers'
 		install directory is different between computers then it will surely not work.*/
@@ -246,7 +246,7 @@ namespace irr
 	};
 
 
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

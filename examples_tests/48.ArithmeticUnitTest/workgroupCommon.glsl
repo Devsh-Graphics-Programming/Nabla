@@ -1,3 +1,3 @@
 #include "shaderCommon.glsl"
 
-#include "irr/builtin/glsl/workgroup/arithmetic.glsl"
+#include "nbl/builtin/glsl/workgroup/arithmetic.glsl"

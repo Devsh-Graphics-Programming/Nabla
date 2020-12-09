@@ -8,7 +8,7 @@ cmake_policy(SET CMP0072 OLD) #not yet, would need to get pointers to all OpenGL
 set(OpenGL_GL_PREFERENCE LEGACY)
 #cmake_policy(SET CMP )
 
-project(Irrlicht LANGUAGES CXX C)
+project(Nabla LANGUAGES CXX C)
 
 
 find_package(Vulkan)
@@ -65,8 +65,8 @@ set(CMAKE_CXX_EXTENSIONS OFF) #...without compiler extensions like gnu++11, but 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${PROJECT_SOURCE_DIR}/cmake/")
 
 set(CMAKE_CONFIGURATION_TYPES "Debug;Release;RelWithDebInfo;")
-set(LLVM_USE_CRT_DEBUG MTd CACHE STRING "IrrBAW developer note: No idea what subfolder provides this")
-set(LLVM_USE_CRT_RELEASE MT CACHE STRING "IrrBAW developer note: No idea what subfolder provides this")
+set(LLVM_USE_CRT_DEBUG MTd CACHE STRING "Nabla developer note: No idea what subfolder provides this")
+set(LLVM_USE_CRT_RELEASE MT CACHE STRING "Nabla developer note: No idea what subfolder provides this")
 
 if(NOT CMAKE_BUILD_TYPE)
 	set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type: Debug or Release" FORCE)
@@ -78,7 +78,7 @@ else()
 	set(NBL_PARALLEL_BUILD_JOBS 8)
 endif()
 
-macro(irr_adjust_flags)
+macro(nbl_adjust_flags)
 	option(NBL_GCC_SANITIZE_ADDRESS OFF)
 	option(NBL_GCC_SANITIZE_THREAD OFF)
 
@@ -155,11 +155,11 @@ macro(irr_adjust_flags)
 		set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /INCREMENTAL:NO /LTCG:incremental")
 		
 	else()
-		message(WARNING "UNTESTED COMPILER DETECTED, EXPECT WRONG OPTIMIZATION FLAGS! SUBMIT ISSUE ON GITHUB https://github.com/buildaworldnet/IrrlichtBAW/issues")
+		message(WARNING "UNTESTED COMPILER DETECTED, EXPECT WRONG OPTIMIZATION FLAGS! SUBMIT ISSUE ON GITHUB https://github.com/Devsh-Graphics-Programming/Nabla/issues")
 	endif()
 endmacro()
 
-macro(irr_adjust_definitions)
+macro(nbl_adjust_definitions)
 	add_definitions(
 		-DPNG_THREAD_UNSAFE_OK
 		-DPNG_NO_MMX_CODE
@@ -198,9 +198,9 @@ option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
 
 option(NBL_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 
-option(NBL_BUILD_MITSUBA_LOADER "Enable irr::ext::MitsubaLoader?" ON)
+option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" ON)
 
-option(NBL_BUILD_RADEON_RAYS "Enable irr::ext::RadeonRays?" OFF)
+option(NBL_BUILD_RADEON_RAYS "Enable nbl::ext::RadeonRays?" OFF)
 
 if (NBL_COMPILE_WITH_CUDA)
 	find_package(OPTIX)
@@ -209,7 +209,7 @@ if (NBL_COMPILE_WITH_CUDA)
 	else()
 		message(STATUS "OptiX not found")
 	endif()
-	option(NBL_BUILD_OPTIX "Enable irr::ext::OptiX?" OFF)
+	option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
 else()
 	message(STATUS "Because NBL_COMPILE_WITH_CUDA is not enabled, the NBL_BUILD_OPTIX option will be hidden.")
 endif()
@@ -232,7 +232,7 @@ add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 OPTION(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 
 
-add_subdirectory(src/irr) # Irrlicht code	|	Moved cmakelists.txt from source/Irrlicht to src/irr
+add_subdirectory(src/nbl) # Nabla code	|	Moved cmakelists.txt from source/Nabla to src/nbl
 
 
 

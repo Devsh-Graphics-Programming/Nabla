@@ -1,0 +1,29 @@
+include(${NBL_ROOT_PATH}/cmake/common.cmake)
+set(NBL_EXT_INTERNAL_INCLUDE_DIR "${NBL_ROOT_PATH}/include/nbl/ext/OptiX")
+
+set(NBL_EXT_OPTIX_H
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/SbtRecord.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/IModule.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/IContext.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/IDenoiser.h
+	${NBL_EXT_INTERNAL_INCLUDE_DIR}/Manager.h
+)
+
+set(NBL_EXT_OPTIX_SRC
+	Manager.cpp
+	IContext.cpp
+)
+
+set(NBL_EXT_OPTIX_EXTERNAL_INCLUDE
+	"${NBL_ROOT_PATH}/3rdparty"
+	"${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}"
+	"${OPTIX_INCLUDE_DIR}"
+)
+
+nbl_create_ext_library_project(
+	OPTIX
+	"${NBL_EXT_OPTIX_H}"
+	"${NBL_EXT_OPTIX_SRC}"
+	"${NBL_EXT_OPTIX_EXTERNAL_INCLUDE}"
+	""
+)

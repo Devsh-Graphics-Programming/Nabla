@@ -1,10 +1,10 @@
 #define _IRR_STATIC_LIB_
-#include <irrlicht.h>
+#include <nabla.h>
 
-#include "../../source/Irrlicht/COpenGLDriver.h"
+#include "../../source/Nabla/COpenGLDriver.h"
 
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 using namespace video;
 using namespace asset;
@@ -15,71 +15,71 @@ template<typename T>
 struct and
 {
 	using type_t = T;
-	_IRR_STATIC_INLINE_CONSTEXPR T IdentityElement = ~0ull; // this should be a reinterpret cast
+	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = ~0ull; // this should be a reinterpret cast
 
 	inline T operator()(T left, T right) { return left & right; }
 
-	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "and";
+	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "and";
 };
 template<typename T>
 struct xor
 {
 	using type_t = T;
-	_IRR_STATIC_INLINE_CONSTEXPR T IdentityElement = 0ull; // this should be a reinterpret cast
+	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = 0ull; // this should be a reinterpret cast
 
 	inline T operator()(T left, T right) { return left ^ right; }
 
-	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "xor";
+	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "xor";
 };
 template<typename T>
 struct or
 {
 	using type_t = T;
-	_IRR_STATIC_INLINE_CONSTEXPR T IdentityElement = 0ull; // this should be a reinterpret cast
+	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = 0ull; // this should be a reinterpret cast
 
 	inline T operator()(T left, T right) { return left | right; }
 
-	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "or";
+	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "or";
 };
 template<typename T>
 struct add
 {
 	using type_t = T;
-	_IRR_STATIC_INLINE_CONSTEXPR T IdentityElement = T(0);
+	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = T(0);
 
 	inline T operator()(T left, T right) { return left + right; }
 
-	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "add";
+	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "add";
 };
 template<typename T>
 struct mul
 {
 	using type_t = T;
-	_IRR_STATIC_INLINE_CONSTEXPR T IdentityElement = T(1);
+	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = T(1);
 
 	inline T operator()(T left, T right) { return left * right; }
 
-	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "mul";
+	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "mul";
 };
 template<typename T>
 struct min
 {
 	using type_t = T;
-	_IRR_STATIC_INLINE_CONSTEXPR T IdentityElement = std::numeric_limits<T>::max();
+	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = std::numeric_limits<T>::max();
 
 	inline T operator()(T left, T right) { return std::min<T>(left, right); }
 
-	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "min";
+	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "min";
 };
 template<typename T>
 struct max
 {
 	using type_t = T;
-	_IRR_STATIC_INLINE_CONSTEXPR T IdentityElement = std::numeric_limits<T>::lowest();
+	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = std::numeric_limits<T>::lowest();
 
 	inline T operator()(T left, T right) { return std::max<T>(left, right); }
 
-	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "max";
+	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "max";
 };
 
 
@@ -112,7 +112,7 @@ struct emulatedSubgroupReduction : emulatedSubgroupCommon<emulatedSubgroupReduct
 		std::fill(outSubgroupData,outSubgroupData+clampedSubgroupSize,red);
 	}
 
-	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "subgroup reduction";
+	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "subgroup reduction";
 };
 template<class OP>
 struct emulatedSubgroupScanExclusive : emulatedSubgroupCommon<emulatedSubgroupScanExclusive<OP>,typename OP::type_t>
@@ -126,7 +126,7 @@ struct emulatedSubgroupScanExclusive : emulatedSubgroupCommon<emulatedSubgroupSc
 			outSubgroupData[i] = OP()(outSubgroupData[i-1u],subgroupData[i-1u]);
 	}
 
-	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "subgroup exclusive scan";
+	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "subgroup exclusive scan";
 };
 template<class OP>
 struct emulatedSubgroupScanInclusive : emulatedSubgroupCommon<emulatedSubgroupScanInclusive<OP>,typename OP::type_t>
@@ -140,7 +140,7 @@ struct emulatedSubgroupScanInclusive : emulatedSubgroupCommon<emulatedSubgroupSc
 			outSubgroupData[i] = OP()(outSubgroupData[i-1u],subgroupData[i]);
 	}
 
-	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "subgroup inclusive scan";
+	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "subgroup inclusive scan";
 };
 
 //workgroup methods
@@ -157,7 +157,7 @@ struct emulatedWorkgroupReduction
 		std::fill(outputData,outputData+workgroupSize,red);
 	}
 
-	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "workgroup reduction";
+	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "workgroup reduction";
 };
 template<class OP>
 struct emulatedWorkgroupScanExclusive
@@ -171,7 +171,7 @@ struct emulatedWorkgroupScanExclusive
 			outputData[i] = OP()(outputData[i-1u],workgroupData[i-1u]);
 	}
 
-	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "workgroup exclusive scan";
+	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "workgroup exclusive scan";
 };
 template<class OP>
 struct emulatedWorkgroupScanInclusive
@@ -185,7 +185,7 @@ struct emulatedWorkgroupScanInclusive
 			outputData[i] = OP()(outputData[i-1u],workgroupData[i]);
 	}
 
-	_IRR_STATIC_INLINE_CONSTEXPR const char* name = "workgroup inclusive scan";
+	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "workgroup inclusive scan";
 };
 
 
@@ -270,7 +270,7 @@ bool runTest(video::IVideoDriver* driver, video::IGPUComputePipeline* pipeline, 
 
 int main()
 {
-	irr::SIrrlichtCreationParameters params;
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24;
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing

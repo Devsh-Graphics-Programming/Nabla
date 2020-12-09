@@ -6,12 +6,12 @@
 #ifndef __NBL_RECT_H_INCLUDED__
 #define __NBL_RECT_H_INCLUDED__
 
-#include "irr/core/Types.h"
-#include "irr/macros.h"
+#include "nbl/core/Types.h"
+#include "nbl/macros.h"
 #include "dimension2d.h"
 #include "position2d.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -275,7 +275,7 @@ namespace core
 	typedef rect<int32_t> recti;
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

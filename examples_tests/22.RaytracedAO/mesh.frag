@@ -18,6 +18,6 @@ layout(location = 2) out vec2 uv;
 void main()
 {		
 	objectTriangleFrontFacing = uvec2(ObjectID^(gl_FrontFacing ? 0x0u:0x80000000u),gl_PrimitiveID);
-	encodedNormal = irr_glsl_NormalEncode_signedSpherical(normalize(Normal));
+	encodedNormal = nbl_glsl_NormalEncode_signedSpherical(normalize(Normal));
 	uv = UV;
 }

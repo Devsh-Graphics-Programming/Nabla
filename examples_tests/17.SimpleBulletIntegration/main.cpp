@@ -3,23 +3,23 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #define _NBL_STATIC_LIB_
-#include <irrlicht.h>
+#include <nabla.h>
 
-#include "irr/ext/ScreenShot/ScreenShot.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
 #include <btBulletDynamicsCommon.h>
 #include "BulletCollision/NarrowPhaseCollision/btRaycastCallback.h"
 
-#include "irr/ext/Bullet/BulletUtility.h"
-#include "irr/ext/Bullet/CPhysicsWorld.h"
+#include "nbl/ext/Bullet/BulletUtility.h"
+#include "nbl/ext/Bullet/CPhysicsWorld.h"
 
-#include "irr/ext/Bullet/CInstancedMotionState.h"
-#include "irr/ext/Bullet/CDebugRender.h"
+#include "nbl/ext/Bullet/CInstancedMotionState.h"
+#include "nbl/ext/Bullet/CDebugRender.h"
 
 
 #include "../common/QToQuitEventReceiver.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 using namespace scene;
 
@@ -66,13 +66,13 @@ class MyEventReceiver : public QToQuitEventReceiver
 
 		bool OnEvent(const SEvent& event)
 		{
-			if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+			if (event.EventType == nbl::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
 			{
 				switch (event.KeyInput.Key)
 				{
-					case irr::KEY_KEY_Q: // switch wire frame mode
+					case nbl::KEY_KEY_Q: // switch wire frame mode
 						return QToQuitEventReceiver::OnEvent(event);
-					case irr::KEY_KEY_R: //Bullet raycast
+					case nbl::KEY_KEY_R: //Bullet raycast
 						handleRaycast(cam, physicsWorld);
 						return true;
             
@@ -220,8 +220,8 @@ core::smart_refctd_ptr<asset::IMeshDataFormatDesc<video::IGPUBuffer> > vaoSetupO
 int main()
 {
 	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
@@ -265,7 +265,7 @@ int main()
     // ! - INITIALIZE BULLET WORLD + FLAT PLANE FOR TESTING
 //------------------------------------------------------------------
 
-    ext::Bullet3::CPhysicsWorld *world = _NBL_NEW(irr::ext::Bullet3::CPhysicsWorld);
+    ext::Bullet3::CPhysicsWorld *world = _NBL_NEW(nbl::ext::Bullet3::CPhysicsWorld);
     world->getWorld()->setGravity(btVector3(0, -5, 0));
 
 
@@ -352,7 +352,7 @@ int main()
 
 
 
-    irr::ext::Bullet3::CPhysicsWorld::RigidBodyData data3;
+    nbl::ext::Bullet3::CPhysicsWorld::RigidBodyData data3;
     data3.mass = 2.0f;
     data3.shape = world->createbtObject<btBoxShape>(btVector3(0.5, 0.5, 0.5));
 
@@ -392,7 +392,7 @@ int main()
 
         bodies[y*towerWidth + z]->setUserPointer((uint32_t*)(y*towerWidth + z));
 
-        world->bindRigidBody<irr::ext::Bullet3::CInstancedMotionState>(bodies[y*towerWidth + z], node, instances[y*towerWidth + z]);
+        world->bindRigidBody<nbl::ext::Bullet3::CInstancedMotionState>(bodies[y*towerWidth + z], node, instances[y*towerWidth + z]);
 
 
     }

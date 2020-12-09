@@ -5,7 +5,7 @@
 #define _NBL_STATIC_LIB_
 
 #include "InputEventReciever.h"
-#include "../source/Irrlicht/COpenGLExtensionHandler.h"
+#include "../source/Nabla/COpenGLExtensionHandler.h"
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
 
 #include "common.glsl"
@@ -149,7 +149,7 @@ void main()
 }
 )===";
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 
@@ -186,7 +186,7 @@ void SaveBufferToCSV(video::IVideoDriver* driver, size_t mdiIndex, video::IGPUBu
     };
 
     // get the line count
-    auto vertexCount = *reinterpret_cast<const uint32_t*>(getData(drawIndirectBuffer,sizeof(asset::DrawArraysIndirectCommand_t)*mdiIndex+offsetof(irr::asset::DrawArraysIndirectCommand_t,count),sizeof(asset::DrawArraysIndirectCommand_t::count)));
+    auto vertexCount = *reinterpret_cast<const uint32_t*>(getData(drawIndirectBuffer,sizeof(asset::DrawArraysIndirectCommand_t)*mdiIndex+offsetof(nbl::asset::DrawArraysIndirectCommand_t,count),sizeof(asset::DrawArraysIndirectCommand_t::count)));
 
     // get the lines
     auto* data = reinterpret_cast<float*>(getData(lineBuffer,0u,vertexCount*sizeof(float)*3u));
@@ -212,8 +212,8 @@ int main()
     constexpr auto maxLineCount = linesBufferSize/(sizeof(float)*6u);
 
 	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing

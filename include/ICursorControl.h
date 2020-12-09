@@ -6,11 +6,11 @@
 #ifndef __NBL_I_CURSOR_CONTROL_H_INCLUDED__
 #define __NBL_I_CURSOR_CONTROL_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
+#include "nbl/core/IReferenceCounted.h"
 #include "position2d.h"
 #include "rect.h"
 
-namespace irr
+namespace nbl
 {
 namespace gui
 {
@@ -187,7 +187,7 @@ namespace gui
 
 
 } // end namespace gui
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

@@ -7,7 +7,7 @@
 #define __NBL_S_EXPOSED_VIDEO_DATA_H_INCLUDED__
 
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -51,7 +51,7 @@ struct SExposedVideoData
 };
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

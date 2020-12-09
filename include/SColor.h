@@ -6,12 +6,12 @@
 #ifndef __NBL_COLOR_H_INCLUDED__
 #define __NBL_COLOR_H_INCLUDED__
 
-#include "irr/core/core.h"
+#include "nbl/core/core.h"
 #include "vectorSIMD.h"
 
-#include "irr/asset/format/decodePixels.h"
+#include "nbl/asset/format/decodePixels.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -277,6 +277,6 @@ namespace video
 
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 #endif
