@@ -17,36 +17,6 @@
 using namespace nbl;
 using namespace core;
 
-static std::size_t pipeline_hash(asset::ICPURenderpassIndependentPipeline* _ppln)
-{
-    constexpr size_t bytesToHash =
-        asset::SVertexInputParams::serializedSize() +
-        asset::SBlendParams::serializedSize() +
-        asset::SRasterizationParams::serializedSize() +
-        asset::SPrimitiveAssemblyParams::serializedSize() +
-        sizeof(void*) * asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT +//shaders
-        sizeof(void*);//layout
-    uint8_t mem[bytesToHash]{};
-    uint32_t offset = 0u;
-    _ppln->getVertexInputParams().serialize(mem + offset);
-    offset += asset::SVertexInputParams::serializedSize();
-    _ppln->getBlendParams().serialize(mem + offset);
-    offset += asset::SBlendParams::serializedSize();
-    _ppln->getRasterizationParams().serialize(mem + offset);
-    offset += sizeof(asset::SRasterizationParams);
-    _ppln->getPrimitiveAssemblyParams().serialize(mem + offset);
-    offset += sizeof(asset::SPrimitiveAssemblyParams);
-    const asset::ICPUSpecializedShader** shaders = reinterpret_cast<const asset::ICPUSpecializedShader**>(mem + offset);
-    for (uint32_t i = 0u; i < asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT; ++i)
-        shaders[i] = _ppln->getShaderAtIndex(i);
-    offset += asset::ICPURenderpassIndependentPipeline::SHADER_STAGE_COUNT * sizeof(void*);
-    reinterpret_cast<const asset::ICPUPipelineLayout**>(mem + offset)[0] = _ppln->getLayout();
-
-    const std::size_t hs = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(mem), bytesToHash));
-
-    return hs;
-}
-
 int main()
 {
 	// create device with full flexibility over creation parameters
