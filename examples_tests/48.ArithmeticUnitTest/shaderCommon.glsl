@@ -34,3 +34,7 @@ layout(set = 0, binding = 7, std430) writeonly buffer outmax
 {
     uint maxOutput[];
 };
+layout(set = 0, binding = 8, std430) writeonly buffer outbitcount
+{
+    uint bitCountOutput[];
+};

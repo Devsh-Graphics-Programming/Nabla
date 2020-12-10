@@ -81,6 +81,17 @@ struct max
 
 	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "max";
 };
+template<typename T>
+struct bitcount
+{
+	using type_t = T;
+	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = T(0);
+
+	inline T operator()(T left, T right) { return T(0); }
+
+	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "bitcount";
+};
+
 
 
 //subgroup method emulations on the CPU, to verify the results of the GPU methods
@@ -250,7 +261,7 @@ bool validateResults(video::IVideoDriver* driver, const uint32_t* inputData, con
 
 }
 template<template<class> class Arithmetic>
-bool runTest(video::IVideoDriver* driver, video::IGPUComputePipeline* pipeline, const video::IGPUDescriptorSet* ds, const uint32_t* inputData, const uint32_t workgroupSize, core::smart_refctd_ptr<IGPUBuffer>* const buffers)
+bool runTest(video::IVideoDriver* driver, video::IGPUComputePipeline* pipeline, const video::IGPUDescriptorSet* ds, const uint32_t* inputData, const uint32_t workgroupSize, core::smart_refctd_ptr<IGPUBuffer>* const buffers, bool is_workgroup_test = false)
 {
 	driver->bindComputePipeline(pipeline);
 	driver->bindDescriptorSets(video::EPBP_COMPUTE,pipeline->getLayout(),0u,1u,&ds,nullptr);
@@ -265,6 +276,9 @@ bool runTest(video::IVideoDriver* driver, video::IGPUComputePipeline* pipeline, 
 	passed = validateResults<Arithmetic,mul>(driver, inputData, workgroupSize, workgroupCount, buffers[4].get())&&passed;
 	passed = validateResults<Arithmetic,::min>(driver, inputData, workgroupSize, workgroupCount, buffers[5].get())&&passed;
 	passed = validateResults<Arithmetic,::max>(driver, inputData, workgroupSize, workgroupCount, buffers[6].get())&&passed;
+	if(is_workgroup_test)
+		passed = validateResults<Arithmetic,bitcount>(driver, inputData, workgroupSize, workgroupCount, buffers[7].get()) && passed;
+
 	return passed;
 }
 
@@ -300,43 +314,41 @@ int main()
 	}
 	auto gpuinputDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(kBufferSize, inputData);
 	
-	//create 7 buffers.
-	core::smart_refctd_ptr<IGPUBuffer> buffers[7];
-	for (size_t i = 0; i < 7; i++)
+	//create 8 buffers.
+	constexpr const int outputBufferCount = 8;
+	constexpr const int totalBufferCount = outputBufferCount+1;
+
+	core::smart_refctd_ptr<IGPUBuffer> buffers[outputBufferCount];
+	for (size_t i = 0; i < outputBufferCount; i++)
 	{
 		buffers[i] = driver->createDeviceLocalGPUBufferOnDedMem(kBufferSize);
 	}
 
-	IGPUDescriptorSetLayout::SBinding binding[8] = {
-		{0u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},	//input with randomized numbers
-		{1u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-		{2u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-		{3u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-		{4u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-		{5u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-		{6u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-		{7u,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr},
-	};
-	auto gpuDSLayout = driver->createGPUDescriptorSetLayout(binding, binding + 8);
-	constexpr uint32_t pushconstantSize = 64u;
+	IGPUDescriptorSetLayout::SBinding binding[totalBufferCount];
+	for (uint32_t i = 0u; i < totalBufferCount; i++)
+	{
+		binding[i] = { i,EDT_STORAGE_BUFFER,1u,IGPUSpecializedShader::ESS_COMPUTE,nullptr };
+	}
+	auto gpuDSLayout = driver->createGPUDescriptorSetLayout(binding, binding + totalBufferCount);
+	constexpr uint32_t pushconstantSize = 8u* totalBufferCount;
 	SPushConstantRange pcRange[1] = { IGPUSpecializedShader::ESS_COMPUTE,0u,pushconstantSize };
 	auto pipelineLayout = driver->createGPUPipelineLayout(pcRange, pcRange + pushconstantSize, core::smart_refctd_ptr(gpuDSLayout));
 
 	auto descriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr(gpuDSLayout));
 	{
-		IGPUDescriptorSet::SDescriptorInfo infos[8];
+		IGPUDescriptorSet::SDescriptorInfo infos[totalBufferCount];
 		infos[0].desc = gpuinputDataBuffer;
 		infos[0].buffer = { 0u,kBufferSize };
-		for (uint32_t i=1u; i<=7u; i++)
+		for (uint32_t i=1u; i<= outputBufferCount; i++)
 		{
 			infos[i].desc = buffers[i - 1];
 			infos[i].buffer = { 0u,kBufferSize };
 
 		}
-		IGPUDescriptorSet::SWriteDescriptorSet writes[8];
-		for (uint32_t i=0u; i<8u; i++)
+		IGPUDescriptorSet::SWriteDescriptorSet writes[totalBufferCount];
+		for (uint32_t i=0u; i< totalBufferCount; i++)
 			writes[i] = { descriptorSet.get(),i,0u,1u,EDT_STORAGE_BUFFER,infos + i };
-		driver->updateDescriptorSets(8, writes, 0u, nullptr);
+		driver->updateDescriptorSets(totalBufferCount, writes, 0u, nullptr);
 	}
 	struct GLSLCodeWithWorkgroup {
 		uint32_t workgroup_definition_position;
@@ -391,9 +403,9 @@ int main()
 		passed = runTest<emulatedSubgroupReduction>(driver,pipelines[0u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
 		passed = runTest<emulatedSubgroupScanExclusive>(driver,pipelines[1u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
 		passed = runTest<emulatedSubgroupScanInclusive>(driver,pipelines[2u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
-		passed = runTest<emulatedWorkgroupReduction>(driver,pipelines[3u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
-		passed = runTest<emulatedWorkgroupScanExclusive>(driver,pipelines[4u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
-		passed = runTest<emulatedWorkgroupScanInclusive>(driver,pipelines[5u].get(),descriptorSet.get(),inputData,workgroupSize,buffers)&&passed;
+		passed = runTest<emulatedWorkgroupReduction>(driver,pipelines[3u].get(),descriptorSet.get(),inputData,workgroupSize,buffers,true)&&passed;
+		passed = runTest<emulatedWorkgroupScanExclusive>(driver,pipelines[4u].get(),descriptorSet.get(),inputData,workgroupSize,buffers, true)&&passed;
+		passed = runTest<emulatedWorkgroupScanInclusive>(driver,pipelines[5u].get(),descriptorSet.get(),inputData,workgroupSize,buffers, true)&&passed;
 
 		if (passed)
 			os::Printer::log("Passed test #" + std::to_string(workgroupSize), ELL_INFORMATION);

@@ -13,4 +13,6 @@ void main()
 	multOutput[gl_GlobalInvocationID.x] = nbl_glsl_workgroupExclusiveMul(sourceVal);
 	minOutput [gl_GlobalInvocationID.x] = nbl_glsl_workgroupExclusiveMin(sourceVal);
 	maxOutput [gl_GlobalInvocationID.x] = nbl_glsl_workgroupExclusiveMax(sourceVal);
+	bitCountOutput [gl_GlobalInvocationID.x] = nbl_glsl_workgroupBallotExclusiveBitCount();
+
 }
