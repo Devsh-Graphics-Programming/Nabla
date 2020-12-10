@@ -411,11 +411,14 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 						else
 						{
 							vertexInputParams.enabledAttribFlags &= 0b1101u;
+							asset::SPrimitiveAssemblyParams assemblyParams;
+							assemblyParams.primitiveType = oldPipeline->getPrimitiveAssemblyParams().primitiveType;
 							asset::SRasterizationParams rasterParams;
-							rasterParams.frontFaceIsCCW = frontFaceIsCCW;
+							rasterParams.faceCullingMode = EFCM_NONE;
+							rasterParams.frontFaceIsCCW = !frontFaceIsCCW; // compensate for Nabla's default camer being left handed
 							newPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
 								core::smart_refctd_ptr(m_visibilityBufferFillPipelineLayoutCPU), shaders, shaders + 2u,
-								vertexInputParams, asset::SBlendParams{}, asset::SPrimitiveAssemblyParams{}, rasterParams
+								vertexInputParams, asset::SBlendParams{}, assemblyParams, rasterParams
 								);
 							visibilityBufferFillPipelines.emplace(VisibilityBufferPipelineKey{ vertexInputParams,frontFaceIsCCW }, core::smart_refctd_ptr(newPipeline));
 						}
@@ -1084,7 +1087,7 @@ void Renderer::render(irr::ITimer* timer)
 		{ // clear
 			m_driver->clearZBuffer();
 			uint32_t clearTriangleID[4] = {0xffffffffu,0,0,0};
-			m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT2, clearTriangleID);
+			m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, clearTriangleID);
 			float zero[4] = { 0.f,0.f,0.f,0.f };
 			m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT1, zero);
 			m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT2, zero);

@@ -321,7 +321,7 @@ namespace asset
 				if (iota)
 					correctlyOffsetIndexBufferPtr = iotaUint32Buffer->getPointer();
 				else
-					correctlyOffsetIndexBufferPtr = reinterpret_cast<uint8_t*>(cpumb->getIndexBufferBinding()->buffer->getPointer())+cpumb->getIndexBufferBinding()->offset;
+					correctlyOffsetIndexBufferPtr = cpumb->getIndices();
 				switch (params.primitiveType)
 				{
 					case EPT_LINE_STRIP:
@@ -339,15 +339,16 @@ namespace asset
 							newIndexBuffer = core::smart_refctd_ptr(iotaUint32Buffer);
 						else if (indexType!=outIndexType)
 						{
-							newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uint32_t)*indexCount);
 							if (indexType==EIT_16BIT)
 							{
 								auto inPtr = reinterpret_cast<const uint16_t*>(correctlyOffsetIndexBufferPtr);
+								newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uint32_t)*indexCount);
 								std::copy(inPtr,inPtr+indexCount,reinterpret_cast<uint32_t*>(newIndexBuffer->getPointer()));
 							}
 							else
 							{
 								auto inPtr = reinterpret_cast<const uint32_t*>(correctlyOffsetIndexBufferPtr);
+								newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uint16_t)*indexCount);
 								std::copy(inPtr,inPtr+indexCount,reinterpret_cast<uint16_t*>(newIndexBuffer->getPointer()));
 							}
 						}

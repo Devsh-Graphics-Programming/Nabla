@@ -45,7 +45,7 @@ void main()
         return;
 
     const mat4x3 worldMatrix = cullData[globalObjectID].worldMatrix;
-    const uint drawID = floatBitsToUint(cullData[globalObjectID].drawID);
+    const uint drawID = cullData[globalObjectID].drawID;
 
     // clear drawcount for next buffer
     commandBuff[pc.data.currentCommandBufferIx^0x1u].draws[drawID].instanceCount = 0u;
