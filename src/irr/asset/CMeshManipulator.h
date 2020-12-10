@@ -84,14 +84,30 @@ class CMeshManipulator : public IMeshManipulator
 		/** @returns false when first of calculated errors goes above epsilon or true if reached end without such. */
 		static bool calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const core::vector<core::vectorSIMDf>& _data, const SErrorMetric& _errMetric, CQuantNormalCache& _cache);
 
-		template<typename T>
+		template<typename InType, typename OutType>
+		static inline core::smart_refctd_ptr<ICPUBuffer> lineStripsToLines(const void* _input, size_t _idxCount)
+		{
+			const size_t outputSize = (_idxCount - 1) * 2;
+			
+			auto output = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(OutType)*outputSize);
+			const auto* iptr = reinterpret_cast<const InType*>(_input);
+			auto* optr = reinterpret_cast<OutType*>(output->getPointer());
+			for (size_t i = 0, j = 0; i < outputSize;)
+			{
+				optr[i++] = iptr[j++];
+				optr[i++] = iptr[j];
+			}
+			return output;
+		}
+
+		template<typename InType, typename OutType>
 		static inline core::smart_refctd_ptr<ICPUBuffer> triangleStripsToTriangles(const void* _input, size_t _idxCount)
 		{
 			const size_t outputSize = (_idxCount - 2) * 3;
-
-			auto output = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(T)*outputSize);
-			T* iptr = (T*)_input;
-			T* optr = (T*)output->getPointer();
+			
+			auto output = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(OutType)*outputSize);
+			const auto* iptr = reinterpret_cast<const InType*>(_input);
+			auto* optr = reinterpret_cast<OutType*>(output->getPointer());
 			for (size_t i = 0, j = 0; i < outputSize; j += 2)
 			{
 				optr[i++] = iptr[j + 0];
@@ -106,19 +122,19 @@ class CMeshManipulator : public IMeshManipulator
 			return output;
 		}
 
-		template<typename T>
+		template<typename InType, typename OutType>
 		static inline core::smart_refctd_ptr<ICPUBuffer> trianglesFanToTriangles(const void* _input, size_t _idxCount)
 		{
 			const size_t outputSize = (_idxCount - 2) * 3;
 
-			auto output = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(T)*outputSize);
-			const T* iptr = reinterpret_cast<const T*>(_input);
-			T* optr = reinterpret_cast<T*>(output->getPointer());
-			for (size_t i = 0, j = 1; i < outputSize; j++)
+			auto output = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(OutType)*outputSize);
+			const auto* iptr = reinterpret_cast<const InType*>(_input);
+			auto* optr = reinterpret_cast<OutType*>(output->getPointer());
+			for (size_t i = 0, j = 1; i < outputSize;)
 			{
 				optr[i++] = iptr[0];
+				optr[i++] = iptr[j++];
 				optr[i++] = iptr[j];
-				optr[i++] = iptr[j + 1];
 			}
 			return output;
 		}

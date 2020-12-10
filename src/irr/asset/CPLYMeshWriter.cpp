@@ -157,11 +157,11 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 			core::smart_refctd_ptr<ICPUBuffer> buf;
             if (primitiveT == asset::EPT_TRIANGLE_FAN)
             {
-                buf = IMeshManipulator::idxBufferFromTrianglesFanToTriangles(ind, idxCnt, idxtype);
+                buf = IMeshManipulator::idxBufferFromTrianglesFanToTriangles(ind, idxCnt, idxtype, idxtype);
             }
             else if (primitiveT == asset::EPT_TRIANGLE_STRIP)
             {
-                buf = IMeshManipulator::idxBufferFromTriangleStripsToTriangles(ind, idxCnt, idxtype);
+                buf = IMeshManipulator::idxBufferFromTriangleStripsToTriangles(ind, idxCnt, idxtype, idxtype);
             }
             needToFreeIndices = true;
             faceCount = buf->getSize() / (idxtype == asset::EIT_16BIT ? 2u : 4u) / 3u;

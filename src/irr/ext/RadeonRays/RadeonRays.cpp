@@ -69,139 +69,25 @@ std::pair<::RadeonRays::Buffer*,cl_mem> Manager::linkBuffer(const video::IGPUBuf
 	return {nullptr,nullptr};
 }
 
-void Manager::makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMeshBuffer* mb, int32_t* indices)
+void Manager::makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMeshBuffer* mb)
 {
 	auto found = shapeCache.find(mb);
 	if (found==shapeCache.end())
 		return;
 
-	int32_t vertexCount = 0;
-	const int32_t* theseIndices = indices;
-	int32_t indexCount = 0;
-
 	auto pType = mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
-	const void* meshIndices = mb->getIndices();
-	const auto meshIndexCount = mb->getIndexCount();
-	auto setIndex = [&](int32_t& index, auto orig)
-	{
-		index = orig;
-		if (index > vertexCount)
-			vertexCount = index;
-	};
-	if (pType==asset::EPT_TRIANGLE_STRIP)
-	{
-		if (meshIndexCount<3u)
-			return;
+	const auto* indices = reinterpret_cast<const int32_t*>(mb->getIndices());
+	const auto indexCount = mb->getIndexCount();
+	if (indexCount<3)
+		return;
 
-		indexCount = (meshIndexCount-2u)*3u;
-		auto strips2tris = [&](auto* optr, const auto* iptr)
-		{
-			for (int32_t i=0, j=0; i<indexCount; j += 2)
-			{
-				setIndex(optr[i++],iptr[j + 0]);
-				setIndex(optr[i++],iptr[j + 1]);
-				setIndex(optr[i++],iptr[j + 2]);
-				if (i == indexCount)
-					break;
-				setIndex(optr[i++],iptr[j + 2]);
-				setIndex(optr[i++],iptr[j + 1]);
-				setIndex(optr[i++],iptr[j + 3]);
-			}
-			vertexCount++;
-		};
-		switch (mb->getIndexType())
-		{
-			case EIT_32BIT:
-				strips2tris(indices,reinterpret_cast<const uint32_t*>(meshIndices));
-				break;
-			case EIT_16BIT:
-				strips2tris(indices,reinterpret_cast<const uint16_t*>(meshIndices));
-				break;
-			default:
-				vertexCount = meshIndexCount;
-				for (int32_t i=0, j=0; i<indexCount; j += 2)
-				{
-					indices[i++] = j + 0;
-					indices[i++] = j + 1;
-					indices[i++] = j + 2;
-					if (i == indexCount)
-						break;
-					indices[i++] = j + 2;
-					indices[i++] = j + 1;
-					indices[i++] = j + 3;
-				}
-				break;
-		}
-	}
-	else if (pType==asset::EPT_TRIANGLE_FAN)
-	{
-		if (meshIndexCount<3)
-			return;
-
-		indexCount = ((meshIndexCount-1u)/2u)*3u;
-		auto fan2tris = [&](auto* optr, const auto* iptr)
-		{
-			for (int32_t i=0, j=1; i<indexCount; j += 2)
-			{
-				setIndex(optr[i++],iptr[0]);
-				setIndex(optr[i++],iptr[j]);
-				setIndex(optr[i++],iptr[j+1]);
-			}
-			vertexCount++;
-		};
-		switch (mb->getIndexType())
-		{
-			case EIT_32BIT:
-				fan2tris(indices,reinterpret_cast<const uint32_t*>(meshIndices));
-				break;
-			case EIT_16BIT:
-				fan2tris(indices,reinterpret_cast<const uint16_t*>(meshIndices));
-				break;
-			default:
-				vertexCount = meshIndexCount;
-				for (int32_t i=0, j=1; i<indexCount; j += 2)
-				{
-					indices[i++] = 0;
-					indices[i++] = j;
-					indices[i++] = j+1;
-				}
-				break;
-		}
-	}
-	else// if (pType==asset::EPT_TRIANGLES)
-	{
-		if (meshIndexCount<3)
-			return;
-
-		indexCount = meshIndexCount;
-		switch (mb->getIndexType())
-		{
-			case EIT_32BIT:
-				theseIndices = reinterpret_cast<const int32_t*>(meshIndices);
-				for (uint32_t i=0; i<mb->getIndexCount(); i++)
-				{
-					int32_t index;
-					setIndex(index,theseIndices[i]);
-				}
-				vertexCount++;
-				break;
-			case EIT_16BIT:
-				for (uint32_t i=0; i<mb->getIndexCount(); i++)
-					setIndex(indices[i],reinterpret_cast<const uint16_t*>(meshIndices)[i]);
-				vertexCount++;
-				break;
-			default:
-				vertexCount = meshIndexCount;
-				std::iota(indices,indices+vertexCount,0);
-				break;
-		}
-	}
+	const int32_t vertexCount = mb->calcVertexCount();
 
 	constexpr int32_t IndicesPerTriangle = 3;
 	const auto posAttrID = mb->getPositionAttributeIx();
 	found->second = rr->CreateMesh(	reinterpret_cast<const float*>(	mb->getAttribPointer(posAttrID)),vertexCount,
 																	mb->getAttribStride(posAttrID),
-																	theseIndices,sizeof(int32_t)*IndicesPerTriangle, // radeon rays understands index stride differently to me
+																	indices,sizeof(int32_t)*IndicesPerTriangle, // radeon rays understands index stride differently to me
 																	nullptr,indexCount/IndicesPerTriangle);
 }
 

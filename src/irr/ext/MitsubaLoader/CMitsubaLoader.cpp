@@ -887,7 +887,7 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 			for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 			{
 				asset::ICPUMeshBuffer* mb = mesh->getMeshBuffer(i);
-				auto* prevPipeline = mb->getPipeline();
+				const auto* prevPipeline = mb->getPipeline();
 				SContext::SPipelineCacheKey cacheKey;
 				cacheKey.vtxParams = prevPipeline->getVertexInputParams();
 				cacheKey.primParams = prevPipeline->getPrimitiveAssemblyParams();

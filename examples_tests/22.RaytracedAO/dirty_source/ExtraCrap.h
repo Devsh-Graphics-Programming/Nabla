@@ -76,7 +76,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 			irr::core::vector<irr::core::vectorSIMDf> lightRadiances;
 			union
 			{
-				irr::core::vector<uint32_t> lightPDF;
+				irr::core::vector<float> lightPDF;
 				irr::core::vector<uint32_t> lightCDF;
 			};
 			const irr::ext::MitsubaLoader::CGlobalMitsubaMetadata* globalMeta = nullptr;

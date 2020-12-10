@@ -63,7 +63,9 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		auto dsLayout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings,bindings+2u);
 		m_visibilityBufferFillPipelineLayoutCPU = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr,nullptr,nullptr,core::smart_refctd_ptr(dsLayout),nullptr,nullptr);
 
-		m_visibilityBufferFillPipelineLayoutGPU = std::move(m_driver->getGPUObjectsFromAssets<ICPUPipelineLayout>(&m_visibilityBufferFillPipelineLayoutCPU,&m_visibilityBufferFillPipelineLayoutCPU+1u)->operator[](0));
+		// TODO: @Crisspl find a way to stop the user from such insanity as moving from the bundle's dynamic array
+		//m_visibilityBufferFillPipelineLayoutGPU = std::move(m_driver->getGPUObjectsFromAssets<ICPUPipelineLayout>(&m_visibilityBufferFillPipelineLayoutCPU,&m_visibilityBufferFillPipelineLayoutCPU+1u)->operator[](0));
+		m_visibilityBufferFillPipelineLayoutGPU = core::smart_refctd_ptr(m_driver->getGPUObjectsFromAssets<ICPUPipelineLayout>(&m_visibilityBufferFillPipelineLayoutCPU,&m_visibilityBufferFillPipelineLayoutCPU+1u)->operator[](0));
 		m_perCameraRasterDSLayout = core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(m_visibilityBufferFillPipelineLayoutGPU->getDescriptorSetLayout(1u));
 	}
 
@@ -71,7 +73,9 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	auto gpuSpecializedShaderFromFile = [&](const char* path) -> core::smart_refctd_ptr<IGPUSpecializedShader>
 	{
 		auto shader = specializedShaderFromFile(path);
-		return std::move(m_driver->getGPUObjectsFromAssets<ICPUSpecializedShader>(&shader,&shader+1u)->operator[](0));
+		// TODO: @Crisspl find a way to stop the user from such insanity as moving from the bundle's dynamic array
+		//return std::move(m_driver->getGPUObjectsFromAssets<ICPUSpecializedShader>(&shader,&shader+1u)->operator[](0));
+		return m_driver->getGPUObjectsFromAssets<ICPUSpecializedShader>(&shader,&shader+1u)->operator[](0);
 	};
 
 	{
@@ -80,7 +84,8 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		fillSSBODescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,cullingDescriptorCount);
 		bindings[3u].count = 2u;
 		m_cullDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+4u);
-		m_cullPipelineLayout = m_driver->createGPUPipelineLayout(nullptr,nullptr,nullptr,core::smart_refctd_ptr(m_cullDSLayout),nullptr,nullptr);
+		SPushConstantRange range{ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullShaderData_t)};
+		m_cullPipelineLayout = m_driver->createGPUPipelineLayout(&range,&range+1u,nullptr,core::smart_refctd_ptr(m_cullDSLayout),nullptr,nullptr);
 		m_cullPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_cullPipelineLayout),gpuSpecializedShaderFromFile("../cull.comp"));
 	}
 
@@ -341,97 +346,147 @@ Renderer::~Renderer()
 Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& meshes)
 {
 	InitializationData retval;
-
-	core::vector<DrawElementsIndirectCommand_t> mdiData;
-	/*
-	auto haveToBreakMDI = []() -> bool
-	{
-	};
-	auto queueUpMDI = [&](IGPUCom)
-	{
-		MDICall call;
-		call.vertexBindings = ;
-		= m_mdiDrawCalls.insert(std::move(call));
-	};
-	*/
-	core::vector<ObjectStaticData_t> objectStaticData;
-	core::vector<CullData_t> cullData;
 	
-	
-	ICPUSpecializedShader* shaders[] = {m_visibilityBufferFillShaders[0].get(),m_visibilityBufferFillShaders[1].get()};
-	struct VisibilityBufferPipelineKey
+	auto getInstances = [&retval](const auto& cpumesh) -> core::vector<ext::MitsubaLoader::IMeshMetadata::Instance>
 	{
-		inline bool operator==(const VisibilityBufferPipelineKey& other) const
-		{
-			return vertexParams==other.vertexParams&&frontFaceIsCCW==other.frontFaceIsCCW;
-		}
-
-		SVertexInputParams vertexParams;
-		uint8_t frontFaceIsCCW;
-	};
-	struct VisibilityBufferPipelineKeyHash
-	{
-		inline std::size_t operator()(const VisibilityBufferPipelineKey& key) const
-		{
-			std::basic_string_view view(reinterpret_cast<const char*>(&key),sizeof(key));
-			return std::hash<decltype(view)>()(view);
-		}
-	};
-	core::unordered_map<VisibilityBufferPipelineKey,core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>,VisibilityBufferPipelineKeyHash> visibilityBufferFillPipelines;
-	auto contents = meshes.getContents();
-	for (auto& cpumesh_ : contents)
-	{
-		auto cpumesh = static_cast<asset::ICPUMesh*>(cpumesh_.get());
-
 		auto* meta = cpumesh->getMetadata();
 		assert(meta && core::strcmpi(meta->getLoaderName(), ext::MitsubaLoader::IMitsubaMetadata::LoaderName) == 0);
 		const auto* meshmeta = static_cast<const ext::MitsubaLoader::IMeshMetadata*>(meta);
 		retval.globalMeta = meshmeta->globalMetadata.get();
+		assert(retval.globalMeta);
 
 		// WARNING !!!
 		// all this instance-related things is a rework candidate since mitsuba loader supports instances
 		// (all this metadata should be global, but meshbuffers has instanceCount correctly set
 		// and globalDS with per-instance data (transform, normal matrix, instructions offsets, etc)
-		const auto& instances = meshmeta->getInstances();
+		return meshmeta->getInstances();
+	};
 
-		auto meshBufferCount = cpumesh->getMeshBufferCount();
-		for (auto i=0u; i<meshBufferCount; i++)
+	core::vector<std::pair<core::smart_refctd_ptr<IGPUMeshBuffer>,core::smart_refctd_ptr<ICPUMesh>>> gpuMeshBuffersAndMeta;
+	{
+		core::vector<ICPUMeshBuffer*> meshBuffersToProcess;
 		{
-			// TODO: get rid of `getMeshBuffer` and `getMeshBufferCount`, just return a range as `getMeshBuffers`
-			auto cpumb = cpumesh->getMeshBuffer(i);
-
-			// set up Visibility Buffer pipelines
+			auto contents = meshes.getContents();
+			ICPUSpecializedShader* shaders[] = { m_visibilityBufferFillShaders[0].get(),m_visibilityBufferFillShaders[1].get() };
+			struct VisibilityBufferPipelineKey
 			{
-				auto oldPipeline = cpumb->getPipeline();
-				auto vertexInputParams = oldPipeline->getVertexInputParams();
-				const bool frontFaceIsCCW = oldPipeline->getRasterizationParams().frontFaceIsCCW;
-				auto found = visibilityBufferFillPipelines.find(VisibilityBufferPipelineKey{vertexInputParams,frontFaceIsCCW});
-
-				core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> newPipeline;
-				if (found!=visibilityBufferFillPipelines.end())
-					newPipeline = core::smart_refctd_ptr(found->second);
-				else
+				inline bool operator==(const VisibilityBufferPipelineKey& other) const
 				{
-					vertexInputParams.enabledAttribFlags &= 0b1101u;
-					asset::SRasterizationParams rasterParams;
-					rasterParams.frontFaceIsCCW = frontFaceIsCCW;
-					newPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
-						core::smart_refctd_ptr(m_visibilityBufferFillPipelineLayoutCPU),shaders,shaders+2u,
-						vertexInputParams,asset::SBlendParams{},asset::SPrimitiveAssemblyParams{},rasterParams
-					);
-					visibilityBufferFillPipelines.emplace(VisibilityBufferPipelineKey{vertexInputParams,frontFaceIsCCW},core::smart_refctd_ptr(newPipeline));
+					return vertexParams == other.vertexParams && frontFaceIsCCW == other.frontFaceIsCCW;
 				}
-				cpumb->setPipeline(std::move(newPipeline));
+
+				SVertexInputParams vertexParams;
+				uint8_t frontFaceIsCCW;
+			};
+			struct VisibilityBufferPipelineKeyHash
+			{
+				inline std::size_t operator()(const VisibilityBufferPipelineKey& key) const
+				{
+					std::basic_string_view view(reinterpret_cast<const char*>(&key), sizeof(key));
+					return std::hash<decltype(view)>()(view);
+				}
+			};
+			core::unordered_map<VisibilityBufferPipelineKey, core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>, VisibilityBufferPipelineKeyHash> visibilityBufferFillPipelines;
+			for (auto& cpumesh_ : contents)
+			{
+				auto cpumesh = static_cast<asset::ICPUMesh*>(cpumesh_.get());
+				const auto& instances = getInstances(cpumesh);
+
+				auto meshBufferCount = cpumesh->getMeshBufferCount();
+				for (auto i = 0u; i < meshBufferCount; i++)
+				{
+					// TODO: get rid of `getMeshBuffer` and `getMeshBufferCount`, just return a range as `getMeshBuffers`
+					auto cpumb = cpumesh->getMeshBuffer(i);
+
+					// set up Visibility Buffer pipelines
+					{
+						auto oldPipeline = cpumb->getPipeline();
+						auto vertexInputParams = oldPipeline->getVertexInputParams();
+						const bool frontFaceIsCCW = oldPipeline->getRasterizationParams().frontFaceIsCCW;
+						auto found = visibilityBufferFillPipelines.find(VisibilityBufferPipelineKey{ vertexInputParams,frontFaceIsCCW });
+
+						core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> newPipeline;
+						if (found != visibilityBufferFillPipelines.end())
+							newPipeline = core::smart_refctd_ptr(found->second);
+						else
+						{
+							vertexInputParams.enabledAttribFlags &= 0b1101u;
+							asset::SRasterizationParams rasterParams;
+							rasterParams.frontFaceIsCCW = frontFaceIsCCW;
+							newPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
+								core::smart_refctd_ptr(m_visibilityBufferFillPipelineLayoutCPU), shaders, shaders + 2u,
+								vertexInputParams, asset::SBlendParams{}, asset::SPrimitiveAssemblyParams{}, rasterParams
+								);
+							visibilityBufferFillPipelines.emplace(VisibilityBufferPipelineKey{ vertexInputParams,frontFaceIsCCW }, core::smart_refctd_ptr(newPipeline));
+						}
+						cpumb->setPipeline(std::move(newPipeline));
+					}
+					meshBuffersToProcess.push_back(cpumb);
+					gpuMeshBuffersAndMeta.emplace_back(nullptr,core::smart_refctd_ptr<ICPUMesh>(cpumesh));
+				}
+
+				// set up lights
+				for (auto instance : instances)
+				if (instance.emitter.type != ext::MitsubaLoader::CElementEmitter::Type::INVALID)
+				{
+					assert(instance.emitter.type == ext::MitsubaLoader::CElementEmitter::Type::AREA);
+
+					SLight newLight(cpumesh->getBoundingBox(), instance.tform);
+
+					const float weight = newLight.computeFluxBound(instance.emitter.area.radiance) * instance.emitter.area.samplingWeight;
+					if (weight <= FLT_MIN)
+						continue;
+
+					retval.lights.emplace_back(std::move(newLight));
+					retval.lightRadiances.push_back(instance.emitter.area.radiance);
+					retval.lightPDF.push_back(weight);
+				}
 			}
+		}
+
+		// set up BVH
+		IMeshManipulator::homogenizePrimitiveTypeAndIndices(meshBuffersToProcess.begin(), meshBuffersToProcess.end(), EPT_TRIANGLE_LIST);
+		m_rrManager->makeRRShapes(rrShapeCache, meshBuffersToProcess.begin(), meshBuffersToProcess.end());
+
+		// convert to GPU objects (and sort so they're ordered by pipeline)
+		auto gpuObjs = m_driver->getGPUObjectsFromAssets(meshBuffersToProcess.data(),meshBuffersToProcess.data()+meshBuffersToProcess.size());
+		for (auto i=0u; i<gpuObjs->size(); i++)
+			gpuMeshBuffersAndMeta[i].first = core::smart_refctd_ptr(gpuObjs->operator[](i));
+		std::sort(gpuMeshBuffersAndMeta.begin(), gpuMeshBuffersAndMeta.end(), [](const auto& lhs,const auto& rhs)->bool{return lhs.first->getPipeline()<rhs.first->getPipeline();});
+	}
+
+	core::vector<DrawElementsIndirectCommand_t> mdiData;
+	core::vector<ObjectStaticData_t> objectStaticData;
+	core::vector<CullData_t> cullData;
+	{
+		MDICall call;
+		auto initNewMDI = [&call](const core::smart_refctd_ptr<IGPUMeshBuffer>& gpumb) -> void
+		{
+			std::copy(gpumb->getVertexBufferBindings(),gpumb->getVertexBufferBindings()+IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT,call.vertexBindings);
+			call.indexBuffer = core::smart_refctd_ptr(gpumb->getIndexBufferBinding().buffer);
+			call.pipeline = core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>(const_cast<IGPURenderpassIndependentPipeline*>(gpumb->getPipeline()));
+		};
+		initNewMDI(gpuMeshBuffersAndMeta.front().first);
+		call.mdiOffset = 0u;
+		call.mdiCount = 0u;
+		auto queueUpMDI = [&](const MDICall& call) -> void
+		{
+			m_mdiDrawCalls.emplace_back(call);
+		};
+		for (auto gpuAndMeta : gpuMeshBuffersAndMeta)
+		{
+			auto gpumb = gpuAndMeta.first;
 
 			const uint32_t baseInstance = objectStaticData.size();
-			cpumb->setBaseInstance(baseInstance);
+			gpumb->setBaseInstance(baseInstance);
 
 			const uint32_t drawID = mdiData.size();
-			const auto aabb = cpumb->getBoundingBox();
-			for (auto j=0u; j<cpumb->getInstanceCount(); j++)
+			const auto aabb = gpumb->getBoundingBox();
+			const auto& instances = getInstances(gpuAndMeta.second);
+			for (auto j=0u; j<gpumb->getInstanceCount(); j++)
 			{
 				core::matrix3x4SIMD worldMatrix,normalMatrix;
+				worldMatrix = instances[j].tform;
 				worldMatrix.getSub3x3InverseTranspose(normalMatrix);
 
 				objectStaticData.emplace_back(ObjectStaticData_t{
@@ -445,36 +500,34 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 					{aabb.MaxEdge.X,aabb.MaxEdge.Y,aabb.MaxEdge.Z},baseInstance
 				});
 			}
-			assert(cpumb->getIndexType()==EIT_32BIT);
 			mdiData.emplace_back(DrawElementsIndirectCommand_t{
-				static_cast<uint32_t>(cpumb->getIndexCount()), // pretty sure index count should be a uint32_t
+				static_cast<uint32_t>(gpumb->getIndexCount()), // pretty sure index count should be a uint32_t
 				0u,
-				static_cast<uint32_t>(cpumb->getIndexBufferBinding()->offset/sizeof(uint32_t)),
-				static_cast<uint32_t>(cpumb->getBaseVertex()), // pretty sure base vertex should be a uint32_t
+				static_cast<uint32_t>(gpumb->getIndexBufferBinding().offset/sizeof(uint32_t)),
+				static_cast<uint32_t>(gpumb->getBaseVertex()), // pretty sure base vertex should be a uint32_t
 				baseInstance
 			});
 
-			// set up BVH
-			m_rrManager->makeRRShapes(rrShapeCache, &cpumb, (&cpumb)+1);
+			bool haveToBreakMDI = false;
+			if (gpumb->getPipeline()!=call.pipeline.get())
+				haveToBreakMDI = true;
+			if (!std::equal(call.vertexBindings,call.vertexBindings+IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT,gpumb->getVertexBufferBindings()))
+				haveToBreakMDI = true;
+			if (gpumb->getIndexBufferBinding().buffer!=call.indexBuffer)
+				haveToBreakMDI = true;
+			if (haveToBreakMDI)
+			{
+				queueUpMDI(call);
+				initNewMDI(gpumb);
+				call.mdiOffset = drawID*sizeof(DrawElementsIndirectCommand_t);
+				call.mdiCount = 1u;
+			}
+			else
+				call.mdiCount++;
 		}
-
-		// set up lights
-		for (auto instance : instances)
-		if (instance.emitter.type!=ext::MitsubaLoader::CElementEmitter::Type::INVALID)
-		{
-			assert(instance.emitter.type==ext::MitsubaLoader::CElementEmitter::Type::AREA);
-
-			SLight newLight(cpumesh->getBoundingBox(),instance.tform);
-
-			const float weight = newLight.computeFluxBound(instance.emitter.area.radiance)*instance.emitter.area.samplingWeight;
-			if (weight<=FLT_MIN)
-				continue;
-
-			retval.lights.emplace_back(std::move(newLight));
-			retval.lightRadiances.push_back(instance.emitter.area.radiance);
-			retval.lightPDF.push_back(weight);
-		}
+		queueUpMDI(call);
 	}
+
 
 	m_cullPushConstants.maxObjectCount = objectStaticData.size();
 	m_cullPushConstants.currentCommandBufferIx = 0x0u;
@@ -526,8 +579,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 		};
 		setDstSetOnAllWrites(m_perCameraRasterDS.get(),commonWrites,2u);
 		m_driver->updateDescriptorSets(2u,commonWrites,0u,nullptr);
-		setDstSetOnAllWrites(m_perCameraRasterDS.get(),commonWrites,4u);
-		// TODO: @Crisspl figure out why this breaks
+		setDstSetOnAllWrites(m_cullDS.get(),commonWrites,4u);
 		m_driver->updateDescriptorSets(4u,commonWrites,0u,nullptr);
 	}
 
@@ -607,15 +659,12 @@ void Renderer::finalizeScene(Renderer::InitializationData& initData)
 	};
 
 	divideRadianceByPDF(0u);
-	while (outCDF!=initData.lightCDF.end())
+	for (auto prevCDF=outCDF++; outCDF!=initData.lightCDF.end(); prevCDF=outCDF++)
 	{
-		uint32_t prevCDF = *(outCDF++);
-
 		partialSum += double(*(++inPDF));
 
-		divideRadianceByPDF(prevCDF);
+		divideRadianceByPDF(*prevCDF);
 	}
-	*(++outCDF) = 0xdeadbeefu;
 
 	m_lightCDFBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(initData.lightCDF.size()*sizeof(uint32_t),initData.lightCDF.data());
 	m_lightBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(initData.lights.size()*sizeof(SLight),initData.lights.data());
@@ -669,7 +718,6 @@ void Renderer::init(const SAssetBundle& meshes,
 	// initialize scene
 	{
 		auto initData = initSceneObjects(meshes);
-		assert(globalMeta);
 
 		initSceneNonAreaLights(initData);
 		finalizeScene(initData);
@@ -1015,7 +1063,10 @@ void Renderer::render(irr::ITimer* timer)
 	camera->render();
 
 	const auto currentViewProj = camera->getConcatenatedMatrix();
+	//if (!core::equals(prevViewProj,currentViewProj,core::ROUNDING_ERROR<core::matrix4SIMD>()*1000.0))
 	{
+		m_framesDone = 0u;
+
 		IGPUDescriptorSet* descriptors[3] = { nullptr };
 		descriptors[1] = m_cullDS.get();
 
@@ -1049,8 +1100,6 @@ void Renderer::render(irr::ITimer* timer)
 		m_cullPushConstants.currentCommandBufferIx ^= 0x01u;
 	}
 
-	if (!core::equals(prevViewProj,currentViewProj,core::ROUNDING_ERROR<core::matrix4SIMD>()*1000.0))
-		m_framesDone = 0u;
 
 	uint32_t uImageWidth_ImageArea_TotalImageSamples_Samples[4] = { m_renderSize[0],m_renderSize[0]*m_renderSize[1],m_renderSize[0]*m_renderSize[1]*m_samplesPerPixelPerDispatch,m_samplesPerPixelPerDispatch};
 
