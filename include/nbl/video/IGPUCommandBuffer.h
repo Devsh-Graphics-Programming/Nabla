@@ -1,16 +1,16 @@
 #ifndef __NBL_I_GPU_COMMAND_BUFFER_H_INCLUDED__
 #define __NBL_I_GPU_COMMAND_BUFFER_H_INCLUDED__
 
-#include <irr/core/IReferenceCounted.h>
+#include <nbl/core/IReferenceCounted.h>
 #include "IGPUBuffer.h"
-#include <irr/asset/IMeshBuffer.h>
-#include <irr/video/IGPUImage.h>
-#include <irr/video/IGPUSampler.h>
+#include <nbl/asset/IMeshBuffer.h>
+#include <nbl/video/IGPUImage.h>
+#include <nbl/video/IGPUSampler.h>
 #include "IVideoDriver.h"
 
 #include <type_traits>
 
-namespace irr {
+namespace nbl {
 namespace video
 {
 //TODO move and possibly rename

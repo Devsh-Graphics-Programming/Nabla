@@ -1,10 +1,10 @@
 #ifndef __IRR_I_GPU_QUEUE_FAMILY_H_INCLUDED__
 #define __IRR_I_GPU_QUEUE_FAMILY_H_INCLUDED__
 
-#include <irr/asset/IImage.h> //for VkExtent3D only
+#include <nbl/asset/IImage.h> //for VkExtent3D only
 #include <type_traits>
 
-namespace irr {
+namespace nbl {
 namespace video
 {
 

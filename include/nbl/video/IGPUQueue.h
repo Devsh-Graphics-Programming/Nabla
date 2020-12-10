@@ -1,11 +1,11 @@
 #ifndef __IRR_I_GPU_QUEUE_H_INCLUDED__
 #define __IRR_I_GPU_QUEUE_H_INCLUDED__
 
-#include <irr/core/IReferenceCounted.h>
-#include <irr/video/IGPUPrimaryCommandBuffer.h>
+#include <nbl/core/IReferenceCounted.h>
+#include <nbl/video/IGPUPrimaryCommandBuffer.h>
 #include "IDriverFence.h"
 
-namespace irr {
+namespace nbl {
 namespace video
 {
 

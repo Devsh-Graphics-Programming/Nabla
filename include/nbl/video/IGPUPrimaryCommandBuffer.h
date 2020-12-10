@@ -1,9 +1,9 @@
 #ifndef __IRR_I_GPU_PRIMARY_COMMAND_BUFFER_H_INCLUDED__
 #define __IRR_I_GPU_PRIMARY_COMMAND_BUFFER_H_INCLUDED__
 
-#include <irr/video/IGPUCommandBuffer.h>
+#include <nbl/video/IGPUCommandBuffer.h>
 
-namespace irr {
+namespace nbl {
 namespace video
 {
 
