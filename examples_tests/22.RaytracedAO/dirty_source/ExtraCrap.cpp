@@ -1066,7 +1066,7 @@ void Renderer::render(irr::ITimer* timer)
 	camera->render();
 
 	const auto currentViewProj = camera->getConcatenatedMatrix();
-	//if (!core::equals(prevViewProj,currentViewProj,core::ROUNDING_ERROR<core::matrix4SIMD>()*1000.0))
+	if (!core::equals(prevViewProj,currentViewProj,core::ROUNDING_ERROR<core::matrix4SIMD>()*1000.0))
 	{
 		m_framesDone = 0u;
 
@@ -1142,12 +1142,12 @@ void Renderer::render(irr::ITimer* timer)
 			float uImageSize2Rcp[4] = {1.f/static_cast<float>(m_renderSize[0]),1.f/static_cast<float>(m_renderSize[1]),0.5f/static_cast<float>(m_renderSize[0]),0.5f/static_cast<float>(m_renderSize[1])};
 			COpenGLExtensionHandler::pGlProgramUniform4fv(m_raygenProgram, 6, 1, uImageSize2Rcp);
 		}*/
-
-		m_driver->bindDescriptorSets(EPBP_COMPUTE, m_raygenLayout.get(), 0, 1, &m_globalBackendDataDS.get(), nullptr);
-		m_driver->bindDescriptorSets(EPBP_COMPUTE, m_raygenLayout.get(), 2, 1, &m_raygenDS2.get(), nullptr);
-		m_driver->bindComputePipeline(m_raygenPipeline.get());
-		m_driver->dispatch(m_raygenWorkGroups[0], m_raygenWorkGroups[1], 1);
 #endif		
+		IGPUDescriptorSet* descriptorSets[] = {m_globalBackendDataDS.get(),m_raygenDS.get()};
+		m_driver->bindDescriptorSets(EPBP_COMPUTE, m_raygenPipelineLayout.get(), 0, 2, descriptorSets, nullptr);
+		m_driver->bindComputePipeline(m_raygenPipeline.get());
+		m_driver->pushConstants(m_raygenPipelineLayout.get(),ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaygenShaderData_t),&m_raygenShaderData);
+		m_driver->dispatch(m_raygenWorkGroups[0], m_raygenWorkGroups[1], 1);
 		// probably wise to flush all caches
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
 	}

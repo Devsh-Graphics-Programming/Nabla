@@ -1,49 +1,21 @@
 #version 430 core
-#define WORK_GROUP_DIM 16u
-layout(local_size_x = WORK_GROUP_DIM, local_size_y = WORK_GROUP_DIM) in;
-#define WORK_GROUP_SIZE (WORK_GROUP_DIM*WORK_GROUP_DIM)
+#include "raygenCommon.glsl"
 
 
-#include "irr/builtin/glsl/utils/NormalDecode.glsl"
-
-
-#include "common.glsl"
-
-
-// TODO transform into push constants
-// uniforms
-layout(location = 0) uniform vec3 uCameraPos;
-layout(location = 1) uniform float uDepthLinearizationConstant;
-layout(location = 2) uniform mat4 uFrustumCorners;
-layout(location = 3) uniform uvec2 uImageSize;
-layout(location = 4) uniform uvec4 uImageWidth_ImageArea_TotalImageSamples_Samples;
-layout(location = 5) uniform uint uSamplesComputed;
-layout(location = 6) uniform vec4 uImageSize2Rcp;
-
-// image views
-layout(set = 2, binding = 0) uniform usamplerBuffer sampleSequence;
-layout(set = 2, binding = 1) uniform usampler2D scramblebuf;
-layout(set = 2, binding = 2) uniform sampler2D depthbuf;
-layout(set = 2, binding = 3) uniform usampler2D objectTriangleFrontFacing;
-layout(set = 2, binding = 4) uniform sampler2D encodedNormal;
-layout(set = 2, binding = 5) uniform sampler2D uv;
-
-// SSBOs
-#include "irr/builtin/glsl/ext/RadeonRays/ray.glsl"
-layout(set = 2, binding = 6, std430) restrict writeonly buffer Rays
+#include <irr/builtin/glsl/utils/normal_decode.glsl>
+//
+layout(set = 2, binding = 0, row_major) uniform RaygenData
 {
-	RadeonRays_ray rays[];
+	RaygenShaderData_t raygenData;
 };
-
-layout(set = 1, binding = 0, std430) restrict readonly buffer CumulativeLightPDF
-{
-	uint lightCDF[];
-};
-
-layout(set = 1, binding = 1, std430, row_major) restrict readonly buffer Lights
-{
-	SLight light[];
-};
+// rng
+layout(set = 2, binding = 1) uniform usamplerBuffer sampleSequence;
+layout(set = 2, binding = 2) uniform usampler2D scramblebuf;
+// vis buffer
+layout(set = 2, binding = 3) uniform sampler2D depthbuf;
+layout(set = 2, binding = 4) uniform usampler2D objectTriangleFrontFacing;
+layout(set = 2, binding = 5) uniform sampler2D encodedNormal;
+layout(set = 2, binding = 6) uniform sampler2D uv;
 
 
 
@@ -58,10 +30,12 @@ float linearizeZBufferVal(in float nonLinearZBufferVal)
 	// positive [0,1] Z: `B/(C-A-Cy)/(B/(C-A))`
 	// positive [0,1] Z: `(C-A)/(C-A-Cy)`
 	// positive [0,1] Z: `D/(D-Cy)`
-    return 1.0/(uDepthLinearizationConstant*nonLinearZBufferVal+1.0);
+    return 1.0/(pc.data.depthLinearizationConstant*nonLinearZBufferVal+1.0);
 }
 
-float maxAbs1(in float val)
+
+/*
+float maxAbs1(in float val) 
 {
 	return abs(val);
 }
@@ -97,28 +71,19 @@ float ULP3(in vec3 val, in uint accuracy)
 	float x = maxAbs3(val);
 	return uintBitsToFloat(floatBitsToUint(x) + accuracy)-x;
 }
+*/
 
 
-
-uint ugen_uniform_sample1(in uint dimension, in uint sampleIx, in uint scramble);
-uvec2 ugen_uniform_sample2(in uint dimension, in uint sampleIx, in uint scramble);
-
-vec2 gen_uniform_sample2(in uint dimension, in uint sampleIx, in uint scramble);
-
-
-uint ugen_uniform_sample1(in uint dimension, in uint sampleIx, in uint scramble)
+struct SamplingData_t
 {
-	return ugen_uniform_sample2(dimension,sampleIx,scramble).x;
-}
-uvec2 ugen_uniform_sample2(in uint dimension, in uint sampleIx, in uint scramble)
+	uint sampleID;
+};
+bool gen_sample_ray(out float maxT, out vec3 direction, out vec3 throughput, in SamplingData_t samplingData)
 {
-	uint address = (dimension>>1u)*MAX_ACCUMULATED_SAMPLES+(sampleIx&(MAX_ACCUMULATED_SAMPLES-1u));
-	return texelFetch(sampleSequence,int(address)).xy^uvec2(scramble);
-}
-
-vec2 gen_uniform_sample2(in uint dimension, in uint sampleIx, in uint scramble)
-{
-	return vec2(ugen_uniform_sample2(dimension,sampleIx,scramble))/vec2(~0u);
+	maxT = FLT_MAX;
+	direction = normalize(vec3(0.5,0.5,0.5));
+	throughput = vec3(1.0);
+	return true;
 }
 
 #ifdef TODO
@@ -189,49 +154,71 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 void main()
 {
 	uvec2 outputLocation = gl_GlobalInvocationID.xy;
-	bool alive = all(lessThan(outputLocation,uImageSize));
-	if (alive)
+	if (all(lessThan(outputLocation,pc.data.imageDimensions)))
 	{
-		// TODO: accelerate texture fetching
 		ivec2 uv = ivec2(outputLocation);
 		float revdepth = texelFetch(depthbuf,uv,0).r;
 
-		uint outputID = outputLocation.x+uImageWidth_ImageArea_TotalImageSamples_Samples.x*outputLocation.y;
+		uint outputID = outputLocation.y*pc.data.samplesPerRowPerDispatch+outputLocation.x;
 
+		SamplingData_t samplingData;
 		// unproject
 		vec3 viewDir;
 		vec3 position;
 		{
-			vec2 NDC = vec2(outputLocation)*uImageSize2Rcp.xy+uImageSize2Rcp.zw;
-			viewDir = mix(uFrustumCorners[0]*NDC.x+uFrustumCorners[1],uFrustumCorners[2]*NDC.x+uFrustumCorners[3],NDC.yyyy).xyz;
-			position = viewDir*linearizeZBufferVal(revdepth)+uCameraPos;
+			const mat4x3 frustumCorners = pc.data.frustumCorners;
+			const vec2 NDC = vec2(outputLocation)*pc.data.rcpPixelSize+pc.data.rcpHalfPixelSize;
+
+			viewDir = mix(frustumCorners[0]*NDC.x+frustumCorners[1],frustumCorners[2]*NDC.x+frustumCorners[3],NDC.yyy);
+			position = viewDir*linearizeZBufferVal(revdepth)+pc.data.cameraPosition;
 		}
-
-		alive = revdepth>0.0;
-
-		uint scramble = texelFetch(scramblebuf,uv,0).r;
-
-		RadeonRays_ray newray;
-		newray.time = 0.0;
-		newray.mask = alive ? -1:0;
-#ifdef TODO
-		for (uint i=0u; i<uImageWidth_ImageArea_TotalImageSamples_Samples.w; i++)
+		
+		bool alive = false;
+		uint scramble,objectID,triangleID;
+		bool backfacing;
+		vec3 normal = vec3(0.0);
+		vec2 uvCoord;
+		if (revdepth>0.0)
 		{
-			vec4 throughput = vec4(0.0,0.0,0.0,-1.0);
-			float error = GET_MAGNITUDE(1.0-revdepth)*0.1;
+			scramble = texelFetch(scramblebuf,uv,0).r;
 
-			newray.maxT = FLT_MAX;
-			if (alive)
-				throughput.rgb = light_sample(newray.direction,uSamplesComputed+i,scramble,newray.maxT,alive,position);
-
-			newray.origin = position+newray.direction*error/maxAbs3(newray.direction);
-			newray._active = alive ? 1:0;
-			newray.backfaceCulling = int(packHalf2x16(throughput.ab));
-			newray.useless_padding = int(packHalf2x16(throughput.gr));
-
-			// TODO: repack rays for coalescing
-			rays[outputID+i*uImageWidth_ImageArea_TotalImageSamples_Samples.y] = newray;
+			alive = true;
 		}
+#ifdef USE_OPTIX_DENOISER
+		// TODO: translate normal into float16_t buff
 #endif
+
+		for (uint i=0u; i<pc.data.samplesPerPixelPerDispatch; i++)
+		{
+			vec3 direction; // TODO: just use irr_glsl_LightSample?
+			float maxT;
+			vec4 throughput = vec4(0.0,0.0,0.0,-1.0); // -1 needs to be there to ensure no backface culling on rays
+
+			bool validRay = false;
+			if (alive)
+			{
+				samplingData.sampleID = pc.data.samplesComputedPerPixel+i;
+				validRay = gen_sample_ray(maxT,direction,throughput.rgb,samplingData);
+			}
+			
+			// TODO: repack rays in smem for coalescing
+			const uint realOutputID = outputID+i;
+			if (validRay)
+			{
+				rays[realOutputID].origin = position;/*+newray.direction*err?; TODO */
+				rays[realOutputID].maxT = 0.0;
+				rays[realOutputID].direction = direction;
+				rays[realOutputID].mask = -1;
+				rays[realOutputID]._active = 1;
+				rays[realOutputID].backfaceCulling = int(packHalf2x16(throughput.ab));
+				rays[realOutputID].useless_padding = int(packHalf2x16(throughput.gr));
+			}
+			else
+			{
+				rays[realOutputID].maxT = 0.0;
+				rays[realOutputID].mask = 0;
+				rays[realOutputID]._active = 0;
+			}
+		}
 	}
 }

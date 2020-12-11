@@ -7,6 +7,14 @@
 
 #ifdef __cplusplus
 	#define uint uint32_t
+	struct uvec2
+	{
+		uint32_t x,y;
+	};
+	struct vec2
+	{
+		float x,y;
+	};
 	struct vec3
 	{
 		float x,y,z;
@@ -14,6 +22,14 @@
 	#define mat4 irr::core::matrix4SIMD
 	#define mat4x3 irr::core::matrix3x4SIMD
 #endif
+
+
+struct RaytraceShaderCommonData_t
+{
+	uvec2   imageDimensions;
+	uint    samplesPerPixelPerDispatch;
+	uint    samplesPerRowPerDispatch;
+};
 
 
 struct SLight
