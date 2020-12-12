@@ -23,8 +23,8 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	#ifdef _IRR_BUILD_OPTIX_
 		m_optixManager(), m_cudaStream(nullptr), m_optixContext(),
 	#endif
-		rrShapeCache()/*, rrInstances()*/, m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
-		m_staticViewData{{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u},m_raytraceCommonData{{},{},0.f,0u,0u,0.f},
+		rrShapeCache(), rrInstances(), m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
+		m_maxRaysPerDispatch(0), m_staticViewData{{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u},m_raytraceCommonData{{},{},0.f,0u,0u,0.f},
 		m_indirectDrawBuffers{nullptr},m_cullPushConstants{core::matrix4SIMD(),0u,0u,1.f,0xdeadbeefu},m_cullWorkGroups(0u),
 		m_raygenWorkGroups{0u,0u},m_resolveWorkGroups{0u,0u},
 		m_visibilityBuffer(nullptr),tmpTonemapBuffer(nullptr),m_colorBuffer(nullptr)
@@ -353,6 +353,9 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 					{aabb.MinEdge.X,aabb.MinEdge.Y,aabb.MinEdge.Z},drawID,
 					{aabb.MaxEdge.X,aabb.MaxEdge.Y,aabb.MaxEdge.Z},baseInstance
 				});
+
+				// TODO: set up smgr data
+				m_mock_smgr.m_objectData.push_back({worldMatrix,nullptr,{drawID}});
 			}
 			mdiData.emplace_back(DrawElementsIndirectCommand_t{
 				static_cast<uint32_t>(gpumb->getIndexCount()), // pretty sure index count should be a uint32_t
@@ -380,6 +383,14 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 				call.mdiCount++;
 		}
 		queueUpMDI(call);
+	}
+
+	// set up Radeon Rays instances
+	{
+		core::vector<ext::RadeonRays::MockSceneManager::ObjectGUID> ids(m_mock_smgr.m_objectData.size());
+		std::iota(ids.begin(),ids.end(),0u);
+		m_rrManager->makeRRInstances(rrInstances, &m_mock_smgr, rrShapeCache, m_assetManager, ids.begin(), ids.end());
+		m_rrManager->attachInstances(rrInstances.begin(), rrInstances.end());
 	}
 
 
@@ -591,14 +602,23 @@ void Renderer::init(const SAssetBundle& meshes,
 			m_staticViewData.rcpPixelSize = { 1.f/float(m_staticViewData.imageDimensions.x),1.f/float(m_staticViewData.imageDimensions.y) };
 			m_staticViewData.rcpHalfPixelSize = { 0.5f/float(m_staticViewData.imageDimensions.x),0.5f/float(m_staticViewData.imageDimensions.y) };
 		}
+
+		// figure out dispatch sizes
+		m_raygenWorkGroups[0] = (m_staticViewData.imageDimensions.x-1u)/WORKGROUP_DIM+1u;
+		m_raygenWorkGroups[1] = (m_staticViewData.imageDimensions.y-1u)/WORKGROUP_DIM+1u;
+		m_resolveWorkGroups[0] = (m_staticViewData.imageDimensions.x-1u)/WORKGROUP_DIM+1u;
+		m_resolveWorkGroups[1] = (m_staticViewData.imageDimensions.y-1u)/WORKGROUP_DIM+1u;
+
 		const auto renderPixelCount = m_staticViewData.imageDimensions.x*m_staticViewData.imageDimensions.y;
 		// figure out how much Samples Per Pixel Per Dispatch we can afford
 		size_t raygenBufferSize, intersectionBufferSize;
 		{
+			const auto misSamples = 2u;
+			const auto minimumSampleCountPerDispatch = renderPixelCount*misSamples;
 
-			const auto raygenBufferSizePerSample = static_cast<size_t>(renderPixelCount)*sizeof(::RadeonRays::ray);
+			const auto raygenBufferSizePerSample = static_cast<size_t>(minimumSampleCountPerDispatch)*sizeof(::RadeonRays::ray);
 			assert(raygenBufferSizePerSample<=rayBufferSize);
-			const auto intersectionBufferSizePerSample = static_cast<size_t>(renderPixelCount)*sizeof(::RadeonRays::Intersection);
+			const auto intersectionBufferSizePerSample = static_cast<size_t>(minimumSampleCountPerDispatch)*sizeof(::RadeonRays::Intersection);
 			assert(intersectionBufferSizePerSample<=rayBufferSize);
 			m_staticViewData.samplesPerPixelPerDispatch = rayBufferSize/(raygenBufferSizePerSample+intersectionBufferSizePerSample);
 			assert(m_staticViewData.samplesPerPixelPerDispatch >= 1u);
@@ -606,8 +626,17 @@ void Renderer::init(const SAssetBundle& meshes,
 
 			m_staticViewData.samplesPerRowPerDispatch = m_staticViewData.imageDimensions.x*m_staticViewData.samplesPerPixelPerDispatch;
 
+			m_maxRaysPerDispatch = minimumSampleCountPerDispatch*m_staticViewData.samplesPerPixelPerDispatch;
 			raygenBufferSize = raygenBufferSizePerSample*m_staticViewData.samplesPerPixelPerDispatch;
 			intersectionBufferSize = intersectionBufferSizePerSample*m_staticViewData.samplesPerPixelPerDispatch;
+		}
+
+		// set up raycount buffer for RR
+		{
+			m_rayCountBuffer.buffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t),&raygenBufferSize);
+			m_rayCountBuffer.asRRBuffer = m_rrManager->linkBuffer(m_rayCountBuffer.buffer.get(), CL_MEM_READ_ONLY);
+
+			clEnqueueAcquireGLObjects(m_rrManager->getCLCommandQueue(), 1u, &m_rayCountBuffer.asRRBuffer.second, 0u, nullptr, nullptr);
 		}
 
 		// create out screen-sized textures
@@ -626,11 +655,14 @@ void Renderer::init(const SAssetBundle& meshes,
 			constexpr uint32_t descriptorExclScanSum[4] = { 0u,descriptorCountInSet[0],descriptorCountInSet[0]+descriptorCountInSet[1],descriptorCountInSet[0]+descriptorCountInSet[1]+descriptorCountInSet[2] };
 
 
-			auto createEmptyBufferAndSetUpInfo = [&](IGPUDescriptorSet::SDescriptorInfo* info, size_t size) -> void
+			auto createEmptyInteropBufferAndSetUpInfo = [&](IGPUDescriptorSet::SDescriptorInfo* info, InteropBuffer& interopBuffer, size_t size) -> void
 			{
+				interopBuffer.buffer = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
+				interopBuffer.asRRBuffer = m_rrManager->linkBuffer(interopBuffer.buffer.get(), CL_MEM_READ_ONLY);
+
 				info->buffer.size = size;
 				info->buffer.offset = 0u;
-				info->desc = m_driver->createDeviceLocalGPUBufferOnDedMem(size);
+				info->desc = core::smart_refctd_ptr(interopBuffer.buffer);
 			};
 			auto createFilledBufferAndSetUpInfo = [&](IGPUDescriptorSet::SDescriptorInfo* info, size_t size, const void* data) -> void
 			{
@@ -679,7 +711,7 @@ void Renderer::init(const SAssetBundle& meshes,
 				auto commonWrites = writes+descriptorExclScanSum[0];
 				createFilledBufferAndSetUpInfoFromStruct(commonInfos+0,m_staticViewData);
 				setImageInfo(commonInfos+1,asset::EIL_GENERAL,core::smart_refctd_ptr(m_accumulation));
-				createEmptyBufferAndSetUpInfo(commonInfos+2,raygenBufferSize);
+				createEmptyInteropBufferAndSetUpInfo(commonInfos+2,m_rayBuffer,raygenBufferSize);
 				createFilledBufferAndSetUpInfoFromVector(commonInfos+3,initData.lightCDF);
 				createFilledBufferAndSetUpInfoFromVector(commonInfos+4,initData.lights);
 				createFilledBufferAndSetUpInfoFromVector(commonInfos+5,initData.lightRadiances);
@@ -733,7 +765,7 @@ void Renderer::init(const SAssetBundle& meshes,
 			{
 				auto resolveInfos = infos+descriptorExclScanSum[2];
 				auto resolveWrites = writes+descriptorExclScanSum[2];
-				createEmptyBufferAndSetUpInfo(resolveInfos+0,intersectionBufferSize);
+				createEmptyInteropBufferAndSetUpInfo(resolveInfos+0,m_intersectionBuffer,intersectionBufferSize);
 				setImageInfo(resolveInfos+1,asset::EIL_GENERAL,core::smart_refctd_ptr(m_tonemapOutput));
 				
 
@@ -741,17 +773,6 @@ void Renderer::init(const SAssetBundle& meshes,
 			}
 
 			m_driver->updateDescriptorSets(descriptorExclScanSum[3], writes, 0u, nullptr);
-		}
-
-		// set up radeon rays instances
-		{
-	#if TODO
-			core::vector<int32_t> ids(nodes.size());
-			std::iota(ids.begin(), ids.end(), 0);
-			auto nodesBegin = &nodes.data()->get();
-			m_rrManager->makeRRInstances(rrInstances, rrShapeCache, m_assetManager, nodesBegin, nodesBegin+nodes.size(), ids.data());
-			m_rrManager->attachInstances(rrInstances.begin(), rrInstances.end());
-	#endif
 		}
 	}
 
@@ -781,31 +802,6 @@ void Renderer::init(const SAssetBundle& meshes,
 		auto spec = m_driver->createGPUSpecializedShader(shader.get(), info);
 		m_compostPipeline = m_driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_compostLayout), std::move(spec));
 	}
-
-	//
-	constexpr auto RAYGEN_WORK_GROUP_DIM = 16u;
-	m_raygenWorkGroups[0] = (renderSize[0]+RAYGEN_WORK_GROUP_DIM-1)/RAYGEN_WORK_GROUP_DIM;
-	m_raygenWorkGroups[1] = (renderSize[1]+RAYGEN_WORK_GROUP_DIM-1)/RAYGEN_WORK_GROUP_DIM;
-	constexpr auto RESOLVE_WORK_GROUP_DIM = 32u;
-	m_resolveWorkGroups[0] = (renderSize[0]+RESOLVE_WORK_GROUP_DIM-1)/RESOLVE_WORK_GROUP_DIM;
-	m_resolveWorkGroups[1] = (renderSize[1]+RESOLVE_WORK_GROUP_DIM-1)/RESOLVE_WORK_GROUP_DIM;
-
-	raygenBufferSize *= m_samplesPerPixelPerDispatch;
-	m_rayBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(raygenBufferSize);
-
-	shadowBufferSize *= m_samplesPerPixelPerDispatch;
-	m_intersectionBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(shadowBufferSize);
-
-	m_rayCountBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t),&m_rayCountPerDispatch);
-
-	m_rayBufferAsRR = m_rrManager->linkBuffer(m_rayBuffer.get(), CL_MEM_READ_WRITE);
-	// TODO: clear hit buffer to -1 before usage
-	m_intersectionBufferAsRR = m_rrManager->linkBuffer(m_intersectionBuffer.get(), CL_MEM_READ_WRITE);
-	m_rayCountBufferAsRR = m_rrManager->linkBuffer(m_rayCountBuffer.get(), CL_MEM_READ_ONLY);
-
-	const cl_mem clObjects[] = { m_rayCountBufferAsRR.second };
-	auto objCount = sizeof(clObjects)/sizeof(cl_mem);
-	clEnqueueAcquireGLObjects(m_rrManager->getCLCommandQueue(), objCount, clObjects, 0u, nullptr, nullptr);
 #endif
 
 	m_visibilityBuffer = m_driver->addFrameBuffer();
@@ -909,39 +905,23 @@ void Renderer::deinit()
 		m_colorBuffer = nullptr;
 	}
 	m_accumulation = m_tonemapOutput = nullptr;
+	
+	auto deleteInteropBuffer = [&](InteropBuffer& buffer) -> void
+	{
+		if (buffer.asRRBuffer.first)
+			m_rrManager->deleteRRBuffer(buffer.asRRBuffer.first);
+		buffer = {};
+	};
+	deleteInteropBuffer(m_intersectionBuffer);
+	deleteInteropBuffer(m_rayBuffer);
+	// release the last OpenCL object and wait for OpenCL to finish
+	clEnqueueReleaseGLObjects(commandQueue, 1u, &m_rayCountBuffer.asRRBuffer.second, 1u, nullptr, nullptr);
+	clFlush(commandQueue);
+	clFinish(commandQueue);
+	deleteInteropBuffer(m_rayCountBuffer);
 
 	m_resolveWorkGroups[0] = m_resolveWorkGroups[1] = 0u;
 	m_resolveDS = nullptr;
-
-#if TODO
-	// release OpenCL objects and wait for OpenCL to finish
-	const cl_mem clObjects[] = { m_rayCountBufferAsRR.second };
-	auto objCount = sizeof(clObjects) / sizeof(cl_mem);
-	clEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, nullptr, nullptr);
-	clFlush(commandQueue);
-	clFinish(commandQueue);
-
-	if (m_rayBufferAsRR.first)
-	{
-		m_rrManager->deleteRRBuffer(m_rayBufferAsRR.first);
-		m_rayBufferAsRR = {nullptr,nullptr};
-	}
-	if (m_intersectionBufferAsRR.first)
-	{
-		m_rrManager->deleteRRBuffer(m_intersectionBufferAsRR.first);
-		m_intersectionBufferAsRR = {nullptr,nullptr};
-	}
-	if (m_rayCountBufferAsRR.first)
-	{
-		m_rrManager->deleteRRBuffer(m_rayCountBufferAsRR.first);
-		m_rayCountBufferAsRR = {nullptr,nullptr};
-	}
-	m_rayBuffer = m_intersectionBuffer = m_rayCountBuffer = nullptr;
-
-	m_rrManager->detachInstances(rrInstances.begin(),rrInstances.end());
-	m_rrManager->deleteInstances(rrInstances.begin(),rrInstances.end());
-	rrInstances.clear(); // TODO MOVE
-#endif
 
 	m_raygenWorkGroups[0] = m_raygenWorkGroups[1] = 0u;
 	m_raygenDS = nullptr;
@@ -958,10 +938,16 @@ void Renderer::deinit()
 
 	m_raytraceCommonData = {{},{},0.f,0u,0u,0.f};
 	m_staticViewData = {{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u};
+	m_maxRaysPerDispatch = 0u;
 	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
 
-	m_rrManager->deleteShapes(rrShapeCache.begin(), rrShapeCache.end());
-	rrShapeCache.clear();
+	m_rrManager->detachInstances(rrInstances.begin(),rrInstances.end());
+	m_rrManager->deleteInstances(rrInstances.begin(),rrInstances.end());
+	rrInstances.clear();
+	m_mock_smgr = {};
+
+	m_rrManager->deleteShapes(rrShapeCache.m_gpuAssociative.begin(), rrShapeCache.m_gpuAssociative.end());
+	rrShapeCache = {};
 }
 
 
@@ -978,6 +964,7 @@ void Renderer::render(irr::ITimer* timer)
 	camera->render();
 
 	const auto currentViewProj = camera->getConcatenatedMatrix();
+	// TODO: instead of rasterizing vis-buffer only once, subpixel jitter it to obtain AA
 	if (!core::equals(prevViewProj,currentViewProj,core::ROUNDING_ERROR<core::matrix4SIMD>()*1000.0))
 	{
 		m_raytraceCommonData.framesDispatched = 0u;
@@ -1047,25 +1034,24 @@ void Renderer::render(irr::ITimer* timer)
 	}
 
 	// do radeon rays
-#if TODO
-	m_rrManager->update(rrInstances);
-#endif
+	m_rrManager->update(&m_mock_smgr,rrInstances.begin(),rrInstances.end());
 	if (m_rrManager->hasImplicitCL2GLSync())
 		glFlush();
 	else
 		glFinish();
 
-	auto commandQueue = m_rrManager->getCLCommandQueue();
+	if (false) // TODO
 	{
-#if TODO
-		const cl_mem clObjects[] = {m_rayBufferAsRR.second,m_intersectionBufferAsRR.second};
-		auto objCount = sizeof(clObjects)/sizeof(cl_mem);
+		auto commandQueue = m_rrManager->getCLCommandQueue();
+
+		const cl_mem clObjects[] = {m_rayBuffer.asRRBuffer.second,m_intersectionBuffer.asRRBuffer.second};
+		const auto objCount = sizeof(clObjects)/sizeof(cl_mem);
 
 		cl_event acquired = nullptr;
 		clEnqueueAcquireGLObjects(commandQueue,objCount,clObjects,0u,nullptr,&acquired);
 
 		clEnqueueWaitForEvents(commandQueue,1u,&acquired);
-		m_rrManager->getRadeonRaysAPI()->QueryOcclusion(m_rayBufferAsRR.first,m_rayCountBufferAsRR.first,m_rayCountPerDispatch,m_intersectionBufferAsRR.first,nullptr,nullptr);
+		m_rrManager->getRadeonRaysAPI()->QueryIntersection(m_rayBuffer.asRRBuffer.first,m_rayCountBuffer.asRRBuffer.first,m_maxRaysPerDispatch,m_intersectionBuffer.asRRBuffer.first,nullptr,nullptr);
 		cl_event raycastDone = nullptr;
 		clEnqueueMarker(commandQueue,&raycastDone);
 
@@ -1081,7 +1067,6 @@ void Renderer::render(irr::ITimer* timer)
 			clFlush(commandQueue);
 			clWaitForEvents(1u, &released);
 		}
-#endif
 	}
 
 	// use raycast results

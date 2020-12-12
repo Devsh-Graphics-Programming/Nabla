@@ -90,17 +90,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> createScreenSizedTexture(irr::asset::E_FORMAT format);
 
-#if TODO
-		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDS2layoutCompost(bool useDenoiser, core::smart_refctd_ptr<video::IGPUSampler>& nearstSampler);
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> createDS2Compost(bool useDenoiser,
-			core::smart_refctd_ptr<video::IGPUSampler>& nearestSampler
-		);
-		core::smart_refctd_ptr<video::IGPUPipelineLayout> createLayoutCompost();
 
-		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDS2layoutRaygen(core::smart_refctd_ptr<video::IGPUSampler>& nearstSampler);
-		core::smart_refctd_ptr<video::IGPUDescriptorSet> createDS2Raygen(core::smart_refctd_ptr<video::IGPUSampler>& nearstSampler);
-		core::smart_refctd_ptr<video::IGPUPipelineLayout> createLayoutRaygen();
-#endif
 		// constants
 		const bool m_useDenoiser;
 
@@ -134,12 +124,12 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 
 		// scene specific data
+		irr::ext::RadeonRays::MockSceneManager m_mock_smgr;
 		irr::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
-#if TODO
-		irr::ext::RadeonRays::Manager::MeshNodeRRInstanceCache rrInstances;
-#endif
+		irr::ext::RadeonRays::Manager::NblInstanceRRInstanceCache rrInstances;
 
 		irr::core::aabbox3df m_sceneBound;
+		uint32_t m_maxRaysPerDispatch;
 		StaticViewData_t m_staticViewData;
 		RaytraceShaderCommonData_t m_raytraceCommonData;
 
