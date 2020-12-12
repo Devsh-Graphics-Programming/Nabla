@@ -5,8 +5,8 @@
 #if WORKGROUP_SIZE!=256
 	#error "Hardcoded 16 should be NBL_SQRT(WORKGROUP_SIZE)"
 #endif
-#ifndef __cplusplus
 #define WORKGROUP_DIM 16
+#ifndef __cplusplus
 layout(local_size_x = WORKGROUP_DIM, local_size_y = WORKGROUP_DIM) in;
 #endif
 
