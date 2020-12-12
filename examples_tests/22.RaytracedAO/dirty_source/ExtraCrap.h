@@ -31,7 +31,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxResolution[2] = {7680/2,4320/2};
 
 
-		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet>&& globalBackendDataDS, bool useDenoiser = true);
+		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, bool useDenoiser = true);
 
 		void init(	const irr::asset::SAssetBundle& meshes, irr::core::smart_refctd_ptr<irr::asset::ICPUBuffer>&& sampleSequence,
 					uint32_t rayBufferSize=(sizeof(::RadeonRays::ray)+sizeof(::RadeonRays::Intersection))*2u*MaxResolution[0]*MaxResolution[1]); // 2 samples for MIS, TODO: compute default buffer size
@@ -128,7 +128,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::core::smart_refctd_ptr<const irr::video::IGPUPipelineLayout> m_visibilityBufferFillPipelineLayoutGPU;
 		irr::core::smart_refctd_ptr<const irr::video::IGPUDescriptorSetLayout> m_perCameraRasterDSLayout;
 
-		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSetLayout> m_commonDSLayout, m_raygenDSLayout, m_resolveDSLayout;
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSetLayout> m_commonRaytracingDSLayout, m_raygenDSLayout, m_resolveDSLayout;
 		irr::core::smart_refctd_ptr<const irr::video::IGPUPipelineLayout> m_raygenPipelineLayout, m_resolvePipelineLayout;
 		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_raygenPipeline, m_resolvePipeline;
 
@@ -142,8 +142,6 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::core::aabbox3df m_sceneBound;
 		StaticViewData_t m_staticViewData;
 		RaytraceShaderCommonData_t m_raytraceCommonData;
-
-		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_globalBackendDataDS,m_commonRaytracingDS;
 
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_indirectDrawBuffers[2];
 		struct MDICall
@@ -160,7 +158,7 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_perCameraRasterDS;
 
-		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_raygenDS;
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_globalBackendDataDS,m_commonRaytracingDS,m_raygenDS;
 		uint32_t m_raygenWorkGroups[2];
 
 		struct InteropBuffer

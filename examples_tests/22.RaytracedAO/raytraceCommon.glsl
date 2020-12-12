@@ -84,7 +84,7 @@ layout(set = 1, binding = 0, row_major) uniform StaticViewData
 };
 layout(set = 1, binding = 1, rg32ui) restrict uniform uimage2D accumulation;
 #include <irr/builtin/glsl/ext/RadeonRays/ray.glsl>
-layout(set = 1, binding = 2, std430) restrict writeonly buffer Rays
+layout(set = 1, binding = 2, std430) restrict /*writeonly/readonly TODO depending on stage*/ buffer Rays
 {
 	irr_glsl_ext_RadeonRays_ray rays[];
 };

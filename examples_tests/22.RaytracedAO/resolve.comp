@@ -64,6 +64,6 @@ void main()
 		else
 			acc += color;
 		storeAccumulation(acc,pixelCoord);
-		imageStore(framebuffer,pixelCoord,uvec4(irr_glsl_encodeRGB10A2(acc),0u,0u,0u));
+		imageStore(framebuffer,pixelCoord,uvec4(irr_glsl_encodeRGB10A2(vec4(acc,1.0)),0u,0u,0u));
 	}
 }
