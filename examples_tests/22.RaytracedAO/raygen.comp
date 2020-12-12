@@ -1,21 +1,16 @@
 #version 430 core
-#include "raygenCommon.glsl"
+#include "raytraceCommon.glsl"
 
 
 #include <irr/builtin/glsl/utils/normal_decode.glsl>
-//
-layout(set = 2, binding = 0, row_major) uniform RaygenData
-{
-	RaygenShaderData_t raygenData;
-};
 // rng
-layout(set = 2, binding = 1) uniform usamplerBuffer sampleSequence;
-layout(set = 2, binding = 2) uniform usampler2D scramblebuf;
+layout(set = 2, binding = 0) uniform usamplerBuffer sampleSequence;
+layout(set = 2, binding = 1) uniform usampler2D scramblebuf;
 // vis buffer
-layout(set = 2, binding = 3) uniform sampler2D depthbuf;
-layout(set = 2, binding = 4) uniform usampler2D objectTriangleFrontFacing;
-layout(set = 2, binding = 5) uniform sampler2D encodedNormal;
-layout(set = 2, binding = 6) uniform sampler2D uv;
+layout(set = 2, binding = 2) uniform sampler2D depthbuf;
+layout(set = 2, binding = 3) uniform usampler2D objectTriangleFrontFacing;
+layout(set = 2, binding = 4) uniform sampler2D encodedNormal;
+layout(set = 2, binding = 5) uniform sampler2D uv;
 
 
 
@@ -30,7 +25,7 @@ float linearizeZBufferVal(in float nonLinearZBufferVal)
 	// positive [0,1] Z: `B/(C-A-Cy)/(B/(C-A))`
 	// positive [0,1] Z: `(C-A)/(C-A-Cy)`
 	// positive [0,1] Z: `D/(D-Cy)`
-    return 1.0/(pc.data.depthLinearizationConstant*nonLinearZBufferVal+1.0);
+    return 1.0/(pc.cummon.depthLinearizationConstant*nonLinearZBufferVal+1.0);
 }
 
 
@@ -86,7 +81,7 @@ bool gen_sample_ray(out float maxT, out vec3 direction, out vec3 throughput, in 
 	return true;
 }
 
-#ifdef TODO
+#ifdef TODO 
 // TODO: define lower and upper bound over `lightCDF`
 vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout float maxT, inout bool alive, in vec3 position)
 {
@@ -99,7 +94,7 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 
 #define SHADOW_RAY_LEN 0.93
 	float factor; // 1.0/light_probability already baked into the light factor
-	switch (SLight_extractType(light))
+	switch (SLight_extractType(light)) 
 	{
 		case SLight_ET_ELLIPSOID:
 			lightSurfaceSample.x = lightSurfaceSample.x*2.0-1.0;
@@ -154,23 +149,23 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 void main()
 {
 	uvec2 outputLocation = gl_GlobalInvocationID.xy;
-	if (all(lessThan(outputLocation,pc.data.imageDimensions)))
+	if (all(lessThan(outputLocation,staticViewData.imageDimensions)))
 	{
 		ivec2 uv = ivec2(outputLocation);
 		float revdepth = texelFetch(depthbuf,uv,0).r;
 
-		uint outputID = outputLocation.y*pc.data.samplesPerRowPerDispatch+outputLocation.x;
+		const uint outputID = outputLocation.y*staticViewData.samplesPerRowPerDispatch+outputLocation.x*staticViewData.samplesPerPixelPerDispatch;
 
 		SamplingData_t samplingData;
 		// unproject
 		vec3 viewDir;
 		vec3 position;
 		{
-			const mat4x3 frustumCorners = pc.data.frustumCorners;
-			const vec2 NDC = vec2(outputLocation)*pc.data.rcpPixelSize+pc.data.rcpHalfPixelSize;
+			const mat4x3 frustumCorners = pc.cummon.frustumCorners;
+			const vec2 NDC = vec2(outputLocation)*staticViewData.rcpPixelSize+staticViewData.rcpHalfPixelSize;
 
 			viewDir = mix(frustumCorners[0]*NDC.x+frustumCorners[1],frustumCorners[2]*NDC.x+frustumCorners[3],NDC.yyy);
-			position = viewDir*linearizeZBufferVal(revdepth)+pc.data.cameraPosition;
+			position = viewDir*linearizeZBufferVal(revdepth)+pc.cummon.normalMatrixAndCameraPos[3];
 		}
 		
 		bool alive = false;
@@ -181,14 +176,24 @@ void main()
 		if (revdepth>0.0)
 		{
 			scramble = texelFetch(scramblebuf,uv,0).r;
+			
+			const vec3 emissive = vec3(0.0,1.0,0.0);
+			vec3 acc;
+			if (pc.cummon.rcpFramesDispatched<1.0)
+				acc = fetchFramebuffer(uv)+emissive/float(pc.cummon.framesDispatched-1u);
+			else
+				acc = emissive;
 
+			//
+
+			storeFramebuffer(acc,uv);
 			alive = true;
 		}
 #ifdef USE_OPTIX_DENOISER
 		// TODO: translate normal into float16_t buff
 #endif
 
-		for (uint i=0u; i<pc.data.samplesPerPixelPerDispatch; i++)
+		for (uint i=0u; i<staticViewData.samplesPerPixelPerDispatch; i++)
 		{
 			vec3 direction; // TODO: just use irr_glsl_LightSample?
 			float maxT;
@@ -197,7 +202,7 @@ void main()
 			bool validRay = false;
 			if (alive)
 			{
-				samplingData.sampleID = pc.data.samplesComputedPerPixel+i;
+				samplingData.sampleID = pc.cummon.samplesComputedPerPixel+i;
 				validRay = gen_sample_ray(maxT,direction,throughput.rgb,samplingData);
 			}
 			
@@ -205,6 +210,8 @@ void main()
 			const uint realOutputID = outputID+i;
 			if (validRay)
 			{
+				throughput /= float(staticViewData.samplesPerPixelPerDispatch);
+
 				rays[realOutputID].origin = position;/*+newray.direction*err?; TODO */
 				rays[realOutputID].maxT = 0.0;
 				rays[realOutputID].direction = direction;

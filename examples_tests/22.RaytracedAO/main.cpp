@@ -260,7 +260,7 @@ int main()
 		}
 	}
 
-	renderer->init(meshes, rightHandedCamera, std::move(sampleSequence));
+	renderer->init(meshes, std::move(sampleSequence));
 	meshes = {}; // free memory
 	
 

@@ -20,7 +20,9 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 {
     public:
 		#include "../drawCommon.glsl"
+		#include "../raytraceCommon.glsl"
 		#ifdef __cplusplus
+			#undef uint
 			#undef mat4
 			#undef mat4x3
 		#endif
@@ -31,22 +33,23 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		Renderer(irr::video::IVideoDriver* _driver, irr::asset::IAssetManager* _assetManager, irr::scene::ISceneManager* _smgr, irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet>&& globalBackendDataDS, bool useDenoiser = true);
 
-		void init(	const irr::asset::SAssetBundle& meshes,
-					bool isCameraRightHanded,
-					irr::core::smart_refctd_ptr<irr::asset::ICPUBuffer>&& sampleSequence,
-					uint32_t rayBufferSize=(sizeof(::RadeonRays::ray)*2u+sizeof(uint32_t)*2u)*MaxResolution[0]*MaxResolution[1]); // 2 samples for MIS, TODO: compute default buffer size
+		void init(	const irr::asset::SAssetBundle& meshes, irr::core::smart_refctd_ptr<irr::asset::ICPUBuffer>&& sampleSequence,
+					uint32_t rayBufferSize=(sizeof(::RadeonRays::ray)+sizeof(::RadeonRays::Intersection))*2u*MaxResolution[0]*MaxResolution[1]); // 2 samples for MIS, TODO: compute default buffer size
 
 		void deinit();
 
 		void render(irr::ITimer* timer);
 
-		bool isRightHanded() { return m_rightHanded; }
-
 		auto* getColorBuffer() { return m_colorBuffer; }
 
 		const auto& getSceneBound() const { return m_sceneBound; }
 
-		uint64_t getTotalSamplesComputed() const { return static_cast<uint64_t>(m_samplesComputedPerPixel)*static_cast<uint64_t>(m_rayCountPerDispatch)/m_samplesPerPixelPerDispatch; }
+		uint64_t getTotalSamplesComputed() const
+		{
+			const auto samplesPerDispatch = static_cast<uint64_t>(m_staticViewData.samplesPerRowPerDispatch*m_staticViewData.imageDimensions.y);
+			const auto framesDispatched = static_cast<uint64_t>(m_raytraceCommonData.framesDispatched);
+			return framesDispatched*samplesPerDispatch;
+		}
 
 
 		_IRR_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 6u;
@@ -98,32 +101,49 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		core::smart_refctd_ptr<video::IGPUDescriptorSet> createDS2Raygen(core::smart_refctd_ptr<video::IGPUSampler>& nearstSampler);
 		core::smart_refctd_ptr<video::IGPUPipelineLayout> createLayoutRaygen();
 #endif
-
+		// constants
 		const bool m_useDenoiser;
 
+		// managers
         irr::video::IVideoDriver* m_driver;
 
 		irr::asset::IAssetManager* m_assetManager;
 		irr::scene::ISceneManager* m_smgr;
 
 		irr::core::smart_refctd_ptr<irr::ext::RadeonRays::Manager> m_rrManager;
+#ifdef _IRR_BUILD_OPTIX_
+		irr::core::smart_refctd_ptr<irr::ext::OptiX::Manager> m_optixManager;
+		CUstream m_cudaStream;
+		irr::core::smart_refctd_ptr<irr::ext::OptiX::IContext> m_optixContext;
+#endif
+
+
+		// persistent (intialized in constructor
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSetLayout> m_cullDSLayout;
+		irr::core::smart_refctd_ptr<const irr::video::IGPUPipelineLayout> m_cullPipelineLayout;
+		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_cullPipeline;
 
 		irr::core::smart_refctd_ptr<irr::asset::ICPUSpecializedShader> m_visibilityBufferFillShaders[2];
 		irr::core::smart_refctd_ptr<irr::asset::ICPUPipelineLayout> m_visibilityBufferFillPipelineLayoutCPU;
-		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_visibilityBufferFillPipelineLayoutGPU;
+		irr::core::smart_refctd_ptr<const irr::video::IGPUPipelineLayout> m_visibilityBufferFillPipelineLayoutGPU;
 		irr::core::smart_refctd_ptr<const irr::video::IGPUDescriptorSetLayout> m_perCameraRasterDSLayout;
 
-		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSetLayout> m_cullDSLayout;
-		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_cullPipelineLayout;
-		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_cullPipeline;
-		
-		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_raygenPipeline,m_resolvePipeline;
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSetLayout> m_commonDSLayout, m_raygenDSLayout, m_resolveDSLayout;
+		irr::core::smart_refctd_ptr<const irr::video::IGPUPipelineLayout> m_raygenPipelineLayout, m_resolvePipelineLayout;
+		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_raygenPipeline, m_resolvePipeline;
 
 
-		irr::core::vectorSIMDf baseEnvColor;
+		// scene specific data
+		irr::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
+#if TODO
+		irr::ext::RadeonRays::Manager::MeshNodeRRInstanceCache rrInstances;
+#endif
+
 		irr::core::aabbox3df m_sceneBound;
-		uint32_t m_renderSize[2u];
-		bool m_rightHanded;
+		StaticViewData_t m_staticViewData;
+		RaytraceShaderCommonData_t m_raytraceCommonData;
+
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_globalBackendDataDS,m_commonRaytracingDS;
 
 		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_indirectDrawBuffers[2];
 		struct MDICall
@@ -131,64 +151,32 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 			irr::asset::SBufferBinding<irr::video::IGPUBuffer> vertexBindings[irr::video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
 			irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> indexBuffer;
 			irr::core::smart_refctd_ptr<irr::video::IGPURenderpassIndependentPipeline> pipeline;
-			uint32_t mdiOffset,mdiCount;
+			uint32_t mdiOffset, mdiCount;
 		};
 		irr::core::vector<MDICall> m_mdiDrawCalls;
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_cullDS;
 		CullShaderData_t m_cullPushConstants;
+		uint32_t m_cullWorkGroups;
 
-		uint32_t m_lightCount;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightCDFBuffer;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightBuffer;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> m_lightRadianceBuffer;
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_perCameraRasterDS;
 
-		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_globalBackendDataDS,m_cullDS,m_perCameraRasterDS; // TODO: do we need to keep track of this?
-
-
-		irr::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
-#if TODO
-		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_compostDS2;
-		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_compostLayout;
-		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_compostPipeline;
-
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_raygenDS;
 		uint32_t m_raygenWorkGroups[2];
-		uint32_t m_resolveWorkGroups[2];
 
-		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_raygenDS2;
-		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_raygenLayout;
-
-		irr::ext::RadeonRays::Manager::MeshNodeRRInstanceCache rrInstances;
-#endif
 		struct InteropBuffer
 		{
 			irr::core::smart_refctd_ptr<irr::video::IGPUBuffer> buffer;
-			std::pair<::RadeonRays::Buffer*,cl_mem> asRRBuffer;
+			std::pair<::RadeonRays::Buffer*, cl_mem> asRRBuffer = { nullptr,0u };
 		};
 		InteropBuffer m_rayCountBuffer,m_rayBuffer,m_intersectionBuffer;
 
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_resolveDS;
+		uint32_t m_resolveWorkGroups[2];
 
-		enum E_VISIBILITY_BUFFER_ATTACHMENT
-		{
-			EVBA_DEPTH,
-			EVBA_OBJECTID_AND_TRIANGLEID_AND_FRONTFACING,
-			// TODO: Once we get geometry packer V2 (virtual geometry) no need for these buffers actually (might want/need a barycentric buffer)
-			EVBA_NORMALS,
-			EVBA_UV_COORDINATES,
-			EVBA_COUNT
-		};
-		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_visibilityBufferAttachments[EVBA_COUNT];
-
-		uint32_t m_maxSamples, m_samplesPerPixelPerDispatch, m_rayCountPerDispatch;
-		uint32_t m_framesDone, m_samplesComputedPerPixel;
-		irr::core::smart_refctd_ptr<irr::video::IGPUBufferView> m_sampleSequence;
-		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_scrambleTexture;
-
-		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_accumulation, m_tonemapOutput;
+		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> m_accumulation,m_tonemapOutput;
 		irr::video::IFrameBuffer* m_visibilityBuffer,* m_colorBuffer,* tmpTonemapBuffer;
 
 	#ifdef _IRR_BUILD_OPTIX_
-		irr::core::smart_refctd_ptr<irr::ext::OptiX::Manager> m_optixManager;
-		CUstream m_cudaStream;
-		irr::core::smart_refctd_ptr<irr::ext::OptiX::IContext> m_optixContext;
 		irr::core::smart_refctd_ptr<irr::ext::OptiX::IDenoiser> m_denoiser;
 		OptixDenoiserSizes m_denoiserMemReqs;
 		irr::cuda::CCUDAHandler::GraphicsAPIObjLink<irr::video::IGPUBuffer> m_denoiserInputBuffer,m_denoiserStateBuffer,m_denoisedBuffer,m_denoiserScratchBuffer;

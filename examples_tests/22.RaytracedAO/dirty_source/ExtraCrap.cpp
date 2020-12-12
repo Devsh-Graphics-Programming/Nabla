@@ -18,37 +18,60 @@ constexpr uint32_t kOptiXPixelSize = sizeof(uint16_t)*3u;
 
 
 Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::ISceneManager* _smgr, core::smart_refctd_ptr<IGPUDescriptorSet>&& globalBackendDataDS, bool useDenoiser) :
-		m_useDenoiser(useDenoiser),	m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager), m_rrManager(ext::RadeonRays::Manager::create(m_driver)),
-		m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), /*m_renderSize{0u,0u}, */m_rightHanded(false),
-		m_globalBackendDataDS(std::move(globalBackendDataDS)), // TODO: review this member
-		rrShapeCache(),
-#if TODO
-		m_raygenWorkGroups{0u,0u}, m_resolveWorkGroups{0u,0u},
-		m_rayBufferAsRR(nullptr,nullptr), m_intersectionBufferAsRR(nullptr,nullptr), m_rayCountBufferAsRR(nullptr,nullptr),
-		rrInstances(),
-#endif
-		m_indirectDrawBuffers{nullptr}, m_cullPushConstants{core::matrix4SIMD(),0u,0u,1.f,0xdeadbeefu}, m_lightCount(0u),
-		m_visibilityBuffer(nullptr), tmpTonemapBuffer(nullptr), m_colorBuffer(nullptr),
-		m_visibilityBufferAttachments{nullptr}, m_maxSamples(0u), m_samplesPerPixelPerDispatch(0u), m_rayCountPerDispatch(0u), m_framesDone(0u), m_samplesComputedPerPixel(0u)
+		m_useDenoiser(useDenoiser),	m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager),
+		m_rrManager(ext::RadeonRays::Manager::create(m_driver)),
 	#ifdef _IRR_BUILD_OPTIX_
-		,m_cudaStream(nullptr)
+		m_optixManager(), m_cudaStream(nullptr), m_optixContext(),
 	#endif
+		rrShapeCache()/*, rrInstances()*/, m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
+		m_staticViewData{{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u},m_raytraceCommonData{{},{},0.f,0u,0u,0.f},
+		m_indirectDrawBuffers{nullptr},m_globalBackendDataDS(std::move(globalBackendDataDS)),
+		m_cullPushConstants{core::matrix4SIMD(),0u,0u,1.f,0xdeadbeefu},m_cullWorkGroups(0u),
+		m_raygenWorkGroups{0u,0u},m_resolveWorkGroups{0u,0u},
+		m_visibilityBuffer(nullptr),tmpTonemapBuffer(nullptr),m_colorBuffer(nullptr)
 {
+#ifdef _IRR_BUILD_OPTIX_
+	while (useDenoiser)
+	{
+		useDenoiser = false;
+		m_optixManager = ext::OptiX::Manager::create(m_driver, m_assetManager->getFileSystem());
+		if (!m_optixManager)
+			break;
+		m_cudaStream = m_optixManager->getDeviceStream(0);
+		if (!m_cudaStream)
+			break;
+		m_optixContext = m_optixManager->createContext(0);
+		if (!m_optixContext)
+			break;
+		OptixDenoiserOptions opts = {OPTIX_DENOISER_INPUT_RGB_ALBEDO_NORMAL,OPTIX_PIXEL_FORMAT_HALF3};
+		m_denoiser = m_optixContext->createDenoiser(&opts);
+		if (!m_denoiser)
+			break;
+
+		useDenoiser = true;
+		break;
+	}
+#endif
+
 	auto specializedShaderFromFile = [&](const char* path) -> core::smart_refctd_ptr<ICPUSpecializedShader>
 	{
 		auto bundle = m_assetManager->getAsset(path, {});
 		return core::move_and_static_cast<ICPUSpecializedShader>(*bundle.getContents().begin());
 	};
-	m_visibilityBufferFillShaders[0] = specializedShaderFromFile("../fillVisBuffer.vert");
-	m_visibilityBufferFillShaders[1] = specializedShaderFromFile("../fillVisBuffer.frag");
-
-	// TODO: make these util functions for every descriptor type (maybe template with specs?) in `IDescriptorSetLayout` -> Assign: @Hazardu
-	auto fillSSBODescriptorBindingDeclarations = [](auto* outBindings, ISpecializedShader::E_SHADER_STAGE accessFlags, uint32_t count, uint32_t startIndex=0u) -> void
+	auto gpuSpecializedShaderFromFile = [&](const char* path) -> core::smart_refctd_ptr<IGPUSpecializedShader>
+	{
+		auto shader = specializedShaderFromFile(path);
+		// TODO: @Crisspl find a way to stop the user from such insanity as moving from the bundle's dynamic array
+		//return std::move(m_driver->getGPUObjectsFromAssets<ICPUSpecializedShader>(&shader,&shader+1u)->operator[](0));
+		return m_driver->getGPUObjectsFromAssets<ICPUSpecializedShader>(&shader,&shader+1u)->operator[](0);
+	};
+	// TODO: make these util function in `IDescriptorSetLayout` -> Assign: @Hazardu
+	auto fillIotaDescriptorBindingDeclarations = [](auto* outBindings, ISpecializedShader::E_SHADER_STAGE accessFlags, uint32_t count, asset::E_DESCRIPTOR_TYPE descType=asset::EDT_INVALID, uint32_t startIndex=0u) -> void
 	{
 		for (auto i=0u; i<count; i++)
 		{
 			outBindings[i].binding = i+startIndex;
-			outBindings[i].type = asset::EDT_STORAGE_BUFFER;
+			outBindings[i].type = descType;
 			outBindings[i].count = 1u;
 			outBindings[i].stageFlags = accessFlags;
 			outBindings[i].samplers = nullptr;
@@ -57,8 +80,21 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 
 	constexpr auto cullingOutputDescriptorCount = 2u;
 	{
+		constexpr auto cullingDescriptorCount = cullingOutputDescriptorCount+2u;
+		IGPUDescriptorSetLayout::SBinding bindings[cullingDescriptorCount];
+		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,cullingDescriptorCount,asset::EDT_STORAGE_BUFFER);
+		bindings[3u].count = 2u;
+		m_cullDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+4u);
+		SPushConstantRange range{ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullShaderData_t)};
+		m_cullPipelineLayout = m_driver->createGPUPipelineLayout(&range,&range+1u,nullptr,core::smart_refctd_ptr(m_cullDSLayout),nullptr,nullptr);
+		m_cullPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_cullPipelineLayout),gpuSpecializedShaderFromFile("../cull.comp"));
+	}
+
+	m_visibilityBufferFillShaders[0] = specializedShaderFromFile("../fillVisBuffer.vert");
+	m_visibilityBufferFillShaders[1] = specializedShaderFromFile("../fillVisBuffer.frag");
+	{
 		ICPUDescriptorSetLayout::SBinding bindings[cullingOutputDescriptorCount];
-		fillSSBODescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_VERTEX,cullingOutputDescriptorCount);
+		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_VERTEX,cullingOutputDescriptorCount,asset::EDT_STORAGE_BUFFER);
 
 		auto dsLayout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings,bindings+2u);
 		m_visibilityBufferFillPipelineLayoutCPU = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr,nullptr,nullptr,core::smart_refctd_ptr(dsLayout),nullptr,nullptr);
@@ -68,91 +104,77 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		m_visibilityBufferFillPipelineLayoutGPU = core::smart_refctd_ptr(m_driver->getGPUObjectsFromAssets<ICPUPipelineLayout>(&m_visibilityBufferFillPipelineLayoutCPU,&m_visibilityBufferFillPipelineLayoutCPU+1u)->operator[](0));
 		m_perCameraRasterDSLayout = core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(m_visibilityBufferFillPipelineLayoutGPU->getDescriptorSetLayout(1u));
 	}
-
-
-	auto gpuSpecializedShaderFromFile = [&](const char* path) -> core::smart_refctd_ptr<IGPUSpecializedShader>
+	
+	SPushConstantRange raytracingCommonPCRange{ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaytraceShaderCommonData_t)};
 	{
-		auto shader = specializedShaderFromFile(path);
-		// TODO: @Crisspl find a way to stop the user from such insanity as moving from the bundle's dynamic array
-		//return std::move(m_driver->getGPUObjectsFromAssets<ICPUSpecializedShader>(&shader,&shader+1u)->operator[](0));
-		return m_driver->getGPUObjectsFromAssets<ICPUSpecializedShader>(&shader,&shader+1u)->operator[](0);
-	};
+		constexpr auto raytracingCommonDescriptorCount = 6u;
+		IGPUDescriptorSetLayout::SBinding bindings[raytracingCommonDescriptorCount];
+		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,raytracingCommonDescriptorCount);
+		bindings[0].type = asset::EDT_UNIFORM_BUFFER;
+		bindings[1].type = asset::EDT_STORAGE_IMAGE;
+		bindings[2].type = asset::EDT_STORAGE_BUFFER;
+		bindings[3].type = asset::EDT_STORAGE_BUFFER;
+		bindings[4].type = asset::EDT_STORAGE_BUFFER;
+		bindings[5].type = asset::EDT_STORAGE_BUFFER;
 
-	{
-		constexpr auto cullingDescriptorCount = cullingOutputDescriptorCount+2u;
-		IGPUDescriptorSetLayout::SBinding bindings[cullingDescriptorCount];
-		fillSSBODescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,cullingDescriptorCount);
-		bindings[3u].count = 2u;
-		m_cullDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+4u);
-		SPushConstantRange range{ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullShaderData_t)};
-		m_cullPipelineLayout = m_driver->createGPUPipelineLayout(&range,&range+1u,nullptr,core::smart_refctd_ptr(m_cullDSLayout),nullptr,nullptr);
-		m_cullPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_cullPipelineLayout),gpuSpecializedShaderFromFile("../cull.comp"));
+		m_commonDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raytracingCommonDescriptorCount);
 	}
+	{
+		ISampler::SParams samplerParams;
+		samplerParams.TextureWrapU = samplerParams.TextureWrapV = samplerParams.TextureWrapW = ISampler::ETC_CLAMP_TO_EDGE;
+		samplerParams.MinFilter = samplerParams.MaxFilter = ISampler::ETF_NEAREST;
+		samplerParams.MipmapMode = ISampler::ESMM_NEAREST;
+		samplerParams.AnisotropicFilter = 0u;
+		samplerParams.CompareEnable = false;
+		auto sampler = m_driver->createGPUSampler(samplerParams);
 
-	#ifdef _IRR_BUILD_OPTIX_
-		while (useDenoiser)
-		{
-			useDenoiser = false;
-			m_optixManager = ext::OptiX::Manager::create(m_driver, m_assetManager->getFileSystem());
-			if (!m_optixManager)
-				break;
-			m_cudaStream = m_optixManager->getDeviceStream(0);
-			if (!m_cudaStream)
-				break;
-			m_optixContext = m_optixManager->createContext(0);
-			if (!m_optixContext)
-				break;
-			OptixDenoiserOptions opts = {OPTIX_DENOISER_INPUT_RGB_ALBEDO_NORMAL,OPTIX_PIXEL_FORMAT_HALF3};
-			m_denoiser = m_optixContext->createDenoiser(&opts);
-			if (!m_denoiser)
-				break;
+		constexpr auto raygenDescriptorCount = 6u;
+		IGPUDescriptorSetLayout::SBinding bindings[raygenDescriptorCount];
+		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,raygenDescriptorCount);
+		bindings[0].type = asset::EDT_UNIFORM_TEXEL_BUFFER;
+		bindings[1].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+		bindings[1].samplers = &sampler;
+		bindings[2].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+		bindings[2].samplers = &sampler;
+		bindings[3].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+		bindings[3].samplers = &sampler;
+		bindings[4].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+		bindings[4].samplers = &sampler;
+		bindings[5].type = asset::EDT_COMBINED_IMAGE_SAMPLER;
+		bindings[5].samplers = &sampler;
 
-			useDenoiser = true;
-			break;
-		}
-	#endif
+		m_raygenDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raygenDescriptorCount);
+
+		m_raygenPipelineLayout = m_driver->createGPUPipelineLayout(
+			&raytracingCommonPCRange,&raytracingCommonPCRange+1u,
+			core::smart_refctd_ptr(m_globalBackendDataDS),
+			core::smart_refctd_ptr(m_commonDSLayout),
+			core::smart_refctd_ptr(m_raygenDSLayout),
+			nullptr
+		);
+		m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_raygenPipelineLayout),gpuSpecializedShaderFromFile("../raygen.comp"));
+	}
+	{
+		constexpr auto resolveDescriptorCount = 1u;
+		IGPUDescriptorSetLayout::SBinding bindings[resolveDescriptorCount];
+		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,resolveDescriptorCount);
+		bindings[0].type = asset::EDT_STORAGE_BUFFER;
+
+		m_resolveDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+resolveDescriptorCount);
+
+		m_resolvePipelineLayout = m_driver->createGPUPipelineLayout(
+			&raytracingCommonPCRange,&raytracingCommonPCRange+1u,
+			core::smart_refctd_ptr(m_globalBackendDataDS),
+			core::smart_refctd_ptr(m_commonDSLayout),
+			core::smart_refctd_ptr(m_resolveDSLayout),
+			nullptr
+		);
+		m_resolvePipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_resolvePipelineLayout),gpuSpecializedShaderFromFile("../raygen.comp"));
+	}
 }
 
 
 #if TODO
-core::smart_refctd_ptr<IGPUDescriptorSetLayout> Renderer::createDS2layoutCompost(bool useDenoiser, core::smart_refctd_ptr<IGPUSampler>& nearestSampler)
-{
-	constexpr uint32_t MAX_COUNT = 10u;
-	IGPUDescriptorSetLayout::SBinding bindings[MAX_COUNT];
-
-	auto makeBinding = [](uint32_t bnd, uint32_t cnt, ISpecializedShader::E_SHADER_STAGE stage, E_DESCRIPTOR_TYPE dt, core::smart_refctd_ptr<IGPUSampler>* samplers)
-	{
-		IGPUDescriptorSetLayout::SBinding b;
-		b.binding = bnd;
-		b.count = cnt;
-		b.samplers = samplers;
-		b.stageFlags = stage;
-		b.type = dt;
-
-		return b;
-	};
-
-	const auto stage = ISpecializedShader::ESS_COMPUTE;
-
-	bindings[0] = makeBinding(0u, 1u, stage, EDT_COMBINED_IMAGE_SAMPLER, &nearestSampler); // lightIndex
-	bindings[1] = makeBinding(1u, 1u, stage, EDT_COMBINED_IMAGE_SAMPLER, &nearestSampler); // albedo, TODO delete
-	bindings[2] = makeBinding(2u, 1u, stage, EDT_COMBINED_IMAGE_SAMPLER, &nearestSampler); // normal
-	bindings[3] = makeBinding(3u, 1u, stage, EDT_STORAGE_IMAGE, nullptr); // framebuffer
-	bindings[4] = makeBinding(4u, 1u, stage, EDT_STORAGE_BUFFER, nullptr); // rays ssbo
-	bindings[5] = makeBinding(5u, 1u, stage, EDT_STORAGE_BUFFER, nullptr); // queries ssbo
-	bindings[6] = makeBinding(6u, 1u, stage, EDT_STORAGE_BUFFER, nullptr); // light radiances
-	if (useDenoiser)
-	{
-		bindings[7] = makeBinding(7u, 1u, stage, EDT_STORAGE_BUFFER, nullptr); // color output ssbo
-		bindings[8] = makeBinding(8u, 1u, stage, EDT_STORAGE_BUFFER, nullptr); // albedo output ssbo
-		bindings[9] = makeBinding(9u, 1u, stage, EDT_STORAGE_BUFFER, nullptr); // normal ouput ssbo
-	}
-
-	const uint32_t realCount = useDenoiser ? MAX_COUNT : (MAX_COUNT - 3u);
-
-	return m_driver->createGPUDescriptorSetLayout(bindings, bindings + realCount);
-}
-
 core::smart_refctd_ptr<IGPUDescriptorSet> Renderer::createDS2Compost(bool useDenoiser, core::smart_refctd_ptr<IGPUSampler>& nearestSampler)
 {
 	constexpr uint32_t MAX_COUNT = 10u;
@@ -241,33 +263,6 @@ core::smart_refctd_ptr<IGPUPipelineLayout> Renderer::createLayoutCompost()
 	return m_driver->createGPUPipelineLayout(nullptr, nullptr, nullptr, nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>(layout2), nullptr);
 }
 
-core::smart_refctd_ptr<IGPUDescriptorSetLayout> Renderer::createDS2layoutRaygen(core::smart_refctd_ptr<IGPUSampler>& nearestSampler)
-{
-	constexpr uint32_t count = 6u;
-
-	auto makeBinding = [](uint32_t bnd, uint32_t cnt, ISpecializedShader::E_SHADER_STAGE stage, E_DESCRIPTOR_TYPE dt, core::smart_refctd_ptr<IGPUSampler>* samplers)
-	{
-		IGPUDescriptorSetLayout::SBinding b;
-		b.binding = bnd;
-		b.count = cnt;
-		b.samplers = samplers;
-		b.stageFlags = stage;
-		b.type = dt;
-
-		return b;
-	};
-
-	const auto stage = ISpecializedShader::ESS_COMPUTE;
-	IGPUDescriptorSetLayout::SBinding bindings[count];
-	bindings[0] = makeBinding(0u, 1u, stage, EDT_COMBINED_IMAGE_SAMPLER, &nearestSampler);
-	bindings[1] = makeBinding(1u, 1u, stage, EDT_UNIFORM_TEXEL_BUFFER, nullptr);
-	bindings[2] = makeBinding(2u, 1u, stage, EDT_COMBINED_IMAGE_SAMPLER, &nearestSampler);
-	bindings[3] = makeBinding(3u, 1u, stage, EDT_STORAGE_BUFFER, nullptr);
-	bindings[4] = makeBinding(4u, 1u, stage, EDT_STORAGE_BUFFER, nullptr);
-	bindings[5] = makeBinding(5u, 1u, stage, EDT_STORAGE_BUFFER, nullptr);
-
-	return m_driver->createGPUDescriptorSetLayout(bindings, bindings + count);
-}
 
 core::smart_refctd_ptr<IGPUDescriptorSet> Renderer::createDS2Raygen(core::smart_refctd_ptr<IGPUSampler>& nearstSampler)
 {
@@ -428,21 +423,26 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 					gpuMeshBuffersAndMeta.emplace_back(nullptr,core::smart_refctd_ptr<ICPUMesh>(cpumesh));
 				}
 
-				// set up lights
+				// set up scene bounds and lights
+				const auto aabbOriginal = cpumesh->getBoundingBox();
 				for (auto instance : instances)
-				if (instance.emitter.type != ext::MitsubaLoader::CElementEmitter::Type::INVALID)
 				{
-					assert(instance.emitter.type == ext::MitsubaLoader::CElementEmitter::Type::AREA);
+					m_sceneBound.addInternalBox(core::transformBoxEx(aabbOriginal,instance.tform));
 
-					SLight newLight(cpumesh->getBoundingBox(), instance.tform);
+					if (instance.emitter.type != ext::MitsubaLoader::CElementEmitter::Type::INVALID)
+					{
+						assert(instance.emitter.type == ext::MitsubaLoader::CElementEmitter::Type::AREA);
 
-					const float weight = newLight.computeFluxBound(instance.emitter.area.radiance) * instance.emitter.area.samplingWeight;
-					if (weight <= FLT_MIN)
-						continue;
+						SLight newLight(cpumesh->getBoundingBox(), instance.tform);
 
-					retval.lights.emplace_back(std::move(newLight));
-					retval.lightRadiances.push_back(instance.emitter.area.radiance);
-					retval.lightPDF.push_back(weight);
+						const float weight = newLight.computeFluxBound(instance.emitter.area.radiance) * instance.emitter.area.samplingWeight;
+						if (weight <= FLT_MIN)
+							continue;
+
+						retval.lights.emplace_back(std::move(newLight));
+						retval.lightRadiances.push_back(instance.emitter.area.radiance);
+						retval.lightPDF.push_back(weight);
+					}
 				}
 			}
 		}
@@ -591,14 +591,15 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 
 void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 {
-	baseEnvColor.set(0.f,0.f,0.f,1.f);
+	core::vectorSIMDf _envmapBaseColor;
+	_envmapBaseColor.set(0.f,0.f,0.f,1.f);
 	for (auto emitter : initData.globalMeta->emitters)
 	{
 		float weight = 0.f;
 		switch (emitter.type)
 		{
 			case ext::MitsubaLoader::CElementEmitter::Type::CONSTANT:
-				baseEnvColor += emitter.constant.radiance;
+				_envmapBaseColor += emitter.constant.radiance;
 				break;
 			case ext::MitsubaLoader::CElementEmitter::Type::INVALID:
 				break;
@@ -620,13 +621,16 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 		//initData.lightPDF.push_back(weight);
 		//initData.lights.push_back(light);
 	}
+	m_staticViewData.envmapBaseColor.x = _envmapBaseColor.x;
+	m_staticViewData.envmapBaseColor.y = _envmapBaseColor.y;
+	m_staticViewData.envmapBaseColor.z = _envmapBaseColor.z;
 }
 
 void Renderer::finalizeScene(Renderer::InitializationData& initData)
 {
 	if (initData.lights.empty())
 		return;
-	m_lightCount = initData.lights.size();
+	m_staticViewData.lightCount = initData.lights.size();
 
 	const double weightSum = std::accumulate(initData.lightPDF.begin(),initData.lightPDF.end(),0.0);
 	assert(weightSum>FLT_MIN);
@@ -640,7 +644,7 @@ void Renderer::finalizeScene(Renderer::InitializationData& initData)
 	double partialSum = *inPDF;
 
 	auto radianceIn = initData.lightRadiances.begin();
-	core::vector<uint64_t> compressedRadiance(m_lightCount,0ull);
+	core::vector<uint64_t> compressedRadiance(m_staticViewData.lightCount,0ull);
 	auto radianceOut = compressedRadiance.begin();
 	auto divideRadianceByPDF = [UINT_MAX_DOUBLE,weightSumRcp,&partialSum,&outCDF,&radianceIn,&radianceOut](uint32_t prevCDF) -> void
 	{
@@ -668,16 +672,12 @@ void Renderer::finalizeScene(Renderer::InitializationData& initData)
 
 		divideRadianceByPDF(*prevCDF);
 	}
-
-	m_lightCDFBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(initData.lightCDF.size()*sizeof(uint32_t),initData.lightCDF.data());
-	m_lightBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(initData.lights.size()*sizeof(SLight),initData.lights.data());
-	m_lightRadianceBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(initData.lightRadiances.size()*sizeof(uint64_t),initData.lightRadiances.data());
 }
 
 core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMAT format)
 {
 	IGPUImage::SCreationParams imgparams;
-	imgparams.extent = { m_renderSize[0], m_renderSize[1], 1u };
+	imgparams.extent = {m_staticViewData.imageDimensions.x,m_staticViewData.imageDimensions.y,1u};
 	imgparams.arrayLayers = 1u;
 	imgparams.flags = static_cast<IImage::E_CREATE_FLAGS>(0);
 	imgparams.format = format;
@@ -699,19 +699,29 @@ core::smart_refctd_ptr<IGPUImageView> Renderer::createScreenSizedTexture(E_FORMA
 	return m_driver->createGPUImageView(std::move(viewparams));
 }
 
+enum E_VISIBILITY_BUFFER_ATTACHMENT
+{
+	EVBA_DEPTH,
+	EVBA_OBJECTID_AND_TRIANGLEID_AND_FRONTFACING,
+	// TODO: Once we get geometry packer V2 (virtual geometry) no need for these buffers actually (might want/need a barycentric buffer)
+	EVBA_NORMALS,
+	EVBA_UV_COORDINATES,
+	EVBA_COUNT
+};
+// TODO: distinct between accumulation and tonemap texture
+// adjust resolver DS accordingly for tonemapping
 void Renderer::init(const SAssetBundle& meshes,
-					bool isCameraRightHanded,
 					core::smart_refctd_ptr<ICPUBuffer>&& sampleSequence,
 					uint32_t rayBufferSize)
 {
 	deinit();
 
-	m_rightHanded = isCameraRightHanded;
-
 	//! set up GPU sampler 
+	core::smart_refctd_ptr<IGPUBufferView> sampleSequence;
 	{
-		m_maxSamples = sampleSequence->getSize()/(sizeof(uint32_t)*MaxDimensions);
-		assert(m_maxSamples==MAX_ACCUMULATED_SAMPLES);
+		// TODO: maybe use in the future to stop a converged render
+		const auto maxSamples = sampleSequence->getSize()/(sizeof(uint32_t)*MaxDimensions);
+		assert(maxSamples==MAX_ACCUMULATED_SAMPLES);
 
 		// upload sequence to GPU
 		auto gpubuf = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sampleSequence->getSize(), sampleSequence->getPointer());
@@ -724,33 +734,12 @@ void Renderer::init(const SAssetBundle& meshes,
 
 		initSceneNonAreaLights(initData);
 		finalizeScene(initData);
+
+	m_lightCDFBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(initData.lightCDF.size()*sizeof(uint32_t),initData.lightCDF.data());
+	m_lightBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(initData.lights.size()*sizeof(SLight),initData.lights.data());
+	m_lightRadianceBuffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(initData.lightRadiances.size()*sizeof(uint64_t),initData.lightRadiances.data());
 		{
 	#if TODO
-			auto gpumeshes = m_driver->getGPUObjectsFromAssets<ICPUMesh>(contents.first, contents.second);
-			auto cpuit = contents.first;
-			for (auto gpuit = gpumeshes->begin(); gpuit!=gpumeshes->end(); gpuit++,cpuit++)
-			{
-				auto* meta = cpuit->get()->getMetadata();
-
-				assert(meta && core::strcmpi(meta->getLoaderName(),ext::MitsubaLoader::IMitsubaMetadata::LoaderName) == 0);
-				const auto* meshmeta = static_cast<const ext::MitsubaLoader::IMeshMetadata*>(meta);
-
-				const auto& instances = meshmeta->getInstances();
-
-				const auto& gpumesh = *gpuit;
-				for (auto i=0u; i<gpumesh->getMeshBufferCount(); i++)
-					gpumesh->getMeshBuffer(i)->getMaterial().MaterialType = nonInstanced;
-
-				for (auto instance : instances)
-				{
-					auto node = core::smart_refctd_ptr<IMeshSceneNode>(m_smgr->addMeshSceneNode(core::smart_refctd_ptr(gpumesh)));
-					node->setRelativeTransformationMatrix(instance.tform.getAsRetardedIrrlichtMatrix());
-					node->updateAbsolutePosition();
-					m_sceneBound.addInternalBox(node->getTransformedBoundingBox());
-
-					nodes.push_back(std::move(node));
-				}
-			}
 			core::vector<int32_t> ids(nodes.size());
 			std::iota(ids.begin(), ids.end(), 0);
 			auto nodesBegin = &nodes.data()->get();
@@ -760,8 +749,7 @@ void Renderer::init(const SAssetBundle& meshes,
 		}
 
 		// figure out the renderable size
-		m_renderSize[0] = m_driver->getScreenSize().Width;
-		m_renderSize[1] = m_driver->getScreenSize().Height;
+		m_staticViewData.imageDimensions = {m_driver->getScreenSize().Width,m_driver->getScreenSize().Height};
 		const auto& sensors = initData.globalMeta->sensors;
 		if (sensors.size())
 		{
@@ -770,21 +758,23 @@ void Renderer::init(const SAssetBundle& meshes,
 			const auto& film = sensor.film;
 			assert(film.cropOffsetX == 0);
 			assert(film.cropOffsetY == 0);
-			m_renderSize[0] = film.cropWidth;
-			m_renderSize[1] = film.cropHeight;
+			m_staticViewData.imageDimensions = {film.cropWidth,film.cropHeight};
 		}
+		m_staticViewData.rcpPixelSize = { 1.f/float(m_staticViewData.imageDimensions.x),1.f/float(m_staticViewData.imageDimensions.y) };
+		m_staticViewData.rcpHalfPixelSize = { 0.5f/float(m_staticViewData.imageDimensions.x),0.5f/float(m_staticViewData.imageDimensions.y) };
 	}
-	const auto renderPixelCount = m_renderSize[0]*m_renderSize[1];
+	const auto renderPixelCount = m_staticViewData.imageDimensions.x*m_staticViewData.imageDimensions.y;
 
 	const auto raygenBufferSize = static_cast<size_t>(renderPixelCount)*sizeof(::RadeonRays::ray);
 	assert(raygenBufferSize<=rayBufferSize);
-	const auto shadowBufferSize = static_cast<size_t>(renderPixelCount)*sizeof(int32_t);
+	const auto shadowBufferSize = static_cast<size_t>(renderPixelCount)*sizeof(::RadeonRays::Intersection);
 	assert(shadowBufferSize<=rayBufferSize);
-	m_samplesPerPixelPerDispatch = rayBufferSize/(raygenBufferSize+shadowBufferSize);
-	assert(m_samplesPerPixelPerDispatch >= 1u);
-	printf("Using %d samples\n", m_samplesPerPixelPerDispatch);
-	
-	m_rayCountPerDispatch = m_samplesPerPixelPerDispatch*renderPixelCount;
+	m_staticViewData.samplesPerPixelPerDispatch = rayBufferSize/(raygenBufferSize+shadowBufferSize);
+	assert(m_staticViewData.samplesPerPixelPerDispatch >= 1u);
+	printf("Using %d samples\n", m_staticViewData.samplesPerPixelPerDispatch);
+
+	m_staticViewData.samplesPerRowPerDispatch = m_staticViewData.imageDimensions.x*m_staticViewData.samplesPerPixelPerDispatch;
+
 	// create scramble texture
 	m_scrambleTexture = createScreenSizedTexture(EF_R32_UINT);
 	{
@@ -800,34 +790,12 @@ void Renderer::init(const SAssetBundle& meshes,
 		IGPUImage::SBufferCopy region;
 		//region.imageSubresource.aspectMask = ;
 		region.imageSubresource.layerCount = 1u;
-		region.imageExtent = {m_renderSize[0],m_renderSize[1],1u};
+		region.imageExtent = {m_staticViewData.imageDimensions.x,m_staticViewData.imageDimensions.y,1u};
 		m_driver->copyBufferToImage(gpuBuff.get(), m_scrambleTexture->getCreationParameters().image.get(), 1u, &region);
 	}
 
 
-	core::smart_refctd_ptr<IGPUSampler> smplr_nearest;
-	{
-		IGPUSampler::SParams params;
-		params.AnisotropicFilter = 0;
-		params.BorderColor = ISampler::ETBC_FLOAT_OPAQUE_BLACK;
-		params.CompareEnable = 0;
-		params.CompareFunc = ISampler::ECO_ALWAYS;
-		params.LodBias = 0;
-		params.MaxFilter = ISampler::ETF_NEAREST;
-		params.MinFilter = ISampler::ETF_NEAREST;
-		params.MaxLod = 10000;
-		params.MinLod = 0;
-		params.MipmapMode = ISampler::ESMM_NEAREST;
-		smplr_nearest = m_driver->createGPUSampler(params);
-	}
-
-
 #ifdef TODO
-	m_raygenDS2 = createDS2Raygen(smplr_nearest);
-	m_compostDS2 = createDS2Compost(m_useDenoiser, smplr_nearest);
-	m_raygenLayout = createLayoutRaygen();
-	m_compostLayout = createLayoutCompost();
-
 	{
 		std::string glsl = "raygen.comp" +
 			globalMeta->materialCompilerGLSL_declarations +
@@ -879,10 +847,29 @@ void Renderer::init(const SAssetBundle& meshes,
 	clEnqueueAcquireGLObjects(m_rrManager->getCLCommandQueue(), objCount, clObjects, 0u, nullptr, nullptr);
 #endif
 
+	core::smart_refctd_ptr<IGPUImageView> visibilityBufferAttachments[EVBA_COUNT];
+	visibilityBufferAttachments[EVBA_DEPTH] = createScreenSizedTexture(EF_D32_SFLOAT);
+	visibilityBufferAttachments[EVBA_OBJECTID_AND_TRIANGLEID_AND_FRONTFACING] = createScreenSizedTexture(EF_R32G32_UINT);
+	visibilityBufferAttachments[EVBA_NORMALS] = createScreenSizedTexture(EF_R16G16_SNORM);
+	visibilityBufferAttachments[EVBA_UV_COORDINATES] = createScreenSizedTexture(EF_R16G16_SFLOAT);
+	m_visibilityBuffer = m_driver->addFrameBuffer();
+	m_visibilityBuffer->attach(EFAP_DEPTH_ATTACHMENT, core::smart_refctd_ptr(visibilityBufferAttachments[EVBA_DEPTH]));
+	m_visibilityBuffer->attach(EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(visibilityBufferAttachments[EVBA_OBJECTID_AND_TRIANGLEID_AND_FRONTFACING]));
+	m_visibilityBuffer->attach(EFAP_COLOR_ATTACHMENT1, core::smart_refctd_ptr(visibilityBufferAttachments[EVBA_NORMALS]));
+	m_visibilityBuffer->attach(EFAP_COLOR_ATTACHMENT2, core::smart_refctd_ptr(visibilityBufferAttachments[EVBA_UV_COORDINATES]));
+
+	m_accumulation = createScreenSizedTexture(EF_R32G32_UINT);
+	tmpTonemapBuffer = m_driver->addFrameBuffer();
+	tmpTonemapBuffer->attach(EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(m_accumulation));
+
+	m_tonemapOutput = createScreenSizedTexture(EF_A2B10G10R10_UNORM_PACK32);
+	m_colorBuffer = m_driver->addFrameBuffer();
+	m_colorBuffer->attach(EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(m_tonemapOutput));
+
 #ifdef _IRR_BUILD_OPTIX_
 	while (m_denoiser)
 	{
-		m_denoiser->computeMemoryResources(&m_denoiserMemReqs,renderSize);
+		m_denoiser->computeMemoryResources(&m_denoiserMemReqs,&m_staticViewData.imageDimensions.x);
 
 		auto inputBuffSz = (kOptiXPixelSize*EDI_COUNT)*renderPixelCount;
 		m_denoiserInputBuffer = core::smart_refctd_ptr<IGPUBuffer>(m_driver->createDeviceLocalGPUBufferOnDedMem(inputBuffSz),core::dont_grab);
@@ -900,11 +887,11 @@ void Renderer::init(const SAssetBundle& meshes,
 		if (!cuda::CCUDAHandler::defaultHandleResult(cuda::CCUDAHandler::registerBuffer(&m_denoiserScratchBuffer, CU_GRAPHICS_REGISTER_FLAGS_WRITE_DISCARD)))
 			break;
 
-		auto setUpOptiXImage2D = [&m_renderSize](OptixImage2D& img, uint32_t pixelSize) -> void
+		auto setUpOptiXImage2D = [&](OptixImage2D& img, uint32_t pixelSize) -> void
 		{
 			img = {};
-			img.width = m_renderSize[0];
-			img.height = m_renderSize[1];
+			img.width = m_staticViewData.imageDimensions.x;
+			img.height = m_staticViewData.imageDimensions.y;
 			img.pixelStrideInBytes = pixelSize;
 			img.rowStrideInBytes = img.width*img.pixelStrideInBytes;
 		};
@@ -925,26 +912,6 @@ void Renderer::init(const SAssetBundle& meshes,
 		break;
 	}
 #endif
-	
-	m_visibilityBufferAttachments[EVBA_DEPTH] = createScreenSizedTexture(EF_D32_SFLOAT);
-	m_visibilityBufferAttachments[EVBA_OBJECTID_AND_TRIANGLEID_AND_FRONTFACING] = createScreenSizedTexture(EF_R32G32_UINT);
-	m_visibilityBufferAttachments[EVBA_NORMALS] = createScreenSizedTexture(EF_R16G16_SNORM);
-	m_visibilityBufferAttachments[EVBA_UV_COORDINATES] = createScreenSizedTexture(EF_R16G16_SFLOAT);
-	m_visibilityBuffer = m_driver->addFrameBuffer();
-	m_visibilityBuffer->attach(EFAP_DEPTH_ATTACHMENT, core::smart_refctd_ptr(m_visibilityBufferAttachments[EVBA_DEPTH]));
-	m_visibilityBuffer->attach(EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(m_visibilityBufferAttachments[EVBA_OBJECTID_AND_TRIANGLEID_AND_FRONTFACING]));
-	m_visibilityBuffer->attach(EFAP_COLOR_ATTACHMENT1, core::smart_refctd_ptr(m_visibilityBufferAttachments[EVBA_NORMALS]));
-	m_visibilityBuffer->attach(EFAP_COLOR_ATTACHMENT2, core::smart_refctd_ptr(m_visibilityBufferAttachments[EVBA_UV_COORDINATES]));
-
-	m_accumulation = createScreenSizedTexture(EF_R32G32B32A32_SFLOAT);
-	tmpTonemapBuffer = m_driver->addFrameBuffer();
-	tmpTonemapBuffer->attach(EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(m_accumulation));
-
-	//m_tonemapOutput = createScreenSizedTexture(m_denoiserScratchBuffer.getObject() ? EF_A2B10G10R10_UNORM_PACK32:EF_R8G8B8_SRGB);
-	m_tonemapOutput = createScreenSizedTexture(EF_R8G8B8_SRGB);
-	//m_tonemapOutput = createScreenSizedTexture(EF_A2B10G10R10_UNORM_PACK32);
-	m_colorBuffer = m_driver->addFrameBuffer();
-	m_colorBuffer->attach(EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(m_tonemapOutput));
 }
 
 
@@ -955,11 +922,44 @@ void Renderer::deinit()
 
 	glFinish();
 
-#if TODO
-	// create a screenshot (TODO: create OpenEXR @Anastazluk)
-	if (m_tonemapOutput)
-		ext::ScreenShot::dirtyCPUStallingScreenshot(m_driver, m_assetManager, "screenshot.png", m_tonemapOutput.get(),0u,true,asset::EF_R8G8B8_SRGB);
+#ifdef _IRR_BUILD_OPTIX_
+	if (m_cudaStream)
+		cuda::CCUDAHandler::cuda.pcuStreamSynchronize(m_cudaStream);
+	m_denoiserInputBuffer = {};
+	m_denoiserScratchBuffer = {};
+	m_denoisedBuffer = {};
+	m_denoiserStateBuffer = {};
+	m_denoiserInputs[EDI_COLOR] = {};
+	m_denoiserInputs[EDI_ALBEDO] = {};
+	m_denoiserInputs[EDI_NORMAL] = {};
+	m_denoiserOutput = {};
+#endif
 
+	if (m_accumulation)
+		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_accumulation.get(),"sceneReferred.exr");
+	if (m_tonemapOutput)
+		ext::ScreenShot::createScreenShot(m_driver,m_assetManager,m_tonemapOutput.get(),"tonemapped.png");
+	if (m_visibilityBuffer)
+	{
+		m_driver->removeFrameBuffer(m_visibilityBuffer);
+		m_visibilityBuffer = nullptr;
+	}
+	if (tmpTonemapBuffer)
+	{
+		m_driver->removeFrameBuffer(tmpTonemapBuffer);
+		tmpTonemapBuffer = nullptr;
+	}
+	if (m_colorBuffer)
+	{
+		m_driver->removeFrameBuffer(m_colorBuffer);
+		m_colorBuffer = nullptr;
+	}
+	m_accumulation = m_tonemapOutput = nullptr;
+
+	m_resolveWorkGroups[0] = m_resolveWorkGroups[1] = 0u;
+	m_resolveDS = nullptr;
+
+#if TODO
 	// release OpenCL objects and wait for OpenCL to finish
 	const cl_mem clObjects[] = { m_rayCountBufferAsRR.second };
 	auto objCount = sizeof(clObjects) / sizeof(cl_mem);
@@ -983,73 +983,32 @@ void Renderer::deinit()
 		m_rayCountBufferAsRR = {nullptr,nullptr};
 	}
 	m_rayBuffer = m_intersectionBuffer = m_rayCountBuffer = nullptr;
-	m_raygenWorkGroups[0] = m_raygenWorkGroups[1] = 0u;
-	m_resolveWorkGroups[0] = m_resolveWorkGroups[1] = 0u;
 
 	m_rrManager->detachInstances(rrInstances.begin(),rrInstances.end());
 	m_rrManager->deleteInstances(rrInstances.begin(),rrInstances.end());
-	rrInstances.clear();
-
-	m_lightCDFBuffer = m_lightBuffer = m_lightRadianceBuffer = nullptr;
+	rrInstances.clear(); // TODO MOVE
 #endif
 
-
-	if (m_visibilityBuffer)
-	{
-		m_driver->removeFrameBuffer(m_visibilityBuffer);
-		m_visibilityBuffer = nullptr;
-	}
-	if (tmpTonemapBuffer)
-	{
-		m_driver->removeFrameBuffer(tmpTonemapBuffer);
-		tmpTonemapBuffer = nullptr;
-	}
-	if (m_colorBuffer)
-	{
-		m_driver->removeFrameBuffer(m_colorBuffer);
-		m_colorBuffer = nullptr;
-	}
-	m_accumulation = m_tonemapOutput = nullptr;
-
-	m_maxSamples = m_samplesPerPixelPerDispatch = m_rayCountPerDispatch = 0u;
-	m_framesDone = m_samplesComputedPerPixel = 0u;
-	m_sampleSequence = nullptr;
-	m_scrambleTexture = nullptr;
-
-	for (uint32_t i = 0u; i < EVBA_COUNT; i++)
-		m_visibilityBufferAttachments[i] = nullptr;
-
-
-	m_mdiDrawCalls.clear();
-	m_indirectDrawBuffers[1] = m_indirectDrawBuffers[0] = nullptr;
-	m_cullPushConstants.maxObjectCount = 0u;
-
-	m_lightCount = 0u;
-
-
-	m_rrManager->deleteShapes(rrShapeCache.begin(), rrShapeCache.end());
-	rrShapeCache.clear();
+	m_raygenWorkGroups[0] = m_raygenWorkGroups[1] = 0u;
+	m_raygenDS = nullptr;
 
 	m_perCameraRasterDS = nullptr;
 
-	m_globalBackendDataDS = nullptr;
-	m_rightHanded = false;
-	m_renderSize[0u] = m_renderSize[1u] = 0u;
-	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
-	baseEnvColor.set(0.f,0.f,0.f,1.f);
+	m_cullWorkGroups = 0u;
+	m_cullPushConstants = {core::matrix4SIMD(),0u,0u,1.f,0xdeadbeefu};
+	m_cullDS = nullptr;
+	m_mdiDrawCalls.clear();
+	m_indirectDrawBuffers[1] = m_indirectDrawBuffers[0] = nullptr;
 
-#ifdef _IRR_BUILD_OPTIX_
-	if (m_cudaStream)
-		cuda::CCUDAHandler::cuda.pcuStreamSynchronize(m_cudaStream);
-	m_denoiserInputBuffer = {};
-	m_denoiserScratchBuffer = {};
-	m_denoisedBuffer = {};
-	m_denoiserStateBuffer = {};
-	m_denoiserInputs[EDI_COLOR] = {};
-	m_denoiserInputs[EDI_ALBEDO] = {};
-	m_denoiserInputs[EDI_NORMAL] = {};
-	m_denoiserOutput = {};
-#endif
+	m_commonRaytracingDS = nullptr;
+	m_globalBackendDataDS = nullptr;
+
+	m_raytraceCommonData = {{},{},0.f,0u,0u,0.f};
+	m_staticViewData = {{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u};
+	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
+
+	m_rrManager->deleteShapes(rrShapeCache.begin(), rrShapeCache.end());
+	rrShapeCache.clear();
 }
 
 
@@ -1068,7 +1027,7 @@ void Renderer::render(irr::ITimer* timer)
 	const auto currentViewProj = camera->getConcatenatedMatrix();
 	if (!core::equals(prevViewProj,currentViewProj,core::ROUNDING_ERROR<core::matrix4SIMD>()*1000.0))
 	{
-		m_framesDone = 0u;
+		m_raytraceCommonData.framesDispatched = 0u;
 
 		IGPUDescriptorSet* descriptors[3] = { nullptr };
 		descriptors[1] = m_cullDS.get();
@@ -1103,50 +1062,32 @@ void Renderer::render(irr::ITimer* timer)
 		m_cullPushConstants.currentCommandBufferIx ^= 0x01u;
 	}
 
-
-	uint32_t uImageWidth_ImageArea_TotalImageSamples_Samples[4] = { m_renderSize[0],m_renderSize[0]*m_renderSize[1],m_renderSize[0]*m_renderSize[1]*m_samplesPerPixelPerDispatch,m_samplesPerPixelPerDispatch};
-
 	// generate rays
 	{
-#if TODO
-		// TODO set push constants (i've commented out uniforms setting below)
-		/*{
-			auto camPos = core::vectorSIMDf().set(camera->getAbsolutePosition());
-			COpenGLExtensionHandler::pGlProgramUniform3fv(m_raygenProgram, 0, 1, camPos.pointer);
-
-			float uDepthLinearizationConstant;
-			{
-				auto projMat = camera->getProjectionMatrix();
-				auto* row = projMat.rows;
-				uDepthLinearizationConstant = -row[3][2]/(row[3][2]-row[2][2]);
-			}
-			COpenGLExtensionHandler::pGlProgramUniform1fv(m_raygenProgram, 1, 1, &uDepthLinearizationConstant);
-
+		const auto cameraPosition = core::vectorSIMDf().set(camera->getAbsolutePosition());
+		{
 			auto frustum = camera->getViewFrustum();
-			core::matrix4SIMD uFrustumCorners;
-			uFrustumCorners.rows[1] = frustum->getFarLeftDown();
-			uFrustumCorners.rows[0] = frustum->getFarRightDown()-uFrustumCorners.rows[1];
-			uFrustumCorners.rows[1] -= camPos;
-			uFrustumCorners.rows[3] = frustum->getFarLeftUp();
-			uFrustumCorners.rows[2] = frustum->getFarRightUp()-uFrustumCorners.rows[3];
-			uFrustumCorners.rows[3] -= camPos;
-			COpenGLExtensionHandler::pGlProgramUniformMatrix4fv(m_raygenProgram, 2, 1, false, uFrustumCorners.pointer()); // important to say no to transpose
+			m_raytraceCommonData.frustumCorners.rows[1] = frustum->getFarLeftDown();
+			m_raytraceCommonData.frustumCorners.rows[0] = frustum->getFarRightDown()-m_raytraceCommonData.frustumCorners.rows[1];
+			m_raytraceCommonData.frustumCorners.rows[1] -= cameraPosition;
+			m_raytraceCommonData.frustumCorners.rows[3] = frustum->getFarLeftUp();
+			m_raytraceCommonData.frustumCorners.rows[2] = frustum->getFarRightUp()-m_raytraceCommonData.frustumCorners.rows[3];
+			m_raytraceCommonData.frustumCorners.rows[3] -= cameraPosition;
+		}
+		camera->getViewMatrix().getSub3x3InverseTranspose(m_raytraceCommonData.normalMatrixAndCameraPos);
+		m_raytraceCommonData.normalMatrixAndCameraPos.setTranslation(cameraPosition);
+		{
+			auto projMat = camera->getProjectionMatrix();
+			auto* row = projMat.rows;
+			m_raytraceCommonData.depthLinearizationConstant = -row[3][2]/(row[3][2]-row[2][2]);
+		}
+		m_raytraceCommonData.framesDispatched++;
+		m_raytraceCommonData.rcpFramesDispatched = 1.f/float(m_raytraceCommonData.framesDispatched);
 
-			COpenGLExtensionHandler::pGlProgramUniform2uiv(m_raygenProgram, 3, 1, m_renderSize);
-
-			COpenGLExtensionHandler::pGlProgramUniform4uiv(m_raygenProgram, 4, 1, uImageWidth_ImageArea_TotalImageSamples_Samples);
-
-			COpenGLExtensionHandler::pGlProgramUniform1uiv(m_raygenProgram, 5, 1, &m_samplesComputedPerPixel);
-			m_samplesComputedPerPixel += m_samplesPerPixelPerDispatch;
-
-			float uImageSize2Rcp[4] = {1.f/static_cast<float>(m_renderSize[0]),1.f/static_cast<float>(m_renderSize[1]),0.5f/static_cast<float>(m_renderSize[0]),0.5f/static_cast<float>(m_renderSize[1])};
-			COpenGLExtensionHandler::pGlProgramUniform4fv(m_raygenProgram, 6, 1, uImageSize2Rcp);
-		}*/
-#endif		
-		IGPUDescriptorSet* descriptorSets[] = {m_globalBackendDataDS.get(),m_raygenDS.get()};
-		m_driver->bindDescriptorSets(EPBP_COMPUTE, m_raygenPipelineLayout.get(), 0, 2, descriptorSets, nullptr);
+		IGPUDescriptorSet* descriptorSets[] = {m_globalBackendDataDS.get(),m_commonRaytracingDS.get(),m_raygenDS.get()};
+		m_driver->bindDescriptorSets(EPBP_COMPUTE, m_raygenPipelineLayout.get(), 0, 3, descriptorSets, nullptr);
 		m_driver->bindComputePipeline(m_raygenPipeline.get());
-		m_driver->pushConstants(m_raygenPipelineLayout.get(),ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaygenShaderData_t),&m_raygenShaderData);
+		m_driver->pushConstants(m_raygenPipelineLayout.get(),ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaytraceShaderCommonData_t),&m_raytraceCommonData);
 		m_driver->dispatch(m_raygenWorkGroups[0], m_raygenWorkGroups[1], 1);
 		// probably wise to flush all caches
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_ALL_BARRIER_BITS);
@@ -1192,28 +1133,9 @@ void Renderer::render(irr::ITimer* timer)
 
 	// use raycast results
 	{
-#if TODO
-		m_driver->bindDescriptorSets(EPBP_COMPUTE, m_compostLayout.get(), 2, 1, &m_raygenDS2.get(), nullptr);
-		m_driver->bindComputePipeline(m_compostPipeline.get());
-
-		// TODO push constants
-		// commented out uniforms below
-		/*{
-			COpenGLExtensionHandler::pGlProgramUniform2uiv(m_compostProgram, 0, 1, m_renderSize);
-			
-			COpenGLExtensionHandler::pGlProgramUniform4uiv(m_compostProgram, 1, 1, uImageWidth_ImageArea_TotalImageSamples_Samples);
-
-			m_framesDone++;
-			float uRcpFramesDone = 1.0/double(m_framesDone);
-			COpenGLExtensionHandler::pGlProgramUniform1fv(m_compostProgram, 2, 1, &uRcpFramesDone);
-
-			float tmp[9];
-			camera->getViewMatrix().getSub3x3InverseTransposePacked(tmp);
-			COpenGLExtensionHandler::pGlProgramUniformMatrix3fv(m_compostProgram, 3, 1, true, tmp);
-		}*/
-
+		m_driver->bindDescriptorSets(EPBP_COMPUTE, m_resolvePipelineLayout.get(), 2, 1, &m_resolveDS.get(), nullptr);
+		m_driver->bindComputePipeline(m_resolvePipeline.get());
 		m_driver->dispatch(m_resolveWorkGroups[0], m_resolveWorkGroups[1], 1);
-#endif
 
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT
 #ifndef _IRR_BUILD_OPTIX_
@@ -1223,6 +1145,8 @@ void Renderer::render(irr::ITimer* timer)
 #endif
 		);
 	}
+
+	m_raytraceCommonData.samplesComputedPerPixel += m_staticViewData.samplesPerPixelPerDispatch;
 
 	// TODO: tonemap properly
 #ifdef _IRR_BUILD_OPTIX_

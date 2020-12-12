@@ -1,9 +1,9 @@
-#ifndef _IRR_BUILTIN_GLSL_FORMAT_DECODE_INCLUDED_
-#define _IRR_BUILTIN_GLSL_FORMAT_DECODE_INCLUDED_
+#ifndef _IRR_BUILTIN_GLSL_FORMAT_ENCODE_INCLUDED_
+#define _IRR_BUILTIN_GLSL_FORMAT_ENCODE_INCLUDED_
 
 #include <irr/builtin/glsl/format/constants.glsl>
 
-vec3 irr_glsl_decodeRGB19E7(in uvec2 x)
+uvec2 irr_glsl_encodeRGB19E7(in vec4 col)
 {
 	int exp = int(bitfieldExtract(x.y, 3*irr_glsl_RGB19E7_MANTISSA_BITS-32, irr_glsl_RGB19E7_EXPONENT_BITS) - irr_glsl_RGB19E7_EXP_BIAS - irr_glsl_RGB19E7_MANTISSA_BITS);
 	float scale = exp2(float(exp));//uintBitsToFloat((uint(exp)+127u)<<23u)
@@ -19,11 +19,13 @@ vec3 irr_glsl_decodeRGB19E7(in uvec2 x)
 	return v;
 }
 
-vec4 irr_glsl_decodeRGB10A2(in uint x)
+uint irr_glsl_encodeRGB10A2(in vec4 col)
 {
-	uvec4 shifted = uvec4(x,uvec3(x)>>uvec3(10,20,30));
 	const uvec3 rgbMask = uvec3(0x3ffu);
-	return vec4(vec3(shifted.rgb&rgbMask),shifted.a)/vec4(vec3(rgbMask),3.0);
+	const vec4 clamped = clamp(col,vec4(0.0),vec4(1.0));
+	uvec4 quantized = uvec4(clamped*vec4(vec3(rgbMask),3.0));
+	quantized.gba <<= uvec3(10,20,30);
+	return quantized.r|quantized.g|quantized.b|quantized.a;
 }
 
 #endif

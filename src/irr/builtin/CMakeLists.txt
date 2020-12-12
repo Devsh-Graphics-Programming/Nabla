@@ -67,6 +67,7 @@ set(irr_resources_to_embed
   "irr/builtin/glsl/colorspace/encodeCIEXYZ.glsl"
   # VK_FORMAT support
   "irr/builtin/glsl/format/decode.glsl"
+  "irr/builtin/glsl/format/encode.glsl"
   "irr/builtin/glsl/format/constants.glsl"
   # asset loaders (mostly for pipelines)
   "irr/builtin/glsl/loaders/mtl/common.glsl"
