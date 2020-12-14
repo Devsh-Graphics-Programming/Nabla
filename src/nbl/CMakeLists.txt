@@ -363,6 +363,16 @@ macro(nbl_target_link_gli _trgt)
 	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
 endmacro()
+macro(nbl_target_link_las _trgt)
+	add_dependencies(${_trgt} liblas)
+	target_link_libraries(${_trgt} INTERFACE
+		${THIRD_PARTY_SOURCE_DIR}/las/3rdparty/liblas/liblas/build/bin/$(Configuration)/liblas.lib
+		${THIRD_PARTY_SOURCE_DIR}/las/3rdparty/liblas/liblas/build/bin/$(Configuration)/liblas_c.lib
+	)
+	target_include_directories(${_trgt} PUBLIC 
+		${THIRD_PARTY_SOURCE_DIR}/las/3rdparty/liblas/liblas/include
+	)
+endmacro()
 
 add_library(Nabla STATIC
 	${NABLA_SRCS_COMMON}
@@ -390,6 +400,9 @@ if(_NBL_COMPILE_WITH_GLI_)
 	nbl_target_link_gli(Nabla)
 endif()
 nbl_target_include_parallel_hashmap(Nabla)
+if(_NBL_COMPILE_WITH_LAS_)
+	nbl_target_link_las(Nabla)
+endif()
 
 target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)

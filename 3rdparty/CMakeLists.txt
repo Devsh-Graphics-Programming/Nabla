@@ -29,6 +29,7 @@ update_git_submodule(./gli)
 update_git_submodule(./glm)
 update_git_submodule(./freetype2)
 update_git_submodule(./portable-file-dialogs)
+update_git_submodule(./las)
 
 # openssl
 add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
@@ -131,6 +132,12 @@ target_include_directories(SPIRV PUBLIC "${GLSLANG_GENERATED_INCLUDEDIR}")
 
 set(SHADERC_SKIP_TESTS ON CACHE BOOL "Skip shaderc tests?")
 set(SHADERC_SKIP_INSTALL ON CACHE BOOL "Install shaderc?")
+
+# LibLas
+option(_NBL_COMPILE_WITH_LAS_ "Build engine with Las library" OFF)
+if(_NBL_COMPILE_WITH_LAS_)
+add_subdirectory(las las)
+endif(_NBL_COMPILE_WITH_LAS_)
 
 # if it doesn't work without the `touch` on Linux, then fetch the latest submodule head of shaderc and try again
 # https://github.com/google/shaderc/issues/568
@@ -444,10 +451,16 @@ if (NBL_COMPILE_WITH_CUDA)
 	update_git_submodule(./jitify)
 endif()
 
+if(NBL_BUILD_RADEON_RAYS)
+	set(RADEON_RAYS_DEP_TARGETS
+		RadeonRays
+		CLW
+		Calc
+	)
+endif()
+
 set(NBL_3RDPARTY_TARGETS
-				RadeonRays
-				CLW
-				Calc
+				${RADEON_RAYS_DEP_TARGETS}
 				lzma
 				lz4
 				aesGladman
