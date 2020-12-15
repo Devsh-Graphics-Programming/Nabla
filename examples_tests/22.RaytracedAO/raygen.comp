@@ -2,7 +2,7 @@
 #include "raygenCommon.glsl"
 
 
-#include <irr/builtin/glsl/utils/normal_decode.glsl>
+#include <nbl/builtin/glsl/utils/normal_decode.glsl>
 //
 layout(set = 2, binding = 0, row_major) uniform RaygenData
 {
@@ -190,7 +190,7 @@ void main()
 
 		for (uint i=0u; i<pc.data.samplesPerPixelPerDispatch; i++)
 		{
-			vec3 direction; // TODO: just use irr_glsl_LightSample?
+			vec3 direction; // TODO: just use nbl_glsl_LightSample?
 			float maxT;
 			vec4 throughput = vec4(0.0,0.0,0.0,-1.0); // -1 needs to be there to ensure no backface culling on rays
 

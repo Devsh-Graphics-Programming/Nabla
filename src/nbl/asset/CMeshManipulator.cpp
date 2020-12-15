@@ -26,7 +26,7 @@ namespace asset
 //! \param mesh: Mesh on which the operation is performed.
 void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
 {
-#ifndef NEW_SHADERS // @Crisspl/@Przemog/@Cyprian TODO
+#ifdef OLD_SHADERS
 	if (!inbuffer)
 		return;
 
@@ -41,40 +41,40 @@ void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
         switch (inbuffer->getPrimitiveType())
         {
         case EPT_TRIANGLE_FAN:
-            for (uint32_t i=1; i<idxcnt; i+=2)
+            for (uint32_t i = 1; i < idxcnt; i += 2)
             {
                 const uint16_t tmp = idx[i];
-                idx[i] = idx[i+1];
-                idx[i+1] = tmp;
+                idx[i] = idx[i + 1];
+                idx[i + 1] = tmp;
             }
             break;
         case EPT_TRIANGLE_STRIP:
-            if (idxcnt%2) //odd
+            if (idxcnt % 2) //odd
             {
-                for (uint32_t i=0; i<(idxcnt>>1); i++)
+                for (uint32_t i = 0; i < (idxcnt >> 1); i++)
                 {
                     const uint16_t tmp = idx[i];
-                    idx[i] = idx[idxcnt-1-i];
-                    idx[idxcnt-1-i] = tmp;
+                    idx[i] = idx[idxcnt - 1 - i];
+                    idx[idxcnt - 1 - i] = tmp;
                 }
             }
             else //even
             {
-                auto newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>((idxcnt+1u)*sizeof(uint16_t));
-				auto* destPtr = reinterpret_cast<uint16_t*>(newIndexBuffer->getPointer());
-				destPtr[0] = idx[0];
-                memcpy(destPtr+1u,idx,sizeof(uint16_t)*idxcnt);
-                inbuffer->setIndexCount(idxcnt+1u);
+                auto newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>((idxcnt + 1u) * sizeof(uint16_t));
+                auto* destPtr = reinterpret_cast<uint16_t*>(newIndexBuffer->getPointer());
+                destPtr[0] = idx[0];
+                memcpy(destPtr + 1u, idx, sizeof(uint16_t) * idxcnt);
+                inbuffer->setIndexCount(idxcnt + 1u);
                 inbuffer->setIndexBufferOffset(0);
                 inbuffer->getMeshDataAndFormat()->setIndexBuffer(std::move(newIndexBuffer));
             }
             break;
         case EPT_TRIANGLES:
-            for (uint32_t i=0; i<idxcnt; i+=3)
+            for (uint32_t i = 0; i < idxcnt; i += 3)
             {
-                const uint16_t tmp = idx[i+1];
-                idx[i+1] = idx[i+2];
-                idx[i+2] = tmp;
+                const uint16_t tmp = idx[i + 1];
+                idx[i + 1] = idx[i + 2];
+                idx[i + 2] = tmp;
             }
             break;
         default: break;
@@ -86,40 +86,40 @@ void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
         switch (inbuffer->getPrimitiveType())
         {
         case EPT_TRIANGLE_FAN:
-            for (uint32_t i=1; i<idxcnt; i+=2)
+            for (uint32_t i = 1; i < idxcnt; i += 2)
             {
                 const uint32_t tmp = idx[i];
-                idx[i] = idx[i+1];
-                idx[i+1] = tmp;
+                idx[i] = idx[i + 1];
+                idx[i + 1] = tmp;
             }
             break;
         case EPT_TRIANGLE_STRIP:
-            if (idxcnt%2) //odd
+            if (idxcnt % 2) //odd
             {
-                for (uint32_t i=0; i<(idxcnt>>1); i++)
+                for (uint32_t i = 0; i < (idxcnt >> 1); i++)
                 {
                     const uint32_t tmp = idx[i];
-                    idx[i] = idx[idxcnt-1-i];
-                    idx[idxcnt-1-i] = tmp;
+                    idx[i] = idx[idxcnt - 1 - i];
+                    idx[idxcnt - 1 - i] = tmp;
                 }
             }
             else //even
             {
-                auto newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>((idxcnt+1u)*sizeof(uint32_t));
-				auto* destPtr = reinterpret_cast<uint32_t*>(newIndexBuffer->getPointer());
-				destPtr[0] = idx[0];
-                memcpy(destPtr+1u,idx,sizeof(uint32_t)*idxcnt);
-                inbuffer->setIndexCount(idxcnt+1);
+                auto newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>((idxcnt + 1u) * sizeof(uint32_t));
+                auto* destPtr = reinterpret_cast<uint32_t*>(newIndexBuffer->getPointer());
+                destPtr[0] = idx[0];
+                memcpy(destPtr + 1u, idx, sizeof(uint32_t) * idxcnt);
+                inbuffer->setIndexCount(idxcnt + 1);
                 inbuffer->setIndexBufferOffset(0);
                 inbuffer->getMeshDataAndFormat()->setIndexBuffer(std::move(newIndexBuffer));
             }
             break;
         case EPT_TRIANGLES:
-            for (uint32_t i=0; i<idxcnt; i+=3)
+            for (uint32_t i = 0; i < idxcnt; i += 3)
             {
-                const uint32_t tmp = idx[i+1];
-                idx[i+1] = idx[i+2];
-                idx[i+2] = tmp;
+                const uint32_t tmp = idx[i + 1];
+                idx[i + 1] = idx[i + 2];
+                idx[i + 2] = tmp;
             }
             break;
         default: break;

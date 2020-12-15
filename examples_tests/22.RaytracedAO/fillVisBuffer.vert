@@ -18,14 +18,14 @@ layout(location = 0) flat out uint ObjectID;
 layout(location = 1) out vec3 Normal;
 layout(location = 2) out vec2 UV;
 
-#include <irr/builtin/glsl/utils/transform.glsl>
+#include <nbl/builtin/glsl/utils/transform.glsl>
 
 void main()
 {
     DrawData_t self = instanceDataPerCamera.data[gl_InstanceIndex];
     ObjectID = self.objectID|(floatBitsToUint(self.detMVP)&0x80000000u); // use MSB to denote if face orientation should be flipped
 
-    gl_Position = irr_glsl_pseudoMul4x4with3x1(self.MVP,vPosition);
+    gl_Position = nbl_glsl_pseudoMul4x4with3x1(self.MVP,vPosition);
     
     const vec3 localNormal = normalize(vNormal); //have to normalize twice because of normal quantization
     Normal[0] = dot(staticData[self.objectID].normalMatrixRow0,localNormal);

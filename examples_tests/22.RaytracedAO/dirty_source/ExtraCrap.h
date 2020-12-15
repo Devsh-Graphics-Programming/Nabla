@@ -71,25 +71,6 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 				return *this;
 			}
 
-			struct VisibilityBufferPipelineKey
-			{
-				inline bool operator==(const VisibilityBufferPipelineKey& other) const
-				{
-					return vertexParams==other.vertexParams&&frontFaceIsCCW==other.frontFaceIsCCW;
-				}
-
-				nbl::asset::SVertexInputParams vertexParams;
-				uint8_t frontFaceIsCCW;
-			};
-			struct VisibilityBufferPipelineKeyHash
-			{
-				inline std::size_t operator()(const VisibilityBufferPipelineKey& key) const
-				{
-					std::basic_string_view view(reinterpret_cast<const char*>(&key),sizeof(key));
-					return std::hash<decltype(view)>()(view);
-				}
-			};
-			nbl::core::unordered_map<VisibilityBufferPipelineKey,nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline>,VisibilityBufferPipelineKeyHash> m_visibilityBufferFillPipelines;
 
 			nbl::core::vector<SLight> lights;
 			nbl::core::vector<nbl::core::vectorSIMDf> lightRadiances;

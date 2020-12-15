@@ -19,8 +19,8 @@
 	{
 		float x,y,z;
 	};
-	#define mat4 irr::core::matrix4SIMD
-	#define mat4x3 irr::core::matrix3x4SIMD
+	#define mat4 nbl::core::matrix4SIMD
+	#define mat4x3 nbl::core::matrix3x4SIMD
 #endif
 
 

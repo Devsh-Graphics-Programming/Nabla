@@ -9,10 +9,10 @@ layout(local_size_x = 16, local_size_y = 16) in;
 
 //
 layout(set = 1, binding = 0, rgba32f) restrict uniform image2D framebuffer;
-#include <irr/builtin/glsl/ext/RadeonRays/ray.glsl>
+#include <nbl/builtin/glsl/ext/RadeonRays/ray.glsl>
 layout(set = 1, binding = 1, std430) restrict writeonly buffer Rays
 {
-	irr_glsl_ext_RadeonRays_ray rays[];
+	nbl_glsl_ext_RadeonRays_ray rays[];
 };
 // lights
 layout(set = 1, binding = 2, std430) restrict readonly buffer CumulativeLightPDF

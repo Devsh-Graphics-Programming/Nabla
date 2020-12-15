@@ -12,13 +12,12 @@
 using namespace nbl;
 using namespace nbl::asset;
 using namespace nbl::video;
-using namespace nbl::scene;
 
 
 constexpr uint32_t kOptiXPixelSize = sizeof(uint16_t)*3u;
 
 
-Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, nbl::scene::ISceneManager* _smgr, core::smart_refctd_ptr<video::IGPUDescriptorSet>&& globalBackendDataDS, bool useDenoiser) :
+Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::ISceneManager* _smgr, core::smart_refctd_ptr<IGPUDescriptorSet>&& globalBackendDataDS, bool useDenoiser) :
 		m_useDenoiser(useDenoiser),	m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager), m_rrManager(ext::RadeonRays::Manager::create(m_driver)),
 		m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX), /*m_renderSize{0u,0u}, */m_rightHanded(false),
 		m_globalBackendDataDS(std::move(globalBackendDataDS)), // TODO: review this member
@@ -28,9 +27,9 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, nbl::sce
 		m_rayBufferAsRR(nullptr,nullptr), m_intersectionBufferAsRR(nullptr,nullptr), m_rayCountBufferAsRR(nullptr,nullptr),
 		rrInstances(),
 #endif
-		m_lightCount(0u),
-		m_visibilityBufferAttachments{nullptr}, m_maxSamples(0u), m_samplesPerPixelPerDispatch(0u), m_rayCountPerDispatch(0u), m_framesDone(0u), m_samplesComputedPerPixel(0u),
-		m_sampleSequence(), m_scrambleTexture(), m_accumulation(), m_tonemapOutput(), m_visibilityBuffer(nullptr), tmpTonemapBuffer(nullptr), m_colorBuffer(nullptr)
+		m_indirectDrawBuffers{nullptr}, m_cullPushConstants{core::matrix4SIMD(),0u,0u,1.f,0xdeadbeefu}, m_lightCount(0u),
+		m_visibilityBuffer(nullptr), tmpTonemapBuffer(nullptr), m_colorBuffer(nullptr),
+		m_visibilityBufferAttachments{nullptr}, m_maxSamples(0u), m_samplesPerPixelPerDispatch(0u), m_rayCountPerDispatch(0u), m_framesDone(0u), m_samplesComputedPerPixel(0u)
 	#ifdef _NBL_BUILD_OPTIX_
 		,m_cudaStream(nullptr)
 	#endif
@@ -843,7 +842,7 @@ void Renderer::init(const SAssetBundle& meshes,
 	{
 		auto glsl = 
 			std::string(m_useDenoiser ? "#version 430 core\n#define USE_OPTIX_DENOISER\n" : "#version 430 core\n") +
-			//"irr/builtin/glsl/ext/RadeonRays/"
+			//"nbl/builtin/glsl/ext/RadeonRays/"
 			rr_includes->getBuiltinInclude("ray.glsl") +
 			lightStruct +
 			compostShader;
