@@ -45,7 +45,6 @@ class Manager final : public core::IReferenceCounted
 		{
 			shapeCache.reserve(std::distance(_begin,_end));
 
-			uint32_t maxIndexCount = 0u;
 			for (auto it=_begin; it!=_end; it++)
 			{
 				auto* mb = static_cast<nbl::asset::ICPUMeshBuffer*>(*it);
@@ -55,34 +54,16 @@ class Manager final : public core::IReferenceCounted
 				shapeCache.insert({mb,nullptr});
 
 
-				auto posAttrID = mb->getPositionAttributeIx();
-				auto format = mb->getAttribFormat(posAttrID);
+				const auto posAttrID = mb->getPositionAttributeIx();
+				const auto format = mb->getAttribFormat(posAttrID);
 				assert(format==asset::EF_R32G32B32A32_SFLOAT||format==asset::EF_R32G32B32_SFLOAT);
 
-				auto pType = mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
-				switch (pType)
-				{
-					case asset::EPT_TRIANGLE_STRIP:
-						maxIndexCount = core::max((mb->getIndexCount()-2u)/3u, maxIndexCount);
-						break;
-					case asset::EPT_TRIANGLE_FAN:
-						maxIndexCount = core::max(((mb->getIndexCount()-1u)/2u)*3u, maxIndexCount);
-						break;
-					case asset::EPT_TRIANGLE_LIST:
-						maxIndexCount = core::max(mb->getIndexCount(), maxIndexCount);
-						break;
-					default:
-						assert(false);
-				}
+				assert(mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType==EPT_TRIANGLE_LIST);
+				assert(mb->getIndexBufferBinding()->buffer);
 			}
 
-			if (maxIndexCount ==0u)
-				return;
-
-			auto* indices = new int32_t[maxIndexCount];
 			for (auto it=_begin; it!=_end; it++)
-				makeShape(shapeCache,static_cast<nbl::asset::ICPUMeshBuffer*>(*it),indices);
-			delete[] indices;
+				makeShape(shapeCache,static_cast<nbl::asset::ICPUMeshBuffer*>(*it));
 		}
 
 		template<typename Iterator>
@@ -193,7 +174,7 @@ class Manager final : public core::IReferenceCounted
 		Manager(video::IVideoDriver* _driver, cl_context context, bool automaticOpenCLSync);
 		~Manager();
 
-		void makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMeshBuffer* mb, int32_t* indices);
+		void makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMeshBuffer* mb);
 #ifdef TODO
 		void makeInstance(	MeshNodeRRInstanceCache& instanceCache,
 							const core::unordered_map<const video::IGPUMeshBuffer*,MeshBufferRRShapeCache::value_type>& GPU2CPUTable,

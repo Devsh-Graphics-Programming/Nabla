@@ -4,7 +4,7 @@
 
 #version 430 core
 
-#include "irr/builtin/glsl/utils/normal_encode.glsl"
+#include <irr/builtin/glsl/utils/normal_encode.glsl>
 
 
 layout(location = 0) flat in uint ObjectID;

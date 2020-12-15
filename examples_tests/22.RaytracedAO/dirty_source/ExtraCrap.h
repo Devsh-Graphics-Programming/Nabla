@@ -19,7 +19,7 @@
 class Renderer : public nbl::core::IReferenceCounted, public nbl::core::InterfaceUnmovable
 {
     public:
-		#include "../InstanceDataPerCamera.glsl"
+		#include "../drawCommon.glsl"
 		#ifdef __cplusplus
 			#undef mat4
 			#undef mat4x3
@@ -70,7 +70,6 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 				globalMeta = other.globalMeta;
 				return *this;
 			}
-			
 
 			struct VisibilityBufferPipelineKey
 			{
@@ -96,7 +95,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 			nbl::core::vector<nbl::core::vectorSIMDf> lightRadiances;
 			union
 			{
-				nbl::core::vector<uint32_t> lightPDF;
+				nbl::core::vector<float> lightPDF;
 				nbl::core::vector<uint32_t> lightCDF;
 			};
 			const nbl::ext::MitsubaLoader::CGlobalMitsubaMetadata* globalMeta = nullptr;
@@ -128,9 +127,14 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		nbl::core::smart_refctd_ptr<nbl::ext::RadeonRays::Manager> m_rrManager;
 
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUSpecializedShader> m_visibilityBufferFillShaders[2];
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_perCameraRasterDSLayout;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_visibilityBufferFillPipelineLayout;
+		nbl::core::smart_refctd_ptr<nbl::asset::ICPUSpecializedShader> m_visibilityBufferFillShaders[2];
+		nbl::core::smart_refctd_ptr<nbl::asset::ICPUPipelineLayout> m_visibilityBufferFillPipelineLayoutCPU;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_visibilityBufferFillPipelineLayoutGPU;
+		nbl::core::smart_refctd_ptr<const nbl::video::IGPUDescriptorSetLayout> m_perCameraRasterDSLayout;
+
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_cullDSLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_cullPipelineLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline> m_cullPipeline;
 		
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline> m_raygenPipeline,m_resolvePipeline;
 
@@ -140,12 +144,23 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		uint32_t m_renderSize[2u];
 		bool m_rightHanded;
 
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_indirectDrawBuffers[2];
+		struct MDICall
+		{
+			nbl::asset::SBufferBinding<nbl::video::IGPUBuffer> vertexBindings[nbl::video::IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT];
+			nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> indexBuffer;
+			nbl::core::smart_refctd_ptr<nbl::video::IGPURenderpassIndependentPipeline> pipeline;
+			uint32_t mdiOffset,mdiCount;
+		};
+		nbl::core::vector<MDICall> m_mdiDrawCalls;
+		CullShaderData_t m_cullPushConstants;
+
 		uint32_t m_lightCount;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_lightCDFBuffer;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_lightBuffer;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> m_lightRadianceBuffer;
 
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_globalBackendDataDS,m_perCameraRasterDS; // TODO: do we need to keep track of this?
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_globalBackendDataDS,m_cullDS,m_perCameraRasterDS; // TODO: do we need to keep track of this?
 
 
 		nbl::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;

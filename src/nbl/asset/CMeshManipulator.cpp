@@ -26,7 +26,7 @@ namespace asset
 //! \param mesh: Mesh on which the operation is performed.
 void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
 {
-#ifdef OLD_SHADERS
+#ifndef NEW_SHADERS // @Crisspl/@Przemog/@Cyprian TODO
 	if (!inbuffer)
 		return;
 
@@ -593,6 +593,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 	// Find vertex count
 	size_t vertexCount = outbuffer->calcVertexCount();
 
+    constexpr auto canonicalMeshBufferIndexType = EIT_32BIT;
 	// make index buffer 0,1,2,3,4,... if nothing's mapped
 	if (!outbuffer->getIndices())
 	{
@@ -602,7 +603,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 			indices[i] = i;
         outbuffer->setIndexBufferBinding({ 0u, std::move(ib) });
 		outbuffer->setIndexCount(vertexCount);
-		outbuffer->setIndexType(EIT_32BIT);
+		outbuffer->setIndexType(canonicalMeshBufferIndexType);
 	}
 
 	// make 32bit index buffer if 16bit one is present
@@ -611,21 +612,21 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
         auto ib = CMeshManipulator::create32BitFrom16BitIdxBufferSubrange(reinterpret_cast<uint16_t*>(outbuffer->getIndices()), outbuffer->getIndexCount());
         outbuffer->setIndexBufferBinding({ 0u, std::move(ib) });
 		// no need to set index buffer offset to 0 because it already is
-		outbuffer->setIndexType(EIT_32BIT);
+		outbuffer->setIndexType(canonicalMeshBufferIndexType);
 	}
 
 	// convert index buffer for triangle primitives
 	if (outbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType == EPT_TRIANGLE_FAN)
 	{
         outbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType = EPT_TRIANGLE_LIST;
-		auto newIb = idxBufferFromTrianglesFanToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), EIT_32BIT);
+		auto newIb = idxBufferFromTrianglesFanToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), canonicalMeshBufferIndexType, canonicalMeshBufferIndexType);
 		outbuffer->setIndexCount(newIb->getSize() / sizeof(uint32_t));
         outbuffer->setIndexBufferBinding({ 0u, std::move(newIb) });
 	}
 	else if (outbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType == EPT_TRIANGLE_STRIP)
 	{
         outbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType = EPT_TRIANGLE_LIST;
-		auto newIb = idxBufferFromTriangleStripsToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), EIT_32BIT);
+		auto newIb = idxBufferFromTriangleStripsToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), canonicalMeshBufferIndexType, canonicalMeshBufferIndexType);
 		outbuffer->setIndexCount(newIb->getSize() / sizeof(uint32_t));
         outbuffer->setIndexBufferBinding({ 0u, std::move(newIb) });
 	}
@@ -867,7 +868,7 @@ void CMeshManipulator::copyMeshBufferMemberVars<ICPUMeshBuffer>(ICPUMeshBuffer* 
     auto ixBinding = _src->getIndexBufferBinding()[0];
 	_dst->setIndexBufferBinding(
 		std::move(ixBinding)
-	);/*
+	);/* @Crisspl wtf with the commenting out???
 	_dst->setAttachedDescriptorSet(
 		core::smart_refctd_ptr<ICPUDescriptorSet>(_src->getAttachedDescriptorSet())
 	);
@@ -1535,21 +1536,60 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	return true;
 }
 
-core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType)
+core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromLineStripsToLines(const void* _input, size_t _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
 {
-	if (_idxType == EIT_16BIT)
-		return CMeshManipulator::triangleStripsToTriangles<uint16_t>(_input, _idxCount);
-	else if (_idxType == EIT_32BIT)
-		return CMeshManipulator::triangleStripsToTriangles<uint32_t>(_input, _idxCount);
+    if (_inIndexType == EIT_16BIT)
+    {
+        if (_outIndexType == EIT_16BIT)
+            return CMeshManipulator::lineStripsToLines<uint16_t,uint16_t>(_input, _idxCount);
+        else
+            return CMeshManipulator::lineStripsToLines<uint16_t,uint32_t>(_input, _idxCount);
+    }
+	else if (_inIndexType == EIT_32BIT)
+    {
+        if (_outIndexType == EIT_16BIT)
+            return CMeshManipulator::lineStripsToLines<uint32_t,uint16_t>(_input, _idxCount);
+        else
+            return CMeshManipulator::lineStripsToLines<uint32_t,uint32_t>(_input, _idxCount);
+    }
 	return nullptr;
 }
 
-core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType)
+core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
 {
-	if (_idxType == EIT_16BIT)
-		return CMeshManipulator::trianglesFanToTriangles<uint16_t>(_input, _idxCount);
-	else if (_idxType == EIT_32BIT)
-		return CMeshManipulator::trianglesFanToTriangles<uint32_t>(_input, _idxCount);
+	if (_inIndexType == EIT_16BIT)
+    {
+        if (_outIndexType == EIT_16BIT)
+            return CMeshManipulator::triangleStripsToTriangles<uint16_t,uint16_t>(_input, _idxCount);
+        else
+            return CMeshManipulator::triangleStripsToTriangles<uint16_t,uint32_t>(_input, _idxCount);
+    }
+	else if (_inIndexType == EIT_32BIT)
+    {
+        if (_outIndexType == EIT_16BIT)
+            return CMeshManipulator::triangleStripsToTriangles<uint32_t,uint16_t>(_input, _idxCount);
+        else
+            return CMeshManipulator::triangleStripsToTriangles<uint32_t,uint32_t>(_input, _idxCount);
+    }
+	return nullptr;
+}
+
+core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
+{
+	if (_inIndexType == EIT_16BIT)
+    {
+        if (_outIndexType == EIT_16BIT)
+            return CMeshManipulator::trianglesFanToTriangles<uint16_t,uint16_t>(_input, _idxCount);
+        else
+            return CMeshManipulator::trianglesFanToTriangles<uint16_t,uint32_t>(_input, _idxCount);
+    }
+	else if (_inIndexType == EIT_32BIT)
+    {
+        if (_outIndexType == EIT_16BIT)
+            return CMeshManipulator::trianglesFanToTriangles<uint32_t,uint16_t>(_input, _idxCount);
+        else
+            return CMeshManipulator::trianglesFanToTriangles<uint32_t,uint32_t>(_input, _idxCount);
+    }
 	return nullptr;
 }
 
