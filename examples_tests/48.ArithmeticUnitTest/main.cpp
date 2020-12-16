@@ -18,7 +18,7 @@ struct and
 	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = ~0ull; // this should be a reinterpret cast
 
 	inline T operator()(T left, T right) { return left & right; }
-
+	_NBL_STATIC_INLINE_CONSTEXPR bool runOPonFirst = false;
 	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "and";
 };
 template<typename T>
@@ -28,7 +28,7 @@ struct xor
 	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = 0ull; // this should be a reinterpret cast
 
 	inline T operator()(T left, T right) { return left ^ right; }
-
+	_NBL_STATIC_INLINE_CONSTEXPR bool runOPonFirst = false;
 	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "xor";
 };
 template<typename T>
@@ -38,7 +38,7 @@ struct or
 	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = 0ull; // this should be a reinterpret cast
 
 	inline T operator()(T left, T right) { return left | right; }
-
+	_NBL_STATIC_INLINE_CONSTEXPR bool runOPonFirst = false;
 	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "or";
 };
 template<typename T>
@@ -48,7 +48,7 @@ struct add
 	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = T(0);
 
 	inline T operator()(T left, T right) { return left + right; }
-
+	_NBL_STATIC_INLINE_CONSTEXPR bool runOPonFirst = false;
 	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "add";
 };
 template<typename T>
@@ -58,7 +58,7 @@ struct mul
 	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = T(1);
 
 	inline T operator()(T left, T right) { return left * right; }
-
+	_NBL_STATIC_INLINE_CONSTEXPR bool runOPonFirst = false;
 	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "mul";
 };
 template<typename T>
@@ -68,7 +68,7 @@ struct min
 	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = std::numeric_limits<T>::max();
 
 	inline T operator()(T left, T right) { return std::min<T>(left, right); }
-
+	_NBL_STATIC_INLINE_CONSTEXPR bool runOPonFirst = false;
 	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "min";
 };
 template<typename T>
@@ -78,20 +78,19 @@ struct max
 	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = std::numeric_limits<T>::lowest();
 
 	inline T operator()(T left, T right) { return std::max<T>(left, right); }
-
+	_NBL_STATIC_INLINE_CONSTEXPR bool runOPonFirst = false;
 	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "max";
 };
 template<typename T>
-struct bitcount
+struct countBits
 {
 	using type_t = T;
 	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = T(0);
 
-	inline T operator()(T left, T right) { return T(0); }
-
+	inline T operator()(T left, T right) { return left + (right&1u); }
+	_NBL_STATIC_INLINE_CONSTEXPR bool runOPonFirst = true;
 	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "bitcount";
 };
-
 
 
 //subgroup method emulations on the CPU, to verify the results of the GPU methods
@@ -122,7 +121,6 @@ struct emulatedSubgroupReduction : emulatedSubgroupCommon<emulatedSubgroupReduct
 			red = OP()(red,subgroupData[i]);
 		std::fill(outSubgroupData,outSubgroupData+clampedSubgroupSize,red);
 	}
-
 	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "subgroup reduction";
 };
 template<class OP>
@@ -136,7 +134,6 @@ struct emulatedSubgroupScanExclusive : emulatedSubgroupCommon<emulatedSubgroupSc
 		for (auto i=1u; i<clampedSubgroupSize; i++)
 			outSubgroupData[i] = OP()(outSubgroupData[i-1u],subgroupData[i-1u]);
 	}
-
 	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "subgroup exclusive scan";
 };
 template<class OP>
@@ -150,7 +147,6 @@ struct emulatedSubgroupScanInclusive : emulatedSubgroupCommon<emulatedSubgroupSc
 		for (auto i=1u; i<clampedSubgroupSize; i++)
 			outSubgroupData[i] = OP()(outSubgroupData[i-1u],subgroupData[i]);
 	}
-
 	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "subgroup inclusive scan";
 };
 
@@ -162,12 +158,11 @@ struct emulatedWorkgroupReduction
 
 	inline void operator()(type_t* outputData, const type_t* workgroupData, uint32_t workgroupSize, uint32_t subgroupSize)
 	{
-		type_t red = workgroupData[0];
+		type_t red = OP::runOPonFirst ? OP()(0, workgroupData[0]) : workgroupData[0];
 		for (auto i=1u; i<workgroupSize; i++)
 			red = OP()(red,workgroupData[i]);
 		std::fill(outputData,outputData+workgroupSize,red);
 	}
-
 	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "workgroup reduction";
 };
 template<class OP>
@@ -177,11 +172,10 @@ struct emulatedWorkgroupScanExclusive
 
 	inline void operator()(type_t* outputData, const type_t* workgroupData, uint32_t workgroupSize, uint32_t subgroupSize)
 	{
-		outputData[0u] = OP::IdentityElement;
+		outputData[0u] = OP::runOPonFirst ? OP()(0, workgroupData[0]) : OP::IdentityElement;
 		for (auto i=1u; i<workgroupSize; i++)
 			outputData[i] = OP()(outputData[i-1u],workgroupData[i-1u]);
 	}
-
 	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "workgroup exclusive scan";
 };
 template<class OP>
@@ -191,11 +185,10 @@ struct emulatedWorkgroupScanInclusive
 
 	inline void operator()(type_t* outputData, const type_t* workgroupData, uint32_t workgroupSize, uint32_t subgroupSize)
 	{
-		outputData[0u] = workgroupData[0u];
+		outputData[0u] = OP::runOPonFirst ? OP()(0, workgroupData[0]) : workgroupData[0u];
 		for (auto i=1u; i<workgroupSize; i++)
 			outputData[i] = OP()(outputData[i-1u],workgroupData[i]);
 	}
-
 	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "workgroup inclusive scan";
 };
 
@@ -246,7 +239,7 @@ bool validateResults(video::IVideoDriver* driver, const uint32_t* inputData, con
 			for (uint32_t localInvocationIndex=0u; localInvocationIndex<workgroupSize; localInvocationIndex++)
 			if (tmp[localInvocationIndex]!=dataFromBuffer[workgroupOffset+localInvocationIndex])
 			{
-				os::Printer::log("Failed test #" + std::to_string(workgroupSize) + " (" + Arithmetic<OP<uint32_t>>::name + ")  (" + OP<uint32_t>::name + ")", ELL_ERROR);
+				os::Printer::log("Failed test #" + std::to_string(workgroupSize) + " (" + Arithmetic<OP<uint32_t>>::name + ")  (" + OP<uint32_t>::name + ") Expected "+ std::to_string(dataFromBuffer[workgroupOffset + localInvocationIndex])+ " got " + std::to_string(tmp[localInvocationIndex]), ELL_ERROR);
 				success = false;
 				break;
 			}
@@ -277,7 +270,9 @@ bool runTest(video::IVideoDriver* driver, video::IGPUComputePipeline* pipeline, 
 	passed = validateResults<Arithmetic,::min>(driver, inputData, workgroupSize, workgroupCount, buffers[5].get())&&passed;
 	passed = validateResults<Arithmetic,::max>(driver, inputData, workgroupSize, workgroupCount, buffers[6].get())&&passed;
 	if(is_workgroup_test)
-		passed = validateResults<Arithmetic,bitcount>(driver, inputData, workgroupSize, workgroupCount, buffers[7].get()) && passed;
+	{
+		passed = validateResults<Arithmetic, countBits>(driver, inputData, workgroupSize, workgroupCount, buffers[7].get()) && passed;
+	}
 
 	return passed;
 }
