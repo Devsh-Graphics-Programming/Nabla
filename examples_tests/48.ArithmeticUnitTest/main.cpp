@@ -82,15 +82,7 @@ struct max
 	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "max";
 };
 template<typename T>
-struct countBits
-{
-	using type_t = T;
-	_NBL_STATIC_INLINE_CONSTEXPR T IdentityElement = T(0);
-
-	inline T operator()(T left, T right) { return left + (right&1u); }
-	_NBL_STATIC_INLINE_CONSTEXPR bool runOPonFirst = true;
-	_NBL_STATIC_INLINE_CONSTEXPR const char* name = "bitcount";
-};
+struct ballot : add<T> {};
 
 
 //subgroup method emulations on the CPU, to verify the results of the GPU methods
@@ -172,7 +164,7 @@ struct emulatedWorkgroupScanExclusive
 
 	inline void operator()(type_t* outputData, const type_t* workgroupData, uint32_t workgroupSize, uint32_t subgroupSize)
 	{
-		outputData[0u] = OP::runOPonFirst ? OP()(0, workgroupData[0]) : OP::IdentityElement;
+		outputData[0u] = OP::IdentityElement;
 		for (auto i=1u; i<workgroupSize; i++)
 			outputData[i] = OP()(outputData[i-1u],workgroupData[i-1u]);
 	}
@@ -185,7 +177,7 @@ struct emulatedWorkgroupScanInclusive
 
 	inline void operator()(type_t* outputData, const type_t* workgroupData, uint32_t workgroupSize, uint32_t subgroupSize)
 	{
-		outputData[0u] = OP::runOPonFirst ? OP()(0, workgroupData[0]) : workgroupData[0u];
+		outputData[0u] = workgroupData[0u];
 		for (auto i=1u; i<workgroupSize; i++)
 			outputData[i] = OP()(outputData[i-1u],workgroupData[i]);
 	}
@@ -195,6 +187,7 @@ struct emulatedWorkgroupScanInclusive
 
 #include "common.glsl"
 constexpr uint32_t kBufferSize = BUFFER_DWORD_COUNT*sizeof(uint32_t);
+
 
 //returns true if result matches
 template<template<class> class Arithmetic, template<class> class OP>
@@ -232,18 +225,27 @@ bool validateResults(video::IVideoDriver* driver, const uint32_t* inputData, con
 		// now check if the data obtained has valid values
 		constexpr uint32_t subgroupSize = 4u;
 		uint32_t* tmp = new uint32_t[workgroupSize];
+		uint32_t* ballotInput = new uint32_t[workgroupSize];
 		for (uint32_t workgroupID=0u; success&&workgroupID<workgroupCount; workgroupID++)
 		{
 			const auto workgroupOffset = workgroupID*workgroupSize;
-			Arithmetic<OP<uint32_t>>()(tmp,inputData+workgroupOffset,workgroupSize,subgroupSize);
+			if constexpr (std::is_same_v<OP<uint32_t>,ballot<uint32_t>>)
+			{
+				for (auto i=0u; i<workgroupSize; i++)
+					ballotInput[i] = inputData[i+workgroupOffset]&0x1u;
+				Arithmetic<OP<uint32_t>>()(tmp,ballotInput,workgroupSize,subgroupSize);
+			}
+			else
+				Arithmetic<OP<uint32_t>>()(tmp,inputData+workgroupOffset,workgroupSize,subgroupSize);
 			for (uint32_t localInvocationIndex=0u; localInvocationIndex<workgroupSize; localInvocationIndex++)
 			if (tmp[localInvocationIndex]!=dataFromBuffer[workgroupOffset+localInvocationIndex])
 			{
-				os::Printer::log("Failed test #" + std::to_string(workgroupSize) + " (" + Arithmetic<OP<uint32_t>>::name + ")  (" + OP<uint32_t>::name + ") Expected "+ std::to_string(dataFromBuffer[workgroupOffset + localInvocationIndex])+ " got " + std::to_string(tmp[localInvocationIndex]), ELL_ERROR);
+				os::Printer::log("Failed test #" + std::to_string(workgroupSize) + " (" + Arithmetic<OP<uint32_t>>::name + ")  (" + OP<uint32_t>::name + ") Expected "+ std::to_string(tmp[localInvocationIndex])+ " got " + std::to_string(dataFromBuffer[workgroupOffset + localInvocationIndex]), ELL_ERROR);
 				success = false;
 				break;
 			}
 		}
+		delete[] ballotInput;
 		delete[] tmp;
 	}
 	else
@@ -271,7 +273,7 @@ bool runTest(video::IVideoDriver* driver, video::IGPUComputePipeline* pipeline, 
 	passed = validateResults<Arithmetic,::max>(driver, inputData, workgroupSize, workgroupCount, buffers[6].get())&&passed;
 	if(is_workgroup_test)
 	{
-		passed = validateResults<Arithmetic, countBits>(driver, inputData, workgroupSize, workgroupCount, buffers[7].get()) && passed;
+		passed = validateResults<Arithmetic,ballot>(driver, inputData, workgroupSize, workgroupCount, buffers[7].get()) && passed;
 	}
 
 	return passed;
