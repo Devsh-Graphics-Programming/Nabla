@@ -273,7 +273,7 @@ uint nbl_glsl_workgroupBallotScanBitCount_impl(in bool exclusive)
 		barrier();
 	}
 
-	const uint mask = 0xffffffffu>>((exclusive ? 32u:31u)-(gl_LocalInvocationIndex&31u));
+	const uint mask = (exclusive ? 0x7fffffffu:0xffffffffu)>>(31u-(gl_LocalInvocationIndex&31u));
 	return globalCount+bitCount(localBitfield&mask);
 }
 
