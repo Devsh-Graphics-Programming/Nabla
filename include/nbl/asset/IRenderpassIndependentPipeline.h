@@ -217,7 +217,7 @@ struct SRasterizationParams
     E_POLYGON_MODE polygonMode = EPM_FILL;
     E_FACE_CULL_MODE faceCullingMode = EFCM_BACK_BIT;
 	E_COMPARE_OP depthCompareOp = ECO_GREATER;
-    IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint = IImage::ESCF_1_BIT;
+    IImage::E_SAMPLE_COUNT_FLAGS rasterizationSamplesHint = IImage::ESCF_1_BIT; //TODO depr
 	uint32_t sampleMask[2] = {~0u,~0u};
     float minSampleShading = 0.f;
     float depthBiasSlopeFactor = 0.f;

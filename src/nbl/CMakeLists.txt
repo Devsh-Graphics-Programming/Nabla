@@ -375,6 +375,15 @@ macro(nbl_target_link_spirv_tools _trgt)
 		${THIRD_PARTY_SOURCE_DIR}/SPIRV-Tools/include
 	)
 endmacro()
+macro(nbl_target_link_SDL2 _trgt)	
+	target_link_libraries(${_trgt} PUBLIC
+		SDL2-static
+	)
+	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/SDL2/include)
+endmacro()
+macro(nbl_target_link_volk _trgt)
+	target_link_libraries(${_trgt} PRIVATE volk)
+endmacro()
 
 add_library(Nabla STATIC
 	${NABLA_SRCS_COMMON}
@@ -403,6 +412,8 @@ if(_NBL_COMPILE_WITH_GLI_)
 endif()
 nbl_target_include_parallel_hashmap(Nabla)
 nbl_target_link_spirv_tools(Nabla)
+nbl_target_link_SDL2(Nabla)
+nbl_target_link_volk(Nabla)
 
 target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
@@ -440,7 +451,7 @@ if (NBL_COMPILE_WITH_CUDA)
 endif()
 
 target_compile_definitions(Nabla 
-	PRIVATE	_NBL_STATIC_LIB_ SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS
+	PRIVATE	_NBL_STATIC_LIB_ SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS $<$<BOOL:${WIN32}>:VK_USE_PLATFORM_WIN32_KHR>
 	PUBLIC	UNW_LOCAL_ONLY
 )
 

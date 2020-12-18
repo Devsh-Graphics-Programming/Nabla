@@ -20,6 +20,12 @@ class IGPUComputePipeline : public asset::IComputePipeline<IGPUSpecializedShader
 public:
     using base_t::base_t;
 
+    struct SCreationParams
+    {
+        IGPUPipelineLayout* layout;
+        IGPUSpecializedShader* shader;
+    };
+
 protected:
     virtual ~IGPUComputePipeline() = default;
 

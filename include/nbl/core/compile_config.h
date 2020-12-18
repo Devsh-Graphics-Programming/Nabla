@@ -9,6 +9,7 @@
 #define NABLA_VERSION_MAJOR 0
 #define NABLA_VERSION_MINOR 3
 #define NABLA_VERSION_REVISION 0
+#define NABLA_VERSION_INTEGER (NABLA_VERSION_MAJOR*100 + NABLA_VERSION_MINOR*10 + NABLA_VERSION_REVISION)
 // This flag will be defined only in SVN, the official release code will have
 // it undefined
 //#define IRRLICHT_VERSION_SVN -alpha

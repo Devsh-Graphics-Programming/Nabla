@@ -8,7 +8,6 @@ namespace nbl {
 namespace video
 {
 
-//possibly move into IGPUQueueFamily
 enum E_QUEUE_FLAGS : uint32_t
 {
     EQF_GRAPHICS_BIT = 0x01,
@@ -18,7 +17,6 @@ enum E_QUEUE_FLAGS : uint32_t
     EQF_PROTECTED_BIT = 0x10
 };
 
-//possibly move into IGPUQueueFamily
 struct SQueueFamilyProperties
 {
     std::underlying_type_t<E_QUEUE_FLAGS> queueFlags;

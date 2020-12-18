@@ -6,6 +6,8 @@
 #include <nbl/asset/IMeshBuffer.h>
 #include <nbl/video/IGPUImage.h>
 #include <nbl/video/IGPUSampler.h>
+#include <nbl/video/IGPUEvent.h>
+#include <nbl/asset/IRenderpass.h>
 #include "IVideoDriver.h"
 
 #include <type_traits>
@@ -13,6 +15,7 @@
 namespace nbl {
 namespace video
 {
+
 //TODO move and possibly rename
 struct VkBufferCopy
 {
@@ -56,35 +59,6 @@ enum E_STENCIL_FACE_FLAGS : uint32_t
     ESFF_BACK_BIT = 0x02,
     ESFF_FACE_AND_FRONT = 0x03
 };
-enum E_PIPELINE_STAGE_FLAGS : uint32_t
-{
-    EPSF_TOP_OF_PIPE_BIT = 0x00000001,
-    EPSF_DRAW_INDIRECT_BIT = 0x00000002,
-    EPSF_VERTEX_INPUT_BIT = 0x00000004,
-    EPSF_VERTEX_SHADER_BIT = 0x00000008,
-    EPSF_TESSELLATION_CONTROL_SHADER_BIT = 0x00000010,
-    EPSF_TESSELLATION_EVALUATION_SHADER_BIT = 0x00000020,
-    EPSF_GEOMETRY_SHADER_BIT = 0x00000040,
-    EPSF_FRAGMENT_SHADER_BIT = 0x00000080,
-    EPSF_EARLY_FRAGMENT_TESTS_BIT = 0x00000100,
-    EPSF_LATE_FRAGMENT_TESTS_BIT = 0x00000200,
-    EPSF_COLOR_ATTACHMENT_OUTPUT_BIT = 0x00000400,
-    EPSF_COMPUTE_SHADER_BIT = 0x00000800,
-    EPSF_TRANSFER_BIT = 0x00001000,
-    EPSF_BOTTOM_OF_PIPE_BIT = 0x00002000,
-    EPSF_HOST_BIT = 0x00004000,
-    EPSF_ALL_GRAPHICS_BIT = 0x00008000,
-    EPSF_ALL_COMMANDS_BIT = 0x00010000,
-    EPSF_TRANSFORM_FEEDBACK_BIT_EXT = 0x01000000,
-    EPSF_CONDITIONAL_RENDERING_BIT_EXT = 0x00040000,
-    EPSF_RAY_TRACING_SHADER_BIT_KHR = 0x00200000,
-    EPSF_ACCELERATION_STRUCTURE_BUILD_BIT_KHR = 0x02000000,
-    EPSF_SHADING_RATE_IMAGE_BIT_NV = 0x00400000,
-    EPSF_TASK_SHADER_BIT_NV = 0x00080000,
-    EPSF_MESH_SHADER_BIT_NV = 0x00100000,
-    EPSF_FRAGMENT_DENSITY_PROCESS_BIT_EXT = 0x00800000,
-    EPSF_COMMAND_PREPROCESS_BIT_NV = 0x00020000
-};
 enum E_DEPENDENCY_FLAGS : uint32_t
 {
     EDF_BY_REGION_BIT = 0x01,
@@ -107,8 +81,6 @@ class IGPUQueue;
 
 class IGPUCommandBuffer : public core::IReferenceCounted
 {
-    friend class IGPUQueue;
-
 public:
     enum E_RESET_FLAGS : uint32_t
     {
@@ -180,7 +152,7 @@ public:
     //virtual void blitImage(IGPUImage* srcImage, IGPUImage::E_LAYOUT srcImageLayout, IGPUImage* dstImage, IGPUImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const VkImageBlit* pRegions, IGPUSampler::E_TEXTURE_FILTER filter) = 0;
     //virtual void resolveImage(IGPUImage* srcImage, IGPUImage::E_LAYOUT srcImageLayout, IGPUImage* dstImage, IGPUImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const VkImageResolve* pRegions) = 0;
 
-    virtual void bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, IGPUBuffer** pBuffers, const size_t pOffsets) = 0;
+    virtual void bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, IGPUBuffer** pBuffers, const size_t* pOffsets) = 0;
 
     virtual void setScissor(uint32_t firstScissor, uint32_t scissorCount, const VkRect2D* pScissors) = 0;
     virtual void setDepthBounds(float minDepthBounds, float maxDepthBounds) = 0;
@@ -192,17 +164,17 @@ public:
     virtual void dispatchIndirect(IGPUBuffer* buffer, size_t offset) = 0;
     virtual void dispatchBase(uint32_t baseGroupX, uint32_t baseGroupY, uint32_t baseGroupZ, uint32_t groupCountX, uint32_t groupCountY, uint32_t groupCountZ) = 0;
 
-    //virtual void setEvent(VkEvent event, VkPipelineStageFlags stageMask) = 0;
-    //virtual void resetEvent(VkEvent event, VkPipelineStageFlags stageMask) = 0;
+    virtual void setEvent(IGPUEvent* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) = 0;
+    virtual void resetEvent(IGPUEvent* event, asset::E_PIPELINE_STAGE_FLAGS stageMask) = 0;
 
     //`srcStagemask`, `dstStageMask` take bits from E_PIPELINE_STAGE_FLAGS
-    /*virtual void waitEvents(uint32_t eventCount, const VkEvent* pEvents, std::underlying_type_t<E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<E_PIPELINE_STAGE_FLAGS> dstStageMask,
+    /*virtual void waitEvents(uint32_t eventCount, const VkEvent* pEvents, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
         uint32_t memoryBarrierCount, const VkMemoryBarrier* pMemoryBarriers,
         uint32_t bufferMemoryBarrierCount, const VkBufferMemoryBarrier* pBufferMemoryBarriers,
         uint32_t imageMemoryBarrierCount, const VkImageMemoryBarrier* pImageMemoryBarriers
     ) = 0;*/
 
-    /*virtual void pipelineBarrier(uint32_t eventCount, const VkEvent* pEvents, std::underlying_type_t<E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<E_PIPELINE_STAGE_FLAGS> dstStageMask,
+    /*virtual void pipelineBarrier(uint32_t eventCount, const VkEvent* pEvents, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> srcStageMask, std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> dstStageMask,
         std::underlying_type_t<E_DEPENDENCY_FLAGS> dependencyFlags,
         uint32_t memoryBarrierCount, const VkMemoryBarrier* pMemoryBarriers,
         uint32_t bufferMemoryBarrierCount, const VkBufferMemoryBarrier* pBufferMemoryBarriers,
@@ -222,7 +194,7 @@ public:
     //virtual void beginQuery(IGPUQueryPool* queryPool, uint32_t entry, std::underlying_type_t<E_QUERY_CONTROL_FLAGS> flags) = 0;
     //virtual void endQuery(IGPUQueryPool* queryPool, uint32_t query) = 0;
     //virtual void copyQueryPoolResults(IGPUQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, IGPUBuffer* dstBuffer, size_t dstOffset, size_t stride, std::underlying_type_t<E_QUERY_RESULT_FLAGS> flags) = 0;
-    //virtual void writeTimestamp(std::underlying_type_t<E_PIPELINE_STAGE_FLAGS> pipelineStage, IGPUQueryPool* queryPool, uint32_t query) = 0;
+    //virtual void writeTimestamp(std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> pipelineStage, IGPUQueryPool* queryPool, uint32_t query) = 0;
 
     virtual void bindDescriptorSets(E_PIPELINE_BIND_POINT pipelineBindPoint, IGPUPipelineLayout* layout, uint32_t firstSet, uint32_t descriptorSetCount,
         IGPUDescriptorSet** pDescriptorSets, uint32_t dynamicOffsetCount, const uint32_t pDynamicOffsets

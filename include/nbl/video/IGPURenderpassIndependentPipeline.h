@@ -26,6 +26,16 @@ class IGPURenderpassIndependentPipeline : public asset::IRenderpassIndependentPi
 	public:
 		using base_t::base_t;
 
+		struct SCreationParams
+		{
+			IGPUPipelineLayout* layout;
+			IGPUSpecializedShader* shaders[SHADER_STAGE_COUNT];
+			asset::SVertexInputParams vertexInput;
+			asset::SBlendParams blend;
+			asset::SPrimitiveAssemblyParams primitiveAssembly;
+			asset::SRasterizationParams rasterization;
+		};
+
 	protected:
 		virtual ~IGPURenderpassIndependentPipeline() = default;
 };

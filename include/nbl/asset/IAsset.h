@@ -98,11 +98,15 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_SHADER = 1ull<<10,								//!< asset::ICPUShader
 			ET_SPECIALIZED_SHADER = 1ull<<11,					//!< asset::ICPUSpecializedShader
 			ET_RENDERPASS_INDEPENDENT_PIPELINE = 1ull<<12,		//!< asset::ICPURenderpassIndependentPipeline
-			ET_SUB_MESH = 1ull<<13,							    //!< asset::ICPUMeshBuffer
-			ET_MESH = 1ull<<14,								    //!< asset::ICPUMesh
-			ET_COMPUTE_PIPELINE = 1ull<<15,                     //!< asset::ICPUComputePipeline
-			ET_PIPELINE_CACHE = 1ull<<16,						//!< asset::ICPUPipelineCache
-			ET_SCENE = 1ull<<17,								//!< reserved, to implement later
+			ET_RENDERPASS = 1ull<<13,							//!< asset::ICPURenderpass
+			ET_FRAMEBUFFER = 1ull<<14,							//!< asset::ICPUFramebuffer
+			ET_GRAPHICS_PIPELINE = 1ull<<15,					//!< asset::ICPUGraphicsPipeline
+			ET_SUB_MESH = 1ull<<16,							    //!< asset::ICPUMeshBuffer
+			ET_MESH = 1ull<<17,								    //!< asset::ICPUMesh
+			ET_COMPUTE_PIPELINE = 1ull<<18,                     //!< asset::ICPUComputePipeline
+			ET_COMMAND_BUFFER = 1ull<<19,						//!< asset::ICPUCommandBuffer
+			ET_PIPELINE_CACHE = 1ull<<20,						//!< asset::ICPUPipelineCache
+			ET_SCENE = 1ull<<21,								//!< reserved, to implement later
 			ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u,    //!< lights, etc.
 			//! Reserved special value used for things like terminating lists of this enum
 

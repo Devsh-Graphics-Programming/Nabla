@@ -3,7 +3,8 @@
 
 #include <nbl/core/IReferenceCounted.h>
 #include <nbl/video/IGPUPrimaryCommandBuffer.h>
-#include "IDriverFence.h"
+#include <nbl/video/IGPUSemaphore.h>
+#include <nbl/video/IGPUFence.h>
 
 namespace nbl {
 namespace video
@@ -19,13 +20,13 @@ public:
 
     struct SSubmitInfo
     {
-        //uint32_t waitSemaphoreCount;
-        //const VkSemaphore* pWaitSemaphores;
-        //const VkPipelineStageFlags* pWaitDstStageMask;
-        //uint32_t signalSemaphoreCount;
-        //const VkSemaphore* pSignalSemaphores;
+        uint32_t waitSemaphoreCount;
+        IGPUSemaphore** pWaitSemaphores;
+        const E_PIPELINE_STAGE_FLAGS* pWaitDstStageMask;
+        uint32_t signalSemaphoreCount;
+        IGPUSemaphore** pSignalSemaphores;
         uint32_t commandBufferCount;
-        const IGPUPrimaryCommandBuffer** commandBuffers;
+        IGPUPrimaryCommandBuffer** commandBuffers;
     };
 
     //! `flags` takes bits from E_CREATE_FLAGS
@@ -35,35 +36,9 @@ public:
 
     }
 
-    virtual void submit(uint32_t _count, const SSubmitInfo* _submits, IDriverFence* _fence)
-    {
-        for (uint32_t i = 0u; i < _count; ++i)
-            submit(_submits[i]);
-    }
+    virtual void submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) = 0;
 
 protected:
-    void submit(const IGPUPrimaryCommandBuffer* _cmdbuf)
-    {
-        auto* cmdbuf = const_cast<IGPUPrimaryCommandBuffer*>(_cmdbuf);
-        cmdbuf->setState(IGPUCommandBuffer::ES_PENDING);
-        /*Once execution of all submissions of a command buffer complete, it moves from the pending state, back to the executable state.
-        If a command buffer was recorded with the VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT flag, it instead moves to the invalid state.
-        */
-    }
-    void submit(const SSubmitInfo& _submit)
-    {
-        for (uint32_t i = 0u; i < _submit.commandBufferCount; ++i)
-        {
-            const auto* cmdbuf = _submit.commandBuffers[i];
-            submit(cmdbuf);
-        }
-    }
-    void submit_epilogue(IDriverFence* _fence)
-    {
-        if (_fence)
-            _fence->waitCPU(9999999999ull);
-    }
-
     const uint32_t m_familyIndex;
     //takes bits from E_CREATE_FLAGS
     const uint32_t m_flags;
