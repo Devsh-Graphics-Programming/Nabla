@@ -6,7 +6,7 @@
 #ifndef __NBL_ASSET_C_IMAGE_LOADER_TGA_H_INCLUDED__
 #define __NBL_ASSET_C_IMAGE_LOADER_TGA_H_INCLUDED__
 
-#include "BuildCOnfigOptions.h"
+#include "BuildConfigOptions.h"
 #include "nbl/asset/IImageLoader.h"
 
 namespace nbl

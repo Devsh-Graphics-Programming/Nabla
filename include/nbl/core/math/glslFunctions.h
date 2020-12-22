@@ -35,7 +35,17 @@ NBL_FORCE_INLINE T degrees(const T& radians)
 {
 	return radians*T(180)/PI<T>();
 }
-// TODO : sin,cos,tan,asin,acos,atan(y,x),atan(y_over_x),sinh,cosh,tanh,asinh,acosh,atanh,sincos
+// TODO : sin,cos,tan,asin,acos,atan(y,x),atan(y_over_x),sinh,cosh,tanh,asinh,acosh,atanh,sincos specializations for vectors
+template<typename T>
+NBL_FORCE_INLINE T sin(const T& radians)
+{
+	return std::sin(radians);
+}
+template<typename T>
+NBL_FORCE_INLINE T cos(const T& radians)
+{
+	return std::cos(radians);
+}
 
 // TODO : pow,exp,log,exp2,log2
 template<typename T>

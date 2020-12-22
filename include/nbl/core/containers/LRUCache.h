@@ -57,7 +57,7 @@ template<typename Key, typename Value, typename MapHash=std::hash<Key>, typename
 class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 {
 		// typedefs
-		typedef LRUCacheBase<Key,Value,MapHash,MapEquals> base_t;
+		typedef impl::LRUCacheBase<Key,Value,MapHash,MapEquals> base_t;
 		typedef LRUCache<Key,Value,MapHash,MapEquals> this_t;
 
 		// wrappers
@@ -85,7 +85,7 @@ class LRUCache : private impl::LRUCacheBase<Key,Value,MapHash,MapEquals>
 		using shortcut_iterator_t = typename unordered_set<uint32_t,WrapHash,WrapEquals>::const_iterator;
 		inline shortcut_iterator_t common_find(const Key& key) const
 		{
-			searchedKey = &key;
+			base_t::searchedKey = &key;
 			return m_shortcut_map.find(invalid_iterator);
 		}
 		inline shortcut_iterator_t common_find(const Key& key, bool& success) const

@@ -42,7 +42,7 @@ class IShader : public virtual core::IReferenceCounted
             if (!_exts)
                 return;
 
-			auto findLineJustAfterVersionOrPragmaShaderStageDirective = [&_glsl]
+			auto findLineJustAfterVersionOrPragmaShaderStageDirective = [&_glsl] -> size_t
 			{
 				size_t hashPos = _glsl.find_first_of('#');
                 if (hashPos >= _glsl.length())

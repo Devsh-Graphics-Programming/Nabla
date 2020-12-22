@@ -22,16 +22,16 @@ class ICPUVirtualTexture final : public IVirtualTexture<ICPUImageView, ICPUSampl
 public:
     class ICPUVTResidentStorage final : public base_t::IVTResidentStorage
     {
-        using base_t = base_t::IVTResidentStorage;
+        using storage_base_t = base_t::IVTResidentStorage;
 
     public:
         ICPUVTResidentStorage(E_FORMAT _format, uint32_t _tilesPerDim) :
-            base_t(_format, _tilesPerDim)
+            storage_base_t(_format, _tilesPerDim)
         {
 
         }
         ICPUVTResidentStorage(E_FORMAT _format, uint32_t _tileExtent, uint32_t _layers, uint32_t _tilesPerDim) :
-            base_t(_format, _layers, _tilesPerDim)
+            storage_base_t(_format, _layers, _tilesPerDim)
         {
             deferredInitialization(_tileExtent, _layers);
         }
@@ -48,7 +48,7 @@ public:
                 _layers = (m_tileCounter + tilesPerLayer - 1u) / tilesPerLayer;
             }
 
-            base_t::deferredInitialization(tileExtent, _layers);
+            storage_base_t::deferredInitialization(tileExtent, _layers);
 
             if (image)
                 return;
@@ -361,7 +361,7 @@ public:
         const E_FORMAT format = getFormatInLayer(_addr.pgTab_layer);
         ICPUVTResidentStorage* storage = static_cast<ICPUVTResidentStorage*>(getStorageForFormatClass(getFormatClass(format)));
         if (!storage)
-            return nullptr;
+            return false;
 
         //free physical pages
         VkExtent3D extent = {static_cast<uint32_t>(_addr.origsize_x), static_cast<uint32_t>(_addr.origsize_y), 1u};

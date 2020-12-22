@@ -163,7 +163,7 @@ public:
 
     struct NBL_FORCE_EBO SMasterTextureData : STextureData<SMasterTextureData> 
     {
-        friend class this_type;
+        friend this_type;
     private:
         SMasterTextureData() = default;
     };
@@ -171,7 +171,7 @@ public:
 
     struct NBL_FORCE_EBO SViewAliasTextureData : STextureData<SViewAliasTextureData>
     {
-        friend class this_type;
+        friend this_type;
     private:
         SViewAliasTextureData() = default;
     };
@@ -519,7 +519,7 @@ protected:
                 return found->second;
 
             typename image_view_t::SCreationParams params;
-            params.flags = static_cast<IImageView<image_t>::E_CREATE_FLAGS>(0);
+            params.flags = static_cast<typename IImageView<image_t>::E_CREATE_FLAGS>(0);
             params.format = _format;
             params.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0);
             params.subresourceRange.baseArrayLayer = 0u;
@@ -846,7 +846,7 @@ public:
             else
                 views = &m_usamplers;
             auto views_rng = views->getViews();
-            auto view_it = std::find_if(views_rng.begin(), views_rng.end(), [format](const SamplerArray::Sampler& s) {return s.format == format;});
+            auto view_it = std::find_if(views_rng.begin(), views_rng.end(), [format](const typename SamplerArray::Sampler& s) {return s.format == format;});
             if (view_it == views_rng.end()) //no physical page texture view/sampler for requested format
             {
                 smplrIndex = views->views.size();

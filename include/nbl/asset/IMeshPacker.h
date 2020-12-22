@@ -190,7 +190,7 @@ public:
         MeshPackerBase::MeshPackerConfigParams<MeshIterator> firstInpuParams
         {
             (*begin)->getPipeline()->getVertexInputParams(),
-            SRange<void, MeshIterator>(sortedMeshBuffersOut, sortedMeshBuffersOut)
+            core::SRange<void, MeshIterator>(sortedMeshBuffersOut, sortedMeshBuffersOut)
         };
         memcpy(packerParamsOut, &firstInpuParams, sizeof(SVertexInputParams));
 

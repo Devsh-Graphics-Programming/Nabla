@@ -68,7 +68,7 @@ class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<No
 				// no mul by channel count because we're only after alpha
 				retval += outExtentLayerCount.x*outExtentLayerCount.y*outExtentLayerCount.z;
 			}
-			return retval*sizeof(typename value_type);
+			return retval*sizeof(value_type);
 		}
 
 		// nothing to validate here really
