@@ -28,7 +28,7 @@ class MockSceneManager
 		{
 			core::matrix3x4SIMD tform;
 			core::smart_refctd_ptr<video::IGPUMesh> mesh;
-			core::vector<MeshBufferGUID> meshbufferIDs;
+			core::vector<MeshBufferGUID> instanceGUIDPerMeshBuffer;
 		};
 
 		const ObjectData& getObjectData(const ObjectGUID guid) const {return m_objectData[guid];}
@@ -98,7 +98,7 @@ class Manager final : public core::IReferenceCounted
 
 		template<typename Iterator>
 		inline void makeRRInstances(NblInstanceRRInstanceCache& instanceCache, MockSceneManager* mock_smgr,
-									const MeshBufferRRShapeCache& shapeCache, asset::IAssetManager* _assetManager,
+									MeshBufferRRShapeCache& shapeCache, asset::IAssetManager* _assetManager,
 									Iterator _objectsBegin, Iterator _objectsEnd)
 		{
 			for (auto it=_objectsBegin; it!=_objectsEnd; it++)
@@ -156,24 +156,21 @@ class Manager final : public core::IReferenceCounted
 				// TODO: when actually implemented smgr, need a way to pull absolute transforms from GPU or CPU for RR to use
 				const auto& absoluteTForm = mock_smgr->getObjectData(objectID).tform;
 				// check if moved
+				core::matrix4SIMD oldTForm, dummy;
+				firstShape->GetTransform(reinterpret_cast<::RadeonRays::matrix&>(oldTForm), reinterpret_cast<::RadeonRays::matrix&>(dummy));
+				if (!core::equals(absoluteTForm,oldTForm.extractSub3x4(),core::matrix3x4SIMD(0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f)))
 				{
-					core::matrix4SIMD oldTForm, dummy;
-					firstShape->GetTransform(reinterpret_cast<::RadeonRays::matrix&>(oldTForm), reinterpret_cast<::RadeonRays::matrix&>(dummy));
-					if (absoluteTForm == oldTForm.extractSub3x4())
-						continue;
+					core::matrix4SIMD world(absoluteTForm);
+
+					core::matrix3x4SIMD tmp;
+					absoluteTForm.getInverse(tmp);
+					core::matrix4SIMD worldinv(tmp);
+
+					for (auto shape : *shapeArray)
+						shape->SetTransform(reinterpret_cast<::RadeonRays::matrix&>(world), reinterpret_cast<::RadeonRays::matrix&>(worldinv));
 
 					needToCommit = true;
 				}
-
-
-				core::matrix4SIMD world(absoluteTForm);
-
-				core::matrix3x4SIMD tmp;
-				absoluteTForm.getInverse(tmp);
-				core::matrix4SIMD worldinv(tmp);
-
-				for (auto shape : *shapeArray)
-					shape->SetTransform(reinterpret_cast<::RadeonRays::matrix&>(world),reinterpret_cast<::RadeonRays::matrix&>(worldinv));
 			}
 
 			if (needToCommit)

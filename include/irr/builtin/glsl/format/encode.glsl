@@ -3,20 +3,21 @@
 
 #include <irr/builtin/glsl/format/constants.glsl>
 
-uvec2 irr_glsl_encodeRGB19E7(in vec4 col)
+uvec2 irr_glsl_encodeRGB19E7(in vec3 col)
 {
-	int exp = int(bitfieldExtract(x.y, 3*irr_glsl_RGB19E7_MANTISSA_BITS-32, irr_glsl_RGB19E7_EXPONENT_BITS) - irr_glsl_RGB19E7_EXP_BIAS - irr_glsl_RGB19E7_MANTISSA_BITS);
-	float scale = exp2(float(exp));//uintBitsToFloat((uint(exp)+127u)<<23u)
-	
-	vec3 v;
-	v.x = int(bitfieldExtract(x.x, 0, irr_glsl_RGB19E7_MANTISSA_BITS))*scale;
-	v.y = int(
-		bitfieldExtract(x.x, irr_glsl_RGB19E7_MANTISSA_BITS, 32-irr_glsl_RGB19E7_MANTISSA_BITS) | 
-		(bitfieldExtract(x.y, 0, irr_glsl_RGB19E7_MANTISSA_BITS-(32-irr_glsl_RGB19E7_MANTISSA_BITS))<<(32-irr_glsl_RGB19E7_MANTISSA_BITS))
-	) * scale;
-	v.z = int(bitfieldExtract(x.y, irr_glsl_RGB19E7_MANTISSA_BITS-(32-irr_glsl_RGB19E7_MANTISSA_BITS), irr_glsl_RGB19E7_MANTISSA_BITS)) * scale;
-	
-	return v;
+	const vec3 clamped = clamp(col,vec3(0.0),vec3(irr_glsl_MAX_RGB19E7));
+	const float maxrgb = max(max(clamped.r,clamped.g),clamped.b);
+
+	const int f32_exp = bitfieldExtract(floatBitsToInt(maxrgb),23,8)-127;
+	const int shared_exp = clamp(f32_exp,-irr_glsl_RGB19E7_EXP_BIAS,irr_glsl_MAX_RGB19E7_EXP);
+
+	const uvec3 mantissas = uvec3(clamped*exp2(irr_glsl_RGB19E7_MANTISSA_BITS-shared_exp));
+
+	uvec2 encoded;
+	encoded.x = bitfieldInsert(mantissas.x,mantissas.y,irr_glsl_RGB19E7_COMPONENT_BITOFFSETS[1],irr_glsl_RGB19E7_G_COMPONENT_SPLIT);
+	encoded.y = bitfieldInsert(mantissas.y>>irr_glsl_RGB19E7_G_COMPONENT_SPLIT,mantissas.z,irr_glsl_RGB19E7_COMPONENT_BITOFFSETS[2],irr_glsl_RGB19E7_MANTISSA_BITS)|uint((shared_exp+irr_glsl_RGB19E7_EXP_BIAS)<<irr_glsl_RGB19E7_COMPONENT_BITOFFSETS[3]);
+
+	return encoded;
 }
 
 uint irr_glsl_encodeRGB10A2(in vec4 col)

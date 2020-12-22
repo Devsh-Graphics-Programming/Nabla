@@ -1,5 +1,5 @@
-#ifndef _EXTRA_CRAP_INCLUDED_
-#define _EXTRA_CRAP_INCLUDED_
+#ifndef _RENDERER_INCLUDED_
+#define _RENDERER_INCLUDED_
 
 #include "irrlicht.h"
 
@@ -110,17 +110,15 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 
 		// persistent (intialized in constructor
 		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSetLayout> m_cullDSLayout;
-		irr::core::smart_refctd_ptr<const irr::video::IGPUPipelineLayout> m_cullPipelineLayout;
+		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_cullPipelineLayout;
 		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_cullPipeline;
 
 		irr::core::smart_refctd_ptr<irr::asset::ICPUSpecializedShader> m_visibilityBufferFillShaders[2];
 		irr::core::smart_refctd_ptr<irr::asset::ICPUPipelineLayout> m_visibilityBufferFillPipelineLayoutCPU;
-		irr::core::smart_refctd_ptr<const irr::video::IGPUPipelineLayout> m_visibilityBufferFillPipelineLayoutGPU;
-		irr::core::smart_refctd_ptr<const irr::video::IGPUDescriptorSetLayout> m_perCameraRasterDSLayout;
+		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_visibilityBufferFillPipelineLayoutGPU;
+		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSetLayout> m_perCameraRasterDSLayout;
 
 		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSetLayout> m_commonRaytracingDSLayout, m_raygenDSLayout, m_resolveDSLayout;
-		irr::core::smart_refctd_ptr<const irr::video::IGPUPipelineLayout> m_raygenPipelineLayout, m_resolvePipelineLayout;
-		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_raygenPipeline, m_resolvePipeline;
 
 
 		// scene specific data
@@ -147,7 +145,9 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		uint32_t m_cullWorkGroups;
 
 		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_perCameraRasterDS;
-
+		
+		irr::core::smart_refctd_ptr<irr::video::IGPUPipelineLayout> m_raygenPipelineLayout, m_resolvePipelineLayout;
+		irr::core::smart_refctd_ptr<irr::video::IGPUComputePipeline> m_raygenPipeline, m_resolvePipeline;
 		irr::core::smart_refctd_ptr<irr::video::IGPUDescriptorSet> m_globalBackendDataDS,m_commonRaytracingDS,m_raygenDS;
 		uint32_t m_raygenWorkGroups[2];
 

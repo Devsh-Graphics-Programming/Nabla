@@ -78,8 +78,7 @@ void Manager::makeShape(core::unordered_map<const asset::ICPUMeshBuffer*,::Radeo
 	auto pType = mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
 	const auto* indices = reinterpret_cast<const int32_t*>(mb->getIndices());
 	const auto indexCount = mb->getIndexCount();
-	if (indexCount<3)
-		return;
+	assert(indexCount>=3);
 
 	const int32_t vertexCount = mb->calcVertexCount();
 
@@ -101,7 +100,7 @@ void Manager::makeInstance(	NblInstanceRRInstanceCache& instanceCache, MockScene
 	const auto& objectData = mock_smgr->getObjectData(objectID);
 	const auto& mesh = objectData.mesh;
 	const auto mbCount = mesh->getMeshBufferCount();
-	assert(mbCount==objectData.meshbufferIDs.size());
+	assert(mbCount==objectData.instanceGUIDPerMeshBuffer.size());
 	assert(mbCount>0u);
 
 	auto& gpuCache = shapeCache.m_gpuAssociative;
@@ -131,7 +130,7 @@ void Manager::makeInstance(	NblInstanceRRInstanceCache& instanceCache, MockScene
 			continue;
 
 		auto* instance = rr->CreateInstance(found->second);
-		instance->SetId(objectData.meshbufferIDs[i]);
+		instance->SetId(objectData.instanceGUIDPerMeshBuffer[i]);
 		output->operator[](i) = instance;
 	}
 	instanceCache.insert({objectID,output});

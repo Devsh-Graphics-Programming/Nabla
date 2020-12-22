@@ -1,5 +1,5 @@
-#ifndef __IRR_EXT_RADEON_RAYS_RAY_INCLUDED__
-#define __IRR_EXT_RADEON_RAYS_RAY_INCLUDED__
+#ifndef _IRR_EXT_RADEON_RAYS_RAY_INCLUDED_
+#define _IRR_EXT_RADEON_RAYS_RAY_INCLUDED_
 
 struct irr_glsl_ext_RadeonRays_ray
 {

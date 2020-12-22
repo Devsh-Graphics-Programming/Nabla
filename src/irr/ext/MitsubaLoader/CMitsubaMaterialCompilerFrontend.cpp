@@ -3,6 +3,10 @@
 
 #include <irr/core/Types.h>
 
+// wtf
+#include "../source/Irrlicht/CLogger.h"
+#include "ILogger.h"
+
 namespace irr
 {
 namespace ext

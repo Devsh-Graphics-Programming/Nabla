@@ -4,12 +4,14 @@
 #include <irr/builtin/material_compiler/glsl/common_declarations.glsl>
 
 #ifndef _IRR_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
+	// @Crisspl datatype declarations such as `instr_t` and similar also need the `nbl_glsl_` prefix
 	#error "You need to define 'vec3 irr_glsl_MC_getNormalizedWorldSpaceV()', 'vec3 irr_glsl_MC_getNormalizedWorldSpaceN()' , 'irr_glsl_MC_getWorldSpacePosition()', 'instr_t irr_glsl_MC_fetchInstr(in uint)', 'prefetch_instr_t irr_glsl_MC_fetchPrefetchInstr(in uint)', 'bsdf_data_t irr_glsl_MC_fetchBSDFData(in uint)' functions above"
 #endif
 
 #include <irr/builtin/glsl/math/functions.glsl>
 #include <irr/builtin/glsl/format/decode.glsl>
 
+// why don't all these functions have the `nbl_glsl_` prefix???
 MC_precomputed_t precomputeData(in bool frontface)
 {
 	MC_precomputed_t p;

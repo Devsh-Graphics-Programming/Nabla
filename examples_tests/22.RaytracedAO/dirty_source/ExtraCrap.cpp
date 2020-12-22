@@ -4,6 +4,8 @@
 
 #include "irr/ext/ScreenShot/ScreenShot.h"
 
+#include "../source/Irrlicht/COpenCLHandler.h"
+
 
 #ifndef _IRR_BUILD_OPTIX_
 	#define __C_CUDA_HANDLER_H__ // don't want CUDA declarations and defines to pollute here
@@ -16,6 +18,31 @@ using namespace irr::video;
 
 constexpr uint32_t kOptiXPixelSize = sizeof(uint16_t)*3u;
 
+core::smart_refctd_ptr<ICPUSpecializedShader> specializedShaderFromFile(IAssetManager* assetManager, const char* path)
+{
+	auto bundle = assetManager->getAsset(path, {});
+	return core::move_and_static_cast<ICPUSpecializedShader>(*bundle.getContents().begin());
+}
+core::smart_refctd_ptr<IGPUSpecializedShader> gpuSpecializedShaderFromFile(IAssetManager* assetManager, IVideoDriver* driver, const char* path)
+{
+	auto shader = specializedShaderFromFile(assetManager,path);
+	// TODO: @Crisspl find a way to stop the user from such insanity as moving from the bundle's dynamic array
+	//return std::move(m_driver->getGPUObjectsFromAssets<ICPUSpecializedShader>(&shader,&shader+1u)->operator[](0));
+	return driver->getGPUObjectsFromAssets<ICPUSpecializedShader>(&shader,&shader+1u)->operator[](0);
+}
+// TODO: make these util function in `IDescriptorSetLayout` -> Assign: @Hazardu
+auto fillIotaDescriptorBindingDeclarations = [](auto* outBindings, ISpecializedShader::E_SHADER_STAGE accessFlags, uint32_t count, asset::E_DESCRIPTOR_TYPE descType=asset::EDT_INVALID, uint32_t startIndex=0u) -> void
+{
+	for (auto i=0u; i<count; i++)
+	{
+		outBindings[i].binding = i+startIndex;
+		outBindings[i].type = descType;
+		outBindings[i].count = 1u;
+		outBindings[i].stageFlags = accessFlags;
+		outBindings[i].samplers = nullptr;
+	}
+};
+
 
 Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::ISceneManager* _smgr, bool useDenoiser) :
 		m_useDenoiser(useDenoiser),	m_driver(_driver), m_smgr(_smgr), m_assetManager(_assetManager),
@@ -24,7 +51,8 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		m_optixManager(), m_cudaStream(nullptr), m_optixContext(),
 	#endif
 		rrShapeCache(), rrInstances(), m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
-		m_maxRaysPerDispatch(0), m_staticViewData{{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u},m_raytraceCommonData{{},{},0.f,0u,0u,0.f},
+		m_maxRaysPerDispatch(0), m_staticViewData{{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u},
+		m_raytraceCommonData{core::matrix3x4SIMD(),core::matrix3x4SIMD(),0.f,0u,0u,0.f},
 		m_indirectDrawBuffers{nullptr},m_cullPushConstants{core::matrix4SIMD(),0u,0u,1.f,0xdeadbeefu},m_cullWorkGroups(0u),
 		m_raygenWorkGroups{0u,0u},m_resolveWorkGroups{0u,0u},
 		m_visibilityBuffer(nullptr),tmpTonemapBuffer(nullptr),m_colorBuffer(nullptr)
@@ -52,31 +80,6 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	}
 #endif
 
-	auto specializedShaderFromFile = [&](const char* path) -> core::smart_refctd_ptr<ICPUSpecializedShader>
-	{
-		auto bundle = m_assetManager->getAsset(path, {});
-		return core::move_and_static_cast<ICPUSpecializedShader>(*bundle.getContents().begin());
-	};
-	auto gpuSpecializedShaderFromFile = [&](const char* path) -> core::smart_refctd_ptr<IGPUSpecializedShader>
-	{
-		auto shader = specializedShaderFromFile(path);
-		// TODO: @Crisspl find a way to stop the user from such insanity as moving from the bundle's dynamic array
-		//return std::move(m_driver->getGPUObjectsFromAssets<ICPUSpecializedShader>(&shader,&shader+1u)->operator[](0));
-		return m_driver->getGPUObjectsFromAssets<ICPUSpecializedShader>(&shader,&shader+1u)->operator[](0);
-	};
-	// TODO: make these util function in `IDescriptorSetLayout` -> Assign: @Hazardu
-	auto fillIotaDescriptorBindingDeclarations = [](auto* outBindings, ISpecializedShader::E_SHADER_STAGE accessFlags, uint32_t count, asset::E_DESCRIPTOR_TYPE descType=asset::EDT_INVALID, uint32_t startIndex=0u) -> void
-	{
-		for (auto i=0u; i<count; i++)
-		{
-			outBindings[i].binding = i+startIndex;
-			outBindings[i].type = descType;
-			outBindings[i].count = 1u;
-			outBindings[i].stageFlags = accessFlags;
-			outBindings[i].samplers = nullptr;
-		}
-	};
-
 	constexpr auto cullingOutputDescriptorCount = 2u;
 	{
 		constexpr auto cullingDescriptorCount = cullingOutputDescriptorCount+2u;
@@ -86,11 +89,11 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		m_cullDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+4u);
 		SPushConstantRange range{ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullShaderData_t)};
 		m_cullPipelineLayout = m_driver->createGPUPipelineLayout(&range,&range+1u,nullptr,core::smart_refctd_ptr(m_cullDSLayout),nullptr,nullptr);
-		m_cullPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_cullPipelineLayout),gpuSpecializedShaderFromFile("../cull.comp"));
+		m_cullPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_cullPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../cull.comp"));
 	}
 
-	m_visibilityBufferFillShaders[0] = specializedShaderFromFile("../fillVisBuffer.vert");
-	m_visibilityBufferFillShaders[1] = specializedShaderFromFile("../fillVisBuffer.frag");
+	m_visibilityBufferFillShaders[0] = specializedShaderFromFile(m_assetManager,"../fillVisBuffer.vert");
+	m_visibilityBufferFillShaders[1] = specializedShaderFromFile(m_assetManager,"../fillVisBuffer.frag");
 	{
 		ICPUDescriptorSetLayout::SBinding bindings[cullingOutputDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_VERTEX,cullingOutputDescriptorCount,asset::EDT_STORAGE_BUFFER);
@@ -101,10 +104,10 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		// TODO: @Crisspl find a way to stop the user from such insanity as moving from the bundle's dynamic array
 		//m_visibilityBufferFillPipelineLayoutGPU = std::move(m_driver->getGPUObjectsFromAssets<ICPUPipelineLayout>(&m_visibilityBufferFillPipelineLayoutCPU,&m_visibilityBufferFillPipelineLayoutCPU+1u)->operator[](0));
 		m_visibilityBufferFillPipelineLayoutGPU = core::smart_refctd_ptr(m_driver->getGPUObjectsFromAssets<ICPUPipelineLayout>(&m_visibilityBufferFillPipelineLayoutCPU,&m_visibilityBufferFillPipelineLayoutCPU+1u)->operator[](0));
-		m_perCameraRasterDSLayout = core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(m_visibilityBufferFillPipelineLayoutGPU->getDescriptorSetLayout(1u));
+		// TODO: @Crisspl make it so that I can create GPU pipeline with `const` smartpointer layouts as arguments!
+		m_perCameraRasterDSLayout = core::smart_refctd_ptr<IGPUDescriptorSetLayout>(const_cast<video::IGPUDescriptorSetLayout*>(m_visibilityBufferFillPipelineLayoutGPU->getDescriptorSetLayout(1u)));
 	}
 	
-	SPushConstantRange raytracingCommonPCRange{ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaytraceShaderCommonData_t)};
 	{
 		constexpr auto raytracingCommonDescriptorCount = 6u;
 		IGPUDescriptorSetLayout::SBinding bindings[raytracingCommonDescriptorCount];
@@ -143,15 +146,6 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		bindings[5].samplers = &sampler;
 
 		m_raygenDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+raygenDescriptorCount);
-
-		m_raygenPipelineLayout = m_driver->createGPUPipelineLayout(
-			&raytracingCommonPCRange,&raytracingCommonPCRange+1u,
-			core::smart_refctd_ptr(m_globalBackendDataDS),
-			core::smart_refctd_ptr(m_commonRaytracingDSLayout),
-			core::smart_refctd_ptr(m_raygenDSLayout),
-			nullptr
-		);
-		m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_raygenPipelineLayout),gpuSpecializedShaderFromFile("../raygen.comp"));
 	}
 	{
 		constexpr auto resolveDescriptorCount = 2u;
@@ -161,15 +155,6 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		bindings[1].type = asset::EDT_STORAGE_IMAGE;
 
 		m_resolveDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+resolveDescriptorCount);
-
-		m_resolvePipelineLayout = m_driver->createGPUPipelineLayout(
-			&raytracingCommonPCRange,&raytracingCommonPCRange+1u,
-			core::smart_refctd_ptr(m_globalBackendDataDS),
-			core::smart_refctd_ptr(m_commonRaytracingDSLayout),
-			core::smart_refctd_ptr(m_resolveDSLayout),
-			nullptr
-		);
-		m_resolvePipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_resolvePipelineLayout),gpuSpecializedShaderFromFile("../raygen.comp"));
 	}
 }
 
@@ -198,7 +183,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 		return meshmeta->getInstances();
 	};
 
-	core::vector<std::pair<core::smart_refctd_ptr<IGPUMeshBuffer>,core::smart_refctd_ptr<ICPUMesh>>> gpuMeshBuffersAndMeta;
+	core::vector<std::tuple<core::smart_refctd_ptr<IGPUMeshBuffer>,core::smart_refctd_ptr<ICPUMesh>,ext::RadeonRays::MockSceneManager::ObjectGUID>> gpuMeshBuffers_CPUMesh_Object;
 	{
 		core::vector<ICPUMeshBuffer*> meshBuffersToProcess;
 		{
@@ -223,10 +208,11 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 				}
 			};
 			core::unordered_map<VisibilityBufferPipelineKey, core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>, VisibilityBufferPipelineKeyHash> visibilityBufferFillPipelines;
-			for (auto& cpumesh_ : contents)
+			for (auto* it=contents.begin(); it!=contents.end(); it++)
 			{
-				auto cpumesh = static_cast<asset::ICPUMesh*>(cpumesh_.get());
+				auto cpumesh = static_cast<asset::ICPUMesh*>(it->get());
 				const auto& instances = getInstances(cpumesh);
+				assert(cpumesh->getInstanceCount()==instances.size());
 
 				auto meshBufferCount = cpumesh->getMeshBufferCount();
 				for (auto i = 0u; i < meshBufferCount; i++)
@@ -271,13 +257,15 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 						cpumb->setPipeline(std::move(newPipeline));
 					}
 					meshBuffersToProcess.push_back(cpumb);
-					gpuMeshBuffersAndMeta.emplace_back(nullptr,core::smart_refctd_ptr<ICPUMesh>(cpumesh));
+					gpuMeshBuffers_CPUMesh_Object.emplace_back(nullptr,core::smart_refctd_ptr<ICPUMesh>(cpumesh),m_mock_smgr.m_objectData.size());
 				}
 
 				// set up scene bounds and lights
 				const auto aabbOriginal = cpumesh->getBoundingBox();
 				for (auto instance : instances)
 				{
+					m_mock_smgr.m_objectData.push_back({instance.tform,nullptr,{}});
+
 					m_sceneBound.addInternalBox(core::transformBoxEx(aabbOriginal,instance.tform));
 
 					if (instance.emitter.type != ext::MitsubaLoader::CElementEmitter::Type::INVALID)
@@ -302,11 +290,22 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 		IMeshManipulator::homogenizePrimitiveTypeAndIndices(meshBuffersToProcess.begin(), meshBuffersToProcess.end(), EPT_TRIANGLE_LIST);
 		m_rrManager->makeRRShapes(rrShapeCache, meshBuffersToProcess.begin(), meshBuffersToProcess.end());
 
-		// convert to GPU objects (and sort so they're ordered by pipeline)
+		// convert to GPU objects and sort so they're ordered by pipeline
 		auto gpuObjs = m_driver->getGPUObjectsFromAssets(meshBuffersToProcess.data(),meshBuffersToProcess.data()+meshBuffersToProcess.size());
 		for (auto i=0u; i<gpuObjs->size(); i++)
-			gpuMeshBuffersAndMeta[i].first = core::smart_refctd_ptr(gpuObjs->operator[](i));
-		std::sort(gpuMeshBuffersAndMeta.begin(), gpuMeshBuffersAndMeta.end(), [](const auto& lhs,const auto& rhs)->bool{return lhs.first->getPipeline()<rhs.first->getPipeline();});
+		{
+			std::get<core::smart_refctd_ptr<IGPUMeshBuffer>>(gpuMeshBuffers_CPUMesh_Object[i]) = core::smart_refctd_ptr(gpuObjs->operator[](i));
+			// there should be usually no conversion going on here, just cache retrieval
+			auto cpumesh = std::get<core::smart_refctd_ptr<ICPUMesh>>(gpuMeshBuffers_CPUMesh_Object[i]).get();
+			auto gpuMesh = m_driver->getGPUObjectsFromAssets(&cpumesh,&cpumesh+1);
+			m_mock_smgr.m_objectData[std::get<ext::RadeonRays::MockSceneManager::ObjectGUID>(gpuMeshBuffers_CPUMesh_Object[i])].mesh = core::smart_refctd_ptr(gpuMesh->operator[](0));
+		}
+		std::sort(	gpuMeshBuffers_CPUMesh_Object.begin(), gpuMeshBuffers_CPUMesh_Object.end(),
+					[](const auto& lhs, const auto& rhs) -> bool
+					{
+						return std::get<core::smart_refctd_ptr<IGPUMeshBuffer>>(lhs)->getPipeline()<std::get<core::smart_refctd_ptr<IGPUMeshBuffer>>(rhs)->getPipeline();
+					}
+		);
 	}
 
 	core::vector<DrawElementsIndirectCommand_t> mdiData;
@@ -320,29 +319,30 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 			call.indexBuffer = core::smart_refctd_ptr(gpumb->getIndexBufferBinding().buffer);
 			call.pipeline = core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>(const_cast<IGPURenderpassIndependentPipeline*>(gpumb->getPipeline()));
 		};
-		initNewMDI(gpuMeshBuffersAndMeta.front().first);
+		initNewMDI(std::get<core::smart_refctd_ptr<IGPUMeshBuffer>>(gpuMeshBuffers_CPUMesh_Object.front()));
 		call.mdiOffset = 0u;
 		call.mdiCount = 0u;
 		auto queueUpMDI = [&](const MDICall& call) -> void
 		{
 			m_mdiDrawCalls.emplace_back(call);
 		};
-		for (auto gpuAndMeta : gpuMeshBuffersAndMeta)
+		for (auto gpuMeshBuffer_cpuMesh_object : gpuMeshBuffers_CPUMesh_Object)
 		{
-			auto gpumb = gpuAndMeta.first;
+			auto gpumb = std::get<core::smart_refctd_ptr<IGPUMeshBuffer>>(gpuMeshBuffer_cpuMesh_object);
 
 			const uint32_t baseInstance = objectStaticData.size();
 			gpumb->setBaseInstance(baseInstance);
 
 			const uint32_t drawID = mdiData.size();
 			const auto aabb = gpumb->getBoundingBox();
-			const auto& instances = getInstances(gpuAndMeta.second);
+			const auto& instances = getInstances(std::get<core::smart_refctd_ptr<ICPUMesh>>(gpuMeshBuffer_cpuMesh_object));
 			for (auto j=0u; j<gpumb->getInstanceCount(); j++)
 			{
 				core::matrix3x4SIMD worldMatrix,normalMatrix;
 				worldMatrix = instances[j].tform;
 				worldMatrix.getSub3x3InverseTranspose(normalMatrix);
 
+				m_mock_smgr.m_objectData[std::get<ext::RadeonRays::MockSceneManager::ObjectGUID>(gpuMeshBuffer_cpuMesh_object)+j].instanceGUIDPerMeshBuffer.push_back(objectStaticData.size());
 				objectStaticData.emplace_back(ObjectStaticData_t{
 					{normalMatrix.rows[0].x,normalMatrix.rows[0].y,normalMatrix.rows[0].z},worldMatrix.getPseudoDeterminant()[0],
 					{normalMatrix.rows[1].x,normalMatrix.rows[1].y,normalMatrix.rows[1].z},0xdeadbeefu,
@@ -353,9 +353,6 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 					{aabb.MinEdge.X,aabb.MinEdge.Y,aabb.MinEdge.Z},drawID,
 					{aabb.MaxEdge.X,aabb.MaxEdge.Y,aabb.MaxEdge.Z},baseInstance
 				});
-
-				// TODO: set up smgr data
-				m_mock_smgr.m_objectData.push_back({worldMatrix,nullptr,{drawID}});
 			}
 			mdiData.emplace_back(DrawElementsIndirectCommand_t{
 				static_cast<uint32_t>(gpumb->getIndexCount()), // pretty sure index count should be a uint32_t
@@ -597,7 +594,7 @@ void Renderer::init(const SAssetBundle& meshes,
 				const auto& film = sensor.film;
 				assert(film.cropOffsetX == 0);
 				assert(film.cropOffsetY == 0);
-				m_staticViewData.imageDimensions = {film.cropWidth,film.cropHeight};
+				m_staticViewData.imageDimensions = {static_cast<uint32_t>(film.cropWidth),static_cast<uint32_t>(film.cropHeight)};
 			}
 			m_staticViewData.rcpPixelSize = { 1.f/float(m_staticViewData.imageDimensions.x),1.f/float(m_staticViewData.imageDimensions.y) };
 			m_staticViewData.rcpHalfPixelSize = { 0.5f/float(m_staticViewData.imageDimensions.x),0.5f/float(m_staticViewData.imageDimensions.y) };
@@ -636,7 +633,7 @@ void Renderer::init(const SAssetBundle& meshes,
 			m_rayCountBuffer.buffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t),&raygenBufferSize);
 			m_rayCountBuffer.asRRBuffer = m_rrManager->linkBuffer(m_rayCountBuffer.buffer.get(), CL_MEM_READ_ONLY);
 
-			clEnqueueAcquireGLObjects(m_rrManager->getCLCommandQueue(), 1u, &m_rayCountBuffer.asRRBuffer.second, 0u, nullptr, nullptr);
+			ocl::COpenCLHandler::ocl.pclEnqueueAcquireGLObjects(m_rrManager->getCLCommandQueue(), 1u, &m_rayCountBuffer.asRRBuffer.second, 0u, nullptr, nullptr);
 		}
 
 		// create out screen-sized textures
@@ -645,9 +642,62 @@ void Renderer::init(const SAssetBundle& meshes,
 
 		//
 		{
+			SPushConstantRange raytracingCommonPCRange{ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaytraceShaderCommonData_t)};
 			m_commonRaytracingDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_commonRaytracingDSLayout));
-			m_raygenDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_raygenDSLayout));
-			m_resolveDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_resolveDSLayout));
+
+			// i know what I'm doing
+			auto globalBackendDataDSLayout = core::smart_refctd_ptr<IGPUDescriptorSetLayout>(const_cast<IGPUDescriptorSetLayout*>(m_globalBackendDataDS->getLayout()));
+
+			// raygen
+			{
+				m_raygenPipelineLayout = m_driver->createGPUPipelineLayout(
+					&raytracingCommonPCRange,&raytracingCommonPCRange+1u,
+					core::smart_refctd_ptr(globalBackendDataDSLayout),
+					core::smart_refctd_ptr(m_commonRaytracingDSLayout),
+					core::smart_refctd_ptr(m_raygenDSLayout),
+					nullptr
+				);
+#ifdef TODO
+	{
+		std::string glsl = "raygen.comp" +
+			globalMeta->materialCompilerGLSL_declarations +
+			// TODO ds0 descriptors and user-defined functions required by material compiler
+			globalMeta->materialCompilerGLSL_source;
+		
+		auto shader = m_driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(glsl.c_str()));
+		asset::ISpecializedShader::SInfo info(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE);
+		auto spec = m_driver->createGPUSpecializedShader(shader.get(), info);
+		m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_raygenLayout), std::move(spec));
+	}
+#endif
+				(std::ofstream("material_declarations.glsl") << initData.globalMeta->materialCompilerGLSL_declarations).close();
+				(std::ofstream("material_source.glsl") << initData.globalMeta->materialCompilerGLSL_source).close();
+				m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_raygenPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../raygen.comp"));
+
+				m_raygenDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_raygenDSLayout));
+			}
+
+			// resolve
+			{
+				constexpr auto resolveDescriptorCount = 2u;
+				IGPUDescriptorSetLayout::SBinding bindings[resolveDescriptorCount];
+				fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,resolveDescriptorCount);
+				bindings[0].type = asset::EDT_STORAGE_BUFFER;
+				bindings[1].type = asset::EDT_STORAGE_IMAGE;
+
+				m_resolveDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+resolveDescriptorCount);
+
+				m_resolvePipelineLayout = m_driver->createGPUPipelineLayout(
+					&raytracingCommonPCRange,&raytracingCommonPCRange+1u,
+					core::smart_refctd_ptr(globalBackendDataDSLayout),
+					core::smart_refctd_ptr(m_commonRaytracingDSLayout),
+					core::smart_refctd_ptr(m_resolveDSLayout),
+					nullptr
+				);
+				m_resolvePipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_resolvePipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,m_useDenoiser ? "../resolveForDenoiser.comp":"../resolve.comp"));
+
+				m_resolveDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_resolveDSLayout));
+			}
 
 
 			//
@@ -777,33 +827,6 @@ void Renderer::init(const SAssetBundle& meshes,
 	}
 
 
-#ifdef TODO
-	{
-		std::string glsl = "raygen.comp" +
-			globalMeta->materialCompilerGLSL_declarations +
-			// TODO ds0 descriptors and user-defined functions required by material compiler
-			globalMeta->materialCompilerGLSL_source;
-		
-		auto shader = m_driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(glsl.c_str()));
-		asset::ISpecializedShader::SInfo info(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE);
-		auto spec = m_driver->createGPUSpecializedShader(shader.get(), info);
-		m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_raygenLayout), std::move(spec));
-	}
-	{
-		auto glsl = 
-			std::string(m_useDenoiser ? "#version 430 core\n#define USE_OPTIX_DENOISER\n" : "#version 430 core\n") +
-			//"irr/builtin/glsl/ext/RadeonRays/"
-			rr_includes->getBuiltinInclude("ray.glsl") +
-			lightStruct +
-			compostShader;
-
-		auto shader = m_driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(glsl.c_str()));
-		asset::ISpecializedShader::SInfo info(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE);
-		auto spec = m_driver->createGPUSpecializedShader(shader.get(), info);
-		m_compostPipeline = m_driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_compostLayout), std::move(spec));
-	}
-#endif
-
 	m_visibilityBuffer = m_driver->addFrameBuffer();
 	m_visibilityBuffer->attach(EFAP_DEPTH_ATTACHMENT, core::smart_refctd_ptr(visibilityBufferAttachments[EVBA_DEPTH]));
 	m_visibilityBuffer->attach(EFAP_COLOR_ATTACHMENT0, core::smart_refctd_ptr(visibilityBufferAttachments[EVBA_OBJECTID_AND_TRIANGLEID_AND_FRONTFACING]));
@@ -868,7 +891,7 @@ void Renderer::init(const SAssetBundle& meshes,
 void Renderer::deinit()
 {
 	auto commandQueue = m_rrManager->getCLCommandQueue();
-	clFinish(commandQueue);
+	ocl::COpenCLHandler::ocl.pclFinish(commandQueue);
 
 	glFinish();
 
@@ -915,9 +938,9 @@ void Renderer::deinit()
 	deleteInteropBuffer(m_intersectionBuffer);
 	deleteInteropBuffer(m_rayBuffer);
 	// release the last OpenCL object and wait for OpenCL to finish
-	clEnqueueReleaseGLObjects(commandQueue, 1u, &m_rayCountBuffer.asRRBuffer.second, 1u, nullptr, nullptr);
-	clFlush(commandQueue);
-	clFinish(commandQueue);
+	ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue, 1u, &m_rayCountBuffer.asRRBuffer.second, 1u, nullptr, nullptr);
+	ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
+	ocl::COpenCLHandler::ocl.pclFinish(commandQueue);
 	deleteInteropBuffer(m_rayCountBuffer);
 
 	m_resolveWorkGroups[0] = m_resolveWorkGroups[1] = 0u;
@@ -928,6 +951,11 @@ void Renderer::deinit()
 	m_commonRaytracingDS = nullptr;
 	m_globalBackendDataDS = nullptr;
 
+	m_raygenPipelineLayout = nullptr;
+	m_resolvePipelineLayout = nullptr;
+	m_raygenPipeline = nullptr;
+	m_resolvePipeline = nullptr;
+
 	m_perCameraRasterDS = nullptr;
 
 	m_cullWorkGroups = 0u;
@@ -936,7 +964,7 @@ void Renderer::deinit()
 	m_mdiDrawCalls.clear();
 	m_indirectDrawBuffers[1] = m_indirectDrawBuffers[0] = nullptr;
 
-	m_raytraceCommonData = {{},{},0.f,0u,0u,0.f};
+	m_raytraceCommonData = {core::matrix3x4SIMD(),core::matrix3x4SIMD(),0.f,0u,0u,0.f};
 	m_staticViewData = {{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u};
 	m_maxRaysPerDispatch = 0u;
 	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
@@ -1048,7 +1076,7 @@ void Renderer::render(irr::ITimer* timer)
 		const auto objCount = sizeof(clObjects)/sizeof(cl_mem);
 
 		cl_event acquired = nullptr;
-		clEnqueueAcquireGLObjects(commandQueue,objCount,clObjects,0u,nullptr,&acquired);
+		ocl::COpenCLHandler::ocl.pclEnqueueAcquireGLObjects(commandQueue,objCount,clObjects,0u,nullptr,&acquired);
 
 		clEnqueueWaitForEvents(commandQueue,1u,&acquired);
 		m_rrManager->getRadeonRaysAPI()->QueryIntersection(m_rayBuffer.asRRBuffer.first,m_rayCountBuffer.asRRBuffer.first,m_maxRaysPerDispatch,m_intersectionBuffer.asRRBuffer.first,nullptr,nullptr);
@@ -1057,15 +1085,15 @@ void Renderer::render(irr::ITimer* timer)
 
 		if (m_rrManager->hasImplicitCL2GLSync())
 		{
-			clEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, nullptr);
-			clFlush(commandQueue);
+			ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, nullptr);
+			ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
 		}
 		else
 		{
 			cl_event released;
-			clEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, &released);
-			clFlush(commandQueue);
-			clWaitForEvents(1u, &released);
+			ocl::COpenCLHandler::ocl.pclEnqueueReleaseGLObjects(commandQueue, objCount, clObjects, 1u, &raycastDone, &released);
+			ocl::COpenCLHandler::ocl.pclFlush(commandQueue);
+			ocl::COpenCLHandler::ocl.pclWaitForEvents(1u,&released);
 		}
 	}
 

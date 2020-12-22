@@ -3,6 +3,13 @@
 #include <cwchar>
 #include <irr/asset/filters/CSwizzleAndConvertImageFilter.h>
 
+
+
+// wtf
+#include <irr/asset/IImageAssetHandlerBase.h>
+
+
+
 #include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
 #include "irr/ext/MitsubaLoader/ParserUtil.h"
 
@@ -45,7 +52,7 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO {
 } CamData;
 #endif //_IRR_VERT_SET1_BINDINGS_DEFINED_
 
-#include <irr/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl>
+#include <irr/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl> // @Crisspl: WRONG PATH, should be `builtin/glsl/ext/MitsubaLoader` !
 
 layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
 	InstanceData data[];
@@ -686,7 +693,7 @@ core::smart_refctd_ptr<asset::ICPUPipelineLayout> CMitsubaLoader::createPipeline
 	pcrng.size = sizeof(uint32_t);//instance data offset
 	pcrng.stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
 
-	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout;
+	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout; // needs to builtin and cached statically
 	{
 		auto sizes = _vt->getDSlayoutBindings(nullptr, nullptr);
 		auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSetLayout::SBinding>>(sizes.first + DS0_BINDING_COUNT_WO_VT);
@@ -1741,7 +1748,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 		{
 			auto* mb = mesh->getMeshBuffer(i);
-			reinterpret_cast<uint32_t*>(mb->getPushConstantsDataPtr())[0] = instDataOffset;
+			reinterpret_cast<uint32_t*>(mb->getPushConstantsDataPtr())[0] = instDataOffset; // use base instance!
 		}
 	}
 #ifdef DEBUG_MITSUBA_LOADER

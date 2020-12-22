@@ -5,18 +5,20 @@
 
 vec3 irr_glsl_decodeRGB19E7(in uvec2 x)
 {
-	int exp = int(bitfieldExtract(x.y, 3*irr_glsl_RGB19E7_MANTISSA_BITS-32, irr_glsl_RGB19E7_EXPONENT_BITS) - irr_glsl_RGB19E7_EXP_BIAS - irr_glsl_RGB19E7_MANTISSA_BITS);
-	float scale = exp2(float(exp));//uintBitsToFloat((uint(exp)+127u)<<23u)
+	int exp = int(bitfieldExtract(x[irr_glsl_RGB19E7_COMPONENT_INDICES[3]], irr_glsl_RGB19E7_COMPONENT_BITOFFSETS[3], irr_glsl_RGB19E7_EXPONENT_BITS) - irr_glsl_RGB19E7_EXP_BIAS - irr_glsl_RGB19E7_MANTISSA_BITS);
+	float scale = exp2(float(exp));
 	
 	vec3 v;
-	v.x = int(bitfieldExtract(x.x, 0, irr_glsl_RGB19E7_MANTISSA_BITS))*scale;
-	v.y = int(
-		bitfieldExtract(x.x, irr_glsl_RGB19E7_MANTISSA_BITS, 32-irr_glsl_RGB19E7_MANTISSA_BITS) | 
-		(bitfieldExtract(x.y, 0, irr_glsl_RGB19E7_MANTISSA_BITS-(32-irr_glsl_RGB19E7_MANTISSA_BITS))<<(32-irr_glsl_RGB19E7_MANTISSA_BITS))
-	) * scale;
-	v.z = int(bitfieldExtract(x.y, irr_glsl_RGB19E7_MANTISSA_BITS-(32-irr_glsl_RGB19E7_MANTISSA_BITS), irr_glsl_RGB19E7_MANTISSA_BITS)) * scale;
+	v.x = float(bitfieldExtract(x[irr_glsl_RGB19E7_COMPONENT_INDICES[0]], irr_glsl_RGB19E7_COMPONENT_BITOFFSETS[0], irr_glsl_RGB19E7_MANTISSA_BITS));
+	v.y = float(bitfieldInsert(
+		bitfieldExtract(x[irr_glsl_RGB19E7_COMPONENT_INDICES[1]], irr_glsl_RGB19E7_COMPONENT_BITOFFSETS[1], irr_glsl_RGB19E7_G_COMPONENT_SPLIT),
+		bitfieldExtract(x[irr_glsl_RGB19E7_COMPONENT_INDICES[2]], 0, irr_glsl_RGB19E7_COMPONENT_BITOFFSETS[2]),
+		irr_glsl_RGB19E7_G_COMPONENT_SPLIT,
+		irr_glsl_RGB19E7_COMPONENT_BITOFFSETS[2]
+	));
+	v.z = float(bitfieldExtract(x[irr_glsl_RGB19E7_COMPONENT_INDICES[2]], irr_glsl_RGB19E7_COMPONENT_BITOFFSETS[2], irr_glsl_RGB19E7_MANTISSA_BITS));
 	
-	return v;
+	return v*scale;
 }
 
 vec4 irr_glsl_decodeRGB10A2(in uint x)

@@ -135,7 +135,7 @@ irr_glsl_IsotropicViewSurfaceInteraction irr_glsl_calcFragmentShaderSurfaceInter
 {
     irr_glsl_IsotropicViewSurfaceInteraction interaction;
     interaction.V.dir = _View;
-    interaction.V.dPosdScreen[0] = dFdx(_SurfacePos);
+    interaction.V.dPosdScreen[0] = dFdx(_SurfacePos);// TODO: require the user to feed us the derivatives
     interaction.V.dPosdScreen[1] = dFdy(_SurfacePos);
     interaction.N = _Normal;
     float invlenV2 = inversesqrt(dot(interaction.V.dir, interaction.V.dir));

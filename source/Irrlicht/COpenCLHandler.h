@@ -265,10 +265,6 @@ class COpenCLHandler
             return retval==CL_SUCCESS;
         }
 #endif // defined
-
-    private:
-        static bool alreadyEnumeratedPlatforms;
-        static core::vector<SOpenCLPlatformInfo> platformInformation;
         
         // function pointers
 		using LibLoader = system::DefaultFuncPtrLoader;
@@ -279,9 +275,20 @@ class COpenCLHandler
             ,clGetPlatformInfo
             ,clGetDeviceIDs
             ,clGetDeviceInfo
+            ,clFlush
+            ,clFinish
+            ,clEnqueueWaitForEvents
+            ,clEnqueueMarker
+            ,clWaitForEvents
+            ,clEnqueueAcquireGLObjects
+            ,clEnqueueReleaseGLObjects
 		);
 		static OpenCL ocl;
 
+
+    private:
+        static bool alreadyEnumeratedPlatforms;
+        static core::vector<SOpenCLPlatformInfo> platformInformation;
         
         class OpenCLExtensionLoader final : system::FuncPtrLoader
         {
