@@ -218,7 +218,7 @@ option(NBL_BUILD_CEGUI "Enable CEGUI building and integration?" OFF)
 
 option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 
-option(NBL_BUILD_DOCS "Enable building documentation?" ON)
+option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen installed, plus we dont know when was the last time we generated working doxy and we'll use SphinX in the future
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 set(THIRD_PARTY_BINARY_DIR "${PROJECT_BINARY_DIR}/3rdparty")

@@ -422,6 +422,8 @@ if (NBL_BUILD_RADEON_RAYS)
 
 	set(RADEON_RAYS_DEPENDENTS
 		RadeonRays
+		CLW
+		Calc
 	)
 	set(RADEON_RAYS_DEPENDENTS ${RADEON_RAYS_DEPENDENTS} PARENT_SCOPE)
 	set(RADEON_RAYS_DEPENDENT_LIBS
@@ -445,9 +447,7 @@ if (NBL_COMPILE_WITH_CUDA)
 endif()
 
 set(NBL_3RDPARTY_TARGETS
-				RadeonRays
-				CLW
-				Calc
+				${RADEON_RAYS_DEPENDENTS}
 				lzma
 				lz4
 				aesGladman
