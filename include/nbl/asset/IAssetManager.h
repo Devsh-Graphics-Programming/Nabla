@@ -15,7 +15,6 @@
 #include "IReadFile.h"
 #include "IWriteFile.h"
 
-#include "nbl/asset/ISPIRVOptimizer.h"
 #include "nbl/core/Types.h"
 #include "nbl/asset/IGLSLCompiler.h"
 
@@ -127,7 +126,6 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
         core::smart_refctd_ptr<IGeometryCreator> m_geometryCreator;
         core::smart_refctd_ptr<IMeshManipulator> m_meshManipulator;
         core::smart_refctd_ptr<IGLSLCompiler> m_glslCompiler;
-        core::smart_refctd_ptr<ISPIRVOptimizer> m_spirvOptimizer;
         // called as a part of constructor only
         void initializeMeshTools();
 
@@ -153,7 +151,6 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
         const IGeometryCreator* getGeometryCreator() const;
         IMeshManipulator* getMeshManipulator();
         IGLSLCompiler* getGLSLCompiler() const { return m_glslCompiler.get(); }
-        ISPIRVOptimizer* getSPIRVOptimizer() const { return m_spirvOptimizer.get(); }
 
     protected:
 		virtual ~IAssetManager()
