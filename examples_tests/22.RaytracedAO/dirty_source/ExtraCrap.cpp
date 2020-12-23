@@ -57,10 +57,10 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		m_raygenWorkGroups{0u,0u},m_resolveWorkGroups{0u,0u},
 		m_visibilityBuffer(nullptr),tmpTonemapBuffer(nullptr),m_colorBuffer(nullptr)
 {
-#ifdef _IRR_BUILD_OPTIX_
-	while (useDenoiser)
+	while (m_useDenoiser)
 	{
-		useDenoiser = false;
+		m_useDenoiser = false;
+#ifdef _IRR_BUILD_OPTIX_
 		m_optixManager = ext::OptiX::Manager::create(m_driver, m_assetManager->getFileSystem());
 		if (!m_optixManager)
 			break;
@@ -75,10 +75,10 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		if (!m_denoiser)
 			break;
 
-		useDenoiser = true;
+		m_useDenoiser = true;
+#endif
 		break;
 	}
-#endif
 
 	constexpr auto cullingOutputDescriptorCount = 2u;
 	{

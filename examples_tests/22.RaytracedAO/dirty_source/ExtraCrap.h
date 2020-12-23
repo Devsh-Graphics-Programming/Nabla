@@ -91,8 +91,8 @@ class Renderer : public irr::core::IReferenceCounted, public irr::core::Interfac
 		irr::core::smart_refctd_ptr<irr::video::IGPUImageView> createScreenSizedTexture(irr::asset::E_FORMAT format);
 
 
-		// constants
-		const bool m_useDenoiser;
+		// "constants"
+		bool m_useDenoiser;
 
 		// managers
         irr::video::IVideoDriver* m_driver;
