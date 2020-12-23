@@ -9,22 +9,19 @@
 #include <nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl>
 #include <nbl/builtin/glsl/bxdf/common.glsl>
 
-#define instr_t uvec2
-#define prefetch_instr_t uvec4
-#define reg_t uint
-#define params_t mat2x3
-#define bxdf_eval_t vec3
-#define eval_and_pdf_t vec4
+#define nbl_glsl_instr_t uvec2
+#define nbl_glsl_prefetch_instr_t uvec4
+#define nbl_glsl_reg_t uint
+#define nbl_glsl_params_t mat2x3
+#define nbl_glsl_bxdf_eval_t vec3
+#define nbl_glsl_eval_and_pdf_t vec4
 
-#define INSTR_1ST_DWORD(instr) (instr).x
-#define INSTR_2ND_DWORD(instr) (instr).y
-
-struct bsdf_data_t
+struct nbl_glsl_bsdf_data_t
 {
 	uvec4 data[sizeof_bsdf_data];
 };
 
-struct instr_stream_t
+struct nbl_glsl_instr_stream_t
 {
 	uint offset;
 	uint count;
@@ -33,7 +30,7 @@ struct instr_stream_t
 // all vectors (and dot products) have untouched orientation relatively to shader inputs
 // therefore MC_precomputed_t::NdotV can be used to determine if we are inside a material
 // (in case of precomp.NdotV<0.0, currInteraction will be set with -precomp.N)
-struct MC_precomputed_t
+struct nbl_glsl_MC_precomputed_t
 {
 	vec3 N;
 	vec3 V;
@@ -41,33 +38,33 @@ struct MC_precomputed_t
 	bool frontface;
 };
 
-struct MC_microfacet_t
+struct nbl_glsl_MC_microfacet_t
 {
 	nbl_glsl_AnisotropicMicrofacetCache inner;
 	float TdotH2;
 	float BdotH2;
 };
-void finalizeMicrofacet(inout MC_microfacet_t mf)
+void nbl_glsl_finalizeMicrofacet(inout nbl_glsl_MC_microfacet_t mf)
 {
 	mf.TdotH2 = mf.inner.TdotH * mf.inner.TdotH;
 	mf.BdotH2 = mf.inner.BdotH * mf.inner.BdotH;
 }
 
-struct MC_interaction_t
+struct nbl_glsl_MC_interaction_t
 {
 	nbl_glsl_AnisotropicViewSurfaceInteraction inner;
 	float TdotV2;
 	float BdotV2;
 };
-void finalizeInteraction(inout MC_interaction_t i)
+void nbl_glsl_finalizeInteraction(inout nbl_glsl_MC_interaction_t i)
 {
 	i.TdotV2 = i.inner.TdotV * i.inner.TdotV;
 	i.BdotV2 = i.inner.BdotV * i.inner.BdotV;
 }
 
-#define ALPHA_EPSILON 1.0e-08
+#define NBL_GLSL_MC_ALPHA_EPSILON 1.0e-08
 
-#define CIE_XYZ_Luma_Y_coeffs transpose(nbl_glsl_sRGBtoXYZ)[1]
+#define NBL_GLSL_MC_CIE_XYZ_Luma_Y_coeffs transpose(nbl_glsl_sRGBtoXYZ)[1]
 
 //#define MATERIAL_COMPILER_USE_SWTICH
 #ifdef MATERIAL_COMPILER_USE_SWTICH

@@ -54,7 +54,7 @@ vec2 SampleSphericalMap(in vec3 v)
     return uv;
 }
 
-vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in MC_precomputed_t precomp)
+vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in nbl_glsl_MC_precomputed_t precomp)
 {
 	nbl_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,gl_FragCoord.xy/VIEWPORT_SZ,0).rg;
 
@@ -63,8 +63,8 @@ vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_inte
 	vec3 color = vec3(0.0);
 
 #ifdef USE_ENVMAP
-	instr_stream_t gcs = getGenChoiceStream(precomp);
-	instr_stream_t rnps = getRemAndPdfStream(precomp);
+	nbl_glsl_instr_stream_t gcs = getGenChoiceStream(precomp);
+	nbl_glsl_instr_stream_t rnps = getRemAndPdfStream(precomp);
 	for (int i = 0; i < SAMPLE_COUNT; ++i)
 	{
 		nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
@@ -72,7 +72,7 @@ vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_inte
 		vec3 rand = rand3d(i,scramble_state);
 		float pdf;
 		nbl_glsl_LightSample s;
-		vec3 rem = runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
+		vec3 rem = nbl_glsl_runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
 
 		vec2 uv = SampleSphericalMap(s.L);
 		color += rem*textureLod(envMap, uv, 0.0).xyz;

@@ -49,7 +49,7 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO {
 } CamData;
 #endif //_NBL_VERT_SET1_BINDINGS_DEFINED_
 
-#include <nbl/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl>
+#include <nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl>
 
 layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
 	InstanceData data[];
@@ -110,15 +110,15 @@ layout (set = 0, binding = 2, std430) restrict readonly buffer VT_PrecomputedStu
 
 layout (set = 0, binding = 3, std430) restrict readonly buffer INSTR_BUF
 {
-	instr_t data[];
+	nbl_glsl_instr_t data[];
 } instr_buf;
 layout (set = 0, binding = 6, std430) restrict readonly buffer PREFETCH_INSTR_BUF
 {
-	prefetch_instr_t data[];
+	nbl_glsl_prefetch_instr_t data[];
 } prefetch_instr_buf;
 layout (set = 0, binding = 4, std430) restrict readonly buffer BSDF_BUF
 {
-	bsdf_data_t data[];
+	nbl_glsl_bsdf_data_t data[];
 } bsdf_buf;
 
 uint nbl_glsl_VT_layer2pid(in uint layer)
@@ -147,7 +147,7 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO {
     nbl_glsl_SBasicViewParameters params;
 } CamData;
 
-#include <nbl/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl>
+#include <nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl>
 
 layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
 	InstanceData data[];
@@ -166,15 +166,15 @@ vec3 nbl_glsl_MC_getWorldSpacePosition()
 {
 	return WorldPos;
 }
-instr_t nbl_glsl_MC_fetchInstr(in uint ix)
+nbl_glsl_instr_t nbl_glsl_MC_fetchInstr(in uint ix)
 {
 	return instr_buf.data[ix];
 }
-prefetch_instr_t nbl_glsl_MC_fetchPrefetchInstr(in uint ix)
+nbl_glsl_prefetch_instr_t nbl_glsl_MC_fetchPrefetchInstr(in uint ix)
 {
 	return prefetch_instr_buf.data[ix];
 }
-bsdf_data_t nbl_glsl_MC_fetchBSDFData(in uint ix)
+nbl_glsl_bsdf_data_t nbl_glsl_MC_fetchBSDFData(in uint ix)
 {
 	return bsdf_buf.data[ix];
 }
@@ -183,9 +183,9 @@ bsdf_data_t nbl_glsl_MC_fetchBSDFData(in uint ix)
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
 #include <nbl/builtin/glsl/format/decode.glsl>
 
-instr_stream_t getEvalStream(in MC_precomputed_t precomp)
+nbl_glsl_instr_stream_t getEvalStream(in nbl_glsl_MC_precomputed_t precomp)
 {
-	instr_stream_t stream;
+	nbl_glsl_instr_stream_t stream;
 	if (precomp.frontface)
 	{
 		stream.offset = InstData.data[InstanceIndex].front_instr_offset;
@@ -200,13 +200,13 @@ instr_stream_t getEvalStream(in MC_precomputed_t precomp)
 	return stream;
 }
 //rem'n'pdf and eval use the same instruction stream
-instr_stream_t getRemAndPdfStream(in MC_precomputed_t precomp)
+nbl_glsl_instr_stream_t getRemAndPdfStream(in nbl_glsl_MC_precomputed_t precomp)
 {
 	return getEvalStream(precomp);
 }
-instr_stream_t getGenChoiceStream(in MC_precomputed_t precomp)
+nbl_glsl_instr_stream_t getGenChoiceStream(in nbl_glsl_MC_precomputed_t precomp)
 {
-	instr_stream_t stream;
+	nbl_glsl_instr_stream_t stream;
 	if (precomp.frontface)
 	{
 		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count;
@@ -220,9 +220,9 @@ instr_stream_t getGenChoiceStream(in MC_precomputed_t precomp)
 
 	return stream;
 }
-instr_stream_t getTexPrefetchStream(in MC_precomputed_t precomp)
+nbl_glsl_instr_stream_t getTexPrefetchStream(in nbl_glsl_MC_precomputed_t precomp)
 {
-	instr_stream_t stream;
+	nbl_glsl_instr_stream_t stream;
 	if (precomp.frontface)
 	{
 		stream.offset = InstData.data[InstanceIndex].front_prefetch_offset;
@@ -236,9 +236,9 @@ instr_stream_t getTexPrefetchStream(in MC_precomputed_t precomp)
 
 	return stream;
 }
-instr_stream_t getNormalPrecompStream(in MC_precomputed_t precomp)
+nbl_glsl_instr_stream_t getNormalPrecompStream(in nbl_glsl_MC_precomputed_t precomp)
 {
-	instr_stream_t stream;
+	nbl_glsl_instr_stream_t stream;
 	if (precomp.frontface)
 	{
 		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count + InstData.data[InstanceIndex].front_genchoice_count;
@@ -259,17 +259,17 @@ instr_stream_t getNormalPrecompStream(in MC_precomputed_t precomp)
 #define Spectrum vec3
 //! This is the function that evaluates the BSDF for specific view and observer direction
 // params can be either BSDFIsotropicParams or BSDFAnisotropicParams
-Spectrum nbl_bsdf_cos_eval(in MC_precomputed_t precomp, in vec3 L, in nbl_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
+Spectrum nbl_bsdf_cos_eval(in nbl_glsl_MC_precomputed_t precomp, in vec3 L, in nbl_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
 {
-	instr_stream_t eval_instrStream = getEvalStream(precomp);
+	nbl_glsl_instr_stream_t eval_instrStream = getEvalStream(precomp);
 
-	return runEvalStream(precomp, eval_instrStream, L);
+	return nbl_glsl_runEvalStream(precomp, eval_instrStream, L);
 }
 #endif
 
 #ifndef _NBL_COMPUTE_LIGHTING_DEFINED_
 #define _NBL_COMPUTE_LIGHTING_DEFINED_
-vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in MC_precomputed_t precomp)
+vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in nbl_glsl_MC_precomputed_t precomp)
 {
 	vec3 emissive = nbl_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
@@ -289,12 +289,12 @@ void main()
 
 	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
 	const bool front = (!gl_FrontFacing) != (InstData.data[InstanceIndex].determinant < 0.0);
-	MC_precomputed_t precomp = precomputeData(front);
+	nbl_glsl_MC_precomputed_t precomp = nbl_glsl_precomputeData(front);
 #ifdef TEX_PREFETCH_STREAM
-	runTexPrefetchStream(getTexPrefetchStream(precomp), UV, dUV);
+	nbl_glsl_runTexPrefetchStream(getTexPrefetchStream(precomp), UV, dUV);
 #endif
 #ifdef NORM_PRECOMP_STREAM
-	runNormalPrecompStream(getNormalPrecompStream(precomp), dUV, precomp);
+	nbl_glsl_runNormalPrecompStream(getNormalPrecompStream(precomp), dUV, precomp);
 #endif
 
 

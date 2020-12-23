@@ -26,19 +26,19 @@ namespace asset
 //! \param mesh: Mesh on which the operation is performed.
 void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
 {
-#ifdef OLD_SHADERS
 	if (!inbuffer)
 		return;
+    auto* pipeline = inbuffer->getPipeline();
+    const E_PRIMITIVE_TOPOLOGY primType = pipeline->getPrimitiveAssemblyParams().primitiveType;
 
     const uint32_t idxcnt = inbuffer->getIndexCount();
     if (!inbuffer->getIndices())
         return;
 
-
     if (inbuffer->getIndexType() == EIT_16BIT)
     {
         uint16_t* idx = reinterpret_cast<uint16_t*>(inbuffer->getIndices());
-        switch (inbuffer->getPrimitiveType())
+        switch (primType)
         {
         case EPT_TRIANGLE_FAN:
             for (uint32_t i = 1; i < idxcnt; i += 2)
@@ -65,11 +65,11 @@ void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
                 destPtr[0] = idx[0];
                 memcpy(destPtr + 1u, idx, sizeof(uint16_t) * idxcnt);
                 inbuffer->setIndexCount(idxcnt + 1u);
-                inbuffer->setIndexBufferOffset(0);
-                inbuffer->getMeshDataAndFormat()->setIndexBuffer(std::move(newIndexBuffer));
+                SBufferBinding<ICPUBuffer> ixBufBinding{ 0u, std::move(newIndexBuffer) };
+                inbuffer->setIndexBufferBinding(std::move(ixBufBinding));
             }
             break;
-        case EPT_TRIANGLES:
+        case EPT_TRIANGLE_LIST:
             for (uint32_t i = 0; i < idxcnt; i += 3)
             {
                 const uint16_t tmp = idx[i + 1];
@@ -83,7 +83,7 @@ void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
     else if (inbuffer->getIndexType() == EIT_32BIT)
     {
         uint32_t* idx = reinterpret_cast<uint32_t*>(inbuffer->getIndices());
-        switch (inbuffer->getPrimitiveType())
+        switch (primType)
         {
         case EPT_TRIANGLE_FAN:
             for (uint32_t i = 1; i < idxcnt; i += 2)
@@ -110,11 +110,11 @@ void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
                 destPtr[0] = idx[0];
                 memcpy(destPtr + 1u, idx, sizeof(uint32_t) * idxcnt);
                 inbuffer->setIndexCount(idxcnt + 1);
-                inbuffer->setIndexBufferOffset(0);
-                inbuffer->getMeshDataAndFormat()->setIndexBuffer(std::move(newIndexBuffer));
+                SBufferBinding<ICPUBuffer> ixBufBinding{ 0u, std::move(newIndexBuffer) };
+                inbuffer->setIndexBufferBinding(std::move(ixBufBinding));
             }
             break;
-        case EPT_TRIANGLES:
+        case EPT_TRIANGLE_LIST:
             for (uint32_t i = 0; i < idxcnt; i += 3)
             {
                 const uint32_t tmp = idx[i + 1];
@@ -125,7 +125,6 @@ void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
         default: break;
         }
     }
-#endif
 }
 
 core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshBuffer* _inbuffer)

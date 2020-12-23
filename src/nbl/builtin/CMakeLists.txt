@@ -23,7 +23,6 @@ set(nbl_resources_to_embed
   "nbl/builtin/shaders/loaders/mtl/fragment_impl.glsl"
   "nbl/builtin/shaders/loaders/mtl/fragment_no_uv.frag"
   "nbl/builtin/shaders/loaders/mtl/fragment_uv.frag"
-  "nbl/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl"
   "nbl/builtin/specializedshaders/fullscreentriangle.vert"
   "nbl/builtin/materials/lambertian/singletexture/specializedshader.vert"
   "nbl/builtin/materials/lambertian/singletexture/specializedshader.frag"
@@ -130,5 +129,6 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/ToneMapper/operators.glsl"
   "nbl/builtin/glsl/ext/RadeonRays/intersection.glsl"
   "nbl/builtin/glsl/ext/RadeonRays/ray.glsl"
+  "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
 PARENT_SCOPE)
 
