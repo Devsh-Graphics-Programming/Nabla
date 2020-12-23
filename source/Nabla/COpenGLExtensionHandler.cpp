@@ -1008,7 +1008,7 @@ void COpenGLExtensionHandler::loadFunctions()
     pGlGetStringi = (PFNGLGETSTRINGIPROC) NBL_OGL_LOAD_EXTENSION("glGetStringi");
 
 	//should contain space-separated OpenGL extension names
-	constexpr const char* OPENGL_EXTS_ENVVAR_NAME = "_IRR_OPENGL_EXTENSIONS_LIST";//move this to some top-level header?
+	constexpr const char* OPENGL_EXTS_ENVVAR_NAME = "_NBL_OPENGL_EXTENSIONS_LIST";//move this to some top-level header?
 
 	const char* envvar = std::getenv(OPENGL_EXTS_ENVVAR_NAME);
 	if (!envvar)

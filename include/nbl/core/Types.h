@@ -104,13 +104,6 @@ typedef std::mutex  fast_mutex;
 
 #endif // _NBL_WINDOWS_API_
 
-
-
-#define _NBL_TEXT(X) X
-
-
-
-
 // memory debugging
 #if defined(_NBL_DEBUG) && defined(NABLA_EXPORTS) && defined(_MSC_VER) && \
 	(_MSC_VER > 1299) && !defined(_NBL_DONT_DO_MEMORY_DEBUGGING_HERE) && !defined(_WIN32_WCE)
@@ -121,27 +114,6 @@ typedef std::mutex  fast_mutex;
 	#include <stdlib.h>
 	#include <crtdbg.h>
 	#define new DEBUG_CLIENTBLOCK
-#endif
-
-
-//! ignore VC8 warning deprecated
-/** The microsoft compiler */
-#if defined(_NBL_WINDOWS_API_) && defined(_MSC_VER) && (_MSC_VER >= 1400)
-	//#pragma warning( disable: 4996)
-	//#define _CRT_SECURE_NO_DEPRECATE 1
-	//#define _CRT_NONSTDC_NO_DEPRECATE 1
-#endif
-
-
-//! creates four CC codes used in Irrlicht for simple ids
-/** some compilers can create those by directly writing the
-code like 'code', but some generate warnings so we use this macro here */
-#define MAKE_NBL_ID(c0, c1, c2, c3) \
-		((uint32_t)(uint8_t)(c0) | ((uint32_t)(uint8_t)(c1) << 8) | \
-		((uint32_t)(uint8_t)(c2) << 16) | ((uint32_t)(uint8_t)(c3) << 24 ))
-
-#if defined(__BORLANDC__) || defined (__BCPLUSPLUS__)
-#define _strcmpi(a,b) strcmpi(a,b)
 #endif
 
 #endif

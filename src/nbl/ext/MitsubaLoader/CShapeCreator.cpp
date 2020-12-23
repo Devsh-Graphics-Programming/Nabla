@@ -61,7 +61,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createSphere(asset::IAsse
 
 core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createCylinder(asset::IAssetManager* _assetManager, const core::vector<SPropertyElementData>& properties, core::matrix4SIMD& _transform)
 {
-	_IRR_DEBUG_BREAK_IF(true);
+	_NBL_DEBUG_BREAK_IF(true);
 	return nullptr;
 }
 
@@ -112,7 +112,7 @@ core::smart_refctd_ptr<asset::ICPUMesh> CShapeCreator::createDisk(asset::IAssetM
 		else
 		{
 			ParserLog::invalidXMLFileStructure(properties[i].name + " wat is this?");
-			_IRR_DEBUG_BREAK_IF(true);
+			_NBL_DEBUG_BREAK_IF(true);
 			return nullptr;
 		}
 	}

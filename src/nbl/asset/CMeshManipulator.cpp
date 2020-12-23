@@ -41,40 +41,40 @@ void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
         switch (inbuffer->getPrimitiveType())
         {
         case EPT_TRIANGLE_FAN:
-            for (uint32_t i=1; i<idxcnt; i+=2)
+            for (uint32_t i = 1; i < idxcnt; i += 2)
             {
                 const uint16_t tmp = idx[i];
-                idx[i] = idx[i+1];
-                idx[i+1] = tmp;
+                idx[i] = idx[i + 1];
+                idx[i + 1] = tmp;
             }
             break;
         case EPT_TRIANGLE_STRIP:
-            if (idxcnt%2) //odd
+            if (idxcnt % 2) //odd
             {
-                for (uint32_t i=0; i<(idxcnt>>1); i++)
+                for (uint32_t i = 0; i < (idxcnt >> 1); i++)
                 {
                     const uint16_t tmp = idx[i];
-                    idx[i] = idx[idxcnt-1-i];
-                    idx[idxcnt-1-i] = tmp;
+                    idx[i] = idx[idxcnt - 1 - i];
+                    idx[idxcnt - 1 - i] = tmp;
                 }
             }
             else //even
             {
-                auto newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>((idxcnt+1u)*sizeof(uint16_t));
-				auto* destPtr = reinterpret_cast<uint16_t*>(newIndexBuffer->getPointer());
-				destPtr[0] = idx[0];
-                memcpy(destPtr+1u,idx,sizeof(uint16_t)*idxcnt);
-                inbuffer->setIndexCount(idxcnt+1u);
+                auto newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>((idxcnt + 1u) * sizeof(uint16_t));
+                auto* destPtr = reinterpret_cast<uint16_t*>(newIndexBuffer->getPointer());
+                destPtr[0] = idx[0];
+                memcpy(destPtr + 1u, idx, sizeof(uint16_t) * idxcnt);
+                inbuffer->setIndexCount(idxcnt + 1u);
                 inbuffer->setIndexBufferOffset(0);
                 inbuffer->getMeshDataAndFormat()->setIndexBuffer(std::move(newIndexBuffer));
             }
             break;
         case EPT_TRIANGLES:
-            for (uint32_t i=0; i<idxcnt; i+=3)
+            for (uint32_t i = 0; i < idxcnt; i += 3)
             {
-                const uint16_t tmp = idx[i+1];
-                idx[i+1] = idx[i+2];
-                idx[i+2] = tmp;
+                const uint16_t tmp = idx[i + 1];
+                idx[i + 1] = idx[i + 2];
+                idx[i + 2] = tmp;
             }
             break;
         default: break;
@@ -86,40 +86,40 @@ void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
         switch (inbuffer->getPrimitiveType())
         {
         case EPT_TRIANGLE_FAN:
-            for (uint32_t i=1; i<idxcnt; i+=2)
+            for (uint32_t i = 1; i < idxcnt; i += 2)
             {
                 const uint32_t tmp = idx[i];
-                idx[i] = idx[i+1];
-                idx[i+1] = tmp;
+                idx[i] = idx[i + 1];
+                idx[i + 1] = tmp;
             }
             break;
         case EPT_TRIANGLE_STRIP:
-            if (idxcnt%2) //odd
+            if (idxcnt % 2) //odd
             {
-                for (uint32_t i=0; i<(idxcnt>>1); i++)
+                for (uint32_t i = 0; i < (idxcnt >> 1); i++)
                 {
                     const uint32_t tmp = idx[i];
-                    idx[i] = idx[idxcnt-1-i];
-                    idx[idxcnt-1-i] = tmp;
+                    idx[i] = idx[idxcnt - 1 - i];
+                    idx[idxcnt - 1 - i] = tmp;
                 }
             }
             else //even
             {
-                auto newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>((idxcnt+1u)*sizeof(uint32_t));
-				auto* destPtr = reinterpret_cast<uint32_t*>(newIndexBuffer->getPointer());
-				destPtr[0] = idx[0];
-                memcpy(destPtr+1u,idx,sizeof(uint32_t)*idxcnt);
-                inbuffer->setIndexCount(idxcnt+1);
+                auto newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>((idxcnt + 1u) * sizeof(uint32_t));
+                auto* destPtr = reinterpret_cast<uint32_t*>(newIndexBuffer->getPointer());
+                destPtr[0] = idx[0];
+                memcpy(destPtr + 1u, idx, sizeof(uint32_t) * idxcnt);
+                inbuffer->setIndexCount(idxcnt + 1);
                 inbuffer->setIndexBufferOffset(0);
                 inbuffer->getMeshDataAndFormat()->setIndexBuffer(std::move(newIndexBuffer));
             }
             break;
         case EPT_TRIANGLES:
-            for (uint32_t i=0; i<idxcnt; i+=3)
+            for (uint32_t i = 0; i < idxcnt; i += 3)
             {
-                const uint32_t tmp = idx[i+1];
-                idx[i+1] = idx[i+2];
-                idx[i+2] = tmp;
+                const uint32_t tmp = idx[i + 1];
+                idx[i + 1] = idx[i + 2];
+                idx[i + 2] = tmp;
             }
             break;
         default: break;
@@ -593,6 +593,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 	// Find vertex count
 	size_t vertexCount = outbuffer->calcVertexCount();
 
+    constexpr auto canonicalMeshBufferIndexType = EIT_32BIT;
 	// make index buffer 0,1,2,3,4,... if nothing's mapped
 	if (!outbuffer->getIndices())
 	{
@@ -602,7 +603,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 			indices[i] = i;
         outbuffer->setIndexBufferBinding({ 0u, std::move(ib) });
 		outbuffer->setIndexCount(vertexCount);
-		outbuffer->setIndexType(EIT_32BIT);
+		outbuffer->setIndexType(canonicalMeshBufferIndexType);
 	}
 
 	// make 32bit index buffer if 16bit one is present
@@ -611,21 +612,21 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
         auto ib = CMeshManipulator::create32BitFrom16BitIdxBufferSubrange(reinterpret_cast<uint16_t*>(outbuffer->getIndices()), outbuffer->getIndexCount());
         outbuffer->setIndexBufferBinding({ 0u, std::move(ib) });
 		// no need to set index buffer offset to 0 because it already is
-		outbuffer->setIndexType(EIT_32BIT);
+		outbuffer->setIndexType(canonicalMeshBufferIndexType);
 	}
 
 	// convert index buffer for triangle primitives
 	if (outbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType == EPT_TRIANGLE_FAN)
 	{
         outbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType = EPT_TRIANGLE_LIST;
-		auto newIb = idxBufferFromTrianglesFanToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), EIT_32BIT);
+		auto newIb = idxBufferFromTrianglesFanToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), canonicalMeshBufferIndexType, canonicalMeshBufferIndexType);
 		outbuffer->setIndexCount(newIb->getSize() / sizeof(uint32_t));
         outbuffer->setIndexBufferBinding({ 0u, std::move(newIb) });
 	}
 	else if (outbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType == EPT_TRIANGLE_STRIP)
 	{
         outbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType = EPT_TRIANGLE_LIST;
-		auto newIb = idxBufferFromTriangleStripsToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), EIT_32BIT);
+		auto newIb = idxBufferFromTriangleStripsToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), canonicalMeshBufferIndexType, canonicalMeshBufferIndexType);
 		outbuffer->setIndexCount(newIb->getSize() / sizeof(uint32_t));
         outbuffer->setIndexBufferBinding({ 0u, std::move(newIb) });
 	}
@@ -867,7 +868,7 @@ void CMeshManipulator::copyMeshBufferMemberVars<ICPUMeshBuffer>(ICPUMeshBuffer* 
     auto ixBinding = _src->getIndexBufferBinding()[0];
 	_dst->setIndexBufferBinding(
 		std::move(ixBinding)
-	);/*
+	);/* @Crisspl wtf with the commenting out???
 	_dst->setAttachedDescriptorSet(
 		core::smart_refctd_ptr<ICPUDescriptorSet>(_src->getAttachedDescriptorSet())
 	);
@@ -1535,21 +1536,60 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	return true;
 }
 
-core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType)
+core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromLineStripsToLines(const void* _input, size_t _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
 {
-	if (_idxType == EIT_16BIT)
-		return CMeshManipulator::triangleStripsToTriangles<uint16_t>(_input, _idxCount);
-	else if (_idxType == EIT_32BIT)
-		return CMeshManipulator::triangleStripsToTriangles<uint32_t>(_input, _idxCount);
+    if (_inIndexType == EIT_16BIT)
+    {
+        if (_outIndexType == EIT_16BIT)
+            return CMeshManipulator::lineStripsToLines<uint16_t,uint16_t>(_input, _idxCount);
+        else
+            return CMeshManipulator::lineStripsToLines<uint16_t,uint32_t>(_input, _idxCount);
+    }
+	else if (_inIndexType == EIT_32BIT)
+    {
+        if (_outIndexType == EIT_16BIT)
+            return CMeshManipulator::lineStripsToLines<uint32_t,uint16_t>(_input, _idxCount);
+        else
+            return CMeshManipulator::lineStripsToLines<uint32_t,uint32_t>(_input, _idxCount);
+    }
 	return nullptr;
 }
 
-core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType)
+core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
 {
-	if (_idxType == EIT_16BIT)
-		return CMeshManipulator::trianglesFanToTriangles<uint16_t>(_input, _idxCount);
-	else if (_idxType == EIT_32BIT)
-		return CMeshManipulator::trianglesFanToTriangles<uint32_t>(_input, _idxCount);
+	if (_inIndexType == EIT_16BIT)
+    {
+        if (_outIndexType == EIT_16BIT)
+            return CMeshManipulator::triangleStripsToTriangles<uint16_t,uint16_t>(_input, _idxCount);
+        else
+            return CMeshManipulator::triangleStripsToTriangles<uint16_t,uint32_t>(_input, _idxCount);
+    }
+	else if (_inIndexType == EIT_32BIT)
+    {
+        if (_outIndexType == EIT_16BIT)
+            return CMeshManipulator::triangleStripsToTriangles<uint32_t,uint16_t>(_input, _idxCount);
+        else
+            return CMeshManipulator::triangleStripsToTriangles<uint32_t,uint32_t>(_input, _idxCount);
+    }
+	return nullptr;
+}
+
+core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
+{
+	if (_inIndexType == EIT_16BIT)
+    {
+        if (_outIndexType == EIT_16BIT)
+            return CMeshManipulator::trianglesFanToTriangles<uint16_t,uint16_t>(_input, _idxCount);
+        else
+            return CMeshManipulator::trianglesFanToTriangles<uint16_t,uint32_t>(_input, _idxCount);
+    }
+	else if (_inIndexType == EIT_32BIT)
+    {
+        if (_outIndexType == EIT_16BIT)
+            return CMeshManipulator::trianglesFanToTriangles<uint32_t,uint16_t>(_input, _idxCount);
+        else
+            return CMeshManipulator::trianglesFanToTriangles<uint32_t,uint32_t>(_input, _idxCount);
+    }
 	return nullptr;
 }
 

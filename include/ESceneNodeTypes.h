@@ -20,45 +20,45 @@ namespace scene
 	enum ESCENE_NODE_TYPE
 	{
 		//! of type CSceneManager (note that ISceneManager is not(!) an ISceneNode)
-		ESNT_SCENE_MANAGER	= MAKE_NBL_ID('s','m','n','g'),
+		ESNT_SCENE_MANAGER,
 
 		//! Sky Box Scene Node
-		ESNT_SKY_BOX        = MAKE_NBL_ID('s','k','y','_'),
+		ESNT_SKY_BOX,
 
 		//! Sky Dome Scene Node
-		ESNT_SKY_DOME       = MAKE_NBL_ID('s','k','y','d'),
+		ESNT_SKY_DOME,
 
 		//! Mesh Scene Node
-		ESNT_MESH           = MAKE_NBL_ID('m','e','s','h'),
-		ESNT_MESH_INSTANCED = MAKE_NBL_ID('m','b','f','I'),
+		ESNT_MESH,
+		ESNT_MESH_INSTANCED,
 
 		//! Dummy Transformation Scene Node
-		ESNT_DUMMY_TRANSFORMATION = MAKE_NBL_ID('d','m','m','y'),
+		ESNT_DUMMY_TRANSFORMATION,
 
 		//! Camera Scene Node
-		ESNT_CAMERA         = MAKE_NBL_ID('c','a','m','_'),
+		ESNT_CAMERA,
 
 		//! Animated Mesh Scene Node
-		ESNT_ANIMATED_MESH  = MAKE_NBL_ID('a','m','s','h'),
-		ESNT_ANIMATED_MESH_INSTANCED = MAKE_NBL_ID('a','m','s','I'),
+		ESNT_ANIMATED_MESH,
+		ESNT_ANIMATED_MESH_INSTANCED,
 
 		//! Skinned Mesh Scene Node
-		ESNT_SKINNED_MESH  = MAKE_NBL_ID('s','m','s','h'),
-		ESNT_SKINNED_MESH_INSTANCED = MAKE_NBL_ID('s','m','s','I'),
+		ESNT_SKINNED_MESH,
+		ESNT_SKINNED_MESH_INSTANCED,
 
 		//! Maya Camera Scene Node
 		/** Legacy, for loading version <= 1.4.x .irr files */
-		ESNT_CAMERA_MAYA    = MAKE_NBL_ID('c','a','m','M'),
+		ESNT_CAMERA_MAYA,
 
 		//! First Person Shooter Camera
 		/** Legacy, for loading version <= 1.4.x .irr files */
-		ESNT_CAMERA_FPS     = MAKE_NBL_ID('c','a','m','F'),
+		ESNT_CAMERA_FPS,
 
 		//! Unknown scene node
-		ESNT_UNKNOWN        = MAKE_NBL_ID('u','n','k','n'),
+		ESNT_UNKNOWN,
 
 		//! Will match with any scene node when checking types
-		ESNT_ANY            = MAKE_NBL_ID('a','n','y','_')
+		ESNT_ANY           
 	};
 
 
