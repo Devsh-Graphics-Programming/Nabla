@@ -21,6 +21,26 @@ namespace ext
 namespace RadeonRays
 {
 
+// this is a really bad mock (do not take inspiration from it for the real API)
+class MockSceneManager
+{
+	public:
+		using MeshBufferGUID = uint32_t;
+		using ObjectGUID = uint32_t;
+
+		struct ObjectData
+		{
+			core::matrix3x4SIMD tform;
+			core::smart_refctd_ptr<video::IGPUMesh> mesh;
+			core::vector<MeshBufferGUID> instanceGUIDPerMeshBuffer;
+		};
+
+		const ObjectData& getObjectData(const ObjectGUID guid) const {return m_objectData[guid];}
+
+		//mocks
+		core::vector<ObjectData> m_objectData;
+};
+
 
 class Manager final : public core::IReferenceCounted
 {
@@ -35,23 +55,27 @@ class Manager final : public core::IReferenceCounted
 		}
 
 
-		using MeshBufferRRShapeCache = core::unordered_map<const asset::ICPUMeshBuffer*,::RadeonRays::Shape*>;
-#ifdef TODO
-		using MeshNodeRRInstanceCache = core::unordered_map<scene::IMeshSceneNode*, core::smart_refctd_dynamic_array<::RadeonRays::Shape*> >;
-#endif
+		struct MeshBufferRRShapeCache
+		{
+			core::unordered_map<const asset::ICPUMeshBuffer*,::RadeonRays::Shape*> m_cpuAssociative;
+			core::unordered_map<const video::IGPUMeshBuffer*,::RadeonRays::Shape*> m_gpuAssociative;
+		};
+		using NblInstanceRRInstanceCache = core::unordered_map<MockSceneManager::ObjectGUID,core::smart_refctd_dynamic_array<::RadeonRays::Shape*>>;
 
 		template<typename Iterator>
 		inline void makeRRShapes(MeshBufferRRShapeCache& shapeCache, Iterator _begin, Iterator _end)
 		{
-			shapeCache.reserve(std::distance(_begin,_end));
+			auto& cpuCache = shapeCache.m_cpuAssociative;
+			cpuCache.reserve(cpuCache.size()+std::distance(_begin,_end));
+			shapeCache.m_gpuAssociative.reserve(cpuCache.size());
 
 			for (auto it=_begin; it!=_end; it++)
 			{
 				auto* mb = static_cast<nbl::asset::ICPUMeshBuffer*>(*it);
-				auto found = shapeCache.find(mb);
-				if (found!=shapeCache.end())
+				auto found = cpuCache.find(mb);
+				if (found!=cpuCache.end())
 					continue;
-				shapeCache.insert({mb,nullptr});
+				cpuCache.insert({mb,nullptr});
 
 
 				const auto posAttrID = mb->getPositionAttributeIx();
@@ -63,37 +87,28 @@ class Manager final : public core::IReferenceCounted
 			}
 
 			for (auto it=_begin; it!=_end; it++)
-				makeShape(shapeCache,static_cast<nbl::asset::ICPUMeshBuffer*>(*it));
+				makeShape(cpuCache,static_cast<nbl::asset::ICPUMeshBuffer*>(*it));
 		}
 
 		template<typename Iterator>
 		inline void deleteShapes(Iterator _begin, Iterator _end)
 		{
 			for (auto it = _begin; it != _end; it++)
+			{
 				rr->DeleteShape(std::get<::RadeonRays::Shape*>(*it));
+			}
 		}
 
-#ifdef TODO
+
 		template<typename Iterator>
-		inline void makeRRInstances(MeshNodeRRInstanceCache& instanceCache, const MeshBufferRRShapeCache& shapeCache,
-									asset::IAssetManager* _assetManager, Iterator _begin, Iterator _end, const int32_t* _id_begin=nullptr)
+		inline void makeRRInstances(NblInstanceRRInstanceCache& instanceCache, MockSceneManager* mock_smgr,
+									MeshBufferRRShapeCache& shapeCache, asset::IAssetManager* _assetManager,
+									Iterator _objectsBegin, Iterator _objectsEnd)
 		{
-			core::unordered_map<const video::IGPUMeshBuffer*,MeshBufferRRShapeCache::value_type> GPU2CPUTable;
-			GPU2CPUTable.reserve(shapeCache.size());
-			for (auto record : shapeCache)
+			for (auto it=_objectsBegin; it!=_objectsEnd; it++)
 			{
-				auto gpumesh = dynamic_cast<video::IGPUMeshBuffer*>(_assetManager->findGPUObject(record.first).get());
-				if (!gpumesh)
-					continue;
-
-				GPU2CPUTable.insert({gpumesh,record});
-			}
-
-			auto* id_it = _id_begin;
-			for (auto it=_begin; it!=_end; it++,id_it++)
-			{
-				nbl::scene::IMeshSceneNode* node = *it;
-				makeInstance(instanceCache,GPU2CPUTable,node,_id_begin ? id_it:nullptr);
+				const MockSceneManager::ObjectGUID objectGUID = *it;
+				makeInstance(instanceCache,mock_smgr,shapeCache,_assetManager,objectGUID);
 			}
 		}
 
@@ -131,37 +146,40 @@ class Manager final : public core::IReferenceCounted
 		}
 
 
-		inline void update(const MeshNodeRRInstanceCache& instances)
+		template<typename Iterator>
+		inline void update(const MockSceneManager* mock_smgr, Iterator _instancesBegin, Iterator _instancesEnd)
 		{
 			bool needToCommit = false;
-			for (const auto& instance : instances)
+			for (auto it=_instancesBegin; it!=_instancesEnd; it++)
 			{
-				auto absoluteTForm = core::matrix3x4SIMD().set(instance.first->getAbsoluteTransformation());
-				auto* shapes = instance.second.get();
+				const MockSceneManager::ObjectGUID objectID = it->first;
+				const auto* shapeArray = it->second.get();
 
+				const auto firstShape = shapeArray->operator[](0);
+
+				// TODO: when actually implemented smgr, need a way to pull absolute transforms from GPU or CPU for RR to use
+				const auto& absoluteTForm = mock_smgr->getObjectData(objectID).tform;
 				// check if moved
+				core::matrix4SIMD oldTForm, dummy;
+				firstShape->GetTransform(reinterpret_cast<::RadeonRays::matrix&>(oldTForm), reinterpret_cast<::RadeonRays::matrix&>(dummy));
+				if (!core::equals(absoluteTForm,oldTForm.extractSub3x4(),core::matrix3x4SIMD(0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f,0.f)))
 				{
-					core::matrix4SIMD oldTForm,dummy;
-					shapes->operator[](0)->GetTransform(reinterpret_cast<::RadeonRays::matrix&>(oldTForm),reinterpret_cast<::RadeonRays::matrix&>(dummy));
-					if (absoluteTForm==oldTForm.extractSub3x4())
-						continue;
+					core::matrix4SIMD world(absoluteTForm);
+
+					core::matrix3x4SIMD tmp;
+					absoluteTForm.getInverse(tmp);
+					core::matrix4SIMD worldinv(tmp);
+
+					for (auto shape : *shapeArray)
+						shape->SetTransform(reinterpret_cast<::RadeonRays::matrix&>(world), reinterpret_cast<::RadeonRays::matrix&>(worldinv));
+
+					needToCommit = true;
 				}
-
-				needToCommit = true;
-				core::matrix4SIMD world(absoluteTForm);
-
-				core::matrix3x4SIMD tmp;
-				absoluteTForm.getInverse(tmp);
-				core::matrix4SIMD worldinv(tmp);
-
-				for (auto it=shapes->begin(); it!=shapes->end(); it++)
-					(*it)->SetTransform(reinterpret_cast<::RadeonRays::matrix&>(world),reinterpret_cast<::RadeonRays::matrix&>(worldinv));
 			}
 
 			if (needToCommit)
 				rr->Commit();
 		}
-#endif
 
 		inline bool hasImplicitCL2GLSync() const { return m_automaticOpenCLSync; }
 
@@ -174,12 +192,10 @@ class Manager final : public core::IReferenceCounted
 		Manager(video::IVideoDriver* _driver, cl_context context, bool automaticOpenCLSync);
 		~Manager();
 
-		void makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMeshBuffer* mb);
-#ifdef TODO
-		void makeInstance(	MeshNodeRRInstanceCache& instanceCache,
-							const core::unordered_map<const video::IGPUMeshBuffer*,MeshBufferRRShapeCache::value_type>& GPU2CPUTable,
-							scene::IMeshSceneNode* node, const int32_t* id_it);
-#endif
+		void makeShape(core::unordered_map<const asset::ICPUMeshBuffer*,::RadeonRays::Shape*>& cpuCache, const asset::ICPUMeshBuffer* mb);
+		void makeInstance(	NblInstanceRRInstanceCache& instanceCache, MockSceneManager* mock_smgr,
+							MeshBufferRRShapeCache& shapeCache, asset::IAssetManager* _assetManager,
+							MockSceneManager::ObjectGUID objectID);
 
 		video::IVideoDriver* driver;
 		::RadeonRays::IntersectionApi* rr;

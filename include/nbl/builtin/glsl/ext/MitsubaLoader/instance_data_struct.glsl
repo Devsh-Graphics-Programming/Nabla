@@ -1,6 +1,8 @@
 #ifndef _NBL_BUILTIN_SHADERS_LOADERS_MITSUBA_INSTANCE_DATA_STRUCT_GLSL_INCLUDED_
 #define _NBL_BUILTIN_SHADERS_LOADERS_MITSUBA_INSTANCE_DATA_STRUCT_GLSL_INCLUDED_
 
+
+// split in two, DefaultInstanceData which contains irr_glsl_MC_MaterialData (all the instruction offsets and emissive stuff)
 struct InstanceData
 {
 	mat4x3 tform;

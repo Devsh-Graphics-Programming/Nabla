@@ -1,23 +1,135 @@
 #version 430 core
-#include "raygenCommon.glsl"
-
+#include "raytraceCommon.glsl"
 
 #include <nbl/builtin/glsl/utils/normal_decode.glsl>
-//
-layout(set = 2, binding = 0, row_major) uniform RaygenData
-{
-	RaygenShaderData_t raygenData;
-};
+#include <nbl/builtin/glsl/random/xoroshiro.glsl>
+
 // rng
-layout(set = 2, binding = 1) uniform usamplerBuffer sampleSequence;
-layout(set = 2, binding = 2) uniform usampler2D scramblebuf;
+layout(set = 2, binding = 0) uniform usamplerBuffer sampleSequence;
+layout(set = 2, binding = 1) uniform usampler2D scramblebuf;
 // vis buffer
-layout(set = 2, binding = 3) uniform sampler2D depthbuf;
-layout(set = 2, binding = 4) uniform usampler2D objectTriangleFrontFacing;
-layout(set = 2, binding = 5) uniform sampler2D encodedNormal;
-layout(set = 2, binding = 6) uniform sampler2D uv;
+layout(set = 2, binding = 2) uniform sampler2D depthbuf;
+layout(set = 2, binding = 3) uniform usampler2D frontFacing_Object_Triangle;
+layout(set = 2, binding = 4) uniform sampler2D encodedNormal;
+layout(set = 2, binding = 5) uniform sampler2D uvCoords;
 
 
+// for materials
+// dummies needed because of the functions for fragment shader surface intersections
+vec3 dFdx(in vec3 r) {return vec3(0.0/0.0);}
+vec3 dFdy(in vec3 r) {return vec3(0.0/0.0);}
+// no idea yet
+#define sizeof_bsdf_data 1u // wtf??? it's not supposed to be user-defined
+#include <nbl/builtin/material_compiler/glsl/common_declarations.glsl>
+vec3 normalizedV;
+vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()
+{
+	return normalizedV;
+}
+vec3 normalizedN;
+vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
+{
+	return normalizedN;
+}
+vec3 worldPosition;
+vec3 nbl_glsl_MC_WorldSpacePosition()
+{
+	return worldPosition;
+}
+/*
+#define _IRR_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
+instr_stream_t getEvalStream(in MC_precomputed_t precomp)
+{
+	instr_stream_t stream;
+	if (precomp.frontface)
+	{
+		stream.offset = InstData.data[InstanceIndex].front_instr_offset;
+		stream.count = InstData.data[InstanceIndex].front_rem_pdf_count;
+	}
+	else
+	{
+		stream.offset = InstData.data[InstanceIndex].back_instr_offset;
+		stream.count = InstData.data[InstanceIndex].back_rem_pdf_count;
+	}
+	return stream;
+}
+instr_t nbl_glsl_MC_fetchInstr(in uint ix)
+{
+	return instr_buf.data[ix];
+}
+prefetch_instr_t nbl_glsl_MC_fetchPrefetchInstr(in uint ix)
+{
+	return prefetch_instr_buf.data[ix];
+}
+bsdf_data_t nbl_glsl_MC_fetchBSDFData(in uint ix)
+{
+	return bsdf_buf.data[ix];
+}
+///
+//rem'n'pdf and eval use the same instruction stream
+instr_stream_t getRemAndPdfStream(in MC_precomputed_t precomp)
+{
+	return getEvalStream(precomp);
+}
+instr_stream_t getGenChoiceStream(in MC_precomputed_t precomp)
+{
+	instr_stream_t stream;
+	if (precomp.frontface)
+	{
+		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count;
+		stream.count =  InstData.data[InstanceIndex].front_genchoice_count;
+	}
+	else
+	{
+		stream.offset = InstData.data[InstanceIndex].back_instr_offset + InstData.data[InstanceIndex].back_rem_pdf_count;
+		stream.count = InstData.data[InstanceIndex].back_genchoice_count;
+	}
+	return stream;
+}
+instr_stream_t getTexPrefetchStream(in MC_precomputed_t precomp)
+{
+	instr_stream_t stream;
+	if (precomp.frontface)
+	{
+		stream.offset = InstData.data[InstanceIndex].front_prefetch_offset;
+		stream.count = InstData.data[InstanceIndex].front_prefetch_count;
+	}
+	else
+	{
+		stream.offset = InstData.data[InstanceIndex].back_prefetch_offset;
+		stream.count = InstData.data[InstanceIndex].back_prefetch_count;
+	}
+	return stream;
+}
+instr_stream_t getNormalPrecompStream(in MC_precomputed_t precomp)
+{
+	instr_stream_t stream;
+	if (precomp.frontface)
+	{
+		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count + InstData.data[InstanceIndex].front_genchoice_count;
+		stream.count = InstData.data[InstanceIndex].front_nprecomp_count;
+	}
+	else
+	{
+		stream.offset = InstData.data[InstanceIndex].back_instr_offset + InstData.data[InstanceIndex].back_rem_pdf_count + InstData.data[InstanceIndex].back_genchoice_count;
+		stream.count = InstData.data[InstanceIndex].back_nprecomp_count;
+	}
+	return stream;
+}
+#include <irr/builtin/material_compiler/glsl/common.glsl>
+*/
+
+//
+///
+
+
+// functions
+vec3 rand3d(in uint _sample, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
+{
+	uvec3 seqVal = texelFetch(sampleSequence,int(_sample)).xyz;
+	seqVal ^= uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
+    return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
+}
 
 float linearizeZBufferVal(in float nonLinearZBufferVal)
 {
@@ -30,7 +142,7 @@ float linearizeZBufferVal(in float nonLinearZBufferVal)
 	// positive [0,1] Z: `B/(C-A-Cy)/(B/(C-A))`
 	// positive [0,1] Z: `(C-A)/(C-A-Cy)`
 	// positive [0,1] Z: `D/(D-Cy)`
-    return 1.0/(pc.data.depthLinearizationConstant*nonLinearZBufferVal+1.0);
+    return 1.0/(pc.cummon.depthLinearizationConstant*nonLinearZBufferVal+1.0);
 }
 
 
@@ -86,7 +198,7 @@ bool gen_sample_ray(out float maxT, out vec3 direction, out vec3 throughput, in 
 	return true;
 }
 
-#ifdef TODO
+#ifdef TODO 
 // TODO: define lower and upper bound over `lightCDF`
 vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout float maxT, inout bool alive, in vec3 position)
 {
@@ -99,7 +211,7 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 
 #define SHADOW_RAY_LEN 0.93
 	float factor; // 1.0/light_probability already baked into the light factor
-	switch (SLight_extractType(light))
+	switch (SLight_extractType(light)) 
 	{
 		case SLight_ET_ELLIPSOID:
 			lightSurfaceSample.x = lightSurfaceSample.x*2.0-1.0;
@@ -154,41 +266,73 @@ vec3 light_sample(out vec3 incoming, in uint sampleIx, in uint scramble, inout f
 void main()
 {
 	uvec2 outputLocation = gl_GlobalInvocationID.xy;
-	if (all(lessThan(outputLocation,pc.data.imageDimensions)))
+	if (all(lessThan(outputLocation,staticViewData.imageDimensions)))
 	{
-		ivec2 uv = ivec2(outputLocation);
-		float revdepth = texelFetch(depthbuf,uv,0).r;
+		ivec2 pixelCoord = ivec2(outputLocation);
+		float revdepth = texelFetch(depthbuf,pixelCoord,0).r;
 
-		uint outputID = outputLocation.y*pc.data.samplesPerRowPerDispatch+outputLocation.x;
+		const uint outputID = outputLocation.y*staticViewData.samplesPerRowPerDispatch+outputLocation.x*staticViewData.samplesPerPixelPerDispatch;
 
 		SamplingData_t samplingData;
-		// unproject
-		vec3 viewDir;
-		vec3 position;
-		{
-			const mat4x3 frustumCorners = pc.data.frustumCorners;
-			const vec2 NDC = vec2(outputLocation)*pc.data.rcpPixelSize+pc.data.rcpHalfPixelSize;
-
-			viewDir = mix(frustumCorners[0]*NDC.x+frustumCorners[1],frustumCorners[2]*NDC.x+frustumCorners[3],NDC.yyy);
-			position = viewDir*linearizeZBufferVal(revdepth)+pc.data.cameraPosition;
-		}
 		
 		bool alive = false;
-		uint scramble,objectID,triangleID;
-		bool backfacing;
-		vec3 normal = vec3(0.0);
-		vec2 uvCoord;
+		nbl_glsl_MC_precomputed_t precomputed;
+		nbl_glsl_xoroshiro64star_state_t start_scramble;
+		vec2 uv;
 		if (revdepth>0.0)
-		{
-			scramble = texelFetch(scramblebuf,uv,0).r;
+		{			
+			// vis buffer read
+			const uvec2 visBuffer = texelFetch(frontFacing_Object_Triangle,pixelCoord,0).rg;
+			// init scramble
+			start_scramble = texelFetch(scramblebuf,pixelCoord,0).rg;
+			// tmp gbuffer reads
+			const vec2 normalBuffer = texelFetch(encodedNormal,pixelCoord,0).rg;
+			uv = texelFetch(uvCoords,pixelCoord,0).xy;
+			
+			// unproject
+			{
+				const mat4x3 frustumCorners = pc.cummon.frustumCorners;
+				const vec2 NDC = vec2(outputLocation)*staticViewData.rcpPixelSize+staticViewData.rcpHalfPixelSize;
 
+				const vec3 viewDir = mix(frustumCorners[0]*NDC.x+frustumCorners[1],frustumCorners[2]*NDC.x+frustumCorners[3],NDC.yyy);
+				worldPosition = viewDir*linearizeZBufferVal(revdepth)+pc.cummon.normalMatrixAndCameraPos[3];
+				normalizedV = normalize(viewDir);
+			}
+			
+			// decode vis buffer
+			bool frontfacing;
+			{
+				frontfacing = visBuffer[0]<0x80000000u;
+				const uint objectID = visBuffer[0]&0x7fffffffu;
+				const uint triangleID = visBuffer[1];
+			}
+
+			// normally we'd use MeshPackerV2's vertex attribute data for this, but now we read from temporary GBuffer
+			{
+				normalizedN = nbl_glsl_NormalDecode_signedSpherical(normalBuffer);
+			}
+			
+			// TODO: once we merge the material compiler with the raygen
+			//precomputed = precomputeData(frontfacing);
+			
+			//
+			const vec3 emissive = vec3(0.0,1.0,0.0);
+			vec3 acc;
+			if (pc.cummon.rcpFramesDispatched<1.0)
+				acc = fetchAccumulation(pixelCoord)+emissive/float(pc.cummon.framesDispatched-1u);
+			else
+				acc = emissive;
+
+			//
+
+			storeAccumulation(acc,pixelCoord);
 			alive = true;
 		}
 #ifdef USE_OPTIX_DENOISER
 		// TODO: translate normal into float16_t buff
 #endif
 
-		for (uint i=0u; i<pc.data.samplesPerPixelPerDispatch; i++)
+		for (uint i=0u; i<staticViewData.samplesPerPixelPerDispatch; i++)
 		{
 			vec3 direction; // TODO: just use nbl_glsl_LightSample?
 			float maxT;
@@ -197,7 +341,7 @@ void main()
 			bool validRay = false;
 			if (alive)
 			{
-				samplingData.sampleID = pc.data.samplesComputedPerPixel+i;
+				samplingData.sampleID = pc.cummon.samplesComputedPerPixel+i;
 				validRay = gen_sample_ray(maxT,direction,throughput.rgb,samplingData);
 			}
 			
@@ -205,7 +349,9 @@ void main()
 			const uint realOutputID = outputID+i;
 			if (validRay)
 			{
-				rays[realOutputID].origin = position;/*+newray.direction*err?; TODO */
+				throughput /= float(staticViewData.samplesPerPixelPerDispatch);
+
+				rays[realOutputID].origin = nbl_glsl_MC_WorldSpacePosition();/*+newray.direction*err?; TODO */
 				rays[realOutputID].maxT = 0.0;
 				rays[realOutputID].direction = direction;
 				rays[realOutputID].mask = -1;

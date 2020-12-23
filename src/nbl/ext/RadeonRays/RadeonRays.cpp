@@ -73,17 +73,16 @@ std::pair<::RadeonRays::Buffer*,cl_mem> Manager::linkBuffer(const video::IGPUBuf
 	return {nullptr,nullptr};
 }
 
-void Manager::makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMeshBuffer* mb)
+void Manager::makeShape(core::unordered_map<const asset::ICPUMeshBuffer*,::RadeonRays::Shape*>& cpuCache, const asset::ICPUMeshBuffer* mb)
 {
-	auto found = shapeCache.find(mb);
-	if (found==shapeCache.end())
+	auto found = cpuCache.find(mb);
+	if (found==cpuCache.end())
 		return;
 
 	auto pType = mb->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
 	const auto* indices = reinterpret_cast<const int32_t*>(mb->getIndices());
 	const auto indexCount = mb->getIndexCount();
-	if (indexCount<3)
-		return;
+	assert(indexCount>=3);
 
 	const int32_t vertexCount = mb->calcVertexCount();
 
@@ -95,32 +94,48 @@ void Manager::makeShape(MeshBufferRRShapeCache& shapeCache, const asset::ICPUMes
 																	nullptr,indexCount/IndicesPerTriangle);
 }
 
-#ifdef TODO
-void Manager::makeInstance(	MeshNodeRRInstanceCache& instanceCache,
-							const core::unordered_map<const video::IGPUMeshBuffer*,MeshBufferRRShapeCache::value_type>& GPU2CPUTable,
-							scene::IMeshSceneNode* node, const int32_t* id_it)
+void Manager::makeInstance(	NblInstanceRRInstanceCache& instanceCache, MockSceneManager* mock_smgr,
+							MeshBufferRRShapeCache& shapeCache, asset::IAssetManager* _assetManager,
+							MockSceneManager::ObjectGUID objectID)
 {
-	if (instanceCache.find(node)!=instanceCache.end())
+	if (instanceCache.find(objectID)!=instanceCache.end())
 		return; // already cached
 
-	const auto* mesh = node->getMesh();
-	auto mbCount = mesh->getMeshBufferCount();
-	if (mbCount==0u)
-		return;
+	const auto& objectData = mock_smgr->getObjectData(objectID);
+	const auto& mesh = objectData.mesh;
+	const auto mbCount = mesh->getMeshBufferCount();
+	assert(mbCount==objectData.instanceGUIDPerMeshBuffer.size());
+	assert(mbCount>0u);
+
+	auto& gpuCache = shapeCache.m_gpuAssociative;
+	bool notRefreshedAlready = true;
 
 	auto output = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<::RadeonRays::Shape*>>(mbCount);
 	for (auto i=0; i<mbCount; i++)
 	{
 		const auto* mb = mesh->getMeshBuffer(i);
-		auto found = GPU2CPUTable.find(mb);
-		if (found==GPU2CPUTable.end())
+		auto found = gpuCache.find(mb);
+		// refresh cpu cache from cpu cache if not found
+		if (notRefreshedAlready && found==gpuCache.end())
+		{
+			for (auto cpuAssociation : shapeCache.m_cpuAssociative)
+			{
+				const auto* gpumeshbuffer = dynamic_cast<video::IGPUMeshBuffer*>(_assetManager->findGPUObject(cpuAssociation.first).get());
+				if (!gpumeshbuffer)
+					continue;
+				::RadeonRays::Shape* shape = cpuAssociation.second;
+				auto successAndLocation = gpuCache.emplace(gpumeshbuffer,shape);
+				if (gpumeshbuffer==mb)
+					found = successAndLocation.first;
+			}
+			notRefreshedAlready = false;
+		}
+		if (found==gpuCache.end())
 			continue;
 
-		auto* instance = rr->CreateInstance(found->second.second);
-		if (id_it)
-			instance->SetId(*id_it);
+		auto* instance = rr->CreateInstance(found->second);
+		instance->SetId(objectData.instanceGUIDPerMeshBuffer[i]);
 		output->operator[](i) = instance;
 	}
-	instanceCache.insert({node,output});
+	instanceCache.insert({objectID,output});
 }
-#endif

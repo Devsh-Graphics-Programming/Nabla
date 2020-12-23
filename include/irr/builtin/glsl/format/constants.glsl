@@ -1,0 +1,19 @@
+#ifndef _IRR_BUILTIN_GLSL_FORMAT_CONSTANTS_INCLUDED_
+#define _IRR_BUILTIN_GLSL_FORMAT_CONSTANTS_INCLUDED_
+
+//rgb19e7, our custom 3 channel, shared exponent, floating point format
+#define irr_glsl_RGB19E7_MANTISSA_BITS 19
+#define irr_glsl_RGB19E7_MANTISSA_MASK 0x7ffff
+#define irr_glsl_RGB19E7_EXPONENT_BITS 7
+#define irr_glsl_RGB19E7_EXP_BIAS 63
+#define irr_glsl_MAX_RGB19E7_EXP (irr_glsl_RGB19E7_EXP_BIAS+1)
+
+#define MAX_RGB19E7_MANTISSA_VALUES (0x1<<irr_glsl_RGB19E7_MANTISSA_BITS)
+#define MAX_RGB19E7_MANTISSA (MAX_RGB19E7_MANTISSA_VALUES-1)
+#define irr_glsl_MAX_RGB19E7 float(MAX_RGB19E7_MANTISSA)/float(MAX_RGB19E7_MANTISSA_VALUES)*exp2(float(irr_glsl_MAX_RGB19E7_EXP-irr_glsl_RGB19E7_MANTISSA_BITS))
+
+#define irr_glsl_RGB19E7_COMPONENT_INDICES ivec4(0,0,1,1)
+#define irr_glsl_RGB19E7_COMPONENT_BITOFFSETS ivec4(0,irr_glsl_RGB19E7_MANTISSA_BITS,(2*irr_glsl_RGB19E7_MANTISSA_BITS)&31,(3*irr_glsl_RGB19E7_MANTISSA_BITS)&31)
+#define irr_glsl_RGB19E7_G_COMPONENT_SPLIT (32-irr_glsl_RGB19E7_MANTISSA_BITS)
+
+#endif

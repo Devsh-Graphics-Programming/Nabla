@@ -9,6 +9,8 @@
 
 #include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
+#include "nbl/asset/IImageAssetHandlerBase.h"
+
 
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
 #	define DEBUG_MITSUBA_LOADER
@@ -691,7 +693,7 @@ core::smart_refctd_ptr<asset::ICPUPipelineLayout> CMitsubaLoader::createPipeline
 	pcrng.size = sizeof(uint32_t);//instance data offset
 	pcrng.stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
 
-	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout;
+	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout; // needs to builtin and cached statically
 	{
 		auto sizes = _vt->getDSlayoutBindings(nullptr, nullptr);
 		auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSetLayout::SBinding>>(sizes.first + DS0_BINDING_COUNT_WO_VT);
@@ -1755,7 +1757,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 		{
 			auto* mb = mesh->getMeshBuffer(i);
-			reinterpret_cast<uint32_t*>(mb->getPushConstantsDataPtr())[0] = instDataOffset;
+			reinterpret_cast<uint32_t*>(mb->getPushConstantsDataPtr())[0] = instDataOffset; // use base instance!
 		}
 	}
 #ifdef DEBUG_MITSUBA_LOADER

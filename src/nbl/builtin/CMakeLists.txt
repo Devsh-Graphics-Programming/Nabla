@@ -66,6 +66,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl"
   # VK_FORMAT support
   "nbl/builtin/glsl/format/decode.glsl"
+  "nbl/builtin/glsl/format/encode.glsl"
   "nbl/builtin/glsl/format/constants.glsl"
   # asset loaders (mostly for pipelines)
   "nbl/builtin/glsl/loaders/mtl/common.glsl"

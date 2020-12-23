@@ -4,8 +4,7 @@
 
 #include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
 #include "nbl/ext/MitsubaLoader/SContext.h"
-
-#include <nbl/core/Types.h>
+#include "nbl/core/Types.h"
 
 namespace nbl
 {

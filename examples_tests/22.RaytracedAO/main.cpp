@@ -116,6 +116,7 @@ int main()
 
 	auto smgr = device->getSceneManager();
 
+	// TODO: Move into renderer?
 	bool rightHandedCamera = true;
 	auto camera = smgr->addCameraSceneNode(nullptr);
 	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
@@ -216,17 +217,8 @@ int main()
 
 	auto driver = device->getVideoDriver();
 
-	asset::ICPUDescriptorSet* glslMaterialBackendGlobalDS = nullptr;
-	{
-		// a bit roundabout but oh well what can we do
-		auto& _1stmesh = meshes.getContents().begin()[0];
-		auto* meta_ = static_cast<asset::ICPUMesh*>(_1stmesh.get())->getMeshBuffer(0)->getPipeline()->getMetadata();
-		auto* pipelinemeta = static_cast<ext::MitsubaLoader::CMitsubaPipelineMetadata*>(meta_);
-		glslMaterialBackendGlobalDS = pipelinemeta->getDescriptorSet();
-	}
-	auto gpuds0 = driver->getGPUObjectsFromAssets(&glslMaterialBackendGlobalDS,&glslMaterialBackendGlobalDS+1)->front();
 
-	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver, device->getAssetManager(), smgr, std::move(gpuds0));
+	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver, device->getAssetManager(), smgr);
 	constexpr uint32_t MaxSamples = 1024u*1024u;
 	auto sampleSequence = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*MaxSamples*Renderer::MaxDimensions);
 	{
@@ -264,7 +256,7 @@ int main()
 		}
 	}
 
-	renderer->init(meshes, rightHandedCamera, std::move(sampleSequence));
+	renderer->init(meshes, std::move(sampleSequence));
 	meshes = {}; // free memory
 	
 
