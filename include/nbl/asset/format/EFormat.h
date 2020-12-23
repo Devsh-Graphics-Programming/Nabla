@@ -19,17 +19,8 @@ namespace asset
 	/** A color format specifies how color information is stored. */
 	enum E_FORMAT : uint32_t
 	{
-        //! Custom shizz we wont ever use
-        EF_D16_UNORM,
-        EF_X8_D24_UNORM_PACK32,
-        EF_D32_SFLOAT,
-        EF_S8_UINT,
-        EF_D16_UNORM_S8_UINT,
-        EF_D24_UNORM_S8_UINT,
-        EF_D32_SFLOAT_S8_UINT,
-
         //! Vulkan
-        EF_R4G4_UNORM_PACK8,
+        EF_R4G4_UNORM_PACK8 = 1,
         EF_R4G4B4A4_UNORM_PACK16,
         EF_B4G4R4A4_UNORM_PACK16,
         EF_R5G6B5_UNORM_PACK16,
@@ -152,6 +143,15 @@ namespace asset
         EF_R64G64B64A64_SFLOAT,
         EF_B10G11R11_UFLOAT_PACK32,
         EF_E5B9G9R9_UFLOAT_PACK32,
+
+        //! 
+        EF_D16_UNORM,
+        EF_X8_D24_UNORM_PACK32,
+        EF_D32_SFLOAT,
+        EF_S8_UINT,
+        EF_D16_UNORM_S8_UINT,
+        EF_D24_UNORM_S8_UINT,
+        EF_D32_SFLOAT_S8_UINT,
 
         //! Block Compression Formats!
         EF_BC1_RGB_UNORM_BLOCK,

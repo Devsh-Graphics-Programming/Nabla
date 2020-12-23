@@ -27,6 +27,8 @@ public:
         uint32_t width;
         uint32_t height;
         uint32_t layers;
+
+        inline uint32_t getPresentAttachmentCount() const { std::count_if(std::begin(attachments), std::end(attachments), [](const auto& a) -> bool { return a; }); }
     };
 
     static bool validate(const SCreationParams& params)
@@ -40,7 +42,7 @@ public:
 
         auto* rp = params.renderpass.get();
 
-        const uint32_t presentAttachments = std::count_if(std::begin(params.attachments), std::end(params.attachments), [](auto a) -> bool { return a; });
+        const uint32_t presentAttachments = params.getPresentAttachmentCount();
 
         if (rp->getAttachmentCount() != presentAttachments)
             return false;
@@ -89,6 +91,8 @@ public:
     }
 
 protected:
+    virtual ~IFramebuffer() = default;
+
     SCreationParams m_params;
 };
 

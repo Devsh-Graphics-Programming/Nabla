@@ -261,6 +261,8 @@ endif()
 
 set(NABLA_SRCS_NORMAL
 	# Vulkan
+	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVKWin32.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVKSwapchain.cpp
 
 	#opengl
 	${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp

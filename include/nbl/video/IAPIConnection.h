@@ -14,21 +14,18 @@ public:
     enum E_TYPE
     {
         ET_OPENGL,
+        ET_OPENGL_ES,
         ET_VULKAN
     };
 
     // TODO implement in some source file in src/nbl/...
     static core::smart_refctd_ptr<IAPIConnection> create(E_TYPE apiType);
 
-#ifdef _NBL_PLATFORM_WINDOWS_
-    virtual core::smart_refctd_ptr<ISurfaceWin32> createSurfaceWin32(ISurfaceWin32::SCreationParams&& params) const = 0;
-#endif
-    //etc... for other platforms...
-
     virtual E_TYPE getAPIType() const = 0;
 
 protected:
     IAPIConnection() = default;
+    virtual ~IAPIConnection() = default;
 };
 
 }

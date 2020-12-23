@@ -5,6 +5,7 @@
 #include <nbl/video/IGPUPrimaryCommandBuffer.h>
 #include <nbl/video/IGPUSemaphore.h>
 #include <nbl/video/IGPUFence.h>
+#include <nbl/asset/IRenderpass.h>
 
 namespace nbl {
 namespace video
@@ -22,7 +23,7 @@ public:
     {
         uint32_t waitSemaphoreCount;
         IGPUSemaphore** pWaitSemaphores;
-        const E_PIPELINE_STAGE_FLAGS* pWaitDstStageMask;
+        const asset::E_PIPELINE_STAGE_FLAGS* pWaitDstStageMask;
         uint32_t signalSemaphoreCount;
         IGPUSemaphore** pSignalSemaphores;
         uint32_t commandBufferCount;
@@ -30,7 +31,7 @@ public:
     };
 
     //! `flags` takes bits from E_CREATE_FLAGS
-    IGPUQueue(uint32_t _famIx, uint32_t _flags, float _priority)
+    IGPUQueue(uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority)
         : m_flags(_flags), m_familyIndex(_famIx), m_priority(_priority)
     {
 
@@ -38,10 +39,13 @@ public:
 
     virtual void submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) = 0;
 
+    float getPriority() const { return m_priority; }
+    uint32_t getFamilyIndex() const { return m_familyIndex; }
+    E_CREATE_FLAGS getFlags() const { return m_flags; }
+
 protected:
     const uint32_t m_familyIndex;
-    //takes bits from E_CREATE_FLAGS
-    const uint32_t m_flags;
+    const E_CREATE_FLAGS m_flags;
     const float m_priority;
 };
 

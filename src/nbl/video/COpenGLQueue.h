@@ -13,6 +13,8 @@ namespace video
 class COpenGLQueue : public IGPUQueue
 {
     public:
+        using IGPUQueue::IGPUQueue;
+
         void submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override
         {
             core::smart_refctd_ptr<COpenGLSync> lastSync;

@@ -8,6 +8,7 @@
 #include "nbl/video/IGPUDescriptorSet.h"
 #include "nbl/video/IGPUCommandPool.h"
 #include "nbl/video/IFramebuffer.h"
+#include "nbl/video/ISwapchain.h"
 
 namespace nbl {
 namespace video
@@ -343,6 +344,8 @@ public:
         auto ci = core::SRange<const IGPURenderpassIndependentPipeline::SCreationParams>{createInfos, createInfos+count};
         return createGPURenderpassIndependentPipelines(pipelineCache, ci, output);
     }
+
+    virtual core::smart_refctd_ptr<ISwapchain> createSwapchain(ISwapchain::SCreationParams&& params) = 0;
 
     // Not implemented stuff:
     //vkCreateGraphicsPipelines //no graphics pipelines yet (just renderpass independent)

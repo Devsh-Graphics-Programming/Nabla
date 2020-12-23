@@ -34,8 +34,9 @@ public:
     };
 
     // TODO
-    // IPhysicalDevice::getAvailableSurfaceFormats(const ISurface*, SFormat* out);
-    // IPhysicalDevice::getAvailableSurfacePresentModes(const ISurface*, E_PRESENT_MODE* out);
+    // IPhysicalDevice::getAvailableFormatsForSurface(const ISurface*, SFormat* out);
+    // IPhysicalDevice::getAvailablePresentModesForSurface(const ISurface*, E_PRESENT_MODE* out);
+    // IPhysicalDevice::getMinImageCountForSurface(const ISurface*)
 
     // vkGetPhysicalDeviceSurfaceSupportKHR on vulkan
     virtual bool isSupported(const IPhysicalDevice* dev, uint32_t _queueIx) const = 0;

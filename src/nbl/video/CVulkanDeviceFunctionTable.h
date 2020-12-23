@@ -3,13 +3,11 @@
 
 #include <volk.h>
 
-#include "nbl/core/IReferenceCounted.h"
-
 namespace nbl {
 namespace video
 {
 
-class CVulkanDeviceFunctionTable : public core::IReferenceCounted
+class CVulkanDeviceFunctionTable
 {
 public:
     CVulkanDeviceFunctionTable(VkDevice dev)

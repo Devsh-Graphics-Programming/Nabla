@@ -40,14 +40,14 @@ public:
         volkLoadInstanceOnly(m_instance);
     }
 
-#ifdef _NBL_PLATFORM_WINDOWS_
-    core::smart_refctd_ptr<ISurfaceWin32> createSurfaceWin32(ISurfaceWin32::SCreationParams&& params) const override
+    ~CVulkanConnection()
     {
-        return core::make_smart_refctd_ptr<CSurfaceVKWin32>(m_instance, std::move(params));
+        vkDestroyInstance(m_instance, nullptr);
     }
-#endif
 
     E_TYPE getAPIType() const override { return ET_VULKAN; }
+
+    VkInstance getInternalObject() const { return m_instance; }
 
 private:
     VkInstance m_instance = nullptr;
