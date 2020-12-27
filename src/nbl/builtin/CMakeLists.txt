@@ -77,9 +77,9 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/math/typeless_arithmetic.glsl"
   "nbl/builtin/glsl/limits/numeric.glsl"
   # material_compiler
-  "nbl/builtin/material_compiler/glsl/common.glsl"
-  "nbl/builtin/material_compiler/glsl/common_declarations.glsl"
-  "nbl/builtin/material_compiler/glsl/rasterization/impl.glsl"
+  "nbl/builtin/glsl/material_compiler/common.glsl"
+  "nbl/builtin/glsl/material_compiler/common_declarations.glsl"
+  "nbl/builtin/glsl/material_compiler/rasterization/impl.glsl"
   # random numbers
   "nbl/builtin/glsl/random/xoroshiro.glsl"
   # sampling

@@ -1353,7 +1353,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, bool _
 	res.fragmentShaderSource_declarations =
 		genPreprocDefinitions(res, _computeGenChoiceStream) +
 R"(
-#include <nbl/builtin/material_compiler/glsl/common_declarations.glsl>
+#include <nbl/builtin/glsl/material_compiler/common_declarations.glsl>
 )";
 
 	return res;

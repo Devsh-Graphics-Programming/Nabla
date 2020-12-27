@@ -5,7 +5,7 @@
 #ifndef _NBL_BUILTIN_MATERIAL_COMPILER_GLSL_RASTERIZATION_IMPL_INCLUDED_
 #define _NBL_BUILTIN_MATERIAL_COMPILER_GLSL_RASTERIZATION_IMPL_INCLUDED_
 
-#include <nbl/builtin/material_compiler/glsl/common.glsl>
+#include <nbl/builtin/glsl/material_compiler/common.glsl>
 
 void nbl_glsl_instr_eval_execute(in nbl_glsl_instr_t instr, in nbl_glsl_MC_precomputed_t precomp, inout nbl_glsl_LightSample s, inout nbl_glsl_MC_microfacet_t _microfacet, in bool skip)
 {

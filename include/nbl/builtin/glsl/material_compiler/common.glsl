@@ -1,7 +1,7 @@
 #ifndef _NBL_BUILTIN_MATERIAL_COMPILER_GLSL_COMMON_INCLUDED_
 #define _NBL_BUILTIN_MATERIAL_COMPILER_GLSL_COMMON_INCLUDED_
 
-#include <nbl/builtin/material_compiler/glsl/common_declarations.glsl>
+#include <nbl/builtin/glsl/material_compiler/common_declarations.glsl>
 
 #ifndef _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 	#error "You need to define 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()', 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()' , 'nbl_glsl_MC_getWorldSpacePosition()', 'nbl_glsl_instr_t nbl_glsl_MC_fetchInstr(in uint)', 'nbl_glsl_prefetch_instr_t nbl_glsl_MC_fetchPrefetchInstr(in uint)', 'nbl_glsl_bsdf_data_t nbl_glsl_MC_fetchBSDFData(in uint)' functions above"
