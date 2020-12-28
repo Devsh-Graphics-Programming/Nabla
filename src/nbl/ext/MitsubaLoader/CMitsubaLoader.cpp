@@ -1121,7 +1121,7 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 			break;
 		case CElementShape::Type::OBJ:
 			mesh = loadModel(shape->obj.filename);
-			flipNormals = flipNormals==shape->obj.flipNormals;
+			flipNormals = flipNormals!=shape->obj.flipNormals;
 			faceNormals = shape->obj.faceNormals;
 			maxSmoothAngle = shape->obj.maxSmoothAngle;
 			if (mesh && shape->obj.flipTexCoords)
