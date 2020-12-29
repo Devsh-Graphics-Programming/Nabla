@@ -4,7 +4,7 @@
 #include <nbl/builtin/glsl/material_compiler/common_declarations.glsl>
 
 #ifndef _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
-	#error "You need to define 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()', 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()' , 'nbl_glsl_MC_getWorldSpacePosition()', 'nbl_glsl_instr_t nbl_glsl_MC_fetchInstr(in uint)', 'nbl_glsl_prefetch_instr_t nbl_glsl_MC_fetchPrefetchInstr(in uint)', 'nbl_glsl_bsdf_data_t nbl_glsl_MC_fetchBSDFData(in uint)' functions above"
+	#error "You need to define 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()', 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()' , 'nbl_glsl_MC_getWorldSpacePosition()', 'nbl_glsl_instr_t nbl_glsl_MC_fetchInstr(in uint)', 'nbl_glsl_prefetch_instr_t nbl_glsl_MC_fetchPrefetchInstr(in uint)', 'nbl_glsl_bsdf_data_t nbl_glsl_MC_fetchBSDFData(in uint)', 'mat2x3 nbl_glsl_MC_getdPos(in vec3 p)' functions above"
 #endif
 
 #include <nbl/builtin/glsl/math/functions.glsl>
@@ -341,7 +341,8 @@ mat2x4 nbl_glsl_instr_fetchSrcRegs(in nbl_glsl_instr_t i)
 
 void nbl_glsl_setCurrInteraction(in vec3 N, in vec3 V, in vec3 pos)
 {
-	nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcFragmentShaderSurfaceInteractionFromViewVector(V, pos, N);
+	mat2x3 dp = nbl_glsl_MC_getdPos(pos);
+	nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcSurfaceInteractionFromViewVector(V, pos, N, dp);
 	currInteraction.inner = nbl_glsl_calcAnisotropicInteraction(interaction);
 	nbl_glsl_finalizeInteraction(currInteraction);
 }

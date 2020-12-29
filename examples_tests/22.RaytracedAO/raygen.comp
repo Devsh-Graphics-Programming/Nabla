@@ -14,10 +14,6 @@ layout(set = 2, binding = 4) uniform sampler2D encodedNormal;
 layout(set = 2, binding = 5) uniform sampler2D uvCoords;
 
 
-// for materials
-// dummies needed because of the functions for fragment shader surface intersections
-vec3 dFdx(in vec3 r) {return vec3(0.0/0.0);}
-vec3 dFdy(in vec3 r) {return vec3(0.0/0.0);}
 // no idea yet
 #define sizeof_bsdf_data 1u // wtf??? it's not supposed to be user-defined
 #include <nbl/builtin/glsl/material_compiler/common_declarations.glsl>
@@ -32,9 +28,13 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 	return normalizedN;
 }
 vec3 worldPosition;
-vec3 nbl_glsl_MC_WorldSpacePosition()
+vec3 nbl_glsl_MC_getWorldSpacePosition()
 {
 	return worldPosition;
+}
+mat2x3 nbl_glsl_MC_getdPos(in vec3 p)
+{
+	return mat2x3(vec3(0.0/0.0), vec3(0.0/0.0));
 }
 /*
 #define _IRR_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_

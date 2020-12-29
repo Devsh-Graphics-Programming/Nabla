@@ -180,6 +180,10 @@ nbl_glsl_bsdf_data_t nbl_glsl_MC_fetchBSDFData(in uint ix)
 {
 	return bsdf_buf.data[ix];
 }
+mat2x3 nbl_glsl_MC_getdPos(in vec3 p)
+{
+	return mat2x3(dFdx(p), dFdy(p));
+}
 #define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 )";
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
