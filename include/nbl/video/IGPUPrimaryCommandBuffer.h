@@ -7,12 +7,12 @@ namespace nbl {
 namespace video
 {
 
-class IGPUPrimaryCommandBuffer : public IGPUCommandBuffer
+class IGPUPrimaryCommandBuffer : public virtual IGPUCommandBuffer
 {
     using base_t = IGPUCommandBuffer;
 
 public:
-    using base_t::base_t;
+    IGPUPrimaryCommandBuffer() : IGPUCommandBuffer(nullptr) {}
 
     E_LEVEL getLevel() const override { return EL_PRIMARY; }
 

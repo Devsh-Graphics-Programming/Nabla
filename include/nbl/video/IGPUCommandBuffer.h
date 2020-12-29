@@ -9,6 +9,7 @@
 #include <nbl/video/IGPUEvent.h>
 #include <nbl/asset/IRenderpass.h>
 #include "IVideoDriver.h"
+#include "nbl/video/IGPUCommandPool.h"
 
 #include <type_traits>
 
@@ -17,26 +18,32 @@ namespace video
 {
 
 //TODO move and possibly rename
-struct VkBufferCopy
+struct SBufferCopy
 {
     size_t srcOffset;
     size_t dstOffset;
     size_t size;
 };
-struct VkImageBlit
+struct SImageBlit
 {
     asset::IImage::SSubresourceLayers srcSubresource;
     asset::VkOffset3D srcOffsets[2];
     asset::IImage::SSubresourceLayers dstSubresource;
     asset::VkOffset3D dstOffsets[2];
 };
-struct VkImageResolve
+struct SImageResolve
 {
     asset::IImage::SSubresourceLayers srcSubresource;
     asset::VkOffset3D srcOffset;
     asset::IImage::SSubresourceLayers dstSubresource;
     asset::VkOffset3D dstOffset;
     asset::VkExtent3D extent;
+};
+struct SViewport
+{
+    float x, y;
+    float width, height;
+    float minDepth, maxDepth;
 };
 struct VkOffset2D
 {
@@ -109,14 +116,9 @@ public:
         EL_SECONDARY
     };
 
-    IGPUCommandBuffer(uint32_t _familyIx) : m_familyIndex(_familyIx)
-    {
-
-    }
-
     virtual E_LEVEL getLevel() const = 0;
 
-    uint32_t getQueueFamilyIndex() const { return m_familyIndex; }
+    uint32_t getQueueFamilyIndex() const { return m_cmdpool->getQueueFamilyIndex(); }
 
     //! `_flags` takes bits from E_RESET_FLAGS
     virtual void reset(uint32_t _flags)
@@ -137,20 +139,20 @@ public:
     virtual void drawIndirect(IGPUBuffer* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
     virtual void drawIndexedIndirect(IGPUBuffer* buffer, size_t offset, uint32_t drawCount, uint32_t stride) = 0;
 
-    //virtual void setViewport(uint32_t firstViewport, uint32_t viewportCount, const VkViewport* pViewports) = 0;
+    virtual void setViewport(uint32_t firstViewport, uint32_t viewportCount, const SViewport* pViewports) = 0;
 
     virtual void setLineWidth(float lineWidth) = 0;
     virtual void setDepthBias(float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor) = 0;
 
     virtual void setBlendConstants(const float blendConstants[4]) = 0;
 
-    virtual void copyBuffer(IGPUBuffer* srcBuffer, IGPUBuffer* dstBuffer, uint32_t regionCount, const VkBufferCopy* pRegions) = 0;
+    virtual void copyBuffer(IGPUBuffer* srcBuffer, IGPUBuffer* dstBuffer, uint32_t regionCount, const SBufferCopy* pRegions) = 0;
     //TODO theres no E_LAYOUT enum!
     //virtual void copyImage(IGPUImage* srcImage, IGPUImage::E_LAYOUT srcImageLayout, IGPUImage* dstImage, IGPUImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const IGPUImage::SImageCopy* pRegions) = 0;
     //virtual void copyBufferToImage(IGPUBuffer* srcBuffer, IGPUImage* dstImage, IGPUImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions) = 0;
     //virtual void copyImageToBuffer(IGPUBuffer* srcImage, IGPUImage::E_LAYOUT srcImageLayout, IGPUBuffer* dstBuffer, uint32_t regionCount, const IGPUImage::SBufferCopy* pRegions) = 0;
-    //virtual void blitImage(IGPUImage* srcImage, IGPUImage::E_LAYOUT srcImageLayout, IGPUImage* dstImage, IGPUImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const VkImageBlit* pRegions, IGPUSampler::E_TEXTURE_FILTER filter) = 0;
-    //virtual void resolveImage(IGPUImage* srcImage, IGPUImage::E_LAYOUT srcImageLayout, IGPUImage* dstImage, IGPUImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const VkImageResolve* pRegions) = 0;
+    //virtual void blitImage(IGPUImage* srcImage, IGPUImage::E_LAYOUT srcImageLayout, IGPUImage* dstImage, IGPUImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const SImageBlit* pRegions, IGPUSampler::E_TEXTURE_FILTER filter) = 0;
+    //virtual void resolveImage(IGPUImage* srcImage, IGPUImage::E_LAYOUT srcImageLayout, IGPUImage* dstImage, IGPUImage::E_LAYOUT dstImageLayout, uint32_t regionCount, const SImageResolve* pRegions) = 0;
 
     virtual void bindVertexBuffers(uint32_t firstBinding, uint32_t bindingCount, IGPUBuffer** pBuffers, const size_t* pOffsets) = 0;
 
@@ -208,6 +210,11 @@ public:
     virtual void updateBuffer(IGPUBuffer* dstBuffer, size_t dstOffset, size_t dataSize, const void* pData) = 0;
 
 protected:
+    explicit IGPUCommandBuffer(const IGPUCommandPool* _cmdpool) : m_cmdpool(_cmdpool)
+    {
+
+    }
+
     //! `_flags` takes bits from E_USAGE
     virtual void begin(uint32_t _flags)
     {
@@ -226,7 +233,7 @@ protected:
     // Flags from E_USAGE
     uint32_t m_recordingFlags = 0u;
     E_STATE m_state = ES_INITIAL;
-    const uint32_t m_familyIndex;
+    const IGPUCommandPool* m_cmdpool;
     //future
     uint32_t m_deviceMask = ~0u;
 };

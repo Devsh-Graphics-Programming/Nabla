@@ -17,6 +17,8 @@ public:
 
     void submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override;
 
+    inline VkQueue getInternalObject() const { return m_vkqueue; }
+
 private:
     CVKLogicalDevice* m_vkdevice;
     VkQueue m_vkqueue;

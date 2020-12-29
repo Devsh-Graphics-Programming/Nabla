@@ -123,6 +123,18 @@ public:
         EAP_COUNT
     };
 
+    static bool isDepthOrStencilAttachmentPoint(E_ATTACHMENT_POINT p) { return p < EAP_COLOR_0; }
+    static bool isColorAttachmentPoint(E_ATTACHMENT_POINT p)
+    {
+        uint32_t a = p - EAP_COLOR_0;
+        return (a & 1u) == 0u;
+    }
+    static bool isInputAttachmentPoint(E_ATTACHMENT_POINT p)
+    {
+        uint32_t a = p - EAP_COLOR_0;
+        return (a & 1u) == 1u;
+    }
+
     struct SCreationParams
     {
         struct SAttachmentDescription
@@ -212,6 +224,20 @@ public:
         const uint32_t i = a / EnabledAttachmentsFlagsBitdepth;
 
         return core::bitfieldExtract(m_params.attachmentEnabledFlags[i], a - i*EnabledAttachmentsFlagsBitdepth, 1);
+    }
+
+    inline core::SRange<const SCreationParams::SSubpassDescription> getSubpasses() const
+    {
+        if (!m_subpasses)
+            return { nullptr, nullptr };
+        return { m_subpasses->cbegin(), m_subpasses->cend() };
+    }
+
+    inline core::SRange<const SCreationParams::SSubpassDependency> getSubpassDependencies() const
+    {
+        if (!m_dependencies)
+            return { nullptr, nullptr };
+        return { m_dependencies->cbegin(), m_dependencies->cend() };
     }
 
 protected:

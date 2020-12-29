@@ -2,7 +2,7 @@
 #define __NBL_I_API_CONNECTION_H_INCLUDED__
 
 #include "nbl/core/IReferenceCounted.h"
-#include "nbl/video/surface/ISurfaceWin32.h"
+#include "nbl/video/IPhysicalDevice.h"
 
 namespace nbl {
 namespace video
@@ -22,6 +22,8 @@ public:
     static core::smart_refctd_ptr<IAPIConnection> create(E_TYPE apiType);
 
     virtual E_TYPE getAPIType() const = 0;
+
+    virtual core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>> getPhysicalDevices() const = 0;
 
 protected:
     IAPIConnection() = default;

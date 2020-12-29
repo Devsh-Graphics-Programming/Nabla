@@ -4,6 +4,7 @@
 #include <volk.h>
 #include "nbl/video/IAPIConnection.h"
 #include "nbl/video/surface/CSurfaceVKWin32.h"
+#include "nbl/video/CVulkanPhysicalDevice.h"
 
 namespace nbl {
 namespace video
@@ -38,6 +39,17 @@ public:
         vkCreateInstance(&ci, nullptr, &m_instance);
 
         volkLoadInstanceOnly(m_instance);
+
+        uint32_t devCount = 0u;
+        vkEnumeratePhysicalDevices(m_instance, &devCount, nullptr);
+        core::vector<VkPhysicalDevice> vkphds(devCount, VK_NULL_HANDLE);
+        vkEnumeratePhysicalDevices(m_instance, &devCount, vkphds.data());
+
+        m_physDevices = core::make_refctd_dynamic_array<physical_devs_array_t>(devCount);
+        for (uint32_t i = 0u; i < devCount; ++i)
+        {
+            (*m_physDevices)[i] = core::make_smart_refctd_ptr<CVulkanPhysicalDevice>(vkphds[i]);
+        }
     }
 
     ~CVulkanConnection()
@@ -51,6 +63,8 @@ public:
 
 private:
     VkInstance m_instance = nullptr;
+    using physical_devs_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IPhysicalDevice>>;
+    physical_devs_array_t m_physDevices;
 };
 
 }

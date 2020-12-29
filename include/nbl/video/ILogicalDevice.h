@@ -26,13 +26,14 @@ public:
     };
     struct SCreationParams
     {
-        uint32_t count;
+        uint32_t queueParamsCount;
         const SQueueCreationParams* queueCreateInfos;
         // ???:
         //uint32_t enabledExtensionCount;
         //const char* const* ppEnabledExtensionNames;
         //const VkPhysicalDeviceFeatures* pEnabledFeatures;
     };
+
     struct SDescriptorSetCreationParams
     {
         IDescriptorPool* descriptorPool;
@@ -53,7 +54,39 @@ public:
         size_t offset;
     };
 
-    virtual IGPUQueue* getQueue(uint32_t _familyIx, uint32_t _ix) = 0;
+    ILogicalDevice(const SCreationParams& params)
+    {
+        uint32_t qcnt = 0u;
+        uint32_t greatestFamNum = 0u;
+        for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
+        {
+            greatestFamNum = std::max(greatestFamNum, params.queueCreateInfos[i].familyIndex);
+            qcnt += params.queueCreateInfos[i].count;
+        }
+
+        m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
+        m_offsets = core::make_refctd_dynamic_array<q_offsets_array_t>(greatestFamNum + 1u, 0u);
+
+        for (const auto& qci : core::SRange<const SQueueCreationParams>(params.queueCreateInfos, params.queueCreateInfos + params.queueParamsCount))
+        {
+            if (qci.familyIndex == greatestFamNum)
+                continue;
+
+            (*m_offsets)[qci.familyIndex + 1u] = qci.count;
+        }
+        // compute prefix sum
+        for (uint32_t i = 1u; i < m_offsets->size(); ++i)
+        {
+            (*m_offsets)[i] += (*m_offsets)[i - 1u];
+        }
+    }
+
+    IGPUQueue* getQueue(uint32_t _familyIx, uint32_t _ix)
+    {
+        const uint32_t offset = (*m_offsets)[_familyIx];
+
+        return (*m_queues)[offset+_ix].get();
+    }
 
     virtual core::smart_refctd_ptr<IGPUSemaphore> createSemaphore() = 0;
 
@@ -67,6 +100,7 @@ public:
     virtual IGPUFence::E_STATUS waitForFences(uint32_t _count, IGPUFence** _fences, bool _waitAll, uint64_t _timeout) = 0;
 
     virtual void createCommandBuffers(IGPUCommandPool* _cmdPool, IGPUCommandBuffer::E_LEVEL _level, uint32_t _count, core::smart_refctd_ptr<IGPUCommandBuffer*>* _outCmdBufs) = 0;
+    virtual void freeCommandBuffers(IGPUCommandBuffer** _cmdbufs, uint32_t _count) = 0;
     virtual void createDescriptorSets(IDescriptorPool* _descPool, uint32_t _count, IGPUDescriptorSetLayout** _layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* _outDescSets) = 0;
 
     virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, IGPUCommandPool::E_CREATE_FLAGS flags) = 0;
@@ -358,6 +392,12 @@ public:
     //vkMergePipelineCaches //as pipeline cache method
     //vkCreateQueryPool //????
     //vkCreateShaderModule //????
+
+protected:
+    using queues_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUQueue>>;
+    queues_array_t m_queues;
+    using q_offsets_array_t = core::smart_refctd_dynamic_array<uint32_t>;
+    q_offsets_array_t m_offsets;
 };
 
 }

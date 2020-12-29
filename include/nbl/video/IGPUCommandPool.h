@@ -16,6 +16,17 @@ public:
         ECF_RESET_COMMAND_BUFFER_BIT = 0x02,
         ECF_PROTECTED_BIT = 0x04
     };
+
+    IGPUCommandPool(E_CREATE_FLAGS _flags, uint32_t _familyIx) : m_flags(_flags), m_familyIx(_familyIx) {}
+
+    E_CREATE_FLAGS getCreationFlags() const { return m_flags; }
+    uint32_t getQueueFamilyIndex() const { return m_familyIx; }
+
+protected:
+    virtual ~IGPUCommandPool() = default;
+
+    E_CREATE_FLAGS m_flags;
+    uint32_t m_familyIx;
 };
 
 }}
