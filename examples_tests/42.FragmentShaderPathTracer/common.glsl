@@ -4,7 +4,7 @@
 
 // basic settings
 #define MAX_DEPTH 8
-#define SAMPLES 256
+#define SAMPLES 32
 
 // firefly and variance reduction techniques
 //#define KILL_DIFFUSE_SPECULAR_PATHS
@@ -19,21 +19,21 @@ layout(location = 0) in vec2 TexCoord;
 layout(location = 0) out vec4 pixelColor;
 
 
-#include <irr/builtin/glsl/limits/numeric.glsl>
-#include <irr/builtin/glsl/math/constants.glsl>
-#include <irr/builtin/glsl/utils/common.glsl>
+#include <nbl/builtin/glsl/limits/numeric.glsl>
+#include <nbl/builtin/glsl/math/constants.glsl>
+#include <nbl/builtin/glsl/utils/common.glsl>
 
-//! @Crisspl move this to `irr/builtin/glsl/sampling.glsl` (along with the circle transform)
-vec2 irr_glsl_BoxMullerTransform(in vec2 xi, in float stddev)
+//! @Crisspl move this to `nbl/builtin/glsl/sampling.glsl` (along with the circle transform)
+vec2 nbl_glsl_BoxMullerTransform(in vec2 xi, in float stddev)
 {
     float sinPhi, cosPhi;
-    irr_glsl_sincos(2.0 * irr_glsl_PI * xi.y - irr_glsl_PI, sinPhi, cosPhi);
+    nbl_glsl_sincos(2.0 * nbl_glsl_PI * xi.y - nbl_glsl_PI, sinPhi, cosPhi);
     return vec2(cosPhi, sinPhi) * sqrt(-2.0 * log(xi.x)) * stddev;
 }
 
 layout(set = 1, binding = 0, row_major, std140) uniform UBO
 {
-	irr_glsl_SBasicViewParameters params;
+	nbl_glsl_SBasicViewParameters params;
 } cameraData;
 
 
@@ -77,13 +77,15 @@ vec3 Sphere_getNormal(in Sphere sphere, in vec3 position)
 
 float Sphere_getSolidAngle_impl(in float cosThetaMax)
 {
-    return 2.0*irr_glsl_PI*(1.0-cosThetaMax);
+    return 2.0*nbl_glsl_PI*(1.0-cosThetaMax);
 }
 float Sphere_getSolidAngle(in Sphere sphere, in vec3 origin)
 {
-    float cosThetaMax = sqrt(1.0-sphere.radius2/irr_glsl_lengthSq(sphere.position-origin));
+    float cosThetaMax = sqrt(1.0-sphere.radius2/nbl_glsl_lengthSq(sphere.position-origin));
     return Sphere_getSolidAngle_impl(cosThetaMax);
 }
+
+
 
 struct Triangle
 {
@@ -123,7 +125,7 @@ float Triangle_intersect(in Triangle tri, in vec3 origin, in vec3 direction)
 
     const float t = dot(edges[1],q)/a;
 
-    return t>0.f&&u>=0.f&&v>=0.f&&(u+v)<=1.f ? t:irr_glsl_FLT_NAN;
+    return t>0.f&&u>=0.f&&v>=0.f&&(u+v)<=1.f ? t:nbl_glsl_FLT_NAN;
 }
 
 vec3 Triangle_getNormalTimesArea_impl(in mat2x3 edges)
@@ -134,6 +136,54 @@ vec3 Triangle_getNormalTimesArea(in Triangle tri)
 {
     return Triangle_getNormalTimesArea_impl(mat2x3(tri.vertex1-tri.vertex0,tri.vertex2-tri.vertex0));
 }
+
+
+
+struct Rectangle
+{
+    vec3 offset;
+    uint bsdfLightIDs;
+    vec3 edge0;
+    uint padding0;
+    vec3 edge1;
+    uint padding1;
+};
+
+Rectangle Rectangle_Rectangle(in vec3 offset, in vec3 edge0, in vec3 edge1, in uint bsdfID, in uint lightID)
+{
+    Rectangle rect;
+    rect.offset = offset;
+    rect.edge0 = edge0;
+    rect.edge1 = edge1;
+    //
+    rect.bsdfLightIDs = bitfieldInsert(bsdfID, lightID, 16, 16);
+    return rect;
+}
+
+// return intersection distance if found, FLT_NAN otherwise
+float Rectangle_intersect(in Rectangle rect, in vec3 origin, in vec3 direction)
+{
+    const vec3 h = cross(direction,rect.edge1);
+    const float a = dot(rect.edge0,h);
+
+    const vec3 relOrigin = origin-rect.offset;
+
+    const float u = dot(relOrigin,h)/a;
+
+    const vec3 q = cross(relOrigin,rect.edge0);
+    const float v = dot(direction,q)/a;
+
+    const float t = dot(rect.edge1,q)/a;
+
+    const bool intersection = t>0.f&&u>=0.f&&v>=0.f&&u<=1.f&&v<=1.f;
+    return intersection ? t:nbl_glsl_FLT_NAN;
+}
+
+vec3 Rectangle_getNormalTimesArea(in Rectangle rect)
+{
+    return cross(rect.edge0,rect.edge1);
+}
+
 
 
 #define DIFFUSE_OP 0u
@@ -174,12 +224,12 @@ mat2x3 BSDFNode_getEta(in BSDFNode node)
 {
     return mat2x3(BSDFNode_getRealEta(node),BSDFNode_getImaginaryEta(node));
 }
-#include <irr/builtin/glsl/bxdf/fresnel.glsl>
+#include <nbl/builtin/glsl/bxdf/fresnel.glsl>
 vec3 BSDFNode_getReflectance(in BSDFNode node, in float VdotH)
 {
     const vec3 albedoOrRealIoR = uintBitsToFloat(node.data[0].rgb);
     if (BSDFNode_isNotDiffuse(node))
-        return irr_glsl_fresnel_conductor(albedoOrRealIoR, BSDFNode_getImaginaryEta(node), VdotH);
+        return nbl_glsl_fresnel_conductor(albedoOrRealIoR, BSDFNode_getImaginaryEta(node), VdotH);
     else
         return albedoOrRealIoR;
 }
@@ -192,11 +242,11 @@ float BSDFNode_getMISWeight(in BSDFNode bsdf)
     return notDiffuse ? mix(1.0,DIFFUSE_MIS_WEIGHT,alpha):DIFFUSE_MIS_WEIGHT; // TODO: test alpha*alpha
 }
 
-#include <irr/builtin/glsl/colorspace/EOTF.glsl>
-#include <irr/builtin/glsl/colorspace/encodeCIEXYZ.glsl>
+#include <nbl/builtin/glsl/colorspace/EOTF.glsl>
+#include <nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl>
 float getLuma(in vec3 col)
 {
-    return dot(transpose(irr_glsl_scRGBtoXYZ)[1],col);
+    return dot(transpose(nbl_glsl_scRGBtoXYZ)[1],col);
 }
 
 #define BSDF_COUNT 7
@@ -244,7 +294,7 @@ struct ImmutableRay_t
     float maxT;
     vec3 direction;
     int typeDepthSampleIx;
-#ifdef TRIANGLE_METHOD
+#if defined(TRIANGLE_METHOD)||defined(RECTANGLE_METHOD)
     vec3 normalAtOrigin;
     bool wasBSDFAtOrigin;
 #endif
@@ -304,7 +354,7 @@ float getEndTolerance(in int depth)
 vec2 SampleSphericalMap(vec3 v)
 {
     vec2 uv = vec2(atan(v.z, v.x), asin(v.y));
-    uv *= irr_glsl_RECIPROCAL_PI*0.5;
+    uv *= nbl_glsl_RECIPROCAL_PI*0.5;
     uv += 0.5; 
     return uv;
 }
@@ -331,48 +381,48 @@ void missProgram()
     rayStack[stackPtr]._payload.accumulation += finalContribution;
 }
 
-#include <irr/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
-#include <irr/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
-#include <irr/builtin/glsl/bxdf/bsdf/diffuse/lambert.glsl>
-#include <irr/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
-#include <irr/builtin/glsl/bxdf/bsdf/specular/beckmann.glsl>
-#include <irr/builtin/glsl/bxdf/bsdf/specular/ggx.glsl>
-irr_glsl_LightSample irr_glsl_bsdf_cos_generate(in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf, in float monochromeEta, out irr_glsl_AnisotropicMicrofacetCache _cache)
+#include <nbl/builtin/glsl/bxdf/brdf/diffuse/oren_nayar.glsl>
+#include <nbl/builtin/glsl/bxdf/brdf/specular/beckmann.glsl>
+#include <nbl/builtin/glsl/bxdf/brdf/specular/ggx.glsl>
+#include <nbl/builtin/glsl/bxdf/bsdf/diffuse/lambert.glsl>
+#include <nbl/builtin/glsl/bxdf/bsdf/specular/dielectric.glsl>
+#include <nbl/builtin/glsl/bxdf/bsdf/specular/beckmann.glsl>
+#include <nbl/builtin/glsl/bxdf/bsdf/specular/ggx.glsl>
+nbl_glsl_LightSample nbl_glsl_bsdf_cos_generate(in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in BSDFNode bsdf, in float monochromeEta, out nbl_glsl_AnisotropicMicrofacetCache _cache)
 {
     const float a = BSDFNode_getRoughness(bsdf);
     const mat2x3 ior = BSDFNode_getEta(bsdf);
     
     // fresnel stuff for dielectrics
     float orientedEta, rcpOrientedEta;
-    const bool viewerInsideMedium = irr_glsl_getOrientedEtas(orientedEta,rcpOrientedEta,interaction.isotropic.NdotV,monochromeEta);
+    const bool viewerInsideMedium = nbl_glsl_getOrientedEtas(orientedEta,rcpOrientedEta,interaction.isotropic.NdotV,monochromeEta);
 
-    irr_glsl_LightSample smpl;
-    irr_glsl_AnisotropicMicrofacetCache dummy;
+    nbl_glsl_LightSample smpl;
+    nbl_glsl_AnisotropicMicrofacetCache dummy;
     switch (BSDFNode_getType(bsdf))
     {
         case DIFFUSE_OP:
-            smpl = irr_glsl_oren_nayar_cos_generate(interaction,u.xy,a*a);
+            smpl = nbl_glsl_oren_nayar_cos_generate(interaction,u.xy,a*a);
             break;
         case CONDUCTOR_OP:
-            smpl = irr_glsl_ggx_cos_generate(interaction,u.xy,a,a,_cache);
+            smpl = nbl_glsl_ggx_cos_generate(interaction,u.xy,a,a,_cache);
             break;
         default:
-            smpl = irr_glsl_ggx_dielectric_cos_generate(interaction,u,a,a,monochromeEta,_cache);
+            smpl = nbl_glsl_ggx_dielectric_cos_generate(interaction,u,a,a,monochromeEta,_cache);
             break;
     }
     return smpl;
 }
 
-vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample _sample, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in BSDFNode bsdf, in float monochromeEta, in irr_glsl_AnisotropicMicrofacetCache _cache)
+vec3 nbl_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in nbl_glsl_LightSample _sample, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in BSDFNode bsdf, in float monochromeEta, in nbl_glsl_AnisotropicMicrofacetCache _cache)
 {
     // are V and L on opposite sides of the surface?
-    const bool transmitted = irr_glsl_isTransmissionPath(interaction.isotropic.NdotV,_sample.NdotL);
+    const bool transmitted = nbl_glsl_isTransmissionPath(interaction.isotropic.NdotV,_sample.NdotL);
 
     // is the BSDF or BRDF, if it is then we make the dot products `abs` before `max(,0.0)`
     const bool transmissive = BSDFNode_isBSDF(bsdf);
-    const float clampedNdotL = irr_glsl_conditionalAbsOrMax(transmissive,_sample.NdotL,0.0);
-    const float clampedNdotV = irr_glsl_conditionalAbsOrMax(transmissive,interaction.isotropic.NdotV,0.0);
+    const float clampedNdotL = nbl_glsl_conditionalAbsOrMax(transmissive,_sample.NdotL,0.0);
+    const float clampedNdotV = nbl_glsl_conditionalAbsOrMax(transmissive,interaction.isotropic.NdotV,0.0);
 
     vec3 remainder;
 
@@ -385,7 +435,7 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample 
 
         // fresnel stuff for dielectrics
         float orientedEta, rcpOrientedEta;
-        const bool viewerInsideMedium = irr_glsl_getOrientedEtas(orientedEta,rcpOrientedEta,interaction.isotropic.NdotV,monochromeEta);
+        const bool viewerInsideMedium = nbl_glsl_getOrientedEtas(orientedEta,rcpOrientedEta,interaction.isotropic.NdotV,monochromeEta);
 
         //
         const float VdotL = dot(interaction.isotropic.V.dir,_sample.L);
@@ -397,13 +447,13 @@ vec3 irr_glsl_bsdf_cos_remainder_and_pdf(out float pdf, in irr_glsl_LightSample 
         switch (BSDFNode_getType(bsdf))
         {
             case DIFFUSE_OP:
-                remainder = reflectance*irr_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf,a*a,VdotL,clampedNdotL,clampedNdotV);
+                remainder = reflectance*nbl_glsl_oren_nayar_cos_remainder_and_pdf_wo_clamps(pdf,a*a,VdotL,clampedNdotL,clampedNdotV);
                 break;
             case CONDUCTOR_OP:
-                remainder = irr_glsl_ggx_cos_remainder_and_pdf_wo_clamps(pdf,irr_glsl_ggx_trowbridge_reitz(a2,_cache.isotropic.NdotH2),clampedNdotL,_sample.NdotL2,clampedNdotV,interaction.isotropic.NdotV_squared,reflectance,a2);
+                remainder = nbl_glsl_ggx_cos_remainder_and_pdf_wo_clamps(pdf,nbl_glsl_ggx_trowbridge_reitz(a2,_cache.isotropic.NdotH2),clampedNdotL,_sample.NdotL2,clampedNdotV,interaction.isotropic.NdotV_squared,reflectance,a2);
                 break;
             default:
-                remainder = vec3(irr_glsl_ggx_dielectric_cos_remainder_and_pdf(pdf, _sample, interaction.isotropic, _cache.isotropic, monochromeEta, a*a));
+                remainder = vec3(nbl_glsl_ggx_dielectric_cos_remainder_and_pdf(pdf, _sample, interaction.isotropic, _cache.isotropic, monochromeEta, a*a));
                 break;
         }
     }
@@ -416,18 +466,18 @@ layout (constant_id = 0) const int MAX_DEPTH_LOG2 = 0;
 layout (constant_id = 1) const int MAX_SAMPLES_LOG2 = 0;
 
 
-#include <irr/builtin/glsl/random/xoroshiro.glsl>
+#include <nbl/builtin/glsl/random/xoroshiro.glsl>
 
-vec3 rand3d(in uint protoDimension, in uint _sample, inout irr_glsl_xoroshiro64star_state_t scramble_state)
+vec3 rand3d(in uint protoDimension, in uint _sample, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
 {
     uint address = bitfieldInsert(protoDimension,_sample,MAX_DEPTH_LOG2,MAX_SAMPLES_LOG2);
 	uvec3 seqVal = texelFetch(sampleSequence,int(address)).xyz;
-	seqVal ^= uvec3(irr_glsl_xoroshiro64star(scramble_state),irr_glsl_xoroshiro64star(scramble_state),irr_glsl_xoroshiro64star(scramble_state));
+	seqVal ^= uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
     return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
 }
 
 bool traceRay(in ImmutableRay_t _immutable);
-void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64star_state_t scramble_state);
+void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64star_state_t scramble_state);
 
 void main()
 {
@@ -437,11 +487,11 @@ void main()
         return;
     }
 
-	irr_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,TexCoord,0).rg;
+	nbl_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,TexCoord,0).rg;
     const vec2 pixOffsetParam = vec2(1.0)/vec2(textureSize(scramblebuf,0));
 
 
-    const mat4 invMVP = inverse(irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(cameraData.params.MVP));
+    const mat4 invMVP = inverse(cameraData.params.MVP);
     
     vec4 NDC = vec4(TexCoord*vec2(2.0,-2.0)+vec2(-1.0,1.0),0.0,1.0);
     vec3 camPos;
@@ -455,7 +505,7 @@ void main()
     float meanLumaSquared = 0.0;
     for (int i=0; i<SAMPLES; i++)
     {
-        irr_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
+        nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
 
         stackPtr = 0;
         // raygen
@@ -470,14 +520,14 @@ void main()
             vec2 remappedRand = rand3d(0u,i,scramble_state).xy;
             remappedRand.x *= 1.0-truncation;
             remappedRand.x += truncation;
-            tmp.xy += pixOffsetParam*irr_glsl_BoxMullerTransform(remappedRand,1.5);
+            tmp.xy += pixOffsetParam*nbl_glsl_BoxMullerTransform(remappedRand,1.5);
             // for depth of field we could do another stochastic point-pick
             tmp = invMVP*tmp;
             rayStack[stackPtr]._immutable.direction = normalize(tmp.xyz/tmp.w-camPos);
             
             rayStack[stackPtr]._immutable.typeDepthSampleIx = bitfieldInsert(i,1,DEPTH_BITS_OFFSET,DEPTH_BITS_COUNT);
 
-            #ifdef TRIANGLE_METHOD
+            #if defined(TRIANGLE_METHOD)||defined(RECTANGLE_METHOD)
                 rayStack[stackPtr]._immutable.normalAtOrigin = vec3(0.0,0.0,0.0);
                 rayStack[stackPtr]._immutable.wasBSDFAtOrigin = false;
             #endif
@@ -544,9 +594,6 @@ When proper scheduling is available:
 - Russian Roulette
 - Divergence Optimization
 - Adaptive Sampling
-
-Offline firefly removal:
-- Density Based Outlier Rejection (requires fast k-nearest neighbours on the GPU, at which point we've pretty much got photonmapping ready)
 
 When finally texturing:
 - Covariance Rendering

@@ -8,7 +8,7 @@
 
 #include "Keycodes.h"
 
-namespace irr
+namespace nbl
 {
 
 	//! enumeration for key actions. Used for example in the FPS Camera.
@@ -36,7 +36,7 @@ namespace irr
 		EKEY_CODE KeyCode;
 	};
 
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

@@ -5,17 +5,17 @@
 #define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
-#include <irrlicht.h>
+#include <nabla.h>
 
 #include "CommandLineHandler.hpp"
-#include "irr/asset/filters/dithering/CPrecomputedDither.h"
+#include "nbl/asset/filters/dithering/CPrecomputedDither.h"
 
-#include "irr/ext/ToneMapper/CToneMapper.h"
-#include "irr/ext/OptiX/Manager.h"
+#include "nbl/ext/ToneMapper/CToneMapper.h"
+#include "nbl/ext/OptiX/Manager.h"
 
 #include "CommonPushConstants.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 using namespace video;
 
@@ -56,7 +56,7 @@ bool check_error(bool cond, const char* message)
 
 int main(int argc, char* argv[])
 {
-	irr::SIrrlichtCreationParameters params;
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24;
 	params.ZBufferBits = 24;
 	params.DriverType = video::EDT_OPENGL;
@@ -296,7 +296,7 @@ void main()
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
 #include "../ShaderCommon.glsl"
-#include "irr/builtin/glsl/ext/ToneMapper/operators.glsl"
+#include "nbl/builtin/glsl/ext/ToneMapper/operators.glsl"
 layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 {
 	float16_t inBuffer[];
@@ -930,11 +930,12 @@ void main()
 				// get the data from the GPU
 				{
 					constexpr uint64_t timeoutInNanoSeconds = 300000000000u;
+					const auto waitPoint = std::chrono::high_resolution_clock::now()+std::chrono::nanoseconds(timeoutInNanoSeconds);
 
 					// download buffer
 					{
 						const uint32_t alignment = 4096u; // common page size
-						auto unallocatedSize = downloadStagingArea->multi_alloc(std::chrono::nanoseconds(timeoutInNanoSeconds), 1u, &address, &colorBufferBytesize, &alignment);
+						auto unallocatedSize = downloadStagingArea->multi_alloc(waitPoint, 1u, &address, &colorBufferBytesize, &alignment);
 						if (unallocatedSize)
 						{
 							os::Printer::log(makeImageIDString(i)+"Could not download the buffer from the GPU!",ELL_ERROR);

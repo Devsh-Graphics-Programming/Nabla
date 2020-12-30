@@ -6,11 +6,11 @@
 #ifndef __NBL_I_READ_FILE_H_INCLUDED__
 #define __NBL_I_READ_FILE_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
-#include "irr/core/string/stringutil.h"
+#include "nbl/core/IReferenceCounted.h"
+#include "nbl/core/string/stringutil.h"
 #include "path.h"
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -47,7 +47,7 @@ namespace io
 	};
 
 } // end namespace io
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

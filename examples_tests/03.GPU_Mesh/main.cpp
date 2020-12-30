@@ -5,19 +5,19 @@
 #define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
-#include <irrlicht.h>
+#include <nabla.h>
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
 
-//#include "irr/ext/ScreenShot/ScreenShot.h"
+//#include "nbl/ext/ScreenShot/ScreenShot.h"
 
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 
-#include "irr/irrpack.h"
+#include "nbl/nblpack.h"
 struct VertexStruct
 {
     /// every member needs to be at location aligned to its type size for GLSL
@@ -25,17 +25,13 @@ struct VertexStruct
     uint8_t Col[2]; /// same logic needs 1 byte alignment
     uint8_t uselessPadding[2]; /// so if there is a member with 4 byte alignment then whole struct needs 4 byte align, so pad it
 } PACK_STRUCT;
-#include "irr/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 const char* vertexSource = R"===(
 #version 430 core
 
-#include "irr/builtin/glsl/broken_driver_workarounds/amd.glsl"
-
 layout(location = 0) in vec4 vPos; //only a 3d position is passed from irrlicht, but last (the W) coordinate gets filled with default 1.0
 layout(location = 1) in vec4 vCol;
-
-#include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
 
 layout( push_constant, row_major ) uniform Block {
 	mat4 modelViewProj;
@@ -45,7 +41,7 @@ layout(location = 0) out vec4 Color; //per vertex output color, will be interpol
 
 void main()
 {
-    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(PushConstants.modelViewProj)*vPos; //only thing preventing the shader from being core-compliant
+    gl_Position = PushConstants.modelViewProj*vPos; //only thing preventing the shader from being core-compliant
     Color = vCol;
 }
 )===";
@@ -66,8 +62,8 @@ void main()
 int main()
 {
 	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing

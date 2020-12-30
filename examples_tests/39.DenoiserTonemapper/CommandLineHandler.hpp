@@ -8,9 +8,9 @@
 #include <iostream>
 #include <cstdio>
 #include <chrono>
-#include "irrlicht.h"
-#include "irr/core/core.h"
-#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
+#include "nabla.h"
+#include "nbl/core/core.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 
 #define PROPER_CMD_ARGUMENTS_AMOUNT 14
 #define MANDATORY_CMD_ARGUMENTS_AMOUNT 8
@@ -175,13 +175,13 @@ enum TONEMAPPER_ARGUMENTS
 
 using cmdVariableName = std::string;
 using rawValuesOfcmdVariable = std::string;
-using variablesType = std::unordered_map<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS, std::optional<irr::core::vector<rawValuesOfcmdVariable>>>;
+using variablesType = std::unordered_map<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS, std::optional<nbl::core::vector<rawValuesOfcmdVariable>>>;
 
 class CommandLineHandler
 {
 	public:
 
-		CommandLineHandler(irr::core::vector<std::string> argv, irr::asset::IAssetManager* am);
+		CommandLineHandler(nbl::core::vector<std::string> argv, nbl::asset::IAssetManager* am);
 
 		auto getInputFilesAmount()
 		{
@@ -329,7 +329,7 @@ class CommandLineHandler
 			return rawVariables[id][DTEA_COLOR_FILE].value()[0];
 		}
 		
-		irr::core::matrix3x4SIMD getCameraTransform(uint64_t id = 0);
+		nbl::core::matrix3x4SIMD getCameraTransform(uint64_t id = 0);
 
 		auto getDenoiserExposureBias(uint64_t id = 0)
 		{
@@ -348,7 +348,7 @@ class CommandLineHandler
 
 		auto getTonemapper(uint64_t id = 0)
 		{
-			irr::core::vector<float> values;
+			nbl::core::vector<float> values;
 
 			uint32_t j = DTEA_TONEMAPPER_REINHARD;
 			DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS num;
@@ -363,7 +363,7 @@ class CommandLineHandler
 			{
 				const auto& stringVec = rawVariables[id][num].value();
 				for (const auto& str : stringVec)
-					values.push_back(str=="AutoexposureOff" ? irr::core::nan<float>():std::stof(str));
+					values.push_back(str=="AutoexposureOff" ? nbl::core::nan<float>():std::stof(str));
 			}
 			
 			return std::make_pair(num, values);
@@ -462,25 +462,25 @@ class CommandLineHandler
 
 		bool status;
 		COMMAND_LINE_MODE mode;
-		irr::core::vector<variablesType> rawVariables;
-		irr::asset::IAssetManager * const assetManager;
+		nbl::core::vector<variablesType> rawVariables;
+		nbl::asset::IAssetManager * const assetManager;
 
 		// I want to deduce those types bellow by using type from functions above
 		// like deduce type of getTonemapper()
 
-		irr::core::vector<std::optional<std::string>> colorFileNameBundle;
-		irr::core::vector<std::optional<std::string>> albedoFileNameBundle;
-		irr::core::vector<std::optional<std::string>> normalFileNameBundle;
-		irr::core::vector<std::optional<std::string>> colorChannelNameBundle;
-		irr::core::vector<std::optional<std::string>> albedoChannelNameBundle;
-		irr::core::vector<std::optional<std::string>> normalChannelNameBundle;
-		irr::core::vector<std::optional<irr::core::matrix3x4SIMD>> cameraTransformBundle;
-		irr::core::vector<std::optional<float>> denoiserExposureBiasBundle;
-		irr::core::vector<std::optional<float>> denoiserBlendFactorBundle;
-		irr::core::vector<std::optional<float>> bloomFovBundle;
-		irr::core::vector<std::pair<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS,irr::core::vector<float>>> tonemapperBundle;
-		irr::core::vector<std::optional<std::string>> outputFileNameBundle;
-		irr::core::vector<std::optional<std::string>> bloomPsfFileNameBundle;
+		nbl::core::vector<std::optional<std::string>> colorFileNameBundle;
+		nbl::core::vector<std::optional<std::string>> albedoFileNameBundle;
+		nbl::core::vector<std::optional<std::string>> normalFileNameBundle;
+		nbl::core::vector<std::optional<std::string>> colorChannelNameBundle;
+		nbl::core::vector<std::optional<std::string>> albedoChannelNameBundle;
+		nbl::core::vector<std::optional<std::string>> normalChannelNameBundle;
+		nbl::core::vector<std::optional<nbl::core::matrix3x4SIMD>> cameraTransformBundle;
+		nbl::core::vector<std::optional<float>> denoiserExposureBiasBundle;
+		nbl::core::vector<std::optional<float>> denoiserBlendFactorBundle;
+		nbl::core::vector<std::optional<float>> bloomFovBundle;
+		nbl::core::vector<std::pair<DENOISER_TONEMAPPER_EXAMPLE_ARGUMENTS,nbl::core::vector<float>>> tonemapperBundle;
+		nbl::core::vector<std::optional<std::string>> outputFileNameBundle;
+		nbl::core::vector<std::optional<std::string>> bloomPsfFileNameBundle;
 
 		std::chrono::nanoseconds elapsedTimeXmls = {};
 		std::chrono::nanoseconds elapsedTimeEntireLoading = {};

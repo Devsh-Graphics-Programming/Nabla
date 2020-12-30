@@ -6,9 +6,9 @@
 #ifndef __NBL_POINT_3D_H_INCLUDED__
 #define __NBL_POINT_3D_H_INCLUDED__
 
-#include "irr/core/math/glslFunctions.h"
+#include "nbl/core/math/glslFunctions.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -277,7 +277,7 @@ namespace core
 
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

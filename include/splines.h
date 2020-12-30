@@ -7,12 +7,12 @@
 
 #include "BuildConfigOptions.h"
 #include <cmath>       /* sqrt */
-#include "irr/core/math/glslFunctions.tcc"
+#include "nbl/core/math/glslFunctions.tcc"
 
 #include <vector>
 
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

@@ -2,12 +2,12 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include <irrlicht.h>
+#include <nabla.h>
 
-#include "../../../include/irr/asset/filters/CSummedAreaTableImageFilter.h"
-#include "irr/ext/ScreenShot/ScreenShot.h"
+#include "../../../include/nbl/asset/filters/CSummedAreaTableImageFilter.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 using namespace asset;
 using namespace video;
@@ -61,7 +61,7 @@ class CDiscreteConvolutionFilterKernel : public CFloatingPointSeparableImageFilt
 
 int main()
 {
-	irr::SIrrlichtCreationParameters params;
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 32;
 	params.ZBufferBits = 24;
 	params.DriverType = video::EDT_OPENGL;

@@ -6,7 +6,7 @@
 #ifndef __NBL_E_DRIVER_TYPES_H_INCLUDED__
 #define __NBL_E_DRIVER_TYPES_H_INCLUDED__
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -32,7 +32,7 @@ namespace video
         };
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

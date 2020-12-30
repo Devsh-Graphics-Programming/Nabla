@@ -2,8 +2,6 @@
 
 #extension GL_KHR_shader_subgroup_ballot : require
 
-#include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
-
 struct BoneData
 {
     mat4 boneMatrix;
@@ -109,8 +107,8 @@ BoneData getBone(uint _boneID)
 //#endif
   {
     BoneData retval;
-    retval.boneMatrix = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(boneSSBO_structs.data[_boneID].boneMatrix);
-    retval.normalMatrix = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(boneSSBO_structs.data[_boneID].normalMatrix);
+    retval.boneMatrix = boneSSBO_structs.data[_boneID].boneMatrix;
+    retval.normalMatrix = boneSSBO_structs.data[_boneID].normalMatrix;
     return retval;
   }
 }

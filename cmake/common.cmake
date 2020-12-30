@@ -22,13 +22,13 @@ function(update_git_submodule _PATH)
 endfunction()
 
 
-# REDO THIS WHOLE THING AS FUNCTIONS
+# TODO: REDO THIS WHOLE THING AS FUNCTIONS
 # https://github.com/buildaworldnet/IrrlichtBAW/issues/311 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
 
 # Macro creating project for an executable
 # Project and target get its name from directory when this macro gets executed (truncating number in the beginning of the name and making all lower case)
 # Created because of common cmake code for examples and tools
-macro(irr_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS)
+macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS)
 	get_filename_component(EXECUTABLE_NAME ${CMAKE_CURRENT_SOURCE_DIR} NAME)
 	string(REGEX REPLACE "^[0-9]+\." "" EXECUTABLE_NAME ${EXECUTABLE_NAME})
 	string(TOLOWER ${EXECUTABLE_NAME} EXECUTABLE_NAME)
@@ -41,14 +41,14 @@ macro(irr_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
              MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 	
 	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
-	add_dependencies(${EXECUTABLE_NAME} Irrlicht)
+	add_dependencies(${EXECUTABLE_NAME} Nabla)
 
 	target_include_directories(${EXECUTABLE_NAME}
 		PUBLIC ../../include
 		PRIVATE ${_EXTRA_INCLUDES}
 	)
-	target_link_libraries(${EXECUTABLE_NAME} Irrlicht ${_EXTRA_LIBS}) # see, this is how you should code to resolve github issue 311
-	if (IRR_COMPILE_WITH_OPENGL)
+	target_link_libraries(${EXECUTABLE_NAME} Nabla ${_EXTRA_LIBS}) # see, this is how you should code to resolve github issue 311
+	if (NBL_COMPILE_WITH_OPENGL)
 		find_package(OpenGL REQUIRED)
 		target_link_libraries(${EXECUTABLE_NAME} ${OPENGL_LIBRARIES})
 	endif()
@@ -63,10 +63,10 @@ macro(irr_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		set(COMMON_LINKER_OPTIONS "-msse4.2 -mfpmath=sse -fuse-ld=gold")
 		set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${COMMON_LINKER_OPTIONS}")
 		set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${COMMON_LINKER_OPTIONS} -fstack-protector-strong")
-		if (IRR_GCC_SANITIZE_ADDRESS)
+		if (NBL_GCC_SANITIZE_ADDRESS)
 			set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fsanitize=address")
 		endif()
-		if (IRR_GCC_SANITIZE_THREAD)
+		if (NBL_GCC_SANITIZE_THREAD)
 			set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fsanitize=thread")
 		endif()
 		if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.1)
@@ -75,8 +75,8 @@ macro(irr_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	endif()
 
 	# https://github.com/buildaworldnet/IrrlichtBAW/issues/298 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-	irr_adjust_flags() # macro defined in root CMakeLists
-	irr_adjust_definitions() # macro defined in root CMakeLists
+	nbl_adjust_flags() # macro defined in root CMakeLists
+	nbl_adjust_definitions() # macro defined in root CMakeLists
 
 	set_target_properties(${EXECUTABLE_NAME} PROPERTIES DEBUG_POSTFIX _d)
 	set_target_properties(${EXECUTABLE_NAME} PROPERTIES RELWITHDEBINFO_POSTFIX _rwdi)
@@ -154,25 +154,25 @@ macro(irr_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	endif()
 endmacro()
 
-macro(irr_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS)
+macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS)
 	set(LIB_NAME "IrrExt${EXT_NAME}")
 	project(${LIB_NAME})
 
 	add_library(${LIB_NAME} ${LIB_SOURCES})
 	# EXTRA_SOURCES is var containing non-common names of sources (if any such sources, then EXTRA_SOURCES must be set before including this cmake code)
-	add_dependencies(${LIB_NAME} Irrlicht)
+	add_dependencies(${LIB_NAME} Nabla)
 
 	target_include_directories(${LIB_NAME}
-		PUBLIC ${CMAKE_BINARY_DIR}/include/irr/config/debug
-		PUBLIC ${CMAKE_BINARY_DIR}/include/irr/config/release
-		PUBLIC ${CMAKE_BINARY_DIR}/include/irr/config/relwithdebinfo
+		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/debug
+		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/release
+		PUBLIC ${CMAKE_BINARY_DIR}/include/nbl/config/relwithdebinfo
 		PUBLIC ${CMAKE_SOURCE_DIR}/include
 		PUBLIC ${CMAKE_SOURCE_DIR}/src
-		PUBLIC ${CMAKE_SOURCE_DIR}/source/Irrlicht
+		PUBLIC ${CMAKE_SOURCE_DIR}/source/Nabla
 		PRIVATE ${LIB_INCLUDES}
 	)
-	add_dependencies(${LIB_NAME} Irrlicht)
-	target_link_libraries(${LIB_NAME} PUBLIC Irrlicht)
+	add_dependencies(${LIB_NAME} Nabla)
+	target_link_libraries(${LIB_NAME} PUBLIC Nabla)
 	target_compile_options(${LIB_NAME} PUBLIC ${LIB_OPTIONS})
 	set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 
@@ -187,8 +187,8 @@ macro(irr_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	endif()
 
 	# https://github.com/buildaworldnet/IrrlichtBAW/issues/298 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-	irr_adjust_flags() # macro defined in root CMakeLists
-	irr_adjust_definitions() # macro defined in root CMakeLists
+	nbl_adjust_flags() # macro defined in root CMakeLists
+	nbl_adjust_definitions() # macro defined in root CMakeLists
 
 	set_target_properties(${LIB_NAME} PROPERTIES DEBUG_POSTFIX _d)
 	set_target_properties(${LIB_NAME} PROPERTIES RELWITHDEBINFO_POSTFIX _rwdb)
@@ -208,59 +208,60 @@ macro(irr_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 
 	install(
 		FILES ${LIB_HEADERS}
-		DESTINATION ./include/irr/ext/${EXT_NAME}
+		DESTINATION ./include/nbl/ext/${EXT_NAME}
 		CONFIGURATIONS Release
 	)
 	install(
 		FILES ${LIB_HEADERS}
-		DESTINATION ./debug/include/irr/ext/${EXT_NAME}
+		DESTINATION ./debug/include/nbl/ext/${EXT_NAME}
 		CONFIGURATIONS Debug
 	)
 	install(
 		FILES ${LIB_HEADERS}
-		DESTINATION ./relwithdebinfo/include/irr/ext/${EXT_NAME}
+		DESTINATION ./relwithdebinfo/include/nbl/ext/${EXT_NAME}
 		CONFIGURATIONS RelWithDebInfo
 	)
 	install(
 		TARGETS ${LIB_NAME}
-		DESTINATION ./lib/irr/ext/${EXT_NAME}
+		DESTINATION ./lib/nbl/ext/${EXT_NAME}
 		CONFIGURATIONS Release
 	)
 	install(
 		TARGETS ${LIB_NAME}
-		DESTINATION ./debug/lib/irr/ext/${EXT_NAME}
+		DESTINATION ./debug/lib/nbl/ext/${EXT_NAME}
 		CONFIGURATIONS Debug
 	)
 	install(
 		TARGETS ${LIB_NAME}
-		DESTINATION ./relwithdebinfo/lib/irr/ext/${EXT_NAME}
+		DESTINATION ./relwithdebinfo/lib/nbl/ext/${EXT_NAME}
 		CONFIGURATIONS RelWithDebInfo
 	)
 
-	set("IRR_EXT_${EXT_NAME}_INCLUDE_DIRS"
-		"${IRR_ROOT_PATH}/include/"
-		"${IRR_ROOT_PATH}/src"
-		"${IRR_ROOT_PATH}/source/Irrlicht"
-		"${IRR_ROOT_PATH}/ext/${EXT_NAME}"
+	set("NBL_EXT_${EXT_NAME}_INCLUDE_DIRS"
+		"${NBL_ROOT_PATH}/include/"
+		"${NBL_ROOT_PATH}/src"
+		"${NBL_ROOT_PATH}/source/Nabla"
+		"${NBL_ROOT_PATH}/ext/${EXT_NAME}"
 		"${LIB_INCLUDES}"
 		PARENT_SCOPE
 	)
-	set("IRR_EXT_${EXT_NAME}_LIB"
+	set("NBL_EXT_${EXT_NAME}_LIB"
 		"${LIB_NAME}"
 		PARENT_SCOPE
 	)
 endmacro()
 
+# End of TODO, rest are all functions
 
-function(irr_get_conf_dir _OUTVAR _CONFIG)
+function(nbl_get_conf_dir _OUTVAR _CONFIG)
 	string(TOLOWER ${_CONFIG} CONFIG)
-	set(${_OUTVAR} "${CMAKE_BINARY_DIR}/include/irr/config/${CONFIG}" PARENT_SCOPE)
+	set(${_OUTVAR} "${CMAKE_BINARY_DIR}/include/nbl/config/${CONFIG}" PARENT_SCOPE)
 endfunction()
 
 
 # function for installing header files preserving directory structure
 # _DEST_DIR is directory relative to CMAKE_INSTALL_PREFIX
-function(irr_install_headers _HEADERS _BASE_HEADERS_DIR)
+function(nbl_install_headers _HEADERS _BASE_HEADERS_DIR)
 	foreach (file ${_HEADERS})
 		file(RELATIVE_PATH dir ${_BASE_HEADERS_DIR} ${file})
 		get_filename_component(dir ${dir} DIRECTORY)
@@ -270,10 +271,10 @@ function(irr_install_headers _HEADERS _BASE_HEADERS_DIR)
 	endforeach()
 endfunction()
 
-function(irr_install_config_header _CONF_HDR_NAME)
-	irr_get_conf_dir(dir_deb Debug)
-	irr_get_conf_dir(dir_rel Release)
-	irr_get_conf_dir(dir_relWithDebInfo RelWithDebInfo)
+function(nbl_install_config_header _CONF_HDR_NAME)
+	nbl_get_conf_dir(dir_deb Debug)
+	nbl_get_conf_dir(dir_rel Release)
+	nbl_get_conf_dir(dir_relWithDebInfo RelWithDebInfo)
 	set(file_deb "${dir_deb}/${_CONF_HDR_NAME}")
 	set(file_rel "${dir_rel}/${_CONF_HDR_NAME}")
 	set(file_relWithDebInfo "${dir_relWithDebInfo}/${_CONF_HDR_NAME}")
@@ -281,3 +282,47 @@ function(irr_install_config_header _CONF_HDR_NAME)
 	install(FILES ${file_deb} DESTINATION debug/include CONFIGURATIONS Debug)
 	install(FILES ${file_relWithDebInfo} DESTINATION relwithdebinfo/include CONFIGURATIONS RelWithDebInfo)
 endfunction()
+
+
+# TODO: check the license for this https://gist.github.com/oliora/4961727299ed67337aba#gistcomment-3494802
+
+# Start to track variables for change or adding.
+# Note that variables starting with underscore are ignored.
+macro(start_tracking_variables_for_propagation_to_parent)
+    get_cmake_property(_fnvtps_cache_vars CACHE_VARIABLES)
+    get_cmake_property(_fnvtps_old_vars VARIABLES)
+    
+    foreach(_i ${_fnvtps_old_vars})
+        if (NOT "x${_i}" MATCHES "^x_.*$")
+            list(FIND _fnvtps_cache_vars ${_i} _fnvtps_is_in_cache)
+            if(${_fnvtps_is_in_cache} EQUAL -1)
+                set("_fnvtps_old${_i}" ${${_i}})
+                #message(STATUS "_fnvtps_old${_i} = ${_fnvtps_old${_i}}")
+            endif()
+        endif()
+    endforeach()
+endmacro()
+
+# forward_changed_variables_to_parent_scope([exclusions])
+# Forwards variables that was added/changed since last call to start_track_variables() to the parent scope.
+# Note that variables starting with underscore are ignored.
+macro(propagate_changed_variables_to_parent_scope)
+    get_cmake_property(_fnvtps_cache_vars CACHE_VARIABLES)
+    get_cmake_property(_fnvtps_vars VARIABLES)
+    set(_fnvtps_cache_vars ${_fnvtps_cache_vars} ${ARGN})
+    
+    foreach(_i ${_fnvtps_vars})
+        if (NOT "x${_i}" MATCHES "^x_.*$")
+            list(FIND _fnvtps_cache_vars ${_i} _fnvtps_is_in_cache)
+            
+            if (${_fnvtps_is_in_cache} EQUAL -1)
+                list(FIND _fnvtps_old_vars ${_i} _fnvtps_is_old)
+                
+                if(${_fnvtps_is_old} EQUAL -1 OR NOT "${${_i}}" STREQUAL "${_fnvtps_old${_i}}")
+                    set(${_i} ${${_i}} PARENT_SCOPE)
+                    #message(STATUS "forwarded var ${_i}")
+                endif()
+            endif()
+        endif()
+    endforeach()
+endmacro()

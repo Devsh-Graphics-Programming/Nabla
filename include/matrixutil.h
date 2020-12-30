@@ -8,7 +8,7 @@
 #include "matrix4SIMD.h"
 #include "matrix3x4SIMD.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

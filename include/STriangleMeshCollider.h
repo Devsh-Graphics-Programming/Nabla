@@ -6,9 +6,9 @@
 #define __NBL_S_TRIANGLE_MESH_COLLIDER_H_INCLUDED__
 
 #include "SAABoxCollider.h"
-#include "irr/core/IReferenceCounted.h"
+#include "nbl/core/IReferenceCounted.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

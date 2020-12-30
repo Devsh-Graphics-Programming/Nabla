@@ -10,7 +10,7 @@
 
 inline unsigned createComputeShader(const char* _src)
 {
-    using namespace irr;
+    using namespace nbl;
 
     unsigned program = video::COpenGLExtensionHandler::extGlCreateProgram();
     unsigned cs = video::COpenGLExtensionHandler::extGlCreateShader(GL_COMPUTE_SHADER);
@@ -51,7 +51,7 @@ inline unsigned createComputeShader(const char* _src)
 
 inline size_t loadFileContentsAsStr(const char* _path, char*& _dst)
 {
-    using namespace irr;
+    using namespace nbl;
     using namespace io;
     IReadFile* file = new CReadFile(_path);
 
@@ -67,7 +67,7 @@ inline size_t loadFileContentsAsStr(const char* _path, char*& _dst)
 }
 inline unsigned createComputeShaderFromFile(const char* _path)
 {
-    using namespace irr;
+    using namespace nbl;
     using namespace io;
     IReadFile* file = new CReadFile(_path);
     

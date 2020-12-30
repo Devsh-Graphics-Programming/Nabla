@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include <irrlicht.h>
+#include <nabla.h>
 #include <omp.h>
 #include <cassert>
 #include <random>
@@ -15,7 +15,7 @@ uint32_t getRandom(uint32_t min, uint32_t max)
 #define RANDOM_MIN (1u<<18)
 #define RANDOM_MAX (1u<<19)
 
-class RefCounted : public irr::core::IReferenceCounted {};
+class RefCounted : public nbl::core::IReferenceCounted {};
 
 #define TEST_COUNT_AFTER
 int main()

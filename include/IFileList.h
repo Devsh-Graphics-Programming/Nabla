@@ -6,10 +6,10 @@
 #ifndef __NBL_I_FILE_LIST_H_INCLUDED__
 #define __NBL_I_FILE_LIST_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
+#include "nbl/core/IReferenceCounted.h"
 #include "path.h"
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -82,7 +82,7 @@ public:
 	virtual const io::path& getPath() const = 0;
 };
 
-} // end namespace irr
+} // end namespace nbl
 } // end namespace io
 
 

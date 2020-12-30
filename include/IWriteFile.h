@@ -6,10 +6,10 @@
 #ifndef __NBL_I_WRITE_FILE_H_INCLUDED__
 #define __NBL_I_WRITE_FILE_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
+#include "nbl/core/IReferenceCounted.h"
 #include "path.h"
 
-namespace irr
+namespace nbl
 {
 namespace io
 {
@@ -45,7 +45,7 @@ namespace io
 	IWriteFile* createWriteFile(const io::path& fileName, bool append);
 
 } // end namespace io
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

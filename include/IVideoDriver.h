@@ -14,10 +14,10 @@
 #include "IDriverFence.h"
 #include "SExposedVideoData.h"
 #include "IDriver.h"
-#include "irr/video/IGPUBufferView.h"
-#include "irr/video/IGPURenderpassIndependentPipeline.h"
+#include "nbl/video/IGPUBufferView.h"
+#include "nbl/video/IGPURenderpassIndependentPipeline.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -28,6 +28,7 @@ namespace video
 		ESB_BACK_LEFT,
 		ESB_BACK_RIGHT
 	};
+	//TODO move to IGPUCommandBuffer.h or higher level header
     enum E_PIPELINE_BIND_POINT
     {
         EPBP_GRAPHICS = 0,
@@ -226,7 +227,7 @@ namespace video
 	};
 
 } // end namespace video
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

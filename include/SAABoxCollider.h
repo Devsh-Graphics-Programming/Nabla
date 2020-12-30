@@ -8,7 +8,7 @@
 #include "vectorSIMD.h"
 #include "aabbox3d.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

@@ -8,7 +8,7 @@ set(CUDA_INTEROP_EXAMPLE_INCLUDE_DIRS
 	${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
 )
 
-irr_create_executable_project(
+nbl_create_executable_project(
 	""
 	""
 	"${CUDA_INTEROP_EXAMPLE_INCLUDE_DIRS}"

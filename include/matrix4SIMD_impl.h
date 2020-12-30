@@ -6,9 +6,9 @@
 #define __NBL_MATRIX4SIMD_IMPL_H_INCLUDED__
 
 #include "matrix4SIMD.h"
-#include "irr/core/math/glslFunctions.tcc"
+#include "nbl/core/math/glslFunctions.tcc"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -371,6 +371,6 @@ inline bool matrix4SIMD::isBoxInFrustum(const aabbox3d<float>& bbox)
 }
 
 }
-} // irr::core
+} // nbl::core
 
 #endif

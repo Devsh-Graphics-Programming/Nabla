@@ -10,7 +10,7 @@
 #include "STriangleMeshCollider.h"
 #include "quaternion.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {

@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #define _NBL_STATIC_LIB_
-#include <irrlicht.h>
+#include <nabla.h>
 //#include <intrin.h>
 #include <immintrin.h>
 

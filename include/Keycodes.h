@@ -6,7 +6,7 @@
 #ifndef __NBL_KEY_CODES_H_INCLUDED__
 #define __NBL_KEY_CODES_H_INCLUDED__
 
-namespace irr
+namespace nbl
 {
 
 	enum EKEY_CODE
@@ -169,7 +169,7 @@ namespace irr
 		KEY_KEY_CODES_COUNT  = 0xFF // this is not a key, but the amount of keycodes there are.
 	};
 
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

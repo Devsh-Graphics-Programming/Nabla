@@ -5,11 +5,11 @@
 #define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
-#include <irrlicht.h>
-#include "irr/ext/ScreenShot/ScreenShot.h"
-#include "irr/ext/FullScreenTriangle/FullScreenTriangle.h"
+#include <nabla.h>
+#include "nbl/ext/ScreenShot/ScreenShot.h"
+#include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 enum E_TEST_CASE : uint32_t
@@ -21,52 +21,52 @@ enum E_TEST_CASE : uint32_t
     ETC_GGX_TRANSMIT,
     ETC_BECKMANN_TRANSMIT
 };
-class EventReceiver : public irr::IEventReceiver
+class EventReceiver : public nbl::IEventReceiver
 {
 public:
-	bool OnEvent(const irr::SEvent& event)
+	bool OnEvent(const nbl::SEvent& event)
 	{
         constexpr float da = 0.1f;
-		if (event.EventType == irr::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
+		if (event.EventType == nbl::EET_KEY_INPUT_EVENT && !event.KeyInput.PressedDown)
 		{
 			switch (event.KeyInput.Key)
 			{
-				case irr::KEY_KEY_Q:
+				case nbl::KEY_KEY_Q:
 					running = false;
 					return true;
-                case irr::KEY_KEY_1:
+                case nbl::KEY_KEY_1:
                     test = ETC_LAMBERT;
                     return true;
-                case irr::KEY_KEY_2:
+                case nbl::KEY_KEY_2:
                     test = ETC_GGX;
                     return true;
-                case irr::KEY_KEY_3:
+                case nbl::KEY_KEY_3:
                     test = ETC_BECKMANN;
                     return true;
-                case irr::KEY_KEY_4:
+                case nbl::KEY_KEY_4:
                     test = ETC_LAMBERT_TRANSMIT;
                     return true;
-                case irr::KEY_KEY_5:
+                case nbl::KEY_KEY_5:
                     test = ETC_GGX_TRANSMIT;
                     return true;
-                case irr::KEY_KEY_6:
+                case nbl::KEY_KEY_6:
                     test = ETC_BECKMANN_TRANSMIT;
                     return true;
-                case irr::KEY_KEY_S:
+                case nbl::KEY_KEY_S:
                     ss = true;
                     return true;
 
-                case irr::KEY_KEY_Z:
+                case nbl::KEY_KEY_Z:
                     m_ax = std::max(0.f, m_ax-da);
                     return true;
-                case irr::KEY_KEY_X:
+                case nbl::KEY_KEY_X:
                     m_ax = std::min(1.f, m_ax+da);
                     return true;
 
-                case irr::KEY_KEY_C:
+                case nbl::KEY_KEY_C:
                     m_ay = std::max(0.f, m_ay-da);
                     return true;
-                case irr::KEY_KEY_V:
+                case nbl::KEY_KEY_V:
                     m_ay = std::min(1.f, m_ay+da);
                     return true;
 				default:
@@ -98,8 +98,8 @@ private:
 int main()
 {
     // create device with full flexibility over creation parameters
-    // you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-    irr::SIrrlichtCreationParameters params;
+    // you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+    nbl::SIrrlichtCreationParameters params;
     params.Bits = 24; //may have to set to 32bit for some platforms
     params.ZBufferBits = 24; //we'd like 32bit here
     params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing

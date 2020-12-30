@@ -5,10 +5,10 @@
 #ifndef __NBL_I_QUERY_OBJECT_H_INCLUDED__
 #define __NBL_I_QUERY_OBJECT_H_INCLUDED__
 
-#include "irr/core/Types.h"
-#include "irr/core/IReferenceCounted.h"
+#include "nbl/core/Types.h"
+#include "nbl/core/IReferenceCounted.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {

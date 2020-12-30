@@ -5,11 +5,11 @@
 #ifndef __NBL_I_GPU_BUFFER_H_INCLUDED__
 #define __NBL_I_GPU_BUFFER_H_INCLUDED__
 
-#include "irr/asset/IBuffer.h"
+#include "nbl/asset/IBuffer.h"
 #include "IDriverMemoryBacked.h"
-#include "irr/asset/IDescriptor.h"
+#include "nbl/asset/IDescriptor.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -50,7 +50,7 @@ class IGPUBuffer : public asset::IBuffer, public IDriverMemoryBacked
 };
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

@@ -6,10 +6,10 @@
 #ifndef __NBL_I_OS_OPERATOR_H_INCLUDED__
 #define __NBL_I_OS_OPERATOR_H_INCLUDED__
 
-#include "irr/core/core.h"
-#include "irr/system/compile_config.h"
+#include "nbl/core/core.h"
+#include "nbl/system/compile_config.h"
 
-namespace irr
+namespace nbl
 {
 
 //! The Operating system operator provides operation system specific methods and informations.

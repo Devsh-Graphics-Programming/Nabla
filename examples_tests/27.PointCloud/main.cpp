@@ -3,12 +3,12 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #define _NBL_STATIC_LIB_
-#include <irrlicht.h>
+#include <nabla.h>
 
 #include "../common/QToQuitEventReceiver.h"
 
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 class ISorter : public IReferenceCounted
@@ -666,8 +666,8 @@ private:
 int main()
 {
     // create device with full flexibility over creation parameters
-    // you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-    irr::SIrrlichtCreationParameters params;
+    // you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+    nbl::SIrrlichtCreationParameters params;
     params.Bits = 24; //may have to set to 32bit for some platforms
     params.ZBufferBits = 24; //we'd like 32bit here
     params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing

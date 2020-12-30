@@ -7,9 +7,9 @@
 #define __NBL_I_ANIMATED_MESH_H_INCLUDED__
 
 #include "aabbox3d.h"
-#include "irr/asset/IMesh.h"
+#include "nbl/asset/IMesh.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -26,7 +26,7 @@ namespace scene
 	*/
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

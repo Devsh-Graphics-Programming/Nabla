@@ -12,10 +12,10 @@
 #include <functional>
 #include <string>
 
-#include "irr/macros.h"
-#include "irr/core/Types.h"
+#include "nbl/macros.h"
+#include "nbl/core/Types.h"
 
-namespace irr { namespace core
+namespace nbl { namespace core
 {
 
 //#define I_JUST_WANT_TO_COMFORTABLY_WRITE_CODE_AND_I_WILL_REMEMBER_TO_UNDEF_THIS_BEFORE_BUILD

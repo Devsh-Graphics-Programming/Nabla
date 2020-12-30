@@ -6,12 +6,12 @@
 #ifndef __NBL_I_TIMER_H_INCLUDED__
 #define __NBL_I_TIMER_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
+#include "nbl/core/IReferenceCounted.h"
 
 #include <chrono>
 #include <ctime>
 
-namespace irr
+namespace nbl
 {
 
 //! Interface for getting and manipulating the virtual time
@@ -183,6 +183,6 @@ class ITimer final : public core::IReferenceCounted
 		clock_type::duration LastVirtualTime;
 };
 
-} // end namespace irr
+} // end namespace nbl
 
 #endif

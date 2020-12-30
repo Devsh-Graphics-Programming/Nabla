@@ -3,28 +3,26 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #define _NBL_STATIC_LIB_
-#include <irrlicht.h>
+#include <nabla.h>
 
 #include <chrono>
 
 #include "../common/QToQuitEventReceiver.h"
 
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
-#ifndef NEW_SHADERS
-#include "irr/ext/MitsubaLoader/CMitsubaLoader.h"
-#endif
+#include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 
 #include "./dirty_source/ExtraCrap.h"
 
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 int main()
 {
 	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24;
 	params.DriverType = video::EDT_OPENGL;
@@ -37,7 +35,6 @@ int main()
 	if (!device)
 		return 1; // could not create selected driver.
 
-#ifndef NEW_SHADERS
 	//
 	asset::SAssetBundle meshes;
 	core::smart_refctd_ptr<ext::MitsubaLoader::CGlobalMitsubaMetadata> globalMeta;
@@ -45,10 +42,11 @@ int main()
 		io::IFileSystem* fs = device->getFileSystem();
 		asset::IAssetManager* am = device->getAssetManager();
 
-		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CSerializedLoader>(am));
-		am->addAssetLoader(core::make_smart_refctd_ptr<irr::ext::MitsubaLoader::CMitsubaLoader>(am));
+		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CSerializedLoader>(am));
+		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am));
 
-		std::string filePath = "../../media/mitsuba/daily_pt.xml";
+		//std::string filePath = "../../media/mitsuba/daily_pt.xml";
+		std::string filePath = "../../media/mitsuba/staircase2.zip";
 	//#define MITSUBA_LOADER_TESTS
 	#ifndef MITSUBA_LOADER_TESTS
 		pfd::message("Choose file to load", "Choose mitsuba XML file to load or ZIP containing an XML. \nIf you cancel or choosen file fails to load, simple scene will be loaded.", pfd::choice::ok);
@@ -91,36 +89,20 @@ int main()
 			}
 		}
 
-		//! read cache results -- speeds up mesh generation
-		{
-			io::IReadFile* cacheFile = device->getFileSystem()->createAndOpenFile("../../tmp/normalCache101010.sse");
-			if (cacheFile)
-			{
-				asset::normalCacheFor2_10_10_10Quant.resize(cacheFile->getSize() / sizeof(asset::QuantizationCacheEntry2_10_10_10));
-				cacheFile->read(asset::normalCacheFor2_10_10_10Quant.data(), cacheFile->getSize());
-				cacheFile->drop();
+		asset::CQuantNormalCache* qnc = am->getMeshManipulator()->getQuantNormalCache();
 
-				//make sure its still ok
-				std::sort(asset::normalCacheFor2_10_10_10Quant.begin(), asset::normalCacheFor2_10_10_10Quant.end());
-			}
-		}
+		//! read cache results -- speeds up mesh generation
+		qnc->loadNormalQuantCacheFromFile<asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
 		//! load the mitsuba scene
 		meshes = am->getAsset(filePath, {});
 		//! cache results -- speeds up mesh generation on second run
-		{
-			io::IWriteFile* cacheFile = device->getFileSystem()->createAndWriteFile("../../tmp/normalCache101010.sse");
-			if (cacheFile)
-			{
-				cacheFile->write(asset::normalCacheFor2_10_10_10Quant.data(), asset::normalCacheFor2_10_10_10Quant.size() * sizeof(asset::QuantizationCacheEntry2_10_10_10));
-				cacheFile->drop();
-			}
-		}
+		qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
 		
 		auto contents = meshes.getContents();
-		if (contents.first>=contents.second)
+		if (!contents.size())
 			return 2;
 
-		auto firstmesh = *contents.first;
+		auto firstmesh = *contents.begin();
 		if (!firstmesh)
 			return 3;
 
@@ -134,6 +116,7 @@ int main()
 
 	auto smgr = device->getSceneManager();
 
+	// TODO: Move into renderer?
 	bool rightHandedCamera = true;
 	auto camera = smgr->addCameraSceneNode(nullptr);
 	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
@@ -160,7 +143,7 @@ int main()
 
 			camera->setTarget(target.getAsVector3df());
 			if (core::dot(core::normalize(core::cross(camera->getUpVector(),view)),core::cross(up,view)).x<0.99f)
-				camera->setUpVector(up.getAsVector3df());
+				camera->setUpVector(up);
 		}
 
 		const ext::MitsubaLoader::CElementSensor::PerspectivePinhole* persp = nullptr;
@@ -233,7 +216,7 @@ int main()
 
 
 	auto driver = device->getVideoDriver();
-	driver->setTextureCreationFlag(video::ETCF_ALWAYS_32_BIT, true);
+
 
 	core::smart_refctd_ptr<Renderer> renderer = core::make_smart_refctd_ptr<Renderer>(driver, device->getAssetManager(), smgr);
 	constexpr uint32_t MaxSamples = 1024u*1024u;
@@ -254,14 +237,15 @@ int main()
 
 		if (generateNewSamples)
 		{
+			constexpr uint32_t Channels = 3u;
+			static_assert(Renderer::MaxDimensions%Channels==0u,"We cannot have this!");
 			core::OwenSampler sampler(Renderer::MaxDimensions,0xdeadbeefu);
 
-			uint32_t (&out)[][2] = *reinterpret_cast<uint32_t(*)[][2]>(sampleSequence->getPointer());
-			for (auto dim=0u; dim<Renderer::MaxDimensions; dim++)
+			uint32_t (&out)[][Channels] = *reinterpret_cast<uint32_t(*)[][Channels]>(sampleSequence->getPointer());
+			for (auto realdim=0u; realdim<Renderer::MaxDimensions/Channels; realdim++)
+			for (auto c=0u; c<Channels; c++)
 			for (uint32_t i=0; i<MaxSamples; i++)
-			{
-				out[(dim>>1u)*MaxSamples+i][dim&0x1u] = sampler.sample(dim,i);
-			}
+				out[realdim*MaxSamples+i][c] = sampler.sample(realdim*Channels+c,i);
 
 			io::IWriteFile* cacheFile = device->getFileSystem()->createAndWriteFile("../../tmp/rtSamples.bin");
 			if (cacheFile)
@@ -271,10 +255,12 @@ int main()
 			}
 		}
 	}
-	renderer->init(meshes, rightHandedCamera, std::move(sampleSequence));
-	meshes = {}; // free memory
-	auto extent = renderer->getSceneBound().getExtent();
 
+	renderer->init(meshes, std::move(sampleSequence));
+	meshes = {}; // free memory
+	
+
+	auto extent = renderer->getSceneBound().getExtent();
 	// want dynamic camera or not?
 	if (true)
 	{
@@ -284,7 +270,7 @@ int main()
 		camera = smgr->addCameraSceneNodeFPS(nullptr, 100.f, core::min(extent.X, extent.Y, extent.Z) * 0.0002f);
 		camera->setPosition(ptu[0].getAsVector3df());
 		camera->setTarget(ptu[1].getAsVector3df());
-		camera->setUpVector(ptu[2].getAsVector3df());
+		camera->setUpVector(ptu[2]);
 		camera->setProjectionMatrix(proj);
 
 		device->getCursorControl()->setVisible(false);
@@ -302,7 +288,7 @@ int main()
 	{
 		driver->beginScene(false, false);
 
-		renderer->render();
+		renderer->render(device->getTimer());
 
 		auto oldVP = driver->getViewPort();
 		driver->blitRenderTargets(renderer->getColorBuffer(),nullptr,false,false,{},{},true);
@@ -316,7 +302,7 @@ int main()
 		{
 			std::wostringstream str;
 			auto samples = renderer->getTotalSamplesComputed();
-			str << L"Raytraced Shadows Demo - IrrlichtBAW Engine   MegaSamples: " << samples/1000000ull << "   MRay/s: "
+			str << L"Raytraced Shadows Demo - Nabla Engine   MegaSamples: " << samples/1000000ull << "   MRay/s: "
 				<< double(samples)/double(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now()-start).count());
 
 			device->setWindowCaption(str.str());
@@ -325,7 +311,6 @@ int main()
 	}
 	renderer->deinit();
 	renderer = nullptr;
-#endif
 
 	return 0;
 }

@@ -3,12 +3,12 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #define _NBL_STATIC_LIB_
-#include <irrlicht.h>
+#include <nabla.h>
 #include <iostream>
 #include <cstdio>
 
-#include "irr/ext/FullScreenTriangle/FullScreenTriangle.h"
-#include "irr/ext/ScreenShot/ScreenShot.h"
+#include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
 #include "../common/QToQuitEventReceiver.h"
 
@@ -16,7 +16,7 @@
 
 #include "COpenGLStateManager.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
 
@@ -121,8 +121,8 @@ int main()
     printf("\nUsing method %d.\n",method);
 
 	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
@@ -194,7 +194,7 @@ int main()
                 video::E_MATERIAL_TYPE newMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
                                                                     "","","", //! No Geometry or Tessellation Shaders
                                                                     "../mesh.frag",
-                                                                    3,irr::video::EMT_TRANSPARENT_ALPHA_CHANNEL,
+                                                                    3,nbl::video::EMT_TRANSPARENT_ALPHA_CHANNEL,
                                                                     cb, //! Our Shader Callback
                                                                     0); //! No custom user data
                 cb->drop();
@@ -215,7 +215,7 @@ int main()
                 video::E_MATERIAL_TYPE newMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
                                                                     "","","", //! No Geometry or Tessellation Shaders
                                                                     "../mesh.frag",
-                                                                    3,irr::video::EMT_SOLID,
+                                                                    3,nbl::video::EMT_SOLID,
                                                                     cb, //! Our Shader Callback
                                                                     0); //! No custom user data
                 cb->drop();
@@ -277,7 +277,7 @@ int main()
                 video::E_MATERIAL_TYPE newMaterialType = (video::E_MATERIAL_TYPE)driver->getGPUProgrammingServices()->addHighLevelShaderMaterialFromFiles("../mesh.vert",
                                                                     "","","", //! No Geometry or Tessellation Shaders
                                                                     "../mesh_minTrans.frag",
-                                                                    3,irr::video::EMT_SOLID,
+                                                                    3,nbl::video::EMT_SOLID,
                                                                     cb, //! Our Shader Callback
                                                                     0); //! No custom user data
                 cb->drop();

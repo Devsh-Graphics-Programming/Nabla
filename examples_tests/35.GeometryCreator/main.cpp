@@ -5,16 +5,16 @@
 #define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
-#include <irrlicht.h>
+#include <nabla.h>
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
-#include "irr/asset/CGeometryCreator.h"
+#include "nbl/asset/CGeometryCreator.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 
-#include "irr/irrpack.h"
+#include "nbl/nblpack.h"
 struct GPUObject
 {
 	core::smart_refctd_ptr<video::IGPUMeshBuffer> meshbuffer;
@@ -40,16 +40,15 @@ struct Objects
 
 	const std::vector<std::pair<asset::IGeometryCreator::return_type, GPUObject>> objects;
 } PACK_STRUCT;
-#include "irr/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 const char* vertexSource = R"===(
 #version 430 core
 layout(location = 0) in vec4 vPos;
 layout(location = 3) in vec3 vNormal;
 
-#include <irr/builtin/glsl/utils/common.glsl>
-#include <irr/builtin/glsl/utils/transform.glsl>
-#include <irr/builtin/glsl/broken_driver_workarounds/amd.glsl>
+#include <nbl/builtin/glsl/utils/common.glsl>
+#include <nbl/builtin/glsl/utils/transform.glsl>
 
 layout( push_constant, row_major ) uniform Block {
 	mat4 modelViewProj;
@@ -59,7 +58,7 @@ layout(location = 0) out vec3 Color; //per vertex output color, will be interpol
 
 void main()
 {
-    gl_Position = irr_builtin_glsl_workaround_AMD_broken_row_major_qualifier(PushConstants.modelViewProj)*vPos;
+    gl_Position = PushConstants.modelViewProj*vPos;
     Color = vNormal*0.5+vec3(0.5);
 }
 )===";
@@ -80,8 +79,8 @@ void main()
 int main()
 {
 	// create device with full flexibility over creation parameters
-	// you can add more parameters if desired, check irr::SIrrlichtCreationParameters
-	irr::SIrrlichtCreationParameters params;
+	// you can add more parameters if desired, check nbl::SIrrlichtCreationParameters
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24; //may have to set to 32bit for some platforms
 	params.ZBufferBits = 24; //we'd like 32bit here
 	params.DriverType = video::EDT_OPENGL; //! Only Well functioning driver, software renderer left for sake of 2D image drawing
@@ -121,7 +120,7 @@ int main()
 	auto cubeGeometry = geometryCreator->createCubeMesh(vector3df(2,2,2));
 	auto sphereGeometry = geometryCreator->createSphereMesh(2, 16, 16);
 	auto cylinderGeometry = geometryCreator->createCylinderMesh(2, 2, 20);
-	auto rectangleGeometry = geometryCreator->createRectangleMesh(irr::core::vector2df_SIMD(1.5, 3));
+	auto rectangleGeometry = geometryCreator->createRectangleMesh(nbl::core::vector2df_SIMD(1.5, 3));
 	auto diskGeometry = geometryCreator->createDiskMesh(2, 30);
 	auto coneGeometry = geometryCreator->createConeMesh(2, 3, 10);
 	auto arrowGeometry = geometryCreator->createArrowMesh();
@@ -241,7 +240,7 @@ int main()
 			auto gpuObject = iterator.second;
 			
 			core::matrix3x4SIMD modelMatrix;
-			modelMatrix.setTranslation(irr::core::vectorSIMDf(index * 5, 0, 0, 0));
+			modelMatrix.setTranslation(nbl::core::vectorSIMDf(index * 5, 0, 0, 0));
 
 			core::matrix4SIMD mvp = core::concatenateBFollowedByA(viewProjection, modelMatrix);
 			driver->bindGraphicsPipeline(gpuObject.pipeline.get());

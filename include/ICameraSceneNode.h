@@ -10,7 +10,7 @@
 #include "IEventReceiver.h"
 #include "matrixutil.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -205,7 +205,7 @@ class ICameraSceneNode : public ISceneNode, public IEventReceiver
 };
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

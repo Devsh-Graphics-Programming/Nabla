@@ -6,10 +6,10 @@
 #define __NBL_I_DRIVER_FENCE_H_INCLUDED__
 
 #include <chrono>
-#include "irr/core/BaseClasses.h"
-#include "irr/core/EventDeferredHandler.h"
+#include "nbl/core/BaseClasses.h"
+#include "nbl/core/EventDeferredHandler.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -193,7 +193,7 @@ template<class Functor>
 using GPUDeferredEventHandlerST = core::DeferredEventHandlerST<core::DeferredEvent<GPUEventWrapper,Functor> >;
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

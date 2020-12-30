@@ -1,0 +1,116 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __C_MITSUBA_LOADER_H_INCLUDED__
+#define __C_MITSUBA_LOADER_H_INCLUDED__
+
+#include "matrix4SIMD.h"
+#include "nbl/asset/asset.h"
+#include "IFileSystem.h"
+#include "nbl/asset/ICPUVirtualTexture.h"
+
+#include "nbl/ext/MitsubaLoader/CSerializedLoader.h"
+#include "nbl/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
+#include "nbl/ext/MitsubaLoader/CElementShape.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaPipelineMetadata.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
+#include "nbl/ext/MitsubaLoader/SContext.h"
+
+namespace nbl
+{
+namespace ext
+{
+namespace MitsubaLoader
+{
+
+class CElementBSDF;
+class CMitsubaMaterialCompilerFrontend;
+
+class CMitsubaLoader : public asset::IAssetLoader
+{
+		friend class CMitsubaMaterialCompilerFrontend;
+	public:
+		//! Constructor
+		CMitsubaLoader(asset::IAssetManager* _manager);
+
+	protected:
+		asset::IAssetManager* m_manager;
+
+#include "nbl/nblpack.h"
+		//compatible with std430 and std140
+		struct SInstanceData
+		{
+			core::matrix3x4SIMD tform;//mat4x3
+			//element (0,3) is offset for frontface instruction streams, element (1,3) is length of frontface rem_and_pdf stream
+			union SNormalMatrix {
+				SNormalMatrix() : normalMatrix() {}
+				~SNormalMatrix() {}
+				SNormalMatrix(const SNormalMatrix& other) : normalMatrix(other.normalMatrix) {}
+
+				core::matrix3x4SIMD normalMatrix;
+				struct {
+					uint32_t _pad0[3];
+					uint32_t front_instr_offset;
+					uint32_t _pad1[3];
+					uint32_t front_rem_pdf_count;
+				};
+			} normalMat;
+			uint64_t emissive;//uvec2, rgb19e7
+			float determinant;
+			uint32_t front_prefetch_count;
+			uint32_t front_nprecomp_count;
+			uint32_t front_genchoice_count;
+			uint32_t front_prefetch_offset;
+			uint32_t back_instr_offset;
+			uint32_t back_rem_pdf_count;
+			uint32_t back_prefetch_count;
+			uint32_t back_nprecomp_count;
+			uint32_t back_genchoice_count;
+			uint32_t back_prefetch_offset;
+		} PACK_STRUCT;
+#include "nbl/nblunpack.h"
+
+		//! Destructor
+		virtual ~CMitsubaLoader() = default;
+
+		static core::smart_refctd_ptr<asset::ICPUPipelineLayout> createPipelineLayout(asset::IAssetManager* _manager, asset::ICPUVirtualTexture* _vt);
+
+		//
+		core::vector<SContext::shape_ass_type>	getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape);
+		core::vector<SContext::shape_ass_type>	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix3x4SIMD& relTform);
+		SContext::shape_ass_type				loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const core::matrix3x4SIMD& relTform);
+		
+		SContext::tex_ass_type					cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture);
+
+		SContext::bsdf_type getBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
+		SContext::bsdf_type genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* bsdf);
+
+		template <typename Iter>
+		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx, asset::ICPUPipelineLayout* _layout, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd);
+
+		core::smart_refctd_ptr<CMitsubaPipelineMetadata> createPipelineMetadata(core::smart_refctd_ptr<asset::ICPUDescriptorSet>&& _ds0, const asset::ICPUPipelineLayout* _layout);
+
+	public:
+		//! Check if the file might be loaded by this class
+		/** Check might look into the file.
+		\param file File handle to check.
+		\return True if file seems to be loadable. */
+		bool isALoadableFileFormat(io::IReadFile* _file) const override;
+
+		//! Returns an array of string literals terminated by nullptr
+		const char** getAssociatedFileExtensions() const override;
+
+		//! Returns the assets loaded by the loader
+		/** Bits of the returned value correspond to each IAsset::E_TYPE
+		enumeration member, and the return value cannot be 0. */
+		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH/*|asset::IAsset::ET_SCENE|asset::IAsset::ET_IMPLEMENTATION_SPECIFIC_METADATA*/; }
+
+		//! Loads an asset from an opened file, returns nullptr in case of failure.
+		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+};
+
+}
+}
+}
+#endif

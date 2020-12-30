@@ -8,7 +8,7 @@
 #include <algorithm>
 #include "IDriverMemoryAllocation.h"
 
-namespace irr
+namespace nbl
 {
 namespace video
 {
@@ -98,6 +98,6 @@ class IDriverMemoryBacked : public virtual core::IReferenceCounted
 };
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif

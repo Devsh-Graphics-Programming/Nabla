@@ -6,12 +6,12 @@
 #ifndef __NBL_I_SCENE_NODE_ANIMATOR_H_INCLUDED__
 #define __NBL_I_SCENE_NODE_ANIMATOR_H_INCLUDED__
 
-#include "irr/core/core.h"
+#include "nbl/core/core.h"
 
 #include "ESceneNodeAnimatorTypes.h"
 #include "IEventReceiver.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -68,7 +68,7 @@ namespace scene
 
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 
