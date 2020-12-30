@@ -117,12 +117,8 @@ namespace nbl
 			/*
 				Create a ScreenShot with gpu image usage and save it to a file.
 			*/
-
-			bool createScreenShot(core::smart_refctd_ptr<IrrlichtDevice> device, const video::IGPUImageView* gpuImageView, const std::string& outFileName)
+			bool createScreenShot(video::IVideoDriver* driver, asset::IAssetManager* assetManager, const video::IGPUImageView* gpuImageView, const std::string& outFileName)
 			{
-				auto driver = device->getVideoDriver();
-				auto assetManager = device->getAssetManager();
-
 				auto fetchedImageViewParmas = gpuImageView->getCreationParameters();
 				auto gpuImage = fetchedImageViewParmas.image;
 				auto fetchedImageParams = gpuImage->getCreationParameters();
@@ -186,6 +182,12 @@ namespace nbl
 				destinationBoundMemory->unmapMemory();
 				return status;
 
+			}
+			inline bool createScreenShot(core::smart_refctd_ptr<IrrlichtDevice> device, const video::IGPUImageView* gpuImageView, const std::string& outFileName)
+			{
+				auto driver = device->getVideoDriver();
+				auto assetManager = device->getAssetManager();
+				return createScreenShot(driver, assetManager, gpuImageView, outFileName);
 			}
 		} // namespace ScreenShot
 	} // namespace ext

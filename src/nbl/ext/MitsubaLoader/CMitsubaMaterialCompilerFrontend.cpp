@@ -4,8 +4,7 @@
 
 #include "nbl/ext/MitsubaLoader/CMitsubaMaterialCompilerFrontend.h"
 #include "nbl/ext/MitsubaLoader/SContext.h"
-
-#include <nbl/core/Types.h>
+#include "nbl/core/Types.h"
 
 namespace nbl
 {
@@ -16,9 +15,9 @@ namespace MitsubaLoader
 
     auto CMitsubaMaterialCompilerFrontend::getDerivMap(const CElementTexture* _element) const -> tex_ass_type
     {
-        std::string key = m_loaderContext->derivMapCacheKey(_element);
         float scale = 1.f;
         std::tie(_element, scale) = getTexture_common(_element);
+        std::string key = m_loaderContext->derivMapCacheKey(_element);
         if (_element->type != CElementTexture::BITMAP)
             return { nullptr, nullptr, 0.f };
 
@@ -64,14 +63,17 @@ namespace MitsubaLoader
 
         asset::IAsset::E_TYPE types[2]{ asset::IAsset::ET_IMAGE_VIEW, asset::IAsset::ET_TERMINATING_ZERO };
         auto viewBundle = m_loaderContext->override_->findCachedAsset(viewKey, types, m_loaderContext->inner, 0u);
-        assert(!viewBundle.isEmpty());
-        auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
-        types[0] = asset::IAsset::ET_SAMPLER;
-        auto samplerBundle = m_loaderContext->override_->findCachedAsset(samplerKey, types, m_loaderContext->inner, 0u);
-        assert(!samplerBundle.isEmpty());
-        auto sampler = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(samplerBundle.getContents().begin()[0]);
+        if (!viewBundle.isEmpty())
+        {
+            auto view = core::smart_refctd_ptr_static_cast<asset::ICPUImageView>(viewBundle.getContents().begin()[0]);
+            types[0] = asset::IAsset::ET_SAMPLER;
+            auto samplerBundle = m_loaderContext->override_->findCachedAsset(samplerKey, types, m_loaderContext->inner, 0u);
+            assert(!samplerBundle.isEmpty());
+            auto sampler = core::smart_refctd_ptr_static_cast<asset::ICPUSampler>(samplerBundle.getContents().begin()[0]);
 
-        return {view, sampler, _scale};
+            return {view, sampler, _scale};
+        }
+        return { nullptr, nullptr, _scale };
     }
 
     auto CMitsubaMaterialCompilerFrontend::createIRNode(asset::material_compiler::IR* ir, const CElementBSDF* _bsdf) -> IRNode*
@@ -104,7 +106,7 @@ namespace MitsubaLoader
                 if (tex.image)
                     dst = std::move(tex);
                 else
-                    dst = IR::INode::color_t(1.f, 0.f, 0.f); // red in case of no texture
+                    dst = IR::INode::color_t(0.5f, 0.5f, 0.5f); // red in case of no texture
             }
             else dst = src.value.vvalue;
         };
@@ -418,14 +420,14 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
             if (bsdf->type == IR::CBSDFNode::ET_MICROFACET_DIELECTRIC)
             {
                 auto* dielectric = static_cast<const IR::CMicrofacetDielectricBSDFNode*>(bsdf);
-                if (!dielectric->thin) // do not copy thin dielectrics
-                {
-                    auto* copy = static_cast<IR::CMicrofacetDielectricBSDFNode*>(ir->copyNode(front));
+                auto* copy = static_cast<IR::CMicrofacetDielectricBSDFNode*>(ir->copyNode(front));
+                if (!copy->thin) //we're always outside in case of thin dielectric
                     copy->eta = IRNode::color_t(1.f) / copy->eta;
 
-                    return copy;
-                }
+                return copy;
             }
+            else if (bsdf->type == IR::CBSDFNode::ET_MICROFACET_DIFFTRANS)
+                return ir->copyNode(front);
         }
         [[fallthrough]]; // intentional
         default:
@@ -475,6 +477,7 @@ auto CMitsubaMaterialCompilerFrontend::compileToIRTree(asset::material_compiler:
             else
                 ir_node = createIRNode(ir, node.bsdf);
         }
+        node.ir_node = ir_node;
 
         IRNode** dst = nullptr;
         if (node.parent_ix >= bfs.size())

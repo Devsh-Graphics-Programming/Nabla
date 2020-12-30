@@ -41,7 +41,7 @@ public:
 			OP_THINDIELECTRIC,
 			OP_DELTRATRANS,
 			OP_MAX_BSDF = OP_DELTRATRANS,
-			//blend
+			//combiners
 			OP_COATING,
 			OP_BLEND,
 			//specials

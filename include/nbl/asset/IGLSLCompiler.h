@@ -14,6 +14,8 @@
 #include "nbl/asset/ICPUSpecializedShader.h"
 #include "nbl/asset/IIncludeHandler.h"
 
+#include "nbl/asset/ISPIRVOptimizer.h"
+
 namespace nbl
 {
 
@@ -62,9 +64,9 @@ class IGLSLCompiler final : public core::IReferenceCounted
 
 		@returns Shader containing SPIR-V bytecode.
 		*/
-		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
+		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(const char* _glslCode, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt = nullptr, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
 
-		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
+		core::smart_refctd_ptr<ICPUShader> createSPIRVFromGLSL(io::IReadFile* _sourcefile, ISpecializedShader::E_SHADER_STAGE _stage, const char* _entryPoint, const char* _compilationId, const ISPIRVOptimizer* _opt = nullptr, bool _genDebugInfo = true, std::string* _outAssembly = nullptr) const;
 
 		/**
 		Resolves ALL #include directives regardless of any other preprocessor directive.

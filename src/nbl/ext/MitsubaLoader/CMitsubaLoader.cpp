@@ -9,6 +9,8 @@
 
 #include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
+#include "nbl/asset/IImageAssetHandlerBase.h"
+
 
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
 #	define DEBUG_MITSUBA_LOADER
@@ -49,7 +51,7 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO {
 } CamData;
 #endif //_NBL_VERT_SET1_BINDINGS_DEFINED_
 
-#include <nbl/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl>
+#include <nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl>
 
 layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
 	InstanceData data[];
@@ -110,15 +112,15 @@ layout (set = 0, binding = 2, std430) restrict readonly buffer VT_PrecomputedStu
 
 layout (set = 0, binding = 3, std430) restrict readonly buffer INSTR_BUF
 {
-	instr_t data[];
+	nbl_glsl_instr_t data[];
 } instr_buf;
 layout (set = 0, binding = 6, std430) restrict readonly buffer PREFETCH_INSTR_BUF
 {
-	prefetch_instr_t data[];
+	nbl_glsl_prefetch_instr_t data[];
 } prefetch_instr_buf;
 layout (set = 0, binding = 4, std430) restrict readonly buffer BSDF_BUF
 {
-	bsdf_data_t data[];
+	nbl_glsl_bsdf_data_t data[];
 } bsdf_buf;
 
 uint nbl_glsl_VT_layer2pid(in uint layer)
@@ -147,7 +149,7 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO {
     nbl_glsl_SBasicViewParameters params;
 } CamData;
 
-#include <nbl/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl>
+#include <nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl>
 
 layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
 	InstanceData data[];
@@ -166,26 +168,30 @@ vec3 nbl_glsl_MC_getWorldSpacePosition()
 {
 	return WorldPos;
 }
-instr_t nbl_glsl_MC_fetchInstr(in uint ix)
+nbl_glsl_instr_t nbl_glsl_MC_fetchInstr(in uint ix)
 {
 	return instr_buf.data[ix];
 }
-prefetch_instr_t nbl_glsl_MC_fetchPrefetchInstr(in uint ix)
+nbl_glsl_prefetch_instr_t nbl_glsl_MC_fetchPrefetchInstr(in uint ix)
 {
 	return prefetch_instr_buf.data[ix];
 }
-bsdf_data_t nbl_glsl_MC_fetchBSDFData(in uint ix)
+nbl_glsl_bsdf_data_t nbl_glsl_MC_fetchBSDFData(in uint ix)
 {
 	return bsdf_buf.data[ix];
+}
+mat2x3 nbl_glsl_MC_getdPos(in vec3 p)
+{
+	return mat2x3(dFdx(p), dFdy(p));
 }
 #define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 )";
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
 #include <nbl/builtin/glsl/format/decode.glsl>
 
-instr_stream_t getEvalStream(in MC_precomputed_t precomp)
+nbl_glsl_instr_stream_t getEvalStream(in nbl_glsl_MC_precomputed_t precomp)
 {
-	instr_stream_t stream;
+	nbl_glsl_instr_stream_t stream;
 	if (precomp.frontface)
 	{
 		stream.offset = InstData.data[InstanceIndex].front_instr_offset;
@@ -200,13 +206,13 @@ instr_stream_t getEvalStream(in MC_precomputed_t precomp)
 	return stream;
 }
 //rem'n'pdf and eval use the same instruction stream
-instr_stream_t getRemAndPdfStream(in MC_precomputed_t precomp)
+nbl_glsl_instr_stream_t getRemAndPdfStream(in nbl_glsl_MC_precomputed_t precomp)
 {
 	return getEvalStream(precomp);
 }
-instr_stream_t getGenChoiceStream(in MC_precomputed_t precomp)
+nbl_glsl_instr_stream_t getGenChoiceStream(in nbl_glsl_MC_precomputed_t precomp)
 {
-	instr_stream_t stream;
+	nbl_glsl_instr_stream_t stream;
 	if (precomp.frontface)
 	{
 		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count;
@@ -220,9 +226,9 @@ instr_stream_t getGenChoiceStream(in MC_precomputed_t precomp)
 
 	return stream;
 }
-instr_stream_t getTexPrefetchStream(in MC_precomputed_t precomp)
+nbl_glsl_instr_stream_t getTexPrefetchStream(in nbl_glsl_MC_precomputed_t precomp)
 {
-	instr_stream_t stream;
+	nbl_glsl_instr_stream_t stream;
 	if (precomp.frontface)
 	{
 		stream.offset = InstData.data[InstanceIndex].front_prefetch_offset;
@@ -236,9 +242,9 @@ instr_stream_t getTexPrefetchStream(in MC_precomputed_t precomp)
 
 	return stream;
 }
-instr_stream_t getNormalPrecompStream(in MC_precomputed_t precomp)
+nbl_glsl_instr_stream_t getNormalPrecompStream(in nbl_glsl_MC_precomputed_t precomp)
 {
-	instr_stream_t stream;
+	nbl_glsl_instr_stream_t stream;
 	if (precomp.frontface)
 	{
 		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count + InstData.data[InstanceIndex].front_genchoice_count;
@@ -259,17 +265,17 @@ instr_stream_t getNormalPrecompStream(in MC_precomputed_t precomp)
 #define Spectrum vec3
 //! This is the function that evaluates the BSDF for specific view and observer direction
 // params can be either BSDFIsotropicParams or BSDFAnisotropicParams
-Spectrum nbl_bsdf_cos_eval(in MC_precomputed_t precomp, in vec3 L, in nbl_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
+Spectrum nbl_bsdf_cos_eval(in nbl_glsl_MC_precomputed_t precomp, in vec3 L, in nbl_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
 {
-	instr_stream_t eval_instrStream = getEvalStream(precomp);
+	nbl_glsl_instr_stream_t eval_instrStream = getEvalStream(precomp);
 
-	return runEvalStream(precomp, eval_instrStream, L);
+	return nbl_glsl_runEvalStream(precomp, eval_instrStream, L);
 }
 #endif
 
 #ifndef _NBL_COMPUTE_LIGHTING_DEFINED_
 #define _NBL_COMPUTE_LIGHTING_DEFINED_
-vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in MC_precomputed_t precomp)
+vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in nbl_glsl_MC_precomputed_t precomp)
 {
 	vec3 emissive = nbl_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
 
@@ -288,13 +294,13 @@ void main()
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
 
 	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
-	const bool front = !gl_FrontFacing;
-	MC_precomputed_t precomp = precomputeData(front);
+	const bool front = (!gl_FrontFacing) != (InstData.data[InstanceIndex].determinant < 0.0);
+	nbl_glsl_MC_precomputed_t precomp = nbl_glsl_precomputeData(front);
 #ifdef TEX_PREFETCH_STREAM
-	runTexPrefetchStream(getTexPrefetchStream(precomp), UV, dUV);
+	nbl_glsl_runTexPrefetchStream(getTexPrefetchStream(precomp), UV, dUV);
 #endif
 #ifdef NORM_PRECOMP_STREAM
-	runNormalPrecompStream(getNormalPrecompStream(precomp), dUV, precomp);
+	nbl_glsl_runNormalPrecompStream(getNormalPrecompStream(precomp), dUV, precomp);
 #endif
 
 
@@ -378,6 +384,7 @@ static core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline> createPi
 
 	SRasterizationParams rasterParams;
 	rasterParams.faceCullingMode = asset::EFCM_NONE;
+	rasterParams.frontFaceIsCCW = 1;
 	auto pipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(
 		std::move(_layout),
 		shaders, shaders+2,
@@ -690,7 +697,7 @@ core::smart_refctd_ptr<asset::ICPUPipelineLayout> CMitsubaLoader::createPipeline
 	pcrng.size = sizeof(uint32_t);//instance data offset
 	pcrng.stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
 
-	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout;
+	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout; // needs to builtin and cached statically
 	{
 		auto sizes = _vt->getDSlayoutBindings(nullptr, nullptr);
 		auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSetLayout::SBinding>>(sizes.first + DS0_BINDING_COUNT_WO_VT);
@@ -891,7 +898,7 @@ asset::SAssetBundle CMitsubaLoader::loadAsset(io::IReadFile* _file, const asset:
 			for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 			{
 				asset::ICPUMeshBuffer* mb = mesh->getMeshBuffer(i);
-				auto* prevPipeline = mb->getPipeline();
+				const auto* prevPipeline = mb->getPipeline();
 				SContext::SPipelineCacheKey cacheKey;
 				cacheKey.vtxParams = prevPipeline->getVertexInputParams();
 				cacheKey.primParams = prevPipeline->getPrimitiveAssemblyParams();
@@ -1118,7 +1125,7 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 			break;
 		case CElementShape::Type::OBJ:
 			mesh = loadModel(shape->obj.filename);
-			flipNormals = flipNormals==shape->obj.flipNormals;
+			flipNormals = flipNormals!=shape->obj.flipNormals;
 			faceNormals = shape->obj.faceNormals;
 			maxSmoothAngle = shape->obj.maxSmoothAngle;
 			if (mesh && shape->obj.flipTexCoords)
@@ -1376,7 +1383,7 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 							auto outParams = viewParams.image->getCreationParameters();
 							asset::ICPUImage::SBufferCopy region;
 							const uint32_t bytesPerChannel = (getBytesPerPixel(outParams.format) * core::rational(1, getFormatChannelCount(outParams.format))).getIntegerApprox();
-							outParams.format = get1ChannelFormat(outParams.format);
+							outParams.format = get1ChannelFormat(bytesPerChannel);
 							const size_t texelBytesz = asset::getTexelOrBlockBytesize(outParams.format);
 							region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, texelBytesz);
 							auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(texelBytesz * region.bufferRowLength * outParams.extent.height);
@@ -1517,6 +1524,12 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 
 			return is_tex;
 		};
+		auto unrollScales = [](CElementTexture* tex)
+		{
+			while (tex->type == CElementTexture::SCALE)
+				tex = tex->scale.texture;
+			return tex;
+		};
 
 		core::stack<const CElementBSDF*> stack;
 		stack.push(_bsdf);
@@ -1573,11 +1586,12 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 			{
 				using namespace std::string_literals;
 
-				auto bm = cacheTexture(ctx, 0u, bsdf->bumpmap.texture);
+				auto* bumpmap_element = unrollScales(bsdf->bumpmap.texture);
+				auto bm = cacheTexture(ctx, 0u, bumpmap_element);
 				// TODO check and restore if dummy (image and sampler)
 				auto bumpmap = std::get<0>(bm)->getCreationParameters().image;
 				auto sampler = std::get<1>(bm);
-				const std::string key = ctx.derivMapCacheKey(bsdf->bumpmap.texture);
+				const std::string key = ctx.derivMapCacheKey(bumpmap_element);
 
 				if (!getBuiltinAsset<asset::ICPUImage, asset::IAsset::ET_IMAGE>(key.c_str(), m_manager))
 				{
@@ -1593,7 +1607,8 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 			case CElementBSDF::BLEND_BSDF:
 				if (cachePropertyTexture(bsdf->blendbsdf.weight, tex))
 				{
-					const std::string key = ctx.blendWeightImageCacheKey(bsdf->blendbsdf.weight.texture);
+					auto* weight_element = unrollScales(bsdf->blendbsdf.weight.texture);
+					const std::string key = ctx.blendWeightImageCacheKey(weight_element);
 
 					if (!getBuiltinAsset<asset::ICPUImage, asset::IAsset::ET_IMAGE>(key.c_str(), m_manager))
 					{
@@ -1699,6 +1714,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			SInstanceData instData;
 
 			instData.tform = inst.tform;
+			instData.determinant = instData.tform.getPseudoDeterminant().x;
 			instData.tform.getSub3x3InverseTranspose(instData.normalMat.normalMatrix);
 			instData.emissive = core::rgb32f_to_rgb19e7(emissive.pointer);
 
@@ -1745,7 +1761,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 		{
 			auto* mb = mesh->getMeshBuffer(i);
-			reinterpret_cast<uint32_t*>(mb->getPushConstantsDataPtr())[0] = instDataOffset;
+			reinterpret_cast<uint32_t*>(mb->getPushConstantsDataPtr())[0] = instDataOffset; // use base instance!
 		}
 	}
 #ifdef DEBUG_MITSUBA_LOADER

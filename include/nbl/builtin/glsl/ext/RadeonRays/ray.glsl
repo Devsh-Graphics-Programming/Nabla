@@ -15,7 +15,7 @@ struct nbl_glsl_ext_RadeonRays_ray
 
 nbl_glsl_ext_RadeonRays_ray nbl_glsl_ext_RadeonRays_constructDefaultRay(in vec3 origin, in vec3 direction, in float maxLen, in int userData)
 {
-	RadeonRays_ray retval;
+	nbl_glsl_ext_RadeonRays_ray retval;
 	retval.origin = origin;
 	retval.maxT = maxLen;
 	retval.direction = direction;

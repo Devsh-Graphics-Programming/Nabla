@@ -207,7 +207,7 @@ namespace asset
 			return dst;
 		}
 
-        //! Creates new index buffer with invalid triangles removed.
+        //! Swaps the index buffer for a new index buffer with invalid triangles removed.
         /**
         Invalid triangle is such consisting of two or more same indices.
         @param _input Input index buffer.
@@ -216,21 +216,150 @@ namespace asset
         */
         static void filterInvalidTriangles(ICPUMeshBuffer* _input);
 
-        //! Creates index buffer from input converting it to indices for triangle primitives. Input is assumed to be indices for triangle strip.
+        //! Creates index buffer from input converting it to indices for line list primitives. Input is assumed to be indices for line strip.
         /**
         @param _input Input index buffer's data.
         @param _idxCount Index count.
-        @param _idxType Type of indices (16bit or 32bit).
+        @param _inIndexType Type of input index buffer data (32bit or 16bit).
+        @param _outIndexType Type of output index buffer data (32bit or 16bit).
         */
-        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType);
+        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromLineStripsToLines(const void* _input, size_t _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
 
-        //! Creates index buffer from input converting it to indices for triangle primitives. Input is assumed to be indices for triangle fan.
+        //! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle strip.
         /**
         @param _input Input index buffer's data.
         @param _idxCount Index count.
-        @param _idxType Type of indices (16bit or 32bit).
+        @param _inIndexType Type of input index buffer data (32bit or 16bit).
+        @param _outIndexType Type of output index buffer data (32bit or 16bit).
         */
-        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _idxType);
+        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
+
+        //! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle fan.
+        /**
+        @param _input Input index buffer's data.
+        @param _idxCount Index count.
+        @param _inIndexType Type of input index buffer data (32bit or 16bit).
+        @param _outIndexType Type of output index buffer data (32bit or 16bit).
+        */
+        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
+
+        //! Creates a 32bit index buffer for a mesh with primitive types changed to list types
+        /**#
+		@param _newPrimitiveType
+        @param _begin non-const iterator to beginning of meshbuffer range
+        @param _end non-const iterator to ending of meshbuffer range
+        */
+		template<typename Iterator>
+		static inline void homogenizePrimitiveTypeAndIndices(Iterator _begin, Iterator _end, const E_PRIMITIVE_TOPOLOGY _newPrimitiveType, const E_INDEX_TYPE outIndexType = EIT_32BIT)
+		{
+			// analyse
+			uint32_t iotaLength = 0u;
+			uint32_t patchVertexCount = 0u;
+			for (auto it=_begin; it!=_end; it++)
+			{
+				ICPUMeshBuffer* cpumb = *it;
+				assert(!cpumb->isADummyObjectForCache());
+				assert(cpumb->isMutable());
+
+				const auto& params = cpumb->getPipeline()->getPrimitiveAssemblyParams();
+				switch (params.primitiveType)
+				{
+					case EPT_POINT_LIST:
+						assert(_newPrimitiveType==EPT_POINT_LIST);
+						break;
+					case EPT_LINE_LIST:
+						assert(_newPrimitiveType==EPT_LINE_LIST);
+						break;
+					case EPT_LINE_STRIP:
+						assert(_newPrimitiveType==EPT_LINE_LIST);
+						break;
+					case EPT_TRIANGLE_LIST:
+						assert(_newPrimitiveType==EPT_TRIANGLE_LIST);
+						break;
+					case EPT_TRIANGLE_STRIP:
+						assert(_newPrimitiveType==EPT_TRIANGLE_LIST);
+						break;
+					case EPT_TRIANGLE_FAN:
+						assert(_newPrimitiveType==EPT_TRIANGLE_LIST);
+						break;
+					case EPT_PATCH_LIST:
+						assert(_newPrimitiveType==EPT_PATCH_LIST);
+						if (patchVertexCount)
+							assert(params.tessPatchVertCount==patchVertexCount);
+						else
+							patchVertexCount = params.tessPatchVertCount;
+						break;
+					default:
+						assert(false);
+						break;
+				}
+				
+				const bool iota = cpumb->getIndexType()==EIT_UNKNOWN||!cpumb->getIndexBufferBinding()->buffer;
+				if (iota)
+					iotaLength = core::max(cpumb->getIndexCount(),iotaLength);
+			}
+			core::smart_refctd_ptr<ICPUBuffer> iotaUint32Buffer;
+			if (iotaLength)
+			{
+				iotaUint32Buffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uint32_t)*iotaLength);
+				auto ptr = reinterpret_cast<uint32_t*>(iotaUint32Buffer->getPointer());
+				std::iota(ptr,ptr+iotaLength,0u);
+			}
+			// modify
+			for (auto it=_begin; it!=_end; it++)
+			{
+				ICPUMeshBuffer* cpumb = *it;
+
+				const auto indexType = cpumb->getIndexType();
+				const auto indexCount = cpumb->getIndexCount();
+
+				auto& params = cpumb->getPipeline()->getPrimitiveAssemblyParams();
+				core::smart_refctd_ptr<ICPUBuffer> newIndexBuffer;
+
+				void* correctlyOffsetIndexBufferPtr;
+				const bool iota = indexType==EIT_UNKNOWN||!cpumb->getIndexBufferBinding()->buffer;
+				if (iota)
+					correctlyOffsetIndexBufferPtr = iotaUint32Buffer->getPointer();
+				else
+					correctlyOffsetIndexBufferPtr = cpumb->getIndices();
+				switch (params.primitiveType)
+				{
+					case EPT_LINE_STRIP:
+						assert(_newPrimitiveType==EPT_LINE_LIST);
+						newIndexBuffer = idxBufferFromLineStripsToLines(correctlyOffsetIndexBufferPtr,indexCount,iota ? EIT_32BIT:indexType,outIndexType);
+						break;
+					case EPT_TRIANGLE_STRIP:
+						newIndexBuffer = idxBufferFromTriangleStripsToTriangles(correctlyOffsetIndexBufferPtr,indexCount,iota ? EIT_32BIT:indexType,outIndexType);
+						break;
+					case EPT_TRIANGLE_FAN:
+						newIndexBuffer = idxBufferFromTrianglesFanToTriangles(correctlyOffsetIndexBufferPtr,indexCount,iota ? EIT_32BIT:indexType,outIndexType);
+						break;
+					default: // prim types match
+						if (iota)
+							newIndexBuffer = core::smart_refctd_ptr(iotaUint32Buffer);
+						else if (indexType!=outIndexType)
+						{
+							if (indexType==EIT_16BIT)
+							{
+								auto inPtr = reinterpret_cast<const uint16_t*>(correctlyOffsetIndexBufferPtr);
+								newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uint32_t)*indexCount);
+								std::copy(inPtr,inPtr+indexCount,reinterpret_cast<uint32_t*>(newIndexBuffer->getPointer()));
+							}
+							else
+							{
+								auto inPtr = reinterpret_cast<const uint32_t*>(correctlyOffsetIndexBufferPtr);
+								newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uint16_t)*indexCount);
+								std::copy(inPtr,inPtr+indexCount,reinterpret_cast<uint16_t*>(newIndexBuffer->getPointer()));
+							}
+						}
+						break;
+				}
+				if (newIndexBuffer)
+					cpumb->setIndexBufferBinding({0ull,std::move(newIndexBuffer)});
+				cpumb->setIndexType(outIndexType);
+				params.primitiveType = _newPrimitiveType;
+			}
+		}
 
         //! Compares two attributes of floating point types in accordance with passed error metric.
         /**
@@ -317,33 +446,37 @@ namespace asset
             if (!meshbuffer->getPipeline())
                 return false;
 
-            const E_PRIMITIVE_TOPOLOGY primType = meshbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
-
-			uint32_t trianglecount;
-
+            const auto& assemblyParams = meshbuffer->getPipeline()->getPrimitiveAssemblyParams();
+            const E_PRIMITIVE_TOPOLOGY primType = assemblyParams.primitiveType;
 			switch (primType)
 			{
-			case EPT_POINT_LIST:
-				trianglecount = meshbuffer->getIndexCount();
-				break;
-			case EPT_LINE_STRIP:
-				trianglecount = meshbuffer->getIndexCount() - 1;
-				break;
-			case EPT_LINE_LIST:
-				trianglecount = meshbuffer->getIndexCount() / 2;
-				break;
-			case EPT_TRIANGLE_STRIP:
-				trianglecount = meshbuffer->getIndexCount() - 2;
-				break;
-			case EPT_TRIANGLE_FAN:
-				trianglecount = meshbuffer->getIndexCount() - 2;
-				break;
-			case EPT_TRIANGLE_LIST:
-				trianglecount = meshbuffer->getIndexCount() / 3;
-				break;
+				case EPT_POINT_LIST:
+					outCount = meshbuffer->getIndexCount();
+					break;
+				case EPT_LINE_STRIP:
+					outCount = meshbuffer->getIndexCount() - 1;
+					break;
+				case EPT_LINE_LIST:
+					outCount = meshbuffer->getIndexCount() / 2;
+					break;
+				case EPT_TRIANGLE_STRIP:
+					outCount = meshbuffer->getIndexCount() - 2;
+					break;
+				case EPT_TRIANGLE_FAN:
+					outCount = meshbuffer->getIndexCount() - 2;
+					break;
+				case EPT_TRIANGLE_LIST:
+					outCount = meshbuffer->getIndexCount() / 3;
+					break;
+				case EPT_PATCH_LIST:
+					outCount = meshbuffer->getIndexCount() / assemblyParams.tessPatchVertCount;
+					break;
+				default:
+					assert(false); // need to implement calculation for more types
+					return false;
+					break;
 			}
 
-			outCount = trianglecount;
 			return true;
 		}
 

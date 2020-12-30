@@ -23,7 +23,6 @@ set(nbl_resources_to_embed
   "nbl/builtin/shaders/loaders/mtl/fragment_impl.glsl"
   "nbl/builtin/shaders/loaders/mtl/fragment_no_uv.frag"
   "nbl/builtin/shaders/loaders/mtl/fragment_uv.frag"
-  "nbl/builtin/shaders/loaders/mitsuba/instance_data_struct.glsl"
   "nbl/builtin/specializedshaders/fullscreentriangle.vert"
   "nbl/builtin/materials/lambertian/singletexture/specializedshader.vert"
   "nbl/builtin/materials/lambertian/singletexture/specializedshader.frag"
@@ -67,6 +66,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl"
   # VK_FORMAT support
   "nbl/builtin/glsl/format/decode.glsl"
+  "nbl/builtin/glsl/format/encode.glsl"
   "nbl/builtin/glsl/format/constants.glsl"
   # asset loaders (mostly for pipelines)
   "nbl/builtin/glsl/loaders/mtl/common.glsl"
@@ -77,9 +77,9 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/math/typeless_arithmetic.glsl"
   "nbl/builtin/glsl/limits/numeric.glsl"
   # material_compiler
-  "nbl/builtin/material_compiler/glsl/common.glsl"
-  "nbl/builtin/material_compiler/glsl/common_declarations.glsl"
-  "nbl/builtin/material_compiler/glsl/rasterization/impl.glsl"
+  "nbl/builtin/glsl/material_compiler/common.glsl"
+  "nbl/builtin/glsl/material_compiler/common_declarations.glsl"
+  "nbl/builtin/glsl/material_compiler/rasterization/impl.glsl"
   # random numbers
   "nbl/builtin/glsl/random/xoroshiro.glsl"
   # sampling
@@ -97,6 +97,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/subgroup/shared_arithmetic_portability.glsl"
   "nbl/builtin/glsl/subgroup/basic_portability.glsl"
   "nbl/builtin/glsl/subgroup/arithmetic_portability.glsl"
+  "nbl/builtin/glsl/subgroup/arithmetic_portability_impl.glsl"
   # utilities
   "nbl/builtin/glsl/utils/indirect_commands.glsl"
   "nbl/builtin/glsl/utils/common.glsl"
@@ -129,5 +130,6 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/ToneMapper/operators.glsl"
   "nbl/builtin/glsl/ext/RadeonRays/intersection.glsl"
   "nbl/builtin/glsl/ext/RadeonRays/ray.glsl"
+  "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
 PARENT_SCOPE)
 

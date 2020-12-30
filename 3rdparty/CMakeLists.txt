@@ -447,7 +447,6 @@ if (NBL_COMPILE_WITH_CUDA)
 endif()
 
 set(NBL_3RDPARTY_TARGETS
-				${RADEON_RAYS_DEPENDENTS}
 				lzma
 				lz4
 				aesGladman
@@ -476,6 +475,9 @@ set(NBL_3RDPARTY_TARGETS
 #TODO insert more targets that are conditionally built
 if (NBL_BUILD_MITSUBA_LOADER)
 	list(APPEND NBL_3RDPARTY_TARGETS expat)
+endif()
+if (NBL_BUILD_RADEON_RAYS)
+	list(APPEND NBL_3RDPARTY_TARGETS ${RADEON_RAYS_DEPENDENTS})
 endif()
 if(ENABLE_HLSL)
 	list(APPEND NBL_3RDPARTY_TARGETS HLSL)

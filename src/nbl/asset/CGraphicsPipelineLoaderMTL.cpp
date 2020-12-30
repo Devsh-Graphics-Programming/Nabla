@@ -198,8 +198,13 @@ bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) con
 }
 
 
-core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipelineLayoutFromMtl(const SMtl& _mtl, bool _noDS3)
+core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipelineLayoutFromMtl(SContext& _ctx, const SMtl& _mtl, bool _noDS3)
 {
+    const auto cacheKey = _ctx.layoutCacheKey(_mtl.clamp, _noDS3);
+
+    if (auto found = _ctx.layoutCache.find(cacheKey); found != _ctx.layoutCache.end())
+        return found->second;
+
     //assumes all supported textures are always present
     //since vulkan doesnt support bindings with no/null descriptor, absent textures will be filled with dummy 2D texture (while creating desc set)
     auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(static_cast<size_t>(CMTLPipelineMetadata::EMP_REFL_POSX)+1ull);
@@ -232,6 +237,8 @@ core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipel
     static_assert(sizeof(SMtl::params)<=ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "It must fit in push constants!");
     //ds with textures for material goes to set=3
     auto layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng+1, nullptr, std::move(ds1layout), nullptr, std::move(ds3Layout));
+
+    _ctx.layoutCache.insert({ cacheKey, layout });
 
     return layout;
 }
@@ -299,7 +306,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         vtxParams.attributes[NORMAL].format = EF_A2B10G10R10_SNORM_PACK32;
         vtxParams.attributes[NORMAL].relativeOffset = 20u;
 
-        auto layout = makePipelineLayoutFromMtl(materials[i], true);
+        auto layout = makePipelineLayoutFromMtl(ctx, materials[i], true);
         auto shaders = getShaders(false);
 
         constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
@@ -334,7 +341,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         vtxParams.attributes[UV].format = EF_R32G32_SFLOAT;
         vtxParams.attributes[UV].relativeOffset = 12u;
 
-        layout = makePipelineLayoutFromMtl(materials[i], false);
+        layout = makePipelineLayoutFromMtl(ctx, materials[i], false);
         shaders = getShaders(true);
 
         core::smart_refctd_ptr<ICPUDescriptorSet> ds3;

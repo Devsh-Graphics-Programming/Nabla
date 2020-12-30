@@ -144,6 +144,7 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/CGLSLSkinningBuiltinIncludeLoader.cpp
 	
 # Shaders
+	${NBL_ROOT_PATH}/src/nbl/asset/ISPIRVOptimizer.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/IGLSLCompiler.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/CShaderIntrospector.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/CGLSLLoader.cpp
@@ -363,6 +364,17 @@ macro(nbl_target_link_gli _trgt)
 	)
 	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
 endmacro()
+macro(nbl_target_link_spirv_tools _trgt)
+	add_dependencies(${_trgt} SPIRV)
+	add_dependencies(${_trgt} SPIRV-Tools)
+	add_dependencies(${_trgt} SPIRV-Tools-opt)
+	target_link_libraries(${_trgt} INTERFACE
+		SPIRV SPIRV-Tools SPIRV-Tools-opt
+	)
+	target_include_directories(${_trgt} PUBLIC
+		${THIRD_PARTY_SOURCE_DIR}/SPIRV-Tools/include
+	)
+endmacro()
 
 add_library(Nabla STATIC
 	${NABLA_SRCS_COMMON}
@@ -390,6 +402,7 @@ if(_NBL_COMPILE_WITH_GLI_)
 	nbl_target_link_gli(Nabla)
 endif()
 nbl_target_include_parallel_hashmap(Nabla)
+nbl_target_link_spirv_tools(Nabla)
 
 target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)

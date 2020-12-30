@@ -28,6 +28,7 @@ namespace video
 		ESB_BACK_LEFT,
 		ESB_BACK_RIGHT
 	};
+	//TODO move to IGPUCommandBuffer.h or higher level header
     enum E_PIPELINE_BIND_POINT
     {
         EPBP_GRAPHICS = 0,

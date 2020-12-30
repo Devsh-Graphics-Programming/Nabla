@@ -54,7 +54,7 @@ vec2 SampleSphericalMap(in vec3 v)
     return uv;
 }
 
-vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in MC_precomputed_t precomp)
+vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in nbl_glsl_MC_precomputed_t precomp)
 {
 	nbl_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,gl_FragCoord.xy/VIEWPORT_SZ,0).rg;
 
@@ -63,8 +63,8 @@ vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_inte
 	vec3 color = vec3(0.0);
 
 #ifdef USE_ENVMAP
-	instr_stream_t gcs = getGenChoiceStream(precomp);
-	instr_stream_t rnps = getRemAndPdfStream(precomp);
+	nbl_glsl_instr_stream_t gcs = getGenChoiceStream(precomp);
+	nbl_glsl_instr_stream_t rnps = getRemAndPdfStream(precomp);
 	for (int i = 0; i < SAMPLE_COUNT; ++i)
 	{
 		nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
@@ -72,7 +72,7 @@ vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_inte
 		vec3 rand = rand3d(i,scramble_state);
 		float pdf;
 		nbl_glsl_LightSample s;
-		vec3 rem = runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
+		vec3 rem = nbl_glsl_runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
 
 		vec2 uv = SampleSphericalMap(s.L);
 		color += rem*textureLod(envMap, uv, 0.0).xyz;
@@ -260,6 +260,23 @@ int main()
 		params.WindowSize.Width = film.width;
 		params.WindowSize.Height = film.height;
 	}
+	else return 1; // no cameras
+
+	const auto& sensor = globalMeta->sensors.front(); //always choose frist one
+	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
+		return sensor.type == ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type == ext::MitsubaLoader::CElementSensor::Type::THINLENS;
+	};
+
+	if (!isOkSensorType(sensor))
+		return 1;
+
+	bool leftHandedCamera = false;
+	{
+		auto relativeTransform = sensor.transform.matrix.extractSub3x4();
+		if (relativeTransform.getPseudoDeterminant().x < 0.f)
+			leftHandedCamera = true;
+	}
+
 	params.DriverType = video::EDT_OPENGL;
 	auto device = createDeviceEx(params);
 
@@ -313,6 +330,7 @@ int main()
 	//gather all meshes into core::vector and modify their pipelines
 	core::vector<core::smart_refctd_ptr<asset::ICPUMesh>> cpumeshes;
 	cpumeshes.reserve(meshes.getSize());
+	uint32_t cc = cpumeshes.capacity();
 	for (auto it = meshes.getContents().begin(); it != meshes.getContents().end(); ++it)
 	{
 		cpumeshes.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(std::move(*it)));
@@ -394,7 +412,7 @@ int main()
 		}
 	}
 
-	constexpr uint32_t ENVMAP_SAMPLE_COUNT = 16u;
+	constexpr uint32_t ENVMAP_SAMPLE_COUNT = 64u;
 	constexpr float LIGHT_INTENSITY_SCALE = 0.01f;
 
 	core::unordered_set<const asset::ICPURenderpassIndependentPipeline*> modifiedPipelines;
@@ -418,6 +436,8 @@ int main()
 					modifiedShaders.insert({ core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs),newfs });
 					pipeline->setShaderAtStage(asset::ICPUSpecializedShader::ESS_FRAGMENT, newfs.get());
 				}
+				// invert what is recognized as frontface in case of RH camera
+				pipeline->getRasterizationParams().frontFaceIsCCW = !leftHandedCamera;
 				modifiedPipelines.insert(pipeline);
 			}
 		}
@@ -442,7 +462,6 @@ int main()
 		}
 	}
 
-	//auto gpuVT = core::make_smart_refctd_ptr<video::IGPUVirtualTexture>(driver, globalMeta->VT.get());
 	auto gpuds0 = driver->getGPUObjectsFromAssets(&cpuds0.get(), &cpuds0.get()+1)->front();
 
     auto gpuds1layout = driver->getGPUObjectsFromAssets(&ds1layout, &ds1layout+1)->front();
@@ -572,9 +591,6 @@ int main()
 	scene::ICameraSceneNode* camera = nullptr;
 	core::recti viewport(core::position2di(0,0), core::position2di(params.WindowSize.Width,params.WindowSize.Height));
 
-	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
-		return sensor.type==ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type==ext::MitsubaLoader::CElementSensor::Type::THINLENS;
-	};
 //#define TESTING
 #ifdef TESTING
 	if (0)
@@ -582,18 +598,14 @@ int main()
 	if (globalMeta->sensors.size() && isOkSensorType(globalMeta->sensors.front()))
 #endif
 	{
-		const auto& sensor = globalMeta->sensors.front();
 		const auto& film = sensor.film;
 		viewport = core::recti(core::position2di(film.cropOffsetX,film.cropOffsetY), core::position2di(film.cropWidth,film.cropHeight));
 
 		auto extent = sceneBound.getExtent();
 		camera = smgr->addCameraSceneNodeFPS(nullptr,100.f,core::min(extent.X,extent.Y,extent.Z)*0.0001f);
 		// need to extract individual components
-		bool leftHandedCamera = false;
 		{
 			auto relativeTransform = sensor.transform.matrix.extractSub3x4();
-			if (relativeTransform.getPseudoDeterminant().x < 0.f)
-				leftHandedCamera = true;
 
 			auto pos = relativeTransform.getTranslation();
 			camera->setPosition(pos.getAsVector3df());
@@ -697,7 +709,7 @@ int main()
 		uboData.NormalMat[11] = camera->getPosition().Z;
 		driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0u, sizeof(uboData), &uboData);
 
-		for (uint32_t j = 1u; j < gpumeshes->size(); ++j)
+		for (uint32_t j = 0u; j < gpumeshes->size(); ++j)
 		{
 			auto& mesh = (*gpumeshes)[j];
 

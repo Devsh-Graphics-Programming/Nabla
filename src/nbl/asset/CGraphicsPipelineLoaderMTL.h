@@ -33,6 +33,9 @@ namespace asset
             IAssetLoader::SAssetLoadContext inner;
             uint32_t topHierarchyLevel;
             IAssetLoader::IAssetLoaderOverride* loaderOverride;
+
+            static inline uint32_t layoutCacheKey(uint32_t clamps, bool no_ds3) { return clamps | (static_cast<uint32_t>(no_ds3) << 31); }
+            core::unordered_map<uint32_t, core::smart_refctd_ptr<ICPUPipelineLayout>> layoutCache;
         };
 
 	public:
@@ -53,7 +56,7 @@ namespace asset
 		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
     private:
-        core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromMtl(const SMtl& _mtl, bool _noDS3);
+        core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromMtl(SContext& ctx, const SMtl& _mtl, bool _noDS3);
         core::vector<SMtl> readMaterials(io::IReadFile* _file) const;
         const char* readTexture(const char* _bufPtr, const char* const _bufEnd, SMtl* _currMaterial, const char* _mapType) const;
 
