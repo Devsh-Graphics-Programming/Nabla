@@ -816,7 +816,13 @@ void Renderer::init(const SAssetBundle& meshes,
 				auto resolveInfos = infos+descriptorExclScanSum[2];
 				auto resolveWrites = writes+descriptorExclScanSum[2];
 				createEmptyInteropBufferAndSetUpInfo(resolveInfos+0,m_intersectionBuffer,intersectionBufferSize);
-				setImageInfo(resolveInfos+1,asset::EIL_GENERAL,core::smart_refctd_ptr(m_tonemapOutput));
+				core::smart_refctd_ptr<IGPUImageView> tonemapOutputStorageView;
+				{
+					IGPUImageView::SCreationParams viewparams = m_tonemapOutput->getCreationParameters();
+					viewparams.format = EF_R32_UINT;
+					tonemapOutputStorageView = m_driver->createGPUImageView(std::move(viewparams));
+				}
+				setImageInfo(resolveInfos+1,asset::EIL_GENERAL,std::move(tonemapOutputStorageView));
 				
 
 				setDstSetAndDescTypesOnWrites(m_resolveDS.get(),resolveWrites,resolveInfos,{EDT_STORAGE_BUFFER,EDT_STORAGE_IMAGE});
