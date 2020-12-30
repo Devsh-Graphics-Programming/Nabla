@@ -11,6 +11,36 @@ layout(local_size_x = WORKGROUP_DIM, local_size_y = WORKGROUP_DIM) in;
 #endif
 
 
+/**
+Plan for lighting:
+
+Path Guiding with Rejection Sampling
+	Do path guiding with spatio-directional (directions are implicit from light IDs) acceleration structure, could be with complete disregard for light NEE.
+	Obviously the budgets for directions are low, so we might need to only track important lights and group them. Should probably read the spatiotemporal reservoir sampling paper.
+
+	Each light gets a computed OBB and we use spherical OBB sampling (not projected solid angle, but we could clip) to generate the samples.
+	Then NEE does perfect spherical sampling of the bounding volume.
+	
+	The OBBs could be hierarchical, possibly.
+
+	OPTIMIZATION: Could possibly shoot an AnyHit to the front of the convex hull volume, and then ClosestHit between the front and back.
+	BRDF sampling just samples the BSDF analytically (or gives up and samples only the path-guiding AS), uses Closest Hit and proceeds classically.
+	There's essentially 3 ways to generate samples: NEE with PGAS (discrete directions), NEE with PGAS (for all incoming lights), BSDF Analytical.
+	PROS: Probably a much better sample generation strategy, might clean up a lot of noise.
+	CONS: We don't know the point on the surface we are going to hit (could be any of multiple points for a concave light), so we cannot cast a fixed length ray.
+	We need to cast a ray to the furthest back side of the Bounding Volume, and it cannot be an just an AnyHit ray, it needs to have a ClosestHit shader that will compare
+	if the hit instanceID==lightGroupID. It can probably be optimized so that it uses a different shadow-only + light-compare SBT. So it may take a lot longer to compute a sample.
+CONCLUSION:
+	We'll either be generating samples:
+		A) From PGAS CDF
+			No special light structure, just PGAS + GAS.
+		C) Spherical sampling of OBBs
+			OBB List with a CDF for the whole list in PGAS, then analytical
+
+	Do we have to do 3-way MIS?
+**/
+
+
 struct SLight
 {
 #ifdef __cplusplus
