@@ -2,7 +2,7 @@
 #define __NBL_I_RENDERPASS_H_INCLUDED__
 
 #include "nbl/asset/IImage.h"
-#include "nbl/asset/IDescriptorSet.h"
+#include "nbl/asset/IDescriptorSet.h" // for E_IMAGE_LAYOUT only
 #include "nbl/core/math/glslFunctions.h"
 
 namespace nbl {
@@ -99,41 +99,6 @@ public:
         ESDF_PER_VIEW_ATTRIBUTES_BIT = 0x01,
         ESDF_PER_VIEW_POSITION_X_ONLY_BIT = 0x02
     };
-    enum E_ATTACHMENT_POINT : uint8_t
-    {
-        EAP_DEPTH,
-        EAP_STENCIL,
-        EAP_COLOR_0,
-        EAP_INPUT_0,
-        EAP_COLOR_1,
-        EAP_INPUT_1,
-        EAP_COLOR_2,
-        EAP_INPUT_2,
-        EAP_COLOR_3,
-        EAP_INPUT_3,
-        EAP_COLOR_4,
-        EAP_INPUT_4,
-        EAP_COLOR_5,
-        EAP_INPUT_5,
-        EAP_COLOR_6,
-        EAP_INPUT_6,
-        EAP_COLOR_7,
-        EAP_INPUT_7,
-
-        EAP_COUNT
-    };
-
-    static bool isDepthOrStencilAttachmentPoint(E_ATTACHMENT_POINT p) { return p < EAP_COLOR_0; }
-    static bool isColorAttachmentPoint(E_ATTACHMENT_POINT p)
-    {
-        uint32_t a = p - EAP_COLOR_0;
-        return (a & 1u) == 0u;
-    }
-    static bool isInputAttachmentPoint(E_ATTACHMENT_POINT p)
-    {
-        uint32_t a = p - EAP_COLOR_0;
-        return (a & 1u) == 1u;
-    }
 
     struct SCreationParams
     {
@@ -149,21 +114,22 @@ public:
 
         struct SSubpassDescription
         {
-            struct SAttachmentUsage
+            struct SAttachmentRef
             {
-                enum E_USAGE : uint8_t
-                {
-                    EU_UNUSED = 0b00,
-                    EU_USED = 0b01,
-                    EU_PRESERVED = 0b10,
-                    EU_RESOLVE = 0b11
-                };
-                uint8_t usage : 2;
-                uint8_t layout : 6;
+                uint32_t attachment;
+                E_IMAGE_LAYOUT layout;
             };
 
             E_SUBPASS_DESCRIPTION_FLAGS flags = ESDF_NONE;
-            SAttachmentUsage references[EAP_COUNT];
+            const SAttachmentRef* depthStencilAttachment;
+            uint32_t inputAttachmentCount;
+            const SAttachmentRef* inputAttachments;
+            //! denotes resolve attachment count as well
+            uint32_t colorAttachmentCount;
+            const SAttachmentRef* colorAttachments;
+            const SAttachmentRef* resolveAttachments;
+            uint32_t preserveAttachmentCount;
+            const uint32_t* preserveAttachments;
         };
 
         struct SSubpassDependency
@@ -178,10 +144,9 @@ public:
         };
 
         _NBL_STATIC_INLINE_CONSTEXPR auto MaxColorAttachments = 8u;
-        _NBL_STATIC_INLINE_CONSTEXPR auto MaxInputAttachments = MaxColorAttachments;
 
-        SAttachmentDescription attachments[EAP_COUNT];
-        uint32_t attachmentEnabledFlags[EAP_COUNT/(8u*sizeof(uint32_t)) + 1u] {};
+        uint32_t attachmentCount;
+        const SAttachmentDescription* attachments;
         
         uint32_t subpassCount = 0u;
         const SSubpassDescription* subpasses = nullptr;
@@ -192,15 +157,75 @@ public:
 
     explicit IRenderpass(const SCreationParams& params) : 
         m_params(params),
+        m_attachments(m_params.attachmentCount ? core::make_refctd_dynamic_array<attachments_array_t>(params.attachmentCount):nullptr),
         m_subpasses(params.subpassCount ? core::make_refctd_dynamic_array<subpasses_array_t>(params.subpassCount):nullptr),
         m_dependencies(params.dependencyCount ? core::make_refctd_dynamic_array<subpass_deps_array_t>(params.dependencyCount):nullptr)
     {
         if (!params.subpasses)
             return;
 
+        auto attachments = core::SRange<const SCreationParams::SAttachmentDescription>{params.attachments, params.attachments+params.attachmentCount};
+        std::copy(attachments.begin(), attachments.end(), m_attachments->begin());
+        m_params.attachments = m_attachments->data();
+
         auto subpasses = core::SRange<const SCreationParams::SSubpassDescription>{params.subpasses, params.subpasses+params.subpassCount};
         std::copy(subpasses.begin(), subpasses.end(), m_subpasses->begin());
         m_params.subpasses = m_subpasses->data();
+
+        uint32_t attRefCnt = 0u;
+        uint32_t preservedAttRefCnt = 0u;
+        for (const auto& sb : (*m_subpasses))
+        {
+            attRefCnt += sb.colorAttachmentCount;
+            attRefCnt += sb.inputAttachmentCount;
+            if (sb.resolveAttachments)
+                attRefCnt += sb.colorAttachmentCount;
+            if (sb.depthStencilAttachment)
+                ++attRefCnt;
+
+            if (sb.preserveAttachments)
+                preservedAttRefCnt += sb.preserveAttachmentCount;
+        }
+        if (attRefCnt)
+            m_attachmentRefs = core::make_smart_refctd_ptr<attachment_refs_array_t>(attRefCnt);
+        if (preservedAttRefCnt)
+            m_preservedAttachmentRefs = core::make_smart_refctd_ptr<preserved_attachment_refs_array_t>(preservedAttRefCnt);
+
+        uint32_t refOffset = 0u;
+        uint32_t preservedRefOffset = 0u;
+        auto* refs = m_attachmentRefs->data();
+        auto* preservedRefs = m_preservedAttachmentRefs->data();
+        for (auto& sb : (*m_subpasses))
+        {
+            if (m_attachmentRefs)
+            {
+#define _COPY_ATTACHMENT_REFS(_array,_count)\
+                std::copy(sb._array, sb._array+sb._count, refs+refOffset);\
+                sb._array = refs+refOffset;\
+                refOffset += sb._count;
+
+                _COPY_ATTACHMENT_REFS(colorAttachments, colorAttachmentCount);
+                _COPY_ATTACHMENT_REFS(inputAttachments, inputAttachmentCount);
+                if (sb.resolveAttachments)
+                {
+                    _COPY_ATTACHMENT_REFS(resolveAttachments, colorAttachmentCount);
+                }
+                if (sb.depthStencilAttachment)
+                {
+                    refs[refOffset] = sb.depthStencilAttachment[0];
+                    sb.depthStencilAttachment = refs + refOffset;
+                    ++refOffset;
+                }
+#undef _COPY_ATTACHMENT_REFS
+            }
+
+            if (m_preservedAttachmentRefs)
+            {
+                std::copy(sb.preserveAttachments, sb.preserveAttachments+sb.preserveAttachmentCount, preservedRefs+preservedRefOffset);
+                sb.preserveAttachments = preservedRefs+preservedRefOffset;
+                preservedRefOffset += sb.preserveAttachmentCount;
+            }
+        }
 
         if (!params.dependencies)
             return;
@@ -210,20 +235,11 @@ public:
         m_params.dependencies = m_dependencies->data();
     }
 
-    inline uint32_t getAttachmentCount() const
+    inline core::SRange<const SCreationParams::SAttachmentDescription> getAttachments() const
     {
-        uint32_t count = 0u;
-        for (auto mask : m_params.attachmentEnabledFlags)
-            count += core::bitCount(mask);
-
-        return count;
-    }
-
-    inline bool isAttachmentEnabled(E_ATTACHMENT_POINT a) const
-    {
-        const uint32_t i = a / EnabledAttachmentsFlagsBitdepth;
-
-        return core::bitfieldExtract(m_params.attachmentEnabledFlags[i], a - i*EnabledAttachmentsFlagsBitdepth, 1);
+        if (!m_attachments)
+            return { nullptr, nullptr };
+        return { m_attachments->cbegin(), m_attachments->cend() };
     }
 
     inline core::SRange<const SCreationParams::SSubpassDescription> getSubpasses() const
@@ -243,15 +259,20 @@ public:
 protected:
     virtual ~IRenderpass() = 0;
 
-    _NBL_STATIC_INLINE_CONSTEXPR uint32_t EnabledAttachmentsFlagsBitdepth = 8u*sizeof(SCreationParams::attachmentEnabledFlags[0]);
-
     SCreationParams m_params;
-    using subpasses_array_t = core::smart_refctd_dynamic_array<const SCreationParams::SSubpassDescription>;
+    using attachments_array_t = core::smart_refctd_dynamic_array<SCreationParams::SAttachmentDescription>;
+    // storage for m_params.attachments
+    attachments_array_t m_attachments;
+    using subpasses_array_t = core::smart_refctd_dynamic_array<SCreationParams::SSubpassDescription>;
     // storage for m_params.subpasses
     subpasses_array_t m_subpasses;
-    using subpass_deps_array_t = core::smart_refctd_dynamic_array<const SCreationParams::SSubpassDependency>;
+    using subpass_deps_array_t = core::smart_refctd_dynamic_array<SCreationParams::SSubpassDependency>;
     // storage for m_params.dependencies
     subpass_deps_array_t m_dependencies;
+    using attachment_refs_array_t = core::smart_refctd_dynamic_array<SCreationParams::SSubpassDescription::SAttachmentRef>;
+    attachment_refs_array_t m_attachmentRefs;
+    using preserved_attachment_refs_array_t = core::smart_refctd_dynamic_array<uint32_t>;
+    preserved_attachment_refs_array_t m_preservedAttachmentRefs;
 };
 
 }

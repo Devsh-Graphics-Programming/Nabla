@@ -2,25 +2,22 @@
 #define __NBL_I_GPU_EVENT_H_INCLUDED__
 
 #include "nbl/core/IReferenceCounted.h"
+#include "nbl/asset/IEvent.h"
 
 namespace nbl {
 namespace video
 {
 
-class IGPUEvent : public core::IReferenceCounted
+class IGPUEvent : public asset::IEvent, public core::IReferenceCounted
 {
 public:
-    enum E_STATUS : uint32_t
-    {
-        ES_SET,
-        ES_RESET,
-        ES_FAILURE
-    };
+    using asset::IEvent::IEvent;
 
 protected:
     virtual ~IGPUEvent() = default;
 };
 
-}}
+}
+}
 
 #endif

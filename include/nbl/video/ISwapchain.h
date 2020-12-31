@@ -24,9 +24,7 @@ public:
         uint32_t width;
         uint32_t height;
         uint32_t arrayLayers = 1u;
-        uint32_t queueFamily; // for now just one family index
-        //uint32_t queueFamilyIndexCount;
-        //const uint32_t* pQueueFamilyIndices;
+        core::smart_refctd_dynamic_array<uint32_t> queueFamilyIndices;
 
         //VkImageUsageFlags imageUsage;
         //VkSharingMode imageSharingMode;

@@ -14,31 +14,12 @@
 #include "nbl/asset/IDescriptor.h"
 #include "nbl/asset/IDescriptorSetLayout.h" //for E_DESCRIPTOR_TYPE
 #include "nbl/core/SRange.h"
+#include "nbl/asset/EImageLayout.h"
 
 namespace nbl
 {
 namespace asset
 {
-
-// TODO: move this to appropriate class
-enum E_IMAGE_LAYOUT : uint32_t
-{
-    EIL_UNDEFINED = 0,
-    EIL_GENERAL = 1,
-    EIL_COLOR_ATTACHMENT_OPTIMAL = 2,
-    EIL_DEPTH_STENCIL_ATTACHMENT_OPTIMAL = 3,
-    EIL_DEPTH_STENCIL_READ_ONLY_OPTIMAL = 4,
-    EIL_SHADER_READ_ONLY_OPTIMAL = 5,
-    EIL_TRANSFER_SRC_OPTIMAL = 6,
-    EIL_TRANSFER_DST_OPTIMAL = 7,
-    EIL_PREINITIALIZED = 8,
-    EIL_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL = 1000117000,
-    EIL_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL = 1000117001,
-    EIL_PRESENT_SRC_KHR = 1000001002,
-    EIL_SHARED_PRESENT_KHR = 1000111000,
-    EIL_SHADING_RATE_OPTIMAL_NV = 1000164003,
-    EIL_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT = 1000218000
-};
 
 //! Interface class for various Descriptor Set's resources
 /*

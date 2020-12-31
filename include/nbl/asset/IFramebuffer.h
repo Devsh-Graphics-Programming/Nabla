@@ -6,29 +6,30 @@
 #include "nbl/video/IGPURenderpass.h"
 
 namespace nbl {
-namespace video
+namespace asset
 {
 
-class IFramebuffer : public core::IReferenceCounted
+template <typename RenderpassType, typename ImageViewType>
+class IFramebuffer
 {
 public:
+    using renderpass_t = RenderpassType;
+    using attachment_t = ImageViewType;
+
     enum E_CREATE_FLAGS : uint8_t
     {
         ECF_IMAGELESS_BIT = 0x01
     };
 
-    _NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxAttachments = IGPURenderpass::EAP_COUNT;
-
     struct SCreationParams
     {
         E_CREATE_FLAGS flags;
-        core::smart_refctd_ptr<IGPURenderpass> renderpass;
-        core::smart_refctd_ptr<IGPUImageView> attachments[MaxAttachments];
+        core::smart_refctd_ptr<renderpass_t> renderpass;
+        uint32_t attachmentCount;
+        core::smart_refctd_ptr<attachment_t>* attachments;
         uint32_t width;
         uint32_t height;
         uint32_t layers;
-
-        inline uint32_t getPresentAttachmentCount() const { std::count_if(std::begin(attachments), std::end(attachments), [](const auto& a) -> bool { return a; }); }
     };
 
     static bool validate(const SCreationParams& params)
@@ -42,14 +43,14 @@ public:
 
         auto* rp = params.renderpass.get();
 
-        const uint32_t presentAttachments = params.getPresentAttachmentCount();
+        const uint32_t presentAttachments = params.attachmentCount;
 
         if (rp->getAttachmentCount() != presentAttachments)
             return false;
 
         if (!(params.flags & ECF_IMAGELESS_BIT))
         {
-            for (uint32_t i = 0u; i < MaxAttachments; ++i)
+            for (uint32_t i = 0u; i < params.attachmentCount; ++i)
             {
                 const auto a = static_cast<IGPURenderpass::E_ATTACHMENT_POINT>(i);
 
@@ -69,7 +70,8 @@ public:
             by renderPass must have been created with a usage value including VK_IMAGE_USAGE_INPUT_ATTACHMENT_BIT
             */
 
-            for (auto& a : params.attachments)
+            auto attachments = core::SRange<core::smart_refctd_ptr<attachment_t>>{params.attachments, params.attachments + params.attachmentCount};
+            for (auto& a : attachments)
             {
                 const auto& aParams = a->getCreationParameters();
 
@@ -85,15 +87,29 @@ public:
         return true;
     }
 
+protected:
     explicit IFramebuffer(SCreationParams&& params) : m_params(std::move(params))
     {
+        if (m_params.flags & ECF_IMAGELESS_BIT)
+        {
+            m_params.attachments = nullptr;
+            m_params.attachmentCount = 0u;
+        }
+        else
+        {
+            auto attachments = core::SRange<core::smart_refctd_ptr<attachment_t>>{m_params.attachments, m_params.attachments + m_params.attachmentCount};
 
+            m_attachments = core::make_refctd_dynamic_array<attachments_array_t>(m_params.attachmentCount);
+            std::copy(attachments.begin(), attachments.end(), m_attachments->begin());
+            m_params.attachments = m_attachments->data();
+        }
     }
-
-protected:
     virtual ~IFramebuffer() = default;
 
     SCreationParams m_params;
+    using attachments_array_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<attachment_t>>;
+    // storage for m_params.attachments
+    attachments_array_t m_attachments;
 };
 
 }

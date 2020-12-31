@@ -19,7 +19,7 @@ public:
     };
 
     // TODO implement in some source file in src/nbl/...
-    static core::smart_refctd_ptr<IAPIConnection> create(E_TYPE apiType);
+    static core::smart_refctd_ptr<IAPIConnection> create(E_TYPE apiType, uint32_t appVer, const char* appName);
 
     virtual E_TYPE getAPIType() const = 0;
 

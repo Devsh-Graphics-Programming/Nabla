@@ -267,6 +267,9 @@ set(NABLA_SRCS_NORMAL
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFramebuffer.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
 
 	#opengl
 	${NBL_ROOT_PATH}/source/Nabla/COpenCLHandler.cpp

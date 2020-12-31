@@ -33,6 +33,8 @@ class CVulkanImage final : public IGPUImage, public IDriverMemoryAllocation
 
 		}
 
+		inline VkImage getInternalObject() const { return m_vkimg; }
+
 		// TODO below
 		inline size_t getAllocationSize() const override { return this->getImageDataSizeInBytes(); }
 		inline IDriverMemoryAllocation* getBoundMemory() override { return this; }

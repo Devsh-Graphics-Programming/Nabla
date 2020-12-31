@@ -13,7 +13,7 @@ namespace video
 class CVulkanConnection final : public IAPIConnection
 {
 public:
-    CVulkanConnection()
+    CVulkanConnection(uint32_t appVer, const char* appName)
     {
         VkResult result = volkInitialize();
         assert(result == VK_SUCCESS);
@@ -23,8 +23,8 @@ public:
         app.apiVersion = VK_MAKE_VERSION(1, 1, 0);
         app.engineVersion = NABLA_VERSION_INTEGER;
         app.pEngineName = "Nabla";
-        app.applicationVersion = 0;
-        app.pApplicationName = nullptr;
+        app.applicationVersion = appVer;
+        app.pApplicationName = appName;
         app.pNext = nullptr;
         VkInstanceCreateInfo ci;
         ci.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;

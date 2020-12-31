@@ -1,7 +1,7 @@
 #ifndef __NBL_C_VULKAN_FRAMEBUFFER_H_INCLUDED__
 #define __NBL_C_VULKAN_FRAMEBUFFER_H_INCLUDED__
 
-#include "nbl/video/IFramebuffer.h"
+#include "nbl/video/IGPUFramebuffer.h"
 
 #include <volk.h>
 
@@ -11,7 +11,7 @@ namespace video
 
 class CVKLogicalDevice;
 
-class CVulkanFramebuffer final : public IFramebuffer
+class CVulkanFramebuffer final : public IGPUFramebuffer
 {
 public:
     CVulkanFramebuffer(CVKLogicalDevice* vkdev, SCreationParams&& params);

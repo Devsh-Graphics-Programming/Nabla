@@ -13,9 +13,12 @@ class CVKLogicalDevice;
 
 class CVulkanRenderpass final : public IGPURenderpass
 {
+public:
     explicit CVulkanRenderpass(const SCreationParams& params);
 
     ~CVulkanRenderpass();
+
+    VkRenderPass getInternalObject() const { return m_renderpass; }
 
 private:
     CVKLogicalDevice* m_vkdev;
