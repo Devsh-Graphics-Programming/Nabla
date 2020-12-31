@@ -283,7 +283,7 @@ vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_inte
 	
 	//nbl_glsl_BSDFIsotropicParams params;
 	//params.L = campos-WorldPos;
-	out_interaction = nbl_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, normalize(Normal));
+	out_interaction = nbl_glsl_calcSurfaceInteraction(campos, WorldPos, normalize(Normal), mat2x3(dFdx(WorldPos),dFdy(WorldPos)));
 
 	return nbl_bsdf_cos_eval(precomp, precomp.V, out_interaction, dUV)/dot(params.L,params.L) + emissive;
 }

@@ -1,8 +1,8 @@
+#version 430 core
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#version 430 core
 
 layout (location = 0) in vec3 Normal;
 layout (location = 1) in vec3 Pos;
@@ -34,7 +34,7 @@ void main()
     vec3 N = normalize(Normal);
     if (dot(N,Lnorm)>0.0)
     {
-        nbl_glsl_IsotropicViewSurfaceInteraction inter_ = nbl_glsl_calcFragmentShaderSurfaceInteraction(pc.campos, Pos, N);
+        nbl_glsl_IsotropicViewSurfaceInteraction inter_ = nbl_glsl_calcSurfaceInteraction(pc.campos, Pos, N, mat2x3(dFdx(Pos),dFdy(Pos)));
         nbl_glsl_AnisotropicViewSurfaceInteraction inter = nbl_glsl_calcAnisotropicInteraction(inter_);
 
         nbl_glsl_LightSample _sample = nbl_glsl_createLightSample(Lnorm,inter);

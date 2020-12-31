@@ -352,7 +352,7 @@ void main()
 			{
 				throughput /= float(staticViewData.samplesPerPixelPerDispatch);
 
-				rays[realOutputID].origin = nbl_glsl_MC_WorldSpacePosition();/*+newray.direction*err?; TODO */
+				rays[realOutputID].origin = nbl_glsl_MC_getWorldSpacePosition();/*+newray.direction*err?; TODO */
 				rays[realOutputID].maxT = FLT_MAX;
 				rays[realOutputID].direction = direction;
 				rays[realOutputID].mask = -1;

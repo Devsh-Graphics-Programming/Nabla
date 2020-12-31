@@ -1,5 +1,5 @@
-#ifndef __NBL_EXT_RADEON_RAYS_RAY_INCLUDED__
-#define __NBL_EXT_RADEON_RAYS_RAY_INCLUDED__
+#ifndef _NBL_GLSL_EXT_RADEON_RAYS_RAY_INCLUDED_
+#define _NBL_GLSL_EXT_RADEON_RAYS_RAY_INCLUDED_
 
 struct nbl_glsl_ext_RadeonRays_ray
 {
