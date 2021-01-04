@@ -33,10 +33,13 @@ class CMitsubaLoader : public asset::IAssetLoader
 		friend class CMitsubaMaterialCompilerFrontend;
 	public:
 		//! Constructor
-		CMitsubaLoader(asset::IAssetManager* _manager);
+		CMitsubaLoader(asset::IAssetManager* _manager, io::IFileSystem* _fs);
+
+		void initialize() override;
 
 	protected:
 		asset::IAssetManager* m_manager;
+		io::IFileSystem* m_filesystem;
 
 		//! Destructor
 		virtual ~CMitsubaLoader() = default;
