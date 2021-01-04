@@ -54,17 +54,18 @@ vec2 SampleSphericalMap(in vec3 v)
     return uv;
 }
 
-vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in nbl_glsl_MC_precomputed_t precomp)
+vec3 nbl_computeLighting(inout nbl_glsl_AnisotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
 	nbl_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,gl_FragCoord.xy/VIEWPORT_SZ,0).rg;
 
-	vec3 emissive = nbl_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
+	material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[InstanceIndex].material,precomp.frontface);
+	vec3 emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 
 	vec3 color = vec3(0.0);
 
 #ifdef USE_ENVMAP
-	nbl_glsl_instr_stream_t gcs = getGenChoiceStream(precomp);
-	nbl_glsl_instr_stream_t rnps = getRemAndPdfStream(precomp);
+	nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
+	nbl_glsl_MC_instr_stream_t rnps = nbl_glsl_MC_oriented_material_t_getRemAndPdfStream(material);
 	for (int i = 0; i < SAMPLE_COUNT; ++i)
 	{
 		nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
@@ -72,7 +73,7 @@ vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_inte
 		vec3 rand = rand3d(i,scramble_state);
 		float pdf;
 		nbl_glsl_LightSample s;
-		vec3 rem = nbl_glsl_runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
+		vec3 rem = nbl_glsl_MC_runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
 
 		vec2 uv = SampleSphericalMap(s.L);
 		color += rem*textureLod(envMap, uv, 0.0).xyz;
@@ -84,9 +85,10 @@ vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_inte
 	{
 		SLight l = lights[i];
 		vec3 L = l.position-WorldPos;
-		//params.L = L;
 		const float intensityScale = LIGHT_INTENSITY_SCALE;//ehh might want to render to hdr fbo and do tonemapping
-		color += nbl_bsdf_cos_eval(precomp, normalize(L), out_interaction, dUV)*l.intensity*intensityScale / dot(L,L);
+		nbl_glsl_LightSample _sample;
+		_sample.L = L;
+		color += nbl_bsdf_cos_eval(_sample,out_interaction, dUV)*l.intensity*intensityScale / dot(L,L);
 	}
 
 	return color+emissive;

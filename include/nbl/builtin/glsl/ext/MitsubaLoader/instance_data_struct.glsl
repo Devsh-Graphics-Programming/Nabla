@@ -13,7 +13,7 @@ struct nbl_glsl_ext_Mitsuba_Loader_instance_data_t
 	uint padding1;
 	vec3 normalMatrixRow2;
 	float determinant;
-	nbl_glsl_MC_MaterialData material;
+	nbl_glsl_MC_material_data_t material;
 };
 
 
