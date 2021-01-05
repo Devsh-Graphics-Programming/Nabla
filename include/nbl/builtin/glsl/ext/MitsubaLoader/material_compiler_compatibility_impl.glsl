@@ -8,11 +8,11 @@
 #define _NBL_VT_FLOAT_VIEWS_COUNT _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT
 #define _NBL_VT_FLOAT_VIEWS
 
-#define _NBL_VT_INT_VIEWS_BINDING 2
+#define _NBL_VT_INT_VIEWS_BINDING NotApplicable
 #define _NBL_VT_INT_VIEWS_COUNT 0
 #define _NBL_VT_INT_VIEWS
 
-#define _NBL_VT_UINT_VIEWS_BINDING 3
+#define _NBL_VT_UINT_VIEWS_BINDING NotApplicable
 #define _NBL_VT_UINT_VIEWS_COUNT 0
 #define _NBL_VT_UINT_VIEWS
 #include <nbl/builtin/glsl/virtual_texturing/descriptors.glsl>
