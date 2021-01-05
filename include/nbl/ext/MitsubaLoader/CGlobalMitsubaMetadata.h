@@ -35,6 +35,8 @@ class CGlobalMitsubaMetadata : public core::IReferenceCounted
 		std::string materialCompilerGLSL_declarations;
 		//has to go after required user-provided descriptors and functions and before the rest of shader (especially entry point function)
 		std::string materialCompilerGLSL_source;
+
+		uint32_t getVTStorageViewCount() const { return VT->getFloatViews().size(); }
 };
 
 

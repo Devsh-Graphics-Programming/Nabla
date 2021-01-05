@@ -58,7 +58,6 @@ vec3 nbl_computeLighting(inout nbl_glsl_AnisotropicViewSurfaceInteraction out_in
 {
 	nbl_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,gl_FragCoord.xy/VIEWPORT_SZ,0).rg;
 
-	material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[InstanceIndex].material,precomp.frontface);
 	vec3 emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 
 	vec3 color = vec3(0.0);
@@ -84,11 +83,12 @@ vec3 nbl_computeLighting(inout nbl_glsl_AnisotropicViewSurfaceInteraction out_in
 	for (int i = 0; i < LIGHT_COUNT; ++i)
 	{
 		SLight l = lights[i];
-		vec3 L = l.position-WorldPos;
+		const vec3 L = l.position-WorldPos;
+		const float d2 = dot(L,L); 
 		const float intensityScale = LIGHT_INTENSITY_SCALE;//ehh might want to render to hdr fbo and do tonemapping
 		nbl_glsl_LightSample _sample;
-		_sample.L = L;
-		color += nbl_bsdf_cos_eval(_sample,out_interaction, dUV)*l.intensity*intensityScale / dot(L,L);
+		_sample.L = L*inversesqrt(d2);
+		color += nbl_bsdf_cos_eval(_sample,out_interaction, dUV)*l.intensity*intensityScale/d2;
 	}
 
 	return color+emissive;
@@ -183,7 +183,7 @@ int main()
 		asset::CQuantNormalCache* qnc = am->getMeshManipulator()->getQuantNormalCache();
 
 		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CSerializedLoader>(am));
-		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am));
+		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am,fs));
 
 		std::string filePath = "../../media/mitsuba/staircase2.zip";
 	//#define MITSUBA_LOADER_TESTS
@@ -293,6 +293,11 @@ int main()
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 	asset::IAssetManager* am = device->getAssetManager();
+
+	// look out for this!!!
+	// when added, CMitsubaLoader inserts its own include loader into GLSLCompiler
+	// thats why i have to add it again here (after device recreation) to be able to compile shaders
+	am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am, device->getFileSystem()));
 
 	core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds2layout;
 	{

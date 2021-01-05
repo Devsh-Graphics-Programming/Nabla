@@ -28,6 +28,17 @@ class IGLSLEmbeddedIncludeLoader : public IBuiltinIncludeLoader
 			return {{std::regex{pattern},std::move(tmp)}};
 		}
 		
+		static core::vector<std::string> parseArgumentsFromPath(const std::string& _path)
+		{
+			core::vector<std::string> args;
+
+			std::stringstream ss{ _path };
+			std::string arg;
+			while (std::getline(ss, arg, '/'))
+				args.push_back(std::move(arg));
+
+			return args;
+		}
 		
 		io::IFileSystem* fs;
 

@@ -1,3 +1,4 @@
+#include "..\..\..\..\include\nbl\ext\MitsubaLoader\CMitsubaLoader.h"
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
@@ -10,6 +11,7 @@
 #include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 #include "nbl/asset/IImageAssetHandlerBase.h"
+#include "nbl/ext/MitsubaLoader/CGLSLMitsubaLoaderBuiltinIncludeLoader.h"
 
 
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
@@ -75,7 +77,7 @@ void main()
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_PROLOGUE =
 R"(#version 430 core
 )";
-_NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_DEFINITIONS =
+_NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_INPUT_OUTPUT =
 R"(
 layout (location = 0) in vec3 WorldPos;
 layout (location = 1) flat in uint InstanceIndex;
@@ -83,92 +85,9 @@ layout (location = 2) in vec3 Normal;
 layout (location = 3) in vec2 UV;
 
 layout (location = 0) out vec4 OutColor;
-
-#define _NBL_VT_DESCRIPTOR_SET 0
-#define _NBL_VT_PAGE_TABLE_BINDING 0
-
-#define _NBL_VT_FLOAT_VIEWS_BINDING 1 
-#define _NBL_VT_FLOAT_VIEWS_COUNT _VT_STORAGE_VIEW_COUNT
-#define _NBL_VT_FLOAT_VIEWS
-
-#define _NBL_VT_INT_VIEWS_BINDING 2
-#define _NBL_VT_INT_VIEWS_COUNT 0
-#define _NBL_VT_INT_VIEWS
-
-#define _NBL_VT_UINT_VIEWS_BINDING 3
-#define _NBL_VT_UINT_VIEWS_COUNT 0
-#define _NBL_VT_UINT_VIEWS
-#include <nbl/builtin/glsl/virtual_texturing/descriptors.glsl>
-
-layout (set = 0, binding = 2, std430) restrict readonly buffer VT_PrecomputedStuffSSBO
-{
-    uint pgtab_sz_log2;
-    float vtex_sz_rcp;
-    float phys_pg_tex_sz_rcp[_NBL_VT_MAX_PAGE_TABLE_LAYERS];
-    uint layer_to_sampler_ix[_NBL_VT_MAX_PAGE_TABLE_LAYERS];
-} VT_precomputed;
-
-
-
-
-
-// @Crisspl make a builtin header generator like for Virtual Texturing, I need to have a definition of descriptor set 0 to use in other shaders!
-// also order them sanely
-// what's in binding 0 and 1 !?
-layout (set = 0, binding = 3, std430) restrict readonly buffer INSTR_BUF
-{
-	nbl_glsl_MC_instr_t data[];
-} instr_buf;
-layout (set = 0, binding = 4, std430) restrict readonly buffer BSDF_BUF
-{
-	nbl_glsl_MC_bsdf_data_t data[];
-} bsdf_buf;
-#include <nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl>
-layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
-	nbl_glsl_ext_Mitsuba_Loader_instance_data_t data[];
-} InstData;
-layout (set = 0, binding = 6, std430) restrict readonly buffer PREFETCH_INSTR_BUF
-{
-	nbl_glsl_MC_prefetch_instr_t data[];
-} prefetch_instr_buf;
-nbl_glsl_MC_instr_t nbl_glsl_MC_fetchInstr(in uint ix)
-{
-	return instr_buf.data[ix];
-}
-nbl_glsl_MC_prefetch_instr_t nbl_glsl_MC_fetchPrefetchInstr(in uint ix)
-{
-	return prefetch_instr_buf.data[ix];
-}
-nbl_glsl_MC_bsdf_data_t nbl_glsl_MC_fetchBSDFData(in uint ix)
-{
-	return bsdf_buf.data[ix];
-}
-
-
-
-
-
-
-uint nbl_glsl_VT_layer2pid(in uint layer)
-{
-    return VT_precomputed.layer_to_sampler_ix[layer];
-}
-uint nbl_glsl_VT_getPgTabSzLog2()
-{
-    return VT_precomputed.pgtab_sz_log2;
-}
-float nbl_glsl_VT_getPhysPgTexSzRcp(in uint layer)
-{
-    return VT_precomputed.phys_pg_tex_sz_rcp[layer];
-}
-float nbl_glsl_VT_getVTexSzRcp()
-{
-    return VT_precomputed.vtex_sz_rcp;
-}
-#define _NBL_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
-
-#include <nbl/builtin/glsl/virtual_texturing/functions.glsl/7/8>
-
+)";
+_NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_DEFINITIONS =
+R"(
 #include <nbl/builtin/glsl/utils/common.glsl>
 
 layout (set = 1, binding = 0, row_major, std140) uniform UBO {
@@ -221,7 +140,7 @@ vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_inte
 	out_interaction = nbl_glsl_calcSurfaceInteraction(campos,WorldPos,normalize(Normal),mat2x3(dFdx(WorldPos),dFdy(WorldPos)));
 
 	nbl_glsl_LightSample _sample = nbl_glsl_createLightSample(precomp.V,1.0,precomp.N);
-	return nbl_glsl_MC_oriented_material_t_getEmissive(material)+nbl_bsdf_cos_eval(_sample,out_interaction,dummy_dUV)/dot(params.L,params.L);
+	return nbl_glsl_MC_oriented_material_t_getEmissive(material)+nbl_bsdf_cos_eval(_sample,out_interaction,dummy_dUV)/dot(interaction.V.dir,interaction.V.dir);
 }
 #endif
 
@@ -301,12 +220,11 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createAndCacheVertex
 }
 static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createFragmentShader(const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _mcRes, size_t _VTstorageViewCount)
 {
-	const std::string storageViewCount = "#define _VT_STORAGE_VIEW_COUNT " + std::to_string(_VTstorageViewCount);
-
 	std::string source = 
 		FRAGMENT_SHADER_PROLOGUE +
 		_mcRes.fragmentShaderSource_declarations +
-		"\n" + storageViewCount + "\n" +
+		FRAGMENT_SHADER_INPUT_OUTPUT +
+		"#include <nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility.glsl/" + std::to_string(_VTstorageViewCount) + ">" +
 		FRAGMENT_SHADER_DEFINITIONS +
 		_mcRes.fragmentShaderSource +
 		FRAGMENT_SHADER_IMPL;
@@ -679,11 +597,18 @@ core::smart_refctd_ptr<asset::ICPUPipelineLayout> CMitsubaLoader::createPipeline
 	return core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pcrng, &pcrng+1, std::move(ds0layout), std::move(ds1layout), nullptr, nullptr);
 }
 
-CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager) : asset::IAssetLoader(), m_manager(_manager)
+CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager, io::IFileSystem* _fs) : asset::IAssetLoader(), m_manager(_manager), m_filesystem(_fs)
 {
 #ifdef _NBL_DEBUG
 	setDebugName("CMitsubaLoader");
 #endif
+}
+
+void CMitsubaLoader::initialize()
+{
+	auto* glslc = m_manager->getGLSLCompiler();
+
+	glslc->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSLMitsubaLoaderBuiltinIncludeLoader>(m_filesystem));
 }
 
 bool CMitsubaLoader::isALoadableFileFormat(io::IReadFile* _file) const

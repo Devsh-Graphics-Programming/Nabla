@@ -43,7 +43,7 @@ int main()
 		asset::IAssetManager* am = device->getAssetManager();
 
 		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CSerializedLoader>(am));
-		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am));
+		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am, fs));
 
 		//std::string filePath = "../../media/mitsuba/daily_pt.xml";
 		std::string filePath = "../../media/mitsuba/staircase2.zip";
