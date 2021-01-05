@@ -691,7 +691,7 @@ static core::smart_refctd_ptr<asset::ICPUImage> createBlendWeightImage(const ass
 
 core::smart_refctd_ptr<asset::ICPUPipelineLayout> CMitsubaLoader::createPipelineLayout(asset::IAssetManager* _manager, asset::ICPUVirtualTexture* _vt)
 {
-	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout; // needs to builtin and cached statically
+	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout;
 	{
 		auto sizes = _vt->getDSlayoutBindings(nullptr, nullptr);
 		auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSetLayout::SBinding>>(sizes.first + DS0_BINDING_COUNT_WO_VT);
