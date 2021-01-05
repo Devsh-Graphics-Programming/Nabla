@@ -31,6 +31,10 @@ struct SLight
 	vec3 intensity;
 };
 
+layout (push_constant) uniform Block {
+    float camTformDeterminant;
+} PC;
+
 layout (set = 2, binding = 0, std430) readonly restrict buffer Lights
 {
 	SLight lights[];
@@ -92,6 +96,29 @@ vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_inte
 	return color+emissive;
 }
 )";
+constexpr const char* GLSL_FRAG_MAIN = R"(
+#define _NBL_FRAG_MAIN_DEFINED_
+void main()
+{
+	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
+
+	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
+	const bool front = (!gl_FrontFacing) != (PC.camTformDeterminant*InstData.data[InstanceIndex].determinant < 0.0);
+	nbl_glsl_MC_precomputed_t precomp = nbl_glsl_precomputeData(front);
+#ifdef TEX_PREFETCH_STREAM
+	nbl_glsl_runTexPrefetchStream(getTexPrefetchStream(precomp), UV, dUV);
+#endif
+#ifdef NORM_PRECOMP_STREAM
+	nbl_glsl_runNormalPrecompStream(getNormalPrecompStream(precomp), dUV, precomp);
+#endif
+
+
+	nbl_glsl_IsotropicViewSurfaceInteraction inter;
+	vec3 color = nbl_computeLighting(inter, dUV, precomp);
+
+	OutColor = vec4(color, 1.0);
+}
+)";
 static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(const asset::ICPUSpecializedShader* _fs, uint32_t viewport_w, uint32_t viewport_h, uint32_t lightCnt, uint32_t smplCnt, float intensityScale)
 {
     const asset::ICPUShader* unspec = _fs->getUnspecialized();
@@ -108,6 +135,7 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragSh
 		GLSL_COMPUTE_LIGHTING;
 
     glsl.insert(glsl.find("#ifndef _NBL_COMPUTE_LIGHTING_DEFINED_"), extra);
+	glsl.insert(glsl.find("#ifndef _NBL_FRAG_MAIN_DEFINED_"), GLSL_FRAG_MAIN);
 
     //auto* f = fopen("fs.glsl","w");
     //fwrite(glsl.c_str(), 1, glsl.size(), f);
@@ -271,9 +299,9 @@ int main()
 		return 1;
 
 	bool leftHandedCamera = false;
+	auto cameraTransform = sensor.transform.matrix.extractSub3x4();
 	{
-		auto relativeTransform = sensor.transform.matrix.extractSub3x4();
-		if (relativeTransform.getPseudoDeterminant().x < 0.f)
+		if (cameraTransform.getPseudoDeterminant().x < 0.f)
 			leftHandedCamera = true;
 	}
 
@@ -422,7 +450,13 @@ int main()
 		//modify pipeline layouts with our custom DS2 layout (DS2 will be used for lights buffer)
 		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 		{
-			auto* pipeline = mesh->getMeshBuffer(i)->getPipeline();
+			auto* meshbuffer = mesh->getMeshBuffer(i);
+			auto* pipeline = meshbuffer->getPipeline();
+
+			asset::SPushConstantRange pcr;
+			pcr.offset = 0u;
+			pcr.size = sizeof(float);
+			pcr.stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
 			if (modifiedPipelines.find(pipeline) == modifiedPipelines.end())
 			{
 				//if (!pipeline->getLayout()->getDescriptorSetLayout(2u))
@@ -438,8 +472,14 @@ int main()
 				}
 				// invert what is recognized as frontface in case of RH camera
 				pipeline->getRasterizationParams().frontFaceIsCCW = !leftHandedCamera;
+
+				auto pc = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::SPushConstantRange>>(1u);
+				(*pc)[0] = pcr;
+				pipeline->getLayout()->setPushConstantRanges(std::move(pc));
 				modifiedPipelines.insert(pipeline);
 			}
+
+			reinterpret_cast<float*>(meshbuffer->getPushConstantsDataPtr() + pcr.offset)[0] = cameraTransform.getPseudoDeterminant().x;
 		}
 	}
 	modifiedShaders.clear();
