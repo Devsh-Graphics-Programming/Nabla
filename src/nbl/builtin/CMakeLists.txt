@@ -132,5 +132,6 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/RadeonRays/intersection.glsl"
   "nbl/builtin/glsl/ext/RadeonRays/ray.glsl"
   "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
+  "nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility_impl.glsl"
 PARENT_SCOPE)
 

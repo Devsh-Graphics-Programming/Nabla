@@ -183,7 +183,7 @@ int main()
 		asset::CQuantNormalCache* qnc = am->getMeshManipulator()->getQuantNormalCache();
 
 		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CSerializedLoader>(am));
-		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am));
+		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am,fs));
 
 		std::string filePath = "../../media/mitsuba/staircase2.zip";
 	//#define MITSUBA_LOADER_TESTS
@@ -293,6 +293,11 @@ int main()
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 	asset::IAssetManager* am = device->getAssetManager();
+
+	// look out for this!!!
+	// when added, CMitsubaLoader inserts its own include loader into GLSLCompiler
+	// thats why i have to add it again here (after device recreation) to be able to compile shaders
+	am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am, device->getFileSystem()));
 
 	core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds2layout;
 	{
