@@ -208,6 +208,7 @@ void main()
 		
 		bool alive = false;
 		nbl_glsl_MC_precomputed_t precomputed;
+		nbl_glsl_MC_oriented_material_t material;
 		nbl_glsl_xoroshiro64star_state_t start_scramble;
 		vec2 uv;
 		if (revdepth>0.0)
@@ -253,10 +254,11 @@ void main()
 			}
 			
 			//
-			nbl_glsl_MC_precomputed_t precomputed = nbl_glsl_MC_precomputeData(frontfacing);
+			precomputed = nbl_glsl_MC_precomputeData(frontfacing);
+			//material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[objectID].material,precomputed.frontface);
 			
 			//
-			const vec3 emissive = vec3(0.0,1.0,0.0);
+			const vec3 emissive = vec3(0.0,1.0,0.0);//nbl_glsl_MC_oriented_material_t_getEmissive(material);
 			vec3 acc;
 			if (pc.cummon.rcpFramesDispatched<1.0)
 				acc = fetchAccumulation(pixelCoord)+emissive/float(pc.cummon.framesDispatched-1u);

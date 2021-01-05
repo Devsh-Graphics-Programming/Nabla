@@ -985,7 +985,8 @@ void Renderer::render(nbl::ITimer* timer)
 
 	const auto currentViewProj = camera->getConcatenatedMatrix();
 	// TODO: instead of rasterizing vis-buffer only once, subpixel jitter it to obtain AA
-	if (!core::equals(prevViewProj,currentViewProj,core::ROUNDING_ERROR<core::matrix4SIMD>()*1000.0))
+	const auto thresh = core::ROUNDING_ERROR<core::matrix4SIMD>()*128.f;
+	if (!core::equals(prevViewProj,currentViewProj,thresh))
 	{
 		m_raytraceCommonData.framesDispatched = 0u;
 
@@ -1002,6 +1003,11 @@ void Renderer::render(nbl::ITimer* timer)
 		m_driver->dispatch(m_cullWorkGroups, 1u, 1u);
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_COMMAND_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT);
 
+		m_driver->setRenderTarget(tmpTonemapBuffer);
+		{
+			uint32_t clearAccumulation[4] = { 0,0,0,0 };
+			m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, clearAccumulation);
+		}
 		m_driver->setRenderTarget(m_visibilityBuffer);
 		{ // clear
 			m_driver->clearZBuffer();
@@ -1095,7 +1101,7 @@ void Renderer::render(nbl::ITimer* timer)
 		m_driver->bindComputePipeline(m_resolvePipeline.get());
 		m_driver->dispatch(m_resolveWorkGroups[0], m_resolveWorkGroups[1], 1);
 
-		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT
+		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
 #ifndef _NBL_BUILD_OPTIX_
 			|GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT
 #else
