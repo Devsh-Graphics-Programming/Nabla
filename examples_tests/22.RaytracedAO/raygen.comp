@@ -17,6 +17,16 @@ layout(set = 2, binding = 5) uniform sampler2D uvCoords;
 
 
 #include "bin/material_declarations.glsl"
+
+/*
+// something to get our GLSL intellisense to "shut up"
+#ifndef _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT
+	#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT 4
+	#include <nbl/builtin/glsl/virtual_texturing/impl_functions.glsl>
+#endif
+*/
+#include <nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility_impl.glsl>
+
 vec3 normalizedV;
 vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()
 {
@@ -36,19 +46,6 @@ mat2x3 dPosdScreen = mat2x3(vec3(0.0),vec3(0.0)); // TODO
 mat2x3 nbl_glsl_MC_getdPos(in vec3 p)
 {
 	return dPosdScreen;
-}
-
-nbl_glsl_instr_t nbl_glsl_MC_fetchInstr(in uint ix)
-{
-	return instr_buf.data[ix];
-}
-nbl_glsl_prefetch_instr_t nbl_glsl_MC_fetchPrefetchInstr(in uint ix)
-{
-	return prefetch_instr_buf.data[ix];
-}
-nbl_glsl_bsdf_data_t nbl_glsl_MC_fetchBSDFData(in uint ix)
-{
-	return bsdf_buf.data[ix];
 }
 #define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 #include <nbl/builtin/glsl/material_compiler/common.glsl>
@@ -256,7 +253,7 @@ void main()
 			}
 			
 			//
-			nbl_glsl_MC_precomputed_t precomputed = nbl_glsl_precomputeData(frontfacing);
+			nbl_glsl_MC_precomputed_t precomputed = nbl_glsl_MC_precomputeData(frontfacing);
 			
 			//
 			const vec3 emissive = vec3(0.0,1.0,0.0);

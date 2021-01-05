@@ -657,7 +657,7 @@ void Renderer::init(const SAssetBundle& meshes,
 					core::smart_refctd_ptr(m_raygenDSLayout),
 					nullptr
 				);
-				(std::ofstream("material_declarations.glsl") << initData.globalMeta->materialCompilerGLSL_declarations).close();
+				(std::ofstream("material_declarations.glsl") << "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << initData.globalMeta->getVTStorageViewCount() << "\n" << initData.globalMeta->materialCompilerGLSL_declarations).close();
 				m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_raygenPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../raygen.comp"));
 
 				m_raygenDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_raygenDSLayout));

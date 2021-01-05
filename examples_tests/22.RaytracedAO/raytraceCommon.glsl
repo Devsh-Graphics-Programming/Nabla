@@ -153,7 +153,9 @@ void storeAccumulation(in vec3 color, in ivec2 coord)
 	const uvec2 data = nbl_glsl_encodeRGB19E7(color);
 	imageStore(accumulation,coord,uvec4(data,0u,0u));
 }
-#endif
 
+//#include <nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility.glsl/>
+
+#endif
 
 #endif
