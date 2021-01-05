@@ -221,7 +221,7 @@ vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_inte
 	out_interaction = nbl_glsl_calcSurfaceInteraction(campos,WorldPos,normalize(Normal),mat2x3(dFdx(WorldPos),dFdy(WorldPos)));
 
 	nbl_glsl_LightSample _sample = nbl_glsl_createLightSample(precomp.V,1.0,precomp.N);
-	return nbl_glsl_MC_oriented_material_t_getEmissive(material)+nbl_bsdf_cos_eval(_sample,out_interaction,dummy_dUV)/dot(params.L,params.L);
+	return nbl_glsl_MC_oriented_material_t_getEmissive(material)+nbl_bsdf_cos_eval(_sample,out_interaction,dummy_dUV)/dot(interaction.V.dir,interaction.V.dir);
 }
 #endif
 
