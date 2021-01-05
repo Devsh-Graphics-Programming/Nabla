@@ -657,21 +657,7 @@ void Renderer::init(const SAssetBundle& meshes,
 					core::smart_refctd_ptr(m_raygenDSLayout),
 					nullptr
 				);
-#ifdef TODO
-	{
-		std::string glsl = "raygen.comp" +
-			globalMeta->materialCompilerGLSL_declarations +
-			// TODO ds0 descriptors and user-defined functions required by material compiler
-			globalMeta->materialCompilerGLSL_source;
-		
-		auto shader = m_driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(glsl.c_str()));
-		asset::ISpecializedShader::SInfo info(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE);
-		auto spec = m_driver->createGPUSpecializedShader(shader.get(), info);
-		m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_raygenLayout), std::move(spec));
-	}
-#endif
 				(std::ofstream("material_declarations.glsl") << initData.globalMeta->materialCompilerGLSL_declarations).close();
-				(std::ofstream("material_source.glsl") << initData.globalMeta->materialCompilerGLSL_source).close();
 				m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_raygenPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../raygen.comp"));
 
 				m_raygenDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_raygenDSLayout));

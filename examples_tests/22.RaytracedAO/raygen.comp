@@ -11,13 +11,12 @@ layout(set = 2, binding = 1) uniform usampler2D scramblebuf;
 // vis buffer
 layout(set = 2, binding = 2) uniform sampler2D depthbuf;
 layout(set = 2, binding = 3) uniform usampler2D frontFacing_Object_Triangle;
+//layout(set = 2, binding = 3) uniform sampler2D barycentricDerivatives;
 layout(set = 2, binding = 4) uniform sampler2D encodedNormal;
 layout(set = 2, binding = 5) uniform sampler2D uvCoords;
 
 
-// no idea yet
-#define sizeof_bsdf_data 1u // wtf??? it's not supposed to be user-defined
-#include <nbl/builtin/glsl/material_compiler/common_declarations.glsl>
+#include "bin/material_declarations.glsl"
 vec3 normalizedV;
 vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()
 {
@@ -33,92 +32,26 @@ vec3 nbl_glsl_MC_getWorldSpacePosition()
 {
 	return worldPosition;
 }
+mat2x3 dPosdScreen = mat2x3(vec3(0.0),vec3(0.0)); // TODO
 mat2x3 nbl_glsl_MC_getdPos(in vec3 p)
 {
-	return mat2x3(vec3(0.0/0.0), vec3(0.0/0.0));
+	return dPosdScreen;
 }
-/*
-#define _IRR_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
-instr_stream_t getEvalStream(in MC_precomputed_t precomp)
-{
-	instr_stream_t stream;
-	if (precomp.frontface)
-	{
-		stream.offset = InstData.data[InstanceIndex].front_instr_offset;
-		stream.count = InstData.data[InstanceIndex].front_rem_pdf_count;
-	}
-	else
-	{
-		stream.offset = InstData.data[InstanceIndex].back_instr_offset;
-		stream.count = InstData.data[InstanceIndex].back_rem_pdf_count;
-	}
-	return stream;
-}
-instr_t nbl_glsl_MC_fetchInstr(in uint ix)
+
+nbl_glsl_instr_t nbl_glsl_MC_fetchInstr(in uint ix)
 {
 	return instr_buf.data[ix];
 }
-prefetch_instr_t nbl_glsl_MC_fetchPrefetchInstr(in uint ix)
+nbl_glsl_prefetch_instr_t nbl_glsl_MC_fetchPrefetchInstr(in uint ix)
 {
 	return prefetch_instr_buf.data[ix];
 }
-bsdf_data_t nbl_glsl_MC_fetchBSDFData(in uint ix)
+nbl_glsl_bsdf_data_t nbl_glsl_MC_fetchBSDFData(in uint ix)
 {
 	return bsdf_buf.data[ix];
 }
-///
-//rem'n'pdf and eval use the same instruction stream
-instr_stream_t getRemAndPdfStream(in MC_precomputed_t precomp)
-{
-	return getEvalStream(precomp);
-}
-instr_stream_t getGenChoiceStream(in MC_precomputed_t precomp)
-{
-	instr_stream_t stream;
-	if (precomp.frontface)
-	{
-		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count;
-		stream.count =  InstData.data[InstanceIndex].front_genchoice_count;
-	}
-	else
-	{
-		stream.offset = InstData.data[InstanceIndex].back_instr_offset + InstData.data[InstanceIndex].back_rem_pdf_count;
-		stream.count = InstData.data[InstanceIndex].back_genchoice_count;
-	}
-	return stream;
-}
-instr_stream_t getTexPrefetchStream(in MC_precomputed_t precomp)
-{
-	instr_stream_t stream;
-	if (precomp.frontface)
-	{
-		stream.offset = InstData.data[InstanceIndex].front_prefetch_offset;
-		stream.count = InstData.data[InstanceIndex].front_prefetch_count;
-	}
-	else
-	{
-		stream.offset = InstData.data[InstanceIndex].back_prefetch_offset;
-		stream.count = InstData.data[InstanceIndex].back_prefetch_count;
-	}
-	return stream;
-}
-instr_stream_t getNormalPrecompStream(in MC_precomputed_t precomp)
-{
-	instr_stream_t stream;
-	if (precomp.frontface)
-	{
-		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count + InstData.data[InstanceIndex].front_genchoice_count;
-		stream.count = InstData.data[InstanceIndex].front_nprecomp_count;
-	}
-	else
-	{
-		stream.offset = InstData.data[InstanceIndex].back_instr_offset + InstData.data[InstanceIndex].back_rem_pdf_count + InstData.data[InstanceIndex].back_genchoice_count;
-		stream.count = InstData.data[InstanceIndex].back_nprecomp_count;
-	}
-	return stream;
-}
-#include <irr/builtin/material_compiler/glsl/common.glsl>
-*/
+#define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
+#include <nbl/builtin/glsl/material_compiler/common.glsl>
 
 //
 ///
@@ -284,6 +217,15 @@ void main()
 		{			
 			// vis buffer read
 			const uvec2 visBuffer = texelFetch(frontFacing_Object_Triangle,pixelCoord,0).rg;
+			mat2x3 dBarydScreen;/*
+			{
+				// TODO: future https://diaryofagraphicsprogrammer.blogspot.com/2018/03/triangle-visibility-buffer.html
+				vec4 data;// = texelFetch(barycentricDerivatives,pixelCoord,0);
+				dBarydScreen[0] = vec3(data.rg,-data.r-data.g);
+				dBarydScreen[1] = vec3(data.ba,-data.b-data.a);
+			}
+			dPosdScreen = mat3(vPos[0],vPos[1],vPos[2])*dBarydScreen;
+			*/
 			// init scramble
 			start_scramble = texelFetch(scramblebuf,pixelCoord,0).rg;
 			// tmp gbuffer reads
@@ -313,8 +255,8 @@ void main()
 				normalizedN = nbl_glsl_NormalDecode_signedSpherical(normalBuffer);
 			}
 			
-			// TODO: once we merge the material compiler with the raygen
-			//precomputed = precomputeData(frontfacing);
+			//
+			nbl_glsl_MC_precomputed_t precomputed = nbl_glsl_precomputeData(frontfacing);
 			
 			//
 			const vec3 emissive = vec3(0.0,1.0,0.0);

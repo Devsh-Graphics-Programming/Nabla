@@ -118,6 +118,14 @@ layout(set = 1, binding = 2, std430) restrict /*writeonly/readonly TODO dependin
 {
 	nbl_glsl_ext_RadeonRays_ray rays[];
 };
+// materials
+/*
+#include <nbl/builtin/glsl/material_compiler/common_invariant_declarations.glsl>
+layout(set = 1, binding = 3, std430) restrict readonly buffer Materials
+{
+	nbl_glsl_MC_MaterialData materials[];
+};
+*/
 // lights
 layout(set = 1, binding = 3, std430) restrict readonly buffer CumulativeLightPDF
 {
@@ -149,3 +157,72 @@ void storeAccumulation(in vec3 color, in ivec2 coord)
 
 
 #endif
+
+/*
+///
+instr_stream_t getEvalStream(in MC_precomputed_t precomp)
+{
+	instr_stream_t stream;
+	if (precomp.frontface)
+	{
+		stream.offset = InstData.data[InstanceIndex].front_instr_offset;
+		stream.count = InstData.data[InstanceIndex].front_rem_pdf_count;
+	}
+	else
+	{
+		stream.offset = InstData.data[InstanceIndex].back_instr_offset;
+		stream.count = InstData.data[InstanceIndex].back_rem_pdf_count;
+	}
+	return stream;
+}
+//rem'n'pdf and eval use the same instruction stream
+instr_stream_t getRemAndPdfStream(in MC_precomputed_t precomp)
+{
+	return getEvalStream(precomp);
+}
+instr_stream_t getGenChoiceStream(in MC_precomputed_t precomp)
+{
+	instr_stream_t stream;
+	if (precomp.frontface)
+	{
+		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count;
+		stream.count =  InstData.data[InstanceIndex].front_genchoice_count;
+	}
+	else
+	{
+		stream.offset = InstData.data[InstanceIndex].back_instr_offset + InstData.data[InstanceIndex].back_rem_pdf_count;
+		stream.count = InstData.data[InstanceIndex].back_genchoice_count;
+	}
+	return stream;
+}
+instr_stream_t getTexPrefetchStream(in MC_precomputed_t precomp)
+{
+	instr_stream_t stream;
+	if (precomp.frontface)
+	{
+		stream.offset = InstData.data[InstanceIndex].front_prefetch_offset;
+		stream.count = InstData.data[InstanceIndex].front_prefetch_count;
+	}
+	else
+	{
+		stream.offset = InstData.data[InstanceIndex].back_prefetch_offset;
+		stream.count = InstData.data[InstanceIndex].back_prefetch_count;
+	}
+	return stream;
+}
+instr_stream_t getNormalPrecompStream(in MC_precomputed_t precomp)
+{
+	instr_stream_t stream;
+	if (precomp.frontface)
+	{
+		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count + InstData.data[InstanceIndex].front_genchoice_count;
+		stream.count = InstData.data[InstanceIndex].front_nprecomp_count;
+	}
+	else
+	{
+		stream.offset = InstData.data[InstanceIndex].back_instr_offset + InstData.data[InstanceIndex].back_rem_pdf_count + InstData.data[InstanceIndex].back_genchoice_count;
+		stream.count = InstData.data[InstanceIndex].back_nprecomp_count;
+	}
+	return stream;
+}
+*/
