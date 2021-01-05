@@ -40,10 +40,6 @@ layout (location = 3) out vec2 UV;
 #include <nbl/builtin/glsl/utils/common.glsl>
 #include <nbl/builtin/glsl/utils/transform.glsl>
 
-layout (push_constant) uniform Block {
-    uint instDataOffset;
-} PC;
-
 #ifndef _NBL_VERT_SET1_BINDINGS_DEFINED_
 #define _NBL_VERT_SET1_BINDINGS_DEFINED_
 layout (set = 1, binding = 0, row_major, std140) uniform UBO {
@@ -59,7 +55,7 @@ layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDa
 
 void main()
 {
-	uint instIx = PC.instDataOffset+gl_InstanceIndex;
+	uint instIx = gl_InstanceIndex;
 	mat4x3 tform = InstData.data[instIx].tform;
 	mat4 mvp = nbl_glsl_pseudoMul4x4with4x3(CamData.params.MVP, tform);
 	gl_Position = nbl_glsl_pseudoMul4x4with3x1(mvp, vPosition);
@@ -289,6 +285,8 @@ vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_inte
 }
 #endif
 
+#ifndef _NBL_FRAG_MAIN_DEFINED_
+#define _NBL_FRAG_MAIN_DEFINED_
 void main()
 {
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
@@ -309,6 +307,7 @@ void main()
 
 	OutColor = vec4(color, 1.0);
 }
+#endif
 )";
 
 _NBL_STATIC_INLINE_CONSTEXPR const char* VERTEX_SHADER_CACHE_KEY = "nbl/builtin/specialized_shader/loaders/mitsuba_xml/default";
@@ -692,11 +691,6 @@ static core::smart_refctd_ptr<asset::ICPUImage> createBlendWeightImage(const ass
 
 core::smart_refctd_ptr<asset::ICPUPipelineLayout> CMitsubaLoader::createPipelineLayout(asset::IAssetManager* _manager, asset::ICPUVirtualTexture* _vt)
 {
-	SPushConstantRange pcrng;
-	pcrng.offset = 0u;
-	pcrng.size = sizeof(uint32_t);//instance data offset
-	pcrng.stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
-
 	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout; // needs to builtin and cached statically
 	{
 		auto sizes = _vt->getDSlayoutBindings(nullptr, nullptr);
@@ -739,7 +733,7 @@ core::smart_refctd_ptr<asset::ICPUPipelineLayout> CMitsubaLoader::createPipeline
 	}
 	auto ds1layout = getBuiltinAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("nbl/builtin/descriptor_set_layout/basic_view_parameters", _manager);
 
-	return core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pcrng, &pcrng+1, std::move(ds0layout), std::move(ds1layout), nullptr, nullptr);
+	return core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, std::move(ds0layout), std::move(ds1layout), nullptr, nullptr);
 }
 
 CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager) : asset::IAssetLoader(), m_manager(_manager)
@@ -1761,7 +1755,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 		{
 			auto* mb = mesh->getMeshBuffer(i);
-			reinterpret_cast<uint32_t*>(mb->getPushConstantsDataPtr())[0] = instDataOffset; // use base instance!
+			mb->setBaseInstance(instDataOffset);
 		}
 	}
 #ifdef DEBUG_MITSUBA_LOADER

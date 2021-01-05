@@ -1828,6 +1828,7 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
         return;
 
     found->updateNextState_vertexInput(mb->getVertexBufferBindings(), mb->getIndexBufferBinding().buffer.get(), found->nextState.vertexInputParams.indirectDrawBuf.get(), found->nextState.vertexInputParams.parameterBuf.get());
+    auto* pipeline = found->nextState.pipeline.graphics.pipeline.get();
 
 	CNullDriver::drawMeshBuffer(mb);
 
@@ -1851,6 +1852,10 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
         }
     }
 
+    const GLint baseInstance = static_cast<GLint>(mb->getBaseInstance());
+    // if GL_ARB_shader_draw_parameters is present, gl_BaseInstanceARB is used for workaround instead
+    if (!FeatureAvailable[NBL_ARB_shader_draw_parameters])
+        pipeline->setBaseInstanceUniform(found->ID, baseInstance);
 
     found->flushStateGraphics(GSB_ALL);
 
@@ -1861,10 +1866,10 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
     if (indexSize) {
         static_assert(sizeof(mb->getIndexBufferBinding().offset) == sizeof(void*), "Might break without this requirement");
         const void* const idxBufOffset = reinterpret_cast<void*>(mb->getIndexBufferBinding().offset);
-        extGlDrawElementsInstancedBaseVertexBaseInstance(primType, mb->getIndexCount(), indexSize, idxBufOffset, mb->getInstanceCount(), mb->getBaseVertex(), mb->getBaseInstance());
+        extGlDrawElementsInstancedBaseVertexBaseInstance(primType, mb->getIndexCount(), indexSize, idxBufOffset, mb->getInstanceCount(), mb->getBaseVertex(), baseInstance);
     }
     else
-		extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
+		extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), baseInstance);
 }
 
 
