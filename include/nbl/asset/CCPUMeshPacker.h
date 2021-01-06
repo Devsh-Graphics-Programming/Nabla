@@ -71,20 +71,52 @@ class CCPUMeshPacker final : public IMeshPacker<ICPUMeshBuffer, MDIStructType>
 	using TriangleBatch = typename base_t::TriangleBatch;
 
 public:
-	CCPUMeshPacker(const SVertexInputParams& preDefinedLayout, const MeshPackerBase::AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
-		:IMeshPacker<ICPUMeshBuffer, MDIStructType>(preDefinedLayout, allocParams, minTriangleCountPerMDIData, maxTriangleCountPerMDIData)
-	{}
+	struct ReservedAllocationMeshBuffers
+	{
+		uint32_t mdiAllocationOffset;
+		uint32_t mdiAllocationReservedSize;
+		uint32_t instanceAllocationOffset;
+		uint32_t instanceAllocationReservedSize;
+		uint32_t indexAllocationOffset;
+		uint32_t indexAllocationReservedSize;
+		uint32_t vertexAllocationOffset;
+		uint32_t vertexAllocationReservedSize;
+
+		inline bool isValid()
+		{
+			return this->mdiAllocationOffset != core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
+		}
+	};
+
+	struct PackedMeshBuffer
+	{
+		//or output should look more like `return_type` from geometry creator?
+		//TODO: add parameters of the 
+		core::smart_refctd_ptr<ICPUBuffer> MDIDataBuffer;
+		SBufferBinding<ICPUBuffer> vertexBufferBindings[SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT] = {};
+		SBufferBinding<ICPUBuffer> indexBuffer;
+
+		SVertexInputParams vertexInputParams;
+
+		inline bool isValid()
+		{
+			return this->MDIDataBuffer->getPointer() != nullptr;
+		}
+	};
+
+public:
+	CCPUMeshPacker(const SVertexInputParams& preDefinedLayout, const MeshPackerBase::AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u);
 
 	template <typename Iterator>
-	MeshPackerBase::ReservedAllocationMeshBuffers alloc(const Iterator begin, const Iterator end);
+	ReservedAllocationMeshBuffers alloc(const Iterator begin, const Iterator end);
 
 	//needs to be called before first `commit`
 	void instantiateDataStorage();
 
 	template <typename Iterator>
-	MeshPackerBase::PackedMeshBufferData commit(const Iterator begin, const Iterator end, MeshPackerBase::ReservedAllocationMeshBuffers& ramb);
+	MeshPackerBase::PackedMeshBufferData commit(const Iterator begin, const Iterator end, ReservedAllocationMeshBuffers& ramb);
 
-	inline MeshPackerBase::PackedMeshBuffer<ICPUBuffer>& getPackedMeshBuffer() { return outputBuffer; };
+	inline PackedMeshBuffer& getPackedMeshBuffer() { return outputBuffer; };
 
 protected:
 	core::vector<typename base_t::TriangleBatch> constructTriangleBatches(ICPUMeshBuffer& meshBuffer) override;
@@ -92,17 +124,26 @@ protected:
 private:
 	//configures indices and MDI structs (implementation is not ready yet)
 	template<typename IndexType>
-	uint32_t processMeshBuffer(ICPUMeshBuffer* inputMeshBuffer, MeshPackerBase::ReservedAllocationMeshBuffers& ramb);
+	uint32_t processMeshBuffer(ICPUMeshBuffer* inputMeshBuffer, ReservedAllocationMeshBuffers& ramb);
 
 private: 
-	MeshPackerBase::PackedMeshBuffer<ICPUBuffer> outputBuffer;
+	PackedMeshBuffer outputBuffer;
+
+	_NBL_STATIC_INLINE_CONSTEXPR ReservedAllocationMeshBuffers invalidReservedAllocationMeshBuffers{ INVALID_ADDRESS, 0, 0, 0, 0, 0, 0, 0 };
 
 };
 
 template <typename MDIStructType>
+CCPUMeshPacker<MDIStructType>::CCPUMeshPacker(const SVertexInputParams& preDefinedLayout, const MeshPackerBase::AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
+	:IMeshPacker<ICPUMeshBuffer, MDIStructType>(preDefinedLayout, allocParams, minTriangleCountPerMDIData, maxTriangleCountPerMDIData)
+{
+
+}
+
+template <typename MDIStructType>
 //`Iterator` may be only an Iterator or pointer to pointer
 template <typename Iterator>
-MeshPackerBase::ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::alloc(const Iterator begin, const Iterator end)
+typename CCPUMeshPacker<MDIStructType>::ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::alloc(const Iterator begin, const Iterator end)
 {
 	/*
 	Requirements for input mesh buffers:
@@ -215,7 +256,7 @@ MeshPackerBase::ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::all
 		}
 	}
 
-	MeshPackerBase::ReservedAllocationMeshBuffers result{
+	ReservedAllocationMeshBuffers result{
 		MDIAllocAddr,
 		possibleMDIStructsNeededCnt,
 		perInsVtxAllocAddr,
@@ -274,7 +315,7 @@ void CCPUMeshPacker<MDIStructType>::instantiateDataStorage()
 
 template<typename MDIStructType>
 template<typename IndexType>
-uint32_t CCPUMeshPacker<MDIStructType>::processMeshBuffer(ICPUMeshBuffer* inputMeshBuffer, MeshPackerBase::ReservedAllocationMeshBuffers& ramb)
+uint32_t CCPUMeshPacker<MDIStructType>::processMeshBuffer(ICPUMeshBuffer* inputMeshBuffer, CCPUMeshPacker<MDIStructType>::ReservedAllocationMeshBuffers& ramb)
 {
 	MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(outputBuffer.MDIDataBuffer->getPointer()) + ramb.mdiAllocationOffset;
 	uint16_t* indexBuffPtr = static_cast<uint16_t*>(outputBuffer.indexBuffer.buffer->getPointer()) + ramb.indexAllocationOffset;
@@ -395,7 +436,7 @@ auto CCPUMeshPacker<MDIStructType>::constructTriangleBatches(ICPUMeshBuffer& mes
 
 template <typename MDIStructType>
 template <typename Iterator>
-MeshPackerBase::PackedMeshBufferData CCPUMeshPacker<MDIStructType>::commit(const Iterator begin, const Iterator end, MeshPackerBase::ReservedAllocationMeshBuffers& ramb)
+MeshPackerBase::PackedMeshBufferData CCPUMeshPacker<MDIStructType>::commit(const Iterator begin, const Iterator end, CCPUMeshPacker<MDIStructType>::ReservedAllocationMeshBuffers& ramb)
 {
 	MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(outputBuffer.MDIDataBuffer->getPointer()) + ramb.mdiAllocationOffset;
 	uint16_t* indexBuffPtr = static_cast<uint16_t*>(outputBuffer.indexBuffer.buffer->getPointer()) + ramb.indexAllocationOffset;

@@ -25,40 +25,6 @@ public:
         size_t MDIDataBuffMinAllocSize                 = 32ull;
     };
 
-    template <typename BufferType>
-    struct PackedMeshBuffer
-    {
-        //or output should look more like `return_type` from geometry creator?
-        //TODO: add parameters of the 
-        core::smart_refctd_ptr<BufferType> MDIDataBuffer;
-        SBufferBinding<BufferType> vertexBufferBindings[SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT] = {};
-        SBufferBinding<BufferType> indexBuffer;
-
-        SVertexInputParams vertexInputParams;
-
-        inline bool isValid()
-        {
-            return this->MDIDataBuffer->getPointer() != nullptr;
-        }
-    };
-
-    struct ReservedAllocationMeshBuffers
-    {
-        uint32_t mdiAllocationOffset;
-        uint32_t mdiAllocationReservedSize;
-        uint32_t instanceAllocationOffset;
-        uint32_t instanceAllocationReservedSize;
-        uint32_t indexAllocationOffset;
-        uint32_t indexAllocationReservedSize;
-        uint32_t vertexAllocationOffset;
-        uint32_t vertexAllocationReservedSize;
-
-        inline bool isValid()
-        {
-            return this->mdiAllocationOffset != core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
-        }
-    };
-
     struct PackedMeshBufferData
     {
         uint32_t mdiParameterOffset; // add to `CCPUMeshPacker::getMultiDrawIndirectBuffer()->getPointer() to get `DrawElementsIndirectCommand_t` address
@@ -97,6 +63,16 @@ protected:
         }
 
         return true;
+    }
+
+    struct ReservedAllocationMeshBuffersCommon
+    {
+
+    };
+
+    void initializeCommonAllocators()
+    {
+
     }
 
 protected:
@@ -327,7 +303,6 @@ protected:
     uint32_t m_perInstVtxSize;
 
     _NBL_STATIC_INLINE_CONSTEXPR uint32_t INVALID_ADDRESS = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
-    _NBL_STATIC_INLINE_CONSTEXPR ReservedAllocationMeshBuffers invalidReservedAllocationMeshBuffers{ INVALID_ADDRESS, 0, 0, 0, 0, 0, 0, 0 };
 };
 
 }

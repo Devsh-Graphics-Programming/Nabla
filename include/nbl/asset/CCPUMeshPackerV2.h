@@ -42,7 +42,7 @@ public:
         }
     };
 
-    struct PackedMeshBufferV2
+    struct PackedMeshBuffer
     {
         core::smart_refctd_ptr<video::IGPUBuffer> MDIDataBuffer;
         core::smart_refctd_ptr<video::IGPUBuffer> vertexBuffer;
@@ -69,22 +69,14 @@ public:
     template <typename Iterator>
     bool commit(MeshPackerBase::PackedMeshBufferData* pmbdOut, AllocData* allocDataIn, const Iterator begin, const Iterator end);
 
-    PackedMeshBufferV2 createGPUPackedMeshBuffer(video::IVideoDriver* driver)
-    {
-        PackedMeshBufferV2 output;
-        output.MDIDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(MDIBuffer->getSize(), MDIBuffer->getPointer());
-        output.vertexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(vtxBuffer->getSize(), vtxBuffer->getPointer());
-        output.indexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(idxBuffer->getSize(), idxBuffer->getPointer());
-
-        return output;
-    }
+    PackedMeshBuffer createGPUPackedMeshBuffer(video::IVideoDriver* driver);
 
     virtual core::vector<TriangleBatch> constructTriangleBatches(ICPUMeshBuffer& meshBuffer);
 
 private:
-    core::smart_refctd_ptr<ICPUBuffer> vtxBuffer;
-    core::smart_refctd_ptr<ICPUBuffer> idxBuffer;
-    core::smart_refctd_ptr<ICPUBuffer> MDIBuffer;
+    core::smart_refctd_ptr<ICPUBuffer> m_vtxBuffer;
+    core::smart_refctd_ptr<ICPUBuffer> m_idxBuffer;
+    core::smart_refctd_ptr<ICPUBuffer> m_MDIBuffer;
 
 };
 
@@ -144,10 +136,10 @@ bool CCPUMeshPackerV2<MDIStructType>::alloc(AllocData* allocDataOut, const Itera
 template <typename MDIStructType>
 void CCPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
 {
-    MDIBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.MDIDataBuffSupportedCnt * sizeof(MDIStructType));
-    idxBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.indexBuffSupportedCnt * sizeof(uint16_t));
+    m_MDIBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.MDIDataBuffSupportedCnt * sizeof(MDIStructType));
+    m_idxBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.indexBuffSupportedCnt * sizeof(uint16_t));
     //TODO: fix after new `AllocationParams` is done
-    vtxBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.vertexBuffSupportedCnt);
+    m_vtxBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.vertexBuffSupportedCnt);
 }
 
 template <typename MDIStructType>
@@ -155,6 +147,17 @@ template <typename Iterator>
 bool CCPUMeshPackerV2<MDIStructType>::commit(MeshPackerBase::PackedMeshBufferData* pmbdOut, AllocData* allocDataIn, const Iterator begin, const Iterator end)
 {
     return false;
+}
+
+template <typename MDIStructType>
+typename CCPUMeshPackerV2<MDIStructType>::PackedMeshBuffer CCPUMeshPackerV2<MDIStructType>::createGPUPackedMeshBuffer(video::IVideoDriver* driver)
+{
+    PackedMeshBuffer output;
+    output.MDIDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_MDIBuffer->getSize(), m_MDIBuffer->getPointer());
+    output.vertexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_vtxBuffer->getSize(), m_vtxBuffer->getPointer());
+    output.indexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_idxBuffer->getSize(), m_idxBuffer->getPointer());
+
+    return output;
 }
 
 template<typename MDIStructType>
@@ -170,10 +173,9 @@ auto CCPUMeshPackerV2<MDIStructType>::constructTriangleBatches(ICPUMeshBuffer& m
 
 //TODO
 /*refactor:
-	- IMeshPacker::ReservedAllocationMeshBuffers applies only to the CCPUMeshPacker, move it
     - this packer doesn't use `m_perInsVtxBuffAlctr`, move it from `IMeshPacker` to `CCPUMeshPacker`
     - constructor of this packer doesn't need `SVertexInputParams` as an input parameter, move code associated with `SVertexInputParams` from constructor of the `IMeshPacker` to the constructor of the `CCPUMeshPacker`
-    - fix `AllocationParams` and `PackedMeshBuffer`
+    - fix `AllocationParams`
 */
 
 //AllocData as SoA?
