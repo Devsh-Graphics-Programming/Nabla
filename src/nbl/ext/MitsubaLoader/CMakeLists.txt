@@ -59,5 +59,5 @@ nbl_create_ext_library_project(
 
 add_compile_definitions(XML_STATIC)
 
-add_dependencies(IrrExtMITSUBA_LOADER ${MITSUBA_LOADER_DEPENDENTS})
-target_link_libraries(IrrExtMITSUBA_LOADER INTERFACE ${MITSUBA_LOADER_DEPENDENT_LIBS})
+add_dependencies(NblExtMITSUBA_LOADER ${MITSUBA_LOADER_DEPENDENTS})
+target_link_libraries(NblExtMITSUBA_LOADER INTERFACE ${MITSUBA_LOADER_DEPENDENT_LIBS})

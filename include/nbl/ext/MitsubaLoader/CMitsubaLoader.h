@@ -17,6 +17,7 @@
 #include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
 #include "nbl/ext/MitsubaLoader/SContext.h"
 
+
 namespace nbl
 {
 namespace ext
@@ -32,44 +33,13 @@ class CMitsubaLoader : public asset::IAssetLoader
 		friend class CMitsubaMaterialCompilerFrontend;
 	public:
 		//! Constructor
-		CMitsubaLoader(asset::IAssetManager* _manager);
+		CMitsubaLoader(asset::IAssetManager* _manager, io::IFileSystem* _fs);
+
+		void initialize() override;
 
 	protected:
 		asset::IAssetManager* m_manager;
-
-#include "nbl/nblpack.h"
-		//compatible with std430 and std140
-		struct SInstanceData
-		{
-			core::matrix3x4SIMD tform;//mat4x3
-			//element (0,3) is offset for frontface instruction streams, element (1,3) is length of frontface rem_and_pdf stream
-			union SNormalMatrix {
-				SNormalMatrix() : normalMatrix() {}
-				~SNormalMatrix() {}
-				SNormalMatrix(const SNormalMatrix& other) : normalMatrix(other.normalMatrix) {}
-
-				core::matrix3x4SIMD normalMatrix;
-				struct {
-					uint32_t _pad0[3];
-					uint32_t front_instr_offset;
-					uint32_t _pad1[3];
-					uint32_t front_rem_pdf_count;
-				};
-			} normalMat;
-			uint64_t emissive;//uvec2, rgb19e7
-			float determinant;
-			uint32_t front_prefetch_count;
-			uint32_t front_nprecomp_count;
-			uint32_t front_genchoice_count;
-			uint32_t front_prefetch_offset;
-			uint32_t back_instr_offset;
-			uint32_t back_rem_pdf_count;
-			uint32_t back_prefetch_count;
-			uint32_t back_nprecomp_count;
-			uint32_t back_genchoice_count;
-			uint32_t back_prefetch_offset;
-		} PACK_STRUCT;
-#include "nbl/nblunpack.h"
+		io::IFileSystem* m_filesystem;
 
 		//! Destructor
 		virtual ~CMitsubaLoader() = default;

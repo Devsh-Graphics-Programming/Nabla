@@ -657,21 +657,7 @@ void Renderer::init(const SAssetBundle& meshes,
 					core::smart_refctd_ptr(m_raygenDSLayout),
 					nullptr
 				);
-#ifdef TODO
-	{
-		std::string glsl = "raygen.comp" +
-			globalMeta->materialCompilerGLSL_declarations +
-			// TODO ds0 descriptors and user-defined functions required by material compiler
-			globalMeta->materialCompilerGLSL_source;
-		
-		auto shader = m_driver->createGPUShader(core::make_smart_refctd_ptr<asset::ICPUShader>(glsl.c_str()));
-		asset::ISpecializedShader::SInfo info(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE);
-		auto spec = m_driver->createGPUSpecializedShader(shader.get(), info);
-		m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_raygenLayout), std::move(spec));
-	}
-#endif
-				(std::ofstream("material_declarations.glsl") << initData.globalMeta->materialCompilerGLSL_declarations).close();
-				(std::ofstream("material_source.glsl") << initData.globalMeta->materialCompilerGLSL_source).close();
+				(std::ofstream("material_declarations.glsl") << "#define _NBL_EXT_MITSUBA_LOADER_VT_STORAGE_VIEW_COUNT " << initData.globalMeta->getVTStorageViewCount() << "\n" << initData.globalMeta->materialCompilerGLSL_declarations).close();
 				m_raygenPipeline = m_driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(m_raygenPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../raygen.comp"));
 
 				m_raygenDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_raygenDSLayout));
@@ -816,7 +802,13 @@ void Renderer::init(const SAssetBundle& meshes,
 				auto resolveInfos = infos+descriptorExclScanSum[2];
 				auto resolveWrites = writes+descriptorExclScanSum[2];
 				createEmptyInteropBufferAndSetUpInfo(resolveInfos+0,m_intersectionBuffer,intersectionBufferSize);
-				setImageInfo(resolveInfos+1,asset::EIL_GENERAL,core::smart_refctd_ptr(m_tonemapOutput));
+				core::smart_refctd_ptr<IGPUImageView> tonemapOutputStorageView;
+				{
+					IGPUImageView::SCreationParams viewparams = m_tonemapOutput->getCreationParameters();
+					viewparams.format = EF_R32_UINT;
+					tonemapOutputStorageView = m_driver->createGPUImageView(std::move(viewparams));
+				}
+				setImageInfo(resolveInfos+1,asset::EIL_GENERAL,std::move(tonemapOutputStorageView));
 				
 
 				setDstSetAndDescTypesOnWrites(m_resolveDS.get(),resolveWrites,resolveInfos,{EDT_STORAGE_BUFFER,EDT_STORAGE_IMAGE});
@@ -993,7 +985,8 @@ void Renderer::render(nbl::ITimer* timer)
 
 	const auto currentViewProj = camera->getConcatenatedMatrix();
 	// TODO: instead of rasterizing vis-buffer only once, subpixel jitter it to obtain AA
-	if (!core::equals(prevViewProj,currentViewProj,core::ROUNDING_ERROR<core::matrix4SIMD>()*1000.0))
+	const auto thresh = core::ROUNDING_ERROR<core::matrix4SIMD>()*128.f;
+	if (!core::equals(prevViewProj,currentViewProj,thresh))
 	{
 		m_raytraceCommonData.framesDispatched = 0u;
 
@@ -1010,6 +1003,11 @@ void Renderer::render(nbl::ITimer* timer)
 		m_driver->dispatch(m_cullWorkGroups, 1u, 1u);
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_COMMAND_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT);
 
+		m_driver->setRenderTarget(tmpTonemapBuffer);
+		{
+			uint32_t clearAccumulation[4] = { 0,0,0,0 };
+			m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, clearAccumulation);
+		}
 		m_driver->setRenderTarget(m_visibilityBuffer);
 		{ // clear
 			m_driver->clearZBuffer();
@@ -1103,7 +1101,7 @@ void Renderer::render(nbl::ITimer* timer)
 		m_driver->bindComputePipeline(m_resolvePipeline.get());
 		m_driver->dispatch(m_resolveWorkGroups[0], m_resolveWorkGroups[1], 1);
 
-		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT
+		COpenGLExtensionHandler::pGlMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT|GL_SHADER_IMAGE_ACCESS_BARRIER_BIT
 #ifndef _NBL_BUILD_OPTIX_
 			|GL_FRAMEBUFFER_BARRIER_BIT|GL_TEXTURE_UPDATE_BARRIER_BIT
 #else

@@ -1,3 +1,4 @@
+#include "..\..\..\..\include\nbl\ext\MitsubaLoader\CMitsubaLoader.h"
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
@@ -10,6 +11,7 @@
 #include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 #include "nbl/asset/IImageAssetHandlerBase.h"
+#include "nbl/ext/MitsubaLoader/CGLSLMitsubaLoaderBuiltinIncludeLoader.h"
 
 
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
@@ -50,22 +52,19 @@ layout (set = 1, binding = 0, row_major, std140) uniform UBO {
 #include <nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl>
 
 layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
-	InstanceData data[];
+	nbl_glsl_ext_Mitsuba_Loader_instance_data_t data[];
 } InstData;
 
 void main()
 {
-	uint instIx = gl_InstanceIndex;
-	mat4x3 tform = InstData.data[instIx].tform;
+	mat4x3 tform = InstData.data[gl_InstanceIndex].tform;
 	mat4 mvp = nbl_glsl_pseudoMul4x4with4x3(CamData.params.MVP, tform);
 	gl_Position = nbl_glsl_pseudoMul4x4with3x1(mvp, vPosition);
 	WorldPos = nbl_glsl_pseudoMul3x4with3x1(tform, vPosition);
-	//InstrOffsetCount = uvec2(InstData.data[instIx].instrOffset,InstData.data[instIx].instrCount);
-	mat3 normalMat = mat3(InstData.data[instIx].normalMatrixRow0,InstData.data[instIx].normalMatrixRow1,InstData.data[instIx].normalMatrixRow2);
+	mat3 normalMat = mat3(InstData.data[gl_InstanceIndex].normalMatrixRow0,InstData.data[gl_InstanceIndex].normalMatrixRow1,InstData.data[gl_InstanceIndex].normalMatrixRow2);
 	Normal = transpose(normalMat)*normalize(vNormal);
 	UV = vUV;
-	//Emissive = InstData.data[instIx].emissive;
-	InstanceIndex = instIx;
+	InstanceIndex = gl_InstanceIndex;
 }
 
 )";
@@ -73,7 +72,7 @@ void main()
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_PROLOGUE =
 R"(#version 430 core
 )";
-_NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_DEFINITIONS =
+_NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_INPUT_OUTPUT =
 R"(
 layout (location = 0) in vec3 WorldPos;
 layout (location = 1) flat in uint InstanceIndex;
@@ -81,75 +80,14 @@ layout (location = 2) in vec3 Normal;
 layout (location = 3) in vec2 UV;
 
 layout (location = 0) out vec4 OutColor;
-
-#define _NBL_VT_DESCRIPTOR_SET 0
-#define _NBL_VT_PAGE_TABLE_BINDING 0
-
-#define _NBL_VT_FLOAT_VIEWS_BINDING 1 
-#define _NBL_VT_FLOAT_VIEWS_COUNT _VT_STORAGE_VIEW_COUNT
-#define _NBL_VT_FLOAT_VIEWS
-
-#define _NBL_VT_INT_VIEWS_BINDING 2
-#define _NBL_VT_INT_VIEWS_COUNT 0
-#define _NBL_VT_INT_VIEWS
-
-#define _NBL_VT_UINT_VIEWS_BINDING 3
-#define _NBL_VT_UINT_VIEWS_COUNT 0
-#define _NBL_VT_UINT_VIEWS
-#include <nbl/builtin/glsl/virtual_texturing/descriptors.glsl>
-
-layout (set = 0, binding = 2, std430) restrict readonly buffer VT_PrecomputedStuffSSBO
-{
-    uint pgtab_sz_log2;
-    float vtex_sz_rcp;
-    float phys_pg_tex_sz_rcp[_NBL_VT_MAX_PAGE_TABLE_LAYERS];
-    uint layer_to_sampler_ix[_NBL_VT_MAX_PAGE_TABLE_LAYERS];
-} VT_precomputed;
-
-layout (set = 0, binding = 3, std430) restrict readonly buffer INSTR_BUF
-{
-	nbl_glsl_instr_t data[];
-} instr_buf;
-layout (set = 0, binding = 6, std430) restrict readonly buffer PREFETCH_INSTR_BUF
-{
-	nbl_glsl_prefetch_instr_t data[];
-} prefetch_instr_buf;
-layout (set = 0, binding = 4, std430) restrict readonly buffer BSDF_BUF
-{
-	nbl_glsl_bsdf_data_t data[];
-} bsdf_buf;
-
-uint nbl_glsl_VT_layer2pid(in uint layer)
-{
-    return VT_precomputed.layer_to_sampler_ix[layer];
-}
-uint nbl_glsl_VT_getPgTabSzLog2()
-{
-    return VT_precomputed.pgtab_sz_log2;
-}
-float nbl_glsl_VT_getPhysPgTexSzRcp(in uint layer)
-{
-    return VT_precomputed.phys_pg_tex_sz_rcp[layer];
-}
-float nbl_glsl_VT_getVTexSzRcp()
-{
-    return VT_precomputed.vtex_sz_rcp;
-}
-#define _NBL_USER_PROVIDED_VIRTUAL_TEXTURING_FUNCTIONS_
-
-#include <nbl/builtin/glsl/virtual_texturing/functions.glsl/7/8>
-
+)";
+_NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_DEFINITIONS =
+R"(
 #include <nbl/builtin/glsl/utils/common.glsl>
 
 layout (set = 1, binding = 0, row_major, std140) uniform UBO {
     nbl_glsl_SBasicViewParameters params;
 } CamData;
-
-#include <nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl>
-
-layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
-	InstanceData data[];
-} InstData;
 
 vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()
 {
@@ -164,18 +102,6 @@ vec3 nbl_glsl_MC_getWorldSpacePosition()
 {
 	return WorldPos;
 }
-nbl_glsl_instr_t nbl_glsl_MC_fetchInstr(in uint ix)
-{
-	return instr_buf.data[ix];
-}
-nbl_glsl_prefetch_instr_t nbl_glsl_MC_fetchPrefetchInstr(in uint ix)
-{
-	return prefetch_instr_buf.data[ix];
-}
-nbl_glsl_bsdf_data_t nbl_glsl_MC_fetchBSDFData(in uint ix)
-{
-	return bsdf_buf.data[ix];
-}
 mat2x3 nbl_glsl_MC_getdPos(in vec3 p)
 {
 	return mat2x3(dFdx(p), dFdy(p));
@@ -185,103 +111,31 @@ mat2x3 nbl_glsl_MC_getdPos(in vec3 p)
 _NBL_STATIC_INLINE_CONSTEXPR const char* FRAGMENT_SHADER_IMPL = R"(
 #include <nbl/builtin/glsl/format/decode.glsl>
 
-nbl_glsl_instr_stream_t getEvalStream(in nbl_glsl_MC_precomputed_t precomp)
-{
-	nbl_glsl_instr_stream_t stream;
-	if (precomp.frontface)
-	{
-		stream.offset = InstData.data[InstanceIndex].front_instr_offset;
-		stream.count = InstData.data[InstanceIndex].front_rem_pdf_count;
-	}
-	else
-	{
-		stream.offset = InstData.data[InstanceIndex].back_instr_offset;
-		stream.count = InstData.data[InstanceIndex].back_rem_pdf_count;
-	}
-
-	return stream;
-}
-//rem'n'pdf and eval use the same instruction stream
-nbl_glsl_instr_stream_t getRemAndPdfStream(in nbl_glsl_MC_precomputed_t precomp)
-{
-	return getEvalStream(precomp);
-}
-nbl_glsl_instr_stream_t getGenChoiceStream(in nbl_glsl_MC_precomputed_t precomp)
-{
-	nbl_glsl_instr_stream_t stream;
-	if (precomp.frontface)
-	{
-		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count;
-		stream.count =  InstData.data[InstanceIndex].front_genchoice_count;
-	}
-	else
-	{
-		stream.offset = InstData.data[InstanceIndex].back_instr_offset + InstData.data[InstanceIndex].back_rem_pdf_count;
-		stream.count = InstData.data[InstanceIndex].back_genchoice_count;
-	}
-
-	return stream;
-}
-nbl_glsl_instr_stream_t getTexPrefetchStream(in nbl_glsl_MC_precomputed_t precomp)
-{
-	nbl_glsl_instr_stream_t stream;
-	if (precomp.frontface)
-	{
-		stream.offset = InstData.data[InstanceIndex].front_prefetch_offset;
-		stream.count = InstData.data[InstanceIndex].front_prefetch_count;
-	}
-	else
-	{
-		stream.offset = InstData.data[InstanceIndex].back_prefetch_offset;
-		stream.count = InstData.data[InstanceIndex].back_prefetch_count;
-	}
-
-	return stream;
-}
-nbl_glsl_instr_stream_t getNormalPrecompStream(in nbl_glsl_MC_precomputed_t precomp)
-{
-	nbl_glsl_instr_stream_t stream;
-	if (precomp.frontface)
-	{
-		stream.offset = InstData.data[InstanceIndex].front_instr_offset + InstData.data[InstanceIndex].front_rem_pdf_count + InstData.data[InstanceIndex].front_genchoice_count;
-		stream.count = InstData.data[InstanceIndex].front_nprecomp_count;
-	}
-	else
-	{
-		stream.offset = InstData.data[InstanceIndex].back_instr_offset + InstData.data[InstanceIndex].back_rem_pdf_count + InstData.data[InstanceIndex].back_genchoice_count;
-		stream.count = InstData.data[InstanceIndex].back_nprecomp_count;
-	}
-
-	return stream;
-}
-
 #ifndef _NBL_BSDF_COS_EVAL_DEFINED_
 #define _NBL_BSDF_COS_EVAL_DEFINED_
 // Spectrum can be exchanged to a float for monochrome
 #define Spectrum vec3
 //! This is the function that evaluates the BSDF for specific view and observer direction
 // params can be either BSDFIsotropicParams or BSDFAnisotropicParams
-Spectrum nbl_bsdf_cos_eval(in nbl_glsl_MC_precomputed_t precomp, in vec3 L, in nbl_glsl_IsotropicViewSurfaceInteraction inter, in mat2 dUV)
+nbl_glsl_MC_precomputed_t precomp;
+nbl_glsl_MC_oriented_material_t material;
+Spectrum nbl_bsdf_cos_eval(in nbl_glsl_LightSample _sample, in nbl_glsl_AnisotropicViewSurfaceInteraction inter, in mat2 dummy_dUV)
 {
-	nbl_glsl_instr_stream_t eval_instrStream = getEvalStream(precomp);
+	nbl_glsl_MC_instr_stream_t eis = nbl_glsl_MC_oriented_material_t_getEvalStream(material);
 
-	return nbl_glsl_runEvalStream(precomp, eval_instrStream, L);
+	return nbl_glsl_MC_runEvalStream(precomp, eis, _sample.L);
 }
 #endif
 
 #ifndef _NBL_COMPUTE_LIGHTING_DEFINED_
 #define _NBL_COMPUTE_LIGHTING_DEFINED_
-vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in nbl_glsl_MC_precomputed_t precomp)
+vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dummy_dUV)
 {
-	vec3 emissive = nbl_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
-
 	vec3 campos = nbl_glsl_MC_getCamPos();
-	
-	//nbl_glsl_BSDFIsotropicParams params;
-	//params.L = campos-WorldPos;
-	out_interaction = nbl_glsl_calcFragmentShaderSurfaceInteraction(campos, WorldPos, normalize(Normal));
+	out_interaction = nbl_glsl_calcSurfaceInteraction(campos,WorldPos,normalize(Normal),mat2x3(dFdx(WorldPos),dFdy(WorldPos)));
 
-	return nbl_bsdf_cos_eval(precomp, precomp.V, out_interaction, dUV)/dot(params.L,params.L) + emissive;
+	nbl_glsl_LightSample _sample = nbl_glsl_createLightSample(precomp.V,1.0,precomp.N);
+	return nbl_glsl_MC_oriented_material_t_getEmissive(material)+nbl_bsdf_cos_eval(_sample,out_interaction,dummy_dUV)/dot(interaction.V.dir,interaction.V.dir);
 }
 #endif
 
@@ -293,17 +147,18 @@ void main()
 
 	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
 	const bool front = (!gl_FrontFacing) != (InstData.data[InstanceIndex].determinant < 0.0);
-	nbl_glsl_MC_precomputed_t precomp = nbl_glsl_precomputeData(front);
+	precomp = nbl_glsl_MC_precomputeData(front);
+	material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[InstanceIndex].material,precomp.frontface);
 #ifdef TEX_PREFETCH_STREAM
-	nbl_glsl_runTexPrefetchStream(getTexPrefetchStream(precomp), UV, dUV);
+	nbl_glsl_MC_runTexPrefetchStream(nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material), UV, dUV);
 #endif
 #ifdef NORM_PRECOMP_STREAM
-	nbl_glsl_runNormalPrecompStream(getNormalPrecompStream(precomp), dUV, precomp);
+	nbl_glsl_MC_runNormalPrecompStream(nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(material), dUV, precomp);
 #endif
 
 
-	nbl_glsl_IsotropicViewSurfaceInteraction inter;
-	vec3 color = nbl_computeLighting(inter, dUV, precomp);
+	nbl_glsl_AnisotropicViewSurfaceInteraction inter;
+	vec3 color = nbl_computeLighting(inter, dUV);
 
 	OutColor = vec4(color, 1.0);
 }
@@ -363,12 +218,11 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createAndCacheVertex
 }
 static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createFragmentShader(const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _mcRes, size_t _VTstorageViewCount)
 {
-	const std::string storageViewCount = "#define _VT_STORAGE_VIEW_COUNT " + std::to_string(_VTstorageViewCount);
-
 	std::string source = 
 		FRAGMENT_SHADER_PROLOGUE +
 		_mcRes.fragmentShaderSource_declarations +
-		"\n" + storageViewCount + "\n" +
+		FRAGMENT_SHADER_INPUT_OUTPUT +
+		"#include <nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility.glsl/" + std::to_string(_VTstorageViewCount) + ">" +
 		FRAGMENT_SHADER_DEFINITIONS +
 		_mcRes.fragmentShaderSource +
 		FRAGMENT_SHADER_IMPL;
@@ -736,11 +590,18 @@ core::smart_refctd_ptr<asset::ICPUPipelineLayout> CMitsubaLoader::createPipeline
 	return core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, std::move(ds0layout), std::move(ds1layout), nullptr, nullptr);
 }
 
-CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager) : asset::IAssetLoader(), m_manager(_manager)
+CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager, io::IFileSystem* _fs) : asset::IAssetLoader(), m_manager(_manager), m_filesystem(_fs)
 {
 #ifdef _NBL_DEBUG
 	setDebugName("CMitsubaLoader");
 #endif
+}
+
+void CMitsubaLoader::initialize()
+{
+	auto* glslc = m_manager->getGLSLCompiler();
+
+	glslc->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSLMitsubaLoaderBuiltinIncludeLoader>(m_filesystem));
 }
 
 bool CMitsubaLoader::isALoadableFileFormat(io::IReadFile* _file) const
@@ -1628,7 +1489,59 @@ auto CMitsubaLoader::genBSDFtreeTraversal(SContext& ctx, const CElementBSDF* _bs
 	return ctx.frontend.compileToIRTree(ctx.ir.get(), _bsdf);
 }
 
-// Also sets instance data buffer offset into meshbuffers' push constants
+
+
+// TODO: we need a GLSL to C++ compatibility wrapper
+//#include "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
+#define uint uint32_t
+#define uvec2 uint64_t
+#define mat4x3 nbl::core::matrix3x4SIMD
+struct nbl_glsl_MC_oriented_material_t
+{
+	uvec2 emissive;
+	uint prefetch_offset;
+	uint prefetch_count;
+	uint instr_offset;
+	uint rem_pdf_count;
+	uint nprecomp_count;
+	uint genchoice_count;
+};
+// TODO: this function shouldn't really exist because the backend should produce this directly
+nbl_glsl_MC_oriented_material_t impl_backendToGLSLStream(const core::vectorSIMDf& emissive, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t::instr_streams_t& streams)
+{
+	nbl_glsl_MC_oriented_material_t orientedMaterial;
+	orientedMaterial.emissive = core::rgb32f_to_rgb19e7(emissive.pointer);
+	orientedMaterial.prefetch_offset = streams.prefetch_offset;
+	orientedMaterial.prefetch_count = streams.tex_prefetch_count;
+	orientedMaterial.instr_offset = streams.offset;
+	orientedMaterial.rem_pdf_count = streams.rem_and_pdf_count;
+	orientedMaterial.nprecomp_count = streams.norm_precomp_count;
+	orientedMaterial.genchoice_count = streams.gen_choice_count;
+	return orientedMaterial;
+}
+struct nbl_glsl_MC_material_data_t
+{
+	nbl_glsl_MC_oriented_material_t front;
+	nbl_glsl_MC_oriented_material_t back;
+};
+struct nbl_glsl_ext_Mitsuba_Loader_instance_data_t
+{
+	struct vec3
+	{
+		float x, y, z;
+	};
+	mat4x3 tform;
+	vec3 normalMatrixRow0;
+	uint padding0;
+	vec3 normalMatrixRow1;
+	uint padding1;
+	vec3 normalMatrixRow2;
+	float determinant;
+	nbl_glsl_MC_material_data_t material;
+};
+
+
+// Also sets instance data buffer offset into meshbuffers' base instance
 template<typename Iter>
 inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx, asset::ICPUPipelineLayout* _layout, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd)
 {
@@ -1693,7 +1606,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 #ifdef DEBUG_MITSUBA_LOADER
 	std::ofstream ofile("log.txt");
 #endif
-	core::vector<SInstanceData> instanceData;
+	core::vector<nbl_glsl_ext_Mitsuba_Loader_instance_data_t> instanceData;
 	for (auto it = meshBegin; it != meshEnd; ++it)
 	{
 		auto& mesh_smart_ptr = *it;
@@ -1701,16 +1614,20 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		auto* meta = static_cast<const IMeshMetadata*>(mesh->getMetadata());
 		
 		core::vectorSIMDf emissive;
-		uint32_t instDataOffset = instanceData.size();
+		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+		{
+			auto* mb = mesh->getMeshBuffer(i);
+			mb->setBaseInstance(instanceData.size());
+		}
 		for (const auto& inst : meta->getInstances()) {
+			// @Crisspl IIRC lights in mitsuba have "sides" , TODO
 			emissive = inst.emitter.type==CElementEmitter::AREA ? inst.emitter.area.radiance : core::vectorSIMDf(0.f);
 
-			SInstanceData instData;
+			nbl_glsl_ext_Mitsuba_Loader_instance_data_t instData;
 
 			instData.tform = inst.tform;
+			instData.tform.getSub3x3InverseTranspose(reinterpret_cast<core::matrix3x4SIMD&>(instData.normalMatrixRow0));
 			instData.determinant = instData.tform.getPseudoDeterminant().x;
-			instData.tform.getSub3x3InverseTranspose(instData.normalMat.normalMatrix);
-			instData.emissive = core::rgb32f_to_rgb19e7(emissive.pointer);
 
 			auto bsdf = inst.bsdf;
 			auto bsdf_front = bsdf.front;
@@ -1725,12 +1642,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 				ofile << "Debug print front BSDF with id = " << inst.bsdf_id << std::endl;
 				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
 #endif
-				instData.normalMat.front_instr_offset = streams.offset;
-				instData.normalMat.front_rem_pdf_count = streams.rem_and_pdf_count;
-				instData.front_prefetch_count = streams.tex_prefetch_count;
-				instData.front_nprecomp_count = streams.norm_precomp_count;
-				instData.front_genchoice_count = streams.gen_choice_count;
-				instData.front_prefetch_offset = streams.prefetch_offset;
+				instData.material.front = impl_backendToGLSLStream(emissive,streams);
 			}
 			streams_it = _compResult.streams.find(bsdf_back);
 			{
@@ -1742,20 +1654,10 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 				ofile << "Debug print back BSDF with id = " << inst.bsdf_id << std::endl;
 				_ctx.backend.debugPrint(ofile, streams, _compResult, &_ctx.backend_ctx);
 #endif
-				instData.back_instr_offset = streams.offset;
-				instData.back_rem_pdf_count = streams.rem_and_pdf_count;
-				instData.back_prefetch_count = streams.tex_prefetch_count;
-				instData.back_nprecomp_count = streams.norm_precomp_count;
-				instData.back_genchoice_count = streams.gen_choice_count;
-				instData.back_prefetch_offset = streams.prefetch_offset;
+				instData.material.back = impl_backendToGLSLStream(emissive,streams);
 			}
 
 			instanceData.push_back(instData);
-		}
-		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
-		{
-			auto* mb = mesh->getMeshBuffer(i);
-			mb->setBaseInstance(instDataOffset);
 		}
 	}
 #ifdef DEBUG_MITSUBA_LOADER
@@ -1763,7 +1665,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 #endif
 	d = ds0->getDescriptors(INSTANCE_DATA_BINDING).begin();
 	{
-		auto instDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(instanceData.size()*sizeof(SInstanceData));
+		auto instDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(instanceData.size()*sizeof(nbl_glsl_ext_Mitsuba_Loader_instance_data_t));
 		memcpy(instDataBuf->getPointer(), instanceData.data(), instDataBuf->getSize());
 
 		d->buffer.offset = 0u;

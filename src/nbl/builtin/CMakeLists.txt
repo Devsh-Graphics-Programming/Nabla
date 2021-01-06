@@ -79,6 +79,7 @@ set(nbl_resources_to_embed
   # material_compiler
   "nbl/builtin/glsl/material_compiler/common.glsl"
   "nbl/builtin/glsl/material_compiler/common_declarations.glsl"
+  "nbl/builtin/glsl/material_compiler/common_invariant_declarations.glsl"
   "nbl/builtin/glsl/material_compiler/rasterization/impl.glsl"
   # random numbers
   "nbl/builtin/glsl/random/xoroshiro.glsl"
@@ -131,5 +132,6 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/RadeonRays/intersection.glsl"
   "nbl/builtin/glsl/ext/RadeonRays/ray.glsl"
   "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
+  "nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility_impl.glsl"
 PARENT_SCOPE)
 

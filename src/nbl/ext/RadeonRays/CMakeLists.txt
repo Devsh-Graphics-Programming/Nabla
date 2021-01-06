@@ -22,5 +22,5 @@ nbl_create_ext_library_project(
 	""
 )
 
-add_dependencies(IrrExtRADEON_RAYS ${RADEON_RAYS_DEPENDENTS})
-target_link_libraries(IrrExtRADEON_RAYS INTERFACE ${RADEON_RAYS_DEPENDENT_LIBS})
+add_dependencies(NblExtRADEON_RAYS ${RADEON_RAYS_DEPENDENTS})
+target_link_libraries(NblExtRADEON_RAYS INTERFACE ${RADEON_RAYS_DEPENDENT_LIBS})
