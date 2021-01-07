@@ -630,7 +630,7 @@ void Renderer::init(const SAssetBundle& meshes,
 
 		// set up raycount buffer for RR
 		{
-			m_rayCountBuffer.buffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t),&raygenBufferSize);
+			m_rayCountBuffer.buffer = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t),&m_maxRaysPerDispatch);
 			m_rayCountBuffer.asRRBuffer = m_rrManager->linkBuffer(m_rayCountBuffer.buffer.get(), CL_MEM_READ_ONLY);
 
 			ocl::COpenCLHandler::ocl.pclEnqueueAcquireGLObjects(m_rrManager->getCLCommandQueue(), 1u, &m_rayCountBuffer.asRRBuffer.second, 0u, nullptr, nullptr);
@@ -1028,17 +1028,17 @@ void Renderer::render(nbl::ITimer* timer)
 		m_cullPushConstants.currentCommandBufferIx ^= 0x01u;
 	}
 
-	// generate rays
+	// generate rays ( TODO: move the camera part)
 	{
 		const auto cameraPosition = core::vectorSIMDf().set(camera->getAbsolutePosition());
 		{
 			auto frustum = camera->getViewFrustum();
-			m_raytraceCommonData.frustumCorners.rows[1] = frustum->getFarLeftDown();
-			m_raytraceCommonData.frustumCorners.rows[0] = frustum->getFarRightDown()-m_raytraceCommonData.frustumCorners.rows[1];
-			m_raytraceCommonData.frustumCorners.rows[1] -= cameraPosition;
-			m_raytraceCommonData.frustumCorners.rows[3] = frustum->getFarLeftUp();
-			m_raytraceCommonData.frustumCorners.rows[2] = frustum->getFarRightUp()-m_raytraceCommonData.frustumCorners.rows[3];
-			m_raytraceCommonData.frustumCorners.rows[3] -= cameraPosition;
+			core::matrix4SIMD corners;
+			corners[0] = frustum->getFarLeftDown()-cameraPosition;
+			corners[1] = frustum->getFarRightDown()-cameraPosition-corners[0];
+			corners[2] = frustum->getFarLeftUp()-cameraPosition;
+			corners[3] = frustum->getFarRightUp()-cameraPosition-corners[2];
+			m_raytraceCommonData.frustumCorners = core::transpose(corners).extractSub3x4();
 		}
 		camera->getViewMatrix().getSub3x3InverseTranspose(m_raytraceCommonData.normalMatrixAndCameraPos);
 		m_raytraceCommonData.normalMatrixAndCameraPos.setTranslation(cameraPosition);
@@ -1066,7 +1066,7 @@ void Renderer::render(nbl::ITimer* timer)
 	else
 		glFinish();
 
-	if (false) // TODO
+	if (true)
 	{
 		auto commandQueue = m_rrManager->getCLCommandQueue();
 

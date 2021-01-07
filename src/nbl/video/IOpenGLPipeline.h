@@ -73,7 +73,7 @@ class IOpenGLPipeline
 
 		        uint8_t* valueptr = state+m.offset;
 
-                uint32_t arrayStride = 0u;
+                uint32_t arrayStride = 0u; // TODO: @Crisspl this calculation is 100% wrong with `row_major` and arrays of matrices (for both std140 and std430)
                 {
                     uint32_t arrayStride1 = 0u;
                     if (is_scalar_or_vec())
@@ -100,8 +100,8 @@ class IOpenGLPipeline
 			        // pack the constant data as OpenGL uniform update functions expect packed arrays
 			        {
 				        const bool isRowMajor = is_scalar_or_vec() || m.rowMajor;
-				        const uint32_t rowOrColCnt = isRowMajor ? m.mtxColCnt : m.mtxRowCnt;
-				        const uint32_t len = isRowMajor ? m.mtxRowCnt : m.mtxColCnt;
+                        const uint32_t rowOrColCnt = isRowMajor ? m.mtxRowCnt : m.mtxColCnt;
+				        const uint32_t len = isRowMajor ? m.mtxColCnt : m.mtxRowCnt;
 				        for (uint32_t i = 0u; i < count; ++i)
 				        for (uint32_t c = 0u; c < rowOrColCnt; ++c)
 				        {
