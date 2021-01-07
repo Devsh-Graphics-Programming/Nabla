@@ -6,19 +6,15 @@ layout(local_size_x = WORKGROUP_SIZE) in;
 
 
 #include <nbl/builtin/glsl/utils/indirect_commands.glsl>
-layout(set=1, binding=0, std430, row_major) restrict readonly buffer PerInstanceStatic
-{
-    ObjectStaticData_t staticData[];
-};
-layout(set=1, binding=1, row_major) writeonly restrict buffer PerInstancePerCamera
+layout(set=1, binding=0, row_major) writeonly restrict buffer PerInstancePerCamera
 {
     DrawData_t data[];
 } instanceDataPerCamera;
-layout(set=1, binding=2, std430, row_major) restrict readonly buffer PerInstanceCull
+layout(set=1, binding=1, std430, row_major) restrict readonly buffer PerInstanceCull
 {
     CullData_t cullData[];
 };
-layout(set=1, binding=3, std430) restrict coherent buffer IndirectDraws
+layout(set=1, binding=2, std430) restrict coherent buffer IndirectDraws
 {
     nbl_glsl_DrawElementsIndirectCommand_t draws[];
 } commandBuff[2];
@@ -40,33 +36,37 @@ layout(push_constant, row_major) uniform PushConstants
 // we just do atomic add on the instance count
 void main()
 {
-    uint globalObjectID = gl_GlobalInvocationID.x;
-    if (globalObjectID>=pc.data.maxObjectCount)
+    if (gl_GlobalInvocationID.x<pc.data.maxDrawCount)
+        commandBuff[pc.data.currentCommandBufferIx^0x1u].draws[gl_GlobalInvocationID.x].instanceCount = 0u;
+
+    uint instanceMeshBufferID = gl_GlobalInvocationID.x;
+    if (instanceMeshBufferID>=pc.data.maxObjectCount)
         return;
 
-    const mat4x3 worldMatrix = cullData[globalObjectID].worldMatrix;
-    const uint drawID = cullData[globalObjectID].drawID;
+    // fetch instance data
+    const CullData_t instanceMeshBufferData = cullData[instanceMeshBufferID];
+    const uint globalObjectID = instanceMeshBufferData.globalObjectID;
 
-    // clear drawcount for next buffer
-    commandBuff[pc.data.currentCommandBufferIx^0x1u].draws[drawID].instanceCount = 0u;
+    const mat4x3 worldMatrix = InstData.data[globalObjectID].tform;
+    const mat4 MVP = nbl_glsl_pseudoMul4x4with4x3(pc.data.viewProjMatrix,worldMatrix);
 
     // cull
-    const mat4 MVP = nbl_glsl_pseudoMul4x4with4x3(pc.data.viewProjMatrix,worldMatrix);
     bool notCulled = true;
     if (false)
     {
-        mat2x3 bbox;
-        bbox[0] = cullData[globalObjectID].aabbMinEdge;
-        bbox[1] = cullData[globalObjectID].aabbMaxEdge;
+        const mat2x3 bbox = mat2x3(instanceMeshBufferData.aabbMinEdge,instanceMeshBufferData.aabbMaxEdge);
         notCulled = nbl_glsl_couldBeVisible(MVP,bbox);
     }
 
+    // set up MDI
     if (notCulled)
     {        
-        const uint instanceID = atomicAdd(commandBuff[pc.data.currentCommandBufferIx].draws[drawID].instanceCount,1u)+cullData[globalObjectID].baseInstance;
+        const uint drawID = instanceMeshBufferData.drawID;
+        const uint drawInstanceID = atomicAdd(commandBuff[pc.data.currentCommandBufferIx].draws[drawID].instanceCount,1u)
+                                                    +commandBuff[pc.data.currentCommandBufferIx].draws[drawID].baseInstance;
         
-        instanceDataPerCamera.data[instanceID].MVP = MVP;
-        instanceDataPerCamera.data[instanceID].detMVP = pc.data.viewProjDeterminant*staticData[globalObjectID].detWorldMatrix;
-        instanceDataPerCamera.data[instanceID].objectID = globalObjectID;
+        instanceDataPerCamera.data[drawInstanceID].MVP = MVP;
+        float detMVP = pc.data.viewProjDeterminant*InstData.data[globalObjectID].determinant;
+        instanceDataPerCamera.data[drawInstanceID].backfacingBit_objectID = globalObjectID|(floatBitsToUint(detMVP)&0x80000000u); // use MSB to denote if face orientation should be flipped
     }
 }

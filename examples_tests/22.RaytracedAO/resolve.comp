@@ -5,7 +5,7 @@
 #include <nbl/builtin/glsl/ext/RadeonRays/intersection.glsl>
 layout(set = 2, binding = 0, std430) restrict buffer Queries
 {
-	int hit[];
+	nbl_glsl_ext_RadeonRays_Intersection hits[];
 };
 layout(set = 2, binding = 1, r32ui) restrict uniform uimage2D framebuffer;
 
@@ -20,50 +20,28 @@ void main()
 		
 		vec3 color = vec3(0.0);
 		uvec2 groupLocation = gl_WorkGroupID.xy*gl_WorkGroupSize.xy;
-		for (uint i=0u; i<staticViewData.samplesPerPixelPerDispatch; i++)
+		for (uint i=0u; i<1u/*staticViewData.samplesPerPixelPerDispatch*/; i++)
 		{
-#ifdef TODO
-			for (uint lid=gl_LocalInvocationIndex; lid<CACHE_SIZE; lid+=WORK_GROUP_SIZE)
-			{
-				ivec3 coord;
-				coord.z = int(lid/(CACHE_DIM*CACHE_DIM));
-				coord.y = int(lid/CACHE_DIM)-int(coord.z*CACHE_DIM+KERNEL_HALF_SIZE);
-				coord.x = int(lid)-int(coord.y*CACHE_DIM+KERNEL_HALF_SIZE);
-				coord.z += int(i);
-				coord.y += int(groupLocation.y);
-				coord.x += int(groupLocation.x);
-				bool invalidRay = any(lessThan(coord.xy,ivec2(0,0))) || any(greaterThan(coord,ivec3(uImageSize,uImageWidth_ImageArea_TotalImageSamples_Samples.w)));
-				int rayID = coord.x+coord.y*int(uImageWidth_ImageArea_TotalImageSamples_Samples.x)+coord.z*int(uImageWidth_ImageArea_TotalImageSamples_Samples.y);
-				invalidRay = invalidRay ? false:(hit[rayID]>=0);
-				rayScratch0[lid] = invalidRay ? 0u:rays[rayID].useless_padding;
-				rayScratch1[lid] = invalidRay ? 0u:rays[rayID].backfaceCulling;
-				rayScratch2[lid] = invalidRay ? 0.0:rays[rayID].direction[0];
-				rayScratch3[lid] = invalidRay ? 0.0:rays[rayID].direction[1];
-				rayScratch4[lid] = invalidRay ? 0.0:rays[rayID].direction[2];
-			}
-			barrier();
-			memoryBarrierShared();
+			const uint rayID = baseID+i;
+			nbl_glsl_ext_RadeonRays_Intersection hit = hits[rayID];
 
-			uint localID = (gl_LocalInvocationID.x+KERNEL_HALF_SIZE)+(gl_LocalInvocationID.y+KERNEL_HALF_SIZE)*CACHE_DIM;
-			for (uint j=localID; j<CACHE_SIZE; j+=CACHE_DIM*CACHE_DIM)
-			{
-				vec3 raydiance = vec4(unpackHalf2x16(rayScratch0[j]),unpackHalf2x16(rayScratch1[j])).gra;
-				color += raydiance;
-			}
+			// actually got a hit
+			if (hit.shapeid<0)
+				continue;
+
+			color.r -= float(hit.shapeid);//staticViewData.samplesPerPixelPerDispatch;
+			color.g -= float(hit.primid);//staticViewData.samplesPerPixelPerDispatch;
 
 			// hit buffer needs clearing
-			for (uint j=i; j<min(uImageWidth_ImageArea_TotalImageSamples_Samples.w,i+RAYS_IN_CACHE); j++)
-			{
-				uint rayID = baseID+;
-				hit[rayID] = -1;
-			}
-#endif
+			hits[rayID].shapeid = -1;
 		}
 		if (pc.cummon.rcpFramesDispatched<1.0)
 			acc += (color-acc)*pc.cummon.rcpFramesDispatched;
 		else
 			acc += color;
 		storeAccumulation(acc,pixelCoord);
+		acc = abs(acc);
+        acc.rg /= vec2(32.0,1023.0);
 		imageStore(framebuffer,pixelCoord,uvec4(nbl_glsl_encodeRGB10A2(vec4(acc,1.0)),0u,0u,0u));
 	}
 }
