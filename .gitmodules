@@ -99,3 +99,6 @@
 [submodule "3rdparty/volk"]
 	path = 3rdparty/volk
 	url = https://github.com/zeux/volk.git
+[submodule "3rdparty/EGL"]
+	path = 3rdparty/EGL
+	url = https://github.com/Crisspl/EGL.git
