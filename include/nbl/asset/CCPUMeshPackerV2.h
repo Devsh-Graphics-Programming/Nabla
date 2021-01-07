@@ -22,6 +22,8 @@ class CCPUMeshPackerV2 final : public IMeshPacker<ICPUMeshBuffer, MDIStructType>
     using TriangleBatch = typename base_t::TriangleBatch;
 
 public:
+    using AllocationParams = MeshPackerBase::AllocationParamsCommon;
+
     struct AttribAllocParams
     {
         size_t offset = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
@@ -55,11 +57,7 @@ public:
     };
 
 public:
-	CCPUMeshPackerV2(const SVertexInputParams& preDefinedLayout, const MeshPackerBase::AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
-		:IMeshPacker<ICPUMeshBuffer, MDIStructType>(preDefinedLayout, allocParams, minTriangleCountPerMDIData, maxTriangleCountPerMDIData)
-	{
-
-	}
+    CCPUMeshPackerV2(const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u);
 
 	template <typename Iterator>
 	bool alloc(AllocData* allocDataOut, const Iterator begin, const Iterator end);
@@ -78,7 +76,17 @@ private:
     core::smart_refctd_ptr<ICPUBuffer> m_idxBuffer;
     core::smart_refctd_ptr<ICPUBuffer> m_MDIBuffer;
 
+    const AllocationParams m_allocParams;
+
 };
+
+template <typename MDIStructType>
+CCPUMeshPackerV2<MDIStructType>::CCPUMeshPackerV2(const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
+    :IMeshPacker<ICPUMeshBuffer, MDIStructType>(minTriangleCountPerMDIData, maxTriangleCountPerMDIData),
+    m_allocParams(allocParams)
+{
+    initializeCommonAllocators(allocParams);
+}
 
 template <typename MDIStructType>
 template <typename Iterator>
@@ -139,7 +147,7 @@ void CCPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
     m_MDIBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.MDIDataBuffSupportedCnt * sizeof(MDIStructType));
     m_idxBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.indexBuffSupportedCnt * sizeof(uint16_t));
     //TODO: fix after new `AllocationParams` is done
-    m_vtxBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.vertexBuffSupportedCnt);
+    m_vtxBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.vertexBuffSupportedSize);
 }
 
 template <typename MDIStructType>

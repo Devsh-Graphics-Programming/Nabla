@@ -71,6 +71,18 @@ class CCPUMeshPacker final : public IMeshPacker<ICPUMeshBuffer, MDIStructType>
 	using TriangleBatch = typename base_t::TriangleBatch;
 
 public:
+	struct AllocationParams
+	{
+		size_t indexBuffSupportedCnt = 1073741824ull;                  /*   2GB*/
+		size_t vertexBuffSupportedCnt = 107374182ull;                  /*   2GB assuming vertex size is 20B*/
+		size_t perInstanceVertexBuffSupportedCnt = 3355443ull;         /*  32MB assuming per instance vertex attrib size is 10B*/
+		size_t MDIDataBuffSupportedCnt = 16777216ull;                  /*  16MB assuming MDIStructType is DrawElementsIndirectCommand_t*/
+		size_t vertexBufferMinAllocSize = 32ull;
+		size_t indexBufferMinAllocSize = 256ull;
+		size_t perInstanceVertexBufferMinAllocSize = 32ull;
+		size_t MDIDataBuffMinAllocSize = 32ull;
+	};
+
 	struct ReservedAllocationMeshBuffers
 	{
 		uint32_t mdiAllocationOffset;
@@ -105,7 +117,12 @@ public:
 	};
 
 public:
-	CCPUMeshPacker(const SVertexInputParams& preDefinedLayout, const MeshPackerBase::AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u);
+	CCPUMeshPacker(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u);
+
+	~CCPUMeshPacker()
+	{
+		_NBL_ALIGNED_FREE(m_perInsVtxBuffAlctrResSpc);
+	}
 
 	template <typename Iterator>
 	ReservedAllocationMeshBuffers alloc(const Iterator begin, const Iterator end);
@@ -129,15 +146,65 @@ private:
 private: 
 	PackedMeshBuffer outputBuffer;
 
+	SVertexInputParams m_outVtxInputParams;
+	uint32_t m_vtxSize;
+	uint32_t m_perInstVtxSize;
+	const AllocationParams m_allocParams;
+
+	void* m_perInsVtxBuffAlctrResSpc;
+	core::GeneralpurposeAddressAllocator<uint32_t> m_perInsVtxBuffAlctr;
+
 	_NBL_STATIC_INLINE_CONSTEXPR ReservedAllocationMeshBuffers invalidReservedAllocationMeshBuffers{ INVALID_ADDRESS, 0, 0, 0, 0, 0, 0, 0 };
 
 };
 
 template <typename MDIStructType>
-CCPUMeshPacker<MDIStructType>::CCPUMeshPacker(const SVertexInputParams& preDefinedLayout, const MeshPackerBase::AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
-	:IMeshPacker<ICPUMeshBuffer, MDIStructType>(preDefinedLayout, allocParams, minTriangleCountPerMDIData, maxTriangleCountPerMDIData)
+CCPUMeshPacker<MDIStructType>::CCPUMeshPacker(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
+	:IMeshPacker<ICPUMeshBuffer, MDIStructType>(minTriangleCountPerMDIData, maxTriangleCountPerMDIData),
+	 m_allocParams(allocParams),
+	 m_perInsVtxBuffAlctrResSpc(nullptr)
+	 
 {
+	m_outVtxInputParams.enabledAttribFlags = preDefinedLayout.enabledAttribFlags;
+	m_outVtxInputParams.enabledBindingFlags = preDefinedLayout.enabledAttribFlags;
+	memcpy(m_outVtxInputParams.attributes, preDefinedLayout.attributes, sizeof(m_outVtxInputParams.attributes));
 
+	//1 attrib enabled == 1 binding
+	for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
+	{
+		if (m_outVtxInputParams.enabledAttribFlags & attrBit)
+		{
+			m_outVtxInputParams.attributes[location].binding = location;
+			m_outVtxInputParams.attributes[location].relativeOffset = 0u;
+			m_outVtxInputParams.bindings[location].stride = getTexelOrBlockBytesize(static_cast<E_FORMAT>(m_outVtxInputParams.attributes[location].format));
+			m_outVtxInputParams.bindings[location].inputRate = preDefinedLayout.bindings[preDefinedLayout.attributes[location].binding].inputRate;
+		}
+	}
+
+	m_vtxSize = calcVertexSize(preDefinedLayout, E_VERTEX_INPUT_RATE::EVIR_PER_VERTEX);
+	//TODO: allow for mesh buffers with only per instance parameters
+	assert(m_vtxSize);
+
+	m_perInstVtxSize = calcVertexSize(preDefinedLayout, E_VERTEX_INPUT_RATE::EVIR_PER_INSTANCE);
+	if (m_perInstVtxSize)
+	{
+		m_perInsVtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedCnt, allocParams.perInstanceVertexBufferMinAllocSize), _NBL_SIMD_ALIGNMENT);
+		_NBL_DEBUG_BREAK_IF(m_perInsVtxBuffAlctrResSpc == nullptr);
+		assert(m_perInsVtxBuffAlctrResSpc != nullptr);
+		m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_perInsVtxBuffAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedCnt, allocParams.perInstanceVertexBufferMinAllocSize);
+	}
+
+	initializeCommonAllocators(
+		{
+			allocParams.indexBuffSupportedCnt,
+			m_vtxSize ? allocParams.vertexBuffSupportedCnt : 0ull,
+			allocParams.MDIDataBuffSupportedCnt,
+			allocParams.indexBufferMinAllocSize,
+			allocParams.vertexBufferMinAllocSize,
+			allocParams.MDIDataBuffMinAllocSize,
+			alignof(MDIStructType)
+		}
+	);
 }
 
 template <typename MDIStructType>
