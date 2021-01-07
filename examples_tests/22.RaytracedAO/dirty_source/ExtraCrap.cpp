@@ -1026,27 +1026,29 @@ void Renderer::render(nbl::ITimer* timer)
 
 		// flip MDI buffers
 		m_cullPushConstants.currentCommandBufferIx ^= 0x01u;
-	}
 
-	// generate rays ( TODO: move the camera part)
-	{
+		// prepare camera data for raytracing
 		const auto cameraPosition = core::vectorSIMDf().set(camera->getAbsolutePosition());
 		{
 			auto frustum = camera->getViewFrustum();
-			core::matrix4SIMD corners;
-			corners[0] = frustum->getFarLeftDown()-cameraPosition;
-			corners[1] = frustum->getFarRightDown()-cameraPosition-corners[0];
-			corners[2] = frustum->getFarLeftUp()-cameraPosition;
-			corners[3] = frustum->getFarRightUp()-cameraPosition-corners[2];
-			m_raytraceCommonData.frustumCorners = core::transpose(corners).extractSub3x4();
+			core::matrix4SIMD fromCorners;
+			fromCorners[0] = cameraPosition-frustum->getFarLeftDown();
+			fromCorners[1] = cameraPosition-frustum->getFarRightDown()-fromCorners[0];
+			fromCorners[2] = cameraPosition-frustum->getFarLeftUp();
+			fromCorners[3] = cameraPosition-frustum->getFarRightUp()-fromCorners[2];
+			m_raytraceCommonData.frustumCornersToCamera = core::transpose(fromCorners).extractSub3x4();
 		}
 		camera->getViewMatrix().getSub3x3InverseTranspose(m_raytraceCommonData.normalMatrixAndCameraPos);
 		m_raytraceCommonData.normalMatrixAndCameraPos.setTranslation(cameraPosition);
 		{
 			auto projMat = camera->getProjectionMatrix();
 			auto* row = projMat.rows;
-			m_raytraceCommonData.depthLinearizationConstant = -row[3][2]/(row[3][2]-row[2][2]);
+			m_raytraceCommonData.depthLinearizationConstant = -double(row[3][2])/(double(row[3][2])-double(row[2][2]));
 		}
+	}
+
+	// generate rays ( TODO: move the camera part)
+	{
 		m_raytraceCommonData.framesDispatched++;
 		m_raytraceCommonData.rcpFramesDispatched = 1.f/float(m_raytraceCommonData.framesDispatched);
 

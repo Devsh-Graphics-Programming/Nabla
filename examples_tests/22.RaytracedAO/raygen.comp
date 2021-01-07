@@ -76,7 +76,6 @@ float linearizeZBufferVal(in float nonLinearZBufferVal)
     return 1.0/(pc.cummon.depthLinearizationConstant*nonLinearZBufferVal+1.0);
 }
 
-
 /*
 float maxAbs1(in float val) 
 {
@@ -124,7 +123,7 @@ struct SamplingData_t
 bool gen_sample_ray(out float maxT, out vec3 direction, out vec3 throughput, in SamplingData_t samplingData)
 {
 	maxT = FLT_MAX;
-	direction = normalize(vec3(0.5,0.5,0.5));
+	direction = -nbl_glsl_MC_getNormalizedWorldSpaceV();
 	throughput = vec3(1.0);
 	return true;
 }
@@ -232,20 +231,28 @@ void main()
 			
 			// unproject
 			{
-				const mat4x3 frustumCorners = pc.cummon.frustumCorners;
+				const mat4x3 frustumCornersToCamera = pc.cummon.frustumCornersToCamera;
 				const vec2 NDC = vec2(outputLocation)*staticViewData.rcpPixelSize+staticViewData.rcpHalfPixelSize;
-
-				const vec3 viewDir = mix(frustumCorners[0]*NDC.x+frustumCorners[1],frustumCorners[2]*NDC.x+frustumCorners[3],NDC.yyy);
-				worldPosition = viewDir*linearizeZBufferVal(revdepth)+pc.cummon.normalMatrixAndCameraPos[3];
-				normalizedV = normalize(viewDir);
+				
+				const vec3 V = mix(frustumCornersToCamera[1]*NDC.x+frustumCornersToCamera[0],frustumCornersToCamera[3]*NDC.x+frustumCornersToCamera[2],NDC.yyy); // could maybe compute this more precisely
+				worldPosition = pc.cummon.normalMatrixAndCameraPos[3]-V*linearizeZBufferVal(revdepth);
+				normalizedV = normalize(V);
 			}
 			
 			// decode vis buffer
 			bool frontfacing;
+			vec3 emissive;
 			{
 				frontfacing = visBuffer[0]<0x80000000u;
 				const uint objectID = visBuffer[0]&0x7fffffffu;
 				const uint triangleID = visBuffer[1];
+				
+				//
+				precomputed = nbl_glsl_MC_precomputeData(frontfacing);
+				material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[objectID].material,precomputed.frontface);
+
+				//
+				emissive = vec3(float(objectID),float(triangleID),0.0);//nbl_glsl_MC_oriented_material_t_getEmissive(material);
 			}
 
 			// normally we'd use MeshPackerV2's vertex attribute data for this, but now we read from temporary GBuffer
@@ -254,11 +261,6 @@ void main()
 			}
 			
 			//
-			precomputed = nbl_glsl_MC_precomputeData(frontfacing);
-			//material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[objectID].material,precomputed.frontface);
-			
-			//
-			const vec3 emissive = vec3(0.0,1.0,0.0);//nbl_glsl_MC_oriented_material_t_getEmissive(material);
 			vec3 acc;
 			if (pc.cummon.rcpFramesDispatched<1.0)
 				acc = fetchAccumulation(pixelCoord)+emissive/float(pc.cummon.framesDispatched-1u);
@@ -293,9 +295,10 @@ void main()
 			{
 				throughput /= float(staticViewData.samplesPerPixelPerDispatch);
 
-				rays[realOutputID].origin = nbl_glsl_MC_getWorldSpacePosition();/*+newray.direction*err?; TODO */
-				rays[realOutputID].maxT = FLT_MAX;
-				rays[realOutputID].direction = direction;
+				const float tt = 1.0;
+				rays[realOutputID].origin = nbl_glsl_MC_getWorldSpacePosition()+nbl_glsl_MC_getNormalizedWorldSpaceV()*tt;//-direction*0.5*maxT;/*+newray.direction*err?; TODO */
+				rays[realOutputID].maxT = tt*2.0;
+				rays[realOutputID].direction = -nbl_glsl_MC_getNormalizedWorldSpaceV()*tt;
 				rays[realOutputID].mask = -1;
 				rays[realOutputID]._active = 1;
 				rays[realOutputID].backfaceCulling = int(packHalf2x16(throughput.ab));

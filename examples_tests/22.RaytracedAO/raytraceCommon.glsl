@@ -94,7 +94,7 @@ struct StaticViewData_t
 
 struct RaytraceShaderCommonData_t
 {
-	mat4x3  frustumCorners;
+	mat4x3  frustumCornersToCamera;
 	mat4x3  normalMatrixAndCameraPos;
 	float   depthLinearizationConstant;
 	uint    samplesComputedPerPixel;
