@@ -40,7 +40,7 @@ void main()
 		else
 			acc += color;
 		storeAccumulation(acc,pixelCoord);
-		acc = abs(acc);
+		acc = abs(color);
         acc.rg /= vec2(32.0,1023.0);
 		imageStore(framebuffer,pixelCoord,uvec4(nbl_glsl_encodeRGB10A2(vec4(acc,1.0)),0u,0u,0u));
 	}

@@ -1311,9 +1311,9 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 							_NBL_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
 							break;
 						default:
-							return ISampler::ETC_REPEAT;
 							break;
 					}
+					return ISampler::ETC_REPEAT;
 				};
 				samplerParams.TextureWrapU = getWrapMode(tex->bitmap.wrapModeU);
 				samplerParams.TextureWrapV = getWrapMode(tex->bitmap.wrapModeV);

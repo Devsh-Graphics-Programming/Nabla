@@ -94,13 +94,12 @@ struct StaticViewData_t
 
 struct RaytraceShaderCommonData_t
 {
-	mat4x3  frustumCornersToCamera;
-	vec3	cameraPosition;
-	uint	padding;
-	float   depthLinearizationConstant;
+	mat4	inverseMVP;
+	mat4x3  ndcToV;
 	uint    samplesComputedPerPixel;
 	uint    framesDispatched;
     float   rcpFramesDispatched;
+	float	padding0;
 };
 
 

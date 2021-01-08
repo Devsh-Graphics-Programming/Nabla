@@ -4,6 +4,7 @@
 // for per pixel inputs
 #include <nbl/builtin/glsl/utils/normal_decode.glsl>
 #include <nbl/builtin/glsl/random/xoroshiro.glsl>
+#include <nbl/builtin/glsl/utils/transform.glsl>
 
 // rng
 layout(set = 2, binding = 0) uniform usamplerBuffer sampleSequence;
@@ -29,20 +30,13 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 	return normalizedN;
 }
 vec3 worldPosition;
-vec3 nbl_glsl_MC_getWorldSpacePosition()
-{
-	return worldPosition;
-}
 mat2x3 dPosdScreen = mat2x3(vec3(0.0),vec3(0.0)); // TODO
-mat2x3 nbl_glsl_MC_getdPos(in vec3 p)
+mat2x3 nbl_glsl_MC_getdPos()
 {
 	return dPosdScreen;
 }
 #define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 #include <nbl/builtin/glsl/material_compiler/common.glsl>
-
-//
-///
 
 
 // functions
@@ -51,20 +45,6 @@ vec3 rand3d(in uint _sample, inout nbl_glsl_xoroshiro64star_state_t scramble_sta
 	uvec3 seqVal = texelFetch(sampleSequence,int(_sample)).xyz;
 	seqVal ^= uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
     return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
-}
-
-float linearizeZBufferVal(in float nonLinearZBufferVal)
-{
-	// 1-(Ax+B)/(Cx) = y
-	// (Ax+B)/(Cx) = 1-y
-	// x = B/(C(1-y)-A)
-	// x = B/(C-A-Cy)
-	// get back original Z: `row[2][3]/(row[3][2]-row[2][2]-y*row[3][2]) = x`
-	// max Z: `B/(C-A)`
-	// positive [0,1] Z: `B/(C-A-Cy)/(B/(C-A))`
-	// positive [0,1] Z: `(C-A)/(C-A-Cy)`
-	// positive [0,1] Z: `D/(D-Cy)`
-    return 1.0/(pc.cummon.depthLinearizationConstant*nonLinearZBufferVal+1.0);
 }
 
 /*
@@ -157,11 +137,12 @@ void main()
 			
 			// unproject
 			{
-				const mat4x3 frustumCornersToCamera = pc.cummon.frustumCornersToCamera;
-				const vec2 NDC = vec2(outputLocation)*staticViewData.rcpPixelSize+staticViewData.rcpHalfPixelSize;
+				const vec3 NDC = vec3(vec2(outputLocation)*staticViewData.rcpPixelSize+staticViewData.rcpHalfPixelSize,1.0-revdepth);
 				
-				const vec3 V = mix(frustumCornersToCamera[1]*NDC.x+frustumCornersToCamera[0],frustumCornersToCamera[3]*NDC.x+frustumCornersToCamera[2],NDC.yyy); // could maybe compute this more precisely
-				worldPosition = pc.cummon.cameraPosition-V*linearizeZBufferVal(revdepth);
+				vec4 tmp = nbl_glsl_pseudoMul4x4with3x1(pc.cummon.inverseMVP,NDC);
+				worldPosition = tmp.xyz/tmp.w;
+
+				const vec3 V = nbl_glsl_pseudoMul3x4with3x1(pc.cummon.ndcToV,NDC);
 				normalizedV = normalize(V);
 			}
 			
@@ -179,7 +160,6 @@ void main()
 
 				//
 				emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
-				emissive = vec3(float(objectID),float(triangleID),0.0);
 
 				// normally we'd use MeshPackerV2's vertex attribute data for this, but now we read from temporary GBuffer
 				const vec3 normal = nbl_glsl_NormalDecode_signedSpherical(normalBuffer);
@@ -223,9 +203,9 @@ void main()
 			{
 				throughput.rgb /= float(staticViewData.samplesPerPixelPerDispatch);
 
-				const float tt = 1.0;
-				rays[realOutputID].origin = pc.cummon.cameraPosition;//nbl_glsl_MC_getWorldSpacePosition()+nbl_glsl_MC_getNormalizedWorldSpaceV()*tt;//-direction*0.5*maxT;/*+newray.direction*err?; TODO */
-				rays[realOutputID].maxT = FLT_MAX;//tt*2.0;
+				const float tt = 1.0/1024.0;
+				rays[realOutputID].origin = worldPosition+nbl_glsl_MC_getNormalizedWorldSpaceV()*tt;//-direction*0.5*maxT;/*+newray.direction*err?; TODO */
+				rays[realOutputID].maxT = tt*2.0;
 				rays[realOutputID].direction = -nbl_glsl_MC_getNormalizedWorldSpaceV();
 				rays[realOutputID].mask = -1;
 				rays[realOutputID]._active = 1;

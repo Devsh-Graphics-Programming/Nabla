@@ -52,7 +52,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	#endif
 		rrShapeCache(), rrInstances(), m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
 		m_maxRaysPerDispatch(0), m_staticViewData{{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u},
-		m_raytraceCommonData{core::matrix3x4SIMD(),{},0u,0.f,0u,0u,0.f},
+		m_raytraceCommonData{core::matrix4SIMD(),core::matrix3x4SIMD(),0,0,0},
 		m_indirectDrawBuffers{nullptr},m_cullPushConstants{core::matrix4SIMD(),1.f,0u,0u,0u},m_cullWorkGroups(0u),
 		m_raygenWorkGroups{0u,0u},m_resolveWorkGroups{0u,0u},
 		m_visibilityBuffer(nullptr),tmpTonemapBuffer(nullptr),m_colorBuffer(nullptr)
@@ -619,8 +619,8 @@ void Renderer::init(const SAssetBundle& meshes,
 				assert(film.cropOffsetY == 0);
 				m_staticViewData.imageDimensions = {static_cast<uint32_t>(film.cropWidth),static_cast<uint32_t>(film.cropHeight)};
 			}
-			m_staticViewData.rcpPixelSize = { 1.f/float(m_staticViewData.imageDimensions.x),1.f/float(m_staticViewData.imageDimensions.y) };
-			m_staticViewData.rcpHalfPixelSize = { 0.5f/float(m_staticViewData.imageDimensions.x),0.5f/float(m_staticViewData.imageDimensions.y) };
+			m_staticViewData.rcpPixelSize = { 2.f/float(m_staticViewData.imageDimensions.x),-2.f/float(m_staticViewData.imageDimensions.y) };
+			m_staticViewData.rcpHalfPixelSize = { 1.f/float(m_staticViewData.imageDimensions.x)-1.f,1.f-1.f/float(m_staticViewData.imageDimensions.y) };
 		}
 
 		// figure out dispatch sizes
@@ -990,7 +990,7 @@ void Renderer::deinit()
 	m_mdiDrawCalls.clear();
 	m_indirectDrawBuffers[1] = m_indirectDrawBuffers[0] = nullptr;
 
-	m_raytraceCommonData = {core::matrix3x4SIMD(),{},0u,0.f,0u,0u,0.f};
+	m_raytraceCommonData = {core::matrix4SIMD(),core::matrix3x4SIMD(),0,0,0};
 	m_staticViewData = {{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u};
 	m_maxRaysPerDispatch = 0u;
 	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
@@ -1062,24 +1062,10 @@ void Renderer::render(nbl::ITimer* timer)
 		m_cullPushConstants.currentCommandBufferIx ^= 0x01u;
 
 		// prepare camera data for raytracing
+		currentViewProj.getInverseTransform(m_raytraceCommonData.inverseMVP);
 		const auto cameraPosition = core::vectorSIMDf().set(camera->getAbsolutePosition());
-		{
-			auto frustum = camera->getViewFrustum();
-			core::matrix4SIMD fromCorners;
-			fromCorners[0] = cameraPosition-frustum->getFarLeftDown();
-			fromCorners[1] = cameraPosition-frustum->getFarRightDown()-fromCorners[0];
-			fromCorners[2] = cameraPosition-frustum->getFarLeftUp();
-			fromCorners[3] = cameraPosition-frustum->getFarRightUp()-fromCorners[2];
-			m_raytraceCommonData.frustumCornersToCamera = core::transpose(fromCorners).extractSub3x4();
-		}
-		m_raytraceCommonData.cameraPosition.x = cameraPosition.x;
-		m_raytraceCommonData.cameraPosition.y = cameraPosition.y;
-		m_raytraceCommonData.cameraPosition.z = cameraPosition.z;
-		{
-			auto projMat = camera->getProjectionMatrix();
-			auto* row = projMat.rows;
-			m_raytraceCommonData.depthLinearizationConstant = -double(row[3][2])/(double(row[3][2])-double(row[2][2]));
-		}
+		for (auto i=0u; i<3u; i++)
+			m_raytraceCommonData.ndcToV.rows[i] = m_raytraceCommonData.inverseMVP.rows[3]*cameraPosition[i]-m_raytraceCommonData.inverseMVP.rows[i];
 	}
 
 	// generate rays
