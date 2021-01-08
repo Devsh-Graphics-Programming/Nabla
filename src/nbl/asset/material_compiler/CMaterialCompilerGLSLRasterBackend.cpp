@@ -19,7 +19,7 @@ auto CMaterialCompilerGLSLRasterBackend::compile(SContext* _ctx, IR* _ir) -> res
     res.fragmentShaderSource = 
     R"(
 
-#include <nbl/builtin/material_compiler/glsl/rasterization/impl.glsl>
+#include <nbl/builtin/glsl/material_compiler/rasterization/impl.glsl>
     )";
 
     return res;

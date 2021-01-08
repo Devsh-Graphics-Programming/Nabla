@@ -134,13 +134,12 @@ mat2x4 nbl_glsl_applyScreenSpaceChainRule4D3(in mat3x4 dFdG, in mat2x3 dGdScreen
    return dFdG*dGdScreen;
 }
 
-// only in the fragment shader we have access to implicit derivatives
-nbl_glsl_IsotropicViewSurfaceInteraction nbl_glsl_calcFragmentShaderSurfaceInteractionFromViewVector(in vec3 _View, in vec3 _SurfacePos, in vec3 _Normal)
+nbl_glsl_IsotropicViewSurfaceInteraction nbl_glsl_calcSurfaceInteractionFromViewVector(in vec3 _View, in vec3 _SurfacePos, in vec3 _Normal, in mat2x3 dpd_)
 {
     nbl_glsl_IsotropicViewSurfaceInteraction interaction;
     interaction.V.dir = _View;
-    interaction.V.dPosdScreen[0] = dFdx(_SurfacePos);
-    interaction.V.dPosdScreen[1] = dFdy(_SurfacePos);
+    interaction.V.dPosdScreen[0] = dpd_[0];
+    interaction.V.dPosdScreen[1] = dpd_[1];
     interaction.N = _Normal;
     float invlenV2 = inversesqrt(dot(interaction.V.dir, interaction.V.dir));
     float invlenN2 = inversesqrt(dot(interaction.N, interaction.N));
@@ -150,11 +149,12 @@ nbl_glsl_IsotropicViewSurfaceInteraction nbl_glsl_calcFragmentShaderSurfaceInter
     interaction.NdotV_squared = interaction.NdotV * interaction.NdotV;
     return interaction;
 }
-nbl_glsl_IsotropicViewSurfaceInteraction nbl_glsl_calcFragmentShaderSurfaceInteraction(in vec3 _CamPos, in vec3 _SurfacePos, in vec3 _Normal)
+nbl_glsl_IsotropicViewSurfaceInteraction nbl_glsl_calcSurfaceInteraction(in vec3 _CamPos, in vec3 _SurfacePos, in vec3 _Normal, in mat2x3 dpd_)
 {
     vec3 V = _CamPos - _SurfacePos;
-    return nbl_glsl_calcFragmentShaderSurfaceInteractionFromViewVector(V, _SurfacePos, _Normal);
+    return nbl_glsl_calcSurfaceInteractionFromViewVector(V, _SurfacePos, _Normal, dpd_);
 }
+
 nbl_glsl_AnisotropicViewSurfaceInteraction nbl_glsl_calcAnisotropicInteraction(in nbl_glsl_IsotropicViewSurfaceInteraction isotropic, in vec3 T, in vec3 B)
 {
     nbl_glsl_AnisotropicViewSurfaceInteraction inter;

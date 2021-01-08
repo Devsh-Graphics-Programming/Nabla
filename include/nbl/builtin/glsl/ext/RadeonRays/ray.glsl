@@ -1,5 +1,5 @@
-#ifndef __NBL_EXT_RADEON_RAYS_RAY_INCLUDED__
-#define __NBL_EXT_RADEON_RAYS_RAY_INCLUDED__
+#ifndef _NBL_GLSL_EXT_RADEON_RAYS_RAY_INCLUDED_
+#define _NBL_GLSL_EXT_RADEON_RAYS_RAY_INCLUDED_
 
 struct nbl_glsl_ext_RadeonRays_ray
 {
@@ -15,7 +15,7 @@ struct nbl_glsl_ext_RadeonRays_ray
 
 nbl_glsl_ext_RadeonRays_ray nbl_glsl_ext_RadeonRays_constructDefaultRay(in vec3 origin, in vec3 direction, in float maxLen, in int userData)
 {
-	RadeonRays_ray retval;
+	nbl_glsl_ext_RadeonRays_ray retval;
 	retval.origin = origin;
 	retval.maxT = maxLen;
 	retval.direction = direction;

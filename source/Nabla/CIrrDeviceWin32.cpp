@@ -40,7 +40,7 @@ namespace nbl
 	{
 		#ifdef _NBL_COMPILE_WITH_OPENGL_
 		IVideoDriver* createOpenGLDriver(const nbl::SIrrlichtCreationParameters& params,
-			io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp, const asset::ISPIRVOptimizer* spvoptimizer);
+			io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp);
 		#endif
 	}
 } // end namespace nbl
@@ -1092,7 +1092,7 @@ void CIrrDeviceWin32::createDriver()
 		#ifdef _NBL_COMPILE_WITH_OPENGL_
 		switchToFullScreen();
 
-		VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem.get(), this, getAssetManager()->getGLSLCompiler(), getAssetManager()->getSPIRVOptimizer());
+		VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem.get(), this, getAssetManager()->getGLSLCompiler());
 		if (!VideoDriver)
 		{
 			os::Printer::log("Could not create OpenGL driver.", ELL_ERROR);

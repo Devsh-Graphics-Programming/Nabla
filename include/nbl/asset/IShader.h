@@ -53,9 +53,10 @@ protected:
 		std::string insertion = "\n";
 		for (const std::string& ext : (*_exts))
 		{
-			std::string str = "#ifndef " + ext + "\n";
-			str += "\t#define NBL_" + ext + "\n";
-			str += "#endif //" + ext + "\n";
+			std::string str;
+			//str += "#ifndef " + ext + "\n";
+			str += "\t#define NBL_IMPL_" + ext + "\n";
+			//str += "#endif //" + ext + "\n";
 
 			insertion += str;
 		}

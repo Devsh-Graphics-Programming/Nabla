@@ -24,21 +24,9 @@ class CGLSLVirtualTexturingBuiltinIncludeLoader : public IGLSLEmbeddedIncludeLoa
         const char* getVirtualDirectoryName() const override { return "glsl/virtual_texturing/"; }
 
     private:
-	    static core::vector<std::string> parseArgumentsFromPath(const std::string& _path)
-	    {
-		    core::vector<std::string> args;
-
-		    std::stringstream ss{ _path };
-		    std::string arg;
-		    while (std::getline(ss, arg, '/'))
-			    args.push_back(std::move(arg));
-
-		    return args;
-	    }
-
 		static std::string getVTfunctions(const std::string& _path)
 		{
-			auto args = parseArgumentsFromPath(_path.substr(_path.find_last_of('glsl')+2, _path.npos));
+			auto args = parseArgumentsFromPath(_path.substr(_path.rfind(".glsl")+6, _path.npos));
 			if (args.size()<2u)
 				return {};
 
@@ -62,8 +50,8 @@ class CGLSLVirtualTexturingBuiltinIncludeLoader : public IGLSLEmbeddedIncludeLoa
 
 			using namespace std::string_literals;
 			std::string s = R"(
-#ifndef _IRR_BUILTIN_GLSL_VIRTUAL_TEXTURING_FUNCTIONS_INCLUDED_
-#define _IRR_BUILTIN_GLSL_VIRTUAL_TEXTURING_FUNCTIONS_INCLUDED_
+#ifndef _NBL_BUILTIN_GLSL_VIRTUAL_TEXTURING_FUNCTIONS_INCLUDED_
+#define _NBL_BUILTIN_GLSL_VIRTUAL_TEXTURING_FUNCTIONS_INCLUDED_
 )";
 			s += "\n\n#define PAGE_SZ " + std::to_string(1u<<pg_sz_log2) + "u" +
 				"\n#define PAGE_SZ_LOG2 " + args[ix_pg_sz_log2] + "u" +

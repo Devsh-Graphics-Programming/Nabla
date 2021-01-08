@@ -13,35 +13,34 @@ static constexpr spv_target_env SPIRV_VERSION = spv_target_env::SPV_ENV_UNIVERSA
 
 nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t* _spirv, uint32_t _dwordCount) const
 {
-    spvtools::Optimizer opt(SPIRV_VERSION);
+    //https://www.lunarg.com/wp-content/uploads/2020/05/SPIR-V-Shader-Legalization-and-Size-Reduction-Using-spirv-opt_v1.2.pdf
 
-    // lots of these taken from https://www.lunarg.com/wp-content/uploads/2020/05/SPIR-V-Shader-Legalization-and-Size-Reduction-Using-spirv-opt_v1.2.pdf
-    opt .RegisterPass(spvtools::CreateMergeReturnPass())
-        .RegisterPass(spvtools::CreateInlineExhaustivePass())
-        .RegisterPass(spvtools::CreateEliminateDeadFunctionsPass())
-        .RegisterPass(spvtools::CreateScalarReplacementPass())
-        .RegisterPass(spvtools::CreateLocalSingleBlockLoadStoreElimPass())
-        .RegisterPass(spvtools::CreateLocalSingleStoreElimPass())
-        .RegisterPass(spvtools::CreateSimplificationPass())
-        .RegisterPass(spvtools::CreateVectorDCEPass())
-        .RegisterPass(spvtools::CreateDeadInsertElimPass())
-        .RegisterPass(spvtools::CreateAggressiveDCEPass())
-        .RegisterPass(spvtools::CreateDeadBranchElimPass())
-        .RegisterPass(spvtools::CreateBlockMergePass())
-        .RegisterPass(spvtools::CreateLocalSingleBlockLoadStoreElimPass())
-        .RegisterPass(spvtools::CreateLocalSingleStoreElimPass())
-        .RegisterPass(spvtools::CreateLocalMultiStoreElimPass())
-        .RegisterPass(spvtools::CreateSimplificationPass())
-        .RegisterPass(spvtools::CreateVectorDCEPass())
-        .RegisterPass(spvtools::CreateDeadInsertElimPass())
-        .RegisterPass(spvtools::CreateRedundancyEliminationPass())
-        .RegisterPass(spvtools::CreateAggressiveDCEPass())
-        //.RegisterPass(spvtools::CreateLoopInvariantCodeMotionPass()) //this completely breaks material compiler
-        .RegisterPass(spvtools::CreateCCPPass())
-        .RegisterPass(spvtools::CreateReduceLoadSizePass())
-        .RegisterPass(spvtools::CreateStrengthReductionPass())
-        .RegisterPass(spvtools::CreateIfConversionPass())
-        ;
+    auto CreateScalarReplacementPass = [] {
+        return spvtools::CreateScalarReplacementPass();
+    };
+
+    using create_pass_f_t = spvtools::Optimizer::PassToken(*)();
+    create_pass_f_t create_pass_f[EOP_COUNT]{
+        &spvtools::CreateMergeReturnPass,
+        &spvtools::CreateInlineExhaustivePass,
+        &spvtools::CreateEliminateDeadFunctionsPass,
+        CreateScalarReplacementPass,
+        &spvtools::CreateLocalSingleBlockLoadStoreElimPass,
+        &spvtools::CreateLocalSingleStoreElimPass,
+        &spvtools::CreateSimplificationPass,
+        &spvtools::CreateVectorDCEPass,
+        &spvtools::CreateDeadInsertElimPass,
+        &spvtools::CreateAggressiveDCEPass,
+        &spvtools::CreateDeadBranchElimPass,
+        &spvtools::CreateBlockMergePass,
+        &spvtools::CreateLocalMultiStoreElimPass,
+        &spvtools::CreateRedundancyEliminationPass,
+        &spvtools::CreateLoopInvariantCodeMotionPass,
+        &spvtools::CreateCCPPass,
+        &spvtools::CreateReduceLoadSizePass,
+        &spvtools::CreateStrengthReductionPass,
+        &spvtools::CreateIfConversionPass
+    };
 
     auto msgConsumer = [](spv_message_level_t level, const char* src, const spv_position_t& pos, const char* msg)
     {
@@ -60,6 +59,11 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
 
         os::Printer::log(location, msg, lvl);
     };
+
+    spvtools::Optimizer opt(SPIRV_VERSION);
+
+    for (E_OPTIMIZER_PASS pass : m_passes)
+        opt.RegisterPass(create_pass_f[pass]());
 
     opt.SetMessageConsumer(msgConsumer);
 

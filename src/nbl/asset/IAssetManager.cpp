@@ -113,7 +113,6 @@ void IAssetManager::initializeMeshTools()
 	m_meshManipulator = core::make_smart_refctd_ptr<CMeshManipulator>();
     m_geometryCreator = core::make_smart_refctd_ptr<CGeometryCreator>(m_meshManipulator.get());
 	m_glslCompiler = core::make_smart_refctd_ptr<IGLSLCompiler>(m_fileSystem.get());
-    m_spirvOptimizer = core::make_smart_refctd_ptr<ISPIRVOptimizer>();
 }
 
 const IGeometryCreator* IAssetManager::getGeometryCreator() const
@@ -186,12 +185,6 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>());
 #endif
-
-
-    for (size_t i = 0; i < m_loaders.vector.size(); i++)
-    {
-        m_loaders.vector[i]->initialize();
-    }
 }
 
 

@@ -6,13 +6,13 @@ using namespace video;
 
 //
 constexpr char* copyCsSource = R"(
-layout(local_size_x=_IRR_BUILTIN_PROPERTY_COPY_GROUP_SIZE_) in;
+layout(local_size_x=_NBL_BUILTIN_PROPERTY_COPY_GROUP_SIZE_) in;
 
 layout(set=0,binding=0) readonly restrict buffer Indices
 {
-    uint elementCount[_IRR_BUILTIN_PROPERTY_COUNT_];
-	int propertyDWORDsize_upDownFlag[_IRR_BUILTIN_PROPERTY_COUNT_];
-    uint indexOffset[_IRR_BUILTIN_PROPERTY_COUNT_];
+    uint elementCount[_NBL_BUILTIN_PROPERTY_COUNT_];
+	int propertyDWORDsize_upDownFlag[_NBL_BUILTIN_PROPERTY_COUNT_];
+    uint indexOffset[_NBL_BUILTIN_PROPERTY_COUNT_];
     uint indices[];
 };
 
@@ -20,15 +20,15 @@ layout(set=0,binding=0) readonly restrict buffer Indices
 layout(set=0, binding=1) readonly restrict buffer InData
 {
     uint data[];
-} inBuff[_IRR_BUILTIN_PROPERTY_COUNT_];
+} inBuff[_NBL_BUILTIN_PROPERTY_COUNT_];
 layout(set=0, binding=2) writeonly restrict buffer OutData
 {
     uint data[];
-} outBuff[_IRR_BUILTIN_PROPERTY_COUNT_];
+} outBuff[_NBL_BUILTIN_PROPERTY_COUNT_];
 
 
 #if 0 // optimization
-uint shared workgroupShared[_IRR_BUILTIN_PROPERTY_COPY_GROUP_SIZE_];
+uint shared workgroupShared[_NBL_BUILTIN_PROPERTY_COPY_GROUP_SIZE_];
 #endif
 
 
@@ -318,10 +318,10 @@ CPropertyPoolHandler::PerPropertyCountItems::PerPropertyCountItems(IVideoDriver*
 {
 	std::string shaderSource("#version 440 core\n");
 	// property count
-	shaderSource += "#define _IRR_BUILTIN_PROPERTY_COUNT_ ";
+	shaderSource += "#define _NBL_BUILTIN_PROPERTY_COUNT_ ";
 	shaderSource += std::to_string(propertyCount)+"\n";
 	// workgroup sizes
-	shaderSource += "#define _IRR_BUILTIN_PROPERTY_COPY_GROUP_SIZE_ ";
+	shaderSource += "#define _NBL_BUILTIN_PROPERTY_COPY_GROUP_SIZE_ ";
 	shaderSource += std::to_string(IdealWorkGroupSize)+"\n";
 	//
 	shaderSource += copyCsSource;

@@ -1,150 +1,69 @@
 #version 430 core
-#define WORK_GROUP_DIM 32u
-layout(local_size_x = WORK_GROUP_DIM, local_size_y = WORK_GROUP_DIM) in;
-#define WORK_GROUP_SIZE (WORK_GROUP_DIM*WORK_GROUP_DIM)
+#include "raytraceCommon.glsl"
 
 
-#include "common.glsl"
-
-
-// TODO translate into push contants
-// uniforms
-layout(location = 0) uniform uvec2 uImageSize;
-layout(location = 1) uniform uvec4 uImageWidth_ImageArea_TotalImageSamples_Samples;
-layout(location = 2) uniform float uRcpFramesDone;
-layout(location = 3) uniform mat3 uNormalMatrix;
-
-// image views
-layout(set = 2, binding = 0) uniform usampler2D lightIndex;
-layout(set = 2, binding = 1) uniform sampler2D albedobuf;
-layout(set = 2, binding = 2) uniform sampler2D normalbuf;
-layout(set = 2, binding = 3, rgba32f) restrict uniform image2D framebuffer;
-
-// SSBOs
-layout(set = 2, binding = 4, std430) restrict readonly buffer Rays
-{
-	RadeonRays_ray rays[];
-};
-layout(set = 2, binding = 5, std430) restrict buffer Queries
+#include <nbl/builtin/glsl/ext/RadeonRays/intersection.glsl>
+layout(set = 2, binding = 0, std430) restrict buffer Queries
 {
 	int hit[];
 };
+layout(set = 2, binding = 1, r32ui) restrict uniform uimage2D framebuffer;
 
-layout(set = 2, binding = 6, std430, row_major) restrict readonly buffer LightRadiances
-{
-	vec3 lightRadiance[]; // Watts / steriadian / steradian
-};
-
-#ifdef USE_OPTIX_DENOISER
-layout(set = 2, binding = 7, std430) restrict writeonly buffer DenoiserColorInput
-{
-	float16_t colorOutput[];
-};
-layout(set = 2, binding = 8, std430) restrict writeonly buffer DenoiserAlbedoInput
-{
-	float16_t albedoOutput[];
-};
-layout(set = 2, binding = 9, std430) restrict writeonly buffer DenoiserNormalInput
-{
-	float16_t normalOutput[];
-};
-#endif
-
-
-
-
-
-#define RAYS_IN_CACHE 1u
-#define KERNEL_HALF_SIZE 0u
-#define CACHE_DIM (WORK_GROUP_DIM+2u*KERNEL_HALF_SIZE)
-#define CACHE_SIZE (CACHE_DIM*CACHE_DIM*RAYS_IN_CACHE)
-shared uint rayScratch0[CACHE_SIZE];
-shared uint rayScratch1[CACHE_SIZE];
-shared float rayScratch2[CACHE_SIZE];
-shared float rayScratch3[CACHE_SIZE];
-shared float rayScratch4[CACHE_SIZE];
 
 void main()
 {
 	ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
-	uint baseID = gl_GlobalInvocationID.x+uImageWidth_ImageArea_TotalImageSamples_Samples.x*gl_GlobalInvocationID.y;
-	bool alive = all(lessThan(gl_GlobalInvocationID.xy,uImageSize));
-
-	vec3 normal;
-	if (alive)
-		normal = nbl_glsl_NormalDecode_signedSpherical(texelFetch(normalbuf,pixelCoord,0).rg);
-
-	vec4 acc = vec4(0.0);
-	if (uRcpFramesDone<1.0 && alive)
-		acc = imageLoad(framebuffer,pixelCoord);
-
-	vec3 color = vec3(0.0);
-	uvec2 groupLocation = gl_WorkGroupID.xy*WORK_GROUP_DIM;
-	for (uint i=0u; i<uImageWidth_ImageArea_TotalImageSamples_Samples.w; i+=RAYS_IN_CACHE)
+	const uint baseID = pixelCoord.y*staticViewData.samplesPerRowPerDispatch+pixelCoord.x*staticViewData.samplesPerPixelPerDispatch;
+	if (all(lessThan(pixelCoord,staticViewData.imageDimensions)))
 	{
-		for (uint lid=gl_LocalInvocationIndex; lid<CACHE_SIZE; lid+=WORK_GROUP_SIZE)
+		vec3 acc = fetchAccumulation(pixelCoord);
+		
+		vec3 color = vec3(0.0);
+		uvec2 groupLocation = gl_WorkGroupID.xy*gl_WorkGroupSize.xy;
+		for (uint i=0u; i<staticViewData.samplesPerPixelPerDispatch; i++)
 		{
-			ivec3 coord;
-			coord.z = int(lid/(CACHE_DIM*CACHE_DIM));
-			coord.y = int(lid/CACHE_DIM)-int(coord.z*CACHE_DIM+KERNEL_HALF_SIZE);
-			coord.x = int(lid)-int(coord.y*CACHE_DIM+KERNEL_HALF_SIZE);
-			coord.z += int(i);
-			coord.y += int(groupLocation.y);
-			coord.x += int(groupLocation.x);
-			bool invalidRay = any(lessThan(coord.xy,ivec2(0,0))) || any(greaterThan(coord,ivec3(uImageSize,uImageWidth_ImageArea_TotalImageSamples_Samples.w)));
-			int rayID = coord.x+coord.y*int(uImageWidth_ImageArea_TotalImageSamples_Samples.x)+coord.z*int(uImageWidth_ImageArea_TotalImageSamples_Samples.y);
-			invalidRay = invalidRay ? false:(hit[rayID]>=0);
-			rayScratch0[lid] = invalidRay ? 0u:rays[rayID].useless_padding;
-			rayScratch1[lid] = invalidRay ? 0u:rays[rayID].backfaceCulling;
-			rayScratch2[lid] = invalidRay ? 0.0:rays[rayID].direction[0];
-			rayScratch3[lid] = invalidRay ? 0.0:rays[rayID].direction[1];
-			rayScratch4[lid] = invalidRay ? 0.0:rays[rayID].direction[2];
-		}
-		barrier();
-		memoryBarrierShared();
+#ifdef TODO
+			for (uint lid=gl_LocalInvocationIndex; lid<CACHE_SIZE; lid+=WORK_GROUP_SIZE)
+			{
+				ivec3 coord;
+				coord.z = int(lid/(CACHE_DIM*CACHE_DIM));
+				coord.y = int(lid/CACHE_DIM)-int(coord.z*CACHE_DIM+KERNEL_HALF_SIZE);
+				coord.x = int(lid)-int(coord.y*CACHE_DIM+KERNEL_HALF_SIZE);
+				coord.z += int(i);
+				coord.y += int(groupLocation.y);
+				coord.x += int(groupLocation.x);
+				bool invalidRay = any(lessThan(coord.xy,ivec2(0,0))) || any(greaterThan(coord,ivec3(uImageSize,uImageWidth_ImageArea_TotalImageSamples_Samples.w)));
+				int rayID = coord.x+coord.y*int(uImageWidth_ImageArea_TotalImageSamples_Samples.x)+coord.z*int(uImageWidth_ImageArea_TotalImageSamples_Samples.y);
+				invalidRay = invalidRay ? false:(hit[rayID]>=0);
+				rayScratch0[lid] = invalidRay ? 0u:rays[rayID].useless_padding;
+				rayScratch1[lid] = invalidRay ? 0u:rays[rayID].backfaceCulling;
+				rayScratch2[lid] = invalidRay ? 0.0:rays[rayID].direction[0];
+				rayScratch3[lid] = invalidRay ? 0.0:rays[rayID].direction[1];
+				rayScratch4[lid] = invalidRay ? 0.0:rays[rayID].direction[2];
+			}
+			barrier();
+			memoryBarrierShared();
 
-		uint localID = (gl_LocalInvocationID.x+KERNEL_HALF_SIZE)+(gl_LocalInvocationID.y+KERNEL_HALF_SIZE)*CACHE_DIM;
-		for (uint j=localID; j<CACHE_SIZE; j+=CACHE_DIM*CACHE_DIM)
-		{
-			vec3 raydiance = vec4(unpackHalf2x16(rayScratch0[j]),unpackHalf2x16(rayScratch1[j])).gra;
-			// TODO: sophisticated BSDF eval
-			raydiance *= max(dot(vec3(rayScratch2[j],rayScratch3[j],rayScratch4[j]),normal),0.0)/kPI;
-			color += raydiance;
-		}
+			uint localID = (gl_LocalInvocationID.x+KERNEL_HALF_SIZE)+(gl_LocalInvocationID.y+KERNEL_HALF_SIZE)*CACHE_DIM;
+			for (uint j=localID; j<CACHE_SIZE; j+=CACHE_DIM*CACHE_DIM)
+			{
+				vec3 raydiance = vec4(unpackHalf2x16(rayScratch0[j]),unpackHalf2x16(rayScratch1[j])).gra;
+				color += raydiance;
+			}
 
-		// hit buffer needs clearing
-		for (uint j=i; j<min(uImageWidth_ImageArea_TotalImageSamples_Samples.w,i+RAYS_IN_CACHE); j++)
-		{
-			uint rayID = baseID+j*uImageWidth_ImageArea_TotalImageSamples_Samples.y;
-			hit[rayID] = -1;
-		}
-	}
-
-	if (alive)
-	{
-		// TODO: sophisticated BSDF eval
-		vec3 albedo = texelFetch(albedobuf,pixelCoord,0).rgb;
-		color *= albedo;
-
-		// TODO: move  ray gen, for fractional sampling
-		color *= 1.0/float(uImageWidth_ImageArea_TotalImageSamples_Samples.w);
-
-		uint lightID = texelFetch(lightIndex,pixelCoord,0)[0];
-		if (lightID!=0xdeadbeefu)
-			color += lightRadiance[lightID];
-
-		// TODO: optimize the color storage (RGB9E5/RGB19E7 anyone?)
-		acc.rgb += (color-acc.rgb)*uRcpFramesDone;
-		imageStore(framebuffer,pixelCoord,acc);
-#ifdef USE_OPTIX_DENOISER
-		for (uint i=0u; i<3u; i++)
-			colorOutput[baseID*3+i] = float16_t(acc[i]);
-			//colorOutput[baseID*3+i] = float16_t(clamp(acc[i],0.0001,10000.0));
-		for (uint i=0u; i<3u; i++)
-			albedoOutput[baseID*3+i] = float16_t(albedo[i]);
-		normal = uNormalMatrix*normal;
-		for (uint i=0u; i<3u; i++)
-			normalOutput[baseID*3+i] = float16_t(normal[i]);
+			// hit buffer needs clearing
+			for (uint j=i; j<min(uImageWidth_ImageArea_TotalImageSamples_Samples.w,i+RAYS_IN_CACHE); j++)
+			{
+				uint rayID = baseID+;
+				hit[rayID] = -1;
+			}
 #endif
+		}
+		if (pc.cummon.rcpFramesDispatched<1.0)
+			acc += (color-acc)*pc.cummon.rcpFramesDispatched;
+		else
+			acc += color;
+		storeAccumulation(acc,pixelCoord);
+		imageStore(framebuffer,pixelCoord,uvec4(nbl_glsl_encodeRGB10A2(vec4(acc,1.0)),0u,0u,0u));
 	}
 }

@@ -313,7 +313,7 @@ bool CFileSystem::changeArchivePassword(const path& filename,
 		// We need to check for directory names with trailing slash and without
 		const path absPath = getAbsolutePath(filename);
 		const path arcPath = FileArchives[idx]->getFileList()->getPath();
-		if ((absPath == arcPath) || ((absPath+_NBL_TEXT("/")) == arcPath))
+		if ((absPath == arcPath) || ((absPath+"/") == arcPath))
 		{
 			if (password.size())
 				FileArchives[idx]->Password=password;
@@ -553,7 +553,7 @@ bool CFileSystem::changeWorkingDirectoryTo(const io::path& newDirectory)
 	{
 		WorkingDirectory[FILESYSTEM_VIRTUAL] = newDirectory;
 		// is this empty string constant really intended?
-		WorkingDirectory[FILESYSTEM_VIRTUAL] = flattenFilename(WorkingDirectory[FILESYSTEM_VIRTUAL], _NBL_TEXT(""));
+		WorkingDirectory[FILESYSTEM_VIRTUAL] = flattenFilename(WorkingDirectory[FILESYSTEM_VIRTUAL], "");
 		success = true;
 	}
 	else
@@ -660,8 +660,8 @@ path CFileSystem::getRelativeFilename(const path& filename, const path& director
 	core::splitFilename(getAbsolutePath(filename), &path1, &file, &ext);
 	io::path path2(getAbsolutePath(directory));
 	core::list<io::path> list1, list2;
-	path1.split(list1, _NBL_TEXT("/\\"), 2);
-	path2.split(list2, _NBL_TEXT("/\\"), 2);
+	path1.split(list1, "/\\", 2);
+	path2.split(list2, "/\\", 2);
 	uint32_t i=0;
 	core::list<io::path>::const_iterator it1,it2;
 	it1=list1.begin();
@@ -674,9 +674,9 @@ path CFileSystem::getRelativeFilename(const path& filename, const path& director
 		prefix1 = *it1;
 	if ( it2 != list2.end() )
 		prefix2 = *it2;
-	if ( prefix1.size() > 1 && prefix1[1] == _NBL_TEXT(':') )
+	if ( prefix1.size() > 1 && prefix1[1] == ':' )
 		partition1 = core::locale_lower(prefix1[0]);
-	if ( prefix2.size() > 1 && prefix2[1] == _NBL_TEXT(':') )
+	if ( prefix2.size() > 1 && prefix2[1] == ':' )
 		partition2 = core::locale_lower(prefix2[0]);
 
 	// must have the same prefix or we can't resolve it to a relative filename
@@ -698,18 +698,18 @@ path CFileSystem::getRelativeFilename(const path& filename, const path& director
 		++it1;
 		++it2;
 	}
-	path1=_NBL_TEXT("");
+	path1="";
 	for (; i<list2.size(); ++i)
-		path1 += _NBL_TEXT("../");
+		path1 += "../";
 	while (it1 != list1.end())
 	{
 		path1.append(*it1++);
-		path1.append(_NBL_TEXT('/'));
+		path1.append('/');
 	}
 	path1 += file;
 	if (ext.size())
 	{
-		path1.append(_NBL_TEXT('.'));
+		path1.append('.');
 		path1 += ext;
 	}
 	return path1;
@@ -824,10 +824,10 @@ IFileList* CFileSystem::createFileList()
 		SFileListEntry e3;
 
 		//! PWD
-		r->addItem(Path + _NBL_TEXT("."), 0, 0, true, 0);
+		r->addItem(Path + ".", 0, 0, true, 0);
 
 		//! parent
-		r->addItem(Path + _NBL_TEXT(".."), 0, 0, true, 0);
+		r->addItem(Path + "..", 0, 0, true, 0);
 
 		//! merge archives
 		for (uint32_t i=0; i < FileArchives.size(); ++i)

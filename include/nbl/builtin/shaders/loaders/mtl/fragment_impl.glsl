@@ -159,7 +159,7 @@ Spectrum nbl_bsdf_cos_eval(in nbl_glsl_LightSample _sample, in nbl_glsl_Isotropi
 
 vec3 nbl_computeLighting(out nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
-    nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcFragmentShaderSurfaceInteraction(vec3(0.0), ViewPos, Normal);
+    nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcSurfaceInteraction(vec3(0.0), ViewPos, Normal, mat2x3(dFdx(ViewPos),dFdy(ViewPos)));
 
 #ifndef _NO_UV
     if ((PC.params.extra&map_bump_MASK) == map_bump_MASK)

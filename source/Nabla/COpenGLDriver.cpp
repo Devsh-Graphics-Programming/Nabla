@@ -182,11 +182,11 @@ namespace video
 #ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 //! Windows constructor and init code
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp, const asset::ISPIRVOptimizer* spvoptimizer)
+		io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp)
 : CNullDriver(device, io, params), COpenGLExtensionHandler(),
 	runningInRenderDoc(false),  ColorFormat(asset::EF_R8G8B8_UNORM),
 	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
-	AuxContexts(0), GLSLCompiler(glslcomp), SPIRVOptimizer(spvoptimizer), DeviceType(EIDT_WIN32)
+	AuxContexts(0), GLSLCompiler(glslcomp), DeviceType(EIDT_WIN32)
 {
 	#ifdef _NBL_DEBUG
 	setDebugName("COpenGLDriver");
@@ -1252,7 +1252,7 @@ core::smart_refctd_ptr<IGPUShader> COpenGLDriver::createGPUShader(core::smart_re
 	    return core::make_smart_refctd_ptr<COpenGLShader>(std::move(clone));
 }
 
-core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo)
+core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecializedShader(const IGPUShader* _unspecialized, const asset::ISpecializedShader::SInfo& _specInfo, const asset::ISPIRVOptimizer* _spvopt)
 {
     const COpenGLShader* glUnspec = static_cast<const COpenGLShader*>(_unspecialized);
 
@@ -1267,11 +1267,11 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
         std::string glsl(begin,end);
         COpenGLShader::insertGLtoVKextensionsMapping(glsl, getSupportedGLSLExtensions().get());
         auto glslShader_woIncludes = GLSLCompiler->resolveIncludeDirectives(glsl.c_str(), stage, _specInfo.m_filePathHint.c_str());
-        //{
-        //    auto fl = fopen("shader.glsl", "w");
-        //    fwrite(reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()), 1, glslShader_woIncludes->getSPVorGLSL()->getSize(), fl);
-        //    fclose(fl);
-        //}
+        {
+            auto fl = fopen("shader.glsl", "w");
+            fwrite(glsl.c_str(), 1, glsl.size(), fl);
+            fclose(fl);
+        }
         spirv = GLSLCompiler->compileSPIRVFromGLSL(
                 reinterpret_cast<const char*>(glslShader_woIncludes->getSPVorGLSL()->getPointer()),
                 stage,
@@ -1286,10 +1286,10 @@ core::smart_refctd_ptr<IGPUSpecializedShader> COpenGLDriver::createGPUSpecialize
     {
         spirv = glUnspec->m_code;
     }
-#ifndef _IRR_DEBUG
-    if (SPIRVOptimizer)
-        spirv = SPIRVOptimizer->optimize(spirv.get());
-#endif
+
+    if (_spvopt)
+        spirv = _spvopt->optimize(spirv.get());
+
     if (!spirv)
         return nullptr;
 
@@ -1828,6 +1828,7 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
         return;
 
     found->updateNextState_vertexInput(mb->getVertexBufferBindings(), mb->getIndexBufferBinding().buffer.get(), found->nextState.vertexInputParams.indirectDrawBuf.get(), found->nextState.vertexInputParams.parameterBuf.get());
+    auto* pipeline = found->nextState.pipeline.graphics.pipeline.get();
 
 	CNullDriver::drawMeshBuffer(mb);
 
@@ -1851,6 +1852,10 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
         }
     }
 
+    const GLint baseInstance = static_cast<GLint>(mb->getBaseInstance());
+    // if GL_ARB_shader_draw_parameters is present, gl_BaseInstanceARB is used for workaround instead
+    if (!FeatureAvailable[NBL_ARB_shader_draw_parameters])
+        pipeline->setBaseInstanceUniform(found->ID, baseInstance);
 
     found->flushStateGraphics(GSB_ALL);
 
@@ -1861,10 +1866,10 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
     if (indexSize) {
         static_assert(sizeof(mb->getIndexBufferBinding().offset) == sizeof(void*), "Might break without this requirement");
         const void* const idxBufOffset = reinterpret_cast<void*>(mb->getIndexBufferBinding().offset);
-        extGlDrawElementsInstancedBaseVertexBaseInstance(primType, mb->getIndexCount(), indexSize, idxBufOffset, mb->getInstanceCount(), mb->getBaseVertex(), mb->getBaseInstance());
+        extGlDrawElementsInstancedBaseVertexBaseInstance(primType, mb->getIndexCount(), indexSize, idxBufOffset, mb->getInstanceCount(), mb->getBaseVertex(), baseInstance);
     }
     else
-		extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), mb->getBaseInstance());
+		extGlDrawArraysInstancedBaseInstance(primType, mb->getBaseVertex(), mb->getIndexCount(), mb->getInstanceCount(), baseInstance);
 }
 
 
@@ -3212,10 +3217,10 @@ namespace video
 // -----------------------------------
 #ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
-	io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp, const asset::ISPIRVOptimizer* spvoptimizer)
+	io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp)
 {
 #ifdef _NBL_COMPILE_WITH_OPENGL_
-	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device, glslcomp, spvoptimizer);
+	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device, glslcomp);
 
 	if (!ogl->initDriver(device))
 	{
@@ -3234,12 +3239,11 @@ IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
 // -----------------------------------
 #ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp,
-        const asset::ISPIRVOptimizer* spvopt
+		io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp
         )
 {
 #ifdef _NBL_COMPILE_WITH_OPENGL_
-	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device, glslcomp, spvopt);
+	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device, glslcomp);
 	if (!ogl->initDriver(device,auxCtxts))
 	{
 		ogl->drop();

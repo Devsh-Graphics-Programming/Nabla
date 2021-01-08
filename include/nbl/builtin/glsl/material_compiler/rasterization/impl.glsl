@@ -5,40 +5,40 @@
 #ifndef _NBL_BUILTIN_MATERIAL_COMPILER_GLSL_RASTERIZATION_IMPL_INCLUDED_
 #define _NBL_BUILTIN_MATERIAL_COMPILER_GLSL_RASTERIZATION_IMPL_INCLUDED_
 
-#include <nbl/builtin/material_compiler/glsl/common.glsl>
+#include <nbl/builtin/glsl/material_compiler/common.glsl>
 
-void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout nbl_glsl_LightSample s, inout MC_microfacet_t _microfacet, in bool skip)
+void nbl_glsl_MC_instr_eval_execute(in nbl_glsl_MC_instr_t instr, in nbl_glsl_MC_precomputed_t precomp, inout nbl_glsl_LightSample s, inout nbl_glsl_MC_microfacet_t _microfacet, in bool skip)
 {
-	const uint op = instr_getOpcode(instr);
-	const bool is_bxdf = op_isBXDF(op);
-	const bool is_bsdf = !op_isBRDF(op); //note: true for everything besides BRDF ops (combiners, SET_GEOM_NORMAL and BUMPMAP too)
+	const uint op = nbl_glsl_MC_instr_getOpcode(instr);
+	const bool is_bxdf = nbl_glsl_MC_op_isBXDF(op);
+	const bool is_bsdf = !nbl_glsl_MC_op_isBRDF(op); //note: true for everything besides BRDF ops (combiners, SET_GEOM_NORMAL and BUMPMAP too)
 	const float cosFactor = nbl_glsl_conditionalAbsOrMax(is_bsdf, s.NdotL, 0.0);
 	const float NdotV = nbl_glsl_conditionalAbsOrMax(is_bsdf, currInteraction.inner.isotropic.NdotV, 0.0);
 	const bool positiveCosFactors = (cosFactor > FLT_MIN) && (NdotV > FLT_MIN);
-	const bool is_bxdf_or_combiner = op_isBXDForCoatOrBlend(op);
+	const bool is_bxdf_or_combiner = nbl_glsl_MC_op_isBXDForCoatOrBlend(op);
 
-	uvec3 regs = instr_decodeRegisters(instr);
+	uvec3 regs = nbl_glsl_MC_instr_decodeRegisters(instr);
 	mat2x3 ior;
 	mat2x3 ior2;
-	params_t params;
-	MC_microfacet_t microfacet;
-	bsdf_data_t bsdf_data;
+	nbl_glsl_MC_params_t params;
+	nbl_glsl_MC_microfacet_t microfacet;
+	nbl_glsl_MC_bsdf_data_t bsdf_data;
 
 	const bool run = !skip && positiveCosFactors;
 
 	if (run && is_bxdf_or_combiner)
 	{
-		bsdf_data = fetchBSDFDataForInstr(instr);
-		ior = bsdf_data_decodeIoR(bsdf_data, op);
+		bsdf_data = nbl_glsl_MC_fetchBSDFDataForInstr(instr);
+		ior = nbl_glsl_MC_bsdf_data_decodeIoR(bsdf_data, op);
 		ior2 = matrixCompMult(ior, ior);
-		params = instr_getParameters(instr, bsdf_data);
+		params = nbl_glsl_MC_instr_getParameters(instr, bsdf_data);
 	}
 
-	bxdf_eval_t result = bxdf_eval_t(0.0);
+	nbl_glsl_MC_bxdf_eval_t result = nbl_glsl_MC_bxdf_eval_t(0.0);
 
 	if (run && is_bxdf)
 	{
-		const float eta = colorToScalar(ior[0]);
+		const float eta = nbl_glsl_MC_colorToScalar(ior[0]);
 		const float rcp_eta = 1.0 / eta;
 
 		bool refraction = false;
@@ -47,7 +47,7 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout nbl
 		if (op == OP_DIELECTRIC && nbl_glsl_isTransmissionPath(currInteraction.inner.isotropic.NdotV, s.NdotL))
 		{
 			is_valid = nbl_glsl_calcAnisotropicMicrofacetCache(microfacet.inner, true, currInteraction.inner.isotropic.V.dir, s.L, currInteraction.inner.T, currInteraction.inner.B, currInteraction.inner.isotropic.N, s.NdotL, s.VdotL, eta, rcp_eta);
-			finalizeMicrofacet(microfacet);
+			nbl_glsl_MC_finalizeMicrofacet(microfacet);
 			refraction = true;
 		}
 		else
@@ -56,25 +56,25 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout nbl
 			microfacet = _microfacet;
 		}
 
-		const vec3 albedo = params_getReflectance(params);
-		const float a = params_getAlpha(params);
+		const vec3 albedo = nbl_glsl_MC_params_getReflectance(params);
+		const float a = nbl_glsl_MC_params_getAlpha(params);
 		const float a2 = a*a;
 
 #if defined(OP_DIFFUSE) || defined(OP_DIFFTRANS)
-		if (op_isDiffuse(op))
+		if (nbl_glsl_MC_op_isDiffuse(op))
 		{
 			result = albedo * (is_bsdf ? 0.5 : 1.0) * nbl_glsl_oren_nayar_cos_eval_wo_clamps(a2, s.VdotL, cosFactor, NdotV);
 		}
 		else
 #endif
 #if defined(OP_CONDUCTOR) || defined(OP_DIELECTRIC)
-		if (is_valid && a > ALPHA_EPSILON)
+		if (is_valid && a > NBL_GLSL_MC_ALPHA_EPSILON)
 		{
 			float bxdf_eval_scalar_part;
-			const uint ndf = instr_getNDF(instr);
+			const uint ndf = nbl_glsl_MC_instr_getNDF(instr);
 
 #ifndef ALL_ISOTROPIC_BXDFS
-			const float ay = params_getAlphaV(params);
+			const float ay = nbl_glsl_MC_params_getAlphaV(params);
 			const float ay2 = ay*ay;
 #endif
 			const float NdotL = cosFactor;
@@ -164,28 +164,28 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout nbl
 
 	if (!is_bxdf)
 	{
-		mat2x4 srcs = instr_fetchSrcRegs(instr, regs);
+		mat2x4 srcs = nbl_glsl_MC_instr_fetchSrcRegs(instr, regs);
 
 		BEGIN_CASES(op)
 #ifdef OP_COATING
 		CASE_BEGIN(op, OP_COATING) {
 			float dummy;
-			result = instr_execute_cos_eval_COATING(instr, srcs, params, ior[0], ior2[0], s, bsdf_data, dummy);
+			result = nbl_glsl_MC_instr_execute_cos_eval_COATING(instr, srcs, params, ior[0], ior2[0], s, bsdf_data, dummy);
 		} CASE_END
 #endif
 #ifdef OP_BLEND
 		CASE_BEGIN(op, OP_BLEND) {
-			result = instr_execute_cos_eval_BLEND(instr, srcs, params, bsdf_data);
+			result = nbl_glsl_MC_instr_execute_cos_eval_BLEND(instr, srcs, params, bsdf_data);
 		} CASE_END
 #endif
 #ifdef OP_BUMPMAP
 		CASE_BEGIN(op, OP_BUMPMAP) {
-			instr_execute_BUMPMAP(instr, srcs, precomp);
+			nbl_glsl_MC_instr_execute_BUMPMAP(instr, srcs, precomp);
 		} CASE_END
 #endif
 #ifdef OP_SET_GEOM_NORMAL
 		CASE_BEGIN(op, OP_SET_GEOM_NORMAL) {
-			instr_execute_SET_GEOM_NORMAL(instr, precomp);
+			nbl_glsl_MC_instr_execute_SET_GEOM_NORMAL(instr, precomp);
 		} CASE_END
 #endif
 		CASE_OTHERWISE
@@ -193,21 +193,21 @@ void instr_eval_execute(in instr_t instr, in MC_precomputed_t precomp, inout nbl
 		END_CASES
 	}
 
-	if (op_isBXDForCoatOrBlend(op))
-		writeReg(REG_DST(regs), result);
+	if (nbl_glsl_MC_op_isBXDForCoatOrBlend(op))
+		nbl_glsl_MC_writeReg(REG_DST(regs), result);
 }
 
-bxdf_eval_t runEvalStream(in MC_precomputed_t precomp, in instr_stream_t stream, in vec3 L)
+nbl_glsl_MC_bxdf_eval_t nbl_glsl_MC_runEvalStream(in nbl_glsl_MC_precomputed_t precomp, in nbl_glsl_MC_instr_stream_t stream, in vec3 L)
 {
-	setCurrInteraction(precomp);
+	nbl_glsl_MC_setCurrInteraction(precomp);
 	nbl_glsl_LightSample s = nbl_glsl_createLightSample(L, currInteraction.inner);
-	MC_microfacet_t microfacet;
+	nbl_glsl_MC_microfacet_t microfacet;
 	microfacet.inner = nbl_glsl_calcAnisotropicMicrofacetCache(currInteraction.inner, s);
-	finalizeMicrofacet(microfacet);
+	nbl_glsl_MC_finalizeMicrofacet(microfacet);
 	for (uint i = 0u; i < stream.count; ++i)
 	{
-		instr_t instr = nbl_glsl_MC_fetchInstr(stream.offset+i);
-		const uint op = instr_getOpcode(instr);
+		nbl_glsl_MC_instr_t instr = nbl_glsl_MC_fetchInstr(stream.offset+i);
+		const uint op = nbl_glsl_MC_instr_getOpcode(instr);
 
 		bool skip = false;
 #ifdef OP_THINDIELECTRIC
@@ -217,7 +217,7 @@ bxdf_eval_t runEvalStream(in MC_precomputed_t precomp, in instr_stream_t stream,
 		skip = skip || (op == OP_DELTATRANS);
 #endif
 
-		instr_eval_execute(instr, precomp, s, microfacet, skip);
+		nbl_glsl_MC_instr_eval_execute(instr, precomp, s, microfacet, skip);
 
 #if defined(OP_SET_GEOM_NORMAL)||defined(OP_BUMPMAP)
 		if (
@@ -231,12 +231,12 @@ bxdf_eval_t runEvalStream(in MC_precomputed_t precomp, in instr_stream_t stream,
 			op==OP_BUMPMAP
 #endif
 		) {
-			updateLightSampleAfterNormalChange(s);
-			updateMicrofacetCacheAfterNormalChange(s, microfacet);
+			nbl_glsl_MC_updateLightSampleAfterNormalChange(s);
+			nbl_glsl_MC_updateMicrofacetCacheAfterNormalChange(s, microfacet);
 		}
 #endif
 	}
-	return readReg3(0u);//result is always in regs 0,1,2
+	return nbl_glsl_MC_readReg3(0u);//result is always in regs 0,1,2
 }
 
 #endif

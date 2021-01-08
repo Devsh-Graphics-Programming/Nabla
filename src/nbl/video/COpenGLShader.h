@@ -29,21 +29,21 @@ class COpenGLShader : public IGPUShader
 
 			const std::string insertion = genGLSLExtensionDefines(_exts) +
 R"(
-#ifdef NBL_GL_AMD_gpu_shader_half_float
+#ifdef NBL_IMPL_GL_AMD_gpu_shader_half_float
 #define NBL_GL_EXT_shader_explicit_arithmetic_types_float16
 #endif
 
-#ifdef NBL_GL_NV_gpu_shader5
+#ifdef NBL_IMPL_GL_NV_gpu_shader5
 #define NBL_GL_EXT_shader_explicit_arithmetic_types_float16
 #define NBL_GL_EXT_nonuniform_qualifier
 #define NBL_GL_KHR_shader_subgroup_vote_subgroup_any_all_equal_bool
 #endif
 
-#ifdef NBL_GL_AMD_gpu_shader_int16
+#ifdef NBL_IMPL_GL_AMD_gpu_shader_int16
 #define NBL_GL_EXT_shader_explicit_arithmetic_types_int16
 #endif
 
-#ifdef NBL_GL_NV_shader_thread_group
+#ifdef NBL_IMPL_GL_NV_shader_thread_group
 #define NBL_GL_KHR_shader_subgroup_ballot_subgroup_mask
 #define NBL_GL_KHR_shader_subgroup_basic_subgroup_size
 #define NBL_GL_KHR_shader_subgroup_basic_subgroup_invocation_id
@@ -51,7 +51,7 @@ R"(
 #define NBL_GL_KHR_shader_subgroup_ballot_inverse_ballot_bit_count
 #endif
 
-#if defined(NBL_GL_ARB_shader_ballot) && defined(NBL_GL_ARB_shader_int64)
+#if defined(NBL_IMPL_GL_ARB_shader_ballot) && defined(NBL_IMPL_GL_ARB_shader_int64)
 #define NBL_GL_KHR_shader_subgroup_ballot_subgroup_mask
 #define NBL_GL_KHR_shader_subgroup_basic_subgroup_size
 #define NBL_GL_KHR_shader_subgroup_basic_subgroup_invocation_id
@@ -60,16 +60,16 @@ R"(
 #define NBL_GL_KHR_shader_subgroup_ballot_inverse_ballot_bit_count
 #endif
 
-#if defined(NBL_GL_AMD_gcn_shader) && (defined(NBL_GL_AMD_gpu_shader_int64) || defined(GL_NV_gpu_shader5))
+#if defined(NBL_IMPL_GL_AMD_gcn_shader) && (defined(NBL_IMPL_GL_AMD_gpu_shader_int64) || defined(NBL_IMPL_GL_NV_gpu_shader5))
 #define NBL_GL_KHR_shader_subgroup_basic_subgroup_size
 #define NBL_GL_KHR_shader_subgroup_vote_subgroup_any_all_equal_bool
 #endif
 
-#ifdef NBL_GL_NV_shader_thread_shuffle
+#ifdef NBL_IMPL_GL_NV_shader_thread_shuffle
 #define NBL_GL_KHR_shader_subgroup_ballot_subgroup_broadcast_first
 #endif
 
-#ifdef NBL_GL_ARB_shader_group_vote
+#ifdef NBL_IMPL_GL_ARB_shader_group_vote
 #define NBL_GL_KHR_shader_subgroup_vote_subgroup_any_all_equal_bool
 #endif
 

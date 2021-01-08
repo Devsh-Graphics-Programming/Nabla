@@ -29,7 +29,7 @@ CMeshSceneNodeInstanced::CMeshSceneNodeInstanced(IDummyTransformationSceneNode* 
     gpuCulledLodInstanceDataBuffer(), dataPerInstanceOutputSize(0),
     extraDataInstanceSize(0), dataPerInstanceInputSize(0)
 {
-    #ifdef _IRR_DEBUG
+    #ifdef _NBL_DEBUG
     setDebugName("CMeshSceneNodeInstanced");
     #endif
 
@@ -44,7 +44,7 @@ CMeshSceneNodeInstanced::CMeshSceneNodeInstanced(IDummyTransformationSceneNode* 
 CMeshSceneNodeInstanced::~CMeshSceneNodeInstanced()
 {
     if (instanceBBoxes)
-        _IRR_ALIGNED_FREE(instanceBBoxes);
+        _NBL_ALIGNED_FREE(instanceBBoxes);
 }
 
 
@@ -55,7 +55,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
     xfb.clear();
 
     if (instanceBBoxes)
-        _IRR_ALIGNED_FREE(instanceBBoxes);
+        _NBL_ALIGNED_FREE(instanceBBoxes);
     instanceDataAllocator = nullptr;
     instanceBBoxes = nullptr;
     gpuCulledLodInstanceDataBuffer = nullptr;
@@ -76,10 +76,10 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
             return false;
     }
 
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
     if (shaderLoDsPerPass>video::COpenGLExtensionHandler::MaxVertexStreams)
         return false;
-#endif // _IRR_COMPILE_WITH_OPENGL_
+#endif // _NBL_COMPILE_WITH_OPENGL_
     gpuLoDsPerPass = shaderLoDsPerPass;
 
 	extraDataInstanceSize = extraDataSizePerInstanceInput;
@@ -91,7 +91,7 @@ bool CMeshSceneNodeInstanced::setLoDMeshes(const core::vector<MeshLoD>& levelsOf
     auto buffSize = dataPerInstanceInputSize*512u;
     instanceDataAllocator = core::make_smart_refctd_ptr<decltype(instanceDataAllocator)::pointee>(driver,core::allocator<uint8_t>(),0u,0u,core::roundDownToPoT(dataPerInstanceInputSize),buffSize,dataPerInstanceInputSize,nullptr);
 	instanceBBoxesCount = getCurrentInstanceCapacity();
-	instanceBBoxes = (core::aabbox3df*)_IRR_ALIGNED_MALLOC(instanceBBoxesCount*sizeof(core::aabbox3df),_IRR_SIMD_ALIGNMENT);
+	instanceBBoxes = (core::aabbox3df*)_NBL_ALIGNED_MALLOC(instanceBBoxesCount*sizeof(core::aabbox3df),_NBL_SIMD_ALIGNMENT);
 	for (size_t i=0; i<instanceBBoxesCount; i++)
     {
         instanceBBoxes[i].MinEdge.set( FLT_MAX, FLT_MAX, FLT_MAX);
@@ -243,9 +243,9 @@ bool CMeshSceneNodeInstanced::addInstances(uint32_t* instanceIDs, const size_t& 
         // kind-of realloc
         {
             size_t newSize = newCount*sizeof(core::aabbox3df);
-            void* newPtr = _IRR_ALIGNED_MALLOC(newSize,_IRR_SIMD_ALIGNMENT);
+            void* newPtr = _NBL_ALIGNED_MALLOC(newSize,_NBL_SIMD_ALIGNMENT);
             memcpy(newPtr,instanceBBoxes,std::min(instanceBBoxesCount*sizeof(core::aabbox3df),newSize));
-            _IRR_ALIGNED_FREE(instanceBBoxes);
+            _NBL_ALIGNED_FREE(instanceBBoxes);
             instanceBBoxes = (core::aabbox3df*)newPtr;
         }
         for (size_t i=instanceBBoxesCount; i<newCount; i++)
@@ -325,7 +325,7 @@ core::matrix3x4SIMD CMeshSceneNodeInstanced::getInstanceTransform(const uint32_t
     size_t redir = instanceDataAllocator->getAddressAllocator().get_real_addr(instanceID);
     if (redir==kInvalidInstanceID)
     {
-        _IRR_BREAK_IF(true);
+        _NBL_BREAK_IF(true);
         memset(retval.rows[0].pointer,0,48);
     }
     else
@@ -365,13 +365,13 @@ void CMeshSceneNodeInstanced::removeInstances(const size_t& instanceCount, const
     uint32_t minRedirect  = kInvalidInstanceID;
     for (size_t i=0; i<instanceCount; i++)
     {
-		IRR_PSEUDO_IF_CONSTEXPR_BEGIN(usesContiguousAddrAllocator)
+		NBL_PSEUDO_IF_CONSTEXPR_BEGIN(usesContiguousAddrAllocator)
 		{
             uint32_t redirect =  instanceDataAllocator->getAddressAllocator().get_real_addr(instanceIDs[i]);
             if (redirect<minRedirect)
                 minRedirect = redirect;
         }
-		IRR_PSEUDO_IF_CONSTEXPR_END
+		NBL_PSEUDO_IF_CONSTEXPR_END
 
         uint32_t blockID = getBlockIDFromAddr(instanceIDs[i]);
         instanceBBoxes[blockID].MinEdge.set( FLT_MAX, FLT_MAX, FLT_MAX);
@@ -385,21 +385,21 @@ void CMeshSceneNodeInstanced::removeInstances(const size_t& instanceCount, const
     instanceDataAllocator->multi_free_addr(instanceCount,instanceIDs,static_cast<const uint32_t*>(dummyBytes));
     }
 
-	IRR_PSEUDO_IF_CONSTEXPR_BEGIN(usesContiguousAddrAllocator)
+	NBL_PSEUDO_IF_CONSTEXPR_BEGIN(usesContiguousAddrAllocator)
 	{
         // everything got shifted down by 1 so mark dirty
         instanceDataAllocator->markRangeForPush(minRedirect,core::address_allocator_traits<InstanceDataAddressAllocator>::get_allocated_size(instanceDataAllocator->getAddressAllocator()));
     }
-	IRR_PSEUDO_IF_CONSTEXPR_END
+	NBL_PSEUDO_IF_CONSTEXPR_END
 
     if (getCurrentInstanceCapacity()!=instanceBBoxesCount)
     {
         size_t newCount = getCurrentInstanceCapacity();
         { // kind-of realloc
             size_t newSize = newCount*sizeof(core::aabbox3df);
-            void* newPtr = _IRR_ALIGNED_MALLOC(newSize,_IRR_SIMD_ALIGNMENT);
+            void* newPtr = _NBL_ALIGNED_MALLOC(newSize,_NBL_SIMD_ALIGNMENT);
             memcpy(newPtr,instanceBBoxes,newSize);
-            _IRR_ALIGNED_FREE(instanceBBoxes);
+            _NBL_ALIGNED_FREE(instanceBBoxes);
             instanceBBoxes = (core::aabbox3df*)newPtr;
         }
         for (size_t i=instanceBBoxesCount; i<newCount; i++)
@@ -535,10 +535,10 @@ void CMeshSceneNodeInstanced::render()
 
 	if (flagQueryForRetrieval)
     {
-/*#ifdef _IRR_DEBUG
+/*#ifdef _NBL_DEBUG
         if (!LoD[LoD.size()-1].query->isQueryReady())
             os::Printer::log("GPU Culling Feedback Transform Instance Count Query Not Ready yet, STALLING CPU!\n",ELL_WARNING);
-#endif // _IRR_DEBUG*/
+#endif // _NBL_DEBUG*/
         for (size_t j=0; j<LoD.size(); j++)
         {
             uint32_t tmp;

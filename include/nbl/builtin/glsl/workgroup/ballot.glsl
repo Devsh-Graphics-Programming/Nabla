@@ -35,16 +35,14 @@ If `GL_KHR_subgroup_arithmetic` is not available then these functions require em
 		#error "Not enough shared memory declared for workgroup ballot!"
 	#endif
 #else
-	#if NBL_GLSL_GREATER(_NBL_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_,0)
-		#define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ nbl_glsl_workgroupBallotScratchShared
-		#define _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ _NBL_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_
-		shared uint _NBL_GLSL_SCRATCH_SHARED_DEFINED_[_NBL_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_];
-	#endif
+	#define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ nbl_glsl_workgroupBallotScratchShared
+	#define _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ _NBL_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_
+	shared uint _NBL_GLSL_SCRATCH_SHARED_DEFINED_[_NBL_GLSL_WORKGROUP_BALLOT_SHARED_SIZE_NEEDED_];
 #endif
 
 
 
-#include <nbl/builtin/glsl/subgroup/arithmetic_portability.glsl>
+#include <nbl/builtin/glsl/subgroup/arithmetic_portability_impl.glsl>
 
 
 
@@ -273,7 +271,7 @@ uint nbl_glsl_workgroupBallotScanBitCount_impl(in bool exclusive)
 		barrier();
 	}
 
-	const uint mask = 0xffffffffu>>((exclusive ? 32u:31u)-(gl_LocalInvocationIndex&31u));
+	const uint mask = (exclusive ? 0x7fffffffu:0xffffffffu)>>(31u-(gl_LocalInvocationIndex&31u));
 	return globalCount+bitCount(localBitfield&mask);
 }
 

@@ -329,7 +329,7 @@ class IFileSystem : public virtual core::IReferenceCounted
 			{
 				subdir = directory.subString(lastpos, pos - lastpos + 1);
 
-				if (subdir == _NBL_TEXT("../"))
+				if (subdir == "../")
 				{
 					if (lastWasRealDir)
 					{
@@ -342,11 +342,11 @@ class IFileSystem : public virtual core::IReferenceCounted
 						lastWasRealDir = false;
 					}
 				}
-				else if (subdir == _NBL_TEXT("/"))
+				else if (subdir == "/")
 				{
 					dir = root;
 				}
-				else if (subdir != _NBL_TEXT("./"))
+				else if (subdir != "./")
 				{
 					dir.append(subdir);
 					lastWasRealDir = true;
