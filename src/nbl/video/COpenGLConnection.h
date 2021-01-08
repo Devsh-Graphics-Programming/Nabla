@@ -3,13 +3,28 @@
 
 #include "nbl/video/IAPIConnection.h"
 
+#include <SDL_video.h>
+
 namespace nbl {
 namespace video
 {
 
-class COpenGLConnection : public IAPIConnection
+class COpenGLConnection final : public IAPIConnection
 {
+public:
+    COpenGLConnection()
+    {
+        // "offscreen" for windowless app
+        //actually fuck SDL2
+        // global state for whole process
+        SDL_VideoInit("windows");
+    }
 
+protected:
+    ~COpenGLConnection()
+    {
+
+    }
 };
 
 }

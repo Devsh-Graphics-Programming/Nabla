@@ -16,7 +16,7 @@ class CSurfaceVKWin32 final : public ISurfaceWin32, public ISurfaceVK
 public:
     static core::smart_refctd_ptr<CSurfaceVKWin32> create(IAPIConnection* api, SCreationParams&& params);
 
-private:
+//private:
     CSurfaceVKWin32(VkInstance instance, SCreationParams&& params) : ISurfaceWin32(std::move(params))
     {
         VkWin32SurfaceCreateInfoKHR ci;

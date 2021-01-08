@@ -59,6 +59,8 @@ protected:
 
 			insertion += str;
 		}
+
+		return insertion;
 	}
 	static inline void insertAfterVersionAndPragmaShaderStage(std::string& _glsl, const std::string& _ins)
 	{

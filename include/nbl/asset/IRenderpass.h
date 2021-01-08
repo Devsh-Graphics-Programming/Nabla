@@ -187,9 +187,9 @@ public:
                 preservedAttRefCnt += sb.preserveAttachmentCount;
         }
         if (attRefCnt)
-            m_attachmentRefs = core::make_smart_refctd_ptr<attachment_refs_array_t>(attRefCnt);
+            m_attachmentRefs = core::make_refctd_dynamic_array<attachment_refs_array_t>(attRefCnt);
         if (preservedAttRefCnt)
-            m_preservedAttachmentRefs = core::make_smart_refctd_ptr<preserved_attachment_refs_array_t>(preservedAttRefCnt);
+            m_preservedAttachmentRefs = core::make_refctd_dynamic_array<preserved_attachment_refs_array_t>(preservedAttRefCnt);
 
         uint32_t refOffset = 0u;
         uint32_t preservedRefOffset = 0u;

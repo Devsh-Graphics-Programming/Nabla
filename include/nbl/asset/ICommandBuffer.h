@@ -62,12 +62,6 @@ enum E_STENCIL_FACE_FLAGS : uint32_t
     ESFF_BACK_BIT = 0x02,
     ESFF_FACE_AND_FRONT = 0x03
 };
-enum E_DEPENDENCY_FLAGS : uint32_t
-{
-    EDF_BY_REGION_BIT = 0x01,
-    EDF_DEVICE_GROUP_BIT = 0x04,
-    EDF_VIEW_LOCAL_BIT = 0x02
-};
 enum E_QUERY_CONTROL_FLAGS : uint32_t
 {
     EQCF_PRECISE_BIT = 0x01
@@ -281,9 +275,10 @@ public:
     //virtual void copyQueryPoolResults(IGPUQueryPool* queryPool, uint32_t firstQuery, uint32_t queryCount, buffer_t* dstBuffer, size_t dstOffset, size_t stride, std::underlying_type_t<E_QUERY_RESULT_FLAGS> flags) = 0;
     //virtual void writeTimestamp(std::underlying_type_t<asset::E_PIPELINE_STAGE_FLAGS> pipelineStage, IGPUQueryPool* queryPool, uint32_t query) = 0;
 
-    virtual void bindDescriptorSets(E_PIPELINE_BIND_POINT pipelineBindPoint, pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
+    // E_PIPELINE_BIND_POINT needs to be in asset namespace or divide this into two functions (for graphics and compute)
+    /*virtual void bindDescriptorSets(E_PIPELINE_BIND_POINT pipelineBindPoint, pipeline_layout_t* layout, uint32_t firstSet, uint32_t descriptorSetCount,
         descriptor_set_t** pDescriptorSets, uint32_t dynamicOffsetCount, const uint32_t pDynamicOffsets
-    ) = 0;
+    ) = 0;*/
     virtual void pushConstants(pipeline_layout_t* layout, std::underlying_type_t<asset::ISpecializedShader::E_SHADER_STAGE> stageFlags, uint32_t offset, uint32_t size, const void* pValues) = 0;
 
     virtual void clearColorImage(image_t* image, asset::E_IMAGE_LAYOUT imageLayout, const SClearColorValue* pColor, uint32_t rangeCount, const asset::IImage::SSubresourceRange* pRanges) = 0;

@@ -3,7 +3,8 @@
 
 #include "nbl/core/IReferenceCounted.h"
 
-#include <nbl/asset/IImage.h> //for VkExtent3D only
+#include "nbl/video/ILogicalDevice.h"
+#include "nbl/asset/IImage.h" //for VkExtent3D only
 #include <type_traits>
 
 namespace nbl {

@@ -21,8 +21,8 @@ CVKSwapchain::CVKSwapchain(SCreationParams&& params, CVKLogicalDevice* dev) : IS
     ci.presentMode = static_cast<VkPresentModeKHR>(params.presentMode);
     ci.imageExtent = { params.width, params.height };
     ci.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE; // single queue famility at a time
-    ci.queueFamilyIndexCount = 1u;
-    ci.pQueueFamilyIndices = &params.queueFamily;
+    ci.queueFamilyIndexCount = params.queueFamilyIndices->size();
+    ci.pQueueFamilyIndices = params.queueFamilyIndices->data();
     ci.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
     ci.oldSwapchain = VK_NULL_HANDLE;
     //ci.imageUsage = ... // TODO (we dont have the enum yet)

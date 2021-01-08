@@ -9,6 +9,8 @@ namespace nbl {
 namespace video
 {
 
+class IPhysicalDevice;
+
 class ISurface : public core::IReferenceCounted
 {
 protected:

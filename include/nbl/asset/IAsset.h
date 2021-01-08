@@ -113,7 +113,7 @@ class IAsset : virtual public core::IReferenceCounted
 
 			ET_TERMINATING_ZERO = 0
 		};
-		constexpr static size_t ET_STANDARD_TYPES_COUNT = 17u;
+		constexpr static size_t ET_STANDARD_TYPES_COUNT = 23u;
 
 		//! Returns a representaion of an Asset type in decimal system
 		/**

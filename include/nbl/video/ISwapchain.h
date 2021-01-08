@@ -43,8 +43,11 @@ public:
         EAIR_ERROR
     };
 
-    virtual uint32_t getImageCount() const = 0;
-    virtual bool getImages(core::smart_refctd_ptr<IGPUImage>* out_images) const = 0;
+    uint32_t getImageCount() const { return m_images->size(); }
+    core::SRange<core::smart_refctd_ptr<IGPUImage>> getImages()
+    {
+        return { m_images->begin(), m_images->end() };
+    }
 
     virtual E_ACQUIRE_IMAGE_RESULT acquireNextImage(uint64_t timeout, IGPUSemaphore* semaphore, IGPUFence* fence, uint32_t* out_imgIx) = 0;
 

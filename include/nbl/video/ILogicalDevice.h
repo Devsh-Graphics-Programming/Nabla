@@ -7,7 +7,7 @@
 #include "nbl/video/IDescriptorPool.h"
 #include "nbl/video/IGPUDescriptorSet.h"
 #include "nbl/video/IGPUCommandPool.h"
-#include "nbl/video/IFramebuffer.h"
+#include "nbl/video/IGPUFramebuffer.h"
 #include "nbl/video/ISwapchain.h"
 
 namespace nbl {
@@ -106,7 +106,7 @@ public:
     virtual core::smart_refctd_ptr<IGPUCommandPool> createCommandPool(uint32_t _familyIx, IGPUCommandPool::E_CREATE_FLAGS flags) = 0;
     virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool(IDescriptorPool::E_CREATE_FLAGS flags, uint32_t maxSets, uint32_t poolSizeCount, const IDescriptorPool::SDescriptorPoolSize* poolSizes) = 0;
 
-    virtual core::smart_refctd_ptr<IFramebuffer> createFramebuffer(IFramebuffer::SCreationParams&& params) = 0;
+    virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer(IGPUFramebuffer::SCreationParams&& params) = 0;
 
     virtual core::smart_refctd_ptr<IGPURenderpass> createGPURenderpass(const IGPURenderpass::SCreationParams& params) = 0;
 

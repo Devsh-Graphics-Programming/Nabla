@@ -8,12 +8,14 @@ namespace nbl {
 namespace video
 {
 
-class IAPIConnection;
+class IPhysicalDevice;
 
 class ISurfaceVK : public ISurface
 {
 public:
     inline VkSurfaceKHR getInternalObject() const { return m_surface; }
+
+    bool isSupported(const IPhysicalDevice* dev, uint32_t _queueIx) const override;
 
 protected:
     VkSurfaceKHR m_surface;

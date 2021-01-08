@@ -73,8 +73,11 @@ public:
         VkDevice vkdev = VK_NULL_HANDLE;
         vkCreateDevice(m_vkphysdev, &ci, nullptr, &vkdev);
 
-        return core::make_smart_refctd_ptr<CVKLogicalDevice>(vkdev);
+        //return core::make_smart_refctd_ptr<CVKLogicalDevice>(vkdev, params);
+        return nullptr;
     }
+
+    inline VkPhysicalDevice getInternalObject() const { return m_vkphysdev; }
 
 private:
     VkPhysicalDevice m_vkphysdev;
