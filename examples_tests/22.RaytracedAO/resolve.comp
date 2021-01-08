@@ -29,8 +29,8 @@ void main()
 			if (hit.shapeid<0)
 				continue;
 
-			color.r -= float(hit.shapeid);//staticViewData.samplesPerPixelPerDispatch;
-			color.g -= float(hit.primid);//staticViewData.samplesPerPixelPerDispatch;
+			//color.r -= float(hit.shapeid);//staticViewData.samplesPerPixelPerDispatch;
+			//color.g -= float(hit.primid);//staticViewData.samplesPerPixelPerDispatch;
 
 			// hit buffer needs clearing
 			hits[rayID].shapeid = -1;

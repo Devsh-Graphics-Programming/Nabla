@@ -169,8 +169,8 @@ void main()
 			bool frontfacing;
 			vec3 emissive;
 			{
-				frontfacing = visBuffer[0]<0x80000000u;
 				const uint objectID = visBuffer[0]&0x7fffffffu;
+				frontfacing = objectID==visBuffer[0];
 				const uint triangleID = visBuffer[1];
 				
 				//
@@ -179,6 +179,7 @@ void main()
 
 				//
 				emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
+				emissive = vec3(float(objectID),float(triangleID),0.0);
 
 				// normally we'd use MeshPackerV2's vertex attribute data for this, but now we read from temporary GBuffer
 				const vec3 normal = nbl_glsl_NormalDecode_signedSpherical(normalBuffer);

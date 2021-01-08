@@ -323,8 +323,9 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 			}
 		}
 
-		// set up BVH
+		// this wont get rid of identical pipelines
 		IMeshManipulator::homogenizePrimitiveTypeAndIndices(meshBuffersToProcess.begin(), meshBuffersToProcess.end(), EPT_TRIANGLE_LIST);
+		// set up BLAS
 		m_rrManager->makeRRShapes(rrShapeCache, meshBuffersToProcess.begin(), meshBuffersToProcess.end());
 
 		// convert to GPU objects
@@ -350,7 +351,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 					}
 		);
 
-		// set up Radeon Rays instances
+		// set up Radeon Rays instances and TLAS
 		{
 			core::vector<ext::RadeonRays::MockSceneManager::ObjectGUID> ids(m_mock_smgr.m_objectData.size());
 			std::iota(ids.begin(),ids.end(),0u);
@@ -361,7 +362,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 
 	core::vector<DrawElementsIndirectCommand_t> mdiData;
 	{
-		core::unordered_map<uint32_t,uint32_t> meshbufferIDToDrawID;
+		core::vector<uint32_t> meshbufferIDToDrawID(gpuMeshBuffers.size());
 		{
 			MDICall call;
 			auto initNewMDI = [&call](const core::smart_refctd_ptr<IGPUMeshBuffer>& gpumb) -> void
@@ -378,7 +379,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 				m_mdiDrawCalls.emplace_back(call);
 			};
 			uint32_t drawBaseInstance = 0u;
-			for (auto item : gpuMeshBuffers)
+			for (const auto& item : gpuMeshBuffers)
 			{
 				const auto gpumb = std::get<core::smart_refctd_ptr<IGPUMeshBuffer>>(item);
 
@@ -413,8 +414,8 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 			}
 			queueUpMDI(call);
 		}
-		for (auto cull : cullData)
-			cull.drawID = meshbufferIDToDrawID[cull.drawID];
+		for (auto& cull : cullData)
+			cull.drawID = meshbufferIDToDrawID[cull.globalObjectID];
 	}
 	m_cullPushConstants.currentCommandBufferIx = 0x0u;
 	m_cullPushConstants.maxDrawCount = mdiData.size();
@@ -473,7 +474,7 @@ void Renderer::initSceneNonAreaLights(Renderer::InitializationData& initData)
 {
 	core::vectorSIMDf _envmapBaseColor;
 	_envmapBaseColor.set(0.f,0.f,0.f,1.f);
-	for (auto emitter : initData.globalMeta->emitters)
+	for (const auto& emitter : initData.globalMeta->emitters)
 	{
 		float weight = 0.f;
 		switch (emitter.type)
@@ -1051,7 +1052,7 @@ void Renderer::render(nbl::ITimer* timer)
 			m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT2, zero);
 		}
 		m_driver->bindDescriptorSets(EPBP_GRAPHICS,m_visibilityBufferFillPipelineLayoutGPU.get(),1u,1u,descriptors+1u,nullptr);
-		for (auto call : m_mdiDrawCalls)
+		for (const auto& call : m_mdiDrawCalls)
 		{
 			m_driver->bindGraphicsPipeline(call.pipeline.get());
 			m_driver->drawIndexedIndirect(call.vertexBindings,EPT_TRIANGLE_LIST,EIT_32BIT,call.indexBuffer.get(),m_indirectDrawBuffers[m_cullPushConstants.currentCommandBufferIx].get(),call.mdiOffset,call.mdiCount,sizeof(DrawElementsIndirectCommand_t));
