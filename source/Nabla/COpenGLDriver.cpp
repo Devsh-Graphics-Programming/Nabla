@@ -2030,6 +2030,15 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
         }
 
         //if prev and curr pipeline layouts are compatible for set N, currState.set[N]==nextState.set[N] and the sets were bound with same dynamic offsets, then binding set N would be redundant
+/*
+        // @Crisspl this is BUGGY.
+        // Imagine I have desc sets A, B, C
+        // I do some compute work while binding a pipeline layout with {A,B,C,nullptr}
+        // then I do some graphics work while binding a pipeline layout with {nullptr,B,nullptr}, I only ever use one pipeline
+        // when I do the graphics flush, the bindings will not be updated because prevLayout and currentLayout come from graphics (and are the same)
+        // AND the effectivelyBoundDescriptor matches with the only descriptor of the graphics bind point (both are B) this leads to problems
+        // you need to detect if switching effective pipelines (graphics to compute and back) will cause offsets to shift
+        // my suggestion is to track `current.effectivelyBoundDescriptors` and `next.effectivelyBoundDescriptors` then work from that instead of compare the next state for a pipeline with "previous" effectivelyBoundDescriptors
         if ((i < compatibilityLimit) &&
             (effectivelyBoundDescriptors.descSets[i].set == nextState.descriptorsParams[_pbp].descSets[i].set) &&
             (effectivelyBoundDescriptors.descSets[i].dynamicOffsets == nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets)
@@ -2037,8 +2046,9 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
         {
             continue;
         }
+*/
 
-        const auto& multibind_params = nextState.descriptorsParams[_pbp].descSets[i].set ?
+        const auto multibind_params = nextState.descriptorsParams[_pbp].descSets[i].set ?
             nextState.descriptorsParams[_pbp].descSets[i].set->getMultibindParams() :
             COpenGLDescriptorSet::SMultibindParams{};//all nullptr
 
@@ -2057,7 +2067,7 @@ count = (first_count.resname.count - std::max(0, static_cast<int32_t>(first_coun
 			extGlBindSamplers(first_count.textures.first, localTextureCount, multibind_params.textures.samplers);
 		}
 
-		bool nonNullSet = !!nextState.descriptorsParams[_pbp].descSets[i].set;
+		const bool nonNullSet = !!nextState.descriptorsParams[_pbp].descSets[i].set;
 		const bool useDynamicOffsets = !!nextState.descriptorsParams[_pbp].descSets[i].dynamicOffsets;
 		//not entirely sure those MAXes are right
 		constexpr size_t MAX_UBO_COUNT = 96ull;
