@@ -52,8 +52,7 @@ void main()
     const mat4 MVP = nbl_glsl_pseudoMul4x4with4x3(pc.data.viewProjMatrix,worldMatrix);
 
     // cull
-    bool notCulled = true;
-    if (false)
+    bool notCulled;
     {
         const mat2x3 bbox = mat2x3(instanceMeshBufferData.aabbMinEdge,instanceMeshBufferData.aabbMaxEdge);
         notCulled = nbl_glsl_couldBeVisible(MVP,bbox);

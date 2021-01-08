@@ -1103,7 +1103,6 @@ void Renderer::render(nbl::ITimer* timer)
 	else
 		glFinish();
 
-	if (true)
 	{
 		auto commandQueue = m_rrManager->getCLCommandQueue();
 
