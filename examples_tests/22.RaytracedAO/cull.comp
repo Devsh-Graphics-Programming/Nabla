@@ -4,6 +4,7 @@
 #include "drawCommon.glsl"
 layout(local_size_x = WORKGROUP_SIZE) in;
 
+#include <nbl/builtin/glsl/ext/MitsubaLoader/instance_data_descriptor.glsl>
 
 #include <nbl/builtin/glsl/utils/indirect_commands.glsl>
 layout(set=1, binding=0, row_major) writeonly restrict buffer PerInstancePerCamera

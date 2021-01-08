@@ -17,6 +17,7 @@ layout(set = 2, binding = 5) uniform sampler2D uvCoords;
 
 
 #include "bin/material_declarations.glsl"
+#include <nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility_impl.glsl>
 vec3 normalizedV;
 vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()
 {
@@ -178,10 +179,8 @@ void main()
 
 				//
 				emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
-			}
 
-			// normally we'd use MeshPackerV2's vertex attribute data for this, but now we read from temporary GBuffer
-			{
+				// normally we'd use MeshPackerV2's vertex attribute data for this, but now we read from temporary GBuffer
 				const vec3 normal = nbl_glsl_NormalDecode_signedSpherical(normalBuffer);
 				normalizedN.x = dot(InstData.data[objectID].normalMatrixRow0,normal);
 				normalizedN.y = dot(InstData.data[objectID].normalMatrixRow1,normal);

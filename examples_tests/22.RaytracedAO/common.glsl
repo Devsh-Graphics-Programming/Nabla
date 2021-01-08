@@ -21,8 +21,6 @@
 	};
 	#define mat4 nbl::core::matrix4SIMD
 	#define mat4x3 nbl::core::matrix3x4SIMD
-#else
-#include <nbl/builtin/glsl/ext/MitsubaLoader/instance_data_descriptor.glsl>
 #endif
 
 #endif

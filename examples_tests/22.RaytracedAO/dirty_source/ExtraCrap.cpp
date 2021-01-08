@@ -80,25 +80,21 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 		break;
 	}
 
-	constexpr auto cullingOutputDescriptorCount = 1u;
 	{
-		constexpr auto cullingDescriptorCount = cullingOutputDescriptorCount+2u;
+		constexpr auto cullingDescriptorCount = 3u;
 		IGPUDescriptorSetLayout::SBinding bindings[cullingDescriptorCount];
 		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_COMPUTE,cullingDescriptorCount,asset::EDT_STORAGE_BUFFER);
 		bindings[2u].count = 2u;
 		m_cullDSLayout = m_driver->createGPUDescriptorSetLayout(bindings,bindings+3u);
-		SPushConstantRange range{ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullShaderData_t)};
-		m_cullPipelineLayout = m_driver->createGPUPipelineLayout(&range,&range+1u,nullptr,core::smart_refctd_ptr(m_cullDSLayout),nullptr,nullptr);
-		m_cullPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_cullPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../cull.comp"));
 	}
 
 	m_visibilityBufferFillShaders[0] = specializedShaderFromFile(m_assetManager,"../fillVisBuffer.vert");
 	m_visibilityBufferFillShaders[1] = specializedShaderFromFile(m_assetManager,"../fillVisBuffer.frag");
 	{
-		ICPUDescriptorSetLayout::SBinding bindings[cullingOutputDescriptorCount];
-		fillIotaDescriptorBindingDeclarations(bindings,ISpecializedShader::ESS_VERTEX,cullingOutputDescriptorCount,asset::EDT_STORAGE_BUFFER);
+		ICPUDescriptorSetLayout::SBinding binding;
+		fillIotaDescriptorBindingDeclarations(&binding,ISpecializedShader::ESS_VERTEX,1u,asset::EDT_STORAGE_BUFFER);
 
-		auto dsLayout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings,bindings+2u);
+		auto dsLayout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(&binding,&binding+1u);
 		m_visibilityBufferFillPipelineLayoutCPU = core::make_smart_refctd_ptr<ICPUPipelineLayout>(nullptr,nullptr,nullptr,core::smart_refctd_ptr(dsLayout),nullptr,nullptr);
 
 		// TODO: @Crisspl find a way to stop the user from such insanity as moving from the bundle's dynamic array
@@ -229,7 +225,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 				{
 					// TODO: get rid of `getMeshBuffer` and `getMeshBufferCount`, just return a range as `getMeshBuffers`
 					auto cpumb = cpumesh->getMeshBuffer(i);
-					assert(cpumesh->getInstanceCount()==instances.size());
+					assert(cpumb->getInstanceCount()==instances.size());
 
 					// set up Visibility Buffer pipelines
 					{
@@ -439,7 +435,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 		infos[1].desc = m_driver->createFilledDeviceLocalGPUBufferOnDedMem(infos[1].buffer.size,cullData.data());
 		cullData.clear();
 		
-		for (auto offset=2u,i=offset; i<2u; i++)
+		for (auto offset=2u,i=0u; i<2u; i++)
 		{
 			auto j = i+offset;
 			infos[j].buffer.size = mdiData.size()*sizeof(DrawElementsIndirectCommand_t);
@@ -668,11 +664,20 @@ void Renderer::init(const SAssetBundle& meshes,
 
 		//
 		{
-			SPushConstantRange raytracingCommonPCRange{ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaytraceShaderCommonData_t)};
-			m_commonRaytracingDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_commonRaytracingDSLayout));
-
 			// i know what I'm doing
 			auto globalBackendDataDSLayout = core::smart_refctd_ptr<IGPUDescriptorSetLayout>(const_cast<IGPUDescriptorSetLayout*>(m_globalBackendDataDS->getLayout()));
+
+
+			// cull
+			{
+				SPushConstantRange range{ISpecializedShader::ESS_COMPUTE,0u,sizeof(CullShaderData_t)};
+				m_cullPipelineLayout = m_driver->createGPUPipelineLayout(&range,&range+1u,core::smart_refctd_ptr(globalBackendDataDSLayout),core::smart_refctd_ptr(m_cullDSLayout),nullptr,nullptr);
+				m_cullPipeline = m_driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(m_cullPipelineLayout),gpuSpecializedShaderFromFile(m_assetManager,m_driver,"../cull.comp"));
+			}
+			
+
+			SPushConstantRange raytracingCommonPCRange{ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaytraceShaderCommonData_t)};
+			m_commonRaytracingDS = m_driver->createGPUDescriptorSet(core::smart_refctd_ptr(m_commonRaytracingDSLayout));
 
 			// raygen
 			{
@@ -969,8 +974,10 @@ void Renderer::deinit()
 	m_commonRaytracingDS = nullptr;
 	m_globalBackendDataDS = nullptr;
 
+	m_cullPipelineLayout = nullptr;
 	m_raygenPipelineLayout = nullptr;
 	m_resolvePipelineLayout = nullptr;
+	m_cullPipeline = nullptr;
 	m_raygenPipeline = nullptr;
 	m_resolvePipeline = nullptr;
 
@@ -1016,11 +1023,10 @@ void Renderer::render(nbl::ITimer* timer)
 	{
 		m_raytraceCommonData.framesDispatched = 0u;
 
-		IGPUDescriptorSet* descriptors[3] = { nullptr };
-		descriptors[1] = m_cullDS.get();
+		IGPUDescriptorSet* descriptors[3] = { m_globalBackendDataDS.get(),m_cullDS.get(),nullptr };
 
 		m_driver->bindComputePipeline(m_cullPipeline.get());
-		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_cullPipelineLayout.get(),1u,1u,descriptors+1u,nullptr);
+		m_driver->bindDescriptorSets(EPBP_COMPUTE,m_cullPipelineLayout.get(),0u,2u,descriptors,nullptr);
 		{
 			m_cullPushConstants.viewProjMatrix = currentViewProj;
 			m_cullPushConstants.viewProjDeterminant = core::determinant(currentViewProj);
@@ -1029,6 +1035,7 @@ void Renderer::render(nbl::ITimer* timer)
 		m_driver->dispatch(m_cullWorkGroups, 1u, 1u);
 		COpenGLExtensionHandler::pGlMemoryBarrier(GL_COMMAND_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT);
 
+		// in the future we'll clear it differently (esp with AA)
 		m_driver->setRenderTarget(tmpTonemapBuffer);
 		{
 			uint32_t clearAccumulation[4] = { 0,0,0,0 };
@@ -1043,7 +1050,7 @@ void Renderer::render(nbl::ITimer* timer)
 			m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT1, zero);
 			m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT2, zero);
 		}
-		m_driver->bindDescriptorSets(EPBP_GRAPHICS,m_visibilityBufferFillPipelineLayoutGPU.get(),0u,2u,descriptors,nullptr);
+		m_driver->bindDescriptorSets(EPBP_GRAPHICS,m_visibilityBufferFillPipelineLayoutGPU.get(),1u,1u,descriptors+1u,nullptr);
 		for (auto call : m_mdiDrawCalls)
 		{
 			m_driver->bindGraphicsPipeline(call.pipeline.get());
@@ -1074,13 +1081,13 @@ void Renderer::render(nbl::ITimer* timer)
 		}
 	}
 
-	// generate rays ( TODO: move the camera part)
+	// generate rays
 	{
 		m_raytraceCommonData.framesDispatched++;
 		m_raytraceCommonData.rcpFramesDispatched = 1.f/float(m_raytraceCommonData.framesDispatched);
 
-		IGPUDescriptorSet* descriptorSets[] = {m_globalBackendDataDS.get(),m_commonRaytracingDS.get(),m_raygenDS.get()};
-		m_driver->bindDescriptorSets(EPBP_COMPUTE, m_raygenPipelineLayout.get(), 0, 3, descriptorSets, nullptr);
+		IGPUDescriptorSet* descriptorSets[] = {m_commonRaytracingDS.get(),m_raygenDS.get()};
+		m_driver->bindDescriptorSets(EPBP_COMPUTE, m_raygenPipelineLayout.get(), 1, 2, descriptorSets, nullptr);
 		m_driver->bindComputePipeline(m_raygenPipeline.get());
 		m_driver->pushConstants(m_raygenPipelineLayout.get(),ISpecializedShader::ESS_COMPUTE,0u,sizeof(RaytraceShaderCommonData_t),&m_raytraceCommonData);
 		m_driver->dispatch(m_raygenWorkGroups[0], m_raygenWorkGroups[1], 1);
