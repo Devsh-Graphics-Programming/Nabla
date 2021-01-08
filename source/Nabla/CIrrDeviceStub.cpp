@@ -46,6 +46,10 @@ CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
 	os::Printer::log(s.c_str(), ELL_INFORMATION);
 
 	checkVersion(params.SDK_version_do_not_use);
+
+	// init EGL
+	Display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
+	eglInitialize(Display, NULL, NULL);
 }
 
 

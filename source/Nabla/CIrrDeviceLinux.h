@@ -381,11 +381,6 @@ namespace nbl
             SizeID oldRandrMode;
             Rotation oldRandrRotation;
             #endif
-            #ifdef _NBL_COMPILE_WITH_OPENGL_
-            GLXWindow glxWin;
-            GLXContext Context;
-            void* AuxContexts;
-            #endif
     #endif
             uint32_t Width, Height;
             bool WindowHasFocus;

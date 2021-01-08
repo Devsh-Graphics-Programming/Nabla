@@ -392,7 +392,9 @@ namespace nbl
             bool Resized;
             bool ExternalWindow;
             CCursorControl* Win32CursorControl;
+#if 0
             DEVMODE DesktopMode;
+#endif
 
             SJoystickWin32Control* JoyControl;
 	};

@@ -12,6 +12,8 @@
 #include "COpenCLHandler.h"
 #include "nbl/asset/IIncludeHandler.h"
 
+#include "EGL/egl.h"
+
 namespace nbl
 {
 	// lots of prototypes:
@@ -107,6 +109,8 @@ namespace nbl
             //! Compares to the last call of this function to return double and triple clicks.
             //! \return Returns only 1,2 or 3. A 4th click will start with 1 again.
             virtual uint32_t checkSuccessiveClicks(int32_t mouseX, int32_t mouseY, EMOUSE_INPUT_EVENT inputEvent );
+
+            EGLDisplay Display;
 
             video::IVideoDriver* VideoDriver;
             scene::ISceneManager* SceneManager;

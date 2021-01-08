@@ -50,10 +50,6 @@
 
 #ifdef _NBL_COMPILE_WITH_X11_
 
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-    #include "COpenGLDriver.h"
-#endif // _NBL_COMPILE_WITH_OPENGL_
-
 namespace nbl
 {
 	namespace video
@@ -61,9 +57,6 @@ namespace nbl
 		IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
 				io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp,
 				const asset::ISPIRVOptimizer* spvopt
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-                ,COpenGLDriver::SAuxContext* auxCtxts
-#endif // _NBL_COMPILE_WITH_OPENGL_
         );
 	}
 } // end namespace nbl
@@ -87,10 +80,7 @@ CIrrDeviceLinux::CIrrDeviceLinux(const SIrrlichtCreationParameters& param)
 	: CIrrDeviceStub(param),
 #ifdef _NBL_COMPILE_WITH_X11_
 	display(0), visual(0), screennr(0), window(0), StdHints(0),
-	XInputMethod(0), XInputContext(0),
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-	glxWin(0),	Context(0), AuxContexts(0),
-#endif
+	XInputMethod(0), XInputContext(0)
 #endif
 	Width(param.WindowSize.Width), Height(param.WindowSize.Height),
 	WindowHasFocus(false), WindowMinimized(false),
@@ -187,26 +177,6 @@ CIrrDeviceLinux::~CIrrDeviceLinux()
 
 	if (display)
 	{
-		#ifdef _NBL_COMPILE_WITH_OPENGL_
-		if (Context)
-		{
-			if (glxWin)
-			{
-				if (!glXMakeContextCurrent(display, None, None, NULL))
-					os::Printer::log("Could not release glx context.", ELL_WARNING);
-			}
-			else
-			{
-				if (!glXMakeCurrent(display, None, NULL))
-					os::Printer::log("Could not release glx context.", ELL_WARNING);
-			}
-			glXDestroyContext(display, Context);
-
-			if (glxWin)
-				glXDestroyWindow(display, glxWin);
-		}
-		#endif // #ifdef _NBL_COMPILE_WITH_OPENGL_
-
 		// Reset fullscreen resolution change
 		switchToFullscreen(true);
 
@@ -550,219 +520,6 @@ bool CIrrDeviceLinux::createWindow()
 
 	switchToFullscreen();
 
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-    // attribute array for the draw buffer
-    int visualAttrBuffer[] =
-    {
-        GLX_X_RENDERABLE    , True,
-        GLX_DRAWABLE_TYPE   , GLX_WINDOW_BIT,
-        GLX_RENDER_TYPE     , GLX_RGBA_BIT,
-        GLX_X_VISUAL_TYPE   , GLX_TRUE_COLOR,
-        GLX_RED_SIZE        , 8,
-        GLX_GREEN_SIZE      , 8,
-        GLX_BLUE_SIZE       , 8,
-        GLX_ALPHA_SIZE      , CreationParams.WithAlphaChannel ? 8:0,
-        GLX_DEPTH_SIZE      , CreationParams.ZBufferBits,
-        GLX_STENCIL_SIZE    , CreationParams.Stencilbuffer ? 8:0,
-        GLX_DOUBLEBUFFER    , CreationParams.Doublebuffer ? True:False,
-        GLX_STEREO          , CreationParams.Stereobuffer ? True:False,
-        GLX_SAMPLE_BUFFERS  , 0,
-        GLX_SAMPLES         , 0,
-        GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB, True,
-        None
-    };
-
-    #define NBL_OGL_LOAD_EXTENSION(X) glXGetProcAddress(reinterpret_cast<const GLubyte*>(X))
-
-    int major,minor;
-	bool isAvailableGLX=false;
-	GLXFBConfig bestFbc;
-	if (CreationParams.DriverType==video::EDT_OPENGL)
-	{
-		isAvailableGLX=glXQueryExtension(display,&major,&minor);
-		if (isAvailableGLX && glXQueryVersion(display, &major, &minor) &&
-            (major>1 || (major==1&&minor>=3) )  )
-		{
-            int fbcount;
-            GLXFBConfig* fbc = glXChooseFBConfig(display, DefaultScreen(display), visualAttrBuffer, &fbcount);
-            if (!fbc)
-            {
-                if (CreationParams.Stencilbuffer)
-                    os::Printer::log("No stencilbuffer available, disabling.", ELL_WARNING);
-                CreationParams.Stencilbuffer = !CreationParams.Stencilbuffer;
-                visualAttrBuffer[13] = CreationParams.Stencilbuffer ? 1:0;
-
-                fbc = glXChooseFBConfig(display, DefaultScreen(display), visualAttrBuffer, &fbcount);
-                if (!fbc && CreationParams.Doublebuffer)
-                {
-                    os::Printer::log("No doublebuffering available.", ELL_WARNING);
-                    CreationParams.Doublebuffer=false;
-                    visualAttrBuffer[14] = GLX_USE_GL;
-                    fbc = glXChooseFBConfig(display, DefaultScreen(display), visualAttrBuffer, &fbcount);
-                }
-            }
-
-            if (fbc)
-            {
-                int desiredSamples = 0;
-                int bestSamples = 1024;
-                int bestDepth = -1;
-                int best_fbc = -1;
-
-                int i;
-                for (i=0; i<fbcount; ++i)
-                {
-                    XVisualInfo *vi = glXGetVisualFromFBConfig( display, fbc[i] );
-                    if ( vi )
-                    {
-                        int obtainedFBConfigAttrs[12];
-                        glXGetFBConfigAttrib( display, fbc[i], GLX_RED_SIZE, obtainedFBConfigAttrs+0 );
-                        glXGetFBConfigAttrib( display, fbc[i], GLX_GREEN_SIZE, obtainedFBConfigAttrs+1 );
-                        glXGetFBConfigAttrib( display, fbc[i], GLX_BLUE_SIZE, obtainedFBConfigAttrs+2 );
-                        glXGetFBConfigAttrib( display, fbc[i], GLX_ALPHA_SIZE, obtainedFBConfigAttrs+3 );
-                        glXGetFBConfigAttrib( display, fbc[i], GLX_DEPTH_SIZE, obtainedFBConfigAttrs+4 );
-                        glXGetFBConfigAttrib( display, fbc[i], GLX_STENCIL_SIZE, obtainedFBConfigAttrs+5 );
-                        glXGetFBConfigAttrib( display, fbc[i], GLX_DOUBLEBUFFER, obtainedFBConfigAttrs+6 );
-                        glXGetFBConfigAttrib( display, fbc[i], GLX_STEREO, obtainedFBConfigAttrs+7 );
-
-                        glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLE_BUFFERS, obtainedFBConfigAttrs+8 );
-                        glXGetFBConfigAttrib( display, fbc[i], GLX_SAMPLES       , obtainedFBConfigAttrs+9  );
-
-                        glXGetFBConfigAttrib( display, fbc[i], GLX_FBCONFIG_ID       , obtainedFBConfigAttrs+10  );
-
-                        glXGetFBConfigAttrib( display, fbc[i], GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB, obtainedFBConfigAttrs+11  );
-
-                        if (CreationParams.WithAlphaChannel)
-                        {
-                            if (obtainedFBConfigAttrs[3]<8)
-                            {
-                                XFree( vi );
-                                continue;
-                            }
-
-                            if (vi->depth==24)
-                            {
-                                XFree( vi );
-                                continue;
-                            }
-                        }
-                        else
-                        {
-                            if (obtainedFBConfigAttrs[3])
-                            {
-                                XFree( vi );
-                                continue;
-                            }
-
-                            if (vi->depth==32)
-                            {
-                                XFree( vi );
-                                continue;
-                            }
-                        }
-
-                        if (best_fbc >= 0)
-                        {
-                            if (obtainedFBConfigAttrs[11]!=True)
-                            {
-                                XFree( vi );
-                                continue;
-                            }
-
-                            if (desiredSamples>1) //want AA
-                            {
-                                if (obtainedFBConfigAttrs[8]!=1 || obtainedFBConfigAttrs[9]<desiredSamples || bestSamples<1024&&obtainedFBConfigAttrs[9]>bestSamples)
-                                {
-                                    XFree( vi );
-                                    continue;
-                                }
-                            }
-                            else if (obtainedFBConfigAttrs[8] || obtainedFBConfigAttrs[9]>1) //don't want AA
-                            {
-                                XFree( vi );
-                                continue;
-                            }
-
-                            if (obtainedFBConfigAttrs[0]<8 || obtainedFBConfigAttrs[1]<8 || obtainedFBConfigAttrs[2]<8)
-                            {
-                                XFree( vi );
-                                continue;
-                            }
-
-                            if (obtainedFBConfigAttrs[4]<CreationParams.ZBufferBits || bestDepth>=0&&obtainedFBConfigAttrs[4]>bestDepth)
-                            {
-                                XFree( vi );
-                                continue;
-                            }
-
-                            if (CreationParams.Stencilbuffer)
-                            {
-                                if (obtainedFBConfigAttrs[5]<8)
-                                {
-                                    XFree( vi );
-                                    continue;
-                                }
-                            }
-                            else if (obtainedFBConfigAttrs[5])
-                            {
-                                XFree( vi );
-                                continue;
-                            }
-
-                            if (CreationParams.Doublebuffer && !obtainedFBConfigAttrs[6])
-                            {
-                                XFree( vi );
-                                continue;
-                            }
-                        }
-/*
-                        printf("%d===================================================================\n",obtainedFBConfigAttrs[10]);
-                        printf("GLX_RED_SIZE \t\t%d\n",obtainedFBConfigAttrs[0]);
-                        printf("GLX_GREEN_SIZE \t\t%d\n",obtainedFBConfigAttrs[1]);
-                        printf("GLX_BLUE_SIZE \t\t%d\n",obtainedFBConfigAttrs[2]);
-                        printf("GLX_ALPHA_SIZE \t\t%d\n",obtainedFBConfigAttrs[3]);
-                        printf("GLX_DEPTH_SIZE \t\t%d\n",obtainedFBConfigAttrs[4]);
-                        printf("GLX_STENCIL_SIZE \t\t%d\n",obtainedFBConfigAttrs[5]);
-                        printf("GLX_DOUBLEBUFFER \t\t%d\n",obtainedFBConfigAttrs[6]);
-                        printf("GLX_STEREO \t\t%d\n",obtainedFBConfigAttrs[7]);
-                        printf("GLX_SAMPLE_BUFFERS \t\t%d\n",obtainedFBConfigAttrs[8]);
-                        printf("GLX_SAMPLES \t\t%d\n",obtainedFBConfigAttrs[9]);
-                        printf("=====================================================================\n");
-*/
-                        best_fbc = i;
-                        bestDepth = obtainedFBConfigAttrs[4];
-                        bestSamples = obtainedFBConfigAttrs[9];
-                    }
-                    XFree( vi );
-                }
-
-                //printf("best_fbc is %d\n",best_fbc);
-                if (best_fbc<0)
-                {
-                    os::Printer::log("Couldn't find matching Framebuffer Config.", ELL_ERROR);
-                }
-                else
-                {
-                    bestFbc = fbc[ best_fbc ];
-
-                    visual = glXGetVisualFromFBConfig( display, bestFbc );
-                    //printf("Visual chosen %d\n",visual->visualid);
-                }
-
-                // Be sure to free the FBConfig list allocated by glXChooseFBConfig()
-                XFree( fbc );
-            }
-            else
-                os::Printer::log("No GLX support available. OpenGL driver will not work.", ELL_ERROR);
-		}
-		else
-			os::Printer::log("No GLX support available. OpenGL driver will not work.", ELL_ERROR);
-	}
-	// don't use the XVisual with OpenGL, because it ignores all requested
-	// properties of the CreationParams
-	else if (!visual)
-#endif // _NBL_COMPILE_WITH_OPENGL_
-
 	// create visual with standard X methods
 	{
 		os::Printer::log("Using plain X visual");
@@ -858,111 +615,6 @@ bool CIrrDeviceLinux::createWindow()
 	WindowMinimized=false;
 	// Currently broken in X, see Bug ID 2795321
 	// XkbSetDetectableAutoRepeat(display, True, &AutorepeatSupport);
-
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-
-	// connect glx context to window
-	Context=0;
-	if (isAvailableGLX && CreationParams.DriverType==video::EDT_OPENGL)
-	{
-		GLXContext tmpCtx = glXCreateContext(display, visual, NULL, True);
-		glXMakeCurrent(display, window, tmpCtx);
-        //if (glXMakeCurrent(display, window, Context))
-            PFNGLXCREATECONTEXTATTRIBSARBPROC pGlxCreateContextAttribsARB = (PFNGLXCREATECONTEXTATTRIBSARBPROC)NBL_OGL_LOAD_EXTENSION("glXCreateContextAttribsARB");
-
-		if (tmpCtx)
-        {
-            if (pGlxCreateContextAttribsARB)
-            {
-                int context_attribs[] =
-                {
-                    GLX_CONTEXT_MAJOR_VERSION_ARB, 4,
-                    GLX_CONTEXT_MINOR_VERSION_ARB, 6,
-                    GLX_CONTEXT_PROFILE_MASK_ARB,  GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
-                    None
-                };
-
-                // create rendering context
-                Context = pGlxCreateContextAttribsARB( display, bestFbc, 0, True, context_attribs );
-                if (!Context)
-                {
-                    context_attribs[3] = 5;
-                    Context = pGlxCreateContextAttribsARB( display, bestFbc, 0, True, context_attribs );
-                }
-                if (!Context)
-                {
-                    context_attribs[3] = 4;
-                    Context = pGlxCreateContextAttribsARB( display, bestFbc, 0, True, context_attribs );
-                }
-                if (!Context)
-                {
-                    context_attribs[3] = 3;
-                    Context = pGlxCreateContextAttribsARB( display, bestFbc, 0, True, context_attribs );
-                } //! everything below will go!
-
-                if (Context)
-                {
-                    AuxContexts = _NBL_NEW_ARRAY(video::COpenGLDriver::SAuxContext,CreationParams.AuxGLContexts+1);
-                    {
-                        reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].threadId = std::this_thread::get_id();
-                        reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].ctx = Context;
-                        reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[0].pbuff = 0ull;
-                    }
-
-                    const int pboAttribs[] =
-                    {
-                        GLX_PBUFFER_WIDTH,  128,
-                        GLX_PBUFFER_HEIGHT, 128,
-                        GLX_PRESERVED_CONTENTS, 0,
-                        None
-                    };
-
-                    for (uint8_t i=1; i<=CreationParams.AuxGLContexts; i++)
-                    {
-                        reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[i].threadId = std::thread::id(); //invalid ID
-                        reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[i].ctx = pGlxCreateContextAttribsARB( display, bestFbc, Context, True, context_attribs );
-                        reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[i].pbuff = glXCreatePbuffer( display, bestFbc, pboAttribs);
-                    }
-
-                    if (!glXMakeCurrent(display, window, Context))
-                    {
-                        os::Printer::log("Could not make context current.", ELL_WARNING);
-
-                        for (uint8_t i=1; i<=CreationParams.AuxGLContexts; i++)
-                        {
-                            glXDestroyPbuffer(display,reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[i].pbuff);
-                            glXDestroyContext(display,reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts)[i].ctx);
-                        }
-
-                        _NBL_DELETE_ARRAY(reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts),CreationParams.AuxGLContexts+1);
-
-                        glXDestroyContext(display, Context);
-                        glXMakeCurrent(display, None, NULL);
-                    }
-                    glXDestroyContext(display, tmpCtx);
-                }
-                else
-                {
-                    glXMakeCurrent(display, None, NULL);
-                    glXDestroyContext(display, tmpCtx);
-                    os::Printer::log("Could not create GLX rendering context.", ELL_WARNING);
-                }
-            }
-            else
-            {
-                glXMakeCurrent(display, None, NULL);
-                glXDestroyContext(display, tmpCtx);
-                os::Printer::log("Could not get pointer to glxCreateContextAttribsARB.", ELL_WARNING);
-            }
-        }
-        else
-        {
-            glXMakeCurrent(display, None, NULL);
-            glXDestroyContext(display, tmpCtx);
-            os::Printer::log("Could not get pointer to glxCreateContextAttribsARB.", ELL_WARNING);
-        }
-	}
-#endif // _NBL_COMPILE_WITH_OPENGL_
 
 	Window tmp;
 	uint32_t borderWidth;
