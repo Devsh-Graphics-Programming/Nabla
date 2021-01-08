@@ -88,6 +88,10 @@ set(WAYLAND_SHARED ON)
 set(X11_SHARED ON)
 add_subdirectory(SDL2 SDL2 EXCLUDE_FROM_ALL)
 
+# EGL
+set(EGL_NO_GLEW ON)
+add_subdirectory(EGL/EGL)
+
 # zlib (target is zlibstatic)
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(_OLD_SKIP_INSTALL_ALL ${SKIP_INSTALL_ALL})

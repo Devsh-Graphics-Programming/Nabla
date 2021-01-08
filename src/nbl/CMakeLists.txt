@@ -393,6 +393,9 @@ endmacro()
 macro(nbl_target_link_volk _trgt)
 	target_link_libraries(${_trgt} PRIVATE volk)
 endmacro()
+macro(nbl_target_link_EGL _trgt)
+	target_link_libraries(${_trgt} PUBLIC egl)
+endmacro()
 
 add_library(Nabla STATIC
 	${NABLA_SRCS_COMMON}
@@ -423,6 +426,7 @@ nbl_target_include_parallel_hashmap(Nabla)
 nbl_target_link_spirv_tools(Nabla)
 nbl_target_link_SDL2(Nabla)
 nbl_target_link_volk(Nabla)
+nbl_target_link_EGL(Nabla)
 
 target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
