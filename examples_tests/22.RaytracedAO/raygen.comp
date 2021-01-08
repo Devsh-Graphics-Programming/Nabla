@@ -221,12 +221,12 @@ void main()
 			const uint realOutputID = outputID+i;
 			if (validRay)
 			{
-				throughput /= float(staticViewData.samplesPerPixelPerDispatch);
+				throughput.rgb /= float(staticViewData.samplesPerPixelPerDispatch);
 
 				const float tt = 1.0;
-				rays[realOutputID].origin = nbl_glsl_MC_getWorldSpacePosition()+nbl_glsl_MC_getNormalizedWorldSpaceV()*tt;//-direction*0.5*maxT;/*+newray.direction*err?; TODO */
-				rays[realOutputID].maxT = tt*2.0;
-				rays[realOutputID].direction = -nbl_glsl_MC_getNormalizedWorldSpaceV()*tt;
+				rays[realOutputID].origin = pc.cummon.cameraPosition;//nbl_glsl_MC_getWorldSpacePosition()+nbl_glsl_MC_getNormalizedWorldSpaceV()*tt;//-direction*0.5*maxT;/*+newray.direction*err?; TODO */
+				rays[realOutputID].maxT = FLT_MAX;//tt*2.0;
+				rays[realOutputID].direction = -nbl_glsl_MC_getNormalizedWorldSpaceV();
 				rays[realOutputID].mask = -1;
 				rays[realOutputID]._active = 1;
 				rays[realOutputID].backfaceCulling = int(packHalf2x16(throughput.ab));

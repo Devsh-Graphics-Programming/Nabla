@@ -99,9 +99,8 @@ class IOpenGLPipeline
 		        {
 			        // pack the constant data as OpenGL uniform update functions expect packed arrays
 			        {
-				        const bool isRowMajor = is_scalar_or_vec() || m.rowMajor;
-                        const uint32_t rowOrColCnt = isRowMajor ? m.mtxRowCnt : m.mtxColCnt;
-				        const uint32_t len = isRowMajor ? m.mtxColCnt : m.mtxRowCnt;
+                        const uint32_t rowOrColCnt = m.rowMajor ? m.mtxRowCnt : m.mtxColCnt;
+				        const uint32_t len = m.rowMajor ? m.mtxColCnt : m.mtxRowCnt;
 				        for (uint32_t i = 0u; i < count; ++i)
 				        for (uint32_t c = 0u; c < rowOrColCnt; ++c)
 				        {
