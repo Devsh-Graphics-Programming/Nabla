@@ -99,7 +99,10 @@ bool gen_sample_ray(
 	nbl_glsl_LightSample s;
 	throughput = nbl_glsl_MC_runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
 	throughput /= float(staticViewData.samplesPerPixelPerDispatch);
-	return true;
+
+	direction = s.L;
+
+	return s.NdotL>FLT_MIN && any(greaterThan(throughput,vec3(FLT_MIN)));
 }
 
 void main()
@@ -128,7 +131,7 @@ void main()
 			// tmp gbuffer reads
 			const vec2 normalBuffer = texelFetch(encodedNormal,pixelCoord,0).rg;
 			const vec2 UV = texelFetch(uvCoords,pixelCoord,0).xy;
-			mat2 dUVdScreen;/*
+			mat2 dUVdScreen = mat2(0.0,0.0,0.0,0.0);/*
 			mat2x3 dBarydScreen;/*
 			{
 				// TODO: future https://diaryofagraphicsprogrammer.blogspot.com/2018/03/triangle-visibility-buffer.html
@@ -215,7 +218,7 @@ void main()
 			const uint realOutputID = outputID+i;
 			if (validRay)
 			{
-				const float err = 1.0/512.0;
+				const float err = 1.0/64.0;
 				rays[realOutputID].origin = worldPosition+direction*err;
 				rays[realOutputID].maxT = max(maxT-err,0.0);
 				rays[realOutputID].direction = direction;

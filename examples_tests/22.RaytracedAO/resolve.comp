@@ -30,8 +30,7 @@ void main()
 			if (hit.shapeid<0)
 				continue;
 
-			// TODO: fetch from ray buffer
-			const float thoughput = 1.0/7.0;
+			const vec3 thoughput = vec3(unpackHalf2x16(rays[rayID].useless_padding).yx,unpackHalf2x16(rays[rayID].backfaceCulling).yx);
 				
 			const bool frontface = true; // TODO: how to determine frontface easily from radeon rays!? barycentrics? ray direction vs. oriented cross product?
 			nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[hit.shapeid].material,frontface);
