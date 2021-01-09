@@ -39,14 +39,6 @@ mat2x3 nbl_glsl_MC_getdPos()
 #include <nbl/builtin/glsl/material_compiler/common.glsl>
 
 
-// functions
-vec3 rand3d(in uint _sample, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
-{
-	uvec3 seqVal = texelFetch(sampleSequence,int(_sample)).xyz;
-	seqVal ^= uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
-    return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
-}
-
 /*
 float maxAbs1(in float val) 
 {
@@ -86,16 +78,27 @@ float ULP3(in vec3 val, in uint accuracy)
 }
 */
 
-
-struct SamplingData_t
+vec3 rand3d(inout nbl_glsl_xoroshiro64star_state_t scramble_state, in uint _sample)
 {
-	uint sampleID;
-};
-bool gen_sample_ray(out float maxT, out vec3 direction, out vec3 throughput, in SamplingData_t samplingData)
+	uvec3 seqVal = texelFetch(sampleSequence,int(_sample)).xyz;
+	seqVal ^= uvec3(nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state),nbl_glsl_xoroshiro64star(scramble_state));
+    return vec3(seqVal)*uintBitsToFloat(0x2f800004u);
+}
+
+bool gen_sample_ray(
+	out float maxT, out vec3 direction, out vec3 throughput,
+	inout nbl_glsl_xoroshiro64star_state_t scramble_state, in uint sampleID,
+	in nbl_glsl_MC_precomputed_t precomp, in nbl_glsl_MC_instr_stream_t gcs, in nbl_glsl_MC_instr_stream_t rnps
+)
 {
 	maxT = FLT_MAX;
-	direction = nbl_glsl_MC_getNormalizedWorldSpaceN();
-	throughput = vec3(1.0)/float(staticViewData.samplesPerPixelPerDispatch);
+	
+	vec3 rand = rand3d(scramble_state,sampleID);
+	
+	float pdf;
+	nbl_glsl_LightSample s;
+	throughput = nbl_glsl_MC_runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
+	throughput /= float(staticViewData.samplesPerPixelPerDispatch);
 	return true;
 }
 
@@ -108,18 +111,24 @@ void main()
 		float revdepth = texelFetch(depthbuf,pixelCoord,0).r;
 
 		const uint outputID = outputLocation.y*staticViewData.samplesPerRowPerDispatch+outputLocation.x*staticViewData.samplesPerPixelPerDispatch;
-
-		SamplingData_t samplingData;
 		
-		bool alive = false;
+		nbl_glsl_xoroshiro64star_state_t scramble_start_state; // this should get advanced for secondary rays by 3 or 4 iterations
+		
 		nbl_glsl_MC_precomputed_t precomputed;
-		nbl_glsl_MC_oriented_material_t material;
-		nbl_glsl_xoroshiro64star_state_t start_scramble;
-		vec2 uv;
-		if (revdepth>0.0)
+		nbl_glsl_MC_instr_stream_t gcs;
+		nbl_glsl_MC_instr_stream_t rnps;
+
+		const bool nonBackgroudPixel = revdepth>0.0;
+		if (nonBackgroudPixel)
 		{			
 			// vis buffer read
 			const uvec2 visBuffer = texelFetch(frontFacing_Object_Triangle,pixelCoord,0).rg;
+			// init scramble
+			scramble_start_state = texelFetch(scramblebuf,pixelCoord,0).rg;
+			// tmp gbuffer reads
+			const vec2 normalBuffer = texelFetch(encodedNormal,pixelCoord,0).rg;
+			const vec2 UV = texelFetch(uvCoords,pixelCoord,0).xy;
+			mat2 dUVdScreen;/*
 			mat2x3 dBarydScreen;/*
 			{
 				// TODO: future https://diaryofagraphicsprogrammer.blogspot.com/2018/03/triangle-visibility-buffer.html
@@ -129,11 +138,6 @@ void main()
 			}
 			dPosdScreen = mat3(vPos[0],vPos[1],vPos[2])*dBarydScreen;
 			*/
-			// init scramble
-			start_scramble = texelFetch(scramblebuf,pixelCoord,0).rg;
-			// tmp gbuffer reads
-			const vec2 normalBuffer = texelFetch(encodedNormal,pixelCoord,0).rg;
-			uv = texelFetch(uvCoords,pixelCoord,0).xy;
 			
 			// unproject
 			{
@@ -147,38 +151,46 @@ void main()
 			}
 			
 			// decode vis buffer
-			bool frontfacing;
-			vec3 emissive;
+			vec3 emissive = vec3(0.0,0.0,0.0);
 			{
 				const uint objectID = visBuffer[0]&0x7fffffffu;
-				frontfacing = objectID==visBuffer[0];
 				const uint triangleID = visBuffer[1];
+				const bool frontfacing = objectID==visBuffer[0];
+
+				nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[objectID].material,frontfacing);
 				
-				//
+				// use loaded data
 				precomputed = nbl_glsl_MC_precomputeData(frontfacing);
-				material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[objectID].material,precomputed.frontface);
-
-				//
 				emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
-
+				gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
+				rnps = nbl_glsl_MC_oriented_material_t_getRemAndPdfStream(material);
+				
 				// normally we'd use MeshPackerV2's vertex attribute data for this, but now we read from temporary GBuffer
 				const vec3 normal = nbl_glsl_NormalDecode_signedSpherical(normalBuffer);
 				normalizedN.x = dot(InstData.data[objectID].normalMatrixRow0,normal);
 				normalizedN.y = dot(InstData.data[objectID].normalMatrixRow1,normal);
 				normalizedN.z = dot(InstData.data[objectID].normalMatrixRow2,normal);
+
+				// prefetch textures and normals
+				#ifdef TEX_PREFETCH_STREAM
+					nbl_glsl_MC_runTexPrefetchStream(nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material), UV, dUVdScreen);
+				#endif
+				#ifdef NORM_PRECOMP_STREAM
+					nbl_glsl_MC_runNormalPrecompStream(nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(material), dUVdScreen, precomputed);
+				#endif
 			}
 			
 			//
-			vec3 acc;
-			if (pc.cummon.rcpFramesDispatched<1.0)
-				acc = fetchAccumulation(pixelCoord)+emissive/float(pc.cummon.framesDispatched-1u);
-			else
-				acc = emissive;
-
-			//
-
-			storeAccumulation(acc,pixelCoord);
-			alive = true;
+			if (any(greaterThan(emissive,vec3(FLT_MIN))))
+			{
+				vec3 acc = emissive;
+				if (pc.cummon.rcpFramesDispatched<1.0)
+				{
+					acc /= float(pc.cummon.framesDispatched-1u);
+					acc += fetchAccumulation(pixelCoord);
+				}
+				storeAccumulation(acc,pixelCoord);
+			}
 		}
 #ifdef USE_OPTIX_DENOISER
 		// TODO: translate normal into float16_t buff
@@ -186,18 +198,20 @@ void main()
 
 		for (uint i=0u; i<staticViewData.samplesPerPixelPerDispatch; i++)
 		{
-			vec3 direction; // TODO: just use nbl_glsl_LightSample?
+			vec3 direction;
 			float maxT;
-			vec4 throughput = vec4(0.0,0.0,0.0,-1.0); // -1 needs to be there to ensure no backface culling on rays
+			vec4 throughput;
+			throughput.a = -1.0; // -1 needs to be there to ensure no backface culling on rays
 
 			bool validRay = false;
-			if (alive)
+			if (nonBackgroudPixel)
 			{
-				samplingData.sampleID = pc.cummon.samplesComputedPerPixel+i;
-				validRay = gen_sample_ray(maxT,direction,throughput.rgb,samplingData);
+				nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
+				const uint sampleID = pc.cummon.samplesComputedPerPixel+i;
+				validRay = gen_sample_ray(maxT,direction,throughput.rgb,scramble_state,sampleID,precomputed,gcs,rnps);
 			}
 			
-			// TODO: repack rays in smem for coalescing
+			// TODO: repack rays in smem for coalescing, or optimize this somehow
 			const uint realOutputID = outputID+i;
 			if (validRay)
 			{
