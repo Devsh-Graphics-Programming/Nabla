@@ -1018,9 +1018,31 @@ void Renderer::render(nbl::ITimer* timer)
 	camera->render();
 
 	const auto currentViewProj = camera->getConcatenatedMatrix();
+	auto properEquals = [](const auto& rhs, const auto& lhs) -> bool
+	{
+		const float rotationTolerance = 1.001f;
+		const float positionTolerance = 1.005f;
+		const float projectionTolerance = 1.0005f;
+		const core::matrix4SIMD tolerance(
+			rotationTolerance,rotationTolerance,rotationTolerance,positionTolerance,
+			rotationTolerance,rotationTolerance,rotationTolerance,positionTolerance,
+			rotationTolerance,rotationTolerance,rotationTolerance,positionTolerance,
+			projectionTolerance,projectionTolerance,projectionTolerance,projectionTolerance
+		);
+		for (auto r=0; r<4u; r++)
+		for (auto c=0; c<4u; c++)
+		{
+			const float ratio = core::abs(rhs.rows[r][c]/lhs.rows[r][c]);
+			// TODO: do by ULP
+			if (core::isnan(ratio) || core::isinf(ratio))
+				continue;
+			if (ratio>tolerance.rows[r][c] || ratio*tolerance.rows[r][c]<1.f)
+				return false;
+		}
+		return true;
+	};
 	// TODO: instead of rasterizing vis-buffer only once, subpixel jitter it to obtain AA
-	const auto thresh = core::ROUNDING_ERROR<core::matrix4SIMD>()*128.f;
-	if (!core::equals(prevViewProj,currentViewProj,thresh))
+	if (!properEquals(prevViewProj,currentViewProj))
 	{
 		m_raytraceCommonData.framesDispatched = 0u;
 
