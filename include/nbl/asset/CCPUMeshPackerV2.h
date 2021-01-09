@@ -26,17 +26,17 @@ public:
 
     struct AttribAllocParams
     {
-        size_t offset = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
-        size_t size = 0u;
+        size_t offset = INVALID_ADDRESS;
+        size_t size = 0ull;
     };
 
-	struct AllocData
+	struct ReservedAllocationMeshBuffers
     {
         uint32_t mdiAllocationOffset;
         uint32_t mdiAllocationReservedSize;
         uint32_t indexAllocationOffset;
         uint32_t indexAllocationReservedSize;
-        AttribAllocParams attribAllocParams[16u];
+        AttribAllocParams attribAllocParams[SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT];
 
         inline bool isValid()
         {
@@ -60,16 +60,14 @@ public:
     CCPUMeshPackerV2(const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u);
 
 	template <typename Iterator>
-	bool alloc(AllocData* allocDataOut, const Iterator begin, const Iterator end);
+	bool alloc(ReservedAllocationMeshBuffers* rambOut, const Iterator begin, const Iterator end);
 
     void instantiateDataStorage();
 
     template <typename Iterator>
-    bool commit(MeshPackerBase::PackedMeshBufferData* pmbdOut, AllocData* allocDataIn, const Iterator begin, const Iterator end);
+    bool commit(MeshPackerBase::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const Iterator begin, const Iterator end);
 
     PackedMeshBuffer createGPUPackedMeshBuffer(video::IVideoDriver* driver);
-
-    virtual core::vector<TriangleBatch> constructTriangleBatches(ICPUMeshBuffer& meshBuffer);
 
 private:
     core::smart_refctd_ptr<ICPUBuffer> m_vtxBuffer;
@@ -90,20 +88,20 @@ CCPUMeshPackerV2<MDIStructType>::CCPUMeshPackerV2(const AllocationParams& allocP
 
 template <typename MDIStructType>
 template <typename Iterator>
-bool CCPUMeshPackerV2<MDIStructType>::alloc(AllocData* allocDataOut, const Iterator begin, const Iterator end)
+bool CCPUMeshPackerV2<MDIStructType>::alloc(ReservedAllocationMeshBuffers* rambOut, const Iterator begin, const Iterator end)
 {
     size_t i = 0ull;
     for (auto it = begin; it != end; it++)
     {
-        AllocData& allocData = *(allocDataOut + i);
+        ReservedAllocationMeshBuffers& ramb = *(rambOut + i);
         const size_t vtxCnt = (*it)->calcVertexCount();
         const size_t idxCnt = (*it)->getIndexCount();
 
         //allocate indices
-        allocData.indexAllocationOffset = m_idxBuffAlctr.alloc_addr(idxCnt, 2u);
-        if (allocData.indexAllocationOffset == INVALID_ADDRESS)
+        ramb.indexAllocationOffset = m_idxBuffAlctr.alloc_addr(idxCnt, 2u);
+        if (ramb.indexAllocationOffset == INVALID_ADDRESS)
             return false;
-        allocData.indexAllocationReservedSize = idxCnt * 2;
+        ramb.indexAllocationReservedSize = idxCnt * 2;
 
         //allocate vertices
         const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
@@ -118,22 +116,22 @@ bool CCPUMeshPackerV2<MDIStructType>::alloc(AllocData* allocDataOut, const Itera
             if (!core::isPoT(attribSize))
                 return false;
 
-            allocData.attribAllocParams[location].offset = m_vtxBuffAlctr.alloc_addr(vtxCnt * attribSize, attribSize);
+            ramb.attribAllocParams[location].offset = m_vtxBuffAlctr.alloc_addr(vtxCnt * attribSize, attribSize);
 
-            if (allocData.attribAllocParams[location].offset == INVALID_ADDRESS)
+            if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
                 return false;
 
-            allocData.attribAllocParams[location].size = vtxCnt * attribSize;
+            ramb.attribAllocParams[location].size = vtxCnt * attribSize;
         }
 
         //allocate MDI structs
         const uint32_t minIdxCntPerPatch = m_minTriangleCountPerMDIData * 3;
         size_t possibleMDIStructsNeededCnt = (idxCnt + minIdxCntPerPatch - 1) / minIdxCntPerPatch;
 
-        allocData.mdiAllocationOffset = m_MDIDataAlctr.alloc_addr(possibleMDIStructsNeededCnt, 1u);
-        if (allocData.mdiAllocationOffset == INVALID_ADDRESS)
+        ramb.mdiAllocationOffset = m_MDIDataAlctr.alloc_addr(possibleMDIStructsNeededCnt, 1u);
+        if (ramb.mdiAllocationOffset == INVALID_ADDRESS)
             return false;
-        allocData.mdiAllocationReservedSize = possibleMDIStructsNeededCnt;
+        ramb.mdiAllocationReservedSize = possibleMDIStructsNeededCnt;
 
         i++;
     }
@@ -146,44 +144,72 @@ void CCPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
 {
     m_MDIBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.MDIDataBuffSupportedCnt * sizeof(MDIStructType));
     m_idxBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.indexBuffSupportedCnt * sizeof(uint16_t));
-    //TODO: fix after new `AllocationParams` is done
     m_vtxBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.vertexBuffSupportedSize);
 }
 
 template <typename MDIStructType>
 template <typename Iterator>
-bool CCPUMeshPackerV2<MDIStructType>::commit(MeshPackerBase::PackedMeshBufferData* pmbdOut, AllocData* allocDataIn, const Iterator begin, const Iterator end)
+bool CCPUMeshPackerV2<MDIStructType>::commit(MeshPackerBase::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const Iterator begin, const Iterator end)
 {
-    return false;
+    size_t i = 0ull;
+    for (auto it = begin; it != end; it++)
+    {
+        ReservedAllocationMeshBuffers& ramb = *(rambIn + i);
+        MeshPackerBase::PackedMeshBufferData& pmbd = *(pmbdOut + i);
+
+        MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(m_MDIBuffer->getPointer()) + ramb.mdiAllocationOffset;
+        uint16_t* indexBuffPtr = static_cast<uint16_t*>(m_idxBuffer->getPointer()) + ramb.indexAllocationOffset;
+
+        const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
+
+        core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(**it);
+
+        for (TriangleBatch& batch : triangleBatches)
+        {
+            core::unordered_map<uint32_t, uint16_t> usedVertices = constructNewIndicesFromTriangleBatch(batch, indexBuffPtr);
+
+            //copy deinterleaved vertices into unified vertex buffer
+            for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
+            {
+                if (!(mbVtxInputParams.enabledAttribFlags & attrBit))
+                    continue;
+
+                assert(ramb.attribAllocParams[location].offset != INVALID_ADDRESS);
+
+                uint8_t* dstAttrPtr = static_cast<uint8_t*>(m_vtxBuffer->getPointer()) + ramb.attribAllocParams[location].offset;
+                deinterleaveAndCopyAttribute(*it, location, usedVertices, dstAttrPtr, true);
+            }
+
+            //construct mdi data
+            MDIStructType MDIData;
+            //TODO
+
+            *mdiBuffPtr = MDIData;
+            mdiBuffPtr++;
+        }
+
+        pmbd = { ramb.mdiAllocationOffset, static_cast<uint32_t>(triangleBatches.size()) };
+
+        i++;
+    }
+
+    return true;
 }
 
 template <typename MDIStructType>
 typename CCPUMeshPackerV2<MDIStructType>::PackedMeshBuffer CCPUMeshPackerV2<MDIStructType>::createGPUPackedMeshBuffer(video::IVideoDriver* driver)
 {
-    PackedMeshBuffer output;
-    output.MDIDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_MDIBuffer->getSize(), m_MDIBuffer->getPointer());
-    output.vertexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_vtxBuffer->getSize(), m_vtxBuffer->getPointer());
-    output.indexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_idxBuffer->getSize(), m_idxBuffer->getPointer());
+    PackedMeshBuffer m_output;
+    m_output.MDIDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_MDIBuffer->getSize(), m_MDIBuffer->getPointer());
+    m_output.vertexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_vtxBuffer->getSize(), m_vtxBuffer->getPointer());
+    m_output.indexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_idxBuffer->getSize(), m_idxBuffer->getPointer());
 
-    return output;
-}
-
-template<typename MDIStructType>
-auto CCPUMeshPackerV2<MDIStructType>::constructTriangleBatches(ICPUMeshBuffer& meshBuffer) -> core::vector<typename base_t::TriangleBatch>
-{
-    return core::vector<IMeshPacker::TriangleBatch>();
+    return m_output;
 }
 
 }
 }
 
 #endif
-
-//TODO
-/*refactor:
-    - this packer doesn't use `m_perInsVtxBuffAlctr`, move it from `IMeshPacker` to `CCPUMeshPacker`
-    - constructor of this packer doesn't need `SVertexInputParams` as an input parameter, move code associated with `SVertexInputParams` from constructor of the `IMeshPacker` to the constructor of the `CCPUMeshPacker`
-    - fix `AllocationParams`
-*/
 
 //AllocData as SoA?

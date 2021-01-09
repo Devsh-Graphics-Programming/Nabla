@@ -120,8 +120,6 @@ protected:
 
 };
 
-//TODO: allow mesh buffers with only per instance attributes
-
 template <typename MeshBufferType, typename MDIStructType = DrawElementsIndirectCommand_t>
 class IMeshPacker : public MeshPackerBase
 {
@@ -251,7 +249,6 @@ protected:
         return size;
     }
 
-public:
     struct Triangle
     {
         uint32_t oldIndices[3];
@@ -262,7 +259,115 @@ public:
         core::vector<Triangle> triangles;
     };
 
-    virtual core::vector<TriangleBatch> constructTriangleBatches(MeshBufferType& meshBuffer) = 0;
+    core::vector<TriangleBatch> constructTriangleBatches(MeshBufferType& meshBuffer)
+    {
+        const size_t idxCnt = meshBuffer.getIndexCount();
+        const uint32_t triCnt = idxCnt / 3;
+        _NBL_DEBUG_BREAK_IF(idxCnt % 3 != 0);
+
+        const uint32_t batchCount = (triCnt + m_maxTriangleCountPerMDIData - 1) / m_maxTriangleCountPerMDIData;
+
+        core::vector<TriangleBatch> output(batchCount);
+
+        for (uint32_t i = 0u; i < batchCount; i++)
+        {
+            if (i == (batchCount - 1))
+            {
+                if (triCnt % m_maxTriangleCountPerMDIData)
+                {
+                    output[i].triangles = core::vector<Triangle>(triCnt % m_maxTriangleCountPerMDIData);
+                    continue;
+                }
+            }
+
+            output[i].triangles = core::vector<Triangle>(m_maxTriangleCountPerMDIData);
+        }
+
+        //struct TriangleMortonCodePair
+        //{
+        //	Triangle triangle;
+        //	//uint64_t mortonCode; TODO after benchmarks
+        //};
+
+        //TODO: triangle reordering
+
+        auto* srcIdxBuffer = meshBuffer.getIndexBufferBinding();
+        uint32_t* idxBufferPtr32Bit = static_cast<uint32_t*>(srcIdxBuffer->buffer->getPointer()) + (srcIdxBuffer->offset / sizeof(uint32_t)); //will be changed after benchmarks
+        uint16_t* idxBufferPtr16Bit = static_cast<uint16_t*>(srcIdxBuffer->buffer->getPointer()) + (srcIdxBuffer->offset / sizeof(uint16_t));
+        for (TriangleBatch& batch : output)
+        {
+            for (Triangle& tri : batch.triangles)
+            {
+                if (meshBuffer.getIndexType() == EIT_32BIT)
+                {
+                    tri.oldIndices[0] = *idxBufferPtr32Bit;
+                    tri.oldIndices[1] = *(++idxBufferPtr32Bit);
+                    tri.oldIndices[2] = *(++idxBufferPtr32Bit);
+                    idxBufferPtr32Bit++;
+                }
+                else if (meshBuffer.getIndexType() == EIT_16BIT)
+                {
+
+                    tri.oldIndices[0] = *idxBufferPtr16Bit;
+                    tri.oldIndices[1] = *(++idxBufferPtr16Bit);
+                    tri.oldIndices[2] = *(++idxBufferPtr16Bit);
+                    idxBufferPtr16Bit++;
+                }
+            }
+        }
+
+        return output;
+    }
+
+    core::unordered_map<uint32_t, uint16_t> constructNewIndicesFromTriangleBatch(TriangleBatch& batch, uint16_t*& indexBuffPtr)
+    {
+        core::unordered_map<uint32_t, uint16_t> usedVertices;
+        core::vector<Triangle> newIdxTris = batch.triangles;
+
+        uint32_t newIdx = 0u;
+        for (uint32_t i = 0u; i < batch.triangles.size(); i++)
+        {
+            const Triangle& triangle = batch.triangles[i];
+            for (int32_t j = 0; j < 3; j++)
+            {
+                const uint32_t oldIndex = triangle.oldIndices[j];
+                auto result = usedVertices.insert(std::make_pair(oldIndex, newIdx));
+
+                newIdxTris[i].oldIndices[j] = result.second ? newIdx++ : result.first->second;
+            }
+        }
+
+        //TODO: cache optimization
+
+        //copy indices into unified index buffer
+        for (size_t i = 0; i < batch.triangles.size(); i++)
+        {
+            for (int j = 0; j < 3; j++)
+            {
+                *indexBuffPtr = newIdxTris[i].oldIndices[j];
+                indexBuffPtr++;
+            }
+        }
+
+        return usedVertices;
+    }
+
+    void deinterleaveAndCopyAttribute(MeshBufferType* meshBuffer, uint16_t attrLocation, core::unordered_map<uint32_t, uint16_t>& usedVertices, uint8_t* dstAttrPtr, bool roundUpAttrSizeToPoT /*TODO*/)
+    {
+        uint8_t* srcAttrPtr = meshBuffer->getAttribPointer(attrLocation);
+        SVertexInputParams& mbVtxInputParams = meshBuffer->getPipeline()->getVertexInputParams();
+        SVertexInputAttribParams MBAttrib = mbVtxInputParams.attributes[attrLocation];
+        SVertexInputBindingParams attribBinding = mbVtxInputParams.bindings[MBAttrib.binding];
+        const size_t attrSize = asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(MBAttrib.format));
+        const size_t stride = (attribBinding.stride) == 0 ? attrSize : attribBinding.stride;
+
+        for (auto index : usedVertices)
+        {
+            const uint8_t* attrSrc = srcAttrPtr + (index.first * stride);
+            uint8_t* attrDest = dstAttrPtr + (index.second * attrSize);
+            memcpy(attrDest, attrSrc, attrSize);
+        }
+    }
 
 protected:
     _NBL_STATIC_INLINE_CONSTEXPR uint32_t INVALID_ADDRESS = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;

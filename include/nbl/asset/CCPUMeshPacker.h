@@ -135,9 +135,6 @@ public:
 
 	inline PackedMeshBuffer& getPackedMeshBuffer() { return outputBuffer; };
 
-protected:
-	core::vector<typename base_t::TriangleBatch> constructTriangleBatches(ICPUMeshBuffer& meshBuffer) override;
-
 private:
 	//configures indices and MDI structs (implementation is not ready yet)
 	template<typename IndexType>
@@ -440,66 +437,6 @@ uint32_t CCPUMeshPacker<MDIStructType>::processMeshBuffer(ICPUMeshBuffer* inputM
 	return MDIStructsNeeded;
 }
 
-template<typename MDIStructType>
-auto CCPUMeshPacker<MDIStructType>::constructTriangleBatches(ICPUMeshBuffer& meshBuffer) -> core::vector<typename base_t::TriangleBatch>
-{
-	const size_t idxCnt = meshBuffer.getIndexCount();
-	const uint32_t triCnt = idxCnt / 3;
-	_NBL_DEBUG_BREAK_IF(idxCnt % 3 != 0);
-
-	const uint32_t batchCount = (triCnt + m_maxTriangleCountPerMDIData - 1) / m_maxTriangleCountPerMDIData;
-
-	core::vector<TriangleBatch> output(batchCount);
-
-	for(uint32_t i = 0u; i < batchCount; i++)
-	{
-		if (i == (batchCount - 1))
-		{
-			if (triCnt % m_maxTriangleCountPerMDIData)
-			{
-				output[i].triangles = core::vector<Triangle>(triCnt % m_maxTriangleCountPerMDIData);
-				continue;
-			}
-		}
-
-		output[i].triangles = core::vector<Triangle>(m_maxTriangleCountPerMDIData);
-	}
-
-	//struct TriangleMortonCodePair
-	//{
-	//	Triangle triangle;
-	//	//uint64_t mortonCode; TODO after benchmarks
-	//};
-
-	//TODO: triangle reordering
-	
-	auto* srcIdxBuffer = meshBuffer.getIndexBufferBinding();
-	uint32_t* idxBufferPtr32Bit = static_cast<uint32_t*>(srcIdxBuffer->buffer->getPointer()) + (srcIdxBuffer->offset / sizeof(uint32_t)); //will be changed after benchmarks
-	uint16_t* idxBufferPtr16Bit = static_cast<uint16_t*>(srcIdxBuffer->buffer->getPointer()) + (srcIdxBuffer->offset / sizeof(uint16_t));
-	for (TriangleBatch& batch : output)
-	{
-		for (Triangle& tri : batch.triangles)
-		{
-			if (meshBuffer.getIndexType() == EIT_32BIT)
-			{
-				tri.oldIndices[0] = *idxBufferPtr32Bit;
-				tri.oldIndices[1] = *(++idxBufferPtr32Bit);
-				tri.oldIndices[2] = *(++idxBufferPtr32Bit);
-				idxBufferPtr32Bit++;
-			}
-			else if (meshBuffer.getIndexType() == EIT_16BIT)
-			{
-
-				tri.oldIndices[0] = *idxBufferPtr16Bit;
-				tri.oldIndices[1] = *(++idxBufferPtr16Bit);
-				tri.oldIndices[2] = *(++idxBufferPtr16Bit);
-				idxBufferPtr16Bit++;
-			}
-		}
-	}
-
-	return output;
-}
 
 template <typename MDIStructType>
 template <typename Iterator>
@@ -521,33 +458,7 @@ MeshPackerBase::PackedMeshBufferData CCPUMeshPacker<MDIStructType>::commit(const
 
 		for (TriangleBatch& batch : triangleBatches)
 		{
-			core::unordered_map<uint32_t, uint16_t> usedVertices;
-			core::vector<Triangle> newIdxTris = batch.triangles;
-
-			uint32_t newIdx = 0u;
-			for (uint32_t i = 0u; i < batch.triangles.size(); i++)
-			{
-				const Triangle& triangle = batch.triangles[i];
-				for (int32_t j = 0; j < 3; j++)
-				{
-					const uint32_t oldIndex = triangle.oldIndices[j];
-					auto result = usedVertices.insert(std::make_pair(oldIndex, newIdx));
-
-					newIdxTris[i].oldIndices[j] = result.second ? newIdx++ : result.first->second;			
-				}
-			}
-			
-			//TODO: cache optimization
-
-			//copy indices into unified index buffer
-			for (size_t i = 0; i < batch.triangles.size(); i++)
-			{
-				for (int j = 0; j < 3; j++)
-				{
-					*indexBuffPtr = newIdxTris[i].oldIndices[j];
-					indexBuffPtr++;
-				}
-			}
+			core::unordered_map<uint32_t, uint16_t> usedVertices = constructNewIndicesFromTriangleBatch(batch, indexBuffPtr);
 
 			//copy deinterleaved vertices into unified vertex buffer
 			for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
@@ -556,33 +467,12 @@ MeshPackerBase::PackedMeshBufferData CCPUMeshPacker<MDIStructType>::commit(const
 					continue;
 
 				SVertexInputAttribParams attrib = m_outVtxInputParams.attributes[location];
-				SVertexInputAttribParams MBAttrib = (*it)->getPipeline()->getVertexInputParams().attributes[location];
-
-				SVertexInputBindingParams attribBinding = (*it)->getPipeline()->getVertexInputParams().bindings[MBAttrib.binding];
-				uint8_t* attrPtr = (*it)->getAttribPointer(location);
-				const size_t attrSize = asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(attrib.format));
-				const size_t stride = (attribBinding.stride) == 0 ? attrSize : attribBinding.stride;
-
 				SBufferBinding<ICPUBuffer>& vtxBuffBind = outputBuffer.vertexBufferBindings[location];
-				uint8_t* outBuffAttrPtr = static_cast<uint8_t*>(vtxBuffBind.buffer->getPointer()) + vtxBuffBind.offset;
-				outBuffAttrPtr += (ramb.vertexAllocationOffset + verticesAddedToUnifiedBufferCnt) * attrSize;
+				uint8_t* dstAttrPtr = static_cast<uint8_t*>(vtxBuffBind.buffer->getPointer()) + vtxBuffBind.offset;
+				const size_t attrSize = asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(attrib.format));
+				dstAttrPtr += (ramb.vertexAllocationOffset + verticesAddedToUnifiedBufferCnt) * attrSize;
 
-				//if (location == 0)
-				//{
-				//	for (auto index : usedVertices)
-				//	{
-				//		std::cout << '\n' << index.first << ' ' << index.second << std::endl;
-				//	}
-
-				//	std::cout << "-------------\n";
-				//}
-				
-				for (auto index : usedVertices)
-				{
-					const uint8_t* attrSrc = attrPtr + (index.first * stride);
-					uint8_t* vtxAttrDest = outBuffAttrPtr + (index.second * attrSize);
-					memcpy(vtxAttrDest, attrSrc, attrSize);	
-				}
+				deinterleaveAndCopyAttribute(*it, location, usedVertices, dstAttrPtr, false);
 			}
 
 			verticesAddedToUnifiedBufferCnt += usedVertices.size();
