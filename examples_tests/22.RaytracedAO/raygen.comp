@@ -24,7 +24,7 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()
 {
 	return normalizedV;
 }
-vec3 normalizedN; // TODO
+vec3 normalizedN;
 vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 {
 	return normalizedN;
@@ -94,8 +94,8 @@ struct SamplingData_t
 bool gen_sample_ray(out float maxT, out vec3 direction, out vec3 throughput, in SamplingData_t samplingData)
 {
 	maxT = FLT_MAX;
-	direction = -nbl_glsl_MC_getNormalizedWorldSpaceV();
-	throughput = vec3(1.0);
+	direction = nbl_glsl_MC_getNormalizedWorldSpaceN();
+	throughput = vec3(1.0)/float(staticViewData.samplesPerPixelPerDispatch);
 	return true;
 }
 
@@ -201,12 +201,10 @@ void main()
 			const uint realOutputID = outputID+i;
 			if (validRay)
 			{
-				throughput.rgb /= float(staticViewData.samplesPerPixelPerDispatch);
-
-				const float tt = 1.0/1024.0;
-				rays[realOutputID].origin = worldPosition+nbl_glsl_MC_getNormalizedWorldSpaceV()*tt;//-direction*0.5*maxT;/*+newray.direction*err?; TODO */
-				rays[realOutputID].maxT = tt*2.0;
-				rays[realOutputID].direction = -nbl_glsl_MC_getNormalizedWorldSpaceV();
+				const float err = 1.0/512.0;
+				rays[realOutputID].origin = worldPosition+direction*err;
+				rays[realOutputID].maxT = max(maxT-err,0.0);
+				rays[realOutputID].direction = direction;
 				rays[realOutputID].mask = -1;
 				rays[realOutputID]._active = 1;
 				rays[realOutputID].backfaceCulling = int(packHalf2x16(throughput.ab));
