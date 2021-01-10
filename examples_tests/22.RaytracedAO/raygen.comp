@@ -102,7 +102,7 @@ bool gen_sample_ray(
 
 	direction = s.L;
 
-	return s.NdotL>FLT_MIN && any(greaterThan(throughput,vec3(FLT_MIN)));
+	return any(greaterThan(throughput,vec3(FLT_MIN)));
 }
 
 void main()
