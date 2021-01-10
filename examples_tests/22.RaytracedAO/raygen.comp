@@ -117,9 +117,9 @@ void main()
 		
 		nbl_glsl_xoroshiro64star_state_t scramble_start_state; // this should get advanced for secondary rays by 3 or 4 iterations
 		
-		nbl_glsl_MC_precomputed_t precomputed;
 		nbl_glsl_MC_instr_stream_t gcs;
 		nbl_glsl_MC_instr_stream_t rnps;
+		nbl_glsl_MC_precomputed_t precomputed;
 
 		const bool nonBackgroudPixel = revdepth>0.0;
 		if (nonBackgroudPixel)
@@ -163,7 +163,6 @@ void main()
 				nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[objectID].material,frontfacing);
 				
 				// use loaded data
-				precomputed = nbl_glsl_MC_precomputeData(frontfacing);
 				emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 				gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
 				rnps = nbl_glsl_MC_oriented_material_t_getRemAndPdfStream(material);
@@ -173,6 +172,9 @@ void main()
 				normalizedN.x = dot(InstData.data[objectID].normalMatrixRow0,normal);
 				normalizedN.y = dot(InstData.data[objectID].normalMatrixRow1,normal);
 				normalizedN.z = dot(InstData.data[objectID].normalMatrixRow2,normal);
+				
+				// need to do this after we have world, V and N ready
+				precomputed = nbl_glsl_MC_precomputeData(frontfacing);
 
 				// prefetch textures and normals
 				#ifdef TEX_PREFETCH_STREAM
