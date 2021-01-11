@@ -94,12 +94,12 @@ struct StaticViewData_t
 
 struct RaytraceShaderCommonData_t
 {
-	mat4x3  frustumCorners;
-	mat4x3  normalMatrixAndCameraPos;
-	float   depthLinearizationConstant;
+	mat4	inverseMVP;
+	mat4x3  ndcToV;
 	uint    samplesComputedPerPixel;
 	uint    framesDispatched;
     float   rcpFramesDispatched;
+	float	padding0;
 };
 
 
@@ -118,14 +118,6 @@ layout(set = 1, binding = 2, std430) restrict /*writeonly/readonly TODO dependin
 {
 	nbl_glsl_ext_RadeonRays_ray rays[];
 };
-// materials
-/*
-#include <nbl/builtin/glsl/material_compiler/common_invariant_declarations.glsl>
-layout(set = 1, binding = 3, std430) restrict readonly buffer Materials
-{
-	nbl_glsl_MC_MaterialData materials[];
-};
-*/
 // lights
 layout(set = 1, binding = 3, std430) restrict readonly buffer CumulativeLightPDF
 {
@@ -155,8 +147,6 @@ void storeAccumulation(in vec3 color, in ivec2 coord)
 	const uvec2 data = uvec2(packHalf2x16(color.rg),packHalf2x16(vec2(color.b,1.0)));
 	imageStore(accumulation,coord,uvec4(data,0u,0u));
 }
-
-//#include <nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility.glsl/>
 
 #endif
 

@@ -98,13 +98,9 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 {
 	return normalize(Normal);
 }
-vec3 nbl_glsl_MC_getWorldSpacePosition()
+mat2x3 nbl_glsl_MC_getdPos()
 {
-	return WorldPos;
-}
-mat2x3 nbl_glsl_MC_getdPos(in vec3 p)
-{
-	return mat2x3(dFdx(p), dFdy(p));
+	return mat2x3(dFdx(WorldPos), dFdy(WorldPos));
 }
 #define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 )";
@@ -1318,9 +1314,9 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 							_NBL_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
 							break;
 						default:
-							return ISampler::ETC_REPEAT;
 							break;
 					}
+					return ISampler::ETC_REPEAT;
 				};
 				samplerParams.TextureWrapU = getWrapMode(tex->bitmap.wrapModeU);
 				samplerParams.TextureWrapV = getWrapMode(tex->bitmap.wrapModeV);
