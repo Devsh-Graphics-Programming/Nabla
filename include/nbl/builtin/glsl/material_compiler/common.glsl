@@ -140,7 +140,7 @@ bool nbl_glsl_MC_op_isBXDForCoatOrBlend(in uint op)
 #elif defined(OP_COATING)
 	return op<=OP_COATING;
 #else
-	return op_isBXDF(op);
+	return nbl_glsl_MC_op_isBXDF(op);
 #endif
 }
 bool nbl_glsl_MC_op_hasSpecular(in uint op)

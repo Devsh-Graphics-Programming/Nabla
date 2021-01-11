@@ -698,8 +698,10 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
                 member.count_specID = sc->id;
             }
         }
-		else if (mtype.basetype != spirv_cross::SPIRType::Struct) // might have to ignore a few more types than structs
-			member.arrayStride = core::max(0x1u<<core::findMSB(member.size),16u); // @Crisspl  NOT TRUE FOR MATRICES!
+        else if (mtype.columns > 1u)
+            member.arrayStride = member.size;
+		else if (mtype.basetype != spirv_cross::SPIRType::Struct)
+			member.arrayStride = core::max(0x1u<<core::findMSB(member.size),16u);
 
         if (mtype.basetype == spirv_cross::SPIRType::Struct) //recursive introspection done in DFS manner (and without recursive calls)
             _pushStack.push({member.members, mtype, member.offset});
@@ -707,7 +709,7 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
 		{
             member.mtxRowCnt = mtype.vecsize;
             member.mtxColCnt = mtype.columns;
-            if (member.mtxColCnt > 1u) // @Crisspl why are you checking columns to get stride? What about row major?
+            if (member.mtxColCnt > 1u)
                 member.mtxStride = _comp.type_struct_member_matrix_stride(_parentType, m);
         }
     }
