@@ -196,8 +196,6 @@ class CNullDriver : public IVideoDriver
 
 		core::smart_refctd_ptr<CPropertyPoolHandler> m_propertyPoolHandler;
 
-		SExposedVideoData ExposedData;
-
 		uint32_t MaxTextureSizes[IGPUImageView::ET_COUNT][3];
 	};
 

@@ -185,7 +185,7 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 		io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp)
 : CNullDriver(device, io, params), COpenGLExtensionHandler(),
 	runningInRenderDoc(false),  ColorFormat(asset::EF_R8G8B8_UNORM),
-	HDc(0), Window(static_cast<HWND>(params.WindowId)), Win32Device(device),
+	HDc(0), Window(static_cast<EGLNativeWindowType>(params.WindowId)), Win32Device(device),
 	AuxContexts(0), GLSLCompiler(glslcomp), DeviceType(EIDT_WIN32)
 {
 	#ifdef _NBL_DEBUG
@@ -193,366 +193,78 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 	#endif
 }
 
-bool COpenGLDriver::changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceWin32* device)
-{
-	if (videoData.OpenGLWin32.HWnd && videoData.OpenGLWin32.HDc && videoData.OpenGLWin32.HRc)
-	{
-		if (!wglMakeCurrent((HDC)videoData.OpenGLWin32.HDc, (HGLRC)videoData.OpenGLWin32.HRc))
-		{
-			os::Printer::log("Render Context switch failed.");
-			return false;
-		}
-		else
-		{
-			HDc = (HDC)videoData.OpenGLWin32.HDc;
-		}
-	}
-	// set back to main context
-	else if (HDc != ExposedData.OpenGLWin32.HDc)
-	{
-		if (!wglMakeCurrent((HDC)ExposedData.OpenGLWin32.HDc, (HGLRC)ExposedData.OpenGLWin32.HRc))
-		{
-			os::Printer::log("Render Context switch failed.");
-			return false;
-		}
-		else
-		{
-			HDc = (HDC)ExposedData.OpenGLWin32.HDc;
-		}
-	}
-	return true;
-}
-
 //! inits the open gl driver
-bool COpenGLDriver::initDriver(CIrrDeviceWin32* device)
+bool COpenGLDriver::initDriver(CIrrDeviceWin32* device, EGLDisplay eglDisplay)
 {
-	// Create a window to test antialiasing support
-	const char* ClassName = __TEXT("GLCIrrDeviceWin32");
-	HINSTANCE lhInstance = GetModuleHandle(0);
+    Display = eglDisplay;
 
-	// Register Class
-	WNDCLASSEX wcex;
-	wcex.cbSize        = sizeof(WNDCLASSEX);
-	wcex.style         = CS_HREDRAW | CS_VREDRAW;
-	wcex.lpfnWndProc   = (WNDPROC)DefWindowProc;
-	wcex.cbClsExtra    = 0;
-	wcex.cbWndExtra    = 0;
-	wcex.hInstance     = lhInstance;
-	wcex.hIcon         = NULL;
-	wcex.hCursor       = LoadCursor(NULL, IDC_ARROW);
-	wcex.hbrBackground  = (HBRUSH)(COLOR_WINDOW+1);
-	wcex.lpszMenuName  = 0;
-	wcex.lpszClassName = ClassName;
-	wcex.hIconSm       = 0;
-	wcex.hIcon         = 0;
-	RegisterClassEx(&wcex);
+    const EGLint egl_attributes[] = {
+        EGL_RED_SIZE, Params.Bits,
+        EGL_GREEN_SIZE, Params.Bits,
+        EGL_BLUE_SIZE, Params.Bits,
+        EGL_DEPTH_SIZE, Params.ZBufferBits,
+        EGL_STENCIL_SIZE, Params.Stencilbuffer ? 1 : 0,
+        EGL_ALPHA_SIZE, Params.WithAlphaChannel ? Params.Bits : 0,
+        //Params.Stereobuffer
+        //Params.Vsync
+        EGL_SURFACE_TYPE, EGL_WINDOW_BIT | EGL_PBUFFER_BIT,
 
-	RECT clientSize;
-	clientSize.top = 0;
-	clientSize.left = 0;
-	clientSize.right = Params.WindowSize.Width;
-	clientSize.bottom = Params.WindowSize.Height;
+        EGL_NONE
+    };
 
-	DWORD style = WS_POPUP;
-	if (!Params.Fullscreen)
-		style = WS_SYSMENU | WS_BORDER | WS_CAPTION | WS_CLIPCHILDREN | WS_CLIPSIBLINGS;
+    EGLConfig config;
+    EGLint ccnt = 1;
+    eglChooseConfig(eglDisplay, egl_attributes, &config, 1, &ccnt);
 
-	AdjustWindowRect(&clientSize, style, FALSE);
+    EGLint ctx_attributes[] = {
+        EGL_CONTEXT_MAJOR_VERSION, 4,
+        EGL_CONTEXT_MINOR_VERSION, 6,
+        EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
 
-	const int32_t realWidth = clientSize.right - clientSize.left;
-	const int32_t realHeight = clientSize.bottom - clientSize.top;
+        EGL_NONE
+    };
 
-	const int32_t windowLeft = (GetSystemMetrics(SM_CXSCREEN) - realWidth) / 2;
-	const int32_t windowTop = (GetSystemMetrics(SM_CYSCREEN) - realHeight) / 2;
+    EGLContext master_context = EGL_NO_CONTEXT;
+    do
+    {
+        master_context = eglCreateContext(eglDisplay, config, EGL_NO_CONTEXT, ctx_attributes);
+        --ctx_attributes[3];
+    } while (master_context == EGL_NO_CONTEXT && ctx_attributes[3] >= 3); // fail if cant create >=4.3 context
+    ++ctx_attributes[3];
 
-	HWND temporary_wnd=CreateWindow(ClassName, __TEXT(""), style, windowLeft,
-			windowTop, realWidth, realHeight, NULL, NULL, lhInstance, NULL);
+    if (master_context == EGL_NO_CONTEXT)
+        return false;
 
-	if (!temporary_wnd)
-	{
-		os::Printer::log("Cannot create a temporary window.", ELL_ERROR);
-		UnregisterClass(ClassName, lhInstance);
-		return false;
-	}
+    const EGLint egl_surface_attributes[] = {
+        EGL_GL_COLORSPACE, EGL_GL_COLORSPACE_SRGB,
+        EGL_RENDER_BUFFER, EGL_BACK_BUFFER,
 
-	HDc = GetDC(temporary_wnd);
+        EGL_NONE
+    };
+    const EGLint pbuffer_attributes[] = {
+        EGL_WIDTH, 128,
+        EGL_HEIGHT, 128,
 
-	// Set up pixel format descriptor with desired parameters
-	PIXELFORMATDESCRIPTOR pfd = {
-		sizeof(PIXELFORMATDESCRIPTOR),             // Size Of This Pixel Format Descriptor
-		1,                                         // Version Number
-		PFD_DRAW_TO_WINDOW |                       // Format Must Support Window
-		PFD_SUPPORT_OPENGL |                       // Format Must Support OpenGL
-		(Params.Doublebuffer?PFD_DOUBLEBUFFER:0) | // Must Support Double Buffering
-		(Params.Stereobuffer?PFD_STEREO:0),        // Must Support Stereo Buffer
-		PFD_TYPE_RGBA,                             // Request An RGBA Format
-		Params.Bits,                               // Select Our Color Depth
-		0, 0, 0, 0, 0, 0,                          // Color Bits Ignored
-		0,                                         // No Alpha Buffer
-		0,                                         // Shift Bit Ignored
-		0,                                         // No Accumulation Buffer
-		0, 0, 0, 0,	                               // Accumulation Bits Ignored
-		Params.ZBufferBits,                        // Z-Buffer (Depth Buffer)
-		BYTE(Params.Stencilbuffer ? 1 : 0),        // Stencil Buffer Depth
-		0,                                         // No Auxiliary Buffer
-		PFD_MAIN_PLANE,                            // Main Drawing Layer
-		0,                                         // Reserved
-		0, 0, 0                                    // Layer Masks Ignored
-	};
-
-	GLuint PixelFormat;
-
-	for (uint32_t i=0; i<6; ++i)
-	{
-		if (i == 1)
-		{
-			if (Params.Stencilbuffer)
-			{
-				os::Printer::log("Cannot create a GL device with stencil buffer, disabling stencil shadows.", ELL_WARNING);
-				Params.Stencilbuffer = false;
-				pfd.cStencilBits = 0;
-			}
-			else
-				continue;
-		}
-		else
-		if (i == 2)
-		{
-			pfd.cDepthBits = 24;
-		}
-		else
-		if (i == 3)
-		{
-			if (Params.Bits!=16)
-				pfd.cDepthBits = 16;
-			else
-				continue;
-		}
-		else
-		if (i == 4)
-		{
-			// try single buffer
-			if (Params.Doublebuffer)
-				pfd.dwFlags &= ~PFD_DOUBLEBUFFER;
-			else
-				continue;
-		}
-		else
-		if (i == 5)
-		{
-			os::Printer::log("Cannot create a GL device context", "No suitable format for temporary window.", ELL_ERROR);
-			ReleaseDC(temporary_wnd, HDc);
-			DestroyWindow(temporary_wnd);
-			UnregisterClass(ClassName, lhInstance);
-			return false;
-		}
-
-		// choose pixelformat
-		PixelFormat = ChoosePixelFormat(HDc, &pfd);
-		if (PixelFormat)
-			break;
-	}
-
-	SetPixelFormat(HDc, PixelFormat, &pfd);
-	HGLRC hrc=wglCreateContext(HDc);
-	if (!hrc)
-	{
-		os::Printer::log("Cannot create a temporary GL rendering context.", ELL_ERROR);
-		ReleaseDC(temporary_wnd, HDc);
-		DestroyWindow(temporary_wnd);
-		UnregisterClass(ClassName, lhInstance);
-		return false;
-	}
-
-	SExposedVideoData data;
-	data.OpenGLWin32.HDc = HDc;
-	data.OpenGLWin32.HRc = hrc;
-	data.OpenGLWin32.HWnd = temporary_wnd;
-
-
-	if (!changeRenderContext(data, device))
-	{
-		os::Printer::log("Cannot activate a temporary GL rendering context.", ELL_ERROR);
-		wglDeleteContext(hrc);
-		ReleaseDC(temporary_wnd, HDc);
-		DestroyWindow(temporary_wnd);
-		UnregisterClass(ClassName, lhInstance);
-		return false;
-	}
-
-	core::stringc wglExtensions;
-#ifdef WGL_ARB_extensions_string
-	PFNWGLGETEXTENSIONSSTRINGARBPROC irrGetExtensionsString = (PFNWGLGETEXTENSIONSSTRINGARBPROC)wglGetProcAddress("wglGetExtensionsStringARB");
-	if (irrGetExtensionsString)
-		wglExtensions = irrGetExtensionsString(HDc);
-#elif defined(WGL_EXT_extensions_string)
-	PFNWGLGETEXTENSIONSSTRINGEXTPROC irrGetExtensionsString = (PFNWGLGETEXTENSIONSSTRINGEXTPROC)wglGetProcAddress("wglGetExtensionsStringEXT");
-	if (irrGetExtensionsString)
-		wglExtensions = irrGetExtensionsString(HDc);
-#endif
-	const bool pixel_format_supported = (wglExtensions.find("WGL_ARB_pixel_format") != -1);
-#ifdef _NBL_DEBUG
-	os::Printer::log("WGL_extensions", wglExtensions.c_str());
-#endif
-
-#ifdef WGL_ARB_pixel_format
-	PFNWGLCHOOSEPIXELFORMATARBPROC wglChoosePixelFormat_ARB = (PFNWGLCHOOSEPIXELFORMATARBPROC)wglGetProcAddress("wglChoosePixelFormatARB");
-	if (pixel_format_supported && wglChoosePixelFormat_ARB)
-	{
-		float fAttributes[] = {0.0, 0.0};
-		int32_t iAttributes[] =
-		{
-			WGL_DRAW_TO_WINDOW_ARB,1,
-			WGL_SUPPORT_OPENGL_ARB,1,
-			WGL_ACCELERATION_ARB,WGL_FULL_ACCELERATION_ARB,
-			WGL_COLOR_BITS_ARB,(Params.Bits==32) ? 24 : 15,
-			WGL_ALPHA_BITS_ARB,(Params.Bits==32) ? 8 : 1,
-			WGL_DEPTH_BITS_ARB,Params.ZBufferBits, // 10,11
-			WGL_STENCIL_BITS_ARB,Params.Stencilbuffer ? 1 : 0,
-			WGL_DOUBLE_BUFFER_ARB,Params.Doublebuffer ? 1 : 0,
-			WGL_STEREO_ARB,Params.Stereobuffer ? 1 : 0,
-			WGL_PIXEL_TYPE_ARB, WGL_TYPE_RGBA_ARB,
-			WGL_FRAMEBUFFER_SRGB_CAPABLE_ARB, 1,
-			0,0,0,0
-		};
-
-		// Try to get an acceptable pixel format
-        int pixelFormat=0;
-        UINT numFormats=0;
-        const BOOL valid = wglChoosePixelFormat_ARB(HDc,iAttributes,fAttributes,1,&pixelFormat,&numFormats);
-        if (valid && numFormats && pixelFormat)
-            PixelFormat = pixelFormat;
-	}
-#endif
-
-	PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribs_ARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC)wglGetProcAddress("wglCreateContextAttribsARB");
-	wglMakeCurrent(HDc, NULL);
-	wglDeleteContext(hrc);
-	ReleaseDC(temporary_wnd, HDc);
-	DestroyWindow(temporary_wnd);
-	UnregisterClass(ClassName, lhInstance);
-
-	if (!wglCreateContextAttribs_ARB)
-	{
-		os::Printer::log("Couldn't get wglCreateContextAttribs_ARB address.", ELL_ERROR);
-		return false;
-	}
-
-	// get hdc
-	HDc=GetDC(Window);
-	if (!HDc)
-	{
-		os::Printer::log("Cannot create a GL device context.", ELL_ERROR);
-		return false;
-	}
-
-	// search for pixel format the simple way
-	if (PixelFormat==0 || (!SetPixelFormat(HDc, PixelFormat, &pfd)))
-	{
-		for (uint32_t i=0; i<5; ++i)
-		{
-			if (i == 1)
-			{
-				if (Params.Stencilbuffer)
-				{
-					os::Printer::log("Cannot create a GL device with stencil buffer, disabling stencil shadows.", ELL_WARNING);
-					Params.Stencilbuffer = false;
-					pfd.cStencilBits = 0;
-				}
-				else
-					continue;
-			}
-			else
-			if (i == 2)
-			{
-				pfd.cDepthBits = 24;
-			}
-			if (i == 3)
-			{
-				if (Params.Bits!=16)
-					pfd.cDepthBits = 16;
-				else
-					continue;
-			}
-			else
-			if (i == 4)
-			{
-				os::Printer::log("Cannot create a GL device context", "No suitable format.", ELL_ERROR);
-				return false;
-			}
-
-			// choose pixelformat
-			PixelFormat = ChoosePixelFormat(HDc, &pfd);
-			if (PixelFormat)
-				break;
-		}
-
-        // set pixel format
-        if (!SetPixelFormat(HDc, PixelFormat, &pfd))
-        {
-            os::Printer::log("Cannot set the pixel format.", ELL_ERROR);
-            return false;
-        }
-    }
-	os::Printer::log("Pixel Format", std::to_string(PixelFormat), ELL_DEBUG);
-
-	int iAttribs[] =
-	{
-		WGL_CONTEXT_MAJOR_VERSION_ARB, 4,
-		WGL_CONTEXT_MINOR_VERSION_ARB, 6,
-		WGL_CONTEXT_PROFILE_MASK_ARB, WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
-		0
-	};
-	// create rendering context
-	hrc=wglCreateContextAttribs_ARB(HDc, 0, iAttribs);
-	if (!hrc)
-	{
-		iAttribs[3] = 5;
-		hrc=wglCreateContextAttribs_ARB(HDc, 0, iAttribs);
-	}
-	if (!hrc)
-	{
-		iAttribs[3] = 4;
-		hrc=wglCreateContextAttribs_ARB(HDc, 0, iAttribs);
-	}
-	if (!hrc)
-	{
-		iAttribs[3] = 3;
-		hrc=wglCreateContextAttribs_ARB(HDc, 0, iAttribs);
-	}
-
-	if (!hrc)
-	{
-		os::Printer::log("Cannot create a GL rendering context.", ELL_ERROR);
-		return false;
-	}
+        EGL_NONE
+    };
 
     AuxContexts = _NBL_NEW_ARRAY(SAuxContext,Params.AuxGLContexts+1);
     {
         AuxContexts[0].threadId = std::this_thread::get_id();
-        AuxContexts[0].ctx = hrc;
+        AuxContexts[0].ctx = master_context;
+        AuxContexts[0].surface = eglCreateWindowSurface(eglDisplay, config, Window, egl_surface_attributes);
         AuxContexts[0].ID = 0u;
     }
 	for (size_t i=1; i<=Params.AuxGLContexts; i++)
     {
         AuxContexts[i].threadId = std::thread::id(); //invalid ID
-        AuxContexts[i].ctx = wglCreateContextAttribs_ARB(HDc, hrc, iAttribs);
+        AuxContexts[i].ctx = eglCreateContext(eglDisplay, config, master_context, ctx_attributes);
+        AuxContexts[i].surface = eglCreatePbufferSurface(eglDisplay, config, pbuffer_attributes);
         AuxContexts[i].ID = static_cast<uint8_t>(i);
     }
 
-	// set exposed data
-	ExposedData.OpenGLWin32.HDc = HDc;
-	ExposedData.OpenGLWin32.HRc = hrc;
-	ExposedData.OpenGLWin32.HWnd = Window;
-
 	// activate rendering context
-	if (!changeRenderContext(ExposedData, device))
-	{
-		os::Printer::log("Cannot activate GL rendering context", ELL_ERROR);
-		wglDeleteContext(hrc);
-		_NBL_DELETE_ARRAY(AuxContexts,Params.AuxGLContexts+1);
-		return false;
-	}
+    eglMakeCurrent(Display, AuxContexts[0].surface, AuxContexts[0].surface, AuxContexts[0].ctx);
 
 
 	int pf = GetPixelFormat(HDc);
@@ -591,7 +303,7 @@ bool COpenGLDriver::initAuxContext()
     SAuxContext* found = getThreadContext_helper(true,std::thread::id());
     if (found)
     {
-        retval = wglMakeCurrent((HDC)ExposedData.OpenGLWin32.HDc,found->ctx);
+        retval = eglMakeCurrent(Display, found->surface, found->surface, found->ctx);
         if (retval)
             found->threadId = std::this_thread::get_id();
     }
@@ -609,7 +321,7 @@ bool COpenGLDriver::deinitAuxContext()
             const core::unlock_guard<std::mutex> lock(glContextMutex);
             cleanUpContextBeforeDelete();
         }
-        retval = wglMakeCurrent(NULL,NULL);
+        retval = eglMakeCurrent(Display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
         if (retval)
             found->threadId = std::thread::id();
     }
@@ -636,7 +348,7 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 }
 
 
-bool COpenGLDriver::changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceLinux* device)
+bool COpenGLDriver::changeRenderContext(const SExposedVideoData& videoData)
 {
 	if (videoData.OpenGLLinux.X11Window)
 	{
@@ -687,7 +399,7 @@ bool COpenGLDriver::changeRenderContext(const SExposedVideoData& videoData, CIrr
 
 
 //! inits the open gl driver
-bool COpenGLDriver::initDriver(CIrrDeviceLinux* device, SAuxContext* auxCtxts)
+bool COpenGLDriver::initDriver(CIrrDeviceLinux* device)
 {
 	ExposedData.OpenGLLinux.X11Context = glXGetCurrentContext();
 	ExposedData.OpenGLLinux.X11Display = glXGetCurrentDisplay();
@@ -796,6 +508,10 @@ COpenGLDriver::~COpenGLDriver()
 			if (!wglDeleteContext((HGLRC)ExposedData.OpenGLWin32.HRc))
 				os::Printer::log("Release of rendering context failed.", ELL_WARNING);
 		}
+
+        for (size_t i=1; i<=Params.AuxGLContexts; i++)
+            eglDestroyContext(Display, AuxContexts[i].ctx);
+        eglDestroyContext(Display, AuxContexts[0].ctx);
 
 		if (HDc)
 			ReleaseDC(Window, HDc);

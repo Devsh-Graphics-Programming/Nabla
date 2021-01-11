@@ -21,6 +21,8 @@ namespace nbl
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 
+#include "EGL/egl.h"
+
 #include "IDriverMemoryAllocation.h"
 #include "nbl/video/COpenGLSpecializedShader.h"
 #include "nbl/video/COpenGLRenderpassIndependentPipeline.h"
@@ -222,15 +224,15 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 		#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp);
 		//! inits the windows specific parts of the open gl driver
-		bool initDriver(CIrrDeviceWin32* device);
-		bool changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceWin32* device);
+		bool initDriver(CIrrDeviceWin32* device, EGLDisplay eglDisplay);
+		//bool changeRenderContext(const SAuxContext& ctx);
 		#endif
 
 		#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp);
 		//! inits the GLX specific parts of the open gl driver
-		bool initDriver(CIrrDeviceLinux* device, SAuxContext* auxCtxts);
-		bool changeRenderContext(const SExposedVideoData& videoData, CIrrDeviceLinux* device);
+		bool initDriver(CIrrDeviceLinux* device);
+		//bool changeRenderContext(const SExposedVideoData& videoData);
 		#endif
 
 		#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
@@ -694,7 +696,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
 
 		//! generic version which overloads the unimplemented versions
-		bool changeRenderContext(const SExposedVideoData& videoData, void* device) {return false;}
+		bool changeRenderContext(const SExposedVideoData& videoData) {return false;}
 
         bool initAuxContext();
         const SAuxContext* getThreadContext(const std::thread::id& tid=std::this_thread::get_id());
@@ -883,6 +885,9 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         //private:
             std::thread::id threadId;
             uint8_t ID; //index in array of contexts, just to be easier in use
+			EGLContext ctx;
+			EGLSurface surface;
+			/*
             #ifdef _NBL_WINDOWS_API_
                 HGLRC ctx;
             #endif
@@ -893,6 +898,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             #ifdef _NBL_COMPILE_WITH_OSX_DEVICE_
                 AppleMakesAUselessOSWhichHoldsBackTheGamingIndustryAndSabotagesOpenStandards ctx;
             #endif
+			*/
 
             //! FBOs
             core::vector<IFrameBuffer*>  FrameBuffers;
@@ -1052,9 +1058,10 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
         mutable core::smart_refctd_dynamic_array<std::string> m_supportedGLSLExtsNames;
 
+		EGLDisplay Display;
+		EGLNativeWindowType Window;
 		#ifdef _NBL_WINDOWS_API_
 			HDC HDc; // Private GDI Device Context
-			HWND Window;
 		#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 			CIrrDeviceWin32 *Win32Device;
 		#endif
@@ -1067,7 +1074,8 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 		#ifdef _NBL_COMPILE_WITH_OSX_DEVICE_
 			CIrrDeviceMacOSX *OSXDevice;
 		#endif
-		#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
+		//#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
+		#if 0
 			CIrrDeviceSDL *SDLDevice;
 		#endif
 

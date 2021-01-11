@@ -18,8 +18,6 @@
 
 #ifdef _NBL_COMPILE_WITH_X11_
 
-#include "COpenGLStateManager.h"
-
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/cursorfont.h>
@@ -30,11 +28,6 @@
     #include <X11/extensions/Xrandr.h>
 #endif
 #include <X11/keysym.h>
-
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-    #include "GL/glx.h"
-    #include "../src/3rdparty/GL/glxext.h"
-#endif
 
 #else
 #define KeySym int32_t
@@ -363,7 +356,7 @@ namespace nbl
             friend class CCursorControl;
 
     #ifdef _NBL_COMPILE_WITH_X11_
-            friend class COpenGLDriver;
+            friend class COpenGLDriver; // probably not needed any more (TODO)
 
             Display *display;
             XVisualInfo* visual;
