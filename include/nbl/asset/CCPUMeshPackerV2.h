@@ -69,7 +69,7 @@ public:
 
     PackedMeshBuffer createGPUPackedMeshBuffer(video::IVideoDriver* driver);
 
-private:
+public:
     core::smart_refctd_ptr<ICPUBuffer> m_vtxBuffer;
     core::smart_refctd_ptr<ICPUBuffer> m_idxBuffer;
     core::smart_refctd_ptr<ICPUBuffer> m_MDIBuffer;
@@ -107,14 +107,12 @@ bool CCPUMeshPackerV2<MDIStructType>::alloc(ReservedAllocationMeshBuffers* rambO
         const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
         for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
         {
-            if (!(attrBit && mbVtxInputParams.enabledAttribFlags))
+            if (!(attrBit & mbVtxInputParams.enabledAttribFlags))
                 continue;
 
             const uint32_t attribSize = asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format));
 
-            //TODO: convert non PoT formats 
-            if (!core::isPoT(attribSize))
-                return false;
+            auto a = static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format);
 
             ramb.attribAllocParams[location].offset = m_vtxBuffAlctr.alloc_addr(vtxCnt * attribSize, attribSize);
 
@@ -164,6 +162,8 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(MeshPackerBase::PackedMeshBufferDat
 
         core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(**it);
 
+        size_t batchFirstIdx = ramb.indexAllocationOffset;
+
         for (TriangleBatch& batch : triangleBatches)
         {
             core::unordered_map<uint32_t, uint16_t> usedVertices = constructNewIndicesFromTriangleBatch(batch, indexBuffPtr);
@@ -174,7 +174,8 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(MeshPackerBase::PackedMeshBufferDat
                 if (!(mbVtxInputParams.enabledAttribFlags & attrBit))
                     continue;
 
-                assert(ramb.attribAllocParams[location].offset != INVALID_ADDRESS);
+                if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
+                    return false;
 
                 uint8_t* dstAttrPtr = static_cast<uint8_t*>(m_vtxBuffer->getPointer()) + ramb.attribAllocParams[location].offset;
                 deinterleaveAndCopyAttribute(*it, location, usedVertices, dstAttrPtr, true);
@@ -182,10 +183,16 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(MeshPackerBase::PackedMeshBufferDat
 
             //construct mdi data
             MDIStructType MDIData;
-            //TODO
+            MDIData.count = batch.triangles.size() * 3u;
+            MDIData.instanceCount = (*it)->getInstanceCount();
+            MDIData.firstIndex = batchFirstIdx;
+            MDIData.baseVertex = 0u;
+            MDIData.baseInstance = 0u;
 
             *mdiBuffPtr = MDIData;
             mdiBuffPtr++;
+
+            batchFirstIdx += 3u * batch.triangles.size();
         }
 
         pmbd = { ramb.mdiAllocationOffset, static_cast<uint32_t>(triangleBatches.size()) };

@@ -76,7 +76,6 @@ protected:
         size_t indexBufferMinAllocSize;
         size_t vertexBufferMinAllocSize;
         size_t MDIDataBuffMinAllocSize;
-        uint32_t MDIDataBuffMaxAlign;
     };
 
     void initializeCommonAllocators(const AllocationParamsCommon& allocParams)
@@ -91,19 +90,19 @@ protected:
 
         if (allocParams.vertexBuffSupportedSize)
         {
-            m_vtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.vertexBuffSupportedSize, allocParams.vertexBufferMinAllocSize), _NBL_SIMD_ALIGNMENT);
+            m_vtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(32u, allocParams.vertexBuffSupportedSize, allocParams.vertexBufferMinAllocSize), _NBL_SIMD_ALIGNMENT);
             //for now mesh packer will not allow mesh buffers without any per vertex attributes
             _NBL_DEBUG_BREAK_IF(m_vtxBuffAlctrResSpc == nullptr);
             assert(m_vtxBuffAlctrResSpc != nullptr);
-            m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_vtxBuffAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.vertexBuffSupportedSize, allocParams.vertexBufferMinAllocSize);
+            m_vtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_vtxBuffAlctrResSpc, 0u, 0u, 32u, allocParams.vertexBuffSupportedSize, allocParams.vertexBufferMinAllocSize);
         }
 
         if (allocParams.MDIDataBuffSupportedCnt)
         {
-            m_MDIDataAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(allocParams.MDIDataBuffMaxAlign, allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocSize), _NBL_SIMD_ALIGNMENT);
+            m_MDIDataAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocSize), _NBL_SIMD_ALIGNMENT);
             _NBL_DEBUG_BREAK_IF(m_MDIDataAlctrResSpc == nullptr);
             assert(m_MDIDataAlctrResSpc != nullptr);
-            m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_MDIDataAlctrResSpc, 0u, 0u, allocParams.MDIDataBuffMaxAlign, allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocSize);
+            m_MDIDataAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_MDIDataAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.MDIDataBuffSupportedCnt, allocParams.MDIDataBuffMinAllocSize);
         }
     }
 

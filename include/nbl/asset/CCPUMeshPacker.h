@@ -198,8 +198,7 @@ CCPUMeshPacker<MDIStructType>::CCPUMeshPacker(const SVertexInputParams& preDefin
 			allocParams.MDIDataBuffSupportedCnt,
 			allocParams.indexBufferMinAllocSize,
 			allocParams.vertexBufferMinAllocSize,
-			allocParams.MDIDataBuffMinAllocSize,
-			alignof(MDIStructType)
+			allocParams.MDIDataBuffMinAllocSize
 		}
 	);
 }
