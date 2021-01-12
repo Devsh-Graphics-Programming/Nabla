@@ -34,7 +34,7 @@ void main()
 				
 			const bool frontface = true; // TODO: how to determine frontface easily from radeon rays!? barycentrics? ray direction vs. oriented cross product?
 			nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[hit.shapeid].material,frontface);
-			color += nbl_glsl_MC_oriented_material_t_getEmissive(material)*thoughput;
+			//color += nbl_glsl_MC_oriented_material_t_getEmissive(material)*thoughput;
 
 			// hit buffer needs clearing
 			hits[rayID].shapeid = -1;

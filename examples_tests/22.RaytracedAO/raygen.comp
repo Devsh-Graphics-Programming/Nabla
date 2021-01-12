@@ -154,7 +154,7 @@ void main()
 			}
 			
 			// decode vis buffer
-			vec3 emissive = vec3(0.0,0.0,0.0);
+			vec3 emissive = vec3(0.0,1.0,0.0);
 			{
 				const uint objectID = visBuffer[0]&0x7fffffffu;
 				const uint triangleID = visBuffer[1];
@@ -163,7 +163,7 @@ void main()
 				nbl_glsl_MC_oriented_material_t material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[objectID].material,frontfacing);
 				
 				// use loaded data
-				emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
+				//emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 				gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
 				rnps = nbl_glsl_MC_oriented_material_t_getRemAndPdfStream(material);
 				
