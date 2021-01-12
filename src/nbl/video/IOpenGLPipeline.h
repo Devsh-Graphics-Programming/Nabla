@@ -73,15 +73,18 @@ class IOpenGLPipeline
 
 		        uint8_t* valueptr = state+m.offset;
 
-                uint32_t arrayStride = 0u; // TODO: @Crisspl this calculation is 100% wrong with `row_major` and arrays of matrices (for both std140 and std430)
+                uint32_t arrayStride = m.arrayStride;
+                // in case of non-array types, m.arrayStride is irrelevant
+                // we should compute it though, so that we dont have to branch in the loop 
+                if (!m.isArray())
                 {
-                    uint32_t arrayStride1 = 0u;
+                    // 1N for scalar types, 2N for gvec2, 4N for gvec3 and gvec4
+                    // N==sizeof(float)
                     if (is_scalar_or_vec())
-                        arrayStride1 = (m.mtxRowCnt==1u) ? m.size : core::roundUpToPoT(m.mtxRowCnt)*4u;
+                        arrayStride = (m.mtxRowCnt==1u) ? m.size : core::roundUpToPoT(m.mtxRowCnt)*sizeof(float);
+                    // same as size in case of matrices
                     else if (is_mtx())
-                        arrayStride1 = m.arrayStride;
-                    assert(arrayStride1);
-                    arrayStride = (m.count <= 1u) ? arrayStride1 : m.arrayStride;
+                        arrayStride = m.size;
                 }
 		        assert(m.mtxStride==0u || arrayStride%m.mtxStride==0u);
 		        NBL_ASSUME_ALIGNED(valueptr, sizeof(float));

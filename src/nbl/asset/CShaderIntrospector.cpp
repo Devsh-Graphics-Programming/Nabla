@@ -684,7 +684,10 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
         member.offset = _baseOffset + _comp.type_struct_member_offset(_parentType, m);
         member.rowMajor = _comp.get_member_decoration(_parentType.self, m, spv::DecorationRowMajor);
         member.type = spvcrossType2E_TYPE(mtype.basetype);
+        member.arrayStride = 0u;
 
+        // if array, then we can get array stride from decoration (via spirv-cross)
+        // otherwise arrayStride is left with value 0
         if (mtype.array.size())
         {
             member.count = mtype.array[0];
@@ -698,10 +701,6 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
                 member.count_specID = sc->id;
             }
         }
-        else if (mtype.columns > 1u)
-            member.arrayStride = member.size;
-		else if (mtype.basetype != spirv_cross::SPIRType::Struct)
-			member.arrayStride = core::max(0x1u<<core::findMSB(member.size),16u);
 
         if (mtype.basetype == spirv_cross::SPIRType::Struct) //recursive introspection done in DFS manner (and without recursive calls)
             _pushStack.push({member.members, mtype, member.offset});
