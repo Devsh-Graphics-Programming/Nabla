@@ -9,9 +9,14 @@ uvec2 nbl_glsl_encodeRGB19E7(in vec3 col)
 	const float maxrgb = max(max(clamped.r,clamped.g),clamped.b);
 
 	const int f32_exp = ((floatBitsToInt(maxrgb)>>23) & 0xff) - 127;
-	const int shared_exp = clamp(f32_exp,-nbl_glsl_RGB19E7_EXP_BIAS-1,nbl_glsl_MAX_RGB19E7_EXP) + 1;
+	int shared_exp = clamp(f32_exp,-nbl_glsl_RGB19E7_EXP_BIAS-1,nbl_glsl_MAX_RGB19E7_EXP) + 1;
 
-	const uvec3 mantissas = uvec3(clamped*exp2(nbl_glsl_RGB19E7_MANTISSA_BITS-shared_exp) + 0.5);
+	float scale = exp2(nbl_glsl_RGB19E7_MANTISSA_BITS - shared_exp);
+	const uint maxm = uint(maxrgb*scale + 0.5);
+	const bool need = (maxm == nbl_glsl_MAX_RGB19E7_MANTISSA_VALUES);
+	scale = need ? 0.5*scale : scale;
+	shared_exp = need ? (shared_exp+1) : shared_exp;
+	const uvec3 mantissas = uvec3(clamped*scale + 0.5);
 
 	uvec2 encoded;
 	encoded.x = bitfieldInsert(mantissas.x,mantissas.y,nbl_glsl_RGB19E7_COMPONENT_BITOFFSETS[1],nbl_glsl_RGB19E7_G_COMPONENT_SPLIT);
