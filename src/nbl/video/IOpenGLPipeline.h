@@ -77,7 +77,7 @@ class IOpenGLPipeline
         }
 
         uint8_t* getPushConstantsStateForStage(uint32_t _stageIx, uint32_t _ctxID) const { return const_cast<uint8_t*>(m_uniformValues + uniformsCacheByteoffsetForCtxAndStage(_ctxID, _stageIx)); }
-        base_instance_cache_t* getBaseInstanceState(uint32_t _ctxID) const { return const_cast<base_instance_cache_t*>(m_uniformValues + baseInstanceCacheByteoffsetForCtx(_ctxID)); }
+        base_instance_cache_t* getBaseInstanceState(uint32_t _ctxID) const { return const_cast<base_instance_cache_t*>(reinterpret_cast<const base_instance_cache_t*>(m_uniformValues + baseInstanceCacheByteoffsetForCtx(_ctxID))); }
 
     protected:
         void setUniformsImitatingPushConstants(uint32_t _stageIx, uint32_t _ctxID, const uint8_t* _pcData, const core::SRange<const COpenGLSpecializedShader::SUniform>& _uniforms, const core::SRange<const GLint>& _locations) const
