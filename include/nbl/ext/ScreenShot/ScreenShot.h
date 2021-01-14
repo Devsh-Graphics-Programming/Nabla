@@ -32,14 +32,14 @@ namespace nbl
 				- depth buffer is placed under video::EFAP_DEPTH_ATTACHMENT attachment
 			*/
 
-			nbl::video::IFrameBuffer* createDefaultFBOForScreenshoting(core::smart_refctd_ptr<IrrlichtDevice> device)
+			nbl::video::IFrameBuffer* createDefaultFBOForScreenshoting(core::smart_refctd_ptr<IrrlichtDevice> device, asset::E_FORMAT colorFormat=asset::EF_R8G8B8A8_SRGB)
 			{
 				auto driver = device->getVideoDriver();
 
 				auto createAttachement = [&](bool colorBuffer)
 				{
 					asset::ICPUImage::SCreationParams imgInfo;
-					imgInfo.format = colorBuffer ? asset::EF_R8G8B8A8_SRGB : asset::EF_D24_UNORM_S8_UINT;
+					imgInfo.format = colorBuffer ? colorFormat:asset::EF_D24_UNORM_S8_UINT;
 					imgInfo.type = asset::ICPUImage::ET_2D;
 					imgInfo.extent.width = driver->getScreenSize().Width;
 					imgInfo.extent.height = driver->getScreenSize().Height;
@@ -69,7 +69,7 @@ namespace nbl
 
 					asset::ICPUImageView::SCreationParams imgViewInfo;
 					imgViewInfo.image = std::move(image);
-					imgViewInfo.format = colorBuffer ? asset::EF_R8G8B8A8_SRGB : asset::EF_D24_UNORM_S8_UINT;
+					imgViewInfo.format = colorBuffer ? colorFormat:asset::EF_D24_UNORM_S8_UINT;
 					imgViewInfo.viewType = asset::IImageView<asset::ICPUImage>::ET_2D;
 					imgViewInfo.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
 					imgViewInfo.subresourceRange.baseArrayLayer = 0u;
@@ -117,7 +117,7 @@ namespace nbl
 			/*
 				Create a ScreenShot with gpu image usage and save it to a file.
 			*/
-			bool createScreenShot(video::IVideoDriver* driver, asset::IAssetManager* assetManager, const video::IGPUImageView* gpuImageView, const std::string& outFileName)
+			bool createScreenShot(video::IVideoDriver* driver, asset::IAssetManager* assetManager, const video::IGPUImageView* gpuImageView, const std::string& outFileName, asset::E_FORMAT convertToFormat=asset::EF_UNKNOWN)
 			{
 				auto fetchedImageViewParmas = gpuImageView->getCreationParameters();
 				auto gpuImage = fetchedImageViewParmas.image;
@@ -153,11 +153,65 @@ namespace nbl
 				auto texelBuffer = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(memoryRequirements.vulkanReqs.size, destinationBoundMemory->getMappedPointer(), core::adopt_memory);
 
 				image->setBufferAndRegions(std::move(texelBuffer), regions);
-				auto newCreationParams = image->getCreationParameters();
+				
+				while (mapPointerGetterFence->waitCPU(1000ull, mapPointerGetterFence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED) {}
+
+				core::smart_refctd_ptr<asset::ICPUImage> convertedImage;
+				if (convertToFormat != asset::EF_UNKNOWN)
+				{
+					auto referenceImageParams = image->getCreationParameters();
+					auto referenceBuffer = image->getBuffer();
+					auto referenceRegions = image->getRegions();
+					auto referenceRegion = referenceRegions.begin();
+					const auto newTexelOrBlockByteSize = asset::getTexelOrBlockBytesize(convertToFormat);
+
+					auto newImageParams = referenceImageParams;
+					auto newCpuBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(referenceBuffer->getSize() * newTexelOrBlockByteSize);
+					auto newRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUImage::SBufferCopy>>(referenceRegions.size());
+
+					for (auto newRegion = newRegions->begin(); newRegion != newRegions->end(); ++newRegion)
+					{
+						*newRegion = *(referenceRegion++);
+						newRegion->bufferOffset = newRegion->bufferOffset * newTexelOrBlockByteSize;
+					}
+
+					newImageParams.format = convertToFormat;
+					convertedImage = asset::ICPUImage::create(std::move(newImageParams));
+					convertedImage->setBufferAndRegions(std::move(newCpuBuffer), newRegions);
+
+					//asset::CConvertFormatImageFilter TODO: use this one instead with a nice dither @Anastazluk, we could also get rid of a lot of code here, since there's a bunch of constraints
+					asset::CSwizzleAndConvertImageFilter<> convertFilter;
+					asset::CSwizzleAndConvertImageFilter<>::state_type state;
+
+					state.swizzle = {};
+					state.inImage = image.get();
+					state.outImage = convertedImage.get();
+					state.inOffset = { 0, 0, 0 };
+					state.inBaseLayer = 0;
+					state.outOffset = { 0, 0, 0 };
+					state.outBaseLayer = 0;
+					//state.dither = ;
+
+					for (auto itr = 0; itr < convertedImage->getCreationParameters().mipLevels; ++itr)
+					{
+						auto regionWithMipMap = convertedImage->getRegions(itr).begin();
+
+						state.extent = regionWithMipMap->getExtent();
+						state.layerCount = regionWithMipMap->imageSubresource.layerCount;
+						state.inMipLevel = regionWithMipMap->imageSubresource.mipLevel;
+						state.outMipLevel = regionWithMipMap->imageSubresource.mipLevel;
+
+						const bool ok = convertFilter.execute(&state);
+						assert(ok);
+					}
+				}
+				else
+					convertedImage = image;
+				auto newCreationParams = convertedImage->getCreationParameters();
 				
 				asset::ICPUImageView::SCreationParams viewParams;
 				viewParams.flags = static_cast<asset::ICPUImageView::E_CREATE_FLAGS>(0u);
-				viewParams.image = image;
+				viewParams.image = convertedImage;
 				viewParams.format = newCreationParams.format;
 				viewParams.viewType = asset::ICPUImageView::ET_2D;
 				viewParams.subresourceRange.baseArrayLayer = 0u;
@@ -172,10 +226,8 @@ namespace nbl
 					asset::IAssetWriter::SAssetWriteParams wparams(asset);
 					return assetManager->writeAsset(outFileName, wparams);
 				};
-				
-				while (mapPointerGetterFence->waitCPU(1000ull, mapPointerGetterFence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED) {}
 
-				bool status = tryToWrite(image.get());
+				bool status = tryToWrite(convertedImage.get());
 				if (!status)
 					status = tryToWrite(imageView.get());
 
