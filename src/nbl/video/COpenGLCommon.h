@@ -14,6 +14,7 @@ namespace nbl
 namespace video
 {
 
+// @Crisspl these switches are woefully incomplete on all 3 functions
 inline GLenum	getSizedOpenGLFormatFromOurFormat(asset::E_FORMAT format)
 {
 	using namespace asset;
@@ -354,6 +355,7 @@ inline GLenum	getSizedOpenGLFormatFromOurFormat(asset::E_FORMAT format)
 	return GL_INVALID_ENUM;
 }
 
+#if 0
 inline asset::E_FORMAT	getOurFormatFromSizedOpenGLFormat(GLenum sizedFormat)
 {
 	using namespace asset;
@@ -692,8 +694,8 @@ inline asset::E_FORMAT	getOurFormatFromSizedOpenGLFormat(GLenum sizedFormat)
 	}
 	return asset::EF_UNKNOWN;
 }
-
-// TODO:
+#endif
+// TODO: all enums
 static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
 {
     using namespace asset;
@@ -796,7 +798,6 @@ static GLenum formatEnumToGLenum(asset::E_FORMAT fmt)
 }
 
 
-
 //! Get opengl values for the GPU texture storage
 inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, GLenum& colorformat, GLenum& type)
 {
@@ -805,8 +806,21 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 	colorformat = GL_INVALID_ENUM;
 	type = GL_INVALID_ENUM;
 
+	// TODO: make the switch go in the same order as the enum decls
 	switch (format)
 	{
+		case EF_A2R10G10B10_UNORM_PACK32: // no idea if I did this one correctly
+			colorformat = GL_BGRA;
+			type = GL_UNSIGNED_INT_10_10_10_2;
+			break;
+		case EF_A2B10G10R10_UNORM_PACK32:
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_INT_2_10_10_10_REV;
+			break;
+		case EF_A2B10G10R10_UINT_PACK32:
+			colorformat = GL_RGBA_INTEGER;
+			type = GL_UNSIGNED_INT_2_10_10_10_REV;
+			break;
 		case asset::EF_A1R5G5B5_UNORM_PACK16:
 			colorformat = GL_BGRA_EXT;
 			type = GL_UNSIGNED_SHORT_1_5_5_5_REV;
