@@ -237,6 +237,12 @@ int main()
 
 		if (generateNewSamples)
 		{
+			/** TODO: redo the sampling
+			Locality Level 0: the 6 or 4 dimensions consumed for BSDF + NEE sampling
+			Locality Level 1: the N samples per dispatch which will be consumed in parallel
+			Locality Level 2: the k dimensions batches (where D=4k or 6k) consumed as we recurse deeper
+			Locality Level 3: the z sample batches (where T=zN) consumed as we progressively add samples
+			**/
 			constexpr uint32_t Channels = 3u;
 			static_assert(Renderer::MaxDimensions%Channels==0u,"We cannot have this!");
 			core::OwenSampler sampler(Renderer::MaxDimensions,0xdeadbeefu);
