@@ -53,6 +53,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 6u;
+		static const float AntiAliasingSequence[4096][2];
     protected:
         ~Renderer();
 
@@ -124,6 +125,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
 		nbl::ext::RadeonRays::Manager::NblInstanceRRInstanceCache rrInstances;
 
+		nbl::core::matrix4SIMD m_prevViewProj;
 		nbl::core::aabbox3df m_sceneBound;
 		uint32_t m_maxRaysPerDispatch;
 		StaticViewData_t m_staticViewData;
