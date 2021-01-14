@@ -10,7 +10,7 @@
 
 #define nbl_glsl_MAX_RGB19E7_MANTISSA_VALUES (0x1<<nbl_glsl_RGB19E7_MANTISSA_BITS)
 #define nbl_glsl_MAX_RGB19E7_MANTISSA (nbl_glsl_MAX_RGB19E7_MANTISSA_VALUES-1)
-#define nbl_glsl_MAX_RGB19E7 float(nbl_glsl_MAX_RGB19E7_MANTISSA)/float(nbl_glsl_MAX_RGB19E7_MANTISSA_VALUES)*exp2(float(nbl_glsl_MAX_RGB19E7_EXP-nbl_glsl_RGB19E7_MANTISSA_BITS))
+#define nbl_glsl_MAX_RGB19E7 float(nbl_glsl_MAX_RGB19E7_MANTISSA)/float(nbl_glsl_MAX_RGB19E7_MANTISSA_VALUES)*exp2(float(nbl_glsl_MAX_RGB19E7_EXP))
 
 #define nbl_glsl_RGB19E7_COMPONENT_INDICES ivec4(0,0,1,1)
 #define nbl_glsl_RGB19E7_COMPONENT_BITOFFSETS ivec4(0,nbl_glsl_RGB19E7_MANTISSA_BITS,(2*nbl_glsl_RGB19E7_MANTISSA_BITS)&31,(3*nbl_glsl_RGB19E7_MANTISSA_BITS)&31)
