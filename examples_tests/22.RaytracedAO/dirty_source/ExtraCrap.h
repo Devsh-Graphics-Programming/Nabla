@@ -125,7 +125,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
 		nbl::ext::RadeonRays::Manager::NblInstanceRRInstanceCache rrInstances;
 
-		nbl::core::matrix4SIMD m_prevViewProj;
+		nbl::core::matrix3x4SIMD m_prevView;
 		nbl::core::aabbox3df m_sceneBound;
 		uint32_t m_maxRaysPerDispatch;
 		StaticViewData_t m_staticViewData;

@@ -50,7 +50,7 @@ Renderer::Renderer(IVideoDriver* _driver, IAssetManager* _assetManager, scene::I
 	#ifdef _IRR_BUILD_OPTIX_
 		m_optixManager(), m_cudaStream(nullptr), m_optixContext(),
 	#endif
-		rrShapeCache(), rrInstances(), m_prevViewProj(), m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
+		rrShapeCache(), rrInstances(), m_prevView(), m_sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX),
 		m_maxRaysPerDispatch(0), m_staticViewData{{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u},
 		m_raytraceCommonData{core::matrix4SIMD(),core::matrix3x4SIMD(),0,0,0},
 		m_indirectDrawBuffers{nullptr},m_cullPushConstants{core::matrix4SIMD(),1.f,0u,0u,0u},m_cullWorkGroups(0u),
@@ -994,7 +994,7 @@ void Renderer::deinit()
 	m_raytraceCommonData = {core::matrix4SIMD(),core::matrix3x4SIMD(),0,0,0};
 	m_staticViewData = {{0.f,0.f,0.f},0u,{0.f,0.f},{0.f,0.f},{0u,0u},0u,0u};
 	m_maxRaysPerDispatch = 0u;
-	std::fill_n(m_prevViewProj.pointer(),16u,0.f);
+	std::fill_n(m_prevView.pointer(),12u,0.f);
 	m_sceneBound = core::aabbox3df(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
 
 	m_rrManager->detachInstances(rrInstances.begin(),rrInstances.end());
@@ -1021,32 +1021,25 @@ void Renderer::render(nbl::ITimer* timer)
 
 	// check if camera moved
 	{
-		const auto currentViewProj = camera->getConcatenatedMatrix();
-		auto properEquals = [](const auto& rhs, const auto& lhs) -> bool
+		const auto currentView = camera->getViewMatrix();
+		auto properEquals = [](const auto& lhs, const auto& rhs) -> bool
 		{
-			const float rotationTolerance = 1.001f;
-			const float positionTolerance = 1.005f;
-			const float projectionTolerance = 1.0005f;
-			const core::matrix4SIMD tolerance(
-				rotationTolerance,rotationTolerance,rotationTolerance,positionTolerance,
-				rotationTolerance,rotationTolerance,rotationTolerance,positionTolerance,
-				rotationTolerance,rotationTolerance,rotationTolerance,positionTolerance,
-				projectionTolerance,projectionTolerance,projectionTolerance,projectionTolerance
-			);
-			for (auto r=0; r<4u; r++)
+			const float rotationTolerance = 1.005f;
+			const float positionTolerance = 1.001f;
+			for (auto r=0; r<3u; r++)
 			for (auto c=0; c<4u; c++)
 			{
 				const float ratio = core::abs(rhs.rows[r][c]/lhs.rows[r][c]);
 				// TODO: do by ULP
 				if (core::isnan(ratio) || core::isinf(ratio))
 					continue;
-				if (ratio>tolerance.rows[r][c] || ratio*tolerance.rows[r][c]<1.f)
+				const float tolerance = c!=3u ? rotationTolerance:positionTolerance;
+				if (ratio>tolerance || ratio*tolerance<1.f)
 					return false;
 			}
 			return true;
 		};
-		//static core::matrix4x3 prevView;
-		if (!properEquals(m_prevViewProj,currentViewProj))
+		if (!properEquals(currentView,m_prevView))
 		{
 			m_raytraceCommonData.framesDispatched = 0u;
 
@@ -1056,18 +1049,21 @@ void Renderer::render(nbl::ITimer* timer)
 				m_driver->clearColorBuffer(EFAP_COLOR_ATTACHMENT0, clearAccumulation);
 			}
 		
-			m_prevViewProj = currentViewProj;
-			//prevView = camera->getRelativeTransformationMatrix();
+			m_prevView = currentView;
 		}
-		//else // need this to stop mouse cursor drift
-			//camera->setRelativeTransformationMatrix(prevView);
+		else // need this to stop mouse cursor drift
+		{
+			core::matrix3x4SIMD invView;
+			m_prevView.getInverse(invView);
+			camera->setRelativeTransformationMatrix(invView.getAsRetardedIrrlichtMatrix());
+		}
 	}
 	// draw jittered frame
 	{
 		// jitter with AA AntiAliasingSequence
 		const auto modifiedViewProj = [&](uint32_t frameID)
 		{
-			const float stddev = 1.25f;
+			const float stddev = 0.707f;
 			const float* sample = AntiAliasingSequence[frameID];
 			const float phi = core::PI<float>()*(2.f*sample[1]-1.f);
 			const float sinPhi = sinf(phi);
@@ -1077,7 +1073,7 @@ void Renderer::render(nbl::ITimer* timer)
 			core::matrix4SIMD jitterMatrix;
 			jitterMatrix.rows[0][3] = cosPhi*r*m_staticViewData.rcpPixelSize.x;
 			jitterMatrix.rows[1][3] = sinPhi*r*m_staticViewData.rcpPixelSize.y;
-			return core::concatenateBFollowedByA(jitterMatrix,m_prevViewProj);
+			return core::concatenateBFollowedByA(jitterMatrix,core::concatenateBFollowedByA(camera->getProjectionMatrix(),m_prevView));
 		}(m_raytraceCommonData.framesDispatched++);
 		m_raytraceCommonData.rcpFramesDispatched = 1.f/float(m_raytraceCommonData.framesDispatched);
 
