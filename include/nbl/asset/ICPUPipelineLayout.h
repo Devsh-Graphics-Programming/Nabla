@@ -34,7 +34,14 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
         void setDescriptorSetLayout(uint32_t _set, core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _dslayout) 
         { 
             assert(!isImmutable_debug());
-            m_descSetLayouts[_set] = std::move(_dslayout); 
+            assert(_set < DESCRIPTOR_SET_COUNT);
+            m_descSetLayouts[_set] = std::move(_dslayout);
+        }
+
+        void setPushConstantRanges(core::smart_refctd_dynamic_array<SPushConstantRange>&& _ranges)
+        {
+            assert(!isImmutable_debug());
+            m_pushConstantRanges = std::move(_ranges);
         }
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override

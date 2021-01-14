@@ -618,15 +618,17 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 	if (outbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType == EPT_TRIANGLE_FAN)
 	{
         outbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType = EPT_TRIANGLE_LIST;
-		auto newIb = idxBufferFromTrianglesFanToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), canonicalMeshBufferIndexType, canonicalMeshBufferIndexType);
-		outbuffer->setIndexCount(newIb->getSize() / sizeof(uint32_t));
+        auto indexCount = outbuffer->getIndexCount();
+		auto newIb = idxBufferFromTrianglesFanToTriangles(outbuffer->getIndices(), indexCount, canonicalMeshBufferIndexType, canonicalMeshBufferIndexType);
+		outbuffer->setIndexCount(indexCount);
         outbuffer->setIndexBufferBinding({ 0u, std::move(newIb) });
 	}
 	else if (outbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType == EPT_TRIANGLE_STRIP)
 	{
         outbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType = EPT_TRIANGLE_LIST;
-		auto newIb = idxBufferFromTriangleStripsToTriangles(outbuffer->getIndices(), outbuffer->getIndexCount(), canonicalMeshBufferIndexType, canonicalMeshBufferIndexType);
-		outbuffer->setIndexCount(newIb->getSize() / sizeof(uint32_t));
+        auto indexCount = outbuffer->getIndexCount();
+		auto newIb = idxBufferFromTriangleStripsToTriangles(outbuffer->getIndices(), indexCount, canonicalMeshBufferIndexType, canonicalMeshBufferIndexType);
+		outbuffer->setIndexCount(indexCount);
         outbuffer->setIndexBufferBinding({ 0u, std::move(newIb) });
 	}
 	else if (outbuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType != EPT_TRIANGLE_LIST)
@@ -1535,7 +1537,7 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	return true;
 }
 
-core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromLineStripsToLines(const void* _input, size_t _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
+core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromLineStripsToLines(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
 {
     if (_inIndexType == EIT_16BIT)
     {
@@ -1554,7 +1556,7 @@ core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromLineStripsToLi
 	return nullptr;
 }
 
-core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
+core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTriangleStripsToTriangles(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
 {
 	if (_inIndexType == EIT_16BIT)
     {
@@ -1573,7 +1575,7 @@ core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTriangleStrips
 	return nullptr;
 }
 
-core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
+core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTrianglesFanToTriangles(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType)
 {
 	if (_inIndexType == EIT_16BIT)
     {

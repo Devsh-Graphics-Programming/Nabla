@@ -19,6 +19,7 @@
 	{
 		float x,y,z;
 	};
+	#define vec4 nbl::core::vectorSIMDf
 	#define mat4 nbl::core::matrix4SIMD
 	#define mat4x3 nbl::core::matrix3x4SIMD
 #endif

@@ -108,7 +108,6 @@ struct SShaderMemoryBlock
 
     struct SMember
     {
-        //! count==1 implies not array
         union {
             uint32_t count;
             uint32_t count_specID;
@@ -116,6 +115,7 @@ struct SShaderMemoryBlock
         bool countIsSpecConstant;
         uint32_t offset;
         uint32_t size;
+        //! relevant only in case of array types
         uint32_t arrayStride;
         //! mtxStride==0 implies not matrix
         uint32_t mtxStride;
@@ -131,6 +131,8 @@ struct SShaderMemoryBlock
             size_t count;
         } members;
         std::string name;
+
+        bool isArray() const { return countIsSpecConstant || count > 1u; }
     };
 
     SMember::SMembers members;

@@ -1,5 +1,5 @@
-#ifndef __NBL_EXT_RADEON_RAYS_INTERSECTION_INCLUDED__
-#define __NBL_EXT_RADEON_RAYS_INTERSECTION_INCLUDED__
+#ifndef _NBL_EXT_RADEON_RAYS_INTERSECTION_INCLUDED_
+#define _NBL_EXT_RADEON_RAYS_INTERSECTION_INCLUDED_
 
 // for the love of god, lets optimize this into 16 bytes
 struct nbl_glsl_ext_RadeonRays_Intersection

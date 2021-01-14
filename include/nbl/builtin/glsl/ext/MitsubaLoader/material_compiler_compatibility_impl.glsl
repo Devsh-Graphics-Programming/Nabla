@@ -33,10 +33,7 @@ layout(set = 0, binding = 4, std430) restrict readonly buffer BSDF_BUF
 {
     nbl_glsl_MC_bsdf_data_t data[];
 } bsdf_buf;
-#include <nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl>
-layout(set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDataBuffer {
-    nbl_glsl_ext_Mitsuba_Loader_instance_data_t data[];
-} InstData;
+#include <nbl/builtin/glsl/ext/MitsubaLoader/instance_data_descriptor.glsl>
 layout(set = 0, binding = 6, std430) restrict readonly buffer PREFETCH_INSTR_BUF
 {
     nbl_glsl_MC_prefetch_instr_t data[];

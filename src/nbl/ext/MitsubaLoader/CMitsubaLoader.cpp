@@ -42,10 +42,6 @@ layout (location = 3) out vec2 UV;
 #include <nbl/builtin/glsl/utils/common.glsl>
 #include <nbl/builtin/glsl/utils/transform.glsl>
 
-layout (push_constant) uniform Block {
-    uint instDataOffset;
-} PC;
-
 #ifndef _NBL_VERT_SET1_BINDINGS_DEFINED_
 #define _NBL_VERT_SET1_BINDINGS_DEFINED_
 layout (set = 1, binding = 0, row_major, std140) uniform UBO {
@@ -61,15 +57,14 @@ layout (set = 0, binding = 5, row_major, std430) readonly restrict buffer InstDa
 
 void main()
 {
-	uint instIx = PC.instDataOffset+gl_InstanceIndex;
-	mat4x3 tform = InstData.data[instIx].tform;
+	mat4x3 tform = InstData.data[gl_InstanceIndex].tform;
 	mat4 mvp = nbl_glsl_pseudoMul4x4with4x3(CamData.params.MVP, tform);
 	gl_Position = nbl_glsl_pseudoMul4x4with3x1(mvp, vPosition);
 	WorldPos = nbl_glsl_pseudoMul3x4with3x1(tform, vPosition);
-	mat3 normalMat = mat3(InstData.data[instIx].normalMatrixRow0,InstData.data[instIx].normalMatrixRow1,InstData.data[instIx].normalMatrixRow2);
+	mat3 normalMat = mat3(InstData.data[gl_InstanceIndex].normalMatrixRow0,InstData.data[gl_InstanceIndex].normalMatrixRow1,InstData.data[gl_InstanceIndex].normalMatrixRow2);
 	Normal = transpose(normalMat)*normalize(vNormal);
 	UV = vUV;
-	InstanceIndex = instIx;
+	InstanceIndex = gl_InstanceIndex;
 }
 
 )";
@@ -103,13 +98,9 @@ vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()
 {
 	return normalize(Normal);
 }
-vec3 nbl_glsl_MC_getWorldSpacePosition()
+mat2x3 nbl_glsl_MC_getdPos()
 {
-	return WorldPos;
-}
-mat2x3 nbl_glsl_MC_getdPos(in vec3 p)
-{
-	return mat2x3(dFdx(p), dFdy(p));
+	return mat2x3(dFdx(WorldPos), dFdy(WorldPos));
 }
 #define _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
 )";
@@ -144,6 +135,8 @@ vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_inte
 }
 #endif
 
+#ifndef _NBL_FRAG_MAIN_DEFINED_
+#define _NBL_FRAG_MAIN_DEFINED_
 void main()
 {
 	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
@@ -165,6 +158,7 @@ void main()
 
 	OutColor = vec4(color, 1.0);
 }
+#endif
 )";
 
 _NBL_STATIC_INLINE_CONSTEXPR const char* VERTEX_SHADER_CACHE_KEY = "nbl/builtin/specialized_shader/loaders/mitsuba_xml/default";
@@ -547,12 +541,7 @@ static core::smart_refctd_ptr<asset::ICPUImage> createBlendWeightImage(const ass
 
 core::smart_refctd_ptr<asset::ICPUPipelineLayout> CMitsubaLoader::createPipelineLayout(asset::IAssetManager* _manager, asset::ICPUVirtualTexture* _vt)
 {
-	SPushConstantRange pcrng;
-	pcrng.offset = 0u;
-	pcrng.size = sizeof(uint32_t);//instance data offset
-	pcrng.stageFlags = static_cast<asset::ISpecializedShader::E_SHADER_STAGE>(asset::ISpecializedShader::ESS_FRAGMENT | asset::ISpecializedShader::ESS_VERTEX);
-
-	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout; // needs to builtin and cached statically
+	core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds0layout;
 	{
 		auto sizes = _vt->getDSlayoutBindings(nullptr, nullptr);
 		auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::ICPUDescriptorSetLayout::SBinding>>(sizes.first + DS0_BINDING_COUNT_WO_VT);
@@ -594,7 +583,7 @@ core::smart_refctd_ptr<asset::ICPUPipelineLayout> CMitsubaLoader::createPipeline
 	}
 	auto ds1layout = getBuiltinAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("nbl/builtin/descriptor_set_layout/basic_view_parameters", _manager);
 
-	return core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(&pcrng, &pcrng+1, std::move(ds0layout), std::move(ds1layout), nullptr, nullptr);
+	return core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, std::move(ds0layout), std::move(ds1layout), nullptr, nullptr);
 }
 
 CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager, io::IFileSystem* _fs) : asset::IAssetLoader(), m_manager(_manager), m_filesystem(_fs)
@@ -1325,9 +1314,9 @@ SContext::tex_ass_type CMitsubaLoader::cacheTexture(SContext& ctx, uint32_t hier
 							_NBL_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
 							break;
 						default:
-							return ISampler::ETC_REPEAT;
 							break;
 					}
+					return ISampler::ETC_REPEAT;
 				};
 				samplerParams.TextureWrapU = getWrapMode(tex->bitmap.wrapModeU);
 				samplerParams.TextureWrapV = getWrapMode(tex->bitmap.wrapModeV);
@@ -1548,7 +1537,7 @@ struct nbl_glsl_ext_Mitsuba_Loader_instance_data_t
 };
 
 
-// Also sets instance data buffer offset into meshbuffers' push constants
+// Also sets instance data buffer offset into meshbuffers' base instance
 template<typename Iter>
 inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS0(const SContext& _ctx, asset::ICPUPipelineLayout* _layout, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd)
 {
@@ -1621,7 +1610,11 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		auto* meta = static_cast<const IMeshMetadata*>(mesh->getMetadata());
 		
 		core::vectorSIMDf emissive;
-		uint32_t instDataOffset = instanceData.size();
+		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+		{
+			auto* mb = mesh->getMeshBuffer(i);
+			mb->setBaseInstance(instanceData.size());
+		}
 		for (const auto& inst : meta->getInstances()) {
 			// @Crisspl IIRC lights in mitsuba have "sides" , TODO
 			emissive = inst.emitter.type==CElementEmitter::AREA ? inst.emitter.area.radiance : core::vectorSIMDf(0.f);
@@ -1661,11 +1654,6 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			}
 
 			instanceData.push_back(instData);
-		}
-		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
-		{
-			auto* mb = mesh->getMeshBuffer(i);
-			reinterpret_cast<uint32_t*>(mb->getPushConstantsDataPtr())[0] = instDataOffset; // use base instance!
 		}
 	}
 #ifdef DEBUG_MITSUBA_LOADER

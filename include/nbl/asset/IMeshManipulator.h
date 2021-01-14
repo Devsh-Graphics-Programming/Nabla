@@ -223,7 +223,7 @@ namespace asset
         @param _inIndexType Type of input index buffer data (32bit or 16bit).
         @param _outIndexType Type of output index buffer data (32bit or 16bit).
         */
-        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromLineStripsToLines(const void* _input, size_t _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
+        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromLineStripsToLines(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
 
         //! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle strip.
         /**
@@ -232,7 +232,7 @@ namespace asset
         @param _inIndexType Type of input index buffer data (32bit or 16bit).
         @param _outIndexType Type of output index buffer data (32bit or 16bit).
         */
-        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTriangleStripsToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
+        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTriangleStripsToTriangles(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
 
         //! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle fan.
         /**
@@ -241,7 +241,7 @@ namespace asset
         @param _inIndexType Type of input index buffer data (32bit or 16bit).
         @param _outIndexType Type of output index buffer data (32bit or 16bit).
         */
-        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTrianglesFanToTriangles(const void* _input, size_t _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
+        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTrianglesFanToTriangles(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
 
         //! Creates a 32bit index buffer for a mesh with primitive types changed to list types
         /**#
@@ -311,7 +311,7 @@ namespace asset
 				ICPUMeshBuffer* cpumb = *it;
 
 				const auto indexType = cpumb->getIndexType();
-				const auto indexCount = cpumb->getIndexCount();
+				size_t indexCount = cpumb->getIndexCount();
 
 				auto& params = cpumb->getPipeline()->getPrimitiveAssemblyParams();
 				core::smart_refctd_ptr<ICPUBuffer> newIndexBuffer;
@@ -355,7 +355,10 @@ namespace asset
 						break;
 				}
 				if (newIndexBuffer)
+				{
 					cpumb->setIndexBufferBinding({0ull,std::move(newIndexBuffer)});
+					cpumb->setIndexCount(indexCount);
+				}
 				cpumb->setIndexType(outIndexType);
 				params.primitiveType = _newPrimitiveType;
 			}
