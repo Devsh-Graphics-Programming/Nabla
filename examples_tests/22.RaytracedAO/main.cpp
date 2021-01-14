@@ -12,7 +12,7 @@
 #include "../3rdparty/portable-file-dialogs/portable-file-dialogs.h"
 #include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 
-#include "./dirty_source/ExtraCrap.h"
+#include "Renderer.h"
 
 
 using namespace nbl;
