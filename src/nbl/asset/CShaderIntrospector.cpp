@@ -684,7 +684,10 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
         member.offset = _baseOffset + _comp.type_struct_member_offset(_parentType, m);
         member.rowMajor = _comp.get_member_decoration(_parentType.self, m, spv::DecorationRowMajor);
         member.type = spvcrossType2E_TYPE(mtype.basetype);
+        member.arrayStride = 0u;
 
+        // if array, then we can get array stride from decoration (via spirv-cross)
+        // otherwise arrayStride is left with value 0
         if (mtype.array.size())
         {
             member.count = mtype.array[0];
@@ -698,8 +701,6 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
                 member.count_specID = sc->id;
             }
         }
-		else if (mtype.basetype != spirv_cross::SPIRType::Struct) // might have to ignore a few more types than structs
-			member.arrayStride = core::max(0x1u<<core::findMSB(member.size),16u); // @Crisspl  NOT TRUE FOR MATRICES!
 
         if (mtype.basetype == spirv_cross::SPIRType::Struct) //recursive introspection done in DFS manner (and without recursive calls)
             _pushStack.push({member.members, mtype, member.offset});
@@ -707,7 +708,7 @@ static void introspectStructType(spirv_cross::Compiler& _comp, impl::SShaderMemo
 		{
             member.mtxRowCnt = mtype.vecsize;
             member.mtxColCnt = mtype.columns;
-            if (member.mtxColCnt > 1u) // @Crisspl why are you checking columns to get stride? What about row major?
+            if (member.mtxColCnt > 1u)
                 member.mtxStride = _comp.type_struct_member_matrix_stride(_parentType, m);
         }
     }

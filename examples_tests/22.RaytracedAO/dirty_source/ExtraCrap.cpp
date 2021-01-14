@@ -21,7 +21,7 @@ constexpr uint32_t kOptiXPixelSize = sizeof(uint16_t)*3u;
 core::smart_refctd_ptr<ICPUSpecializedShader> specializedShaderFromFile(IAssetManager* assetManager, const char* path)
 {
 	auto bundle = assetManager->getAsset(path, {});
-	return core::move_and_static_cast<ICPUSpecializedShader>(*bundle.getContents().begin());
+	return core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(*bundle.getContents().begin());
 }
 core::smart_refctd_ptr<IGPUSpecializedShader> gpuSpecializedShaderFromFile(IAssetManager* assetManager, IVideoDriver* driver, const char* path)
 {

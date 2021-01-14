@@ -138,13 +138,13 @@ layout(set = 1, binding = 5, std430, row_major) restrict readonly buffer LightRa
 vec3 fetchAccumulation(in ivec2 coord)
 {
     const uvec2 data = imageLoad(accumulation,coord).rg;
-	return vec4(unpackHalf2x16(data[0]),unpackHalf2x16(data[1])).rgb;
-	//return nbl_glsl_decodeRGB19E7(data);
+	//return vec4(unpackHalf2x16(data[0]),unpackHalf2x16(data[1])).rgb;
+	return nbl_glsl_decodeRGB19E7(data);
 }
 void storeAccumulation(in vec3 color, in ivec2 coord)
 {
-	//const uvec2 data = nbl_glsl_encodeRGB19E7(color);
-	const uvec2 data = uvec2(packHalf2x16(color.rg),packHalf2x16(vec2(color.b,1.0)));
+	const uvec2 data = nbl_glsl_encodeRGB19E7(color);
+	//const uvec2 data = uvec2(packHalf2x16(color.rg),packHalf2x16(vec2(color.b,1.0)));
 	imageStore(accumulation,coord,uvec4(data,0u,0u));
 }
 
