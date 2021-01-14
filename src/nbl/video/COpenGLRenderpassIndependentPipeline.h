@@ -36,8 +36,7 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
             _vertexInputParams, _blendParams, _primAsmParams, _rasterParams
             ),
             IOpenGLPipeline(_ctxCount, _ctxID, _GLnames, _binaries),
-            m_stagePresenceMask(0u),
-            m_baseInstanceUniformIDs(core::make_refctd_dynamic_array<decltype(m_baseInstanceUniformIDs)>(_ctxCount))
+            m_stagePresenceMask(0u)
         {
             static_assert(asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT == asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT, "This code below has to be divided into 2 loops");
             static_assert(asset::EF_UNKNOWN <= 0xffu, "All E_FORMAT values must fit in 1 byte or hash falls apart");
@@ -71,12 +70,12 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
             // only this function touches this uniform
             constexpr const char* SPIRV_CROSS_BaseInstanceUniformName = "SPIRV_Cross_BaseInstance";
 
-            GLint& value = (*m_baseInstanceUniformIDs)[_ctxID].cache;
+            GLint& value = getBaseInstanceState(_ctxID)->cache;
             if (value == _baseInstance)
                 return;
 
             const GLuint programID = getShaderGLnameForCtx(ESSI_VERTEX_SHADER_IX, _ctxID);
-            GLint& uid = (*m_baseInstanceUniformIDs)[_ctxID].id;
+            GLint& uid = getBaseInstanceState(_ctxID)->id;
             if (uid == -1)
             {
                 uid = COpenGLExtensionHandler::extGlGetUniformLocation(programID, SPIRV_CROSS_BaseInstanceUniformName);
@@ -315,16 +314,6 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
         SVAOHash m_vaoHashval;
         uint32_t m_stagePresenceMask;
         mutable uint32_t m_lastUpdateStamp[SHADER_STAGE_COUNT];
-
-        // needed for spirv-cross-based workaround of GL's behaviour of gl_InstanceID
-        struct SBaseInstance
-        {
-            GLint cache = 0;
-            GLint id = -1;
-        };
-        // per-context ID of SPIRV_Cross_BaseInstance uniform
-        // (only present in case of absence of GL_ARB_shader_draw_parameters)
-        mutable core::smart_refctd_dynamic_array<SBaseInstance> m_baseInstanceUniformIDs;
 };
 
 }
