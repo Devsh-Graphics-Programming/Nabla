@@ -858,14 +858,17 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
                 VAOMap.reserve(maxVAOCacheSize);
             }
 
-            void flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout, const COpenGLPipelineLayout* _prevLayout);
+            void flushState_descriptors(E_PIPELINE_BIND_POINT _pbp, const COpenGLPipelineLayout* _currentLayout);
             void flushStateGraphics(uint32_t stateBits);
             void flushStateCompute(uint32_t stateBits);
 
             SOpenGLState currentState;
             SOpenGLState nextState;
+			// represents descriptors currently flushed into GL state,
+			// layout is needed to disambiguate descriptor sets due to translation into OpenGL descriptor indices
             struct {
                 SOpenGLState::SDescSetBnd descSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT];
+				core::smart_refctd_ptr<const COpenGLPipelineLayout> layout;
             } effectivelyBoundDescriptors;
 
             //push constants are tracked outside of next/currentState because there can be multiple pushConstants() calls and each of them kinda depends on the pervious one (layout compatibility)

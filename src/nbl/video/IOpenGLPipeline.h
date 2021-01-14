@@ -17,6 +17,34 @@ namespace video
 template<size_t _STAGE_COUNT>
 class IOpenGLPipeline
 {
+    protected:
+        // needed for spirv-cross-based workaround of GL's behaviour of gl_InstanceID
+        struct SBaseInstance
+        {
+            GLint cache = 0;
+            GLint id = -1;
+        };
+
+    private:
+        using base_instance_cache_t = SBaseInstance;
+
+        _NBL_STATIC_INLINE_CONSTEXPR bool       IsComputePipelineBase =             (_STAGE_COUNT == 1u);
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t   BaseInstancePerContextCacheSize =   IsComputePipelineBase ? 0ull : sizeof(base_instance_cache_t);
+        _NBL_STATIC_INLINE_CONSTEXPR uint32_t   UniformsPerContextCacheSize =       _STAGE_COUNT*IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE + BaseInstancePerContextCacheSize;
+
+        static uint32_t baseInstanceCacheByteoffsetForCtx(uint32_t _ctxId)
+        {
+            return UniformsPerContextCacheSize*_ctxId;
+        }
+        static uint32_t uniformsCacheByteoffsetForCtx(uint32_t _ctxId)
+        {
+            return baseInstanceCacheByteoffsetForCtx(_ctxId) + BaseInstancePerContextCacheSize;
+        }
+        static uint32_t uniformsCacheByteoffsetForCtxAndStage(uint32_t _ctxId, uint32_t _stage)
+        {
+            return uniformsCacheByteoffsetForCtx(_ctxId) + _stage*IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE;
+        }
+
     public:
         IOpenGLPipeline(uint32_t _ctxCount, uint32_t _ctxID, const GLuint _GLnames[_STAGE_COUNT], const COpenGLSpecializedShader::SProgramBinary _binaries[_STAGE_COUNT]) : 
             m_GLprograms(core::make_refctd_dynamic_array<decltype(m_GLprograms)>(_ctxCount*_STAGE_COUNT))
@@ -34,8 +62,10 @@ class IOpenGLPipeline
                     (*m_GLprograms)[i*_STAGE_COUNT+j].GLname = GLname;
                 }
 
-            const size_t uVals_sz = _STAGE_COUNT*_ctxCount*IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE;
+            const size_t uVals_sz = UniformsPerContextCacheSize * _ctxCount;
             m_uniformValues = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(uVals_sz, 128));
+            for (uint32_t i = 0u; i < _ctxCount; ++i)
+                getBaseInstanceState(i)[0] = base_instance_cache_t{};
         }
         ~IOpenGLPipeline()
         {
@@ -46,7 +76,8 @@ class IOpenGLPipeline
             _NBL_ALIGNED_FREE(m_uniformValues);
         }
 
-        uint8_t* getPushConstantsStateForStage(uint32_t _stageIx, uint32_t _ctxID) const { return const_cast<uint8_t*>(m_uniformValues + ((_STAGE_COUNT*_ctxID + _stageIx)*IGPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE)); }
+        uint8_t* getPushConstantsStateForStage(uint32_t _stageIx, uint32_t _ctxID) const { return const_cast<uint8_t*>(m_uniformValues + uniformsCacheByteoffsetForCtxAndStage(_ctxID, _stageIx)); }
+        base_instance_cache_t* getBaseInstanceState(uint32_t _ctxID) const { return const_cast<base_instance_cache_t*>(m_uniformValues + baseInstanceCacheByteoffsetForCtx(_ctxID)); }
 
     protected:
         void setUniformsImitatingPushConstants(uint32_t _stageIx, uint32_t _ctxID, const uint8_t* _pcData, const core::SRange<const COpenGLSpecializedShader::SUniform>& _uniforms, const core::SRange<const GLint>& _locations) const
@@ -73,15 +104,19 @@ class IOpenGLPipeline
 
 		        uint8_t* valueptr = state+m.offset;
 
-                uint32_t arrayStride = 0u;
+                uint32_t arrayStride = m.arrayStride;
+                // in case of non-array types, m.arrayStride is irrelevant
+                // we should compute it though, so that we dont have to branch in the loop 
+                if (!m.isArray())
                 {
-                    uint32_t arrayStride1 = 0u;
+                    // 1N for scalar types, 2N for gvec2, 4N for gvec3 and gvec4
+                    // N==sizeof(float)
+                    // WARNING / TODO : need some touch in case when we want to support `double` push constants
                     if (is_scalar_or_vec())
-                        arrayStride1 = (m.mtxRowCnt==1u) ? m.size : core::roundUpToPoT(m.mtxRowCnt)*4u;
+                        arrayStride = (m.mtxRowCnt==1u) ? m.size : core::roundUpToPoT(m.mtxRowCnt)*sizeof(float);
+                    // same as size in case of matrices
                     else if (is_mtx())
-                        arrayStride1 = m.arrayStride;
-                    assert(arrayStride1);
-                    arrayStride = (m.count <= 1u) ? arrayStride1 : m.arrayStride;
+                        arrayStride = m.size;
                 }
 		        assert(m.mtxStride==0u || arrayStride%m.mtxStride==0u);
 		        NBL_ASSUME_ALIGNED(valueptr, sizeof(float));
@@ -99,9 +134,8 @@ class IOpenGLPipeline
 		        {
 			        // pack the constant data as OpenGL uniform update functions expect packed arrays
 			        {
-				        const bool isRowMajor = is_scalar_or_vec() || m.rowMajor;
-				        const uint32_t rowOrColCnt = isRowMajor ? m.mtxColCnt : m.mtxRowCnt;
-				        const uint32_t len = isRowMajor ? m.mtxRowCnt : m.mtxColCnt;
+                        const uint32_t rowOrColCnt = m.rowMajor ? m.mtxRowCnt : m.mtxColCnt;
+				        const uint32_t len = m.rowMajor ? m.mtxColCnt : m.mtxRowCnt;
 				        for (uint32_t i = 0u; i < count; ++i)
 				        for (uint32_t c = 0u; c < rowOrColCnt; ++c)
 				        {

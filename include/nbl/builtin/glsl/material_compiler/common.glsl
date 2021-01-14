@@ -4,7 +4,7 @@
 #include <nbl/builtin/glsl/material_compiler/common_declarations.glsl>
 
 #ifndef _NBL_USER_PROVIDED_MATERIAL_COMPILER_GLSL_BACKEND_FUNCTIONS_
-	#error "You need to define 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()', 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()' , 'nbl_glsl_MC_getWorldSpacePosition()', 'mat2x3 nbl_glsl_MC_getdPos(in vec3 p)' functions above"
+	#error "You need to define 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceV()', 'vec3 nbl_glsl_MC_getNormalizedWorldSpaceN()', 'mat2x3 nbl_glsl_MC_getdPos()' functions above"
 #endif
 
 #include <nbl/builtin/glsl/math/functions.glsl>
@@ -16,7 +16,6 @@ nbl_glsl_MC_precomputed_t nbl_glsl_MC_precomputeData(in bool frontface)
 	p.N = nbl_glsl_MC_getNormalizedWorldSpaceN();
 	p.V = nbl_glsl_MC_getNormalizedWorldSpaceV();
 	p.frontface = frontface;
-	p.pos = nbl_glsl_MC_getWorldSpacePosition();
 
 	return p;
 }
@@ -141,7 +140,7 @@ bool nbl_glsl_MC_op_isBXDForCoatOrBlend(in uint op)
 #elif defined(OP_COATING)
 	return op<=OP_COATING;
 #else
-	return op_isBXDF(op);
+	return nbl_glsl_MC_op_isBXDF(op);
 #endif
 }
 bool nbl_glsl_MC_op_hasSpecular(in uint op)
@@ -339,21 +338,21 @@ mat2x4 nbl_glsl_MC_instr_fetchSrcRegs(in nbl_glsl_MC_instr_t i)
 	return nbl_glsl_MC_instr_fetchSrcRegs(i, r);
 }
 
-void nbl_glsl_MC_setCurrInteraction(in vec3 N, in vec3 V, in vec3 pos)
+void nbl_glsl_MC_setCurrInteraction(in vec3 N, in vec3 V)
 {
-	mat2x3 dp = nbl_glsl_MC_getdPos(pos);
-	nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcSurfaceInteractionFromViewVector(V, pos, N, dp);
+	mat2x3 dp = nbl_glsl_MC_getdPos();
+	nbl_glsl_IsotropicViewSurfaceInteraction interaction = nbl_glsl_calcSurfaceInteractionFromViewVector(V, N, dp);
 	currInteraction.inner = nbl_glsl_calcAnisotropicInteraction(interaction);
 	nbl_glsl_MC_finalizeInteraction(currInteraction);
 }
 void nbl_glsl_MC_setCurrInteraction(in nbl_glsl_MC_precomputed_t precomp)
 {
-	nbl_glsl_MC_setCurrInteraction(precomp.frontface ? precomp.N : -precomp.N, precomp.V, precomp.pos);
+	nbl_glsl_MC_setCurrInteraction(precomp.frontface ? precomp.N : -precomp.N, precomp.V);
 }
 void nbl_glsl_MC_updateCurrInteraction(in nbl_glsl_MC_precomputed_t precomp, in vec3 N)
 {
 	// precomputed normals already have correct orientation
-	nbl_glsl_MC_setCurrInteraction(N, precomp.V, precomp.pos);
+	nbl_glsl_MC_setCurrInteraction(N, precomp.V);
 }
 
 //clamping alpha to min MIN_ALPHA because we're using microfacet BxDFs for deltas as well (and NDFs often end up NaN when given alpha=0) because of less deivergence

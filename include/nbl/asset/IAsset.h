@@ -347,11 +347,6 @@ class SAssetBundle
 			return core::SRange<const core::smart_refctd_ptr<IAsset>>(m_contents->begin(),m_contents->end());
 		}
 
-		inline core::SRange<core::smart_refctd_ptr<IAsset>> getContents()
-		{
-			return core::SRange<core::smart_refctd_ptr<IAsset>>(m_contents->begin(),m_contents->end());
-		}
-
 		//! Whether this asset bundle is in a cache and should be removed from cache to destroy
 		inline bool isInAResourceCache() const { return m_isCached; }
 
