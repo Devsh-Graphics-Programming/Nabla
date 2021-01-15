@@ -111,6 +111,13 @@ public:
 		}
 	};
 
+	template <typename Iterator>
+	struct MeshPackerConfigParams
+	{
+		SVertexInputParams vertexInputParams;
+		core::SRange<void, Iterator> belongingMeshes; // pointers to sections of `sortedMeshBuffersOut`
+	};
+
 public:
 	CCPUMeshPackerV1(const SVertexInputParams& preDefinedLayout, const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u);
 

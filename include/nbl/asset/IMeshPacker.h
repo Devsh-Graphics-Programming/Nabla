@@ -24,13 +24,6 @@ public:
         }
     };
 
-    template <typename MeshIterator>
-    struct MeshPackerConfigParams
-    {
-        SVertexInputParams vertexInputParams;
-        core::SRange<void, MeshIterator> belongingMeshes; // pointers to sections of `sortedMeshBuffersOut`
-    };
-
 protected:
     IMeshPackerBase(uint16_t minTriangleCountPerMDIData, uint16_t maxTriangleCountPerMDIData)
         :m_maxTriangleCountPerMDIData(maxTriangleCountPerMDIData),
