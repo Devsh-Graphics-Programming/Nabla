@@ -217,7 +217,7 @@ void main()
 			const bool validRay = any(greaterThan(throughput.rgb,vec3(FLT_MIN)));
 			if (validRay)
 			{
-				const float err = 1.0/256.0; // TODO: improve ray offsets
+				const float err = 1.0/64.0; // TODO: improve ray offsets
 				rays[realOutputID].origin = worldPosition+direction*err;
 				rays[realOutputID].maxT = max(maxT-err,0.0);
 				rays[realOutputID].direction = direction;
