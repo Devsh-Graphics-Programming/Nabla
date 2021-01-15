@@ -415,7 +415,7 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 			queueUpMDI(call);
 		}
 		for (auto& cull : cullData)
-			cull.drawID = meshbufferIDToDrawID[cull.globalObjectID];
+			cull.drawID = meshbufferIDToDrawID[cull.drawID];
 	}
 	m_cullPushConstants.currentCommandBufferIx = 0x0u;
 	m_cullPushConstants.maxDrawCount = mdiData.size();
@@ -1024,8 +1024,8 @@ void Renderer::render(nbl::ITimer* timer)
 		const auto currentView = camera->getViewMatrix();
 		auto properEquals = [](const auto& lhs, const auto& rhs) -> bool
 		{
-			const float rotationTolerance = 1.005f;
-			const float positionTolerance = 1.001f;
+			const float rotationTolerance = 1.01f;
+			const float positionTolerance = 1.005f;
 			for (auto r=0; r<3u; r++)
 			for (auto c=0; c<4u; c++)
 			{
