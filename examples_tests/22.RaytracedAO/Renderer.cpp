@@ -789,9 +789,10 @@ void Renderer::init(const SAssetBundle& meshes,
 			}
 			// set up m_raygenDS
 			{
-				auto scrambleTexture = createScreenSizedTexture(EF_R32_UINT);
+				auto scrambleTexture = createScreenSizedTexture(EF_R32G32_UINT);
 				{
-					core::vector<uint32_t> random(renderPixelCount);
+					constexpr auto ScrambleStateChannels = 2u;
+					core::vector<uint32_t> random(renderPixelCount*ScrambleStateChannels);
 					// generate
 					{
 						core::RandomSampler rng(0xbadc0ffeu);
