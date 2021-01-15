@@ -89,14 +89,14 @@ class CChannelIndependentImageFilterKernel :
 		struct dummy_kernel_t { _NBL_STATIC_INLINE_CONSTEXPR bool has_derivative = false; };
 		template <E_CHANNEL ch>
 		using kernel_t = std::conditional_t<has_kernel_v<ch>,
-			std::tuple_element_t<std::min(static_cast<size_t>(ch),MaxChannels-1ull), typename channel_indep_base_t::kernels_t>,
+			std::tuple_element_t<std::min<size_t>(static_cast<size_t>(ch),MaxChannels-1ull), typename channel_indep_base_t::kernels_t>,
 			dummy_kernel_t
 		>;
 
 		template <E_CHANNEL ch>
-		kernel_t<ch>& getKernel() { return std::get<static_cast<size_t>(ch)>(kernels); }
+		kernel_t<ch>& getKernel() { return std::get<static_cast<size_t>(ch)>(base_t::Base::kernels); }
 		template <E_CHANNEL ch>
-		const kernel_t<ch>& getKernel() const { return std::get<static_cast<size_t>(ch)>(kernels); }
+		const kernel_t<ch>& getKernel() const { return std::get<static_cast<size_t>(ch)>(base_t::Base::kernels); }
 
 		static core::vectorSIMDf maxSupport(std::initializer_list<core::vectorSIMDf> ilist)
 		{
@@ -123,7 +123,7 @@ class CChannelIndependentImageFilterKernel :
 		{}
 
 		// pass on any scale
-		inline const IImageFilterKernel::UserData* getUserData() const { return haveScale ? &scale:nullptr; }
+		inline const IImageFilterKernel::UserData* getUserData() const { return base_t::Base::haveScale ? &base_t::Base::scale:nullptr; }
 
 		inline float weight(float x, int32_t channel) const
 		{

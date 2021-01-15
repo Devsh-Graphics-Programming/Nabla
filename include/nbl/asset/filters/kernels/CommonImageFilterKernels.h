@@ -89,7 +89,7 @@ class CFloatingPointSeparableImageFilterKernelBase : public CImageFilterKernel<C
 		// utility function so we dont evaluate `weight` function in children outside the support and just are able to return 0.f
 		inline bool inDomain(float x) const
 		{
-			return (-x)<negative_support.x && x<positive_support.x;
+			return (-x)<StaticPolymorphicBase::negative_support.x && x<StaticPolymorphicBase::positive_support.x;
 		}
 };
 
@@ -111,6 +111,9 @@ class CFloatingPointIsotropicSeparableImageFilterKernelBase :	public CFloatingPo
 																public CIsotropicImageFilterKernelBase<Support>
 {
 		using Base = CFloatingPointSeparableImageFilterKernelBase<CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Support>>;
+
+	protected:
+		_NBL_STATIC_INLINE_CONSTEXPR float isotropic_support = Base::isotropic_support;
 
 	public:
 		CFloatingPointIsotropicSeparableImageFilterKernelBase() : Base(isotropic_support,isotropic_support) {}

@@ -217,7 +217,7 @@ public:
                 MeshPackerBase::MeshPackerConfigParams<MeshIterator> configParams
                 {
                     currMeshVtxInputParams,
-                    SRange<void, MeshIterator>(sortedMeshBuffersOut, sortedMeshBuffersOut)
+                    nbl::core::SRange<void, MeshIterator>(sortedMeshBuffersOut, sortedMeshBuffersOut)
                 };
                 memcpy(packerParamsOutEnd, &configParams, sizeof(SVertexInputParams));
                 packerParamsOutEnd++;
@@ -266,7 +266,7 @@ public:
             if (inputParamsIt == packerParamsOutEnd - 1)
                 lastMBForThisRange = sortedMeshBuffersOutEnd;
 
-            inputParamsIt->belongingMeshes = SRange<void, MeshIterator>(firstMBForThisRange, lastMBForThisRange);
+            inputParamsIt->belongingMeshes = nbl::core::SRange<void, MeshIterator>(firstMBForThisRange, lastMBForThisRange);
             sortedMeshBuffersIt = lastMBForThisRange;
         }
 

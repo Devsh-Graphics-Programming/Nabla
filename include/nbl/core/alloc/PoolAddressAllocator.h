@@ -72,7 +72,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 			other.blockSize = invalid_address;
             other.freeStackCtr = invalid_address;
         }
-
+//@CrissPL help - template argument deduction/substitution failed
         template<typename... Args>
         PoolAddressAllocator(_size_type newBuffSz, const PoolAddressAllocator& other, Args&&... args) noexcept :
             Base(other, std::forward<Args>(args)...),
