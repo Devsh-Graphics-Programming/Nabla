@@ -22,7 +22,7 @@ class CCPUMeshPackerV2 final : public IMeshPacker<ICPUMeshBuffer, MDIStructType>
     using TriangleBatch = typename base_t::TriangleBatch;
 
 public:
-    using AllocationParams = MeshPackerBase::AllocationParamsCommon;
+    using AllocationParams = IMeshPackerBase::AllocationParamsCommon;
 
     struct AttribAllocParams
     {
@@ -44,7 +44,7 @@ public:
         }
     };
 
-    struct PackedMeshBuffer
+    struct PackerDataStore
     {
         core::smart_refctd_ptr<video::IGPUBuffer> MDIDataBuffer;
         core::smart_refctd_ptr<video::IGPUBuffer> vertexBuffer;
@@ -65,9 +65,9 @@ public:
     void instantiateDataStorage();
 
     template <typename Iterator>
-    bool commit(MeshPackerBase::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const Iterator begin, const Iterator end);
+    bool commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const Iterator begin, const Iterator end);
 
-    PackedMeshBuffer createGPUPackedMeshBuffer(video::IVideoDriver* driver);
+    PackerDataStore createGPUPackerDataStore(video::IVideoDriver* driver);
 
 public:
     core::smart_refctd_ptr<ICPUBuffer> m_vtxBuffer;
@@ -112,8 +112,6 @@ bool CCPUMeshPackerV2<MDIStructType>::alloc(ReservedAllocationMeshBuffers* rambO
 
             const uint32_t attribSize = asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format));
 
-            auto a = static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format);
-
             ramb.attribAllocParams[location].offset = m_vtxBuffAlctr.alloc_addr(vtxCnt * attribSize, attribSize);
 
             if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
@@ -147,20 +145,20 @@ void CCPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
 
 template <typename MDIStructType>
 template <typename Iterator>
-bool CCPUMeshPackerV2<MDIStructType>::commit(MeshPackerBase::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const Iterator begin, const Iterator end)
+bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const Iterator begin, const Iterator end)
 {
     size_t i = 0ull;
     for (auto it = begin; it != end; it++)
     {
         ReservedAllocationMeshBuffers& ramb = *(rambIn + i);
-        MeshPackerBase::PackedMeshBufferData& pmbd = *(pmbdOut + i);
+        IMeshPackerBase::PackedMeshBufferData& pmbd = *(pmbdOut + i);
 
         MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(m_MDIBuffer->getPointer()) + ramb.mdiAllocationOffset;
         uint16_t* indexBuffPtr = static_cast<uint16_t*>(m_idxBuffer->getPointer()) + ramb.indexAllocationOffset;
 
         const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
 
-        core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(**it);
+        core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(*it);
 
         size_t batchFirstIdx = ramb.indexAllocationOffset;
 
@@ -204,9 +202,9 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(MeshPackerBase::PackedMeshBufferDat
 }
 
 template <typename MDIStructType>
-typename CCPUMeshPackerV2<MDIStructType>::PackedMeshBuffer CCPUMeshPackerV2<MDIStructType>::createGPUPackedMeshBuffer(video::IVideoDriver* driver)
+typename CCPUMeshPackerV2<MDIStructType>::PackerDataStore CCPUMeshPackerV2<MDIStructType>::createGPUPackerDataStore(video::IVideoDriver* driver)
 {
-    PackedMeshBuffer m_output;
+    PackerDataStore m_output;
     m_output.MDIDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_MDIBuffer->getSize(), m_MDIBuffer->getPointer());
     m_output.vertexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_vtxBuffer->getSize(), m_vtxBuffer->getPointer());
     m_output.indexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_idxBuffer->getSize(), m_idxBuffer->getPointer());
@@ -218,5 +216,3 @@ typename CCPUMeshPackerV2<MDIStructType>::PackedMeshBuffer CCPUMeshPackerV2<MDIS
 }
 
 #endif
-
-//AllocData as SoA?
