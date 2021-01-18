@@ -40,7 +40,7 @@ class CNullDriver : public IVideoDriver
         static int32_t incrementAndFetchReallocCounter();
 
 		//! constructor
-		CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const SIrrlichtCreationParameters& _params);
+		CNullDriver(io::IFileSystem* io, const SIrrlichtCreationParameters& _params);
 
         bool bindGraphicsPipeline(const video::IGPURenderpassIndependentPipeline* _gpipeline) override { return false; }
 
@@ -199,7 +199,7 @@ class CNullDriver : public IVideoDriver
 		uint32_t MaxTextureSizes[IGPUImageView::ET_COUNT][3];
 	};
 
-	IVideoDriver* createNullDriver(IrrlichtDevice* device, io::IFileSystem* io, const SIrrlichtCreationParameters& screenSize);
+	core::smart_refctd_ptr<IVideoDriver> createNullDriver(io::IFileSystem* io, const SIrrlichtCreationParameters& screenSize);
 
 } // end namespace video
 } // end namespace nbl

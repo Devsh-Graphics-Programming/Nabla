@@ -13,10 +13,7 @@
 
 namespace nbl
 {
-	class CIrrDeviceWin32;
-	class CIrrDeviceLinux;
-	class CIrrDeviceSDL;
-	class CIrrDeviceMacOSX;
+	class CIrrDeviceStub;
 }
 
 #ifdef _NBL_COMPILE_WITH_OPENGL_
@@ -222,9 +219,9 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         struct SAuxContext;
 
 		#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp);
+		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, const asset::IGLSLCompiler* glslcomp);
 		//! inits the windows specific parts of the open gl driver
-		bool initDriver(CIrrDeviceWin32* device, EGLDisplay eglDisplay);
+		bool initDriver(CIrrDeviceStub* device);
 		//bool changeRenderContext(const SAuxContext& ctx);
 		#endif
 
@@ -1065,9 +1062,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 		EGLNativeWindowType Window;
 		#ifdef _NBL_WINDOWS_API_
 			HDC HDc; // Private GDI Device Context
-		#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
-			CIrrDeviceWin32 *Win32Device;
-		#endif
 		#endif
 		#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
 			GLXDrawable Drawable;

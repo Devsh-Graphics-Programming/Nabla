@@ -45,9 +45,8 @@ class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityR
     protected:
 		core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultDownloadBuffer;
 		core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultUploadBuffer;
-        IrrlichtDevice* m_device;
 
-        inline IDriver(IrrlichtDevice* _dev) : IVideoCapabilityReporter(), defaultDownloadBuffer(nullptr), defaultUploadBuffer(nullptr), m_device{_dev} {}
+        inline IDriver() : IVideoCapabilityReporter(), defaultDownloadBuffer(nullptr), defaultUploadBuffer(nullptr) {}
 
         virtual ~IDriver()
         {

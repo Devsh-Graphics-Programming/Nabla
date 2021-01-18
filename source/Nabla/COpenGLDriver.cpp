@@ -26,24 +26,7 @@
 #include "os.h"
 #include "nbl/asset/spvUtils.h"
 
-#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
-#include "CIrrDeviceSDL.h"
-#include <SDL/SDL.h>
-#endif
-
-#if defined(_NBL_COMPILE_WITH_WINDOWS_DEVICE_)
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include "CIrrDeviceWin32.h"
-#elif defined(_NBL_COMPILE_WITH_X11_DEVICE_)
-#include "CIrrDeviceLinux.h"
-#include <dlfcn.h>
-#include <X11/Xlib.h>
-#include <X11/Xutil.h>
-#ifdef _NBL_LINUX_X11_RANDR_
-#include <X11/extensions/Xrandr.h>
-#endif
-#endif
+#include "CIrrDeviceStub.h"
 
 namespace
 {
@@ -182,10 +165,10 @@ namespace video
 #ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 //! Windows constructor and init code
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp)
-: CNullDriver(device, io, params), COpenGLExtensionHandler(),
+		io::IFileSystem* io, const asset::IGLSLCompiler* glslcomp)
+: CNullDriver(io, params), COpenGLExtensionHandler(),
 	runningInRenderDoc(false),  ColorFormat(asset::EF_R8G8B8_UNORM),
-	HDc(0), Window(static_cast<EGLNativeWindowType>(params.WindowId)), Win32Device(device),
+	HDc(0), Window(static_cast<EGLNativeWindowType>(params.WindowId)), 
 	AuxContexts(0), GLSLCompiler(glslcomp), DeviceType(EIDT_WIN32)
 {
 	#ifdef _NBL_DEBUG
@@ -194,27 +177,30 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 }
 
 //! inits the open gl driver
-bool COpenGLDriver::initDriver(CIrrDeviceWin32* device, EGLDisplay eglDisplay)
+bool COpenGLDriver::initDriver(CIrrDeviceStub* device)
 {
-    Display = eglDisplay;
+    Display = device->getEGLDisplay();
 
+    const EGLint rgb_size = Params.Bits == 32 ? 8 : 5;
+    const EGLint alpha_size = Params.Bits == 32 ? 8 : 1;
     const EGLint egl_attributes[] = {
-        EGL_RED_SIZE, Params.Bits,
-        EGL_GREEN_SIZE, Params.Bits,
-        EGL_BLUE_SIZE, Params.Bits,
+        EGL_RED_SIZE, rgb_size,
+        EGL_GREEN_SIZE, rgb_size,
+        EGL_BLUE_SIZE, rgb_size,
+        EGL_BUFFER_SIZE, Params.Bits,
         EGL_DEPTH_SIZE, Params.ZBufferBits,
         EGL_STENCIL_SIZE, Params.Stencilbuffer ? 1 : 0,
-        EGL_ALPHA_SIZE, Params.WithAlphaChannel ? Params.Bits : 0,
+        EGL_ALPHA_SIZE, Params.WithAlphaChannel ? alpha_size : 0,
         //Params.Stereobuffer
         //Params.Vsync
-        EGL_SURFACE_TYPE, EGL_WINDOW_BIT | EGL_PBUFFER_BIT,
+        EGL_SURFACE_TYPE, (EGL_WINDOW_BIT | EGL_PBUFFER_BIT),
 
         EGL_NONE
     };
 
     EGLConfig config;
     EGLint ccnt = 1;
-    eglChooseConfig(eglDisplay, egl_attributes, &config, 1, &ccnt);
+    eglChooseConfig(Display, egl_attributes, &config, 1, &ccnt);
 
     EGLint ctx_attributes[] = {
         EGL_CONTEXT_MAJOR_VERSION, 4,
@@ -227,7 +213,7 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device, EGLDisplay eglDisplay)
     EGLContext master_context = EGL_NO_CONTEXT;
     do
     {
-        master_context = eglCreateContext(eglDisplay, config, EGL_NO_CONTEXT, ctx_attributes);
+        master_context = eglCreateContext(Display, config, EGL_NO_CONTEXT, ctx_attributes);
         --ctx_attributes[3];
     } while (master_context == EGL_NO_CONTEXT && ctx_attributes[3] >= 3); // fail if cant create >=4.3 context
     ++ctx_attributes[3];
@@ -252,22 +238,26 @@ bool COpenGLDriver::initDriver(CIrrDeviceWin32* device, EGLDisplay eglDisplay)
     {
         AuxContexts[0].threadId = std::this_thread::get_id();
         AuxContexts[0].ctx = master_context;
-        AuxContexts[0].surface = eglCreateWindowSurface(eglDisplay, config, Window, egl_surface_attributes);
+        AuxContexts[0].surface = eglCreateWindowSurface(Display, config, Window, egl_surface_attributes);
         AuxContexts[0].ID = 0u;
     }
 	for (size_t i=1; i<=Params.AuxGLContexts; i++)
     {
         AuxContexts[i].threadId = std::thread::id(); //invalid ID
-        AuxContexts[i].ctx = eglCreateContext(eglDisplay, config, master_context, ctx_attributes);
-        AuxContexts[i].surface = eglCreatePbufferSurface(eglDisplay, config, pbuffer_attributes);
+        AuxContexts[i].ctx = eglCreateContext(Display, config, master_context, ctx_attributes);
+        // TODO implement eglCreatePbufferSurface, EGL has this unimplemented! 
+        AuxContexts[i].surface = eglCreatePbufferSurface(Display, config, pbuffer_attributes);
         AuxContexts[i].ID = static_cast<uint8_t>(i);
     }
 
-	// activate rendering context
+	// activate rendering context (in fact this creates/initializes actual GL context)
     eglMakeCurrent(Display, AuxContexts[0].surface, AuxContexts[0].surface, AuxContexts[0].ctx);
 
 
 	int pf = GetPixelFormat(HDc);
+    PIXELFORMATDESCRIPTOR pfd;
+    // TODO complete after i can query HDC and HGLRC from EGL
+    // i have to query via native objects because EGL config reflect only creation params and not what was actually chosen...
 	DescribePixelFormat(HDc, pf, sizeof(PIXELFORMATDESCRIPTOR), &pfd);
 	if (pfd.cAlphaBits != 0)
 	{
@@ -799,6 +789,7 @@ bool COpenGLDriver::endScene()
 		return true;
 	}
 #endif
+    eglSwapBuffers(Display);
 
 	// todo: console device present
 
@@ -2926,11 +2917,11 @@ namespace video
 // WINDOWS VERSION
 // -----------------------------------
 #ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
-IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
-	io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp)
+core::smart_refctd_ptr<IVideoDriver> createOpenGLDriver(const SIrrlichtCreationParameters& params,
+	io::IFileSystem* io, CIrrDeviceStub* device, const asset::IGLSLCompiler* glslcomp)
 {
 #ifdef _NBL_COMPILE_WITH_OPENGL_
-	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device, glslcomp);
+    auto ogl = core::make_smart_refctd_ptr<COpenGLDriver>(params, io, glslcomp);
 
 	if (!ogl->initDriver(device))
 	{
@@ -2939,7 +2930,7 @@ IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
 	}
 	return ogl;
 #else
-	return 0;
+	return nullptr;
 #endif // _NBL_COMPILE_WITH_OPENGL_
 }
 #endif // _NBL_COMPILE_WITH_WINDOWS_DEVICE_

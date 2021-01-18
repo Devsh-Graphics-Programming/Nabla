@@ -44,7 +44,7 @@ namespace nbl
             CIrrDeviceStub(const SIrrlichtCreationParameters& param);
 
             //! returns the video driver
-            virtual video::IVideoDriver* getVideoDriver();
+            virtual video::IVideoDriver* getVideoDriver() { return VideoDriver.get(); }
 
             //! return file system
             virtual io::IFileSystem* getFileSystem() { return FileSystem.get(); }
@@ -99,7 +99,14 @@ namespace nbl
             //! Remove all messages pending in the system message loop
             virtual void clearSystemMessages();
 
+            EGLDisplay getEGLDisplay() const { return Display; }
+
         protected:
+
+            virtual bool switchToFullscreen(bool reset = false) = 0;
+
+            //! create the driver
+            void createDriver();
 
             void createGUIAndScene();
 
@@ -112,7 +119,7 @@ namespace nbl
 
             EGLDisplay Display;
 
-            video::IVideoDriver* VideoDriver;
+            core::smart_refctd_ptr<video::IVideoDriver> VideoDriver;
             scene::ISceneManager* SceneManager;
             nbl::ITimer* Timer;
             gui::ICursorControl* CursorControl;

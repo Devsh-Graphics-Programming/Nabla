@@ -99,7 +99,7 @@ namespace nbl
             }
 
             //! switchs to fullscreen
-            bool switchToFullScreen(bool reset=false);
+            bool switchToFullscreen(bool reset=false) override;
 
             //! Check for and show last Windows API error to help internal debugging.
             //! Does call GetLastError and on errors formats the errortext and displays it in a messagebox.
@@ -375,9 +375,6 @@ namespace nbl
             CCursorControl* getWin32CursorControl();
 
         private:
-
-            //! create the driver
-            void createDriver();
 
             //! Process system events
             void handleSystemMessages();

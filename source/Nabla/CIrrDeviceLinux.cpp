@@ -54,9 +54,10 @@ namespace nbl
 {
 	namespace video
 	{
-		IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
-				io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp
-        );
+#ifdef _NBL_COMPILE_WITH_OPENGL_
+		core::smart_refctd_ptr<IVideoDriver> createOpenGLDriver(const nbl::SIrrlichtCreationParameters& params,
+			io::IFileSystem* io, CIrrDeviceStub* device, const asset::IGLSLCompiler* glslcomp);
+#endif
 	}
 } // end namespace nbl
 #endif // _NBL_COMPILE_WITH_X11_

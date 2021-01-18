@@ -36,17 +36,6 @@
 
 namespace nbl
 {
-	namespace video
-	{
-		#ifdef _NBL_COMPILE_WITH_OPENGL_
-		IVideoDriver* createOpenGLDriver(const nbl::SIrrlichtCreationParameters& params,
-			io::IFileSystem* io, CIrrDeviceWin32* device, const asset::IGLSLCompiler* glslcomp);
-		#endif
-	}
-} // end namespace nbl
-
-namespace nbl
-{
 struct SJoystickWin32Control
 {
 	CIrrDeviceWin32* Device;
@@ -853,7 +842,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				// If losing focus we minimize the app to show other one
 				ShowWindow(hWnd,SW_MINIMIZE);
 				// and switch back to default resolution
-				dev->switchToFullScreen(true);
+				dev->switchToFullscreen(true);
 			}
 			else
 			{
@@ -861,7 +850,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 				SetForegroundWindow(hWnd);
 				ShowWindow(hWnd, SW_RESTORE);
 				// and set the fullscreen resolution again
-				dev->switchToFullScreen();
+				dev->switchToFullscreen();
 			}
 		}
 		break;
@@ -1066,7 +1055,7 @@ CIrrDeviceWin32::~CIrrDeviceWin32()
 		}
 	}
 
-	switchToFullScreen(true);
+	switchToFullscreen(true);
 
 	if (SceneManager)
 		SceneManager->drop();
@@ -1076,41 +1065,6 @@ CIrrDeviceWin32::~CIrrDeviceWin32()
 
 	if (CursorControl)
 		CursorControl->drop();
-
-	if (VideoDriver)
-		VideoDriver->drop();
-}
-
-
-//! create the driver
-void CIrrDeviceWin32::createDriver()
-{
-	switch(CreationParams.DriverType)
-	{
-	case video::EDT_OPENGL:
-
-		#ifdef _NBL_COMPILE_WITH_OPENGL_
-		switchToFullScreen();
-
-		VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem.get(), this, getAssetManager()->getGLSLCompiler());
-		if (!VideoDriver)
-		{
-			os::Printer::log("Could not create OpenGL driver.", ELL_ERROR);
-		}
-		#else
-		os::Printer::log("OpenGL driver was not compiled in.", ELL_ERROR);
-		#endif
-		break;
-
-	case video::EDT_NULL:
-		// create null driver
-		VideoDriver = video::createNullDriver(this, FileSystem.get(), CreationParams);
-		break;
-
-	default:
-		os::Printer::log("Unable to create video driver of unknown type.", ELL_ERROR);
-		break;
-	}
 }
 
 
@@ -1239,11 +1193,13 @@ bool CIrrDeviceWin32::isWindowMinimized() const
 
 
 //! switches to fullscreen
-bool CIrrDeviceWin32::switchToFullScreen(bool reset)
+bool CIrrDeviceWin32::switchToFullscreen(bool reset)
 {
 	if (!CreationParams.Fullscreen)
 		return true;
 
+	// TODO re-enable this later
+	// (currently transitioning to Vulkan so i wont lose time on this now)
 #if 0
 	if (reset)
 	{

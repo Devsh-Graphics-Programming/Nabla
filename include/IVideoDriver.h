@@ -40,7 +40,7 @@ namespace video
 	class IVideoDriver : public IDriver
 	{
 	public:
-        IVideoDriver(IrrlichtDevice* _dev) : IDriver(_dev) {}
+        IVideoDriver() {}
 
 
         virtual bool initAuxContext() = 0;

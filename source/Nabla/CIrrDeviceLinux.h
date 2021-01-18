@@ -109,9 +109,6 @@ namespace nbl
 
         private:
 
-            //! create the driver
-            void createDriver();
-
             bool createWindow();
 
             void createKeyMap();
@@ -120,7 +117,7 @@ namespace nbl
 
             void initXAtoms();
 
-            bool switchToFullscreen(bool reset=false);
+            bool switchToFullscreen(bool reset=false) override;
 
 #ifdef _NBL_COMPILE_WITH_X11_
             bool createInputContext();

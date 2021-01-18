@@ -32,8 +32,8 @@ int32_t CNullDriver::incrementAndFetchReallocCounter()
 }
 
 //! constructor
-CNullDriver::CNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const SIrrlichtCreationParameters& _params)
-			: IVideoDriver(dev), FileSystem(io), ViewPort(0,0,0,0), Params(_params), PrimitivesDrawn(0)
+CNullDriver::CNullDriver(io::IFileSystem* io, const SIrrlichtCreationParameters& _params)
+			: FileSystem(io), ViewPort(0,0,0,0), Params(_params), PrimitivesDrawn(0)
 {
 	#ifdef _NBL_DEBUG
 	setDebugName("CNullDriver");
@@ -293,9 +293,9 @@ E_DRIVER_TYPE CNullDriver::getDriverType() const
 
 
 //! creates a video driver
-IVideoDriver* createNullDriver(IrrlichtDevice* dev, io::IFileSystem* io, const SIrrlichtCreationParameters& params)
+core::smart_refctd_ptr<IVideoDriver> createNullDriver(io::IFileSystem* io, const SIrrlichtCreationParameters& params)
 {
-	CNullDriver* nullDriver = new CNullDriver(dev, io, params);
+	auto nullDriver = core::make_smart_refctd_ptr<CNullDriver>(io, params);
 
 	return nullDriver;
 }

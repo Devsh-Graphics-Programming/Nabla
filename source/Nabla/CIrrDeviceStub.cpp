@@ -15,6 +15,17 @@
 
 namespace nbl
 {
+	namespace video
+	{
+#ifdef _NBL_COMPILE_WITH_OPENGL_
+		core::smart_refctd_ptr<IVideoDriver> createOpenGLDriver(const nbl::SIrrlichtCreationParameters& params,
+			io::IFileSystem* io, CIrrDeviceStub* device, const asset::IGLSLCompiler* glslcomp);
+#endif
+	}
+} // end namespace nbl
+
+namespace nbl
+{
 //! constructor
 CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
 : IrrlichtDevice(), VideoDriver(0), SceneManager(0),
@@ -65,22 +76,45 @@ CIrrDeviceStub::~CIrrDeviceStub()
 		os::Printer::Logger = 0;
 }
 
+//! create the driver
+void CIrrDeviceStub::createDriver()
+{
+	switch (CreationParams.DriverType)
+	{
+	case video::EDT_OPENGL:
+
+#ifdef _NBL_COMPILE_WITH_OPENGL_
+		switchToFullscreen();
+
+		VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem.get(), this, getAssetManager()->getGLSLCompiler());
+		if (!VideoDriver)
+		{
+			os::Printer::log("Could not create OpenGL driver.", ELL_ERROR);
+		}
+#else
+		os::Printer::log("OpenGL driver was not compiled in.", ELL_ERROR);
+#endif
+		break;
+
+	case video::EDT_NULL:
+		// create null driver
+		VideoDriver = video::createNullDriver(FileSystem.get(), CreationParams);
+		break;
+
+	default:
+		os::Printer::log("Unable to create video driver of unknown type.", ELL_ERROR);
+		break;
+	}
+}
+
 
 void CIrrDeviceStub::createGUIAndScene()
 {
 	// create Scene manager
-	SceneManager = new scene::CSceneManager(this, VideoDriver, Timer, FileSystem.get(), CursorControl);
+	SceneManager = new scene::CSceneManager(this, getVideoDriver(), Timer, getFileSystem(), CursorControl);
 
 	setEventReceiver(UserReceiver);
 }
-
-
-//! returns the video driver
-video::IVideoDriver* CIrrDeviceStub::getVideoDriver()
-{
-	return VideoDriver;
-}
-
 
 
 //! returns the scene manager
