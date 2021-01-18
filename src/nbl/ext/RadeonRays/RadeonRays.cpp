@@ -125,8 +125,11 @@ void Manager::makeInstance(	NblInstanceRRInstanceCache& instanceCache, MockScene
 					continue;
 				::RadeonRays::Shape* shape = cpuAssociation.second;
 				auto successAndLocation = gpuCache.emplace(gpumeshbuffer,shape);
-				if (gpumeshbuffer==mb)
+				if (gpumeshbuffer == mb)
+				{
 					found = successAndLocation.first;
+					break;
+				}
 			}
 			notRefreshedAlready = false;
 		}

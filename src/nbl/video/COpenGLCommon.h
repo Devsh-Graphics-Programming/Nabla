@@ -806,70 +806,42 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 	colorformat = GL_INVALID_ENUM;
 	type = GL_INVALID_ENUM;
 
-	// TODO: make the switch go in the same order as the enum decls
 	switch (format)
 	{
-		case EF_A2R10G10B10_UNORM_PACK32: // no idea if I did this one correctly
-			colorformat = GL_BGRA;
-			type = GL_UNSIGNED_INT_10_10_10_2;
+		case asset::EF_R4G4_UNORM_PACK8:
 			break;
-		case EF_A2B10G10R10_UNORM_PACK32:
+		case asset::EF_R4G4B4A4_UNORM_PACK16:
 			colorformat = GL_RGBA;
-			type = GL_UNSIGNED_INT_2_10_10_10_REV;
+			type = GL_UNSIGNED_SHORT_4_4_4_4;
 			break;
-		case EF_A2B10G10R10_UINT_PACK32:
-			colorformat = GL_RGBA_INTEGER;
-			type = GL_UNSIGNED_INT_2_10_10_10_REV;
-			break;
-		case asset::EF_A1R5G5B5_UNORM_PACK16:
-			colorformat = GL_BGRA_EXT;
-			type = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+		case asset::EF_B4G4R4A4_UNORM_PACK16:
+			colorformat = GL_BGRA;
+			type = GL_UNSIGNED_SHORT_4_4_4_4;
 			break;
 		case asset::EF_R5G6B5_UNORM_PACK16:
 			colorformat = GL_RGB;
 			type = GL_UNSIGNED_SHORT_5_6_5;
 			break;
-			// Floating Point texture formats. Thanks to Patryk "Nadro" Nadrowski.
-		case asset::EF_B10G11R11_UFLOAT_PACK32:
-		{
+		case asset::EF_B5G6R5_UNORM_PACK16:
 			colorformat = GL_RGB;
-			type = GL_R11F_G11F_B10F;
-		}
-		break;
-		case asset::EF_R16_SFLOAT:
+			type = GL_UNSIGNED_SHORT_5_6_5_REV;
+			break;
+		case asset::EF_R5G5B5A1_UNORM_PACK16:
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_SHORT_5_5_5_1;
+			break;
+		case asset::EF_B5G5R5A1_UNORM_PACK16:
+			colorformat = GL_BGRA;
+			type = GL_UNSIGNED_SHORT_5_5_5_1;
+			break;
+		case asset::EF_A1R5G5B5_UNORM_PACK16:
+			colorformat = GL_BGRA_EXT;
+			type = GL_UNSIGNED_SHORT_1_5_5_5_REV;
+			break;
+		case asset::EF_R8_UNORM:
 		{
 			colorformat = GL_RED;
-			type = GL_HALF_FLOAT;
-		}
-		break;
-		case asset::EF_R16G16_SFLOAT:
-		{
-			colorformat = GL_RG;
-			type = GL_HALF_FLOAT;
-		}
-		break;
-		case asset::EF_R16G16B16A16_SFLOAT:
-		{
-			colorformat = GL_RGBA;
-			type = GL_HALF_FLOAT;
-		}
-		break;
-		case asset::EF_R32_SFLOAT:
-		{
-			colorformat = GL_RED;
-			type = GL_FLOAT;
-		}
-		break;
-		case asset::EF_R32G32_SFLOAT:
-		{
-			colorformat = GL_RG;
-			type = GL_FLOAT;
-		}
-		break;
-		case asset::EF_R32G32B32A32_SFLOAT:
-		{
-			colorformat = GL_RGBA;
-			type = GL_FLOAT;
+			type = GL_UNSIGNED_BYTE;
 		}
 		break;
 		case asset::EF_R8_SNORM:
@@ -878,10 +850,16 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 			type = GL_BYTE;
 		}
 		break;
-		case asset::EF_R8_UNORM:
+		case asset::EF_R8_UINT:
 		{
-			colorformat = GL_RED;
+			colorformat = GL_RED_INTEGER;
 			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_R8_SINT:
+		{
+			colorformat = GL_RED_INTEGER;
+			type = GL_BYTE;
 		}
 		break;
 		case asset::EF_R8_SRGB:
@@ -892,16 +870,28 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 			type = GL_UNSIGNED_BYTE;
 		}
 		break;
+		case asset::EF_R8G8_UNORM:
+		{
+			colorformat = GL_RG;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
 		case asset::EF_R8G8_SNORM:
 		{
 			colorformat = GL_RG;
 			type = GL_BYTE;
 		}
 		break;
-		case asset::EF_R8G8_UNORM:
+		case asset::EF_R8G8_UINT:
 		{
-			colorformat = GL_RG;
+			colorformat = GL_RG_INTEGER;
 			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_R8G8_SINT:
+		{
+			colorformat = GL_RG_INTEGER;
+			type = GL_BYTE;
 		}
 		break;
 		case asset::EF_R8G8_SRGB:
@@ -912,68 +902,18 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 			type = GL_UNSIGNED_BYTE;
 		}
 		break;
-		case asset::EF_R8G8B8_SNORM:
-			colorformat = GL_RGB;
-			type = GL_BYTE;
-			break;
 		case asset::EF_R8G8B8_UNORM:
 			colorformat = GL_RGB;
 			type = GL_UNSIGNED_BYTE;
 			break;
-		case asset::EF_B8G8R8A8_SNORM:
-			colorformat = GL_BGRA_EXT;
+		case asset::EF_R8G8B8_SNORM:
+			colorformat = GL_RGB;
 			type = GL_BYTE;
 			break;
-		case asset::EF_B8G8R8A8_UNORM:
-			colorformat = GL_BGRA_EXT;
-			type = GL_UNSIGNED_INT_8_8_8_8_REV;
-			break;
-		case asset::EF_B8G8R8A8_SRGB:
-			colorformat = GL_BGRA_EXT;
-			type = GL_UNSIGNED_INT_8_8_8_8_REV;
-			break;
-		case asset::EF_R8G8B8A8_SNORM:
-			colorformat = GL_RGBA;
-			type = GL_BYTE;
-			break;
-		case asset::EF_R8G8B8A8_UNORM:
-			colorformat = GL_RGBA;
-			type = GL_UNSIGNED_BYTE;
-			break;
-		case asset::EF_R8_UINT:
-		{
-			colorformat = GL_RED_INTEGER;
-			type = GL_UNSIGNED_BYTE;
-		}
-		break;
-		case asset::EF_R8G8_UINT:
-		{
-			colorformat = GL_RG_INTEGER;
-			type = GL_UNSIGNED_BYTE;
-		}
-		break;
 		case asset::EF_R8G8B8_UINT:
 		{
 			colorformat = GL_RGB_INTEGER;
 			type = GL_UNSIGNED_BYTE;
-		}
-		break;
-		case asset::EF_R8G8B8A8_UINT:
-		{
-			colorformat = GL_RGBA_INTEGER;
-			type = GL_UNSIGNED_BYTE;
-		}
-		break;
-		case asset::EF_R8_SINT:
-		{
-			colorformat = GL_RED_INTEGER;
-			type = GL_BYTE;
-		}
-		break;
-		case asset::EF_R8G8_SINT:
-		{
-			colorformat = GL_RG_INTEGER;
-			type = GL_BYTE;
 		}
 		break;
 		case asset::EF_R8G8B8_SINT:
@@ -988,9 +928,17 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 			type = GL_UNSIGNED_BYTE;
 		}
 		break;
-		case asset::EF_R8G8B8A8_SRGB:
-		{
+		case asset::EF_R8G8B8A8_UNORM:
 			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+			break;
+		case asset::EF_R8G8B8A8_SNORM:
+			colorformat = GL_RGBA;
+			type = GL_BYTE;
+			break;
+		case asset::EF_R8G8B8A8_UINT:
+		{
+			colorformat = GL_RGBA_INTEGER;
 			type = GL_UNSIGNED_BYTE;
 		}
 		break;
@@ -1000,15 +948,117 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 			type = GL_BYTE;
 		}
 		break;
+		case asset::EF_R8G8B8A8_SRGB:
+		{
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_B8G8R8A8_UNORM:
+			colorformat = GL_BGRA_EXT;
+			type = GL_UNSIGNED_BYTE;
+			break;
+		case asset::EF_B8G8R8A8_SNORM:
+			colorformat = GL_BGRA_EXT;
+			type = GL_BYTE;
+			break;
+		case asset::EF_B8G8R8A8_UINT:
+			colorformat = GL_BGRA_INTEGER;
+			type = GL_UNSIGNED_BYTE;
+			break;
+		case asset::EF_B8G8R8A8_SINT:
+			colorformat = GL_BGRA_INTEGER;
+			type = GL_BYTE;
+			break;
+		case asset::EF_B8G8R8A8_SRGB:
+			colorformat = GL_BGRA_EXT;
+			type = GL_UNSIGNED_BYTE;
+			break;
+		case asset::EF_A8B8G8R8_UNORM_PACK32:
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_INT_8_8_8_8_REV;
+			break;
+		case asset::EF_A8B8G8R8_SNORM_PACK32:
+			colorformat = GL_RGBA;
+			type = GL_BYTE;
+			break;
+		case asset::EF_A8B8G8R8_UINT_PACK32:
+			colorformat = GL_RGBA_INTEGER;
+			type = GL_UNSIGNED_INT_8_8_8_8_REV;
+			break;
+		case asset::EF_A8B8G8R8_SINT_PACK32:
+			colorformat = GL_RGBA_INTEGER;
+			type = GL_BYTE;
+			break;
+		case asset::EF_A8B8G8R8_SRGB_PACK32:
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_INT_8_8_8_8_REV;
+			break;
+		case EF_A2R10G10B10_UNORM_PACK32:
+			colorformat = GL_BGRA;
+			type = GL_UNSIGNED_INT_2_10_10_10_REV;
+			break;
+		case EF_A2R10G10B10_SNORM_PACK32:
+			colorformat = GL_BGRA;
+			type = GL_INT_2_10_10_10_REV;
+			break;
+		case EF_A2R10G10B10_UINT_PACK32:
+			colorformat = GL_BGRA_INTEGER;
+			type = GL_UNSIGNED_INT_2_10_10_10_REV;
+			break;
+		case EF_A2R10G10B10_SINT_PACK32:
+			colorformat = GL_BGRA_INTEGER;
+			type = GL_INT_2_10_10_10_REV;
+			break;
+		case EF_A2B10G10R10_UNORM_PACK32:
+			colorformat = GL_RGBA;
+			type = GL_UNSIGNED_INT_2_10_10_10_REV;
+			break;
+		case EF_A2B10G10R10_SNORM_PACK32:
+			colorformat = GL_RGBA;
+			type = GL_INT_2_10_10_10_REV;
+			break;
+		case EF_A2B10G10R10_UINT_PACK32:
+			colorformat = GL_RGBA_INTEGER;
+			type = GL_UNSIGNED_INT_2_10_10_10_REV;
+			break;
+		case EF_A2B10G10R10_SINT_PACK32:
+			colorformat = GL_RGBA_INTEGER;
+			type = GL_INT_2_10_10_10_REV;
+			break;
+		case asset::EF_R16_UNORM:
+		{
+			colorformat = GL_RED;
+			type = GL_UNSIGNED_SHORT;
+		}
+		break;
 		case asset::EF_R16_SNORM:
 		{
 			colorformat = GL_RED;
 			type = GL_SHORT;
 		}
 		break;
-		case asset::EF_R16_UNORM:
+		case asset::EF_R16_UINT:
+		{
+			colorformat = GL_RED_INTEGER;
+			type = GL_UNSIGNED_SHORT;
+		}
+		break;
+		case asset::EF_R16_SINT:
+		{
+			colorformat = GL_RED_INTEGER;
+			type = GL_SHORT;
+		}
+		break;
+		case asset::EF_R16_SFLOAT:
 		{
 			colorformat = GL_RED;
+			type = GL_HALF_FLOAT;
+		}
+		break;
+		case asset::EF_R16G16_UNORM:
+		{
+			colorformat = GL_RG;
 			type = GL_UNSIGNED_SHORT;
 		}
 		break;
@@ -1018,10 +1068,22 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 			type = GL_SHORT;
 		}
 		break;
-		case asset::EF_R16G16_UNORM:
+		case asset::EF_R16G16_UINT:
+		{
+			colorformat = GL_RG_INTEGER;
+			type = GL_UNSIGNED_SHORT;
+		}
+		break;
+		case asset::EF_R16G16_SINT:
+		{
+			colorformat = GL_RG_INTEGER;
+			type = GL_SHORT;
+		}
+		break;
+		case asset::EF_R16G16_SFLOAT:
 		{
 			colorformat = GL_RG;
-			type = GL_UNSIGNED_SHORT;
+			type = GL_HALF_FLOAT;
 		}
 		break;
 		case asset::EF_R16G16B16_SNORM:
@@ -1036,6 +1098,22 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 			type = GL_UNSIGNED_SHORT;
 		}
 		break;
+		case asset::EF_R16G16B16_UINT:
+		{
+			colorformat = GL_RGB_INTEGER;
+			type = GL_UNSIGNED_SHORT;
+		}
+		break;
+		case asset::EF_R16G16B16_SINT:
+		{
+			colorformat = GL_RGB_INTEGER;
+			type = GL_SHORT;
+		}
+		break;
+		case asset::EF_R16G16B16_SFLOAT:
+			colorformat = GL_RGB;
+			type = GL_HALF_FLOAT;
+			break;
 		case asset::EF_R16G16B16A16_SNORM:
 		{
 			colorformat = GL_RGBA;
@@ -1048,46 +1126,10 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 			type = GL_UNSIGNED_SHORT;
 		}
 		break;
-		case asset::EF_R16_UINT:
-		{
-			colorformat = GL_RED_INTEGER;
-			type = GL_UNSIGNED_SHORT;
-		}
-		break;
-		case asset::EF_R16G16_UINT:
-		{
-			colorformat = GL_RG_INTEGER;
-			type = GL_UNSIGNED_SHORT;
-		}
-		break;
-		case asset::EF_R16G16B16_UINT:
-		{
-			colorformat = GL_RGB_INTEGER;
-			type = GL_UNSIGNED_SHORT;
-		}
-		break;
 		case asset::EF_R16G16B16A16_UINT:
 		{
 			colorformat = GL_RGBA_INTEGER;
 			type = GL_UNSIGNED_SHORT;
-		}
-		break;
-		case asset::EF_R16_SINT:
-		{
-			colorformat = GL_RED_INTEGER;
-			type = GL_SHORT;
-		}
-		break;
-		case asset::EF_R16G16_SINT:
-		{
-			colorformat = GL_RG_INTEGER;
-			type = GL_SHORT;
-		}
-		break;
-		case asset::EF_R16G16B16_SINT:
-		{
-			colorformat = GL_RGB_INTEGER;
-			type = GL_SHORT;
 		}
 		break;
 		case asset::EF_R16G16B16A16_SINT:
@@ -1096,27 +1138,15 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 			type = GL_SHORT;
 		}
 		break;
+		case asset::EF_R16G16B16A16_SFLOAT:
+		{
+			colorformat = GL_RGBA;
+			type = GL_HALF_FLOAT;
+		}
+		break;
 		case asset::EF_R32_UINT:
 		{
 			colorformat = GL_RED_INTEGER;
-			type = GL_UNSIGNED_INT;
-		}
-		break;
-		case asset::EF_R32G32_UINT:
-		{
-			colorformat = GL_RG_INTEGER;
-			type = GL_UNSIGNED_INT;
-		}
-		break;
-		case asset::EF_R32G32B32_UINT:
-		{
-			colorformat = GL_RGB_INTEGER;
-			type = GL_UNSIGNED_INT;
-		}
-		break;
-		case asset::EF_R32G32B32A32_UINT:
-		{
-			colorformat = GL_RGBA_INTEGER;
 			type = GL_UNSIGNED_INT;
 		}
 		break;
@@ -1126,10 +1156,34 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 			type = GL_INT;
 		}
 		break;
+		case asset::EF_R32_SFLOAT:
+		{
+			colorformat = GL_RED;
+			type = GL_FLOAT;
+		}
+		break;
+		case asset::EF_R32G32_UINT:
+		{
+			colorformat = GL_RG_INTEGER;
+			type = GL_UNSIGNED_INT;
+		}
+		break;
 		case asset::EF_R32G32_SINT:
 		{
 			colorformat = GL_RG_INTEGER;
 			type = GL_INT;
+		}
+		break;
+		case asset::EF_R32G32_SFLOAT:
+		{
+			colorformat = GL_RG;
+			type = GL_FLOAT;
+		}
+		break;
+		case asset::EF_R32G32B32_UINT:
+		{
+			colorformat = GL_RGB_INTEGER;
+			type = GL_UNSIGNED_INT;
 		}
 		break;
 		case asset::EF_R32G32B32_SINT:
@@ -1138,12 +1192,80 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 			type = GL_INT;
 		}
 		break;
+		case asset::EF_R32G32B32_SFLOAT:
+		{
+			colorformat = GL_RGB;
+			type = GL_FLOAT;
+		}
+		break;
+		case asset::EF_R32G32B32A32_UINT:
+		{
+			colorformat = GL_RGBA_INTEGER;
+			type = GL_UNSIGNED_INT;
+		}
+		break;
 		case asset::EF_R32G32B32A32_SINT:
 		{
 			colorformat = GL_RGBA_INTEGER;
 			type = GL_INT;
 		}
 		break;
+		case asset::EF_R32G32B32A32_SFLOAT:
+		{
+			colorformat = GL_RGBA;
+			type = GL_FLOAT;
+		}
+		break;
+		case asset::EF_B10G11R11_UFLOAT_PACK32:
+		{
+			colorformat = GL_RGB;
+			type = GL_UNSIGNED_INT_10F_11F_11F_REV;
+		}
+		break;
+		case asset::EF_E5B9G9R9_UFLOAT_PACK32:
+		{
+			colorformat = GL_RGB;
+			type = GL_UNSIGNED_INT_5_9_9_9_REV;
+		}
+		break;
+		/// this is totally wrong but safe - most probs have to reupload
+		case asset::EF_D16_UNORM:
+		{
+			colorformat = GL_DEPTH;
+			type = GL_UNSIGNED_SHORT;
+		}
+		break;
+		case asset::EF_X8_D24_UNORM_PACK32:
+		{
+			colorformat = GL_DEPTH;
+			type = GL_UNSIGNED_SHORT;
+		}
+		break;
+		case asset::EF_D32_SFLOAT:
+		{
+			colorformat = GL_DEPTH;
+			type = GL_FLOAT;
+		}
+		break;
+		case asset::EF_S8_UINT:
+		{
+			colorformat = GL_STENCIL;
+			type = GL_UNSIGNED_BYTE;
+		}
+		break;
+		case asset::EF_D24_UNORM_S8_UINT:
+		{
+			colorformat = GL_DEPTH_STENCIL;
+			type = GL_UNSIGNED_INT_24_8;
+		}
+		break;
+		case asset::EF_D32_SFLOAT_S8_UINT:
+		{
+			colorformat = GL_DEPTH_STENCIL;
+			type = GL_FLOAT_32_UNSIGNED_INT_24_8_REV;
+		}
+		break;
+#if 0
 		case asset::EF_BC1_RGB_UNORM_BLOCK:
 		{
 			colorformat = GL_RGB;
@@ -1444,49 +1566,7 @@ inline void getOpenGLFormatAndParametersFromColorFormat(asset::E_FORMAT format, 
 			type = GL_UNSIGNED_BYTE;
 		}
 		break;
-		case asset::EF_E5B9G9R9_UFLOAT_PACK32:
-		{
-			colorformat = GL_RGB;
-			type = GL_UNSIGNED_INT_5_9_9_9_REV;
-		}
-		break;
-		/// this is totally wrong but safe - most probs have to reupload
-		case asset::EF_D16_UNORM:
-		{
-			colorformat = GL_DEPTH;
-			type = GL_UNSIGNED_SHORT;
-		}
-		break;
-		case asset::EF_X8_D24_UNORM_PACK32:
-		{
-			colorformat = GL_DEPTH;
-			type = GL_UNSIGNED_SHORT;
-		}
-		break;
-		case asset::EF_D24_UNORM_S8_UINT:
-		{
-			colorformat = GL_DEPTH_STENCIL;
-			type = GL_UNSIGNED_INT_24_8;
-		}
-		break;
-		case asset::EF_D32_SFLOAT:
-		{
-			colorformat = GL_DEPTH;
-			type = GL_FLOAT;
-		}
-		break;
-		case asset::EF_D32_SFLOAT_S8_UINT:
-		{
-			colorformat = GL_DEPTH_STENCIL;
-			type = GL_FLOAT_32_UNSIGNED_INT_24_8_REV;
-		}
-		break;
-		case asset::EF_S8_UINT:
-		{
-			colorformat = GL_STENCIL;
-			type = GL_UNSIGNED_BYTE;
-		}
-		break;
+#endif
 		default:
 			break;
 	}
