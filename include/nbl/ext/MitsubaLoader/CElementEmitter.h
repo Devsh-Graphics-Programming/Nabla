@@ -104,6 +104,7 @@ class CElementEmitter : public IElement
 		CElementEmitter(const char* id) : IElement(id), type(Type::INVALID), /*toWorldType(IElement::Type::TRANSFORM),*/ transform()
 		{
 		}
+		CElementEmitter() : CElementEmitter("") {}
 		CElementEmitter(const CElementEmitter& other) : IElement(""), transform()
 		{
 			operator=(other);
