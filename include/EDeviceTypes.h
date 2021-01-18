@@ -1,11 +1,12 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __E_DEVICE_TYPES_H_INCLUDED__
-#define __E_DEVICE_TYPES_H_INCLUDED__
+#ifndef __NBL_E_DEVICE_TYPES_H_INCLUDED__
+#define __NBL_E_DEVICE_TYPES_H_INCLUDED__
 
-namespace irr
+namespace nbl
 {
 
 	//! An enum for the different device types supported by the Irrlicht Engine.
@@ -24,11 +25,6 @@ namespace irr
 		//! A device native to Mac OSX
 		/** This device uses Apple's Cocoa API and works in Mac OSX 10.2 and above. */
 		EIDT_OSX,
-
-		//! A device which uses Simple DirectMedia Layer
-		/** The SDL device works under all platforms supported by SDL but first must be compiled
-		in by defining the IRR_USE_SDL_DEVICE macro in IrrCompileConfig.h */
-		EIDT_SDL,
 
 		//! A device for raw framebuffer access
 		/** Best used with embedded devices and mobile systems.
@@ -49,7 +45,7 @@ namespace irr
 		EIDT_BEST
 	};
 
-} // end namespace irr
+} // end namespace nbl
 
-#endif // __E_DEVICE_TYPES_H_INCLUDED__
+#endif
 

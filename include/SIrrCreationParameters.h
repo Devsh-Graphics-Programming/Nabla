@@ -1,17 +1,18 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __I_IRRLICHT_CREATION_PARAMETERS_H_INCLUDED__
-#define __I_IRRLICHT_CREATION_PARAMETERS_H_INCLUDED__
+#ifndef __NBL_I_IRRLICHT_CREATION_PARAMETERS_H_INCLUDED__
+#define __NBL_I_IRRLICHT_CREATION_PARAMETERS_H_INCLUDED__
 
 #include "EDriverTypes.h"
 #include "EDeviceTypes.h"
 #include "dimension2d.h"
 #include "ILogger.h"
-#include "irr/builtin/common.h"
+#include "nbl/builtin/common.h"
 
-namespace irr
+namespace nbl
 {
 	class IEventReceiver;
 
@@ -37,18 +38,18 @@ namespace irr
 			StreamingUploadBufferSize(0x4000000u), // 64MB should be enough to stream one 4K image in 64bit HDR without breaking it into chunks
 			EventReceiver(0),
 			WindowId(0),
-#ifdef _IRR_DEBUG
+#ifdef _NBL_DEBUG
 			LoggingLevel(ELL_DEBUG),
 #else
 			LoggingLevel(ELL_INFORMATION),
 #endif
 			AuxGLContexts(0),
-			SDK_version_do_not_use(IRRLICHTBAW_SDK_VERSION)
+			SDK_version_do_not_use(NABLA_SDK_VERSION)
 		{
 		}
 
 		SIrrlichtCreationParameters(const SIrrlichtCreationParameters& other) :
-			SDK_version_do_not_use(IRRLICHTBAW_SDK_VERSION)
+			SDK_version_do_not_use(NABLA_SDK_VERSION)
 		{*this = other;}
 
 		SIrrlichtCreationParameters& operator=(const SIrrlichtCreationParameters& other)
@@ -227,25 +228,25 @@ namespace irr
 		//!
 		uint8_t AuxGLContexts;
 
-		//! This variable tells us where the directory holding "irr/builtin/" is if the resources are not embedded
+		//! This variable tells us where the directory holding "nbl/builtin/" is if the resources are not embedded
 		/** For shipping products to end-users we recommend embedding the built-in resources to avoid a plethora of
 		"works on my machine" problems, as this method is not 100% cross platform, i.e. if the engine's headers'
 		install directory is different between computers then it will surely not work.*/
 		std::string builtinResourceDirectoryPath =
-		#ifdef _IRR_BUILTIN_PATH_AVAILABLE
+		#ifdef _NBL_BUILTIN_PATH_AVAILABLE
 			builtin::getBuiltinResourcesDirectoryPath();
 		#else
       		"";
 		#endif
 
 		//! Don't use or change this parameter.
-		/** Always set it to IRRLICHTBAW_SDK_VERSION, which is done by default.
+		/** Always set it to NABLA_SDK_VERSION, which is done by default.
 		This is needed for sdk version checks. */
 		const char* const SDK_version_do_not_use;
 	};
 
 
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

@@ -1,24 +1,28 @@
-#ifndef __MATRIX3X4SIMD_H_INCLUDED__
-#define __MATRIX3X4SIMD_H_INCLUDED__
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef __NBL_MATRIX3X4SIMD_H_INCLUDED__
+#define __NBL_MATRIX3X4SIMD_H_INCLUDED__
 
 #include "vectorSIMD.h"
 #include "quaternion.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
 
 class matrix4x3;
 
-#define _IRR_MATRIX_ALIGNMENT _IRR_SIMD_ALIGNMENT
-static_assert(_IRR_MATRIX_ALIGNMENT>=_IRR_VECTOR_ALIGNMENT,"Matrix must be equally or more aligned than vector!");
+#define _NBL_MATRIX_ALIGNMENT _NBL_SIMD_ALIGNMENT
+static_assert(_NBL_MATRIX_ALIGNMENT>=_NBL_VECTOR_ALIGNMENT,"Matrix must be equally or more aligned than vector!");
 
 //! Equivalent of GLSL's mat4x3
-class matrix3x4SIMD// : private AllocationOverrideBase<_IRR_MATRIX_ALIGNMENT> EBO inheritance problem w.r.t `rows[3]`
+class matrix3x4SIMD// : private AllocationOverrideBase<_NBL_MATRIX_ALIGNMENT> EBO inheritance problem w.r.t `rows[3]`
 {
 	public:
-		_IRR_STATIC_INLINE_CONSTEXPR uint32_t VectorCount = 3u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t VectorCount = 3u;
 		vectorSIMDf rows[VectorCount];
 
 		explicit matrix3x4SIMD(	const vectorSIMDf& _r0 = vectorSIMDf(1.f, 0.f, 0.f, 0.f),

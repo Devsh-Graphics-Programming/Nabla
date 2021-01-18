@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 struct ModelData_t
 {
 #ifdef __cplusplus
@@ -23,10 +27,10 @@ struct DrawData_t
 };
 
 #ifndef __cplusplus
-#include <irr/builtin/glsl/utils/common.glsl>
-#include <irr/builtin/glsl/utils/transform.glsl>
+#include <nbl/builtin/glsl/utils/common.glsl>
+#include <nbl/builtin/glsl/utils/transform.glsl>
 
-#include <irr/builtin/glsl/utils/indirect_commands.glsl>
+#include <nbl/builtin/glsl/utils/indirect_commands.glsl>
 
-#include <irr/builtin/glsl/utils/culling.glsl>
+#include <nbl/builtin/glsl/utils/culling.glsl>
 #endif

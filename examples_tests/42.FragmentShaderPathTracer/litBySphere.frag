@@ -1,3 +1,7 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #version 430 core
 #extension GL_GOOGLE_include_directive : require
 
@@ -48,14 +52,14 @@ bool traceRay(in ImmutableRay_t _immutable)
 }
 
 // the interaction here is the interaction at the illuminator-end of the ray, not the receiver
-vec3 irr_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
+vec3 nbl_glsl_light_deferred_eval_and_prob(out float pdf, in Sphere sphere, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in Light light)
 {
     // we don't have to worry about solid angle of the light w.r.t. surface of the light because this function only ever gets called from closestHit routine, so such ray cannot be produced
     pdf = scene_getLightChoicePdf(light)/Sphere_getSolidAngle(sphere,origin);
     return Light_getRadiance(light);
 }
 
-irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in irr_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in int depth)
+nbl_glsl_LightSample nbl_glsl_light_generate_and_remainder_and_pdf(out vec3 remainder, out float pdf, out float newRayMaxT, in vec3 origin, in nbl_glsl_AnisotropicViewSurfaceInteraction interaction, in vec3 u, in int depth)
 {
     // normally we'd pick from set of lights, using `u.z`
     const Light light = lights[0];
@@ -80,8 +84,8 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
     const float cosTheta2 = cosTheta*cosTheta;
     const float sinTheta = sqrt(1.0-cosTheta2);
     float sinPhi,cosPhi;
-    irr_glsl_sincos(2.0*irr_glsl_PI*u.y-irr_glsl_PI,sinPhi,cosPhi);
-    mat2x3 XY = irr_glsl_frisvad(Z);
+    nbl_glsl_sincos(2.0*nbl_glsl_PI*u.y-nbl_glsl_PI,sinPhi,cosPhi);
+    mat2x3 XY = nbl_glsl_frisvad(Z);
     
     L += (XY[0]*cosPhi+XY[1]*sinPhi)*sinTheta;
     
@@ -91,20 +95,20 @@ irr_glsl_LightSample irr_glsl_light_generate_and_remainder_and_pdf(out vec3 rema
     
     newRayMaxT = (cosTheta-sqrt(cosTheta2-cosThetaMax2))/rcpDistance*getEndTolerance(depth);
     
-    return irr_glsl_createLightSample(L,interaction);
+    return nbl_glsl_createLightSample(L,interaction);
 }
 
 
-void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64star_state_t scramble_state)
+void closestHitProgram(in ImmutableRay_t _immutable, inout nbl_glsl_xoroshiro64star_state_t scramble_state)
 {
     const MutableRay_t mutable = rayStack[stackPtr]._mutable;
 
     Sphere sphere = spheres[mutable.objectID];
     vec3 intersection = _immutable.origin+_immutable.direction*mutable.intersectionT;
     
-    irr_glsl_AnisotropicViewSurfaceInteraction interaction;
+    nbl_glsl_AnisotropicViewSurfaceInteraction interaction;
     {
-        irr_glsl_IsotropicViewSurfaceInteraction isotropic;
+        nbl_glsl_IsotropicViewSurfaceInteraction isotropic;
 
         isotropic.V.dir = -_immutable.direction;
         //isotropic.V.dPosdScreen = screw that
@@ -112,7 +116,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
         isotropic.NdotV = dot(isotropic.V.dir,isotropic.N);
         isotropic.NdotV_squared = isotropic.NdotV*isotropic.NdotV;
 
-        interaction = irr_glsl_calcAnisotropicInteraction(isotropic);
+        interaction = nbl_glsl_calcAnisotropicInteraction(isotropic);
     }
 
     const uint bsdfLightIDs = sphere.bsdfLightIDs;
@@ -124,7 +128,7 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
     if (lightID!=INVALID_ID_16BIT) // has emissive
     {
         float lightPdf;
-        vec3 lightVal = irr_glsl_light_deferred_eval_and_prob(lightPdf,sphere,_immutable.origin,interaction,lights[lightID]);
+        vec3 lightVal = nbl_glsl_light_deferred_eval_and_prob(lightPdf,sphere,_immutable.origin,interaction,lights[lightID]);
         rayStack[stackPtr]._payload.accumulation += throughput*lightVal/(1.0+lightPdf*lightPdf*rayStack[stackPtr]._payload.otherTechniqueHeuristic);
     }
     
@@ -154,18 +158,18 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
         vec3 epsilon = rand3d(depth,sampleIx,scramble_state);
     
         float rcpChoiceProb;
-        const bool doNEE = irr_glsl_partitionRandVariable(bsdfGeneratorProbability,epsilon.z,rcpChoiceProb);
+        const bool doNEE = nbl_glsl_partitionRandVariable(bsdfGeneratorProbability,epsilon.z,rcpChoiceProb);
     
 
         float maxT;
         // the probability of generating a sample w.r.t. the light generator only possible and used when it was generated with it!
         float lightPdf;
-        irr_glsl_LightSample _sample;
-        irr_glsl_AnisotropicMicrofacetCache _cache;
+        nbl_glsl_LightSample _sample;
+        nbl_glsl_AnisotropicMicrofacetCache _cache;
         if (doNEE)
         {
             vec3 lightRemainder;
-            _sample = irr_glsl_light_generate_and_remainder_and_pdf(
+            _sample = nbl_glsl_light_generate_and_remainder_and_pdf(
                 lightRemainder,lightPdf,maxT,
                 intersection,interaction,epsilon,
                 depth
@@ -174,31 +178,31 @@ void closestHitProgram(in ImmutableRay_t _immutable, inout irr_glsl_xoroshiro64s
         }
 
         bool validPath = true;
-        const vec3 throughputCIE_Y = transpose(irr_glsl_sRGBtoXYZ)[1]*throughput;
+        const vec3 throughputCIE_Y = transpose(nbl_glsl_sRGBtoXYZ)[1]*throughput;
         const float monochromeEta = dot(throughputCIE_Y,BSDFNode_getEta(bsdf)[0])/(throughputCIE_Y.r+throughputCIE_Y.g+throughputCIE_Y.b);
         if (doNEE)
         {
             // if we allowed non-watertight transmitters (single water surface), it would make sense just to apply this line.
-            validPath = irr_glsl_calcAnisotropicMicrofacetCache(_cache,interaction,_sample,monochromeEta);
+            validPath = nbl_glsl_calcAnisotropicMicrofacetCache(_cache,interaction,_sample,monochromeEta);
             // but we don't allow non watertight transmitters in this renderer
             validPath = validPath && _sample.NdotL>0.0;
         }
         else
         {
             maxT = FLT_MAX;
-            _sample = irr_glsl_bsdf_cos_generate(interaction,epsilon,bsdf,monochromeEta,_cache);
+            _sample = nbl_glsl_bsdf_cos_generate(interaction,epsilon,bsdf,monochromeEta,_cache);
         }
             
         // do a cool trick and always compute the bsdf parts this way! (no divergence)
         float bsdfPdf;
         // the value of the bsdf divided by the probability of the sample being generated
         if (validPath)
-            throughput *= irr_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf,monochromeEta,_cache);
+            throughput *= nbl_glsl_bsdf_cos_remainder_and_pdf(bsdfPdf,_sample,interaction,bsdf,monochromeEta,_cache);
         else
             throughput = vec3(0.0);
 
         // OETF smallest perceptible value
-        const float bsdfPdfThreshold = getLuma(irr_glsl_eotf_sRGB(vec3(1.0)/255.0));
+        const float bsdfPdfThreshold = getLuma(nbl_glsl_eotf_sRGB(vec3(1.0)/255.0));
         const float lumaThroughputThreshold = bsdfPdfThreshold;
         if (bsdfPdf>bsdfPdfThreshold && (!doNEE || bsdfPdf<FLT_MAX) && getLuma(throughput)>lumaThroughputThreshold)
         {

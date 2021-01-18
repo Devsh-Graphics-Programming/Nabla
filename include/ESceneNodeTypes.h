@@ -1,13 +1,14 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __E_SCENE_NODE_TYPES_H_INCLUDED__
-#define __E_SCENE_NODE_TYPES_H_INCLUDED__
+#ifndef __NBL_E_SCENE_NODE_TYPES_H_INCLUDED__
+#define __NBL_E_SCENE_NODE_TYPES_H_INCLUDED__
 
-#include "irr/core/Types.h"
+#include "nbl/core/Types.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -19,51 +20,51 @@ namespace scene
 	enum ESCENE_NODE_TYPE
 	{
 		//! of type CSceneManager (note that ISceneManager is not(!) an ISceneNode)
-		ESNT_SCENE_MANAGER	= MAKE_IRR_ID('s','m','n','g'),
+		ESNT_SCENE_MANAGER,
 
 		//! Sky Box Scene Node
-		ESNT_SKY_BOX        = MAKE_IRR_ID('s','k','y','_'),
+		ESNT_SKY_BOX,
 
 		//! Sky Dome Scene Node
-		ESNT_SKY_DOME       = MAKE_IRR_ID('s','k','y','d'),
+		ESNT_SKY_DOME,
 
 		//! Mesh Scene Node
-		ESNT_MESH           = MAKE_IRR_ID('m','e','s','h'),
-		ESNT_MESH_INSTANCED = MAKE_IRR_ID('m','b','f','I'),
+		ESNT_MESH,
+		ESNT_MESH_INSTANCED,
 
 		//! Dummy Transformation Scene Node
-		ESNT_DUMMY_TRANSFORMATION = MAKE_IRR_ID('d','m','m','y'),
+		ESNT_DUMMY_TRANSFORMATION,
 
 		//! Camera Scene Node
-		ESNT_CAMERA         = MAKE_IRR_ID('c','a','m','_'),
+		ESNT_CAMERA,
 
 		//! Animated Mesh Scene Node
-		ESNT_ANIMATED_MESH  = MAKE_IRR_ID('a','m','s','h'),
-		ESNT_ANIMATED_MESH_INSTANCED = MAKE_IRR_ID('a','m','s','I'),
+		ESNT_ANIMATED_MESH,
+		ESNT_ANIMATED_MESH_INSTANCED,
 
 		//! Skinned Mesh Scene Node
-		ESNT_SKINNED_MESH  = MAKE_IRR_ID('s','m','s','h'),
-		ESNT_SKINNED_MESH_INSTANCED = MAKE_IRR_ID('s','m','s','I'),
+		ESNT_SKINNED_MESH,
+		ESNT_SKINNED_MESH_INSTANCED,
 
 		//! Maya Camera Scene Node
 		/** Legacy, for loading version <= 1.4.x .irr files */
-		ESNT_CAMERA_MAYA    = MAKE_IRR_ID('c','a','m','M'),
+		ESNT_CAMERA_MAYA,
 
 		//! First Person Shooter Camera
 		/** Legacy, for loading version <= 1.4.x .irr files */
-		ESNT_CAMERA_FPS     = MAKE_IRR_ID('c','a','m','F'),
+		ESNT_CAMERA_FPS,
 
 		//! Unknown scene node
-		ESNT_UNKNOWN        = MAKE_IRR_ID('u','n','k','n'),
+		ESNT_UNKNOWN,
 
 		//! Will match with any scene node when checking types
-		ESNT_ANY            = MAKE_IRR_ID('a','n','y','_')
+		ESNT_ANY           
 	};
 
 
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

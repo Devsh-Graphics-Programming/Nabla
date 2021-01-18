@@ -1,16 +1,20 @@
-#include <irrlicht.h>
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#include <nabla.h>
 
 #include "../common/QToQuitEventReceiver.h"
 
-#include "../../ext/FullScreenTriangle/FullScreenTriangle.h"
-#include "../../ext/ScreenShot/ScreenShot.h"
+#include "nbl/ext/FullScreenTriangle/FullScreenTriangle.h"
+#include "nbl/ext/ScreenShot/ScreenShot.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace core;
 using namespace asset;
 using namespace video;
 
-irr::video::IFrameBuffer* createHDRFramebuffer(core::smart_refctd_ptr<IrrlichtDevice> device, asset::E_FORMAT colorFormat)
+nbl::video::IFrameBuffer* createHDRFramebuffer(core::smart_refctd_ptr<IrrlichtDevice> device, asset::E_FORMAT colorFormat)
 {
 	auto driver = device->getVideoDriver();
 
@@ -146,9 +150,16 @@ struct ShaderParameters
 	const uint32_t MaxSamplesLog2 = 10; //18
 } kShaderParameters;
 
+enum E_LIGHT_GEOMETRY
+{
+	ELG_SPHERE,
+	ELG_TRIANGLE,
+	ELG_RECTANGLE
+};
+
 int main()
 {
-	irr::SIrrlichtCreationParameters params;
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 32;
 	params.ZBufferBits = 24;
 	params.DriverType = video::EDT_OPENGL;
@@ -165,7 +176,7 @@ int main()
 	device->getCursorControl()->setVisible(false);
 	auto driver = device->getVideoDriver();
 #ifdef _DEBUG
-	if (video::COpenGLExtensionHandler::FeatureAvailable[video::COpenGLExtensionHandler::IRR_KHR_debug])
+	if (video::COpenGLExtensionHandler::FeatureAvailable[video::COpenGLExtensionHandler::NBL_KHR_debug])
 	{
 		glEnable(GL_DEBUG_OUTPUT);
 		glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -250,8 +261,9 @@ int main()
 		return { gpuPipeline, gpuMeshBuffer };
 	};
 
-	constexpr bool litByTriangle = false;
-	auto gpuEnvmapResources = createGpuResources(litByTriangle ? "../litByTriangle.frag":"../litBySphere.frag");
+	E_LIGHT_GEOMETRY lightGeom = ELG_RECTANGLE;
+	constexpr const char* shaderPaths[] = {"../litBySphere.frag","../litByTriangle.frag","../litByRectangle.frag"};
+	auto gpuEnvmapResources = createGpuResources(shaderPaths[lightGeom]);
 	auto gpuEnvmapPipeline = gpuEnvmapResources.first;
 	auto gpuEnvmapMeshBuffer = gpuEnvmapResources.second;
 

@@ -1,14 +1,15 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __I_ANIMATED_MESH_SCENE_NODE_H_INCLUDED__
-#define __I_ANIMATED_MESH_SCENE_NODE_H_INCLUDED__
+#ifndef __NBL_I_ANIMATED_MESH_SCENE_NODE_H_INCLUDED__
+#define __NBL_I_ANIMATED_MESH_SCENE_NODE_H_INCLUDED__
 
 #include "ISceneNode.h"
 #include "IAnimatedMesh.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -21,7 +22,7 @@ namespace scene
 	template<class T>
 	class IAnimationEndCallBack : public virtual core::IReferenceCounted
 	{
-            _IRR_INTERFACE_CHILD(IAnimationEndCallBack) {}
+            _NBL_INTERFACE_CHILD(IAnimationEndCallBack) {}
         public:
 
             //! Will be called when the animation playback has ended.
@@ -32,7 +33,7 @@ namespace scene
 	};
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

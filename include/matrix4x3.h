@@ -1,10 +1,9 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
-
-#ifndef __IRR_MATRIX_4X3_H_INCLUDED__
-#define __IRR_MATRIX_4X3_H_INCLUDED__
+#ifndef __NBL_MATRIX_4X3_H_INCLUDED__
+#define __NBL_MATRIX_4X3_H_INCLUDED__
 
 #include "vector3d.h"
 #include "vectorSIMD.h"
@@ -12,13 +11,13 @@
 #include "rect.h"
 
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
 
 
-	class matrix4x3// : public AlignedBase<_IRR_SIMD_ALIGNMENT> don't inherit from AlignedBase (which is empty) because member `rows[4]` inherits from it as well
+	class matrix4x3// : public AlignedBase<_NBL_SIMD_ALIGNMENT> don't inherit from AlignedBase (which is empty) because member `rows[4]` inherits from it as well
 	{
 		public:
 			//! Default constructor
@@ -391,7 +390,7 @@ namespace core
 	}
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

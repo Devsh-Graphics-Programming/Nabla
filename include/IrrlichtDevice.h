@@ -1,11 +1,11 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __I_IRRLICHT_DEVICE_H_INCLUDED__
-#define __I_IRRLICHT_DEVICE_H_INCLUDED__
+#ifndef __NBL_I_NABLA_DEVICE_H_INCLUDED__
+#define __NBL_I_NABLA_DEVICE_H_INCLUDED__
 
-#include "IrrCompileConfig.h"
 #include "dimension2d.h"
 #include "IVideoDriver.h"
 #include "EDriverTypes.h"
@@ -16,10 +16,10 @@
 #include "IOSOperator.h"
 
 #include "IFileSystem.h"
-#include "irr/asset/IAssetManager.h"
+#include "nbl/asset/IAssetManager.h"
 #include "ISceneManager.h"
 
-namespace irr
+namespace nbl
 {
 	class ILogger;
 	class IEventReceiver;
@@ -58,7 +58,7 @@ namespace irr
 		also simply use your own message loop using GetMessage,
 		DispatchMessage and whatever and simply don't use this method.
 		But note that Irrlicht will not be able to fetch user input
-		then. See irr::SIrrlichtCreationParameters::WindowId for more
+		then. See nbl::SIrrlichtCreationParameters::WindowId for more
 		informations and example code.
 		*/
 		virtual bool run() = 0;
@@ -160,7 +160,7 @@ namespace irr
 		//! Sets a new user event receiver which will receive events from the engine.
 		/** Return true in IEventReceiver::OnEvent to prevent the event from continuing along
 		the chain of event receivers. The path that an event takes through the system depends
-		on its type. See irr::EEVENT_TYPE for details.
+		on its type. See nbl::EEVENT_TYPE for details.
 		\param receiver New receiver to be used. */
 		virtual void setEventReceiver(IEventReceiver* receiver) = 0;
 
@@ -200,9 +200,9 @@ namespace irr
 		//! Activate any joysticks, and generate events for them.
 		/** Irrlicht contains support for joysticks, but does not generate joystick events by default,
 		as this would consume joystick info that 3rd party libraries might rely on. Call this method to
-		activate joystick support in Irrlicht and to receive irr::SJoystickEvent events.
+		activate joystick support in Irrlicht and to receive nbl::SJoystickEvent events.
 		\param joystickInfo On return, this will contain an array of each joystick that was found and activated.
-		\return true if joysticks are supported on this device and _IRR_COMPILE_WITH_JOYSTICK_EVENTS_
+		\return true if joysticks are supported on this device and _NBL_COMPILE_WITH_JOYSTICK_EVENTS_
 				is defined, false if joysticks are not supported or support is compiled out.
 		*/
 		virtual bool activateJoysticks(core::vector<SJoystickInfo>& joystickInfo) =0;
@@ -234,7 +234,7 @@ namespace irr
 				case video::EDT_NULL:
 					return true;
 				case video::EDT_OPENGL:
-#ifdef _IRR_COMPILE_WITH_OPENGL_
+#ifdef _NBL_COMPILE_WITH_OPENGL_
 					return true;
 #else
 					return false;
@@ -251,7 +251,7 @@ namespace irr
         core::smart_refctd_ptr<asset::IAssetManager> m_assetMgr;
 	};
 
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

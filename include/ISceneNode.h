@@ -1,11 +1,12 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __I_SCENE_NODE_H_INCLUDED__
-#define __I_SCENE_NODE_H_INCLUDED__
+#ifndef __NBL_I_SCENE_NODE_H_INCLUDED__
+#define __NBL_I_SCENE_NODE_H_INCLUDED__
 
-#include "irr/video/video.h"
+#include "nbl/video/video.h"
 
 #include "ESceneNodeTypes.h"
 #include "ISceneNodeAnimator.h"
@@ -14,7 +15,7 @@
 #include "IDummyTransformationSceneNode.h"
 #include "IDriverFence.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -218,7 +219,7 @@ namespace scene
 		directly modify the material of a scene node.
 		\param num Zero based index. The maximal value is getMaterialCount() - 1.
 		\return The material at that index. */
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 		virtual video::SGPUMaterial& getMaterial(uint32_t num)
 		{
 			return video::SGPUMaterial();
@@ -232,7 +233,7 @@ namespace scene
 			return 0;
 		}
 
-#ifndef NEW_SHADERS
+#ifdef OLD_SHADERS
 		//! Sets the texture of the specified layer in all materials of this scene node to the new texture.
 		/** \param textureLayer Layer of texture to be set. Must be a
 		value smaller than MATERIAL_MAX_TEXTURES.
@@ -276,7 +277,7 @@ namespace scene
 
 
 		//! Sets if debug data like bounding boxes should be drawn.
-		/** A bitwise OR of the types from @ref irr::scene::E_DEBUG_SCENE_TYPE.
+		/** A bitwise OR of the types from @ref nbl::scene::E_DEBUG_SCENE_TYPE.
 		Please note that not all scene nodes support all debug data types.
 		\param state The debug data visibility state to be used. */
 		virtual void setDebugDataVisible(uint32_t state)
@@ -286,7 +287,7 @@ namespace scene
 
 		//! Returns if debug data like bounding boxes are drawn.
 		/** \return A bitwise OR of the debug data values from
-		@ref irr::scene::E_DEBUG_SCENE_TYPE that are currently visible. */
+		@ref nbl::scene::E_DEBUG_SCENE_TYPE that are currently visible. */
 		uint32_t isDebugDataVisible() const
 		{
 			return DebugDataVisible;
@@ -547,7 +548,7 @@ namespace scene
 
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

@@ -1,13 +1,14 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __IRR_POINT_3D_H_INCLUDED__
-#define __IRR_POINT_3D_H_INCLUDED__
+#ifndef __NBL_POINT_3D_H_INCLUDED__
+#define __NBL_POINT_3D_H_INCLUDED__
 
-#include "irr/core/math/glslFunctions.h"
+#include "nbl/core/math/glslFunctions.h"
 
-namespace irr
+namespace nbl
 {
 namespace core
 {
@@ -276,7 +277,7 @@ namespace core
 
 
 } // end namespace core
-} // end namespace irr
+} // end namespace nbl
 
 #endif
 

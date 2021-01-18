@@ -1,17 +1,21 @@
-#define _IRR_STATIC_LIB_
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#define _NBL_STATIC_LIB_
 #include <iostream>
 #include <cstdio>
-#include <irrlicht.h>
+#include <nabla.h>
 
 #include "CommandLineHandler.hpp"
-#include "irr/asset/filters/dithering/CPrecomputedDither.h"
+#include "nbl/asset/filters/dithering/CPrecomputedDither.h"
 
-#include "../ext/ToneMapper/CToneMapper.h"
-#include "../../ext/OptiX/Manager.h"
+#include "nbl/ext/ToneMapper/CToneMapper.h"
+#include "nbl/ext/OptiX/Manager.h"
 
 #include "CommonPushConstants.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 using namespace video;
 
@@ -52,7 +56,7 @@ bool check_error(bool cond, const char* message)
 
 int main(int argc, char* argv[])
 {
-	irr::SIrrlichtCreationParameters params;
+	nbl::SIrrlichtCreationParameters params;
 	params.Bits = 24;
 	params.ZBufferBits = 24;
 	params.DriverType = video::EDT_OPENGL;
@@ -292,7 +296,7 @@ void main()
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
 #include "../ShaderCommon.glsl"
-#include "irr/builtin/glsl/ext/ToneMapper/operators.glsl"
+#include "nbl/builtin/glsl/ext/ToneMapper/operators.glsl"
 layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 {
 	float16_t inBuffer[];
@@ -926,11 +930,12 @@ void main()
 				// get the data from the GPU
 				{
 					constexpr uint64_t timeoutInNanoSeconds = 300000000000u;
+					const auto waitPoint = std::chrono::high_resolution_clock::now()+std::chrono::nanoseconds(timeoutInNanoSeconds);
 
 					// download buffer
 					{
 						const uint32_t alignment = 4096u; // common page size
-						auto unallocatedSize = downloadStagingArea->multi_alloc(std::chrono::nanoseconds(timeoutInNanoSeconds), 1u, &address, &colorBufferBytesize, &alignment);
+						auto unallocatedSize = downloadStagingArea->multi_alloc(waitPoint, 1u, &address, &colorBufferBytesize, &alignment);
 						if (unallocatedSize)
 						{
 							os::Printer::log(makeImageIDString(i)+"Could not download the buffer from the GPU!",ELL_ERROR);
@@ -1036,7 +1041,7 @@ void main()
 					imageViewInfo.subresourceRange.levelCount = ditheringImage->getCreationParameters().mipLevels;
 
 					auto ditheringImageView = ICPUImageView::create(std::move(imageViewInfo));
-					state.ditherState = _IRR_NEW(std::remove_pointer<decltype(state.ditherState)>::type, ditheringImageView.get());
+					state.ditherState = _NBL_NEW(std::remove_pointer<decltype(state.ditherState)>::type, ditheringImageView.get());
 
 					state.inImage = image.get();
 					state.outImage = newConvertedImage.get();
@@ -1055,7 +1060,7 @@ void main()
 					if (!convertFilter.execute(&state))
 						os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Something went wrong while converting the image!", ELL_WARNING);
 
-					_IRR_DELETE(state.ditherState);
+					_NBL_DELETE(state.ditherState);
 				}
 
 				// create image view

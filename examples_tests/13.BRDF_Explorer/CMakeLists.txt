@@ -10,7 +10,7 @@ update_git_submodule(../media/cegui_alfisko)
 add_compile_definitions(CEGUI_STATIC CEGUI_BUILD_STATIC_FACTORY_MODULE)
 
 set(BRDF_EXPLORER_LIBS
-	${IRR_EXT_CEGUI_LIB}
+	${NBL_EXT_CEGUI_LIB}
 	${CEGUI_LIBS}
 )
 
@@ -21,9 +21,9 @@ set(EXAMPLE_SOURCES
 	getTextureGLname.cpp
 )
 
-irr_create_executable_project(
+nbl_create_executable_project(
 	"${EXAMPLE_SOURCES}"
 	""
-	"${IRR_EXT_CEGUI_INCLUDE_DIRS}"
+	"${NBL_EXT_CEGUI_INCLUDE_DIRS}"
 	"${BRDF_EXPLORER_LIBS}"
 )

@@ -1,17 +1,18 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __I_DUMMY_TRANSFORMATION_SCENE_NODE_H_INCLUDED__
-#define __I_DUMMY_TRANSFORMATION_SCENE_NODE_H_INCLUDED__
+#ifndef __NBL_I_DUMMY_TRANSFORMATION_SCENE_NODE_H_INCLUDED__
+#define __NBL_I_DUMMY_TRANSFORMATION_SCENE_NODE_H_INCLUDED__
 
-#include "irr/core/IReferenceCounted.h"
+#include "nbl/core/IReferenceCounted.h"
 #include "ISceneNodeAnimator.h"
 #include <algorithm>
 #include "matrix4x3.h"
 #include "ESceneNodeTypes.h"
 
-namespace irr
+namespace nbl
 {
 namespace scene
 {
@@ -477,7 +478,7 @@ class IDummyTransformationSceneNode : public virtual core::IReferenceCounted
 };
 
 } // end namespace scene
-} // end namespace irr
+} // end namespace nbl
 
 
 #endif

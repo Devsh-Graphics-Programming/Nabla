@@ -1,7 +1,11 @@
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
 #ifdef __cplusplus
 	#define int int32_t
 	#define uint uint32_t
-	#define mat3 irr::core::matrix3x4SIMD
+	#define mat3 nbl::core::matrix3x4SIMD
 #endif
 struct CommonPushConstants
 {

@@ -1,13 +1,16 @@
-// Copyright (C) 2002-2012 Nikolaus Gebhardt
-// This file is part of the "Irrlicht Engine" and the "irrXML" project.
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
+// For conditions of distribution and use, see copyright notice in nabla.h
+// See the original file in irrlicht source for authors
 
-#ifndef __IRR_PATH_H_INCLUDED__
-#define __IRR_PATH_H_INCLUDED__
+#ifndef __NBL_PATH_H_INCLUDED__
+#define __NBL_PATH_H_INCLUDED__
 
 #include "irrString.h"
 
-namespace irr
+#include "nbl/core/compile_config.h"
+
+namespace nbl
 {
 namespace io
 {
@@ -131,9 +134,9 @@ struct SNamedPath// : public AllocationOverrideDefault
 		path name(p);
 		//handleBackslashes(&name);
 		name.replace('\\' , '/'); //! On Linux just delete them
-#ifndef _IRR_POSIX_API_
+#ifndef _NBL_POSIX_API_
 		name.make_lower();
-#endif // _IRR_POSIX_API_
+#endif // _NBL_POSIX_API_
 		return name;
 	}
 
@@ -142,6 +145,6 @@ private:
 };
 
 } // io
-} // irr
+} // nbl
 
-#endif // __IRR_PATH_H_INCLUDED__
+#endif
