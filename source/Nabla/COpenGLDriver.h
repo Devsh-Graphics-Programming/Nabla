@@ -453,7 +453,7 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 				default:
 				{
 					GLint res = GL_FALSE;
-					extGlGetInternalformativ(GL_TEXTURE_2D, getSizedOpenGLFormatFromOurFormat(_fmt), GL_COLOR_RENDERABLE, sizeof(res), &res);
+					extGlGetInternalformativ(GL_TEXTURE_2D, getSizedOpenGLFormatFromOurFormat(_fmt), GL_COLOR_RENDERABLE, 1, &res);
 					return res==GL_TRUE;
 				}
             }
