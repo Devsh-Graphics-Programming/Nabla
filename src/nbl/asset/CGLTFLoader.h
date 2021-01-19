@@ -1,14 +1,19 @@
 // Copyright (C) 2020 AnastaZIuk
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in Nabla.h
 
-#ifdef _IRR_COMPILE_WITH_GLTF_LOADER_
+#ifndef __NBL_ASSET_C_MESH_LOADER_GLTF__
+#define __NBL_ASSET_C_MESH_LOADER_GLTF__
 
-#include "irr/asset/ICPUImageView.h"
-#include "irr/asset/IAssetLoader.h"
-#include "irr/asset/CGLTFPipelineMetadata.h"
+#include "BuildConfigOptions.h"
 
-namespace irr
+#ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
+
+#include "nbl/asset/ICPUImageView.h"
+#include "nbl/asset/IAssetLoader.h"
+#include "nbl/asset/CGLTFPipelineMetadata.h"
+
+namespace nbl
 {
 	namespace asset
 	{
@@ -17,7 +22,7 @@ namespace irr
 			glTF bridges the gap between 3D content creation tools and modern 3D applications 
 			by providing an efficient, extensible, interoperable format for the transmission and loading of 3D content.
 		*/
-
+		
 		class CGLTFLoader final : public asset::IAssetLoader
 		{
 			protected:
@@ -38,15 +43,15 @@ namespace irr
 
 				asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
-				_IRR_STATIC_INLINE std::string getPipelineCacheKey(const E_PRIMITIVE_TOPOLOGY& primitiveType, const SVertexInputParams& vertexInputParams)
+				_NBL_STATIC_INLINE std::string getPipelineCacheKey(const E_PRIMITIVE_TOPOLOGY& primitiveType, const SVertexInputParams& vertexInputParams)
 				{
-					return "irr/builtin/pipelines/loaders/glTF/" + std::to_string(primitiveType) + vertexInputParams.to_string();
+					return "nbl/builtin/pipelines/loaders/glTF/" + std::to_string(primitiveType) + vertexInputParams.to_string();
 				}
 
-				_IRR_STATIC_INLINE std::string getSamplerCacheKey(const asset::ICPUSampler::SParams& params)
+				_NBL_STATIC_INLINE std::string getSamplerCacheKey(const asset::ICPUSampler::SParams& params)
 				{
 					const std::size_t hash = std::hash<std::string_view>{}(std::string_view(reinterpret_cast<const char*>(&params), sizeof(params)));
-					return "irr/builtin/samplers/loaders/glTF/" + std::to_string(hash);
+					return "nbl/builtin/samplers/loaders/glTF/" + std::to_string(hash);
 				}
 
 			private:
@@ -162,13 +167,13 @@ namespace irr
 
 								struct SType
 								{
-									_IRR_STATIC_INLINE_CONSTEXPR std::string_view SCALAR = "SCALAR";
-									_IRR_STATIC_INLINE_CONSTEXPR std::string_view VEC2 = "VEC2";
-									_IRR_STATIC_INLINE_CONSTEXPR std::string_view VEC3 = "VEC3";
-									_IRR_STATIC_INLINE_CONSTEXPR std::string_view VEC4 = "VEC4";
-									_IRR_STATIC_INLINE_CONSTEXPR std::string_view MAT2 = "MAT2";
-									_IRR_STATIC_INLINE_CONSTEXPR std::string_view MAT3 = "MAT3";
-									_IRR_STATIC_INLINE_CONSTEXPR std::string_view MAT4 = "MAT4";
+									_NBL_STATIC_INLINE_CONSTEXPR std::string_view SCALAR = "SCALAR";
+									_NBL_STATIC_INLINE_CONSTEXPR std::string_view VEC2 = "VEC2";
+									_NBL_STATIC_INLINE_CONSTEXPR std::string_view VEC3 = "VEC3";
+									_NBL_STATIC_INLINE_CONSTEXPR std::string_view VEC4 = "VEC4";
+									_NBL_STATIC_INLINE_CONSTEXPR std::string_view MAT2 = "MAT2";
+									_NBL_STATIC_INLINE_CONSTEXPR std::string_view MAT3 = "MAT3";
+									_NBL_STATIC_INLINE_CONSTEXPR std::string_view MAT4 = "MAT4";
 								};
 
 								bool validate()
@@ -313,8 +318,8 @@ namespace irr
 
 						struct SMIMEType
 						{
-							_IRR_STATIC_INLINE_CONSTEXPR std::string_view JPEG = "image/jpeg";
-							_IRR_STATIC_INLINE_CONSTEXPR std::string_view PNG = "image/png";
+							_NBL_STATIC_INLINE_CONSTEXPR std::string_view JPEG = "image/jpeg";
+							_NBL_STATIC_INLINE_CONSTEXPR std::string_view PNG = "image/png";
 						};
 
 						bool validate()
@@ -396,14 +401,14 @@ namespace irr
 
 							struct SMetallic
 							{
-								_IRR_STATIC_INLINE_CONSTEXPR double METAL = 1.0;
-								_IRR_STATIC_INLINE_CONSTEXPR double DIELECTRIC = 0.0;
+								_NBL_STATIC_INLINE_CONSTEXPR double METAL = 1.0;
+								_NBL_STATIC_INLINE_CONSTEXPR double DIELECTRIC = 0.0;
 							};
 
 							struct SRoughness
 							{
-								_IRR_STATIC_INLINE_CONSTEXPR double ROUGH = 1.0;
-								_IRR_STATIC_INLINE_CONSTEXPR double SMOOTH = 0.0;
+								_NBL_STATIC_INLINE_CONSTEXPR double ROUGH = 1.0;
+								_NBL_STATIC_INLINE_CONSTEXPR double SMOOTH = 0.0;
 							};
 
 							/*
@@ -459,9 +464,9 @@ namespace irr
 
 						struct SAlphaMode
 						{
-							_IRR_STATIC_INLINE_CONSTEXPR std::string_view OPAQUE_MODE = "OPAQUE";
-							_IRR_STATIC_INLINE_CONSTEXPR std::string_view MASK_MODE = "MASK";
-							_IRR_STATIC_INLINE_CONSTEXPR std::string_view BLEND_MODE = "BLEND";
+							_NBL_STATIC_INLINE_CONSTEXPR std::string_view OPAQUE_MODE = "OPAQUE";
+							_NBL_STATIC_INLINE_CONSTEXPR std::string_view MASK_MODE = "MASK";
+							_NBL_STATIC_INLINE_CONSTEXPR std::string_view BLEND_MODE = "BLEND";
 						};
 
 						std::optional<std::string> name;
@@ -518,4 +523,5 @@ namespace irr
 	}
 }
 
-#endif // _IRR_COMPILE_WITH_GLTF_LOADER_
+#endif // _NBL_COMPILE_WITH_GLTF_LOADER_
+#endif // __NBL_ASSET_C_MESH_LOADER_GLTF__

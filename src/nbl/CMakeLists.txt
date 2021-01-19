@@ -59,6 +59,10 @@ option(_NBL_COMPILE_WITH_OPENEXR_LOADER_ "Compile with OpenEXR Loader" ON)
 option(_NBL_COMPILE_WITH_OPENEXR_WRITER_ "Compile with OpenEXR Writer" ON)
 option(_NBL_COMPILE_WITH_GLI_LOADER_ "Compile with GLI Loader" ON)
 option(_NBL_COMPILE_WITH_GLI_WRITER_ "Compile with GLI Writer" ON)
+option(_NBL_COMPILE_WITH_GLTF_LOADER_ "Compile with GLTF Loader" ON)
+option(_NBL_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" ON)
+option(_NBL_COMPILE_WITH_BIN_LOADER_ "Compile with BIN Loader" ON)
+option(_NBL_COMPILE_WITH_BIN_WRITER_ "Compile with BIN Writer" ON)
 
 nbl_get_conf_dir(NABLA_CONF_DIR_DEBUG Debug)
 nbl_get_conf_dir(NABLA_CONF_DIR_RELEASE Release)
@@ -167,12 +171,14 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/COBJMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/CPLYMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/CSTLMeshFileLoader.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/CGLTFLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/CBufferLoaderBIN.cpp
 
 # Mesh writers
 	${NBL_ROOT_PATH}/src/nbl/asset/CBAWMeshWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/CPLYMeshWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/CSTLMeshWriter.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/CGLTFWriter.cpp
 
 # BaW Format
 	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/TypedBlob.cpp
@@ -376,6 +382,16 @@ macro(nbl_target_link_spirv_tools _trgt)
 	)
 endmacro()
 
+# simdjson
+macro(nbl_target_link_simdjson _trgt)
+	add_dependencies(${_trgt} simdjson)
+	target_link_libraries(${_trgt} INTERFACE
+		simdjson
+	)
+	target_include_directories(${_trgt} PUBLIC ${THIRD_PARTY_SOURCE_DIR}/simdjson)
+	set_target_properties(simdjson PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endmacro()
+
 add_library(Nabla STATIC
 	${NABLA_SRCS_COMMON}
 	${NABLA_SRCS_NORMAL}
@@ -403,6 +419,7 @@ if(_NBL_COMPILE_WITH_GLI_)
 endif()
 nbl_target_include_parallel_hashmap(Nabla)
 nbl_target_link_spirv_tools(Nabla)
+nbl_target_link_simdjson(Nabla)
 
 target_link_libraries(Nabla INTERFACE ${OPENGL_gl_LIBRARY})
 if (UNIX)
@@ -520,3 +537,4 @@ nbl_install_lib(SPIRV-Tools-opt)
 nbl_install_lib(OGLCompiler)
 nbl_install_lib(OSDependent)
 nbl_install_lib(zlibstatic)
+nbl_install_lib(simdjson)

@@ -1,15 +1,15 @@
 #define _IRR_STATIC_LIB_
-#include <irrlicht.h>
+#include <nabla.h>
 
 #include "../common/QToQuitEventReceiver.h"
-#include "../../ext/ScreenShot/ScreenShot.h"
+#include "../include/nbl/ext/ScreenShot/ScreenShot.h"
 
-using namespace irr;
+using namespace nbl;
 using namespace asset;
 using namespace video;
 using namespace core;
 
-#include "irr/irrpack.h"
+#include "nbl/nblpack.h"
 struct GraphicsData
 {
 	struct Mesh
@@ -26,11 +26,11 @@ struct GraphicsData
 	core::vector<Mesh> meshes;
 
 } PACK_STRUCT;
-#include "irr/irrunpack.h"
+#include "nbl/nblunpack.h"
 
 int main()
 {
-	irr::SIrrlichtCreationParameters params;
+	SIrrlichtCreationParameters params;
 	params.Bits = 24; 
 	params.ZBufferBits = 24; 
 	params.DriverType = video::EDT_OPENGL; 
@@ -128,7 +128,7 @@ int main()
 
 		const auto viewProjection = camera->getConcatenatedMatrix();
 		core::matrix3x4SIMD modelMatrix;
-		modelMatrix.setRotation(irr::core::quaternion(0, 0, 0));
+		modelMatrix.setRotation(quaternion(0, 0, 0));
 
 		auto mv = core::concatenateBFollowedByA(camera->getViewMatrix(), modelMatrix);
 		auto mvp = core::concatenateBFollowedByA(viewProjection, modelMatrix);

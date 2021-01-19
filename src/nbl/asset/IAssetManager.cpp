@@ -27,8 +27,8 @@
 #include "nbl/asset/CBAWMeshFileLoader.h"
 #endif
 
-#ifdef _IRR_COMPILE_WITH_GLTF_LOADER_
-#include "irr/asset/CGLTFLoader.h"
+#ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
+#include "nbl/asset/CGLTFLoader.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
@@ -68,7 +68,7 @@
 #endif
 
 #ifdef _NBL_COMPILE_WITH_GLTF_WRITER_
-#include"irr/asset/CGLTFWriter.h"
+#include "nbl/asset/CGLTFWriter.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_TGA_WRITER_
@@ -170,7 +170,7 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _NBL_COMPILE_WITH_TGA_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CImageLoaderTGA>());
 #endif
-#ifdef _IRR_COMPILE_WITH_BIN_LOADER_
+#ifdef _NBL_COMPILE_WITH_BIN_LOADER_
     addAssetLoader(core::make_smart_refctd_ptr<asset::CBufferLoaderBIN>());
 #endif
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CGLSLLoader>());

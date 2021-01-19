@@ -1,14 +1,18 @@
 // Copyright (C) 2020 AnastaZIuk
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in Nabla.h
 
-#ifdef _IRR_COMPILE_WITH_GLTF_WRITER_
+#ifndef __NBL_ASSET_C_MESH_WRITER_GLTF__
+#define __NBL_ASSET_C_MESH_WRITER_GLTF__
 
-#include "IrrCompileConfig.h"
-#include "irr/asset/ICPUImageView.h"
-#include "irr/asset/IAssetLoader.h"
+#include "BuildConfigOptions.h"
 
-namespace irr
+#ifdef _NBL_COMPILE_WITH_GLTF_WRITER_
+
+#include "nbl/asset/ICPUImageView.h"
+#include "nbl/asset/IAssetLoader.h"
+
+namespace nbl
 {
 	namespace asset
 	{
@@ -43,4 +47,5 @@ namespace irr
 	}
 }
 
-#endif // _IRR_COMPILE_WITH_GLTF_WRITER_
+#endif // _NBL_COMPILE_WITH_GLTF_WRITER_
+#endif // __NBL_ASSET_C_MESH_WRITER_GLTF__

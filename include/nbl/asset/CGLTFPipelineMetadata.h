@@ -1,11 +1,11 @@
-#ifndef __IRR_C_GLTF_PIPELINE_METADATA_H_INCLUDED__
-#define __IRR_C_GLTF_PIPELINE_METADATA_H_INCLUDED__
+#ifndef __NBL_C_GLTF_PIPELINE_METADATA_H_INCLUDED__
+#define __NBL_C_GLTF_PIPELINE_METADATA_H_INCLUDED__
 
-#include "irr/asset/IPipelineMetadata.h"
-#include "irr/asset/ICPUDescriptorSet.h"
-#include "irr/asset/ICPUPipelineLayout.h"
+#include "nbl/asset/IPipelineMetadata.h"
+#include "nbl/asset/ICPUDescriptorSet.h"
+#include "nbl/asset/ICPUPipelineLayout.h"
 
-namespace irr
+namespace nbl
 {
     namespace asset
     {
@@ -20,7 +20,7 @@ namespace irr
                 EAM_BLEND = core::createBitmask({2})
             };
 
-            #include "irr/irrpack.h"
+            #include "nbl/nblpack.h"
             //! This struct is compliant with GLSL's std140 and std430 layouts
             struct alignas(16) SGLTFMaterialParameters
             {
@@ -37,7 +37,7 @@ namespace irr
                 float alphaCutoff = 0.5f; 
 
             } PACK_STRUCT;
-            #include "irr/irrunpack.h"
+            #include "nbl/nblunpack.h"
             //VS Intellisense shows error here because it think vectorSIMDf is 32 bytes, but it just Intellisense - it'll build anyway
             //static_assert(sizeof(SGLTFMaterialParameters) == (sizeof(SGLTFMaterialParameters::SPBRMetallicRoughness::baseColorFactor) + sizeof(SGLTFMaterialParameters::SPBRMetallicRoughness::metallicFactor) + sizeof(SGLTFMaterialParameters::SPBRMetallicRoughness::roughnessFactor) + sizeof(SGLTFMaterialParameters::emissiveFactor) + sizeof(SGLTFMaterialParameters::alphaMode) + sizeof(SGLTFMaterialParameters::alphaCutoff)), "Something went wrong");
 
@@ -47,7 +47,7 @@ namespace irr
             const SGLTFMaterialParameters& getMaterialParameters() const { return m_materialParams; }
             core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const override { return { m_shaderInputs->begin(), m_shaderInputs->end() }; }
 
-            _IRR_STATIC_INLINE_CONSTEXPR const char* loaderName = "CGLTFLoader";
+            _NBL_STATIC_INLINE_CONSTEXPR const char* loaderName = "CGLTFLoader";
             const char* getLoaderName() const override { return loaderName; }
 
         private:
@@ -57,4 +57,4 @@ namespace irr
     }
 }
 
-#endif // __IRR_C_GLTF_PIPELINE_METADATA_H_INCLUDED__
+#endif // __NBL_C_GLTF_PIPELINE_METADATA_H_INCLUDED__

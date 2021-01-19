@@ -1,25 +1,25 @@
 // Copyright (C) 2020 AnastaZIuk
-// This file is part of the "Irrlicht Engine".
-// For conditions of distribution and use, see copyright notice in irrlicht.h
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in Nabla.h
 
 #include "CGLTFLoader.h"
 
-#ifdef _IRR_COMPILE_WITH_GLTF_LOADER_
+#ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
 
-#include "irr/asset/CGLTFPipelineMetadata.h"
+#include "nbl/asset/CGLTFPipelineMetadata.h"
 #include "simdjson/singleheader/simdjson.h"
 #include <filesystem>
 #include "os.h"
 
-#define VERT_SHADER_UV_CACHE_KEY "irr/builtin/shaders/loaders/gltf/vertex_uv.vert"
-#define VERT_SHADER_COLOR_CACHE_KEY "irr/builtin/shaders/loaders/gltf/vertex_color.vert"
-#define VERT_SHADER_NO_UV_COLOR_CACHE_KEY "irr/builtin/shaders/loaders/gltf/vertex_no_uv_color.vert"
+#define VERT_SHADER_UV_CACHE_KEY "nbl/builtin/shaders/loaders/gltf/vertex_uv.vert"
+#define VERT_SHADER_COLOR_CACHE_KEY "nbl/builtin/shaders/loaders/gltf/vertex_color.vert"
+#define VERT_SHADER_NO_UV_COLOR_CACHE_KEY "nbl/builtin/shaders/loaders/gltf/vertex_no_uv_color.vert"
 
-#define FRAG_SHADER_UV_CACHE_KEY "irr/builtin/shaders/loaders/gltf/fragment_uv.frag"
-#define FRAG_SHADER_COLOR_CACHE_KEY "irr/builtin/shaders/loaders/gltf/fragment_color.frag"
-#define FRAG_SHADER_NO_UV_COLOR_CACHE_KEY "irr/builtin/shaders/loaders/gltf/fragment_no_uv_color.frag"
+#define FRAG_SHADER_UV_CACHE_KEY "nbl/builtin/shaders/loaders/gltf/fragment_uv.frag"
+#define FRAG_SHADER_COLOR_CACHE_KEY "nbl/builtin/shaders/loaders/gltf/fragment_color.frag"
+#define FRAG_SHADER_NO_UV_COLOR_CACHE_KEY "nbl/builtin/shaders/loaders/gltf/fragment_no_uv_color.frag"
 
-namespace irr
+namespace nbl
 {
 	namespace asset
 	{
@@ -41,17 +41,17 @@ namespace irr
 
 		namespace SAttributes
 		{
-			_IRR_STATIC_INLINE_CONSTEXPR uint8_t POSITION_ATTRIBUTE_ID = 0;
-			_IRR_STATIC_INLINE_CONSTEXPR uint8_t NORMAL_ATTRIBUTE_ID = 1;
-			_IRR_STATIC_INLINE_CONSTEXPR uint8_t UV_ATTRIBUTE_BEGINING_ID = 2;			//!< those attributes are indexed
-			_IRR_STATIC_INLINE_CONSTEXPR uint8_t COLOR_ATTRIBUTE_BEGINING_ID = 5;		//!< those attributes are indexed
-			_IRR_STATIC_INLINE_CONSTEXPR uint8_t JOINTS_ATTRIBUTE_BEGINING_ID = 8;		//!< those attributes are indexed
-			_IRR_STATIC_INLINE_CONSTEXPR uint8_t WEIGHTS_ATTRIBUTE_BEGINING_ID = 12;	//!< those attributes are indexed
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t POSITION_ATTRIBUTE_ID = 0;
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t NORMAL_ATTRIBUTE_ID = 1;
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t UV_ATTRIBUTE_BEGINING_ID = 2;			//!< those attributes are indexed
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t COLOR_ATTRIBUTE_BEGINING_ID = 5;		//!< those attributes are indexed
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t JOINTS_ATTRIBUTE_BEGINING_ID = 8;		//!< those attributes are indexed
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t WEIGHTS_ATTRIBUTE_BEGINING_ID = 12;	//!< those attributes are indexed
 
-			_IRR_STATIC_INLINE_CONSTEXPR uint8_t MAX_UV_ATTRIBUTES = 3;				
-			_IRR_STATIC_INLINE_CONSTEXPR uint8_t MAX_COLOR_ATTRIBUTES = 3;
-			_IRR_STATIC_INLINE_CONSTEXPR uint8_t MAX_JOINTS_ATTRIBUTES = 4;
-			_IRR_STATIC_INLINE_CONSTEXPR uint8_t MAX_WEIGHTS_ATTRIBUTES = 4;
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t MAX_UV_ATTRIBUTES = 3;				
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t MAX_COLOR_ATTRIBUTES = 3;
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t MAX_JOINTS_ATTRIBUTES = 4;
+			_NBL_STATIC_INLINE_CONSTEXPR uint8_t MAX_WEIGHTS_ATTRIBUTES = 4;
 		}
 
 		/*
@@ -81,13 +81,13 @@ namespace irr
 				insertShaderIntoCache(decltype(constexprStringType)::value);
 			};
 
-			registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
-			registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
-			registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
 
-			registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
-			registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
-			registerShader(IRR_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
+			registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_COLOR_CACHE_KEY) {}, ICPUSpecializedShader::ESS_FRAGMENT);
 		}
 		
 		bool CGLTFLoader::isALoadableFileFormat(io::IReadFile* _file) const
@@ -312,13 +312,13 @@ namespace irr
 					if (glTFTexture.sampler.has_value())
 						samplerCacheKey = cpuSamplers[glTFTexture.sampler.value()];
 					else
-						samplerCacheKey = "irr/builtin/samplers/default";
+						samplerCacheKey = "nbl/builtin/samplers/default";
 
 					if (glTFTexture.source.has_value())
 						cpuImageView = core::smart_refctd_ptr<ICPUImageView>(cpuImageViews[glTFTexture.source.value()]);
 					else
 					{
-						auto default_imageview_bundle = assetManager->getAsset("irr/builtin/image_views/dummy2d", context.loadContext.params);
+						auto default_imageview_bundle = assetManager->getAsset("nbl/builtin/image_views/dummy2d", context.loadContext.params);
 						const bool status = !default_imageview_bundle.isEmpty();
 						if (status)
 						{
@@ -1321,7 +1321,7 @@ namespace irr
 						absent textures WILL (TODO) be filled with dummy 2D texture (while creating descriptor set)
 					*/
 
-					_IRR_STATIC_INLINE_CONSTEXPR size_t samplerBindingsAmount = 1; // TODO
+					_NBL_STATIC_INLINE_CONSTEXPR size_t samplerBindingsAmount = 1; // TODO
 					auto cpuSamplerBindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(samplerBindingsAmount); // TODO
 
 					ICPUDescriptorSetLayout::SBinding cpuSamplerBinding;
@@ -1354,7 +1354,7 @@ namespace irr
 								const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_SAMPLER, (asset::IAsset::E_TYPE)0u };
 								auto sampler_bundle = context.loaderOverride->findCachedAsset(cpuSamplerCacheKey, types, context.loadContext, context.hierarchyLevel /*TODO + what here?*/);
 								if (sampler_bundle.isEmpty())
-									samplers[0] = getDefaultAsset<ICPUSampler, IAsset::ET_SAMPLER>("irr/builtin/samplers/default", assetManager);
+									samplers[0] = getDefaultAsset<ICPUSampler, IAsset::ET_SAMPLER>("nbl/builtin/samplers/default", assetManager);
 								else
 									samplers[0] = core::smart_refctd_ptr_static_cast<ICPUSampler>(sampler_bundle.getContents().begin()[0]);
 							}
@@ -1378,7 +1378,7 @@ namespace irr
 					return nullptr;
 			};
 
-			auto cpuDs1Layout = getDefaultAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("irr/builtin/descriptor_set_layout/basic_view_parameters", assetManager);
+			auto cpuDs1Layout = getDefaultAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("nbl/builtin/descriptor_set_layout/basic_view_parameters", assetManager);
 			auto cpuDs3Layout = getCpuDs3Layout();
 
 			if (isDS3L)
@@ -1407,4 +1407,4 @@ namespace irr
 	}
 }
 
-#endif // _IRR_COMPILE_WITH_GLTF_LOADER_
+#endif // _NBL_COMPILE_WITH_GLTF_LOADER_

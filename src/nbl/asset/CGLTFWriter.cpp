@@ -1,12 +1,12 @@
 // Copyright (C) 2020 AnastaZIuk
-// This file is part of the "Irrlicht Engine".
+// This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in irrlicht.h
 
 #include "CGLTFWriter.h"
+	 
+#ifdef _NBL_COMPILE_WITH_GLTF_WRITER_
 
-#ifdef _IRR_COMPILE_WITH_GLTF_WRITER_
-
-namespace irr
+namespace nbl
 {
 	namespace asset
 	{
@@ -18,4 +18,4 @@ namespace irr
 	}
 }
 
-#endif // _IRR_COMPILE_WITH_GLTF_WRITER_
+#endif // _NBL_COMPILE_WITH_GLTF_WRITER_
