@@ -44,11 +44,12 @@ public:
         }
     };
 
+    template<typename BufferType>
     struct PackerDataStore
     {
-        core::smart_refctd_ptr<video::IGPUBuffer> MDIDataBuffer;
-        core::smart_refctd_ptr<video::IGPUBuffer> vertexBuffer;
-        core::smart_refctd_ptr<video::IGPUBuffer> indexBuffer;
+        core::smart_refctd_ptr<BufferType> MDIDataBuffer;
+        core::smart_refctd_ptr<BufferType> vertexBuffer;
+        core::smart_refctd_ptr<BufferType> indexBuffer;
 
         inline bool isValid()
         {
@@ -67,12 +68,12 @@ public:
     template <typename Iterator>
     bool commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const Iterator begin, const Iterator end);
 
-    PackerDataStore createGPUPackerDataStore(video::IVideoDriver* driver);
+    PackerDataStore<video::IGPUBuffer> createGPUPackerDataStore(video::IVideoDriver* driver);
+    inline PackerDataStore<ICPUBuffer> getCPUPackerDataStore() { return m_packerDataStore; };
 
-public:
-    core::smart_refctd_ptr<ICPUBuffer> m_vtxBuffer;
-    core::smart_refctd_ptr<ICPUBuffer> m_idxBuffer;
-    core::smart_refctd_ptr<ICPUBuffer> m_MDIBuffer;
+private:
+
+    PackerDataStore<ICPUBuffer> m_packerDataStore;
 
     const AllocationParams m_allocParams;
 
@@ -138,9 +139,9 @@ bool CCPUMeshPackerV2<MDIStructType>::alloc(ReservedAllocationMeshBuffers* rambO
 template <typename MDIStructType>
 void CCPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
 {
-    m_MDIBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.MDIDataBuffSupportedCnt * sizeof(MDIStructType));
-    m_idxBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.indexBuffSupportedCnt * sizeof(uint16_t));
-    m_vtxBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.vertexBuffSupportedSize);
+    m_packerDataStore.MDIDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.MDIDataBuffSupportedCnt * sizeof(MDIStructType));
+    m_packerDataStore.indexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.indexBuffSupportedCnt * sizeof(uint16_t));
+    m_packerDataStore.vertexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.vertexBuffSupportedSize);
 }
 
 template <typename MDIStructType>
@@ -153,8 +154,8 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
         ReservedAllocationMeshBuffers& ramb = *(rambIn + i);
         IMeshPackerBase::PackedMeshBufferData& pmbd = *(pmbdOut + i);
 
-        MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(m_MDIBuffer->getPointer()) + ramb.mdiAllocationOffset;
-        uint16_t* indexBuffPtr = static_cast<uint16_t*>(m_idxBuffer->getPointer()) + ramb.indexAllocationOffset;
+        MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(m_packerDataStore.MDIDataBuffer->getPointer()) + ramb.mdiAllocationOffset;
+        uint16_t* indexBuffPtr = static_cast<uint16_t*>(m_packerDataStore.indexBuffer->getPointer()) + ramb.indexAllocationOffset;
 
         const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
 
@@ -175,7 +176,7 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
                 if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
                     return false;
 
-                uint8_t* dstAttrPtr = static_cast<uint8_t*>(m_vtxBuffer->getPointer()) + ramb.attribAllocParams[location].offset;
+                uint8_t* dstAttrPtr = static_cast<uint8_t*>(m_packerDataStore.vertexBuffer->getPointer()) + ramb.attribAllocParams[location].offset;
                 deinterleaveAndCopyAttribute(*it, location, usedVertices, dstAttrPtr, true);
             }
 
@@ -202,12 +203,12 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
 }
 
 template <typename MDIStructType>
-typename CCPUMeshPackerV2<MDIStructType>::PackerDataStore CCPUMeshPackerV2<MDIStructType>::createGPUPackerDataStore(video::IVideoDriver* driver)
+typename CCPUMeshPackerV2<MDIStructType>::PackerDataStore<video::IGPUBuffer> CCPUMeshPackerV2<MDIStructType>::createGPUPackerDataStore(video::IVideoDriver* driver)
 {
-    PackerDataStore m_output;
-    m_output.MDIDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_MDIBuffer->getSize(), m_MDIBuffer->getPointer());
-    m_output.vertexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_vtxBuffer->getSize(), m_vtxBuffer->getPointer());
-    m_output.indexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_idxBuffer->getSize(), m_idxBuffer->getPointer());
+    PackerDataStore<video::IGPUBuffer> m_output;
+    m_output.MDIDataBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_packerDataStore.MDIDataBuffer->getSize(), m_packerDataStore.MDIDataBuffer->getPointer());
+    m_output.vertexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_packerDataStore.vertexBuffer->getSize(), m_packerDataStore.vertexBuffer->getPointer());
+    m_output.indexBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(m_packerDataStore.indexBuffer->getSize(), m_packerDataStore.indexBuffer->getPointer());
 
     return m_output;
 }

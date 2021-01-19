@@ -142,7 +142,7 @@ public:
 	// `packerParamsOut` should be big enough to fit `std::distance(begin,end)` entries, the return value will tell you how many were actually written
 	template<typename Iterator>
 	static uint32_t getPackerCreationParamsFromMeshBufferRange(const Iterator begin, const Iterator end, Iterator sortedMeshBuffersOut,
-		IMeshPackerBase::MeshPackerConfigParams<Iterator>* packerParamsOut);
+		MeshPackerConfigParams<Iterator>* packerParamsOut);
 
 private:
 	//configures indices and MDI structs (implementation is not ready yet)
@@ -528,7 +528,7 @@ static bool CCPUMeshPackerV1<MDIStructType>::cmpVtxInputParams(const SVertexInpu
 template <typename MDIStructType>
 template <typename Iterator>
 static uint32_t CCPUMeshPackerV1<MDIStructType>::getPackerCreationParamsFromMeshBufferRange(const Iterator begin, const Iterator end, Iterator sortedMeshBuffersOut,
-	IMeshPackerBase::MeshPackerConfigParams<Iterator>* packerParamsOut)
+	MeshPackerConfigParams<Iterator>* packerParamsOut)
 {
 	assert(begin <= end);
 	if (begin == end)
