@@ -31,7 +31,7 @@ endif()
 
 set(EXTRA_SOURCES
 	../../src/nbl/ext/DebugDraw/CDraw3DLine.cpp
-	./dirty_source/ExtraCrap.cpp
+	Renderer.cpp
 )
 
 nbl_create_executable_project(

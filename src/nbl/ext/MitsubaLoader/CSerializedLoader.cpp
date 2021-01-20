@@ -217,11 +217,20 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 
 		auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(totalDataSize);
 		void* outPtr = buf->getPointer();
-		auto readAttributes = [&](auto* outPtr, size_t attrOffset, auto* &inPtr, size_t attrCount) -> void
+		auto readAttributes = [&](auto* outPtr, size_t attrOffset, auto* &inPtr, uint32_t attrCount, core::aabbox3df* aabb=nullptr) -> void
 		{
 			for (uint64_t j=0ull; j<vertexCount; j++)
-			for (uint64_t k=0ull; k<attrCount; k++)
-				outPtr[j*vertexAttributeCount+attrOffset+k] = *(inPtr++);
+			{
+				if (aabb)
+				{
+					if (j)
+						aabb->addInternalPoint(inPtr[0],inPtr[1],inPtr[2]);
+					else
+						aabb->reset(inPtr[0],inPtr[1],inPtr[2]);
+				}
+				for (auto k=0u; k<attrCount; k++)
+					outPtr[j*vertexAttributeCount+attrOffset+k] = *(inPtr++);
+			}
 		};
 
 		auto meshBuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
@@ -308,7 +317,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 		inputParams.bindings[0].stride = vertexSize;
 
 		size_t attrOffset = 0ull;
-		auto readAttributeDispatch = [&](auto attrId, size_t attrCount, bool read = true) -> void
+		auto readAttributeDispatch = [&](auto attrId, size_t attrCount, core::aabbox3df* aabb, bool read = true) -> void
 		{
 			asset::E_FORMAT format = asset::EF_UNKNOWN;
 			switch (attrCount)
@@ -333,20 +342,22 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 			if (read)
 			{
 				if (flags & MF_SINGLE_FLOAT)
-					readAttributes(reinterpret_cast<float*>(outPtr), attrOffset, reinterpret_cast<float*&>(ptr), attrCount);
+					readAttributes(reinterpret_cast<float*>(outPtr), attrOffset, reinterpret_cast<float*&>(ptr), attrCount, aabb);
 				else if (flags & MF_DOUBLE_FLOAT)
-					readAttributes(reinterpret_cast<double*>(outPtr), attrOffset, reinterpret_cast<double*&>(ptr), attrCount);
+					readAttributes(reinterpret_cast<double*>(outPtr), attrOffset, reinterpret_cast<double*&>(ptr), attrCount, aabb);
 			}
 			attrOffset += attrCount;
 		};
 
-		readAttributeDispatch(POSITION_ATTRIBUTE, 3ull);
+		core::aabbox3df aabb;
+		readAttributeDispatch(POSITION_ATTRIBUTE, 3ull, &aabb);
+		meshBuffer->setBoundingBox(aabb);
 		if ((flags & MF_PER_VERTEX_NORMALS) || (flags & MF_FACE_NORMALS))
-			readAttributeDispatch(NORMAL_ATTRIBUTE, 3ull, flags&MF_PER_VERTEX_NORMALS); // TODO: normal quantization and optimization
+			readAttributeDispatch(NORMAL_ATTRIBUTE, 3ull, nullptr, flags&MF_PER_VERTEX_NORMALS); // TODO: normal quantization and optimization
 		if (flags & MF_TEXTURE_COORDINATES) // TODO: UV quantization and optimization
-			readAttributeDispatch(UV_ATTRIBUTE, 2ull);
+			readAttributeDispatch(UV_ATTRIBUTE, 2ull, nullptr);
 		if (flags & MF_VERTEX_COLORS) // TODO: quantize to 32bit format like RGB9E5
-			readAttributeDispatch(COLOR_ATTRIBUTE, 3ull);
+			readAttributeDispatch(COLOR_ATTRIBUTE, 3ull, nullptr);
 
 		auto mbPipeline = core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, inputParams, blendParams, primitiveAssemblyParams, rastarizationParams);
 		mbPipeline->setShaderAtStage(asset::ISpecializedShader::E_SHADER_STAGE::ESS_VERTEX, mbVertexShader.get());
@@ -387,7 +398,6 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 			continue;
 
 		manager->setAssetMetadata(mbPipeline.get(), core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaSerializedPipelineMetadata>(std::move(shaderInputsMetadata)));
-		meshBuffer->recalculateBoundingBox();
 		meshBuffer->setPipeline(std::move(mbPipeline));
 
 		auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();

@@ -147,7 +147,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     bool needToFreeIndices = false;
 
     const void* ind = meshBuffer->getIndices();
-    const auto idxCnt = meshBuffer->getIndexCount(); 
+    auto idxCnt = meshBuffer->getIndexCount();  // when you convert triangle Fan or triangle strip to triangle list, the index count changes, and thats what you should derive your face count from
     const auto idxtype = meshBuffer->getIndexType();
     const auto primitiveT = mbPipeline->getPrimitiveAssemblyParams().primitiveType;
 
@@ -191,7 +191,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     }
     else if (primitiveT == asset::EPT_TRIANGLE_LIST)
     {
-        faceCount = vtxCount / 3;
+        faceCount = vtxCount / 3; // THIS IS WRONG
         forceFaces = true;
 
         header += "element face ";

@@ -19,8 +19,8 @@
 class Renderer : public nbl::core::IReferenceCounted, public nbl::core::InterfaceUnmovable
 {
     public:
-		#include "../drawCommon.glsl"
-		#include "../raytraceCommon.glsl"
+		#include "drawCommon.glsl"
+		#include "raytraceCommon.glsl"
 		#ifdef __cplusplus
 			#undef uint
 			#undef mat4
@@ -53,6 +53,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 6u;
+		static const float AntiAliasingSequence[4096][2];
     protected:
         ~Renderer();
 
@@ -124,6 +125,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
 		nbl::ext::RadeonRays::Manager::NblInstanceRRInstanceCache rrInstances;
 
+		nbl::core::matrix3x4SIMD m_prevView;
 		nbl::core::aabbox3df m_sceneBound;
 		uint32_t m_maxRaysPerDispatch;
 		StaticViewData_t m_staticViewData;
