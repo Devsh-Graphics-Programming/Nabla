@@ -218,24 +218,10 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 	public:
         struct SAuxContext;
 
-		#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, const asset::IGLSLCompiler* glslcomp);
+		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, asset::IAssetManager* assmgr, const asset::IGLSLCompiler* glslcomp);
 		//! inits the windows specific parts of the open gl driver
 		bool initDriver(CIrrDeviceStub* device);
 		//bool changeRenderContext(const SAuxContext& ctx);
-		#endif
-
-		#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp);
-		//! inits the GLX specific parts of the open gl driver
-		bool initDriver(CIrrDeviceLinux* device);
-		//bool changeRenderContext(const SExposedVideoData& videoData);
-		#endif
-
-		#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
-		COpenGLDriver(const SIrrlichtCreationParameters& params, io::IFileSystem* io, CIrrDeviceSDL* device, const asset::IGLSLCompiler* glslcomp);
-		#endif
-
 
         inline bool isAllowedBufferViewFormat(asset::E_FORMAT _fmt) const override
         {
@@ -771,10 +757,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 		//! Returns type of video driver
 		inline E_DRIVER_TYPE getDriverType() const override { return EDT_OPENGL; }
 
-		//! get color format of the current color buffer
-		inline asset::E_FORMAT getColorFormat() const override { return ColorFormat; }
-
-
         virtual IFrameBuffer* addFrameBuffer();
 
         //! Remove
@@ -887,18 +869,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
             uint8_t ID; //index in array of contexts, just to be easier in use
 			EGLContext ctx;
 			EGLSurface surface;
-			/*
-            #ifdef _NBL_WINDOWS_API_
-                HGLRC ctx;
-            #endif
-            #ifdef _NBL_COMPILE_WITH_X11_DEVICE_
-                GLXContext ctx;
-                GLXPbuffer pbuff;
-            #endif
-            #ifdef _NBL_COMPILE_WITH_OSX_DEVICE_
-                AppleMakesAUselessOSWhichHoldsBackTheGamingIndustryAndSabotagesOpenStandards ctx;
-            #endif
-			*/
 
             //! FBOs
             core::vector<IFrameBuffer*>  FrameBuffers;
@@ -1053,28 +1023,10 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
 
 		std::string VendorName;
 
-		//! Color buffer format
-		asset::E_FORMAT ColorFormat; //FIXME
-
         mutable core::smart_refctd_dynamic_array<std::string> m_supportedGLSLExtsNames;
 
 		EGLDisplay Display;
 		EGLNativeWindowType Window;
-		#ifdef _NBL_WINDOWS_API_
-			HDC HDc; // Private GDI Device Context
-		#endif
-		#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
-			GLXDrawable Drawable;
-			Display* X11Display;
-			CIrrDeviceLinux *X11Device;
-		#endif
-		#ifdef _NBL_COMPILE_WITH_OSX_DEVICE_
-			CIrrDeviceMacOSX *OSXDevice;
-		#endif
-		//#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
-		#if 0
-			CIrrDeviceSDL *SDLDevice;
-		#endif
 
         size_t maxALUShaderInvocations;
         size_t maxConcurrentShaderInvocations;
@@ -1088,8 +1040,6 @@ class COpenGLDriver final : public CNullDriver, public COpenGLExtensionHandler
         std::mutex glContextMutex;
 		SAuxContext* AuxContexts;
         core::smart_refctd_ptr<const asset::IGLSLCompiler> GLSLCompiler;
-
-		E_DEVICE_TYPE DeviceType;
 	};
 
 } // end namespace video

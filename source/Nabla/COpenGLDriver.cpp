@@ -159,17 +159,13 @@ namespace nbl
 namespace video
 {
 
-// -----------------------------------------------------------------------
-// WINDOWS CONSTRUCTOR
-// -----------------------------------------------------------------------
-#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 //! Windows constructor and init code
 COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, const asset::IGLSLCompiler* glslcomp)
-: CNullDriver(io, params), COpenGLExtensionHandler(),
-	runningInRenderDoc(false),  ColorFormat(asset::EF_R8G8B8_UNORM),
-	HDc(0), Window(static_cast<EGLNativeWindowType>(params.WindowId)), 
-	AuxContexts(0), GLSLCompiler(glslcomp), DeviceType(EIDT_WIN32)
+		io::IFileSystem* io, asset::IAssetManager* assmgr, const asset::IGLSLCompiler* glslcomp)
+: CNullDriver(assmgr, io, params), COpenGLExtensionHandler(),
+	runningInRenderDoc(false),
+	Window(static_cast<EGLNativeWindowType>(params.WindowId)), 
+	AuxContexts(nullptr), GLSLCompiler(glslcomp)
 {
 	#ifdef _NBL_DEBUG
 	setDebugName("COpenGLDriver");
@@ -245,7 +241,6 @@ bool COpenGLDriver::initDriver(CIrrDeviceStub* device)
     {
         AuxContexts[i].threadId = std::thread::id(); //invalid ID
         AuxContexts[i].ctx = eglCreateContext(Display, config, master_context, ctx_attributes);
-        // TODO implement eglCreatePbufferSurface, EGL has this unimplemented! 
         AuxContexts[i].surface = eglCreatePbufferSurface(Display, config, pbuffer_attributes);
         AuxContexts[i].ID = static_cast<uint8_t>(i);
     }
@@ -253,33 +248,32 @@ bool COpenGLDriver::initDriver(CIrrDeviceStub* device)
 	// activate rendering context (in fact this creates/initializes actual GL context)
     eglMakeCurrent(Display, AuxContexts[0].surface, AuxContexts[0].surface, AuxContexts[0].ctx);
 
-
-	int pf = GetPixelFormat(HDc);
-    PIXELFORMATDESCRIPTOR pfd;
-    // TODO complete after i can query HDC and HGLRC from EGL
-    // i have to query via native objects because EGL config reflect only creation params and not what was actually chosen...
-	DescribePixelFormat(HDc, pf, sizeof(PIXELFORMATDESCRIPTOR), &pfd);
-	if (pfd.cAlphaBits != 0)
-	{
-		if (pfd.cRedBits == 8)
-			ColorFormat = asset::EF_B8G8R8A8_UNORM;
-		else
-			ColorFormat = asset::EF_A1R5G5B5_UNORM_PACK16;
-	}
-	else
-	{
-		if (pfd.cRedBits == 8)
-			ColorFormat = asset::EF_R8G8B8_UNORM;
-		else
-			ColorFormat = asset::EF_B5G6R5_UNORM_PACK16;
-	}
+    EGLContextInternals platform_dependent;
+    eglGetPlatformDependentHandles(&platform_dependent, Display, AuxContexts[0].surface, AuxContexts[0].ctx);
 
 #ifdef _NBL_COMPILE_WITH_OPENCL_
-	ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice,clProperties,hrc,HDc);
+    {
+        bool ocl_init = false;
+
+#if defined(_NBL_COMPILE_WITH_WINDOWS_DEVICE_)
+        HDC hdc = platform_dependent.surface;
+        HGLRC hrc = platform_dependent.context;
+        ocl_init = ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice, clProperties, hrc, hdc);
+#elif defined(_NBL_COMPILE_WITH_X11_DEVICE_)
+        GLXContext ctx = platform_dependent.context;
+        Display* dpy = platform_dependent.display;
+        ocl_init = ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice, clProperties, ctx, dpy);
+#endif
+
+        if (!ocl_init)
+            os::Printer::log("Couldn't find matching OpenCL device.\n");
+    }
 #endif // _NBL_COMPILE_WITH_OPENCL_
+
 	genericDriverInit(device->getAssetManager());
 
-	extGlSwapInterval(Params.Vsync ? 1 : 0);
+    eglSwapInterval(Display, Params.Vsync ? 1 : 0);
+
 	return true;
 }
 
@@ -318,140 +312,6 @@ bool COpenGLDriver::deinitAuxContext()
     return retval;
 }
 
-#endif // _NBL_COMPILE_WITH_WINDOWS_DEVICE_
-
-
-// -----------------------------------------------------------------------
-// LINUX CONSTRUCTOR
-// -----------------------------------------------------------------------
-#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
-//! Linux constructor and init code
-COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp)
-		: CNullDriver(device, io, Params), COpenGLExtensionHandler(),
-			runningInRenderDoc(false), ColorFormat(asset::EF_R8G8B8_UNORM),
-			X11Device(device), DeviceType(EIDT_X11), AuxContexts(0), GLSLCompiler(glslcomp)
-{
-	#ifdef _NBL_DEBUG
-	setDebugName("COpenGLDriver");
-	#endif
-}
-
-
-bool COpenGLDriver::changeRenderContext(const SExposedVideoData& videoData)
-{
-	if (videoData.OpenGLLinux.X11Window)
-	{
-		if (videoData.OpenGLLinux.X11Display && videoData.OpenGLLinux.X11Context)
-		{
-			if (!glXMakeCurrent((Display*)videoData.OpenGLLinux.X11Display, videoData.OpenGLLinux.X11Window, (GLXContext)videoData.OpenGLLinux.X11Context))
-			{
-				os::Printer::log("Render Context switch failed.");
-				return false;
-			}
-			else
-			{
-				Drawable = videoData.OpenGLLinux.X11Window;
-				X11Display = (Display*)videoData.OpenGLLinux.X11Display;
-			}
-		}
-		else
-		{
-			// in case we only got a window ID, try with the existing values for display and context
-			if (!glXMakeCurrent((Display*)ExposedData.OpenGLLinux.X11Display, videoData.OpenGLLinux.X11Window, (GLXContext)ExposedData.OpenGLLinux.X11Context))
-			{
-				os::Printer::log("Render Context switch failed.");
-				return false;
-			}
-			else
-			{
-				Drawable = videoData.OpenGLLinux.X11Window;
-				X11Display = (Display*)ExposedData.OpenGLLinux.X11Display;
-			}
-		}
-	}
-	// set back to main context
-	else if (X11Display != ExposedData.OpenGLLinux.X11Display)
-	{
-		if (!glXMakeCurrent((Display*)ExposedData.OpenGLLinux.X11Display, ExposedData.OpenGLLinux.X11Window, (GLXContext)ExposedData.OpenGLLinux.X11Context))
-		{
-			os::Printer::log("Render Context switch failed.");
-			return false;
-		}
-		else
-		{
-			Drawable = ExposedData.OpenGLLinux.X11Window;
-			X11Display = (Display*)ExposedData.OpenGLLinux.X11Display;
-		}
-	}
-	return true;
-}
-
-
-//! inits the open gl driver
-bool COpenGLDriver::initDriver(CIrrDeviceLinux* device)
-{
-	ExposedData.OpenGLLinux.X11Context = glXGetCurrentContext();
-	ExposedData.OpenGLLinux.X11Display = glXGetCurrentDisplay();
-	ExposedData.OpenGLLinux.X11Window = (unsigned long)Params.WindowId;
-	Drawable = glXGetCurrentDrawable();
-	X11Display = (Display*)ExposedData.OpenGLLinux.X11Display;
-
-    AuxContexts = auxCtxts;
-
-#ifdef _NBL_COMPILE_WITH_OPENCL_
-	if (!ocl::COpenCLHandler::getCLDeviceFromGLContext(clDevice,clProperties,reinterpret_cast<GLXContext&>(ExposedData.OpenGLLinux.X11Context),(Display*)ExposedData.OpenGLLinux.X11Display))
-        os::Printer::log("Couldn't find matching OpenCL device.\n");
-#endif // _NBL_COMPILE_WITH_OPENCL_
-
-	genericDriverInit(device->getAssetManager());
-
-	// set vsync
-	//if (queryOpenGLFeature(NBL_))
-        extGlSwapInterval(Params.Vsync ? -1 : 0);
-	return true;
-}
-
-bool COpenGLDriver::initAuxContext()
-{
-	if (!AuxContexts) // opengl dead and never inited
-		return false;
-
-    bool retval = false;
-    const std::lock_guard<std::mutex> lock(glContextMutex);
-    SAuxContext* found = getThreadContext_helper(true,std::thread::id());
-    if (found)
-    {
-        retval = glXMakeCurrent((Display*)ExposedData.OpenGLLinux.X11Display, found->pbuff, found->ctx);
-        if (retval)
-            found->threadId = std::this_thread::get_id();
-    }
-    return retval;
-}
-
-bool COpenGLDriver::deinitAuxContext()
-{
-	if (!AuxContexts) // opengl dead and never inited
-		return false;
-
-    bool retval = false;
-    const std::lock_guard<std::mutex> lock(glContextMutex);
-    SAuxContext* found = getThreadContext_helper(true);
-    if (found)
-    {
-        {
-            const core::unlock_guard<std::mutex> lock(glContextMutex);
-            cleanUpContextBeforeDelete();
-        }
-        retval = glXMakeCurrent((Display*)ExposedData.OpenGLLinux.X11Display, None, NULL);
-        if (retval)
-            found->threadId = std::thread::id();
-    }
-    return retval;
-}
-
-#endif // _NBL_COMPILE_WITH_X11_DEVICE_
-
 
 //! destructor
 COpenGLDriver::~COpenGLDriver()
@@ -484,49 +344,14 @@ COpenGLDriver::~COpenGLDriver()
             break;
     }
 
-#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
-	if (DeviceType == EIDT_WIN32)
-	{
-        for (size_t i=1; i<=Params.AuxGLContexts; i++)
-            wglDeleteContext(AuxContexts[i].ctx);
-
-		if (ExposedData.OpenGLWin32.HRc)
-		{
-			if (!wglMakeCurrent(HDc, 0))
-				os::Printer::log("Release of dc and rc failed.", ELL_WARNING);
-
-			if (!wglDeleteContext((HGLRC)ExposedData.OpenGLWin32.HRc))
-				os::Printer::log("Release of rendering context failed.", ELL_WARNING);
-		}
-
-        for (size_t i=1; i<=Params.AuxGLContexts; i++)
-            eglDestroyContext(Display, AuxContexts[i].ctx);
-        eglDestroyContext(Display, AuxContexts[0].ctx);
-
-		if (HDc)
-			ReleaseDC(Window, HDc);
-
-        //if (!ExternalWindow)
-        //{
-        //    DestroyWindow(temporary_wnd);
-        //    UnregisterClass(ClassName, lhInstance);
-        //}
-	}
-#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
-	else
-#endif // _NBL_COMPILE_WITH_X11_DEVICE_
-#endif
-#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
-    if (DeviceType == EIDT_X11)
+    for (size_t i = 1; i <= Params.AuxGLContexts; i++)
     {
-        for (size_t i=1; i<=Params.AuxGLContexts; i++)
-        {
-            assert(AuxContexts[i].threadId==std::thread::id());
-            glXDestroyPbuffer((Display*)ExposedData.OpenGLLinux.X11Display,AuxContexts[i].pbuff);
-            glXDestroyContext((Display*)ExposedData.OpenGLLinux.X11Display,AuxContexts[i].ctx);
-        }
+        eglDestroyContext(Display, AuxContexts[i].ctx);
+        eglDestroySurface(Display, AuxContexts[i].surface);
     }
-#endif // _NBL_COMPILE_WITH_X11_DEVICE_
+    eglDestroyContext(Display, AuxContexts[0].ctx);
+    eglDestroySurface(Display, AuxContexts[0].surface);
+
     _NBL_DELETE_ARRAY(AuxContexts,Params.AuxGLContexts+1);
     glContextMutex.unlock();
 }
@@ -769,31 +594,11 @@ bool COpenGLDriver::endScene()
 {
 	CNullDriver::endScene();
 
-#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
-	if (DeviceType == EIDT_WIN32)
-		return SwapBuffers(HDc) == TRUE;
-#endif
-
-#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
-	if (DeviceType == EIDT_X11)
-	{
-		glXSwapBuffers(X11Display, Drawable);
-		return true;
-	}
-#endif
-
-#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
-	if (DeviceType == EIDT_SDL)
-	{
-		SDL_GL_SwapBuffers();
-		return true;
-	}
-#endif
-    eglSwapBuffers(Display);
-
-	// todo: console device present
-
     auto ctx = getThreadContext_helper(false);
+    assert(ctx->ID == 0); // other ones have pbuffer surface
+
+    eglSwapBuffers(Display, ctx->surface);
+
 	ctx->freeUpVAOCache(false);
     ctx->freeUpGraphicsPipelineCache(false);
 
@@ -2912,66 +2717,21 @@ namespace nbl
 namespace video
 {
 
-
-// -----------------------------------
-// WINDOWS VERSION
-// -----------------------------------
-#ifdef _NBL_COMPILE_WITH_WINDOWS_DEVICE_
 core::smart_refctd_ptr<IVideoDriver> createOpenGLDriver(const SIrrlichtCreationParameters& params,
-	io::IFileSystem* io, CIrrDeviceStub* device, const asset::IGLSLCompiler* glslcomp)
+	io::IFileSystem* io, CIrrDeviceStub* device, asset::IAssetManager* assmgr, const asset::IGLSLCompiler* glslcomp)
 {
 #ifdef _NBL_COMPILE_WITH_OPENGL_
-    auto ogl = core::make_smart_refctd_ptr<COpenGLDriver>(params, io, glslcomp);
+    auto ogl = core::make_smart_refctd_ptr<COpenGLDriver>(params, io, assmgr, glslcomp);
 
 	if (!ogl->initDriver(device))
 	{
-		ogl->drop();
-		ogl = 0;
+        return nullptr;
 	}
 	return ogl;
 #else
 	return nullptr;
 #endif // _NBL_COMPILE_WITH_OPENGL_
 }
-#endif // _NBL_COMPILE_WITH_WINDOWS_DEVICE_
-
-// -----------------------------------
-// X11 VERSION
-// -----------------------------------
-#ifdef _NBL_COMPILE_WITH_X11_DEVICE_
-IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceLinux* device, const asset::IGLSLCompiler* glslcomp
-        )
-{
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-	COpenGLDriver* ogl =  new COpenGLDriver(params, io, device, glslcomp);
-	if (!ogl->initDriver(device,auxCtxts))
-	{
-		ogl->drop();
-		ogl = 0;
-	}
-	return ogl;
-#else
-	return nullptr;
-#endif //  _NBL_COMPILE_WITH_OPENGL_
-}
-#endif // _NBL_COMPILE_WITH_X11_DEVICE_
-
-
-// -----------------------------------
-// SDL VERSION
-// -----------------------------------
-#ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
-IVideoDriver* createOpenGLDriver(const SIrrlichtCreationParameters& params,
-		io::IFileSystem* io, CIrrDeviceSDL* device)
-{
-#ifdef _NBL_COMPILE_WITH_OPENGL_
-	return new COpenGLDriver(params, io, device);
-#else
-	return 0;
-#endif //  _NBL_COMPILE_WITH_OPENGL_
-}
-#endif // _NBL_COMPILE_WITH_SDL_DEVICE_
 
 } // end namespace
 } // end namespace

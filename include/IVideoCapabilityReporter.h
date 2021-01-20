@@ -90,10 +90,6 @@ namespace video
 		of the Direct3D8 driver, it would return "Direct3D 8.1". */
 		virtual const wchar_t* getName() const =0;
 
-		//! Get the current color format of the color buffer
-		/** \return Color format of the color buffer. */
-		virtual asset::E_FORMAT getColorFormat() const =0;
-
 		//! Get the graphics card vendor name.
 		virtual std::string getVendorInfo() =0;
 

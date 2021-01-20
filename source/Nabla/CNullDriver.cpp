@@ -32,8 +32,8 @@ int32_t CNullDriver::incrementAndFetchReallocCounter()
 }
 
 //! constructor
-CNullDriver::CNullDriver(io::IFileSystem* io, const SIrrlichtCreationParameters& _params)
-			: FileSystem(io), ViewPort(0,0,0,0), Params(_params), PrimitivesDrawn(0)
+CNullDriver::CNullDriver(asset::IAssetManager* assmgr, io::IFileSystem* io, const SIrrlichtCreationParameters& _params)
+			: IVideoDriver(assmgr), FileSystem(io), ViewPort(0,0,0,0), Params(_params), PrimitivesDrawn(0)
 {
 	#ifdef _NBL_DEBUG
 	setDebugName("CNullDriver");
@@ -75,10 +75,6 @@ CNullDriver::CNullDriver(io::IFileSystem* io, const SIrrlichtCreationParameters&
     MaxTextureSizes[IGPUImageView::ET_CUBE_MAP_ARRAY][0] = 0x80u;
     MaxTextureSizes[IGPUImageView::ET_CUBE_MAP_ARRAY][1] = 0x80u;
     MaxTextureSizes[IGPUImageView::ET_CUBE_MAP_ARRAY][2] = 0x800u*6;
-
-
-	// set ExposedData to 0
-	memset(&ExposedData, 0, sizeof(ExposedData));
 }
 
 
@@ -165,13 +161,6 @@ const core::rect<int32_t>& CNullDriver::getViewPort() const
 {
 	return ViewPort;
 }
-
-//! returns color format
-asset::E_FORMAT CNullDriver::getColorFormat() const
-{
-	return asset::EF_B5G6R5_UNORM_PACK16;
-}
-
 
 //! returns screen size
 const core::dimension2d<uint32_t>& CNullDriver::getScreenSize() const
@@ -278,13 +267,6 @@ void CNullDriver::OnResize(const core::dimension2d<uint32_t>& size)
 }
 
 
-//! Returns driver and operating system specific data about the IVideoDriver.
-const SExposedVideoData& CNullDriver::getExposedVideoData()
-{
-	return ExposedData;
-}
-
-
 //! Returns type of video driver
 E_DRIVER_TYPE CNullDriver::getDriverType() const
 {
@@ -293,9 +275,9 @@ E_DRIVER_TYPE CNullDriver::getDriverType() const
 
 
 //! creates a video driver
-core::smart_refctd_ptr<IVideoDriver> createNullDriver(io::IFileSystem* io, const SIrrlichtCreationParameters& params)
+core::smart_refctd_ptr<IVideoDriver> createNullDriver(asset::IAssetManager* assmgr, io::IFileSystem* io, const SIrrlichtCreationParameters& params)
 {
-	auto nullDriver = core::make_smart_refctd_ptr<CNullDriver>(io, params);
+	auto nullDriver = core::make_smart_refctd_ptr<CNullDriver>(assmgr, io, params);
 
 	return nullDriver;
 }

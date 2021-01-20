@@ -353,8 +353,6 @@ namespace nbl
             friend class CCursorControl;
 
     #ifdef _NBL_COMPILE_WITH_X11_
-            friend class COpenGLDriver; // probably not needed any more (TODO)
-
             Display *display;
             XVisualInfo* visual;
             int screennr;

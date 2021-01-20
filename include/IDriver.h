@@ -43,10 +43,11 @@ Examples of such functionality are the creation of buffers, textures, etc.*/
 class IDriver : public virtual core::IReferenceCounted, public IVideoCapabilityReporter, public core::QuitSignalling
 {
     protected:
+        asset::IAssetManager* m_assetMgr;
 		core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultDownloadBuffer;
 		core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultUploadBuffer;
 
-        inline IDriver() : IVideoCapabilityReporter(), defaultDownloadBuffer(nullptr), defaultUploadBuffer(nullptr) {}
+        inline IDriver(asset::IAssetManager* assmgr) : IVideoCapabilityReporter(), m_assetMgr(assmgr), defaultDownloadBuffer(nullptr), defaultUploadBuffer(nullptr) {}
 
         virtual ~IDriver()
         {

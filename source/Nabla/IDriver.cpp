@@ -64,7 +64,7 @@ struct AssetBundleIterator
 template<typename AssetType>
 created_gpu_object_array<AssetType> IDriver::getGPUObjectsFromAssets(const core::SRange<const core::smart_refctd_ptr<asset::IAsset>>& _range, IGPUObjectFromAssetConverter* _converter)
 {
-    IGPUObjectFromAssetConverter def(m_device->getAssetManager(), this);
+    IGPUObjectFromAssetConverter def(m_assetMgr, this);
     if (!_converter)
         _converter = &def;
     AssetBundleIterator<AssetType> begin(_range.begin());
@@ -90,7 +90,7 @@ template created_gpu_object_array<asset::ICPUDescriptorSet> IDriver::getGPUObjec
 template<typename AssetType>
 created_gpu_object_array<AssetType> IDriver::getGPUObjectsFromAssets(const AssetType* const* const _begin, const AssetType* const* const _end, IGPUObjectFromAssetConverter* _converter)
 {
-    IGPUObjectFromAssetConverter def(m_device->getAssetManager(), this);
+    IGPUObjectFromAssetConverter def(m_assetMgr, this);
     if (!_converter)
         _converter = &def;
     return _converter->getGPUObjectsFromAssets<AssetType>(_begin, _end);
@@ -113,7 +113,7 @@ template created_gpu_object_array<asset::ICPUDescriptorSet> IDriver::getGPUObjec
 template<typename AssetType>
 created_gpu_object_array<AssetType> IDriver::getGPUObjectsFromAssets(const core::smart_refctd_ptr<AssetType>* _begin, const core::smart_refctd_ptr<AssetType>* _end, IGPUObjectFromAssetConverter* _converter)
 {
-    IGPUObjectFromAssetConverter def(m_device->getAssetManager(), this);
+    IGPUObjectFromAssetConverter def(m_assetMgr, this);
     if (!_converter)
         _converter = &def;
     return _converter->getGPUObjectsFromAssets<AssetType>(_begin, _end);

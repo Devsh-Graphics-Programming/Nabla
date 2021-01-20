@@ -40,7 +40,7 @@ class CNullDriver : public IVideoDriver
         static int32_t incrementAndFetchReallocCounter();
 
 		//! constructor
-		CNullDriver(io::IFileSystem* io, const SIrrlichtCreationParameters& _params);
+		CNullDriver(asset::IAssetManager* assmgr, io::IFileSystem* io, const SIrrlichtCreationParameters& _params);
 
         bool bindGraphicsPipeline(const video::IGPURenderpassIndependentPipeline* _gpipeline) override { return false; }
 
@@ -138,9 +138,6 @@ class CNullDriver : public IVideoDriver
         {
         }
 
-		//! get color format of the current color buffer
-		virtual asset::E_FORMAT getColorFormat() const;
-
 		//! get screen size
 		virtual const core::dimension2d<uint32_t>& getScreenSize() const;
 
@@ -165,9 +162,6 @@ class CNullDriver : public IVideoDriver
 		//! Only used by the engine internally.
 		/** Used to notify the driver that the window was resized. */
 		virtual void OnResize(const core::dimension2d<uint32_t>& size);
-
-		//! Returns driver and operating system specific data about the IVideoDriver.
-		virtual const SExposedVideoData& getExposedVideoData();
 
 		//! Returns type of video driver
 		virtual E_DRIVER_TYPE getDriverType() const override;
@@ -199,7 +193,7 @@ class CNullDriver : public IVideoDriver
 		uint32_t MaxTextureSizes[IGPUImageView::ET_COUNT][3];
 	};
 
-	core::smart_refctd_ptr<IVideoDriver> createNullDriver(io::IFileSystem* io, const SIrrlichtCreationParameters& screenSize);
+	core::smart_refctd_ptr<IVideoDriver> createNullDriver(asset::IAssetManager* assmgr, io::IFileSystem* io, const SIrrlichtCreationParameters& screenSize);
 
 } // end namespace video
 } // end namespace nbl

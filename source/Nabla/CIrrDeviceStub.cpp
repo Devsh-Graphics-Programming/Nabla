@@ -19,7 +19,7 @@ namespace nbl
 	{
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 		core::smart_refctd_ptr<IVideoDriver> createOpenGLDriver(const nbl::SIrrlichtCreationParameters& params,
-			io::IFileSystem* io, CIrrDeviceStub* device, const asset::IGLSLCompiler* glslcomp);
+			io::IFileSystem* io, CIrrDeviceStub* device, asset::IAssetManager* assmgr, const asset::IGLSLCompiler* glslcomp);
 #endif
 	}
 } // end namespace nbl
@@ -61,6 +61,8 @@ CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
 	// init EGL
 	Display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 	eglInitialize(Display, NULL, NULL);
+	if (CreationParams.DriverType == video::EDT_OPENGL)
+		eglBindAPI(EGL_OPENGL_API);
 }
 
 
@@ -86,7 +88,7 @@ void CIrrDeviceStub::createDriver()
 #ifdef _NBL_COMPILE_WITH_OPENGL_
 		switchToFullscreen();
 
-		VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem.get(), this, getAssetManager()->getGLSLCompiler());
+		VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem.get(), this, getAssetManager(), getAssetManager()->getGLSLCompiler());
 		if (!VideoDriver)
 		{
 			os::Printer::log("Could not create OpenGL driver.", ELL_ERROR);
@@ -98,7 +100,7 @@ void CIrrDeviceStub::createDriver()
 
 	case video::EDT_NULL:
 		// create null driver
-		VideoDriver = video::createNullDriver(FileSystem.get(), CreationParams);
+		VideoDriver = video::createNullDriver(getAssetManager(), FileSystem.get(), CreationParams);
 		break;
 
 	default:

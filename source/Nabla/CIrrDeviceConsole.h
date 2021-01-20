@@ -85,6 +85,8 @@ namespace nbl
                     return EIDT_CONSOLE;
             }
 
+            bool switchToFullscreen(bool) override { return false; }
+
             void addPostPresentText(int16_t X, int16_t Y, const wchar_t *text);
 
             //! Implementation of the win32 console mouse cursor

@@ -122,7 +122,7 @@ CIrrDeviceConsole::CIrrDeviceConsole(const SIrrlichtCreationParameters& params)
 			os::Printer::log("The console device cannot use hardware drivers yet.", ELL_ERROR);
 			break;
 		case video::EDT_NULL:
-			VideoDriver = video::createNullDriver(this, FileSystem.get(), CreationParams);
+			VideoDriver = video::createNullDriver(getAssetManager(), FileSystem.get(), CreationParams);
 			break;
 		default:
 			break;

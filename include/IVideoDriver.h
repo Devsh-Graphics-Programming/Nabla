@@ -40,7 +40,7 @@ namespace video
 	class IVideoDriver : public IDriver
 	{
 	public:
-        IVideoDriver() {}
+        IVideoDriver(asset::IAssetManager* assmgr) : IDriver(assmgr) {}
 
 
         virtual bool initAuxContext() = 0;
@@ -208,12 +208,6 @@ namespace video
 		/** Used to notify the driver that the window was resized.
 		Usually, there is no need to call this method. */
 		virtual void OnResize(const core::dimension2d<uint32_t>& size) =0;
-
-		//! Returns driver and operating system specific data about the IVideoDriver.
-		/** This method should only be used if the engine should be
-		extended without having to modify the source of the engine.
-		\return Collection of device dependent pointers. */
-		virtual const SExposedVideoData& getExposedVideoData() =0;
 
 		//! Enable or disable a clipping plane.
 		/** There are at least 6 clipping planes available for the user
