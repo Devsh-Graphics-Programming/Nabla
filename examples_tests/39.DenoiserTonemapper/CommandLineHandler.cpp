@@ -10,7 +10,7 @@ using namespace nbl;
 using namespace asset;
 using namespace core;
 
-CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetManager* am) : status(false), assetManager(am)
+CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetManager* am, nbl::io::IFileSystem* fs) : status(false), assetManager(am)
 {
 	auto startEntireTime = std::chrono::steady_clock::now();
 
@@ -25,7 +25,7 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 		return;
 	}
 
-	assetManager->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(assetManager));
+	assetManager->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am, fs));
 	core::vector<std::array<std::string, PROPER_CMD_ARGUMENTS_AMOUNT>> argvMappedList;
 
 	auto pushArgvList = [&](auto argvStream, auto variableCount)

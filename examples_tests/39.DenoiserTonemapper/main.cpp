@@ -49,10 +49,13 @@ bool check_error(bool cond, const char* message)
 		os::Printer::log(message, ELL_ERROR);
 	return cond;
 }
-/*
-	if (check_error(,"!"))
-		return error_code;
-*/
+
+constexpr uint32_t overlap = 64;
+//constexpr uint32_t tileWidth = 1920/2, tileHeight = 1080/2;
+constexpr uint32_t tileWidth = 1024, tileHeight = 1024;
+constexpr uint32_t tileWidthWithOverlap = tileWidth + overlap * 2;
+constexpr uint32_t tileHeightWithOverlap = tileHeight + overlap * 2;
+constexpr uint32_t outputDimensions[] = { tileWidth ,tileHeight };
 
 int main(int argc, char* argv[])
 {
@@ -94,8 +97,8 @@ int main(int argc, char* argv[])
 
 		return arguments;
 	};
-
-	auto cmdHandler = CommandLineHandler(getArgvFetchedList(), am);
+	
+	auto cmdHandler = CommandLineHandler(getArgvFetchedList(), am, device->getFileSystem());
 
 	if (check_error(!cmdHandler.getStatus(),"Could not parse input commands!"))
 		return error_code;
@@ -136,7 +139,7 @@ int main(int argc, char* argv[])
 	constexpr auto forcedOptiXFormatPixelStride = 6u;
 	DenoiserToUse denoisers[EII_COUNT];
 	{
-		OptixDenoiserOptions opts = { OPTIX_DENOISER_INPUT_RGB,forcedOptiXFormat };
+		OptixDenoiserOptions opts = { OPTIX_DENOISER_INPUT_RGB };
 		denoisers[EII_COLOR].m_denoiser = m_optixContext->createDenoiser(&opts);
 		if (check_error(!denoisers[EII_COLOR].m_denoiser, "Could not create Optix Color Denoiser!"))
 			return error_code;
@@ -428,7 +431,7 @@ void main()
 
 	core::vector<ImageToDenoise> images(inputFilesAmount);
 	// load images
-	uint32_t maxResolution[EII_COUNT][2] = { 0 };
+	uint32_t maxResolution[2] = { 0,0 };
 	{
 		asset::IAssetLoader::SAssetLoadParams lp(0ull,nullptr);
 
@@ -458,24 +461,24 @@ void main()
 				uint32_t pickedChannel = 0u;
 				auto contents = assetBundle.getContents();
 				if (channelName.has_value())
-				for (auto& asset : contents)
-				{
-					assert(asset);
-
-					auto metadata = asset->getMetadata();
-					auto exrmeta = static_cast<COpenEXRImageMetadata*>(metadata);
-					if (strcmp(metadata->getLoaderName(),COpenEXRImageMetadata::LoaderName)!=0)
-						continue;
-					else
+					for (auto& asset : contents)
 					{
-						const auto& assetMetaChannelName = exrmeta->getName();
-						auto found = assetMetaChannelName.find(channelName.value());
-						if (found>=firstChannelNameOccurence)
+						assert(asset);
+
+						auto metadata = asset->getMetadata();
+						const auto exrmeta = static_cast<const COpenEXRImageMetadata*>(metadata);
+						if (strcmp(metadata->getLoaderName(), COpenEXRImageMetadata::LoaderName) != 0)
 							continue;
-						firstChannelNameOccurence = found;
-						pickedChannel = std::distance(contents.begin(), &asset);
+						else
+						{
+							const auto& assetMetaChannelName = exrmeta->getName();
+							auto found = assetMetaChannelName.find(channelName.value());
+							if (found >= firstChannelNameOccurence)
+								continue;
+							firstChannelNameOccurence = found;
+							pickedChannel = std::distance(contents.begin(), &asset);
+						}
 					}
-				}
 
 				return asset::IAsset::castDown<ICPUImage>(contents.begin()[pickedChannel]);
 			};
@@ -545,19 +548,15 @@ void main()
 					const auto& region = regions.begin()[0];
 					assert(region.bufferRowLength);
 					outParam.colorTexelSize = asset::getTexelOrBlockBytesize(colorCreationParams.format);
-					uint32_t bytesize = extent.height*region.bufferRowLength*outParam.colorTexelSize;
-					if (bytesize>params.StreamingDownloadBufferSize)
-					{
-						os::Printer::log(imageIDString + "Image too large to download from GPU in one piece!", ELL_ERROR);
-						outParam = {};
-						continue;
-					}
 				}
 
 				outParam.denoiserType = EII_COLOR;
 
 				outParam.width = extent.width;
 				outParam.height = extent.height;
+
+				maxResolution[0] = core::max(maxResolution[0], outParam.width);
+				maxResolution[1] = core::max(maxResolution[1], outParam.height);
 			}
 
 			auto& albedoImage = outParam.image[EII_ALBEDO];
@@ -590,9 +589,6 @@ void main()
 				else
 					outParam.denoiserType = EII_NORMAL;
 			}
-
-			maxResolution[outParam.denoiserType][0] = core::max(maxResolution[outParam.denoiserType][0],outParam.width);
-			maxResolution[outParam.denoiserType][1] = core::max(maxResolution[outParam.denoiserType][1],outParam.height);
 		}
 	}
 
@@ -606,7 +602,7 @@ void main()
 	auto& intensityBuffer = bufferLinks[0];
 	auto& denoiserState = bufferLinks[0];
 	auto& temporaryPixelBuffer = bufferLinks[1];
-	auto& imagePixelBuffer = bufferLinks[2];
+	auto& imagePixelBuffer = bufferLinks[2]; // buffer to store result of denoising of a tile/image
 	size_t denoiserStateBufferSize = 0ull;
 	{
 		size_t scratchBufferSize = 0ull;
@@ -614,14 +610,9 @@ void main()
 		for (uint32_t i=0u; i<EII_COUNT; i++)
 		{
 			auto& denoiser = denoisers[i].m_denoiser;
-			if (maxResolution[i][0]==0u || maxResolution[i][1]==0u)
-			{
-				denoiser = nullptr;
-				continue;
-			}
 
 			OptixDenoiserSizes m_denoiserMemReqs;
-			if (denoiser->computeMemoryResources(&m_denoiserMemReqs, maxResolution[i])!=OPTIX_SUCCESS)
+			if (denoiser->computeMemoryResources(&m_denoiserMemReqs, outputDimensions)!=OPTIX_SUCCESS)
 			{
 				static const char* errorMsgs[EII_COUNT] = {	"Failed to compute Color-Denoiser Memory Requirements!",
 															"Failed to compute Color-Albedo-Denoiser Memory Requirements!",
@@ -633,8 +624,9 @@ void main()
 
 			denoisers[i].stateOffset = denoiserStateBufferSize;
 			denoiserStateBufferSize += denoisers[i].stateSize = m_denoiserMemReqs.stateSizeInBytes;
-			scratchBufferSize = core::max(scratchBufferSize,denoisers[i].scratchSize = m_denoiserMemReqs.recommendedScratchSizeInBytes);
-			pixelBufferSize = core::max(pixelBufferSize,core::max(asset::getTexelOrBlockBytesize(EF_R32G32B32A32_SFLOAT),(i+1u)*forcedOptiXFormatPixelStride)*maxResolution[i][0]*maxResolution[i][1]);
+			scratchBufferSize = core::max(scratchBufferSize, denoisers[i].scratchSize = m_denoiserMemReqs.withOverlapScratchSizeInBytes);
+			pixelBufferSize = core::max(pixelBufferSize, core::max(asset::getTexelOrBlockBytesize(EF_R32G32B32A32_SFLOAT), (i + 1u) * forcedOptiXFormatPixelStride) * maxResolution[0] * maxResolution[1]);
+
 		}
 		std::string message = "Total VRAM consumption for Denoiser algorithm: ";
 		os::Printer::log(message+std::to_string(denoiserStateBufferSize+scratchBufferSize+pixelBufferSize), ELL_INFORMATION);
@@ -698,14 +690,14 @@ void main()
 			{
 				case ToneMapperClass::EO_REINHARD:
 				{
-					auto tp = ToneMapperClass::Params_t<ToneMapperClass::EO_REINHARD>(optiXIntensityKeyCompensation,key,extraParam);
+					auto tp = ToneMapperClass::Params_t<ToneMapperClass::EO_REINHARD>(optiXIntensityKeyCompensation, key, extraParam);
 					shaderConstants.tonemapperParams[0] = tp.keyAndLinearExposure;
 					shaderConstants.tonemapperParams[1] = tp.rcpWhite2;
 					break;
 				}
 				case ToneMapperClass::EO_ACES:
 				{
-					auto tp = ToneMapperClass::Params_t<ToneMapperClass::EO_ACES>(optiXIntensityKeyCompensation,key,extraParam);
+					auto tp = ToneMapperClass::Params_t<ToneMapperClass::EO_ACES>(optiXIntensityKeyCompensation, key, extraParam);
 					shaderConstants.tonemapperParams[0] = tp.gamma;
 					shaderConstants.tonemapperParams[1] = (&tp.gamma)[1];
 					break;
@@ -724,9 +716,9 @@ void main()
 					break;
 				}
 			}
-			auto totalSampleCount = param.width*param.height;
-			shaderConstants.percentileRange[0] = lowerPercentile*float(totalSampleCount);
-			shaderConstants.percentileRange[1] = upperPercentile*float(totalSampleCount);
+			auto totalSampleCount = param.width * param.height;
+			shaderConstants.percentileRange[0] = lowerPercentile * float(totalSampleCount);
+			shaderConstants.percentileRange[1] = upperPercentile * float(totalSampleCount);
 			shaderConstants.normalMatrix = cameraTransformBundle[i].value();
 		}
 
@@ -822,52 +814,62 @@ void main()
 #undef DENOISER_BUFFER_COUNT
 				core::SRAIIBasedExiter<decltype(unmapBuffers)> exitRoutine(unmapBuffers);
 
-				// set up optix image
-				OptixImage2D denoiserInputs[EII_COUNT];
-				for (uint32_t j=0u; j<denoiserInputCount; j++)
-				{				
-					denoiserInputs[j].data = temporaryPixelBuffer.asBuffer.pointer+shaderConstants.outImageOffset[j]*sizeof(uint16_t); // sizeof(float16_t)
-					denoiserInputs[j].width = param.width;
-					denoiserInputs[j].height = param.height;
-					denoiserInputs[j].rowStrideInBytes = param.width*forcedOptiXFormatPixelStride;
-					denoiserInputs[j].pixelStrideInBytes = 0u;
-					denoiserInputs[j].format = forcedOptiXFormat;
-				}
-				//
+				cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> fakeScratchLink;
+				fakeScratchLink.asBuffer.pointer = denoiserScratch;
+
+				// set up denoiser
+				auto& denoiser = denoisers[param.denoiserType];
+				if (denoiser.m_denoiser->setup(m_cudaStream, outputDimensions, denoiserState, denoiser.stateSize, fakeScratchLink, denoiser.scratchSize, denoiser.stateOffset) != OPTIX_SUCCESS)
 				{
-					cuda::CCUDAHandler::GraphicsAPIObjLink<video::IGPUBuffer> fakeScratchLink;
-					fakeScratchLink.asBuffer.pointer = denoiserScratch;
+					os::Printer::log(makeImageIDString(i) + "Could not setup the denoiser for the image resolution and denoiser buffers, skipping image!", ELL_ERROR);
+					continue;
+				}
+				
+				//invocation params
+				OptixDenoiserParams denoiserParams = {};
+				denoiserParams.blendFactor = denoiserBlendFactorBundle[i].value();
+				denoiserParams.denoiseAlpha = 0u;
+				denoiserParams.hdrIntensity = intensityBuffer.asBuffer.pointer + intensityBufferOffset;
 
-					// set up denoiser
-					auto& denoiser = denoisers[param.denoiserType];
-					if (denoiser.m_denoiser->setup(m_cudaStream,&param.width,denoiserState,denoiser.stateSize,fakeScratchLink,denoiser.scratchSize,denoiser.stateOffset)!=OPTIX_SUCCESS)
-					{
-						os::Printer::log(makeImageIDString(i) + "Could not setup the denoiser for the image resolution and denoiser buffers, skipping image!", ELL_ERROR);
-						continue;
-					}
+				//input with RGB, Albedo, Normals
+				OptixImage2D denoiserInputs[EII_COUNT];
+				OptixImage2D denoiserOutput;
 
-					// invoke
-					{
-						OptixDenoiserParams denoiserParams = {};
-						denoiserParams.blendFactor = denoiserBlendFactorBundle[i].value();
-						denoiserParams.denoiseAlpha = 0u;
-						denoiserParams.hdrIntensity = intensityBuffer.asBuffer.pointer+intensityBufferOffset;
-						OptixImage2D denoiserOutput;
-						denoiserOutput.data = imagePixelBuffer.asBuffer.pointer+shaderConstants.inImageTexelOffset[EII_COLOR];
-						denoiserOutput.width = param.width;
-						denoiserOutput.height = param.height;
-						denoiserOutput.rowStrideInBytes = param.width*forcedOptiXFormatPixelStride;
-						denoiserOutput.pixelStrideInBytes = 0u;
-						denoiserOutput.format = forcedOptiXFormat;
-						if (denoiser.m_denoiser->invoke(m_cudaStream,&denoiserParams,denoiserInputs,denoiserInputs+denoiserInputCount,&denoiserOutput,fakeScratchLink,denoiser.scratchSize)!=OPTIX_SUCCESS)
-						{
-							os::Printer::log(makeImageIDString(i) + "Could not invoke the denoiser sucessfully, skipping image!", ELL_ERROR);
-							continue;
-						}
-					}
+				for (size_t k = 0; k < denoiserInputCount; k++)
+				{
+					denoiserInputs[k].data = temporaryPixelBuffer.asBuffer.pointer + shaderConstants.outImageOffset[k] * sizeof(uint16_t);
+					denoiserInputs[k].width = param.width;
+					denoiserInputs[k].height = param.height;
+					denoiserInputs[k].rowStrideInBytes = param.width * forcedOptiXFormatPixelStride;
+					denoiserInputs[k].format = forcedOptiXFormat;
+					denoiserInputs[k].pixelStrideInBytes = forcedOptiXFormatPixelStride;
+
 				}
 
-				// unmap buffer (implicit from the SRAIIExiter destructor)
+				denoiserOutput.data = imagePixelBuffer.asBuffer.pointer + shaderConstants.inImageTexelOffset[EII_COLOR];
+				denoiserOutput.width = param.width;
+				denoiserOutput.height = param.height;
+				denoiserOutput.rowStrideInBytes = param.width * forcedOptiXFormatPixelStride;
+				denoiserOutput.format = forcedOptiXFormat;
+				denoiserOutput.pixelStrideInBytes = forcedOptiXFormatPixelStride;
+
+				//invoke
+				if (denoiser.m_denoiser->tileAndInvoke(
+					m_cudaStream,
+					&denoiserParams,
+					denoiserInputs,
+					denoiserInputCount,
+					&denoiserOutput,
+					fakeScratchLink,
+					denoiser.scratchSize,
+					overlap,
+					tileWidth,
+					tileHeight
+				) != OPTIX_SUCCESS)
+				{
+					os::Printer::log(makeImageIDString(i) + "Could not invoke the denoiser sucessfully, skipping image!", ELL_ERROR);
+					continue;
+				}
 			}
 
 			// compute post-processing

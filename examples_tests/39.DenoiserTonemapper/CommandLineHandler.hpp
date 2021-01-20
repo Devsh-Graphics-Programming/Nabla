@@ -181,7 +181,7 @@ class CommandLineHandler
 {
 	public:
 
-		CommandLineHandler(nbl::core::vector<std::string> argv, nbl::asset::IAssetManager* am);
+		CommandLineHandler(nbl::core::vector<std::string> argv, nbl::asset::IAssetManager* am, nbl::io::IFileSystem* fs);
 
 		auto getInputFilesAmount()
 		{
