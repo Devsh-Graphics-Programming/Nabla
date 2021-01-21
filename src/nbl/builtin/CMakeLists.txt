@@ -92,6 +92,8 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/sampling/projected_spherical_triangle.glsl"
   #"nbl/builtin/glsl/sampling/spherical_rectangle.glsl"
   "nbl/builtin/glsl/sampling/spherical_triangle.glsl"
+  # scene
+  "nbl/builtin/glsl/scene/keyframe.glsl"
   # shapes
   #"nbl/builtin/glsl/shapes/rectangle.glsl"
   "nbl/builtin/glsl/shapes/triangle.glsl"

@@ -236,7 +236,7 @@ namespace asset
             //interpolant of 1 means full B
             static inline void getMatrixFromKeys(core::vectorSIMDf& outPos, core::quaternion& outQuat, core::vectorSIMDf& outScale,
                                                  const AnimationKeyData& keyframeA, const AnimationKeyData& keyframeB,
-                                                 const float& interpolant, const float& interpolantPrecalcTerm2, const float& interpolantPrecalcTerm3)
+                                                 const float& interpolant, const float& interpolantPrecalcTerm2, const float& interpolantPrecalcTerm3) // DONE
             {
                 core::vectorSIMDf tmpPosA(keyframeA.Position);
                 core::vectorSIMDf tmpPosB(keyframeB.Position);
@@ -421,34 +421,6 @@ namespace asset
                 interpolatedAnimations = newInAnimations;
                 nonInterpolatedAnimations = newNoAnimations;
                 keyframeCount = newKeyframesOut-newKeyframes;
-            }
-
-            //typedef for an interpolation function when adding interpolated offsets to animation
-            //keyframe and bone data to transform, keyframe timestamp, this pointer to the CFBH, and whether the keyframe is interpolated
-            typedef std::function<void(AnimationKeyData*,const uint32_t&,const float&,const CFinalBoneHierarchy*,const bool&)> AnimationKeyframeTransformFunc;
-
-            // transform animation by the root node in the inclusive range
-            inline void transformAnimation(const float& rangeStart, const float& rangeEnd, AnimationKeyframeTransformFunc transformFunc,
-                                           const size_t& keyframesToAddCount=0, const float* keyFramesToAdd=NULL)
-            {
-                //add keyframes if needed
-                if (keyframesToAddCount)
-                    insertKeyframes(keyframesToAddCount,keyFramesToAdd);
-
-                // apply the transform the the keyframes in the range
-                float* start = std::lower_bound(keyframes,keyframes+keyframeCount,rangeStart);
-                float* end = std::upper_bound(start,keyframes+keyframeCount,rangeEnd);
-
-                for (size_t i=0; i<boneCount; i++)
-                {
-                    AnimationKeyData* it = interpolatedAnimations+keyframeCount*i+(start-keyframes);
-                    for (float* found=start; found<end; found++)
-                        transformFunc(it++,i,*found,this,true);
-
-                    it = nonInterpolatedAnimations+keyframeCount*i+(start-keyframes);
-                    for (float* found=start; found<end; found++)
-                        transformFunc(it++,i,*found,this,true);
-                }
             }
 
 		protected:
