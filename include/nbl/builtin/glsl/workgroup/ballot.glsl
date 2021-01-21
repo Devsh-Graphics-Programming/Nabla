@@ -243,10 +243,10 @@ uint nbl_glsl_workgroupBallotExclusiveBitCount()
 	return nbl_glsl_workgroupBallotScanBitCount_impl(true);
 }
 
-uint nbl_glsl_workgroupBallotScanBitCount_impl_impl(in uint localBitfield)
+uint nbl_glsl_workgroupBallotScanBitCount_impl_impl(in uint localBitCount)
 {
 	barrier();
-	NBL_GLSL_WORKGROUP_COMMON_IMPL_HEAD(nbl_glsl_identityFunction,nbl_glsl_subgroupInclusiveAdd_impl,localBitfield,0u,nbl_glsl_identityFunction,nbl_glsl_workgroupBallot_impl_BitfieldDWORDs,true)
+	NBL_GLSL_WORKGROUP_COMMON_IMPL_HEAD(nbl_glsl_identityFunction,nbl_glsl_subgroupInclusiveAdd_impl,localBitCount,0u,nbl_glsl_identityFunction,nbl_glsl_workgroupBallot_impl_BitfieldDWORDs,true)
 	NBL_GLSL_WORKGROUP_SCAN_IMPL_TAIL(true,nbl_glsl_identityFunction,nbl_glsl_subgroupInclusiveAdd_impl,0u,nbl_glsl_identityFunction,nbl_glsl_add)
 }
 uint nbl_glsl_workgroupBallotScanBitCount_impl(in bool exclusive)
@@ -260,7 +260,7 @@ uint nbl_glsl_workgroupBallotScanBitCount_impl(in bool exclusive)
 		if (gl_LocalInvocationIndex<nbl_glsl_workgroupBallot_impl_BitfieldDWORDs)
 			localBitfieldBackup = _NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex];
 		// scan hierarchically, invocations with `gl_LocalInvocationIndex>=nbl_glsl_workgroupBallot_impl_BitfieldDWORDs` will have garbage here
-		nbl_glsl_workgroupBallotScanBitCount_impl_impl(localBitfieldBackup);
+		nbl_glsl_workgroupBallotScanBitCount_impl_impl(bitCount(localBitfieldBackup));
 		// fix it (abuse the fact memory is left over)
 		globalCount = _dword!=0u ? _NBL_GLSL_SCRATCH_SHARED_DEFINED_[_dword]:0u;
 		barrier();
