@@ -14,7 +14,6 @@ namespace nbl
 namespace video
 {
 
-// @Crisspl these switches are woefully incomplete on all 3 functions
 inline GLenum	getSizedOpenGLFormatFromOurFormat(asset::E_FORMAT format)
 {
 	using namespace asset;

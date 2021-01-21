@@ -175,18 +175,32 @@ COpenGLDriver::COpenGLDriver(const SIrrlichtCreationParameters& params,
 //! inits the open gl driver
 bool COpenGLDriver::initDriver(CIrrDeviceStub* device)
 {
+    eglBindAPI(EGL_OPENGL_API);
+
     Display = device->getEGLDisplay();
 
-    const EGLint rgb_size = Params.Bits == 32 ? 8 : 5;
-    const EGLint alpha_size = Params.Bits == 32 ? 8 : 1;
+    EGLint alpha_size;
+    if (Params.WithAlphaChannel)
+        alpha_size = (Params.Bits == 32 ? 8 : 1);
+    else
+        alpha_size = 0;
+    EGLint bufsize = Params.Bits - alpha_size;
+    EGLint rb_size = bufsize / 3u;
+    EGLint g_size = rb_size + (bufsize - 3u*rb_size);
+
+    assert(2u*rb_size + g_size + alpha_size == Params.Bits);
+
     const EGLint egl_attributes[] = {
-        EGL_RED_SIZE, rgb_size,
-        EGL_GREEN_SIZE, rgb_size,
-        EGL_BLUE_SIZE, rgb_size,
-        EGL_BUFFER_SIZE, Params.Bits,
+        EGL_RED_SIZE, rb_size,
+        EGL_GREEN_SIZE, g_size,
+        EGL_BLUE_SIZE, rb_size,
+        EGL_BUFFER_SIZE, bufsize,
         EGL_DEPTH_SIZE, Params.ZBufferBits,
-        EGL_STENCIL_SIZE, Params.Stencilbuffer ? 1 : 0,
-        EGL_ALPHA_SIZE, Params.WithAlphaChannel ? alpha_size : 0,
+        EGL_STENCIL_SIZE, Params.Stencilbuffer ? 1 : EGL_DONT_CARE,
+        EGL_ALPHA_SIZE, Params.WithAlphaChannel ? alpha_size : EGL_DONT_CARE,
+        EGL_COLOR_BUFFER_TYPE, EGL_RGB_BUFFER,
+        EGL_CONFORMANT, EGL_OPENGL_BIT,
+        EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
         //Params.Stereobuffer
         //Params.Vsync
         EGL_SURFACE_TYPE, (EGL_WINDOW_BIT | EGL_PBUFFER_BIT),
@@ -287,6 +301,7 @@ bool COpenGLDriver::initAuxContext()
     SAuxContext* found = getThreadContext_helper(true,std::thread::id());
     if (found)
     {
+        eglBindAPI(EGL_OPENGL_API);
         retval = eglMakeCurrent(Display, found->surface, found->surface, found->ctx);
         if (retval)
             found->threadId = std::this_thread::get_id();

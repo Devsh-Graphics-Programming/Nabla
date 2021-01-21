@@ -61,8 +61,6 @@ CIrrDeviceStub::CIrrDeviceStub(const SIrrlichtCreationParameters& params)
 	// init EGL
 	Display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 	eglInitialize(Display, NULL, NULL);
-	if (CreationParams.DriverType == video::EDT_OPENGL)
-		eglBindAPI(EGL_OPENGL_API);
 }
 
 
