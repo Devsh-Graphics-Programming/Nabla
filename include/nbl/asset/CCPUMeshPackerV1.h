@@ -95,20 +95,12 @@ public:
 		}
 	};
 
-	struct PackerDataStore
+	struct PackerDataStore : base_t::template PackerDataStoreCommon<ICPUBuffer>
 	{
-		//or output should look more like `return_type` from geometry creator?
-		//TODO: add parameters of the 
-		core::smart_refctd_ptr<ICPUBuffer> MDIDataBuffer;
 		SBufferBinding<ICPUBuffer> vertexBufferBindings[SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT] = {};
 		SBufferBinding<ICPUBuffer> indexBuffer;
 
 		SVertexInputParams vertexInputParams;
-
-		inline bool isValid()
-		{
-			return this->MDIDataBuffer->getPointer() != nullptr;
-		}
 	};
 
 	template <typename Iterator>
@@ -132,8 +124,8 @@ public:
 	//needs to be called before first `commit`
 	void instantiateDataStorage();
 
-	template <typename Iterator>
-	IMeshPackerBase::PackedMeshBufferData commit(const Iterator begin, const Iterator end, ReservedAllocationMeshBuffers& ramb);
+	template <typename MeshBufferIterator>
+	IMeshPackerBase::PackedMeshBufferData commit(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd, ReservedAllocationMeshBuffers& ramb);
 
 	inline PackerDataStore& getPackerDataStore() { return m_output; };
 
@@ -195,10 +187,10 @@ CCPUMeshPackerV1<MDIStructType>::CCPUMeshPackerV1(const SVertexInputParams& preD
 	m_perInstVtxSize = calcVertexSize(preDefinedLayout, E_VERTEX_INPUT_RATE::EVIR_PER_INSTANCE);
 	if (m_perInstVtxSize)
 	{
-		m_perInsVtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedSize, allocParams.perInstanceVertexBufferMinAllocSize), _NBL_SIMD_ALIGNMENT);
+		m_perInsVtxBuffAlctrResSpc = _NBL_ALIGNED_MALLOC(core::GeneralpurposeAddressAllocator<uint32_t>::reserved_size(alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedSize / m_perInstVtxSize, allocParams.perInstanceVertexBufferMinAllocSize), _NBL_SIMD_ALIGNMENT);
 		_NBL_DEBUG_BREAK_IF(m_perInsVtxBuffAlctrResSpc == nullptr);
 		assert(m_perInsVtxBuffAlctrResSpc != nullptr);
-		m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_perInsVtxBuffAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedSize, allocParams.perInstanceVertexBufferMinAllocSize);
+		m_perInsVtxBuffAlctr = core::GeneralpurposeAddressAllocator<uint32_t>(m_perInsVtxBuffAlctrResSpc, 0u, 0u, alignof(std::max_align_t), allocParams.perInstanceVertexBuffSupportedSize / m_perInstVtxSize, allocParams.perInstanceVertexBufferMinAllocSize);
 	}
 
 	initializeCommonAllocators(

@@ -246,6 +246,19 @@ protected:
     }
 
 protected:
+    template <typename BufferType>
+    struct PackerDataStoreCommon
+    {
+        static_assert(std::is_base_of<core::IBuffer, BufferType>::value);
+
+        core::smart_refctd_ptr<BufferType> MDIDataBuffer;
+
+        inline bool isValid()
+        {
+            return this->MDIDataBuffer->getPointer() != nullptr;
+        }
+    };
+
     _NBL_STATIC_INLINE_CONSTEXPR uint32_t INVALID_ADDRESS = core::GeneralpurposeAddressAllocator<uint32_t>::invalid_address;
 
 };
