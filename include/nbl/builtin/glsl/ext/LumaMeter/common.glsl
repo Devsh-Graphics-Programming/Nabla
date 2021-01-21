@@ -52,6 +52,13 @@ struct nbl_glsl_ext_LumaMeter_Uniforms_t
         #define _NBL_GLSL_EXT_LUMA_METER_SHARED_SIZE_NEEDED_ _NBL_GLSL_WORKGROUP_ARITHMETIC_SHARED_SIZE_NEEDED_
     #endif
 
+	#if _NBL_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_<0xffffffff
+		#error "1"
+	#endif
+	#if _NBL_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_<0xffffffff
+		#error "1"
+	#endif 
+
     #if NBL_GLSL_NOT_EQUAL(NBL_GLSL_AND(NBL_GLSL_SUB(_NBL_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_,_NBL_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_),_NBL_GLSL_EXT_LUMA_METER_BIN_COUNT-1),0)
 	    #error "The number of bins must evenly divide the histogram range!"
     #endif

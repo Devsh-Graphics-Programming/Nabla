@@ -114,26 +114,26 @@ int main(int argc, char* argv[])
 		return error_code;
 
 	constexpr auto forcedOptiXFormat = OPTIX_PIXEL_FORMAT_HALF3; // TODO: make more denoisers with formats
-	E_FORMAT irrFmtRequired = EF_UNKNOWN;
+	E_FORMAT nblFmtRequired = EF_UNKNOWN;
 	switch (forcedOptiXFormat)
 	{
 		case OPTIX_PIXEL_FORMAT_UCHAR3:
-			irrFmtRequired = EF_R8G8B8_SRGB;
+			nblFmtRequired = EF_R8G8B8_SRGB;
 			break;
 		case OPTIX_PIXEL_FORMAT_UCHAR4:
-			irrFmtRequired = EF_R8G8B8A8_SRGB;
+			nblFmtRequired = EF_R8G8B8A8_SRGB;
 			break;
 		case OPTIX_PIXEL_FORMAT_HALF3:
-			irrFmtRequired = EF_R16G16B16_SFLOAT;
+			nblFmtRequired = EF_R16G16B16_SFLOAT;
 			break;
 		case OPTIX_PIXEL_FORMAT_HALF4:
-			irrFmtRequired = EF_R16G16B16A16_SFLOAT;
+			nblFmtRequired = EF_R16G16B16A16_SFLOAT;
 			break;
 		case OPTIX_PIXEL_FORMAT_FLOAT3:
-			irrFmtRequired = EF_R32G32B32_SFLOAT;
+			nblFmtRequired = EF_R32G32B32_SFLOAT;
 			break;
 		case OPTIX_PIXEL_FORMAT_FLOAT4:
-			irrFmtRequired = EF_R32G32B32A32_SFLOAT;
+			nblFmtRequired = EF_R32G32B32A32_SFLOAT;
 			break;
 	}
 	constexpr auto forcedOptiXFormatPixelStride = 6u;
@@ -177,7 +177,7 @@ int main(int argc, char* argv[])
 		auto deinterleaveShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
-#define _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
+#define _NBL_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
 #include "../ShaderCommon.glsl"
 layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 {
@@ -205,7 +205,7 @@ void main()
 	bool colorLayer = gl_GlobalInvocationID.z==EII_COLOR;
 	if (colorLayer)
 	{
-		irr_glsl_ext_LumaMeter(colorLayer && gl_GlobalInvocationID.x<pc.data.imageWidth);
+		nbl_glsl_ext_LumaMeter(colorLayer && gl_GlobalInvocationID.x<pc.data.imageWidth);
 		barrier(); // no barrier because we were just reading from shared not writing since the last memory barrier
 	}
 	repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u] = floatBitsToUint(globalPixelData[0u]);
@@ -230,25 +230,25 @@ void main()
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
 #include "../ShaderCommon.glsl"
-layout(set=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_, binding=_IRR_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_) restrict readonly buffer LumaMeterOutputBuffer
+layout(set=_NBL_GLSL_EXT_LUMA_METER_OUTPUT_SET_DEFINED_, binding=_NBL_GLSL_EXT_LUMA_METER_OUTPUT_BINDING_DEFINED_) restrict readonly buffer LumaMeterOutputBuffer
 {
-	irr_glsl_ext_LumaMeter_output_t lumaParams[];
+	nbl_glsl_ext_LumaMeter_output_t lumaParams[];
 };
 layout(binding = 3, std430) restrict writeonly buffer IntensityBuffer
 {
 	float intensity[];
 };
 
-int irr_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()
+int nbl_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()
 {
 	return pc.data.beforeDenoise!=0u ? 0:1;
 }
-irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t irr_glsl_ext_ToneMapper_getLumaMeterOutput()
+nbl_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t nbl_glsl_ext_ToneMapper_getLumaMeterOutput()
 {
-	irr_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t retval;
-	retval = lumaParams[irr_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()].packedHistogram[gl_LocalInvocationIndex];
-	for (int i=1; i<_IRR_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION; i++)
-		retval += lumaParams[irr_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()].packedHistogram[gl_LocalInvocationIndex+i*_IRR_GLSL_EXT_LUMA_METER_BIN_COUNT];
+	nbl_glsl_ext_LumaMeter_output_SPIRV_CROSS_is_dumb_t retval;
+	retval = lumaParams[nbl_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()].packedHistogram[gl_LocalInvocationIndex];
+	for (int i=1; i<_NBL_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION; i++)
+		retval += lumaParams[nbl_glsl_ext_LumaMeter_getCurrentLumaOutputOffset()].packedHistogram[gl_LocalInvocationIndex+i*_NBL_GLSL_EXT_LUMA_METER_BIN_COUNT];
 	return retval;
 }
 void main()
@@ -260,14 +260,14 @@ void main()
 	float optixIntensity = 1.0;
 	if (beforeDenoise||autoexposureOn)
 	{
-		irr_glsl_ext_LumaMeter_PassInfo_t lumaPassInfo;
+		nbl_glsl_ext_LumaMeter_PassInfo_t lumaPassInfo;
 		lumaPassInfo.percentileRange[0] = pc.data.percentileRange[0];
 		lumaPassInfo.percentileRange[1] = pc.data.percentileRange[1];
-		float measuredLumaLog2 = irr_glsl_ext_LumaMeter_getMeasuredLumaLog2(irr_glsl_ext_ToneMapper_getLumaMeterOutput(),lumaPassInfo);
+		float measuredLumaLog2 = nbl_glsl_ext_LumaMeter_getMeasuredLumaLog2(nbl_glsl_ext_ToneMapper_getLumaMeterOutput(),lumaPassInfo);
 		if (firstInvocation)
 		{
 			measuredLumaLog2 += beforeDenoise ? pc.data.denoiserExposureBias:0.0;
-			optixIntensity = irr_glsl_ext_LumaMeter_getOptiXIntensity(measuredLumaLog2);
+			optixIntensity = nbl_glsl_ext_LumaMeter_getOptiXIntensity(measuredLumaLog2);
 		}
 	}
 	
@@ -278,7 +278,7 @@ void main()
 		auto secondLumaMeterAndDFFTXShader = driver->createGPUShader(core::make_smart_refctd_ptr<ICPUShader>(R"===(
 #version 450 core
 #extension GL_EXT_shader_16bit_storage : require
-#define _IRR_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
+#define _NBL_GLSL_EXT_LUMA_METER_FIRST_PASS_DEFINED_
 #include "../ShaderCommon.glsl"
 layout(binding = 0, std430) restrict readonly buffer ImageInputBuffer
 {
@@ -291,7 +291,7 @@ void main()
 	// TODO: Optimize this fetch
 	globalPixelData = vec3(inBuffer[dataOffset+0u],inBuffer[dataOffset+1u],inBuffer[dataOffset+2u]);
 
-	irr_glsl_ext_LumaMeter(gl_GlobalInvocationID.x<pc.data.imageWidth);
+	nbl_glsl_ext_LumaMeter(gl_GlobalInvocationID.x<pc.data.imageWidth);
 	barrier();
 }
 		)==="));
@@ -326,24 +326,24 @@ void main()
 	bool alive = gl_GlobalInvocationID.x<pc.data.imageWidth;
 	vec3 color = uintBitsToFloat(uvec3(repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+0u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+1u],repackBuffer[gl_LocalInvocationIndex*SHARED_CHANNELS+2u]));
 	
-	color = _IRR_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_*color;
+	color = _NBL_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_*color;
 	color *= intensity[pc.data.intensityBufferDWORDOffset]; // *= 0.18/AvgLuma
 	switch (pc.data.tonemappingOperator)
 	{
-		case _IRR_GLSL_EXT_TONE_MAPPER_REINHARD_OPERATOR:
+		case _NBL_GLSL_EXT_TONE_MAPPER_REINHARD_OPERATOR:
 		{
-			irr_glsl_ext_ToneMapper_ReinhardParams_t tonemapParams;
+			nbl_glsl_ext_ToneMapper_ReinhardParams_t tonemapParams;
 			tonemapParams.keyAndManualLinearExposure = pc.data.tonemapperParams[0];
 			tonemapParams.rcpWhite2 = pc.data.tonemapperParams[1];
-			color = irr_glsl_ext_ToneMapper_Reinhard(tonemapParams,color);
+			color = nbl_glsl_ext_ToneMapper_Reinhard(tonemapParams,color);
 			break;
 		}
-		case _IRR_GLSL_EXT_TONE_MAPPER_ACES_OPERATOR:
+		case _NBL_GLSL_EXT_TONE_MAPPER_ACES_OPERATOR:
 		{
-			irr_glsl_ext_ToneMapper_ACESParams_t tonemapParams;
+			nbl_glsl_ext_ToneMapper_ACESParams_t tonemapParams;
 			tonemapParams.gamma = pc.data.tonemapperParams[0];
 			tonemapParams.exposure = pc.data.tonemapperParams[1];
-			color = irr_glsl_ext_ToneMapper_ACES(tonemapParams,color);
+			color = nbl_glsl_ext_ToneMapper_ACES(tonemapParams,color);
 			break;
 		}
 		default:
@@ -352,7 +352,7 @@ void main()
 			break;
 		}
 	}
-	color = irr_glsl_XYZtosRGB*color;
+	color = nbl_glsl_XYZtosRGB*color;
 	// TODO: compute DFFT of the image in the X-axis
 	uint dataOffset = pc.data.inImageTexelOffset[EII_COLOR]+gl_GlobalInvocationID.y*pc.data.inImageTexelPitch[EII_COLOR]+gl_GlobalInvocationID.x;
 	if (alive)
