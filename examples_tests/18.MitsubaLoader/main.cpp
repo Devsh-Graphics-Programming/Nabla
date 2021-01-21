@@ -31,6 +31,10 @@ struct SLight
 	vec3 intensity;
 };
 
+layout (push_constant) uniform Block {
+    float camTformDeterminant;
+} PC;
+
 layout (set = 2, binding = 0, std430) readonly restrict buffer Lights
 {
 	SLight lights[];
@@ -54,17 +58,17 @@ vec2 SampleSphericalMap(in vec3 v)
     return uv;
 }
 
-vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_interaction, in mat2 dUV, in nbl_glsl_MC_precomputed_t precomp)
+vec3 nbl_computeLighting(inout nbl_glsl_AnisotropicViewSurfaceInteraction out_interaction, in mat2 dUV)
 {
 	nbl_glsl_xoroshiro64star_state_t scramble_start_state = textureLod(scramblebuf,gl_FragCoord.xy/VIEWPORT_SZ,0).rg;
 
-	vec3 emissive = nbl_glsl_decodeRGB19E7(InstData.data[InstanceIndex].emissive);
+	vec3 emissive = nbl_glsl_MC_oriented_material_t_getEmissive(material);
 
 	vec3 color = vec3(0.0);
 
 #ifdef USE_ENVMAP
-	nbl_glsl_instr_stream_t gcs = getGenChoiceStream(precomp);
-	nbl_glsl_instr_stream_t rnps = getRemAndPdfStream(precomp);
+	nbl_glsl_MC_instr_stream_t gcs = nbl_glsl_MC_oriented_material_t_getGenChoiceStream(material);
+	nbl_glsl_MC_instr_stream_t rnps = nbl_glsl_MC_oriented_material_t_getRemAndPdfStream(material);
 	for (int i = 0; i < SAMPLE_COUNT; ++i)
 	{
 		nbl_glsl_xoroshiro64star_state_t scramble_state = scramble_start_state;
@@ -72,7 +76,7 @@ vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_inte
 		vec3 rand = rand3d(i,scramble_state);
 		float pdf;
 		nbl_glsl_LightSample s;
-		vec3 rem = nbl_glsl_runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
+		vec3 rem = nbl_glsl_MC_runGenerateAndRemainderStream(precomp, gcs, rnps, rand, pdf, s);
 
 		vec2 uv = SampleSphericalMap(s.L);
 		color += rem*textureLod(envMap, uv, 0.0).xyz;
@@ -83,13 +87,38 @@ vec3 nbl_computeLighting(inout nbl_glsl_IsotropicViewSurfaceInteraction out_inte
 	for (int i = 0; i < LIGHT_COUNT; ++i)
 	{
 		SLight l = lights[i];
-		vec3 L = l.position-WorldPos;
-		//params.L = L;
+		const vec3 L = l.position-WorldPos;
+		const float d2 = dot(L,L); 
 		const float intensityScale = LIGHT_INTENSITY_SCALE;//ehh might want to render to hdr fbo and do tonemapping
-		color += nbl_bsdf_cos_eval(precomp, normalize(L), out_interaction, dUV)*l.intensity*intensityScale / dot(L,L);
+		nbl_glsl_LightSample _sample;
+		_sample.L = L*inversesqrt(d2);
+		color += nbl_bsdf_cos_eval(_sample,out_interaction, dUV)*l.intensity*intensityScale/d2;
 	}
 
 	return color+emissive;
+}
+)";
+constexpr const char* GLSL_FRAG_MAIN = R"(
+#define _NBL_FRAG_MAIN_DEFINED_
+void main()
+{
+	mat2 dUV = mat2(dFdx(UV),dFdy(UV));
+
+	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
+	const bool front = (!gl_FrontFacing) != (PC.camTformDeterminant*InstData.data[InstanceIndex].determinant < 0.0);
+	nbl_glsl_MC_precomputed_t precomp = nbl_glsl_precomputeData(front);
+#ifdef TEX_PREFETCH_STREAM
+	nbl_glsl_runTexPrefetchStream(getTexPrefetchStream(precomp), UV, dUV);
+#endif
+#ifdef NORM_PRECOMP_STREAM
+	nbl_glsl_runNormalPrecompStream(getNormalPrecompStream(precomp), dUV, precomp);
+#endif
+
+
+	nbl_glsl_IsotropicViewSurfaceInteraction inter;
+	vec3 color = nbl_computeLighting(inter, dUV, precomp);
+
+	OutColor = vec4(color, 1.0);
 }
 )";
 static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragShader(const asset::ICPUSpecializedShader* _fs, uint32_t viewport_w, uint32_t viewport_h, uint32_t lightCnt, uint32_t smplCnt, float intensityScale)
@@ -108,6 +137,7 @@ static core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedFragSh
 		GLSL_COMPUTE_LIGHTING;
 
     glsl.insert(glsl.find("#ifndef _NBL_COMPUTE_LIGHTING_DEFINED_"), extra);
+	glsl.insert(glsl.find("#ifndef _NBL_FRAG_MAIN_DEFINED_"), GLSL_FRAG_MAIN);
 
     //auto* f = fopen("fs.glsl","w");
     //fwrite(glsl.c_str(), 1, glsl.size(), f);
@@ -181,7 +211,7 @@ int main()
 		asset::CQuantNormalCache* qnc = am->getMeshManipulator()->getQuantNormalCache();
 
 		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CSerializedLoader>(am));
-		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am));
+		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am,fs));
 
 		std::string filePath = "../../media/mitsuba/staircase2.zip";
 	//#define MITSUBA_LOADER_TESTS
@@ -271,9 +301,9 @@ int main()
 		return 1;
 
 	bool leftHandedCamera = false;
+	auto cameraTransform = sensor.transform.matrix.extractSub3x4();
 	{
-		auto relativeTransform = sensor.transform.matrix.extractSub3x4();
-		if (relativeTransform.getPseudoDeterminant().x < 0.f)
+		if (cameraTransform.getPseudoDeterminant().x < 0.f)
 			leftHandedCamera = true;
 	}
 
@@ -291,6 +321,11 @@ int main()
 
 	video::IVideoDriver* driver = device->getVideoDriver();
 	asset::IAssetManager* am = device->getAssetManager();
+
+	// look out for this!!!
+	// when added, CMitsubaLoader inserts its own include loader into GLSLCompiler
+	// thats why i have to add it again here (after device recreation) to be able to compile shaders
+	am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am, device->getFileSystem()));
 
 	core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> ds2layout;
 	{
@@ -422,7 +457,13 @@ int main()
 		//modify pipeline layouts with our custom DS2 layout (DS2 will be used for lights buffer)
 		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
 		{
-			auto* pipeline = mesh->getMeshBuffer(i)->getPipeline();
+			auto* meshbuffer = mesh->getMeshBuffer(i);
+			auto* pipeline = meshbuffer->getPipeline();
+
+			asset::SPushConstantRange pcr;
+			pcr.offset = 0u;
+			pcr.size = sizeof(float);
+			pcr.stageFlags = asset::ISpecializedShader::ESS_FRAGMENT;
 			if (modifiedPipelines.find(pipeline) == modifiedPipelines.end())
 			{
 				//if (!pipeline->getLayout()->getDescriptorSetLayout(2u))
@@ -436,10 +477,14 @@ int main()
 					modifiedShaders.insert({ core::smart_refctd_ptr<asset::ICPUSpecializedShader>(fs),newfs });
 					pipeline->setShaderAtStage(asset::ICPUSpecializedShader::ESS_FRAGMENT, newfs.get());
 				}
-				// invert what is recognized as frontface in case of RH camera
-				pipeline->getRasterizationParams().frontFaceIsCCW = !leftHandedCamera;
+
+				auto pc = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<asset::SPushConstantRange>>(1u);
+				(*pc)[0] = pcr;
+				pipeline->getLayout()->setPushConstantRanges(std::move(pc));
 				modifiedPipelines.insert(pipeline);
 			}
+
+			reinterpret_cast<float*>(meshbuffer->getPushConstantsDataPtr() + pcr.offset)[0] = cameraTransform.getPseudoDeterminant().x;
 		}
 	}
 	modifiedShaders.clear();
@@ -721,7 +766,7 @@ int main()
 				const video::IGPUDescriptorSet* ds[3]{ gpuds0.get(), gpuds1.get(), gpuds2.get() };
 				driver->bindGraphicsPipeline(pipeline);
 				driver->bindDescriptorSets(video::EPBP_GRAPHICS, pipeline->getLayout(), 0u, 3u, ds, nullptr);
-				driver->pushConstants(pipeline->getLayout(), video::IGPUSpecializedShader::ESS_VERTEX|video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, sizeof(uint32_t), mb->getPushConstantsDataPtr());
+				driver->pushConstants(pipeline->getLayout(), video::IGPUSpecializedShader::ESS_VERTEX|video::IGPUSpecializedShader::ESS_FRAGMENT, 0u, sizeof(float), mb->getPushConstantsDataPtr());
 
 				driver->drawMeshBuffer(mb);
 			}

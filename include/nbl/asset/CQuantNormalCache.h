@@ -322,6 +322,7 @@ class CQuantNormalCache
 				return cacheSize;
 
 			}
+			return 0xdeadbeefBADC0FFEu;
 		}
 
 	private:

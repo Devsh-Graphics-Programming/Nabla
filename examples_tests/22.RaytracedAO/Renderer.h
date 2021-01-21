@@ -19,8 +19,8 @@
 class Renderer : public nbl::core::IReferenceCounted, public nbl::core::InterfaceUnmovable
 {
     public:
-		#include "../drawCommon.glsl"
-		#include "../raytraceCommon.glsl"
+		#include "drawCommon.glsl"
+		#include "raytraceCommon.glsl"
 		#ifdef __cplusplus
 			#undef uint
 			#undef mat4
@@ -53,6 +53,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxDimensions = 6u;
+		static const float AntiAliasingSequence[4096][2];
     protected:
         ~Renderer();
 
@@ -110,8 +111,6 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		// persistent (intialized in constructor
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSetLayout> m_cullDSLayout;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_cullPipelineLayout;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline> m_cullPipeline;
 
 		nbl::core::smart_refctd_ptr<nbl::asset::ICPUSpecializedShader> m_visibilityBufferFillShaders[2];
 		nbl::core::smart_refctd_ptr<nbl::asset::ICPUPipelineLayout> m_visibilityBufferFillPipelineLayoutCPU;
@@ -126,6 +125,7 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 		nbl::ext::RadeonRays::Manager::MeshBufferRRShapeCache rrShapeCache;
 		nbl::ext::RadeonRays::Manager::NblInstanceRRInstanceCache rrInstances;
 
+		nbl::core::matrix3x4SIMD m_prevView;
 		nbl::core::aabbox3df m_sceneBound;
 		uint32_t m_maxRaysPerDispatch;
 		StaticViewData_t m_staticViewData;
@@ -146,8 +146,8 @@ class Renderer : public nbl::core::IReferenceCounted, public nbl::core::Interfac
 
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_perCameraRasterDS;
 		
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_raygenPipelineLayout, m_resolvePipelineLayout;
-		nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline> m_raygenPipeline, m_resolvePipeline;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUPipelineLayout> m_cullPipelineLayout, m_raygenPipelineLayout, m_resolvePipelineLayout;
+		nbl::core::smart_refctd_ptr<nbl::video::IGPUComputePipeline> m_cullPipeline, m_raygenPipeline, m_resolvePipeline;
 		nbl::core::smart_refctd_ptr<nbl::video::IGPUDescriptorSet> m_globalBackendDataDS,m_commonRaytracingDS,m_raygenDS;
 		uint32_t m_raygenWorkGroups[2];
 

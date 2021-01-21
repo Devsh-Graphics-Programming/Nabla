@@ -237,9 +237,10 @@ int main()
         disk.inputParams = SVertexInputParams();
         for (uint32_t i = 0u, bonesCreated = 0u; i < diskCount; i++)
         {
-            auto newIdxBuffer = am->getMeshManipulator()->idxBufferFromTrianglesFanToTriangles(indices.data(), tesselation[i] + 2u, EIT_16BIT);
+            size_t indexCount = tesselation[i]+2u;
+            auto newIdxBuffer = am->getMeshManipulator()->idxBufferFromTrianglesFanToTriangles(indices.data(), indexCount, EIT_16BIT, EIT_16BIT);
             disk.indexBuffer = { 0ull, newIdxBuffer };
-            disk.indexCount = newIdxBuffer->getSize() / sizeof(uint16_t);
+            disk.indexCount = indexCount;
             disk.indexType = EIT_16BIT;
             disk.assemblyParams.primitiveType = EPT_TRIANGLE_LIST;
             createMeshBufferFromGeometryCreatorReturnData(disk, disks[i], i, bonesCreated);

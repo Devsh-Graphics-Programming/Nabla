@@ -319,9 +319,11 @@ protected:
         assert(_pgTabSzxy_log2<=MAX_PAGE_TABLE_EXTENT_LOG2);//otherwise STextureData encoding falls apart
         assert(_pgTabLayers<=MAX_PAGE_TABLE_LAYERS);
 
+        _pgTabLayers = std::max(_pgTabLayers, 1u);
+
         const uint32_t pgTabSzxy = 1u<<_pgTabSzxy_log2;
         typename image_t::SCreationParams params;
-        params.arrayLayers = std::max(_pgTabLayers, 1u); // page table must always be present
+        params.arrayLayers = _pgTabLayers; // page table must always be present
         params.extent = {pgTabSzxy,pgTabSzxy,1u};
         params.format = EF_R16G16_UINT;
         params.mipLevels = std::max<int32_t>(static_cast<int32_t>(_maxAllocatableTexSz_log2-_pgSzxy_log2+1u), 1);

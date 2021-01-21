@@ -2,10 +2,26 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-**Nabla**(previously called **[IrrlichtBaW](https://github.com/buildaworldnet/IrrlichtBAW)** is a new renovated version of older **[Irrlicht](http://irrlicht.sourceforge.net/)** engine. The name change to Nabla allows for using Nabla side by side with the legacy Irrlicht and IrrlichtBaW engines. 
-The project currently aims for a thread-able and *Vulkan*-centered API, but currently works on *OpenGL* only. This framework has been kindly begun by the founder ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** of **[Devsh Graphics Programming Sp. z O.O.](http://devsh.eu/)**  and almost entirely sponsored by **Build A World Aps**. in it's early days, and now picked up by the **[Ditt](https://www.ditt.nl/)** company. The `stable-ish` branch is used in production releases of **[Build A World EDU](https://edu.buildaworld.net/)**, since 2015. The framework has been used both for game development and ArchViz.
+**Nabla**(previously called **[IrrlichtBaW](https://github.com/buildaworldnet/IrrlichtBAW)** is a new renovated version of older **[Irrlicht](http://irrlicht.sourceforge.net/)** engine. 
+The name change to Nabla allows for using Nabla side by side with the legacy Irrlicht and IrrlichtBaW engines. 
+The project currently aims for a thread-able and *Vulkan*-centered API, but currently works on *OpenGL* only. 
 
-## Contracting
+This framework has been kindly begun by the founder ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** of **[Devsh Graphics Programming Sp. z O.O.](http://devsh.eu/)**  and almost entirely sponsored by **Build A World Aps**. in it's early days, and now picked up by the **[Ditt](https://www.ditt.nl/)** company. The `stable-ish` branch is used in production releases of **[Build A World EDU](https://edu.buildaworld.net/)**, since 2015. The framework has been used both for game development and ArchViz.
+
+## (Get Hired) Jobs and Internships
+
+If you are a programmer with a passion for High Performance Computing, Mathematics and Computer Graphics
+
+If you can work 100% remotely and be in charge of your own time managment
+
+Then make something impressive using Nabla, open a PR and contact us (jobs devsh.eu) with your CV.
+
+We would also be happy to sponsor your master thesis as long as:
+- You are an above average student with an interest in Graphics
+- It will be written in English
+- It will produce contributions to Nabla which we can license under Apache 2.0
+
+## (Hire Us) Contracting
 
 The members of **Devsh Graphics Programming Sp. z O.O.** (Company Registration (KRS) #: 0000764661) are available (individually or collectively) for contracts on projects of various scopes and timescales, especially on foreign frameworks, codebases and third-party 3D frameworks. 
 

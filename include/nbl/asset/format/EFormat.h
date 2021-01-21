@@ -15,7 +15,8 @@ namespace nbl
 {
 namespace asset
 {
-	//! An enum for the color format of textures used by the Irrlicht Engine.
+	//! An enum for the color format of textures used by the Nabla.
+    // @Crisspl it would be dandy if the values (or at least ordering) of our enums matched vulkan's
 	/** A color format specifies how color information is stored. */
 	enum E_FORMAT : uint32_t
 	{

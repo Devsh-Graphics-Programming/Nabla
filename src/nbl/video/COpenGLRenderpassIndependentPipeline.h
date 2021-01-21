@@ -64,6 +64,30 @@ class COpenGLRenderpassIndependentPipeline final : public IGPURenderpassIndepend
             }
         }
 
+        // should be called in case of absence of GL_ARB_shader_draw_parameters only
+        void setBaseInstanceUniform(uint32_t _ctxID, GLint _baseInstance) const
+        {
+            // only this function touches this uniform
+            constexpr const char* SPIRV_CROSS_BaseInstanceUniformName = "SPIRV_Cross_BaseInstance";
+
+            GLint& value = getBaseInstanceState(_ctxID)->cache;
+            if (value == _baseInstance)
+                return;
+
+            const GLuint programID = getShaderGLnameForCtx(ESSI_VERTEX_SHADER_IX, _ctxID);
+            GLint& uid = getBaseInstanceState(_ctxID)->id;
+            if (uid == -1)
+            {
+                uid = COpenGLExtensionHandler::extGlGetUniformLocation(programID, SPIRV_CROSS_BaseInstanceUniformName);
+            }
+            if (uid == -1)
+                return;
+
+            value = _baseInstance;
+
+            COpenGLExtensionHandler::extGlProgramUniform1iv(programID, uid, 1u, &value);
+        }
+
         uint32_t getStagePresenceMask() const { return m_stagePresenceMask; }
 
         GLuint getShaderGLnameForCtx(uint32_t _stageIx, uint32_t _ctxID) const

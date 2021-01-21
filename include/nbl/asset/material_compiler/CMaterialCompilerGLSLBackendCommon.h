@@ -197,7 +197,7 @@ public:
 			case OP_DIFFUSE: [[fallthrough]];
 			case OP_CONDUCTOR: [[fallthrough]];
 			case OP_DIELECTRIC: [[fallthrough]];
-			case OP_DIFFTRANS: [[fallthrough]];
+			case OP_DIFFTRANS:
 				return 2u;
 			case OP_COATING: [[fallthrough]];
 			case OP_BLEND: [[fallthrough]];
@@ -628,6 +628,7 @@ public:
 
 	struct result_t
 	{
+		// TODO: should probably use <nbl/builtin/glsl/material_compiler/common_invariant_declarations.glsl> here, actually material compiler should just make `nbl_glsl_MC_oriented_material_t`
 		struct instr_streams_t
 		{
 			struct stream_t

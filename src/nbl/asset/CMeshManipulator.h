@@ -85,9 +85,9 @@ class CMeshManipulator : public IMeshManipulator
 		static bool calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const core::vector<core::vectorSIMDf>& _data, const SErrorMetric& _errMetric, CQuantNormalCache& _cache);
 
 		template<typename InType, typename OutType>
-		static inline core::smart_refctd_ptr<ICPUBuffer> lineStripsToLines(const void* _input, size_t _idxCount)
+		static inline core::smart_refctd_ptr<ICPUBuffer> lineStripsToLines(const void* _input, size_t& _idxCount)
 		{
-			const size_t outputSize = (_idxCount - 1) * 2;
+			const size_t outputSize = _idxCount = (_idxCount - 1) * 2;
 			
 			auto output = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(OutType)*outputSize);
 			const auto* iptr = reinterpret_cast<const InType*>(_input);
@@ -101,9 +101,9 @@ class CMeshManipulator : public IMeshManipulator
 		}
 
 		template<typename InType, typename OutType>
-		static inline core::smart_refctd_ptr<ICPUBuffer> triangleStripsToTriangles(const void* _input, size_t _idxCount)
+		static inline core::smart_refctd_ptr<ICPUBuffer> triangleStripsToTriangles(const void* _input, size_t& _idxCount)
 		{
-			const size_t outputSize = (_idxCount - 2) * 3;
+			const size_t outputSize = _idxCount = (_idxCount - 2) * 3;
 			
 			auto output = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(OutType)*outputSize);
 			const auto* iptr = reinterpret_cast<const InType*>(_input);
@@ -123,9 +123,9 @@ class CMeshManipulator : public IMeshManipulator
 		}
 
 		template<typename InType, typename OutType>
-		static inline core::smart_refctd_ptr<ICPUBuffer> trianglesFanToTriangles(const void* _input, size_t _idxCount)
+		static inline core::smart_refctd_ptr<ICPUBuffer> trianglesFanToTriangles(const void* _input, size_t& _idxCount)
 		{
-			const size_t outputSize = (_idxCount - 2) * 3;
+			const size_t outputSize = _idxCount = (_idxCount - 2) * 3;
 
 			auto output = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(OutType)*outputSize);
 			const auto* iptr = reinterpret_cast<const InType*>(_input);

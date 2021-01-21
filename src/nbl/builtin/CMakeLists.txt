@@ -79,11 +79,13 @@ set(nbl_resources_to_embed
   # material_compiler
   "nbl/builtin/glsl/material_compiler/common.glsl"
   "nbl/builtin/glsl/material_compiler/common_declarations.glsl"
+  "nbl/builtin/glsl/material_compiler/common_invariant_declarations.glsl"
   "nbl/builtin/glsl/material_compiler/rasterization/impl.glsl"
   # random numbers
   "nbl/builtin/glsl/random/xoroshiro.glsl"
   # sampling
   "nbl/builtin/glsl/sampling/bilinear.glsl"
+  "nbl/builtin/glsl/sampling/box_muller_transform.glsl"
   "nbl/builtin/glsl/sampling/concentric_mapping.glsl"
   "nbl/builtin/glsl/sampling/cos_weighted.glsl"
   "nbl/builtin/glsl/sampling/linear.glsl"
@@ -131,5 +133,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/ext/RadeonRays/intersection.glsl"
   "nbl/builtin/glsl/ext/RadeonRays/ray.glsl"
   "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
+  "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_descriptor.glsl"
+  "nbl/builtin/glsl/ext/MitsubaLoader/material_compiler_compatibility_impl.glsl"
 PARENT_SCOPE)
 
