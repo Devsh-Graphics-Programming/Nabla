@@ -110,10 +110,10 @@ template<class CRTP,class Support=std::ratio<1,1> >
 class CFloatingPointIsotropicSeparableImageFilterKernelBase :	public CFloatingPointSeparableImageFilterKernelBase<CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Support>>,
 																public CIsotropicImageFilterKernelBase<Support>
 {
-		using Base = CFloatingPointSeparableImageFilterKernelBase<CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Support>>;
-
+		using Base =  CFloatingPointSeparableImageFilterKernelBase<CFloatingPointIsotropicSeparableImageFilterKernelBase<CRTP,Support>>;
+		using Base2 = CIsotropicImageFilterKernelBase<Support>;
 	protected:
-		_NBL_STATIC_INLINE_CONSTEXPR float isotropic_support = Base::isotropic_support;
+		_NBL_STATIC_INLINE_CONSTEXPR float isotropic_support = Base2::isotropic_support;
 
 	public:
 		CFloatingPointIsotropicSeparableImageFilterKernelBase() : Base(isotropic_support,isotropic_support) {}
