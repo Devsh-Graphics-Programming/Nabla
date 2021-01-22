@@ -140,9 +140,6 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/IAssetWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/IAssetLoader.cpp
 	
-# Builtin include loaders (TO REMOVE)
-	${NBL_ROOT_PATH}/src/nbl/asset/CGLSLSkinningBuiltinIncludeLoader.cpp
-	
 # Shaders
 	${NBL_ROOT_PATH}/src/nbl/asset/ISPIRVOptimizer.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/IGLSLCompiler.cpp
@@ -224,7 +221,6 @@ ${NBL_ROOT_PATH}/source/Nabla/CNullDriver.cpp
 )
 set(NBL_SCENE_SOURCES
 # Junk to refactor
-${NBL_ROOT_PATH}/source/Nabla/CSkinnedMeshSceneNode.cpp
 ${NBL_ROOT_PATH}/source/Nabla/CCameraSceneNode.cpp
 ${NBL_ROOT_PATH}/source/Nabla/CSceneManager.cpp
 

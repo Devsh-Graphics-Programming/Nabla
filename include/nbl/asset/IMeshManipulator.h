@@ -13,7 +13,6 @@
 #include "aabbox3d.h"
 #include "nbl/asset/ICPUMeshBuffer.h"
 #include "nbl/asset/CCPUMesh.h"
-#include "nbl/asset/CCPUSkinnedMesh.h"
 #include "nbl/asset/CQuantNormalCache.h"
 
 namespace nbl
@@ -187,16 +186,6 @@ namespace asset
 				return nullptr;
 	
 			core::smart_refctd_ptr<ICPUMesh> dst;
-			if (_src->getMeshType() == EMT_ANIMATED_SKINNED)
-			{
-				auto tmp = core::make_smart_refctd_ptr<CCPUSkinnedMesh>();
-				//! TODO: do deep armature and keyframe copy
-				tmp->setBoneReferenceHierarchy(core::smart_refctd_ptr<CFinalBoneHierarchy>(static_cast<const ICPUSkinnedMesh*>(_src)->getBoneReferenceHierarchy()));
-				for (auto i=0u; i<_src->getMeshBufferCount(); i++)
-					tmp->addMeshBuffer(core::smart_refctd_ptr_static_cast<ICPUSkinnedMeshBuffer>(createMeshBufferDuplicate(_src->getMeshBuffer(i))));
-				dst = std::move(tmp);
-			}
-			else
 			{
 				auto tmp = core::make_smart_refctd_ptr<CCPUMesh>();
 				for (auto i = 0u; i < _src->getMeshBufferCount(); i++)

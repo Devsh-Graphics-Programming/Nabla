@@ -18,6 +18,7 @@ namespace nbl
 namespace asset
 {
 
+// TODO: This should probably go somewhere else
 namespace impl
 {
     inline E_FORMAT getCorrespondingIntegerFmt(E_FORMAT _scaledFmt)
@@ -175,20 +176,7 @@ public:
     inline SBufferBinding<ICPUBuffer>* getIndexBufferBinding()
     {
         return &m_indexBufferBinding;
-    }/*
-	inline bool setVertexBufferBindingParams(uint32_t bindingIndex, uint32_t stride, E_VERTEX_INPUT_RATE inputRate = E_VERTEX_INPUT_RATE::EVIR_PER_VERTEX)
-	{
-        if (!m_pipeline)
-            return false;
-		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT || stride >= 2048ull)
-			return false;
-
-		auto& binding(m_pipeline->getVertexInputParams().bindings[bindingIndex]);
-		binding.stride = stride;
-		binding.inputRate = inputRate;
-
-		return true;
-	}*/
+    }
 	inline bool setVertexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding, uint32_t bindingIndex)
 	{
         assert(!isImmutable_debug());
@@ -198,21 +186,7 @@ public:
         m_vertexBufferBindings[bindingIndex] = std::move(bufferBinding);
 
 		return true;
-	}/*
-	inline bool setVertexAttribFormat(uint32_t attribIndex, uint32_t bindingIndex, E_FORMAT format, uint32_t relativeOffset)
-	{
-        if (!m_pipeline)
-            return false;
-		if (bindingIndex >= MAX_ATTR_BUF_BINDING_COUNT || attribIndex >= MAX_VERTEX_ATTRIB_COUNT || relativeOffset >= 2048ull)
-			return false;
-
-        auto& attribute = m_pipeline->getVertexInputParams().attributes[attribIndex];
-		attribute.binding = bindingIndex;
-		attribute.format = format;
-		attribute.relativeOffset = relativeOffset;
-
-		return true;
-	}*/
+	}
 
 
 	inline void setAttachedDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSet>&& descriptorSet)
@@ -705,7 +679,7 @@ public:
             return false;
         if (m_indexBufferBinding.buffer && !m_indexBufferBinding.buffer->canBeRestoredFrom(other->m_indexBufferBinding.buffer.get()))
             return false;
-        for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
+        for (uint32_t i = 0u; i<MAX_ATTR_BUF_BINDING_COUNT; ++i)
         {
             if (m_vertexBufferBindings[i].offset != other->m_vertexBufferBindings[i].offset)
                 return false;

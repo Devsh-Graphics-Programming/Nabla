@@ -8,12 +8,10 @@
 
 #include "os.h"
 #include "CMemoryFile.h"
-#include "CFinalBoneHierarchy.h"
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/bawformat/legacy/CBAWLegacy.h"
 #include "nbl/asset/bawformat/legacy/CBAWVersionUpFunctions.h"
 #include "nbl/video/CGPUMesh.h"
-#include "nbl/video/CGPUSkinnedMesh.h"
 
 #include "lz4/lib/lz4.h"
 #undef Bool

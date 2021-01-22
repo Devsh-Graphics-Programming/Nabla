@@ -857,7 +857,7 @@ void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
 
 
 template<>
-void CMeshManipulator::copyMeshBufferMemberVars<ICPUMeshBuffer>(ICPUMeshBuffer* _dst, const ICPUMeshBuffer* _src)
+void CMeshManipulator::copyMeshBufferMemberVars<ICPUMeshBuffer>(ICPUMeshBuffer* _dst, const ICPUMeshBuffer* _src) // TODO: remove
 {
 	_dst->setBoundingBox(
 		_src->getBoundingBox()
@@ -899,35 +899,14 @@ void CMeshManipulator::copyMeshBufferMemberVars<ICPUMeshBuffer>(ICPUMeshBuffer* 
 		_src->getNormalAttributeIx()
 	);
 }
-template<>
-void CMeshManipulator::copyMeshBufferMemberVars<ICPUSkinnedMeshBuffer>(ICPUSkinnedMeshBuffer* _dst, const ICPUSkinnedMeshBuffer* _src)
-{
-    copyMeshBufferMemberVars<ICPUMeshBuffer>(_dst, _src);
-    _dst->setIndexRange(
-        _src->getIndexMinBound(),
-        _src->getIndexMaxBound()
-    );
-    _dst->setMaxVertexBoneInfluences(
-        _src->getMaxVertexBoneInfluences()
-    );
-}
 
 core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferDuplicate(const ICPUMeshBuffer* _src)
 {
 	if (!_src)
 		return nullptr;
 
-	core::smart_refctd_ptr<ICPUMeshBuffer> dst;
-    if (_src->getMeshBufferType() == asset::EMT_ANIMATED_SKINNED)
-    {
-        dst = core::make_smart_refctd_ptr<ICPUSkinnedMeshBuffer>();
-		CMeshManipulator::copyMeshBufferMemberVars(static_cast<ICPUSkinnedMeshBuffer*>(dst.get()), static_cast<const ICPUSkinnedMeshBuffer*>(_src));
-    }
-    else
-    {
-        dst = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
-		CMeshManipulator::copyMeshBufferMemberVars(dst.get(), _src);
-    }
+	core::smart_refctd_ptr<ICPUMeshBuffer> dst = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
+	CMeshManipulator::copyMeshBufferMemberVars(dst.get(), _src);
 
     auto ixBinding = *_src->getIndexBufferBinding();
     dst->setIndexBufferBinding(std::move(ixBinding));

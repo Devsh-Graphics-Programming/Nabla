@@ -10,9 +10,6 @@
 #include "nbl/asset/shadercUtils.h"
 #include "nbl/asset/CIncludeHandler.h"
 
-// TODO: rework this legacy stuff
-#include "nbl/asset/CGLSLSkinningBuiltinIncludeLoader.h"
-
 #include "nbl/asset/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
 
 #include "os.h"

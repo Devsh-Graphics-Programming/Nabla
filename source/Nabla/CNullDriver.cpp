@@ -5,7 +5,6 @@
 
 #include "CNullDriver.h"
 #include "os.h"
-#include "IAnimatedMeshSceneNode.h"
 
 #include "nbl/asset/CMeshManipulator.h"
 #include "nbl/asset/asset_utils.h"

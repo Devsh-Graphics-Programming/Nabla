@@ -14,7 +14,6 @@
 #include "nbl/asset/bawformat/CBAWFile.h"
 //#include "nbl/asset/bawformat/legacy/CBAWLegacy.h"
 #include "nbl/asset/bawformat/CBlobsLoadingManager.h"
-#include "nbl/asset/ICPUSkinnedMeshBuffer.h"
 
 //#include "os.h"
 
@@ -203,6 +202,7 @@ private:
 			asset::IAsset* asset = nullptr;
 			switch (_blobType)
 			{
+#ifdef OLD_MESHES
 				case asset::Blob::EBT_MESH:
 				case asset::Blob::EBT_SKINNED_MESH:
 					asset = reinterpret_cast<asset::ICPUMesh*>(_asset);
@@ -213,14 +213,13 @@ private:
 				case asset::Blob::EBT_SKINNED_MESH_BUFFER:
 					asset = reinterpret_cast<asset::ICPUSkinnedMeshBuffer*>(_asset);
 					break;
+#endif
 				case asset::Blob::EBT_RAW_DATA_BUFFER:
 					asset = reinterpret_cast<asset::ICPUBuffer*>(_asset);
 					break;
-#ifndef OLD_MESHES
 				default:
 					assert(false); // unhandled type
 					break;
-#endif
 			}
 			if (asset)
 			{

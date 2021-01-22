@@ -92,8 +92,8 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_IMAGE_VIEW = 1ull<<4,			                //!< asset::ICPUImageView
 			ET_DESCRIPTOR_SET = 1ull<<5,                        //!< asset::ICPUDescriptorSet
 			ET_DESCRIPTOR_SET_LAYOUT = 1ull<<6,                 //!< asset::ICPUDescriptorSetLayout
-			ET_SKELETON = 1ull<<7,							    //!< asset::ICPUSkeleton - to be done by splitting CFinalBoneHierarchy
-			ET_KEYFRAME_ANIMATION = 1ull<<8,					//!< asset::ICPUKeyframeAnimation - from CFinalBoneHierarchy
+			ET_SKELETON = 1ull<<7,							    //!< asset::ICPUSkeleton
+			ET_KEYFRAME_ANIMATION = 1ull<<8,					//!< asset::ICPUKeyframeAnimation
 			ET_PIPELINE_LAYOUT = 1ull<<9,						//!< asset::ICPUPipelineLayout
 			ET_SHADER = 1ull<<10,								//!< asset::ICPUShader
 			ET_SPECIALIZED_SHADER = 1ull<<11,					//!< asset::ICPUSpecializedShader
@@ -102,7 +102,7 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_MESH = 1ull<<14,								    //!< asset::ICPUMesh
 			ET_COMPUTE_PIPELINE = 1ull<<15,                     //!< asset::ICPUComputePipeline
 			ET_PIPELINE_CACHE = 1ull<<16,						//!< asset::ICPUPipelineCache
-			ET_SCENE = 1ull<<17,								//!< reserved, to implement later
+			ET_SCENE = 1ull<<17,								//!< asset::ICPUScene
 			ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u,    //!< lights, etc.
 			//! Reserved special value used for things like terminating lists of this enum
 

@@ -57,24 +57,6 @@ struct LzmaMemMngmnt
 			_NBL_ALIGNED_FREE(data);
 	}
 	template<>
-	void CBAWMeshWriter::exportAsBlob<ICPUSkinnedMesh>(ICPUSkinnedMesh* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
-	{
-		uint8_t stackData[1u << 14];
-        SkinnedMeshBlobV3* data = SkinnedMeshBlobV3::createAndTryOnStack(_obj,stackData,sizeof(stackData));
-
-        const E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 0u);
-		if (flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED)
-			data->meshFlags |= SkinnedMeshBlobV3::EBMF_RIGHT_HANDED;
-
-        const uint8_t* encrPwd = nullptr;
-        _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 0u);
-        const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 0u);
-		tryWrite(data, _file, _ctx, SkinnedMeshBlobV3::calcBlobSizeForObj(_obj), _headerIdx, flags, encrPwd, comprLvl);
-
-		if ((uint8_t*)data != stackData)
-			_NBL_ALIGNED_FREE(data);
-	}
-	template<>
 	void CBAWMeshWriter::exportAsBlob<ICPUMeshBuffer>(ICPUMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{
         MeshBufferBlobV3 data(_obj);
@@ -85,55 +67,6 @@ struct LzmaMemMngmnt
         const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 1u);
 		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, flags, encrPwd, comprLvl);
 	}
-	template<>
-	void CBAWMeshWriter::exportAsBlob<ICPUSkinnedMeshBuffer>(ICPUSkinnedMeshBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
-	{
-        SkinnedMeshBufferBlobV3 data(_obj);
-
-        const E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 1u);
-        const uint8_t* encrPwd = nullptr;
-        _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 1u);
-        const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 1u);
-		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, flags, encrPwd, comprLvl);
-	}
-#ifdef OLD_SHADERS
-	template<>
-	void CBAWMeshWriter::exportAsBlob<ICPUTexture>(ICPUTexture* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
-	{
-        ICPUTexture* tex = _obj;
-
-        const WriteProperties* props = reinterpret_cast<const WriteProperties*>(_ctx.inner.params.userData);
-		const io::path fileDir = props->relPath.size() ? props->relPath : io::IFileSystem::getFileDir(m_fileSystem->getAbsolutePath(_file->getFileName())); // get relative-file's directory
-		io::path path = m_fileSystem->getRelativeFilename(tex->getSourceFilename().c_str(), fileDir); // get texture-file path relative to the file's directory
-		const uint32_t len = strlen(path.c_str()) + 1;
-
-        const E_WRITER_FLAGS flags = _ctx.writerOverride->getAssetWritingFlags(_ctx.inner, _obj, 2u);
-        const uint8_t* encrPwd = nullptr;
-        _ctx.writerOverride->getEncryptionKey(encrPwd, _ctx.inner, _obj, 2u);
-        const float comprLvl = _ctx.writerOverride->getAssetCompressionLevel(_ctx.inner, _obj, 2u);
-		tryWrite(&path[0], _file, _ctx, len, _headerIdx, flags, encrPwd, comprLvl);
-	}
-#endif
-	template<>
-	void CBAWMeshWriter::exportAsBlob<CFinalBoneHierarchy>(CFinalBoneHierarchy* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
-	{
-		uint8_t stackData[1u<<14]; // 16kB
-        auto data = FinalBoneHierarchyBlobV3::createAndTryOnStack(_obj,stackData,sizeof(stackData));
-
-		tryWrite(data, _file, _ctx, FinalBoneHierarchyBlobV3::calcBlobSizeForObj(_obj), _headerIdx, EWF_NONE);
-
-		if ((uint8_t*)data != stackData)
-			_NBL_ALIGNED_FREE(data);
-	}
-#ifdef OLD_SHADERS
-	template<>
-	void CBAWMeshWriter::exportAsBlob<IMeshDataFormatDesc<ICPUBuffer> >(IMeshDataFormatDesc<ICPUBuffer>* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
-	{
-        MeshDataFormatDescBlobV3 data(_obj);
-
-		tryWrite(&data, _file, _ctx, sizeof(data), _headerIdx, EWF_NONE);
-	}
-#endif
 	template<>
 	void CBAWMeshWriter::exportAsBlob<ICPUBuffer>(ICPUBuffer* _obj, uint32_t _headerIdx, io::IWriteFile* _file, SContext& _ctx)
 	{

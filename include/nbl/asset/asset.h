@@ -47,17 +47,13 @@
 #include "nbl/asset/ICPUSpecializedShader.h"
 #include "nbl/asset/CShaderIntrospector.h"
 // pipelines
+
 // meshes
 #include "nbl/asset/ICPUMeshBuffer.h"
-#include "nbl/asset/ICPUSkinnedMeshBuffer.h"
 #include "nbl/asset/ICPUMesh.h"
 #include "nbl/asset/CCPUMesh.h" // refactor
-#include "nbl/asset/ICPUSkinnedMesh.h"
-#include "nbl/asset/CCPUSkinnedMesh.h" // refactor
 #include "nbl/asset/IGeometryCreator.h"
 #include "nbl/asset/IMeshPacker.h"
-// animated
-#include "CFinalBoneHierarchy.h"
 
 // manipulation + reflection + introspection
 #include "nbl/asset/IMeshManipulator.h"

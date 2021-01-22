@@ -12,7 +12,6 @@
 #include "IDriver.h"
 #include "IDriverMemoryBacked.h"
 #include "nbl/video/CGPUMesh.h"
-#include "nbl/video/CGPUSkinnedMesh.h"
 #include "CLogger.h"
 #include "nbl/video/asset_traits.h"
 #include "nbl/core/alloc/LinearAddressAllocator.h"
@@ -433,15 +432,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMesh** const _begin, 
             cpuDeps.push_back(_asset->getMeshBuffer(i));
 
 		auto& output = res->operator[](i);
-		switch (_asset->getMeshType())
-		{
-			case asset::EMT_ANIMATED_SKINNED:
-				output = core::make_smart_refctd_ptr<video::CGPUSkinnedMesh>(core::smart_refctd_ptr<asset::CFinalBoneHierarchy>(static_cast<const asset::ICPUSkinnedMesh*>(_asset)->getBoneReferenceHierarchy()));
-				break;
-			default:
-				output = core::make_smart_refctd_ptr<video::CGPUMesh>();
-				break;
-        }
+		output = core::make_smart_refctd_ptr<video::CGPUMesh>();
         output->setBoundingBox(_asset->getBoundingBox());
     }
 
@@ -452,24 +443,11 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMesh** const _begin, 
 		auto* _asset = _begin[i];
 
 		auto& output = res->operator[](i);
-        switch (output->getMeshType())
-        {
-			case asset::EMT_ANIMATED_SKINNED:
-				for (uint32_t k=0u; k<_asset->getMeshBufferCount(); ++k)
-				{
-                    assert(false); // TODO: when we remake the skinning API
-					//static_cast<video::CGPUSkinnedMesh*>(output.get())->addMeshBuffer(core::smart_refctd_ptr_static_cast<video::CGPUSkinnedMeshBuffer>(gpuDeps->operator[](redir[j])), static_cast<asset::ICPUSkinnedMeshBuffer*>((*(_begin + i))->getMeshBuffer(i))->getMaxVertexBoneInfluences());
-					++j;
-				}
-				break;
-			default:
-				for (uint32_t k=0u; k<_asset->getMeshBufferCount(); ++k)
-				{
-					static_cast<video::CGPUMesh*>(output.get())->addMeshBuffer(core::smart_refctd_ptr(gpuDeps->operator[](redir[j])));
-					++j;
-				}
-				break;
-        }
+		for (uint32_t k=0u; k<_asset->getMeshBufferCount(); ++k)
+		{
+			static_cast<video::CGPUMesh*>(output.get())->addMeshBuffer(core::smart_refctd_ptr(gpuDeps->operator[](redir[j])));
+			++j;
+		}
     }
 
     return res;

@@ -4,7 +4,6 @@
 // See the original file in irrlicht source for authors
 
 #include "COpenGLDriver.h"
-#include "nbl/video/CGPUSkinnedMesh.h"
 
 #include "vectorSIMD.h"
 

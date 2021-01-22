@@ -8,7 +8,6 @@
 #include "ISceneManager.h"
 #include "IFileSystem.h"
 #include "nbl/video/CGPUMesh.h"
-#include "nbl/video/CGPUSkinnedMesh.h"
 
 //! Adds support of given blob type to BlobsLoadingManager. For use ONLY inside BlobsLoadingManager's member functions. _NBL_SUPPORTED_BLOBS is defined in IrrCompileConfig.h.
 #define _NBL_GENERAL_BLOB_FUNCTION_SWITCH_WRAPPER(Function, BlobType, ...)\
