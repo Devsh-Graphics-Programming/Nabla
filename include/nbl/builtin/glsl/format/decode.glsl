@@ -23,9 +23,35 @@ vec3 nbl_glsl_decodeRGB19E7(in uvec2 x)
 
 vec4 nbl_glsl_decodeRGB10A2(in uint x)
 {
-	uvec4 shifted = uvec4(x,uvec3(x)>>uvec3(10,20,30));
 	const uvec3 rgbMask = uvec3(0x3ffu);
+	const uvec4 shifted = uvec4(x,uvec3(x)>>uvec3(10,20,30));
 	return vec4(vec3(shifted.rgb&rgbMask),shifted.a)/vec4(vec3(rgbMask),3.0);
+}
+
+
+nbl_glsl_quaternion_t nbl_glsl_decode8888Quaternion(in uint x)
+{
+	nbl_glsl_quaternion_t quat;
+	quat.data = normalize(unpackSnorm4x8(compressedQuatUint));
+	return quat;
+}
+
+nbl_glsl_quaternion_t nbl_glsl_decode1010102Quaternion(in uint x)
+{
+	const uvec3 rgbMask = uvec3(0x3ffu);
+	const uvec4 shifted = uvec4(x,uvec3(x)>>uvec3(10,20,30));
+	const uint maxCompIx = shifted[3];
+
+	const ivec3 maxVal = ivec3(0x1ff);
+	const ivec3 unnorm = max(-maxVal,ivec3(shifted.rgb&rgbMask)-ivec3(maxVal+1));
+	const vec3 smallest3Components = vec3(unnorm)*inversesqrt(2.f)/vec3(maxVal);
+
+	nbl_glsl_quaternion_t quat;
+	quat.data[maxCompIx>0u ? 0:1] = smallest3Components[0];
+	quat.data[maxCompIx>1u ? 1:2] = smallest3Components[1];
+	quat.data[maxCompIx>2u ? 2:3] = smallest3Components[2];
+	quat.data[maxCompIx] = sqrt(1.0-dot(smallest3Components,smallest3Components));
+	return quat;
 }
 
 #endif

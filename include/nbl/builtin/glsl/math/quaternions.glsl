@@ -13,11 +13,11 @@ struct nbl_glsl_quaternion_t
 };
 
 
-nbl_glsl_quaternion_t nbl_glsl_quaternion_t_constructFromTruncated(in vec3 scaledAxis)
+nbl_glsl_quaternion_t nbl_glsl_quaternion_t_constructFromTruncated(in vec3 first3Components)
 {
     nbl_glsl_quaternion_t quat;
-    quat.data.xyz = scaledAxis;
-    quat.data.w = sqrt(1.0-dot(scaledAxis,scaledAxis));
+    quat.data.xyz = first3Components;
+    quat.data.w = sqrt(1.0-dot(first3Components,first3Components));
     return quat;
 }
 
