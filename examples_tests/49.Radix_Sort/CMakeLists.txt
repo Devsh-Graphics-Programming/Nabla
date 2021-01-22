@@ -4,4 +4,14 @@ if(NOT RES)
 	message(FATAL_ERROR "common.cmake not found. Should be in {repo_root}/cmake directory")
 endif()
 
-nbl_create_executable_project("" "" "" "")
+set(EXTRA_SOURCES
+	Vec2D.cpp
+)
+
+
+nbl_create_executable_project(
+	"${EXTRA_SOURCES}"
+	""
+	""
+	""
+)

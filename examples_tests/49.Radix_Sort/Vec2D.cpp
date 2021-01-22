@@ -1,9 +1,11 @@
 ﻿#include "Vec2D.h"
 
-
-nbl::Vec2D::Vec2D(const uint32_t Key, const uint32_t Data):
-	Key(Key),
-	Data(Data)
+void Radix_Sort::Vec2D::Set_Key(const uint32_t Key)
 {
-	
+	this->Key = Key;
+}
+
+void Radix_Sort::Vec2D::Set_Data(const uint32_t Data)
+{
+	this->Data = Data;
 }

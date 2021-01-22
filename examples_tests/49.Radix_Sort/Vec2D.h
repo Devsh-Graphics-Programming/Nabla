@@ -2,11 +2,8 @@
 #define _VEC2D_H_INCLUDED__
 
 #include <cstdint>
-#include <memory>
-#include <utility>
-#include <algorithm>
 
-namespace nbl
+namespace Radix_Sort
 {
 
 	class Vec2D
@@ -14,16 +11,21 @@ namespace nbl
 	private:
 		uint32_t Key;
 		uint32_t Data;
-	protected:
-	
+		
 	public:
 		Vec2D() = default;
-		Vec2D(const uint32_t Key, const uint32_t Data);
+		Vec2D(const uint32_t Key, const uint32_t Data) :
+			Key(Key),
+			Data(Data)
+		{
+			
+		}
 		
 		Vec2D(const Vec2D& Object) = default;
 		Vec2D(Vec2D&& Object) = delete;
 
-		
+		void Set_Key(const uint32_t Key);
+		void Set_Data(const uint32_t Data);
 
 		Vec2D& operator=(const Vec2D& Object) = default;
 		Vec2D& operator=(Vec2D&& Object) = delete;
