@@ -3,6 +3,10 @@
 
 
 
+#include <nbl/builtin/glsl/math/animations.glsl>
+
+
+
 const uint nbl_glsl_scene_Node_invalid_UID = 0xdeadbeefu;
 
 bool nbl_glsl_scene_Node_isValidUID(in uint uid)
@@ -24,9 +28,9 @@ void nbl_glsl_scene_Node_accumulateLinearSkin(inout vec4 accVertexPos, inout vec
 struct nbl_glsl_scene_Node_static_data_t
 {
 	vec3 AABBMin;
-	uint parentUID;
+	uint parentUID; // parentUID + flags
 	vec3 AABBMax;
-	uint flags;
+	uint flags; // animationUID + flags
 };
 const uint nbl_glsl_scene_Node_static_data_t_EF_CULL_CHILDREN = 0x00000002u;
 const uint nbl_glsl_scene_Node_static_data_t_EF_DRAWABLE = 0x00000001u;

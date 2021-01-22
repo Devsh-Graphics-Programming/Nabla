@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#version 420 core
+#version 440 core
 layout(binding = 3) uniform samplerBuffer tex3;
 
 layout(location = 0) in vec3 vPos;
@@ -23,7 +23,7 @@ void main()
     vec3 nml;
     {
         const bool hasBones = nbl_glsl_scene_Node_isValidUID(vBoneIDs[0]);
-        uint nodeID = hasBones ? vBoneIDs[0]:pc.nodeID;
+        uint nodeID = hasBones ? bone2nodeUID[vBoneIDs[0]]:pc.nodeID;
 
         nbl_glsl_scene_Node_per_camera_data_t bone_camera_data = node_camera_data[(pc.cameraID,nodeID)];
         nbl_glsl_scene_Node_output_data_t bone_out_data = node_output_data[nodeID];
@@ -31,7 +31,7 @@ void main()
         nbl_glsl_scene_Node_initializeLinearSkin(pos,nml,vPos,vNormal,bone_camera_data.worldViewProj,nbl_glsl_scene_Node_output_data_t_getNormalMatrix(bone_out_data),hasBones ? vBoneWeights[0]:1.f);
         for (int i=1; i<4; i++)
         {
-            nodeID = vBoneIDs[i];
+            nodeID = bone2nodeUID[vBoneIDs[i]];
             if (nbl_glsl_scene_Node_isValidUID(nodeID))
             {
                 bone_camera_data = node_camera_data[(pc.cameraID,nodeID)];
