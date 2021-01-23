@@ -17,9 +17,7 @@ namespace Radix_Sort
 		Vec2D(const uint32_t Key, const uint32_t Data) :
 			Key(Key),
 			Data(Data)
-		{
-			
-		}
+		{}
 		
 		Vec2D(const Vec2D& Object) = default;
 		Vec2D(Vec2D&& Object) = delete;
@@ -29,8 +27,6 @@ namespace Radix_Sort
 
 		Vec2D& operator=(const Vec2D& Object) = default;
 		Vec2D& operator=(Vec2D&& Object) = delete;
-
-		/////////////////////////////////////////////////////////////////
 		
 		[[nodiscard]] inline uint32_t Get_Key() const
 		{
@@ -47,4 +43,4 @@ namespace Radix_Sort
 	
 }
 
-#endif
+#endif /* _VEC2D_H_INCLUDED__ */

@@ -30,3 +30,4 @@ examples_tests/06.MeshLoaders/bin/extrusionLogo_TEST_fixed.baw
 examples_tests/07.HardwareSkinning/bin/dwarf.baw
 examples_tests/39.DenoiserTonemapper/bin/*
 examples_tests/49.Radix_Sort/bin/*
+examples_tests/02.ComputeShader/bin/*
