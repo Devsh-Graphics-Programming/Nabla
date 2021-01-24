@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
 	params.Vsync = true;
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false;
-	params.StreamingDownloadBufferSize = 256*1024*1024; // change in Vulkan fo
+	params.StreamingDownloadBufferSize = 2560*1024*1024;
 	auto device = createDeviceEx(params);
 
 	if (check_error(!device,"Could not create Irrlicht Device!"))
@@ -843,38 +843,37 @@ void main()
 				OptixImage2D denoiserInputs[EII_COUNT];
 				OptixImage2D denoiserOutput;
 
-				const video::VkMemoryRequirements& vulkanFetchedReqs = temporaryPixelBuffer.getObject()->getMemoryReqs().vulkanReqs;
 				auto downloadStagingArea = driver->getDefaultDownStreamingBuffer();
-				uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address; // remember without initializing the address to be allocated to invalid_address you won't get an allocation!
-
+				
 				constexpr uint64_t timeoutInNanoSeconds = 300000000000u;
 				const auto waitPoint = std::chrono::high_resolution_clock::now() + std::chrono::nanoseconds(timeoutInNanoSeconds);
 
-				// download buffer
+				auto downloadAndGetBuffer = [&, downloadStagingArea](auto& optixGpuBuffer) -> core::smart_refctd_ptr<ICPUBuffer>
 				{
+					const video::VkMemoryRequirements& vulkanFetchedReqs = optixGpuBuffer.getObject()->getMemoryReqs().vulkanReqs;
+					uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address; // remember without initializing the address to be allocated to invalid_address you won't get an allocation!
 					const uint32_t alignment = 4096u; // common page size
 					const uint32_t size = vulkanFetchedReqs.size;
 					auto unallocatedSize = downloadStagingArea->multi_alloc(waitPoint, 1u, &address, &size, &alignment);
 					if (unallocatedSize)
 					{
 						os::Printer::log(makeImageIDString(i) + "Could not download the buffer from the GPU!", ELL_ERROR);
-						continue;
+						return nullptr;
 					}
 
-					driver->copyBuffer(temporaryPixelBuffer.getObject(), downloadStagingArea->getBuffer(), 0u, address, vulkanFetchedReqs.size);
-				}
-				auto downloadFence = driver->placeFence(true);
+					driver->copyBuffer(optixGpuBuffer.getObject(), downloadStagingArea->getBuffer(), 0u, address, vulkanFetchedReqs.size);
 
-				auto* data = reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer()) + address;
-				auto denoiserInputsTexelBuffer = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(vulkanFetchedReqs.size, data, core::adopt_memory);
+					auto downloadFence = driver->placeFence(true);
 
-				while (downloadFence->waitCPU(1000ull, downloadFence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED) {}
+					auto* data = reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer()) + address;
+					return core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(vulkanFetchedReqs.size, data, core::adopt_memory);
+
+					while (downloadFence->waitCPU(1000ull, downloadFence->canDeferredFlush()) == video::EDFR_TIMEOUT_EXPIRED) {}
+				};
+
+				core::smart_refctd_ptr<ICPUBuffer> denoiserInputsTexelBuffer = downloadAndGetBuffer(temporaryPixelBuffer);
+				core::smart_refctd_ptr<ICPUBuffer> denoiserOutputTexelBuffer = downloadAndGetBuffer(imagePixelBuffer);
 				
-				//downloadStagingArea->multi_free()
-				//inline void         multi_free(uint32_t count, const size_type* addr, const size_type* bytes) noexcept
-				// @devsh count?
-				// it fails at second image while downloading buffer, guess it's due to lack of multi-free
-
 				for (size_t k = 0; k < denoiserInputCount; k++)
 				{
 					denoiserInputs[k].data = temporaryPixelBuffer.asBuffer.pointer + shaderConstants.outImageOffset[k] * sizeof(uint16_t);
@@ -886,7 +885,7 @@ void main()
 					
 					#ifdef DDSInputOutputDenoiserSave
 
-					auto createImage = [&](bool isInputFilterImage = true) -> core::smart_refctd_ptr<ICPUImage>
+					auto createImage = [&](core::smart_refctd_ptr<ICPUBuffer> referecceTexelBuffer, uint64_t memoryOffset, bool isInputFilterImage = true) -> core::smart_refctd_ptr<ICPUImage>
 					{
 						asset::ICPUImage::SCreationParams imgInfo;
 						imgInfo.format = isInputFilterImage ? EF_R16G16B16_SFLOAT : EF_R16G16B16A16_SFLOAT;
@@ -905,7 +904,7 @@ void main()
 						auto createTexelBuffer = [&]() -> core::smart_refctd_ptr<asset::ICPUBuffer>
 						{
 							if (isInputFilterImage)
-								return core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(image->getImageDataSizeInBytes(), reinterpret_cast<uint16_t*>(denoiserInputsTexelBuffer->getPointer()) + shaderConstants.outImageOffset[k], core::adopt_memory);
+								return core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>>>(image->getImageDataSizeInBytes(), reinterpret_cast<uint8_t*>(referecceTexelBuffer->getPointer()) + memoryOffset, core::adopt_memory);
 							else
 							{
 								auto texelBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(image->getImageDataSizeInBytes());
@@ -932,36 +931,42 @@ void main()
 						return image;
 					};
 
-					core::smart_refctd_ptr<asset::ICPUImage> inputTileImage = createImage();
-					core::smart_refctd_ptr<asset::ICPUImage> outputTileImage = createImage(false);
-
-					using ConvertFilter = asset::CConvertFormatImageFilter<EF_R16G16B16_SFLOAT, EF_R16G16B16A16_SFLOAT>;
-					ConvertFilter convertFilter;
-					ConvertFilter::state_type state;
-
-					state.extent = { param.width, param.height, 1 };
-					state.inBaseLayer = 0;
-					state.inImage = inputTileImage.get();
-					state.inMipLevel = 0;
-					state.inOffset = { 0, 0, 0 };
-					state.layerCount = 1;
-					state.outBaseLayer = 0;
-					state.outImage = outputTileImage.get();
-					state.outMipLevel = 0;
-					state.outOffset = { 0, 0, 0 };
-
-					if (!convertFilter.execute(&state))
-						os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Something went wrong while converting the image!", ELL_WARNING);
-
-					ICPUImageView::SCreationParams imageViewParams;
-					imageViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
-					imageViewParams.format = outputTileImage->getCreationParameters().format;
-					imageViewParams.image = std::move(outputTileImage);
-					imageViewParams.viewType = ICPUImageView::ET_2D;
-					imageViewParams.subresourceRange = { static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u };
-					auto imageView = ICPUImageView::create(std::move(imageViewParams));
+					auto getConvertedOptixData = [&](core::smart_refctd_ptr<ICPUBuffer> texelBuffer, uint64_t memoryOffset) -> core::smart_refctd_ptr<ICPUImageView>
 					{
-						IAssetWriter::SAssetWriteParams wp(imageView.get());
+						core::smart_refctd_ptr<asset::ICPUImage> inputFilterImage = createImage(texelBuffer, memoryOffset);
+						core::smart_refctd_ptr<asset::ICPUImage> outputFilterImage = createImage(texelBuffer, memoryOffset, false);
+
+						using ConvertFilter = asset::CConvertFormatImageFilter<EF_R16G16B16_SFLOAT, EF_R16G16B16A16_SFLOAT>;
+						ConvertFilter convertFilter;
+						ConvertFilter::state_type state;
+
+						state.extent = { param.width, param.height, 1 };
+						state.inBaseLayer = 0;
+						state.inImage = inputFilterImage.get();
+						state.inMipLevel = 0;
+						state.inOffset = { 0, 0, 0 };
+						state.layerCount = 1;
+						state.outBaseLayer = 0;
+						state.outImage = outputFilterImage.get();
+						state.outMipLevel = 0;
+						state.outOffset = { 0, 0, 0 };
+
+						if (!convertFilter.execute(&state))
+							os::Printer::log("WARNING (" + std::to_string(__LINE__) + " line): Something went wrong while converting the image!", ELL_WARNING);
+
+						ICPUImageView::SCreationParams imageViewParams;
+						imageViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+						imageViewParams.format = outputFilterImage->getCreationParameters().format;
+						imageViewParams.image = std::move(outputFilterImage);
+						imageViewParams.viewType = ICPUImageView::ET_2D;
+						imageViewParams.subresourceRange = { static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u };
+
+						return ICPUImageView::create(std::move(imageViewParams));
+					};
+
+					core::smart_refctd_ptr<ICPUImageView> inputDenoiserImageData = getConvertedOptixData(denoiserInputsTexelBuffer, shaderConstants.outImageOffset[k] * sizeof(uint16_t));
+					{
+						IAssetWriter::SAssetWriteParams wp(inputDenoiserImageData.get());
 						auto getInputTerminateName = [&]() -> std::string
 						{
 							switch (k)
@@ -981,7 +986,17 @@ void main()
 						std::string fileName = removedExtensionFile + "_optix_input_" + getInputTerminateName() + ".dds";
 
 						if(!am->writeAsset(fileName , wp))
-							os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Could not save .dds file!", ELL_ERROR);
+							os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Could not save input denoiser .dds file!", ELL_ERROR);
+
+						if (k >= denoiserInputCount - 1)
+						{
+							core::smart_refctd_ptr<ICPUImageView> outputDenoiserImageData = getConvertedOptixData(denoiserOutputTexelBuffer, shaderConstants.inImageTexelOffset[EII_COLOR]);
+							fileName = removedExtensionFile + "_optix_output.dds";
+							IAssetWriter::SAssetWriteParams wp(outputDenoiserImageData.get());
+
+							if (!am->writeAsset(fileName, wp))
+								os::Printer::log("ERROR (" + std::to_string(__LINE__) + " line): Could not save output denoiser .dds file!", ELL_ERROR);
+						}
 					}
 
 					#endif // DDSInputOutputDenoiserSave
