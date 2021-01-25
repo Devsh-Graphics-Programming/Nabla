@@ -25,16 +25,16 @@ class FFT : public core::TotalInterface
 			uint32_t workGroupCount[3];
 		};
 
-		struct Uniforms_t 
+		struct alignas(16) Uniforms_t 
 		{
-			uint32_t dims[3]; 
+			uint32_t dims[3];
 		};
 
 		// returns dispatch size and fills the uniform data
 		static inline DispatchInfo_t buildParameters(Uniforms_t * uniform, asset::VkExtent3D const & inputDimensions, uint32_t workGroupXdim = DEFAULT_WORK_GROUP_X_DIM)
 		{
 			DispatchInfo_t ret = {};
-			if(nullptr != uniforms) {
+			if(nullptr != uniform) {
 				uniform->dims[0] = inputDimensions.width;
 				uniform->dims[1] = inputDimensions.height;
 				uniform->dims[2] = inputDimensions.depth;
@@ -44,7 +44,7 @@ class FFT : public core::TotalInterface
 			ret.workGroupDims[1] = 1;
 			ret.workGroupDims[2] = 1;
 
-			ret.workGroupCount[0] = (inputDimensions.width / workGroupXdim) + 1;
+			ret.workGroupCount[0] = core::ceil((inputDimensions.width) / float(workGroupXdim));
 			ret.workGroupCount[1] = inputDimensions.height;
 			ret.workGroupCount[2] = inputDimensions.depth;
 			return ret;
@@ -98,6 +98,7 @@ class FFT : public core::TotalInterface
 		static inline void updateDescriptorSet(
 			video::IVideoDriver * driver,
 			video::IGPUDescriptorSet * set,
+			asset::VkExtent3D const & inputDimensions,
 			core::smart_refctd_ptr<video::IGPUBuffer> inputBufferDescriptor,
 			core::smart_refctd_ptr<video::IGPUBuffer> outputBufferDescriptor,
 			core::smart_refctd_ptr<video::IGPUBuffer> uniformBufferDescriptor)
@@ -115,13 +116,17 @@ class FFT : public core::TotalInterface
 			// Uniform Buffer
 			pWrites[0].binding = 0;
 			pWrites[0].descriptorType = asset::EDT_UNIFORM_BUFFER;
+			pWrites[0].count = 1;
 			pInfos[0].desc = uniformBufferDescriptor;
 			pInfos[0].buffer.size = sizeof(Uniforms_t);
 			pInfos[0].buffer.offset = 0u;
 
+			uint32_t input_count = inputDimensions.width * inputDimensions.height * inputDimensions.depth;
+
 			// Input Buffer 
 			pWrites[1].binding = 1;
 			pWrites[1].descriptorType = asset::EDT_STORAGE_BUFFER;
+			pWrites[2].count = 1;
 			pInfos[1].desc = inputBufferDescriptor;
 			pInfos[1].buffer.size = inputBufferDescriptor->getSize();
 			pInfos[1].buffer.offset = 0u;
@@ -129,6 +134,7 @@ class FFT : public core::TotalInterface
 			// Output Buffer 
 			pWrites[2].binding = 2;
 			pWrites[2].descriptorType = asset::EDT_STORAGE_BUFFER;
+			pWrites[2].count = 1;
 			pInfos[2].desc = outputBufferDescriptor;
 			pInfos[2].buffer.size = outputBufferDescriptor->getSize();
 			pInfos[2].buffer.offset = 0u;
