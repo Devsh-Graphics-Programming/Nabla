@@ -25,51 +25,32 @@ core::SRange<const asset::SPushConstantRange> FFT::getDefaultPushConstantRanges(
 
 core::SRange<const video::IGPUDescriptorSetLayout::SBinding> FFT::getDefaultBindings(video::IVideoDriver* driver)
 {
-    static core::smart_refctd_ptr<IGPUSampler> sampler;
     static const IGPUDescriptorSetLayout::SBinding bnd[] =
     {
         {
             0u,
-            EDT_UNIFORM_BUFFER_DYNAMIC,
+            EDT_UNIFORM_BUFFER,
             1u,
             ISpecializedShader::ESS_COMPUTE,
             nullptr
         },
         {
             1u,
-            EDT_STORAGE_BUFFER_DYNAMIC,
+            EDT_STORAGE_BUFFER,
             1u,
             ISpecializedShader::ESS_COMPUTE,
             nullptr
         },
         {
             2u,
-            EDT_COMBINED_IMAGE_SAMPLER,
+            EDT_STORAGE_BUFFER,
             1u,
             ISpecializedShader::ESS_COMPUTE,
-            &sampler
-        }
+            nullptr
+        },
     };
-    if (!sampler)
-    {
-        IGPUSampler::SParams params =
-        {
-            {
-                ISampler::ETC_CLAMP_TO_EDGE,
-                ISampler::ETC_CLAMP_TO_EDGE,
-                ISampler::ETC_CLAMP_TO_EDGE,
-                ISampler::ETBC_FLOAT_OPAQUE_BLACK,
-                ISampler::ETF_LINEAR,
-                ISampler::ETF_LINEAR,
-                ISampler::ESMM_NEAREST,
-                0u,
-                0u,
-                ISampler::ECO_ALWAYS
-            }
-        };
-        sampler = driver->createGPUSampler(params);
-    }
-    return {bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
+    
+	return {bnd, bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
 }
 
 core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createShader(video::IVideoDriver* driver, asset::E_FORMAT format)
@@ -114,6 +95,31 @@ layout(set=_NBL_GLSL_EXT_FFT_UNIFORM_SET_DEFINED_, binding=_NBL_GLSL_EXT_FFT_UNI
 	nbl_glsl_ext_FFT_Uniforms_t inParams;
 };
 
+
+// Input Descriptor
+
+struct nbl_glsl_ext_FFT_input_t
+{
+    float real_value;
+};
+
+#ifndef _NBL_GLSL_EXT_FFT_INPUT_SET_DEFINED_
+#define _NBL_GLSL_EXT_FFT_INPUT_SET_DEFINED_ 0
+#endif
+
+#ifndef _NBL_GLSL_EXT_FFT_INPUT_BINDING_DEFINED_
+#define _NBL_GLSL_EXT_FFT_INPUT_BINDING_DEFINED_ 1
+#endif
+
+#ifndef _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
+#define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
+layout(set=_NBL_GLSL_EXT_FFT_INPUT_SET_DEFINED_, binding=_NBL_GLSL_EXT_FFT_INPUT_BINDING_DEFINED_) readonly restrict buffer InputBuffer
+{
+	nbl_glsl_ext_FFT_input_t inData[];
+};
+
+#endif
+
 // Output Descriptor
 
 struct nbl_glsl_ext_FFT_output_t
@@ -127,14 +133,14 @@ struct nbl_glsl_ext_FFT_output_t
 #endif
 
 #ifndef _NBL_GLSL_EXT_FFT_OUTPUT_BINDING_DEFINED_
-#define _NBL_GLSL_EXT_FFT_OUTPUT_BINDING_DEFINED_ 1
+#define _NBL_GLSL_EXT_FFT_OUTPUT_BINDING_DEFINED_ 2
 #endif
 
 #ifndef _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
 #define _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
 layout(set=_NBL_GLSL_EXT_FFT_OUTPUT_SET_DEFINED_, binding=_NBL_GLSL_EXT_FFT_OUTPUT_BINDING_DEFINED_) restrict buffer OutputBuffer
 {
-	nbl_glsl_ext_FFT_output_t outParams[];
+	nbl_glsl_ext_FFT_output_t outData[];
 };
 #endif
 
@@ -143,14 +149,16 @@ layout(set=_NBL_GLSL_EXT_FFT_OUTPUT_SET_DEFINED_, binding=_NBL_GLSL_EXT_FFT_OUTP
 
 float nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
 {
-	return 3.3f;
+    uvec3 dimension = inParams.dimension;
+    uint index = coordinate.z * dimension.x * dimension.y + coordinate.y * dimension.x + coordinate.x;
+    return inData[index].real_value;
 }
 
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in vec2 complex_value)
 {
     uvec3 dimension = inParams.dimension;
-    uint index = coordinate.z * dimension.x * dimension.y + coordinate.y * dimension.x + coordinate.x; // TODO: Compute Index from coordinate
-    outParams[index].complex_value = complex_value;
+    uint index = coordinate.z * dimension.x * dimension.y + coordinate.y * dimension.x + coordinate.x;
+    outData[index].complex_value = complex_value;
 }
 
 void main()

@@ -42,9 +42,46 @@ int main()
 	nbl::io::IFileSystem* filesystem = device->getFileSystem();
 	IAssetManager* am = device->getAssetManager();
 
+	constexpr VkExtent3D fftDim = VkExtent3D{256, 1, 1};
+
 	using FFTClass = ext::FFT::FFT;
-	FFTClass::createShader(driver, EF_R8G8B8A8_UNORM);
+	auto fftGPUSpecializedShader = FFTClass::createShader(driver, EF_R8G8B8A8_UNORM);
 	
+	auto fftPipelineLayout = FFTClass::getDefaultPipelineLayout(driver);
+	auto fftPipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout), std::move(fftGPUSpecializedShader));
+
+	FFTClass::Uniforms_t fftUniform = {};
+	auto fftDispatchInfo = FFTClass::buildParameters(&fftUniform, fftDim);
+
+	// Allocate(and fill) uniform Buffer
+	auto fftUniformBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(fftUniform), &fftUniform);
+
+	// Allocate Output Buffer
+	auto fftOutputBuffer = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(fftDim, sizeof(float)));
+
+	// Allocate Input Buffer 
+	uint32_t fftInputBufferSize = FFTClass::getInputBufferSize(fftDim, sizeof(float));
+	auto fftInputBuffer = driver->createDeviceLocalGPUBufferOnDedMem(fftInputBufferSize);
+
+	auto fftDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout->getDescriptorSetLayout(0u)));
+	FFTClass::updateDescriptorSet(driver, fftDescriptorSet.get(), fftInputBuffer, fftUniformBuffer, fftUniformBuffer);
+	
+	// Create and Fill GPU Input Buffer
+	float * fftInputMem = reinterpret_cast<float *>(_NBL_ALIGNED_MALLOC(fftInputBufferSize, 1));
+
+	for(uint32_t i = 0; i < fftDim.width; ++i) {
+		fftInputMem[i] = i;
+	}
+
+	video::IDriverMemoryAllocation::MemoryRange updateRange(0, fftInputBufferSize); 
+	fftInputBuffer->updateSubRange(updateRange, fftInputMem);
+		
+	_NBL_ALIGNED_FREE(fftInputMem);
+
+
+
+
+
 	IAssetLoader::SAssetLoadParams lp;
 	auto imageBundle = am->getAsset("../../media/noises/spp_benchmark_4k_512.exr", lp);
 
@@ -80,7 +117,6 @@ int main()
 		outImgView = driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewInfo));
 	}
 
-	auto glslCompiler = am->getGLSLCompiler();
 	const auto inputColorSpace = std::make_tuple(inFormat,ECP_SRGB,EOTF_IDENTITY);
 
 	using LumaMeterClass = ext::LumaMeter::CLumaMeter;
@@ -88,7 +124,7 @@ int main()
 	const float minLuma = 1.f/2048.f;
 	const float maxLuma = 65536.f;
 
-	auto cpuLumaMeasureSpecializedShader = LumaMeterClass::createShader(glslCompiler,inputColorSpace,MeterMode,minLuma,maxLuma);
+	auto cpuLumaMeasureSpecializedShader = LumaMeterClass::createShader(nullptr, inputColorSpace,MeterMode,minLuma,maxLuma);
 	auto gpuLumaMeasureShader = driver->createGPUShader(smart_refctd_ptr<const ICPUShader>(cpuLumaMeasureSpecializedShader->getUnspecialized()));
 	auto gpuLumaMeasureSpecializedShader = driver->createGPUSpecializedShader(gpuLumaMeasureShader.get(), cpuLumaMeasureSpecializedShader->getSpecializationInfo());
 
@@ -103,12 +139,11 @@ int main()
 	using ToneMapperClass = ext::ToneMapper::CToneMapper;
 	constexpr auto TMO = ToneMapperClass::EO_ACES;
 	constexpr bool usingLumaMeter = MeterMode<LumaMeterClass::EMM_COUNT;
-	constexpr bool usingTemporalAdapatation = true;
 
-	auto cpuTonemappingSpecializedShader = ToneMapperClass::createShader(am->getGLSLCompiler(),
+	auto cpuTonemappingSpecializedShader = ToneMapperClass::createShader(nullptr,
 		inputColorSpace,
 		std::make_tuple(outFormat,ECP_SRGB,OETF_sRGB),
-		TMO,usingLumaMeter,MeterMode,minLuma,maxLuma,usingTemporalAdapatation
+		TMO,usingLumaMeter,MeterMode,minLuma,maxLuma,false
 	);
 	auto gpuTonemappingShader = driver->createGPUShader(smart_refctd_ptr<const ICPUShader>(cpuTonemappingSpecializedShader->getUnspecialized()));
 	auto gpuTonemappingSpecializedShader = driver->createGPUSpecializedShader(gpuTonemappingShader.get(),cpuTonemappingSpecializedShader->getSpecializationInfo());
@@ -130,7 +165,7 @@ int main()
 	auto toneMappingPipeline = driver->createGPUComputePipeline(nullptr,core::smart_refctd_ptr(commonPipelineLayout),std::move(gpuTonemappingSpecializedShader));
 
 	auto commonDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(commonPipelineLayout->getDescriptorSetLayout(0u)));
-	ToneMapperClass::updateDescriptorSet<TMO,MeterMode>(driver,commonDescriptorSet.get(),parameterBuffer,imgToTonemapView,outImgStorage,1u,2u,usingLumaMeter ? 3u:0u,uniformBuffer,0u,usingTemporalAdapatation);
+	ToneMapperClass::updateDescriptorSet<TMO,MeterMode>(driver,commonDescriptorSet.get(),parameterBuffer,imgToTonemapView,outImgStorage,1u,2u,usingLumaMeter ? 3u:0u,uniformBuffer,0u,false);
 
 
 	constexpr auto dynOffsetArrayLen = usingLumaMeter ? 2u : 1u;
@@ -150,30 +185,18 @@ int main()
 	{
 		driver->beginScene(false, false);
 
-		driver->bindComputePipeline(lumaMeteringPipeline.get());
-		driver->bindDescriptorSets(EPBP_COMPUTE,commonPipelineLayout.get(),0u,1u,&commonDescriptorSet.get(),&lumaDynamicOffsetArray);
-		driver->pushConstants(commonPipelineLayout.get(),IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(outBufferIx),&outBufferIx); outBufferIx ^= 0x1u;
-		LumaMeterClass::dispatchHelper(driver,lumaDispatchInfo,true);
+		driver->bindComputePipeline(fftPipeline.get());
+		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout.get(), 0u, 1u, &fftDescriptorSet.get(), nullptr);
+		/// driver->pushConstants(commonPipelineLayout.get(),IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(outBufferIx),&outBufferIx); outBufferIx ^= 0x1u;
+		FFTClass::dispatchHelper(driver, fftDispatchInfo, true);
 
-		driver->bindComputePipeline(toneMappingPipeline.get());
-		driver->bindDescriptorSets(EPBP_COMPUTE,commonPipelineLayout.get(),0u,1u,&commonDescriptorSet.get(),&toneDynamicOffsetArray);
-		ToneMapperClass::dispatchHelper(driver,outImgStorage.get(),true);
+		//driver->bindComputePipeline(toneMappingPipeline.get());
+		//driver->bindDescriptorSets(EPBP_COMPUTE,commonPipelineLayout.get(),0u,1u,&commonDescriptorSet.get(),&toneDynamicOffsetArray);
+		//ToneMapperClass::dispatchHelper(driver,outImgStorage.get(),true);
 
 		driver->blitRenderTargets(blitFBO, nullptr, false, false);
 
 		driver->endScene();
-		if (usingTemporalAdapatation)
-		{
-			auto thisPresentStamp = std::chrono::high_resolution_clock::now();
-			auto microsecondsElapsedBetweenPresents = std::chrono::duration_cast<std::chrono::microseconds>(thisPresentStamp-lastPresentStamp);
-			lastPresentStamp = thisPresentStamp;
-
-			params.setAdaptationFactorFromFrameDelta(float(microsecondsElapsedBetweenPresents.count())/1000000.f);
-			// dont override shader output
-			constexpr auto offsetPastLumaHistory = offsetof(decltype(params),lastFrameExtraEVAsHalf)+sizeof(decltype(params)::lastFrameExtraEVAsHalf);
-			auto* paramPtr = reinterpret_cast<const uint8_t*>(&params);
-			driver->updateBufferRangeViaStagingBuffer(parameterBuffer.get(), offsetPastLumaHistory, sizeof(params)-offsetPastLumaHistory, paramPtr+offsetPastLumaHistory);
-		}
 	}
 
 	return 0;
