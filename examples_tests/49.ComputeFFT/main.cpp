@@ -42,6 +42,9 @@ int main()
 	nbl::io::IFileSystem* filesystem = device->getFileSystem();
 	IAssetManager* am = device->getAssetManager();
 
+	using FFTClass = ext::FFT::FFT;
+	FFTClass::createShader(driver, EF_R8G8B8A8_UNORM);
+	
 	IAssetLoader::SAssetLoadParams lp;
 	auto imageBundle = am->getAsset("../../media/noises/spp_benchmark_4k_512.exr", lp);
 

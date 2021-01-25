@@ -38,12 +38,19 @@ class FFT : public core::TotalInterface
         static core::SRange<const video::IGPUDescriptorSetLayout::SBinding> getDefaultBindings(video::IVideoDriver* driver);
 
         //
-        static inline size_t getOutputBufferSize(asset::VkExtent3D const & imageSize, asset::E_FORMAT format)
+        static inline size_t getOutputBufferSize(asset::VkExtent3D const & dataDimensions, asset::E_FORMAT format)
         {
-            return (imageSize.width * imageSize.height * imageSize.depth) * asset::getTexelOrBlockBytesize(format);
+            return 2 * (dataDimensions.width * dataDimensions.height * dataDimensions.depth) * asset::getTexelOrBlockBytesize(format); // x2 because -> output is a complex number
+        }
+        
+        //
+        static inline size_t getOutputBufferSize(asset::VkExtent3D const & dataDimensions, uint32_t data_point_bytes)
+        {
+            return 2 * (dataDimensions.width * dataDimensions.height * dataDimensions.depth) * data_point_bytes; // x2 because -> output is a complex number
         }
 
-        static core::smart_refctd_ptr<video::IGPUShader> createShader(asset::E_FORMAT format);
+
+        static core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(video::IVideoDriver* driver, asset::E_FORMAT format);
 
         // we expect user binds correct pipeline, descriptor sets and pushes the push constants by themselves
         static inline void dispatchHelper(video::IVideoDriver* driver, const DispatchInfo_t& dispatchInfo, bool issueDefaultBarrier=true)

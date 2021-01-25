@@ -72,73 +72,111 @@ core::SRange<const video::IGPUDescriptorSetLayout::SBinding> FFT::getDefaultBind
     return {bnd,bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
 }
 
-core::smart_refctd_ptr<video::IGPUShader> FFT::createShader(asset::E_FORMAT format)
+core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createShader(video::IVideoDriver* driver, asset::E_FORMAT format)
 {
     const char* sourceFmt =
 R"===(#version 430 core
 
+// WorkGroup Size
 
-#ifndef _NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_
-#define _NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_ 16
+#ifndef _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_
+#define _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_ 256
 #endif
 
-#ifndef _NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_
-#define _NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_ 16
+#ifndef _NBL_GLSL_EXT_FFT_BLOCK_SIZE_Y_DEFINED_
+#define _NBL_GLSL_EXT_FFT_BLOCK_SIZE_Y_DEFINED_ 1
 #endif
 
-#define _NBL_GLSL_WORKGROUP_SIZE_ (_NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_*_NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_)
-
-#define _NBL_GLSL_EXT_LUMA_METER_BIN_COUNT %d
-#define _NBL_GLSL_EXT_LUMA_METER_BIN_GLOBAL_REPLICATION %d
-
-
-#define _NBL_GLSL_EXT_LUMA_METER_MIN_LUMA_DEFINED_ %d
-#define _NBL_GLSL_EXT_LUMA_METER_MAX_LUMA_DEFINED_ %d
-
-#ifndef _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_
-#define _NBL_GLSL_EXT_LUMA_METER_MODE_DEFINED_ %d
+#ifndef _NBL_GLSL_EXT_FFT_BLOCK_SIZE_Z_DEFINED_
+#define _NBL_GLSL_EXT_FFT_BLOCK_SIZE_Z_DEFINED_ 1
 #endif
 
-#include "nbl/builtin/glsl/colorspace/EOTF.glsl"
-#include "nbl/builtin/glsl/colorspace/encodeCIEXYZ.glsl"
-#include "nbl/builtin/glsl/colorspace/decodeCIEXYZ.glsl"
-#include "nbl/builtin/glsl/colorspace/OETF.glsl"
+#define _NBL_GLSL_WORKGROUP_SIZE_ (_NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_*_NBL_GLSL_EXT_FFT_BLOCK_SIZE_Y_DEFINED_*_NBL_GLSL_EXT_FFT_BLOCK_SIZE_Z_DEFINED_)
 
-#define _NBL_GLSL_EXT_LUMA_METER_EOTF_DEFINED_ %s
-#define _NBL_GLSL_EXT_LUMA_METER_XYZ_CONVERSION_MATRIX_DEFINED_ %s
-#define _NBL_GLSL_EXT_LUMA_METER_GET_COLOR_DEFINED_
-#include "nbl/builtin/glsl/ext/LumaMeter/impl.glsl"
+layout(local_size_x=_NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_, local_size_y=_NBL_GLSL_EXT_FFT_BLOCK_SIZE_Y_DEFINED_, local_size_z=_NBL_GLSL_EXT_FFT_BLOCK_SIZE_Z_DEFINED_) in;
 
+#define _NBL_GLSL_EXT_FFT_GET_DATA_DEFINED_
+#define _NBL_GLSL_EXT_FFT_SET_DATA_DEFINED_
+#include "nbl/builtin/glsl/ext/FFT/fft.glsl"
 
-layout(local_size_x=_NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_X_DEFINED_, local_size_y=_NBL_GLSL_EXT_LUMA_METER_DISPATCH_SIZE_Y_DEFINED_) in;
+// Uniform
 
+#ifndef _NBL_GLSL_EXT_FFT_UNIFORM_SET_DEFINED_
+#define _NBL_GLSL_EXT_FFT_UNIFORM_SET_DEFINED_ 0
+#endif
 
+#ifndef _NBL_GLSL_EXT_FFT_UNIFORM_BINDING_DEFINED_
+#define _NBL_GLSL_EXT_FFT_UNIFORM_BINDING_DEFINED_ 0
+#endif
 
-layout(set=_NBL_GLSL_EXT_LUMA_METER_UNIFORMS_SET_DEFINED_, binding=_NBL_GLSL_EXT_LUMA_METER_UNIFORMS_BINDING_DEFINED_) uniform Uniforms
+layout(set=_NBL_GLSL_EXT_FFT_UNIFORM_SET_DEFINED_, binding=_NBL_GLSL_EXT_FFT_UNIFORM_BINDING_DEFINED_) uniform Uniforms
 {
-    nbl_glsl_ext_LumaMeter_Uniforms_t inParams;
+	nbl_glsl_ext_FFT_Uniforms_t inParams;
+};
+
+// Output Descriptor
+
+struct nbl_glsl_ext_FFT_output_t
+{
+    vec2 complex_value;
 };
 
 
-vec3 nbl_glsl_ext_LumaMeter_getColor(bool wgExecutionMask)
+#ifndef _NBL_GLSL_EXT_FFT_OUTPUT_SET_DEFINED_
+#define _NBL_GLSL_EXT_FFT_OUTPUT_SET_DEFINED_ 0
+#endif
+
+#ifndef _NBL_GLSL_EXT_FFT_OUTPUT_BINDING_DEFINED_
+#define _NBL_GLSL_EXT_FFT_OUTPUT_BINDING_DEFINED_ 1
+#endif
+
+#ifndef _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
+#define _NBL_GLSL_EXT_FFT_OUTPUT_DESCRIPTOR_DEFINED_
+layout(set=_NBL_GLSL_EXT_FFT_OUTPUT_SET_DEFINED_, binding=_NBL_GLSL_EXT_FFT_OUTPUT_BINDING_DEFINED_) restrict buffer OutputBuffer
 {
-    vec3 retval;
-    if (wgExecutionMask)
-    {
-        vec2 uv = vec2(gl_GlobalInvocationID.xy)*inParams.meteringWindowScale+inParams.meteringWindowOffset;
-        retval = textureLod(inputImage,vec3(uv,float(gl_GlobalInvocationID.z)),0.0).rgb;
-    }
-    return retval;
+	nbl_glsl_ext_FFT_output_t outParams[];
+};
+#endif
+
+
+// Get/Set Data Function
+
+float nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
+{
+	return 3.3f;
 }
 
+void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in vec2 complex_value)
+{
+    uvec3 dimension = inParams.dimension;
+    uint index = coordinate.z * dimension.x * dimension.y + coordinate.y * dimension.x + coordinate.x; // TODO: Compute Index from coordinate
+    outParams[index].complex_value = complex_value;
+}
 
 void main()
 {
-    nbl_glsl_ext_LumaMeter(true);
+	nbl_glsl_ext_FFT();
 }
-)===";
 
-    return {};
+)===";
+    
+	const size_t extraSize = 0;
+
+	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
+	snprintf(
+		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(),sourceFmt
+	);
+
+	auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
+		core::make_smart_refctd_ptr<ICPUShader>(std::move(shader),ICPUShader::buffer_contains_glsl),
+		ISpecializedShader::SInfo{nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE}
+	);
+    
+	auto gpuShader = driver->createGPUShader(nbl::core::smart_refctd_ptr<const ICPUShader>(cpuSpecializedShader->getUnspecialized()));
+    
+	auto gpuSpecializedShader = driver->createGPUSpecializedShader(gpuShader.get(), cpuSpecializedShader->getSpecializationInfo());
+
+    return gpuSpecializedShader;
 }
 
 void FFT::defaultBarrier()

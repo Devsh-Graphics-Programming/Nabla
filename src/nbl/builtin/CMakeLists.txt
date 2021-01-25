@@ -127,6 +127,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/workgroup/vote.glsl"
   # ext shouldn't be built into the engine, but there's no harm including some non-dynamic GLSL source to make life easier
   #"nbl/builtin/glsl/ext/.glsl"
+  "nbl/builtin/glsl/ext/FFT/fft.glsl"
   "nbl/builtin/glsl/ext/LumaMeter/common.glsl"
   "nbl/builtin/glsl/ext/LumaMeter/impl.glsl"
   "nbl/builtin/glsl/ext/ToneMapper/operators.glsl"
