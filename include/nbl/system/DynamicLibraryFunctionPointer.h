@@ -58,7 +58,10 @@ class DynamicLibraryFunctionPointer
 				return p(std::forward<T>(args)...);
 			else if (error)
 				error(name);
-			return result_type{};
+			if constexpr (!std::is_void_v<result_type>)
+			{
+				return result_type{};
+			}
 		}
 
 		template<typename... T>
@@ -66,7 +69,10 @@ class DynamicLibraryFunctionPointer
 		{
 			if (p)
 				return p(std::forward<T>(args)...);
-			return result_type{};
+			if constexpr (!std::is_void_v<result_type>)
+			{
+				return result_type{};
+			}
 		}
 
 

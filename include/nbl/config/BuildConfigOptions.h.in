@@ -19,6 +19,9 @@
 #cmakedefine _NBL_COMPILE_WITH_OPENGL_
 #cmakedefine _NBL_COMPILE_WITH_VULKAN_
 
+// native platform interface
+#cmakedefine _NBL_USE_SYSTEM_EGL
+
 // loaders
 #cmakedefine _NBL_COMPILE_WITH_MITSUBA_SERIALIZED_LOADER_
 #cmakedefine _NBL_COMPILE_WITH_MTL_LOADER_

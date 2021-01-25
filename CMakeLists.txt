@@ -10,7 +10,6 @@ set(OpenGL_GL_PREFERENCE LEGACY)
 
 project(Nabla LANGUAGES CXX C)
 
-
 find_package(Vulkan)
 if (Vulkan_FOUND)
 	message(STATUS "Building with Vulkan driver")
@@ -206,6 +205,17 @@ option(NBL_BUILD_TOOLS "Enable building tools (just convert2BAW as for now)" ON)
 option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" ON)
 
 option(NBL_BUILD_RADEON_RAYS "Enable nbl::ext::RadeonRays?" OFF)
+
+if (NBL_COMPILE_WITH_OPENGL OR NBL_COMPILE_WITH_OPENGLES)
+	find_package(EGL)
+	if (EGL_FOUND)
+		set(_NBL_USE_SYSTEM_EGL 1)
+	else()
+		set(_NBL_USE_SYSTEM_EGL 0)
+	endif()
+else()
+	set(_NBL_USE_SYSTEM_EGL 0)
+endif()
 
 if (NBL_COMPILE_WITH_CUDA)
 	find_package(OPTIX)

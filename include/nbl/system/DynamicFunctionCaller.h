@@ -8,6 +8,7 @@
 
 #include "nbl/core/core.h"
 #include "nbl/system/DynamicLibraryFunctionPointer.h"
+#include "nbl/system/DefaultFuncPtrLoader.h"
 
 namespace nbl
 {

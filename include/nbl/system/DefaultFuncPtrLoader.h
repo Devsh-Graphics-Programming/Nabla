@@ -24,7 +24,7 @@ class DefaultFuncPtrLoader final : FuncPtrLoader
 {
 	protected:
 		#if defined(_NBL_WINDOWS_API_)
-			HINSTANCE lib;
+			HMODULE lib;
 		#elif defined(_NBL_POSIX_API_)
 			void* lib;
 		#endif
