@@ -27,20 +27,32 @@ public:
         ECF_ALWAYS_ON_TOP = 1u<<9
     };
 
+    inline bool isFullscreen()      { return (m_flags & ECF_FULLSCREEN); }
+    inline bool isHidden()          { return (m_flags & ECF_HIDDEN); }
+    inline bool isBorderless()      { return (m_flags & ECF_BORDERLESS); }
+    inline bool isResizable()       { return (m_flags & ECF_RESIZABLE); }
+    inline bool isMinimized()       { return (m_flags & ECF_MINIMIZED); }
+    inline bool isMaximized()       { return (m_flags & ECF_MAXIMIZED); }
+    inline bool hasMouseCaptured()  { return (m_flags & ECF_MOUSE_CAPTURE); }
+    inline bool hasInputFocus()     { return (m_flags & ECF_INPUT_FOCUS); }
+    inline bool hasMouseFocus()     { return (m_flags & ECF_MOUSE_FOCUS); }
+    inline bool isAlwaysOnTop()     { return (m_flags & ECF_ALWAYS_ON_TOP); }
+
+    inline uint32_t getWidth() const { return m_width; }
+    inline uint32_t getHeight() const { return m_height; }
+
+protected:
     IWindow(uint32_t _w, uint32_t _h, E_CREATE_FLAGS _flags) :
         m_width(_w), m_height(_h), m_flags(_flags)
     {
 
     }
+    IWindow() = default;
 
-    uint32_t getWidth() const { return m_width; }
-    uint32_t getHeight() const { return m_height; }
-
-protected:
     virtual ~IWindow() = default;
 
-    uint32_t m_width, m_height;
-    E_CREATE_FLAGS m_flags;
+    uint32_t m_width = 0u, m_height = 0u;
+    E_CREATE_FLAGS m_flags = static_cast<E_CREATE_FLAGS>(0);
 };
 
 }

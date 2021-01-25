@@ -27,8 +27,6 @@ public:
         ci.pNext = nullptr;
         vkCreateWin32SurfaceKHR(instance, &ci, nullptr, &m_surface);
     }
-
-    VkSurfaceKHR m_surface;
 };
 
 }

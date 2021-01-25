@@ -2,16 +2,19 @@
 #define __NBL_C_SURFACE_GL_WIN32_H_INCLUDED__
 
 #include "nbl/video/surface/ISurfaceWin32.h"
+#include "nbl/video/surface/ISurfaceGL.h"
 
 namespace nbl {
 namespace video
 {
 
-class CSurfaceGLWin32 : public ISurfaceWin32
+class CSurfaceGLWin32 : public ISurfaceWin32, public ISurfaceGL
 {
-    // no specific object like VkSurfaceKHR here,
-    // it just needs to have a GL context assigned
+public:
+    CSurfaceGLWin32(SCreationParams&& params) : ISurfaceWin32(std::move(params)), ISurfaceGL(params.hwnd)
+    {
 
+    }
 };
 
 }
