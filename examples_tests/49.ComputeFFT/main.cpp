@@ -73,9 +73,8 @@ int main()
 		fftInputMem[i] = i;
 	}
 
-	video::IDriverMemoryAllocation::MemoryRange updateRange(0, fftInputBufferSize); 
-	fftInputBuffer->updateSubRange(updateRange, fftInputMem);
-		
+	driver->updateBufferRangeViaStagingBuffer(fftInputBuffer.get(), 0, fftInputBufferSize, fftInputMem);
+
 	_NBL_ALIGNED_FREE(fftInputMem);
 
 
