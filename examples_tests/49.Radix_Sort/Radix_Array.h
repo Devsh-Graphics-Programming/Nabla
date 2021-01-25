@@ -15,14 +15,16 @@ namespace Radix_Sort
 
 		void Deallocate_Resource() noexcept;
 	public:
-		Radix_Array();
+		Radix_Array() = delete;
 		Radix_Array(const std::size_t Array_Size);
 
 		Radix_Array(const Radix_Array& Object);
 		Radix_Array(Radix_Array&& Object) noexcept;
 
-		//[[nodiscard]] Vec2D* begin() const noexcept;
-		//[[nodiscard]] Vec2D* end() const noexcept;
+		std::size_t Index(const Vec2D * const Elem) const noexcept;
+
+		[[nodiscard]] Vec2D* begin() const noexcept;
+		[[nodiscard]] Vec2D* end() const noexcept;
 
 		Radix_Array& operator=(const Radix_Array& Object);
 		Radix_Array& operator=(Radix_Array&& Object) noexcept;

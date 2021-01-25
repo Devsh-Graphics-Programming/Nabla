@@ -7,9 +7,7 @@
 #include "Radix_Sort.h"	//my header
 
 
-
-constexpr std::size_t Buffer_Size = 8 * 1024 * 1024;	//data size
-//constexpr uint32_t Alignment = sizeof(Radix_Sort::Vec2D);
+constexpr std::size_t Buffer_Size = 8u * 1024u * 1024u;
 
 
 int main()
@@ -34,28 +32,21 @@ int main()
 	params.Doublebuffer = true;
 	params.Stencilbuffer = false; //! This will not even be a choice soon
 	params.StreamingDownloadBufferSize = Buffer_Size;
-
-
 	nbl::core::smart_refctd_ptr<nbl::IrrlichtDevice> device = createDeviceEx(params);
-	nbl::video::IVideoDriver* Video_driver = device->getVideoDriver();
+
+	if(!device)
+	{
+		return 1;
+	}
 
 	
-	//Vec2D* Data_To_Sort = new Vec2D[Buffer_Size];
-	//for (std::size_t i = 0; i < Buffer_Size; ++i)
-	//{
-	//	Data_To_Sort[i].Set_Key(static_cast<uint32_t>(Buffer_Size - i));   //setting up the keys, Buffer_Size, Buffer_Size-1, ... ,0 and the sort it to 0, ... , Buffer_Size-1, Buffer_Size
-	//}
-
-	//nbl::core::smart_refctd_ptr<nbl::video::IGPUBuffer> GPU_Input_Buffer = Video_driver->createFilledDeviceLocalGPUBufferOnDedMem(Buffer_Size, Data_To_Sort);
-	//nbl::video::IGPUBuffer* GPU_Buffer;
-
-	//
-	//
-	//delete[] Data_To_Sort;	//mem free
+	std::shared_ptr<nbl::video::IVideoDriver*> Video_driver = std::make_shared<IVideoDriver*>((device->getVideoDriver()));
+	
+	std::unique_ptr<Radix_Sort::Sorter> Radix_Sort_Ptr = std::make_unique<Radix_Sort>(Video_driver,device, Buffer_Size);
+	Radix_Sort_Ptr->Init();
 
 
-	std::unique_ptr<Radix_Sort> Radix_Sort_Ptr = std::make_unique<Radix_Sort>();
-	Radix_Sort_Ptr->Run();
+
 	
 	return 0;
 }

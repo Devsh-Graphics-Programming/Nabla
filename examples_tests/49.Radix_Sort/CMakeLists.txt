@@ -6,7 +6,6 @@ endif()
 
 set(EXTRA_SOURCES
 	Vec2D.cpp
-	Create_Compute_Shader.cpp
 	Radix_Sort.cpp
 	Radix_Array.cpp
 )
