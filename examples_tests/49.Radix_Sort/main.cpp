@@ -40,13 +40,9 @@ int main()
 	}
 
 	
-	std::shared_ptr<nbl::video::IVideoDriver*> Video_driver = std::make_shared<IVideoDriver*>((device->getVideoDriver()));
-	
+	nbl::video::IVideoDriver* Video_driver = device->getVideoDriver();
 	std::unique_ptr<Radix_Sort::Sorter> Radix_Sort_Ptr = std::make_unique<Radix_Sort>(Video_driver,device, Buffer_Size);
 	Radix_Sort_Ptr->Init();
 
-
-
-	
 	return 0;
 }

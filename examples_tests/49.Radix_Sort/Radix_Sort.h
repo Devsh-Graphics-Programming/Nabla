@@ -25,15 +25,15 @@ namespace Radix_Sort
 
 	protected:
 
-		std::shared_ptr<IVideo_Driver_Ptr> Video_Driver;
+		IVideo_Driver_Ptr Video_Driver;
 		nbl::core::smart_refctd_ptr<IGPUBuffer> GPU_Buffer;
 		nbl::core::smart_refctd_ptr<IrrlichtDevice> Irrlicht_Device;
 
 	protected:
 
 		explicit Sorter() = delete;
-		explicit inline Sorter(const std::shared_ptr<IVideo_Driver_Ptr>& video_driver_shared_ptr, nbl::core::smart_refctd_ptr<IrrlichtDevice> Device) :
-			Video_Driver(video_driver_shared_ptr),
+		explicit inline Sorter(IVideo_Driver_Ptr Video_Driver, nbl::core::smart_refctd_ptr<IrrlichtDevice> Device) :
+			Video_Driver(Video_Driver),
 			GPU_Buffer({}),
 			Irrlicht_Device(Device)
 		{}
@@ -62,6 +62,7 @@ namespace Radix_Sort
 	public:
 
 		virtual void Init() = 0;
+		virtual void Execute() = 0;
 
 		virtual ~Sorter() = default;
 	};
@@ -76,6 +77,8 @@ namespace Radix_Sort
 
 		nbl::core::smart_refctd_ptr<IGPUComputePipeline> compPipeline;
 
+		//GLuint
+
 	protected:
 
 		std::unique_ptr<Radix_Array> Radix_Array_Ptr;
@@ -84,8 +87,8 @@ namespace Radix_Sort
 
 	public:
 		Radix_Sort() = delete;
-		inline Radix_Sort(const std::shared_ptr<IVideo_Driver_Ptr>& video_driver_shared_ptr, nbl::core::smart_refctd_ptr<IrrlichtDevice> Device, const std::size_t Buffer_Size) :
-			Sorter(video_driver_shared_ptr, Device),
+		inline Radix_Sort(IVideo_Driver_Ptr Video_Driver, nbl::core::smart_refctd_ptr<IrrlichtDevice> Device, const std::size_t Buffer_Size) :
+			Sorter(Video_Driver, Device),
 			Radix_Array_Ptr(std::make_unique<Radix_Array>(Buffer_Size))
 		{}
 
@@ -96,6 +99,7 @@ namespace Radix_Sort
 		{}
 
 		virtual void Init() override;
+		virtual void Execute() override;
 
 		Radix_Sort& operator=(const Radix_Sort& Object) = delete;
 		inline Radix_Sort& operator=(Radix_Sort&& Object) noexcept
