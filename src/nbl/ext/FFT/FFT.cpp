@@ -163,7 +163,7 @@ void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in vec2 comp
 
 void main()
 {
-	nbl_glsl_ext_FFT();
+	nbl_glsl_ext_FFT(inParams);
 }
 
 )===";
