@@ -18,6 +18,7 @@
 	#endif
 #endif
 
+// Shuffle
 
 uint nbl_glsl_workgroupShuffle_noBarriers(in uint val, in uint id)
 {
@@ -26,6 +27,7 @@ uint nbl_glsl_workgroupShuffle_noBarriers(in uint val, in uint id)
 	memoryBarrierShared();
 	return _NBL_GLSL_SCRATCH_SHARED_DEFINED_[id];
 }
+
 uint nbl_glsl_workgroupShuffle(in uint val, in uint id)
 {
 	barrier();
@@ -36,17 +38,77 @@ uint nbl_glsl_workgroupShuffle(in uint val, in uint id)
 	return retval;
 }
 
+float nbl_glsl_workgroupShuffle_noBarriers(in float val, in uint id) 
+{
+	uint ret = nbl_glsl_workgroupShuffle_noBarriers(floatBitsToUint(val), id);
+	return uintBitsToFloat(ret);
+}
+
+float nbl_glsl_workgroupShuffle(in float val, in uint id) 
+{
+	uint ret = nbl_glsl_workgroupShuffle(floatBitsToUint(val), id);
+	return uintBitsToFloat(ret);
+}
+
+int nbl_glsl_workgroupShuffle_noBarriers(in int val, in uint id) 
+{
+	uint ret = nbl_glsl_workgroupShuffle_noBarriers(uint(val), id);
+	return int(ret);
+}
+
+int nbl_glsl_workgroupShuffle(in int val, in uint id) 
+{
+	uint ret = nbl_glsl_workgroupShuffle(uint(val), id);
+	return int(ret);
+}
+
+// Shuffle XOR 
+
+uint nbl_glsl_workgroupShuffleXor_noBarriers(in uint val, in uint mask)
+{
+	uint xor = gl_LocalInvocationIndex ^ mask;
+	_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = val;
+	barrier();
+	memoryBarrierShared();
+	return _NBL_GLSL_SCRATCH_SHARED_DEFINED_[xor];
+}
+
+uint nbl_glsl_workgroupShuffleXor(in uint val, in uint mask)
+{
+	barrier();
+	memoryBarrierShared();
+	const uint retval = nbl_glsl_workgroupShuffleXor_noBarriers(val, mask);
+	barrier();
+	memoryBarrierShared();
+	return retval;
+}
+
+float nbl_glsl_workgroupShuffleXor_noBarriers(in float val, in uint mask) {
+	uint ret = nbl_glsl_workgroupShuffleXor_noBarriers(floatBitsToUint(val), mask);
+	return uintBitsToFloat(ret);
+}
+
+float nbl_glsl_workgroupShuffleXor(in float val, in uint mask) 
+{
+	uint ret = nbl_glsl_workgroupShuffleXor(floatBitsToUint(val), mask);
+	return uintBitsToFloat(ret);
+}
+
+int nbl_glsl_workgroupShuffleXor_noBarriers(in int val, in uint mask) {
+	uint ret = nbl_glsl_workgroupShuffleXor_noBarriers(uint(val), mask);
+	return int(ret);
+}
+
+int nbl_glsl_workgroupShuffleXor(in int val, in uint mask) 
+{
+	uint ret = nbl_glsl_workgroupShuffleXor(uint(val), mask);
+	return int(ret);
+}
 
 /** TODO @Hazardu or @Przemog you can express all of them in terms of the uint variants to safe yourself the trouble of repeated code, this could also be a recruitment task.
 
 bool nbl_glsl_workgroupShuffle(in bool val, in uint id);
-float nbl_glsl_workgroupShuffle(in float val, in uint id);
-int nbl_glsl_workgroupShuffle(in int val, in uint id);
-
 bool nbl_glsl_workgroupShuffleXor(in bool val, in uint mask);
-float nbl_glsl_workgroupShuffleXor(in float val, in uint mask);
-uint nbl_glsl_workgroupShuffleXor(in uint val, in uint mask);
-int nbl_glsl_workgroupShuffleXor(in int val, in uint mask);
 
 BONUS: Optimize nbl_glsl_workgroupShuffleXor, and implement it with `subgroupShuffleXor` without a workgroup barrier for `mask<gl_SubgroupSize` if extension is available
 */

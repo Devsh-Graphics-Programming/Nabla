@@ -5,6 +5,28 @@
 #ifndef _NBL_GLSL_EXT_FFT_INCLUDED_
 #define _NBL_GLSL_EXT_FFT_INCLUDED_
 
+
+// Shared Memory
+#include <nbl/builtin/glsl/workgroup/shared_arithmetic.glsl>
+
+// TODO: Get from CPP Ext Side when Creating Shader
+ #define _NBL_GLSL_EXT_FFT_SHARED_SIZE_NEEDED_ 256
+
+#ifdef _NBL_GLSL_SCRATCH_SHARED_DEFINED_
+    #if NBL_GLSL_LESS(_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_,_NBL_GLSL_EXT_FFT_SHARED_SIZE_NEEDED_)
+        #error "Not enough shared memory declared for ext::FFT!"
+    #endif
+#else
+    #if NBL_GLSL_GREATER(_NBL_GLSL_EXT_FFT_SHARED_SIZE_NEEDED_,0)
+        #define _NBL_GLSL_SCRATCH_SHARED_DEFINED_ nbl_glsl_fftScratchShared
+        #define _NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_ _NBL_GLSL_EXT_FFT_SHARED_SIZE_NEEDED_
+        shared uint _NBL_GLSL_SCRATCH_SHARED_DEFINED_[_NBL_GLSL_EXT_FFT_SHARED_SIZE_NEEDED_];
+    #endif
+#endif
+
+#include <nbl/builtin/glsl/workgroup/shuffle.glsl>
+
+ // Uniform
 #ifndef _NBL_GLSL_EXT_FFT_UNIFORMS_DEFINED_
 #define _NBL_GLSL_EXT_FFT_UNIFORMS_DEFINED_
 struct nbl_glsl_ext_FFT_Uniforms_t
@@ -63,19 +85,21 @@ uint reverseBits(uint x)
 void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
 {
 	uint channel = 0;
-	
-	uvec3 coords = uvec3(gl_GlobalInvocationID.x, 0, 0);
+	uvec3 coords = uvec3(gl_LocalInvocationIndex.x, 0, 0);
 
 	// Pass 0: Bit Reversal
 	uint leadingZeroes = clz(inUniform.dimension.x) + 1;
 	uint logTwo = 32 - leadingZeroes;
+	uint bitReversedIndex = reverseBits(coords.x) >> leadingZeroes;
+	
 
-	uint bitReversed = reverseBits(coords.x) >> leadingZeroes;
-
+	// 
 	float value = nbl_glsl_ext_FFT_getData(coords, channel);
+	int ivalue = int(-1 * value);
+	uint mask = 1;
+	int shuffled = nbl_glsl_workgroupShuffleXor(ivalue, mask);
 
-	vec2 complex_value = vec2(value, float(bitReversed));
-
+	vec2 complex_value = vec2(value, shuffled);
 	nbl_glsl_ext_FFT_setData(coords, channel, complex_value);
 }
 
