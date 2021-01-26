@@ -85,21 +85,24 @@ uint reverseBits(uint x)
 void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
 {
 	uint channel = 0;
-	uvec3 coords = uvec3(gl_LocalInvocationIndex.x, 0, 0);
-
 	// Pass 0: Bit Reversal
 	uint leadingZeroes = clz(inUniform.dimension.x) + 1;
 	uint logTwo = 32 - leadingZeroes;
-	uint bitReversedIndex = reverseBits(coords.x) >> leadingZeroes;
+	uint bitReversedIndex = reverseBits(gl_LocalInvocationIndex.x) >> leadingZeroes;
 	
+	uvec3 coords = uvec3(gl_LocalInvocationIndex.x, 0, 0);
+	uvec3 bit_reversed_coords = uvec3(bitReversedIndex, 0, 0);
 
-	// 
-	float value = nbl_glsl_ext_FFT_getData(coords, channel);
-	int ivalue = int(-1 * value);
-	uint mask = 1;
-	int shuffled = nbl_glsl_workgroupShuffleXor(ivalue, mask);
+	float value = nbl_glsl_ext_FFT_getData(bit_reversed_coords, channel);
 
-	vec2 complex_value = vec2(value, shuffled);
+	float final_shuffled = value;
+	for(uint i = 0; i < logTwo; ++i) {
+		uint mask = 1 << i;
+		float prev_shuffled = final_shuffled;
+		final_shuffled = nbl_glsl_workgroupShuffleXor(prev_shuffled, mask);
+	}
+
+	vec2 complex_value = vec2(value, final_shuffled);
 	nbl_glsl_ext_FFT_setData(coords, channel, complex_value);
 }
 
