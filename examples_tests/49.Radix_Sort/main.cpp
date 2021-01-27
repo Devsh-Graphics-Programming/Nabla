@@ -39,6 +39,11 @@ int main()
 		return 1;
 	}
 
+
+	auto* driver = device->getVideoDriver();
+	auto* assetManager = device->getAssetManager();
+	auto* sceneManager = device->getSceneManager();
+
 	
 	nbl::video::IVideoDriver* Video_driver = device->getVideoDriver();
 	std::unique_ptr<Radix_Sort::Sorter> Radix_Sort_Ptr = std::make_unique<Radix_Sort>(Video_driver,device, Buffer_Size);

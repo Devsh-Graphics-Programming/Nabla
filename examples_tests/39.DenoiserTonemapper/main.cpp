@@ -964,6 +964,8 @@ void main()
 					auto* data = reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer())+address;
 					auto cpubufferalias = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t> > >(colorBufferBytesize, data, core::adopt_memory);
 					image->setBufferAndRegions(std::move(cpubufferalias),regions);
+					
+					// cpubufferalias->getPointer()
 
 					// wait for download fence and then invalidate the CPU cache
 					{

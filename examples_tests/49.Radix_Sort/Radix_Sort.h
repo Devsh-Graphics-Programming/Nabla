@@ -5,6 +5,7 @@
 #include <iostream>
 #include <memory>
 #include <nabla.h>
+#include "../common/QToQuitEventReceiver.h"
 #include "Radix_Array.h"
 
 namespace Radix_Sort
