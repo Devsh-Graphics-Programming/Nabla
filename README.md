@@ -63,15 +63,7 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 
 
-### [Delta BRDF Test](https://www.youtube.com/watch?v=jIJWG0eaxU8)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Delta%20BRDF%20Test%201.gif?raw=true)
-
-
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/gifs/myballs/Delta%20BRDF%20Test%202.gif?raw=true)
+// todo
 
 
 
