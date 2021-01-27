@@ -307,7 +307,7 @@ public:
     //! Create an ImageView that can actually be used by shaders (@see ICPUImageView)
     virtual core::smart_refctd_ptr<IGPUImageView> createGPUImageView(IGPUImageView::SCreationParams&& params) = 0;
 
-//! Fill out the descriptor sets with descriptors
+    //! Fill out the descriptor sets with descriptors
     virtual void updateDescriptorSets(uint32_t descriptorWriteCount, const IGPUDescriptorSet::SWriteDescriptorSet* pDescriptorWrites, uint32_t descriptorCopyCount, const IGPUDescriptorSet::SCopyDescriptorSet* pDescriptorCopies) = 0;
 
     //! Create a sampler object to use with images

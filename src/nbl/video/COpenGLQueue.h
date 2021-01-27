@@ -5,15 +5,20 @@
 #include "nbl/video/COpenGLSemaphore.h"
 #include "nbl/video/COpenGLFence.h"
 #include "nbl/video/COpenGLSync.h"
+#include "nbl/video/COpenGLFunctionTable.h"
 
 namespace nbl {
 namespace video
 {
 
-class COpenGLQueue : public IGPUQueue
+class COpenGLQueue final : public IGPUQueue
 {
     public:
-        using IGPUQueue::IGPUQueue;
+        COpenGLQueue(COpenGLFunctionTable* _gl, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority) :
+            IGPUQueue(_famIx, _flags, _priority), m_gl(_gl)
+        {
+
+        }
 
         void submit(uint32_t _count, const SSubmitInfo* _submits, IGPUFence* _fence) override
         {
@@ -33,7 +38,7 @@ class COpenGLQueue : public IGPUQueue
 
                     // TODO glMemoryBarrier() corresponding to _submit.pWaitDstStageMask[i]
 
-                    cmdbuf->setState(IGPUCommandBuffer::ES_PENDING);
+                    //cmdbuf->setState(IGPUCommandBuffer::ES_PENDING); // TODO: setState() is inaccessible
                     // TODO actually submit the gl work in the command buffer
 
                     /*Once execution of all submissions of a command buffer complete, it moves from the pending state, back to the executable state.
@@ -42,7 +47,7 @@ class COpenGLQueue : public IGPUQueue
                 }
 
                 lastSync = core::make_smart_refctd_ptr<COpenGLSync>();
-                glFlush();
+                m_gl->glGeneral.pglFlush();
                 for (uint32_t i = 0u; i < submit.signalSemaphoreCount; ++i)
                 {
                     auto* sem = static_cast<COpenGLSemaphore*>(submit.pSignalSemaphores[i]);
@@ -53,6 +58,9 @@ class COpenGLQueue : public IGPUQueue
             if (_fence)
                 static_cast<COpenGLFence*>(_fence)->associateGLSync(std::move(lastSync));
         }
+
+    private:
+        COpenGLFunctionTable* m_gl;
 };
 
 }}

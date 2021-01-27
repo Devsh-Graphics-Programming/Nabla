@@ -39,11 +39,9 @@ public:
         }
     }
 
-    core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(const ILogicalDevice::SCreationParams& params) override
+protected:
+    core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) override
     {
-        if (!validateLogicalDeviceCreation(params))
-            return nullptr;
-
         VkDeviceCreateInfo ci;
         ci.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
         // TODO:
@@ -73,6 +71,7 @@ public:
         VkDevice vkdev = VK_NULL_HANDLE;
         vkCreateDevice(m_vkphysdev, &ci, nullptr, &vkdev);
 
+        // TODO uncomment when CVKLogicalDevice has all pure virtual methods implemented
         //return core::make_smart_refctd_ptr<CVKLogicalDevice>(vkdev, params);
         return nullptr;
     }
