@@ -5,10 +5,10 @@
 #ifndef _NBL_GLSL_EXT_FFT_INCLUDED_
 #define _NBL_GLSL_EXT_FFT_INCLUDED_
 
+#include <nbl/builtin/glsl/math/complex.glsl>
 
 // Shared Memory
 #include <nbl/builtin/glsl/workgroup/shared_arithmetic.glsl>
-#include <nbl/builtin/glsl/math/complex.glsl>
 
 // TODO: Get from CPP Ext Side when Creating Shader
  #define _NBL_GLSL_EXT_FFT_SHARED_SIZE_NEEDED_ 256
@@ -54,7 +54,7 @@ void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in vec2 comp
 #endif
 
 // Count Leading Zeroes (naive?)
-uint clz(uint x) 
+uint clz(in uint x) 
 {
     uint n = 0;
 	if (x == 0) { return 32; }
@@ -66,7 +66,7 @@ uint clz(uint x)
     return n;
 }
 
-uint reverseBits(uint x)
+uint reverseBits(in uint x)
 {
 	uint count = 4 * 8 - 1;
 	uint reverse_num = x; 
@@ -83,6 +83,23 @@ uint reverseBits(uint x)
     return reverse_num; 
 }
 
+uint calculate_twiddle_power(in uint threadId, in uint iteration, in uint logTwoN, in uint N) 
+{
+    return (threadId & ((N / (1u << (logTwoN - iteration))) * 2 - 1)) * ((1u << (logTwoN - iteration)) / 2);;
+}
+
+vec2 twiddle(in uint threadId, in uint iteration, in uint logTwoN, in uint N) 
+{
+    uint k = calculate_twiddle_power(threadId, iteration, logTwoN, N);
+    return nbl_glsl_eITheta(-1 * 2 * nbl_glsl_PI * k / N);
+}
+
+vec2 twiddle_inv(in uint threadId, in uint iteration, in uint logTwoN, in uint N) 
+{
+    float k = calculate_twiddle_power(threadId, iteration, logTwoN, N);
+    return nbl_glsl_eITheta(2 * nbl_glsl_PI * k / N);
+}
+
 void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
 {
 	uint channel = 0;
@@ -95,16 +112,35 @@ void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
 	uint bitReversedIndex = reverseBits(coords.x) >> leadingZeroes;
 	uvec3 bit_reversed_coords = uvec3(bitReversedIndex, 0, 0);
 
-	float value = nbl_glsl_ext_FFT_getData(bit_reversed_coords, channel);
+    uint twiddle_power = calculate_twiddle_power(gl_LocalInvocationIndex.x, 1, logTwo, inUniform.dimension.x);
 
-	float final_shuffled = value;
-	for(uint i = 0; i < 1; ++i) {
+    // Next FFT Passes: 
+    float value = nbl_glsl_ext_FFT_getData(bit_reversed_coords, channel);
+
+    vec2 current_value = vec2(value, 0.0);
+
+	for(uint i = 0; i < logTwo; ++i) 
+    {
 		uint mask = 1 << i;
-		float prev_shuffled = final_shuffled;
-		final_shuffled = nbl_glsl_workgroupShuffleXor(prev_shuffled, mask);
-	}
+		vec2 other_value = nbl_glsl_workgroupShuffleXor(current_value, mask);
+        
+        vec2 twiddle = twiddle(gl_LocalInvocationIndex.x, i, logTwo, inUniform.dimension.x);
 
-	vec2 complex_value = nbl_glsl_eITheta(3.0 / 4.0 * nbl_glsl_PI); // = vec2(coords, final_shuffled);
+        vec2 prev_value = current_value;
+        current_value = prev_value + nbl_glsl_complex_mul(twiddle, other_value); 
+
+        barrier();
+
+        // _NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex * 2] = floatBitsToUint(current_value.x);
+        // _NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex * 2 + 1] = floatBitsToUint(current_value.y);
+    }
+
+    vec2 final_value = vec2(
+        uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex * 2]),
+        uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex * 2 + 1])
+    );
+
+	vec2 complex_value = final_value;
 	nbl_glsl_ext_FFT_setData(coords, channel, complex_value);
 }
 
