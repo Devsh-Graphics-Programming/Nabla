@@ -73,7 +73,8 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 
     io::IWriteFile* file = _override->getOutputFile(_file, ctx, {mesh, 0u});
 
-	if (!file || !mesh || mesh->getMeshBufferCount() > 1)
+    auto meshbuffers = mesh->getMeshBuffers();
+	if (!file || !mesh || meshbuffers.size() > 1)
 		return false;
 
 	os::Printer::log("Writing mesh", file->getFileName().c_str());
@@ -86,20 +87,19 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 	header += "\ncomment IrrlichtBAW ";
 	header +=  NABLA_SDK_VERSION;
 
+    auto meshBuffer = *meshbuffers.begin();
 	// get vertex and triangle counts
-	size_t vtxCount = mesh->getMeshBuffer(0)->calcVertexCount();
-    size_t faceCount = mesh->getMeshBuffer(0)->getIndexCount() / 3;
+	size_t vtxCount = IMeshManipulator::upperBoundVertexID(meshBuffer);
+    size_t faceCount = meshBuffer->getIndexCount() / 3;
 
 	// vertex definition
 	header += "\nelement vertex ";
 	header += std::to_string(vtxCount) + '\n';
 
     bool vaidToWrite[4]{ 0, 0, 0, 0 };
-    //auto desc = mesh->getMeshBuffer(0)->getMeshDataAndFormat();
-    auto meshBuffer = mesh->getMeshBuffer(0);
     auto mbPipeline = meshBuffer->getPipeline();
 
-    if (meshBuffer->getAttribBoundBuffer(0)->buffer)
+    if (meshBuffer->getAttribBoundBuffer(0).buffer)
     {
         const asset::E_FORMAT t = meshBuffer->getAttribFormat(0);
         std::string typeStr = getTypeString(t);
@@ -109,7 +109,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
             "property " + typeStr + " y\n" +
             "property " + typeStr + " z\n";
     }
-    if (meshBuffer->getAttribBoundBuffer(1)->buffer)
+    if (meshBuffer->getAttribBoundBuffer(1).buffer)
     {
         const asset::E_FORMAT t = meshBuffer->getAttribFormat(1);
         std::string typeStr = getTypeString(t);
@@ -123,7 +123,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
             header += "property " + typeStr + " alpha\n";
         }
     }
-    if (meshBuffer->getAttribBoundBuffer(2)->buffer)
+    if (meshBuffer->getAttribBoundBuffer(2).buffer)
     {
         const asset::E_FORMAT t = meshBuffer->getAttribFormat(2);
         std::string typeStr = getTypeString(t);
@@ -132,7 +132,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
             "property " + typeStr + " u\n" +
             "property " + typeStr + " v\n";
     }
-    if (meshBuffer->getAttribBoundBuffer(3)->buffer)
+    if (meshBuffer->getAttribBoundBuffer(3).buffer)
     {
         const asset::E_FORMAT t = meshBuffer->getAttribFormat(3);
         std::string typeStr = getTypeString(t);
@@ -151,7 +151,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     const auto idxtype = meshBuffer->getIndexType();
     const auto primitiveT = mbPipeline->getPrimitiveAssemblyParams().primitiveType;
 
-    if (meshBuffer->getIndexBufferBinding()->buffer && primitiveT != asset::EPT_TRIANGLE_LIST)
+    if (meshBuffer->getIndexBufferBinding().buffer && primitiveT != asset::EPT_TRIANGLE_LIST)
     {
         if (primitiveT == asset::EPT_TRIANGLE_FAN || primitiveT == asset::EPT_TRIANGLE_STRIP)
         {
@@ -442,7 +442,7 @@ core::smart_refctd_ptr<asset::ICPUMeshBuffer> CPLYMeshWriter::createCopyMBuffNor
         auto vaid = i;
         asset::E_FORMAT t = _mbuf->getAttribFormat(vaid);
     
-        if (_mbuf->getAttribBoundBuffer(vaid)->buffer)
+        if (_mbuf->getAttribBoundBuffer(vaid).buffer)
             mbCopy->getPipeline()->getVertexInputParams().attributes[vaid].format = asset::isNormalizedFormat(t) ? impl::getCorrespondingIntegerFormat(t) : t;
     }
 

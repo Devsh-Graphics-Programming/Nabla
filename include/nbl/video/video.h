@@ -30,7 +30,6 @@
 #include "nbl/video/IGPUSpecializedShader.h"
 #include "nbl/video/IGPUMeshBuffer.h"
 #include "nbl/video/IGPUMesh.h"
-#include "nbl/video/CGPUMesh.h"
 #include "nbl/video/IGPUObjectFromAssetConverter.h"
 
 //VT

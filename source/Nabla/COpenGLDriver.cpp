@@ -1873,7 +1873,7 @@ void COpenGLDriver::drawMeshBuffer(const IGPUMeshBuffer* mb)
 
 
 //! Indirect Draw
-void COpenGLDriver::drawArraysIndirect(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+void COpenGLDriver::drawArraysIndirect(const asset::SBufferBinding<const IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         const IGPUBuffer* indirectDrawBuff,
                                         size_t offset, size_t maxCount, size_t stride,
@@ -1958,7 +1958,7 @@ bool COpenGLDriver::queryFeature(const E_DRIVER_FEATURE &feature) const
 	return false;
 }
 
-void COpenGLDriver::drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+void COpenGLDriver::drawIndexedIndirect(const asset::SBufferBinding<const IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,
                                         const IGPUBuffer* indirectDrawBuff,
@@ -2739,13 +2739,13 @@ void COpenGLDriver::SAuxContext::updateNextState_pipelineAndRaster(const IGPURen
     }
 }
 
-void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT], const IGPUBuffer* _indexBuffer, const IGPUBuffer* _indirectDrawBuffer, const IGPUBuffer* _paramBuffer)
+void COpenGLDriver::SAuxContext::updateNextState_vertexInput(const asset::SBufferBinding<const IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT], const IGPUBuffer* _indexBuffer, const IGPUBuffer* _indirectDrawBuffer, const IGPUBuffer* _paramBuffer)
 {
     for (size_t i = 0ull; i < IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; ++i)
     {
-        const asset::SBufferBinding<IGPUBuffer>& bnd = _vtxBindings[i];
+        const asset::SBufferBinding<const IGPUBuffer>& bnd = _vtxBindings[i];
         if (bnd.buffer) {
-            const COpenGLBuffer* buf = static_cast<COpenGLBuffer*>(bnd.buffer.get());
+            const COpenGLBuffer* buf = static_cast<const COpenGLBuffer*>(bnd.buffer.get());
             nextState.vertexInputParams.vao.vtxBindings[i] = {bnd.offset,core::smart_refctd_ptr<const COpenGLBuffer>(buf)};
         }
     }

@@ -9,7 +9,6 @@
 #include <cmath>
 #include "nbl/asset/CGeometryCreator.h"
 #include "nbl/asset/CQuantNormalCache.h"
-#include "nbl/asset/CCPUMesh.h"
 
 namespace nbl
 {

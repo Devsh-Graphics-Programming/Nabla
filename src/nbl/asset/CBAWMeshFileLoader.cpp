@@ -11,7 +11,6 @@
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/bawformat/legacy/CBAWLegacy.h"
 #include "nbl/asset/bawformat/legacy/CBAWVersionUpFunctions.h"
-#include "nbl/video/CGPUMesh.h"
 
 #include "lz4/lib/lz4.h"
 #undef Bool

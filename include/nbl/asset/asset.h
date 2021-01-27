@@ -51,7 +51,6 @@
 // meshes
 #include "nbl/asset/ICPUMeshBuffer.h"
 #include "nbl/asset/ICPUMesh.h"
-#include "nbl/asset/CCPUMesh.h" // refactor
 #include "nbl/asset/IGeometryCreator.h"
 #include "nbl/asset/IMeshPacker.h"
 

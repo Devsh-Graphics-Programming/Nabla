@@ -34,18 +34,23 @@ size_t SizedBlob<VariableSizeBlob, TexturePathBlobV0, ICPUTexture>::calcBlobSize
 }
 #endif
 
-MeshBlobV3::MeshBlobV3(const asset::ICPUMesh* _mesh) : box(_mesh->getBoundingBox()), meshBufCnt(_mesh->getMeshBufferCount())
+MeshBlobV3::MeshBlobV3(const asset::ICPUMesh* _mesh) : box(_mesh->getBoundingBox()), meshBufCnt(_mesh->getMeshBuffers().size())
 {
+#ifdef OLD_SHADERS
 	for (uint32_t i = 0; i < meshBufCnt; ++i)
 		meshBufPtrs[i] = reinterpret_cast<uint64_t>(_mesh->getMeshBuffer(i));
-
+#endif
 	meshFlags = 0; // default initialization for proper usage of bit operators later on
 }
 
 template<>
 size_t SizedBlob<VariableSizeBlob, MeshBlobV3, asset::ICPUMesh>::calcBlobSizeForObj(const asset::ICPUMesh* _obj)
 {
+#ifdef OLD_SHADERS
 	return sizeof(MeshBlobV3) + (_obj->getMeshBufferCount()-1) * sizeof(uint64_t);
+#else
+	return 0ull;
+#endif
 }
 
 #ifdef OLD_SHADERS

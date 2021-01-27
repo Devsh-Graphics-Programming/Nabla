@@ -10,7 +10,6 @@
 
 #include "CPLYMeshFileLoader.h"
 #include "nbl/asset/IMeshManipulator.h"
-#include "nbl/video/CGPUMesh.h"
 
 #include "IReadFile.h"
 #include "os.h"
@@ -86,7 +85,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	}
 
 	// start with empty mesh
-    core::smart_refctd_ptr<asset::CCPUMesh> mesh;
+    core::smart_refctd_ptr<asset::ICPUMesh> mesh;
 	uint32_t vertCount=0;
 
 	// Currently only supports ASCII meshes
@@ -295,11 +294,12 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 					return {};
             }
 
-			mb->recalculateBoundingBox();
+			IMeshManipulator::recalculateBoundingBox(mb.get());
 
-			mesh = core::make_smart_refctd_ptr<CCPUMesh>();
-			mesh->addMeshBuffer(std::move(mb));
-			mesh->recalculateBoundingBox(true);
+			mesh = core::make_smart_refctd_ptr<ICPUMesh>();
+			mesh->getMeshBufferVector().emplace_back(std::move(mb));
+
+			IMeshManipulator::recalculateBoundingBox(mesh.get());
 		}
 	}
 
@@ -678,7 +678,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 
 	SBlendParams blendParams;
 	SPrimitiveAssemblyParams primitiveAssemblyParams;
-	if (_mbuf->getIndexBufferBinding()->buffer)
+	if (_mbuf->getIndexBufferBinding().buffer)
 		primitiveAssemblyParams.primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST;
 	else
 		primitiveAssemblyParams.primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_POINT_LIST;

@@ -162,33 +162,30 @@ bool CSTLMeshWriter::writeMeshBinary(io::IWriteFile* file, const asset::ICPUMesh
 		file->write(buf,sizeleft);
 	}
 	uint32_t facenum = 0;
-	for (uint32_t j=0; j<mesh->getMeshBufferCount(); ++j)
-		facenum += mesh->getMeshBuffer(j)->getIndexCount()/3;
+	for (auto& mb : mesh->getMeshBuffers())
+		facenum += mb->getIndexCount()/3;
 	file->write(&facenum,4);
 
 	// write mesh buffers
 
-	for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
+	for (auto& buffer : mesh->getMeshBuffers())
+	if (buffer)
 	{
-		const asset::ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
-		if (buffer)
-		{
-            asset::E_INDEX_TYPE type = buffer->getIndexType();
-			if (!buffer->getIndexBufferBinding()->buffer)
-                type = asset::EIT_UNKNOWN;
-			if (type== asset::EIT_16BIT)
-            {
-                writeFacesBinary<uint16_t>(buffer, false, file, COLOR_ATTRIBUTE, _params);
-            }
-			else if (type== asset::EIT_32BIT)
-            {
-                writeFacesBinary<uint32_t>(buffer, false, file, COLOR_ATTRIBUTE, _params);
-            }
-			else
-            {
-                writeFacesBinary<uint16_t>(buffer, true, file, COLOR_ATTRIBUTE, _params); //template param doesn't matter if there's no indices
-            }
-		}
+        asset::E_INDEX_TYPE type = buffer->getIndexType();
+		if (!buffer->getIndexBufferBinding().buffer)
+            type = asset::EIT_UNKNOWN;
+		if (type== asset::EIT_16BIT)
+        {
+            writeFacesBinary<uint16_t>(buffer, false, file, COLOR_ATTRIBUTE, _params);
+        }
+		else if (type== asset::EIT_32BIT)
+        {
+            writeFacesBinary<uint32_t>(buffer, false, file, COLOR_ATTRIBUTE, _params);
+        }
+		else
+        {
+            writeFacesBinary<uint16_t>(buffer, true, file, COLOR_ATTRIBUTE, _params); //template param doesn't matter if there's no indices
+        }
 	}
 	return true;
 }
@@ -206,57 +203,53 @@ bool CSTLMeshWriter::writeMeshASCII(io::IWriteFile* file, const asset::ICPUMesh*
 	file->write("\n", 1);
 
 	// write mesh buffers
-
-	for (uint32_t i=0; i<mesh->getMeshBufferCount(); ++i)
+	for (auto& buffer : mesh->getMeshBuffers())
+	if (buffer)
 	{
-		const asset::ICPUMeshBuffer* buffer = mesh->getMeshBuffer(i);
-		if (buffer)
+        asset::E_INDEX_TYPE type = buffer->getIndexType();
+		if (!buffer->getIndexBufferBinding().buffer)
+            type = asset::EIT_UNKNOWN;
+		const uint32_t indexCount = buffer->getIndexCount();
+		if (type==asset::EIT_16BIT)
 		{
-            asset::E_INDEX_TYPE type = buffer->getIndexType();
-			if (!buffer->getIndexBufferBinding()->buffer)
-                type = asset::EIT_UNKNOWN;
-			const uint32_t indexCount = buffer->getIndexCount();
-			if (type==asset::EIT_16BIT)
-			{
-                //os::Printer::log("Writing mesh with 16bit indices");
-                for (uint32_t j=0; j<indexCount; j+=3)
-                {
-                    writeFaceText(file,
-                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j]),
-                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j+1]),
-                        buffer->getPosition(((uint16_t*)buffer->getIndices())[j+2]),
-						_params
-                    );
-                }
-			}
-			else if (type==asset::EIT_32BIT)
-			{
-                //os::Printer::log("Writing mesh with 32bit indices");
-                for (uint32_t j=0; j<indexCount; j+=3)
-                {
-                    writeFaceText(file,
-                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j]),
-                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j+1]),
-                        buffer->getPosition(((uint32_t*)buffer->getIndices())[j+2]),
-						_params
-                    );
-                }
-			}
-			else
+            //os::Printer::log("Writing mesh with 16bit indices");
+            for (uint32_t j=0; j<indexCount; j+=3)
             {
-                //os::Printer::log("Writing mesh with no indices");
-                for (uint32_t j=0; j<indexCount; j+=3)
-                {
-                    writeFaceText(file,
-                        buffer->getPosition(j),
-                        buffer->getPosition(j+1ul),
-                        buffer->getPosition(j+2ul),
-						_params
-                    );
-                }
+                writeFaceText(file,
+                    buffer->getPosition(((uint16_t*)buffer->getIndices())[j]),
+                    buffer->getPosition(((uint16_t*)buffer->getIndices())[j+1]),
+                    buffer->getPosition(((uint16_t*)buffer->getIndices())[j+2]),
+					_params
+                );
             }
-			file->write("\n",1);
 		}
+		else if (type==asset::EIT_32BIT)
+		{
+            //os::Printer::log("Writing mesh with 32bit indices");
+            for (uint32_t j=0; j<indexCount; j+=3)
+            {
+                writeFaceText(file,
+                    buffer->getPosition(((uint32_t*)buffer->getIndices())[j]),
+                    buffer->getPosition(((uint32_t*)buffer->getIndices())[j+1]),
+                    buffer->getPosition(((uint32_t*)buffer->getIndices())[j+2]),
+					_params
+                );
+            }
+		}
+		else
+        {
+            //os::Printer::log("Writing mesh with no indices");
+            for (uint32_t j=0; j<indexCount; j+=3)
+            {
+                writeFaceText(file,
+                    buffer->getPosition(j),
+                    buffer->getPosition(j+1ul),
+                    buffer->getPosition(j+2ul),
+					_params
+                );
+            }
+        }
+		file->write("\n",1);
 	}
 
 	file->write("endsolid ",9);

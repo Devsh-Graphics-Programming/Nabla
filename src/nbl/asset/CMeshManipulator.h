@@ -44,10 +44,6 @@ class CMeshManipulator : public IMeshManipulator
 
 	private:
 		friend class IMeshManipulator;
-		//! Copies only member variables not being pointers to another dynamically allocated nbl::IReferenceCounted derivatives.
-		//! Purely helper function. Not really meant to be used outside createMeshBufferDuplicate().
-		template<typename T>
-		static void copyMeshBufferMemberVars(T* _dst, const T* _src);
 
 		template<typename IdxT>
 		static void _filterInvalidTriangles(ICPUMeshBuffer* _input);

@@ -67,10 +67,19 @@ class ICPUMeshBuffer : public IMeshBuffer<ICPUBuffer, ICPUDescriptorSet, ICPURen
 protected:
     virtual ~ICPUMeshBuffer() = default;
 
-    template<typename T>
-    core::smart_refctd_ptr<IAsset> clone_template(uint32_t _depth = ~0u) const
+public:
+    //! Default constructor (initializes pipeline, desc set and buffer bindings to nullptr)
+    ICPUMeshBuffer() : base_t(nullptr, nullptr, nullptr, SBufferBinding<ICPUBuffer>{}) {}
+    using base_t::base_t;
+
+    virtual void* serializeToBlob(void* _stackPtr = nullptr, const size_t& _stackSize = 0) const override
     {
-        auto cp = core::make_smart_refctd_ptr<T>();
+        return CorrespondingBlobTypeFor<ICPUMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
+    }
+
+    core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+    {
+        auto cp = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
         clone_common(cp.get());
         cp->m_descriptorSet = (_depth > 0u && m_descriptorSet) ? core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(m_descriptorSet->clone(_depth - 1u)) : m_descriptorSet;
         cp->m_pipeline = (_depth > 0u && m_pipeline) ? core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(m_pipeline->clone(_depth - 1u)) : m_pipeline;
@@ -86,7 +95,7 @@ protected:
         cp->posAttrId = posAttrId;
 
         cp->m_indexBufferBinding.offset = m_indexBufferBinding.offset;
-        cp->m_indexBufferBinding.buffer = (_depth > 0u && m_indexBufferBinding.buffer) ? 
+        cp->m_indexBufferBinding.buffer = (_depth > 0u && m_indexBufferBinding.buffer) ?
             core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_indexBufferBinding.buffer->clone(_depth - 1u)) :
             m_indexBufferBinding.buffer;
         for (uint32_t i = 0u; i < MAX_ATTR_BUF_BINDING_COUNT; ++i)
@@ -98,21 +107,6 @@ protected:
         }
 
         return cp;
-    }
-
-public:
-    //! Default constructor (initializes pipeline, desc set and buffer bindings to nullptr)
-    ICPUMeshBuffer() : base_t(nullptr, nullptr, nullptr, SBufferBinding<ICPUBuffer>{}) {}
-    using base_t::base_t;
-
-    virtual void* serializeToBlob(void* _stackPtr = nullptr, const size_t& _stackSize = 0) const override
-    {
-        return CorrespondingBlobTypeFor<ICPUMeshBuffer>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
-    }
-
-    core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
-    {
-        return clone_template<ICPUMeshBuffer>(_depth);
     }
 
     virtual void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
@@ -139,43 +133,24 @@ public:
 
     inline size_t conservativeSizeEstimate() const override { return sizeof(base_t) + sizeof(posAttrId) + sizeof(normalAttrId); }
 
-    virtual E_MESH_BUFFER_TYPE getMeshBufferType() const { return EMBT_NOT_ANIMATED; }
-
-    inline uint32_t getAttribCombinedOffset(uint32_t attrId) const
+    //!
+    inline const SBufferBinding<const ICPUBuffer>& getAttribBoundBuffer(uint32_t attrId) const
     {
-        const auto& buf = base_t::getAttribBoundBuffer(attrId);
-        return buf.offset + getPipeline()->getVertexInputParams().attributes[attrId].relativeOffset;
+        return base_t::getAttribBoundBuffer(attrId);
     }
-	inline const SBufferBinding<ICPUBuffer>* getAttribBoundBuffer(uint32_t attrId) const
-	{
-		return &base_t::getAttribBoundBuffer(attrId);
-	}
-    inline SBufferBinding<ICPUBuffer>* getAttribBoundBuffer(uint32_t attrId)
+    inline SBufferBinding<ICPUBuffer>& getAttribBoundBuffer(uint32_t attrId)
     {
         const uint32_t bnd = getBindingNumForAttribute(attrId);
-        return &m_vertexBufferBindings[bnd];
+        return m_vertexBufferBindings[bnd];
     }
-	inline const SBufferBinding<ICPUBuffer>* getVertexBufferBindings() const
-	{
-		return m_vertexBufferBindings;
-	}
-    inline SBufferBinding<ICPUBuffer>* getVertexBufferBindings()
+    //!
+    inline const SBufferBinding<const ICPUBuffer>* getVertexBufferBindings() const
+    {
+        return base_t::getVertexBufferBindings();
+    }
+    inline const SBufferBinding<ICPUBuffer>* getVertexBufferBindings()
     {
         return m_vertexBufferBindings;
-    }
-	inline void setIndexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding)
-	{
-        assert(!isImmutable_debug());
-
-		m_indexBufferBinding = std::move(bufferBinding);
-	}
-	inline const SBufferBinding<ICPUBuffer>* getIndexBufferBinding() const
-	{
-		return &m_indexBufferBinding;
-	}
-    inline SBufferBinding<ICPUBuffer>* getIndexBufferBinding()
-    {
-        return &m_indexBufferBinding;
     }
 	inline bool setVertexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding, uint32_t bindingIndex)
 	{
@@ -188,99 +163,65 @@ public:
 		return true;
 	}
 
+    //!
+    inline const SBufferBinding<const ICPUBuffer>& getIndexBufferBinding() const
+    {
+        return base_t::getIndexBufferBinding();
+    }
+    inline const SBufferBinding<ICPUBuffer>& getIndexBufferBinding()
+    {
+        return m_indexBufferBinding;
+    }
+	inline void setIndexBufferBinding(SBufferBinding<ICPUBuffer>&& bufferBinding)
+	{
+        assert(!isImmutable_debug());
 
+		m_indexBufferBinding = std::move(bufferBinding);
+	}
+
+    //!
+    inline const ICPUDescriptorSet* getAttachedDescriptorSet() const
+    {
+        return base_t::getAttachedDescriptorSet();
+    }
+    inline ICPUDescriptorSet* getAttachedDescriptorSet()
+    {
+        return m_descriptorSet.get();
+    }
 	inline void setAttachedDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSet>&& descriptorSet)
 	{
         assert(!isImmutable_debug());
 		m_descriptorSet = std::move(descriptorSet);
 	}
-	inline ICPUDescriptorSet* getAttachedDescriptorSet()
-	{
-		return m_descriptorSet.get();
-	}
-	inline const ICPUDescriptorSet* getAttachedDescriptorSet() const
-	{
-		return m_descriptorSet.get();
-	}
 
+    //!
+    inline const ICPURenderpassIndependentPipeline* getPipeline() const {return base_t::getPipeline();}
+    inline ICPURenderpassIndependentPipeline* getPipeline()
+    {
+        assert(!isImmutable_debug());
+        return m_pipeline.get();
+    }
 	inline void setPipeline(core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>&& pipeline)
 	{
         assert(!isImmutable_debug());
 		m_pipeline = std::move(pipeline);
 	}
-	inline ICPURenderpassIndependentPipeline* getPipeline()
-	{
-        assert(!isImmutable_debug());
-		return m_pipeline.get();
-	}
-    inline const ICPURenderpassIndependentPipeline* getPipeline() const
-    {
-        return m_pipeline.get();
-    }
 
-    inline size_t calcVertexSize() const
-    {
-        if (!m_pipeline)
-            return 0u;
-
-        auto ppln = m_pipeline.get();
-        const auto& vtxInputParams = ppln->getVertexInputParams();
-        size_t size = 0u;
-        for (size_t i = 0; i < MAX_VERTEX_ATTRIB_COUNT; ++i)
-            if (vtxInputParams.enabledAttribFlags & (1u<<i))
-                size += asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(vtxInputParams.attributes[i].format));
-        return size;
-    }
-
-    inline size_t calcVertexCount() const
-    {
-        size_t vertexCount = 0u;
-        if (m_indexBufferBinding.buffer)
-        {
-            if (getIndexType() == EIT_16BIT)
-            {
-                for (size_t i = 0; i < getIndexCount(); i++)
-                {
-                    size_t index = reinterpret_cast<const uint16_t*>(getIndices())[i];
-                    if (index > vertexCount)
-                        vertexCount = index;
-                }
-                if (getIndexCount())
-                    vertexCount++;
-            }
-            else if (getIndexType() == EIT_32BIT)
-            {
-                for (size_t i = 0; i < getIndexCount(); i++)
-                {
-                    size_t index = reinterpret_cast<const uint32_t*>(getIndices())[i];
-                    if (index > vertexCount)
-                        vertexCount = index;
-                }
-                if (getIndexCount())
-                    vertexCount++;
-            }
-            else
-                vertexCount = getIndexCount();
-        }
-        else
-            vertexCount = getIndexCount();
-
-        return vertexCount;
-    }
-
-    uint32_t getIndexValue(uint32_t _i) const
+    //
+    inline uint32_t getIndexValue(uint32_t _i) const
     {
         if (!m_indexBufferBinding.buffer)
             return _i;
         switch (indexType)
         {
-        case EIT_16BIT:
-            return reinterpret_cast<const uint16_t*>(getIndices())[_i];
-        case EIT_32BIT:
-            return reinterpret_cast<const uint32_t*>(getIndices())[_i];
-        default:
-            return _i;
+            case EIT_16BIT:
+                return reinterpret_cast<const uint16_t*>(getIndices())[_i];
+            case EIT_32BIT:
+                return reinterpret_cast<const uint32_t*>(getIndices())[_i];
+            default:
+                break;
         }
+        return _i;
     }
 
     //! Returns id of position attribute.
@@ -353,12 +294,12 @@ public:
     {
         core::vectorSIMDf outPos(0.f, 0.f, 0.f, 1.f);
         bool success = getAttribute(outPos, posAttrId, ix);
-#ifdef _NBL_DEBUG
-        if (!success)
-        {
-            //os::Printer::log("SOME DEBUG MESSAGE!\n",ELL_ERROR);
-        }
-#endif // _NBL_DEBUG
+        #ifdef _NBL_DEBUG
+            if (!success)
+            {
+                //os::Printer::log("SOME DEBUG MESSAGE!\n",ELL_ERROR);
+            }
+        #endif // _NBL_DEBUG
         return outPos;
     }
 
@@ -556,7 +497,7 @@ public:
 
         uint8_t* dst = getAttribPointer(attrId);
         dst += ix * getAttribStride(attrId);
-        ICPUBuffer* buf = getAttribBoundBuffer(attrId)->buffer.get();
+        ICPUBuffer* buf = getAttribBoundBuffer(attrId).buffer.get();
         if (!buf || dst >= ((const uint8_t*)(buf->getPointer())) + buf->getSize())
             return false;
 
@@ -598,62 +539,11 @@ public:
 
         uint8_t* dst = getAttribPointer(attrId);
         dst += ix * getAttribStride(attrId);
-        ICPUBuffer* buf = getAttribBoundBuffer(attrId)->buffer.get();
+        ICPUBuffer* buf = getAttribBoundBuffer(attrId).buffer.get();
         if (dst >= ((const uint8_t*)(buf->getPointer())) + buf->getSize())
             return false;
 
         return setAttribute(_input, dst, getAttribFormat(attrId));
-    }
-
-
-    //! Recalculates the bounding box. Should be called if the mesh changed.
-    virtual void recalculateBoundingBox()
-    {
-        assert(!isImmutable_debug());
-		setBoundingBox(calculateBoundingBox(this));
-    }
-
-	//! Utility function
-    static core::aabbox3df calculateBoundingBox(const ICPUMeshBuffer* mb)
-    {
-		core::aabbox3df retval;
-		retval.reset(core::vector3df(0.f));
-        if (!mb->getPipeline())
-            return retval;
-
-		auto posAttrId = mb->getPositionAttributeIx();
-        const ICPUBuffer* mappedAttrBuf = mb->getAttribBoundBuffer(posAttrId)->buffer.get();
-        if (posAttrId >= MAX_VERTEX_ATTRIB_COUNT || !mappedAttrBuf)
-            return retval;
-
-		const void* indices = mb->getIndices();
-        for (size_t j=0ull; j<mb->getIndexCount(); j++)
-        {
-            size_t ix;
-            if (indices)
-            {
-                switch (mb->getIndexType())
-                {
-					case EIT_32BIT:
-						ix = reinterpret_cast<const uint32_t*>(indices)[j];
-						break;
-					case EIT_16BIT:
-						ix = reinterpret_cast<const uint16_t*>(indices)[j];
-						break;
-					default:
-						return retval;
-                }
-            }
-            else
-                ix = j;
-
-
-            if (j)
-				retval.addInternalPoint(mb->getPosition(ix).getAsVector3df());
-            else
-				retval.reset(mb->getPosition(ix).getAsVector3df());
-        }
-		return retval;
     }
 
     bool canBeRestoredFrom(const IAsset* _other) const override

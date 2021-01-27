@@ -121,14 +121,18 @@ core::unordered_set<uint64_t> TypedBlob<MeshBlobV3, asset::ICPUMesh>::getNeededD
 template<>
 void* TypedBlob<MeshBlobV3, asset::ICPUMesh>::instantiateEmpty(const void* _blob, size_t _blobSize, BlobLoadingParams& _params)
 {
+#ifdef OLD_SHADERS
 	if (!_blob)
-		return NULL;
+#endif
+		return nullptr;
 
+#ifdef OLD_SHADERS
 	const auto* blob = (const MeshBlobV3*)_blob;
 	asset::CCPUMesh* mesh = new asset::CCPUMesh();
 	mesh->setBoundingBox(blob->box);
 
 	return mesh;
+#endif
 }
 
 template<>
@@ -138,6 +142,7 @@ void* TypedBlob<MeshBlobV3, asset::ICPUMesh>::finalize(void* _obj, const void* _
 		return NULL;
 
 	const auto* blob = reinterpret_cast<const MeshBlobV3*>(_blob);
+#ifdef OLD_SHADERS
 	asset::CCPUMesh* mesh = (asset::CCPUMesh*)_obj;
 	for (uint32_t i = 0; i < blob->meshBufCnt; ++i)
 		mesh->addMeshBuffer(impl::castPtrAndRefcount<asset::ICPUMeshBuffer>(_deps[blob->meshBufPtrs[i]]));
@@ -145,6 +150,7 @@ void* TypedBlob<MeshBlobV3, asset::ICPUMesh>::finalize(void* _obj, const void* _
 	bool isRightHandedCoordinateSystem = blob->meshFlags & MeshBlobV3::EBMF_RIGHT_HANDED;
 	if (isRightHandedCoordinateSystem != (bool)(_params.params.loaderFlags & IAssetLoader::E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES))
 		_params.meshesToFlip.push(core::smart_refctd_ptr<ICPUMesh>(mesh));
+#endif
 
 	return _obj;
 }

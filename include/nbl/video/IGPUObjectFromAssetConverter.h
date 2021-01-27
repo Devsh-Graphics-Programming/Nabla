@@ -11,7 +11,7 @@
 
 #include "IDriver.h"
 #include "IDriverMemoryBacked.h"
-#include "nbl/video/CGPUMesh.h"
+#include "nbl/video/IGPUMesh.h"
 #include "CLogger.h"
 #include "nbl/video/asset_traits.h"
 #include "nbl/core/alloc/LinearAddressAllocator.h"
@@ -350,10 +350,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
 
         for (size_t b = 0ull; b < asset::ICPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT; ++b)
         {
-            if (asset::ICPUBuffer* buf = cpumb->getVertexBufferBindings()[b].buffer.get())
+            if (const asset::ICPUBuffer* buf = cpumb->getVertexBufferBindings()[b].buffer.get())
                 cpuBuffers.push_back(buf);
         }
-        if (const asset::ICPUBuffer* buf = cpumb->getIndexBufferBinding()->buffer.get())
+        if (const asset::ICPUBuffer* buf = cpumb->getIndexBufferBinding().buffer.get())
             cpuBuffers.push_back(buf);
     }
 
@@ -392,9 +392,9 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMeshBuffer** _begin, 
         }
 
 		asset::SBufferBinding<IGPUBuffer> idxBinding;
-        if (cpumb->getIndexBufferBinding()->buffer)
+        if (cpumb->getIndexBufferBinding().buffer)
         {
-            idxBinding.offset = cpumb->getIndexBufferBinding()->offset;
+            idxBinding.offset = cpumb->getIndexBufferBinding().offset;
             auto& gpubuf = (*gpuBuffers)[bufRedirs[bufIter++]];
             idxBinding.offset += gpubuf->getOffset();
             idxBinding.buffer = core::smart_refctd_ptr<IGPUBuffer>(gpubuf->getBuffer());
@@ -428,12 +428,8 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMesh** const _begin, 
 	for (auto i=0u; i<assetCount; i++)
 	{
 		auto* _asset = _begin[i];
-        for (uint32_t i = 0u; i <_asset->getMeshBufferCount(); ++i)
-            cpuDeps.push_back(_asset->getMeshBuffer(i));
-
-		auto& output = res->operator[](i);
-		output = core::make_smart_refctd_ptr<video::CGPUMesh>();
-        output->setBoundingBox(_asset->getBoundingBox());
+        for (auto mesh : _asset->getMeshBuffers())
+            cpuDeps.emplace_back(mesh);
     }
 
     core::vector<size_t> redir = eliminateDuplicatesAndGenRedirs(cpuDeps);
@@ -441,11 +437,16 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUMesh** const _begin, 
     for (size_t i=0u, j=0u; i<assetCount; ++i)
     {
 		auto* _asset = _begin[i];
+        auto cpuMeshBuffers = _asset->getMeshBuffers();
 
 		auto& output = res->operator[](i);
-		for (uint32_t k=0u; k<_asset->getMeshBufferCount(); ++k)
+        output = core::make_smart_refctd_ptr<video::IGPUMesh>(cpuMeshBuffers.size());
+        output->setBoundingBox(_asset->getBoundingBox());
+
+        auto gpuMeshBuffersIt = output->getMeshBufferIterator();
+        for (auto mesh : cpuMeshBuffers)
 		{
-			static_cast<video::CGPUMesh*>(output.get())->addMeshBuffer(core::smart_refctd_ptr(gpuDeps->operator[](redir[j])));
+			*(gpuMeshBuffersIt++) = core::smart_refctd_ptr(gpuDeps->operator[](redir[j]));
 			++j;
 		}
     }

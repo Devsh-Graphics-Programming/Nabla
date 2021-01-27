@@ -55,7 +55,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 
 	bool hasColor = false;
 
-	auto mesh = core::make_smart_refctd_ptr<CCPUMesh>();
+	auto mesh = core::make_smart_refctd_ptr<ICPUMesh>();
 	auto meshbuffer = core::make_smart_refctd_ptr<ICPUMeshBuffer>();
 	meshbuffer->setPositionAttributeIx(POSITION_ATTRIBUTE);
 	meshbuffer->setNormalnAttributeIx(NORMAL_ATTRIBUTE);
@@ -269,7 +269,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 	meshbuffer->setIndexCount(positions.size());
 	meshbuffer->setIndexType(asset::EIT_UNKNOWN);
 
-	mesh->addMeshBuffer(std::move(meshbuffer));
+	mesh->getMeshBufferVector().emplace_back(std::move(meshbuffer));
 
 	return SAssetBundle({ std::move(mesh) });
 }

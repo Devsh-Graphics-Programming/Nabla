@@ -12,7 +12,7 @@
 #include "vector3d.h"
 #include "aabbox3d.h"
 #include "nbl/asset/ICPUMeshBuffer.h"
-#include "nbl/asset/CCPUMesh.h"
+#include "nbl/asset/ICPUMesh.h"
 #include "nbl/asset/CQuantNormalCache.h"
 
 namespace nbl
@@ -20,14 +20,14 @@ namespace nbl
 namespace asset
 {
 
-	//! An interface for easy manipulation of meshes.
-	/** Scale, set alpha value, flip surfaces, and so on. This exists for
-	fixing problems with wrong imported or exported meshes quickly after
-	loading. It is not intended for doing mesh modifications and/or
-	animations during runtime.
-	*/
-	class IMeshManipulator : public virtual core::IReferenceCounted
-	{
+//! An interface for easy manipulation of meshes.
+/** Scale, set alpha value, flip surfaces, and so on. This exists for
+fixing problems with wrong imported or exported meshes quickly after
+loading. It is not intended for doing mesh modifications and/or
+animations during runtime.
+*/
+class IMeshManipulator : public virtual core::IReferenceCounted
+{
 	public:
 		//! Comparison methods
 		enum E_ERROR_METRIC
@@ -73,12 +73,183 @@ namespace asset
 		};
 		typedef std::function<bool(const IMeshManipulator::SSNGVertexData&, const IMeshManipulator::SSNGVertexData&, ICPUMeshBuffer*)> VxCmpFunction;
 
-	public:
-		//! Flips the direction of surfaces.
-		/** Changes backfacing triangles to frontfacing
-		triangles and vice versa.
-		\param mesh Mesh on which the operation is performed. */
-		static void flipSurfaces(ICPUMeshBuffer* inbuffer);
+
+		
+
+        //! Compares two attributes of floating point types in accordance with passed error metric.
+        /**
+        @param _a First attribute.
+        @param _b Second attribute.
+        @param _cpa Component count.
+        @param _errMetric Error metric info.
+        */
+        static inline bool compareFloatingPointAttribute(const core::vectorSIMDf& _a, const core::vectorSIMDf& _b, size_t _cpa, const SErrorMetric& _errMetric)
+		{
+			using ErrorF_t = core::vectorSIMDf(*)(core::vectorSIMDf, core::vectorSIMDf);
+
+			ErrorF_t errorFunc = nullptr;
+
+			switch (_errMetric.method)
+			{
+				case EEM_POSITIONS:
+					errorFunc = [](core::vectorSIMDf _d1, core::vectorSIMDf _d2) -> core::vectorSIMDf {
+						return core::abs(_d1 - _d2);
+					};
+					break;
+				case EEM_ANGLES:
+					errorFunc = [](core::vectorSIMDf _d1, core::vectorSIMDf _d2)->core::vectorSIMDf {
+						_d1.w = _d2.w = 0.f;
+						if ((_d1==core::vectorSIMDf(0.f)).all() || (_d2==core::vectorSIMDf(0.f)).all())
+							return core::vectorSIMDf(-INFINITY);
+						return core::dot(_d1, _d2) / (core::length(_d1) * core::length(_d2));
+					};
+					break;
+				case EEM_QUATERNION:
+					errorFunc = [](core::vectorSIMDf _d1, core::vectorSIMDf _d2)->core::vectorSIMDf {
+						return core::dot(_d1, _d2) / (core::length(_d1) * core::length(_d2));
+					};
+					break;
+				default:
+					errorFunc = nullptr;
+					break;
+			}
+
+			using CmpF_t = bool(*)(const core::vectorSIMDf&, const core::vectorSIMDf&, size_t);
+
+			CmpF_t cmpFunc = nullptr;
+
+			switch (_errMetric.method)
+			{
+				case EEM_POSITIONS:
+					cmpFunc = [](const core::vectorSIMDf& _err, const core::vectorSIMDf& _epsilon, size_t _cpa) -> bool {
+						for (size_t i = 0u; i < _cpa; ++i)
+							if (_err.pointer[i] > _epsilon.pointer[i])
+								return false;
+						return true;
+					};
+					break;
+				case EEM_ANGLES:
+				case EEM_QUATERNION:
+					cmpFunc = [](const core::vectorSIMDf& _err, const core::vectorSIMDf& _epsilon, size_t _cpa) -> bool {
+						return _err.x > (1.f - _epsilon.x);
+					};
+					break;
+				default:
+					cmpFunc = nullptr;
+					break;
+			}
+
+			_NBL_DEBUG_BREAK_IF(!errorFunc)
+				_NBL_DEBUG_BREAK_IF(!cmpFunc)
+				if (!errorFunc || !cmpFunc)
+					return false;
+
+			const core::vectorSIMDf err = errorFunc(_a, _b);
+			return cmpFunc(err, _errMetric.epsilon, _cpa);
+		}
+
+		//!
+		static inline uint32_t calcVertexSize(const ICPUMeshBuffer* meshbuffer)
+		{
+			const auto* ppln = meshbuffer->getPipeline();
+			if (!ppln)
+				return 0u;
+
+			const auto& vtxInputParams = ppln->getVertexInputParams();
+			uint32_t size = 0u;
+			for (size_t i=0u; i<ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT; ++i)
+			if (vtxInputParams.enabledAttribFlags & (1u<<i))
+				size += asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(vtxInputParams.attributes[i].format));
+			return size;
+		}
+		
+
+        //! Swaps the index buffer for a new index buffer with invalid triangles removed.
+        /**
+        Invalid triangle is such consisting of two or more same indices.
+        @param _input Input index buffer.
+        @param _idxType Type of indices in the index buffer.
+        @returns New index buffer or nullptr if input indices were of unknown type or _input was nullptr.
+        */
+        static void filterInvalidTriangles(ICPUMeshBuffer* _input);
+
+        //! Creates index buffer from input converting it to indices for line list primitives. Input is assumed to be indices for line strip.
+        /**
+        @param _input Input index buffer's data.
+        @param _idxCount Index count.
+        @param _inIndexType Type of input index buffer data (32bit or 16bit).
+        @param _outIndexType Type of output index buffer data (32bit or 16bit).
+        */
+        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromLineStripsToLines(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
+
+        //! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle strip.
+        /**
+        @param _input Input index buffer's data.
+        @param _idxCount Index count.
+        @param _inIndexType Type of input index buffer data (32bit or 16bit).
+        @param _outIndexType Type of output index buffer data (32bit or 16bit).
+        */
+        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTriangleStripsToTriangles(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
+
+        //! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle fan.
+        /**
+        @param _input Input index buffer's data.
+        @param _idxCount Index count.
+        @param _inIndexType Type of input index buffer data (32bit or 16bit).
+        @param _outIndexType Type of output index buffer data (32bit or 16bit).
+        */
+        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTrianglesFanToTriangles(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
+		
+
+		//! Created duplicate of meshbuffer
+		static core::smart_refctd_ptr<ICPUMeshBuffer> createMeshBufferDuplicate(const ICPUMeshBuffer* _src);
+
+		//! Get amount of polygons in mesh buffer.
+		/** \param meshbuffer Input mesh buffer
+		\param Outputted Number of polygons in mesh buffer, if successful.
+		\return If successfully can provide information */
+        template<typename ...MeshbufTemplParams>
+		static inline bool getPolyCount(uint32_t& outCount, const IMeshBuffer<MeshbufTemplParams...>* meshbuffer)
+		{
+			outCount = 0;
+			if (!meshbuffer)
+				return false;
+            if (!meshbuffer->getPipeline())
+                return false;
+
+            const auto& assemblyParams = meshbuffer->getPipeline()->getPrimitiveAssemblyParams();
+            const E_PRIMITIVE_TOPOLOGY primType = assemblyParams.primitiveType;
+			switch (primType)
+			{
+				case EPT_POINT_LIST:
+					outCount = meshbuffer->getIndexCount();
+					break;
+				case EPT_LINE_STRIP:
+					outCount = meshbuffer->getIndexCount() - 1;
+					break;
+				case EPT_LINE_LIST:
+					outCount = meshbuffer->getIndexCount() / 2;
+					break;
+				case EPT_TRIANGLE_STRIP:
+					outCount = meshbuffer->getIndexCount() - 2;
+					break;
+				case EPT_TRIANGLE_FAN:
+					outCount = meshbuffer->getIndexCount() - 2;
+					break;
+				case EPT_TRIANGLE_LIST:
+					outCount = meshbuffer->getIndexCount() / 3;
+					break;
+				case EPT_PATCH_LIST:
+					outCount = meshbuffer->getIndexCount() / assemblyParams.tessPatchVertCount;
+					break;
+				default:
+					assert(false); // need to implement calculation for more types
+					return false;
+					break;
+			}
+
+			return true;
+		}
 
 		//!
 		static inline std::array<uint32_t,3u> getTriangleIndices(const ICPUMeshBuffer* mb, uint32_t triangleIx)
@@ -143,6 +314,103 @@ namespace asset
 			}
 		}
 
+		//!
+		static inline uint32_t upperBoundVertexID(const ICPUMeshBuffer* meshbuffer)
+		{
+			uint32_t vertexCount = 0u;
+			auto impl = [meshbuffer,&vertexCount](const auto* indexPtr) -> void
+			{
+				const uint32_t indexCount = meshbuffer->getIndexCount();
+				if (indexPtr)
+					vertexCount = indexCount;
+				else
+				{
+					for (uint32_t j=0ull; j<indexCount; j++)
+					{
+						uint32_t index = static_cast<uint32_t>(indexPtr[j]);
+						if (index>vertexCount)
+							vertexCount = index;
+					}
+					if (indexCount)
+						vertexCount++;
+				}
+			};
+
+			const void* indices = meshbuffer->getIndices();
+			switch (meshbuffer->getIndexType())
+			{
+				case EIT_32BIT:
+					impl(reinterpret_cast<const uint32_t*>(indices));
+					break;
+				case EIT_16BIT:
+					impl(reinterpret_cast<const uint16_t*>(indices));
+					break;
+				default:
+					vertexCount = meshbuffer->getIndexCount();
+					break;
+			}
+
+			return vertexCount;
+		}
+
+		//! Calculates bounding box of the meshbuffer
+		static inline core::aabbox3df calculateBoundingBox(const ICPUMeshBuffer* meshbuffer)
+		{
+			core::aabbox3df retval;
+			retval.reset(core::vector3df(0.f));
+			if (!meshbuffer->getPipeline())
+				return retval;
+			
+			auto posAttrId = meshbuffer->getPositionAttributeIx();
+			const ICPUBuffer* mappedAttrBuf = meshbuffer->getAttribBoundBuffer(posAttrId).buffer.get();
+			if (posAttrId >= ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT || !mappedAttrBuf)
+				return retval;
+			
+			auto impl = [meshbuffer,&retval](const auto* indexPtr) -> void
+			{
+				for (size_t j=0ull; j<meshbuffer->getIndexCount(); j++)
+				{
+					size_t ix;
+					if constexpr (std::is_void_v<std::remove_pointer_t<decltype(indexPtr)>>)
+						ix = j;
+					else
+						ix = indexPtr[j];
+
+
+					if (j)
+						retval.addInternalPoint(meshbuffer->getPosition(ix).getAsVector3df());
+					else
+						retval.reset(meshbuffer->getPosition(ix).getAsVector3df());
+				}
+			};
+			const void* indices = meshbuffer->getIndices();
+			switch (meshbuffer->getIndexType())
+			{
+				case EIT_32BIT:
+					impl(reinterpret_cast<const uint32_t*>(indices));
+					break;
+				case EIT_16BIT:
+					impl(reinterpret_cast<const uint16_t*>(indices));
+					break;
+				default:
+					impl(reinterpret_cast<const void*>(0ull));
+					break;
+			}
+			return retval;
+		}
+
+		//! Recalculates the cached bounding box of the meshbuffer
+		static inline void recalculateBoundingBox(ICPUMeshBuffer* meshbuffer)
+		{
+			meshbuffer->setBoundingBox(calculateBoundingBox(meshbuffer));
+		}
+
+		//! Flips the direction of surfaces.
+		/** Changes backfacing triangles to frontfacing
+		triangles and vice versa.
+		\param mesh Mesh on which the operation is performed. */
+		static void flipSurfaces(ICPUMeshBuffer* inbuffer);
+
 		//! Creates a copy of a mesh with all vertices unwelded
 		/** \param mesh Input mesh
 		\return Mesh consisting only of unique faces. All vertices
@@ -177,60 +445,6 @@ namespace asset
 		@param _errMetric Array of structs defining methods of error metrics. The array must be of EVAI_COUNT length since each index of the array directly corresponds to attribute's id.
 		*/
 		static void requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const SErrorMetric* _errMetric);
-
-		static core::smart_refctd_ptr<ICPUMeshBuffer> createMeshBufferDuplicate(const ICPUMeshBuffer* _src);
-
-		static inline core::smart_refctd_ptr<ICPUMesh> createMeshDuplicate(const ICPUMesh* _src)
-		{
-			if (!_src)
-				return nullptr;
-	
-			core::smart_refctd_ptr<ICPUMesh> dst;
-			{
-				auto tmp = core::make_smart_refctd_ptr<CCPUMesh>();
-				for (auto i = 0u; i < _src->getMeshBufferCount(); i++)
-					tmp->addMeshBuffer(createMeshBufferDuplicate(_src->getMeshBuffer(i)));
-				dst = std::move(tmp);
-			}
-
-			return dst;
-		}
-
-        //! Swaps the index buffer for a new index buffer with invalid triangles removed.
-        /**
-        Invalid triangle is such consisting of two or more same indices.
-        @param _input Input index buffer.
-        @param _idxType Type of indices in the index buffer.
-        @returns New index buffer or nullptr if input indices were of unknown type or _input was nullptr.
-        */
-        static void filterInvalidTriangles(ICPUMeshBuffer* _input);
-
-        //! Creates index buffer from input converting it to indices for line list primitives. Input is assumed to be indices for line strip.
-        /**
-        @param _input Input index buffer's data.
-        @param _idxCount Index count.
-        @param _inIndexType Type of input index buffer data (32bit or 16bit).
-        @param _outIndexType Type of output index buffer data (32bit or 16bit).
-        */
-        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromLineStripsToLines(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
-
-        //! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle strip.
-        /**
-        @param _input Input index buffer's data.
-        @param _idxCount Index count.
-        @param _inIndexType Type of input index buffer data (32bit or 16bit).
-        @param _outIndexType Type of output index buffer data (32bit or 16bit).
-        */
-        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTriangleStripsToTriangles(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
-
-        //! Creates index buffer from input converting it to indices for triangle list primitives. Input is assumed to be indices for triangle fan.
-        /**
-        @param _input Input index buffer's data.
-        @param _idxCount Index count.
-        @param _inIndexType Type of input index buffer data (32bit or 16bit).
-        @param _outIndexType Type of output index buffer data (32bit or 16bit).
-        */
-        static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTrianglesFanToTriangles(const void* _input, size_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
 
         //! Creates a 32bit index buffer for a mesh with primitive types changed to list types
         /**#
@@ -353,123 +567,19 @@ namespace asset
 			}
 		}
 
-        //! Compares two attributes of floating point types in accordance with passed error metric.
-        /**
-        @param _a First attribute.
-        @param _b Second attribute.
-        @param _cpa Component count.
-        @param _errMetric Error metric info.
-        */
-        static inline bool compareFloatingPointAttribute(const core::vectorSIMDf& _a, const core::vectorSIMDf& _b, size_t _cpa, const SErrorMetric& _errMetric)
+
+		//! Creates Mesh Duplicate
+		static inline core::smart_refctd_ptr<ICPUMesh> createMeshDuplicate(const ICPUMesh* _src)
 		{
-			using ErrorF_t = core::vectorSIMDf(*)(core::vectorSIMDf, core::vectorSIMDf);
+			if (!_src)
+				return nullptr;
+	
+			core::smart_refctd_ptr<ICPUMesh> dst = core::make_smart_refctd_ptr<ICPUMesh>();
+			auto& dstMeshBuffers = dst->getMeshBufferVector();
+			for (auto meshbuffer : _src->getMeshBuffers())
+				dstMeshBuffers.emplace_back(createMeshBufferDuplicate(meshbuffer));
 
-			ErrorF_t errorFunc = nullptr;
-
-			switch (_errMetric.method)
-			{
-			case EEM_POSITIONS:
-				errorFunc = [](core::vectorSIMDf _d1, core::vectorSIMDf _d2) -> core::vectorSIMDf {
-					return core::abs(_d1 - _d2);
-				};
-				break;
-			case EEM_ANGLES:
-				errorFunc = [](core::vectorSIMDf _d1, core::vectorSIMDf _d2)->core::vectorSIMDf {
-					_d1.w = _d2.w = 0.f;
-					if ((_d1==core::vectorSIMDf(0.f)).all() || (_d2==core::vectorSIMDf(0.f)).all())
-						return core::vectorSIMDf(-INFINITY);
-					return core::dot(_d1, _d2) / (core::length(_d1) * core::length(_d2));
-				};
-				break;
-			case EEM_QUATERNION:
-				errorFunc = [](core::vectorSIMDf _d1, core::vectorSIMDf _d2)->core::vectorSIMDf {
-					return core::dot(_d1, _d2) / (core::length(_d1) * core::length(_d2));
-				};
-				break;
-			default:
-				errorFunc = nullptr;
-				break;
-			}
-
-			using CmpF_t = bool(*)(const core::vectorSIMDf&, const core::vectorSIMDf&, size_t);
-
-			CmpF_t cmpFunc = nullptr;
-
-			switch (_errMetric.method)
-			{
-			case EEM_POSITIONS:
-				cmpFunc = [](const core::vectorSIMDf& _err, const core::vectorSIMDf& _epsilon, size_t _cpa) -> bool {
-					for (size_t i = 0u; i < _cpa; ++i)
-						if (_err.pointer[i] > _epsilon.pointer[i])
-							return false;
-					return true;
-				};
-				break;
-			case EEM_ANGLES:
-			case EEM_QUATERNION:
-				cmpFunc = [](const core::vectorSIMDf& _err, const core::vectorSIMDf& _epsilon, size_t _cpa) -> bool {
-					return _err.x > (1.f - _epsilon.x);
-				};
-				break;
-			default:
-				cmpFunc = nullptr;
-				break;
-			}
-
-			_NBL_DEBUG_BREAK_IF(!errorFunc)
-				_NBL_DEBUG_BREAK_IF(!cmpFunc)
-				if (!errorFunc || !cmpFunc)
-					return false;
-
-			const core::vectorSIMDf err = errorFunc(_a, _b);
-			return cmpFunc(err, _errMetric.epsilon, _cpa);
-		}
-
-		//! Get amount of polygons in mesh buffer.
-		/** \param meshbuffer Input mesh buffer
-		\param Outputted Number of polygons in mesh buffer, if successful.
-		\return If successfully can provide information */
-        template<typename ...MeshbufTemplParams>
-		static inline bool getPolyCount(uint32_t& outCount, const IMeshBuffer<MeshbufTemplParams...>* meshbuffer)
-		{
-			outCount = 0;
-			if (!meshbuffer)
-				return false;
-            if (!meshbuffer->getPipeline())
-                return false;
-
-            const auto& assemblyParams = meshbuffer->getPipeline()->getPrimitiveAssemblyParams();
-            const E_PRIMITIVE_TOPOLOGY primType = assemblyParams.primitiveType;
-			switch (primType)
-			{
-				case EPT_POINT_LIST:
-					outCount = meshbuffer->getIndexCount();
-					break;
-				case EPT_LINE_STRIP:
-					outCount = meshbuffer->getIndexCount() - 1;
-					break;
-				case EPT_LINE_LIST:
-					outCount = meshbuffer->getIndexCount() / 2;
-					break;
-				case EPT_TRIANGLE_STRIP:
-					outCount = meshbuffer->getIndexCount() - 2;
-					break;
-				case EPT_TRIANGLE_FAN:
-					outCount = meshbuffer->getIndexCount() - 2;
-					break;
-				case EPT_TRIANGLE_LIST:
-					outCount = meshbuffer->getIndexCount() / 3;
-					break;
-				case EPT_PATCH_LIST:
-					outCount = meshbuffer->getIndexCount() / assemblyParams.tessPatchVertCount;
-					break;
-				default:
-					assert(false); // need to implement calculation for more types
-					return false;
-					break;
-			}
-
-			return true;
+			return dst;
 		}
 
 		//! Get amount of polygons in mesh.
@@ -494,9 +604,32 @@ namespace asset
 			return retval;
 		}
 
-		virtual CQuantNormalCache* getQuantNormalCache() = 0;
+		//! Calculates bounding box of the mesh
+		template<typename T>
+		static inline core::aabbox3df calculateBoundingBox(const IMesh<T>* mesh)
+		{
+			core::aabbox3df aabb(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);;
 
-    protected:
+			auto meshbuffers = mesh->getMeshBuffers();
+			if (meshbuffers.empty())
+				aabb.reset(0.0f,0.0f,0.0f);
+			else
+			for (auto mesh : meshbuffers)
+				aabb.addInternalBox(mesh->getBoundingBox());
+			
+			return aabb;
+		}
+
+		//! Recalculates the cached bounding box of the mesh
+		template<typename T>
+		static inline void recalculateBoundingBox(IMesh<T>* mesh)
+		{
+			mesh->setBoundingBox(calculateBoundingBox(mesh));
+		}
+
+
+		//!
+		virtual CQuantNormalCache* getQuantNormalCache() = 0;
 };
 
 } // end namespace scene

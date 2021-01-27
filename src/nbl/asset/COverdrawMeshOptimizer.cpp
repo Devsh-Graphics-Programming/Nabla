@@ -40,7 +40,7 @@ core::smart_refctd_ptr<asset::ICPUMeshBuffer> COverdrawMeshOptimizer::createOpti
 	const size_t idxCount = outbuffer->getIndexCount();
 	void* indicesCopy = _NBL_ALIGNED_MALLOC(indexSize*idxCount,_NBL_SIMD_ALIGNMENT);
 	memcpy(indicesCopy, indices, indexSize*idxCount);
-	const size_t vertexCount = outbuffer->calcVertexCount();
+	const size_t vertexCount = IMeshManipulator::upperBoundVertexID(outbuffer.get());
 	core::vector<core::vectorSIMDf> vertexPositions;
 	{
 		core::vectorSIMDf pos;

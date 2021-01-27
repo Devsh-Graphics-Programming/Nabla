@@ -376,7 +376,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
             submeshes[i]->setIndexCount(indices[i].size());
             submeshes[i]->setIndexType(EIT_32BIT);
-            submeshes[i]->getIndexBufferBinding()->offset = ixBufOffset;
+			submeshes[i]->setIndexBufferBinding({ixBufOffset,nullptr});
             ixBufOffset += indices[i].size()*4ull;
 
             const uint32_t hasUV = !core::isnan(vertices[indices[i][0]].uv[0]);
@@ -437,9 +437,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 continue;
 
             submeshes[i]->setPositionAttributeIx(POSITION);
-
-            submeshes[i]->getIndexBufferBinding()->buffer = ixBuf;
-            const uint64_t offset = submeshes[i]->getIndexBufferBinding()->offset;
+			
+			submeshes[i]->setIndexBufferBinding({submeshes[i]->getIndexBufferBinding().offset,ixBuf});
+            const uint64_t offset = submeshes[i]->getIndexBufferBinding().offset;
             memcpy(reinterpret_cast<uint8_t*>(ixBuf->getPointer())+offset, indices[i].data(), indices[i].size()*4ull);
 
             SBufferBinding<ICPUBuffer> vtxBufBnd;
@@ -460,22 +460,23 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         }
     }
 
-    auto mesh = core::make_smart_refctd_ptr<CCPUMesh>();
+    auto mesh = core::make_smart_refctd_ptr<ICPUMesh>();
     for (auto& submesh : submeshes)
     {
-        mesh->addMeshBuffer(std::move(submesh));
+		IMeshManipulator::recalculateBoundingBox(submesh.get());
+        mesh->getMeshBufferVector().emplace_back(std::move(submesh));
     }
 
-	if (mesh->getMeshBufferCount())
-		mesh->recalculateBoundingBox(true);
-	else
+	IMeshManipulator::recalculateBoundingBox(mesh.get());
+	if (mesh->getMeshBuffers().empty())
         return {};
     
     //at the very end, insert submeshes into cache
-    for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+	uint32_t i = 0u;
+	for (auto meshbuffer : mesh->getMeshBuffers())
     {
-        SAssetBundle bundle{ core::smart_refctd_ptr<ICPUMeshBuffer>(mesh->getMeshBuffer(i)) };
-        _override->insertAssetIntoCache(bundle, submeshCacheKeys[i], ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
+        SAssetBundle bundle{ core::smart_refctd_ptr<ICPUMeshBuffer>(meshbuffer) };
+        _override->insertAssetIntoCache(bundle, submeshCacheKeys[i++], ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
     }
 
 	return SAssetBundle({std::move(mesh)});
