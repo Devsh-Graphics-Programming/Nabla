@@ -8,6 +8,7 @@
 
 // Shared Memory
 #include <nbl/builtin/glsl/workgroup/shared_arithmetic.glsl>
+#include <nbl/builtin/glsl/math/complex.glsl>
 
 // TODO: Get from CPP Ext Side when Creating Shader
  #define _NBL_GLSL_EXT_FFT_SHARED_SIZE_NEEDED_ 256
@@ -85,24 +86,25 @@ uint reverseBits(uint x)
 void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
 {
 	uint channel = 0;
+    
 	// Pass 0: Bit Reversal
 	uint leadingZeroes = clz(inUniform.dimension.x) + 1;
 	uint logTwo = 32 - leadingZeroes;
-	uint bitReversedIndex = reverseBits(gl_LocalInvocationIndex.x) >> leadingZeroes;
 	
 	uvec3 coords = uvec3(gl_LocalInvocationIndex.x, 0, 0);
+	uint bitReversedIndex = reverseBits(coords.x) >> leadingZeroes;
 	uvec3 bit_reversed_coords = uvec3(bitReversedIndex, 0, 0);
 
 	float value = nbl_glsl_ext_FFT_getData(bit_reversed_coords, channel);
 
 	float final_shuffled = value;
-	for(uint i = 0; i < logTwo; ++i) {
+	for(uint i = 0; i < 1; ++i) {
 		uint mask = 1 << i;
 		float prev_shuffled = final_shuffled;
 		final_shuffled = nbl_glsl_workgroupShuffleXor(prev_shuffled, mask);
 	}
 
-	vec2 complex_value = vec2(value, final_shuffled);
+	vec2 complex_value = nbl_glsl_eITheta(3.0 / 4.0 * nbl_glsl_PI); // = vec2(coords, final_shuffled);
 	nbl_glsl_ext_FFT_setData(coords, channel, complex_value);
 }
 

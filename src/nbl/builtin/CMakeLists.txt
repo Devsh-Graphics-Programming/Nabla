@@ -71,8 +71,9 @@ set(nbl_resources_to_embed
   # asset loaders (mostly for pipelines)
   "nbl/builtin/glsl/loaders/mtl/common.glsl"
   # math and limits
-  "nbl/builtin/glsl/math/functions.glsl"
   "nbl/builtin/glsl/math/constants.glsl"
+  "nbl/builtin/glsl/math/complex.glsl"
+  "nbl/builtin/glsl/math/functions.glsl"
   "nbl/builtin/glsl/math/quaternions.glsl"
   "nbl/builtin/glsl/math/typeless_arithmetic.glsl"
   "nbl/builtin/glsl/limits/numeric.glsl"
