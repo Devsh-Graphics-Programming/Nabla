@@ -112,8 +112,6 @@ void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
 	uint bitReversedIndex = reverseBits(coords.x) >> leadingZeroes;
 	uvec3 bit_reversed_coords = uvec3(bitReversedIndex, 0, 0);
 
-    uint twiddle_power = calculate_twiddle_power(gl_LocalInvocationIndex.x, 1, logTwo, inUniform.dimension.x);
-
     // Next FFT Passes: 
     float value = nbl_glsl_ext_FFT_getData(bit_reversed_coords, channel);
 
@@ -122,8 +120,10 @@ void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
 	for(uint i = 0; i < logTwo; ++i) 
     {
 		uint mask = 1 << i;
-		vec2 other_value = nbl_glsl_workgroupShuffleXor(current_value, mask);
-        
+		float other_value_x = nbl_glsl_workgroupShuffleXor(current_value.x, mask);
+		float other_value_y = nbl_glsl_workgroupShuffleXor(current_value.y, mask);
+        vec2 other_value = vec2(other_value_x, other_value_y);
+
         vec2 twiddle = twiddle(gl_LocalInvocationIndex.x, i, logTwo, inUniform.dimension.x);
 
         vec2 prev_value = current_value;

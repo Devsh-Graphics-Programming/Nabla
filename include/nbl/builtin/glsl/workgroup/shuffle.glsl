@@ -65,28 +65,6 @@ int nbl_glsl_workgroupShuffle(in int val, in uint id)
 	return int(ret);
 }
 
-// vec2
-vec2 nbl_glsl_workgroupShuffle_noBarriers(in vec2 val, in uint id)
-{
-	_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex * 2] = floatBitsToUint(val.x);
-	_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex * 2 + 1] = floatBitsToUint(val.y);
-	barrier();
-	memoryBarrierShared();
-	const uint x = _NBL_GLSL_SCRATCH_SHARED_DEFINED_[id * 2];
-	const uint y = _NBL_GLSL_SCRATCH_SHARED_DEFINED_[id * 2 + 1];
-	return vec2(uintBitsToFloat(x), uintBitsToFloat(y));
-}
-
-vec2 nbl_glsl_workgroupShuffle(in vec2 val, in uint id)
-{
-	barrier();
-	memoryBarrierShared();
-	const vec2 retval = nbl_glsl_workgroupShuffle_noBarriers(val, id);
-	barrier();
-	memoryBarrierShared();
-	return retval;
-}
-
 // Shuffle XOR 
 
 // uint
@@ -122,18 +100,6 @@ int nbl_glsl_workgroupShuffleXor_noBarriers(in int val, in uint mask)
 }
 
 int nbl_glsl_workgroupShuffleXor(in int val, in uint mask) 
-{
-	uint xor = gl_LocalInvocationIndex ^ mask;
-	return nbl_glsl_workgroupShuffle(val, xor);
-}
-
-// vec2
-vec2 nbl_glsl_workgroupShuffleXor_noBarriers(in vec2 val, in uint mask) {
-	uint xor = gl_LocalInvocationIndex ^ mask;
-	return nbl_glsl_workgroupShuffle_noBarriers(val, xor);
-}
-
-vec2 nbl_glsl_workgroupShuffleXor(in vec2 val, in uint mask) 
 {
 	uint xor = gl_LocalInvocationIndex ^ mask;
 	return nbl_glsl_workgroupShuffle(val, xor);
