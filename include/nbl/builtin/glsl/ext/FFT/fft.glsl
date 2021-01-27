@@ -127,7 +127,7 @@ void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
         vec2 twiddle = twiddle(gl_LocalInvocationIndex.x, i, logTwo, inUniform.dimension.x);
 
         vec2 prev_value = current_value;
-        current_value = prev_value + nbl_glsl_complex_mul(twiddle, other_value); 
+        current_value = other_value + nbl_glsl_complex_mul(twiddle, prev_value); 
 
         barrier();
     }
