@@ -394,11 +394,7 @@ macro(nbl_target_link_volk _trgt)
 	target_link_libraries(${_trgt} PRIVATE volk)
 endmacro()
 macro(nbl_target_link_EGL _trgt)
-	if (${_NBL_USE_SYSTEM_EGL}) # in case of _NBL_USE_SYSTEM_EGL, we need just egl.h for EGL function types and constants
-		target_include_directories(${_trgt} PRIVATE "${THIRD_PARTY_SOURCE_DIR}/EGL/EGL/include")
-	else()
-		target_link_libraries(${_trgt} PRIVATE egl)
-	endif()
+	target_link_libraries(${_trgt} PRIVATE egl)
 endmacro()
 
 add_library(Nabla STATIC

@@ -3,7 +3,7 @@
 
 #include <EGL/egl.h> // include egl.h from our 3rdparties
 #include "nbl/system/DynamicFunctionCaller.h"
-#include "nbl/system/FuncPtrLoader.h"
+#include "nbl/system/DefaultFuncPtrLoader.h"
 
 namespace nbl {
 namespace video {
@@ -12,46 +12,13 @@ namespace egl
 
 namespace impl
 {
-    class CEGLFuncLoader final : public system::FuncPtrLoader
-    {
-    public:
-        CEGLFuncLoader()
-        {
-    #ifdef _NBL_USE_SYSTEM_EGL
-            lib = dlopen("libEGL.so", RTLD_LAZY);
-    #endif
-        }
-
-        inline bool isLibraryLoaded() override final
-        {
-    #ifdef _NBL_USE_SYSTEM_EGL
-            return !lib;
-    #else
-            return true;
-    #endif
-        }
-
-        inline void* loadFuncPtr(const char* name) override final
-        {
-    #ifdef _NBL_USE_SYSTEM_EGL
-            return dlsym(lib, name);
-    #else
-            return nullptr;
-    #endif
-        }
-
-    private:
-    #ifdef _NBL_USE_SYSTEM_EGL
-        void* lib = nullptr;
-    #endif
-    };
+    using CEGLFuncLoader = system::DefaultFuncPtrLoader;
 }
 
 class CEGLCaller final : public system::DynamicFunctionCallerBase<impl::CEGLFuncLoader>
 {
     using Base = system::DynamicFunctionCallerBase<impl::CEGLFuncLoader>;
 
-public:
 #define NBL_EGL_FUNC_LIST \
     eglChooseConfig,\
     eglCopyBuffers,\
@@ -105,11 +72,17 @@ public:
 #define NBL_IMPL_DECLARE_EGL_FUNC_PTRS(...)\
     NBL_FOREACH(NBL_SYSTEM_DECLARE_DYNLIB_FUNCPTR,__VA_ARGS__);
 
-#ifdef _NBL_USE_SYSTEM_EGL
-#define NBL_IMPL_INIT_EGL_FUNCPTR(FUNC_NAME) NBL_SYSTEM_IMPL_INIT_DYNLIB_FUNCPTR(FUNC_NAME)
+#ifdef _NBL_PLATFORM_WINDOWS_
+#define NBL_IMPL_GET_FUNC_PTR(FUNC_NAME) &::FUNC_NAME
 #else
-#define NBL_IMPL_INIT_EGL_FUNCPTR(FUNC_NAME) ,p ## FUNC_NAME ## (&::FUNC_NAME)
+#define NBL_IMPL_GET_FUNC_PTR(FUNC_NAME) [] () -> void* { \
+    if (auto fptr = Base::loader.loadFuncPtr( #FUNC_NAME ))\
+        return fptr;\
+    return &::FUNC_NAME;\
+}()
 #endif
+
+#define NBL_IMPL_INIT_EGL_FUNCPTR(FUNC_NAME) ,p ## FUNC_NAME ## (NBL_IMPL_GET_FUNC_PTR(FUNC_NAME))
 
 #define NBL_IMPL_INIT_EGL_FUNC_PTRS(...)\
     NBL_FOREACH(NBL_IMPL_INIT_EGL_FUNCPTR,__VA_ARGS__)
@@ -117,8 +90,11 @@ public:
 #define NBL_IMPL_SWAP_EGL_FUNC_PTRS(...)\
     NBL_FOREACH(NBL_SYSTEM_IMPL_SWAP_DYNLIB_FUNCPTR,__VA_ARGS__);
 
+    constexpr inline static const char* LibName = "libEGL";
+
+public:
     CEGLCaller() :
-        Base()
+        Base(LibName)
         NBL_IMPL_INIT_EGL_FUNC_PTRS(NBL_EGL_FUNC_LIST)
     {
 
@@ -137,9 +113,9 @@ public:
         return *this;
     }
 
-private:
     NBL_IMPL_DECLARE_EGL_FUNC_PTRS(NBL_EGL_FUNC_LIST)
 };
+
 }
 }
 }
