@@ -130,17 +130,9 @@ void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
         current_value = prev_value + nbl_glsl_complex_mul(twiddle, other_value); 
 
         barrier();
-
-        // _NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex * 2] = floatBitsToUint(current_value.x);
-        // _NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex * 2 + 1] = floatBitsToUint(current_value.y);
     }
 
-    vec2 final_value = vec2(
-        uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex * 2]),
-        uintBitsToFloat(_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex * 2 + 1])
-    );
-
-	vec2 complex_value = final_value;
+	vec2 complex_value = current_value;
 	nbl_glsl_ext_FFT_setData(coords, channel, complex_value);
 }
 
