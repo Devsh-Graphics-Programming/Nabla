@@ -67,10 +67,7 @@ int nbl_glsl_workgroupShuffle(in int val, in uint id)
 uint nbl_glsl_workgroupShuffleXor_noBarriers(in uint val, in uint mask)
 {
 	uint xor = gl_LocalInvocationIndex ^ mask;
-	_NBL_GLSL_SCRATCH_SHARED_DEFINED_[gl_LocalInvocationIndex] = val;
-	barrier();
-	memoryBarrierShared();
-	return _NBL_GLSL_SCRATCH_SHARED_DEFINED_[xor];
+	return nbl_glsl_workgroupShuffle_noBarriers(val, xor);
 }
 
 uint nbl_glsl_workgroupShuffleXor(in uint val, in uint mask)
