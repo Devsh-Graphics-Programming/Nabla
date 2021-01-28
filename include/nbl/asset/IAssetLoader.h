@@ -8,7 +8,7 @@
 #include "nbl/core/core.h"
 #include "IFileSystem.h"
 
-#include "IAsset.h"
+#include "nbl/asset/SAssetBundle.h"
 #include "IReadFile.h"
 
 namespace nbl
@@ -263,8 +263,8 @@ protected:
 	//void interm_restoreDummyAsset(IAssetManager* _mgr, IAsset* _asset, const std::string _path);
 
 	bool insertBuiltinAssetIntoCache(IAssetManager* _mgr, SAssetBundle& _asset, const std::string _path);
-	bool insertBuiltinAssetIntoCache(IAssetManager* _mgr, core::smart_refctd_ptr<IAsset>& _asset, const std::string _path);
-	bool insertBuiltinAssetIntoCache(IAssetManager* _mgr, core::smart_refctd_ptr<IAsset>&& _asset, const std::string _path);
+	bool insertBuiltinAssetIntoCache(IAssetManager* _mgr, core::smart_refctd_ptr<IAsset>& _asset, core::smart_refctd_ptr<IAssetMetadata>&& metadata, const std::string _path);
+	bool insertBuiltinAssetIntoCache(IAssetManager* _mgr, core::smart_refctd_ptr<IAsset>&& _asset, core::smart_refctd_ptr<IAssetMetadata>&& metadata, const std::string _path);
 };
 
 }

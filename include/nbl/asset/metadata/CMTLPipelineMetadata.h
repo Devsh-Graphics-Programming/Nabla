@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_MTL_PIPELINE_METADATA_H_INCLUDED__
 #define __NBL_ASSET_C_MTL_PIPELINE_METADATA_H_INCLUDED__
 
-#include "nbl/asset/IPipelineMetadata.h"
+#include "nbl/asset/IRenderpassIndependentPipelineMetadata.h"
 #include "nbl/asset/ICPUDescriptorSet.h"
 #include "nbl/asset/ICPUPipelineLayout.h"
 
@@ -14,7 +14,7 @@ namespace nbl
 namespace asset
 {
 
-class CMTLPipelineMetadata final : public IPipelineMetadata
+class CMTLPipelineMetadata final : public IRenderpassIndependentPipelineMetadata
 {
 public:
 #include "nbl/nblpack.h"

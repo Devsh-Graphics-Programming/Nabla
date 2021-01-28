@@ -18,9 +18,7 @@
 #include "nbl/core/Types.h"
 #include "nbl/asset/IGLSLCompiler.h"
 
-#include "nbl/asset/IGeometryCreator.h"/*
-#include "nbl/asset/IMeshManipulator.h"
-#include "nbl/asset/CQuantNormalCache.h"*/
+#include "nbl/asset/IGeometryCreator.h"
 #include "nbl/asset/IAssetLoader.h"
 #include "nbl/asset/IAssetWriter.h"
 
@@ -226,7 +224,7 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
                 auto found = findAssets(filename);
                 if (found->size())
                     return _override->chooseRelevantFromFound(found->begin(), found->end(), ctx, _hierarchyLevel);
-                else if (!(asset = _override->handleSearchFail(filename, ctx, _hierarchyLevel)).isEmpty())
+                else if (!(asset = _override->handleSearchFail(filename, ctx, _hierarchyLevel)).getContents().empty())
                     return asset;
             }
 
@@ -238,26 +236,26 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
             // loaders associated with the file's extension tryout
             for (auto& loader : capableLoadersRng)
             {
-                if (loader.second->isALoadableFileFormat(file) && !(asset = loader.second->loadAsset(file, params, _override, _hierarchyLevel)).isEmpty())
+                if (loader.second->isALoadableFileFormat(file) && !(asset = loader.second->loadAsset(file, params, _override, _hierarchyLevel)).getContents().empty())
                     break;
             }
-            for (auto loaderItr = std::begin(m_loaders.vector); asset.isEmpty() && loaderItr != std::end(m_loaders.vector); ++loaderItr) // all loaders tryout
+            for (auto loaderItr = std::begin(m_loaders.vector); asset.getContents().empty() && loaderItr != std::end(m_loaders.vector); ++loaderItr) // all loaders tryout
             {
-                if ((*loaderItr)->isALoadableFileFormat(file) && !(asset = (*loaderItr)->loadAsset(file, params, _override, _hierarchyLevel)).isEmpty())
+                if ((*loaderItr)->isALoadableFileFormat(file) && !(asset = (*loaderItr)->loadAsset(file, params, _override, _hierarchyLevel)).getContents().empty())
                     break;
             }
 
-            if (!asset.isEmpty() && 
+            if (!asset.getContents().empty() && 
                 ((levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) != IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) &&
                 ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL))
             {
                 _override->insertAssetIntoCache(asset, filename, ctx, _hierarchyLevel);
             }
-            else if (asset.isEmpty())
+            else if (asset.getContents().empty())
             {
                 bool addToCache;
                 asset = _override->handleLoadFail(addToCache, file, filename, filename, ctx, _hierarchyLevel);
-                if (!asset.isEmpty() && addToCache)
+                if (!asset.getContents().empty() && addToCache)
                     _override->insertAssetIntoCache(asset, filename, ctx, _hierarchyLevel);
             }
             
@@ -398,15 +396,6 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 			return retval;
         }
 
-		//! It injects metadata into Asset structure
-		/**
-			@see IAssetMetadata
-		*/
-        inline void setAssetMetadata(IAsset* _asset, core::smart_refctd_ptr<IAssetMetadata>&& _metadata)
-        {
-            _asset->setMetadata(std::move(_metadata));
-        }
-
         //! Changes the lookup key
         //TODO change name
         inline void changeAssetKey(SAssetBundle& _asset, const std::string& _newKey)
@@ -486,8 +475,9 @@ class IAssetManager : public core::IReferenceCounted, public core::QuitSignallin
 			size_t outputSize = 0u;
 			for (auto it=assets->begin(); it!=assets->end(); it++)
 			{
-				outputSize += it->getSize();
-				if (it->getSize())
+                const auto contentCount = it->getContents().size();
+				outputSize += contentCount;
+				if (contentCount)
 					assert(it->getAssetType() == _type);
 			}
 			if (!outputSize)

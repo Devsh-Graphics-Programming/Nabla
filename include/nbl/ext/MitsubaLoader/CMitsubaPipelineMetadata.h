@@ -8,7 +8,7 @@
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/core/containers/refctd_dynamic_array.h"
 #include "nbl/asset/ICPUDescriptorSet.h"
-#include "nbl/asset/IPipelineMetadata.h"
+#include "nbl/asset/IRenderpassIndependentPipelineMetadata.h"
 
 namespace nbl
 {
@@ -17,7 +17,7 @@ namespace ext
 namespace MitsubaLoader
 {
 //TODO make it inherit from IMitsubaMetadata so that it has global mitsuba metadata ptr
-class CMitsubaPipelineMetadata final : public asset::IPipelineMetadata
+class CMitsubaPipelineMetadata final : public asset::IRenderpassIndependentPipelineMetadata
 {
 public:
     CMitsubaPipelineMetadata(core::smart_refctd_ptr<asset::ICPUDescriptorSet>&& _ds0, core::smart_refctd_dynamic_array<ShaderInputSemantic>&& _inputs) :

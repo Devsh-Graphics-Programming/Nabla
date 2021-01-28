@@ -5,7 +5,7 @@
 #ifndef __NBL_C_MITSUBA_SERIALIZED_PIPELINE_METADATA_H_INCLUDED__
 #define __NBL_C_MITSUBA_SERIALIZED_PIPELINE_METADATA_H_INCLUDED__
 
-#include "nbl/asset/IPipelineMetadata.h"
+#include "nbl/asset/IRenderpassIndependentPipelineMetadata.h"
 
 namespace nbl
 {
@@ -15,7 +15,7 @@ namespace nbl
         {
             using namespace asset;
 
-            class CMitsubaSerializedPipelineMetadata final : public IPipelineMetadata
+            class CMitsubaSerializedPipelineMetadata final : public IRenderpassIndependentPipelineMetadata
             {
             public:
 

@@ -8,7 +8,6 @@
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
 #include "nbl/asset/ICPUSpecializedShader.h"
 #include "nbl/asset/ICPUPipelineLayout.h"
-#include "nbl/asset/IPipelineMetadata.h"
 
 namespace nbl
 {

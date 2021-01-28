@@ -79,14 +79,14 @@ bool IAssetLoader::insertBuiltinAssetIntoCache(IAssetManager* _mgr, SAssetBundle
     return _mgr->insertBuiltinAssetIntoCache(_asset);
 }
 
-bool IAssetLoader::insertBuiltinAssetIntoCache(IAssetManager* _mgr, core::smart_refctd_ptr<IAsset>& _asset, const std::string _path)
+bool IAssetLoader::insertBuiltinAssetIntoCache(IAssetManager* _mgr,  core::smart_refctd_ptr<IAsset>& _asset, core::smart_refctd_ptr<IAssetMetadata>&& metadata, const std::string _path)
 {
-    asset::SAssetBundle bundle({ _asset });
+    asset::SAssetBundle bundle(std::move(metadata), { _asset });
     return insertBuiltinAssetIntoCache(_mgr, bundle, _path);
 }
 
-bool IAssetLoader::insertBuiltinAssetIntoCache(IAssetManager* _mgr, core::smart_refctd_ptr<IAsset>&& _asset, const std::string _path)
+bool IAssetLoader::insertBuiltinAssetIntoCache(IAssetManager* _mgr, core::smart_refctd_ptr<IAsset>&& _asset, core::smart_refctd_ptr<IAssetMetadata>&& metadata, const std::string _path)
 {
-    asset::SAssetBundle bundle({ std::move(_asset) });
+    asset::SAssetBundle bundle(std::move(metadata), { std::move(_asset) });
     return insertBuiltinAssetIntoCache(_mgr, bundle, _path);
 }

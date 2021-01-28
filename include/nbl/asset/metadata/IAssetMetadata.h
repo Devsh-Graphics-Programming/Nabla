@@ -7,10 +7,15 @@
 
 #include "nbl/core/core.h"
 
+#include "nbl/asset/IImageMetadata.h"
+#include "nbl/asset/IRenderpassIndependentPipelineMetadata.h"
+#include "nbl/asset/IMeshMetadata.h"
+
 namespace nbl
 {
 namespace asset
 {
+
 
 //! A class managing Asset's metadata context
 /**
@@ -30,10 +35,37 @@ namespace asset
 class IAssetMetadata : public core::IReferenceCounted
 {
 	protected:
+		template<class Asset>
+		struct asset_metadata;
+
+		template<>
+		struct asset_metadata<ICPUImage>
+		{
+			using type = IImageMetadata;
+		};
+		template<>
+		struct asset_metadata<ICPURenderpassIndependentPipeline>
+		{
+			using type = IRenderpassIndependentPipelineMetadata;
+		};
+
+		template<class Asset>
+		using asset_metadata_t = typename asset_metadata<Asset>::type;
+
+		template<class Asset>
+		using asset_metadata_map_t = core::map<const Asset*,const asset_metadata_t<Asset>*>;
+
+
+		std::tuple<
+			asset_metadata_map_t<ICPUImage>,
+			asset_metadata_map_t<ICPURenderpassIndependentPipeline>,
+			asset_metadata_map_t<ICPUMesh>
+		> m_metaMaps;
+
+
 		virtual ~IAssetMetadata() = default;
 
 	public:
-		//! This could actually be reworked to something more usable
 		/*
 			To implement by user. Returns a Loader name that may attach some metadata into Asset structure.
 
@@ -43,6 +75,17 @@ class IAssetMetadata : public core::IReferenceCounted
 			so a string is provided.
 		*/
 		virtual const char* getLoaderName() const = 0;
+
+		//!
+		template<class Asset>
+		inline const asset_metadata_t<Asset>* getAssetSpecificMetadata(const Asset* asset)
+		{
+			const auto& map = std::get<asset_metadata_map_t<Asset>>(m_metaMaps);
+			auto found = map.find(asset);
+			if (found != map.end())
+				return found->second;
+			return nullptr;
+		}
 };
 
 

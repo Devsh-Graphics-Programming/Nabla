@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_I_PIPELINE_METADATA_H_INCLUDED__
-#define __NBL_ASSET_I_PIPELINE_METADATA_H_INCLUDED__
+#ifndef __NBL_ASSET_I_RENDERPASS_INDEPENDENT_PIPELINE_METADATA_H_INCLUDED__
+#define __NBL_ASSET_I_RENDERPASS_INDEPENDENT_PIPELINE_METADATA_H_INCLUDED__
 
 #include "nbl/asset/IBuiltinIncludeLoader.h"
 #include "nbl/asset/ICPUDescriptorSetLayout.h"
@@ -25,10 +25,10 @@ namespace asset
 
 	But we can provide useful metadata from the loader.
 */
-class IPipelineMetadata : public IAssetMetadata
+class IRenderpassIndependentPipelineMetadata : public core::Interface
 {
     protected:
-        virtual ~IPipelineMetadata() = default;
+        virtual ~IRenderpassIndependentPipelineMetadata() = default;
 
 	public:
 		//! A common struct to unify the metadata declarations.
