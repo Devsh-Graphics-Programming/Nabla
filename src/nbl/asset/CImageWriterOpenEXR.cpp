@@ -127,6 +127,8 @@ namespace asset
 
 		for (auto channelPixelsPtr : pixelsArrayIlm)
 			_NBL_DELETE_ARRAY(channelPixelsPtr, width * height);
+
+		return true;
 	}
 
 	bool CImageWriterOpenEXR::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
