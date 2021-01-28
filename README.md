@@ -63,7 +63,21 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 
 
-// todo
+### [Bathroom Scene Raytracing](https://www.youtube.com/watch?t=28&v=vqKZKP1hYcc&feature=youtu.be)
+
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%207.gif)
+
+
+
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%208.gif)
+
+
+
+### [Stairs Scene Raytracing](https://www.youtube.com/watch?v=2uRBiLdvva4)
+
+
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/gifs/raytracingflythrough/raytracing%206.gif?raw=true)
 
 
 
@@ -141,6 +155,14 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 ##### <u>Over 10 area lights</u>
 
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Over%2010%20area%20lights.png?raw=true)
+
+**<u>Stairs raytracing</u>** 
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/screenshots/RTAA.png?raw=true)
+
+**<u>Bathroom raytracing</u>** 
+
+![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/screenshots/BathroomScene.png?raw=true)
 
 ##### <u>Raytracing sample</u>
 
