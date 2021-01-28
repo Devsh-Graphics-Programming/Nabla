@@ -147,11 +147,11 @@ layout(set=_NBL_GLSL_EXT_FFT_OUTPUT_SET_DEFINED_, binding=_NBL_GLSL_EXT_FFT_OUTP
 
 // Get/Set Data Function
 
-float nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
+vec2 nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
 {
     uvec3 dimension = inParams.dimension;
     uint index = coordinate.z * dimension.x * dimension.y + coordinate.y * dimension.x + coordinate.x;
-    return inData[index].real_value;
+    return vec2(inData[index].real_value, 0.0f);
 }
 
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in vec2 complex_value)
@@ -163,7 +163,7 @@ void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in vec2 comp
 
 void main()
 {
-	nbl_glsl_ext_FFT(inParams);
+	nbl_glsl_ext_FFT(inParams, false);
 }
 
 )===";

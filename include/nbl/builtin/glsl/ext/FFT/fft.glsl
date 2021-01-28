@@ -54,7 +54,7 @@ struct nbl_glsl_ext_FFT_Uniforms_t
 
 #ifndef _NBL_GLSL_EXT_FFT_GET_DATA_DECLARED_
 #define _NBL_GLSL_EXT_FFT_GET_DATA_DECLARED_
-float nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel);
+vec2 nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel);
 #endif
 
 #ifndef _NBL_GLSL_EXT_FFT_SET_DATA_DECLARED_
@@ -173,7 +173,7 @@ uint getDimLength(uvec3 dimension)
     return dataLength;
 }
 
-void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
+void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform, const bool is_inverse)
 {
     // Virtual Threads Calculation
     uint dataLength = getDimLength(inUniform.dimension);
@@ -196,8 +196,7 @@ void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
         uvec3 coords = getCoordinates(tid);
         uvec3 bitReversedCoords = getBitReversedCoordinates(coords, leadingZeroes);
 
-        float value = nbl_glsl_ext_FFT_getData(bitReversedCoords, channel);
-        current_values[t] = vec2(value, 0.0);
+        current_values[t] = nbl_glsl_ext_FFT_getData(bitReversedCoords, channel);
     }
 
     // For loop for each stage of the FFT (each virtual thread computes 1 buttefly wing)
@@ -240,7 +239,10 @@ void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
         {
             uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
             vec2 shuffled_value = shuffled_values[t];
-            vec2 twiddle = twiddle(tid, i, logTwo, dataLength);
+
+            vec2 twiddle = (!is_inverse) 
+             ? twiddle(tid, i, logTwo, dataLength)
+             : twiddle_inv(tid, i, logTwo, dataLength);
 
             vec2 prev_value = current_values[t];
             current_values[t] = shuffled_value + nbl_glsl_complex_mul(twiddle, prev_value); 
@@ -251,7 +253,10 @@ void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
     {
         uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
 	    uvec3 coords = getCoordinates(tid);
-        vec2 complex_value = current_values[t];
+        vec2 complex_value = (!is_inverse) 
+         ? current_values[t]
+         : current_values[t] / dataLength;
+
 	    nbl_glsl_ext_FFT_setData(coords, channel, complex_value);
     }
 }
