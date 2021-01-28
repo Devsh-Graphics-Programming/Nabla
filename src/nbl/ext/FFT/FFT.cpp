@@ -61,7 +61,7 @@ R"===(#version 430 core
 // WorkGroup Size
 
 #ifndef _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_
-#define _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_ 256
+#define _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_ 16
 #endif
 
 #ifndef _NBL_GLSL_EXT_FFT_BLOCK_SIZE_Y_DEFINED_

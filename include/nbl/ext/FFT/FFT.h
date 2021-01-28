@@ -44,7 +44,7 @@ class FFT : public core::TotalInterface
 			ret.workGroupDims[1] = 1;
 			ret.workGroupDims[2] = 1;
 
-			ret.workGroupCount[0] = core::ceil((inputDimensions.width) / float(workGroupXdim));
+			ret.workGroupCount[0] = 1;
 			ret.workGroupCount[1] = inputDimensions.height;
 			ret.workGroupCount[2] = inputDimensions.depth;
 			return ret;
@@ -155,7 +155,7 @@ class FFT : public core::TotalInterface
 		FFT() = delete;
 		//~FFT() = delete;
 
-		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_X_DIM = 256u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DEFAULT_WORK_GROUP_X_DIM = 16u;
 
 		static void defaultBarrier();
 };
