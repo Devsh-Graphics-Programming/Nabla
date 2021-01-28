@@ -17,7 +17,6 @@
 
 
 
-
 #ifdef _NBL_GLSL_SCRATCH_SHARED_DEFINED_
     #if NBL_GLSL_LESS(_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_,_NBL_GLSL_EXT_FFT_SHARED_SIZE_NEEDED_)
         #error "Not enough shared memory declared for ext::FFT!"
@@ -30,9 +29,19 @@
     #endif
 #endif
 
+// Push Constants
 
+#define _NBL_GLSL_EXT_FFT_DIRECTION_X_ 0
+#define _NBL_GLSL_EXT_FFT_DIRECTION_Y_ 1
+#define _NBL_GLSL_EXT_FFT_DIRECTION_Z_ 2
 
-#include <nbl/builtin/glsl/virtual_workgroup/shuffle.glsl>
+#ifndef _NBL_GLSL_EXT_FFT_PUSH_CONSTANTS_DEFINED_
+#define _NBL_GLSL_EXT_FFT_PUSH_CONSTANTS_DEFINED_
+layout(push_constant) uniform PushConstants
+{
+	uint direction;
+} pc;
+#endif
 
  // Uniform
 #ifndef _NBL_GLSL_EXT_FFT_UNIFORMS_DEFINED_
@@ -107,16 +116,55 @@ vec2 twiddle_inv(in uint threadId, in uint iteration, in uint logTwoN, in uint N
     return nbl_glsl_eITheta(2 * nbl_glsl_PI * k / N);
 }
 
+uint getChannel()
+{
+    if(pc.direction == _NBL_GLSL_EXT_FFT_DIRECTION_X_) {
+        return gl_WorkGroupID.x;
+    } else if (pc.direction == _NBL_GLSL_EXT_FFT_DIRECTION_Y_) {
+        return gl_WorkGroupID.y;
+    } else if (pc.direction == _NBL_GLSL_EXT_FFT_DIRECTION_Z_) {
+        return gl_WorkGroupID.z;
+    } else {
+        return 0;
+    }
+}
 
-// TODO: Extend to more than 1D
+uvec3 getCoordinates(in uint tidx)
+{
+    if(pc.direction == _NBL_GLSL_EXT_FFT_DIRECTION_X_) {
+        return uvec3(tidx, gl_WorkGroupID.y, gl_WorkGroupID.z);
+    } else if (pc.direction == _NBL_GLSL_EXT_FFT_DIRECTION_Y_) {
+        return uvec3(gl_WorkGroupID.x, tidx, gl_WorkGroupID.z);
+    } else if (pc.direction == _NBL_GLSL_EXT_FFT_DIRECTION_Z_) {
+        return uvec3(gl_WorkGroupID.x, gl_WorkGroupID.y, tidx);
+    } else {
+        return uvec3(0,0,0);
+    }
+}
+
+uvec3 getBitReversedCoordinates(in uvec3 coords, in uint leadingZeroes)
+{
+    if(pc.direction == _NBL_GLSL_EXT_FFT_DIRECTION_X_) {
+        uint bitReversedIndex = reverseBits(coords.x) >> leadingZeroes;
+        return uvec3(bitReversedIndex, coords.y, coords.z);
+    } else if (pc.direction == _NBL_GLSL_EXT_FFT_DIRECTION_Y_) {
+        uint bitReversedIndex = reverseBits(coords.y) >> leadingZeroes;
+        return uvec3(coords.x, bitReversedIndex, coords.z);
+    } else if (pc.direction == _NBL_GLSL_EXT_FFT_DIRECTION_Z_) {
+        uint bitReversedIndex = reverseBits(coords.z) >> leadingZeroes;
+        return uvec3(coords.x, coords.y, bitReversedIndex);
+    } else {
+        return uvec3(0,0,0);
+    }
+}
+
 void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
 {
     // Virtual Threads Calculation
     uint num_virtual_threads = uint(ceil(float(inUniform.dimension.x) / float(_NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_)));
     uint thread_offset = gl_LocalInvocationIndex;
 
-    // TODO:
-	uint channel = 0;
+	uint channel = getChannel();
     
 	// Pass 0: Bit Reversal
 	uint leadingZeroes = clz(inUniform.dimension.x) + 1;
@@ -129,10 +177,10 @@ void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
     for(uint t = 0; t < num_virtual_threads; t++)
     {
         uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
-        uvec3 coords = uvec3(tid, 0, 0);
-        uint bitReversedIndex = reverseBits(coords.x) >> leadingZeroes;
-        uvec3 bit_reversed_coords = uvec3(bitReversedIndex, 0, 0);
-        float value = nbl_glsl_ext_FFT_getData(bit_reversed_coords, channel);
+        uvec3 coords = getCoordinates(tid);
+        uvec3 bitReversedCoords = getBitReversedCoordinates(coords, leadingZeroes);
+
+        float value = nbl_glsl_ext_FFT_getData(bitReversedCoords, channel);
         current_values[t] = vec2(value, 0.0);
     }
 
@@ -186,7 +234,7 @@ void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
     for(uint t = 0; t < num_virtual_threads; t++)
     {
         uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
-	    uvec3 coords = uvec3(tid, 0, 0);
+	    uvec3 coords = getCoordinates(tid);
         vec2 complex_value = current_values[t];
 	    nbl_glsl_ext_FFT_setData(coords, channel, complex_value);
     }

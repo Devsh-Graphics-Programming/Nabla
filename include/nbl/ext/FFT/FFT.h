@@ -19,10 +19,18 @@ namespace FFT
 class FFT : public core::TotalInterface
 {
 	public:
+
+		enum class Direction : uint32_t {
+			_X = 0,
+			_Y = 1,
+			_Z = 2,
+		};
+
 		struct DispatchInfo_t
 		{
 			uint32_t workGroupDims[3];
 			uint32_t workGroupCount[3];
+			Direction direction;
 		};
 
 		struct alignas(16) Uniforms_t 
@@ -31,7 +39,11 @@ class FFT : public core::TotalInterface
 		};
 
 		// returns dispatch size and fills the uniform data
-		static inline DispatchInfo_t buildParameters(Uniforms_t * uniform, asset::VkExtent3D const & inputDimensions, uint32_t workGroupXdim = DEFAULT_WORK_GROUP_X_DIM)
+		static inline DispatchInfo_t buildParameters(
+			Uniforms_t * uniform,
+			asset::VkExtent3D const & inputDimensions,
+			Direction direction,
+			uint32_t num_channels)
 		{
 			DispatchInfo_t ret = {};
 			if(nullptr != uniform) {
@@ -40,13 +52,30 @@ class FFT : public core::TotalInterface
 				uniform->dims[2] = inputDimensions.depth;
 			}
 
-			ret.workGroupDims[0] = workGroupXdim;
+			ret.workGroupDims[0] = DEFAULT_WORK_GROUP_X_DIM;
 			ret.workGroupDims[1] = 1;
 			ret.workGroupDims[2] = 1;
 
-			ret.workGroupCount[0] = 1;
-			ret.workGroupCount[1] = inputDimensions.height;
-			ret.workGroupCount[2] = inputDimensions.depth;
+			if(direction == Direction::_X)
+			{
+				ret.workGroupCount[0] = 1; // = num_channels later
+				ret.workGroupCount[1] = inputDimensions.height;
+				ret.workGroupCount[2] = inputDimensions.depth;
+			}
+			else if(direction == Direction::_Y) {
+				ret.workGroupCount[0] = inputDimensions.width;
+				ret.workGroupCount[1] = 1;
+				ret.workGroupCount[2] = inputDimensions.depth;
+			}
+			else if(direction == Direction::_Z)
+			{
+				ret.workGroupCount[0] = inputDimensions.width;
+				ret.workGroupCount[1] = inputDimensions.height;
+				ret.workGroupCount[2] = 1;
+			}
+
+			ret.direction = direction;
+
 			return ret;
 		}
 
@@ -142,8 +171,10 @@ class FFT : public core::TotalInterface
 			driver->updateDescriptorSets(3u, pWrites, 0u, nullptr);
 		}
 
-		// we expect user binds correct pipeline, descriptor sets and pushes the push constants by themselves
-		static inline void dispatchHelper(video::IVideoDriver* driver, const DispatchInfo_t& dispatchInfo, bool issueDefaultBarrier=true)
+		static inline void dispatchHelper(
+			video::IVideoDriver* driver,
+			const DispatchInfo_t& dispatchInfo,
+			bool issueDefaultBarrier=true)
 		{
 			driver->dispatch(dispatchInfo.workGroupCount[0], dispatchInfo.workGroupCount[1], dispatchInfo.workGroupCount[2]);
 

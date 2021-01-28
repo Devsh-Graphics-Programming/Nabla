@@ -42,7 +42,7 @@ int main()
 	nbl::io::IFileSystem* filesystem = device->getFileSystem();
 	IAssetManager* am = device->getAssetManager();
 
-	constexpr VkExtent3D fftDim = VkExtent3D{128, 1, 1};
+	constexpr VkExtent3D fftDim = VkExtent3D{128, 2, 1};
 
 	using FFTClass = ext::FFT::FFT;
 	auto fftGPUSpecializedShader = FFTClass::createShader(driver, EF_R8G8B8A8_UNORM);
@@ -51,7 +51,7 @@ int main()
 	auto fftPipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout), std::move(fftGPUSpecializedShader));
 
 	FFTClass::Uniforms_t fftUniform = {};
-	auto fftDispatchInfo = FFTClass::buildParameters(&fftUniform, fftDim);
+	auto fftDispatchInfo_Horizontal = FFTClass::buildParameters(&fftUniform, fftDim, FFTClass::Direction::_X, 1);
 
 	// Allocate(and fill) uniform Buffer
 	auto fftUniformBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(fftUniform), &fftUniform);
@@ -108,8 +108,9 @@ int main()
 
 		driver->bindComputePipeline(fftPipeline.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout.get(), 0u, 1u, &fftDescriptorSet.get(), nullptr);
-		/// driver->pushConstants(commonPipelineLayout.get(),IGPUSpecializedShader::ESS_COMPUTE,0u,sizeof(outBufferIx),&outBufferIx); outBufferIx ^= 0x1u;
-		FFTClass::dispatchHelper(driver, fftDispatchInfo, true);
+		
+		driver->pushConstants(fftPipelineLayout.get(), IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t), &fftDispatchInfo_Horizontal.direction);
+		FFTClass::dispatchHelper(driver, fftDispatchInfo_Horizontal, true);
 
 		// driver->blitRenderTargets(blitFBO, nullptr, false, false);
 
