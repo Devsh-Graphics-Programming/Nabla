@@ -29,11 +29,11 @@ void Fill_Buffer_Ascending_Order(SShaderStorageBufferObject* ssbo)//Fill array w
 		return static_cast<buffer_type>(distribution(engine));
 	};
 
-	for (std::size_t i = 0; i < buffer_size; ++i)	
+	for (std::size_t i = 0; i < buffer_size; ++i)
 	{
 		ssbo->buffer[i] = static_cast<buffer_type>(i);
 	}
-	
+
 }
 
 void Radix_Sort::Radix_Sort::Init()
@@ -45,32 +45,32 @@ void Radix_Sort::Radix_Sort::Init()
 
 	auto* assetManager = Irrlicht_Device->getAssetManager();
 
-	auto computeShaderBundle = assetManager->getAsset("../compute_shader.comp", {});	//ladowanie shadera z pliku, folderu
+	const auto computeShaderBundle = assetManager->getAsset("../compute_shader.comp", {});																								//ladowanie shadera z pliku, folderu
 
 	assert(!computeShaderBundle.isEmpty());
 
-	auto cpuComputeShader = nbl::core::smart_refctd_ptr_static_cast<nbl::asset::ICPUSpecializedShader>(computeShaderBundle.getContents().begin()[0]);	//wyciaganie z "paczki" moje shadera, ktorego chce
-	auto gpuComputeShader = Video_Driver->getGPUObjectsFromAssets(&cpuComputeShader, &cpuComputeShader + 1)->front();											//konwertowanie cpu shadera na gpu shadera
+	nbl::core::smart_refctd_ptr<nbl::asset::ICPUSpecializedShader> cpuComputeShader = nbl::core::smart_refctd_ptr_static_cast<nbl::asset::ICPUSpecializedShader>(computeShaderBundle.getContents().begin()[0]);					//wyciaganie z "paczki" moje shadera, ktorego chce
+	nbl::core::smart_refctd_ptr<nbl::video::IGPUSpecializedShader> gpuComputeShader = Video_Driver->getGPUObjectsFromAssets(&cpuComputeShader, &cpuComputeShader + 1)->front();											//konwertowanie cpu shadera na gpu shadera
 
-	auto cpuSSBOBuffer = nbl::core::make_smart_refctd_ptr<nbl::asset::ICPUBuffer>(sizeof(SShaderStorageBufferObject));	//alokacja buffera mojego na gpu
+	auto cpuSSBOBuffer = nbl::core::make_smart_refctd_ptr<nbl::asset::ICPUBuffer>(sizeof(SShaderStorageBufferObject));															//alokacja buffera mojego na gpu
 
 	//// inicjalizuje ten buffer danymi
-	Fill_Buffer_Ascending_Order(static_cast<SShaderStorageBufferObject*>(cpuSSBOBuffer->getPointer()));
+	Fill_Buffer_Ascending_Order(reinterpret_cast<SShaderStorageBufferObject*>(cpuSSBOBuffer->getPointer()));
 
 
-	
-	auto gpuSSBOOffsetBufferPair = Video_Driver->getGPUObjectsFromAssets(&cpuSSBOBuffer, &cpuSSBOBuffer + 1)->front(); //konwersja buffera z cpu na gpu
-	auto gpuSSBOBuffer = nbl::core::smart_refctd_ptr<IGPUBuffer>(gpuSSBOOffsetBufferPair->getBuffer());														//wyciaganie samego buffera
+
+	auto gpuSSBOOffsetBufferPair = Video_Driver->getGPUObjectsFromAssets(&cpuSSBOBuffer, &cpuSSBOBuffer + 1)->front();									//konwersja buffera z cpu na gpu
+	auto gpuSSBOBuffer = nbl::core::smart_refctd_ptr<IGPUBuffer>(gpuSSBOOffsetBufferPair->getBuffer());																						//wyciaganie samego buffera
 
 
 
 	const std::size_t COUNT = 1;	//wielkosc layoutu
 	nbl::video::IGPUDescriptorSetLayout::SBinding gpuBindingsLayout[COUNT] =
 	{
-		{0, nbl::asset::EDT_STORAGE_BUFFER, 1u, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, nullptr}, //0 means, number of binding inside the shader binding = 0, etc...
+		{0, nbl::asset::EDT_STORAGE_BUFFER, 1u, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, nullptr},														//0 means, number of binding inside the shader binding = 0, etc...
 	};
 
-	auto gpuCDescriptorSetLayout = Video_Driver->createGPUDescriptorSetLayout(gpuBindingsLayout, gpuBindingsLayout + COUNT);  //uchwyt do tworzenowego obiektu, buffera, po stronie gpu. Uchwyt, zbior obiektow, jesli maja sam typ, to jeden descriptor set (max chyba 4)
+	auto gpuCDescriptorSetLayout = Video_Driver->createGPUDescriptorSetLayout(gpuBindingsLayout, gpuBindingsLayout + COUNT);									//uchwyt do tworzenowego obiektu, buffera, po stronie gpu. Uchwyt, zbior obiektow, jesli maja sam typ, to jeden descriptor set (max chyba 4)
 
 
 
@@ -97,6 +97,7 @@ void Radix_Sort::Radix_Sort::Init()
 
 	auto gpuCPipelineLayout = Video_Driver->createGPUPipelineLayout(nullptr, nullptr, std::move(gpuCDescriptorSetLayout), nullptr, nullptr, nullptr); // jak std::move, to pozycje layoutow, 0 , 1 ,2 i tak dalej
 	auto gpuComputePipeline = Video_Driver->createGPUComputePipeline(nullptr, std::move(gpuCPipelineLayout), std::move(gpuComputeShader));
+	//auto gpuComputePipeline = Video_Driver->createGPUComputePipeline(nullptr, std::move(nullptr), std::move(nullptr));
 
 	///
 	///
@@ -136,7 +137,7 @@ void Radix_Sort::Radix_Sort::Init()
 		auto downloadStagingArea = Video_Driver->getDefaultDownStreamingBuffer();
 		uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address; // remember without initializing the address to be allocated to invalid_address you won't get an allocation!
 		const uint32_t Buffer_Alignment = std::alignment_of<SShaderStorageBufferObject>(); // common page size
-		const uint32_t Buffer_Size = sizeof(SShaderStorageBufferObject); // common page size
+		const uint32_t Buffer_Sizeof = sizeof(SShaderStorageBufferObject); // common page size
 	// get the data from the GPU
 		{
 			constexpr uint64_t timeoutInNanoSeconds = 300000000000u;
@@ -144,37 +145,32 @@ void Radix_Sort::Radix_Sort::Init()
 
 			// download buffer
 			{
-				auto unallocatedSize = downloadStagingArea->multi_alloc(waitPoint, 1u, &address, &Buffer_Size, &Buffer_Alignment);
+				auto unallocatedSize = downloadStagingArea->multi_alloc(waitPoint, 1u, &address, &Buffer_Sizeof, &Buffer_Alignment);
 				if (unallocatedSize)
 				{
 					nbl::os::Printer::log("Could not download the buffer from the GPU!", nbl::ELL_ERROR);
 					return;
 				}
 
-				Video_Driver->copyBuffer(gpuSSBOBuffer.get(), downloadStagingArea->getBuffer(), 0u, address, Buffer_Size);
+				Video_Driver->copyBuffer(gpuSSBOBuffer.get(), downloadStagingArea->getBuffer(), 0u, address, Buffer_Sizeof);
 			}
-			auto downloadFence = Video_Driver->placeFence(true);
-
-			//// set up regions
-			//auto regions = nbl::core::make_refctd_dynamic_array<nbl::core::smart_refctd_dynamic_array<nbl::asset::IImage::SBufferCopy> >(1u);
-			//{
-			//	//auto& region = regions->front();
-			//	//region.bufferOffset = 0u;
-			//	//region.bufferRowLength = param.image[EII_COLOR]->getRegions().begin()[0].bufferRowLength;
-			//	//region.bufferImageHeight = param.height;
-			//	////region.imageSubresource.aspectMask = wait for Vulkan;
-			//	//region.imageSubresource.mipLevel = 0u;
-			//	//region.imageSubresource.baseArrayLayer = 0u;
-			//	//region.imageSubresource.layerCount = 1u;
-			//	//region.imageOffset = { 0u,0u,0u };
-			//	//region.imageExtent = imgParams.extent;
-			//}
 		}
 		// the cpu is not touching the data yet because the custom CPUBuffer is adopting the memory (no copy)
 		auto* data = reinterpret_cast<buffer_type*>(downloadStagingArea->getBufferPointer()) + address;
-		auto cpubufferalias = nbl::core::make_smart_refctd_ptr<nbl::asset::CCustomAllocatorCPUBuffer<nbl::core::null_allocator<uint8_t> > >(Buffer_Size, data, nbl::core::adopt_memory);
+		auto cpubufferalias = nbl::core::make_smart_refctd_ptr<nbl::asset::CCustomAllocatorCPUBuffer<nbl::core::null_allocator<uint8_t> > >(Buffer_Sizeof, data, nbl::core::adopt_memory);
 
 		auto buffer_after_compute_shader = static_cast<buffer_type*>(cpubufferalias->getPointer());
+
+
+
+		
+		std::vector<buffer_type> temp_vec{};
+		
+		for(std::size_t i = 0; i < buffer_size; ++i)
+		{
+			temp_vec.emplace_back(*(buffer_after_compute_shader + i));
+		}
+		
 		int a = 0;
 	}
 

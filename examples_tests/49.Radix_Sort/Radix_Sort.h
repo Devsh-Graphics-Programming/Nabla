@@ -1,7 +1,7 @@
 #ifndef _RADIX_SORT_H_INCLUDED_
 #define _RADIX_SORT_H_INCLUDED_
 
-
+#define _NBL_STATIC_LIB_
 #include <iostream>
 #include <memory>
 #include <nabla.h>

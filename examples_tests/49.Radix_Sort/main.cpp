@@ -1,9 +1,7 @@
 #include <memory>
 
 
-
-#define _IRR_STATIC_LIB_
-#include <nabla.h>
+//#define _IRR_STATIC_LIB_
 #include "Radix_Sort.h"	//my header
 
 
@@ -38,11 +36,6 @@ int main()
 	{
 		return 1;
 	}
-
-
-	//auto* driver = device->getVideoDriver();
-	//auto* assetManager = device->getAssetManager();
-	//auto* sceneManager = device->getSceneManager();
 
 	
 	nbl::video::IVideoDriver* Video_driver = device->getVideoDriver();
