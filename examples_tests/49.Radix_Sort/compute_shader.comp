@@ -7,7 +7,7 @@
 #define LC_IDX gl_LocalInvocationIndex
 
 
-layout(local_size_x = 1024, local_size_y = 1024) in;
+layout(local_size_x = 10) in;
 
 
 layout(std430, binding = 0) buffer InBuf {
@@ -16,24 +16,12 @@ layout(std430, binding = 0) buffer InBuf {
 
 //shared Temp[1024];
 
-float count_occurencies(int input)
-{
-    return 1.0;
-}
+// float count_occurencies(int input)
+// {
+//     return 1.0;
+// }
 
 void main()
 {
-
-
-    for(uint i = 0; i < 1024; ++i)  //y dim
-    {   
-        for(uint j = 0; j < 1024; ++j) //x dim
-        {
-
-        }
-
-        memoryBarrierShared();
-        barrier();
-    }
-		
+    input[gl_GlobalInvocationID.x] = 10;
 }

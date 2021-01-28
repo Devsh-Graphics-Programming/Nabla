@@ -40,9 +40,9 @@ int main()
 	}
 
 
-	auto* driver = device->getVideoDriver();
-	auto* assetManager = device->getAssetManager();
-	auto* sceneManager = device->getSceneManager();
+	//auto* driver = device->getVideoDriver();
+	//auto* assetManager = device->getAssetManager();
+	//auto* sceneManager = device->getSceneManager();
 
 	
 	nbl::video::IVideoDriver* Video_driver = device->getVideoDriver();

@@ -6,6 +6,8 @@
 #include <memory>
 #include <nabla.h>
 #include "../common/QToQuitEventReceiver.h"
+
+
 #include "Radix_Array.h"
 
 namespace Radix_Sort
@@ -46,7 +48,7 @@ namespace Radix_Sort
 		{}
 
 
-		virtual void CreateFilledLocalBuffer() noexcept = 0;
+		//virtual void CreateFilledLocalBuffer() noexcept = 0;
 
 
 		Sorter& operator=(const Sorter& Object) = delete;
@@ -84,7 +86,7 @@ namespace Radix_Sort
 
 		std::unique_ptr<Radix_Array> Radix_Array_Ptr;
 
-		virtual void CreateFilledLocalBuffer() noexcept override;
+		//virtual void CreateFilledLocalBuffer() noexcept override;
 
 	public:
 		Radix_Sort() = delete;
