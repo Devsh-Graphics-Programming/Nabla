@@ -106,17 +106,18 @@ void main()
 
 	// "The sign of this computation is negated when the value of GL_CLIP_ORIGIN (the clip volume origin, set with glClipControl) is GL_UPPER_LEFT."
 	const bool front = (!gl_FrontFacing) != (PC.camTformDeterminant*InstData.data[InstanceIndex].determinant < 0.0);
-	nbl_glsl_MC_precomputed_t precomp = nbl_glsl_precomputeData(front);
+	precomp = nbl_glsl_MC_precomputeData(front);
+	material = nbl_glsl_MC_material_data_t_getOriented(InstData.data[InstanceIndex].material,precomp.frontface);
 #ifdef TEX_PREFETCH_STREAM
-	nbl_glsl_runTexPrefetchStream(getTexPrefetchStream(precomp), UV, dUV);
+	nbl_glsl_MC_runTexPrefetchStream(nbl_glsl_MC_oriented_material_t_getTexPrefetchStream(material), UV, dUV);
 #endif
 #ifdef NORM_PRECOMP_STREAM
-	nbl_glsl_runNormalPrecompStream(getNormalPrecompStream(precomp), dUV, precomp);
+	nbl_glsl_MC_runNormalPrecompStream(nbl_glsl_MC_oriented_material_t_getNormalPrecompStream(precomp), dUV, precomp);
 #endif
 
 
-	nbl_glsl_IsotropicViewSurfaceInteraction inter;
-	vec3 color = nbl_computeLighting(inter, dUV, precomp);
+	nbl_glsl_AnisotropicViewSurfaceInteraction inter;
+	vec3 color = nbl_computeLighting(inter, dUV);
 
 	OutColor = vec4(color, 1.0);
 }
@@ -430,7 +431,7 @@ int main()
 		};
 		for (const auto& inst : instances)
 		{
-			if (inst.emitter.type==ext::MitsubaLoader::CElementEmitter::AREA)
+			if (inst.emitter.front.type==ext::MitsubaLoader::CElementEmitter::AREA)
 			{
 				core::vectorSIMDf pos;
 				assert(cpumesh->getMeshBufferCount()==1u);
@@ -439,7 +440,7 @@ int main()
 				inst.tform.pseudoMulWith4x1(pos);
 
 				SLight l;
-				l.intensity = inst.emitter.area.radiance*area*2.f*core::PI<float>();
+				l.intensity = inst.emitter.front.area.radiance*area*2.f*core::PI<float>();
 				l.position = pos;
 
 				lights.push_back(l);
