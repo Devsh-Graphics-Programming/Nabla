@@ -14,7 +14,7 @@ constexpr std::size_t buffer_size = 10;
 struct alignas(16) SShaderStorageBufferObject //MOJE SSBO BUFFER
 {
 
-	buffer_type buffer[buffer_size]{ 1,2,3,4,5,6,7,8,9,10 };
+	buffer_type buffer[buffer_size];
 
 } PACK_STRUCT;
 
