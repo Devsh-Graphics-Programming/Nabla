@@ -21,14 +21,18 @@ class IMeshMetadata : public core::Interface
 			core::matrix3x4SIMD worldTform;
 		};
 
-        //! Returns the exact (or guessed) color semantic of the pixel data stored
-		const auto& getInstances() const { return m_instances->data; }
+		using instances_container_t = core::refctd_dynamic_array<SInstance>;
+		core::smart_refctd_ptr<instances_container_t> m_instances;
 
 	protected:
 		//inline IMeshMetadata(const ColorSemantic& _colorSemantic) : colorSemantic(_colorSemantic) {}
 		virtual ~IMeshMetadata() = default;
 
-		core::smart_refctd_dynamic_array<SInstance> m_instances;
+		inline IMeshMetadata& operator=(IMeshMetadata&& other)
+		{
+			std::swap(m_instances,other.m_instances);
+			return *this;
+		}
 };
 
 }

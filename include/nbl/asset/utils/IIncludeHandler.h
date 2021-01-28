@@ -6,7 +6,7 @@
 #define __NBL_ASSET_I_INCLUDE_HANDLER_H_INCLUDED__
 
 #include "nbl/core/IReferenceCounted.h"
-#include "nbl/asset/IBuiltinIncludeLoader.h"
+#include "nbl/asset/utils/IBuiltinIncludeLoader.h"
 
 namespace nbl
 {

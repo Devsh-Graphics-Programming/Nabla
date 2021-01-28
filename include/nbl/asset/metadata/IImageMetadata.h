@@ -6,7 +6,7 @@
 #define __NBL_ASSET_I_IMAGE_METADATA_H_INCLUDED__
 
 #include "nbl/asset/ICPUImage.h"
-#include "nbl/asset/EColorSpace.h"
+#include "nbl/asset/format/EColorSpace.h"
 
 namespace nbl
 {
@@ -29,14 +29,17 @@ class IImageMetadata : public core::Interface
 			ELECTRO_OPTICAL_TRANSFER_FUNCTION transferFunction;
 		};
 
-        //! Returns the exact (or guessed) color semantic of the pixel data stored
-		const ColorSemantic& getColorSemantic() const { return colorSemantic; }
+		ColorSemantic colorSemantic;
 
 	protected:
 		inline IImageMetadata(const ColorSemantic& _colorSemantic) : colorSemantic(_colorSemantic) {}
 		virtual ~IImageMetadata() = default;
 
-		ColorSemantic colorSemantic;
+		inline IImageMetadata& operator=(IImageMetadata&& other)
+		{
+			std::swap(colorSemantic,other.colorSemantic);
+			return *this;
+		}
 };
 
 }

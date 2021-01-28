@@ -12,9 +12,9 @@
 #include "IFileSystem.h"
 
 #include "nbl/asset/ICPUSpecializedShader.h"
-#include "nbl/asset/IIncludeHandler.h"
+#include "nbl/asset/utils/IIncludeHandler.h"
 
-#include "nbl/asset/ISPIRVOptimizer.h"
+#include "nbl/asset/utils/ISPIRVOptimizer.h"
 
 namespace nbl
 {

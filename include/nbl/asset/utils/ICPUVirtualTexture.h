@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_I_CPU_VIRTUAL_TEXTURE_H_INCLUDED__
 #define __NBL_ASSET_I_CPU_VIRTUAL_TEXTURE_H_INCLUDED__
 
-#include <nbl/asset/IVirtualTexture.h>
+#include <nbl/asset/utils/IVirtualTexture.h>
 #include <nbl/asset/ICPUImageView.h>
 #include <nbl/asset/ICPUDescriptorSet.h>
 

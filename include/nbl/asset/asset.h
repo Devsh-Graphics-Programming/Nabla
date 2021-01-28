@@ -37,25 +37,25 @@
 #include "nbl/asset/filters/CMipMapGenerationImageFilter.h"
 
 // shaders
-#include "nbl/asset/ShaderRes.h"
-#include "nbl/asset/IIncluder.h"
-#include "nbl/asset/IIncludeHandler.h"
-#include "nbl/asset/IBuiltinIncludeLoader.h"
-#include "nbl/asset/IGLSLCompiler.h"
 #include "nbl/asset/ISPIR_VProgram.h"
 #include "nbl/asset/ICPUShader.h"
 #include "nbl/asset/ICPUSpecializedShader.h"
-#include "nbl/asset/CShaderIntrospector.h"
+#include "nbl/asset/utils/ShaderRes.h"
+#include "nbl/asset/utils/IIncluder.h"
+#include "nbl/asset/utils/IIncludeHandler.h"
+#include "nbl/asset/utils/IBuiltinIncludeLoader.h"
+#include "nbl/asset/utils/IGLSLCompiler.h"
+#include "nbl/asset/utils/CShaderIntrospector.h"
 // pipelines
 
 // meshes
 #include "nbl/asset/ICPUMeshBuffer.h"
 #include "nbl/asset/ICPUMesh.h"
-#include "nbl/asset/IGeometryCreator.h"
-#include "nbl/asset/IMeshPacker.h"
+#include "nbl/asset/utils/IGeometryCreator.h"
+#include "nbl/asset/utils/IMeshPacker.h"
 
 // manipulation + reflection + introspection
-#include "nbl/asset/IMeshManipulator.h"
+#include "nbl/asset/utils/IMeshManipulator.h"
 
 // baw files
 #include "nbl/asset/bawformat/CBAWFile.h"
@@ -66,13 +66,13 @@
 #include "nbl/asset/IAssetLoader.h"
 #include "nbl/asset/IAssetManager.h"
 #include "nbl/asset/IAssetWriter.h"
-#include "nbl/asset/COpenEXRImageMetadata.h"
-#include "nbl/asset/CMTLPipelineMetadata.h"
-#include "nbl/asset/CPLYPipelineMetadata.h"
-#include "nbl/asset/CSTLPipelineMetadata.h"
+#include "nbl/asset/metadata/COpenEXRMetadata.h"
+#include "nbl/asset/metadata/CMTLMetadata.h"
+#include "nbl/asset/metadata/CPLYMetadata.h"
+#include "nbl/asset/metadata/CSTLMetadata.h"
 
 //VT
-#include "nbl/asset/IVirtualTexture.h"
-#include "nbl/asset/ICPUVirtualTexture.h"
+#include "nbl/asset/utils/IVirtualTexture.h"
+#include "nbl/asset/utils/ICPUVirtualTexture.h"
 
 #endif

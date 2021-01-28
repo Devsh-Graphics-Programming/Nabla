@@ -9,7 +9,7 @@
 #include "nbl/ext/MitsubaLoader/CElementSensor.h"
 #include "nbl/ext/MitsubaLoader/CElementShape.h"
 #include "nbl/ext/MitsubaLoader/SContext.h"
-#include <nbl/asset/ICPUVirtualTexture.h>
+#include "nbl/asset/utils/ICPUVirtualTexture.h"
 
 namespace nbl
 {
@@ -76,11 +76,6 @@ class IMeshMetadata : public IMitsubaMetadata
 		core::vector<Instance> instances;
 
 		friend class CMitsubaLoader;
-};
-
-// <shape>
-class IMeshBufferMetadata : public IMitsubaMetadata
-{
 };
 
 }

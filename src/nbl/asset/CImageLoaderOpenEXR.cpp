@@ -28,7 +28,7 @@ SOFTWARE.
 #ifdef _NBL_COMPILE_WITH_OPENEXR_LOADER_
 
 #include "nbl/asset/filters/CRegionBlockFunctorFilter.h"
-#include "nbl/asset/COpenEXRImageMetadata.h"
+#include "nbl/asset/metadata/COpenEXRMetadata.h"
 
 #include "CImageLoaderOpenEXR.h"
 
@@ -218,7 +218,7 @@ namespace nbl
 		}
 
 
-		asset::SAssetBundle CImageLoaderOpenEXR::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
+		SAssetBundle CImageLoaderOpenEXR::loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 		{
 			if (!_file)
 				return {};
@@ -236,14 +236,14 @@ namespace nbl
 
 			core::vector<core::smart_refctd_ptr<ICPUImage>> images;
 			const auto channelsData = getChannels(file);
+			auto meta = core::make_smart_refctd_ptr<COpenEXRMetadata>(channelsData.size());
 			{
+				uint32_t metaOffset = 0u;
 				for (const auto& data : channelsData)
 				{
 					const auto suffixOfChannels = data.first;
 					const auto mapOfChannels = data.second;
 					PerImageData perImageData;
-
-					auto openEXRMetadata = core::make_smart_refctd_ptr<COpenEXRImageMetadata>(suffixOfChannels, IImageMetadata::ColorSemantic{ ECP_SRGB,EOTF_IDENTITY });
 
 					int width;
 					int height;
@@ -299,13 +299,13 @@ namespace nbl
 					else if (params.format == EF_R32G32B32A32_UINT)
 						ReadTexels(image.get(), perImageData.uint32_tPixelMapArray);
 
-					m_manager->setAssetMetadata(image.get(), std::move(openEXRMetadata));
+					meta->addMeta(metaOffset++,image.get(),IImageMetadata::ColorSemantic{ ECP_SRGB,EOTF_IDENTITY },std::string(suffixOfChannels));
 
 					images.push_back(std::move(image));
 				}
 			}	
 
-			return images;
+			return SAssetBundle(std::move(meta),std::move(images));
 		}
 
 		bool CImageLoaderOpenEXR::isALoadableFileFormat(io::IReadFile* _file) const

@@ -9,30 +9,30 @@
 
 namespace nbl
 {
-    namespace ext
-    {
-        namespace MitsubaLoader
-        {
-            using namespace asset;
+namespace ext
+{
+namespace MitsubaLoader
+{
 
-            class CMitsubaSerializedPipelineMetadata final : public IRenderpassIndependentPipelineMetadata
-            {
-            public:
+class CMitsubaSerializedPipelineMetadata final : public IRenderpassIndependentPipelineMetadata
+{
+    public:
 
-                CMitsubaSerializedPipelineMetadata(core::smart_refctd_dynamic_array<ShaderInputSemantic>&& _inputs) :
-                    m_shaderInputs(std::move(_inputs)) {}
+        CMitsubaSerializedPipelineMetadata(core::smart_refctd_dynamic_array<ShaderInputSemantic>&& _inputs) :
+            m_shaderInputs(std::move(_inputs)) {}
 
 
-                core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const override { return { m_shaderInputs->begin(), m_shaderInputs->end() }; }
+        core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const override { return { m_shaderInputs->begin(), m_shaderInputs->end() }; }
 
-                _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CSerializedLoader";
-                const char* getLoaderName() const override { return LoaderName; }
+        _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CSerializedLoader";
+        const char* getLoaderName() const override { return LoaderName; }
 
-            private:
-                core::smart_refctd_dynamic_array<ShaderInputSemantic> m_shaderInputs;
-            };
-        }
-    }
+    private:
+        core::smart_refctd_dynamic_array<ShaderInputSemantic> m_shaderInputs;
+};
+
+}
+}
 }
 
 #endif

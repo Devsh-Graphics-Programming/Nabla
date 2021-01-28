@@ -7,7 +7,7 @@
 
 #include <string>
 #include "nbl/asset/IAsset.h"
-#include "nbl/asset/IAssetMetadata.h"
+#include "nbl/asset/metadata/IAssetMetadata.h"
 
 namespace nbl
 {

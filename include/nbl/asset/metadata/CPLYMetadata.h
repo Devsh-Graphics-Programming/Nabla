@@ -2,23 +2,22 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_C_PLY_PIPELINE_METADATA_H_INCLUDED__
-#define __NBL_ASSET_C_PLY_PIPELINE_METADATA_H_INCLUDED__
+#ifndef __NBL_ASSET_C_PLY_METADATA_H_INCLUDED__
+#define __NBL_ASSET_C_PLY_METADATA_H_INCLUDED__
 
-#include "nbl/asset/IRenderpassIndependentPipelineMetadata.h"
+#include "nbl/asset/metadata/IAssetMetadata.h"
 
 namespace nbl 
 {
 namespace asset
 {
-    class CPLYPipelineMetadata final : public IRenderpassIndependentPipelineMetadata
-    {
+
+class CPLYPipelineMetadata final : public IRenderpassIndependentPipelineMetadata
+{
     public:
             
         CPLYPipelineMetadata(uint32_t _hash, core::smart_refctd_dynamic_array<ShaderInputSemantic>&& _inputs)
             : m_hash(_hash), m_shaderInputs(std::move(_inputs)) {}
-
-        core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const override { return { m_shaderInputs->begin(), m_shaderInputs->end() }; }
 
         _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CPLYMeshFileLoader";
         const char* getLoaderName() const override { return LoaderName; }
@@ -28,7 +27,7 @@ namespace asset
     private:
         uint32_t m_hash;
         core::smart_refctd_dynamic_array<ShaderInputSemantic> m_shaderInputs;
-    };
+};
 
 }
 }

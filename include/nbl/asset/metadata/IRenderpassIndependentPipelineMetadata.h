@@ -5,13 +5,16 @@
 #ifndef __NBL_ASSET_I_RENDERPASS_INDEPENDENT_PIPELINE_METADATA_H_INCLUDED__
 #define __NBL_ASSET_I_RENDERPASS_INDEPENDENT_PIPELINE_METADATA_H_INCLUDED__
 
-#include "nbl/asset/IBuiltinIncludeLoader.h"
+/*
 #include "nbl/asset/ICPUDescriptorSetLayout.h"
 #include "nbl/asset/ICPUSpecializedShader.h"
 #include "nbl/asset/ICPUImageView.h"
+*/
 #include "nbl/asset/ICPURenderpassIndependentPipeline.h"
 
-#include "nbl/asset/asset_utils.h"
+//#include "nbl/asset/utils/IBuiltinIncludeLoader.h"
+
+//#include "nbl/asset/asset_utils.h"
 
 namespace nbl
 {
@@ -160,9 +163,8 @@ class IRenderpassIndependentPipelineMetadata : public core::Interface
 			ShaderInput descriptorSection;
 		};
 
-
-		//! This function returns us the list of "standard semenatics" as in the list of required inputs with meanings that are common in many pipelines
-		virtual core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const = 0;
+		using semantics_container_t = core::refctd_dynamic_array<ShaderInputSemantic>;
+		core::smart_refctd_ptr<semantics_container_t> m_inputSemantics;
 };
 
 

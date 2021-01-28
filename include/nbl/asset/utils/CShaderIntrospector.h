@@ -8,12 +8,12 @@
 #include <cstdint>
 #include <memory>
 #include "nbl/core/Types.h"
-#include "nbl/asset/ShaderRes.h"
 #include "nbl/asset/ICPUSpecializedShader.h"
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/ICPUComputePipeline.h"
 #include "nbl/asset/ICPURenderpassIndependentPipeline.h"
-#include "nbl/asset/IGLSLCompiler.h"
+#include "nbl/asset/utils/ShaderRes.h"
+#include "nbl/asset/utils/IGLSLCompiler.h"
 
 namespace spirv_cross
 {

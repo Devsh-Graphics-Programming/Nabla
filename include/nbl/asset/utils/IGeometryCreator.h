@@ -6,8 +6,10 @@
 #define __NBL_ASSET_I_GEOMETRY_CREATOR_H_INCLUDED__
 
 #include "nbl/core/core.h"
+
 #include "nbl/asset/ICPUMesh.h"
-#include "nbl/asset/IMeshManipulator.h"
+#include "nbl/asset/utils/IMeshManipulator.h"
+
 #include "SColor.h"
 
 namespace nbl

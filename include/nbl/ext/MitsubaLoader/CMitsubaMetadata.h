@@ -10,28 +10,30 @@
 
 namespace nbl
 {
-	namespace ext
-	{
-		namespace MitsubaLoader
-		{
-			//! A class to derive mitsuba mesh loader metadata objects from
+namespace ext
+{
+namespace MitsubaLoader
+{
 
-			class CMitsubaMetadata : public asset::IAssetMetadata
-			{
-				public:
+//! A class to derive mitsuba mesh loader metadata objects from
 
-					CMitsubaMetadata(core::smart_refctd_ptr<CGlobalMitsubaMetadata> _mitsubaMetadata) : mitsubaMetadata(std::move(_mitsubaMetadata)) {}
+class CMitsubaMetadata : public asset::IAssetMetadata
+{
+	public:
 
-					auto getMitsubaMetadata() const { return mitsubaMetadata; }
+		CMitsubaMetadata(core::smart_refctd_ptr<CGlobalMitsubaMetadata> _mitsubaMetadata) : mitsubaMetadata(std::move(_mitsubaMetadata)) {}
 
-					_NBL_STATIC_INLINE_CONSTEXPR const char* loaderName = "CMitsubaLoader";
-					const char* getLoaderName() const override { return loaderName; }
+		auto getMitsubaMetadata() const { return mitsubaMetadata; }
 
-				private:
-					core::smart_refctd_ptr<CGlobalMitsubaMetadata> mitsubaMetadata;
-			};
-		}
-	}
+		_NBL_STATIC_INLINE_CONSTEXPR const char* loaderName = "CMitsubaLoader";
+		const char* getLoaderName() const override { return loaderName; }
+
+	private:
+		core::smart_refctd_ptr<CGlobalMitsubaMetadata> mitsubaMetadata;
+};
+
+}
+}
 }
 
 #endif

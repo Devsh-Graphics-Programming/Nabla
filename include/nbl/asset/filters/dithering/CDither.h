@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_DITHER_H_INCLUDED__
 #define __NBL_ASSET_C_DITHER_H_INCLUDED__
 
-#include "../include/nbl/asset/IDither.h"
+#include "nbl/asset/filters/dithering/IDither.h"
 
 namespace nbl
 {

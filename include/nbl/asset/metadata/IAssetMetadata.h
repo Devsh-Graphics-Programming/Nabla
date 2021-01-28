@@ -7,9 +7,9 @@
 
 #include "nbl/core/core.h"
 
-#include "nbl/asset/IImageMetadata.h"
-#include "nbl/asset/IRenderpassIndependentPipelineMetadata.h"
-#include "nbl/asset/IMeshMetadata.h"
+#include "nbl/asset/metadata/IImageMetadata.h"
+#include "nbl/asset/metadata/IRenderpassIndependentPipelineMetadata.h"
+#include "nbl/asset/metadata/IMeshMetadata.h"
 
 namespace nbl
 {
@@ -48,6 +48,11 @@ class IAssetMetadata : public core::IReferenceCounted
 		{
 			using type = IRenderpassIndependentPipelineMetadata;
 		};
+		template<>
+		struct asset_metadata<ICPUMesh>
+		{
+			using type = IMeshMetadata;
+		};
 
 		template<class Asset>
 		using asset_metadata_t = typename asset_metadata<Asset>::type;
@@ -63,7 +68,15 @@ class IAssetMetadata : public core::IReferenceCounted
 		> m_metaMaps;
 
 
+		IAssetMetadata() = default;
 		virtual ~IAssetMetadata() = default;
+
+		//!
+		template<class Asset>
+		inline void insertAssetSpecificMetadata(const Asset* asset, const asset_metadata_t<Asset>* meta)
+		{
+			std::get<asset_metadata_map_t<Asset>>(m_metaMaps).emplace(asset,meta);
+		}
 
 	public:
 		/*

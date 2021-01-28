@@ -15,12 +15,11 @@
 #include "IReadFile.h"
 #include "IWriteFile.h"
 
-#include "nbl/core/Types.h"
-#include "nbl/asset/IGLSLCompiler.h"
-
-#include "nbl/asset/IGeometryCreator.h"
 #include "nbl/asset/IAssetLoader.h"
 #include "nbl/asset/IAssetWriter.h"
+
+#include "nbl/asset/utils/IGLSLCompiler.h"
+#include "nbl/asset/utils/IGeometryCreator.h"
 
 
 #define USE_MAPS_FOR_PATH_BASED_CACHE //benchmark and choose, paths can be full system paths

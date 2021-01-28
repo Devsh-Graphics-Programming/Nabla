@@ -11,9 +11,11 @@
 #include "nbl/core/core.h"
 #include "vector3d.h"
 #include "aabbox3d.h"
+
 #include "nbl/asset/ICPUMeshBuffer.h"
 #include "nbl/asset/ICPUMesh.h"
-#include "nbl/asset/CQuantNormalCache.h"
+
+#include "nbl/asset/utils/CQuantNormalCache.h"
 
 namespace nbl
 {
