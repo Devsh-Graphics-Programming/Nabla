@@ -149,26 +149,16 @@ layout(set=_NBL_GLSL_EXT_FFT_OUTPUT_SET_DEFINED_, binding=_NBL_GLSL_EXT_FFT_OUTP
 
 float nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
 {
-    if(coordinate.y == 0) {
-        return inData[coordinate.x].real_value;
-    } 
-    else {
-        return inData[coordinate.x].real_value * 2;
-    }
-
-    //uvec3 dimension = inParams.dimension;
-    //uint index = coordinate.z * dimension.x * dimension.y + coordinate.y * dimension.x + coordinate.x;
-    //return inData[index].real_value;
+    uvec3 dimension = inParams.dimension;
+    uint index = coordinate.z * dimension.x * dimension.y + coordinate.y * dimension.x + coordinate.x;
+    return inData[index].real_value;
 }
 
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in vec2 complex_value)
 {
-    if(coordinate.y == 1) {
-        outData[coordinate.x].complex_value = complex_value;
-    }
-    // uvec3 dimension = inParams.dimension;
-    // uint index = coordinate.z * dimension.x * dimension.y + coordinate.y * dimension.x + coordinate.x;
-    // outData[index].complex_value = complex_value;
+    uvec3 dimension = inParams.dimension;
+    uint index = coordinate.z * dimension.x * dimension.y + coordinate.y * dimension.x + coordinate.x;
+    outData[index].complex_value = complex_value;
 }
 
 void main()

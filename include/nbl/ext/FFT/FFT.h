@@ -58,20 +58,20 @@ class FFT : public core::TotalInterface
 
 			if(direction == Direction::_X)
 			{
-				ret.workGroupCount[0] = 1; // = num_channels later
+				ret.workGroupCount[0] = num_channels;
 				ret.workGroupCount[1] = inputDimensions.height;
 				ret.workGroupCount[2] = inputDimensions.depth;
 			}
 			else if(direction == Direction::_Y) {
 				ret.workGroupCount[0] = inputDimensions.width;
-				ret.workGroupCount[1] = 1;
+				ret.workGroupCount[1] = num_channels;
 				ret.workGroupCount[2] = inputDimensions.depth;
 			}
 			else if(direction == Direction::_Z)
 			{
 				ret.workGroupCount[0] = inputDimensions.width;
 				ret.workGroupCount[1] = inputDimensions.height;
-				ret.workGroupCount[2] = 1;
+				ret.workGroupCount[2] = num_channels;
 			}
 
 			ret.direction = direction;
@@ -97,9 +97,9 @@ class FFT : public core::TotalInterface
 		}
 		
 		//
-		static inline size_t getInputBufferSize(asset::VkExtent3D const & inputDimensions, uint32_t data_point_bytes)
+		static inline size_t getInputBufferSize(asset::VkExtent3D const & inputDimensions, uint32_t dataPointBytes)
 		{
-			return (inputDimensions.width * inputDimensions.height * inputDimensions.depth) * data_point_bytes; // x2 because -> output is a complex number
+			return (inputDimensions.width * inputDimensions.height * inputDimensions.depth) * dataPointBytes; // x2 because -> output is a complex number
 		}
 
 		//
@@ -115,9 +115,9 @@ class FFT : public core::TotalInterface
 		}
 		
 		//
-		static inline size_t getOutputBufferSize(asset::VkExtent3D const & inputDimensions, uint32_t data_point_bytes)
+		static inline size_t getOutputBufferSize(asset::VkExtent3D const & inputDimensions, uint32_t dataPointBytes)
 		{
-			return 2 * getInputBufferSize(inputDimensions, data_point_bytes); // x2 because -> output is a complex number
+			return 2 * getInputBufferSize(inputDimensions, dataPointBytes); // x2 because -> output is a complex number
 		}
 		
 

@@ -42,7 +42,9 @@ int main()
 	nbl::io::IFileSystem* filesystem = device->getFileSystem();
 	IAssetManager* am = device->getAssetManager();
 
-	constexpr VkExtent3D fftDim = VkExtent3D{128, 2, 1};
+	constexpr uint32_t num_channels = 1;
+	constexpr VkExtent3D fftDim = VkExtent3D{128, 4, 1};
+	constexpr uint32_t dataPointBytes = sizeof(float) * num_channels;
 
 	using FFTClass = ext::FFT::FFT;
 	auto fftGPUSpecializedShader = FFTClass::createShader(driver, EF_R8G8B8A8_UNORM);
@@ -51,16 +53,16 @@ int main()
 	auto fftPipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout), std::move(fftGPUSpecializedShader));
 
 	FFTClass::Uniforms_t fftUniform = {};
-	auto fftDispatchInfo_Horizontal = FFTClass::buildParameters(&fftUniform, fftDim, FFTClass::Direction::_X, 1);
+	auto fftDispatchInfo_Horizontal = FFTClass::buildParameters(&fftUniform, fftDim, FFTClass::Direction::_Y, num_channels);
 
 	// Allocate(and fill) uniform Buffer
 	auto fftUniformBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(fftUniform), &fftUniform);
 
 	// Allocate Output Buffer
-	auto fftOutputBuffer = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(fftDim, sizeof(float)));
+	auto fftOutputBuffer = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(fftDim, dataPointBytes));
 
 	// Allocate Input Buffer 
-	uint32_t fftInputBufferSize = FFTClass::getInputBufferSize(fftDim, sizeof(float));
+	uint32_t fftInputBufferSize = FFTClass::getInputBufferSize(fftDim, dataPointBytes);
 	auto fftInputBuffer = driver->createDeviceLocalGPUBufferOnDedMem(fftInputBufferSize);
 
 	auto fftDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout->getDescriptorSetLayout(0u)));
@@ -69,8 +71,10 @@ int main()
 	// Create and Fill GPU Input Buffer
 	float * fftInputMem = reinterpret_cast<float *>(_NBL_ALIGNED_MALLOC(fftInputBufferSize, 1));
 
-	for(uint32_t i = 0; i < fftDim.width; ++i) {
-		fftInputMem[i] = i;
+	for(uint32_t j = 0; j < fftDim.height; ++j) {
+		for(uint32_t i = 0; i < fftDim.width; ++i) {
+			fftInputMem[i + j * fftDim.width] = (j+1) * i;
+		}
 	}
 
 	driver->updateBufferRangeViaStagingBuffer(fftInputBuffer.get(), 0, fftInputBufferSize, fftInputMem);

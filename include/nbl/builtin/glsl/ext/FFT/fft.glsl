@@ -158,16 +158,32 @@ uvec3 getBitReversedCoordinates(in uvec3 coords, in uint leadingZeroes)
     }
 }
 
+uint getDimLength(uvec3 dimension)
+{
+    uint dataLength = 0;
+
+    if(pc.direction == _NBL_GLSL_EXT_FFT_DIRECTION_X_) {
+        return dimension.x;
+    } else if (pc.direction == _NBL_GLSL_EXT_FFT_DIRECTION_Y_) {
+        return dimension.y;
+    } else if (pc.direction == _NBL_GLSL_EXT_FFT_DIRECTION_Z_) {
+        return dimension.z;
+    }
+
+    return dataLength;
+}
+
 void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
 {
     // Virtual Threads Calculation
-    uint num_virtual_threads = uint(ceil(float(inUniform.dimension.x) / float(_NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_)));
+    uint dataLength = getDimLength(inUniform.dimension);
+    uint num_virtual_threads = uint(ceil(float(dataLength) / float(_NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_)));
     uint thread_offset = gl_LocalInvocationIndex;
 
 	uint channel = getChannel();
     
 	// Pass 0: Bit Reversal
-	uint leadingZeroes = clz(inUniform.dimension.x) + 1;
+	uint leadingZeroes = clz(dataLength) + 1;
 	uint logTwo = 32 - leadingZeroes;
 	
     vec2 current_values[_NBL_GLSL_EXT_FFT_LOCAL_DATA_SIZE];
@@ -224,7 +240,7 @@ void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
         {
             uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
             vec2 shuffled_value = shuffled_values[t];
-            vec2 twiddle = twiddle(tid, i, logTwo, inUniform.dimension.x);
+            vec2 twiddle = twiddle(tid, i, logTwo, dataLength);
 
             vec2 prev_value = current_values[t];
             current_values[t] = shuffled_value + nbl_glsl_complex_mul(twiddle, prev_value); 
