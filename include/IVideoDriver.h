@@ -166,11 +166,29 @@ namespace video
 		virtual void drawMeshBuffer(const video::IGPUMeshBuffer* mb) =0;
 
 		//! Indirect Draw
+		inline void drawArraysIndirect(	const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        size_t offset, size_t maxCount, size_t stride,
+                                        const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u)
+		{
+			return drawArraysIndirect(reinterpret_cast<const asset::SBufferBinding<const IGPUBuffer>*>(_vtxBindings),mode,indirectDrawBuff,offset,maxCount,stride,countBuffer,countOffset);
+		}
 		virtual void drawArraysIndirect(const asset::SBufferBinding<const IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         const IGPUBuffer* indirectDrawBuff,
                                         size_t offset, size_t maxCount, size_t stride,
                                         const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u) = 0;
+		
+		inline void drawIndexedIndirect(const asset::SBufferBinding<IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
+                                        asset::E_PRIMITIVE_TOPOLOGY mode,
+                                        asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,
+                                        const IGPUBuffer* indirectDrawBuff,
+                                        size_t offset, size_t maxCount, size_t stride,
+                                        const IGPUBuffer* countBuffer = nullptr, size_t countOffset = 0u)
+		{
+			return drawIndexedIndirect(reinterpret_cast<const asset::SBufferBinding<const IGPUBuffer>*>(_vtxBindings),mode,indexType,indexBuff,indirectDrawBuff,offset,maxCount,stride,countBuffer,countOffset);
+		}
 		virtual void drawIndexedIndirect(const asset::SBufferBinding<const IGPUBuffer> _vtxBindings[IGPUMeshBuffer::MAX_ATTR_BUF_BINDING_COUNT],
                                         asset::E_PRIMITIVE_TOPOLOGY mode,
                                         asset::E_INDEX_TYPE indexType, const IGPUBuffer* indexBuff,

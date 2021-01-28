@@ -69,8 +69,9 @@ int main()
     qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10,fs,"../../tmp/normalCache101010.sse");
 
     //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
+    auto first_mb = *mesh_raw->getMeshBuffers().begin();
     //so we can create just one DS
-    asset::ICPUDescriptorSetLayout* ds1layout = mesh_raw->getMeshBuffer(0u)->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
+    asset::ICPUDescriptorSetLayout* ds1layout = first_mb->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
     uint32_t ds1UboBinding = 0u;
     for (const auto& bnd : ds1layout->getBindings())
         if (bnd.type==asset::EDT_UNIFORM_BUFFER)
@@ -81,7 +82,7 @@ int main()
 
     size_t neededDS1UBOsz = 0ull;
     {
-        auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(mesh_raw->getMeshBuffer(0u)->getPipeline()->getMetadata());
+        auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(first_mb->getPipeline()->getMetadata());
         for (const auto& shdrIn : pipelineMetadata->getCommonRequiredInputs())
             if (shdrIn.descriptorSection.type==asset::IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
                 neededDS1UBOsz = std::max<size_t>(neededDS1UBOsz, shdrIn.descriptorSection.uniformBufferObject.relByteoffset+shdrIn.descriptorSection.uniformBufferObject.bytesize);
@@ -130,7 +131,7 @@ int main()
 		camera->render();
 
         core::vector<uint8_t> uboData(gpuubo->getSize());
-        auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(mesh_raw->getMeshBuffer(0u)->getPipeline()->getMetadata());
+        auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(first_mb->getPipeline()->getMetadata());
         for (const auto& shdrIn : pipelineMetadata->getCommonRequiredInputs())
         {
             if (shdrIn.descriptorSection.type==asset::IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
@@ -160,9 +161,8 @@ int main()
         }       
         driver->updateBufferRangeViaStagingBuffer(gpuubo.get(), 0ull, gpuubo->getSize(), uboData.data());
 
-        for (uint32_t i = 0u; i < gpumesh->getMeshBufferCount(); ++i)
+        for (auto gpumb : gpumesh->getMeshBuffers())
         {
-            video::IGPUMeshBuffer* gpumb = gpumesh->getMeshBuffer(i);
             const video::IGPURenderpassIndependentPipeline* pipeline = gpumb->getPipeline();
             const video::IGPUDescriptorSet* ds3 = gpumb->getAttachedDescriptorSet();
 
