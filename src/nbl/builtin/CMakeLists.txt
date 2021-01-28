@@ -126,6 +126,8 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/workgroup/shuffle.glsl"
   "nbl/builtin/glsl/workgroup/shuffle_relative.glsl"
   "nbl/builtin/glsl/workgroup/vote.glsl"
+  # virtual workgroup
+  "nbl/builtin/glsl/virtual_workgroup/shuffle.glsl"
   # ext shouldn't be built into the engine, but there's no harm including some non-dynamic GLSL source to make life easier
   #"nbl/builtin/glsl/ext/.glsl"
   "nbl/builtin/glsl/ext/FFT/fft.glsl"

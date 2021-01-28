@@ -25,7 +25,7 @@
     #endif
 #endif
 
-#include <nbl/builtin/glsl/workgroup/shuffle.glsl>
+#include <nbl/builtin/glsl/virtual_workgroup/shuffle.glsl>
 
  // Uniform
 #ifndef _NBL_GLSL_EXT_FFT_UNIFORMS_DEFINED_
@@ -120,8 +120,8 @@ void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform)
 	for(uint i = 0; i < logTwo; ++i) 
     {
 		uint mask = 1 << i;
-		float other_value_x = nbl_glsl_workgroupShuffleXor(current_value.x, mask);
-		float other_value_y = nbl_glsl_workgroupShuffleXor(current_value.y, mask);
+		float other_value_x = nbl_glsl_virtualWorkgroupShuffleXor(gl_LocalInvocationIndex, current_value.x, mask);
+		float other_value_y = nbl_glsl_virtualWorkgroupShuffleXor(gl_LocalInvocationIndex, current_value.y, mask);
         vec2 other_value = vec2(other_value_x, other_value_y);
 
         vec2 twiddle = twiddle(gl_LocalInvocationIndex.x, i, logTwo, inUniform.dimension.x);
