@@ -522,9 +522,9 @@ namespace nbl {
 			inline void extGlGetQueryBufferObjectuiv(GLuint id, GLuint buffer, GLenum pname, GLintptr offset);
 			inline void extGlGetQueryBufferObjectui64v(GLuint id, GLuint buffer, GLenum pname, GLintptr offset);
 			inline void extGlTextureBarrier();
-			inline void extGlSwapInterval(int interval);
 			inline void extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params);
 			inline void extGlGetInternalformati64v(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint64* params);
+			inline void extGlSwapInterval(int interval);
 
 			// constructor
 			COpenGLFunctionTable(egl::CEGLCaller* _egl) :
@@ -2360,10 +2360,6 @@ namespace nbl {
 				os::Printer::log("EDF_TEXTURE_BARRIER Not Available!\n", ELL_ERROR);
 #endif // _NBL_DEBUG
 		}
-		inline void COpenGLFunctionTable::extGlSwapInterval(int interval)
-		{
-			m_egl->peglSwapInterval(interval);
-		}
 		inline void COpenGLFunctionTable::extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params)
 		{
 			if (features.Version >= 460 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_internalformat_query])
@@ -2380,7 +2376,11 @@ namespace nbl {
 					glGeneral.pglGetInternalformati64v(target, internalformat, pname, bufSize, params);
 			}
 		}
-	
+		inline void COpenGLFunctionTable::extGlSwapInterval(int interval)
+		{
+			m_egl->peglSwapInterval(interval);
+		}
+
 
 		}		//namespace video
 	}		//namespace nbl

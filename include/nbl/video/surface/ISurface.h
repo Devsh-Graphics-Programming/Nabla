@@ -41,7 +41,7 @@ public:
     // IPhysicalDevice::getMinImageCountForSurface(const ISurface*)
 
     // vkGetPhysicalDeviceSurfaceSupportKHR on vulkan
-    virtual bool isSupported(const IPhysicalDevice* dev, uint32_t _queueIx) const = 0;
+    virtual bool isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const = 0;
 };
 
 }

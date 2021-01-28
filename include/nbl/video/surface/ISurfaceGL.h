@@ -15,10 +15,10 @@ class ISurfaceGL : public ISurface
 public:
     inline EGLNativeWindowType getInternalObject() const { return m_winHandle; }
 
-    bool isSupported(const IPhysicalDevice* dev, uint32_t _queueIx) const override
+    bool isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const override
     {
-        // TODO
-        return true;
+        // GL/GLES backends have just 1 queue family
+        return (_queueFamIx == 0u);
     }
 
 protected:

@@ -6,8 +6,10 @@ namespace nbl {
 namespace video
 {
 
-bool ISurfaceVK::isSupported(const IPhysicalDevice* dev, uint32_t _queueIx) const
+bool ISurfaceVK::isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) const
 {
+    // TODO runtime check if vulkan physical device?
+
     auto vkphd = static_cast<const CVulkanPhysicalDevice*>(dev)->getInternalObject();
     VkBool32 supported;
     vkGetPhysicalDeviceSurfaceSupportKHR(vkphd, _queueIx, m_surface, &supported);

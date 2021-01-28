@@ -29,6 +29,7 @@ public:
                 const float priority = qci.priorities[j];
 
                 const uint32_t ix = offset + j;
+                // TODO will also have to pass master context to the queue
                 (*m_queues)[ix] = core::make_smart_refctd_ptr<COpenGLQueue>(&m_gl, famIx, flags, priority);
             }
         }
