@@ -25,16 +25,16 @@ constexpr auto UV_ATTRIBUTE = 2;
 constexpr auto NORMAL_ATTRIBUTE = 3;
 
 template<typename AssetType, IAsset::E_TYPE assetType>
-static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
+static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr) // TODO: @Anastazluk / @Crisspl this should be in a common loader base
 {
 	size_t storageSz = 1ull;
 	asset::SAssetBundle bundle;
 	const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
 
 	_assetMgr->findAssets(storageSz, &bundle, _key, types);
-	if (bundle.isEmpty())
-		return nullptr;
 	auto assets = bundle.getContents();
+	if (assets.empty())
+		return nullptr;
 
 	return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
 }
@@ -181,7 +181,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 			memcpy(ptr + 16, colors.data() + i / 3, 4);
 	}
 
-	const std::string shaderDefaultAssetPath = hasColor ? "nbl/builtin/materials/debug/vertex_color_debug_shader/specializedshader" : "nbl/builtin/materials/debug/normal_debug_shader/specializedshader";
+	const std::string shaderDefaultAssetPath = hasColor ? "nbl/builtin/materials/debug/vertex_color_debug_shader/specializedshader" : "nbl/builtin/materials/debug/normal_debug_shader/specializedshader"; // TODO: `normal_debug` is a rather bad name
 	auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	{
@@ -206,18 +206,33 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 	auto mbPipelineLayout = getDefaultAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>("nbl/builtin/materials/lambertian/no_texture/pipelinelayout", m_assetMgr);
 
 	constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
-	core::smart_refctd_dynamic_array<IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
+	core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
 	{
-		ICPUDescriptorSetLayout* ds1layout = mbPipelineLayout->getDescriptorSetLayout(1u);
+		ICPUDescriptorSetLayout* ds1layout = mbPipelineLayout->getDescriptorSetLayout(1u); // this metadata should probably go into pipeline layout's asset bundle (@Crisspl TODO: review)
 
-		constexpr IPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT]{ IPipelineMetadata::ECSI_WORLD_VIEW_PROJ, IPipelineMetadata::ECSI_WORLD_VIEW, IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE };
-		constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT]{ sizeof(SBasicViewParameters::MVP), sizeof(SBasicViewParameters::MV), sizeof(SBasicViewParameters::NormalMat) };
-		constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT]{ offsetof(SBasicViewParameters,MVP), offsetof(SBasicViewParameters,MV), offsetof(SBasicViewParameters,NormalMat) };
+		constexpr IRenderpassIndependentPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT] =
+		{
+			IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_PROJ,
+			IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW,
+			IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE
+		};
+		constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT] =
+		{
+			sizeof(SBasicViewParameters::MVP),
+			sizeof(SBasicViewParameters::MV),
+			sizeof(SBasicViewParameters::NormalMat)
+		};
+		constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT] =
+		{
+			offsetof(SBasicViewParameters,MVP),
+			offsetof(SBasicViewParameters,MV),
+			offsetof(SBasicViewParameters,NormalMat)
+		};
 		for (uint32_t i = 0u; i < DS1_METADATA_ENTRY_CNT; ++i)
 		{
 			auto& semantic = (shaderInputsMetadata->end() - i - 1u)[0];
 			semantic.type = types[i];
-			semantic.descriptorSection.type = IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
+			semantic.descriptorSection.type = IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
 			semantic.descriptorSection.uniformBufferObject.binding = ds1layout->getBindings().begin()[0].binding;
 			semantic.descriptorSection.uniformBufferObject.set = 1u;
 			semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
@@ -257,21 +272,23 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 
 	SRasterizationParams rastarizationParmas;
 
-	auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, mbInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
+	auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, mbInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas); // TODO: @Crisspl/@Anastazluk pipeline should also be builtin because no need to customize the metadata anymore
 	{
 		mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, mbVertexShader.get());
 		mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, mbFragmentShader.get());
 		meshbuffer->setVertexBufferBinding({ 0ul, vertexBuf }, 0);
 	}
 
-	m_assetMgr->setAssetMetadata(mbPipeline.get(), core::make_smart_refctd_ptr<CSTLPipelineMetadata>(std::move(shaderInputsMetadata)));
+	auto meta = core::make_smart_refctd_ptr<CSTLMetadata>(1u);
+	meta->addMeta(0u,mbPipeline.get(),std::move(shaderInputsMetadata));
+
 	meshbuffer->setPipeline(std::move(mbPipeline));
 	meshbuffer->setIndexCount(positions.size());
 	meshbuffer->setIndexType(asset::EIT_UNKNOWN);
 
 	mesh->getMeshBufferVector().emplace_back(std::move(meshbuffer));
 
-	return SAssetBundle({ std::move(mesh) });
+	return SAssetBundle(std::move(meta),{ std::move(mesh) });
 }
 
 
