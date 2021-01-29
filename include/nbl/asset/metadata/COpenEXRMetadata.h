@@ -38,7 +38,7 @@ class COpenEXRMetadata final : public IAssetMetadata
         const char* getLoaderName() const override { return LoaderName; }
 
     private:
-        meta_container_smart_ptr_t<CImage> m_metaStorage;
+        meta_container_t<CImage> m_metaStorage;
 
         friend class CImageLoaderOpenEXR;
         template<typename... Args>

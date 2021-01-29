@@ -30,23 +30,23 @@ class SAssetBundle
 			return true;
 		}
 	public:
-		using contents_container_t = core::refctd_dynamic_array<core::smart_refctd_ptr<IAsset> >;
+		using contents_container_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IAsset> >;
     
-		SAssetBundle(const std::string& _initKey = {}) : m_metadata(nullptr), m_contents(contents_container_t::create_dynamic_array(0u), core::dont_grab), m_cacheKey(_initKey) {}
+		SAssetBundle(const std::string& _initKey = {}) : m_metadata(nullptr), m_contents(core::make_refctd_dynamic_array<contents_container_t>(0u)), m_cacheKey(_initKey) {}
 		SAssetBundle(const core::smart_refctd_ptr<IAssetMetadata>&& _metadata, std::initializer_list<core::smart_refctd_ptr<IAsset> > _contents, const std::string& _initKey = {}) : 
-			m_metadata(std::move(_metadata)), m_contents(contents_container_t::create_dynamic_array(_contents),core::dont_grab), m_cacheKey(_initKey)
+			m_metadata(std::move(_metadata)), m_contents(core::make_refctd_dynamic_array<contents_container_t>(_contents)), m_cacheKey(_initKey)
 		{
 			assert(allSameTypeAndNotNull());
 		}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
 		SAssetBundle(const core::smart_refctd_ptr<IAssetMetadata>&& _metadata, const container_t& _contents, const std::string& _initKey = {}) :
-			m_metadata(std::move(_metadata)), m_contents(contents_container_t::create_dynamic_array(_contents), core::dont_grab), m_cacheKey(_initKey)
+			m_metadata(std::move(_metadata)), m_contents(core::make_refctd_dynamic_array<contents_container_t>(_contents)), m_cacheKey(_initKey)
 		{
 			assert(allSameTypeAndNotNull());
 		}
 		template<typename container_t, typename iterator_t = typename container_t::iterator>
 		SAssetBundle(const core::smart_refctd_ptr<IAssetMetadata>&& _metadata, container_t&& _contents, const std::string& _initKey = {}) :
-			m_metadata(std::move(_metadata)), m_contents(contents_container_t::create_dynamic_array(std::move(_contents)), core::dont_grab), m_cacheKey(_initKey)
+			m_metadata(std::move(_metadata)), m_contents(core::make_refctd_dynamic_array<contents_container_t>(std::move(_contents))), m_cacheKey(_initKey)
 		{
 			assert(allSameTypeAndNotNull());
 		}
@@ -107,7 +107,7 @@ class SAssetBundle
 
 
 		core::smart_refctd_ptr<IAssetMetadata> m_metadata;
-		core::smart_refctd_ptr<contents_container_t> m_contents;
+		contents_container_t m_contents;
 
 		std::string m_cacheKey;
 		bool m_isCached = false;

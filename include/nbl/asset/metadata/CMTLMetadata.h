@@ -15,7 +15,7 @@ namespace asset
 class CMTLMetadata final : public IAssetMetadata
 {
     public:
-        class CIRenderpassIndependentPipeline : public IRenderpassIndependentPipelineMetadata
+        class CRenderpassIndependentPipeline : public IRenderpassIndependentPipelineMetadata
         {
             public:
                 enum E_MAP_TYPE : uint32_t
@@ -90,7 +90,7 @@ class CMTLMetadata final : public IAssetMetadata
 
                 using IRenderpassIndependentPipelineMetadata::IRenderpassIndependentPipelineMetadata;
 
-                inline CIRenderpassIndependentPipeline& operator=(CIRenderpassIndependentPipeline&& other)
+                inline CRenderpassIndependentPipeline& operator=(CRenderpassIndependentPipeline&& other)
                 {
                     IRenderpassIndependentPipelineMetadata::operator=(std::move(other));
                     std::swap(m_hash,other.m_hash);
@@ -107,7 +107,7 @@ class CMTLMetadata final : public IAssetMetadata
                 uint32_t m_hash;
         };
 
-        CMTLMetadata(uint32_t pplnCount) : IAssetMetadata(), m_metaStorage(createContainer<CIRenderpassIndependentPipeline>(pplnCount))
+        CMTLMetadata(uint32_t pplnCount) : IAssetMetadata(), m_metaStorage(createContainer<CRenderpassIndependentPipeline>(pplnCount))
         {
         }
 
@@ -115,14 +115,14 @@ class CMTLMetadata final : public IAssetMetadata
         const char* getLoaderName() const override { return LoaderName; }
 
     private:
-        meta_container_smart_ptr_t<CIRenderpassIndependentPipeline> m_metaStorage;
+        meta_container_t<CRenderpassIndependentPipeline> m_metaStorage;
 
         friend class CPLYMeshFileLoader;
         template<typename... Args>
         inline void addMeta(
             uint32_t offset, const ICPURenderpassIndependentPipeline* ppln,
             core::smart_refctd_ptr<ICPUDescriptorSet>&& _descriptorSet3,
-            const CIRenderpassIndependentPipeline::SMaterialParameters& _materialParams,
+            const CRenderpassIndependentPipeline::SMaterialParameters& _materialParams,
             std::string&& _name, uint32_t _hash,
             Args&&... args)
         {

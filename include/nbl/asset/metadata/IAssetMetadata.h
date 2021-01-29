@@ -62,14 +62,12 @@ class IAssetMetadata : public core::IReferenceCounted
 
 
 		template<class Meta>
-		using meta_container_t = core::refctd_dynamic_array<Meta>;
-		template<class Meta>
-		using meta_container_smart_ptr_t = core::smart_refctd_ptr<meta_container_t<Meta>>;
+		using meta_container_t = core::smart_refctd_dynamic_array<Meta>;
 
 		template<class Meta>
-		static inline meta_container_smart_ptr_t<Meta> createContainer(uint32_t length)
+		static inline meta_container_t<Meta> createContainer(uint32_t length)
 		{
-			return meta_container_smart_ptr_t<Meta>(meta_container_t<Meta>::create_dynamic_array(length),core::dont_grab);
+			return core::make_refctd_dynamic_array<meta_container_t<Meta>>(length);
 		}
 
 
