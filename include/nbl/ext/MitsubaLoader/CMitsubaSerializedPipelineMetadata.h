@@ -14,21 +14,28 @@ namespace ext
 namespace MitsubaLoader
 {
 
-class CMitsubaSerializedPipelineMetadata final : public IRenderpassIndependentPipelineMetadata
+class CMitsubaSerializedMetadata final : public asset::IAssetMetadata
 {
     public:
+        class CRenderpassIndependentPipeline : public asset::IRenderpassIndependentPipelineMetadata
+        {
+            public:
+                using IRenderpassIndependentPipelineMetadata::IRenderpassIndependentPipelineMetadata;
+        };
 
-        CMitsubaSerializedPipelineMetadata(core::smart_refctd_dynamic_array<ShaderInputSemantic>&& _inputs) :
-            m_shaderInputs(std::move(_inputs)) {}
-
-
-        core::SRange<const ShaderInputSemantic> getCommonRequiredInputs() const override { return { m_shaderInputs->begin(), m_shaderInputs->end() }; }
-
-        _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CSerializedLoader";
+        _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "ext::MitsubaLoader::CSerializedLoader";
         const char* getLoaderName() const override { return LoaderName; }
 
     private:
-        core::smart_refctd_dynamic_array<ShaderInputSemantic> m_shaderInputs;
+        meta_container_t<CRenderpassIndependentPipeline> m_metaStorage;
+
+        friend class CSerializedLoader;
+        inline void addMeta(uint32_t offset, const asset::ICPURenderpassIndependentPipeline* ppln)
+        {
+            static_assert(false);
+            //auto& meta = m_metaStorage->operator[](offset);
+            //IAssetMetadata::insertAssetSpecificMetadata(ppln, &meta);
+        }
 };
 
 }
