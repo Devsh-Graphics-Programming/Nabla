@@ -3,20 +3,22 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "CImageLoaderPNG.h"
+
+#include "os.h"
+
+#include "nbl/asset/ICPUImageView.h"
+#include "nbl/asset/interchange/IImageAssetHandlerBase.h"
+
 
 #ifdef _NBL_COMPILE_WITH_PNG_LOADER_
+
+#include "CImageLoaderPNG.h"
 
 #ifdef _NBL_COMPILE_WITH_LIBPNG_
 #   include "libpng/png.h"
 #endif // _NBL_COMPILE_WITH_LIBPNG_
 
-#include "nbl/asset/ICPUImageView.h"
-
-#include "nbl/asset/IImageAssetHandlerBase.h"
-
 #include "CReadFile.h"
-#include "os.h"
 
 namespace nbl
 {
@@ -321,7 +323,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(io::IReadFile* _file, const asset
 	if (imgInfo.format == asset::EF_R8_SRGB)
 		image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(image);
 
-    return SAssetBundle({image});
+    return SAssetBundle(nullptr,{image});
 }
 
 

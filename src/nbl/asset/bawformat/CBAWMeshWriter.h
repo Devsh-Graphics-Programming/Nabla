@@ -6,8 +6,8 @@
 #define __NBL_ASSET_BAW_MESH_WRITER_H_INCLUDED__
 
 #include "nbl/asset/ICPUBuffer.h"
-#include "nbl/asset/IAssetWriter.h"
 #include "nbl/asset/ICPUMesh.h"
+#include "nbl/asset/interchange/IAssetWriter.h"
 #include "nbl/asset/bawformat/CBAWFile.h"
 
 namespace nbl

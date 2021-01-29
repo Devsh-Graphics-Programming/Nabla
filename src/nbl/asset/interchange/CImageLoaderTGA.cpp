@@ -12,7 +12,7 @@
 #include "nbl/asset/format/convertColor.h"
 #include "nbl/asset/ICPUImage.h"
 
-#include "nbl/asset/IImageAssetHandlerBase.h"
+#include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 #include "nbl/asset/filters/CConvertFormatImageFilter.h"
 
 namespace nbl
@@ -357,7 +357,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(io::IReadFile* _file, const asset
 	if (!image)
 		return {};
 
-    return SAssetBundle({std::move(image)});
+    return SAssetBundle(nullptr,{std::move(image)});
 }
 
 } // end namespace video

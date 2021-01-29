@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_SPIR_V_LOADER_H_INCLUDED__
 #define __NBL_ASSET_C_SPIR_V_LOADER_H_INCLUDED__
 
-#include "nbl/asset/IAssetLoader.h"
+#include "nbl/asset/interchange/IAssetLoader.h"
 
 namespace nbl
 {

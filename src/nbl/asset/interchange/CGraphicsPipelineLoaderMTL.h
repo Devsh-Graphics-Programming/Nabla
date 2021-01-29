@@ -5,8 +5,8 @@
 #ifndef __NBL_ASSET_C_GRAPHICS_PIPELINE_LOADER_MTL_H_INCLUDED__
 #define __NBL_ASSET_C_GRAPHICS_PIPELINE_LOADER_MTL_H_INCLUDED__
 
-#include "nbl/asset/IAssetLoader.h"
-#include "nbl/asset/CMTLPipelineMetadata.h"
+#include "nbl/asset/interchange/IAssetLoader.h"
+#include "nbl/asset/metadata/CMTLMetadata.h"
 
 namespace nbl
 {
@@ -16,13 +16,13 @@ namespace asset
 	{
         struct SMtl
         {
-            CMTLPipelineMetadata::SMTLMaterialParameters params;
+            CMTLMetadata::CIRenderpassIndependentPipeline::SMaterialParameters params;
             std::string name;
             //paths to image files, note that they're relative to the mtl file
-            std::string maps[CMTLPipelineMetadata::EMP_COUNT];
+            std::string maps[CMTLMetadata::CIRenderpassIndependentPipeline::EMP_COUNT];
             //-clamp
             uint32_t clamp;
-            static_assert(sizeof(clamp) * 8ull >= CMTLPipelineMetadata::EMP_COUNT, "SMtl::clamp is too small!");
+            static_assert(sizeof(clamp) * 8ull >= CMTLMetadata::CIRenderpassIndependentPipeline::EMP_COUNT, "SMtl::clamp is too small!");
         };
 
         struct SContext
@@ -62,8 +62,8 @@ namespace asset
 
         std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>> getShaders(bool _hasUV);
 
-        using images_set_t = std::array<core::smart_refctd_ptr<ICPUImage>, CMTLPipelineMetadata::EMP_COUNT>;
-        using image_views_set_t = std::array<core::smart_refctd_ptr<ICPUImageView>, CMTLPipelineMetadata::EMP_REFL_POSX + 1u>;
+        using images_set_t = std::array<core::smart_refctd_ptr<ICPUImage>, CMTLMetadata::CIRenderpassIndependentPipeline::EMP_COUNT>;
+        using image_views_set_t = std::array<core::smart_refctd_ptr<ICPUImageView>, CMTLMetadata::CIRenderpassIndependentPipeline::EMP_REFL_POSX + 1u>;
         image_views_set_t loadImages(const char* _relDir, const SMtl& _mtl, SContext& _ctx);
         core::smart_refctd_ptr<ICPUDescriptorSet> makeDescSet(image_views_set_t&& _views, ICPUDescriptorSetLayout* _dsLayout);
 

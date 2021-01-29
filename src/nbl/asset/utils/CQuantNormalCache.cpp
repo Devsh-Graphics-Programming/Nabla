@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "nbl/asset/CQuantNormalCache.h"
+#include "nbl/asset/utils/CQuantNormalCache.h"
 
 #include "os.h"
 

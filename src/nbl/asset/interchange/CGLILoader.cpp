@@ -24,7 +24,7 @@ SOFTWARE.
 
 #include "os.h"
 
-#include "nbl/asset/IImageAssetHandlerBase.h"
+#include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
 #ifdef _NBL_COMPILE_WITH_GLI_
 #include "gli/gli.hpp"
@@ -219,7 +219,7 @@ namespace nbl
 
 			auto imageView = ICPUImageView::create(std::move(imageViewInfo));
 
-			return SAssetBundle({std::move(imageView)});
+			return SAssetBundle(nullptr,{std::move(imageView)});
 		}
 
 		bool performLoadingAsIReadFile(gli::texture& texture, io::IReadFile* file)

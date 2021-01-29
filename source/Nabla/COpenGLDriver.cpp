@@ -3,11 +3,17 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "COpenGLDriver.h"
-
 #include "vectorSIMD.h"
 
+#include "os.h"
+
+#include "nbl/asset/utils/IGLSLCompiler.h"
+#include "nbl/asset/utils/CShaderIntrospector.h"
+#include "nbl/asset/utils/spvUtils.h"
+
 #ifdef _NBL_COMPILE_WITH_OPENGL_
+
+#include "COpenGLDriver.h"
 
 #include "nbl/video/COpenGLImageView.h"
 #include "nbl/video/COpenGLBufferView.h"
@@ -15,15 +21,11 @@
 #include "nbl/video/COpenGLPipelineCache.h"
 #include "nbl/video/COpenGLShader.h"
 #include "nbl/video/COpenGLSpecializedShader.h"
-#include "nbl/asset/IGLSLCompiler.h"
-#include "nbl/asset/CShaderIntrospector.h"
 
 #include "COpenGLBuffer.h"
 #include "COpenGLFrameBuffer.h"
 #include "COpenGLQuery.h" 
 #include "COpenGLTimestampQuery.h"
-#include "os.h"
-#include "nbl/asset/spvUtils.h"
 
 #ifdef _NBL_COMPILE_WITH_SDL_DEVICE_
 #include "CIrrDeviceSDL.h"
@@ -43,132 +45,6 @@
 #include <X11/extensions/Xrandr.h>
 #endif
 #endif
-
-namespace
-{
-class AMDbugfixCompiler : public spirv_cross::Compiler
-{
-public:
-    using spirv_cross::Compiler::Compiler;
-
-    _NBL_STATIC_INLINE_CONSTEXPR bool ACCOUNT_SSBO = true;
-
-    // {numer of possible row counts} * {number of possible col counts} * {number of possible basetypes (float/double)}
-    _NBL_STATIC_INLINE_CONSTEXPR uint32_t WORKAROUND_FUNCTION_COUNT = 3u*3u*2u;
-    struct SFunction
-    {
-        uint32_t restype;
-        uint32_t id;
-    };
-    struct SLoad
-    {
-        uint32_t restype;
-        uint32_t id;
-        uint32_t offset;
-        uint32_t len;
-
-        bool operator<(const SLoad& rhs) const { return offset<rhs.offset; }
-    };
-    using workaround_functions_t = std::array<SFunction, WORKAROUND_FUNCTION_COUNT>;
-
-    std::pair<nbl::core::vector<SLoad>, workaround_functions_t> getFixCandidates()
-    {
-        nbl::core::vector<uint32_t> vars;//IDs of UBO or SSBO vars (instances)
-        nbl::core::vector<SLoad> loads;//OpLoad's that are potentially going to need the fix
-        
-        workaround_functions_t fixFuncs;
-        memset(fixFuncs.data(), 0xff, fixFuncs.size()*sizeof(SFunction));
-
-        ir.for_each_typed_id<spirv_cross::SPIRVariable>(//gather all instances of SSBO and UBO blocks
-            [&](uint32_t, const spirv_cross::SPIRVariable& var) {
-                auto& type = this->get<spirv_cross::SPIRType>(var.basetype);
-                bool valid = type.storage == spv::StorageClassUniform;
-                if constexpr (ACCOUNT_SSBO) {
-                    valid = valid || (type.storage == spv::StorageClassStorageBuffer);
-                }
-                if (valid)
-                {
-                    vars.push_back(var.self);
-                }
-        });
-        ir.for_each_typed_id<spirv_cross::SPIRFunction>(
-            [&](uint32_t, const spirv_cross::SPIRFunction& func) {
-                    uint32_t fid = func.self;
-                    const std::string& nm = get_name(fid);
-                    const char expected[] = "nbl_builtin_glsl_workaround_AMD_broken_row_major_qualifier";
-                    if (strncmp(nm.c_str(), expected, sizeof(expected)-1u) == 0)
-                    {
-                        auto& param_type = get_type(func.arguments[0].type);
-
-                        const uint32_t ix = (param_type.basetype==spirv_cross::SPIRType::BaseType::Double ? 1u:0u)*(3u*3u) + (3u*(param_type.vecsize-2u)) + param_type.columns-2u;
-
-                        assert(ix < fixFuncs.size());
-                        fixFuncs[ix].restype = get_type(func.return_type).self;
-                        fixFuncs[ix].id = fid;
-                    }
-            }
-        );
-
-        bool getThisOpLoad = false;
-        nbl::core::stack<std::reference_wrapper<const spirv_cross::SPIRFunction>> callstack;
-        callstack.push(std::cref(get<spirv_cross::SPIRFunction>(ir.default_entry_point)));
-        while (!callstack.empty())
-        {
-            const auto& f = callstack.top().get();
-            callstack.pop();
-            for (uint32_t b : f.blocks)
-            {
-                const spirv_cross::SPIRBlock& block = get<spirv_cross::SPIRBlock>(b);
-                for (auto& i : block.ops)
-                {
-                    auto ops = stream(i);
-                    spv::Op op = static_cast<spv::Op>(i.op);
-
-                    switch (op)
-                    {
-                    case spv::OpLoad:
-                    {
-                        SLoad ld = {ops[0], ops[1], i.offset, i.length};
-
-                        if (getThisOpLoad)
-                        {
-                            auto& t = get_type(ops[0]);
-                            if (t.columns>1u && t.basetype!=spirv_cross::SPIRType::BaseType::Struct)//consider only loads of matrices
-                            {
-                                auto it = std::lower_bound(loads.begin(), loads.end(), ld);
-                                if (it==loads.end() || it->offset!=ld.offset)
-                                    loads.insert(it, ld);
-                            }
-                            getThisOpLoad = false;
-                        }
-                    }
-                        break;
-                    case spv::OpAccessChain:
-                    {
-                        uint32_t baseptr = ops[2];
-                        auto found = std::find(vars.begin(), vars.end(), baseptr);
-                        if (found != vars.end())
-                            getThisOpLoad = true;
-                    }
-                        break;
-                    case spv::OpFunctionCall:
-                    {
-                        auto& callee = get<spirv_cross::SPIRFunction>(ops[2]);
-                        callstack.push(std::cref(callee));
-                    }
-                        break;
-                    default: 
-                        // OpLoad should be directly after OpAccessChain, so reset flag if access chained concerned some other op
-                        getThisOpLoad = false; 
-                        break;
-                    }
-                }
-            }
-        }
-        return {std::move(loads), fixFuncs};
-    }
-};
-}
 
 namespace nbl
 {

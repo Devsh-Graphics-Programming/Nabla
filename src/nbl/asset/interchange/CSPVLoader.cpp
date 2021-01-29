@@ -28,5 +28,5 @@ SAssetBundle CSPVLoader::loadAsset(IReadFile* _file, const IAssetLoader::SAssetL
 	if (reinterpret_cast<uint32_t*>(buffer->getPointer())[0]!=SPV_MAGIC_NUMBER)
 		return {};
 
-    return SAssetBundle({core::make_smart_refctd_ptr<ICPUShader>(std::move(buffer))});
+    return SAssetBundle(nullptr,{core::make_smart_refctd_ptr<ICPUShader>(std::move(buffer))});
 }

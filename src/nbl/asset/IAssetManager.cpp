@@ -4,88 +4,88 @@
 
 #include "nbl/asset/asset.h"
 
-#include "nbl/asset/CGeometryCreator.h"
-#include "nbl/asset/CMeshManipulator.h"
+#include "nbl/asset/interchange/CGLSLLoader.h"
+#include "nbl/asset/interchange/CSPVLoader.h"
 
 #ifdef _NBL_COMPILE_WITH_MTL_LOADER_
-#include "nbl/asset/CGraphicsPipelineLoaderMTL.h"
+#include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
-#include "nbl/asset/COBJMeshFileLoader.h"
+#include "nbl/asset/interchange/COBJMeshFileLoader.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_
-#include "nbl/asset/CSTLMeshFileLoader.h"
+#include "nbl/asset/interchange/CSTLMeshFileLoader.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_PLY_LOADER_
-#include "nbl/asset/CPLYMeshFileLoader.h"
+#include "nbl/asset/interchange/CPLYMeshFileLoader.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_BAW_LOADER_
-#include "nbl/asset/CBAWMeshFileLoader.h"
+#include "nbl/asset/bawformat/CBAWMeshFileLoader.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_JPG_LOADER_
-#include "nbl/asset/CImageLoaderJPG.h"
+#include "nbl/asset/interchange/CImageLoaderJPG.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_PNG_LOADER_
-#include "nbl/asset/CImageLoaderPNG.h"
+#include "nbl/asset/interchange/CImageLoaderPNG.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_TGA_LOADER_
-#include "nbl/asset/CImageLoaderTGA.h"
+#include "nbl/asset/interchange/CImageLoaderTGA.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_OPENEXR_LOADER_
-#include "nbl/asset/CImageLoaderOpenEXR.h"
+#include "nbl/asset/interchange/CImageLoaderOpenEXR.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_GLI_LOADER_
-#include "nbl/asset/CGLILoader.h"
+#include "nbl/asset/interchange/CGLILoader.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_STL_WRITER_
-#include "nbl/asset/CSTLMeshWriter.h"
+#include "nbl/asset/interchange/CSTLMeshWriter.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
-#include "nbl/asset/CPLYMeshWriter.h"
+#include "nbl/asset/interchange/CPLYMeshWriter.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_BAW_WRITER_
-#include "nbl/asset/CBAWMeshWriter.h"
+#include "nbl/asset/bawformat/CBAWMeshWriter.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_TGA_WRITER_
-#include "nbl/asset/CImageWriterTGA.h"
+#include "nbl/asset/interchange/CImageWriterTGA.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_JPG_WRITER_
-#include "nbl/asset/CImageWriterJPG.h"
+#include "nbl/asset/interchange/CImageWriterJPG.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_PNG_WRITER_
-#include "nbl/asset/CImageWriterPNG.h"
+#include "nbl/asset/interchange/CImageWriterPNG.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_OPENEXR_WRITER_
-#include "nbl/asset/CImageWriterOpenEXR.h"
+#include "nbl/asset/interchange/CImageWriterOpenEXR.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
-#include "nbl/asset/CGLIWriter.h"
+#include "nbl/asset/interchange/CGLIWriter.h"
 #endif
 
-#include "nbl/core/core.h"
-#include "nbl/asset/CGLSLLoader.h"
-#include "nbl/asset/CSPVLoader.h"
+#include "nbl/asset/utils/CGeometryCreator.h"
+#include "nbl/asset/utils/CMeshManipulator.h"
 
 
 using namespace nbl;
 using namespace asset;
+
 
 std::function<void(SAssetBundle&)> nbl::asset::makeAssetGreetFunc(const IAssetManager* const _mgr)
 {
@@ -194,7 +194,7 @@ void IAssetManager::insertBuiltinAssets()
 {
 	auto addBuiltInToCaches = [&](auto&& asset, const char* path) -> void
 	{
-		asset::SAssetBundle bundle({ asset });
+		asset::SAssetBundle bundle(nullptr,{ asset });
 		changeAssetKey(bundle, path);
 		insertBuiltinAssetIntoCache(bundle);
 	};

@@ -10,11 +10,12 @@
 #include <unordered_set>
 
 #include "os.h"
+
 #include "nbl/asset/asset.h"
-#include "nbl/asset/CMeshManipulator.h"
-#include "nbl/asset/CSmoothNormalGenerator.h"
-#include "nbl/asset/CForsythVertexCacheOptimizer.h"
-#include "nbl/asset/COverdrawMeshOptimizer.h"
+#include "nbl/asset/utils/CMeshManipulator.h"
+#include "nbl/asset/utils/CSmoothNormalGenerator.h"
+#include "nbl/asset/utils/CForsythVertexCacheOptimizer.h"
+#include "nbl/asset/utils/COverdrawMeshOptimizer.h"
 
 namespace nbl
 {

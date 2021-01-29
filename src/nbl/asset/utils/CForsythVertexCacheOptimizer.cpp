@@ -20,15 +20,20 @@
 // IN THE SOFTWARE.
 //-----------------------------------------------------------------------------
 
-#include "nbl/asset/CForsythVertexCacheOptimizer.h"
 
 #include <cmath>
 
+
 #include "nbl/macros.h"
+
+#include "nbl/asset/utils/CForsythVertexCacheOptimizer.h"
+
 
 #define maxSIZE_VERTEX_CACHE 16
 
-namespace nbl { namespace asset
+namespace nbl
+{
+namespace asset
 {
 	template<typename IdxT>
 	void CForsythVertexCacheOptimizer::optimizeTriangleOrdering(const size_t _numVerts, const size_t _numIndices, const IdxT* _indices, IdxT* _outIndices) const

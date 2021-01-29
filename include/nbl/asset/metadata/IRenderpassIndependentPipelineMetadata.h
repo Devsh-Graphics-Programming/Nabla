@@ -30,9 +30,6 @@ namespace asset
 */
 class IRenderpassIndependentPipelineMetadata : public core::Interface
 {
-    protected:
-        virtual ~IRenderpassIndependentPipelineMetadata() = default;
-
 	public:
 		//! A common struct to unify the metadata declarations.
 		/**
@@ -164,9 +161,20 @@ class IRenderpassIndependentPipelineMetadata : public core::Interface
 		};
 		using semantics_container_t = core::refctd_dynamic_array<ShaderInputSemantic>;
 
+		//!
+		IRenderpassIndependentPipelineMetadata() : m_inputSemantics(nullptr) {}
+		IRenderpassIndependentPipelineMetadata(core::smart_refctd_ptr<semantics_container_t>&& _inputSemantics) : m_inputSemantics(std::move(_inputSemantics)) {}
 
 		//!
-		IRenderpassIndependentPipelineMetadata(core::smart_refctd_ptr<semantics_container_t>&& _inputSemantics) : m_inputSemantics(std::move(_inputSemantics)) {}
+		inline core::SRange<const ShaderInputSemantic> getRequiredShaderInputs() const
+		{
+			if (m_inputSemantics)
+				return {m_inputSemantics->begin(),m_inputSemantics->end()};
+			return {nullptr,nullptr};
+		}
+
+	protected:
+		virtual ~IRenderpassIndependentPipelineMetadata() = default;
 
 		//!
 		inline IRenderpassIndependentPipelineMetadata& operator=(IRenderpassIndependentPipelineMetadata&& other)

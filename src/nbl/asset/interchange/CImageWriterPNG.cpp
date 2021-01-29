@@ -9,13 +9,14 @@
 
 #ifdef _NBL_COMPILE_WITH_PNG_WRITER_
 
-#include "CImageLoaderPNG.h"
-
 #include "IWriteFile.h"
-#include "os.h" // for logging
-#include "nbl/asset/ICPUImageView.h"
 
-#include "nbl/asset/IImageAssetHandlerBase.h"
+#include "os.h" // for logging
+
+#include "nbl/asset/ICPUImageView.h"
+#include "nbl/asset/interchange/IImageAssetHandlerBase.h"
+
+#include "CImageLoaderPNG.h"
 
 #ifdef _NBL_COMPILE_WITH_LIBPNG_
 	#include "libpng/png.h"

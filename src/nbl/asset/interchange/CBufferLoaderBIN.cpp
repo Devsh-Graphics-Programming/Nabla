@@ -18,7 +18,7 @@ namespace nbl
 
 			ctx.file->read(ctx.sourceCodeBuffer.get()->getPointer(), ctx.file->getSize());
 
-			return SAssetBundle({std::move(ctx.sourceCodeBuffer)});
+			return SAssetBundle(nullptr,{std::move(ctx.sourceCodeBuffer)});
 		}
 
 		bool CBufferLoaderBIN::isALoadableFileFormat(io::IReadFile* _file) const

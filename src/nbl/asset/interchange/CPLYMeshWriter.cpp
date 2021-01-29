@@ -3,15 +3,19 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
+
 #include "nbl/core/core.h"
+
+#include "os.h"
+#include "IWriteFile.h"
+
+#include "nbl/asset/IMesh.h"
+#include "nbl/asset/utils/CMeshManipulator.h"
+
 
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
 
 #include "CPLYMeshWriter.h"
-#include "os.h"
-#include "nbl/asset/IMesh.h"
-#include "IWriteFile.h"
-#include "CMeshManipulator.h"
 
 
 namespace nbl

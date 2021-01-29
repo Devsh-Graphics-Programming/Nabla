@@ -3,19 +3,19 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "nbl/asset/compile_config.h"
 
-#include "CImageWriterJPG.h"
+#include "os.h"
+
+#include "IWriteFile.h"
+
+#include "nbl/asset/compile_config.h"
+#include "nbl/asset/format/convertColor.h"
+#include "nbl/asset/ICPUImageView.h"
+#include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
 #ifdef _NBL_COMPILE_WITH_JPG_WRITER_
 
-#include "IWriteFile.h"
-#include "nbl/asset/format/convertColor.h"
-#include "nbl/asset/ICPUImageView.h"
-
-#include "nbl/asset/IImageAssetHandlerBase.h"
-
-#include "os.h"
+#include "CImageWriterJPG.h"
 
 #ifdef _NBL_COMPILE_WITH_LIBJPEG_
 #include <stdio.h> // required for jpeglib.h

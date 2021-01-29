@@ -6,18 +6,21 @@
 #ifndef __NBL_ASSET_PLY_MESH_WRITER_H_INCLUDED__
 #define __NBL_ASSET_PLY_MESH_WRITER_H_INCLUDED__
 
-#include "nbl/asset/IAssetWriter.h"
-#include "nbl/asset/ICPUMeshBuffer.h"
+
 #include <iomanip>
+
+#include "nbl/asset/ICPUMeshBuffer.h"
+#include "nbl/asset/interchange/IAssetWriter.h"
+
 
 namespace nbl
 {
-
 namespace asset
 {
-	//! class to write PLY mesh files
-	class CPLYMeshWriter : public asset::IAssetWriter
-	{
+
+//! class to write PLY mesh files
+class CPLYMeshWriter : public asset::IAssetWriter
+{
 	public:
 
 		CPLYMeshWriter();
@@ -66,7 +69,7 @@ namespace asset
             auto str = ss.str();
             _file->write(str.c_str(), str.size());
         }
-	};
+};
 
 } // end namespace
 } // end namespace

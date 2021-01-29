@@ -42,7 +42,7 @@ class CSTLMetadata final : public IAssetMetadata
         inline void addMeta(uint32_t offset, const ICPURenderpassIndependentPipeline* ppln, Args&&... args)
         {
             auto& meta = m_metaStorage->operator[](offset);
-            meta = CIRenderpassIndependentPipeline(std::forward(args)...);
+            meta = CIRenderpassIndependentPipeline(std::forward<Args>(args)...);
 
             IAssetMetadata::insertAssetSpecificMetadata(ppln,&meta);
         }

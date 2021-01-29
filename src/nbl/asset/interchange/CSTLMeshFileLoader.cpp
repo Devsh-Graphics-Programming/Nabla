@@ -8,7 +8,7 @@
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_
 
 #include "nbl/asset/asset.h"
-#include "nbl/asset/CQuantNormalCache.h"
+#include "nbl/asset/utils/CQuantNormalCache.h"
 
 #include "CSTLMeshFileLoader.h"
 

@@ -3,18 +3,19 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "CImageWriterTGA.h"
+
+#include "IWriteFile.h"
+
+#include "os.h"
+
+#include "nbl/asset/format/convertColor.h"
+#include "nbl/asset/ICPUImageView.h"
+#include "nbl/asset/interchange/IImageAssetHandlerBase.h"
+
 
 #ifdef _NBL_COMPILE_WITH_TGA_WRITER_
 
-#include "CImageLoaderTGA.h"
-#include "IWriteFile.h"
-#include "nbl/asset/format/convertColor.h"
-#include "nbl/asset/ICPUImageView.h"
-#include "nbl/asset/IImageAssetHandlerBase.h"
-#include "os.h"
-
-#include "os.h"
+#include "CImageWriterTGA.h"
 
 namespace nbl
 {

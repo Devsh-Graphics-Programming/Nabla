@@ -28,8 +28,6 @@ SOFTWARE.
 
 #ifdef _NBL_COMPILE_WITH_OPENEXR_WRITER_
 
-#include "nbl/asset/COpenEXRImageMetadata.h"
-
 #include "openexr/IlmBase/Imath/ImathBox.h"
 #include "openexr/OpenEXR/IlmImf/ImfOutputFile.h"
 #include "openexr/OpenEXR/IlmImf/ImfChannelList.h"

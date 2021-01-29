@@ -45,7 +45,7 @@ class COpenEXRMetadata final : public IAssetMetadata
         inline void addMeta(uint32_t offset, const ICPUImage* image, std::string&& _name, Args&&... args)
         {
             auto& meta = m_metaStorage->operator[](offset);
-            meta = CImage(std::forward(args)...);
+            meta = CImage(std::forward<Args>(args)...);
             meta.m_name = std::move(_name);
 
             IAssetMetadata::insertAssetSpecificMetadata(image,&meta);

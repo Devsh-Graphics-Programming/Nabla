@@ -6,116 +6,14 @@
 #include <regex>
 
 
-#include "nbl/asset/asset.h"
-
 #include "os.h"
 
+#include "nbl/asset/asset.h"
+#include "nbl/asset/interchange/CGraphicsPipelineLoaderMTL.h"
+#include "nbl/asset/utils/IGLSLEmbeddedIncludeLoader.h"
 
-#include "nbl/asset/CGraphicsPipelineLoaderMTL.h"
-#include "nbl/asset/IGLSLEmbeddedIncludeLoader.h"
 #include "nbl/builtin/MTLdefaults.h"
 
-
-namespace
-{
-/*
-    constexpr const char* FRAG_SHADER_NO_UV_PBR =
-R"(#version 430 core
-
-layout (location = 0) in vec3 LocalPos;
-layout (location = 1) in vec3 ViewPos;
-layout (location = 2) in vec3 Normal;
-layout (location = 0) out vec4 OutColor;
-
-layout (push_constant) uniform Block {
-    vec3 ambient;
-    vec3 albedo;//MTL's diffuse
-    vec3 specular;
-    vec3 emissive;
-    vec4 Tf;//w component doesnt matter
-    float shininess;
-    float opacity;
-    float bumpFactor;
-    //PBR
-    float ior;
-    float roughness;
-    float metallic;
-    float sheen;
-    float clearcoatThickness;
-    float clearcoatRoughness;
-    float anisotropy;
-    float anisoRotation;
-    //extra info
-    uint extra;
-} PC;
-
-#define PI 3.14159265359
-#define FLT_MIN 1.175494351e-38
-
-#include <nbl/builtin/glsl/bsdf/brdf/diffuse/oren_nayar.glsl>
-#include <nbl/builtin/glsl/bsdf/brdf/specular/ndf/ggx_trowbridge_reitz.glsl>
-#include <nbl/builtin/glsl/bsdf/brdf/specular/geom/ggx_smith.glsl>
-#include <nbl/builtin/glsl/bsdf/brdf/specular/fresnel/fresnel.glsl>
-
-void main()
-{
-    vec3 N = normalize(Normal);
-    //some approximation for computing tangents without UV
-    vec3 c1 = cross(N, vec3(0.0, 0.0, 1.0));
-    vec3 c2 = cross(N, vec3(0.0, 1.0, 0.0));
-    vec3 T = (dot(c1,c1) > dot(c2,c2)) ? c1 : c2;
-    T = normalize(T);
-    vec3 B = normalize(cross(N,T));
-    vec3 V = -ViewPos;
-
-    vec3 NdotV = dot(N,V);
-#define NdotL NdotV
-#define NdotH NdotV
-
-    vec3 color = PC.params.emissive*0.01;
-    if (NdotL > FLT_MIN)
-    {
-        float lightDistance2 = dot(V,V);
-        float Vrcplen = inversesqrt(lightDistance2);
-        NdotV *= Vrcplen;
-        V *= Vrcplen;
-
-        vec3 TdotV = dot(T,V);
-        vec3 BdotV = dot(B,V);
-#define TdotL TdotV
-#define BdotL BdotV
-#define TdotH TdotV
-#define BdotH BdotV
-
-        float at = sqrt(PC.params.roughness);
-        float ab = at*(1.0 - PC.params.anisotropy);
-
-        float fr = nbl_glsl_fresnel_dielectric(PC.params.ior, NdotV);
-        float one_minus_fr = 1.0-fr;
-        float diffuseFactor = 1.0 - one_minus_fr*one_minus_fr;
-        float diffuse = 0.0;
-        if (PC.params.metallic < 1.0)
-        {
-            if (PC.params.roughness==0.0)
-                diffuse = 1.0/PI;
-            else
-                diffuse = oren_nayar(PC.params.roughness, N, V, V, NdotL, NdotV);
-        }
-        float specular = 0.0;
-        if (NdotV > FLT_MIN)
-        {
-            float ndf = GGXBurleyAnisotropic(PC.params.anisotropy, PC.params.roughness, TdotH, BdotH, NdotH);
-            float geom = GGXSmithHeightCorrelated_aniso_wo_numerator(at, ab, TdotL, TdotV, BdotL, BdotV, NdotL, NdotV);
-            specular = ndf*geom*fr;
-        }
-
-        color += (diffuseFactor*diffuse*PC.params.albedo + specular) * NdotL / lightDistance2;
-    }
-    OutColor = vec4(color*PC.params.transmissionFilter, 1.0);
-}
-)";
-*/
-}
 
 
 using namespace nbl;
@@ -207,7 +105,7 @@ core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipel
 
     //assumes all supported textures are always present
     //since vulkan doesnt support bindings with no/null descriptor, absent textures will be filled with dummy 2D texture (while creating desc set)
-    auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(static_cast<size_t>(CMTLPipelineMetadata::EMP_REFL_POSX)+1ull);
+    auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(static_cast<size_t>(CMTLMetadata::CIRenderpassIndependentPipeline::EMP_REFL_POSX)+1ull);
 
     ICPUDescriptorSetLayout::SBinding bnd;
     bnd.count = 1u;

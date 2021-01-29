@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_GEOMETRY_CREATOR_H_INCLUDED__
 #define __NBL_ASSET_C_GEOMETRY_CREATOR_H_INCLUDED__
 
-#include "nbl/asset/IGeometryCreator.h"
+#include "nbl/asset/utils/IGeometryCreator.h"
 
 namespace nbl
 {

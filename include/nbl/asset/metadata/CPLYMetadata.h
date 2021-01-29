@@ -45,7 +45,7 @@ class CPLYMetadata final : public IAssetMetadata
         inline void addMeta(uint32_t offset, const ICPURenderpassIndependentPipeline* ppln, uint32_t _hash, Args&&... args)
         {
             auto& meta = m_metaStorage->operator[](offset);
-            meta = CIRenderpassIndependentPipeline(std::forward(args)...);
+            meta = CIRenderpassIndependentPipeline(std::forward<Args>(args)...);
             meta.m_hash = _hash;
 
             IAssetMetadata::insertAssetSpecificMetadata(ppln,&meta);

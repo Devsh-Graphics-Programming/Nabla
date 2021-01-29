@@ -6,11 +6,11 @@
 #include <regex>
 #include <iterator>
 
-#include "nbl/asset/IGLSLCompiler.h"
-#include "nbl/asset/shadercUtils.h"
-#include "nbl/asset/CIncludeHandler.h"
+#include "nbl/asset/utils/IGLSLCompiler.h"
+#include "nbl/asset/utils/shadercUtils.h"
+#include "nbl/asset/utils/CIncludeHandler.h"
 
-#include "nbl/asset/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
+#include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
 
 #include "os.h"
 

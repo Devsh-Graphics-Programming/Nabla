@@ -5,8 +5,8 @@
 #ifndef __NBL_ASSET_C_MESH_MANIPULATOR_H_INCLUDED__
 #define __NBL_ASSET_C_MESH_MANIPULATOR_H_INCLUDED__
 
-#include "nbl/asset/IMeshManipulator.h"
-#include "nbl/asset/CQuantNormalCache.h"
+#include "nbl/asset/utils/IMeshManipulator.h"
+#include "nbl/asset/utils/CQuantNormalCache.h"
 
 namespace nbl
 {

@@ -2,6 +2,6 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "nbl/asset/IAssetWriter.h"
+#include "nbl/asset/interchange/IAssetWriter.h"
 
 nbl::asset::IAssetWriter::IAssetWriterOverride nbl::asset::IAssetWriter::s_defaultOverride;

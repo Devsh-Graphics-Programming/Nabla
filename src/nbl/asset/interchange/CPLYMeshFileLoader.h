@@ -6,9 +6,9 @@
 #ifndef __NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 #define __NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 
-#include "nbl/asset/IAssetLoader.h"
 #include "nbl/asset/ICPUMeshBuffer.h"
-#include "nbl/asset/CPLYPipelineMetadata.h"
+#include "nbl/asset/interchange/IAssetLoader.h"
+#include "nbl/asset/metadata/CPLYMetadata.h"
 
 namespace nbl
 {

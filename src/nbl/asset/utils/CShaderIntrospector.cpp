@@ -2,11 +2,11 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "nbl/asset/CShaderIntrospector.h"
-
 #include "nbl/asset/ICPUMeshBuffer.h"
 
-#include "nbl/asset/spvUtils.h"
+#include "nbl/asset/utils/CShaderIntrospector.h"
+#include "nbl/asset/utils/spvUtils.h"
+
 #include "spirv_cross/spirv_parser.hpp"
 #include "spirv_cross/spirv_cross.hpp"
 

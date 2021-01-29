@@ -127,7 +127,7 @@ class CMTLMetadata final : public IAssetMetadata
             Args&&... args)
         {
             auto& meta = m_metaStorage->operator[](offset);
-            meta = CIRenderpassIndependentPipeline(std::forward(args)...);
+            meta = CIRenderpassIndependentPipeline(std::forward<Args>(args)...);
             meta.m_descriptorSet3 = std::move(_descriptorSet3);
             meta.m_materialParams = _materialParams;
             meta.m_name = std::move(_name);

@@ -69,7 +69,7 @@ class IAssetMetadata : public core::IReferenceCounted
 		template<class Meta>
 		static inline meta_container_smart_ptr_t<Meta> createContainer(uint32_t length)
 		{
-			return meta_container_smart_ptr_t<Meta>(meta_container_t::create_dynamic_array(imageCount),core::dont_grab)
+			return meta_container_smart_ptr_t<Meta>(meta_container_t<Meta>::create_dynamic_array(length),core::dont_grab);
 		}
 
 

@@ -8,8 +8,8 @@
 
 #include "nbl/core/core.h"
 #include "nbl/asset/ICPUMeshBuffer.h"
-#include "nbl/asset/IAssetLoader.h"
-#include "nbl/asset/CMTLPipelineMetadata.h"
+#include "nbl/asset/interchange/IAssetLoader.h"
+#include "nbl/asset/metadata/CMTLMetadata.h"
 
 namespace nbl
 {

@@ -2,13 +2,14 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "os.h"
-
 #include <iostream>
 #include <iomanip>
 #include <cmath>
-#include "nbl/asset/CGeometryCreator.h"
-#include "nbl/asset/CQuantNormalCache.h"
+
+#include "os.h"
+
+#include "nbl/asset/utils/CGeometryCreator.h"
+#include "nbl/asset/utils/CQuantNormalCache.h"
 
 namespace nbl
 {

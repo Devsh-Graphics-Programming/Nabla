@@ -5,8 +5,8 @@
 
 #include "nbl/core/core.h"
 
-#include "nbl/asset/IMeshManipulator.h"
 #include "nbl/asset/IAssetManager.h"
+#include "nbl/asset/utils/IMeshManipulator.h"
 
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 
@@ -14,7 +14,7 @@
 #include "IFileSystem.h"
 #include "IReadFile.h"
 
-#include "nbl/asset/CQuantNormalCache.h"
+#include "nbl/asset/utils/CQuantNormalCache.h"
 #include "COBJMeshFileLoader.h"
 
 
@@ -402,7 +402,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                     memcpy(
                         submeshes[i]->getPushConstantsDataPtr()+pcoffset,
                         &metadata->getMaterialParams(),
-                        sizeof(CMTLPipelineMetadata::SMTLMaterialParameters)
+                        sizeof(CMTLMetadata::CIRenderpassIndependentPipeline::SMaterialParameters)
                     );
 
                     break;

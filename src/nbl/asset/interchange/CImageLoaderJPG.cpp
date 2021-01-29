@@ -14,7 +14,7 @@
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/asset/ICPUImageView.h"
 
-#include "nbl/asset/IImageAssetHandlerBase.h"
+#include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
 #include <string>
 
@@ -334,7 +334,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(io::IReadFile* _file, const asset
 	if (image->getCreationParameters().format == asset::EF_R8_SRGB)
 		image = asset::IImageAssetHandlerBase::convertR8ToR8G8B8Image(image);
 	
-    return SAssetBundle({image});
+    return SAssetBundle(nullptr,{image});
 
 #endif
 }

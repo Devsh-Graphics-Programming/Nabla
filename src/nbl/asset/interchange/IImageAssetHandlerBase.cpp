@@ -2,7 +2,7 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "nbl/asset/IImageAssetHandlerBase.h"
+#include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
 using namespace nbl;
 using namespace asset;

@@ -3,16 +3,21 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
 
-#include "BuildConfigOptions.h"
-#ifdef _NBL_COMPILE_WITH_PLY_LOADER_
 
 #include <numeric>
 
-#include "CPLYMeshFileLoader.h"
-#include "nbl/asset/IMeshManipulator.h"
+
+#include "BuildConfigOptions.h"
 
 #include "IReadFile.h"
 #include "os.h"
+
+#include "nbl/asset/utils/IMeshManipulator.h"
+
+
+#ifdef _NBL_COMPILE_WITH_PLY_LOADER_
+
+#include "CPLYMeshFileLoader.h"
 
 namespace nbl
 {

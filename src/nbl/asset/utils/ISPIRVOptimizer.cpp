@@ -1,4 +1,4 @@
-#include "nbl/asset/ISPIRVOptimizer.h"
+#include "nbl/asset/utils/ISPIRVOptimizer.h"
 
 #include "spirv-tools/optimizer.hpp" 
 #include "spirv-tools/libspirv.hpp"

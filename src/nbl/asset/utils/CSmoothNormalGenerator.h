@@ -5,11 +5,15 @@
 #ifndef __NBL_ASSET_C_SMOOTH_NORMAL_GENERATOR_H_INCLUDED__
 #define __NBL_ASSET_C_SMOOTH_NORMAL_GENERATOR_H_INCLUDED__
 
+
 #include <iostream>
 #include <functional>
-#include "nbl/asset/ICPUMeshBuffer.h"
-#include "nbl/asset/IMeshManipulator.h"
+
 #include "nbl/core/math/glslFunctions.h"
+
+#include "nbl/asset/ICPUMeshBuffer.h"
+#include "nbl/asset/utils/IMeshManipulator.h"
+
 
 namespace nbl 
 {	
