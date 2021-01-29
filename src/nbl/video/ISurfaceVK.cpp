@@ -12,7 +12,7 @@ bool ISurfaceVK::isSupported(const IPhysicalDevice* dev, uint32_t _queueFamIx) c
 
     auto vkphd = static_cast<const CVulkanPhysicalDevice*>(dev)->getInternalObject();
     VkBool32 supported;
-    vkGetPhysicalDeviceSurfaceSupportKHR(vkphd, _queueIx, m_surface, &supported);
+    vkGetPhysicalDeviceSurfaceSupportKHR(vkphd, _queueFamIx, m_surface, &supported);
 
     return static_cast<bool>(supported);
 }

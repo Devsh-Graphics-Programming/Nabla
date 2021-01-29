@@ -39,6 +39,8 @@ public:
         }
     }
 
+    inline VkPhysicalDevice getInternalObject() const { return m_vkphysdev; }
+
 protected:
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) override
     {
@@ -75,8 +77,6 @@ protected:
         //return core::make_smart_refctd_ptr<CVKLogicalDevice>(vkdev, params);
         return nullptr;
     }
-
-    inline VkPhysicalDevice getInternalObject() const { return m_vkphysdev; }
 
 private:
     VkPhysicalDevice m_vkphysdev;
