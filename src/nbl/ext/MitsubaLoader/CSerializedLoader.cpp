@@ -9,7 +9,7 @@
 #include "os.h"
 
 #include "nbl/ext/MitsubaLoader/CSerializedLoader.h"
-#include "nbl/ext/MitsubaLoader/CMitsubaSerializedPipelineMetadata.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaSerializedMetadata.h"
 
 #ifndef _NBL_COMPILE_WITH_ZLIB_
 #error "Need zlib for this loader"
@@ -24,20 +24,6 @@ namespace ext
 namespace MitsubaLoader
 {
 
-template<typename AssetType, IAsset::E_TYPE assetType>
-static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
-{
-	size_t storageSz = 1ull;
-	asset::SAssetBundle bundle;
-	const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
-
-	_assetMgr->findAssets(storageSz, &bundle, _key, types);
-	if (bundle.isEmpty())
-		return nullptr;
-	auto assets = bundle.getContents();
-
-	return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
-}
 
 enum MESH_FLAGS
 {

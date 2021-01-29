@@ -35,6 +35,11 @@ namespace nbl
 {
 namespace core
 {
+
+template<typename Compared, typename T>
+using add_const_if_const_t = std::conditional_t<std::is_const_v<T>,std::add_const_t<T>,T>;
+
+
 template<typename T>
 using allocator = _NBL_DEFAULT_ALLOCATOR_METATYPE<T>;
 

@@ -23,22 +23,6 @@ namespace nbl
 namespace asset
 {
 
-template<typename AssetType, IAsset::E_TYPE assetType>
-static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
-{
-	size_t storageSz = 1ull;
-	asset::SAssetBundle bundle;
-	const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
-
-	_assetMgr->findAssets(storageSz, &bundle, _key, types);
-	if (bundle.isEmpty())
-		return nullptr;
-	auto assets = bundle.getContents();
-	//assert(assets.first != assets.second);
-
-	return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
-}
-
 //#ifdef _NBL_DEBUG
 #define _NBL_DEBUG_OBJ_LOADER_
 //#endif
@@ -148,22 +132,22 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			if (ctx.useMaterials)
 			{
 				bufPtr = goAndCopyNextWord(tmpbuf, bufPtr, WORD_BUFFER_LENGTH, bufEnd);
-#ifdef _NBL_DEBUG_OBJ_LOADER_
-				os::Printer::log("Reading material _file",tmpbuf);
-#endif
+				#ifdef _NBL_DEBUG_OBJ_LOADER_
+					os::Printer::log("Reading material _file",tmpbuf);
+				#endif
 
                 std::string mtllib = relPath+tmpbuf;
                 std::replace(mtllib.begin(), mtllib.end(), '\\', '/');
                 SAssetLoadParams loadParams;
                 auto bundle = interm_getAssetInHierarchy(AssetManager, mtllib, loadParams, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW, _override);
+				auto meta = bundle.getMetadata()->selfCast<const CMTLMetadata*>();
 				for (auto ass : bundle.getContents())
                 {
                     auto pipeln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(ass);
-                    auto metadata = static_cast<const CMTLPipelineMetadata*>(pipeln->getMetadata());
                     std::string mtlfilepath = relPath+tmpbuf;
 
                     decltype(pipelines)::value_type::second_type val{std::move(mtlfilepath), std::move(pipeln)};
-                    pipelines.insert({metadata->getMaterialName(), std::move(val)});
+                    pipelines.insert({meta->getAssetSpecificMetadata(pipeln.get())->m_name, std::move(val)});
                 }
 			}
 		}

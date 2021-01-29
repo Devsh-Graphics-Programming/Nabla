@@ -24,21 +24,6 @@ constexpr auto COLOR_ATTRIBUTE = 1;
 constexpr auto UV_ATTRIBUTE = 2;
 constexpr auto NORMAL_ATTRIBUTE = 3;
 
-template<typename AssetType, IAsset::E_TYPE assetType>
-static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr) // TODO: @Anastazluk / @Crisspl this should be in a common loader base
-{
-	size_t storageSz = 1ull;
-	asset::SAssetBundle bundle;
-	const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
-
-	_assetMgr->findAssets(storageSz, &bundle, _key, types);
-	auto assets = bundle.getContents();
-	if (assets.empty())
-		return nullptr;
-
-	return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
-}
-
 SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
 	if (_params.meshManipulatorOverride == nullptr)
@@ -181,6 +166,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 			memcpy(ptr + 16, colors.data() + i / 3, 4);
 	}
 
+	// TODO: @Anastazluk PRECOMPUTE THE ENTIRE PIPELINE (since metadata is now free to change for every time the same handle gets returned)
 	const std::string shaderDefaultAssetPath = hasColor ? "nbl/builtin/materials/debug/vertex_color_debug_shader/specializedshader" : "nbl/builtin/materials/debug/normal_debug_shader/specializedshader"; // TODO: `normal_debug` is a rather bad name
 	auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
@@ -203,7 +189,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 		}
 	}
 
-	auto mbPipelineLayout = getDefaultAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>("nbl/builtin/materials/lambertian/no_texture/pipelinelayout", m_assetMgr);
+	auto mbPipelineLayout = _override->findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/materials/lambertian/no_texture/pipelinelayout", /*TODO: @Anastazluk where the F is the loading SContext???*/, _hierarchyLevel+ICPURenderpassIndependentPipeline::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW);
 
 	constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
 	core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);

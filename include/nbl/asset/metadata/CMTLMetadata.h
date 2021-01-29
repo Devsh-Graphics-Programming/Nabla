@@ -114,6 +114,13 @@ class CMTLMetadata final : public IAssetMetadata
         _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CGraphicsPipelineLoaderMTL";
         const char* getLoaderName() const override { return LoaderName; }
 
+        //!
+		inline const CRenderpassIndependentPipeline* getAssetSpecificMetadata(const ICPURenderpassIndependentPipeline* asset) const
+		{
+            const auto found = IAssetMetadata::getAssetSpecificMetadata(asset);
+			return static_cast<const CRenderpassIndependentPipeline*>(found);
+		}
+
     private:
         meta_container_t<CRenderpassIndependentPipeline> m_metaStorage;
 

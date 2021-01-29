@@ -48,28 +48,38 @@ int main()
 
 	auto* driver = device->getVideoDriver();
 	auto* smgr = device->getSceneManager();
-    auto* am = device->getAssetManager();
-    auto* fs = am->getFileSystem();
 
-    //
-    auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
-    //loading cache from file
-    qnc->loadNormalQuantCacheFromFile<asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(fs,"../../tmp/normalCache101010.sse", true);
+    asset::ICPUMesh* mesh_raw = nullptr;
+    const asset::COBJMetadata* metaOBJ = nullptr;
+    // load
+    {
+        auto* am = device->getAssetManager();
+        auto* fs = am->getFileSystem();
 
-    // register the zip
-    device->getFileSystem()->addFileArchive("../../media/sponza.zip");
+        auto* qnc = am->getMeshManipulator()->getQuantNormalCache();
+        //loading cache from file
+        qnc->loadNormalQuantCacheFromFile<asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10>(fs, "../../tmp/normalCache101010.sse", true);
 
-    asset::IAssetLoader::SAssetLoadParams lp;
-    auto meshes_bundle = am->getAsset("sponza.obj", lp);
-    assert(!meshes_bundle.isEmpty());
-    auto mesh = meshes_bundle.getContents().begin()[0];
-    auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
+        // register the zip
+        device->getFileSystem()->addFileArchive("../../media/sponza.zip");
 
-    //saving cache to file
-    qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10,fs,"../../tmp/normalCache101010.sse");
+        asset::IAssetLoader::SAssetLoadParams lp;
+        auto meshes_bundle = am->getAsset("sponza.obj", lp);
+        assert(!meshes_bundle.isEmpty());
+
+        metaOBJ = meshes_bundle.getMetadata()->selfCast();
+
+        auto mesh = meshes_bundle.getContents().begin()[0];
+        mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
+
+        //saving cache to file
+        qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
+    }
 
     //we can safely assume that all meshbuffers within mesh loaded from OBJ has same DS1 layout (used for camera-specific data)
-    auto first_mb = *mesh_raw->getMeshBuffers().begin();
+    asset::ICPUMeshBuffer* const first_mb = *mesh_raw->getMeshBuffers().begin();
+    auto pipelineMetadata = metaOBJ->getAssetSpecificMetadata(first_mb->getPipeline());
+
     //so we can create just one DS
     asset::ICPUDescriptorSetLayout* ds1layout = first_mb->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
     uint32_t ds1UboBinding = 0u;
@@ -82,9 +92,8 @@ int main()
 
     size_t neededDS1UBOsz = 0ull;
     {
-        auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(first_mb->getPipeline()->getMetadata());
         for (const auto& shdrIn : pipelineMetadata->getCommonRequiredInputs())
-            if (shdrIn.descriptorSection.type==asset::IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
+            if (shdrIn.descriptorSection.type==asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
                 neededDS1UBOsz = std::max<size_t>(neededDS1UBOsz, shdrIn.descriptorSection.uniformBufferObject.relByteoffset+shdrIn.descriptorSection.uniformBufferObject.bytesize);
     }
 
@@ -131,31 +140,30 @@ int main()
 		camera->render();
 
         core::vector<uint8_t> uboData(gpuubo->getSize());
-        auto pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(first_mb->getPipeline()->getMetadata());
         for (const auto& shdrIn : pipelineMetadata->getCommonRequiredInputs())
         {
-            if (shdrIn.descriptorSection.type==asset::IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
+            if (shdrIn.descriptorSection.type==asset::IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER && shdrIn.descriptorSection.uniformBufferObject.set==1u && shdrIn.descriptorSection.uniformBufferObject.binding==ds1UboBinding)
             {
                 switch (shdrIn.type)
                 {
-                case asset::IPipelineMetadata::ECSI_WORLD_VIEW_PROJ:
-                {
-                    core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
-                    memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, mvp.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
-                }
-                break;
-                case asset::IPipelineMetadata::ECSI_WORLD_VIEW:
-                {
-                    core::matrix3x4SIMD MV = camera->getViewMatrix();
-                    memcpy(uboData.data() + shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
-                }
-                break;
-                case asset::IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE:
-                {
-                    core::matrix3x4SIMD MV = camera->getViewMatrix();
-                    memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
-                }
-                break;
+                    case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_PROJ:
+                    {
+                        core::matrix4SIMD mvp = camera->getConcatenatedMatrix();
+                        memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, mvp.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                    }
+                    break;
+                    case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW:
+                    {
+                        core::matrix3x4SIMD MV = camera->getViewMatrix();
+                        memcpy(uboData.data() + shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                    }
+                    break;
+                    case asset::IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE:
+                    {
+                        core::matrix3x4SIMD MV = camera->getViewMatrix();
+                        memcpy(uboData.data()+shdrIn.descriptorSection.uniformBufferObject.relByteoffset, MV.pointer(), shdrIn.descriptorSection.uniformBufferObject.bytesize);
+                    }
+                    break;
                 }
             }
         }       

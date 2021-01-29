@@ -71,7 +71,7 @@ class SAssetBundle
 		inline const std::string& getCacheKey() const { return m_cacheKey; }
 
 		//! Returns SAssetBundle's metadata. @see IAssetMetadata
-		inline IAssetMetadata* getMetadata() { return m_metadata.get(); }
+		//inline IAssetMetadata* getMetadata() { return m_metadata.get(); } // shouldn't be allowed
 
 		//! Returns SAssetBundle's metadata. @see IAssetMetadata
 		inline const IAssetMetadata* getMetadata() const { return m_metadata.get(); }

@@ -127,10 +127,8 @@ class IAsset : virtual public core::IReferenceCounted
 
 			It will perform assert if the attempt fails.
 		*/
-		template<typename T>
-		using asset_cv_t = typename std::conditional<std::is_const<T>::value,const IAsset,IAsset>::type;
 		template<typename assetType>
-		static assetType* castDown(asset_cv_t<assetType>* rootAsset)
+		static assetType* castDown(core::add_const_if_const_t<assetType,IAsset>* rootAsset) // maybe call it something else and not make static?
 		{
 			if (!rootAsset)
 				return nullptr;
@@ -142,12 +140,12 @@ class IAsset : virtual public core::IReferenceCounted
 		}
 		//! Smart pointer variant
 		template<typename assetType>
-		static inline core::smart_refctd_ptr<assetType> castDown(const core::smart_refctd_ptr<asset_cv_t<assetType> >& rootAsset)
+		static inline core::smart_refctd_ptr<assetType> castDown(const core::smart_refctd_ptr<core::add_const_if_const_t<assetType,IAsset> >& rootAsset)
 		{
 			return core::smart_refctd_ptr<assetType>(castDown<assetType>(rootAsset.get()));
 		}
 		template<typename assetType>
-		static inline core::smart_refctd_ptr<assetType> castDown(core::smart_refctd_ptr<asset_cv_t<assetType> >&& rootAsset)
+		static inline core::smart_refctd_ptr<assetType> castDown(core::smart_refctd_ptr<core::add_const_if_const_t<assetType,IAsset> >&& rootAsset)
 		{
 			if (!castDown<assetType>(rootAsset.get()))
 				return nullptr;

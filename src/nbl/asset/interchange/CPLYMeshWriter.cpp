@@ -195,7 +195,7 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     }
     else if (primitiveT == asset::EPT_TRIANGLE_LIST)
     {
-        faceCount = vtxCount / 3; // THIS IS WRONG
+        faceCount = vtxCount THIS IS ABSOLUTELY 100% WRONG / 3; // TODO: THIS IS WRONG
         forceFaces = true;
 
         header += "element face ";

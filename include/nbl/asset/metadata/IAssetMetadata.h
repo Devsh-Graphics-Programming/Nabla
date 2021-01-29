@@ -100,8 +100,24 @@ class IAssetMetadata : public core::IReferenceCounted
 		virtual const char* getLoaderName() const = 0;
 
 		//!
+		template<class MetaType>
+		inline const MetaType* selfCast() const
+		{
+			if (!meta || strcmp(getLoaderName(),MetaType::LoaderNAme)!=0)
+				return nullptr;
+			return static_cast<const MetaType*>(this);
+		}
+		template<class MetaType>
+		inline MetaType* selfCast()
+		{
+			if (!meta || strcmp(getLoaderName(),MetaType::LoaderNAme)!=0)
+				return nullptr;
+			return static_cast<MetaType*>(this);
+		}
+
+		//!
 		template<class Asset>
-		inline const asset_metadata_t<Asset>* getAssetSpecificMetadata(const Asset* asset)
+		inline const asset_metadata_t<Asset>* getAssetSpecificMetadata(const Asset* asset) const
 		{
 			const auto& map = std::get<asset_metadata_map_t<Asset>>(m_metaMaps);
 			auto found = map.find(asset);

@@ -165,14 +165,42 @@ public:
     public:
 		IAssetLoaderOverride(IAssetManager* _manager);
 
+		//!
+		template<class AssetT>
+		inline std::pair<core::smart_refctd_ptr<AssetT>,const IAssetMetadata*> findDefaultAsset(const std::string& inSearchKey, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
+		{
+			auto untypedRetval = findDefaultAsset(inSearchKey,AssetT::AssetType,ctx,hierarchyLevel);
+			return {core::smart_refctd_ptr_static_cast<AssetT>(std::move(untypedRetval.first)),std::move(untypedRetval.second)};
+		}
+
         // The only reason these functions are not declared static is to allow stateful overrides
 
+		//!
+		inline virtual std::pair<core::smart_refctd_ptr<IAsset>,const IAssetMetadata*> findDefaultAsset(const std::string& inSearchKey, const IAsset::E_TYPE assetType, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
+		{
+			size_t storageSz = 1ull;
+			const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
+
+			auto bundle = findCachedAsset(inSearchKey,types,ctx,hierarchyLevel);
+			auto assets = bundle.getContents();
+			if (assets.empty())
+				return { nullptr,nullptr };
+
+			return { chooseDefaultAsset(bundle,ctx),bundle.getMetadata() };
+		}
+
+		//!
+		inline virtual core::smart_refctd_ptr<IAsset> chooseDefaultAsset(const SAssetBundle& bundle, const SAssetLoadContext& ctx)
+		{
+			return *bundle.getContents().begin();
+		}
+
         //! The most imporant overrides are the ones for caching
-        virtual SAssetBundle findCachedAsset(const std::string& inSearchKey, const IAsset::E_TYPE* inAssetTypes, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel);
+        virtual SAssetBundle findCachedAsset(const std::string& inSearchKey, const IAsset::E_TYPE* inAssetTypes, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel);
 
         //! Since more then one asset of the same key of the same type can exist, this function is called right after search for cached assets (if anything was found) and decides which of them is relevant.
         //! Note: this function can assume that `found` is never empty.
-        inline virtual SAssetBundle chooseRelevantFromFound(const SAssetBundle* foundBegin, const SAssetBundle* foundEnd, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
+        inline virtual SAssetBundle chooseRelevantFromFound(const SAssetBundle* foundBegin, const SAssetBundle* foundEnd, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
         {
             return *foundBegin;
         }
@@ -180,13 +208,13 @@ public:
         //! Only called when the asset was searched for, no correct asset was found
         /** Any non-nullptr asset returned here will not be added to cache,
         since the overload operates “as if” the asset was found. */
-        inline virtual SAssetBundle handleSearchFail(const std::string& keyUsed, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
+        inline virtual SAssetBundle handleSearchFail(const std::string& keyUsed, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
         {
             return {};
         }
 
         //! Called before loading a file to determine the correct path (could be relative or absolute)
-        inline virtual void getLoadFilename(std::string& inOutFilename, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
+        inline virtual void getLoadFilename(std::string& inOutFilename, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 		{
 			if (!ctx.params.relativeDir)
 				return;
@@ -202,7 +230,7 @@ public:
 
 		//! This function can be used to swap out the actually opened (or unknown unopened file if `inFile` is nullptr) file for a different one.
 		/** Especially useful if you've used some sort of a fake path and the file won't load from that path just via `io::IFileSystem` . */
-		inline virtual io::IReadFile* getLoadFile(io::IReadFile* inFile, const std::string& supposedFilename, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
+		inline virtual io::IReadFile* getLoadFile(io::IReadFile* inFile, const std::string& supposedFilename, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 		{
 			return inFile;
 		}
@@ -212,7 +240,7 @@ public:
 				Write to `outDecrKey` happens only if output value of `inOutDecrKeyLen` is less or equal to input value of `inOutDecrKeyLen`.
 		\param supposedFilename is the string after modification by getLoadFilename.
 		\param attempt if decryption or validation algorithm supports reporting failure, you can try different key*/
-		inline virtual bool getDecryptionKey(uint8_t* outDecrKey, size_t& inOutDecrKeyLen, const uint32_t& attempt, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
+		inline virtual bool getDecryptionKey(uint8_t* outDecrKey, size_t& inOutDecrKeyLen, const uint32_t attempt, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 		{
 			if (ctx.params.decryptionKeyLen <= inOutDecrKeyLen)
 				memcpy(outDecrKey, ctx.params.decryptionKey, ctx.params.decryptionKeyLen);
@@ -221,7 +249,7 @@ public:
 		}
 
 		//! Only called when the was unable to be loaded
-		inline virtual SAssetBundle handleLoadFail(bool& outAddToCache, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel)
+		inline virtual SAssetBundle handleLoadFail(bool& outAddToCache, const io::IReadFile* assetsFile, const std::string& supposedFilename, const std::string& cacheKey, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel)
 		{
 			outAddToCache = false; // if you want to return a “default error asset”
 			return SAssetBundle();
@@ -229,7 +257,7 @@ public:
 
 		//! After a successful load of an asset or sub-asset
 		//TODO change name
-		virtual void insertAssetIntoCache(SAssetBundle& asset, const std::string& supposedKey, const SAssetLoadContext& ctx, const uint32_t& hierarchyLevel);
+		virtual void insertAssetIntoCache(SAssetBundle& asset, const std::string& supposedKey, const SAssetLoadContext& ctx, const uint32_t hierarchyLevel);
 	};
 
 public:

@@ -19,7 +19,7 @@
 using namespace nbl;
 using namespace asset;
 
-template<typename AssetType, IAsset::E_TYPE assetType>
+template<typename AssetType, IAsset::E_TYPE  >
 static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
 {
     size_t storageSz = 1ull;
