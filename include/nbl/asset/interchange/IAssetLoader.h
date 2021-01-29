@@ -8,7 +8,7 @@
 #include "nbl/core/core.h"
 #include "IFileSystem.h"
 
-#include "nbl/asset/SAssetBundle.h"
+#include "nbl/asset/interchange/SAssetBundle.h"
 #include "IReadFile.h"
 
 namespace nbl

@@ -2,31 +2,33 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef __NBL_ASSET_C_IMAGE_WRITER_GLI__
-#define __NBL_ASSET_C_IMAGE_WRITER_GLI__
+#ifndef __NBL_ASSET_C_IMAGE_LOADER_GLI__
+#define __NBL_ASSET_C_IMAGE_LOADER_GLI__
 
 #include "BuildConfigOptions.h"
 
-#ifdef _NBL_COMPILE_WITH_GLI_WRITER_
+#ifdef _NBL_COMPILE_WITH_GLI_LOADER_
 
-#include "nbl/asset/IAssetWriter.h"
 #include "nbl/asset/ICPUImageView.h"
+#include "nbl/asset/interchange/IAssetLoader.h"
 
 namespace nbl
 {
 namespace asset
 {
 
-//! Texture writer capable of saving in .ktx, .dds and .kmg file extensions
-class CGLIWriter final : public asset::IAssetWriter
+//! Texture loader capable of loading in .ktx, .dds and .kmg file extensions
+class CGLILoader final : public asset::IAssetLoader
 {
 	protected:
-		virtual ~CGLIWriter() {}
+		virtual ~CGLILoader() {}
 
 	public:
-		CGLIWriter() {}
+		CGLILoader() {}
 
-		virtual const char** getAssociatedFileExtensions() const override
+		bool isALoadableFileFormat(io::IReadFile* _file) const override;
+
+		const char** getAssociatedFileExtensions() const override
 		{
 			static const char* extensions[]{ "ktx", "dds", "kmg", nullptr };
 			return extensions;
@@ -34,16 +36,9 @@ class CGLIWriter final : public asset::IAssetWriter
 
 		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_IMAGE_VIEW; }
 
-		uint32_t getSupportedFlags() override { return asset::EWF_NONE | asset::EWF_BINARY; }
-
-		uint32_t getForcedFlags() override { return asset::EWF_NONE | asset::EWF_BINARY; }
-
-		bool writeAsset(io::IWriteFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
-
-	protected:
+		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 	private:
-		bool writeGLIFile(io::IWriteFile* file, const asset::ICPUImageView* imageView);
 
 		static inline bool doesItHaveFaces(const IImageView<ICPUImage>::E_TYPE& type)
 		{
@@ -63,12 +58,11 @@ class CGLIWriter final : public asset::IAssetWriter
 				case ICPUImageView::ET_CUBE_MAP_ARRAY: return true;
 				default: return false;
 			}
-		}
-		
+		}		
 };
 
 }
 }
 
-#endif // _NBL_COMPILE_WITH_GLI_WRITER_
+#endif // _NBL_COMPILE_WITH_GLI_LOADER_
 #endif

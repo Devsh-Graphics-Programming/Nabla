@@ -5,7 +5,9 @@
 #ifndef __NBL_C_MITSUBA_METADATA_H_INCLUDED__
 #define __NBL_C_MITSUBA_METADATA_H_INCLUDED__
 
-#include "nbl/asset/IAssetMetadata.h"
+#include "nbl/asset/metadata/IAssetMetadata.h"
+
+
 #include "nbl/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
 
 namespace nbl

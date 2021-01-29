@@ -7,9 +7,9 @@
 
 #include "nbl/core/core.h"
 
-#include "nbl/asset/IAssetLoader.h"
-#include "nbl/asset/IImageAssetHandlerBase.h"
 #include "nbl/asset/ICPUImageView.h"
+#include "nbl/asset/interchange/IAssetLoader.h"
+#include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
 namespace nbl
 {

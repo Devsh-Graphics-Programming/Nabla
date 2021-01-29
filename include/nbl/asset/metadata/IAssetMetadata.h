@@ -61,6 +61,18 @@ class IAssetMetadata : public core::IReferenceCounted
 		using asset_metadata_map_t = core::map<const Asset*,const asset_metadata_t<Asset>*>;
 
 
+		template<class Meta>
+		using meta_container_t = core::refctd_dynamic_array<Meta>;
+		template<class Meta>
+		using meta_container_smart_ptr_t = core::smart_refctd_ptr<meta_container_t<Meta>>;
+
+		template<class Meta>
+		static inline meta_container_smart_ptr_t<Meta> createContainer(uint32_t length)
+		{
+			return meta_container_smart_ptr_t<Meta>(meta_container_t::create_dynamic_array(imageCount),core::dont_grab)
+		}
+
+
 		std::tuple<
 			asset_metadata_map_t<ICPUImage>,
 			asset_metadata_map_t<ICPURenderpassIndependentPipeline>,

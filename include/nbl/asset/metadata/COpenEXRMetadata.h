@@ -18,20 +18,19 @@ class COpenEXRMetadata final : public IAssetMetadata
         class CImage : public IImageMetadata
         {
             public:
-                CImage(const ColorSemantic& _colorSemantic) : IImageMetadata(_colorSemantic) {}
+                using IImageMetadata::IImageMetadata;
 
                 inline CImage& operator=(CImage&& other)
                 {
                     IImageMetadata::operator=(std::move(other));
-                    std::swap(name,other.name);
+                    std::swap(m_name,other.m_name);
                     return *this;
                 }
 
-                std::string name;
+                std::string m_name;
         };
-        using meta_container_t = core::refctd_dynamic_array<CImage>;
 
-        COpenEXRMetadata(uint32_t imageCount) : IAssetMetadata(), m_metaStorage(meta_container_t::create_dynamic_array(imageCount),core::dont_grab)
+        COpenEXRMetadata(uint32_t imageCount) : IAssetMetadata(), m_metaStorage(createContainer<CImage>(imageCount))
         {
         }
 
@@ -39,15 +38,15 @@ class COpenEXRMetadata final : public IAssetMetadata
         const char* getLoaderName() const override { return LoaderName; }
 
     private:
-        using meta_container_t = core::refctd_dynamic_array<CImage>;
-        core::smart_refctd_ptr<meta_container_t> m_metaStorage;
+        meta_container_smart_ptr_t<CImage> m_metaStorage;
 
         friend class CImageLoaderOpenEXR;
-        inline void addMeta(uint32_t offset, const ICPUImage* image, const IImageMetadata::ColorSemantic& _colorSemantic, std::string&& _name)
+        template<typename... Args>
+        inline void addMeta(uint32_t offset, const ICPUImage* image, std::string&& _name, Args&&... args)
         {
             auto& meta = m_metaStorage->operator[](offset);
-            meta = CImage(_colorSemantic);
-            meta.name = std::move(_name);
+            meta = CImage(std::forward(args)...);
+            meta.m_name = std::move(_name);
 
             IAssetMetadata::insertAssetSpecificMetadata(image,&meta);
         }

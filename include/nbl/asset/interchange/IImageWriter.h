@@ -5,12 +5,12 @@
 #ifndef __NBL_ASSET_I_IMAGE_WRITER_H_INCLUDED__
 #define __NBL_ASSET_I_IMAGE_WRITER_H_INCLUDED__
 
-#include "IImage.h"
 #include "nbl/core/core.h"
 
-#include "nbl/asset/IAssetWriter.h"
 #include "nbl/asset/ICPUImageView.h"
-#include "nbl/asset/IImageAssetHandlerBase.h"
+
+#include "nbl/asset/interchange/IImageAssetHandlerBase.h"
+#include "nbl/asset/interchange/IAssetWriter.h"
 
 #include "nbl/asset/filters/CFlattenRegionsImageFilter.h"
 

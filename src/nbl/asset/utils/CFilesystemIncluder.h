@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_INCLUDER_H_INCLUDED__
 #define __NBL_ASSET_C_INCLUDER_H_INCLUDED__
 
-#include "nbl/asset/IIncluder.h"
+#include "nbl/asset/utils/IIncluder.h"
 #include "IFileSystem.h"
 
 namespace nbl { namespace asset

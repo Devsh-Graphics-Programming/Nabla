@@ -5,10 +5,10 @@
 #ifndef __NBL_ASSET_C_GLSL_VIRTUAL_TEXTURING_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
 #define __NBL_ASSET_C_GLSL_VIRTUAL_TEXTURING_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
 
-#include "nbl/asset/IGLSLEmbeddedIncludeLoader.h"
 
-#include "nbl/asset/CGraphicsPipelineLoaderMTL.h"
-#include "nbl/asset/ICPUVirtualTexture.h"
+#include "nbl/asset/utils/ICPUVirtualTexture.h"
+
+#include "nbl/asset/utils/IGLSLEmbeddedIncludeLoader.h"
 
 
 namespace nbl

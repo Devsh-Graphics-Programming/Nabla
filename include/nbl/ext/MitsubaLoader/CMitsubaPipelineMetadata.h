@@ -5,10 +5,9 @@
 #ifndef __NBL_C_MITSUBA_PIPELINE_METADATA_H_INCLUDED__
 #define __NBL_C_MITSUBA_PIPELINE_METADATA_H_INCLUDED__
 
-#include "nbl/core/IReferenceCounted.h"
-#include "nbl/core/containers/refctd_dynamic_array.h"
+#include "nbl/asset/metadata/IAssetMetadata.h"
+
 #include "nbl/asset/ICPUDescriptorSet.h"
-#include "nbl/asset/IRenderpassIndependentPipelineMetadata.h"
 
 namespace nbl
 {

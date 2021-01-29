@@ -5,7 +5,7 @@
 #ifndef __NBL_C_MITSUBA_SERIALIZED_PIPELINE_METADATA_H_INCLUDED__
 #define __NBL_C_MITSUBA_SERIALIZED_PIPELINE_METADATA_H_INCLUDED__
 
-#include "nbl/asset/IRenderpassIndependentPipelineMetadata.h"
+#include "nbl/asset/metadata/IAssetMetadata.h"
 
 namespace nbl
 {

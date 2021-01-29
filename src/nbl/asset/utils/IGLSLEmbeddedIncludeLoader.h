@@ -8,7 +8,7 @@
 #include "nbl/system/system.h"
 #include "IFileSystem.h"
 
-#include "nbl/asset/IBuiltinIncludeLoader.h"
+#include "nbl/asset/utils/IBuiltinIncludeLoader.h"
 
 namespace nbl
 {

@@ -162,8 +162,20 @@ class IRenderpassIndependentPipelineMetadata : public core::Interface
 			E_COMMON_SHADER_INPUT type;
 			ShaderInput descriptorSection;
 		};
-
 		using semantics_container_t = core::refctd_dynamic_array<ShaderInputSemantic>;
+
+
+		//!
+		IRenderpassIndependentPipelineMetadata(core::smart_refctd_ptr<semantics_container_t>&& _inputSemantics) : m_inputSemantics(std::move(_inputSemantics)) {}
+
+		//!
+		inline IRenderpassIndependentPipelineMetadata& operator=(IRenderpassIndependentPipelineMetadata&& other)
+		{
+			std::swap(m_inputSemantics,other.m_inputSemantics);
+			return *this;
+		}
+
+		// members
 		core::smart_refctd_ptr<semantics_container_t> m_inputSemantics;
 };
 

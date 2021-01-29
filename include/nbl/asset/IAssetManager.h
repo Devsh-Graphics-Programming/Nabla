@@ -15,8 +15,8 @@
 #include "IReadFile.h"
 #include "IWriteFile.h"
 
-#include "nbl/asset/IAssetLoader.h"
-#include "nbl/asset/IAssetWriter.h"
+#include "nbl/asset/interchange/IAssetLoader.h"
+#include "nbl/asset/interchange/IAssetWriter.h"
 
 #include "nbl/asset/utils/IGLSLCompiler.h"
 #include "nbl/asset/utils/IGeometryCreator.h"

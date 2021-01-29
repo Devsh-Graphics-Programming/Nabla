@@ -5,10 +5,11 @@
 #ifndef __NBL_ASSET_C_BUILTIN_INCLUDER_H_INCLUDED__
 #define __NBL_ASSET_C_BUILTIN_INCLUDER_H_INCLUDED__
 
-#include "nbl/asset/IIncluder.h"
-#include "CObjectCache.h"
+//#include "CObjectCache.h"
 
-#include "nbl/asset/IGLSLEmbeddedIncludeLoader.h"
+#include "nbl/asset/utils/IIncluder.h"
+
+#include "nbl/asset/utils/IGLSLEmbeddedIncludeLoader.h"
 
 namespace nbl
 {

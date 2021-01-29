@@ -22,9 +22,10 @@ namespace video
 }
 }
 
-#include "nbl/asset/ISPIRVOptimizer.h"
 #include "nbl/video/IGPUPipelineCache.h"
 #include "nbl/video/IGPUImageView.h"
+#include "nbl/asset/utils/ISPIRVOptimizer.h"
+
 #include "IFrameBuffer.h"
 #include "IVideoCapabilityReporter.h"
 #include "IQueryObject.h"

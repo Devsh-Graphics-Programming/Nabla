@@ -29,10 +29,11 @@ class IImageMetadata : public core::Interface
 			ELECTRO_OPTICAL_TRANSFER_FUNCTION transferFunction;
 		};
 
+		inline IImageMetadata(const ColorSemantic& _colorSemantic) : colorSemantic(_colorSemantic) {}
+
 		ColorSemantic colorSemantic;
 
 	protected:
-		inline IImageMetadata(const ColorSemantic& _colorSemantic) : colorSemantic(_colorSemantic) {}
 		virtual ~IImageMetadata() = default;
 
 		inline IImageMetadata& operator=(IImageMetadata&& other)

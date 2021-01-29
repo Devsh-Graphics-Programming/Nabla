@@ -62,10 +62,10 @@
 #include "nbl/asset/bawformat/CBlobsLoadingManager.h"
 
 
-// importexport
-#include "nbl/asset/IAssetLoader.h"
 #include "nbl/asset/IAssetManager.h"
-#include "nbl/asset/IAssetWriter.h"
+// importexport
+#include "nbl/asset/interchange/IAssetLoader.h"
+#include "nbl/asset/interchange/IAssetWriter.h"
 #include "nbl/asset/metadata/COpenEXRMetadata.h"
 #include "nbl/asset/metadata/CMTLMetadata.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"

@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_C_INCLUDE_HANDLER_H_INCLUDED__
 #define __NBL_ASSET_C_INCLUDE_HANDLER_H_INCLUDED__
 
-#include "nbl/asset/IIncludeHandler.h"
+#include "nbl/asset/utils/IIncludeHandler.h"
 
 #include "CFilesystemIncluder.h"
 #include "CBuiltinIncluder.h"

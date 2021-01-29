@@ -9,7 +9,7 @@
 
 #ifdef _NBL_COMPILE_WITH_OPENEXR_WRITER_
 
-#include "nbl/asset/IImageWriter.h"
+#include "nbl/asset/interchange/IImageWriter.h"
 
 namespace nbl
 {
