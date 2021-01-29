@@ -25,16 +25,16 @@ namespace asset
 {
 
 template<typename AssetType, IAsset::E_TYPE assetType>
-static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
+static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr) // TODO: Dont repeat yourself
 {
 	size_t storageSz = 1ull;
 	asset::SAssetBundle bundle;
 	const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
 
 	_assetMgr->findAssets(storageSz, &bundle, _key, types);
-	if (bundle.isEmpty())
-		return nullptr;
 	auto assets = bundle.getContents();
+	if (assets.empty())
+		return nullptr;
 
 	return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
 }
@@ -92,6 +92,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	// start with empty mesh
     core::smart_refctd_ptr<asset::ICPUMesh> mesh;
 	uint32_t vertCount=0;
+	core::vector<CPLYMetadata::CRenderpassIndependentPipeline> metas4pplns;
 
 	// Currently only supports ASCII meshes
 	if (strcmp(getNextLine(ctx), "ply"))
@@ -287,7 +288,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				mb->setIndexBufferBinding(std::move(indexBinding));
                 mb->setIndexType(asset::EIT_32BIT);
 
-				if (!genVertBuffersForMBuffer(mb.get(), attribs))
+				if (!genVertBuffersForMBuffer(metas4pplns, mb.get(), attribs))
 					return {};
             }
             else
@@ -295,7 +296,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				mb->setIndexCount(attribs[E_POS].size());
 				mb->setIndexType(EIT_UNKNOWN);
 
-				if (!genVertBuffersForMBuffer(mb.get(), attribs))
+				if (!genVertBuffersForMBuffer(metas4pplns, mb.get(), attribs))
 					return {};
             }
 
@@ -307,8 +308,14 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			IMeshManipulator::recalculateBoundingBox(mesh.get());
 		}
 	}
-
-	return SAssetBundle({std::move(mesh)});
+	
+	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>(std::move(metas4pplns));
+	{
+		uint32_t offset = 0u;
+		for (auto meshbuffer : mesh->getMeshBuffers())
+			meta->addMeta(offset++,meshbuffer->getPipeline());
+	}
+	return SAssetBundle(std::move(meta),{ std::move(mesh) });
 }
 
 static void performActionBasedOnOrientationSystem(const asset::IAssetLoader::SAssetLoadParams& _params, std::function<void()> performOnRightHanded, std::function<void()> performOnLeftHanded)
@@ -576,7 +583,7 @@ void CPLYMeshFileLoader::moveForward(SContext& _ctx, uint32_t bytes)
 		_ctx.StartPointer = _ctx.EndPointer;
 }
 
-bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const
+bool CPLYMeshFileLoader::genVertBuffersForMBuffer(core::vector<CPLYMetadata::CRenderpassIndependentPipeline>& metas4pplns, asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const
 {
 	core::vector<uint8_t> availableAttributes;
 	for (auto i = 0; i < 4; ++i)
@@ -607,7 +614,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 		{ 
 			std::make_pair(E_COL, "nbl/builtin/materials/debug/vertex_color_debug_shader/specializedshader"),
 			std::make_pair(E_UV, "nbl/builtin/materials/debug/uv_debug_shader/specializedshader"),
-			std::make_pair(E_NORM, "nbl/builtin/materials/debug/normal_debug_shader/specializedshader")
+			std::make_pair(E_NORM, "nbl/builtin/materials/debug/normal_debug_shader/specializedshader")  // TODO: `normal_debug` is a rather bad name
 		};
 
 		for (auto& it : avaiableOptionsForShaders)
@@ -643,18 +650,33 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 	auto mbPipelineLayout = getDefaultAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>("nbl/builtin/loaders/PLY/pipelinelayout", m_assetMgr);
 
 	constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
-	core::smart_refctd_dynamic_array<IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
+	core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
 	{
-		ICPUDescriptorSetLayout* ds1layout = mbPipelineLayout->getDescriptorSetLayout(1u);
+		ICPUDescriptorSetLayout* ds1layout = mbPipelineLayout->getDescriptorSetLayout(1u); // this metadata should probably go into pipeline layout's asset bundle (@Crisspl TODO: review)
 
-		constexpr IPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT]{ IPipelineMetadata::ECSI_WORLD_VIEW_PROJ, IPipelineMetadata::ECSI_WORLD_VIEW, IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE };
-		constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT]{ sizeof(SBasicViewParameters::MVP), sizeof(SBasicViewParameters::MV), sizeof(SBasicViewParameters::NormalMat) };
-		constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT]{ offsetof(SBasicViewParameters,MVP), offsetof(SBasicViewParameters,MV), offsetof(SBasicViewParameters,NormalMat) };
+		constexpr IRenderpassIndependentPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT] =
+		{
+			IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_PROJ,
+			IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW,
+			IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE
+		};
+		constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT] =
+		{
+			sizeof(SBasicViewParameters::MVP),
+			sizeof(SBasicViewParameters::MV),
+			sizeof(SBasicViewParameters::NormalMat)
+		};
+		constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT] =
+		{
+			offsetof(SBasicViewParameters,MVP),
+			offsetof(SBasicViewParameters,MV),
+			offsetof(SBasicViewParameters,NormalMat)
+		};
 		for (uint32_t i = 0u; i < DS1_METADATA_ENTRY_CNT; ++i)
 		{
 			auto& semantic = (shaderInputsMetadata->end() - i - 1u)[0];
 			semantic.type = types[i];
-			semantic.descriptorSection.type = IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
+			semantic.descriptorSection.type = IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
 			semantic.descriptorSection.uniformBufferObject.binding = ds1layout->getBindings().begin()[0].binding;
 			semantic.descriptorSection.uniformBufferObject.set = 1u;
 			semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
@@ -690,6 +712,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 
 	SRasterizationParams rastarizationParmas;
 
+	// TODO: @Crisspl/@Anastazluk pipeline should also be builtin because no need to customize the metadata anymore
 	auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, inputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
 	{
 		mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, mbVertexShader.get());
@@ -711,7 +734,9 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(asset::ICPUMeshBuffer* _mbuf, 
 		}
 	}
 
-	m_assetMgr->setAssetMetadata(mbPipeline.get(), core::make_smart_refctd_ptr<CPLYPipelineMetadata>(1, std::move(shaderInputsMetadata)));
+	constexpr uint32_t hash = 1u; // TODO: @Crisspl why is it always 1?
+	metas4pplns.emplace_back(hash,std::move(shaderInputsMetadata));
+	
 	_mbuf->setPipeline(std::move(mbPipeline));
 
     return true;

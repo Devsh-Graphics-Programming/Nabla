@@ -15,12 +15,23 @@ namespace asset
 class CPLYMetadata final : public IAssetMetadata
 {
     public:
-        class CIRenderpassIndependentPipeline : public IRenderpassIndependentPipelineMetadata
+        class CRenderpassIndependentPipeline : public IRenderpassIndependentPipelineMetadata
         {
             public:
-                using IRenderpassIndependentPipelineMetadata::IRenderpassIndependentPipelineMetadata;
+                CRenderpassIndependentPipeline() = default;
+                CRenderpassIndependentPipeline(const CRenderpassIndependentPipeline&) = delete;
+                CRenderpassIndependentPipeline(CRenderpassIndependentPipeline&& other)
+                {
+                    operator=(std::move(other));
+                }
 
-                inline CIRenderpassIndependentPipeline& operator=(CIRenderpassIndependentPipeline&& other)
+                template<typename... Args>
+                CRenderpassIndependentPipeline(uint32_t _hash, Args&&... args) : IRenderpassIndependentPipelineMetadata(std::forward<Args>(args)...), m_hash(_hash)
+                {
+                }
+
+                CRenderpassIndependentPipeline& operator=(const CRenderpassIndependentPipeline&) = delete;
+                inline CRenderpassIndependentPipeline& operator=(CRenderpassIndependentPipeline&& other)
                 {
                     IRenderpassIndependentPipelineMetadata::operator=(std::move(other));
                     std::swap(m_hash,other.m_hash);
@@ -30,24 +41,22 @@ class CPLYMetadata final : public IAssetMetadata
                 uint32_t m_hash;
         };
             
-        CPLYMetadata(uint32_t pplnCount) : IAssetMetadata(), m_metaStorage(createContainer<CIRenderpassIndependentPipeline>(pplnCount))
+        template<class InContainer>
+        CPLYMetadata(InContainer&& inContainer) : IAssetMetadata(), m_metaStorage(createContainer<CRenderpassIndependentPipeline>(inContainer.size()))
         {
+            std::move(inContainer.begin(),inContainer.end(),m_metaStorage->begin());
         }
 
         _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CPLYMeshFileLoader";
         const char* getLoaderName() const override { return LoaderName; }
 
     private:
-        meta_container_smart_ptr_t<CIRenderpassIndependentPipeline> m_metaStorage;
+        meta_container_t<CRenderpassIndependentPipeline> m_metaStorage;
 
         friend class CPLYMeshFileLoader;
-        template<typename... Args>
-        inline void addMeta(uint32_t offset, const ICPURenderpassIndependentPipeline* ppln, uint32_t _hash, Args&&... args)
+        inline void addMeta(uint32_t offset, const ICPURenderpassIndependentPipeline* ppln)
         {
             auto& meta = m_metaStorage->operator[](offset);
-            meta = CIRenderpassIndependentPipeline(std::forward<Args>(args)...);
-            meta.m_hash = _hash;
-
             IAssetMetadata::insertAssetSpecificMetadata(ppln,&meta);
         }
 };
