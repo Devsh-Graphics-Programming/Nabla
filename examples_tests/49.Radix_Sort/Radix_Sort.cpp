@@ -31,7 +31,8 @@ void Fill_Buffer_Ascending_Order(SShaderStorageBufferObject* ssbo)//Fill array w
 
 	for (std::size_t i = 0; i < buffer_size; ++i)
 	{
-		ssbo->buffer[i] = static_cast<buffer_type>(i);
+		//ssbo->buffer[i] = static_cast<buffer_type>(i);
+		ssbo->buffer[i] = static_cast<buffer_type>(1);
 	}
 
 }
@@ -45,22 +46,22 @@ void Radix_Sort::Radix_Sort::Init()
 
 	auto* assetManager = Irrlicht_Device->getAssetManager();
 
-	const auto computeShaderBundle = assetManager->getAsset("../compute_shader.comp", {});																								//ladowanie shadera z pliku, folderu
+	const auto computeShaderBundle = assetManager->getAsset("../compute_shader.comp", {});																								//loading a shader from certain directory
 
 	assert(!computeShaderBundle.isEmpty());
 
-	nbl::core::smart_refctd_ptr<nbl::asset::ICPUSpecializedShader> cpuComputeShader = nbl::core::smart_refctd_ptr_static_cast<nbl::asset::ICPUSpecializedShader>(computeShaderBundle.getContents().begin()[0]);					//wyciaganie z "paczki" moje shadera, ktorego chce
-	nbl::core::smart_refctd_ptr<nbl::video::IGPUSpecializedShader> gpuComputeShader = Video_Driver->getGPUObjectsFromAssets(&cpuComputeShader, &cpuComputeShader + 1)->front();											//konwertowanie cpu shadera na gpu shadera
+	auto cpuComputeShader = nbl::core::smart_refctd_ptr_static_cast<nbl::asset::ICPUSpecializedShader>(computeShaderBundle.getContents().begin()[0]);					//take off shader, which You would like to use
+	auto gpuComputeShader = Video_Driver->getGPUObjectsFromAssets(&cpuComputeShader, &cpuComputeShader + 1)->front();											//Converting CPU's shader to GPU's shader
 
-	auto cpuSSBOBuffer = nbl::core::make_smart_refctd_ptr<nbl::asset::ICPUBuffer>(sizeof(SShaderStorageBufferObject));															//alokacja buffera mojego na gpu
+	auto cpuSSBOBuffer = nbl::core::make_smart_refctd_ptr<nbl::asset::ICPUBuffer>(sizeof(SShaderStorageBufferObject));															//Buffer's allocation on GPU
 
 	//// inicjalizuje ten buffer danymi
 	Fill_Buffer_Ascending_Order(reinterpret_cast<SShaderStorageBufferObject*>(cpuSSBOBuffer->getPointer()));
 
 
 
-	auto gpuSSBOOffsetBufferPair = Video_Driver->getGPUObjectsFromAssets(&cpuSSBOBuffer, &cpuSSBOBuffer + 1)->front();									//konwersja buffera z cpu na gpu
-	auto gpuSSBOBuffer = nbl::core::smart_refctd_ptr<IGPUBuffer>(gpuSSBOOffsetBufferPair->getBuffer());																						//wyciaganie samego buffera
+	auto gpuSSBOOffsetBufferPair = Video_Driver->getGPUObjectsFromAssets(&cpuSSBOBuffer, &cpuSSBOBuffer + 1)->front();									//Buffer's conversion, from CPU -> GPU
+	auto gpuSSBOBuffer = nbl::core::smart_refctd_ptr<IGPUBuffer>(gpuSSBOOffsetBufferPair->getBuffer());																						//take off buffer from pair only 
 
 
 
@@ -70,7 +71,7 @@ void Radix_Sort::Radix_Sort::Init()
 		{0, nbl::asset::EDT_STORAGE_BUFFER, 1u, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, nullptr},														//0 means, number of binding inside the shader binding = 0, etc...
 	};
 
-	auto gpuCDescriptorSetLayout = Video_Driver->createGPUDescriptorSetLayout(gpuBindingsLayout, gpuBindingsLayout + COUNT);									//uchwyt do tworzenowego obiektu, buffera, po stronie gpu. Uchwyt, zbior obiektow, jesli maja sam typ, to jeden descriptor set (max chyba 4)
+	auto gpuCDescriptorSetLayout = Video_Driver->createGPUDescriptorSetLayout(gpuBindingsLayout, gpuBindingsLayout + COUNT);									//Handle to created object, on gpu site. Handle, Object's container, If they have the same type, then create one descriptor set (max 4 elements per descriptor set)
 
 
 
@@ -82,12 +83,12 @@ void Radix_Sort::Radix_Sort::Init()
 
 		gpuDescriptorSetInfos[POSITION].desc = gpuSSBOBuffer;
 		gpuDescriptorSetInfos[POSITION].buffer.size = sizeof(SShaderStorageBufferObject::buffer);
-		gpuDescriptorSetInfos[POSITION].buffer.offset = 0; //jesli mam wiecej, to dodaje, przesuwam wskaznik o iles byte
+		gpuDescriptorSetInfos[POSITION].buffer.offset = 0; //If I will have a more stuffs in descriptor set, then I should make a offset,
 
 
 		nbl::video::IGPUDescriptorSet::SWriteDescriptorSet gpuWrites[COUNT];
 		{
-			//for (uint32_t binding = 0u; binding < COUNT; binding++) //jeden binding wiec bez petli
+			//for (uint32_t binding = 0u; binding < COUNT; binding++) //currently is only one binding, so I dont need to use loop statements
 			gpuWrites[0] = { gpuCDescriptorSet.get(), 0, 0u, 1u, nbl::asset::EDT_STORAGE_BUFFER, gpuDescriptorSetInfos + 0 };
 
 
@@ -97,7 +98,6 @@ void Radix_Sort::Radix_Sort::Init()
 
 	auto gpuCPipelineLayout = Video_Driver->createGPUPipelineLayout(nullptr, nullptr, std::move(gpuCDescriptorSetLayout), nullptr, nullptr, nullptr); // jak std::move, to pozycje layoutow, 0 , 1 ,2 i tak dalej
 	auto gpuComputePipeline = Video_Driver->createGPUComputePipeline(nullptr, std::move(gpuCPipelineLayout), std::move(gpuComputeShader));
-	//auto gpuComputePipeline = Video_Driver->createGPUComputePipeline(nullptr, std::move(nullptr), std::move(nullptr));
 
 	///
 	///
@@ -109,7 +109,6 @@ void Radix_Sort::Radix_Sort::Init()
 	while (Irrlicht_Device->run() && receiver.keepOpen())
 	{
 		Video_Driver->bindComputePipeline(gpuComputePipeline.get());
-		//driver->pushConstants(gpuComputePipeline->getLayout(), asset::ISpecializedShader::ESS_COMPUTE, 0);
 		Video_Driver->bindDescriptorSets(nbl::video::EPBP_COMPUTE, gpuComputePipeline->getLayout(), 0, 1, &gpuCDescriptorSet.get(), nullptr);
 
 		//static_assert(NUMBER_OF_PARTICLES % WORK_GROUP_SIZE == 0, "Inccorect amount!");
@@ -159,18 +158,18 @@ void Radix_Sort::Radix_Sort::Init()
 		auto* data = reinterpret_cast<buffer_type*>(downloadStagingArea->getBufferPointer()) + address;
 		auto cpubufferalias = nbl::core::make_smart_refctd_ptr<nbl::asset::CCustomAllocatorCPUBuffer<nbl::core::null_allocator<uint8_t> > >(Buffer_Sizeof, data, nbl::core::adopt_memory);
 
-		auto buffer_after_compute_shader = static_cast<buffer_type*>(cpubufferalias->getPointer());
+		auto buffer_after_compute_shader = reinterpret_cast<buffer_type*>(cpubufferalias->getPointer());
 
 
 
-		
+
 		std::vector<buffer_type> temp_vec{};
-		
-		for(std::size_t i = 0; i < buffer_size; ++i)
+
+		for (std::size_t i = 0; i < buffer_size; ++i)
 		{
 			temp_vec.emplace_back(*(buffer_after_compute_shader + i));
 		}
-		
+
 		int a = 0;
 	}
 

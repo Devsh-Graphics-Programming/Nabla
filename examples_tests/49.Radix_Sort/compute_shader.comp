@@ -24,5 +24,6 @@ layout(std430, binding = 0) buffer InBuf
 
 void main()
 {
+    //my_array[LC_IDX] = my_array[LC_IDX] + my_array[LC_IDX];
     my_array[LC_IDX] = 10;
 }
