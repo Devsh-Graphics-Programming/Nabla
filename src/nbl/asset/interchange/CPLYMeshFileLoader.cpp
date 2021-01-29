@@ -24,21 +24,6 @@ namespace nbl
 namespace asset
 {
 
-template<typename AssetType, IAsset::E_TYPE assetType>
-static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr) // TODO: Dont repeat yourself
-{
-	size_t storageSz = 1ull;
-	asset::SAssetBundle bundle;
-	const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
-
-	_assetMgr->findAssets(storageSz, &bundle, _key, types);
-	auto assets = bundle.getContents();
-	if (assets.empty())
-		return nullptr;
-
-	return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
-}
-
 CPLYMeshFileLoader::CPLYMeshFileLoader(IAssetManager* _am) : m_assetMgr{ _am } {}
 
 CPLYMeshFileLoader::~CPLYMeshFileLoader() {}
@@ -80,8 +65,14 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	if (!_file)
 		return {};
 
-    SContext ctx;
-	ctx.File = _file;
+	SContext ctx = {
+		asset::IAssetLoader::SAssetLoadContext{
+			_params,
+			_file
+		},
+		_hierarchyLevel,
+		_override
+	};
 
 	// attempt to allocate the buffer and fill with data
 	if (!allocateBuffer(ctx))
@@ -92,12 +83,11 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	// start with empty mesh
     core::smart_refctd_ptr<asset::ICPUMesh> mesh;
 	uint32_t vertCount=0;
-	core::vector<CPLYMetadata::CRenderpassIndependentPipeline> metas4pplns;
 
 	// Currently only supports ASCII meshes
 	if (strcmp(getNextLine(ctx), "ply"))
 	{
-		os::Printer::log("Not a valid PLY file", ctx.File->getFileName().c_str(), ELL_ERROR);
+		os::Printer::log("Not a valid PLY file", ctx.inner.mainFile->getFileName().c_str(), ELL_ERROR);
 	}
 	else
 	{
@@ -288,7 +278,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				mb->setIndexBufferBinding(std::move(indexBinding));
                 mb->setIndexType(asset::EIT_32BIT);
 
-				if (!genVertBuffersForMBuffer(metas4pplns, mb.get(), attribs))
+				if (!genVertBuffersForMBuffer(mb.get(), attribs, ctx))
 					return {};
             }
             else
@@ -296,7 +286,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				mb->setIndexCount(attribs[E_POS].size());
 				mb->setIndexType(EIT_UNKNOWN);
 
-				if (!genVertBuffersForMBuffer(metas4pplns, mb.get(), attribs))
+				if (!genVertBuffersForMBuffer(mb.get(), attribs, ctx))
 					return {};
             }
 
@@ -309,7 +299,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		}
 	}
 	
-	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>(std::move(metas4pplns));
+	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>(std::move(ctx.metas4pplns));
 	{
 		uint32_t offset = 0u;
 		for (auto meshbuffer : mesh->getMeshBuffers())
@@ -547,14 +537,14 @@ void CPLYMeshFileLoader::fillBuffer(SContext& _ctx)
 	_ctx.StartPointer = _ctx.Buffer;
 	_ctx.EndPointer = _ctx.StartPointer + length;
 
-	if (_ctx.File->getPos() == _ctx.File->getSize())
+	if (_ctx.inner.mainFile->getPos() == _ctx.inner.mainFile->getSize())
 	{
 		_ctx.EndOfFile = true;
 	}
 	else
 	{
 		// read data from the file
-		uint32_t count = _ctx.File->read(_ctx.EndPointer, PLY_INPUT_BUFFER_SIZE - length);
+		uint32_t count = _ctx.inner.mainFile->read(_ctx.EndPointer, PLY_INPUT_BUFFER_SIZE - length);
 
 		// increment the end pointer by the number of bytes read
 		_ctx.EndPointer += count;
@@ -583,7 +573,11 @@ void CPLYMeshFileLoader::moveForward(SContext& _ctx, uint32_t bytes)
 		_ctx.StartPointer = _ctx.EndPointer;
 }
 
-bool CPLYMeshFileLoader::genVertBuffersForMBuffer(core::vector<CPLYMetadata::CRenderpassIndependentPipeline>& metas4pplns, asset::ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const
+bool CPLYMeshFileLoader::genVertBuffersForMBuffer(
+	asset::ICPUMeshBuffer* _mbuf,
+	const core::vector<core::vectorSIMDf> _attribs[4],
+	SContext& context
+) const
 {
 	core::vector<uint8_t> availableAttributes;
 	for (auto i = 0; i < 4; ++i)
@@ -647,7 +641,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(core::vector<CPLYMetadata::CRe
 				mbFragmentShader = std::move(shader);
 		}
 	}
-	auto mbPipelineLayout = getDefaultAsset<ICPUPipelineLayout, IAsset::ET_PIPELINE_LAYOUT>("nbl/builtin/loaders/PLY/pipelinelayout", m_assetMgr);
+	auto mbPipelineLayout = context.loaderOverride->findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/loaders/PLY/pipelinelayout", context.inner, context.topHierarchyLevel+ICPUMesh::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW).first;
 
 	constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
 	core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
@@ -735,7 +729,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(core::vector<CPLYMetadata::CRe
 	}
 
 	constexpr uint32_t hash = 1u; // TODO: @Crisspl why is it always 1?
-	metas4pplns.emplace_back(hash,std::move(shaderInputsMetadata));
+	context.metas4pplns.emplace_back(hash,std::move(shaderInputsMetadata));
 	
 	_mbuf->setPipeline(std::move(mbPipeline));
 

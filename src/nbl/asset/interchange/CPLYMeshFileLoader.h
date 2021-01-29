@@ -130,9 +130,14 @@ private:
 
     struct SContext
     {
+		IAssetLoader::SAssetLoadContext inner;
+		uint32_t topHierarchyLevel;
+		IAssetLoader::IAssetLoaderOverride* loaderOverride;
+		
+		core::vector<CPLYMetadata::CRenderpassIndependentPipeline> metas4pplns;
+
         core::vector<std::unique_ptr<SPLYElement>> ElementList;
 	
-		io::IReadFile* File;
 		char* Buffer = nullptr;
         bool IsBinaryFile = false, IsWrongEndian = false, EndOfFile = false;
         int32_t LineLength = 0, WordLength = 0;
@@ -168,7 +173,11 @@ private:
 	uint32_t getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t);
 	void moveForward(SContext& _ctx, uint32_t bytes);
 
-	bool genVertBuffersForMBuffer(core::vector<CPLYMetadata::CRenderpassIndependentPipeline>& metas4pplns, ICPUMeshBuffer* _mbuf, const core::vector<core::vectorSIMDf> _attribs[4]) const;
+	bool genVertBuffersForMBuffer(
+		ICPUMeshBuffer* _mbuf,
+		const core::vector<core::vectorSIMDf> _attribs[4],
+		SContext& context
+	) const;
 
 	template<typename aType>
 	static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
