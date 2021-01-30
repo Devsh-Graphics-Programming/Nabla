@@ -136,7 +136,8 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					state.inBaseLayer = subresource.baseArrayLayer;
 					state.outOffset = { 0, 0, 0 };
 					state.outBaseLayer = 0;
-					state.extent = reinterpret_cast<const VkExtent3D&>(newImage->getMipSize(i));
+					auto extent = newImage->getMipSize(i);
+					state.extent = reinterpret_cast<const VkExtent3D&>(extent);
 					state.layerCount = newArrayLayers;
 					state.inMipLevel = subresource.baseMipLevel + i;
 					state.outMipLevel = i;

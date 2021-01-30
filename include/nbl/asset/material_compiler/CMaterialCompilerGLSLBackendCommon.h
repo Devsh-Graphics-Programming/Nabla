@@ -247,12 +247,11 @@ public:
 		using VTID = asset::ICPUVirtualTexture::SMasterTextureData;
 	#include "nbl/nblpack.h"
 		struct STextureData {
-			STextureData() = default;
 
-			VTID vtid = VTID::invalid();
+			VTID vtid;
 			union {
 				uint32_t prefetch_reg;//uint32
-				uint32_t scale = 0u;//float
+				uint32_t scale;//float
 			};
 
 			bool operator==(const STextureData& rhs) const { return memcmp(this,&rhs,sizeof(rhs))==0; }

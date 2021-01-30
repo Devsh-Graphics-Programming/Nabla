@@ -26,7 +26,7 @@ else:
     outp.write("#include <cstdint>\n")
     outp.write("#include <string>\n")
     outp.write("#include <unordered_map>\n")
-    outp.write("#include <utility>\n#include \"nbl\\core\\string\\UniqueStringLiteralType.h\"\n#include \"nbl\\builtin\\common.h\"\n")
+    outp.write("#include <utility>\n#include <nbl/core/string/UniqueStringLiteralType.h>\n#include <nbl/builtin/common.h>\n")
     outp.write("namespace nbl { \n\tnamespace builtin { \n")
 
     #Iterating through input list

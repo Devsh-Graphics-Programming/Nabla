@@ -161,7 +161,7 @@ namespace nbl
 					data(reinterpret_cast<uint8_t*>(image->getBuffer()->getPointer())), pixelMapArray(_pixelMapArray)
 				{
 					using StreamFromEXR = CRegionBlockFunctorFilter<ReadTexels<IlmType>,false>;
-					StreamFromEXR::state_type state(*this,image,image->getRegions().begin());
+					typename StreamFromEXR::state_type state(*this,image,image->getRegions().begin());
 					StreamFromEXR::execute(&state);
 				}
 
@@ -173,7 +173,7 @@ namespace nbl
 					for (auto channelIndex=0; channelIndex<availableChannels; channelIndex++)
 					{
 						const auto& element = pixelMapArray[channelIndex][texelCoord.y][texelCoord.x];
-						reinterpret_cast<std::decay<decltype(element)>::type*>(texelPtr)[channelIndex] = element;
+						reinterpret_cast<typename std::decay<decltype(element)>::type*>(texelPtr)[channelIndex] = element;
 					}
 				}
 

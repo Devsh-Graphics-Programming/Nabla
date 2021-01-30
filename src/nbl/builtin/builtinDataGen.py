@@ -23,7 +23,7 @@ else:
 
     outp = open(outputFilename,"w+")
   
-    outp.write("#include \"nbl/builtin/builtinResources.h\"\n\n")
+    outp.write("#include <nbl/builtin/builtinResources.h>\n\n")
     outp.write("using namespace nbl;\n")
     outp.write("using namespace nbl::builtin;\n\n")
     outp.write("namespace nbl {\n")

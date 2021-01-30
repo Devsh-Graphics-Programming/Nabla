@@ -91,7 +91,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(IVideoDriver* driver, IGPUPipelineCac
 }
 
 //
-CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(const AllocationRequest* requestsBegin, const AllocationRequest* requestsEnd, const std::chrono::steady_clock::time_point& maxWaitPoint)
+CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(const AllocationRequest* requestsBegin, const AllocationRequest* requestsEnd, const std::chrono::high_resolution_clock::time_point& maxWaitPoint)
 {
 	bool success = true;
 
@@ -121,7 +121,7 @@ CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::addProperties(cons
 }
 
 //
-CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties(const TransferRequest* requestsBegin, const TransferRequest* requestsEnd, const std::chrono::steady_clock::time_point& maxWaitPoint)
+CPropertyPoolHandler::transfer_result_t CPropertyPoolHandler::transferProperties(const TransferRequest* requestsBegin, const TransferRequest* requestsEnd, const std::chrono::high_resolution_clock::time_point& maxWaitPoint)
 {
 	const auto totalProps = std::distance(requestsBegin,requestsEnd);
 

@@ -607,7 +607,7 @@ io::path CFileSystem::getAbsolutePath(const io::path& filename) const
 			return io::path(fpath);
 	}
 	if (filename[filename.size()-1]=='/')
-		return io::path(p)+_NBL_TEXT("/");
+		return io::path(p)+"/";
 	else
 		return io::path(p);
 #else
@@ -777,7 +777,7 @@ IFileList* CFileSystem::createFileList()
 
 		r = new CFileList(Path);
 
-		r->addItem(Path + _NBL_TEXT(".."), 0, 0, true, 0);
+		r->addItem(Path + "..", 0, 0, true, 0);
 
 		//! We use the POSIX compliant methods instead of scandir
 		DIR* dirHandle=opendir(Path.c_str());

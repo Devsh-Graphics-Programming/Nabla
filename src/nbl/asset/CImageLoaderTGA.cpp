@@ -181,7 +181,7 @@ core::smart_refctd_ptr<ICPUImage> createAndconvertImageData(ICPUImage::SCreation
 	{
 		using CONVERSION_FILTER = CConvertFormatImageFilter<srcFormat, destFormat>;
 		CONVERSION_FILTER convertFilter;
-		CONVERSION_FILTER::state_type state;
+		typename CONVERSION_FILTER::state_type state;
 		{
 			auto referenceImageParams = inputCreationImage->getCreationParameters();
 			auto referenceBuffer = inputCreationImage->getBuffer();

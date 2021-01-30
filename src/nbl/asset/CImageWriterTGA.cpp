@@ -56,7 +56,7 @@ bool CImageWriterTGA::writeAsset(io::IWriteFile* _file, const SAssetWriteParams&
 	const auto& convertedRegion = convertedImage->getRegions().begin();
 	auto convertedFormat = convertedImageParams.format;
 
-	assert(convertedRegion->bufferRowLength && convertedRegion->bufferImageHeight, "Detected changes in createImageDataForCommonWriting!");
+	assert(convertedRegion->bufferRowLength && convertedRegion->bufferImageHeight);//"Detected changes in createImageDataForCommonWriting!");
 	auto trueExtent = core::vector3du32_SIMD(convertedRegion->bufferRowLength, convertedRegion->bufferImageHeight, convertedRegion->imageExtent.depth);
 
 	core::vector3d<uint32_t> dim;

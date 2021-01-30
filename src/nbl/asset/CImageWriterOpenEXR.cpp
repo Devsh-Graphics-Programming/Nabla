@@ -95,7 +95,7 @@ namespace asset
 		};
 
 		using StreamToEXR = CRegionBlockFunctorFilter<decltype(writeTexel),true>;
-		StreamToEXR::state_type state(writeTexel,image,nullptr);
+		typename StreamToEXR::state_type state(writeTexel,image,nullptr);
 		for (auto rit=image->getRegions().begin(); rit!=image->getRegions().end(); rit++)
 		{
 			if (rit->imageSubresource.mipLevel || rit->imageSubresource.baseArrayLayer)

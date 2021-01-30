@@ -993,14 +993,14 @@ void CIrrDeviceLinux::createDriver()
 	case video::EDT_OPENGL:
 		#ifdef _NBL_COMPILE_WITH_OPENGL_
 		if (Context)
-			VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem, this, getAssetManager()->getGLSLCompiler(), reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts));
+			VideoDriver = video::createOpenGLDriver(CreationParams, FileSystem.get(), this, getAssetManager()->getGLSLCompiler(), reinterpret_cast<video::COpenGLDriver::SAuxContext*>(AuxContexts));
 		#else
 		os::Printer::log("No OpenGL support compiled in.", ELL_ERROR);
 		#endif
 		break;
 
 	case video::EDT_NULL:
-		VideoDriver = video::createNullDriver(this, FileSystem, CreationParams);
+		VideoDriver = video::createNullDriver(this, FileSystem.get(), CreationParams);
 		break;
 
 	default:
@@ -1008,7 +1008,7 @@ void CIrrDeviceLinux::createDriver()
 		break;
 #else
 	case video::EDT_NULL:
-		VideoDriver = video::createNullDriver(FileSystem, CreationParams);
+		VideoDriver = video::createNullDriver(FileSystem.get(), CreationParams);
 		break;
 	default:
 		os::Printer::log("No X11 support compiled in. Only Null driver available.", ELL_ERROR);
