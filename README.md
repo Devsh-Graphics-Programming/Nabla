@@ -152,10 +152,6 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ad02c69e384c6655951c99d3b4bee5178a9dab2f/site_media/readme/screenshots/myballs/thindielectric.png?raw=true)
 
-##### <u>Over 10 area lights</u>
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Over%2010%20area%20lights.png?raw=true)
-
 **<u>Stairs raytracing</u>** 
 
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/screenshots/RTAA.png?raw=true)
@@ -166,19 +162,11 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 ##### <u>Raytracing sample</u>
 
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample.png?raw=true)
-
-##### <u>Raytracing sample</u>
-
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%202.png?raw=true)
 
 ##### <u>1 Megapixel, 1 Million Samples</u>
 
 ![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/1%20Megapixel,%201%20Million%20Samples.png?raw=true)
-
-##### <u>Raytracing sample</u>
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/6e4842588ef02ffb619242a08c0c037bba59c244/site_media/readme/screenshots/Raytracing%20sample%203.png?raw=true)
 
 ##### <u>BRDF Explorer</u>
 
