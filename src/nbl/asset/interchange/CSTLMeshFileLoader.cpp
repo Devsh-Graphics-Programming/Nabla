@@ -266,7 +266,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 	}
 
 	auto meta = core::make_smart_refctd_ptr<CSTLMetadata>(1u);
-	meta->addMeta(0u,mbPipeline.get(),std::move(shaderInputsMetadata));
+	meta->placeMeta(0u,mbPipeline.get(),std::move(shaderInputsMetadata));
 
 	meshbuffer->setPipeline(std::move(mbPipeline));
 	meshbuffer->setIndexCount(positions.size());

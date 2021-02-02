@@ -103,14 +103,14 @@ class IAssetMetadata : public core::IReferenceCounted
 		template<class MetaType>
 		inline const MetaType* selfCast() const
 		{
-			if (!meta || strcmp(getLoaderName(),MetaType::LoaderNAme)!=0)
+			if (strcmp(getLoaderName(),MetaType::LoaderName)!=0)
 				return nullptr;
 			return static_cast<const MetaType*>(this);
 		}
 		template<class MetaType>
 		inline MetaType* selfCast()
 		{
-			if (!meta || strcmp(getLoaderName(),MetaType::LoaderNAme)!=0)
+			if (strcmp(getLoaderName(),MetaType::LoaderName)!=0)
 				return nullptr;
 			return static_cast<MetaType*>(this);
 		}

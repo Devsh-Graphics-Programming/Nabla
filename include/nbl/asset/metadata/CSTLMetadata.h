@@ -39,7 +39,7 @@ class CSTLMetadata final : public IAssetMetadata
 
         friend class CSTLMeshFileLoader;
         template<typename... Args>
-        inline void addMeta(uint32_t offset, const ICPURenderpassIndependentPipeline* ppln, Args&&... args)
+        inline void placeMeta(uint32_t offset, const ICPURenderpassIndependentPipeline* ppln, Args&&... args)
         {
             auto& meta = m_metaStorage->operator[](offset);
             meta = CRenderpassIndependentPipeline(std::forward<Args>(args)...);

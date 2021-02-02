@@ -30,7 +30,7 @@ class CMitsubaSerializedMetadata final : public asset::IAssetMetadata
         meta_container_t<CRenderpassIndependentPipeline> m_metaStorage;
 
         friend class CSerializedLoader;
-        inline void addMeta(uint32_t offset, const asset::ICPURenderpassIndependentPipeline* ppln)
+        inline void placeMeta(uint32_t offset, const asset::ICPURenderpassIndependentPipeline* ppln)
         {
             static_assert(false);
             //auto& meta = m_metaStorage->operator[](offset);

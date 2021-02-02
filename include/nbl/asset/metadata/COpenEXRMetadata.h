@@ -42,7 +42,7 @@ class COpenEXRMetadata final : public IAssetMetadata
 
         friend class CImageLoaderOpenEXR;
         template<typename... Args>
-        inline void addMeta(uint32_t offset, const ICPUImage* image, std::string&& _name, Args&&... args)
+        inline void placeMeta(uint32_t offset, const ICPUImage* image, std::string&& _name, Args&&... args)
         {
             auto& meta = m_metaStorage->operator[](offset);
             meta = CImage(std::forward<Args>(args)...);

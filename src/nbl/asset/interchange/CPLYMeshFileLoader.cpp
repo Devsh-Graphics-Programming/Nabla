@@ -303,7 +303,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	{
 		uint32_t offset = 0u;
 		for (auto meshbuffer : mesh->getMeshBuffers())
-			meta->addMeta(offset++,meshbuffer->getPipeline());
+			meta->placeMeta(offset++,meshbuffer->getPipeline());
 	}
 	return SAssetBundle(std::move(meta),{ std::move(mesh) });
 }

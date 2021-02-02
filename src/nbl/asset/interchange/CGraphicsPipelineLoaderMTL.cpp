@@ -147,7 +147,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         _override
     );
     const std::string fullName = _file->getFileName().c_str();
-	const std::string relPath = std::filesystem::path(fullName).parent_path().string();
+	const std::string relPath = std::filesystem::path(fullName).parent_path().string()+"/";
 
     auto materials = readMaterials(_file);
 
@@ -180,7 +180,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
                     }
                 }
             }
-            meta->addMeta(offset,ppln.get(),std::move(ds3),material.params,std::string(material.name),hash,core::smart_refctd_ptr(m_inputSemantics));
+            meta->placeMeta(offset,ppln.get(),std::move(ds3),material.params,std::string(material.name),hash,core::smart_refctd_ptr(m_inputSemantics));
             retval->operator[](offset) = std::move(ppln);
             offset++;
         };

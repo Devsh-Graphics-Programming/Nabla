@@ -54,7 +54,7 @@ class CPLYMetadata final : public IAssetMetadata
         meta_container_t<CRenderpassIndependentPipeline> m_metaStorage;
 
         friend class CPLYMeshFileLoader;
-        inline void addMeta(uint32_t offset, const ICPURenderpassIndependentPipeline* ppln)
+        inline void placeMeta(uint32_t offset, const ICPURenderpassIndependentPipeline* ppln)
         {
             auto& meta = m_metaStorage->operator[](offset);
             IAssetMetadata::insertAssetSpecificMetadata(ppln,&meta);

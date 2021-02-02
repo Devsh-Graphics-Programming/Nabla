@@ -17,6 +17,7 @@ class CMTLMetadata final : public IAssetMetadata
     public:
         class CRenderpassIndependentPipeline : public IRenderpassIndependentPipelineMetadata
         {
+                friend class COBJMetadata;
             public:
                 enum E_MAP_TYPE : uint32_t
                 {
@@ -126,7 +127,7 @@ class CMTLMetadata final : public IAssetMetadata
 
         friend class CGraphicsPipelineLoaderMTL;
         template<typename... Args>
-        inline void addMeta(
+        inline void placeMeta(
             uint32_t offset, const ICPURenderpassIndependentPipeline* ppln,
             core::smart_refctd_ptr<ICPUDescriptorSet>&& _descriptorSet3,
             const CRenderpassIndependentPipeline::SMaterialParameters& _materialParams,

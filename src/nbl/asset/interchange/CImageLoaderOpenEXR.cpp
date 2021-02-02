@@ -299,7 +299,7 @@ namespace nbl
 					else if (params.format == EF_R32G32B32A32_UINT)
 						ReadTexels(image.get(), perImageData.uint32_tPixelMapArray);
 
-					meta->addMeta(metaOffset++,image.get(),std::string(suffixOfChannels),IImageMetadata::ColorSemantic{ ECP_SRGB,EOTF_IDENTITY });
+					meta->placeMeta(metaOffset++,image.get(),std::string(suffixOfChannels),IImageMetadata::ColorSemantic{ ECP_SRGB,EOTF_IDENTITY });
 
 					images.push_back(std::move(image));
 				}
