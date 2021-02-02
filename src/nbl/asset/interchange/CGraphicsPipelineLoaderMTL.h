@@ -34,9 +34,6 @@ class CGraphicsPipelineLoaderMTL final : public asset::IAssetLoader
             IAssetLoader::SAssetLoadContext inner;
             uint32_t topHierarchyLevel;
             IAssetLoader::IAssetLoaderOverride* loaderOverride;
-
-            static inline uint32_t layoutCacheKey(uint32_t clamps, bool hasUV) { return clamps | (static_cast<uint32_t>(hasUV) << 31); }
-            core::unordered_map<uint32_t, core::smart_refctd_ptr<ICPUPipelineLayout>> layoutCache;
         };
 
 	public:
@@ -63,8 +60,8 @@ class CGraphicsPipelineLoaderMTL final : public asset::IAssetLoader
 
         using images_set_t = std::array<core::smart_refctd_ptr<ICPUImage>, CMTLMetadata::CRenderpassIndependentPipeline::EMP_COUNT>;
         using image_views_set_t = std::array<core::smart_refctd_ptr<ICPUImageView>, CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX + 1u>;
-        image_views_set_t loadImages(const char* _relDir, const SMtl& _mtl, SContext& _ctx);
-        core::smart_refctd_ptr<ICPUDescriptorSet> makeDescSet(image_views_set_t&& _views, ICPUDescriptorSetLayout* _dsLayout);
+        image_views_set_t loadImages(const std::string& relDir, const SMtl& _mtl, SContext& _ctx);
+        core::smart_refctd_ptr<ICPUDescriptorSet> makeDescSet(image_views_set_t&& _views, ICPUDescriptorSetLayout* _dsLayout, SContext& _ctx);
 
         IAssetManager* m_assetMgr;
         core::smart_refctd_ptr<IRenderpassIndependentPipelineMetadata::semantics_container_t> m_inputSemantics;

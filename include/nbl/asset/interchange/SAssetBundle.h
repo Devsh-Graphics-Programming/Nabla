@@ -35,22 +35,18 @@ class SAssetBundle
 		SAssetBundle(const size_t assetCount=0ull) : m_metadata(nullptr), m_contents(core::make_refctd_dynamic_array<contents_container_t>(assetCount)), m_cacheKey("")
 		{
 		}
-		SAssetBundle(const core::smart_refctd_ptr<IAssetMetadata>&& _metadata, std::initializer_list<core::smart_refctd_ptr<IAsset> > _contents, const std::string& _initKey = {}) : 
-			m_metadata(std::move(_metadata)), m_contents(core::make_refctd_dynamic_array<contents_container_t>(_contents)), m_cacheKey(_initKey)
+		SAssetBundle(core::smart_refctd_ptr<IAssetMetadata>&& _metadata, contents_container_t&& _contents) : m_metadata(std::move(_metadata)), m_contents(std::move(_contents)), m_cacheKey{}
 		{
 			assert(allSameTypeAndNotNull());
 		}
-		template<typename container_t, typename iterator_t = typename container_t::iterator>
-		SAssetBundle(const core::smart_refctd_ptr<IAssetMetadata>&& _metadata, const container_t& _contents, const std::string& _initKey = {}) :
-			m_metadata(std::move(_metadata)), m_contents(core::make_refctd_dynamic_array<contents_container_t>(_contents)), m_cacheKey(_initKey)
+		SAssetBundle(core::smart_refctd_ptr<IAssetMetadata>&& _metadata, std::initializer_list<core::smart_refctd_ptr<IAsset> > _contents) : 
+			SAssetBundle(std::move(_metadata),core::make_refctd_dynamic_array<contents_container_t>(_contents))
 		{
-			assert(allSameTypeAndNotNull());
 		}
-		template<typename container_t, typename iterator_t = typename container_t::iterator>
-		SAssetBundle(const core::smart_refctd_ptr<IAssetMetadata>&& _metadata, container_t&& _contents, const std::string& _initKey = {}) :
-			m_metadata(std::move(_metadata)), m_contents(core::make_refctd_dynamic_array<contents_container_t>(std::move(_contents))), m_cacheKey(_initKey)
+		template<typename ContainerT>
+		SAssetBundle(core::smart_refctd_ptr<IAssetMetadata>&& _metadata, ContainerT&& _contents) :
+			SAssetBundle(std::move(_metadata),core::make_refctd_dynamic_array<contents_container_t>(std::forward<ContainerT>(_contents)))
 		{
-			assert(allSameTypeAndNotNull());
 		}
 
 		//! Returning a type associated with current stored Assets

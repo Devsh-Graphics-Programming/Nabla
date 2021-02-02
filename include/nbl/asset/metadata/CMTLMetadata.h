@@ -124,7 +124,7 @@ class CMTLMetadata final : public IAssetMetadata
     private:
         meta_container_t<CRenderpassIndependentPipeline> m_metaStorage;
 
-        friend class CPLYMeshFileLoader;
+        friend class CGraphicsPipelineLoaderMTL;
         template<typename... Args>
         inline void addMeta(
             uint32_t offset, const ICPURenderpassIndependentPipeline* ppln,
@@ -134,7 +134,7 @@ class CMTLMetadata final : public IAssetMetadata
             Args&&... args)
         {
             auto& meta = m_metaStorage->operator[](offset);
-            meta = CIRenderpassIndependentPipeline(std::forward<Args>(args)...);
+            meta = CRenderpassIndependentPipeline(std::forward<Args>(args)...);
             meta.m_descriptorSet3 = std::move(_descriptorSet3);
             meta.m_materialParams = _materialParams;
             meta.m_name = std::move(_name);

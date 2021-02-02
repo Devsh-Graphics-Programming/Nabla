@@ -4,6 +4,7 @@
 
 #include <utility>
 #include <regex>
+#include <filesystem>
 
 
 #include "os.h"
@@ -50,52 +51,63 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_a
 void CGraphicsPipelineLoaderMTL::initialize()
 {
     // need to initialize this first
-    auto ds1layout = IAssetLoaderOverride(m_assetMgr).findDefaultAsset<ICPUDescriptorSetLayout>(
-        "nbl/builtin/descriptor_set_layout/basic_view_parameters",
-        IAssetLoader::SAssetLoadContext(
-            IAssetLoader::SAssetLoadParams{},
-            nullptr
-        ),0u
-    );
-
-    // create common metadata part
     {
-        constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
-        m_inputSemantics = core::make_refctd_dynamic_array<decltype(m_inputSemantics)>(DS1_METADATA_ENTRY_CNT);
+        auto dfltOver = IAssetLoaderOverride(m_assetMgr);
+        const IAssetLoader::SAssetLoadContext fakeCtx(IAssetLoader::SAssetLoadParams{},nullptr);
 
-        // TODO: this seems very common to many mesh loaders @Crisspl maybe an `IRenderpassIndependentPipelineLoaderBase` is in order?
-        constexpr IRenderpassIndependentPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT] = 
+        // find ds1 layout
+        auto ds1layout = dfltOver.findDefaultAsset<ICPUDescriptorSetLayout>("nbl/builtin/descriptor_set_layout/basic_view_parameters",fakeCtx,0u).first;
+
+        // precompute the no UV pipeline layout
         {
-            IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_PROJ,
-            IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW,
-            IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE
-        };
-        constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT] = 
+            SPushConstantRange pcRng;
+            pcRng.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+            pcRng.offset = 0u;
+            pcRng.size = sizeof(SMtl::params);
+            //if intellisense shows error here, it's most likely intellisense's fault and it'll build fine anyway
+            static_assert(sizeof(SMtl::params) <= ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "It must fit in push constants!");
+
+            auto pplnLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng+1, nullptr, std::move(ds1layout), nullptr, nullptr);
+            insertBuiltinAssetIntoCache(m_assetMgr, SAssetBundle(nullptr,{ core::smart_refctd_ptr_static_cast<IAsset>(std::move(pplnLayout)) }), "nbl/builtin/pipeline_layout/loader/mtl/no_uv");
+        }
+
+        // create common metadata part
         {
-            sizeof(SBasicViewParameters::MVP),
-            sizeof(SBasicViewParameters::MV),
-            sizeof(SBasicViewParameters::NormalMat)
-        };
-        constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT] =
-        {
-            offsetof(SBasicViewParameters,MVP),
-            offsetof(SBasicViewParameters,MV),
-            offsetof(SBasicViewParameters,NormalMat)
-        };
-        for (uint32_t i=0u; i<DS1_METADATA_ENTRY_CNT; ++i)
-        {
-            auto& semantic = (m_inputSemantics->end()-i-1u)[0];
-            semantic.type = types[i];
-            semantic.descriptorSection.type = IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
-            semantic.descriptorSection.uniformBufferObject.binding = ds1layout.first->getBindings().begin()[0].binding;
-            semantic.descriptorSection.uniformBufferObject.set = 1u;
-            semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
-            semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
-            semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_VERTEX;
+            constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
+            m_inputSemantics = core::make_refctd_dynamic_array<decltype(m_inputSemantics)>(DS1_METADATA_ENTRY_CNT);
+
+            // TODO: this seems very common to many mesh loaders @Crisspl maybe an `IRenderpassIndependentPipelineLoaderBase` is in order?
+            constexpr IRenderpassIndependentPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT] = 
+            {
+                IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_PROJ,
+                IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW,
+                IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE
+            };
+            constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT] = 
+            {
+                sizeof(SBasicViewParameters::MVP),
+                sizeof(SBasicViewParameters::MV),
+                sizeof(SBasicViewParameters::NormalMat)
+            };
+            constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT] =
+            {
+                offsetof(SBasicViewParameters,MVP),
+                offsetof(SBasicViewParameters,MV),
+                offsetof(SBasicViewParameters,NormalMat)
+            };
+            for (uint32_t i=0u; i<DS1_METADATA_ENTRY_CNT; ++i)
+            {
+                auto& semantic = (m_inputSemantics->end()-i-1u)[0];
+                semantic.type = types[i];
+                semantic.descriptorSection.type = IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
+                semantic.descriptorSection.uniformBufferObject.binding = ds1layout->getBindings().begin()[0].binding;
+                semantic.descriptorSection.uniformBufferObject.set = 1u;
+                semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
+                semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
+                semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_VERTEX;
+            }
         }
     }
-
-    // precompute pipeline layouts
 
     // default pipelines
     SAssetLoadParams assetLoadParams;
@@ -135,7 +147,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         _override
     );
     const std::string fullName = _file->getFileName().c_str();
-	const std::string relPath(fullName+"/");
+	const std::string relPath = std::filesystem::path(fullName).parent_path().string();
 
     auto materials = readMaterials(_file);
 
@@ -143,70 +155,142 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
     constexpr uint32_t PIPELINE_PERMUTATION_COUNT = 2u;
     const auto pipelineCount = materials.size()*PIPELINE_PERMUTATION_COUNT;
 
-    SAssetBundle retval(pipelineCount);
+    auto retval = core::make_refctd_dynamic_array<SAssetBundle::contents_container_t>(pipelineCount);
     auto meta = core::make_smart_refctd_ptr<CMTLMetadata>(pipelineCount);
     uint32_t offset = 0u;
     for (const auto& material : materials)
     {
-        const uint32_t illum = material.params.extra&0xfu;
-
-        const char* blendModel = "opaque";
-        if (illum==4u || illum==6u || illum==7u || illum==9u)
-            blendModel = "thindielectric";
-        else if (material.maps[CMTLMetadata::CRenderpassIndependentPipeline::EMP_OPACITY].size() || material.params.opacity!=1.f)
-            blendModel = "opacitymap";
-
-        // stuff
+        auto createPplnDescAndMeta = [&](const bool hasUV) -> void
         {
-            constexpr bool hasUV = false;
-            constexpr uint32_t hash = 0u;
-            meta->addMeta(offset++,makePipelineFromMtl(ctx,material,hasUV),nullptr,material.params,material.name,hash,m_inputSemantics);
-        }
-        {
-            constexpr bool hasUV = true;
-            constexpr uint32_t hash = 1u;
-            meta->addMeta(offset++,makePipelineFromMtl(ctx,material,hasUV),std:move(ds3),material.params,std::move(material.name),hash,m_inputSemantics);
-        }
+            const uint32_t hash = hasUV ? 1u:0u;
+            auto ppln = makePipelineFromMtl(ctx,material,hasUV);
+            core::smart_refctd_ptr<ICPUDescriptorSet> ds3;
+            if (hasUV)
+            {
+                const std::string dsCacheKey = fullName + "?" + material.name + "?_ds";
+                const uint32_t ds3HLevel = _hierarchyLevel+ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW;
+                ds3 = _override->findDefaultAsset<ICPUDescriptorSet>(dsCacheKey,ctx.inner,ds3HLevel).first;
+                if (!ds3)
+                {
+                    ds3 = makeDescSet(loadImages(relPath,material,ctx), ppln->getLayout()->getDescriptorSetLayout(3u), ctx);
+                    if (ds3)
+                    {
+                        SAssetBundle bundle(nullptr,{ ds3 });
+                        _override->insertAssetIntoCache(bundle,dsCacheKey,ctx.inner,ds3HLevel);
+                    }
+                }
+            }
+            meta->addMeta(offset,ppln.get(),std::move(ds3),material.params,std::string(material.name),hash,core::smart_refctd_ptr(m_inputSemantics));
+            retval->operator[](offset) = std::move(ppln);
+            offset++;
+        };
+        createPplnDescAndMeta(false);
+        createPplnDescAndMeta(true);
     }
     
-    if (!materials.empty())
-        retval.setMetadata(std::move(meta));
-
-    return retval;
+    if (materials.empty())
+        return SAssetBundle(nullptr, {});
+    return SAssetBundle(std::move(meta),std::move(retval));
 }
 
-#if 0
+core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CGraphicsPipelineLoaderMTL::makePipelineFromMtl(SContext& _ctx, const SMtl& _mtl, bool hasUV)
+{
+    SBlendParams blendParams;
 
+    std::string cacheKey("nbl/builtin/renderpass_independent_pipeline/loader/mtl/");
     {
-        constexpr uint32_t POSITION = 0u;
-        constexpr uint32_t UV = 2u;
-        constexpr uint32_t NORMAL = 3u;
-        constexpr uint32_t BND_NUM = 0u;
-
-        SVertexInputParams vtxParams;
-        SBlendParams blendParams;
-        SPrimitiveAssemblyParams primParams;
-        SRasterizationParams rasterParams;
-
-        const uint32_t illum = materials[i].params.extra&0xfu;
+        const uint32_t illum = _mtl.params.extra&0xfu;
         if (illum==4u || illum==6u || illum==7u || illum==9u)
         {
+            cacheKey += "thindielectric";
+            
             blendParams.blendParams[0].blendEnable = true;
             blendParams.blendParams[0].srcColorFactor = EBF_ONE;
             blendParams.blendParams[0].srcAlphaFactor = EBF_ONE;
             blendParams.blendParams[0].dstColorFactor = EBF_ONE_MINUS_SRC_ALPHA;
             blendParams.blendParams[0].dstAlphaFactor = EBF_ONE_MINUS_SRC_ALPHA;
         }
-        else if (materials[i].maps[CMTLMetadata::CRenderpassIndependentPipeline::EMP_OPACITY].size() || materials[i].params.opacity!=1.f)
+        else if (_mtl.maps[CMTLMetadata::CRenderpassIndependentPipeline::EMP_OPACITY].size() || _mtl.params.opacity!=1.f)
         {
+            cacheKey += "opacitymapped";
+
             blendParams.blendParams[0].blendEnable = true;
             blendParams.blendParams[0].srcColorFactor = EBF_SRC_ALPHA;
             blendParams.blendParams[0].srcAlphaFactor = EBF_SRC_ALPHA;
             blendParams.blendParams[0].dstColorFactor = EBF_ONE_MINUS_SRC_ALPHA;
             blendParams.blendParams[0].dstAlphaFactor = EBF_ONE_MINUS_SRC_ALPHA;
         }
+        else
+            cacheKey += "opaque";
 
-        const uint32_t j = i*PIPELINE_PERMUTATION_COUNT;
+        if (hasUV)
+            cacheKey += "/clamp/"+std::to_string(_mtl.clamp);
+        else
+            cacheKey += "/no_uv";
+    }
+    auto ppln = _ctx.loaderOverride->findDefaultAsset<ICPURenderpassIndependentPipeline>(cacheKey,_ctx.inner,_ctx.topHierarchyLevel).first;
+
+    if (!ppln)
+    {
+        ICPUSpecializedShader* shaders[] =
+        {
+            _ctx.loaderOverride->findDefaultAsset<ICPUSpecializedShader>(hasUV ? VERT_SHADER_UV_CACHE_KEY:VERT_SHADER_NO_UV_CACHE_KEY,_ctx.inner,_ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::SPECIALIZED_SHADER_HIERARCHYLEVELS_BELOW).first.get(),
+            _ctx.loaderOverride->findDefaultAsset<ICPUSpecializedShader>(hasUV ? FRAG_SHADER_UV_CACHE_KEY:FRAG_SHADER_NO_UV_CACHE_KEY,_ctx.inner,_ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::SPECIALIZED_SHADER_HIERARCHYLEVELS_BELOW).first.get()
+        };
+
+        const uint32_t pipelineHLevel = _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW;
+        core::smart_refctd_ptr<ICPUPipelineLayout> layout = _ctx.loaderOverride->findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/pipeline_layout/loader/mtl/no_uv",_ctx.inner,pipelineHLevel).first;
+        if (hasUV)
+        {
+            auto noUVLayout = std::move(layout);
+
+            std::string pplnLayoutCacheKey("nbl/builtin/pipeline_layout/loader/mtl/clamp/");
+            pplnLayoutCacheKey += std::to_string(_mtl.clamp);
+            layout = _ctx.loaderOverride->findDefaultAsset<ICPUPipelineLayout>(pplnLayoutCacheKey,_ctx.inner,pipelineHLevel).first;
+
+            if (!layout)
+            {
+                core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds3Layout;
+                {
+                    //assumes all supported textures are always present
+                    //since vulkan doesnt support bindings with no/null descriptor, absent textures will be filled with dummy 2D texture (while creating desc set)
+                    auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(static_cast<size_t>(CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX) + 1ull);
+
+                    ICPUDescriptorSetLayout::SBinding bnd;
+                    bnd.count = 1u;
+                    bnd.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+                    bnd.type = EDT_COMBINED_IMAGE_SAMPLER;
+                    bnd.binding = 0u;
+                    std::fill(bindings->begin(), bindings->end(), bnd);
+
+                    core::smart_refctd_ptr<ICPUSampler> samplers[] =
+                    {
+                        _ctx.loaderOverride->findDefaultAsset<ICPUSampler>("nbl/builtin/sampler/default",_ctx.inner,_ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW).first,
+                        _ctx.loaderOverride->findDefaultAsset<ICPUSampler>("nbl/builtin/sampler/default_clamp_to_border",_ctx.inner,_ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW).first
+                    };
+                    for (uint32_t i = 0u; i <= CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX; ++i)
+                    {
+                        (*bindings)[i].binding = i;
+
+                        const uint32_t clamp = (_mtl.clamp >> i) & 1u;
+                        (*bindings)[i].samplers = samplers + clamp;
+                    }
+                    ds3Layout = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
+                }
+
+                layout = core::move_and_static_cast<ICPUPipelineLayout>(noUVLayout->clone(0u)); // clone at 0 depth
+                layout->setDescriptorSetLayout(3u,std::move(ds3Layout));
+
+                _ctx.loaderOverride->insertAssetIntoCache(SAssetBundle(nullptr,{ layout }), pplnLayoutCacheKey, _ctx.inner, pipelineHLevel);
+            }
+        }
+
+        constexpr uint32_t POSITION = 0u;
+        constexpr uint32_t UV = 2u;
+        constexpr uint32_t NORMAL = 3u;
+        constexpr uint32_t BND_NUM = 0u;
+
+        SVertexInputParams vtxParams;
 
         vtxParams.enabledAttribFlags = (1u << POSITION) | (1u << NORMAL);
         vtxParams.enabledBindingFlags = 1u << BND_NUM;
@@ -221,95 +305,18 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         vtxParams.attributes[NORMAL].format = EF_A2B10G10R10_SNORM_PACK32;
         vtxParams.attributes[NORMAL].relativeOffset = 20u;
 
-
-
-
-
-
-
-
-
-
         //uv
-        vtxParams.enabledAttribFlags |= (1u << UV);
-        vtxParams.attributes[UV].binding = BND_NUM;
-        vtxParams.attributes[UV].format = EF_R32G32_SFLOAT;
-        vtxParams.attributes[UV].relativeOffset = 12u;
-
-
-
-
-
-        core::smart_refctd_ptr<ICPUDescriptorSet> ds3;
+        if (hasUV)
         {
-            const std::string dsCacheKey = fullName + "?" + materials[i].name + "?_ds";
-            ds3 = _override->findDefaultAsset<ICPUDescriptorSet>(dsCacheKey, ctx.inner, _hierarchyLevel+ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW).first;
-            if (!ds3)
-            {
-                auto views = loadImages(relPath, materials[i], ctx);
-                ds3 = makeDescSet(std::move(views), layout->getDescriptorSetLayout(3u));
-                if (ds3)
-                {
-                    SAssetBundle bundle{ ds3 };
-                    _override->insertAssetIntoCache(bundle, dsCacheKey, ctx.inner, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
-                }
-            }
+            vtxParams.enabledAttribFlags |= (1u << UV);
+            vtxParams.attributes[UV].binding = BND_NUM;
+            vtxParams.attributes[UV].format = EF_R32G32_SFLOAT;
+            vtxParams.attributes[UV].relativeOffset = 12u;
         }
 
-        pipelines[j+1u] = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(layout), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
+        ppln = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(layout), shaders, shaders+2u, vtxParams, blendParams, SPrimitiveAssemblyParams{}, SRasterizationParams{});
     }
-#endif
-
-core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CGraphicsPipelineLoaderMTL::makePipelineFromMtl(SContext& _ctx, const SMtl& _mtl, bool hasUV)
-{
-    const auto cacheKey = _ctx.layoutCacheKey(_mtl.clamp, hasUV);
-
-    if (auto found = _ctx.layoutCache.find(cacheKey); found != _ctx.layoutCache.end())
-        return found->second;
-
-    //assumes all supported textures are always present
-    //since vulkan doesnt support bindings with no/null descriptor, absent textures will be filled with dummy 2D texture (while creating desc set)
-    auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(static_cast<size_t>(CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX)+1ull);
-
-    ICPUDescriptorSetLayout::SBinding bnd;
-    bnd.count = 1u;
-    bnd.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
-    bnd.type = EDT_COMBINED_IMAGE_SAMPLER;
-    bnd.binding = 0u;
-    std::fill(bindings->begin(), bindings->end(), bnd);
-
-    core::smart_refctd_ptr<ICPUSampler> samplers[] =
-    {
-        _ctx.loaderOverride->findDefaultAsset<ICPUSampler>("nbl/builtin/sampler/default",_ctx.inner,_ctx.topHierarchyLevel + ICPURenderpassIndependentPipeline::IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW).first,
-        _ctx.loaderOverride->findDefaultAsset<ICPUSampler>("nbl/builtin/sampler/default_clamp_to_border",_ctx.inner,_ctx.topHierarchyLevel + ICPURenderpassIndependentPipeline::IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW).first
-    };
-    for (uint32_t i = 0u; i <= CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX; ++i)
-    {
-        (*bindings)[i].binding = i;
-
-        const uint32_t clamp = (_mtl.clamp >> i) & 1u;
-        (*bindings)[i].samplers = samplers + clamp;
-    }
-
-    core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds3Layout = _noDS3 ? nullptr : core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
-    SPushConstantRange pcRng;
-    pcRng.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
-    pcRng.offset = 0u;
-    pcRng.size = sizeof(SMtl::params);
-    //if intellisense shows error here, it's most likely intellisense's fault and it'll build fine anyway
-    static_assert(sizeof(SMtl::params)<=ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "It must fit in push constants!");
-    //ds with textures for material goes to set=3
-    auto layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng+1, nullptr, std::move(ds1layout), nullptr, std::move(ds3Layout));
-
-    _ctx.layoutCache.insert({ cacheKey, layout });
-    
-    core::smart_refctd_ptr<ICPUSpecializedShader> shaders[] =
-    {
-        _ctx.loaderOverride->findDefaultAsset<ICPUSpecializedShader>(hasUV ? VERT_SHADER_UV_CACHE_KEY:VERT_SHADER_NO_UV_CACHE_KEY,_ctx.inner,_ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::SPECIALIZED_SHADER_HIERARCHYLEVELS_BELOW).first,
-        _ctx.loaderOverride->findDefaultAsset<ICPUSpecializedShader>(hasUV ? FRAG_SHADER_UV_CACHE_KEY:FRAG_SHADER_NO_UV_CACHE_KEY,_ctx.inner,_ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::SPECIALIZED_SHADER_HIERARCHYLEVELS_BELOW).first
-    };
-
-    return core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(layout),shaders,shaders+2u,vtxParams,blendParams,primParams,rasterParams);
+    return ppln;
 }
 
 namespace
@@ -531,12 +538,11 @@ const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const c
     return _bufPtr;
 }
 
-CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mtl, SContext& _ctx)
+CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadImages(const std::string& relDir, const SMtl& _mtl, SContext& _ctx)
 {
     images_set_t images;
     image_views_set_t views;
 
-    std::string relDir = _relDir;
     for (uint32_t i = 0u; i < images.size(); ++i)
     {
         SAssetLoadParams lp;
@@ -674,15 +680,13 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
     return views;
 }
 
-core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSet(image_views_set_t&& _views, ICPUDescriptorSetLayout* _dsLayout)
+core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSet(image_views_set_t&& _views, ICPUDescriptorSetLayout* _dsLayout, SContext& _ctx)
 {
     if (!_dsLayout)
         return nullptr;
 
-    auto ds = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(
-        core::smart_refctd_ptr<ICPUDescriptorSetLayout>(_dsLayout)
-        );
-    auto dummy2d = getDefaultAsset<ICPUImageView, IAsset::ET_IMAGE_VIEW>("nbl/builtin/image_view/dummy2d", m_assetMgr);
+    auto ds = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<ICPUDescriptorSetLayout>(_dsLayout));
+    auto dummy2d = _ctx.loaderOverride->findDefaultAsset<ICPUImageView>("nbl/builtin/image_view/dummy2d",_ctx.inner,_ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW).first;
     for (uint32_t i = 0u; i <= CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX; ++i)
     {
         auto desc = ds->getDescriptors(i).begin();
