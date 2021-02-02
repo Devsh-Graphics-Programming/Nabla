@@ -29,8 +29,6 @@ namespace asset
 
 static const uint32_t WORD_BUFFER_LENGTH = 512;
 
-constexpr const char* MISSING_MTL_PIPELINE_NO_UV_CACHE_KEY = "nbl/builtin/graphics_pipeline/loaders/mtl/missing_material_pipeline_no_uv";
-constexpr const char* MISSING_MTL_PIPELINE_UV_CACHE_KEY = "nbl/builtin/graphics_pipeline/loaders/mtl/missing_material_pipeline_uv";
 constexpr uint32_t POSITION = 0u;
 constexpr uint32_t UV = 2u;
 constexpr uint32_t NORMAL = 3u;
@@ -395,7 +393,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			//if there's no pipeline for this meshbuffer, set dummy one
 			if (!submeshes[i]->getPipeline())
 			{
-				const auto pipeline = getDefaultAsset<ICPURenderpassIndependentPipeline, IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE>(hasUV? MISSING_MTL_PIPELINE_UV_CACHE_KEY: MISSING_MTL_PIPELINE_NO_UV_CACHE_KEY, AssetManager);
+				const IAsset::E_TYPE searchTypes[] = {IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE,static_cast<IAsset::E_TYPE>(0u)};
+				const auto pipelines = _override->findCachedAsset("nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline",searchTypes,ctx.inner,_hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
+				auto pipeline = pipelines.getContents().begin()[hasUV ? 1u:0u];
+
 				const CMTLPipelineMetadata* metadata = static_cast<const CMTLPipelineMetadata*>(pipeline->getMetadata());
 				auto ds3 = core::smart_refctd_ptr<ICPUDescriptorSet>(metadata->getDescriptorSet());
 				const uint32_t pcoffset = pipeline->getLayout()->getPushConstantRanges().begin()[0].offset;

@@ -606,9 +606,9 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(
 	{
 		constexpr std::array<std::pair<uint8_t, std::string_view>, 3> avaiableOptionsForShaders
 		{ 
-			std::make_pair(E_COL, "nbl/builtin/materials/debug/vertex_color_debug_shader/specializedshader"),
-			std::make_pair(E_UV, "nbl/builtin/materials/debug/uv_debug_shader/specializedshader"),
-			std::make_pair(E_NORM, "nbl/builtin/materials/debug/normal_debug_shader/specializedshader")  // TODO: `normal_debug` is a rather bad name
+			std::make_pair(E_COL, "nbl/builtin/material/debug/vertex_color_debug_shader/specialized_shader"),
+			std::make_pair(E_UV, "nbl/builtin/material/debug/uv_debug_shader/specialized_shader"),
+			std::make_pair(E_NORM, "nbl/builtin/material/debug/normal_debug_shader/specialized_shader")  // TODO: `normal_debug` is a rather bad name
 		};
 
 		for (auto& it : avaiableOptionsForShaders)
@@ -641,7 +641,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(
 				mbFragmentShader = std::move(shader);
 		}
 	}
-	auto mbPipelineLayout = context.loaderOverride->findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/loaders/PLY/pipelinelayout", context.inner, context.topHierarchyLevel+ICPUMesh::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW).first;
+	auto mbPipelineLayout = context.loaderOverride->findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/pipeline_layout/loader/PLY", context.inner, context.topHierarchyLevel+ICPUMesh::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW).first;
 
 	constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
 	core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);

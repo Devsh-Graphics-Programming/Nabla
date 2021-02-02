@@ -12,8 +12,9 @@ namespace nbl
 {
 namespace asset
 {	
-	class CGraphicsPipelineLoaderMTL final : public asset::IAssetLoader
-	{
+
+class CGraphicsPipelineLoaderMTL final : public asset::IAssetLoader
+{
         struct SMtl
         {
             CMTLMetadata::CRenderpassIndependentPipeline::SMaterialParameters params;
@@ -34,7 +35,7 @@ namespace asset
             uint32_t topHierarchyLevel;
             IAssetLoader::IAssetLoaderOverride* loaderOverride;
 
-            static inline uint32_t layoutCacheKey(uint32_t clamps, bool no_ds3) { return clamps | (static_cast<uint32_t>(no_ds3) << 31); }
+            static inline uint32_t layoutCacheKey(uint32_t clamps, bool hasUV) { return clamps | (static_cast<uint32_t>(hasUV) << 31); }
             core::unordered_map<uint32_t, core::smart_refctd_ptr<ICPUPipelineLayout>> layoutCache;
         };
 
@@ -56,11 +57,9 @@ namespace asset
 		asset::SAssetBundle loadAsset(io::IReadFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
     private:
-        core::smart_refctd_ptr<ICPUPipelineLayout> makePipelineLayoutFromMtl(SContext& ctx, const SMtl& _mtl, bool _noDS3);
+        core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> makePipelineFromMtl(SContext& ctx, const SMtl& _mtl, bool hasUV);
         core::vector<SMtl> readMaterials(io::IReadFile* _file) const;
         const char* readTexture(const char* _bufPtr, const char* const _bufEnd, SMtl* _currMaterial, const char* _mapType) const;
-
-        std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>> getShaders(bool _hasUV);
 
         using images_set_t = std::array<core::smart_refctd_ptr<ICPUImage>, CMTLMetadata::CRenderpassIndependentPipeline::EMP_COUNT>;
         using image_views_set_t = std::array<core::smart_refctd_ptr<ICPUImageView>, CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX + 1u>;
@@ -68,7 +67,9 @@ namespace asset
         core::smart_refctd_ptr<ICPUDescriptorSet> makeDescSet(image_views_set_t&& _views, ICPUDescriptorSetLayout* _dsLayout);
 
         IAssetManager* m_assetMgr;
-	};
+        core::smart_refctd_ptr<IRenderpassIndependentPipelineMetadata::semantics_container_t> m_inputSemantics;
+};
+
 }
 }
 

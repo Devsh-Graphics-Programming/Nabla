@@ -32,7 +32,9 @@ class SAssetBundle
 	public:
 		using contents_container_t = core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IAsset> >;
     
-		SAssetBundle(const std::string& _initKey = {}) : m_metadata(nullptr), m_contents(core::make_refctd_dynamic_array<contents_container_t>(0u)), m_cacheKey(_initKey) {}
+		SAssetBundle(const size_t assetCount=0ull) : m_metadata(nullptr), m_contents(core::make_refctd_dynamic_array<contents_container_t>(assetCount)), m_cacheKey("")
+		{
+		}
 		SAssetBundle(const core::smart_refctd_ptr<IAssetMetadata>&& _metadata, std::initializer_list<core::smart_refctd_ptr<IAsset> > _contents, const std::string& _initKey = {}) : 
 			m_metadata(std::move(_metadata)), m_contents(core::make_refctd_dynamic_array<contents_container_t>(_contents)), m_cacheKey(_initKey)
 		{

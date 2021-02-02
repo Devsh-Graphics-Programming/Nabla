@@ -37,7 +37,7 @@ namespace core
 {
 
 template<typename Compared, typename T>
-using add_const_if_const_t = std::conditional_t<std::is_const_v<T>,std::add_const_t<T>,T>;
+using add_const_if_const_t = std::conditional_t<std::is_const_v<Compared>,std::add_const_t<T>,T>;
 
 
 template<typename T>

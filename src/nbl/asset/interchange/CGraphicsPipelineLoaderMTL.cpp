@@ -19,25 +19,10 @@
 using namespace nbl;
 using namespace asset;
 
-template<typename AssetType, IAsset::E_TYPE  >
-static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
-{
-    size_t storageSz = 1ull;
-    asset::SAssetBundle bundle;
-    const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
-
-    _assetMgr->findAssets(storageSz, &bundle, _key, types);
-    if (bundle.isEmpty())
-        return nullptr;
-    auto assets = bundle.getContents();
-    //assert(assets.first != assets.second);
-
-    return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
-}
-#define VERT_SHADER_NO_UV_CACHE_KEY "nbl/builtin/shaders/loaders/mtl/vertex_no_uv.vert"
-#define VERT_SHADER_UV_CACHE_KEY "nbl/builtin/shaders/loaders/mtl/vertex_uv.vert"
-#define FRAG_SHADER_NO_UV_CACHE_KEY "nbl/builtin/shaders/loaders/mtl/fragment_no_uv.frag"
-#define FRAG_SHADER_UV_CACHE_KEY "nbl/builtin/shaders/loaders/mtl/fragment_uv.frag"
+#define VERT_SHADER_NO_UV_CACHE_KEY "nbl/builtin/shader/loader/mtl/vertex_no_uv.vert"
+#define VERT_SHADER_UV_CACHE_KEY "nbl/builtin/shader/loader/mtl/vertex_uv.vert"
+#define FRAG_SHADER_NO_UV_CACHE_KEY "nbl/builtin/shader/loader/mtl/fragment_no_uv.frag"
+#define FRAG_SHADER_UV_CACHE_KEY "nbl/builtin/shader/loader/mtl/fragment_uv.frag"
 
 CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_assetMgr{_am}
 {
@@ -52,30 +37,74 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_a
             stage!=ICPUSpecializedShader::ESS_VERTEX ? "?IrrlichtBAW PipelineLoaderMTL FragmentShader?":"?IrrlichtBAW PipelineLoaderMTL VertexShader?"
         );
 		auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader),std::move(specInfo));
-        insertBuiltinAssetIntoCache(m_assetMgr, core::smart_refctd_ptr_static_cast<IAsset>(std::move(shader)), decltype(constexprStringType)::value);
+        const char* cacheKey = decltype(constexprStringType)::value;
+        insertBuiltinAssetIntoCache(m_assetMgr, SAssetBundle(nullptr,{ core::smart_refctd_ptr_static_cast<IAsset>(std::move(shader)) }), cacheKey);
     };
 
     registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_VERTEX);
-    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY) {}, ICPUSpecializedShader::ESS_VERTEX);
+    registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(VERT_SHADER_UV_CACHE_KEY){}, ICPUSpecializedShader::ESS_VERTEX);
     registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_NO_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
     registerShader(NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(FRAG_SHADER_UV_CACHE_KEY){},ICPUSpecializedShader::ESS_FRAGMENT);
 }
 
 void CGraphicsPipelineLoaderMTL::initialize()
 {
-    constexpr const char* MISSING_MTL_PIPELINE_NO_UV_CACHE_KEY = "nbl/builtin/graphics_pipeline/loaders/mtl/missing_material_pipeline_no_uv";
-    constexpr const char* MISSING_MTL_PIPELINE_UV_CACHE_KEY = "nbl/builtin/graphics_pipeline/loaders/mtl/missing_material_pipeline_uv";
+    // need to initialize this first
+    auto ds1layout = IAssetLoaderOverride(m_assetMgr).findDefaultAsset<ICPUDescriptorSetLayout>(
+        "nbl/builtin/descriptor_set_layout/basic_view_parameters",
+        IAssetLoader::SAssetLoadContext(
+            IAssetLoader::SAssetLoadParams{},
+            nullptr
+        ),0u
+    );
+
+    // create common metadata part
+    {
+        constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
+        m_inputSemantics = core::make_refctd_dynamic_array<decltype(m_inputSemantics)>(DS1_METADATA_ENTRY_CNT);
+
+        // TODO: this seems very common to many mesh loaders @Crisspl maybe an `IRenderpassIndependentPipelineLoaderBase` is in order?
+        constexpr IRenderpassIndependentPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT] = 
+        {
+            IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_PROJ,
+            IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW,
+            IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE
+        };
+        constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT] = 
+        {
+            sizeof(SBasicViewParameters::MVP),
+            sizeof(SBasicViewParameters::MV),
+            sizeof(SBasicViewParameters::NormalMat)
+        };
+        constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT] =
+        {
+            offsetof(SBasicViewParameters,MVP),
+            offsetof(SBasicViewParameters,MV),
+            offsetof(SBasicViewParameters,NormalMat)
+        };
+        for (uint32_t i=0u; i<DS1_METADATA_ENTRY_CNT; ++i)
+        {
+            auto& semantic = (m_inputSemantics->end()-i-1u)[0];
+            semantic.type = types[i];
+            semantic.descriptorSection.type = IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
+            semantic.descriptorSection.uniformBufferObject.binding = ds1layout.first->getBindings().begin()[0].binding;
+            semantic.descriptorSection.uniformBufferObject.set = 1u;
+            semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
+            semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
+            semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_VERTEX;
+        }
+    }
+
+    // precompute pipeline layouts
+
+    // default pipelines
     SAssetLoadParams assetLoadParams;
   
     auto default_mtl_file = m_assetMgr->getFileSystem()->createMemoryReadFile(DUMMY_MTL_CONTENT, strlen(DUMMY_MTL_CONTENT), "default IrrlichtBAW material");
     auto bundle = loadAsset(default_mtl_file, assetLoadParams);
-    auto pipelineAssets = bundle.getContents().begin();
     default_mtl_file->drop();
-    auto pNoUV = pipelineAssets[0];
-    auto pUV = pipelineAssets[1];
 
-    insertBuiltinAssetIntoCache(m_assetMgr, pNoUV, MISSING_MTL_PIPELINE_NO_UV_CACHE_KEY);
-    insertBuiltinAssetIntoCache(m_assetMgr, pUV, MISSING_MTL_PIPELINE_UV_CACHE_KEY);
+    insertBuiltinAssetIntoCache(m_assetMgr, std::move(bundle), "nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline");
 }
 
 bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) const
@@ -95,59 +124,8 @@ bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(io::IReadFile* _file) con
     return mtl.find("newmtl") != std::string::npos;
 }
 
-
-core::smart_refctd_ptr<ICPUPipelineLayout> CGraphicsPipelineLoaderMTL::makePipelineLayoutFromMtl(SContext& _ctx, const SMtl& _mtl, bool _noDS3)
-{
-    const auto cacheKey = _ctx.layoutCacheKey(_mtl.clamp, _noDS3);
-
-    if (auto found = _ctx.layoutCache.find(cacheKey); found != _ctx.layoutCache.end())
-        return found->second;
-
-    //assumes all supported textures are always present
-    //since vulkan doesnt support bindings with no/null descriptor, absent textures will be filled with dummy 2D texture (while creating desc set)
-    auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(static_cast<size_t>(CMTLMetadata::CIRenderpassIndependentPipeline::EMP_REFL_POSX)+1ull);
-
-    ICPUDescriptorSetLayout::SBinding bnd;
-    bnd.count = 1u;
-    bnd.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
-    bnd.type = EDT_COMBINED_IMAGE_SAMPLER;
-    bnd.binding = 0u;
-    std::fill(bindings->begin(), bindings->end(), bnd);
-
-    core::smart_refctd_ptr<ICPUSampler> samplers[2];
-    samplers[0] = getDefaultAsset<ICPUSampler,IAsset::ET_SAMPLER>("nbl/builtin/samplers/default", m_assetMgr);
-    samplers[1] = getDefaultAsset<ICPUSampler, IAsset::ET_SAMPLER>("nbl/builtin/samplers/default_clamp_to_border", m_assetMgr);
-    for (uint32_t i = 0u; i <= CMTLPipelineMetadata::EMP_REFL_POSX; ++i)
-    {
-        (*bindings)[i].binding = i;
-
-        const uint32_t clamp = (_mtl.clamp >> i) & 1u;
-        (*bindings)[i].samplers = samplers + clamp;
-    }
-
-    auto ds1layout = getDefaultAsset<ICPUDescriptorSetLayout, IAsset::ET_DESCRIPTOR_SET_LAYOUT>("nbl/builtin/descriptor_set_layout/basic_view_parameters", m_assetMgr);
-    core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds3Layout = _noDS3 ? nullptr : core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
-    SPushConstantRange pcRng;
-    pcRng.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
-    pcRng.offset = 0u;
-    pcRng.size = sizeof(SMtl::params);
-    //if intellisense shows error here, it's most likely intellisense's fault and it'll build fine anyway
-    static_assert(sizeof(SMtl::params)<=ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "It must fit in push constants!");
-    //ds with textures for material goes to set=3
-    auto layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng+1, nullptr, std::move(ds1layout), nullptr, std::move(ds3Layout));
-
-    _ctx.layoutCache.insert({ cacheKey, layout });
-
-    return layout;
-}
-
 SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
-    constexpr uint32_t POSITION = 0u;
-    constexpr uint32_t UV = 2u;
-    constexpr uint32_t NORMAL = 3u;
-    constexpr uint32_t BND_NUM = 0u;
-
     SContext ctx(
         asset::IAssetLoader::SAssetLoadContext{
             _params,
@@ -156,16 +134,55 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         _hierarchyLevel,
         _override
     );
-    const io::path fullName = _file->getFileName();
-	const std::string relPath = (io::IFileSystem::getFileDir(fullName)+"/").c_str();
+    const std::string fullName = _file->getFileName().c_str();
+	const std::string relPath(fullName+"/");
 
     auto materials = readMaterials(_file);
 
+    // because one for UV and one without UV
     constexpr uint32_t PIPELINE_PERMUTATION_COUNT = 2u;
+    const auto pipelineCount = materials.size()*PIPELINE_PERMUTATION_COUNT;
 
-    core::vector<core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>> pipelines(materials.size()*PIPELINE_PERMUTATION_COUNT);
-    for (size_t i = 0ull; i < materials.size(); ++i)
+    SAssetBundle retval(pipelineCount);
+    auto meta = core::make_smart_refctd_ptr<CMTLMetadata>(pipelineCount);
+    uint32_t offset = 0u;
+    for (const auto& material : materials)
     {
+        const uint32_t illum = material.params.extra&0xfu;
+
+        const char* blendModel = "opaque";
+        if (illum==4u || illum==6u || illum==7u || illum==9u)
+            blendModel = "thindielectric";
+        else if (material.maps[CMTLMetadata::CRenderpassIndependentPipeline::EMP_OPACITY].size() || material.params.opacity!=1.f)
+            blendModel = "opacitymap";
+
+        // stuff
+        {
+            constexpr bool hasUV = false;
+            constexpr uint32_t hash = 0u;
+            meta->addMeta(offset++,makePipelineFromMtl(ctx,material,hasUV),nullptr,material.params,material.name,hash,m_inputSemantics);
+        }
+        {
+            constexpr bool hasUV = true;
+            constexpr uint32_t hash = 1u;
+            meta->addMeta(offset++,makePipelineFromMtl(ctx,material,hasUV),std:move(ds3),material.params,std::move(material.name),hash,m_inputSemantics);
+        }
+    }
+    
+    if (!materials.empty())
+        retval.setMetadata(std::move(meta));
+
+    return retval;
+}
+
+#if 0
+
+    {
+        constexpr uint32_t POSITION = 0u;
+        constexpr uint32_t UV = 2u;
+        constexpr uint32_t NORMAL = 3u;
+        constexpr uint32_t BND_NUM = 0u;
+
         SVertexInputParams vtxParams;
         SBlendParams blendParams;
         SPrimitiveAssemblyParams primParams;
@@ -180,7 +197,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
             blendParams.blendParams[0].dstColorFactor = EBF_ONE_MINUS_SRC_ALPHA;
             blendParams.blendParams[0].dstAlphaFactor = EBF_ONE_MINUS_SRC_ALPHA;
         }
-        else if (materials[i].maps[CMTLPipelineMetadata::EMP_OPACITY].size() || materials[i].params.opacity!=1.f)
+        else if (materials[i].maps[CMTLMetadata::CRenderpassIndependentPipeline::EMP_OPACITY].size() || materials[i].params.opacity!=1.f)
         {
             blendParams.blendParams[0].blendEnable = true;
             blendParams.blendParams[0].srcColorFactor = EBF_SRC_ALPHA;
@@ -204,34 +221,14 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         vtxParams.attributes[NORMAL].format = EF_A2B10G10R10_SNORM_PACK32;
         vtxParams.attributes[NORMAL].relativeOffset = 20u;
 
-        auto layout = makePipelineLayoutFromMtl(ctx, materials[i], true);
-        auto shaders = getShaders(false);
 
-        constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
-        core::smart_refctd_dynamic_array<IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
-        {
-            ICPUDescriptorSetLayout* ds1layout = layout->getDescriptorSetLayout(1u);
 
-            constexpr IPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT]{IPipelineMetadata::ECSI_WORLD_VIEW_PROJ, IPipelineMetadata::ECSI_WORLD_VIEW, IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE};
-            constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT]{sizeof(SBasicViewParameters::MVP), sizeof(SBasicViewParameters::MV), sizeof(SBasicViewParameters::NormalMat)};
-            constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT]{offsetof(SBasicViewParameters,MVP), offsetof(SBasicViewParameters,MV), offsetof(SBasicViewParameters,NormalMat)};
-            for (uint32_t i = 0u; i < DS1_METADATA_ENTRY_CNT; ++i)
-            {
-                auto& semantic = (shaderInputsMetadata->end()-i-1u)[0];
-                semantic.type = types[i];
-                semantic.descriptorSection.type = IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
-                semantic.descriptorSection.uniformBufferObject.binding = ds1layout->getBindings().begin()[0].binding;
-                semantic.descriptorSection.uniformBufferObject.set = 1u;
-                semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
-                semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
-                semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_VERTEX;
-            }
-        }
 
-        pipelines[j] = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(layout), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
-        pipelines[j]->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, shaders.first.get());
-        pipelines[j]->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, shaders.second.get());
-        m_assetMgr->setAssetMetadata(pipelines[j].get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(materials[i].params, std::string(materials[i].name), nullptr, 0u, core::smart_refctd_ptr(shaderInputsMetadata)));
+
+
+
+
+
 
         //uv
         vtxParams.enabledAttribFlags |= (1u << UV);
@@ -239,53 +236,80 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         vtxParams.attributes[UV].format = EF_R32G32_SFLOAT;
         vtxParams.attributes[UV].relativeOffset = 12u;
 
-        layout = makePipelineLayoutFromMtl(ctx, materials[i], false);
-        shaders = getShaders(true);
+
+
+
 
         core::smart_refctd_ptr<ICPUDescriptorSet> ds3;
         {
-            const std::string dsCacheKey = std::string(fullName.c_str()) + "?" + materials[i].name + "?_ds";
-            if (_override)
+            const std::string dsCacheKey = fullName + "?" + materials[i].name + "?_ds";
+            ds3 = _override->findDefaultAsset<ICPUDescriptorSet>(dsCacheKey, ctx.inner, _hierarchyLevel+ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW).first;
+            if (!ds3)
             {
-                const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_DESCRIPTOR_SET, (asset::IAsset::E_TYPE)0u };
-                auto ds_bundle = _override->findCachedAsset(dsCacheKey, types, ctx.inner, _hierarchyLevel + ICPUMesh::DESC_SET_HIERARCHYLEVELS_BELOW);
-                if (!ds_bundle.isEmpty())
+                auto views = loadImages(relPath, materials[i], ctx);
+                ds3 = makeDescSet(std::move(views), layout->getDescriptorSetLayout(3u));
+                if (ds3)
                 {
-                    ds3 = core::smart_refctd_ptr_static_cast<ICPUDescriptorSet>(ds_bundle.getContents().begin()[0]);
-                }
-                else
-                {
-                    auto views = loadImages(relPath.c_str(), materials[i], ctx);
-                    ds3 = makeDescSet(std::move(views), layout->getDescriptorSetLayout(3u));
-                    if (ds3)
-                    {
-                        SAssetBundle bundle{ ds3 };
-                        _override->insertAssetIntoCache(bundle, dsCacheKey, ctx.inner, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
-                    }
-                }
-            }
-            else
-            {
-                SAssetLoadParams assetloadparams;
-                auto default_imageview_bundle = m_assetMgr->getAsset("nbl/builtin/image_views/dummy2d", assetloadparams);
-                if (!default_imageview_bundle.isEmpty())
-                {
-                    auto assetptr = core::smart_refctd_ptr_static_cast<ICPUImageView>(default_imageview_bundle.getContents().begin()[0]);
-                    image_views_set_t views;
-                    views[0] = assetptr;
-                    ds3 = makeDescSet(std::move(views), layout->getDescriptorSetLayout(3u));
+                    SAssetBundle bundle{ ds3 };
+                    _override->insertAssetIntoCache(bundle, dsCacheKey, ctx.inner, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
                 }
             }
         }
 
         pipelines[j+1u] = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(layout), nullptr, nullptr, vtxParams, blendParams, primParams, rasterParams);
-        pipelines[j+1u]->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, shaders.first.get());
-        pipelines[j+1u]->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, shaders.second.get());
-        m_assetMgr->setAssetMetadata(pipelines[j+1u].get(), core::make_smart_refctd_ptr<CMTLPipelineMetadata>(materials[i].params, std::move(materials[i].name), std::move(ds3), 1u, std::move(shaderInputsMetadata)));
     }
-    materials.clear();
+#endif
 
-    return asset::SAssetBundle(std::move(pipelines));
+core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CGraphicsPipelineLoaderMTL::makePipelineFromMtl(SContext& _ctx, const SMtl& _mtl, bool hasUV)
+{
+    const auto cacheKey = _ctx.layoutCacheKey(_mtl.clamp, hasUV);
+
+    if (auto found = _ctx.layoutCache.find(cacheKey); found != _ctx.layoutCache.end())
+        return found->second;
+
+    //assumes all supported textures are always present
+    //since vulkan doesnt support bindings with no/null descriptor, absent textures will be filled with dummy 2D texture (while creating desc set)
+    auto bindings = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUDescriptorSetLayout::SBinding>>(static_cast<size_t>(CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX)+1ull);
+
+    ICPUDescriptorSetLayout::SBinding bnd;
+    bnd.count = 1u;
+    bnd.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+    bnd.type = EDT_COMBINED_IMAGE_SAMPLER;
+    bnd.binding = 0u;
+    std::fill(bindings->begin(), bindings->end(), bnd);
+
+    core::smart_refctd_ptr<ICPUSampler> samplers[] =
+    {
+        _ctx.loaderOverride->findDefaultAsset<ICPUSampler>("nbl/builtin/sampler/default",_ctx.inner,_ctx.topHierarchyLevel + ICPURenderpassIndependentPipeline::IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW).first,
+        _ctx.loaderOverride->findDefaultAsset<ICPUSampler>("nbl/builtin/sampler/default_clamp_to_border",_ctx.inner,_ctx.topHierarchyLevel + ICPURenderpassIndependentPipeline::IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW).first
+    };
+    for (uint32_t i = 0u; i <= CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX; ++i)
+    {
+        (*bindings)[i].binding = i;
+
+        const uint32_t clamp = (_mtl.clamp >> i) & 1u;
+        (*bindings)[i].samplers = samplers + clamp;
+    }
+
+    core::smart_refctd_ptr<ICPUDescriptorSetLayout> ds3Layout = _noDS3 ? nullptr : core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(bindings->begin(), bindings->end());
+    SPushConstantRange pcRng;
+    pcRng.stageFlags = ICPUSpecializedShader::ESS_FRAGMENT;
+    pcRng.offset = 0u;
+    pcRng.size = sizeof(SMtl::params);
+    //if intellisense shows error here, it's most likely intellisense's fault and it'll build fine anyway
+    static_assert(sizeof(SMtl::params)<=ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "It must fit in push constants!");
+    //ds with textures for material goes to set=3
+    auto layout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng+1, nullptr, std::move(ds1layout), nullptr, std::move(ds3Layout));
+
+    _ctx.layoutCache.insert({ cacheKey, layout });
+    
+    core::smart_refctd_ptr<ICPUSpecializedShader> shaders[] =
+    {
+        _ctx.loaderOverride->findDefaultAsset<ICPUSpecializedShader>(hasUV ? VERT_SHADER_UV_CACHE_KEY:VERT_SHADER_NO_UV_CACHE_KEY,_ctx.inner,_ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::SPECIALIZED_SHADER_HIERARCHYLEVELS_BELOW).first,
+        _ctx.loaderOverride->findDefaultAsset<ICPUSpecializedShader>(hasUV ? FRAG_SHADER_UV_CACHE_KEY:FRAG_SHADER_NO_UV_CACHE_KEY,_ctx.inner,_ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::SPECIALIZED_SHADER_HIERARCHYLEVELS_BELOW).first
+    };
+
+    return core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(layout),shaders,shaders+2u,vtxParams,blendParams,primParams,rasterParams);
 }
 
 namespace
@@ -367,30 +391,30 @@ namespace
 
 const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const char* const _bufEnd, SMtl* _currMaterial, const char* _mapType) const
 {
-    static const core::unordered_map<std::string, CMTLPipelineMetadata::E_MAP_TYPE> str2type =
+    static const core::unordered_map<std::string, CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE> str2type =
     {
-        {"Ka", CMTLPipelineMetadata::EMP_AMBIENT},
-        {"Kd", CMTLPipelineMetadata::EMP_DIFFUSE},
-        {"Ke", CMTLPipelineMetadata::EMP_EMISSIVE},
-        {"Ks", CMTLPipelineMetadata::EMP_SPECULAR},
-        {"Ns", CMTLPipelineMetadata::EMP_SHININESS},
-        {"d", CMTLPipelineMetadata::EMP_OPACITY},
-        {"bump", CMTLPipelineMetadata::EMP_BUMP},
-        {"disp", CMTLPipelineMetadata::EMP_DISPLACEMENT},
-        {"refl", CMTLPipelineMetadata::EMP_REFL_POSX},
-        {"norm", CMTLPipelineMetadata::EMP_NORMAL},
-        {"Pr", CMTLPipelineMetadata::EMP_ROUGHNESS},
-        {"Pm", CMTLPipelineMetadata::EMP_METALLIC},
-        {"Ps", CMTLPipelineMetadata::EMP_SHEEN}
+        {"Ka", CMTLMetadata::CRenderpassIndependentPipeline::EMP_AMBIENT},
+        {"Kd", CMTLMetadata::CRenderpassIndependentPipeline::EMP_DIFFUSE},
+        {"Ke", CMTLMetadata::CRenderpassIndependentPipeline::EMP_EMISSIVE},
+        {"Ks", CMTLMetadata::CRenderpassIndependentPipeline::EMP_SPECULAR},
+        {"Ns", CMTLMetadata::CRenderpassIndependentPipeline::EMP_SHININESS},
+        {"d", CMTLMetadata::CRenderpassIndependentPipeline::EMP_OPACITY},
+        {"bump", CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP},
+        {"disp", CMTLMetadata::CRenderpassIndependentPipeline::EMP_DISPLACEMENT},
+        {"refl", CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX},
+        {"norm", CMTLMetadata::CRenderpassIndependentPipeline::EMP_NORMAL},
+        {"Pr", CMTLMetadata::CRenderpassIndependentPipeline::EMP_ROUGHNESS},
+        {"Pm", CMTLMetadata::CRenderpassIndependentPipeline::EMP_METALLIC},
+        {"Ps", CMTLMetadata::CRenderpassIndependentPipeline::EMP_SHEEN}
     };
-    static const core::unordered_map<std::string, CMTLPipelineMetadata::E_MAP_TYPE> refl_str2type =
+    static const core::unordered_map<std::string, CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE> refl_str2type =
     {
-        {"top", CMTLPipelineMetadata::EMP_REFL_POSY},
-        {"bottom", CMTLPipelineMetadata::EMP_REFL_NEGY},
-        {"front", CMTLPipelineMetadata::EMP_REFL_NEGZ},
-        {"back", CMTLPipelineMetadata::EMP_REFL_POSZ},
-        {"left", CMTLPipelineMetadata::EMP_REFL_NEGX},
-        {"right", CMTLPipelineMetadata::EMP_REFL_POSX}
+        {"top", CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSY},
+        {"bottom", CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_NEGY},
+        {"front", CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_NEGZ},
+        {"back", CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSZ},
+        {"left", CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_NEGX},
+        {"right", CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX}
     };
 
     constexpr static size_t WORD_BUFFER_LENGTH = 512ull;
@@ -400,7 +424,7 @@ const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const c
     if (mapTypeStr.compare(0ull, 4ull, "map_")==0)
         mapTypeStr.erase(0ull, 4ull);
 
-    CMTLPipelineMetadata::E_MAP_TYPE mapType = CMTLPipelineMetadata::EMP_COUNT;
+    auto mapType = CMTLMetadata::CRenderpassIndependentPipeline::EMP_COUNT;
     auto found = str2type.find(mapTypeStr);
     if (found != str2type.end())
         mapType = found->second;
@@ -411,7 +435,7 @@ const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const c
     _bufPtr = goAndCopyNextWord(tmpbuf, _bufPtr, WORD_BUFFER_LENGTH, _bufEnd);
     while (tmpbuf[0]=='-')
     {
-        if (mapType==CMTLPipelineMetadata::EMP_REFL_POSX && strncmp(tmpbuf, "-type", 5)==0)
+        if (mapType==CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX && strncmp(tmpbuf, "-type", 5)==0)
         {
             _bufPtr = goAndCopyNextWord(tmpbuf, _bufPtr, WORD_BUFFER_LENGTH, _bufEnd);
             if (strlen(tmpbuf) >= 8ull) //shortest one is "cube_top"
@@ -439,7 +463,7 @@ const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const c
 		if (strncmp(_bufPtr,"-clamp",6)==0)
         {
             _bufPtr = goAndCopyNextWord(tmpbuf, _bufPtr, WORD_BUFFER_LENGTH, _bufEnd);
-            if (mapType != CMTLPipelineMetadata::EMP_COUNT)
+            if (mapType != CMTLMetadata::CRenderpassIndependentPipeline::EMP_COUNT)
             {
                 uint32_t clamp = (strcmp("off", tmpbuf) != 0);
                 _currMaterial->clamp |= (clamp<<mapType);
@@ -497,7 +521,7 @@ const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const c
 		_bufPtr = goAndCopyNextWord(tmpbuf, _bufPtr, WORD_BUFFER_LENGTH, _bufEnd);
     }
 
-    if (mapType != CMTLPipelineMetadata::EMP_COUNT)
+    if (mapType != CMTLMetadata::CRenderpassIndependentPipeline::EMP_COUNT)
     {
         std::string path = tmpbuf;
         std::replace(path.begin(), path.end(), '\\', '/');
@@ -507,15 +531,7 @@ const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const c
     return _bufPtr;
 }
 
-std::pair<core::smart_refctd_ptr<ICPUSpecializedShader>, core::smart_refctd_ptr<ICPUSpecializedShader>> CGraphicsPipelineLoaderMTL::getShaders(bool _hasUV)
-{
-    auto vs = getDefaultAsset<ICPUSpecializedShader, IAsset::ET_SPECIALIZED_SHADER>(_hasUV ? VERT_SHADER_UV_CACHE_KEY : VERT_SHADER_NO_UV_CACHE_KEY, m_assetMgr);
-    auto fs = getDefaultAsset<ICPUSpecializedShader, IAsset::ET_SPECIALIZED_SHADER>(_hasUV ? FRAG_SHADER_UV_CACHE_KEY : FRAG_SHADER_NO_UV_CACHE_KEY, m_assetMgr);
-
-    return { std::move(vs), std::move(fs) };
-}
-
-auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mtl, SContext& _ctx) -> image_views_set_t
+CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mtl, SContext& _ctx)
 {
     images_set_t images;
     image_views_set_t views;
@@ -526,18 +542,20 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mt
         SAssetLoadParams lp;
         if (_mtl.maps[i].size() )
         {
-            io::path output;
-            core::getFileNameExtension(output,_mtl.maps[i].c_str());
-            if (output == ".dds")
-            {
-                auto bundle = interm_getAssetInHierarchy(m_assetMgr, relDir + _mtl.maps[i], lp, _ctx.topHierarchyLevel + ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride);
-                if (!bundle.isEmpty())
-                    views[i] = core::smart_refctd_ptr_static_cast<ICPUImageView>(bundle.getContents().begin()[0]);
-            }else
-            {
             auto bundle = interm_getAssetInHierarchy(m_assetMgr, relDir+_mtl.maps[i], lp, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGE_HIERARCHYLEVELS_BELOW, _ctx.loaderOverride);
-            if (!bundle.isEmpty())
-                images[i] = core::smart_refctd_ptr_static_cast<ICPUImage>(bundle.getContents().begin()[0]);
+            auto asset = _ctx.loaderOverride->chooseDefaultAsset(bundle,_ctx.inner);
+            if (asset)
+            switch (bundle.getAssetType())
+            {
+                case IAsset::ET_IMAGE:
+                    images[i] = core::smart_refctd_ptr_static_cast<ICPUImage>(asset);
+                    break;
+                case IAsset::ET_IMAGE_VIEW:
+                    views[i] = core::smart_refctd_ptr_static_cast<ICPUImageView>(asset);
+                    break;
+                default:
+                    // TODO: log an error
+                    break;
             }
         }
     }
@@ -560,16 +578,16 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mt
         return true;
     };
     //make reflection cubemap
-    if (images[CMTLPipelineMetadata::EMP_REFL_POSX])
+    if (images[CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX])
     {
-        assert(allCubemapFacesAreSameSizeAndFormat(images.data() + CMTLPipelineMetadata::EMP_REFL_POSX));
+        assert(allCubemapFacesAreSameSizeAndFormat(images.data() + CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX));
 
         size_t bufSz = 0ull;
         //assuming all cubemap layer images are same size and same format
-        const size_t alignment = 1u<<core::findLSB(images[CMTLPipelineMetadata::EMP_REFL_POSX]->getRegions().begin()->bufferRowLength);
+        const size_t alignment = 1u<<core::findLSB(images[CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX]->getRegions().begin()->bufferRowLength);
         core::vector<ICPUImage::SBufferCopy> regions_;
         regions_.reserve(6ull);
-        for (uint32_t i = CMTLPipelineMetadata::EMP_REFL_POSX; i < CMTLPipelineMetadata::EMP_REFL_POSX + 6u; ++i)
+        for (uint32_t i = CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX; i < CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX + 6u; ++i)
         {
             assert(images[i]);
 #ifndef _NBL_DEBUG
@@ -581,7 +599,7 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mt
 
                 regions_.push_back(images[i]->getRegions().begin()[0]);
                 regions_.back().bufferOffset = core::roundUp(regions_.back().bufferOffset, alignment);
-                regions_.back().imageSubresource.baseArrayLayer = (i - CMTLPipelineMetadata::EMP_REFL_POSX);
+                regions_.back().imageSubresource.baseArrayLayer = (i - CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX);
 
                 bufSz += images[i]->getImageDataSizeInBytes();
 #ifndef _NBL_DEBUG
@@ -589,7 +607,7 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mt
 #endif
         }
         auto imgDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(bufSz);
-        for (uint32_t i = CMTLPipelineMetadata::EMP_REFL_POSX, j = 0u; i < CMTLPipelineMetadata::EMP_REFL_POSX + 6u; ++i)
+        for (uint32_t i = CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX, j = 0u; i < CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX + 6u; ++i)
         {
 #ifndef _NBL_DEBUG
             if (images[i])
@@ -607,18 +625,15 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mt
         }
 
         //assuming all cubemap layer images are same size and same format
-        ICPUImage::SCreationParams cubemapParams = images[CMTLPipelineMetadata::EMP_REFL_POSX]->getCreationParameters();
+        ICPUImage::SCreationParams cubemapParams = images[CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX]->getCreationParameters();
         cubemapParams.arrayLayers = 6u;
         cubemapParams.type = IImage::ET_2D;
         auto cubemap = ICPUImage::create(std::move(cubemapParams));
         auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(regions_);
         cubemap->setBufferAndRegions(std::move(imgDataBuf), regions);
         //new image goes to EMP_REFL_POSX index and other ones get nulled-out
-        images[CMTLPipelineMetadata::EMP_REFL_POSX] = std::move(cubemap);
-        for (uint32_t i = CMTLPipelineMetadata::EMP_REFL_POSX + 1u; i < CMTLPipelineMetadata::EMP_REFL_POSX + 6u; ++i)
-        {
-            images[i] = nullptr;
-        }
+        images[CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX] = std::move(cubemap);
+        std::fill_n(images.begin()+CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX+1u,5u,nullptr);
     }
 
     for (uint32_t i = 0u; i < views.size(); ++i)
@@ -627,16 +642,20 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mt
             continue;
 
         const std::string viewCacheKey = _mtl.maps[i] + "?view";
-        if (auto view = getDefaultAsset<ICPUImageView,IAsset::ET_IMAGE_VIEW>(viewCacheKey.c_str(), m_assetMgr))
+        // try cache
         {
-            views[i] = std::move(view);
-            continue;
+            auto view = _ctx.loaderOverride->findDefaultAsset<ICPUImageView>(viewCacheKey, _ctx.inner, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW);
+            if (view.first)
+            {
+                views[i] = std::move(view.first);
+                continue;
+            }
         }
 
         constexpr IImageView<ICPUImage>::E_TYPE viewType[2]{ IImageView<ICPUImage>::ET_2D, IImageView<ICPUImage>::ET_CUBE_MAP };
         constexpr uint32_t layerCount[2]{ 1u, 6u };
 
-        const bool isCubemap = (i == CMTLPipelineMetadata::EMP_REFL_POSX);
+        const bool isCubemap = (i == CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX);
 
         ICPUImageView::SCreationParams viewParams;
         viewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
@@ -649,9 +668,7 @@ auto CGraphicsPipelineLoaderMTL::loadImages(const char* _relDir, const SMtl& _mt
         viewParams.image = std::move(images[i]);
 
         views[i] = ICPUImageView::create(std::move(viewParams));
-
-        SAssetBundle bundle{views[i]};
-        _ctx.loaderOverride->insertAssetIntoCache(bundle, viewCacheKey, _ctx.inner, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW);
+        _ctx.loaderOverride->insertAssetIntoCache(SAssetBundle(nullptr,{ views[i] }), viewCacheKey, _ctx.inner, _ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW);
     }
 
     return views;
@@ -665,8 +682,8 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSe
     auto ds = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(
         core::smart_refctd_ptr<ICPUDescriptorSetLayout>(_dsLayout)
         );
-    auto dummy2d = getDefaultAsset<ICPUImageView, IAsset::ET_IMAGE_VIEW>("nbl/builtin/image_views/dummy2d", m_assetMgr);
-    for (uint32_t i = 0u; i <= CMTLPipelineMetadata::EMP_REFL_POSX; ++i)
+    auto dummy2d = getDefaultAsset<ICPUImageView, IAsset::ET_IMAGE_VIEW>("nbl/builtin/image_view/dummy2d", m_assetMgr);
+    for (uint32_t i = 0u; i <= CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX; ++i)
     {
         auto desc = ds->getDescriptors(i).begin();
 

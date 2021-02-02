@@ -167,7 +167,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 	}
 
 	// TODO: @Anastazluk PRECOMPUTE THE ENTIRE PIPELINE (since metadata is now free to change for every time the same handle gets returned)
-	const std::string shaderDefaultAssetPath = hasColor ? "nbl/builtin/materials/debug/vertex_color_debug_shader/specializedshader" : "nbl/builtin/materials/debug/normal_debug_shader/specializedshader"; // TODO: `normal_debug` is a rather bad name
+	const std::string shaderDefaultAssetPath = hasColor ? "nbl/builtin/material/debug/vertex_color_debug_shader/specialized_shader" : "nbl/builtin/material/debug/normal_debug_shader/specialized_shader"; // TODO: `normal_debug` is a rather bad name
 	auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	{
@@ -189,7 +189,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(IReadFile* _file, const IAssetLoader:
 		}
 	}
 
-	auto mbPipelineLayout = _override->findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/materials/lambertian/no_texture/pipelinelayout", /*TODO: @Anastazluk where the F is the loading SContext???*/, _hierarchyLevel+ICPURenderpassIndependentPipeline::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW);
+	auto mbPipelineLayout = _override->findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/material/lambertian/no_texture/pipeline_layout", /*TODO: @Anastazluk where the F is the loading SContext???*/, _hierarchyLevel+ICPURenderpassIndependentPipeline::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW);
 
 	constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
 	core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);

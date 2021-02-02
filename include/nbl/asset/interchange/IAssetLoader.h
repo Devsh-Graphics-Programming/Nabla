@@ -182,9 +182,9 @@ public:
 			const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
 
 			auto bundle = findCachedAsset(inSearchKey,types,ctx,hierarchyLevel);
-			auto assets = bundle.getContents();
-			if (assets.empty())
-				return { nullptr,nullptr };
+			//auto assets = bundle.getContents();
+			//if (assets.empty())
+				//return { nullptr,nullptr };
 
 			return { chooseDefaultAsset(bundle,ctx),bundle.getMetadata() };
 		}
@@ -192,7 +192,10 @@ public:
 		//!
 		inline virtual core::smart_refctd_ptr<IAsset> chooseDefaultAsset(const SAssetBundle& bundle, const SAssetLoadContext& ctx)
 		{
-			return *bundle.getContents().begin();
+			auto contents = bundle.getContents();
+			if (contents.empty())
+				return nullptr;
+			return *contents.begin();
 		}
 
         //! The most imporant overrides are the ones for caching

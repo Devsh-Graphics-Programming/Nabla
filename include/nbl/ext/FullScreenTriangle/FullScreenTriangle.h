@@ -20,7 +20,7 @@ inline auto createFullScreenTriangle(asset::IAssetManager* am, video::IVideoDriv
 	std::tuple<core::smart_refctd_ptr<video::IGPUSpecializedShader>,asset::SVertexInputParams,asset::SPrimitiveAssemblyParams> retval;
 
 	asset::IAsset::E_TYPE types[] = { asset::IAsset::ET_SPECIALIZED_SHADER,static_cast<asset::IAsset::E_TYPE>(0u) };
-	auto found = am->findAssets("nbl/builtin/specializedshaders/fullscreentriangle.vert",types);
+	auto found = am->findAssets("nbl/builtin/specialized_shader/fullscreentriangle.vert",types);
 	assert(found->size());
 	auto first = found->begin();
 	assert(!first->isEmpty());
