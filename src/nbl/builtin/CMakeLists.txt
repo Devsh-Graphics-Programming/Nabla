@@ -17,12 +17,12 @@ function(nbl_add_builtin_resources)
 endfunction()
 
 set(nbl_resources_to_embed
-  "nbl/builtin/shader/loaders/mtl/vertex_impl.glsl"
-  "nbl/builtin/shader/loaders/mtl/vertex_no_uv.vert"
-  "nbl/builtin/shader/loaders/mtl/vertex_uv.vert"
-  "nbl/builtin/shader/loaders/mtl/fragment_impl.glsl"
-  "nbl/builtin/shader/loaders/mtl/fragment_no_uv.frag"
-  "nbl/builtin/shader/loaders/mtl/fragment_uv.frag"
+  "nbl/builtin/shader/loader/mtl/vertex_impl.glsl"
+  "nbl/builtin/shader/loader/mtl/vertex_no_uv.vert"
+  "nbl/builtin/shader/loader/mtl/vertex_uv.vert"
+  "nbl/builtin/shader/loader/mtl/fragment_impl.glsl"
+  "nbl/builtin/shader/loader/mtl/fragment_no_uv.frag"
+  "nbl/builtin/shader/loader/mtl/fragment_uv.frag"
   "nbl/builtin/specialized_shader/fullscreentriangle.vert"
   "nbl/builtin/material/lambertian/singletexture/specializedshader.vert"
   "nbl/builtin/material/lambertian/singletexture/specializedshader.frag"
