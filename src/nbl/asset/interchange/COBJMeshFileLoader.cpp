@@ -17,6 +17,8 @@
 #include "nbl/asset/utils/CQuantNormalCache.h"
 #include "COBJMeshFileLoader.h"
 
+#include <filesystem>
+
 
 namespace nbl
 {
@@ -73,11 +75,26 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 
 	uint32_t smoothingGroup=0;
 
-	const io::path fullName = _file->getFileName();
-	const std::string relPath = (io::IFileSystem::getFileDir(fullName)+"/").c_str();
+	const std::string fullName = _file->getFileName().c_str();
+	const std::string relPath = std::filesystem::path(fullName).parent_path().string()+"/";
 
     //value_type: directory from which .mtl (pipeline) was loaded and the pipeline
-    core::unordered_multimap<std::string, std::pair<std::string, core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>>> pipelines;
+	using pipeline_meta_pair_t = std::pair<core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>,const CMTLMetadata::CRenderpassIndependentPipeline*>;
+	struct hash_t
+	{
+		inline auto operator()(const pipeline_meta_pair_t& item) const
+		{
+			return std::hash<std::string>()(item.second->m_name);
+		}
+	};
+	struct key_equal_t
+	{
+		inline bool operator()(const pipeline_meta_pair_t& lhs, const pipeline_meta_pair_t& rhs) const
+		{
+			return lhs.second->m_name==rhs.second->m_name;
+		}
+	};
+    core::unordered_multiset<pipeline_meta_pair_t,hash_t,key_equal_t> pipelines;
 
     std::string fileContents;
     fileContents.resize(filesize);
@@ -138,14 +155,16 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 std::replace(mtllib.begin(), mtllib.end(), '\\', '/');
                 SAssetLoadParams loadParams;
                 auto bundle = interm_getAssetInHierarchy(AssetManager, mtllib, loadParams, _hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW, _override);
-				auto meta = bundle.getMetadata()->selfCast<const CMTLMetadata*>();
+				auto meta = bundle.getMetadata()->selfCast<const CMTLMetadata>();
+				if (bundle.getAssetType()==IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE)
 				for (auto ass : bundle.getContents())
                 {
-                    auto pipeln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(ass);
-                    std::string mtlfilepath = relPath+tmpbuf;
+                    auto ppln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(ass);
+					const auto pplnMeta = meta->getAssetSpecificMetadata(ppln.get());
+					if (!pplnMeta)
+						continue;
 
-                    decltype(pipelines)::value_type::second_type val{std::move(mtlfilepath), std::move(pipeln)};
-                    pipelines.insert({meta->getAssetSpecificMetadata(pipeln.get())->m_name, std::move(val)});
+                    pipelines.emplace(std::move(ppln),pplnMeta);
                 }
 			}
 		}
@@ -349,7 +368,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		bufPtr = goNextLine(bufPtr, bufEnd);
 	}	// end while(bufPtr && (bufPtr-buf<filesize))
 
+	auto meta = core::make_smart_refctd_ptr<COBJMetadata>(pipelines.size()+1u);
     {
+		uint32_t metaOffset = 0u;
         uint64_t ixBufOffset = 0ull;
         for (size_t i = 0ull; i < submeshes.size(); ++i)
         {
@@ -362,54 +383,62 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             ixBufOffset += indices[i].size()*4ull;
 
             const uint32_t hasUV = !core::isnan(vertices[indices[i][0]].uv[0]);
-            auto rng = pipelines.equal_range(submeshMaterialNames[i]);
-            for (auto it = rng.first; it != rng.second; ++it)
-            {
-                auto& pipeline = it->second.second;
-                const CMTLPipelineMetadata* metadata = static_cast<const CMTLPipelineMetadata*>(pipeline->getMetadata());
-                if (metadata->getHashVal()==hasUV)
-                {
-                    submeshes[i]->setPipeline(core::smart_refctd_ptr(pipeline));
-                    const auto& vtxParams = pipeline->getVertexInputParams();
-                    assert(vtxParams.attributes[POSITION].relativeOffset==offsetof(SObjVertex,pos));
-                    assert(vtxParams.attributes[NORMAL].relativeOffset==offsetof(SObjVertex,normal32bit));
-                    assert(vtxParams.attributes[UV].relativeOffset==offsetof(SObjVertex,uv));
-                    assert(vtxParams.enabledAttribFlags&(1u<<UV));
-                    assert(vtxParams.enabledBindingFlags==(1u<<BND_NUM));
+			// search in loaded
+			pipeline_meta_pair_t pipeline;
+			{
+				CMTLMetadata::CRenderpassIndependentPipeline dummyKey;
+				dummyKey.m_name = submeshCacheKeys[i];
+				pipeline_meta_pair_t dummy{nullptr,&dummyKey};
 
-                    auto ds3 = core::smart_refctd_ptr<ICPUDescriptorSet>(metadata->getDescriptorSet());
-                    submeshes[i]->setAttachedDescriptorSet(std::move(ds3));
-
-                    const uint32_t pcoffset = pipeline->getLayout()->getPushConstantRanges().begin()[0].offset;
-                    memcpy(
-                        submeshes[i]->getPushConstantsDataPtr()+pcoffset,
-                        &metadata->getMaterialParams(),
-                        sizeof(CMTLMetadata::CIRenderpassIndependentPipeline::SMaterialParameters)
-                    );
-
-                    break;
-                }
-            }
+				auto rng = pipelines.equal_range(dummy);
+				for (auto it=rng.first; it!=rng.second; it++)
+				if (it->second->m_hash==hasUV)
+				{
+					pipeline = *it;
+					break;
+				}
+			}
 			//if there's no pipeline for this meshbuffer, set dummy one
-			if (!submeshes[i]->getPipeline())
+			if (!pipeline.first)
 			{
 				const IAsset::E_TYPE searchTypes[] = {IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE,static_cast<IAsset::E_TYPE>(0u)};
-				const auto pipelines = _override->findCachedAsset("nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline",searchTypes,ctx.inner,_hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
-				auto pipeline = pipelines.getContents().begin()[hasUV ? 1u:0u];
-
-				const CMTLPipelineMetadata* metadata = static_cast<const CMTLPipelineMetadata*>(pipeline->getMetadata());
-				auto ds3 = core::smart_refctd_ptr<ICPUDescriptorSet>(metadata->getDescriptorSet());
-				const uint32_t pcoffset = pipeline->getLayout()->getPushConstantRanges().begin()[0].offset;
-				submeshes[i]->setAttachedDescriptorSet(std::move(ds3));
-				memcpy(
-					submeshes[i]->getPushConstantsDataPtr() + pcoffset,
-					&metadata->getMaterialParams(),
-					sizeof(CMTLPipelineMetadata::SMTLMaterialParameters)
-				);
-
-				auto pipeline_ = pipeline;
-				submeshes[i]->setPipeline(std::move(pipeline_));
+				auto bundle = _override->findCachedAsset("nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline",searchTypes,ctx.inner,_hierarchyLevel+ICPUMesh::PIPELINE_HIERARCHYLEVELS_BELOW);
+				const auto* meta = bundle.getMetadata()->selfCast<CMTLMetadata>();
+				const auto contents = bundle.getContents();
+				for (auto pplnIt=contents.begin(); pplnIt!=contents.end(); pplnIt++)
+				{
+					auto ppln = core::smart_refctd_ptr_static_cast<ICPURenderpassIndependentPipeline>(*pplnIt);
+					auto pplnMeta = meta->getAssetSpecificMetadata(ppln.get());
+					if (pplnMeta && pplnMeta->m_hash==hasUV)
+					{
+						pipeline = { std::move(ppln),pplnMeta };
+						break;
+					}
+				}
 			}
+			// do some checks
+			assert(pipeline.first && pipeline.second);
+            if (hasUV)
+            {
+                const auto& vtxParams = pipeline.first->getVertexInputParams();
+                assert(vtxParams.attributes[POSITION].relativeOffset==offsetof(SObjVertex,pos));
+                assert(vtxParams.attributes[NORMAL].relativeOffset==offsetof(SObjVertex,normal32bit));
+                assert(vtxParams.attributes[UV].relativeOffset==offsetof(SObjVertex,uv));
+                assert(vtxParams.enabledAttribFlags&(1u<<UV));
+                assert(vtxParams.enabledBindingFlags==(1u<<BND_NUM));
+            }
+
+			const uint32_t pcoffset = pipeline.first->getLayout()->getPushConstantRanges().begin()[0].offset;
+			submeshes[i]->setAttachedDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSet>(pipeline.second->m_descriptorSet3));
+			memcpy(
+				submeshes[i]->getPushConstantsDataPtr()+pcoffset,
+				&pipeline.second->m_materialParams,
+				sizeof(CMTLMetadata::CRenderpassIndependentPipeline::SMaterialParameters)
+			);
+
+			meta->placeMeta(metaOffset++,pipeline.first.get(),*pipeline.second);
+
+			submeshes[i]->setPipeline(std::move(pipeline.first));
         }
 
         core::smart_refctd_ptr<ICPUBuffer> vtxBuf = core::make_smart_refctd_ptr<ICPUBuffer>(vertices.size() * sizeof(SObjVertex));
@@ -459,12 +488,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
     //at the very end, insert submeshes into cache
 	uint32_t i = 0u;
 	for (auto meshbuffer : mesh->getMeshBuffers())
-    {
-        SAssetBundle bundle{ core::smart_refctd_ptr<ICPUMeshBuffer>(meshbuffer) };
-        _override->insertAssetIntoCache(bundle, submeshCacheKeys[i++], ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
-    }
+        _override->insertAssetIntoCache(SAssetBundle(meta,{ core::smart_refctd_ptr<ICPUMeshBuffer>(meshbuffer) }), submeshCacheKeys[i++], ctx.inner, _hierarchyLevel+ICPUMesh::MESHBUFFER_HIERARCHYLEVELS_BELOW);
 
-	return SAssetBundle({std::move(mesh)});
+	return SAssetBundle(std::move(meta),{std::move(mesh)});
 }
 
 
