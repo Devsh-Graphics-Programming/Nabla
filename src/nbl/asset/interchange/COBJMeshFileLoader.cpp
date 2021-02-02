@@ -373,10 +373,9 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 		// eat up rest of line
 		bufPtr = goNextLine(bufPtr, bufEnd);
 	}	// end while(bufPtr && (bufPtr-buf<filesize))
-
-	auto meta = core::make_smart_refctd_ptr<COBJMetadata>(pipelines.size()+1u);
+	
+    core::unordered_set<pipeline_meta_pair_t,hash_t,key_equal_t> usedPipelines;
     {
-		uint32_t metaOffset = 0u;
         uint64_t ixBufOffset = 0ull;
         for (size_t i = 0ull; i < submeshes.size(); ++i)
         {
@@ -389,11 +388,14 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
             ixBufOffset += indices[i].size()*4ull;
 
             const uint32_t hasUV = !core::isnan(vertices[indices[i][0]].uv[0]);
+			#ifdef _NBL_DEBUG_OBJ_LOADER_
+				os::Printer::log("Has UV: ", hasUV ? "YES":"NO", ELL_DEBUG);
+			#endif
 			// search in loaded
 			pipeline_meta_pair_t pipeline;
 			{
 				CMTLMetadata::CRenderpassIndependentPipeline dummyKey;
-				dummyKey.m_name = submeshCacheKeys[i];
+				dummyKey.m_name = submeshCacheKeys[i].substr(submeshCacheKeys[i].find_last_of('?')+1u);
 				pipeline_meta_pair_t dummy{nullptr,&dummyKey};
 
 				auto rng = pipelines.equal_range(dummy);
@@ -442,8 +444,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 				sizeof(CMTLMetadata::CRenderpassIndependentPipeline::SMaterialParameters)
 			);
 
-			meta->placeMeta(metaOffset++,pipeline.first.get(),*pipeline.second);
-
+			usedPipelines.insert(pipeline);
 			submeshes[i]->setPipeline(std::move(pipeline.first));
         }
 
@@ -491,6 +492,11 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	if (mesh->getMeshBuffers().empty())
         return {};
     
+	//
+	auto meta = core::make_smart_refctd_ptr<COBJMetadata>(usedPipelines.size()+1u);
+	for (auto pipeAndMeta : usedPipelines)
+		meta->placeMeta(metaOffset++,pipeAndMeta.first.get(),*pipeAndMeta.second);
+
     //at the very end, insert submeshes into cache
 	uint32_t i = 0u;
 	for (auto meshbuffer : mesh->getMeshBuffers())
