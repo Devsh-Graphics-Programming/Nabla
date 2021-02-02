@@ -302,8 +302,13 @@ void nbl_glsl_ext_FFT()
              ? twiddle(tid, i, logTwo, dataLength)
              : twiddle_inv(tid, i, logTwo, dataLength);
 
-            vec2 prev_value = current_values[t];
-            current_values[t] = shuffled_value + nbl_glsl_complex_mul(twiddle, prev_value); 
+            vec2 this_value = current_values[t];
+
+            if(0 < uint(tid & mask)) {
+                current_values[t] = shuffled_value + nbl_glsl_complex_mul(twiddle, this_value); 
+            } else {
+                current_values[t] = this_value + nbl_glsl_complex_mul(twiddle, shuffled_value); 
+            }
         }
     }
 
