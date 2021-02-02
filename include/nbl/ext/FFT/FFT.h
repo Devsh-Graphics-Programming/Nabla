@@ -25,12 +25,16 @@ class FFT : public core::TotalInterface
 			_Y = 1,
 			_Z = 2,
 		};
+		
+		enum class PaddingType : uint32_t {
+			_CLAMP_TO_EDGE = 0,
+			_FILL_WITH_ZERO = 1,
+		};
 
 		struct DispatchInfo_t
 		{
 			uint32_t workGroupDims[3];
 			uint32_t workGroupCount[3];
-			Direction direction;
 		};
 
 		struct alignas(16) Uniforms_t 
@@ -40,17 +44,11 @@ class FFT : public core::TotalInterface
 
 		// returns dispatch size and fills the uniform data
 		static inline DispatchInfo_t buildParameters(
-			Uniforms_t * uniform,
-			asset::VkExtent3D const & inputDimensions,
+			asset::VkExtent3D const & paddedInputDimensions,
 			Direction direction,
 			uint32_t num_channels)
 		{
 			DispatchInfo_t ret = {};
-			if(nullptr != uniform) {
-				uniform->dims[0] = inputDimensions.width;
-				uniform->dims[1] = inputDimensions.height;
-				uniform->dims[2] = inputDimensions.depth;
-			}
 
 			ret.workGroupDims[0] = DEFAULT_WORK_GROUP_X_DIM;
 			ret.workGroupDims[1] = 1;
@@ -59,22 +57,20 @@ class FFT : public core::TotalInterface
 			if(direction == Direction::_X)
 			{
 				ret.workGroupCount[0] = num_channels;
-				ret.workGroupCount[1] = inputDimensions.height;
-				ret.workGroupCount[2] = inputDimensions.depth;
+				ret.workGroupCount[1] = paddedInputDimensions.height;
+				ret.workGroupCount[2] = paddedInputDimensions.depth;
 			}
 			else if(direction == Direction::_Y) {
-				ret.workGroupCount[0] = inputDimensions.width;
+				ret.workGroupCount[0] = paddedInputDimensions.width;
 				ret.workGroupCount[1] = num_channels;
-				ret.workGroupCount[2] = inputDimensions.depth;
+				ret.workGroupCount[2] = paddedInputDimensions.depth;
 			}
 			else if(direction == Direction::_Z)
 			{
-				ret.workGroupCount[0] = inputDimensions.width;
-				ret.workGroupCount[1] = inputDimensions.height;
+				ret.workGroupCount[0] = paddedInputDimensions.width;
+				ret.workGroupCount[1] = paddedInputDimensions.height;
 				ret.workGroupCount[2] = num_channels;
 			}
-
-			ret.direction = direction;
 
 			return ret;
 		}
@@ -96,44 +92,43 @@ class FFT : public core::TotalInterface
 			);
 		}
 		
-		//
-		static inline size_t getInputBufferSize(asset::VkExtent3D const & inputDimensions, uint32_t dataPointBytes)
+		// remove this
+		static inline size_t getInputBufferSize(asset::VkExtent3D const & paddedInputDimensions, uint32_t dataPointBytes)
 		{
-			return (inputDimensions.width * inputDimensions.height * inputDimensions.depth) * dataPointBytes; // x2 because -> output is a complex number
+			return (paddedInputDimensions.width * paddedInputDimensions.height * paddedInputDimensions.depth) * dataPointBytes;
 		}
 
-		//
-		static inline size_t getInputBufferSize(asset::VkExtent3D const & inputDimensions, asset::E_FORMAT format)
+		// remove this
+		static inline size_t getInputBufferSize(asset::VkExtent3D const & paddedInputDimensions, asset::E_FORMAT format)
 		{
-			return getInputBufferSize(inputDimensions, asset::getTexelOrBlockBytesize(format));
+			return getInputBufferSize(paddedInputDimensions, asset::getTexelOrBlockBytesize(format));
 		}
 		
 		//
-		static inline size_t getOutputBufferSize(asset::VkExtent3D const & inputDimensions, asset::E_FORMAT format)
+		static inline size_t getOutputBufferSize(asset::VkExtent3D const & paddedInputDimensions, asset::E_FORMAT format)
 		{
-			return 2 * getInputBufferSize(inputDimensions, format); // x2 because -> output is a complex number
+			return 2 * getInputBufferSize(paddedInputDimensions, format); // x2 because -> output is a complex number
 		}
 		
 		//
-		static inline size_t getOutputBufferSize(asset::VkExtent3D const & inputDimensions, uint32_t dataPointBytes)
+		static inline size_t getOutputBufferSize(asset::VkExtent3D const & paddedInputDimensions, uint32_t dataPointBytes)
 		{
-			return 2 * getInputBufferSize(inputDimensions, dataPointBytes); // x2 because -> output is a complex number
+			return 2 * getInputBufferSize(paddedInputDimensions, dataPointBytes); // x2 because -> output is a complex number
 		}
 		
 
-		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(video::IVideoDriver* driver, asset::E_FORMAT format);
+		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(video::IVideoDriver* driver, asset::E_FORMAT format, uint32_t maxDimensionSize);
 		
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_DESCRIPTOR_COUNT = 4u;
 		static inline void updateDescriptorSet(
 			video::IVideoDriver * driver,
 			video::IGPUDescriptorSet * set,
-			asset::VkExtent3D const & inputDimensions,
 			core::smart_refctd_ptr<video::IGPUBuffer> inputBufferDescriptor,
-			core::smart_refctd_ptr<video::IGPUBuffer> outputBufferDescriptor,
-			core::smart_refctd_ptr<video::IGPUBuffer> uniformBufferDescriptor)
+			core::smart_refctd_ptr<video::IGPUBuffer> outputBufferDescriptor)
 		{
 			video::IGPUDescriptorSet::SDescriptorInfo pInfos[MAX_DESCRIPTOR_COUNT];
 			video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[MAX_DESCRIPTOR_COUNT];
+
 			for (auto i=0; i< MAX_DESCRIPTOR_COUNT; i++)
 			{
 				pWrites[i].dstSet = set;
@@ -142,33 +137,23 @@ class FFT : public core::TotalInterface
 				pWrites[i].info = pInfos+i;
 			}
 
-			// Uniform Buffer
+			// Input Buffer 
 			pWrites[0].binding = 0;
-			pWrites[0].descriptorType = asset::EDT_UNIFORM_BUFFER;
+			pWrites[0].descriptorType = asset::EDT_STORAGE_BUFFER;
 			pWrites[0].count = 1;
-			pInfos[0].desc = uniformBufferDescriptor;
-			pInfos[0].buffer.size = sizeof(Uniforms_t);
+			pInfos[0].desc = inputBufferDescriptor;
+			pInfos[0].buffer.size = inputBufferDescriptor->getSize();
 			pInfos[0].buffer.offset = 0u;
 
-			uint32_t input_count = inputDimensions.width * inputDimensions.height * inputDimensions.depth;
-
-			// Input Buffer 
+			// Output Buffer 
 			pWrites[1].binding = 1;
 			pWrites[1].descriptorType = asset::EDT_STORAGE_BUFFER;
-			pWrites[2].count = 1;
-			pInfos[1].desc = inputBufferDescriptor;
-			pInfos[1].buffer.size = inputBufferDescriptor->getSize();
+			pWrites[1].count = 1;
+			pInfos[1].desc = outputBufferDescriptor;
+			pInfos[1].buffer.size = outputBufferDescriptor->getSize();
 			pInfos[1].buffer.offset = 0u;
 
-			// Output Buffer 
-			pWrites[2].binding = 2;
-			pWrites[2].descriptorType = asset::EDT_STORAGE_BUFFER;
-			pWrites[2].count = 1;
-			pInfos[2].desc = outputBufferDescriptor;
-			pInfos[2].buffer.size = outputBufferDescriptor->getSize();
-			pInfos[2].buffer.offset = 0u;
-
-			driver->updateDescriptorSets(3u, pWrites, 0u, nullptr);
+			driver->updateDescriptorSets(2u, pWrites, 0u, nullptr);
 		}
 
 		static inline void dispatchHelper(
@@ -180,6 +165,23 @@ class FFT : public core::TotalInterface
 
 			if (issueDefaultBarrier)
 				defaultBarrier();
+		}
+
+		static inline void pushConstants(
+			video::IVideoDriver* driver,
+			video::IGPUPipelineLayout * pipelineLayout,
+			asset::VkExtent3D const & inputDimension,
+			asset::VkExtent3D const & paddedInputDimension,
+			Direction direction,
+			bool isInverse, 
+			PaddingType paddingType)
+		{
+			uint32_t is_inverse_u = isInverse;
+			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t) * 3, &inputDimension);
+			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 4, sizeof(uint32_t) * 3, &paddedInputDimension);
+			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 8, sizeof(uint32_t), &direction);
+			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 9, sizeof(uint32_t), &is_inverse_u);
+			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 10, sizeof(uint32_t), &paddingType);
 		}
 
 	private:

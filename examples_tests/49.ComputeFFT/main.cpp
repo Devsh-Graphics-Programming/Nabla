@@ -17,6 +17,29 @@ using namespace nbl::core;
 using namespace nbl::asset;
 using namespace nbl::video;
 
+#include "nbl/core/math/intutil.h"
+#include "nbl/core/math/glslFunctions.h"
+
+VkExtent3D padDimensionToNextPOT(VkExtent3D const & dimension, VkExtent3D const & minimum_dimension = VkExtent3D{ 0, 0, 0 }) {
+	VkExtent3D ret = {};
+	VkExtent3D extendedDim = dimension;
+
+	if(dimension.width < minimum_dimension.width) {
+		extendedDim.width = minimum_dimension.width;
+	}
+	if(dimension.height < minimum_dimension.height) {
+		extendedDim.height = minimum_dimension.height;
+	}
+	if(dimension.depth < minimum_dimension.depth) {
+		extendedDim.depth = minimum_dimension.depth;
+	}
+
+	ret.width = roundUpToPoT(extendedDim.width);
+	ret.height = roundUpToPoT(extendedDim.height);
+	ret.depth = roundUpToPoT(extendedDim.depth);
+
+	return ret;
+}
 
 int main()
 {
@@ -43,30 +66,27 @@ int main()
 	IAssetManager* am = device->getAssetManager();
 
 	constexpr uint32_t num_channels = 1;
-	constexpr VkExtent3D fftDim = VkExtent3D{128, 4, 1};
+	constexpr VkExtent3D fftDim = VkExtent3D{4, 1, 1};
+	VkExtent3D fftPaddedDim = padDimensionToNextPOT(fftDim);
 	constexpr uint32_t dataPointBytes = sizeof(float) * num_channels;
 
 	using FFTClass = ext::FFT::FFT;
-	auto fftGPUSpecializedShader = FFTClass::createShader(driver, EF_R8G8B8A8_UNORM);
+	auto fftGPUSpecializedShader = FFTClass::createShader(driver, EF_R8G8B8A8_UNORM, 128);
 	
 	auto fftPipelineLayout = FFTClass::getDefaultPipelineLayout(driver);
 	auto fftPipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout), std::move(fftGPUSpecializedShader));
 
-	FFTClass::Uniforms_t fftUniform = {};
-	auto fftDispatchInfo_Horizontal = FFTClass::buildParameters(&fftUniform, fftDim, FFTClass::Direction::_Y, num_channels);
-
-	// Allocate(and fill) uniform Buffer
-	auto fftUniformBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(fftUniform), &fftUniform);
+	auto fftDispatchInfo_Horizontal = FFTClass::buildParameters(fftPaddedDim, FFTClass::Direction::_X, num_channels);
 
 	// Allocate Output Buffer
-	auto fftOutputBuffer = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(fftDim, dataPointBytes));
+	auto fftOutputBuffer = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(fftPaddedDim, dataPointBytes));
 
 	// Allocate Input Buffer 
 	uint32_t fftInputBufferSize = FFTClass::getInputBufferSize(fftDim, dataPointBytes);
 	auto fftInputBuffer = driver->createDeviceLocalGPUBufferOnDedMem(fftInputBufferSize);
 
 	auto fftDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout->getDescriptorSetLayout(0u)));
-	FFTClass::updateDescriptorSet(driver, fftDescriptorSet.get(), fftDim, fftInputBuffer, fftOutputBuffer, fftUniformBuffer);
+	FFTClass::updateDescriptorSet(driver, fftDescriptorSet.get(), fftInputBuffer, fftOutputBuffer);
 	
 	// Create and Fill GPU Input Buffer
 	float * fftInputMem = reinterpret_cast<float *>(_NBL_ALIGNED_MALLOC(fftInputBufferSize, 1));
@@ -76,6 +96,10 @@ int main()
 			fftInputMem[i + j * fftDim.width] = (j+1) * i;
 		}
 	}
+	fftInputMem[0] = 3.0f;
+	fftInputMem[1] = 5.0f;
+	fftInputMem[2] = 5.0f;
+	fftInputMem[3] = 1.0f;
 
 	driver->updateBufferRangeViaStagingBuffer(fftInputBuffer.get(), 0, fftInputBufferSize, fftInputMem);
 
@@ -113,7 +137,7 @@ int main()
 		driver->bindComputePipeline(fftPipeline.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout.get(), 0u, 1u, &fftDescriptorSet.get(), nullptr);
 		
-		driver->pushConstants(fftPipelineLayout.get(), IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t), &fftDispatchInfo_Horizontal.direction);
+		FFTClass::pushConstants(driver, fftPipelineLayout.get(), fftDim, fftPaddedDim, FFTClass::Direction::_X, false, FFTClass::PaddingType::_CLAMP_TO_EDGE);
 		FFTClass::dispatchHelper(driver, fftDispatchInfo_Horizontal, true);
 
 		// driver->blitRenderTargets(blitFBO, nullptr, false, false);

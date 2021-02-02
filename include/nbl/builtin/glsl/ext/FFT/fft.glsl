@@ -10,16 +10,21 @@
 // Shared Memory
 #include <nbl/builtin/glsl/workgroup/shared_arithmetic.glsl>
 
-// TODO: These are very badly implemented and not completely correct. Fix later and get from CPP extension when creating shader
- #define _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ 512
- #define _NBL_GLSL_EXT_FFT_LOCAL_DATA_SIZE NBL_GLSL_EVAL(_NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ / _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_)
- #define _NBL_GLSL_EXT_FFT_SHARED_SIZE_NEEDED_ 1024
+
+#ifndef _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_
+#error "_NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ should be defined."
+#endif
+
+#ifndef _NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD
+#error "_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD should be defined."
+#endif
 
 
+#define _NBL_GLSL_EXT_FFT_SHARED_SIZE_NEEDED_ _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_
 
 #ifdef _NBL_GLSL_SCRATCH_SHARED_DEFINED_
     #if NBL_GLSL_LESS(_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_,_NBL_GLSL_EXT_FFT_SHARED_SIZE_NEEDED_)
-        #error "Not enough shared memory declared for ext::FFT!"
+        #error "Not enough shared memory declared for ext::FFT !"
     #endif
 #else
     #if NBL_GLSL_GREATER(_NBL_GLSL_EXT_FFT_SHARED_SIZE_NEEDED_,0)
@@ -35,21 +40,19 @@
 #define _NBL_GLSL_EXT_FFT_DIRECTION_Y_ 1
 #define _NBL_GLSL_EXT_FFT_DIRECTION_Z_ 2
 
+#define _NBL_GLSL_EXT_FFT_CLAMP_TO_EDGE_ 0
+#define _NBL_GLSL_EXT_FFT_FILL_WITH_ZERO_ 1
+
 #ifndef _NBL_GLSL_EXT_FFT_PUSH_CONSTANTS_DEFINED_
 #define _NBL_GLSL_EXT_FFT_PUSH_CONSTANTS_DEFINED_
 layout(push_constant) uniform PushConstants
 {
-	uint direction;
+    layout (offset = 0) uvec3 dimension;
+    layout (offset = 16) uvec3 padded_dimension;
+	layout (offset = 32) uint direction;
+    layout (offset = 36) uint is_inverse;
+    layout (offset = 40) uint padding_type; // clamp_to_edge or fill_with_zero
 } pc;
-#endif
-
- // Uniform
-#ifndef _NBL_GLSL_EXT_FFT_UNIFORMS_DEFINED_
-#define _NBL_GLSL_EXT_FFT_UNIFORMS_DEFINED_
-struct nbl_glsl_ext_FFT_Uniforms_t
-{
-	uvec3 dimension;
-};
 #endif
 
 #ifndef _NBL_GLSL_EXT_FFT_GET_DATA_DECLARED_
@@ -173,10 +176,65 @@ uint getDimLength(uvec3 dimension)
     return dataLength;
 }
 
-void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform, const bool is_inverse)
+vec2 nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel) {
+    uint min_x = (pc.padded_dimension.x - pc.dimension.x) / 2;
+    uint max_x = pc.dimension.x + min_x - 1;
+
+    uint min_y = (pc.padded_dimension.y - pc.dimension.y) / 2;
+    uint max_y = pc.dimension.y + min_y - 1;
+
+    uint min_z = (pc.padded_dimension.z - pc.dimension.z) / 2;
+    uint max_z = pc.dimension.z + min_z - 1;
+
+
+    uvec3 actual_coord = uvec3(0, 0, 0);
+
+    if(_NBL_GLSL_EXT_FFT_CLAMP_TO_EDGE_ == pc.padding_type) {
+        if (coordinate.x < min_x) {
+            actual_coord.x = 0;
+        } else if(coordinate.x > max_x) {
+            actual_coord.x = pc.dimension.x - 1;
+        } else {
+            actual_coord.x = coordinate.x - min_x;
+        }
+        
+        if (coordinate.y < min_y) {
+            actual_coord.y = 0;
+        } else if (coordinate.y > max_y) {
+            actual_coord.y = pc.dimension.y - 1;
+        } else {
+            actual_coord.y = coordinate.y - min_y;
+        }
+        
+        if (coordinate.z < min_z) {
+            actual_coord.z = 0;
+        } else if (coordinate.z > max_z) {
+            actual_coord.z = pc.dimension.z - 1;
+        } else {
+            actual_coord.z = coordinate.z - min_z;
+        }
+        
+    } else if (_NBL_GLSL_EXT_FFT_FILL_WITH_ZERO_ == pc.padding_type) {
+
+        if ( coordinate.x < min_x || coordinate.x > max_x ||
+             coordinate.y < min_y || coordinate.y > max_y ||
+             coordinate.z < min_z || coordinate.z > max_z ) {
+            return vec2(0, 0);
+        }
+        
+        actual_coord.x = coordinate.x - min_x;
+        actual_coord.y = coordinate.y - min_y;
+        actual_coord.z = coordinate.z - min_z;
+
+    }
+    
+    return nbl_glsl_ext_FFT_getData(actual_coord, channel);
+}
+
+void nbl_glsl_ext_FFT()
 {
     // Virtual Threads Calculation
-    uint dataLength = getDimLength(inUniform.dimension);
+    uint dataLength = getDimLength(pc.padded_dimension);
     uint num_virtual_threads = uint(ceil(float(dataLength) / float(_NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_)));
     uint thread_offset = gl_LocalInvocationIndex;
 
@@ -186,8 +244,8 @@ void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform, const bool is_in
 	uint leadingZeroes = clz(dataLength) + 1;
 	uint logTwo = 32 - leadingZeroes;
 	
-    vec2 current_values[_NBL_GLSL_EXT_FFT_LOCAL_DATA_SIZE];
-    vec2 shuffled_values[_NBL_GLSL_EXT_FFT_LOCAL_DATA_SIZE];
+    vec2 current_values[_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD];
+    vec2 shuffled_values[_NBL_GLSL_EXT_FFT_MAX_ITEMS_PER_THREAD];
 
     // Load Initial Values into Local Mem (bit reversed indices)
     for(uint t = 0; t < num_virtual_threads; t++)
@@ -240,7 +298,7 @@ void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform, const bool is_in
             uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
             vec2 shuffled_value = shuffled_values[t];
 
-            vec2 twiddle = (!is_inverse) 
+            vec2 twiddle = (0 == pc.is_inverse) 
              ? twiddle(tid, i, logTwo, dataLength)
              : twiddle_inv(tid, i, logTwo, dataLength);
 
@@ -253,7 +311,7 @@ void nbl_glsl_ext_FFT(in nbl_glsl_ext_FFT_Uniforms_t inUniform, const bool is_in
     {
         uint tid = thread_offset + t * _NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_;
 	    uvec3 coords = getCoordinates(tid);
-        vec2 complex_value = (!is_inverse) 
+        vec2 complex_value = (0 == pc.is_inverse) 
          ? current_values[t]
          : current_values[t] / dataLength;
 
