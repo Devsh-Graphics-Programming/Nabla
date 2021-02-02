@@ -66,7 +66,7 @@ int main()
 	IAssetManager* am = device->getAssetManager();
 
 	constexpr uint32_t num_channels = 1;
-	constexpr VkExtent3D fftDim = VkExtent3D{4, 1, 1};
+	constexpr VkExtent3D fftDim = VkExtent3D{6, 1, 1};
 	VkExtent3D fftPaddedDim = padDimensionToNextPOT(fftDim);
 	constexpr uint32_t dataPointBytes = sizeof(float) * num_channels;
 
@@ -96,10 +96,6 @@ int main()
 			fftInputMem[i + j * fftDim.width] = (j+1) * i;
 		}
 	}
-	fftInputMem[0] = 3.0f;
-	fftInputMem[1] = 5.0f;
-	fftInputMem[2] = 5.0f;
-	fftInputMem[3] = 1.0f;
 
 	driver->updateBufferRangeViaStagingBuffer(fftInputBuffer.get(), 0, fftInputBufferSize, fftInputMem);
 
@@ -137,7 +133,7 @@ int main()
 		driver->bindComputePipeline(fftPipeline.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout.get(), 0u, 1u, &fftDescriptorSet.get(), nullptr);
 		
-		FFTClass::pushConstants(driver, fftPipelineLayout.get(), fftDim, fftPaddedDim, FFTClass::Direction::_X, false, FFTClass::PaddingType::_CLAMP_TO_EDGE);
+		FFTClass::pushConstants(driver, fftPipelineLayout.get(), fftDim, fftPaddedDim, FFTClass::Direction::_X, false, FFTClass::PaddingType::_FILL_WITH_ZERO);
 		FFTClass::dispatchHelper(driver, fftDispatchInfo_Horizontal, true);
 
 		// driver->blitRenderTargets(blitFBO, nullptr, false, false);

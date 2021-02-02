@@ -254,7 +254,7 @@ void nbl_glsl_ext_FFT()
         uvec3 coords = getCoordinates(tid);
         uvec3 bitReversedCoords = getBitReversedCoordinates(coords, leadingZeroes);
 
-        current_values[t] = nbl_glsl_ext_FFT_getData(bitReversedCoords, channel);
+        current_values[t] = nbl_glsl_ext_FFT_getPaddedData(bitReversedCoords, channel);
     }
 
     // For loop for each stage of the FFT (each virtual thread computes 1 buttefly wing)
