@@ -31,12 +31,22 @@ public:
         :IMeshPackerV2<ICPUBuffer, ICPUMeshBuffer, MDIStructType>(allocParams, minTriangleCountPerMDIData, maxTriangleCountPerMDIData)
     {}
 
+    void instantiateDataStorage();
+
     template <typename MeshBufferIterator>
     bool commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
     inline PackerDataStore getPackerDataStore() { return m_packerDataStore; };
 
 };
+
+template <typename MDIStructType>
+void CCPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
+{
+    m_packerDataStore.MDIDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.MDIDataBuffSupportedCnt * sizeof(MDIStructType));
+    m_packerDataStore.indexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.indexBuffSupportedCnt * sizeof(uint16_t));
+    m_packerDataStore.vertexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(m_allocParams.vertexBuffSupportedSize);
+}
 
 template <typename MDIStructType>
 template <typename MeshBufferIterator>

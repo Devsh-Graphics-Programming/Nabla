@@ -15,6 +15,8 @@ namespace asset
 template <typename BufferType, typename MeshBufferType, typename MDIStructType = DrawElementsIndirectCommand_t>
 class IMeshPackerV2 : public IMeshPacker<MeshBufferType, MDIStructType>
 {
+    static_assert(std::is_base_of<IBuffer, BufferType>::value);
+
 	using base_t = IMeshPacker<MeshBufferType, MDIStructType>;
     using AllocationParams = IMeshPackerBase::AllocationParamsCommon;
 
@@ -57,8 +59,6 @@ public:
 	template <typename MeshBufferIterator>
 	bool alloc(ReservedAllocationMeshBuffers* rambOut, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
-    void instantiateDataStorage();
-
     inline PackerDataStore getPackerDataStore() { return m_packerDataStore; };
 
 protected:
@@ -75,11 +75,11 @@ bool IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::alloc(ReservedAll
     for (auto it = mbBegin; it != mbEnd; it++)
     {
         ReservedAllocationMeshBuffers& ramb = *(rambOut + i);
-        const size_t vtxCnt = (*it)->calcVertexCount();
         const size_t idxCnt = (*it)->getIndexCount();
+        const size_t maxVtxCnt = (idxCnt + 1u) / 2u;
 
         //allocate indices
-        ramb.indexAllocationOffset = m_idxBuffAlctr.alloc_addr(idxCnt, 2u);
+        ramb.indexAllocationOffset = m_idxBuffAlctr.alloc_addr(idxCnt, 1u);
         if (ramb.indexAllocationOffset == INVALID_ADDRESS)
             return false;
         ramb.indexAllocationReservedSize = idxCnt * 2;
@@ -93,12 +93,12 @@ bool IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::alloc(ReservedAll
 
             const uint32_t attribSize = asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format));
 
-            ramb.attribAllocParams[location].offset = m_vtxBuffAlctr.alloc_addr(vtxCnt * attribSize, attribSize);
+            ramb.attribAllocParams[location].offset = m_vtxBuffAlctr.alloc_addr(maxVtxCnt * attribSize, attribSize);
 
             if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
                 return false;
 
-            ramb.attribAllocParams[location].size = vtxCnt * attribSize;
+            ramb.attribAllocParams[location].size = maxVtxCnt * attribSize;
         }
 
         //allocate MDI structs
@@ -114,14 +114,6 @@ bool IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::alloc(ReservedAll
     }
 
     return true;
-}
-
-template <typename BufferType, typename MeshBufferType, typename MDIStructType>
-void IMeshPackerV2<BufferType, MeshBufferType, MDIStructType>::instantiateDataStorage()
-{
-    m_packerDataStore.MDIDataBuffer = core::make_smart_refctd_ptr<BufferType>(m_allocParams.MDIDataBuffSupportedCnt * sizeof(MDIStructType));
-    m_packerDataStore.indexBuffer = core::make_smart_refctd_ptr<BufferType>(m_allocParams.indexBuffSupportedCnt * sizeof(uint16_t));
-    m_packerDataStore.vertexBuffer = core::make_smart_refctd_ptr<BufferType>(m_allocParams.vertexBuffSupportedSize);
 }
 
 }

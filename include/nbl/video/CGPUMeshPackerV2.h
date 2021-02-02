@@ -32,6 +32,8 @@ public:
          m_driver(driver)
     {}
 
+    void instantiateDataStorage();
+
     template <typename MeshBufferIterator>
     bool commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
@@ -39,6 +41,14 @@ private:
     video::IVideoDriver* m_driver;
 
 };
+
+template <typename MDIStructType>
+void CGPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
+{
+    m_packerDataStore.MDIDataBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(m_allocParams.MDIDataBuffSupportedCnt * sizeof(MDIStructType));
+    m_packerDataStore.indexBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(m_allocParams.indexBuffSupportedCnt * sizeof(uint16_t));
+    m_packerDataStore.vertexBuffer = m_driver->createDeviceLocalGPUBufferOnDedMem(m_allocParams.vertexBuffSupportedSize);
+}
 
 template <typename MDIStructType>
 template <typename MeshBufferIterator>

@@ -118,8 +118,8 @@ public:
 		_NBL_ALIGNED_FREE(m_perInsVtxBuffAlctrResSpc);
 	}
 
-	template <typename Iterator>
-	ReservedAllocationMeshBuffers alloc(const Iterator begin, const Iterator end);
+	template <typename MeshBufferIterator>
+	ReservedAllocationMeshBuffers alloc(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
 	//needs to be called before first `commit`
 	void instantiateDataStorage();
@@ -207,8 +207,8 @@ CCPUMeshPackerV1<MDIStructType>::CCPUMeshPackerV1(const SVertexInputParams& preD
 
 template <typename MDIStructType>
 //`Iterator` may be only an Iterator or pointer to pointer
-template <typename Iterator>
-typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMeshPackerV1<MDIStructType>::alloc(const Iterator begin, const Iterator end)
+template <typename MeshBufferIterator>
+typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMeshPackerV1<MDIStructType>::alloc(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
 {
 	/*
 	Requirements for input mesh buffers:
@@ -218,7 +218,7 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 
 	//validation
 	//TODO: remove this condition
-	for(auto it = begin; it != end; it++)
+	for(auto it = mbBegin; it != mbEnd; it++)
 	{
 		//assert(!(*it == nullptr));
 
@@ -233,7 +233,7 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 	}
 
 	//validation
-	for (auto it = begin; it != end; it++)
+	for (auto it = mbBegin; it != mbEnd; it++)
 	{
 		const auto& mbVtxInputParams = (*it)->getPipeline()->getVertexInputParams();
 		for (uint16_t attrBit = 0x0001, location = 0; location < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; attrBit <<= 1, location++)
@@ -254,7 +254,7 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 	
 	size_t idxCnt = 0u;
 	size_t vtxCnt = 0u;
-	for (auto it = begin; it != end; it++)
+	for (auto it = mbBegin; it != mbEnd; it++)
 	{
 		ICPUMeshBuffer& mb = **it;
 		idxCnt += mb.getIndexCount();
@@ -264,7 +264,7 @@ typename CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers CCPUMesh
 	const uint32_t minIdxCntPerPatch = m_minTriangleCountPerMDIData * 3;
 	
 	uint32_t possibleMDIStructsNeededCnt = 0u;
-	for (auto it = begin; it != end; it++)
+	for (auto it = mbBegin; it != mbEnd; it++)
 		possibleMDIStructsNeededCnt += ((*it)->getIndexCount() + minIdxCntPerPatch - 1) / minIdxCntPerPatch;
 
 	uint32_t MDIAllocAddr       = INVALID_ADDRESS;
@@ -440,8 +440,8 @@ uint32_t CCPUMeshPackerV1<MDIStructType>::processMeshBuffer(ICPUMeshBuffer* inpu
 
 
 template <typename MDIStructType>
-template <typename Iterator>
-IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(const Iterator begin, const Iterator end, CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers& ramb)
+template <typename MeshBufferIterator>
+IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd, CCPUMeshPackerV1<MDIStructType>::ReservedAllocationMeshBuffers& ramb)
 {
 	MDIStructType* mdiBuffPtr = static_cast<MDIStructType*>(m_output.MDIDataBuffer->getPointer()) + ramb.mdiAllocationOffset;
 	uint16_t* indexBuffPtr = static_cast<uint16_t*>(m_output.indexBuffer.buffer->getPointer()) + ramb.indexAllocationOffset;
@@ -452,7 +452,7 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 	size_t batchFirstIdx = ramb.indexAllocationOffset;
 	size_t batchBaseVtx = ramb.vertexAllocationOffset;
 
-	for (Iterator it = begin; it != end; it++)
+	for (auto it = mbBegin; it != mbEnd; it++)
 	{
 		const size_t idxCnt = (*it)->getIndexCount();
 		core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(*it);
