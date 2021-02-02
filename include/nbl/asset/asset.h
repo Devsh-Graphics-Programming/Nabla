@@ -68,6 +68,7 @@
 #include "nbl/asset/interchange/IAssetWriter.h"
 #include "nbl/asset/metadata/COpenEXRMetadata.h"
 #include "nbl/asset/metadata/CMTLMetadata.h"
+#include "nbl/asset/metadata/COBJMetadata.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
 #include "nbl/asset/metadata/CSTLMetadata.h"
 
