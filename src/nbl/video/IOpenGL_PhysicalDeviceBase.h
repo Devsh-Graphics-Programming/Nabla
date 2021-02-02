@@ -1,7 +1,7 @@
 #ifndef __NBL_I_OPENGL_PHYSICAL_DEVICE_BASE_H_INCLUDED__
 #define __NBL_I_OPENGL_PHYSICAL_DEVICE_BASE_H_INCLUDED__
 
-#include "nbl/video/CEGLCaller.h"
+#include "nbl/video/CEGL.h"
 #include "nbl/video/IPhysicalDevice.h"
 
 namespace nbl { 
@@ -12,7 +12,7 @@ template <typename LogicalDeviceType>
 class IOpenGL_PhysicalDeviceBase : public IPhysicalDevice
 {
 public:
-    IOpenGL_PhysicalDeviceBase(egl::CEGLCaller* _egl) : m_egl(_egl)
+    explicit IOpenGL_PhysicalDeviceBase(const egl::CEGL* _egl) : m_egl(_egl)
     {
         // OpenGL backend emulates presence of just one queue with all capabilities (graphics, compute, transfer, ... what about sparse binding?)
         SQueueFamilyProperties qprops;
@@ -36,10 +36,8 @@ protected:
 
     virtual ~IOpenGL_PhysicalDeviceBase() = default;
 
-private:
-    // physical device does nothing with this,
-    // just need to forward to logical device
-    egl::CEGLCaller* m_egl;
+protected:
+    const egl::CEGL* m_egl;
 };
 
 }

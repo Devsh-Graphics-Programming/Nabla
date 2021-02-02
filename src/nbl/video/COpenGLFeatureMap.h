@@ -1168,6 +1168,10 @@ public:
 	//! Minimal and maximal supported thickness for points with smoothing
 	GLfloat DimSmoothedPoint[2];
 
+	bool isIntelGPU = false;
+	// seems to be always true in our current code (COpenGLExtensionHandler, COpenGLDriver)
+	bool needsDSAFramebufferHack = true;
+
 	COpenGLFeatureMap()
 	{
 		memset(FeatureAvailable, 0, sizeof(FeatureAvailable));

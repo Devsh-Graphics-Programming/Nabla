@@ -2,8 +2,7 @@
 #define __NBL_C_OPENGL_LOGICAL_DEVICE_H_INCLUDED__
 
 #include "nbl/video/ILogicalDevice.h"
-#include "nbl/video/CEGLCaller.h"
-#include "nbl/video/COpenGLFunctionTable.h"
+#include "nbl/video/CEGL.h"
 #include "nbl/video/COpenGLQueue.h"
 
 namespace nbl {
@@ -13,9 +12,8 @@ namespace video
 class COpenGLLogicalDevice final : public ILogicalDevice
 {
 public:
-    COpenGLLogicalDevice(egl::CEGLCaller* _egl, const SCreationParams& params) :
-        ILogicalDevice(params),
-        m_gl(_egl)
+    COpenGLLogicalDevice(const egl::CEGL* _egl, EGLContext master_ctx, EGLConfig config, const SCreationParams& params) :
+        ILogicalDevice(params)
     {
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
         {
@@ -29,14 +27,11 @@ public:
                 const float priority = qci.priorities[j];
 
                 const uint32_t ix = offset + j;
-                // TODO will also have to pass master context to the queue
-                (*m_queues)[ix] = core::make_smart_refctd_ptr<COpenGLQueue>(&m_gl, famIx, flags, priority);
+                // TODO will also have to pass master context to the queue and config
+                (*m_queues)[ix] = core::make_smart_refctd_ptr<COpenGLQueue>(_egl, master_ctx, config, famIx, flags, priority);
             }
         }
     }
-
-private:
-    COpenGLFunctionTable m_gl;
 };
 
 }

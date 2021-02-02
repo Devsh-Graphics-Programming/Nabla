@@ -52,14 +52,20 @@ public:
         }
     }
 
+    E_TYPE getAPIType() const override { return ET_VULKAN; }
+
+    core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>> getPhysicalDevices() const override
+    {
+        return core::SRange<const core::smart_refctd_ptr<IPhysicalDevice>>{ m_physDevices->begin(), m_physDevices->end() };
+    }
+
+    VkInstance getInternalObject() const { return m_instance; }
+
+protected:
     ~CVulkanConnection()
     {
         vkDestroyInstance(m_instance, nullptr);
     }
-
-    E_TYPE getAPIType() const override { return ET_VULKAN; }
-
-    VkInstance getInternalObject() const { return m_instance; }
 
 private:
     VkInstance m_instance = nullptr;

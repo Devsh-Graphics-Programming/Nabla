@@ -1,20 +1,23 @@
 #ifndef __NBL_C_OPEN_GL_FUNCTION_TABLE_H_INCLUDED__
 #define __NBL_C_OPEN_GL_FUNCTION_TABLE_H_INCLUDED__
 
-
+#ifndef GL_GLEXT_LEGACY
 #define GL_GLEXT_LEGACY 1
+#endif
 #include "GL/gl.h"
 #undef GL_GLEXT_LEGACY
 
 #include "os.h" // Printer::log
 
 #include "nbl/core/string/UniqueStringLiteralType.h"
+#ifndef GL_GLEXT_PROTOTYPES
 #define GL_GLEXT_PROTOTYPES
+#endif
 #include "GL/glext.h"
 #include "nbl/video/IGPUImageView.h"
 #include "nbl/video/COpenGLFeatureMap.h"
 #include "nbl/system/DynamicFunctionCaller.h"
-#include "nbl/video/CEGLCaller.h"
+#include "nbl/video/CEGL.h"
 
 namespace nbl {
 	namespace video {
@@ -25,10 +28,10 @@ namespace nbl {
 
 			class OpenGLFunctionLoader final : public system::FuncPtrLoader
 			{
-				egl::CEGLCaller* egl;
+				egl::CEGL* egl;
 
 			public:
-				explicit OpenGLFunctionLoader(egl::CEGLCaller* _egl) : egl(_egl) {}
+				explicit OpenGLFunctionLoader(egl::CEGL* _egl) : egl(_egl) {}
 
 				inline bool isLibraryLoaded() override final
 				{
@@ -37,7 +40,7 @@ namespace nbl {
 
 				inline void* loadFuncPtr(const char* funcname) override final
 				{
-					return static_cast<void*>(egl->peglGetProcAddress(funcname));
+					return static_cast<void*>(egl->call.peglGetProcAddress(funcname));
 				}
 			};
 
@@ -437,12 +440,8 @@ namespace nbl {
 			GLgeneral glGeneral;
 			GLcompute glCompute;
 
-			bool isIntelGPU = false;
-			// seems to be always true in our current code (COpenGLExtensionHandler, COpenGLDriver)
-			bool needsDSAFramebufferHack = true;
-
-			egl::CEGLCaller* m_egl;
-			COpenGLFeatureMap features;
+			const egl::CEGLCaller* m_egl;
+			const COpenGLFeatureMap* features;
 
 			inline void extGlBindTextures(const GLuint& first, const GLsizei& count, const GLuint* textures, const GLenum* targets);
 			inline void extGlCreateTextures(GLenum target, GLsizei n, GLuint* textures);
@@ -527,7 +526,7 @@ namespace nbl {
 			inline void extGlSwapInterval(int interval);
 
 			// constructor
-			COpenGLFunctionTable(egl::CEGLCaller* _egl) :
+			COpenGLFunctionTable(const egl::CEGLCaller* _egl, COpenGLFeatureMap* _features) :
 				glSync(_egl),
 				glFramebuffer(_egl),
 				glBuffer(_egl),
@@ -541,116 +540,10 @@ namespace nbl {
 				glDebug(_egl),
 				glGeneral(_egl),
 				glCompute(_egl),
-				m_egl(_egl)
+				m_egl(_egl),
+				features(_features)
 			{
-				std::string vendor = reinterpret_cast<const char*>(glGeneral.pglGetString(GL_VENDOR));
-				isIntelGPU = (vendor.find("Intel") != vendor.npos || vendor.find("INTEL") != vendor.npos);
 
-				float ogl_ver;
-				sscanf(reinterpret_cast<const char*>(glGeneral.pglGetString(GL_VERSION)), "%f", &ogl_ver);
-				features.Version = static_cast<uint16_t>(core::round(ogl_ver * 100.0f));
-
-				const GLubyte* shaderVersion = glGeneral.pglGetString(GL_SHADING_LANGUAGE_VERSION);
-				float sl_ver;
-				sscanf(reinterpret_cast<const char*>(shaderVersion), "%f", &sl_ver);
-				features.ShaderLanguageVersion = static_cast<uint16_t>(core::round(sl_ver * 100.0f));
-
-				//should contain space-separated OpenGL extension names
-				constexpr const char* OPENGL_EXTS_ENVVAR_NAME = "_NBL_OPENGL_EXTENSIONS_LIST";//move this to some top-level header?
-
-				const char* envvar = std::getenv(OPENGL_EXTS_ENVVAR_NAME);
-				if (!envvar)
-				{
-					GLint extensionCount;
-					glGeneral.pglGetIntegerv(GL_NUM_EXTENSIONS, &extensionCount);
-					for (GLint i = 0; i < extensionCount; ++i)
-					{
-						const char* extensionName = reinterpret_cast<const char*>(glGeneral.pglGetStringi(GL_EXTENSIONS, i));
-
-						for (uint32_t j = 0; j < features.NBL_OpenGL_Feature_Count; ++j)
-						{
-							if (!strcmp(OpenGLFeatureStrings[j], extensionName))
-							{
-								features.FeatureAvailable[j] = true;
-								break;
-							}
-						}
-					}
-				}
-				else
-				{
-					std::stringstream ss{ std::string(envvar) };
-					std::string extname;
-					extname.reserve(100);
-					while (std::getline(ss, extname))
-					{
-						for (uint32_t j = 0; j < features.NBL_OpenGL_Feature_Count; ++j)
-						{
-							if (extname == OpenGLFeatureStrings[j])
-							{
-								features.FeatureAvailable[j] = true;
-								break;
-							}
-						}
-					}
-				}
-
-				GLint num = 0;
-
-				glGeneral.pglGetIntegerv(GL_UNIFORM_BUFFER_OFFSET_ALIGNMENT, &features.reqUBOAlignment);
-				assert(core::is_alignment(reqUBOAlignment));
-				glGeneral.pglGetIntegerv(GL_SHADER_STORAGE_BUFFER_OFFSET_ALIGNMENT, &features.reqSSBOAlignment);
-				assert(core::is_alignment(reqSSBOAlignment));
-				glGeneral.pglGetIntegerv(GL_TEXTURE_BUFFER_OFFSET_ALIGNMENT, &features.reqTBOAlignment);
-				assert(core::is_alignment(reqTBOAlignment));
-
-				glGeneral.pglGetInteger64v(GL_MAX_UNIFORM_BLOCK_SIZE, reinterpret_cast<GLint64*>(&features.maxUBOSize));
-				glGeneral.pglGetInteger64v(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, reinterpret_cast<GLint64*>(&features.maxSSBOSize));
-				glGeneral.pglGetInteger64v(GL_MAX_TEXTURE_BUFFER_SIZE, reinterpret_cast<GLint64*>(&features.maxTBOSizeInTexels));
-				features.maxBufferSize = std::max(features.maxUBOSize, features.maxSSBOSize);
-
-				glGeneral.pglGetIntegerv(GL_MAX_COMBINED_UNIFORM_BLOCKS, reinterpret_cast<GLint*>(&features.maxUBOBindings));
-				glGeneral.pglGetIntegerv(GL_MAX_COMBINED_SHADER_STORAGE_BLOCKS, reinterpret_cast<GLint*>(&features.maxSSBOBindings));
-				glGeneral.pglGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&features.maxTextureBindings));
-				glGeneral.pglGetIntegerv(GL_MAX_COMPUTE_TEXTURE_IMAGE_UNITS, reinterpret_cast<GLint*>(&features.maxTextureBindingsCompute));
-				glGeneral.pglGetIntegerv(GL_MAX_COMBINED_IMAGE_UNIFORMS, reinterpret_cast<GLint*>(&features.maxImageBindings));
-
-				glGeneral.pglGetIntegerv(GL_MIN_MAP_BUFFER_ALIGNMENT, &features.minMemoryMapAlignment);
-
-				glGeneral.pglGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, features.MaxComputeWGSize);
-				glGeneral.pglGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, features.MaxComputeWGSize + 1);
-				glGeneral.pglGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, features.MaxComputeWGSize + 2);
-
-
-				glGeneral.pglGetIntegerv(GL_MAX_ARRAY_TEXTURE_LAYERS, &num);
-				features.MaxArrayTextureLayers = num;
-
-				if (features.isFeatureAvailable(features.NBL_EXT_texture_filter_anisotropic))
-				{
-					glGeneral.pglGetIntegerv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &num);
-					features.MaxAnisotropy = static_cast<uint8_t>(num);
-				}
-
-
-				if (features.isFeatureAvailable(features.NBL_ARB_geometry_shader4))
-				{
-					glGeneral.pglGetIntegerv(GL_MAX_GEOMETRY_OUTPUT_VERTICES, &num);
-					features.MaxGeometryVerticesOut = static_cast<uint32_t>(num);
-				}
-
-				if (features.isFeatureAvailable(features.NBL_EXT_texture_lod_bias))
-					glGeneral.pglGetFloatv(GL_MAX_TEXTURE_LOD_BIAS_EXT, &features.MaxTextureLODBias);
-
-
-				glGeneral.pglGetIntegerv(GL_MAX_CLIP_DISTANCES, &num);
-				features.MaxUserClipPlanes = static_cast<uint8_t>(num);
-				glGeneral.pglGetIntegerv(GL_MAX_DRAW_BUFFERS, &num);
-				features.MaxMultipleRenderTargets = static_cast<uint8_t>(num);
-
-				glGeneral.pglGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, features.DimAliasedLine);
-				glGeneral.pglGetFloatv(GL_ALIASED_POINT_SIZE_RANGE, features.DimAliasedPoint);
-				glGeneral.pglGetFloatv(GL_SMOOTH_LINE_WIDTH_RANGE, features.DimSmoothedLine);
-				glGeneral.pglGetFloatv(GL_SMOOTH_POINT_SIZE_RANGE, features.DimSmoothedPoint);
 			}
 		};	// end of class COpenGLFunctionTable
 
@@ -662,7 +555,7 @@ namespace nbl {
 												GL_TEXTURE_1D_ARRAY,GL_TEXTURE_2D_ARRAY,GL_TEXTURE_BUFFER, // GL 3.x
 												GL_TEXTURE_CUBE_MAP_ARRAY,GL_TEXTURE_2D_MULTISAMPLE,GL_TEXTURE_2D_MULTISAMPLE_ARRAY }; // GL 4.x
 
-			if (features.Version >= 440 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_multi_bind])
+			if (features->Version >= 440 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_multi_bind])
 				glTexture.pglBindTextures(first, count, textures);
 			else
 			{
@@ -690,16 +583,16 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlCreateTextures(GLenum target, GLsizei n, GLuint* textures)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				glTexture.pglCreateTextures(target, n, textures);
 			else
 				glGenTextures(n, textures);
 		}
 		inline void COpenGLFunctionTable::extGlTextureBuffer(GLuint texture, GLenum internalformat, GLuint buffer)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				glTexture.pglTextureBuffer(texture, internalformat, buffer);
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				glTexture.pglTextureBufferEXT(texture, GL_TEXTURE_BUFFER, internalformat, buffer);
 			else
 			{
@@ -712,13 +605,13 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlTextureBufferRange(GLuint texture, GLenum internalformat, GLuint buffer, GLintptr offset, GLsizei length)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 
 				if (glTexture.pglTextureBufferRange)
 					glTexture.pglTextureBufferRange(texture, internalformat, buffer, offset, length);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glTexture.pglTextureBufferRangeEXT)
 					glTexture.pglTextureBufferRangeEXT(texture, GL_TEXTURE_BUFFER, internalformat, buffer, offset, length);
@@ -735,12 +628,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlTextureStorage1D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glTexture.pglTextureStorage1D)
 					glTexture.pglTextureStorage1D(texture, levels, internalformat, width);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glTexture.pglTextureStorage1DEXT)
 					glTexture.pglTextureStorage1DEXT(texture, target, levels, internalformat, width);
@@ -764,12 +657,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlTextureStorage2D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glTexture.pglTextureStorage2D)
 					glTexture.pglTextureStorage2D(texture, levels, internalformat, width, height);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glTexture.pglTextureStorage2DEXT)
 					glTexture.pglTextureStorage2DEXT(texture, target, levels, internalformat, width, height);
@@ -802,9 +695,9 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlTextureStorage3D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				glTexture.pglTextureStorage3D(texture, levels, internalformat, width, height, depth);
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				glTexture.pglTextureStorage3DEXT(texture, target, levels, internalformat, width, height, depth);
 			else
 			{
@@ -831,9 +724,9 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlTextureStorage2DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLboolean fixedsamplelocations)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				glTexture.pglTextureStorage2DMultisample(texture, samples, internalformat, width, height, fixedsamplelocations);
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				glTexture.pglTextureStorage2DMultisampleEXT(texture, target, samples, internalformat, width, height, fixedsamplelocations);
 			else
 			{
@@ -852,9 +745,9 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlTextureStorage3DMultisample(GLuint texture, GLenum target, GLsizei samples, GLenum internalformat, GLsizei width, GLsizei height, GLsizei depth, GLboolean fixedsamplelocations)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				glTexture.pglTextureStorage3DMultisample(texture, samples, internalformat, width, height, depth, fixedsamplelocations);
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				glTexture.pglTextureStorage3DMultisampleEXT(texture, target, samples, internalformat, width, height, depth, fixedsamplelocations);
 			else
 			{
@@ -873,7 +766,7 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_get_texture_sub_image])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_get_texture_sub_image])
 				glTexture.pglGetTextureSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, bufSize, pixels);
 #ifdef _NBL_DEBUG
 			else
@@ -882,9 +775,9 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlGetTextureImage(GLuint texture, GLenum target, GLint level, GLenum format, GLenum type, GLsizei bufSizeHint, void* pixels)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				glTexture.pglGetTextureImage(texture, level, format, type, bufSizeHint, pixels);
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				glTexture.pglGetTextureImageEXT(texture, target, level, format, type, pixels);
 			else
 			{
@@ -931,9 +824,9 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlGetCompressedTextureImage(GLuint texture, GLenum target, GLint level, GLsizei bufSizeHint, void* pixels)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				glTexture.pglGetCompressedTextureImage(texture, level, bufSizeHint, pixels);
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				glTexture.pglGetCompressedTextureImageEXT(texture, target, level, pixels);
 			else
 			{
@@ -980,9 +873,9 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, const void* pixels)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				glTexture.pglTextureSubImage1D(texture, level, xoffset, width, format, type, pixels);
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				glTexture.pglTextureSubImage1DEXT(texture, target, level, xoffset, width, format, type, pixels);
 			else
 			{
@@ -1003,9 +896,9 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const void* pixels)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				glTexture.pglTextureSubImage2D(texture, level, xoffset, yoffset, width, height, format, type, pixels);
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				glTexture.pglTextureSubImage2DEXT(texture, target, level, xoffset, yoffset, width, height, format, type, pixels);
 			else
 			{
@@ -1043,9 +936,9 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, const void* pixels)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				glTexture.pglTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				glTexture.pglTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, type, pixels);
 			else
 			{
@@ -1078,12 +971,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlCompressedTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLsizei imageSize, const void* data)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glTexture.pglCompressedTextureSubImage1D)
 					glTexture.pglCompressedTextureSubImage1D(texture, level, xoffset, width, format, imageSize, data);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glTexture.pglCompressedTextureSubImage1DEXT)
 					glTexture.pglCompressedTextureSubImage1DEXT(texture, target, level, xoffset, width, format, imageSize, data);
@@ -1107,12 +1000,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlCompressedTextureSubImage2D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLsizei imageSize, const void* data)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glTexture.pglCompressedTextureSubImage2D)
 					glTexture.pglCompressedTextureSubImage2D(texture, level, xoffset, yoffset, width, height, format, imageSize, data);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glTexture.pglCompressedTextureSubImage2DEXT)
 					glTexture.pglCompressedTextureSubImage2DEXT(texture, target, level, xoffset, yoffset, width, height, format, imageSize, data);
@@ -1147,12 +1040,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlCompressedTextureSubImage3D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLsizei imageSize, const void* data)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glTexture.pglCompressedTextureSubImage3D)
 					glTexture.pglCompressedTextureSubImage3D(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glTexture.pglCompressedTextureSubImage3DEXT)
 					glTexture.pglCompressedTextureSubImage3DEXT(texture, target, level, xoffset, yoffset, zoffset, width, height, depth, format, imageSize, data);
@@ -1185,12 +1078,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlGenerateTextureMipmap(GLuint texture, GLenum target)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glTexture.pglGenerateTextureMipmap)
 					glTexture.pglGenerateTextureMipmap(texture);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glTexture.pglGenerateTextureMipmapEXT)
 					glTexture.pglGenerateTextureMipmapEXT(texture, target);
@@ -1244,9 +1137,9 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlTextureParameterIuiv(GLuint texture, GLenum target, GLenum pname, const GLuint* params)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				glTexture.pglTextureParameterIuiv(texture, pname, params);
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				glTexture.pglTextureParameterIuivEXT(texture, target, pname, params);
 			else
 			{
@@ -1305,7 +1198,7 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlBindSamplers(const GLuint& first, const GLsizei& count, const GLuint* samplers)
 		{
-			if (features.Version >= 440 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_multi_bind])
+			if (features->Version >= 440 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_multi_bind])
 			{
 				if (glTexture.pglBindSamplers)
 					glTexture.pglBindSamplers(first, count, samplers);
@@ -1413,9 +1306,9 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlCreateFramebuffers(GLsizei n, GLuint* framebuffers)
 		{
-			if (!needsDSAFramebufferHack)
+			if (!features->needsDSAFramebufferHack)
 			{
-				if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+				if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				{
 					glFramebuffer.pglCreateFramebuffers(n, framebuffers);
 					return;
@@ -1426,11 +1319,11 @@ namespace nbl {
 		}
 		inline GLenum COpenGLFunctionTable::extGlCheckNamedFramebufferStatus(GLuint framebuffer, GLenum target)
 		{
-			if (!needsDSAFramebufferHack)
+			if (!features->needsDSAFramebufferHack)
 			{
-				if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+				if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 					return glFramebuffer.pglCheckNamedFramebufferStatus(framebuffer, target);
-				else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+				else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 					return glFramebuffer.pglCheckNamedFramebufferStatusEXT(framebuffer, target);
 			}
 
@@ -1448,14 +1341,14 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlNamedFramebufferTexture(GLuint framebuffer, GLenum attachment, GLuint texture, GLint level)
 		{
-			if (!needsDSAFramebufferHack)
+			if (!features->needsDSAFramebufferHack)
 			{
-				if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+				if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				{
 					glFramebuffer.pglNamedFramebufferTexture(framebuffer, attachment, texture, level);
 					return;
 				}
-				else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+				else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				{
 					glFramebuffer.pglNamedFramebufferTextureEXT(framebuffer, attachment, texture, level);
 					return;
@@ -1473,9 +1366,9 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlNamedFramebufferTextureLayer(GLuint framebuffer, GLenum attachment, GLuint texture, GLenum textureType, GLint level, GLint layer)
 		{
-			if (!needsDSAFramebufferHack)
+			if (!features->needsDSAFramebufferHack)
 			{
-				if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+				if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				{
 					glFramebuffer.pglNamedFramebufferTextureLayer(framebuffer, attachment, texture, level, layer);
 					return;
@@ -1484,7 +1377,7 @@ namespace nbl {
 
 			if (textureType != GL_TEXTURE_CUBE_MAP)
 			{
-				if (!needsDSAFramebufferHack && features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+				if (!features->needsDSAFramebufferHack && features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				{
 					glFramebuffer.pglNamedFramebufferTextureLayerEXT(framebuffer, attachment, texture, level, layer);
 				}
@@ -1506,7 +1399,7 @@ namespace nbl {
 					GL_TEXTURE_CUBE_MAP_POSITIVE_X,GL_TEXTURE_CUBE_MAP_NEGATIVE_X,GL_TEXTURE_CUBE_MAP_POSITIVE_Y,GL_TEXTURE_CUBE_MAP_NEGATIVE_Y,GL_TEXTURE_CUBE_MAP_POSITIVE_Z,GL_TEXTURE_CUBE_MAP_NEGATIVE_Z
 				};
 
-				if (!needsDSAFramebufferHack && features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+				if (!features->needsDSAFramebufferHack && features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				{
 					glFramebuffer.pglNamedFramebufferTexture2DEXT(framebuffer, attachment, CubeMapFaceToCubeMapFaceGLenum[layer], texture, level);
 				}
@@ -1525,9 +1418,9 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlBlitNamedFramebuffer(GLuint readFramebuffer, GLuint drawFramebuffer, GLint srcX0, GLint srcY0, GLint srcX1, GLint srcY1, GLint dstX0, GLint dstY0, GLint dstX1, GLint dstY1, GLbitfield mask, GLenum filter)
 		{
-			if (!needsDSAFramebufferHack)
+			if (!features->needsDSAFramebufferHack)
 			{
-				if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+				if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				{
 					glFramebuffer.pglBlitNamedFramebuffer(readFramebuffer, drawFramebuffer, srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
 					return;
@@ -1553,14 +1446,14 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlNamedFramebufferReadBuffer(GLuint framebuffer, GLenum mode)
 		{
-			if (!needsDSAFramebufferHack)
+			if (!features->needsDSAFramebufferHack)
 			{
-				if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+				if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				{
 					glFramebuffer.pglNamedFramebufferReadBuffer(framebuffer, mode);
 					return;
 				}
-				else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+				else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				{
 					glFramebuffer.pglFramebufferReadBufferEXT(framebuffer, mode);
 					return;
@@ -1578,14 +1471,14 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlNamedFramebufferDrawBuffer(GLuint framebuffer, GLenum buf)
 		{
-			if (!needsDSAFramebufferHack)
+			if (!features->needsDSAFramebufferHack)
 			{
-				if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+				if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				{
 					glFramebuffer.pglNamedFramebufferDrawBuffer(framebuffer, buf);
 					return;
 				}
-				else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+				else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				{
 					glFramebuffer.pglFramebufferDrawBufferEXT(framebuffer, buf);
 					return;
@@ -1603,14 +1496,14 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlNamedFramebufferDrawBuffers(GLuint framebuffer, GLsizei n, const GLenum* bufs)
 		{
-			if (!needsDSAFramebufferHack)
+			if (!features->needsDSAFramebufferHack)
 			{
-				if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+				if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				{
 					glFramebuffer.pglNamedFramebufferDrawBuffers(framebuffer, n, bufs);
 					return;
 				}
-				else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+				else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 				{
 					glFramebuffer.pglFramebufferDrawBuffersEXT(framebuffer, n, bufs);
 					return;
@@ -1628,9 +1521,9 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlClearNamedFramebufferiv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLint* value)
 		{
-			if (!needsDSAFramebufferHack)
+			if (!features->needsDSAFramebufferHack)
 			{
-				if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+				if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				{
 					glFramebuffer.pglClearNamedFramebufferiv(framebuffer, buffer, drawbuffer, value);
 					return;
@@ -1650,9 +1543,9 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlClearNamedFramebufferuiv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLuint* value)
 		{
-			if (!needsDSAFramebufferHack)
+			if (!features->needsDSAFramebufferHack)
 			{
-				if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+				if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				{
 					glFramebuffer.pglClearNamedFramebufferuiv(framebuffer, buffer, drawbuffer, value);
 					return;
@@ -1672,9 +1565,9 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlClearNamedFramebufferfv(GLuint framebuffer, GLenum buffer, GLint drawbuffer, const GLfloat* value)
 		{
-			if (!needsDSAFramebufferHack)
+			if (!features->needsDSAFramebufferHack)
 			{
-				if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+				if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				{
 					glFramebuffer.pglClearNamedFramebufferfv(framebuffer, buffer, drawbuffer, value);
 					return;
@@ -1694,9 +1587,9 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlClearNamedFramebufferfi(GLuint framebuffer, GLenum buffer, GLint drawbuffer, GLfloat depth, GLint stencil)
 		{
-			if (!needsDSAFramebufferHack)
+			if (!features->needsDSAFramebufferHack)
 			{
-				if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+				if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 				{
 					glFramebuffer.pglClearNamedFramebufferfi(framebuffer, buffer, drawbuffer, depth, stencil);
 					return;
@@ -1713,7 +1606,7 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlCreateBuffers(GLsizei n, GLuint* buffers)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glBuffer.pglCreateBuffers)
 					glBuffer.pglCreateBuffers(n, buffers);
@@ -1730,7 +1623,7 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlBindBuffersBase(const GLenum& target, const GLuint& first, const GLsizei& count, const GLuint* buffers)
 		{
-			if (features.Version >= 440 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_multi_bind])
+			if (features->Version >= 440 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_multi_bind])
 			{
 				if (glBuffer.pglBindBuffersBase)
 					glBuffer.pglBindBuffersBase(target, first, count, buffers);
@@ -1746,7 +1639,7 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlBindBuffersRange(const GLenum& target, const GLuint& first, const GLsizei& count, const GLuint* buffers, const GLintptr* offsets, const GLsizeiptr* sizes)
 		{
-			if (features.Version >= 440 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_multi_bind])
+			if (features->Version >= 440 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_multi_bind])
 			{
 				if (glBuffer.pglBindBuffersRange)
 					glBuffer.pglBindBuffersRange(target, first, count, buffers, offsets, sizes);
@@ -1770,12 +1663,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlNamedBufferStorage(GLuint buffer, GLsizeiptr size, const void* data, GLbitfield flags)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glBuffer.pglNamedBufferStorage)
 					glBuffer.pglNamedBufferStorage(buffer, size, data, flags);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glBuffer.pglNamedBufferStorageEXT)
 					glBuffer.pglNamedBufferStorageEXT(buffer, size, data, flags);
@@ -1791,12 +1684,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlNamedBufferSubData(GLuint buffer, GLintptr offset, GLsizeiptr size, const void* data)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glBuffer.pglNamedBufferSubData)
 					glBuffer.pglNamedBufferSubData(buffer, offset, size, data);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glBuffer.pglNamedBufferSubDataEXT)
 					glBuffer.pglNamedBufferSubDataEXT(buffer, offset, size, data);
@@ -1812,12 +1705,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlGetNamedBufferSubData(GLuint buffer, GLintptr offset, GLsizeiptr size, void* data)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glBuffer.pglGetNamedBufferSubData)
 					glBuffer.pglGetNamedBufferSubData(buffer, offset, size, data);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glBuffer.pglGetNamedBufferSubDataEXT)
 					glBuffer.pglGetNamedBufferSubDataEXT(buffer, offset, size, data);
@@ -1833,12 +1726,12 @@ namespace nbl {
 		}
 		inline void* COpenGLFunctionTable::extGlMapNamedBuffer(GLuint buffer, GLbitfield access)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glBuffer.pglMapNamedBuffer)
 					return glBuffer.pglMapNamedBuffer(buffer, access);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glBuffer.pglMapNamedBufferEXT)
 					return glBuffer.pglMapNamedBufferEXT(buffer, access);
@@ -1857,12 +1750,12 @@ namespace nbl {
 		}
 		inline void* COpenGLFunctionTable::extGlMapNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length, GLbitfield access)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glBuffer.pglMapNamedBufferRange)
 					return glBuffer.pglMapNamedBufferRange(buffer, offset, length, access);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glBuffer.pglMapNamedBufferRangeEXT)
 					return glBuffer.pglMapNamedBufferRangeEXT(buffer, offset, length, access);
@@ -1881,12 +1774,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlFlushMappedNamedBufferRange(GLuint buffer, GLintptr offset, GLsizeiptr length)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glBuffer.pglFlushMappedNamedBufferRange)
 					glBuffer.pglFlushMappedNamedBufferRange(buffer, offset, length);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glBuffer.pglFlushMappedNamedBufferRangeEXT)
 					glBuffer.pglFlushMappedNamedBufferRangeEXT(buffer, offset, length);
@@ -1902,12 +1795,12 @@ namespace nbl {
 		}
 		inline GLboolean COpenGLFunctionTable::extGlUnmapNamedBuffer(GLuint buffer)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glBuffer.pglUnmapNamedBuffer)
 					return glBuffer.pglUnmapNamedBuffer(buffer);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glBuffer.pglUnmapNamedBufferEXT)
 					return glBuffer.pglUnmapNamedBufferEXT(buffer);
@@ -1926,12 +1819,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlClearNamedBufferData(GLuint buffer, GLenum internalformat, GLenum format, GLenum type, const void* data)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glBuffer.pglClearNamedBufferData)
 					glBuffer.pglClearNamedBufferData(buffer, internalformat, format, type, data);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glBuffer.pglClearNamedBufferDataEXT)
 					glBuffer.pglClearNamedBufferDataEXT(buffer, internalformat, format, type, data);
@@ -1947,12 +1840,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlClearNamedBufferSubData(GLuint buffer, GLenum internalformat, GLintptr offset, GLsizeiptr size, GLenum format, GLenum type, const void* data)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glBuffer.pglClearNamedBufferSubData)
 					glBuffer.pglClearNamedBufferSubData(buffer, internalformat, offset, size, format, type, data);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glBuffer.pglClearNamedBufferSubDataEXT)
 					glBuffer.pglClearNamedBufferSubDataEXT(buffer, internalformat, offset, size, format, type, data);
@@ -1968,12 +1861,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlCopyNamedBufferSubData(GLuint readBuffer, GLuint writeBuffer, GLintptr readOffset, GLintptr writeOffset, GLsizeiptr size)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glBuffer.pglCopyNamedBufferSubData)
 					glBuffer.pglCopyNamedBufferSubData(readBuffer, writeBuffer, readOffset, writeOffset, size);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glBuffer.pglNamedCopyBufferSubDataEXT)
 					glBuffer.pglNamedCopyBufferSubDataEXT(readBuffer, writeBuffer, readOffset, writeOffset, size);
@@ -1998,12 +1891,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlGetNamedBufferParameteriv(const GLuint& buffer, const GLenum& value, GLint* data)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glBuffer.pglGetNamedBufferParameteriv)
 					glBuffer.pglGetNamedBufferParameteriv(buffer, value, data);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glBuffer.pglGetNamedBufferParameterivEXT)
 					glBuffer.pglGetNamedBufferParameterivEXT(buffer, value, data);
@@ -2019,7 +1912,7 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlGetNamedBufferParameteri64v(const GLuint& buffer, const GLenum& value, GLint64* data)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glBuffer.pglGetNamedBufferParameteri64v)
 					glBuffer.pglGetNamedBufferParameteri64v(buffer, value, data);
@@ -2035,7 +1928,7 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlCreateVertexArrays(GLsizei n, GLuint* arrays)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glVertex.pglCreateVertexArrays)
 					glVertex.pglCreateVertexArrays(n, arrays);
@@ -2050,7 +1943,7 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlVertexArrayElementBuffer(GLuint vaobj, GLuint buffer)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glVertex.pglVertexArrayElementBuffer)
 					glVertex.pglVertexArrayElementBuffer(vaobj, buffer);
@@ -2067,12 +1960,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlVertexArrayVertexBuffer(GLuint vaobj, GLuint bindingindex, GLuint buffer, GLintptr offset, GLsizei stride)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glVertex.pglVertexArrayVertexBuffer)
 					glVertex.pglVertexArrayVertexBuffer(vaobj, bindingindex, buffer, offset, stride);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glVertex.pglVertexArrayBindVertexBufferEXT)
 					glVertex.pglVertexArrayBindVertexBufferEXT(vaobj, bindingindex, buffer, offset, stride);
@@ -2089,12 +1982,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlVertexArrayAttribBinding(GLuint vaobj, GLuint attribindex, GLuint bindingindex)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glVertex.pglVertexArrayAttribBinding)
 					glVertex.pglVertexArrayAttribBinding(vaobj, attribindex, bindingindex);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glVertex.pglVertexArrayVertexAttribBindingEXT)
 					glVertex.pglVertexArrayVertexAttribBindingEXT(vaobj, attribindex, bindingindex);
@@ -2111,12 +2004,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlEnableVertexArrayAttrib(GLuint vaobj, GLuint index)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glVertex.pglEnableVertexArrayAttrib)
 					glVertex.pglEnableVertexArrayAttrib(vaobj, index);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glVertex.pglEnableVertexArrayAttribEXT)
 					glVertex.pglEnableVertexArrayAttribEXT(vaobj, index);
@@ -2133,12 +2026,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlDisableVertexArrayAttrib(GLuint vaobj, GLuint index)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glVertex.pglDisableVertexArrayAttrib)
 					glVertex.pglDisableVertexArrayAttrib(vaobj, index);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glVertex.pglDisableVertexArrayAttribEXT)
 					glVertex.pglDisableVertexArrayAttribEXT(vaobj, index);
@@ -2155,12 +2048,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlVertexArrayAttribFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLboolean normalized, GLuint relativeoffset)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glVertex.pglVertexArrayAttribFormat)
 					glVertex.pglVertexArrayAttribFormat(vaobj, attribindex, size, type, normalized, relativeoffset);
 			}
-			else if (!isIntelGPU && features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (!features->isIntelGPU && features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glVertex.pglVertexArrayVertexAttribFormatEXT)
 					glVertex.pglVertexArrayVertexAttribFormatEXT(vaobj, attribindex, size, type, normalized, relativeoffset);
@@ -2177,12 +2070,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlVertexArrayAttribIFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glVertex.pglVertexArrayAttribIFormat)
 					glVertex.pglVertexArrayAttribIFormat(vaobj, attribindex, size, type, relativeoffset);
 			}
-			else if (!isIntelGPU && features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (!features->isIntelGPU && features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glVertex.pglVertexArrayVertexAttribIFormatEXT)
 					glVertex.pglVertexArrayVertexAttribIFormatEXT(vaobj, attribindex, size, type, relativeoffset);
@@ -2199,12 +2092,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlVertexArrayAttribLFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glVertex.pglVertexArrayAttribLFormat)
 					glVertex.pglVertexArrayAttribLFormat(vaobj, attribindex, size, type, relativeoffset);
 			}
-			else if (!isIntelGPU && features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (!features->isIntelGPU && features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glVertex.pglVertexArrayVertexAttribLFormatEXT)
 					glVertex.pglVertexArrayVertexAttribLFormatEXT(vaobj, attribindex, size, type, relativeoffset);
@@ -2221,12 +2114,12 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlVertexArrayBindingDivisor(GLuint vaobj, GLuint bindingindex, GLuint divisor)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glVertex.pglVertexArrayBindingDivisor)
 					glVertex.pglVertexArrayBindingDivisor(vaobj, bindingindex, divisor);
 			}
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_EXT_direct_state_access])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
 			{
 				if (glVertex.pglVertexArrayVertexBindingDivisorEXT)
 					glVertex.pglVertexArrayVertexBindingDivisorEXT(vaobj, bindingindex, divisor);
@@ -2243,7 +2136,7 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlCreateTransformFeedbacks(GLsizei n, GLuint* ids)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glTransformFeedback.pglCreateTransformFeedbacks)
 					glTransformFeedback.pglCreateTransformFeedbacks(n, ids);
@@ -2256,7 +2149,7 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlTransformFeedbackBufferBase(GLuint xfb, GLuint index, GLuint buffer)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glTransformFeedback.pglTransformFeedbackBufferBase)
 					glTransformFeedback.pglTransformFeedbackBufferBase(xfb, index, buffer);
@@ -2272,7 +2165,7 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlTransformFeedbackBufferRange(GLuint xfb, GLuint index, GLuint buffer, GLintptr offset, GLsizeiptr size)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glTransformFeedback.pglTransformFeedbackBufferRange)
 					glTransformFeedback.pglTransformFeedbackBufferRange(xfb, index, buffer, offset, size);
@@ -2288,7 +2181,7 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlCreateQueries(GLenum target, GLsizei n, GLuint* ids)
 		{
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glQuery.pglCreateQueries)
 					glQuery.pglCreateQueries(target, n, ids);
@@ -2301,7 +2194,7 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlGetQueryBufferObjectuiv(GLuint id, GLuint buffer, GLenum pname, GLintptr offset)
 		{
-			if (features.Version < 440 && !features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_query_buffer_object])
+			if (features->Version < 440 && !features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_query_buffer_object])
 			{
 #ifdef _DEBuG
 				os::Printer::log("GL_ARB_query_buffer_object unsupported!\n
@@ -2309,7 +2202,7 @@ namespace nbl {
 					return;
 			}
 
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glQuery.pglGetQueryBufferObjectuiv)
 					glQuery.pglGetQueryBufferObjectuiv(id, buffer, pname, offset);
@@ -2326,7 +2219,7 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlGetQueryBufferObjectui64v(GLuint id, GLuint buffer, GLenum pname, GLintptr offset)
 		{
-			if (features.Version < 440 && !features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_query_buffer_object])
+			if (features->Version < 440 && !features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_query_buffer_object])
 			{
 #ifdef _DEBuG
 				os::Printer::log("GL_ARB_query_buffer_object unsupported!\n
@@ -2334,7 +2227,7 @@ namespace nbl {
 					return;
 			}
 
-			if (features.Version >= 450 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_direct_state_access])
+			if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
 			{
 				if (glQuery.pglGetQueryBufferObjectui64v)
 					glQuery.pglGetQueryBufferObjectui64v(id, buffer, pname, offset);
@@ -2351,9 +2244,9 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlTextureBarrier()
 		{
-			if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_texture_barrier])
+			if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_texture_barrier])
 				glSync.pglTextureBarrier();
-			else if (features.FeatureAvailable[features.EOpenGLFeatures::NBL_NV_texture_barrier])
+			else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_NV_texture_barrier])
 				glSync.pglTextureBarrierNV();
 #ifdef _NBL_DEBUG
 			else
@@ -2362,7 +2255,7 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlGetInternalformativ(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint* params)
 		{
-			if (features.Version >= 460 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_internalformat_query])
+			if (features->Version >= 460 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_internalformat_query])
 			{
 				if (glGeneral.pglGetInternalformativ)
 					glGeneral.pglGetInternalformativ(target, internalformat, pname, bufSize, params);
@@ -2370,7 +2263,7 @@ namespace nbl {
 		}
 		inline void COpenGLFunctionTable::extGlGetInternalformati64v(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint64* params)
 		{
-			if (features.Version >= 460 || features.FeatureAvailable[features.EOpenGLFeatures::NBL_ARB_internalformat_query])
+			if (features->Version >= 460 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_internalformat_query])
 			{
 				if (glGeneral.pglGetInternalformati64v)
 					glGeneral.pglGetInternalformati64v(target, internalformat, pname, bufSize, params);

@@ -43,7 +43,7 @@ class DynamicLibraryFunctionPointer
 	
 
 		template<typename... T>
-		inline result_type operator()(std::function<result_type(const char*)> error, T&& ... args)
+		inline result_type operator()(std::function<result_type(const char*)> error, T&& ... args) const
 		{
 			if (p)
 				return p(std::forward<T>(args)...);
@@ -52,7 +52,7 @@ class DynamicLibraryFunctionPointer
 		}
 
 		template<typename... T>
-		inline result_type operator()(std::function<void(const char*)> error, T&& ... args)
+		inline result_type operator()(std::function<void(const char*)> error, T&& ... args) const
 		{
 			if (p)
 				return p(std::forward<T>(args)...);
@@ -65,7 +65,7 @@ class DynamicLibraryFunctionPointer
 		}
 
 		template<typename... T>
-		inline result_type operator()(T&& ... args)
+		inline result_type operator()(T&& ... args) const
 		{
 			if (p)
 				return p(std::forward<T>(args)...);

@@ -1,7 +1,7 @@
 #ifndef __IRR_I_GPU_PRIMARY_COMMAND_BUFFER_H_INCLUDED__
 #define __IRR_I_GPU_PRIMARY_COMMAND_BUFFER_H_INCLUDED__
 
-#include <nbl/video/IGPUCommandBuffer.h>
+#include "nbl/video/IGPUCommandBuffer.h"
 
 namespace nbl {
 namespace video
@@ -12,6 +12,7 @@ class IGPUPrimaryCommandBuffer : public virtual IGPUCommandBuffer
     using base_t = IGPUCommandBuffer;
 
 public:
+    // this init of IGPUCommandBuffer will be always ignored by compiler since IGPUPrimaryCommandBuffer will never be most derived class
     IGPUPrimaryCommandBuffer() : IGPUCommandBuffer(nullptr) {}
 
     E_LEVEL getLevel() const override { return EL_PRIMARY; }
