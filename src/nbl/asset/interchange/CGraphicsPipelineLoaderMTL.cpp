@@ -50,9 +50,9 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_a
 
 void CGraphicsPipelineLoaderMTL::initialize()
 {
+    auto dfltOver = IAssetLoaderOverride(m_assetMgr);
     // need to initialize this first
     {
-        auto dfltOver = IAssetLoaderOverride(m_assetMgr);
         const IAssetLoader::SAssetLoadContext fakeCtx(IAssetLoader::SAssetLoadParams{},nullptr);
 
         // find ds1 layout
@@ -67,7 +67,7 @@ void CGraphicsPipelineLoaderMTL::initialize()
             //if intellisense shows error here, it's most likely intellisense's fault and it'll build fine anyway
             static_assert(sizeof(SMtl::params) <= ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "It must fit in push constants!");
 
-            auto pplnLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng+1, nullptr, std::move(ds1layout), nullptr, nullptr);
+            auto pplnLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng+1, nullptr, core::smart_refctd_ptr(ds1layout), nullptr, nullptr);
             insertBuiltinAssetIntoCache(m_assetMgr, SAssetBundle(nullptr,{ core::smart_refctd_ptr_static_cast<IAsset>(std::move(pplnLayout)) }), "nbl/builtin/pipeline_layout/loader/mtl/no_uv");
         }
 
@@ -113,7 +113,7 @@ void CGraphicsPipelineLoaderMTL::initialize()
     SAssetLoadParams assetLoadParams;
   
     auto default_mtl_file = m_assetMgr->getFileSystem()->createMemoryReadFile(DUMMY_MTL_CONTENT, strlen(DUMMY_MTL_CONTENT), "default IrrlichtBAW material");
-    auto bundle = loadAsset(default_mtl_file, assetLoadParams);
+    auto bundle = loadAsset(default_mtl_file, assetLoadParams, &dfltOver);
     default_mtl_file->drop();
 
     insertBuiltinAssetIntoCache(m_assetMgr, std::move(bundle), "nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline");
@@ -147,7 +147,13 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
         _override
     );
     const std::string fullName = _file->getFileName().c_str();
-	const std::string relPath = std::filesystem::path(fullName).parent_path().string()+"/";
+	const std::string relPath = [&fullName]() -> std::string
+	{
+		auto dir = std::filesystem::path(fullName).parent_path().string();
+		if (dir.empty())
+			return "";
+		return dir+"/";
+	}();
 
     auto materials = readMaterials(_file);
 

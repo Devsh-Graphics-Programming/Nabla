@@ -24,8 +24,10 @@ CommandLineHandler::CommandLineHandler(core::vector<std::string> argv, IAssetMan
 		os::Printer::log(requiredArgumentsMessage.data(), ELL_INFORMATION);
 		return;
 	}
-
-	assetManager->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(assetManager));
+	
+	auto mitsubaLoader = core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am,fs);
+	mitsubaLoader->initialize();
+	am->addAssetLoader(std::move(mitsubaLoader));
 	core::vector<std::array<std::string, PROPER_CMD_ARGUMENTS_AMOUNT>> argvMappedList;
 
 	auto pushArgvList = [&](auto argvStream, auto variableCount)

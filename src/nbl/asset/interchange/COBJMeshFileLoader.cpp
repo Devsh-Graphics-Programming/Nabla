@@ -76,7 +76,13 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 	uint32_t smoothingGroup=0;
 
 	const std::string fullName = _file->getFileName().c_str();
-	const std::string relPath = std::filesystem::path(fullName).parent_path().string()+"/";
+	const std::string relPath = [&fullName]() -> std::string
+	{
+		auto dir = std::filesystem::path(fullName).parent_path().string();
+		if (dir.empty())
+			return "";
+		return dir+"/";
+	}();
 
     //value_type: directory from which .mtl (pipeline) was loaded and the pipeline
 	using pipeline_meta_pair_t = std::pair<core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>,const CMTLMetadata::CRenderpassIndependentPipeline*>;

@@ -279,7 +279,7 @@ public:
 	virtual uint64_t getSupportedAssetTypesBitfield() const { return 0; }
 
 	//! Loads an asset from an opened file, returns nullptr in case of failure.
-	virtual SAssetBundle loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) = 0;
+	virtual SAssetBundle loadAsset(io::IReadFile* _file, const SAssetLoadParams& _params, IAssetLoaderOverride* _override, uint32_t _hierarchyLevel = 0u) = 0;
 
 	virtual void initialize() {}
 

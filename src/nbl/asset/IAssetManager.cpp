@@ -134,6 +134,9 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _NBL_COMPILE_WITH_PLY_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>(this));
 #endif
+#ifdef _NBL_COMPILE_WITH_MTL_LOADER_
+    addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this));
+#endif
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
 #endif
@@ -176,15 +179,15 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _NBL_COMPILE_WITH_PNG_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterPNG>());
 #endif
-#ifdef _NBL_COMPILE_WITH_MTL_LOADER_
-    addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this));
-#endif
 #ifdef _NBL_COMPILE_WITH_OPENEXR_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CImageWriterOpenEXR>());
 #endif
 #ifdef _NBL_COMPILE_WITH_GLI_WRITER_
 	addAssetWriter(core::make_smart_refctd_ptr<asset::CGLIWriter>());
 #endif
+
+    for (auto& loader : m_loaders.vector)
+        loader->initialize();
 }
 
 

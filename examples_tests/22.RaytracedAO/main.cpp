@@ -41,9 +41,13 @@ int main()
 	{
 		io::IFileSystem* fs = device->getFileSystem();
 		asset::IAssetManager* am = device->getAssetManager();
-
-		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CSerializedLoader>(am));
-		am->addAssetLoader(core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am, fs));
+		
+		auto serializedLoader = core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CSerializedLoader>(am);
+		auto mitsubaLoader = core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaLoader>(am,fs);
+		serializedLoader->initialize();
+		mitsubaLoader->initialize();
+		am->addAssetLoader(std::move(serializedLoader));
+		am->addAssetLoader(std::move(mitsubaLoader));
 
 		//std::string filePath = "../../media/mitsuba/daily_pt.xml";
 		std::string filePath = "../../media/mitsuba/staircase2.zip";
