@@ -9,7 +9,7 @@
 #include "os.h"
 
 #include "nbl/ext/MitsubaLoader/CSerializedLoader.h"
-#include "nbl/ext/MitsubaLoader/CMitsubaSerializedPipelineMetadata.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaSerializedMetadata.h"
 
 #ifndef _NBL_COMPILE_WITH_ZLIB_
 #error "Need zlib for this loader"
@@ -18,26 +18,14 @@
 
 namespace nbl
 {
-	using namespace asset;
+
+using namespace asset;
+
 namespace ext
 {
 namespace MitsubaLoader
 {
 
-template<typename AssetType, IAsset::E_TYPE assetType>
-static core::smart_refctd_ptr<AssetType> getDefaultAsset(const char* _key, IAssetManager* _assetMgr)
-{
-	size_t storageSz = 1ull;
-	asset::SAssetBundle bundle;
-	const IAsset::E_TYPE types[]{ assetType, static_cast<IAsset::E_TYPE>(0u) };
-
-	_assetMgr->findAssets(storageSz, &bundle, _key, types);
-	if (bundle.isEmpty())
-		return nullptr;
-	auto assets = bundle.getContents();
-
-	return core::smart_refctd_ptr_static_cast<AssetType>(assets.begin()[0]);
-}
 
 enum MESH_FLAGS
 {
@@ -68,28 +56,32 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 	if (!_file)
         return {};
 
-	SContext ctx = {_file,0,nullptr};
+	SContext ctx = {
+		IAssetLoader::SAssetLoadContext(_params,_file),
+		0,
+		nullptr
+	};
 	size_t maxSize = 0u;
 	{
 		FileHeader header;
-		ctx.file->seek(0u);
-		ctx.file->read(&header, sizeof(header));
+		ctx.inner.mainFile->seek(0u);
+		ctx.inner.mainFile->read(&header, sizeof(header));
 		if (header!=FileHeader())
 		{
-			os::Printer::log("Not a valid `.serialized` file", ctx.file->getFileName().c_str(), ELL_ERROR);
+			os::Printer::log("Not a valid `.serialized` file", ctx.inner.mainFile->getFileName().c_str(), ELL_ERROR);
 			return {};
 		}
 
-		size_t backPos = ctx.file->getSize() - sizeof(uint32_t);
-		ctx.file->seek(backPos);
-		ctx.file->read(&ctx.meshCount,sizeof(uint32_t));
+		size_t backPos = ctx.inner.mainFile->getSize() - sizeof(uint32_t);
+		ctx.inner.mainFile->seek(backPos);
+		ctx.inner.mainFile->read(&ctx.meshCount,sizeof(uint32_t));
 		if (ctx.meshCount==0u)
 			return {};
 
 		ctx.meshOffsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint64_t> >(ctx.meshCount*2u);
 		backPos -= sizeof(uint64_t)*ctx.meshCount;
-		ctx.file->seek(backPos);
-		ctx.file->read(ctx.meshOffsets->data(),sizeof(uint64_t)*ctx.meshCount);
+		ctx.inner.mainFile->seek(backPos);
+		ctx.inner.mainFile->read(ctx.meshOffsets->data(),sizeof(uint64_t)*ctx.meshCount);
 		for (uint32_t i=0; i<ctx.meshCount; i++)
 		{
 			size_t localSize;
@@ -106,9 +98,8 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 	if (maxSize==0u)
 		return {};
 
-
-	core::vector<core::smart_refctd_ptr<asset::CCPUMesh> > meshes;
-	meshes.reserve(ctx.meshCount);
+	auto meta = core::make_smart_refctd_ptr<CMitsubaSerializedMetadata>();
+	core::vector<core::smart_refctd_ptr<ICPUMesh>> meshes; meshes.reserve(ctx.meshCount);
 
 	uint8_t* data = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(maxSize,alignof(double)));
 	constexpr size_t CHUNK = 256ull*1024ull;
@@ -116,8 +107,8 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 	for (uint32_t i=0; i<ctx.meshCount; i++)
 	{
 		auto localSize = ctx.meshOffsets->operator[](i+ctx.meshCount);
-		ctx.file->seek(sizeof(FileHeader)+ctx.meshOffsets->operator[](i));
-		ctx.file->read(data,localSize);
+		ctx.inner.mainFile->seek(sizeof(FileHeader)+ctx.meshOffsets->operator[](i));
+		ctx.inner.mainFile->read(data,localSize);
 		// decompress
 		size_t decompressSize;
 		{
@@ -257,9 +248,9 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 		{
 			constexpr std::array<std::pair<uint8_t, std::string_view>, 3> avaiableOptionsForShaders
 			{
-				std::make_pair(COLOR_ATTRIBUTE, "nbl/builtin/materials/debug/vertex_color/specializedshader"),
-				std::make_pair(UV_ATTRIBUTE, "nbl/builtin/materials/debug/vertex_uv/specializedshader"),
-				std::make_pair(NORMAL_ATTRIBUTE, "nbl/builtin/materials/debug/vertex_normal/specializedshader")
+				std::make_pair(COLOR_ATTRIBUTE, "nbl/builtin/material/debug/vertex_color/specialized_shader"),
+				std::make_pair(UV_ATTRIBUTE, "nbl/builtin/material/debug/vertex_uv/specialized_shader"),
+				std::make_pair(NORMAL_ATTRIBUTE, "nbl/builtin/material/debug/vertex_normal/specialized_shader")
 			};
 
 			for (auto& it : avaiableOptionsForShaders)
@@ -278,33 +269,12 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 			const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
 			const std::string basepath = chooseShaderPath();
 
-			auto bundle = manager->findAssets(basepath+".vert", types);
+			auto bundle = m_assetMgr->findAssets(basepath+".vert", types);
 			mbVertexShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().begin()[0]);
-			bundle = manager->findAssets(basepath+".frag", types);
+			bundle = m_assetMgr->findAssets(basepath+".frag", types);
 			mbFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().begin()[0]);
 		}
-		auto mbPipelineLayout = getDefaultAsset<ICPUPipelineLayout, asset::IAsset::ET_PIPELINE_LAYOUT>("nbl/builtin/materials/lambertian/no_texture/pipelinelayout", manager);
-
-		constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
-		core::smart_refctd_dynamic_array<asset::IPipelineMetadata::ShaderInputSemantic> shaderInputsMetadata = core::make_refctd_dynamic_array<decltype(shaderInputsMetadata)>(DS1_METADATA_ENTRY_CNT);
-		{
-			asset::ICPUDescriptorSetLayout* ds1layout = mbPipelineLayout->getDescriptorSetLayout(1u);
-
-			constexpr asset::IPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT]{ asset::IPipelineMetadata::ECSI_WORLD_VIEW_PROJ, asset::IPipelineMetadata::ECSI_WORLD_VIEW, asset::IPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE };
-			constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT]{ sizeof(asset::SBasicViewParameters::MVP), sizeof(asset::SBasicViewParameters::MV), sizeof(asset::SBasicViewParameters::NormalMat) };
-			constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT]{ offsetof(asset::SBasicViewParameters,MVP), offsetof(asset::SBasicViewParameters,MV), offsetof(asset::SBasicViewParameters,NormalMat) };
-			for (uint32_t i = 0u; i < DS1_METADATA_ENTRY_CNT; ++i)
-			{
-				auto& semantic = (shaderInputsMetadata->end() - i - 1u)[0];
-				semantic.type = types[i];
-				semantic.descriptorSection.type = asset::IPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
-				semantic.descriptorSection.uniformBufferObject.binding = ds1layout->getBindings().begin()[0].binding;
-				semantic.descriptorSection.uniformBufferObject.set = 1u;
-				semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
-				semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
-				semantic.descriptorSection.shaderAccessFlags = asset::ICPUSpecializedShader::ESS_VERTEX;
-			}
-		}
+		auto mbPipelineLayout = _override->findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/material/lambertian/no_texture/pipeline_layout",ctx.inner,_hierarchyLevel+ICPUMesh::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW).first;
 
 		asset::SBlendParams blendParams;
 		asset::SRasterizationParams rastarizationParams;
@@ -397,19 +367,24 @@ asset::SAssetBundle CSerializedLoader::loadAsset(io::IReadFile* _file, const ass
 		if (!readIndices())
 			continue;
 
-		manager->setAssetMetadata(mbPipeline.get(), core::make_smart_refctd_ptr<nbl::ext::MitsubaLoader::CMitsubaSerializedPipelineMetadata>(std::move(shaderInputsMetadata)));
+
+		auto mesh = core::make_smart_refctd_ptr<asset::ICPUMesh>();
+
+		meta->placeMeta(
+			meshes.size(),
+			mbPipeline.get(),{core::smart_refctd_ptr(IRenderpassIndependentPipelineLoader::m_basicViewParamsSemantics)},
+			mesh.get(),{std::string(stringPtr,stringLen),i}
+		);
+
 		meshBuffer->setPipeline(std::move(mbPipeline));
 
-		auto mesh = core::make_smart_refctd_ptr<asset::CCPUMesh>();
-		mesh->addMeshBuffer(std::move(meshBuffer));
-		mesh->recalculateBoundingBox();
-		manager->setAssetMetadata(mesh.get(), core::make_smart_refctd_ptr<CSerializedMetadata>(std::string(stringPtr, stringLen), i));
-
+		mesh->setBoundingBox(meshBuffer->getBoundingBox());
+		mesh->getMeshBufferVector().emplace_back(std::move(meshBuffer));
 		meshes.push_back(std::move(mesh));
 	}
 	_NBL_ALIGNED_FREE(data);
 
-	return meshes;
+	return SAssetBundle(nullptr,std::move(meshes));
 }
 
 

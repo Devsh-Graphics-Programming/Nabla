@@ -110,7 +110,7 @@ bool CElementRFilter::addProperty(SNamedPropertyElement&& _property)
 	return false;
 }
 
-bool CElementRFilter::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata)
+bool CElementRFilter::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata)
 {
 	if (type == Type::INVALID)
 	{

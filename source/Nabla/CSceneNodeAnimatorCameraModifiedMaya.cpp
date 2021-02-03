@@ -119,17 +119,13 @@ namespace nbl
 		//! OnAnimate() is called just before rendering the whole scene.
 		void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationSceneNode* node, uint32_t timeMs)
 		{
-			if (!node || node->getType() != ESNT_CAMERA)
+			if (!node/* || node->getType() != ESNT_CAMERA*/)
 				return;
 
 			ICameraSceneNode * camera = static_cast<ICameraSceneNode*>(node);
 
 			// If the camera isn't the active camera, and receiving input, then don't process it.
 			if (!camera->isInputReceiverEnabled())
-				return;
-
-			scene::ISceneManager * smgr = camera->getSceneManager();
-			if (smgr && smgr->getActiveCamera() != camera)
 				return;
 
 			const SViewFrustum* va = camera->getViewFrustum();

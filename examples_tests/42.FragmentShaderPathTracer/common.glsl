@@ -576,26 +576,12 @@ void main()
 
 Now:
 - Always MIS (path correlated reuse)
-- Proper Universal&Robust Materials
 - Test MIS alpha (roughness) scheme
-
-Quality:
--* Reweighting Noise Removal
--* Covariance Rendering
--* Geometry Specular AA (Curvature adjusted roughness)
-
-When proper scheduling is available:
-- Russian Roulette
-- Divergence Optimization
-- Adaptive Sampling
-
-When finally texturing:
-- Covariance Rendering
-- CLEAR/LEAN/Toksvig for simult roughness + bumpmap filtering
 
 Many Lights:
 - Path Guiding
 - Light Importance Lists/Classification
+- Spatio-Temporal Reservoir Sampling
 
 Indirect Light:
 - Bidirectional Path Tracing

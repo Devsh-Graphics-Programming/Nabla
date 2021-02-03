@@ -5,33 +5,92 @@
 #ifndef __NBL_C_MITSUBA_METADATA_H_INCLUDED__
 #define __NBL_C_MITSUBA_METADATA_H_INCLUDED__
 
-#include "nbl/asset/IAssetMetadata.h"
-#include "nbl/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
+#include "nbl/asset/metadata/IAssetMetadata.h"
+
+#include "nbl/ext/MitsubaLoader/SContext.h"
+#include "nbl/ext/MitsubaLoader/CElementEmitter.h"
+#include "nbl/ext/MitsubaLoader/CElementIntegrator.h"
+#include "nbl/ext/MitsubaLoader/CElementSensor.h"
+#include "nbl/ext/MitsubaLoader/CElementShape.h"
 
 namespace nbl
 {
-	namespace ext
-	{
-		namespace MitsubaLoader
+namespace ext
+{
+namespace MitsubaLoader
+{
+
+//! A class to derive mitsuba mesh loader metadata objects from
+
+class CMitsubaMetadata : public asset::IAssetMetadata
+{
+	public:
+		class CID
 		{
-			//! A class to derive mitsuba mesh loader metadata objects from
+			public:
+				const std::string id;
+		};
+		class CRenderpassIndependentPipeline : public asset::IRenderpassIndependentPipelineMetadata
+		{
+			public:
+				using IRenderpassIndependentPipelineMetadata::IRenderpassIndependentPipelineMetadata;
 
-			class CMitsubaMetadata : public asset::IAssetMetadata
-			{
-				public:
+				template<typename... Args>
+				CRenderpassIndependentPipeline(uint32_t _hash, Args&&... args) : IRenderpassIndependentPipelineMetadata(std::forward<Args>(args)...), m_hash(_hash)
+				{
+				}
 
-					CMitsubaMetadata(core::smart_refctd_ptr<CGlobalMitsubaMetadata> _mitsubaMetadata) : mitsubaMetadata(std::move(_mitsubaMetadata)) {}
+				inline CRenderpassIndependentPipeline& operator=(CRenderpassIndependentPipeline&& other)
+				{
+					IRenderpassIndependentPipelineMetadata::operator=(std::move(other));
+					std::swap(m_hash, other.m_hash);
+					return *this;
+				}
 
-					auto getMitsubaMetadata() const { return mitsubaMetadata; }
+				uint32_t m_hash;
+		};
+		class CMesh : public asset::IMeshMetadata, public CID
+		{
+			public:
+				struct InstanceAuxilaryData
+				{
+					CElementEmitter emitter; // type is invalid if not used
+					SContext::bsdf_type bsdf;
+				};
+				CElementShape::Type type;
+		};
+		struct SGlobal
+		{
+			public:
+				SGlobal() : m_integrator("invalid") {}// TODO
 
-					_NBL_STATIC_INLINE_CONSTEXPR const char* loaderName = "CMitsubaLoader";
-					const char* getLoaderName() const override { return loaderName; }
+				inline uint32_t getVTStorageViewCount() const { return m_VT->getFloatViews().size(); }
 
-				private:
-					core::smart_refctd_ptr<CGlobalMitsubaMetadata> mitsubaMetadata;
-			};
-		}
-	}
+				CElementIntegrator m_integrator;
+				core::vector<CElementSensor> m_sensors;
+				core::vector<CElementEmitter> m_emitters;
+				core::smart_refctd_ptr<asset::ICPUVirtualTexture> m_VT;
+				core::smart_refctd_ptr<asset::ICPUDescriptorSet> m_ds0;
+				//has to go after #version and before required user-provided descriptors and functions
+				std::string m_materialCompilerGLSL_declarations;
+				//has to go after required user-provided descriptors and functions and before the rest of shader (especially entry point function)
+				std::string m_materialCompilerGLSL_source;
+		} m_global;
+
+		//! No idea how to make it work yet
+		//CMitsubaMetadata(core::smart_refctd_ptr<CGlobalMitsubaMetadata> _mitsubaMetadata) : mitsubaMetadata(std::move(_mitsubaMetadata)) {}
+		CMitsubaMetadata() {} // TODO
+
+		_NBL_STATIC_INLINE_CONSTEXPR const char* loaderName = "ext::MitsubaLoader::CMitsubaLoader";
+		const char* getLoaderName() const override { return loaderName; }
+
+	private:
+		meta_container_t<CRenderpassIndependentPipeline> m_metaPplnStorage;
+		meta_container_t<CMesh> m_metaMeshStorage;
+};
+
+}
+}
 }
 
 #endif

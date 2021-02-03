@@ -119,7 +119,7 @@ bool CElementSampler::addProperty(SNamedPropertyElement&& _property)
 	return true;
 }
 
-bool CElementSampler::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata)
+bool CElementSampler::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata)
 {
 	if (type == Type::INVALID)
 	{

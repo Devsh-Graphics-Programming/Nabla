@@ -7,10 +7,7 @@
 #include "nbl/asset/bawformat/CBAWFile.h"
 
 #include "nbl/asset/ICPUBuffer.h"
-#include "nbl/asset/ICPUSkinnedMesh.h"
-#include "nbl/asset/ICPUSkinnedMeshBuffer.h"
 #include "nbl/asset/bawformat/legacy/CBAWLegacy.h"
-#include "CFinalBoneHierarchy.h"
 
 #ifdef _NBL_COMPILE_WITH_OPENSSL_
 #include "openssl/evp.h"
@@ -37,20 +34,26 @@ size_t SizedBlob<VariableSizeBlob, TexturePathBlobV0, ICPUTexture>::calcBlobSize
 }
 #endif
 
-MeshBlobV3::MeshBlobV3(const asset::ICPUMesh* _mesh) : box(_mesh->getBoundingBox()), meshBufCnt(_mesh->getMeshBufferCount())
+MeshBlobV3::MeshBlobV3(const asset::ICPUMesh* _mesh) : box(_mesh->getBoundingBox()), meshBufCnt(_mesh->getMeshBuffers().size())
 {
+#ifdef OLD_SHADERS
 	for (uint32_t i = 0; i < meshBufCnt; ++i)
 		meshBufPtrs[i] = reinterpret_cast<uint64_t>(_mesh->getMeshBuffer(i));
-
+#endif
 	meshFlags = 0; // default initialization for proper usage of bit operators later on
 }
 
 template<>
 size_t SizedBlob<VariableSizeBlob, MeshBlobV3, asset::ICPUMesh>::calcBlobSizeForObj(const asset::ICPUMesh* _obj)
 {
+#ifdef OLD_SHADERS
 	return sizeof(MeshBlobV3) + (_obj->getMeshBufferCount()-1) * sizeof(uint64_t);
+#else
+	return 0ull;
+#endif
 }
 
+#ifdef OLD_SHADERS
 SkinnedMeshBlobV3::SkinnedMeshBlobV3(const asset::ICPUSkinnedMesh* _sm)
 	: boneHierarchyPtr(reinterpret_cast<uint64_t>(_sm->getBoneReferenceHierarchy())), box(_sm->getBoundingBox()), meshBufCnt(_sm->getMeshBufferCount())
 {
@@ -67,6 +70,7 @@ size_t SizedBlob<VariableSizeBlob, SkinnedMeshBlobV3, asset::ICPUSkinnedMesh>::c
 {
 	return sizeof(SkinnedMeshBlobV3) + (_obj->getMeshBufferCount() - 1) * sizeof(uint64_t);
 }
+#endif
 
 MeshBufferBlobV3::MeshBufferBlobV3(const asset::ICPUMeshBuffer* _mb)
 {
@@ -96,9 +100,9 @@ size_t SizedBlob<FixedSizeBlob, MeshBufferBlobV3, asset::ICPUMeshBuffer>::calcBl
 	return sizeof(MeshBufferBlobV3);
 }
 
+#ifdef OLD_SHADERS
 SkinnedMeshBufferBlobV3::SkinnedMeshBufferBlobV3(const asset::ICPUSkinnedMeshBuffer* _smb)
 {
-#ifdef OLD_SHADERS
 	memcpy(&mat, &_smb->getMaterial(), sizeof(video::SCPUMaterial));
 	_smb->getMaterial().serializeBitfields(mat.bitfieldsPtr());
 	for (size_t i = 0; i < _NBL_MATERIAL_MAX_TEXTURES_; ++i)
@@ -118,7 +122,6 @@ SkinnedMeshBufferBlobV3::SkinnedMeshBufferBlobV3(const asset::ICPUSkinnedMeshBuf
 	indexValMin = _smb->getIndexMinBound();
 	indexValMax = _smb->getIndexMaxBound();
 	maxVertexBoneInfluences = _smb->getMaxVertexBoneInfluences();
-#endif
 }
 
 template<>
@@ -262,7 +265,6 @@ size_t FinalBoneHierarchyBlobV3::calcNonInterpolatedAnimsByteSize() const
 
 
 // .baw VERSION 1
-#ifdef OLD_SHADERS
 MeshDataFormatDescBlobV1::MeshDataFormatDescBlobV1(const asset::IMeshDataFormatDesc<asset::ICPUBuffer>* _desc) : attrDivisor{0u}
 {
     static_assert(VERTEX_ATTRIB_CNT == EVAI_COUNT, "VERTEX_ATTRIB_CNT != EVAI_COUNT");

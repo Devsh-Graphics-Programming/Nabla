@@ -8,7 +8,6 @@
 #include "nbl/video/video.h"
 
 // private headers
-#include "nbl/video/CGPUSkinnedMesh.h"
 #include "nbl/video/COpenGLShader.h"
 #include "nbl/video/COpenGLSpecializedShader.h"
 #include "nbl/video/COpenGLBufferView.h"

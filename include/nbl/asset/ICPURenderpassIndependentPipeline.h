@@ -8,7 +8,6 @@
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
 #include "nbl/asset/ICPUSpecializedShader.h"
 #include "nbl/asset/ICPUPipelineLayout.h"
-#include "nbl/asset/IPipelineMetadata.h"
 
 namespace nbl
 {
@@ -27,8 +26,14 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 	public:
 		//(TODO) it is true however it causes DSs to not be cached when ECF_DONT_CACHE_TOP_LEVEL is set which isnt really intuitive
         _NBL_STATIC_INLINE_CONSTEXPR uint32_t DESC_SET_HIERARCHYLEVELS_BELOW = 0u;
+		// TODO: @Crisspl HOW ON EARTH DOES THIS MAKE SENSE!?
         _NBL_STATIC_INLINE_CONSTEXPR uint32_t IMAGEVIEW_HIERARCHYLEVELS_BELOW = 1u;
         _NBL_STATIC_INLINE_CONSTEXPR uint32_t IMAGE_HIERARCHYLEVELS_BELOW = 2u;
+		// from here its good
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW = 1u;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t DESC_SET_LAYOUT_HIERARCHYLEVELS_BELOW = 1u+ICPUPipelineLayout::DESC_SET_LAYOUT_HIERARCHYLEVELS_BELOW;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW = 1u+ICPUPipelineLayout::IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW;
+		_NBL_STATIC_INLINE_CONSTEXPR uint32_t SPECIALIZED_SHADER_HIERARCHYLEVELS_BELOW = 1u;
 
 
 		using base_t::base_t;

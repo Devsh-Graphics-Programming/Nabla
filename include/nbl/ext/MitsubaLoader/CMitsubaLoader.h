@@ -8,13 +8,11 @@
 #include "matrix4SIMD.h"
 #include "nbl/asset/asset.h"
 #include "IFileSystem.h"
-#include "nbl/asset/ICPUVirtualTexture.h"
+#include "nbl/asset/utils/ICPUVirtualTexture.h"
 
 #include "nbl/ext/MitsubaLoader/CSerializedLoader.h"
-#include "nbl/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
-#include "nbl/ext/MitsubaLoader/CElementShape.h"
-#include "nbl/ext/MitsubaLoader/CMitsubaPipelineMetadata.h"
 #include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
+#include "nbl/ext/MitsubaLoader/CElementShape.h"
 #include "nbl/ext/MitsubaLoader/SContext.h"
 
 
@@ -58,8 +56,6 @@ class CMitsubaLoader : public asset::IAssetLoader
 
 		template <typename Iter>
 		core::smart_refctd_ptr<asset::ICPUDescriptorSet> createDS0(const SContext& _ctx, asset::ICPUPipelineLayout* _layout, const asset::material_compiler::CMaterialCompilerGLSLBackendCommon::result_t& _compResult, Iter meshBegin, Iter meshEnd);
-
-		core::smart_refctd_ptr<CMitsubaPipelineMetadata> createPipelineMetadata(core::smart_refctd_ptr<asset::ICPUDescriptorSet>&& _ds0, const asset::ICPUPipelineLayout* _layout);
 
 	public:
 		//! Check if the file might be loaded by this class

@@ -9,52 +9,52 @@
 
 // private headers (would be useful to cleanup the folders a bit)
 
-	// buffers
-		// loaders
-		#include "nbl/asset/CBufferLoaderBIN.h"
+// buffers
+// loaders
+#include "nbl/asset/interchange/CBufferLoaderBIN.h"
 
-	// image
-		// loaders
-		#include "nbl/asset/CImageLoaderJPG.h"
-		#include "nbl/asset/CImageLoaderPNG.h"
-		#include "nbl/asset/CImageLoaderTGA.h"
-		#include "nbl/asset/CImageLoaderOpenEXR.h"
-		#include "nbl/asset/CGLILoader.h"
-		// writers
-		#include "nbl/asset/CImageWriterJPG.h"
-		#include "nbl/asset/CImageWriterPNG.h"
-		#include "nbl/asset/CImageWriterTGA.h"
-		#include "nbl/asset/CImageWriterOpenEXR.h"
-		#include "nbl/asset/CGLIWriter.h"
+// image
+// loaders
+#include "nbl/asset/interchange/CImageLoaderJPG.h"
+#include "nbl/asset/interchange/CImageLoaderPNG.h"
+#include "nbl/asset/interchange/CImageLoaderTGA.h"
+#include "nbl/asset/interchange/CImageLoaderOpenEXR.h"
+#include "nbl/asset/interchange/CGLILoader.h"
+// writers
+#include "nbl/asset/interchange/CImageWriterJPG.h"
+#include "nbl/asset/interchange/CImageWriterPNG.h"
+#include "nbl/asset/interchange/CImageWriterTGA.h"
+#include "nbl/asset/interchange/CImageWriterOpenEXR.h"
+#include "nbl/asset/interchange/CGLIWriter.h"
 
-	// shaders
-	#include "nbl/asset/CShaderIntrospector.h"
-	#include "nbl/asset/CIncludeHandler.h"
-	#include "nbl/asset/CBuiltinIncluder.h"
-	#include "nbl/asset/CFilesystemIncluder.h"
+// shaders
+#include "nbl/asset/utils/CShaderIntrospector.h"
+#include "nbl/asset/utils/CIncludeHandler.h"
+#include "nbl/asset/utils/CBuiltinIncluder.h"
+#include "nbl/asset/utils/CFilesystemIncluder.h"
 
-		// builtins/headers
-		#include "nbl/asset/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
+// builtins/headers
+#include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeLoader.h"
 
 	
-	// mesh
-	#include "nbl/asset/CGeometryCreator.h"
-		// loaders
-		#include "nbl/asset/COBJMeshFileLoader.h"
-		#include "nbl/asset/CPLYMeshFileLoader.h"
-		#include "nbl/asset/CSTLMeshFileLoader.h"
-		// writers
-		#include "nbl/asset/CPLYMeshWriter.h"
-		#include "nbl/asset/CSTLMeshWriter.h"
-		// manipulation
-		#include "nbl/asset/CForsythVertexCacheOptimizer.h"
-		#include "nbl/asset/CSmoothNormalGenerator.h"
-		#include "nbl/asset/COverdrawMeshOptimizer.h"
-		#include "nbl/asset/CMeshManipulator.h"
+// mesh
+#include "nbl/asset/utils/CGeometryCreator.h"
+// loaders
+#include "nbl/asset/interchange/COBJMeshFileLoader.h"
+#include "nbl/asset/interchange/CPLYMeshFileLoader.h"
+#include "nbl/asset/interchange/CSTLMeshFileLoader.h"
+// writers
+#include "nbl/asset/interchange/CPLYMeshWriter.h"
+#include "nbl/asset/interchange/CSTLMeshWriter.h"
+// manipulation
+#include "nbl/asset/utils/CForsythVertexCacheOptimizer.h"
+#include "nbl/asset/utils/CSmoothNormalGenerator.h"
+#include "nbl/asset/utils/COverdrawMeshOptimizer.h"
+#include "nbl/asset/utils/CMeshManipulator.h"
 
-	// baw file format
-	#include "nbl/asset/bawformat/legacy/CBAWLegacy.h"
-	#include "nbl/asset/CBAWMeshFileLoader.h"
-	#include "nbl/asset/CBAWMeshWriter.h"
+// baw file format
+#include "nbl/asset/bawformat/legacy/CBAWLegacy.h"
+#include "nbl/asset/bawformat/CBAWMeshFileLoader.h"
+#include "nbl/asset/bawformat/CBAWMeshWriter.h"
 
 #endif

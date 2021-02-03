@@ -5,7 +5,7 @@
 #ifndef __I_ELEMENT_H_INCLUDED__
 #define __I_ELEMENT_H_INCLUDED__
 
-#include "nbl/asset/IAssetLoader.h"
+#include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/ext/MitsubaLoader/PropertyElement.h"
 
 
@@ -16,7 +16,8 @@ namespace ext
 namespace MitsubaLoader
 {
 
-class CGlobalMitsubaMetadata;
+
+class CMitsubaMetadata;
 
 class IElement
 {
@@ -51,7 +52,7 @@ class IElement
 		virtual std::string getLogName() const = 0;
 
 		virtual bool addProperty(SNamedPropertyElement&& _property) = 0;
-		virtual bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata) = 0;
+		virtual bool onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata) = 0;
 		//! default implementation for elements that doesnt have any children
 		virtual bool processChildData(IElement* _child, const std::string& name)
 		{

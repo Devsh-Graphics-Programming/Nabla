@@ -10,7 +10,9 @@
 
 #include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
-#include "nbl/asset/IImageAssetHandlerBase.h"
+
+#include "nbl/asset/interchange/IImageAssetHandlerBase.h"
+
 #include "nbl/ext/MitsubaLoader/CGLSLMitsubaLoaderBuiltinIncludeLoader.h"
 
 
@@ -865,7 +867,7 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 		assert(shape->bsdf);
 		auto bsdf = getBSDFtreeTraversal(ctx, shape->bsdf);
 		core::matrix3x4SIMD tform = core::concatenateBFollowedByA(relTform, shape->getAbsoluteTransform());
-		SContext::SInstanceData instance(tform, bsdf, shape->bsdf->id, shape->obtainEmitter());
+		SContext::SInstanceData instance(tform, bsdf, shape->bsdf->id, shape->obtainEmitter(), CElementEmitter{});
 		ctx.mapMesh2instanceData.insert({ mesh.get(), instance });
 	};
 
@@ -1616,8 +1618,10 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 			mb->setBaseInstance(instanceData.size());
 		}
 		for (const auto& inst : meta->getInstances()) {
-			// @Crisspl IIRC lights in mitsuba have "sides" , TODO
-			emissive = inst.emitter.type==CElementEmitter::AREA ? inst.emitter.area.radiance : core::vectorSIMDf(0.f);
+			// @Crisspl IIRC lights in mitsuba have "sides"
+			//
+			// i think it's just that backside of an area emitter does not emit, docs doesnt say anything about this
+			emissive = inst.emitter.front.type==CElementEmitter::AREA ? inst.emitter.front.area.radiance : core::vectorSIMDf(0.f);
 
 			nbl_glsl_ext_Mitsuba_Loader_instance_data_t instData;
 

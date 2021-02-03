@@ -7,7 +7,6 @@
 #define __NBL_I_SKINNED_MESH_SCENE_NODE_H_INCLUDED__
 
 #include "ISceneNode.h"
-#include "nbl/video/IGPUSkinnedMesh.h"
 #include "ISkinningStateManager.h"
 #include "IAnimatedMeshSceneNode.h"
 
@@ -110,18 +109,13 @@ namespace scene
 		/** When true the animations are played looped */
 		virtual bool getLoopMode() const = 0;
 
+#if 0
 		//! Sets a callback interface which will be called if an animation playback has ended.
 		/** Set this to 0 to disable the callback again.
 		Please note that this will only be called when in non looped
 		mode, see ISkinnedMeshSceneNode::setLoopMode(). */
 		virtual void setAnimationEndCallback(IAnimationEndCallBack<ISkinnedMeshSceneNode>* callback=0) = 0;
-
-		//! Sets a new mesh
-		virtual void setMesh(core::smart_refctd_ptr<video::IGPUSkinnedMesh>&& mesh, const ISkinningStateManager::E_BONE_UPDATE_MODE& boneControl=ISkinningStateManager::EBUM_NONE) = 0;
-
-		//! Returns the current mesh
-		virtual video::IGPUSkinnedMesh* getMesh(void) = 0;
-		virtual const video::IGPUMesh* getMesh(void) const = 0;
+#endif
 
 		//! animates the joints in the mesh based on the current frame.
 		/** Also takes in to account transitions. */

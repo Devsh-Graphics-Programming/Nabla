@@ -6,12 +6,13 @@
 #define __I_PARSER_UTIL_H_INCLUDED__
 
 #include "nbl/core/core.h"
+
 #include "IFileSystem.h"
-#include "nbl/asset/IAssetLoader.h"
-#include "nbl/asset/CCPUMesh.h"
+
+#include "nbl/asset/interchange/IAssetLoader.h"
 
 #include "nbl/ext/MitsubaLoader/CElementFactory.h"
-#include "nbl/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
+#include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
 
 #include "expat/lib/expat.h"
 
@@ -67,7 +68,7 @@ class ParserManager
 		//! Constructor 
 		ParserManager(io::IFileSystem* _filesystem, asset::IAssetLoader::IAssetLoaderOverride* _override) :
 								m_filesystem(_filesystem), m_override(_override), m_sceneDeclCount(0),
-								m_globalMetadata(core::make_smart_refctd_ptr<CGlobalMitsubaMetadata>())
+								m_metadata(core::make_smart_refctd_ptr<CMitsubaMetadata>())
 		{
 		}
 
@@ -92,7 +93,7 @@ class ParserManager
 		//
 		core::vector<std::pair<CElementShape*,std::string> > shapegroups;
 		//
-		core::smart_refctd_ptr<CGlobalMitsubaMetadata> m_globalMetadata;
+		core::smart_refctd_ptr<CMitsubaMetadata> m_metadata;
 
 	private:
 		//

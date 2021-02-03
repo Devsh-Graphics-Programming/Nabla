@@ -9,7 +9,6 @@
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
-#include "nbl/asset/CGeometryCreator.h"
 
 using namespace nbl;
 using namespace core;

@@ -5,6 +5,8 @@
 #ifndef __NBL_ASSET_COMPILE_CONFIG_H_INCLUDED__
 #define __NBL_ASSET_COMPILE_CONFIG_H_INCLUDED__
 
+// TODO: @Anastazluk review the `_NBL_COMPILE_WITH` which are present here
+
 //! Define _NBL_COMPILE_WITH_OPENSSL_ to enable compiling the engine using libssl.
 /** This enables the engine to read and write encrypted BAW format files.
 If you comment this out, the engine will no longer read or write encrypted .baw files! */
@@ -68,6 +70,7 @@ case asset::Blob::EnumValue:\
 	return asset::BlobClassName::Function(__VA_ARGS__);
 
 //! Used inside CBlobsLoadingManager. Adds support of given blob types.
+#ifdef OLD_SHADERS
 // @crisspl / @Anastazluk fix this shit for new pipeline !!!
 #define _NBL_SUPPORTED_BLOBS(Function, ...) \
 _NBL_ADD_BLOB_SUPPORT(RawBufferBlobV3, EBT_RAW_DATA_BUFFER, Function, __VA_ARGS__)\
@@ -78,5 +81,8 @@ _NBL_ADD_BLOB_SUPPORT(MeshBufferBlobV3, EBT_MESH_BUFFER, Function, __VA_ARGS__)\
 _NBL_ADD_BLOB_SUPPORT(SkinnedMeshBufferBlobV3, EBT_SKINNED_MESH_BUFFER, Function, __VA_ARGS__)\
 _NBL_ADD_BLOB_SUPPORT(MeshDataFormatDescBlobV3, EBT_DATA_FORMAT_DESC, Function, __VA_ARGS__)\
 _NBL_ADD_BLOB_SUPPORT(FinalBoneHierarchyBlobV3, EBT_FINAL_BONE_HIERARCHY, Function, __VA_ARGS__)
+#else
+#define _NBL_SUPPORTED_BLOBS(Function, ...) 
+#endif
 
 #endif
