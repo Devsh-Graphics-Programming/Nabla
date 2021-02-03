@@ -32,7 +32,7 @@ struct Vertex
 } PACK_STRUCT;
 #include "nbl/nblunpack.h"
 
-#include <nbl/asset/CCPUMeshPacker.h>
+#include <nbl/asset/utils/CCPUMeshPacker>
 #include "common.glsl"
 
 template<typename T>

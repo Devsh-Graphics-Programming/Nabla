@@ -493,7 +493,8 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
         return {};
     
 	//
-	auto meta = core::make_smart_refctd_ptr<COBJMetadata>(usedPipelines.size()+1u);
+	auto meta = core::make_smart_refctd_ptr<COBJMetadata>(usedPipelines.size());
+	uint32_t metaOffset = 0u;
 	for (auto pipeAndMeta : usedPipelines)
 		meta->placeMeta(metaOffset++,pipeAndMeta.first.get(),*pipeAndMeta.second);
 
