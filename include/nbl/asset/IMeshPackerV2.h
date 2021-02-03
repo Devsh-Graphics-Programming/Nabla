@@ -5,7 +5,7 @@
 #ifndef __NBL_ASSET_I_MESH_PACKER_V2_H_INCLUDED__
 #define __NBL_ASSET_I_MESH_PACKER_V2_H_INCLUDED__
 
-#include <nbl/asset/IMeshPacker.h>
+#include <nbl/asset/utils/IMeshPacker.h>
 
 namespace nbl
 {
