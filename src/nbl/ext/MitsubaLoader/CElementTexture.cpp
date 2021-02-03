@@ -5,8 +5,6 @@
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
 #include "nbl/ext/MitsubaLoader/CElementFactory.h"
 
-#include "nbl/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
-
 #include <functional>
 
 namespace nbl
@@ -286,7 +284,7 @@ bool CElementTexture::processChildData(IElement* _child, const std::string& name
 	return true;
 }
 
-bool CElementTexture::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CGlobalMitsubaMetadata* globalMetadata)
+bool CElementTexture::onEndTag(asset::IAssetLoader::IAssetLoaderOverride* _override, CMitsubaMetadata* globalMetadata)
 {
 	if (type == Type::INVALID)
 	{

@@ -201,7 +201,7 @@ int main()
 
 	//
 	asset::SAssetBundle meshes;
-	core::smart_refctd_ptr<ext::MitsubaLoader::CGlobalMitsubaMetadata> globalMeta;
+	core::smart_refctd_ptr<const ext::MitsubaLoader::CMitsubaMetadata> globalMeta;
 	{
 		auto device = createDeviceEx(params);
 
@@ -277,26 +277,24 @@ int main()
 		if (!firstmesh)
 			return 3;
 
-		auto meta = firstmesh->getMetadata();
-		if (!meta)
+		globalMeta = core::smart_refctd_ptr<const ext::MitsubaLoader::CMitsubaMetadata>(meshes.getMetadata()->selfCast<const ext::MitsubaLoader::CMitsubaMetadata>());
+		if (!globalMeta)
 			return 4;
-		assert(core::strcmpi(meta->getLoaderName(),ext::MitsubaLoader::IMitsubaMetadata::LoaderName) == 0);
-		globalMeta = static_cast<ext::MitsubaLoader::IMeshMetadata*>(meta)->globalMetadata;
 	}
 
 
 	// recreate wth resolution
 	params.WindowSize = dimension2d<uint32_t>(1280, 720);
 	// set resolution
-	if (globalMeta->sensors.size())
+	if (globalMeta->m_global.m_sensors.size())
 	{
-		const auto& film = globalMeta->sensors.front().film;
+		const auto& film = globalMeta->m_global.m_sensors.front().film;
 		params.WindowSize.Width = film.width;
 		params.WindowSize.Height = film.height;
 	}
 	else return 1; // no cameras
 
-	const auto& sensor = globalMeta->sensors.front(); //always choose frist one
+	const auto& sensor = globalMeta->m_global.m_sensors.front(); //always choose frist one
 	auto isOkSensorType = [](const ext::MitsubaLoader::CElementSensor& sensor) -> bool {
 		return sensor.type == ext::MitsubaLoader::CElementSensor::Type::PERSPECTIVE || sensor.type == ext::MitsubaLoader::CElementSensor::Type::THINLENS;
 	};
@@ -366,32 +364,24 @@ int main()
 		ds2layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(bnd, bnd + 4);
 	}
 
+	auto contents = meshes.getContents();
 	//gather all meshes into core::vector and modify their pipelines
 	core::vector<core::smart_refctd_ptr<asset::ICPUMesh>> cpumeshes;
-	cpumeshes.reserve(meshes.getSize());
+	cpumeshes.reserve(contents.size());
 	uint32_t cc = cpumeshes.capacity();
-	for (auto it = meshes.getContents().begin(); it != meshes.getContents().end(); ++it)
-	{
+	for (auto it=contents.begin(); it!=contents.end(); ++it)
 		cpumeshes.push_back(core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(std::move(*it)));
-	}
 
-	core::smart_refctd_ptr<asset::ICPUDescriptorSet> cpuds0;
-	{
-		auto* meta = static_cast<ext::MitsubaLoader::CMitsubaPipelineMetadata*>(cpumeshes[0]->getMeshBuffer(0)->getPipeline()->getMetadata());
-		cpuds0 = core::smart_refctd_ptr<asset::ICPUDescriptorSet>(meta->getDescriptorSet());
-	}
+	auto cpuds0 = globalMeta->m_global.m_ds0;
 
-	//all pipelines have the same metadata
-	auto* pipelineMetadata = static_cast<const asset::IPipelineMetadata*>(cpumeshes.front()->getMeshBuffer(0u)->getPipeline()->getMetadata());
-
-    asset::ICPUDescriptorSetLayout* ds1layout = cpumeshes.front()->getMeshBuffer(0u)->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
+    asset::ICPUDescriptorSetLayout* ds1layout = cpumeshes.front()->getMeshBuffers().begin()[0u]->getPipeline()->getLayout()->getDescriptorSetLayout(1u);
     uint32_t ds1UboBinding = 0u;
     for (const auto& bnd : ds1layout->getBindings())
-        if (bnd.type==asset::EDT_UNIFORM_BUFFER)
-        {
-            ds1UboBinding = bnd.binding;
-            break;
-        }
+    if (bnd.type==asset::EDT_UNIFORM_BUFFER)
+    {
+        ds1UboBinding = bnd.binding;
+        break;
+    }
 
 
 	//point lights
@@ -437,8 +427,8 @@ int main()
 			if (inst.emitter.type==ext::MitsubaLoader::CElementEmitter::AREA)
 			{
 				core::vectorSIMDf pos;
-				assert(cpumesh->getMeshBufferCount()==1u);
-				const float area = computeAreaAndAvgPos(cpumesh->getMeshBuffer(0), inst.tform, pos);
+				assert(cpumesh->getMeshBuffers().size()==1u);
+				const float area = computeAreaAndAvgPos(cpumesh->getMeshBuffers().begin()[0], inst.tform, pos);
 				assert(area>0.f);
 				inst.tform.pseudoMulWith4x1(pos);
 
@@ -459,9 +449,8 @@ int main()
 	for (auto& mesh : cpumeshes)
 	{
 		//modify pipeline layouts with our custom DS2 layout (DS2 will be used for lights buffer)
-		for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+		for (auto meshbuffer : mesh->getMeshBuffers())
 		{
-			auto* meshbuffer = mesh->getMeshBuffer(i);
 			auto* pipeline = meshbuffer->getPipeline();
 
 			asset::SPushConstantRange pcr;
@@ -644,7 +633,7 @@ int main()
 #ifdef TESTING
 	if (0)
 #else
-	if (globalMeta->sensors.size() && isOkSensorType(globalMeta->sensors.front()))
+	if (globalMeta->m_global.m_sensors.size() && isOkSensorType(globalMeta->m_global.m_sensors.front()))
 #endif
 	{
 		const auto& film = sensor.film;
@@ -762,10 +751,8 @@ int main()
 		{
 			auto& mesh = (*gpumeshes)[j];
 
-			for (uint32_t i = 0u; i < mesh->getMeshBufferCount(); ++i)
+			for (auto mb : mesh->getMeshBuffers())
 			{
-				auto* mb = mesh->getMeshBuffer(i);
-
 				auto* pipeline = mb->getPipeline();
 				const video::IGPUDescriptorSet* ds[3]{ gpuds0.get(), gpuds1.get(), gpuds2.get() };
 				driver->bindGraphicsPipeline(pipeline);

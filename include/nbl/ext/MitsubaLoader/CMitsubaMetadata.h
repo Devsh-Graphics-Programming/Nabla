@@ -7,8 +7,11 @@
 
 #include "nbl/asset/metadata/IAssetMetadata.h"
 
-
-#include "nbl/ext/MitsubaLoader/CGlobalMitsubaMetadata.h"
+#include "nbl/ext/MitsubaLoader/SContext.h"
+#include "nbl/ext/MitsubaLoader/CElementEmitter.h"
+#include "nbl/ext/MitsubaLoader/CElementIntegrator.h"
+#include "nbl/ext/MitsubaLoader/CElementSensor.h"
+#include "nbl/ext/MitsubaLoader/CElementShape.h"
 
 namespace nbl
 {
@@ -46,7 +49,7 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 
 				uint32_t m_hash;
 		};
-		class CMesh : public IMeshMetadata, public CID
+		class CMesh : public asset::IMeshMetadata, public CID
 		{
 			public:
 				struct InstanceAuxilaryData
@@ -59,6 +62,8 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 		struct SGlobal
 		{
 			public:
+				SGlobal() : m_integrator("invalid") {}// TODO
+
 				inline uint32_t getVTStorageViewCount() const { return m_VT->getFloatViews().size(); }
 
 				CElementIntegrator m_integrator;
@@ -74,6 +79,7 @@ class CMitsubaMetadata : public asset::IAssetMetadata
 
 		//! No idea how to make it work yet
 		//CMitsubaMetadata(core::smart_refctd_ptr<CGlobalMitsubaMetadata> _mitsubaMetadata) : mitsubaMetadata(std::move(_mitsubaMetadata)) {}
+		CMitsubaMetadata() {} // TODO
 
 		_NBL_STATIC_INLINE_CONSTEXPR const char* loaderName = "ext::MitsubaLoader::CMitsubaLoader";
 		const char* getLoaderName() const override { return loaderName; }
