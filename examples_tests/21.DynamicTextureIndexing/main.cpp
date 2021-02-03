@@ -7,8 +7,7 @@
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
-#include <nbl/asset/CCPUMeshPacker.h>
-//#include "nbl/ext/ScreenShot/ScreenShot.h"
+#include "nbl/asset/utils/CCPUMeshPacker.h"
 
 using namespace nbl;
 using namespace core;
@@ -63,13 +62,12 @@ int main()
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
 
     //saving cache to file
-    //qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
-    
-    const uint32_t mbCount = mesh_raw->getMeshBufferCount();
+    qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
 
-    core::vector<ICPUMeshBuffer*> meshBuffers(mbCount);
-    for (uint32_t i = 0u; i < mbCount; i++)
-        meshBuffers[i] = mesh_raw->getMeshBuffer(i);
+    const auto meta = meshes_bundle.getMetadata()->selfCast<const COBJMetadata>();
+    
+    const auto meshbuffers = mesh_raw->getMeshBuffers();
+    core::vector<ICPUMeshBuffer*> meshBuffers(meshbuffers.begin(),meshbuffers.end());
 
         //divide mesh buffers into sets, where sum of textures used by meshes in one set is <= 16
     struct MBRangeTexturesPair
@@ -87,7 +85,7 @@ int main()
 
         for (auto it = meshBuffers.begin(); it < meshBuffers.end(); it++)
         {
-            auto ds3 = dynamic_cast<CMTLPipelineMetadata*>((*it)->getPipeline()->getMetadata())->getDescriptorSet();
+            auto ds3 = (*it)->getAttachedDescriptorSet();
             ICPUImageView* tex = dynamic_cast<ICPUImageView*>(ds3->getDescriptors(0u).begin()->desc.get());
             ICPUImageView* texBump = dynamic_cast<ICPUImageView*>(ds3->getDescriptors(6u).begin()->desc.get());
 
@@ -140,7 +138,7 @@ int main()
     core::vector<core::smart_refctd_ptr<IGPUBuffer>> gpuIndirectDrawBuffer(mbRangesTex.size());
     for(size_t i = 0u; i < mbRangesTex.size(); i++)
     {
-        asset::SVertexInputParams& inputParams = mesh_raw->getMeshBuffer(0u)->getPipeline()->getVertexInputParams();
+        asset::SVertexInputParams& inputParams = mesh_raw->getMeshBuffers().begin()[0]->getPipeline()->getVertexInputParams();
         asset::MeshPackerBase::AllocationParams allocationParams;
 
         auto& mbRange = mbRangesTex[i].mbRanges;
@@ -180,7 +178,7 @@ int main()
         uint32_t mbIdx = 0u;
         for (auto it = mbRange.begin(); it != mbRange.end(); it++)
         {
-            auto ds3 = dynamic_cast<CMTLPipelineMetadata*>((*it)->getPipeline()->getMetadata())->getDescriptorSet();
+            auto ds3 = (*it)->getAttachedDescriptorSet();
             ICPUImageView* tex = dynamic_cast<ICPUImageView*>(ds3->getDescriptors(0u).begin()->desc.get());
             ICPUImageView* texBump = dynamic_cast<ICPUImageView*>(ds3->getDescriptors(6u).begin()->desc.get());
 

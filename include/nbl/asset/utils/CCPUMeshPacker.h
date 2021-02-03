@@ -150,7 +150,7 @@ MeshPackerBase::ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::all
 	size_t vtxCnt = 0u;
 	for (auto it = begin; it != end; it++)
 	{
-		ICPUMeshBuffer* mb = it->get();
+		ICPUMeshBuffer* mb = *it;
 		idxCnt += mb->getIndexCount();
 		vtxCnt += IMeshManipulator::upperBoundVertexID(mb);
 	}
