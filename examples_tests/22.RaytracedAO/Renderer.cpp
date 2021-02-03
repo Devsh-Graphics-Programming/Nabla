@@ -305,18 +305,19 @@ Renderer::InitializationData Renderer::initSceneObjects(const SAssetBundle& mesh
 
 					m_sceneBound.addInternalBox(core::transformBoxEx(aabbOriginal,instance.tform));
 
-					if (instance.emitter.type != ext::MitsubaLoader::CElementEmitter::Type::INVALID)
+					auto emitter = instance.emitter.front;
+					if (emitter.type != ext::MitsubaLoader::CElementEmitter::Type::INVALID)
 					{
-						assert(instance.emitter.type == ext::MitsubaLoader::CElementEmitter::Type::AREA);
+						assert(emitter.type == ext::MitsubaLoader::CElementEmitter::Type::AREA);
 
 						SLight newLight(cpumesh->getBoundingBox(), instance.tform);
 
-						const float weight = newLight.computeFluxBound(instance.emitter.area.radiance) * instance.emitter.area.samplingWeight;
+						const float weight = newLight.computeFluxBound(emitter.area.radiance) * emitter.area.samplingWeight;
 						if (weight <= FLT_MIN)
 							continue;
 
 						retval.lights.emplace_back(std::move(newLight));
-						retval.lightRadiances.push_back(instance.emitter.area.radiance);
+						retval.lightRadiances.push_back(emitter.area.radiance);
 						retval.lightPDF.push_back(weight);
 					}
 				}
@@ -789,9 +790,10 @@ void Renderer::init(const SAssetBundle& meshes,
 			}
 			// set up m_raygenDS
 			{
-				auto scrambleTexture = createScreenSizedTexture(EF_R32_UINT);
+				auto scrambleTexture = createScreenSizedTexture(EF_R32G32_UINT);
 				{
-					core::vector<uint32_t> random(renderPixelCount);
+					constexpr auto ScrambleStateChannels = 2u;
+					core::vector<uint32_t> random(renderPixelCount*ScrambleStateChannels);
 					// generate
 					{
 						core::RandomSampler rng(0xbadc0ffeu);
