@@ -6,7 +6,7 @@
 #include "nbl/video/COpenGLFence.h"
 #include "nbl/video/COpenGLSync.h"
 #include "nbl/video/COpenGLFunctionTable.h"
-#include "nbl/system/IThreadHandler.h"
+#include "nbl/system/IAsyncQueueDispatcher.h"
 
 namespace nbl {
 namespace video
@@ -14,42 +14,38 @@ namespace video
 
 class COpenGLQueue final : public IGPUQueue
 {
-        using SThreadHandlerInternalState = COpenGLFunctionTable;
+        using ThreadHandlerInternalState = COpenGLFunctionTable;
+        using QueueElementType = SSubmitInfo; // TODO might want to change to array of SSubmitInfo + fence
 
-        struct CThreadHandler final : public system::IThreadHandler<SThreadHandlerInternalState>
+        struct CThreadHandler final : public system::IAsyncQueueDispatcher<QueueElementType, ThreadHandlerInternalState>
         {
         public:
-            struct queue_element_t
-            {
-                SSubmitInfo submit;
-            };
-
-            void enqueue(queue_element_t&& e)
-            {
-                auto raii_handler = createRAIIDisptachHandler();
-
-                q.push(std::move(e));
-            }
-
-            CThreadHandler(const egl::CEGL* _egl, COpenGLFeatureMap* _features, EGLContext _master, EGLConfig _config) :
+            CThreadHandler(const egl::CEGL* _egl, COpenGLFeatureMap* _features, EGLContext _master, EGLConfig _config, EGLint _major, EGLint _minor) :
                 egl(_egl),
+                masterCtx(_master), config(_config),
+                major(_major), minor(_minor),
                 thisCtx(EGL_NO_CONTEXT), pbuffer(EGL_NO_SURFACE),
                 features(_features)
             {
-                EGLint ctx_attributes[] = {
-                    EGL_CONTEXT_MAJOR_VERSION, 4,
-                    EGL_CONTEXT_MINOR_VERSION, 6,
+
+            }
+
+        protected:
+            using base_t = system::IAsyncQueueDispatcher<QueueElementType, ThreadHandlerInternalState>;
+
+            ThreadHandlerInternalState init() override
+            {
+                egl->call.peglBindAPI(EGL_OPENGL_API);
+
+                const EGLint ctx_attributes[] = {
+                    EGL_CONTEXT_MAJOR_VERSION, major,
+                    EGL_CONTEXT_MINOR_VERSION, minor,
                     EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
 
                     EGL_NONE
                 };
 
-                do
-                {
-                    thisCtx = eglCreateContext(_egl->display, _config, _master, ctx_attributes);
-                    --ctx_attributes[3];
-                } while (thisCtx == EGL_NO_CONTEXT && ctx_attributes[3] >= 3); // fail if cant create >=4.3 context
-                ++ctx_attributes[3];
+                thisCtx = egl->call.peglCreateContext(egl->display, config, masterCtx, ctx_attributes);
 
                 // why not 1x1?
                 const EGLint pbuffer_attributes[] = {
@@ -58,48 +54,42 @@ class COpenGLQueue final : public IGPUQueue
 
                     EGL_NONE
                 };
-                pbuffer = _egl->call.peglCreatePbufferSurface(_egl->display, _config, pbuffer_attributes);
+                pbuffer = egl->call.peglCreatePbufferSurface(egl->display, config, pbuffer_attributes);
+
+                egl->call.peglMakeCurrent(egl->display, pbuffer, pbuffer, thisCtx);
+
+                return ThreadHandlerInternalState(&egl->call, features);
             }
 
-        protected:
-            using base_t = system::IThreadHandler<SThreadHandlerInternalState>;
-
-            SThreadHandlerInternalState init() override
+            void processElement(internal_state_t& state, queue_element_t&& e) const override
             {
-                return SThreadHandlerInternalState(&egl->call, features);
-            }
-
-            void work(lock_t& lock, internal_state_t& state) override
-            {
-                // pop item from queue
-
-                lock.unlock();
-
                 // wait semaphores
+                // TODO glMemoryBarrier() corresponding to _submit.pWaitDstStageMask[i]
                 // submit commands to GPU
                 // glFlush?
                 // signal semaphores
                 // glFinish
-
-                lock.lock();
             }
 
-            bool wakeupPredicate() const override { return q.size() || base_t::wakeupPredicate(); }
-            bool continuePredicate() const override { return q.size() && base_t::continuePredicate(); }
+            void exit(internal_state_t& gl) override
+            {
+                egl->call.peglMakeCurrent(egl->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
+            }
 
         private:
             const egl::CEGL* egl;
+            EGLContext masterCtx;
+            EGLConfig config;
+            EGLint major, minor;
             EGLContext thisCtx;
             EGLSurface pbuffer;
             COpenGLFeatureMap* features;
-
-            core::queue<queue_element_t> q;
         };
 
     public:
-        COpenGLQueue(const egl::CEGL* _egl, COpenGLFeatureMap* _features, EGLContext _masterCtx, EGLConfig _config, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority) :
+        COpenGLQueue(const egl::CEGL* _egl, COpenGLFeatureMap* _features, EGLContext _masterCtx, EGLConfig _config, EGLint _gl_major, EGLint _gl_minor, uint32_t _famIx, E_CREATE_FLAGS _flags, float _priority) :
             IGPUQueue(_famIx, _flags, _priority),
-            threadHandler(_egl, _features, _masterCtx, _config),
+            threadHandler(_egl, _features, _masterCtx, _config, _gl_major, _gl_minor),
             thread(&CThreadHandler::thread, &threadHandler)
         {
 

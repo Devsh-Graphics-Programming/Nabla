@@ -54,8 +54,6 @@ public:
         );
     }
 
-    // do we allow creating multiple logical devices from single physical device?
-    // vulkan doesnt have such restriction
     core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice(const ILogicalDevice::SCreationParams& params)
     {
         if (!validateLogicalDeviceCreation(params))

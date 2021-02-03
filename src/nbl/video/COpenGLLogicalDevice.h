@@ -12,9 +12,18 @@ namespace video
 class COpenGLLogicalDevice final : public ILogicalDevice
 {
 public:
-    COpenGLLogicalDevice(const egl::CEGL* _egl, EGLContext master_ctx, EGLConfig config, const SCreationParams& params) :
+    COpenGLLogicalDevice(const egl::CEGL* _egl, COpenGLFeatureMap* _features, EGLConfig config, EGLint major, EGLint minor, const SCreationParams& params) :
         ILogicalDevice(params)
     {
+        EGLint ctx_attributes[] = {
+            EGL_CONTEXT_MAJOR_VERSION, major,
+            EGL_CONTEXT_MINOR_VERSION, minor,
+            EGL_CONTEXT_OPENGL_PROFILE_MASK, EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
+
+            EGL_NONE
+        };
+        m_ctx = _egl->call.peglCreateContext(_egl->display, config, EGL_NO_CONTEXT, ctx_attributes);
+
         for (uint32_t i = 0u; i < params.queueParamsCount; ++i)
         {
             const auto& qci = params.queueCreateInfos[i];
@@ -27,11 +36,16 @@ public:
                 const float priority = qci.priorities[j];
 
                 const uint32_t ix = offset + j;
-                // TODO will also have to pass master context to the queue and config
-                (*m_queues)[ix] = core::make_smart_refctd_ptr<COpenGLQueue>(_egl, master_ctx, config, famIx, flags, priority);
+                (*m_queues)[ix] = core::make_smart_refctd_ptr<COpenGLQueue>(_egl, _features, m_ctx, config, famIx, flags, priority);
             }
         }
     }
+
+private:
+    // context used to run GL calls from logical device (mostly resource creation) in separate thread;
+    // also being master context for all the other ones (the ones in swapchains and queues)
+    EGLContext m_ctx;
+    // TODO pbuf surface
 };
 
 }

@@ -56,6 +56,8 @@ protected:
     // lock is locked at the beginning of this function and must be locked at the exit
     virtual void work(lock_t& lock, internal_state_t& state) = 0;
 
+    virtual void exit(internal_state_t& state) {}
+
 public:
     void thread()
     {
@@ -71,6 +73,8 @@ public:
                 work(lock, state);
             }
         } while (!m_quit);
+
+        exit(state);
     }
 
     void terminate(std::thread& th)

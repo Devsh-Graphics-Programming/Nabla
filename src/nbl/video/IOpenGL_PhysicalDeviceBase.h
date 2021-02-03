@@ -12,7 +12,8 @@ template <typename LogicalDeviceType>
 class IOpenGL_PhysicalDeviceBase : public IPhysicalDevice
 {
 public:
-    explicit IOpenGL_PhysicalDeviceBase(const egl::CEGL* _egl) : m_egl(_egl)
+    explicit IOpenGL_PhysicalDeviceBase(const egl::CEGL* _egl, EGLConfig _config, EGLint _major, EGLint _minor) : 
+        m_egl(_egl), config(_config), m_gl_major(_major), m_gl_minor(_minor)
     {
         // OpenGL backend emulates presence of just one queue with all capabilities (graphics, compute, transfer, ... what about sparse binding?)
         SQueueFamilyProperties qprops;
@@ -27,17 +28,12 @@ public:
     }
 
 protected:
-    core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) final override
-    {
-        // TODO uncomment once GL/GLES logical device has all pure virtual methods implemented
-        //return core::make_smart_refctd_ptr<LogicalDeviceType>(m_egl, params);
-        return nullptr;
-    }
-
     virtual ~IOpenGL_PhysicalDeviceBase() = default;
 
 protected:
     const egl::CEGL* m_egl;
+    EGLConfig m_config;
+    EGLint m_gl_major, m_gl_minor;
 };
 
 }

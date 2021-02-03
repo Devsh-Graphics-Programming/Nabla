@@ -41,7 +41,7 @@ CVKSwapchain::CVKSwapchain(SCreationParams&& params, CVKLogicalDevice* dev) : IS
 
     uint32_t imgCount = 0u;
     vkGetSwapchainImagesKHR(vkdev, m_swapchain, &imgCount, nullptr);
-    m_images = core::make_refctd_dynamic_array<images_array_t>(imgCount);
+    m_images = core::make_refctd_dynamic_array<images_array_t>(imgCount); 
 
     VkImage vkimgs[100];
     assert(imgCount > 100);
@@ -59,6 +59,7 @@ CVKSwapchain::CVKSwapchain(SCreationParams&& params, CVKLogicalDevice* dev) : IS
         params.samples = CVulkanImage::ESCF_1_BIT;
         params.type = CVulkanImage::ET_2D;
 
+        // TODO might want to change this to dev->createImage()
         img = core::make_smart_refctd_ptr<CVulkanImage>(m_device, std::move(params), vkimgs[i++]);
     }
 }

@@ -9,9 +9,6 @@
 #endif
 #include "GL/gl.h"
 #undef GL_GLEXT_LEGACY
-#ifndef GL_GLEXT_PROTOTYPES
-#define GL_GLEXT_PROTOTYPES
-#endif
 #include "GL/glext.h"
 
 namespace nbl {
@@ -25,13 +22,14 @@ class COpenGLPhysicalDevice final : public IOpenGL_PhysicalDeviceBase<COpenGLLog
 public:
     static core::smart_refctd_ptr<COpenGLPhysicalDevice> create(const egl::CEGL* _egl)
     {
+		// TODO those params should be somehow sourced externally
         const EGLint
             red = 8,
             green = 8,
             blue = 8,
             alpha = 0;
         const EGLint bufsz = red + green + blue;
-        const EGLint depth = 24;
+        const EGLint depth = 0;
         const EGLint stencil = 0;
 
         const EGLint egl_attributes[] = {
@@ -54,7 +52,7 @@ public:
 
         EGLConfig config;
         EGLint ccnt = 1;
-        eglChooseConfig(_egl->display, egl_attributes, &config, 1, &ccnt);
+        _egl->call.peglChooseConfig(_egl->display, egl_attributes, &config, 1, &ccnt);
         if (ccnt < 1)
             return nullptr;
 
@@ -65,26 +63,34 @@ public:
 
             EGL_NONE
         };
+		EGLint& gl_major = ctx_attributes[1];
+		EGLint& gl_minor = ctx_attributes[3];
 
         EGLContext ctx = EGL_NO_CONTEXT;
         do
         {
-            ctx = eglCreateContext(_egl->display, config, EGL_NO_CONTEXT, ctx_attributes);
-            --ctx_attributes[3];
-        } while (ctx == EGL_NO_CONTEXT && ctx_attributes[3] >= 3); // fail if cant create >=4.3 context
-        ++ctx_attributes[3];
+            ctx = _egl->call.peglCreateContext(_egl->display, config, EGL_NO_CONTEXT, ctx_attributes);
+            --gl_minor;
+        } while (ctx == EGL_NO_CONTEXT && gl_minor >= 3); // fail if cant create >=4.3 context
+        ++gl_minor;
 
         if (ctx == EGL_NO_CONTEXT)
             return nullptr;
 
-        return core::make_smart_refctd_ptr<COpenGLPhysicalDevice>(_egl, config, ctx, ctx_attributes[1], ctx_attributes[3]);
+        return core::make_smart_refctd_ptr<COpenGLPhysicalDevice>(_egl, config, ctx, gl_major, gl_minor);
     }
 
+protected:
+	core::smart_refctd_ptr<ILogicalDevice> createLogicalDevice_impl(const ILogicalDevice::SCreationParams& params) final override
+	{
+		// TODO uncomment once GL logical device has all pure virtual methods implemented
+		//return core::make_smart_refctd_ptr<COpenGLLogicalDevice>(m_egl, &m_features, m_config, m_gl_major, m_gl_minor, params);
+		return nullptr;
+	}
+
 private:
-    explicit COpenGLPhysicalDevice(const egl::CEGL* _egl, EGLConfig config, EGLContext ctx, EGLint major, EGLint minor) : 
-        base_t(_egl), 
-        m_config(config),
-        gl_major(major), gl_minor(minor)
+    COpenGLPhysicalDevice(const egl::CEGL* _egl, EGLConfig config, EGLContext ctx, EGLint major, EGLint minor) : 
+        base_t(_egl, config, major, minor)
     {
         const EGLint pbuffer_attributes[] = {
                     EGL_WIDTH,  1,
@@ -220,8 +226,6 @@ private:
     }
 
     COpenGLFeatureMap m_features;
-    EGLConfig m_config;
-    EGLint gl_major, gl_minor;
 };
 
 }

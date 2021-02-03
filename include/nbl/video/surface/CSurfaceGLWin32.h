@@ -8,7 +8,7 @@ namespace nbl {
 namespace video
 {
 
-class CSurfaceGLWin32 : public ISurfaceWin32, public ISurfaceGL
+class CSurfaceGLWin32 final : public ISurfaceWin32, public ISurfaceGL
 {
 public:
     CSurfaceGLWin32(SCreationParams&& params) : ISurfaceWin32(std::move(params)), ISurfaceGL(params.hwnd)
