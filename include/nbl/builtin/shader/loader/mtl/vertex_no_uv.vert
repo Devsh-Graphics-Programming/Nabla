@@ -5,6 +5,6 @@
 #version 430 core
 #define _NO_UV
 
-#include "nbl/builtin/shaders/loaders/mtl/vertex_impl.glsl"
+#include "nbl/builtin/shader/loader/mtl/vertex_impl.glsl"
 
 #undef _NO_UV

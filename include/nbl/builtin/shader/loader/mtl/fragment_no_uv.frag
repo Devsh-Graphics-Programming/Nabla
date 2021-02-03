@@ -11,6 +11,6 @@
 #define _NBL_FRAG_SET3_BINDINGS_DEFINED_
 #endif
 
-#include "nbl/builtin/shaders/loaders/mtl/fragment_impl.glsl"
+#include "nbl/builtin/shader/loader/mtl/fragment_impl.glsl"
 
 #undef _NO_UV

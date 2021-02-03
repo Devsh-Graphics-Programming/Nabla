@@ -22,9 +22,9 @@ inline auto createFullScreenTriangle(asset::IAssetManager* am, video::IVideoDriv
 	asset::IAsset::E_TYPE types[] = { asset::IAsset::ET_SPECIALIZED_SHADER,static_cast<asset::IAsset::E_TYPE>(0u) };
 	auto found = am->findAssets("nbl/builtin/specialized_shader/fullscreentriangle.vert",types);
 	assert(found->size());
-	auto first = found->begin();
-	assert(!first->isEmpty());
-	auto pShader = static_cast<asset::ICPUSpecializedShader*>((first->getContents().begin()->get()));
+	auto contents = found->begin()->getContents();
+	assert(!contents.empty());
+	auto pShader = static_cast<asset::ICPUSpecializedShader*>((contents.begin()->get()));
 	std::get<core::smart_refctd_ptr<video::IGPUSpecializedShader> >(retval) = driver->getGPUObjectsFromAssets<asset::ICPUSpecializedShader>(&pShader,&pShader+1u)->front();
 
 	auto& inputParams = std::get<asset::SVertexInputParams>(retval);

@@ -31,7 +31,7 @@ layout (location = 0) out vec4 OutColor;
 #ifndef _NBL_FRAG_PUSH_CONSTANTS_DEFINED_
 #define _NBL_FRAG_PUSH_CONSTANTS_DEFINED_
 
-#include <nbl/builtin/glsl/loaders/mtl/common.glsl>
+#include <nbl/builtin/glsl/loader/mtl/common.glsl>
 
 layout (push_constant) uniform Block {
     nbl_glsl_MTLMaterialParameters params;

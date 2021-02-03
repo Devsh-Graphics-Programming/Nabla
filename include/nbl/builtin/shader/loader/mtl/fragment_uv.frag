@@ -4,4 +4,4 @@
 
 #version 430 core
 
-#include "nbl/builtin/shaders/loaders/mtl/fragment_impl.glsl"
+#include "nbl/builtin/shader/loader/mtl/fragment_impl.glsl"

@@ -6,7 +6,7 @@
 #define __NBL_ASSET_C_CPU_MESH_PACKER_H_INCLUDED__
 
 #include <nbl/asset/ICPUMesh.h>
-#include <nbl/asset/IMeshPacker.h>
+#include <nbl/asset/utils/IMeshPacker.h>
 #include <nbl/core/math/intutil.h>
 
 //AFTER SAFE SHRINK FIX TODO LIST:

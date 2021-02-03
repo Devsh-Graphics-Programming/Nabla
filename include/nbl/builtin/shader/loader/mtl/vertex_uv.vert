@@ -4,4 +4,4 @@
 
 #version 430 core
 
-#include "nbl/builtin/shaders/loaders/mtl/vertex_impl.glsl"
+#include "nbl/builtin/shader/loader/mtl/vertex_impl.glsl"

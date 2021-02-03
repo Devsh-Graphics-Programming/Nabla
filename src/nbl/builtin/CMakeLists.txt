@@ -69,7 +69,7 @@ set(nbl_resources_to_embed
   "nbl/builtin/glsl/format/encode.glsl"
   "nbl/builtin/glsl/format/constants.glsl"
   # asset loaders (mostly for pipelines)
-  "nbl/builtin/glsl/loaders/mtl/common.glsl"
+  "nbl/builtin/glsl/loader/mtl/common.glsl"
   # math and limits
   "nbl/builtin/glsl/math/functions.glsl"
   "nbl/builtin/glsl/math/constants.glsl"
