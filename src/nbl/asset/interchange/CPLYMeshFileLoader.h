@@ -7,7 +7,7 @@
 #define __NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED__
 
 #include "nbl/asset/ICPUMeshBuffer.h"
-#include "nbl/asset/interchange/IAssetLoader.h"
+#include "nbl/asset/interchange/IRenderpassIndependentPipelineLoader.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
 
 namespace nbl
@@ -30,7 +30,7 @@ enum E_PLY_PROPERTY_TYPE
 };
 
 //! Meshloader capable of loading obj meshes.
-class CPLYMeshFileLoader : public IAssetLoader
+class CPLYMeshFileLoader : public IRenderpassIndependentPipelineLoader
 {
 protected:
 	//! Destructor
@@ -184,8 +184,6 @@ private:
 	{
 		performOnCertainOrientation(varToHandle);
 	}
-
-	IAssetManager* m_assetMgr;
 };
 
 } // end namespace asset

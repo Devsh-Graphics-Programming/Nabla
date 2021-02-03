@@ -65,7 +65,7 @@ int main()
 
         asset::IAssetLoader::SAssetLoadParams lp;
         auto meshes_bundle = am->getAsset("sponza.obj", lp);
-        assert(!meshes_bundle.isEmpty());
+        assert(!meshes_bundle.getContents().empty());
 
         metaOBJ = meshes_bundle.getMetadata()->selfCast<const asset::COBJMetadata>();
 

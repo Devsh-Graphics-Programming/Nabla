@@ -25,7 +25,7 @@ using namespace asset;
 #define FRAG_SHADER_NO_UV_CACHE_KEY "nbl/builtin/shader/loader/mtl/fragment_no_uv.frag"
 #define FRAG_SHADER_UV_CACHE_KEY "nbl/builtin/shader/loader/mtl/fragment_uv.frag"
 
-CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_assetMgr{_am}
+CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : IRenderpassIndependentPipelineLoader(_am)
 {
     //create vertex shaders and insert them into cache
     auto registerShader = [&](auto constexprStringType, ICPUSpecializedShader::E_SHADER_STAGE stage) -> void
@@ -50,13 +50,15 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am) : m_a
 
 void CGraphicsPipelineLoaderMTL::initialize()
 {
+    IRenderpassIndependentPipelineLoader::initialize();
+
     auto dfltOver = IAssetLoaderOverride(m_assetMgr);
-    // need to initialize this first
+    // need to do this first
     {
-        const IAssetLoader::SAssetLoadContext fakeCtx(IAssetLoader::SAssetLoadParams{},nullptr);
+        const IAssetLoader::SAssetLoadContext fakeCtx(IAssetLoader::SAssetLoadParams{}, nullptr);
 
         // find ds1 layout
-        auto ds1layout = dfltOver.findDefaultAsset<ICPUDescriptorSetLayout>("nbl/builtin/descriptor_set_layout/basic_view_parameters",fakeCtx,0u).first;
+        auto ds1layout = dfltOver.findDefaultAsset<ICPUDescriptorSetLayout>("nbl/builtin/descriptor_set_layout/basic_view_parameters", fakeCtx, 0u).first;
 
         // precompute the no UV pipeline layout
         {
@@ -67,54 +69,19 @@ void CGraphicsPipelineLoaderMTL::initialize()
             //if intellisense shows error here, it's most likely intellisense's fault and it'll build fine anyway
             static_assert(sizeof(SMtl::params) <= ICPUMeshBuffer::MAX_PUSH_CONSTANT_BYTESIZE, "It must fit in push constants!");
 
-            auto pplnLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng+1, nullptr, core::smart_refctd_ptr(ds1layout), nullptr, nullptr);
-            insertBuiltinAssetIntoCache(m_assetMgr, SAssetBundle(nullptr,{ core::smart_refctd_ptr_static_cast<IAsset>(std::move(pplnLayout)) }), "nbl/builtin/pipeline_layout/loader/mtl/no_uv");
-        }
-
-        // create common metadata part
-        {
-            constexpr size_t DS1_METADATA_ENTRY_CNT = 3ull;
-            m_inputSemantics = core::make_refctd_dynamic_array<decltype(m_inputSemantics)>(DS1_METADATA_ENTRY_CNT);
-
-            // TODO: this seems very common to many mesh loaders @Crisspl maybe an `IRenderpassIndependentPipelineLoaderBase` is in order?
-            constexpr IRenderpassIndependentPipelineMetadata::E_COMMON_SHADER_INPUT types[DS1_METADATA_ENTRY_CNT] = 
-            {
-                IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_PROJ,
-                IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW,
-                IRenderpassIndependentPipelineMetadata::ECSI_WORLD_VIEW_INVERSE_TRANSPOSE
-            };
-            constexpr uint32_t sizes[DS1_METADATA_ENTRY_CNT] = 
-            {
-                sizeof(SBasicViewParameters::MVP),
-                sizeof(SBasicViewParameters::MV),
-                sizeof(SBasicViewParameters::NormalMat)
-            };
-            constexpr uint32_t relOffsets[DS1_METADATA_ENTRY_CNT] =
-            {
-                offsetof(SBasicViewParameters,MVP),
-                offsetof(SBasicViewParameters,MV),
-                offsetof(SBasicViewParameters,NormalMat)
-            };
-            for (uint32_t i=0u; i<DS1_METADATA_ENTRY_CNT; ++i)
-            {
-                auto& semantic = (m_inputSemantics->end()-i-1u)[0];
-                semantic.type = types[i];
-                semantic.descriptorSection.type = IRenderpassIndependentPipelineMetadata::ShaderInput::ET_UNIFORM_BUFFER;
-                semantic.descriptorSection.uniformBufferObject.binding = ds1layout->getBindings().begin()[0].binding;
-                semantic.descriptorSection.uniformBufferObject.set = 1u;
-                semantic.descriptorSection.uniformBufferObject.relByteoffset = relOffsets[i];
-                semantic.descriptorSection.uniformBufferObject.bytesize = sizes[i];
-                semantic.descriptorSection.shaderAccessFlags = ICPUSpecializedShader::ESS_VERTEX;
-            }
+            auto pplnLayout = core::make_smart_refctd_ptr<ICPUPipelineLayout>(&pcRng, &pcRng + 1, nullptr, core::smart_refctd_ptr(ds1layout), nullptr, nullptr);
+            insertBuiltinAssetIntoCache(m_assetMgr, SAssetBundle(nullptr, { core::smart_refctd_ptr_static_cast<IAsset>(std::move(pplnLayout)) }), "nbl/builtin/pipeline_layout/loader/mtl/no_uv");
         }
     }
 
     // default pipelines
-    SAssetLoadParams assetLoadParams;
-  
     auto default_mtl_file = m_assetMgr->getFileSystem()->createMemoryReadFile(DUMMY_MTL_CONTENT, strlen(DUMMY_MTL_CONTENT), "default IrrlichtBAW material");
+
+    SAssetLoadParams assetLoadParams;
     auto bundle = loadAsset(default_mtl_file, assetLoadParams, &dfltOver);
+
     default_mtl_file->drop();
+
 
     insertBuiltinAssetIntoCache(m_assetMgr, std::move(bundle), "nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline");
 }
@@ -186,7 +153,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
                     }
                 }
             }
-            meta->placeMeta(offset,ppln.get(),std::move(ds3),material.params,std::string(material.name),hash,core::smart_refctd_ptr(m_inputSemantics));
+            meta->placeMeta(offset,ppln.get(),std::move(ds3),material.params,std::string(material.name),hash,core::smart_refctd_ptr(m_basicViewParamsSemantics));
             retval->operator[](offset) = std::move(ppln);
             offset++;
         };

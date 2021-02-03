@@ -10,7 +10,9 @@
 
 #include "nbl/ext/MitsubaLoader/CMitsubaLoader.h"
 #include "nbl/ext/MitsubaLoader/ParserUtil.h"
-#include "nbl/asset/IImageAssetHandlerBase.h"
+
+#include "nbl/asset/interchange/IImageAssetHandlerBase.h"
+
 #include "nbl/ext/MitsubaLoader/CGLSLMitsubaLoaderBuiltinIncludeLoader.h"
 
 
