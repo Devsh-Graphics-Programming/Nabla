@@ -118,7 +118,7 @@ MeshPackerBase::ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::all
 
 		auto* pipeline = (*it)->getPipeline();
 
-		if ((*it)->getIndexBufferBinding()->buffer.get() == nullptr ||
+		if ((*it)->getIndexBufferBinding().buffer.get() == nullptr ||
 			pipeline->getPrimitiveAssemblyParams().primitiveType != EPT_TRIANGLE_LIST)
 		{
 			_NBL_DEBUG_BREAK_IF(true);
@@ -150,9 +150,9 @@ MeshPackerBase::ReservedAllocationMeshBuffers CCPUMeshPacker<MDIStructType>::all
 	size_t vtxCnt = 0u;
 	for (auto it = begin; it != end; it++)
 	{
-		ICPUMeshBuffer& mb = **it;
-		idxCnt += mb.getIndexCount();
-		vtxCnt += mb.calcVertexCount();
+		ICPUMeshBuffer* mb = it->get();
+		idxCnt += mb->getIndexCount();
+		vtxCnt += IMeshManipulator::upperBoundVertexID(mb);
 	}
 
 	const uint32_t minIdxCntPerPatch = m_minTriangleCountPerMDIData * 3;
@@ -365,9 +365,9 @@ auto CCPUMeshPacker<MDIStructType>::constructTriangleBatches(ICPUMeshBuffer& mes
 
 	//TODO: triangle reordering
 	
-	auto* srcIdxBuffer = meshBuffer.getIndexBufferBinding();
-	uint32_t* idxBufferPtr32Bit = static_cast<uint32_t*>(srcIdxBuffer->buffer->getPointer()) + (srcIdxBuffer->offset / sizeof(uint32_t)); //will be changed after benchmarks
-	uint16_t* idxBufferPtr16Bit = static_cast<uint16_t*>(srcIdxBuffer->buffer->getPointer()) + (srcIdxBuffer->offset / sizeof(uint16_t));
+	const auto& srcIdxBuffer = meshBuffer.getIndexBufferBinding();
+	auto idxBufferPtr32Bit = static_cast<const uint32_t*>(srcIdxBuffer.buffer->getPointer()) + (srcIdxBuffer.offset / sizeof(uint32_t)); //will be changed after benchmarks
+	auto idxBufferPtr16Bit = static_cast<const uint16_t*>(srcIdxBuffer.buffer->getPointer()) + (srcIdxBuffer.offset / sizeof(uint16_t));
 	for (TriangleBatch& batch : output)
 	{
 		for (Triangle& tri : batch.triangles)

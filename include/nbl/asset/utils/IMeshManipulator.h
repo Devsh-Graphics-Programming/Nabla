@@ -596,10 +596,10 @@ class IMeshManipulator : public virtual core::IReferenceCounted
 				return false;
 
 			bool retval = true;
-			for (uint32_t g = 0; g < mesh->getMeshBufferCount(); ++g)
+			for (auto mb : mesh->getMeshBuffers())
 			{
 				uint32_t trianglecount;
-				retval = retval && getPolyCount(trianglecount, mesh->getMeshBuffer(g));
+				retval = retval && getPolyCount(trianglecount,mb);
                 outCount += trianglecount;
 			}
 

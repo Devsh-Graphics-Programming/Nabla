@@ -165,15 +165,17 @@ int main()
         newInputParams.attributes[4].format = EF_R32_UINT;
         newInputParams.attributes[4].relativeOffset = 0u;
 
+        const auto vertexUpperBound = asset::IMeshManipulator::upperBoundVertexID(meshBuffer.get());
+
         SBufferBinding<ICPUBuffer> boneIDBuffer;
         boneIDBuffer.offset = 0u;
-        boneIDBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(meshBuffer->calcVertexCount() * sizeof(uint32_t));
+        boneIDBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(vertexUpperBound*sizeof(uint32_t));
 
         uint32_t* buffPtr = static_cast<uint32_t*>(boneIDBuffer.buffer->getPointer());
-        for (int i = 0; i < meshBuffer->calcVertexCount(); i++)
+        for (auto i=0u; i<vertexUpperBound; i++)
             buffPtr[i] = bonesCreatedCnt + getRandomNumber<uint32_t>(1u, boneMatMaxCnt[mbID]) - 1u;
         // don't want total random access to bones, sort roughly 
-        std::sort(buffPtr,buffPtr+meshBuffer->calcVertexCount());
+        std::sort(buffPtr,buffPtr+vertexUpperBound);
 
         meshBuffer->setVertexBufferBinding(std::move(boneIDBuffer), 1);
 
