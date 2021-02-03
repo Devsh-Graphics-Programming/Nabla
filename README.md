@@ -127,7 +127,7 @@ Contact ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogrammi
 
 **<u>Stairs raytracing</u>** 
 
-![](https://github.com/Devsh-Graphics-Programming/Nabla/blob/1209ac2a076762a3f75647e7e556b2dfd3925536/site_media/readme/screenshots/RTAA.png?raw=true)
+![](https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/de64844568f0e9a45c91990ef23c6a206e1b1407/site_media/readme/screenshots/RTAA.png)
 
 **<u>Bathroom raytracing</u>** 
 
