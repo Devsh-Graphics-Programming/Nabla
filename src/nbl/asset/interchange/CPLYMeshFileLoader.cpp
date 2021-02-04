@@ -709,7 +709,7 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(
 	{
 		mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX, mbVertexShader.get());
 		mbPipeline->setShaderAtIndex(ICPURenderpassIndependentPipeline::ESSI_FRAGMENT_SHADER_IX, mbFragmentShader.get());
-
+		
 		auto inputParams = mbPipeline->getVertexInputParams();
 
 		for (auto index = 0; index < 4; ++index)

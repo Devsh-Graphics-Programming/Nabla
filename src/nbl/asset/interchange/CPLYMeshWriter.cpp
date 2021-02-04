@@ -152,6 +152,8 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 
     const void* ind = meshBuffer->getIndices();
     auto idxCnt = meshBuffer->getIndexCount();  // when you convert triangle Fan or triangle strip to triangle list, the index count changes, and thats what you should derive your face count from
+    // github comment
+
     const auto idxtype = meshBuffer->getIndexType();
     const auto primitiveT = mbPipeline->getPrimitiveAssemblyParams().primitiveType;
 
