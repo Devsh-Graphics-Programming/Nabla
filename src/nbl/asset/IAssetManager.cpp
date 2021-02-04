@@ -218,27 +218,50 @@ void IAssetManager::insertBuiltinAssets()
 
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/specialized_shader/fullscreentriangle.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
-			{"nbl/builtin/specialized_shader/fullscreentriangle.vert"});
+			{
+                "nbl/builtin/specialized_shader/fullscreentriangle",
+                "nbl/builtin/specialized_shader/fullscreentriangle.vert"
+            });
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
-			{"nbl/builtin/material/lambertian/singletexture/specialized_shader.vert","nbl/builtin/material/debug/vertex_uv/specialized_shader.vert"});
+			{
+                "nbl/builtin/material/lambertian/singletexture/specialized_shader",
+                "nbl/builtin/material/debug/vertex_uv/specialized_shader",
+                "nbl/builtin/material/lambertian/singletexture/specialized_shader.vert",
+                "nbl/builtin/material/debug/vertex_uv/specialized_shader.vert"
+            });
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/lambertian/singletexture/specialized_shader.frag")>(), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
 			asset::ISpecializedShader::ESS_FRAGMENT, 
-			{"nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"});
+			{
+                "nbl/builtin/material/lambertian/singletexture/specialized_shader",
+                "nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"
+            });
 
-		// TODO
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
-			{"nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"});
+			{
+                "nbl/builtin/material/debug/vertex_normal/specialized_shader",
+                "nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"});
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_color/specialized_shader.vert")>(),
 			asset::ISpecializedShader::ESS_VERTEX,
-			{"nbl/builtin/material/debug/vertex_color/specialized_shader.vert"});
+			{
+                "nbl/builtin/material/debug/vertex_color/specialized_shader",
+                "nbl/builtin/material/debug/vertex_color/specialized_shader.vert"
+            });
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_uv/specialized_shader.frag")>(),
 			asset::ISpecializedShader::ESS_FRAGMENT,
-			{"nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"});
+			{   
+                "nbl/builtin/material/debug/vertex_uv/specialized_shader",
+                "nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"
+            });
 		buildInGLSLShader(fileSystem->loadBuiltinData<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag")>(),
 			asset::ISpecializedShader::ESS_FRAGMENT,
-			{"nbl/builtin/material/debug/vertex_normal/specialized_shader.frag","nbl/builtin/material/debug/vertex_color/specialized_shader.frag"});
+			{
+                "nbl/builtin/material/debug/vertex_normal/specialized_shader",
+                "nbl/builtin/material/debug/vertex_color/specialized_shader",
+                "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag",
+                "nbl/builtin/material/debug/vertex_color/specialized_shader.frag"
+            });
 	}
 
     /*
@@ -399,5 +422,14 @@ void IAssetManager::insertBuiltinAssets()
 
         for(auto &path : paths)
             addBuiltInToCaches(pipelineLayout, path);
+    }
+
+    /*
+        Pipelines
+    */
+
+    //! Okay, an explaination is needed 
+    {
+
     }
 }

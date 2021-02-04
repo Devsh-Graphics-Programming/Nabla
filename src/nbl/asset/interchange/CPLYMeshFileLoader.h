@@ -130,6 +130,16 @@ private:
 
     struct SContext
     {
+		~SContext()
+		{
+			if (Buffer)
+			{
+				_NBL_DELETE_ARRAY(reinterpret_cast<uint8_t*>(Buffer), PLY_INPUT_BUFFER_SIZE);
+				Buffer = nullptr;
+			}
+			ElementList.clear();
+		}
+
 		IAssetLoader::SAssetLoadContext inner;
 		uint32_t topHierarchyLevel;
 		IAssetLoader::IAssetLoaderOverride* loaderOverride;
@@ -142,18 +152,6 @@ private:
         bool IsBinaryFile = false, IsWrongEndian = false, EndOfFile = false;
         int32_t LineLength = 0, WordLength = 0;
 		char* StartPointer = nullptr, *EndPointer = nullptr, *LineEndPointer = nullptr;
-
-		std::function<void()> deallocate = [&]()
-		{ 
-			if (Buffer)
-			{
-				_NBL_DELETE_ARRAY(Buffer, PLY_INPUT_BUFFER_SIZE);
-				Buffer = nullptr;
-			}
-			ElementList.clear();
-		};
-
-		core::SRAIIBasedExiter<decltype(deallocate)> exiter = core::makeRAIIExiter(deallocate);
     };
 
     enum { E_POS = 0, E_UV = 2, E_NORM = 3, E_COL = 1 };

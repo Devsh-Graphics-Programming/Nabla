@@ -6,14 +6,12 @@
 
 #include <numeric>
 
-
 #include "BuildConfigOptions.h"
 
 #include "IReadFile.h"
 #include "os.h"
 
 #include "nbl/asset/utils/IMeshManipulator.h"
-
 
 #ifdef _NBL_COMPILE_WITH_PLY_LOADER_
 
@@ -606,9 +604,9 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(
 	{
 		constexpr std::array<std::pair<uint8_t, std::string_view>, 3> avaiableOptionsForShaders
 		{ 
-			std::make_pair(E_COL, "nbl/builtin/material/debug/vertex_color_debug_shader/specialized_shader"),
-			std::make_pair(E_UV, "nbl/builtin/material/debug/uv_debug_shader/specialized_shader"),
-			std::make_pair(E_NORM, "nbl/builtin/material/debug/normal_debug_shader/specialized_shader")  // TODO: `normal_debug` is a rather bad name
+			std::make_pair(E_COL, "nbl/builtin/material/debug/vertex_color/specialized_shader"),
+			std::make_pair(E_UV, "nbl/builtin/material/debug/vertex_uv/specialized_shader"),
+			std::make_pair(E_NORM, "nbl/builtin/material/debug/vertex_normal/specialized_shader")
 		};
 
 		for (auto& it : avaiableOptionsForShaders)
