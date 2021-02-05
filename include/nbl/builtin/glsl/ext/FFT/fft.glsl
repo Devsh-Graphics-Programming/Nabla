@@ -177,13 +177,13 @@ uint getDimLength(uvec3 dimension)
 }
 
 vec2 nbl_glsl_ext_FFT_getPaddedData(in uvec3 coordinate, in uint channel) {
-    uint min_x = (pc.padded_dimension.x - pc.dimension.x) / 2;
+    uint min_x = 0;
     uint max_x = pc.dimension.x + min_x - 1;
 
-    uint min_y = (pc.padded_dimension.y - pc.dimension.y) / 2;
+    uint min_y = 0;
     uint max_y = pc.dimension.y + min_y - 1;
 
-    uint min_z = (pc.padded_dimension.z - pc.dimension.z) / 2;
+    uint min_z = 0;
     uint max_z = pc.dimension.z + min_z - 1;
 
 

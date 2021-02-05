@@ -32,7 +32,7 @@ void main()
     uint pad_left = (padded_dimension.x - dimension.x) / 2;
     uint pad_top = (padded_dimension.y - dimension.y) / 2;
     ivec2 coords = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
-    ivec2 padded_coords = ivec2(pad_left + gl_GlobalInvocationID.x, pad_top + gl_GlobalInvocationID.y);
+    ivec2 padded_coords = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
 
     vec4 color_value = vec4(0, 0, 0, 0);
     for(uint c = 0; c < pc.numChannels; ++c) {

@@ -319,7 +319,7 @@ int main()
 	IAssetLoader::SAssetLoadParams lp;
 	auto srcImageBundle = am->getAsset("../../media/colorexr.exr", lp);
 	auto srcCpuImg = IAsset::castDown<ICPUImage>(srcImageBundle.getContents().begin()[0]);
-	auto kerImageBundle = am->getAsset("../../media/gaussian_kernel.exr", lp);
+	auto kerImageBundle = am->getAsset("../../media/gaussian_kernel_21x21.exr", lp);
 	auto kerCpuImg = IAsset::castDown<ICPUImage>(kerImageBundle.getContents().begin()[0]);
 	
 	IGPUImage::SCreationParams srcImgInfo;
