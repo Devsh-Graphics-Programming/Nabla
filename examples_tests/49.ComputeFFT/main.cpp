@@ -97,7 +97,7 @@ static inline core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader_
     auto cpucs = glslc->resolveIncludeDirectives(file, asset::ISpecializedShader::ESS_COMPUTE, "../remove_padding.comp");
     auto cs = driver->createGPUShader(std::move(cpucs));
     file->drop();
-    asset::ISpecializedShader::SInfo csinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE, "../remove_padding.vert");
+    asset::ISpecializedShader::SInfo csinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE, "../remove_padding.comp");
     auto cs_spec = driver->createGPUSpecializedShader(cs.get(), csinfo);
 	return cs_spec;
 }

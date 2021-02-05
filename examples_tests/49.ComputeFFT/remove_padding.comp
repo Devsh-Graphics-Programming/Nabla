@@ -28,10 +28,11 @@ void main()
 {
     //TODO: just something weird to work 
     ivec2 coords = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
-    ivec2 dimension = ivec2(pc.padded_dimension);
+    uvec2 dimension = imageSize(outImage);
+    uvec2 padded_dimension = pc.padded_dimension.xy;
     vec4 color_value = vec4(0, 0, 0, 0);
     for(uint c = 0; c < pc.numChannels; ++c) {
-	    uint index = c * (pc.dimension.x * dimension.y) + coords.y * (dimension.x) + coords.x;
+	    uint index = c * (padded_dimension.x * padded_dimension.y) + coords.y * (padded_dimension.x) + coords.x;
         color_value[c] = data[index].complex_value.x;
     }
     imageStore(outImage, coords, color_value);
