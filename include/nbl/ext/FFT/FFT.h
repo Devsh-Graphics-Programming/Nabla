@@ -100,18 +100,10 @@ class FFT : public core::TotalInterface
 		}
 		
 		//
-		static inline size_t getOutputBufferSize(asset::VkExtent3D const & paddedInputDimensions, uint32_t dataPointBytes)
+		static inline size_t getOutputBufferSize(asset::VkExtent3D const & paddedInputDimensions, uint32_t numChannels)
 		{
 			assert(core::isPoT(paddedInputDimensions.width) && core::isPoT(paddedInputDimensions.height) && core::isPoT(paddedInputDimensions.depth));
-			return 2 * (paddedInputDimensions.width * paddedInputDimensions.height * paddedInputDimensions.depth) * dataPointBytes; // x2 because -> output is a complex number
-		}
-		
-
-		//
-		static inline size_t getOutputBufferSize(asset::VkExtent3D const & paddedInputDimensions, asset::E_FORMAT format)
-		{
-			assert(core::isPoT(paddedInputDimensions.width) && core::isPoT(paddedInputDimensions.height) && core::isPoT(paddedInputDimensions.depth));
-			return getOutputBufferSize(paddedInputDimensions, asset::getTexelOrBlockBytesize(format));
+			return (paddedInputDimensions.width * paddedInputDimensions.height * paddedInputDimensions.depth * numChannels) * (sizeof(float) * 2);
 		}
 		
 

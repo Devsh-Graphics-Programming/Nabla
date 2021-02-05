@@ -203,7 +203,7 @@ vec2 nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
 
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in vec2 complex_value)
 {
-	uvec3 dimension = pc.dimension;
+	uvec3 dimension = pc.padded_dimension;
 	uint index = channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
 	outData[index].complex_value = complex_value;
 }

@@ -11,6 +11,7 @@
 #include "nbl/ext/ToneMapper/CToneMapper.h"
 #include "nbl/ext/FFT/FFT.h"
 #include "../common/QToQuitEventReceiver.h"
+#include "../../../../source/Nabla/COpenGLExtensionHandler.h"
 
 using namespace nbl;
 using namespace nbl::core;
@@ -41,12 +42,23 @@ VkExtent3D padDimensionToNextPOT(VkExtent3D const & dimension, VkExtent3D const 
 	return ret;
 }
 
+struct DispatchInfo_t
+{
+	uint32_t workGroupDims[3];
+	uint32_t workGroupCount[3];
+};
+
 static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayout_RemovePadding(video::IVideoDriver* driver) {
-	static const asset::SPushConstantRange ranges[1] =
+	static const asset::SPushConstantRange ranges[2] =
 	{
 		{
 			ISpecializedShader::ESS_COMPUTE,
 			0u,
+			sizeof(uint32_t) * 3
+		},
+		{
+			ISpecializedShader::ESS_COMPUTE,
+			sizeof(uint32_t) * 4,
 			sizeof(uint32_t)
 		},
 	};
@@ -69,7 +81,7 @@ static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayou
 		},
 	};
 	
-	core::SRange<const asset::SPushConstantRange> pcRange = {ranges, ranges+1};
+	core::SRange<const asset::SPushConstantRange> pcRange = {ranges, ranges+2};
 	core::SRange<const video::IGPUDescriptorSetLayout::SBinding> bindings = {bnd, bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};;
 
 	return driver->createGPUPipelineLayout(
@@ -123,6 +135,28 @@ static inline void updateDescriptorSet_RemovePadding (
 	pInfos[1].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);;
 
 	driver->updateDescriptorSets(2u, pWrites, 0u, nullptr);
+}
+static inline void dispatchHelper_RemovePadding(
+	video::IVideoDriver* driver,
+	const DispatchInfo_t& dispatchInfo)
+{
+	driver->dispatch(dispatchInfo.workGroupCount[0], dispatchInfo.workGroupCount[1], dispatchInfo.workGroupCount[2]);
+	COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+}
+static inline DispatchInfo_t getDispatchInfo_RemovePadding(
+	asset::VkExtent3D const & inputDimensions)
+{
+	DispatchInfo_t ret = {};
+
+	ret.workGroupDims[0] = 16;
+	ret.workGroupDims[1] = 16;
+	ret.workGroupDims[2] = 1;
+
+	ret.workGroupCount[0] = core::ceil(float(inputDimensions.width) / ret.workGroupDims[0]);
+	ret.workGroupCount[1] = core::ceil(float(inputDimensions.height) / ret.workGroupDims[1]);
+	ret.workGroupCount[2] = core::ceil(float(inputDimensions.depth) / ret.workGroupDims[2]);
+
+	return ret;
 }
 
 int main()
@@ -178,7 +212,6 @@ int main()
 		imgViewInfo.subresourceRange.baseArrayLayer = 0;
 		imgViewInfo.subresourceRange.layerCount = 1;
 		srcImageView = driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewInfo));
-		
 		outImg = driver->createDeviceLocalGPUImageOnDedMem(std::move(srcImgInfo));
 
 		imgViewInfo.image = outImg;
@@ -207,8 +240,8 @@ int main()
 	auto fftDispatchInfo_SrcImage_Vertical = FFTClass::buildParameters(srcPaddedDim, FFTClass::Direction::Y, srcNumChannels);
 
 	// Allocate Output Buffer
-	auto fftOutputBuffer_0 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(srcPaddedDim, srcFormat));
-	auto fftOutputBuffer_1 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(srcPaddedDim, srcFormat));
+	auto fftOutputBuffer_0 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(srcPaddedDim, srcNumChannels));
+	auto fftOutputBuffer_1 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(srcPaddedDim, srcNumChannels));
 
 	// FFT X
 	auto fftDescriptorSet_Src_FFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_ImageInput->getDescriptorSetLayout(0u)));
@@ -228,8 +261,10 @@ int main()
 	
 	auto removePaddingShader = createShader_RemovePadding(driver, glslc, fs);
 	auto removePaddingPipelineLayout = getPipelineLayout_RemovePadding(driver);
+	auto removePaddingPipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(removePaddingPipelineLayout), std::move(removePaddingShader));
 	auto removePaddingDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(removePaddingPipelineLayout->getDescriptorSetLayout(0u)));
 	updateDescriptorSet_RemovePadding(driver, removePaddingDescriptorSet.get(), fftOutputBuffer_1, outImgView);
+	auto removePaddingDispatchInfo = getDispatchInfo_RemovePadding(srcDim);
 
 	uint32_t outBufferIx = 0u;
 	auto lastPresentStamp = std::chrono::high_resolution_clock::now();
@@ -243,9 +278,9 @@ int main()
 		FFTClass::pushConstants(driver, fftPipelineLayout_ImageInput.get(), srcDim, srcPaddedDim, FFTClass::Direction::X, false, FFTClass::PaddingType::CLAMP_TO_EDGE);
 		FFTClass::dispatchHelper(driver, fftDispatchInfo_SrcImage_Horizontal);
 
-		driver->bindComputePipeline(fftPipeline_SSBOInput.get());
 
 		// Src Image FFT Y
+		driver->bindComputePipeline(fftPipeline_SSBOInput.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_SSBOInput.get(), 0u, 1u, &fftDescriptorSet_Src_FFT_Y.get(), nullptr);
 		FFTClass::pushConstants(driver, fftPipelineLayout_SSBOInput.get(), srcPaddedDim, srcPaddedDim, FFTClass::Direction::Y, false, FFTClass::PaddingType::FILL_WITH_ZERO);
 		FFTClass::dispatchHelper(driver, fftDispatchInfo_SrcImage_Vertical);
@@ -260,6 +295,13 @@ int main()
 		FFTClass::pushConstants(driver, fftPipelineLayout_SSBOInput.get(), srcPaddedDim, srcPaddedDim, FFTClass::Direction::Y, true, FFTClass::PaddingType::FILL_WITH_ZERO);
 		FFTClass::dispatchHelper(driver, fftDispatchInfo_SrcImage_Vertical);
 
+		// Remove Padding and Copy to GPU Image
+		driver->bindComputePipeline(removePaddingPipeline.get());
+		driver->bindDescriptorSets(EPBP_COMPUTE, removePaddingPipelineLayout.get(), 0u, 1u, &removePaddingDescriptorSet.get(), nullptr);
+		driver->pushConstants(removePaddingPipelineLayout.get(), nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t) * 3, &srcPaddedDim); // pc.numChannels
+		driver->pushConstants(removePaddingPipelineLayout.get(), nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 4, sizeof(uint32_t), &srcNumChannels); // pc.numChannels
+		dispatchHelper_RemovePadding(driver, removePaddingDispatchInfo);
+		
 		driver->endScene();
 	}
 

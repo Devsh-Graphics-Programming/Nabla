@@ -11,7 +11,7 @@ struct nbl_glsl_ext_FFT_output_t
 	vec2 complex_value;
 };
 
-layout(set=0, binding=0) restrict buffer Buffer
+layout(set=0, binding=0) restrict readonly buffer Buffer
 {
 	nbl_glsl_ext_FFT_output_t data[];
 };
@@ -20,17 +20,18 @@ layout(set=0, binding=1, rgba16f) uniform image2D outImage;
 
 layout(push_constant) uniform PushConstants
 {
-    layout (offset = 0) uint numChannels;
+    layout (offset = 0) uvec3 padded_dimension;
+    layout (offset = 16) uint numChannels;
 } pc;
 
 void main()
 {
     //TODO: just something weird to work 
     ivec2 coords = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
-    ivec2 dimension = imageSize(outImage);
+    ivec2 dimension = ivec2(pc.padded_dimension);
     vec4 color_value = vec4(0, 0, 0, 0);
     for(uint c = 0; c < pc.numChannels; ++c) {
-	    uint index = c * (dimension.x * dimension.y) + coords.y * (dimension.x) + coords.x;
+	    uint index = c * (pc.dimension.x * dimension.y) + coords.y * (dimension.x) + coords.x;
         color_value[c] = data[index].complex_value.x;
     }
     imageStore(outImage, coords, color_value);

@@ -5,8 +5,6 @@ if(NOT RES)
 endif()
 
 set(EXAMPLE_SOURCES
-	../../src/nbl/ext/LumaMeter/CLumaMeter.cpp
-	../../src/nbl/ext/ToneMapper/CToneMapper.cpp
 	../../src/nbl/ext/FFT/FFT.cpp
 )
 
