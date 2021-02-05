@@ -41,6 +41,90 @@ VkExtent3D padDimensionToNextPOT(VkExtent3D const & dimension, VkExtent3D const 
 	return ret;
 }
 
+static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayout_RemovePadding(video::IVideoDriver* driver) {
+	static const asset::SPushConstantRange ranges[1] =
+	{
+		{
+			ISpecializedShader::ESS_COMPUTE,
+			0u,
+			sizeof(uint32_t)
+		},
+	};
+
+	static IGPUDescriptorSetLayout::SBinding bnd[] =
+	{
+		{
+			0u,
+			EDT_STORAGE_BUFFER,
+			1u,
+			ISpecializedShader::ESS_COMPUTE,
+			nullptr
+		},
+		{
+			1u,
+			EDT_STORAGE_IMAGE,
+			1u,
+			ISpecializedShader::ESS_COMPUTE,
+			nullptr
+		},
+	};
+	
+	core::SRange<const asset::SPushConstantRange> pcRange = {ranges, ranges+1};
+	core::SRange<const video::IGPUDescriptorSetLayout::SBinding> bindings = {bnd, bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};;
+
+	return driver->createGPUPipelineLayout(
+		pcRange.begin(),pcRange.end(),
+		driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
+	);
+}
+static inline core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader_RemovePadding(
+	video::IVideoDriver* driver,
+	nbl::asset::IGLSLCompiler * glslc,
+	nbl::io::IFileSystem * fs) {
+    io::IReadFile* file = fs->createAndOpenFile("../remove_padding.comp");
+    auto cpucs = glslc->resolveIncludeDirectives(file, asset::ISpecializedShader::ESS_COMPUTE, "../remove_padding.comp");
+    auto cs = driver->createGPUShader(std::move(cpucs));
+    file->drop();
+    asset::ISpecializedShader::SInfo csinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE, "../remove_padding.vert");
+    auto cs_spec = driver->createGPUSpecializedShader(cs.get(), csinfo);
+	return cs_spec;
+}
+static inline void updateDescriptorSet_RemovePadding (
+	video::IVideoDriver * driver,
+	video::IGPUDescriptorSet * set,
+	core::smart_refctd_ptr<video::IGPUBuffer> inputBufferDescriptor,
+	core::smart_refctd_ptr<video::IGPUImageView> outputImageDescriptor)
+{
+	video::IGPUDescriptorSet::SDescriptorInfo pInfos[2];
+	video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[2];
+
+	for (auto i = 0; i< 2; i++)
+	{
+		pWrites[i].dstSet = set;
+		pWrites[i].arrayElement = 0u;
+		pWrites[i].count = 1u;
+		pWrites[i].info = pInfos+i;
+	}
+
+	// Input Buffer 
+	pWrites[0].binding = 0;
+	pWrites[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+	pWrites[0].count = 1;
+	pInfos[0].desc = inputBufferDescriptor;
+	pInfos[0].buffer.size = inputBufferDescriptor->getSize();
+	pInfos[0].buffer.offset = 0u;
+
+	// Output Buffer 
+	pWrites[1].binding = 1;
+	pWrites[1].descriptorType = asset::EDT_STORAGE_IMAGE;
+	pWrites[1].count = 1;
+	pInfos[1].desc = outputImageDescriptor;
+	pInfos[1].image.sampler = nullptr;
+	pInfos[1].image.imageLayout = static_cast<asset::E_IMAGE_LAYOUT>(0u);;
+
+	driver->updateDescriptorSets(2u, pWrites, 0u, nullptr);
+}
+
 int main()
 {
 	nbl::SIrrlichtCreationParameters deviceParams;
@@ -64,6 +148,8 @@ int main()
 	
 	nbl::io::IFileSystem* filesystem = device->getFileSystem();
 	IAssetManager* am = device->getAssetManager();
+    auto* fs = am->getFileSystem();
+    auto* glslc = am->getGLSLCompiler();
 	
 	// Loading SrcImage and Kernel Image from File
 
@@ -71,7 +157,9 @@ int main()
 	auto imageBundle = am->getAsset("../../media/colorexr.exr", lp);
 	
 	IGPUImage::SCreationParams srcImgInfo;
-	smart_refctd_ptr<IGPUImageView> srcImageView;
+	
+	smart_refctd_ptr<IGPUImage> outImg;
+	smart_refctd_ptr<IGPUImageView> srcImageView, outImgView;
 	{
 		auto cpuImg = IAsset::castDown<ICPUImage>(imageBundle.getContents().begin()[0]);
 		srcImgInfo = cpuImg->getCreationParameters();
@@ -90,6 +178,12 @@ int main()
 		imgViewInfo.subresourceRange.baseArrayLayer = 0;
 		imgViewInfo.subresourceRange.layerCount = 1;
 		srcImageView = driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewInfo));
+		
+		outImg = driver->createDeviceLocalGPUImageOnDedMem(std::move(srcImgInfo));
+
+		imgViewInfo.image = outImg;
+		imgViewInfo.format = srcImgInfo.format;
+		outImgView = driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewInfo));
 	}
 	using FFTClass = ext::FFT::FFT;
 	
@@ -131,6 +225,11 @@ int main()
 	// IFFT Y
 	auto fftDescriptorSet_IFFT_Y = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_SSBOInput->getDescriptorSetLayout(0u)));
 	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_IFFT_Y.get(), fftOutputBuffer_0, fftOutputBuffer_1);
+	
+	auto removePaddingShader = createShader_RemovePadding(driver, glslc, fs);
+	auto removePaddingPipelineLayout = getPipelineLayout_RemovePadding(driver);
+	auto removePaddingDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(removePaddingPipelineLayout->getDescriptorSetLayout(0u)));
+	updateDescriptorSet_RemovePadding(driver, removePaddingDescriptorSet.get(), fftOutputBuffer_1, outImgView);
 
 	uint32_t outBufferIx = 0u;
 	auto lastPresentStamp = std::chrono::high_resolution_clock::now();
