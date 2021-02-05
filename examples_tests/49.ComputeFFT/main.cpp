@@ -82,7 +82,7 @@ int main()
 		IGPUImageView::SCreationParams imgViewInfo;
 		imgViewInfo.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
 		imgViewInfo.image = std::move(gpuImage);
-		imgViewInfo.viewType = IGPUImageView::ET_2D_ARRAY;
+		imgViewInfo.viewType = IGPUImageView::ET_2D;
 		imgViewInfo.format = srcImgInfo.format;
 		imgViewInfo.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
 		imgViewInfo.subresourceRange.baseMipLevel = 0;

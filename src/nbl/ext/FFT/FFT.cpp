@@ -214,8 +214,8 @@ void main()
 }
 
 )===";
-	
-	const size_t extraSize = 0;
+
+	const size_t extraSize = 32 + 32 + 32 + 32;
 
 	const uint32_t maxItemsPerThread = core::ceil(float(maxPaddedDimensionSize) / DEFAULT_WORK_GROUP_X_DIM);
 	const uint32_t useSSBO = (DataType::SSBO == inputType) ? 1 : 0;
