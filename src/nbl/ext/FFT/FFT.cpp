@@ -45,16 +45,18 @@ core::SRange<const asset::SPushConstantRange> FFT::getDefaultPushConstantRanges(
 	return {ranges, ranges+5};
 }
 
-core::SRange<const video::IGPUDescriptorSetLayout::SBinding> FFT::getDefaultBindings(video::IVideoDriver* driver)
+core::SRange<const video::IGPUDescriptorSetLayout::SBinding> FFT::getDefaultBindings(video::IVideoDriver* driver, DataType inputType)
 {
-	static const IGPUDescriptorSetLayout::SBinding bnd[] =
+	static core::smart_refctd_ptr<IGPUSampler> sampler;
+
+	static IGPUDescriptorSetLayout::SBinding bnd[] =
 	{
 		{
 			0u,
 			EDT_STORAGE_BUFFER,
 			1u,
 			ISpecializedShader::ESS_COMPUTE,
-			nullptr
+			&sampler
 		},
 		{
 			1u,
@@ -64,14 +66,46 @@ core::SRange<const video::IGPUDescriptorSetLayout::SBinding> FFT::getDefaultBind
 			nullptr
 		},
 	};
+
+	if (DataType::SSBO == inputType) {
+		bnd[0].type = EDT_STORAGE_BUFFER;
+	} else if (DataType::TEXTURE2D == inputType) {
+		bnd[0].type = EDT_COMBINED_IMAGE_SAMPLER;
+	}
+
+	bnd[0].samplers = &sampler;
 	
+	if (!sampler)
+	{
+		IGPUSampler::SParams params =
+		{
+			{
+				ISampler::ETC_CLAMP_TO_EDGE,
+				ISampler::ETC_CLAMP_TO_EDGE,
+				ISampler::ETC_CLAMP_TO_EDGE,
+				ISampler::ETBC_FLOAT_OPAQUE_BLACK,
+				ISampler::ETF_NEAREST,
+				ISampler::ETF_NEAREST,
+				ISampler::ESMM_NEAREST,
+				0u,
+				0u,
+				ISampler::ECO_ALWAYS
+			}
+		};
+		sampler = driver->createGPUSampler(params);
+	}
+
 	return {bnd, bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
 }
 
-core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createShader(video::IVideoDriver* driver, asset::E_FORMAT format, uint32_t maxDimensionSize)
+core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createShader(video::IVideoDriver* driver, DataType inputType, asset::E_FORMAT format, uint32_t maxPaddedDimensionSize)
 {
+	assert(core::isPoT(maxPaddedDimensionSize));
+
 	const char* sourceFmt =
 R"===(#version 430 core
+
+#define USE_SSBO_FOR_INPUT %u
 
 // WorkGroup Size
 
@@ -114,11 +148,16 @@ struct nbl_glsl_ext_FFT_input_t
 #endif
 
 #ifndef _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
+
+#if USE_SSBO_FOR_INPUT > 0
 #define _NBL_GLSL_EXT_FFT_INPUT_DESCRIPTOR_DEFINED_
 layout(set=_NBL_GLSL_EXT_FFT_INPUT_SET_DEFINED_, binding=_NBL_GLSL_EXT_FFT_INPUT_BINDING_DEFINED_) readonly restrict buffer InputBuffer
 {
 	nbl_glsl_ext_FFT_input_t inData[];
 };
+#else 
+
+#endif
 
 #endif
 
@@ -171,13 +210,14 @@ void main()
 	
 	const size_t extraSize = 0;
 
-	const uint32_t maxItemsPerThread = core::ceil(float(maxDimensionSize) / DEFAULT_WORK_GROUP_X_DIM);
-
+	const uint32_t maxItemsPerThread = core::ceil(float(maxPaddedDimensionSize) / DEFAULT_WORK_GROUP_X_DIM);
+	const uint32_t useSSBO = (DataType::SSBO == inputType) ? 1 : 0;
 	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
 	snprintf(
 		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt,
+		useSSBO,
 		DEFAULT_WORK_GROUP_X_DIM,
-		maxDimensionSize,
+		maxPaddedDimensionSize,
 		maxItemsPerThread
 	);
 

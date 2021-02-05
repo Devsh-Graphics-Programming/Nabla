@@ -64,25 +64,28 @@ int main()
 	
 	nbl::io::IFileSystem* filesystem = device->getFileSystem();
 	IAssetManager* am = device->getAssetManager();
+	
+	using FFTClass = ext::FFT::FFT;
 
 	constexpr uint32_t num_channels = 1;
-	constexpr VkExtent3D fftDim = VkExtent3D{6, 1, 1};
-	VkExtent3D fftPaddedDim = padDimensionToNextPOT(fftDim);
 	constexpr uint32_t dataPointBytes = sizeof(float) * num_channels;
 
-	using FFTClass = ext::FFT::FFT;
-	auto fftGPUSpecializedShader = FFTClass::createShader(driver, EF_R8G8B8A8_UNORM, 128);
+	constexpr VkExtent3D fftDim = VkExtent3D{6, 1, 1};
+	VkExtent3D fftPaddedDim = padDimensionToNextPOT(fftDim);
+	uint32_t maxPaddedDimensionSize = core::max(core::max(fftPaddedDim.width, fftPaddedDim.height), fftPaddedDim.depth);
 	
-	auto fftPipelineLayout = FFTClass::getDefaultPipelineLayout(driver);
+	auto fftGPUSpecializedShader = FFTClass::createShader(driver, FFTClass::DataType::SSBO, EF_UNKNOWN, maxPaddedDimensionSize);
+	
+	auto fftPipelineLayout = FFTClass::getDefaultPipelineLayout(driver, FFTClass::DataType::SSBO);
 	auto fftPipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout), std::move(fftGPUSpecializedShader));
 
-	auto fftDispatchInfo_Horizontal = FFTClass::buildParameters(fftPaddedDim, FFTClass::Direction::_X, num_channels);
+	auto fftDispatchInfo_Horizontal = FFTClass::buildParameters(fftPaddedDim, FFTClass::Direction::X, num_channels);
 
 	// Allocate Output Buffer
 	auto fftOutputBuffer = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(fftPaddedDim, dataPointBytes));
 
-	// Allocate Input Buffer 
-	uint32_t fftInputBufferSize = FFTClass::getInputBufferSize(fftDim, dataPointBytes);
+	// Allocate Input Buffer SSBO
+	uint32_t fftInputBufferSize = dataPointBytes * fftDim.width * fftDim.height * fftDim.depth;
 	auto fftInputBuffer = driver->createDeviceLocalGPUBufferOnDedMem(fftInputBufferSize);
 
 	auto fftDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout->getDescriptorSetLayout(0u)));
@@ -133,7 +136,7 @@ int main()
 		driver->bindComputePipeline(fftPipeline.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout.get(), 0u, 1u, &fftDescriptorSet.get(), nullptr);
 		
-		FFTClass::pushConstants(driver, fftPipelineLayout.get(), fftDim, fftPaddedDim, FFTClass::Direction::_X, false, FFTClass::PaddingType::_FILL_WITH_ZERO);
+		FFTClass::pushConstants(driver, fftPipelineLayout.get(), fftDim, fftPaddedDim, FFTClass::Direction::X, false, FFTClass::PaddingType::FILL_WITH_ZERO);
 		FFTClass::dispatchHelper(driver, fftDispatchInfo_Horizontal, true);
 
 		// driver->blitRenderTargets(blitFBO, nullptr, false, false);
