@@ -93,12 +93,12 @@ static inline core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader_
 	video::IVideoDriver* driver,
 	nbl::asset::IGLSLCompiler * glslc,
 	nbl::io::IFileSystem * fs) {
-    io::IReadFile* file = fs->createAndOpenFile("../remove_padding.comp");
-    auto cpucs = glslc->resolveIncludeDirectives(file, asset::ISpecializedShader::ESS_COMPUTE, "../remove_padding.comp");
-    auto cs = driver->createGPUShader(std::move(cpucs));
-    file->drop();
-    asset::ISpecializedShader::SInfo csinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE, "../remove_padding.comp");
-    auto cs_spec = driver->createGPUSpecializedShader(cs.get(), csinfo);
+	io::IReadFile* file = fs->createAndOpenFile("../remove_padding.comp");
+	auto cpucs = glslc->resolveIncludeDirectives(file, asset::ISpecializedShader::ESS_COMPUTE, "../remove_padding.comp");
+	auto cs = driver->createGPUShader(std::move(cpucs));
+	file->drop();
+	asset::ISpecializedShader::SInfo csinfo(nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE, "../remove_padding.comp");
+	auto cs_spec = driver->createGPUSpecializedShader(cs.get(), csinfo);
 	return cs_spec;
 }
 static inline void updateDescriptorSet_RemovePadding (
@@ -182,20 +182,20 @@ int main()
 	
 	nbl::io::IFileSystem* filesystem = device->getFileSystem();
 	IAssetManager* am = device->getAssetManager();
-    auto* fs = am->getFileSystem();
-    auto* glslc = am->getGLSLCompiler();
+	auto* fs = am->getFileSystem();
+	auto* glslc = am->getGLSLCompiler();
 	
 	// Loading SrcImage and Kernel Image from File
 
 	IAssetLoader::SAssetLoadParams lp;
 	auto imageBundle = am->getAsset("../../media/colorexr.exr", lp);
+	auto cpuImg = IAsset::castDown<ICPUImage>(imageBundle.getContents().begin()[0]);
 	
 	IGPUImage::SCreationParams srcImgInfo;
 	
 	smart_refctd_ptr<IGPUImage> outImg;
 	smart_refctd_ptr<IGPUImageView> srcImageView, outImgView;
 	{
-		auto cpuImg = IAsset::castDown<ICPUImage>(imageBundle.getContents().begin()[0]);
 		srcImgInfo = cpuImg->getCreationParameters();
 
 		auto gpuImages = driver->getGPUObjectsFromAssets(&cpuImg.get(),&cpuImg.get()+1);
@@ -268,6 +268,10 @@ int main()
 
 	uint32_t outBufferIx = 0u;
 	auto lastPresentStamp = std::chrono::high_resolution_clock::now();
+	bool savedToFile = false;
+	
+	auto downloadStagingArea = driver->getDefaultDownStreamingBuffer();
+	
 	while (device->run() && receiver.keepOpen())
 	{
 		driver->beginScene(false, false);
@@ -302,6 +306,85 @@ int main()
 		driver->pushConstants(removePaddingPipelineLayout.get(), nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 4, sizeof(uint32_t), &srcNumChannels); // pc.numChannels
 		dispatchHelper_RemovePadding(driver, removePaddingDispatchInfo);
 		
+		if(false == savedToFile) {
+			savedToFile = true;
+			
+			core::smart_refctd_ptr<ICPUImageView> imageView;
+			const uint32_t colorBufferBytesize = srcDim.height * srcDim.width * asset::getTexelOrBlockBytesize(srcFormat);
+
+			// create image
+			ICPUImage::SCreationParams imgParams;
+			imgParams.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0u); // no flags
+			imgParams.type = ICPUImage::ET_2D;
+			imgParams.format = srcFormat;
+			imgParams.extent = srcDim;
+			imgParams.mipLevels = 1u;
+			imgParams.arrayLayers = 1u;
+			imgParams.samples = ICPUImage::ESCF_1_BIT;
+			auto image = ICPUImage::create(std::move(imgParams));
+
+			constexpr uint64_t timeoutInNanoSeconds = 300000000000u;
+			const auto waitPoint = std::chrono::high_resolution_clock::now()+std::chrono::nanoseconds(timeoutInNanoSeconds);
+
+			uint32_t address = std::remove_pointer<decltype(downloadStagingArea)>::type::invalid_address; // remember without initializing the address to be allocated to invalid_address you won't get an allocation!
+			const uint32_t alignment = 4096u; // common page size
+			auto unallocatedSize = downloadStagingArea->multi_alloc(waitPoint, 1u, &address, &colorBufferBytesize, &alignment);
+			if (unallocatedSize)
+			{
+				os::Printer::log("Could not download the buffer from the GPU!", ELL_ERROR);
+			}
+
+			// set up regions
+			auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy> >(1u);
+			{
+				auto& region = regions->front();
+
+				region.bufferOffset = 0u;
+				region.bufferRowLength = cpuImg->getRegions().begin()[0].bufferRowLength;
+				region.bufferImageHeight = srcDim.height;
+				//region.imageSubresource.aspectMask = wait for Vulkan;
+				region.imageSubresource.mipLevel = 0u;
+				region.imageSubresource.baseArrayLayer = 0u;
+				region.imageSubresource.layerCount = 1u;
+				region.imageOffset = { 0u,0u,0u };
+				region.imageExtent = imgParams.extent;
+			}
+
+			driver->copyImageToBuffer(outImg.get(), downloadStagingArea->getBuffer(), 1, &regions->front());
+
+			auto downloadFence = driver->placeFence(true);
+
+			auto* data = reinterpret_cast<uint8_t*>(downloadStagingArea->getBufferPointer()) + address;
+			auto cpubufferalias = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t> > >(colorBufferBytesize, data, core::adopt_memory);
+			image->setBufferAndRegions(std::move(cpubufferalias),regions);
+			
+			// wait for download fence and then invalidate the CPU cache
+			{
+				auto result = downloadFence->waitCPU(timeoutInNanoSeconds,true);
+				if (result==E_DRIVER_FENCE_RETVAL::EDFR_TIMEOUT_EXPIRED||result==E_DRIVER_FENCE_RETVAL::EDFR_FAIL)
+				{
+					os::Printer::log("Could not download the buffer from the GPU, fence not signalled!", ELL_ERROR);
+					downloadStagingArea->multi_free(1u, &address, &colorBufferBytesize, nullptr);
+					continue;
+				}
+				if (downloadStagingArea->needsManualFlushOrInvalidate())
+					driver->invalidateMappedMemoryRanges({{downloadStagingArea->getBuffer()->getBoundMemory(),address,colorBufferBytesize}});
+			}
+
+			// create image view
+			ICPUImageView::SCreationParams imgViewParams;
+			imgViewParams.flags = static_cast<ICPUImageView::E_CREATE_FLAGS>(0u);
+			imgViewParams.format = image->getCreationParameters().format;
+			imgViewParams.image = std::move(image);
+			imgViewParams.viewType = ICPUImageView::ET_2D;
+			imgViewParams.subresourceRange = {static_cast<IImage::E_ASPECT_FLAGS>(0u),0u,1u,0u,1u};
+			imageView = ICPUImageView::create(std::move(imgViewParams));
+
+			IAssetWriter::SAssetWriteParams wp(imageView.get());
+			volatile bool success = am->writeAsset("convolved_exr.exr", wp);
+			assert(success);
+		}
+
 		driver->endScene();
 	}
 
