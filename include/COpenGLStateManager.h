@@ -28,7 +28,6 @@
 	#include "GL/gl.h"
     #undef GL_GLEXT_LEGACY
 #endif
-
 #include "GL/glext.h"
 
 #ifndef GL_SRG8_EXT
