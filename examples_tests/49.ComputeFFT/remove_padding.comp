@@ -26,7 +26,6 @@ layout(push_constant) uniform PushConstants
 
 void main()
 {
-    //TODO: just something weird to work 
     uvec2 dimension = imageSize(outImage);
     uvec2 padded_dimension = pc.padded_dimension.xy;
 

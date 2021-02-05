@@ -200,7 +200,7 @@ class FFT : public core::TotalInterface
 			asset::VkExtent3D const & paddedInputDimension,
 			Direction direction,
 			bool isInverse, 
-			PaddingType paddingType)
+			PaddingType paddingType = PaddingType::CLAMP_TO_EDGE)
 		{
 			uint32_t is_inverse_u = isInverse;
 			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t) * 3, &inputDimension);
