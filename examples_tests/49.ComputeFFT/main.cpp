@@ -65,67 +65,72 @@ int main()
 	nbl::io::IFileSystem* filesystem = device->getFileSystem();
 	IAssetManager* am = device->getAssetManager();
 	
-	using FFTClass = ext::FFT::FFT;
+	// Loading SrcImage and Kernel Image from File
 
-	constexpr uint32_t num_channels = 1;
-	constexpr uint32_t dataPointBytes = sizeof(float) * num_channels;
-
-	constexpr VkExtent3D fftDim = VkExtent3D{6, 1, 1};
-	VkExtent3D fftPaddedDim = padDimensionToNextPOT(fftDim);
-	uint32_t maxPaddedDimensionSize = core::max(core::max(fftPaddedDim.width, fftPaddedDim.height), fftPaddedDim.depth);
+	IAssetLoader::SAssetLoadParams lp;
+	auto imageBundle = am->getAsset("../../media/colorexr.exr", lp);
 	
-	auto fftGPUSpecializedShader = FFTClass::createShader(driver, FFTClass::DataType::SSBO, EF_UNKNOWN, maxPaddedDimensionSize);
-	
-	auto fftPipelineLayout = FFTClass::getDefaultPipelineLayout(driver, FFTClass::DataType::SSBO);
-	auto fftPipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout), std::move(fftGPUSpecializedShader));
-
-	auto fftDispatchInfo_Horizontal = FFTClass::buildParameters(fftPaddedDim, FFTClass::Direction::X, num_channels);
-
-	// Allocate Output Buffer
-	auto fftOutputBuffer = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(fftPaddedDim, dataPointBytes));
-
-	// Allocate Input Buffer SSBO
-	uint32_t fftInputBufferSize = dataPointBytes * fftDim.width * fftDim.height * fftDim.depth;
-	auto fftInputBuffer = driver->createDeviceLocalGPUBufferOnDedMem(fftInputBufferSize);
-
-	auto fftDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout->getDescriptorSetLayout(0u)));
-	FFTClass::updateDescriptorSet(driver, fftDescriptorSet.get(), fftInputBuffer, fftOutputBuffer);
-	
-	// Create and Fill GPU Input Buffer
-	float * fftInputMem = reinterpret_cast<float *>(_NBL_ALIGNED_MALLOC(fftInputBufferSize, 1));
-
-	for(uint32_t j = 0; j < fftDim.height; ++j) {
-		for(uint32_t i = 0; i < fftDim.width; ++i) {
-			fftInputMem[i + j * fftDim.width] = (j+1) * i;
-		}
-	}
-
-	driver->updateBufferRangeViaStagingBuffer(fftInputBuffer.get(), 0, fftInputBufferSize, fftInputMem);
-
-	_NBL_ALIGNED_FREE(fftInputMem);
-
-
-	E_FORMAT inFormat;
-	constexpr auto outFormat = EF_R8G8B8A8_SRGB;
-	smart_refctd_ptr<IGPUImage> outImg;
-	smart_refctd_ptr<IGPUImageView> outImgView;
+	IGPUImage::SCreationParams srcImgInfo;
+	smart_refctd_ptr<IGPUImageView> srcImageView;
 	{
+		auto cpuImg = IAsset::castDown<ICPUImage>(imageBundle.getContents().begin()[0]);
+		srcImgInfo = cpuImg->getCreationParameters();
+
+		auto gpuImages = driver->getGPUObjectsFromAssets(&cpuImg.get(),&cpuImg.get()+1);
+		auto gpuImage = gpuImages->operator[](0u);
+
 		IGPUImageView::SCreationParams imgViewInfo;
 		imgViewInfo.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
-		imgViewInfo.image = outImg;
+		imgViewInfo.image = std::move(gpuImage);
 		imgViewInfo.viewType = IGPUImageView::ET_2D_ARRAY;
-		imgViewInfo.format = outFormat;
+		imgViewInfo.format = srcImgInfo.format;
 		imgViewInfo.subresourceRange.aspectMask = static_cast<IImage::E_ASPECT_FLAGS>(0u);
 		imgViewInfo.subresourceRange.baseMipLevel = 0;
 		imgViewInfo.subresourceRange.levelCount = 1;
 		imgViewInfo.subresourceRange.baseArrayLayer = 0;
 		imgViewInfo.subresourceRange.layerCount = 1;
-		// outImg = driver->createDeviceLocalGPUImageOnDedMem(std::move(imgInfo));
-		// outImgView = driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewInfo));
+		srcImageView = driver->createGPUImageView(IGPUImageView::SCreationParams(imgViewInfo));
 	}
+	using FFTClass = ext::FFT::FFT;
+	
+	E_FORMAT srcFormat = srcImgInfo.format;
+	VkExtent3D srcDim = srcImgInfo.extent;
+	uint32_t srcNumChannels = getFormatChannelCount(srcImgInfo.format);
+	VkExtent3D srcPaddedDim = padDimensionToNextPOT(srcDim);
 
-	// auto blitFBO = driver->addFrameBuffer();
-	// blitFBO->attach(video::EFAP_COLOR_ATTACHMENT0, std::move(outImgView));
+	uint32_t maxPaddedDimensionSize = core::max(core::max(srcPaddedDim.width, srcPaddedDim.height), srcPaddedDim.depth);
+	
+	auto fftGPUSpecializedShader_SSBOInput = FFTClass::createShader(driver, FFTClass::DataType::SSBO, maxPaddedDimensionSize);
+	auto fftGPUSpecializedShader_ImageInput = FFTClass::createShader(driver, FFTClass::DataType::TEXTURE2D, maxPaddedDimensionSize);
+	
+	auto fftPipelineLayout_SSBOInput = FFTClass::getDefaultPipelineLayout(driver, FFTClass::DataType::SSBO);
+	auto fftPipelineLayout_ImageInput = FFTClass::getDefaultPipelineLayout(driver, FFTClass::DataType::TEXTURE2D);
+
+	auto fftPipeline_SSBOInput = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout_SSBOInput), std::move(fftGPUSpecializedShader_SSBOInput));
+	auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout_ImageInput), std::move(fftGPUSpecializedShader_ImageInput));
+	
+	auto fftDispatchInfo_SrcImage_Horizontal = FFTClass::buildParameters(srcPaddedDim, FFTClass::Direction::X, srcNumChannels);
+	auto fftDispatchInfo_SrcImage_Vertical = FFTClass::buildParameters(srcPaddedDim, FFTClass::Direction::Y, srcNumChannels);
+
+	// Allocate Output Buffer
+	auto fftOutputBuffer_0 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(srcPaddedDim, srcFormat));
+	auto fftOutputBuffer_1 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(srcPaddedDim, srcFormat));
+
+	// FFT X
+	auto fftDescriptorSet_Src_FFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_ImageInput->getDescriptorSetLayout(0u)));
+	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_Src_FFT_X.get(), srcImageView, fftOutputBuffer_0);
+
+	// FFT Y
+	auto fftDescriptorSet_Src_FFT_Y = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_SSBOInput->getDescriptorSetLayout(0u)));
+	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_Src_FFT_Y.get(), fftOutputBuffer_0, fftOutputBuffer_1);
+	
+	// IFFT X
+	auto fftDescriptorSet_IFFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_SSBOInput->getDescriptorSetLayout(0u)));
+	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_IFFT_X.get(), fftOutputBuffer_1, fftOutputBuffer_0);
+
+	// IFFT Y
+	auto fftDescriptorSet_IFFT_Y = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_SSBOInput->getDescriptorSetLayout(0u)));
+	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_IFFT_Y.get(), fftOutputBuffer_0, fftOutputBuffer_1);
 
 	uint32_t outBufferIx = 0u;
 	auto lastPresentStamp = std::chrono::high_resolution_clock::now();
@@ -133,13 +138,28 @@ int main()
 	{
 		driver->beginScene(false, false);
 
-		driver->bindComputePipeline(fftPipeline.get());
-		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout.get(), 0u, 1u, &fftDescriptorSet.get(), nullptr);
-		
-		FFTClass::pushConstants(driver, fftPipelineLayout.get(), fftDim, fftPaddedDim, FFTClass::Direction::X, false, FFTClass::PaddingType::FILL_WITH_ZERO);
-		FFTClass::dispatchHelper(driver, fftDispatchInfo_Horizontal, true);
+		// Src Image FFT X
+		driver->bindComputePipeline(fftPipeline_ImageInput.get());
+		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_ImageInput.get(), 0u, 1u, &fftDescriptorSet_Src_FFT_X.get(), nullptr);
+		FFTClass::pushConstants(driver, fftPipelineLayout_ImageInput.get(), srcDim, srcPaddedDim, FFTClass::Direction::X, false, FFTClass::PaddingType::CLAMP_TO_EDGE);
+		FFTClass::dispatchHelper(driver, fftDispatchInfo_SrcImage_Horizontal);
 
-		// driver->blitRenderTargets(blitFBO, nullptr, false, false);
+		driver->bindComputePipeline(fftPipeline_SSBOInput.get());
+
+		// Src Image FFT Y
+		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_SSBOInput.get(), 0u, 1u, &fftDescriptorSet_Src_FFT_Y.get(), nullptr);
+		FFTClass::pushConstants(driver, fftPipelineLayout_SSBOInput.get(), srcPaddedDim, srcPaddedDim, FFTClass::Direction::Y, false, FFTClass::PaddingType::FILL_WITH_ZERO);
+		FFTClass::dispatchHelper(driver, fftDispatchInfo_SrcImage_Vertical);
+
+		// Combined IFFT X
+		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_SSBOInput.get(), 0u, 1u, &fftDescriptorSet_IFFT_X.get(), nullptr);
+		FFTClass::pushConstants(driver, fftPipelineLayout_SSBOInput.get(), srcPaddedDim, srcPaddedDim, FFTClass::Direction::X, true, FFTClass::PaddingType::FILL_WITH_ZERO);
+		FFTClass::dispatchHelper(driver, fftDispatchInfo_SrcImage_Horizontal);
+		
+		// Combined IFFT Y
+		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_SSBOInput.get(), 0u, 1u, &fftDescriptorSet_IFFT_Y.get(), nullptr);
+		FFTClass::pushConstants(driver, fftPipelineLayout_SSBOInput.get(), srcPaddedDim, srcPaddedDim, FFTClass::Direction::Y, true, FFTClass::PaddingType::FILL_WITH_ZERO);
+		FFTClass::dispatchHelper(driver, fftDispatchInfo_SrcImage_Vertical);
 
 		driver->endScene();
 	}

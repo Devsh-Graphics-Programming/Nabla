@@ -115,7 +115,7 @@ class FFT : public core::TotalInterface
 		}
 		
 
-		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(video::IVideoDriver* driver, DataType inputType, asset::E_FORMAT format, uint32_t maxPaddedDimensionSize);
+		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(video::IVideoDriver* driver, DataType inputType, uint32_t maxPaddedDimensionSize);
 		
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_DESCRIPTOR_COUNT = 2u;
 		static inline void updateDescriptorSet(

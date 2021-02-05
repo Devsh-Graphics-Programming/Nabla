@@ -98,7 +98,7 @@ core::SRange<const video::IGPUDescriptorSetLayout::SBinding> FFT::getDefaultBind
 	return {bnd, bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
 }
 
-core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createShader(video::IVideoDriver* driver, DataType inputType, asset::E_FORMAT format, uint32_t maxPaddedDimensionSize)
+core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createShader(video::IVideoDriver* driver, DataType inputType, uint32_t maxPaddedDimensionSize)
 {
 	assert(core::isPoT(maxPaddedDimensionSize));
 
@@ -136,7 +136,7 @@ layout(local_size_x=_NBL_GLSL_EXT_FFT_BLOCK_SIZE_X_DEFINED_, local_size_y=_NBL_G
 
 struct nbl_glsl_ext_FFT_input_t
 {
-	float real_value;
+	vec2 complex_value;
 };
 
 #ifndef _NBL_GLSL_EXT_FFT_INPUT_SET_DEFINED_
@@ -156,7 +156,7 @@ layout(set=_NBL_GLSL_EXT_FFT_INPUT_SET_DEFINED_, binding=_NBL_GLSL_EXT_FFT_INPUT
 	nbl_glsl_ext_FFT_input_t inData[];
 };
 #else 
-
+layout(set=_NBL_GLSL_EXT_FFT_INPUT_SET_DEFINED_, binding=_NBL_GLSL_EXT_FFT_INPUT_BINDING_DEFINED_) uniform sampler2D inputImage;
 #endif
 
 #endif
@@ -189,9 +189,16 @@ layout(set=_NBL_GLSL_EXT_FFT_OUTPUT_SET_DEFINED_, binding=_NBL_GLSL_EXT_FFT_OUTP
 
 vec2 nbl_glsl_ext_FFT_getData(in uvec3 coordinate, in uint channel)
 {
+	vec2 retValue = vec2(0, 0);
+#if USE_SSBO_FOR_INPUT > 0
 	uvec3 dimension = pc.dimension;
-	uint index = coordinate.z * dimension.x * dimension.y + coordinate.y * dimension.x + coordinate.x;
-	return vec2(inData[index].real_value, 0.0f);
+	uint index = channel * (dimension.x * dimension.y * dimension.z) + coordinate.z * (dimension.x * dimension.y) + coordinate.y * (dimension.x) + coordinate.x;
+	retValue = inData[index].complex_value;
+#else
+	vec4 texelValue= texelFetch(inputImage, ivec2(coordinate.xy), 0);
+	retValue = vec2(texelValue[channel], 0.0f);
+#endif
+	return retValue;
 }
 
 void nbl_glsl_ext_FFT_setData(in uvec3 coordinate, in uint channel, in vec2 complex_value)
