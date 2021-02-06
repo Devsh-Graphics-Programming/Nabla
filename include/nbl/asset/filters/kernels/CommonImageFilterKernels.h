@@ -76,7 +76,7 @@ class CFloatingPointSeparableImageFilterKernelBase : public CImageFilterKernel<C
 		template<class PreFilter, class PostFilter>
 		inline auto create_sample_functor_t(PreFilter& preFilter, PostFilter& postFilter) const
 		{
-			return sample_functor_t(static_cast<const CRTP*>(this),preFilter,postFilter);
+			return sample_functor_t<PreFilter,PostFilter>(static_cast<const CRTP*>(this),preFilter,postFilter);
 		}
 
 		// derived classes must declare this

@@ -20,7 +20,7 @@ namespace video
 
 
 template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void >
-class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<_size_type>,StreamingGPUBufferAllocator,CPUAllocator>,CustomDeferredFreeFunctor>,
+class StreamingTransientDataBufferST : public SubAllocatedDataBuffer<core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<_size_type>,StreamingGPUBufferAllocator,CPUAllocator>,CustomDeferredFreeFunctor>,
                                                                 public virtual core::IReferenceCounted
 {
         typedef core::HeterogenousMemoryAddressAllocatorAdaptor<core::GeneralpurposeAddressAllocator<_size_type>,StreamingGPUBufferAllocator,CPUAllocator> HeterogenousMemoryAddressAllocator;
@@ -97,7 +97,7 @@ class StreamingTransientDataBufferST : protected SubAllocatedDataBuffer<core::He
 
 
 template< typename _size_type=uint32_t, class CPUAllocator=core::allocator<uint8_t>, class CustomDeferredFreeFunctor=void, class RecursiveLockable=std::recursive_mutex>
-class StreamingTransientDataBufferMT : protected StreamingTransientDataBufferST<_size_type,CPUAllocator,CustomDeferredFreeFunctor>, public virtual core::IReferenceCounted
+class StreamingTransientDataBufferMT : public StreamingTransientDataBufferST<_size_type,CPUAllocator,CustomDeferredFreeFunctor>, public virtual core::IReferenceCounted
 {
         typedef StreamingTransientDataBufferST<_size_type,CPUAllocator,CustomDeferredFreeFunctor> Base;
     protected:

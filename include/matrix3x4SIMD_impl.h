@@ -217,9 +217,9 @@ inline matrix3x4SIMD& matrix3x4SIMD::setScale(const core::vectorSIMDf& _scale)
 	vectorSIMDu32& rowAlias0 = reinterpret_cast<vectorSIMDu32&>(rows[0]);
 	vectorSIMDu32& rowAlias1 = reinterpret_cast<vectorSIMDu32&>(rows[1]);
 	vectorSIMDu32& rowAlias2 = reinterpret_cast<vectorSIMDu32&>(rows[2]);
-	rowAlias0 = (scaleAlias & BUILD_MASKF(1, 0, 0, 0)) | (rowAlias0 & mask0001);
-	rowAlias1 = (scaleAlias & BUILD_MASKF(0, 1, 0, 0)) | (rowAlias1 & mask0001);
-	rowAlias2 = (scaleAlias & BUILD_MASKF(0, 0, 1, 0)) | (rowAlias2 & mask0001);
+	rowAlias0 = (scaleAlias & static_cast<vectorSIMDf>(BUILD_MASKF(1, 0, 0, 0))) | (rowAlias0 & static_cast<vectorSIMDf>(mask0001));
+	rowAlias1 = (scaleAlias & static_cast<vectorSIMDf>(BUILD_MASKF(0, 1, 0, 0))) | (rowAlias1 & static_cast<vectorSIMDf>(mask0001));
+	rowAlias2 = (scaleAlias & static_cast<vectorSIMDf>(BUILD_MASKF(0, 0, 1, 0))) | (rowAlias2 & static_cast<vectorSIMDf>(mask0001));
 
 	return *this;
 }
@@ -332,13 +332,13 @@ inline matrix3x4SIMD& matrix3x4SIMD::setRotation(const core::quaternion& _quat)
 	const __m128i mask1110 = BUILD_MASKF(1, 1, 1, 0);
 
 	const core::vectorSIMDf& quat = reinterpret_cast<const core::vectorSIMDf&>(_quat);
-	rows[0] = ((quat.yyyy() * ((quat.yxwx() & mask1110) * vectorSIMDf(2.f))) + (quat.zzzz() * (quat.zwxx() & mask1110) * vectorSIMDf(2.f, -2.f, 2.f, 0.f))) | (reinterpret_cast<const vectorSIMDu32&>(rows[0]) & mask0001);
+	rows[0] = ((quat.yyyy() * ((quat.yxwx() & mask1110) * vectorSIMDf(2.f))) + (quat.zzzz() * (quat.zwxx() & mask1110) * vectorSIMDf(2.f, -2.f, 2.f, 0.f))) | (reinterpret_cast<const vectorSIMDu32&>(rows[0]) & static_cast<vectorSIMDf>(mask0001));
 	rows[0].x = 1.f - rows[0].x;
 
-	rows[1] = ((quat.zzzz() * ((quat.wzyx() & mask1110) * vectorSIMDf(2.f))) + (quat.xxxx() * (quat.yxwx() & mask1110) * vectorSIMDf(2.f, 2.f, -2.f, 0.f))) | (reinterpret_cast<const vectorSIMDu32&>(rows[1]) & mask0001);
+	rows[1] = ((quat.zzzz() * ((quat.wzyx() & mask1110) * vectorSIMDf(2.f))) + (quat.xxxx() * (quat.yxwx() & mask1110) * vectorSIMDf(2.f, 2.f, -2.f, 0.f))) | (reinterpret_cast<const vectorSIMDu32&>(rows[1]) & static_cast<vectorSIMDf>(mask0001));
 	rows[1].y = 1.f - rows[1].y;
 
-	rows[2] = ((quat.xxxx() * ((quat.zwxx() & mask1110) * vectorSIMDf(2.f))) + (quat.yyyy() * (quat.wzyx() & mask1110) * vectorSIMDf(-2.f, 2.f, 2.f, 0.f))) | (reinterpret_cast<const vectorSIMDu32&>(rows[2]) & mask0001);
+	rows[2] = ((quat.xxxx() * ((quat.zwxx() & mask1110) * vectorSIMDf(2.f))) + (quat.yyyy() * (quat.wzyx() & mask1110) * vectorSIMDf(-2.f, 2.f, 2.f, 0.f))) | (reinterpret_cast<const vectorSIMDu32&>(rows[2]) & static_cast<vectorSIMDf>(mask0001));
 	rows[2].z = 1.f - rows[2].z;
 
 	return *this;

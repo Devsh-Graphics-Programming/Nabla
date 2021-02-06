@@ -197,7 +197,7 @@ public:
 			case OP_DIFFUSE: [[fallthrough]];
 			case OP_CONDUCTOR: [[fallthrough]];
 			case OP_DIELECTRIC: [[fallthrough]];
-			case OP_DIFFTRANS: [[fallthrough]];
+			case OP_DIFFTRANS:
 				return 2u;
 			case OP_COATING: [[fallthrough]];
 			case OP_BLEND: [[fallthrough]];

@@ -18,8 +18,9 @@ namespace impl
 {
 	class FixedCapacityDoublyLinkedListBase
 	{
-		protected:
+		public:
 			_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = PoolAddressAllocator<uint32_t>::invalid_address;
+		protected:
 
 			template<typename T>
 			FixedCapacityDoublyLinkedListBase(const uint32_t capacity, void*& _reservedSpace, T*& _array)
