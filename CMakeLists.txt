@@ -182,6 +182,7 @@ if(WIN32)
 	set(_NBL_PLATFORM_WINDOWS_ 1)
 elseif(UNIX)
 	set(_NBL_PLATFORM_LINUX_ 1)
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}" -msse4.1)
 endif()
 
 #uncomment in the future
