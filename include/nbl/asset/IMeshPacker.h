@@ -217,7 +217,7 @@ public:
                 MeshPackerBase::MeshPackerConfigParams<MeshIterator> configParams
                 {
                     currMeshVtxInputParams,
-                    nbl::core::SRange<void, MeshIterator>(sortedMeshBuffersOut, sortedMeshBuffersOut)
+                    core::SRange<void, MeshIterator>(sortedMeshBuffersOut, sortedMeshBuffersOut)
                 };
                 memcpy(packerParamsOutEnd, &configParams, sizeof(SVertexInputParams));
                 packerParamsOutEnd++;
