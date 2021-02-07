@@ -49,7 +49,7 @@ int main()
 		#ifdef NBL_USE_STL_LOADER
         auto meshes_bundle = am->getAsset("../../media/extrusionLogo_TEST_fixed.stl", lp);
 		#else
-		auto meshes_bundle = am->getAsset("../../media/ply/Industrial compressor.ply", lp);
+		auto meshes_bundle = am->getAsset("../../media/ply/Industrial_compressor.ply", lp);
 		#endif // NBL_USE_STL_LOADER
 
         assert(!meshes_bundle.getContents().empty());
@@ -60,6 +60,16 @@ int main()
 	auto& cpuBundleData = loadAndGetCpuMesh();
     core::smart_refctd_ptr<asset::ICPUMesh> cpuMesh = cpuBundleData.first;
 	auto metadata = cpuBundleData.second->selfCast<const asset::CPLYMetadata>();
+
+	#ifdef NBL_USE_STL_LOADER
+	//asset::IAssetWriter::SAssetWriteParams wp(cpuMesh.get());
+	//device->getAssetManager()->writeAsset("TODO.stl", wp);
+	#else
+	asset::IAssetWriter::SAssetWriteParams wp(cpuMesh.get());
+	device->getAssetManager()->writeAsset("IndustrialWriteTest.ply", wp);
+	#endif // NBL_USE_STL_LOADER
+
+	
 	
 	/*
 		For the testing puposes we can safely assume all meshbuffers within mesh loaded from PLY & STL has same DS1 layout (used for camera-specific data)
