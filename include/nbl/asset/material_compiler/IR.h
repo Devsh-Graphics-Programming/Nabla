@@ -299,7 +299,7 @@ public:
                 if (found != (array+count))
                 {
                     if (ix)
-                        ix[0] = (reinterpret_cast<size_t>(found)-reinterpret_cast<size_t>(array))/sizeof(array);
+                        ix[0] = std::distance(array,const_cast<INode*const*>(found));
                     return true;
                 }
                 return false;
