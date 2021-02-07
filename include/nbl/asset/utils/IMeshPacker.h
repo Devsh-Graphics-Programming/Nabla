@@ -125,6 +125,8 @@ protected:
         return size;
     }
 
+    inline constexpr uint32_t calcBatchCount(uint32_t triCnt) { return (triCnt + m_maxTriangleCountPerMDIData - 1) / m_maxTriangleCountPerMDIData; }
+
     struct Triangle
     {
         uint32_t oldIndices[3];
@@ -139,9 +141,9 @@ protected:
     {
         const size_t idxCnt = meshBuffer->getIndexCount();
         const uint32_t triCnt = idxCnt / 3;
-        _NBL_DEBUG_BREAK_IF(idxCnt % 3 != 0);
+        assert(idxCnt % 3 == 0);
 
-        const uint32_t batchCount = (triCnt + m_maxTriangleCountPerMDIData - 1) / m_maxTriangleCountPerMDIData;
+        const uint32_t batchCount = calcBatchCount(triCnt);
 
         core::vector<TriangleBatch> output(batchCount);
 
@@ -228,7 +230,7 @@ protected:
         return usedVertices;
     }
 
-    void deinterleaveAndCopyAttribute(MeshBufferType* meshBuffer, uint16_t attrLocation, const core::unordered_map<uint32_t, uint16_t>& usedVertices, uint8_t* dstAttrPtr, bool roundUpAttrSizeToPoT /*TODO*/)
+    void deinterleaveAndCopyAttribute(MeshBufferType* meshBuffer, uint16_t attrLocation, const core::unordered_map<uint32_t, uint16_t>& usedVertices, uint8_t* dstAttrPtr)
     {
         uint8_t* srcAttrPtr = meshBuffer->getAttribPointer(attrLocation);
         SVertexInputParams& mbVtxInputParams = meshBuffer->getPipeline()->getVertexInputParams();

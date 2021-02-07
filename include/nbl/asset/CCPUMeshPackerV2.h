@@ -25,6 +25,7 @@ public:
     using PackerDataStore = typename base_t::PackerDataStore;
     using ReservedAllocationMeshBuffers = typename base_t::ReservedAllocationMeshBuffers;
     using AttribAllocParams = typename base_t::AttribAllocParams;
+    using CombinedDataOffsetTable = typename base_t::CombinedDataOffsetTable;
 
 public:
     CCPUMeshPackerV2(const AllocationParams& allocParams, uint16_t minTriangleCountPerMDIData = 256u, uint16_t maxTriangleCountPerMDIData = 1024u)
@@ -34,7 +35,7 @@ public:
     void instantiateDataStorage();
 
     template <typename MeshBufferIterator>
-    bool commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
+    bool commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
     inline PackerDataStore getPackerDataStore() { return m_packerDataStore; };
 
@@ -50,7 +51,7 @@ void CCPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
 
 template <typename MDIStructType>
 template <typename MeshBufferIterator>
-bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
+bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferData* pmbdOut, CombinedDataOffsetTable* cdotOut, ReservedAllocationMeshBuffers* rambIn, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
 {
     size_t i = 0ull;
     for (auto it = mbBegin; it != mbEnd; it++)
@@ -66,6 +67,7 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
         core::vector<TriangleBatch> triangleBatches = constructTriangleBatches(*it);
 
         size_t batchFirstIdx = ramb.indexAllocationOffset;
+        size_t verticesAddedCnt = 0u;
 
         for (TriangleBatch& batch : triangleBatches)
         {
@@ -80,9 +82,18 @@ bool CCPUMeshPackerV2<MDIStructType>::commit(IMeshPackerBase::PackedMeshBufferDa
                 if (ramb.attribAllocParams[location].offset == INVALID_ADDRESS)
                     return false;
 
-                uint8_t* dstAttrPtr = static_cast<uint8_t*>(m_packerDataStore.vertexBuffer->getPointer()) + ramb.attribAllocParams[location].offset;
-                deinterleaveAndCopyAttribute(*it, location, usedVertices, dstAttrPtr, true);
+                //should I cashe it?
+                const uint32_t attribSize = asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format));
+                const uint32_t currBatchOffset = verticesAddedCnt * attribSize;
+
+                uint8_t* dstAttrPtr = static_cast<uint8_t*>(m_packerDataStore.vertexBuffer->getPointer()) + ramb.attribAllocParams[location].offset + currBatchOffset;
+                deinterleaveAndCopyAttribute(*it, location, usedVertices, dstAttrPtr);
+
+                cdotOut->attribOffset[location] = ramb.attribAllocParams[location].offset / attribSize + verticesAddedCnt;
             }
+
+            verticesAddedCnt += usedVertices.size();
+            cdotOut++;
 
             //construct mdi data
             MDIStructType MDIData;

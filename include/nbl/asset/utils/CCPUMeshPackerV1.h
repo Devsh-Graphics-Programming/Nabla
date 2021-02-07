@@ -473,7 +473,7 @@ IMeshPackerBase::PackedMeshBufferData CCPUMeshPackerV1<MDIStructType>::commit(co
 				const size_t attrSize = asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(attrib.format));
 				dstAttrPtr += (ramb.vertexAllocationOffset + verticesAddedToUnifiedBufferCnt) * attrSize;
 
-				deinterleaveAndCopyAttribute(*it, location, usedVertices, dstAttrPtr, false);
+				deinterleaveAndCopyAttribute(*it, location, usedVertices, dstAttrPtr);
 			}
 
 			verticesAddedToUnifiedBufferCnt += usedVertices.size();

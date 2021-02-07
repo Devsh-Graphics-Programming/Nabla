@@ -9,7 +9,7 @@
 
 //! I advise to check out this file, its a basic input handler
 #include "../common/QToQuitEventReceiver.h"
-#include "nbl/asset/CCPUMeshPackerV1.h"
+#include "nbl/asset/utils/CCPUMeshPackerV1.h"
 #include "nbl/asset/CCPUMeshPackerV2.h"
 
 using namespace nbl;
@@ -25,6 +25,13 @@ R"(
 #define _NBL_VERT_OUTPUTS_DEFINED_
 #define _NBL_VERT_SET1_BINDINGS_DEFINED_
 
+vec4 nbl_glsl_decodeRGB10A2(in uint x)
+{
+	const uvec3 rgbMask = uvec3(0x3ffu);
+	const uvec4 shifted = uvec4(x,uvec3(x)>>uvec3(10,20,30));
+	return vec4(vec3(shifted.rgb&rgbMask),shifted.a)/vec4(vec3(rgbMask),3.0);
+}
+
 //pos
 layout(set = 0, binding = 0) uniform samplerBuffer MeshPackedData_R32G32B32_SFLOAT;
 
@@ -32,31 +39,37 @@ layout(set = 0, binding = 0) uniform samplerBuffer MeshPackedData_R32G32B32_SFLO
 layout(set = 0, binding = 1) uniform samplerBuffer MeshPackedData_R32G32_SFLOAT;
 
 //normal
-layout(set = 0, binding = 2) uniform samplerBuffer MeshPackedData_A2B10G10R10_SNORM_PACK32;
+layout(set = 0, binding = 2) uniform usamplerBuffer MeshPackedData_A2B10G10R10_SNORM_PACK32;
 
 layout(set = 0, binding = 3) readonly buffer VertexDataOffsetTable
 {
     int dataOffsetTable[];
 } vertexPosition;
 
-//layout(set = 0, binding = 4) readonly buffer VertexNormalOffsetTable
-//{
-//    int dataOffsetTable[];
-//} vertexNormal;
+layout(set = 0, binding = 4) readonly buffer VertexNormalOffsetTable
+{
+    int dataOffsetTable[];
+} vertexNormal;
 
 layout(push_constant, row_major) uniform PushConstants
 {
 	mat4 vp;
 } pc;
 
+//outputs
+layout(location = 0) out vec3 normal;
+
 )",
 
 R"(
 void main()
 {
-    int vtxOffset = int(gl_VertexIndex) + vertexPosiztion.dataOffsetTable[gl_DrawID];
-    vec3 pos = texelFetch(MeshPackedData_R32G32B32_SFLOAT, vtxOffset).xyz;
+    int vtxPosOffset = int(gl_VertexIndex) + vertexPosition.dataOffsetTable[gl_DrawID];
+    vec3 pos = texelFetch(MeshPackedData_R32G32B32_SFLOAT, vtxPosOffset).xyz;
     gl_Position = nbl_glsl_pseudoMul4x4with3x1(pc.vp, pos);
+    
+    int vtxNormOffset = int(gl_VertexIndex) + vertexNormal.dataOffsetTable[gl_DrawID];
+    normal = normalize(nbl_glsl_decodeRGB10A2(texelFetch(MeshPackedData_A2B10G10R10_SNORM_PACK32, vtxNormOffset).x).xyz);
     
     //vertex outputs
     //LocalPos = pos;
@@ -76,10 +89,10 @@ void main()
 struct DataOffsetTable
 {
     uint32_t binding;
-    core::smart_refctd_ptr<IGPUBuffer> offsetBuffer;
+    asset::SBufferBinding<IGPUBuffer> offsetBuffer;
 };
 
-core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedVertexShader(asset::ICPUSpecializedShader* _fs)
+core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedVertexShader(const asset::ICPUSpecializedShader* _fs)
 {
     const asset::ICPUShader* unspec = _fs->getUnspecialized();
     assert(unspec->containsGLSL());
@@ -96,8 +109,6 @@ core::smart_refctd_ptr<asset::ICPUSpecializedShader> createModifiedVertexShader(
     resultShaderSrc.insert(firstNewlineAfterVersion, buffersDef);
     resultShaderSrc += mainDef;
     resultShaderSrc.replace(resultShaderSrc.find("#version 430 core"), sizeof("#version 430 core"), "#version 460 core\n");
-
-    std::cout << resultShaderSrc << std::endl;
 
     auto unspecNew = core::make_smart_refctd_ptr<asset::ICPUShader>(resultShaderSrc.c_str());
     auto specinfo = _fs->getSpecializationInfo();
@@ -178,55 +189,78 @@ void packMeshBuffers(video::IVideoDriver* driver, core::vector<ICPUMeshBuffer*>&
     vipOutput = pmb.vertexInputParams;
 }
 
-void packMeshBuffersV2(video::IVideoDriver* driver, core::vector<ICPUMeshBuffer*>& meshBuffers, DrawIndexedIndirectInputV2& output, DataOffsetTable& posOffsetTable)
+void packMeshBuffersV2(video::IVideoDriver* driver, core::vector<ICPUMeshBuffer*>& meshBuffers, DrawIndexedIndirectInputV2& output, std::array<DataOffsetTable, 3>& offsetTable)
 {
     using MeshPacker = CCPUMeshPackerV2<DrawElementsIndirectCommand_t>;
 
     MeshPacker::AllocationParams allocParams;
     allocParams.indexBuffSupportedCnt = 20000000u;
     allocParams.indexBufferMinAllocSize = 5000u;
-    allocParams.vertexBuffSupportedSize = 20000000u;
+    allocParams.vertexBuffSupportedSize = 200000000u;
     allocParams.vertexBufferMinAllocSize = 5000u;
     allocParams.MDIDataBuffSupportedCnt = 20000u;
     allocParams.MDIDataBuffMinAllocSize = 1u; //so structs are adjacent in memory
 
     CCPUMeshPackerV2 mp(allocParams, std::numeric_limits<uint16_t>::max() / 3u, std::numeric_limits<uint16_t>::max() / 3u);
 
-    MeshPacker::ReservedAllocationMeshBuffers allocData[2u];
+    core::vector<MeshPacker::ReservedAllocationMeshBuffers> allocData(meshBuffers.size());
 
-    bool allocSuccessfull = mp.alloc(allocData, meshBuffers.begin(), meshBuffers.begin() + 2u);
+    bool allocSuccessfull = mp.alloc(allocData.data(), meshBuffers.begin(), meshBuffers.end());
     if (!allocSuccessfull)
         std::cout << "Alloc failed \n";
 
     mp.instantiateDataStorage();
     MeshPacker::PackerDataStore packerDataStore = mp.getPackerDataStore();
 
-    IMeshPackerBase::PackedMeshBufferData pmbd[2];
+    core::vector<IMeshPackerBase::PackedMeshBufferData> pmbd(meshBuffers.size());
+    
+    const uint32_t offsetTableSz = mp.calcDataTableNeededSize(meshBuffers.begin(), meshBuffers.end());
+    core::vector<MeshPacker::CombinedDataOffsetTable> cdot(offsetTableSz);
 
-    mp.commit(pmbd, allocData, meshBuffers.begin(), meshBuffers.begin() + 2u);
+    std::cout << offsetTableSz;
+
+    mp.commit(pmbd.data(), cdot.data(), allocData.data(), meshBuffers.begin(), meshBuffers.end());
 
     output.vtxBuffer = { 0ull, driver->createFilledDeviceLocalGPUBufferOnDedMem(packerDataStore.vertexBuffer->getSize(), packerDataStore.vertexBuffer->getPointer()) };
     output.idxBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(packerDataStore.indexBuffer->getSize(), packerDataStore.indexBuffer->getPointer());
     output.indirectDrawBuff = driver->createFilledDeviceLocalGPUBufferOnDedMem(packerDataStore.MDIDataBuffer->getSize(), packerDataStore.MDIDataBuffer->getPointer());
 
-    //create offset tables
-    int32_t posOffsets[2] =
-    {
-        allocData[0].attribAllocParams[0].offset,
-        allocData[1].attribAllocParams[0].offset
-    };
+    output.maxCount = offsetTableSz;
+    output.stride = sizeof(DrawElementsIndirectCommand_t);
 
     /*DrawElementsIndirectCommand_t* mdiPtr = static_cast<DrawElementsIndirectCommand_t*>(packerDataStore.MDIDataBuffer->getPointer());
     uint16_t* idxBuffPtr = static_cast<uint16_t*>(packerDataStore.indexBuffer->getPointer());
     float* vtxBuffPtr = static_cast<float*>(packerDataStore.vertexBuffer->getPointer());
 
-    for (uint32_t i = 0u; i < 50; i++)
+    for (uint32_t i = 0u; i < 1188; i++)
     {
         float* firstCoord = vtxBuffPtr + (*(idxBuffPtr + i) * 3u);
+        std::cout << "vtx: " << i << " idx: " << *(idxBuffPtr + i) << "    ";
         std::cout << *firstCoord << ' ' << *(firstCoord + 1u) << ' ' << *(firstCoord + 2u) << std::endl;
     }*/
 
-    posOffsetTable.offsetBuffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(int32_t) * 2u, static_cast<void*>(posOffsets));
+
+    //setOffsetTables
+
+    core::vector<uint32_t> offsetTableLocal(offsetTableSz);
+
+    for (uint32_t i = 0u; i < offsetTableLocal.size(); i++)
+        offsetTableLocal[i] = cdot[i].attribOffset[0];
+
+    offsetTable[0].offsetBuffer.offset = 0u;
+    offsetTable[0].offsetBuffer.buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t) * offsetTableLocal.size(), static_cast<void*>(offsetTableLocal.data()));
+
+    for (uint32_t i = 0u; i < offsetTableLocal.size(); i++)
+        offsetTableLocal[i] = cdot[i].attribOffset[2];
+
+    offsetTable[1].offsetBuffer.offset = sizeof(uint32_t) * offsetTableLocal.size();
+    offsetTable[1].offsetBuffer.buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t) * offsetTableLocal.size(), static_cast<void*>(offsetTableLocal.data()));
+
+    for (uint32_t i = 0u; i < offsetTableLocal.size(); i++)
+        offsetTableLocal[i] = cdot[i].attribOffset[3];
+
+    offsetTable[2].offsetBuffer.offset = 2u * sizeof(uint32_t) * offsetTableLocal.size();
+    offsetTable[2].offsetBuffer.buffer = driver->createFilledDeviceLocalGPUBufferOnDedMem(sizeof(uint32_t) * offsetTableLocal.size(), static_cast<void*>(offsetTableLocal.data()));
 }
 
 void setPipeline(IVideoDriver* driver, IAssetManager* am, SVertexInputParams& vtxInputParams,
@@ -258,7 +292,7 @@ void setPipeline(IVideoDriver* driver, IAssetManager* am, SVertexInputParams& vt
 }
 
 void setPipelineV2(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpecializedShader* fs,
-    core::smart_refctd_ptr<IGPUBuffer>& vtxBuffer, std::array<DataOffsetTable, 1>& dataOffsetBuffers,
+    core::smart_refctd_ptr<IGPUBuffer>& vtxBuffer, std::array<DataOffsetTable, 3>& dataOffsetBuffers,
     core::smart_refctd_ptr<IGPUDescriptorSet>& outputGPUDescriptorSet,
     core::smart_refctd_ptr<IGPURenderpassIndependentPipeline>& outputGpuPipeline)
 {
@@ -267,13 +301,13 @@ void setPipelineV2(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpeciali
 
     core::smart_refctd_ptr<IGPUDescriptorSetLayout> dsLayout;
     {
-        IGPUDescriptorSetLayout::SBinding b[4];
-        b[0].binding = 0u; b[1].binding = 1u; b[2].binding = 2u; b[3].binding = 3u;
+        IGPUDescriptorSetLayout::SBinding b[5];
+        b[0].binding = 0u; b[1].binding = 1u; b[2].binding = 2u; b[3].binding = 3u; b[4].binding = 4u;
         b[0].type = b[1].type = b[2].type = EDT_UNIFORM_TEXEL_BUFFER;
-        b[3].type = EDT_STORAGE_BUFFER;
-        b[0].stageFlags = b[1].stageFlags = b[2].stageFlags = b[3].stageFlags = ISpecializedShader::ESS_VERTEX;
-        b[0].count = b[1].count = b[2].count = b[3].count = 1u;
-        dsLayout = driver->createGPUDescriptorSetLayout(b, b + 4u);
+        b[3].type = b[4].type = EDT_STORAGE_BUFFER;
+        b[0].stageFlags = b[1].stageFlags = b[2].stageFlags = b[3].stageFlags = b[4].stageFlags = ISpecializedShader::ESS_VERTEX;
+        b[0].count = b[1].count = b[2].count = b[3].count = b[3].count = 1u;
+        dsLayout = driver->createGPUDescriptorSetLayout(b, b + 5u);
     }
 
     asset::SPushConstantRange pcRange = { asset::ISpecializedShader::ESS_VERTEX, 0u, sizeof(core::matrix4SIMD) };
@@ -281,29 +315,43 @@ void setPipelineV2(IVideoDriver* driver, ICPUSpecializedShader* vs, ICPUSpeciali
 
     outputGPUDescriptorSet = driver->createGPUDescriptorSet(std::move(dsLayout));
     {
-        IGPUDescriptorSet::SWriteDescriptorSet w[4];
-        w[0].arrayElement = w[1].arrayElement = w[2].arrayElement = w[3].arrayElement  = 0u;
-        w[0].count = w[1].count = w[2].count = w[3].count = 1u;
-        w[0].binding = 0u; w[1].binding = 1u; w[2].binding = 2u; w[3].binding = 3u;
+        IGPUDescriptorSet::SWriteDescriptorSet w[5];
+        w[0].arrayElement = w[1].arrayElement = w[2].arrayElement = w[3].arrayElement = w[4].arrayElement = 0u;
+        w[0].count = w[1].count = w[2].count = w[3].count = w[4].count = 1u;
+        w[0].binding = 0u; w[1].binding = 1u; w[2].binding = 2u; w[3].binding = 3u; w[4].binding = 4u;
         w[0].descriptorType = w[1].descriptorType = w[2].descriptorType = EDT_UNIFORM_TEXEL_BUFFER;
-        w[3].descriptorType = EDT_STORAGE_BUFFER;
-        w[0].dstSet = w[1].dstSet = w[2].dstSet = w[3].dstSet = outputGPUDescriptorSet.get();
+        w[3].descriptorType = w[4].descriptorType = EDT_STORAGE_BUFFER;
+        w[0].dstSet = w[1].dstSet = w[2].dstSet = w[3].dstSet = w[4].dstSet = outputGPUDescriptorSet.get();
 
-        IGPUDescriptorSet::SDescriptorInfo info[2];
+        IGPUDescriptorSet::SDescriptorInfo info[5];
+
         info[0].buffer.offset = 0u;
         info[0].buffer.size = vtxBuffer->getSize();
-        info[0].desc = core::smart_refctd_ptr(vtxBuffer);
+        info[0].desc = driver->createGPUBufferView(vtxBuffer.get(), EF_R32G32B32_SFLOAT);
+        info[1].buffer.offset = 0u;
+        info[1].buffer.size = vtxBuffer->getSize();
+        info[1].desc = driver->createGPUBufferView(vtxBuffer.get(), EF_R32G32_SFLOAT);
+        info[2].buffer.offset = 0u;
+        info[2].buffer.size = vtxBuffer->getSize();
+        info[2].desc = driver->createGPUBufferView(vtxBuffer.get(), EF_R32_UINT);
 
         //sampler buffers
-        w[0].info = w[1].info = w[2].info = &info[0];
+        w[0].info = &info[0];
+        w[1].info = &info[1];
+        w[2].info = &info[2];
 
-        //vertex pos offset table
-        info[1].buffer.offset = 0u;
-        info[1].buffer.size = dataOffsetBuffers[0].offsetBuffer->getSize();
-        info[1].desc = core::smart_refctd_ptr(dataOffsetBuffers[0].offsetBuffer);
-        w[3].info = &info[1];
+        //offset tables
+        info[3].buffer.offset = dataOffsetBuffers[0].offsetBuffer.offset;
+        info[3].buffer.size = dataOffsetBuffers[0].offsetBuffer.buffer->getSize();
+        info[3].desc = core::smart_refctd_ptr(dataOffsetBuffers[0].offsetBuffer.buffer);
+        w[3].info = &info[3];
 
-        driver->updateDescriptorSets(4u, w, 0u, nullptr);
+        info[4].buffer.offset = dataOffsetBuffers[2].offsetBuffer.offset;
+        info[4].buffer.size = dataOffsetBuffers[2].offsetBuffer.buffer->getSize();
+        info[4].desc = core::smart_refctd_ptr(dataOffsetBuffers[2].offsetBuffer.buffer);
+        w[4].info = &info[4];
+
+        driver->updateDescriptorSets(5u, w, 0u, nullptr);
     }
 
     IGPUSpecializedShader* shaders[2] = { gpuShaders->operator[](0).get(), gpuShaders->operator[](1).get() };
@@ -358,16 +406,17 @@ int main()
 
     asset::IAssetLoader::SAssetLoadParams lp;
     auto meshes_bundle = am->getAsset("sponza.obj", lp);
-    assert(!meshes_bundle.isEmpty());
+    //assert(!meshes_bundle.isEmpty());
     auto mesh = meshes_bundle.getContents().begin()[0];
     auto mesh_raw = static_cast<asset::ICPUMesh*>(mesh.get());
 
     //saving cache to file
     qnc->saveCacheToFile(asset::CQuantNormalCache::E_CACHE_TYPE::ECT_2_10_10_10, fs, "../../tmp/normalCache101010.sse");
 
+    //TODO: change it to vector of smart pointers
     core::vector<ICPUMeshBuffer*> meshBuffers;
-    for (uint32_t i = 0u; i < mesh_raw->getMeshBufferCount(); i++)
-        meshBuffers.push_back(mesh_raw->getMeshBuffer(i));
+    for (uint32_t i = 0u; i < mesh_raw->getMeshBufferVector().size(); i++)
+        meshBuffers.push_back(mesh_raw->getMeshBufferVector()[i].get());
 
     //pack mesh buffers
     DrawIndexedIndirectInput mdiCallParams;
@@ -386,11 +435,11 @@ int main()
         auto* vtxShader = pipeline->getShaderAtIndex(asset::ICPURenderpassIndependentPipeline::ESSI_VERTEX_SHADER_IX);
         core::smart_refctd_ptr<ICPUSpecializedShader> vs = createModifiedVertexShader(vtxShader);
         ICPUSpecializedShader* fs = IAsset::castDown<ICPUSpecializedShader>(am->getAsset("../shader.frag", lp).getContents().begin()->get());
-        std::array<DataOffsetTable, 1> posOffsetTable;
+        std::array<DataOffsetTable, 3> offsetTable;
 
-        packMeshBuffersV2(driver, meshBuffers, mdiCallParamsV2, posOffsetTable[0]);
+        packMeshBuffersV2(driver, meshBuffers, mdiCallParamsV2, offsetTable);
 
-        setPipelineV2(driver, vs.get(), fs, mdiCallParamsV2.vtxBuffer.buffer, posOffsetTable, ds, gpuPipeline2);
+        setPipelineV2(driver, vs.get(), fs, mdiCallParamsV2.vtxBuffer.buffer, offsetTable, ds, gpuPipeline2);
     }
 
     //! we want to move around the scene and view it from different angles
@@ -405,7 +454,6 @@ int main()
 
     uint64_t lastFPSTime = 0;
 
-//#define USE_MPV1
 #define USE_MPV2
 
 #ifdef USE_MPV1
@@ -430,7 +478,7 @@ int main()
     while (device->run() && receiver.keepOpen())
     {
         driver->bindGraphicsPipeline(gpuPipeline2.get());
-        driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline2->getLayout(), 0u, 2u, &ds.get(), nullptr);
+        driver->bindDescriptorSets(video::EPBP_GRAPHICS, gpuPipeline2->getLayout(), 0u, 1u, &ds.get(), nullptr);
 
         driver->beginScene(true, true, video::SColor(255, 0, 0, 255));
 

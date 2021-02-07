@@ -41,6 +41,11 @@ public:
         }
     };
 
+    struct CombinedDataOffsetTable
+    {
+        size_t attribOffset[SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT];
+    };
+
     struct PackerDataStore : base_t::template PackerDataStoreCommon<BufferType>
     {
         core::smart_refctd_ptr<BufferType> vertexBuffer;
@@ -59,6 +64,9 @@ public:
 	template <typename MeshBufferIterator>
 	bool alloc(ReservedAllocationMeshBuffers* rambOut, const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
 
+    template <typename MeshBufferIterator>
+    uint32_t calcDataTableNeededSize(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd);
+
     inline PackerDataStore getPackerDataStore() { return m_packerDataStore; };
 
 protected:
@@ -76,7 +84,7 @@ bool IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::alloc(ReservedAll
     {
         ReservedAllocationMeshBuffers& ramb = *(rambOut + i);
         const size_t idxCnt = (*it)->getIndexCount();
-        const size_t maxVtxCnt = (idxCnt + 1u) / 2u;
+        const size_t maxVtxCnt = IMeshManipulator::upperBoundVertexID(*it); //ahsdfjkasdfgasdklfhasdf TODO: deal with vertex duplication, same for v1
 
         //allocate indices
         ramb.indexAllocationOffset = m_idxBuffAlctr.alloc_addr(idxCnt, 1u);
@@ -114,6 +122,23 @@ bool IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::alloc(ReservedAll
     }
 
     return true;
+}
+
+template <typename MeshBufferType, typename BufferType, typename MDIStructType>
+template <typename MeshBufferIterator>
+uint32_t IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::calcDataTableNeededSize(const MeshBufferIterator mbBegin, const MeshBufferIterator mbEnd)
+{
+    uint32_t acc = 0u;
+    for (auto mbIt = mbBegin; mbIt != mbEnd; mbIt++)
+    {
+        const size_t idxCnt = (*mbIt)->getIndexCount();
+        const uint32_t triCnt = idxCnt / 3;
+        assert(idxCnt % 3 == 0);
+
+        acc += calcBatchCount(triCnt);
+    }
+    
+    return acc;
 }
 
 }
