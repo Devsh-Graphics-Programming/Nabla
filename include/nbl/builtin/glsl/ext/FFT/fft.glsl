@@ -11,8 +11,7 @@
 #include <nbl/builtin/glsl/workgroup/shared_arithmetic.glsl>
 
 
-// TODO: Investigate why +1 solves all glitches
-#ifndef _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ + 1
+#ifndef _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_
 #error "_NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ should be defined."
 #endif
 
@@ -21,7 +20,8 @@
 #endif
 
 
-#define _NBL_GLSL_EXT_FFT_SHARED_SIZE_NEEDED_ _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_
+// TODO: Investigate why +1 solves all glitches
+#define _NBL_GLSL_EXT_FFT_SHARED_SIZE_NEEDED_ _NBL_GLSL_EXT_FFT_MAX_DIM_SIZE_ + 1
 
 #ifdef _NBL_GLSL_SCRATCH_SHARED_DEFINED_
     #if NBL_GLSL_LESS(_NBL_GLSL_SCRATCH_SHARED_SIZE_DEFINED_,_NBL_GLSL_EXT_FFT_SHARED_SIZE_NEEDED_)
