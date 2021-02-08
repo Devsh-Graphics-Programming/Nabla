@@ -110,6 +110,7 @@ public:
 		, glMultiTexSubImage1DEXT
 		, glMultiTexSubImage2DEXT
 		, glMultiTexSubImage3DEXT
+		, glTexSubImage1D
 		, glTextureSubImage1D
 		, glTextureSubImage2D
 		, glTextureSubImage3D
@@ -151,6 +152,7 @@ public:
 		, glIsTextureHandleResidentNV
 		, glIsImageHandleResidentNV
 		, glMakeTextureHandleResidentNV
+		, glGetTexImage
 	);
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GL4shader, OpenGLFunctionLoader
 		, glCreateProgramPipelines
@@ -227,6 +229,10 @@ public:
 		, glGetInternalformati64v
 		, glClipControl
 	);
+	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GL4sync, OpenGLFunctionLoader
+		, glTextureBarrier
+		, glTextureBarrierNV
+	);
 
 	GL4frameBuffer gl4Framebuffer;
 	GL4buffer gl4Buffer;
@@ -237,6 +243,7 @@ public:
 	GL4drawing gl4Drawing;
 	GL4query gl4Query;
 	GL4general gl4General;
+	GL4sync gl4Sync;
 
     COpenGLFunctiontable(const egl::CEGL* _egl, const COpenGLFeatureMap* _features) :
         COpenGL_FunctionTableBase(_egl),
@@ -249,33 +256,11 @@ public:
 		gl4Drawing(_egl),
 		gl4Query(_egl),
 		gl4General(_egl),
+		gl4Sync(_egl),
         features(_features)
     {
 
     }
-
-	inline void extGlTextureStorage1D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width);
-	inline void extGlGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels);
-	inline void extGlGetTextureImage(GLuint texture, GLenum target, GLint level, GLenum format, GLenum type, GLsizei bufSizeHint, void* pixels);
-	inline void extGlGetCompressedTextureImage(GLuint texture, GLenum target, GLint level, GLsizei bufSizeHint, void* pixels);
-	inline void extGlTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, const void* pixels);
-	inline void extGlCompressedTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLsizei imageSize, const void* data);
-	inline void extGlTextureParameterIuiv(GLuint texture, GLenum target, GLenum pname, const GLuint* params);
-	inline GLuint64 extGlGetTextureHandle(GLuint texture);
-	inline GLuint64 extGlGetTextureSamplerHandle(GLuint texture, GLuint sampler);
-	inline void extGlMakeTextureHandleResident(GLuint64 handle);
-	inline void extGlMakeTextureHandleNonResident(GLuint64 handle);
-	inline GLuint64 extGlGetImageHandle(GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum format);
-	inline void extGlMakeImageHandleResident(GLuint64 handle, GLenum access);
-	inline void extGlMakeImageHandleNonResident(GLuint64 handle);
-	inline GLboolean extGlIsTextureHandleResident(GLuint64 handle);
-	inline GLboolean extGlIsImageHandleResident(GLuint64 handle);
-	inline void extGlGetNamedBufferSubData(GLuint buffer, GLintptr offset, GLsizeiptr size, void* data);
-	inline void extGlVertexArrayAttribLFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset);
-	inline void extGlGetQueryBufferObjectuiv(GLuint id, GLuint buffer, GLenum pname, GLintptr offset);
-	inline void extGlGetQueryBufferObjectui64v(GLuint id, GLuint buffer, GLenum pname, GLintptr offset);
-	inline void extGlTextureBarrier();
-	inline void extGlGetInternalformati64v(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint64* params);
 
 	void extGlBindTextures(const GLuint& first, const GLsizei& count, const GLuint* textures, const GLenum* targets) override
 	{
@@ -317,6 +302,12 @@ public:
 			gl4Texture.pglCreateTextures(target, n, textures);
 		else
 			base_t::extGlCreateTextures(target, n, textures);
+	}
+
+	void extGlTextureView(GLuint texture, GLenum target, GLuint origtexture, GLenum internalformat, GLuint minlevel, GLuint numlevels, GLuint minlayer, GLuint numlayers) override
+	{
+		if (gl4Texture.pglTextureView)
+			gl4Texture.pglTextureView(texture, target, origtexture, internalformat, minlevel, numlevels, minlayer, numlayers);
 	}
 
 	void extGlTextureBuffer(GLuint texture, GLenum internalformat, GLuint buffer) override
@@ -973,6 +964,689 @@ public:
 				return gl4Buffer.pglUnmapNamedBufferEXT(buffer);
 		}
 		else return base_t::extGlUnmapNamedBuffer(buffer);
+	}
+
+	void extGlClearNamedBufferData(GLuint buffer, GLenum internalformat, GLenum format, GLenum type, const void* data) override
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Buffer.pglClearNamedBufferData)
+				gl4Buffer.pglClearNamedBufferData(buffer, internalformat, format, type, data);
+		}
+		else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+		{
+			if (gl4Buffer.pglClearNamedBufferDataEXT)
+				gl4Buffer.pglClearNamedBufferDataEXT(buffer, internalformat, format, type, data);
+		}
+		else if (gl4Buffer.pglClearBufferData && glBuffer.pglBindBuffer)
+		{
+			GLint bound;
+			glGeneral.pglGetIntegerv(GL_ARRAY_BUFFER_BINDING, &bound);
+			glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, buffer);
+			gl4Buffer.pglClearBufferData(GL_ARRAY_BUFFER, internalformat, format, type, data);
+			glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
+		}
+	}
+
+	void extGlClearNamedBufferSubData(GLuint buffer, GLenum internalformat, GLintptr offset, GLsizeiptr size, GLenum format, GLenum type, const void* data) override
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Buffer.pglClearNamedBufferSubData)
+				gl4Buffer.pglClearNamedBufferSubData(buffer, internalformat, offset, size, format, type, data);
+		}
+		else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+		{
+			if (gl4Buffer.pglClearNamedBufferSubDataEXT)
+				gl4Buffer.pglClearNamedBufferSubDataEXT(buffer, internalformat, offset, size, format, type, data);
+		}
+		else if (gl4Buffer.pglClearBufferSubData && glBuffer.pglBindBuffer)
+		{
+			GLint bound;
+			glGeneral.pglGetIntegerv(GL_ARRAY_BUFFER_BINDING, &bound);
+			glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, buffer);
+			gl4Buffer.pglClearBufferSubData(GL_ARRAY_BUFFER, internalformat, offset, size, format, type, data);
+			glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
+		}
+	}
+
+	void extGlCopyNamedBufferSubData(GLuint readBuffer, GLuint writeBuffer, GLintptr readOffset, GLintptr writeOffset, GLsizeiptr size) override
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Buffer.pglCopyNamedBufferSubData)
+				gl4Buffer.pglCopyNamedBufferSubData(readBuffer, writeBuffer, readOffset, writeOffset, size);
+		}
+		else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+		{
+			if (gl4Buffer.pglNamedCopyBufferSubDataEXT)
+				gl4Buffer.pglNamedCopyBufferSubDataEXT(readBuffer, writeBuffer, readOffset, writeOffset, size);
+		}
+		else
+		{
+			base_t::extGlCopyNamedBufferSubData(readBuffer, writeBuffer, readOffset, writeOffset, size);
+		}
+	}
+
+	void extGlGetNamedBufferParameteriv(const GLuint& buffer, const GLenum& value, GLint* data) override
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Buffer.pglGetNamedBufferParameteriv)
+				gl4Buffer.pglGetNamedBufferParameteriv(buffer, value, data);
+		}
+		else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+		{
+			if (gl4Buffer.pglGetNamedBufferParameterivEXT)
+				gl4Buffer.pglGetNamedBufferParameterivEXT(buffer, value, data);
+		}
+		else
+		{
+			base_t::extGlGetNamedBufferParameteriv(buffer, value, data);
+		}
+	}
+
+	void extGlGetNamedBufferParameteri64v(const GLuint& buffer, const GLenum& value, GLint64* data) override
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Buffer.pglGetNamedBufferParameteri64v)
+				gl4Buffer.pglGetNamedBufferParameteri64v(buffer, value, data);
+		}
+		else
+		{
+			base_t::extGlGetNamedBufferParameteri64v(buffer, value, data);
+		}
+	}
+
+	void extGlCreateVertexArrays(GLsizei n, GLuint* arrays) override
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Vertex.pglCreateVertexArrays)
+				gl4Vertex.pglCreateVertexArrays(n, arrays);
+		}
+		else
+		{
+			base_t::extGlCreateVertexArrays(n, arrays);
+		}
+	}
+
+	void extGlVertexArrayElementBuffer(GLuint vaobj, GLuint buffer) override
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Vertex.pglVertexArrayElementBuffer)
+				gl4Vertex.pglVertexArrayElementBuffer(vaobj, buffer);
+		}
+		else
+		{
+			base_t::extGlVertexArrayElementBuffer(vaobj, buffer);
+		}
+	}
+
+	void extGlVertexArrayVertexBuffer(GLuint vaobj, GLuint bindingindex, GLuint buffer, GLintptr offset, GLsizei stride) override
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Vertex.pglVertexArrayVertexBuffer)
+				gl4Vertex.pglVertexArrayVertexBuffer(vaobj, bindingindex, buffer, offset, stride);
+		}
+		else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+		{
+			if (gl4Vertex.pglVertexArrayBindVertexBufferEXT)
+				gl4Vertex.pglVertexArrayBindVertexBufferEXT(vaobj, bindingindex, buffer, offset, stride);
+		}
+		else
+		{
+			base_t::extGlVertexArrayVertexBuffer(vaobj, bindingindex, buffer, offset, stride);
+		}
+	}
+
+	void extGlVertexArrayAttribBinding(GLuint vaobj, GLuint attribindex, GLuint bindingindex) override
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Vertex.pglVertexArrayAttribBinding)
+				gl4Vertex.pglVertexArrayAttribBinding(vaobj, attribindex, bindingindex);
+		}
+		else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+		{
+			if (gl4Vertex.pglVertexArrayVertexAttribBindingEXT)
+				gl4Vertex.pglVertexArrayVertexAttribBindingEXT(vaobj, attribindex, bindingindex);
+		}
+		else
+		{
+			base_t::extGlVertexArrayAttribBinding(vaobj, attribindex, bindingindex);
+		}
+	}
+
+	void extGlEnableVertexArrayAttrib(GLuint vaobj, GLuint index) override
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Vertex.pglEnableVertexArrayAttrib)
+				gl4Vertex.pglEnableVertexArrayAttrib(vaobj, index);
+		}
+		else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+		{
+			if (gl4Vertex.pglEnableVertexArrayAttribEXT)
+				gl4Vertex.pglEnableVertexArrayAttribEXT(vaobj, index);
+		}
+		else
+		{
+			base_t::extGlEnableVertexArrayAttrib(vaobj, index);
+		}
+	}
+
+	void extGlDisableVertexArrayAttrib(GLuint vaobj, GLuint index) override
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Vertex.pglDisableVertexArrayAttrib)
+				gl4Vertex.pglDisableVertexArrayAttrib(vaobj, index);
+		}
+		else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+		{
+			if (gl4Vertex.pglDisableVertexArrayAttribEXT)
+				gl4Vertex.pglDisableVertexArrayAttribEXT(vaobj, index);
+		}
+		else
+		{
+			base_t::extGlDisableVertexArrayAttrib(vaobj, index);
+		}
+	}
+
+	void extGlVertexArrayAttribFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLboolean normalized, GLuint relativeoffset) override
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Vertex.pglVertexArrayAttribFormat)
+				gl4Vertex.pglVertexArrayAttribFormat(vaobj, attribindex, size, type, normalized, relativeoffset);
+		}
+		else if (!features->isIntelGPU && features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+		{
+			if (gl4Vertex.pglVertexArrayVertexAttribFormatEXT)
+				gl4Vertex.pglVertexArrayVertexAttribFormatEXT(vaobj, attribindex, size, type, normalized, relativeoffset);
+		}
+		else
+		{
+			base_t::extGlVertexArrayAttribFormat(vaobj, attribindex, size, type, normalized, relativeoffset);
+		}
+	}
+
+	void extGlVertexArrayAttribIFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset) override
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Vertex.pglVertexArrayAttribIFormat)
+				gl4Vertex.pglVertexArrayAttribIFormat(vaobj, attribindex, size, type, relativeoffset);
+		}
+		else if (!features->isIntelGPU && features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+		{
+			if (gl4Vertex.pglVertexArrayVertexAttribIFormatEXT)
+				gl4Vertex.pglVertexArrayVertexAttribIFormatEXT(vaobj, attribindex, size, type, relativeoffset);
+		}
+		else
+		{
+			base_t::extGlVertexArrayAttribIFormat(vaobj, attribindex, size, type, relativeoffset);
+		}
+	}
+
+	void extGlVertexArrayBindingDivisor(GLuint vaobj, GLuint bindingindex, GLuint divisor) override
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Vertex.pglVertexArrayBindingDivisor)
+				gl4Vertex.pglVertexArrayBindingDivisor(vaobj, bindingindex, divisor);
+		}
+		else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+		{
+			if (gl4Vertex.pglVertexArrayVertexBindingDivisorEXT)
+				gl4Vertex.pglVertexArrayVertexBindingDivisorEXT(vaobj, bindingindex, divisor);
+		}
+		else
+		{
+			base_t::extGlVertexArrayBindingDivisor(vaobj, bindingindex, divisor);
+		}
+	}
+
+	void extGlCreateQueries(GLenum target, GLsizei n, GLuint* ids) override
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Query.pglCreateQueries)
+				gl4Query.pglCreateQueries(target, n, ids);
+		}
+		else
+		{
+			base_t::extGlCreateQueries(target, n, ids);
+		}
+	}
+
+	////////////////
+	// GL-exclusive functions
+	////////////////
+
+	void extGlTextureStorage1D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width)
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Texture.pglTextureStorage1D)
+				gl4Texture.pglTextureStorage1D(texture, levels, internalformat, width);
+		}
+		else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+		{
+			if (gl4Texture.pglTextureStorage1DEXT)
+				gl4Texture.pglTextureStorage1DEXT(texture, target, levels, internalformat, width);
+		}
+		else if (gl4Texture.pglTexStorage1D)
+		{
+			GLint bound;
+			switch (target)
+			{
+			case GL_TEXTURE_1D:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
+				break;
+			default:
+				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+				return;
+			}
+			glTexture.pglBindTexture(target, texture);
+			gl4Texture.pglTexStorage1D(target, levels, internalformat, width);
+			glTexture.pglBindTexture(target, bound);
+		}
+	}
+	void extGlGetTextureSubImage(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLint zoffset, GLsizei width, GLsizei height, GLsizei depth, GLenum format, GLenum type, GLsizei bufSize, void* pixels)
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_get_texture_sub_image])
+			gl4Texture.pglGetTextureSubImage(texture, level, xoffset, yoffset, zoffset, width, height, depth, format, type, bufSize, pixels);
+#ifdef _NBL_DEBUG
+		else
+			os::Printer::log("EDF_GET_TEXTURE_SUB_IMAGE Not Available! Tell DevSH to implement!\n", ELL_ERROR);
+#endif // _NBL_DEBUG
+	}
+	void extGlGetTextureImage(GLuint texture, GLenum target, GLint level, GLenum format, GLenum type, GLsizei bufSizeHint, void* pixels)
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+			gl4Texture.pglGetTextureImage(texture, level, format, type, bufSizeHint, pixels);
+		else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+			gl4Texture.pglGetTextureImageEXT(texture, target, level, format, type, pixels);
+		else
+		{
+			GLint bound = 0;
+			switch (target)
+			{
+			case GL_TEXTURE_1D:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
+				break;
+			case GL_TEXTURE_1D_ARRAY:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_1D_ARRAY, &bound);
+				break;
+			case GL_TEXTURE_2D:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+				break;
+			case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+			case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+			case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+			case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+			case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+			case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+			case GL_TEXTURE_CUBE_MAP:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+				break;
+			case GL_TEXTURE_RECTANGLE:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &bound);
+				break;
+			case GL_TEXTURE_2D_ARRAY:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+				break;
+			case GL_TEXTURE_CUBE_MAP_ARRAY:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
+				break;
+			case GL_TEXTURE_3D:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+				break;
+			default:
+				break;
+			}
+			glTexture.pglBindTexture(target, texture);
+			gl4Texture.pglGetTexImage(target, level, format, type, pixels);
+			glTexture.pglBindTexture(target, bound);
+		}
+	}
+	void extGlGetCompressedTextureImage(GLuint texture, GLenum target, GLint level, GLsizei bufSizeHint, void* pixels)
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+			gl4Texture.pglGetCompressedTextureImage(texture, level, bufSizeHint, pixels);
+		else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+			gl4Texture.pglGetCompressedTextureImageEXT(texture, target, level, pixels);
+		else
+		{
+			GLint bound = 0;
+			switch (target)
+			{
+			case GL_TEXTURE_1D:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
+				break;
+			case GL_TEXTURE_1D_ARRAY:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_1D_ARRAY, &bound);
+				break;
+			case GL_TEXTURE_2D:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+				break;
+			case GL_TEXTURE_CUBE_MAP_NEGATIVE_X:
+			case GL_TEXTURE_CUBE_MAP_NEGATIVE_Y:
+			case GL_TEXTURE_CUBE_MAP_NEGATIVE_Z:
+			case GL_TEXTURE_CUBE_MAP_POSITIVE_X:
+			case GL_TEXTURE_CUBE_MAP_POSITIVE_Y:
+			case GL_TEXTURE_CUBE_MAP_POSITIVE_Z:
+			case GL_TEXTURE_CUBE_MAP:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+				break;
+			case GL_TEXTURE_RECTANGLE:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &bound);
+				break;
+			case GL_TEXTURE_2D_ARRAY:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+				break;
+			case GL_TEXTURE_CUBE_MAP_ARRAY:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
+				break;
+			case GL_TEXTURE_3D:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+				break;
+			default:
+				break;
+			}
+			glTexture.pglBindTexture(target, texture);
+			gl4Texture.pglGetCompressedTexImage(target, level, pixels);
+			glTexture.pglBindTexture(target, bound);
+		}
+	}
+	void extGlTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLenum type, const void* pixels)
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+			gl4Texture.pglTextureSubImage1D(texture, level, xoffset, width, format, type, pixels);
+		else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+			gl4Texture.pglTextureSubImage1DEXT(texture, target, level, xoffset, width, format, type, pixels);
+		else
+		{
+			GLint bound;
+			switch (target)
+			{
+			case GL_TEXTURE_1D:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
+				break;
+			default:
+				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+				return;
+			}
+			glTexture.pglBindTexture(target, texture);
+			gl4Texture.pglTexSubImage1D(target, level, xoffset, width, format, type, pixels);
+			glTexture.pglBindTexture(target, bound);
+		}
+	}
+	void extGlCompressedTextureSubImage1D(GLuint texture, GLenum target, GLint level, GLint xoffset, GLsizei width, GLenum format, GLsizei imageSize, const void* data)
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Texture.pglCompressedTextureSubImage1D)
+				gl4Texture.pglCompressedTextureSubImage1D(texture, level, xoffset, width, format, imageSize, data);
+		}
+		else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+		{
+			if (gl4Texture.pglCompressedTextureSubImage1DEXT)
+				gl4Texture.pglCompressedTextureSubImage1DEXT(texture, target, level, xoffset, width, format, imageSize, data);
+		}
+		else if (gl4Texture.pglCompressedTexSubImage1D)
+		{
+			GLint bound;
+			switch (target)
+			{
+			case GL_TEXTURE_1D:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
+				break;
+			default:
+				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+				return;
+			}
+			glTexture.pglBindTexture(target, texture);
+			gl4Texture.pglCompressedTexSubImage1D(target, level, xoffset, width, format, imageSize, data);
+			glTexture.pglBindTexture(target, bound);
+		}
+	}
+	void extGlTextureParameterIuiv(GLuint texture, GLenum target, GLenum pname, const GLuint* params)
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+			gl4Texture.pglTextureParameterIuiv(texture, pname, params);
+		else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+			gl4Texture.pglTextureParameterIuivEXT(texture, target, pname, params);
+		else
+		{
+			GLint bound;
+			switch (target)
+			{
+			case GL_TEXTURE_1D:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_1D, &bound);
+				break;
+			case GL_TEXTURE_1D_ARRAY:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_1D_ARRAY, &bound);
+				break;
+			case GL_TEXTURE_2D:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D, &bound);
+				break;
+			case GL_TEXTURE_2D_ARRAY:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_ARRAY, &bound);
+				break;
+			case GL_TEXTURE_2D_MULTISAMPLE:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE, &bound);
+				break;
+			case GL_TEXTURE_2D_MULTISAMPLE_ARRAY:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_2D_MULTISAMPLE_ARRAY, &bound);
+				break;
+			case GL_TEXTURE_3D:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_3D, &bound);
+				break;
+			case GL_TEXTURE_BUFFER:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_BUFFER, &bound);
+				break;
+			case GL_TEXTURE_CUBE_MAP:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP, &bound);
+				break;
+			case GL_TEXTURE_CUBE_MAP_ARRAY:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_CUBE_MAP_ARRAY, &bound);
+				break;
+			case GL_TEXTURE_RECTANGLE:
+				glGeneral.pglGetIntegerv(GL_TEXTURE_BINDING_RECTANGLE, &bound);
+				break;
+			default:
+				os::Printer::log("DevSH would like to ask you what are you doing!!??\n", ELL_ERROR);
+				return;
+			}
+			glTexture.pglBindTexture(target, texture);
+			gl4Texture.pglTexParameterIuiv(target, pname, params);
+			glTexture.pglBindTexture(target, bound);
+		}
+	}
+	GLuint64 extGlGetTextureHandle(GLuint texture)
+	{
+		if (gl4Texture.pglGetTextureHandleARB)
+			return gl4Texture.pglGetTextureHandleARB(texture);
+		else if (gl4Texture.pglGetTextureHandleNV)
+			return gl4Texture.pglGetTextureHandleNV(texture);
+		return 0ull;
+	}
+	GLuint64 extGlGetTextureSamplerHandle(GLuint texture, GLuint sampler)
+	{
+		if (gl4Texture.pglGetTextureSamplerHandleARB)
+			return gl4Texture.pglGetTextureSamplerHandleARB(texture, sampler);
+		else if (gl4Texture.pglGetTextureSamplerHandleNV)
+			return gl4Texture.pglGetTextureSamplerHandleNV(texture, sampler);
+		return 0ull;
+	}
+	void extGlMakeTextureHandleResident(GLuint64 handle)
+	{
+		if (gl4Texture.pglMakeTextureHandleResidentARB)
+			return gl4Texture.pglMakeTextureHandleResidentARB(handle);
+		else if (gl4Texture.pglMakeTextureHandleResidentNV)
+			return gl4Texture.pglMakeTextureHandleResidentNV(handle);
+	}
+	void extGlMakeTextureHandleNonResident(GLuint64 handle)
+	{
+		if (gl4Texture.pglMakeTextureHandleNonResidentARB)
+			return gl4Texture.pglMakeTextureHandleNonResidentARB(handle);
+		else if (gl4Texture.pglMakeTextureHandleNonResidentNV)
+			return gl4Texture.pglMakeTextureHandleNonResidentNV(handle);
+	}
+	GLuint64 extGlGetImageHandle(GLuint texture, GLint level, GLboolean layered, GLint layer, GLenum format)
+	{
+		if (gl4Texture.pglGetImageHandleARB)
+			return gl4Texture.pglGetImageHandleARB(texture, level, layered, layer, format);
+		else if (gl4Texture.pglGetImageHandleNV)
+			return gl4Texture.pglGetImageHandleNV(texture, level, layered, layer, format);
+		return 0ull;
+	}
+	void extGlMakeImageHandleResident(GLuint64 handle, GLenum access)
+	{
+		if (gl4Texture.pglMakeImageHandleResidentARB)
+			return gl4Texture.pglMakeImageHandleResidentARB(handle, access);
+		else if (gl4Texture.pglMakeImageHandleResidentNV)
+			return gl4Texture.pglMakeImageHandleResidentNV(handle, access);
+	}
+	void extGlMakeImageHandleNonResident(GLuint64 handle)
+	{
+		if (gl4Texture.pglMakeImageHandleNonResidentARB)
+			return gl4Texture.pglMakeImageHandleNonResidentARB(handle);
+		else if (gl4Texture.pglMakeImageHandleNonResidentNV)
+			return gl4Texture.pglMakeImageHandleNonResidentNV(handle);
+	}
+	GLboolean extGlIsTextureHandleResident(GLuint64 handle)
+	{
+		if (gl4Texture.pglIsTextureHandleResidentARB)
+			return gl4Texture.pglIsTextureHandleResidentARB(handle);
+		else if (gl4Texture.pglIsTextureHandleResidentNV)
+			return gl4Texture.pglIsTextureHandleResidentNV(handle);
+		return false;
+	}
+	GLboolean extGlIsImageHandleResident(GLuint64 handle)
+	{
+		if (gl4Texture.pglIsTextureHandleResidentARB)
+			return gl4Texture.pglIsTextureHandleResidentARB(handle);
+		else if (gl4Texture.pglIsTextureHandleResidentNV)
+			return gl4Texture.pglIsTextureHandleResidentNV(handle);
+		return false;
+	}
+	void extGlGetNamedBufferSubData(GLuint buffer, GLintptr offset, GLsizeiptr size, void* data)
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Buffer.pglGetNamedBufferSubData)
+				gl4Buffer.pglGetNamedBufferSubData(buffer, offset, size, data);
+		}
+		else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+		{
+			if (gl4Buffer.pglGetNamedBufferSubDataEXT)
+				gl4Buffer.pglGetNamedBufferSubDataEXT(buffer, offset, size, data);
+		}
+		else if (gl4Buffer.pglGetBufferSubData && glBuffer.pglBindBuffer)
+		{
+			GLint bound;
+			glGeneral.pglGetIntegerv(GL_ARRAY_BUFFER_BINDING, &bound);
+			glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, buffer);
+			gl4Buffer.pglGetBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
+			glBuffer.pglBindBuffer(GL_ARRAY_BUFFER, bound);
+		}
+	}
+	void extGlVertexArrayAttribLFormat(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLuint relativeoffset)
+	{
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Vertex.pglVertexArrayAttribLFormat)
+				gl4Vertex.pglVertexArrayAttribLFormat(vaobj, attribindex, size, type, relativeoffset);
+		}
+		else if (!features->isIntelGPU && features->FeatureAvailable[features->EOpenGLFeatures::NBL_EXT_direct_state_access])
+		{
+			if (gl4Vertex.pglVertexArrayVertexAttribLFormatEXT)
+				gl4Vertex.pglVertexArrayVertexAttribLFormatEXT(vaobj, attribindex, size, type, relativeoffset);
+		}
+		else if (gl4Vertex.pglVertexAttribLFormat && glVertex.pglBindVertexArray)
+		{
+			// Save the previous bound vertex array
+			GLint restoreVertexArray;
+			glGeneral.pglGetIntegerv(GL_VERTEX_ARRAY_BINDING, &restoreVertexArray);
+			glVertex.pglBindVertexArray(vaobj);
+			gl4Vertex.pglVertexAttribLFormat(attribindex, size, type, relativeoffset);
+			glVertex.pglBindVertexArray(restoreVertexArray);
+		}
+	}
+	void extGlGetQueryBufferObjectuiv(GLuint id, GLuint buffer, GLenum pname, GLintptr offset)
+	{
+		if (features->Version < 440 && !features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_query_buffer_object])
+		{
+#ifdef _DEBuG
+			os::Printer::log("GL_ARB_query_buffer_object unsupported!\n
+#endif // _DEBuG
+				return;
+		}
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Query.pglGetQueryBufferObjectuiv)
+				gl4Query.pglGetQueryBufferObjectuiv(id, buffer, pname, offset);
+		}
+		else
+		{
+			GLint restoreQueryBuffer;
+			glGeneral.pglGetIntegerv(GL_QUERY_BUFFER_BINDING, &restoreQueryBuffer);
+			glBuffer.pglBindBuffer(GL_QUERY_BUFFER, id);
+			if (glQuery.pglGetQueryObjectuiv)
+				glQuery.pglGetQueryObjectuiv(id, pname, reinterpret_cast<GLuint*>(offset));
+			glBuffer.pglBindBuffer(GL_QUERY_BUFFER, restoreQueryBuffer);
+		}
+	}
+	void extGlGetQueryBufferObjectui64v(GLuint id, GLuint buffer, GLenum pname, GLintptr offset)
+	{
+		if (features->Version < 440 && !features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_query_buffer_object])
+		{
+#ifdef _DEBuG
+			os::Printer::log("GL_ARB_query_buffer_object unsupported!\n
+#endif // _DEBuG
+				return;
+		}
+
+		if (features->Version >= 450 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_direct_state_access])
+		{
+			if (gl4Query.pglGetQueryBufferObjectui64v)
+				gl4Query.pglGetQueryBufferObjectui64v(id, buffer, pname, offset);
+		}
+		else
+		{
+			GLint restoreQueryBuffer;
+			glGeneral.pglGetIntegerv(GL_QUERY_BUFFER_BINDING, &restoreQueryBuffer);
+			glBuffer.pglBindBuffer(GL_QUERY_BUFFER, id);
+			if (gl4Query.pglGetQueryObjectui64v)
+				gl4Query.pglGetQueryObjectui64v(id, pname, reinterpret_cast<GLuint64*>(offset));
+			glBuffer.pglBindBuffer(GL_QUERY_BUFFER, restoreQueryBuffer);
+		}
+	}
+	void extGlTextureBarrier()
+	{
+		if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_texture_barrier])
+			gl4Sync.pglTextureBarrier();
+		else if (features->FeatureAvailable[features->EOpenGLFeatures::NBL_NV_texture_barrier])
+			gl4Sync.pglTextureBarrierNV();
+#ifdef _NBL_DEBUG
+		else
+			os::Printer::log("EDF_TEXTURE_BARRIER Not Available!\n", ELL_ERROR);
+#endif // _NBL_DEBUG
+	}
+	void extGlGetInternalformati64v(GLenum target, GLenum internalformat, GLenum pname, GLsizei bufSize, GLint64* params)
+	{
+		if (features->Version >= 460 || features->FeatureAvailable[features->EOpenGLFeatures::NBL_ARB_internalformat_query])
+		{
+			if (gl4General.pglGetInternalformati64v)
+				gl4General.pglGetInternalformati64v(target, internalformat, pname, bufSize, params);
+		}
 	}
 
 private:

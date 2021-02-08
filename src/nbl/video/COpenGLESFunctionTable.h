@@ -23,6 +23,8 @@ Extensions being loaded:
 * OES_shader_multisample_interpolation
 * OES_sample_variables
 * GL_OES_shader_image_atomic
+* GL_OES_texture_view
+* GL_EXT_texture_view
 */
 class COpenGLESFunctionTable final : public COpenGL_FunctionTableBase
 {
@@ -44,6 +46,8 @@ public:
 		, glTexBufferOES
 		, glTexBufferRangeOES
 		, glCopyImageSubDataOES
+		, glTextureViewOES
+		, glTextureViewEXT
 	);
 	NBL_SYSTEM_DECLARE_DYNAMIC_FUNCTION_CALLER_CLASS(GLESdebug, OpenGLFunctionLoader
 		, glDebugMessageControlKHR
@@ -119,6 +123,18 @@ public:
 		}
 
 		glTexture.pglActiveTexture(activeTex);
+	}
+
+	void extGlTextureView(GLuint texture, GLenum target, GLuint origtexture, GLenum internalformat, GLuint minlevel, GLuint numlevels, GLuint minlayer, GLuint numlayers) override
+	{
+		if (glesTexture.pglTextureViewOES)
+			glesTexture.pglTextureViewOES(texture, target, origtexture, internalformat, minlevel, numlevels, minlayer, numlayers);
+		else if (glesTexture.pglTextureViewEXT)
+			glesTexture.pglTextureViewEXT(texture, target, origtexture, internalformat, minlevel, numlevels, minlayer, numlayers);
+		else
+		{
+			os::Printer::log("None of texture view extensions for GLES are supported, cannot create texture view!\n", ELL_ERROR);
+		}
 	}
 
 	void extGlTextureBuffer(GLuint texture, GLenum internalformat, GLuint buffer) override

@@ -259,6 +259,7 @@ namespace nbl {
 
 			virtual void extGlBindTextures(const GLuint& first, const GLsizei& count, const GLuint* textures, const GLenum* targets) = 0;
 			virtual inline void extGlCreateTextures(GLenum target, GLsizei n, GLuint* textures);
+			virtual void extGlTextureView(GLuint texture, GLenum target, GLuint origtexture, GLenum internalformat, GLuint minlevel, GLuint numlevels, GLuint minlayer, GLuint numlayers) = 0;
 			virtual void extGlTextureBuffer(GLuint texture, GLenum internalformat, GLuint buffer) = 0;
 			virtual void extGlTextureBufferRange(GLuint texture, GLenum internalformat, GLuint buffer, GLintptr offset, GLsizei length) = 0;
 			virtual void extGlTextureStorage2D(GLuint texture, GLenum target, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height) = 0;
