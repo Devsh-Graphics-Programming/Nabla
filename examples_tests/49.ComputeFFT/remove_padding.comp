@@ -21,7 +21,8 @@ layout(set=0, binding=1, rgba16f) uniform image2D outImage;
 layout(push_constant) uniform PushConstants
 {
     layout (offset = 0) uvec3 padded_dimension;
-    layout (offset = 16) uint numChannels;
+    layout (offset = 16) uvec3 kernel_dimension;
+    layout (offset = 32) uint numChannels;
 } pc;
 
 void main()
@@ -29,10 +30,10 @@ void main()
     uvec2 dimension = imageSize(outImage);
     uvec2 padded_dimension = pc.padded_dimension.xy;
 
-    uint pad_left = (padded_dimension.x - dimension.x) / 2;
-    uint pad_top = (padded_dimension.y - dimension.y) / 2;
+    uint pad_left = pc.kernel_dimension.x / 2;
+    uint pad_top = pc.kernel_dimension.y / 2;
     ivec2 coords = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
-    ivec2 padded_coords = ivec2(gl_GlobalInvocationID.x, gl_GlobalInvocationID.y);
+    ivec2 padded_coords = ivec2(pad_left + gl_GlobalInvocationID.x, pad_top + gl_GlobalInvocationID.y);
 
     vec4 color_value = vec4(0, 0, 0, 0);
     for(uint c = 0; c < pc.numChannels; ++c) {

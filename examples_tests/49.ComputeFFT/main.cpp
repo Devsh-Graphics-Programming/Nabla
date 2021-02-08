@@ -178,7 +178,7 @@ static inline DispatchInfo_t getDispatchInfo_Convolution(
 
 
 static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayout_RemovePadding(video::IVideoDriver* driver) {
-	static const asset::SPushConstantRange ranges[2] =
+	static const asset::SPushConstantRange ranges[3] =
 	{
 		{
 			ISpecializedShader::ESS_COMPUTE,
@@ -188,6 +188,11 @@ static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayou
 		{
 			ISpecializedShader::ESS_COMPUTE,
 			sizeof(uint32_t) * 4,
+			sizeof(uint32_t) * 3
+		},
+		{
+			ISpecializedShader::ESS_COMPUTE,
+			sizeof(uint32_t) * 8,
 			sizeof(uint32_t)
 		},
 	};
@@ -210,7 +215,7 @@ static inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayou
 		},
 	};
 	
-	core::SRange<const asset::SPushConstantRange> pcRange = {ranges, ranges+2};
+	core::SRange<const asset::SPushConstantRange> pcRange = {ranges, ranges+3};
 	core::SRange<const video::IGPUDescriptorSetLayout::SBinding> bindings = {bnd, bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};;
 
 	return driver->createGPUPipelineLayout(
@@ -319,7 +324,7 @@ int main()
 	IAssetLoader::SAssetLoadParams lp;
 	auto srcImageBundle = am->getAsset("../../media/colorexr.exr", lp);
 	auto srcCpuImg = IAsset::castDown<ICPUImage>(srcImageBundle.getContents().begin()[0]);
-	auto kerImageBundle = am->getAsset("../../media/gaussian_kernel_21x21.exr", lp);
+	auto kerImageBundle = am->getAsset("../../media/kernels/gaussian_kernel_21x21.exr", lp);
 	auto kerCpuImg = IAsset::castDown<ICPUImage>(kerImageBundle.getContents().begin()[0]);
 	
 	IGPUImage::SCreationParams srcImgInfo;
@@ -329,13 +334,13 @@ int main()
 	smart_refctd_ptr<IGPUImageView> outImgView;
 
 	smart_refctd_ptr<IGPUImageView> srcImageView;
+	IGPUImageView::SCreationParams srcImgViewInfo;
 	{
 		srcImgInfo = srcCpuImg->getCreationParameters();
 
 		auto srcGpuImages = driver->getGPUObjectsFromAssets(&srcCpuImg.get(),&srcCpuImg.get()+1);
 		auto srcGpuImage = srcGpuImages->operator[](0u);
 
-		IGPUImageView::SCreationParams srcImgViewInfo;
 		srcImgViewInfo.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(0u);
 		srcImgViewInfo.image = std::move(srcGpuImage);
 		srcImgViewInfo.viewType = IGPUImageView::ET_2D;
@@ -346,12 +351,6 @@ int main()
 		srcImgViewInfo.subresourceRange.baseArrayLayer = 0;
 		srcImgViewInfo.subresourceRange.layerCount = 1;
 		srcImageView = driver->createGPUImageView(IGPUImageView::SCreationParams(srcImgViewInfo));
-
-		outImg = driver->createDeviceLocalGPUImageOnDedMem(std::move(srcImgInfo));
-
-		srcImgViewInfo.image = outImg;
-		srcImgViewInfo.format = srcImgInfo.format;
-		outImgView = driver->createGPUImageView(IGPUImageView::SCreationParams(srcImgViewInfo));
 	}
 	smart_refctd_ptr<IGPUImageView> kerImageView;
 	{
@@ -382,11 +381,22 @@ int main()
 	uint32_t srcNumChannels = getFormatChannelCount(srcFormat);
 	uint32_t kerNumChannels = getFormatChannelCount(kerFormat);
 	assert(srcNumChannels == kerNumChannels); // Just to make sure, because the other case is not handled in this example
-
+	
 	VkExtent3D paddedDim = padDimensionToNextPOT(srcDim, kerDim);
-
 	uint32_t maxPaddedDimensionSize = core::max(core::max(paddedDim.width, paddedDim.height), paddedDim.depth);
 	
+	VkExtent3D outImageDim = srcDim;
+
+	// Create Out Image
+	{
+		srcImgInfo.extent = outImageDim;
+		outImg = driver->createDeviceLocalGPUImageOnDedMem(std::move(srcImgInfo));
+
+		srcImgViewInfo.image = outImg;
+		srcImgViewInfo.format = srcImgInfo.format;
+		outImgView = driver->createGPUImageView(IGPUImageView::SCreationParams(srcImgViewInfo));
+	}
+
 	auto fftGPUSpecializedShader_SSBOInput = FFTClass::createShader(driver, FFTClass::DataType::SSBO, maxPaddedDimensionSize);
 	auto fftGPUSpecializedShader_ImageInput = FFTClass::createShader(driver, FFTClass::DataType::TEXTURE2D, maxPaddedDimensionSize);
 	
@@ -445,7 +455,7 @@ int main()
 	auto removePaddingPipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(removePaddingPipelineLayout), std::move(removePaddingShader));
 	auto removePaddingDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(removePaddingPipelineLayout->getDescriptorSetLayout(0u)));
 	updateDescriptorSet_RemovePadding(driver, removePaddingDescriptorSet.get(), fftOutputBuffer_2, outImgView);
-	auto removePaddingDispatchInfo = getDispatchInfo_RemovePadding(srcDim);
+	auto removePaddingDispatchInfo = getDispatchInfo_RemovePadding(outImageDim);
 
 	uint32_t outBufferIx = 0u;
 	auto lastPresentStamp = std::chrono::high_resolution_clock::now();
@@ -507,7 +517,8 @@ int main()
 		driver->bindComputePipeline(removePaddingPipeline.get());
 		driver->bindDescriptorSets(EPBP_COMPUTE, removePaddingPipelineLayout.get(), 0u, 1u, &removePaddingDescriptorSet.get(), nullptr);
 		driver->pushConstants(removePaddingPipelineLayout.get(), nbl::video::IGPUSpecializedShader::ESS_COMPUTE, 0u, sizeof(uint32_t) * 3, &paddedDim); // pc.numChannels
-		driver->pushConstants(removePaddingPipelineLayout.get(), nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 4, sizeof(uint32_t), &srcNumChannels); // numSrcChannels
+		driver->pushConstants(removePaddingPipelineLayout.get(), nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 4, sizeof(uint32_t) * 3, &kerDim); // numSrcChannels
+		driver->pushConstants(removePaddingPipelineLayout.get(), nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 8, sizeof(uint32_t), &srcNumChannels); // numSrcChannels
 		dispatchHelper_RemovePadding(driver, removePaddingDispatchInfo);
 		
 		if(false == savedToFile) {
