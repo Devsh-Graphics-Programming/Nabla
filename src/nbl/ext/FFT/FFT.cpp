@@ -242,5 +242,127 @@ void main()
 
 void FFT::defaultBarrier()
 {
-	COpenGLExtensionHandler::pGlMemoryBarrier(GL_UNIFORM_BARRIER_BIT|GL_SHADER_STORAGE_BARRIER_BIT|GL_BUFFER_UPDATE_BARRIER_BIT);
+	COpenGLExtensionHandler::pGlMemoryBarrier(GL_SHADER_STORAGE_BARRIER_BIT);
+}
+
+// Kernel Normalization
+
+core::smart_refctd_ptr<video::IGPUSpecializedShader> FFT::createKernelNormalizationShader(video::IVideoDriver* driver)
+{
+	const char* sourceFmt =
+R"===(#version 430 core
+
+layout(local_size_x=%u, local_size_y=1, local_size_z=1) in;
+ 
+struct nbl_glsl_ext_FFT_output_t
+{
+	vec2 complex_value;
+};
+
+layout(set=0, binding=0) restrict readonly buffer InBuffer
+{
+	nbl_glsl_ext_FFT_output_t in_data[];
+};
+
+layout(set=0, binding=1) restrict buffer OutBuffer
+{
+	nbl_glsl_ext_FFT_output_t out_data[];
+};
+
+void main()
+{
+    float power = length(in_data[0].complex_value);
+    vec2 normalized_data = in_data[gl_GlobalInvocationID.x].complex_value / power;
+    out_data[gl_GlobalInvocationID.x].complex_value = normalized_data;
+}
+)===";
+
+	const size_t extraSize = 32;
+
+	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
+	snprintf(
+		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(), sourceFmt,
+		DEFAULT_WORK_GROUP_X_DIM
+	);
+
+	auto cpuSpecializedShader = core::make_smart_refctd_ptr<ICPUSpecializedShader>(
+		core::make_smart_refctd_ptr<ICPUShader>(std::move(shader),ICPUShader::buffer_contains_glsl),
+		ISpecializedShader::SInfo{nullptr, nullptr, "main", asset::ISpecializedShader::ESS_COMPUTE}
+	);
+	
+	auto gpuShader = driver->createGPUShader(nbl::core::smart_refctd_ptr<const ICPUShader>(cpuSpecializedShader->getUnspecialized()));
+	
+	auto gpuSpecializedShader = driver->createGPUSpecializedShader(gpuShader.get(), cpuSpecializedShader->getSpecializationInfo());
+
+	return gpuSpecializedShader;
+}
+
+core::smart_refctd_ptr<video::IGPUPipelineLayout> FFT::getPipelineLayout_KernelNormalization(video::IVideoDriver* driver)
+{
+	static IGPUDescriptorSetLayout::SBinding bnd[] =
+	{
+		{
+			0u,
+			EDT_STORAGE_BUFFER,
+			1u,
+			ISpecializedShader::ESS_COMPUTE,
+			nullptr,
+		},
+		{
+			1u,
+			EDT_STORAGE_BUFFER,
+			1u,
+			ISpecializedShader::ESS_COMPUTE,
+			nullptr,
+		},
+	};
+
+	core::SRange<const video::IGPUDescriptorSetLayout::SBinding> bindings = {bnd, bnd+sizeof(bnd)/sizeof(IGPUDescriptorSetLayout::SBinding)};
+
+	return driver->createGPUPipelineLayout(
+		nullptr,nullptr,
+		driver->createGPUDescriptorSetLayout(bindings.begin(),bindings.end()),nullptr,nullptr,nullptr
+	);
+}
+		
+void FFT::updateDescriptorSet_KernelNormalization(
+	video::IVideoDriver * driver,
+	video::IGPUDescriptorSet * set,
+	core::smart_refctd_ptr<video::IGPUBuffer> kernelBufferDescriptor,
+	core::smart_refctd_ptr<video::IGPUBuffer> normalizedKernelBufferDescriptor)
+{
+	video::IGPUDescriptorSet::SDescriptorInfo pInfos[2];
+	video::IGPUDescriptorSet::SWriteDescriptorSet pWrites[2];
+
+	for (auto i=0; i < 2; i++)
+	{
+		pWrites[i].dstSet = set;
+		pWrites[i].arrayElement = 0u;
+		pWrites[i].count = 1u;
+		pWrites[i].info = pInfos+i;
+	}
+
+	// In Buffer 
+	pWrites[0].binding = 0;
+	pWrites[0].descriptorType = asset::EDT_STORAGE_BUFFER;
+	pWrites[0].count = 1;
+	pInfos[0].desc = kernelBufferDescriptor;
+	pInfos[0].buffer.size = kernelBufferDescriptor->getSize();
+	pInfos[0].buffer.offset = 0u;
+	
+	// Out Buffer 
+	pWrites[1].binding = 1;
+	pWrites[1].descriptorType = asset::EDT_STORAGE_BUFFER;
+	pWrites[1].count = 1;
+	pInfos[1].desc = normalizedKernelBufferDescriptor;
+	pInfos[1].buffer.size = normalizedKernelBufferDescriptor->getSize();
+	pInfos[1].buffer.offset = 0u;
+
+	driver->updateDescriptorSets(2u, pWrites, 0u, nullptr);
+}
+
+void FFT::dispatchKernelNormalization(video::IVideoDriver* driver, asset::VkExtent3D const & paddedDimension, uint32_t numChannels) {
+		const uint32_t dispatchSizeX = core::ceil(float(paddedDimension.width * paddedDimension.height * paddedDimension.depth * numChannels) / DEFAULT_WORK_GROUP_X_DIM);
+		driver->dispatch(dispatchSizeX, 1, 1);
+		defaultBarrier();
 }

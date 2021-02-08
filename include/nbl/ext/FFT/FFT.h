@@ -106,9 +106,8 @@ class FFT : public core::TotalInterface
 			return (paddedInputDimensions.width * paddedInputDimensions.height * paddedInputDimensions.depth * numChannels) * (sizeof(float) * 2);
 		}
 		
-
 		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createShader(video::IVideoDriver* driver, DataType inputType, uint32_t maxPaddedDimensionSize);
-		
+
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t MAX_DESCRIPTOR_COUNT = 2u;
 		static inline void updateDescriptorSet(
 			video::IVideoDriver * driver,
@@ -209,6 +208,20 @@ class FFT : public core::TotalInterface
 			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 9, sizeof(uint32_t), &is_inverse_u);
 			driver->pushConstants(pipelineLayout, nbl::video::IGPUSpecializedShader::ESS_COMPUTE, sizeof(uint32_t) * 10, sizeof(uint32_t), &paddingType);
 		}
+
+		// Kernel Normalization
+				
+		static core::smart_refctd_ptr<video::IGPUSpecializedShader> createKernelNormalizationShader(video::IVideoDriver* driver);
+		
+		static core::smart_refctd_ptr<video::IGPUPipelineLayout> getPipelineLayout_KernelNormalization(video::IVideoDriver* driver);
+		
+		static void updateDescriptorSet_KernelNormalization(
+			video::IVideoDriver * driver,
+			video::IGPUDescriptorSet * set,
+			core::smart_refctd_ptr<video::IGPUBuffer> kernelBufferDescriptor,
+			core::smart_refctd_ptr<video::IGPUBuffer> normalizedKernelBufferDescriptor);
+
+		static void dispatchKernelNormalization(video::IVideoDriver* driver, asset::VkExtent3D const & paddedDimension, uint32_t numChannels);
 
 	private:
 		FFT() = delete;

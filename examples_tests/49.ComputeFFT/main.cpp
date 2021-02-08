@@ -399,12 +399,15 @@ int main()
 
 	auto fftGPUSpecializedShader_SSBOInput = FFTClass::createShader(driver, FFTClass::DataType::SSBO, maxPaddedDimensionSize);
 	auto fftGPUSpecializedShader_ImageInput = FFTClass::createShader(driver, FFTClass::DataType::TEXTURE2D, maxPaddedDimensionSize);
+	auto fftGPUSpecializedShader_KernelNormalization = FFTClass::createKernelNormalizationShader(driver);
 	
 	auto fftPipelineLayout_SSBOInput = FFTClass::getDefaultPipelineLayout(driver, FFTClass::DataType::SSBO);
 	auto fftPipelineLayout_ImageInput = FFTClass::getDefaultPipelineLayout(driver, FFTClass::DataType::TEXTURE2D);
+	auto fftPipelineLayout_KernelNormalization = FFTClass::getPipelineLayout_KernelNormalization(driver);
 
 	auto fftPipeline_SSBOInput = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout_SSBOInput), std::move(fftGPUSpecializedShader_SSBOInput));
 	auto fftPipeline_ImageInput = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout_ImageInput), std::move(fftGPUSpecializedShader_ImageInput));
+	auto fftPipeline_KernelNormalization = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(fftPipelineLayout_KernelNormalization), std::move(fftGPUSpecializedShader_KernelNormalization));
 	
 	auto fftDispatchInfo_Horizontal = FFTClass::buildParameters(paddedDim, FFTClass::Direction::X, srcNumChannels);
 	auto fftDispatchInfo_Vertical = FFTClass::buildParameters(paddedDim, FFTClass::Direction::Y, srcNumChannels);
@@ -413,11 +416,51 @@ int main()
 	auto convolvePipelineLayout = getPipelineLayout_Convolution(driver);
 	auto convolvePipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(convolvePipelineLayout), std::move(convolveShader));
 	auto convolveDispatchInfo = getDispatchInfo_Convolution(paddedDim, srcNumChannels);
+	
 
 	// Allocate Output Buffer
-	auto fftOutputBuffer_0 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(paddedDim, srcNumChannels)); // result of: srcFFTX and kerFFTX and Convolution
+	auto fftOutputBuffer_0 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(paddedDim, srcNumChannels)); // result of: srcFFTX and kerFFTX and Convolution and IFFTY
 	auto fftOutputBuffer_1 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(paddedDim, srcNumChannels)); // result of: srcFFTY and IFFTX 
-	auto fftOutputBuffer_2 = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(paddedDim, srcNumChannels)); // result of: kerFFTY and IFFTY
+	auto fftOutputBuffer_KernelNormalized = driver->createDeviceLocalGPUBufferOnDedMem(FFTClass::getOutputBufferSize(paddedDim, srcNumChannels)); // result of: kerFFTY
+
+
+	// Precompute Kernel FFT
+	{
+		// Ker FFT X 
+		auto fftDescriptorSet_Ker_FFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_ImageInput->getDescriptorSetLayout(0u)));
+		FFTClass::updateDescriptorSet(driver, fftDescriptorSet_Ker_FFT_X.get(), kerImageView, fftOutputBuffer_0);
+
+		// Ker FFT Y
+		auto fftDescriptorSet_Ker_FFT_Y = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_SSBOInput->getDescriptorSetLayout(0u)));
+		FFTClass::updateDescriptorSet(driver, fftDescriptorSet_Ker_FFT_Y.get(), fftOutputBuffer_0, fftOutputBuffer_1);
+		
+		// Normalization of FFT Y result
+		auto fftDescriptorSet_KernelNormalization = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_KernelNormalization->getDescriptorSetLayout(0u)));
+		FFTClass::updateDescriptorSet_KernelNormalization(driver, fftDescriptorSet_KernelNormalization.get(), fftOutputBuffer_1, fftOutputBuffer_KernelNormalized);
+
+		// Ker Image FFT X
+		driver->bindComputePipeline(fftPipeline_ImageInput.get());
+		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_ImageInput.get(), 0u, 1u, &fftDescriptorSet_Ker_FFT_X.get(), nullptr);
+		FFTClass::pushConstants(driver, fftPipelineLayout_ImageInput.get(), kerDim, paddedDim, FFTClass::Direction::X, false, FFTClass::PaddingType::FILL_WITH_ZERO);
+		FFTClass::dispatchHelper(driver, fftDispatchInfo_Horizontal);
+
+		// Ker Image FFT Y
+		driver->bindComputePipeline(fftPipeline_SSBOInput.get());
+		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_SSBOInput.get(), 0u, 1u, &fftDescriptorSet_Ker_FFT_Y.get(), nullptr);
+		FFTClass::pushConstants(driver, fftPipelineLayout_SSBOInput.get(), paddedDim, paddedDim, FFTClass::Direction::Y, false);
+		FFTClass::dispatchHelper(driver, fftDispatchInfo_Vertical);
+		
+		// Ker Image FFT Y
+		driver->bindComputePipeline(fftPipeline_SSBOInput.get());
+		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_SSBOInput.get(), 0u, 1u, &fftDescriptorSet_Ker_FFT_Y.get(), nullptr);
+		FFTClass::pushConstants(driver, fftPipelineLayout_SSBOInput.get(), paddedDim, paddedDim, FFTClass::Direction::Y, false);
+		FFTClass::dispatchHelper(driver, fftDispatchInfo_Vertical);
+		
+		// Ker Normalization
+		driver->bindComputePipeline(fftPipeline_KernelNormalization.get());
+		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_KernelNormalization.get(), 0u, 1u, &fftDescriptorSet_KernelNormalization.get(), nullptr);
+		FFTClass::dispatchKernelNormalization(driver, paddedDim, srcNumChannels);
+	}
 
 	// Src FFT X 
 	auto fftDescriptorSet_Src_FFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_ImageInput->getDescriptorSetLayout(0u)));
@@ -426,19 +469,10 @@ int main()
 	// Src FFT Y
 	auto fftDescriptorSet_Src_FFT_Y = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_SSBOInput->getDescriptorSetLayout(0u)));
 	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_Src_FFT_Y.get(), fftOutputBuffer_0, fftOutputBuffer_1);
-	
 
-	// Ker FFT X 
-	auto fftDescriptorSet_Ker_FFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_ImageInput->getDescriptorSetLayout(0u)));
-	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_Ker_FFT_X.get(), kerImageView, fftOutputBuffer_0);
-
-	// Ker FFT Y
-	auto fftDescriptorSet_Ker_FFT_Y = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_SSBOInput->getDescriptorSetLayout(0u)));
-	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_Ker_FFT_Y.get(), fftOutputBuffer_0, fftOutputBuffer_2);
-	
 	// Convolution
 	auto convolveDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(convolvePipelineLayout->getDescriptorSetLayout(0u)));
-	updateDescriptorSet_Convolution(driver, convolveDescriptorSet.get(), fftOutputBuffer_1, fftOutputBuffer_2, fftOutputBuffer_0);
+	updateDescriptorSet_Convolution(driver, convolveDescriptorSet.get(), fftOutputBuffer_1, fftOutputBuffer_KernelNormalized, fftOutputBuffer_0);
 
 	// IFFT X
 	auto fftDescriptorSet_IFFT_X = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_SSBOInput->getDescriptorSetLayout(0u)));
@@ -446,15 +480,13 @@ int main()
 
 	// IFFT Y
 	auto fftDescriptorSet_IFFT_Y = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(fftPipelineLayout_SSBOInput->getDescriptorSetLayout(0u)));
-	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_IFFT_Y.get(), fftOutputBuffer_1, fftOutputBuffer_2);
+	FFTClass::updateDescriptorSet(driver, fftDescriptorSet_IFFT_Y.get(), fftOutputBuffer_1, fftOutputBuffer_0);
 	
-
-
 	auto removePaddingShader = createShader_RemovePadding(driver, glslc, fs);
 	auto removePaddingPipelineLayout = getPipelineLayout_RemovePadding(driver);
 	auto removePaddingPipeline = driver->createGPUComputePipeline(nullptr, core::smart_refctd_ptr(removePaddingPipelineLayout), std::move(removePaddingShader));
 	auto removePaddingDescriptorSet = driver->createGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>(removePaddingPipelineLayout->getDescriptorSetLayout(0u)));
-	updateDescriptorSet_RemovePadding(driver, removePaddingDescriptorSet.get(), fftOutputBuffer_2, outImgView);
+	updateDescriptorSet_RemovePadding(driver, removePaddingDescriptorSet.get(), fftOutputBuffer_0, outImgView);
 	auto removePaddingDispatchInfo = getDispatchInfo_RemovePadding(outImageDim);
 
 	uint32_t outBufferIx = 0u;
@@ -478,21 +510,6 @@ int main()
 		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_SSBOInput.get(), 0u, 1u, &fftDescriptorSet_Src_FFT_Y.get(), nullptr);
 		FFTClass::pushConstants(driver, fftPipelineLayout_SSBOInput.get(), paddedDim, paddedDim, FFTClass::Direction::Y, false);
 		FFTClass::dispatchHelper(driver, fftDispatchInfo_Vertical);
-
-
-		// Ker Image FFT X
-		driver->bindComputePipeline(fftPipeline_ImageInput.get());
-		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_ImageInput.get(), 0u, 1u, &fftDescriptorSet_Ker_FFT_X.get(), nullptr);
-		FFTClass::pushConstants(driver, fftPipelineLayout_ImageInput.get(), kerDim, paddedDim, FFTClass::Direction::X, false, FFTClass::PaddingType::FILL_WITH_ZERO);
-		FFTClass::dispatchHelper(driver, fftDispatchInfo_Horizontal);
-
-		// Ker Image FFT Y
-		driver->bindComputePipeline(fftPipeline_SSBOInput.get());
-		driver->bindDescriptorSets(EPBP_COMPUTE, fftPipelineLayout_SSBOInput.get(), 0u, 1u, &fftDescriptorSet_Ker_FFT_Y.get(), nullptr);
-		FFTClass::pushConstants(driver, fftPipelineLayout_SSBOInput.get(), paddedDim, paddedDim, FFTClass::Direction::Y, false);
-		FFTClass::dispatchHelper(driver, fftDispatchInfo_Vertical);
-
-
 
 		// Convolution
 		driver->bindComputePipeline(convolvePipeline.get());

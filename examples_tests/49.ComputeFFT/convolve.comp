@@ -36,8 +36,9 @@ layout(push_constant) uniform PushConstants
 
 void main()
 {
-    float power = length(ker_data[0].complex_value);
-    vec2 kerData = ker_data[gl_GlobalInvocationID.x].complex_value / power;
+    // if not already normalized -> divide by power
+    // float power = length(ker_data[0].complex_value);
+    vec2 kerData = ker_data[gl_GlobalInvocationID.x].complex_value;
     out_data[gl_GlobalInvocationID.x].complex_value =
         nbl_glsl_complex_mul(src_data[gl_GlobalInvocationID.x].complex_value, kerData);
 }
