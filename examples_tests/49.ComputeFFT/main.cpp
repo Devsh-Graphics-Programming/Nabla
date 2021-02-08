@@ -495,6 +495,9 @@ int main()
 	
 	auto downloadStagingArea = driver->getDefaultDownStreamingBuffer();
 	
+	auto blitFBO = driver->addFrameBuffer();
+	blitFBO->attach(video::EFAP_COLOR_ATTACHMENT0, std::move(outImgView));
+
 	while (device->run() && receiver.keepOpen())
 	{
 		driver->beginScene(false, false);
@@ -616,6 +619,8 @@ int main()
 			volatile bool success = am->writeAsset("convolved_exr.exr", wp);
 			assert(success);
 		}
+		
+		driver->blitRenderTargets(blitFBO, nullptr, false, false);
 
 		driver->endScene();
 	}
