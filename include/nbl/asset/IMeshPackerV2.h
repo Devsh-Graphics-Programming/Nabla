@@ -41,6 +41,12 @@ public:
         }
     };
 
+    struct VirtualAttribute
+    {
+        uint32_t binding;
+        E_FORMAT format;
+    };
+
     struct CombinedDataOffsetTable
     {
         size_t attribOffset[SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT];
@@ -69,7 +75,89 @@ public:
 
     inline PackerDataStore getPackerDataStore() { return m_packerDataStore; };
 
+    std::string generateGLSLBufferDefinitions(uint32_t set)
+    {
+        const std::string setStr = std::to_string(set);
+        const std::string UTBTemplate = std::string("layout(set = ") + setStr + std::string(", binding = ) uniform ");
+        const std::string SSBOTemplateDec = std::string("layout(set = ") + setStr + std::string(", binding = ) readonly buffer ");
+        const std::string SSBOTemplateDef = "{\n    int dataOffsetTable[];\n} ";
+        const uint32_t bindingOffset = 26u;
+
+        enum TBOType
+        {
+            ETT_INT,
+            ETT_UINT,
+            ETT_FLOAT,
+            ETT_UNKNOWN
+        };
+
+        std::string result;
+
+        uint32_t binding = 0u;
+        for (uint32_t i = 0u; i < virtualAttribTable.size(); i++)
+        {
+            std::string tmp = UTBTemplate;
+            std::string samplerType = "samplerBuffer ";
+
+            //TODO
+            TBOType type = ETT_FLOAT;
+
+            switch (type)
+            {
+            case ETT_INT:
+                samplerType = "isamplerBuffer ";
+                break;
+            case ETT_UINT:
+                samplerType = "usamplerBuffer ";
+                break;
+            case ETT_FLOAT:
+                samplerType = "samplerBuffer ";
+                break;
+            default:
+                assert(false);
+            }
+
+            tmp.insert(bindingOffset, std::to_string(binding));
+            tmp.append(samplerType);
+            tmp.append(std::string("MeshPackedData_") + std::to_string(i) + std::string(";\n\n"));
+
+            result += tmp;
+
+            binding++;
+        }
+
+        uint32_t activeBindingCnt = 0u;
+
+        for (uint32_t i = 0u; i < SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT; i++)
+        {
+            if (enabledAttribFlagsCombined & (1u << i))
+                activeBindingCnt++;
+        }
+
+        for (uint32_t i = 0u; i < activeBindingCnt; i++)
+        {
+            std::string tmp = SSBOTemplateDec;
+
+            tmp.insert(bindingOffset, std::to_string(binding));
+            tmp.append(std::string("OffsetTable_") + std::to_string(i) + std::string("\n"));
+            tmp.append(SSBOTemplateDef);
+            tmp.append("offsetTable_" + std::to_string(i) + std::string(";\n\n"));
+
+            result += tmp;
+
+            binding++;
+        }
+
+        std::cout << result;
+
+        return result;
+    }
+
 protected:
+    core::vector<VirtualAttribute> virtualAttribTable;
+    uint16_t enabledAttribFlagsCombined = 0u;
+
+
     PackerDataStore m_packerDataStore;
     const AllocationParams m_allocParams;
 
@@ -99,7 +187,9 @@ bool IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::alloc(ReservedAll
             if (!(attrBit & mbVtxInputParams.enabledAttribFlags))
                 continue;
 
-            const uint32_t attribSize = asset::getTexelOrBlockBytesize(static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format));
+            const E_FORMAT attribFormat = static_cast<E_FORMAT>(mbVtxInputParams.attributes[location].format);
+            const uint32_t attribSize = asset::getTexelOrBlockBytesize(attribFormat);
+            const uint32_t binding = mbVtxInputParams.attributes[location].binding;
 
             ramb.attribAllocParams[location].offset = m_vtxBuffAlctr.alloc_addr(maxVtxCnt * attribSize, attribSize);
 
@@ -107,6 +197,21 @@ bool IMeshPackerV2<MeshBufferType, BufferType, MDIStructType>::alloc(ReservedAll
                 return false;
 
             ramb.attribAllocParams[location].size = maxVtxCnt * attribSize;
+
+            enabledAttribFlagsCombined |= mbVtxInputParams.enabledAttribFlags;
+
+            if (virtualAttribTable.empty())
+            {
+                virtualAttribTable.push_back({ 0u, attribFormat });
+                continue;
+            }
+
+            auto compareFormat = [&](const VirtualAttribute& vattr) { return vattr.format == attribFormat; };
+            if (std::find_if(virtualAttribTable.begin(), virtualAttribTable.end(), compareFormat) == virtualAttribTable.end())
+            {
+                //binding swapping is inevitable in some cases, so I will just create new bindings instead of trying to preserve original bindings
+                virtualAttribTable.push_back({ static_cast<uint32_t>(virtualAttribTable.size()), attribFormat });
+            }
         }
 
         //allocate MDI structs
