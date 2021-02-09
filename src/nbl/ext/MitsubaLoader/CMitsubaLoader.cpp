@@ -600,6 +600,8 @@ CMitsubaLoader::CMitsubaLoader(asset::IAssetManager* _manager, io::IFileSystem* 
 
 void CMitsubaLoader::initialize()
 {
+	IRenderpassIndependentPipelineLoader::initialize();
+
 	auto* glslc = m_assetMgr->getGLSLCompiler();
 
 	glslc->getIncludeHandler()->addBuiltinIncludeLoader(core::make_smart_refctd_ptr<CGLSLMitsubaLoaderBuiltinIncludeLoader>(m_filesystem));
