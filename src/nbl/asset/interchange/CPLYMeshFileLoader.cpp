@@ -600,44 +600,36 @@ bool CPLYMeshFileLoader::genVertBuffersForMBuffer(
 			_buf->setAttribute(v, _attr, i++);
 	};
 
-	auto chooseShaderPath = [&]() -> std::string
+	auto chooseShaderPath = [&]() -> std::pair<std::string_view, std::string_view>
 	{
-		constexpr std::array<std::pair<uint8_t, std::string_view>, 3> avaiableOptionsForShaders
+		constexpr std::array<std::pair<uint8_t, std::pair<std::string_view, std::string_view>>, 3> avaiableOptionsForShaders
 		{ 
-			std::make_pair(E_COL, "nbl/builtin/material/debug/vertex_color/specialized_shader"),
-			std::make_pair(E_UV, "nbl/builtin/material/debug/vertex_uv/specialized_shader"),
-			std::make_pair(E_NORM, "nbl/builtin/material/debug/vertex_normal/specialized_shader")
+			std::make_pair(E_COL, std::make_pair("nbl/builtin/material/debug/vertex_color/specialized_shader.vert", "nbl/builtin/material/debug/vertex_color/specialized_shader.frag")),
+			std::make_pair(E_UV, std::make_pair("nbl/builtin/material/debug/vertex_uv/specialized_shader.vert", "nbl/builtin/material/debug/vertex_uv/specialized_shader.frag")),
+			std::make_pair(E_NORM, std::make_pair("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert", "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag"))
 		};
 
 		for (auto& it : avaiableOptionsForShaders)
 		{
 			auto found = std::find(availableAttributes.begin(), availableAttributes.end(), it.first);
 			if (found != availableAttributes.end())
-				return it.second.data(); 
+				return it.second; 
 		}
 
-		return avaiableOptionsForShaders[0].second.data(); // if only positions are present, shaders with debug vertex colors are assumed
+		return avaiableOptionsForShaders[0].second; // if only positions are present, shaders with debug vertex colors are assumed
 	};
 
 	auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
 	{
-		const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
-		auto bundle = m_assetMgr->findAssets(chooseShaderPath(), types);
+		const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
+		const auto shaderPaths = chooseShaderPath();
+		
+		auto vertexShaderBundle = m_assetMgr->findAssets(shaderPaths.first.data(), types);
+		auto fragmentShaderBundle = m_assetMgr->findAssets(shaderPaths.second.data(), types);
 
-		auto refCountedBundle =
-		{
-			core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().begin()[0]),
-			core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>((bundle->begin()+1)->getContents().begin()[0])
-		};
-
-		for (auto& shader : refCountedBundle)
-		{
-			if (shader->getStage() == ISpecializedShader::ESS_VERTEX)
-				mbVertexShader = std::move(shader);
-			else if(shader->getStage() == ISpecializedShader::ESS_FRAGMENT)
-				mbFragmentShader = std::move(shader);
-		}
+		mbVertexShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(vertexShaderBundle->begin()->getContents().begin()[0]);
+		mbFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(fragmentShaderBundle->begin()->getContents().begin()[0]);
 	}
 	auto mbPipelineLayout = context.loaderOverride->findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/pipeline_layout/loader/PLY", context.inner, context.topHierarchyLevel+ICPUMesh::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW).first;
 

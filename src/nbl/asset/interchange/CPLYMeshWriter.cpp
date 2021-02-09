@@ -78,64 +78,54 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     io::IWriteFile* file = _override->getOutputFile(_file, ctx, {mesh, 0u});
 
     auto meshbuffers = mesh->getMeshBuffers();
-	if (!file || !mesh || meshbuffers.size() > 1)
+	if (!file || !mesh)
 		return false;
+    
+    if (meshbuffers.size() > 1)
+    {
+        #ifdef  _NBL_DEBUG
+        os::Printer::log("PLY WRITER ERROR (" + std::to_string(__LINE__) + " line): Only one meshbuffer input is allowed for writing!", ELL_ERROR);
+        #endif // _NBL_DEBUG
+        return false;
+    }
 
 	os::Printer::log("Writing mesh", file->getFileName().c_str());
 
     const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(ctx, mesh, 0u);
 
-    auto getConvertedMeshBufferWithNewIndexBuffer = [&]() -> core::smart_refctd_ptr<asset::ICPUMeshBuffer>
+    
+
+    auto getConvertedCpuMeshBufferWithIndexBuffer = [&]() -> core::smart_refctd_ptr<asset::ICPUMeshBuffer>
     {
         auto inputMeshBuffer = *meshbuffers.begin();
-
-        const auto inputIndexType = inputMeshBuffer->getIndexType();
-        const auto inputPrimitiveType = inputMeshBuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
-
-        const void* inputIndices = inputMeshBuffer->getIndices();
-        auto inputIndexCount = inputMeshBuffer->getIndexCount();
-
-        if (inputMeshBuffer->getIndexBufferBinding().buffer && inputPrimitiveType != asset::EPT_TRIANGLE_LIST)
+        bool doesItHaveIndexBuffer = inputMeshBuffer->getIndexBufferBinding().buffer.get(), isItNotTriangleListsPrimitive = inputMeshBuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType != asset::EPT_TRIANGLE_LIST;
+        
+        if (doesItHaveIndexBuffer && isItNotTriangleListsPrimitive)
         {
-            auto copyMeshBuffer = core::smart_refctd_ptr_static_cast<asset::ICPUMeshBuffer>(inputMeshBuffer->clone());
-
-            if (inputPrimitiveType == asset::EPT_TRIANGLE_FAN || inputPrimitiveType == asset::EPT_TRIANGLE_STRIP)
-            {
-                core::smart_refctd_ptr<ICPUBuffer> newIndexBuffer;
-
-                if (inputPrimitiveType == asset::EPT_TRIANGLE_FAN)
-                    newIndexBuffer = IMeshManipulator::idxBufferFromTrianglesFanToTriangles(inputIndices, inputIndexCount, inputIndexType, inputIndexType);
-                else if (inputPrimitiveType == asset::EPT_TRIANGLE_STRIP)
-                    newIndexBuffer = IMeshManipulator::idxBufferFromTriangleStripsToTriangles(inputIndices, inputIndexCount, inputIndexType, inputIndexType);
-
-                asset::SBufferBinding<asset::ICPUBuffer> indexBufferBinding;
-                indexBufferBinding.buffer = newIndexBuffer;
-                indexBufferBinding.offset = 0u;
-
-                copyMeshBuffer->setIndexBufferBinding(std::move(indexBufferBinding));
-                return copyMeshBuffer;
-            }
+            auto cpuConvertedMeshBuffer = core::smart_refctd_ptr_static_cast<asset::ICPUMeshBuffer>(inputMeshBuffer->clone());
+            IMeshManipulator::homogenizePrimitiveTypeAndIndices(&cpuConvertedMeshBuffer, &cpuConvertedMeshBuffer + 1, asset::EPT_TRIANGLE_LIST, asset::EIT_32BIT);
+            return cpuConvertedMeshBuffer;
         }
-        else 
+        else
             return nullptr;
     };
 
-    const auto cpuConvertedMeshBuffer = getConvertedMeshBufferWithNewIndexBuffer();
-    const asset::ICPUMeshBuffer* rawConvertedMeshBuffer = cpuConvertedMeshBuffer.get() ? cpuConvertedMeshBuffer.get() : *meshbuffers.begin();
-    const auto primitiveType = rawConvertedMeshBuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
-    const auto indexType = rawConvertedMeshBuffer->getIndexType();
+    const auto cpuConvertedMeshBufferWithIndexBuffer = getConvertedCpuMeshBufferWithIndexBuffer();
+    const asset::ICPUMeshBuffer* rawCopyMeshBuffer = cpuConvertedMeshBufferWithIndexBuffer.get() ? cpuConvertedMeshBufferWithIndexBuffer.get() : *meshbuffers.begin();
+    const bool doesItUseIndexBufferBinding = (rawCopyMeshBuffer->getIndexBufferBinding().buffer.get() && rawCopyMeshBuffer->getIndexType() != asset::EIT_UNKNOWN);
+
     uint32_t faceCount = {}; 
     size_t vertexCount = {};
 
     void* indices = nullptr;
     {
-        auto indexCount = rawConvertedMeshBuffer->getIndexCount();
+        auto indexCount = rawCopyMeshBuffer->getIndexCount();
 
-        indices = _NBL_ALIGNED_MALLOC(indexCount * (indexType == asset::EIT_16BIT ? 2u : 4u), _NBL_SIMD_ALIGNMENT);
-        memcpy(indices, rawConvertedMeshBuffer->getIndices(), indexCount * (indexType == asset::EIT_16BIT ? 2u : 4u));
+        indices = _NBL_ALIGNED_MALLOC(indexCount * sizeof(uint32_t), _NBL_SIMD_ALIGNMENT);
+        memcpy(indices, rawCopyMeshBuffer->getIndices(), indexCount * sizeof(uint32_t));
         
-        IMeshManipulator::getPolyCount(faceCount, rawConvertedMeshBuffer);
-        vertexCount = IMeshManipulator::upperBoundVertexID(rawConvertedMeshBuffer);
+        IMeshManipulator::getPolyCount(faceCount, rawCopyMeshBuffer);
+        vertexCount = IMeshManipulator::upperBoundVertexID(rawCopyMeshBuffer);
     }
 
 	// write PLY header
@@ -150,9 +140,9 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
 
     bool vaidToWrite[4]{ 0, 0, 0, 0 };
 
-    if (rawConvertedMeshBuffer->getAttribBoundBuffer(0).buffer)
+    if (rawCopyMeshBuffer->getAttribBoundBuffer(0).buffer)
     {
-        const asset::E_FORMAT t = rawConvertedMeshBuffer->getAttribFormat(0);
+        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(0);
         std::string typeStr = getTypeString(t);
         vaidToWrite[0] = true;
         header +=
@@ -160,9 +150,9 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
             "property " + typeStr + " y\n" +
             "property " + typeStr + " z\n";
     }
-    if (rawConvertedMeshBuffer->getAttribBoundBuffer(1).buffer)
+    if (rawCopyMeshBuffer->getAttribBoundBuffer(1).buffer)
     {
-        const asset::E_FORMAT t = rawConvertedMeshBuffer->getAttribFormat(1);
+        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(1);
         std::string typeStr = getTypeString(t);
         vaidToWrite[1] = true;
         header +=
@@ -174,18 +164,18 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
             header += "property " + typeStr + " alpha\n";
         }
     }
-    if (rawConvertedMeshBuffer->getAttribBoundBuffer(2).buffer)
+    if (rawCopyMeshBuffer->getAttribBoundBuffer(2).buffer)
     {
-        const asset::E_FORMAT t = rawConvertedMeshBuffer->getAttribFormat(2);
+        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(2);
         std::string typeStr = getTypeString(t);
         vaidToWrite[2] = true;
         header +=
             "property " + typeStr + " u\n" +
             "property " + typeStr + " v\n";
     }
-    if (rawConvertedMeshBuffer->getAttribBoundBuffer(3).buffer)
+    if (rawCopyMeshBuffer->getAttribBoundBuffer(3).buffer)
     {
-        const asset::E_FORMAT t = rawConvertedMeshBuffer->getAttribFormat(3);
+        const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(3);
         std::string typeStr = getTypeString(t);
         vaidToWrite[3] = true;
         header +=
@@ -197,9 +187,12 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     asset::E_INDEX_TYPE idxT = asset::EIT_UNKNOWN;
     bool forceFaces = false;
 
+    const auto primitiveType = rawCopyMeshBuffer->getPipeline()->getPrimitiveAssemblyParams().primitiveType;
+    const auto indexType = rawCopyMeshBuffer->getIndexType();
+  
     if (primitiveType == asset::EPT_POINT_LIST)
         faceCount = 0u;
-    else if (indices && indexType != asset::EIT_UNKNOWN)
+    else if (doesItUseIndexBufferBinding)
     {
         header += "element face ";
         header += std::to_string(faceCount) + '\n';
@@ -224,9 +217,9 @@ bool CPLYMeshWriter::writeAsset(io::IWriteFile* _file, const SAssetWriteParams& 
     file->write(header.c_str(), header.size());
 
     if (flags & asset::EWF_BINARY)
-        writeBinary(file, rawConvertedMeshBuffer, vertexCount, faceCount, idxT, indices, forceFaces, vaidToWrite, _params);
+        writeBinary(file, rawCopyMeshBuffer, vertexCount, faceCount, idxT, indices, forceFaces, vaidToWrite, _params);
     else
-        writeText(file, rawConvertedMeshBuffer, vertexCount, faceCount, idxT, indices, forceFaces, vaidToWrite, _params);
+        writeText(file, rawCopyMeshBuffer, vertexCount, faceCount, idxT, indices, forceFaces, vaidToWrite, _params);
 
     _NBL_ALIGNED_FREE(const_cast<void*>(indices));
 
