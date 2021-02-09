@@ -383,16 +383,12 @@ int main()
         break;
     }
 
-
+	//scene bound
+	core::aabbox3df sceneBound(FLT_MAX,FLT_MAX,FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX);
 	//point lights
 	core::vector<SLight> lights;
-	core::vector<const ext::MitsubaLoader::IMeshMetadata*> meshmetas;
-	meshmetas.reserve(cpumeshes.size());
 	for (const auto& cpumesh : cpumeshes)
 	{
-		meshmetas.push_back(static_cast<const ext::MitsubaLoader::IMeshMetadata*>(cpumesh->getMetadata()));
-		const auto& instances = meshmetas.back()->getInstances();
-
 		auto computeAreaAndAvgPos = [](const asset::ICPUMeshBuffer* mb, const core::matrix3x4SIMD& tform, core::vectorSIMDf& _outAvgPos) {
 			uint32_t triCount = 0u;
 			asset::IMeshManipulator::getPolyCount(triCount, mb);
@@ -422,18 +418,25 @@ int main()
 
 			return 0.5f*core::length(differentialElementCrossProdcut).x;
 		};
-		for (const auto& inst : instances)
+
+		const auto* mesh_meta = static_cast<const ext::MitsubaLoader::CMitsubaMetadata::CMesh*>(globalMeta->getAssetSpecificMetadata(cpumesh.get()));
+		const auto instances = mesh_meta->getInstances();
+		for (size_t i=0u; i<instances.size(); i++)
 		{
-			if (inst.emitter.type==ext::MitsubaLoader::CElementEmitter::AREA)
+			const auto& inst = instances.begin()[i];
+			for (const auto& inst : instances)
+				sceneBound.addInternalBox(core::transformBoxEx(cpumesh->getBoundingBox(),inst.worldTform));
+			const auto& aux = mesh_meta->m_instanceAuxData->operator[](i);
+			if (aux.emitter.type==ext::MitsubaLoader::CElementEmitter::AREA)
 			{
 				core::vectorSIMDf pos;
 				assert(cpumesh->getMeshBuffers().size()==1u);
-				const float area = computeAreaAndAvgPos(cpumesh->getMeshBuffers().begin()[0], inst.tform, pos);
+				const float area = computeAreaAndAvgPos(cpumesh->getMeshBuffers().begin()[0], inst.worldTform, pos);
 				assert(area>0.f);
-				inst.tform.pseudoMulWith4x1(pos);
+				inst.worldTform.pseudoMulWith4x1(pos);
 
 				SLight l;
-				l.intensity = inst.emitter.area.radiance*area*2.f*core::PI<float>();
+				l.intensity = aux.emitter.area.radiance*area*2.f*core::PI<float>();
 				l.position = pos;
 
 				lights.push_back(l);
@@ -482,26 +485,10 @@ int main()
 	}
 	modifiedShaders.clear();
 
-	core::aabbox3df sceneBound;
-	auto gpumeshes = driver->getGPUObjectsFromAssets(cpumeshes.data(), cpumeshes.data()+cpumeshes.size());
-	{
-		auto metait = meshmetas.begin();
-		for (auto gpuit = gpumeshes->begin(); gpuit != gpumeshes->end(); gpuit++, metait++)
-		{
-			auto* meta = *metait;
-			const auto* meshmeta = static_cast<const ext::MitsubaLoader::IMeshMetadata*>(meta);
-			const auto& instances = meshmeta->getInstances();
 
-			auto bb = (*gpuit)->getBoundingBox();
-			for (const auto& inst : instances)
-			{
-				sceneBound.addInternalBox(core::transformBoxEx(bb, inst.tform));
-			}
-		}
-	}
+	auto gpumeshes = driver->getGPUObjectsFromAssets(cpumeshes.data(), cpumeshes.data()+cpumeshes.size());
 
 	auto gpuds0 = driver->getGPUObjectsFromAssets(&cpuds0.get(), &cpuds0.get()+1)->front();
-
     auto gpuds1layout = driver->getGPUObjectsFromAssets(&ds1layout, &ds1layout+1)->front();
 
     auto gpuubo = driver->createDeviceLocalGPUBufferOnDedMem(sizeof(asset::SBasicViewParameters));

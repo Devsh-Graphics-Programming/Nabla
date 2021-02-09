@@ -5,7 +5,7 @@
 #ifndef __C_GLSL_MITSUBA_LOADER_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
 #define __C_GLSL_MITSUBA_LOADER_BUILTIN_INCLUDE_LOADER_H_INCLUDED__
 
-#include "nbl/asset/IGLSLEmbeddedIncludeLoader.h"
+#include "nbl/asset/utils/IGLSLEmbeddedIncludeLoader.h"
 
 
 namespace nbl

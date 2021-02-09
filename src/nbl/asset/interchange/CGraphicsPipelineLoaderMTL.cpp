@@ -129,7 +129,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
     const auto pipelineCount = materials.size()*PIPELINE_PERMUTATION_COUNT;
 
     auto retval = core::make_refctd_dynamic_array<SAssetBundle::contents_container_t>(pipelineCount);
-    auto meta = core::make_smart_refctd_ptr<CMTLMetadata>(pipelineCount);
+    auto meta = core::make_smart_refctd_ptr<CMTLMetadata>(pipelineCount,core::smart_refctd_ptr(m_basicViewParamsSemantics));
     uint32_t offset = 0u;
     for (const auto& material : materials)
     {
@@ -153,7 +153,7 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(io::IReadFile* _file, const I
                     }
                 }
             }
-            meta->placeMeta(offset,ppln.get(),std::move(ds3),material.params,std::string(material.name),hash,core::smart_refctd_ptr(m_basicViewParamsSemantics));
+            meta->placeMeta(offset,ppln.get(),std::move(ds3),material.params,std::string(material.name),hash);
             retval->operator[](offset) = std::move(ppln);
             offset++;
         };
