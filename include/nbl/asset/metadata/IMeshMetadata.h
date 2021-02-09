@@ -23,7 +23,8 @@ class IMeshMetadata : public core::Interface
 		core::SRange<const SInstance> m_instances;
 
 	protected:
-		IMeshMetadata() = default;
+		IMeshMetadata() : m_instances(nullptr,nullptr) {}
+		IMeshMetadata(core::SRange<const SInstance>&& _instances) : m_instances(std::move(_instances)) {}
 		virtual ~IMeshMetadata() = default;
 
 		inline IMeshMetadata& operator=(IMeshMetadata&& other)
