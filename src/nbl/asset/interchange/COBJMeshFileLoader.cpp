@@ -426,9 +426,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
 			}
 			// do some checks
 			assert(pipeline.first && pipeline.second);
+			const auto* cPpln = pipeline.first.get();
             if (hasUV)
             {
-                const auto& vtxParams = pipeline.first->getVertexInputParams();
+                const auto& vtxParams = cPpln->getVertexInputParams();
                 assert(vtxParams.attributes[POSITION].relativeOffset==offsetof(SObjVertex,pos));
                 assert(vtxParams.attributes[NORMAL].relativeOffset==offsetof(SObjVertex,normal32bit));
                 assert(vtxParams.attributes[UV].relativeOffset==offsetof(SObjVertex,uv));
@@ -436,7 +437,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(io::IReadFile* _file, const as
                 assert(vtxParams.enabledBindingFlags==(1u<<BND_NUM));
             }
 
-			const uint32_t pcoffset = pipeline.first->getLayout()->getPushConstantRanges().begin()[0].offset;
+			const uint32_t pcoffset = cPpln->getLayout()->getPushConstantRanges().begin()[0].offset;
 			submeshes[i]->setAttachedDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSet>(pipeline.second->m_descriptorSet3));
 			memcpy(
 				submeshes[i]->getPushConstantsDataPtr()+pcoffset,
